@@ -30,7 +30,7 @@ const DIFFICULTIES: { key: string; points: number; desc: string }[] = [
   { key: '无用之人', points: 10, desc: '10 属性点 · 几乎一无所长的废柴开局' },
 ];
 
-const PARADISES = ['轮回乐园', '圣光乐园', '死亡乐园', '天启乐园', '守望乐园', '自定义'];
+const PARADISES = ['轮回乐园', '死亡乐园', '圣域乐园', '天启乐园', '圣光乐园', '曙光乐园', '守望乐园', '自定义'];
 
 const ATTRS: { key: keyof CreationData['attrs']; label: string }[] = [
   { key: 'str', label: '力量' }, { key: 'agi', label: '敏捷' }, { key: 'con', label: '体质' },

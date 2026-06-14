@@ -6,7 +6,7 @@ import { useVariables } from './store/variableStore';
 import { parseAllStateUpdates, stripStateBlocks, parseAllItemCommands, applyItemCommands, parseAllCharCommands, applyCharacterCommands, parseAllNpcCommands, applyNpcCommands, parseAllFactionCommands, applyFactionCommands, applyTerritoryCommands, applyTeamCommands, isEquippable, setNpcOwnerResolver, type StateUpdate } from './systems/stateParser';
 import { useTerritory, buildTerritorySystemPrompt, buildingCap } from './store/territoryStore';
 import { useTeam, buildTeamSystemPrompt, memberCap as teamMemberCap } from './store/adventureTeamStore';
-import { useCosmos, buildCosmosSystemPrompt } from './store/cosmosStore';
+import { useCosmos, buildCosmosSystemPrompt, cosmosNameEq } from './store/cosmosStore';
 import { realmFromLevel, normalizeTier, lvFromRealm, trueAttr, computeMaxHp, computeMaxEp, effectiveResource } from './systems/derivedStats';
 import { useImageGen, effectiveEquipService } from './store/imageGenStore';
 import { generateImage, buildPortraitPrompt, buildEquipPrompt, shrinkDataUrl } from './systems/imageGen';
@@ -871,6 +871,7 @@ export default function App() {
   const [territoryPanelOpen, setTerritoryPanelOpen] = useState(false);
   const [cosmosPhaseLog,     setCosmosPhaseLog]     = useState('');     // 万族演化阶段提示
   const [cosmosPanelOpen,    setCosmosPanelOpen]    = useState(false);
+  const [cosmosTicker,       setCosmosTicker]       = useState('');     // 万族本回合更新（顶部滚动条）
   const [teamPhaseLog,       setTeamPhaseLog]       = useState('');     // 冒险团演化阶段提示
   const [teamPanelOpen,      setTeamPanelOpen]      = useState(false);
   const [imagePhaseLog,      setImagePhaseLog]      = useState('');     // 生图（肖像/装备）阶段提示
@@ -2512,6 +2513,7 @@ ${lines.join('\n')}`;
   function serializeCosmosSnapshot(focusIds: Set<string>): string {
     const all = useCosmos.getState().entities;
     if (all.length === 0) return '（宇宙棋盘为空，可据正文/设定按需新建实体）';
+    const home = (usePlayer.getState().profile.homeParadise || '').trim() || '轮回乐园';
     const detail = all.filter((e) => focusIds.has(e.id)).map((e) => {
       const bits = [
         `「${e.name}」[${e.category}·优先级${e.priority}]`,
@@ -2520,7 +2522,7 @@ ${lines.join('\n')}`;
         e.power && `实力:${e.power}`,
         e.territory && `疆域:${e.territory}`,
         e.goal && `动向:${e.goal}`,
-        e.towardParadise && `对轮回乐园:${e.towardParadise}`,
+        e.towardParadise && `对${home}:${e.towardParadise}`,
         e.relations.length ? `关系:${e.relations.map((r) => `${r.target}(${r.relation})`).join('、')}` : '',
         Object.keys(e.extra).length ? `备注:${Object.entries(e.extra).map(([k, v]) => `${k}:${v}`).join('；')}` : '',
       ].filter(Boolean);
@@ -2539,9 +2541,10 @@ ${lines.join('\n')}`;
     const norm = (s: string) => s.replace(/[\s·•・\-—_,，。、|｜()（）【】]/g, '').toLowerCase();
     const nw = norm((useMisc.getState().worldName || '').trim());
 
+    const home = (usePlayer.getState().profile.homeParadise || '').trim() || '轮回乐园';
     const picked = new Map<string, import('./store/cosmosStore').CosmosEntity>();
     const add = (e?: import('./store/cosmosStore').CosmosEntity) => { if (e && !picked.has(e.id)) picked.set(e.id, e); };
-    add(all.find((e) => e.name === '轮回乐园'));   // 永远注入主角母园
+    add(all.find((e) => cosmosNameEq(e.name, home)));   // 永远注入主角所属乐园（按开局选择，非写死轮回乐园）
     all.filter((e) => !e.destroyed && e.priority === 0 && (e.status === '复苏' || e.status === '扩张')).slice(0, 2).forEach(add);  // 当前最大动荡
     if (nw) all.filter((e) => { const n = norm(e.name); return n.length >= 2 && (nw.includes(n) || n.includes(nw)); }).slice(0, 3).forEach(add);  // 当前世界相关
     all.filter((e) => e.isPlayerKnown && !e.destroyed).slice(0, 2).forEach(add);   // 主角已接触
@@ -2553,7 +2556,7 @@ ${lines.join('\n')}`;
 
     const lines = [...picked.values()].map((e) => {
       const head = `「${e.name}」(${e.category}·${e.status}${e.rank ? '·排名' + e.rank : ''})`;
-      const bits = [e.power, e.goal && `动向:${e.goal}`, e.towardParadise && `对轮回乐园:${e.towardParadise}`].filter(Boolean);
+      const bits = [e.power, e.goal && `动向:${e.goal}`, e.towardParadise && `对${home}:${e.towardParadise}`].filter(Boolean);
       return `- ${head} ${bits.join('；')}`;
     });
     if (lines.length === 0) return [];
@@ -2595,6 +2598,15 @@ ${lines.join('\n')}`;
     if (!C.seeded && C.settings.seedMode === 'canon') { C.seedFromCanon(); }
     const seededC = useCosmos.getState();
     if (seededC.entities.length === 0) { console.warn('[Cosmos] 棋盘为空，跳过（请在万族演化里选种子模式/生成）'); return; }
+    // 适配主角所属乐园（七乐园之一 或 自定义乐园）：在棋盘上确保它存在并标为「主角母园」，不写死轮回乐园
+    {
+      const hp = (usePlayer.getState().profile.homeParadise || '').trim();
+      if (hp) {
+        const found = seededC.entities.find((e) => cosmosNameEq(e.name, hp));
+        if (found) { if (!found.isPlayerKnown || !/母园/.test(found.towardParadise)) useCosmos.getState().upsertEntity({ name: found.name, towardParadise: '主角所属母园', isPlayerKnown: true }); }
+        else { useCosmos.getState().upsertEntity({ name: hp, category: '乐园', priority: 0, status: '稳固', power: '主角所属乐园', towardParadise: '主角所属母园', isPlayerKnown: true }); }
+      }
+    }
 
     const ss = useSettings.getState();
     const legacyApi = seededC.cosmosUseSharedApi ? (ss.textUseSharedApi ? ss.api : ss.textApi) : seededC.cosmosApi;
@@ -2636,6 +2648,7 @@ ${lines.join('\n')}`;
       .replaceAll('${focus_list}', focusList)
       .replaceAll('${player_name}', profile.name || '主角')
       .replaceAll('${player_tier}', `${profile.tier || '一阶'} Lv.${profile.level ?? 1}`)
+      .replaceAll('${home_paradise}', (profile.homeParadise || '').trim() || '轮回乐园')
       .replaceAll('${turn}', String(turn))
       .replaceAll('${participation}', participation);
 
@@ -2657,6 +2670,14 @@ ${lines.join('\n')}`;
       const digest = typeof j?.digest === 'string' ? j.digest : '';
       console.log(`[Cosmos] 万族演化应用 ${n} 个实体变更`, digest);
       setCosmosPhaseLog(digest ? `✓ 万族演化：${digest.slice(0, 40)}` : `✓ 万族演化完成（${n} 项变更）`);
+      // 顶部滚动条：本回合宇宙更新（digest + 变动实体），持续滚动到下次更新
+      const safeStr = (v: any) => (typeof v === 'string' ? v : '');
+      const detail = arr.filter((e: any) => e?.name).map((e: any) => {
+        const d = safeStr(Array.isArray(e.deeds) && e.deeds[0] ? e.deeds[0].desc : '') || safeStr(e.status);
+        return d ? `${safeStr(e.name) || '某势力'}（${d}）` : safeStr(e.name);
+      }).filter(Boolean).slice(0, 12);
+      const ticker = [digest, ...detail].filter(Boolean).join('　•　');
+      if (ticker) setCosmosTicker('🌌 ' + ticker);
     } catch (e: any) {
       console.error('[Cosmos] 万族演化失败:', e.message ?? e);
       setCosmosPhaseLog(`⚠ 万族演化失败：${(e.message ?? '').slice(0, 50)}`);
@@ -4164,6 +4185,14 @@ ${lines}`;
             {miscWeather ? ` · ${miscWeather}` : ''}
           </div>
         </div>
+        {/* 万族态势·滚动条：显示本回合宇宙更新，不断右→左滚动（桌面端，时间框右侧）*/}
+        {cosmosTicker ? (
+          <div className="hidden lg:flex flex-1 min-w-0 items-center mx-3 h-7 overflow-hidden rounded border border-fuchsia-700/30 bg-fuchsia-950/20 px-2" title={cosmosTicker}>
+            <div className="flex-1 min-w-0 overflow-hidden whitespace-nowrap">
+              <span className="we-marquee inline-block text-[12px] font-mono text-fuchsia-200/80">{cosmosTicker}</span>
+            </div>
+          </div>
+        ) : <span className="hidden lg:block flex-1" />}
         <div className="flex items-center gap-2">
           <button
             onClick={() => setSaveOpen(true)}

@@ -65,10 +65,10 @@ function EntityCard({ e }: { e: CosmosEntity }) {
 export default function CosmosPanel({ onClose }: { onClose: () => void }) {
   const entities = useCosmos((s) => s.entities);
   const enabled = useCosmos((s) => s.settings.enabled);
-  const [tab, setTab] = useState<CosmosCategory | '全部'>('全部');
+  const [tab, setTab] = useState<CosmosCategory>('乐园');
 
   const paradises = entities.filter((e) => e.category === '乐园').sort((a, b) => (a.rank ?? 99) - (b.rank ?? 99));
-  const list = (tab === '全部' ? entities : entities.filter((e) => e.category === tab))
+  const list = entities.filter((e) => e.category === tab)
     .slice()
     .sort((a, b) => Number(a.destroyed) - Number(b.destroyed) || a.priority - b.priority);
 
@@ -111,9 +111,9 @@ export default function CosmosPanel({ onClose }: { onClose: () => void }) {
 
             {/* 分类 tab */}
             <div className="shrink-0 flex gap-1 px-4 py-2 border-b border-edge bg-panel flex-wrap">
-              {(['全部', ...COSMOS_CATEGORIES] as const).map((c) => {
-                const n = c === '全部' ? entities.length : entities.filter((e) => e.category === c).length;
-                if (c !== '全部' && n === 0) return null;
+              {COSMOS_CATEGORIES.map((c) => {
+                const n = entities.filter((e) => e.category === c).length;
+                if (n === 0) return null;
                 return (
                   <button key={c} onClick={() => setTab(c)}
                     className={`px-2.5 py-1 rounded text-sm font-mono border transition-colors ${tab === c ? 'border-god/50 text-god bg-god/10' : 'border-edge text-dim hover:text-slate-200'}`}>

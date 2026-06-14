@@ -2,7 +2,7 @@
   "name": "轮回乐园·宇宙棋盘（忠于原著）",
   "note": "据《轮回乐园》(那一只蚊子)设定整理的开局宇宙格局快照；之后由万族演化推演。",
   "entities": [
-    { "name": "轮回乐园", "category": "乐园", "priority": 0, "rank": 1, "status": "鼎盛", "power": "七乐园最强（主角所属母园）", "territory": "持有世界数最多", "resources": "极丰", "goal": "以高死亡率进行世界争夺战与世界入侵，淘汰制扩张", "towardParadise": "主角的母园，主角即其契约者", "isPlayerKnown": true, "era": "当前最强乐园", "extra": { "获利方式": "世界争夺/世界入侵", "淘汰制度": "严苛，适合好胜好斗者" } },
+    { "name": "轮回乐园", "category": "乐园", "priority": 0, "rank": 1, "status": "鼎盛", "power": "七乐园最强（主角所属母园）", "territory": "持有世界数最多", "resources": "极丰", "goal": "以高死亡率进行世界争夺战与世界入侵，淘汰制扩张", "towardParadise": "七乐园之首，与各乐园争夺世界（是否为主角母园由开局所选乐园决定）", "isPlayerKnown": false, "era": "当前最强乐园", "extra": { "获利方式": "世界争夺/世界入侵", "淘汰制度": "严苛，适合好胜好斗者" } },
     { "name": "死亡乐园", "category": "乐园", "priority": 0, "rank": 2, "status": "鼎盛", "power": "战力仅次于轮回", "territory": "持有世界众多", "goal": "与轮回争夺世界资源", "towardParadise": "强敌/竞争者" },
     { "name": "圣域乐园", "category": "乐园", "priority": 1, "rank": 3, "status": "稳固", "power": "排名第三", "goal": "拉拢神灵加入、宣扬信仰之力", "towardParadise": "竞争者", "extra": { "获利方式": "信仰之力/拉拢神灵" } },
     { "name": "天启乐园", "category": "乐园", "priority": 1, "rank": 4, "status": "稳固", "power": "物资最丰富", "goal": "对单一世界进行超高资源利用，与虚空势力广订契约", "towardParadise": "氛围休闲，虚空势力乐于与其结契", "extra": { "获利方式": "单一世界超高资源利用", "氛围": "休闲" } },
