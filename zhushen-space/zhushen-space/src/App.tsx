@@ -991,6 +991,7 @@ export default function App() {
         }
       } catch { /* */ }
       void loadBuiltinDefaults();   // 补内置（仅当对应仓库仍为空）；内置项标 builtin、不入库，每次从 public 重载
+      try { reconcilePlayerVitals(); } catch { /* */ }   // 载入/旧档：HP/EP 仍是 100/50 旧默认时，开局即按六维拉满（不等到第一回合）
       // 镜像：世界书/预设变化（剔除 builtin 内置项）→ 防抖写入 IndexedDB
       { let wbT: ReturnType<typeof setTimeout> | null = null; let wbLast: any[] | null = null;
         useSettings.subscribe((s) => {
@@ -2575,11 +2576,15 @@ ${lines.join('\n')}`;
     if (!p.name) return [];   // 尚未创建角色
     const a = p.attrs;
     const look = (p.baseAppearance || p.appearance || '').trim();
+    const gp = useGame.getState().player;
+    const hpMax = computeMaxHp(a), epMax = computeMaxEp(a);
+    const hpCur = effectiveResource(gp.hp, gp.maxHp, hpMax), epCur = effectiveResource(gp.mp, gp.maxMp, epMax);
     const bits = [
       `姓名:${p.name}`,
       p.tier && `阶位:${p.tier}`,
       p.level != null && `Lv.${p.level}`,
       a && `六维: 力${a.str} 敏${a.agi} 体${a.con} 智${a.int} 魅${a.cha} 幸${a.luck}`,
+      `当前HP:${hpCur}/${hpMax} 当前EP:${epCur}/${epMax}`,
       look && `外观:${look}`,
       p.profession && `职业:${p.profession}`,
       p.homeParadise && `所属乐园:${p.homeParadise}`,
@@ -3552,16 +3557,23 @@ ${lines}`;
      解决"正文说 HP 恢复到 145/160、侧栏 HP 却没变"——AI 漏输出 hp.B1 时用正文显式数值兜底。仅认带"当前"的状态行，避免误抓 NPC 卡。 */
   function applyNarrativeVitals(narrative: string) {
     const g = useGame.getState();
+    const a = usePlayer.getState().profile.attrs;
+    const dmh = computeMaxHp(a), dme = computeMaxEp(a);   // 展示上限永远按六维算
     const grabLast = (src: string): [number, number] | null => {
       const r = new RegExp(src, 'gi'); let m: RegExpExecArray | null, last: [number, number] | null = null;
       while ((m = r.exec(narrative)) !== null) last = [Number(m[1]), Number(m[2])];
       return last;
     };
+    // 只有当正文报的"上限"与按六维算的真实上限相符(±容差)时，才采信它的"当前值"；
+    // 否则（如开局 AI 在人物卡瞎写「当前HP：100/100」）忽略，避免把刚拉满的主角写回默认值。只写当前值、不写 gameStore 上限。
+    const within = (max: number, dm: number) => dm > 0 && Math.abs(max - dm) <= Math.max(6, dm * 0.12);
     const hp = grabLast('当前\\s*(?:HP|血量|生命值?)\\s*[:：]\\s*(\\d{1,7})\\s*/\\s*(\\d{1,7})');
-    if (hp && hp[1] >= 0 && hp[2] > 0) { g.setPlayerField('maxHp', hp[2]); g.setPlayerField('hp', Math.min(hp[0], hp[2])); }
+    const hpOk = !!hp && hp[0] >= 0 && hp[1] > 0 && within(hp[1], dmh);
+    if (hpOk) g.setPlayerField('hp', Math.min(hp![0], dmh));
     const ep = grabLast('当前\\s*(?:EP|MP|蓝量|法力|能量|精力)\\s*[:：]\\s*(\\d{1,7})\\s*/\\s*(\\d{1,7})');
-    if (ep && ep[1] >= 0 && ep[2] > 0) { g.setPlayerField('maxMp', ep[2]); g.setPlayerField('mp', Math.min(ep[0], ep[2])); }
-    if (hp || ep) console.log(`[Vitals] 正文照抄主角 ${hp ? `HP ${hp[0]}/${hp[1]}` : ''} ${ep ? `EP ${ep[0]}/${ep[1]}` : ''}`);
+    const epOk = !!ep && ep[0] >= 0 && ep[1] > 0 && within(ep[1], dme);
+    if (epOk) g.setPlayerField('mp', Math.min(ep![0], dme));
+    if (hpOk || epOk) console.log(`[Vitals] 正文照抄主角 ${hpOk ? `HP ${hp![0]}/${dmh}` : ''} ${epOk ? `EP ${ep![0]}/${dme}` : ''}`);
   }
 
   /* 无信息卡时，按阶位预算自动生成【有起伏】的六维（一主一次三低，非平均），替代"全5"默认 */
@@ -4161,7 +4173,7 @@ ${lines}`;
 
       {/* ── 顶部状态栏 ── */}
       <header className="shrink-0 h-14 flex items-center justify-between px-3 border-b border-edge bg-panel z-10">
-        <div className="flex items-center gap-2 text-xs font-mono">
+        <div className="flex-1 flex items-center gap-2 text-xs font-mono min-w-0">
           <button
             onClick={() => setMobileDrawer((d) => (d === 'player' ? null : 'player'))}
             aria-label="角色面板"
@@ -4176,7 +4188,7 @@ ${lines}`;
             ← 主界面
           </button>
         </div>
-        <div className="text-center font-mono">
+        <div className="text-center font-mono shrink-0">
           <div className="text-slate-100 text-lg font-bold">🕒 {miscParadiseTime || '——'}</div>
           <div className="text-dim text-xs mt-0.5">
             {miscWorldName || '轮回乐园'}
@@ -4185,15 +4197,15 @@ ${lines}`;
             {miscWeather ? ` · ${miscWeather}` : ''}
           </div>
         </div>
-        {/* 万族态势·滚动条：显示本回合宇宙更新，不断右→左滚动（桌面端，时间框右侧）*/}
-        {cosmosTicker ? (
-          <div className="hidden lg:flex flex-1 min-w-0 items-center mx-3 h-7 overflow-hidden rounded border border-fuchsia-700/30 bg-fuchsia-950/20 px-2" title={cosmosTicker}>
-            <div className="flex-1 min-w-0 overflow-hidden whitespace-nowrap">
-              <span className="we-marquee inline-block text-[12px] font-mono text-fuchsia-200/80">{cosmosTicker}</span>
+        {/* 右半区：万族滚动条（居中于「时间 ↔ 存档」之间，时间保持正中）+ 存档/菜单按钮 */}
+        <div className="flex-1 flex items-center justify-end gap-2 min-w-0">
+          {cosmosTicker && (
+            <div className="hidden lg:flex flex-1 min-w-0 items-center mx-2 h-7 overflow-hidden rounded border border-fuchsia-700/30 bg-fuchsia-950/20 px-2" title={cosmosTicker}>
+              <div className="flex-1 min-w-0 overflow-hidden whitespace-nowrap">
+                <span className="we-marquee inline-block text-[12px] font-mono text-fuchsia-200/80">{cosmosTicker}</span>
+              </div>
             </div>
-          </div>
-        ) : <span className="hidden lg:block flex-1" />}
-        <div className="flex items-center gap-2">
+          )}
           <button
             onClick={() => setSaveOpen(true)}
             className="px-2.5 py-1 border border-god/40 rounded text-god hover:bg-god/10 text-xs font-bold font-mono transition-colors"
