@@ -2,6 +2,7 @@ import { useRef, useState } from 'react';
 import { useSettings } from '../store/settingsStore';
 import { useNpcEvo, extractNpcPresetFromJson, type NpcPresetEntry } from '../store/npcEvoStore';
 import { useNpc } from '../store/npcStore';
+import { usePlayer } from '../store/playerStore';
 import ApiRoutePicker from './ApiRoutePicker';
 
 /* ── 开关 ── */
@@ -781,7 +782,7 @@ function Scheduling() {
           <div className="px-3 py-2 flex items-center gap-2 bg-panel2 text-[13px] font-mono">
             <span className="w-4" />
             <span className="text-[11px] font-mono px-1.5 py-0.5 rounded border border-god/40 text-god/70 bg-god/5">B1</span>
-            <span className="flex-1 text-slate-300">林源（你）</span>
+            <span className="flex-1 text-slate-300">{usePlayer.getState().profile.name || '主角'}（你）</span>
             <span className="text-god/60">固定每回合</span>
           </div>
           {records.length === 0 ? (

@@ -8,6 +8,7 @@ import NpcManager from './NpcManager';
 import FactionManager from './FactionManager';
 import TerritoryManager from './TerritoryManager';
 import AdventureTeamManager from './AdventureTeamManager';
+import CosmosManager from './CosmosManager';
 import MemoryManager from './MemoryManager';
 import MiscManager from './MiscManager';
 import ChannelManager from './ChannelManager';
@@ -17,7 +18,7 @@ interface SettingsPanelProps {
   onClose: () => void;
 }
 
-type Page = 'home' | 'world-detail' | 'textgen-detail' | 'regex-detail' | 'general' | 'variables' | 'item-manager' | 'player-manager' | 'npc-manager' | 'faction-manager' | 'territory-manager' | 'team-manager' | 'memory-manager' | 'misc-manager' | 'channel-manager' | 'narrative-memory' | 'image-gen';
+type Page = 'home' | 'world-detail' | 'textgen-detail' | 'regex-detail' | 'general' | 'variables' | 'item-manager' | 'player-manager' | 'npc-manager' | 'faction-manager' | 'territory-manager' | 'team-manager' | 'cosmos-manager' | 'memory-manager' | 'misc-manager' | 'channel-manager' | 'narrative-memory' | 'image-gen';
 type Tab = 'worldbook' | 'api' | 'prompt' | 'preset' | 'global-regex' | 'preset-regex';
 
 function DetailLayout({ title, onBack, tabs, activeTab, onTab, children }: {
@@ -137,6 +138,7 @@ export default function SettingsPanel({ onClose }: SettingsPanelProps) {
             onOpenFactionManager={() => setPage('faction-manager')}
             onOpenTerritoryManager={() => setPage('territory-manager')}
             onOpenTeamManager={() => setPage('team-manager')}
+            onOpenCosmosManager={() => setPage('cosmos-manager')}
             onOpenMemoryManager={() => setPage('memory-manager')}
             onOpenMiscManager={() => setPage('misc-manager')}
             onOpenChannelManager={() => setPage('channel-manager')}
@@ -243,6 +245,23 @@ export default function SettingsPanel({ onClose }: SettingsPanelProps) {
         </header>
         <div className="flex-1 overflow-y-auto p-6">
           <AdventureTeamManager />
+        </div>
+      </div>
+    );
+  }
+
+  if (page === 'cosmos-manager') {
+    return (
+      <div className="h-screen flex flex-col bg-void text-slate-300">
+        <header className="shrink-0 h-10 flex items-center justify-between px-4 border-b border-edge bg-panel">
+          <button onClick={() => setPage('variables')} className="flex items-center gap-2 text-sm font-mono text-dim hover:text-slate-200 transition-colors">
+            ← 变量管理
+          </button>
+          <span className="text-sm font-mono text-dim">万族演化</span>
+          <div className="w-20" />
+        </header>
+        <div className="flex-1 overflow-y-auto p-6">
+          <CosmosManager />
         </div>
       </div>
     );

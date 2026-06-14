@@ -53,7 +53,7 @@ Cover, in this order:
 - KNOWN anime/game/novel (fan/derivative) character → FIRST the accurate danbooru character tag (name_with_underscores) + copyright/series tag, THEN canonical signature look. Never mismatch.
 - Output ONLY comma-separated English tags. No Chinese, no sentences, no quality/booster words, no negatives, no markdown, no explanation.
 Example —
-input: 林源，男，约25岁，黑色短寸发，锐利的灰色眼睛，左眉有疤，常穿墨绿色军用外套配战术背心，体格精壮，神情冷峻
+input: 一名男性角色，约25岁，黑色短寸发，锐利的灰色眼睛，左眉有疤，常穿墨绿色军用外套配战术背心，体格精壮，神情冷峻
 output: 1boy, solo, short hair, black hair, undercut, grey eyes, sharp eyes, scar on face, scar through eyebrow, young man, pale skin, muscular, serious, cold expression, dark green military coat, tactical vest, utility belt, upper body, looking at viewer, dramatic lighting, simple background
 Example (fandom character — name recognized) —
 input: 古见硝子，女，长直黑发，紫色眼睛，校服

@@ -460,6 +460,7 @@ export default function VariableManager({
   onOpenFactionManager,
   onOpenTerritoryManager,
   onOpenTeamManager,
+  onOpenCosmosManager,
   onOpenMemoryManager,
   onOpenMiscManager,
   onOpenChannelManager,
@@ -470,6 +471,7 @@ export default function VariableManager({
   onOpenFactionManager?: () => void;
   onOpenTerritoryManager?: () => void;
   onOpenTeamManager?: () => void;
+  onOpenCosmosManager?: () => void;
   onOpenMemoryManager?: () => void;
   onOpenMiscManager?: () => void;
   onOpenChannelManager?: () => void;
@@ -584,6 +586,14 @@ export default function VariableManager({
               className="px-3 py-1.5 text-sm border border-cyan-600/50 text-cyan-400 rounded-lg hover:bg-cyan-900/20 transition-colors font-mono"
             >
               🛡 冒险团演化
+            </button>
+          )}
+          {onOpenCosmosManager && (
+            <button
+              onClick={onOpenCosmosManager}
+              className="px-3 py-1.5 text-sm border border-fuchsia-600/50 text-fuchsia-400 rounded-lg hover:bg-fuchsia-900/20 transition-colors font-mono"
+            >
+              🌌 万族演化
             </button>
           )}
           {onOpenPlayerManager && (

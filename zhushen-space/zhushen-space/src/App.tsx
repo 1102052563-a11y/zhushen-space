@@ -6,6 +6,7 @@ import { useVariables } from './store/variableStore';
 import { parseAllStateUpdates, stripStateBlocks, parseAllItemCommands, applyItemCommands, parseAllCharCommands, applyCharacterCommands, parseAllNpcCommands, applyNpcCommands, parseAllFactionCommands, applyFactionCommands, applyTerritoryCommands, applyTeamCommands, isEquippable, setNpcOwnerResolver, type StateUpdate } from './systems/stateParser';
 import { useTerritory, buildTerritorySystemPrompt, buildingCap } from './store/territoryStore';
 import { useTeam, buildTeamSystemPrompt, memberCap as teamMemberCap } from './store/adventureTeamStore';
+import { useCosmos, buildCosmosSystemPrompt } from './store/cosmosStore';
 import { realmFromLevel, normalizeTier, lvFromRealm, trueAttr, computeMaxHp, computeMaxEp, effectiveResource } from './systems/derivedStats';
 import { useImageGen, effectiveEquipService } from './store/imageGenStore';
 import { generateImage, buildPortraitPrompt, buildEquipPrompt, shrinkDataUrl } from './systems/imageGen';
@@ -13,6 +14,7 @@ import { genPortraitTags, genEquipTags, isTagService } from './systems/imageTags
 import { hydrateImages, initImageSync } from './systems/imageSync';
 import { loadWb, saveWb } from './systems/wbDb';
 import TerritoryPanel from './components/TerritoryPanel';
+import CosmosPanel from './components/CosmosPanel';
 import AdventureTeamPanel from './components/AdventureTeamPanel';
 import ImageViewer from './components/ImageViewer';
 import ImageBusyToast from './components/ImageBusyToast';
@@ -827,6 +829,7 @@ const rightMenuItems = [
   { icon: '🏛', label: '势力' },
   { icon: '🏯', label: '领地' },
   { icon: '🛡', label: '冒险团' },
+  { icon: '🌌', label: '万族' },
   { icon: '🔍', label: '回合洞察' },
   { icon: '📋', label: '任务' },
   { icon: '📡', label: '频道' },
@@ -866,6 +869,8 @@ export default function App() {
   const [factionPanelOpen,   setFactionPanelOpen]   = useState(false);
   const [territoryPhaseLog,  setTerritoryPhaseLog]  = useState('');     // 领地演化阶段提示
   const [territoryPanelOpen, setTerritoryPanelOpen] = useState(false);
+  const [cosmosPhaseLog,     setCosmosPhaseLog]     = useState('');     // 万族演化阶段提示
+  const [cosmosPanelOpen,    setCosmosPanelOpen]    = useState(false);
   const [teamPhaseLog,       setTeamPhaseLog]       = useState('');     // 冒险团演化阶段提示
   const [teamPanelOpen,      setTeamPanelOpen]      = useState(false);
   const [imagePhaseLog,      setImagePhaseLog]      = useState('');     // 生图（肖像/装备）阶段提示
@@ -2501,6 +2506,164 @@ ${lines.join('\n')}`;
   }
 
   /* ════════════════════════════════════════════
+     万族演化（cosmos）——宇宙背景层（七乐园/万族/文明/原生世界/神灵/深渊）
+     - 独立 API + frequency(默认3)；代码选焦点 + 参与门槛，AI 出 JSON 推演
+  ════════════════════════════════════════════ */
+  function serializeCosmosSnapshot(focusIds: Set<string>): string {
+    const all = useCosmos.getState().entities;
+    if (all.length === 0) return '（宇宙棋盘为空，可据正文/设定按需新建实体）';
+    const detail = all.filter((e) => focusIds.has(e.id)).map((e) => {
+      const bits = [
+        `「${e.name}」[${e.category}·优先级${e.priority}]`,
+        `状态:${e.status}${e.destroyed ? '(已覆灭)' : ''}`,
+        e.rank ? `排名:${e.rank}` : '',
+        e.power && `实力:${e.power}`,
+        e.territory && `疆域:${e.territory}`,
+        e.goal && `动向:${e.goal}`,
+        e.towardParadise && `对轮回乐园:${e.towardParadise}`,
+        e.relations.length ? `关系:${e.relations.map((r) => `${r.target}(${r.relation})`).join('、')}` : '',
+        Object.keys(e.extra).length ? `备注:${Object.entries(e.extra).map(([k, v]) => `${k}:${v}`).join('；')}` : '',
+      ].filter(Boolean);
+      return '· ' + bits.join('；');
+    });
+    const others = all.filter((e) => !focusIds.has(e.id)).map((e) => `${e.name}(${e.status})`);
+    return `【焦点实体（本轮重点推演）】\n${detail.join('\n') || '（无）'}\n\n【其余实体名录（一般不动，必要时可微调）】\n${others.join('、') || '（无）'}`;
+  }
+
+  /* 注入正文的 <万族态势> 块（独立于叙事记忆开关；轮回乐园 + 当前动荡 + 相关 + 不相关采样）*/
+  function buildCosmosInjection(): { role: 'system'; content: string }[] {
+    const C = useCosmos.getState();
+    if (!C.settings.enabled) return [];
+    const all = C.entities.filter((e) => e.name);
+    if (all.length === 0) return [];
+    const norm = (s: string) => s.replace(/[\s·•・\-—_,，。、|｜()（）【】]/g, '').toLowerCase();
+    const nw = norm((useMisc.getState().worldName || '').trim());
+
+    const picked = new Map<string, import('./store/cosmosStore').CosmosEntity>();
+    const add = (e?: import('./store/cosmosStore').CosmosEntity) => { if (e && !picked.has(e.id)) picked.set(e.id, e); };
+    add(all.find((e) => e.name === '轮回乐园'));   // 永远注入主角母园
+    all.filter((e) => !e.destroyed && e.priority === 0 && (e.status === '复苏' || e.status === '扩张')).slice(0, 2).forEach(add);  // 当前最大动荡
+    if (nw) all.filter((e) => { const n = norm(e.name); return n.length >= 2 && (nw.includes(n) || n.includes(nw)); }).slice(0, 3).forEach(add);  // 当前世界相关
+    all.filter((e) => e.isPlayerKnown && !e.destroyed).slice(0, 2).forEach(add);   // 主角已接触
+
+    // 不相关采样：从其余随机抽 N 个，增加"世界处处在发生事"的真实感
+    const rest = all.filter((e) => !picked.has(e.id) && !e.destroyed);
+    const sampleN = Math.max(0, C.settings.injectIrrelevantCount ?? 2);
+    for (let i = 0; i < sampleN && rest.length; i++) add(rest.splice(Math.floor(Math.random() * rest.length), 1)[0]);
+
+    const lines = [...picked.values()].map((e) => {
+      const head = `「${e.name}」(${e.category}·${e.status}${e.rank ? '·排名' + e.rank : ''})`;
+      const bits = [e.power, e.goal && `动向:${e.goal}`, e.towardParadise && `对轮回乐园:${e.towardParadise}`].filter(Boolean);
+      return `- ${head} ${bits.join('；')}`;
+    });
+    if (lines.length === 0) return [];
+    return [{
+      role: 'system' as const,
+      content: `<万族态势>（轮回乐园宇宙宏观格局，背景氛围参考、非剧情指令；多数与主角无直接关系，体现世界辽阔鲜活即可，勿照搬复述）\n${lines.join('\n')}\n</万族态势>`,
+    }];
+  }
+
+  /* 始终注入的「主角核心」——结构化召回(叙事记忆)默认关，多数玩家的正文 API 读不到主角真实外观/六维，
+     于是 AI 会凭空改发色、写出默认属性卡再被回写 → 清零。这里无条件补一份精简主角卡兜底（结构化召回开着时跳过，避免重复）。*/
+  function buildPlayerCoreInjection(): { role: 'system'; content: string }[] {
+    const nm = useSettings.getState().narrativeMemory;
+    if (nm?.enabled && nm?.structEnabled !== false) return [];   // 结构化召回已注入完整主角卡
+    const p = usePlayer.getState().profile;
+    if (!p.name) return [];   // 尚未创建角色
+    const a = p.attrs;
+    const look = (p.baseAppearance || p.appearance || '').trim();
+    const bits = [
+      `姓名:${p.name}`,
+      p.tier && `阶位:${p.tier}`,
+      p.level != null && `Lv.${p.level}`,
+      a && `六维: 力${a.str} 敏${a.agi} 体${a.con} 智${a.int} 魅${a.cha} 幸${a.luck}`,
+      look && `外观:${look}`,
+      p.profession && `职业:${p.profession}`,
+      p.homeParadise && `所属乐园:${p.homeParadise}`,
+    ].filter(Boolean);
+    return [{
+      role: 'system' as const,
+      content: `<主角核心>（这是主角的真实设定，描写时严格据此，**不要擅自更改主角的发色/外观，也不要改动其六维属性**——属性变化只由系统结算）\n${bits.join(' | ')}\n</主角核心>`,
+    }];
+  }
+
+  async function runCosmosEvolutionPhase(narrative: string) {
+    const C = useCosmos.getState();
+    if (!C.settings.enabled) return;
+    if (turnCountRef.current % (C.settings.frequency || 3) !== 0) return;
+    // 首次运行：按种子模式播种（canon 自动，random/blank 交给 CosmosManager 手动）
+    if (!C.seeded && C.settings.seedMode === 'canon') { C.seedFromCanon(); }
+    const seededC = useCosmos.getState();
+    if (seededC.entities.length === 0) { console.warn('[Cosmos] 棋盘为空，跳过（请在万族演化里选种子模式/生成）'); return; }
+
+    const ss = useSettings.getState();
+    const legacyApi = seededC.cosmosUseSharedApi ? (ss.textUseSharedApi ? ss.api : ss.textApi) : seededC.cosmosApi;
+    const chain = resolveApiChain('cosmos', legacyApi);
+    if (!chain[0]?.baseUrl || !chain[0]?.apiKey) { console.warn('[Cosmos] API 未配置，跳过万族演化'); return; }
+    const enabledEntries = (seededC.settings.entries ?? []).filter((e) => e.enabled);
+    if (enabledEntries.length === 0) { console.warn('[Cosmos] 无启用预设条目，跳过'); return; }
+
+    // 焦点选择：核心(priority0)全选 + 当前世界相关 + 按 lastEvolvedTurn 轮换的次要/边缘，封顶 focusPerTurn
+    const all = seededC.entities.filter((e) => !e.destroyed);
+    const norm = (s: string) => s.replace(/[\s·•・\-—_,，。、|｜()（）【】]/g, '').toLowerCase();
+    const nw = norm((useMisc.getState().worldName || '').trim());
+    const focus = new Map<string, import('./store/cosmosStore').CosmosEntity>();
+    all.filter((e) => e.priority === 0).forEach((e) => focus.set(e.id, e));
+    if (nw) all.filter((e) => { const n = norm(e.name); return n.length >= 2 && (nw.includes(n) || n.includes(nw)); }).forEach((e) => focus.set(e.id, e));
+    const cap = Math.max(3, seededC.settings.focusPerTurn || 8);
+    if (focus.size < cap) {
+      all.filter((e) => !focus.has(e.id)).sort((a, b) => (a.lastEvolvedTurn || 0) - (b.lastEvolvedTurn || 0))
+         .slice(0, cap - focus.size).forEach((e) => focus.set(e.id, e));
+    }
+    const focusIds = new Set(focus.keys());
+    const focusList = [...focus.values()].map((e) => e.name).join('、') || '（无）';
+
+    // 参与门槛
+    const profile = usePlayer.getState().profile;
+    const turn = turnCountRef.current;
+    let unlocked = false;
+    const g = seededC.settings.participationGate;
+    if (g === 'off') unlocked = false;
+    else if (g === 'manual') unlocked = seededC.settings.participationUnlocked;
+    else { const auto = (profile.level ?? 1) >= 61 || turn >= 50; unlocked = seededC.settings.participationUnlocked || auto; if (unlocked && !seededC.settings.participationUnlocked) useCosmos.getState().setSettings({ participationUnlocked: true }); }
+    const participation = unlocked
+      ? '【参与状态】已解锁（中后期）：主角已有资格搅动宇宙格局，可把其世界级战功/重大事件顺着因果反馈到宏观层（需正文有相应分量）。'
+      : '【参与状态】未解锁（前期）：主角还没资格影响宏观大势，本轮只推演宇宙自身运转，不要因主角行为去改乐园排行/大阵营态度。';
+
+    const systemPrompt = buildCosmosSystemPrompt(seededC.settings.entries)
+      .replaceAll('${cosmos_snapshot}', serializeCosmosSnapshot(focusIds))
+      .replaceAll('${story_text}', narrative)
+      .replaceAll('${focus_list}', focusList)
+      .replaceAll('${player_name}', profile.name || '主角')
+      .replaceAll('${player_tier}', `${profile.tier || '一阶'} Lv.${profile.level ?? 1}`)
+      .replaceAll('${turn}', String(turn))
+      .replaceAll('${participation}', participation);
+
+    setCosmosPhaseLog('万族演化中…');
+    try {
+      const { content: reply } = await apiChatFallback(chain, [
+        { role: 'system', content: systemPrompt },
+        { role: 'user', content: '只输出一个 JSON 对象 {"entities":[...],"digest":"..."}，不要任何多余文字。' },
+      ], { timeoutMs: 90000 });
+      const j = parseEntryJson(reply);
+      const arr = Array.isArray(j?.entities) ? j.entities : [];
+      let n = 0;
+      for (const e of arr) {
+        if (!e || !e.name) continue;
+        useCosmos.getState().upsertEntity(e);
+        useCosmos.getState().markEvolved(String(e.name), turn);
+        n++;
+      }
+      const digest = typeof j?.digest === 'string' ? j.digest : '';
+      console.log(`[Cosmos] 万族演化应用 ${n} 个实体变更`, digest);
+      setCosmosPhaseLog(digest ? `✓ 万族演化：${digest.slice(0, 40)}` : `✓ 万族演化完成（${n} 项变更）`);
+    } catch (e: any) {
+      console.error('[Cosmos] 万族演化失败:', e.message ?? e);
+      setCosmosPhaseLog(`⚠ 万族演化失败：${(e.message ?? '').slice(0, 50)}`);
+    } finally { setTimeout(() => setCosmosPhaseLog(''), 8000); }
+  }
+
+  /* ════════════════════════════════════════════
      冒险团演化阶段（仅主角单一冒险团，仿领地：单目标 + 独立 API + frequency）
   ════════════════════════════════════════════ */
   function serializeTeamSnapshot(): string {
@@ -3346,9 +3509,13 @@ ${lines}`;
       const name = m[1].trim();
       if (!name) continue;
       const attrs = { str: +m[2], agi: +m[3], con: +m[4], int: +m[5], cha: +m[6], luck: +m[7] };
-      // 主角？
+      // 主角？仅当主角六维仍是未分配的默认(全5)时才用正文卡填充；已分配过(创建/加点)就不让正文卡覆盖，
+      // 避免"创建时加好的点、进世界被 AI 卡写回 5"的清零 bug（主角属性以创建+主角演化 character.B1.attrs 为准）。
       if (pName && (name === pName || name.includes(pName) || pName.includes(name))) {
-        P.setProfile({ attrs }); applied++; continue;
+        const c = P.profile.attrs;
+        const untouched = !c || (c.str === 5 && c.agi === 5 && c.con === 5 && c.int === 5 && c.cha === 5 && c.luck === 5);
+        if (untouched) { P.setProfile({ attrs }); applied++; }
+        continue;
       }
       // 已建档 NPC（按名字匹配；卡名常含前缀如"灰烬拾荒者·卡尔"，做包含匹配，名字≥2字防误配）
       const rec = Object.values(npc.npcs).find((r) => {
@@ -3537,6 +3704,8 @@ ${lines}`;
     if (due('territory')) runTerritoryEvolutionPhase(narr('territory'));
     // 冒险团演化（仅主角单一冒险团）
     if (due('team')) runTeamEvolutionPhase(narr('team'));
+    // 万族演化（宇宙背景层：七乐园/万族/文明/原生世界/神灵/深渊）
+    if (due('cosmos')) runCosmosEvolutionPhase(narr('cosmos'));
     // 生平压缩：达阈值才会真正调用 AI，不走回合门控
     runMemoryCompressionPhase();
     // 杂项演化（总结/双时间/天气/世界大事/任务）
@@ -3642,6 +3811,8 @@ ${lines}`;
       ...examples,
       ...memory,                                       // <过往记忆> system 块（如有）
       ...structMem,                                    // <在场与相关档案> 结构化档案块（如有）
+      ...buildPlayerCoreInjection(),                    // <主角核心> 始终注入主角真实外观/六维（结构化召回关时兜底，防 AI 改发色/清属性）
+      ...buildCosmosInjection(),                        // <万族态势> 宇宙背景层（独立于叙事记忆开关，cosmos 自己的启用控制）
       ...recent,                                       // 最近原文楼层
       { role: 'user' as const, content: userText },
     ];
@@ -3683,7 +3854,7 @@ ${lines}`;
           model:       ep.modelId,
           messages:    [{ role: 'system', content: sysPrompt }, ...history],
           temperature: preset?.temperature ?? ep.temperature,
-          max_tokens:  preset?.max_tokens  ?? ep.maxTokens,
+          max_tokens:  preset?.max_tokens  ?? Math.max(ep.maxTokens || 0, 60000),   // 无预设时给足上限（对齐 60000），避免 2048 旧默认截断长正文
           top_p:       preset?.top_p       ?? ep.topP,
           stream:      useStream,
         };
@@ -3854,7 +4025,7 @@ ${lines}`;
       `# ${park}·开局`,
       `你在彻底的黑暗中苏醒。没有呼吸，没有心跳，连身体的轮廓都仿佛被剥离，只剩下意识在冰冷虚空中漂浮。`,
       `下一瞬，一行行淡金色的文字在你面前浮现——它们不是光，而是直接烙进灵魂的讯息。`,
-      `> 【${park}】正在校验灵魂。\n> 标识：${user}\n> 生理状态：死亡 / 临界。\n> 适配判定：通过。\n> 所属乐园：${park}\n> 主角背景：${pastLife}\n> 六维属性：${attrStr}\n> 初始天赋：${talent}\n> 契约者编号：${contractNo}`,
+      `> 【${park}】正在校验灵魂。\n> 标识：${user}\n> 生理状态：死亡 / 临界。\n> 适配判定：通过。\n> 所属乐园：${park}\n> 主角背景：${pastLife}\n> 外观：${d.appearance?.trim() || '（待你在后续描写中确立）'}\n> 六维属性：${attrStr}\n> 初始天赋：${talent}\n> 契约者编号：${contractNo}`,
       `某种冷漠却并不敌意的目光，从上而下打量着你。那不是人类的视角，更像是在审阅一份可回收资源。`,
       `它向你伸出了一只手——不是肉体的手，而是一份连注释都冷冰冰的契约。`,
       `只要应答，你将被记录为「${park}·一阶预备契约者」，以「${talent}」之天赋记录，投放诸多世界。`,
@@ -4158,6 +4329,11 @@ ${lines}`;
                 {teamPhaseLog}
               </span>
             )}
+            {cosmosPhaseLog && (
+              <span className={cosmosPhaseLog.startsWith('⚠') ? 'text-blood' : 'text-fuchsia-400/80'}>
+                {cosmosPhaseLog}
+              </span>
+            )}
             {imagePhaseLog && (
               <span className={imagePhaseLog.startsWith('⚠') ? 'text-blood' : 'text-pink-400/80'}>
                 {imagePhaseLog}
@@ -4322,6 +4498,7 @@ ${lines}`;
                     item.label === '势力' ? () => setFactionPanelOpen(true) :
                     item.label === '领地' ? () => setTerritoryPanelOpen(true) :
                     item.label === '冒险团' ? () => setTeamPanelOpen(true) :
+                    item.label === '万族' ? () => setCosmosPanelOpen(true) :
                     item.label === '回合洞察' ? () => setInsightOpen(true) :
                     item.label === 'NPC'  ? () => setNpcPanelOpen(true) :
                     item.label === '任务' ? () => setMiscPanelOpen(true) :
@@ -4428,6 +4605,7 @@ ${lines}`;
       {factionPanelOpen && <FactionPanel onClose={() => setFactionPanelOpen(false)} />}
       {territoryPanelOpen && <TerritoryPanel onClose={() => setTerritoryPanelOpen(false)} />}
       {teamPanelOpen && <AdventureTeamPanel onClose={() => setTeamPanelOpen(false)} />}
+      {cosmosPanelOpen && <CosmosPanel onClose={() => setCosmosPanelOpen(false)} />}
       <ImageViewer />
       <ImageBusyToast />
       {showVer && <VersionToast version={APP_VERSION} note={VERSION_NOTE} onClose={() => setShowVer(false)} />}

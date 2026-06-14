@@ -3,7 +3,7 @@ import { useNpc, type NpcRecord } from '../store/npcStore';
 import { useCharacters, RARITY_CLS, ELEMENT_CLS, type Deed } from '../store/characterStore';
 import { computeDerived, lvFromRealm, normalizeTier, realmFromLevel, trueAttr, computeMaxHp, computeMaxEp, gearMaxHpBonus, gearMaxEpBonus, effectiveResource } from '../systems/derivedStats';
 import { computeAttrBreakdown, ATTR_LABEL, type AttrBreak } from '../systems/attrBonus';
-import type { PlayerAttrs } from '../store/playerStore';
+import { usePlayer, type PlayerAttrs } from '../store/playerStore';
 import { gradeBadgeClass, gradeNameClass } from '../store/itemStore';
 import NpcEquip from './NpcEquip';
 import StatusEffectChips from './StatusEffectChips';
@@ -1007,7 +1007,7 @@ function RelationTab({ npc, list, onSelect }: { npc: NpcRecord; list: NpcRecord[
   const rels = (npc.relations || '').split(';').map((s) => s.trim()).filter(Boolean)
     .map((pair) => { const [tid, rel] = pair.split(':'); return { tid: (tid || '').trim(), rel: (rel || '').trim() }; });
   if (rels.length === 0) return <Empty text="暂无人际关系记录" />;
-  const nameOf = (id: string) => id === 'B1' ? '林源（你）' : (list.find((r) => r.id === id)?.name ?? id);
+  const nameOf = (id: string) => id === 'B1' ? `${usePlayer.getState().profile.name || '主角'}（你）` : (list.find((r) => r.id === id)?.name ?? id);
   return (
     <Section title={`人际关系（${rels.length}）`}>
       <div className="space-y-2">

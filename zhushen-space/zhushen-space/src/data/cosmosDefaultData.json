@@ -1,0 +1,54 @@
+{
+  "name": "轮回乐园·宇宙棋盘（忠于原著）",
+  "note": "据《轮回乐园》(那一只蚊子)设定整理的开局宇宙格局快照；之后由万族演化推演。",
+  "entities": [
+    { "name": "轮回乐园", "category": "乐园", "priority": 0, "rank": 1, "status": "鼎盛", "power": "七乐园最强（主角所属母园）", "territory": "持有世界数最多", "resources": "极丰", "goal": "以高死亡率进行世界争夺战与世界入侵，淘汰制扩张", "towardParadise": "主角的母园，主角即其契约者", "isPlayerKnown": true, "era": "当前最强乐园", "extra": { "获利方式": "世界争夺/世界入侵", "淘汰制度": "严苛，适合好胜好斗者" } },
+    { "name": "死亡乐园", "category": "乐园", "priority": 0, "rank": 2, "status": "鼎盛", "power": "战力仅次于轮回", "territory": "持有世界众多", "goal": "与轮回争夺世界资源", "towardParadise": "强敌/竞争者" },
+    { "name": "圣域乐园", "category": "乐园", "priority": 1, "rank": 3, "status": "稳固", "power": "排名第三", "goal": "拉拢神灵加入、宣扬信仰之力", "towardParadise": "竞争者", "extra": { "获利方式": "信仰之力/拉拢神灵" } },
+    { "name": "天启乐园", "category": "乐园", "priority": 1, "rank": 4, "status": "稳固", "power": "物资最丰富", "goal": "对单一世界进行超高资源利用，与虚空势力广订契约", "towardParadise": "氛围休闲，虚空势力乐于与其结契", "extra": { "获利方式": "单一世界超高资源利用", "氛围": "休闲" } },
+    { "name": "圣光乐园", "category": "乐园", "priority": 1, "rank": 5, "status": "稳固", "power": "偏弱", "towardParadise": "竞争者", "extra": { "成员": "女性成员偏多" } },
+    { "name": "曙光乐园", "category": "乐园", "priority": 0, "rank": 6, "status": "复苏", "power": "曾与轮回、死亡并列最强，战败被轮回吞噬大半后沉寂，现已复苏", "goal": "靠违规者钻规则空子，破坏他园世界、策反其契约者，正侵蚀守望", "towardParadise": "与轮回有吞并之仇", "era": "复苏中，正侵蚀守望", "relations": [ { "target": "轮回乐园", "relation": "世仇" }, { "target": "守望乐园", "relation": "侵蚀" } ], "extra": { "获利方式": "违规者破坏他园世界" } },
+    { "name": "守望乐园", "category": "乐园", "priority": 1, "rank": 7, "status": "沉寂", "power": "被曙光侵蚀后陷入沉寂", "goal": "勉力维系，仅可招募违规者", "era": "被曙光侵蚀，沉寂", "relations": [ { "target": "曙光乐园", "relation": "被侵蚀" } ], "extra": { "成员": "仅可招募违规者" } },
+
+    { "name": "星族", "category": "种族", "priority": 0, "status": "稳固", "power": "虚空万族中的强族", "goal": "争夺虚空资源" },
+    { "name": "魂族", "category": "种族", "priority": 0, "status": "稳固", "power": "虚空强族，擅魂魄之力", "goal": "争夺虚空资源" },
+    { "name": "恶魔族", "category": "种族", "priority": 0, "status": "扩张", "power": "好战的虚空种族", "goal": "掠夺与扩张" },
+    { "name": "魔鬼族", "category": "种族", "priority": 1, "status": "稳固", "power": "与恶魔族并立的虚空种族" },
+    { "name": "羽族", "category": "种族", "priority": 1, "status": "稳固", "power": "虚空飞行种族" },
+    { "name": "巴纳小人族", "category": "种族", "priority": 2, "status": "困顿", "power": "弱小种族，夹缝求存" },
+    { "name": "奥术永恒星", "category": "种族", "priority": 1, "status": "覆灭", "destroyed": true, "power": "曾为强大的星界文明/势力", "era": "已覆灭", "extra": { "覆灭": "四巨头之一古亚院长战死于风海大陆，文明随之倾覆" } },
+
+    { "name": "众神会", "category": "文明组织", "priority": 1, "status": "稳固", "power": "虚空主要文明之一" },
+    { "name": "机械神教", "category": "文明组织", "priority": 1, "status": "扩张", "power": "崇尚机械造物的文明", "goal": "传播机械信仰" },
+    { "name": "灵魂钟塔", "category": "文明组织", "priority": 1, "status": "稳固", "power": "掌控灵魂之力的文明" },
+    { "name": "炼金文明", "category": "文明组织", "priority": 1, "status": "稳固", "power": "精擅炼金造物" },
+    { "name": "拉米尔帝国", "category": "文明组织", "priority": 1, "status": "鼎盛", "power": "强盛的虚空帝国", "territory": "横跨数界" },
+    { "name": "星空座", "category": "文明组织", "priority": 2, "status": "稳固", "power": "特殊组织" },
+    { "name": "灵魂书库", "category": "文明组织", "priority": 2, "status": "稳固", "power": "收藏灵魂与知识的组织" },
+    { "name": "地精商会", "category": "文明组织", "priority": 2, "status": "稳固", "power": "遍布虚空的贸易组织", "goal": "逐利、操纵物价" },
+    { "name": "猎人工会", "category": "文明组织", "priority": 2, "status": "稳固", "power": "接发悬赏的中立组织" },
+    { "name": "死斗公司", "category": "文明组织", "priority": 2, "status": "稳固", "power": "经营生死搏杀的组织" },
+    { "name": "幽邃监狱", "category": "文明组织", "priority": 2, "status": "稳固", "power": "关押危险存在的牢狱" },
+
+    { "name": "烈阳星", "category": "原生世界", "priority": 1, "status": "衰退", "power": "太阳神族文明——即将熄灭的余火", "era": "曾与古龙文明大战，太阳神族损失数项核心传承、神族王室战死", "extra": { "主导种族": "太阳神族", "核心势力": "烈阳城", "内部派系": "旧日守护者 / 旧贵族 / 大书库", "存亡": "文明濒临熄灭" } },
+    { "name": "古龙国度", "category": "原生世界", "priority": 1, "status": "稳固", "power": "古龙主导的强大原生世界", "extra": { "主导种族": "古龙", "缺陷": "击退深渊入侵后留下'极寒'的世界缺陷" } },
+    { "name": "女巫界", "category": "原生世界", "priority": 1, "status": "稳固", "power": "女巫主导的原生世界", "extra": { "主导种族": "女巫", "渊源": "曾制作原罪物仿制品卖给轮回乐园" } },
+    { "name": "万族界", "category": "原生世界", "priority": 1, "status": "稳固", "power": "万族杂居的超脱·原生世界" },
+    { "name": "幽暗大陆", "category": "原生世界", "priority": 1, "status": "稳固", "power": "与'死寂本源'相关的原生世界", "extra": { "相关力量": "死寂本源 / 末代死寂之王" } },
+    { "name": "风海大陆", "category": "原生世界", "priority": 2, "status": "稳固", "power": "原生世界", "deeds": [ { "desc": "奥术永恒星古亚院长曾战死于此" } ] },
+    { "name": "陨灭星", "category": "原生世界", "priority": 2, "status": "稳固", "power": "较独立的原生世界" },
+    { "name": "永光世界", "category": "原生世界", "priority": 2, "status": "稳固", "power": "光明属性的原生世界" },
+
+    { "name": "众神", "category": "神灵", "priority": 2, "status": "稳固", "power": "正统神灵体系" },
+    { "name": "古神", "category": "神灵", "priority": 2, "status": "稳固", "power": "古老的神灵" },
+    { "name": "邪神", "category": "神灵", "priority": 2, "status": "扩张", "power": "倾向混乱与侵蚀的神灵" },
+    { "name": "异神", "category": "神灵", "priority": 2, "status": "稳固", "power": "性质特异的神灵" },
+    { "name": "古老神灵", "category": "神灵", "priority": 2, "status": "沉寂", "power": "上古遗留的神灵，多已沉眠" },
+
+    { "name": "黑暗神教", "category": "深渊", "priority": 0, "status": "扩张", "power": "深渊在各界的代理教派", "goal": "传播深渊信仰、制造混乱、迎奉界外存在" },
+    { "name": "深渊滋生", "category": "深渊", "priority": 0, "status": "扩张", "power": "深渊污染与深渊生物的总称", "goal": "蔓延、污染原生世界，使之沦为险地", "era": "持续滋生，威胁渐重" },
+    { "name": "卢恩家族", "category": "深渊", "priority": 0, "status": "鼎盛", "power": "深渊族裔，每名正式成员皆为至强巅峰", "goal": "代表'毁灭'，全族皆战斗狂", "extra": { "象征": "毁灭", "性情": "最严肃冷酷排外的深渊族裔", "信物": "始源族徽（每名成员持其一部分）" } },
+    { "name": "界外存在", "category": "深渊", "priority": 0, "status": "封印", "power": "上古深渊存在——深渊之主、深渊先王等顶级存在", "goal": "顶级威胁，伺机降临", "era": "多被封印或潜伏界外" },
+    { "name": "深渊原罪物", "category": "深渊", "priority": 1, "status": "稳固", "power": "原罪级物品（黑暗面具、死灵之书等）", "goal": "腐蚀持有者，传播深渊", "extra": { "代表物": "黑暗面具 / 死灵之书" } }
+  ]
+}

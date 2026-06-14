@@ -18,6 +18,7 @@ import { useCharacters } from '../store/characterStore';
 import { useMemory } from '../store/memoryStore';
 import { useMisc } from '../store/miscStore';
 import { useChannel } from '../store/channelStore';
+import { useCosmos } from '../store/cosmosStore';
 
 /* 纳入快照的所有持久化 store（key 必须与各 store persist 的 name 一致）*/
 const STORES: { key: string; api: any }[] = [
@@ -37,6 +38,7 @@ const STORES: { key: string; api: any }[] = [
   { key: 'drpg-memory',     api: useMemory },
   { key: 'drpg-misc',       api: useMisc },
   { key: 'drpg-channel',    api: useChannel },
+  { key: 'drpg-cosmos',     api: useCosmos },
 ];
 
 export interface SlotPreview { turn: number; playerName: string; location: string; lastText: string }
@@ -168,6 +170,7 @@ export async function clearProgress(): Promise<void> {
   try { useTeam.getState().clearTeam(); } catch { /* */ }            // 冒险团记录（保留预设/API 配置）
   try { useTurnInsight.getState().clear(); } catch { /* */ }         // 回合洞察快照
   try { useChannel.getState().clearChannel(); } catch { /* */ }      // 公共频道消息（保留预设/API 配置）
+  try { useCosmos.getState().clearCosmos(); } catch { /* */ }        // 万族棋盘（保留预设/API 配置；新游戏后下次演化会按种子模式重新播种）
   try { useCharacters.setState({ characters: {} }); } catch { /* */ }// 主角+全部角色技能/词条/称号/记忆
   try {
     usePlayer.getState().setProfile({ ...DEFAULT_PLAYER_PROFILE }); // 主角档案
