@@ -496,6 +496,26 @@ function EntryLamp({ constant, selective, enabled }: { constant: boolean; select
   return <span className="w-2 h-2 rounded-full bg-slate-400 shrink-0 mt-1.5" title="普通：关键词触发" />;
 }
 
+// 导出世界书为 SillyTavern 兼容 JSON（entries 为数字键对象，可被本应用或酒馆再导入）
+function downloadWorldBook(book: { name: string; entries: any[] }) {
+  const entries: Record<string, any> = {};
+  book.entries.forEach((e, i) => {
+    entries[i] = {
+      uid: e.uid ?? i, key: e.key ?? [], keysecondary: e.keysecondary ?? [],
+      comment: e.comment ?? '', content: e.content ?? '',
+      constant: !!e.constant, selective: !!e.selective, disable: e.enabled === false,
+      order: e.order ?? 100, position: e.position ?? 0,
+    };
+  });
+  const blob = new Blob([JSON.stringify({ name: book.name, entries }, null, 2)], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `${(book.name || '世界书').replace(/[\\/:*?"<>|]/g, '_')}.json`;
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
+
 function WorldBookCard({ book, expanded, onToggleExpand, onToggleBook, onRemove, bookIdPrefix = 'wb' }: {
   book: WorldBook;
   expanded: boolean;
@@ -565,6 +585,7 @@ function WorldBookCard({ book, expanded, onToggleExpand, onToggleBook, onRemove,
         <button onClick={onToggleExpand} className="text-dim hover:text-slate-200 text-sm font-mono px-2">
           {expanded ? '收起 ∧' : '展开 ∨'}
         </button>
+        <button onClick={() => downloadWorldBook(book)} className="text-dim hover:text-god text-sm px-2 transition-colors" title="导出为 JSON（可再导入）">导出</button>
         <button onClick={onRemove} className="text-blood/60 hover:text-blood text-sm px-2 transition-colors">删除</button>
       </div>
 

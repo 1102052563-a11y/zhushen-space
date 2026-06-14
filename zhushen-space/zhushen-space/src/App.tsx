@@ -11,6 +11,7 @@ import { useImageGen, effectiveEquipService } from './store/imageGenStore';
 import { generateImage, buildPortraitPrompt, buildEquipPrompt, shrinkDataUrl } from './systems/imageGen';
 import { genPortraitTags, genEquipTags, isTagService } from './systems/imageTags';
 import { hydrateImages, initImageSync } from './systems/imageSync';
+import { loadWb, saveWb } from './systems/wbDb';
 import TerritoryPanel from './components/TerritoryPanel';
 import AdventureTeamPanel from './components/AdventureTeamPanel';
 import ImageViewer from './components/ImageViewer';
@@ -78,9 +79,18 @@ async function loadBuiltinDefaults() {
     try { const r = await fetch(base + 'presets/' + f); return r.ok ? await r.text() : null; } catch { return null; }
   };
   try {
+    // 世界选择世界书 → worldBooks（仅「选择世界」功能读取）
     if ((useSettings.getState().worldBooks?.length ?? 0) === 0) {
-      const wb = await grab('worldbook.json');      if (wb) useSettings.getState().importWorldBook(wb, '轮回乐园世界书');
-      const mo = await grab('modular-output.json'); if (mo) useSettings.getState().importWorldBook(mo, 'ST模块化输出·铁律');
+      const w = await grab('worldgen.json'); if (w) useSettings.getState().importWorldBook(w, '世界选择世界书', true);
+    }
+    // 正文世界书 → textWorldBooks（正文生成读取）；按要求只内置 ST模块化·铁律 + 轮回乐园小说（______.json 不内置）
+    if ((useSettings.getState().textWorldBooks?.length ?? 0) === 0) {
+      const m = await grab('modular-output.json'); if (m) useSettings.getState().importTextWorldBook(m, 'ST模块化输出·铁律', true);
+      const n = await grab('novel.json');          if (n) useSettings.getState().importTextWorldBook(n, '轮回乐园小说', true);
+    }
+    // 正文文本预设（双人成行·春和景明）→ textPresets
+    if ((useSettings.getState().textPresets?.length ?? 0) === 0) {
+      const t = await grab('textpreset.json'); if (t) useSettings.getState().importTextPreset(t, '双人成行·春和景明', true);
     }
     if (usePlayer.getState().settings.entries.length === 0) {
       const t = await grab('player.json'); const p = t ? extractPlayerPresetFromJson(t) : null;
@@ -659,7 +669,7 @@ const WORLDSOURCE_RULE = `
 【世界之源·总量百分比铁则】世界之源是当前任务世界累计获取的进度**百分比**（带小数，如 0.6 表示 0.6%），指令 character.B1.worldSource：
 - 正文报【当前累计/总计 X%】→ 用 \`character.B1.worldSource = X\`（直接设为该总量，如"当前总计0.6%"→ \`= 0.6\`）。
 - 正文报【本次获得/增加 X%】→ 用 \`character.B1.worldSource += X\`（在原有总量上累加）。
-- 回归主神空间 → \`character.B1.worldSource = 0\`。
+- 回归轮回乐园 → \`character.B1.worldSource = 0\`。
 - **务必区分"当前总计"与"本次新增"**：正文说"当前总计 0.6%"就 \`= 0.6\`，绝不要只 += 一个小增量导致面板与正文对不上。`;
 
 const ATTR_SANITY_RULE = `
@@ -702,7 +712,10 @@ const NPC_PRIVATE_EXTRA_RULE = `
 - 独特技巧：属于该女性的**独特榨精技巧**——结合她的性格/身份/特点**发挥想象原创**（禁止套模板照抄），每次性爱后精进（可附熟练度/进化）。
 - 性爱姿势：记录**已掌握**的体位（传教士/观音坐莲/后入/骑乘等），每次性爱把本轮新掌握的并入、**合并类似姿势**；下列仅参考，禁止不经思考照抄。
 - 开发玩法：该女性被主角**开发过**的玩法，分号分隔累积。**参考库（仅供参考、禁止无脑照抄，按实际剧情思考选用）**：阿黑颜；性玩具[假阳具/口球/跳蛋/炮机/尿道塞/乳夹/阴蒂夹/肛塞/肛珠/肛勾/振动棒/圆头按摩棒/眼罩/手足枷/口衔]；装置[十字架/反省板/三角木马/拘束推车]；捆绑[后手反捆/龟甲缚/M字开腿缚/高抬腿缚/片足上吊缚]。
-铁则：①只对女性 NPC、且正文有相应剧情才写；②**累积式更新**，不要每轮清空重来；无新进展则不输出这些字段；③参考库只是清单，必须结合角色与剧情思考，禁止照抄堆砌。`;
+铁则：①只对女性 NPC、且正文有相应剧情才写；②**累积式更新**，不要每轮清空重来；无新进展则不输出这些字段；③参考库只是清单，必须结合角色与剧情思考，禁止照抄堆砌；④**【强制】本轮正文只要发生了女性性行为（性接触/插入/口交/调教/被开发等），事后必须把该女性的全部私密条目逐项更新或新增——既包括上面这些命名字段，也包括性相关列（8性经验/17表性癖/18里性癖/20敏感部位/21性器状态/22情欲值/23快感值/24性观念），一项都不能漏；情欲值/快感值给具体数值，独特技巧/性爱姿势/开发玩法按本轮新进展累积。`;
+
+const FACTION_NAME_RULE = `
+【势力命名·铁则】势力 name 必须是**符合当前世界观、有具体含义的中文名称**（如「青云宗」「黑鸦佣兵团」「哥布林巢穴·血牙部族」「圣盾骑士团」）。**严禁**用势力ID（F1/F2…）、英文代号、或「未命名/某势力/势力一」这类无意义占位文字当名字。正文已出现该势力名号则照用；未命名时按其类型/规模/首领/所处世界自拟一个贴切中文名。**若某势力当前的名字仍是 ID/英文/无意义占位（如 F1），必须在本次演化中把它改成贴切的中文名。**`;
 
 const TITLE_DIVERSITY_RULE = `
 【称号·多样化 & 去重铁则】称号是角色**长期赢得的身份/成就/江湖外号**，不是每回合的临时心情或场景状态：
@@ -716,7 +729,7 @@ const TALENT_NO_CAP_RULE = `
 
 /* 是否身处轮回乐园（任务间歇·回归态）——worldName 指向家园 */
 function isHomeWorld(name?: string): boolean {
-  return /轮回乐园|专属房间|轮回乐园/.test(name ?? '');
+  return /轮回乐园|专属房间|主神空间/.test(name ?? '');   // 含「主神空间」仅为兼容旧存档的家园判定，非展示文案
 }
 /* 回归乐园后的一致性兜底（每回合开头跑，基于上一回合落库的状态）：
    ① 顶/底时间一致：home 时 worldTime = paradiseTime
@@ -902,7 +915,36 @@ export default function App() {
   // 挂载：从 IndexedDB 读回上次对话（跨刷新自动保留）；读档后自动进入游戏
   useEffect(() => {
     (async () => {
-      void loadBuiltinDefaults();   // 首次启动并发载入内置世界书/演化预设（空时才填，不阻塞下面的对话恢复）
+      // 世界书/正文世界书/文本预设改存 IndexedDB（localStorage 太小）：先回填用户自有，迁移旧 localStorage 残留，再补内置，最后开镜像
+      try {
+        const wb = await loadWb();
+        if (wb) {
+          useSettings.setState({ worldBooks: wb.worldBooks ?? [], textWorldBooks: wb.textWorldBooks ?? [], textPresets: wb.textPresets ?? [] });
+        } else {
+          const c = useSettings.getState();   // IndexedDB 为空：把老版本残留在 localStorage 的世界书迁移过来
+          if (c.worldBooks?.length || c.textWorldBooks?.length || c.textPresets?.length) {
+            await saveWb({
+              worldBooks: c.worldBooks.filter((b: any) => !b.builtin),
+              textWorldBooks: c.textWorldBooks.filter((b: any) => !b.builtin),
+              textPresets: c.textPresets.filter((p: any) => !p.builtin),
+            });
+          }
+        }
+      } catch { /* */ }
+      void loadBuiltinDefaults();   // 补内置（仅当对应仓库仍为空）；内置项标 builtin、不入库，每次从 public 重载
+      // 镜像：世界书/预设变化（剔除 builtin 内置项）→ 防抖写入 IndexedDB
+      { let wbT: ReturnType<typeof setTimeout> | null = null; let wbLast: any[] | null = null;
+        useSettings.subscribe((s) => {
+          const ref = [s.worldBooks, s.textWorldBooks, s.textPresets];
+          if (wbLast && wbLast[0] === ref[0] && wbLast[1] === ref[1] && wbLast[2] === ref[2]) return;
+          wbLast = ref; if (wbT) clearTimeout(wbT);
+          wbT = setTimeout(() => saveWb({
+            worldBooks: s.worldBooks.filter((b: any) => !b.builtin),
+            textWorldBooks: s.textWorldBooks.filter((b: any) => !b.builtin),
+            textPresets: s.textPresets.filter((p: any) => !p.builtin),
+          }), 800);
+        });
+      }
       // 版本「已更新」提示：仅老玩家、且版本号变化时弹一次（纯提示，不动存档/预设/世界书）
       try {
         const sv = localStorage.getItem('zs-seen-version');
@@ -2054,11 +2096,11 @@ ${lines.join('\n')}`;
       !r.isDead && r.onScene && r.name && r.name !== r.id && !r.kitDone && (r.items?.length ?? 0) === 0);
     if (targets.length === 0) return;
     for (const r of targets) npc.upsertNpc(r.id, { kitDone: true });   // 立即标记，防并发/重复发放
-    const worldName = M.worldName || '主神空间';
+    const worldName = M.worldName || '轮回乐园';
     const list = targets.slice(0, 8).map((r) =>
       `${r.id} | 姓名:${r.name} | 性别:${r.gender || '?'} | 阶位等级:${r.realm || '?'} | 身份/职业:${r.profession || r.title || '?'} | 年龄:${r.age || '?'} | 背景:${(r.background || '').replace(/\s+/g, ' ').slice(0, 60)}`,
     ).join('\n');
-    const sys = `你是"主神空间·NPC 初始物资"生成器。为下列 NPC 各生成**严格贴合其身份/职业/年龄/所处世界**的随身装备与储物。
+    const sys = `你是"轮回乐园·NPC 初始物资"生成器。为下列 NPC 各生成**严格贴合其身份/职业/年龄/所处世界**的随身装备与储物。
 - **必须先读懂每个 NPC 是什么人，再据此发物**：学生→课本/手机/校服/零食；上班族→公文包/工牌/西装；医生→医疗箱/手术刀/白大褂；士兵/战士→制式武器/战术护甲；街头混混→匕首/香烟；法师→法杖/魔导书；贵族→华服/首饰。**严禁给普通学生、平民、文职这类非战斗人物发军刺、军用武器、战术装备**——那是离谱错误。
 - 所处世界=「${worldName}」，物品的风格/科技必须符合该世界（现代/校园/科幻/奇幻/末世等）。
 - 每个 NPC 给 ${NPC_KIT_EQUIP_N} 件可穿戴装备 + ${NPC_KIT_STORAGE_N} 件储物。无战斗力的平民：装备位用**日常衣物/便服/制服**充当(category=防具)、武器可省或用日常工具，攻防可低或留空；品质(gradeDesc)按其身份与阶位给(平民多为白/绿色)。
@@ -2856,7 +2898,7 @@ ${lines.join('\n')}`;
     const sys = buildChannelSystemPrompt(C.settings.entries)
       .replaceAll('${player_name}', prof.name || '主角')
       .replaceAll('${player_tier}', `${prof.tier || realmFromLevel(prof.level)}·Lv.${prof.level}`)
-      .replaceAll('${world_name}', M.worldName || '主神空间')
+      .replaceAll('${world_name}', M.worldName || '轮回乐园')
       .replaceAll('${world_time}', M.worldTime || M.paradiseTime || '（未设定）')
       .replaceAll('${enabled_channels}', enabledChannels)
       .replaceAll('${recent_events}', recent)
@@ -2909,7 +2951,7 @@ ${lines.join('\n')}`;
     const sys = buildChannelSystemPrompt(C.settings.entries)
       .replaceAll('${player_name}', prof.name || '主角')
       .replaceAll('${player_tier}', `${prof.tier || realmFromLevel(prof.level)}·Lv.${prof.level}`)
-      .replaceAll('${world_name}', M.worldName || '主神空间')
+      .replaceAll('${world_name}', M.worldName || '轮回乐园')
       .replaceAll('${world_time}', M.worldTime || M.paradiseTime || '')
       .replaceAll('${enabled_channels}', '交易').replaceAll('${recent_events}', '').replaceAll('${existing_messages}', '').replaceAll('${message_count}', '0')
       + '\n\n【报价生成铁则】针对玩家在交易频道挂的求购/出售帖，扮演多位**不同**契约者给出报价/出价，每条务必：① 价格贴合该物品的颜色品质定价与玩家预算（有人急出压价、有人坐地起价、有人给替代品/附赠）；② **求购帖里你是卖家**（报价把东西卖给玩家），**出售帖里你是买家**（出价收购玩家的东西）；③ 必带一句符合该契约者身份口吻的【留言】（可砍价/吹嘘/吐槽/玩梗/讲价由头）。货币用 乐园币 或 灵魂钱币。\n④ **求购帖的卖家报价：必须按固定格式给出所提供物品的完整属性**——名称/产地(origin)/品质色(gradeDesc)/类型(category+subType)/攻防(combatStat)/耐久(durability)/装备需求(requirement)/词缀(affix)/评分(score)/效果(effect)/简介(intro)/外观(appearance)，武器另加杀敌数(killCount)；**若是技能书/技能卷轴/知识卷轴/图纸/天赋碎片**，subType 写明类型、effect 明确写学会/获得什么（技能名+层阶 / 知识领域 / 可制造产品 / 天赋名+评级）；**一个都不能省略、不准偷懒**（与物品生成同标准）。出售帖你是买家、出价即可，不必重复物品属性。';
@@ -3011,7 +3053,7 @@ ${lines.join('\n')}`;
   /* 策略B 第一段：当前世界判断 */
   async function runFactionWorldJudgment(narrative: string) {
     const { entries } = useFactionEvo.getState().settings;
-    const sys = buildFactionEntryPrompt(entries) + '\n\n' + NARRATIVE_FIRST_RULE + '\n' + FACTION_HOME_EXIT_RULE + '\n' + FACTION_WORLD_RULE;
+    const sys = buildFactionEntryPrompt(entries) + '\n\n' + NARRATIVE_FIRST_RULE + '\n' + FACTION_HOME_EXIT_RULE + '\n' + FACTION_WORLD_RULE + '\n' + FACTION_NAME_RULE;
     const facStore = useFaction.getState();
     const list = Object.values(facStore.factions);
     const known = list.map((f) => `${f.id}(${f.name})${f.worldName ? '·所属世界:' + f.worldName : ''}${f.inCurrentWorld ? '·当前世界' : '·非当前世界'}`).join(', ') || '（无）';
@@ -3044,7 +3086,7 @@ ${lines.join('\n')}`;
     const focus = computeFactionFocus();
     if (focus.length === 0) return;
     const { entries, scheduling } = useFactionEvo.getState().settings;
-    const sysBase = buildFactionSystemPrompt(entries) + '\n\n' + NARRATIVE_FIRST_RULE + '\n' + FACTION_WORLD_RULE + '\n' + FIRST_UPDATE_COMPLETE_RULE;
+    const sysBase = buildFactionSystemPrompt(entries) + '\n\n' + NARRATIVE_FIRST_RULE + '\n' + FACTION_WORLD_RULE + '\n' + FIRST_UPDATE_COMPLETE_RULE + '\n' + FACTION_NAME_RULE;
     const trimmed = trimNarrative(narrative);
     const conc = Math.max(1, scheduling.concurrency || 2);
     for (let i = 0; i < focus.length; i += conc) {
@@ -4281,6 +4323,7 @@ function WorldCardView({ worlds, index, onPrev, onNext, onJump, onSelect, onClos
           <div className="flex-1 overflow-y-auto min-h-0 divide-y divide-edge/40">
             {world.desc       && <CardSection label="世界简介" content={world.desc} />}
             {world.peakPower  && <CardSection label="巅峰战力" content={world.peakPower} />}
+            {world.contractorDist && <CardSection label="契约者分布" content={world.contractorDist} />}
             {world.entryPoint && <CardSection label="切入点"   content={world.entryPoint}  accent="god" />}
             {world.mainMission && <CardSection label="主线任务" content={world.mainMission} accent="amber" />}
             {world.sideMission && <CardSection label="支线任务" content={world.sideMission} />}

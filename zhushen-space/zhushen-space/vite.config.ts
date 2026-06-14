@@ -7,12 +7,18 @@ import { copyFileSync, existsSync, mkdirSync } from 'fs'
 // 不必手动"重新内置"。源文件缺失时保留上次提交的副本，绝不让构建失败。
 function copyBuiltinPresets(): Plugin {
   const map: [string, string][] = [
-    ['../../______.json', 'worldbook.json'],
-    ['../../ST_WI_Modular_Output_v11_orange_quote_fix_only.json', 'modular-output.json'],
-    ['../../预设/主角演化.json', 'player.json'],
-    ['../../预设/物品管理.json', 'item.json'],
-    ['../../预设/NPC演化.json', 'npc.json'],
-    ['../../预设/势力演化.json', 'faction.json'],
+    // 正文世界书 + 模块化铁律（轮回乐园 ______.json 按要求不内置）。路径对应用户的文件夹结构：世界书/ 正文预设/ 演化预设/
+    ['../../正文预设/ST_WI_Modular_Output_v11_orange_quote_fix_only.json', 'modular-output.json'],
+    ['../../世界书/轮回乐园小说.json', 'novel.json'],
+    // 世界选择世界书（仅「选择世界」功能用）
+    ['../../世界书/世界选择.json', 'worldgen.json'],
+    // 正文文本预设
+    ['../../正文预设/双人成行 V5.2 —春和景明(5.29） (1).json', 'textpreset.json'],
+    // 演化预设
+    ['../../演化预设/主角演化.json', 'player.json'],
+    ['../../演化预设/物品管理.json', 'item.json'],
+    ['../../演化预设/NPC演化.json', 'npc.json'],
+    ['../../演化预设/势力演化.json', 'faction.json'],
   ]
   const sync = () => {
     try { mkdirSync('public/presets', { recursive: true }) } catch { /* */ }

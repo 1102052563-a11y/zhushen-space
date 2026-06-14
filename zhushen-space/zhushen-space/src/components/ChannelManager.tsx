@@ -78,7 +78,7 @@ function SettingsSection() {
       <div className="flex items-center justify-between gap-3 rounded-lg border border-edge bg-panel px-3 py-2.5">
         <div>
           <div className="text-sm text-slate-200">启用公共频道</div>
-          <div className="text-[13px] text-dim/70 mt-0.5">主神空间·契约者公共广场（只读）：打开面板时若内容过期会自动刷新一批 AI 帖子</div>
+          <div className="text-[13px] text-dim/70 mt-0.5">轮回乐园·契约者公共广场（只读）：打开面板时若内容过期会自动刷新一批 AI 帖子</div>
         </div>
         <Toggle checked={settings.enabled} onChange={() => setSettings({ enabled: !settings.enabled })} />
       </div>
@@ -222,7 +222,7 @@ export default function ChannelManager() {
       <div className="flex items-start justify-between gap-4 border-b border-edge pb-4">
         <div>
           <h2 className="text-base font-bold text-slate-100">公共频道</h2>
-          <p className="text-sm text-dim mt-0.5">主神空间·契约者公共广场（一期·只读）：AI 模拟交易/组队/综合/情报帖子</p>
+          <p className="text-sm text-dim mt-0.5">轮回乐园·契约者公共广场（一期·只读）：AI 模拟交易/组队/综合/情报帖子</p>
         </div>
         <div className="flex items-center gap-2 shrink-0">
           <span className="text-sm text-dim font-mono">{enabled ? '已启用' : '已停用'}</span>

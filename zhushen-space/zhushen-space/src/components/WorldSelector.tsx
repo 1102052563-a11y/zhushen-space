@@ -1,5 +1,6 @@
 import { useState, useRef, useEffect } from 'react';
 import { useSettings } from '../store/settingsStore';
+import { WORLD_GEN_PROMPT } from '../worldGenPrompt';
 
 export interface WorldOption {
   name: string;
@@ -13,6 +14,7 @@ export interface WorldOption {
   warning: string;
   reward: string;
   peakPower: string;
+  contractorDist: string;
   region: string;
   entryComment: string;
   entryContent: string;
@@ -85,8 +87,15 @@ export default function WorldSelector({ onSelect, onRawResponse, onPromptSent, o
 
   function pickEntries() {
     // 蓝灯（constant）：常驻，始终纳入
-    // 绿灯（selective）：关键词触发，rank 或 systemPrompt 中命中任一主关键词则纳入
+    // 绿灯（selective）：关键词触发
     const ctx = (rank + ' ' + systemPrompt).toLowerCase();
+    // 适配「世界选择世界书」：键名形如【选择三阶世界】。把输入(三/3/三阶)归一成中文数字，拼出目标键去匹配。
+    const cn = (() => {
+      const CN = ['', '一', '二', '三', '四', '五', '六', '七', '八', '九'];
+      const t = rank.trim().replace(/[阶世界\s]/g, '');
+      return /^[1-9]$/.test(t) ? CN[Number(t)] : t;
+    })();
+    const tierKey = cn ? `选择${cn}阶世界` : '';
     return worldBooks
       .filter((b) => b.enabled)
       .flatMap((b) =>
@@ -94,7 +103,12 @@ export default function WorldSelector({ onSelect, onRawResponse, onPromptSent, o
           if (!e.enabled) return false;
           if (e.constant) return true;
           if (e.selective) {
-            return e.key.length > 0 && e.key.some((k) => k && ctx.includes(k.toLowerCase()));
+            const keys = (e.key || []).filter(Boolean);
+            if (keys.length === 0) return false;
+            return keys.some((k) =>
+              ctx.includes(k.toLowerCase()) ||      // 原：上下文含关键词
+              (tierKey && k.includes(tierKey))      // 新：键含【选择N阶世界】(世界选择书按阶位命中)
+            );
           }
           return false;
         })
@@ -112,23 +126,26 @@ export default function WorldSelector({ onSelect, onRawResponse, onPromptSent, o
     }
 
     const picked = pickEntries();
-    const sysContent = systemPrompt || '你是一个沉浸式文字RPG的游戏主持人（GM）。';
+    // 世界生成用内置专用提示词（含字段与字数规范），不再依赖全局 systemPrompt
+    const sysContent = WORLD_GEN_PROMPT;
 
-    const rankPart = rank.trim() ? `【选择${rank.trim()}阶世界】` : '【选择世界】';
-    const rollPart = rolls.length > 0
-      ? `Roll点（12次 0-1500）：${rolls.join('、')}\n请根据Roll点高低体现世界的稀有度与难度。\n`
-      : '';
+    // 始终凑齐 12 个随机ID（玩家没手动 Roll 时自动生成）
+    const ids = rolls.length ? rolls : rollDice();
+    if (!rolls.length) setRolls(ids);
+
+    const rankPart = rank.trim() ? `目标阶位：${rank.trim()}阶` : '目标阶位：未指定（按通用难度生成）';
+    const idPart = `12 个随机ID（0–1500，越高越稀有/危险）：${ids.join('、')}`;
 
     const entriesText = picked.length > 0
       ? picked.map((e, i) => {
-          const lamp = e.constant ? '【常驻】' : e.selective ? '【触发】' : '';
-          return `世界${i + 1}${lamp}【${e.comment || `条目${e.uid}`}】\n${e.content}`;
+          const lamp = e.constant ? '【常驻】' : e.selective ? '【绿灯/触发】' : '';
+          return `条目${i + 1}${lamp}【${e.comment || `#${e.uid}`}】\n${e.content}`;
         }).join('\n\n')
-      : '（世界书为空）';
+      : '（无匹配世界书条目；请按目标阶位与同类题材合理生成）';
 
     const userMessage =
-      `${rankPart}\n${rollPart}\n` +
-      `以下是世界书内容，供你参考：\n\n${entriesText}`;
+      `${rankPart}\n${idPart}\n\n` +
+      `以下是该阶位被点亮的世界书条目（绿灯/触发为主），供你筛选取材并生成 10 个世界：\n\n${entriesText}`;
 
     // 发送前记录完整提示词
     const fullPrompt =
@@ -179,6 +196,7 @@ export default function WorldSelector({ onSelect, onRawResponse, onPromptSent, o
         warning:     s(w.warning ?? w['警告与提示']),
         reward:      s(w.reward ?? w.rewardPreview ?? w['奖励预览']),
         peakPower:   s(w.peakPower ?? w['世界巅峰战力']),
+        contractorDist: s(w.contractorDist ?? w['契约者分布'] ?? w.contractor),
         region:      s(w.region ?? w['主要任务限定区域']),
         entryComment: '',
         entryContent: '',

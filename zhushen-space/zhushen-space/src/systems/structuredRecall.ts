@@ -243,11 +243,22 @@ export function serializeNpcCard(
 
   const titleLine = equippedTitleLine(titles);
   const spLines = subProfLines(subProfs);
+  // 私密信息（性相关列 8/17/18/20-24 + 命名字段，存 npc.extra）：存在则注入正文召回，让主叙事知晓 NPC 私密状态
+  const PRIV: [string, string][] = [
+    ['8', '性经验'], ['17', '表性癖'], ['18', '里性癖'], ['20', '敏感部位'], ['21', '性器状态'],
+    ['22', '情欲值'], ['23', '快感值'], ['24', '性观念'],
+    ['淫纹', '淫纹'], ['解锁服装', '解锁服装'], ['独特技巧', '独特技巧'], ['性爱姿势', '性爱姿势'], ['开发玩法', '开发玩法'],
+  ];
+  const ex = (npc.extra ?? {}) as Record<string, unknown>;
+  const privLines = PRIV
+    .map(([k, label]) => { const v = ex[k]; return v != null && String(v).trim() ? `${label}:${String(v).trim()}` : null; })
+    .filter(Boolean) as string[];
   return [`# NPC [${npc.id}]${flags ? ` (${flags})` : ''}`, '  ' + id, '  ' + stat,
     titleLine && '  ' + titleLine,
     detail && '  ' + detail,
     block('技能', skillLines), block('天赋', talLines), block('装备/物品', itemLines),
     spLines.length ? block('副职业', spLines) : '',
+    privLines.length ? block('私密信息', privLines) : '',
   ].filter(Boolean).join('\n');
 }
 

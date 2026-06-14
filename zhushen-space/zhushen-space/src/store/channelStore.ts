@@ -6,7 +6,7 @@ import channelDefaultPreset from '../data/channelDefaultPreset.json';
 
 /* ════════════════════════════════════════════
    公共频道（一期：纯氛围·只读）
-   主神空间的契约者公共广场——AI 模拟一群虚拟契约者发帖（交易/组队/综合/情报）。
+   轮回乐园的契约者公共广场——AI 模拟一群虚拟契约者发帖（交易/组队/综合/情报）。
    一期只读：展示帖子，不接结算；交易/组队的结构化字段已保留，供二期接入。
 ════════════════════════════════════════════ */
 
@@ -19,7 +19,7 @@ export const CHANNEL_DEFS: { key: ChannelKey; label: string; icon: string; desc:
   { key: 'battle',  label: '战斗', icon: '⚔', desc: '实时战况 / 求支援 / 集火指令' },
   { key: 'world',   label: '世界', icon: '🌐', desc: '世界见闻 / 剧情向闲谈' },
   { key: 'intel',   label: '情报', icon: '🛰', desc: '认知层：机制解析 / 攻略 / 敌情' },
-  { key: 'system',  label: '系统', icon: '📢', desc: '主神空间公告 / 结算 / 判定（冷静无情绪）' },
+  { key: 'system',  label: '系统', icon: '📢', desc: '轮回乐园公告 / 结算 / 判定（冷静无情绪）' },
 ];
 
 /* 物品固定格式字段（出售/报价时完整展示 + 购买入背包时带入，与 InventoryItem 同名键对齐）*/

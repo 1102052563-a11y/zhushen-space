@@ -354,7 +354,7 @@ export default function ChannelPanel({ onClose, onRefresh, onSolicit }: { onClos
           <span className="text-god/70 text-lg">📡</span>
           <div className="flex-1 min-w-0">
             <div className="text-base font-bold text-slate-100">公共频道</div>
-            <div className="text-[12px] font-mono text-dim/60 truncate">主神空间·契约者公共广场　交易帖可一键成交</div>
+            <div className="text-[12px] font-mono text-dim/60 truncate">轮回乐园·契约者公共广场　交易帖可一键成交</div>
           </div>
           <span className="shrink-0 text-[11px] font-mono text-amber-300/80 whitespace-nowrap" title="当前余额">
             💰 {currency.乐园币} · 魂 {currency.灵魂钱币}

@@ -21,6 +21,7 @@ export interface WorldBook {
   entries: WorldBookEntry[];
   enabled: boolean;
   createdAt: number;
+  builtin?: boolean;   // 内置默认书：来自 public/presets，每次启动重载、不写入 localStorage（省配额）
 }
 
 export interface ApiConfig {
@@ -85,6 +86,7 @@ export interface TextGenPreset {
   name: string;
   entries: STPromptEntry[];
   regexScripts: RegexScript[];
+  builtin?: boolean;   // 内置默认预设：每次启动重载、不写入 localStorage
   // 生成参数
   temperature?: number;
   max_tokens?: number;      // 最大回复长度
@@ -614,10 +616,10 @@ export const useSettings = create<SettingsState>()(
 
       setSystemPrompt: (prompt) => set({ systemPrompt: prompt }),
 
-      importWorldBook: (raw, fileName = '') => {
+      importWorldBook: (raw, fileName = '', builtin = false) => {
         try {
           const { name, entries } = parseWorldBook(raw, fileName);
-          set((s) => ({ worldBooks: [...s.worldBooks, { id: `wb_${Date.now()}`, name, entries, enabled: true, createdAt: Date.now() }] }));
+          set((s) => ({ worldBooks: [...s.worldBooks, { id: `wb_${Date.now()}`, name, entries, enabled: true, createdAt: Date.now(), builtin }] }));
           return { ok: true, message: `已导入「${name}」，共 ${entries.length} 条条目` };
         } catch (e: any) { return { ok: false, message: `导入失败：${e.message}` }; }
       },
@@ -653,10 +655,10 @@ export const useSettings = create<SettingsState>()(
         } catch (e: any) { set({ textModelsError: e.message ?? '请求失败', textModelsLoading: false }); }
       },
 
-      importTextWorldBook: (raw, fileName = '') => {
+      importTextWorldBook: (raw, fileName = '', builtin = false) => {
         try {
           const { name, entries } = parseWorldBook(raw, fileName);
-          set((s) => ({ textWorldBooks: [...s.textWorldBooks, { id: `twb_${Date.now()}`, name, entries, enabled: true, createdAt: Date.now() }] }));
+          set((s) => ({ textWorldBooks: [...s.textWorldBooks, { id: `twb_${Date.now()}`, name, entries, enabled: true, createdAt: Date.now(), builtin }] }));
           return { ok: true, message: `已导入「${name}」，共 ${entries.length} 条条目` };
         } catch (e: any) { return { ok: false, message: `导入失败：${e.message}` }; }
       },
@@ -674,12 +676,12 @@ export const useSettings = create<SettingsState>()(
       }),
       removeTextWorldBookEntry: (bookId, uid) => set((s) => ({ textWorldBooks: s.textWorldBooks.map((b) => b.id !== bookId ? b : { ...b, entries: b.entries.filter((e) => e.uid !== uid) }) })),
 
-      importTextPreset: (raw, fileName = '') => {
+      importTextPreset: (raw, fileName = '', builtin = false) => {
         try {
           const data = JSON.parse(raw);
           const id = `preset_${Date.now()}`;
           const preset = parseSTPreset(data, fileName, id);
-          set((s) => ({ textPresets: [...s.textPresets, preset], activeTextPresetId: preset.id }));
+          set((s) => ({ textPresets: [...s.textPresets, { ...preset, builtin }], activeTextPresetId: preset.id }));
           const rxCount = preset.regexScripts.length;
           return { ok: true, message: `已导入「${preset.name}」，共 ${preset.entries.length} 条 prompt${rxCount ? `，含 ${rxCount} 条正则` : ''}` };
         } catch (e: any) {
@@ -754,6 +756,16 @@ export const useSettings = create<SettingsState>()(
       // ── 正则通用工具 ──
       ...buildRegexOps(set),
     }),
-    { name: 'drpg-settings' }
+    {
+      name: 'drpg-settings',
+      // 世界书 / 正文世界书 / 文本预设 改存 IndexedDB（见 systems/wbDb），localStorage 不再保存它们——
+      // 既容纳大世界书（IndexedDB 容量大），又避免撑爆 localStorage 5MB 配额。
+      partialize: (s) => ({
+        ...s,
+        worldBooks: [],
+        textWorldBooks: [],
+        textPresets: [],
+      }),
+    }
   )
 );
