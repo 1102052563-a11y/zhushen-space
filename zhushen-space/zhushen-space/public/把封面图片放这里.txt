@@ -1,0 +1,9 @@
+把你的封面图片保存到这个 public 文件夹，命名为：cover.jpg
+
+即最终路径应为：
+zhushen-space/zhushen-space/public/cover.jpg
+
+说明：
+- StartScreen 用 url('/cover.jpg') 作为开始界面背景；vite build 时 public/ 下的文件会被拷到 dist/ 根目录。
+- 如果你的图是 png，可改名为 cover.jpg（浏览器按内容识别，扩展名不影响显示），或把 StartScreen.tsx 里的 '/cover.jpg' 改成 '/cover.png'。
+- 放好图后运行：npx vite build

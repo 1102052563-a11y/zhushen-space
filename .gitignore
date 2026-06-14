@@ -1,0 +1,17 @@
+# ───── 本地工具 / 临时文件（不入库）─────
+.claude/
+*.tmp
+
+# ───── 依赖与构建产物（Cloudflare 会自己 npm install + 构建）─────
+node_modules/
+dist/
+
+# ───── 第三方 / 参考资料（非本项目代码，不入库，保持仓库精简）─────
+# 另一个预构建 app，仅作移植参考，不需要部署，也不必备份
+fanren-remake-public-assets/
+# 下载来的模板，与本项目无关
+awesome-design-md-main/
+
+# ───── 系统垃圾 ─────
+.DS_Store
+Thumbs.db
