@@ -56,6 +56,8 @@ import NpcDetail from './components/NpcDetail';
 import OnScenePanel from './components/OnScenePanel';
 import PlayerEquipPanel from './components/PlayerEquipPanel';
 import ItemListPanel from './components/ItemListPanel';
+import VersionToast from './components/VersionToast';
+import { APP_VERSION, VERSION_NOTE } from './version';
 
 const PENDING_REGEN_KEY = 'drpg-pending-regen';   // reload 后自动重发的输入（重新生成用）
 interface StoryImage { anchor: string; url: string; prompt: string; nsfw: string; ts: number }
@@ -809,6 +811,7 @@ export default function App() {
   const [nmRecalling,        setNmRecalling]        = useState(false);  // 叙事记忆：正在进行记忆回溯
   const [nmPhaseLog,         setNmPhaseLog]         = useState('');     // 叙事记忆：回溯/整理结果提示
   const [backpackOpen,     setBackpackOpen]     = useState(false);
+  const [showVer,          setShowVer]          = useState(false);   // 版本「已更新」提示横幅
   const [equipOpen,        setEquipOpen]        = useState(false);
   const [charPanelOpen,    setCharPanelOpen]    = useState(false);
   const [titlePanelOpen,   setTitlePanelOpen]   = useState(false);
@@ -900,6 +903,12 @@ export default function App() {
   useEffect(() => {
     (async () => {
       void loadBuiltinDefaults();   // 首次启动并发载入内置世界书/演化预设（空时才填，不阻塞下面的对话恢复）
+      // 版本「已更新」提示：仅老玩家、且版本号变化时弹一次（纯提示，不动存档/预设/世界书）
+      try {
+        const sv = localStorage.getItem('zs-seen-version');
+        if (sv && sv !== APP_VERSION) setShowVer(true);
+        localStorage.setItem('zs-seen-version', APP_VERSION);
+      } catch { /* */ }
       // 图片：从 IndexedDB 回填 avatar/image 到各 store（localStorage 已不存图），再开启自动镜像
       try { await hydrateImages(); } catch { /* */ }
       initImageSync();
@@ -4110,6 +4119,7 @@ ${lines.join('\n')}`;
       {teamPanelOpen && <AdventureTeamPanel onClose={() => setTeamPanelOpen(false)} />}
       <ImageViewer />
       <ImageBusyToast />
+      {showVer && <VersionToast version={APP_VERSION} note={VERSION_NOTE} onClose={() => setShowVer(false)} />}
       {/* 回退 / 重新生成 确认弹窗（破坏性操作，先确认）*/}
       {confirmAction && (
         <div className="fixed inset-0 z-[80] bg-black/70 backdrop-blur-sm flex items-center justify-center p-4"
