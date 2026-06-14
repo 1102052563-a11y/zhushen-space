@@ -15,12 +15,12 @@ import TerritoryPanel from './components/TerritoryPanel';
 import AdventureTeamPanel from './components/AdventureTeamPanel';
 import ImageViewer from './components/ImageViewer';
 import ImageBusyToast from './components/ImageBusyToast';
-import { useItems } from './store/itemStore';
+import { useItems, extractItemPresetFromJson } from './store/itemStore';
 import type { ItemPresetEntry } from './store/itemStore';
-import { usePlayer, buildPlayerSystemPrompt } from './store/playerStore';
-import { useNpcEvo } from './store/npcEvoStore';
+import { usePlayer, buildPlayerSystemPrompt, extractPlayerPresetFromJson } from './store/playerStore';
+import { useNpcEvo, extractNpcPresetFromJson } from './store/npcEvoStore';
 import { useFaction } from './store/factionStore';
-import { useFactionEvo, buildFactionSystemPrompt, buildFactionEntryPrompt } from './store/factionEvoStore';
+import { useFactionEvo, buildFactionSystemPrompt, buildFactionEntryPrompt, extractFactionPresetFromJson } from './store/factionEvoStore';
 import FactionPanel from './components/FactionPanel';
 import { useTurnInsight } from './store/turnInsightStore';
 import TurnInsightPanel from './components/TurnInsightPanel';
@@ -66,6 +66,37 @@ interface ChatMessage {
   smallSummary?: string;   // 该楼层小总结（叙事记忆三档注入用）
   largeSummary?: string;   // 该楼层大总结
   images?: StoryImage[];   // 正文配图（按 anchor 插入楼层正文）
+}
+
+// 首次启动自动载入内置世界书 + 各演化预设（仅当对应项为空才填，永不覆盖玩家已有数据）。
+// 文件放 public/presets/，按需 fetch、不进 JS 包；某项 fetch 失败则下次启动重试（因仍为空）。
+async function loadBuiltinDefaults() {
+  const base = import.meta.env.BASE_URL || '/';
+  const grab = async (f: string): Promise<string | null> => {
+    try { const r = await fetch(base + 'presets/' + f); return r.ok ? await r.text() : null; } catch { return null; }
+  };
+  try {
+    if ((useSettings.getState().worldBooks?.length ?? 0) === 0) {
+      const wb = await grab('worldbook.json');      if (wb) useSettings.getState().importWorldBook(wb, '轮回乐园世界书');
+      const mo = await grab('modular-output.json'); if (mo) useSettings.getState().importWorldBook(mo, 'ST模块化输出·铁律');
+    }
+    if (usePlayer.getState().settings.entries.length === 0) {
+      const t = await grab('player.json'); const p = t ? extractPlayerPresetFromJson(t) : null;
+      if (p) usePlayer.getState().setPresetEntries(p.entries, p.name, p.version);
+    }
+    if (useItems.getState().settings.entries.length === 0) {
+      const t = await grab('item.json'); const p = t ? extractItemPresetFromJson(t) : null;
+      if (p) useItems.getState().setPresetEntries(p.entries, p.name, p.version);
+    }
+    if (useNpcEvo.getState().settings.entries.length === 0) {
+      const t = await grab('npc.json'); const p = t ? extractNpcPresetFromJson(t) : null;
+      if (p) useNpcEvo.getState().setPresetEntries(p.entries, p.name, p.version);
+    }
+    if (useFactionEvo.getState().settings.entries.length === 0) {
+      const t = await grab('faction.json'); const p = t ? extractFactionPresetFromJson(t) : null;
+      if (p) useFactionEvo.getState().setPresetEntries(p.entries, p.name, p.version);
+    }
+  } catch (e) { console.warn('[内置预设] 载入失败', e); }
 }
 
 function escapeHtml(s: string): string {
@@ -868,6 +899,7 @@ export default function App() {
   // 挂载：从 IndexedDB 读回上次对话（跨刷新自动保留）；读档后自动进入游戏
   useEffect(() => {
     (async () => {
+      void loadBuiltinDefaults();   // 首次启动并发载入内置世界书/演化预设（空时才填，不阻塞下面的对话恢复）
       // 图片：从 IndexedDB 回填 avatar/image 到各 store（localStorage 已不存图），再开启自动镜像
       try { await hydrateImages(); } catch { /* */ }
       initImageSync();
