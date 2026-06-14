@@ -2526,6 +2526,7 @@ ${lines.join('\n')}`;
         e.towardParadise && `对${home}:${e.towardParadise}`,
         e.relations.length ? `关系:${e.relations.map((r) => `${r.target}(${r.relation})`).join('、')}` : '',
         Object.keys(e.extra).length ? `备注:${Object.entries(e.extra).map(([k, v]) => `${k}:${v}`).join('；')}` : '',
+        e.deeds.length ? `近期大事记(新→旧，据此延续走向、勿与之矛盾):${e.deeds.slice(0, 6).map((d) => (d.time ? `[${d.time}]` : '') + d.desc).join(' / ')}` : '',
       ].filter(Boolean);
       return '· ' + bits.join('；');
     });
