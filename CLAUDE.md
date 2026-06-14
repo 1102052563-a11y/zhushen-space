@@ -423,6 +423,7 @@ deTalent("B1", "剑术天赋")
 - **UI**：右侧导航 **🏛 势力** → `FactionPanel`（当前世界/非当前世界/已覆灭分区）；**设置→变量管理→🏛 势力演化** → `FactionManager`（启用+A/B策略选择+预设导入导出+调度+API 三Tab）。状态栏有 `factionPhaseLog`。
 - **预设** `预设/势力演化.json`（双区：3条 entrySharedRules 当前世界判断 + 3条 prompts.faction.rules 重点演化，仿 NPC演化结构，可在 FactionManager 导入）。
 - **存档**：`drpg-faction`/`drpg-faction-evo` 已纳入 saveManager 快照 + `clearProgress` 清空。
+- **全量格式 + 换世界清理（修"势力换世界还在"）**：`FACTION_FULL_FORMAT_RULE`（代码注入两个势力阶段）强制**每次** addFaction/`faction.<id>` 都把全字段填全、尤其 **worldName 必填**（缺失 worldName 是"换世界后旧势力还挂当前世界出不去"的根因）。`enterWorld` 另做代码兜底：进新世界时把"worldName 已知且明显不属于新世界"的势力 `setWorld(false)` 移出当前世界。配合既有 `FACTION_HOME_EXIT_RULE`/`reconcileHomeWorld`（回归乐园时移出任务世界势力）。
 
 ## 领地演化系统（主神空间个人基地·单一记录）
 
@@ -462,7 +463,7 @@ deTalent("B1", "剑术天赋")
 - **接口路由（多选·优先级·轮流+fallback）** `settingsStore.apiRoutes: Record<featureKey, string[]>`（有序 endpoint id 列表，上=先调用）+ `setApiRoute`。`resolveApiChain(key, legacy): ApiConfig[]` —— 路由有启用接口则返回该链，否则回退到 legacy 单配置（功能自己的「共用/单独」设置）。
 - **调用器** `systems/apiChat.ts` `apiChatFallback(chain, messages, {timeoutMs, extra})`：按链逐个尝试，失败/超时自动切下一条；每接口用各自 model/temperature/maxTokens（`extra` 如预设温度覆盖优先）。**主正文 callApi 内置同款 fallback 循环**（流式，逐接口 fetch，首个 OK 即用）。
 - **featureKey**：`text`(正文)/`world`(世界选择)/`item`/`player`/`npc`/`faction`/`territory`/`team`/`misc`/`memory`/`nm`/**`image_story_llm`**(正文配图的锚点抽取 LLM)。各功能 ApiSection 用组件 `ApiRoutePicker`（多选+↑↓排序+删除）配置；留空则用该功能下方「单独配置/共用 API」。
-- **接入点**：所有阶段调用处已切到 `resolveApiChain(key, legacy)` + `apiChatFallback`（npc/faction 用其 `npcChatCompletion`/`factionChatCompletion`，nm 用 `nmChatCompletion`，item/player/misc/memory/territory/team 各 run*Phase，正文 callApi 自带循环）。
+- **接入点**：所有阶段调用处已切到 `resolveApiChain(key, legacy)` + `apiChatFallback`（npc/faction 用其 `npcChatCompletion`/`factionChatCompletion`，nm 用 `nmChatCompletion`，item/player/misc/memory/territory/team 各 run*Phase，正文 callApi 自带循环）。⚠️ **世界选择(`world`)曾漏接**：`WorldSelector.generate()` 早期直接用 `useSettings.api` 裸 fetch、无视 `world` 路由；已改为 `resolveApiChain('world', api)` + `apiChatFallback`（多接口轮流+fallback）。
 - 旧 `ApiQuickPick.tsx`（单选一键填入）已被 `ApiRoutePicker` 取代（选 1 条=单接口，选多条=轮流），文件保留未引用。
 
 ## 生图系统（三条生成线，`imageGenStore` + `systems/imageGen.ts`）
@@ -475,7 +476,7 @@ deTalent("B1", "剑术天赋")
   - **主角立绘** → `PlayerProfile.avatar`：`PlayerSidebar` 头部 `PlayerAvatar` 组件。
   - **装备图** → `InventoryItem.image`（`BackpackModal.ItemImageBlock`）/ `NpcOwnedItem.image`（`NpcDetail.NpcItemCard`，每张物品卡左侧 14px 缩略图 + ✨/⬆/✕）。NPC 物品图通过 `npcStore.updateNpcItem(ownerId,itemId,patch)` 写入。
 - **自动阶段**（`App.runPostNarrativePhases` 末尾触发，均受各自开关门控；肖像/装备延后 6 秒等演化写档，串行生成避免打爆 NAI）：
-  - `runPortraitPhase`（`autoPortrait`）：在场存活、无 avatar、有外观线索的 NPC + 无立绘主角 → 补肖像。
+  - `runPortraitPhase`（`autoPortrait`）：在场存活、无 avatar、有外观线索的 NPC + 无立绘主角 → 补肖像。**外观变化自动重绘**（`refreshOnLook` 默认 **true**）：主角除 imageTags(列19)变化外，**`appearance` 外观文字变化也触发重绘**——记 `PlayerProfile.avatarAppearance`(出图时的外观文本) 对比，文字变了但 imageTags 没跟着变时 `forceRetag` 重新翻译标签让新图真的不同。(NPC 仍只按 imageTags 变化刷新，避免演化频繁改 appearance5 导致出图churn。)
   - `runEquipImagePhase`（`autoEquipPlayer`/`autoEquipNpc`）：有 `appearance` 无 `image` 的装备（主角背包 + NPC 持有物）→ 补设定图，服务用 `effectiveEquipService`（沿用肖像或独立）。**装备无专用生成提示词**（仿 fanren）：`buildEquipPrompt` 用**可编辑的 `equipTemplate`** + 物品字段（`${item_name}/${item_category}/${item_grade}/${owner_gender}/${item_appearance}/${item_effect}`）拼成提示词，世界风格自适应。
   - `runStoryImagePhase(narrative, msgId)`（`autoStory`）：**正文配图**。独立 LLM（`resolveApiChain('image_story_llm', textApi)`）跑 `storyTemplate` → 输出 `${image_count}` 个 `<image>` 块（`<anchor>` 正文短片段 / `<nsfw_rating>` sfw~explicit / `<prompt>` 英文 NAI tags）→ 逐张 `generateImage(storyService)` → 存入 `ChatMessage.images[]`(`{anchor,url,prompt,nsfw,ts}`)。渲染 `toHtmlWithImages(content, images)`：在 anchor 命中处插占位符 `@@ZSIMG<i>@@`（穿过 escapeHtml/wrap）→ 替换为 `<a><img class="story-illust"></a>`（点击新标签放大），无命中追加末尾。`images[]` 随 `chatDb` 增量持久化。
 - **肖像生图提示词(imageTags / 第19列)·演化生成**（**仅角色，仿 fanren col19**；装备不走此机制）：主角/NPC 各维护一份**英文 Danbooru/NAI tags**（演化阶段生成，存 `PlayerProfile.imageTags`/`NpcRecord.imageTags`，列19, COLUMN_MAP `'19'→'imageTags'`），用于同角色多次出图一致。`buildPortraitPrompt` **优先用 imageTags**，无则回退到外观字段拼。
@@ -604,7 +605,7 @@ deTalent("B1", "剑术天赋")
 - **限时状态（引擎自动过期，`StatusEffect`）**：与上面的自由文本 `status`（长期/无时限）**并存**——有明确时限的 buff/debuff 走结构化 `profile.statusEffects` / `NpcRecord.statusEffects`（`{name,emoji,tone,effect,source,startTurn,durationTurns?,durationDesc,startGameMin,expireAtMin,...}`）。
   - **AI 指令**：`addStatus("B1"/"C1",{name,emoji,tone,effect,source,duration})` / `deStatus("id","名")`（`App.applyTimedStatusCommands`，在主角/NPC 演化阶段解析；按 charId 路由到 `playerStore`/`npcStore`）。`duration` "3回合"→回合制；"5分钟/2小时/3天"→游戏时间制（`systems/gameClock.ts` 解析）。
   - **自动过期** `App.expireStatuses()`：每回合 `callApi` 开头调用，按 `turnCount - startTurn >= durationTurns` 或 `当前游戏分钟 >= expireAtMin`（游戏时间取 miscStore `worldTime||paradiseTime`，`parseGameMinutes`）移除已过期项——无需 AI 输出移除指令。
-  - **展示** `StatusEffectChips.tsx`：主角侧栏「当前状态」+ NPC 详情「当前状态」的「⏳ 限时状态」区，tone 着色 + ⏳时效 + 可手动✕移除。已注入主角/NPC 演化快照与结构化召回（"勿重复添加同名"）。两预设加 `限时状态系统` 规则（已入各 KEEP_NAMES）。
+  - **展示** `StatusEffectChips.tsx`：主角侧栏「当前状态」+ NPC 详情「当前状态」的「⏳ 限时状态」区，tone 着色 + ⏳时效 + 可手动✕移除。已注入主角/NPC 演化快照与结构化召回（"勿重复添加同名"）。两预设加 `限时状态系统` 规则（已入各 KEEP_NAMES）。**胶囊只显示"数字+单位"短时长**（`durShort`，3回合/5分钟…）+ `whitespace-nowrap` 防断词；AI 把长"解除条件"（如"重新接战后解除"）写进 `durationDesc` 时胶囊只显 `· ⏳…`，完整条件在展开区按 `时效·/解除·` 显示（修"胶囊文字挤成一团"）。
 - **NPC**：`NpcRecord` 加了 `profession/arenaRank/brandLevel/contractorId/attrs/mp/maxMp/**age**`，在 `NpcDetail.tsx` 的基本信息/属性栏展示。阶位/等级/身份仍走第2列 realm。**年龄(`age`)**：`NpcDetail` 战斗属性栏「年龄」字段（取代旧的 特殊体质/外貌年龄/寿元 三字段）；短指令 `character.<id>.age = "约25岁"`；注入 NPC 快照 + 结构化召回；正文有照抄、无则按设定生成（见 `NPC_AGE_RULE`）。
 - **AI 更新路径**（`<state>` 短指令）：`character.<id>.identity.profession="…"`、`character.<id>.attrs.str=N`、`character.<id>.appearance/location="…"`、`mp.<id>=N`、主角另有 `character.B1.level=N` / `identity.tier|title|role|brandLevel|contractorId`。主角在 `applyPlayerProfileCommands`（主角演化阶段）处理；NPC 在 `applyNpcShortCommands`（NPC 演化阶段）处理。预设已写入这些指令说明。
 - **经历(deeds)**：主角 `profile.deedLog`、NPC `NpcRecord.deedLog`，结构化 `{time,location,description}`；AI 指令 `addDeed("B1"/"C1",{...})`（`stateParser`，与 addSkill 同体系）。在「经历」tab 时间线展示。
@@ -634,6 +635,15 @@ deTalent("B1", "剑术天赋")
 
 主角/NPC 的 `maxHp/maxMp` **不再固定**：升级/阶位提升/体质(con)成长或剧情强化时可抬高。代码本就支持——主角 `maxHp.B1 = N`/`maxMp.B1 = N`（`applyOneUpdate`）、NPC `hp.C1 = 当前/新上限`/`mp.C1 = 当前/新上限`（`applyNpcShortCommands` 的 `= 当前/上限` 语法同时设 max）。两预设原本「不反复刷上限/禁止写HP/MP max」的限制已放宽为「上限随成长增长，不要无理由每轮刷高」。
 
+> **HP/EP 由六维换算·显示与兜底（重要）**：主角 HP/EP 上限**始终按六维实时换算**——`computeMaxHp=体质×20`、`computeMaxEp=智力×15`（`systems/derivedStats.ts`），PlayerSidebar/结构化召回都用 `effectiveResource(cur, _, 六维上限)`（当前值 null/未动过→显示满）。NPC hp/mp 默认 undefined→本就按属性算满；**只有主角** gameStore 有硬编码默认 `hp:100/mp:50`，会让显示卡在 100/50 不随属性变。三处兜底（App.tsx）：① `confirmCreation` 开局按六维把 hp/mp 拉满；② `reconcilePlayerVitals`（每回合 callApi 开头）——仍是 `100/100&50/50` 旧默认时按六维重算为满，任一值被正文动过即不插手；③ `applyNarrativeVitals`（runPostNarrativePhases）——扫正文「当前HP/EP：X/Y」直接照抄到 gameStore（AI 漏写 `hp.B1` 时兜底，解决"正文回血了但侧栏没变"）。
+
+## 名称模糊匹配 + 引用照抄铁则（防"简写/标点差异导致匹配失败"）
+
+AI 指令引用已有条目时名字常有细微出入（简写、漏品级前缀、多空格/标点），会**消耗/删除找不到、或被当新条目重复堆叠**。两层防护：
+- **代码·归一化匹配 `nameEq`**（去空白/标点/大小写后**相等**；不做子串包含以免误并 `烈焰斩` vs `烈焰斩·改`）：`characterStore`(技能/天赋/称号/副职业/配方)、`territoryStore`(建筑/效果/仓库物品)、`adventureTeamStore`(团队效果) 的"同名→更新、按名删除"全改用它。
+- **物品·子串包含** `stateParser.fuzzyFindItem`：新增**反向包含**（物品名含 query，如"止血喷雾"→"次级止血喷雾"，取最短匹配名）；消耗/销毁经 `pickTargetItem`（name 优先于幻觉 itemId）。
+- **提示词·照抄铁则**（App.tsx 代码注入常量，始终生效）：`ITEM_EXACT_REF_RULE`（消耗/销毁/装备物品照抄储存空间完整名+真实ID，注入物品阶段）、`EVO_EXACT_REF_RULE`（删除/升级 技能·天赋·称号·副职业·配方 照抄快照完整名，注入主角+NPC演化）。
+
 ## 生平压缩（记忆整理，`memoryStore` + characterStore.memory）
 
 逐角色的工作记忆 `memory.shortTerm/longTerm`（`MemoryEntry{time,location,content}`）。AI 指令 `addMemory("B1"/"C1",{...})` 追加 shortTerm；达阈值（短期25→5、长期50→20，可调）由 `App.runMemoryCompressionPhase` 调 AI 压缩（轮回乐园档案官提示词，含不可逆事实自检、防过度压缩）。入口：设置 → 变量管理 → **「📜 生平压缩」**(`MemoryManager`，独立 API)。
@@ -656,7 +666,15 @@ deTalent("B1", "剑术天赋")
   - NPC 选择：开 LLM 两步法时 `narrativeSelectChars`（`NM_STRUCT_SELECT_PROMPT` 预测下回合最可能登场的 NPC id）→ 否则 `rankNpcsLocal`（在场优先+好感）兜底。NPC 卡含**年龄**(`age`)。
   - **当前世界势力召回**（`serializeFactionsSection`）注入**全量信息**：所处世界(worldName)/规模/实力/状态/对主角态度/目标/首领/核心成员/地盘/资源/资产/关系/背景（限量 `structMaxFactions` 默认4）。
   - 限量（`settingsStore.narrativeMemory`，叙事记忆设置页可调）：`structEnabled`(默认开)、`structMaxNpcs`(默认2)、`structMaxSkills`(**仅主角**默认3，按品阶/新近)、`structMaxItems`(**仅主角**默认2，已装备优先)。**被选中的 NPC 给全量信息（所有技能/天赋/装备，不截断）**；技能/装备上限只作用于主角。注入块自带"参考资料而非剧情指令"说明，无需改主预设。
+  - **主角装备精简注入**：`serializePlayerCard` 用 `playerItemLine`（区别于 NPC/通用的全量 `itemLine`）——主角装备**只注入 名称/类型/品级/杀敌数(killCount)/词缀(affix)/效果(effect)**，其余（数量/槽位/外观/获得/标签/备注）不注入，省 token。
 - 入口：**设置主页 →「🧠 叙事记忆」**（独立页，不在变量管理里；含结构化档案召回开关与三个上限）。右侧导航 **🧠 记忆** → `SummaryPanel`（长期事实/小总结/大总结）。默认关（结构化召回随叙事记忆总开关生效）。
+
+## 公共频道（契约者公共广场，`channelStore`/`channelTrade`/`ChannelPanel`）
+
+轮回乐园契约者公共广场（单机=AI 模拟一群虚拟契约者）。七频道（综合/交易/组队/战斗/世界/情报/系统）。数据+设置+独立API+预设合一 `channelStore`(drpg-channel)，懒刷新（打开面板过期才刷 + 🔄 手动），走 `resolveApiChain('channel', textApi)`。右侧导航 **📡 频道**；设置→变量管理→📡 公共频道（`ChannelManager`）。**详细沿革见记忆 `public-channel-feature.md`**。要点：
+- **交易**：NPC 出售帖一键购买；玩家求购/出售挂单 → `solicitQuotes` AI 报价 → `acceptQuote` 确定性成交（`channelTrade.ts`，AI 出帖/报价、代码确定性扣钱给物）；**成交后自动删帖**。
+- **系统商店**（`SystemShop.tsx`，频道「🏪 系统商店」按钮，买/卖双 tab）：买=AI 生成 20 件(价偏高)批量购买（`genShopItems`）；卖=背包可卖物 AI 报价批量出售（`genSellQuotes`）。都走频道 API。
+- **主角发言**（非系统频道底部输入框）：`addPlayerSpeak` 先把发言**立即上墙**（返回 postId）→ AI 生成回复 → `addOneSpeakReply` **逐条错峰**(450~1150ms)插到发言**上方**（增真实感）。Prompt 注入该频道**近 20 条**做上下文（对话延续感）。每条非己消息有「↩ 回复」→ **定向回复**：被回复者**第一条**回应（代码兜底 `replies[0]` 必为其本人），随后 2~4 个其他人插嘴；`ChannelMessage.replyToName` 记录回复对象。speak 消息单独限 10 条。
 
 ## 存档系统（IndexedDB 多存档，`saveDb`/`saveManager`/`SaveLoadPanel`）
 

@@ -67,9 +67,9 @@ function ItemCard({ item, onEdit, onDelete }: {
         <div className="font-semibold text-sm text-slate-100">{item.name}</div>
         {item.gradeDesc && <div className="text-[13px] text-amber-400/70 font-mono">{item.gradeDesc}</div>}
         {item.effect && <div className="text-[13px] text-dim/80 leading-relaxed line-clamp-2">{item.effect}</div>}
-        {item.tags.length > 0 && (
+        {(item.tags?.length ?? 0) > 0 && (
           <div className="flex flex-wrap gap-1 pt-0.5">
-            {item.tags.map((t) => (
+            {(item.tags ?? []).map((t) => (
               <span key={t} className="text-[11px] font-mono px-1 py-0.5 bg-void border border-edge/50 text-dim/60 rounded">{t}</span>
             ))}
           </div>

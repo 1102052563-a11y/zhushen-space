@@ -213,11 +213,11 @@ export function ItemDetailModal({ item, onClose }: { item: InventoryItem; onClos
               <div className="text-[12px] font-mono text-dim/40">物品 ID</div>
               <div className="text-[12px] font-mono text-dim/50">{item.id}</div>
             </div>
-            {item.tags.length > 0 && (
+            {(item.tags?.length ?? 0) > 0 && (
               <div>
                 <div className="text-[12px] font-mono text-dim/40">标签</div>
                 <div className="flex flex-wrap gap-1 mt-0.5">
-                  {item.tags.map((t) => (
+                  {(item.tags ?? []).map((t) => (
                     <span key={t} className="text-[11px] font-mono px-1 py-0.5 bg-void border border-edge/50 text-dim/50 rounded">{t}</span>
                   ))}
                 </div>
