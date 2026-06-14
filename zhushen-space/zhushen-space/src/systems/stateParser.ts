@@ -178,6 +178,13 @@ function applyOneItemCommand(cmd: ItemCommand, store: any): void {
   switch (type) {
     case 'createItem': {
       const item = data.item ?? data;
+      // 防御：AI 偶把对象塞进本该是字符串的字段（如 effect:{name,effect}），渲染时会触发 React 整页崩。强制字符串化可显示字段。
+      for (const k of ['1', '2', '4', 'name', 'gradeDesc', 'quality', 'effect', 'appearance', 'acquisition', 'notes', 'origin', 'subType', 'combatStat', 'attack', 'defense', 'durability', 'requirement', 'affix', 'score', 'intro', 'killCount', 'category']) {
+        const v = (item as any)[k];
+        if (v != null && typeof v !== 'string' && typeof v !== 'number') {
+          (item as any)[k] = typeof v === 'object' ? String((v as any).name ?? (v as any).text ?? (v as any).desc ?? (v as any).value ?? JSON.stringify(v)) : String(v);
+        }
+      }
       const owner: string = resolveOwner(data.owner ?? item.owner ?? 'B1');
 
       if (!item['1'] && !item.name) break;

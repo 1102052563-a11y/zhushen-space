@@ -50,6 +50,31 @@ export function cosmosNameEq(a?: string, b?: string): boolean {
   return !!x && !!y && x === y;
 }
 
+/* 防御性字符串化：AI 偶尔把嵌套对象塞进本该是字符串的字段，直接渲染会触发
+   React "Objects are not valid as a React child" 整页崩。写入时强制转可读字符串。 */
+function cTxt(v: any): string {
+  if (v == null) return '';
+  if (typeof v === 'string') return v;
+  if (Array.isArray(v)) return v.map(cTxt).filter(Boolean).join('、');
+  if (typeof v === 'object') return String(v.name ?? v.text ?? v.desc ?? v.value ?? JSON.stringify(v));
+  return String(v);
+}
+function coerceCosmosInput(e: any): any {
+  if (!e || typeof e !== 'object') return e;
+  const o: any = { ...e };
+  for (const k of ['name', 'power', 'territory', 'resources', 'goal', 'towardParadise', 'era', 'status']) {
+    if (o[k] != null && typeof o[k] !== 'string') o[k] = cTxt(o[k]);
+  }
+  if (o.extra && typeof o.extra === 'object' && !Array.isArray(o.extra)) {
+    const ex: Record<string, string> = {};
+    for (const [k, val] of Object.entries(o.extra)) ex[String(k)] = cTxt(val);
+    o.extra = ex;
+  } else if (o.extra != null) { o.extra = {}; }
+  if (Array.isArray(o.relations)) o.relations = o.relations.filter((r: any) => r && r.target).map((r: any) => ({ target: cTxt(r.target), relation: cTxt(r.relation) }));
+  if (Array.isArray(o.deeds)) o.deeds = o.deeds.filter((d: any) => d && (d.desc ?? d.text)).map((d: any) => ({ time: d.time ? cTxt(d.time) : undefined, desc: cTxt(d.desc ?? d.text) }));
+  return o;
+}
+
 /* ── 预设条目（与领地/势力演化同构）── */
 export interface CosmosPresetEntry {
   identifier: string;
@@ -134,6 +159,7 @@ const DEFAULT_SETTINGS: CosmosSettings = {
 
 /** 规范化一个实体（补默认字段，合法化 category/status） */
 function normalizeEntity(e: Partial<CosmosEntity>, idHint?: string): CosmosEntity {
+  e = coerceCosmosInput(e);
   const category = (COSMOS_CATEGORIES.includes(e.category as CosmosCategory) ? e.category : '种族') as CosmosCategory;
   return {
     id: e.id || idHint || `co_${Date.now()}_${Math.floor(Math.random() * 1000)}`,
@@ -230,6 +256,7 @@ export const useCosmos = create<CosmosState>()(
 
       upsertEntity: (e) =>
         set((s) => {
+          e = coerceCosmosInput(e);
           const nm = (e.name ?? '').trim();
           if (!nm) return s;
           const i = s.entities.findIndex((x) => cosmosNameEq(x.name, nm));

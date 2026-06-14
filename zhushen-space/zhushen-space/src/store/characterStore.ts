@@ -200,6 +200,26 @@ function nameEq(a?: string, b?: string): boolean {
   return !!x && !!y && x === y;
 }
 
+/* 防御性字符串化：AI 偶尔把嵌套对象塞进本该是字符串的字段（如 effect:{name,effect}），
+   直接渲染会触发 React "Objects are not valid as a React child" 导致整页崩。写入时强制转成可读字符串。 */
+function txt(v: any): string {
+  if (v == null) return '';
+  if (typeof v === 'string') return v;
+  if (Array.isArray(v)) return v.map(txt).filter(Boolean).join('、');
+  if (typeof v === 'object') {
+    if (typeof v.name === 'string' && typeof v.effect === 'string') return `${v.name}（${v.effect}）`;
+    return String(v.name ?? v.text ?? v.desc ?? v.effect ?? v.value ?? JSON.stringify(v));
+  }
+  return String(v);
+}
+const SANITIZE_KEYS = ['name', 'desc', 'effect', 'source', 'attrBonus', 'level', 'rarity', 'category', 'skillType', 'target', 'damage', 'cooldown', 'cost', 'obtainedTime', 'recipeLabel', 'tier'];
+function sanitizeStrings<T extends Record<string, any>>(o: T): T {
+  if (!o || typeof o !== 'object') return o;
+  const out: any = { ...o };
+  for (const k of SANITIZE_KEYS) if (out[k] != null && typeof out[k] !== 'string') out[k] = txt(out[k]);
+  return out as T;
+}
+
 /* 保证一个角色的技能 id 全表唯一：空 id 或与前面重复的 id 重新分配 S_<charId>_NN。
    首次出现的 id 保留，后来的重复者改号——从根上消除"两个技能同 id"。 */
 function dedupeSkillIds(charId: string, skills: Skill[]): Skill[] {
@@ -225,6 +245,7 @@ export const useCharacters = create<CharacterState>()(
 
       addSkill: (charId, skill) =>
         set((s) => {
+          skill = sanitizeStrings(skill);
           const char = ensureChar(s.characters, charId);
           let next = [...char.skills];
           // 以「名称」为身份：同名→原地更新（保留原条目 id，避免改名造成 id 漂移/撞号）；
@@ -250,6 +271,7 @@ export const useCharacters = create<CharacterState>()(
 
       addTrait: (charId, trait) =>
         set((s) => {
+          trait = sanitizeStrings(trait);
           const char = ensureChar(s.characters, charId);
           const existing = char.traits.findIndex((t) => nameEq(t.name, trait.name));
           const next = [...char.traits];
@@ -268,6 +290,7 @@ export const useCharacters = create<CharacterState>()(
 
       addTitle: (charId, title) =>
         set((s) => {
+          title = sanitizeStrings(title);
           const char = ensureChar(s.characters, charId);
           const list = char.titles ?? [];
           const idx = list.findIndex((t) => nameEq(t.name, title.name));
@@ -309,6 +332,7 @@ export const useCharacters = create<CharacterState>()(
 
       addSubProfession: (charId, sp) =>
         set((s) => {
+          sp = sanitizeStrings(sp);
           const char = ensureChar(s.characters, charId);
           const list = char.subProfessions ?? [];
           const idx = list.findIndex((x) => nameEq(x.name, sp.name));
@@ -348,6 +372,7 @@ export const useCharacters = create<CharacterState>()(
 
       addRecipe: (charId, profName, recipe) =>
         set((s) => {
+          recipe = sanitizeStrings(recipe);
           const char = ensureChar(s.characters, charId);
           const list = [...(char.subProfessions ?? [])];
           let pIdx = list.findIndex((x) => nameEq(x.name, profName));
