@@ -147,7 +147,7 @@ function PortraitPage() {
       <Field label="肖像负面提示词"><textarea rows={3} value={s.portraitNegative} onChange={(e) => s.setSettings({ portraitNegative: e.target.value })} className={inputCls + ' resize-y'} /></Field>
       <Field label="自然语言肖像模板（仅 OpenAI/Gemini 用，变量 ${'{gender}'}/${'{appearance}'}/${'{attire}'}/${'{action}'}/${'{portrait_prompt}'} 等）"><textarea rows={6} value={s.portraitTemplate} onChange={(e) => s.setSettings({ portraitTemplate: e.target.value })} className={inputCls + ' resize-y leading-relaxed'} /></Field>
       <Row title="自动生成肖像" desc="每回合约6秒后自动为无立绘的在场NPC+主角补肖像（每回合最多6张，余下下回合继续）" checked={s.autoPortrait} onChange={() => s.setSettings({ autoPortrait: !s.autoPortrait })} />
-      <Row title="外观变化时刷新肖像" desc="角色生图标签(列19)变化后自动按新形象刷新已有立绘（需开自动生成）" checked={s.refreshOnLook} onChange={() => s.setSettings({ refreshOnLook: !s.refreshOnLook })} />
+      <Row title="外观变化时刷新肖像" desc="主角外观文字或生图标签(列19)变化后，自动按新形象重绘已有立绘（需开自动生成；默认开）" checked={s.refreshOnLook} onChange={() => s.setSettings({ refreshOnLook: !s.refreshOnLook })} />
       <div className="text-[12px] text-dim/50">也可在 NPC 详情「肖像绘卷」/ 主角侧栏点「✨ AI 生成」手动出图。自动生成需先在「生图API配置」配好服务与 Key。</div>
     </div>
   );

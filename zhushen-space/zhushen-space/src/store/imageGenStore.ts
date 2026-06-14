@@ -196,7 +196,7 @@ export const useImageGen = create<ImageGenState>()(
   persist(
     (set) => ({
       portraitService: 'nai', storyService: 'nai', equipUsePortrait: true, equipService: 'nai',
-      portraitPromptFormat: 'nai', topAvatarCount: 0, autoPortrait: false, refreshOnLook: false,
+      portraitPromptFormat: 'nai', topAvatarCount: 0, autoPortrait: false, refreshOnLook: true,
       portraitPositive: '', portraitNegative: DEFAULT_PORTRAIT_NEG,
       portraitTemplate: DEFAULT_PORTRAIT_TEMPLATE, styleGuide: DEFAULT_STYLES[0].styleGuide,
       autoEquipPlayer: false, autoEquipNpc: false, equipTemplate: DEFAULT_EQUIP_TEMPLATE, equipNegative: DEFAULT_EQUIP_NEG,

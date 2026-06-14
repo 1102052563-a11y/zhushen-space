@@ -19,6 +19,15 @@ export type TeamRank = typeof TEAM_RANKS[number];
 /** 晋升到这些阶位属"大阶位晋升"，需考核 */
 const MAJOR_TARGETS: TeamRank[] = ['S', 'SS', 'SSS'];
 export const ACTIVITY_GATE = 60;     // 晋级所需最低活跃度
+
+/* 名称归一化匹配（去空白/标点/大小写后相等）：团队效果(perk)的"同名→更新、按名删除"用它，
+   容忍 AI 不同回合给同名条目写出细微差异，避免重复堆叠或删不掉。 */
+function nameEq(a?: string, b?: string): boolean {
+  const n = (s?: string) => (s ?? '').replace(/[\s·•・\-—_,，.。、|｜()（）【】\[\]:：]/g, '').trim().toLowerCase();
+  const x = n(a), y = n(b);
+  return !!x && !!y && x === y;
+}
+
 /** 成员上限：E 3 人，每升一阶 +1 */
 export function memberCap(rank: TeamRank): number {
   return 3 + Math.max(0, TEAM_RANKS.indexOf(rank));
@@ -212,11 +221,11 @@ export const useTeam = create<TeamState>()(
       upsertPerk: (p) =>
         set((s) => {
           const nm = (p.name ?? '').trim(); if (!nm) return s;
-          const i = s.perks.findIndex((x) => x.name === nm);
+          const i = s.perks.findIndex((x) => nameEq(x.name, nm));
           if (i >= 0) { const next = [...s.perks]; next[i] = { ...next[i], desc: p.desc ?? next[i].desc, source: p.source ?? next[i].source }; return { perks: next }; }
           return { perks: [...s.perks, { name: nm, desc: p.desc ?? '', source: p.source }] };
         }),
-      removePerk: (name) => set((s) => ({ perks: s.perks.filter((x) => x.name !== name) })),
+      removePerk: (name) => set((s) => ({ perks: s.perks.filter((x) => !nameEq(x.name, name)) })),
       appendDeed: (d) => set((s) => ({ deeds: [...s.deeds, { ...d, addedAt: d.addedAt ?? Date.now() }].slice(-50) })),
 
       clearTeam: () => set({ established: false, disbanded: false, name: '', rank: 'E', teamExp: 0, activity: 50, members: [], perks: [], deeds: [], assessment: { pending: false, targetRank: '', status: 'none' } }),

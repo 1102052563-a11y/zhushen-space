@@ -1,5 +1,6 @@
 import { useState, useRef, useEffect } from 'react';
-import { useSettings } from '../store/settingsStore';
+import { useSettings, resolveApiChain } from '../store/settingsStore';
+import { apiChatFallback } from '../systems/apiChat';
 import { WORLD_GEN_PROMPT } from '../worldGenPrompt';
 
 export interface WorldOption {
@@ -119,8 +120,10 @@ export default function WorldSelector({ onSelect, onRawResponse, onPromptSent, o
     setStage('loading');
     setErrorMsg('');
 
-    if (!api.baseUrl || !api.apiKey) {
-      setErrorMsg('请先在系统设置中配置 API 地址和 Key');
+    // 接口路由优先：world 路由有启用接口则走路由链（多接口轮流+fallback），否则回退到全局 API
+    const chain = resolveApiChain('world', api).filter((a) => a.baseUrl && a.apiKey);
+    if (chain.length === 0) {
+      setErrorMsg('请先配置 API：在「世界选择」的接口路由里选接口库接口，或在系统设置填写全局 API 地址和 Key');
       setStage('error');
       return;
     }
@@ -153,34 +156,11 @@ export default function WorldSelector({ onSelect, onRawResponse, onPromptSent, o
     onPromptSent(fullPrompt);
 
     try {
-      const url = api.baseUrl.replace(/\/$/, '') + '/chat/completions';
-      const res = await fetch(url, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${api.apiKey}` },
-        body: JSON.stringify({
-          model: api.modelId,
-          messages: [
-            { role: 'system', content: sysContent },
-            { role: 'user', content: userMessage },
-          ],
-          temperature: api.temperature,
-          max_tokens: api.maxTokens,
-          top_p: api.topP,
-        }),
-      });
-      const rawText = await res.text();
-      onRawResponse(rawText || '（响应为空）');
-
-      if (!res.ok) {
-        throw new Error(`HTTP ${res.status}${rawText ? ': ' + rawText.slice(0, 200) : ''}`);
-      }
-
-      const data = JSON.parse(rawText);
-      const content: string =
-        data.choices?.[0]?.message?.content ??
-        data.choices?.[0]?.text ??
-        data.content ??
-        JSON.stringify(data);
+      const { content } = await apiChatFallback(chain, [
+        { role: 'system', content: sysContent },
+        { role: 'user', content: userMessage },
+      ], { timeoutMs: 180000 });
+      onRawResponse(content || '（响应为空）');
 
       const raw = extractJson(content);
       const s = (v: any) => (v != null ? String(v) : '');

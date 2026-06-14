@@ -96,15 +96,9 @@ export default function StartScreen({ onStart, onContinue, onSettings }: StartSc
   }, []);
 
   return (
-    <div className="h-screen w-screen bg-black grid place-items-center overflow-hidden select-none">
+    <div className="h-screen w-screen bg-black grid place-items-center max-lg:flex max-lg:flex-col overflow-hidden select-none">
       <style>{CSS_ANIM}</style>
-      <div
-        className="relative overflow-hidden"
-        style={{
-          width: `min(100vw, calc(100vh * ${COVER_W} / ${COVER_H}))`,
-          height: `min(100vh, calc(100vw * ${COVER_H} / ${COVER_W}))`,
-        }}
-      >
+      <div className="zs-cover relative overflow-hidden">
         {/* 背景：缓慢呼吸位移 */}
         <img
           src="/cover-bg.jpg"
@@ -182,8 +176,8 @@ export default function StartScreen({ onStart, onContinue, onSettings }: StartSc
           style={{ background: 'radial-gradient(ellipse at 50% 44%, transparent 56%, rgba(0,0,0,0.42) 100%)' }}
         />
 
-        {/* 三个发光浮动按钮（独立 PNG，本身即点击区） */}
-        <div className="absolute z-30 flex flex-col gap-[2.2%]" style={{ top: '40%', right: '6.5%', width: '28%' }}>
+        {/* 三个发光浮动按钮（独立 PNG，本身即点击区）—— 仅桌面：浮在封面右侧 */}
+        <div className="hidden lg:flex absolute z-30 flex-col top-[40%] right-[6.5%] w-[28%] gap-[2.2%]">
           <CoverButton src="/btn-start.png" label="开始游戏" onClick={onStart} delay={0} />
           <CoverButton src="/btn-continue.png" label="读取存档" onClick={onContinue} delay={0.5} />
           <CoverButton src="/btn-settings.png" label="系统设置" onClick={onSettings} delay={1} />
@@ -192,6 +186,15 @@ export default function StartScreen({ onStart, onContinue, onSettings }: StartSc
         {/* 版本号 */}
         <div className="absolute z-30 bottom-2 left-3 text-[10px] font-mono text-white/30 tracking-widest">
           轮回乐园 · V0.0.1
+        </div>
+      </div>
+
+      {/* 手机端：封面在上 + 按钮在下方深色区（桌面 lg: 隐藏，桌面用上方封面内的右侧浮层按钮）*/}
+      <div className="lg:hidden flex-1 w-full flex flex-col items-center justify-center gap-4 bg-gradient-to-b from-[#0a0e18] to-[#02040a]">
+        <div className="w-[80%] max-w-xs flex flex-col gap-4">
+          <CoverButton src="/btn-start.png" label="开始游戏" onClick={onStart} delay={0} />
+          <CoverButton src="/btn-continue.png" label="读取存档" onClick={onContinue} delay={0.5} />
+          <CoverButton src="/btn-settings.png" label="系统设置" onClick={onSettings} delay={1} />
         </div>
       </div>
     </div>
@@ -231,6 +234,8 @@ function CoverButton({
 }
 
 const CSS_ANIM = `
+.zs-cover { width: min(100vw, calc(100vh * ${COVER_W} / ${COVER_H})); height: min(100vh, calc(100vw * ${COVER_H} / ${COVER_W})); }
+@media (max-width: 1023px){ .zs-cover { width: 100vw; height: auto; aspect-ratio: ${COVER_W} / ${COVER_H}; max-height: 58vh; flex: 0 0 auto; } }
 @keyframes zsDrift { 0%,100%{transform:scale(1.03) translate(0,0)} 50%{transform:scale(1.05) translate(-0.5%,-0.5%)} }
 @keyframes zsMoon { 0%,100%{opacity:.55;transform:translate(-50%,-50%) scale(1)} 50%{opacity:.85;transform:translate(-50%,-50%) scale(1.07)} }
 @keyframes zsBeam { 0%,100%{opacity:.4} 50%{opacity:.85} }

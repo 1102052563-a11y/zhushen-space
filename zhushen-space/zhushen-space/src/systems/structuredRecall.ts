@@ -1,7 +1,7 @@
 import type { NpcRecord, NpcOwnedItem } from '../store/npcStore';
 import type { FactionRecord } from '../store/factionStore';
 import type { Skill, Talent, Title, SubProfession } from '../store/characterStore';
-import type { InventoryItem } from '../store/itemStore';
+import type { InventoryItem, CurrencyWallet } from '../store/itemStore';
 import type { PlayerProfile } from '../store/playerStore';
 import { computeMaxHp, computeMaxEp, effectiveResource } from './derivedStats';
 
@@ -121,6 +121,17 @@ function itemLine(it: InventoryItem | NpcOwnedItem): string {
   return `    · ${head}${tail.length ? ` (${tail.join(' ')})` : ''}${body ? ` — ${body}` : ''}`;
 }
 
+/* ── 主角装备/物品 → 精简行：只注入 名称/类型/品级/杀敌数/词缀/效果（其他信息不注入）── */
+function playerItemLine(it: InventoryItem): string {
+  const head = `「${it.name}」${(it.category || it.gradeDesc) ? `[${[it.category, it.gradeDesc].filter(Boolean).join('·')}]` : ''}`;
+  const body = [
+    it.killCount && `杀敌:${it.killCount}`,
+    it.affix && `词缀:${it.affix}`,
+    it.effect && `效果:${it.effect}`,
+  ].filter(Boolean).join('；');
+  return `    · ${head}${body ? ` — ${body}` : ''}`;
+}
+
 /* ── 装备优先级：已装备 > 品阶高 > 数量多 ── */
 function itemScore(it: InventoryItem | NpcOwnedItem): number {
   return (it.equipped ? 1000 : 0) + gradeOf(numericOf(it)) * 10 + Math.min(9, it.quantity ?? 1);
@@ -143,6 +154,7 @@ export function serializePlayerCard(
   limits: RecallLimits,
   titles?: Title[],
   subProfs?: SubProfession[],
+  wallet?: CurrencyWallet,
 ): string {
   const id = ['姓名:' + (profile.name || '主角'),
     profile.homeParadise && `所属乐园:${profile.homeParadise}`,
@@ -166,7 +178,10 @@ export function serializePlayerCard(
     game.san != null && `SAN:${game.san}/${game.maxSan ?? '?'}`,
     a && `六维: 力${a.str} 敏${a.agi} 体${a.con} 智${a.int} 魅${a.cha} 幸${a.luck}`,
     profile.advancePoints != null && `进阶点数:${profile.advancePoints}`,
+    profile.attrPoints != null && `属性点:${profile.attrPoints}`,
+    profile.realAttrPoints != null && `真实属性点:${profile.realAttrPoints}`,
     profile.worldSource != null && `世界之源:${profile.worldSource}`,
+    wallet && `货币: 乐园币${wallet.乐园币 ?? 0} | 灵魂钱币${wallet.灵魂钱币 ?? 0} | 技能点${wallet.技能点 ?? 0} | 黄金技能点${wallet.黄金技能点 ?? 0}`,
   ].filter(Boolean).join(' | ');
   const detail = [
     profile.status && `当前状态:${profile.status}`,
@@ -177,7 +192,7 @@ export function serializePlayerCard(
   ].filter(Boolean).join('\n  ');
 
   const topSkills = pickTop(skills, limits.maxSkills, skillScore).map(skillLine);
-  const topItems = pickTop(items.filter((it) => !it.locked || it.equipped), limits.maxItems, itemScore).map(itemLine);
+  const topItems = pickTop(items.filter((it) => !it.locked || it.equipped), limits.maxItems, itemScore).map(playerItemLine);
   const talLines = talents.slice().sort((x, y) => talentScore(y) - talentScore(x)).map(talentLine);
 
   const titleLine = equippedTitleLine(titles);

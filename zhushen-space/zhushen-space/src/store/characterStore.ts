@@ -189,6 +189,17 @@ function ensureChar(chars: Record<string, CharacterData>, id: string): Character
   return chars[id] ?? { id, skills: [], traits: [] };
 }
 
+/* 名称归一化匹配（去空白/标点/大小写后相等）：技能/天赋/称号/副职业/配方 的"同名→更新、按名删除"统一用它，
+   容忍 AI 在不同回合给同一条目写出细微差异（多空格、加减标点、全半角）——避免误判为新条目而重复堆叠，或删不掉。
+   仅做归一化「相等」(不做子串包含)，不会把"烈焰斩"和"烈焰斩·改"等真实不同的条目误并。 */
+function normNm(s?: string): string {
+  return (s ?? '').replace(/[\s·•・\-—_,，.。、|｜()（）【】\[\]:：]/g, '').trim().toLowerCase();
+}
+function nameEq(a?: string, b?: string): boolean {
+  const x = normNm(a), y = normNm(b);
+  return !!x && !!y && x === y;
+}
+
 /* 保证一个角色的技能 id 全表唯一：空 id 或与前面重复的 id 重新分配 S_<charId>_NN。
    首次出现的 id 保留，后来的重复者改号——从根上消除"两个技能同 id"。 */
 function dedupeSkillIds(charId: string, skills: Skill[]): Skill[] {
@@ -218,7 +229,7 @@ export const useCharacters = create<CharacterState>()(
           let next = [...char.skills];
           // 以「名称」为身份：同名→原地更新（保留原条目 id，避免改名造成 id 漂移/撞号）；
           // 不同名→新技能追加，其 id 交给 dedupe 保证唯一（即使 AI 复用了已存在 id 也会自动改号，两个技能不会再共用一个 id）。
-          const byName = next.findIndex((sk) => sk.name === skill.name);
+          const byName = next.findIndex((sk) => nameEq(sk.name, skill.name));
           if (byName >= 0) {
             next[byName] = { ...skill, id: next[byName].id, addedAt: Date.now() };
           } else {
@@ -232,7 +243,7 @@ export const useCharacters = create<CharacterState>()(
         set((s) => {
           const char = ensureChar(s.characters, charId);
           const next = char.skills.filter(
-            (sk) => sk.id !== idOrName && sk.name !== idOrName,
+            (sk) => sk.id !== idOrName && !nameEq(sk.name, idOrName),
           );
           return { characters: { ...s.characters, [charId]: { ...char, skills: next } } };
         }),
@@ -240,7 +251,7 @@ export const useCharacters = create<CharacterState>()(
       addTrait: (charId, trait) =>
         set((s) => {
           const char = ensureChar(s.characters, charId);
-          const existing = char.traits.findIndex((t) => t.name === trait.name);
+          const existing = char.traits.findIndex((t) => nameEq(t.name, trait.name));
           const next = [...char.traits];
           const entry: Trait = { ...trait, addedAt: Date.now() };
           if (existing >= 0) next[existing] = entry;
@@ -251,7 +262,7 @@ export const useCharacters = create<CharacterState>()(
       removeTrait: (charId, traitName) =>
         set((s) => {
           const char = ensureChar(s.characters, charId);
-          const next = char.traits.filter((t) => t.name !== traitName);
+          const next = char.traits.filter((t) => !nameEq(t.name, traitName));
           return { characters: { ...s.characters, [charId]: { ...char, traits: next } } };
         }),
 
@@ -259,12 +270,12 @@ export const useCharacters = create<CharacterState>()(
         set((s) => {
           const char = ensureChar(s.characters, charId);
           const list = char.titles ?? [];
-          const idx = list.findIndex((t) => t.name === title.name);
+          const idx = list.findIndex((t) => nameEq(t.name, title.name));
           let next = [...list];
           const entry: Title = { ...title, addedAt: idx >= 0 ? (list[idx].addedAt ?? Date.now()) : Date.now() };
           if (idx >= 0) next[idx] = entry; else next.push(entry);
           // 维持至多 1 个 equipped：若本次标记 equipped，则其余取消
-          if (entry.equipped) next = next.map((t) => t.name === entry.name ? t : { ...t, equipped: false });
+          if (entry.equipped) next = next.map((t) => nameEq(t.name, entry.name) ? t : { ...t, equipped: false });
           // 防称号无限堆叠（AI 易刷近义称号）：超过上限丢弃最旧的未佩戴称号，保留已佩戴 + 最近若干
           const CAP = 6;
           if (next.length > CAP) {
@@ -278,14 +289,14 @@ export const useCharacters = create<CharacterState>()(
       removeTitle: (charId, titleName) =>
         set((s) => {
           const char = ensureChar(s.characters, charId);
-          const next = (char.titles ?? []).filter((t) => t.name !== titleName);
+          const next = (char.titles ?? []).filter((t) => !nameEq(t.name, titleName));
           return { characters: { ...s.characters, [charId]: { ...char, titles: next } } };
         }),
 
       equipTitle: (charId, titleName) =>
         set((s) => {
           const char = ensureChar(s.characters, charId);
-          const next = (char.titles ?? []).map((t) => ({ ...t, equipped: t.name === titleName }));
+          const next = (char.titles ?? []).map((t) => ({ ...t, equipped: nameEq(t.name, titleName) }));
           return { characters: { ...s.characters, [charId]: { ...char, titles: next } } };
         }),
 
@@ -300,7 +311,7 @@ export const useCharacters = create<CharacterState>()(
         set((s) => {
           const char = ensureChar(s.characters, charId);
           const list = char.subProfessions ?? [];
-          const idx = list.findIndex((x) => x.name === sp.name);
+          const idx = list.findIndex((x) => nameEq(x.name, sp.name));
           const ex = idx >= 0 ? list[idx] : undefined;
           // 部分更新时保留已有字段（不被 undefined 覆盖）
           const prom = promoteTier(sp.tier || ex?.tier || '新手', sp.progress ?? ex?.progress ?? 0);
@@ -321,14 +332,14 @@ export const useCharacters = create<CharacterState>()(
       removeSubProfession: (charId, name) =>
         set((s) => {
           const char = ensureChar(s.characters, charId);
-          return { characters: { ...s.characters, [charId]: { ...char, subProfessions: (char.subProfessions ?? []).filter((x) => x.name !== name) } } };
+          return { characters: { ...s.characters, [charId]: { ...char, subProfessions: (char.subProfessions ?? []).filter((x) => !nameEq(x.name, name)) } } };
         }),
 
       bumpSubProf: (charId, name, delta) =>
         set((s) => {
           const char = ensureChar(s.characters, charId);
           const list = char.subProfessions ?? [];
-          const idx = list.findIndex((x) => x.name === name);
+          const idx = list.findIndex((x) => nameEq(x.name, name));
           if (idx < 0) return {};
           const prom = promoteTier(list[idx].tier, (list[idx].progress ?? 0) + delta);
           const next = [...list]; next[idx] = { ...list[idx], tier: prom.tier, progress: prom.progress };
@@ -339,10 +350,10 @@ export const useCharacters = create<CharacterState>()(
         set((s) => {
           const char = ensureChar(s.characters, charId);
           const list = [...(char.subProfessions ?? [])];
-          let pIdx = list.findIndex((x) => x.name === profName);
+          let pIdx = list.findIndex((x) => nameEq(x.name, profName));
           if (pIdx < 0) { list.push({ name: profName, tier: '新手', progress: 0, recipes: [], addedAt: Date.now() }); pIdx = list.length - 1; }
           const recs = [...(list[pIdx].recipes ?? [])];
-          const rIdx = recs.findIndex((r) => (recipe.id && r.id === recipe.id) || r.name === recipe.name);
+          const rIdx = recs.findIndex((r) => (recipe.id && r.id === recipe.id) || nameEq(r.name, recipe.name));
           const entry: Recipe = { ...recipe, progress: Math.min(100, Math.max(0, recipe.progress ?? (rIdx >= 0 ? recs[rIdx].progress ?? 0 : 0))), addedAt: rIdx >= 0 ? recs[rIdx].addedAt : Date.now() };
           if (rIdx >= 0) recs[rIdx] = entry; else recs.push(entry);
           list[pIdx] = { ...list[pIdx], recipes: recs };
@@ -352,7 +363,7 @@ export const useCharacters = create<CharacterState>()(
       removeRecipe: (charId, profName, recipeName) =>
         set((s) => {
           const char = ensureChar(s.characters, charId);
-          const list = (char.subProfessions ?? []).map((p) => p.name === profName ? { ...p, recipes: (p.recipes ?? []).filter((r) => r.name !== recipeName && r.id !== recipeName) } : p);
+          const list = (char.subProfessions ?? []).map((p) => nameEq(p.name, profName) ? { ...p, recipes: (p.recipes ?? []).filter((r) => !nameEq(r.name, recipeName) && r.id !== recipeName) } : p);
           return { characters: { ...s.characters, [charId]: { ...char, subProfessions: list } } };
         }),
 
@@ -360,8 +371,8 @@ export const useCharacters = create<CharacterState>()(
         set((s) => {
           const char = ensureChar(s.characters, charId);
           const list = (char.subProfessions ?? []).map((p) => {
-            if (p.name !== profName) return p;
-            const recs = (p.recipes ?? []).map((r) => (r.name === recipeName || r.id === recipeName) ? { ...r, progress: Math.min(100, Math.max(0, (r.progress ?? 0) + delta)) } : r);
+            if (!nameEq(p.name, profName)) return p;
+            const recs = (p.recipes ?? []).map((r) => (nameEq(r.name, recipeName) || r.id === recipeName) ? { ...r, progress: Math.min(100, Math.max(0, (r.progress ?? 0) + delta)) } : r);
             return { ...p, recipes: recs };
           });
           return { characters: { ...s.characters, [charId]: { ...char, subProfessions: list } } };

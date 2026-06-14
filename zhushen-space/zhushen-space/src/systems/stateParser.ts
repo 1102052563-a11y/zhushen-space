@@ -258,14 +258,14 @@ function applyOneItemCommand(cmd: ItemCommand, store: any): void {
       if (owner !== 'B1') {
         const npcStore = useNpc.getState();
         const bag = npcStore.npcs[owner]?.items ?? [];
-        const nitem = bag.find((x) => x.id === data.itemId) ?? fuzzyFindItem(bag, givenName, data.itemId);
+        const nitem = pickTargetItem(bag, data.itemId, givenName);
         if (!nitem) { console.warn(`[Item] NPC ${owner} 未找到要消耗的物品（name=${givenName} id=${data.itemId}）`); break; }
         if (nitem.equipped) { console.warn(`[Item] 拒绝消耗 NPC ${owner} 已装备物品「${nitem.name}」（需先卸下，防误删穿戴装备）`); break; }
         npcStore.consumeNpcItem(owner, nitem.id, qty);
         console.log(`[Item] NPC ${owner} 消耗 ${nitem.name} x${qty}`);
         break;
       }
-      const item = findItemById(store, data.itemId) ?? fuzzyFindItem(store.items, givenName, data.itemId);
+      const item = pickTargetItem(store.items, data.itemId, givenName);
       if (item) {
         // ★ 已装备物品不应被"消耗"（消耗品不会处于装备态）——多为 AI 幻觉，拒绝以防穿戴装备无故消失
         if (item.equipped) { console.warn(`[Item] 拒绝消耗已装备物品「${item.name}」（需先 uneq 卸下）`); break; }
@@ -281,16 +281,16 @@ function applyOneItemCommand(cmd: ItemCommand, store: any): void {
       if (owner !== 'B1') {
         const npcStore = useNpc.getState();
         const bag = npcStore.npcs[owner]?.items ?? [];
-        const nitem = bag.find((x) => x.id === data.itemId) ?? fuzzyFindItem(bag, givenName, data.itemId);
+        const nitem = pickTargetItem(bag, data.itemId, givenName);
         if (!nitem) { console.warn(`[Item] NPC ${owner} 未找到要销毁的物品（name=${givenName} id=${data.itemId}）`); break; }
-        if (nitem.equipped) npcStore.unequipNpcItem(owner, nitem.id);   // 丢弃穿戴中的装备：先卸下再销毁
+        if (nitem.equipped) { console.warn(`[Item] 拒绝销毁 NPC ${owner} 已装备物品「${nitem.name}」（装备中不可删除，需先卸下）`); break; }
         npcStore.removeNpcItem(owner, nitem.id);
         console.log(`[Item] NPC ${owner} 销毁 ${nitem.name}`);
         break;
       }
-      const item = findItemById(store, data.itemId) ?? fuzzyFindItem(store.items, givenName, data.itemId);
+      const item = pickTargetItem(store.items, data.itemId, givenName);
       if (item) {
-        if (item.equipped) store.unequipItem(item.id);   // 丢弃穿戴装备：先自动卸下再销毁（玩家明确丢弃，不再一味拒绝）
+        if (item.equipped) { console.warn(`[Item] 拒绝销毁已装备物品「${item.name}」（装备中不可删除，需先 uneq 卸下）`); break; }
         store.removeItem(item.id);
         console.log(`[Item] 销毁 ${item.name}`);
       } else { console.warn(`[Item] 未找到要销毁的物品（name=${givenName} id=${data.itemId}）`); }
@@ -406,6 +406,24 @@ function findItemById(store: any, id?: string): any | null {
   return store.items.find((it: any) => it.id === id) ?? null;
 }
 
+/* 名称模糊相等（归一化去标点后 相等 / 互相包含）：用于校验 itemId 指向的物品名字是否对得上 */
+function nameLike(a?: string, b?: string): boolean {
+  const x = normName(a), y = normName(b);
+  if (!x || !y) return false;
+  return x === y || x.includes(y) || y.includes(x);
+}
+/* 解析销毁/消耗的目标物品：AI 常臆造 itemId。规则——
+   ① itemId 命中、且名字与给定 name 相符（或未给 name）→ 用它；
+   ② itemId 命中但名字对不上（多为幻觉 id）→ 改按 name 找；
+   ③ 给了 name 却找不到 → 返回 null（宁可不删，也不按幻觉 id 删错你的装备/武器）；只有完全没给 name 时才退回 byId。 */
+function pickTargetItem(items: any[], itemId?: string, name?: string): any | null {
+  const byId = itemId ? (items ?? []).find((x: any) => x.id === itemId) : null;
+  if (byId && (!name || nameLike(byId.name, name))) return byId;
+  const byName = name ? fuzzyFindItem(items, name) : null;
+  if (byName) return byName;
+  return name ? null : byId;
+}
+
 /* 名称归一化：去空白 + 去常见标点/间隔符，跨回合"荒野行者·战术背心" vs "荒野行者战术背心"也能判为同物去重 */
 function normName(s?: string): string {
   return (s ?? '').replace(/[\s·•・\-—_,，.。、|｜]/g, '').trim().toLowerCase();
@@ -447,6 +465,16 @@ function fuzzyFindItem(items: any[], ...queries: (string | undefined)[]): any | 
       .filter((it) => { const k = normName(it.name); return k.length >= 2 && (qb.includes(k) || normName(q).includes(k)); })
       .sort((a, b) => (b.name?.length ?? 0) - (a.name?.length ?? 0))[0];
     if (contains) return contains;
+  }
+  // 第三轮：反向包含（物品名 含 query，如"止血喷雾"→"次级止血喷雾"；AI 常省略品级/前缀词）。取最短匹配名=最贴近 query 的那件。
+  for (const q of queries) {
+    if (!q) continue;
+    const qb = normName(stripAnno(q));
+    if (!qb || qb.length < 2) continue;
+    const rev = list
+      .filter((it) => { const k = normName(it.name); return k.length >= 2 && k.includes(qb); })
+      .sort((a, b) => (a.name?.length ?? 0) - (b.name?.length ?? 0))[0];
+    if (rev) return rev;
   }
   return null;
 }

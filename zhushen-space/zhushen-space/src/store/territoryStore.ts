@@ -53,6 +53,17 @@ export interface TerritoryItem {
 }
 
 export const BUILDING_MAX_LEVEL = 5;
+
+/* 名称归一化匹配（去空白/标点/大小写后相等）：建筑/效果/仓库物品 的"同名→更新、按名删除"统一用它，
+   容忍 AI 在不同回合给同名条目写出细微差异（多空格、加减标点）——避免重复堆叠或删不掉。 */
+function tNorm(s?: string): string {
+  return (s ?? '').replace(/[\s·•・\-—_,，.。、|｜()（）【】\[\]:：]/g, '').trim().toLowerCase();
+}
+function nameEq(a?: string, b?: string): boolean {
+  const x = tNorm(a), y = tNorm(b);
+  return !!x && !!y && x === y;
+}
+
 /** 建筑数量上限：每升一级 +1，初始（Lv.1）3 栋 */
 export function buildingCap(level: number): number {
   return Math.max(1, (level || 1) + 2);
@@ -255,7 +266,7 @@ export const useTerritory = create<TerritoryState>()(
         set((s) => {
           const nm = b.name.trim();
           if (!nm) return s;
-          const i = s.buildings.findIndex((x) => x.name === nm);
+          const i = s.buildings.findIndex((x) => nameEq(x.name, nm));
           const lvl = b.level != null ? Math.max(1, Math.min(BUILDING_MAX_LEVEL, Math.round(b.level))) : undefined;
           if (i >= 0) {
             const next = [...s.buildings];
@@ -287,16 +298,16 @@ export const useTerritory = create<TerritoryState>()(
       setBuildingLevel: (name, level) =>
         set((s) => ({
           buildings: s.buildings.map((x) =>
-            x.name === name ? { ...x, level: Math.max(1, Math.min(BUILDING_MAX_LEVEL, Math.round(level))) } : x,
+            nameEq(x.name, name) ? { ...x, level: Math.max(1, Math.min(BUILDING_MAX_LEVEL, Math.round(level))) } : x,
           ),
         })),
-      removeBuilding: (name) => set((s) => ({ buildings: s.buildings.filter((x) => x.name !== name) })),
+      removeBuilding: (name) => set((s) => ({ buildings: s.buildings.filter((x) => !nameEq(x.name, name)) })),
 
       upsertEffect: (e) =>
         set((s) => {
           const nm = (e.name ?? '').trim();
           if (!nm) return s;
-          const i = s.effects.findIndex((x) => x.name === nm);
+          const i = s.effects.findIndex((x) => nameEq(x.name, nm));
           if (i >= 0) {
             const next = [...s.effects];
             next[i] = { ...next[i], desc: e.desc ?? next[i].desc, source: e.source ?? next[i].source };
@@ -304,7 +315,7 @@ export const useTerritory = create<TerritoryState>()(
           }
           return { effects: [...s.effects, { name: nm, desc: e.desc ?? '', source: e.source }] };
         }),
-      removeEffect: (name) => set((s) => ({ effects: s.effects.filter((x) => x.name !== name) })),
+      removeEffect: (name) => set((s) => ({ effects: s.effects.filter((x) => !nameEq(x.name, name)) })),
 
       addMember: (id, patch) =>
         set((s) => {
@@ -324,7 +335,7 @@ export const useTerritory = create<TerritoryState>()(
         set((s) => {
           const nm = it.name.trim();
           if (!nm) return s;
-          const i = s.storageItems.findIndex((x) => x.name === nm);
+          const i = s.storageItems.findIndex((x) => nameEq(x.name, nm));
           if (i >= 0) {
             const next = [...s.storageItems];
             const addQty = it.quantity != null ? Math.round(it.quantity) : 1;
@@ -350,7 +361,7 @@ export const useTerritory = create<TerritoryState>()(
         }),
       takeItem: (name, qty) =>
         set((s) => {
-          const i = s.storageItems.findIndex((x) => x.name === name || x.id === name);
+          const i = s.storageItems.findIndex((x) => nameEq(x.name, name) || x.id === name);
           if (i < 0) return s;
           const next = [...s.storageItems];
           const dec = qty != null ? Math.round(qty) : next[i].quantity;

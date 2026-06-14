@@ -1,0 +1,10 @@
+{
+  "display_name": "🌍 世界引擎",
+  "author": "Disnight",
+  "description": "独立 API 世界推演引擎：对话后自动推演世界状态，注入上下文到 prompt",
+  "version": "1.8.0",
+  "license": "MIT",
+  "type": "extension",
+  "js": "world-engine.js",
+  "css": "style.css"
+}

@@ -37,6 +37,7 @@ import type { StatusEffect } from './store/playerStore';
 import { serializePlayerCard, serializeNpcCard, buildNpcCandidateTitles, rankNpcsLocal, serializeFactionsSection, NM_STRUCT_SELECT_PROMPT, type RecallLimits } from './systems/structuredRecall';
 import MiscPanel from './components/MiscPanel';
 import ChannelPanel from './components/ChannelPanel';
+import SystemShop from './components/SystemShop';
 import SummaryPanel from './components/SummaryPanel';
 import SaveLoadPanel from './components/SaveLoadPanel';
 import { PENDING_STARTED_KEY, clearProgress, autoSaveSlot, saveSlot, loadSlot, UNDO_ID, hasUndoPoint } from './systems/saveManager';
@@ -79,9 +80,19 @@ async function loadBuiltinDefaults() {
     try { const r = await fetch(base + 'presets/' + f); return r.ok ? await r.text() : null; } catch { return null; }
   };
   try {
+    // 一次性迁移：清掉早期误放进「世界选择」(worldBooks) 的正文世界书（它们属于正文 textWorldBooks，不该出现在选择世界里）
+    try {
+      if (!localStorage.getItem('zs-worldsel-cleaned-v1')) {
+        const bad = ['轮回乐园世界书', 'ST模块化输出·铁律', 'ST模块化输出', '轮回乐园小说'];
+        const wb0 = useSettings.getState().worldBooks ?? [];
+        const wb1 = wb0.filter((b) => !bad.includes(b.name));
+        if (wb1.length !== wb0.length) useSettings.setState({ worldBooks: wb1 } as any);
+        localStorage.setItem('zs-worldsel-cleaned-v1', '1');
+      }
+    } catch { /* */ }
     // 世界选择世界书 → worldBooks（仅「选择世界」功能读取）
     if ((useSettings.getState().worldBooks?.length ?? 0) === 0) {
-      const w = await grab('worldgen.json'); if (w) useSettings.getState().importWorldBook(w, '世界选择世界书', true);
+      const w = await grab('worldgen.json'); if (w) useSettings.getState().importWorldBook(w, '世界选择', true);
     }
     // 正文世界书 → textWorldBooks（正文生成读取）；按要求只内置 ST模块化·铁律 + 轮回乐园小说（______.json 不内置）
     if ((useSettings.getState().textWorldBooks?.length ?? 0) === 0) {
@@ -527,7 +538,9 @@ function buildItemPhaseSystemPrompt(entries: ItemPresetEntry[], narrative: strin
     : '（无在场NPC）';
 
   // 玩家基本状态
-  const playerSnapshot = `B1 玩家 HP:${player.hp}/${player.maxHp} MP:${player.mp ?? 0}/${player.maxMp ?? 0} SAN:${player.san}/${player.maxSan} ATK:${player.atk} DEF:${player.def} 积分:${player.points}`;
+  const _pAttrs = usePlayer.getState().profile.attrs;
+  const _pMaxHp = computeMaxHp(_pAttrs), _pMaxEp = computeMaxEp(_pAttrs);   // HP/EP 上限按六维算，让演化 AI 看到的也是真实值（非 100/50 旧默认）
+  const playerSnapshot = `B1 玩家 HP:${effectiveResource(player.hp, player.maxHp, _pMaxHp)}/${_pMaxHp} EP:${effectiveResource(player.mp, player.maxMp, _pMaxEp)}/${_pMaxEp} SAN:${player.san}/${player.maxSan} ATK:${player.atk} DEF:${player.def} 积分:${player.points}`;
 
   const vars: Record<string, string> = {
     story_text:             narrative,
@@ -598,6 +611,17 @@ const ITEM_ACQUIRE_RULE = `
 - **同部位/同类防重复**：玩家某部位若已有装备（见 player_items 的【已装备】），除非正文明确"换上/获得了新的该部位装备"，否则**绝不生成同部位/同类的相似装备**（例：已穿「战术丛林靴」就不要再造「军用战术靴」；已有上衣就不要再造另一件上衣）。换装走 updateItem，或先明确获得新物再替换。
 - 拿不准是否真入手就**不生成**——宁可漏生成，也不要凭一句描写凭空造装备。`;
 
+const ITEM_EXACT_REF_RULE = `
+【引用已有物品·照抄铁则】消耗/销毁/装备/卸下/更新/转移某件**已存在**的物品时（consumeItem/destroyItem/equipItem/unequipItem/updateItem/updateItemQuantity/transferItem），**name 与 itemId 必须照抄"储存空间清单(player_items)"里那件物品的完整名称与真实 ID**：
+- 禁止简写或省略品级/前缀（如把"次级止血喷雾"写成"止血喷雾"）、禁止凭印象自行编造 itemId。
+- 名字与 ID 尽量都给且都准确；二者哪怕一个写错，系统就可能匹配不到、导致操作失败。
+- 清单(player_items)里没有的物品，不要去消耗/销毁/装备它。`;
+
+const EVO_EXACT_REF_RULE = `
+【引用已有技能/天赋/称号·照抄铁则】删除或"升级更新"某个**已存在**的技能/天赋/称号/副职业/配方时（deSkill/deTalent/deTitle/deSubProfession/deRecipe，以及用**同名** addSkill/addTalent/addTitle 表示该条目"升级"），**名称必须照抄上方快照/已有清单里该条目的完整准确名称**：
+- 禁止简写、改写措辞、增删标点或空格（如把"烈焰斩·改"写成"烈焰斩"）。名字对不上会导致：① 删除失败删不掉；② 被当成全新条目重复添加，越堆越多。
+- 升级已有条目时，用与它**完全相同**的名字；只有确实是全新条目才用新名字。`;
+
 const SUBPROF_RULE = `
 【副职业·中文且仅正文显式】副职业名称、配方名一律用**中文**（禁止 tactics/wasteland_survival 之类英文或拼音）。**只有当本轮正文明确写出主角在从事/习得某项副职业（生活/制造/社交手艺）时，才允许 addSubProfession/addRecipe**；正文没有明确提及副职业，本轮一律不要新增或推断任何副职业。`;
 
@@ -610,6 +634,11 @@ const NPC_REVIEW_TAG_RULE = `
 
 const FACTION_WORLD_RULE = `
 【势力所处世界】每个势力维护「所处世界」(worldName)=该势力当前所在/所属的世界名：正文写明则照抄，未写则填当前世界名。用 faction.<id> 命名键 worldName 更新。`;
+
+const FACTION_FULL_FORMAT_RULE = `
+【势力固定格式·全量必填铁则（最高优先，禁止偷懒/漏项）】每次 addFaction / faction.<id> 创建或更新势力，**必须把下列字段一次性全部带上、不得遗漏留空**（正文写明的照抄，没写的按设定合理补全）：
+- name（**中文、有具体含义**的势力名，严禁 F1/F2/英文/无意义占位）、type（类型：帮派/政府/企业/教会/军团/部落/星际势力…）、**worldName（所处世界＝该势力所在世界名，必填！直接填当前所在世界名）**、scale（规模）、powerLevel（实力/战力层级）、territory（地盘/势力范围）、leader（首领）、members（核心成员）、relations（与其他势力关系）、favorToPlayer（对主角态度，数值）、goal（当前目标）、resources（资源）、assets（资产）、status（当前状态，如"正常运作"）。
+- **worldName 绝不能空**：它决定该势力属于哪个世界，缺失会导致换世界后旧势力一直挂在当前世界出不去。哪怕只是更新一句近况，也要把 worldName 与上面这些关键字段一并补全，绝不能只更新 deeds/status 而漏掉其余条目。`;
 
 const NPC_DEAD_EXCLUDE_RULE = `
 【死亡角色不演化·铁则】本轮正文中已死亡/被击杀/被摧毁的角色**一律不纳入演化考虑范围**：
@@ -671,6 +700,12 @@ const WORLDSOURCE_RULE = `
 - 正文报【本次获得/增加 X%】→ 用 \`character.B1.worldSource += X\`（在原有总量上累加）。
 - 回归轮回乐园 → \`character.B1.worldSource = 0\`。
 - **务必区分"当前总计"与"本次新增"**：正文说"当前总计 0.6%"就 \`= 0.6\`，绝不要只 += 一个小增量导致面板与正文对不上。`;
+
+const POINTS_NARRATIVE_RULE = `
+【属性点/真实属性点/技能点·完全按正文铁则】这三类点数**只在本回合正文明确出现相关数字或增减时才更新；正文没提到就保持原值，绝不臆造、绝不归零、不要每回合刷**。指令：
+- 主角：\`character.B1.attrPoints\`、\`character.B1.realAttrPoints\`。
+- NPC：\`character.<id>.attrPoints\`、\`character.<id>.realAttrPoints\`、\`character.<id>.skillPoints\`。
+- 用法：正文报【当前总量 N】→ \`= N\`；正文报【本次获得/奖励 N】→ \`+= N\`；正文报【消耗/扣除 N】→ \`-= N\`。无正文依据则完全不输出这些指令。`;
 
 const ATTR_SANITY_RULE = `
 【六维合理性铁则·按"它是什么"给属性】生成/更新六维必须**贴合角色的种族、形象与身份**，禁止给所有角色套同一套人类模板：
@@ -741,6 +776,22 @@ function reconcileHomeWorld(): void {
   const F = useFaction.getState();
   for (const f of Object.values(F.factions)) {
     if (f.inCurrentWorld && f.worldName && !isHomeWorld(f.worldName)) F.setWorld(f.id, false);
+  }
+}
+
+/* HP/EP 兜底：主角 HP/EP 仍是旧硬编码默认(100/100 & 50/50，从未被正文改过)时，按六维(体质×20 / 智力×15)重算为满。
+   解决「主角 HP/EP 永远停在 100/50、不随体质/智力变化」。任一值被正文动过(≠默认)即不再插手，避免覆盖剧情伤害。
+   （NPC 的 hp/mp 默认 undefined→effectiveResource 已按属性算满，本来就正常；只有主角有硬编码默认值需兜底。）*/
+function reconcilePlayerVitals(): void {
+  const g = useGame.getState();
+  const p = g.player;
+  if (p.hp === 100 && p.maxHp === 100 && p.mp === 50 && p.maxMp === 50) {
+    const a = usePlayer.getState().profile.attrs;
+    const mh = computeMaxHp(a), me = computeMaxEp(a);
+    if (mh !== 100 || me !== 50) {
+      g.setPlayerField('maxHp', mh); g.setPlayerField('hp', mh);
+      g.setPlayerField('maxMp', me); g.setPlayerField('mp', me);
+    }
   }
 }
 
@@ -833,6 +884,7 @@ export default function App() {
   const [npcPanelOpen,     setNpcPanelOpen]     = useState(false);
   const [miscPanelOpen,    setMiscPanelOpen]    = useState(false);
   const [channelPanelOpen, setChannelPanelOpen] = useState(false);
+  const [shopOpen, setShopOpen] = useState(false);
   const [summaryPanelOpen, setSummaryPanelOpen] = useState(false);
   const [saveOpen,         setSaveOpen]         = useState(false);
   const miscParadiseTime = useMisc((s) => s.paradiseTime);
@@ -843,6 +895,7 @@ export default function App() {
   const [started, setStarted] = useState(false);
   const [creating, setCreating] = useState(false);   // 角色创建页
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [mobileDrawer, setMobileDrawer] = useState<'player' | 'menu' | null>(null); // 手机端：左角色栏 / 右导航 抽屉
   const [inputValue, setInputValue] = useState('');
   const [rawResponse, setRawResponse] = useState('');
   const [showRaw, setShowRaw] = useState(false);
@@ -1143,7 +1196,7 @@ export default function App() {
         + '\n【destroy/consume 必带物品名】destroyItem/consumeItem **必须带 "name" 字段=物品全名**（与背包清单一致），itemId 用清单里的真实 ID；引擎优先按 name 匹配。**严禁臆造 itemId**——若不确定 ID，只写 name。例：开宝箱 destroyItem({"name":"白色宝箱","reason":"开启后消失"})；用绷带 consumeItem({"name":"残旧的止血绷带","quantity":1})。'
         + '\n' + ITEM_ACQUIRE_RULE
         + '\n【勿重复生成】背包清单(player_items)里已存在的物品**不要再 createItem**；需要修改已有物品用 updateItem(同 itemId)。'
-        + '\n' + FIRST_UPDATE_COMPLETE_RULE;
+        + '\n' + FIRST_UPDATE_COMPLETE_RULE + '\n' + ITEM_EXACT_REF_RULE;
 
       // user 消息：正文 + 指令要求
       const userContent = `# 本轮正文\n${trimmedNarrative}\n\n---\n${
@@ -1254,7 +1307,7 @@ export default function App() {
       const pTalents = b1?.traits ?? [];
       const a = prof.attrs;
       const playerProfileSnapshot = [
-        `姓名:${prof.name || '主角'} | 阶位:${prof.tier} Lv.${prof.level} | 进阶点数:${prof.advancePoints ?? 0} | 世界之源:${prof.worldSource ?? 0}`,
+        `姓名:${prof.name || '主角'} | 阶位:${prof.tier} Lv.${prof.level} | 进阶点数:${prof.advancePoints ?? 0} | 世界之源:${prof.worldSource ?? 0} | 属性点:${prof.attrPoints ?? 0} | 真实属性点:${prof.realAttrPoints ?? 0}`,
         prof.homeParadise && `所属乐园:${prof.homeParadise}`,
         prof.preParadiseJob && `主角背景(入园前职业):${prof.preParadiseJob}`,
         prof.contractorId && `契约者ID:${prof.contractorId}`,
@@ -1278,7 +1331,7 @@ export default function App() {
         .replaceAll('${character_snapshot}', playerProfileSnapshot)
         .replaceAll('${player_skills}', pSkills.length ? pSkills.map((s) => `${s.id}「${s.name}」${s.level ?? ''}`).join('；') : '（无）')
         .replaceAll('${player_traits}', pTalents.length ? pTalents.map((t) => `「${t.name}」${t.category ?? ''}·${t.rarity}级`).join('；') : '（无）')
-        + '\n\n' + NARRATIVE_FIRST_RULE + '\n' + BUFF_AS_STATUS_RULE + '\n' + SUBPROF_RULE + '\n' + TALENT_NO_CAP_RULE + '\n' + TITLE_DIVERSITY_RULE + '\n' + SKILL_TALENT_NOTE_RULE + '\n' + TIER_RULE + '\n' + IMAGE_TAGS_RULE + '\n' + HPEP_NARRATIVE_ONLY_RULE + '\n' + ADVANCE_POINTS_RULE + '\n' + WORLDSOURCE_RULE + '\n' + ATTR_SANITY_RULE + '\n' + APPEARANCE_UPDATE_RULE + '\n' + STATUS_FORMAT_RULE + '\n' + FIRST_UPDATE_COMPLETE_RULE;
+        + '\n\n' + NARRATIVE_FIRST_RULE + '\n' + BUFF_AS_STATUS_RULE + '\n' + SUBPROF_RULE + '\n' + TALENT_NO_CAP_RULE + '\n' + TITLE_DIVERSITY_RULE + '\n' + SKILL_TALENT_NOTE_RULE + '\n' + TIER_RULE + '\n' + IMAGE_TAGS_RULE + '\n' + HPEP_NARRATIVE_ONLY_RULE + '\n' + ADVANCE_POINTS_RULE + '\n' + WORLDSOURCE_RULE + '\n' + POINTS_NARRATIVE_RULE + '\n' + ATTR_SANITY_RULE + '\n' + APPEARANCE_UPDATE_RULE + '\n' + STATUS_FORMAT_RULE + '\n' + FIRST_UPDATE_COMPLETE_RULE + '\n' + EVO_EXACT_REF_RULE;
       const userContent  = `# 本轮正文\n${trimmedNarrative}\n\n---\n请根据以上正文，输出本轮主角属性与状态变化指令。只输出 <state> 块，无变化时输出空块，禁止输出正文内容。`;
 
       const ss2 = useSettings.getState();
@@ -1450,6 +1503,9 @@ export default function App() {
       !attrs && (r.hp != null || r.maxHp != null) && `HP: ${r.hp ?? '?'}/${r.maxHp ?? '?'}`,
       !attrs && (r.mp != null || r.maxMp != null) && `MP/EP: ${r.mp ?? '?'}/${r.maxMp ?? '?'}`,
       r.advancePoints != null && `进阶点数: ${r.advancePoints}`,
+      r.attrPoints != null && `属性点: ${r.attrPoints}`,
+      r.realAttrPoints != null && `真实属性点: ${r.realAttrPoints}`,
+      r.skillPoints != null && `技能点: ${r.skillPoints}`,
       attrs && `六维: 力${attrs.str ?? '?'} 敏${attrs.agi ?? '?'} 体${attrs.con ?? '?'} 智${attrs.int ?? '?'} 魅${attrs.cha ?? '?'} 幸${attrs.luck ?? '?'}`,
       attrs && `真实属性(每80普通=1真实,前端自动算,勿写入): 真力${trueAttr(attrs.str ?? 0)} 真敏${trueAttr(attrs.agi ?? 0)} 真体${trueAttr(attrs.con ?? 0)} 真智${trueAttr(attrs.int ?? 0)} 真魅${trueAttr(attrs.cha ?? 0)} 真幸${trueAttr(attrs.luck ?? 0)}`,
       r.personality && `性格(列3): ${r.personality}`,
@@ -1500,7 +1556,7 @@ ${lines.join('\n')}`;
       .filter((e) => e.enabled && e.source !== 'entrySharedRules')
       .map((e) => fillVars(e.content, vars))
       .join('\n\n')
-      + '\n\n' + NARRATIVE_FIRST_RULE + '\n' + BUFF_AS_STATUS_RULE + '\n' + NPC_AGE_RULE + '\n' + TALENT_NO_CAP_RULE + '\n' + TITLE_DIVERSITY_RULE + '\n' + NPC_DEAD_EXCLUDE_RULE + '\n' + SKILL_TALENT_NOTE_RULE + '\n' + NPC_SKILL_KEEP_RULE + '\n' + NPC_REVIEW_TAG_RULE + '\n' + TIER_RULE + '\n' + IMAGE_TAGS_RULE + '\n' + HPEP_NARRATIVE_ONLY_RULE + '\n' + ADVANCE_POINTS_RULE + '\n' + ATTR_SANITY_RULE + '\n' + STATUS_FORMAT_RULE + '\n' + NPC_PRIVATE_EXTRA_RULE + '\n' + FIRST_UPDATE_COMPLETE_RULE;
+      + '\n\n' + NARRATIVE_FIRST_RULE + '\n' + BUFF_AS_STATUS_RULE + '\n' + NPC_AGE_RULE + '\n' + TALENT_NO_CAP_RULE + '\n' + TITLE_DIVERSITY_RULE + '\n' + NPC_DEAD_EXCLUDE_RULE + '\n' + SKILL_TALENT_NOTE_RULE + '\n' + NPC_SKILL_KEEP_RULE + '\n' + NPC_REVIEW_TAG_RULE + '\n' + TIER_RULE + '\n' + IMAGE_TAGS_RULE + '\n' + HPEP_NARRATIVE_ONLY_RULE + '\n' + ADVANCE_POINTS_RULE + '\n' + POINTS_NARRATIVE_RULE + '\n' + ATTR_SANITY_RULE + '\n' + STATUS_FORMAT_RULE + '\n' + NPC_PRIVATE_EXTRA_RULE + '\n' + FIRST_UPDATE_COMPLETE_RULE + '\n' + EVO_EXACT_REF_RULE;
   }
 
   /* 登场判断 system prompt（只取 entrySharedRules 条目） */
@@ -1650,6 +1706,16 @@ ${lines.join('\n')}`;
       npc.upsertNpc(m[1], { advancePoints: m[2] === '=' ? v : m[2] === '+=' ? cur + v : Math.max(0, cur - v) });
       n++;
     }
+    // 属性点 / 真实属性点 / 技能点：character.<id>.(attrPoints|realAttrPoints|skillPoints) = / += / -= N（完全按正文）
+    const npcPtRe = /\bcharacter\.([CG]\w*)\.(attrPoints|realAttrPoints|skillPoints)\s*(=|-=|\+=)\s*(\d+)/g;
+    while ((m = npcPtRe.exec(reply))) {
+      if (!ok(m[1])) continue;
+      const key = m[2] as 'attrPoints' | 'realAttrPoints' | 'skillPoints';
+      const cur = ((npc.npcs[m[1]] as any)?.[key]) ?? 0;
+      const v = Number(m[4]);
+      npc.upsertNpc(m[1], { [key]: m[3] === '=' ? v : m[3] === '+=' ? cur + v : Math.max(0, cur - v) } as any);
+      n++;
+    }
     applyTimedStatusCommands(reply, onlyId);   // NPC 限时状态 addStatus/deStatus
     return n;
   }
@@ -1739,6 +1805,15 @@ ${lines.join('\n')}`;
       const v = Number(m[2]);
       const raw = m[1] === '=' ? v : m[1] === '+=' ? cur + v : Math.max(0, cur - v);
       sp({ worldSource: Math.round(raw * 10) / 10 });   // 最多保留 1 位小数，避免 0.3000000004 浮点误差
+      n++;
+    }
+    // 属性点 / 真实属性点：character.B1.(attrPoints|realAttrPoints) = / += / -= N（完全按正文，正文没出现就不动）
+    const ptRe = /\bcharacter\.B\d+\.(attrPoints|realAttrPoints)\s*(=|-=|\+=)\s*(\d+)/g;
+    while ((m = ptRe.exec(reply))) {
+      const key = m[1] as 'attrPoints' | 'realAttrPoints';
+      const cur = (usePlayer.getState().profile as any)[key] ?? 0;
+      const v = Number(m[3]);
+      sp({ [key]: m[2] === '=' ? v : m[2] === '+=' ? cur + v : Math.max(0, cur - v) } as any);
       n++;
     }
     applyTimedStatusCommands(reply);   // 主角限时状态 addStatus/deStatus
@@ -2494,19 +2569,24 @@ ${lines.join('\n')}`;
     console.log('[Portrait] 自动肖像阶段触发，服务=', service);
 
     // 目标：在场存活、无 avatar、且有外观线索的 NPC + 无立绘的主角
-    type Job = { kind: 'npc' | 'player'; id: string; name: string; fields: any; descForTags: string; imageTags?: string };
+    type Job = { kind: 'npc' | 'player'; id: string; name: string; fields: any; descForTags: string; imageTags?: string; forceRetag?: boolean; appSig?: string };
     const jobs: Job[] = [];
 
     const refresh = ig.refreshOnLook;   // 外观(imageTags)变化时刷新已有立绘
     const pf = usePlayer.getState().profile;
+    const pfApp = (pf.appearance || '').trim();
+    const pfTagsChanged = !!pf.imageTags && pf.imageTags !== pf.avatarTags;            // 列19 生图标签变了
+    const pfLookChanged = !!pfApp && pfApp !== (pf.avatarAppearance ?? '').trim();      // 外观文字变了
     const pfNeedNew = !pf.avatar && (pf.imageTags || pf.appearance || pf.profession);
-    const pfNeedRefresh = refresh && !!pf.avatar && !!pf.imageTags && pf.imageTags !== pf.avatarTags;
+    const pfNeedRefresh = refresh && !!pf.avatar && (pfTagsChanged || pfLookChanged);   // 标签或外观任一变化即刷新立绘
     if (pfNeedNew || pfNeedRefresh) {
       jobs.push({
         kind: 'player', id: 'B1', name: pf.name || '主角',
         fields: { appearance: pf.appearance, baseAppearance: pf.baseAppearance, profession: pf.profession, tier: realmFromLevel(pf.level) },
         descForTags: [pf.baseAppearance, pf.appearance, pf.profession, realmFromLevel(pf.level), pf.background].filter(Boolean).join('，'),
         imageTags: pf.imageTags,
+        forceRetag: !!pf.avatar && pfLookChanged && !pfTagsChanged,   // 仅外观文字变(标签没跟着变)→ 重新翻译标签，让新图真的不同
+        appSig: pfApp,
       });
     }
     for (const r of Object.values(useNpc.getState().npcs)) {
@@ -2545,7 +2625,7 @@ ${lines.join('\n')}`;
       try {
         // 无英文标签时先用 LLM 翻译（NAI 必须英文才像），存回 imageTags 供复用
         let tags = job.imageTags;
-        if (!tags || !tags.trim()) {
+        if (!tags || !tags.trim() || job.forceRetag) {   // 无标签 或 外观文字变了(forceRetag) → (重新)翻译标签
           const gen = await genPortraitTags(job.descForTags);
           if (gen) {
             tags = gen;
@@ -2555,8 +2635,8 @@ ${lines.join('\n')}`;
         }
         const prompt = buildPortraitPrompt({ ...job.fields, imageTags: tags });
         const url = await shrinkDataUrl(await generateImage(service, { prompt, negative: ig.portraitNegative, label: `自动肖像 · ${job.name}` }));
-        // 同时记下本次所用 imageTags，供"外观变化时刷新"对比
-        if (job.kind === 'player') usePlayer.getState().setProfile({ avatar: url, avatarTags: tags || '' });
+        // 记下本次所用 imageTags + 外观文本，供"标签/外观变化时刷新"对比
+        if (job.kind === 'player') usePlayer.getState().setProfile({ avatar: url, avatarTags: tags || '', avatarAppearance: job.appSig ?? '' });
         else useNpc.getState().upsertNpc(job.id, { avatar: url, avatarTags: tags || '' });
         ok++;
       } catch (e: any) { console.warn(`[Portrait] ${job.name} 生成失败:`, e.message ?? e); }
@@ -2778,7 +2858,7 @@ ${lines.join('\n')}`;
     const game = useGame.getState().player;
     const b1 = chars['B1'];
     const cards: string[] = [
-      serializePlayerCard(profile, game, b1?.skills ?? [], b1?.traits ?? [], useItems.getState().items, limits, b1?.titles, b1?.subProfessions),
+      serializePlayerCard(profile, game, b1?.skills ?? [], b1?.traits ?? [], useItems.getState().items, limits, b1?.titles, b1?.subProfessions, useItems.getState().currency),
     ];
 
     // ── NPC 选择：LLM 预测（开 LLM 模式）→ 本地在场优先兜底 ──
@@ -2938,6 +3018,122 @@ ${lines.join('\n')}`;
     await solicitQuotes();   // 刷新后顺带为玩家未成交的求购/出售帖补报价
   }
 
+  /* 主角在某频道发言 → 频道 API 生成 1~N 条契约者回复（语气随频道变化、数量不等），与发言一并存入 speak 流（限10条）。系统频道禁止。 */
+  async function replyToChannelPost(channel: string, content: string, replyTo?: { authorName: string; content: string }) {
+    const C = useChannel.getState();
+    if (!C.settings.enabled || channel === 'system' || !content.trim()) return;
+    const prof = usePlayer.getState().profile;
+    const playerName = prof.name || '主角';
+    // 先把主角发言立即上墙（回复随后逐条插到它上方，增加真实感）
+    const postId = useChannel.getState().addPlayerSpeak(channel as any, playerName, content.trim(), replyTo?.authorName);
+    const M = useMisc.getState();
+    const chDef = CHANNEL_DEFS.find((d) => d.key === channel);
+
+    // 频道近期对话（最多 20 条，排除刚发的这条）→ 给 AI 上下文，让回复有延续感、能接住之前回复过主角的人
+    const history = useChannel.getState().messages
+      .filter((m) => m.channel === channel && m.id !== postId)
+      .slice(0, 20)
+      .reverse();
+    const histText = history.length
+      ? history.map((m) => {
+          const who = m.byPlayer ? `主角(${playerName})` : `${m.authorName}${m.authorTier ? '·' + m.authorTier : ''}`;
+          const rt = m.replyToName ? `（回复@${m.replyToName}）` : '';
+          return `${who}${rt}：${String(m.content).slice(0, 120)}`;
+        }).join('\n')
+      : '（暂无更早的对话）';
+
+    let replies: { authorName: string; authorTier?: string; content: string }[] = [];
+    const chain = resolveApiChain('channel', getChannelApi());
+    if (chain[0]?.baseUrl && chain[0]?.apiKey) {
+      const otherN = 2 + Math.floor(Math.random() * 3);   // 回复某人时，其他人插嘴 2~4 条
+      const replyN = 2 + Math.floor(Math.random() * 5);   // 普通发言 2~6 条
+      const common = `你是「轮回乐园·公共频道」的回复生成器，模拟【${chDef?.label ?? channel}】频道里其他契约者/土著的真实回复。
+- 语气务必**多样**、贴合频道氛围：嘲讽 / 认同 / 赞赏 / 吐槽 / 崇拜 / 抬杠 / 阴阳怪气 / 玩梗整活 / 看热闹 / 话不着边 / 提问 / 泼冷水 等（不止这些，自行发挥），别千篇一律、也别都正面。
+- 不同频道风格不同：综合更整活玩梗，战斗更热血/支招，情报更分析推理，世界更见闻闲谈，交易更砍价吐槽，组队更搭话约人。
+- 发帖人用游戏化网名（如 夜影剑心 / 量子咸鱼 / 虚空观测者）；贴合当前世界(${M.worldName || '轮回乐园'})与主角阶位强度，别离谱。
+- **务必延续上文**：顺着之前的话题接话、可回应之前回复过主角的人，保持对话连贯，别每条都另起炉灶。
+- **只输出 JSON**：{"replies":[{"author":"网名","tier":"阶位·Lv（可省）","content":"回复正文"}]}，不要任何多余文字或 markdown。
+
+【该频道近期对话（旧→新，供你延续）】
+${histText}`;
+
+      const sys = replyTo
+        ? `${common}
+
+【本次场景：主角“回复了某人”】
+被回复者：${replyTo.authorName}
+${replyTo.authorName} 之前说：「${String(replyTo.content).slice(0, 200)}」
+主角(${playerName}·${prof.tier || '一阶'}Lv.${prof.level}) 回复 ${replyTo.authorName}：「${content.trim()}」
+
+要求：
+1. **第一条回复必须是「${replyTo.authorName}」本人**，直接回应主角（被当面回复自然要接话，可顺可怼，贴合其身份语气）。
+2. 随后 ${otherN} 条是**其他不同契约者**围观插嘴（起哄/认同/抬杠/看热闹等）。
+3. 第一条的 author 字段必须正好是「${replyTo.authorName}」。`
+        : `${common}
+
+【本次场景：主角发了一条新言】
+主角(${playerName}·${prof.tier || '一阶'}Lv.${prof.level}) 说：「${content.trim()}」
+
+要求：生成 ${replyN} 条回复，每条不同发帖人，结合上文自然回应。`;
+
+      try {
+        const { content: reply } = await apiChatFallback(chain, [
+          { role: 'system', content: sys },
+          { role: 'user', content: '只输出 JSON 对象 {"replies":[...]}。' },
+        ], { timeoutMs: 60000 });
+        const j = parseEntryJson(reply);
+        const arr = Array.isArray(j?.replies) ? j.replies : (Array.isArray(j?.messages) ? j.messages : []);
+        replies = arr
+          .filter((x: any) => x && x.content)
+          .map((x: any) => ({ authorName: String(x.author ?? x.authorName ?? '某契约者').split('|')[0].trim(), authorTier: x.tier ?? x.authorTier, content: String(x.content) }));
+        // 回复某人时兜底：保证第一条确实是被回复者本人（模型偶尔不遵守）
+        if (replyTo && replies.length) replies[0].authorName = replyTo.authorName;
+      } catch (e: any) { console.warn('[Channel] 生成回复失败:', e?.message ?? e); }
+    }
+    // 回复逐条错峰插到主角发言上方（模拟陆续有人回帖，增加真实感）
+    for (const r of replies) {
+      await new Promise((res) => setTimeout(res, 450 + Math.random() * 700));
+      useChannel.getState().addOneSpeakReply(channel as any, r, postId);
+    }
+  }
+
+  /* 系统商店·补货：AI 生成 20 件商品（价偏高），供「系统商店」购买 */
+  async function genShopItems() {
+    const chain = resolveApiChain('channel', getChannelApi());
+    if (!chain[0]?.baseUrl || !chain[0]?.apiKey) { console.warn('[Shop] 频道 API 未配置'); return []; }
+    const prof = usePlayer.getState().profile;
+    const M = useMisc.getState();
+    const sys = `你是「轮回乐园·系统商店」补货员。一次性生成 **20 件** 待售商品，类别要丰富搭配：消耗品、制式装备(武器/防具/饰品)、技能书/技能卷轴、材料、工具、特殊物品等。
+- 贴合当前世界(${M.worldName || '轮回乐园'})与主角阶位(${prof.tier || '一阶'}·Lv.${prof.level})的强度区间；**价格一般偏高**（系统商店溢价，约市场价 1.2~1.8 倍）。
+- 每件按物品固定格式给全字段。**只输出 JSON**：{"items":[{"name","category"(武器/防具/饰品/消耗品/材料/工具/特殊物品/重要物品等),"subType","gradeDesc"(品质色:白/绿/蓝/紫/淡金/金/暗金…),"price"(数字),"currency"("乐园币"或"魂币"),"effect","combatStat"(装备攻防如"防御8-8"),"durability","requirement","affix","origin","intro","appearance","qty"(默认1)}]}，共 20 件，不要任何多余文字或 markdown。`;
+    try {
+      const { content } = await apiChatFallback(chain, [{ role: 'system', content: sys }, { role: 'user', content: '只输出 JSON {"items":[…20件…]}。' }], { timeoutMs: 90000 });
+      const j = parseEntryJson(content);
+      return (Array.isArray(j?.items) ? j.items : []).slice(0, 20);
+    } catch (e: any) { console.warn('[Shop] 生成失败:', e?.message ?? e); return []; }
+  }
+
+  /* 系统回收·估价：AI 给选中的背包物品逐件报价（回收价约市场 50~80%）*/
+  async function genSellQuotes(list: { id: string; name: string; gradeDesc: string; category: string; effect?: string; qty: number }[]) {
+    const chain = resolveApiChain('channel', getChannelApi());
+    if (!chain[0]?.baseUrl || !chain[0]?.apiKey) return {};
+    const lines = list.map((it) => `${it.id} | ${it.name} | 品质:${it.gradeDesc} | 类型:${it.category} | x${it.qty}${it.effect ? ' | 效果:' + it.effect.slice(0, 40) : ''}`).join('\n');
+    const sys = `你是「轮回乐园·系统回收」估价员，为主角要出售的物品逐件给出**回收报价**（系统回收价约市场价 50%~80%，按品质/效果/稀有度/数量估算；品质越高价越高）。
+**只输出 JSON**：{"quotes":[{"id":"原样照抄物品id","price":数字,"currency":"乐园币"或"魂币"}]}，每件一条，不要多余文字。
+
+【待估物品】
+${lines}`;
+    try {
+      const { content } = await apiChatFallback(chain, [{ role: 'system', content: sys }, { role: 'user', content: '只输出 JSON {"quotes":[...]}。' }], { timeoutMs: 60000 });
+      const j = parseEntryJson(content);
+      const out: Record<string, { price: number; currency: string }> = {};
+      (Array.isArray(j?.quotes) ? j.quotes : []).forEach((q: any) => {
+        if (q?.id != null) out[String(q.id)] = { price: Math.max(0, Math.round(Number(q.price) || 0)), currency: (q.currency === '魂币' || q.currency === '灵魂钱币') ? '灵魂钱币' : '乐园币' };
+      });
+      return out;
+    } catch (e: any) { console.warn('[Shop] 估价失败:', e?.message ?? e); return {}; }
+  }
+
   /* 为玩家未成交的求购/出售帖生成契约者报价/出价（每条带留言）。成交结算仍由代码确定性处理。*/
   async function solicitQuotes() {
     const C = useChannel.getState();
@@ -3053,7 +3249,7 @@ ${lines.join('\n')}`;
   /* 策略B 第一段：当前世界判断 */
   async function runFactionWorldJudgment(narrative: string) {
     const { entries } = useFactionEvo.getState().settings;
-    const sys = buildFactionEntryPrompt(entries) + '\n\n' + NARRATIVE_FIRST_RULE + '\n' + FACTION_HOME_EXIT_RULE + '\n' + FACTION_WORLD_RULE + '\n' + FACTION_NAME_RULE;
+    const sys = buildFactionEntryPrompt(entries) + '\n\n' + NARRATIVE_FIRST_RULE + '\n' + FACTION_HOME_EXIT_RULE + '\n' + FACTION_WORLD_RULE + '\n' + FACTION_FULL_FORMAT_RULE + '\n' + FACTION_NAME_RULE;
     const facStore = useFaction.getState();
     const list = Object.values(facStore.factions);
     const known = list.map((f) => `${f.id}(${f.name})${f.worldName ? '·所属世界:' + f.worldName : ''}${f.inCurrentWorld ? '·当前世界' : '·非当前世界'}`).join(', ') || '（无）';
@@ -3086,7 +3282,7 @@ ${lines.join('\n')}`;
     const focus = computeFactionFocus();
     if (focus.length === 0) return;
     const { entries, scheduling } = useFactionEvo.getState().settings;
-    const sysBase = buildFactionSystemPrompt(entries) + '\n\n' + NARRATIVE_FIRST_RULE + '\n' + FACTION_WORLD_RULE + '\n' + FIRST_UPDATE_COMPLETE_RULE + '\n' + FACTION_NAME_RULE;
+    const sysBase = buildFactionSystemPrompt(entries) + '\n\n' + NARRATIVE_FIRST_RULE + '\n' + FACTION_WORLD_RULE + '\n' + FIRST_UPDATE_COMPLETE_RULE + '\n' + FACTION_FULL_FORMAT_RULE + '\n' + FACTION_NAME_RULE;
     const trimmed = trimNarrative(narrative);
     const conc = Math.max(1, scheduling.concurrency || 2);
     for (let i = 0; i < focus.length; i += conc) {
@@ -3162,6 +3358,22 @@ ${lines.join('\n')}`;
       if (rec) { npc.upsertNpc(rec.id, { attrs }); applied++; }
     }
     if (applied > 0) console.log(`[Attr] 从正文人物卡照抄六维：${applied} 个角色`);
+  }
+
+  /* 从正文抽取主角「当前HP：X/Y」「当前EP/MP：X/Y」并写入 gameStore（取最后一次=最新状态）。
+     解决"正文说 HP 恢复到 145/160、侧栏 HP 却没变"——AI 漏输出 hp.B1 时用正文显式数值兜底。仅认带"当前"的状态行，避免误抓 NPC 卡。 */
+  function applyNarrativeVitals(narrative: string) {
+    const g = useGame.getState();
+    const grabLast = (src: string): [number, number] | null => {
+      const r = new RegExp(src, 'gi'); let m: RegExpExecArray | null, last: [number, number] | null = null;
+      while ((m = r.exec(narrative)) !== null) last = [Number(m[1]), Number(m[2])];
+      return last;
+    };
+    const hp = grabLast('当前\\s*(?:HP|血量|生命值?)\\s*[:：]\\s*(\\d{1,7})\\s*/\\s*(\\d{1,7})');
+    if (hp && hp[1] >= 0 && hp[2] > 0) { g.setPlayerField('maxHp', hp[2]); g.setPlayerField('hp', Math.min(hp[0], hp[2])); }
+    const ep = grabLast('当前\\s*(?:EP|MP|蓝量|法力|能量|精力)\\s*[:：]\\s*(\\d{1,7})\\s*/\\s*(\\d{1,7})');
+    if (ep && ep[1] >= 0 && ep[2] > 0) { g.setPlayerField('maxMp', ep[2]); g.setPlayerField('mp', Math.min(ep[0], ep[2])); }
+    if (hp || ep) console.log(`[Vitals] 正文照抄主角 ${hp ? `HP ${hp[0]}/${hp[1]}` : ''} ${ep ? `EP ${ep[0]}/${ep[1]}` : ''}`);
   }
 
   /* 无信息卡时，按阶位预算自动生成【有起伏】的六维（一主一次三低，非平均），替代"全5"默认 */
@@ -3303,6 +3515,8 @@ ${lines.join('\n')}`;
   function runPostNarrativePhases(narrative: string, assistantMsgId?: number) {
     // 先从正文人物卡照抄六维（同步，先于各演化阶段，使快照与显示即刻正确）
     try { applyNarrativeAttrs(narrative); } catch (e) { console.warn('[Attr] 六维抽取失败:', e); }
+    // 主角 HP/EP：正文出现"当前HP/EP：X/Y"就照抄（AI 漏写 hp.B1 时兜底，解决 HP 恢复了但侧栏不变）
+    try { applyNarrativeVitals(narrative); } catch (e) { console.warn('[Vitals] HP/EP 抽取失败:', e); }
     // 在场/离场校正（兜底登场判断漏标，确保离场角色进入离场B区档案）
     try { reconcileScenePresence(narrative); } catch (e) { console.warn('[NPC] 在场/离场校正失败:', e); }
     // 先用当前已有 NPC 设一份重定向目标（登场判断完成后会再刷新）
@@ -3341,6 +3555,7 @@ ${lines.join('\n')}`;
     lastUserInputRef.current = userText;   // 供叙事记忆·回复后写入使用
     expireStatuses();                      // 回合推进：清理已过期的限时状态（主角+NPC）
     reconcileHomeWorld();                  // 回归乐园一致性兜底：时间同步 + 任务世界势力移出当前世界
+    reconcilePlayerVitals();               // HP/EP 兜底：仍是 100/50 旧默认时按六维重算为满
 
     const api = textUseShared ? sharedApi : textApi;
     const apiChain = resolveApiChain('text', api);   // 接口路由：多选轮流 + 失败 fallback
@@ -3669,6 +3884,9 @@ ${lines.join('\n')}`;
       attrs: { ...d.attrs },
       background: `【开局设定】所属乐园：${d.paradise}｜游戏难度：${d.difficulty}（${d.points}属性点）｜年龄：${d.age || '未知'}｜性格：${d.personality || '—'}｜主角背景：${d.prevProfession || '普通人'}`,
     });
+    // 开局按六维换算 HP/EP 上限（体质×20 / 智力×15）并拉满，避免主角永远停在 100/50 默认值
+    { const g = useGame.getState(); const mh = computeMaxHp(d.attrs), me = computeMaxEp(d.attrs);
+      g.setPlayerField('maxHp', mh); g.setPlayerField('hp', mh); g.setPlayerField('maxMp', me); g.setPlayerField('mp', me); }
     if (d.talentName) {
       useCharacters.getState().addTrait('B1', {
         name: d.talentName, desc: d.talentEffect, effect: d.talentEffect,
@@ -3706,6 +3924,17 @@ ${lines.join('\n')}`;
     // 进入任务世界：立即把「当前世界」设为该世界名、清空世界时间（底部状态栏即时反映当前世界，
     // 之后由杂项演化按正文细化 worldTime；worldName 始终跟随正文/所在世界，不写死轮回乐园）
     try { useMisc.getState().setTime({ worldName: world.name || '', worldTime: '' }); } catch { /* */ }
+    // 进入新任务世界：把"所处世界已知、且明显不属于新世界"的旧势力移出当前世界（避免上个世界的势力继续挂在新世界出不去）
+    try {
+      const F = useFaction.getState();
+      const norm = (s: string) => s.replace(/[\s·•・\-—_,，。、|｜（）()【】]/g, '').toLowerCase();
+      const nn = norm((world.name || '').trim());
+      if (nn) for (const f of Object.values(F.factions)) {
+        if (!f.inCurrentWorld) continue;
+        const fw = norm((f.worldName || '').trim());
+        if (fw && !fw.includes(nn) && !nn.includes(fw)) F.setWorld(f.id, false);
+      }
+    } catch { /* */ }
     const systemMsg: ChatMessage = { id: ++msgId.current, role: 'user', content: contextText };
     messagesRef.current = [];   // 进入新世界：以空历史起头，避免取到旧对话
     setMessages([systemMsg]);
@@ -3742,6 +3971,13 @@ ${lines.join('\n')}`;
       <header className="shrink-0 h-14 flex items-center justify-between px-3 border-b border-edge bg-panel z-10">
         <div className="flex items-center gap-2 text-xs font-mono">
           <button
+            onClick={() => setMobileDrawer((d) => (d === 'player' ? null : 'player'))}
+            aria-label="角色面板"
+            className="lg:hidden w-8 h-8 flex items-center justify-center border border-edge rounded text-god hover:bg-god/10 transition-colors text-base"
+          >
+            ☰
+          </button>
+          <button
             onClick={() => setStarted(false)}
             className="px-2 py-0.5 border border-edge rounded text-dim hover:border-blood/40 hover:text-blood transition-colors"
           >
@@ -3764,14 +4000,34 @@ ${lines.join('\n')}`;
           >
             💾 存档
           </button>
+          <button
+            onClick={() => setMobileDrawer((d) => (d === 'menu' ? null : 'menu'))}
+            aria-label="功能菜单"
+            className="lg:hidden w-8 h-8 flex items-center justify-center border border-edge rounded text-god hover:bg-god/10 transition-colors text-base"
+          >
+            ⊞
+          </button>
         </div>
       </header>
 
       {/* ── 主体3栏 ── */}
       <div className="flex flex-1 overflow-hidden">
 
-        {/* ── 左侧角色面板 ── */}
-        <aside className="shrink-0 w-72 border-r border-edge bg-panel flex flex-col overflow-hidden">
+        {/* 手机端抽屉遮罩（点击关闭）*/}
+        {mobileDrawer && (
+          <div
+            className="lg:hidden fixed inset-x-0 top-14 bottom-0 z-40 bg-black/50"
+            onClick={() => setMobileDrawer(null)}
+          />
+        )}
+
+        {/* ── 左侧角色面板（桌面常驻列 / 手机左侧抽屉）── */}
+        <aside
+          className={`shrink-0 w-72 border-r border-edge bg-panel flex flex-col overflow-hidden
+            max-lg:fixed max-lg:top-14 max-lg:bottom-0 max-lg:left-0 max-lg:z-50 max-lg:max-w-[82vw]
+            max-lg:shadow-[8px_0_40px_rgba(0,0,0,0.7)] max-lg:transition-transform max-lg:duration-300
+            ${mobileDrawer === 'player' ? 'max-lg:translate-x-0' : 'max-lg:-translate-x-full'}`}
+        >
           <PlayerSidebar />
         </aside>
 
@@ -3779,10 +4035,14 @@ ${lines.join('\n')}`;
         <main className="flex-1 flex flex-col overflow-hidden min-w-0">
           {/* 叙事/对话滚动区 */}
           <div className="flex-1 overflow-hidden relative">
-            {/* 左上角「主角装备」/ 右上角「在场人物」/ 右下角「物品栏」浮窗（仅叙事视图）*/}
-            {worlds.length === 0 && started && <PlayerEquipPanel />}
-            {worlds.length === 0 && started && <OnScenePanel onOpenNpc={setOnSceneDetailId} />}
-            {worlds.length === 0 && started && <ItemListPanel />}
+            {/* 左上角「主角装备」/ 右上角「在场人物」/ 右下角「物品栏」浮窗（仅叙事视图；手机端隐藏，改用左/右抽屉）*/}
+            {worlds.length === 0 && started && (
+              <div className="max-lg:hidden">
+                <PlayerEquipPanel />
+                <OnScenePanel onOpenNpc={setOnSceneDetailId} />
+                <ItemListPanel />
+              </div>
+            )}
             {worlds.length > 0 ? (
               <WorldCardView
                 worlds={worlds}
@@ -3797,7 +4057,7 @@ ${lines.join('\n')}`;
                 onClose={() => { setWorlds([]); setCardIndex(0); }}
               />
             ) : (
-              <div ref={chatScrollRef} onScroll={onChatScroll} className="h-full overflow-y-auto px-6 py-4 space-y-4 max-w-4xl mx-auto w-full border-x border-edge">
+              <div ref={chatScrollRef} onScroll={onChatScroll} className="h-full overflow-y-auto px-6 max-lg:px-3 py-4 space-y-4 max-w-4xl mx-auto w-full border-x border-edge">
                 {messages.length === 0 && !generating && (
                   <div className="h-full flex items-center justify-center text-dim/30 text-sm font-mono select-none">
                     在此输入行动，故事将在这里展开…
@@ -3847,7 +4107,7 @@ ${lines.join('\n')}`;
           </div>
 
           {/* 状态命令栏 */}
-          <div className="shrink-0 border-t border-edge bg-panel px-4 py-1.5 flex items-center gap-2 text-[11px] font-mono text-dim">
+          <div className="shrink-0 border-t border-edge bg-panel px-4 py-1.5 flex items-center max-lg:flex-wrap gap-2 text-[11px] font-mono text-dim">
             <span className="text-god/60">📋</span>
             <span>本回合状态命令 · {turnCountRef.current} 回合</span>
             {itemPhaseRunning && (
@@ -4017,7 +4277,7 @@ ${lines.join('\n')}`;
             <button
               onClick={() => setMessages([])}
               title="清空对话"
-              className="w-7 h-7 flex items-center justify-center text-blood bg-blood/10 border border-blood/30 rounded text-sm hover:bg-blood/20 shrink-0"
+              className="w-7 h-7 max-lg:w-9 max-lg:h-9 flex items-center justify-center text-blood bg-blood/10 border border-blood/30 rounded text-sm hover:bg-blood/20 shrink-0"
             >
               ↺
             </button>
@@ -4027,43 +4287,51 @@ ${lines.join('\n')}`;
               onChange={(e) => setInputValue(e.target.value)}
               onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendMessage(); } }}
               placeholder="在此输入你的行动..."
-              className="flex-1 bg-transparent text-sm text-slate-200 placeholder:text-dim outline-none"
+              className="flex-1 bg-transparent text-sm max-lg:text-base text-slate-200 placeholder:text-dim outline-none"
             />
             <button
               onClick={() => sendMessage()}
               disabled={generating || !inputValue.trim()}
-              className="w-7 h-7 flex items-center justify-center text-god border border-god/30 rounded hover:bg-god/10 shrink-0 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+              className="w-7 h-7 max-lg:w-9 max-lg:h-9 flex items-center justify-center text-god border border-god/30 rounded hover:bg-god/10 shrink-0 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
             >
               {generating ? <span className="animate-spin text-xs">◌</span> : '▶'}
             </button>
           </div>
         </main>
 
-        {/* ── 右侧导航菜单 ── */}
-        <aside className="shrink-0 w-44 border-l border-edge bg-panel overflow-y-auto">
+        {/* ── 右侧导航菜单（桌面常驻列 / 手机右侧抽屉）── */}
+        <aside
+          className={`shrink-0 w-44 border-l border-edge bg-panel overflow-y-auto
+            max-lg:fixed max-lg:top-14 max-lg:bottom-0 max-lg:right-0 max-lg:z-50 max-lg:w-52 max-lg:max-w-[78vw]
+            max-lg:shadow-[-8px_0_40px_rgba(0,0,0,0.7)] max-lg:transition-transform max-lg:duration-300
+            ${mobileDrawer === 'menu' ? 'max-lg:translate-x-0' : 'max-lg:translate-x-full'}`}
+        >
           <nav className="py-1">
             {rightMenuItems.map((item) => (
               <button
                 key={item.label}
-                onClick={
-                  item.label === '设置' ? () => setSettingsOpen(true) :
-                  item.label === '储存空间' ? () => setBackpackOpen(true) :
-                  item.label === '装备' ? () => setEquipOpen(true) :
-                  item.label === '技能' ? () => setCharPanelOpen(true) :
-                  item.label === '称号' ? () => setTitlePanelOpen(true) :
-                  item.label === '成就' ? () => setAchievePanelOpen(true) :
-                  item.label === '副职业' ? () => setSubProfOpen(true) :
-                  item.label === '势力' ? () => setFactionPanelOpen(true) :
-                  item.label === '领地' ? () => setTerritoryPanelOpen(true) :
-                  item.label === '冒险团' ? () => setTeamPanelOpen(true) :
-                  item.label === '回合洞察' ? () => setInsightOpen(true) :
-                  item.label === 'NPC'  ? () => setNpcPanelOpen(true) :
-                  item.label === '任务' ? () => setMiscPanelOpen(true) :
-                  item.label === '频道' ? () => setChannelPanelOpen(true) :
-                  item.label === '记忆' ? () => setSummaryPanelOpen(true) :
-                  item.label === '存档' ? () => setSaveOpen(true) :
-                  undefined
-                }
+                onClick={() => {
+                  const open =
+                    item.label === '设置' ? () => setSettingsOpen(true) :
+                    item.label === '储存空间' ? () => setBackpackOpen(true) :
+                    item.label === '装备' ? () => setEquipOpen(true) :
+                    item.label === '技能' ? () => setCharPanelOpen(true) :
+                    item.label === '称号' ? () => setTitlePanelOpen(true) :
+                    item.label === '成就' ? () => setAchievePanelOpen(true) :
+                    item.label === '副职业' ? () => setSubProfOpen(true) :
+                    item.label === '势力' ? () => setFactionPanelOpen(true) :
+                    item.label === '领地' ? () => setTerritoryPanelOpen(true) :
+                    item.label === '冒险团' ? () => setTeamPanelOpen(true) :
+                    item.label === '回合洞察' ? () => setInsightOpen(true) :
+                    item.label === 'NPC'  ? () => setNpcPanelOpen(true) :
+                    item.label === '任务' ? () => setMiscPanelOpen(true) :
+                    item.label === '频道' ? () => setChannelPanelOpen(true) :
+                    item.label === '记忆' ? () => setSummaryPanelOpen(true) :
+                    item.label === '存档' ? () => setSaveOpen(true) :
+                    undefined;
+                  open?.();
+                  setMobileDrawer(null);
+                }}
                 className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-dim hover:text-slate-200 hover:bg-panel2 transition-colors text-left"
               >
                 <span className="w-4 text-center text-xs opacity-70">{item.icon}</span>
@@ -4136,8 +4404,9 @@ ${lines.join('\n')}`;
 
       {/* ── 杂项（任务/世界大事）面板 ── */}
       {channelPanelOpen && (
-        <ChannelPanel onClose={() => setChannelPanelOpen(false)} onRefresh={refreshChannel} onSolicit={solicitQuotes} />
+        <ChannelPanel onClose={() => setChannelPanelOpen(false)} onRefresh={refreshChannel} onSolicit={solicitQuotes} onPost={replyToChannelPost} onOpenShop={() => setShopOpen(true)} />
       )}
+      {shopOpen && <SystemShop onGenShop={genShopItems} onQuoteSell={genSellQuotes} onClose={() => setShopOpen(false)} />}
       {miscPanelOpen && (
         <MiscPanel onClose={() => setMiscPanelOpen(false)} />
       )}
@@ -4271,12 +4540,12 @@ function WorldCardView({ worlds, index, onPrev, onNext, onJump, onSelect, onClos
       </button>
 
       {/* 计数 */}
-      <div className="mb-3 text-sm font-mono text-dim tracking-widest">
+      <div className="mb-2 text-sm font-mono text-dim tracking-widest">
         {index + 1} / {worlds.length}
       </div>
 
       {/* 卡片 + 左右箭头 */}
-      <div className="flex items-stretch gap-4 w-full max-w-4xl" style={{ maxHeight: 'calc(100vh - 140px)' }}>
+      <div className="flex items-stretch gap-4 w-full max-w-4xl" style={{ maxHeight: 'calc(100vh - 170px)' }}>
         {/* 左箭头 */}
         <button
           onClick={onPrev}
@@ -4289,7 +4558,7 @@ function WorldCardView({ worlds, index, onPrev, onNext, onJump, onSelect, onClos
         <div className="flex-1 border border-god/30 rounded-2xl bg-panel shadow-[0_0_50px_rgba(70,227,207,0.08)] overflow-hidden flex flex-col min-h-0">
 
           {/* ── 头部：编号 + 世界名 + 类型 ── */}
-          <div className="px-8 pt-6 pb-5 border-b border-edge shrink-0">
+          <div className="px-8 pt-4 pb-3.5 border-b border-edge shrink-0">
             <div className="flex items-center justify-between mb-1.5">
               <span className="text-sm font-mono text-god/40 tracking-widest uppercase">
                 World · {String(index + 1).padStart(2, '0')}
@@ -4300,9 +4569,9 @@ function WorldCardView({ worlds, index, onPrev, onNext, onJump, onSelect, onClos
                 </span>
               )}
             </div>
-            <h2 className="text-3xl font-bold text-slate-100 leading-snug god-glow mt-1">{world.name}</h2>
+            <h2 className="text-2xl font-bold text-slate-100 leading-snug god-glow mt-0.5">{world.name}</h2>
             {/* 阶位 + 难度 + 区域 */}
-            <div className="flex items-center gap-4 mt-3 flex-wrap">
+            <div className="flex items-center gap-4 mt-2 flex-wrap">
               {world.tier !== '' && (
                 <span className="text-base font-mono text-sky-400/80">
                   {typeof world.tier === 'number' || /^\d+$/.test(world.tier)
@@ -4332,10 +4601,10 @@ function WorldCardView({ worlds, index, onPrev, onNext, onJump, onSelect, onClos
           </div>
 
           {/* ── 底部按钮 ── */}
-          <div className="px-8 py-5 border-t border-edge text-center shrink-0">
+          <div className="px-8 py-3 border-t border-edge text-center shrink-0">
             <button
               onClick={() => onSelect(world.name, world)}
-              className="px-12 py-3 border border-god/50 text-god text-lg rounded-xl hover:bg-god/10 font-mono transition-colors"
+              className="px-12 py-2.5 border border-god/50 text-god text-base rounded-xl hover:bg-god/10 font-mono transition-colors"
             >
               进入此世界
             </button>
@@ -4352,7 +4621,7 @@ function WorldCardView({ worlds, index, onPrev, onNext, onJump, onSelect, onClos
       </div>
 
       {/* 缩略点导航 */}
-      <div className="mt-4 flex gap-2">
+      <div className="mt-3 flex gap-2">
         {worlds.map((_, i) => (
           <button
             key={i}
@@ -4377,9 +4646,9 @@ const accentMap: Record<string, string> = {
 function CardSection({ label, content, accent }: { label: string; content: string; accent?: string }) {
   const labelColor = accent ? accentMap[accent] ?? 'text-dim' : 'text-dim';
   return (
-    <div className="px-8 py-5">
-      <div className={`text-sm font-mono mb-2 ${labelColor}`}>{label}</div>
-      <p className="text-base text-slate-300 leading-relaxed">{content}</p>
+    <div className="px-8 py-3">
+      <div className={`text-sm font-mono mb-1 ${labelColor}`}>{label}</div>
+      <p className="text-[15px] text-slate-300 leading-relaxed">{content}</p>
     </div>
   );
 }

@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useRef } from 'react';
 import { useChannel, CHANNEL_DEFS, type ChannelKey, type ChannelMessage, type ChannelQuote } from '../store/channelStore';
 import { useItems, ITEM_GRADES, gradeColorClass, gradeBadgeClass, gradeNameClass, type CurrencyWallet } from '../store/itemStore';
 import {
@@ -90,12 +90,13 @@ function ChannelItemDetail({ p, onClose }: { p: DetailPayload; onClose: () => vo
   );
 }
 
-function MessageCard({ m, onBuy, onAcceptQuote, onCancel, onDetail }: {
+function MessageCard({ m, onBuy, onAcceptQuote, onCancel, onDetail, onReply }: {
   m: ChannelMessage;
   onBuy: (m: ChannelMessage) => void;
   onAcceptQuote: (m: ChannelMessage, q: ChannelQuote) => void;
   onCancel: (id: string) => void;
   onDetail: (p: DetailPayload) => void;
+  onReply?: (m: ChannelMessage) => void;
 }) {
   const c = CH_CLS[m.channel] ?? CH_FALLBACK;
   const chDef = CHANNEL_DEFS.find((d) => d.key === m.channel);
@@ -113,7 +114,12 @@ function MessageCard({ m, onBuy, onAcceptQuote, onCancel, onDetail }: {
         <span className="flex-1" />
         {isMine && m.fulfilled && <span className="text-[10px] font-mono px-1.5 py-0.5 rounded border border-edge text-dim/50">已成交</span>}
         <span className={`text-[10px] font-mono px-1.5 py-0.5 rounded border ${c.chip}`}>{chDef?.icon}{KIND_LABEL[m.kind] ?? m.kind}</span>
+        {onReply && !isMine && (
+          <button onClick={() => onReply(m)} title={`回复 ${m.authorName}`}
+            className="text-[10px] font-mono px-1.5 py-0.5 rounded border border-god/30 text-god/70 hover:bg-god/10 transition-colors">↩ 回复</button>
+        )}
       </div>
+      {isMine && m.replyToName && <div className="text-[11px] font-mono text-god/50 mb-0.5">↩ 回复 @{m.replyToName}</div>}
       <div className="text-[14px] text-slate-300 leading-relaxed">{m.content}</div>
 
       {/* NPC 出售帖：点击看详情（固定格式全字段）+ 一键购买 */}
@@ -136,8 +142,8 @@ function MessageCard({ m, onBuy, onAcceptQuote, onCancel, onDetail }: {
         </div>
       )}
 
-      {/* 玩家求购/出售帖：物品概览（可点详情）+ 报价列表 + 成交 */}
-      {isMine && (
+      {/* 玩家求购/出售帖：物品概览（可点详情）+ 报价列表 + 成交（发言帖 speak 不显示交易 UI）*/}
+      {isMine && !m.speak && (
         <div className="mt-1.5 space-y-1">
           {m.offer && (m.offer.itemName) && (
             <div onClick={() => onDetail({ src: m.offer, price: m.offer!.price, currency: m.offer!.currency })}
@@ -316,7 +322,7 @@ function PostForm({ mode, onClose, onPosted }: { mode: 'buy' | 'sell'; onClose: 
   );
 }
 
-export default function ChannelPanel({ onClose, onRefresh, onSolicit }: { onClose: () => void; onRefresh: (force?: boolean) => void; onSolicit?: () => void }) {
+export default function ChannelPanel({ onClose, onRefresh, onSolicit, onPost, onOpenShop }: { onClose: () => void; onRefresh: (force?: boolean) => void; onSolicit?: () => void; onPost?: (channel: ChannelKey, content: string, replyTo?: { authorName: string; content: string }) => Promise<void>; onOpenShop?: () => void }) {
   const messages   = useChannel((s) => s.messages);
   const refreshing = useChannel((s) => s.refreshing);
   const channels   = useChannel((s) => s.settings.channels);
@@ -325,14 +331,30 @@ export default function ChannelPanel({ onClose, onRefresh, onSolicit }: { onClos
   const currency   = useItems((s) => s.currency);
 
   const tabs = CHANNEL_DEFS.filter((d) => channels[d.key]);
-  const [tab, setTab] = useState<ChannelKey | 'all'>('all');
-  const list = (tab === 'all' ? messages : messages.filter((m) => m.channel === tab));
+  const [tab, setTab] = useState<ChannelKey>(() => CHANNEL_DEFS.find((d) => channels[d.key])?.key ?? 'general');
+  const list = messages.filter((m) => m.channel === tab);
 
   const [confirmMsg, setConfirmMsg] = useState<ChannelMessage | null>(null);
   const [postMode, setPostMode] = useState<'buy' | 'sell' | null>(null);
   const [detail, setDetail] = useState<DetailPayload | null>(null);
   const [toast, setToast] = useState<{ text: string; ok: boolean } | null>(null);
   function flash(ok: boolean, text: string) { setToast({ ok, text }); setTimeout(() => setToast(null), 4000); }
+
+  const [speakText, setSpeakText] = useState('');
+  const [speaking, setSpeaking] = useState(false);
+  const [replyTarget, setReplyTarget] = useState<{ id: string; authorName: string; content: string } | null>(null);
+  const speakRef = useRef<HTMLInputElement>(null);
+  async function doSpeak() {
+    const text = speakText.trim();
+    if (!text || speaking || !onPost) return;
+    const rt = replyTarget ? { authorName: replyTarget.authorName, content: replyTarget.content } : undefined;
+    setSpeaking(true); setSpeakText(''); setReplyTarget(null);
+    try { await onPost(tab, text, rt); } finally { setSpeaking(false); }
+  }
+  function startReply(m: ChannelMessage) {
+    setReplyTarget({ id: m.id, authorName: m.authorName, content: String(m.content) });
+    setTimeout(() => speakRef.current?.focus(), 0);
+  }
 
   function doBuy(m: ChannelMessage) {
     const r: BuyResult = buyFromListing(m);
@@ -343,6 +365,7 @@ export default function ChannelPanel({ onClose, onRefresh, onSolicit }: { onClos
     const r = acceptQuote(m, q);
     if (m.kind === 'buy') flash(r.ok, r.ok ? `已买下「${q.itemName ?? m.offer?.itemName ?? '物品'}」，花费 ${r.price} ${r.currency}` : (r.error ?? '成交失败'));
     else flash(r.ok, r.ok ? `已卖出「${m.offer?.itemName ?? '物品'}」，收入 ${r.price} ${r.currency}` : (r.error ?? '成交失败'));
+    if (r.ok) setTimeout(() => removeMessage(m.id), 600);   // 成交后删除该求购/出售帖（不再保留"已成交"记录）
   }
 
   return (
@@ -368,14 +391,10 @@ export default function ChannelPanel({ onClose, onRefresh, onSolicit }: { onClos
 
         {/* 频道 tab + 发帖按钮 */}
         <div className="shrink-0 flex gap-1 px-4 py-2 border-b border-edge bg-panel flex-wrap items-center">
-          <button onClick={() => setTab('all')}
-            className={`px-3 py-1 rounded text-sm font-mono border transition-colors ${tab === 'all' ? 'border-god/50 text-god bg-god/10' : 'border-edge text-dim hover:text-slate-200'}`}>
-            全部{messages.length > 0 ? ` (${messages.length})` : ''}
-          </button>
           {tabs.map((d) => {
             const n = messages.filter((m) => m.channel === d.key).length;
             return (
-              <button key={d.key} onClick={() => setTab(d.key)} title={d.desc}
+              <button key={d.key} onClick={() => { setTab(d.key); setReplyTarget(null); }} title={d.desc}
                 className={`px-3 py-1 rounded text-sm font-mono border transition-colors ${tab === d.key ? 'border-god/50 text-god bg-god/10' : 'border-edge text-dim hover:text-slate-200'}`}>
                 {d.icon}{d.label}{n > 0 ? ` (${n})` : ''}
               </button>
@@ -386,6 +405,8 @@ export default function ChannelPanel({ onClose, onRefresh, onSolicit }: { onClos
             className="px-2.5 py-1 rounded text-sm font-mono border border-amber-600/40 text-amber-300 hover:bg-amber-900/20 disabled:opacity-40 transition-colors">🛒 求购</button>
           <button onClick={() => setPostMode('sell')} disabled={!enabled}
             className="px-2.5 py-1 rounded text-sm font-mono border border-amber-600/40 text-amber-300 hover:bg-amber-900/20 disabled:opacity-40 transition-colors">🏷 出售</button>
+          {onOpenShop && <button onClick={onOpenShop} disabled={!enabled}
+            className="px-2.5 py-1 rounded text-sm font-mono border border-god/40 text-god hover:bg-god/10 disabled:opacity-40 transition-colors">🏪 系统商店</button>}
         </div>
 
         <div className="flex-1 overflow-y-auto p-4 space-y-2">
@@ -400,9 +421,36 @@ export default function ChannelPanel({ onClose, onRefresh, onSolicit }: { onClos
               {!refreshing && <div className="mt-2 text-dim/30">点「🔄」生成帖子，或「🛒 求购 / 🏷 出售」自己挂单</div>}
             </div>
           ) : (
-            list.map((m) => <MessageCard key={m.id} m={m} onBuy={setConfirmMsg} onAcceptQuote={doAcceptQuote} onCancel={removeMessage} onDetail={setDetail} />)
+            list.map((m) => <MessageCard key={m.id} m={m} onBuy={setConfirmMsg} onAcceptQuote={doAcceptQuote} onCancel={removeMessage} onDetail={setDetail} onReply={enabled && onPost && tab !== 'system' ? startReply : undefined} />)
           )}
         </div>
+
+        {/* 主角发言（系统频道禁止）→ 发完会收到数量不等的契约者回复；点某条「↩ 回复」则定向回复 TA */}
+        {enabled && onPost && tab !== 'system' && (
+          <div className="shrink-0 border-t border-edge bg-panel">
+            {replyTarget && (
+              <div className="flex items-center gap-2 px-4 pt-2 text-[12px] font-mono">
+                <span className="text-god/70 shrink-0">↩ 回复 @{replyTarget.authorName}：</span>
+                <span className="flex-1 truncate text-dim/55">{replyTarget.content}</span>
+                <button onClick={() => setReplyTarget(null)} title="取消回复" className="shrink-0 text-dim/50 hover:text-blood">✕</button>
+              </div>
+            )}
+            <div className="flex items-center gap-2 px-4 py-2">
+              <input
+                ref={speakRef}
+                value={speakText}
+                onChange={(e) => setSpeakText(e.target.value)}
+                onKeyDown={(e) => { if (e.key === 'Enter' && !speaking) doSpeak(); }}
+                placeholder={replyTarget ? `回复 ${replyTarget.authorName}…（TA 会先回你，其他人再插嘴）` : `在「${CHANNEL_DEFS.find((d) => d.key === tab)?.label ?? ''}」频道发言…（发完会收到契约者回复）`}
+                disabled={speaking}
+                className="flex-1 input-base text-sm" />
+              <button onClick={doSpeak} disabled={speaking || !speakText.trim()}
+                className="shrink-0 px-3 py-1.5 rounded text-sm font-mono border border-god/40 text-god hover:bg-god/10 disabled:opacity-40 disabled:cursor-not-allowed transition-colors">
+                {speaking ? '发送中…' : (replyTarget ? '↩ 回复' : '💬 发言')}
+              </button>
+            </div>
+          </div>
+        )}
 
         {toast && (
           <div className={`shrink-0 px-4 py-2 text-[13px] font-mono border-t ${toast.ok ? 'border-emerald-700/40 text-emerald-300 bg-emerald-900/10' : 'border-blood/40 text-blood bg-blood/5'}`}>

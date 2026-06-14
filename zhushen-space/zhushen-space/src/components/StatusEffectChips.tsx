@@ -24,6 +24,13 @@ function durLabel(e: StatusEffect): string {
   if (e.durationTurns != null) return `${e.durationTurns}回合`;
   return '';
 }
+/* 仅「数字+单位」的短时长才进胶囊（3回合/5分钟…）；条件式解除（"重新接战后解除"等长文本）不塞进胶囊，
+   否则会把小圆胶囊撑爆、文字挤成一团，改放到展开区显示。 */
+function durShort(e: StatusEffect): string {
+  if (e.durationTurns != null) return `${e.durationTurns}回合`;
+  const d = (e.durationDesc ?? '').trim();
+  return /^\d+\s*(回合|分钟|小时|天|秒|分|时)$/.test(d) ? d : '';
+}
 
 export default function StatusEffectChips({ effects, onRemove }: { effects: StatusEffect[]; onRemove?: (name: string) => void }) {
   const [open, setOpen] = useState<string | null>(null);
@@ -35,14 +42,15 @@ export default function StatusEffectChips({ effects, onRemove }: { effects: Stat
       {effects.map((e) => {
         const cls = TONE_CLS[toneOf(e)] ?? TONE_CLS.neutral;
         const d = durLabel(e);
+        const ds = durShort(e);   // 进胶囊的短时长（无则不显示长条件，避免挤）
         const expanded = open === e.id;
         return (
           <div key={e.id} className="inline-flex flex-col">
             <button onClick={() => setOpen(expanded ? null : e.id)}
-              className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full border text-[12px] font-mono ${cls}`}>
+              className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full border text-[12px] font-mono whitespace-nowrap ${cls} ${expanded ? 'ring-1 ring-god/40' : ''}`}>
               {e.emoji && <span>{e.emoji}</span>}
               <span>{e.name}</span>
-              {d && <span className="opacity-70">· ⏳{d}</span>}
+              {ds ? <span className="opacity-70">· ⏳{ds}</span> : (d && <span className="opacity-60" title={d}>· ⏳…</span>)}
             </button>
             {expanded && (
               <div className="mt-1 ml-1 text-[11px] text-dim/80 leading-relaxed border-l-2 border-edge pl-2 max-w-[16rem]">
@@ -51,7 +59,7 @@ export default function StatusEffectChips({ effects, onRemove }: { effects: Stat
                 {e.desc && <div className="text-dim/70">描述·{e.desc}</div>}
                 {e.source && <div className="text-dim/55">来源·{e.source}</div>}
                 {e.tags && e.tags.length > 0 && <div className="text-dim/55">标签·{e.tags.join('/')}</div>}
-                {d && <div className="text-dim/55">时效·{d}</div>}
+                {d && <div className="text-dim/55">{ds ? '时效·' : '解除·'}{d}</div>}
                 {onRemove && (
                   <button onClick={() => { onRemove(e.name); setOpen(null); }}
                     className="mt-0.5 text-[11px] text-blood/60 hover:text-blood transition-colors">移除</button>

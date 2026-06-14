@@ -86,6 +86,9 @@ export interface NpcRecord {
   brandLevel?: string;    // 烙印等级
   contractorId?: string;  // 契约者编号（ID）
   advancePoints?: number; // 进阶点数（升级消耗，正文获取则增加，初始0）
+  attrPoints?: number;    // 属性点（完全按正文更新，正文没出现就不动）
+  realAttrPoints?: number;// 真实属性点（完全按正文更新，正文没出现就不动）
+  skillPoints?: number;   // 技能点（完全按正文更新，正文没出现就不动）
   statusEffects?: StatusEffect[]; // 限时状态（引擎自动过期）
   bioStrength?: string;   // 生物强度模板（T0杂鱼~T9源初，存如"T3·勇士"；含非人生物，按强度框架）
   age?: string;           // 年龄（正文有则照抄，没有则按设定生成；可写"约25岁/青年"等）

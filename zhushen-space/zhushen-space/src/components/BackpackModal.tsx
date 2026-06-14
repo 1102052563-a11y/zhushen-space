@@ -398,8 +398,8 @@ export function ItemDetailModal({ item, onClose }: { item: InventoryItem; onClos
             {editing ? '保存' : '编辑物品'}
           </button>
 
-          {/* 删除 */}
-          {!item.locked && (
+          {/* 删除（装备中不可删除，需先卸下）*/}
+          {!item.locked && !item.equipped && (
             <button
               onClick={() => { if (confirm(`确认丢弃「${item.name}」？`)) { removeItem(item.id); onClose(); } }}
               className="p-1.5 rounded-lg text-dim/40 hover:text-blood transition-colors"
@@ -491,7 +491,7 @@ function ItemCard({ item, onOpen }: { item: InventoryItem; onOpen: () => void })
           >
             <Ico d={ICO_EDIT} />
           </button>
-          {!item.locked && (
+          {!item.locked && !item.equipped && (
             <button
               onClick={() => { if (confirm(`确认丢弃「${item.name}」？`)) removeItem(item.id); }}
               className="w-6 h-6 flex items-center justify-center text-dim/25 hover:text-blood rounded transition-colors"
@@ -509,6 +509,9 @@ function ItemCard({ item, onOpen }: { item: InventoryItem; onOpen: () => void })
 /* ── 货币面板 ── */
 function CurrencyBar({ wallet }: { wallet: CurrencyWallet }) {
   const advancePoints = usePlayer((s) => s.profile.advancePoints ?? 0);
+  const attrPoints = usePlayer((s) => s.profile.attrPoints ?? 0);
+  const realAttrPoints = usePlayer((s) => s.profile.realAttrPoints ?? 0);
+  const [showReal, setShowReal] = useState(false);
   return (
     <div className="border border-edge rounded-xl bg-panel overflow-hidden">
       <div className="px-3 py-2 bg-panel2 border-b border-edge/50 text-[12px] font-mono text-dim/60">
@@ -541,6 +544,17 @@ function CurrencyBar({ wallet }: { wallet: CurrencyWallet }) {
             {advancePoints.toLocaleString()}
           </span>
         </div>
+        {/* 属性点（点击切换显示 真实属性点）*/}
+        <button onClick={() => setShowReal((v) => !v)} className="w-full flex items-center gap-2 px-3 py-3 hover:bg-panel2/40 transition-colors text-left">
+          <span className="text-base">{showReal ? '💠' : '🔶'}</span>
+          <div className="flex-1 min-w-0">
+            <div className="text-sm font-mono font-semibold text-amber-300">{showReal ? '真实属性点' : '属性点'}</div>
+            <div className="text-[12px] text-dim/50">点击切换{showReal ? '属性点' : '真实属性点'}</div>
+          </div>
+          <span className="text-lg font-bold font-mono text-amber-300">
+            {(showReal ? realAttrPoints : attrPoints).toLocaleString()}
+          </span>
+        </button>
       </div>
     </div>
   );

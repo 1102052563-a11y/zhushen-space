@@ -63,6 +63,9 @@ export interface ChannelMessage {
   byPlayer?: boolean;        // 玩家自己发的（求购/出售帖）
   traded?: boolean;          // 交易帖已成交（确定性结算后置 true，按钮变"已购买"）
   fulfilled?: boolean;       // 玩家求购/出售帖已成交（选定某条报价后置 true）
+  speak?: boolean;           // 主角发言 / 其回复（发言功能产生：单独限 10 条、免于刷新清理）
+  replyTo?: string;          // 回复针对的主角发言帖 id
+  replyToName?: string;      // 主角主动回复某契约者时记录对象名，用于展示「↩ 回复 @X」
   postedAt: number;          // 落库时间戳（排序/过期用）
   gameTime?: string;         // 发帖时的游戏内时间（展示）
 }
@@ -150,6 +153,8 @@ interface ChannelState {
 
   addMessages: (items: Omit<ChannelMessage, 'id' | 'postedAt'>[]) => void;
   addPlayerPost: (post: Omit<ChannelMessage, 'id' | 'postedAt'>) => string;   // 玩家发求购/出售帖，返回帖子 id
+  addPlayerSpeak: (channel: ChannelKey, playerName: string, playerContent: string, replyToName?: string) => string;  // 主角发言：立即上墙，返回帖 id；replyToName=主动回复的对象
+  addOneSpeakReply: (channel: ChannelKey, reply: { authorName: string; authorTier?: string; content: string }, replyToId: string) => void;  // 一条回复，插到主角发言上方
   addQuotes: (postId: string, quotes: Omit<ChannelQuote, 'id'>[]) => void;    // 给玩家帖追加报价/出价
   removeMessage: (id: string) => void;
   markTraded: (id: string) => void;
@@ -199,6 +204,7 @@ export const useChannel = create<ChannelState>()(
           const counts: Record<string, number> = {};
           const kept = merged.filter((m) => {
             if (m.byPlayer && !m.fulfilled) return true;   // 玩家活跃挂单豁免
+            if (m.speak) return true;                      // 主角发言/回复豁免（由 addSpeak 单独限额）
             counts[m.channel] = (counts[m.channel] ?? 0) + 1;
             return counts[m.channel] <= keep;
           });
@@ -216,6 +222,29 @@ export const useChannel = create<ChannelState>()(
         });
         return newId;
       },
+      addPlayerSpeak: (channel, playerName, playerContent, replyToName) => {
+        let id = '';
+        set((s) => {
+          const max = s.messages.reduce((m, x) => Math.max(m, Number(/^M_(\d+)$/.exec(x.id)?.[1]) || 0), 0);
+          id = `M_${max + 1}`;
+          const post: ChannelMessage = { id, channel, authorName: playerName || '主角', content: playerContent, kind: 'chat', byPlayer: true, speak: true, postedAt: Date.now(), ...(replyToName ? { replyToName } : {}) };
+          let merged = [post, ...s.messages];
+          const speakIds = merged.filter((m) => m.speak).map((m) => m.id);
+          if (speakIds.length > 10) { const rm = new Set(speakIds.slice(10)); merged = merged.filter((m) => !rm.has(m.id)); }
+          return { messages: merged };
+        });
+        return id;
+      },
+      addOneSpeakReply: (channel, reply, replyToId) =>
+        set((s) => {
+          if (!reply || !reply.content || !String(reply.content).trim()) return s;
+          const max = s.messages.reduce((m, x) => Math.max(m, Number(/^M_(\d+)$/.exec(x.id)?.[1]) || 0), 0);
+          const msg: ChannelMessage = { id: `M_${max + 1}`, channel, authorName: String(reply.authorName || '某契约者').slice(0, 20), authorTier: reply.authorTier, content: String(reply.content), kind: 'chat', speak: true, replyTo: replyToId, postedAt: Date.now() };
+          let merged = [msg, ...s.messages];   // 插到最前 = 主角发言上方
+          const speakIds = merged.filter((m) => m.speak).map((m) => m.id);
+          if (speakIds.length > 10) { const rm = new Set(speakIds.slice(10)); merged = merged.filter((m) => !rm.has(m.id)); }
+          return { messages: merged };
+        }),
       addQuotes: (postId, quotes) =>
         set((s) => ({
           messages: s.messages.map((m) => {

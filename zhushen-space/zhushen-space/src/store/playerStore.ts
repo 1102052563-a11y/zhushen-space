@@ -40,6 +40,8 @@ export interface PlayerProfile {
   level: number;         // 等级
   advancePoints: number; // 进阶点数（升级消耗，正文获取则增加，初始0）
   worldSource: number;   // 世界之源（当前任务世界累计获取，回归乐园后归0）
+  attrPoints: number;    // 属性点（完全按正文更新，正文没出现就不动）
+  realAttrPoints: number;// 真实属性点（完全按正文更新，正文没出现就不动）
   tier: string;          // 阶位（一阶/二阶…）
   title: string;         // 称号
   profession: string;    // 职业
@@ -58,6 +60,7 @@ export interface PlayerProfile {
   location: string;      // 所处位置
   avatar?: string;       // 主角立绘（上传的图片 dataURL / AI 生成）
   avatarTags?: string;   // 生成当前立绘所用的 imageTags（"外观变化时刷新"判断用）
+  avatarAppearance?: string;  // 生成当前立绘时的外观文本（外观文字变化→自动刷新立绘的判断用）
   imageTags?: string;    // 生图提示词（英文 NAI/Danbooru tags，主角演化生成；肖像生图优先用它保证一致）
   // 档案
   background: string;    // 主角背景/出身
@@ -65,7 +68,7 @@ export interface PlayerProfile {
 }
 
 export const DEFAULT_PLAYER_PROFILE: PlayerProfile = {
-  name: '', level: 1, advancePoints: 0, worldSource: 0, tier: '一阶', title: '', profession: '', arenaRank: '',
+  name: '', level: 1, advancePoints: 0, worldSource: 0, attrPoints: 0, realAttrPoints: 0, tier: '一阶', title: '', profession: '', arenaRank: '',
   identity: '', brandLevel: '', contractorId: '', homeParadise: '', preParadiseJob: '', bioStrength: '',
   attrs: { str: 5, agi: 5, con: 5, int: 5, cha: 5, luck: 5 },
   status: '', statusEffects: [], appearance: '', location: '',

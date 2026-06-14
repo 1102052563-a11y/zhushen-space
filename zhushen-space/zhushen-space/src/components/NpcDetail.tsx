@@ -693,6 +693,9 @@ function AttrTab({ npc, realm }: { npc: NpcRecord; realm: ReturnType<typeof pars
           <Field label="阶位" value={realm.tier} accent />
           <Field label="等级" value={realm.lv != null ? `Lv.${realm.lv}` : ''} />
           <Field label="进阶点数" value={npc.advancePoints != null ? String(npc.advancePoints) : undefined} />
+          <Field label="属性点" value={npc.attrPoints != null ? String(npc.attrPoints) : undefined} />
+          <Field label="真实属性点" value={npc.realAttrPoints != null ? String(npc.realAttrPoints) : undefined} />
+          <Field label="技能点" value={npc.skillPoints != null ? String(npc.skillPoints) : undefined} />
           <Field label="战斗状态" value={npc.inCombat ? '战斗中' : '非战斗'} />
         </div>
       </Section>
@@ -858,7 +861,7 @@ function NpcItemCard({ it, showSlot, ownerId, ownerGender }: { it: NonNullable<N
       <div className="flex items-center gap-2">
         <span className={`text-sm font-semibold truncate flex-1 ${gradeNameClass(it.gradeDesc)}`}>{it.name}</span>
         {it.quantity > 1 && <span className="text-[12px] font-mono text-dim/60">×{it.quantity}</span>}
-        {ownerId && (
+        {ownerId && !it.equipped && (
           <button onClick={() => removeNpcItem(ownerId, it.id)} title="删除该物品"
             className="shrink-0 text-[12px] font-mono px-1.5 py-0.5 rounded border border-edge text-dim/50 hover:border-blood/50 hover:text-blood transition-colors">删除</button>
         )}
