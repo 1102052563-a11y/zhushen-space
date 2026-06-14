@@ -310,7 +310,7 @@ const DEFAULT_API: ApiConfig = {
   apiKey: '',
   modelId: 'gpt-4o',
   temperature: 0.8,
-  maxTokens: 60000,   // 正文生成默认上限（对齐双人成行预设；旧的 2048 会截断长正文）
+  maxTokens: 60000,   // 正文生成默认上限（按用户要求；对齐双人成行预设）
   topP: 1,
 };
 

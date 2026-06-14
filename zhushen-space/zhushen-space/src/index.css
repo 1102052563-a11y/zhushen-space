@@ -14,7 +14,7 @@
 
 /* 万族态势滚动条（顶部 ticker）：文字从右向左不断滚动 */
 @keyframes we-marquee { from { transform: translateX(0); } to { transform: translateX(-100%); } }
-.we-marquee { padding-left: 100%; animation: we-marquee 32s linear infinite; will-change: transform; }
+.we-marquee { padding-left: 100%; animation: we-marquee 60s linear infinite; will-change: transform; }
 .we-marquee:hover { animation-play-state: paused; }
 
 :root {

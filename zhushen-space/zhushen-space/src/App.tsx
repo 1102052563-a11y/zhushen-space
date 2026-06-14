@@ -3888,7 +3888,7 @@ ${lines}`;
           model:       ep.modelId,
           messages:    [{ role: 'system', content: sysPrompt }, ...history],
           temperature: preset?.temperature ?? ep.temperature,
-          max_tokens:  preset?.max_tokens  ?? Math.max(ep.maxTokens || 0, 60000),   // 无预设时给足上限（对齐 60000），避免 2048 旧默认截断长正文
+          max_tokens:  preset?.max_tokens  ?? Math.max(ep.maxTokens || 0, 60000),   // 按用户要求保持 60000（若遇变慢/network error，多为大提示词+60000 撑爆上下文，可调小）
           top_p:       preset?.top_p       ?? ep.topP,
           stream:      useStream,
         };
