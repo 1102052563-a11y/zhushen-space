@@ -1,7 +1,7 @@
 import { useState, useRef } from 'react';
 import { useNpc, type NpcRecord } from '../store/npcStore';
 import { useCharacters, RARITY_CLS, ELEMENT_CLS, SKILL_TIER_CLS, normSkillTier, type Deed } from '../store/characterStore';
-import { computeDerived, lvFromRealm, normalizeTier, realmFromLevel, trueAttr, computeMaxHp, computeMaxEp, gearMaxHpBonus, gearMaxEpBonus, effectiveResource } from '../systems/derivedStats';
+import { computeDerived, lvFromRealm, normalizeTier, realmFromLevel, trueAttr, computeMaxHp, computeMaxEp, gearMaxHpBonus, gearMaxEpBonus, abilityMaxHpBonus, abilityMaxEpBonus, effectiveResource } from '../systems/derivedStats';
 import { computeAttrBreakdown, ATTR_LABEL, type AttrBreak } from '../systems/attrBonus';
 import { usePlayer, type PlayerAttrs } from '../store/playerStore';
 import { gradeBadgeClass, gradeNameClass } from '../store/itemStore';
@@ -669,8 +669,8 @@ function AttrTab({ npc, realm }: { npc: NpcRecord; realm: ReturnType<typeof pars
   const effAttrs = { str: breakdown.str.total, agi: breakdown.agi.total, con: breakdown.con.total, int: breakdown.int.total, cha: breakdown.cha.total, luck: breakdown.luck.total } as PlayerAttrs;
   // HP/EP 上限由(有效)体质×20 / 智力×15 自动换算
   // 最大HP/EP = 基础六维换算 + 装备里明确写"增加HP/EP上限"的效果；技能/天赋加成不计入上限
-  const maxHp = computeMaxHp(npc.attrs) + gearMaxHpBonus(equippedFull as any);
-  const maxEp = computeMaxEp(npc.attrs) + gearMaxEpBonus(equippedFull as any);
+  const maxHp = computeMaxHp(npc.attrs) + gearMaxHpBonus(equippedFull as any) + abilityMaxHpBonus(cdata?.skills, cdata?.traits);
+  const maxEp = computeMaxEp(npc.attrs) + gearMaxEpBonus(equippedFull as any) + abilityMaxEpBonus(cdata?.skills, cdata?.traits);
   const hpStr = `${effectiveResource(npc.hp, npc.maxHp, maxHp)} / ${maxHp}`;
   const epStr = `${effectiveResource(npc.mp, npc.maxMp, maxEp)} / ${maxEp}`;
   const attrDefs: { key: keyof PlayerAttrs; label: string }[] = [

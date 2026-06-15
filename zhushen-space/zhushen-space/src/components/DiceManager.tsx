@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useDice } from '../store/diceStore';
 import { useSettings } from '../store/settingsStore';
 import { DIFFICULTIES, DIFFICULTY_BASE } from '../systems/diceEngine';
+import ApiRoutePicker from './ApiRoutePicker';
 
 function Toggle({ checked, onChange }: { checked: boolean; onChange: () => void }) {
   return (
@@ -123,7 +124,9 @@ export default function DiceManager() {
 
       {tab === 'api' && (
         <div className="space-y-3">
-          <Row label="API 来源" hint="AI 裁判用；前端确定性判定不耗 API">
+          <ApiRoutePicker routeKey="dice" />
+          <p className="text-[12px] font-mono text-dim/50">↑ 直接选用「API 接口库」里集中管理的接口（多选·按优先级轮流调用，失败自动切下一条）。留空则用下方兜底配置。仅 AI 裁判用，前端确定性判定不耗 API。</p>
+          <Row label="兜底 API 来源" hint="路由留空时使用">
             <Seg value={diceUseShared ? 'shared' : 'own'} onChange={(v) => setDiceUseShared(v === 'shared')}
               options={[{ v: 'shared', label: '共用主 API' }, { v: 'own', label: '独立配置' }]} />
           </Row>

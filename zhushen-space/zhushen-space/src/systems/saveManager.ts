@@ -117,6 +117,21 @@ export async function listSlots(): Promise<SlotMeta[]> {
 
 export const PENDING_STARTED_KEY = 'drpg-pending-started';
 
+/* 读档时保留「当前」的 API 配置，不被存档里的旧 API 覆盖——API 属设备级全局配置，不该绑定到具体存档。
+   做法：每个 store 的持久化 JSON，state 里键名含 "api"(不分大小写：api/textApi/各功能*Api/apiLibrary/apiRoutes/*UseSharedApi) 的字段，用当前值覆盖存档值。*/
+function mergeKeepApi(key: string, savedJson: string): string {
+  try {
+    const cur = localStorage.getItem(key);
+    if (!cur) return savedJson;
+    const sv = JSON.parse(savedJson), cv = JSON.parse(cur);
+    if (sv && cv && sv.state && cv.state) {
+      for (const k of Object.keys(cv.state)) if (/api/i.test(k)) sv.state[k] = cv.state[k];
+      return JSON.stringify(sv);
+    }
+  } catch { /* */ }
+  return savedJson;
+}
+
 /* 读取存档：把快照写回 localStorage，对话历史写回 IndexedDB（chatDb），整页 reload。
    reload 让 zustand persist 各 store 与 gameStore（模块初始化时读 localStorage）一并恢复；
    对话历史由 App 挂载时从 chatDb 读回。这是混合持久化下最稳的方案。*/
@@ -125,7 +140,7 @@ export async function loadSlot(id: string): Promise<boolean> {
   if (!slot) return false;
   for (const { key } of STORES) {
     const v = slot.data.stores[key];
-    if (typeof v === 'string') localStorage.setItem(key, v);
+    if (typeof v === 'string') localStorage.setItem(key, mergeKeepApi(key, v));   // API 配置不随存档回滚
   }
   // 图片：覆盖 IndexedDB（reload 后由 hydrateImages 回填到各 store）
   try { await clearAllImg(); if (slot.data.images) await bulkPutImg(slot.data.images); } catch { /* */ }

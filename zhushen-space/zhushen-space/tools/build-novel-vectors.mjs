@@ -78,6 +78,30 @@ function chunkNovel(text) {
   return out;
 }
 
+/* ── 2b) 世界书 JSON → 每条 content 一块（过长再滑窗切）；comment 作标题、key 作来源标签 ── */
+function chunkWorldBook(jsonText) {
+  const j = JSON.parse(jsonText);
+  const entries = j?.entries ? (Array.isArray(j.entries) ? j.entries : Object.values(j.entries)) : (Array.isArray(j) ? j : []);
+  const out = [];
+  for (const e of entries) {
+    if (e?.disable === true || e?.enabled === false) continue;
+    const content = String(e?.content ?? '').replace(/\r\n/g, '\n').trim();
+    if (content.length < 10) continue;
+    const title = String(e?.comment ?? e?.name ?? '').replace(/^\[[^\]]*\]\s*/, '').trim() || '设定';
+    const keys = Array.isArray(e?.key) ? e.key.filter(Boolean).join('/') : '';
+    if (content.length <= CHUNK * 1.6) { out.push({ t: content, v: keys, c: title }); continue; }
+    let i = 0;
+    while (i < content.length) {
+      let end = Math.min(i + CHUNK, content.length);
+      if (end < content.length) { let jx = end; while (jx < content.length && jx < end + 80 && !'。！？\n；'.includes(content[jx])) jx++; if (jx < content.length && jx < end + 80) end = jx + 1; }
+      out.push({ t: content.slice(i, end).trim(), v: keys, c: title });
+      if (end >= content.length) break;
+      i = Math.max(i + 1, end - OVERLAP);
+    }
+  }
+  return out;
+}
+
 /* ── 3) 调 embedding（含重试/退避）── */
 async function embedBatch(texts) {
   for (let attempt = 0; ; attempt++) {
@@ -108,7 +132,9 @@ function quantize(vec, out, off) {            // 单位归一化 → ×127 → i
 /* ── main ── */
 const t0 = Date.now();
 console.log(`读取 ${INPUT} …`);
-const chunks = chunkNovel(readText(INPUT));
+const isJson = /\.json$/i.test(INPUT);
+const chunks = isJson ? chunkWorldBook(readText(INPUT)) : chunkNovel(readText(INPUT));
+console.log(isJson ? '（世界书 JSON 模式：每条目一块）' : '（小说 TXT 模式：按章滑窗切）');
 const total = chunks.length;
 console.log(`切出 ${total} 块（每块~${CHUNK}字）。模型 ${MODEL}，${DIM} 维，int8 量化。`);
 fs.mkdirSync(OUTDIR, { recursive: true });

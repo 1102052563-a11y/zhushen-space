@@ -4,7 +4,7 @@ import { useGame } from '../store/gameStore';
 import { useItems } from '../store/itemStore';
 import { StatusChips, SegmentedText } from './NpcDetail';
 import StatusEffectChips from './StatusEffectChips';
-import { computeDerived, realmFromLevel, trueAttr, computeMaxHp, computeMaxEp, gearMaxHpBonus, gearMaxEpBonus, effectiveResource } from '../systems/derivedStats';
+import { computeDerived, realmFromLevel, trueAttr, computeMaxHp, computeMaxEp, gearMaxHpBonus, gearMaxEpBonus, abilityMaxHpBonus, abilityMaxEpBonus, effectiveResource } from '../systems/derivedStats';
 import { useCharacters } from '../store/characterStore';
 import { computeAttrBreakdown, ATTR_LABEL, type AttrBreak } from '../systems/attrBonus';
 import { useImageGen } from '../store/imageGenStore';
@@ -373,8 +373,8 @@ export default function PlayerSidebar({ onClose }: { onClose?: () => void }) {
       <div className="shrink-0 border-t border-edge p-3 space-y-2">
         {(() => {
           // 最大HP/EP = 基础六维换算 + 装备里明确写"增加HP/EP上限"的效果；技能/天赋的属性加成不计入上限，避免乱跳
-          const maxHp = computeMaxHp(profile.attrs) + gearMaxHpBonus(equippedFull);
-          const maxEp = computeMaxEp(profile.attrs) + gearMaxEpBonus(equippedFull);
+          const maxHp = computeMaxHp(profile.attrs) + gearMaxHpBonus(equippedFull) + abilityMaxHpBonus(b1?.skills, b1?.traits);
+          const maxEp = computeMaxEp(profile.attrs) + gearMaxEpBonus(equippedFull) + abilityMaxEpBonus(b1?.skills, b1?.traits);
           return (
             <>
               <Bar value={effectiveResource(p.hp, p.maxHp, maxHp)} max={maxHp} color="bg-blood" label="生命 HP" />

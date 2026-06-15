@@ -34,9 +34,13 @@ export default function NovelVecManager() {
         把<b>《轮回乐园》原著向量化</b>后当成"语义世界书"——每回合按当前剧情自动检索最相关的原著片段，注入正文（不用写关键词）。
         向量是<b>预先建好、内置在前端</b>的；这里只配置"查询那一下"用的 embedding 接口。
         <div className="mt-2 text-dim/50">
-          建库（一次性，在 <code className="text-god/60">zhushen-space/zhushen-space</code> 目录）：
-          <div className="mt-1 font-mono text-[12px] bg-void/60 rounded p-2 text-slate-300">$env:EMBED_KEY="你的硅基流动key"; npm run build-vectors</div>
-          跑完产物在 <code className="text-god/60">public/novel-vectors/</code>，随前端一起部署。
+          建库（一次性，在 <code className="text-god/60">zhushen-space/zhushen-space</code> 目录；可建两个源，会一起检索）：
+          <div className="mt-1 font-mono text-[12px] bg-void/60 rounded p-2 text-slate-300 space-y-1">
+            <div>$env:EMBED_KEY="你的硅基流动key"</div>
+            <div>npm run build-vectors　　<span className="text-dim/40"># 小说全本 → public/novel-vectors/</span></div>
+            <div>npm run build-vectors-wb　<span className="text-dim/40"># 世界书 ______.json → public/worldbook-vectors/</span></div>
+          </div>
+          两个产物都会被自动加载、一次查询同时检索；只建一个也行。
         </div>
       </div>
 
@@ -91,7 +95,7 @@ export default function NovelVecManager() {
           <button onClick={doLoad} disabled={loadingIdx} className="text-[12px] font-mono px-2.5 py-1 rounded border border-god/40 text-god hover:bg-god/10 disabled:opacity-40 transition-colors">{loadingIdx ? '加载中…' : '加载/检查索引'}</button>
         </div>
         <div className="text-[12px] font-mono text-dim/70">
-          {status.ready ? <span className="text-emerald-300/80">✓ 已就绪：{status.count} 段，{status.dim} 维</span>
+          {status.ready ? <span className="text-emerald-300/80">✓ 已就绪：{status.count} 段（{status.sources.map((s) => `${s.name} ${s.count}`).join(' + ') || '—'}），{status.dim} 维</span>
             : status.error ? <span className="text-blood/80">✗ {status.error}</span>
             : <span className="text-dim/50">未加载（点上方按钮加载，或开启后首次发消息时自动懒加载）</span>}
         </div>
@@ -104,7 +108,7 @@ export default function NovelVecManager() {
             {hits.length === 0 ? <div className="text-[12px] text-dim/40">无命中（阈值过高 / 接口未配 / 索引未建）。</div>
               : hits.map((h, i) => (
                 <div key={i} className="text-[12px] rounded border border-edge/60 bg-void/40 p-2">
-                  <div className="font-mono text-dim/50 mb-0.5">{h.chap || h.vol || '原著'} · 相似度 {h.score.toFixed(3)}</div>
+                  <div className="font-mono text-dim/50 mb-0.5"><span className="text-fuchsia-300/70">{h.source}</span> · {h.chap || h.vol || '—'} · 相似度 {h.score.toFixed(3)}</div>
                   <div className="text-slate-300/80 leading-relaxed line-clamp-4">{h.text}</div>
                 </div>
               ))}

@@ -2,7 +2,8 @@ import { useSettings, resolveApiChain } from '../store/settingsStore';
 import { useDice } from '../store/diceStore';
 import { apiChatFallback } from './apiChat';
 import { lenientJsonParse } from './stateParser';
-import type { DiceMode, Difficulty, OutcomeLevel, ResolveResult } from './diceEngine';
+import type { DiceMode, Difficulty, OutcomeLevel, ResolveResult, AttrKey } from './diceEngine';
+import { ATTR_KEYS, ATTR_LABELS, DIFFICULTIES } from './diceEngine';
 
 /* ════════════════════════════════════════════
    AI 裁判（方案1：骰子锚定 + AI 裁判，失败回退前端确定性结果）
@@ -124,4 +125,51 @@ export function buildJudgeBlock(opts: {
     `（以上为系统判定结果，请让本回合剧情严格服从该成败、等级与后果，不要推翻。）`,
   ].filter(Boolean);
   return lines.join('\n');
+}
+
+/* ════════════════════════════════════════════
+   ✨AI建议：读行动+角色面板，建议该用哪个属性/难度/相关技能（仅填表，不掷骰）
+════════════════════════════════════════════ */
+const SUGGEST_SYSTEM = `你是检定参数助手。根据角色行动 + 面板，判断这次检定最该用哪个六维属性、相对难度，并指出相关技能（若有）。只输出 JSON，不要多余文字。
+属性 attr 只能从这些英文键选一个：str(力量) / agi(敏捷) / con(体质) / int(智力) / cha(魅力) / luck(幸运)。
+难度 difficulty 从 简单 / 普通 / 困难 / 极难 / 几乎不可能 选一个（相对该角色而言，不看绝对强度）。
+输出：{"attr":"agi","difficulty":"困难","skill":"相关技能名，无则空","reason":"≤30字依据"}`;
+
+export interface SuggestOutcome {
+  attrKey?: AttrKey;
+  difficulty?: Difficulty;
+  skill?: string;
+  reason?: string;
+  error?: string;
+}
+
+function normAttr(v: any): AttrKey | undefined {
+  const s = String(v ?? '').trim();
+  if ((ATTR_KEYS as string[]).includes(s)) return s as AttrKey;
+  return (Object.keys(ATTR_LABELS) as AttrKey[]).find((k) => ATTR_LABELS[k] === s);
+}
+function normDiff(v: any): Difficulty | undefined {
+  const s = String(v ?? '').trim();
+  return (DIFFICULTIES as string[]).includes(s) ? (s as Difficulty) : undefined;
+}
+
+export async function aiSuggest(inp: { action: string; playerSheet: string; onscene?: string }): Promise<SuggestOutcome> {
+  try {
+    const d = useDice.getState();
+    const ss = useSettings.getState();
+    const legacy = d.diceUseSharedApi ? (ss.textUseSharedApi ? ss.api : ss.textApi) : d.diceApi;
+    const chain = resolveApiChain('dice', legacy);
+    const user = `行动：${inp.action.trim() || '（未填）'}\n【主角面板】\n${inp.playerSheet}${inp.onscene ? `\n【在场角色】${inp.onscene}` : ''}\n请只输出 JSON。`;
+    const { content } = await apiChatFallback(chain, [{ role: 'system', content: SUGGEST_SYSTEM }, { role: 'user', content: user }], { timeoutMs: 30000, extra: { temperature: 0.3 } });
+    const obj = extractJson(content);
+    if (!obj || typeof obj !== 'object') return { error: '解析失败' };
+    return {
+      attrKey: normAttr(obj.attr),
+      difficulty: normDiff(obj.difficulty),
+      skill: obj.skill ? String(obj.skill) : undefined,
+      reason: obj.reason ? String(obj.reason).slice(0, 80) : undefined,
+    };
+  } catch (e: any) {
+    return { error: e?.message ?? '请求失败' };
+  }
 }

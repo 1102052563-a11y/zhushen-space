@@ -1,0 +1,11 @@
+{
+  "source": "______.json",
+  "model": "Pro/BAAI/bge-m3",
+  "dim": 1024,
+  "count": 254,
+  "chunkSize": 700,
+  "overlap": 100,
+  "normalized": true,
+  "quant": "int8",
+  "builtAt": "2026-06-15T01:05:18.129Z"
+}

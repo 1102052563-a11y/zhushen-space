@@ -46,7 +46,7 @@ export function computeMaxEp(attrs?: PlayerAttrs): number {
 function vitalMaxBonus(texts: (string | undefined)[], kind: 'hp' | 'ep'): number {
   const names = kind === 'hp' ? '生命|HP|血量|气血|体力|血量值' : '蓝量|EP|法力|魔力|能量|精力|内力|蓝';
   const res = [
-    new RegExp(`(?:${names})(?:值)?\\s*(?:上限|最大值)\\s*[:：]?\\s*[+＋]?\\s*(\\d+)`, 'gi'),
+    new RegExp(`(?:${names})(?:值)?\\s*(?:上限|最大值)\\s*(?:增加|提升|提高|额外|附加|为)?\\s*[:：]?\\s*[+＋]?\\s*(\\d+)`, 'gi'),
     new RegExp(`最大\\s*(?:${names})(?:值)?\\s*[:：]?\\s*[+＋]?\\s*(\\d+)`, 'gi'),
     new RegExp(`(?:增加|提升|提高|额外|附加)\\s*(\\d+)\\s*点?\\s*(?:${names})(?:值)?\\s*(?:上限|最大值)`, 'gi'),
     new RegExp(`(?:${names})(?:值)?\\s*(?:上限|最大值)\\s*(?:增加|提升|提高)\\s*(\\d+)`, 'gi'),
@@ -66,6 +66,15 @@ export function gearMaxHpBonus(equipped: { effect?: string; affix?: string }[] =
 }
 export function gearMaxEpBonus(equipped: { effect?: string; affix?: string }[] = []): number {
   return equipped.reduce((s, it) => s + vitalMaxBonus([it.effect, it.affix], 'ep'), 0);
+}
+/* 技能/天赋（被动）effect/desc 文本里写明的「X上限+N」加成合计——
+   如被动「初级病毒适应：生命值上限额外+100」会让最大 HP 在六维换算之外再 +100。*/
+type AbilityLite = { effect?: string; desc?: string };
+export function abilityMaxHpBonus(skills: AbilityLite[] = [], traits: AbilityLite[] = []): number {
+  return vitalMaxBonus([...skills.flatMap((s) => [s.effect, s.desc]), ...traits.flatMap((t) => [t.effect, t.desc])], 'hp');
+}
+export function abilityMaxEpBonus(skills: AbilityLite[] = [], traits: AbilityLite[] = []): number {
+  return vitalMaxBonus([...skills.flatMap((s) => [s.effect, s.desc]), ...traits.flatMap((t) => [t.effect, t.desc])], 'ep');
 }
 /* 「当前值」显示：
    - 从未设过(undefined) → 视为满（= 当前上限），仅用于角色刚建档、还没发生任何增减时

@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { usePlayer } from '../store/playerStore';
 import { useCharacters } from '../store/characterStore';
 import { useNpc } from '../store/npcStore';
@@ -12,7 +12,7 @@ import {
   favorTierFromValue, strengthScoreFromBio,
   type AttrKey, type Difficulty, type Advantage, type ResolveResult, type ResolveSide, type DiceAttrs, type EquipItemLite,
 } from '../systems/diceEngine';
-import { aiJudge, buildJudgeBlock, type JudgeOutcome } from '../systems/diceJudge';
+import { aiJudge, aiSuggest, buildJudgeBlock, type JudgeOutcome } from '../systems/diceJudge';
 
 const LEVEL_COLOR: Record<string, string> = {
   大成功: 'text-amber-300', 碾压成功: 'text-emerald-300', 极难成功: 'text-emerald-300',
@@ -35,6 +35,7 @@ export default function DicePanel({ onClose, onInject }: { onClose: () => void; 
   const diffOverride = useDice((s) => s.settings.diffOverride);
   const setSettings = useDice((s) => s.setSettings);
   const addHistory = useDice((s) => s.addHistory);
+  const setDraft = useDice((s) => s.setDraft);
 
   const mode = settings.mode;
   const judgeMode = settings.judgeMode;
@@ -44,19 +45,28 @@ export default function DicePanel({ onClose, onInject }: { onClose: () => void; 
   const pEquipped = useMemo(() => equippedOf(items), [items]);
   const onSceneNpcs = useMemo(() => Object.values(npcs).filter((n) => n.onScene && !n.isDead), [npcs]);
 
-  const [action, setAction] = useState('');
-  const [attrKey, setAttrKey] = useState<AttrKey>('str');
-  const [difficulty, setDifficulty] = useState<Difficulty>('普通');
-  const [advantage, setAdvantage] = useState<Advantage>('norm');
-  const [extraMod, setExtraMod] = useState(0);
-  const [opposed, setOpposed] = useState(false);
-  const [social, setSocial] = useState(false);
-  const [opponent, setOpponent] = useState('');
-  const [enemyAttrKey, setEnemyAttrKey] = useState<AttrKey>('agi');
-  const [result, setResult] = useState<ResolveResult | null>(null);
-  const [verdict, setVerdict] = useState<JudgeOutcome | null>(null);
+  const draft0 = useDice.getState().draft;   // 一次性读取上次/进行中的草稿，恢复面板状态
+  const [action, setAction] = useState(draft0?.action ?? '');
+  const [attrKey, setAttrKey] = useState<AttrKey>(draft0?.attrKey ?? 'str');
+  const [difficulty, setDifficulty] = useState<Difficulty>(draft0?.difficulty ?? '普通');
+  const [advantage, setAdvantage] = useState<Advantage>(draft0?.advantage ?? 'norm');
+  const [extraMod, setExtraMod] = useState(draft0?.extraMod ?? 0);
+  const [opposed, setOpposed] = useState(draft0?.opposed ?? false);
+  const [social, setSocial] = useState(draft0?.social ?? false);
+  const [opponent, setOpponent] = useState(draft0?.opponent ?? '');
+  const [enemyAttrKey, setEnemyAttrKey] = useState<AttrKey>(draft0?.enemyAttrKey ?? 'agi');
+  const [result, setResult] = useState<ResolveResult | null>(draft0?.result ?? null);
+  const [verdict, setVerdict] = useState<JudgeOutcome | null>(draft0?.verdict ?? null);
   const [judging, setJudging] = useState(false);
   const [rollToken, setRollToken] = useState(0);
+  const [suggesting, setSuggesting] = useState(false);
+  const [suggestNote, setSuggestNote] = useState('');
+
+  // 同步草稿（关闭面板后再打开/刷新仍保留上次或进行中的检定）
+  useEffect(() => {
+    setDraft({ action, attrKey, difficulty, advantage, extraMod, opposed, social, opponent, enemyAttrKey, result, verdict });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [action, attrKey, difficulty, advantage, extraMod, opposed, social, opponent, enemyAttrKey, result, verdict]);
 
   const extraRange = mode === 'd20' ? 5 : 20;
   const isNpcFoe = opposed && opponent.startsWith('c:');
@@ -83,6 +93,18 @@ export default function DicePanel({ onClose, onInject }: { onClose: () => void; 
       `技能:${skillLine(fchar?.skills)}`, `天赋:${talentLine(fchar?.traits)}`, `装备:${itemLine(foe.items)}`,
       `好感:${foe.favor ?? 0} 应对属性:${ATTR_LABELS[enemyAttrKey]}`,
     ].join('\n');
+  }
+
+  async function onSuggest() {
+    if (suggesting) return;
+    setSuggesting(true); setSuggestNote('');
+    const out = await aiSuggest({ action, playerSheet: playerSheet(), onscene: onSceneNpcs.map((n) => n.name || n.id).join('、') });
+    if (out.attrKey) setAttrKey(out.attrKey);
+    if (out.difficulty) setDifficulty(out.difficulty);
+    setSuggestNote(out.error
+      ? `建议失败：${out.error}`
+      : `已填：${ATTR_LABELS[out.attrKey ?? attrKey]} / ${out.difficulty ?? difficulty}${out.skill ? ` · ${out.skill}` : ''}${out.reason ? `（${out.reason}）` : ''}`);
+    setSuggesting(false);
   }
 
   function computeFe(): ResolveResult {
@@ -172,6 +194,13 @@ export default function DicePanel({ onClose, onInject }: { onClose: () => void; 
           <textarea value={action} onChange={(e) => setAction(e.target.value)} rows={2}
             placeholder="本回合行动（如：我撬开这扇上锁的铁门）"
             className="w-full rounded-lg border border-edge bg-panel/60 px-3 py-2 text-sm text-slate-200 placeholder:text-dim/40 resize-none focus:border-god/50 outline-none" />
+          <div className="flex items-center gap-2 -mt-1">
+            <button onClick={onSuggest} disabled={suggesting}
+              className="shrink-0 px-3 py-1 rounded-lg border border-god/40 text-god text-[12px] font-mono hover:bg-god/10 disabled:opacity-40 disabled:cursor-wait transition-colors">
+              {suggesting ? '✨ 思考中…' : '✨ AI 建议属性/难度'}
+            </button>
+            {suggestNote && <span className="text-[11px] font-mono text-dim/60 truncate">{suggestNote}</span>}
+          </div>
 
           <div className="grid grid-cols-3 gap-2">
             <Field label="我方属性">

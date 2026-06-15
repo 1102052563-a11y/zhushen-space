@@ -2,7 +2,8 @@ import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import type { ApiConfig } from './settingsStore';
 import { useSettings } from './settingsStore';
-import type { DiceMode, Difficulty, OutcomeLevel } from '../systems/diceEngine';
+import type { DiceMode, Difficulty, OutcomeLevel, AttrKey, Advantage, ResolveResult } from '../systems/diceEngine';
+import type { JudgeOutcome } from '../systems/diceJudge';
 
 /* ════════════════════════════════════════════
    ROLL 点 / 摇骰子判定 —— 设置 + 历史 + 独立 API（drpg-dice）
@@ -52,9 +53,25 @@ const DEFAULT_SETTINGS: DiceSettings = {
   diffOverride: {},
 };
 
+/** 骰子页草稿：关闭面板后保留，再次打开恢复上次/进行中的检定（含结果） */
+export interface DiceDraft {
+  action: string;
+  attrKey: AttrKey;
+  difficulty: Difficulty;
+  advantage: Advantage;
+  extraMod: number;
+  opposed: boolean;
+  social: boolean;
+  opponent: string;
+  enemyAttrKey: AttrKey;
+  result: ResolveResult | null;
+  verdict: JudgeOutcome | null;
+}
+
 interface DiceState {
   settings: DiceSettings;
   history: DiceCheckRecord[];
+  draft: DiceDraft | null;
 
   diceApi: ApiConfig;
   diceUseSharedApi: boolean;
@@ -66,6 +83,8 @@ interface DiceState {
   setDiffOverride: (d: Difficulty, v: { rate: number; dc: number } | null) => void;
   addHistory: (rec: Omit<DiceCheckRecord, 'id' | 'ts'>) => void;
   clearHistory: () => void;
+  setDraft: (d: DiceDraft) => void;
+  clearDraft: () => void;
 
   setDiceApi: (patch: Partial<ApiConfig>) => void;
   setDiceUseSharedApi: (v: boolean) => void;
@@ -79,6 +98,7 @@ export const useDice = create<DiceState>()(
     (set, get) => ({
       settings: { ...DEFAULT_SETTINGS },
       history: [],
+      draft: null,
 
       diceApi: {
         baseUrl: 'https://api.openai.com/v1', apiKey: '', modelId: 'gpt-4o-mini',
@@ -102,6 +122,8 @@ export const useDice = create<DiceState>()(
           history: [{ ...rec, id: Date.now() + Math.floor(Math.random() * 1000), ts: Date.now() }, ...s.history].slice(0, HISTORY_CAP),
         })),
       clearHistory: () => set({ history: [] }),
+      setDraft: (d) => set({ draft: d }),
+      clearDraft: () => set({ draft: null }),
 
       setDiceApi: (patch) => set((s) => ({ diceApi: { ...s.diceApi, ...patch } })),
       setDiceUseSharedApi: (v) => set({ diceUseSharedApi: v }),
@@ -130,6 +152,7 @@ export const useDice = create<DiceState>()(
         ...persisted,
         settings: { ...DEFAULT_SETTINGS, ...(persisted?.settings ?? {}) },
         history: Array.isArray(persisted?.history) ? persisted.history : [],
+        draft: persisted?.draft ?? null,
         diceApi: { ...current.diceApi, ...(persisted?.diceApi ?? {}) },
         diceUseSharedApi: persisted?.diceUseSharedApi ?? current.diceUseSharedApi,
         diceAvailableModels: [],

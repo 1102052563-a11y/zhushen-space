@@ -249,6 +249,22 @@ function dedupeSkillIds(charId: string, skills: Skill[]): Skill[] {
   });
 }
 
+/* 任务/世界事件不是技能：拒绝把「主线任务…/支线任务…/任务（第N环）…」当技能写入（它们应进 miscStore 的 T_ 任务）*/
+export function isQuestName(name?: string): boolean {
+  const n = (name ?? '').trim();
+  return /^(?:主线|支线|日常|隐藏|世界)?任务[\s:：（(]/.test(n) || /(?:主线|支线)任务/.test(n) || /任务[（(]第.*环/.test(n);
+}
+/* 读档/重载时清理历史误入的「任务技能」 */
+function stripQuestSkills(chars: Record<string, any>): Record<string, any> {
+  const out: Record<string, any> = {};
+  for (const [id, data] of Object.entries(chars ?? {})) {
+    const sk = (data as any)?.skills;
+    const filtered = Array.isArray(sk) ? sk.filter((x: any) => !isQuestName(x?.name)) : sk;
+    out[id] = Array.isArray(sk) && filtered.length !== sk.length ? { ...(data as any), skills: filtered } : data;
+  }
+  return out;
+}
+
 export const useCharacters = create<CharacterState>()(
   persist(
     (set) => ({
@@ -257,6 +273,7 @@ export const useCharacters = create<CharacterState>()(
       addSkill: (charId, skill) =>
         set((s) => {
           skill = sanitizeStrings(skill);
+          if (isQuestName(skill.name)) { console.warn('[Char] 拒绝把任务当技能添加（应进任务列表）:', skill.name); return s; }
           const char = ensureChar(s.characters, charId);
           let next = [...char.skills];
           // 以「名称」为身份：同名→原地更新（保留原条目 id，避免改名造成 id 漂移/撞号）；
@@ -464,7 +481,7 @@ export const useCharacters = create<CharacterState>()(
       merge: (persisted: any, current) => ({
         ...current,
         ...persisted,
-        characters: persisted?.characters ?? {},
+        characters: stripQuestSkills(persisted?.characters ?? {}),
       }),
     },
   ),

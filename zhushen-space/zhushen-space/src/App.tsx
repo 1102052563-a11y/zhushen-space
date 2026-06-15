@@ -8,7 +8,7 @@ import { resolveEquipSlot } from './systems/equipSlots';
 import { useTerritory, buildTerritorySystemPrompt, buildingCap } from './store/territoryStore';
 import { useTeam, buildTeamSystemPrompt, memberCap as teamMemberCap } from './store/adventureTeamStore';
 import { useCosmos, buildCosmosSystemPrompt, cosmosNameEq } from './store/cosmosStore';
-import { realmFromLevel, normalizeTier, lvFromRealm, trueAttr, computeMaxHp, computeMaxEp, effectiveResource } from './systems/derivedStats';
+import { realmFromLevel, normalizeTier, lvFromRealm, trueAttr, computeMaxHp, computeMaxEp, gearMaxHpBonus, gearMaxEpBonus, abilityMaxHpBonus, abilityMaxEpBonus, effectiveResource } from './systems/derivedStats';
 import { useImageGen, effectiveEquipService } from './store/imageGenStore';
 import { generateImage, buildPortraitPrompt, buildEquipPrompt, shrinkDataUrl } from './systems/imageGen';
 import { genPortraitTags, genEquipTags, isTagService } from './systems/imageTags';
@@ -246,8 +246,9 @@ function renderDiceCard(inner: string): string {
   const head = arrow >= 0 ? firstLine.slice(0, arrow).trim() : '';
   const after = arrow >= 0 ? firstLine.slice(arrow + 1) : firstLine;
   const level = DICE_LEVELS.find((L) => after.includes(L)) || DICE_LEVELS.find((L) => text.includes(L)) || '成功';
-  const calcM = after.match(/[（(]([^（）()]*)[）)]/);
-  const calc = calcM ? calcM[1] : '';
+  // 取最后一个括号组作算式（格式可能是「（后果×2）（d20:…）」，算式总在最后）
+  const groups = [...after.matchAll(/[（(]([^（）()]*)[）)]/g)].map((x) => x[1]);
+  const calc = groups.length ? groups[groups.length - 1] : '';
   const reasonM = text.match(/裁定[:：]\s*([^\n]*)/);
   const consM = text.match(/后果[:：]\s*([^\n]*)/);
   const isBacklash = /反噬/.test(after);
@@ -282,10 +283,16 @@ function userToHtml(text: string): string {
 /* 正文配图：在 anchor 命中处插入 <img>，无命中则追加到末尾。
    先在原文锚点后插入安全占位符（不含 HTML 特殊字符，能穿过 escapeHtml/wrap），再替换为图片标签。*/
 function toHtmlWithImages(text: string, images?: StoryImage[]): string {
-  if (!images || images.length === 0) return toHtml(text);
-  let work = text;
+  // 检定结果块 → 占位符（能穿过 escape/wrap，最后替换成骰子卡）
+  const diceCards: string[] = [];
+  let work = text.replace(DICE_BLOCK_RE, (_m, inner) => {
+    const tok = `@@ZSDICE${diceCards.length}@@`;
+    diceCards.push(renderDiceCard(String(inner)));
+    return `\n${tok}\n`;
+  });
+  // 图片占位符
   const tokens: string[] = [];
-  images.forEach((img, i) => {
+  (images ?? []).forEach((img, i) => {
     const token = `@@ZSIMG${i}@@`;
     tokens.push(token);
     const at = img.anchor && work.includes(img.anchor) ? work.indexOf(img.anchor) + img.anchor.length : -1;
@@ -293,10 +300,11 @@ function toHtmlWithImages(text: string, images?: StoryImage[]): string {
     else work += `\n${token}\n`;
   });
   let html = toHtml(work);
-  images.forEach((img, i) => {
+  (images ?? []).forEach((img, i) => {
     const tag = `<a href="${img.url}" target="_blank" rel="noopener" class="story-illust-link"><img src="${img.url}" alt="${escapeHtml(img.nsfw || '')}" class="story-illust" style="display:block;max-width:100%;border-radius:10px;margin:10px auto;border:1px solid rgba(255,255,255,0.08);cursor:zoom-in" loading="lazy" /></a>`;
     html = html.split(tokens[i]).join(tag);
   });
+  diceCards.forEach((card, i) => { html = html.split(`@@ZSDICE${i}@@`).join(card); });
   return html;
 }
 
@@ -380,8 +388,7 @@ function applyOneUpdate(u: StateUpdate) {
     if (cid === 'B1') {
       // 玩家 HP/EP：上限按体质×20 / 智力×15 自动换算并同步写回 maxHp/maxMp
       if (stat === 'hp' || stat === 'mp') {
-        const prof = usePlayer.getState().profile;
-        const dmax = stat === 'hp' ? computeMaxHp(prof.attrs) : computeMaxEp(prof.attrs);
+        const dmax = stat === 'hp' ? playerMaxHp() : playerMaxEp();
         const curMaxKey = (stat === 'hp' ? 'maxHp' : 'maxMp') as PlayerNumericKey;
         const cur = effectiveResource(game.player[stat as PlayerNumericKey] as number, game.player[curMaxKey] as number, dmax);
         const next = setMode ? Math.min(Math.max(0, amount), dmax) : op === '+=' ? Math.min(cur + amount, dmax) : Math.max(0, cur - amount);
@@ -398,7 +405,8 @@ function applyOneUpdate(u: StateUpdate) {
       if (stat === 'hp' || stat === 'mp') {
         const npc = useNpc.getState();
         const rec = npc.npcs[cid];
-        const dmax = stat === 'hp' ? computeMaxHp(rec?.attrs) : computeMaxEp(rec?.attrs);
+        const nc = useCharacters.getState().characters[cid];
+        const dmax = stat === 'hp' ? computeMaxHp(rec?.attrs) + abilityMaxHpBonus(nc?.skills, nc?.traits) : computeMaxEp(rec?.attrs) + abilityMaxEpBonus(nc?.skills, nc?.traits);
         const cur = effectiveResource(stat === 'hp' ? rec?.hp : rec?.mp, stat === 'hp' ? rec?.maxHp : rec?.maxMp, dmax);
         const next = setMode ? Math.min(Math.max(0, amount), dmax) : op === '+=' ? Math.min(cur + amount, dmax) : Math.max(0, cur - amount);
         npc.upsertNpc(cid, stat === 'hp' ? { hp: next, maxHp: dmax } : { mp: next, maxMp: dmax });
@@ -607,7 +615,7 @@ function buildItemPhaseSystemPrompt(entries: ItemPresetEntry[], narrative: strin
 
   // 玩家基本状态
   const _pAttrs = usePlayer.getState().profile.attrs;
-  const _pMaxHp = computeMaxHp(_pAttrs), _pMaxEp = computeMaxEp(_pAttrs);   // HP/EP 上限按六维算，让演化 AI 看到的也是真实值（非 100/50 旧默认）
+  const _pMaxHp = playerMaxHp(), _pMaxEp = playerMaxEp();   // 真实上限：六维 + 装备 + 被动/天赋上限加成，让演化 AI 看到的也是真实值
   const playerSnapshot = `B1 玩家 HP:${effectiveResource(player.hp, player.maxHp, _pMaxHp)}/${_pMaxHp} EP:${effectiveResource(player.mp, player.maxMp, _pMaxEp)}/${_pMaxEp} SAN:${player.san}/${player.maxSan} ATK:${player.atk} DEF:${player.def} 积分:${player.points}`;
 
   const vars: Record<string, string> = {
@@ -656,6 +664,13 @@ function buildItemPhaseSystemPrompt(entries: ItemPresetEntry[], narrative: strin
 ════════════════════════════════════════════ */
 const NARRATIVE_FIRST_RULE = `
 【最高优先·正文为准铁则】本阶段所有字段更新**必须先逐条比对本轮正文**：正文里明确写到的信息（属性/状态/效果/数值/关系/外观/事件等）一律**照抄、不得遗漏**（哪怕只是顺带提到的一个增益/减益/效果也要记录）；正文**没有**提到的字段，才允许你按设定**合理补全**。严禁用想象覆盖正文已写明的内容。`;
+
+const EVO_VERIFY_RULE = `
+【生成前·数据核验铁则】每次生成前，把"本轮正文"与下方提供的"当前面板数据（属性/状态/技能/天赋/装备/HP·EP/称号/关系等）"**逐项对照核验**，确保面板与正文吻合：
+1. 正文与面板**不一致** → 一律**以正文为准**，输出修正指令把面板改对（如正文写属性提升/受伤/学会技能/获得状态，但面板还是旧值，必须输出对应更新）。
+2. 正文**未提及**、面板**已有**的数据 → 保持不变，不要凭空改动或重置。
+3. 正文里**新出现**、面板尚无的（新技能/天赋/状态/称号/数值变化）→ 补上对应指令同步进面板。
+目标：本回合结束后面板数据与正文叙述完全一致，不遗漏、不矛盾、不臆造。`;
 
 const BUFF_AS_STATUS_RULE = `
 【BUFF 即状态】正文中出现的任何增益/减益/buff/debuff/中毒/灼烧/护盾/虚弱/加速/恢复等效果，**都必须当作"当前状态"记录**：有明确时限的写结构化限时状态 addStatus(...)；长期/无时限的写入当前状态(列4 / character.<id>.status)。不要因为它叫"buff"就漏记。`;
@@ -927,6 +942,21 @@ function reconcilePlayerVitals(): void {
       g.setPlayerField('maxMp', me); g.setPlayerField('mp', me);
     }
   }
+}
+
+/* 主角 HP/EP 真实上限 = 体质/智力×系数 + 装备上限加成 + 被动/天赋上限加成（如「生命上限+100」被动）。
+   各处统一用这两个，确保正文/面板/AI快照/短指令钳制一致。 */
+function playerMaxHp(): number {
+  const a = usePlayer.getState().profile.attrs;
+  const b1 = useCharacters.getState().characters['B1'];
+  const eq = useItems.getState().items.filter((i) => i.equipped) as any[];
+  return computeMaxHp(a) + gearMaxHpBonus(eq) + abilityMaxHpBonus(b1?.skills, b1?.traits);
+}
+function playerMaxEp(): number {
+  const a = usePlayer.getState().profile.attrs;
+  const b1 = useCharacters.getState().characters['B1'];
+  const eq = useItems.getState().items.filter((i) => i.equipped) as any[];
+  return computeMaxEp(a) + gearMaxEpBonus(eq) + abilityMaxEpBonus(b1?.skills, b1?.traits);
 }
 
 const MISC_HOME_TIME_RULE = `
@@ -1501,7 +1531,7 @@ export default function App() {
       const game = useGame.getState().player;
       const b1 = useCharacters.getState().characters['B1'];
       const a = prof.attrs;
-      const maxHp = computeMaxHp(a), maxEp = computeMaxEp(a);
+      const maxHp = playerMaxHp(), maxEp = playerMaxEp();
       panel = [
         `姓名:${prof.name || '主角'} | 阶位:${prof.tier} Lv.${prof.level} | 进阶点数:${prof.advancePoints ?? 0}`,
         prof.title && `称号:${prof.title}`,
@@ -1642,7 +1672,7 @@ export default function App() {
         prof.bioStrength && `生物强度模板:${prof.bioStrength}`,
         `六维: 力${a.str} 敏${a.agi} 体${a.con} 智${a.int} 魅${a.cha} 幸${a.luck}`,
         `真实属性(每80普通=1真实,前端自动算,勿写入): 真力${trueAttr(a.str)} 真敏${trueAttr(a.agi)} 真体${trueAttr(a.con)} 真智${trueAttr(a.int)} 真魅${trueAttr(a.cha)} 真幸${trueAttr(a.luck)}`,
-        `生命HP上限=体质×20=${computeMaxHp(a)}，蓝量EP上限=智力×15=${computeMaxEp(a)}（前端自动换算，勿写maxHp/maxMp；只有受伤/消耗时才用 hp.B1 -=N / mp.B1 -=N 改当前值）`,
+        `生命HP上限=体质×20+被动天赋/装备的上限加成=${playerMaxHp()}，蓝量EP上限=智力×15+加成=${playerMaxEp()}（前端自动换算，勿写maxHp/maxMp；只有受伤/消耗时才用 hp.B1 -=N / mp.B1 -=N 改当前值）`,
         `当前状态/Buff: ${prof.status || '一切正常'}`,
         (prof.statusEffects?.length ?? 0) > 0 && `限时状态(引擎自动过期,勿重复添加): ${prof.statusEffects.map((e) => `${e.name}${e.durationDesc ? `(${e.durationDesc})` : ''}`).join('；')}`,
         `当前外观: ${prof.appearance || '（未填写）'}`,
@@ -1656,7 +1686,7 @@ export default function App() {
         .replaceAll('${character_snapshot}', playerProfileSnapshot)
         .replaceAll('${player_skills}', pSkills.length ? pSkills.map((s) => `${s.id}「${s.name}」${s.level ?? ''}`).join('；') : '（无）')
         .replaceAll('${player_traits}', pTalents.length ? pTalents.map((t) => `「${t.name}」${t.category ?? ''}·${t.rarity}级`).join('；') : '（无）')
-        + '\n\n' + NARRATIVE_FIRST_RULE + '\n' + BUFF_AS_STATUS_RULE + '\n' + SUBPROF_RULE + '\n' + TALENT_NO_CAP_RULE + '\n' + TITLE_DIVERSITY_RULE + '\n' + SKILL_TALENT_NOTE_RULE + '\n' + SKILL_TIER_RULE + '\n' + TIER_RULE + '\n' + IMAGE_TAGS_RULE + '\n' + HPEP_NARRATIVE_ONLY_RULE + '\n' + ADVANCE_POINTS_RULE + '\n' + WORLDSOURCE_RULE + '\n' + POINTS_NARRATIVE_RULE + '\n' + ATTR_SANITY_RULE + '\n' + APPEARANCE_UPDATE_RULE + '\n' + STATUS_FORMAT_RULE + '\n' + FIRST_UPDATE_COMPLETE_RULE + '\n' + EVO_EXACT_REF_RULE;
+        + '\n\n' + NARRATIVE_FIRST_RULE + '\n' + EVO_VERIFY_RULE + '\n' + BUFF_AS_STATUS_RULE + '\n' + SUBPROF_RULE + '\n' + TALENT_NO_CAP_RULE + '\n' + TITLE_DIVERSITY_RULE + '\n' + SKILL_TALENT_NOTE_RULE + '\n' + SKILL_TIER_RULE + '\n' + TIER_RULE + '\n' + IMAGE_TAGS_RULE + '\n' + HPEP_NARRATIVE_ONLY_RULE + '\n' + ADVANCE_POINTS_RULE + '\n' + WORLDSOURCE_RULE + '\n' + POINTS_NARRATIVE_RULE + '\n' + ATTR_SANITY_RULE + '\n' + APPEARANCE_UPDATE_RULE + '\n' + STATUS_FORMAT_RULE + '\n' + FIRST_UPDATE_COMPLETE_RULE + '\n' + EVO_EXACT_REF_RULE;
       const userContent  = `# 本轮正文\n${trimmedNarrative}\n\n---\n请根据以上正文，输出本轮主角属性与状态变化指令。只输出 <state> 块，无变化时输出空块，禁止输出正文内容。`;
 
       const ss2 = useSettings.getState();
@@ -1895,7 +1925,7 @@ ${lines.join('\n')}`;
       .filter((e) => e.enabled && e.source === 'entrySharedRules')
       .map((e) => fillVars(e.content, vars))
       .join('\n\n')
-      + '\n\n' + NARRATIVE_FIRST_RULE + '\n' + NPC_DEAD_EXCLUDE_RULE + '\n' + TIER_RULE + '\n' + SKILL_TIER_RULE;
+      + '\n\n' + NARRATIVE_FIRST_RULE + '\n' + EVO_VERIFY_RULE + '\n' + NPC_DEAD_EXCLUDE_RULE + '\n' + TIER_RULE + '\n' + SKILL_TIER_RULE;
   }
 
   /* 解析 NPC <state> 短指令（favor/title/realm/hp），可按 charId 过滤 */
@@ -2912,7 +2942,7 @@ ${lines.join('\n')}`;
     const a = p.attrs;
     const look = (p.baseAppearance || p.appearance || '').trim();
     const gp = useGame.getState().player;
-    const hpMax = computeMaxHp(a), epMax = computeMaxEp(a);
+    const hpMax = playerMaxHp(), epMax = playerMaxEp();
     const hpCur = effectiveResource(gp.hp, gp.maxHp, hpMax), epCur = effectiveResource(gp.mp, gp.maxMp, epMax);
     const bits = [
       `姓名:${p.name}`,
@@ -4296,19 +4326,22 @@ ${lines}`;
   function applyNarrativeVitals(narrative: string) {
     const g = useGame.getState();
     const a = usePlayer.getState().profile.attrs;
-    const dmh = computeMaxHp(a), dme = computeMaxEp(a);   // 展示上限永远按六维算
+    const dmh = playerMaxHp(), dme = playerMaxEp();   // 真实上限：六维 + 装备 + 被动/天赋上限加成
     const grabLast = (src: string): [number, number] | null => {
       const r = new RegExp(src, 'gi'); let m: RegExpExecArray | null, last: [number, number] | null = null;
       while ((m = r.exec(narrative)) !== null) last = [Number(m[1]), Number(m[2])];
       return last;
     };
-    // 只有当正文报的"上限"与按六维算的真实上限相符(±容差)时，才采信它的"当前值"；
+    // 只有当正文报的"上限"与真实上限相符(±容差)时，才采信它的"当前值"；
     // 否则（如开局 AI 在人物卡瞎写「当前HP：100/100」）忽略，避免把刚拉满的主角写回默认值。只写当前值、不写 gameStore 上限。
     const within = (max: number, dm: number) => dm > 0 && Math.abs(max - dm) <= Math.max(6, dm * 0.12);
-    const hp = grabLast('当前\\s*(?:HP|血量|生命值?)\\s*[:：]\\s*(\\d{1,7})\\s*/\\s*(\\d{1,7})');
+    // 先认「当前HP：X/Y」；没有则认成长块箭头「HP: 180/180 -> 400/400」取箭头后的最终值
+    let hp = grabLast('当前\\s*(?:HP|血量|生命值?)\\s*[:：]\\s*(\\d{1,7})\\s*/\\s*(\\d{1,7})');
+    if (!hp) hp = grabLast('(?:HP|血量|生命值?)\\s*[:：]?\\s*\\d{1,7}\\s*/\\s*\\d{1,7}\\s*(?:->|→|=>|➜|⟶)\\s*(\\d{1,7})\\s*/\\s*(\\d{1,7})');
     const hpOk = !!hp && hp[0] >= 0 && hp[1] > 0 && within(hp[1], dmh);
     if (hpOk) g.setPlayerField('hp', Math.min(hp![0], dmh));
-    const ep = grabLast('当前\\s*(?:EP|MP|蓝量|法力|能量|精力)\\s*[:：]\\s*(\\d{1,7})\\s*/\\s*(\\d{1,7})');
+    let ep = grabLast('当前\\s*(?:EP|MP|蓝量|法力|能量|精力)\\s*[:：]\\s*(\\d{1,7})\\s*/\\s*(\\d{1,7})');
+    if (!ep) ep = grabLast('(?:EP|MP|蓝量|法力|能量|精力)\\s*[:：]?\\s*\\d{1,7}\\s*/\\s*\\d{1,7}\\s*(?:->|→|=>|➜|⟶)\\s*(\\d{1,7})\\s*/\\s*(\\d{1,7})');
     const epOk = !!ep && ep[0] >= 0 && ep[1] > 0 && within(ep[1], dme);
     if (epOk) g.setPlayerField('mp', Math.min(ep![0], dme));
     if (hpOk || epOk) console.log(`[Vitals] 正文照抄主角 ${hpOk ? `HP ${hp![0]}/${dmh}` : ''} ${epOk ? `EP ${ep![0]}/${dme}` : ''}`);
@@ -4535,8 +4568,8 @@ ${lines}`;
     try {
       const lastAsstForVec = [...visibleHistory].reverse().find((m) => m.role === 'assistant')?.content ?? '';
       const hits = await retrieveNovel(`${userText}\n${lastAsstForVec}`);
-      if (hits.length) novelVecText = '【原著资料·语义检索（参考设定/桥段，非剧情指令，请勿照抄复述）】\n' +
-        hits.map((h) => `〔${h.chap || h.vol || '原著'}〕${h.text}`).join('\n\n');
+      if (hits.length) novelVecText = '【资料检索·语义召回（原著+世界书，参考设定/桥段，非剧情指令，请勿照抄复述）】\n' +
+        hits.map((h) => `〔${h.source}·${h.chap || h.vol || ''}〕${h.text}`).join('\n\n');
     } catch (e) { console.warn('[NovelVec] 检索失败', e); }
     const worldInfoText = [wbKeywordText, novelVecText].filter(Boolean).join('\n\n');
 
@@ -5040,9 +5073,8 @@ ${lines}`;
                       {visibleMsgs.map((msg) => (
                         <div key={msg.id} className={msg.role === 'user' ? 'flex justify-end' : ''}>
                           {msg.role === 'user' ? (
-                            <div className="max-w-sm px-4 py-2 rounded-xl bg-god/10 border border-god/20 text-sm text-god/90 font-mono">
-                              {msg.content}
-                            </div>
+                            <div className="max-w-sm px-4 py-2 rounded-xl bg-god/10 border border-god/20 text-sm text-god/90 font-mono"
+                              dangerouslySetInnerHTML={{ __html: userToHtml(msg.content) }} />
                           ) : (
                             <div
                               className="text-[17px] text-slate-300 leading-relaxed narrative-content"
