@@ -427,7 +427,7 @@ function BasicTab({ npc, realm, genderCls }: { npc: NpcRecord; realm: ReturnType
       )}
 
       <Section title="伪装身份" hint="仅用于叙事；不改变真实姓名、真实阶位、等阶进度或数值">
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 items-start">
           <Field label="化名（对外假身份）" value={ex['化名'] ?? ex['aliasName']} />
           <Field label="伪装阶位" value={ex['伪装境界'] ?? ex['disguiseRealm']} />
         </div>
@@ -651,7 +651,7 @@ function CustomTab({ npc }: { npc: NpcRecord }) {
   if (entries.length === 0) return <Empty text="暂无自定义列数据" />;
   return (
     <Section title="自定义列（演化兜底字段）">
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 items-start">
         {entries.map(([k, v]) => (
           <Field key={k} label={/^\d+$/.test(k) ? `列 ${k}` : k} value={String(v)} />
         ))}
@@ -794,7 +794,7 @@ function ItemsTab({ items, empty, showSlot, onClear, ownerId, ownerGender }: { i
           </button>
         </div>
       )}
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 items-start">
       {items.map((it, i) => <NpcItemCard key={`${it.id}-${i}`} it={it} showSlot={showSlot} ownerId={ownerId} ownerGender={ownerGender} />)}
       </div>
     </div>
@@ -956,7 +956,7 @@ function NpcSkillCard({ sk }: { sk: ReturnType<typeof useCharacters.getState>['c
 function SkillTab({ skills }: { skills: ReturnType<typeof useCharacters.getState>['characters'][string]['skills'] }) {
   if (!skills || skills.length === 0) return <Empty text="暂无技能" />;
   return (
-    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 items-start">
       {skills.map((sk, i) => <NpcSkillCard key={`${sk.id}-${i}`} sk={sk} />)}
     </div>
   );
@@ -996,7 +996,7 @@ function NpcTalentCard({ t }: { t: ReturnType<typeof useCharacters.getState>['ch
 function TraitTab({ traits }: { traits: ReturnType<typeof useCharacters.getState>['characters'][string]['traits'] }) {
   if (!traits || traits.length === 0) return <Empty text="暂无天赋" />;
   return (
-    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 items-start">
       {traits.map((t, i) => <NpcTalentCard key={`${t.name}-${i}`} t={t} />)}
     </div>
   );

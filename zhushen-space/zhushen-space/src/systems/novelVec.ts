@@ -87,9 +87,23 @@ async function loadOne(db: IDBDatabase, base: string, name: string): Promise<Loa
   if (cachedVec && cachedMeta?.builtAt === manifest.builtAt && cachedVec.byteLength === manifest.count * manifest.dim) {
     vectors = new Int8Array(cachedVec);
   } else {
-    const vres = await grab('vectors.bin'); if (!vres) throw new Error(`${name}/vectors.bin 缺失`);
-    const vbuf = await vres.arrayBuffer();
-    if (vbuf.byteLength !== manifest.count * manifest.dim) throw new Error(`${name} vectors.bin 大小不符，请重建该索引`);
+    // vectors.bin 可能被切成多片（Cloudflare 单文件 25 MiB 限制）：manifest.parts>0 时逐片取回拼接
+    const nparts = Number((manifest as any).parts) || 0;
+    let vbuf: ArrayBuffer;
+    if (nparts > 0) {
+      const merged = new Uint8Array(manifest.count * manifest.dim);
+      let off = 0;
+      for (let i = 0; i < nparts; i++) {
+        const r = await grab(`vectors.bin.${i}`); if (!r) throw new Error(`${name}/vectors.bin.${i} 缺失`);
+        const b = new Uint8Array(await r.arrayBuffer());
+        merged.set(b, off); off += b.byteLength;
+      }
+      vbuf = merged.buffer;
+    } else {
+      const vres = await grab('vectors.bin'); if (!vres) throw new Error(`${name}/vectors.bin 缺失`);
+      vbuf = await vres.arrayBuffer();
+    }
+    if (vbuf.byteLength !== manifest.count * manifest.dim) throw new Error(`${name} vectors 大小不符，请重建该索引`);
     vectors = new Int8Array(vbuf);
     const cres = await grab('chunks.json.gz'); if (!cres) throw new Error(`${name}/chunks.json.gz 缺失`);
     const arr: any[] = await gunzipJson(await cres.arrayBuffer());

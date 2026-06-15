@@ -7,5 +7,6 @@
   "overlap": 100,
   "normalized": true,
   "quant": "int8",
-  "builtAt": "2026-06-15T00:28:33.660Z"
+  "builtAt": "2026-06-15T00:28:33.660Z",
+  "parts": 2
 }

@@ -285,7 +285,7 @@ export default function CharacterPanel({ onClose }: { onClose: () => void }) {
                 {activeChar} 暂无技能
               </div>
             ) : (
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-2 gap-3 items-start">
                 {skills.map((sk, i) => (
                   <SkillCard
                     key={`${sk.id}-${i}`}
@@ -301,7 +301,7 @@ export default function CharacterPanel({ onClose }: { onClose: () => void }) {
                 {activeChar} 暂无天赋
               </div>
             ) : (
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-2 gap-3 items-start">
                 {traits.map((tr, i) => (
                   <TraitCard
                     key={`${tr.name}-${i}`}

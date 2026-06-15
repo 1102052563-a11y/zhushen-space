@@ -4862,6 +4862,8 @@ ${lines}`;
   async function confirmCreation(d: CreationData) {
     await clearProgress();   // 开始游戏=全新存档：先清空之前的玩家/NPC/物品/角色/杂项/对话
     msgId.current = 0;
+    turnCountRef.current = 0;   // 新存档：回合数归零（不依赖刷新；下方 setStarted/setMessages 会触发重渲染刷新显示）
+    messagesRef.current = [];   // 立即清空内存历史，杜绝上一局聊天/回合残留
     const P = usePlayer.getState();
     P.setProfile({
       name: d.name,

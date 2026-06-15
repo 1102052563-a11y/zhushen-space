@@ -30,6 +30,34 @@ const BATCH   = +(E.BATCH || args.batch || 32);
 const CONC    = +(E.CONCURRENCY || args.concurrency || 3);
 const DIM     = +(E.DIM || args.dim || 1024);
 
+/* ── 分片：Cloudflare Pages 单文件上限 25 MiB，vectors.bin 超了就切成多片 ── */
+const MAXPART = 24 * 1024 * 1024;   // 24 MiB，留余量
+function writeVectorsMaybeSplit(outdir, buf) {
+  const n = Math.ceil(buf.length / MAXPART);
+  try { fs.unlinkSync(path.join(outdir, 'vectors.bin')); } catch { /* */ }          // 清旧单文件
+  for (let i = 0; i < 64; i++) { const p = path.join(outdir, `vectors.bin.${i}`); if (fs.existsSync(p)) fs.unlinkSync(p); else break; }  // 清旧分片
+  if (n <= 1) { fs.writeFileSync(path.join(outdir, 'vectors.bin'), buf); return 0; }  // 0 = 单文件
+  for (let i = 0; i < n; i++) {
+    fs.writeFileSync(path.join(outdir, `vectors.bin.${i}`), buf.subarray(i * MAXPART, Math.min((i + 1) * MAXPART, buf.length)));
+  }
+  return n;
+}
+
+/* ── 仅分片模式：把已建好的 vectors.bin 切片 + 写 manifest.parts（不重新 embed）──
+   用：node tools/build-novel-vectors.mjs --split-only --out=public/novel-vectors */
+if (args['split-only'] || E.SPLIT_ONLY) {
+  const mPath = path.join(OUTDIR, 'manifest.json');
+  const vPath0 = path.join(OUTDIR, 'vectors.bin');
+  if (!fs.existsSync(mPath)) { console.error(`✗ split-only: 找不到 ${mPath}`); process.exit(1); }
+  if (!fs.existsSync(vPath0)) { console.error(`✗ split-only: 找不到 ${vPath0}（可能已切过片）`); process.exit(1); }
+  const manifest = JSON.parse(fs.readFileSync(mPath, 'utf8'));
+  const parts = writeVectorsMaybeSplit(OUTDIR, fs.readFileSync(vPath0));
+  manifest.parts = parts;
+  fs.writeFileSync(mPath, JSON.stringify(manifest, null, 2));
+  console.log(parts ? `✓ split-only: ${OUTDIR} → ${parts} 片（各 ≤24 MiB）` : `✓ split-only: ${OUTDIR} 无需切片`);
+  process.exit(0);
+}
+
 if (!KEY) { console.error('✗ 缺少 EMBED_KEY（你的硅基流动 API Key）。例：$env:EMBED_KEY="sk-..."; node tools/build-novel-vectors.mjs'); process.exit(1); }
 if (!fs.existsSync(INPUT)) { console.error(`✗ 找不到原著文件：${path.resolve(INPUT)}（用 --input=路径 指定）`); process.exit(1); }
 
@@ -185,17 +213,17 @@ if (contiguous() < total) {
 }
 
 /* ── 写出成品 ── */
-fs.writeFileSync(vPath, Buffer.from(vectors.buffer));
+const nparts = writeVectorsMaybeSplit(OUTDIR, Buffer.from(vectors.buffer));
 fs.writeFileSync(path.join(OUTDIR, 'chunks.json.gz'), zlib.gzipSync(Buffer.from(JSON.stringify(chunks), 'utf8')));
 fs.writeFileSync(path.join(OUTDIR, 'manifest.json'), JSON.stringify({
   source: path.basename(INPUT), model: MODEL, dim: DIM, count: total, chunkSize: CHUNK, overlap: OVERLAP,
-  normalized: true, quant: 'int8', builtAt: new Date().toISOString(),
+  normalized: true, quant: 'int8', parts: nparts, builtAt: new Date().toISOString(),
 }, null, 2));
 try { fs.unlinkSync(pPath); } catch { /* */ }
 
 const mb = (p) => (fs.statSync(path.join(OUTDIR, p)).size / 1048576).toFixed(1);
 console.log(`\n✓ 完成！${total} 块，用时 ${((Date.now() - t0) / 1000 / 60).toFixed(1)} 分钟`);
-console.log(`  ${OUTDIR}/vectors.bin       ${mb('vectors.bin')} MB`);
+console.log(nparts ? `  ${OUTDIR}/vectors.bin.0..${nparts - 1}  （${nparts} 片，单文件 ≤24 MiB，过 Cloudflare 25 MiB 限制）` : `  ${OUTDIR}/vectors.bin       ${mb('vectors.bin')} MB`);
 console.log(`  ${OUTDIR}/chunks.json.gz    ${mb('chunks.json.gz')} MB`);
 console.log(`  ${OUTDIR}/manifest.json`);
-console.log(`下一步：这三个文件已在 public/，前端「向量资料库」开启后会自动懒加载。`);
+console.log(`下一步：产物已在 public/，前端「向量资料库」开启后自动懒加载。`);
