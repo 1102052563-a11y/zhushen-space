@@ -22,6 +22,11 @@ export interface MiscTask {
   addedAt: number;
 }
 
+/* 已结算（完成/失败/放弃）的任务：移出"进行中"列表，留档供面板查看，不再注入提示词 */
+export interface ArchivedTask extends MiscTask {
+  settledAt: number;
+}
+
 export interface WorldEvent {
   id: string;        // "W_1"
   time: string;
@@ -123,6 +128,7 @@ const DEFAULT_SETTINGS: MiscSettings = {
 
 interface MiscState {
   tasks: MiscTask[];
+  archivedTasks: ArchivedTask[];   // 已结算任务（完成/失败/放弃），移出进行中列表
   worldEvents: WorldEvent[];
   smallSummaries: string[];
   largeSummaries: string[];
@@ -143,6 +149,8 @@ interface MiscState {
   upsertTask: (t: MiscTask) => void;
   updateTask: (id: string, patch: Partial<MiscTask>) => void;
   removeTask: (id: string) => void;
+  settleTask: (id: string, status: string) => void;   // 结算：移出进行中→归档
+  clearArchivedTasks: () => void;
   nextTaskId: () => string;
   addWorldEvent: (e: Omit<WorldEvent, 'id'>) => void;
   updateWorldEvent: (id: string, patch: Partial<Omit<WorldEvent, 'id'>>) => void;
@@ -173,6 +181,7 @@ export const useMisc = create<MiscState>()(
   persist(
     (set, get) => ({
       tasks: [],
+      archivedTasks: [],
       worldEvents: [],
       smallSummaries: [],
       largeSummaries: [],
@@ -203,8 +212,21 @@ export const useMisc = create<MiscState>()(
         }),
       updateTask: (id, patch) => set((s) => ({ tasks: s.tasks.map((x) => (x.id === id ? { ...x, ...patch } : x)) })),
       removeTask: (id) => set((s) => ({ tasks: s.tasks.filter((x) => x.id !== id) })),
+      settleTask: (id, status) =>
+        set((s) => {
+          const t = s.tasks.find((x) => x.id === id);
+          if (!t) return s;   // 进行中列表里没有 → 不结算（防误删/重复）
+          const archived: ArchivedTask = { ...t, status: status || t.status || '已完成', settledAt: Date.now() };
+          return {
+            tasks: s.tasks.filter((x) => x.id !== id),
+            archivedTasks: [archived, ...s.archivedTasks.filter((x) => x.id !== id)].slice(0, 40),
+          };
+        }),
+      clearArchivedTasks: () => set({ archivedTasks: [] }),
       nextTaskId: () => {
-        const nums = get().tasks.map((t) => Number(/^T_(\d+)$/.exec(t.id)?.[1])).filter((n) => Number.isFinite(n));
+        // 进行中 + 已归档的编号都算"已占用"，避免复用完成任务的编号
+        const all = [...get().tasks, ...get().archivedTasks];
+        const nums = all.map((t) => Number(/^T_(\d+)$/.exec(t.id)?.[1])).filter((n) => Number.isFinite(n));
         return `T_${nums.length ? Math.max(...nums) + 1 : 1}`;
       },
 
@@ -237,7 +259,7 @@ export const useMisc = create<MiscState>()(
         worldTime: patch.worldTime ?? s.worldTime,
         worldName: patch.worldName ?? s.worldName,
       })),
-      clearMisc: () => set({ tasks: [], worldEvents: [], smallSummaries: [], largeSummaries: [], summaryRound: 0 }),
+      clearMisc: () => set({ tasks: [], archivedTasks: [], worldEvents: [], smallSummaries: [], largeSummaries: [], summaryRound: 0 }),
 
       setSettings: (patch) => set((s) => ({ settings: { ...s.settings, ...patch } })),
       setPresetEntries: (entries, name, version) =>

@@ -55,6 +55,9 @@ export interface ChannelMessage {
   authorName: string;        // 发帖契约者（姓+名）
   authorTier?: string;       // 阶位·Lv（如 三阶·Lv.25）
   authorTag?: string;        // 契约者 / 土著 / 随从 …
+  authorJob?: string;        // 职业（多样化/隐藏职业，如 毁灭术士/龙之子/噬魂者）——供后续生成临时队友 NPC
+  authorPersona?: string;    // 性格（简短）
+  authorStrength?: string;   // 生物强度档（T0~T9，如 T3·勇士）
   kind: 'sell' | 'buy' | 'recruit' | 'seek' | 'chat' | 'intel' | 'battle' | 'system' | 'world';
   content: string;           // 帖子正文
   offer?: ChannelOffer;
@@ -154,7 +157,7 @@ interface ChannelState {
   addMessages: (items: Omit<ChannelMessage, 'id' | 'postedAt'>[]) => void;
   addPlayerPost: (post: Omit<ChannelMessage, 'id' | 'postedAt'>) => string;   // 玩家发求购/出售帖，返回帖子 id
   addPlayerSpeak: (channel: ChannelKey, playerName: string, playerContent: string, replyToName?: string) => string;  // 主角发言：立即上墙，返回帖 id；replyToName=主动回复的对象
-  addOneSpeakReply: (channel: ChannelKey, reply: { authorName: string; authorTier?: string; content: string }, replyToId: string) => void;  // 一条回复，插到主角发言上方
+  addOneSpeakReply: (channel: ChannelKey, reply: { authorName: string; authorTier?: string; authorJob?: string; authorPersona?: string; authorStrength?: string; content: string }, replyToId: string) => void;  // 一条回复，插到主角发言上方
   addQuotes: (postId: string, quotes: Omit<ChannelQuote, 'id'>[]) => void;    // 给玩家帖追加报价/出价
   removeMessage: (id: string) => void;
   markTraded: (id: string) => void;
@@ -239,7 +242,7 @@ export const useChannel = create<ChannelState>()(
         set((s) => {
           if (!reply || !reply.content || !String(reply.content).trim()) return s;
           const max = s.messages.reduce((m, x) => Math.max(m, Number(/^M_(\d+)$/.exec(x.id)?.[1]) || 0), 0);
-          const msg: ChannelMessage = { id: `M_${max + 1}`, channel, authorName: String(reply.authorName || '某契约者').slice(0, 20), authorTier: reply.authorTier, content: String(reply.content), kind: 'chat', speak: true, replyTo: replyToId, postedAt: Date.now() };
+          const msg: ChannelMessage = { id: `M_${max + 1}`, channel, authorName: String(reply.authorName || '某契约者').slice(0, 20), authorTier: reply.authorTier, authorJob: reply.authorJob, authorPersona: reply.authorPersona, authorStrength: reply.authorStrength, content: String(reply.content), kind: 'chat', speak: true, replyTo: replyToId, postedAt: Date.now() };
           let merged = [msg, ...s.messages];   // 插到最前 = 主角发言上方
           const speakIds = merged.filter((m) => m.speak).map((m) => m.id);
           if (speakIds.length > 10) { const rm = new Set(speakIds.slice(10)); merged = merged.filter((m) => !rm.has(m.id)); }

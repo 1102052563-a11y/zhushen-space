@@ -137,7 +137,10 @@ export interface CosmosSettings {
   participationGate: 'off' | 'auto' | 'manual';  // 中后期参与门槛：off=永不参与/auto=按阶位回合自动/manual=手动解锁
   participationUnlocked: boolean;   // 手动模式下的解锁标记 / auto 解锁后置 true
   injectIrrelevantCount: number;    // 注入正文时额外采样几个"不相关"势力增加真实感（默认2）
-  focusPerTurn: number;         // 每次 AI 推演最多处理几个实体（默认8）
+  focusPerTurn: number;         // （旧字段，保留兼容；现按 paradise/other/continue 分组轮换选择）
+  paradisePerTurn: number;      // 每回合更新几个乐园（默认3）
+  otherPerTurn: number;         // 每回合更新几个非乐园势力（默认5）
+  continueCount: number;        // 每组从上回合更新过的势力里随机保留几个继续(延续性)，其余名额轮换给上回合没更新的（默认1）
   entries: CosmosPresetEntry[];
   presetName: string;
   presetVersion?: number;
@@ -152,6 +155,9 @@ const DEFAULT_SETTINGS: CosmosSettings = {
   participationUnlocked: false,
   injectIrrelevantCount: 2,
   focusPerTurn: 8,
+  paradisePerTurn: 3,
+  otherPerTurn: 5,
+  continueCount: 1,
   entries: DEFAULT_COSMOS_ENTRIES,
   presetName: DEFAULT_PRESET_NAME,
   presetVersion: DEFAULT_PRESET_VERSION,
@@ -347,22 +353,30 @@ export const useCosmos = create<CosmosState>()(
     }),
     {
       name: 'drpg-cosmos',
-      merge: (persisted: any, current) => ({
-        ...current,
-        ...persisted,
-        settings: {
-          ...DEFAULT_SETTINGS,
-          ...(persisted?.settings ?? {}),
-          entries: Array.isArray(persisted?.settings?.entries) && persisted.settings.entries.length > 0
-            ? persisted.settings.entries
-            : DEFAULT_COSMOS_ENTRIES,
-        },
-        cosmosApi: { ...current.cosmosApi, ...(persisted?.cosmosApi ?? {}) },
-        cosmosUseSharedApi: persisted?.cosmosUseSharedApi ?? current.cosmosUseSharedApi,
-        cosmosAvailableModels: [],
-        cosmosModelsLoading: false,
-        cosmosModelsError: '',
-      }),
+      merge: (persisted: any, current) => {
+        const ps = persisted?.settings ?? {};
+        const hasEntries = Array.isArray(ps.entries) && ps.entries.length > 0;
+        // 内置预设且版本过旧 → 自动升级到新默认（让"丰富/分类风格"等更新自动生效，不动用户自导入的预设）
+        const isBuiltin = !ps.presetName || ps.presetName === DEFAULT_PRESET_NAME;
+        const outdated = (ps.presetVersion ?? 0) < (DEFAULT_PRESET_VERSION ?? 0);
+        const useDefault = !hasEntries || (isBuiltin && outdated);
+        return {
+          ...current,
+          ...persisted,
+          settings: {
+            ...DEFAULT_SETTINGS,
+            ...ps,
+            entries: useDefault ? DEFAULT_COSMOS_ENTRIES : ps.entries,
+            presetName: useDefault ? DEFAULT_PRESET_NAME : ps.presetName,
+            presetVersion: useDefault ? DEFAULT_PRESET_VERSION : ps.presetVersion,
+          },
+          cosmosApi: { ...current.cosmosApi, ...(persisted?.cosmosApi ?? {}) },
+          cosmosUseSharedApi: persisted?.cosmosUseSharedApi ?? current.cosmosUseSharedApi,
+          cosmosAvailableModels: [],
+          cosmosModelsLoading: false,
+          cosmosModelsError: '',
+        };
+      },
     },
   ),
 );

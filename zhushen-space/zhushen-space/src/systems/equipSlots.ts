@@ -136,3 +136,20 @@ export function pickEquipSlot(item: InventoryItem, items: InventoryItem[]): stri
     || SLOT_DEFS.find((s) => (s.allowedCats as string[]).includes(cat));
   return fb?.key ?? 'unknown';
 }
+
+/* 某槽位是否允许装入该分类（按 SLOT_DEFS.allowedCats）。槽位不存在则返回 false。*/
+export function slotAcceptsCategory(slotKey: string, category?: string): boolean {
+  const def = SLOT_DEFS.find((d) => d.key === slotKey);
+  if (!def) return false;
+  return (def.allowedCats as string[]).includes(String(category ?? '').trim());
+}
+
+/* 解析「这件物品该装到哪个槽」：先按 AI 给的槽位串归一化；
+   若归一化后的槽位与物品分类**不兼容**（如 AI 把武器塞进饰品槽），改用 pickEquipSlot
+   按分类/名称自动挑一个对的槽——修复"自动装备把武器装到饰品栏之类"的错配。
+   AI 槽位与分类兼容时（含副武器位允许饰品/特殊物品等刻意多类槽）则尊重 AI 的选择。*/
+export function resolveEquipSlot(item: InventoryItem, items: InventoryItem[], rawSlot?: string): string {
+  const norm = normalizeEquipSlot(rawSlot, item.category);
+  if (slotAcceptsCategory(norm, item.category)) return norm;
+  return pickEquipSlot(item, items);
+}

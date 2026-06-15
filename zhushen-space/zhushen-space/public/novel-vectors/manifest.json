@@ -1,0 +1,11 @@
+{
+  "source": "轮回乐园（精校版）.txt",
+  "model": "Pro/BAAI/bge-m3",
+  "dim": 1024,
+  "count": 29506,
+  "chunkSize": 700,
+  "overlap": 100,
+  "normalized": true,
+  "quant": "int8",
+  "builtAt": "2026-06-15T00:28:33.660Z"
+}

@@ -108,6 +108,15 @@ export interface NpcRecord {
   keepForever?: boolean;  // 用户手动标记长期保留
   kitDone?: boolean;      // 已发放过初始家当（装备+储物），避免重复发放
 
+  // ── 临时世界队伍（频道组队；世界结束自动解散，与永久冒险团两层分开）──
+  partyMember?: boolean;  // 是否当前的临时队友
+  partyWorld?: string;    // 为哪个世界(worldName)入队的
+  partyRole?: string;     // 队内职责（坦克/治疗/输出/侦察…）
+
+  // ── 好友（手动收藏的契约者/随从/宠物；进入好友栏后每回合参与 NPC 演化）──
+  isFriend?: boolean;     // 是否在好友栏
+  friendedAt?: number;    // 加为好友的时间
+
   // ── 调度（策略B）──
   freqMode?: 'turn' | 'date';  // 逐目标频率模式；缺省回落全局默认
   freqInterval?: number;       // 间隔 ≥1
@@ -164,11 +173,17 @@ interface NpcState {
   removeDeed: (id: string, index: number) => void;
   clearDeeds: (id: string) => void;
   removeNpc: (id: string) => void;        // 软删除（onScene=false 归档）
+  createPartyMember: (info: { name: string; tier?: string; job?: string; persona?: string; strength?: string; role?: string; world?: string }) => string;  // 从频道发帖人建临时队友 NPC，返回 C-id
+  createArchivedContractor: (info: { name: string; tier?: string; job?: string; persona?: string; strength?: string; tag?: string }) => string;  // 建一个离场契约者档案（私信/交易/好友用），返回 C-id
+  setFriend: (id: string, on: boolean) => void;   // 加入/移出好友栏
+  leaveParty: (id: string) => void;       // 退出临时队伍（partyMember=false，仍在场，等剧情/手动归档）
+  disbandPartyForWorld: (currentWorld: string) => string[];  // 世界切换：解散非当前世界的临时队友(离队 + 离场归档)，返回被解散的 id 列表
   hardRemoveNpc: (id: string) => void;    // 物理删除（清理路人）
   absorbOrphans: () => number;            // 把"只有物品没有档案"的空壳并入真实NPC
   dedupeByName: () => number;             // 合并同名真实NPC（防一回合/跨回合重复建档），返回合并掉的数量
   clearAll: () => void;
   addNpcItem: (ownerId: string, item: NpcOwnedItem) => void;
+  dedupeNpcItems: (ownerId?: string) => void;   // 合并某NPC(或全部)储存空间内同名重复物品（可堆叠累加/装备取大值）
   updateNpcItem: (ownerId: string, itemId: string, patch: Partial<NpcOwnedItem>) => void;
   removeNpcItem: (ownerId: string, itemId: string) => void;
   equipNpcItem: (ownerId: string, itemId: string, slot: string) => void;
@@ -179,6 +194,10 @@ interface NpcState {
   removeNpcStatus: (id: string, idOrName: string) => void;
   setNpcStatuses: (id: string, list: StatusEffect[]) => void; // 过期清理整体重写
 }
+
+/* NPC 储存空间同名堆叠：装备类（武器/防具/饰品/特殊/法宝）不堆叠，余者同名累加 */
+const NPC_NO_STACK_CATS = new Set<string>(['武器', '防具', '饰品', '特殊物品', '法宝']);
+const npcStackNorm = (x?: string) => (x ?? '').replace(/[\s·•・\-—_,，.。、|｜【】（）()的之]/g, '').toLowerCase();
 
 export const useNpc = create<NpcState>()(
   persist(
@@ -249,6 +268,71 @@ export const useNpc = create<NpcState>()(
           if (!s.npcs[id]) return s;
           return { npcs: { ...s.npcs, [id]: { ...s.npcs[id], onScene: false, updatedAt: Date.now() } } };
         }),
+
+      createPartyMember: (info) => {
+        let newId = '';
+        set((s) => {
+          const used = new Set(Object.keys(s.npcs));
+          let n = 1; while (used.has(`C${n}`)) n++;
+          newId = `C${n}`;
+          const rec: NpcRecord = {
+            ...defaultNpcRecord(newId),
+            name: ((info.name || '契约者').trim().slice(0, 24)) || '契约者',
+            realm: info.tier ? `${info.tier}|${info.role || '临时队友'}` : '',
+            profession: info.job || '',
+            personality: info.persona || '',
+            bioStrength: info.strength || '',
+            npcTag: '契约者',
+            onScene: true,
+            partyMember: true,
+            partyWorld: info.world || '',
+            partyRole: info.role || '',
+            updatedAt: Date.now(),
+          };
+          return { npcs: { ...s.npcs, [newId]: rec } };
+        });
+        return newId;
+      },
+      createArchivedContractor: (info) => {
+        let newId = '';
+        set((s) => {
+          const used = new Set(Object.keys(s.npcs));
+          let n = 1; while (used.has(`C${n}`)) n++;
+          newId = `C${n}`;
+          const rec: NpcRecord = {
+            ...defaultNpcRecord(newId),
+            name: ((info.name || '契约者').trim().slice(0, 24)) || '契约者',
+            realm: info.tier ? `${info.tier}|` : '',
+            profession: info.job || '',
+            personality: info.persona || '',
+            bioStrength: info.strength || '',
+            npcTag: info.tag || '契约者',
+            onScene: false,
+            updatedAt: Date.now(),
+          };
+          return { npcs: { ...s.npcs, [newId]: rec } };
+        });
+        return newId;
+      },
+      setFriend: (id, on) =>
+        set((s) => (s.npcs[id] ? { npcs: { ...s.npcs, [id]: { ...s.npcs[id], isFriend: on, friendedAt: on ? Date.now() : s.npcs[id].friendedAt, updatedAt: Date.now() } } } : s)),
+      leaveParty: (id) =>
+        set((s) => (s.npcs[id] ? { npcs: { ...s.npcs, [id]: { ...s.npcs[id], partyMember: false, updatedAt: Date.now() } } } : s)),
+      disbandPartyForWorld: (currentWorld) => {
+        const cw = (currentWorld || '').trim();
+        const out: string[] = [];
+        set((s) => {
+          const npcs = { ...s.npcs };
+          for (const [id, r] of Object.entries(s.npcs)) {
+            if (r.partyMember && (r.partyWorld || '') !== cw) {
+              out.push(id);
+              npcs[id] = { ...r, partyMember: false, onScene: false, updatedAt: Date.now() };   // 离队 + 离场归档（软删除，保留档案）
+            }
+          }
+          return out.length ? { npcs } : s;
+        });
+        return out;
+      },
 
       hardRemoveNpc: (id) => {
         // 同步清除该 NPC 在 characterStore 的技能/词条，避免孤儿数据
@@ -451,10 +535,49 @@ export const useNpc = create<NpcState>()(
           const idx = items.findIndex((it) => it.id === item.id);
           if (idx >= 0) {
             items[idx] = { ...items[idx], quantity: items[idx].quantity + item.quantity };
-          } else {
-            items.push(item);
+            return { npcs: { ...s.npcs, [ownerId]: { ...rec, items, updatedAt: Date.now() } } };
           }
+          // 同名堆叠：可堆叠类（非武器/防具/饰品/特殊/法宝）、未装备 → 累加到已有同名同品质条目，不新建行
+          const stackable = (c?: string) => !NPC_NO_STACK_CATS.has(c ?? '');
+          if (!item.equipped && stackable(item.category)) {
+            const sIdx = items.findIndex((it) => !it.equipped && stackable(it.category) && npcStackNorm(it.name) === npcStackNorm(item.name) && npcStackNorm(it.gradeDesc) === npcStackNorm(item.gradeDesc));
+            if (sIdx >= 0) {
+              items[sIdx] = { ...items[sIdx], quantity: (items[sIdx].quantity || 1) + (item.quantity || 1) };
+              return { npcs: { ...s.npcs, [ownerId]: { ...rec, items, updatedAt: Date.now() } } };
+            }
+          }
+          items.push(item);
           return { npcs: { ...s.npcs, [ownerId]: { ...rec, items, updatedAt: Date.now() } } };
+        }),
+
+      dedupeNpcItems: (ownerId) =>
+        set((s) => {
+          const stackable = (c?: string) => !NPC_NO_STACK_CATS.has(c ?? '');
+          const dedupeOne = (rec: NpcRecord): NpcRecord => {
+            const idxByKey = new Map<string, number>();
+            const out: NpcOwnedItem[] = [];
+            for (const it of rec.items ?? []) {
+              const key = npcStackNorm(it.name);
+              const at = key ? idxByKey.get(key) : undefined;
+              // 两件同名且都已装备在不同槽 → 合法多件，不合并
+              if (!key || at === undefined || (out[at!].equipped && it.equipped && out[at!].equipSlot !== it.equipSlot)) {
+                if (key && at === undefined) idxByKey.set(key, out.length);
+                out.push(it); continue;
+              }
+              const a = out[at];
+              const primary = (a.equipped || a.equipSlot) ? a : ((it.equipped || it.equipSlot) ? it : a);
+              const secondary = primary === a ? it : a;
+              // 可堆叠类累加数量，装备类取较大值（防误增）
+              const qty = stackable(a.category) ? (a.quantity || 1) + (it.quantity || 1) : Math.max(a.quantity || 1, it.quantity || 1);
+              out[at] = { ...secondary, ...primary, quantity: qty };
+            }
+            return out.length === (rec.items?.length ?? 0) ? rec : { ...rec, items: out, updatedAt: Date.now() };
+          };
+          if (ownerId) { const rec = s.npcs[ownerId]; return rec ? { npcs: { ...s.npcs, [ownerId]: dedupeOne(rec) } } : s; }
+          const npcs = { ...s.npcs };
+          let changed = false;
+          for (const id of Object.keys(npcs)) { const d = dedupeOne(npcs[id]); if (d !== npcs[id]) { npcs[id] = d; changed = true; } }
+          return changed ? { npcs } : s;
         }),
 
       updateNpcItem: (ownerId, itemId, patch) =>

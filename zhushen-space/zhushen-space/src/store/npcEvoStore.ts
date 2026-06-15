@@ -26,6 +26,7 @@ export interface NpcScheduling {
   targetMode: 'auto' | 'manual';      // auto=系统自动调度 / manual=只推进手动重点列表
   skipDead: boolean;                  // 自动调度候选先过滤已死亡角色，默认 true
   manualFocusIds: string[];           // 手动重点列表（manual 模式生效）
+  friendsPerTurn?: number;            // 好友栏每回合参与演化的人数（与在场/离场配额独立，按最久未演化轮换），默认 3
 }
 
 export interface NpcPresetSettings {
@@ -62,6 +63,7 @@ interface NpcEvoState {
 /* NPC演化智能筛选名单（策略A：排除单角色约束条目）*/
 const NPC_KEEP_NAMES = new Set([
   // 角色上下文注入
+  '技能品级与等级系统',
   '生物强度生成框架(T0-T9属性预算)',
   '技能天赋称号固定格式',
   '限时状态系统',
@@ -168,6 +170,7 @@ export const useNpcEvo = create<NpcEvoState>()(
           targetMode: 'auto',
           skipDead: true,
           manualFocusIds: [],
+          friendsPerTurn: 3,
         },
         entries: [],
         presetName: '',

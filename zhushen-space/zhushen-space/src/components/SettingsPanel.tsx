@@ -11,6 +11,8 @@ import AdventureTeamManager from './AdventureTeamManager';
 import CosmosManager from './CosmosManager';
 import MemoryManager from './MemoryManager';
 import MiscManager from './MiscManager';
+import DiceManager from './DiceManager';
+import NovelVecManager from './NovelVecManager';
 import ChannelManager from './ChannelManager';
 import ImageGenManager from './ImageGenManager';
 
@@ -18,7 +20,7 @@ interface SettingsPanelProps {
   onClose: () => void;
 }
 
-type Page = 'home' | 'world-detail' | 'textgen-detail' | 'regex-detail' | 'general' | 'variables' | 'item-manager' | 'player-manager' | 'npc-manager' | 'faction-manager' | 'territory-manager' | 'team-manager' | 'cosmos-manager' | 'memory-manager' | 'misc-manager' | 'channel-manager' | 'narrative-memory' | 'image-gen';
+type Page = 'home' | 'world-detail' | 'textgen-detail' | 'regex-detail' | 'general' | 'variables' | 'item-manager' | 'player-manager' | 'npc-manager' | 'faction-manager' | 'territory-manager' | 'team-manager' | 'cosmos-manager' | 'memory-manager' | 'misc-manager' | 'channel-manager' | 'novelvec-manager' | 'dice-manager' | 'narrative-memory' | 'image-gen';
 type Tab = 'worldbook' | 'api' | 'prompt' | 'preset' | 'global-regex' | 'preset-regex';
 
 function DetailLayout({ title, onBack, tabs, activeTab, onTab, children }: {
@@ -141,7 +143,9 @@ export default function SettingsPanel({ onClose }: SettingsPanelProps) {
             onOpenCosmosManager={() => setPage('cosmos-manager')}
             onOpenMemoryManager={() => setPage('memory-manager')}
             onOpenMiscManager={() => setPage('misc-manager')}
+            onOpenDiceManager={() => setPage('dice-manager')}
             onOpenChannelManager={() => setPage('channel-manager')}
+            onOpenNovelVecManager={() => setPage('novelvec-manager')}
           />
         </div>
       </div>
@@ -301,6 +305,23 @@ export default function SettingsPanel({ onClose }: SettingsPanelProps) {
     );
   }
 
+  if (page === 'dice-manager') {
+    return (
+      <div className="h-screen flex flex-col bg-void text-slate-300">
+        <header className="shrink-0 h-10 flex items-center justify-between px-4 border-b border-edge bg-panel">
+          <button onClick={() => setPage('variables')} className="flex items-center gap-2 text-sm font-mono text-dim hover:text-slate-200 transition-colors">
+            ← 变量管理
+          </button>
+          <span className="text-sm font-mono text-dim">ROLL 点设置</span>
+          <div className="w-20" />
+        </header>
+        <div className="flex-1 overflow-y-auto p-6">
+          <DiceManager />
+        </div>
+      </div>
+    );
+  }
+
   if (page === 'channel-manager') {
     return (
       <div className="h-screen flex flex-col bg-void text-slate-300">
@@ -313,6 +334,23 @@ export default function SettingsPanel({ onClose }: SettingsPanelProps) {
         </header>
         <div className="flex-1 overflow-y-auto p-6">
           <ChannelManager />
+        </div>
+      </div>
+    );
+  }
+
+  if (page === 'novelvec-manager') {
+    return (
+      <div className="h-screen flex flex-col bg-void text-slate-300">
+        <header className="shrink-0 h-10 flex items-center justify-between px-4 border-b border-edge bg-panel">
+          <button onClick={() => setPage('variables')} className="flex items-center gap-2 text-sm font-mono text-dim hover:text-slate-200 transition-colors">
+            ← 变量管理
+          </button>
+          <span className="text-sm font-mono text-dim">向量资料库</span>
+          <div className="w-20" />
+        </header>
+        <div className="flex-1 overflow-y-auto p-6">
+          <NovelVecManager />
         </div>
       </div>
     );

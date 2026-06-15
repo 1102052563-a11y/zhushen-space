@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { useNpc, type NpcRecord } from '../store/npcStore';
+import { isDmableTag } from '../store/dmStore';
 import NpcDetail from './NpcDetail';
 
 /* 好感度颜色 */
@@ -23,14 +24,17 @@ function FavorBar({ value }: { value: number }) {
 }
 
 /* ── NPC 卡片（点击打开完整档案）── */
-function NpcCard({ npc, onOpen }: { npc: NpcRecord; onOpen: () => void }) {
+function NpcCard({ npc, onOpen, onDm, onToggleFriend }: { npc: NpcRecord; onOpen: () => void; onDm?: (r: NpcRecord) => void; onToggleFriend?: (id: string, on: boolean) => void }) {
   const genderCls = npc.gender === '女' ? 'text-rose-400' : npc.gender === '男' ? 'text-sky-400' : 'text-dim/40';
   const itemCount = npc.items?.length ?? 0;
+  const canDm = !!onDm && !npc.isDead && isDmableTag(npc.npcTag);
+  const canFriend = !!onToggleFriend && !npc.isDead && isDmableTag(npc.npcTag);
 
   return (
-    <button
+    <div
       onClick={onOpen}
-      className={`w-full text-left rounded-xl border transition-all ${
+      role="button" tabIndex={0}
+      className={`w-full text-left rounded-xl border transition-all cursor-pointer ${
         npc.onScene ? 'border-edge bg-panel hover:border-god/40' : 'border-edge/40 bg-panel/50 opacity-70 hover:opacity-100'
       }`}
     >
@@ -46,6 +50,7 @@ function NpcCard({ npc, onOpen }: { npc: NpcRecord; onOpen: () => void }) {
             <span className="text-sm font-semibold text-slate-100 truncate">{npc.name || npc.id}</span>
             {npc.gender && <span className={`text-[12px] font-mono ${genderCls}`}>{npc.gender}</span>}
             {npc.npcTag && <span className="text-[10px] font-mono px-1.5 py-0.5 rounded border border-cyan-700/50 text-cyan-300/80 shrink-0">{npc.npcTag}</span>}
+            {npc.partyMember && <span className="text-[10px] font-mono px-1.5 py-0.5 rounded border border-sky-500/50 text-sky-300/80 bg-sky-900/20 shrink-0" title="临时队友">队</span>}
             {npc.isDead && <span className="text-[11px] font-mono text-blood ml-1">已死亡</span>}
             {!npc.onScene && !npc.isDead && <span className="text-[11px] font-mono text-dim/40 ml-1">已离场</span>}
           </div>
@@ -58,19 +63,28 @@ function NpcCard({ npc, onOpen }: { npc: NpcRecord; onOpen: () => void }) {
         </div>
         <div className="shrink-0 flex flex-col items-end gap-1 text-[11px] font-mono text-dim/40">
           {itemCount > 0 && <span>🎒{itemCount}</span>}
+          {canDm && (
+            <button onClick={(e) => { e.stopPropagation(); onDm!(npc); }} title={`私信 ${npc.name || npc.id}`}
+              className="px-1.5 py-0.5 rounded border border-cyan-500/40 text-cyan-300/80 hover:bg-cyan-900/25 transition-colors">✉ 私信</button>
+          )}
+          {canFriend && (
+            <button onClick={(e) => { e.stopPropagation(); onToggleFriend!(npc.id, !npc.isFriend); }} title={npc.isFriend ? '移出好友栏' : '加为好友（每回合参与演化）'}
+              className={`px-1.5 py-0.5 rounded border transition-colors ${npc.isFriend ? 'border-amber-500/50 text-amber-300/90 bg-amber-900/15' : 'border-edge text-dim/50 hover:text-amber-300/80 hover:border-amber-500/40'}`}>{npc.isFriend ? '⭐ 已好友' : '☆ 好友'}</button>
+          )}
           <span className="text-god/40">查看›</span>
         </div>
       </div>
-    </button>
+    </div>
   );
 }
 
 /* ════════════════════════════════════════════
    主弹窗
 ════════════════════════════════════════════ */
-export default function NpcPanel({ onClose }: { onClose: () => void }) {
+export default function NpcPanel({ onClose, onDm }: { onClose: () => void; onDm?: (r: NpcRecord) => void }) {
   const npcs      = useNpc((s) => s.npcs);
   const clearAll  = useNpc((s) => s.clearAll);
+  const setFriend = useNpc((s) => s.setFriend);
 
   // 死亡角色不出现在档案列表（仍保留在 store 里，仅不展示）。
   // 只认 isDead 标记（与在场浮窗/其余各处一致）——不再在展示层重跑 looksDead，
@@ -197,7 +211,7 @@ export default function NpcPanel({ onClose }: { onClose: () => void }) {
               </span>
             </div>
           ) : (
-            displayed.map((npc) => <NpcCard key={npc.id} npc={npc} onOpen={() => setSelectedId(npc.id)} />)
+            displayed.map((npc) => <NpcCard key={npc.id} npc={npc} onOpen={() => setSelectedId(npc.id)} onDm={onDm} onToggleFriend={setFriend} />)
           )}
         </div>
       </div>

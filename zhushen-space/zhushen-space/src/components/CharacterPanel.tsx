@@ -2,28 +2,25 @@ import { useState } from 'react';
 import {
   useCharacters,
   type Skill, type Trait,
-  RARITY_CLS, RARITY_DOT, ELEMENT_CLS, RARITY_TIER_LABEL,
+  RARITY_CLS, RARITY_DOT, ELEMENT_CLS,
+  SKILL_TIER_CLS, normSkillTier,
 } from '../store/characterStore';
 import { usePlayer } from '../store/playerStore';
 import { useNpc } from '../store/npcStore';
 import { DeedTimeline, CharMemoryView } from './NpcDetail';
 
-/* ── 稀有度到品阶颜色（技能用 rarityTier）── */
-const TIER_CLS: Record<string, string> = {
-  ren:  'border-green-700   text-green-400',
-  xuan: 'border-blue-600    text-blue-300',
-  di:   'border-yellow-500  text-yellow-300',
-  tian: 'border-orange-500  text-orange-300',
-};
+/* 把长描述按句末标点（。；！？）/换行断成多行，避免挤成一坨；短句原样返回 */
+const breakSentences = (s: string) => s.replace(/\r?\n/g, '\n').replace(/([。；！？])(?=[^\s）)」』】])/g, '$1\n');
 
 /* ════════════════════════════════════════════
    技能卡片
 ════════════════════════════════════════════ */
 function SkillCard({ skill, onDelete }: { skill: Skill; onDelete: () => void }) {
   const [expand, setExpand] = useState(false);
-  const tier    = skill.numeric?.rarityTier ?? '';
+  const sTier   = normSkillTier(skill.rarity);                       // 7 档品级：普通→极境
+  const tierCls = SKILL_TIER_CLS[sTier] ?? 'border-edge text-dim';
+  const tierText = tierCls.match(/text-\S+/)?.[0] ?? 'text-dim';     // 提取文字色（值里有对齐空格，不能用 split[1]）
   const element = skill.numeric?.element ?? 'none';
-  const tierCls = TIER_CLS[tier] ?? 'border-edge text-dim';
   const elemCls = ELEMENT_CLS[element] ?? 'text-dim';
 
   return (
@@ -37,32 +34,27 @@ function SkillCard({ skill, onDelete }: { skill: Skill; onDelete: () => void }) 
             <span className="ml-2 text-[12px] font-mono text-dim">{skill.level}</span>
           )}
         </div>
-        <div className="flex items-center gap-1 shrink-0">
+        <div className="flex items-center gap-1.5 shrink-0">
           {element !== 'none' && (
             <span className={`text-[12px] font-mono ${elemCls}`}>{element}</span>
           )}
-          {tier && (
-            <span className={`text-[12px] font-mono ${tierCls.split(' ')[1]}`}>
-              {RARITY_TIER_LABEL[tier] ?? tier}
-            </span>
-          )}
+          <span className={`text-[12px] font-mono font-bold ${tierText}`}>{sTier}</span>
         </div>
       </div>
 
       {/* 行2：简描 */}
       {skill.desc && (
-        <p className="text-sm text-dim/80 leading-snug"><span className="text-god/50 font-mono">技能介绍·</span>{skill.desc}</p>
+        <p className="text-sm text-dim/80 leading-relaxed whitespace-pre-wrap"><span className="text-god/50 font-mono">技能介绍·</span>{breakSentences(skill.desc)}</p>
       )}
 
       {/* 展开：当前效果 + 冷却 + 消耗 */}
       {expand && (
         <div className="pt-1 space-y-1 border-t border-edge/40">
           {skill.effect && (
-            <p className="text-sm text-slate-300 leading-snug"><span className="text-god/50 font-mono">效果·</span>{skill.effect}</p>
+            <p className="text-sm text-slate-300 leading-relaxed whitespace-pre-wrap"><span className="text-god/50 font-mono">效果·</span>{breakSentences(skill.effect)}</p>
           )}
           <div className="flex flex-wrap gap-3 text-[12px] font-mono text-dim/60">
             {skill.skillType   && <span>类型: {skill.skillType}</span>}
-            {skill.rarity      && <span className="text-amber-300/70">品级: {skill.rarity}</span>}
             {skill.cooldown    && <span>冷却: {skill.cooldown}</span>}
             {skill.cost        && <span>消耗: {skill.cost}</span>}
             {skill.target      && <span>目标: {skill.target}</span>}
@@ -115,13 +107,13 @@ function TraitCard({ trait, onDelete }: { trait: Trait; onDelete: () => void }) 
         <span className={`text-[12px] font-mono font-bold shrink-0 ${cls.split(' ')[1]}`}>{trait.rarity}级</span>
       </div>
       {trait.desc && (
-        <p className="text-sm text-dim/80 leading-snug"><span className="text-god/50 font-mono">天赋介绍·</span>{trait.desc}</p>
+        <p className="text-sm text-dim/80 leading-relaxed whitespace-pre-wrap"><span className="text-god/50 font-mono">天赋介绍·</span>{breakSentences(trait.desc)}</p>
       )}
 
       {expand && (
         <div className="pt-1 space-y-1 border-t border-edge/40">
           {trait.effect && (
-            <p className="text-sm text-slate-300 leading-snug"><span className="text-god/50 font-mono">效果·</span>{trait.effect}</p>
+            <p className="text-sm text-slate-300 leading-relaxed whitespace-pre-wrap"><span className="text-god/50 font-mono">效果·</span>{breakSentences(trait.effect)}</p>
           )}
           <div className="flex flex-wrap gap-3 text-[12px] font-mono text-dim/60">
             {trait.level && <span>等级: {trait.level}</span>}

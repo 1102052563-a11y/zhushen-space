@@ -189,11 +189,24 @@ function SettingsSection() {
             className="w-20 bg-void border border-edge rounded px-2 py-1 text-sm font-mono text-slate-200 outline-none focus:border-god text-right" />
         </label>
         <label className="flex items-center justify-between gap-2 text-sm text-dim">
-          <span>每轮重点推演实体数上限</span>
-          <input type="number" min={3} max={20} value={settings.focusPerTurn}
-            onChange={(e) => setSettings({ focusPerTurn: Math.max(3, Math.min(20, Number(e.target.value) || 8)) })}
+          <span>每回合更新几个乐园</span>
+          <input type="number" min={0} max={7} value={settings.paradisePerTurn}
+            onChange={(e) => setSettings({ paradisePerTurn: Math.max(0, Math.min(7, Number(e.target.value) || 0)) })}
             className="w-20 bg-void border border-edge rounded px-2 py-1 text-sm font-mono text-slate-200 outline-none focus:border-god text-right" />
         </label>
+        <label className="flex items-center justify-between gap-2 text-sm text-dim">
+          <span>每回合更新几个其他势力</span>
+          <input type="number" min={0} max={30} value={settings.otherPerTurn}
+            onChange={(e) => setSettings({ otherPerTurn: Math.max(0, Math.min(30, Number(e.target.value) || 0)) })}
+            className="w-20 bg-void border border-edge rounded px-2 py-1 text-sm font-mono text-slate-200 outline-none focus:border-god text-right" />
+        </label>
+        <label className="flex items-center justify-between gap-2 text-sm text-dim">
+          <span>每组延续上回合几个（其余轮换）</span>
+          <input type="number" min={0} max={10} value={settings.continueCount}
+            onChange={(e) => setSettings({ continueCount: Math.max(0, Math.min(10, Number(e.target.value) || 0)) })}
+            className="w-20 bg-void border border-edge rounded px-2 py-1 text-sm font-mono text-slate-200 outline-none focus:border-god text-right" />
+        </label>
+        <div className="text-[12px] text-dim/45 leading-relaxed">乐园/其他各按数量选取；每组先从上回合更新过的随机保留「延续数」个继续推进剧情，其余名额轮换给上回合没更新的——防止有的势力一直更新、有的一直不动。</div>
       </div>
 
       {/* 参与门槛 */}

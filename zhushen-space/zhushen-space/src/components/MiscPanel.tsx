@@ -5,8 +5,10 @@ type Tab = 'tasks' | 'events';
 
 export default function MiscPanel({ onClose }: { onClose: () => void }) {
   const tasks = useMisc((s) => s.tasks);
+  const archivedTasks = useMisc((s) => s.archivedTasks);
   const events = useMisc((s) => s.worldEvents);
   const removeTask = useMisc((s) => s.removeTask);
+  const clearArchivedTasks = useMisc((s) => s.clearArchivedTasks);
   const removeEvent = useMisc((s) => s.removeWorldEvent);
   const paradiseTime = useMisc((s) => s.paradiseTime);
   const worldTime = useMisc((s) => s.worldTime);
@@ -60,23 +62,47 @@ export default function MiscPanel({ onClose }: { onClose: () => void }) {
 
         <div className="flex-1 overflow-y-auto p-4 space-y-2">
           {tab === 'tasks' && (
-            tasks.length === 0 ? <Empty text="暂无任务" /> :
-            tasks.map((t) => (
-              <div key={t.id} className="rounded-lg border border-edge bg-panel/60 px-3 py-2 space-y-1">
-                <div className="flex items-center gap-2">
-                  <span className="text-[12px] font-mono text-dim/50">{t.id}</span>
-                  <span className="text-sm font-semibold text-slate-100 flex-1 truncate">{t.name || '（未命名任务）'}</span>
-                  <span className="text-[12px] font-mono text-amber-400/80">{t.status}</span>
-                  <button onClick={() => removeTask(t.id)} className="text-[12px] font-mono text-blood/50 hover:text-blood">删</button>
+            tasks.length === 0 && archivedTasks.length === 0 ? <Empty text="暂无任务" /> : (
+            <>
+              {tasks.length === 0 && <div className="text-[12px] font-mono text-dim/40 text-center py-3">暂无进行中任务</div>}
+              {tasks.map((t) => (
+                <div key={t.id} className="rounded-lg border border-edge bg-panel/60 px-3 py-2 space-y-1">
+                  <div className="flex items-center gap-2">
+                    <span className="text-[12px] font-mono text-dim/50">{t.id}</span>
+                    <span className="text-sm font-semibold text-slate-100 flex-1 truncate">{t.name || '（未命名任务）'}</span>
+                    <span className="text-[12px] font-mono text-amber-400/80">{t.status}</span>
+                    <button onClick={() => removeTask(t.id)} className="text-[12px] font-mono text-blood/50 hover:text-blood">删</button>
+                  </div>
+                  {t.desc && <div className="text-[13px] text-dim/80 leading-relaxed">{t.desc}</div>}
+                  <div className="flex flex-wrap gap-x-3 gap-y-0.5 text-[12px] font-mono text-dim/60">
+                    {t.reward && <span className="text-god/60">奖励：{t.reward}</span>}
+                    {t.penalty && <span className="text-blood/60">失败：{t.penalty}</span>}
+                    {(t.startTime || t.endTime) && <span>⏳ {t.startTime || '—'} ~ {t.endTime || '—'}</span>}
+                  </div>
                 </div>
-                {t.desc && <div className="text-[13px] text-dim/80 leading-relaxed">{t.desc}</div>}
-                <div className="flex flex-wrap gap-x-3 gap-y-0.5 text-[12px] font-mono text-dim/60">
-                  {t.reward && <span className="text-god/60">奖励：{t.reward}</span>}
-                  {t.penalty && <span className="text-blood/60">失败：{t.penalty}</span>}
-                  {(t.startTime || t.endTime) && <span>⏳ {t.startTime || '—'} ~ {t.endTime || '—'}</span>}
+              ))}
+
+              {archivedTasks.length > 0 && (
+                <div className="pt-2 mt-1 border-t border-edge/60">
+                  <div className="flex items-center gap-2 px-1 pb-1.5">
+                    <span className="text-[12px] font-mono text-dim/50">已结束 ({archivedTasks.length})</span>
+                    <span className="flex-1" />
+                    <button onClick={clearArchivedTasks} className="text-[11px] font-mono text-dim/40 hover:text-blood">清空</button>
+                  </div>
+                  {archivedTasks.map((t) => {
+                    const failed = /失败|放弃|作废|取消/.test(t.status);
+                    return (
+                      <div key={t.id} className="rounded-lg border border-edge/50 bg-panel/30 px-3 py-1.5 mb-1 flex items-center gap-2 opacity-70">
+                        <span className="text-[11px] font-mono text-dim/40">{t.id}</span>
+                        <span className="text-[13px] text-dim/70 line-through flex-1 truncate">{t.name || '（未命名任务）'}</span>
+                        <span className={`text-[11px] font-mono ${failed ? 'text-blood/70' : 'text-emerald-400/70'}`}>{t.status}</span>
+                      </div>
+                    );
+                  })}
                 </div>
-              </div>
-            ))
+              )}
+            </>
+            )
           )}
 
           {tab === 'events' && (

@@ -618,6 +618,24 @@ function PresetSettings() {
         </div>
       </div>
 
+      {/* 物品对账纠错 */}
+      <div className="p-4 bg-panel border border-edge rounded-xl space-y-2">
+        <label className="flex items-center gap-2 cursor-pointer">
+          <input
+            type="checkbox"
+            checked={settings.auditEnabled !== false}
+            onChange={(e) => setSettings({ auditEnabled: e.target.checked })}
+            className="accent-god w-4 h-4"
+          />
+          <span className="text-sm font-mono text-god/70 uppercase tracking-widest">物品对账纠错</span>
+        </label>
+        <div className="text-[13px] text-dim/70 leading-relaxed">
+          勾选后，会把<b>物品检查</b>纳入回合末的<b>「综合对账纠错」</b>——它在<b>主角演化 + 物品演化都跑完后只调一次</b> AI：
+          看「应用后真实清单(真实ID) + 最近两回合正文」，补正文已发生、但清单没落实的 消耗/丢弃/数量/穿脱 差异 + 合并重复条目（不创建新物品、不动货币）。
+          <b>NPC 物品只纠正标签为「随从/宠物」的，其它 NPC 不碰</b>。与「主角演化」里的同名开关共用这一次调用。关闭则综合对账不查物品。
+        </div>
+      </div>
+
       {/* 预设文件 */}
       <div className="p-4 bg-panel border border-edge rounded-xl space-y-3">
         <div className="text-sm font-mono text-god/70 uppercase tracking-widest">预设文件</div>

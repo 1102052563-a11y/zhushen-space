@@ -7,6 +7,7 @@ import { useTerritory } from '../store/territoryStore';
 import { useTeam, type TeamRank } from '../store/adventureTeamStore';
 import { usePlayer } from '../store/playerStore';
 import { useSettings } from '../store/settingsStore';
+import { resolveEquipSlot } from './equipSlots';
 
 /* ════════════════════════════════════════════
    <state> 块 — 通用 key=value 变量更新
@@ -102,6 +103,24 @@ export function extractUpstoreBlocks(text: string): string[] {
   return blocks;
 }
 
+/* 宽松 JSON 解析：容忍 AI 常见的非标准写法——**裸键(无引号)**、单引号字符串、尾随逗号。
+   先按标准 JSON 试，失败再逐步放宽（给裸键补引号 / 单引号转双引号 / 去尾逗号）。都失败返回 undefined。
+   注：裸键正则只匹配 { 或 , 之后紧跟的 ASCII 标识符，不会误伤中文字符串值里的全角「：，」。 */
+export function lenientJsonParse(s: string): any {
+  const quoteKeys = (x: string) => x.replace(/([{,]\s*)([A-Za-z_$][\w$]*)(\s*):/g, '$1"$2"$3:');
+  const stripTrailingCommas = (x: string) => x.replace(/,(\s*[}\]])/g, '$1');
+  const candidates = [
+    s,
+    quoteKeys(s),
+    stripTrailingCommas(quoteKeys(s)),
+    stripTrailingCommas(quoteKeys(s.replace(/'/g, '"'))),
+  ];
+  for (const c of candidates) {
+    try { return JSON.parse(c); } catch { /* 试下一种放宽方式 */ }
+  }
+  return undefined;
+}
+
 // 从 upstore 块中提取 helper 函数调用
 // 格式: createItem({...}) / consumeItem({...}) 等
 function parseUpstoreBlock(block: string): ItemCommand[] {
@@ -111,20 +130,9 @@ function parseUpstoreBlock(block: string): ItemCommand[] {
   let m: RegExpExecArray | null;
   while ((m = re.exec(block)) !== null) {
     const type = m[1] as ItemCommandType;
-    const jsonStr = m[2];
-    try {
-      const data = JSON.parse(jsonStr);
-      commands.push({ type, data, raw: m[0] });
-    } catch {
-      // 尝试宽松解析：把单引号换双引号
-      try {
-        const relaxed = jsonStr.replace(/'/g, '"');
-        const data = JSON.parse(relaxed);
-        commands.push({ type, data, raw: m[0] });
-      } catch {
-        console.warn('[Upstore] 解析失败:', m[0]);
-      }
-    }
+    const data = lenientJsonParse(m[2]);
+    if (data !== undefined) commands.push({ type, data, raw: m[0] });
+    else console.warn('[Upstore] 解析失败:', m[0]);
   }
   return commands;
 }
@@ -157,6 +165,23 @@ function normalizeCurrencyType(raw: unknown): keyof CurrencyWallet {
   if (s.includes('技能点') || s === '技能点') return '技能点';
   if (s.includes('魂') || s.includes('灵魂') || s.includes('上品') || s.includes('极品')) return '灵魂钱币';
   return '乐园币'; // 缺省 / 乐园币 / 下品 / 中品
+}
+
+/* 可堆叠分类：同名消耗类物品应累加数量而非生成重复条目（装备/法宝/特殊物等"唯一物"不堆叠，
+   它们各自有独立的攻防/耐久/杀敌数等，不能合并）。修复"不同回合获得的同名消耗品堆成一堆重复条目"。*/
+const STACKABLE_CATS = new Set<ItemCategory>(['消耗品', '材料', '凡物', '丹药', '灵药', '符箓']);
+function isStackableCat(rawCategory?: string): boolean {
+  return STACKABLE_CATS.has(normalizeCategory(String(rawCategory ?? '')));
+}
+/* 在 list 中找到一件「同名 + 同（归一化）分类 + 未装备」的可堆叠物品，用于累加数量去重 */
+function findStackTarget(list: any[], name: string, rawCategory: string): any | null {
+  if (!isStackableCat(rawCategory)) return null;
+  const cat = normalizeCategory(rawCategory);
+  const key = normName(name);
+  if (!key) return null;
+  return (list ?? []).find(
+    (it) => !it.equipped && normName(it.name) === key && normalizeCategory(String(it.category)) === cat,
+  ) ?? null;
 }
 
 export function applyItemCommands(commands: ItemCommand[]): void {
@@ -197,6 +222,15 @@ function applyOneItemCommand(cmd: ItemCommand, store: any): void {
         if (!npcStore.npcs[owner]) {
           npcStore.upsertNpc(owner, defaultNpcRecord(owner));
         }
+        const npcQty = parseInt(item['5'] ?? item.quantity ?? '1') || 1;
+        const npcRawCat = item['2'] ?? item.category ?? '其他物品';
+        // 同名可堆叠消耗品 → 累加数量，避免不同回合重复生成
+        const npcStack = findStackTarget(npcStore.npcs[owner]?.items ?? [], name, String(npcRawCat));
+        if (npcStack) {
+          npcStore.updateNpcItem(owner, npcStack.id, { quantity: (npcStack.quantity || 1) + npcQty });
+          console.log(`[Item] NPC ${owner} 堆叠 ${name} +${npcQty} → 共 ${(npcStack.quantity || 1) + npcQty}`);
+          break;
+        }
         // 是否重复生成交由 AI 判断（同 id 会累加数量；新 id 同名则按 AI 意图新建）
         const npcGivenId: string | undefined = item['0'] ?? item.id;
         npcStore.addNpcItem(owner, {
@@ -229,6 +263,18 @@ function applyOneItemCommand(cmd: ItemCommand, store: any): void {
 
       // owner === 'B1' → 写入玩家背包（原有逻辑）
       const category = normalizeCategory(item['2'] ?? item.category ?? item.type ?? '其他物品');
+      const qty = parseInt(item['5'] ?? item.quantity ?? '1') || 1;
+      // 同名可堆叠消耗品 → 累加数量，避免不同回合重复生成同名条目（装备/唯一物不堆叠）
+      const stackTarget = findStackTarget(store.items, name, category);
+      if (stackTarget) {
+        store.updateItem(stackTarget.id, {
+          quantity: (stackTarget.quantity || 1) + qty,
+          effect: stackTarget.effect || (item['4'] ?? item.effect ?? ''),
+          appearance: stackTarget.appearance || item.appearance,
+        });
+        console.log(`[Item] 堆叠 ${name} +${qty} → 共 ${(stackTarget.quantity || 1) + qty}`);
+        break;
+      }
       // 是否重复生成交由 AI 判断（同 id 走更新累加；新 id 同名则按 AI 意图新建，不再机械复用 id 去重）
       const wantId: string | undefined = item['0'] ?? item.id;
       store.addItem({
@@ -237,7 +283,7 @@ function applyOneItemCommand(cmd: ItemCommand, store: any): void {
         category,
         gradeDesc: item['3'] ?? item.grade ?? item.quality ?? '',
         effect: item['4'] ?? item.effect ?? '',
-        quantity: parseInt(item['5'] ?? item.quantity ?? '1') || 1,
+        quantity: qty,
         equipped: false,
         tags: Array.isArray(item.tags) ? item.tags : [],
         appearance: item.appearance,
@@ -290,14 +336,15 @@ function applyOneItemCommand(cmd: ItemCommand, store: any): void {
         const bag = npcStore.npcs[owner]?.items ?? [];
         const nitem = pickTargetItem(bag, data.itemId, givenName);
         if (!nitem) { console.warn(`[Item] NPC ${owner} 未找到要销毁的物品（name=${givenName} id=${data.itemId}）`); break; }
-        if (nitem.equipped) { console.warn(`[Item] 拒绝销毁 NPC ${owner} 已装备物品「${nitem.name}」（装备中不可删除，需先卸下）`); break; }
+        // 销毁=物品从世界消失（丢弃/卖掉/损毁/被夺走）：已装备也直接移除，装备槽随之清空（移除即等于先卸下）
         npcStore.removeNpcItem(owner, nitem.id);
-        console.log(`[Item] NPC ${owner} 销毁 ${nitem.name}`);
+        console.log(`[Item] NPC ${owner} 销毁 ${nitem.name}${nitem.equipped ? '（已自动从装备栏移除）' : ''}`);
         break;
       }
       const item = pickTargetItem(store.items, data.itemId, givenName);
       if (item) {
-        if (item.equipped) { console.warn(`[Item] 拒绝销毁已装备物品「${item.name}」（装备中不可删除，需先 uneq 卸下）`); break; }
+        // 销毁=物品彻底消失：若正穿戴，先自动卸下再移除（兑现"引擎自动先卸下再销毁"的承诺）
+        if (item.equipped) { try { store.unequipItem(item.id); } catch { /* */ } console.log(`[Item] 销毁前自动卸下已装备物品「${item.name}」`); }
         store.removeItem(item.id);
         console.log(`[Item] 销毁 ${item.name}`);
       } else { console.warn(`[Item] 未找到要销毁的物品（name=${givenName} id=${data.itemId}）`); }
@@ -334,7 +381,8 @@ function applyOneItemCommand(cmd: ItemCommand, store: any): void {
           ?? bag.find((x) => x.id === data.itemId) ?? bag.find((x) => x.name === data.itemId);
         if (!nitem) { console.warn(`[Item] NPC ${owner} 未找到要装备的物品（name=${givenName} id=${data.itemId}）`); break; }
         if (!isEquippable(nitem.category)) { console.warn(`[Item] 拒绝装备 NPC ${owner}「${nitem.name}」：${nitem.category} 非装备类，不能上装备栏`); break; }
-        const slot = buildSlotString(data);
+        // 按分类校验槽位：AI 槽位与分类不符（如武器→饰品槽）时自动改到正确槽
+        const slot = resolveEquipSlot(nitem as any, bag as any, buildSlotString(data));
         npcStore.equipNpcItem(owner, nitem.id, slot);
         console.log(`[Item] NPC ${owner} 装备 ${nitem.name} → ${slot}`);
         break;
@@ -346,7 +394,8 @@ function applyOneItemCommand(cmd: ItemCommand, store: any): void {
       if (item) {
         // ★ 只有装备类可上装备栏：拒绝把 重要物品/消耗品/材料 等装上去
         if (!isEquippable(item.category)) { console.warn(`[Item] 拒绝装备「${item.name}」：${item.category} 非装备类，不能上装备栏`); break; }
-        const slot = buildSlotString(data);
+        // 按分类校验槽位：AI 槽位与分类不符（如武器→饰品槽）时自动改到正确槽
+        const slot = resolveEquipSlot(item, store.items, buildSlotString(data));
         store.equipItem(item.id, slot);
         console.log(`[Item] 装备 ${item.name} → ${slot}`);
       } else { console.warn(`[Item] 未找到要装备的物品（name=${givenName} id=${data.itemId}）`); }
@@ -448,6 +497,24 @@ function findItemByName(store: any, name?: string): any | null {
 function stripAnno(s?: string): string {
   return (s ?? '').replace(/[（(【〔[][^）)】〕\]]*[）)】〕\]]/g, '').trim();
 }
+/* 更"狠"的核心名：在 normName 基础上再去掉连接性助词（的/之/型/款/版）+ 数量/包装量词，
+   用于最后一轮相似度匹配（"劣质的击晕器"→"劣质击晕器"）。不改 normName，避免影响精确去重/堆叠。*/
+function coreName(s?: string): string {
+  return normName(s).replace(/[的之型款版]/g, '');
+}
+/* 取字符 bigram 集合（≤1字时退化为单字符集合），用于 Jaccard 相似度 */
+function bigrams(s: string): Set<string> {
+  const set = new Set<string>();
+  if (s.length <= 1) { if (s) set.add(s); return set; }
+  for (let i = 0; i < s.length - 1; i++) set.add(s.slice(i, i + 2));
+  return set;
+}
+function jaccard(a: Set<string>, b: Set<string>): number {
+  if (!a.size || !b.size) return 0;
+  let inter = 0;
+  for (const x of a) if (b.has(x)) inter++;
+  return inter / (a.size + b.size - inter);
+}
 /* 宽松查找（仅用于 consume/destroy 等"找一件已存在物品来移除"的场景，不用于 createItem 去重，避免误并）：
    精确名 → 归一化名 → 去括注后归一化 → 包含匹配（取最长物品名）。
    解决 AI 把"白色宝箱（哥布林掉落）"当物品名、而背包里存的是"白色宝箱"导致找不到的问题。 */
@@ -482,6 +549,22 @@ function fuzzyFindItem(items: any[], ...queries: (string | undefined)[]): any | 
       .filter((it) => { const k = normName(it.name); return k.length >= 2 && k.includes(qb); })
       .sort((a, b) => (a.name?.length ?? 0) - (b.name?.length ?? 0))[0];
     if (rev) return rev;
+  }
+  // 第四轮：字符 bigram 相似度兜底（容忍助词/语序/轻微改写："劣质的击晕器"→"劣质击晕器"）。
+  // 取相似度最高且 ≥0.5 的物品；需与次高分拉开差距（≥0.12）或唯一高分，避免在多件相近物品间误删。
+  {
+    const qsets = queries.filter(Boolean).map((q) => bigrams(coreName(q!))).filter((s) => s.size);
+    if (qsets.length) {
+      let best: any = null, bestScore = 0, second = 0;
+      for (const it of list) {
+        const ib = bigrams(coreName(it.name));
+        let sc = 0;
+        for (const qs of qsets) sc = Math.max(sc, jaccard(qs, ib));
+        if (sc > bestScore) { second = bestScore; bestScore = sc; best = it; }
+        else if (sc > second) { second = sc; }
+      }
+      if (best && bestScore >= 0.5 && (bestScore - second >= 0.12 || second === 0)) return best;
+    }
   }
   return null;
 }
@@ -563,21 +646,11 @@ function parseCharBlock(block: string): CharCommand[] {
     const type   = m[1] as CharCommandType;
     const charId = m[2];
     const rawPayload = m[3].trim();
-    try {
-      const payload = rawPayload.startsWith('{')
-        ? JSON.parse(rawPayload)
-        : rawPayload.replace(/^"|"$/g, '');
-      cmds.push({ type, charId, payload, raw: m[0] });
-    } catch {
-      try {
-        const payload = rawPayload.startsWith('{')
-          ? JSON.parse(rawPayload.replace(/'/g, '"'))
-          : rawPayload.replace(/^"|"$/g, '');
-        cmds.push({ type, charId, payload, raw: m[0] });
-      } catch {
-        console.warn('[Char] 指令解析失败:', m[0]);
-      }
-    }
+    const payload = rawPayload.startsWith('{')
+      ? lenientJsonParse(rawPayload)   // 容忍裸键(name: 而非 "name":)/单引号/尾逗号
+      : rawPayload.replace(/^"|"$/g, '');
+    if (payload === undefined) { console.warn('[Char] 指令解析失败:', m[0]); continue; }
+    cmds.push({ type, charId, payload, raw: m[0] });
   }
   return cmds;
 }
@@ -618,17 +691,9 @@ function parseNpcBlock(block: string): NpcCommand[] {
   let m: RegExpExecArray | null;
   while ((m = NPC_ADD_RE.exec(block)) !== null) {
     const id = m[1];
-    try {
-      const payload = JSON.parse(m[2]);
-      cmds.push({ type: 'add', id, payload, raw: m[0] });
-    } catch {
-      try {
-        const payload = JSON.parse(m[2].replace(/'/g, '"'));
-        cmds.push({ type: 'add', id, payload, raw: m[0] });
-      } catch {
-        console.warn('[NPC] add 指令 JSON 解析失败:', m[0]);
-      }
-    }
+    const payload = lenientJsonParse(m[2]);   // 容忍裸键/单引号/尾逗号
+    if (payload !== undefined) cmds.push({ type: 'add', id, payload, raw: m[0] });
+    else console.warn('[NPC] add 指令 JSON 解析失败:', m[0]);
   }
 
   NPC_DE_RE.lastIndex = 0;
@@ -685,8 +750,9 @@ function parseFactionBlock(block: string): FactionCommand[] {
   const cmds: FactionCommand[] = []; let m: RegExpExecArray | null;
   FAC_ADD_RE.lastIndex = 0;
   while ((m = FAC_ADD_RE.exec(block)) !== null) {
-    try { cmds.push({ type: 'add', id: m[1], payload: JSON.parse(m[2]), raw: m[0] }); }
-    catch { try { cmds.push({ type: 'add', id: m[1], payload: JSON.parse(m[2].replace(/'/g, '"')), raw: m[0] }); } catch { console.warn('[Faction] add JSON 解析失败:', m[0]); } }
+    const payload = lenientJsonParse(m[2]);
+    if (payload !== undefined) cmds.push({ type: 'add', id: m[1], payload, raw: m[0] });
+    else console.warn('[Faction] add JSON 解析失败:', m[0]);
   }
   FAC_DE_RE.lastIndex = 0;
   while ((m = FAC_DE_RE.exec(block)) !== null) cmds.push({ type: 'de', id: m[1], raw: m[0] });
@@ -715,8 +781,8 @@ export function applyFactionCommands(cmds: FactionCommand[]): void {
    applyTerritoryCommands(text) 一站式解析+应用，返回应用条数
 ════════════════════════════════════════════ */
 function parseJsonArg(raw: string): any | null {
-  try { return JSON.parse(raw); }
-  catch { try { return JSON.parse(raw.replace(/'/g, '"')); } catch { return null; } }
+  const v = lenientJsonParse(raw);   // 容忍裸键/单引号/尾逗号
+  return v === undefined ? null : v;
 }
 
 export function applyTerritoryCommands(text: string): number {
@@ -845,7 +911,7 @@ export function applyTeamCommands(text: string): number {
     const out: RegExpExecArray[] = []; let mm: RegExpExecArray | null;
     while ((mm = re.exec(blocks)) !== null) out.push(mm); return out;
   };
-  const pj = (raw: string): any | null => { try { return JSON.parse(raw); } catch { try { return JSON.parse(raw.replace(/'/g, '"')); } catch { return null; } } };
+  const pj = (raw: string): any | null => { const v = lenientJsonParse(raw); return v === undefined ? null : v; };
 
   try {
     for (const mm of objCall('establishTeam')) { const d = pj(mm[1]); store.establish({ name: d?.name }); n++; }
@@ -895,7 +961,7 @@ export function applyCharacterCommands(commands: CharCommand[]): void {
           name:          d['1'] ?? d.name ?? '未知技能',
           level:         d['2'] ?? d.level ?? '',
           cooldown:      d['3'] ?? d.cooldown,
-          desc:          d['4'] ?? d.desc ?? '',
+          desc:          d['4'] ?? d.desc ?? d.description ?? '',
           layers:        d['5'] ?? d.layers,
           effect:        d['6'] ?? d.effect ?? '',
           layerProgress: d['7'] ?? d.layerProgress,
@@ -925,10 +991,10 @@ export function applyCharacterCommands(commands: CharCommand[]): void {
         // NPC 天赋是否新增/更新交由 AI（演化预设）判断，不再机械拦截
         store.addTrait(charId, {
           name:     d.name ?? d['0'] ?? '未知天赋',
-          desc:     d.desc ?? d['1'] ?? '',
+          desc:     d.desc ?? d.description ?? d['1'] ?? '',
           source:   d.source,
           effect:   d.effect ?? d['2'] ?? '',
-          rarity:   d.rarity ?? d.tier ?? 'C',
+          rarity:   d.rarity ?? d.tier ?? d.grade ?? 'C',
           category: d.category ?? d.type,
           level:    d.level,
           attrBonus: d.attrBonus ?? d.attr,

@@ -463,7 +463,9 @@ export default function VariableManager({
   onOpenCosmosManager,
   onOpenMemoryManager,
   onOpenMiscManager,
+  onOpenDiceManager,
   onOpenChannelManager,
+  onOpenNovelVecManager,
 }: {
   onOpenItemManager?: () => void;
   onOpenPlayerManager?: () => void;
@@ -474,7 +476,9 @@ export default function VariableManager({
   onOpenCosmosManager?: () => void;
   onOpenMemoryManager?: () => void;
   onOpenMiscManager?: () => void;
+  onOpenDiceManager?: () => void;
   onOpenChannelManager?: () => void;
+  onOpenNovelVecManager?: () => void;
 }) {
   const variables   = useVariables((s) => s.variables);
   const setVariable = useVariables((s) => s.setVariable);
@@ -628,12 +632,28 @@ export default function VariableManager({
               🧩 杂项演化
             </button>
           )}
+          {onOpenDiceManager && (
+            <button
+              onClick={onOpenDiceManager}
+              className="px-3 py-1.5 text-sm border border-lime-600/50 text-lime-400 rounded-lg hover:bg-lime-900/20 transition-colors font-mono"
+            >
+              🎲 ROLL点设置
+            </button>
+          )}
           {onOpenChannelManager && (
             <button
               onClick={onOpenChannelManager}
               className="px-3 py-1.5 text-sm border border-indigo-500/50 text-indigo-300 rounded-lg hover:bg-indigo-900/20 transition-colors font-mono"
             >
               📡 公共频道
+            </button>
+          )}
+          {onOpenNovelVecManager && (
+            <button
+              onClick={onOpenNovelVecManager}
+              className="px-3 py-1.5 text-sm border border-fuchsia-500/50 text-fuchsia-300 rounded-lg hover:bg-fuchsia-900/20 transition-colors font-mono"
+            >
+              📚 向量资料库
             </button>
           )}
           <button

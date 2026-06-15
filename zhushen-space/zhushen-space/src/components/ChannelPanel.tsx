@@ -1,5 +1,6 @@
 import { useState, useRef } from 'react';
 import { useChannel, CHANNEL_DEFS, type ChannelKey, type ChannelMessage, type ChannelQuote } from '../store/channelStore';
+import { isDmableTag } from '../store/dmStore';
 import { useItems, ITEM_GRADES, gradeColorClass, gradeBadgeClass, gradeNameClass, type CurrencyWallet } from '../store/itemStore';
 import {
   buyFromListing, isBuyable, parseChannelPrice, normChannelCurrency,
@@ -90,13 +91,17 @@ function ChannelItemDetail({ p, onClose }: { p: DetailPayload; onClose: () => vo
   );
 }
 
-function MessageCard({ m, onBuy, onAcceptQuote, onCancel, onDetail, onReply }: {
+function MessageCard({ m, onBuy, onAcceptQuote, onCancel, onDetail, onReply, onJoin, onInviteClick, onDm, onAddFriendClick }: {
   m: ChannelMessage;
   onBuy: (m: ChannelMessage) => void;
   onAcceptQuote: (m: ChannelMessage, q: ChannelQuote) => void;
   onCancel: (id: string) => void;
   onDetail: (p: DetailPayload) => void;
   onReply?: (m: ChannelMessage) => void;
+  onJoin?: (m: ChannelMessage) => void;
+  onInviteClick?: (m: ChannelMessage) => void;
+  onDm?: (m: ChannelMessage) => void;
+  onAddFriendClick?: (m: ChannelMessage) => void;
 }) {
   const c = CH_CLS[m.channel] ?? CH_FALLBACK;
   const chDef = CHANNEL_DEFS.find((d) => d.key === m.channel);
@@ -110,6 +115,8 @@ function MessageCard({ m, onBuy, onAcceptQuote, onCancel, onDetail, onReply }: {
         <span className={`w-1.5 h-1.5 rounded-full ${isMine ? 'bg-god' : c.dot} shrink-0`} />
         <span className="text-[13px] font-semibold text-slate-100">{isMine ? '我' : m.authorName}</span>
         {m.authorTier && !isMine && <span className="text-[11px] font-mono text-dim/55">{m.authorTier}</span>}
+        {m.authorJob && !isMine && <span className="text-[10px] font-mono px-1 py-0.5 rounded border border-violet-500/40 text-violet-300/80 bg-violet-900/15">{m.authorJob}</span>}
+        {m.authorStrength && !isMine && <span className="text-[10px] font-mono text-amber-300/55">{m.authorStrength}</span>}
         {m.authorTag && !isMine && <span className="text-[10px] font-mono px-1 py-0.5 rounded border border-edge text-dim/50">{m.authorTag}</span>}
         <span className="flex-1" />
         {isMine && m.fulfilled && <span className="text-[10px] font-mono px-1.5 py-0.5 rounded border border-edge text-dim/50">已成交</span>}
@@ -118,8 +125,17 @@ function MessageCard({ m, onBuy, onAcceptQuote, onCancel, onDetail, onReply }: {
           <button onClick={() => onReply(m)} title={`回复 ${m.authorName}`}
             className="text-[10px] font-mono px-1.5 py-0.5 rounded border border-god/30 text-god/70 hover:bg-god/10 transition-colors">↩ 回复</button>
         )}
+        {onDm && !isMine && m.channel !== 'system' && isDmableTag(m.authorTag) && (
+          <button onClick={() => onDm(m)} title={`私信 ${m.authorName}`}
+            className="text-[10px] font-mono px-1.5 py-0.5 rounded border border-cyan-500/30 text-cyan-300/70 hover:bg-cyan-900/20 transition-colors">✉ 私信</button>
+        )}
+        {onAddFriendClick && !isMine && m.channel !== 'system' && isDmableTag(m.authorTag) && (
+          <button onClick={() => onAddFriendClick(m)} title={`加 ${m.authorName} 为好友（生成离场档案）`}
+            className="text-[10px] font-mono px-1.5 py-0.5 rounded border border-amber-500/30 text-amber-300/70 hover:bg-amber-900/20 transition-colors">⭐ 加好友</button>
+        )}
       </div>
       {isMine && m.replyToName && <div className="text-[11px] font-mono text-god/50 mb-0.5">↩ 回复 @{m.replyToName}</div>}
+      {m.authorPersona && !isMine && <div className="text-[11px] font-mono text-dim/40 mb-0.5">性格·{m.authorPersona}</div>}
       <div className="text-[14px] text-slate-300 leading-relaxed">{m.content}</div>
 
       {/* NPC 出售帖：点击看详情（固定格式全字段）+ 一键购买 */}
@@ -207,6 +223,23 @@ function MessageCard({ m, onBuy, onAcceptQuote, onCancel, onDetail, onReply }: {
           {m.recruit.reqTier && <span className="text-dim/50">要求 {m.recruit.reqTier}</span>}
           {m.recruit.slots && <span className="text-dim/50">×{m.recruit.slots}</span>}
           {m.recruit.reward && <span className="text-emerald-300/70">报酬：{m.recruit.reward}</span>}
+        </div>
+      )}
+
+      {/* 队伍操作：组队帖可一键加入；任何契约者可发邀请（AI 判定）*/}
+      {!isMine && m.channel !== 'system' && (onJoin || onInviteClick) && (
+        <div className="mt-1.5 flex items-center gap-2 flex-wrap">
+          {onJoin && m.kind === 'recruit' && !m.traded && (
+            <button onClick={() => onJoin(m)}
+              className="text-[11px] font-mono px-2 py-0.5 rounded border border-sky-600/50 text-sky-300 hover:bg-sky-900/25 transition-colors">🤝 加入队伍</button>
+          )}
+          {m.kind === 'recruit' && m.traded && (
+            <span className="text-[11px] font-mono px-2 py-0.5 rounded border border-edge text-dim/40">已组队</span>
+          )}
+          {onInviteClick && (
+            <button onClick={() => onInviteClick(m)}
+              className="text-[11px] font-mono px-2 py-0.5 rounded border border-cyan-600/40 text-cyan-300/80 hover:bg-cyan-900/20 transition-colors">➕ 邀请入队</button>
+          )}
         </div>
       )}
     </div>
@@ -322,7 +355,68 @@ function PostForm({ mode, onClose, onPosted }: { mode: 'buy' | 'sell'; onClose: 
   );
 }
 
-export default function ChannelPanel({ onClose, onRefresh, onSolicit, onPost, onOpenShop }: { onClose: () => void; onRefresh: (force?: boolean) => void; onSolicit?: () => void; onPost?: (channel: ChannelKey, content: string, replyTo?: { authorName: string; content: string }) => Promise<void>; onOpenShop?: () => void }) {
+/* 邀请入队对话框：输入邀请词 → AI 判定（答应自动入队 / 拒绝给理由，可再邀）*/
+function InviteDialog({ m, onInvite, onClose, onJoined }: {
+  m: ChannelMessage;
+  onInvite: (m: ChannelMessage, text: string) => Promise<{ accept: boolean; reason: string }>;
+  onClose: () => void;
+  onJoined: (name: string) => void;
+}) {
+  const [text, setText] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [result, setResult] = useState<{ accept: boolean; reason: string } | null>(null);
+  async function send() {
+    if (busy) return;
+    setBusy(true); setResult(null);
+    try {
+      const r = await onInvite(m, text.trim());
+      setResult(r);
+      if (r.accept) onJoined(m.authorName);
+    } finally { setBusy(false); }
+  }
+  return (
+    <div className="fixed inset-0 z-[80] bg-black/70 backdrop-blur-sm flex items-center justify-center p-4" onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}>
+      <div className="w-full max-w-sm rounded-2xl border border-edge bg-void shadow-[0_0_50px_rgba(0,0,0,0.8)] overflow-hidden">
+        <div className="px-5 py-3 border-b border-edge bg-panel flex items-center gap-2">
+          <span className="text-cyan-300/80 text-lg">➕</span><span className="text-base font-bold text-slate-100">邀请入队</span>
+        </div>
+        <div className="px-5 py-4 space-y-2.5">
+          <div className="text-[12px] font-mono text-dim/60 flex items-center gap-1.5 flex-wrap">
+            <span className="text-slate-200">{m.authorName}</span>
+            {m.authorTier && <span className="text-dim/45">{m.authorTier}</span>}
+            {m.authorJob && <span className="px-1 rounded border border-violet-500/40 text-violet-300/70">{m.authorJob}</span>}
+            {m.authorStrength && <span className="text-amber-300/55">{m.authorStrength}</span>}
+          </div>
+          {m.authorPersona && <div className="text-[11px] font-mono text-dim/40">性格·{m.authorPersona}</div>}
+          <div>
+            <div className="text-[11px] font-mono text-dim/50 mb-0.5">邀请词（TA 会结合你的面板与自身目的判断）</div>
+            <textarea value={text} onChange={(e) => { setText(e.target.value); setResult(null); }} rows={3}
+              placeholder="如：我看你身手不凡，一起组队闯这个世界吧，战利品平分。"
+              className="w-full bg-void border border-edge rounded px-2 py-1.5 text-[13px] text-slate-200 focus:outline-none focus:border-cyan-500/50 resize-none" />
+          </div>
+          {result && (
+            <div className={`text-[13px] leading-relaxed rounded-lg border px-2.5 py-2 ${result.accept ? 'border-emerald-600/40 text-emerald-200/90 bg-emerald-900/10' : 'border-blood/40 text-rose-200/90 bg-blood/5'}`}>
+              <div className="font-mono text-[11px] mb-0.5 opacity-70">{result.accept ? `✓ ${m.authorName} 答应入队` : `✗ ${m.authorName} 婉拒了`}</div>
+              「{result.reason}」
+            </div>
+          )}
+        </div>
+        <div className="px-5 py-3 border-t border-edge bg-panel/60 flex justify-end gap-2">
+          {result?.accept ? (
+            <button onClick={onClose} className="px-3 py-1.5 rounded border border-emerald-600/50 text-emerald-300 hover:bg-emerald-900/30 text-sm font-mono transition-colors">完成</button>
+          ) : (
+            <>
+              <button onClick={onClose} className="px-3 py-1.5 rounded border border-edge text-dim hover:text-slate-200 text-sm font-mono transition-colors">关闭</button>
+              <button onClick={send} disabled={busy} className="px-3 py-1.5 rounded border border-cyan-600/50 text-cyan-300 hover:bg-cyan-900/30 disabled:opacity-40 text-sm font-mono transition-colors">{busy ? '判定中…' : (result ? '再邀一次' : '发送邀请')}</button>
+            </>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+export default function ChannelPanel({ onClose, onRefresh, onSolicit, onPost, onOpenShop, onJoin, onInvite, onDm, onAddFriend }: { onClose: () => void; onRefresh: (force?: boolean) => void; onSolicit?: () => void; onPost?: (channel: ChannelKey, content: string, replyTo?: { authorName: string; content: string }) => Promise<void>; onOpenShop?: () => void; onJoin?: (m: ChannelMessage) => void; onInvite?: (m: ChannelMessage, text: string) => Promise<{ accept: boolean; reason: string }>; onDm?: (m: ChannelMessage) => void; onAddFriend?: (m: ChannelMessage) => Promise<{ ok: boolean; msg: string }> }) {
   const messages   = useChannel((s) => s.messages);
   const refreshing = useChannel((s) => s.refreshing);
   const channels   = useChannel((s) => s.settings.channels);
@@ -338,7 +432,10 @@ export default function ChannelPanel({ onClose, onRefresh, onSolicit, onPost, on
   const [postMode, setPostMode] = useState<'buy' | 'sell' | null>(null);
   const [detail, setDetail] = useState<DetailPayload | null>(null);
   const [toast, setToast] = useState<{ text: string; ok: boolean } | null>(null);
+  const [inviteTarget, setInviteTarget] = useState<ChannelMessage | null>(null);
   function flash(ok: boolean, text: string) { setToast({ ok, text }); setTimeout(() => setToast(null), 4000); }
+  function doJoin(m: ChannelMessage) { if (!onJoin) return; onJoin(m); flash(true, `${m.authorName} 加入了你的临时队伍`); }
+  function doAddFriend(m: ChannelMessage) { if (!onAddFriend) return; onAddFriend(m).then((r) => flash(r.ok, r.msg)); }
 
   const [speakText, setSpeakText] = useState('');
   const [speaking, setSpeaking] = useState(false);
@@ -421,7 +518,7 @@ export default function ChannelPanel({ onClose, onRefresh, onSolicit, onPost, on
               {!refreshing && <div className="mt-2 text-dim/30">点「🔄」生成帖子，或「🛒 求购 / 🏷 出售」自己挂单</div>}
             </div>
           ) : (
-            list.map((m) => <MessageCard key={m.id} m={m} onBuy={setConfirmMsg} onAcceptQuote={doAcceptQuote} onCancel={removeMessage} onDetail={setDetail} onReply={enabled && onPost && tab !== 'system' ? startReply : undefined} />)
+            list.map((m) => <MessageCard key={m.id} m={m} onBuy={setConfirmMsg} onAcceptQuote={doAcceptQuote} onCancel={removeMessage} onDetail={setDetail} onReply={enabled && onPost && tab !== 'system' ? startReply : undefined} onJoin={enabled && onJoin ? doJoin : undefined} onInviteClick={enabled && onInvite ? setInviteTarget : undefined} onDm={enabled ? onDm : undefined} onAddFriendClick={enabled && onAddFriend ? doAddFriend : undefined} />)
           )}
         </div>
 
@@ -492,6 +589,9 @@ export default function ChannelPanel({ onClose, onRefresh, onSolicit, onPost, on
 
       {/* 发帖表单 */}
       {postMode && <PostForm mode={postMode} onClose={() => setPostMode(null)} onPosted={() => { onSolicit?.(); flash(true, '挂单已发布，等待契约者报价…'); }} />}
+
+      {/* 邀请入队对话框（AI 判定）*/}
+      {inviteTarget && onInvite && <InviteDialog m={inviteTarget} onInvite={onInvite} onClose={() => setInviteTarget(null)} onJoined={(name) => flash(true, `${name} 加入了你的临时队伍`)} />}
     </div>
   );
 }

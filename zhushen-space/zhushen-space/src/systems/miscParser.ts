@@ -26,6 +26,14 @@ function taskFromCols(o: Record<string, any>): MiscTask {
     addedAt: Date.now(),
   };
 }
+/* 任务状态是否为"已结算"（完成/失败/放弃/结束）——用于把任务移出进行中列表。
+   先排除明确的进行态（进行中/未完成/待…），再匹配结算关键词。*/
+function isTerminalTaskStatus(s?: string): boolean {
+  const t = String(s ?? '');
+  if (/进行中|未完成|待执行|待完成|进行|执行中|跟进中/.test(t)) return false;
+  return /已?完成|已达成|达成|成功|已?失败|失败|已?放弃|放弃|已结束|结束|作废|取消/.test(t);
+}
+
 function patchFromCols(o: Record<string, any>): Partial<MiscTask> {
   const p: Partial<MiscTask> = {};
   if (o['1'] != null) p.name = String(o['1']);
@@ -67,12 +75,22 @@ export function applyMiscCommands(reply: string, opts: { allowLarge?: boolean } 
     if ((m = /^de\(\s*"(T_\d+)"\s*\)$/.exec(line))) { M.removeTask(m[1]); n++; continue; }
     if ((m = /^set\(\s*(\{[\s\S]*\})\s*\)$/.exec(line))) {
       const o = safeJson(m[1]);
-      if (o && typeof o['0'] === 'string' && /^T_\d+$/.test(o['0'])) { M.upsertTask(taskFromCols(o)); n++; }
+      if (o && typeof o['0'] === 'string' && /^T_\d+$/.test(o['0'])) {
+        M.upsertTask(taskFromCols(o));
+        // 状态直接给的就是已结算（如 AI 一次性给出"已完成"任务）→ 立即归档
+        if (isTerminalTaskStatus(o['5'])) M.settleTask(o['0'], String(o['5']));
+        n++;
+      }
       continue;
     }
     if ((m = /^add\(\s*"(T_\d+)"\s*,\s*(\{[\s\S]*\})\s*\)$/.exec(line))) {
       const o = safeJson(m[2]);
-      if (o) { M.updateTask(m[1], patchFromCols(o)); n++; }
+      if (o) {
+        M.updateTask(m[1], patchFromCols(o));
+        // 任务被标记为完成/失败/放弃 → 移出进行中列表（归档），修复"完成后任务仍在"
+        if (o['5'] != null && isTerminalTaskStatus(o['5'])) M.settleTask(m[1], String(o['5']));
+        n++;
+      }
       continue;
     }
     // 其余（SCENE_MAP / 物品 / NPC 的 add 等）忽略

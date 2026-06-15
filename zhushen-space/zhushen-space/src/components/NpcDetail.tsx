@@ -1,6 +1,6 @@
 import { useState, useRef } from 'react';
 import { useNpc, type NpcRecord } from '../store/npcStore';
-import { useCharacters, RARITY_CLS, ELEMENT_CLS, type Deed } from '../store/characterStore';
+import { useCharacters, RARITY_CLS, ELEMENT_CLS, SKILL_TIER_CLS, normSkillTier, type Deed } from '../store/characterStore';
 import { computeDerived, lvFromRealm, normalizeTier, realmFromLevel, trueAttr, computeMaxHp, computeMaxEp, gearMaxHpBonus, gearMaxEpBonus, effectiveResource } from '../systems/derivedStats';
 import { computeAttrBreakdown, ATTR_LABEL, type AttrBreak } from '../systems/attrBonus';
 import { usePlayer, type PlayerAttrs } from '../store/playerStore';
@@ -90,7 +90,7 @@ export default function NpcDetail({
 
   const counts: Partial<Record<TabKey, number>> = {
     bag: bag.length, equip: equipped.length, skill: skills.length, trait: traits.length,
-    relation: npc.relations ? npc.relations.split(';').filter(Boolean).length : 0,
+    relation: typeof npc.relations === 'string' ? npc.relations.split(/[;；\n]+/).map((s) => s.trim()).filter((s) => s && !/\[object Object\]/i.test(s)).length : 0,
     custom: Object.keys(npc.extra ?? {}).filter((k) => !PRIVATE_KEYS.has(k)).length,
     history: npc.deedLog?.length ?? 0,
   };
@@ -920,7 +920,7 @@ function NpcSkillCard({ sk }: { sk: ReturnType<typeof useCharacters.getState>['c
       <div className="flex flex-wrap gap-1.5">
         {sk.level && <span className="text-[12px] font-mono px-1.5 py-0.5 rounded border border-god/30 text-god/60">{sk.level}</span>}
         {sk.skillType && <span className="text-[12px] font-mono px-1.5 py-0.5 rounded border border-edge text-dim/60">{sk.skillType}</span>}
-        {sk.rarity && <span className="text-[12px] font-mono px-1.5 py-0.5 rounded border border-amber-700/40 text-amber-400/70">{sk.rarity}</span>}
+        <span className={`text-[12px] font-mono font-bold px-1.5 py-0.5 rounded border ${SKILL_TIER_CLS[normSkillTier(sk.rarity)] ?? 'border-edge text-dim'}`}>{normSkillTier(sk.rarity)}</span>
         {sk.layers && <span className="text-[12px] font-mono px-1.5 py-0.5 rounded border border-edge text-dim/60">层数 {sk.layers}</span>}
         {sk.cooldown && <span className="text-[12px] font-mono px-1.5 py-0.5 rounded border border-edge text-dim/60">冷却 {sk.cooldown}</span>}
         {sk.cost && <span className="text-[12px] font-mono px-1.5 py-0.5 rounded border border-edge text-dim/60">消耗 {sk.cost}</span>}
@@ -1004,14 +1004,27 @@ function TraitTab({ traits }: { traits: ReturnType<typeof useCharacters.getState
 
 /* ────────── 关系 ────────── */
 function RelationTab({ npc, list, onSelect }: { npc: NpcRecord; list: NpcRecord[]; onSelect: (id: string) => void }) {
-  const rels = (npc.relations || '').split(';').map((s) => s.trim()).filter(Boolean)
-    .map((pair) => { const [tid, rel] = pair.split(':'); return { tid: (tid || '').trim(), rel: (rel || '').trim() }; });
+  // 防御：relations 可能被 AI 误写成对象 → String 后是 "[object Object]"，过滤掉；支持半/全角分隔符
+  const raw = typeof npc.relations === 'string' ? npc.relations : String(npc.relations ?? '');
+  const rels = raw.split(/[;；\n]+/).map((s) => s.trim())
+    .filter((s) => s && !/\[object Object\]/i.test(s))
+    .map((pair) => {
+      const ci = pair.search(/[:：]/);
+      const tid = ci >= 0 ? pair.slice(0, ci).trim() : '';
+      const rel = ci >= 0 ? pair.slice(ci + 1).trim() : pair;
+      const structured = /^[A-Za-z]\d{1,4}$/.test(tid);   // 左侧像 C1/G2/B1 才作结构化条目
+      return { tid, rel, structured, raw: pair };
+    });
   if (rels.length === 0) return <Empty text="暂无人际关系记录" />;
   const nameOf = (id: string) => id === 'B1' ? `${usePlayer.getState().profile.name || '主角'}（你）` : (list.find((r) => r.id === id)?.name ?? id);
   return (
     <Section title={`人际关系（${rels.length}）`}>
       <div className="space-y-2">
         {rels.map((r, i) => {
+          if (!r.structured) {
+            // 自由文本关系（没有 C-id）→ 直接当描述行显示，避免把整句塞进 id 框
+            return <div key={i} className="rounded-lg bg-void/40 border border-edge/60 px-3 py-2 text-sm text-slate-200 leading-relaxed">{r.raw}</div>;
+          }
           const canJump = r.tid !== 'B1' && list.some((x) => x.id === r.tid);
           return (
             <div key={i} className="flex items-center gap-3 rounded-lg bg-void/40 border border-edge/60 px-3 py-2">

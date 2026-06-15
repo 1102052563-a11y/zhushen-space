@@ -314,6 +314,24 @@ function PresetSettings() {
         </div>
       </div>
 
+      {/* 主角面板对账纠错 */}
+      <div className="p-4 bg-panel border border-edge rounded-xl space-y-2">
+        <label className="flex items-center gap-2 cursor-pointer">
+          <input
+            type="checkbox"
+            checked={settings.auditEnabled !== false}
+            onChange={(e) => setSettings({ auditEnabled: e.target.checked })}
+            className="accent-god w-4 h-4"
+          />
+          <span className="text-sm font-mono text-god/70 uppercase tracking-widest">主角面板对账纠错</span>
+        </label>
+        <div className="text-[13px] text-dim/70 leading-relaxed">
+          勾选后，会把<b>主角面板检查</b>纳入回合末的<b>「综合对账纠错」</b>——它在<b>主角演化 + 物品演化都跑完后只调一次</b> AI：
+          看「应用后真实面板 + 最近两回合正文」，逐项核对 六维/HP·EP·SAN/状态Buff/技能天赋/等级阶位/位置外观，补<b>遗漏更新</b>、改<b>错误更新</b>（不凭空想象、只管主角）。
+          与「物品管理」里的同名开关<b>共用这一次调用</b>（不再各调一次）。关闭则综合对账不查主角面板。
+        </div>
+      </div>
+
       {/* 预设文件 */}
       <div className="p-4 bg-panel border border-edge rounded-xl space-y-3">
         <div className="text-sm font-mono text-god/70 uppercase tracking-widest">预设文件</div>

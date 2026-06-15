@@ -6,7 +6,8 @@
   "scripts": {
     "dev": "vite",
     "build": "tsc && vite build",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "build-vectors": "node tools/build-novel-vectors.mjs"
   },
   "dependencies": {
     "react": "^18.3.1",

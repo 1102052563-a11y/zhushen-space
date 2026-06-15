@@ -121,6 +121,7 @@ export interface ItemPresetSettings {
   entries: ItemPresetEntry[];
   presetName: string;
   presetVersion?: number;
+  auditEnabled?: boolean;   // 物品阶段后追加一次"对账纠错"调用（默认开）
 }
 
 interface ItemState {
@@ -170,6 +171,12 @@ function generateId(items: InventoryItem[]): string {
   return `I_B1_${String(max + 1).padStart(2, '0')}`;
 }
 
+/* 可堆叠判定：消耗品/材料等同名累加；装备类（武器/防具/饰品/特殊/法宝）不堆叠——保留各自杀敌数/耐久/词缀等单件数据 */
+const NO_STACK_CATS = new Set<string>(['武器', '防具', '饰品', '特殊物品', '法宝']);
+export const isStackableCat = (cat?: string) => !NO_STACK_CATS.has(cat ?? '');
+// 归一化：去标点/空格，并去掉「的/之」等填充虚词——让"劣质餐刀"与"劣质的餐刀"视为同名
+const stackNorm = (x?: string) => (x ?? '').replace(/[\s·•・\-—_,，.。、|｜【】（）()的之]/g, '').toLowerCase();
+
 export const useItems = create<ItemState>()(
   persist(
     (set) => ({
@@ -180,6 +187,7 @@ export const useItems = create<ItemState>()(
         frequency: 1,
         entries: [],
         presetName: '',
+        auditEnabled: true,
       },
 
       itemApi: {
@@ -198,20 +206,27 @@ export const useItems = create<ItemState>()(
       addItem: (item) =>
         set((s) => {
           const wantId = (item as { id?: string }).id;
+          const wantEquipped = !!(item as { equipped?: boolean }).equipped;
+          // ① 指定 id 且该 id 已存在：同名→原地更新（防重复生成、保留装备/锁定）；异名→落到堆叠/新增
           if (wantId) {
             const existing = s.items.find((it) => it.id === wantId);
-            if (existing) {
-              // 同名 → 视为更新（防重复生成、保留装备/锁定状态）
-              if ((existing.name ?? '') === (item.name ?? '')) {
-                return { items: s.items.map((it) => it.id === wantId ? { ...it, ...item, id: wantId, equipped: it.equipped, equipSlot: it.equipSlot, locked: it.locked } as InventoryItem : it) };
-              }
-              // 不同名 → AI 把新物品塞到了已占用 id，改分配新 id，避免覆盖原有物品
-              console.warn(`[Item] id ${wantId} 已被「${existing.name}」占用，新物品「${item.name}」改用新 id 防覆盖`);
-              return { items: [...s.items, { ...item, id: generateId(s.items), addedAt: Date.now() } as InventoryItem] };
+            if (existing && (existing.name ?? '') === (item.name ?? '')) {
+              return { items: s.items.map((it) => it.id === wantId ? { ...it, ...item, id: wantId, equipped: it.equipped, equipSlot: it.equipSlot, locked: it.locked } as InventoryItem : it) };
             }
-            return { items: [...s.items, { ...item, id: wantId, addedAt: Date.now() } as InventoryItem] };
+            if (existing) console.warn(`[Item] id ${wantId} 已被「${existing.name}」占用，新物品「${item.name}」改用新 id 防覆盖`);
           }
-          return { items: [...s.items, { ...item, id: generateId(s.items), addedAt: Date.now() } as InventoryItem] };
+          // ② 同名堆叠：可堆叠类（消耗品/材料…）、未装备 → 累加数量到已有同名同品质条目，不再新建行
+          if (!wantEquipped && isStackableCat(item.category)) {
+            const stack = s.items.find((it) =>
+              !it.equipped && isStackableCat(it.category) &&
+              stackNorm(it.name) === stackNorm(item.name) && stackNorm(it.gradeDesc) === stackNorm(item.gradeDesc));
+            if (stack) {
+              return { items: s.items.map((it) => it.id === stack.id ? { ...it, quantity: (it.quantity || 1) + (item.quantity || 1) } : it) };
+            }
+          }
+          // ③ 新增（id 未占用则沿用，否则生成）
+          const id = wantId && !s.items.some((it) => it.id === wantId) ? wantId : generateId(s.items);
+          return { items: [...s.items, { ...item, id, addedAt: Date.now() } as InventoryItem] };
         }),
 
       updateItem: (id, patch) =>
@@ -261,7 +276,7 @@ export const useItems = create<ItemState>()(
       dedupeByName: () => {
         let removed = 0;
         set((s) => {
-          const norm = (x?: string) => (x ?? '').replace(/[\s·•・\-—_,，.。、|｜【】（）()]/g, '').trim().toLowerCase();
+          const norm = (x?: string) => (x ?? '').replace(/[\s·•・\-—_,，.。、|｜【】（）()的之]/g, '').trim().toLowerCase();
           const idxByKey = new Map<string, number>();
           const out: InventoryItem[] = [];
           for (const it of s.items) {

@@ -90,6 +90,7 @@ export interface PlayerPresetSettings {
   entries: PlayerPresetEntry[];
   presetName: string;
   presetVersion?: number;
+  auditEnabled?: boolean;   // 主角演化阶段后追加一次"面板对账纠错"调用（默认开）
 }
 
 /* ════════════════════════════════════════════
@@ -145,6 +146,7 @@ interface PlayerState {
 /* ── 主角演化智能筛选名单（精确匹配条目 name 字段）── */
 const PLAYER_KEEP_NAMES = new Set([
   // ── 角色上下文注入 ──
+  '技能品级与等级系统',
   '生物强度生成框架(T0-T9属性预算)',
   '技能天赋称号固定格式',
   '成就系统固定格式',
@@ -222,6 +224,7 @@ export const usePlayer = create<PlayerState>()(
         frequency: 1,
         entries: [],
         presetName: '',
+        auditEnabled: true,
       },
 
       profile: { ...DEFAULT_PLAYER_PROFILE },

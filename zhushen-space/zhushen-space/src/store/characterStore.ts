@@ -220,6 +220,17 @@ function sanitizeStrings<T extends Record<string, any>>(o: T): T {
   return out as T;
 }
 
+/* 同名 upsert 合并：incoming 里"空/缺失"的字段保留 prev 旧值，
+   避免一次极简的重复 add（如对账纠错只给了名字）把已有的详细 desc/effect/品级等冲掉。 */
+function mergeKeepRich<T extends Record<string, any>>(prev: T, incoming: T): T {
+  const out: any = { ...prev };
+  for (const [k, v] of Object.entries(incoming)) {
+    const empty = v == null || (typeof v === 'string' && v.trim() === '') || (Array.isArray(v) && v.length === 0);
+    if (!empty) out[k] = v;   // 仅用"非空"的新值覆盖；新值为空则保留旧值
+  }
+  return out;
+}
+
 /* 保证一个角色的技能 id 全表唯一：空 id 或与前面重复的 id 重新分配 S_<charId>_NN。
    首次出现的 id 保留，后来的重复者改号——从根上消除"两个技能同 id"。 */
 function dedupeSkillIds(charId: string, skills: Skill[]): Skill[] {
@@ -252,7 +263,7 @@ export const useCharacters = create<CharacterState>()(
           // 不同名→新技能追加，其 id 交给 dedupe 保证唯一（即使 AI 复用了已存在 id 也会自动改号，两个技能不会再共用一个 id）。
           const byName = next.findIndex((sk) => nameEq(sk.name, skill.name));
           if (byName >= 0) {
-            next[byName] = { ...skill, id: next[byName].id, addedAt: Date.now() };
+            next[byName] = mergeKeepRich(next[byName], { ...skill, id: next[byName].id, addedAt: Date.now() });   // 同名更新：空字段保留旧值，防极简重复 add 冲掉详情
           } else {
             next.push({ ...skill, addedAt: Date.now() });
           }
@@ -276,7 +287,7 @@ export const useCharacters = create<CharacterState>()(
           const existing = char.traits.findIndex((t) => nameEq(t.name, trait.name));
           const next = [...char.traits];
           const entry: Trait = { ...trait, addedAt: Date.now() };
-          if (existing >= 0) next[existing] = entry;
+          if (existing >= 0) next[existing] = mergeKeepRich(next[existing], entry);   // 同名更新：空字段保留旧值
           else next.push(entry);
           return { characters: { ...s.characters, [charId]: { ...char, traits: next } } };
         }),
@@ -512,3 +523,37 @@ export const ELEMENT_CLS: Record<string, string> = {
 export const RARITY_TIER_LABEL: Record<string, string> = {
   ren: '一层', xuan: '二层', di: '三层', tian: '四层',
 };
+
+/* ════════════ 技能品级（轮回乐园·7 档：普通→极境）+ 配色/特效 ════════════ */
+export const SKILL_TIER_ORDER = ['普通', '精良', '稀有', '史诗', '传说', '奥义', '极境'] as const;
+/* 边框 + 文字 + 底色（极境给渐变特效，最高层次最醒目）*/
+export const SKILL_TIER_CLS: Record<string, string> = {
+  普通: 'border-slate-600   text-slate-300   bg-slate-900/30',
+  精良: 'border-green-600   text-green-300   bg-green-900/20',
+  稀有: 'border-sky-500     text-sky-300     bg-sky-900/20',
+  史诗: 'border-purple-500  text-purple-300  bg-purple-900/20',
+  传说: 'border-amber-500   text-amber-300   bg-amber-900/20',
+  奥义: 'border-rose-500    text-rose-300    bg-rose-900/25',
+  极境: 'border-fuchsia-400 text-fuchsia-200 bg-gradient-to-br from-fuchsia-900/40 via-violet-900/20 to-cyan-900/20 shadow-[0_0_12px_rgba(217,70,239,0.25)]',
+};
+export const SKILL_TIER_DOT: Record<string, string> = {
+  普通: 'bg-slate-400', 精良: 'bg-green-400', 稀有: 'bg-sky-400', 史诗: 'bg-purple-400',
+  传说: 'bg-amber-400', 奥义: 'bg-rose-400', 极境: 'bg-fuchsia-300',
+};
+/* 把 AI 可能写的各种别名/旧值归一化到 7 档之一 */
+const SKILL_TIER_ALIAS: Record<string, string> = {
+  普通: '普通', 平庸: '普通', 凡品: '普通', 凡: '普通', 白: '普通', 白色: '普通', common: '普通',
+  精良: '精良', 优良: '精良', 优秀: '精良', 精: '精良', 绿: '精良', 绿色: '精良', fine: '精良', uncommon: '精良',
+  稀有: '稀有', 珍稀: '稀有', 蓝: '稀有', 蓝色: '稀有', rare: '稀有',
+  史诗: '史诗', 紫: '史诗', 紫色: '史诗', epic: '史诗',
+  传说: '传说', 传奇: '传说', 金: '传说', 金色: '传说', 橙: '传说', legend: '传说', legendary: '传说',
+  奥义: '奥义', 秘奥: '奥义', 奥秘: '奥义', 红: '奥义', arcane: '奥义',
+  极境: '极境', 极道: '极境', 究极: '极境', 极: '极境', apex: '极境',
+  // 旧 D~SSS / 人玄地天 近似兼容
+  D: '普通', C: '精良', B: '稀有', A: '史诗', S: '传说', SS: '奥义', SSS: '极境',
+};
+export function normSkillTier(r?: string): string {
+  const s = (r ?? '').trim();
+  if (!s) return '普通';
+  return SKILL_TIER_ALIAS[s] ?? (SKILL_TIER_CLS[s] ? s : '普通');
+}

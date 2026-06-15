@@ -99,7 +99,10 @@ function OnSceneCard({ npc, onOpen }: { npc: NpcRecord; onOpen: () => void }) {
       </div>
       {/* 基础信息 */}
       <div className="flex-1 min-w-0 flex flex-col justify-center gap-0.5 pr-0.5">
-        <div className="text-[13px] font-semibold text-slate-100 truncate">{npc.name || npc.id}</div>
+        <div className="flex items-center gap-1 min-w-0">
+          <span className="text-[13px] font-semibold text-slate-100 truncate">{npc.name || npc.id}</span>
+          {npc.partyMember && <span className="shrink-0 text-[9px] font-mono px-1 rounded border border-sky-500/50 text-sky-300/80 bg-sky-900/20" title="临时队友">队</span>}
+        </div>
         <div className="text-[11px] font-mono text-dim/60 truncate">
           {tier && <span className="text-sky-300/70">{tier}</span>}
           {lv > 0 && <span className="text-dim/50"> Lv.{lv}</span>}
