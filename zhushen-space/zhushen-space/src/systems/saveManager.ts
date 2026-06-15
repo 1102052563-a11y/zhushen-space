@@ -70,7 +70,9 @@ function snapshotStores(): Record<string, string> {
 function buildPreview(messages: any[]): SlotPreview {
   const last = [...messages].reverse().find((m) => m.role === 'assistant')?.content ?? '';
   return {
-    turn: messages.length,
+    // 回合数 = 用户发送次数（与状态栏 turnCountRef、读档恢复口径一致）；
+    // 不能用 messages.length——那会把 AI 回复也算进去，导致显示翻倍（开局即"回合2"、3回合显示"回合6"）
+    turn: messages.filter((m) => m.role === 'user').length,
     playerName: usePlayer.getState().profile.name || '主角',
     location: useMisc.getState().worldName || '',
     lastText: String(last).replace(/<[^>]+>/g, '').replace(/\s+/g, ' ').trim().slice(0, 90),

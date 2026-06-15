@@ -73,6 +73,7 @@ export default function NpcDetail({
 }) {
   const [tab, setTab] = useState<TabKey>('basic');
   const [confirmDel, setConfirmDel] = useState(false);
+  const [editing, setEditing] = useState(false);   // 手动编辑/纠正面板模式
   const upsertNpc = useNpc((s) => s.upsertNpc);
   const clearNpcBag = useNpc((s) => s.clearNpcBag);
   const hardRemoveNpc = useNpc((s) => s.hardRemoveNpc);
@@ -100,6 +101,7 @@ export default function NpcDetail({
     const n = (idx + delta + list.length) % list.length;
     onSelect(list[n].id);
     setTab('basic');
+    setEditing(false);   // 切换角色时退出编辑，避免草稿写错对象
   }
 
   return (
@@ -126,6 +128,17 @@ export default function NpcDetail({
           </div>
 
           <div className="flex-1" />
+
+          {/* 编辑面板：手动纠正 AI 写错/遗漏的字段 */}
+          <button
+            onClick={() => setEditing((v) => !v)}
+            title="手动编辑 / 纠正该 NPC 的面板字段"
+            className={`inline-flex px-3 py-1.5 text-sm rounded-lg border font-mono transition-colors ${
+              editing ? 'border-god bg-god/15 text-god' : 'border-edge text-dim/70 hover:border-god/50 hover:text-god'
+            }`}
+          >
+            {editing ? '✏️ 编辑中' : '✏️ 编辑'}
+          </button>
 
           {/* 离场/上场 */}
           <button
@@ -154,7 +167,7 @@ export default function NpcDetail({
             <button onClick={() => go(-1)} className="w-7 h-7 rounded-lg border border-edge text-dim hover:text-god hover:border-god/40 transition-colors text-sm">‹</button>
             <select
               value={npc.id}
-              onChange={(e) => { onSelect(e.target.value); setTab('basic'); }}
+              onChange={(e) => { onSelect(e.target.value); setTab('basic'); setEditing(false); }}
               className="bg-panel border border-edge rounded-lg px-2 py-1.5 text-sm font-mono text-slate-200 outline-none focus:border-god max-w-[8rem]"
             >
               {list.map((r) => <option key={r.id} value={r.id}>{r.name || r.id}</option>)}
@@ -165,7 +178,8 @@ export default function NpcDetail({
           <button onClick={onClose} className="w-7 h-7 flex items-center justify-center rounded-lg border border-edge text-dim hover:text-blood hover:border-blood/40 transition-colors text-sm">✕</button>
         </header>
 
-        {/* ── 栏目条 ── */}
+        {/* ── 栏目条（编辑模式下隐藏）── */}
+        {!editing && (
         <nav className="shrink-0 flex items-center gap-1 px-3 py-2 border-b border-edge bg-panel overflow-x-auto">
           {TABS.map((t) => (
             <button
@@ -183,9 +197,14 @@ export default function NpcDetail({
             </button>
           ))}
         </nav>
+        )}
 
         {/* ── 内容 ── */}
         <div className="flex-1 overflow-y-auto p-5">
+          {editing ? (
+            <NpcEditForm key={npc.id} npc={npc} onDone={() => setEditing(false)} />
+          ) : (
+          <>
           {tab === 'basic'    && <BasicTab npc={npc} realm={realm} genderCls={genderCls} />}
           {tab === 'portrait' && <PortraitTab npc={npc} />}
           {tab === 'hidden'   && <HiddenTab npc={npc} />}
@@ -197,7 +216,190 @@ export default function NpcDetail({
           {tab === 'trait'    && <TraitTab traits={traits} />}
           {tab === 'relation' && <RelationTab npc={npc} list={list} onSelect={onSelect} />}
           {tab === 'history'  && <HistoryTab npc={npc} />}
+          </>
+          )}
         </div>
+      </div>
+    </div>
+  );
+}
+
+/* ────────── 手动编辑 / 纠正 NPC 面板 ────────── */
+const EDIT_INP = 'w-full rounded-lg border border-edge bg-void/50 px-3 py-2 text-sm text-slate-200 placeholder:text-dim/30 outline-none focus:border-god/50 transition-colors';
+
+function ERow({ label, hint, children }: { label: string; hint?: string; children: React.ReactNode }) {
+  return (
+    <label className="block">
+      <div className="flex items-baseline justify-between mb-1 gap-2">
+        <span className="text-[12px] font-mono text-dim/60">{label}</span>
+        {hint && <span className="text-[11px] text-dim/40 truncate">{hint}</span>}
+      </div>
+      {children}
+    </label>
+  );
+}
+
+const ATTR_EDIT: { key: keyof PlayerAttrs; label: string }[] = [
+  { key: 'str', label: '力量' }, { key: 'agi', label: '敏捷' }, { key: 'con', label: '体质' },
+  { key: 'int', label: '智力' }, { key: 'cha', label: '魅力' }, { key: 'luck', label: '幸运' },
+];
+
+function NpcEditForm({ npc, onDone }: { npc: NpcRecord; onDone: () => void }) {
+  const upsertNpc = useNpc((s) => s.upsertNpc);
+  const sNum = (v: number | undefined) => (v == null ? '' : String(v));
+  const [f, setF] = useState(() => ({
+    name: npc.name === npc.id ? '' : (npc.name ?? ''),
+    gender: (npc.gender ?? '') as '' | '男' | '女',
+    realm: npc.realm ?? '', title: npc.title ?? '', npcTag: npc.npcTag ?? '',
+    profession: npc.profession ?? '', age: npc.age ?? '', bioStrength: npc.bioStrength ?? '',
+    contractorId: npc.contractorId ?? '', arenaRank: npc.arenaRank ?? '', brandLevel: npc.brandLevel ?? '',
+    personality: npc.personality ?? '', review: npc.review ?? '', status: npc.status ?? '',
+    callPlayer: npc.callPlayer ?? '', relations: npc.relations ?? '',
+    appearance5: npc.appearance5 ?? '', appearanceDetail: npc.appearanceDetail ?? '', imageTags: npc.imageTags ?? '',
+    innerThought: npc.innerThought ?? '', motiveNow: npc.motiveNow ?? '',
+    shortGoal: npc.shortGoal ?? '', longGoal: npc.longGoal ?? '', background: npc.background ?? '',
+    favor: String(npc.favor ?? 0),
+    str: sNum(npc.attrs?.str), agi: sNum(npc.attrs?.agi), con: sNum(npc.attrs?.con),
+    int: sNum(npc.attrs?.int), cha: sNum(npc.attrs?.cha), luck: sNum(npc.attrs?.luck),
+    hp: sNum(npc.hp), maxHp: sNum(npc.maxHp), mp: sNum(npc.mp), maxMp: sNum(npc.maxMp),
+    advancePoints: sNum(npc.advancePoints), attrPoints: sNum(npc.attrPoints),
+    realAttrPoints: sNum(npc.realAttrPoints), skillPoints: sNum(npc.skillPoints),
+    isDead: !!npc.isDead, inCombat: !!npc.inCombat,
+  }));
+  const set = (patch: Partial<typeof f>) => setF((p) => ({ ...p, ...patch }));
+
+  function save() {
+    const optNum = (v: string): number | undefined => {
+      const t = v.trim(); if (!t) return undefined;
+      const n = Number(t); return Number.isFinite(n) ? n : undefined;
+    };
+    const patch: Partial<NpcRecord> = {
+      name: f.name.trim() || npc.id, gender: f.gender,
+      realm: f.realm.trim(), title: f.title.trim(), npcTag: f.npcTag.trim(),
+      profession: f.profession.trim(), age: f.age.trim(), bioStrength: f.bioStrength.trim(),
+      contractorId: f.contractorId.trim(), arenaRank: f.arenaRank.trim(), brandLevel: f.brandLevel.trim(),
+      personality: f.personality, review: f.review, status: f.status.trim() || '一切正常',
+      callPlayer: f.callPlayer, relations: f.relations,
+      appearance5: f.appearance5, appearanceDetail: f.appearanceDetail, imageTags: f.imageTags,
+      innerThought: f.innerThought, motiveNow: f.motiveNow,
+      shortGoal: f.shortGoal, longGoal: f.longGoal, background: f.background,
+      isDead: f.isDead, inCombat: f.inCombat,
+    };
+    const fav = Number(f.favor);
+    if (Number.isFinite(fav)) patch.favor = Math.max(-100, Math.min(100, Math.round(fav)));
+    // 六维：任一非空才写入（避免给本无六维的 NPC 凭空写 0）
+    if (ATTR_EDIT.some(({ key }) => (f as any)[key] !== '')) {
+      const base: PlayerAttrs = { ...(npc.attrs ?? { str: 0, agi: 0, con: 0, int: 0, cha: 0, luck: 0 }) };
+      for (const { key } of ATTR_EDIT) { const n = optNum((f as any)[key]); if (n !== undefined) base[key] = Math.max(0, Math.round(n)); }
+      patch.attrs = base;
+    }
+    // 资源 / 点数：留空=保持不变（不写入），非空才覆盖
+    for (const [k, v] of [['hp', f.hp], ['maxHp', f.maxHp], ['mp', f.mp], ['maxMp', f.maxMp],
+      ['advancePoints', f.advancePoints], ['attrPoints', f.attrPoints],
+      ['realAttrPoints', f.realAttrPoints], ['skillPoints', f.skillPoints]] as [keyof NpcRecord, string][]) {
+      const n = optNum(v); if (n !== undefined) (patch as any)[k] = n;
+    }
+    upsertNpc(npc.id, patch);
+    onDone();
+  }
+
+  return (
+    <div className="space-y-4">
+      {/* 操作条（吸顶）*/}
+      <div className="sticky top-0 z-10 -mx-5 -mt-5 px-5 py-3 bg-void/95 backdrop-blur border-b border-edge flex items-center gap-2">
+        <span className="text-sm font-mono text-god/80">✏️ 编辑面板</span>
+        <span className="text-[11px] text-dim/40 hidden sm:inline">手动纠正 AI 写错/遗漏的字段；「资源·点数」留空=不改</span>
+        <div className="flex-1" />
+        <button onClick={onDone} className="px-3 py-1.5 text-sm rounded-lg border border-edge text-dim hover:text-slate-200 font-mono transition-colors">取消</button>
+        <button onClick={save} className="px-4 py-1.5 text-sm rounded-lg border border-god/50 bg-god/10 text-god hover:bg-god/20 font-mono transition-colors">✓ 保存</button>
+      </div>
+
+      <Section title="身份信息">
+        <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+          <ERow label="姓名"><input className={EDIT_INP} value={f.name} onChange={(e) => set({ name: e.target.value })} placeholder={npc.id} /></ERow>
+          <ERow label="性别">
+            <select className={EDIT_INP} value={f.gender} onChange={(e) => set({ gender: e.target.value as '' | '男' | '女' })}>
+              <option value="">未设置</option><option value="男">男</option><option value="女">女</option>
+            </select>
+          </ERow>
+          <ERow label="标签" hint="契约者/土著/随从/宠物"><input className={EDIT_INP} value={f.npcTag} onChange={(e) => set({ npcTag: e.target.value })} /></ERow>
+          <ERow label="阶位·Lv|身份" hint="第2列"><input className={EDIT_INP} value={f.realm} onChange={(e) => set({ realm: e.target.value })} placeholder="如 三阶·Lv.12|雇佣兵队长" /></ERow>
+          <ERow label="称号"><input className={EDIT_INP} value={f.title} onChange={(e) => set({ title: e.target.value })} /></ERow>
+          <ERow label="职业"><input className={EDIT_INP} value={f.profession} onChange={(e) => set({ profession: e.target.value })} /></ERow>
+          <ERow label="年龄"><input className={EDIT_INP} value={f.age} onChange={(e) => set({ age: e.target.value })} placeholder="如 约25岁/青年" /></ERow>
+          <ERow label="生物强度" hint="如 T3·勇士"><input className={EDIT_INP} value={f.bioStrength} onChange={(e) => set({ bioStrength: e.target.value })} /></ERow>
+          <ERow label="契约者ID"><input className={EDIT_INP} value={f.contractorId} onChange={(e) => set({ contractorId: e.target.value })} /></ERow>
+          <ERow label="竞技场排名"><input className={EDIT_INP} value={f.arenaRank} onChange={(e) => set({ arenaRank: e.target.value })} /></ERow>
+          <ERow label="烙印等级"><input className={EDIT_INP} value={f.brandLevel} onChange={(e) => set({ brandLevel: e.target.value })} /></ERow>
+        </div>
+      </Section>
+
+      <Section title="性格 · 状态">
+        <ERow label="性格（第3列）"><textarea rows={2} className={EDIT_INP} value={f.personality} onChange={(e) => set({ personality: e.target.value })} /></ERow>
+        <ERow label="锐评"><textarea rows={2} className={EDIT_INP} value={f.review} onChange={(e) => set({ review: e.target.value })} /></ERow>
+        <ERow label="当前状态（第4列）" hint="状态名:emoji(效果|激活|结束|来源)，多个用；分隔"><textarea rows={2} className={EDIT_INP} value={f.status} onChange={(e) => set({ status: e.target.value })} /></ERow>
+        <ERow label="如何称呼玩家（第7列）"><input className={EDIT_INP} value={f.callPlayer} onChange={(e) => set({ callPlayer: e.target.value })} /></ERow>
+        <div className="flex flex-wrap gap-5 pt-1">
+          <label className="flex items-center gap-2 text-sm text-slate-200 cursor-pointer">
+            <input type="checkbox" className="accent-god" checked={f.isDead} onChange={(e) => set({ isDead: e.target.checked })} />
+            已死亡<span className="text-[11px] text-dim/50">（取消勾选=复活，重回档案）</span>
+          </label>
+          <label className="flex items-center gap-2 text-sm text-slate-200 cursor-pointer">
+            <input type="checkbox" className="accent-god" checked={f.inCombat} onChange={(e) => set({ inCombat: e.target.checked })} />
+            战斗中
+          </label>
+        </div>
+      </Section>
+
+      <Section title="外观 · 肖像">
+        <ERow label="肖像锚点（第16列）" hint="动作|穿着|位置|身段|样貌"><textarea rows={2} className={EDIT_INP} value={f.appearance5} onChange={(e) => set({ appearance5: e.target.value })} /></ERow>
+        <ERow label="容貌与身姿（第34列）"><textarea rows={2} className={EDIT_INP} value={f.appearanceDetail} onChange={(e) => set({ appearanceDetail: e.target.value })} /></ERow>
+        <ERow label="生图提示词（第19列）" hint="英文 NAI/Danbooru tags"><textarea rows={2} className={EDIT_INP} value={f.imageTags} onChange={(e) => set({ imageTags: e.target.value })} /></ERow>
+      </Section>
+
+      <Section title="隐秘 · 目标">
+        <ERow label="内心想法（第12列）"><textarea rows={2} className={EDIT_INP} value={f.innerThought} onChange={(e) => set({ innerThought: e.target.value })} /></ERow>
+        <ERow label="当前动机（第27列）"><textarea rows={2} className={EDIT_INP} value={f.motiveNow} onChange={(e) => set({ motiveNow: e.target.value })} /></ERow>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <ERow label="短期目标（第28列）"><textarea rows={2} className={EDIT_INP} value={f.shortGoal} onChange={(e) => set({ shortGoal: e.target.value })} /></ERow>
+          <ERow label="长期目标（第29列）"><textarea rows={2} className={EDIT_INP} value={f.longGoal} onChange={(e) => set({ longGoal: e.target.value })} /></ERow>
+        </div>
+      </Section>
+
+      <Section title="关系 · 背景">
+        <ERow label="人际关系（第13列）" hint="格式 B1:关系;C2:关系"><textarea rows={2} className={EDIT_INP} value={f.relations} onChange={(e) => set({ relations: e.target.value })} /></ERow>
+        <ERow label="背景 / 简介（第10列）"><textarea rows={4} className={EDIT_INP} value={f.background} onChange={(e) => set({ background: e.target.value })} /></ERow>
+      </Section>
+
+      <Section title="六维 · 好感" hint="六维留空=不生成">
+        <div className="grid grid-cols-3 sm:grid-cols-6 gap-2">
+          {ATTR_EDIT.map(({ key, label }) => (
+            <ERow key={key} label={label}>
+              <input type="number" className={EDIT_INP} value={(f as any)[key]} onChange={(e) => set({ [key]: e.target.value } as any)} placeholder="—" />
+            </ERow>
+          ))}
+        </div>
+        <ERow label={`好感度（-100 ~ 100）：当前 ${Number(f.favor) || 0}`}>
+          <input type="range" min={-100} max={100} step={1} value={Number(f.favor) || 0} onChange={(e) => set({ favor: e.target.value })} className="w-full accent-god" />
+        </ERow>
+      </Section>
+
+      <Section title="资源 · 点数" hint="留空 = 保持不变">
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+          <ERow label="当前 HP"><input type="number" className={EDIT_INP} value={f.hp} onChange={(e) => set({ hp: e.target.value })} placeholder="不改" /></ERow>
+          <ERow label="HP 上限"><input type="number" className={EDIT_INP} value={f.maxHp} onChange={(e) => set({ maxHp: e.target.value })} placeholder="不改" /></ERow>
+          <ERow label="当前 EP"><input type="number" className={EDIT_INP} value={f.mp} onChange={(e) => set({ mp: e.target.value })} placeholder="不改" /></ERow>
+          <ERow label="EP 上限"><input type="number" className={EDIT_INP} value={f.maxMp} onChange={(e) => set({ maxMp: e.target.value })} placeholder="不改" /></ERow>
+          <ERow label="进阶点数"><input type="number" className={EDIT_INP} value={f.advancePoints} onChange={(e) => set({ advancePoints: e.target.value })} placeholder="不改" /></ERow>
+          <ERow label="属性点"><input type="number" className={EDIT_INP} value={f.attrPoints} onChange={(e) => set({ attrPoints: e.target.value })} placeholder="不改" /></ERow>
+          <ERow label="真实属性点"><input type="number" className={EDIT_INP} value={f.realAttrPoints} onChange={(e) => set({ realAttrPoints: e.target.value })} placeholder="不改" /></ERow>
+          <ERow label="技能点"><input type="number" className={EDIT_INP} value={f.skillPoints} onChange={(e) => set({ skillPoints: e.target.value })} placeholder="不改" /></ERow>
+        </div>
+      </Section>
+
+      <div className="flex justify-end gap-2 pb-2">
+        <button onClick={onDone} className="px-3 py-1.5 text-sm rounded-lg border border-edge text-dim hover:text-slate-200 font-mono transition-colors">取消</button>
+        <button onClick={save} className="px-4 py-1.5 text-sm rounded-lg border border-god/50 bg-god/10 text-god hover:bg-god/20 font-mono transition-colors">✓ 保存修改</button>
       </div>
     </div>
   );

@@ -4822,16 +4822,31 @@ ${lines}`;
     const custom = useSettings.getState().customOpening?.trim();
     const attrStr = `力${d.attrs.str} 敏${d.attrs.agi} 体${d.attrs.con} 智${d.attrs.int} 魅${d.attrs.cha} 幸${d.attrs.luck}`;
     if (custom) {
-      return custom
-        .replaceAll('${name}', d.name)
-        .replaceAll('${age}', d.age || '未知')
-        .replaceAll('${personality}', d.personality || '—')
-        .replaceAll('${prevProfession}', d.prevProfession || '普通人')
-        .replaceAll('${paradise}', d.paradise)
-        .replaceAll('${difficulty}', d.difficulty)
-        .replaceAll('${talentName}', d.talentName || '（无）')
-        .replaceAll('${talentEffect}', d.talentEffect || '')
-        .replaceAll('${attrs}', attrStr);
+      const A = d.attrs;
+      // 占位符 → 值：英文名与中文别名都认，含单个六维(中英)、外观、契约者编号；未知占位符原样保留(便于发现拼错)。
+      const vars: Record<string, string> = {
+        name: d.name, 主角名: d.name, 名字: d.name, 姓名: d.name,
+        age: d.age || '未知', 年龄: d.age || '未知',
+        personality: d.personality || '—', 性格: d.personality || '—',
+        prevProfession: d.prevProfession || '普通人', 入园前职业: d.prevProfession || '普通人', 职业: d.prevProfession || '普通人',
+        paradise: d.paradise, 乐园: d.paradise, 所属乐园: d.paradise,
+        difficulty: d.difficulty, 难度: d.difficulty,
+        appearance: d.appearance?.trim() || '（待你在后续描写中确立）', 外观: d.appearance?.trim() || '（待你在后续描写中确立）',
+        talentName: d.talentName || '（无）', 天赋名: d.talentName || '（无）', 天赋: d.talentName || '（无）',
+        talentEffect: d.talentEffect || '', 天赋效果: d.talentEffect || '', 天赋描述: d.talentEffect || '',
+        contractId: d.contractId || '随机分配中', 契约者ID: d.contractId || '随机分配中', 契约者编号: d.contractId || '随机分配中', 编号: d.contractId || '随机分配中',
+        attrs: attrStr, 六维: attrStr, 属性: attrStr,
+        str: String(A.str), 力: String(A.str),
+        agi: String(A.agi), 敏: String(A.agi),
+        con: String(A.con), 体: String(A.con),
+        int: String(A.int), 智: String(A.int),
+        cha: String(A.cha), 魅: String(A.cha),
+        luck: String(A.luck), 幸: String(A.luck),
+      };
+      return custom.replace(/\$\{([^}]+)\}/g, (m, key) => {
+        const k = String(key).trim();
+        return Object.prototype.hasOwnProperty.call(vars, k) ? vars[k] : m;
+      });
     }
     const park = d.paradise;
     const user = d.name;

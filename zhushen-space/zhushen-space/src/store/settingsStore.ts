@@ -144,6 +144,22 @@ function parseSTPreset(data: any, fileName: string, id: string): TextGenPreset {
     return { id, name, entries, regexScripts, ...extractGenParams(data) };
   }
 
+  // ── 本应用自身导出格式：顶层直接是 entries 数组（STPromptEntry[]），原样复用，保证导出→再导入不丢条目 ──
+  if (Array.isArray(data.entries)) {
+    const entries: STPromptEntry[] = data.entries.map((p: any) => ({
+      identifier:         p.identifier ?? p.id ?? p.name ?? String(Math.random()),
+      name:               p.name ?? p.identifier ?? '(无名)',
+      role:               p.role ?? 'system',
+      content:            p.content ?? '',
+      enabled:            p.enabled !== false,
+      system_prompt:      Boolean(p.system_prompt),
+      marker:             Boolean(p.marker),
+      injection_position: p.injection_position,
+      injection_depth:    p.injection_depth,
+    }));
+    return { id, name, entries, regexScripts, ...extractGenParams(data) };
+  }
+
   // ── 简单/自定义格式：无 prompts，尝试提取 system_prompt 字段作为单条 ──
   const fallbackContent = data.system_prompt ?? data.main_prompt ?? data.content ?? '';
   return {

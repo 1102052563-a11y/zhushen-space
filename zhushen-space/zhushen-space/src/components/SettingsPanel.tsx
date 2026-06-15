@@ -1967,8 +1967,9 @@ function GeneralSettingsSection() {
         <SectionTitle title="自定义开场白" desc="角色创建确认后自动发送的第一条消息模板；留空用内置默认" />
         <div className="border border-edge rounded-lg p-4 bg-panel space-y-3">
           <div className="text-[13px] text-dim/70 leading-relaxed">
-            支持占位符（发送时按角色创建数据替换）：
-            <span className="font-mono text-god/70"> {'${name}'} {'${age}'} {'${personality}'} {'${prevProfession}'} {'${paradise}'} {'${difficulty}'} {'${talentName}'} {'${talentEffect}'} {'${attrs}'}</span>
+            支持占位符（发送时按角色创建数据替换，<span className="text-god/70">中英文名均可</span>）：
+            <span className="font-mono text-god/70"> {'${主角名}'} {'${年龄}'} {'${性格}'} {'${入园前职业}'} {'${乐园}'} {'${难度}'} {'${外观}'} {'${天赋名}'} {'${天赋效果}'} {'${契约者ID}'}</span>
+            <div className="mt-1 text-dim/60">六维：合并 <span className="font-mono text-god/70">{'${六维}'}</span> 或单项 <span className="font-mono text-god/70">{'${力}${敏}${体}${智}${魅}${幸}'}</span>（英文 {'${name}/${str}/${attrs}'} 等同义）。写错的占位符会原样保留。</div>
           </div>
           <textarea
             value={customOpening}
