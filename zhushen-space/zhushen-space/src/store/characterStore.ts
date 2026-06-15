@@ -140,8 +140,17 @@ export interface SubProfession {
 }
 
 /* 满100晋级：返回 {tier, progress} */
+// AI 常用别名 → 系统5档（避免它自创"入门/精通"等档名时被当成最低档）
+const SUBPROF_TIER_ALIAS: Record<string, string> = {
+  生疏: '新手', 初学: '新手', 初级: '新手', 入门: '新手', 学徒: '新手',
+  中级: '熟练', 熟手: '熟练',
+  高级: '专家', 精通: '专家',
+  宗匠: '大师', 巨匠: '大师',
+  传说: '宗师', 大宗师: '宗师',
+};
 function promoteTier(tier: string, progress: number): { tier: string; progress: number } {
-  let idx = SUBPROF_TIERS.indexOf(tier as typeof SUBPROF_TIERS[number]);
+  const canon = SUBPROF_TIER_ALIAS[(tier ?? '').trim()] ?? tier;
+  let idx = SUBPROF_TIERS.indexOf(canon as typeof SUBPROF_TIERS[number]);
   if (idx < 0) idx = 0;
   let p = progress;
   while (p >= 100 && idx < SUBPROF_TIERS.length - 1) { p -= 100; idx++; }
@@ -274,6 +283,7 @@ export const useCharacters = create<CharacterState>()(
         set((s) => {
           skill = sanitizeStrings(skill);
           if (isQuestName(skill.name)) { console.warn('[Char] 拒绝把任务当技能添加（应进任务列表）:', skill.name); return s; }
+          if (/^\s*配方\s*[:：]/.test(skill.name ?? '')) { console.warn('[Char] 拒绝把配方当技能添加（应 addRecipe 挂到副职业下）:', skill.name); return s; }
           const char = ensureChar(s.characters, charId);
           let next = [...char.skills];
           // 以「名称」为身份：同名→原地更新（保留原条目 id，避免改名造成 id 漂移/撞号）；

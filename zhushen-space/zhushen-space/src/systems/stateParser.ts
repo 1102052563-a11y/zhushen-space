@@ -626,7 +626,7 @@ function normalizeCategory(raw: string): ItemCategory {
    payload 是 JSON 对象 或 带引号的字符串
 ════════════════════════════════════════════ */
 
-export type CharCommandType = 'addSkill' | 'deSkill' | 'addTrait' | 'deTrait' | 'addTalent' | 'deTalent' | 'addDeed' | 'addMemory' | 'addTitle' | 'deTitle' | 'equipTitle' | 'addAchievement' | 'deAchievement' | 'addSubProfession' | 'deSubProfession' | 'addRecipe' | 'deRecipe';
+export type CharCommandType = 'addSkill' | 'deSkill' | 'addTrait' | 'deTrait' | 'addTalent' | 'deTalent' | 'addDeed' | 'addMemory' | 'addTitle' | 'deTitle' | 'equipTitle' | 'addAchievement' | 'deAchievement' | 'addSubProfession' | 'deSubProfession' | 'addRecipe' | 'deRecipe' | 'bumpSubProf' | 'bumpRecipe';
 
 export interface CharCommand {
   type: CharCommandType;
@@ -636,7 +636,7 @@ export interface CharCommand {
 }
 
 // 匹配 funcName("charId", {...}) 或 funcName("charId", "string")
-const CHAR_CMD_RE = /\b(addSkill|deSkill|addTrait|deTrait|addTalent|deTalent|addDeed|addMemory|addTitle|deTitle|equipTitle|addAchievement|deAchievement|addSubProfession|deSubProfession|addRecipe|deRecipe)\s*\(\s*"([^"]+)"\s*,\s*(\{[\s\S]*?\}|"[^"]*")\s*\)/g;
+const CHAR_CMD_RE = /\b(addSkill|deSkill|addTrait|deTrait|addTalent|deTalent|addDeed|addMemory|addTitle|deTitle|equipTitle|addAchievement|deAchievement|addSubProfession|deSubProfession|addRecipe|deRecipe|bumpSubProf|bumpRecipe)\s*\(\s*"([^"]+)"\s*,\s*(\{[\s\S]*?\}|"[^"]*")\s*\)/g;
 
 function parseCharBlock(block: string): CharCommand[] {
   const cmds: CharCommand[] = [];
@@ -1089,6 +1089,30 @@ export function applyCharacterCommands(commands: CharCommand[]): void {
         const d: any = payload;
         if (typeof d === 'string') { const [p, nm] = d.split('::'); if (p && nm) store.removeRecipe(charId, p, nm); }
         else if (d.prof && d.name) store.removeRecipe(charId, d.prof, d.name);
+      }
+      else if (type === 'bumpRecipe') {
+        // 练习/制作某配方：配方熟练度 += delta，且副职业总熟练度随之同步提升（半速，至少 1）
+        if (!/^B\d+$/.test(charId)) { continue; }   // 副职业仅主角
+        const d: any = payload;
+        const prof = d.prof ?? d.subProfession ?? d.profession;
+        const name = d.name ?? d.recipe;
+        const delta = Number(d.delta ?? d.progress ?? d.amount);
+        if (prof && name && Number.isFinite(delta) && delta !== 0) {
+          store.bumpRecipe(charId, prof, name, delta);
+          store.bumpSubProf(charId, prof, Math.sign(delta) * Math.max(1, Math.round(Math.abs(delta) / 2)));
+          console.log(`[Char] bumpRecipe ${charId}/${prof}/${name}: ${delta > 0 ? '+' : ''}${delta}（总熟练同步）`);
+        } else { console.warn('[Char] bumpRecipe 缺少 prof/name/delta', d); }
+      }
+      else if (type === 'bumpSubProf') {
+        // 副职业整体精进（无具体配方）：仅加总熟练度
+        if (!/^B\d+$/.test(charId)) { continue; }   // 副职业仅主角
+        const d: any = payload;
+        const name = typeof d === 'string' ? d : (d.name ?? d.subProfession ?? d.profession);
+        const delta = Number(typeof d === 'object' ? (d.delta ?? d.progress ?? d.amount) : NaN);
+        if (name && Number.isFinite(delta) && delta !== 0) {
+          store.bumpSubProf(charId, name, delta);
+          console.log(`[Char] bumpSubProf ${charId}/${name}: ${delta > 0 ? '+' : ''}${delta}`);
+        } else { console.warn('[Char] bumpSubProf 缺少 name/delta', d); }
       }
 
       else if (type === 'addDeed') {

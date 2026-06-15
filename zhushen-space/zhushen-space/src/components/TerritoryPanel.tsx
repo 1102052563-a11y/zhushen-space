@@ -95,7 +95,7 @@ export default function TerritoryPanel({ onClose }: { onClose: () => void }) {
             <Section title="建筑" count={`${T.buildings.length}/${cap}`}>
               {T.buildings.length === 0
                 ? <Empty text="（暂无建筑）" />
-                : <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">{T.buildings.map((b) => <BuildingCard key={b.id} b={b} />)}</div>}
+                : <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 items-start">{T.buildings.map((b) => <BuildingCard key={b.id} b={b} />)}</div>}
             </Section>
 
             {/* 成员（关联 NPC） */}

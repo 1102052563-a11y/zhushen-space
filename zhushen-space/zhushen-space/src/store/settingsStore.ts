@@ -208,7 +208,7 @@ export interface NarrativeMemConfig {
   structEnabled: boolean;          // 启用结构化档案召回
   structMaxNpcs: number;           // 注入的 NPC 数量上限（主角必含、不占此额度）
   structMaxSkills: number;         // 每个角色注入的技能数量上限
-  structMaxItems: number;          // 每个角色注入的装备/物品数量上限
+  structMaxItems: number;          // 主角注入的装备数量上限（材料/消耗品全显示、其它不注入；NPC 给全量）
   structMaxSubProfs: number;       // 主角注入的副职业数量上限
   structMaxFactions: number;       // 注入的当前世界势力数量上限
 }
@@ -221,6 +221,12 @@ interface SettingsState {
   allowAutoEquipNpc: boolean;  // 是否允许自动给 NPC 穿戴装备（含初始装备与 AI 装备指令；关闭=只入 NPC 储存空间）
   setAllowAutoEquipNpc: (v: boolean) => void;
   customOpening: string;  // 自定义开场白模板（角色创建确认后自动发送；含 ${...} 占位符，空=用内置默认）
+  plotChoices: boolean;   // 剧情选项：每段正文生成后，额外生成 8 个主角行动选项（最后 1 个限制级）
+  setPlotChoices: (v: boolean) => void;
+  fanficMode: boolean;    // 同人增强：识别已知作品角色→输出/锁定设定→下回合注入正文防 OOC
+  setFanficMode: (v: boolean) => void;
+  factCheck: boolean;     // 事实增强：核实正文里的现实可查证元素→锁定时代/事实锚点→下回合注入防穿帮
+  setFactCheck: (v: boolean) => void;
   apiLibrary: ApiEndpoint[];   // 中心 API 接口库（综合设置维护，各功能快捷选填）
   apiRoutes: Record<string, string[]>;  // 各功能的接口路由：featureKey → 有序 endpoint id 列表（上=优先，失败 fallback）
   apiThrottle: { maxConcurrent: number; minGapMs: number };  // 全局请求节流：最大并发 + 最小间隔（缓解 429）
@@ -542,6 +548,9 @@ export const useSettings = create<SettingsState>()(
       allowAutoEquip: true,
       allowAutoEquipNpc: true,
       customOpening: '',
+      plotChoices: false,
+      fanficMode: false,
+      factCheck: false,
       apiLibrary: [],
       apiRoutes: {},
       apiThrottle: { maxConcurrent: 3, minGapMs: 250 },
@@ -578,6 +587,9 @@ export const useSettings = create<SettingsState>()(
       setAllowAutoEquip: (v) => set({ allowAutoEquip: v }),
       setAllowAutoEquipNpc: (v) => set({ allowAutoEquipNpc: v }),
       setCustomOpening: (s) => set({ customOpening: s }),
+      setPlotChoices: (v) => set({ plotChoices: v }),
+      setFanficMode: (v) => set({ fanficMode: v }),
+      setFactCheck: (v) => set({ factCheck: v }),
 
       addApiEndpoint: () => set((s) => ({
         apiLibrary: [...s.apiLibrary, {

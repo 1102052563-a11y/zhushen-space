@@ -5,6 +5,8 @@
 # ───── 依赖与构建产物（Cloudflare 会自己 npm install + 构建）─────
 node_modules/
 dist/
+# 肖像图库清单：由 vite 插件按 public/portraits/ 子文件夹自动生成，不必入库
+zhushen-space/zhushen-space/public/portraits/manifest.json
 
 # ───── 第三方 / 参考资料（非本项目代码，不入库，保持仓库精简）─────
 # 另一个预构建 app，仅作移植参考，不需要部署，也不必备份

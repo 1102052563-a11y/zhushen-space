@@ -1,0 +1,23 @@
+肖像图库 —— 文件夹即分类，manifest 自动生成，你不用碰 JSON。
+
+────────────────────────────
+怎么加图：
+
+1) 想分类：在本文件夹下建子文件夹，名字就是分类名，把图丢进去。例如
+     public/portraits/女/黑发少女.png
+     public/portraits/男/青年剑客.png
+     public/portraits/妖兽/玄狼.png
+   → 弹窗顶部自动出「全部 / 女 / 男 / 妖兽」筛选标签。
+
+2) 不想分类：直接把图丢在 public/portraits/ 根目录下（不放进子文件夹），
+   这些图只出现在「全部」里。
+
+文件名（去掉扩展名）就是缩略图下方显示的名字，所以给图起个好认的名，例如「黑发少女.png」。
+
+────────────────────────────
+机制：
+- manifest.json 由 vite 插件在 build（含 Cloudflare）和 dev 启动时【自动扫描本文件夹生成】，
+  不要手动编辑，改了也会被覆盖（它已被 .gitignore，不进仓库）。
+- 图片走同源地址 /portraits/<分类>/<文件名>，玩家选中后存的是这个网址（不是图片本体），超省存档空间。
+- 加完图 commit + push 即可上线（Cloudflare 构建时会自动重建 manifest）。本地 npm run dev 重启 + 刷新即可见。
+- 支持格式：png / jpg / jpeg / webp / gif / avif。

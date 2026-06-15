@@ -40,7 +40,7 @@
 | 设置页路由（哪个子面板） | `components/SettingsPanel.tsx`（大路由）|
 | 变量管理页（演化功能中心启动台） | `components/VariableManager.tsx` |
 | 顶部状态栏 / 双时间显示 | `components/StatusBar.tsx` |
-| 代码注入的"铁则"提示词常量 | `App.tsx` 顶部模块作用域常量（见 §4）|
+| 代码注入的"铁则"提示词常量 | 大部分 `src/promptRules.ts`，少数 `App.tsx` 顶部（见 §4）|
 
 ---
 
@@ -127,12 +127,12 @@
 
 ---
 
-## 4. App.tsx 顶部"代码注入铁则"常量（模块作用域，**改即生效、无需重导预设**）
+## 4. "代码注入铁则"提示词常量（**改即生效、无需重导预设**）
 
 各 `run*Phase` 拼完导入预设后**追加**这些硬编码规则。改提示词规则**优先改这里**（对当前存档即时生效）：
 
 `NARRATIVE_FIRST_RULE`(逐条参照正文) · `BUFF_AS_STATUS_RULE` · `SUBPROF_RULE` · `NPC_AGE_RULE` · `FACTION_WORLD_RULE` / `FACTION_FULL_FORMAT_RULE` / `FACTION_HOME_EXIT_RULE` · `ITEM_FIXED_FORMAT_RULE` / `ITEM_EXACT_REF_RULE` · `EVO_EXACT_REF_RULE` · `TALENT_NO_CAP_RULE` · `SKILL_TIER_RULE` · `IMAGE_TAGS_RULE` · `MISC_HOME_TIME_RULE` · `CHANNEL_AUTHOR_INFO_RULE` · `MERGED_AUDIT_SYSTEM`/`MERGED_AUDIT_PROMPT`
-> grep 常量名即可定位；它们集中在 App.tsx 顶部（组件外）。
+> **大部分常量已抽到 `src/promptRules.ts`（集中维护，改提示词来这里），少数仍在 App.tsx 顶部。grep 常量名即可跨文件定位。**
 
 ---
 

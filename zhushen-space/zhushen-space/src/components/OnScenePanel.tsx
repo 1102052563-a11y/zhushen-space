@@ -2,6 +2,7 @@ import { useRef, useState } from 'react';
 import { useNpc, type NpcRecord } from '../store/npcStore';
 import { lvFromRealm, computeMaxHp, computeMaxEp, gearMaxHpBonus, gearMaxEpBonus, effectiveResource } from '../systems/derivedStats';
 import { useImageViewer } from '../store/imageViewerStore';
+import { PortraitPicker } from './PortraitPicker';
 
 /* 右上角「在场人物」浮窗：
    - 每个在场 NPC 一张卡（头像位 + 基础信息），点击进 NPC 详情
@@ -89,13 +90,15 @@ function OnSceneCard({ npc, onOpen }: { npc: NpcRecord; onOpen: () => void }) {
           <div className="w-full h-full flex items-center justify-center text-2xl text-dim/25">👤</div>
         )}
         <input ref={fileRef} type="file" accept="image/*" className="hidden" onChange={handleUpload} />
-        <button
-          onClick={(e) => { e.stopPropagation(); fileRef.current?.click(); }}
-          className="absolute bottom-0 inset-x-0 py-0.5 text-[9px] font-mono bg-black/60 text-dim/70 opacity-0 group-hover:opacity-100 hover:text-god transition-opacity"
-          title="上传头像"
-        >
-          {npc.avatar ? '换图' : '上传'}
-        </button>
+        <div className="absolute bottom-0 inset-x-0 flex opacity-0 group-hover:opacity-100 transition-opacity">
+          <button
+            onClick={(e) => { e.stopPropagation(); fileRef.current?.click(); }}
+            className="flex-1 py-0.5 text-[9px] font-mono bg-black/60 text-dim/70 hover:text-god"
+            title="上传头像"
+          >{npc.avatar ? '换图' : '上传'}</button>
+          <PortraitPicker onPick={(url) => upsert(npc.id, { avatar: url })} label="库"
+            className="flex-1 py-0.5 text-[9px] font-mono bg-black/60 text-dim/70 hover:text-god border-l border-white/10" />
+        </div>
       </div>
       {/* 基础信息 */}
       <div className="flex-1 min-w-0 flex flex-col justify-center gap-0.5 pr-0.5">

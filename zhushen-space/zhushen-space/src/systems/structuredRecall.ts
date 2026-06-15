@@ -192,7 +192,10 @@ export function serializePlayerCard(
   ].filter(Boolean).join('\n  ');
 
   const topSkills = pickTop(skills, limits.maxSkills, skillScore).map(skillLine);
-  const topItems = pickTop(items.filter((it) => !it.locked || it.equipped), limits.maxItems, itemScore).map(playerItemLine);
+  // 装备(武器/防具/饰品 或 已装备)按上限取 top；材料+消耗品全部显示(名称+效果)；其它类一律不注入
+  const EQUIP_CATS = new Set<string>(['武器', '防具', '饰品']);
+  const equipItems = pickTop(items.filter((it) => it.equipped || EQUIP_CATS.has(it.category)), limits.maxItems, itemScore).map(playerItemLine);
+  const matConItems = items.filter((it) => it.category === '材料' || it.category === '消耗品').map(playerItemLine);
   const talLines = talents.slice().sort((x, y) => talentScore(y) - talentScore(x)).map(talentLine);
 
   const titleLine = equippedTitleLine(titles);
@@ -200,7 +203,7 @@ export function serializePlayerCard(
   return ['# 主角 [B1]', '  ' + id, '  ' + stat,
     titleLine && '  ' + titleLine,
     detail && '  ' + detail,
-    block('技能', topSkills), block('天赋', talLines), block('装备/物品', topItems),
+    block('技能', topSkills), block('天赋', talLines), block('装备', equipItems), block('材料/消耗品', matConItems),
     spLines.length ? block('副职业', spLines) : '',
   ].filter(Boolean).join('\n');
 }

@@ -10,6 +10,7 @@ import { computeAttrBreakdown, ATTR_LABEL, type AttrBreak } from '../systems/att
 import { useImageGen } from '../store/imageGenStore';
 import { generateImage, buildPortraitPrompt, shrinkDataUrl } from '../systems/imageGen';
 import { useImageViewer } from '../store/imageViewerStore';
+import { PortraitPicker, PortraitLibraryModal } from './PortraitPicker';
 import { genPortraitTags } from '../systems/imageTags';
 import Bar from './Bar';
 
@@ -109,6 +110,7 @@ function PlayerAvatar() {
   const fileRef = useRef<HTMLInputElement>(null);
   const [gening, setGening] = useState(false);
   const [err, setErr] = useState('');
+  const [libOpen, setLibOpen] = useState(false);
   function handleUpload(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0]; e.target.value = '';
     if (!file) return;
@@ -135,19 +137,21 @@ function PlayerAvatar() {
   }
   return (
     <div className="w-full flex flex-col items-center gap-1.5">
-      <button onClick={() => profile.avatar ? useImageViewer.getState().open(profile.avatar, '主角立绘') : fileRef.current?.click()}
-        title={profile.avatar ? '点击查看大图' : '点击上传立绘'}
+      <button onClick={() => profile.avatar ? useImageViewer.getState().open(profile.avatar, '主角立绘') : setLibOpen(true)}
+        title={profile.avatar ? '点击查看大图' : '点击从图库选立绘'}
         className={`w-32 h-32 rounded-xl overflow-hidden border border-edge/60 bg-void/60 flex items-center justify-center hover:border-god/40 transition-colors ${profile.avatar ? 'cursor-zoom-in' : ''}`}>
         {gening ? <span className="text-[11px] font-mono text-god/70 animate-pulse">生成中…</span>
           : profile.avatar ? <img src={profile.avatar} alt="立绘" className="w-full h-full object-cover" />
           : <span className="text-5xl text-dim/25">👤</span>}
       </button>
       <input ref={fileRef} type="file" accept="image/*" className="hidden" onChange={handleUpload} />
+      <PortraitLibraryModal open={libOpen} onClose={() => setLibOpen(false)} onPick={(url) => setProfile({ avatar: url })} />
       <div className="flex gap-1.5">
         <button onClick={handleGen} disabled={gening}
           className="text-[11px] font-mono px-2 py-0.5 rounded border border-god/40 text-god hover:bg-god/10 disabled:opacity-40 transition-colors">✨ 生成</button>
         <button onClick={() => fileRef.current?.click()}
           className="text-[11px] font-mono px-2 py-0.5 rounded border border-edge text-dim hover:text-god transition-colors">上传</button>
+        <PortraitPicker onPick={(url) => setProfile({ avatar: url })} />
         {profile.avatar && <button onClick={() => setProfile({ avatar: '' })} className="text-[11px] font-mono px-2 py-0.5 rounded border border-edge text-dim/50 hover:text-blood transition-colors">移除</button>}
       </div>
       {err && <div className="text-[10px] text-blood font-mono max-w-[220px] leading-snug whitespace-pre-line text-center">{err}</div>}

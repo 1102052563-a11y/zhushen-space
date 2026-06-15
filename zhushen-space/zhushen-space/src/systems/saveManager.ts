@@ -20,6 +20,8 @@ import { useMisc } from '../store/miscStore';
 import { useChannel } from '../store/channelStore';
 import { useCosmos } from '../store/cosmosStore';
 import { useDm } from '../store/dmStore';
+import { useFanfic } from '../store/fanficStore';
+import { useFact } from '../store/factStore';
 
 /* 纳入快照的所有持久化 store（key 必须与各 store persist 的 name 一致）*/
 const STORES: { key: string; api: any }[] = [
@@ -41,6 +43,8 @@ const STORES: { key: string; api: any }[] = [
   { key: 'drpg-channel',    api: useChannel },
   { key: 'drpg-cosmos',     api: useCosmos },
   { key: 'drpg-dm',         api: useDm },
+  { key: 'drpg-fanfic',     api: useFanfic },
+  { key: 'drpg-fact',       api: useFact },
 ];
 
 export interface SlotPreview { turn: number; playerName: string; location: string; lastText: string }
@@ -191,6 +195,8 @@ export async function clearProgress(): Promise<void> {
   try { useChannel.getState().clearChannel(); } catch { /* */ }      // 公共频道消息（保留预设/API 配置）
   try { useCosmos.getState().clearCosmos(); } catch { /* */ }        // 万族棋盘（保留预设/API 配置；新游戏后下次演化会按种子模式重新播种）
   try { useDm.getState().clearAll(); } catch { /* */ }               // 私信会话
+  try { useFanfic.getState().clearAll(); } catch { /* */ }           // 同人角色设定缓存
+  try { useFact.getState().clearAll(); } catch { /* */ }             // 事实锚点缓存
   try { useCharacters.setState({ characters: {} }); } catch { /* */ }// 主角+全部角色技能/词条/称号/记忆
   try {
     usePlayer.getState().setProfile({ ...DEFAULT_PLAYER_PROFILE }); // 主角档案

@@ -1,3 +1,38 @@
+import {
+  NARRATIVE_FIRST_RULE,
+  EVO_VERIFY_RULE,
+  BUFF_AS_STATUS_RULE,
+  ITEM_FIXED_FORMAT_RULE,
+  ITEM_ACQUIRE_RULE,
+  ITEM_EXACT_REF_RULE,
+  MERGED_AUDIT_SYSTEM,
+  MERGED_AUDIT_PROMPT,
+  EVO_EXACT_REF_RULE,
+  SUBPROF_RULE,
+  NPC_AGE_RULE,
+  NPC_REVIEW_TAG_RULE,
+  FACTION_WORLD_RULE,
+  FACTION_FULL_FORMAT_RULE,
+  NPC_DEAD_EXCLUDE_RULE,
+  NPC_SKILL_KEEP_RULE,
+  PLAYER_SKILL_KEEP_RULE,
+  TIER_RULE,
+  SKILL_TALENT_NOTE_RULE,
+  SKILL_TIER_RULE,
+  IMAGE_TAGS_RULE,
+  FIRST_UPDATE_COMPLETE_RULE,
+  HPEP_NARRATIVE_ONLY_RULE,
+  ADVANCE_POINTS_RULE,
+  WORLDSOURCE_RULE,
+  POINTS_NARRATIVE_RULE,
+  ATTR_SANITY_RULE,
+  APPEARANCE_UPDATE_RULE,
+  PLAYER_STATE_EMIT_RULE,
+  CHOICES_FANFIC_SYSTEM,
+  FANFIC_RULE,
+  PLOT_CHOICES_RULE,
+} from './promptRules';
+
 import { useState, useRef, useEffect } from 'react';
 import { useGame } from './store/gameStore';
 import { useSettings, resolveApiChain } from './store/settingsStore';
@@ -45,6 +80,8 @@ import DmPanel, { type DmHandlers } from './components/DmPanel';
 import FriendsPanel from './components/FriendsPanel';
 import { retrieveNovel } from './systems/novelVec';
 import { useDm, isDmableTag } from './store/dmStore';
+import { useFanfic } from './store/fanficStore';
+import { useFact } from './store/factStore';
 import { settleDmDeal, normCur as dmNormCur } from './systems/dmTrade';
 import SystemShop from './components/SystemShop';
 import SummaryPanel from './components/SummaryPanel';
@@ -79,6 +116,9 @@ interface ChatMessage {
   smallSummary?: string;   // 该楼层小总结（叙事记忆三档注入用）
   largeSummary?: string;   // 该楼层大总结
   images?: StoryImage[];   // 正文配图（按 anchor 插入楼层正文）
+  choices?: string[];      // 剧情选项（正文后生成的 8 个主角行动选项，点击填入输入框）
+  fanficNote?: string;     // 同人搜索内容（本楼涉及的已知作品角色设定，折叠展示）
+  factNote?: string;       // 事实查证（本楼涉及的现实可查证元素核实结果，折叠展示）
 }
 
 // 首次启动自动载入内置世界书 + 各演化预设（仅当对应项为空才填，永不覆盖玩家已有数据）。
@@ -378,12 +418,19 @@ function applyOneUpdate(u: StateUpdate) {
     const stat = resMatch[1];
     const cid  = resMatch[2];
     // 数值：纯数字(=/+=/-=) 或 "当前/上限"字符串(如 100/120，视作设定当前值；上限由前端按六维换算，忽略斜杠后的上限)
-    let amount: number; let setMode = op === '=';
+    let amount: number; let setMode = op === '='; let toFull = false;
     if (typeof value === 'number') amount = value;
     else {
-      const n = Number(String(value).split('/')[0].replace(/[^\d.-]/g, ''));
-      if (!Number.isFinite(n)) return;   // 解析不出数字 → 静默跳过，不刷 warn
-      amount = n; setMode = true;
+      const sv = String(value);
+      // "满/满血/MAX/full/痊愈/回满/100%" 等 → 回满（上限前端按六维算，AI 常不知确切数值）
+      if (/满|max|full|痊愈|回满|复满|全满|100\s*%/i.test(sv)) { toFull = true; setMode = true; amount = 0; }
+      else {
+        const digits = sv.split('/')[0].replace(/[^\d.-]/g, '');
+        const n = Number(digits);
+        // 关键修复：digits 为空时 Number('')===0 会把资源误清零（如 AI 写 hp.B1=满）；无有效数字一律跳过
+        if (digits === '' || !Number.isFinite(n)) return;
+        amount = n; setMode = true;
+      }
     }
     if (cid === 'B1') {
       // 玩家 HP/EP：上限按体质×20 / 智力×15 自动换算并同步写回 maxHp/maxMp
@@ -391,11 +438,12 @@ function applyOneUpdate(u: StateUpdate) {
         const dmax = stat === 'hp' ? playerMaxHp() : playerMaxEp();
         const curMaxKey = (stat === 'hp' ? 'maxHp' : 'maxMp') as PlayerNumericKey;
         const cur = effectiveResource(game.player[stat as PlayerNumericKey] as number, game.player[curMaxKey] as number, dmax);
-        const next = setMode ? Math.min(Math.max(0, amount), dmax) : op === '+=' ? Math.min(cur + amount, dmax) : Math.max(0, cur - amount);
+        const next = toFull ? dmax : setMode ? Math.min(Math.max(0, amount), dmax) : op === '+=' ? Math.min(cur + amount, dmax) : Math.max(0, cur - amount);
         game.setPlayerField(stat as PlayerNumericKey, next);
         game.setPlayerField(curMaxKey, dmax);
         return;
       }
+      if (toFull) return;   // 非 hp/mp 属性无自动上限，"满"无法换算 → 跳过，避免误清零
       const cur = (game.player[stat as PlayerNumericKey] as number) ?? 0;
       const next = setMode ? amount : op === '+=' ? cur + amount : cur - amount;
       game.setPlayerField(stat as PlayerNumericKey, next);
@@ -408,7 +456,7 @@ function applyOneUpdate(u: StateUpdate) {
         const nc = useCharacters.getState().characters[cid];
         const dmax = stat === 'hp' ? computeMaxHp(rec?.attrs) + abilityMaxHpBonus(nc?.skills, nc?.traits) : computeMaxEp(rec?.attrs) + abilityMaxEpBonus(nc?.skills, nc?.traits);
         const cur = effectiveResource(stat === 'hp' ? rec?.hp : rec?.mp, stat === 'hp' ? rec?.maxHp : rec?.maxMp, dmax);
-        const next = setMode ? Math.min(Math.max(0, amount), dmax) : op === '+=' ? Math.min(cur + amount, dmax) : Math.max(0, cur - amount);
+        const next = toFull ? dmax : setMode ? Math.min(Math.max(0, amount), dmax) : op === '+=' ? Math.min(cur + amount, dmax) : Math.max(0, cur - amount);
         npc.upsertNpc(cid, stat === 'hp' ? { hp: next, maxHp: dmax } : { mp: next, maxMp: dmax });
       }
       return;
@@ -662,225 +710,77 @@ function buildItemPhaseSystemPrompt(entries: ItemPresetEntry[], narrative: strin
         ② BUFF 也算当前状态  ③ 副职业中文且仅正文显式  ④ NPC 年龄
         ⑤ 势力所处世界  ⑥ 物品固定格式 + 武器杀敌数
 ════════════════════════════════════════════ */
-const NARRATIVE_FIRST_RULE = `
-【最高优先·正文为准铁则】本阶段所有字段更新**必须先逐条比对本轮正文**：正文里明确写到的信息（属性/状态/效果/数值/关系/外观/事件等）一律**照抄、不得遗漏**（哪怕只是顺带提到的一个增益/减益/效果也要记录）；正文**没有**提到的字段，才允许你按设定**合理补全**。严禁用想象覆盖正文已写明的内容。`;
+function parseChoices(raw: string): string[] {
+  const m = raw.match(/<choices>([\s\S]*?)<\/choices>/i);
+  const body = m ? m[1] : raw;
+  const out: string[] = [];
+  const seen = new Set<string>();
+  for (const line of body.split(/\r?\n/)) {
+    const lm = /^[\s>*\-—·]*([A-Ha-h])\s*[.、:：)）]\s*(.+)$/.exec(line.trim());
+    if (lm) {
+      const L = lm[1].toUpperCase();
+      if (!seen.has(L)) { seen.add(L); out.push(lm[2].trim()); }
+    }
+  }
+  return out.slice(0, 8);
+}
 
-const EVO_VERIFY_RULE = `
-【生成前·数据核验铁则】每次生成前，把"本轮正文"与下方提供的"当前面板数据（属性/状态/技能/天赋/装备/HP·EP/称号/关系等）"**逐项对照核验**，确保面板与正文吻合：
-1. 正文与面板**不一致** → 一律**以正文为准**，输出修正指令把面板改对（如正文写属性提升/受伤/学会技能/获得状态，但面板还是旧值，必须输出对应更新）。
-2. 正文**未提及**、面板**已有**的数据 → 保持不变，不要凭空改动或重置。
-3. 正文里**新出现**、面板尚无的（新技能/天赋/状态/称号/数值变化）→ 补上对应指令同步进面板。
-目标：本回合结束后面板数据与正文叙述完全一致，不遗漏、不矛盾、不臆造。`;
+/* 解析 <details> 同人搜索块 → 折叠展示文本 + 结构化条目（可多角色）*/
+function parseFanficDetails(raw: string): { note: string; entries: Omit<import('./store/fanficStore').FanficEntry, 'updatedAt'>[] } | null {
+  const blocks = [...raw.matchAll(/<details>([\s\S]*?)<\/details>/gi)].map((x) => x[1]);
+  if (blocks.length === 0) return null;
+  const notes: string[] = [];
+  const entries: Omit<import('./store/fanficStore').FanficEntry, 'updatedAt'>[] = [];
+  const field = (text: string, re: RegExp) => { const m = text.match(re); return m ? m[1].trim().replace(/^（填）$/, '') : ''; };
+  for (const b of blocks) {
+    if (/事实查证/.test(b)) continue;   // 事实查证块归 parseFactCheck，别混进同人
+    const inner = b.replace(/<\/?summary>/gi, '').replace(/^同人搜索内容\s*/m, '').trim();
+    if (!inner) continue;
+    const work = field(inner, /角色所属作品[：:]\s*(.+)/);
+    const nameAlias = field(inner, /角色名[\/／]?别名[：:]\s*(.+)/);
+    const keySettings = field(inner, /(?:本轮参考的)?关键设定[：:]\s*(.+)/);
+    const background = field(inner, /(?:补充的)?背景信息[：:]\s*(.+)/);
+    if (!work && !nameAlias && !keySettings && !background) continue;   // 空壳跳过
+    notes.push(inner);
+    let name = nameAlias, aliases = '';
+    const sp = nameAlias.split(/\s*[\/／、,，]\s*/).filter(Boolean);
+    if (sp.length > 1) { name = sp[0]; aliases = sp.slice(1).join('、'); }
+    if (name || work) entries.push({ name: name || work, work, aliases, keySettings, background });
+  }
+  if (notes.length === 0) return null;
+  return { note: notes.join('\n\n'), entries };
+}
 
-const BUFF_AS_STATUS_RULE = `
-【BUFF 即状态】正文中出现的任何增益/减益/buff/debuff/中毒/灼烧/护盾/虚弱/加速/恢复等效果，**都必须当作"当前状态"记录**：有明确时限的写结构化限时状态 addStatus(...)；长期/无时限的写入当前状态(列4 / character.<id>.status)。不要因为它叫"buff"就漏记。`;
+// 事实增强（核实正文里的现实可查证元素 → 锁定时代/事实锚点 → 下回合注入防穿帮）。
+const FACT_RULE = `<事实增强>
+剧情涉及现实可查证元素时，必须确保准确，不确定时**主动联网搜索核实**，优先采用最新/权威信息：
+· 历史事件的年份、经过；特定年代的社会风貌与科技水平；历史人物的事迹。
+· 真实地名、街道、店铺、地标的名称与位置；建筑外观与布局。
+· 商品/各类物品的品牌、型号、价格区间须符合时代；车辆的品牌车型与发售年份。
+· 职业行为、法律制度、医学、军事等专业内容的准确性。
+规则：可查证的事实**不得臆造**；无法确定时**宁可模糊、不可编造**；故事设定与现实矛盾时**以设定为准**；信息自然融入叙事，禁止百科罗列。
+【事实查证】核对当前场景、物品与事件逻辑，确保其 100% 贴合当前时代，不引入任何违和感。
+【输出格式】**仅当本轮正文涉及可查证的现实元素时**输出下面这个块（不涉及则完全省略、不要输出空块、不要写"无"）：
+<details><summary>事实查证</summary>
+本轮可查证元素：（逐条"元素 → 核实结论/应为…"；有误的标出修正）
+需锁定的时代/事实锚点：（几条简短事实，每条一句、用；分隔，供后续剧情保持一致；无则写 —）
+</details>`;
 
-const ITEM_FIXED_FORMAT_RULE = `
-【物品固定格式·强制补全】每次 createItem 必须按固定字段输出，**优先取正文已写明的值，正文没有的字段你必须自行合理补全（不得留空、不得省略）**：
-名称(name) | ID(id) | 品质(quality→gradeDesc) | 类型(category+subType) | 攻击力/防御力(combatStat：武器填攻击力，其余装备填防御力) | 属性加成(attrBonus 或写进 effect) | 评分(score) | 词缀(affix，可多条) | 效果(effect) | 描述/简介(intro) | 外观(appearance) | 获取途径(acquisition)。
-**武器类额外必填「杀敌数量」killCount**（新武器一般为 0，随战斗累计）。
-- **外观(appearance) 一律必填、绝不可留空或省略——不分类型：装备、消耗品、材料、工具、重要物品、特殊物品…全部都要写**：必须**逐部件/逐特征列举可视化细节**，把物品拆成各部分，每部分写清「材质·质地 + 颜色 + 造型·形状 + 纹饰/做工/光泽 +（消耗品还要写）盛装容器」，要"画得出来"。
-  · 装备正例：「黄铜枪管，胡桃木枪托，机括处刻有海浪纹，扳机护圈年久泛着幽光」「玄铁胸甲，表面蚀刻金色狮纹，肩甲包覆赤红皮革，边缘镶一圈黄铜铆钉」。
-  · **消耗品/材料正例（同样必须写）**：「深红黏稠药液，盛于鼓腹玻璃小瓶，软木塞封口，瓶身缠一圈褪色麻绳标签」「焦黄烤肉串，油脂正往下滴，撒着粗盐与香料碎，竹签穿成三块」「拇指大的半透明蓝色晶簇，断面有放射状纹路，表面凝着薄霜」「巴掌大的金属急救针剂，针管内淡蓝药液，外壳印着磨损的红十字标」。
-  · **反例（严禁拿来当外观）**：「一把保养尚可的单发燧发枪」「一瓶治疗药水」「品相不错」「看起来很普通」「喝下可回复生命」——这些是**品相/状态/用途/效果**的笼统话，不是外观，画不出图。
-  这是**生成配图的唯一依据**。外观**独立于简介(intro)与效果(effect)**：简介写 flavor、效果写数值作用，**外观只写逐部件的画面描述**；三者都要给，**不能用简介/效果/品相互相顶替、也不能为空**。
-  · **即使本阶段其它"固定条目模板/字段清单/示例"里没有列出 appearance，你也必须照样补上 appearance 字段**——本外观要求优先于任何未列外观的模板。
-- **NPC 持有物品/装备（owner≠B1）与主角【完全一致】地按本固定格式生成全部字段**：名称/产地/品质/类型/攻防/耐久/装备需求/词缀/评分/效果/简介/外观（武器另加杀敌数）一个都不能少，**不准因为是 NPC 就省略外观、词缀、评分、数值等任何字段或敷衍偷懒**。NPC 装备同样要写清攻防/耐久/装备需求/词缀，消耗品同样要写效果与外观。
-数值化要求：攻击/防御/加成/效果都要写具体数字。`;
-
-const ITEM_ACQUIRE_RULE = `
-【装备/物品仅"明确入手"才生成·最高优先铁则】createItem 只用于正文里**确实发生入手事件**的新物品：
-- 算入手（才可 createItem）：获得/得到/捡到/拾取/掉落/缴获/搜刮到/购买/买下/打造/制作/锻造/合成/系统奖励/任务奖励/赠予/抢夺到 等清楚的"到手"动作。
-- **不算入手（一律不要 createItem）**：仅仅描述、提及、穿着、身上有、手持、回忆、陈列、他人拥有、外观/装束描写——那只是叙述或既有物品的描写，不是新获得。"提到一个装备名字"绝不等于获得。
-- **同部位/同类防重复**：玩家某部位若已有装备（见 player_items 的【已装备】），除非正文明确"换上/获得了新的该部位装备"，否则**绝不生成同部位/同类的相似装备**（例：已穿「战术丛林靴」就不要再造「军用战术靴」；已有上衣就不要再造另一件上衣）。换装走 updateItem，或先明确获得新物再替换。
-- 拿不准是否真入手就**不生成**——宁可漏生成，也不要凭一句描写凭空造装备。`;
-
-const ITEM_EXACT_REF_RULE = `
-【引用已有物品·照抄铁则】消耗/销毁/装备/卸下/更新/转移某件**已存在**的物品时（consumeItem/destroyItem/equipItem/unequipItem/updateItem/updateItemQuantity/transferItem），**name 与 itemId 必须照抄"储存空间清单(player_items)"里那件物品的完整名称与真实 ID**：
-- 禁止简写或省略品级/前缀（如把"次级止血喷雾"写成"止血喷雾"）、禁止凭印象自行编造 itemId。
-- 名字与 ID 尽量都给且都准确；二者哪怕一个写错，系统就可能匹配不到、导致操作失败。
-- 清单(player_items)里没有的物品，不要去消耗/销毁/装备它。`;
-
-/* ── 综合对账纠错阶段：主角演化 + 物品演化都跑完后【合并成一次调用】。
-   让 AI 看到「应用指令后的主角真实面板 + 物品清单 + 最近两回合正文」，逐项核对遗漏/错误更新。
-   物品只碰主角与"随从/宠物"，不创建新物品、不动货币。 ── */
-const MERGED_AUDIT_SYSTEM = `你是轮回乐园·主神空间的【综合对账纠错器】。本回合的**主角演化**与**物品演化**都已处理完，下面给你**应用指令之后的真实数据（主角面板 + 物品清单，含真实ID）**与**最近两回合正文**。你的唯一职责：**严格逐字对照正文**核对每一项数据，找出**遗漏更新**（正文已发生、数据没体现）或**错误更新**（数据与正文明确不符）之处并纠正；正文没明确写的、数据已正确的，一律不动。
-**【严格对照正文·铁则】** 一切判断**只以正文白纸黑字写到的为准**：正文写了 X 提升/受伤/学会/丢失/获得，数据就必须照着改对；正文没写的，无论数据看着多奇怪都别动。逐句扫正文，不要凭印象、不要漏掉顺带提到的小变化。
-
-【判断基准】下方数据已是两个演化阶段处理**之后**的最新状态：正文写到的变化、数据里已体现 → 什么都别做；正文明确写了、数据却没体现/体现错了 → 才纠正。
-
-═══ 一、主角面板（检查全部信息）═══
-逐项核对主角的 六维 / HP·EP·SAN / 状态Buff / 等级·阶位·进阶点数 / 称号·职业 / 位置 / 外观 / 技能 / 天赋：
-- 六维：character.B1.attrs.str = 新值（或 += / -=）；agi/con/int/cha/luck 同理。仅正文明确某项升/降才改，小幅微调。
-- HP/EP/SAN：hp.B1 ±N / mp.B1 ±N / san.B1 ±N（**勿写 maxHp/maxMp**，前端按体质/智力自动算）。
-- 状态：character.B1.status = "…"（正文出现的增益/减益/中毒/受伤等长期状态，面板没记或记错时）。
-- 等级/阶位/进阶点数：character.B1.level = N / cr.B1 = 阶位名 / ap.B1 ±N（仅正文明确升级/突破/获得/消耗才改）。
-- 位置/外观：character.B1.location = "…" / character.B1.appearance = "…"（正文明确转移/换装/外观变化时）。
-- 技能/天赋(<upstore>)：仅正文明确"学会/觉醒/获得"了面板**没有**的，才 addSkill("B1",{…}) / addTalent("B1",{…})；已有的别重复加。
-- **既补遗漏、也改错误**：面板某值与正文明确写的不符（如正文已升 Lv.6、面板还是 5）→ 直接改对。
-
-═══ 二、物品（只碰主角 B1 + 随从/宠物）═══
-核对正文里「谁的物品被用掉/丢弃/损毁/卖掉/送出/数量减少/穿脱」是否已落实，并合并重复条目。**只用** consumeItem / destroyItem / unequipItem / equipItem，owner/itemId/name 逐字照抄清单：
-- 主角(B1)物品：owner 省略或 "B1"。**随从/宠物 NPC 物品**：owner 写其行尾标注的 C-id。
-- 正文里没了/少了、清单里却还在/没扣 → consumeItem(quantity=减少量) 或 destroyItem。已装备的被丢弃/损毁也可直接 destroyItem（引擎自动卸下）。
-- **换装≠销毁**：正文里"换下/脱下/替换"的旧装备**只是卸回储存空间、并没消失**，清单里还在是**正确**的——**绝不要**对被换下来的旧装备 destroyItem。只有正文明确"丢弃/卖掉/损毁/被夺走"才删。
-- **【重复物品·必须主动揪出·本段核心职责】** 逐一比对**同一持有者**名下，有没有"其实是同一件、却被重复生成成两条"的物品——这是 AI 高频 bug，**一定要查出来并删掉多余那条，别漏**：
-  · **判为重复**（满足"名称像 + 本轮只入手一次"即算重复）：两条名称**相同或高度相似**——仅差「的/之/了/小/旧」等虚词或修饰字、或近义改写（例：「劣质餐刀」=「劣质的餐刀」、「铁剑」≈「生锈铁剑」、「止血喷雾」≈「次级止血喷雾」），**且**最近两回合正文里这件东西**只入手过一次**（没写"得到两把/一对/多件"）。→ 同一件被重复生成：保留信息更全/已装备的那条，对**另一条** destroyItem（用其真实 itemId+owner+name）。
-  · **同一回合里突然冒出两条几乎一样的物品，几乎必是重复生成——果断删掉一条。**
-  · 只有这两种情况才**保留两条**：① 名称明显指向**不同物品**(不同类型/不同品质/不同用途)；② 正文确实写了"得到 2 件/一双/多个"。**别因"拿不准"就两条都放过**。
-- 清单里没有的物品别操作；名字略有出入按同一持有者名下语义最接近那条的真实 ID 操作，找不到就跳过。
-
-【最高铁则】
-1. **保守**：宁可漏纠，也别误改/误删/重复扣。拿不准正文是否真写了某变化 → 不动。（**唯一例外**：上面"重复物品揪出"——近似重名 + 本轮只入手一次，就要果断删掉多余那条，别让重复物品留在背包。）
-2. **不凭空想象**：正文没明确写的一律不补（凭空补全是演化阶段的事，不是你的）。
-3. **不重复**：已正确的别再发指令；已有技能/天赋/物品别重复 add。
-4. **禁区**：物品**只碰主角与"随从/宠物"**——**绝不碰其它 NPC（契约者/土著等）、绝不 createItem、绝不动任何货币、绝不碰势力**。
-5. 数值类只在正文给了明确依据时才改；六维小幅微调即可。
-
-【输出】只输出 <state> 与 <upstore> 块，每行一条指令；无需纠正就输出空块。禁止正文、解释、Markdown、思维链。`;
-
-const MERGED_AUDIT_PROMPT = `# 最近两回合正文
-\${story_text}
-
----
-# 一、主角当前面板（应用指令后·真实值）
-\${player_panel}
-
----
-# 二、物品清单（引用须照抄真实ID）
-## 主角(B1)背包
-\${player_items}
-
-## 随从/宠物 持有物（每行标注持有者C-id；**只纠正这些**，其它 NPC 不管）
-\${pet_items}
-
----
-对照最近两回合正文核对以上信息，**只输出**纠正"遗漏更新 / 错误更新"的 <state>/<upstore> 块；都正确就输出空块。
-**特别检查**：上面两份物品清单里，有没有"名称相同或高度相似、本轮正文却只入手过一次"的**重复物品**？有就对多余那条 destroyItem。`;
-
-const EVO_EXACT_REF_RULE = `
-【引用已有技能/天赋/称号·照抄铁则】删除或"升级更新"某个**已存在**的技能/天赋/称号/副职业/配方时（deSkill/deTalent/deTitle/deSubProfession/deRecipe，以及用**同名** addSkill/addTalent/addTitle 表示该条目"升级"），**名称必须照抄上方快照/已有清单里该条目的完整准确名称**：
-- 禁止简写、改写措辞、增删标点或空格（如把"烈焰斩·改"写成"烈焰斩"）。名字对不上会导致：① 删除失败删不掉；② 被当成全新条目重复添加，越堆越多。
-- 升级已有条目时，用与它**完全相同**的名字；只有确实是全新条目才用新名字。`;
-
-const SUBPROF_RULE = `
-【副职业·中文且仅正文显式】副职业名称、配方名一律用**中文**（禁止 tactics/wasteland_survival 之类英文或拼音）。**只有当本轮正文明确写出主角在从事/习得某项副职业（生活/制造/社交手艺）时，才允许 addSubProfession/addRecipe**；正文没有明确提及副职业，本轮一律不要新增或推断任何副职业。`;
-
-const NPC_AGE_RULE = `
-【NPC 年龄】每个 NPC 维护「年龄」：正文写明则照抄（character.<id>.age = "约25岁"），正文未写则按其阶位/设定合理生成一个年龄（可写"青年/中年/约30岁/数百岁"等）。`;
-
-const NPC_REVIEW_TAG_RULE = `
-【NPC 锐评(review)】每个 NPC 给一句**诙谐幽默、玩家第一人称视角的锐评/吐槽**（可夸张、可玩梗、可用颜文字/划掉体），风格示例：「我的妈呀，这谁顶得住！这身材这脸蛋这职业范儿，简直从幻想里走出来的，我的主线任务就是攻略她！(¯﹃¯)」。指令 character.<id>.review = "…"。锐评随剧情/印象变化可更新。
-【NPC 标签(npcTag)】每个 NPC 必须打一个**标签，且只能从这五个里选**：契约者 / 土著 / 随从 / 宠物 / 召唤物。判断依据：与轮回乐园签约的玩家类=契约者；任务世界原住民=土著；跟随主角的人形伙伴=随从；豢养的生物=宠物；法术/能力召唤出的存在=召唤物。指令 character.<id>.npcTag = "随从"。`;
-
-const FACTION_WORLD_RULE = `
-【势力所处世界】每个势力维护「所处世界」(worldName)=该势力当前所在/所属的世界名：正文写明则照抄，未写则填当前世界名。用 faction.<id> 命名键 worldName 更新。`;
-
-const FACTION_FULL_FORMAT_RULE = `
-【势力固定格式·全量必填铁则（最高优先，禁止偷懒/漏项）】每次 addFaction / faction.<id> 创建或更新势力，**必须把下列字段一次性全部带上、不得遗漏留空**（正文写明的照抄，没写的按设定合理补全）：
-- name（**中文、有具体含义**的势力名，严禁 F1/F2/英文/无意义占位）、type（类型：帮派/政府/企业/教会/军团/部落/星际势力…）、**worldName（所处世界＝该势力所在世界名，必填！直接填当前所在世界名）**、scale（规模）、powerLevel（实力/战力层级）、territory（地盘/势力范围）、leader（首领）、members（核心成员）、relations（与其他势力关系）、favorToPlayer（对主角态度，数值）、goal（当前目标）、resources（资源）、assets（资产）、status（当前状态，如"正常运作"）。
-- **worldName 绝不能空**：它决定该势力属于哪个世界，缺失会导致换世界后旧势力一直挂在当前世界出不去。哪怕只是更新一句近况，也要把 worldName 与上面这些关键字段一并补全，绝不能只更新 deeds/status 而漏掉其余条目。`;
-
-const NPC_DEAD_EXCLUDE_RULE = `
-【死亡角色不演化·铁则】本轮正文中已死亡/被击杀/被摧毁的角色**一律不纳入演化考虑范围**：
-- **同回合出现又死亡的角色，绝对不要建档**：凡是在本轮正文里"刚登场/刚出现就被打死、被秒杀、当场毙命"的角色（含有名字的杂兵、临时敌人、炮灰、哥布林/丧尸群、路人等），一律**不要放进 entries、不要 new、不要分配 ID、不要写任何 add/骨架**——当他们不存在。判断标准：该角色从登场到死亡都在本回合正文内完成。
-- **不要**为一击毙命的临时敌人新建档案（哪怕正文给了名字）。
-- 已建档的老角色若本轮死亡：只用 de(...) 归档并把状态标记为"已死亡"，**不要再补全/更新/演化**其属性、技能、天赋、装备、目标等任何字段。
-- 只对**存活、且明显会在后续剧情继续出场**的角色建档与演化。拿不准是否会再出场的，宁可不建档。`;
-
-const NPC_SKILL_KEEP_RULE = `
-【NPC 技能/天赋·只增不刷铁则（最高优先）】NPC 已拥有的技能与天赋是**持久档案**，绝不要每回合重新生成、更不要用"新版本"覆盖替换已有的同名条目：
-- 默认**原样保留**该 NPC 已有的全部技能/天赋（见下方 character_snapshot / 已有技能·天赋清单），本轮不要去动它们。
-- **只有**本轮正文明确写出该 NPC「学会/领悟/掌握/获得了一个**全新**技能」或「觉醒/获得了一个**全新**天赋」时，才 addSkill / addTalent **新增那一个新条目**（用与已有不同的名字）。
-- **只有**本轮正文明确写出某个**已有**技能/天赋发生了「升级/进阶/突破/层数提升」时，才用**同名**addSkill / addTalent 去更新它（名字保持不变，体现更高等级/评级）。
-- 若本轮没有"学会新技能 / 已有技能升级"的明确情节，**本轮就不要输出任何 addSkill / addTalent**。严禁把已有技能换个数值或换种措辞再报一遍。`;
-
-const TIER_RULE = `
-【阶位规范·铁则】阶位(tier)**只能**是这 13 个之一：一阶/二阶/三阶/四阶/五阶/六阶/七阶/八阶/九阶/绝强/至强/巅峰至强/无上之境，**与等级一一对应**：一阶=Lv.1-10、二阶=11-20、三阶=21-30、四阶=31-40、五阶=41-50、六阶=51-60、七阶=61-70、八阶=71-80、九阶=81-90、绝强=91-100、至强=101-120、巅峰至强=121-140、无上之境=140+。
-- 阶位字段只填上述阶位名（不带 Lv、不带初期/中期/后期）；等级字段只填纯数字（如 Lv.25）。
-- 绝不要出现"结丹/筑基/金丹/元婴/三阶中期"等任何其他写法。NPC 列2 格式固定为「阶位·Lv.X|身份」，如「三阶·Lv.25|调查员」。`;
-
-const SKILL_TALENT_NOTE_RULE = `
-【技能/天赋·备注(note)】addSkill/addTalent 时尽量补一个 note 字段——**寓言式或评价式的一句点评**（点出该技能/天赋的本质、代价或克制，风格如「即使是不死者，被斩下头颅或彻底碾碎心脏也会迎来终结。」「快到极致的剑，连影子都追不上主人。」）。简短有韵味即可；实在无合适点评可省略，不要硬凑。`;
-
-const SKILL_TIER_RULE = `
-【技能品级与等级系统·轮回乐园·一切以正文为准】技能有「品级」与「等级」两条独立的线，**只凭本轮正文明确写到的证据提升，绝不凭空拔高**：
-- **品级**(addSkill 的 rarity 字段，由低到高共 7 档，**只能填这七个词之一**)：普通 → 精良 → 稀有 → 史诗 → 传说 → 奥义 → 极境。
-  · **奥义**技能往往带「唯一被动」限制——同源/对立的两个奥义被动任何情况下都无法同时触发（例：召唤物阿姆的「无畏战牛」与「离群战牛」均为奥义级唯一被动）。
-  · **极境**技法是全书最高层次，**无法靠堆资源直接兑换**，必须靠实战体悟 + 技能融合练成（例：苏晓融合刀术·近战·血枪三宗师之力，进阶为极境技法「天锋斩影」，需消耗大量资源并通过「心之考验」）。极境极稀有，非重大剧情突破/融合不得授予。
-- **等级**(level 字段)：每个技能 Lv.1 → Lv.10，再往上是 Lv.EX（满级）。格式写作 "Lv.3"/"Lv.10"/"Lv.EX"。到 Lv.EX 满级后，可升一档品级、随后等级**重新从 Lv.1 开始**。
-- 品级、等级的提升都**只在正文明确写到**（实战体悟/突破/融合/试炼/奖励）时才更新；同名技能只更新不重复、别重新取名。`;
-
-const IMAGE_TAGS_RULE = `
-【生图提示词·第19列(imageTags)·轮回乐园】为角色维护一份**英文 Danbooru/NAI tags 生图提示词**，供 AI 自动生成角色立绘/肖像、并保证同角色多次出图形象一致。
-- 输出方式：主角用 \`add("B1", {"19":"<英文tags>"})\` 或 \`character.B1.imageTags = "<英文tags>"\`；NPC 用 \`add("<id>", {"19":"<英文tags>"})\`。
-- 格式：**15~25 个具体、忠实**的英文 danbooru tags（逗号分隔，别泛化），依次覆盖：① 主体数量+性别开头（1girl/1boy/1other，非人生物写 monster/dragon/robot 等+种类）；② 发型(长度+颜色+样式)；③ 瞳色+眼型；④ 面容/肤色/年龄感/疤痕等辨识点；⑤ 表情；⑥ 体型(若知)；⑦ **服装逐件拆开**(每件带颜色/材质，如 black military coat, leather gloves, red scarf)+标志性配饰/随身武器；⑧ 构图+光影氛围(upper body, looking at viewer, dramatic lighting)。权重用 NAI 冒号语法或不加；**禁止**中文、整句、质量词(画师串系统自动追加)、负面词、Markdown。把角色档案里的外观/着装/发型等信息**尽量写全写细**（这是质量关键，宁多勿少）。
-- **轮回乐园适配**：服饰/风格按该角色所属世界与设定来写（现代/科幻/奇幻/末世等皆可），**不要**写修仙味的灵气/法袍/飞剑/灵纹等词，除非角色设定本身就是修仙者。
-- **同人/二次创作角色·准确性铁则**：当角色是已知的动漫/游戏/小说等**同人角色**时，必须输出**准确的 danbooru 角色 tags**——优先写「角色名 tag(下划线式，如 \`artoria_pendragon\`) + 作品/系列 tag(\`fate/stay_night\`) + 该角色的**经典固定外观**(发型发色/瞳色/标志性服装/配饰)」，而不是泛化描述；若不确定该角色的标准 danbooru tag，则按其公认经典形象尽量准确地用具体特征 tag 还原，禁止张冠李戴或编造不符的外观。原创角色才用纯特征描述。
-- 何时生成/更新：角色形象**稳定可辨识**时生成；只有**长期外观锚点**变化（发型/发色/容貌/年龄感/体型、整套主造型或常驻装备替换、稳定疤痕/异变纹路等）才覆盖更新，并把冲突的旧 tag 一并改掉（如剃光头后必须含 bald/shaved head 并移除 long hair）。**临时**动作/表情/光影/场景/临时换装不要写进第19列。`;
-
-const FIRST_UPDATE_COMPLETE_RULE = `
-【首次建档·全量铁律（最高优先，禁止偷懒/遗漏）】当本轮**首次为某个角色建档**（该角色此前不存在），或某个该有的变量此前从未被赋值时，**必须一次性把所有该有的变量补全，禁止遗漏、禁止省略、禁止留空、禁止"以后再说"**：
-- 角色(主角 B*/NPC C*·G*)首次建档**必须全部给出**：阶位·Lv等级、性别、性格、身份、六维属性(力/敏/体/智/魅/幸)、年龄、外观、第19列生图提示词等。
-- **生命 HP / 蓝量 EP 的上限由前端自动换算，禁止你写 maxHp/maxMp**：HP上限 = 体质(con)×20，EP上限 = 智力(int)×15（真实属性按每80普通=1真实折算，公式自动适配）。因此**只要把六维（尤其体质、智力）按其阶位/生物强度合理给足**，HP/EP 上限即自动生成——**不要**再输出 \`hp.<id> = 当前/上限\` 的上限部分。新建角色默认满血满蓝，无需显式写当前值。只有在正文发生**受伤/治疗/消耗/恢复**时，才用 \`hp.<id> -= N\` / \`hp.<id> += N\` / \`mp.<id> -= N\` / \`mp.<id> += N\` 调整**当前**值。
-- 正文写明的照抄；正文没写的按设定合理生成——**但不得以"正文没写"为由跳过任何变量**。
-- 之后回合只做增量更新，不必反复重置上限。
-- 此规则同样适用于物品/势力/领地等的首次建档：首次创建必须把该对象的固定字段一次性填全。`;
-
-const HPEP_NARRATIVE_ONLY_RULE = `
-【HP/EP 更新·严格遵正文铁则（最高优先，覆盖任何"每回合回血/扣血"旧文案）】主角与 NPC 的**当前** HP(生命)/EP(蓝量) **只在以下两种情况才允许变动，其余一律原样保持不变**：
-① 本轮正文**明确写到**该角色的生命/精力发生了变化——受伤/流血/被击中/中毒/灼烧/力竭/眩晕等掉血掉蓝，或被治疗/包扎/休息/进食/吸收能量等回血回蓝——则按正文描述的幅度用 \`hp.<id> -= N\` / \`hp.<id> += N\` / \`mp.<id> -= N\` / \`mp.<id> += N\` 调整。
-② 主角**本轮主动使用了背包里的恢复品/消耗品**（药剂/食物/回复道具等）——按该物品效果回复，用 \`hp.B1 += N\` / \`mp.B1 += N\`。
-- **若本轮正文没有提到某角色的 HP/EP 变化、且没有主动使用恢复品 → 绝对不要改它的 HP/EP**。禁止凭"刚打了一架应该掉血""歇了一会儿应该回点""习惯性每回合回血"等任何推测擅自增减。拿不准就不动。
-- **最大值由前端算、你不写 maxHp/maxMp**：最大HP = 体质(con)×20 + 装备里写明"增加生命上限"的加成；最大EP = 智力(int)×15 + 装备里写明"增加法力/能量上限"的加成。前端会把当前值自动夹在 ≤ 最大值。你只负责按正文增减**当前**值。
-- **若某件装备的效果是提升生命/法力上限**，请把它**写进该装备的 effect 文本里**（如"生命上限+50""最大EP+30"），前端据此把它计入最大值——不要写成 maxHp 指令。
-- **连带铁则：不要为了改 HP/EP 而偷偷改六维**。体质(con)决定 HP 上限、智力(int)决定 EP 上限——**六维只在正文明确写到该角色成长/突破/被强化/被削弱时才调整**；不得每回合无依据地把六维（尤其体质、智力）上下浮动，否则 HP/EP 上限会跟着"自己变化"。建档后六维保持稳定，除非正文给出明确变化理由。`;
-
-const ADVANCE_POINTS_RULE = `
-【进阶点数·获得量 vs 当前总量·区分铁则】进阶点数(advancePoints)是升级所需的**累积资源**，三种指令务必区分，别混：
-- 正文写本轮【获得/奖励/赚得/掉落/到手】N 点 → 用 \`ap.<id> += N\`（在原有总量上**累加**，绝不是把总量设成 N）。
-- 正文写升级【消耗/花费/扣除】N 点 → 用 \`ap.<id> -= N\`。
-- 仅当正文**明确报出当前总量**（"当前进阶点数为 N / 现有 N 点 / 累计 N 点"）时，才用 \`ap.<id> = N\`（直接设为该总量）。
-- **严禁把"本轮获得 N 点"误判成"当前共有 N 点"**（会冲掉已累积的总量），也别把"当前共有 N 点"当成又获得 N 去累加。**分不清是增量还是总量时，一律按增量 \`+= \` 处理**。`;
-
-const WORLDSOURCE_RULE = `
-【世界之源·总量百分比铁则】世界之源是当前任务世界累计获取的进度**百分比**（带小数，如 0.6 表示 0.6%），指令 character.B1.worldSource：
-- 正文报【当前累计/总计 X%】→ 用 \`character.B1.worldSource = X\`（直接设为该总量，如"当前总计0.6%"→ \`= 0.6\`）。
-- 正文报【本次获得/增加 X%】→ 用 \`character.B1.worldSource += X\`（在原有总量上累加）。
-- 回归轮回乐园 → \`character.B1.worldSource = 0\`。
-- **务必区分"当前总计"与"本次新增"**：正文说"当前总计 0.6%"就 \`= 0.6\`，绝不要只 += 一个小增量导致面板与正文对不上。`;
-
-const POINTS_NARRATIVE_RULE = `
-【属性点/真实属性点/技能点·完全按正文铁则】这三类点数**只在本回合正文明确出现相关数字或增减时才更新；正文没提到就保持原值，绝不臆造、绝不归零、不要每回合刷**。指令：
-- 主角：\`character.B1.attrPoints\`、\`character.B1.realAttrPoints\`。
-- NPC：\`character.<id>.attrPoints\`、\`character.<id>.realAttrPoints\`、\`character.<id>.skillPoints\`。
-- 用法：正文报【当前总量 N】→ \`= N\`；正文报【本次获得/奖励 N】→ \`+= N\`；正文报【消耗/扣除 N】→ \`-= N\`。无正文依据则完全不输出这些指令。`;
-
-const ATTR_SANITY_RULE = `
-【六维合理性铁则·按"它是什么"给属性】生成/更新六维必须**贴合角色的种族、形象与身份**，禁止给所有角色套同一套人类模板：
-- **非人/低等/无智生物**（丧尸/僵尸/魔物/野兽/虫群/骷髅/史莱姆/暴走数据体/亡灵等）：智力(int)、魅力(cha)、幸运(luck)一律**极低**（多为 1~3）；力量/体质按其凶性给（如丧尸高体质耐打、低敏捷）。**绝对不要给丧尸、野兽这类怪物高魅力或高智力**。
-- **魅力(cha)=社交吸引力/外貌气质**：只有外形佳、有人格魅力的人形角色才高；怪物、丑陋、狰狞、无智的存在魅力必须低。
-- 有智慧的反派/精英可有高智力，但魅力仍按其形象（狰狞首领魅力不高）。
-- 普通人类（学生/平民/职员）六维平实，不要动辄全高。
-- 宁可偏低写实，禁止凭空拔高；**先判断"这是个什么东西"，再据此分配六维**。`;
-
-const APPEARANCE_UPDATE_RULE = `
-【主角「位置」+「外观」每回合必更新铁则（本回合不输出即视为失职）】**每一回合都必须同时刷新主角的当前位置与外观**，反映本轮正文此刻的最新状态：
-- **位置**：主角现在身处何地——用 \`character.B1.location = "具体地点（有坐标就带 X,Y）"\`。场景一变就更新，**绝不许停留在上一轮的旧地点**。
-- **外观**：当前动作/姿态、所处场景、衣着/装备变化，以及身上的污渍/伤痕/血迹/湿身/凌乱/表情情绪等即时变化——用 \`character.B1.appearance = "…"\`（或 add("B1",{"16":动作\\|穿着\\|位置\\|身段\\|样貌})，五段用半角竖线｜分隔，其中位置段也要同步当前地点）。
-- **即便长相/地点没大变，也要按本回合情境更新动作姿态与即时状态**；绝不要照搬上一轮原文、绝不要这回合跳过不输出。本回合若没输出主角的位置与外观更新指令，即为失职。`;
-
-const PLAYER_STATE_EMIT_RULE = `
-【系统·主角状态同步（每回合正文末尾必输出，前端解析后会从显示中自动移除，不影响阅读）】每回合正文的最后，追加一个 <state> 块，更新主角此刻的位置、外观与当前状态：
-<state>
-character.B1.location = "主角当前所在的具体地点（有坐标就带 X,Y）"
-character.B1.appearance = "主角此刻的动作/姿态/衣着/即时状态（污渍·伤痕·湿身·表情等）"
-character.B1.status = "状态名:表情符(效果|激活条件|结束条件|来源)；状态名2:表情符(…)；…"
-</state>
-- 位置随场景变化即时更新、绝不要停留在旧地点；外观每回合都按当前情境刷新。
-- **当前状态(status)必须严格按「状态名:Emoji(效果|激活|结束|来源)」格式**——多个状态用中文分号；分隔；括号内四段顺序固定、用半角竖线|分隔（某段不详可留空但保留|）；状态名后紧跟一个表情符；无任何状态时写「一切正常」。**绝不能只写状态名（那样前端解析不出可展开的胶囊详情、也没有图标）**。
-  例：character.B1.status = "浑身浴血:🩸(威慑+10%、易被追踪|血战之后|清洗后消退|斩杀群敌)；暂时脱离战斗:🚪(短暂喘息|主动后撤|再次交战时|战术撤离)；煞气缠身:⚔️(近战气势压制|连续杀戮|情绪平复后|嗜血状态)"
-- 此块只供系统读取。`;
+/* 解析 <details> 事实查证块 → 折叠展示文本 + 需锁定的事实锚点（供下回合注入）*/
+function parseFactCheck(raw: string): { note: string; anchors: string[] } | null {
+  const blocks = [...raw.matchAll(/<details>([\s\S]*?)<\/details>/gi)].map((x) => x[1]);
+  for (const b of blocks) {
+    if (!/事实查证/.test(b)) continue;   // 只认事实查证块
+    const inner = b.replace(/<\/?summary>/gi, '').replace(/^事实查证\s*/m, '').trim();
+    if (!inner) continue;
+    const am = inner.match(/锚点[：:]\s*([\s\S]*)$/);
+    const anchors = (am ? am[1] : '')
+      .split(/[\n；;]+/).map((s) => s.replace(/^[-·•\s]+/, '').trim())
+      .filter((s) => s && s !== '—' && s !== '无' && s.length > 1);
+    return { note: inner, anchors };
+  }
+  return null;
+}
 
 const STATUS_FORMAT_RULE = `
 【当前状态·固定格式铁则（主角+NPC）】「当前状态/Buff」(列4 / character.<id>.status) 必须按**固定格式**输出，供前端解析成状态胶囊：
@@ -1110,6 +1010,7 @@ export default function App() {
   const [cosmosPhaseLog,     setCosmosPhaseLog]     = useState('');     // 万族演化阶段提示
   const [cosmosPanelOpen,    setCosmosPanelOpen]    = useState(false);
   const [cosmosTicker,       setCosmosTicker]       = useState('');     // 万族本回合更新（顶部滚动条）
+  const [choicesRunning,     setChoicesRunning]     = useState(false);  // 剧情选项/同人增强后处理调用中
   const [promoteCandidates,  setPromoteCandidates]  = useState<string[]>([]);  // 临时队伍解散→待"转正进冒险团"的队友 id
   const [teamPhaseLog,       setTeamPhaseLog]       = useState('');     // 冒险团演化阶段提示
   const [teamPanelOpen,      setTeamPanelOpen]      = useState(false);
@@ -1146,6 +1047,7 @@ export default function App() {
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [mobileDrawer, setMobileDrawer] = useState<'player' | 'menu' | null>(null); // 手机端：左角色栏 / 右导航 抽屉
   const [inputValue, setInputValue] = useState('');
+  const [choicesOpen, setChoicesOpen] = useState(false);   // 剧情选项折叠面板（默认收起，点击展开）
   const [rawResponse, setRawResponse] = useState('');
   const [showRaw, setShowRaw] = useState(false);
   const [promptSent, setPromptSent] = useState('');
@@ -1686,7 +1588,7 @@ export default function App() {
         .replaceAll('${character_snapshot}', playerProfileSnapshot)
         .replaceAll('${player_skills}', pSkills.length ? pSkills.map((s) => `${s.id}「${s.name}」${s.level ?? ''}`).join('；') : '（无）')
         .replaceAll('${player_traits}', pTalents.length ? pTalents.map((t) => `「${t.name}」${t.category ?? ''}·${t.rarity}级`).join('；') : '（无）')
-        + '\n\n' + NARRATIVE_FIRST_RULE + '\n' + EVO_VERIFY_RULE + '\n' + BUFF_AS_STATUS_RULE + '\n' + SUBPROF_RULE + '\n' + TALENT_NO_CAP_RULE + '\n' + TITLE_DIVERSITY_RULE + '\n' + SKILL_TALENT_NOTE_RULE + '\n' + SKILL_TIER_RULE + '\n' + TIER_RULE + '\n' + IMAGE_TAGS_RULE + '\n' + HPEP_NARRATIVE_ONLY_RULE + '\n' + ADVANCE_POINTS_RULE + '\n' + WORLDSOURCE_RULE + '\n' + POINTS_NARRATIVE_RULE + '\n' + ATTR_SANITY_RULE + '\n' + APPEARANCE_UPDATE_RULE + '\n' + STATUS_FORMAT_RULE + '\n' + FIRST_UPDATE_COMPLETE_RULE + '\n' + EVO_EXACT_REF_RULE;
+        + '\n\n' + NARRATIVE_FIRST_RULE + '\n' + EVO_VERIFY_RULE + '\n' + BUFF_AS_STATUS_RULE + '\n' + SUBPROF_RULE + '\n' + TALENT_NO_CAP_RULE + '\n' + TITLE_DIVERSITY_RULE + '\n' + SKILL_TALENT_NOTE_RULE + '\n' + SKILL_TIER_RULE + '\n' + PLAYER_SKILL_KEEP_RULE + '\n' + TIER_RULE + '\n' + IMAGE_TAGS_RULE + '\n' + HPEP_NARRATIVE_ONLY_RULE + '\n' + ADVANCE_POINTS_RULE + '\n' + WORLDSOURCE_RULE + '\n' + POINTS_NARRATIVE_RULE + '\n' + ATTR_SANITY_RULE + '\n' + APPEARANCE_UPDATE_RULE + '\n' + STATUS_FORMAT_RULE + '\n' + FIRST_UPDATE_COMPLETE_RULE + '\n' + EVO_EXACT_REF_RULE;
       const userContent  = `# 本轮正文\n${trimmedNarrative}\n\n---\n请根据以上正文，输出本轮主角属性与状态变化指令。只输出 <state> 块，无变化时输出空块，禁止输出正文内容。`;
 
       const ss2 = useSettings.getState();
@@ -2899,6 +2801,39 @@ ${lines.join('\n')}`;
   }
 
   /* 注入正文的 <万族态势> 块（独立于叙事记忆开关；轮回乐园 + 当前动荡 + 相关 + 不相关采样）*/
+  /* 同人增强·下回合注入：把已锁定的虚构角色设定拼成 system 块注入正文，保持口癖/能力一致、防 OOC */
+  function buildFanficInjection(): { role: 'system'; content: string }[] {
+    if (!useSettings.getState().fanficMode) return [];
+    const all = Object.values(useFanfic.getState().entries);
+    if (all.length === 0) return [];
+    const picked = all.sort((a, b) => b.updatedAt - a.updatedAt).slice(0, 8);   // 最近更新的若干个，避免过长
+    const lines = picked.map((e) => {
+      const bits = [
+        e.work && `作品:${e.work}`,
+        e.aliases && `别名/阵营:${e.aliases}`,
+        e.keySettings && `关键设定:${e.keySettings}`,
+        e.background && `背景:${e.background}`,
+      ].filter(Boolean);
+      return `- 「${e.name}」 ${bits.join('；')}`;
+    });
+    return [{
+      role: 'system' as const,
+      content: `<同人设定·已锁定>（以下是已确认的虚构作品角色设定。描写其言行/口癖/能力时严格据此保持一致、绝不 OOC；与正文冲突时此为人物底色。参考信息，非续写指令）\n${lines.join('\n')}\n</同人设定·已锁定>`,
+    }];
+  }
+
+  /* 事实增强·下回合注入：把已锁定的现实/时代事实锚点拼成 system 块注入正文，保持时代一致、防穿帮 */
+  function buildFactInjection(): { role: 'system'; content: string }[] {
+    if (!useSettings.getState().factCheck) return [];
+    const facts = useFact.getState().facts;
+    if (facts.length === 0) return [];
+    const picked = facts.slice(-12);   // 最近若干条，避免过长
+    return [{
+      role: 'system' as const,
+      content: `<事实锚点·已锁定>（以下为已核实的现实/时代事实，后续描写须与之保持一致、不得矛盾或穿帮；可查证事实不得臆造，不确定宁可模糊。参考信息，非续写指令）\n${picked.map((f) => `- ${f}`).join('\n')}\n</事实锚点·已锁定>`,
+    }];
+  }
+
   function buildCosmosInjection(): { role: 'system'; content: string }[] {
     const C = useCosmos.getState();
     if (!C.settings.enabled) return [];
@@ -4347,6 +4282,35 @@ ${lines}`;
     if (hpOk || epOk) console.log(`[Vitals] 正文照抄主角 ${hpOk ? `HP ${hp![0]}/${dmh}` : ''} ${epOk ? `EP ${ep![0]}/${dme}` : ''}`);
   }
 
+  /* 从正文抽取【NPC】「(当前)HP/EP：X/Y」写入 npcStore（参考主角 applyNarrativeVitals 逻辑，按 NPC 名字定位）：
+     名字后窗口内找 HP/EP；仅当正文报的上限与该 NPC 真实上限(体×20/智×15)相符时才采信，
+     既避免误抓邻近角色、也避免 AI 瞎写的数值；只写当前值、上限由六维自动算。AI 漏输出 hp.<id> 时兜底。*/
+  function applyNarrativeNpcVitals(narrative: string) {
+    const npc = useNpc.getState();
+    const recs = Object.values(npc.npcs).filter((r) => r.name && r.name !== r.id && r.name.trim().length >= 2 && !r.isDead && r.attrs);
+    if (recs.length === 0) return;
+    const within = (max: number, dm: number) => dm > 0 && Math.abs(max - dm) <= Math.max(8, dm * 0.15);
+    let applied = 0;
+    for (const r of recs) {
+      const dmh = computeMaxHp(r.attrs!), dme = computeMaxEp(r.attrs!);
+      const nameEsc = r.name.split('|')[0].trim().replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      const grab = (kws: string, dm: number): number | null => {
+        if (dm <= 0) return null;
+        const re = new RegExp(`${nameEsc}[\\s\\S]{0,160}?(?:当前)?\\s*(?:${kws})\\s*[:：]\\s*(\\d{1,7})\\s*/\\s*(\\d{1,7})`, 'gi');
+        let m: RegExpExecArray | null, last: [number, number] | null = null;
+        while ((m = re.exec(narrative)) !== null) last = [Number(m[1]), Number(m[2])];
+        return last && last[0] >= 0 && last[1] > 0 && within(last[1], dm) ? Math.min(last[0], dm) : null;
+      };
+      const hp = grab('HP|血量|生命值?', dmh);
+      const ep = grab('EP|MP|蓝量|法力|能量|精力', dme);
+      const patch: Partial<import('./store/npcStore').NpcRecord> = {};
+      if (hp != null) patch.hp = hp;
+      if (ep != null) patch.mp = ep;
+      if (Object.keys(patch).length) { npc.upsertNpc(r.id, patch); applied++; }
+    }
+    if (applied > 0) console.log(`[Vitals] 正文照抄 NPC HP/EP：${applied} 个角色`);
+  }
+
   /* 无信息卡时，按阶位预算自动生成【有起伏】的六维（一主一次三低，非平均），替代"全5"默认 */
   const TIER_ATTR: Record<number, { min: number; max: number; budget: number; luckMax: number }> = {
     1: { min: 5, max: 20, budget: 55, luckMax: 2 },
@@ -4483,11 +4447,95 @@ ${lines}`;
     }
   }
 
+  /* 选项 + 同人增强：正文生成后，共用一个 API、只调用一次，按开关产出 8 选项 / 同人设定块 */
+  async function runChoicesFanficPhase(narrative: string, assistantMsgId?: number) {
+    const ss = useSettings.getState();
+    const wantChoices = ss.plotChoices, wantFanfic = ss.fanficMode, wantFact = ss.factCheck;
+    if (!wantChoices && !wantFanfic && !wantFact) return;
+    const text = (narrative || '').trim();
+    if (!text) return;
+
+    // 共用正文 API（featureKey 'plot'，未单独配路由则回退正文 API）；无可用接口则静默跳过
+    const legacy = ss.textUseSharedApi ? ss.api : ss.textApi;
+    const chain = resolveApiChain('plot', legacy);
+    if (!chain[0]?.baseUrl || !chain[0]?.apiKey) return;
+
+    const sysParts = [CHOICES_FANFIC_SYSTEM];
+    if (wantFanfic) sysParts.push(FANFIC_RULE);
+    if (wantFact) sysParts.push(FACT_RULE);
+    if (wantChoices) sysParts.push(PLOT_CHOICES_RULE);
+    sysParts.push(`【本次输出顺序】${wantFanfic ? '先输出 <details>同人搜索内容</details> 块（涉及已知作品角色才输出，可多个）；' : ''}${wantFact ? '再输出 <details>事实查证</details> 块（涉及现实可查证元素才输出）；' : ''}${wantChoices ? '最后输出 <choices> 块（A~H 共 8 个选项，最后一个 H 为限制级）。' : ''}除这些标签块外不要有任何其它文字。`);
+
+    // 判定上下文：主角全卡(含物品) + 在场 NPC 全信息(含持有物) + 最近两回合正文，供选项/同人/事实联合判定
+    const P = usePlayer.getState();
+    const game = useGame.getState().player;
+    const b1 = useCharacters.getState().characters['B1'];
+    const playerCard = serializePlayerCard(
+      P.profile, game, b1?.skills ?? [], b1?.traits ?? [], useItems.getState().items,
+      { maxNpcs: 0, maxSkills: 99, maxItems: 99, maxSubProfs: 99 },
+      b1?.titles, b1?.subProfessions, useItems.getState().currency,
+    );
+    const npcBlocks = Object.values(useNpc.getState().npcs)
+      .filter((n) => n.onScene && !n.isDead)
+      .map((r) => {
+        const a = r.attrs;
+        const bits = [
+          `${r.name || r.id}${r.gender ? `(${r.gender})` : ''}`,
+          r.npcTag && `标签:${r.npcTag}`, r.realm && `阶位/身份:${r.realm}`,
+          r.profession && `职业:${r.profession}`, r.age && `年龄:${r.age}`,
+          a && `六维:力${a.str} 敏${a.agi} 体${a.con} 智${a.int} 魅${a.cha} 幸${a.luck}`,
+          r.personality && `性格:${r.personality}`, `好感:${r.favor}`,
+          (r.items?.length ?? 0) > 0 && `持有物:${r.items.map((it) => `${it.name}(${it.category}${it.gradeDesc ? '·' + it.gradeDesc : ''})`).join('、')}`,
+        ].filter(Boolean);
+        return '· ' + bits.join(' | ');
+      }).join('\n');
+    const userMsg = [
+      `【主角全部信息】\n${playerCard}`,
+      `【在场角色全部信息（含持有物）】\n${npcBlocks || '（无）'}`,
+      `【最近两回合正文】\n${buildRecentNarrative(text, 2).slice(-9000)}`,
+    ].join('\n\n');
+
+    setChoicesRunning(true);
+    try {
+      const { content } = await apiChatFallback(chain, [
+        { role: 'system', content: sysParts.join('\n\n') },
+        { role: 'user', content: userMsg },
+      ], { timeoutMs: 90000, extra: { temperature: 0.9, max_tokens: 2600 } });
+
+      if (wantChoices) {
+        const opts = parseChoices(content);
+        if (opts.length && assistantMsgId != null) {
+          setMessages((prev) => prev.map((m) => (m.id === assistantMsgId ? { ...m, choices: opts } : m)));
+        }
+      }
+      if (wantFanfic) {
+        const parsed = parseFanficDetails(content);
+        if (parsed) {
+          if (assistantMsgId != null) setMessages((prev) => prev.map((m) => (m.id === assistantMsgId ? { ...m, fanficNote: parsed.note } : m)));
+          parsed.entries.forEach((e) => useFanfic.getState().upsert(e));
+        }
+      }
+      if (wantFact) {
+        const parsed = parseFactCheck(content);
+        if (parsed) {
+          if (assistantMsgId != null) setMessages((prev) => prev.map((m) => (m.id === assistantMsgId ? { ...m, factNote: parsed.note } : m)));
+          if (parsed.anchors.length) useFact.getState().add(parsed.anchors);
+        }
+      }
+    } catch (e) {
+      console.warn('[选项/同人/事实] 生成失败', e);
+    } finally {
+      setChoicesRunning(false);
+    }
+  }
+
   function runPostNarrativePhases(narrative: string, assistantMsgId?: number) {
     // 先从正文人物卡照抄六维（同步，先于各演化阶段，使快照与显示即刻正确）
     try { applyNarrativeAttrs(narrative); } catch (e) { console.warn('[Attr] 六维抽取失败:', e); }
     // 主角 HP/EP：正文出现"当前HP/EP：X/Y"就照抄（AI 漏写 hp.B1 时兜底，解决 HP 恢复了但侧栏不变）
     try { applyNarrativeVitals(narrative); } catch (e) { console.warn('[Vitals] HP/EP 抽取失败:', e); }
+    // NPC HP/EP：正文按名字出现"(当前)HP/EP：X/Y"就照抄（参考主角逻辑，AI 漏写 hp.<id> 时兜底）
+    try { applyNarrativeNpcVitals(narrative); } catch (e) { console.warn('[Vitals] NPC HP/EP 抽取失败:', e); }
     // 在场/离场校正（兜底登场判断漏标，确保离场角色进入离场B区档案）
     try { reconcileScenePresence(narrative); } catch (e) { console.warn('[NPC] 在场/离场校正失败:', e); }
     // 先用当前已有 NPC 设一份重定向目标（登场判断完成后会再刷新）
@@ -4520,6 +4568,8 @@ ${lines}`;
     if (due('misc')) runMiscEvolutionPhase(narr('misc'));
     // 叙事记忆·回复后写入：LLM 抽取长期事实
     if (due('nm')) runNarrativeIngestPhase(lastUserInputRef.current, narr('nm'));
+    // 剧情选项 + 同人增强：正文后共用一个 API、只调用一次（受各自开关门控，不阻塞其它演化）
+    runChoicesFanficPhase(narrative, assistantMsgId);
     // 生图·肖像/装备自动化：受各自开关门控，独立并发（依赖 NPC/物品演化已写档，故延后触发）
     setTimeout(() => { runPortraitPhase(); runEquipImagePhase(); }, 6000);   // 延后约 6s 等演化先写档；肖像可用名字/阶位翻译、装备不再强求 appearance，故无需久等
     // 生图·正文配图：受 autoStory 门控，挂到本楼层
@@ -4631,6 +4681,8 @@ ${lines}`;
       ...structMem,                                    // <在场与相关档案> 结构化档案块（如有）
       ...buildPlayerCoreInjection(),                    // <主角核心> 始终注入主角真实外观/六维（结构化召回关时兜底，防 AI 改发色/清属性）
       ...buildCosmosInjection(),                        // <万族态势> 宇宙背景层（独立于叙事记忆开关，cosmos 自己的启用控制）
+      ...buildFanficInjection(),                        // <同人设定·已锁定> 已识别的虚构作品角色设定（受 fanficMode 门控，下回合注入防 OOC）
+      ...buildFactInjection(),                          // <事实锚点·已锁定> 已核实的现实/时代事实（受 factCheck 门控，下回合注入防穿帮）
       ...recent,                                       // 最近原文楼层
       { role: 'user' as const, content: userText },
     ];
@@ -5093,10 +5145,24 @@ ${lines}`;
                             <div className="max-w-sm px-4 py-2 rounded-xl bg-god/10 border border-god/20 text-sm text-god/90 font-mono"
                               dangerouslySetInnerHTML={{ __html: userToHtml(msg.content) }} />
                           ) : (
-                            <div
-                              className="text-[17px] text-slate-300 leading-relaxed narrative-content"
-                              dangerouslySetInnerHTML={{ __html: toHtmlWithImages(msg.content, msg.images) }}
-                            />
+                            <div>
+                              <div
+                                className="text-[17px] text-slate-300 leading-relaxed narrative-content"
+                                dangerouslySetInnerHTML={{ __html: toHtmlWithImages(msg.content, msg.images) }}
+                              />
+                              {msg.fanficNote && (
+                                <details className="mt-2 rounded-lg border border-fuchsia-500/25 bg-fuchsia-500/5 px-3 py-2 text-[13px]">
+                                  <summary className="cursor-pointer text-fuchsia-300/80 font-mono select-none">🔍 同人搜索内容</summary>
+                                  <div className="mt-2 text-slate-300 whitespace-pre-wrap leading-relaxed">{msg.fanficNote}</div>
+                                </details>
+                              )}
+                              {msg.factNote && (
+                                <details className="mt-2 rounded-lg border border-sky-500/25 bg-sky-500/5 px-3 py-2 text-[13px]">
+                                  <summary className="cursor-pointer text-sky-300/80 font-mono select-none">🔎 事实查证</summary>
+                                  <div className="mt-2 text-slate-300 whitespace-pre-wrap leading-relaxed">{msg.factNote}</div>
+                                </details>
+                              )}
+                            </div>
                           )}
                         </div>
                       ))}
@@ -5123,6 +5189,12 @@ ${lines}`;
           <div className="shrink-0 border-t border-edge bg-panel px-4 py-1.5 flex items-center max-lg:flex-wrap gap-2 text-[11px] font-mono text-dim">
             <span className="text-god/60">📋</span>
             <span>本回合状态命令 · {turnCountRef.current} 回合</span>
+            {choicesRunning && (
+              <span className="flex items-center gap-1 text-fuchsia-300/90">
+                <span className="animate-spin inline-block">◌</span>
+                🎭 选项/同人生成中…
+              </span>
+            )}
             {itemPhaseRunning && (
               <span className="flex items-center gap-1 text-amber-400">
                 <span className="animate-spin inline-block">◌</span>
@@ -5261,6 +5333,37 @@ ${lines}`;
               <pre className="text-[11px] font-mono text-slate-400 whitespace-pre-wrap break-all">{rawResponse}</pre>
             </div>
           )}
+
+          {/* 剧情选项（折叠面板，点击展开；取最后一条正文的 8 选项，点击填入输入框）*/}
+          {started && !generating && (() => {
+            const opts = [...messages].reverse().find((m) => m.role === 'assistant')?.choices;
+            if (!opts || opts.length === 0) return null;
+            return (
+              <div className="shrink-0 border-t border-edge bg-panel/40">
+                <button onClick={() => setChoicesOpen((v) => !v)}
+                  className="w-full flex items-center gap-2 px-3 py-1.5 text-[12px] font-mono text-fuchsia-300/80 hover:text-fuchsia-200 transition-colors">
+                  <span>🎭 剧情选项</span>
+                  <span className="px-1 rounded bg-void/60 text-dim/70">{opts.length}</span>
+                  <span className="flex-1 text-left text-dim/40 truncate">{choicesOpen ? '点击收起' : '点击展开 · 选一个填入输入框'}</span>
+                  <span className={`transition-transform ${choicesOpen ? 'rotate-180' : ''}`}>▾</span>
+                </button>
+                {choicesOpen && (
+                  <div className="px-3 pb-2 grid grid-cols-1 sm:grid-cols-2 gap-2">
+                    {opts.map((opt, i) => {
+                      const letter = String.fromCharCode(65 + i);
+                      const nsfw = i === opts.length - 1;
+                      return (
+                        <button key={i} onClick={() => { setInputValue(opt); setChoicesOpen(false); }} title="填入输入框（可再编辑后发送）"
+                          className={`text-left rounded-lg border px-3 py-2 text-sm leading-snug transition-colors ${nsfw ? 'border-rose-500/40 bg-rose-500/5 text-rose-200/90 hover:bg-rose-500/15' : 'border-edge bg-panel/40 text-slate-300 hover:border-god/40 hover:text-god'}`}>
+                          <span className="font-mono text-[12px] text-dim/50 mr-1.5">{letter}{nsfw ? '·18+' : ''}</span>{opt}
+                        </button>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+            );
+          })()}
 
           {/* 选择世界 */}
           <WorldSelector

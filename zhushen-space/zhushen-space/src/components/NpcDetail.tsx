@@ -11,6 +11,7 @@ import { useImageGen, effectiveEquipService } from '../store/imageGenStore';
 import { generateImage, buildPortraitPrompt, buildEquipPrompt, shrinkDataUrl } from '../systems/imageGen';
 import { useImageViewer } from '../store/imageViewerStore';
 import { genPortraitTags, genEquipTags, isTagService } from '../systems/imageTags';
+import { PortraitPicker, PortraitLibraryModal } from './PortraitPicker';
 
 /* ════════════════════════════════════════════
    单个 NPC 详情（轮回乐园适配 · 多栏目）
@@ -687,6 +688,7 @@ function AvatarBlock({ npc }: { npc: NpcRecord }) {
   const fileRef = useRef<HTMLInputElement>(null);
   const [gening, setGening] = useState(false);
   const [err, setErr] = useState('');
+  const [libOpen, setLibOpen] = useState(false);
   function handleUpload(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
     e.target.value = '';
@@ -718,9 +720,9 @@ function AvatarBlock({ npc }: { npc: NpcRecord }) {
   return (
     <div className="space-y-3">
       <div className="flex items-center gap-4">
-        <div onClick={() => npc.avatar && useImageViewer.getState().open(npc.avatar, npc.name)}
-          title={npc.avatar ? '点击查看大图' : ''}
-          className={`shrink-0 w-28 h-28 rounded-lg overflow-hidden border border-edge/60 bg-void/60 flex items-center justify-center ${npc.avatar ? 'cursor-zoom-in hover:border-god/40' : ''}`}>
+        <div onClick={() => npc.avatar ? useImageViewer.getState().open(npc.avatar, npc.name) : setLibOpen(true)}
+          title={npc.avatar ? '点击查看大图' : '点击从图库选头像'}
+          className={`shrink-0 w-28 h-28 rounded-lg overflow-hidden border border-edge/60 bg-void/60 flex items-center justify-center ${npc.avatar ? 'cursor-zoom-in hover:border-god/40' : 'cursor-pointer hover:border-god/40'}`}>
           {gening ? <span className="text-[11px] font-mono text-god/70 animate-pulse">生成中…</span>
             : npc.avatar
             ? <img src={npc.avatar} alt={npc.name} className="w-full h-full object-cover" />
@@ -736,6 +738,8 @@ function AvatarBlock({ npc }: { npc: NpcRecord }) {
             className="px-3 py-1.5 text-[13px] font-mono border border-edge text-dim rounded hover:border-god/40 hover:text-god transition-colors">
             {npc.avatar ? '替换图片' : '上传图片'}
           </button>
+          <PortraitPicker onPick={(url) => upsert(npc.id, { avatar: url })}
+            className="px-3 py-1.5 text-[13px] font-mono border border-edge text-dim rounded hover:border-god/40 hover:text-god transition-colors text-center" />
           {npc.avatar && (
             <button onClick={() => upsert(npc.id, { avatar: '' })}
               className="px-3 py-1.5 text-[13px] font-mono border border-edge text-dim rounded hover:border-blood/40 hover:text-blood transition-colors">
@@ -744,6 +748,7 @@ function AvatarBlock({ npc }: { npc: NpcRecord }) {
           )}
           {err && <div className="text-[11px] text-blood font-mono max-w-[240px] leading-snug whitespace-pre-line">{err}</div>}
           <div className="text-[11px] text-dim/40 leading-relaxed max-w-[160px]">AI 生成走「生图设置」选定的服务；也可上传自定义图。</div>
+          <PortraitLibraryModal open={libOpen} onClose={() => setLibOpen(false)} onPick={(url) => upsert(npc.id, { avatar: url })} />
         </div>
       </div>
     </div>

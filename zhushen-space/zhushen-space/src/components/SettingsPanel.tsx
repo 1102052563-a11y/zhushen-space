@@ -1183,6 +1183,12 @@ function TextApiSection() {
   const setTextUseSharedApi= useSettings((s) => s.setTextUseSharedApi);
   const setTextStream      = useSettings((s) => s.setTextStream);
   const fetchTextModels    = useSettings((s) => s.fetchTextModels);
+  const plotChoices        = useSettings((s) => s.plotChoices);
+  const setPlotChoices     = useSettings((s) => s.setPlotChoices);
+  const fanficMode         = useSettings((s) => s.fanficMode);
+  const setFanficMode      = useSettings((s) => s.setFanficMode);
+  const factCheck          = useSettings((s) => s.factCheck);
+  const setFactCheck       = useSettings((s) => s.setFactCheck);
 
   const effective = textUseSharedApi ? api : textApi;
 
@@ -1206,7 +1212,36 @@ function TextApiSection() {
             <div className="text-sm text-dim mt-0.5">开启后正文逐字生成，关闭则等待完整响应后一次性显示</div>
           </div>
         </div>
+        <div className="flex items-center gap-3 p-3 bg-panel border border-edge rounded-lg">
+          <Toggle checked={plotChoices} onChange={() => setPlotChoices(!plotChoices)} />
+          <div>
+            <div className="text-sm text-slate-200">剧情选项（8 选项）</div>
+            <div className="text-sm text-dim mt-0.5">每段正文后额外生成 8 个「主角视角」行动选项，点击填入输入框；八个方向各异，最后 1 个为限制级(18+)。</div>
+          </div>
+        </div>
+        <div className="flex items-center gap-3 p-3 bg-panel border border-edge rounded-lg">
+          <Toggle checked={fanficMode} onChange={() => setFanficMode(!fanficMode)} />
+          <div>
+            <div className="text-sm text-slate-200">同人增强（防 OOC）</div>
+            <div className="text-sm text-dim mt-0.5">识别正文里的已知作品角色 → 输出并锁定其设定/口癖 → 下回合注入正文保持一致。能否「联网搜索」取决于你的模型，否则按模型记忆回忆。</div>
+          </div>
+        </div>
+        <div className="flex items-center gap-3 p-3 bg-panel border border-edge rounded-lg">
+          <Toggle checked={factCheck} onChange={() => setFactCheck(!factCheck)} />
+          <div>
+            <div className="text-sm text-slate-200">事实增强（防穿帮）</div>
+            <div className="text-sm text-dim mt-0.5">核实正文里的现实可查证元素（年代/真实地名/品牌价格/专业内容）→ 锁定时代与事实锚点 → 下回合注入正文保持一致、不穿帮。同样能否联网取决于你的模型。</div>
+          </div>
+        </div>
       </div>
+
+      {(plotChoices || fanficMode || factCheck) && (
+        <div className="p-3 bg-panel border border-edge rounded-lg space-y-2">
+          <div className="text-sm text-slate-200">选项 / 同人 / 事实 · 共用 API 路由</div>
+          <div className="text-xs text-dim">三者共用同一接口、正文生成后只调用一次。留空则复用上面的「正文 API」。</div>
+          <ApiRoutePicker routeKey="plot" />
+        </div>
+      )}
 
       <ApiRoutePicker routeKey="text" />
       {!textUseSharedApi && (
@@ -2097,7 +2132,7 @@ function NarrativeMemorySettings() {
 
           {num('注入 NPC 数量上限', 'structMaxNpcs', 0, 10, '每轮注入的相关 NPC 数量（主角不占此额度）。默认 2。')}
           {num('主角技能数量上限', 'structMaxSkills', 0, 12, '仅限主角：注入的技能条数（按品阶/新近优先）。默认 3。NPC 不受此限，被选中即全量。')}
-          {num('主角装备数量上限', 'structMaxItems', 0, 12, '仅限主角：注入的装备/物品条数（已装备优先，再按品阶）。默认 2。NPC 不受此限，被选中即全量。')}
+          {num('主角装备数量上限', 'structMaxItems', 0, 12, '仅限主角：注入的装备条数（已装备优先，再按品阶）。材料/消耗品全部显示(名称+效果)、其它物品不注入。默认 2。NPC 不受此限，被选中即全量。')}
           {num('主角副职业数量上限', 'structMaxSubProfs', 0, 12, '仅限主角：注入的副职业条数（含其配方名）。默认 4。')}
           {num('当前世界势力数量上限', 'structMaxFactions', 0, 12, '注入的当前世界势力条数（按对主角态度强弱+近况排序）。默认 4。')}
 

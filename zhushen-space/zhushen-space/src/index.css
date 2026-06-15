@@ -129,3 +129,21 @@ body {
 }
 @keyframes gradeShimmer { to { background-position: 200% center; } }
 @keyframes gradePulse { 0%,100% { filter: brightness(1) drop-shadow(0 0 2px currentColor); } 50% { filter: brightness(1.35) drop-shadow(0 0 6px currentColor); } }
+
+/* ─────────────────────────────────────────────────────────────
+   弹窗字体整体放大：所有居中弹窗（.fixed.inset-0 覆盖层）内的小字号统一提升约 +1.5px，
+   覆盖 任务/NPC/势力/领地/冒险团/万族/记忆/频道/私信/好友/存档/骰子/装备/背包 等全部面板。
+   想再大/再小，只改下面这几行的数值即可（这里是"放大一点"的档位）。
+   原理：Tailwind 的 text-* 是显式 font-size，父级放大不级联，故按类名逐档覆盖；
+   规则未放进 @layer，层级高于 Tailwind 工具类，必定生效。
+   ───────────────────────────────────────────────────────────── */
+.fixed.inset-0 { font-size: 15px; }                      /* 无显式字号文本的基准 */
+.fixed.inset-0 .text-\[10px\] { font-size: 11.5px; }
+.fixed.inset-0 .text-\[11px\] { font-size: 12.5px; }
+.fixed.inset-0 .text-\[12px\] { font-size: 13.5px; }
+.fixed.inset-0 .text-\[13px\] { font-size: 14.5px; }
+.fixed.inset-0 .text-\[14px\] { font-size: 15.5px; }
+.fixed.inset-0 .text-xs   { font-size: 0.84rem; }        /* 12 → ~13.5 */
+.fixed.inset-0 .text-sm   { font-size: 0.97rem; }        /* 14 → ~15.5 */
+.fixed.inset-0 .text-base { font-size: 1.06rem; }        /* 16 → ~17 */
+.fixed.inset-0 .text-lg   { font-size: 1.2rem; }         /* 18 → ~19 */

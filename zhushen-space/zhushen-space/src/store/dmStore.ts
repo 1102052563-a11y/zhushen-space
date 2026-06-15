@@ -58,11 +58,10 @@ export interface DmThread {
   updatedAt: number;
 }
 
-/* 可私信判定：土著 / 召唤物不可；契约者 / 随从 / 宠物 / 无标签（多为契约者）可 */
+/* 可私信/可加好友判定：白名单——仅「随从 / 契约者 / 宠物」三类可；
+   土著、召唤物、害兽、路人等一切其它标签、以及无标签，一律不可私信/加好友。 */
 export function isDmableTag(tag?: string): boolean {
-  const t = (tag || '').trim();
-  if (!t) return true;
-  return !/土著|原住民|路人|召唤物|召唤兽|召唤/.test(t);
+  return /随从|契约者|宠物/.test((tag || '').trim());
 }
 
 let _seq = 0;

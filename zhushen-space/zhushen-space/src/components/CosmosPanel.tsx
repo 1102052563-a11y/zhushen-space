@@ -123,7 +123,7 @@ export default function CosmosPanel({ onClose }: { onClose: () => void }) {
               })}
             </div>
 
-            <div className="flex-1 overflow-y-auto p-3 grid grid-cols-1 sm:grid-cols-2 gap-2 content-start">
+            <div className="flex-1 overflow-y-auto p-3 grid grid-cols-1 sm:grid-cols-2 gap-2 content-start items-start">
               {list.length === 0 ? (
                 <div className="col-span-full py-12 text-center text-dim/40 text-sm font-mono">该分类暂无实体</div>
               ) : (
