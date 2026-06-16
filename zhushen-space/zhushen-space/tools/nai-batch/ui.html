@@ -108,6 +108,7 @@
         </div>
       </div>
       <div id="catPools"></div>
+      <button id="reloadPoolsBtn" style="font-size:12px;background:var(--panel2);color:var(--dim);border:1px solid var(--line);border-radius:7px;padding:5px 10px;cursor:pointer;margin-top:8px">↻ 重载分类标签库（从 pools.json）</button>
       <label style="display:flex; align-items:center; gap:8px; margin:12px 0 0; cursor:pointer; color:var(--text)">
         <input type="checkbox" id="continuous" style="width:auto"> <b>连续模式</b>：不限张数，每张从所有「开启」的池各随机抽取，一直到「停止」
       </label>
@@ -192,6 +193,14 @@ async function loadPrompts(){
     saveState();
     alert('已从 '+r.file+' 载入 '+r.lines.length+' 条到「姿势列表」。\n确认上方正向身份块/负向/输出位置后，点 ▶生成 即逐条出图。\n（展开「定量参数」可查看/编辑这些提示词）');
   } catch(e){ alert('载入失败：'+e); }
+}
+async function reloadCatPools(){
+  try {
+    const pd = await (await fetch('/api/pool-defaults')).json();
+    CAT_POOLS.forEach(p=>{ const el=$(p.id+'_t'); if(el && pd[p.key]) el.value = pd[p.key].join('\n'); });
+    saveState();
+    alert('已重载 4 个分类标签库：外观'+((pd['外观表情']||[]).length)+' / 服装'+((pd['服装']||[]).length)+' / 姿势'+((pd['姿势动作']||[]).length)+' / 场景'+((pd['场景光照']||[]).length)+'。勾选要用的池、设抽取数即可。');
+  } catch(e){ alert('重载失败：'+e); }
 }
 
 // 从池里不重复随机抽 n 条
@@ -309,6 +318,7 @@ function fillErr(fig,name,err){
 $('resetBtn').onclick=resetDefaults;
 $('saveBtn').onclick=saveToServer;
 $('loadPromptsBtn').onclick=loadPrompts;
+$('reloadPoolsBtn').onclick=reloadCatPools;
 $('gen').onclick=generate;
 $('stop').onclick=()=>{ stopFlag=true; $('status').textContent='正在停止…（当前这张完成后停）'; };
 renderCatPools();

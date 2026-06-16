@@ -118,7 +118,7 @@ export interface Achievement {
   desc: string;        // 成就说明
   category: string;    // 分类：战斗/探索/任务/生存/隐藏…
   type: string;        // 类型：普通/累计/隐藏/阶段/特殊
-  rarity: string;      // 稀有度（与装备品级一致：白/绿/蓝/紫/淡金/金/暗金…）
+  rarity: string;      // 稀有度（与装备品级一致：白/绿/蓝/紫/暗紫/淡金/金/暗金/传说级/史诗级/圣灵级/不朽级/起源级/永恒级/创世）
   hidden: boolean;     // 是否隐藏成就
   condition: string;   // 解锁条件
   unlockTime?: string; // 解锁时间

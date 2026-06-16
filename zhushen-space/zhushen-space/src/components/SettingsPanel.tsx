@@ -1461,7 +1461,7 @@ function TextPresetSection() {
               active={activeId === p.id}
               expanded={expanded === p.id}
               onToggleExpand={() => setExpanded(expanded === p.id ? null : p.id)}
-              onActivate={() => setActiveTextPreset(p.id)}
+              onActivate={() => setActiveTextPreset(activeId === p.id ? null : p.id)}
               onRemove={() => removeTextPreset(p.id)}
             />
           ))}
@@ -1515,9 +1515,11 @@ function PresetCard({ preset, active, expanded, onToggleExpand, onActivate, onRe
 
       {/* ── 预设头部 ── */}
       <div className={`flex items-center gap-3 px-4 py-3 ${active ? 'bg-god/5' : 'bg-panel'}`}>
-        <button onClick={onActivate} title="设为启用"
-          className={`shrink-0 w-3 h-3 rounded-full border transition-colors ${active ? 'bg-god border-god' : 'border-dim hover:border-god'}`}
-        />
+        <button onClick={onActivate} title={active ? '点击关闭（停用此预设，恢复内置默认）' : '点击启用此预设（会自动停用其它预设）'}
+          className={`shrink-0 px-2.5 py-1 rounded text-[12px] font-mono border transition-colors ${active ? 'bg-god/15 border-god/50 text-god' : 'border-dim/40 text-dim hover:border-god/50 hover:text-god'}`}
+        >
+          {active ? '✓ 启用中' : '启用'}
+        </button>
         <div className="flex-1 min-w-0">
           {editingName ? (
             <input autoFocus value={nameVal}
@@ -1530,7 +1532,6 @@ function PresetCard({ preset, active, expanded, onToggleExpand, onActivate, onRe
             <button className="text-left group w-full" onClick={() => setEditingName(true)} title="点击重命名">
               <div className="text-sm font-semibold text-slate-200 group-hover:text-god transition-colors truncate">
                 {preset.name} <span className="text-dim/40 text-[12px]">✎</span>
-                {active && <span className="ml-2 text-[12px] font-mono text-god">● 启用中</span>}
               </div>
             </button>
           )}

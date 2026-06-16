@@ -222,6 +222,7 @@ export default function CharacterPanel({ onClose }: { onClose: () => void }) {
   const charIds = Array.from(new Set(['B1', ...Object.keys(characters).filter((id) => /^B\d+$/.test(id))]));
   const [activeChar, setActiveChar] = useState(charIds[0] ?? 'B1');
   const [tab, setTab] = useState<PanelTab>('skills');
+  const [addingSkill, setAddingSkill] = useState(false);   // 「+ 新增技能」手动添加（不依赖 AI，技能数量无上限）
 
   const char    = characters[activeChar];
   const skills  = char?.skills  ?? [];
@@ -274,7 +275,7 @@ export default function CharacterPanel({ onClose }: { onClose: () => void }) {
             {(['skills', 'traits', 'history'] as PanelTab[]).map((t) => (
               <button
                 key={t}
-                onClick={() => setTab(t)}
+                onClick={() => { setTab(t); setAddingSkill(false); }}
                 className={`px-3 py-1 rounded text-sm font-mono border transition-colors ${
                   tab === t
                     ? 'border-god/50 text-god bg-god/10'
@@ -299,22 +300,38 @@ export default function CharacterPanel({ onClose }: { onClose: () => void }) {
               </div>
             </div>
           ) : tab === 'skills' ? (
-            skills.length === 0 ? (
-              <div className="h-full flex items-center justify-center text-dim/30 text-sm font-mono">
-                {activeChar} 暂无技能
+            <div className="space-y-3">
+              <div className="flex justify-end">
+                <button
+                  onClick={() => setAddingSkill((v) => !v)}
+                  className="px-3 py-1 rounded border border-god/40 text-god bg-god/10 hover:bg-god/20 text-[13px] font-mono transition-colors"
+                >
+                  {addingSkill ? '✕ 取消新增' : '+ 新增技能'}
+                </button>
               </div>
-            ) : (
-              <div className="grid grid-cols-2 gap-3 items-start">
-                {skills.map((sk, i) => (
-                  <SkillCard
-                    key={`${sk.id}-${i}`}
-                    skill={sk}
-                    charId={activeChar}
-                    onDelete={() => removeSkill(activeChar, sk.id)}
-                  />
-                ))}
-              </div>
-            )
+              {addingSkill && (
+                <div className="rounded-xl border border-god/30 bg-panel/60 p-3">
+                  <div className="text-[12px] font-mono text-god/70 mb-1">新增技能（{activeChar}）· 技能数量无上限</div>
+                  <SkillEditForm key={activeChar} charId={activeChar} onClose={() => setAddingSkill(false)} />
+                </div>
+              )}
+              {skills.length === 0 ? (
+                <div className="text-center text-dim/30 text-sm font-mono py-10">
+                  {activeChar} 暂无技能
+                </div>
+              ) : (
+                <div className="grid grid-cols-2 gap-3 items-start">
+                  {skills.map((sk, i) => (
+                    <SkillCard
+                      key={`${sk.id}-${i}`}
+                      skill={sk}
+                      charId={activeChar}
+                      onDelete={() => removeSkill(activeChar, sk.id)}
+                    />
+                  ))}
+                </div>
+              )}
+            </div>
           ) : (
             traits.length === 0 ? (
               <div className="h-full flex items-center justify-center text-dim/30 text-sm font-mono">

@@ -49,7 +49,7 @@ const DEFAULT_SETTINGS: EnhanceSettings = {
   bosses: DEFAULT_BOSSES,
   tables: DEFAULT_TABLES,
   selectedBossId: DEFAULT_BOSSES[0].id,
-  bossesVersion: 2,
+  bossesVersion: 3,
 };
 
 function newSession(itemId: string, itemName: string, startLevel: number): EnhanceSession {

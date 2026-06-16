@@ -1,6 +1,7 @@
 import {
   NARRATIVE_FIRST_RULE,
   TERRITORY_EFFECT_RULE,
+  TERRITORY_STABILITY_RULE,
   EVO_VERIFY_RULE,
   BUFF_AS_STATUS_RULE,
   ITEM_FIXED_FORMAT_RULE,
@@ -59,6 +60,7 @@ import { useTerritory, buildTerritorySystemPrompt, buildingCap } from './store/t
 import { useTeam, buildTeamSystemPrompt, memberCap as teamMemberCap } from './store/adventureTeamStore';
 import { useCosmos, buildCosmosSystemPrompt, cosmosNameEq } from './store/cosmosStore';
 import { realmFromLevel, normalizeTier, lvFromRealm, trueAttr, computeMaxHp, computeMaxEp, gearMaxHpBonus, gearMaxEpBonus, abilityMaxHpBonus, abilityMaxEpBonus, effectiveResource, attrCapForTier } from './systems/derivedStats';
+import { bioInnate } from './systems/bioStrength';
 import { useImageGen, effectiveEquipService } from './store/imageGenStore';
 import { generateImage, buildPortraitPrompt, buildEquipPrompt, shrinkDataUrl } from './systems/imageGen';
 import { genPortraitTags, genEquipTags, isTagService } from './systems/imageTags';
@@ -1846,7 +1848,7 @@ export default function App() {
         prof.title && `称号:${prof.title}`,
         prof.profession && `职业:${prof.profession}`,
         prof.arenaRank && `竞技场排名:${prof.arenaRank}`,
-        prof.bioStrength && `生物强度模板:${prof.bioStrength}`,
+        a && `生物强度(前端按基础六维机械判定·资质档,勿写): ${bioInnate(a, prof.tier, prof.level)?.label ?? ''}`,
         `六维: 力${a.str} 敏${a.agi} 体${a.con} 智${a.int} 魅${a.cha} 幸${a.luck}`,
         `真实属性(每80普通=1真实,前端自动算,勿写入): 真力${trueAttr(a.str)} 真敏${trueAttr(a.agi)} 真体${trueAttr(a.con)} 真智${trueAttr(a.int)} 真魅${trueAttr(a.cha)} 真幸${trueAttr(a.luck)}`,
         `生命HP上限=体质×20+被动天赋/装备的上限加成=${playerMaxHp()}，蓝量EP上限=智力×15+加成=${playerMaxEp()}（前端自动换算，勿写maxHp/maxMp；只有受伤/消耗时才用 hp.B1 -=N / mp.B1 -=N 改当前值）`,
@@ -2030,7 +2032,7 @@ export default function App() {
       r.arenaRank && `竞技场排名: ${r.arenaRank}`,
       r.brandLevel && `烙印等级: ${r.brandLevel}`,
       r.contractorId && `契约者ID: ${r.contractorId}`,
-      r.bioStrength && `生物强度模板: ${r.bioStrength}`,
+      attrs && `生物强度(前端按基础六维机械判定·资质档,勿写): ${bioInnate(attrs, r.realm, lvFromRealm(r.realm))?.label ?? ''}`,
       attrs && `生命HP: ${effectiveResource(r.hp, r.maxHp, computeMaxHp(attrs))}/${computeMaxHp(attrs)}（上限=体质×20，前端自动算，勿写maxHp）`,
       attrs && `蓝量EP: ${effectiveResource(r.mp, r.maxMp, computeMaxEp(attrs))}/${computeMaxEp(attrs)}（上限=智力×15，前端自动算，勿写maxMp）`,
       !attrs && (r.hp != null || r.maxHp != null) && `HP: ${r.hp ?? '?'}/${r.maxHp ?? '?'}`,
@@ -3117,7 +3119,7 @@ ${lines.join('\n')}`;
       .replaceAll('${territory_snapshot}', serializeTerritorySnapshot())
       .replaceAll('${onscreen_npcs}', onscreenNpcs)
       .replaceAll('${player_name}', playerName)
-      + '\n\n' + NARRATIVE_FIRST_RULE + '\n' + TERRITORY_EFFECT_RULE;
+      + '\n\n' + NARRATIVE_FIRST_RULE + '\n' + TERRITORY_EFFECT_RULE + '\n' + TERRITORY_STABILITY_RULE;
 
     setTerritoryPhaseLog('领地演化中…');
     try {
@@ -4200,7 +4202,7 @@ ${replyTo.authorName} 之前说：「${String(replyTo.content).slice(0, 200)}」
 - "have"：你正好有 → 给售价。
 - "source"：你没有，但能从别处弄来再转卖给主角（赚差价，价偏高）。
 - "no"：没有也弄不到 → 婉拒。
-**只输出 JSON**：{"available":"have|source|no","reply":"你的话(本人口吻,1~2句)","price":数字,"currency":"乐园币|灵魂钱币","item":{"name":"","gradeDesc":"白色/绿色/蓝色/紫色/淡金/金色...","category":"武器/防具/消耗品/材料/特殊物品...","effect":"含具体数值的效果","appearance":"外观"}}。no 时可省略 price/item。价格贴合轮回乐园颜色品质定价。`;
+**只输出 JSON**：{"available":"have|source|no","reply":"你的话(本人口吻,1~2句)","price":数字,"currency":"乐园币|灵魂钱币","item":{"name":"","gradeDesc":"白色/绿色/蓝色/紫色/暗紫色/淡金/金色/暗金/传说级/史诗级/圣灵级/不朽级/起源级/永恒级/创世(按物品强度选合适档)","category":"武器/防具/消耗品/材料/特殊物品...","effect":"含具体数值的效果","appearance":"外观"}}。no 时可省略 price/item。价格贴合轮回乐园颜色品质定价。`;
     } else if (kind === 'sell') {
       instr = `\n\n主角想把自己的【${giveItem?.name || payload.itemName || '物品'}】${payload.qty > 1 ? ` ×${payload.qty}` : ''}（品质：${giveItem?.gradeDesc || '未知'}，效果：${giveItem?.effect || '未知'}）${payload.askPrice ? `卖给你，期望 ${payload.askPrice} 乐园币` : `无偿赠予你`}。请判断你是否收下、愿付多少（可爽快收下并付钱、可还价压价、可白拿道谢、也可嫌弃拒绝）。
 **只输出 JSON**：{"accept":true或false,"reply":"你的话","price":你愿支付的数字(0=收下但不付钱/收礼道谢),"currency":"乐园币|灵魂钱币"}。`;
@@ -4301,7 +4303,7 @@ ${replyTo.authorName} 之前说：「${String(replyTo.content).slice(0, 200)}」
     const sys = `据以下公共频道契约者的已知信息，生成一份完整 NPC 档案（轮回乐园风格），须与其已展现的发言/职业/性格一致并合理补全。
 **重要**：该角色当前只是【离场/不在主角身边/在别处活动】，但**活着、健康、状态正常**——身份与阶位里**绝对不要**出现"已阵亡/死亡/已故/身亡"等字样，favor 也按正常关系给。
 已知：名号「${info.name}」；${info.tier ? `阶位 ${info.tier}；` : ''}${info.job ? `职业 ${info.job}；` : ''}${info.strength ? `生物强度 ${info.strength}；` : ''}${info.persona ? `性格 ${info.persona}；` : ''}${info.source ? `频道发言：「${info.source}」；` : ''}当前世界：${M.worldName || '轮回乐园'}。
-**只输出一个 JSON 对象**：{"realm":"阶位·Lv.X|身份(活人身份,勿写已阵亡)","personality":"性格","background":"背景经历","appearance":"外观","motiveNow":"当前动机/目的","relations":"主要人际关系","attrs":{"str":数,"agi":数,"con":数,"int":数,"cha":数,"luck":数},"favor":对主角好感(-100~100整数),"items":[{"name":"物品名","category":"武器/防具/饰品/消耗品/材料/特殊物品","gradeDesc":"白色/绿色/蓝色/紫色/淡金...","effect":"含数值的效果(攻防/加成)","equipped":true或false,"appearance":"外观"}]}。
+**只输出一个 JSON 对象**：{"realm":"阶位·Lv.X|身份(活人身份,勿写已阵亡)","personality":"性格","background":"背景经历","appearance":"外观","motiveNow":"当前动机/目的","relations":"主要人际关系","attrs":{"str":数,"agi":数,"con":数,"int":数,"cha":数,"luck":数},"favor":对主角好感(-100~100整数),"items":[{"name":"物品名","category":"武器/防具/饰品/消耗品/材料/特殊物品","gradeDesc":"白色/绿色/蓝色/紫色/暗紫色/淡金/金色/暗金/传说级/史诗级/圣灵级/不朽级/起源级/永恒级/创世(按阶位选合适档)","effect":"含数值的效果(攻防/加成)","equipped":true或false,"appearance":"外观"}]}。
 - 六维按阶位与职业合理分配（宁低勿高、禁五项全满）。
 - items：给 **3~6 件**符合其阶位/职业的随身物品，其中 **1~3 件 equipped:true**（武器≤1、防具1~2、饰品≤1），其余放储存空间；武器/防具的 effect 要写具体攻防数值。`;
     try {
@@ -4399,7 +4401,7 @@ ${replyTo.authorName} 之前说：「${String(replyTo.content).slice(0, 200)}」
     const M = useMisc.getState();
     const sys = `你是「轮回乐园·系统商店」补货员。一次性生成 **10 件** 待售商品，类别要丰富搭配：消耗品、制式装备(武器/防具/饰品)、技能书/技能卷轴、材料、工具、特殊物品等。
 - 贴合当前世界(${M.worldName || '轮回乐园'})与主角阶位(${prof.tier || '一阶'}·Lv.${prof.level})的强度区间；**价格一般偏高**（系统商店溢价，约市场价 1.2~1.8 倍）。
-- 每件按物品固定格式给全字段。**只输出 JSON**：{"items":[{"name","category"(武器/防具/饰品/消耗品/材料/工具/特殊物品/重要物品等),"subType","gradeDesc"(品质色:白/绿/蓝/紫/淡金/金/暗金…),"price"(数字),"currency"("乐园币"或"魂币"),"effect","combatStat"(装备攻防如"防御8-8"),"durability","requirement","affix","origin","intro","appearance","qty"(默认1)}]}，共 10 件，不要任何多余文字或 markdown。`;
+- 每件按物品固定格式给全字段。**只输出 JSON**：{"items":[{"name","category"(武器/防具/饰品/消耗品/材料/工具/特殊物品/重要物品等),"subType","gradeDesc"(品质色由低到高:白/绿/蓝/紫/暗紫/淡金/金/暗金/传说级/史诗级/圣灵级/不朽级/起源级/永恒级/创世,按强度选合适档),"price"(数字),"currency"("乐园币"或"魂币"),"effect","combatStat"(装备攻防如"防御8-8"),"durability","requirement","affix","origin","intro","appearance","qty"(默认1)}]}，共 10 件，不要任何多余文字或 markdown。`;
     try {
       const { content } = await apiChatFallback(chain, [{ role: 'system', content: sys }, { role: 'user', content: '只输出 JSON {"items":[…10件…]}。' }], { timeoutMs: 90000 });
       const j = parseEntryJson(content);
@@ -5499,7 +5501,9 @@ ${lines}`;
       return;
     }
 
-    const preset = textPresets.find((p) => p.id === activePresetId) ?? textPresets[0];
+    // activePresetId 为 null = 用户主动「关闭」所有正文预设 → 不用任何预设（buildPresetMessages 走内置默认）；
+    // 非 null 时正常取该预设，万一 id 失效则兜底用第一个，避免空叙事。
+    const preset = activePresetId == null ? undefined : (textPresets.find((p) => p.id === activePresetId) ?? textPresets[0]);
 
     // 历史裁切：historyLimit > 0 时只取最近 N 条（即"显示楼层"范围）
     const allHistory = extraHistory.length > 0 ? extraHistory : messagesRef.current;

@@ -3,8 +3,9 @@ import type { FactionRecord } from '../store/factionStore';
 import type { Skill, Talent, Title, SubProfession } from '../store/characterStore';
 import { gradeToNum, type InventoryItem, type CurrencyWallet } from '../store/itemStore';
 import type { PlayerProfile, PlayerAttrs } from '../store/playerStore';
-import { computeMaxHp, computeMaxEp, effectiveResource } from './derivedStats';
+import { computeMaxHp, computeMaxEp, effectiveResource, lvFromRealm } from './derivedStats';
 import { effectiveAttrs } from './attrBonus';
+import { bioInnate, bioPower, bioStrengthLabel } from './bioStrength';
 
 /* 取佩戴中的称号，渲染成一行（仅 equipped 注入正文）*/
 function equippedTitleLine(titles: Title[] | undefined): string | undefined {
@@ -171,7 +172,6 @@ export function serializePlayerCard(
     profile.arenaRank && `竞技场:${profile.arenaRank}`,
     profile.brandLevel && `烙印:${profile.brandLevel}`,
     profile.contractorId && `契约者ID:${profile.contractorId}`,
-    profile.bioStrength && `生物强度:${profile.bioStrength}`,
   ].filter(Boolean).join(' | ');
   const a = profile.attrs;
   const pMaxHp = computeMaxHp(a);
@@ -184,6 +184,7 @@ export function serializePlayerCard(
     `EP:${effectiveResource(game.mp, game.maxMp, pMaxEp)}/${pMaxEp}（上限=智力×15，自动算）`,
     game.san != null && `SAN:${game.san}/${game.maxSan ?? '?'}`,
     a && `六维(实战值=基础+装备/技能/天赋加成): 力${faP('str')} 敏${faP('agi')} 体${faP('con')} 智${faP('int')} 魅${faP('cha')} 幸${faP('luck')}`,
+    a && `生物强度(前端按六维机械判定,勿改): ${bioStrengthLabel(bioInnate(a, profile.tier, profile.level), bioPower(effA))}`,
     profile.advancePoints != null && `进阶点数:${profile.advancePoints}`,
     profile.attrPoints != null && `属性点:${profile.attrPoints}`,
     profile.realAttrPoints != null && `真实属性点:${profile.realAttrPoints}`,
@@ -235,7 +236,6 @@ export function serializeNpcCard(
     npc.arenaRank && `竞技场:${npc.arenaRank}`,
     npc.brandLevel && `烙印:${npc.brandLevel}`,
     npc.contractorId && `契约者ID:${npc.contractorId}`,
-    npc.bioStrength && `生物强度:${npc.bioStrength}`,
   ].filter(Boolean).join(' | ');
   const a = npc.attrs;
   // 有效六维 = 基础 + 装备/技能/天赋加成（与 NPC 详情面板一致；注入正文用实战值，并标注基础值）
@@ -247,6 +247,7 @@ export function serializeNpcCard(
     !a && (npc.hp != null || npc.maxHp != null) && `HP:${npc.hp ?? '?'}/${npc.maxHp ?? '?'}`,
     !a && (npc.mp != null || npc.maxMp != null) && `EP:${npc.mp ?? 0}/${npc.maxMp ?? 0}`,
     a && `六维(实战值=基础+装备/技能/天赋加成): 力${faN('str')} 敏${faN('agi')} 体${faN('con')} 智${faN('int')} 魅${faN('cha')} 幸${faN('luck')}`,
+    a && `生物强度(前端按六维机械判定,勿改): ${bioStrengthLabel(bioInnate(a, npc.realm, lvFromRealm(npc.realm)), bioPower(effA))}`,
     npc.advancePoints != null && `进阶点数:${npc.advancePoints}`,
     `好感:${npc.favor}`,
   ].filter(Boolean).join(' | ');

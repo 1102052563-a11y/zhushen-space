@@ -28,23 +28,28 @@ function Actions({ onSave, onClose }: { onSave: () => void; onClose: () => void 
   );
 }
 
-export function SkillEditForm({ charId, skill, onClose }: { charId: string; skill: Skill; onClose: () => void }) {
+// skill 省略 = 「新增技能」模式：保存时走 addSkill 追加一条（id 留空交给 store 自动分配，技能数量无上限）。
+export function SkillEditForm({ charId, skill, onClose }: { charId: string; skill?: Skill; onClose: () => void }) {
   const [d, setD] = useState({
-    name: skill.name ?? '', level: skill.level ?? '', rarity: skill.rarity ?? '', skillType: skill.skillType ?? '',
-    cost: skill.cost ?? '', cooldown: skill.cooldown ?? '', target: skill.target ?? '', damage: skill.damage ?? '',
-    attrBonus: skill.attrBonus ?? '', layers: skill.layers ?? '', layerProgress: skill.layerProgress ?? '',
-    tags: (skill.tags ?? []).join('，'),
-    desc: skill.desc ?? '', effect: skill.effect ?? '', layerEffects: skill.layerEffects ?? '', note: skill.note ?? '',
+    name: skill?.name ?? '', level: skill?.level ?? '', rarity: skill?.rarity ?? '', skillType: skill?.skillType ?? '',
+    cost: skill?.cost ?? '', cooldown: skill?.cooldown ?? '', target: skill?.target ?? '', damage: skill?.damage ?? '',
+    attrBonus: skill?.attrBonus ?? '', layers: skill?.layers ?? '', layerProgress: skill?.layerProgress ?? '',
+    tags: (skill?.tags ?? []).join('，'),
+    desc: skill?.desc ?? '', effect: skill?.effect ?? '', layerEffects: skill?.layerEffects ?? '', note: skill?.note ?? '',
   });
   const set = (k: keyof typeof d) => (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => setD((p) => ({ ...p, [k]: e.target.value }));
   const save = () => {
+    const name = d.name.trim();
+    if (!skill && !name) return;   // 新增模式下必须先填名字
     const tags = d.tags.split(/[，,、\s]+/).map((t) => t.trim()).filter(Boolean);
-    useCharacters.getState().updateSkill(charId, skill.id, {
-      name: d.name.trim() || skill.name, level: d.level, rarity: d.rarity, skillType: d.skillType,
+    const fields = {
+      name: name || skill?.name || '未命名技能', level: d.level, rarity: d.rarity, skillType: d.skillType,
       cost: d.cost, cooldown: d.cooldown, target: d.target, damage: d.damage, attrBonus: d.attrBonus,
       layers: d.layers, layerProgress: d.layerProgress, tags,
       desc: d.desc, effect: d.effect, layerEffects: d.layerEffects, note: d.note,
-    });
+    };
+    if (skill?.id) useCharacters.getState().updateSkill(charId, skill.id, fields);
+    else useCharacters.getState().addSkill(charId, { id: '', ...fields });   // 追加新技能，store 自动去重分配 id
     onClose();
   };
   return (
