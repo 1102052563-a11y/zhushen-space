@@ -54,6 +54,7 @@
   <span id="tokenState">读取中…</span>
   <span class="hint" style="margin-left:8px">✎ 你的修改自动保存·刷新不丢</span>
   <span style="flex:1"></span>
+  <button id="saveBtn" style="font-size:12px;background:var(--acc);color:#04211f;border:none;border-radius:7px;padding:6px 12px;cursor:pointer;font-weight:600">💾 保存到服务器</button>
   <button id="resetBtn" style="font-size:12px;background:var(--panel2);color:var(--dim);border:1px solid var(--line);border-radius:7px;padding:6px 12px;cursor:pointer">↺ 恢复默认</button>
 </header>
 <div id="warn" class="banner" style="display:none"></div>
@@ -161,6 +162,14 @@ const FIELDS = ['folder','prefix','outBase','size','start','positive','artist','
 function saveState(){ try { const s={}; FIELDS.forEach(f=>{ const el=$(f); if(el) s[f]=el.value; }); s.continuous=$('continuous').checked; localStorage.setItem(LS_KEY, JSON.stringify(s)); } catch(e){} }
 function applyState(s){ FIELDS.forEach(f=>{ if(s[f]!=null && $(f)) $(f).value=s[f]; }); if(s.continuous!=null) $('continuous').checked=!!s.continuous; }
 function resetDefaults(){ if(!confirm('恢复成 jobs.json 的默认预填？你当前在网页里改的内容会被清掉。')) return; try{ localStorage.removeItem(LS_KEY); }catch(e){} location.reload(); }
+async function saveToServer(){
+  const payload = { folder:$('folder').value, prefix:$('prefix').value, outBase:$('outBase').value, size:$('size').value, start:$('start').value, count:$('count').value, drawCount:$('drawCount').value, drawCount2:$('drawCount2').value, positive:$('positive').value, negative:$('negative').value, poses:$('poses').value, pool:$('pool').value, pool2:$('pool2').value };
+  try {
+    const r = await (await fetch('/api/save-config',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)})).json();
+    if(r.ok) alert('✓ 已保存到服务器 jobs.json：池1 '+r.pool1+' 条、池2 '+r.pool2+' 条。\n现在让我用命令行跑，就会用你这套池子了。');
+    else alert('保存失败：'+r.error);
+  } catch(e){ alert('保存失败：'+e); }
+}
 
 // 从池里不重复随机抽 n 条
 function drawFrom(arr, n){
@@ -271,6 +280,7 @@ function fillErr(fig,name,err){
 }
 
 $('resetBtn').onclick=resetDefaults;
+$('saveBtn').onclick=saveToServer;
 $('gen').onclick=generate;
 $('stop').onclick=()=>{ stopFlag=true; $('status').textContent='正在停止…（当前这张完成后停）'; };
 loadCfg();

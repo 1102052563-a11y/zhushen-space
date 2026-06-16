@@ -57,7 +57,7 @@ function GirlCard({ girl, onEditPreset }: { girl: JoyGirl; onEditPreset: () => v
           </label>
         </div>
         <textarea value={girl.persona} onChange={(e) => patch({ persona: e.target.value })} rows={2}
-          placeholder="性格人设（卡片展示 + AI 兜底）" className={`${inputCls} w-full resize-none leading-snug`} />
+          placeholder="性格简介（一句话 · 卡片摘要；详细性格/经历/外观点下方编辑）" className={`${inputCls} w-full resize-none leading-snug`} />
         <button onClick={onEditPreset}
           className="w-full text-left text-[12px] font-mono px-2 py-1.5 rounded-lg border border-pink-500/30 text-pink-200/90 bg-pink-500/5 hover:bg-pink-500/10 transition-colors">
           ✎ 迎宾词 · 对话预设 · 四阶段递进 · 初始私密（点击编辑）
@@ -72,6 +72,9 @@ function GirlCard({ girl, onEditPreset }: { girl: JoyGirl; onEditPreset: () => v
 
 function PresetModal({ girl, onClose }: { girl: JoyGirl; onClose: () => void }) {
   const upsertGirl = useJoy((s) => s.upsertGirl);
+  const [personality, setPersonality] = useState(girl.personality ?? '');
+  const [background, setBackground] = useState(girl.background ?? '');
+  const [appearance, setAppearance] = useState(girl.appearance ?? '');
   const [greeting, setGreeting] = useState(girl.greetingPreset ?? '');
   const [chat, setChat] = useState(girl.chatPreset ?? '');
   const [s1, setS1] = useState(girl.stageDesc?.['1'] ?? '');
@@ -91,6 +94,9 @@ function PresetModal({ girl, onClose }: { girl: JoyGirl; onClose: () => void }) 
     }
     upsertGirl({
       ...girl,
+      personality: personality.trim() || undefined,
+      background: background.trim() || undefined,
+      appearance: appearance.trim() || undefined,
       greetingPreset: greeting.trim() || undefined,
       chatPreset: chat.trim() || undefined,
       stageDesc: { '1': s1.trim(), '2': s2.trim(), '3': s3.trim(), '4': s4.trim() },
@@ -114,6 +120,17 @@ function PresetModal({ girl, onClose }: { girl: JoyGirl; onClose: () => void }) 
           <button onClick={onClose} className="text-dim/50 hover:text-blood text-lg">✕</button>
         </header>
         <div className="p-4 flex-1 overflow-y-auto space-y-3">
+          <div className="text-[12px] font-mono text-pink-300/55">人物档案</div>
+          <Field label="性格（详细 · AI 优先采用，留空则用卡片上的性格简介）">
+            <textarea value={personality} onChange={(e) => setPersonality(e.target.value)} rows={3} className={ta} />
+          </Field>
+          <Field label="个人经历 / 身世">
+            <textarea value={background} onChange={(e) => setBackground(e.target.value)} rows={3} className={ta} />
+          </Field>
+          <Field label="外观（容貌 · 身段 · 衣着）">
+            <textarea value={appearance} onChange={(e) => setAppearance(e.target.value)} rows={3} className={ta} />
+          </Field>
+          <div className="text-[12px] font-mono text-pink-300/55 pt-1">台词 · 演绎</div>
           <Field label="迎宾词（看板娘在大厅的固定招呼）">
             <textarea value={greeting} onChange={(e) => setGreeting(e.target.value)} rows={2} className={ta} placeholder="（仅当她是看板娘时用于大厅迎宾）" />
           </Field>
@@ -130,7 +147,7 @@ function PresetModal({ girl, onClose }: { girl: JoyGirl; onClose: () => void }) 
           </Field>
         </div>
         <footer className="shrink-0 flex items-center gap-2 px-4 py-3 border-t border-pink-500/20 bg-panel">
-          {dflt && <button onClick={() => { setGreeting(dflt.greetingPreset ?? ''); setChat(dflt.chatPreset ?? ''); setS1(dflt.stageDesc?.['1'] ?? ''); setS2(dflt.stageDesc?.['2'] ?? ''); setS3(dflt.stageDesc?.['3'] ?? ''); setS4(dflt.stageDesc?.['4'] ?? ''); setPriv(Object.entries(dflt.initPrivacy ?? {}).map(([k, v]) => `${k}=${v}`).join('\n')); }}
+          {dflt && <button onClick={() => { setPersonality(dflt.personality ?? ''); setBackground(dflt.background ?? ''); setAppearance(dflt.appearance ?? ''); setGreeting(dflt.greetingPreset ?? ''); setChat(dflt.chatPreset ?? ''); setS1(dflt.stageDesc?.['1'] ?? ''); setS2(dflt.stageDesc?.['2'] ?? ''); setS3(dflt.stageDesc?.['3'] ?? ''); setS4(dflt.stageDesc?.['4'] ?? ''); setPriv(Object.entries(dflt.initPrivacy ?? {}).map(([k, v]) => `${k}=${v}`).join('\n')); }}
             className="text-[12px] font-mono py-1.5 px-3 rounded-lg border border-edge text-dim hover:text-slate-100">恢复默认</button>}
           <div className="flex-1" />
           <button onClick={onClose} className="text-[12px] font-mono py-1.5 px-3 rounded-lg border border-edge text-dim hover:text-slate-100">取消</button>

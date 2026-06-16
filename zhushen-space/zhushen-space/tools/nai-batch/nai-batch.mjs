@@ -161,6 +161,8 @@ if (!jobs.length) { console.error(ONLY ? `没有匹配「${ONLY}」的任务` : 
 
 const jobCount = (j) => (Array.isArray(j.poses) && j.poses.length ? j.poses.length : Math.max(1, num(j.count, 1)));
 const MAX = num(getOpt('--max'), 0); // >0 时每个任务最多生成这么多张（冒烟测试用）
+const COUNT_OVERRIDE = num(getOpt('--count'), 0); // >0 命令行覆盖张数（不必读/改 jobs.json）
+const START_OVERRIDE = num(getOpt('--start'), 0); // >0 命令行覆盖起始序号
 
 if (LIST) {
   console.log(`共 ${jobs.length} 个任务，输出根目录：${OUT_BASE}\n`);
@@ -177,8 +179,9 @@ for (const job of jobs) {
   if (!o.prompt) { console.warn(`\n⚠ 跳过「${folder}」：prompt 为空`); continue; }
   const poses = Array.isArray(job.poses) && job.poses.length ? job.poses : null; // 每张一个不同姿势，身份块共用
   let count = poses ? poses.length : Math.max(1, num(job.count, 1));
+  if (COUNT_OVERRIDE > 0) count = COUNT_OVERRIDE;
   if (MAX > 0) count = Math.min(count, MAX);
-  const start = Math.max(1, num(job.start, 1)); // 文件起始序号，便于往已有集合里续号（如从 11 开始）
+  const start = START_OVERRIDE > 0 ? START_OVERRIDE : Math.max(1, num(job.start, 1)); // 文件起始序号，便于往已有集合里续号
   const base = job.outBase ? resolve(HERE, job.outBase) : OUT_BASE; // 可单任务指定输出根（如仓库根 图片/）
   const dir = join(base, folder);
   // 双随机正向池（与 GUI 一致）：每张从两池各随机抽 ≥drawCount 条接到正向后面

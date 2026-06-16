@@ -116,6 +116,31 @@ const server = createServer(async (req, res) => {
         return send(res, 200, 'application/json', JSON.stringify({ ok: true, name, kb: Math.round(png.length / 1024) }));
       } catch (e) { return send(res, 200, 'application/json', JSON.stringify({ ok: false, error: e?.message || String(e) })); }
     }
+    if (req.method === 'POST' && u.pathname === '/api/save-config') {
+      // 把网页当前字段写回 jobs.json（让命令行 CLI 跑的就是你网站里改好的池子）
+      const o = JSON.parse(await readBody(req));
+      try {
+        let jf; try { jf = await readJson(join(HERE, 'jobs.json')); } catch { jf = { outBase: '../../public', jobs: [{}] }; }
+        const job = (jf.jobs && jf.jobs[0]) || {};
+        const lines = (v) => String(v || '').split('\n').map((s) => s.trim()).filter(Boolean);
+        if (o.folder != null) job.folder = o.folder;
+        if (o.prefix != null) job.prefix = o.prefix;
+        if (o.outBase != null) job.outBase = o.outBase;
+        if (o.size != null) job.size = o.size;
+        if (o.start != null) job.start = parseInt(o.start) || 1;
+        if (o.count != null) job.count = parseInt(o.count) || 1;
+        if (o.drawCount != null) job.drawCount = parseInt(o.drawCount) || 2;
+        if (o.drawCount2 != null) job.drawCount2 = parseInt(o.drawCount2) || 2;
+        if (o.positive != null) job.prompt = o.positive;
+        if (o.negative != null) job.negative = o.negative;
+        if (o.poses != null) job.poses = lines(o.poses);
+        if (o.pool != null) job.randomPool = lines(o.pool);
+        if (o.pool2 != null) job.randomPool2 = lines(o.pool2);
+        jf.jobs = [job];
+        await writeFile(join(HERE, 'jobs.json'), JSON.stringify(jf, null, 2));
+        return send(res, 200, 'application/json', JSON.stringify({ ok: true, pool1: (job.randomPool || []).length, pool2: (job.randomPool2 || []).length }));
+      } catch (e) { return send(res, 200, 'application/json', JSON.stringify({ ok: false, error: e?.message || String(e) })); }
+    }
     send(res, 404, 'text/plain', 'not found');
   } catch (e) { send(res, 500, 'text/plain', e?.message || 'error'); }
 });

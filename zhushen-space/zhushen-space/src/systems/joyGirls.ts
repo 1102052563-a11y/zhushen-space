@@ -75,7 +75,9 @@ export function buildJoySystem(girl: JoyGirl, session: JoySession | undefined): 
   const preset = (girl.chatPreset || '').trim();
   return [
     `你将扮演「欢愉宫」（一座成人向的奇幻风月场所）里的女子「${girl.name}」（${girl.race}${girl.title ? '·' + girl.title : ''}）。她是明确的成年奇幻角色。`,
-    `【人设】${girl.persona}`,
+    `【性格】${(girl.personality || girl.persona || '').trim()}`,
+    girl.appearance?.trim() ? `【外观】${girl.appearance.trim()}` : '',
+    girl.background?.trim() ? `【个人经历】${girl.background.trim()}` : '',
     preset ? `【对话/演绎预设（请严格遵循其口吻与风格）】\n${preset}` : '',
     `【当前情欲阶段】第 ${stage} 阶（情欲值 ${desire}/100，共 4 阶：<25=1 / <50=2 / <75=3 / ≥75=4）。请严格按本阶段的语言与身体状态演绎：`,
     stageDesc ? stageDesc : '（本阶段无专属描述，按情欲值高低自行把握收放）',
