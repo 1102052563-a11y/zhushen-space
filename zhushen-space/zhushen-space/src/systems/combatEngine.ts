@@ -5,10 +5,10 @@
    数值全部由代码算，AI 只负责叙事 + 判暴击。轮回乐园重皮：阶位/强度走 T0-T9，技能品级走入门~极道。
 ════════════════════════════════════════════ */
 import {
-  resolve, strengthScoreFromBio, type AttrKey, type DiceAttrs, type ResolveSide, type EquipItemLite,
+  resolve, strengthScoreFromBio, luckMod, ATTR_KEYS, type AttrKey, type DiceAttrs, type ResolveSide, type EquipItemLite,
 } from './diceEngine';
 import {
-  computeDerived, computeMaxHp, computeMaxEp, lvFromRealm, normalizeTier, realmFromLevel, effectiveResource,
+  computeDerived, computeMaxHp, computeMaxEp, lvFromRealm, normalizeTier, realmFromLevel, effectiveResource, trueAttr,
 } from './derivedStats';
 import { usePlayer, type StatusEffect, type CombatStatusMod } from '../store/playerStore';
 import { useGame } from '../store/gameStore';
@@ -27,6 +27,13 @@ const DEF_FACTOR = 0.6;       // 防御对攻击的削减系数
 const DEFEND_MITIGATION = 0.5;// 防御姿态承伤倍率
 const BACKLASH_FACTOR = 0.5;  // 大失败反噬己方比例
 const SKILL_EP_BY_TIER: Record<string, number> = { 入门: 5, 精通: 10, 大师: 15, 宗师: 20, 极道: 30 };
+const LUCK_W = 2;             // 幸运在对抗里的权重（双向：出手方加、防御方减；luckMod 本体 ±2 → 净边际 ±~6~8）
+const TRUE_W = 4;             // 真实属性差在对抗里的权重（每 80 普通=1 真实，差距大即碾压命中）
+
+/* 真实属性总分 = Σ floor(六维/80)。后期属性破 80 后才>0，故只在高阶产生碾压效果。 */
+function trueScore(a: DiceAttrs): number {
+  return ATTR_KEYS.reduce((s, k) => s + trueAttr(a[k]), 0);
+}
 
 const equippedOf = (arr: any[] | undefined): EquipItemLite[] =>
   (arr ?? []).filter((it) => it?.equipped).map((it) => ({ category: it?.category as string, grade: (it?.numeric?.grade as number) ?? 1 }));
@@ -472,14 +479,20 @@ export function settleAction(opts: {
     const defKey: AttrKey = magic ? 'int' : 'con';
     const tEff = effCombatStats(target, tBlock);
     const defStat = magic ? tEff.mdef : tEff.pdef;
+    // 幸运双向（出手方加成、防御方进 DC）+ 真实属性差（碾压）：都走 extraMod
+    const atkTrue = trueScore(actorBlock.attrs), defTrue = trueScore(tBlock.attrs);
     const fe = resolve({
       mode: 'd20', attrs: actorBlock.attrs, attrKey: atkKey, difficulty: '普通',
       skills: abilities.skills, talents: abilities.talents, equipped: abilities.equipped,
-      includeLuck: true, opposed: true,
+      includeLuck: false, opposed: true,
+      extraMod: LUCK_W * luckMod(actorBlock.attrs, 'd20') + TRUE_W * atkTrue,
       myStrengthScore: strengthScoreFromBio(actorBlock.bioStrength, actorBlock.level),
       enemyStrengthScore: strengthScoreFromBio(tBlock.bioStrength, tBlock.level),
-      enemy: resolveSideOf(tid, defKey, tBlock),
+      enemy: { ...resolveSideOf(tid, defKey, tBlock), extraMod: LUCK_W * luckMod(tBlock.attrs, 'd20') + TRUE_W * defTrue },
     });
+    // 真实属性差 → 伤害碾压倍率（强者多打、弱者几乎打不动；同档=1）
+    const realGap = atkTrue - defTrue;
+    const crushMult = realGap > 0 ? 1 + Math.min(realGap, 12) * 0.25 : realGap < 0 ? 1 / (1 + Math.min(-realGap, 12) * 0.25) : 1;
 
     if (fe.backlash) {
       const self = Math.max(1, Math.round(Math.max(1, atkStat - defStat * DEF_FACTOR) * BACKLASH_FACTOR * DMG_SCALE));
@@ -493,7 +506,7 @@ export function settleAction(opts: {
       continue;
     }
 
-    let dmg = Math.max(1, Math.round(Math.max(1, atkStat - defStat * DEF_FACTOR) * fe.multiplier * DMG_SCALE * chargeMult));
+    let dmg = Math.max(1, Math.round(Math.max(1, atkStat - defStat * DEF_FACTOR) * fe.multiplier * DMG_SCALE * chargeMult * crushMult));
     if (target.defending) dmg = Math.max(1, Math.round(dmg * DEFEND_MITIGATION));
     let absorbed = 0;
     if (target.curShield > 0) { absorbed = Math.min(target.curShield, dmg); target.curShield -= absorbed; dmg -= absorbed; }

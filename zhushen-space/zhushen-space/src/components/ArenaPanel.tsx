@@ -2,19 +2,22 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { usePlayer } from '../store/playerStore';
 import { useArena } from '../store/arenaStore';
 import { useMisc } from '../store/miscStore';
+import ArenaOpponentDetail from './ArenaOpponentDetail';
 import {
   arenasForTier, inParadise, tierIndex, seedPlayerRank, effectiveTier,
   buildHomeRanks, buildWindowRanks, reserveSeatNotice, ladderBadge, normalArenaId,
   type ArenaDef, type LadderEntry,
 } from '../systems/arena';
 
-/* 竞技场面板：阶位分支 → 选竞技场 → 排行榜（带记忆缓存）→ 自选名次 → 挑战（建档+进战斗）。
-   AI 调用由 App 通过 onGenerateLadder / onChallenge 注入；本面板只管 UI 与 store。 */
+/* 竞技场面板：阶位分支 → 选竞技场 → 排行榜（带记忆缓存）→ 自选名次 → 点对手看面板 → 挑战。
+   AI 调用由 App 注入：onGenerateLadder(榜单) / onScout(建对手面板) / onChallengeBuilt(用已建对手开战) / onDiscardOpponent(丢弃)。 */
 
-export default function ArenaPanel({ onClose, onGenerateLadder, onChallenge }: {
+export default function ArenaPanel({ onClose, onGenerateLadder, onScout, onChallengeBuilt, onDiscardOpponent }: {
   onClose: () => void;
   onGenerateLadder: (arenaId: string, def: ArenaDef, ranks: number[], windowKey: string) => Promise<void>;
-  onChallenge: (def: ArenaDef, entry: LadderEntry) => Promise<void>;
+  onScout: (def: ArenaDef, entry: LadderEntry) => Promise<string | null>;
+  onChallengeBuilt: (def: ArenaDef, entry: LadderEntry, cid: string) => void;
+  onDiscardOpponent: (cid: string) => void;
 }) {
   const rawTier = usePlayer((s) => s.profile.tier);
   const level = usePlayer((s) => s.profile.level);
@@ -35,8 +38,11 @@ export default function ArenaPanel({ onClose, onGenerateLadder, onChallenge }: {
   const [busy, setBusy] = useState('');
   const [showDefeated, setShowDefeated] = useState(false);
   const [targetInput, setTargetInput] = useState('');
-  const [confirmEntry, setConfirmEntry] = useState<LadderEntry | null>(null);
+  const [scoutEntry, setScoutEntry] = useState<LadderEntry | null>(null);
+  const [scoutCid, setScoutCid] = useState<string | null>(null);
+  const [scoutBuilding, setScoutBuilding] = useState(false);
   const busyRef = useRef(false);
+  const scoutCidRef = useRef<string | null>(null);   // 当前正在查看、尚未挑战的临时对手（关闭即丢弃）
 
   const def = defs.find((d) => d.id === selectedId) ?? null;
   const ladder = selectedId ? ladders[selectedId] : undefined;
@@ -75,11 +81,32 @@ export default function ArenaPanel({ onClose, onGenerateLadder, onChallenge }: {
   );
   const reserveNotice = def ? reserveSeatNotice(def.id, ti, ladder?.playerRank ?? 99999) : undefined;
 
-  function doChallenge(entry: LadderEntry) {
-    if (!def) return;
-    setConfirmEntry(null);
-    void run('正在生成对手并进入战斗…', async () => { await onChallenge(def, entry); onClose(); });
+  // 点对手 → 先建其面板再展示（scout）；关闭即丢弃，挑战则复用
+  async function openScout(entry: LadderEntry) {
+    if (!def || scoutBuilding) return;
+    if (scoutCidRef.current) { onDiscardOpponent(scoutCidRef.current); scoutCidRef.current = null; }
+    setScoutEntry(entry); setScoutCid(null); setScoutBuilding(true);
+    try {
+      const cid = await onScout(def, entry);
+      scoutCidRef.current = cid;
+      setScoutCid(cid);
+    } catch (e) { console.error('[Arena] scout', e); }
+    finally { setScoutBuilding(false); }
   }
+  function closeScout() {
+    if (scoutCidRef.current) { onDiscardOpponent(scoutCidRef.current); scoutCidRef.current = null; }
+    setScoutEntry(null); setScoutCid(null); setScoutBuilding(false);
+  }
+  function challengeScouted() {
+    if (!def || !scoutEntry || !scoutCid) return;
+    const cid = scoutCid;
+    scoutCidRef.current = null;   // 交给战斗，不再丢弃
+    setScoutEntry(null); setScoutCid(null);
+    onChallengeBuilt(def, scoutEntry, cid);
+    onClose();
+  }
+  // 关面板时丢弃未挑战的临时对手
+  useEffect(() => () => { if (scoutCidRef.current) onDiscardOpponent(scoutCidRef.current); }, []);
 
   return (
     <div className="fixed inset-0 z-[60] bg-black/70 backdrop-blur-sm flex items-center justify-center p-3">
@@ -184,9 +211,12 @@ export default function ArenaPanel({ onClose, onGenerateLadder, onChallenge }: {
                   {sortedEntries.length === 0 && !busy && <div className="text-slate-500 text-sm text-center py-10">点「刷新」生成排行榜。</div>}
                   {sortedEntries.map((e) => {
                     const badge = e.badge ?? ladderBadge(def.kind, e.rank);
+                    const clickable = !e.isPlayer;
                     return (
                       <div key={e.rank}
-                        className={`flex items-center gap-2 rounded-lg border p-2 ${e.isPlayer ? 'border-cyan-400/70 bg-cyan-900/25' : 'border-slate-700/50 bg-slate-800/30'}`}>
+                        onClick={clickable ? () => openScout(e) : undefined}
+                        title={clickable ? '点击查看对手面板' : undefined}
+                        className={`flex items-center gap-2 rounded-lg border p-2 ${e.isPlayer ? 'border-cyan-400/70 bg-cyan-900/25' : 'border-slate-700/50 bg-slate-800/30 hover:border-rose-500/40 hover:bg-slate-800/60 cursor-pointer'}`}>
                         <div className={`w-12 text-center text-sm font-mono shrink-0 ${e.rank <= 10 ? 'text-amber-300' : e.rank <= 50 ? 'text-cyan-300' : 'text-slate-400'}`}>#{e.rank}</div>
                         <div className="min-w-0 flex-1">
                           <div className="text-sm text-slate-100 truncate">
@@ -196,10 +226,7 @@ export default function ArenaPanel({ onClose, onGenerateLadder, onChallenge }: {
                           </div>
                           <div className="text-[10px] text-slate-400 truncate">{e.tier}{e.job ? ` · ${e.job}` : ''}{e.strength ? ` · ${e.strength}` : ''}{e.persona ? ` · ${e.persona}` : ''}</div>
                         </div>
-                        {!e.isPlayer && (
-                          <button onClick={() => setConfirmEntry(e)}
-                            className="px-2.5 py-1 rounded text-xs border border-rose-500/60 text-rose-200 hover:bg-rose-700/40 shrink-0">挑战</button>
-                        )}
+                        {clickable && <span className="text-[11px] text-rose-300/70 shrink-0 pr-1 whitespace-nowrap">查看 ›</span>}
                       </div>
                     );
                   })}
@@ -218,21 +245,12 @@ export default function ArenaPanel({ onClose, onGenerateLadder, onChallenge }: {
         )}
       </div>
 
-      {/* 挑战确认 */}
-      {confirmEntry && def && (
-        <div className="fixed inset-0 z-[65] bg-black/60 flex items-center justify-center p-4" onClick={(e) => { if (e.target === e.currentTarget) setConfirmEntry(null); }}>
-          <div className="w-full max-w-sm rounded-xl border border-rose-500/40 bg-slate-900 p-4 space-y-3">
-            <div className="text-sm text-slate-100">确认挑战 <span className="text-amber-300">#{confirmEntry.rank}</span> <b>{confirmEntry.name}</b>？</div>
-            <div className="text-[11px] text-slate-400 leading-relaxed">
-              将为对手生成完整面板（装备/技能/天赋）并进入战斗。
-              <br />胜利后你的名次将<b className="text-cyan-300">取代为 #{confirmEntry.rank}</b>{confirmEntry.rank <= 100 ? '，并发放排名奖励。' : '（仅前100名有物质奖励）。'}
-            </div>
-            <div className="flex justify-end gap-2">
-              <button onClick={() => setConfirmEntry(null)} className="px-3 py-1.5 rounded border border-slate-600 text-slate-300 text-sm hover:bg-slate-700">取消</button>
-              <button onClick={() => doChallenge(confirmEntry)} className="px-4 py-1.5 rounded bg-rose-600 hover:bg-rose-500 text-white text-sm font-medium">挑战</button>
-            </div>
-          </div>
-        </div>
+      {/* 对手详情（点对手 → 看面板 → 挑战） */}
+      {scoutEntry && (
+        <ArenaOpponentDetail
+          entry={scoutEntry} cid={scoutCid} building={scoutBuilding}
+          onChallenge={challengeScouted} onClose={closeScout}
+        />
       )}
     </div>
   );

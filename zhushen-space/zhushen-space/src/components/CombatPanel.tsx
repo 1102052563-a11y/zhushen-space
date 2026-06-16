@@ -33,6 +33,7 @@ function Card({ id, isCurrent, isTarget, onPick }: { id: string; isCurrent: bool
   if (!c || !b) return null;
   const dead = c.curHp <= 0 || c.left;
   const enemy = b.side === 'enemy';
+  const realTop = Math.max(0, ...[b.attrs.str, b.attrs.agi, b.attrs.con, b.attrs.int, b.attrs.cha, b.attrs.luck].map((v) => Math.floor((v || 0) / 80)));  // 最高真实属性（每80普通=1真实）
   return (
     <button
       type="button"
@@ -49,7 +50,7 @@ function Card({ id, isCurrent, isTarget, onPick }: { id: string; isCurrent: bool
         {avatar && <img src={avatar} alt="" className="w-9 h-9 rounded object-cover flex-none" />}
         <div className="min-w-0 flex-1">
           <div className="text-xs font-medium text-slate-100 truncate">{b.name}{c.defending ? ' 🛡' : ''}</div>
-          <div className="text-[10px] text-slate-400 truncate">{b.tier || ''}{b.bioStrength ? ` · ${b.bioStrength}` : ''}</div>
+          <div className="text-[10px] text-slate-400 truncate">{b.tier || ''}{b.bioStrength ? ` · ${b.bioStrength}` : ''}{realTop > 0 && <span className="text-amber-300"> · 真{realTop}</span>}</div>
         </div>
       </div>
       <div className="space-y-1">

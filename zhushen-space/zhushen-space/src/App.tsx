@@ -4600,27 +4600,47 @@ ${lines}`;
     if (applied > 0) console.log(`[Attr] 从正文人物卡照抄六维：${applied} 个角色`);
   }
 
+  // 敌怪 / 死亡 词：正文血量兜底用来识别「这行 HP 属于被击杀的对手，不是主角/友方」（主角与NPC共用）
+  const OTHER_VITAL_WORDS = '敌|怪|魔物|魔兽|妖兽|对手|尸体|死亡|阵亡|殒命|陨落|被击败|被击杀|被斩杀|被斩|被杀|斩杀|击杀|灰飞烟灭|化作飞灰|消散|湮灭|Boss|BOSS';
+
   /* 从正文抽取主角「当前HP：X/Y」「当前EP/MP：X/Y」并写入 gameStore（取最后一次=最新状态）。
-     解决"正文说 HP 恢复到 145/160、侧栏 HP 却没变"——AI 漏输出 hp.B1 时用正文显式数值兜底。仅认带"当前"的状态行，避免误抓 NPC 卡。 */
+     解决"正文说 HP 恢复到 145/160、侧栏 HP 却没变"——AI 漏输出 hp.B1 时用正文显式数值兜底。仅认带"当前"的状态行，避免误抓 NPC 卡。
+     防误抓：HP/EP 行的直接主语若是别的角色/敌怪（如战死敌人「当前HP：0」），或归零行没有「主角/你/我」主语，就不当作主角 → 修复"敌人死亡 HP=0 被写成主角 HP=0"。 */
   function applyNarrativeVitals(narrative: string) {
     const g = useGame.getState();
-    const a = usePlayer.getState().profile.attrs;
     const dmh = playerMaxHp(), dme = playerMaxEp();   // 真实上限：六维 + 装备 + 被动/天赋上限加成
-    const grabLast = (src: string): [number, number] | null => {
+    // 别的角色名（含敌怪死亡词）：HP 行紧前若出现，说明那行 HP 不是主角的
+    const otherNames = Object.values(useNpc.getState().npcs)
+      .map((r) => (r.name || '').split('|')[0].trim())
+      .filter((n) => n.length >= 2 && !/^(主角|你|我)$/.test(n))
+      .map((n) => n.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'));
+    const OTHER_RE = new RegExp([...otherNames, OTHER_VITAL_WORDS].join('|'));
+    const SELF_RE = /(?:主角|你|我)的?$/;   // 直接主语是「主角/你/我」才算主角自己
+    // 取「与主角关联」的最后一个 X/Y：直接主语是别人→跳过；主语空缺但同句前文有敌怪→跳过；HP 归零须有主角主语
+    const grabLast = (src: string, guardZero: boolean): [number, number] | null => {
       const r = new RegExp(src, 'gi'); let m: RegExpExecArray | null, last: [number, number] | null = null;
-      while ((m = r.exec(narrative)) !== null) last = [Number(m[1]), Number(m[2])];
+      while ((m = r.exec(narrative)) !== null) {
+        const before = narrative.slice(Math.max(0, m.index - 30), m.index);
+        const seg = (before.split(/[。！？!?\n，,、；;]/).pop() || '').trim();   // 紧贴 HP 的那一小句（直接主语）
+        const self = SELF_RE.test(seg);
+        if (OTHER_RE.test(seg)) continue;               // 直接主语是别的角色/敌怪
+        if (!self && OTHER_RE.test(before)) continue;   // 主语空缺，但同句前文提到敌怪（如「斩杀X，当前HP：0」）
+        const cur = Number(m[1]);
+        if (guardZero && cur === 0 && !self) continue;  // HP 归零须有「主角/你/我」直接主语（防战死敌人误判）
+        last = [cur, Number(m[2])];
+      }
       return last;
     };
     // 只有当正文报的"上限"与真实上限相符(±容差)时，才采信它的"当前值"；
     // 否则（如开局 AI 在人物卡瞎写「当前HP：100/100」）忽略，避免把刚拉满的主角写回默认值。只写当前值、不写 gameStore 上限。
     const within = (max: number, dm: number) => dm > 0 && Math.abs(max - dm) <= Math.max(6, dm * 0.12);
     // 先认「当前HP：X/Y」；没有则认成长块箭头「HP: 180/180 -> 400/400」取箭头后的最终值
-    let hp = grabLast('当前\\s*(?:HP|血量|生命值?)\\s*[:：]\\s*(\\d{1,7})\\s*/\\s*(\\d{1,7})');
-    if (!hp) hp = grabLast('(?:HP|血量|生命值?)\\s*[:：]?\\s*\\d{1,7}\\s*/\\s*\\d{1,7}\\s*(?:->|→|=>|➜|⟶)\\s*(\\d{1,7})\\s*/\\s*(\\d{1,7})');
+    let hp = grabLast('当前\\s*(?:HP|血量|生命值?)\\s*[:：]\\s*(\\d{1,7})\\s*/\\s*(\\d{1,7})', true);
+    if (!hp) hp = grabLast('(?:HP|血量|生命值?)\\s*[:：]?\\s*\\d{1,7}\\s*/\\s*\\d{1,7}\\s*(?:->|→|=>|➜|⟶)\\s*(\\d{1,7})\\s*/\\s*(\\d{1,7})', true);
     const hpOk = !!hp && hp[0] >= 0 && hp[1] > 0 && within(hp[1], dmh);
     if (hpOk) g.setPlayerField('hp', Math.min(hp![0], dmh));
-    let ep = grabLast('当前\\s*(?:EP|MP|蓝量|法力|能量|精力)\\s*[:：]\\s*(\\d{1,7})\\s*/\\s*(\\d{1,7})');
-    if (!ep) ep = grabLast('(?:EP|MP|蓝量|法力|能量|精力)\\s*[:：]?\\s*\\d{1,7}\\s*/\\s*\\d{1,7}\\s*(?:->|→|=>|➜|⟶)\\s*(\\d{1,7})\\s*/\\s*(\\d{1,7})');
+    let ep = grabLast('当前\\s*(?:EP|MP|蓝量|法力|能量|精力)\\s*[:：]\\s*(\\d{1,7})\\s*/\\s*(\\d{1,7})', false);
+    if (!ep) ep = grabLast('(?:EP|MP|蓝量|法力|能量|精力)\\s*[:：]?\\s*\\d{1,7}\\s*/\\s*\\d{1,7}\\s*(?:->|→|=>|➜|⟶)\\s*(\\d{1,7})\\s*/\\s*(\\d{1,7})', false);
     const epOk = !!ep && ep[0] >= 0 && ep[1] > 0 && within(ep[1], dme);
     if (epOk) g.setPlayerField('mp', Math.min(ep![0], dme));
     if (hpOk || epOk) console.log(`[Vitals] 正文照抄主角 ${hpOk ? `HP ${hp![0]}/${dmh}` : ''} ${epOk ? `EP ${ep![0]}/${dme}` : ''}`);
@@ -4628,21 +4648,30 @@ ${lines}`;
 
   /* 从正文抽取【NPC】「(当前)HP/EP：X/Y」写入 npcStore（参考主角 applyNarrativeVitals 逻辑，按 NPC 名字定位）：
      名字后窗口内找 HP/EP；仅当正文报的上限与该 NPC 真实上限(体×20/智×15)相符时才采信，
-     既避免误抓邻近角色、也避免 AI 瞎写的数值；只写当前值、上限由六维自动算。AI 漏输出 hp.<id> 时兜底。*/
+     既避免误抓邻近角色、也避免 AI 瞎写的数值；只写当前值、上限由六维自动算。AI 漏输出 hp.<id> 时兜底。
+     防误抓：名字与 HP 之间若跨到了别的角色名/敌怪死亡词（如「李雷斩杀哥布林，哥布林当前HP：0」），这段 HP 属于别人 → 跳过。*/
   function applyNarrativeNpcVitals(narrative: string) {
     const npc = useNpc.getState();
     const recs = Object.values(npc.npcs).filter((r) => r.name && r.name !== r.id && r.name.trim().length >= 2 && !r.isDead && r.attrs);
     if (recs.length === 0) return;
     const within = (max: number, dm: number) => dm > 0 && Math.abs(max - dm) <= Math.max(8, dm * 0.15);
+    const allNames = recs.map((r) => r.name.split('|')[0].trim());
     let applied = 0;
     for (const r of recs) {
       const dmh = computeMaxHp(r.attrs!), dme = computeMaxEp(r.attrs!);
-      const nameEsc = r.name.split('|')[0].trim().replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      const selfName = r.name.split('|')[0].trim();
+      const nameEsc = selfName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      // 跨越词：别的角色名 + 敌怪死亡词；出现在 name→HP 之间，说明这段 HP 属于别人
+      const others = allNames.filter((n) => n !== selfName).map((n) => n.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'));
+      const CROSS_RE = new RegExp([...others, OTHER_VITAL_WORDS].join('|'));
       const grab = (kws: string, dm: number): number | null => {
         if (dm <= 0) return null;
-        const re = new RegExp(`${nameEsc}[\\s\\S]{0,160}?(?:当前)?\\s*(?:${kws})\\s*[:：]\\s*(\\d{1,7})\\s*/\\s*(\\d{1,7})`, 'gi');
+        const re = new RegExp(`${nameEsc}([\\s\\S]{0,160}?)(?:当前)?\\s*(?:${kws})\\s*[:：]\\s*(\\d{1,7})\\s*/\\s*(\\d{1,7})`, 'gi');
         let m: RegExpExecArray | null, last: [number, number] | null = null;
-        while ((m = re.exec(narrative)) !== null) last = [Number(m[1]), Number(m[2])];
+        while ((m = re.exec(narrative)) !== null) {
+          if (CROSS_RE.test(m[1])) continue;   // name→HP 之间跨到别的角色/敌怪 → 不是本人的状态行
+          last = [Number(m[2]), Number(m[3])];
+        }
         return last && last[0] >= 0 && last[1] > 0 && within(last[1], dm) ? Math.min(last[0], dm) : null;
       };
       const hp = grab('HP|血量|生命值?', dmh);
@@ -4927,7 +4956,7 @@ ${lines}`;
   const arenaSkillRarity = (rank: number) => (rank <= 10 ? '天阶' : rank <= 50 ? '地阶' : rank <= 200 ? '玄阶' : '黄阶');
   const arenaTraitRarity = (rank: number) => (rank <= 10 ? 'SS' : rank <= 50 ? 'S' : rank <= 200 ? 'A' : 'B');
 
-  // 对手物品：保证 ≥6 件、≥4 件已装备（AI 不足则确定性补足）
+  // 对手物品：保证 ≥6 件且 ≥6 件已装备（AI 不足则确定性补足）
   function ensureArenaItems(cid: string, raw: any[], entry: ArenaLadderEntry) {
     const npc = useNpc.getState();
     const armorParts = ['armor:upper', 'armor:head', 'armor:lower', 'armor:feet', 'armor:hands'];
@@ -4955,11 +4984,11 @@ ${lines}`;
     list.forEach((it, idx) => {
       let equipSlot: string | undefined;
       const key = it.category + it.name;
-      if (it.equipped || equippedCount < 4) {
+      if (it.equipped || equippedCount < 6) {
         if (/武器|剑|刀|枪|弓|杖/.test(key) && wN < 2) { equipSlot = wN === 0 ? 'weapon:main' : `weapon:off${wN}`; wN++; }
         else if (/防具|护甲|衣|甲|靴|腰带|战甲/.test(key)) { equipSlot = armorParts[Math.min(aN, armorParts.length - 1)]; aN++; }
         else if (/饰品|戒指|项链|护符|符/.test(key)) { equipSlot = `accessory:#${++cN}`; }
-        else if (/法宝/.test(it.category) || equippedCount < 4) { equipSlot = `treasure:#${++tN}`; }
+        else if (/法宝/.test(it.category) || equippedCount < 6) { equipSlot = `treasure:#${++tN}`; }
         if (equipSlot) equippedCount++;
       }
       npc.addNpcItem(cid, {
@@ -5064,18 +5093,34 @@ ${lines}`;
     return cid;
   }
 
-  // ③ 发起竞技场挑战：建对手 → 记录待结算 → 进战斗
-  async function startArenaChallenge(def: ArenaDefType, entry: ArenaLadderEntry) {
+  // ③ 点对手：先建其完整面板（不开战），返回 cid 供 ArenaPanel 展示
+  async function scoutArenaOpponent(def: ArenaDefType, entry: ArenaLadderEntry): Promise<string | null> {
+    return await genArenaOpponent(def, entry);
+  }
+  // 丢弃未挑战的临时对手（关闭详情 / 关面板时）
+  function discardArenaOpponent(cid: string) {
+    try { useCharacters.getState().removeCharacter(cid); useNpc.getState().hardRemoveNpc(cid); } catch { /* */ }
+  }
+  // 清扫残留的竞技对手（兜底：异常中断/崩溃留下的孤儿）——保留正在战斗的那个
+  function sweepArenaOpponents() {
+    const npcs = useNpc.getState().npcs;
+    const keep = useArena.getState().pendingChallenge?.opponentCid;
+    for (const id of Object.keys(npcs)) {
+      if (npcs[id]?.npcTag === '竞技对手' && id !== keep) {
+        try { useCharacters.getState().removeCharacter(id); useNpc.getState().hardRemoveNpc(id); } catch { /* */ }
+      }
+    }
+  }
+  // 用已建好的对手发起挑战 → 记录待结算 → 进战斗
+  function startArenaBattleWith(def: ArenaDefType, entry: ArenaLadderEntry, cid: string) {
     const C = useCombat.getState();
-    if (C.battle.active) return;
-    // 清理上一次异常中断（弃战/未结算）残留的临时对手，避免孤儿 NPC 累积
+    if (C.battle.active) { discardArenaOpponent(cid); return; }
+    // 清理上一次异常残留的临时对手（弃战未结算），避免孤儿累积
     const stale = useArena.getState().pendingChallenge;
-    if (stale) {
+    if (stale && stale.opponentCid !== cid) {
       try { useCharacters.getState().removeCharacter(stale.opponentCid); useNpc.getState().hardRemoveNpc(stale.opponentCid); } catch { /* */ }
       useArena.getState().setPendingChallenge(null);
     }
-    const cid = await genArenaOpponent(def, entry);
-    if (!cid) return;
     useArena.getState().setPendingChallenge({
       arenaId: def.id, arenaName: def.name, opponentCid: cid, targetRank: entry.rank,
       opponent: { name: entry.name, tier: entry.tier, job: entry.job, strength: entry.strength, persona: entry.persona, rank: entry.rank },
@@ -6334,7 +6379,7 @@ ${lines}`;
                     item.label === '回合洞察' ? () => setInsightOpen(true) :
                     item.label === 'ROLL' ? () => setDicePanelOpen(true) :
                     item.label === '战斗' ? () => setCombatSetupOpen(true) :
-                    item.label === '竞技场' ? () => setArenaPanelOpen(true) :
+                    item.label === '竞技场' ? () => { sweepArenaOpponents(); setArenaPanelOpen(true); } :
                     item.label === 'NPC'  ? () => setNpcPanelOpen(true) :
                     item.label === '任务' ? () => setMiscPanelOpen(true) :
                     item.label === '频道' ? () => setChannelPanelOpen(true) :
@@ -6469,7 +6514,9 @@ ${lines}`;
         <ArenaPanel
           onClose={() => setArenaPanelOpen(false)}
           onGenerateLadder={runArenaLadderPhase}
-          onChallenge={startArenaChallenge}
+          onScout={scoutArenaOpponent}
+          onChallengeBuilt={startArenaBattleWith}
+          onDiscardOpponent={discardArenaOpponent}
         />
       )}
 

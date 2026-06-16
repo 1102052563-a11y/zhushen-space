@@ -33,6 +33,8 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 const pad = (n) => String(n).padStart(2, '0');
 const num = (v, d) => { const n = Number(v); return Number.isFinite(n) ? n : d; };
 const pick = (...vals) => { for (const v of vals) if (v !== undefined && v !== null && v !== '') return v; return undefined; };
+// 从数组里不重复随机抽 n 条（与 GUI 一致）
+const drawFrom = (arr, n) => { if (!Array.isArray(arr) || !arr.length || n <= 0) return []; if (n >= arr.length) return arr.slice(); const p = arr.slice(), out = []; for (let i = 0; i < n; i++) out.push(p.splice(Math.floor(Math.random() * p.length), 1)[0]); return out; };
 const fileExists = async (p) => { try { await access(p, FS.F_OK); return true; } catch { return false; } };
 const naiUrl = (raw) => { const t = (raw || '').trim().replace(/\/+$/, ''); return /\/ai\/generate-image$/i.test(t) ? t : `${t}/ai/generate-image`; };
 
@@ -179,17 +181,25 @@ for (const job of jobs) {
   const start = Math.max(1, num(job.start, 1)); // 文件起始序号，便于往已有集合里续号（如从 11 开始）
   const base = job.outBase ? resolve(HERE, job.outBase) : OUT_BASE; // 可单任务指定输出根（如仓库根 图片/）
   const dir = join(base, folder);
-  console.log(`\n=== ${dir}  (${count} 张, ${o.size}, ${o.model})${poses ? ' · 每张不同姿势' : ''} ===`);
+  // 双随机正向池（与 GUI 一致）：每张从两池各随机抽 ≥drawCount 条接到正向后面
+  const pool1 = Array.isArray(job.randomPool) ? job.randomPool.map((s) => String(s).trim()).filter(Boolean) : [];
+  const pool2 = Array.isArray(job.randomPool2) ? job.randomPool2.map((s) => String(s).trim()).filter(Boolean) : [];
+  const dN1 = Math.max(0, num(job.drawCount, 2)), dN2 = Math.max(0, num(job.drawCount2, 2));
+  const hasPools = pool1.length || pool2.length;
+  const mode = poses ? ' · 每张不同姿势' : (hasPools ? ` · 双池随机(各抽${dN1}/${dN2})` : '');
+  console.log(`\n=== ${dir}  (${count} 张, ${o.size}, ${o.model})${mode} ===`);
   console.log(`    身份块: ${[ARTIST, o.prompt].filter(Boolean).join(', ').slice(0, 160)}…`);
   if (!DRY) await mkdir(dir, { recursive: true });
   for (let k = 0; k < count; k++) {
     const i = start + k; // 文件序号（支持续号，不覆盖已有图）
     const pose = poses ? (poses[k] || '') : '';
-    const prompt = pose ? [o.prompt, pose].filter(Boolean).join(', ') : o.prompt;
+    const extra = hasPools ? [...drawFrom(pool1, dN1), ...drawFrom(pool2, dN2)] : []; // 两池各随机抽
+    const tagLine = [pose, ...extra].filter(Boolean).join(', ');
+    const prompt = [o.prompt, tagLine].filter(Boolean).join(', ');
     const file = join(dir, `${prefix}_${pad(i)}.png`);
     if (!FORCE && await fileExists(file)) { console.log(`  · 已存在，跳过 ${prefix}_${pad(i)}.png`); skipped++; continue; }
     const seed = Number.isFinite(job.seed) ? (job.seed + k) >>> 0 : Math.floor(Math.random() * 2 ** 32);
-    if (DRY) { console.log(`  · [dry] ${prefix}_${pad(i)}.png  seed=${seed}${pose ? '  | ' + pose.slice(0, 70) : ''}`); continue; }
+    if (DRY) { console.log(`  · [dry] ${prefix}_${pad(i)}.png  seed=${seed}${tagLine ? '  | ' + tagLine.slice(0, 70) : ''}`); continue; }
     if (!firstCall && GAP_MS) await sleep(GAP_MS); // 限速门
     firstCall = false;
     let ok = false;
@@ -197,7 +207,7 @@ for (const job of jobs) {
       try {
         const png = await genOne({ ...o, prompt, seed });
         await writeFile(file, png);
-        console.log(`  ✓ ${prefix}_${pad(i)}.png  (${(png.length / 1024) | 0} KB, seed=${seed})${pose ? '  | ' + pose.slice(0, 50) : ''}`);
+        console.log(`  ✓ ${prefix}_${pad(i)}.png  (${(png.length / 1024) | 0} KB, seed=${seed})${tagLine ? '  | ' + tagLine.slice(0, 50) : ''}`);
         made++; ok = true;
       } catch (e) {
         const msg = e?.message || String(e);
