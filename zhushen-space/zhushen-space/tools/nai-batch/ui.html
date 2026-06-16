@@ -159,10 +159,22 @@ let stopFlag = false;
 
 // ── 本地持久化：网页里的修改自动存 localStorage，刷新/重启不丢 ──
 const LS_KEY = 'naiUiState_v1';
-const FIELDS = ['folder','prefix','outBase','size','start','positive','artist','negative','poses','pool','pool2','drawCount','drawCount2','count','seed','gap','model','steps','scale','sampler'];
-function saveState(){ try { const s={}; FIELDS.forEach(f=>{ const el=$(f); if(el) s[f]=el.value; }); s.continuous=$('continuous').checked; localStorage.setItem(LS_KEY, JSON.stringify(s)); } catch(e){} }
-function applyState(s){ FIELDS.forEach(f=>{ if(s[f]!=null && $(f)) $(f).value=s[f]; }); if(s.continuous!=null) $('continuous').checked=!!s.continuous; }
-function resetDefaults(){ if(!confirm('恢复成 jobs.json 的默认预填？你当前在网页里改的内容会被清掉。')) return; try{ localStorage.removeItem(LS_KEY); }catch(e){} location.reload(); }
+const CAT_POOLS = [
+  { id:'p3', label:'外观/表情', key:'外观表情' },
+  { id:'p4', label:'服装/穿着', key:'服装' },
+  { id:'p5', label:'姿势/动作', key:'姿势动作' },
+  { id:'p6', label:'场景/光照/构图', key:'场景光照' },
+];
+const FIELDS = ['folder','prefix','outBase','size','start','positive','artist','negative','poses','pool','pool2','drawCount','drawCount2','count','seed','gap','model','steps','scale','sampler',
+  ...CAT_POOLS.map(p=>p.id+'_t'), ...CAT_POOLS.map(p=>p.id+'_n')];
+const CHECKS = ['continuous','pool_on','pool2_on', ...CAT_POOLS.map(p=>p.id+'_on')];
+function saveState(){ try { const s={}; FIELDS.forEach(f=>{ const el=$(f); if(el) s[f]=el.value; }); CHECKS.forEach(c=>{ const el=$(c); if(el) s[c]=el.checked; }); localStorage.setItem(LS_KEY, JSON.stringify(s)); } catch(e){} }
+function applyState(s){ FIELDS.forEach(f=>{ if(s[f]!=null && $(f)) $(f).value=s[f]; }); CHECKS.forEach(c=>{ if(s[c]!=null && $(c)) $(c).checked=!!s[c]; }); }
+function resetDefaults(){ if(!confirm('恢复成默认预填？你当前在网页里改的内容会被清掉。')) return; try{ localStorage.removeItem(LS_KEY); }catch(e){} location.reload(); }
+function renderCatPools(){
+  const box=$('catPools'); if(!box) return;
+  box.innerHTML = CAT_POOLS.map(p=>'<div style="margin-top:8px"><label class="poolHead"><input type="checkbox" id="'+p.id+'_on"> <b>'+p.label+'</b> · 抽 <input id="'+p.id+'_n" type="number" value="1" min="0"> 条</label><textarea id="'+p.id+'_t" rows="4" placeholder="一行一条；勾选才参与抽取"></textarea></div>').join('');
+}
 async function saveToServer(){
   const payload = { folder:$('folder').value, prefix:$('prefix').value, outBase:$('outBase').value, size:$('size').value, start:$('start').value, count:$('count').value, drawCount:$('drawCount').value, drawCount2:$('drawCount2').value, positive:$('positive').value, negative:$('negative').value, poses:$('poses').value, pool:$('pool').value, pool2:$('pool2').value };
   try {
@@ -212,6 +224,7 @@ async function loadCfg(){
     if(j.count) $('count').value = j.count;
     if(j.drawCount) $('drawCount').value = j.drawCount;
     if(j.drawCount2) $('drawCount2').value = j.drawCount2;
+    try { const pd = await (await fetch('/api/pool-defaults')).json(); CAT_POOLS.forEach(p=>{ const el=$(p.id+'_t'); if(el && pd[p.key]) el.value = pd[p.key].join('\n'); }); } catch(e){}
     const d = c.defaults || {};
     if(d.model) $('model').value = d.model;
     if(d.steps) $('steps').value = d.steps;
@@ -236,14 +249,17 @@ async function generate(){
   const size=$('size').value, model=$('model').value.trim(), steps=$('steps').value, scale=$('scale').value, sampler=$('sampler').value;
   const seedRaw=$('seed').value.trim(), gap=Math.max(0,+$('gap').value||0)*1000, start=Math.max(1,+$('start').value||1);
   const poses=$('poses').value.split('\n').map(s=>s.trim()).filter(Boolean);
-  const pool=$('pool').value.split('\n').map(s=>s.trim()).filter(Boolean);
-  const pool2=$('pool2').value.split('\n').map(s=>s.trim()).filter(Boolean);
-  const drawN=Math.max(2,+$('drawCount').value||2);    // 每池至少抽 2
-  const drawN2=Math.max(2,+$('drawCount2').value||2);
+  const linesOf = id => ($(id)?$(id).value:'').split('\n').map(s=>s.trim()).filter(Boolean);
+  const ALLP = [
+    { on:$('pool_on').checked, n:Math.max(0,+$('drawCount').value||0), lines:linesOf('pool') },
+    { on:$('pool2_on').checked, n:Math.max(0,+$('drawCount2').value||0), lines:linesOf('pool2') },
+    ...CAT_POOLS.map(p=>({ on:!!($(p.id+'_on')&&$(p.id+'_on').checked), n:Math.max(0,+($(p.id+'_n')?$(p.id+'_n').value:0)||0), lines:linesOf(p.id+'_t') })),
+  ];
   const continuous=$('continuous').checked;
   if(!positive){ alert('正向提示词不能为空'); return; }
   if(!folder){ alert('请填输出文件夹'); return; }
-  if(continuous && !pool.length && !pool2.length && !poses.length && !confirm('连续模式下两个随机池与姿势都为空，将不停生成相同提示词。确定继续？')) return;
+  const anyPool = ALLP.some(p=>p.on && p.lines.length);
+  if(continuous && !anyPool && !poses.length && !confirm('连续模式下没开启任何带内容的池、也没姿势，将不停生成。确定继续？')) return;
 
   const total = continuous ? Infinity : (poses.length ? poses.length : Math.max(1,+$('count').value||1));
   stopFlag=false; $('gen').disabled=true; $('stop').disabled=false; $('empty').style.display='none';
@@ -252,7 +268,7 @@ async function generate(){
     const idx=start+k, name=prefix+'_'+pad(idx)+'.png';
     // 姿势：连续→随机抽一条；定量→按顺序取
     const pose = poses.length ? (continuous ? poses[randInt(poses.length)] : (poses[k]||'')) : '';
-    const extra = [...drawFrom(pool, drawN), ...drawFrom(pool2, drawN2)]; // 两池各随机抽 ≥2，机械拼接
+    const extra = ALLP.flatMap(p => p.on ? drawFrom(p.lines, p.n) : []); // 各开启池随机抽
     const tagLine = [pose, ...extra].filter(Boolean).join(', ');
     const finalPos = [positive, tagLine].filter(Boolean).join(', ');
     if(continuous){ $('barFill').style.width=((k%20)/20*100)+'%'; $('status').textContent='连续生成中… 已成功 '+ok+' 张（点停止结束）  →  '+name; }
@@ -295,6 +311,7 @@ $('saveBtn').onclick=saveToServer;
 $('loadPromptsBtn').onclick=loadPrompts;
 $('gen').onclick=generate;
 $('stop').onclick=()=>{ stopFlag=true; $('status').textContent='正在停止…（当前这张完成后停）'; };
+renderCatPools();
 loadCfg();
 </script>
 </body>
