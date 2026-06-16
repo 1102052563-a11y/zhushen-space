@@ -908,7 +908,7 @@ export default function ItemManager() {
   return (
     <div className="space-y-4">
       {/* 页头 */}
-      <div className="flex items-center justify-between gap-4 border-b border-edge pb-4">
+      <div className="flex max-lg:flex-wrap items-center justify-between gap-4 border-b border-edge pb-4">
         {/* 左：标题 + 启用开关 */}
         <div className="flex items-center gap-4">
           <div>

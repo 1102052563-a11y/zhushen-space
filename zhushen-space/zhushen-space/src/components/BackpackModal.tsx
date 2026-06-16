@@ -801,7 +801,7 @@ export default function BackpackModal({
         <div className="flex flex-1 overflow-hidden">
 
           {/* 左侧边栏：货币 + 分类过滤 */}
-          <aside className="shrink-0 w-48 border-r border-edge bg-panel flex flex-col gap-4 p-3 overflow-y-auto">
+          <aside className="shrink-0 w-48 max-lg:w-40 border-r border-edge bg-panel flex flex-col gap-4 p-3 overflow-y-auto">
             <CurrencyBar wallet={currency} />
 
             <div className="space-y-1">
@@ -835,7 +835,7 @@ export default function BackpackModal({
           </aside>
 
           {/* 右侧物品列表 */}
-          <div className="flex-1 overflow-y-auto p-4 space-y-4">
+          <div className="flex-1 overflow-y-auto p-4 max-lg:p-2.5 space-y-4">
             {filtered.length === 0 ? (
               <div className="h-full flex items-center justify-center text-dim/30 text-sm font-mono select-none">
                 {items.length === 0 ? '背包空空如也…' : '无匹配物品'}

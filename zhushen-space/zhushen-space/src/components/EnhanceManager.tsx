@@ -45,7 +45,7 @@ function BossCard({ boss, onEditPreset }: { boss: BossDef; onEditPreset: () => v
   };
 
   return (
-    <div className="rounded-xl border border-edge bg-panel p-3 flex gap-3">
+    <div className="rounded-xl border border-edge bg-panel p-3 flex max-lg:flex-col gap-3">
       {/* 立绘 */}
       <div className="shrink-0 w-24 flex flex-col gap-1.5">
         <div className="w-24 h-32 rounded-lg border border-edge bg-void overflow-hidden flex items-center justify-center">

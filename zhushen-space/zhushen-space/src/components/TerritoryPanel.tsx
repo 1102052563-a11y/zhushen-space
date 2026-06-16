@@ -77,7 +77,17 @@ export default function TerritoryPanel({ onClose }: { onClose: () => void }) {
             </section>
 
             {/* 领地效果 */}
-            <Section title="领地效果" count={T.effects.length}>
+            <Section
+              title="领地效果"
+              count={T.effects.length}
+              action={T.effects.length > 0 && (
+                <button
+                  onClick={() => { if (confirm(`确认清空全部 ${T.effects.length} 条领地效果？`)) T.clearEffects(); }}
+                  title="一键清空全部领地效果"
+                  className="shrink-0 self-center text-[11px] font-mono text-dim/40 hover:text-blood transition-colors"
+                >一键清空</button>
+              )}
+            >
               {T.effects.length === 0
                 ? <Empty text="（暂无领地效果）" />
                 : <div className="space-y-1.5">{T.effects.map((e) => (
@@ -148,12 +158,13 @@ export default function TerritoryPanel({ onClose }: { onClose: () => void }) {
   );
 }
 
-function Section({ title, count, children }: { title: string; count: number | string; children: React.ReactNode }) {
+function Section({ title, count, action, children }: { title: string; count: number | string; action?: React.ReactNode; children: React.ReactNode }) {
   return (
     <section className="space-y-2">
       <div className="flex items-baseline gap-2">
         <span className="text-xs font-mono text-dim/70">{title}</span>
         <span className="text-[11px] font-mono text-dim/40">{count}</span>
+        {action && <><span className="flex-1" />{action}</>}
       </div>
       {children}
     </section>

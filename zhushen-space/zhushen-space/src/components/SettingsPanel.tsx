@@ -49,13 +49,13 @@ function DetailLayout({ title, onBack, tabs, activeTab, onTab, children }: {
         <span className="text-sm font-mono text-dim">{title}</span>
         <div className="w-20" />
       </header>
-      <div className="flex flex-1 overflow-hidden">
-        <nav className="shrink-0 w-40 border-r border-edge bg-panel py-4 space-y-1 px-2">
+      <div className="flex flex-col lg:flex-row flex-1 overflow-hidden">
+        <nav className="shrink-0 w-40 max-lg:w-full max-lg:flex max-lg:overflow-x-auto border-r max-lg:border-r-0 max-lg:border-b border-edge bg-panel py-4 max-lg:py-2 space-y-1 max-lg:space-y-0 max-lg:gap-1 px-2">
           {tabs.map((item) => (
             <button
               key={item.key}
               onClick={() => onTab(item.key)}
-              className={`w-full flex items-center gap-2 px-3 py-2.5 rounded text-sm transition-colors text-left ${
+              className={`w-full max-lg:w-auto max-lg:shrink-0 max-lg:whitespace-nowrap flex items-center gap-2 px-3 py-2.5 rounded text-sm transition-colors text-left ${
                 activeTab === item.key ? 'bg-god/10 text-god border border-god/30' : 'text-dim hover:text-slate-200 hover:bg-panel2'
               }`}
             >
@@ -64,7 +64,7 @@ function DetailLayout({ title, onBack, tabs, activeTab, onTab, children }: {
             </button>
           ))}
         </nav>
-        <div className="flex-1 overflow-y-auto p-6">{children}</div>
+        <div className="flex-1 overflow-y-auto p-6 max-lg:p-3">{children}</div>
       </div>
     </div>
   );
@@ -84,7 +84,7 @@ export default function SettingsPanel({ onClose, onOpenSaveLoad }: SettingsPanel
           <span className="text-sm font-mono text-dim">综合设置</span>
           <div className="w-20" />
         </header>
-        <div className="flex-1 overflow-y-auto p-6">
+        <div className="flex-1 overflow-y-auto p-6 max-lg:p-3">
           <div className="max-w-xl mx-auto">
             <GeneralSettingsSection />
           </div>
@@ -103,7 +103,7 @@ export default function SettingsPanel({ onClose, onOpenSaveLoad }: SettingsPanel
           <span className="text-sm font-mono text-dim">叙事记忆</span>
           <div className="w-20" />
         </header>
-        <div className="flex-1 overflow-y-auto p-6">
+        <div className="flex-1 overflow-y-auto p-6 max-lg:p-3">
           <div className="max-w-2xl mx-auto">
             <NarrativeMemorySettings />
           </div>
@@ -122,7 +122,7 @@ export default function SettingsPanel({ onClose, onOpenSaveLoad }: SettingsPanel
           <span className="text-sm font-mono text-dim">向量记忆</span>
           <div className="w-20" />
         </header>
-        <div className="flex-1 overflow-y-auto p-6">
+        <div className="flex-1 overflow-y-auto p-6 max-lg:p-3">
           <div className="max-w-2xl mx-auto">
             <VectorMemorySettings />
           </div>
@@ -141,7 +141,7 @@ export default function SettingsPanel({ onClose, onOpenSaveLoad }: SettingsPanel
           <span className="text-sm font-mono text-dim">生图设置</span>
           <div className="w-20" />
         </header>
-        <div className="flex-1 overflow-y-auto p-6">
+        <div className="flex-1 overflow-y-auto p-6 max-lg:p-3">
           <div className="max-w-3xl mx-auto">
             <ImageGenManager />
           </div>
@@ -160,7 +160,7 @@ export default function SettingsPanel({ onClose, onOpenSaveLoad }: SettingsPanel
           <span className="text-sm font-mono text-dim">变量管理</span>
           <div className="w-20" />
         </header>
-        <div className="flex-1 overflow-y-auto p-6">
+        <div className="flex-1 overflow-y-auto p-6 max-lg:p-3">
           <VariableManager
             onOpenItemManager={() => setPage('item-manager')}
             onOpenPlayerManager={() => setPage('player-manager')}
@@ -195,7 +195,7 @@ export default function SettingsPanel({ onClose, onOpenSaveLoad }: SettingsPanel
           <span className="text-sm font-mono text-dim">物品管理</span>
           <div className="w-20" />
         </header>
-        <div className="flex-1 overflow-y-auto p-6">
+        <div className="flex-1 overflow-y-auto p-6 max-lg:p-3">
           <ItemManager />
         </div>
       </div>
@@ -212,7 +212,7 @@ export default function SettingsPanel({ onClose, onOpenSaveLoad }: SettingsPanel
           <span className="text-sm font-mono text-dim">主角演化</span>
           <div className="w-20" />
         </header>
-        <div className="flex-1 overflow-y-auto p-6">
+        <div className="flex-1 overflow-y-auto p-6 max-lg:p-3">
           <PlayerManager />
         </div>
       </div>
@@ -229,7 +229,7 @@ export default function SettingsPanel({ onClose, onOpenSaveLoad }: SettingsPanel
           <span className="text-sm font-mono text-dim">NPC 演化</span>
           <div className="w-20" />
         </header>
-        <div className="flex-1 overflow-y-auto p-6">
+        <div className="flex-1 overflow-y-auto p-6 max-lg:p-3">
           <NpcManager />
         </div>
       </div>
@@ -246,7 +246,7 @@ export default function SettingsPanel({ onClose, onOpenSaveLoad }: SettingsPanel
           <span className="text-sm font-mono text-dim">势力演化</span>
           <div className="w-20" />
         </header>
-        <div className="flex-1 overflow-y-auto p-6">
+        <div className="flex-1 overflow-y-auto p-6 max-lg:p-3">
           <FactionManager />
         </div>
       </div>
@@ -263,7 +263,7 @@ export default function SettingsPanel({ onClose, onOpenSaveLoad }: SettingsPanel
           <span className="text-sm font-mono text-dim">领地演化</span>
           <div className="w-20" />
         </header>
-        <div className="flex-1 overflow-y-auto p-6">
+        <div className="flex-1 overflow-y-auto p-6 max-lg:p-3">
           <TerritoryManager />
         </div>
       </div>
@@ -280,7 +280,7 @@ export default function SettingsPanel({ onClose, onOpenSaveLoad }: SettingsPanel
           <span className="text-sm font-mono text-dim">冒险团演化</span>
           <div className="w-20" />
         </header>
-        <div className="flex-1 overflow-y-auto p-6">
+        <div className="flex-1 overflow-y-auto p-6 max-lg:p-3">
           <AdventureTeamManager />
         </div>
       </div>
@@ -297,7 +297,7 @@ export default function SettingsPanel({ onClose, onOpenSaveLoad }: SettingsPanel
           <span className="text-sm font-mono text-dim">万族演化</span>
           <div className="w-20" />
         </header>
-        <div className="flex-1 overflow-y-auto p-6">
+        <div className="flex-1 overflow-y-auto p-6 max-lg:p-3">
           <CosmosManager />
         </div>
       </div>
@@ -314,7 +314,7 @@ export default function SettingsPanel({ onClose, onOpenSaveLoad }: SettingsPanel
           <span className="text-sm font-mono text-dim">世界百科</span>
           <div className="w-20" />
         </header>
-        <div className="flex-1 overflow-y-auto p-6">
+        <div className="flex-1 overflow-y-auto p-6 max-lg:p-3">
           <WorldCodexManager />
         </div>
       </div>
@@ -331,7 +331,7 @@ export default function SettingsPanel({ onClose, onOpenSaveLoad }: SettingsPanel
           <span className="text-sm font-mono text-dim">生平压缩</span>
           <div className="w-20" />
         </header>
-        <div className="flex-1 overflow-y-auto p-6">
+        <div className="flex-1 overflow-y-auto p-6 max-lg:p-3">
           <MemoryManager />
         </div>
       </div>
@@ -348,7 +348,7 @@ export default function SettingsPanel({ onClose, onOpenSaveLoad }: SettingsPanel
           <span className="text-sm font-mono text-dim">杂项演化</span>
           <div className="w-20" />
         </header>
-        <div className="flex-1 overflow-y-auto p-6">
+        <div className="flex-1 overflow-y-auto p-6 max-lg:p-3">
           <MiscManager />
         </div>
       </div>
@@ -365,7 +365,7 @@ export default function SettingsPanel({ onClose, onOpenSaveLoad }: SettingsPanel
           <span className="text-sm font-mono text-dim">ROLL 点设置</span>
           <div className="w-20" />
         </header>
-        <div className="flex-1 overflow-y-auto p-6">
+        <div className="flex-1 overflow-y-auto p-6 max-lg:p-3">
           <DiceManager />
         </div>
       </div>
@@ -382,7 +382,7 @@ export default function SettingsPanel({ onClose, onOpenSaveLoad }: SettingsPanel
           <span className="text-sm font-mono text-dim">战斗系统</span>
           <div className="w-20" />
         </header>
-        <div className="flex-1 overflow-y-auto p-6">
+        <div className="flex-1 overflow-y-auto p-6 max-lg:p-3">
           <CombatManager />
         </div>
       </div>
@@ -399,7 +399,7 @@ export default function SettingsPanel({ onClose, onOpenSaveLoad }: SettingsPanel
           <span className="text-sm font-mono text-dim">竞技场</span>
           <div className="w-20" />
         </header>
-        <div className="flex-1 overflow-y-auto p-6">
+        <div className="flex-1 overflow-y-auto p-6 max-lg:p-3">
           <ArenaManager />
         </div>
       </div>
@@ -416,7 +416,7 @@ export default function SettingsPanel({ onClose, onOpenSaveLoad }: SettingsPanel
           <span className="text-sm font-mono text-dim">装备强化</span>
           <div className="w-20" />
         </header>
-        <div className="flex-1 overflow-y-auto p-6">
+        <div className="flex-1 overflow-y-auto p-6 max-lg:p-3">
           <EnhanceManager />
         </div>
       </div>
@@ -433,7 +433,7 @@ export default function SettingsPanel({ onClose, onOpenSaveLoad }: SettingsPanel
           <span className="text-sm font-mono text-dim">欢愉宫</span>
           <div className="w-20" />
         </header>
-        <div className="flex-1 overflow-y-auto p-6">
+        <div className="flex-1 overflow-y-auto p-6 max-lg:p-3">
           <JoyManager />
         </div>
       </div>
@@ -450,7 +450,7 @@ export default function SettingsPanel({ onClose, onOpenSaveLoad }: SettingsPanel
           <span className="text-sm font-mono text-dim">公共频道</span>
           <div className="w-20" />
         </header>
-        <div className="flex-1 overflow-y-auto p-6">
+        <div className="flex-1 overflow-y-auto p-6 max-lg:p-3">
           <ChannelManager />
         </div>
       </div>
@@ -467,7 +467,7 @@ export default function SettingsPanel({ onClose, onOpenSaveLoad }: SettingsPanel
           <span className="text-sm font-mono text-dim">向量资料库</span>
           <div className="w-20" />
         </header>
-        <div className="flex-1 overflow-y-auto p-6">
+        <div className="flex-1 overflow-y-auto p-6 max-lg:p-3">
           <NovelVecManager />
         </div>
       </div>

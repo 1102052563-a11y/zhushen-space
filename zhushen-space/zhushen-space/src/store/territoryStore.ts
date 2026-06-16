@@ -180,6 +180,7 @@ interface TerritoryState {
   removeBuilding: (name: string) => void;
   upsertEffect: (e: TerritoryEffect) => void;
   removeEffect: (name: string) => void;
+  clearEffects: () => void;
   addMember: (id: string, patch?: { role?: string; note?: string }) => void;
   removeMember: (id: string) => void;
   storeItem: (it: Partial<TerritoryItem> & { name: string }) => void;
@@ -316,6 +317,7 @@ export const useTerritory = create<TerritoryState>()(
           return { effects: [...s.effects, { name: nm, desc: e.desc ?? '', source: e.source }] };
         }),
       removeEffect: (name) => set((s) => ({ effects: s.effects.filter((x) => !nameEq(x.name, name)) })),
+      clearEffects: () => set({ effects: [] }),
 
       addMember: (id, patch) =>
         set((s) => {
