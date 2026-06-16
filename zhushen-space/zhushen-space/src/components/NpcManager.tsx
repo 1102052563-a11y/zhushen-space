@@ -620,7 +620,7 @@ function NpcApiSection() {
             {modelsError && <div className="text-sm text-blood font-mono mt-1">{modelsError}</div>}
           </div>
 
-          <div className="grid grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
             <div className="space-y-1.5">
               <label className="text-sm text-dim font-mono">温度 ({npcApi.temperature})</label>
               <input

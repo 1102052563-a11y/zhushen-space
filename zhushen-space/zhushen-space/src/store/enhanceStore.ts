@@ -41,6 +41,7 @@ export interface EnhanceSettings {
   bosses: BossDef[];
   tables: EnhanceTables;
   selectedBossId: string;
+  bossesVersion: number;   // 内置老板默认值版本：变更后旧存档的内置老板自动刷新成最新默认（保留立绘/自建老板）
 }
 
 const DEFAULT_SETTINGS: EnhanceSettings = {
@@ -48,6 +49,7 @@ const DEFAULT_SETTINGS: EnhanceSettings = {
   bosses: DEFAULT_BOSSES,
   tables: DEFAULT_TABLES,
   selectedBossId: DEFAULT_BOSSES[0].id,
+  bossesVersion: 2,
 };
 
 function newSession(itemId: string, itemName: string, startLevel: number): EnhanceSession {
@@ -200,8 +202,16 @@ export const useEnhance = create<EnhanceState>()(
           settings: {
             ...DEFAULT_SETTINGS,
             ...(persisted?.settings ?? {}),
-            bosses: (Array.isArray(pb) && pb.length ? pb : DEFAULT_BOSSES.map((b) => ({ ...b })))
-              .map((b: any) => (b?.id === 'honest' && (b?.name === '老约翰' || b?.name === '里德')) ? { ...b, name: '里德（Reed）' } : b),   // 一次性改名迁移：老约翰/里德→里德（Reed）（仅未自定义过名字的）
+            bosses: (() => {
+              let arr: any[] = Array.isArray(pb) && pb.length ? pb : DEFAULT_BOSSES.map((b) => ({ ...b }));
+              // 老板默认值版本迁移：版本变更时，按 id 把内置老板的 名字/性格/预设/参数 刷新成最新默认（保留用户立绘 portrait 与自建老板）；版本一致后不再覆盖（护住 UI 自定义）
+              if (persisted?.settings?.bossesVersion !== DEFAULT_SETTINGS.bossesVersion) {
+                arr = arr.map((b) => { const d = DEFAULT_BOSSES.find((x) => x.id === b?.id); return d ? { ...d, portrait: b?.portrait } : b; });
+                for (const d of DEFAULT_BOSSES) if (!arr.some((b) => b?.id === d.id)) arr.push({ ...d });
+              }
+              return arr;
+            })(),
+            bossesVersion: DEFAULT_SETTINGS.bossesVersion,
             tables: persisted?.settings?.tables?.version === DEFAULT_TABLES.version
               ? { ...DEFAULT_TABLES, ...persisted.settings.tables }
               : { ...DEFAULT_TABLES },   // 版本变更/旧存档无 version → 强制刷新成新率表（base+floor）

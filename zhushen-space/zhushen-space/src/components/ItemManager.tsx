@@ -140,7 +140,7 @@ function ItemForm({ initial, onSave, onCancel }: {
         <button onClick={onCancel} className="text-dim/50 hover:text-blood text-sm font-mono">✕</button>
       </div>
 
-      <div className="grid grid-cols-3 gap-3">
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
         <div className="col-span-2 space-y-1">
           <label className="text-[12px] font-mono text-dim">名称</label>
           <input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })}
@@ -829,7 +829,7 @@ function ItemApiSection() {
           </div>
 
           {/* 参数滑块 */}
-          <div className="grid grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
             <div className="space-y-1.5">
               <label className="text-sm text-dim font-mono">温度 ({itemApi.temperature})</label>
               <input

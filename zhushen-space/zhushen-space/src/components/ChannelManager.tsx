@@ -183,7 +183,7 @@ function ApiSection() {
             </div>
             {error && <div className="text-sm text-blood mt-1 font-mono">{error}</div>}
           </Field>
-          <div className="grid grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
             <Field label={`温度 (${channelApi.temperature})`}>
               <input type="range" min={0} max={2} step={0.05} value={channelApi.temperature} onChange={(e) => setChannelApi({ temperature: parseFloat(e.target.value) })} className="w-full accent-god mt-1" />
             </Field>

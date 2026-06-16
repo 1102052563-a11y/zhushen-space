@@ -79,7 +79,7 @@ function BossCard({ boss, onEditPreset }: { boss: BossDef; onEditPreset: () => v
         <input value={boss.portraitFolder ?? ''} onChange={(e) => patch({ portraitFolder: e.target.value.trim() || undefined })}
           placeholder="分阶段立绘文件夹名（仓库根 图片/<此名>/阶段1..4/）— 留空则用上方上传的单张立绘"
           className={`${inputCls} w-full font-mono text-[12px]`} />
-        <div className="grid grid-cols-3 gap-2">
+        <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
           <NumField label="花费倍率" value={boss.costMul} step={0.05} min={0} onChange={(v) => patch({ costMul: v })} suffix="×" />
           <NumField label="实际率加成" value={Math.round(boss.rateAdd * 100)} step={1} onChange={(v) => patch({ rateAdd: v / 100 })} suffix="%" />
           <NumField label="明面虚标" value={Math.round(boss.displayLie * 100)} step={1} onChange={(v) => patch({ displayLie: v / 100 })} suffix="%" />

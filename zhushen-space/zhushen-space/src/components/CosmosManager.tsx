@@ -292,7 +292,7 @@ function ApiSection() {
             </div>
             {error && <div className="text-sm text-blood mt-1 font-mono">{error}</div>}
           </Field>
-          <div className="grid grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
             <Field label={`温度 (${cApi.temperature})`}><input type="range" min={0} max={2} step={0.05} value={cApi.temperature} onChange={(e) => setApi({ temperature: parseFloat(e.target.value) })} className="w-full accent-god mt-1" /></Field>
             <Field label={`Top-P (${cApi.topP})`}><input type="range" min={0} max={1} step={0.05} value={cApi.topP} onChange={(e) => setApi({ topP: parseFloat(e.target.value) })} className="w-full accent-god mt-1" /></Field>
             <Field label="Max Tokens"><input type="number" value={cApi.maxTokens} onChange={(e) => setApi({ maxTokens: parseInt(e.target.value) || 512 })} min={128} max={32768} step={128} className="input-base" /></Field>

@@ -202,7 +202,7 @@ export default function DicePanel({ onClose, onInject }: { onClose: () => void; 
             {suggestNote && <span className="text-[11px] font-mono text-dim/60 truncate">{suggestNote}</span>}
           </div>
 
-          <div className="grid grid-cols-3 gap-2">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
             <Field label="我方属性">
               <Select value={attrKey} onChange={(v) => setAttrKey(v as AttrKey)}
                 options={ATTR_KEYS.map((k) => ({ value: k, label: `${ATTR_LABELS[k]} ${profile.attrs[k]}` }))} />

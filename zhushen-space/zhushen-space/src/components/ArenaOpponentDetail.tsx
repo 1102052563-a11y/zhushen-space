@@ -65,7 +65,7 @@ export default function ArenaOpponentDetail({ entry, cid, building, onChallenge,
             {attrs && (
               <div>
                 <div className="text-xs text-cyan-300/80 mb-1">六维</div>
-                <div className="grid grid-cols-6 gap-1 text-center">
+                <div className="grid grid-cols-3 sm:grid-cols-6 gap-1 text-center">
                   {ATTR_LABELS.map(([k, lbl]) => (
                     <div key={k} className="rounded bg-slate-800/50 border border-slate-700/50 py-1">
                       <div className="text-[9px] text-slate-500">{lbl}</div>

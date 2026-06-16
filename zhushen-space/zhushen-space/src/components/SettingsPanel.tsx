@@ -1072,7 +1072,7 @@ function ApiSection() {
           )}
         </Field>
 
-        <div className="grid grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
           <Field label={`温度 (${api.temperature})`}>
             <input
               type="range"
@@ -1386,7 +1386,7 @@ function TextApiSection() {
             </div>
             {textModelsError && <div className="text-sm text-blood mt-1 font-mono">{textModelsError}</div>}
           </Field>
-          <div className="grid grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
             <Field label={`温度 (${textApi.temperature})`}>
               <input type="range" min={0} max={2} step={0.05} value={textApi.temperature} onChange={(e) => setTextApi({ temperature: parseFloat(e.target.value) })} className="w-full accent-god mt-1" />
             </Field>
@@ -2311,7 +2311,7 @@ function NarrativeMemorySettings() {
       </div>
 
       {/* 三张说明卡 */}
-      <div className="grid grid-cols-3 gap-3">
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
         {[
           { t: '当前长期上下文', s: '叙事记忆', d: '主聊天优先用召回到的长期记忆作为上下文。' },
           { t: '最近全文注入', s: `最近 ${cfg.recentFullTextCount ?? 5} 条`, d: '叙事记忆开启时，按这里的窗口保留最近正文原文。' },

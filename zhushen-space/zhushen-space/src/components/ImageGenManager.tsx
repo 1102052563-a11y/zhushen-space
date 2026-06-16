@@ -31,7 +31,7 @@ function OpenAIImgFields({ cfg, set }: { cfg: OpenAIImgConfig; set: (p: Partial<
     <div className="space-y-2">
       <Field label="接口地址"><input value={cfg.baseUrl} onChange={(e) => set({ baseUrl: e.target.value })} placeholder="https://api.openai.com/v1" className={inputCls} /></Field>
       <Field label="API Key"><input type="password" value={cfg.apiKey} onChange={(e) => set({ apiKey: e.target.value })} placeholder="sk-..." className={inputCls} /></Field>
-      <div className="grid grid-cols-3 gap-2">
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
         <Field label="模型"><input value={cfg.model} onChange={(e) => set({ model: e.target.value })} placeholder="gpt-image-1" className={inputCls} /></Field>
         <Field label="尺寸"><input value={cfg.size} onChange={(e) => set({ size: e.target.value })} placeholder="1024x1024" className={inputCls} /></Field>
         <Field label="质量"><input value={cfg.quality} onChange={(e) => set({ quality: e.target.value })} placeholder="high" className={inputCls} /></Field>
@@ -48,7 +48,7 @@ function ApiConfigPage() {
     <div className="space-y-4 max-w-2xl">
       <div className="rounded-lg border border-edge bg-panel p-3 space-y-2">
         <div className="text-sm text-god font-mono">用途 → 服务商</div>
-        <div className="grid grid-cols-3 gap-2">
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
           <Field label="肖像生成"><ServiceSelect value={s.portraitService} onChange={(v) => s.setService('portraitService', v)} /></Field>
           <Field label="正文生图"><ServiceSelect value={s.storyService} onChange={(v) => s.setService('storyService', v)} /></Field>
           <Field label="装备生图">{s.equipUsePortrait ? <div className="text-[12px] text-dim/50 py-1.5">沿用肖像</div> : <ServiceSelect value={s.equipService} onChange={(v) => s.setService('equipService', v)} />}</Field>
@@ -67,12 +67,12 @@ function ApiConfigPage() {
               <Field label="模型"><input value={s.nai.model} onChange={(e) => s.setNai({ model: e.target.value })} className={inputCls} /></Field>
               <Field label="尺寸"><div className="flex gap-1 items-center"><input type="number" value={s.nai.width} onChange={(e) => s.setNai({ width: parseInt(e.target.value) || 1024 })} className={inputCls} /><span className="text-dim/40">×</span><input type="number" value={s.nai.height} onChange={(e) => s.setNai({ height: parseInt(e.target.value) || 1024 })} className={inputCls} /></div></Field>
             </div>
-            <div className="grid grid-cols-3 gap-2">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
               <Field label="Sampler"><input value={s.nai.sampler} onChange={(e) => s.setNai({ sampler: e.target.value })} className={inputCls} /></Field>
               <Field label="Steps"><input type="number" value={s.nai.steps} onChange={(e) => s.setNai({ steps: parseInt(e.target.value) || 28 })} className={inputCls} /></Field>
               <Field label="Guidance"><input type="number" step={0.5} value={s.nai.promptGuidance} onChange={(e) => s.setNai({ promptGuidance: parseFloat(e.target.value) || 5 })} className={inputCls} /></Field>
             </div>
-            <div className="grid grid-cols-3 gap-2">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
               <Field label="Rescale"><input type="number" step={0.05} value={s.nai.promptGuidanceRescale} onChange={(e) => s.setNai({ promptGuidanceRescale: parseFloat(e.target.value) || 0 })} className={inputCls} /></Field>
               <Field label="负面强度"><input type="number" step={0.05} value={s.nai.undesiredContentStrength} onChange={(e) => s.setNai({ undesiredContentStrength: parseFloat(e.target.value) || 1 })} className={inputCls} /></Field>
               <Field label="超时(秒)"><input type="number" value={s.nai.timeoutSec} onChange={(e) => s.setNai({ timeoutSec: parseInt(e.target.value) || 0 })} className={inputCls} /></Field>

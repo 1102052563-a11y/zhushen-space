@@ -71,7 +71,7 @@ export default function NovelVecManager() {
       {/* 检索参数 */}
       <div className="space-y-2 p-4 bg-panel border border-edge rounded-xl">
         <div className="text-sm font-mono text-god/70 uppercase tracking-widest">检索参数</div>
-        <div className="grid grid-cols-3 gap-3">
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
           <label className="block">
             <span className="text-[12px] font-mono text-dim/50">topK（注入段数）</span>
             <input type="number" min={1} max={20} value={settings.topK} onChange={(e) => setSettings({ topK: Math.max(1, Math.min(20, Number(e.target.value) || 5)) })} className={`${inputCls} font-mono mt-0.5`} />
