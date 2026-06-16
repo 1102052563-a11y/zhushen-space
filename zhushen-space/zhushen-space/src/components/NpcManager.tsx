@@ -938,6 +938,29 @@ function Scheduling() {
           </div>
         )}
       </div>
+
+      {/* 死亡 NPC 自动清除 */}
+      <div className="p-4 bg-panel border border-edge rounded-xl space-y-3">
+        <div className="flex items-center justify-between">
+          <div className="text-sm font-mono text-god/70 uppercase tracking-widest">死亡 NPC 自动清除</div>
+          <Toggle checked={!!scheduling.autoPurgeDead} onChange={() => setScheduling({ autoPurgeDead: !scheduling.autoPurgeDead })} />
+        </div>
+        <p className="text-[13px] text-dim leading-relaxed">
+          确认死亡的 NPC 延迟若干回合后<span className="text-blood/80">物理删除</span>（连同其技能/天赋档案），精简存档。
+          <span className="text-amber-300/80"> 护栏：仅强死亡证据触发；羁绊角色与「保留」标记不删；延迟期内被复活/纠偏则取消删除。</span>
+        </p>
+        {scheduling.autoPurgeDead && (
+          <div className="flex items-center justify-between gap-4">
+            <div className="text-sm text-slate-200">死亡后延迟回合数</div>
+            <input
+              type="number" min={0} max={99}
+              value={scheduling.deadPurgeDelay ?? 3}
+              onChange={(e) => setScheduling({ deadPurgeDelay: Math.min(99, Math.max(0, parseInt(e.target.value) || 0)) })}
+              className="w-20 bg-void border border-edge rounded px-2 py-1.5 text-sm font-mono text-slate-200 text-center outline-none focus:border-god"
+            />
+          </div>
+        )}
+      </div>
     </div>
   );
 }

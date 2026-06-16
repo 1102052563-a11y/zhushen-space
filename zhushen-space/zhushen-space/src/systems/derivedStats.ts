@@ -135,3 +135,23 @@ export function normalizeTier(raw?: string): string {
   }
   return '';
 }
+
+/* ── 各阶位「单个基础属性」上限（仅约束基础六维；装备/技能/天赋加成可超过此上限）──
+   数值取自世界书《轮回乐园·契约者阶位·单属性极值》：
+   一阶5–50 / 二阶51–80 / 三阶81–120 / 四阶121–149 / 五阶150–180 /
+   六阶181–250 / 七阶251–350 / 八阶351–500 / 九阶501–800。
+   绝强及以上世界书未列硬上限，按递进外推；无上之境视为无上限(Infinity)。 */
+export const ATTR_CAP_BY_TIER: Record<string, number> = {
+  一阶: 50, 二阶: 80, 三阶: 120, 四阶: 149, 五阶: 180,
+  六阶: 250, 七阶: 350, 八阶: 500, 九阶: 800,
+  绝强: 1300, 至强: 2200, 巅峰至强: 3600, 无上之境: Infinity,
+};
+/* 取某阶位「单个基础属性」上限。阶位名与等级**取较高的一个上限**（避免阶位字段滞后于等级时把人误夹低）；
+   两者都取不到返回 Infinity(不夹)。仅用于基础六维；有效属性(含装备/技能/天赋加成)不受此限。 */
+export function attrCapForTier(tier?: string, level?: number): number {
+  const tName = normalizeTier(tier);
+  const tCap = tName ? (ATTR_CAP_BY_TIER[tName] ?? Infinity) : -Infinity;
+  const lCap = level != null ? (ATTR_CAP_BY_TIER[realmFromLevel(level)] ?? Infinity) : -Infinity;
+  const cap = Math.max(tCap, lCap);
+  return cap === -Infinity ? Infinity : cap;
+}

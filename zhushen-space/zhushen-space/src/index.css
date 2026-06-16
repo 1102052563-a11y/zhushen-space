@@ -130,6 +130,21 @@ body {
 @keyframes gradeShimmer { to { background-position: 200% center; } }
 @keyframes gradePulse { 0%,100% { filter: brightness(1) drop-shadow(0 0 2px currentColor); } 50% { filter: brightness(1.35) drop-shadow(0 0 6px currentColor); } }
 
+/* ── 装备强化特效（EnhancePanel 中央被强化装备）── */
+@keyframes enhSuccess { 0% { transform: scale(1); filter: brightness(1); } 35% { transform: scale(1.18); filter: brightness(2) drop-shadow(0 0 24px #fbbf24); } 100% { transform: scale(1); filter: brightness(1); } }
+@keyframes enhCrit    { 0% { transform: scale(1) rotate(0); } 25% { transform: scale(1.3) rotate(-4deg); filter: brightness(2.4) drop-shadow(0 0 38px #f472b6); } 60% { transform: scale(1.1) rotate(3deg); } 100% { transform: scale(1) rotate(0); filter: brightness(1); } }
+@keyframes enhFail    { 0%,100% { transform: translateX(0); } 20% { transform: translateX(-7px); } 40% { transform: translateX(6px); } 60% { transform: translateX(-4px); } 80% { transform: translateX(3px); } }
+@keyframes enhDestroy { 0% { transform: scale(1) rotate(0); opacity: 1; filter: brightness(1); } 25% { transform: scale(1.12); filter: brightness(2.6) drop-shadow(0 0 32px #ef4444); } 100% { transform: scale(0.18) rotate(22deg); opacity: 0; filter: brightness(0.3) blur(3px); } }
+@keyframes enhFlash   { 0% { opacity: 0; transform: scale(0.55); } 30% { opacity: 0.9; } 100% { opacity: 0; transform: scale(1.9); } }
+.enh-success   { animation: enhSuccess 0.8s ease-out; }
+.enh-crit      { animation: enhCrit 0.9s ease-out; }
+.enh-fail      { animation: enhFail 0.5s ease-in-out; }
+.enh-downgrade { animation: enhFail 0.5s ease-in-out; }
+.enh-destroy   { animation: enhDestroy 0.85s ease-in forwards; }
+.enh-flash     { animation: enhFlash 0.8s ease-out forwards; }
+@keyframes enhReset { 0% { transform: scale(1); filter: none; } 30% { transform: scale(0.82) translateY(10px); filter: grayscale(0.85) brightness(0.55); } 100% { transform: scale(1); filter: grayscale(0.35) brightness(0.85); } }
+.enh-reset     { animation: enhReset 0.75s ease-in-out; }
+
 /* ─────────────────────────────────────────────────────────────
    弹窗字体整体放大：所有居中弹窗（.fixed.inset-0 覆盖层）内的小字号统一提升约 +1.5px，
    覆盖 任务/NPC/势力/领地/冒险团/万族/记忆/频道/私信/好友/存档/骰子/装备/背包 等全部面板。

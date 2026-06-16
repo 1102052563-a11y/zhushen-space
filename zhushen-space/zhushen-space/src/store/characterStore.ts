@@ -175,8 +175,10 @@ interface CharacterState {
 
   addSkill:    (charId: string, skill: Omit<Skill, 'addedAt'>) => void;
   removeSkill: (charId: string, idOrName: string) => void;
+  updateSkill: (charId: string, skillId: string, patch: Partial<Skill>) => void;
   addTrait:    (charId: string, trait: Omit<Trait, 'addedAt'>) => void;
   removeTrait: (charId: string, traitName: string) => void;
+  updateTrait: (charId: string, traitName: string, patch: Partial<Trait>) => void;
   addTitle:    (charId: string, title: Omit<Title, 'addedAt'>) => void;  // upsert by name
   removeTitle: (charId: string, titleName: string) => void;
   equipTitle:  (charId: string, titleName: string) => void;             // 仅佩戴此一个，其余取消
@@ -192,6 +194,7 @@ interface CharacterState {
   removeCharacter: (charId: string) => void;       // 删除某角色的全部技能/词条
   purgeNpcCharacters: () => void;                  // 清除所有 NPC(C*/G*) 的技能/词条，保留玩家 B*
   dedupeIds: () => void;                           // 修复历史脏数据：所有角色技能 id 去重
+  dedupeRecipes: () => void;                        // 修复历史脏数据：配方名去「配方：」前缀 + 同名合并
 }
 
 function ensureChar(chars: Record<string, CharacterData>, id: string): CharacterData {
@@ -207,6 +210,16 @@ function normNm(s?: string): string {
 function nameEq(a?: string, b?: string): boolean {
   const x = normNm(a), y = normNm(b);
   return !!x && !!y && x === y;
+}
+
+/* 配方名归一化：AI 常给配方名加「配方：/图纸：/药方：…」标签前缀，导致同一配方两条（带/不带前缀）。
+   存储与匹配前统一剥掉前缀，杜绝重复。 */
+const RECIPE_LABEL_RE = /^\s*(配方|图纸|药方|食谱|菜谱|丹方|锻造图|图鉴|图谱|蓝图|设计图|方子|秘方|制法|做法)\s*[:：]\s*/;
+function stripRecipeLabel(name?: string): string {
+  let s = (name ?? '').trim();
+  let prev = '';
+  while (s && s !== prev) { prev = s; s = s.replace(RECIPE_LABEL_RE, '').trim(); }   // 可能套多层，循环剥到干净
+  return s || (name ?? '').trim();
 }
 
 /* 防御性字符串化：AI 偶尔把嵌套对象塞进本该是字符串的字段（如 effect:{name,effect}），
@@ -307,6 +320,15 @@ export const useCharacters = create<CharacterState>()(
           return { characters: { ...s.characters, [charId]: { ...char, skills: next } } };
         }),
 
+      // 手动编辑技能（按 id 定位，patch 可含新名称；id 不变避免漂移）
+      updateSkill: (charId, skillId, patch) =>
+        set((s) => {
+          const char = s.characters[charId]; if (!char) return s;
+          const clean = sanitizeStrings(patch as Record<string, any>);
+          const next = char.skills.map((sk) => sk.id === skillId ? { ...sk, ...clean } : sk);
+          return { characters: { ...s.characters, [charId]: { ...char, skills: next } } };
+        }),
+
       addTrait: (charId, trait) =>
         set((s) => {
           trait = sanitizeStrings(trait);
@@ -323,6 +345,15 @@ export const useCharacters = create<CharacterState>()(
         set((s) => {
           const char = ensureChar(s.characters, charId);
           const next = char.traits.filter((t) => !nameEq(t.name, traitName));
+          return { characters: { ...s.characters, [charId]: { ...char, traits: next } } };
+        }),
+
+      // 手动编辑天赋（按原名定位，patch 可含新名称）
+      updateTrait: (charId, traitName, patch) =>
+        set((s) => {
+          const char = s.characters[charId]; if (!char) return s;
+          const clean = sanitizeStrings(patch as Record<string, any>);
+          const next = char.traits.map((t) => nameEq(t.name, traitName) ? { ...t, ...clean } : t);
           return { characters: { ...s.characters, [charId]: { ...char, traits: next } } };
         }),
 
@@ -411,6 +442,8 @@ export const useCharacters = create<CharacterState>()(
       addRecipe: (charId, profName, recipe) =>
         set((s) => {
           recipe = sanitizeStrings(recipe);
+          const cleanName = stripRecipeLabel(recipe.name);   // 去「配方：」等前缀，避免带/不带前缀各存一条
+          if (cleanName && cleanName !== recipe.name) recipe = { ...recipe, name: cleanName };
           const char = ensureChar(s.characters, charId);
           const list = [...(char.subProfessions ?? [])];
           let pIdx = list.findIndex((x) => nameEq(x.name, profName));
@@ -426,16 +459,18 @@ export const useCharacters = create<CharacterState>()(
       removeRecipe: (charId, profName, recipeName) =>
         set((s) => {
           const char = ensureChar(s.characters, charId);
-          const list = (char.subProfessions ?? []).map((p) => nameEq(p.name, profName) ? { ...p, recipes: (p.recipes ?? []).filter((r) => !nameEq(r.name, recipeName) && r.id !== recipeName) } : p);
+          const target = stripRecipeLabel(recipeName);   // 容忍 deRecipe 带「配方：」前缀
+          const list = (char.subProfessions ?? []).map((p) => nameEq(p.name, profName) ? { ...p, recipes: (p.recipes ?? []).filter((r) => !nameEq(r.name, target) && r.id !== recipeName) } : p);
           return { characters: { ...s.characters, [charId]: { ...char, subProfessions: list } } };
         }),
 
       bumpRecipe: (charId, profName, recipeName, delta) =>
         set((s) => {
           const char = ensureChar(s.characters, charId);
+          const target = stripRecipeLabel(recipeName);   // 容忍 bumpRecipe 带「配方：」前缀
           const list = (char.subProfessions ?? []).map((p) => {
             if (!nameEq(p.name, profName)) return p;
-            const recs = (p.recipes ?? []).map((r) => (nameEq(r.name, recipeName) || r.id === recipeName) ? { ...r, progress: Math.min(100, Math.max(0, (r.progress ?? 0) + delta)) } : r);
+            const recs = (p.recipes ?? []).map((r) => (nameEq(r.name, target) || r.id === recipeName) ? { ...r, progress: Math.min(100, Math.max(0, (r.progress ?? 0) + delta)) } : r);
             return { ...p, recipes: recs };
           });
           return { characters: { ...s.characters, [charId]: { ...char, subProfessions: list } } };
@@ -484,6 +519,42 @@ export const useCharacters = create<CharacterState>()(
             next[id] = { ...data, skills: fixed };
           }
           return changed ? { characters: next } : {};
+        }),
+
+      dedupeRecipes: () =>
+        set((s) => {
+          let anyChange = false;
+          const next: Record<string, CharacterData> = {};
+          for (const [cid, ch] of Object.entries(s.characters)) {
+            const sps = ch.subProfessions;
+            if (!sps?.length) { next[cid] = ch; continue; }
+            let charChanged = false;
+            const newSps = sps.map((sp) => {
+              const recs = sp.recipes ?? [];
+              const out: Recipe[] = [];
+              let spChanged = false;
+              for (const r of recs) {
+                const cleanName = stripRecipeLabel(r.name) || r.name;
+                const ex = out.find((o) => nameEq(o.name, cleanName));
+                if (ex) {
+                  spChanged = true;   // 去前缀后同名 → 合并：保留更高熟练度，富字段补全
+                  ex.progress = Math.max(ex.progress ?? 0, r.progress ?? 0);
+                  if (!ex.tier) ex.tier = r.tier;
+                  if (!ex.materials) ex.materials = r.materials;
+                  if (!ex.output) ex.output = r.output;
+                  if (!ex.desc) ex.desc = r.desc;
+                } else {
+                  if (cleanName !== r.name) spChanged = true;
+                  out.push({ ...r, name: cleanName });
+                }
+              }
+              if (spChanged) { charChanged = true; return { ...sp, recipes: out }; }
+              return sp;
+            });
+            next[cid] = charChanged ? { ...ch, subProfessions: newSps } : ch;
+            if (charChanged) anyChange = true;
+          }
+          return anyChange ? { characters: next } : {};
         }),
     }),
     {

@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useNpc, type NpcRecord, type NpcOwnedItem } from '../store/npcStore';
 import { gradeBadgeClass, gradeNameClass } from '../store/itemStore';
+import { enhanceFxClass } from '../systems/enhanceEngine';
 import { useSettings } from '../store/settingsStore';
 import { SLOT_DEFS, type SlotDef } from './EquipmentPanel';
 import { CAT_CFG, CAT_ICON } from './BackpackModal';
@@ -58,8 +59,10 @@ function SlotCell({ slot, item, onClick }: { slot: SlotDef; item?: NpcOwnedItem;
     );
   }
   const cfg = CAT_CFG[item.category as keyof typeof CAT_CFG] ?? CAT_CFG['其他物品'];
+  const enh = item.enhanceLevel ?? 0;
   return (
-    <button onClick={onClick} className={`flex flex-col items-center justify-center gap-1 p-2 rounded-xl border transition-all hover:opacity-80 min-h-[72px] w-full ${cfg.cls}`} title={item.name}>
+    <button onClick={onClick} className={`relative flex flex-col items-center justify-center gap-1 p-2 rounded-xl border transition-all hover:opacity-80 min-h-[72px] w-full ${cfg.cls}`} title={`${item.name}${enh > 0 ? ` +${enh}` : ''}`}>
+      {enh > 0 && <span className={`absolute top-0.5 right-1 text-[12px] font-bold leading-none z-10 ${enhanceFxClass(enh)}`}>+{enh}</span>}
       {item.image
         ? <img src={item.image} alt={item.name}
             onClick={(e) => { e.stopPropagation(); useImageViewer.getState().open(item.image!, item.name); }}

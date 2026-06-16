@@ -27,6 +27,7 @@
 | 衍生属性 / HP·EP 上限 / 阶位↔等级 | `systems/derivedStats.ts` |
 | 装备槽位 | `systems/equipSlots.ts`；`components/EquipmentPanel.tsx` / `NpcEquip.tsx` |
 | 骰子判定 | `systems/diceEngine.ts`（确定性）/ `diceJudge.ts`（AI裁判）；`components/DicePanel.tsx` / `DiceManager.tsx` |
+| 装备强化（仅乐园·看板娘·爆装保底） | `systems/enhanceEngine.ts`（确定性摇率/费用/爆装/保底）+ `enhanceBosses.ts`（分阶段立绘 manifest）；`store/enhanceStore.ts`；`components/EnhancePanel.tsx` / `EnhanceManager.tsx`；`App.tsx`→`runEnhanceFinalizePhase`/`enhanceBanter`；立绘 vite 插件 `syncEnhanceBosses`(vite.config) |
 | 生图（NAI/OpenAI/Gemini/Comfy） | `systems/imageGen.ts` / `imageTags.ts`；`store/imageGenStore.ts`；`App.tsx` → `runPortraitPhase`/`runEquipImagePhase`/`runStoryImagePhase` |
 | 图片持久化（IndexedDB） | `systems/imageDb.ts` / `imageSync.ts` |
 | 公共频道 / 系统商店 / 临时队伍 | `App.tsx` → `refreshChannel`/`replyToChannelPost`/`joinPartyFromPost`/`inviteToParty`；`store/channelStore.ts`；`systems/channelTrade.ts` |
@@ -39,6 +40,7 @@
 | 世界选择（AI 生成乐园） | `components/WorldSelector.tsx`；`worldGenPrompt.ts` |
 | 设置页路由（哪个子面板） | `components/SettingsPanel.tsx`（大路由）|
 | 变量管理页（演化功能中心启动台） | `components/VariableManager.tsx` |
+| 全局配置导出/导入（全部功能预设·世界书·API 一键备份迁移） | `systems/configExport.ts`；UI 在 `components/VariableManager.tsx` 底部 `ConfigBackupBar`（变量管理页最下方「配置备份·迁移」）|
 | 顶部状态栏 / 双时间显示 | `components/StatusBar.tsx` |
 | 代码注入的"铁则"提示词常量 | 大部分 `src/promptRules.ts`，少数 `App.tsx` 顶部（见 §4）|
 
@@ -57,6 +59,7 @@
 **物品阶段**
 - `runItemManagementPhaseCore` (~1390) / `runItemManagementPhase` (~1598) / `triggerItemPhaseManually` (~1377)
 - `runMergedAuditPhase` (~1501) — 物品+主角**合并一次**对账纠错
+- `runEnhanceFinalizePhase` / `enhanceBanter` — 装备强化：停止强化收尾刷装备(每+4级+1词缀,纯AI,按 growthCoef 品级×评分缩放) / 点立绘吐槽(分阶段×性别语气)；grep 函数名定位
 
 **主角阶段**
 - `runPlayerEvolutionPhaseCore` (~1614) / `runPlayerEvolutionPhase` (~1725)
@@ -65,6 +68,7 @@
 **NPC 阶段**（策略 B 为主）
 - `runNpcPipelineB` (~2508) — 三段管线总入口；`runEntryJudgment` (~2348) 登场判断；`applyEntryResult` (~2278) 建档/归档/去重防撞；`computeFocusList` (~2387) 调度选焦点（含好友轮换）；`runNpcFocusEvolution` (~2476) + `runNpcEvolutionForTarget` (~2428) 逐NPC并发
 - `runNpcEvolutionPhaseCoreA` (~2578) 策略A；`runNpcEvolutionPhase` (~2616) 分支入口
+- `triggerNpcUpdateManually` (~2377) — NPC 面板「⟳ 手动更新」按钮：绕过启用/频率/调度，对单个 NPC 按最近正文跑一次 `runNpcEvolutionForTarget`（状态 `npcManualUpdatingId`，props 经 NpcPanel→NpcCard/NpcDetail）
 - `applyNpcShortCommands` (~1924) — `character.<id>.*` / `cr.` / `hp.` / `ap.` 等短指令
 - `serializeNpcSnapshot` (~1831) / `buildNpcPhaseSystemPrompt` (~1884) / `buildEntryPhaseSystemPrompt` (~1911)
 - `npcChatCompletion` (~1760) / `buildNpcVars` (~1778) / `trimNarrative` (~1753) / `passFrequency` (~2380) / `maybeAskCleanup` (~2460) / `backfillNpcStarterKits` (~2528)
@@ -106,6 +110,8 @@
 | `derivedStats.ts` | `computeDerived`(物/法 ATK/DEF)、`computeMaxHp`(体×20)/`computeMaxEp`(智×15)、`effectiveResource`、`lvFromRealm`/`realmFromLevel`、`TIERS`/`normalizeTier`、`gear/abilityMaxHp/EpBonus` |
 | `attrBonus.ts` | `ATTR_KEYS`/`ATTR_LABEL`、`parseAttrBonus`(从 effect 文本抽属性加成)、`effectiveAttrs`、`computeAttrBreakdown` |
 | `diceEngine.ts` | 确定性判定：`resolve`、各 `*Mod`(属性/技能/天赋/好感/装备/强度差)、`rollExpr`、`buildCheckResultBlock`、难度/强度表 |
+| `enhanceEngine.ts` | 装备强化确定性逻辑：`resolveEnhance`(摇率/爆装/降级/保底)、`enhanceCost`(品级×评分×老板)、`scoreCostMul`/`growthCoef`、`stageFromLevel`、`DEFAULT_BOSSES`/`DEFAULT_TABLES`、`enhanceFxClass`/`isEnhanceable` |
+| `enhanceBosses.ts` | 老板分阶段立绘清单：`loadBossManifest`/`pickStagePortrait`(读 public/enhance-bosses/manifest.json，中文路径 encode，空阶段就近回退) |
 | `diceJudge.ts` | AI 裁判：`aiJudge`、`aiSuggest`(✨建议属性难度)、`buildJudgeBlock` |
 | `imageGen.ts` | `generateImage(service,opts)`(NAI ZIP解码/OpenAI/Comfy轮询)、`buildPortraitPrompt`/`buildEquipPrompt`、`shrinkDataUrl` |
 | `imageTags.ts` | 列19 danbooru tags：`genPortraitTags`/`genEquipTags`、`tagsLlmReady`/`isTagService` |
@@ -123,6 +129,7 @@
 | `chatDb.ts` | 对话 IndexedDB `drpg-chat`：`loadAll`/`putChanged`(增量)/`replaceAll`/`clearAll` |
 | `saveDb.ts` / `saveManager.ts` | 多存档 IndexedDB `drpg-archive`：`saveSlot`/`loadSlot`/`newGame`/`autoSaveSlot`/`clearProgress` |
 | `wbDb.ts` | 世界书条目 IndexedDB 存储 |
+| `configExport.ts` | 全局配置导出/导入：`buildGlobalConfig`/`downloadGlobalConfig`/`importGlobalConfig`。白名单提取 15 个配置 store 的 `settings`+`*Api`+`*UseSharedApi`（剔运行时数据，世界书只导非 builtin），导入用 zustand `setState` 浅合并不污染游戏进度、无需 reload。**仅配置不含存档** |
 | `combat.ts` | 旧战斗 `rollDamage`/`power`（大多未用） |
 
 ---
@@ -160,8 +167,10 @@
 | `turnInsightStore.ts` | `drpg-turn-insight` | 回合洞察快照（滚动14份）|
 | `creationTemplateStore.ts` | `drpg-creation-templates` | 角色创建模板 |
 | `novelVecStore.ts` | `drpg-novelvec` | 向量资料库设置（embedding 接口/topK/阈值/maxChars）|
+| `enhanceStore.ts` | `drpg-enhance` | 装备强化：老板名册/率表(配置)、`pity`垫子计数(账号级全局,不进存档/不导出)、`session`本轮日志。立绘 partialize→IndexedDB；`hydrateEnhancePortraits` |
 | `variableStore.ts` | — | 自定义变量（`<state>` 兜底查找）|
 | `imageViewerStore` / `imageBusyStore` | — | UI 瞬时（看图/生图忙提示）|
+| `composerStore` | — | UI 瞬时：`draft`/`fill(text)`，背包「使用」物品把「使用XX」填进主聊天输入框（App 订阅 draft→setInputValue+关背包+聚焦）|
 
 > **所有 `drpg-*` 持久化，刷新不清是存档机制**。彻底重置=清 `drpg-` 开头 localStorage。图片大、存 IndexedDB `drpg-images`（不进 localStorage）。
 
@@ -171,15 +180,15 @@
 
 **外壳/正文**：`StartScreen`(封面热区) · `CharacterCreation`(开局) · `SettingsPanel`(设置大路由) · `VariableManager`(演化功能中心启动台) · `StatusBar`(顶部双时间/天气) · `ErrorBoundary` · `Bar` · `VersionToast` · `ImageBusyToast` · `ImageViewer`
 
-**主角侧**：`PlayerSidebar`(身份档案/六维/状态，点击即编辑) · `PlayerEquipPanel`(左浮窗装备) · `CharacterPanel`(✨技能/天赋，仅B*) · `TitlePanel`(🎖称号) · `AchievementPanel`(🏆成就) · `SubProfessionPanel`(🛠副职业) · `ItemListPanel`(右下物品栏浮窗) · `StatusEffectChips`/`StatusChips`(状态胶囊)
+**主角侧**：`PlayerSidebar`(身份档案/六维/状态，点击即编辑) · `PlayerEquipPanel`(左浮窗装备) · `CharacterPanel`(✨技能/天赋，仅B*) · `TitlePanel`(🎖称号) · `AchievementPanel`(🏆成就) · `SubProfessionPanel`(🛠副职业) · `ItemListPanel`(右下物品栏浮窗) · `StatusEffectChips`/`StatusChips`(状态胶囊) · `CharEditForms`(`SkillEditForm`/`TraitEditForm` 技能·天赋手动编辑表单，主角 CharacterPanel + NPC NpcDetail 共用，写 `characterStore.updateSkill/updateTrait`)
 
-**装备/背包**：`EquipmentPanel`(⚔玩家装备槽) · `BackpackModal`(🎒储存空间) · `NpcEquip`(NPC装备)
+**装备/背包**：`EquipmentPanel`(⚔玩家装备槽) · `BackpackModal`(🎒储存空间，含 `CurrencyConverter` 乐园币↔灵魂钱币 1:15万) · `NpcEquip`(NPC装备)；三者装备卡均显 `+N` 强化角标
 
 **NPC**：`NpcPanel`(📇档案列表) · `NpcDetail`(单角色11栏，导出 `SegmentedText`/`StatusChips`) · `OnScenePanel`(右上在场浮窗)
 
-**右侧导航面板**：`FactionPanel`(🏛) · `TerritoryPanel`(🏯) · `AdventureTeamPanel`(🛡) · `TurnInsightPanel`(🔍回合洞察) · `MiscPanel`(📋任务) · `SummaryPanel`(🧠记忆) · `CosmosPanel`(🌌) · `ChannelPanel`(📡频道) + `SystemShop`(🏪) · `DmPanel`(✉私信) · `FriendsPanel`(👥好友) · `SaveLoadPanel`(💾存档) · `DicePanel`(🎲in-chat骰子)
+**右侧导航面板**：`FactionPanel`(🏛) · `TerritoryPanel`(🏯) · `AdventureTeamPanel`(🛡) · `TurnInsightPanel`(🔍回合洞察) · `MiscPanel`(📋任务) · `SummaryPanel`(🧠记忆) · `CosmosPanel`(🌌) · `ChannelPanel`(📡频道) + `SystemShop`(🏪) · `DmPanel`(✉私信) · `FriendsPanel`(👥好友) · `SaveLoadPanel`(💾存档) · `DicePanel`(🎲in-chat骰子) · `EnhancePanel`(⚒强化所：左看板娘立绘+切换+吐槽气泡/中被强化装备+特效/右选装备+率+花费+日志)
 
-**设置子页（演化管理）**：`ItemManager` · `PlayerManager` · `NpcManager` · `FactionManager` · `TerritoryManager` · `AdventureTeamManager` · `CosmosManager` · `MemoryManager` · `MiscManager` · `ChannelManager` · `ImageGenManager` · `NovelVecManager` · `DiceManager`
+**设置子页（演化管理）**：`ItemManager` · `PlayerManager` · `NpcManager` · `FactionManager` · `TerritoryManager` · `AdventureTeamManager` · `CosmosManager` · `MemoryManager` · `MiscManager` · `ChannelManager` · `ImageGenManager` · `NovelVecManager` · `DiceManager` · `EnhanceManager`(装备强化:老板名册/立绘文件夹/率表/API)
 
 **API/其他**：`ApiRoutePicker`(多接口路由配置) · `ApiQuickPick`(旧,未引用) · `WorldSelector`(AI生成乐园) · `Hub`/`InstanceView`(旧副本，大多未用)
 
@@ -189,5 +198,6 @@
 
 - **数据/工具**：`src/data/{monsters,events,instances,enhancements}.ts`(旧副本数据，多未用)、`src/worldGenPrompt.ts`、`src/types.ts`、`src/version.ts`
 - **建库脚本**：`tools/build-novel-vectors.mjs`（`npm run build-vectors` 小说 / `build-vectors-wb` 世界书）
+- **强化老板立绘**：源放仓库根 `图片/<老板>/阶段1~4/`(入库)；`vite.config` 插件 `syncEnhanceBosses` build/dev 同步进 `public/enhance-bosses/` + 生成 `manifest.json`(副本 gitignore)
 - **Cloudflare 代理**：`functions/proxy/[[path]].js`（同源 CORS 透传，不存 key）
 - **预设文件**（仓库根 `预设/*.json` + `src/data/*DefaultPreset.json`）：导入到各演化管理子页

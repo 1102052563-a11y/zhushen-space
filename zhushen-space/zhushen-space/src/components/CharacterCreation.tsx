@@ -12,6 +12,9 @@ export interface CreationData {
   points: number;
   paradise: string;
   name: string;
+  gender: string;       // 性别（解析后：男/女/自定义文本）——生图据此强制 1boy/1girl
+  race: string;         // 种族（解析后）
+  raceDetail: string;   // 种族详情（自由文本）
   age: string;
   personality: string;
   prevProfession: string;
@@ -31,6 +34,8 @@ const DIFFICULTIES: { key: string; points: number; desc: string }[] = [
 ];
 
 const PARADISES = ['轮回乐园', '死亡乐园', '圣域乐园', '天启乐园', '圣光乐园', '曙光乐园', '守望乐园', '自定义'];
+const GENDERS = ['男', '女', '其他'];
+const RACES = ['人类', '精灵', '兽人', '妖族', '龙族', '不死族', '机械体', '神祇', '自定义'];
 
 const ATTRS: { key: keyof CreationData['attrs']; label: string }[] = [
   { key: 'str', label: '力量' }, { key: 'agi', label: '敏捷' }, { key: 'con', label: '体质' },
@@ -43,6 +48,11 @@ export default function CharacterCreation({ onConfirm, onCancel }: { onConfirm: 
   const [difficulty, setDifficulty] = useState('普通');
   const [paradise, setParadise] = useState('轮回乐园');
   const [paradiseCustom, setParadiseCustom] = useState('');
+  const [gender, setGender] = useState('男');
+  const [genderCustom, setGenderCustom] = useState('');
+  const [race, setRace] = useState('人类');
+  const [raceCustom, setRaceCustom] = useState('');
+  const [raceDetail, setRaceDetail] = useState('');
   const [name, setName] = useState('');
   const [age, setAge] = useState('');
   const [personality, setPersonality] = useState('');
@@ -60,11 +70,13 @@ export default function CharacterCreation({ onConfirm, onCancel }: { onConfirm: 
   const [tplName, setTplName] = useState('');
 
   function currentData(): CreationTemplateData {
-    return { difficulty, paradise, paradiseCustom, name, age, personality, prevProfession, appearance, attrs: { ...attrs }, talentName, talentEffect, contractId };
+    return { difficulty, paradise, paradiseCustom, name, gender, genderCustom, race, raceCustom, raceDetail, age, personality, prevProfession, appearance, attrs: { ...attrs }, talentName, talentEffect, contractId };
   }
   function loadTemplate(d: CreationTemplateData) {
     setDifficulty(d.difficulty); setParadise(d.paradise); setParadiseCustom(d.paradiseCustom ?? '');
     setName(d.name ?? ''); setAge(d.age ?? ''); setPersonality(d.personality ?? ''); setPrevProfession(d.prevProfession ?? '');
+    setGender(d.gender ?? '男'); setGenderCustom(d.genderCustom ?? '');
+    setRace(d.race ?? '人类'); setRaceCustom(d.raceCustom ?? ''); setRaceDetail(d.raceDetail ?? '');
     setAppearance(d.appearance ?? '');
     setAttrs(d.attrs ? { ...d.attrs } : { str: 0, agi: 0, con: 0, int: 0, cha: 0, luck: 0 });
     setTalentName(d.talentName ?? ''); setTalentEffect(d.talentEffect ?? ''); setContractId(d.contractId ?? '');
@@ -75,6 +87,8 @@ export default function CharacterCreation({ onConfirm, onCancel }: { onConfirm: 
   const used = Object.values(attrs).reduce((a, b) => a + b, 0);
   const remaining = totalPoints - used;
   const resolvedParadise = paradise === '自定义' ? (paradiseCustom.trim() || '自定义乐园') : paradise;
+  const resolvedGender = gender === '其他' ? (genderCustom.trim() || '其他') : gender;
+  const resolvedRace = race === '自定义' ? (raceCustom.trim() || '自定义种族') : race;
 
   const setAttr = (k: keyof typeof attrs, v: number) => {
     const clamped = Math.max(0, Math.min(ATTR_MAX, v));
@@ -85,7 +99,8 @@ export default function CharacterCreation({ onConfirm, onCancel }: { onConfirm: 
 
   const data: CreationData = {
     difficulty, points: totalPoints, paradise: resolvedParadise,
-    name: name.trim() || '无名者', age: age.trim(), personality: personality.trim(),
+    name: name.trim() || '无名者', gender: resolvedGender, race: resolvedRace, raceDetail: raceDetail.trim(),
+    age: age.trim(), personality: personality.trim(),
     prevProfession: prevProfession.trim(), appearance: appearance.trim(), attrs, talentName: talentName.trim(), talentEffect: talentEffect.trim(),
     contractId: contractId.trim(),
   };
@@ -97,6 +112,9 @@ export default function CharacterCreation({ onConfirm, onCancel }: { onConfirm: 
       ['所属乐园', resolvedParadise],
       ['姓名', data.name],
       ['年龄', age || '—'],
+      ['性别', resolvedGender],
+      ['种族', resolvedRace],
+      ['种族详情', raceDetail.trim() || '—'],
       ['性格', personality || '—'],
       ['主角背景', prevProfession || '—'],
       ['基底外观', appearance || '（未填）'],
@@ -192,6 +210,47 @@ export default function CharacterCreation({ onConfirm, onCancel }: { onConfirm: 
           <Labeled label="主角背景"><input value={prevProfession} onChange={(e) => setPrevProfession(e.target.value)} placeholder="进入乐园前的身份/经历，如 退伍军人 / 急诊医生 / 大学生" className={inputCls} /></Labeled>
           <Labeled label="契约者ID"><input value={contractId} onChange={(e) => setContractId(e.target.value)} placeholder="留空＝由乐园随机分配" className={inputCls} /></Labeled>
         </div>
+
+        {/* 性别（影响生图：男→1boy / 女→1girl，避免马尾等特征被 AI 误判性别） */}
+        <div className="mt-2">
+          <Labeled label="性别（影响生图：男→1boy / 女→1girl，避免马尾等特征被误判）">
+            <div className="flex flex-wrap items-center gap-2">
+              {GENDERS.map((g) => (
+                <button key={g} onClick={() => setGender(g)}
+                  className={`px-4 py-1.5 rounded-lg border text-sm transition-colors ${gender === g ? 'border-god/60 bg-god/10 text-god' : 'border-edge text-dim hover:border-god/30'}`}>
+                  {g}
+                </button>
+              ))}
+              {gender === '其他' && (
+                <input value={genderCustom} onChange={(e) => setGenderCustom(e.target.value)} placeholder="自定义性别…"
+                  className={`${inputCls} flex-1 min-w-[8rem]`} />
+              )}
+            </div>
+          </Labeled>
+        </div>
+
+        {/* 种族 + 种族详情自定义框 */}
+        <div className="mt-2 space-y-2">
+          <Labeled label="种族">
+            <div className="flex flex-wrap gap-2">
+              {RACES.map((r) => (
+                <button key={r} onClick={() => setRace(r)}
+                  className={`px-3 py-1.5 rounded-lg border text-sm transition-colors ${race === r ? 'border-god/60 bg-god/10 text-god' : 'border-edge text-dim hover:border-god/30'}`}>
+                  {r}
+                </button>
+              ))}
+            </div>
+          </Labeled>
+          {race === '自定义' && (
+            <input value={raceCustom} onChange={(e) => setRaceCustom(e.target.value)} placeholder="输入自定义种族名称…" className={inputCls} />
+          )}
+          <Labeled label="种族详情（选填·自由填写：外貌特征 / 天生能力 / 弱点 / 文化等，越详细 AI 越贴合）">
+            <textarea value={raceDetail} onChange={(e) => setRaceDetail(e.target.value)} rows={3}
+              placeholder="如：吸血鬼一族——苍白肌肤、赤色竖瞳、犬齿尖利；夜视、迅捷、伤口速愈；惧强光与圣物，需定期饮血维系神智。"
+              className={`${inputCls} resize-y leading-relaxed`} />
+          </Labeled>
+        </div>
+
         <div className="mt-2">
           <Labeled label="基底外观（不可变·生图基准）">
             <textarea value={appearance} onChange={(e) => setAppearance(e.target.value)} rows={3}

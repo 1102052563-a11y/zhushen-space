@@ -27,6 +27,8 @@ export interface NpcScheduling {
   skipDead: boolean;                  // 自动调度候选先过滤已死亡角色，默认 true
   manualFocusIds: string[];           // 手动重点列表（manual 模式生效）
   friendsPerTurn?: number;            // 好友栏每回合参与演化的人数（与在场/离场配额独立，按最久未演化轮换），默认 3
+  autoPurgeDead?: boolean;            // 死亡 NPC 自动硬删除（延迟扫描，默认关；护栏：跳过羁绊/保留，延迟若干回合给复活纠偏留窗口）
+  deadPurgeDelay?: number;            // 死亡后延迟几回合再硬删，默认 3
 }
 
 export interface NpcPresetSettings {
@@ -171,6 +173,8 @@ export const useNpcEvo = create<NpcEvoState>()(
           skipDead: true,
           manualFocusIds: [],
           friendsPerTurn: 3,
+          autoPurgeDead: false,
+          deadPurgeDelay: 3,
         },
         entries: [],
         presetName: '',

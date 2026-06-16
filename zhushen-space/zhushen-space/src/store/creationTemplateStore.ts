@@ -7,6 +7,11 @@ export interface CreationTemplateData {
   paradise: string;
   paradiseCustom: string;
   name: string;
+  gender?: string;       // 性别（选择项；'其他' 时取 genderCustom）
+  genderCustom?: string;
+  race?: string;         // 种族（选择项；'自定义' 时取 raceCustom）
+  raceCustom?: string;
+  raceDetail?: string;   // 种族详情（自由文本：特征/能力/弱点等）
   age: string;
   personality: string;
   prevProfession: string;

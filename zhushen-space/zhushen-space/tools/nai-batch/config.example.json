@@ -1,0 +1,16 @@
+{
+  "apiUrl": "https://image.novelai.net",
+  "apiToken": "在这里粘贴你的 NovelAI 持久化 Token (Persistent API Token)",
+  "gapSec": 6,
+  "artistTags": "15::best quality,ultra-detailed,absurdres, very aesthetic, detailed, masterpiece::,1.2::8k,4k,highres::,\n1.3::intricate details, finely detailed features, illustration::,\n1.1::detailed eyes, detailed face::,\n2.5::highly detailed texture, sharp focus, perfect anatomy::",
+  "defaults": {
+    "model": "nai-diffusion-4-5-full",
+    "size": "1024x1024",
+    "steps": 28,
+    "scale": 5,
+    "cfgRescale": 0,
+    "uncondScale": 1,
+    "sampler": "k_dpmpp_2m_sde",
+    "negative": "lowres, artistic error, scan artifacts, worst quality, bad quality, jpeg artifacts, multiple views, very displeasing, too many watermarks, negative space, blank page"
+  }
+}

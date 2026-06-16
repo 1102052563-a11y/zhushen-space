@@ -55,12 +55,51 @@ function buildPortraitManifest(): Plugin {
   return { name: 'build-portrait-manifest', buildStart() { gen() }, configureServer() { gen() } }
 }
 
+// 强化老板分阶段立绘：把仓库根 图片/<老板>/阶段N/*.png 同步进 public/enhance-bosses/，
+// 并生成 manifest.json = { "<老板>": { "1":[urls], "2":[...], "3":[...], "4":[...] } }。
+// 你只要把图丢进 图片/凯莉/阶段1..4/，build（含 Cloudflare）与 dev 启动时自动同步+重写清单。
+function syncEnhanceBosses(): Plugin {
+  const SRC = '../../图片'
+  const DST = 'public/enhance-bosses'
+  const IMG = /\.(png|jpe?g|webp|gif|avif)$/i
+  const stageNo = (n: string) => { const m = n.match(/(\d+)/); return m ? parseInt(m[1], 10) : 0 }
+  const gen = () => {
+    try {
+      if (!existsSync(SRC)) return
+      const manifest: Record<string, Record<string, string[]>> = {}
+      for (const boss of readdirSync(SRC, { withFileTypes: true })) {
+        if (!boss.isDirectory()) continue
+        const bossDir = SRC + '/' + boss.name
+        const stages: Record<string, string[]> = {}
+        for (const stage of readdirSync(bossDir, { withFileTypes: true })) {
+          if (!stage.isDirectory()) continue
+          const no = stageNo(stage.name)
+          if (no < 1 || no > 4) continue
+          const files = readdirSync(bossDir + '/' + stage.name).filter((f) => IMG.test(f))
+          if (!files.length) continue
+          const outDir = DST + '/' + boss.name + '/' + stage.name
+          mkdirSync(outDir, { recursive: true })
+          const urls: string[] = []
+          for (const f of files) {
+            try { copyFileSync(bossDir + '/' + stage.name + '/' + f, outDir + '/' + f); urls.push(boss.name + '/' + stage.name + '/' + f) } catch { /* 单图失败跳过 */ }
+          }
+          if (urls.length) stages[String(no)] = urls
+        }
+        if (Object.keys(stages).length) manifest[boss.name] = stages
+      }
+      mkdirSync(DST, { recursive: true })
+      writeFileSync(DST + '/manifest.json', JSON.stringify(manifest, null, 2))
+    } catch { /* 失败不阻断构建 */ }
+  }
+  return { name: 'sync-enhance-bosses', buildStart() { gen() }, configureServer() { gen() } }
+}
+
 // 开发代理目标：解决本地 localhost 跨域（CORS）问题
 // 如果你用的 API 地址不同，把 VITE_API_TARGET 写进 .env.local 文件
 const API_TARGET = process.env.VITE_API_TARGET ?? 'https://api.baimeow.icu'
 
 export default defineConfig({
-  plugins: [react(), copyBuiltinPresets(), buildPortraitManifest()],
+  plugins: [react(), copyBuiltinPresets(), buildPortraitManifest(), syncEnhanceBosses()],
   server: {
     proxy: {
       // 访问 http://localhost:5173/dev-proxy/* 时自动转发到目标 API

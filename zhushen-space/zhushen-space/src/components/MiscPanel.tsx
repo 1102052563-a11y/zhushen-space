@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { useMisc } from '../store/miscStore';
+import { useMisc, isMainQuest, type MiscTask, type QuestRing } from '../store/miscStore';
 
 type Tab = 'tasks' | 'events';
 
@@ -15,6 +15,9 @@ export default function MiscPanel({ onClose }: { onClose: () => void }) {
   const worldName = useMisc((s) => s.worldName);
   const weather = useMisc((s) => s.weather);
   const [tab, setTab] = useState<Tab>('tasks');
+
+  const mainTasks = tasks.filter((t) => isMainQuest(t));   // 主线置顶高亮
+  const sideTasks = tasks.filter((t) => !isMainQuest(t));  // 支线分组
 
   const tabs: { key: Tab; label: string; n: number }[] = [
     { key: 'tasks', label: '任务', n: tasks.length },
@@ -65,21 +68,14 @@ export default function MiscPanel({ onClose }: { onClose: () => void }) {
             tasks.length === 0 && archivedTasks.length === 0 ? <Empty text="暂无任务" /> : (
             <>
               {tasks.length === 0 && <div className="text-[12px] font-mono text-dim/40 text-center py-3">暂无进行中任务</div>}
-              {tasks.map((t) => (
-                <div key={t.id} className="rounded-lg border border-edge bg-panel/60 px-3 py-2 space-y-1">
-                  <div className="flex items-center gap-2">
-                    <span className="text-[12px] font-mono text-dim/50">{t.id}</span>
-                    <span className="text-sm font-semibold text-slate-100 flex-1 truncate">{t.name || '（未命名任务）'}</span>
-                    <span className="text-[12px] font-mono text-amber-400/80">{t.status}</span>
-                    <button onClick={() => removeTask(t.id)} className="text-[12px] font-mono text-blood/50 hover:text-blood">删</button>
-                  </div>
-                  {t.desc && <div className="text-[13px] text-dim/80 leading-relaxed">{t.desc}</div>}
-                  <div className="flex flex-wrap gap-x-3 gap-y-0.5 text-[12px] font-mono text-dim/60">
-                    {t.reward && <span className="text-god/60">奖励：{t.reward}</span>}
-                    {t.penalty && <span className="text-blood/60">失败：{t.penalty}</span>}
-                    {(t.startTime || t.endTime) && <span>⏳ {t.startTime || '—'} ~ {t.endTime || '—'}</span>}
-                  </div>
-                </div>
+              {mainTasks.map((t) => (
+                <TaskCard key={t.id} t={t} main onRemove={() => removeTask(t.id)} />
+              ))}
+              {mainTasks.length > 0 && sideTasks.length > 0 && (
+                <div className="text-[11px] font-mono text-dim/40 px-1 pt-1">支线</div>
+              )}
+              {sideTasks.map((t) => (
+                <TaskCard key={t.id} t={t} main={false} onRemove={() => removeTask(t.id)} />
               ))}
 
               {archivedTasks.length > 0 && (
@@ -126,4 +122,94 @@ export default function MiscPanel({ onClose }: { onClose: () => void }) {
 
 function Empty({ text }: { text: string }) {
   return <div className="py-16 text-center text-dim/40 text-sm font-mono border border-dashed border-edge rounded-xl">{text}</div>;
+}
+
+/* 环状态 → 文字配色 / 进度条配色 / 前缀符 */
+function ringTextTone(s: QuestRing['status']): string {
+  return s === 'done' ? 'text-emerald-400/80'
+    : s === 'active' ? 'text-amber-300'
+    : s === 'skipped' ? 'text-slate-500/60 line-through'
+    : 'text-dim/55';
+}
+function ringBarTone(s: QuestRing['status']): string {
+  return s === 'done' ? 'bg-emerald-500/70'
+    : s === 'active' ? 'bg-amber-400'
+    : s === 'skipped' ? 'bg-slate-700/40'
+    : 'bg-slate-600/40';
+}
+function ringMark(s: QuestRing['status']): string {
+  return s === 'done' ? '✓' : s === 'active' ? '▶' : s === 'skipped' ? '⤼' : '·';
+}
+
+/* 任务卡片：主线置顶高亮 + 环进度条/环列表/终局；无 rings 时退回扁平显示 */
+function TaskCard({ t, main, onRemove }: { t: MiscTask; main: boolean; onRemove: () => void }) {
+  const rings = Array.isArray(t.rings) ? [...t.rings].sort((a, b) => a.idx - b.idx) : [];
+  const hasRings = rings.length > 0;
+  const active = rings.find((r) => r.status === 'active');
+  const pos = active ? active.idx : rings.filter((r) => r.status === 'done').length;
+  return (
+    <div className={`rounded-lg px-3 py-2 space-y-1 border ${main ? 'border-god/50 bg-god/10' : 'border-edge bg-panel/60'}`}>
+      <div className="flex items-center gap-2">
+        <span className={`text-[10px] font-mono px-1.5 py-0.5 rounded shrink-0 ${main ? 'bg-god/20 text-god border border-god/40' : 'bg-edge/40 text-dim/55'}`}>
+          {main ? '主线' : '支线'}
+        </span>
+        <span className="text-[12px] font-mono text-dim/45 shrink-0">{t.id}</span>
+        <span className={`text-sm font-semibold flex-1 truncate ${main ? 'text-god' : 'text-slate-100'}`}>{t.name || '（未命名任务）'}</span>
+        <span className="text-[12px] font-mono text-amber-400/80 shrink-0">{t.status}</span>
+        <button onClick={onRemove} className="text-[12px] font-mono text-blood/50 hover:text-blood shrink-0">删</button>
+      </div>
+
+      {hasRings ? (
+        <div className="space-y-1">
+          {/* 进度条 */}
+          <div className="flex items-center gap-2">
+            <div className="flex-1 flex gap-0.5">
+              {rings.map((r) => (
+                <div key={r.idx} className={`h-1.5 flex-1 rounded-full ${ringBarTone(r.status)}`} title={`环${r.idx} ${r.goal}`} />
+              ))}
+            </div>
+            <span className="text-[11px] font-mono text-dim/50 shrink-0">第{pos}/共{rings.length}环</span>
+          </div>
+          {/* 环列表：已达成/当前环逐条显示；未来(planned)环只提示"还剩N环"、不剧透 */}
+          <div className="space-y-0.5">
+            {rings.filter((r) => r.status !== 'planned').map((r) => (
+              <div key={r.idx} className={`text-[12px] leading-snug ${ringTextTone(r.status)}`}>
+                <span className="font-mono opacity-70">{ringMark(r.status)}环{r.idx}</span> {r.goal}
+                {r.status === 'active' && (
+                  <span className={`ml-1 text-[10px] font-mono px-1 rounded border ${r.optional ? 'border-amber-500/40 text-amber-400/80' : 'border-blood/40 text-blood/70'}`}>{r.optional ? '贪婪·可选' : '强制'}</span>
+                )}
+                {/* 奖励与惩罚都只显示「当前进行中」那一环 */}
+                {r.status === 'active' && r.reward && (
+                  <div className="pl-4 font-mono text-[11px] text-god/70">🎁 奖励：{r.reward}</div>
+                )}
+                {r.status === 'active' && r.penalty && (
+                  <div className="pl-4 font-mono text-[11px] text-blood/55">⚠ 惩罚：{r.penalty}</div>
+                )}
+              </div>
+            ))}
+            {rings.filter((r) => r.status === 'planned').length > 0 && (
+              <div className="text-[11px] font-mono text-dim/40">🔒 还剩 {rings.filter((r) => r.status === 'planned').length} 环（随剧情解锁）</div>
+            )}
+          </div>
+          {(() => {
+            const greedy = rings.filter((r) => r.optional);
+            const forcedAllDone = rings.some((r) => !r.optional) && rings.filter((r) => !r.optional).every((r) => r.status === 'done' || r.status === 'skipped');
+            return forcedAllDone && greedy.some((r) => r.status === 'planned') && !greedy.some((r) => r.status === 'active')
+              ? <div className="text-[12px] font-mono text-amber-400/80">✅ 主线已达成 · ⚖ 可见好就收离场，或接受隐藏委托·继续赌（贪婪环·高风险高回报）</div>
+              : null;
+          })()}
+          {t.finale && <div className="text-[12px] font-mono text-god/55">🏁 终局：{t.finale}</div>}
+        </div>
+      ) : (
+        t.desc && <div className="text-[13px] text-dim/80 leading-relaxed">{t.desc}</div>
+      )}
+
+      <div className="flex flex-wrap gap-x-3 gap-y-0.5 text-[12px] font-mono text-dim/60">
+        {/* 多环任务的奖惩按"每环"显示（见上方当前环 🎁 奖励），此处不再重复任务级奖惩，避免冗余；仅无环的扁平任务才显示 */}
+        {!hasRings && t.reward && <span className="text-god/60">奖励：{t.reward}</span>}
+        {!hasRings && t.penalty && <span className="text-blood/60">失败：{t.penalty}</span>}
+        {(t.startTime || t.endTime) && <span>⏳ {t.startTime || '—'} ~ {t.endTime || '—'}</span>}
+      </div>
+    </div>
+  );
 }

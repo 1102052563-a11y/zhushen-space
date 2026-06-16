@@ -81,10 +81,16 @@ export default function TerritoryPanel({ onClose }: { onClose: () => void }) {
               {T.effects.length === 0
                 ? <Empty text="（暂无领地效果）" />
                 : <div className="space-y-1.5">{T.effects.map((e) => (
-                    <div key={e.name} className="rounded border border-edge bg-void/60 px-2.5 py-1.5">
+                    <div key={e.name} className="group rounded border border-edge bg-void/60 px-2.5 py-1.5">
                       <div className="flex items-baseline gap-2">
                         <span className="text-[13px] text-emerald-300 font-mono">{e.name}</span>
                         {e.source && <span className="text-[11px] text-dim/40 font-mono">来自 {e.source}</span>}
+                        <span className="flex-1" />
+                        <button
+                          onClick={() => T.removeEffect(e.name)}
+                          title="删除该领地效果（清掉无意义/凑数的效果）"
+                          className="shrink-0 self-center opacity-0 group-hover:opacity-100 text-dim/40 hover:text-blood text-[12px] font-mono transition-opacity"
+                        >✕</button>
                       </div>
                       {e.desc && <div className="text-[12px] text-dim/80 mt-0.5">{e.desc}</div>}
                     </div>

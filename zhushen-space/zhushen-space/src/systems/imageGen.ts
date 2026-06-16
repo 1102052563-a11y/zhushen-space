@@ -281,15 +281,33 @@ async function genComfy(cfg: ComfyConfig, o: GenOpts): Promise<string> {
   throw new Error('ComfyUI 生成超时');
 }
 
+/* 把肖像 tags 里的性别标签强制成与设定一致：男→1boy / 女→1girl，并移除相反性别的计数标签。
+   解决"男主角因马尾/精致五官等被标签 LLM 误判成 1girl"——人物设定的性别优先于 AI 的视觉猜测。
+   仅对明确的男/女生效；"其他/非人形/未设"一律不动（交给 1other 或 LLM 判断）。*/
+export function forceGenderTag(tags: string, gender?: string): string {
+  const t0 = (tags || '').trim();
+  if (!t0) return t0;
+  const g = (gender || '').trim();
+  const male = /男/.test(g) && !/女/.test(g);
+  const female = /女/.test(g) && !/男/.test(g);
+  if (!male && !female) return t0;
+  const want = male ? '1boy' : '1girl';
+  const dropRe = male ? /\b(?:\d+\s*girls?|multiple girls)\b/gi : /\b(?:\d+\s*boys?|multiple boys)\b/gi;
+  const t = t0.replace(dropRe, '').replace(/\s*,(?:\s*,)+/g, ', ').replace(/^\s*,\s*|\s*,\s*$/g, '').trim();
+  if (new RegExp(`\\b${want}\\b`, 'i').test(t)) return t;   // 已含正确性别标签
+  return t ? `${want}, ${t}` : want;
+}
+
 /* 由角色档案字段拼肖像提示词（MVP：自然语言+少量 tags，NAI/OpenAI 都可用；
    未来可换成重点演化生成的英文 NAI tags(col19/imageTags) 以求同角色一致）。*/
 export function buildPortraitPrompt(f: {
-  gender?: string; age?: string; appearance?: string; profession?: string; tier?: string; npcTag?: string; imageTags?: string;
+  gender?: string; race?: string; age?: string; appearance?: string; profession?: string; tier?: string; npcTag?: string; imageTags?: string;
   action?: string; attire?: string; location?: string; figure?: string; appearanceDetails?: string;
   baseAppearance?: string;   // 基底外观（开局设定，不可变）——始终并入提示词
 }): string {
   const s = useImageGen.getState();
   const base = (f.baseAppearance ?? '').trim();   // 基底外观：所有路径都要带上
+  const imageTags = forceGenderTag((f.imageTags ?? '').trim(), f.gender);   // 性别标签强制与设定一致（男→1boy/女→1girl）
   const tagSvc = s.portraitService === 'nai' || s.portraitService === 'comfy';
   // —— 自然语言模型(OpenAI/Gemini/自定义)：填充画风模板（仿 fanren 结构化组装）——
   if (!tagSvc) {
@@ -299,25 +317,27 @@ export function buildPortraitPrompt(f: {
         .replaceAll('${gender}', f.gender || '（性别未知）')
         .replaceAll('${age}', f.age || '')
         .replaceAll('${tier}', f.tier || '')
-        .replaceAll('${appearance}', [base, f.appearance, f.profession].filter(Boolean).join('，') || '（按设定）')
-        .replaceAll('${appearance_details}', [base, f.appearanceDetails || f.appearance].filter(Boolean).join('，') || '（按设定）')
+        .replaceAll('${appearance}', [f.race, base, f.appearance, f.profession].filter(Boolean).join('，') || '（按设定）')
+        .replaceAll('${appearance_details}', [f.race, base, f.appearanceDetails || f.appearance].filter(Boolean).join('，') || '（按设定）')
         .replaceAll('${attire}', f.attire || '（按设定）')
         .replaceAll('${figure}', f.figure || '（按设定）')
         .replaceAll('${action}', f.action || '自然端庄的姿态')
         .replaceAll('${location}', f.location || '简洁背景')
-        .replaceAll('${portrait_prompt}', f.imageTags || '（无）')
+        .replaceAll('${portrait_prompt}', imageTags || '（无）')
         .replaceAll('${style_guide}', s.styleGuide || '');
     }
   }
-  // —— 标签型(NAI/ComfyUI)：优先用演化生成的英文 NAI tags（同角色一致）——
-  if (f.imageTags && f.imageTags.trim()) {
-    const parts = [f.imageTags.trim()];
+  // —— 标签型(NAI/ComfyUI)：优先用演化生成的英文 NAI tags（同角色一致；性别标签已按设定强制）——
+  if (imageTags) {
+    const parts = [imageTags];
     if (base) parts.push(base);                       // 基底外观始终并入
     if (s.portraitPositive.trim()) parts.push(s.portraitPositive.trim());
     return parts.join(', ');
   }
-  const g = f.gender === '女' ? '1girl, solo' : f.gender === '男' ? '1boy, solo' : 'solo';
-  const parts = [g, 'upper body portrait, character art', base, f.appearance, f.age, f.profession, f.tier, f.npcTag]
+  const male = /男/.test(f.gender || '') && !/女/.test(f.gender || '');
+  const female = /女/.test(f.gender || '') && !/男/.test(f.gender || '');
+  const g = female ? '1girl, solo' : male ? '1boy, solo' : 'solo';
+  const parts = [g, 'upper body portrait, character art', base, f.race, f.appearance, f.age, f.profession, f.tier, f.npcTag]
     .map((x) => (x || '').trim()).filter(Boolean);
   if (s.portraitPositive.trim()) parts.push(s.portraitPositive.trim());
   return parts.join(', ');

@@ -2,3 +2,7 @@ node_modules
 dist
 .DS_Store
 *.local
+# 强化老板立绘：由 vite 插件从仓库根 图片/<老板>/阶段N/ 自动同步生成，源已入库，副本不入库
+public/enhance-bosses/
+# NAI 批量生图工具的本地 Token（含密钥，勿入库；模板见 config.example.json）
+tools/nai-batch/config.json

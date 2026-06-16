@@ -22,6 +22,8 @@ import { useCosmos } from '../store/cosmosStore';
 import { useDm } from '../store/dmStore';
 import { useFanfic } from '../store/fanficStore';
 import { useFact } from '../store/factStore';
+import { useCombat } from '../store/combatStore';
+import { useArena } from '../store/arenaStore';
 
 /* 纳入快照的所有持久化 store（key 必须与各 store persist 的 name 一致）*/
 const STORES: { key: string; api: any }[] = [
@@ -45,6 +47,8 @@ const STORES: { key: string; api: any }[] = [
   { key: 'drpg-dm',         api: useDm },
   { key: 'drpg-fanfic',     api: useFanfic },
   { key: 'drpg-fact',       api: useFact },
+  { key: 'drpg-combat',     api: useCombat },
+  { key: 'drpg-arena',      api: useArena },
 ];
 
 export interface SlotPreview { turn: number; playerName: string; location: string; lastText: string }
@@ -197,6 +201,8 @@ export async function clearProgress(): Promise<void> {
   try { useDm.getState().clearAll(); } catch { /* */ }               // 私信会话
   try { useFanfic.getState().clearAll(); } catch { /* */ }           // 同人角色设定缓存
   try { useFact.getState().clearAll(); } catch { /* */ }             // 事实锚点缓存
+  try { useCombat.getState().clearCombat(); } catch { /* */ }        // 战斗运行态（保留预设/API 配置）
+  try { useArena.getState().clearArena(); } catch { /* */ }          // 竞技场榜单/击败记录/挑战（保留 API 配置）
   try { useCharacters.setState({ characters: {} }); } catch { /* */ }// 主角+全部角色技能/词条/称号/记忆
   try {
     usePlayer.getState().setProfile({ ...DEFAULT_PLAYER_PROFILE }); // 主角档案
@@ -210,7 +216,14 @@ export async function clearProgress(): Promise<void> {
     m.setWeather('');
   } catch { /* */ }
   try { await clearAllImg(); } catch { /* */ }  // 清空 IndexedDB 里的头像/装备图
+  // 注：不在此清向量库（drpg-factvec）——它是全局内容寻址缓存，清了会误伤其它存档的向量索引；
+  // 残留向量不会污染任何档（召回只在当前档事实池内 cosine）。想回收空间用设置→向量记忆的「清空向量库」按钮。
   await replaceChat([]);           // 对话历史
+  // 删除上一局的内部「回退点」固定槽：否则新开局第一回合失败后点「重新生成/回退」，
+  // 会载入仍残留的上一局回退点 → 瞬间跳回另一局的中断处重发。
+  // UNDO_ID 是内部槽（不在存档列表显示、非用户命名存档），删它不影响任何旧存档；
+  // 新局的开局建档/首次发送会通过 captureUndoPoint 重建一个属于本局的回退点。
+  try { await saveDb.del(UNDO_ID); } catch { /* */ }
 }
 
 export async function newGame(): Promise<void> {

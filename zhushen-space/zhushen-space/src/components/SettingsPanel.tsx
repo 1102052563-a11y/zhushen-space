@@ -12,15 +12,22 @@ import CosmosManager from './CosmosManager';
 import MemoryManager from './MemoryManager';
 import MiscManager from './MiscManager';
 import DiceManager from './DiceManager';
+import CombatManager from './CombatManager';
+import ArenaManager from './ArenaManager';
+import EnhanceManager from './EnhanceManager';
 import NovelVecManager from './NovelVecManager';
 import ChannelManager from './ChannelManager';
 import ImageGenManager from './ImageGenManager';
+import { useMisc } from '../store/miscStore';
+import { useNovelVec } from '../store/novelVecStore';
+import { buildMemPool, ensureVectors as factVecEnsure, vecStatus as factVecStatus, clearAllVectors as factVecClear } from '../systems/factVec';
 
 interface SettingsPanelProps {
   onClose: () => void;
+  onOpenSaveLoad: () => void;   // 打开存档管理面板（导出/导入/重置游戏数据；逻辑复用 SaveLoadPanel）
 }
 
-type Page = 'home' | 'world-detail' | 'textgen-detail' | 'regex-detail' | 'general' | 'variables' | 'item-manager' | 'player-manager' | 'npc-manager' | 'faction-manager' | 'territory-manager' | 'team-manager' | 'cosmos-manager' | 'memory-manager' | 'misc-manager' | 'channel-manager' | 'novelvec-manager' | 'dice-manager' | 'narrative-memory' | 'image-gen';
+type Page = 'home' | 'world-detail' | 'textgen-detail' | 'regex-detail' | 'general' | 'variables' | 'item-manager' | 'player-manager' | 'npc-manager' | 'faction-manager' | 'territory-manager' | 'team-manager' | 'cosmos-manager' | 'memory-manager' | 'misc-manager' | 'channel-manager' | 'novelvec-manager' | 'dice-manager' | 'combat-manager' | 'arena-manager' | 'enhance-manager' | 'narrative-memory' | 'vector-memory' | 'image-gen';
 type Tab = 'worldbook' | 'api' | 'prompt' | 'preset' | 'global-regex' | 'preset-regex';
 
 function DetailLayout({ title, onBack, tabs, activeTab, onTab, children }: {
@@ -61,7 +68,7 @@ function DetailLayout({ title, onBack, tabs, activeTab, onTab, children }: {
   );
 }
 
-export default function SettingsPanel({ onClose }: SettingsPanelProps) {
+export default function SettingsPanel({ onClose, onOpenSaveLoad }: SettingsPanelProps) {
   const [page, setPage] = useState<Page>('home');
   const [tab, setTab] = useState<Tab>('worldbook');
 
@@ -97,6 +104,25 @@ export default function SettingsPanel({ onClose }: SettingsPanelProps) {
         <div className="flex-1 overflow-y-auto p-6">
           <div className="max-w-2xl mx-auto">
             <NarrativeMemorySettings />
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (page === 'vector-memory') {
+    return (
+      <div className="h-screen flex flex-col bg-void text-slate-300">
+        <header className="shrink-0 h-10 flex items-center justify-between px-4 border-b border-edge bg-panel">
+          <button onClick={() => setPage('home')} className="flex items-center gap-2 text-sm font-mono text-dim hover:text-slate-200 transition-colors">
+            ← 系统设置
+          </button>
+          <span className="text-sm font-mono text-dim">向量记忆</span>
+          <div className="w-20" />
+        </header>
+        <div className="flex-1 overflow-y-auto p-6">
+          <div className="max-w-2xl mx-auto">
+            <VectorMemorySettings />
           </div>
         </div>
       </div>
@@ -144,6 +170,9 @@ export default function SettingsPanel({ onClose }: SettingsPanelProps) {
             onOpenMemoryManager={() => setPage('memory-manager')}
             onOpenMiscManager={() => setPage('misc-manager')}
             onOpenDiceManager={() => setPage('dice-manager')}
+            onOpenCombatManager={() => setPage('combat-manager')}
+            onOpenArenaManager={() => setPage('arena-manager')}
+            onOpenEnhanceManager={() => setPage('enhance-manager')}
             onOpenChannelManager={() => setPage('channel-manager')}
             onOpenNovelVecManager={() => setPage('novelvec-manager')}
           />
@@ -322,6 +351,57 @@ export default function SettingsPanel({ onClose }: SettingsPanelProps) {
     );
   }
 
+  if (page === 'combat-manager') {
+    return (
+      <div className="h-screen flex flex-col bg-void text-slate-300">
+        <header className="shrink-0 h-10 flex items-center justify-between px-4 border-b border-edge bg-panel">
+          <button onClick={() => setPage('variables')} className="flex items-center gap-2 text-sm font-mono text-dim hover:text-slate-200 transition-colors">
+            ← 变量管理
+          </button>
+          <span className="text-sm font-mono text-dim">战斗系统</span>
+          <div className="w-20" />
+        </header>
+        <div className="flex-1 overflow-y-auto p-6">
+          <CombatManager />
+        </div>
+      </div>
+    );
+  }
+
+  if (page === 'arena-manager') {
+    return (
+      <div className="h-screen flex flex-col bg-void text-slate-300">
+        <header className="shrink-0 h-10 flex items-center justify-between px-4 border-b border-edge bg-panel">
+          <button onClick={() => setPage('variables')} className="flex items-center gap-2 text-sm font-mono text-dim hover:text-slate-200 transition-colors">
+            ← 变量管理
+          </button>
+          <span className="text-sm font-mono text-dim">竞技场</span>
+          <div className="w-20" />
+        </header>
+        <div className="flex-1 overflow-y-auto p-6">
+          <ArenaManager />
+        </div>
+      </div>
+    );
+  }
+
+  if (page === 'enhance-manager') {
+    return (
+      <div className="h-screen flex flex-col bg-void text-slate-300">
+        <header className="shrink-0 h-10 flex items-center justify-between px-4 border-b border-edge bg-panel">
+          <button onClick={() => setPage('variables')} className="flex items-center gap-2 text-sm font-mono text-dim hover:text-slate-200 transition-colors">
+            ← 变量管理
+          </button>
+          <span className="text-sm font-mono text-dim">装备强化</span>
+          <div className="w-20" />
+        </header>
+        <div className="flex-1 overflow-y-auto p-6">
+          <EnhanceManager />
+        </div>
+      </div>
+    );
+  }
+
   if (page === 'channel-manager') {
     return (
       <div className="h-screen flex flex-col bg-void text-slate-300">
@@ -432,10 +512,11 @@ export default function SettingsPanel({ onClose }: SettingsPanelProps) {
           <SettingsMenuItem icon="🔤" title="正则"      desc="全局正则与预设绑定正则脚本"      onClick={() => { setPage('regex-detail');  setTab('global-regex'); }} />
           <SettingsMenuItem icon="📈" title="变量管理"  desc="自定义 AI 可读写的游戏变量，配置 &lt;state&gt; 更新系统" onClick={() => setPage('variables')} />
           <SettingsMenuItem icon="🧠" title="叙事记忆"  desc="关键词召回长期剧情记忆，按相关性注入正文（无需向量）" onClick={() => setPage('narrative-memory')} />
+          <SettingsMenuItem icon="🧭" title="向量记忆"  desc="语义向量召回长期记忆（更快·需 embedding 接口）；开启后接管召回" onClick={() => setPage('vector-memory')} />
           <SettingsMenuItem icon="🖼" title="生图设置"  desc="NAI/OpenAI/Gemini/ComfyUI 多服务 · 肖像/装备/正文配图" onClick={() => setPage('image-gen')} />
           <SettingsMenuItem icon="🎨" title="界面外观"  desc="主题、字体与显示偏好"            onClick={() => {}} disabled />
           <SettingsMenuItem icon="🔊" title="音效设置"  desc="背景音乐与音效音量"              onClick={() => {}} disabled />
-          <SettingsMenuItem icon="💾" title="存档管理"  desc="导出、导入与重置游戏数据"        onClick={() => {}} disabled />
+          <SettingsMenuItem icon="💾" title="存档管理"  desc="导出、导入与重置游戏数据"        onClick={onOpenSaveLoad} />
         </div>
       </div>
     </div>
@@ -2027,10 +2108,138 @@ function GeneralSettingsSection() {
   );
 }
 
+/* ─── 向量记忆（语义向量召回，与关键词叙事记忆并行的另一套引擎）─── */
+function VectorMemorySettings() {
+  const cfg = useSettings((s) => s.vectorMemory);
+  const set = useSettings((s) => s.setVectorMemory);
+  const kwEnabled = useSettings((s) => s.narrativeMemory.enabled);
+  const [building, setBuilding] = useState(false);
+  const [status, setStatus] = useState('');
+  const [indexed, setIndexed] = useState<number>(() => factVecStatus().indexed);
+  const [confirmClear, setConfirmClear] = useState(false);
+
+  const num = (label: string, key: 'topK' | 'recentFullTextCount' | 'maxItems', min: number, max: number, hint: string) => (
+    <div className="space-y-1.5">
+      <div className="text-sm font-semibold text-slate-200">{label}</div>
+      <input type="number" min={min} max={max} value={(cfg as any)[key] ?? min}
+        onChange={(e) => set({ [key]: Math.min(max, Math.max(min, parseInt(e.target.value) || 0)) } as any)}
+        className="input-base w-full font-mono" />
+      <div className="text-sm text-dim/60 leading-relaxed">合法范围：{min} - {max}。{hint}</div>
+    </div>
+  );
+
+  const rebuild = async () => {
+    if (building) return;
+    if (!cfg.apiBase || !cfg.apiKey) { setStatus('请先填写 embedding 接口地址与密钥'); return; }
+    setBuilding(true); setStatus('正在构建向量索引…');
+    try {
+      const M = useMisc.getState();
+      const pool = buildMemPool(M, cfg.maxItems ?? 1000);
+      const r = await factVecEnsure(pool, cfg, { onProgress: (d, t) => setStatus(`嵌入中… ${d}/${t}`) });
+      setIndexed(factVecStatus().indexed);
+      setStatus(`完成：本次嵌入 ${r.embedded} 条，索引共 ${factVecStatus().indexed} 条（记忆池 ${pool.length} 条）`);
+    } catch (e: any) {
+      setStatus('失败：' + (e?.message ?? e));
+    } finally {
+      setBuilding(false);
+    }
+  };
+
+  // 清空向量库：全局缓存（含所有存档的向量），二次确认后执行
+  const doClear = async () => {
+    if (building) return;
+    if (!confirmClear) { setConfirmClear(true); setTimeout(() => setConfirmClear(false), 4000); return; }
+    setConfirmClear(false);
+    try {
+      await factVecClear();
+      setIndexed(factVecStatus().indexed);
+      setStatus('已清空向量库（所有存档的向量都被删除）；当前档下次召回会自动增量重嵌，或点「重建向量索引」。');
+    } catch (e: any) {
+      setStatus('清空失败：' + (e?.message ?? e));
+    }
+  };
+
+  return (
+    <div className="space-y-6">
+      <div className="border-b border-edge pb-3">
+        <h2 className="text-base font-bold text-slate-100">向量记忆（语义召回）</h2>
+        <p className="text-sm text-dim mt-0.5">与「叙事记忆（关键词）」并行的另一套召回引擎。把长期事实/总结/世界大事随时向量化，召回时只 embed 当前情境一次→cosine 取最相关，<span className="text-god/80">无 LLM 调用、耗时近乎恒定</span>，适合长局提速。</p>
+      </div>
+
+      <div className="border border-amber-700/40 bg-amber-900/10 rounded-lg p-3 text-sm text-amber-200/80 leading-relaxed">
+        启用本项后将<span className="font-semibold text-amber-200">接管召回（优先于关键词叙事记忆）</span>；两套配置各自独立、互不影响，可随时切换。长期事实仍由「叙事记忆」的 LLM 接口（NM 接口）抽取，本页只负责向量化与检索。
+        {kwEnabled && <span className="block mt-1 text-amber-200/70">· 关键词叙事记忆当前也开着——本向量引擎将优先生效。</span>}
+      </div>
+
+      <div className="border border-edge rounded-lg p-4 bg-panel space-y-4">
+        <div className="flex items-start justify-between gap-4">
+          <div className="flex-1">
+            <div className="text-sm font-semibold text-slate-200">启用向量记忆</div>
+            <div className="text-sm text-dim mt-1">开启后用语义向量召回；关闭则回到关键词叙事记忆（若其启用）。</div>
+          </div>
+          <Toggle checked={cfg.enabled} onChange={() => set({ enabled: !cfg.enabled })} />
+        </div>
+
+        <div className="space-y-1.5">
+          <div className="text-sm font-semibold text-slate-200">Embedding 接口地址</div>
+          <input type="text" value={cfg.apiBase} onChange={(e) => set({ apiBase: e.target.value })} placeholder="https://api.openai.com/v1" className="input-base w-full font-mono" />
+          <div className="text-sm text-dim/60">OpenAI 兼容 /embeddings 端点；可与「向量资料库」用同一接口。</div>
+        </div>
+        <div className="space-y-1.5">
+          <div className="text-sm font-semibold text-slate-200">API 密钥</div>
+          <input type="password" value={cfg.apiKey} onChange={(e) => set({ apiKey: e.target.value })} placeholder="sk-..." className="input-base w-full font-mono" />
+        </div>
+        <div className="space-y-1.5">
+          <div className="text-sm font-semibold text-slate-200">Embedding 模型</div>
+          <input type="text" value={cfg.model} onChange={(e) => set({ model: e.target.value })} placeholder="Pro/BAAI/bge-m3" className="input-base w-full font-mono" />
+          <div className="text-sm text-dim/60">默认硅基流动 <span className="font-mono">Pro/BAAI/bge-m3</span>；所有事实须用同一模型嵌入，换模型后请点「重建索引」。</div>
+        </div>
+
+        <button
+          onClick={() => { const nv = useNovelVec.getState().settings; set({ apiBase: nv.apiBase || cfg.apiBase, apiKey: nv.apiKey || cfg.apiKey, model: nv.model || cfg.model }); }}
+          className="self-start text-[13px] font-mono text-god/75 hover:text-god border border-god/30 hover:bg-god/10 rounded px-2.5 py-1.5 transition-colors">
+          ↙ 从「向量资料库」导入接口（复用同一硅基流动 Key/模型）
+        </button>
+
+        {num('召回条数 Top-K', 'topK', 1, 30, '每轮 cosine 取最相关的记忆条数。')}
+        <div className="space-y-1.5">
+          <div className="text-sm font-semibold text-slate-200">最低相似度阈值</div>
+          <input type="number" min={0} max={1} step={0.05} value={cfg.threshold ?? 0.3}
+            onChange={(e) => set({ threshold: Math.min(1, Math.max(0, parseFloat(e.target.value) || 0)) })}
+            className="input-base w-full font-mono" />
+          <div className="text-sm text-dim/60">cosine 相似度低于此值不召回（0~1，常用 0.25~0.4）。</div>
+        </div>
+        {num('最近正文全文保留条数', 'recentFullTextCount', 0, 10, '召回的同时额外注入最近 X 楼正文原文。')}
+        {num('索引条目上限', 'maxItems', 50, 5000, '向量索引的记忆条目上限（可远大于关键词模式的事实上限，长期记忆留更多）。')}
+
+        <div className="border-t border-edge pt-4 space-y-2">
+          <div className="flex items-center justify-between gap-3">
+            <div className="text-sm text-dim">已索引向量：<span className="font-mono text-god/80">{indexed < 0 ? '未加载' : indexed}</span> 条</div>
+            <div className="flex items-center gap-2">
+              <button onClick={doClear} disabled={building}
+                className={`px-3 py-1.5 rounded text-sm font-mono border transition-colors ${confirmClear ? 'border-blood/60 text-blood bg-blood/10' : 'border-edge text-dim/70 hover:text-blood hover:border-blood/40'}`}>
+                {confirmClear ? '确认清空？(含所有存档)' : '清空向量库'}
+              </button>
+              <button onClick={rebuild} disabled={building}
+                className={`px-3 py-1.5 rounded text-sm font-mono border transition-colors ${building ? 'border-edge text-dim/50' : 'border-god/40 text-god hover:bg-god/10'}`}>
+                {building ? '构建中…' : '重建向量索引'}
+              </button>
+            </div>
+          </div>
+          {status && <div className="text-sm font-mono text-dim/70">{status}</div>}
+          <div className="text-[13px] text-dim/55 leading-relaxed">首次启用或大量积压时点一次「重建索引」做全量嵌入；之后每回合召回会自动增量补缺（每次最多 48 条）。<span className="text-dim/45">向量库是全局缓存、跨存档共享：新开/读档都不会清掉它，老档的向量一直留着；「清空向量库」会删除所有存档的向量（慎用，需重建）。</span></div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 /* ─── 叙事记忆（关键词召回）─── */
 function NarrativeMemorySettings() {
   const cfg = useSettings((s) => s.narrativeMemory);
   const set = useSettings((s) => s.setNarrativeMemory);
+  const vmEnabled = useSettings((s) => s.vectorMemory.enabled);   // 结构化档案召回在向量记忆模式下同样生效
+  const recallOn = cfg.enabled || vmEnabled;                       // 任一召回引擎启用 → 结构化档案召回即生效
   const api0 = useSettings((s) => s.api);
   const textApi = useSettings((s) => s.textApi);
   const textUseShared = useSettings((s) => s.textUseSharedApi);
@@ -2125,7 +2334,7 @@ function NarrativeMemorySettings() {
           <div className="flex items-start justify-between gap-4">
             <div className="flex-1">
               <div className="text-sm font-semibold text-slate-200">启用结构化档案召回</div>
-              <div className="text-sm text-dim mt-1">需要叙事记忆已启用。注入的档案是只读参考，不会让 AI 照搬复述。</div>
+              <div className="text-sm text-dim mt-1"><span className="text-god/70">叙事记忆或向量记忆任一启用即生效</span>（装备/技能/NPC 档案就靠这里注入，与用哪套召回引擎无关）。注入的档案是只读参考，不会让 AI 照搬复述。</div>
             </div>
             <Toggle checked={cfg.structEnabled ?? true} onChange={() => set({ structEnabled: !(cfg.structEnabled ?? true) })} />
           </div>
@@ -2136,11 +2345,11 @@ function NarrativeMemorySettings() {
           {num('主角副职业数量上限', 'structMaxSubProfs', 0, 12, '仅限主角：注入的副职业条数（含其配方名）。默认 4。')}
           {num('当前世界势力数量上限', 'structMaxFactions', 0, 12, '注入的当前世界势力条数（按对主角态度强弱+近况排序）。默认 4。')}
 
-          <div className={`text-sm font-mono px-3 py-2 rounded border ${(cfg.structEnabled ?? true) && cfg.enabled ? 'border-god/30 text-god/80 bg-god/5' : 'border-edge text-dim bg-void/40'}`}>
-            {!cfg.enabled
-              ? '● 需先启用叙事记忆'
+          <div className={`text-sm font-mono px-3 py-2 rounded border ${(cfg.structEnabled ?? true) && recallOn ? 'border-god/30 text-god/80 bg-god/5' : 'border-edge text-dim bg-void/40'}`}>
+            {!recallOn
+              ? '● 需先启用叙事记忆 或 向量记忆'
               : (cfg.structEnabled ?? true)
-                ? `● 当前：主角(技能≤${cfg.structMaxSkills ?? 3}/装备≤${cfg.structMaxItems ?? 2}) + 最多 ${cfg.structMaxNpcs ?? 2} 个NPC(全量)`
+                ? `● 当前：主角(技能≤${cfg.structMaxSkills ?? 3}/装备≤${cfg.structMaxItems ?? 2}) + 最多 ${cfg.structMaxNpcs ?? 2} 个NPC(全量)${vmEnabled && !cfg.enabled ? '　[向量记忆模式]' : ''}`
                 : '● 未启用结构化档案召回'}
           </div>
         </div>

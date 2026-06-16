@@ -32,6 +32,24 @@ function durShort(e: StatusEffect): string {
   return /^\d+\s*(回合|分钟|小时|天|秒|分|时)$/.test(d) ? d : '';
 }
 
+/* ── 超长/永久时效：纯显示层折叠（不改底层数据，到点照常过期）──
+   AI 常把"很持久"写成几百回合（一局根本走不完），胶囊刷个 ⏳300回合 又丑又没意义；
+   ≥LONG_TURNS 回合、或本就无任何时限的状态，统一显示成「♾ 长期/永久」。 */
+const LONG_TURNS = 100;   // 超过这么多回合即视作"长期"（仅显示，可调）
+const INDEFINITE_RE = /永久|永远|长期|永续|永恒|不限|无限|terminal|permanent/i;
+function isLongPerm(e: StatusEffect): boolean {
+  if (e.durationTurns != null && e.durationTurns >= LONG_TURNS) return true;   // 超长回合 → 长期
+  if (e.durationTurns == null && e.expireAtMin == null) {
+    const d = (e.durationDesc ?? '').trim();
+    // 无任何回合/时间上限：只有"明确永久/长期"或"完全没写时长"才当长期；带条件文本(如"重新接战后解除")保持条件显示
+    return d === '' || INDEFINITE_RE.test(d);
+  }
+  return false;
+}
+function permWord(e: StatusEffect): string {
+  return /永久|永远|永续|永恒|permanent/i.test(e.durationDesc ?? '') ? '永久' : '长期';
+}
+
 export default function StatusEffectChips({ effects, onRemove }: { effects: StatusEffect[]; onRemove?: (name: string) => void }) {
   const [open, setOpen] = useState<string | null>(null);
   if (!effects || effects.length === 0) return <span className="text-[12px] text-dim/40">（无限时状态）</span>;
@@ -43,6 +61,7 @@ export default function StatusEffectChips({ effects, onRemove }: { effects: Stat
         const cls = TONE_CLS[toneOf(e)] ?? TONE_CLS.neutral;
         const d = durLabel(e);
         const ds = durShort(e);   // 进胶囊的短时长（无则不显示长条件，避免挤）
+        const perm = isLongPerm(e);   // 超长/永久 → 显示「♾ 长期」而非倒计时大数字
         const expanded = open === e.id;
         return (
           <div key={e.id} className="inline-flex flex-col">
@@ -50,7 +69,9 @@ export default function StatusEffectChips({ effects, onRemove }: { effects: Stat
               className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full border text-[12px] font-mono whitespace-nowrap ${cls} ${expanded ? 'ring-1 ring-god/40' : ''}`}>
               {e.emoji && <span>{e.emoji}</span>}
               <span>{e.name}</span>
-              {ds ? <span className="opacity-70">· ⏳{ds}</span> : (d && <span className="opacity-60" title={d}>· ⏳…</span>)}
+              {perm
+                ? <span className="opacity-70" title={d || undefined}>· ♾{permWord(e)}</span>
+                : ds ? <span className="opacity-70">· ⏳{ds}</span> : (d && <span className="opacity-60" title={d}>· ⏳…</span>)}
             </button>
             {expanded && (
               <div className="mt-1 ml-1 text-[11px] text-dim/80 leading-relaxed border-l-2 border-edge pl-2 max-w-[16rem]">
@@ -59,7 +80,9 @@ export default function StatusEffectChips({ effects, onRemove }: { effects: Stat
                 {e.desc && <div className="text-dim/70">描述·{e.desc}</div>}
                 {e.source && <div className="text-dim/55">来源·{e.source}</div>}
                 {e.tags && e.tags.length > 0 && <div className="text-dim/55">标签·{e.tags.join('/')}</div>}
-                {d && <div className="text-dim/55">{ds ? '时效·' : '解除·'}{d}</div>}
+                {perm
+                  ? <div className="text-dim/55">时效·{permWord(e)}{e.durationTurns != null && e.durationTurns >= LONG_TURNS ? `（AI 原写 ${e.durationTurns} 回合，过长按长期显示）` : ''}</div>
+                  : (d && <div className="text-dim/55">{ds ? '时效·' : '解除·'}{d}</div>)}
                 {onRemove && (
                   <button onClick={() => { onRemove(e.name); setOpen(null); }}
                     className="mt-0.5 text-[11px] text-blood/60 hover:text-blood transition-colors">移除</button>

@@ -24,7 +24,7 @@ function FavorBar({ value }: { value: number }) {
 }
 
 /* ── NPC 卡片（点击打开完整档案）── */
-function NpcCard({ npc, onOpen, onDm, onToggleFriend }: { npc: NpcRecord; onOpen: () => void; onDm?: (r: NpcRecord) => void; onToggleFriend?: (id: string, on: boolean) => void }) {
+function NpcCard({ npc, onOpen, onDm, onToggleFriend, onManualUpdate, updating }: { npc: NpcRecord; onOpen: () => void; onDm?: (r: NpcRecord) => void; onToggleFriend?: (id: string, on: boolean) => void; onManualUpdate?: (id: string) => void; updating?: boolean }) {
   const genderCls = npc.gender === '女' ? 'text-rose-400' : npc.gender === '男' ? 'text-sky-400' : 'text-dim/40';
   const itemCount = npc.items?.length ?? 0;
   const canDm = !!onDm && !npc.isDead && isDmableTag(npc.npcTag);
@@ -71,6 +71,12 @@ function NpcCard({ npc, onOpen, onDm, onToggleFriend }: { npc: NpcRecord; onOpen
             <button onClick={(e) => { e.stopPropagation(); onToggleFriend!(npc.id, !npc.isFriend); }} title={npc.isFriend ? '移出好友栏' : '加为好友（每回合参与演化）'}
               className={`px-1.5 py-0.5 rounded border transition-colors ${npc.isFriend ? 'border-amber-500/50 text-amber-300/90 bg-amber-900/15' : 'border-edge text-dim/50 hover:text-amber-300/80 hover:border-amber-500/40'}`}>{npc.isFriend ? '⭐ 已好友' : '☆ 好友'}</button>
           )}
+          {onManualUpdate && !npc.isDead && (
+            <button onClick={(e) => { e.stopPropagation(); onManualUpdate(npc.id); }} disabled={updating} title="按最近一次正文，用 AI 单独更新该 NPC 的档案/属性/技能"
+              className="px-1.5 py-0.5 rounded border border-violet-500/40 text-violet-300/80 hover:bg-violet-900/25 disabled:opacity-50 disabled:cursor-not-allowed transition-colors">
+              {updating ? <><span className="animate-spin inline-block">◌</span> 更新中</> : '⟳ 更新'}
+            </button>
+          )}
           <span className="text-god/40">查看›</span>
         </div>
       </div>
@@ -81,7 +87,7 @@ function NpcCard({ npc, onOpen, onDm, onToggleFriend }: { npc: NpcRecord; onOpen
 /* ════════════════════════════════════════════
    主弹窗
 ════════════════════════════════════════════ */
-export default function NpcPanel({ onClose, onDm }: { onClose: () => void; onDm?: (r: NpcRecord) => void }) {
+export default function NpcPanel({ onClose, onDm, onManualUpdate, manualUpdatingId }: { onClose: () => void; onDm?: (r: NpcRecord) => void; onManualUpdate?: (id: string) => void; manualUpdatingId?: string | null }) {
   const npcs      = useNpc((s) => s.npcs);
   const clearAll  = useNpc((s) => s.clearAll);
   const setFriend = useNpc((s) => s.setFriend);
@@ -211,7 +217,7 @@ export default function NpcPanel({ onClose, onDm }: { onClose: () => void; onDm?
               </span>
             </div>
           ) : (
-            displayed.map((npc) => <NpcCard key={npc.id} npc={npc} onOpen={() => setSelectedId(npc.id)} onDm={onDm} onToggleFriend={setFriend} />)
+            displayed.map((npc) => <NpcCard key={npc.id} npc={npc} onOpen={() => setSelectedId(npc.id)} onDm={onDm} onToggleFriend={setFriend} onManualUpdate={onManualUpdate} updating={manualUpdatingId === npc.id} />)
           )}
         </div>
       </div>
@@ -223,6 +229,8 @@ export default function NpcPanel({ onClose, onDm }: { onClose: () => void; onDm?
           list={records}
           onClose={() => setSelectedId(null)}
           onSelect={(id) => setSelectedId(id)}
+          onManualUpdate={onManualUpdate}
+          updating={manualUpdatingId === selected.id}
         />
       )}
     </div>

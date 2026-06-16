@@ -22,6 +22,7 @@ export interface WorldBook {
   enabled: boolean;
   createdAt: number;
   builtin?: boolean;   // 内置默认书：来自 public/presets，每次启动重载、不写入 localStorage（省配额）
+  builtinKey?: string; // 内置书的稳定标识（不随改名/转正变化）：供 loadBuiltinDefaults 逐本判重，避免改一本丢其余内置
 }
 
 export interface ApiConfig {
@@ -213,6 +214,19 @@ export interface NarrativeMemConfig {
   structMaxFactions: number;       // 注入的当前世界势力数量上限
 }
 
+/* 向量召回（语义记忆）——与关键词叙事记忆并行的另一套召回引擎，自带 embedding 端点。
+   启用后接管召回（优先于关键词叙事记忆）：把长期记忆条目随时 embed → 每回合 embed 当前情境 → cosine topK 注入，无 LLM 调用。 */
+export interface VecMemConfig {
+  enabled: boolean;            // 启用向量召回（开则接管召回，优先于关键词叙事记忆）
+  apiBase: string;             // embedding 接口地址（OpenAI 兼容 /embeddings）
+  apiKey: string;
+  model: string;               // embedding 模型（如 bge-m3 / text-embedding-3-small）
+  topK: number;                // cosine 召回条数
+  threshold: number;           // 最低相似度（0~1）
+  recentFullTextCount: number; // 最近正文全文保留条数
+  maxItems: number;            // 索引的记忆条目上限（与事实 FIFO 解耦，可放大）
+}
+
 interface SettingsState {
   // 综合设置
   historyLimit: number;   // 0 = 不限制；> 0 = 仅显示/发送最近 N 条消息
@@ -239,6 +253,8 @@ interface SettingsState {
   setApiThrottle: (patch: Partial<{ maxConcurrent: number; minGapMs: number }>) => void;
   setPhaseSched: (key: string, patch: Partial<{ every: number; read: number }>) => void;
   narrativeMemory: NarrativeMemConfig;
+  vectorMemory: VecMemConfig;       // 向量召回（与关键词叙事记忆并行的另一套引擎）
+  setVectorMemory: (patch: Partial<VecMemConfig>) => void;
   nmApi: ApiConfig;
   nmUseSharedApi: boolean;
   nmAvailableModels: string[];
@@ -476,6 +492,13 @@ function newRegexScript(): RegexScript {
 
 type SetFn = (partial: Partial<SettingsState> | ((s: SettingsState) => Partial<SettingsState>)) => void;
 
+/* 编辑内置正文预设/世界书即「转为用户副本」：清掉 builtin 标记（保留 builtinKey 以便逐本判重）。
+   内置项每次启动从 public/presets 重载且不写入 IndexedDB（见 App.loadBuiltinDefaults / wbDb 镜像的 !builtin 过滤），
+   若不转正，用户的任何改动刷新后都会被默认覆盖丢失。改完即非 builtin → 纳入 IndexedDB 持久化、刷新保留。 */
+function forkIfBuiltin<T extends { builtin?: boolean }>(x: T): T {
+  return x.builtin ? { ...x, builtin: false } : x;
+}
+
 function buildRegexOps(set: SetFn) {
   // ── 全局正则 ──
   function updateGlobal(updater: (arr: RegexScript[]) => RegexScript[]) {
@@ -486,7 +509,7 @@ function buildRegexOps(set: SetFn) {
   function updatePreset(presetId: string, updater: (arr: RegexScript[]) => RegexScript[]) {
     set((s) => ({
       textPresets: s.textPresets.map((p) =>
-        p.id !== presetId ? p : { ...p, regexScripts: updater(p.regexScripts ?? []) }
+        p.id !== presetId ? p : forkIfBuiltin({ ...p, regexScripts: updater(p.regexScripts ?? []) })
       ),
     }));
   }
@@ -556,6 +579,7 @@ export const useSettings = create<SettingsState>()(
       apiThrottle: { maxConcurrent: 3, minGapMs: 250 },
       phaseSched: {},
       narrativeMemory: { enabled: false, recentFullTextCount: 5, distantKeywordThreshold: 200, recallTopK: 6, recallMinScore: 1, requestTimeout: 90, llmMode: false, compileModelId: '', ingestModelId: '', structEnabled: true, structMaxNpcs: 2, structMaxSkills: 3, structMaxItems: 2, structMaxSubProfs: 4, structMaxFactions: 4 },
+      vectorMemory: { enabled: false, apiBase: 'https://api.siliconflow.cn/v1', apiKey: '', model: 'Pro/BAAI/bge-m3', topK: 6, threshold: 0.3, recentFullTextCount: 5, maxItems: 1000 },
       nmApi: { ...DEFAULT_API },
       nmUseSharedApi: true,
       nmAvailableModels: [],
@@ -612,6 +636,7 @@ export const useSettings = create<SettingsState>()(
       setApiThrottle: (patch) => set((s) => ({ apiThrottle: { ...s.apiThrottle, ...patch } })),
       setPhaseSched: (key, patch) => set((s) => ({ phaseSched: { ...s.phaseSched, [key]: { every: 1, read: 1, ...(s.phaseSched?.[key] ?? {}), ...patch } } })),
       setNarrativeMemory: (patch) => set((s) => ({ narrativeMemory: { ...s.narrativeMemory, ...patch } })),
+      setVectorMemory: (patch) => set((s) => ({ vectorMemory: { ...s.vectorMemory, ...patch } })),
       setNmApi: (patch) => set((s) => ({ nmApi: { ...s.nmApi, ...patch } })),
       setNmUseSharedApi: (v) => set({ nmUseSharedApi: v }),
       fetchNmModels: async () => {
@@ -644,26 +669,26 @@ export const useSettings = create<SettingsState>()(
 
       setSystemPrompt: (prompt) => set({ systemPrompt: prompt }),
 
-      importWorldBook: (raw, fileName = '', builtin = false) => {
+      importWorldBook: (raw, fileName = '', builtin = false, builtinKey?: string) => {
         try {
           const { name, entries } = parseWorldBook(raw, fileName);
-          set((s) => ({ worldBooks: [...s.worldBooks, { id: `wb_${Date.now()}`, name, entries, enabled: true, createdAt: Date.now(), builtin }] }));
+          set((s) => ({ worldBooks: [...s.worldBooks, { id: `wb_${Date.now()}`, name, entries, enabled: true, createdAt: Date.now(), builtin, builtinKey }] }));
           return { ok: true, message: `已导入「${name}」，共 ${entries.length} 条条目` };
         } catch (e: any) { return { ok: false, message: `导入失败：${e.message}` }; }
       },
 
-      toggleWorldBook: (id) => set((s) => ({ worldBooks: s.worldBooks.map((b) => b.id === id ? { ...b, enabled: !b.enabled } : b) })),
+      toggleWorldBook: (id) => set((s) => ({ worldBooks: s.worldBooks.map((b) => b.id === id ? forkIfBuiltin({ ...b, enabled: !b.enabled }) : b) })),
       removeWorldBook: (id) => set((s) => ({ worldBooks: s.worldBooks.filter((b) => b.id !== id) })),
-      renameWorldBook: (id, name) => set((s) => ({ worldBooks: s.worldBooks.map((b) => b.id === id ? { ...b, name } : b) })),
-      toggleWorldBookEntry: (bookId, uid) => set((s) => ({ worldBooks: s.worldBooks.map((b) => b.id !== bookId ? b : { ...b, entries: b.entries.map((e) => e.uid === uid ? { ...e, enabled: !e.enabled } : e) }) })),
-      updateWorldBookEntry: (bookId, uid, patch) => set((s) => ({ worldBooks: s.worldBooks.map((b) => b.id !== bookId ? b : { ...b, entries: b.entries.map((e) => e.uid === uid ? { ...e, ...patch } : e) }) })),
+      renameWorldBook: (id, name) => set((s) => ({ worldBooks: s.worldBooks.map((b) => b.id === id ? forkIfBuiltin({ ...b, name }) : b) })),
+      toggleWorldBookEntry: (bookId, uid) => set((s) => ({ worldBooks: s.worldBooks.map((b) => b.id !== bookId ? b : forkIfBuiltin({ ...b, entries: b.entries.map((e) => e.uid === uid ? { ...e, enabled: !e.enabled } : e) })) })),
+      updateWorldBookEntry: (bookId, uid, patch) => set((s) => ({ worldBooks: s.worldBooks.map((b) => b.id !== bookId ? b : forkIfBuiltin({ ...b, entries: b.entries.map((e) => e.uid === uid ? { ...e, ...patch } : e) })) })),
       addWorldBookEntry: (bookId) => set((s) => {
         const book = s.worldBooks.find((b) => b.id === bookId); if (!book) return s;
         const maxUid = book.entries.reduce((m, e) => Math.max(m, e.uid), -1);
         const maxOrder = book.entries.reduce((m, e) => Math.max(m, e.order), 99);
-        return { worldBooks: s.worldBooks.map((b) => b.id !== bookId ? b : { ...b, entries: [...b.entries, { uid: maxUid + 1, key: [], keysecondary: [], comment: '新条目', content: '', constant: false, selective: false, enabled: true, order: maxOrder + 1, position: 0 }] }) };
+        return { worldBooks: s.worldBooks.map((b) => b.id !== bookId ? b : forkIfBuiltin({ ...b, entries: [...b.entries, { uid: maxUid + 1, key: [], keysecondary: [], comment: '新条目', content: '', constant: false, selective: false, enabled: true, order: maxOrder + 1, position: 0 }] })) };
       }),
-      removeWorldBookEntry: (bookId, uid) => set((s) => ({ worldBooks: s.worldBooks.map((b) => b.id !== bookId ? b : { ...b, entries: b.entries.filter((e) => e.uid !== uid) }) })),
+      removeWorldBookEntry: (bookId, uid) => set((s) => ({ worldBooks: s.worldBooks.map((b) => b.id !== bookId ? b : forkIfBuiltin({ ...b, entries: b.entries.filter((e) => e.uid !== uid) })) })),
 
       // ── 正文生成操作 ──
       setTextApi: (patch) => set((s) => ({ textApi: { ...s.textApi, ...patch } })),
@@ -683,26 +708,26 @@ export const useSettings = create<SettingsState>()(
         } catch (e: any) { set({ textModelsError: e.message ?? '请求失败', textModelsLoading: false }); }
       },
 
-      importTextWorldBook: (raw, fileName = '', builtin = false) => {
+      importTextWorldBook: (raw, fileName = '', builtin = false, builtinKey?: string) => {
         try {
           const { name, entries } = parseWorldBook(raw, fileName);
-          set((s) => ({ textWorldBooks: [...s.textWorldBooks, { id: `twb_${Date.now()}`, name, entries, enabled: true, createdAt: Date.now(), builtin }] }));
+          set((s) => ({ textWorldBooks: [...s.textWorldBooks, { id: `twb_${Date.now()}`, name, entries, enabled: true, createdAt: Date.now(), builtin, builtinKey }] }));
           return { ok: true, message: `已导入「${name}」，共 ${entries.length} 条条目` };
         } catch (e: any) { return { ok: false, message: `导入失败：${e.message}` }; }
       },
 
-      toggleTextWorldBook: (id) => set((s) => ({ textWorldBooks: s.textWorldBooks.map((b) => b.id === id ? { ...b, enabled: !b.enabled } : b) })),
+      toggleTextWorldBook: (id) => set((s) => ({ textWorldBooks: s.textWorldBooks.map((b) => b.id === id ? forkIfBuiltin({ ...b, enabled: !b.enabled }) : b) })),
       removeTextWorldBook: (id) => set((s) => ({ textWorldBooks: s.textWorldBooks.filter((b) => b.id !== id) })),
-      renameTextWorldBook: (id, name) => set((s) => ({ textWorldBooks: s.textWorldBooks.map((b) => b.id === id ? { ...b, name } : b) })),
-      toggleTextWorldBookEntry: (bookId, uid) => set((s) => ({ textWorldBooks: s.textWorldBooks.map((b) => b.id !== bookId ? b : { ...b, entries: b.entries.map((e) => e.uid === uid ? { ...e, enabled: !e.enabled } : e) }) })),
-      updateTextWorldBookEntry: (bookId, uid, patch) => set((s) => ({ textWorldBooks: s.textWorldBooks.map((b) => b.id !== bookId ? b : { ...b, entries: b.entries.map((e) => e.uid === uid ? { ...e, ...patch } : e) }) })),
+      renameTextWorldBook: (id, name) => set((s) => ({ textWorldBooks: s.textWorldBooks.map((b) => b.id === id ? forkIfBuiltin({ ...b, name }) : b) })),
+      toggleTextWorldBookEntry: (bookId, uid) => set((s) => ({ textWorldBooks: s.textWorldBooks.map((b) => b.id !== bookId ? b : forkIfBuiltin({ ...b, entries: b.entries.map((e) => e.uid === uid ? { ...e, enabled: !e.enabled } : e) })) })),
+      updateTextWorldBookEntry: (bookId, uid, patch) => set((s) => ({ textWorldBooks: s.textWorldBooks.map((b) => b.id !== bookId ? b : forkIfBuiltin({ ...b, entries: b.entries.map((e) => e.uid === uid ? { ...e, ...patch } : e) })) })),
       addTextWorldBookEntry: (bookId) => set((s) => {
         const book = s.textWorldBooks.find((b) => b.id === bookId); if (!book) return s;
         const maxUid = book.entries.reduce((m, e) => Math.max(m, e.uid), -1);
         const maxOrder = book.entries.reduce((m, e) => Math.max(m, e.order), 99);
-        return { textWorldBooks: s.textWorldBooks.map((b) => b.id !== bookId ? b : { ...b, entries: [...b.entries, { uid: maxUid + 1, key: [], keysecondary: [], comment: '新条目', content: '', constant: false, selective: false, enabled: true, order: maxOrder + 1, position: 0 }] }) };
+        return { textWorldBooks: s.textWorldBooks.map((b) => b.id !== bookId ? b : forkIfBuiltin({ ...b, entries: [...b.entries, { uid: maxUid + 1, key: [], keysecondary: [], comment: '新条目', content: '', constant: false, selective: false, enabled: true, order: maxOrder + 1, position: 0 }] })) };
       }),
-      removeTextWorldBookEntry: (bookId, uid) => set((s) => ({ textWorldBooks: s.textWorldBooks.map((b) => b.id !== bookId ? b : { ...b, entries: b.entries.filter((e) => e.uid !== uid) }) })),
+      removeTextWorldBookEntry: (bookId, uid) => set((s) => ({ textWorldBooks: s.textWorldBooks.map((b) => b.id !== bookId ? b : forkIfBuiltin({ ...b, entries: b.entries.filter((e) => e.uid !== uid) })) })),
 
       importTextPreset: (raw, fileName = '', builtin = false) => {
         try {
@@ -726,29 +751,29 @@ export const useSettings = create<SettingsState>()(
         };
       }),
       updateTextPreset: (id, patch) => set((s) => ({
-        textPresets: s.textPresets.map((p) => p.id === id ? { ...p, ...patch } : p),
+        textPresets: s.textPresets.map((p) => p.id === id ? forkIfBuiltin({ ...p, ...patch }) : p),
       })),
       renameTextPreset: (id, name) => set((s) => ({
-        textPresets: s.textPresets.map((p) => p.id === id ? { ...p, name } : p),
+        textPresets: s.textPresets.map((p) => p.id === id ? forkIfBuiltin({ ...p, name }) : p),
       })),
       toggleTextPresetEntry: (presetId, identifier) => set((s) => ({
         textPresets: s.textPresets.map((p) =>
-          p.id !== presetId ? p : {
+          p.id !== presetId ? p : forkIfBuiltin({
             ...p,
             entries: (p.entries ?? []).map((e) =>
               e.identifier === identifier ? { ...e, enabled: !e.enabled } : e
             ),
-          }
+          })
         ),
       })),
       updateTextPresetEntry: (presetId, identifier, patch) => set((s) => ({
         textPresets: s.textPresets.map((p) =>
-          p.id !== presetId ? p : {
+          p.id !== presetId ? p : forkIfBuiltin({
             ...p,
             entries: (p.entries ?? []).map((e) =>
               e.identifier === identifier ? { ...e, ...patch } : e
             ),
-          }
+          })
         ),
       })),
       addTextPresetEntry: (presetId) => set((s) => {
@@ -759,13 +784,13 @@ export const useSettings = create<SettingsState>()(
         };
         return {
           textPresets: s.textPresets.map((p) =>
-            p.id !== presetId ? p : { ...p, entries: [...(p.entries ?? []), newEntry] }
+            p.id !== presetId ? p : forkIfBuiltin({ ...p, entries: [...(p.entries ?? []), newEntry] })
           ),
         };
       }),
       removeTextPresetEntry: (presetId, identifier) => set((s) => ({
         textPresets: s.textPresets.map((p) =>
-          p.id !== presetId ? p : { ...p, entries: (p.entries ?? []).filter((e) => e.identifier !== identifier) }
+          p.id !== presetId ? p : forkIfBuiltin({ ...p, entries: (p.entries ?? []).filter((e) => e.identifier !== identifier) })
         ),
       })),
       moveTextPresetEntry: (presetId, identifier, dir) => set((s) => ({
@@ -776,7 +801,7 @@ export const useSettings = create<SettingsState>()(
           const next = idx + dir;
           if (next < 0 || next >= arr.length) return p;
           [arr[idx], arr[next]] = [arr[next], arr[idx]];
-          return { ...p, entries: arr };
+          return forkIfBuiltin({ ...p, entries: arr });
         }),
       })),
       setActiveTextPreset: (id) => set({ activeTextPresetId: id }),

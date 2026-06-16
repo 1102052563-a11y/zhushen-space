@@ -4,6 +4,7 @@ import { useSettings } from '../store/settingsStore';
 import { CAT_CFG, CAT_ICON, ItemDetailModal } from './BackpackModal';
 import { useImageViewer } from '../store/imageViewerStore';
 import { SLOT_DEFS, type SlotDef } from '../systems/equipSlots';
+import { enhanceFxClass } from '../systems/enhanceEngine';
 
 /* 槽位定义已移到 systems/equipSlots.ts（避免组件循环依赖）；此处再导出以兼容原有引用 */
 export { SLOT_DEFS };
@@ -48,13 +49,17 @@ function SlotCard({
     );
   }
 
+  const enh = item.enhanceLevel ?? 0;
   return (
     <button
       onClick={() => onDetail(item)}
-      className={`flex flex-col items-center justify-center gap-1 p-2 rounded-xl border
+      className={`relative flex flex-col items-center justify-center gap-1 p-2 rounded-xl border
                   transition-all hover:opacity-80 min-h-[72px] w-full ${cfg!.cls}`}
-      title={`${item.name}（点击查看详情）`}
+      title={`${item.name}${enh > 0 ? ` +${enh}` : ''}（点击查看详情）`}
     >
+      {enh > 0 && (
+        <span className={`absolute top-0.5 right-1 text-[12px] font-bold leading-none z-10 ${enhanceFxClass(enh)}`}>+{enh}</span>
+      )}
       {item.image
         ? <img src={item.image} alt={item.name}
             onClick={(e) => { e.stopPropagation(); useImageViewer.getState().open(item.image!, item.name); }}

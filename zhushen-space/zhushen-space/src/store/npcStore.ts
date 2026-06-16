@@ -53,6 +53,7 @@ export interface NpcOwnedItem {
   score?: string;         // 评分
   intro?: string;         // 简介
   killCount?: string;     // 杀敌数量（仅武器类）
+  enhanceLevel?: number;  // 强化等级 0-16（装备强化系统，仅装备类；0/缺省=未强化）
   image?: string;         // 装备图（上传/AI 生图 dataURL）
   numeric?: Record<string, unknown>;  // 原始数值结构（rarityTier/grade/statLines…）
   addedAt: number;
@@ -104,6 +105,7 @@ export interface NpcRecord {
 
   // ── 场景 / 生命周期 ──
   isDead?: boolean;       // 列4含"已死亡"
+  deadTurn?: number;      // 首次被检测为死亡的回合号（死亡自动清除的延迟计时；复活则清空）
   isBond?: boolean;       // 羁绊/开局角色，自带"长期保留"，不进清理名单
   keepForever?: boolean;  // 用户手动标记长期保留
   kitDone?: boolean;      // 已发放过初始家当（装备+储物），避免重复发放

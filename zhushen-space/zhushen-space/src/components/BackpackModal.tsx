@@ -1,9 +1,11 @@
 import { useState, useRef } from 'react';
 import { useItems, ITEM_CATEGORIES, ITEM_GRADES, gradeColorClass, gradeBadgeClass, gradeNameClass, type InventoryItem, type ItemCategory, type CurrencyWallet } from '../store/itemStore';
+import { enhanceColorClass, enhancedCombat } from '../systems/enhanceEngine';
 import { usePlayer } from '../store/playerStore';
 import { useImageGen, effectiveEquipService } from '../store/imageGenStore';
 import { generateImage, buildEquipPrompt, shrinkDataUrl } from '../systems/imageGen';
 import { useImageViewer } from '../store/imageViewerStore';
+import { useComposer } from '../store/composerStore';
 import { genEquipTags, isTagService } from '../systems/imageTags';
 import { pickEquipSlot } from '../systems/equipSlots';
 
@@ -183,6 +185,9 @@ export function ItemDetailModal({ item, onClose }: { item: InventoryItem; onClos
               {item.equipped && (
                 <span className="text-[12px] font-mono px-1.5 py-0.5 rounded border border-god/40 text-god bg-god/10">装备中</span>
               )}
+              {(item.enhanceLevel ?? 0) > 0 && (
+                <span className={`text-[12px] font-mono px-1.5 py-0.5 rounded border border-amber-400/40 bg-amber-400/5 ${enhanceColorClass(item.enhanceLevel!)}`}>强化 +{item.enhanceLevel}</span>
+              )}
               {item.locked && (
                 <span className="text-[12px] font-mono px-1.5 py-0.5 rounded border border-blue-500/40 text-blue-400">锁定</span>
               )}
@@ -230,7 +235,15 @@ export function ItemDetailModal({ item, onClose }: { item: InventoryItem; onClos
             <div className="grid grid-cols-2 gap-3 bg-panel2 rounded-xl p-3 border border-edge/40">
               {item.origin && (<div><div className="text-[12px] font-mono text-dim/40">产地</div><div className="text-[13px] text-dim/80">{item.origin}</div></div>)}
               {item.subType && (<div><div className="text-[12px] font-mono text-dim/40">类型</div><div className="text-[13px] text-dim/80">{item.subType}</div></div>)}
-              {item.combatStat && (<div><div className="text-[12px] font-mono text-dim/40">攻击/防御</div><div className="text-[13px] font-mono text-amber-300/90">{item.combatStat}</div></div>)}
+              {item.combatStat && (() => {
+                const ec = enhancedCombat(item.combatStat, item.enhanceLevel ?? 0);
+                const cls = enhanceColorClass(item.enhanceLevel ?? 0);
+                return (<div><div className="text-[12px] font-mono text-dim/40">攻击/防御</div>
+                  {ec
+                    ? <div className="text-[13px] font-mono flex flex-wrap items-baseline gap-x-1"><span className="text-dim/40 line-through">{ec.base}</span><span className="text-dim/40">→</span><span className={`font-bold ${cls}`}>{ec.enhanced}</span><span className={`text-[11px] ${cls}`}>强化+{item.enhanceLevel}·+{ec.pct}%</span></div>
+                    : <div className="text-[13px] font-mono text-amber-300/90">{item.combatStat}</div>}
+                </div>);
+              })()}
               {item.durability && (<div><div className="text-[12px] font-mono text-dim/40">耐久度</div><div className="text-[13px] font-mono text-slate-300">{item.durability}</div></div>)}
               {item.score && (<div><div className="text-[12px] font-mono text-dim/40">评分</div><div className="text-[13px] font-mono text-emerald-300/90">{item.score}</div></div>)}
               {item.killCount && (<div><div className="text-[12px] font-mono text-dim/40">杀敌数量</div><div className="text-[13px] font-mono text-blood/90">{item.killCount}</div></div>)}
@@ -350,14 +363,28 @@ export function ItemDetailModal({ item, onClose }: { item: InventoryItem; onClos
 
         {/* ── 底部操作栏 ── */}
         <footer className="shrink-0 flex items-center gap-2 px-4 py-3 border-t border-edge bg-panel">
-          {/* 消耗 */}
+          {/* 使用：把「使用此物品」填入输入框，发送后由 AI 结算效果（如增加属性）；旁边「−1」仅直接减数量不走 AI */}
           {canConsume && item.quantity > 0 && (
-            <button
-              onClick={() => { consumeItem(item.id, 1); if (item.quantity <= 1) onClose(); }}
-              className="px-3 py-1.5 border border-emerald-700/50 text-emerald-400 hover:bg-emerald-900/20 rounded-lg text-sm font-mono transition-colors"
-            >
-              使用 ×1
-            </button>
+            <>
+              <button
+                onClick={() => {
+                  const eff = item.effect?.trim();
+                  useComposer.getState().fill(eff ? `使用【${item.name}】（效果：${eff}）` : `使用【${item.name}】`);
+                  onClose();
+                }}
+                title="把「使用此物品」填入输入框，发送给 AI 结算效果（如增加属性）"
+                className="px-3 py-1.5 border border-emerald-700/50 text-emerald-400 hover:bg-emerald-900/20 rounded-lg text-sm font-mono transition-colors"
+              >
+                使用
+              </button>
+              <button
+                onClick={() => { consumeItem(item.id, 1); if (item.quantity <= 1) onClose(); }}
+                title="直接消耗 1 个（仅减少数量，不触发 AI 结算）"
+                className="px-2 py-1.5 border border-edge text-dim/70 hover:text-emerald-400 hover:border-emerald-700/50 rounded-lg text-sm font-mono transition-colors"
+              >
+                −1
+              </button>
+            </>
           )}
           {/* 装备/卸下 */}
           {canEquip && (
@@ -554,6 +581,54 @@ function CurrencyBar({ wallet }: { wallet: CurrencyWallet }) {
           <span className="text-lg font-bold font-mono text-amber-300">
             {(showReal ? realAttrPoints : attrPoints).toLocaleString()}
           </span>
+        </button>
+      </div>
+      {/* 货币兑换：1 灵魂钱币 = 150,000 乐园币 */}
+      <CurrencyConverter wallet={wallet} />
+    </div>
+  );
+}
+
+/* ── 乐园币 ⇄ 灵魂钱币 兑换（1 灵魂钱币 = 150,000 乐园币）── */
+const SOUL_RATE = 150000;
+function CurrencyConverter({ wallet }: { wallet: CurrencyWallet }) {
+  const adjustCurrency = useItems((s) => s.adjustCurrency);
+  const [amt, setAmt] = useState(1);
+  const n = Math.max(1, Math.floor(Number(amt) || 1));
+  const cost = n * SOUL_RATE;
+  const canBuy = wallet.乐园币 >= cost;
+  const canSell = wallet.灵魂钱币 >= n;
+  return (
+    <div className="border-t border-edge/50 px-3 py-3 space-y-2 bg-panel2/30">
+      <div className="flex items-center justify-between">
+        <span className="text-[12px] font-mono text-dim/60">货币兑换</span>
+        <span className="text-[11px] font-mono text-dim/40">1 💎 = 150,000 🪙</span>
+      </div>
+      <div className="flex items-center gap-2">
+        <span className="text-[12px] text-dim/60 shrink-0">灵魂钱币</span>
+        <input
+          type="number" min={1} value={amt}
+          onChange={(e) => setAmt(Math.max(1, Math.floor(Number(e.target.value) || 1)))}
+          className="w-20 bg-void border border-edge rounded px-2 py-1 text-sm font-mono text-violet-200 focus:outline-none focus:border-violet-400/50"
+        />
+        <span className="text-[11px] font-mono text-dim/40 truncate">= {cost.toLocaleString()} 🪙</span>
+      </div>
+      <div className="grid grid-cols-2 gap-2">
+        <button
+          disabled={!canBuy}
+          onClick={() => { adjustCurrency('乐园币', -cost); adjustCurrency('灵魂钱币', n); }}
+          className={`px-2 py-1.5 rounded-lg border text-[12px] font-mono transition-colors ${canBuy ? 'border-violet-400/40 text-violet-200 hover:bg-violet-400/10' : 'border-edge/40 text-dim/25 cursor-not-allowed'}`}
+          title={canBuy ? `花 ${cost.toLocaleString()} 乐园币换 ${n} 灵魂钱币` : '乐园币不足'}
+        >
+          🪙→💎 买入
+        </button>
+        <button
+          disabled={!canSell}
+          onClick={() => { adjustCurrency('灵魂钱币', -n); adjustCurrency('乐园币', cost); }}
+          className={`px-2 py-1.5 rounded-lg border text-[12px] font-mono transition-colors ${canSell ? 'border-amber-400/40 text-amber-200 hover:bg-amber-400/10' : 'border-edge/40 text-dim/25 cursor-not-allowed'}`}
+          title={canSell ? `${n} 灵魂钱币换 ${cost.toLocaleString()} 乐园币` : '灵魂钱币不足'}
+        >
+          💎→🪙 兑出
         </button>
       </div>
     </div>

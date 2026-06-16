@@ -10,6 +10,20 @@ import miscDefaultPreset from '../data/miscDefaultPreset.json';
    （小地图相关规则保留为可关闭条目，渲染暂未实现）
 ════════════════════════════════════════════ */
 
+/* 任务环（questline 的单个阶段）。主线/多环支线的路线图由若干环组成。
+   planned=已规划只给提示 / active=当前进行 / done=已达成 / skipped=被跨越跳过。*/
+export interface QuestRing {
+  idx: number;        // 环序号（1-based，路线图排序的规范键）
+  goal: string;       // 这一环的目标
+  hint?: string;      // 提示（planned 环未落地时的一句钩子）
+  status: 'planned' | 'active' | 'done' | 'skipped';
+  reward?: string;    // 本环成功奖励（可与任务顶层不同）
+  penalty?: string;   // 本环失败惩罚
+  optional?: boolean; // 贪婪环(可选)：高潮之后的延伸；失败仅损失本环额外奖励、不致死。强制环不设此项
+  startTime?: string; // 本环执行窗口（绝对游戏时间）
+  endTime?: string;
+}
+
 export interface MiscTask {
   id: string;        // "T_17"
   name: string;      // 列1
@@ -20,6 +34,16 @@ export interface MiscTask {
   startTime: string;
   endTime: string;
   addedAt: number;
+  // ── 多环任务线（v2，全部可选；老存档无这些字段=单环扁平任务，按支线处理）──
+  kind?: '主线' | '支线';   // 任务线类型；缺省/未标=支线。主线每世界通常仅一条 active
+  rings?: QuestRing[];      // 环路线图（多环任务才有；单环任务可不设）
+  currentRing?: number;     // 当前 active 环的 idx（非数组下标）
+  finale?: string;          // 终局目标——定义这条线的"尽头"，最后一环达成即整条完成
+}
+
+/* 主线判定：只有显式 kind==='主线' 才算主线，其余（含未标 kind）一律支线 */
+export function isMainQuest(t: { kind?: string }): boolean {
+  return t?.kind === '主线';
 }
 
 /* 已结算（完成/失败/放弃）的任务：移出"进行中"列表，留档供面板查看，不再注入提示词 */
@@ -114,6 +138,8 @@ export interface MiscSettings {
   smallKeep: number;
   largeKeep: number;
   largeEvery: number;   // 大总结周期：每 N 个杂项演化回合才产出一条大总结（聚合压缩近期小总结），其余回合只出小总结
+  questInjectEnabled?: boolean;  // 是否把当前任务(主线重/支线轻)注入正文上下文（默认开）
+  questSideCap?: number;         // 注入正文的支线条数上限（相关性排序后封顶，默认 3）
 }
 
 const DEFAULT_SETTINGS: MiscSettings = {
@@ -124,6 +150,8 @@ const DEFAULT_SETTINGS: MiscSettings = {
   smallKeep: 8,
   largeKeep: 6,
   largeEvery: 6,
+  questInjectEnabled: true,
+  questSideCap: 3,
 };
 
 interface MiscState {
@@ -150,6 +178,7 @@ interface MiscState {
   updateTask: (id: string, patch: Partial<MiscTask>) => void;
   removeTask: (id: string) => void;
   settleTask: (id: string, status: string) => void;   // 结算：移出进行中→归档
+  advanceRing: (id: string) => void;   // 推进：当前 active 环→done，下一 planned 环→active，同步顶层快照
   clearArchivedTasks: () => void;
   nextTaskId: () => string;
   addWorldEvent: (e: Omit<WorldEvent, 'id'>) => void;
@@ -222,6 +251,34 @@ export const useMisc = create<MiscState>()(
             archivedTasks: [archived, ...s.archivedTasks.filter((x) => x.id !== id)].slice(0, 40),
           };
         }),
+      advanceRing: (id) =>
+        set((s) => ({
+          tasks: s.tasks.map((t) => {
+            if (t.id !== id || !Array.isArray(t.rings) || t.rings.length === 0) return t;
+            const rings = t.rings.map((r) => ({ ...r }));
+            const cur = rings.find((r) => r.status === 'active');
+            if (cur) cur.status = 'done';
+            // 晋升下一个 planned 环（按 idx 最小者）为 active
+            const next = rings
+              .filter((r) => r.status === 'planned')
+              .sort((a, b) => a.idx - b.idx)[0];
+            if (next) next.status = 'active';
+            const active = rings.find((r) => r.status === 'active');
+            return {
+              ...t,
+              rings,
+              currentRing: active ? active.idx : t.currentRing,
+              // 顶层 desc/奖惩同步到新 active 环，保证旧序列化/面板显示当前目标
+              ...(active
+                ? {
+                    desc: active.goal || t.desc,
+                    reward: active.reward ?? t.reward,
+                    penalty: active.penalty ?? t.penalty,
+                  }
+                : {}),
+            };
+          }),
+        })),
       clearArchivedTasks: () => set({ archivedTasks: [] }),
       nextTaskId: () => {
         // 进行中 + 已归档的编号都算"已占用"，避免复用完成任务的编号

@@ -2,8 +2,9 @@ import type { NpcRecord, NpcOwnedItem } from '../store/npcStore';
 import type { FactionRecord } from '../store/factionStore';
 import type { Skill, Talent, Title, SubProfession } from '../store/characterStore';
 import type { InventoryItem, CurrencyWallet } from '../store/itemStore';
-import type { PlayerProfile } from '../store/playerStore';
+import type { PlayerProfile, PlayerAttrs } from '../store/playerStore';
 import { computeMaxHp, computeMaxEp, effectiveResource } from './derivedStats';
+import { effectiveAttrs } from './attrBonus';
 
 /* 取佩戴中的称号，渲染成一行（仅 equipped 注入正文）*/
 function equippedTitleLine(titles: Title[] | undefined): string | undefined {
@@ -157,6 +158,8 @@ export function serializePlayerCard(
   wallet?: CurrencyWallet,
 ): string {
   const id = ['姓名:' + (profile.name || '主角'),
+    profile.gender && `性别:${profile.gender}`,
+    profile.race && `种族:${profile.race}`,
     profile.homeParadise && `所属乐园:${profile.homeParadise}`,
     profile.preParadiseJob && `主角背景(入园前职业):${profile.preParadiseJob}`,
     profile.level != null && `Lv.${profile.level}`,
@@ -172,11 +175,14 @@ export function serializePlayerCard(
   const a = profile.attrs;
   const pMaxHp = computeMaxHp(a);
   const pMaxEp = computeMaxEp(a);
+  // 有效六维 = 基础 + 装备/技能/天赋加成（与属性面板一致；注入正文用实战值，并标注基础值）
+  const effA = effectiveAttrs(a, skills, talents, items.filter((it) => it.equipped));
+  const faP = (k: keyof PlayerAttrs) => { if (!a) return ''; return effA[k] === a[k] ? `${effA[k]}` : `${effA[k]}(基${a[k]})`; };
   const stat = [
     `HP:${effectiveResource(game.hp, game.maxHp, pMaxHp)}/${pMaxHp}（上限=体质×20，自动算）`,
     `EP:${effectiveResource(game.mp, game.maxMp, pMaxEp)}/${pMaxEp}（上限=智力×15，自动算）`,
     game.san != null && `SAN:${game.san}/${game.maxSan ?? '?'}`,
-    a && `六维: 力${a.str} 敏${a.agi} 体${a.con} 智${a.int} 魅${a.cha} 幸${a.luck}`,
+    a && `六维(实战值=基础+装备/技能/天赋加成): 力${faP('str')} 敏${faP('agi')} 体${faP('con')} 智${faP('int')} 魅${faP('cha')} 幸${faP('luck')}`,
     profile.advancePoints != null && `进阶点数:${profile.advancePoints}`,
     profile.attrPoints != null && `属性点:${profile.attrPoints}`,
     profile.realAttrPoints != null && `真实属性点:${profile.realAttrPoints}`,
@@ -184,6 +190,7 @@ export function serializePlayerCard(
     wallet && `货币: 乐园币${wallet.乐园币 ?? 0} | 灵魂钱币${wallet.灵魂钱币 ?? 0} | 技能点${wallet.技能点 ?? 0} | 黄金技能点${wallet.黄金技能点 ?? 0}`,
   ].filter(Boolean).join(' | ');
   const detail = [
+    profile.raceDetail && `种族详情:${profile.raceDetail}`,
     profile.status && `当前状态:${profile.status}`,
     (profile.statusEffects?.length ?? 0) > 0 && `限时状态:${profile.statusEffects.map((e) => `${e.name}${e.durationDesc ? `(${e.durationDesc})` : ''}`).join('、')}`,
     profile.appearance && `外观:${profile.appearance}`,
@@ -230,12 +237,15 @@ export function serializeNpcCard(
     npc.bioStrength && `生物强度:${npc.bioStrength}`,
   ].filter(Boolean).join(' | ');
   const a = npc.attrs;
+  // 有效六维 = 基础 + 装备/技能/天赋加成（与 NPC 详情面板一致；注入正文用实战值，并标注基础值）
+  const effA = a ? effectiveAttrs(a, skills, talents, (npc.items ?? []).filter((it) => it.equipped) as any) : undefined;
+  const faN = (k: keyof PlayerAttrs) => { if (!a || !effA) return ''; return effA[k] === a[k] ? `${effA[k]}` : `${effA[k]}(基${a[k]})`; };
   const stat = [
     a && `HP:${effectiveResource(npc.hp, npc.maxHp, computeMaxHp(a))}/${computeMaxHp(a)}（上限=体质×20，自动算）`,
     a && `EP:${effectiveResource(npc.mp, npc.maxMp, computeMaxEp(a))}/${computeMaxEp(a)}（上限=智力×15，自动算）`,
     !a && (npc.hp != null || npc.maxHp != null) && `HP:${npc.hp ?? '?'}/${npc.maxHp ?? '?'}`,
     !a && (npc.mp != null || npc.maxMp != null) && `EP:${npc.mp ?? 0}/${npc.maxMp ?? 0}`,
-    a && `六维: 力${a.str} 敏${a.agi} 体${a.con} 智${a.int} 魅${a.cha} 幸${a.luck}`,
+    a && `六维(实战值=基础+装备/技能/天赋加成): 力${faN('str')} 敏${faN('agi')} 体${faN('con')} 智${faN('int')} 魅${faN('cha')} 幸${faN('luck')}`,
     npc.advancePoints != null && `进阶点数:${npc.advancePoints}`,
     `好感:${npc.favor}`,
   ].filter(Boolean).join(' | ');

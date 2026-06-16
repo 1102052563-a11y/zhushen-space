@@ -34,6 +34,9 @@ export function stripStateBlocks(text: string): string {
     .replace(/<state\b[^>]*>[\s\S]*$/i, '')
     .replace(/<upstore\b[^>]*>[\s\S]*?<\/upstore>/gi, '')
     .replace(/<upstore\b[^>]*>[\s\S]*$/i, '')
+    .replace(/<battle\b[^>]*\/>/gi, '')
+    .replace(/<battle\b[^>]*>[\s\S]*?<\/battle>/gi, '')
+    .replace(/<battle\b[^>]*>[\s\S]*$/i, '')
     .trimEnd();
 }
 

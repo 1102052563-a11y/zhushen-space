@@ -14,6 +14,17 @@ export interface PlayerAttrs {
   luck: number; // 幸运
 }
 
+/* 战斗内数值修正（仅战斗系统使用；挂在 StatusEffect.combat 上，由 combatEngine 解读）。 */
+export interface CombatStatusMod {
+  atkMult?: number;      // 攻击倍率增量（+0.25 = 攻击×1.25；负为削弱）
+  defMult?: number;      // 防御倍率增量（负=破甲，受伤更高）
+  dotPerRound?: number;  // 每回合持续伤害（已折算成定值）
+  hotPerRound?: number;  // 每回合持续治疗
+  cannotAct?: boolean;   // 控制：本状态存续期间无法行动（眩晕/定身等）
+  undying?: boolean;     // 不死：扣血保底 1，期间不会被打死
+  hpLock?: boolean;      // 锁血：生命锁定，期间完全不掉血
+}
+
 /* 限时状态效果（buff/debuff，引擎按回合/游戏时间自动过期）。主角与 NPC 共用此结构。 */
 export interface StatusEffect {
   id: string;
@@ -30,6 +41,7 @@ export interface StatusEffect {
   durationDesc?: string;  // 原始时长描述（"5分钟"/"3回合"），展示用
   startGameMin?: number | null; // 施加时的游戏时间（分钟，引擎填，可空）
   expireAtMin?: number | null;  // 游戏时间到期点（分钟，引擎算，可空）
+  combat?: CombatStatusMod;     // 战斗内数值修正（仅战斗系统读写）
   addedAt: number;
 }
 
@@ -57,6 +69,9 @@ export interface PlayerProfile {
   statusEffects: StatusEffect[]; // 限时状态（引擎自动过期）
   appearance: string;    // 外观描写（会随剧情演化）
   baseAppearance?: string; // 基底外观（开局设定，不可变；生图始终包含——决定主角长相的最底层基准）
+  gender?: string;       // 性别（开局设定；生图据此强制 1boy/1girl 标签，避免被外观特征误判）
+  race?: string;         // 种族（开局设定，如 人类/精灵/吸血鬼…）
+  raceDetail?: string;   // 种族详情（自由文本：外貌特征/天生能力/弱点/文化等，注入 AI 上下文）
   location: string;      // 所处位置
   avatar?: string;       // 主角立绘（上传的图片 dataURL / AI 生成）
   avatarTags?: string;   // 生成当前立绘所用的 imageTags（"外观变化时刷新"判断用）

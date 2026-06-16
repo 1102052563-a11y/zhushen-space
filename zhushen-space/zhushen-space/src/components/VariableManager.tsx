@@ -1,6 +1,8 @@
 /* 变量管理页 → 演化系统 · 功能中心
    原本是自定义变量编辑器（基本不用）+ 顶部一排挤在右上角的功能入口；
    现改为「居中、放大、分组」的模块卡片启动台。各模块仍是独立子面板（预设/API/调度）。 */
+import { useState, useRef } from 'react';
+import { downloadGlobalConfig, importGlobalConfig } from '../systems/configExport';
 
 type Cb = (() => void) | undefined;
 
@@ -35,6 +37,74 @@ function ModuleCard({ it }: { it: ModuleItem }) {
   );
 }
 
+/* 配置备份 / 迁移：把所有功能的预设·世界书·正文预设·正则·API·生图·向量库·角色模板一键导出成一个 JSON，
+   可在别的设备/浏览器导入整套配置。只含配置、不含游戏进度（NPC/背包/剧情等），导入也不会覆盖当前存档进度。 */
+function ConfigBackupBar() {
+  const [includeKeys, setIncludeKeys] = useState(true);
+  const [msg, setMsg] = useState('');
+  const [err, setErr] = useState(false);
+  const fileRef = useRef<HTMLInputElement>(null);
+
+  function onPickFile(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    e.target.value = '';   // 允许重复选同一文件
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = () => {
+      const raw = String(reader.result ?? '');
+      if (!window.confirm(
+        '导入将覆盖当前所有功能的「预设 / 世界书 / 正文预设 / 正则 / API 设置」。\n' +
+        '不会影响 NPC、背包、剧情、主角属性等游戏进度。\n\n' +
+        '建议先点「导出」备份当前配置。确定继续导入？',
+      )) return;
+      const r = importGlobalConfig(raw);
+      setErr(!r.ok);
+      setMsg(r.message + (r.ok && r.skipped && r.skipped.length ? `（文件未含：${r.skipped.join('、')}）` : ''));
+    };
+    reader.onerror = () => { setErr(true); setMsg('读取文件失败'); };
+    reader.readAsText(file);
+  }
+
+  return (
+    <div className="mt-12">
+      <div className="flex items-center gap-3 mb-3.5">
+        <span className="text-[12px] font-mono uppercase tracking-[0.25em] text-dim/45">配置备份 · 迁移</span>
+        <div className="h-px flex-1 bg-edge/50" />
+      </div>
+      <div className="rounded-2xl border border-edge bg-panel/50 p-5 space-y-4">
+        <p className="text-[13px] text-dim/70 leading-relaxed">
+          一键导出 / 导入<span className="text-god">全部功能的预设、世界书、正文预设、正则、API 设置、生图模板、向量库参数、角色创建模板</span>。
+          <br />
+          只打包<span className="text-dim/90">配置</span>，<span className="text-dim/90">不含</span>游戏进度（NPC 档案 / 背包 / 剧情 / 主角属性等）；导入也<span className="text-dim/90">不会覆盖</span>当前存档进度。换设备、换浏览器或分享整套配置时用。
+        </p>
+
+        <label className="flex items-center gap-2 text-[13px] text-dim/80 cursor-pointer select-none w-fit">
+          <input type="checkbox" checked={includeKeys} onChange={(e) => setIncludeKeys(e.target.checked)} className="accent-god" />
+          导出时包含 API 密钥
+          <span className="text-dim/45">{includeKeys ? '（方便自用迁移，请勿公开分享此文件）' : '（适合分享，导入方需重填各接口 Key）'}</span>
+        </label>
+
+        <div className="flex flex-wrap items-center gap-3">
+          <button
+            onClick={() => downloadGlobalConfig(includeKeys)}
+            className="px-4 py-2 rounded-lg border border-god/40 text-god text-sm font-mono hover:bg-god/10 transition-colors"
+          >
+            ⬇ 导出全局配置
+          </button>
+          <button
+            onClick={() => fileRef.current?.click()}
+            className="px-4 py-2 rounded-lg border border-edge text-dim text-sm font-mono hover:border-god/40 hover:text-god transition-colors"
+          >
+            ⬆ 导入 (.json)
+          </button>
+          <input ref={fileRef} type="file" accept="application/json,.json" onChange={onPickFile} className="hidden" />
+          {msg && <span className={`text-[12px] ${err ? 'text-rose-400' : 'text-emerald-400'}`}>{msg}</span>}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function VariableManager({
   onOpenItemManager,
   onOpenPlayerManager,
@@ -46,6 +116,9 @@ export default function VariableManager({
   onOpenMemoryManager,
   onOpenMiscManager,
   onOpenDiceManager,
+  onOpenCombatManager,
+  onOpenArenaManager,
+  onOpenEnhanceManager,
   onOpenChannelManager,
   onOpenNovelVecManager,
 }: {
@@ -59,6 +132,9 @@ export default function VariableManager({
   onOpenMemoryManager?: () => void;
   onOpenMiscManager?: () => void;
   onOpenDiceManager?: () => void;
+  onOpenCombatManager?: () => void;
+  onOpenArenaManager?: () => void;
+  onOpenEnhanceManager?: () => void;
   onOpenChannelManager?: () => void;
   onOpenNovelVecManager?: () => void;
 }) {
@@ -88,6 +164,9 @@ export default function VariableManager({
       items: [
         { icon: '📡', label: '公共频道',   desc: '契约者公共广场',             color: 'indigo',  cb: onOpenChannelManager },
         { icon: '🎲', label: 'ROLL 点设置', desc: '骰子判定系统',              color: 'lime',    cb: onOpenDiceManager },
+        { icon: '⚔️', label: '战斗系统',   desc: '回合制战斗 · 结算 · 预设',    color: 'rose',    cb: onOpenCombatManager },
+        { icon: '🏟', label: '竞技场',     desc: '阶位榜单 · 挑战 · 奖励',      color: 'amber',   cb: onOpenArenaManager },
+        { icon: '⚒', label: '装备强化',   desc: '强化等级 · 看板娘 · 保底',    color: 'amber',   cb: onOpenEnhanceManager },
       ],
     },
   ];
@@ -119,6 +198,8 @@ export default function VariableManager({
             );
           })}
         </div>
+
+        <ConfigBackupBar />
       </div>
     </div>
   );

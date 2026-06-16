@@ -101,6 +101,7 @@ export interface InventoryItem {
   score?: string;         // 评分（含品质区间说明，如 28（绿色装备区间11~30分…））
   intro?: string;         // 简介（flavor 文本）
   killCount?: string;     // 杀敌数量（仅武器类，随战斗累计）
+  enhanceLevel?: number;  // 强化等级 0-16（装备强化系统，仅装备类；0/缺省=未强化）
   image?: string;         // 物品图片（上传的自定义图片 dataURL / 未来生图位）
   addedAt: number;
 }

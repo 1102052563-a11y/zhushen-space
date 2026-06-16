@@ -125,11 +125,11 @@ function PlayerAvatar() {
       // 无英文生图标签(列19)时，先用 LLM 把中文外观翻成英文 danbooru tags（NAI 必须英文才像）
       let tags = profile.imageTags;
       if (!tags || !tags.trim()) {
-        const desc = [profile.baseAppearance, profile.appearance, profile.profession, realmFromLevel(profile.level), profile.background].filter(Boolean).join('，');
+        const desc = [profile.gender, profile.race, profile.baseAppearance, profile.appearance, profile.profession, realmFromLevel(profile.level), profile.background].filter(Boolean).join('，');
         const gen = await genPortraitTags(desc);
         if (gen) { tags = gen; setProfile({ imageTags: gen }); }
       }
-      const prompt = buildPortraitPrompt({ appearance: profile.appearance, baseAppearance: profile.baseAppearance, profession: profile.profession, tier: realmFromLevel(profile.level), imageTags: tags });
+      const prompt = buildPortraitPrompt({ gender: profile.gender, race: profile.race, appearance: profile.appearance, baseAppearance: profile.baseAppearance, profession: profile.profession, tier: realmFromLevel(profile.level), imageTags: tags });
       const url = await generateImage(portraitService, { prompt, negative: portraitNegative, label: '生成主角立绘' });
       setProfile({ avatar: await shrinkDataUrl(url), avatarTags: tags || '' });
     } catch (e: any) { setErr(e.message ?? '生成失败'); }
@@ -223,6 +223,8 @@ export default function PlayerSidebar({ onClose }: { onClose?: () => void }) {
           <div className="text-sm text-god font-mono mb-1.5">❖ 身份</div>
           <Row label="所属乐园"><EditText value={profile.homeParadise} onSave={(v) => setProfile({ homeParadise: v })} placeholder="（开局选定）" /></Row>
           <Row label="主角背景"><EditText value={profile.preParadiseJob} onSave={(v) => setProfile({ preParadiseJob: v })} placeholder="（入园前职业）" /></Row>
+          <Row label="性别"><EditText value={profile.gender || ''} onSave={(v) => setProfile({ gender: v })} placeholder="（开局设定·生图据此定 1boy/1girl）" /></Row>
+          <Row label="种族"><EditText value={profile.race || ''} onSave={(v) => setProfile({ race: v })} placeholder="（如 人类/精灵）" /></Row>
           <Row label="称号"><EditText value={profile.title} onSave={(v) => setProfile({ title: v })} placeholder="（无）" /></Row>
           <Row label="身份"><EditText value={profile.identity} onSave={(v) => setProfile({ identity: v })} placeholder="（无）" /></Row>
           <Row label="职业"><EditText value={profile.profession} onSave={(v) => setProfile({ profession: v })} placeholder="（无）" /></Row>

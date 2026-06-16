@@ -76,6 +76,7 @@ export default function WorldSelector({ onSelect, onRawResponse, onPromptSent, o
   const [rolls, setRolls] = useState<number[]>([]);
   const [worlds, setWorlds] = useState<WorldOption[]>([]);
   const [errorMsg, setErrorMsg] = useState('');
+  const [leisure, setLeisure] = useState(false);   // 休闲世界模式：忽略阶位，按「休闲世界」世界书生成休闲/恋爱向世界
   const rankRef = useRef<HTMLInputElement>(null);
 
   const api = useSettings((s) => s.api);
@@ -87,6 +88,12 @@ export default function WorldSelector({ onSelect, onRawResponse, onPromptSent, o
   }, [stage]);
 
   function pickEntries() {
+    // 休闲模式：直接取「休闲世界」世界书的全部启用条目（忽略阶位/关键词匹配）
+    if (leisure) {
+      return worldBooks
+        .filter((b) => b.enabled && (b.builtinKey === 'wb-leisure' || b.name === '休闲世界'))
+        .flatMap((b) => b.entries.filter((e) => e.enabled));
+    }
     // 蓝灯（constant）：常驻，始终纳入
     // 绿灯（selective）：关键词触发
     const ctx = (rank + ' ' + systemPrompt).toLowerCase();
@@ -136,7 +143,9 @@ export default function WorldSelector({ onSelect, onRawResponse, onPromptSent, o
     const ids = rolls.length ? rolls : rollDice();
     if (!rolls.length) setRolls(ids);
 
-    const rankPart = rank.trim() ? `目标阶位：${rank.trim()}阶` : '目标阶位：未指定（按通用难度生成）';
+    const rankPart = leisure
+      ? '生成休闲世界（休闲 / 恋爱向的轻松日常世界，无生存压力；阶位固定一阶）'
+      : (rank.trim() ? `目标阶位：${rank.trim()}阶` : '目标阶位：未指定（按通用难度生成）');
     const idPart = `12 个随机ID（0–1500，越高越稀有/危险）：${ids.join('、')}`;
 
     const entriesText = picked.length > 0
@@ -148,7 +157,9 @@ export default function WorldSelector({ onSelect, onRawResponse, onPromptSent, o
 
     const userMessage =
       `${rankPart}\n${idPart}\n\n` +
-      `以下是该阶位被点亮的世界书条目（绿灯/触发为主），供你筛选取材并生成 10 个世界：\n\n${entriesText}`;
+      (leisure
+        ? `以下是「休闲世界」世界书条目，请据此生成 10 个休闲 / 恋爱向世界：\n\n${entriesText}`
+        : `以下是该阶位被点亮的世界书条目（绿灯/触发为主），供你筛选取材并生成 10 个世界：\n\n${entriesText}`);
 
     // 发送前记录完整提示词
     const fullPrompt =
@@ -197,8 +208,7 @@ export default function WorldSelector({ onSelect, onRawResponse, onPromptSent, o
     setRolls([]);
     setWorlds([]);
     setErrorMsg('');
-    setRawResponse('');
-    setShowRaw(false);
+    setLeisure(false);
   }
 
   /* ── idle ── */
@@ -219,18 +229,26 @@ export default function WorldSelector({ onSelect, onRawResponse, onPromptSent, o
   if (stage === 'config') {
     return (
       <div className="shrink-0 border-t border-god/20 bg-panel px-4 py-3 space-y-3">
-        {/* 阶位 + 操作按钮 */}
+        {/* 阶位 / 休闲 + 操作按钮 */}
         <div className="flex items-center gap-0 text-sm">
-          <span className="text-god/80 font-mono shrink-0">【选择</span>
+          <span className={`text-god/80 font-mono shrink-0 ${leisure ? 'opacity-30' : ''}`}>【选择</span>
           <input
             ref={rankRef}
             value={rank}
+            disabled={leisure}
             onChange={(e) => setRank(e.target.value)}
             onKeyDown={(e) => { if (e.key === 'Escape') reset(); }}
             placeholder="X"
-            className="w-20 bg-void border-b border-god/40 px-1 py-0.5 text-sm text-slate-200 placeholder:text-dim/60 outline-none focus:border-god text-center font-mono"
+            className={`w-20 bg-void border-b border-god/40 px-1 py-0.5 text-sm text-slate-200 placeholder:text-dim/60 outline-none focus:border-god text-center font-mono ${leisure ? 'opacity-30' : ''}`}
           />
-          <span className="text-god/80 font-mono shrink-0">阶世界】</span>
+          <span className={`text-god/80 font-mono shrink-0 ${leisure ? 'opacity-30' : ''}`}>阶世界】</span>
+          <button
+            onClick={() => setLeisure((v) => !v)}
+            title="休闲世界：忽略阶位，按内置「休闲世界」世界书生成休闲 / 恋爱向轻松世界"
+            className={`ml-2 px-2.5 py-1.5 text-sm border rounded font-mono transition-colors ${leisure ? 'border-emerald-400/70 bg-emerald-900/30 text-emerald-200' : 'border-emerald-500/30 text-emerald-300/80 hover:bg-emerald-900/20'}`}
+          >
+            🌴 休闲世界{leisure ? ' ✓' : ''}
+          </button>
           <div className="ml-auto flex items-center gap-2">
             <button
               onClick={generate}
@@ -241,6 +259,10 @@ export default function WorldSelector({ onSelect, onRawResponse, onPromptSent, o
             <button onClick={reset} className="text-dim hover:text-blood text-sm font-mono w-5 text-center">✕</button>
           </div>
         </div>
+
+        {leisure && (
+          <div className="text-[12px] font-mono text-emerald-300/70">🌴 休闲模式：忽略阶位，点「生成」即把「生成休闲世界」+ Roll 点发给「世界选择」接口，生成休闲 / 恋爱向世界。</div>
+        )}
 
         {/* Roll点 */}
         <div className="flex items-start gap-3">

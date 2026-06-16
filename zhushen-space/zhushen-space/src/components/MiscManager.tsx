@@ -133,6 +133,24 @@ function SettingsSection() {
         <div className="text-[12px] text-dim/50 leading-snug">小总结每回合都出（聚焦本回合）；大总结每 N 回合才出一条，对最近若干小总结做阶段压缩，二者内容不再雷同。</div>
       </div>
 
+      <div className="rounded-lg border border-edge bg-panel px-3 py-2.5 space-y-2">
+        <div className="flex items-center justify-between gap-3">
+          <div>
+            <div className="text-sm text-slate-200">任务注入正文</div>
+            <div className="text-[13px] text-dim/70 mt-0.5">把当前主线（重·含当前环目标/下一步/终局）与相关支线（轻）回流到正文上下文，给主线存在感、由系统把控节奏</div>
+          </div>
+          <Toggle checked={settings.questInjectEnabled !== false}
+            onChange={() => setSettings({ questInjectEnabled: settings.questInjectEnabled === false })} />
+        </div>
+        <label className="flex items-center justify-between gap-2 text-sm text-dim">
+          <span>注入正文的支线条数上限（0 = 只注主线）</span>
+          <input type="number" min={0} max={10} value={settings.questSideCap ?? 3}
+            onChange={(e) => setSettings({ questSideCap: Math.max(0, Math.min(10, Number(e.target.value) || 0)) } as any)}
+            className="w-20 bg-void border border-edge rounded px-2 py-1 text-sm font-mono text-slate-200 outline-none focus:border-god text-right" />
+        </label>
+        <div className="text-[12px] text-dim/50 leading-snug">支线按"贴合当前地点 / 在场 NPC"相关性排序后取前 N 条注入；主线始终全量注入。关掉开关则正文完全不注入任务（回到旧行为）。</div>
+      </div>
+
       {/* 预设：导入 / 导出 / 恢复默认 + 条目列表 */}
       <div className="rounded-lg border border-edge bg-panel">
         <div className="flex items-center gap-2 px-3 py-2.5 border-b border-edge">

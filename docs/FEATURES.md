@@ -23,6 +23,7 @@
 16. 技能·天赋·称号固定格式 / 成就 / HP·EP上限
 17. 名称模糊匹配 + 照抄铁则
 18. 世界书体系 / 预设文件
+19. 装备强化系统（仅乐园·+0~16·看板娘分阶段立绘·爆装垫子保底·品级评分缩放·收尾AI刷词缀·货币兑换）
 
 ---
 
@@ -197,3 +198,25 @@
 **世界书 `______.json`**（127条 uid 0-146）：**阶位**(列2)一阶 Lv.1-10~无上之境 Lv.140+,格式 `阶位·Lv.当前|身份`。**技能层阶**(与阶位独立)入门 Lv1-30→精通→大师→宗师→极道。**物品品质**白→绿→蓝→紫→淡金→金→暗金→永恒→起源→创世。**货币**乐园币+魂币+技能点+黄金技能点(固定显示储存空间货币栏,1魂币≈15万乐园币)。**天赋评级** D-SSS。修改直接编辑 JSON 在界面重导。
 
 **预设文件**（仓库根 `预设/*.json` + `src/data/*DefaultPreset.json`）：导入到各演化管理子页(`entrySharedRules` 格式)。原版蓝本 `完整版-主角演化（轮回乐园适配）.json`(全阶段 prompts)。各子页有 条目搜索/仅看已启用/导出/删除未开启/⚡智能筛选。**统一映射**(改预设必守)：灵石→货币、功法→技能书、灵兽妖兽→召唤物、御兽→召唤物指挥、词条→天赋(D-SSS)、百艺炼丹炼器→副职业、修炼速度→战斗速度、境界→阶位、修为→等阶、灵根→天赋、修仙世界→轮回乐园。聚灵阵/灵脉/闭关公式/万物炼制DC已删,双修保留。
+
+---
+
+## 19. 装备强化系统
+
+**入口/门禁**：右侧导航「⚒强化」开 `EnhancePanel`；仅 `isHomeWorld(misc.worldName)`（轮回乐园/专属房间）可强化，否则置灰。配置在 设置→变量管理→装备强化（`EnhanceManager`）。引擎 `systems/enhanceEngine.ts`（纯前端确定性，不花 API），数据 `store/enhanceStore.ts`(`drpg-enhance`)。
+
+**强化等级**：装备 `enhanceLevel` 0~16（`InventoryItem`+`NpcOwnedItem`），卡片右上 `+N` 流光角标（`enhanceFxClass`，按档复用 `.grade-*`，越高越华丽）。
+
+**摇率/结算**（`resolveEnhance`；率表 `EnhanceTables.version` 化迁移——改 base/floor 必 ++version，旧存档自动刷新）：固定成功率表 +1→2/+2→3=100%、+3→4=95%…+15→16=10.1%（老板 `displayLie` 只虚标明面、不改实际摇率）。**失败三段**（floor 全局可配 3/7/10）：**+0~+2 必成**；**+3~+6 失败降 1 级**；**+7~+9 失败强化归零(回 +0)**；**+10+ 失败装备分解消失(爆)**。`isRiskLevel`(≥7,保护石生效)/`isDangerLevel`(≥10)；暴击跳级(`boss.critJump`)=成功额外 +1；中央五特效 `.enh-success/.enh-crit/.enh-fail/.enh-reset/.enh-destroy`。
+
+**垫子计数/保底**：`pity` **只在真爆装后 +1**（不是每次失败！），满 `PITY_THRESHOLD=10` 下次必成后清零。**账号级全局**——存 drpg-enhance localStorage，不进存档、不导出。可拿便宜装推危险区故意爆刷保底。
+
+**费用**（`enhanceCost`，扣乐园币，现买现用不占背包）= 基数·(L+1)^指数·**品级倍率**·**评分倍率**(`scoreCostMul`)·老板倍率；品级↓评分↓→更便宜。保护石（危险区免爆）/强化符（+实际率）费用随等级涨。
+
+**老板/看板娘**（`DEFAULT_BOSSES`，可增删改，配置全局走 configExport）：每个=costMul/rateAdd/displayLie(明面率虚标,凯莉型显示≠实际)/destroyFloor/critJump/persona。**分阶段立绘**：图放仓库根 `图片/<老板>/阶段1~4/`→vite 插件 `syncEnhanceBosses` build/dev 同步进 `public/enhance-bosses/` + 生成 manifest（`systems/enhanceBosses.ts` 运行时 `loadBossManifest`/`pickStagePortrait` 读取；副本 gitignore，源入库）。`stageFromLevel`：+0~3=阶段1 / +4~6=2 / +7~9=3 / +10及以上=4，**每强化随机换该阶段一张**，空阶段就近回退；无文件夹回退上传单图(IndexedDB)。
+
+**两个 AI 点**（`resolveApiChain('enhance')`，默认复用正文 API）：① 点立绘**吐槽** `enhanceBanter`——读会话实况，**分阶段×性别**语气（女:正常→诱惑→露骨→放飞成人向；男:平常→挑衅→劝收手→难以置信）。② **收尾刷装备** `runEnhanceFinalizePhase`——由面板「✓ 结束强化」按钮（或关面板/切装备）触发，仅本轮净涨等级且未损毁时；每跨 4 级 +1 词缀，纯 AI 重算攻防/affix/effect/外观/评分，按 `growthCoef`(品级×评分)缩放强度、词缀参照网络小说词条风格；只吐 `updateItem`，事后钉回 enhanceLevel。
+
+**货币兑换**：储存空间(`BackpackModal`)货币栏底 `CurrencyConverter`，**1 灵魂钱币 = 150,000 乐园币**，双向（`adjustCurrency`）。
+
+**坑**：① 立绘大图 partialize 出 localStorage（存 IndexedDB key `enhance-boss:<id>`，`hydrateEnhancePortraits` 回填）。② 爆装动画用 `dying` 快照渲染（物品已 `removeItem`）。③ 改 `vite.config` 的图片同步插件需**重启 dev**。④ 立绘 `object-contain` 完整显示（不裁切）。
