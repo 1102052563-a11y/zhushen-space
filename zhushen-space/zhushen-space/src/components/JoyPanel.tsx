@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useMemo } from 'react';
 import { useJoy, hydrateJoyPortraits, JOY_PRIVATE_COLS, type JoyGirl } from '../store/joyStore';
 import { useMisc } from '../store/miscStore';
 import { loadGirlManifest, pickStagePortrait, stageFromDesire, relationFromAffection, girlCardPortrait, type GirlManifest } from '../systems/joyGirls';
@@ -12,6 +12,7 @@ const RACE_EMOJI = (race = ''): string =>
   : /青楼|花魁|古/.test(race) ? '🏮' : '💋';
 
 const STAGE_LABEL: Record<number, string> = { 1: '初见', 2: '微醺', 3: '沉沦', 4: '极致' };
+const PER_PAGE = 4;   // 选妃每页竖卡数
 
 function DesireBar({ desire }: { desire: number }) {
   const stage = stageFromDesire(desire);
@@ -97,6 +98,19 @@ export default function JoyPanel({
   // 聊天自动滚到底
   useEffect(() => { chatEndRef.current?.scrollIntoView({ behavior: 'smooth' }); }, [curSess?.messages.length, sending]);
 
+  // 立绘缓存：避免每次渲染都重新随机取图导致闪烁（仅在 manifest/人物/页/情欲阶段变化时重选）
+  const madamPortrait = useMemo(
+    () => (madam ? girlCardPortrait(manifest, madam, 0) : null),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [manifest, madam?.id, madam?.portrait, madam?.portraitFolder],
+  );
+  const pagePortraits = useMemo(() => {
+    const slice = girls.slice(page * PER_PAGE, page * PER_PAGE + PER_PAGE);
+    const out: Record<string, string | null> = {};
+    for (const g of slice) out[g.id] = girlCardPortrait(manifest, g, sessions[g.id]?.desire ?? 0);
+    return out;
+  }, [manifest, page, girls, sessions]);
+
   const cycleMadam = (dir: 1 | -1) => {
     if (madamPool.length < 2) return;
     const i = Math.max(0, madamPool.findIndex((g) => g.id === madam?.id));
@@ -130,7 +144,6 @@ export default function JoyPanel({
     finally { setSending(false); }
   };
 
-  const PER_PAGE = 4;
   const pageGirls = girls.slice(page * PER_PAGE, page * PER_PAGE + PER_PAGE);
   const maxPage = Math.max(0, Math.ceil(girls.length / PER_PAGE) - 1);
 
@@ -169,8 +182,8 @@ export default function JoyPanel({
               <div className="flex-1 min-h-0 flex items-center justify-center">
                 <button onClick={askGreet} disabled={!madam || greetLoading} title="点看板娘，听她说一句"
                   className="relative h-full max-h-full aspect-[1215/832] max-w-full rounded-xl border border-pink-500/25 bg-void overflow-hidden group">
-                  {girlCardPortrait(manifest, madam, 0)
-                    ? <img src={girlCardPortrait(manifest, madam, 0)!} alt={madam?.name} className="w-full h-full object-cover" />
+                  {madamPortrait
+                    ? <img src={madamPortrait} alt={madam?.name} className="w-full h-full object-cover" />
                     : <div className="w-full h-full flex flex-col items-center justify-center gap-2 text-pink-300/30">
                         <span className="text-6xl">{RACE_EMOJI(madam?.race)}</span>
                         <span className="text-[11px] font-mono">（未设置立绘）</span>
@@ -222,7 +235,7 @@ export default function JoyPanel({
 
             <div className="flex-1 min-h-0 grid grid-cols-2 sm:grid-cols-4 gap-2.5">
               {pageGirls.map((g) => {
-                const url = girlCardPortrait(manifest, g, sessions[g.id]?.desire ?? 0);
+                const url = pagePortraits[g.id];
                 const sel = picked === g.id;
                 return (
                   <button key={g.id} onClick={() => setPicked(g.id)}

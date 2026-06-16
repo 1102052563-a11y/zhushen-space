@@ -1,0 +1,6 @@
+{
+  "accountId": "你的 Cloudflare 账号 ID（R2 概览页能看到，或 S3 端点 https://<这个>.r2.cloudflarestorage.com）",
+  "accessKeyId": "R2 API 令牌的 Access Key ID",
+  "secretAccessKey": "R2 API 令牌的 Secret Access Key",
+  "bucket": "zhushen-assets"
+}

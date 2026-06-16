@@ -8,3 +8,5 @@ public/enhance-bosses/
 public/joy-girls/
 # NAI 批量生图工具的本地 Token（含密钥，勿入库；模板见 config.example.json）
 tools/nai-batch/config.json
+# R2 上传工具的本地密钥（含 S3 Access Key/Secret，勿入库；模板见 config.example.json）
+tools/upload-r2/config.json

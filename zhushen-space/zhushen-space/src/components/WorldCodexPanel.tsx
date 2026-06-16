@@ -93,13 +93,14 @@ function InnerBlock({ lines }: { lines: string[] }) {
   return <>{out}</>;
 }
 
-/* 取标题：# 标题 / **名称** / 【n】名称（短、无 ｜）。否则 null */
+/* 取标题：# 标题 / **名称** / 【n】名称 / 「1. 大节标题」（短、无 ｜、不以句末标点结尾）。否则 null */
 function entryTitle(line: string): string | null {
   const t = line.trim();
   let m: RegExpMatchArray | null;
   if ((m = t.match(/^#{1,6}\s+(.+)$/))) return m[1].replace(/\*\*/g, '').replace(/[:：]\s*$/, '').trim();
   if ((m = t.match(/^\*\*([^*]+)\*\*\s*[:：]?\s*$/))) return m[1].trim();
   if ((m = t.match(/^【\d+】\s*([^：:｜|]{1,22})\s*[:：]?\s*$/))) return m[1].trim();
+  if (/^\d{1,2}[.、]\s*\S/.test(t) && t.length <= 34 && !/[。！？.!?]$/.test(t) && !/[｜|]/.test(t)) return t;
   return null;
 }
 
@@ -180,41 +181,51 @@ function StructuredEntry({ parts }: { parts: string[] }) {
   );
 }
 
-/* 渲染：list 型每条目整体一张卡片；text 型每段落块一张卡片。提升对比与可读性，无 HTML 注入。 */
+/* 渲染：有标题→分节/逐条卡片（标题+正文）；text 型无标题→按段落块成卡。无 HTML 注入。 */
 function CodexBody({ text, type }: { text: string; type: 'text' | 'list' }) {
-  if (type === 'list') {
-    const entries = groupEntries(text);
+  const entries = groupEntries(text);
+  const anyTitle = entries.some((e) => e.title);
+
+  // 简介这类无任何标题的纯文字：按空行分块成卡，保留段落感
+  if (type === 'text' && !anyTitle) {
+    const blocks = text.split(/\n{2,}/).map((b) => b.trim()).filter(Boolean);
     return (
-      <div className="space-y-2.5 text-[14.5px] leading-[1.8] text-slate-200">
-        {entries.map((e, i) => {
-          const single = !e.title && e.body.length === 1 ? stripMarker(e.body[0]) : null;
-          const parts = single && /[｜|]/.test(single) ? single.split(/\s*[｜|]\s*/).map((s) => s.trim()).filter(Boolean) : null;
-          return (
-            <div key={i} className={`${CARD} border-l-[3px] border-l-indigo-500/50 px-3.5 py-2.5`}>
-              {e.title ? (
+      <div className="space-y-2.5 text-[14.5px] leading-[1.9] text-slate-200">
+        {blocks.map((block, bi) => (
+          <div key={bi} className={`${CARD} px-4 py-3`}>
+            <InnerBlock lines={block.split('\n').map((l) => l.trim()).filter(Boolean)} />
+          </div>
+        ))}
+      </div>
+    );
+  }
+
+  // 其余：每个分节 / 每条目一张卡（编号大节、### 角色、｜单行 各归其卡）
+  return (
+    <div className="space-y-2.5 text-[14.5px] leading-[1.8] text-slate-200">
+      {entries.map((e, i) => {
+        const single = !e.title && e.body.length === 1 ? stripMarker(e.body[0]) : null;
+        const parts = single && /[｜|]/.test(single) ? single.split(/\s*[｜|]\s*/).map((s) => s.trim()).filter(Boolean) : null;
+        const hasBody = e.body.some(Boolean);
+        return (
+          <div key={i} className={`${CARD} border-l-[3px] border-l-indigo-500/50 px-3.5 py-2.5`}>
+            {e.title ? (
+              hasBody ? (
                 <>
                   <div className="font-bold text-slate-100 text-[15px] mb-1.5 pb-1.5 border-b border-edge/60">{renderInline(e.title)}</div>
                   <EntryBody lines={e.body} />
                 </>
-              ) : parts && parts.length > 1 ? (
-                <StructuredEntry parts={parts} />
               ) : (
-                <EntryBody lines={e.body} />
-              )}
-            </div>
-          );
-        })}
-      </div>
-    );
-  }
-  const blocks = text.split(/\n{2,}/).map((b) => b.trim()).filter(Boolean);
-  return (
-    <div className="space-y-2.5 text-[14.5px] leading-[1.9] text-slate-200">
-      {blocks.map((block, bi) => (
-        <div key={bi} className={`${CARD} px-4 py-3`}>
-          <InnerBlock lines={block.split('\n').map((l) => l.trim()).filter(Boolean)} />
-        </div>
-      ))}
+                <div className="font-semibold text-slate-100">{renderInline(e.title)}</div>
+              )
+            ) : parts && parts.length > 1 ? (
+              <StructuredEntry parts={parts} />
+            ) : (
+              <EntryBody lines={e.body} />
+            )}
+          </div>
+        );
+      })}
     </div>
   );
 }
