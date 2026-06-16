@@ -230,11 +230,15 @@ export interface VecMemConfig {
 interface SettingsState {
   // 综合设置
   historyLimit: number;   // 0 = 不限制；> 0 = 仅显示/发送最近 N 条消息
+  disableEnterSend: boolean;  // 禁用回车发送（防误触）：开启后输入框回车不再发送，只能点发送按钮
+  setDisableEnterSend: (v: boolean) => void;
   allowAutoEquip: boolean;  // 是否允许 AI 自动装备主角拾取/生成的装备（关闭=仅能在装备面板手动穿戴）
   setAllowAutoEquip: (v: boolean) => void;
   allowAutoEquipNpc: boolean;  // 是否允许自动给 NPC 穿戴装备（含初始装备与 AI 装备指令；关闭=只入 NPC 储存空间）
   setAllowAutoEquipNpc: (v: boolean) => void;
   customOpening: string;  // 自定义开场白模板（角色创建确认后自动发送；含 ${...} 占位符，空=用内置默认）
+  reading: { fontSize: number; letterSpacing: number; lineHeight: number };  // 正文阅读排版：字号(px)/字间距(px)/行距(倍数)；默认 17/0/1.8=现状
+  setReading: (patch: Partial<{ fontSize: number; letterSpacing: number; lineHeight: number }>) => void;
   plotChoices: boolean;   // 剧情选项：每段正文生成后，额外生成 8 个主角行动选项（最后 1 个限制级）
   setPlotChoices: (v: boolean) => void;
   fanficMode: boolean;    // 同人增强：识别已知作品角色→输出/锁定设定→下回合注入正文防 OOC
@@ -570,9 +574,11 @@ export const useSettings = create<SettingsState>()(
     (set, get) => ({
       // 综合设置
       historyLimit: 0,
+      disableEnterSend: false,
       allowAutoEquip: true,
       allowAutoEquipNpc: true,
       customOpening: '',
+      reading: { fontSize: 17, letterSpacing: 0, lineHeight: 1.8 },
       plotChoices: false,
       fanficMode: false,
       factCheck: false,
@@ -610,9 +616,11 @@ export const useSettings = create<SettingsState>()(
 
       // ── 综合设置操作 ──
       setHistoryLimit: (n) => set({ historyLimit: Math.max(0, n) }),
+      setDisableEnterSend: (v) => set({ disableEnterSend: v }),
       setAllowAutoEquip: (v) => set({ allowAutoEquip: v }),
       setAllowAutoEquipNpc: (v) => set({ allowAutoEquipNpc: v }),
       setCustomOpening: (s) => set({ customOpening: s }),
+      setReading: (patch) => set((s) => ({ reading: { ...s.reading, ...patch } })),
       setPlotChoices: (v) => set({ plotChoices: v }),
       setFanficMode: (v) => set({ fanficMode: v }),
       setFactCheck: (v) => set({ factCheck: v }),

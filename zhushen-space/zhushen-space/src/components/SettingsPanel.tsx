@@ -29,7 +29,7 @@ interface SettingsPanelProps {
   onOpenSaveLoad: () => void;   // 打开存档管理面板（导出/导入/重置游戏数据；逻辑复用 SaveLoadPanel）
 }
 
-type Page = 'home' | 'world-detail' | 'textgen-detail' | 'regex-detail' | 'general' | 'variables' | 'item-manager' | 'player-manager' | 'npc-manager' | 'faction-manager' | 'territory-manager' | 'team-manager' | 'cosmos-manager' | 'memory-manager' | 'misc-manager' | 'channel-manager' | 'novelvec-manager' | 'codex-manager' | 'dice-manager' | 'combat-manager' | 'arena-manager' | 'enhance-manager' | 'joy-manager' | 'narrative-memory' | 'vector-memory' | 'image-gen';
+type Page = 'home' | 'world-detail' | 'textgen-detail' | 'regex-detail' | 'general' | 'variables' | 'item-manager' | 'player-manager' | 'npc-manager' | 'faction-manager' | 'territory-manager' | 'team-manager' | 'cosmos-manager' | 'memory-manager' | 'misc-manager' | 'channel-manager' | 'novelvec-manager' | 'codex-manager' | 'dice-manager' | 'combat-manager' | 'arena-manager' | 'enhance-manager' | 'joy-manager' | 'narrative-memory' | 'vector-memory' | 'image-gen' | 'appearance';
 type Tab = 'worldbook' | 'api' | 'prompt' | 'preset' | 'global-regex' | 'preset-regex';
 
 function DetailLayout({ title, onBack, tabs, activeTab, onTab, children }: {
@@ -87,6 +87,25 @@ export default function SettingsPanel({ onClose, onOpenSaveLoad }: SettingsPanel
         <div className="flex-1 overflow-y-auto p-6 max-lg:p-3">
           <div className="max-w-xl mx-auto">
             <GeneralSettingsSection />
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (page === 'appearance') {
+    return (
+      <div className="h-screen flex flex-col bg-void text-slate-300">
+        <header className="shrink-0 h-10 flex items-center justify-between px-4 border-b border-edge bg-panel">
+          <button onClick={() => setPage('home')} className="flex items-center gap-2 text-sm font-mono text-dim hover:text-slate-200 transition-colors">
+            ← 系统设置
+          </button>
+          <span className="text-sm font-mono text-dim">界面外观</span>
+          <div className="w-20" />
+        </header>
+        <div className="flex-1 overflow-y-auto p-6 max-lg:p-3">
+          <div className="max-w-xl mx-auto">
+            <AppearanceSettingsSection />
           </div>
         </div>
       </div>
@@ -552,7 +571,7 @@ export default function SettingsPanel({ onClose, onOpenSaveLoad }: SettingsPanel
           <SettingsMenuItem icon="🧠" title="叙事记忆"  desc="关键词召回长期剧情记忆，按相关性注入正文（无需向量）" onClick={() => setPage('narrative-memory')} />
           <SettingsMenuItem icon="🧭" title="向量记忆"  desc="语义向量召回长期记忆（更快·需 embedding 接口）；开启后接管召回" onClick={() => setPage('vector-memory')} />
           <SettingsMenuItem icon="🖼" title="生图设置"  desc="NAI/OpenAI/Gemini/ComfyUI 多服务 · 肖像/装备/正文配图" onClick={() => setPage('image-gen')} />
-          <SettingsMenuItem icon="🎨" title="界面外观"  desc="主题、字体与显示偏好"            onClick={() => {}} disabled />
+          <SettingsMenuItem icon="🎨" title="界面外观"  desc="正文字体大小、字间距、行间距"      onClick={() => setPage('appearance')} />
           <SettingsMenuItem icon="🔊" title="音效设置"  desc="背景音乐与音效音量"              onClick={() => {}} disabled />
           <SettingsMenuItem icon="💾" title="存档管理"  desc="导出、导入与重置游戏数据"        onClick={onOpenSaveLoad} />
         </div>
@@ -2068,6 +2087,8 @@ function GeneralSettingsSection() {
   const setHistoryLimit = useSettings((s) => s.setHistoryLimit);
   const customOpening    = useSettings((s) => s.customOpening);
   const setCustomOpening = useSettings((s) => s.setCustomOpening);
+  const disableEnterSend    = useSettings((s) => s.disableEnterSend);
+  const setDisableEnterSend = useSettings((s) => s.setDisableEnterSend);
   const [input, setInput] = useState(String(historyLimit));
 
   function commit(val: string) {
@@ -2126,6 +2147,18 @@ function GeneralSettingsSection() {
         </div>
       </div>
 
+      {/* 输入行为 */}
+      <div className="space-y-4">
+        <div className="text-sm font-mono text-god/70 uppercase tracking-widest">输入行为</div>
+        <div className="flex items-start gap-3 border border-edge rounded-lg p-4 bg-panel">
+          <Toggle checked={disableEnterSend} onChange={() => setDisableEnterSend(!disableEnterSend)} />
+          <div>
+            <div className="text-sm font-semibold text-slate-200">禁用回车发送</div>
+            <div className="text-sm text-dim mt-1 leading-relaxed">开启后，输入框按回车（Enter）不再发送消息，只能点击发送按钮 ▶，防止打字时误触发送。</div>
+          </div>
+        </div>
+      </div>
+
       {/* API 接口库 */}
       <ApiLibrarySection />
       {/* API 请求节流（缓解 429）*/}
@@ -2158,6 +2191,59 @@ function GeneralSettingsSection() {
             )}
           </div>
         </div>
+      </div>
+    </div>
+  );
+}
+
+/* ─── 界面外观：正文阅读区字体排版（字号/字间距/行距），写入 settings.reading，正文楼层与此处预览共用 .narrative-content + CSS 变量 ─── */
+const READ_FONT_SIZES    = [{ label: '小', v: 15 }, { label: '标准', v: 17 }, { label: '大', v: 19 }, { label: '特大', v: 22 }];
+const READ_LETTER_SPACES = [{ label: '标准', v: 0 }, { label: '适中', v: 0.5 }, { label: '宽松', v: 1 }, { label: '超宽', v: 2 }];
+const READ_LINE_HEIGHTS  = [{ label: '紧凑', v: 1.6 }, { label: '标准', v: 1.8 }, { label: '宽松', v: 2.1 }, { label: '超宽', v: 2.4 }];
+
+function ReadingOptionRow({ title, desc, opts, cur, onPick, fmt }: {
+  title: string; desc: string; opts: { label: string; v: number }[]; cur: number; onPick: (v: number) => void; fmt: (v: number) => string;
+}) {
+  return (
+    <div className="space-y-3">
+      <div className="text-sm font-mono text-god/70 uppercase tracking-widest">{title}</div>
+      <div className="border border-edge rounded-lg p-4 bg-panel space-y-3">
+        <div className="text-sm text-dim leading-relaxed">{desc}</div>
+        <div className="grid grid-cols-4 gap-2">
+          {opts.map((o) => (
+            <button key={o.v} onClick={() => onPick(o.v)}
+              className={`px-2 py-2.5 rounded-lg border text-sm font-mono transition-colors ${
+                cur === o.v ? 'border-god/60 bg-god/15 text-god' : 'border-edge bg-void/40 text-dim hover:border-god/30 hover:text-slate-300'}`}>
+              <div className="font-semibold">{o.label}</div>
+              <div className="text-[11px] opacity-60 mt-0.5">{fmt(o.v)}</div>
+            </button>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function AppearanceSettingsSection() {
+  const reading    = useSettings((s) => s.reading);
+  const setReading = useSettings((s) => s.setReading);
+  return (
+    <div className="space-y-8">
+      <SectionTitle title="界面外观" desc="正文阅读区的字体排版，实时生效（仅影响 AI 正文楼层的显示，不改变存档与发送给 AI 的内容）" />
+      <ReadingOptionRow title="字体大小" desc="正文文字的字号大小。" opts={READ_FONT_SIZES} cur={reading.fontSize} onPick={(v) => setReading({ fontSize: v })} fmt={(v) => `${v}px`} />
+      <ReadingOptionRow title="字间距" desc="文字之间的横向间隔。" opts={READ_LETTER_SPACES} cur={reading.letterSpacing} onPick={(v) => setReading({ letterSpacing: v })} fmt={(v) => v === 0 ? 'normal' : `${v}px`} />
+      <ReadingOptionRow title="行间距" desc="正文段落内行与行的高度。" opts={READ_LINE_HEIGHTS} cur={reading.lineHeight} onPick={(v) => setReading({ lineHeight: v })} fmt={(v) => `${v}×`} />
+      <div className="space-y-3">
+        <div className="text-sm font-mono text-god/70 uppercase tracking-widest">实时预览</div>
+        <div className="border border-edge rounded-lg p-5 bg-void/40">
+          <div className="text-slate-300 narrative-content"
+            style={{ fontSize: `${reading.fontSize}px`, letterSpacing: `${reading.letterSpacing}px`, '--narr-lh': String(reading.lineHeight) } as any}>
+            <p>淡金色的文字在你面前浮现——它们不是光，而是直接烙进灵魂的讯息。【乐园】正在校验你的灵魂，适配判定：通过。</p>
+            <p>“欢迎加入，契约者。”冰冷的提示音在空旷的大厅里回响，你能感觉到黑暗深处有无数双眼睛正注视着你。</p>
+          </div>
+        </div>
+        <button onClick={() => setReading({ fontSize: 17, letterSpacing: 0, lineHeight: 1.8 })}
+          className="text-[13px] font-mono text-dim/50 hover:text-blood transition-colors">↺ 恢复默认（17px / normal / 1.8×）</button>
       </div>
     </div>
   );

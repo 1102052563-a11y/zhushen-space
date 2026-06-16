@@ -1119,6 +1119,8 @@ export default function App() {
 
   // 综合设置
   const historyLimit = useSettings((s) => s.historyLimit);
+  const disableEnterSend = useSettings((s) => s.disableEnterSend);
+  const reading = useSettings((s) => s.reading);
   const narrativeMem = useSettings((s) => s.narrativeMemory);
 
   // 正文生成设置
@@ -1191,6 +1193,9 @@ export default function App() {
   const combatApiBusy  = useCombat((s) => s.apiBusy);
   const combatDrivingRef = useRef(false);
   const combatFinishingRef = useRef(false);
+  // 战斗最终 HP/EP（finishBattle 写入）：下一回合（玩家发送战斗复盘后）防双扣——
+  // 跳过正文 HP 抽取，并在演化对账后把战斗结算值压回，免得 AI 复盘把已扣的血再扣一遍。
+  const combatSettledRef = useRef<{ hp: Record<string, number>; ep: Record<string, number> } | null>(null);
   useEffect(() => {
     const C = useCombat.getState();
     const b = C.battle;
@@ -3965,10 +3970,12 @@ ${lines.join('\n')}`;
     const existing = C.messages.slice(0, 18).map((m) => `[${m.channel}] ${m.authorName}: ${m.content}`).join('\n') || '（暂无）';
     const enabledChannels = enabledDefs.map((d) => `${d.label}(${d.key})`).join('、');
     const enabledKeys = new Set(enabledDefs.map((d) => d.key));
+    const homePara = prof.homeParadise || '轮回乐园';   // 主角所属乐园（开局选定）；公共频道隶属此乐园，而非默认轮回乐园
     const sys = buildChannelSystemPrompt(C.settings.entries)
       .replaceAll('${player_name}', prof.name || '主角')
       .replaceAll('${player_tier}', `${prof.tier || realmFromLevel(prof.level)}·Lv.${prof.level}`)
-      .replaceAll('${world_name}', M.worldName || '轮回乐园')
+      .replaceAll('${home_paradise}', homePara)
+      .replaceAll('${world_name}', M.worldName || homePara)
       .replaceAll('${world_time}', M.worldTime || M.paradiseTime || '（未设定）')
       .replaceAll('${enabled_channels}', enabledChannels)
       .replaceAll('${recent_events}', recent)
@@ -4018,6 +4025,7 @@ ${lines.join('\n')}`;
     if (!C.settings.enabled || channel === 'system' || !content.trim()) return;
     const prof = usePlayer.getState().profile;
     const playerName = prof.name || '主角';
+    const homePara = prof.homeParadise || '轮回乐园';   // 频道隶属主角所属乐园，而非默认轮回乐园
     // 先把主角发言立即上墙（回复随后逐条插到它上方，增加真实感）
     const postId = useChannel.getState().addPlayerSpeak(channel as any, playerName, content.trim(), replyTo?.authorName);
     const M = useMisc.getState();
@@ -4041,10 +4049,10 @@ ${lines.join('\n')}`;
     if (chain[0]?.baseUrl && chain[0]?.apiKey) {
       const otherN = 2 + Math.floor(Math.random() * 3);   // 回复某人时，其他人插嘴 2~4 条
       const replyN = 2 + Math.floor(Math.random() * 5);   // 普通发言 2~6 条
-      const common = `你是「轮回乐园·公共频道」的回复生成器，模拟【${chDef?.label ?? channel}】频道里其他契约者/土著的真实回复。
+      const common = `你是「${homePara}·公共频道」的回复生成器，模拟【${chDef?.label ?? channel}】频道里其他契约者/土著的真实回复。
 - 语气务必**多样**、贴合频道氛围：嘲讽 / 认同 / 赞赏 / 吐槽 / 崇拜 / 抬杠 / 阴阳怪气 / 玩梗整活 / 看热闹 / 话不着边 / 提问 / 泼冷水 等（不止这些，自行发挥），别千篇一律、也别都正面。
 - 不同频道风格不同：综合更整活玩梗，战斗更热血/支招，情报更分析推理，世界更见闻闲谈，交易更砍价吐槽，组队更搭话约人。
-- 发帖人用游戏化网名（如 夜影剑心 / 量子咸鱼 / 虚空观测者）；贴合当前世界(${M.worldName || '轮回乐园'})与主角阶位强度，别离谱。
+- 发帖人用游戏化网名（如 夜影剑心 / 量子咸鱼 / 虚空观测者）；贴合当前世界(${M.worldName || homePara})与主角阶位强度，别离谱。
 - **务必延续上文**：顺着之前的话题接话、可回应之前回复过主角的人，保持对话连贯，别每条都另起炉灶。
 - **只输出 JSON**：{"replies":[{"author":"网名","tier":"阶位·Lv","job":"职业(多样/隐藏职业)","persona":"性格","strength":"T档(如T3·勇士)","content":"回复正文"}]}，不要任何多余文字或 markdown。
 
@@ -5476,16 +5484,25 @@ ${lines}`;
     usePlayer.getState().setProfile({ advancePoints: (prof.advancePoints || 0) + pts, worldSource: (prof.worldSource || 0) + pts });
     return pts;
   }
-  function writeBackCombatVitals(state: BattleState) {
+  function combatFinalVitals(state: BattleState): { hp: Record<string, number>; ep: Record<string, number> } {
+    const hp: Record<string, number> = {}, ep: Record<string, number> = {};
     for (const id of Object.keys(state.participants)) {
-      const c = state.participants[id];
-      if (id === 'B1') {
-        useGame.getState().setPlayerField('hp', Math.max(0, Math.round(c.curHp)));
-        useGame.getState().setPlayerField('mp', Math.max(0, Math.round(c.curEp)));
-      } else if (!state.initialState[id]?.isTransient) {
-        useNpc.getState().upsertNpc(id, { hp: Math.max(0, Math.round(c.curHp)), mp: Math.max(0, Math.round(c.curEp)) });
-      }
+      if (id !== 'B1' && state.initialState[id]?.isTransient) continue;   // 临时敌不写回档案
+      hp[id] = Math.max(0, Math.round(state.participants[id].curHp));
+      ep[id] = Math.max(0, Math.round(state.participants[id].curEp));
     }
+    return { hp, ep };
+  }
+  function applyCombatVitals(v: { hp: Record<string, number>; ep: Record<string, number> }) {
+    for (const id of Object.keys(v.hp)) {
+      if (id === 'B1') { useGame.getState().setPlayerField('hp', v.hp[id]); useGame.getState().setPlayerField('mp', v.ep[id]); }
+      else if (useNpc.getState().npcs[id]) { useNpc.getState().upsertNpc(id, { hp: v.hp[id], mp: v.ep[id] }); }
+    }
+  }
+  function writeBackCombatVitals(state: BattleState) {
+    const v = combatFinalVitals(state);
+    applyCombatVitals(v);
+    combatSettledRef.current = v;   // 标记本场战斗 HP/EP 已结算 → 下一回合防双扣
   }
   // 离线/无 API 时的战斗结果兜底文本（供写入输入框）
   function buildCombatResultFallback(state: BattleState, victor: Side | null): string {
@@ -5504,8 +5521,10 @@ ${lines}`;
       const state = C.battle;
       const summary = await runBattleSummaryPhase(state, victor);
       const resultText = summary || buildCombatResultFallback(state, victor);
+      const settledNote = '（系统：本场战斗的 HP/EP 已结算并写入面板，续写正文请从当前面板状态出发，不要重复结算战斗伤害或再加减 HP/EP。）';
+      const full = resultText ? `${resultText}\n${settledNote}` : '';
       // 战斗结果写进用户输入框，由玩家确认/编辑后点发送续写正文（不自动插入正文楼层）
-      if (resultText) setInputValue((prev) => (prev && prev.trim() ? `${prev}\n\n${resultText}` : resultText));
+      if (full) setInputValue((prev) => (prev && prev.trim() ? `${prev}\n\n${full}` : full));
       let reward = 0;
       if (C.config.postBattleRewards && victor === 'player') reward = applyCombatRewards(state);
       writeBackCombatVitals(state);
@@ -5527,12 +5546,19 @@ ${lines}`;
     }
   }
   function runPostNarrativePhases(narrative: string, assistantMsgId?: number) {
+    // 战斗刚结算（本回合是玩家发送的"战斗复盘"）→ HP/EP 已由战斗系统定死：本回合不从正文再抽 HP（防 AI 复盘重复扣血），改以战斗结算值为准
+    const combatSettled = combatSettledRef.current;
+    combatSettledRef.current = null;
     // 先从正文人物卡照抄六维（同步，先于各演化阶段，使快照与显示即刻正确）
     try { applyNarrativeAttrs(narrative); } catch (e) { console.warn('[Attr] 六维抽取失败:', e); }
-    // 主角 HP/EP：正文出现"当前HP/EP：X/Y"就照抄（AI 漏写 hp.B1 时兜底，解决 HP 恢复了但侧栏不变）
-    try { applyNarrativeVitals(narrative); } catch (e) { console.warn('[Vitals] HP/EP 抽取失败:', e); }
-    // NPC HP/EP：正文按名字出现"(当前)HP/EP：X/Y"就照抄（参考主角逻辑，AI 漏写 hp.<id> 时兜底）
-    try { applyNarrativeNpcVitals(narrative); } catch (e) { console.warn('[Vitals] NPC HP/EP 抽取失败:', e); }
+    if (combatSettled) {
+      applyCombatVitals(combatSettled);   // 以战斗结算值为准，跳过正文 HP 抽取（避免双扣）
+    } else {
+      // 主角 HP/EP：正文出现"当前HP/EP：X/Y"就照抄（AI 漏写 hp.B1 时兜底，解决 HP 恢复了但侧栏不变）
+      try { applyNarrativeVitals(narrative); } catch (e) { console.warn('[Vitals] HP/EP 抽取失败:', e); }
+      // NPC HP/EP：正文按名字出现"(当前)HP/EP：X/Y"就照抄（参考主角逻辑，AI 漏写 hp.<id> 时兜底）
+      try { applyNarrativeNpcVitals(narrative); } catch (e) { console.warn('[Vitals] NPC HP/EP 抽取失败:', e); }
+    }
     // 在场/离场校正（兜底登场判断漏标，确保离场角色进入离场B区档案）
     try { reconcileScenePresence(narrative); } catch (e) { console.warn('[NPC] 在场/离场校正失败:', e); }
     // 先用当前已有 NPC 设一份重定向目标（登场判断完成后会再刷新）
@@ -5547,10 +5573,12 @@ ${lines}`;
     const itemP = dueItem ? runItemManagementPhase(narr('item')) : Promise.resolve();
     const playerP = duePlayer ? runPlayerEvolutionPhase(narr('player')) : Promise.resolve();
     if (dueItem || duePlayer) {
-      Promise.allSettled([itemP, playerP]).then(() => runMergedAuditPhase(narrative, { player: duePlayer, item: dueItem }));
+      Promise.allSettled([itemP, playerP])
+        .then(() => runMergedAuditPhase(narrative, { player: duePlayer, item: dueItem }))
+        .then(() => { if (combatSettled) applyCombatVitals(combatSettled); });   // 对账若据复盘再扣 HP → 压回战斗结算值
     }
     // NPC 演化（内部自行判断启用/API/策略）
-    if (due('npc')) runNpcEvolutionPhase(narr('npc'));
+    if (due('npc')) { const npcEvoP = runNpcEvolutionPhase(narr('npc')); if (combatSettled) Promise.resolve(npcEvoP).then(() => applyCombatVitals(combatSettled)); }
     // 势力演化
     if (due('faction')) runFactionEvolutionPhase(narr('faction'));
     // 领地演化（单一基地）
@@ -6225,7 +6253,8 @@ ${lines}`;
                                 <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round"><path d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg>
                               </button>
                               <div
-                                className="text-[17px] text-slate-300 leading-relaxed narrative-content"
+                                className="text-slate-300 narrative-content"
+                                style={{ fontSize: `${reading.fontSize}px`, letterSpacing: `${reading.letterSpacing}px`, '--narr-lh': String(reading.lineHeight) } as any}
                                 dangerouslySetInnerHTML={{ __html: toHtmlWithImages(msg.content, msg.images) }}
                               />
                               {msg.fanficNote && (
@@ -6422,7 +6451,7 @@ ${lines}`;
                   className="w-full flex items-center gap-2 px-3 py-1.5 text-[12px] font-mono text-fuchsia-300/80 hover:text-fuchsia-200 transition-colors">
                   <span>🎭 剧情选项</span>
                   <span className="px-1 rounded bg-void/60 text-dim/70">{opts.length}</span>
-                  <span className="flex-1 text-left text-dim/40 truncate">{choicesOpen ? '可多选 · 依次叠加进输入框' : '点击展开 · 可多选叠加'}</span>
+                  <span className="flex-1 text-left text-dim/40 truncate">{choicesOpen ? '可多选 · 点选叠加，再点取消' : '点击展开 · 可多选叠加'}</span>
                   <span className={`transition-transform ${choicesOpen ? 'rotate-180' : ''}`}>▾</span>
                 </button>
                 {choicesOpen && (
@@ -6432,11 +6461,15 @@ ${lines}`;
                       const nsfw = i === opts.length - 1;
                       const picked = !!inputValue.trim() && inputValue.includes(opt);   // 已叠加进输入框 → 显示 ✓
                       return (
-                        <button key={i} title="点击叠加进输入框（可多选，编辑后发送）"
+                        <button key={i} title="点选叠加进输入框，再点取消（可多选，编辑后发送）"
                           onClick={() => setInputValue((prev) => {
-                            const base = (prev ?? '').replace(/[，,\s]+$/, '');             // 去掉末尾已有分隔，避免叠重
-                            if (base.endsWith(opt.trim())) return base;                     // 防连点重复叠加
-                            return base ? `${base}，${opt}` : opt;                          // 叠加而非覆盖；单行输入框用「，」分隔（换行会被 input 吞掉看不见）
+                            const cur = prev ?? '';
+                            const o = opt.trim();
+                            if (cur.includes(o)) {                                          // 再点已选项 → 取消：移除该项并规整逗号（保留手输文字）
+                              return cur.replace(o, '').replace(/，\s*，/g, '，').replace(/^[，\s]+|[，\s]+$/g, '');
+                            }
+                            const base = cur.replace(/[，,\s]+$/, '');                       // 末尾已有分隔则复用，避免叠重
+                            return base ? `${base}，${o}` : o;                              // 叠加而非覆盖；单行输入框用「，」分隔（换行会被 input 吞掉看不见）
                           })}
                           className={`text-left rounded-lg border px-3 py-2 text-sm leading-snug transition-colors ${nsfw ? 'border-rose-500/40 bg-rose-500/5 text-rose-200/90 hover:bg-rose-500/15' : 'border-edge bg-panel/40 text-slate-300 hover:border-god/40 hover:text-god'} ${picked ? 'ring-1 ring-god/50' : ''}`}>
                           <span className="font-mono text-[12px] text-dim/50 mr-1.5">{picked ? '✓' : letter}{nsfw ? '·18+' : ''}</span>{opt}
@@ -6497,8 +6530,8 @@ ${lines}`;
               type="text"
               value={inputValue}
               onChange={(e) => setInputValue(e.target.value)}
-              onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendMessage(); } }}
-              placeholder="在此输入你的行动..."
+              onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { if (disableEnterSend) return; e.preventDefault(); sendMessage(); } }}
+              placeholder={disableEnterSend ? '在此输入你的行动…（回车发送已禁用，点 ▶ 发送）' : '在此输入你的行动...'}
               className="flex-1 bg-transparent text-sm max-lg:text-base text-slate-200 placeholder:text-dim outline-none"
             />
             <button
