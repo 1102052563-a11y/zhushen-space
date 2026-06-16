@@ -15,7 +15,9 @@ import DiceManager from './DiceManager';
 import CombatManager from './CombatManager';
 import ArenaManager from './ArenaManager';
 import EnhanceManager from './EnhanceManager';
+import JoyManager from './JoyManager';
 import NovelVecManager from './NovelVecManager';
+import WorldCodexManager from './WorldCodexManager';
 import ChannelManager from './ChannelManager';
 import ImageGenManager from './ImageGenManager';
 import { useMisc } from '../store/miscStore';
@@ -27,7 +29,7 @@ interface SettingsPanelProps {
   onOpenSaveLoad: () => void;   // 打开存档管理面板（导出/导入/重置游戏数据；逻辑复用 SaveLoadPanel）
 }
 
-type Page = 'home' | 'world-detail' | 'textgen-detail' | 'regex-detail' | 'general' | 'variables' | 'item-manager' | 'player-manager' | 'npc-manager' | 'faction-manager' | 'territory-manager' | 'team-manager' | 'cosmos-manager' | 'memory-manager' | 'misc-manager' | 'channel-manager' | 'novelvec-manager' | 'dice-manager' | 'combat-manager' | 'arena-manager' | 'enhance-manager' | 'narrative-memory' | 'vector-memory' | 'image-gen';
+type Page = 'home' | 'world-detail' | 'textgen-detail' | 'regex-detail' | 'general' | 'variables' | 'item-manager' | 'player-manager' | 'npc-manager' | 'faction-manager' | 'territory-manager' | 'team-manager' | 'cosmos-manager' | 'memory-manager' | 'misc-manager' | 'channel-manager' | 'novelvec-manager' | 'codex-manager' | 'dice-manager' | 'combat-manager' | 'arena-manager' | 'enhance-manager' | 'joy-manager' | 'narrative-memory' | 'vector-memory' | 'image-gen';
 type Tab = 'worldbook' | 'api' | 'prompt' | 'preset' | 'global-regex' | 'preset-regex';
 
 function DetailLayout({ title, onBack, tabs, activeTab, onTab, children }: {
@@ -173,8 +175,10 @@ export default function SettingsPanel({ onClose, onOpenSaveLoad }: SettingsPanel
             onOpenCombatManager={() => setPage('combat-manager')}
             onOpenArenaManager={() => setPage('arena-manager')}
             onOpenEnhanceManager={() => setPage('enhance-manager')}
+            onOpenJoyManager={() => setPage('joy-manager')}
             onOpenChannelManager={() => setPage('channel-manager')}
             onOpenNovelVecManager={() => setPage('novelvec-manager')}
+            onOpenWorldCodexManager={() => setPage('codex-manager')}
           />
         </div>
       </div>
@@ -300,6 +304,23 @@ export default function SettingsPanel({ onClose, onOpenSaveLoad }: SettingsPanel
     );
   }
 
+  if (page === 'codex-manager') {
+    return (
+      <div className="h-screen flex flex-col bg-void text-slate-300">
+        <header className="shrink-0 h-10 flex items-center justify-between px-4 border-b border-edge bg-panel">
+          <button onClick={() => setPage('variables')} className="flex items-center gap-2 text-sm font-mono text-dim hover:text-slate-200 transition-colors">
+            ← 变量管理
+          </button>
+          <span className="text-sm font-mono text-dim">世界百科</span>
+          <div className="w-20" />
+        </header>
+        <div className="flex-1 overflow-y-auto p-6">
+          <WorldCodexManager />
+        </div>
+      </div>
+    );
+  }
+
   if (page === 'memory-manager') {
     return (
       <div className="h-screen flex flex-col bg-void text-slate-300">
@@ -397,6 +418,23 @@ export default function SettingsPanel({ onClose, onOpenSaveLoad }: SettingsPanel
         </header>
         <div className="flex-1 overflow-y-auto p-6">
           <EnhanceManager />
+        </div>
+      </div>
+    );
+  }
+
+  if (page === 'joy-manager') {
+    return (
+      <div className="h-screen flex flex-col bg-void text-slate-300">
+        <header className="shrink-0 h-10 flex items-center justify-between px-4 border-b border-edge bg-panel">
+          <button onClick={() => setPage('variables')} className="flex items-center gap-2 text-sm font-mono text-dim hover:text-slate-200 transition-colors">
+            ← 变量管理
+          </button>
+          <span className="text-sm font-mono text-dim">欢愉宫</span>
+          <div className="w-20" />
+        </header>
+        <div className="flex-1 overflow-y-auto p-6">
+          <JoyManager />
         </div>
       </div>
     );

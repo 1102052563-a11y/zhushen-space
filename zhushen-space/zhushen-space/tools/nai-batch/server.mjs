@@ -56,7 +56,7 @@ function extractImageFromZip(u8) {
 
 /* ── 单张生成（含 429/异常重试）── */
 async function genImageOnce(o) {
-  const positive = [o.artistTags, o.prompt].map((x) => (x || '').trim()).filter(Boolean).join(', ');
+  const positive = [o.artistTags, (o.positive ?? o.prompt)].map((x) => (x || '').trim()).filter(Boolean).join(', ');
   const [w, h] = String(o.size || '1216x832').split(/[x×*]/).map((n) => parseInt(n) || 1024);
   const isV4 = /^nai-diffusion-4(?:-|$)/i.test(o.model);
   const params = {

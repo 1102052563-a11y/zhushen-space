@@ -65,6 +65,7 @@ import { hydrateImages, initImageSync } from './systems/imageSync';
 import { loadWb, saveWb } from './systems/wbDb';
 import TerritoryPanel from './components/TerritoryPanel';
 import CosmosPanel from './components/CosmosPanel';
+import WorldCodexPanel from './components/WorldCodexPanel';
 import AdventureTeamPanel from './components/AdventureTeamPanel';
 import ImageViewer from './components/ImageViewer';
 import ImageBusyToast from './components/ImageBusyToast';
@@ -92,6 +93,9 @@ import { serializePlayerCard, serializeNpcCard, buildNpcCandidateTitles, rankNpc
 import MiscPanel from './components/MiscPanel';
 import DicePanel from './components/DicePanel';
 import EnhancePanel from './components/EnhancePanel';
+import JoyPanel from './components/JoyPanel';
+import { useJoy } from './store/joyStore';
+import { buildJoySystem, parseJoyReply, buildGreetPrompt } from './systems/joyGirls';
 import ArenaPanel from './components/ArenaPanel';
 import { useArena } from './store/arenaStore';
 import { ladderBadge, rewardTierFor, REWARD_BANDS, streakBonusMul, pickInt as arenaPickInt, effectiveTier as arenaEffectiveTier, type ArenaDef as ArenaDefType, type LadderEntry as ArenaLadderEntry } from './systems/arena';
@@ -1024,6 +1028,7 @@ const rightMenuItems = [
   { icon: '⚔', label: '装备' },
   { icon: '🎒', label: '储存空间' },
   { icon: '⚒', label: '强化' },
+  { icon: '💗', label: '欢愉宫' },
   { icon: '📇', label: 'NPC' },
   { icon: '✨', label: '技能' },
   { icon: '🛠', label: '副职业' },
@@ -1033,6 +1038,7 @@ const rightMenuItems = [
   { icon: '🏯', label: '领地' },
   { icon: '🛡', label: '冒险团' },
   { icon: '🌌', label: '万族' },
+  { icon: '📖', label: '世界百科' },
   { icon: '🎲', label: 'ROLL' },
   { icon: '⚔️', label: '战斗' },
   { icon: '🏟', label: '竞技场' },
@@ -1083,6 +1089,7 @@ export default function App() {
   const [territoryPanelOpen, setTerritoryPanelOpen] = useState(false);
   const [cosmosPhaseLog,     setCosmosPhaseLog]     = useState('');     // 万族演化阶段提示
   const [cosmosPanelOpen,    setCosmosPanelOpen]    = useState(false);
+  const [worldCodexOpen,     setWorldCodexOpen]     = useState(false);
   const [cosmosTicker,       setCosmosTicker]       = useState('');     // 万族本回合更新（顶部滚动条）
   const [choicesRunning,     setChoicesRunning]     = useState(false);  // 剧情选项/同人增强后处理调用中
   const [promoteCandidates,  setPromoteCandidates]  = useState<string[]>([]);  // 临时队伍解散→待"转正进冒险团"的队友 id
@@ -1108,6 +1115,8 @@ export default function App() {
   const [miscPanelOpen,    setMiscPanelOpen]    = useState(false);
   const [dicePanelOpen,    setDicePanelOpen]    = useState(false);
   const [enhancePanelOpen, setEnhancePanelOpen] = useState(false);
+  const [joyPanelOpen,     setJoyPanelOpen]     = useState(false);
+  const joyEnabled = useJoy((s) => s.settings.enabled);
   const [channelPanelOpen, setChannelPanelOpen] = useState(false);
   const [shopOpen, setShopOpen] = useState(false);
   const [summaryPanelOpen, setSummaryPanelOpen] = useState(false);
@@ -1573,6 +1582,54 @@ export default function App() {
   }
 
   /* ─── 装备强化·老板吐槽（点立绘触发；读会话实况，返回符合性格的一两句话，纯氛围不改状态）─── */
+  /* 欢愉宫：看板娘迎宾「再说一句」（点立绘）*/
+  async function onJoyGreet(madamId: string): Promise<string> {
+    const J = useJoy.getState();
+    const madam = J.settings.girls.find((g) => g.id === madamId);
+    if (!madam) return '';
+    const ss = useSettings.getState();
+    const legacy = J.joyUseSharedApi ? (ss.textUseSharedApi ? ss.api : ss.textApi) : J.joyApi;
+    const chain = resolveApiChain('joy', legacy);
+    if (!chain[0]?.baseUrl || !chain[0]?.apiKey) return '（欢愉宫的 AI 接口还没配置呢…去 设置→变量管理→欢愉宫 设置吧）';
+    try {
+      const { content } = await apiChatFallback(chain, [
+        { role: 'system', content: buildGreetPrompt(madam) },
+        { role: 'user', content: '（老板走进欢愉宫大厅）' },
+      ], { timeoutMs: 60000 });
+      return content.trim();
+    } catch { return ''; }
+  }
+
+  /* 欢愉宫：包间一轮对话 —— 调 AI → 解析 <joy> → 写 store（情欲值/私密/立绘随之更新）*/
+  async function onJoySend(girlId: string, text: string): Promise<void> {
+    const J = useJoy.getState();
+    const girl = J.settings.girls.find((g) => g.id === girlId);
+    if (!girl) return;
+    const sess = J.sessions[girlId];   // 本轮调用前的会话快照（system/history 用它）
+    J.appendMessage(girlId, 'user', text);
+    const ss = useSettings.getState();
+    const legacy = J.joyUseSharedApi ? (ss.textUseSharedApi ? ss.api : ss.textApi) : J.joyApi;
+    const chain = resolveApiChain('joy', legacy);
+    if (!chain[0]?.baseUrl || !chain[0]?.apiKey) {
+      J.appendMessage(girlId, 'assistant', '（欢愉宫的 AI 接口还没配置…请到 设置→变量管理→欢愉宫 设置接口）');
+      return;
+    }
+    const history = (sess?.messages ?? []).slice(-12).map((m) => ({ role: m.role, content: m.content }));
+    const messages = [
+      { role: 'system', content: buildJoySystem(girl, sess) },
+      ...history,
+      { role: 'user', content: text },
+    ];
+    try {
+      const { content } = await apiChatFallback(chain, messages, { timeoutMs: 120000 });
+      const { narrative, desireDelta, desireSet, privacyPatch } = parseJoyReply(content);
+      J.appendMessage(girlId, 'assistant', narrative);
+      J.applyTurn(girlId, { desireDelta, desireSet, privacyPatch });
+    } catch (e: any) {
+      J.appendMessage(girlId, 'assistant', `（接口异常：${e?.message ?? '请求失败'}）`);
+    }
+  }
+
   async function enhanceBanter(): Promise<string> {
     const E = useEnhance.getState();
     const sess = E.session;
@@ -6359,7 +6416,7 @@ ${lines}`;
             ${mobileDrawer === 'menu' ? 'max-lg:translate-x-0' : 'max-lg:translate-x-full'}`}
         >
           <nav className="py-1">
-            {rightMenuItems.map((item) => (
+            {rightMenuItems.filter((item) => item.label !== '欢愉宫' || joyEnabled).map((item) => (
               <button
                 key={item.label}
                 onClick={() => {
@@ -6367,6 +6424,7 @@ ${lines}`;
                     item.label === '设置' ? () => setSettingsOpen(true) :
                     item.label === '储存空间' ? () => setBackpackOpen(true) :
                     item.label === '强化' ? () => setEnhancePanelOpen(true) :
+                    item.label === '欢愉宫' ? () => setJoyPanelOpen(true) :
                     item.label === '装备' ? () => setEquipOpen(true) :
                     item.label === '技能' ? () => setCharPanelOpen(true) :
                     item.label === '称号' ? () => setTitlePanelOpen(true) :
@@ -6376,6 +6434,7 @@ ${lines}`;
                     item.label === '领地' ? () => setTerritoryPanelOpen(true) :
                     item.label === '冒险团' ? () => setTeamPanelOpen(true) :
                     item.label === '万族' ? () => setCosmosPanelOpen(true) :
+                    item.label === '世界百科' ? () => setWorldCodexOpen(true) :
                     item.label === '回合洞察' ? () => setInsightOpen(true) :
                     item.label === 'ROLL' ? () => setDicePanelOpen(true) :
                     item.label === '战斗' ? () => setCombatSetupOpen(true) :
@@ -6391,7 +6450,7 @@ ${lines}`;
                   open?.();
                   setMobileDrawer(null);
                 }}
-                className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-dim hover:text-slate-200 hover:bg-panel2 transition-colors text-left"
+                className={`w-full flex items-center gap-3 px-4 py-2.5 text-sm transition-colors text-left ${item.label === '欢愉宫' ? 'joy-glow font-semibold hover:bg-pink-500/10' : 'text-dim hover:text-slate-200 hover:bg-panel2'}`}
               >
                 <span className="w-4 text-center text-xs opacity-70">{item.icon}</span>
                 <span>{item.label}</span>
@@ -6528,6 +6587,14 @@ ${lines}`;
         />
       )}
 
+      {joyPanelOpen && (
+        <JoyPanel
+          onClose={() => setJoyPanelOpen(false)}
+          onSend={onJoySend}
+          onGreet={onJoyGreet}
+        />
+      )}
+
       {/* ── 记忆（小总结/大总结）面板 ── */}
       {summaryPanelOpen && (
         <SummaryPanel onClose={() => setSummaryPanelOpen(false)} />
@@ -6546,6 +6613,7 @@ ${lines}`;
       {territoryPanelOpen && <TerritoryPanel onClose={() => setTerritoryPanelOpen(false)} />}
       {teamPanelOpen && <AdventureTeamPanel onClose={() => setTeamPanelOpen(false)} />}
       {cosmosPanelOpen && <CosmosPanel onClose={() => setCosmosPanelOpen(false)} />}
+      {worldCodexOpen && <WorldCodexPanel onClose={() => setWorldCodexOpen(false)} />}
       <ImageViewer />
       <ImageBusyToast />
       {showVer && <VersionToast version={APP_VERSION} note={VERSION_NOTE} onClose={() => setShowVer(false)} />}

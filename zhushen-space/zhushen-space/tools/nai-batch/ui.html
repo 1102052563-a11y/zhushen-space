@@ -52,8 +52,9 @@
 <header>
   <h1>NAI <b>生图工作台</b></h1>
   <span id="tokenState">读取中…</span>
+  <span class="hint" style="margin-left:8px">✎ 你的修改自动保存·刷新不丢</span>
   <span style="flex:1"></span>
-  <span class="hint">改正向 → 连续生成 → 图自动落地到指定文件夹</span>
+  <button id="resetBtn" style="font-size:12px;background:var(--panel2);color:var(--dim);border:1px solid var(--line);border-radius:7px;padding:6px 12px;cursor:pointer">↺ 恢复默认</button>
 </header>
 <div id="warn" class="banner" style="display:none"></div>
 
@@ -154,6 +155,13 @@ const pad = n => String(n).padStart(2,'0');
 const randInt = n => Math.floor(Math.random()*n);
 let stopFlag = false;
 
+// ── 本地持久化：网页里的修改自动存 localStorage，刷新/重启不丢 ──
+const LS_KEY = 'naiUiState_v1';
+const FIELDS = ['folder','prefix','outBase','size','start','positive','artist','negative','poses','pool','pool2','drawCount','drawCount2','count','seed','gap','model','steps','scale','sampler'];
+function saveState(){ try { const s={}; FIELDS.forEach(f=>{ const el=$(f); if(el) s[f]=el.value; }); s.continuous=$('continuous').checked; localStorage.setItem(LS_KEY, JSON.stringify(s)); } catch(e){} }
+function applyState(s){ FIELDS.forEach(f=>{ if(s[f]!=null && $(f)) $(f).value=s[f]; }); if(s.continuous!=null) $('continuous').checked=!!s.continuous; }
+function resetDefaults(){ if(!confirm('恢复成 jobs.json 的默认预填？你当前在网页里改的内容会被清掉。')) return; try{ localStorage.removeItem(LS_KEY); }catch(e){} location.reload(); }
+
 // 从池里不重复随机抽 n 条
 function drawFrom(arr, n){
   if(!arr.length || n<=0) return [];
@@ -191,6 +199,9 @@ async function loadCfg(){
     if(d.sampler) $('sampler').value = d.sampler;
     if(c.gapSec!=null) $('gap').value = c.gapSec;
   } catch(e){ $('tokenState').textContent='配置读取失败'; }
+  try { const saved = localStorage.getItem(LS_KEY); if (saved) applyState(JSON.parse(saved)); } catch(e){}  // 用户上次编辑优先于 jobs.json 预填，刷新不丢
+  document.addEventListener('input', saveState);
+  document.addEventListener('change', saveState);
 }
 
 document.querySelectorAll('.chip[data-ob]').forEach(ch=> ch.onclick=()=> $('outBase').value = ch.dataset.ob);
@@ -259,6 +270,7 @@ function fillErr(fig,name,err){
   fig.innerHTML='<div class="ph">✗ '+esc((err||'失败').slice(0,120))+'</div><figcaption><span>'+name+'</span><span>失败</span></figcaption>';
 }
 
+$('resetBtn').onclick=resetDefaults;
 $('gen').onclick=generate;
 $('stop').onclick=()=>{ stopFlag=true; $('status').textContent='正在停止…（当前这张完成后停）'; };
 loadCfg();

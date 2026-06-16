@@ -28,6 +28,7 @@ import { useChannel } from '../store/channelStore';
 import { useMemory } from '../store/memoryStore';
 import { useDice } from '../store/diceStore';
 import { useEnhance } from '../store/enhanceStore';
+import { useJoy } from '../store/joyStore';
 import { useImageGen } from '../store/imageGenStore';
 import { useNovelVec } from '../store/novelVecStore';
 import { useCreationTemplates } from '../store/creationTemplateStore';
@@ -63,6 +64,14 @@ function evoExtract(s: any): any {
 function enhanceExtract(s: any): any {
   const out = evoExtract(s);
   if (out.settings?.bosses) out.settings = { ...out.settings, bosses: out.settings.bosses.map((b: any) => ({ ...b, portrait: undefined })) };
+  return out;
+}
+
+// 欢愉宫：复用 evoExtract（settings + *Api），剔除美女立绘大图（存 IndexedDB）；
+// sessions（情欲值/私密/聊天）是账号级进度、不在 settings/*Api 内，evoExtract 天然不导出。
+function joyExtract(s: any): any {
+  const out = evoExtract(s);
+  if (out.settings?.girls) out.settings = { ...out.settings, girls: out.settings.girls.map((g: any) => ({ ...g, portrait: undefined })) };
   return out;
 }
 
@@ -164,6 +173,7 @@ const SPECS: StoreSpec[] = [
   { key: 'drpg-dice',               label: 'ROLL 点设置',  api: useDice as any,              extract: evoExtract },
   { key: 'drpg-combat',             label: '战斗系统',     api: useCombat as any,            extract: combatExtract },
   { key: 'drpg-enhance',            label: '装备强化',     api: useEnhance as any,           extract: enhanceExtract },
+  { key: 'drpg-joy',                label: '欢愉宫',       api: useJoy as any,               extract: joyExtract },
   { key: 'drpg-image-gen',          label: '生图设置',     api: useImageGen as any,          extract: plainExtract, apply: imageGenApply },
   { key: 'drpg-novelvec',           label: '向量资料库',   api: useNovelVec as any,          extract: evoExtract },
   { key: 'drpg-creation-templates', label: '角色创建模板', api: useCreationTemplates as any, extract: plainExtract },

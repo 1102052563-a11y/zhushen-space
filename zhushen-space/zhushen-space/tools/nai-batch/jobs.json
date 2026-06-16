@@ -1,6 +1,6 @@
 {
   "outBase": "../../public",
-  "_说明": "一次跑两批(CLI 顺序执行)：job1=阶段3鞋袜版30张(_51..80)、job2=阶段4 40张(_01..40)。各 job 双池随机：每张池1抽drawCount、池2抽drawCount2。",
+  "_说明": "阶段3 双池随机：正向=身份块+池1随机抽3(服装+丝袜+鞋袜)+池2随机抽2(表情/动作/场景)。负向=用户原文(勿改)。",
   "defaults": {},
   "jobs": [
     {
@@ -8,12 +8,12 @@
       "outBase": "../../../../图片",
       "prefix": "kaili_s3",
       "size": "1216x832",
-      "start": 51,
-      "count": 30,
+      "start": 81,
+      "count": 20,
       "drawCount": 3,
       "drawCount2": 2,
       "prompt": "masterpiece, best quality, ultra detailed, highres, 8k, official art, 1girl, solo, Kelly, Dungeon and Fighter, game cg, neople art style, dark hair, black hair, spiky hair, messy hair, wild hair, hair sticking up, disheveled hair, goggles on head, brown eyes, sharp eyes, tanned skin, tan skin, athletic build, toned body, abs, slender waist, mature female, large breasts, wide hips, thick thighs, glistening skin, seductive, sexy, vivid colors, clean lineart, anime style",
-      "negative": "lowres, bad anatomy, bad hands, missing fingers, extra digit, fewer digits, cropped, worst quality, low quality, jpeg artifacts, signature, watermark, username, blurry, bad face, ugly, deformed, mutation, disfigured, extra limbs, floating limbs, disconnected limbs, long neck, poorly drawn hands, poorly drawn face, bad feet, poorly drawn feet, smooth hair, straight hair, neat hair, blonde hair, pink hair, loli, child, flat chest, multiple girls, male, boy, completely nude, fully nude, topless, bottomless, bare breasts, nipples, pussy, uncensored, explicit sex, sex, penis, cum, out of frame, monochrome, grayscale, western style",
+      "negative": "lowres, worst quality, low quality, jpeg artifacts, blurry, monochrome, grayscale,\nbad anatomy, bad hands, missing fingers, extra digit, fewer digits, extra limbs, floating limbs, disconnected limbs, long neck,\nbad face, ugly, deformed, mutation, disfigured, poorly drawn hands, poorly drawn face,\nsmooth hair, straight hair, neat hair, blonde hair, pink hair,\nloli, child, flat chest, multiple girls, male, boy,\ncropped, out of frame, signature, watermark, username, western style",
       "poses": [],
       "randomPool": [
         "micro bikini", "black lace lingerie", "sheer babydoll lingerie", "sheer negligee", "bunny girl leotard", "skimpy maid lingerie", "sexy nurse lingerie", "skimpy succubus lingerie", "witch lingerie", "qipao with high slit", "cheerleader outfit", "cyber bikini", "bridal lingerie", "leather harness lingerie", "naked apron", "dominatrix leather outfit",
@@ -23,28 +23,6 @@
       "randomPool2": [
         "ahegao", "drooling", "tongue out", "rolling eyes", "heart-shaped pupils", "blush", "heavy blush", "seductive smile", "biting lip", "bedroom eyes", "half-lidded eyes", "licking lips", "lewd face", "ecstatic expression", "moaning", "sultry gaze", "parted lips", "wink",
         "crossed legs", "legs up", "hand on own thigh", "sitting on chair", "kneeling", "on all fours", "lying on bed", "lying on side", "arched back", "bending over", "looking back over shoulder", "knees together showing legs", "showing off legs", "foot focus", "dangling shoe", "hands behind head",
-        "bedroom", "boudoir", "bathroom steam", "onsen", "neon night club", "dark room", "soft lighting", "candlelight", "dramatic lighting"
-      ]
-    },
-    {
-      "folder": "凯莉/阶段4",
-      "outBase": "../../../../图片",
-      "prefix": "kaili_s4",
-      "size": "1216x832",
-      "start": 1,
-      "count": 40,
-      "drawCount": 2,
-      "drawCount2": 2,
-      "prompt": "masterpiece, best quality, ultra detailed, highres, 8k, official art, 1girl, solo, Kelly, Dungeon and Fighter, game cg, neople art style, dark hair, black hair, spiky hair, messy hair, wild hair, hair sticking up, disheveled hair, goggles on head, brown eyes, sharp eyes, tanned skin, tan skin, athletic build, toned body, abs, slender waist, mature female, large breasts, wide hips, thick thighs, glistening skin, seductive, sexy, vivid colors, clean lineart, anime style",
-      "negative": "lowres, bad anatomy, bad hands, missing fingers, extra digit, fewer digits, cropped, worst quality, low quality, jpeg artifacts, signature, watermark, username, blurry, bad face, ugly, deformed, mutation, disfigured, extra limbs, floating limbs, disconnected limbs, long neck, poorly drawn hands, poorly drawn face, bad feet, poorly drawn feet, smooth hair, straight hair, neat hair, blonde hair, pink hair, loli, child, flat chest, multiple girls, male, boy, completely nude, fully nude, topless, bottomless, bare breasts, nipples, pussy, uncensored, explicit sex, sex, penis, cum, out of frame, monochrome, grayscale, western style",
-      "poses": [],
-      "randomPool": [
-        "black thighhighs", "white thighhighs", "fishnet stockings", "fishnet thighhighs", "lace-top stockings", "lace-trimmed thighhighs", "garter belt stockings", "sheer black pantyhose", "sheer white stockings", "striped thighhighs", "vertical-striped thighhighs", "polka dot stockings", "latex stockings", "over-the-knee socks", "seamed stockings", "back-seam stockings", "ripped fishnet stockings", "red thighhighs", "purple thighhighs", "suspender stockings", "bodystocking", "see-through pantyhose", "floral lace stockings", "two-tone thighhighs", "thigh high boots",
-        "micro bikini", "black lace lingerie", "sheer babydoll lingerie", "bunny girl leotard", "skimpy maid lingerie", "sexy nurse lingerie", "skimpy succubus lingerie", "witch lingerie", "qipao with high slit", "cheerleader outfit", "cyber bikini", "bridal lingerie", "leather harness lingerie", "sports bra and shorts", "naked apron", "unbuttoned dress shirt", "office lady uniform", "dominatrix leather outfit"
-      ],
-      "randomPool2": [
-        "ahegao", "drooling", "tongue out", "rolling eyes", "heart-shaped pupils", "blush", "heavy blush", "seductive smile", "biting lip", "bedroom eyes", "half-lidded eyes", "licking lips", "lewd face", "ecstatic expression", "moaning", "sultry gaze", "parted lips", "wink",
-        "crossed legs", "legs up", "hand on own thigh", "sitting on chair", "kneeling", "on all fours", "lying on bed", "lying on side", "arched back", "bending over", "looking back over shoulder", "knees together showing legs", "showing off legs", "hands behind head",
         "bedroom", "boudoir", "bathroom steam", "onsen", "neon night club", "dark room", "soft lighting", "candlelight", "dramatic lighting"
       ]
     }

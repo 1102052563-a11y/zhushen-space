@@ -42,6 +42,22 @@ body {
   text-shadow: 0 0 12px rgba(70, 227, 207, 0.55);
 }
 
+/* 欢愉宫：粉色诱人发光（右导航入口 + 面板主按钮）*/
+@keyframes joyGlowPulse {
+  0%, 100% { text-shadow: 0 0 6px rgba(244,114,182,0.55), 0 0 12px rgba(236,72,153,0.35); }
+  50%      { text-shadow: 0 0 11px rgba(244,114,182,0.95), 0 0 22px rgba(236,72,153,0.6); }
+}
+.joy-glow { color: #f9a8d4 !important; animation: joyGlowPulse 2s ease-in-out infinite; }
+.joy-glow:hover { color: #fbcfe8 !important; }
+@keyframes joyGlowSoft {
+  0%, 100% { box-shadow: 0 0 10px rgba(244,114,182,0.22); }
+  50%      { box-shadow: 0 0 20px rgba(244,114,182,0.45); }
+}
+.joy-glow-soft { animation: joyGlowSoft 2.4s ease-in-out infinite; }
+@media (prefers-reduced-motion: reduce) {
+  .joy-glow, .joy-glow-soft { animation: none; }
+}
+
 /* 细网格背景，营造维度空间感 */
 .grid-bg {
   background-image:

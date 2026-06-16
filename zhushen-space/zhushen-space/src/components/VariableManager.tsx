@@ -19,6 +19,7 @@ const COLOR: Record<string, { ring: string; text: string }> = {
   rose:    { ring: 'border-rose-600/40 hover:border-rose-400/70 hover:bg-rose-500/10',        text: 'text-rose-300' },
   indigo:  { ring: 'border-indigo-600/40 hover:border-indigo-400/70 hover:bg-indigo-500/10',  text: 'text-indigo-300' },
   lime:    { ring: 'border-lime-600/40 hover:border-lime-400/70 hover:bg-lime-500/10',        text: 'text-lime-300' },
+  pink:    { ring: 'border-pink-600/40 hover:border-pink-400/70 hover:bg-pink-500/10',        text: 'text-pink-300' },
 };
 
 interface ModuleItem { icon: string; label: string; desc: string; color: keyof typeof COLOR; cb: Cb; }
@@ -119,8 +120,10 @@ export default function VariableManager({
   onOpenCombatManager,
   onOpenArenaManager,
   onOpenEnhanceManager,
+  onOpenJoyManager,
   onOpenChannelManager,
   onOpenNovelVecManager,
+  onOpenWorldCodexManager,
 }: {
   onOpenItemManager?: () => void;
   onOpenPlayerManager?: () => void;
@@ -135,8 +138,10 @@ export default function VariableManager({
   onOpenCombatManager?: () => void;
   onOpenArenaManager?: () => void;
   onOpenEnhanceManager?: () => void;
+  onOpenJoyManager?: () => void;
   onOpenChannelManager?: () => void;
   onOpenNovelVecManager?: () => void;
+  onOpenWorldCodexManager?: () => void;
 }) {
   const GROUPS: { title: string; items: ModuleItem[] }[] = [
     {
@@ -157,6 +162,7 @@ export default function VariableManager({
       items: [
         { icon: '📜', label: '生平压缩',   desc: '角色记忆整理',               color: 'rose',    cb: onOpenMemoryManager },
         { icon: '📚', label: '向量资料库', desc: '原著 + 世界书语义检索',       color: 'fuchsia', cb: onOpenNovelVecManager },
+        { icon: '📖', label: '世界百科',   desc: '同人世界原著情报 · 先知',      color: 'indigo',  cb: onOpenWorldCodexManager },
       ],
     },
     {
@@ -167,6 +173,7 @@ export default function VariableManager({
         { icon: '⚔️', label: '战斗系统',   desc: '回合制战斗 · 结算 · 预设',    color: 'rose',    cb: onOpenCombatManager },
         { icon: '🏟', label: '竞技场',     desc: '阶位榜单 · 挑战 · 奖励',      color: 'amber',   cb: onOpenArenaManager },
         { icon: '⚒', label: '装备强化',   desc: '强化等级 · 看板娘 · 保底',    color: 'amber',   cb: onOpenEnhanceManager },
+        { icon: '💗', label: '欢愉宫',     desc: '看板娘 · 情欲值 · 四阶段',    color: 'pink',    cb: onOpenJoyManager },
       ],
     },
   ];
