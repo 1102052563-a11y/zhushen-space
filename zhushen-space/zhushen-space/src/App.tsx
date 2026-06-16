@@ -1622,9 +1622,9 @@ export default function App() {
     ];
     try {
       const { content } = await apiChatFallback(chain, messages, { timeoutMs: 120000 });
-      const { narrative, desireDelta, desireSet, privacyPatch } = parseJoyReply(content);
+      const { narrative, desireDelta, desireSet, affectionDelta, affectionSet, appellation, innerThought, privacyPatch } = parseJoyReply(content);
       J.appendMessage(girlId, 'assistant', narrative);
-      J.applyTurn(girlId, { desireDelta, desireSet, privacyPatch });
+      J.applyTurn(girlId, { desireDelta, desireSet, affectionDelta, affectionSet, appellation, innerThought, privacyPatch });
     } catch (e: any) {
       J.appendMessage(girlId, 'assistant', `（接口异常：${e?.message ?? '请求失败'}）`);
     }

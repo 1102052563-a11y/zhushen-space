@@ -163,6 +163,8 @@ const jobCount = (j) => (Array.isArray(j.poses) && j.poses.length ? j.poses.leng
 const MAX = num(getOpt('--max'), 0); // >0 时每个任务最多生成这么多张（冒烟测试用）
 const COUNT_OVERRIDE = num(getOpt('--count'), 0); // >0 命令行覆盖张数（不必读/改 jobs.json）
 const START_OVERRIDE = num(getOpt('--start'), 0); // >0 命令行覆盖起始序号
+const FOLDER_OVERRIDE = getOpt('--folder'); // 命令行覆盖输出文件夹（不必读 jobs.json）
+const PREFIX_OVERRIDE = getOpt('--prefix'); // 命令行覆盖文件名前缀
 
 if (LIST) {
   console.log(`共 ${jobs.length} 个任务，输出根目录：${OUT_BASE}\n`);
@@ -173,8 +175,8 @@ if (LIST) {
 console.log(`NAI 批量生图 → ${OUT_BASE}\n接口：${API_URL}  间隔：${GAP_MS / 1000}s/张${FORCE ? '  [--force 覆盖]' : ''}${DRY ? '  [--dry 演练]' : ''}`);
 let made = 0, skipped = 0, failed = 0, firstCall = true;
 for (const job of jobs) {
-  const folder = job.folder || 'misc';
-  const prefix = job.prefix || folder.replace(/[\\/]/g, '_');
+  const folder = FOLDER_OVERRIDE || job.folder || 'misc';
+  const prefix = PREFIX_OVERRIDE || job.prefix || folder.replace(/[\\/]/g, '_');
   const o = resolveOpts(job);
   if (!o.prompt) { console.warn(`\n⚠ 跳过「${folder}」：prompt 为空`); continue; }
   const poses = Array.isArray(job.poses) && job.poses.length ? job.poses : null; // 每张一个不同姿势，身份块共用

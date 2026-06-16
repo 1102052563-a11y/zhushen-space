@@ -93,29 +93,113 @@ function InnerBlock({ lines }: { lines: string[] }) {
   return <>{out}</>;
 }
 
-/* 渲染：每段落块 / 每条目用边框卡片包裹，提升对比与可读性。无 HTML 注入。 */
+/* 取标题：# 标题 / **名称** / 【n】名称（短、无 ｜）。否则 null */
+function entryTitle(line: string): string | null {
+  const t = line.trim();
+  let m: RegExpMatchArray | null;
+  if ((m = t.match(/^#{1,6}\s+(.+)$/))) return m[1].replace(/\*\*/g, '').replace(/[:：]\s*$/, '').trim();
+  if ((m = t.match(/^\*\*([^*]+)\*\*\s*[:：]?\s*$/))) return m[1].trim();
+  if ((m = t.match(/^【\d+】\s*([^：:｜|]{1,22})\s*[:：]?\s*$/))) return m[1].trim();
+  return null;
+}
+
+/* list 型内容按「条目」分组：以标题行为界，标题下的所有内容归入同一条目。
+   全文无标题时（如「名称｜字段｜…」单行格式）每行即一条目。 */
+function groupEntries(text: string): { title: string | null; body: string[] }[] {
+  const lines = text.split('\n').map((l) => l.replace(/\s+$/, ''));
+  const hasHeaders = lines.some((l) => entryTitle(l) !== null);
+  const entries: { title: string | null; body: string[] }[] = [];
+  if (!hasHeaders) {
+    for (const l of lines) if (l.trim()) entries.push({ title: null, body: [l.trim()] });
+    return entries;
+  }
+  let cur: { title: string | null; body: string[] } | null = null;
+  for (const l of lines) {
+    const h = entryTitle(l);
+    if (h !== null) { cur = { title: h, body: [] }; entries.push(cur); continue; }
+    if (!l.trim()) { if (cur && cur.body.length) cur.body.push(''); continue; }
+    if (!cur) { cur = { title: null, body: [] }; entries.push(cur); }
+    cur.body.push(l.trim());
+  }
+  return entries.filter((e) => e.title || e.body.some(Boolean));
+}
+
+/* 条目卡片内的正文：短标签行→小标题；标签：描述→加重；项目符号→列表；其余段落 */
+function EntryBody({ lines }: { lines: string[] }) {
+  const out: JSX.Element[] = [];
+  let buf: string[] = [];
+  const flush = () => {
+    if (!buf.length) return;
+    out.push(
+      <ul key={`l${out.length}`} className="space-y-1.5 my-1">
+        {buf.map((l, i) => (
+          <li key={i} className="list-none flex gap-2">
+            <span className="text-indigo-300/55 shrink-0 mt-[3px] text-[11px]">▪</span>
+            <span className="flex-1"><ItemContent raw={l} /></span>
+          </li>
+        ))}
+      </ul>,
+    );
+    buf = [];
+  };
+  lines.forEach((l) => {
+    if (!l) { flush(); return; }
+    if (isListLine(l)) { buf.push(l); return; }
+    flush();
+    const sub = !/[：:｜|]/.test(l) && !/[。！？.!?]$/.test(l) && l.length <= 16; // 如「原著中做的关键事」
+    if (sub) {
+      out.push(<div key={`h${out.length}`} className="text-[12.5px] font-semibold text-indigo-200/75 mt-2.5 mb-0.5">{renderInline(l)}</div>);
+    } else {
+      out.push(<p key={`p${out.length}`} className={out.length ? 'mt-1.5' : ''}><ItemContent raw={l} /></p>);
+    }
+  });
+  flush();
+  return <>{out}</>;
+}
+
+/* 结构化条目「名称｜类别｜作用｜归属｜影响」：名称作标题、短类别作徽章、其余字段逐行分开（不再挤成一行） */
+function StructuredEntry({ parts }: { parts: string[] }) {
+  const rest = parts.slice(1);
+  const badge = rest.length >= 2 && rest[0].length <= 12 ? rest[0] : null;
+  const body = badge ? rest.slice(1) : rest;
+  return (
+    <>
+      <div className="mb-1.5 flex items-baseline flex-wrap gap-x-2 gap-y-1">
+        <span className="font-semibold text-slate-100 text-[15px]">{renderInline(parts[0])}</span>
+        {badge && <span className="text-[11px] font-mono px-1.5 py-0.5 rounded border border-indigo-500/30 text-indigo-200/85 bg-indigo-500/10 whitespace-nowrap">{badge}</span>}
+      </div>
+      <div className="space-y-1 text-slate-300 leading-[1.75]">
+        {body.map((p, j) => (
+          <div key={j} className="flex gap-2">
+            <span className="text-indigo-400/35 shrink-0 mt-[4px] text-[9px]">◆</span>
+            <span className="flex-1">{renderInline(p)}</span>
+          </div>
+        ))}
+      </div>
+    </>
+  );
+}
+
+/* 渲染：list 型每条目整体一张卡片；text 型每段落块一张卡片。提升对比与可读性，无 HTML 注入。 */
 function CodexBody({ text, type }: { text: string; type: 'text' | 'list' }) {
   if (type === 'list') {
-    const lines = text.split('\n').map((l) => l.trim()).filter(Boolean);
+    const entries = groupEntries(text);
     return (
       <div className="space-y-2.5 text-[14.5px] leading-[1.8] text-slate-200">
-        {lines.map((l, i) => {
-          if (isSubHeader(l)) {
-            return <div key={i} className="pt-2 pb-0.5 font-bold text-slate-100 text-[15px]">{renderInline(stripMarker(l).replace(/[：:]\s*$/, ''))}</div>;
-          }
-          const t = stripMarker(l);
-          const parts = /[｜|]/.test(t) ? t.split(/\s*[｜|]\s*/).map((s) => s.trim()).filter(Boolean) : null;
+        {entries.map((e, i) => {
+          const single = !e.title && e.body.length === 1 ? stripMarker(e.body[0]) : null;
+          const parts = single && /[｜|]/.test(single) ? single.split(/\s*[｜|]\s*/).map((s) => s.trim()).filter(Boolean) : null;
           return (
             <div key={i} className={`${CARD} border-l-[3px] border-l-indigo-500/50 px-3.5 py-2.5`}>
-              {parts ? (
+              {e.title ? (
                 <>
-                  <div className="font-semibold text-slate-100 text-[15px] mb-1">{renderInline(parts[0])}</div>
-                  <div className="text-slate-300 leading-[1.8]">
-                    {parts.slice(1).map((p, j) => <span key={j}>{j > 0 && <span className="text-dim/40">　·　</span>}{renderInline(p)}</span>)}
-                  </div>
+                  <div className="font-bold text-slate-100 text-[15px] mb-1.5 pb-1.5 border-b border-edge/60">{renderInline(e.title)}</div>
+                  <EntryBody lines={e.body} />
                 </>
+              ) : parts && parts.length > 1 ? (
+                <StructuredEntry parts={parts} />
               ) : (
-                <ItemContent raw={l} />
+                <EntryBody lines={e.body} />
               )}
             </div>
           );

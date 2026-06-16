@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { useJoy, hydrateJoyPortraits, JOY_PRIVATE_COLS, type JoyGirl } from '../store/joyStore';
 import { useMisc } from '../store/miscStore';
-import { loadGirlManifest, pickStagePortrait, stageFromDesire, girlCardPortrait, type GirlManifest } from '../systems/joyGirls';
+import { loadGirlManifest, pickStagePortrait, stageFromDesire, relationFromAffection, girlCardPortrait, type GirlManifest } from '../systems/joyGirls';
 
 /* 欢愉宫：大厅(看板娘迎宾) → 选妃(竖排立绘选择) → 包间(上立绘 / 下左聊天·右状态)。
    每轮对话由 App.onSend 调 AI、解析 <joy>、写 store；本面板按 store 响应式渲染。
@@ -24,6 +24,22 @@ function DesireBar({ desire }: { desire: number }) {
       <div className="h-2 rounded-full bg-void border border-edge overflow-hidden">
         <div className="h-full rounded-full bg-gradient-to-r from-rose-500/70 via-pink-500/80 to-fuchsia-400/90 transition-all duration-500"
              style={{ width: `${Math.max(2, desire)}%` }} />
+      </div>
+    </div>
+  );
+}
+
+function AffectionBar({ affection }: { affection: number }) {
+  const rel = relationFromAffection(affection);
+  return (
+    <div>
+      <div className="flex items-center justify-between text-[11px] font-mono mb-1">
+        <span className="text-red-300/75">❤ 好感度 · {rel.label}</span>
+        <span className="text-red-200/90">{affection} / 100</span>
+      </div>
+      <div className="h-2 rounded-full bg-void border border-edge overflow-hidden">
+        <div className="h-full rounded-full bg-gradient-to-r from-red-600/70 to-red-400/90 transition-all duration-500"
+             style={{ width: `${Math.max(2, affection)}%` }} />
       </div>
     </div>
   );
@@ -178,7 +194,7 @@ export default function JoyPanel({
                     <span className="text-base shrink-0">{RACE_EMOJI(g.race)}</span>
                     <span className="text-[13px] text-pink-50/90 font-medium truncate">{g.name}</span>
                     <span className="text-[11px] font-mono text-dim/45 truncate">{g.race}{g.title ? ' · ' + g.title : ''}</span>
-                    {sessions[g.id] && <span className="ml-auto text-[10px] font-mono text-pink-300/60 shrink-0">情欲 {sessions[g.id].desire}</span>}
+                    {sessions[g.id] && <span className="ml-auto text-[10px] font-mono shrink-0"><span className="text-red-300/70">❤{sessions[g.id].affection ?? 0}</span> <span className="text-pink-300/60">欲{sessions[g.id].desire}</span></span>}
                   </div>
                 ))}
               </div>
@@ -301,7 +317,18 @@ export default function JoyPanel({
                     </div>
                   </div>
                   <DesireBar desire={desire} />
+                  <AffectionBar affection={curSess?.affection ?? 0} />
+                  {curSess?.appellation && (
+                    <div className="text-[11px] font-mono text-pink-300/60">她唤你：<span className="text-pink-200/90">「{curSess.appellation}」</span></div>
+                  )}
                 </div>
+
+                {curSess?.innerThought && (
+                  <div className="rounded-xl border border-pink-500/15 bg-void p-3">
+                    <div className="text-[11px] font-mono text-pink-300/50 mb-1">💭 此刻心声</div>
+                    <div className="text-[13px] text-slate-300/90 leading-snug italic whitespace-pre-wrap">{curSess.innerThought}</div>
+                  </div>
+                )}
 
                 <div className="rounded-xl border border-edge bg-void p-3">
                   <div className="text-[11px] font-mono text-pink-300/50 mb-2">私密状态</div>

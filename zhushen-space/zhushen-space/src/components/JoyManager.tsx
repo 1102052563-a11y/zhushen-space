@@ -75,6 +75,7 @@ function PresetModal({ girl, onClose }: { girl: JoyGirl; onClose: () => void }) 
   const [personality, setPersonality] = useState(girl.personality ?? '');
   const [background, setBackground] = useState(girl.background ?? '');
   const [appearance, setAppearance] = useState(girl.appearance ?? '');
+  const [appellation, setAppellation] = useState(girl.appellation ?? '');
   const [greeting, setGreeting] = useState(girl.greetingPreset ?? '');
   const [chat, setChat] = useState(girl.chatPreset ?? '');
   const [s1, setS1] = useState(girl.stageDesc?.['1'] ?? '');
@@ -97,6 +98,7 @@ function PresetModal({ girl, onClose }: { girl: JoyGirl; onClose: () => void }) 
       personality: personality.trim() || undefined,
       background: background.trim() || undefined,
       appearance: appearance.trim() || undefined,
+      appellation: appellation.trim() || undefined,
       greetingPreset: greeting.trim() || undefined,
       chatPreset: chat.trim() || undefined,
       stageDesc: { '1': s1.trim(), '2': s2.trim(), '3': s3.trim(), '4': s4.trim() },
@@ -130,6 +132,9 @@ function PresetModal({ girl, onClose }: { girl: JoyGirl; onClose: () => void }) 
           <Field label="外观（容貌 · 身段 · 衣着）">
             <textarea value={appearance} onChange={(e) => setAppearance(e.target.value)} rows={3} className={ta} />
           </Field>
+          <Field label="初始称谓（她一开始怎么称呼你；之后随好感度自动演变）">
+            <input value={appellation} onChange={(e) => setAppellation(e.target.value)} className={`${inputCls} w-full`} placeholder="如：公子 / 客人 / 小可怜 / 你" />
+          </Field>
           <div className="text-[12px] font-mono text-pink-300/55 pt-1">台词 · 演绎</div>
           <Field label="迎宾词（看板娘在大厅的固定招呼）">
             <textarea value={greeting} onChange={(e) => setGreeting(e.target.value)} rows={2} className={ta} placeholder="（仅当她是看板娘时用于大厅迎宾）" />
@@ -147,7 +152,7 @@ function PresetModal({ girl, onClose }: { girl: JoyGirl; onClose: () => void }) 
           </Field>
         </div>
         <footer className="shrink-0 flex items-center gap-2 px-4 py-3 border-t border-pink-500/20 bg-panel">
-          {dflt && <button onClick={() => { setPersonality(dflt.personality ?? ''); setBackground(dflt.background ?? ''); setAppearance(dflt.appearance ?? ''); setGreeting(dflt.greetingPreset ?? ''); setChat(dflt.chatPreset ?? ''); setS1(dflt.stageDesc?.['1'] ?? ''); setS2(dflt.stageDesc?.['2'] ?? ''); setS3(dflt.stageDesc?.['3'] ?? ''); setS4(dflt.stageDesc?.['4'] ?? ''); setPriv(Object.entries(dflt.initPrivacy ?? {}).map(([k, v]) => `${k}=${v}`).join('\n')); }}
+          {dflt && <button onClick={() => { setPersonality(dflt.personality ?? ''); setBackground(dflt.background ?? ''); setAppearance(dflt.appearance ?? ''); setAppellation(dflt.appellation ?? ''); setGreeting(dflt.greetingPreset ?? ''); setChat(dflt.chatPreset ?? ''); setS1(dflt.stageDesc?.['1'] ?? ''); setS2(dflt.stageDesc?.['2'] ?? ''); setS3(dflt.stageDesc?.['3'] ?? ''); setS4(dflt.stageDesc?.['4'] ?? ''); setPriv(Object.entries(dflt.initPrivacy ?? {}).map(([k, v]) => `${k}=${v}`).join('\n')); }}
             className="text-[12px] font-mono py-1.5 px-3 rounded-lg border border-edge text-dim hover:text-slate-100">恢复默认</button>}
           <div className="flex-1" />
           <button onClick={onClose} className="text-[12px] font-mono py-1.5 px-3 rounded-lg border border-edge text-dim hover:text-slate-100">取消</button>
