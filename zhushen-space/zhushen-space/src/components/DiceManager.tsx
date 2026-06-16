@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useDice } from '../store/diceStore';
 import { useSettings } from '../store/settingsStore';
-import { DIFFICULTIES, DIFFICULTY_BASE } from '../systems/diceEngine';
+import { DIFFICULTIES, DIFFICULTY_BASE, DEFAULT_TUNING } from '../systems/diceEngine';
 import ApiRoutePicker from './ApiRoutePicker';
 
 function Toggle({ checked, onChange }: { checked: boolean; onChange: () => void }) {
@@ -36,6 +36,18 @@ function Row({ label, hint, children }: { label: string; hint?: string; children
   );
 }
 const numInput = 'w-20 bg-panel border border-edge rounded px-2 py-1 text-sm text-slate-200 font-mono text-center outline-none focus:border-god/50';
+
+function TuneSlider({ label, hint, min, max, step, value, onChange }:
+  { label: string; hint: string; min: number; max: number; step: number; value: number; onChange: (v: number) => void }) {
+  return (
+    <div className="flex items-center gap-3 py-1.5 border-b border-edge/40">
+      <span className="w-24 shrink-0 text-sm text-slate-300">{label}</span>
+      <input type="range" min={min} max={max} step={step} value={value}
+        onChange={(e) => onChange(Number(e.target.value))} className="flex-1 accent-god" />
+      <span className="w-28 shrink-0 text-right text-[12px] font-mono text-dim/60">{hint}</span>
+    </div>
+  );
+}
 
 export default function DiceManager() {
   const settings = useDice((s) => s.settings);
@@ -117,6 +129,27 @@ export default function DiceManager() {
                   </div>
                 );
               })}
+            </div>
+          </div>
+
+          <div className="pt-4">
+            <div className="flex items-center justify-between mb-2">
+              <div className="text-sm font-semibold text-slate-200">加成调参 · 防碾压</div>
+              <button onClick={() => setSettings({ tuning: { ...DEFAULT_TUNING } })}
+                className="text-[12px] font-mono text-dim hover:text-blood border border-edge rounded px-2 py-0.5 transition-colors">恢复默认</button>
+            </div>
+            <p className="text-[12px] font-mono text-dim/50 mb-2">
+              技能/天赋/装备走「递减收益 + 封顶」：最强几项有用、堆数量无效。封顶越低、递减越狠 → 越难被装备池碾压（d20 尺度；百分骰自动 ×4）。
+            </p>
+            <div className="space-y-1">
+              <TuneSlider label="技能封顶" hint={`+${settings.tuning.skillCap}　默认 +${DEFAULT_TUNING.skillCap}`} min={1} max={12} step={1}
+                value={settings.tuning.skillCap} onChange={(v) => setSettings({ tuning: { ...settings.tuning, skillCap: v } })} />
+              <TuneSlider label="天赋封顶" hint={`+${settings.tuning.talentCap}　默认 +${DEFAULT_TUNING.talentCap}`} min={1} max={12} step={1}
+                value={settings.tuning.talentCap} onChange={(v) => setSettings({ tuning: { ...settings.tuning, talentCap: v } })} />
+              <TuneSlider label="装备封顶" hint={`+${settings.tuning.equipCap}　默认 +${DEFAULT_TUNING.equipCap}`} min={1} max={10} step={1}
+                value={settings.tuning.equipCap} onChange={(v) => setSettings({ tuning: { ...settings.tuning, equipCap: v } })} />
+              <TuneSlider label="递减强度" hint={`${settings.tuning.decay.toFixed(2)}　越小越狠`} min={0.3} max={0.9} step={0.05}
+                value={settings.tuning.decay} onChange={(v) => setSettings({ tuning: { ...settings.tuning, decay: v } })} />
             </div>
           </div>
         </div>

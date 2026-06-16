@@ -48,6 +48,8 @@ function sumBonus(items: any[], fields: string[]): AttrDelta {
     // 优先 attrBonus；为空再退回其它字段，避免同一加成在 attrBonus 与 effect 里被重复计两次
     const primary = (it?.attrBonus ?? '').toString().trim();
     const texts = primary ? [primary] : fields.map((f) => it?.[f]).filter(Boolean);
+    // 注：镶嵌宝石的加成已由 gemEngine.applyGemsToEffect 写进装备 effect（effect 已在上面被读取），
+    // 故此处不再单独读 gems，避免与 effect 里的【镶嵌加成】双重计数。
     for (const t of texts) {
       const p = parseAttrBonus(t);
       for (const k of ATTR_KEYS) if (p[k]) d[k] = (d[k] ?? 0) + p[k]!;

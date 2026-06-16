@@ -10,6 +10,7 @@ import {
   type EnhanceOutcome,
 } from '../systems/enhanceEngine';
 import { loadBossManifest, pickStagePortrait, type BossManifest } from '../systems/enhanceBosses';
+import GemPanel from './GemPanel';
 
 export interface EnhanceFinalizeArgs { itemId: string; startLevel: number; newLevel: number; }
 
@@ -55,6 +56,7 @@ export default function EnhancePanel({
   const [banterLoading, setBanterLoading] = useState(false);
   const [manifest, setManifest] = useState<BossManifest | null>(null);
   const [portraitUrl, setPortraitUrl] = useState<string | null>(null);
+  const [gemsOpen, setGemsOpen] = useState(false);
   const fxTimer = useRef<ReturnType<typeof setTimeout>>();
 
   const candidates = items.filter((it) => isEnhanceable(it.category))
@@ -152,7 +154,7 @@ export default function EnhancePanel({
         score: bumpScore(it.score, (result.toLevel - lv) * SCORE_PER_LEVEL),
         intro: withEnhanceNote(it.intro, result.toLevel, 'intro'),
         appearance: withEnhanceNote(it.appearance, result.toLevel, 'appearance'),
-      });
+      });   // 词缀/效果改由 AI 收尾生成（丰富多样），不在此机械添加
     }
     applyAttempt(result, cost, useProtect && risk, useAmulet);
 
@@ -188,8 +190,11 @@ export default function EnhancePanel({
             <div className="text-[11px] font-mono text-dim/50">垫子计数 · 爆装攒保底</div>
             <div className={`text-sm font-bold font-mono ${pityReady ? 'text-emerald-300' : 'text-amber-300'}`}>{Math.min(pity, PITY_THRESHOLD)} / {PITY_THRESHOLD}{pityReady ? ' ★必成' : ''}</div>
           </div>
+          <button onClick={() => setGemsOpen(true)} className="px-2.5 py-1 rounded-lg border border-god/40 text-god text-[12px] font-bold hover:bg-god/10 ml-1" title="宝石商店 / 镶嵌">💎 宝石</button>
           <button onClick={handleClose} className="text-dim/50 hover:text-blood text-lg ml-2">✕</button>
         </header>
+
+        {gemsOpen && <GemPanel onClose={() => setGemsOpen(false)} />}
 
         <div className="flex-1 flex flex-col overflow-hidden">
 

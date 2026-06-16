@@ -430,12 +430,26 @@ function applyOneItemCommand(cmd: ItemCommand, store: any): void {
     case 'updateItem': {
       const item = findItemById(store, data.itemId);
       if (item && data.patch) {
+        const p: any = data.patch;
         const patch: any = {};
-        if (data.patch['1']) patch.name = data.patch['1'];
-        if (data.patch['2']) patch.category = normalizeCategory(data.patch['2']);
-        if (data.patch['3']) patch.gradeDesc = data.patch['3'];
-        if (data.patch['4']) patch.effect = data.patch['4'];
-        if (data.patch.appearance) patch.appearance = data.patch.appearance;
+        // 同时接受列号('1'..'4')与具名字段，二者皆可
+        if (p['1'] ?? p.name) patch.name = p['1'] ?? p.name;
+        if (p['2'] ?? p.category) patch.category = normalizeCategory(p['2'] ?? p.category);
+        if (p['3'] ?? p.gradeDesc ?? p.quality) patch.gradeDesc = p['3'] ?? p.gradeDesc ?? p.quality;
+        if (p['4'] ?? p.effect) patch.effect = p['4'] ?? p.effect;
+        // ↓ 这些具名字段此前被静默丢弃——装备强化收尾刷「词缀(affix)/效果(effect)」全靠它们
+        if (p.affix) patch.affix = p.affix;
+        if (p.appearance) patch.appearance = p.appearance;
+        if (p.intro) patch.intro = p.intro;
+        if (p.score) patch.score = p.score;
+        if (p.combatStat) patch.combatStat = p.combatStat;
+        if (p.durability) patch.durability = p.durability;
+        if (p.requirement) patch.requirement = p.requirement;
+        if (p.subType) patch.subType = p.subType;
+        if (p.origin) patch.origin = p.origin;
+        if (p.notes) patch.notes = p.notes;
+        if (p.acquisition) patch.acquisition = p.acquisition;
+        if (p.killCount != null) patch.killCount = p.killCount;
         store.updateItem(item.id, patch);
       }
       break;

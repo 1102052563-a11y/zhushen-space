@@ -6,7 +6,7 @@ import { normalizeEquipSlot } from '../systems/equipSlots';
 
 export type ItemCategory =
   // 装备类
-  | '武器' | '防具' | '饰品'
+  | '武器' | '防具' | '饰品' | '宝石'
   // 消耗品/材料
   | '消耗品' | '材料' | '工具'
   // 特殊类
@@ -17,7 +17,7 @@ export type ItemCategory =
 export const ITEM_CATEGORIES: ItemCategory[] = [
   // 轮回乐园主分类（UI 只提供这些；旧版修仙分类 功法/法宝/丹药/符箓/灵药/阵具 仍保留在
   // ItemCategory 类型里以兼容老存档的既有物品，但不再作为可选项展示/生成）
-  '武器', '防具', '饰品',
+  '武器', '防具', '饰品', '宝石',
   '消耗品', '材料', '工具',
   '重要物品', '特殊物品', '凡物', '其他物品',
 ];
@@ -42,6 +42,17 @@ export function gradeToNum(grade?: string): number {
   ];
   for (const [k, v] of order) if (g.includes(k)) return v;
   return 1;
+}
+
+/** 镶嵌孔系统上限（任何装备孔位都不超过这个数）*/
+export const MAX_SOCKETS = 6;
+/** 装备按品级自带的初始孔位（高品质自带更多孔）：白/绿0、蓝~暗紫1、淡金~暗金2、传说~圣灵3、不朽~永恒4、创世5 */
+export function defaultSocketsByGrade(grade?: string): number {
+  return Math.min(MAX_SOCKETS, Math.floor(gradeToNum(grade) / 3));
+}
+/** 装备的有效孔位数：显式 sockets（打孔后）优先，否则按品级派生 */
+export function socketsOf(item: { sockets?: number; gradeDesc?: string }): number {
+  return Math.min(MAX_SOCKETS, item.sockets ?? defaultSocketsByGrade(item.gradeDesc));
 }
 
 /** 品级 → 文字配色（用于品级标签/字样上色，与世界书品质色阶一致）*/
@@ -104,6 +115,20 @@ export interface CurrencyWallet {
   黄金技能点: number;
 }
 
+/** 宝石部位限制：只能镶嵌在对应大类装备上（通用=任意装备）*/
+export type GemSlotKind = '武器' | '防具' | '饰品' | '通用';
+
+/** 已镶嵌进装备的宝石快照（镶嵌时从宝石物品烘焙；数值在获得宝石时即已确定，镶嵌只套用，不再重算）*/
+export interface SocketedGem {
+  gemId: string;     // 源宝石物品 id（仅追溯；宝石已从背包消耗）
+  name: string;
+  tier: string;      // 品级 gradeDesc
+  slot: GemSlotKind; // 部位限制
+  attr: string;      // 属性类型（力量/锋利度/破甲/灵魂伤害…）
+  statText: string;  // 加成文本：低阶面板"力量+8" / 高阶"无视12%防御"——并入装备属性计算与展示
+  high: boolean;     // 高阶宝石（传说级+，提供高阶战斗属性；展示更华丽）
+}
+
 export interface InventoryItem {
   id: string;
   name: string;
@@ -129,6 +154,12 @@ export interface InventoryItem {
   intro?: string;         // 简介（flavor 文本）
   killCount?: string;     // 杀敌数量（仅武器类，随战斗累计）
   enhanceLevel?: number;  // 强化等级 0-16（装备强化系统，仅装备类；0/缺省=未强化）
+  // ── 宝石/镶嵌系统（仅装备类）──
+  sockets?: number;       // 镶嵌孔总数（缺省时按品级 defaultSocketsByGrade 派生；打孔石可增至 MAX_SOCKETS）
+  gems?: SocketedGem[];   // 已镶嵌宝石（length ≤ socketsOf(item)）
+  // ── 宝石物品专属（category==='宝石' 时）──
+  gemSlot?: GemSlotKind;  // 该宝石可镶嵌的部位
+  gemAttr?: string;       // 该宝石的属性类型
   image?: string;         // 物品图片（上传的自定义图片 dataURL / 未来生图位）
   addedAt: number;
 }
@@ -200,7 +231,7 @@ function generateId(items: InventoryItem[]): string {
 }
 
 /* 可堆叠判定：消耗品/材料等同名累加；装备类（武器/防具/饰品/特殊/法宝）不堆叠——保留各自杀敌数/耐久/词缀等单件数据 */
-const NO_STACK_CATS = new Set<string>(['武器', '防具', '饰品', '特殊物品', '法宝']);
+const NO_STACK_CATS = new Set<string>(['武器', '防具', '饰品', '宝石', '特殊物品', '法宝']);
 export const isStackableCat = (cat?: string) => !NO_STACK_CATS.has(cat ?? '');
 // 归一化：去标点/空格，并去掉「的/之」等填充虚词——让"劣质餐刀"与"劣质的餐刀"视为同名
 const stackNorm = (x?: string) => (x ?? '').replace(/[\s·•・\-—_,，.。、|｜【】（）()的之]/g, '').toLowerCase();

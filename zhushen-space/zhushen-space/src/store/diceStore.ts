@@ -2,7 +2,8 @@ import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import type { ApiConfig } from './settingsStore';
 import { useSettings } from './settingsStore';
-import type { DiceMode, Difficulty, OutcomeLevel, AttrKey, Advantage, ResolveResult } from '../systems/diceEngine';
+import type { DiceMode, Difficulty, OutcomeLevel, AttrKey, Advantage, ResolveResult, DiceTuning } from '../systems/diceEngine';
+import { DEFAULT_TUNING } from '../systems/diceEngine';
 import type { JudgeOutcome } from '../systems/diceJudge';
 
 /* ════════════════════════════════════════════
@@ -42,6 +43,8 @@ export interface DiceSettings {
   includeLuck: boolean;      // 幸运修正是否计入
   /** 难度基础率/DC 覆盖（留空用引擎默认 DIFFICULTY_BASE） */
   diffOverride: Partial<Record<Difficulty, { rate: number; dc: number }>>;
+  /** 技能/天赋/装备封顶 + 递减强度（防装备池碾压；可调，留空用 DEFAULT_TUNING） */
+  tuning: DiceTuning;
 }
 
 const DEFAULT_SETTINGS: DiceSettings = {
@@ -51,6 +54,7 @@ const DEFAULT_SETTINGS: DiceSettings = {
   animMs: 760,
   includeLuck: true,
   diffOverride: {},
+  tuning: { ...DEFAULT_TUNING },
 };
 
 /** 骰子页草稿：关闭面板后保留，再次打开恢复上次/进行中的检定（含结果） */
@@ -150,7 +154,7 @@ export const useDice = create<DiceState>()(
       merge: (persisted: any, current) => ({
         ...current,
         ...persisted,
-        settings: { ...DEFAULT_SETTINGS, ...(persisted?.settings ?? {}) },
+        settings: { ...DEFAULT_SETTINGS, ...(persisted?.settings ?? {}), tuning: { ...DEFAULT_TUNING, ...(persisted?.settings?.tuning ?? {}) } },
         history: Array.isArray(persisted?.history) ? persisted.history : [],
         draft: persisted?.draft ?? null,
         diceApi: { ...current.diceApi, ...(persisted?.diceApi ?? {}) },

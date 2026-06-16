@@ -7,6 +7,7 @@ import { useSettings } from '../store/settingsStore';
 import { useItems } from '../store/itemStore';
 import { usePlayer, DEFAULT_PLAYER_PROFILE } from '../store/playerStore';
 import { useNpc } from '../store/npcStore';
+import { useNpcChat } from '../store/npcChatStore';
 import { useNpcEvo } from '../store/npcEvoStore';
 import { useFaction } from '../store/factionStore';
 import { useFactionEvo } from '../store/factionEvoStore';
@@ -34,6 +35,7 @@ const STORES: { key: string; api: any }[] = [
   { key: 'drpg-items',      api: useItems },
   { key: 'drpg-player-evo', api: usePlayer },
   { key: 'drpg-npc',        api: useNpc },
+  { key: 'drpg-npc-chat',   api: useNpcChat },
   { key: 'drpg-npc-evo',    api: useNpcEvo },
   { key: 'drpg-faction',    api: useFaction },
   { key: 'drpg-faction-evo', api: useFactionEvo },
@@ -158,6 +160,11 @@ export async function loadSlot(id: string): Promise<boolean> {
   // 图片：覆盖 IndexedDB（reload 后由 hydrateImages 回填到各 store）
   try { await clearAllImg(); if (slot.data.images) await bulkPutImg(slot.data.images); } catch { /* */ }
   await replaceChat(slot.data.messages ?? []);   // 覆盖当前对话为存档对话
+  // 读「用户存档」会让回退点失效：它仍指向读档前那条时间线（不同的对话/演化），
+  // 留着会导致读档后点「回退/重新生成」跳回另一条时间线（表现为"回退不生效/乱跳"）。
+  // 清掉它——读档后本时间线尚无"上一回合"，回退按钮置灰（canUndo=false），下次发送会重建属于本档的回退点。
+  // 注意：回退/重新生成自身也走 loadSlot(UNDO_ID)，那种情况 id===UNDO_ID，不可误删（否则连续回退失效）。
+  if (id !== UNDO_ID) { try { await saveDb.del(UNDO_ID); } catch { /* */ } }
   try { sessionStorage.setItem(PENDING_STARTED_KEY, '1'); } catch { /* ignore */ }
   location.reload();
   return true;
@@ -195,6 +202,7 @@ export async function clearProgress(): Promise<void> {
   try { useGame.getState().hardReset(); } catch { /* */ }            // 玩家属性 → 默认
   try { useItems.getState().clearAll(); } catch { /* */ }            // 背包/货币
   try { useNpc.getState().clearAll(); } catch { /* */ }              // NPC 档案（含其技能词条）
+  try { useNpcChat.getState().clearAll(); } catch { /* */ }          // NPC 私聊缓存（对话+交互描述）
   try { useFaction.getState().clearAll(); } catch { /* */ }          // 势力档案
   try { useTerritory.getState().clearTerritory(); } catch { /* */ }  // 领地记录（保留预设/API 配置）
   try { useTeam.getState().clearTeam(); } catch { /* */ }            // 冒险团记录（保留预设/API 配置）

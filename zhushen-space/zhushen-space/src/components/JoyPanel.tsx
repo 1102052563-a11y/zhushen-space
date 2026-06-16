@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef, useMemo } from 'react';
 import { useJoy, hydrateJoyPortraits, JOY_PRIVATE_COLS, type JoyGirl } from '../store/joyStore';
 import { useMisc } from '../store/miscStore';
-import { loadGirlManifest, pickStagePortrait, stageFromDesire, relationFromAffection, girlCardPortrait, type GirlManifest } from '../systems/joyGirls';
+import { loadGirlManifest, pickStagePortrait, stageFromDesire, girlCardPortrait, type GirlManifest } from '../systems/joyGirls';
 
 /* 欢愉宫：大厅(看板娘迎宾) → 选妃(竖排立绘选择) → 包间(上立绘 / 下左聊天·右状态)。
    每轮对话由 App.onSend 调 AI、解析 <joy>、写 store；本面板按 store 响应式渲染。
@@ -25,22 +25,6 @@ function DesireBar({ desire }: { desire: number }) {
       <div className="h-2 rounded-full bg-void border border-edge overflow-hidden">
         <div className="h-full rounded-full bg-gradient-to-r from-rose-500/70 via-pink-500/80 to-fuchsia-400/90 transition-all duration-500"
              style={{ width: `${Math.max(2, desire)}%` }} />
-      </div>
-    </div>
-  );
-}
-
-function AffectionBar({ affection }: { affection: number }) {
-  const rel = relationFromAffection(affection);
-  return (
-    <div>
-      <div className="flex items-center justify-between text-[11px] font-mono mb-1">
-        <span className="text-red-300/75">❤ 好感度 · {rel.label}</span>
-        <span className="text-red-200/90">{affection} / 100</span>
-      </div>
-      <div className="h-2 rounded-full bg-void border border-edge overflow-hidden">
-        <div className="h-full rounded-full bg-gradient-to-r from-red-600/70 to-red-400/90 transition-all duration-500"
-             style={{ width: `${Math.max(2, affection)}%` }} />
       </div>
     </div>
   );
@@ -94,6 +78,20 @@ export default function JoyPanel({
     setChamberPortrait(pickStagePortrait(manifest, curGirl.portraitFolder, desire) ?? curGirl.portrait ?? null);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [manifest, currentGirlId, desire, curSess?.turns]);
+
+  // 聊天时立绘每 5 秒自动切换一张（在当前情欲阶段的多张图之间轮换，尽量不连续重复）
+  useEffect(() => {
+    if (view !== 'chamber' || !curGirl) return;
+    const id = setInterval(() => {
+      setChamberPortrait((prev) => {
+        let url = pickStagePortrait(manifest, curGirl.portraitFolder, desire);
+        for (let i = 0; i < 5 && url && url === prev; i++) url = pickStagePortrait(manifest, curGirl.portraitFolder, desire);
+        return url ?? prev;
+      });
+    }, 5000);
+    return () => clearInterval(id);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [view, manifest, currentGirlId, desire, curGirl?.portraitFolder]);
 
   // 聊天自动滚到底
   useEffect(() => { chatEndRef.current?.scrollIntoView({ behavior: 'smooth' }); }, [curSess?.messages.length, sending]);
@@ -207,7 +205,7 @@ export default function JoyPanel({
                     <span className="text-base shrink-0">{RACE_EMOJI(g.race)}</span>
                     <span className="text-[13px] text-pink-50/90 font-medium truncate">{g.name}</span>
                     <span className="text-[11px] font-mono text-dim/45 truncate">{g.race}{g.title ? ' · ' + g.title : ''}</span>
-                    {sessions[g.id] && <span className="ml-auto text-[10px] font-mono shrink-0"><span className="text-red-300/70">❤{sessions[g.id].affection ?? 0}</span> <span className="text-pink-300/60">欲{sessions[g.id].desire}</span></span>}
+                    {sessions[g.id] && <span className="ml-auto text-[10px] font-mono shrink-0 text-pink-300/60">情欲 {sessions[g.id].desire}</span>}
                   </div>
                 ))}
               </div>
@@ -330,7 +328,6 @@ export default function JoyPanel({
                     </div>
                   </div>
                   <DesireBar desire={desire} />
-                  <AffectionBar affection={curSess?.affection ?? 0} />
                   {curSess?.appellation && (
                     <div className="text-[11px] font-mono text-pink-300/60">她唤你：<span className="text-pink-200/90">「{curSess.appellation}」</span></div>
                   )}
@@ -348,9 +345,9 @@ export default function JoyPanel({
                   <PrivacyView privacy={curSess?.privacy ?? {}} />
                 </div>
 
-                <button onClick={() => { if (confirm(`重新开始与「${curGirl.name}」的关系？情欲值与聊天记录将清空。`)) resetSession(curGirl.id); }}
+                <button onClick={() => { if (confirm(`重置与「${curGirl.name}」的状态？情欲值、私密信息与聊天记录将清空。`)) resetSession(curGirl.id); }}
                   className="w-full text-[12px] font-mono py-1.5 rounded-lg border border-edge text-dim/60 hover:text-blood hover:border-blood/40 transition-colors">
-                  ↺ 重置这段关系
+                  ↺ 重置状态
                 </button>
               </div>
             </div>

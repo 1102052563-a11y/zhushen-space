@@ -288,6 +288,7 @@ interface SettingsState {
   importWorldBook: (raw: string, fileName?: string) => { ok: boolean; message: string };
   toggleWorldBook: (id: string) => void;
   removeWorldBook: (id: string) => void;
+  dedupeWorldBooks: () => number;
   renameWorldBook: (id: string, name: string) => void;
   toggleWorldBookEntry: (bookId: string, uid: number) => void;
   updateWorldBookEntry: (bookId: string, uid: number, patch: Partial<WorldBookEntry>) => void;
@@ -302,6 +303,7 @@ interface SettingsState {
   importTextWorldBook: (raw: string, fileName?: string) => { ok: boolean; message: string };
   toggleTextWorldBook: (id: string) => void;
   removeTextWorldBook: (id: string) => void;
+  dedupeTextWorldBooks: () => number;
   renameTextWorldBook: (id: string, name: string) => void;
   toggleTextWorldBookEntry: (bookId: string, uid: number) => void;
   updateTextWorldBookEntry: (bookId: string, uid: number, patch: Partial<WorldBookEntry>) => void;
@@ -672,13 +674,36 @@ export const useSettings = create<SettingsState>()(
       importWorldBook: (raw, fileName = '', builtin = false, builtinKey?: string) => {
         try {
           const { name, entries } = parseWorldBook(raw, fileName);
-          set((s) => ({ worldBooks: [...s.worldBooks, { id: `wb_${Date.now()}`, name, entries, enabled: true, createdAt: Date.now(), builtin, builtinKey }] }));
-          return { ok: true, message: `已导入「${name}」，共 ${entries.length} 条条目` };
+          let replaced = false;
+          set((s) => {
+            const idx = s.worldBooks.findIndex((b) => b.name === name);
+            if (idx >= 0) {   // 同名已存在 → 原地覆盖条目（保留 id/启用/内置标记），不再新增，避免重复堆叠
+              replaced = true;
+              const next = s.worldBooks.slice();
+              next[idx] = { ...next[idx], name, entries };
+              return { worldBooks: next };
+            }
+            return { worldBooks: [...s.worldBooks, { id: `wb_${Date.now()}`, name, entries, enabled: true, createdAt: Date.now(), builtin, builtinKey }] };
+          });
+          return { ok: true, message: replaced ? `已更新「${name}」（同名覆盖），共 ${entries.length} 条条目` : `已导入「${name}」，共 ${entries.length} 条条目` };
         } catch (e: any) { return { ok: false, message: `导入失败：${e.message}` }; }
       },
 
       toggleWorldBook: (id) => set((s) => ({ worldBooks: s.worldBooks.map((b) => b.id === id ? forkIfBuiltin({ ...b, enabled: !b.enabled }) : b) })),
       removeWorldBook: (id) => set((s) => ({ worldBooks: s.worldBooks.filter((b) => b.id !== id) })),
+      dedupeWorldBooks: () => {
+        const arr = get().worldBooks;
+        const chosen = new Map();   // name → 保留一本（同名优先保留内置/带 builtinKey 的，否则刷新后内置会重新挂载又生重复）
+        for (const b of arr) {
+          const cur = chosen.get(b.name);
+          if (!cur) chosen.set(b.name, b);
+          else if (!(cur.builtin || cur.builtinKey) && (b.builtin || b.builtinKey)) chosen.set(b.name, b);
+        }
+        const keep = new Set(Array.from(chosen.values()).map((b: any) => b.id));
+        const removed = arr.length - keep.size;
+        if (removed > 0) set({ worldBooks: arr.filter((b) => keep.has(b.id)) });
+        return removed;
+      },
       renameWorldBook: (id, name) => set((s) => ({ worldBooks: s.worldBooks.map((b) => b.id === id ? forkIfBuiltin({ ...b, name }) : b) })),
       toggleWorldBookEntry: (bookId, uid) => set((s) => ({ worldBooks: s.worldBooks.map((b) => b.id !== bookId ? b : forkIfBuiltin({ ...b, entries: b.entries.map((e) => e.uid === uid ? { ...e, enabled: !e.enabled } : e) })) })),
       updateWorldBookEntry: (bookId, uid, patch) => set((s) => ({ worldBooks: s.worldBooks.map((b) => b.id !== bookId ? b : forkIfBuiltin({ ...b, entries: b.entries.map((e) => e.uid === uid ? { ...e, ...patch } : e) })) })),
@@ -711,13 +736,36 @@ export const useSettings = create<SettingsState>()(
       importTextWorldBook: (raw, fileName = '', builtin = false, builtinKey?: string) => {
         try {
           const { name, entries } = parseWorldBook(raw, fileName);
-          set((s) => ({ textWorldBooks: [...s.textWorldBooks, { id: `twb_${Date.now()}`, name, entries, enabled: true, createdAt: Date.now(), builtin, builtinKey }] }));
-          return { ok: true, message: `已导入「${name}」，共 ${entries.length} 条条目` };
+          let replaced = false;
+          set((s) => {
+            const idx = s.textWorldBooks.findIndex((b) => b.name === name);
+            if (idx >= 0) {   // 同名已存在 → 原地覆盖条目（保留 id/启用/内置标记），不再新增，避免重复堆叠
+              replaced = true;
+              const next = s.textWorldBooks.slice();
+              next[idx] = { ...next[idx], name, entries };
+              return { textWorldBooks: next };
+            }
+            return { textWorldBooks: [...s.textWorldBooks, { id: `twb_${Date.now()}`, name, entries, enabled: true, createdAt: Date.now(), builtin, builtinKey }] };
+          });
+          return { ok: true, message: replaced ? `已更新「${name}」（同名覆盖），共 ${entries.length} 条条目` : `已导入「${name}」，共 ${entries.length} 条条目` };
         } catch (e: any) { return { ok: false, message: `导入失败：${e.message}` }; }
       },
 
       toggleTextWorldBook: (id) => set((s) => ({ textWorldBooks: s.textWorldBooks.map((b) => b.id === id ? forkIfBuiltin({ ...b, enabled: !b.enabled }) : b) })),
       removeTextWorldBook: (id) => set((s) => ({ textWorldBooks: s.textWorldBooks.filter((b) => b.id !== id) })),
+      dedupeTextWorldBooks: () => {
+        const arr = get().textWorldBooks;
+        const chosen = new Map();   // name → 保留一本（同名优先保留内置/带 builtinKey 的，否则刷新后内置会重新挂载又生重复）
+        for (const b of arr) {
+          const cur = chosen.get(b.name);
+          if (!cur) chosen.set(b.name, b);
+          else if (!(cur.builtin || cur.builtinKey) && (b.builtin || b.builtinKey)) chosen.set(b.name, b);
+        }
+        const keep = new Set(Array.from(chosen.values()).map((b: any) => b.id));
+        const removed = arr.length - keep.size;
+        if (removed > 0) set({ textWorldBooks: arr.filter((b) => keep.has(b.id)) });
+        return removed;
+      },
       renameTextWorldBook: (id, name) => set((s) => ({ textWorldBooks: s.textWorldBooks.map((b) => b.id === id ? forkIfBuiltin({ ...b, name }) : b) })),
       toggleTextWorldBookEntry: (bookId, uid) => set((s) => ({ textWorldBooks: s.textWorldBooks.map((b) => b.id !== bookId ? b : forkIfBuiltin({ ...b, entries: b.entries.map((e) => e.uid === uid ? { ...e, enabled: !e.enabled } : e) })) })),
       updateTextWorldBookEntry: (bookId, uid, patch) => set((s) => ({ textWorldBooks: s.textWorldBooks.map((b) => b.id !== bookId ? b : forkIfBuiltin({ ...b, entries: b.entries.map((e) => e.uid === uid ? { ...e, ...patch } : e) })) })),

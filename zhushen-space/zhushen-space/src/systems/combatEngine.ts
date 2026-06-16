@@ -10,6 +10,7 @@ import {
 import {
   computeDerived, computeMaxHp, computeMaxEp, lvFromRealm, normalizeTier, realmFromLevel, effectiveResource, trueAttr,
 } from './derivedStats';
+import { effectiveAttrs } from './attrBonus';
 import { usePlayer, type StatusEffect, type CombatStatusMod } from '../store/playerStore';
 import { useGame } from '../store/gameStore';
 import { useNpc } from '../store/npcStore';
@@ -67,7 +68,9 @@ export function buildCombatant(id: string, side: Side, override?: Partial<Combat
   }
   if (id === 'B1') {
     const p = usePlayer.getState().profile;
-    const attrs = p.attrs ?? DEFAULT_ATTRS;
+    const equippedFull = useItems.getState().items.filter((it) => it.equipped);
+    // 有效六维 = 基础 + 装备(含镶嵌宝石写进 effect 的加成)；技能/天赋由骰子 mSkill/mTalent 单列，不在此并入以免双算
+    const attrs = effectiveAttrs(p.attrs ?? DEFAULT_ATTRS, [], [], equippedFull) as DiceAttrs;
     const equipped = equippedOf(useItems.getState().items);
     const d = computeDerived(attrs, p.level, equipped);
     const maxHp = computeMaxHp(attrs), maxEp = computeMaxEp(attrs);
@@ -80,7 +83,8 @@ export function buildCombatant(id: string, side: Side, override?: Partial<Combat
     };
   }
   const npc = useNpc.getState().npcs[id];
-  const attrs = npc?.attrs ?? DEFAULT_ATTRS;
+  const equippedFull = (npc?.items ?? []).filter((it) => it.equipped);
+  const attrs = effectiveAttrs(npc?.attrs ?? DEFAULT_ATTRS, [], [], equippedFull as any) as DiceAttrs;  // 基础六维 + 装备(含宝石)加成
   const level = lvFromRealm(npc?.realm);
   const equipped = equippedOf(npc?.items);
   const d = computeDerived(attrs, level, equipped);

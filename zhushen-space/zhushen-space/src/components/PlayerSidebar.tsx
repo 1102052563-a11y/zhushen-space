@@ -7,6 +7,7 @@ import StatusEffectChips from './StatusEffectChips';
 import { computeDerived, realmFromLevel, trueAttr, computeMaxHp, computeMaxEp, gearMaxHpBonus, gearMaxEpBonus, abilityMaxHpBonus, abilityMaxEpBonus, effectiveResource } from '../systems/derivedStats';
 import { useCharacters } from '../store/characterStore';
 import { computeAttrBreakdown, ATTR_LABEL, type AttrBreak } from '../systems/attrBonus';
+import { bioInnate, bioPower, bioStrengthLabel } from '../systems/bioStrength';
 import { useImageGen } from '../store/imageGenStore';
 import { generateImage, buildPortraitPrompt, shrinkDataUrl } from '../systems/imageGen';
 import { useImageViewer } from '../store/imageViewerStore';
@@ -231,7 +232,7 @@ export default function PlayerSidebar({ onClose }: { onClose?: () => void }) {
           <Row label="竞技场排名"><EditText value={profile.arenaRank} onSave={(v) => setProfile({ arenaRank: v })} placeholder="（未上榜）" /></Row>
           <Row label="烙印等级"><EditText value={profile.brandLevel} onSave={(v) => setProfile({ brandLevel: v })} placeholder="（无）" /></Row>
           <Row label="契约者ID"><EditText value={profile.contractorId} onSave={(v) => setProfile({ contractorId: v })} placeholder="（未分配）" /></Row>
-          <Row label="生物强度"><EditText value={profile.bioStrength} onSave={(v) => setProfile({ bioStrength: v })} placeholder="（如 T3·勇士）" /></Row>
+          <Row label="生物强度"><span className="text-[13px] text-amber-300/90" title="前端按六维机械判定：资质档(基础六维)/战力档(含装备技能天赋加成)">{bioStrengthLabel(bioInnate(profile.attrs, profile.tier, profile.level), bioPower(effAttrs)) || '（六维待定）'}</span></Row>
           <Row label="进阶点数"><EditNum value={profile.advancePoints ?? 0} onSave={(v) => setProfile({ advancePoints: v })} /></Row>
           <Row label="世界之源"><EditNum value={Math.round((profile.worldSource ?? 0) * 10) / 10} onSave={(v) => setProfile({ worldSource: Math.round(v * 10) / 10 })} /></Row>
         </div>

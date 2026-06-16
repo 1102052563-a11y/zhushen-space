@@ -2,6 +2,7 @@
    骰子检定引擎（ROLL 点）——纯前端确定性计算，AI 不写数值
    设计见仓库根 `摇骰子判定-集成指导.md`。要点：
    - 相对修正模型（属性 vs 自身均值），适配开放六维（前期5、后期上千）
+   - 技能/天赋/装备走【递减收益 + 低封顶】（最强几项有用、堆数量无效），避免后期加成盖过难度
    - 双模式：DND d20（默认，1d20+MOD≥DC）/ CoC 百分骰（1d100≤P）
    - 对战 = 绝对强度差(强度档/阶位) + 相对修正差
    - 暴击后果倍率：大成功×2 / 碾压×1.5 / 成功×1 / 失败×0 / 大失败=反噬
@@ -57,6 +58,11 @@ export const CRIT_MULT: Record<OutcomeLevel, number> = {
 const clamp = (v: number, lo: number, hi: number) => Math.max(lo, Math.min(hi, v));
 const avgOf = (a: DiceAttrs) => ((a.str + a.agi + a.con + a.int + a.cha + a.luck) / 6) || 1;
 
+/** 加成调参（可在 设置→变量管理→🎲ROLL点 调整，随 diceStore 持久化/导出）。
+ *  *Cap = d20 尺度的封顶，百分骰自动 ×4；decay 越小递减越狠（越难被装备池碾压）。 */
+export interface DiceTuning { skillCap: number; talentCap: number; equipCap: number; decay: number }
+export const DEFAULT_TUNING: DiceTuning = { skillCap: 4, talentCap: 4, equipCap: 3, decay: 0.55 };
+
 /* ── 各修正项（按模式不同尺度）── */
 export function attrMod(attrVal: number, attrs: DiceAttrs, mode: DiceMode): number {
   const avg = avgOf(attrs);
@@ -99,21 +105,28 @@ export interface SkillLite { level?: string }
 export interface TalentLite { rarity?: string }
 export interface EquipItemLite { category: string; grade?: number }
 
-/** 计入角色【全部】技能（各按层阶求和，封顶防爆） */
-export function skillsTotalMod(skills: SkillLite[] | undefined, mode: DiceMode): number {
-  if (!skills?.length) return 0;
-  let sum = 0;
-  for (const s of skills) sum += skillMod(skillTierFromLevel(s.level), mode);
-  const cap = mode === 'd20' ? 10 : 40;
-  return clamp(sum, -cap, cap);
+/** 递减收益：正贡献降序后按几何衰减求和（最强几项有用、长尾趋零，杜绝"堆数量"刷爆）；
+ *  负贡献（负面天赋等）全额计入——惩罚不打折。decay 越小递减越狠（0.55≈有效项约前 3 个）。 */
+function diminishingSum(vals: number[], decay = 0.55): number {
+  let sum = 0, w = 1;
+  for (const v of vals.filter((x) => x > 0).sort((a, b) => b - a)) { sum += v * w; w *= decay; }
+  for (const v of vals) if (v < 0) sum += v;
+  return sum;
 }
-/** 计入角色【全部】天赋（正负相加，封顶防爆） */
-export function talentsTotalMod(talents: TalentLite[] | undefined, mode: DiceMode): number {
+
+/** 计入角色【全部】技能（递减收益：最强几项有用、长尾趋零；低封顶防碾压） */
+export function skillsTotalMod(skills: SkillLite[] | undefined, mode: DiceMode, tune: DiceTuning = DEFAULT_TUNING): number {
+  if (!skills?.length) return 0;
+  const vals = skills.map((s) => skillMod(skillTierFromLevel(s.level), mode));
+  const cap = mode === 'd20' ? tune.skillCap : tune.skillCap * 4;
+  return clamp(Math.round(diminishingSum(vals, tune.decay)), -cap, cap);
+}
+/** 计入角色【全部】天赋（正项递减收益、负面全额；低封顶防碾压） */
+export function talentsTotalMod(talents: TalentLite[] | undefined, mode: DiceMode, tune: DiceTuning = DEFAULT_TUNING): number {
   if (!talents?.length) return 0;
-  let sum = 0;
-  for (const t of talents) sum += talentMod(talentRarityFromRaw(t.rarity), mode);
-  const cap = mode === 'd20' ? 12 : 48;
-  return clamp(sum, -cap, cap);
+  const vals = talents.map((t) => talentMod(talentRarityFromRaw(t.rarity), mode));
+  const cap = mode === 'd20' ? tune.talentCap : tune.talentCap * 4;
+  return clamp(Math.round(diminishingSum(vals, tune.decay)), -cap, cap);
 }
 
 /** 装备品类对某属性检定的相关权重（武器→力/敏攻击，防具→体质防御，饰品→智/魅/幸） */
@@ -123,14 +136,13 @@ function equipWeight(cat: string, attr: AttrKey): number {
   if (cat === '防具') return attr === 'con' ? 1 : isCombat ? 0.3 : 0.1;
   return attr === 'int' || attr === 'cha' || attr === 'luck' ? 0.5 : 0.2;  // 饰品/特殊/法宝/其它
 }
-/** 已装备物品对检定的加成（按属性相关性 × 品质，封顶） */
-export function equipMod(equipped: EquipItemLite[] | undefined, attrKey: AttrKey, mode: DiceMode): number {
+/** 已装备物品对检定的加成（按属性相关性 × 品质，递减收益 + 低封顶防碾压） */
+export function equipMod(equipped: EquipItemLite[] | undefined, attrKey: AttrKey, mode: DiceMode, tune: DiceTuning = DEFAULT_TUNING): number {
   if (!equipped?.length) return 0;
-  let sum = 0;
-  for (const it of equipped) sum += Math.max(1, it.grade ?? 1) * equipWeight(it.category, attrKey);
-  const scaled = mode === 'd20' ? sum * 0.4 : sum * 2;
-  const cap = mode === 'd20' ? 6 : 30;
-  return clamp(Math.round(scaled), -cap, cap);
+  const per = mode === 'd20' ? 0.4 : 2;
+  const vals = equipped.map((it) => Math.max(1, it.grade ?? 1) * equipWeight(it.category, attrKey) * per);
+  const cap = mode === 'd20' ? tune.equipCap : tune.equipCap * 4;
+  return clamp(Math.round(diminishingSum(vals, tune.decay)), -cap, cap);
 }
 
 /* ── 文本→枚举解析（供调用方从 store 数据提取）── */
@@ -213,6 +225,7 @@ export interface ResolveInput {
   enemyStrengthScore?: number;
   enemy?: ResolveSide;           // 对战时敌方（算其全部技能/天赋/装备）
   diffBase?: Partial<Record<Difficulty, { rate: number; dc: number }>>;
+  tuning?: DiceTuning;           // 技能/天赋/装备封顶 + 递减强度（留空用 DEFAULT_TUNING）
 }
 
 export interface ResolveResult {
@@ -242,18 +255,19 @@ export function resolve(inp: ResolveInput): ResolveResult {
   const base = { ...DIFFICULTY_BASE, ...(inp.diffBase ?? {}) };
   const includeLuck = inp.includeLuck !== false;
   const adv = inp.advantage ?? 'norm';
+  const tune = inp.tuning ?? DEFAULT_TUNING;
 
   const mAttr = attrMod(inp.attrs[inp.attrKey] ?? 5, inp.attrs, mode);
-  const mSkill = skillsTotalMod(inp.skills, mode);
-  const mTalent = talentsTotalMod(inp.talents, mode);
-  const mEquip = equipMod(inp.equipped, inp.attrKey, mode);
+  const mSkill = skillsTotalMod(inp.skills, mode, tune);
+  const mTalent = talentsTotalMod(inp.talents, mode, tune);
+  const mEquip = 0;  // 装备(+宝石)六维已并入有效属性 inp.attrs（见 attrBonus.effectiveAttrs），不再按品级二次加成，防双算
   const mFavor = favorMod(inp.favorTier, mode);
   const mLuck = includeLuck ? luckMod(inp.attrs, mode) : 0;
   const mExtra = Math.round(inp.extraMod ?? 0);
   const mStrength = inp.opposed ? strengthDelta(inp.myStrengthScore, inp.enemyStrengthScore, mode) : 0;
   const e = inp.enemy;
   const enemyRel = inp.opposed && e
-    ? attrMod(e.attrs[e.attrKey] ?? 5, e.attrs, mode) + skillsTotalMod(e.skills, mode) + talentsTotalMod(e.talents, mode) + equipMod(e.equipped, e.attrKey, mode) + Math.round(e.extraMod ?? 0)
+    ? attrMod(e.attrs[e.attrKey] ?? 5, e.attrs, mode) + skillsTotalMod(e.skills, mode, tune) + talentsTotalMod(e.talents, mode, tune) + Math.round(e.extraMod ?? 0)
     : 0;
   const relTotal = mAttr + mSkill + mTalent + mEquip + mFavor + mLuck + mExtra;
   const modTotal = relTotal + mStrength;

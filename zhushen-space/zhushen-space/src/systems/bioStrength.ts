@@ -17,6 +17,28 @@ import { effectiveAttrs } from './attrBonus';
 // 档位中文名（数组下标 = 档位数字 T0..T9）
 export const BIO_TIER_NAMES = ['杂鱼', '兵卒', '精英', '勇士', '英雄', '领主', '王者', '半神', '真神', '源初'] as const;
 
+// 各档「Flex 使用率」区间 [lo,hi]（占本阶 Flex_total 的比例）——生物强度框架模板 T0~T6 的 Flex%。
+// 反推档位(templateFromRatio)与正向生成属性(npcAttrGen)共用同一套边界，确保 读数↔回填 闭环一致。
+// T6 封顶满配(1.0)：基础六维不得超本阶硬上限，T6+ 的「外源加成」属装备/技能层，不在基础六维生成范围。
+export const TEMPLATE_FLEX_RANGES: ReadonlyArray<readonly [number, number]> = [
+  [0.00, 0.20], [0.20, 0.35], [0.35, 0.55], [0.55, 0.75], [0.75, 0.92], [0.92, 1.00], [1.00, 1.00],
+] as const;
+
+// 生物强度档 → 「单属性峰值」占本阶 [Min,Cap] 的比例上限（峰值口径：强度=最强一项的水平）。
+// 与 npcAttrGen 的峰值压缩共用同一张表，保证 生成峰值 ↔ 读数档 闭环一致。可调。
+export const PEAK_PCT: ReadonlyArray<number> = [0.11, 0.28, 0.50, 0.68, 0.85, 0.95, 1.0, 1.0, 1.0, 1.0];
+
+// 单属性峰值占比 → 档位(0..9)：落在哪个档的上限内就是哪档(带小容差吸收取整误差)
+export function peakToTier(peakRatio: number): number {
+  for (let k = 0; k < PEAK_PCT.length; k++) if (peakRatio <= PEAK_PCT[k] + 0.02) return k;
+  return 9;
+}
+
+// 五维(不含幸运)最高值
+function peakOf(a: PlayerAttrs): number {
+  return Math.max(a.str || 0, a.agi || 0, a.con || 0, a.int || 0, a.cha || 0);
+}
+
 export interface BioTier {
   code: string;    // 'T0'..'T9'
   num: number;     // 0..9
@@ -28,7 +50,7 @@ export interface BioTier {
 
 // 阶位序号(1=一阶 … 9=九阶 … 13=无上之境) → 该阶「单个基础属性」的 [下限,上限]
 // 上限取 ATTR_CAP_BY_TIER；下限 = 上一阶上限 + 1（一阶特例下限 5）
-function tierBounds(tierNum: number): [number, number] {
+export function tierBounds(tierNum: number): [number, number] {
   const i = Math.max(1, Math.min(TIERS.length, Math.round(tierNum))) - 1;
   const cap = ATTR_CAP_BY_TIER[TIERS[i]] ?? Infinity;
   const min = i === 0 ? 5 : (ATTR_CAP_BY_TIER[TIERS[i - 1]] ?? 5) + 1;
@@ -36,7 +58,7 @@ function tierBounds(tierNum: number): [number, number] {
 }
 
 // 预算占用率 → 生物强度框架模板档(0..6)。边界取自框架 T0~T6 的 Flex% 区间。
-function templateFromRatio(r: number): number {
+export function templateFromRatio(r: number): number {
   if (r <= 0.20) return 0; // T0 杂鱼
   if (r <= 0.35) return 1; // T1 兵卒
   if (r <= 0.55) return 2; // T2 精英
@@ -46,17 +68,19 @@ function templateFromRatio(r: number): number {
   return 6;                // T6 王者（> 满配，靠外源加成）
 }
 
+// 档位按本阶窗口 [tierNum-1, min(9,tierNum+2)] 钳制（框架阶位窗口规律；高阶封顶 T9）
+export function clampToTierWindow(num: number, tierNum: number): number {
+  const lo = Math.min(9, Math.max(0, tierNum - 1));
+  const hi = Math.min(9, tierNum + 2);
+  return Math.max(lo, Math.min(hi, num));
+}
+
 // 5 项基础属性之和 + 阶位序号 → 档位数字(0..9，已按本阶窗口钳制) + 占用率
 function codeFromSum5(sum5: number, tierNum: number): { num: number; ratio: number } {
   const [min, cap] = tierBounds(tierNum);
   const denom = (cap - min) * 5;
   const ratio = denom > 0 && isFinite(denom) ? (sum5 - min * 5) / denom : 0;
-  let num = templateFromRatio(ratio);
-  // 本阶窗口：可出现的档位区间 [tierNum-1, min(9, tierNum+2)]（框架阶位窗口规律；高阶封顶 T9）
-  const lo = Math.min(9, Math.max(0, tierNum - 1));
-  const hi = Math.min(9, tierNum + 2);
-  num = Math.max(lo, Math.min(hi, num));
-  return { num, ratio };
+  return { num: clampToTierWindow(templateFromRatio(ratio), tierNum), ratio };
 }
 
 // 5 项基础属性之和（幸运不计入）
@@ -70,7 +94,7 @@ function mk(num: number, ratio: number, tierNum: number): BioTier {
 }
 
 // 名义阶位字符串/等级 → 阶位序号(1..13)，取「显式阶位」与「按等级推导」较高者（与 attrCapForTier 同源）
-function nominalTierNum(tier?: string, level?: number): number {
+export function nominalTierNum(tier?: string, level?: number): number {
   const it = TIERS.indexOf(normalizeTier(tier) as typeof TIERS[number]);
   const il = TIERS.indexOf(realmFromLevel(Math.max(1, level || 1)) as typeof TIERS[number]);
   const idx = Math.max(it, il);
@@ -86,21 +110,23 @@ function effectiveTierNum(effAvg: number): number {
   return 1;
 }
 
-/* 资质档：基础六维 + 名义阶位（稳定、不含加成、不越阶） */
+/* 资质档：基础六维「最强一项」在名义阶位内的水平（峰值口径，稳定、不含加成、不越阶） */
 export function bioInnate(base?: PlayerAttrs, tier?: string, level?: number): BioTier | null {
   if (!base) return null;
   const tn = nominalTierNum(tier, level);
-  const { num, ratio } = codeFromSum5(sum5Of(base), tn);
-  return mk(num, ratio, tn);
+  const [min, cap] = tierBounds(tn);
+  const peakRatio = cap > min ? (peakOf(base) - min) / (cap - min) : 0;
+  return mk(clampToTierWindow(peakToTier(peakRatio), tn), peakRatio, tn);
 }
 
-/* 战力档：有效六维(含装备/技能/天赋加成) + 等效阶位反查（浮动、可越阶） */
+/* 战力档：有效六维(含装备/技能/天赋加成)「最强一项」+ 等效阶位反查（峰值口径，浮动、可越阶） */
 export function bioPower(eff?: PlayerAttrs): BioTier | null {
   if (!eff) return null;
-  const s = sum5Of(eff);
-  const tn = effectiveTierNum(s / 5);
-  const { num, ratio } = codeFromSum5(s, tn);
-  return mk(num, ratio, tn);
+  const peak = peakOf(eff);
+  const tn = effectiveTierNum(peak);             // 用峰值反查等效阶位(实现越阶战力)
+  const [min, cap] = tierBounds(tn);
+  const peakRatio = cap > min ? (peak - min) / (cap - min) : 0;
+  return mk(clampToTierWindow(peakToTier(peakRatio), tn), peakRatio, tn);
 }
 
 type AbilityLite = { attrBonus?: string; effect?: string };

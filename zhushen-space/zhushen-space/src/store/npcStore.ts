@@ -3,6 +3,7 @@ import { persist } from 'zustand/middleware';
 import { useCharacters, type Deed } from './characterStore';
 import type { PlayerAttrs, StatusEffect } from './playerStore';
 import { normalizeTier, realmFromLevel, lvFromRealm } from '../systems/derivedStats';
+import type { SocketedGem, GemSlotKind } from './itemStore';
 
 /* 判断「列4状态」是否表示该角色【真的死亡】。
    只认明确的死亡状态，**排除**只是提到"死"字却没死的情况（濒死/濒临死亡/挚友身亡/恐惧死亡/假死/不死之身…），
@@ -54,6 +55,11 @@ export interface NpcOwnedItem {
   intro?: string;         // 简介
   killCount?: string;     // 杀敌数量（仅武器类）
   enhanceLevel?: number;  // 强化等级 0-16（装备强化系统，仅装备类；0/缺省=未强化）
+  // ── 宝石/镶嵌系统（与 InventoryItem 对齐；六维加成已写进 effect 自动传导）──
+  sockets?: number;       // 镶嵌孔总数（缺省按品级派生 socketsOf）
+  gems?: SocketedGem[];   // 已镶嵌宝石
+  gemSlot?: GemSlotKind;  // （宝石物品专属）部位限制
+  gemAttr?: string;       // （宝石物品专属）属性类型
   image?: string;         // 装备图（上传/AI 生图 dataURL）
   numeric?: Record<string, unknown>;  // 原始数值结构（rarityTier/grade/statLines…）
   addedAt: number;

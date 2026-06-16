@@ -13,6 +13,7 @@ import {
   EVO_EXACT_REF_RULE,
   SUBPROF_RULE,
   NPC_AGE_RULE,
+  NPC_GEN_ATTR_RULE,
   NPC_REVIEW_TAG_RULE,
   FACTION_WORLD_RULE,
   FACTION_FULL_FORMAT_RULE,
@@ -43,6 +44,7 @@ import {
   ARENA_LADDER_RULE,
   ARENA_OPPONENT_RULE,
   ARENA_REWARD_RULE,
+  KILL_MANIFEST_RULE,
 } from './promptRules';
 
 import { useState, useRef, useEffect } from 'react';
@@ -51,6 +53,7 @@ import { useSettings, resolveApiChain } from './store/settingsStore';
 import { apiChatFallback } from './systems/apiChat';
 import { useVariables } from './store/variableStore';
 import { parseAllStateUpdates, stripStateBlocks, parseAllItemCommands, applyItemCommands, parseAllCharCommands, applyCharacterCommands, parseAllNpcCommands, applyNpcCommands, parseAllFactionCommands, applyFactionCommands, applyTerritoryCommands, applyTeamCommands, isEquippable, setNpcOwnerResolver, lenientJsonParse, type StateUpdate } from './systems/stateParser';
+import { parseKillManifest, buildKillSettlement, freezeSettlementBlock } from './systems/advancePoints';
 import { useCombat, newLogId, type BattleState, type CombatStatBlock, type Side, type CombatActionKind } from './store/combatStore';
 import { buildCombatant, assembleBattle, settleAction, advanceTurn, checkEnd, currentActorId, aliveIds, makeActionLog, playerControlled } from './systems/combatEngine';
 import CombatPanel from './components/CombatPanel';
@@ -61,6 +64,7 @@ import { useTeam, buildTeamSystemPrompt, memberCap as teamMemberCap } from './st
 import { useCosmos, buildCosmosSystemPrompt, cosmosNameEq } from './store/cosmosStore';
 import { realmFromLevel, normalizeTier, lvFromRealm, trueAttr, computeMaxHp, computeMaxEp, gearMaxHpBonus, gearMaxEpBonus, abilityMaxHpBonus, abilityMaxEpBonus, effectiveResource, attrCapForTier } from './systems/derivedStats';
 import { bioInnate } from './systems/bioStrength';
+import { generateNpcAttrs, resolveForm } from './systems/npcAttrGen';
 import { useImageGen, effectiveEquipService } from './store/imageGenStore';
 import { generateImage, buildPortraitPrompt, buildEquipPrompt, shrinkDataUrl } from './systems/imageGen';
 import { genPortraitTags, genEquipTags, isTagService } from './systems/imageTags';
@@ -339,6 +343,26 @@ function renderDiceCard(inner: string): string {
     + (consM ? '<div class="text-[12px] font-mono text-slate-400">后果：' + escapeHtml(consM[1]) + '</div>' : '')
     + '</div>';
 }
+/* 击杀结算卡：把已算定的 <击杀结算> 文本块渲染成卡片（首行=总计/当前，其余每行=名称|阶差|+点数）。 */
+function renderKillCard(inner: string): string {
+  const lines = String(inner).trim().split('\n').map((s) => s.trim()).filter(Boolean);
+  if (lines.length === 0) return '';
+  const head = lines[0];
+  const rows = lines.slice(1).map((r) => {
+    const seg = r.split('|').map((s) => s.trim());
+    const name = seg[0] || '', gap = seg[1] || '', pts = seg[2] || '';
+    const gapColor = /越阶/.test(gap) ? 'text-rose-300' : /碾压/.test(gap) ? 'text-slate-500' : 'text-slate-300';
+    return '<div class="flex items-center justify-between text-[12px] py-0.5">'
+      + '<span class="text-slate-200/90">' + escapeHtml(name) + '</span>'
+      + '<span class="flex items-center gap-2"><span class="' + gapColor + '">' + escapeHtml(gap) + '</span>'
+      + '<span class="font-mono text-amber-300">' + escapeHtml(pts) + '</span></span></div>';
+  }).join('');
+  return '<div class="my-2 rounded-lg border border-amber-700/40 bg-amber-900/10 px-3 py-2">'
+    + '<div class="flex items-center gap-2 mb-1"><span>⚔️</span>'
+    + '<span class="text-[13px] font-bold text-amber-300 tracking-wider">击杀结算</span>'
+    + '<span class="text-[12px] font-mono text-amber-200/80">' + escapeHtml(head) + '</span></div>'
+    + rows + '</div>';
+}
 const DICE_BLOCK_RE = /<检定结果>([\s\S]*?)<\/检定结果>\s*(（[^）\n]*）)?/g;
 /* 用户消息渲染：转义文本 + 把检定结果块替换成卡片（用户消息原本是纯文本） */
 function userToHtml(text: string): string {
@@ -363,6 +387,13 @@ function toHtmlWithImages(text: string, images?: StoryImage[]): string {
     diceCards.push(renderDiceCard(String(inner)));
     return `\n${tok}\n`;
   });
+  // 击杀结算块 → 占位符（最后替换成击杀结算卡）
+  const killCards: string[] = [];
+  work = work.replace(/<击杀结算>([\s\S]*?)<\/击杀结算>/gi, (_m, inner) => {
+    const tok = `@@ZSKILL${killCards.length}@@`;
+    killCards.push(renderKillCard(String(inner)));
+    return `\n${tok}\n`;
+  });
   // 图片占位符
   const tokens: string[] = [];
   (images ?? []).forEach((img, i) => {
@@ -378,6 +409,7 @@ function toHtmlWithImages(text: string, images?: StoryImage[]): string {
     html = html.split(tokens[i]).join(tag);
   });
   diceCards.forEach((card, i) => { html = html.split(`@@ZSDICE${i}@@`).join(card); });
+  killCards.forEach((card, i) => { html = html.split(`@@ZSKILL${i}@@`).join(card); });
   return html;
 }
 
@@ -653,6 +685,26 @@ function applyAllUpdates(raw: string) {
   applyStateUpdates(raw);
 }
 
+/* 击杀结算：解析正文末尾的 <kill> 清单 → 按阶位/等级公式机械算进阶点 → 累加到主角 advancePoints，
+   并把 <kill> 块替换成已算定的 <击杀结算> 显示块（渲染层只格式化、不再重算）。无清单则原样返回。
+   注：须在 applyAllUpdates 之后调用，使击杀点叠加在本轮 <state> 已设的总量之上。 */
+function settleKills(raw: string): string {
+  if (!/<kill>/i.test(raw)) return raw;
+  const KILL_RE = /<kill>[\s\S]*?<\/kill>/gi;
+  const prof = usePlayer.getState().profile;
+  const records = parseKillManifest(raw);
+  if (records.length === 0) return raw.replace(KILL_RE, '').trimEnd();
+  const settlement = buildKillSettlement(records, { tier: prof.tier, level: prof.level, name: prof.name });
+  const newAp = (prof.advancePoints || 0) + settlement.total;
+  if (settlement.total !== 0) {
+    usePlayer.getState().setProfile({ advancePoints: newAp });
+    console.log(`[击杀结算] +${settlement.total} 进阶点 → ${newAp}`, settlement.lines);
+  }
+  const frozen = freezeSettlementBlock(settlement, newAp);
+  let used = false;
+  return raw.replace(KILL_RE, () => { if (used) return ''; used = true; return frozen; });
+}
+
 /* ─── 物品管理阶段：构建注入 system prompt（替换模板变量）─── */
 function buildItemPhaseSystemPrompt(entries: ItemPresetEntry[], narrative: string): string {
   const { items, currency } = useItems.getState();
@@ -925,6 +977,13 @@ const QUEST_PLANNING_RULE = `
 - **何时不规划**：已存在当前世界的 active 主线时，**绝不重复新建主线**；主线的环推进交给【任务结算/推进】，这里不再造第二条主线。
 - 路线图是**规划而非预言**：**总环数(3~5)、各环的强制/贪婪定位、finale 定下后保持不变**，但环的具体内容渐进式补全（当前环+下一环写全、其余占位）；不要一开始就把整条线写死。每一环都是要打好几回合的"实质挑战"、规模/难度递增，不是琐碎子步骤。
 - **支线**：正文产生的其他多回合目标用 \`kind:"支线"\`（或不写 kind=默认支线）；需要分段的支线同样可带 rings，其每一环也要写全 goal/reward/penalty，reward 同样按"四选三"（属性点/技能点/乐园币/当前世界风格装备或技能书 任选3类）给，penalty 同样从「扣除乐园币 / 全属性永久下降 / 强制抹除」三类里取。`;
+
+const QUEST_KILL_TIER_RULE = `
+【任务击杀目标·阶位上限铁则（防止给低阶主角派"正面单挑高阶强者"的送死任务）】凡任务（含主线/支线各环）要求主角**正面击杀/讨伐**的目标，其阶位按环型封顶：
+- **强制环 / 任何必经的击杀目标（含高潮 boss）**：阶位 **≤ 主角当前阶位**（主角一阶 → 目标最高一阶）。主线推进必须打赢，绝不能逼主角越阶硬撼；难度靠**精英化 / 数量 / 机制 / 环境**做，不靠拔高阶位。
+- **贪婪环（optional:true 的可选拔高）**：阶位 **≤ 主角当前阶位 +1**（主角一阶 → 最高二阶），作为高风险高回报的越阶挑战。
+- **不得为凑上限而把剧情里本就强大的角色降级**：高阶 boss / 枭雄 / 原作强者维持其应有阶位与设定。正确做法是**给主角换一个与其阶位相称的击杀目标**——打高阶强者的下属 / 爪牙 / 外围、或迂回 / 非正面目标；高阶强者此刻只作背景威胁、旁观者、或暂时无法正面硬撼的存在，待主角成长后再正面对决。
+- 例（主角一阶）：第一个任务**别**写"正面干掉二阶精英魔物"；应是"清剿一阶异化幼体""赶在二阶魔物现身前完成目标并撤离"这类一阶打得过的目标。`;
 
 const TASK_RECONCILE_RULE = `
 【任务环·自适应推进铁则（带环路线图的任务专用，优先于"任务达成即整条结算"的旧理解）】对【当前任务列表】里展开了 环1/环2… 的任务，每轮据正文按下列情形维护；**单条任务每轮最多一种环操作，无明确证据则不动**：
@@ -1381,6 +1440,10 @@ export default function App() {
     if (ctx) sysPrompt += '\n\n[世界书信息]\n' + ctx;
     // 主角状态同步：让始终运行的主正文每回合输出位置/外观（前端解析后剥除），不依赖被节流的主角演化阶段
     sysPrompt += '\n\n' + PLAYER_STATE_EMIT_RULE;
+    // 击杀清单：本回合若有敌人确实死亡，正文末尾输出 <kill> 清单（只报事实），前端机械结算进阶点
+    sysPrompt += '\n\n' + KILL_MANIFEST_RULE;
+    // 任务击杀目标阶位上限：强制环≤主角阶位、贪婪环≤+1；勿降级剧情高端战力，改派阶位相称的目标
+    sysPrompt += '\n\n' + QUEST_KILL_TIER_RULE;
 
     // user/assistant 条目作为示例历史
     const examples = entries
@@ -1542,7 +1605,7 @@ export default function App() {
     const chain = resolveApiChain('enhance', legacy);
     if (!chain[0]?.baseUrl || !chain[0]?.apiKey) { console.warn('[Enhance] 收尾：API 未配置（设置→变量管理→装备强化）'); return; }
 
-    const addAffix = Math.max(0, Math.floor(args.newLevel / 4) - Math.floor(Math.max(0, args.startLevel) / 4));
+    const addAffix = Math.max(0, Math.floor(args.newLevel / 3) - Math.floor(Math.max(0, args.startLevel) / 3));
     const card = [
       `itemId: ${it.id}`,
       `名称: ${it.name}`,
@@ -1564,7 +1627,7 @@ export default function App() {
     try {
       const system = ENHANCE_FINALIZE_RULE + '\n' + ITEM_EXACT_REF_RULE;
       const user = `# 待刷新的强化装备\n${card}\n\n请按【装备强化·收尾刷新铁则】，输出这件装备强化到 +${args.newLevel} 后的 <upstore> updateItem 指令`
-        + `（${addAffix > 0 ? `本次跨过 ${addAffix} 个 4 级整数倍，新增 ${addAffix} 条词缀/特效` : '本次未跨过 4 级整数倍，可不新增词缀，但仍按强化等级提升攻防与外观'}）。只输出这一条指令。`;
+        + `（${addAffix > 0 ? `本次跨过 ${addAffix} 个 3 级整数倍，需新增 ${addAffix} 条**各不相同、丰富多样**的全新词缀/效果` : '本次未跨过 3 级整数倍，可不新增词缀（攻防/评分/外观/简介已由系统处理）'}）。只输出这一条 updateItem，只改 affix 和 effect。`;
       const { content: reply } = await apiChatFallback(chain, [
         { role: 'system', content: system },
         { role: 'user', content: user },
@@ -2091,7 +2154,7 @@ ${lines.join('\n')}`;
       .filter((e) => e.enabled && e.source !== 'entrySharedRules')
       .map((e) => fillVars(e.content, vars))
       .join('\n\n')
-      + '\n\n' + NARRATIVE_FIRST_RULE + '\n' + BUFF_AS_STATUS_RULE + '\n' + NPC_AGE_RULE + '\n' + TALENT_NO_CAP_RULE + '\n' + TITLE_DIVERSITY_RULE + '\n' + NPC_DEAD_EXCLUDE_RULE + '\n' + SKILL_TALENT_NOTE_RULE + '\n' + NPC_SKILL_KEEP_RULE + '\n' + NPC_REVIEW_TAG_RULE + '\n' + TIER_RULE + '\n' + IMAGE_TAGS_RULE + '\n' + HPEP_NARRATIVE_ONLY_RULE + '\n' + ADVANCE_POINTS_RULE + '\n' + POINTS_NARRATIVE_RULE + '\n' + ATTR_SANITY_RULE + '\n' + ATTR_CAP_RULE + '\n' + STATUS_FORMAT_RULE + '\n' + NPC_PRIVATE_EXTRA_RULE + '\n' + FIRST_UPDATE_COMPLETE_RULE + '\n' + EVO_EXACT_REF_RULE;
+      + '\n\n' + NARRATIVE_FIRST_RULE + '\n' + BUFF_AS_STATUS_RULE + '\n' + NPC_AGE_RULE + '\n' + TALENT_NO_CAP_RULE + '\n' + TITLE_DIVERSITY_RULE + '\n' + NPC_DEAD_EXCLUDE_RULE + '\n' + SKILL_TALENT_NOTE_RULE + '\n' + NPC_SKILL_KEEP_RULE + '\n' + NPC_REVIEW_TAG_RULE + '\n' + TIER_RULE + '\n' + IMAGE_TAGS_RULE + '\n' + HPEP_NARRATIVE_ONLY_RULE + '\n' + ADVANCE_POINTS_RULE + '\n' + POINTS_NARRATIVE_RULE + '\n' + NPC_GEN_ATTR_RULE + '\n' + ATTR_SANITY_RULE + '\n' + ATTR_CAP_RULE + '\n' + STATUS_FORMAT_RULE + '\n' + NPC_PRIVATE_EXTRA_RULE + '\n' + FIRST_UPDATE_COMPLETE_RULE + '\n' + EVO_EXACT_REF_RULE;
   }
 
   /* 登场判断 system prompt（只取 entrySharedRules 条目） */
@@ -2104,7 +2167,7 @@ ${lines.join('\n')}`;
       .filter((e) => e.enabled && e.source === 'entrySharedRules')
       .map((e) => fillVars(e.content, vars))
       .join('\n\n')
-      + '\n\n' + NARRATIVE_FIRST_RULE + '\n' + EVO_VERIFY_RULE + '\n' + NPC_DEAD_EXCLUDE_RULE + '\n' + TIER_RULE + '\n' + SKILL_TIER_RULE;
+      + '\n\n' + NARRATIVE_FIRST_RULE + '\n' + EVO_VERIFY_RULE + '\n' + NPC_DEAD_EXCLUDE_RULE + '\n' + TIER_RULE + '\n' + SKILL_TIER_RULE + '\n' + NPC_GEN_ATTR_RULE;
   }
 
   /* 解析 NPC <state> 短指令（favor/title/realm/hp），可按 charId 过滤 */
@@ -2226,6 +2289,19 @@ ${lines.join('\n')}`;
       const next = m[3] === '=' ? v : m[3] === '+=' ? cur + v : cur - v;
       const cap = attrCapForTier(live?.realm);   // 基础属性夹到本阶上限（装备/技能/天赋加成另算，不受限）
       npc.upsertNpc(m[1], { attrs: { ...base, [m[2]]: Math.min(cap, Math.max(0, next)) } });
+      n++;
+    }
+    // NPC 六维·机械生成(治 API 幻觉乱给离谱属性)：character.<id>.genAttrs = "阶位·Lv|生物强度档|职业|形态[可选]"
+    // 前端据 阶位/生物强度档/职业归类/形态 用 generateNpcAttrs 反推六维(种子=id 可复现)；首次建档优先用它，不再让 AI 手写属性
+    const genAttrRe = /\bcharacter\.([CG]\d+)\.genAttrs\s*=\s*"([^"]*)"/g;
+    while ((m = genAttrRe.exec(reply))) {
+      if (!ok(m[1])) continue;
+      const [realmStr, bioTier, job, form, role] = m[2].split('|').map((s) => s.trim());
+      if (!bioTier) continue;
+      const live = useNpc.getState().npcs[m[1]];
+      const realm = realmStr || live?.realm || '';
+      const attrs = generateNpcAttrs({ tier: realm, level: lvFromRealm(realm), bioTier, job: job || live?.profession, form, role, identity: live?.npcTag, seed: m[1] });
+      npc.upsertNpc(m[1], realmStr && !live?.realm ? { attrs, realm: realmStr } : { attrs });
       n++;
     }
     // mp.C1（蓝量 EP）：上限按智力×15 自动换算（忽略 AI 写的 /上限），未记录当前值时以满蓝为基准
@@ -2772,8 +2848,7 @@ ${lines.join('\n')}`;
 
   /* ── NPC 初始家当：码内确定性生成，保证 NPC 初次出现就携带固定数量的装备+储物物品 ──
      不依赖物品阶段时序（其与登场判断并发，新NPC常来不及）；后续增减由物品阶段按"明确入手"规则维护（与主角一致）。 */
-  const NPC_KIT_EQUIP_N = 3;     // 初始装备件数
-  const NPC_KIT_STORAGE_N = 2;   // 初始储物件数
+  const NPC_KIT_STORAGE_N = 4;   // 初始储物件数（储存空间，可多给；穿戴装备改按身份强弱在提示词里分档发放）
   /* 给"在场、真实、且尚未发放过家当"的 NPC 由 AI **读其身份/职业/年龄/所处世界后**生成贴合人物的初始装备+储物
      （完整固定格式，与主角同标准）。彻底取代旧的"固定池随机发放"——避免给学生发军刺/战术装备这类离谱情况。
      每个 NPC 仅发一次（kitDone 立即置位防并发重复；无 API 则只标记、不乱发）。 */
@@ -2792,7 +2867,7 @@ ${lines.join('\n')}`;
     const sys = `你是"轮回乐园·NPC 初始物资"生成器。为下列 NPC 各生成**严格贴合其身份/职业/年龄/所处世界**的随身装备与储物。
 - **必须先读懂每个 NPC 是什么人，再据此发物**：学生→课本/手机/校服/零食；上班族→公文包/工牌/西装；医生→医疗箱/手术刀/白大褂；士兵/战士→制式武器/战术护甲；街头混混→匕首/香烟；法师→法杖/魔导书；贵族→华服/首饰。**严禁给普通学生、平民、文职这类非战斗人物发军刺、军用武器、战术装备**——那是离谱错误。
 - 所处世界=「${worldName}」，物品的风格/科技必须符合该世界（现代/校园/科幻/奇幻/末世等）。
-- 每个 NPC 给 ${NPC_KIT_EQUIP_N} 件可穿戴装备 + ${NPC_KIT_STORAGE_N} 件储物。无战斗力的平民：装备位用**日常衣物/便服/制服**充当(category=防具)、武器可省或用日常工具，攻防可低或留空；品质(gradeDesc)按其身份与阶位给(平民多为白/绿色)。
+- **可穿戴装备按身份/强弱给、宁少勿多**：平民/学生/杂兵/弱者 0~1 件(且多为日常衣物，绝不塞满身)，普通战斗者 1~2 件，精英 2~3 件，首领/强者/贵族才 3~5 件成套；**严禁给新手/平民/杂兵堆满装备**。每个 NPC 另给约 ${NPC_KIT_STORAGE_N} 件储物(随身杂物/消耗品/纪念品/钱袋等，储存空间可适当多给)。无战斗力的平民：装备位用**日常衣物/便服/制服**充当(category=防具)、武器可省或用日常工具，攻防可低或留空；品质(gradeDesc)按其身份与阶位给(平民多为白/绿色)。
 - **完整固定格式、与主角物品同标准、不准偷懒**：每件给 name/category(武器/防具/饰品/消耗品/材料/工具/重要物品/特殊物品/其他物品)/subType(类型细分)/gradeDesc(颜色品质)/combatStat(装备攻防,平民可低/无)/durability(耐久)/requirement(装备需求)/affix(词缀)/score(评分)/effect(效果)/intro(简介)/appearance(**逐部件外观,必填不可空**)；武器另加 killCount。
 - equip 每件给 equipSlot：武器→weapon:main，上身→armor:upper，鞋→armor:feet，头→armor:head，饰品→accessory:#1 等。
 只输出 JSON：{"kits":[{"npcId":"C1","equip":[{...固定格式字段, "equipSlot":"..."}],"storage":[{...固定格式字段}]}]}`;
@@ -3037,6 +3112,7 @@ ${lines.join('\n')}`;
       + '\n\n' + MISC_SUMMARY_CADENCE_RULE
       + '\n\n' + TASK_OUTCOME_RULE
       + '\n\n' + QUEST_PLANNING_RULE
+      + '\n\n' + QUEST_KILL_TIER_RULE
       + '\n\n' + TASK_RECONCILE_RULE
       + '\n\n' + TASK_CANON_RULE
       + `\n【进入新世界信号】：${enteredNewWorld ? '是 —— 本轮检测到进入新的任务世界，请按【主线路线图规划】检查：当前任务世界若尚无 active 主线，则把该世界自身的核心目标立成主线并规划整张环路线图' : (isHomeWorld(M.worldName) ? '否 —— 当前在轮回乐园/专属房间(枢纽·任务间歇)，禁止规划任何主线，更不要生成"适应乐园环境/进入衍生世界/获取身份/回归乐园"等框架流程任务；等真正进入任务世界(衍生世界)再规划' : '否（沿用既有主线，勿重复新建）')}`
@@ -4803,16 +4879,28 @@ ${lines}`;
     attrs.luck = Math.floor(Math.random() * Math.random() * (t.luckMax + 1));
     return attrs as { str: number; agi: number; con: number; int: number; cha: number; luck: number };
   }
-  /* 给在场、缺六维（或五项全等=平均默认）的 NPC 自动生成有起伏的六维 */
+  /* 给在场、缺六维（或五项全等=平均默认）的 NPC 自动生成六维——走 bioStrength 机械引擎
+     (注水分配/形态压制/定位纠偏/闭环自检)，与属性面板·生物强度显示同尺度(ATTR_CAP)，治旧版尺度不一致+离谱 */
   function autoGenMissingAttrs() {
     const npc = useNpc.getState(); let n = 0;
     for (const r of Object.values(npc.npcs)) {
       if (r.isDead) continue;
       const a = r.attrs;
       const isDefault = !!a && a.str === 5 && a.agi === 5 && a.con === 5 && a.int === 5 && a.cha === 5; // 恰好默认 5/5/5/5/5
-      if (!a || isDefault) { npc.upsertNpc(r.id, { attrs: genVariedAttrs(r.realm, r.profession, r.bioStrength) }); n++; }
+      if (!a || isDefault) {
+        const mT = /[Tt]\s*(\d)/.exec(`${r.bioStrength ?? ''} ${r.realm ?? ''}`);
+        const attrs = generateNpcAttrs({
+          tier: r.realm, level: lvFromRealm(r.realm),
+          bioTier: mT ? Number(mT[1]) : parseTierNum(r.realm),                  // realm/bio 写了 T 档就用，否则按阶位序估，再被定位/窗口夹正
+          job: r.profession || r.realm,                                         // 职业；缺则用 realm 身份段(神官/队长…)自动归类
+          role: `${r.profession ?? ''} ${r.realm ?? ''} ${r.npcTag ?? ''}`,     // 身份段+职业+标签 → 定位纠偏(首领抬、杂兵压)
+          form: resolveForm(`${r.npcTag ?? ''}${r.profession ?? ''}${(r as any).species ?? ''}${r.name ?? ''}`),
+          identity: r.npcTag, seed: r.id,
+        });
+        npc.upsertNpc(r.id, { attrs }); n++;
+      }
     }
-    if (n > 0) console.log(`[Attr] 无卡自动生成有起伏六维：${n} 个NPC`);
+    if (n > 0) console.log(`[Attr] 机械生成六维(bioStrength引擎)：${n} 个NPC`);
   }
 
   /* 抓取本回合精简快照，供「回合洞察」对比变化 */
@@ -5749,16 +5837,18 @@ ${lines}`;
         // 流结束后：先用原始文本解析 state 块，再执行正则并剥除 state 块
         applyAllUpdates(accumulated);
         try { applyPlayerProfileCommands(accumulated); } catch { /* 主角位置/外观/身份：正文若直接输出 character.B1.* 也即时生效，不必等主角演化阶段 */ }
-        const finalDisplayed = stripStateBlocks(applyRegex(accumulated, preset));
+        const settledText = settleKills(accumulated);   // 击杀结算：算点+发点，<kill> → <击杀结算>
+        const finalDisplayed = stripStateBlocks(applyRegex(settledText, preset));
         setMessages((prev) =>
           prev.map((m) => m.id === streamMsgId ? { ...m, content: finalDisplayed } : m)
         );
         setRawResponse(accumulated);
         if (!accumulated) throw new Error('模型未返回内容');
-        // 演化阶段只读「清洗后正文」（已剥思维链/正则处理 + 去 state 块），不读思维链
-        lastNarrativeRef.current = finalDisplayed;
+        // 演化阶段读的正文：去 state 块外，再去掉击杀结算块（避免演化AI看到点数又重复发 ap）
+        const narrativeForEvo = finalDisplayed.replace(/<击杀结算>[\s\S]*?<\/击杀结算>/gi, '').trimEnd();
+        lastNarrativeRef.current = narrativeForEvo;
         // 正文完成后：策略B先登场判断再并发其余阶段（修复NPC装备挂错ID）
-        runPostNarrativePhases(finalDisplayed, streamMsgId);
+        runPostNarrativePhases(narrativeForEvo, streamMsgId);
 
       } else {
         // ── 非流式：等待完整响应 ──
@@ -5769,13 +5859,15 @@ ${lines}`;
         if (!reply) throw new Error('模型未返回内容');
         applyAllUpdates(reply);
         try { applyPlayerProfileCommands(reply); } catch { /* 主角位置/外观/身份：正文直接输出 character.B1.* 即时生效 */ }
-        const processed = stripStateBlocks(applyRegex(reply, preset));
+        const settledReply = settleKills(reply);   // 击杀结算：算点+发点，<kill> → <击杀结算>
+        const processed = stripStateBlocks(applyRegex(settledReply, preset));
         const newMsgId = ++msgId.current;
         setMessages((prev) => [...prev, { id: newMsgId, role: 'assistant', content: processed }]);
-        // 演化阶段只读「清洗后正文」（已剥思维链/正则处理 + 去 state 块），不读思维链
-        lastNarrativeRef.current = processed;
+        // 演化阶段读的正文：去 state 块外，再去掉击杀结算块（避免演化AI看到点数又重复发 ap）
+        const narrativeForEvo = processed.replace(/<击杀结算>[\s\S]*?<\/击杀结算>/gi, '').trimEnd();
+        lastNarrativeRef.current = narrativeForEvo;
         // 正文完成后：策略B先登场判断再并发其余阶段（修复NPC装备挂错ID）
-        runPostNarrativePhases(processed, newMsgId);
+        runPostNarrativePhases(narrativeForEvo, newMsgId);
       }
     } catch (e: any) {
       if (e?.name === 'AbortError') { setGenError(''); console.log('[正文] 已手动停止生成'); }
@@ -5860,7 +5952,7 @@ ${lines}`;
       `# ${park}·开局`,
       `你在彻底的黑暗中苏醒。没有呼吸，没有心跳，连身体的轮廓都仿佛被剥离，只剩下意识在冰冷虚空中漂浮。`,
       `下一瞬，一行行淡金色的文字在你面前浮现——它们不是光，而是直接烙进灵魂的讯息。`,
-      `> 【${park}】正在校验灵魂。\n> 标识：${user}\n> 生理状态：死亡 / 临界。\n> 适配判定：通过。\n> 所属乐园：${park}\n> 主角背景：${pastLife}\n> 性别：${d.gender || '未知'}\n> 种族：${d.race || '人类'}${d.raceDetail ? `（${d.raceDetail}）` : ''}\n> 外观：${d.appearance?.trim() || '（待你在后续描写中确立）'}\n> 六维属性：${attrStr}\n> 初始天赋：${talent}\n> 契约者编号：${contractNo}`,
+      `> 【${park}】正在校验灵魂。\n> 标识：${user}\n> 生理状态：死亡 / 临界。\n> 适配判定：通过。\n> 所属乐园：${park}\n> 主角背景：${pastLife}\n> 外观：${d.appearance?.trim() || '（待你在后续描写中确立）'}\n> 六维属性：${attrStr}\n> 初始天赋：${talent}\n> 契约者编号：${contractNo}`,
       `某种冷漠却并不敌意的目光，从上而下打量着你。那不是人类的视角，更像是在审阅一份可回收资源。`,
       `它向你伸出了一只手——不是肉体的手，而是一份连注释都冷冰冰的契约。`,
       `只要应答，你将被记录为「${park}·一阶预备契约者」，以「${talent}」之天赋记录，投放诸多世界。`,
@@ -5871,7 +5963,7 @@ ${lines}`;
       `——刺痛、自我剥离、数据化、编号写入。`,
       `当意识再度聚拢时，你已经站在一座陌生而冰冷的大厅中。【${park}】的提示音在耳边响起：`,
       `> 欢迎加入，契约者。\n> 初始天赋：${talent} 已记录完毕。\n> ${d.contractId ? `契约者编号：${d.contractId} 已写入。` : '随机分配契约者编号中。'}\n> 请查看您的天赋与技能情况。\n> - 系统载入中……\n>   - 请做好准备。`,
-      `从这一刻起，你的每一次"活着"，都将写在乐园的结算列表里。请以${park}新人的视角为我展开故事：先给我大约三小时的时间熟悉环境、确认自身状态与能力，再循序渐进地引出第一个事件，不要一上来就进入高强度战斗。`,
+      `从这一刻起，你的每一次"活着"，都将写在乐园的结算列表里。你将有三小时的时间适应环境，乐园将不会为你安排任务。`,
     ].join('\n\n');
   }
 
@@ -6330,7 +6422,7 @@ ${lines}`;
                   className="w-full flex items-center gap-2 px-3 py-1.5 text-[12px] font-mono text-fuchsia-300/80 hover:text-fuchsia-200 transition-colors">
                   <span>🎭 剧情选项</span>
                   <span className="px-1 rounded bg-void/60 text-dim/70">{opts.length}</span>
-                  <span className="flex-1 text-left text-dim/40 truncate">{choicesOpen ? '点击收起' : '点击展开 · 选一个填入输入框'}</span>
+                  <span className="flex-1 text-left text-dim/40 truncate">{choicesOpen ? '可多选 · 依次叠加进输入框' : '点击展开 · 可多选叠加'}</span>
                   <span className={`transition-transform ${choicesOpen ? 'rotate-180' : ''}`}>▾</span>
                 </button>
                 {choicesOpen && (
@@ -6338,10 +6430,16 @@ ${lines}`;
                     {opts.map((opt, i) => {
                       const letter = String.fromCharCode(65 + i);
                       const nsfw = i === opts.length - 1;
+                      const picked = !!inputValue.trim() && inputValue.includes(opt);   // 已叠加进输入框 → 显示 ✓
                       return (
-                        <button key={i} onClick={() => { setInputValue(opt); setChoicesOpen(false); }} title="填入输入框（可再编辑后发送）"
-                          className={`text-left rounded-lg border px-3 py-2 text-sm leading-snug transition-colors ${nsfw ? 'border-rose-500/40 bg-rose-500/5 text-rose-200/90 hover:bg-rose-500/15' : 'border-edge bg-panel/40 text-slate-300 hover:border-god/40 hover:text-god'}`}>
-                          <span className="font-mono text-[12px] text-dim/50 mr-1.5">{letter}{nsfw ? '·18+' : ''}</span>{opt}
+                        <button key={i} title="点击叠加进输入框（可多选，编辑后发送）"
+                          onClick={() => setInputValue((prev) => {
+                            const base = prev ?? '';
+                            if (base.trimEnd().endsWith(opt.trim())) return base;          // 防连点重复叠加
+                            return base.trim() ? `${base}\n${opt}` : opt;                  // 叠加而非覆盖；与战斗/骰子注入同一换行约定
+                          })}
+                          className={`text-left rounded-lg border px-3 py-2 text-sm leading-snug transition-colors ${nsfw ? 'border-rose-500/40 bg-rose-500/5 text-rose-200/90 hover:bg-rose-500/15' : 'border-edge bg-panel/40 text-slate-300 hover:border-god/40 hover:text-god'} ${picked ? 'ring-1 ring-god/50' : ''}`}>
+                          <span className="font-mono text-[12px] text-dim/50 mr-1.5">{picked ? '✓' : letter}{nsfw ? '·18+' : ''}</span>{opt}
                         </button>
                       );
                     })}

@@ -59,7 +59,8 @@
   <span style="flex:1"></span>
   <button id="loadPromptsBtn" style="font-size:12px;background:var(--acc2);color:#04211f;border:none;border-radius:7px;padding:6px 12px;cursor:pointer;font-weight:600">📂 载入提示词</button>
   <button id="saveBtn" style="font-size:12px;background:var(--acc);color:#04211f;border:none;border-radius:7px;padding:6px 12px;cursor:pointer;font-weight:600">💾 保存到服务器</button>
-  <button id="resetBtn" style="font-size:12px;background:var(--panel2);color:var(--dim);border:1px solid var(--line);border-radius:7px;padding:6px 12px;cursor:pointer">↺ 恢复默认</button>
+  <button id="setDefaultBtn" style="font-size:12px;background:var(--panel2);color:var(--acc);border:1px solid var(--acc);border-radius:7px;padding:6px 12px;cursor:pointer;font-weight:600" title="把当前网页所有设置存成你的私人默认（存浏览器，不会被命令行改 jobs.json 覆盖）；之后点「恢复默认」即回到这套">⭐ 设置为默认</button>
+  <button id="resetBtn" style="font-size:12px;background:var(--panel2);color:var(--dim);border:1px solid var(--line);border-radius:7px;padding:6px 12px;cursor:pointer" title="有「我的默认」时回到它，否则回到 jobs.json 预填">↺ 恢复默认</button>
 </header>
 <div id="warn" class="banner" style="display:none"></div>
 
@@ -160,6 +161,7 @@ let stopFlag = false;
 
 // ── 本地持久化：网页里的修改自动存 localStorage，刷新/重启不丢 ──
 const LS_KEY = 'naiUiState_v1';
+const LS_DEFAULT = 'naiUiDefault_v1';   // 「设置为默认」存的私人默认快照（独立于 jobs.json，不被命令行覆盖）
 const CAT_POOLS = [
   { id:'p3', label:'外观/表情', key:'外观表情' },
   { id:'p4', label:'服装/穿着', key:'服装' },
@@ -171,7 +173,22 @@ const FIELDS = ['folder','prefix','outBase','size','start','positive','artist','
 const CHECKS = ['continuous','pool_on','pool2_on', ...CAT_POOLS.map(p=>p.id+'_on')];
 function saveState(){ try { const s={}; FIELDS.forEach(f=>{ const el=$(f); if(el) s[f]=el.value; }); CHECKS.forEach(c=>{ const el=$(c); if(el) s[c]=el.checked; }); localStorage.setItem(LS_KEY, JSON.stringify(s)); } catch(e){} }
 function applyState(s){ FIELDS.forEach(f=>{ if(s[f]!=null && $(f)) $(f).value=s[f]; }); CHECKS.forEach(c=>{ if(s[c]!=null && $(c)) $(c).checked=!!s[c]; }); }
-function resetDefaults(){ if(!confirm('恢复成默认预填？你当前在网页里改的内容会被清掉。')) return; try{ localStorage.removeItem(LS_KEY); }catch(e){} location.reload(); }
+function setAsDefault(){
+  try {
+    const s={}; FIELDS.forEach(f=>{ const el=$(f); if(el) s[f]=el.value; }); CHECKS.forEach(c=>{ const el=$(c); if(el) s[c]=el.checked; });
+    localStorage.setItem(LS_DEFAULT, JSON.stringify(s));
+    alert('⭐ 已把当前所有设置存成「你的默认」。\n以后点「↺ 恢复默认」就回到这套；它存在你浏览器里，不会被命令行改 jobs.json 覆盖。');
+  } catch(e){ alert('设置默认失败：'+e); }
+}
+function resetDefaults(){
+  const hasMine = !!localStorage.getItem(LS_DEFAULT);
+  if(!confirm(hasMine ? '恢复到你设的「我的默认」？当前网页里的临时改动会被覆盖。' : '恢复成 jobs.json 预填？你当前在网页里改的内容会被清掉。')) return;
+  try {
+    if(hasMine){ localStorage.setItem(LS_KEY, localStorage.getItem(LS_DEFAULT)); }  // 把私人默认写成当前工作态，reload 后 applyState 自动套用
+    else { localStorage.removeItem(LS_KEY); }
+  } catch(e){}
+  location.reload();
+}
 function renderCatPools(){
   const box=$('catPools'); if(!box) return;
   box.innerHTML = CAT_POOLS.map(p=>'<div style="margin-top:8px"><label class="poolHead"><input type="checkbox" id="'+p.id+'_on"> <b>'+p.label+'</b> · 抽 <input id="'+p.id+'_n" type="number" value="1" min="0"> 条</label><textarea id="'+p.id+'_t" rows="4" placeholder="一行一条；勾选才参与抽取"></textarea></div>').join('');
@@ -316,6 +333,7 @@ function fillErr(fig,name,err){
 }
 
 $('resetBtn').onclick=resetDefaults;
+$('setDefaultBtn').onclick=setAsDefault;
 $('saveBtn').onclick=saveToServer;
 $('loadPromptsBtn').onclick=loadPrompts;
 $('reloadPoolsBtn').onclick=reloadCatPools;

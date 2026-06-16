@@ -296,9 +296,9 @@ export function resolveEnhance(
   return { ...fb, outcome: 'fail', toLevel: level, pityAfter: opts.pity };
 }
 
-/** 每跨过 4 个强化等级追加 1 条词缀/效果 —— 算本次（旧→新）应新增几条 */
+/** 每跨过 3 个强化等级追加 1 条词缀/效果 —— 算本次（旧→新）应新增几条 */
 export function newAffixCount(fromLevel: number, toLevel: number): number {
-  return Math.max(0, Math.floor(toLevel / 4) - Math.floor(Math.max(0, fromLevel) / 4));
+  return Math.max(0, Math.floor(toLevel / 3) - Math.floor(Math.max(0, fromLevel) / 3));
 }
 
 /* ── +N 角标特效（复用 index.css 现成 .grade-* 流光；等级越高越华丽）── */

@@ -1,5 +1,5 @@
 import { useState, useRef } from 'react';
-import { useItems, ITEM_CATEGORIES, ITEM_GRADES, gradeColorClass, gradeBadgeClass, gradeNameClass, type InventoryItem, type ItemCategory, type CurrencyWallet } from '../store/itemStore';
+import { useItems, ITEM_CATEGORIES, ITEM_GRADES, gradeColorClass, gradeBadgeClass, gradeNameClass, socketsOf, type InventoryItem, type ItemCategory, type CurrencyWallet } from '../store/itemStore';
 import { enhanceColorClass, enhancedCombat } from '../systems/enhanceEngine';
 import { usePlayer } from '../store/playerStore';
 import { useImageGen, effectiveEquipService } from '../store/imageGenStore';
@@ -105,7 +105,7 @@ type SortKey = 'original' | 'category' | 'name';
 
 /* ── 图标 ── */
 export const CAT_ICON: Record<string, string> = {
-  '武器': '⚔', '防具': '🛡', '饰品': '💍', '消耗品': '🧪', '材料': '📦',
+  '武器': '⚔', '防具': '🛡', '饰品': '💍', '宝石': '💎', '消耗品': '🧪', '材料': '📦',
   '工具': '🔧', '重要物品': '📜', '特殊物品': '📖', '凡物': '👕', '其他物品': '◆',
   '功法': '📖', '法宝': '🔱', '丹药': '💊', '符箓': '📋', '灵药': '🌿', '阵具': '🔮',
 };
@@ -313,6 +313,28 @@ export function ItemDetailModal({ item, onClose }: { item: InventoryItem; onClos
           {item.affix && (
             <Field label="词缀">
               <div className="text-[13px] text-amber-200/85 leading-relaxed">{item.affix}</div>
+            </Field>
+          )}
+
+          {/* 镶嵌孔（装备类，按品级自带孔位；宝石加成展示）*/}
+          {(['武器', '防具', '饰品'] as string[]).includes(item.category) && socketsOf(item) > 0 && (
+            <Field label={`镶嵌孔　${(item.gems ?? []).length} / ${socketsOf(item)}`}>
+              <div className="space-y-1">
+                {Array.from({ length: socketsOf(item) }).map((_, i) => {
+                  const g = (item.gems ?? [])[i];
+                  return g ? (
+                    <div key={i} className={`rounded-lg border p-2 ${g.high ? 'border-amber-500/30 bg-amber-500/5' : 'border-edge/50 bg-panel2'}`}>
+                      <div className="flex items-center gap-1.5">
+                        <span>💎</span>
+                        <span className={`text-[12.5px] font-bold ${gradeNameClass(g.tier)}`}>{g.name}</span>
+                      </div>
+                      <div className={`text-[12px] leading-snug mt-0.5 ${g.high ? 'text-amber-200/85' : 'text-slate-200/80'}`}>{g.statText}</div>
+                    </div>
+                  ) : (
+                    <div key={i} className="rounded-lg border border-dashed border-edge/50 p-1.5 text-center text-[11px] font-mono text-dim/30">○ 空孔（强化所→💎宝石 镶嵌）</div>
+                  );
+                })}
+              </div>
             </Field>
           )}
 

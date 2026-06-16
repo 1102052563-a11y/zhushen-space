@@ -2,10 +2,13 @@ import { useState, useRef } from 'react';
 import { useNpc, type NpcRecord } from '../store/npcStore';
 import { useCharacters, RARITY_CLS, ELEMENT_CLS, SKILL_TIER_CLS, normSkillTier, type Deed } from '../store/characterStore';
 import { computeDerived, lvFromRealm, normalizeTier, realmFromLevel, trueAttr, computeMaxHp, computeMaxEp, gearMaxHpBonus, gearMaxEpBonus, abilityMaxHpBonus, abilityMaxEpBonus, effectiveResource } from '../systems/derivedStats';
-import { computeAttrBreakdown, ATTR_LABEL, type AttrBreak } from '../systems/attrBonus';
+import { computeAttrBreakdown, effectiveAttrs, ATTR_LABEL, type AttrBreak } from '../systems/attrBonus';
+import { bioInnate, bioPower, bioStrengthLabel, BIO_TIER_NAMES, nominalTierNum } from '../systems/bioStrength';
+import { generateNpcAttrs, resolveForm } from '../systems/npcAttrGen';
 import { usePlayer, type PlayerAttrs } from '../store/playerStore';
 import { gradeBadgeClass, gradeNameClass, gradeToNum } from '../store/itemStore';
 import NpcEquip from './NpcEquip';
+import NpcChatPanel from './NpcChatPanel';
 import StatusEffectChips from './StatusEffectChips';
 import { useImageGen, effectiveEquipService } from '../store/imageGenStore';
 import { generateImage, buildPortraitPrompt, buildEquipPrompt, shrinkDataUrl } from '../systems/imageGen';
@@ -78,6 +81,7 @@ export default function NpcDetail({
   const [tab, setTab] = useState<TabKey>('basic');
   const [confirmDel, setConfirmDel] = useState(false);
   const [editing, setEditing] = useState(false);   // 手动编辑/纠正面板模式
+  const [chatOpen, setChatOpen] = useState(false);  // 与该 NPC 私聊窗
   const upsertNpc = useNpc((s) => s.upsertNpc);
   const clearNpcBag = useNpc((s) => s.clearNpcBag);
   const hardRemoveNpc = useNpc((s) => s.hardRemoveNpc);
@@ -147,6 +151,15 @@ export default function NpcDetail({
             </button>
           )}
 
+          {/* 与该 NPC 私聊（独立缓存·NSFW·对白+交互描述）*/}
+          <button
+            onClick={() => setChatOpen(true)}
+            title="与该 NPC 一对一私聊（缓存对话 + 生成交互描述）"
+            className="inline-flex items-center gap-1 px-3 py-1.5 text-sm rounded-lg border font-mono transition-colors border-edge text-dim/70 hover:border-pink-500/50 hover:text-pink-300"
+          >
+            💬 对话
+          </button>
+
           {/* 编辑面板：手动纠正 AI 写错/遗漏的字段 */}
           <button
             onClick={() => setEditing((v) => !v)}
@@ -195,6 +208,8 @@ export default function NpcDetail({
 
           <button onClick={onClose} className="w-7 h-7 flex items-center justify-center rounded-lg border border-edge text-dim hover:text-blood hover:border-blood/40 transition-colors text-sm">✕</button>
         </header>
+
+        {chatOpen && <NpcChatPanel npc={npc} onClose={() => setChatOpen(false)} />}
 
         {/* ── 栏目条（编辑模式下隐藏）── */}
         {!editing && (
@@ -269,7 +284,7 @@ function NpcEditForm({ npc, onDone }: { npc: NpcRecord; onDone: () => void }) {
     name: npc.name === npc.id ? '' : (npc.name ?? ''),
     gender: (npc.gender ?? '') as '' | '男' | '女',
     realm: npc.realm ?? '', title: npc.title ?? '', npcTag: npc.npcTag ?? '',
-    profession: npc.profession ?? '', age: npc.age ?? '', bioStrength: npc.bioStrength ?? '',
+    profession: npc.profession ?? '', age: npc.age ?? '',
     contractorId: npc.contractorId ?? '', arenaRank: npc.arenaRank ?? '', brandLevel: npc.brandLevel ?? '',
     personality: npc.personality ?? '', review: npc.review ?? '', status: npc.status ?? '',
     callPlayer: npc.callPlayer ?? '', relations: npc.relations ?? '',
@@ -294,7 +309,7 @@ function NpcEditForm({ npc, onDone }: { npc: NpcRecord; onDone: () => void }) {
     const patch: Partial<NpcRecord> = {
       name: f.name.trim() || npc.id, gender: f.gender,
       realm: f.realm.trim(), title: f.title.trim(), npcTag: f.npcTag.trim(),
-      profession: f.profession.trim(), age: f.age.trim(), bioStrength: f.bioStrength.trim(),
+      profession: f.profession.trim(), age: f.age.trim(),
       contractorId: f.contractorId.trim(), arenaRank: f.arenaRank.trim(), brandLevel: f.brandLevel.trim(),
       personality: f.personality, review: f.review, status: f.status.trim() || '一切正常',
       callPlayer: f.callPlayer, relations: f.relations,
@@ -345,7 +360,6 @@ function NpcEditForm({ npc, onDone }: { npc: NpcRecord; onDone: () => void }) {
           <ERow label="称号"><input className={EDIT_INP} value={f.title} onChange={(e) => set({ title: e.target.value })} /></ERow>
           <ERow label="职业"><input className={EDIT_INP} value={f.profession} onChange={(e) => set({ profession: e.target.value })} /></ERow>
           <ERow label="年龄"><input className={EDIT_INP} value={f.age} onChange={(e) => set({ age: e.target.value })} placeholder="如 约25岁/青年" /></ERow>
-          <ERow label="生物强度" hint="如 T3·勇士"><input className={EDIT_INP} value={f.bioStrength} onChange={(e) => set({ bioStrength: e.target.value })} /></ERow>
           <ERow label="契约者ID"><input className={EDIT_INP} value={f.contractorId} onChange={(e) => set({ contractorId: e.target.value })} /></ERow>
           <ERow label="竞技场排名"><input className={EDIT_INP} value={f.arenaRank} onChange={(e) => set({ arenaRank: e.target.value })} /></ERow>
           <ERow label="烙印等级"><input className={EDIT_INP} value={f.brandLevel} onChange={(e) => set({ brandLevel: e.target.value })} /></ERow>
@@ -463,7 +477,7 @@ interface ParsedBuff { name: string; emoji: string; effect?: string; activate?: 
 function parseBuffs(status?: string): ParsedBuff[] {
   const s = (status ?? '').trim();
   if (!s || s === '一切正常') return [];
-  return s.split(/[；;]\s*|\n+/).map((x) => x.trim()).filter(Boolean).map((seg) => {
+  const parsed = s.split(/[；;]\s*|\n+/).map((x) => x.trim()).filter(Boolean).map((seg) => {
     const m = /^(.+?)\s*[:：]?\s*([^\s:：(（]*?)\s*[（(]([\s\S]*)[)）]\s*$/.exec(seg);
     if (m) {
       const [effect, activate, end, source] = m[3].split(/\s*\|\s*/).map((p) => p && p.trim());
@@ -474,6 +488,15 @@ function parseBuffs(status?: string): ParsedBuff[] {
     if (m2) return { name: m2[1].trim(), emoji: /[A-Za-z0-9一-龥]/.test(m2[2]) ? '' : m2[2] };
     return { name: seg, emoji: '' };
   });
+  // 防御：AI/旧档偶发把"当前状态"写成一串无结构单字（如 "矩；协；宁；霜…"，或被换行/分号炸开），
+  // 会在状态栏渲染成一排单字垃圾胶囊。多分段时剔除"纯单字、无表情/无任何效果结构"的分段，
+  // 只保留真实状态（真名≥2字，或带表情/效果/激活/结束/来源结构）。剔除条件只命中"长度1且无结构"的纯垃圾，
+  // 故即使全部被剔（整条状态都是单字垃圾）直接返回空也安全；单字状态本身由 parsed.length>1 守卫放行。
+  if (parsed.length > 1) {
+    return parsed.filter((b) =>
+      (b.name?.trim().length ?? 0) >= 2 || !!b.emoji || !!b.effect || !!b.activate || !!b.end || !!b.source);
+  }
+  return parsed;
 }
 function buffTone(b: ParsedBuff): string {
   const t = b.name + (b.effect ?? '') + (b.source ?? '');
@@ -598,6 +621,10 @@ function BasicTab({ npc, realm, genderCls }: { npc: NpcRecord; realm: ReturnType
   const titles = useCharacters((s) => s.characters[npc.id]?.titles ?? []);
   const equipTitle = useCharacters((s) => s.equipTitle);
   const unequipTitle = useCharacters((s) => s.unequipTitle);
+  const cdataBio = useCharacters((s) => s.characters[npc.id]);
+  // 生物强度：前端按六维机械判定（资质档=基础六维；战力档=含装备/技能/天赋加成），AI 不再判
+  const npcBioEff = npc.attrs ? effectiveAttrs(npc.attrs, cdataBio?.skills ?? [], cdataBio?.traits ?? [], (npc.items ?? []).filter((i) => i.equipped) as any) : undefined;
+  const npcBioLabel = npc.attrs ? bioStrengthLabel(bioInnate(npc.attrs, npc.realm, lvFromRealm(npc.realm)), bioPower(npcBioEff)) : (npc.bioStrength ?? '');
   return (
     <div>
       <Section title="身份信息">
@@ -618,7 +645,7 @@ function BasicTab({ npc, realm, genderCls }: { npc: NpcRecord; realm: ReturnType
           <Field label="竞技场排名" value={npc.arenaRank} />
           <Field label="烙印等级" value={npc.brandLevel} />
           <Field label="契约者ID" value={npc.contractorId} />
-          <Field label="生物强度" value={npc.bioStrength} accent={!!npc.bioStrength} />
+          <Field label="生物强度" value={npcBioLabel} accent={!!npcBioLabel} />
         </div>
       </Section>
 
@@ -903,6 +930,19 @@ function AttrTab({ npc, realm }: { npc: NpcRecord; realm: ReturnType<typeof pars
   ];
   const hasAttrs = !!npc.attrs;
   const [showTrue, setShowTrue] = useState(false);   // 基础属性 ↔ 真实属性
+  const upsertNpc = useNpc((s) => s.upsertNpc);
+  const [rerollN, setRerollN] = useState(0);
+  const [pickTier, setPickTier] = useState<string>(''); // 手动指定生物强度档(覆盖 AI 判定)；'' = 自动按当前资质档
+  const _btn = nominalTierNum(npc.realm, lvFromRealm(npc.realm));
+  const winLo = Math.max(0, _btn - 1), winHi = Math.min(9, _btn + 2); // 该 NPC 阶位可出现的档位窗口(下拉只列这些，免得选了被夹回看着没变)
+  // 机械生成/重置六维：按 阶位×(指定/当前资质)档×职业×形态 反推一套合理六维，修正 AI 幻觉给的离谱属性
+  const regenAttrs = () => {
+    const auto = npc.attrs ? (bioInnate(npc.attrs, npc.realm, lvFromRealm(npc.realm))?.num ?? 2) : 2;
+    const bioNum = pickTier === '' ? auto : Number(pickTier);
+    const attrs = generateNpcAttrs({ tier: npc.realm, level: lvFromRealm(npc.realm), bioTier: bioNum, job: npc.profession, form: resolveForm(`${npc.npcTag ?? ''}${npc.profession ?? ''}${npc.name ?? ''}`), identity: npc.npcTag, seed: `${npc.id}#${rerollN}` });
+    upsertNpc(npc.id, { attrs });
+    setRerollN((v) => v + 1);
+  };
   const [attrPop, setAttrPop] = useState<keyof PlayerAttrs | null>(null);
   const npcEquipped = equippedFull.map((it) => ({ category: it.category, grade: (it.numeric?.grade as number) ?? gradeToNum(it.gradeDesc) }));
   const derived = computeDerived(effAttrs, lvFromRealm(npc.realm), npcEquipped);   // 衍生属性按"有效六维"
@@ -924,14 +964,25 @@ function AttrTab({ npc, realm }: { npc: NpcRecord; realm: ReturnType<typeof pars
         </div>
       </Section>
       <Section title={showTrue ? '真实属性' : '基础属性'} hint={hasAttrs ? undefined : '尚未生成'}>
-        {hasAttrs && (
-          <div className="flex justify-end -mt-1 mb-1">
+        <div className="flex justify-between items-center -mt-1 mb-1">
+          <div className="flex items-center gap-1">
+            <select value={pickTier} onChange={(e) => setPickTier(e.target.value)} title="指定生物强度档（覆盖 AI 判定，仅列该阶位合法档）；自动档=按当前资质档"
+              className="text-[11px] font-mono bg-void/60 border border-edge rounded px-1 py-0.5 text-dim/80 hover:border-god/40">
+              <option value="">自动档</option>
+              {BIO_TIER_NAMES.map((nm, i) => (i >= winLo && i <= winHi) ? <option key={i} value={i}>{`T${i}·${nm}`}</option> : null)}
+            </select>
+            <button onClick={regenAttrs} title="按 阶位×(指定/当前)生物强度×职业×形态 机械重算六维（修正离谱属性；每次点击重 roll）"
+              className="text-[11px] font-mono px-1.5 py-0.5 rounded border border-god/30 text-god/80 hover:bg-god/10 transition-colors">
+              🎲 机械生成
+            </button>
+          </div>
+          {hasAttrs && (
             <button onClick={() => setShowTrue((v) => !v)} title="真实属性 = 每80点普通属性折算1点"
               className="text-[11px] font-mono px-1.5 py-0.5 rounded border border-edge text-dim/60 hover:border-god/40 hover:text-god transition-colors">
               {showTrue ? '基础属性' : '真实属性'}
             </button>
-          </div>
-        )}
+          )}
+        </div>
         <div className="grid grid-cols-3 gap-2">
           {attrDefs.map(({ key, label }) => {
             const bk = breakdown[key]; const bonus = bk.total - bk.base;
@@ -1112,6 +1163,11 @@ function NpcItemCard({ it, showSlot, ownerId, ownerGender }: { it: NonNullable<N
       )}
       {it.requirement && <div className="text-[13px] text-sky-200/70 leading-relaxed"><span className="text-dim/40">需求·</span>{it.requirement}</div>}
       {it.affix && <div className="text-[13px] text-amber-200/80 leading-relaxed"><span className="text-dim/40">词缀·</span>{it.affix}</div>}
+      {(it.gems?.length ?? 0) > 0 && (
+        <div className="text-[13px] leading-relaxed"><span className="text-dim/40">镶嵌·</span>
+          {(it.gems ?? []).map((g, i) => <span key={i} className={g.high ? 'text-amber-200' : 'text-slate-300/80'}>{i > 0 ? '，' : ''}💎{g.name}</span>)}
+        </div>
+      )}
       {it.effect && <div className="text-[13px] text-slate-300/80 leading-relaxed"><span className="text-god/50">效果·</span>{it.effect}</div>}
       {statLines.length > 0 && <div className="text-[12px] font-mono text-sky-400/70">属性词条：{statLines.join(' / ')}</div>}
       {it.intro && <div className="text-[13px] text-dim/55 leading-relaxed italic border-l-2 border-edge/50 pl-2"><span className="not-italic text-god/40">简介·</span>{it.intro}</div>}

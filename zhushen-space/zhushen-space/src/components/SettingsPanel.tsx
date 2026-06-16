@@ -599,6 +599,7 @@ function WorldSection() {
   const importWorldBook = useSettings((s) => s.importWorldBook);
   const toggleWorldBook = useSettings((s) => s.toggleWorldBook);
   const removeWorldBook = useSettings((s) => s.removeWorldBook);
+  const dedupeWorldBooks = useSettings((s) => s.dedupeWorldBooks);
 
   const fileRef = useRef<HTMLInputElement>(null);
   const [msg, setMsg] = useState('');
@@ -629,6 +630,13 @@ function WorldSection() {
           className="px-4 py-2 border border-god/40 text-god text-sm rounded hover:bg-god/10 transition-colors font-mono"
         >
           + 导入世界书 (.json)
+        </button>
+        <button
+          onClick={() => { const n = dedupeWorldBooks(); setMsg(n > 0 ? `已清理 ${n} 本重复世界书` : '没有发现重复世界书'); setTimeout(() => setMsg(''), 4000); }}
+          className="px-3 py-2 border border-edge text-dim text-sm rounded hover:border-god/40 hover:text-god transition-colors font-mono"
+          title="同名世界书只保留一本（优先保留内置），清掉重复堆叠"
+        >
+          🧹 清理重复
         </button>
         <input ref={fileRef} type="file" accept=".json" className="hidden" onChange={handleFile} />
         {msg && (
@@ -1238,6 +1246,7 @@ function TextWorldSection() {
   const importTextWorldBook = useSettings((s) => s.importTextWorldBook);
   const toggleTextWorldBook = useSettings((s) => s.toggleTextWorldBook);
   const removeTextWorldBook = useSettings((s) => s.removeTextWorldBook);
+  const dedupeTextWorldBooks = useSettings((s) => s.dedupeTextWorldBooks);
 
   const fileRef = useRef<HTMLInputElement>(null);
   const [msg, setMsg]         = useState('');
@@ -1262,6 +1271,13 @@ function TextWorldSection() {
       <div className="flex items-center gap-3">
         <button onClick={() => fileRef.current?.click()} className="px-4 py-2 border border-god/40 text-god text-sm rounded hover:bg-god/10 transition-colors font-mono">
           + 导入世界书 (.json)
+        </button>
+        <button
+          onClick={() => { const n = dedupeTextWorldBooks(); setMsg(n > 0 ? `已清理 ${n} 本重复世界书` : '没有发现重复世界书'); setTimeout(() => setMsg(''), 4000); }}
+          className="px-3 py-2 border border-edge text-dim text-sm rounded hover:border-god/40 hover:text-god transition-colors font-mono"
+          title="同名世界书只保留一本（优先保留内置），清掉重复堆叠"
+        >
+          🧹 清理重复
         </button>
         <input ref={fileRef} type="file" accept=".json" className="hidden" onChange={handleFile} />
         {msg && <span className={`text-sm font-mono ${msg.includes('失败') ? 'text-blood' : 'text-god'}`}>{msg}</span>}
