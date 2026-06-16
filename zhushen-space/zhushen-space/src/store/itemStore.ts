@@ -22,20 +22,42 @@ export const ITEM_CATEGORIES: ItemCategory[] = [
   '重要物品', '特殊物品', '凡物', '其他物品',
 ];
 
-/** 轮回乐园物品/装备品级（颜色品质，由低到高），存入 gradeDesc */
+/** 轮回乐园物品/装备品级（颜色品质，由低到高），存入 gradeDesc。
+ *  低阶 白→绿→蓝；中阶 紫→暗紫；高阶 淡金→金→暗金；顶阶 传说→史诗→圣灵；
+ *  虚空阶 不朽→起源→永恒（永恒=成长终点档），创世为旧版保留的最高档（在永恒之上）。*/
 export const ITEM_GRADES = [
-  '白色', '绿色', '蓝色', '紫色', '淡金', '金色', '暗金', '永恒', '起源', '创世',
+  '白色', '绿色', '蓝色', '紫色', '暗紫色', '淡金', '金色', '暗金',
+  '传说级', '史诗级', '圣灵级', '不朽级', '起源', '永恒', '创世',
 ] as const;
 export type ItemGrade = typeof ITEM_GRADES[number];
+
+/** 品级字串 → 数值档位（1=白色 … 15=创世，由低到高）。
+ *  供装备判定/排序在 AI 未给出 numeric.grade 时按品级文字兜底取档。
+ *  关键字按「更具体的在前」匹配（暗金先于金、淡金先于金、暗紫先于紫），避免子串误命中。*/
+export function gradeToNum(grade?: string): number {
+  const g = grade ?? '';
+  const order: [string, number][] = [
+    ['创世', 15], ['永恒', 14], ['起源', 13], ['不朽', 12], ['圣灵', 11], ['史诗', 10], ['传说', 9],
+    ['暗金', 8], ['淡金', 6], ['金', 7], ['暗紫', 5], ['紫', 4], ['蓝', 3], ['绿', 2], ['白', 1],
+  ];
+  for (const [k, v] of order) if (g.includes(k)) return v;
+  return 1;
+}
 
 /** 品级 → 文字配色（用于品级标签/字样上色，与世界书品质色阶一致）*/
 export function gradeColorClass(grade?: string): string {
   const g = grade ?? '';
   if (g.includes('创世')) return 'text-rose-300';
-  if (g.includes('起源')) return 'text-fuchsia-300';
   if (g.includes('永恒')) return 'text-cyan-200';
+  if (g.includes('起源')) return 'text-fuchsia-300';
+  if (g.includes('不朽')) return 'text-indigo-300';
+  if (g.includes('圣灵')) return 'text-teal-200';
+  if (g.includes('史诗')) return 'text-rose-400';
+  if (g.includes('传说')) return 'text-orange-300';
   if (g.includes('暗金')) return 'text-amber-500';
-  if (g.includes('金') )  return 'text-yellow-300';   // 淡金/金色
+  if (g.includes('淡金')) return 'text-amber-200';
+  if (g.includes('金'))   return 'text-yellow-300';   // 金色
+  if (g.includes('暗紫')) return 'text-violet-400';
   if (g.includes('紫'))   return 'text-purple-300';
   if (g.includes('蓝'))   return 'text-sky-300';
   if (g.includes('绿'))   return 'text-emerald-300';
@@ -48,10 +70,15 @@ export function gradeColorClass(grade?: string): string {
 export function gradeBadgeClass(grade?: string): string {
   const g = grade ?? '';
   if (g.includes('创世')) return 'grade-badge grade-grad grade-grad-genesis grade-shimmer grade-pulse';
-  if (g.includes('起源')) return 'grade-badge grade-grad grade-grad-origin grade-shimmer grade-pulse';
-  if (g.includes('永恒')) return 'grade-badge grade-grad grade-grad-eternal grade-shimmer grade-glow-1';
+  if (g.includes('永恒')) return 'grade-badge grade-grad grade-grad-eternal grade-shimmer grade-pulse';
+  if (g.includes('起源')) return 'grade-badge grade-grad grade-grad-origin grade-shimmer grade-glow-1';
+  if (g.includes('不朽')) return 'grade-badge grade-grad grade-grad-immortal grade-shimmer grade-glow-1';
+  if (g.includes('圣灵')) return 'grade-badge grade-grad grade-grad-holy grade-shimmer grade-glow-1';
+  if (g.includes('史诗')) return 'grade-badge grade-grad grade-grad-epic grade-shimmer';
+  if (g.includes('传说')) return 'grade-badge grade-grad grade-grad-legend grade-shimmer';
   if (g.includes('暗金')) return 'grade-badge grade-grad grade-grad-darkgold grade-shimmer';
   if (g.includes('金'))   return 'grade-badge grade-grad grade-grad-gold grade-glow-2';   // 淡金/金色
+  if (g.includes('暗紫')) return 'grade-badge grade-grad grade-grad-darkpurple grade-glow-1';
   if (g.includes('紫'))   return 'grade-badge text-purple-300 grade-glow-1';
   if (g.includes('蓝'))   return 'grade-badge text-sky-300';
   if (g.includes('绿'))   return 'grade-badge text-emerald-300';

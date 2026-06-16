@@ -1,0 +1,32 @@
+{
+  "外观表情": [
+    "long hair", "very long hair", "short hair", "medium hair", "ponytail", "high ponytail", "side ponytail", "twintails", "twin braids", "single braid", "braid", "bob cut", "hime cut", "messy hair", "wavy hair", "curly hair", "drill hair", "hair bun", "double bun", "sidelocks", "blunt bangs", "swept bangs", "hair over one eye", "ahoge",
+    "black hair", "brown hair", "blonde hair", "white hair", "silver hair", "grey hair", "red hair", "pink hair", "blue hair", "purple hair", "green hair", "orange hair", "two-tone hair", "gradient hair",
+    "blue eyes", "red eyes", "green eyes", "brown eyes", "purple eyes", "yellow eyes", "pink eyes", "heterochromia", "sharp eyes", "tareme", "tsurime",
+    "large breasts", "medium breasts", "huge breasts", "slim", "curvy", "petite", "muscular", "toned body", "thick thighs", "wide hips", "slender waist", "abs",
+    "pale skin", "tan skin", "dark skin", "glistening skin",
+    "smile", "grin", "smirk", "blush", "light smile", "gentle smile", "open mouth", "closed eyes", "pout", "serious", "surprised", "crying", "laughing", "wink", "seductive smile", "ahegao", "tongue out", "embarrassed", "half-closed eyes", "sultry gaze"
+  ],
+  "服装": [
+    "shirt", "t-shirt", "blouse", "sweater", "turtleneck", "hoodie", "cardigan", "tank top", "crop top", "tube top", "off-shoulder shirt", "sleeveless shirt", "jacket", "blazer", "coat", "vest",
+    "skirt", "miniskirt", "pleated skirt", "long skirt", "shorts", "short shorts", "jeans", "pants", "leggings", "overalls",
+    "dress", "sundress", "long dress", "evening gown", "china dress", "kimono", "yukata", "maid dress", "wedding dress",
+    "bikini", "micro bikini", "swimsuit", "one-piece swimsuit", "lingerie", "bra", "panties", "babydoll", "negligee", "garter belt", "corset", "leotard", "bodysuit", "naked apron", "bunny girl",
+    "thighhighs", "black thighhighs", "white thighhighs", "fishnet stockings", "pantyhose", "knee-high socks", "ankle socks", "over-the-knee socks",
+    "high heels", "boots", "thigh-high boots", "sneakers", "sandals", "mary janes",
+    "choker", "necklace", "gloves", "elbow gloves", "hat", "glasses", "hair ribbon", "hairband", "scarf"
+  ],
+  "姿势动作": [
+    "standing", "sitting", "lying", "lying on back", "lying on side", "lying on stomach", "kneeling", "squatting", "crouching", "on all fours", "leaning forward", "bending over", "arched back", "stretching", "walking", "running", "jumping",
+    "sitting on chair", "sitting on bed", "crossed legs", "legs up", "knees together", "hand on hip", "hands on hips", "hand on own thigh", "hands behind back", "hands behind head", "arms crossed", "arms up", "hand on cheek", "peace sign", "waving", "hand in hair", "covering breasts", "finger to mouth",
+    "looking at viewer", "looking back", "looking away", "looking up", "looking down", "head tilt", "looking back over shoulder",
+    "holding", "holding cup", "holding phone", "holding flower", "holding umbrella"
+  ],
+  "场景光照": [
+    "indoors", "outdoors", "bedroom", "living room", "kitchen", "bathroom", "classroom", "office", "library", "cafe", "beach", "ocean", "poolside", "park", "garden", "forest", "city street", "alley", "rooftop", "onsen", "hotel room", "nightclub", "castle", "ruins",
+    "night", "day", "sunset", "snow", "rain", "cloudy",
+    "simple background", "white background", "gradient background", "blurry background", "neon lights",
+    "soft lighting", "dramatic lighting", "cinematic lighting", "backlighting", "rim light", "candlelight", "moonlight", "sunlight", "dim lighting", "god rays", "lens flare", "spotlight",
+    "cowboy shot", "upper body", "full body", "portrait", "close-up", "wide shot", "dutch angle", "dynamic angle", "from above", "from below", "from side", "depth of field", "profile", "three-quarter view"
+  ]
+}

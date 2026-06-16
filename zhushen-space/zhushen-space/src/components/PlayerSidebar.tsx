@@ -1,7 +1,7 @@
 import { useState, useRef } from 'react';
 import { usePlayer, type PlayerAttrs } from '../store/playerStore';
 import { useGame } from '../store/gameStore';
-import { useItems } from '../store/itemStore';
+import { useItems, gradeToNum } from '../store/itemStore';
 import { StatusChips, SegmentedText } from './NpcDetail';
 import StatusEffectChips from './StatusEffectChips';
 import { computeDerived, realmFromLevel, trueAttr, computeMaxHp, computeMaxEp, gearMaxHpBonus, gearMaxEpBonus, abilityMaxHpBonus, abilityMaxEpBonus, effectiveResource } from '../systems/derivedStats';
@@ -179,7 +179,7 @@ export default function PlayerSidebar({ onClose }: { onClose?: () => void }) {
   const [showTrueAttr, setShowTrueAttr] = useState(false);   // 基础属性 ↔ 真实属性 切换
   const b1 = useCharacters((s) => s.characters['B1']);
   const equippedFull = items.filter((it) => it.equipped);
-  const equipped = equippedFull.map((it) => ({ category: it.category as string, grade: (it.numeric?.grade as number) ?? 1 }));
+  const equipped = equippedFull.map((it) => ({ category: it.category as string, grade: (it.numeric?.grade as number) ?? gradeToNum(it.gradeDesc) }));
   // 属性构成：原始 + 装备/技能/天赋 的属性加成（真实加载，不只是摆设）
   const breakdown = computeAttrBreakdown(profile.attrs, b1?.skills ?? [], b1?.traits ?? [], equippedFull);
   const effAttrs = { str: breakdown.str.total, agi: breakdown.agi.total, con: breakdown.con.total, int: breakdown.int.total, cha: breakdown.cha.total, luck: breakdown.luck.total } as PlayerAttrs;

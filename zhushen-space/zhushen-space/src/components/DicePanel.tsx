@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { usePlayer } from '../store/playerStore';
 import { useCharacters } from '../store/characterStore';
 import { useNpc } from '../store/npcStore';
-import { useItems } from '../store/itemStore';
+import { useItems, gradeToNum } from '../store/itemStore';
 import { useDice } from '../store/diceStore';
 import { lvFromRealm } from '../systems/derivedStats';
 import DiceRoller, { type RollOutcome } from './DiceRoller';
@@ -20,7 +20,7 @@ const LEVEL_COLOR: Record<string, string> = {
 };
 const DEFAULT_ATTRS: DiceAttrs = { str: 5, agi: 5, con: 5, int: 5, cha: 5, luck: 5 };
 const equippedOf = (arr: any[] | undefined): EquipItemLite[] =>
-  (arr ?? []).filter((it) => it?.equipped).map((it) => ({ category: it.category as string, grade: (it.numeric?.grade as number) ?? 1 }));
+  (arr ?? []).filter((it) => it?.equipped).map((it) => ({ category: it.category as string, grade: (it.numeric?.grade as number) ?? gradeToNum(it.gradeDesc) }));
 const itemLine = (arr: any[] | undefined): string =>
   (arr ?? []).filter((it) => it?.equipped).map((it) => `${it.name}(${it.category}${it.gradeDesc ? `·${it.gradeDesc}` : ''})`).join('、') || '无';
 const skillLine = (arr: any[] | undefined): string => (arr ?? []).map((s) => `${s.name}${s.level ? `·${s.level}` : ''}`).join('、') || '无';

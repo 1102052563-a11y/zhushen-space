@@ -134,8 +134,13 @@ body {
 .grade-glow-2 { text-shadow: 0 0 5px currentColor, 0 0 9px currentColor; }
 /* 渐变文字（需元素只含品级文字）*/
 .grade-grad { -webkit-background-clip: text; background-clip: text; color: transparent; background-size: 200% auto; }
+.grade-grad-darkpurple { background-image: linear-gradient(90deg,#7c3aed,#a78bfa,#c4b5fd,#7c3aed); }
 .grade-grad-gold     { background-image: linear-gradient(90deg,#fde68a,#f59e0b,#fcd34d,#fde68a); }
 .grade-grad-darkgold { background-image: linear-gradient(90deg,#92400e,#f59e0b,#fbbf24,#b45309); }
+.grade-grad-legend   { background-image: linear-gradient(90deg,#fb923c,#fdba74,#fbbf24,#fb923c); }            /* 传说级·橙金 */
+.grade-grad-epic     { background-image: linear-gradient(90deg,#fb7185,#f43f5e,#fda4af,#fb7185); }            /* 史诗级·绯红 */
+.grade-grad-holy     { background-image: linear-gradient(90deg,#5eead4,#a5f3fc,#fef9c3,#5eead4); }            /* 圣灵级·圣辉 */
+.grade-grad-immortal { background-image: linear-gradient(90deg,#818cf8,#a5b4fc,#c7d2fe,#818cf8); }            /* 不朽级·靛蓝 */
 .grade-grad-eternal  { background-image: linear-gradient(90deg,#22d3ee,#a5f3fc,#67e8f9,#22d3ee); }
 .grade-grad-origin   { background-image: linear-gradient(90deg,#e879f9,#f0abfc,#c026d3,#e879f9); }
 .grade-grad-genesis  { background-image: linear-gradient(90deg,#f87171,#fbbf24,#34d399,#60a5fa,#a78bfa,#f472b6,#f87171); background-size: 300% auto; }

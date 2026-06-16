@@ -1,7 +1,7 @@
 import type { NpcRecord, NpcOwnedItem } from '../store/npcStore';
 import type { FactionRecord } from '../store/factionStore';
 import type { Skill, Talent, Title, SubProfession } from '../store/characterStore';
-import type { InventoryItem, CurrencyWallet } from '../store/itemStore';
+import { gradeToNum, type InventoryItem, type CurrencyWallet } from '../store/itemStore';
 import type { PlayerProfile, PlayerAttrs } from '../store/playerStore';
 import { computeMaxHp, computeMaxEp, effectiveResource } from './derivedStats';
 import { effectiveAttrs } from './attrBonus';
@@ -135,7 +135,8 @@ function playerItemLine(it: InventoryItem): string {
 
 /* ── 装备优先级：已装备 > 品阶高 > 数量多 ── */
 function itemScore(it: InventoryItem | NpcOwnedItem): number {
-  return (it.equipped ? 1000 : 0) + gradeOf(numericOf(it)) * 10 + Math.min(9, it.quantity ?? 1);
+  const grade = gradeOf(numericOf(it)) || gradeToNum(it.gradeDesc);   // AI 未给 numeric.grade 时按品级文字兜底
+  return (it.equipped ? 1000 : 0) + grade * 10 + Math.min(9, it.quantity ?? 1);
 }
 function skillScore(s: Skill): number {
   return gradeOf(s.numeric) * 100 + (s.addedAt ?? 0) / 1e12;

@@ -4,6 +4,7 @@ import {
   EVO_VERIFY_RULE,
   BUFF_AS_STATUS_RULE,
   ITEM_FIXED_FORMAT_RULE,
+  ITEM_GRADE_TABLE_RULE,
   ITEM_ACQUIRE_RULE,
   ITEM_EXACT_REF_RULE,
   MERGED_AUDIT_SYSTEM,
@@ -1465,7 +1466,7 @@ export default function App() {
       const systemPrompt = (usingFallback
         ? ITEM_FALLBACK_PROMPT
         : buildItemPhaseSystemPrompt(enabledEntries, ''))   // 不在 system 里放正文
-        + '\n\n' + NARRATIVE_FIRST_RULE + '\n' + ITEM_FIXED_FORMAT_RULE
+        + '\n\n' + NARRATIVE_FIRST_RULE + '\n' + ITEM_FIXED_FORMAT_RULE + '\n' + ITEM_GRADE_TABLE_RULE
         + '\n【穿戴装备处理·换装≠销毁】① **替换/换装**：穿上新装备时只需对**新装备** equipItem（引擎会自动把同槽位的旧装备卸回储存空间）——被换下来的旧装备**只是脱下放回储存空间、并没有消失，绝对不要对它 destroyItem 或 consumeItem**（这是最常见的误删，务必避免）。② 只有正文**明确**把某件装备"丢弃/扔掉/卖掉/损毁/被夺走/送人"时，才对那件 destroyItem（引擎会自动先卸下再销毁）。③ 不要无故销毁正在穿的装备；已装备物品一律不要 consumeItem。'
         + '\n【destroy/consume 必带物品名】destroyItem/consumeItem **必须带 "name" 字段=物品全名**（与背包清单一致），itemId 用清单里的真实 ID；引擎优先按 name 匹配。**严禁臆造 itemId**——若不确定 ID，只写 name。例：开宝箱 destroyItem({"name":"白色宝箱","reason":"开启后消失"})；用绷带 consumeItem({"name":"残旧的止血绷带","quantity":1})。'
         + '\n' + ITEM_ACQUIRE_RULE
@@ -1749,7 +1750,7 @@ export default function App() {
     try {
       setItemPhaseLog('🔍 综合对账·纠正中…');
       const { content: reply } = await apiChatFallback(chain, [
-        { role: 'system', content: MERGED_AUDIT_SYSTEM },
+        { role: 'system', content: MERGED_AUDIT_SYSTEM + '\n' + ITEM_GRADE_TABLE_RULE },
         { role: 'user', content: userContent },
       ]);
       console.log('[MergedAudit] 对账响应:', reply);

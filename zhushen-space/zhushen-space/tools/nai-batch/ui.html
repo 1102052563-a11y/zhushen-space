@@ -28,6 +28,9 @@
   details summary { cursor:pointer; color:var(--dim); font-size:12px; }
   .hint { font-size:11px; color:var(--dim); margin-top:4px; }
   .poolBox { border:1px solid var(--acc2); border-radius:10px; padding:12px; margin-top:6px; background:rgba(54,209,196,.05); }
+  .poolHead { display:flex; align-items:center; gap:6px; color:var(--text); font-size:13px; margin:0 0 4px; }
+  .poolHead input[type=number] { width:54px; padding:3px 6px; }
+  .poolHead input[type=checkbox] { width:auto; }
   .actions { display:flex; gap:10px; margin-top:14px; }
   button { font:inherit; border:none; border-radius:9px; padding:10px 16px; cursor:pointer; font-weight:600; }
   #gen { background:var(--acc); color:#04211f; flex:1; }
@@ -54,6 +57,7 @@
   <span id="tokenState">读取中…</span>
   <span class="hint" style="margin-left:8px">✎ 你的修改自动保存·刷新不丢</span>
   <span style="flex:1"></span>
+  <button id="loadPromptsBtn" style="font-size:12px;background:var(--acc2);color:#04211f;border:none;border-radius:7px;padding:6px 12px;cursor:pointer;font-weight:600">📂 载入提示词</button>
   <button id="saveBtn" style="font-size:12px;background:var(--acc);color:#04211f;border:none;border-radius:7px;padding:6px 12px;cursor:pointer;font-weight:600">💾 保存到服务器</button>
   <button id="resetBtn" style="font-size:12px;background:var(--panel2);color:var(--dim);border:1px solid var(--line);border-radius:7px;padding:6px 12px;cursor:pointer">↺ 恢复默认</button>
 </header>
@@ -91,24 +95,21 @@
     <h2 style="margin-top:18px">③ 负向提示词（你自己填/改）</h2>
     <textarea id="negative" rows="4"></textarea>
 
-    <h2 style="margin-top:18px">④ 双随机正向池 ★（两池各随机抽 ≥2，机械拼接）</h2>
+    <h2 style="margin-top:18px">④ 随机正向池（多池·可开关·机械抽取）★</h2>
     <div class="poolBox">
       <div class="row">
         <div style="flex:1">
-          <label style="margin-top:0">池 1（如 服装/外观）·一行一条</label>
-          <textarea id="pool" rows="10" placeholder="micro bikini&#10;lace lingerie&#10;bunny girl&#10;..."></textarea>
-          <label style="margin-top:6px">池1 每张抽取条数（≥2）</label>
-          <input id="drawCount" type="number" value="2" min="2">
+          <label class="poolHead" style="margin-top:0"><input type="checkbox" id="pool_on" checked> <b>自定义池1</b> · 抽 <input id="drawCount" type="number" value="2" min="0"> 条</label>
+          <textarea id="pool" rows="6" placeholder="一行一条；勾选才参与抽取"></textarea>
         </div>
         <div style="flex:1">
-          <label style="margin-top:0">池 2（如 表情/动作/场景）·一行一条</label>
-          <textarea id="pool2" rows="10" placeholder="ahegao&#10;drooling&#10;lying on bed&#10;bedroom&#10;..."></textarea>
-          <label style="margin-top:6px">池2 每张抽取条数（≥2）</label>
-          <input id="drawCount2" type="number" value="2" min="2">
+          <label class="poolHead" style="margin-top:0"><input type="checkbox" id="pool2_on" checked> <b>自定义池2</b> · 抽 <input id="drawCount2" type="number" value="2" min="0"> 条</label>
+          <textarea id="pool2" rows="6" placeholder="一行一条"></textarea>
         </div>
       </div>
+      <div id="catPools"></div>
       <label style="display:flex; align-items:center; gap:8px; margin:12px 0 0; cursor:pointer; color:var(--text)">
-        <input type="checkbox" id="continuous" style="width:auto"> <b>连续模式</b>：不限张数，每张从两池各随机抽 ≥2，一直生成到「停止」
+        <input type="checkbox" id="continuous" style="width:auto"> <b>连续模式</b>：不限张数，每张从所有「开启」的池各随机抽取，一直到「停止」
       </label>
     </div>
 
@@ -169,6 +170,16 @@ async function saveToServer(){
     if(r.ok) alert('✓ 已保存到服务器 jobs.json：池1 '+r.pool1+' 条、池2 '+r.pool2+' 条。\n现在让我用命令行跑，就会用你这套池子了。');
     else alert('保存失败：'+r.error);
   } catch(e){ alert('保存失败：'+e); }
+}
+async function loadPrompts(){
+  try {
+    const r = await (await fetch('/api/prompts')).json();
+    if(!r.ok){ alert('载入失败：'+r.error); return; }
+    if(!r.lines.length){ alert('prompts.txt 是空的'); return; }
+    $('poses').value = r.lines.join('\n');
+    saveState();
+    alert('已从 '+r.file+' 载入 '+r.lines.length+' 条到「姿势列表」。\n确认上方正向身份块/负向/输出位置后，点 ▶生成 即逐条出图。\n（展开「定量参数」可查看/编辑这些提示词）');
+  } catch(e){ alert('载入失败：'+e); }
 }
 
 // 从池里不重复随机抽 n 条
@@ -281,6 +292,7 @@ function fillErr(fig,name,err){
 
 $('resetBtn').onclick=resetDefaults;
 $('saveBtn').onclick=saveToServer;
+$('loadPromptsBtn').onclick=loadPrompts;
 $('gen').onclick=generate;
 $('stop').onclick=()=>{ stopFlag=true; $('status').textContent='正在停止…（当前这张完成后停）'; };
 loadCfg();

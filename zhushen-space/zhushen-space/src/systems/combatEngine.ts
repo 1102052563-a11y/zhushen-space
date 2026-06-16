@@ -14,7 +14,7 @@ import { usePlayer, type StatusEffect, type CombatStatusMod } from '../store/pla
 import { useGame } from '../store/gameStore';
 import { useNpc } from '../store/npcStore';
 import { useCharacters } from '../store/characterStore';
-import { useItems } from '../store/itemStore';
+import { useItems, gradeToNum } from '../store/itemStore';
 import type { Skill } from '../store/characterStore';
 import type { BattleState, CombatStatBlock, Combatant, Side, CombatActionKind, DomainState } from '../store/combatStore';
 import { newLogId } from '../store/combatStore';
@@ -36,7 +36,7 @@ function trueScore(a: DiceAttrs): number {
 }
 
 const equippedOf = (arr: any[] | undefined): EquipItemLite[] =>
-  (arr ?? []).filter((it) => it?.equipped).map((it) => ({ category: it?.category as string, grade: (it?.numeric?.grade as number) ?? 1 }));
+  (arr ?? []).filter((it) => it?.equipped).map((it) => ({ category: it?.category as string, grade: (it?.numeric?.grade as number) ?? gradeToNum(it?.gradeDesc) }));
 
 /* 取某角色的技能/天赋/已装备（live 读 store；临时敌无建档则空） */
 function fetchAbilities(id: string): { skills: any[]; talents: any[]; equipped: EquipItemLite[] } {

@@ -60,7 +60,7 @@ export const DEFAULT_TABLES: EnhanceTables = {
   downgradeFloor: 3,
   resetFloor: 7,
   destroyFloor: 10,
-  gradeCostMul: { 白: 1, 绿: 1.6, 蓝: 2.4, 紫: 3.6, 淡金: 5, 金: 7, 暗金: 10, 永恒: 15, 起源: 22, 创世: 32 },
+  gradeCostMul: { 白: 1, 绿: 1.6, 蓝: 2.4, 紫: 3.6, 暗紫: 4.6, 淡金: 5.8, 金: 7.5, 暗金: 10, 传说: 13.5, 史诗: 18, 圣灵: 24, 不朽: 31, 起源: 40, 永恒: 52, 创世: 68 },
   costBase: 175, costPow: 1.6,
   protectBase: 750, protectPow: 1.45,
   amuletBase: 550, amuletPow: 1.35,
@@ -112,7 +112,7 @@ const clamp01 = (x: number) => Math.max(0, Math.min(1, x));
 /* 品质串 → 费用倍率（按关键字由高到低匹配，避免「淡金」先命中「金」）*/
 function gradeMul(t: EnhanceTables, grade?: string): number {
   const g = grade ?? '';
-  const order = ['创世', '起源', '永恒', '暗金', '淡金', '金', '紫', '蓝', '绿', '白'];
+  const order = ['创世', '永恒', '起源', '不朽', '圣灵', '史诗', '传说', '暗金', '淡金', '金', '暗紫', '紫', '蓝', '绿', '白'];
   for (const k of order) if (g.includes(k)) return t.gradeCostMul[k] ?? 1;
   return 1;
 }
@@ -145,18 +145,28 @@ export function parseScore(score?: string): number {
 /* 评分 → 费用倍率（评分越高越贵、越低越便宜）*/
 export function scoreCostMul(score?: string): number {
   const s = parseScore(score);
-  if (s <= 0)  return 0.9;
-  if (s <= 10) return 0.8;
-  if (s <= 30) return 1.0;
-  if (s <= 50) return 1.3;
-  if (s <= 70) return 1.7;
-  if (s <= 90) return 2.2;
-  return 3.0;
+  if (s <= 0)   return 0.9;
+  if (s <= 10)  return 0.8;
+  if (s <= 30)  return 1.0;
+  if (s <= 50)  return 1.3;
+  if (s <= 70)  return 1.7;
+  if (s <= 90)  return 2.2;
+  // 高评分段（对应暗紫/淡金～永恒级，评分可达数千）：继续随评分抬升，让顶阶装备强化更昂贵
+  if (s <= 150)  return 2.8;
+  if (s <= 310)  return 3.6;
+  if (s <= 530)  return 4.6;
+  if (s <= 1000) return 6.0;
+  if (s <= 3000) return 8.0;
+  return 11.0;
 }
 /* 品级 → 成长系数（品级越高越大）。喂给收尾 AI：越大 → 词缀/效果越强 */
 export function gradeGrowth(grade?: string): number {
   const g = grade ?? '';
-  const map: [string, number][] = [['创世', 5], ['起源', 4.2], ['永恒', 3.5], ['暗金', 2.8], ['淡金', 2.2], ['金', 1.9], ['紫', 1.6], ['蓝', 1.35], ['绿', 1.15], ['白', 1.0]];
+  // 按品级由低到高单调递增；关键字「更具体的在前」匹配（暗金/淡金先于金、暗紫先于紫）
+  const map: [string, number][] = [
+    ['创世', 6.4], ['永恒', 5.6], ['起源', 4.9], ['不朽', 4.3], ['圣灵', 3.8], ['史诗', 3.3], ['传说', 2.9],
+    ['暗金', 2.6], ['淡金', 2.0], ['金', 2.3], ['暗紫', 1.8], ['紫', 1.6], ['蓝', 1.35], ['绿', 1.15], ['白', 1.0],
+  ];
   for (const [k, v] of map) if (g.includes(k)) return v;
   return 1.0;
 }

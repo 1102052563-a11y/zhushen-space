@@ -141,6 +141,20 @@ const server = createServer(async (req, res) => {
         return send(res, 200, 'application/json', JSON.stringify({ ok: true, pool1: (job.randomPool || []).length, pool2: (job.randomPool2 || []).length }));
       } catch (e) { return send(res, 200, 'application/json', JSON.stringify({ ok: false, error: e?.message || String(e) })); }
     }
+    if (req.method === 'GET' && u.pathname === '/api/prompts') {
+      // 读取提示词文件（默认 prompts.txt），返回非空非注释行，供网页「载入提示词」用
+      const name = (u.searchParams.get('file') || 'prompts.txt').replace(/[\\/]/g, '');
+      try {
+        const txt = await readFile(join(HERE, name), 'utf8');
+        const lines = txt.split('\n').map((s) => s.trim()).filter((s) => s && !s.startsWith('#'));
+        return send(res, 200, 'application/json', JSON.stringify({ ok: true, file: name, lines }));
+      } catch (e) { return send(res, 200, 'application/json', JSON.stringify({ ok: false, error: '读不到 ' + name + '：' + (e?.message || e) })); }
+    }
+    if (req.method === 'GET' && u.pathname === '/api/pool-defaults') {
+      // 返回 pools.json（四大类标签库），给网页 4 个分类池预填
+      try { return send(res, 200, 'application/json', await readFile(join(HERE, 'pools.json'), 'utf8')); }
+      catch { return send(res, 200, 'application/json', '{}'); }
+    }
     send(res, 404, 'text/plain', 'not found');
   } catch (e) { send(res, 500, 'text/plain', e?.message || 'error'); }
 });

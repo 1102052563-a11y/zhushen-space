@@ -4,7 +4,7 @@ import { useCharacters, RARITY_CLS, ELEMENT_CLS, SKILL_TIER_CLS, normSkillTier, 
 import { computeDerived, lvFromRealm, normalizeTier, realmFromLevel, trueAttr, computeMaxHp, computeMaxEp, gearMaxHpBonus, gearMaxEpBonus, abilityMaxHpBonus, abilityMaxEpBonus, effectiveResource } from '../systems/derivedStats';
 import { computeAttrBreakdown, ATTR_LABEL, type AttrBreak } from '../systems/attrBonus';
 import { usePlayer, type PlayerAttrs } from '../store/playerStore';
-import { gradeBadgeClass, gradeNameClass } from '../store/itemStore';
+import { gradeBadgeClass, gradeNameClass, gradeToNum } from '../store/itemStore';
 import NpcEquip from './NpcEquip';
 import StatusEffectChips from './StatusEffectChips';
 import { useImageGen, effectiveEquipService } from '../store/imageGenStore';
@@ -904,7 +904,7 @@ function AttrTab({ npc, realm }: { npc: NpcRecord; realm: ReturnType<typeof pars
   const hasAttrs = !!npc.attrs;
   const [showTrue, setShowTrue] = useState(false);   // 基础属性 ↔ 真实属性
   const [attrPop, setAttrPop] = useState<keyof PlayerAttrs | null>(null);
-  const npcEquipped = equippedFull.map((it) => ({ category: it.category, grade: (it.numeric?.grade as number) ?? 1 }));
+  const npcEquipped = equippedFull.map((it) => ({ category: it.category, grade: (it.numeric?.grade as number) ?? gradeToNum(it.gradeDesc) }));
   const derived = computeDerived(effAttrs, lvFromRealm(npc.realm), npcEquipped);   // 衍生属性按"有效六维"
   const derivedNoEq = computeDerived(effAttrs, lvFromRealm(npc.realm), []);
   const [derivedPop, setDerivedPop] = useState<keyof typeof derived | null>(null);
