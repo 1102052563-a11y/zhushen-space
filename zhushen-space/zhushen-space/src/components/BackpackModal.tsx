@@ -139,7 +139,7 @@ export function ItemDetailModal({ item, onClose }: { item: InventoryItem; onClos
   const [draft, setDraft] = useState({
     name: item.name, gradeDesc: item.gradeDesc, effect: item.effect,
     appearance: item.appearance ?? '',
-    notes: item.notes ?? '', acquisition: item.acquisition ?? '',
+    notes: item.notes ?? '', acquisition: item.acquisition ?? '', affix: item.affix ?? '',
   });
 
   const cfg  = CAT_CFG[item.category] ?? CAT_CFG['其他物品'];
@@ -149,7 +149,7 @@ export function ItemDetailModal({ item, onClose }: { item: InventoryItem; onClos
 
   const saveEdit = () => {
     updateItem(item.id, { name: draft.name, gradeDesc: draft.gradeDesc,
-      effect: draft.effect, appearance: draft.appearance, notes: draft.notes, acquisition: draft.acquisition });
+      effect: draft.effect, appearance: draft.appearance, notes: draft.notes, acquisition: draft.acquisition, affix: draft.affix });
     setEditing(false);
   };
 
@@ -311,10 +311,20 @@ export function ItemDetailModal({ item, onClose }: { item: InventoryItem; onClos
             </Field>
           )}
 
-          {/* 词缀 */}
-          {item.affix && (
+          {/* 词缀（可编辑：进入编辑模式后可改/加词缀）*/}
+          {(item.affix || editing) && (
             <Field label="词缀">
-              <div className="text-[13px] text-amber-200/85 leading-relaxed">{item.affix}</div>
+              {editing ? (
+                <textarea
+                  value={draft.affix}
+                  onChange={(e) => setDraft((d) => ({ ...d, affix: e.target.value }))}
+                  rows={2}
+                  placeholder="如：[烈焰] 攻击附带 15% 火焰伤害"
+                  className="w-full bg-void border border-edge rounded px-2 py-1 text-[13px] text-amber-200/85 focus:outline-none focus:border-god/50 resize-none"
+                />
+              ) : (
+                <div className="text-[13px] text-amber-200/85 leading-relaxed">{item.affix}</div>
+              )}
             </Field>
           )}
 

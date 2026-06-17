@@ -7,7 +7,7 @@ import { useImageViewer } from '../store/imageViewerStore';
    - 每件已装备物品一张卡（图片位 + 基础信息），点击开 ItemDetailModal（可卸下/编辑/删除）
    - 图片位可上传自定义图片（dataURL 存 InventoryItem.image），留作未来生图位
    - 最多显约 3 张，超出内部上下滚动；标题栏可折叠 */
-const CARD_H = 64;
+const CARD_H = 80;
 const MAX_VISIBLE = 4;
 
 export default function PlayerEquipPanel() {
@@ -90,6 +90,8 @@ function EquipCard({ item, onOpen }: { item: InventoryItem; onOpen: () => void }
           {item.combatStat && <span className="text-amber-300/70">{item.combatStat}</span>}
           {slotLabel && <span className="text-god/50">{slotLabel}</span>}
         </div>
+        {item.affix && <div className="text-[10px] leading-tight text-amber-200/70 truncate" title={String(item.affix)}><span className="text-dim/40">缀·</span>{String(item.affix)}</div>}
+        {item.effect && <div className="text-[10px] leading-tight text-slate-300/65 truncate" title={String(item.effect)}><span className="text-god/40">效·</span>{String(item.effect)}</div>}
       </div>
     </div>
   );

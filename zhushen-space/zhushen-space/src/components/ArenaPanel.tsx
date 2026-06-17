@@ -28,7 +28,8 @@ export default function ArenaPanel({ onClose, onGenerateLadder, onScout, onChall
   const enabled = useArena((s) => s.config.enabled);
   const worldName = useMisc((s) => s.worldName);
 
-  const inHub = inParadise(worldName);
+  const inHub = true;   // 区域限制已取消：竞技场在任何世界均可使用
+  void inParadise; void worldName;
   const unlocked = enabled && inHub;
   const ti = tierIndex(tier);
   const champQualified = (ladders[normalArenaId(5)]?.bestRank ?? 99999) <= 50;

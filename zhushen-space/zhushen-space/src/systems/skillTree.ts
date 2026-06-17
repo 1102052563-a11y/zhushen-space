@@ -92,14 +92,16 @@ export function nodeMaxRank(node: TreeNode): number {
   return node.maxRank ?? SKILLTREE_TUNING.maxRankDefault;
 }
 
-export interface SocketCore { itemName?: string; name?: string; effect?: string; ptAttr?: AttrDelta; radius?: number; chainNodeIds?: string[] }
+export interface SocketCore { itemName?: string; name?: string; effect?: string; ptAttr?: AttrDelta; radius?: number; chainNodeIds?: string[]; active?: boolean }
 export interface ProgressLike { ranks?: Record<string, number>; aiBonusPP?: number; spent?: number; sockets?: Record<string, SocketCore> }
 
 export function nodeRank(progress: ProgressLike | undefined, id: string): number {
   return Math.max(0, Math.floor(progress?.ranks?.[id] ?? 0));
 }
 export function isUnlocked(progress: ProgressLike | undefined, id: string): boolean {
-  return nodeRank(progress, id) >= 1;   // 点过 ≥1 次即可作前置
+  if (nodeRank(progress, id) >= 1) return true;   // 点过 ≥1 次即可作前置
+  const sk = progress?.sockets?.[id];   // 已嵌核(未拆卸)的星核位视为已解锁 → 其脉络链可继续点
+  return !!(sk && sk.active !== false);
 }
 
 /* 当前可用潜能点 = 预算 + 累计(兑换/任务/奇遇) − 已花费 */
@@ -107,13 +109,9 @@ export function availablePP(progress: ProgressLike | undefined, ctx: TreeCtx): n
   return potentialBudget(ctx.level, ctx.tier) + (progress?.aiBonusPP ?? 0) - (progress?.spent ?? 0);
 }
 
-/* 阶位 gate：节点 tierGate 为空=不限；否则有效阶位需 ≥ gate */
-export function gatePass(node: TreeNode, ctx: TreeCtx): boolean {
-  if (node.branch && ctx.expressBranches?.has(node.branch)) return true;   // 传承提前解锁：免阶位 gate
-  if (!node.tierGate) return true;
-  const ni = tierIdxOf(node.tierGate);
-  if (ni < 0) return true;   // 非法 gate 当不设
-  return tierIdxOf(effectiveTierName(ctx.tier, ctx.level)) >= ni;
+/* 阶位 gate 已移除（2026-06-17 用户要求）：所有节点不再受 tierGate 限制，恒通过。 */
+export function gatePass(_node: TreeNode, _ctx: TreeCtx): boolean {
+  return true;
 }
 
 /* sink「无上限」节点是否满足前提：本树所有非 sink 节点都已点满 */
@@ -137,8 +135,19 @@ export function canRankUp(
     const names = missing.map((id) => tree.nodes.find((n) => n.id === id)?.name ?? id);
     return { ok: false, reason: `需先解锁：${names.join('、')}` };
   }
+  // 大节点(技能/天赋)：紧邻它的前置节点必须【点满】才能解锁这个大节点（投满铺垫→再拿大招，增加爽感）
+  if (isBigNode(node)) {
+    const notMaxed = (node.prereqs ?? []).filter((p) => {
+      const pn = tree.nodes.find((n) => n.id === p);
+      if (!pn || pn.socket || pn.sink) return false;   // 星核位(嵌核即满足)/无尽端点(无上限) 不要求点满
+      return nodeRank(progress, p) < nodeMaxRank(pn);
+    });
+    if (notMaxed.length) {
+      const names = notMaxed.map((id) => tree.nodes.find((n) => n.id === id)?.name ?? id);
+      return { ok: false, reason: `需先点满前置节点：${names.join('、')}` };
+    }
+  }
   const express = !!(node.branch && ctx.expressBranches?.has(node.branch));
-  if (!gatePass(node, ctx)) return { ok: false, reason: `阶位需达 ${node.tierGate}` };
   if (!express && node.spentGate && (progress?.spent ?? 0) < node.spentGate) return { ok: false, reason: `需累计投入 ${node.spentGate} 潜能点（现 ${progress?.spent ?? 0}）` };
   if (node.sink && !allNonSinkMaxed(tree, progress)) return { ok: false, reason: '需先点满其余全部节点' };
   const avail = availablePP(progress, ctx);
@@ -166,6 +175,7 @@ export function treeAttrDelta(tree: TreeDef | undefined, progress: ProgressLike 
   // 星核镶嵌：每个已嵌核 socket，作用半径内「已点亮微星」数 × 核 ptAttr → 加成（与设计的其它属性功能一同折进有效六维）
   const sockets = progress?.sockets ?? {};
   for (const [sid, core] of Object.entries(sockets)) {
+    if (core?.active === false) continue;   // 已拆卸的星核不计加成（脉络链与已点点数保留）
     const sNode = tree.nodes.find((n) => n.id === sid);
     if (!sNode || !core?.ptAttr) continue;
     const radius = core.radius ?? SKILLTREE_TUNING.socketRadius;
@@ -200,10 +210,10 @@ export function attrDeltaText(a?: AttrDelta): string {
 }
 
 /* ── 树契约校验：手动编辑 / AI 生成的 JSON 都过这关，产出规范化的 TreeDef ──────── */
-function sanitizeAttr(a: any): AttrDelta | undefined {
+function sanitizeAttr(a: any, clampPositive = false): AttrDelta | undefined {
   if (!a || typeof a !== 'object') return undefined;
   const out: AttrDelta = {};
-  for (const k of ATTR_KEYS) { const v = Math.trunc(Number((a as any)[k])); if (v) out[k] = v; }
+  for (const k of ATTR_KEYS) { let v = Math.trunc(Number((a as any)[k])); if (clampPositive && v < 0) v = 0; if (v) out[k] = v; }   // 技能树不产生负面/代价 → ptAttr 负值归零
   return Object.keys(out).length ? out : undefined;
 }
 function sanitizeGrants(g: any): TreeNode['grants'] {
@@ -270,7 +280,7 @@ export function validateTree(raw: any): TreeValidation {
       kind,
       grants: sanitizeGrants(n?.grants),
       maxRank: Number.isFinite(Number(n?.maxRank)) ? Math.max(1, Math.floor(Number(n.maxRank))) : undefined,
-      ptAttr: sanitizeAttr(n?.ptAttr),
+      ptAttr: sanitizeAttr(n?.ptAttr, true),   // 只留正值，负面/代价归零
       realAttr: !!n?.realAttr,
       sink: !!n?.sink,
       spentGate: Number.isFinite(Number(n?.spentGate)) ? Math.max(0, Math.floor(Number(n.spentGate))) : undefined,

@@ -36,7 +36,7 @@ export default function GemPanel({ onClose }: { onClose: () => void }) {
   const updateItem     = useItems((s) => s.updateItem);
   const adjustCurrency = useItems((s) => s.adjustCurrency);
   const worldName      = useMisc((s) => s.worldName);
-  const isHome = /轮回乐园|专属房间|主神空间/.test(worldName ?? '');
+  const isHome = true;   // 区域限制已取消：宝石交易/镶嵌在任何世界均可进行
 
   const [tab, setTab]           = useState<'shop' | 'socket' | 'synth'>('shop');
   const [shopGrade, setShopGrade] = useState('紫色');

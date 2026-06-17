@@ -1,6 +1,6 @@
 import { useNpc, type NpcRecord } from '../store/npcStore';
 import { useNpcEvo } from '../store/npcEvoStore';
-import { lvFromRealm } from '../systems/derivedStats';
+import { lvFromRealm, tierFxClass } from '../systems/derivedStats';
 import { useImageViewer } from '../store/imageViewerStore';
 
 /* 好友栏：手动收藏的契约者/随从/宠物。
@@ -40,7 +40,7 @@ function FriendCard({ npc, turn, onOpen, onRemove, onDm }: { npc: NpcRecord; tur
           <span className={`text-[10px] font-mono px-1 py-0.5 rounded border shrink-0 ${npc.onScene ? 'border-emerald-600/40 text-emerald-300/70' : 'border-edge text-dim/40'}`}>{npc.onScene ? '在场' : '离场'}</span>
         </div>
         <div className="text-[11px] font-mono text-dim/60 truncate mt-0.5">
-          {tier && <span className="text-sky-300/70">{tier}</span>}
+          {tier && <span className={`${tierFxClass(tier)} font-bold`}>{tier}</span>}
           {lv > 0 && <span className="text-dim/50"> Lv.{lv}</span>}
           {identity && <span className="text-dim/55"> · {identity}</span>}
         </div>

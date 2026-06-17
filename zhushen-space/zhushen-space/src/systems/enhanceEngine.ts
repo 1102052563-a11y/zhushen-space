@@ -111,7 +111,7 @@ const clamp01 = (x: number) => Math.max(0, Math.min(1, x));
 
 /* 品质串 → 费用倍率（按关键字由高到低匹配，避免「淡金」先命中「金」）*/
 function gradeMul(t: EnhanceTables, grade?: string): number {
-  const g = grade ?? '';
+  const g = String(grade ?? '');
   const order = ['创世', '永恒', '起源', '不朽', '圣灵', '史诗', '传说', '暗金', '淡金', '金', '暗紫', '紫', '蓝', '绿', '白'];
   for (const k of order) if (g.includes(k)) return t.gradeCostMul[k] ?? 1;
   return 1;
@@ -139,7 +139,7 @@ export function displayRate(level: number, boss: BossDef, useAmulet: boolean, t:
 
 /* 评分串 → 数值（取第一个整数；如 "28（绿色区间11~30）" → 28）*/
 export function parseScore(score?: string): number {
-  const m = (score ?? '').match(/\d+/);
+  const m = String(score ?? '').match(/\d+/);
   return m ? parseInt(m[0], 10) : 0;
 }
 /* 评分 → 费用倍率（评分越高越贵、越低越便宜）*/
@@ -161,7 +161,7 @@ export function scoreCostMul(score?: string): number {
 }
 /* 品级 → 成长系数（品级越高越大）。喂给收尾 AI：越大 → 词缀/效果越强 */
 export function gradeGrowth(grade?: string): number {
-  const g = grade ?? '';
+  const g = String(grade ?? '');
   // 按品级由低到高单调递增；关键字「更具体的在前」匹配（暗金/淡金先于金、暗紫先于紫）
   const map: [string, number][] = [
     ['创世', 6.4], ['永恒', 5.6], ['起源', 4.9], ['不朽', 4.3], ['圣灵', 3.8], ['史诗', 3.3], ['传说', 2.9],
@@ -183,7 +183,7 @@ export function growthCoef(grade?: string, score?: string): number {
 export const SCORE_PER_LEVEL = 3;
 /* 把评分串里的首个数字按 delta 增减（保留后面的区间/描述文字），下限 0。升级即 +、降级/归零即 - */
 export function bumpScore(score: string | undefined, delta: number): string {
-  const s = (score ?? '').trim();
+  const s = String(score ?? '').trim();
   const d = Math.round(delta);
   if (d === 0) return s;
   const m = s.match(/-?\d+/);
@@ -196,7 +196,7 @@ export const COMBAT_BONUS_PER_LEVEL = 0.10;
 /* 把 combatStat 串里所有数字按强化等级放大，返回 {base, enhanced, pct}；level<=0 或无数字返回 null。
    不改存储值——存的是基础值，展示时按等级算出强化后数值，方便「基础→强化」双色显示。 */
 export function enhancedCombat(combatStat: string | undefined, level: number): { base: string; enhanced: string; pct: number } | null {
-  const s = (combatStat ?? '').trim();
+  const s = String(combatStat ?? '').trim();
   if (!s || level <= 0 || !/\d/.test(s)) return null;
   const pct = Math.round(level * COMBAT_BONUS_PER_LEVEL * 100);
   const f = 1 + pct / 100;
@@ -215,7 +215,7 @@ export function enhanceVisualNote(level: number): string {
 }
 /* 在 intro/appearance 末尾维护单个【强化+N…】标记段（替换旧标记，不堆叠）。level<=0 则清除标记 */
 export function withEnhanceNote(text: string | undefined, level: number, kind: 'appearance' | 'intro'): string {
-  const base = (text ?? '').replace(/\s*【强化\+\d+[：:][^】]*】\s*$/u, '').trimEnd();
+  const base = String(text ?? '').replace(/\s*【强化\+\d+[：:][^】]*】\s*$/u, '').trimEnd();
   if (level <= 0) return base;
   const body = kind === 'appearance'
     ? enhanceVisualNote(level)
@@ -304,12 +304,13 @@ export function newAffixCount(fromLevel: number, toLevel: number): number {
 /* ── +N 角标特效（复用 index.css 现成 .grade-* 流光；等级越高越华丽）── */
 export function enhanceFxClass(level: number): string {
   if (level <= 0) return '';
-  if (level >= 16) return 'grade-badge grade-grad grade-grad-genesis grade-shimmer grade-pulse';
-  if (level >= 13) return 'grade-badge grade-grad grade-grad-origin grade-shimmer grade-pulse';
-  if (level >= 10) return 'grade-badge grade-grad grade-grad-eternal grade-shimmer grade-glow-1';
-  if (level >= 7)  return 'grade-badge grade-grad grade-grad-darkgold grade-shimmer';
-  if (level >= 4)  return 'grade-badge grade-grad grade-grad-gold grade-glow-2';
-  return 'text-amber-300 font-bold';
+  // 网游风逐级升级特效（index.css .enh-fx*）：暖金→亮金→青蓝光环→紫电→烈焰→满级彩虹旋环
+  if (level >= 16) return 'enh-fx enh-fx-6';
+  if (level >= 13) return 'enh-fx enh-fx-5';
+  if (level >= 10) return 'enh-fx enh-fx-4';
+  if (level >= 7)  return 'enh-fx enh-fx-3';
+  if (level >= 4)  return 'enh-fx enh-fx-2';
+  return 'enh-fx enh-fx-1';
 }
 
 /** +N 纯文字配色（用于不便套流光的小角标）*/

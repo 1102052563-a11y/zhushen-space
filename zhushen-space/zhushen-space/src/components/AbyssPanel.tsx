@@ -57,7 +57,8 @@ export default function AbyssPanel({ onClose, onGenBoons, onGenSin, onGenAwaken,
 
   const coins = useItems((s) => s.currency.乐园币);
   const worldName = useMisc((s) => s.worldName);
-  const home = isHome(worldName);
+  const home = true;   // 区域限制已取消：深渊入口在任何世界均可开启
+  void isHome; void worldName;
   const sceneNpcs = useNpc((s) => Object.values(s.npcs).filter((n) => n.onScene && !n.partyMember).slice(0, 12));
 
   // 开局选项

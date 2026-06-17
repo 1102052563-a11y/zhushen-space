@@ -42,7 +42,7 @@ export default function CasinoPanel({ onClose, onGenMatch, onGenBattle, onGenRew
   const log        = useCasino((s) => s.log);
   const cas        = useCasino;   // 取 actions 用 getState，避免重渲染
 
-  const isHome = /轮回乐园|专属房间|主神空间/.test(worldName ?? '');
+  const isHome = true;   // 区域限制已取消：赌坊在任何世界均可营业
   const tierIdx = TIERS.indexOf(normalizeTier(tier));
   const vipUnlocked = tierIdx >= config.vipMinTier - 1;
 

@@ -1,7 +1,7 @@
 import { useState, useRef } from 'react';
 import { useNpc, type NpcRecord } from '../store/npcStore';
 import { useCharacters, RARITY_CLS, ELEMENT_CLS, SKILL_TIER_CLS, normSkillTier, type Deed } from '../store/characterStore';
-import { computeDerived, lvFromRealm, normalizeTier, realmFromLevel, trueAttr, computeMaxHp, computeMaxEp, gearMaxHpBonus, gearMaxEpBonus, abilityMaxHpBonus, abilityMaxEpBonus, effectiveResource, fullMaxHp, fullMaxEp } from '../systems/derivedStats';
+import { computeDerived, lvFromRealm, normalizeTier, tierFxClass, realmFromLevel, trueAttr, computeMaxHp, computeMaxEp, gearMaxHpBonus, gearMaxEpBonus, abilityMaxHpBonus, abilityMaxEpBonus, effectiveResource, fullMaxHp, fullMaxEp } from '../systems/derivedStats';
 import { computeAttrBreakdown, effectiveAttrs, ATTR_LABEL, type AttrBreak } from '../systems/attrBonus';
 import { bioInnate, bioPower, bioStrengthLabel, BIO_TIER_NAMES, nominalTierNum } from '../systems/bioStrength';
 import { generateNpcAttrs, resolveForm, UNIT_TYPE_LABELS } from '../systems/npcAttrGen';
@@ -662,7 +662,7 @@ function BasicTab({ npc: npcProp, realm, genderCls }: { npc: NpcRecord; realm: R
           {npc.npcTag && <Chip label="标签" value={npc.npcTag} cls="text-cyan-300" />}
           {realm.role && <Chip label="身份" value={realm.role} />}
           {npc.gender && <Chip label="性别" value={npc.gender} cls={genderCls} />}
-          {realm.tier && <Chip label="阶位" value={realm.tier} cls="text-god" />}
+          {realm.tier && <Chip label="阶位" value={realm.tier} cls={`${tierFxClass(realm.tier)} font-bold`} />}
           {realm.lv != null && <Chip label="等级" value={`Lv.${realm.lv}`} cls="text-god/80" />}
         </div>
         <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 pt-2">

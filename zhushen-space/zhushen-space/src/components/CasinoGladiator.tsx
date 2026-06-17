@@ -37,7 +37,7 @@ export default function CasinoGladiator({
   const [raceB, setRaceB] = useState('');
   const [bet, setBet] = useState(minBet);
 
-  const isHome = /轮回乐园|专属房间|主神空间/.test(worldName ?? '');
+  const isHome = true;   // 区域限制已取消：角斗场在任何世界均可对赌
   const balance = kind === 'soul' ? soulChips : chips;
   const chipName = kind === 'soul' ? '魂筹' : '筹码';
   const amount = Math.max(minBet, Math.min(bet, maxBet));

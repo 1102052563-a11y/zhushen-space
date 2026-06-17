@@ -79,6 +79,8 @@ function SlotCell({ slot, item, onClick }: { slot: SlotDef; item?: NpcOwnedItem;
 function EquipDetail({ npcId, item, onClose }: { npcId: string; item: NpcOwnedItem; onClose: () => void }) {
   const unequip = useNpc((s) => s.unequipNpcItem);
   const removeItem = useNpc((s) => s.removeNpcItem);
+  const updateItem = useNpc((s) => s.updateNpcItem);
+  const [editAffix, setEditAffix] = useState<string | null>(null);   // 词缀编辑（null=不在编辑）
   const num = (item.numeric ?? {}) as Record<string, any>;
   const statLines: string[] = Array.isArray(num.statLines) ? num.statLines : [];
   return (
@@ -106,7 +108,26 @@ function EquipDetail({ npcId, item, onClose }: { npcId: string; item: NpcOwnedIt
             </div>
           )}
           {item.requirement && <div className="text-[13px] text-sky-200/70 leading-relaxed"><span className="text-dim/40">需求·</span>{item.requirement}</div>}
-          {item.affix && <div className="text-[13px] text-fuchsia-300/70"><span className="text-dim/40">词缀·</span>{item.affix}</div>}
+          {/* 词缀（可改/可加）*/}
+          {editAffix !== null ? (
+            <div className="space-y-1">
+              <textarea value={editAffix} onChange={(e) => setEditAffix(e.target.value)} rows={2}
+                placeholder="如：[烈焰] 攻击附带 15% 火焰伤害"
+                className="w-full bg-void border border-edge rounded px-2 py-1 text-[13px] text-fuchsia-300/80 focus:outline-none focus:border-god/50 resize-none" />
+              <div className="flex gap-2">
+                <button onClick={() => { updateItem(npcId, item.id, { affix: editAffix.trim() }); setEditAffix(null); }}
+                  className="text-[11px] font-mono text-emerald-300 border border-emerald-600/40 rounded px-2 py-0.5 hover:bg-emerald-500/10">保存</button>
+                <button onClick={() => setEditAffix(null)} className="text-[11px] font-mono text-dim/50 border border-edge rounded px-2 py-0.5">取消</button>
+              </div>
+            </div>
+          ) : item.affix ? (
+            <div className="text-[13px] text-fuchsia-300/70 flex items-start gap-2">
+              <span className="min-w-0"><span className="text-dim/40">词缀·</span>{item.affix}</span>
+              <button onClick={() => setEditAffix(item.affix ?? '')} className="text-[11px] text-dim/40 hover:text-fuchsia-300 shrink-0">✎ 改</button>
+            </div>
+          ) : (
+            <button onClick={() => setEditAffix('')} className="text-[11px] font-mono text-dim/40 hover:text-fuchsia-300">＋ 添加词缀</button>
+          )}
           {item.effect && <div className="text-slate-300/80"><span className="text-god/50">效果·</span>{item.effect}</div>}
           {statLines.length > 0 && <div className="font-mono text-sky-400/70 text-[13px]">属性词条：{statLines.join(' / ')}</div>}
           {item.intro && <div className="text-dim/60 leading-relaxed">{item.intro}</div>}

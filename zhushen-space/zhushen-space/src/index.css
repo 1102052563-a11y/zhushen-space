@@ -224,6 +224,97 @@ body {
 @keyframes enhReset { 0% { transform: scale(1); filter: none; } 30% { transform: scale(0.82) translateY(10px); filter: grayscale(0.85) brightness(0.55); } 100% { transform: scale(1); filter: grayscale(0.35) brightness(0.85); } }
 .enh-reset     { animation: enhReset 0.75s ease-in-out; }
 
+/* ══ 装备强化 +N 角标特效（网游风·逐级升级：暖金→亮金→青蓝光环→紫电→烈焰→满级彩虹旋环）══
+   用在**只含「+N」文字**的 span 上：本体渐变流光文字 + 脉冲发光，高阶叠 ::before 光环/::after 旋环。
+   由 enhanceEngine.enhanceFxClass(level) 输出 `enh-fx enh-fx-N`。 */
+.enh-fx {
+  position: relative; display: inline-block; font-weight: 800;
+  -webkit-background-clip: text; background-clip: text; color: transparent;
+  background-size: 220% auto;
+}
+@media (prefers-reduced-motion: no-preference) {
+  .enh-fx { animation: enhShimmer 3s linear infinite; }
+}
+@keyframes enhShimmer  { to { background-position: 220% center; } }
+@keyframes enhBreath   { 0%,100% { transform: scale(1); } 50% { transform: scale(1.16); } }
+@keyframes enhHalo     { 0%,100% { opacity: .3; transform: scale(.85); } 50% { opacity: .85; transform: scale(1.18); } }
+@keyframes enhFlame    { 0%,100% { transform: translateY(0) scale(1); } 25% { transform: translateY(-1px) scale(1.07); } 50% { transform: translateY(.5px) scale(.98); } 75% { transform: translateY(-.5px) scale(1.04); } }
+@keyframes enhSpin     { to { transform: rotate(360deg); } }
+
+/* +1~3 暖琥珀微光 */
+.enh-fx-1 { background-image: linear-gradient(90deg,#fcd34d,#fbbf24,#fde68a,#fbbf24); filter: drop-shadow(0 0 3px rgba(251,191,36,.6)); }
+/* +4~6 亮金·更强 + 呼吸 */
+.enh-fx-2 { background-image: linear-gradient(90deg,#fde68a,#f59e0b,#fff7cc,#f59e0b); filter: drop-shadow(0 0 5px rgba(245,158,11,.85)); }
+/* +7~9 青蓝能量 + 光环 */
+.enh-fx-3 { background-image: linear-gradient(90deg,#67e8f9,#22d3ee,#a5f3fc,#22d3ee); filter: drop-shadow(0 0 7px rgba(34,211,238,.9)); }
+.enh-fx-3::before { content:''; position:absolute; inset:-45% -22%; border-radius:50%; z-index:-1; background: radial-gradient(circle, rgba(34,211,238,.5), transparent 70%); }
+/* +10~12 紫电·强光环 */
+.enh-fx-4 { background-image: linear-gradient(90deg,#c4b5fd,#a78bfa,#e9d5ff,#a78bfa); filter: drop-shadow(0 0 9px rgba(167,139,250,1)); }
+.enh-fx-4::before { content:''; position:absolute; inset:-58% -28%; border-radius:50%; z-index:-1; background: radial-gradient(circle, rgba(167,139,250,.6), transparent 68%); }
+/* +13~15 橙红烈焰 */
+.enh-fx-5 { background-image: linear-gradient(90deg,#fdba74,#fb923c,#f87171,#fb923c); filter: drop-shadow(0 0 11px rgba(249,115,22,1)); }
+.enh-fx-5::before { content:''; position:absolute; inset:-66% -30%; border-radius:50%; z-index:-1; background: radial-gradient(circle, rgba(251,146,60,.62), rgba(239,68,68,.28) 45%, transparent 72%); }
+/* +16 满级·彩虹·多重光环 + 旋环 */
+.enh-fx-6 { background-image: linear-gradient(90deg,#f87171,#fbbf24,#34d399,#22d3ee,#a78bfa,#f472b6,#f87171); background-size:320% auto; filter: drop-shadow(0 0 6px rgba(255,255,255,.9)) drop-shadow(0 0 14px rgba(244,114,182,.8)); }
+.enh-fx-6::before { content:''; position:absolute; inset:-80% -38%; border-radius:50%; z-index:-1; opacity:.6; background: conic-gradient(from 0deg, rgba(248,113,113,.5),rgba(251,191,36,.5),rgba(52,211,153,.5),rgba(34,211,238,.5),rgba(167,139,250,.5),rgba(244,114,182,.5),rgba(248,113,113,.5)); }
+.enh-fx-6::after  { content:''; position:absolute; inset:-52% -26%; border-radius:50%; z-index:-1; background: radial-gradient(circle, rgba(255,255,255,.5), transparent 65%); }
+
+@media (prefers-reduced-motion: no-preference) {
+  .enh-fx-2 { animation: enhShimmer 2.4s linear infinite, enhBreath 1.8s ease-in-out infinite; }
+  .enh-fx-3 { animation: enhShimmer 2s   linear infinite, enhBreath 1.5s ease-in-out infinite; }
+  .enh-fx-4 { animation: enhShimmer 1.7s linear infinite, enhBreath 1.3s ease-in-out infinite; }
+  .enh-fx-5 { animation: enhShimmer 1.4s linear infinite, enhFlame  0.5s ease-in-out infinite; }
+  .enh-fx-6 { animation: enhShimmer 1.1s linear infinite, enhBreath 0.9s ease-in-out infinite; }
+  .enh-fx-3::before { animation: enhHalo 1.6s ease-in-out infinite; }
+  .enh-fx-4::before { animation: enhHalo 1.3s ease-in-out infinite; }
+  .enh-fx-5::before { animation: enhHalo 1s   ease-in-out infinite; }
+  .enh-fx-6::before { animation: enhSpin 2.4s linear infinite; }
+  .enh-fx-6::after  { animation: enhHalo 0.9s ease-in-out infinite; }
+}
+
+/* ══ 阶位特效（主角/NPC 通用·阶位越高越华丽；复用 .enh-fx 的 keyframes）══
+   用在**含阶位名文字**的元素上：渐变流光文字 + 脉冲发光，高阶叠 ::before 光环、无上之境再加旋环。
+   由 derivedStats.tierFxClass(tier) 输出 `tier-fx tier-fx-N`（低阶返回普通纯色类、不套 tier-fx）。 */
+.tier-fx {
+  position: relative; display: inline-block;
+  -webkit-background-clip: text; background-clip: text; color: transparent;
+  background-size: 220% auto;
+}
+@media (prefers-reduced-motion: no-preference) { .tier-fx { animation: enhShimmer 3.5s linear infinite; } }
+/* 一/二阶 珠光微流（入门级·有流光、无光环，最克制；继承 .tier-fx 的慢速 shimmer） */
+.tier-fx-0 { background-image: linear-gradient(90deg,#e2e8f0,#cbd5e1,#f1f5f9,#cbd5e1); filter: drop-shadow(0 0 3px rgba(203,213,225,.5)); }
+/* 三/四/五阶 翠光 */
+.tier-fx-1 { background-image: linear-gradient(90deg,#6ee7b7,#34d399,#a7f3d0,#34d399); filter: drop-shadow(0 0 3px rgba(52,211,153,.55)); }
+/* 六/七阶 青蓝 */
+.tier-fx-2 { background-image: linear-gradient(90deg,#7dd3fc,#38bdf8,#bae6fd,#38bdf8); filter: drop-shadow(0 0 5px rgba(56,189,248,.72)); }
+/* 八/九阶 碧蓝·流光呼吸 */
+.tier-fx-3 { background-image: linear-gradient(90deg,#67e8f9,#22d3ee,#cffafe,#22d3ee); filter: drop-shadow(0 0 7px rgba(34,211,238,.85)); }
+/* 绝强 金辉 + 光环 */
+.tier-fx-4 { background-image: linear-gradient(90deg,#fde68a,#f59e0b,#fff7cc,#f59e0b); filter: drop-shadow(0 0 8px rgba(245,158,11,.9)); }
+.tier-fx-4::before { content:''; position:absolute; inset:-50% -22%; border-radius:50%; z-index:-1; background: radial-gradient(circle, rgba(245,158,11,.5), transparent 70%); }
+/* 至强 紫电 + 强光环 */
+.tier-fx-5 { background-image: linear-gradient(90deg,#c4b5fd,#a78bfa,#f5d0fe,#a78bfa); filter: drop-shadow(0 0 10px rgba(167,139,250,1)); }
+.tier-fx-5::before { content:''; position:absolute; inset:-60% -26%; border-radius:50%; z-index:-1; background: radial-gradient(circle, rgba(167,139,250,.6), transparent 68%); }
+/* 巅峰至强 烈焰 */
+.tier-fx-6 { background-image: linear-gradient(90deg,#fdba74,#fb923c,#f87171,#fb923c); filter: drop-shadow(0 0 12px rgba(249,115,22,1)); }
+.tier-fx-6::before { content:''; position:absolute; inset:-68% -30%; border-radius:50%; z-index:-1; background: radial-gradient(circle, rgba(251,146,60,.62), rgba(239,68,68,.3) 45%, transparent 72%); }
+/* 无上之境 神性彩虹 + 多重光环 + 旋环 */
+.tier-fx-7 { background-image: linear-gradient(90deg,#f87171,#fbbf24,#34d399,#22d3ee,#a78bfa,#f472b6,#f87171); background-size:320% auto; filter: drop-shadow(0 0 7px rgba(255,255,255,.95)) drop-shadow(0 0 16px rgba(167,139,250,.85)); }
+.tier-fx-7::before { content:''; position:absolute; inset:-85% -40%; border-radius:50%; z-index:-1; opacity:.6; background: conic-gradient(from 0deg, rgba(248,113,113,.5),rgba(251,191,36,.5),rgba(52,211,153,.5),rgba(34,211,238,.5),rgba(167,139,250,.5),rgba(244,114,182,.5),rgba(248,113,113,.5)); }
+.tier-fx-7::after  { content:''; position:absolute; inset:-55% -28%; border-radius:50%; z-index:-1; background: radial-gradient(circle, rgba(255,255,255,.55), transparent 64%); }
+@media (prefers-reduced-motion: no-preference) {
+  .tier-fx-3 { animation: enhShimmer 2.6s linear infinite, enhBreath 2.2s ease-in-out infinite; }
+  .tier-fx-4 { animation: enhShimmer 2.3s linear infinite, enhBreath 2s   ease-in-out infinite; }
+  .tier-fx-5 { animation: enhShimmer 2s   linear infinite, enhBreath 1.6s ease-in-out infinite; }
+  .tier-fx-6 { animation: enhShimmer 1.6s linear infinite, enhFlame  0.55s ease-in-out infinite; }
+  .tier-fx-7 { animation: enhShimmer 1.2s linear infinite, enhBreath 1.1s ease-in-out infinite; }
+  .tier-fx-4::before { animation: enhHalo 1.8s ease-in-out infinite; }
+  .tier-fx-5::before { animation: enhHalo 1.4s ease-in-out infinite; }
+  .tier-fx-6::before { animation: enhHalo 1s   ease-in-out infinite; }
+  .tier-fx-7::before { animation: enhSpin 2.6s linear infinite; }
+  .tier-fx-7::after  { animation: enhHalo 1s   ease-in-out infinite; }
+}
+
 /* ── 世界结算卡（任务结算页·华丽金边框）── */
 .settlement-card {
   position: relative;

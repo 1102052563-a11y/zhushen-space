@@ -184,7 +184,7 @@ export default function TreeCanvas({
               const express = expressBranches?.has(n.branch) ?? false;
               return (
                 <text textAnchor="middle" y={r + 40} fontSize={10} fill={express ? '#fbbf24' : '#a3e635'}>
-                  潜能 {express ? 1 : n.cost}{express ? ' · 传承' : (n.tierGate ? ` · ${n.tierGate}` : '')}
+                  潜能 {express ? 1 : n.cost}{express ? ' · 传承' : ''}
                 </text>
               );
             })()}

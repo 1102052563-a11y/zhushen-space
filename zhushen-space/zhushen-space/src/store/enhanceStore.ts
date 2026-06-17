@@ -22,6 +22,7 @@ export interface EnhanceSession {
   itemId: string;
   itemName: string;
   startLevel: number;   // 本轮开始时的强化等级
+  startMax: number;     // 本轮开始时的历史最高等级（高水位）——词缀仅当峰值超过它跨入新档时才生成
   curLevel: number;     // 当前等级（destroy 后 = -1）
   success: number;
   fail: number;
@@ -52,9 +53,9 @@ const DEFAULT_SETTINGS: EnhanceSettings = {
   bossesVersion: 3,
 };
 
-function newSession(itemId: string, itemName: string, startLevel: number): EnhanceSession {
+function newSession(itemId: string, itemName: string, startLevel: number, startMax: number): EnhanceSession {
   return {
-    itemId, itemName, startLevel, curLevel: startLevel,
+    itemId, itemName, startLevel, startMax, curLevel: startLevel,
     success: 0, fail: 0, downgrade: 0, reset: 0, destroy: 0,
     spent: 0, protectUsed: 0, amuletUsed: 0, destroyed: false, log: [],
   };
@@ -81,7 +82,7 @@ interface EnhanceState {
   resetBosses: () => void;
 
   setPity: (n: number) => void;
-  startSession: (itemId: string, itemName: string, startLevel: number) => void;
+  startSession: (itemId: string, itemName: string, startLevel: number, startMax: number) => void;
   applyAttempt: (r: EnhanceResult, cost: number, usedProtect: boolean, usedAmulet: boolean) => void;
   endSession: () => void;
 
@@ -141,7 +142,7 @@ export const useEnhance = create<EnhanceState>()(
 
       setPity: (n) => set({ pity: Math.max(0, n) }),
 
-      startSession: (itemId, itemName, startLevel) => set({ session: newSession(itemId, itemName, startLevel) }),
+      startSession: (itemId, itemName, startLevel, startMax) => set({ session: newSession(itemId, itemName, startLevel, startMax) }),
 
       applyAttempt: (r, cost, usedProtect, usedAmulet) =>
         set((s) => {

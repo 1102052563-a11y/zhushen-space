@@ -53,7 +53,7 @@ export default function JoyPanel({
   const madams = girls.filter((g) => g.isMadam);
   const madamPool = madams.length ? madams : girls;
   const madam = madamPool.find((g) => g.id === settings.selectedMadamId) ?? madamPool[0];
-  const isHome = /轮回乐园|专属房间|主神空间/.test(worldName ?? '');
+  const isHome = true;   // 区域限制已取消：欢愉宫在任何世界均可进入
 
   const [view, setView] = useState<'lobby' | 'picker' | 'chamber'>(currentGirlId ? 'chamber' : 'lobby');
   const [manifest, setManifest] = useState<GirlManifest | null>(null);

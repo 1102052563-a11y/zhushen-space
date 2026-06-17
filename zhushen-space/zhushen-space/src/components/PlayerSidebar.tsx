@@ -4,7 +4,7 @@ import { useGame } from '../store/gameStore';
 import { useItems, gradeToNum } from '../store/itemStore';
 import { StatusChips, SegmentedText } from './NpcDetail';
 import StatusEffectChips from './StatusEffectChips';
-import { computeDerived, realmFromLevel, trueAttr, computeMaxHp, computeMaxEp, gearMaxHpBonus, gearMaxEpBonus, abilityMaxHpBonus, abilityMaxEpBonus, effectiveResource, fullMaxHp, fullMaxEp } from '../systems/derivedStats';
+import { computeDerived, tierFxClass, realmFromLevel, trueAttr, computeMaxHp, computeMaxEp, gearMaxHpBonus, gearMaxEpBonus, abilityMaxHpBonus, abilityMaxEpBonus, effectiveResource, fullMaxHp, fullMaxEp } from '../systems/derivedStats';
 import { useCharacters } from '../store/characterStore';
 import { computeAttrBreakdown, withAttrDelta, ATTR_LABEL, type AttrBreak } from '../systems/attrBonus';
 import { playerTreeAttrBonus } from '../store/skillTreeStore';
@@ -216,7 +216,7 @@ export default function PlayerSidebar({ onClose }: { onClose?: () => void }) {
             <EditNum value={profile.level} onSave={(v) => setProfile({ level: v })} />
             <span className="text-edge">·</span>
             {/* 阶位由等级自动推导（只会是 一阶~无上之境），不单独编辑 */}
-            <span className="text-god" title="阶位由等级自动对应">{realmFromLevel(profile.level)}</span>
+            <span className={`${tierFxClass(realmFromLevel(profile.level))} font-bold`} title="阶位由等级自动对应">{realmFromLevel(profile.level)}</span>
             {profile.profession && <span className="text-edge">·</span>}
             <EditText value={profile.profession} onSave={(v) => setProfile({ profession: v })} placeholder="职业" />
           </div>

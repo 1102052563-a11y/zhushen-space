@@ -35,7 +35,7 @@ export type ItemGrade = typeof ITEM_GRADES[number];
  *  供装备判定/排序在 AI 未给出 numeric.grade 时按品级文字兜底取档。
  *  关键字按「更具体的在前」匹配（暗金先于金、淡金先于金、暗紫先于紫），避免子串误命中。*/
 export function gradeToNum(grade?: string): number {
-  const g = grade ?? '';
+  const g = String(grade ?? '');
   const order: [string, number][] = [
     ['创世', 15], ['永恒', 14], ['起源', 13], ['不朽', 12], ['圣灵', 11], ['史诗', 10], ['传说', 9],
     ['暗金', 8], ['淡金', 6], ['金', 7], ['暗紫', 5], ['紫', 4], ['蓝', 3], ['绿', 2], ['白', 1],
@@ -57,7 +57,7 @@ export function socketsOf(item: { sockets?: number; gradeDesc?: string }): numbe
 
 /** 品级 → 文字配色（用于品级标签/字样上色，与世界书品质色阶一致）*/
 export function gradeColorClass(grade?: string): string {
-  const g = grade ?? '';
+  const g = String(grade ?? '');
   if (g.includes('创世')) return 'text-rose-300';
   if (g.includes('永恒')) return 'text-cyan-200';
   if (g.includes('起源')) return 'text-fuchsia-300';
@@ -79,7 +79,7 @@ export function gradeColorClass(grade?: string): string {
 /** 品级 → 完整徽章样式（品级越高越华丽：颜色→发光→渐变→流光→脉冲）。用于品级标签醒目展示。
  *  配合 index.css 的 .grade-* 类。元素须只包含品级文字（渐变文字会把内容设为透明）。*/
 export function gradeBadgeClass(grade?: string): string {
-  const g = grade ?? '';
+  const g = String(grade ?? '');
   if (g.includes('创世')) return 'grade-badge grade-grad grade-grad-genesis grade-shimmer grade-pulse';
   if (g.includes('永恒')) return 'grade-badge grade-grad grade-grad-eternal grade-shimmer grade-pulse';
   if (g.includes('起源')) return 'grade-badge grade-grad grade-grad-origin grade-shimmer grade-glow-1';
@@ -99,7 +99,7 @@ export function gradeBadgeClass(grade?: string): string {
 
 /** 品级 → 物品/装备**名称**配色（同 gradeBadgeClass 的逐级华丽特效，但无品级/未知品级时回退为常规白色，避免名称发暗）。*/
 export function gradeNameClass(grade?: string): string {
-  const g = (grade ?? '').trim();
+  const g = String(grade ?? '').trim();
   if (!g) return 'text-slate-100';
   const cls = gradeBadgeClass(g);
   return cls === 'text-dim/70' ? 'text-slate-100' : cls;
@@ -154,6 +154,8 @@ export interface InventoryItem {
   intro?: string;         // 简介（flavor 文本）
   killCount?: string;     // 杀敌数量（仅武器类，随战斗累计）
   enhanceLevel?: number;  // 强化等级 0-16（装备强化系统，仅装备类；0/缺省=未强化）
+  maxEnhanceLevel?: number;  // 历史最高强化等级（高水位）：词缀只在峰值刷新时按此生成；降级不降此值（降级只降属性，词缀不消失）
+  affixLevel?: number;    // 已用 AI 结算过词缀的等级（持久化）；待结算 = floor(maxEnhanceLevel/3) > floor(affixLevel/3)，故退出重开仍能结算，结算成功才推进到峰值
   awakenLv?: number;      // 深渊觉醒阶数（觉醒系统升品级+加词缀，0/缺省=未觉醒）
   // ── 宝石/镶嵌系统（仅装备类）──
   sockets?: number;       // 镶嵌孔总数（缺省时按品级 defaultSocketsByGrade 派生；打孔石可增至 MAX_SOCKETS）

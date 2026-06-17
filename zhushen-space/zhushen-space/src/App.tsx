@@ -37,6 +37,7 @@ import {
   ATTR_CAP_RULE,
   APPEARANCE_UPDATE_RULE,
   PLAYER_STATE_EMIT_RULE,
+  VITALS_SETTLEMENT_EMIT_RULE,
   CHOICES_FANFIC_SYSTEM,
   FANFIC_RULE,
   PLOT_CHOICES_RULE,
@@ -76,7 +77,7 @@ import { withAttrDelta } from './systems/attrBonus';
 import { useCosmos, buildCosmosSystemPrompt, cosmosNameEq } from './store/cosmosStore';
 import { realmFromLevel, normalizeTier, lvFromRealm, trueAttr, computeMaxHp, computeMaxEp, gearMaxHpBonus, gearMaxEpBonus, abilityMaxHpBonus, abilityMaxEpBonus, effectiveResource, attrCapForTier, fullMaxHp, fullMaxEp, TIERS } from './systems/derivedStats';
 import { bioInnate } from './systems/bioStrength';
-import { generateNpcAttrs, resolveForm } from './systems/npcAttrGen';
+import { generateNpcAttrs, resolveForm, generateLuck } from './systems/npcAttrGen';
 import { useImageGen, effectiveEquipService } from './store/imageGenStore';
 import { generateImage, buildPortraitPrompt, buildEquipPrompt, shrinkDataUrl } from './systems/imageGen';
 import { genPortraitTags, genEquipTags, isTagService } from './systems/imageTags';
@@ -739,6 +740,15 @@ function applyAllUpdates(raw: string) {
    （世界结算改版后由「关键词触发 → 正文 AI 结算」的新机制接管升级）。 */
 function stripKillBlocks(raw: string): string {
   return /<kill>/i.test(raw) ? raw.replace(/<kill>[\s\S]*?<\/kill>/gi, '').trimEnd() : raw;
+}
+
+/* 剥除正文末尾的 <状态结算> HP/EP 块（仅用于「显示给玩家」的文本）：
+   该块是隐藏数据通道——解析器(applyNarrativeVitals/NpcVitals)与 HP/EP 管理阶段照常读它，但玩家看不到，
+   故主角即使把血条改名「血池/血怒」，这里也不会让"当前HP"原词露脸。闭合与未闭合(截断流)两种形态都剥。 */
+function stripVitalsBlocks(raw: string): string {
+  return /<状态结算>/i.test(raw)
+    ? raw.replace(/<状态结算>[\s\S]*?<\/状态结算>/gi, '').replace(/<状态结算>[\s\S]*$/i, '').trimEnd()
+    : raw;
 }
 
 /* ─── 物品管理阶段：构建注入 system prompt（替换模板变量）─── */
@@ -1419,6 +1429,7 @@ export default function App() {
       try { useCharacters.getState().dedupeRecipes(); } catch { /* 修复历史存档的重复配方（去「配方：」前缀后合并） */ }
       try { useItems.getState().normalizeEquipSlots(); } catch { /* 规范化历史非规范装备槽（armor:armor→armor:upper 等），使装备面板与背包一致 */ }
       try { const f = useNpc.getState().normalizeNpcIds(); if (f) console.log(`[NPC] 启动时规范化非法ID ${f} 个`); } catch { /* 修复历史存档里 AI 自创的非法ID(如 P_Aesc)，否则其属性更新被丢弃、面板点不开 */ }
+      try { ensureNpcLuck(); } catch { /* 载入时一次性把在场 NPC 幸运按前端独占规则重算(治旧档 AI 乱给的高/乱幸运；保留 luckDelta 剧情增减) */ }
       try { setCanUndo(await hasUndoPoint()); } catch { /* */ }
       if (sessionStorage.getItem(PENDING_STARTED_KEY)) {
         setStarted(true);
@@ -1506,6 +1517,8 @@ export default function App() {
     if (ctx) sysPrompt += '\n\n[世界书信息]\n' + ctx;
     // 主角状态同步：让始终运行的主正文每回合输出位置/外观（前端解析后剥除），不依赖被节流的主角演化阶段
     sysPrompt += '\n\n' + PLAYER_STATE_EMIT_RULE;
+    // HP/EP 结算：让主正文每回合末尾输出主角+在场NPC的当前 HP/EP（前端 applyNarrativeVitals/NpcVitals 解析，HP/EP 管理阶段也以此为最终值）
+    sysPrompt += '\n\n' + VITALS_SETTLEMENT_EMIT_RULE;
     // 任务击杀目标阶位上限：强制环≤主角阶位、贪婪环≤+1；勿降级剧情高端战力，改派阶位相称的目标
     sysPrompt += '\n\n' + QUEST_KILL_TIER_RULE;
     // 任务世界结算：仅当本回合输入含【结算任务】时才注入（平时不喂，省 token、避免误触发）
@@ -1662,14 +1675,21 @@ export default function App() {
   /* ─── 装备强化·收尾刷装备（主角停止强化时调一次，仅对净涨了强化等级的那件）───
      读装备整张卡 + 旧→新强化等级，让 AI 每跨 4 级加 1 条词缀、并刷新攻防/effect/外观/简介/评分。
      AI 只吐 <upstore> updateItem，复用现有解析；事后再保险把 enhanceLevel 钉回正确值。*/
-  async function runEnhanceFinalizePhase(args: { itemId: string; startLevel: number; newLevel: number }) {
+  async function runEnhanceFinalizePhase(args: { itemId: string; startLevel: number; newLevel: number }): Promise<{ ok: boolean; changed: boolean; error?: string }> {
     const it = useItems.getState().items.find((x) => x.id === args.itemId);
-    if (!it) return;
+    if (!it) return { ok: false, changed: false, error: '物品不存在' };
+    const lockedLevel = it.enhanceLevel ?? 0;   // 收尾前的"当前实际等级"（可能因降级低于峰值）——词缀按峰值生成，但等级保持此值
+    const beforeAffix = it.affix ?? '', beforeEffect = it.effect ?? '';   // 收尾前快照，用于判断 AI 是否真的改动了词缀/效果
     const E = useEnhance.getState();
     const ss = useSettings.getState();
     const legacy = E.enhanceUseSharedApi ? (ss.textUseSharedApi ? ss.api : ss.textApi) : E.enhanceApi;
     const chain = resolveApiChain('enhance', legacy);
-    if (!chain[0]?.baseUrl || !chain[0]?.apiKey) { console.warn('[Enhance] 收尾：API 未配置（设置→变量管理→装备强化）'); return; }
+    console.log('[Enhance] 收尾尝试', { 物品: it.name, 到加: args.newLevel, 模型: chain[0]?.modelId || '(无)', 地址: chain[0]?.baseUrl || '(无)', 有Key: !!chain[0]?.apiKey, 复用正文: E.enhanceUseSharedApi, 接口数: chain.length });
+    if (!chain[0]?.baseUrl || !chain[0]?.apiKey) {
+      const why = !chain[0]?.baseUrl ? '接口地址(baseUrl)为空' : 'API Key 为空';
+      console.warn(`[Enhance] 收尾跳过·未发请求：${why}（复用正文=${E.enhanceUseSharedApi}）→ 去 设置→变量管理→装备强化 把接口填全，或勾「复用正文生成 API」`);
+      return { ok: false, changed: false, error: `未发起调用：${why}（设置→变量管理→装备强化→API；或勾「复用正文生成 API」）` };
+    }
 
     const addAffix = Math.max(0, Math.floor(args.newLevel / 3) - Math.floor(Math.max(0, args.startLevel) / 3));
     const card = [
@@ -1677,8 +1697,8 @@ export default function App() {
       `名称: ${it.name}`,
       `分类: ${it.category}${it.subType ? ' / ' + it.subType : ''}`,
       `品质(gradeDesc): ${it.gradeDesc || '—'}`,
-      `强化等级: 旧 +${args.startLevel} → 新 +${args.newLevel}`,
-      `本次应新增词缀/特效数: ${addAffix}`,
+      `强化峰值: 历史最高 +${args.startLevel} → +${args.newLevel}（词缀按历史最高等级生成；当前实际等级 +${lockedLevel}，降级不影响已有词缀）`,
+      `本次强化档数 N=${addAffix}（每 3 级 1 档）：先把已有词缀/效果按 ${addAffix} 档上调变强，再各新增 ${addAffix} 条全新词缀+全新效果（成对）`,
       `装备属性成长系数: ${growthCoef(it.gradeDesc, it.score)}（品级×评分得出；越高 → 新词缀/效果越强、攻防增幅越大、越有传说感）`,
       it.combatStat && `当前攻防(combatStat): ${it.combatStat}`,
       it.requirement && `装备需求: ${it.requirement}`,
@@ -1693,21 +1713,27 @@ export default function App() {
     try {
       const system = ENHANCE_FINALIZE_RULE + '\n' + ITEM_EXACT_REF_RULE;
       const user = `# 待刷新的强化装备\n${card}\n\n请按【装备强化·收尾刷新铁则】，输出这件装备强化到 +${args.newLevel} 后的 <upstore> updateItem 指令`
-        + `（${addAffix > 0 ? `本次跨过 ${addAffix} 个 3 级整数倍，需新增 ${addAffix} 条**各不相同、丰富多样**的全新词缀/效果` : '本次未跨过 3 级整数倍，可不新增词缀（攻防/评分/外观/简介已由系统处理）'}）。只输出这一条 updateItem，只改 affix 和 effect。`;
+        + `（${addAffix > 0 ? `档数 N=${addAffix}：**先**把已有每条词缀/效果按 ${addAffix} 档上调变强，**再**各新增 ${addAffix} 条各不相同的全新词缀+全新效果（成对）；保留 effect 里的【镶嵌加成】不动` : '本次未跨过 3 级整数倍，可不动词缀/效果（攻防/评分/外观/简介已由系统处理）'}）。只输出这一条 updateItem，只改 affix 和 effect。`;
+      console.log('[Enhance] 收尾·发起 API 调用 →', chain[0]?.modelId, chain[0]?.baseUrl);
       const { content: reply } = await apiChatFallback(chain, [
         { role: 'system', content: system },
         { role: 'user', content: user },
-      ]);
-      if (reply) {
-        applyAllUpdates(reply);
-        // 保险：AI 的 updateItem 不应动 enhanceLevel；若被覆盖/清掉，钉回正确等级
-        const cur = useItems.getState().items.find((x) => x.id === args.itemId);
-        if (cur && (cur.enhanceLevel ?? 0) !== args.newLevel) useItems.getState().updateItem(args.itemId, { enhanceLevel: args.newLevel });
-        setItemPhaseLog(`✓ 强化收尾完成：「${it.name}」+${args.newLevel}`);
-      } else setItemPhaseLog('✓ 强化收尾：无输出');
+      ], { timeoutMs: 120000 });   // 与 NPC/物品演化一致：用接口自带额度（apiChatFallback 已统一带 stream:true，假流式模型也能用）；2 分钟超时防挂起
+      if (!reply || !reply.trim()) { setItemPhaseLog('⚠ 强化收尾：AI 无输出'); return { ok: false, changed: false, error: 'AI 返回空内容（思考型模型 / max_tokens 太小 / 被安全过滤 都可能；已调高 max_tokens，可重试；F12 看「content 为空」那行的 finish_reason）' }; }
+      console.log('[Enhance] 收尾·AI 回复(前 800 字) ↓\n', reply.slice(0, 800));
+      applyAllUpdates(reply);
+      // 保险：收尾 AI 不应改 enhanceLevel；若被覆盖，钉回收尾前的"当前实际等级"（不是峰值——降级后等级须保持降级值）
+      const cur = useItems.getState().items.find((x) => x.id === args.itemId);
+      if (cur && (cur.enhanceLevel ?? 0) !== lockedLevel) useItems.getState().updateItem(args.itemId, { enhanceLevel: lockedLevel });
+      const changed = !!cur && ((cur.affix ?? '') !== beforeAffix || (cur.effect ?? '') !== beforeEffect);
+      if (changed) useItems.getState().updateItem(args.itemId, { affixLevel: args.newLevel });   // 结算成功 → 把"已结算基线"推进到峰值，消费这次机会（失败/未改动则不推进，退出重开仍可结算）
+      if (!changed) console.warn('[Enhance] 收尾：AI 有回复但 affix/effect 没变——多半是没按 <upstore> updateItem 格式输出，或 itemId/name 没对上。期望 itemId=', args.itemId, '/ name=', it.name);
+      setItemPhaseLog(changed ? `✓ 强化收尾完成：「${it.name}」+${args.newLevel}` : '⚠ 强化收尾：AI 未改动词缀/效果');
+      return { ok: true, changed, error: changed ? undefined : 'AI 回复没按 <upstore> updateItem 格式生效（F12 看「收尾·AI 回复」那行原文）' };
     } catch (e: any) {
       console.error('[Enhance] 收尾失败:', e?.message);
       setItemPhaseLog(`⚠ 强化收尾失败：${(e?.message ?? '').slice(0, 50)}`);
+      return { ok: false, changed: false, error: (e?.message ?? '接口调用失败').slice(0, 80) };
     } finally {
       setTimeout(() => setItemPhaseLog(''), 6000);
     }
@@ -2357,15 +2383,24 @@ ${lines.join('\n')}`;
     const npcAttrRe = /\bcharacter\.([CG]\d+)\.attrs\.(str|agi|con|int|cha|luck)\s*(=|\+=|-=)\s*(-?\d+)/g;
     while ((m = npcAttrRe.exec(reply))) {
       if (!ok(m[1])) continue;
+      const key = m[2], op = m[3], v = Number(m[4]);
+      // 幸运=前端独占的「特殊属性」：忽略 AI 的绝对赋值(luck=N)；只把剧情增减(+=/-=)累进 luckDelta，
+      // 由 ensureNpcLuck 叠加到前端基础幸运上（前端重算不丢、绝对赋值不越权）。
+      if (key === 'luck') {
+        if (op === '=') continue;                                     // 绝对赋值忽略，幸运基础由前端定
+        const live = useNpc.getState().npcs[m[1]];
+        npc.upsertNpc(m[1], { luckDelta: (live?.luckDelta ?? 0) + (op === '+=' ? v : -v) });
+        n++;
+        continue;
+      }
       // 每次都读「最新」记录：同一 NPC 本轮多条 attrs 指令时，upsertNpc 是不可变替换，
       // 若用函数开头捕获的 npc 快照取 base，第二条会用旧值覆盖掉第一条（与主角路径保持一致：逐次取最新）。
       const live = useNpc.getState().npcs[m[1]];
       const base = live?.attrs ?? { str: 5, agi: 5, con: 5, int: 5, cha: 5, luck: 5 };
-      const cur = (base as unknown as Record<string, number>)[m[2]] ?? 5;
-      const v = Number(m[4]);
-      const next = m[3] === '=' ? v : m[3] === '+=' ? cur + v : cur - v;
+      const cur = (base as unknown as Record<string, number>)[key] ?? 5;
+      const next = op === '=' ? v : op === '+=' ? cur + v : cur - v;
       const cap = attrCapForTier(live?.realm);   // 基础属性夹到本阶上限（装备/技能/天赋加成另算，不受限）
-      npc.upsertNpc(m[1], { attrs: { ...base, [m[2]]: Math.min(cap, Math.max(0, next)) } });
+      npc.upsertNpc(m[1], { attrs: { ...base, [key]: Math.min(cap, Math.max(0, next)) } });
       n++;
     }
     // NPC 六维·机械生成(治 API 幻觉乱给离谱属性)：character.<id>.genAttrs = "阶位·Lv|生物强度档|类型|形态|定位"
@@ -2916,7 +2951,7 @@ ${lines.join('\n')}`;
     catch (e: any) { console.error('[NPC] 登场判断失败:', e?.message ?? e); }
     try { applyNarrativeAttrs(narrative); } catch { /* 新建NPC的卡六维 */ }   // 登场建档后照抄
     await runNpcFocusEvolution(narrative, createdIds);
-    try { applyNarrativeAttrs(narrative); autoGenMissingAttrs(); } catch { /* 重点演化后：先以正文卡为准覆盖，再给无卡NPC自动生成有起伏六维 */ }
+    try { applyNarrativeAttrs(narrative); autoGenMissingAttrs(); ensureNpcLuck(); } catch { /* 重点演化后：先以正文卡为准覆盖，再给无卡NPC自动生成有起伏六维，最后前端独占重算幸运 */ }
     try { const merged = useNpc.getState().dedupeByName(); if (merged) console.log(`[NPC] 重点演化后合并了 ${merged} 个同名重复角色`); } catch { /* 防重复兜底 */ }
     try { backfillNpcStarterKits(); } catch (e) { console.warn('[NPC] 初始家当发放失败:', e); }   // 码内保证新NPC初次出现就有固定装备+储物
   }
@@ -2996,7 +3031,7 @@ ${lines.join('\n')}`;
         const shorts   = applyNpcShortCommands(reply);
         try { useNpc.getState().dedupeByName(); } catch { /* 防同名重复建档 */ }
         try { backfillNpcStarterKits(); } catch { /* 初始家当 */ }
-        try { applyNarrativeAttrs(narrative); autoGenMissingAttrs(); } catch { /* 卡六维优先，无卡则自动生成有起伏六维 */ }
+        try { applyNarrativeAttrs(narrative); autoGenMissingAttrs(); ensureNpcLuck(); } catch { /* 卡六维优先，无卡则自动生成有起伏六维，最后前端独占重算幸运 */ }
         const total = npcCmds.length + charCmds.length + shorts;
         setNpcPhaseLog(total > 0
           ? `✓ NPC 演化完成：${npcCmds.length} 条档案更新，${charCmds.length} 条技能/天赋指令`
@@ -4865,7 +4900,8 @@ ${lines}`;
         const rn = r.name?.trim();
         return rn && rn !== r.id && rn.length >= 2 && (rn === name || name.includes(rn) || rn.includes(name));
       });
-      if (rec) { npc.upsertNpc(rec.id, { attrs }); applied++; }
+      // 幸运不照抄卡片(前端独占)：保留该 NPC 现有幸运，随后由 ensureNpcLuck 统一重算为 base+delta
+      if (rec) { npc.upsertNpc(rec.id, { attrs: { ...attrs, luck: rec.attrs?.luck ?? attrs.luck } }); applied++; }
     }
     if (applied > 0) console.log(`[Attr] 从正文人物卡照抄六维：${applied} 个角色`);
   }
@@ -5036,6 +5072,29 @@ ${lines}`;
       }
     }
     if (n > 0) console.log(`[Attr] 机械生成六维(bioStrength引擎)：${n} 个NPC`);
+  }
+
+  /* 幸运·前端独占重算：幸运是「特殊属性」(不进六维预算/不算战力；diceEngine.luckMod 比的是相对六维均值)。
+     基础幸运一律由前端按 NPC id 种子机械生成(常态 0~20 浮动；偶尔「天生幸运」随五维上下浮动可超 20；
+     机械/虫群无命数≈0、亡灵/植物倒霉折半)，AI 给的绝对赋值忽略、只保留剧情 += / -=(累在 luckDelta)。
+     每次正文/演化写完六维后 + 载入时各跑一次：把在场 NPC 的 attrs.luck 重置为 base+luckDelta（确定性·幂等）。 */
+  function ensureNpcLuck() {
+    const npc = useNpc.getState(); let n = 0;
+    for (const r of Object.values(npc.npcs)) {
+      if (r.isDead || !r.attrs) continue;   // 无六维者先由 autoGenMissingAttrs 生成，下一轮再算幸运
+      const a = r.attrs;
+      const cap = Math.max(20, attrCapForTier(r.realm));
+      const base = generateLuck({
+        mean5: (a.str + a.agi + a.con + a.int + a.cha) / 5,
+        cap,
+        form: `${r.npcTag ?? ''}${r.profession ?? ''}${(r as any).species ?? ''}${r.name ?? ''}`,
+        themeText: `${r.profession ?? ''}${r.npcTag ?? ''}${r.unitType ?? ''}`,
+        seed: r.id,
+      });
+      const want = Math.min(cap, Math.max(0, base + (r.luckDelta ?? 0)));
+      if (a.luck !== want) { npc.upsertNpc(r.id, { attrs: { ...a, luck: want } }); n++; }
+    }
+    if (n > 0) console.log(`[Attr] 幸运·前端重算(base+delta)：${n} 个NPC`);
   }
 
   /* 抓取本回合精简快照，供「回合洞察」对比变化 */
@@ -6036,7 +6095,7 @@ ${lines}`;
     const combatSettled = combatSettledRef.current;
     combatSettledRef.current = null;
     // 先从正文人物卡照抄六维（同步，先于各演化阶段，使快照与显示即刻正确）
-    try { applyNarrativeAttrs(narrative); } catch (e) { console.warn('[Attr] 六维抽取失败:', e); }
+    try { applyNarrativeAttrs(narrative); ensureNpcLuck(); } catch (e) { console.warn('[Attr] 六维抽取失败:', e); }
     if (combatSettled) {
       applyCombatVitals(combatSettled);   // 以战斗结算值为准，跳过正文 HP 抽取（避免双扣）
     } else {
@@ -6349,7 +6408,7 @@ ${lines}`;
 
         if (aborted) {
           // 手动停止：只清洗已生成的部分用于显示，不解析 state、不触发任何演化（避免半截数据污染存档）
-          const partial = stripStateBlocks(applyRegex(accumulated, preset));
+          const partial = stripVitalsBlocks(stripStateBlocks(applyRegex(accumulated, preset)));
           setMessages((prev) =>
             prev.map((m) => m.id === streamMsgId ? { ...m, content: partial || accumulated || '（已停止生成）' } : m)
           );
@@ -6360,14 +6419,17 @@ ${lines}`;
         applyAllUpdates(accumulated);
         try { applyPlayerProfileCommands(accumulated); } catch { /* 主角位置/外观/身份：正文若直接输出 character.B1.* 也即时生效，不必等主角演化阶段 */ }
         const settledText = stripKillBlocks(accumulated);   // 过渡期：剥除旧 <kill> 清单（不再结算进阶点）
-        const finalDisplayed = stripStateBlocks(applyRegex(settledText, preset));
+        // 演化/解析读的正文：剥 <state>/<upstore> 等，但【保留】<状态结算> HP/EP 块（解析器与 HP/EP 管理阶段要吃它）
+        const narrativeForEvoRaw = stripStateBlocks(applyRegex(settledText, preset));
+        // 显示给玩家的正文：在此之上再剥掉 <状态结算>（纯数据通道，玩家看不到 HP/EP 原词，侧栏照旧用自定义血条名）
+        const finalDisplayed = stripVitalsBlocks(narrativeForEvoRaw);
         setMessages((prev) =>
           prev.map((m) => m.id === streamMsgId ? { ...m, content: finalDisplayed } : m)
         );
         setRawResponse(accumulated);
         if (!accumulated) throw new Error('模型未返回内容');
-        // 演化阶段读的正文：去 state 块外，再去掉击杀结算块（避免演化AI看到点数又重复发 ap）
-        const narrativeForEvo = finalDisplayed.replace(/<击杀结算>[\s\S]*?<\/击杀结算>/gi, '').trimEnd();
+        // 演化阶段读的正文：去 state 块外，再去掉击杀结算块（保留 <状态结算> 供 HP/EP 结算用，避免演化AI看到点数又重复发 ap）
+        const narrativeForEvo = narrativeForEvoRaw.replace(/<击杀结算>[\s\S]*?<\/击杀结算>/gi, '').trimEnd();
         lastNarrativeRef.current = narrativeForEvo;
         // 正文完成后：策略B先登场判断再并发其余阶段（修复NPC装备挂错ID）
         runPostNarrativePhases(narrativeForEvo, streamMsgId);
@@ -6382,11 +6444,14 @@ ${lines}`;
         applyAllUpdates(reply);
         try { applyPlayerProfileCommands(reply); } catch { /* 主角位置/外观/身份：正文直接输出 character.B1.* 即时生效 */ }
         const settledReply = stripKillBlocks(reply);   // 过渡期：剥除旧 <kill> 清单（不再结算进阶点）
-        const processed = stripStateBlocks(applyRegex(settledReply, preset));
+        // 演化/解析读的正文：剥 <state>/<upstore> 等，但【保留】<状态结算> HP/EP 块（解析器与 HP/EP 管理阶段要吃它）
+        const narrativeForEvoRaw = stripStateBlocks(applyRegex(settledReply, preset));
+        // 显示给玩家的正文：在此之上再剥掉 <状态结算>（纯数据通道，玩家看不到 HP/EP 原词）
+        const processed = stripVitalsBlocks(narrativeForEvoRaw);
         const newMsgId = ++msgId.current;
         setMessages((prev) => [...prev, { id: newMsgId, role: 'assistant', content: processed }]);
-        // 演化阶段读的正文：去 state 块外，再去掉击杀结算块（避免演化AI看到点数又重复发 ap）
-        const narrativeForEvo = processed.replace(/<击杀结算>[\s\S]*?<\/击杀结算>/gi, '').trimEnd();
+        // 演化阶段读的正文：去 state 块外，再去掉击杀结算块（保留 <状态结算> 供 HP/EP 结算用，避免演化AI看到点数又重复发 ap）
+        const narrativeForEvo = narrativeForEvoRaw.replace(/<击杀结算>[\s\S]*?<\/击杀结算>/gi, '').trimEnd();
         lastNarrativeRef.current = narrativeForEvo;
         // 正文完成后：策略B先登场判断再并发其余阶段（修复NPC装备挂错ID）
         runPostNarrativePhases(narrativeForEvo, newMsgId);

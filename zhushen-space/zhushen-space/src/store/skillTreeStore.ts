@@ -85,7 +85,7 @@ export interface CharTreeProgress {
   upgrades?: Record<string, NodeGrants>;  // 大节点 rank2/3 升级后的技能/天赋（覆盖 node.grants 显示，与技能栏一致）
   constellationsGranted?: string[];  // 已发放成型奖励的星座 id（防重复发放 + 洗点回滚）
   constellationUpgrades?: Record<string, NodeGrants>;  // 星座觉醒奖励的 AI 强化版（覆盖模板 reward 显示）
-  sockets?: Record<string, { itemName?: string; name?: string; effect?: string; ptAttr?: AttrDelta; radius?: number; chainNodeIds?: string[] }>;  // 星核镶嵌位 id → 已嵌入的星核(+生成的链节点 id)
+  sockets?: Record<string, { itemName?: string; name?: string; effect?: string; ptAttr?: AttrDelta; radius?: number; chainNodeIds?: string[]; active?: boolean }>;  // 星核镶嵌位 id → 已嵌入的星核(+生成的链节点 id+是否激活)
   aiBonusPP: number;        // 兑换/任务/奇遇额外潜能点累计
   exchangedPP?: number;     // 累计【乐园币兑换】出的潜能点数（用于"越买越贵"递增定价，单调不减）
   spent: number;            // 已花潜能点（= Σ rank×cost）
@@ -267,7 +267,9 @@ interface SkillTreeState {
   applyConstellationReward: (charId: string, cstId: string, reward: NodeGrants) => boolean;  // AI 觉醒强化某星座奖励（同步技能栏）
   embedSocket: (charId: string, socketId: string, core: import('../systems/skillTree').SocketCore) => void;  // 嵌入星核
   embedSocketChain: (charId: string, socketId: string, core: import('../systems/skillTree').SocketCore, terminal: NodeGrants) => void;  // 嵌入星核 + 生成「脉络链→终端大节点技能」
-  clearSocket: (charId: string, socketId: string) => void;   // 拆下星核（连带清除其生成的链节点）
+  clearSocket: (charId: string, socketId: string) => void;   // 彻底拆下星核（连带清除其生成的链节点）
+  detachSocket: (charId: string, socketId: string) => void;   // 拆卸星核（加成关闭，但保留脉络链与点数，可复用）
+  reactivateSocket: (charId: string, socketId: string) => void;   // 重新装回同一件物品（复活，无需 API）
   respec: (charId: string) => number;   // 洗点（仅小节点·花乐园币）；返回花掉的乐园币
   respecCoinCost: (charId: string) => number;   // 预算洗点代价（乐园币）
   exchangePP: (charId: string, count: number) => number;     // 乐园币兑换潜能点；返回实际兑换数
@@ -543,7 +545,7 @@ export const useSkillTree = create<SkillTreeState>()(
       // 星核镶嵌：嵌入（core 由 AI 据背包物品生成）；六维加成经 treeAttrDelta 自动入所有判定
       embedSocket: (charId, socketId, core) => set((st) => {
         const cur = st.progress[charId] ?? newProgress();
-        return { progress: { ...st.progress, [charId]: { ...cur, sockets: { ...(cur.sockets ?? {}), [socketId]: core } } } };
+        return { progress: { ...st.progress, [charId]: { ...cur, sockets: { ...(cur.sockets ?? {}), [socketId]: { ...core, active: true } } } } };
       }),
 
       // 嵌入星核 + 据物品生成的【终端大节点技能/天赋】，从星核往外排出一条「脉络链」(2 微星 → 1 大节点技能)。
@@ -553,8 +555,14 @@ export const useSkillTree = create<SkillTreeState>()(
         const treeId = cur.activeTreeId; const tree = treeId ? st.trees[treeId] : undefined;
         if (!tree || !treeId) return st;
         const socket = tree.nodes.find((n) => n.id === socketId); if (!socket) return st;
-        // 清掉该星核上一次生成的链（重新炼核时替换）
-        const oldChain = cur.sockets?.[socketId]?.chainNodeIds ?? [];
+        const prevSocket = cur.sockets?.[socketId];
+        // 同一件物品重新安装 → 保留原脉络链(连同已点点数)，仅刷新核 + 重新激活，不重生成（省 API、不丢进度）
+        if (prevSocket?.itemName && core?.itemName && prevSocket.itemName === core.itemName && prevSocket.chainNodeIds?.length) {
+          const merged = { ...prevSocket, ...core, chainNodeIds: prevSocket.chainNodeIds, active: true };
+          return { progress: { ...st.progress, [charId]: { ...cur, sockets: { ...(cur.sockets ?? {}), [socketId]: merged } } } };
+        }
+        // 否则（新物品 / 无旧链）：清掉旧链（老链消失）再生成新链
+        const oldChain = prevSocket?.chainNodeIds ?? [];
         let nodes = tree.nodes.filter((n) => !oldChain.includes(n.id))
           .map((n) => (n.prereqs ?? []).some((p) => oldChain.includes(p)) ? { ...n, prereqs: (n.prereqs ?? []).filter((p) => !oldChain.includes(p)) } : n);
         const ranks = { ...cur.ranks }; for (const id of oldChain) delete ranks[id];
@@ -577,7 +585,7 @@ export const useSkillTree = create<SkillTreeState>()(
           { id: id3, name: termName, branch: bid, layer: baseLayer + 3, tierGate: '', cost: 6, prereqs: [id2], kind: 'major', grants: terminal || {}, ptAttr: bAttr, ...at(3), desc: '星核脉络的终端·大节点技能，解锁即入技能/天赋栏。' },
         ];
         nodes = [...nodes, ...chain];
-        const newCore = { ...core, chainNodeIds: [id1, id2, id3] };
+        const newCore = { ...core, chainNodeIds: [id1, id2, id3], active: true };
         return {
           trees: { ...st.trees, [treeId]: { ...tree, nodes } },
           progress: { ...st.progress, [charId]: { ...cur, ranks, sockets: { ...(cur.sockets ?? {}), [socketId]: newCore } } },
@@ -597,6 +605,19 @@ export const useSkillTree = create<SkillTreeState>()(
           return { trees: { ...st.trees, [treeId]: { ...t, nodes } }, progress: { ...st.progress, [charId]: { ...cur, ranks, sockets } } };
         }
         return { progress: { ...st.progress, [charId]: { ...cur, sockets } } };
+      }),
+
+      // 拆卸星核：关掉其加成(active=false)，但**保留脉络链与已点点数**——同一件物品重新装回即复用，新物品才替换。
+      detachSocket: (charId, socketId) => set((st) => {
+        const cur = st.progress[charId] ?? newProgress();
+        const core = cur.sockets?.[socketId]; if (!core) return st;
+        return { progress: { ...st.progress, [charId]: { ...cur, sockets: { ...(cur.sockets ?? {}), [socketId]: { ...core, active: false } } } } };
+      }),
+      // 重新装回同一件物品：直接复活(无 API、保留原链)。
+      reactivateSocket: (charId, socketId) => set((st) => {
+        const cur = st.progress[charId] ?? newProgress();
+        const core = cur.sockets?.[socketId]; if (!core) return st;
+        return { progress: { ...st.progress, [charId]: { ...cur, sockets: { ...(cur.sockets ?? {}), [socketId]: { ...core, active: true } } } } };
       }),
 
       // 洗点：仅退还「小节点」(非大节点)的点数，花乐园币为代价；大节点/技能/天赋/升级/星座奖励全保留。返回花掉的乐园币。

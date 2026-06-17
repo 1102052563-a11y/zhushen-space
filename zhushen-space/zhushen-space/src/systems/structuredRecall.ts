@@ -3,8 +3,10 @@ import type { FactionRecord } from '../store/factionStore';
 import type { Skill, Talent, Title, SubProfession } from '../store/characterStore';
 import { gradeToNum, type InventoryItem, type CurrencyWallet } from '../store/itemStore';
 import type { PlayerProfile, PlayerAttrs } from '../store/playerStore';
-import { computeMaxHp, computeMaxEp, effectiveResource, lvFromRealm, fullMaxHp, fullMaxEp } from './derivedStats';
-import { effectiveAttrs } from './attrBonus';
+import { computeMaxHp, computeMaxEp, effectiveResource, lvFromRealm, fullMaxHp, fullMaxEp, computeDerived } from './derivedStats';
+import { effectiveAttrs, withAttrDelta } from './attrBonus';
+import { playerTreeAttrBonus } from '../store/skillTreeStore';
+import { playerTeamAttrBonus, playerTeamPerkAbilities } from '../store/adventureTeamStore';
 import { bioInnate, bioPower, bioStrengthLabel } from './bioStrength';
 
 /* 取佩戴中的称号，渲染成一行（仅 equipped 注入正文）*/
@@ -175,16 +177,22 @@ export function serializePlayerCard(
   ].filter(Boolean).join(' | ');
   const a = profile.attrs;
   const pEqp = items.filter((it) => it.equipped);
-  const pMaxHp = fullMaxHp(a, pEqp, skills, talents);
-  const pMaxEp = fullMaxEp(a, pEqp, skills, talents);
-  // 有效六维 = 基础 + 装备/技能/天赋加成（与属性面板一致；注入正文用实战值，并标注基础值）
-  const effA = effectiveAttrs(a, skills, talents, items.filter((it) => it.equipped));
+  // HP/EP 上限的基 = 基础 + 冒险团团队六维(体/智→HP/EP)，团队增益里的「生命/法力上限+N」并入天赋（与 App.playerMaxHp/EP 一致；上限不含技能树，防乱跳）
+  const hpBase = withAttrDelta(a, playerTeamAttrBonus());
+  const hpTalents = [...(talents ?? []), ...playerTeamPerkAbilities()];
+  const pMaxHp = fullMaxHp(hpBase, pEqp, skills, hpTalents);
+  const pMaxEp = fullMaxEp(hpBase, pEqp, skills, hpTalents);
+  // 有效六维 = 基础 + 装备/技能/天赋 + 技能树 + 团队加成（与属性面板/战斗/骰子完全一致；注入正文用实战值，并标注基础值）
+  const effA = effectiveAttrs(withAttrDelta(withAttrDelta(a, playerTreeAttrBonus('B1')), playerTeamAttrBonus()), skills, talents, pEqp);
+  // 衍生攻防（与属性面板同式：有效六维 + 等级 + 已装备品级）
+  const derived = computeDerived(effA, profile.level, pEqp.map((it) => ({ category: it.category as string, grade: (it.numeric?.grade as number) ?? gradeToNum(it.gradeDesc) })));
   const faP = (k: keyof PlayerAttrs) => { if (!a) return ''; return effA[k] === a[k] ? `${effA[k]}` : `${effA[k]}(基${a[k]})`; };
   const stat = [
     `HP:${effectiveResource(game.hp, game.maxHp, pMaxHp)}/${pMaxHp}（上限=体质×20，自动算${profile.hpLabel ? `；正文叙述称「${profile.hpLabel}」，状态行/指令仍写 HP` : ''}）`,
     `EP:${effectiveResource(game.mp, game.maxMp, pMaxEp)}/${pMaxEp}（上限=智力×15，自动算${profile.epLabel ? `；正文叙述称「${profile.epLabel}」，状态行/指令仍写 EP` : ''}）`,
     game.san != null && `SAN:${game.san}/${game.maxSan ?? '?'}`,
-    a && `六维(实战值=基础+装备/技能/天赋加成): 力${faP('str')} 敏${faP('agi')} 体${faP('con')} 智${faP('int')} 魅${faP('cha')} 幸${faP('luck')}`,
+    a && `六维(实战值=基础+装备/技能/天赋/技能树/团队加成): 力${faP('str')} 敏${faP('agi')} 体${faP('con')} 智${faP('int')} 魅${faP('cha')} 幸${faP('luck')}`,
+    a && `衍生属性(六维+装备现算): 物攻${derived.patk} 物防${derived.pdef} 法攻${derived.matk} 法防${derived.mdef}`,
     a && `生物强度(前端按六维机械判定,勿改): ${bioStrengthLabel(bioInnate(a, profile.tier, profile.level), bioPower(effA))}`,
     profile.attrPoints != null && `属性点:${profile.attrPoints}`,
     profile.realAttrPoints != null && `真实属性点:${profile.realAttrPoints}`,
@@ -246,12 +254,14 @@ export function serializeNpcCard(
   const nEqp = (npc.items ?? []).filter((it) => it.equipped) as any;
   const nMaxHp = a ? fullMaxHp(a, nEqp, skills, talents) : 0;
   const nMaxEp = a ? fullMaxEp(a, nEqp, skills, talents) : 0;
+  const nDerived = a && effA ? computeDerived(effA, lvFromRealm(npc.realm), nEqp.map((it: any) => ({ category: it.category as string, grade: (it.numeric?.grade as number) ?? gradeToNum(it.gradeDesc) }))) : undefined;
   const stat = [
     a && `HP:${effectiveResource(npc.hp, npc.maxHp, nMaxHp)}/${nMaxHp}（上限=体质×20，自动算）`,
     a && `EP:${effectiveResource(npc.mp, npc.maxMp, nMaxEp)}/${nMaxEp}（上限=智力×15，自动算）`,
     !a && (npc.hp != null || npc.maxHp != null) && `HP:${npc.hp ?? '?'}/${npc.maxHp ?? '?'}`,
     !a && (npc.mp != null || npc.maxMp != null) && `EP:${npc.mp ?? 0}/${npc.maxMp ?? 0}`,
     a && `六维(实战值=基础+装备/技能/天赋加成): 力${faN('str')} 敏${faN('agi')} 体${faN('con')} 智${faN('int')} 魅${faN('cha')} 幸${faN('luck')}`,
+    nDerived && `衍生属性(六维+装备现算): 物攻${nDerived.patk} 物防${nDerived.pdef} 法攻${nDerived.matk} 法防${nDerived.mdef}`,
     a && `生物强度(前端按六维机械判定,勿改): ${bioStrengthLabel(bioInnate(a, npc.realm, lvFromRealm(npc.realm)), bioPower(effA))}`,
     `好感:${npc.favor}`,
   ].filter(Boolean).join(' | ');

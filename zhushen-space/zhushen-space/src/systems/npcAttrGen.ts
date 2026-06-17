@@ -76,9 +76,6 @@ const FORM_PROFILE: Record<CreatureForm, FormDims> = {
 const absNone = (rng: () => number) => 1 + Math.floor(rng() * 3);   // 1~3
 const absWeak = (rng: () => number) => 3 + Math.floor(rng() * 10);  // 3~12
 
-// 幸运自然上限(按阶位序号 一阶..九阶；更高阶外推)。幸运不进 5 项预算、无来源优先低值。
-const LUCK_CAP_BY_TIER = [2, 3, 4, 5, 6, 8, 10, 12, 15];
-
 // 本阶内「等级成长起点」：Lv 处在本阶最低级时，占满级占用率的比例(治"1级却满属性")。
 // 越小→低等级越弱；Lv 满则恒为 1(不压)。可调。
 const LV_GROWTH_START = 0.5;
@@ -244,7 +241,7 @@ export function generateNpcAttrs(opts: GenAttrOpts): PlayerAttrs {
   //    civBias 让匠人(体)/商文(智)/艺伶(魅)略高于纯平民；手动选档(force)则尊重(隐藏高手)。
   if (!opts.force && (ts.mundane ?? isMundane(opts.job, opts.tier, opts.identity))) {
     const r = (lo: number, hi: number) => lo + Math.floor(rng() * (hi - lo + 1));
-    const civ: PlayerAttrs = { str: r(2, 6), agi: r(3, 8), con: r(3, 8), int: r(2, 7), cha: r(3, 9), luck: r(0, 2) };
+    const civ: PlayerAttrs = { str: r(2, 6), agi: r(3, 8), con: r(3, 8), int: r(2, 7), cha: r(3, 9), luck: r(1, 7) };
     if (ts.civBias) civ[ts.civBias] = r(7, 16);   // 侧重维(体/智/魅)略高，仍属常人范围
     return civ;
   }
@@ -295,13 +292,37 @@ export function generateNpcAttrs(opts: GenAttrOpts): PlayerAttrs {
     else if (rule === 'weak') val[a] = Math.min(val[a], absWeak(rng));                   // 退化≈3~12
   });
 
-  // 5. 幸运单列(不计入强度/峰值)：按形态档 none≈0 / weak低 / boost满 / keep正常(平方偏低)
-  const luckCap = LUCK_CAP_BY_TIER[Math.min(8, tierNum - 1)] ?? 2;
-  let luck = Math.round(rng() * rng() * luckCap); // 平方偏低
-  if (prof.luck === 'none') luck = Math.floor(rng() * 2);
-  else if (prof.luck === 'weak') luck = Math.min(luck, Math.ceil(luckCap * 0.2));
-  else if (prof.luck === 'boost') luck = luckCap;
-  val.luck = clamp(luck, 0, luckCap);
+  // 5. 幸运(单列，不进 5 项预算/不算战力)：抽到 generateLuck() 独立函数(前端独占·确定性)，正文 NPC 也复用同一套。
+  const mean5 = (val.str + val.agi + val.con + val.int + val.cha) / 5;
+  val.luck = generateLuck({ mean5, cap: peakCap, form, themeText: `${opts.job ?? ''}${opts.identity ?? ''}${opts.type ?? ''}`, seed: opts.seed });
 
   return { str: val.str, agi: val.agi, con: val.con, int: val.int, cha: val.cha, luck: val.luck };
+}
+
+/* ── 幸运·独立生成(前端独占·确定性)──────────────────────────────────────────────
+   幸运是"特殊属性"：① 不进 5 项预算/不算战力(derivedStats 不读 luck)；② diceEngine.luckMod 比的是
+   "幸运相对六维均值"，故常态压在 0~20 小数值、偶尔"天生幸运"才与五维同量级。由前端独占(AI 不定基础)，
+   种子=NPC id → 确定性可复现；正文 NPC 的 ensureNpcLuck 与本函数同源，结果一致。
+   常态=0~20 浮动；天生幸运(形态 boost / 幸运主题词命中 / ~15% 偶发)=mean5×(0.6~1.5) 随五维上下浮动(可远超 20)；
+   形态档：none(机械·虫群·无命数)≈0~2、weak(亡灵·植物·黏)整体折半(倒霉)。 */
+export const LUCK_THEME_RE = /幸运|福将|福星|气运|锦鲤|天命|吉运|好运|侥幸|赌|彩|鸿运|洪福|气数|命硬/;
+export interface LuckOpts {
+  mean5: number;                  // 五维均值(决定"天生幸运"档的量级，随五维上下浮动)
+  cap?: number;                   // 上限(同单属性峰值；低阶<20 时仍放行到 20 以兑现"0~20")
+  form?: string | CreatureForm;   // 形态(决定 none/weak/boost/keep)
+  themeText?: string;             // 职业/身份/类型文本(命中幸运主题词→必走运)
+  seed?: string;                  // 种子(NPC id)：独立 RNG，确定性可复现
+}
+export function generateLuck(o: LuckOpts): number {
+  const rng = mulberry32(hashSeed(`${o.seed ?? 'luck'}|luck#`));
+  const form: CreatureForm = (typeof o.form === 'string' && o.form) ? resolveForm(o.form) : ((o.form as CreatureForm) || 'humanoid');
+  const rule: DimRule = FORM_PROFILE[form].luck;
+  const themed = !!o.themeText && LUCK_THEME_RE.test(o.themeText);
+  const luckyBorn = rule === 'boost' || themed || rng() < 0.15;        // 偶发/主题/形态 → 天生幸运
+  let luck = luckyBorn
+    ? Math.round(o.mean5 * (0.6 + 0.9 * rng()))   // 天生幸运：均值的 0.6~1.5，随五维上下浮动(可超 20)
+    : Math.floor(rng() * 21);                      // 常态：0~20 浮动
+  if (rule === 'none') luck = Math.floor(rng() * 3);                   // 机械/虫群·无命数≈0~2
+  else if (rule === 'weak') luck = Math.round(luck * 0.5);             // 亡灵/植物/黏·倒霉折半
+  return clamp(luck, 0, Math.max(20, Math.round(o.cap ?? 20)));
 }

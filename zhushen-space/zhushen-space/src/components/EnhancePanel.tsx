@@ -13,6 +13,15 @@ import { loadBossManifest, pickStagePortrait, type BossManifest } from '../syste
 import GemPanel from './GemPanel';
 
 export interface EnhanceFinalizeArgs { itemId: string; startLevel: number; newLevel: number; }
+export interface FinalizeStatus { ok: boolean; changed: boolean; error?: string; }
+
+/* 把词缀/效果文本按【…】拆成分条，逐条展示（排版更清晰）；无【】则整段当一条 */
+function splitAffixEntries(text?: string): string[] {
+  const t = String(text ?? '').trim();   // String() 兜底：affix/effect 万一是非字符串(数字/对象)也不崩
+  if (!t) return [];
+  if (!t.includes('【')) return [t];
+  return t.split(/(?=【)/g).map((s) => s.trim()).filter(Boolean);
+}
 
 /* 强化所：左=看板娘立绘+切换+吐槽气泡 / 中=被强化装备+特效 / 右=操作区+本轮记录。
    仅乐园内（轮回乐园/专属房间）可强化；摇率/爆装/降级/保底全在 enhanceEngine 算，不花 API。
@@ -22,7 +31,7 @@ export default function EnhancePanel({
 }: {
   onClose: () => void;
   onBanter: () => Promise<string>;
-  onFinalize: (args: EnhanceFinalizeArgs) => void;
+  onFinalize: (args: EnhanceFinalizeArgs) => Promise<FinalizeStatus | void> | void;
 }) {
   const items          = useItems((s) => s.items);
   const currency       = useItems((s) => s.currency);
@@ -43,8 +52,8 @@ export default function EnhancePanel({
   const bosses = settings.bosses;
   const boss   = bosses.find((b) => b.id === settings.selectedBossId) ?? bosses[0];
 
-  // 乐园门禁（与 App.isHomeWorld 同正则）
-  const isHome = /轮回乐园|专属房间|主神空间/.test(worldName ?? '');
+  // 区域限制已取消：强化在任何世界均可使用
+  const isHome = true;
 
   const [useProtect, setUseProtect] = useState(false);
   const [useAmulet, setUseAmulet]   = useState(false);
@@ -57,6 +66,8 @@ export default function EnhancePanel({
   const [manifest, setManifest] = useState<BossManifest | null>(null);
   const [portraitUrl, setPortraitUrl] = useState<string | null>(null);
   const [gemsOpen, setGemsOpen] = useState(false);
+  const [finalizing, setFinalizing] = useState(false);   // 结束强化的收尾 AI 调用中（显示"正在为您强化装备"）
+  const [finalizeResult, setFinalizeResult] = useState<{ status: 'ok' | 'fail'; name: string; level: number; affix: string; effect: string; error?: string; args: EnhanceFinalizeArgs } | null>(null);  // 收尾结果（成功展示词缀/效果，失败显示原因+重试）
   const fxTimer = useRef<ReturnType<typeof setTimeout>>();
 
   const candidates = items.filter((it) => isEnhanceable(it.category))
@@ -75,7 +86,7 @@ export default function EnhancePanel({
     if (!useEnhance.getState().session) {
       const c = useItems.getState().items.filter((it) => isEnhanceable(it.category))
         .sort((a, b) => (Number(b.equipped) - Number(a.equipped)) || ((b.enhanceLevel ?? 0) - (a.enhanceLevel ?? 0)));
-      if (c[0]) startSession(c[0].id, c[0].name, c[0].enhanceLevel ?? 0);
+      if (c[0]) startSession(c[0].id, c[0].name, c[0].enhanceLevel ?? 0, Math.max(c[0].enhanceLevel ?? 0, c[0].maxEnhanceLevel ?? 0));
     }
     return () => clearTimeout(fxTimer.current);
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -89,12 +100,20 @@ export default function EnhancePanel({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [manifest, boss?.id, level]);
 
-  /* 收尾：本轮净涨了等级且未损毁 → 触发 AI 刷装备 */
+  /* 词缀按「历史最高强化等级」生成。基线 base = 持久化的 affixLevel（已 AI 结算到的等级），所以**退出重开待结算依然在**；
+     待结算 = floor(峰值/3) > floor(base/3)，跨几档就该生成/升级几次。降级/归零不掉词缀（只降攻防/评分），爬回旧峰不重复生成。 */
+  const peakGain = (sess: { itemId: string; startMax: number; curLevel: number; destroyed: boolean }) => {
+    const it = useItems.getState().items.find((x) => x.id === sess.itemId);
+    const base = it?.affixLevel ?? sess.startMax;                          // 已结算到的等级（持久化）；缺省回退本轮起始峰值
+    const newMax = Math.max(base, it?.maxEnhanceLevel ?? sess.curLevel);   // 历史最高峰值
+    const gained = !sess.destroyed && Math.floor(newMax / 3) > Math.floor(base / 3);
+    return { base, newMax, gained };
+  };
   const finalizeIfGained = () => {
     const sess = useEnhance.getState().session;
-    if (sess && !sess.destroyed && sess.curLevel > sess.startLevel) {
-      onFinalize({ itemId: sess.itemId, startLevel: sess.startLevel, newLevel: sess.curLevel });
-    }
+    if (!sess) return;
+    const { base, newMax, gained } = peakGain(sess);
+    if (gained) onFinalize({ itemId: sess.itemId, startLevel: base, newLevel: newMax });
   };
 
   const pickItem = (id: string) => {
@@ -102,11 +121,45 @@ export default function EnhancePanel({
     finalizeIfGained();
     endSession();
     const it = items.find((x) => x.id === id);
-    if (it) startSession(it.id, it.name, it.enhanceLevel ?? 0);
+    if (it) startSession(it.id, it.name, it.enhanceLevel ?? 0, Math.max(it.enhanceLevel ?? 0, it.maxEnhanceLevel ?? 0));
     setBanter(''); setWarn(''); setUseProtect(false); setUseAmulet(false);
   };
 
-  const handleClose = () => { finalizeIfGained(); endSession(); onClose(); };
+  const handleClose = () => { if (finalizing) return; finalizeIfGained(); endSession(); onClose(); };
+
+  // 调一次收尾 AI，把结果（成功/失败/无改动）整理成结果面板数据（加载遮罩由 finalizing 控制）
+  const runFinalize = async (args: EnhanceFinalizeArgs) => {
+    setFinalizing(true);
+    const r = await Promise.resolve(onFinalize(args)).catch((e: any) => ({ ok: false, changed: false, error: String(e?.message ?? e).slice(0, 80) }));
+    setFinalizing(false);
+    const upd = useItems.getState().items.find((x) => x.id === args.itemId);
+    const st = (r ?? { ok: false, changed: false }) as FinalizeStatus;
+    const okChanged = st.ok && st.changed;
+    setFinalizeResult({
+      status: okChanged ? 'ok' : 'fail',
+      name: upd?.name ?? '', level: args.newLevel,
+      affix: upd?.affix ?? '', effect: upd?.effect ?? '',
+      error: okChanged ? undefined : (st.error ?? '收尾未生效'),
+      args,
+    });
+  };
+  // 结束强化：本轮峰值跨入新档 → 调收尾 AI（加载遮罩→结果面板），否则直接结束本轮
+  const endEnhance = async () => {
+    const sess = useEnhance.getState().session;
+    if (!sess || finalizing) return;
+    const { base, newMax, gained } = peakGain(sess);
+    if (gained) { await runFinalize({ itemId: sess.itemId, startLevel: base, newLevel: newMax }); return; }
+    endSession();
+    setBanter(''); setWarn(''); setUseProtect(false); setUseAmulet(false);
+  };
+  // 失败后「重新强化」：用同样的参数再调一次收尾 AI
+  const retryFinalize = () => { if (finalizeResult && !finalizing) runFinalize(finalizeResult.args); };
+  // 关闭强化结果面板 → 真正结束本轮
+  const closeResult = () => {
+    setFinalizeResult(null);
+    endSession();
+    setBanter(''); setWarn(''); setUseProtect(false); setUseAmulet(false);
+  };
 
   const cycleBoss = (dir: 1 | -1) => {
     if (bosses.length < 2) return;
@@ -151,10 +204,12 @@ export default function EnhancePanel({
     else if (result.toLevel !== lv) {
       updateItem(it.id, {
         enhanceLevel: result.toLevel,
+        maxEnhanceLevel: Math.max(it.maxEnhanceLevel ?? lv, result.toLevel),   // 高水位只升不降：降级保留峰值供词缀判定
+        affixLevel: it.affixLevel ?? lv,   // 首次强化时把"已结算基线"钉在强化前等级（持久化）；之后不变，待结算只看峰值是否超过它，退出重开仍在
         score: bumpScore(it.score, (result.toLevel - lv) * SCORE_PER_LEVEL),
         intro: withEnhanceNote(it.intro, result.toLevel, 'intro'),
         appearance: withEnhanceNote(it.appearance, result.toLevel, 'appearance'),
-      });   // 词缀/效果改由 AI 收尾生成（丰富多样），不在此机械添加
+      });   // 词缀/效果由 AI 收尾按高水位生成；攻防/评分/外观随当前等级（降级即降）
     }
     applyAttempt(result, cost, useProtect && risk, useAmulet);
 
@@ -177,7 +232,7 @@ export default function EnhancePanel({
   return (
     <div className="fixed inset-0 z-[65] bg-black/70 backdrop-blur-sm flex items-center justify-center p-3"
          onClick={(e) => { if (e.target === e.currentTarget) handleClose(); }}>
-      <div className="w-full max-w-5xl h-[88vh] rounded-2xl border border-edge bg-void shadow-[0_0_60px_rgba(0,0,0,0.9)] overflow-hidden flex flex-col">
+      <div className="relative w-full max-w-5xl h-[88vh] rounded-2xl border border-edge bg-void shadow-[0_0_60px_rgba(0,0,0,0.9)] overflow-hidden flex flex-col">
 
         {/* 顶栏 */}
         <header className="shrink-0 flex items-center gap-3 px-4 py-3 border-b border-edge bg-panel">
@@ -195,6 +250,63 @@ export default function EnhancePanel({
         </header>
 
         {gemsOpen && <GemPanel onClose={() => setGemsOpen(false)} />}
+
+        {/* 收尾 AI 调用中：正在为您强化装备 */}
+        {finalizing && (
+          <div className="absolute inset-0 z-[60] bg-void/85 backdrop-blur-sm flex flex-col items-center justify-center gap-3">
+            <div className="w-12 h-12 rounded-full border-2 border-god/30 border-t-god animate-spin" />
+            <div className="text-base font-bold text-god god-glow">✨ 正在为您强化装备…</div>
+            <div className="text-[12px] font-mono text-dim/50">AI 正在刷新装备词缀与效果，请稍候</div>
+          </div>
+        )}
+
+        {/* 收尾结果：成功→展示词缀/效果（分条）；失败/无改动→显示原因 + 重新强化 */}
+        {finalizeResult && (() => {
+          const fr = finalizeResult;
+          const ok = fr.status === 'ok';
+          const affixList = splitAffixEntries(fr.affix);
+          const effectList = splitAffixEntries(fr.effect);
+          return (
+            <div className="absolute inset-0 z-[61] bg-void/90 backdrop-blur-sm flex items-center justify-center p-5"
+                 onClick={(e) => { if (e.target === e.currentTarget) closeResult(); }}>
+              <div className={`w-full max-w-md rounded-2xl border bg-panel overflow-hidden ${ok ? 'border-amber-400/40 shadow-[0_0_50px_rgba(251,191,36,0.18)]' : 'border-blood/50 shadow-[0_0_50px_rgba(239,68,68,0.18)]'}`}>
+                <div className={`px-4 py-3 border-b border-edge text-center ${ok ? 'bg-amber-400/10' : 'bg-blood/10'}`}>
+                  <div className={`text-base font-bold god-glow ${ok ? 'text-amber-200' : 'text-blood'}`}>{ok ? '✨ 强化完成' : '⚠ 强化收尾失败'}</div>
+                  <div className="text-[13px] font-bold text-slate-100 mt-0.5">{fr.name} <span className={enhanceColorClass(fr.level)}>+{fr.level}</span></div>
+                </div>
+                <div className="p-4 space-y-3 max-h-[52vh] overflow-y-auto onscene-scroll">
+                  {!ok && (
+                    <div className="rounded-lg border border-blood/40 bg-blood/5 px-3 py-2 text-[12.5px] text-blood/90 leading-snug">
+                      收尾未生效：{fr.error}
+                      <div className="text-dim/50 text-[11.5px] mt-1">强化等级已保留；点「🔄 重新强化」再调一次 AI，或「确定」先保留当前词缀。</div>
+                    </div>
+                  )}
+                  <div>
+                    <div className="text-[11px] font-mono text-dim/40 mb-1">⚔ 词缀 affix</div>
+                    {affixList.length
+                      ? <div className="space-y-1.5">{affixList.map((a, i) => <div key={i} className="text-[13px] leading-relaxed text-amber-200/90 border-l-2 border-amber-400/30 pl-2">{a}</div>)}</div>
+                      : <span className="text-[13px] text-dim/40">（无）</span>}
+                  </div>
+                  <div>
+                    <div className="text-[11px] font-mono text-dim/40 mb-1">✦ 效果 effect</div>
+                    {effectList.length
+                      ? <div className="space-y-1.5">{effectList.map((a, i) => <div key={i} className="text-[13px] leading-relaxed text-slate-200/90 border-l-2 border-god/30 pl-2">{a}</div>)}</div>
+                      : <span className="text-[13px] text-dim/40">（无）</span>}
+                  </div>
+                </div>
+                <div className="p-3 border-t border-edge flex gap-2">
+                  {!ok && (
+                    <button onClick={retryFinalize} disabled={finalizing}
+                      className="flex-1 py-2 rounded-xl text-sm font-bold border border-amber-400/50 text-amber-200 bg-amber-400/10 hover:bg-amber-400/20 disabled:opacity-40">
+                      {finalizing ? '重试中…' : '🔄 重新强化'}
+                    </button>
+                  )}
+                  <button onClick={closeResult} className={`${ok ? 'w-full' : 'flex-1'} py-2 rounded-xl text-sm font-bold border border-god/50 text-god bg-god/10 hover:bg-god/20`}>确定</button>
+                </div>
+              </div>
+            </div>
+          );
+        })()}
 
         <div className="flex-1 flex flex-col overflow-hidden max-lg:overflow-y-auto">
 
@@ -254,6 +366,22 @@ export default function EnhancePanel({
                 <div className="text-[12px] font-mono text-dim/50 mt-0.5 text-center px-4">
                   {displayItem.gradeDesc || '—'} · {displayItem.category}{displayItem.combatStat ? ` · ${enhancedCombat(displayItem.combatStat, level)?.enhanced ?? displayItem.combatStat}` : ''}
                 </div>
+                {(displayItem.affix || displayItem.effect) && (
+                  <div className="mt-2 w-full max-w-[94%] max-h-[26%] overflow-y-auto onscene-scroll space-y-1.5 text-left">
+                    {displayItem.affix && (
+                      <div className="space-y-0.5">
+                        <div className="text-[10px] font-mono text-dim/35">词缀</div>
+                        {splitAffixEntries(displayItem.affix).map((a, i) => <div key={i} className="text-[11.5px] leading-snug text-amber-200/85 border-l-2 border-amber-400/25 pl-1.5">{a}</div>)}
+                      </div>
+                    )}
+                    {displayItem.effect && (
+                      <div className="space-y-0.5">
+                        <div className="text-[10px] font-mono text-dim/35">效果</div>
+                        {splitAffixEntries(displayItem.effect).map((a, i) => <div key={i} className="text-[11.5px] leading-snug text-slate-300/80 border-l-2 border-god/25 pl-1.5">{a}</div>)}
+                      </div>
+                    )}
+                  </div>
+                )}
                 {fx && <div className={`mt-3 text-base font-bold ${OUTCOME_CLS[fx]}`}>{OUTCOME_TEXT[fx]}</div>}
                 {!fx && isDanger && (
                   <div className="mt-3 text-[12px] font-mono text-blood/80 text-center">⚠ 分解区：强化失败将直接分解（消失）装备{useProtect ? '（已上保护石防护）' : ''}</div>
@@ -360,18 +488,21 @@ export default function EnhancePanel({
             {/* 底部常驻操作条：强化 + 结束强化（永远可见，不被上方内容挤进滚动区）*/}
             {selItem && (
               <div className="shrink-0 border-t border-edge/40 bg-panel2/60 p-3 space-y-2">
-                <button onClick={doEnhance} disabled={!canEnhance}
-                  className={`w-full py-2.5 rounded-xl text-base font-bold transition-all ${canEnhance ? (pityReady ? 'bg-emerald-500/20 border border-emerald-400/50 text-emerald-200 hover:bg-emerald-500/30' : 'bg-god/20 border border-god/50 text-god hover:bg-god/30') : 'bg-void border border-edge/40 text-dim/30 cursor-not-allowed'}`}>
+                <button onClick={doEnhance} disabled={!canEnhance || finalizing}
+                  className={`w-full py-2.5 rounded-xl text-base font-bold transition-all ${canEnhance && !finalizing ? (pityReady ? 'bg-emerald-500/20 border border-emerald-400/50 text-emerald-200 hover:bg-emerald-500/30' : 'bg-god/20 border border-god/50 text-god hover:bg-god/30') : 'bg-void border border-edge/40 text-dim/30 cursor-not-allowed'}`}>
                   {rolling ? '强化中…' : atMax ? '已满级 +16' : pityReady ? '★ 保底·必成强化 ★' : `⚒ 强化 · ${totalCost.toLocaleString()} 🪙`}
                 </button>
-                {session && !session.destroyed && session.curLevel > session.startLevel ? (
-                  <button onClick={() => { finalizeIfGained(); endSession(); setWarn(''); }}
-                    className="w-full py-2.5 rounded-xl text-sm font-bold border border-amber-400/50 text-amber-200 bg-amber-400/10 hover:bg-amber-400/20 transition-all">
-                    ✓ 结束强化 · AI 刷新「{session.itemName}」+{session.curLevel} 词缀
-                  </button>
-                ) : (
-                  <div className="text-center text-[11px] font-mono text-dim/35 py-1">强化升级后这里会出现「结束强化」</div>
-                )}
+                {(() => {
+                  const base = session ? (selItem?.affixLevel ?? session.startMax) : 0;   // 已结算基线（持久化）
+                  const peak = session ? Math.max(base, selItem?.maxEnhanceLevel ?? session.curLevel) : 0;
+                  const gained = !!session && !session.destroyed && Math.floor(peak / 3) > Math.floor(base / 3);
+                  return (
+                    <button onClick={endEnhance} disabled={rolling || finalizing}
+                      className="w-full py-2.5 rounded-xl text-sm font-bold border border-amber-400/50 text-amber-200 bg-amber-400/10 hover:bg-amber-400/20 transition-all disabled:opacity-40 disabled:cursor-not-allowed">
+                      {finalizing ? '✨ 正在为您强化装备…' : gained ? `✓ 结束强化 · AI 刷新「${session!.itemName}」+${peak} 词缀` : '✓ 结束强化（退出本轮）'}
+                    </button>
+                  );
+                })()}
                 {warn && <div className="text-[12px] font-mono text-blood/80 text-center">{warn}</div>}
               </div>
             )}

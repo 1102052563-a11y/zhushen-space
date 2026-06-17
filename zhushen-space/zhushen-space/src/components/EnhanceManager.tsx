@@ -3,6 +3,7 @@ import { useEnhance, hydrateEnhancePortraits } from '../store/enhanceStore';
 import { shrinkDataUrl } from '../systems/imageGen';
 import { MAX_ENHANCE, DEFAULT_BOSSES, type BossDef } from '../systems/enhanceEngine';
 import ApiRoutePicker from './ApiRoutePicker';
+import { useSettings, resolveApiChain } from '../store/settingsStore';
 
 /* 装备强化系统配置：老板名册（立绘/性格/加成）+ 率表/费用 + 独立 API。
    挂在 设置→变量管理→装备强化。属全局配置（走 configExport，立绘存 IndexedDB）。 */
@@ -151,6 +152,18 @@ export default function EnhanceManager() {
   const modelsError = useEnhance((s) => s.enhanceModelsError);
   const fetchModels = useEnhance((s) => s.fetchEnhanceModels);
 
+  // 读数：吐槽/收尾**实际**会调用的接口（与 App 里收尾/吐槽 resolveApiChain('enhance', …) 完全一致）。
+  // 订阅 apiRoutes/apiLibrary，路由选择器一改就刷新——让你不用翻后台就能看到真正生效的模型。
+  const _routes = useSettings((s) => s.apiRoutes);
+  const _lib = useSettings((s) => s.apiLibrary);
+  const _textApi = useSettings((s) => s.textApi);
+  const _mainApi = useSettings((s) => s.api);
+  const _textShared = useSettings((s) => s.textUseSharedApi);
+  void _routes; void _lib;
+  const effChain = resolveApiChain('enhance', useShared ? (_textShared ? _mainApi : _textApi) : enhanceApi);
+  const effModel = effChain[0]?.modelId || '（未配置）';
+  const effHost = (() => { const u = effChain[0]?.baseUrl; if (!u) return ''; try { return new URL(u).host; } catch { return u; } })();
+
   const [editId, setEditId] = useState<string | null>(null);
 
   useEffect(() => { hydrateEnhancePortraits(); }, []);
@@ -256,6 +269,13 @@ export default function EnhanceManager() {
         </div>
         <ApiRoutePicker routeKey="enhance" />
         <p className="text-[11px] font-mono text-dim/50">↑ 选用「API 接口库」里集中管理的接口（多选·按优先级轮流调用·失败自动切下一条）。留空则用下方兜底配置。</p>
+        <div className="text-[11.5px] font-mono rounded-lg border border-god/25 bg-god/5 px-2.5 py-1.5 leading-snug">
+          <span className="text-dim/50">✦ 吐槽 / 收尾实际调用：</span>
+          <span className="text-god/90 font-bold">{effModel}</span>
+          {effHost && <span className="text-dim/40"> @ {effHost}</span>}
+          {effChain.length > 1 && <span className="text-dim/40"> (+{effChain.length - 1} 条备用)</span>}
+          <span className="block text-dim/35 mt-0.5">优先级：接口库路由 ＞ {useShared ? '正文 API' : '下方手填'}（路由选了就以路由为准，手填框会被忽略）</span>
+        </div>
         {!useShared && (
           <div className="space-y-2">
             <input value={enhanceApi.baseUrl} onChange={(e) => setApi({ baseUrl: e.target.value })} placeholder="API 地址 (baseUrl)" className={`${inputCls} w-full font-mono`} />

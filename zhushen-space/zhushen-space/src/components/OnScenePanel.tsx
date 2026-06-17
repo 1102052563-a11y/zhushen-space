@@ -1,6 +1,6 @@
 import { useRef, useState } from 'react';
 import { useNpc, type NpcRecord } from '../store/npcStore';
-import { lvFromRealm, computeMaxHp, computeMaxEp, gearMaxHpBonus, gearMaxEpBonus, effectiveResource, fullMaxHp, fullMaxEp } from '../systems/derivedStats';
+import { lvFromRealm, tierFxClass, computeMaxHp, computeMaxEp, gearMaxHpBonus, gearMaxEpBonus, effectiveResource, fullMaxHp, fullMaxEp } from '../systems/derivedStats';
 import { useImageViewer } from '../store/imageViewerStore';
 import { PortraitPicker } from './PortraitPicker';
 
@@ -107,7 +107,7 @@ function OnSceneCard({ npc, onOpen }: { npc: NpcRecord; onOpen: () => void }) {
           {npc.partyMember && <span className="shrink-0 text-[9px] font-mono px-1 rounded border border-sky-500/50 text-sky-300/80 bg-sky-900/20" title="临时队友">队</span>}
         </div>
         <div className="text-[11px] font-mono text-dim/60 truncate">
-          {tier && <span className="text-sky-300/70">{tier}</span>}
+          {tier && <span className={`${tierFxClass(tier)} font-bold`}>{tier}</span>}
           {lv > 0 && <span className="text-dim/50"> Lv.{lv}</span>}
         </div>
         {identity && <div className="text-[11px] text-dim/55 truncate">{identity}</div>}

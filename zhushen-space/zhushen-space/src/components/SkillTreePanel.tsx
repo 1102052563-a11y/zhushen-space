@@ -235,9 +235,17 @@ export default function SkillTreePanel({ onClose }: { onClose: () => void }) {
   // 星核镶嵌：选背包物品 → AI 据物品炼成星核 + 终端大节点技能 → 嵌入并生成「脉络链」（计费）
   const doEmbed = async (item: any) => {
     if (!selNode?.socket || embeddingId) return;
+    // 同一件物品重新装回 → 复用原脉络链、免 API、不丢已点点数
+    const prev = prog?.sockets?.[selNode.id];
+    if (prev?.itemName && prev.itemName === item.name && prev.chainNodeIds?.length) {
+      useSkillTree.getState().reactivateSocket('B1', selNode.id);
+      setSocketPick(false); force((x) => x + 1);
+      setUpMsg(`✓ 已重新装回「${item.name}」（保留原脉络链）`); setTimeout(() => setUpMsg(''), 3000);
+      return;
+    }
     setEmbeddingId(selNode.id); setSocketPick(false); setUpMsg('星核炼成 + 脉络生成中…');
     try {
-      const raw = await aiJson(STARCORE_GEN_PROMPT, `物品信息：\n${JSON.stringify({ name: item.name, category: item.category, grade: item.gradeDesc, effect: item.effect, affix: item.affix, combatStat: item.combatStat, intro: item.intro })}\n请据此炼成星核 + 终端大节点技能 JSON。`);
+      const raw = await aiJson(STARCORE_GEN_PROMPT, `物品信息（品级越高，星核与终端技能越强；越低则越弱）：\n${JSON.stringify({ name: item.name, category: item.category, grade: item.gradeDesc, effect: item.effect, affix: item.affix, combatStat: item.combatStat, intro: item.intro })}\n请据此炼成星核 + 终端大节点技能 JSON（效果强度随该物品品级递增）。`);
       const c = (raw && typeof raw === 'object') ? (raw.core ?? raw) : null;   // 新格式 raw.core / 兼容旧顶层
       const terminal: NodeGrants = {};
       if (raw?.skill && typeof raw.skill === 'object') terminal.skill = raw.skill;
@@ -400,15 +408,33 @@ export default function SkillTreePanel({ onClose }: { onClose: () => void }) {
             {selNode.socket && (
               <div className="mt-2 space-y-1.5">
                 {!socketActive && <p className="text-[12px] text-amber-400/80">⚠ 需先点亮前置节点，星核位才可用。</p>}
-                {socketCore ? (
+                {socketCore ? (socketCore.active === false ? (
+                  // 已拆卸：保留脉络链，可装回同物品(免 API)或换新物品(替换链)
+                  <div className="rounded border border-edge bg-void/40 px-2.5 py-1.5">
+                    <div className="text-[13px] text-dim/70">💤 已拆卸：「{socketCore.name}」<span className="text-[11px] text-dim/50 ml-2">脉络链已保留</span></div>
+                    <div className="flex items-center gap-2 mt-1 flex-wrap">
+                      <button onClick={() => { useSkillTree.getState().reactivateSocket('B1', selNode.id); force((x) => x + 1); }}
+                        className="text-[11px] font-mono text-fuchsia-200 border border-fuchsia-500/50 rounded px-2 py-0.5 hover:bg-fuchsia-500/15">↺ 装回「{socketCore.itemName}」</button>
+                      <button onClick={() => setSocketPick(true)} disabled={!socketActive || !!embeddingId}
+                        className="text-[11px] font-mono text-dim/70 border border-edge rounded px-2 py-0.5 hover:text-fuchsia-200 disabled:opacity-40">💠 换新物品</button>
+                      <button onClick={() => { if (window.confirm('彻底移除星核 + 脉络链？(物品不返还、已点点数清空)')) { useSkillTree.getState().clearSocket('B1', selNode.id); force((x) => x + 1); } }}
+                        className="text-[11px] font-mono text-dim/40 hover:text-blood ml-auto">彻底移除</button>
+                    </div>
+                  </div>
+                ) : (
+                  // 已嵌入·激活
                   <div className="rounded border border-fuchsia-600/40 bg-fuchsia-900/10 px-2.5 py-1.5">
                     <div className="text-[13px] text-fuchsia-200 font-semibold">💠 {socketCore.name}<span className="text-[11px] text-dim/60 ml-2">炼自「{socketCore.itemName}」</span></div>
                     {socketCore.effect && <div className="text-[12px] text-dim/80 mt-0.5">{socketCore.effect}</div>}
                     {socketCore.ptAttr && <div className="text-[11px] text-sky-300 mt-0.5">半径内每颗已点亮微星 +{attrDeltaText(socketCore.ptAttr)}</div>}
-                    <button onClick={() => { if (window.confirm('拆下星核？(物品不返还)')) { useSkillTree.getState().clearSocket('B1', selNode.id); force((x) => x + 1); } }}
-                      className="mt-1 text-[11px] font-mono text-dim/50 hover:text-blood border border-edge rounded px-2 py-0.5">拆下</button>
+                    <div className="flex items-center gap-2 mt-1 flex-wrap">
+                      <button onClick={() => { useSkillTree.getState().detachSocket('B1', selNode.id); force((x) => x + 1); }}
+                        className="text-[11px] font-mono text-dim/60 hover:text-amber-300 border border-edge rounded px-2 py-0.5">拆卸（保留脉络链）</button>
+                      <button onClick={() => setSocketPick(true)} disabled={!!embeddingId}
+                        className="text-[11px] font-mono text-dim/60 hover:text-fuchsia-200 border border-edge rounded px-2 py-0.5">💠 换物品</button>
+                    </div>
                   </div>
-                ) : (
+                )) : (
                   <button onClick={() => setSocketPick(true)} disabled={!socketActive || !!embeddingId}
                     className="text-[12px] font-mono px-3 py-1 rounded border border-fuchsia-500/50 text-fuchsia-200 hover:bg-fuchsia-500/15 disabled:opacity-40">
                     {embeddingId === selNode.id ? '星核炼成中…' : '💠 镶嵌星核（选背包物品·AI 炼成）'}

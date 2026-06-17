@@ -200,7 +200,7 @@ export function gemFitsSlot(equipCategory: string, gemSlot?: GemSlotKind): boole
 const GEM_EFFECT_RE = /\s*【镶嵌加成：[^】]*】/gu;
 /** 去掉 effect 里由镶嵌系统维护的【镶嵌加成：…】块，拿回基础 effect */
 export function stripGemEffect(effect?: string): string {
-  return (effect ?? '').replace(GEM_EFFECT_RE, '').replace(/\s{2,}/g, ' ').trim();
+  return String(effect ?? '').replace(GEM_EFFECT_RE, '').replace(/\s{2,}/g, ' ').trim();
 }
 /** 按当前镶嵌宝石重算 effect：剥掉旧的【镶嵌加成】块 → 追加由 gems 汇总的新块（幂等）。
  *  低阶面板加成（"力量+8"）经此进入 effect → effectiveAttrs 解析进六维；高阶描述随 effect 供战斗/AI 读取。 */

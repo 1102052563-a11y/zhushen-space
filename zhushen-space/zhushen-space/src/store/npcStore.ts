@@ -105,7 +105,8 @@ export interface NpcRecord {
   avatar?: string;        // 人物头像（上传的自定义图片 dataURL / 未来生图地址；在场面板与肖像栏展示）
   avatarTags?: string;    // 生成当前头像所用的 imageTags（用于"外观变化时刷新肖像"判断是否需要重绘）
   imageTags?: string;     // 生图提示词（第19列：英文 NAI/Danbooru tags，NPC演化生成；肖像生图优先用它保证一致）
-  attrs?: PlayerAttrs;    // 基础属性（力/敏/体/智/魅/幸）
+  attrs?: PlayerAttrs;    // 基础属性（力/敏/体/智/魅/幸）；其中「幸运」由前端独占机械生成(ensureNpcLuck)，AI 的绝对赋值被忽略
+  luckDelta?: number;     // 幸运·剧情增减累加器（AI 的 attrs.luck += / -= 记这里，叠加在前端基础幸运上，前端重算不丢；见 ensureNpcLuck）
   items: NpcOwnedItem[];  // NPC 持有物品列表
   extra: Record<string, string>; // 其余列兜底
   onScene: boolean;       // true=在场(A区) false=离场(B区)

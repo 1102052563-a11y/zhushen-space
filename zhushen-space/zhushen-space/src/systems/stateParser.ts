@@ -137,6 +137,26 @@ function parseUpstoreBlock(block: string): ItemCommand[] {
     if (data !== undefined) commands.push({ type, data, raw: m[0] });
     else console.warn('[Upstore] 解析失败:', m[0]);
   }
+  // 兼容 AI（尤其轻量模型）把 updateItem 写成 XML 标签的情况：
+  // <updateItem itemId="" name=""><affix><item>…</item></affix><effect><item>…</item></effect></updateItem>
+  const xmlRe = /<updateItem\b([^>]*)>([\s\S]*?)<\/updateItem>/gi;
+  let xm: RegExpExecArray | null;
+  while ((xm = xmlRe.exec(block)) !== null) {
+    const attrs = xm[1], inner = xm[2];
+    const attr = (n: string) => new RegExp(`${n}\\s*=\\s*["']([^"']*)["']`, 'i').exec(attrs)?.[1];
+    const itemId = attr('itemId'); const name = attr('name');
+    const patch: Record<string, string> = {};
+    // 每个子标签(affix/effect/combatStat…) → 字段；标签内可有多条 <item>，拼成一段文本
+    const fieldRe = /<([a-zA-Z]\w*)>([\s\S]*?)<\/\1>/g;
+    let fm: RegExpExecArray | null;
+    while ((fm = fieldRe.exec(inner)) !== null) {
+      const tag = fm[1]; if (tag === 'item') continue;
+      const items = [...fm[2].matchAll(/<item>([\s\S]*?)<\/item>/g)].map((x) => x[1].trim()).filter(Boolean);
+      const val = (items.length ? items.join(' ') : fm[2].replace(/<[^>]+>/g, ' ')).replace(/\s+/g, ' ').trim();
+      if (val) patch[tag] = val;
+    }
+    if ((itemId || name) && Object.keys(patch).length) commands.push({ type: 'updateItem', data: { itemId, name, patch }, raw: xm[0] });
+  }
   return commands;
 }
 
@@ -453,6 +473,11 @@ function applyOneItemCommand(cmd: ItemCommand, store: any): void {
         if (p.notes) patch.notes = p.notes;
         if (p.acquisition) patch.acquisition = p.acquisition;
         if (p.killCount != null) patch.killCount = p.killCount;
+        // 强制把所有字段转成字符串：AI 偶把 effect/affix 等写成数字或对象，否则渲染时 (x).trim()/.replace() 会整页崩
+        for (const k of Object.keys(patch)) {
+          const v = patch[k];
+          if (v != null && typeof v !== 'string') patch[k] = typeof v === 'object' ? String((v as any).name ?? (v as any).text ?? (v as any).desc ?? (v as any).value ?? JSON.stringify(v)) : String(v);
+        }
         if (Object.keys(patch).length) store.updateItem(item.id, patch);
       }
       break;

@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useNpc, type NpcRecord } from '../store/npcStore';
 import { isDmableTag } from '../store/dmStore';
+import { normalizeTier, tierFxClass } from '../systems/derivedStats';
 import NpcDetail from './NpcDetail';
 
 /* 好感度颜色 */
@@ -54,7 +55,15 @@ function NpcCard({ npc, onOpen, onDm, onToggleFriend, onManualUpdate, updating }
             {npc.isDead && <span className="text-[11px] font-mono text-blood ml-1">已死亡</span>}
             {!npc.onScene && !npc.isDead && <span className="text-[11px] font-mono text-dim/40 ml-1">已离场</span>}
           </div>
-          {npc.realm && <div className="text-[12px] font-mono text-god/60 truncate mt-0.5">{npc.realm.split('|').join(' · ')}</div>}
+          {npc.realm && (() => {
+            const full = npc.realm.split('|').join(' · ');
+            const t = normalizeTier(npc.realm);                        // 只给阶位名上特效，其余(Lv·身份)保持原色
+            return <div className="text-[12px] font-mono text-god/60 truncate mt-0.5">
+              {t && full.startsWith(t)
+                ? <><span className={`${tierFxClass(t)} font-bold`}>{t}</span>{full.slice(t.length)}</>
+                : full}
+            </div>;
+          })()}
           {npc.review && <div className="text-[12px] text-amber-200/55 italic truncate mt-0.5">锐评·{npc.review}</div>}
           <div className="mt-1.5 flex items-center gap-2">
             <span className={`text-[12px] font-mono ${favorCls(npc.favor)}`}>好感 {npc.favor > 0 ? '+' : ''}{npc.favor}</span>
