@@ -92,6 +92,13 @@ function applyProxy(proxy: string, realUrl: string): { url: string; headers: Rec
   if (p.includes('{url}')) return { url: p.replace('{url}', encodeURIComponent(realUrl)), headers: {} };
   return { url: p.replace(/\/+$/, ''), headers: { 'X-Upstream': realUrl } };
 }
+/* OpenAI 系图接口的 CORS 代理拼接：①含 {url} → 替换 ②否则路径前缀式 → 拼到代理后（适配同源 /proxy/<上游> 这类）。空=直连 */
+function proxifyImg(proxy: string | undefined, realUrl: string): string {
+  const p = (proxy || '').trim();
+  if (!p) return realUrl;
+  if (p.includes('{url}')) return p.replace('{url}', encodeURIComponent(realUrl));
+  return p.replace(/\/+$/, '') + '/' + realUrl.replace(/^https?:\/\//i, '');
+}
 /* NAI 返回 ZIP。仿 fanren 的正规 ZIP 解析：先读「中央目录」(尺寸/压缩方式最可靠，即便本地头因数据描述符把大小写成0也不受影响)，
    再退化扫「本地文件头」；按文件名后缀挑图、按压缩方式还原(0=stored 直接用 / 8=deflate-raw 解压)。比启发式扫描稳得多。*/
 async function inflateEntry(bytes: Uint8Array, method: number): Promise<Uint8Array> {
@@ -212,7 +219,8 @@ async function genOpenAI(cfg: OpenAIImgConfig, o: GenOpts): Promise<string> {
   };
   const { signal, clear } = withTimeout(o.signal, 600);
   try {
-    const res = await safeFetch(cfg.baseUrl.replace(/\/$/, '') + '/images/generations', {
+    const realUrl = cfg.baseUrl.replace(/\/$/, '') + '/images/generations';
+    const res = await safeFetch(proxifyImg(cfg.corsProxy, realUrl), {
       method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${key}` },
       body: JSON.stringify(body), signal,
     });
@@ -221,7 +229,7 @@ async function genOpenAI(cfg: OpenAIImgConfig, o: GenOpts): Promise<string> {
     const item = data.data?.[0] ?? {};
     if (item.b64_json) return `data:image/png;base64,${item.b64_json}`;
     if (item.url) {
-      const r2 = await fetch(item.url);
+      const r2 = await fetch(proxifyImg(cfg.corsProxy, item.url));
       return u8ToDataUrl(new Uint8Array(await r2.arrayBuffer()), r2.headers.get('content-type') || 'image/png');
     }
     throw new Error('图片接口未返回图像数据');

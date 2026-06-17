@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { useImageGen, IMG_SERVICES, type ImgService, type OpenAIImgConfig } from '../store/imageGenStore';
+import { useImageGen, IMG_SERVICES, DEFAULT_IMG_CORS_PROXY, type ImgService, type OpenAIImgConfig } from '../store/imageGenStore';
 import ApiRoutePicker from './ApiRoutePicker';
 
 const inputCls = 'w-full bg-void border border-edge rounded px-2 py-1 text-[13px] font-mono text-slate-200 outline-none focus:border-god';
@@ -30,6 +30,12 @@ function OpenAIImgFields({ cfg, set }: { cfg: OpenAIImgConfig; set: (p: Partial<
   return (
     <div className="space-y-2">
       <Field label="接口地址"><input value={cfg.baseUrl} onChange={(e) => set({ baseUrl: e.target.value })} placeholder="https://api.openai.com/v1" className={inputCls} /></Field>
+      <Field label="CORS 代理地址（已默认填好·绕过浏览器跨域；改后自动保存、刷新不丢）" hint="默认走部署站同源代理(自动拼成 代理/上游)。要直连官方/已放行 CORS 的接口就清空；也可填含 {url} 的前缀式。点「↺默认」恢复。">
+        <div className="flex gap-1">
+          <input value={cfg.corsProxy ?? ''} onChange={(e) => set({ corsProxy: e.target.value })} placeholder="留空=直连" className={inputCls + ' flex-1'} />
+          <button type="button" onClick={() => set({ corsProxy: DEFAULT_IMG_CORS_PROXY })} title="恢复默认代理" className="shrink-0 px-2 text-[12px] font-mono text-dim hover:text-god border border-edge rounded transition-colors">↺默认</button>
+        </div>
+      </Field>
       <Field label="API Key"><input type="password" value={cfg.apiKey} onChange={(e) => set({ apiKey: e.target.value })} placeholder="sk-..." className={inputCls} /></Field>
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
         <Field label="模型"><input value={cfg.model} onChange={(e) => set({ model: e.target.value })} placeholder="gpt-image-1" className={inputCls} /></Field>

@@ -1400,6 +1400,8 @@ function TextApiSection() {
   const setFanficMode      = useSettings((s) => s.setFanficMode);
   const factCheck          = useSettings((s) => s.factCheck);
   const setFactCheck       = useSettings((s) => s.setFactCheck);
+  const narrativePov       = useSettings((s) => s.narrativePov);
+  const setNarrativePov    = useSettings((s) => s.setNarrativePov);
 
   const effective = textUseSharedApi ? api : textApi;
 
@@ -1442,6 +1444,21 @@ function TextApiSection() {
           <div>
             <div className="text-sm text-slate-200">事实增强（防穿帮）</div>
             <div className="text-sm text-dim mt-0.5">核实正文里的现实可查证元素（年代/真实地名/品牌价格/专业内容）→ 锁定时代与事实锚点 → 下回合注入正文保持一致、不穿帮。同样能否联网取决于你的模型。</div>
+          </div>
+        </div>
+        <div className="p-3 bg-panel border border-edge rounded-lg">
+          <div className="text-sm text-slate-200">叙事人称</div>
+          <div className="text-sm text-dim mt-0.5 mb-2">强制正文以指定人称叙述主角，最高优先（压过预设文风块与历史惯性，无需依赖预设里的人称块）。「跟随预设」=不干预，由预设/模型决定。仅作用于主角，NPC 始终第三人称；对白不受影响。</div>
+          <div className="flex flex-wrap gap-1.5">
+            {([['off', '跟随预设'], ['first', '第一人称（我）'], ['second', '第二人称（你）'], ['third', '第三人称（他/她）']] as const).map(([val, label]) => (
+              <button
+                key={val}
+                onClick={() => setNarrativePov(val)}
+                className={`px-3 py-1.5 rounded-md text-sm border transition ${narrativePov === val ? 'bg-sky-900/40 text-sky-300 border-sky-600/50' : 'bg-black/20 text-dim border-edge hover:text-slate-200'}`}
+              >
+                {label}
+              </button>
+            ))}
           </div>
         </div>
       </div>

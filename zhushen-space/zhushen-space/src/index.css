@@ -272,47 +272,72 @@ body {
   .enh-fx-6::after  { animation: enhHalo 0.9s ease-in-out infinite; }
 }
 
-/* ══ 阶位特效（主角/NPC 通用·阶位越高越华丽；复用 .enh-fx 的 keyframes）══
-   用在**含阶位名文字**的元素上：渐变流光文字 + 脉冲发光，高阶叠 ::before 光环、无上之境再加旋环。
-   由 derivedStats.tierFxClass(tier) 输出 `tier-fx tier-fx-N`（低阶返回普通纯色类、不套 tier-fx）。 */
+/* ══ 阶位特效 v2（主角/NPC 通用·一阶起就有流光，四阶起"花哨"：金属glint+发光光环，逐阶加码）══
+   技法(全纯CSS·不嵌素材，参考网络游戏UI做法)：① 渐变内嵌一条高亮白带 → enhShimmer 扫 background-position
+   让亮带掠过字形=金属流光/glint；② drop-shadow 多层=霓虹光晕；③ ::before 径向/conic 光环；④ 高阶叠
+   enhBreath 呼吸 / enhFlame 焰动 / enhSpin 旋环 = "特效越多"。由 derivedStats.tierFxClass →
+   `tier-fx tier-fx-N`：N=0 一/二阶, 1 三阶, 2 四阶★, …, 11 无上之境（四阶起每阶 +1，逐阶更华丽）。 */
 .tier-fx {
+  --t1:#cbd5e1; --t2:#e2e8f0; --tg:#f8fafc;            /* 渐变两端色 + 中央高亮带(glint) */
+  --tc:rgba(203,213,225,.4); --tgl:2px; --tspd:3.8s;   /* 光晕色 / 光晕半径 / 流光周期 */
   position: relative; display: inline-block;
   -webkit-background-clip: text; background-clip: text; color: transparent;
-  background-size: 220% auto;
+  background-image: linear-gradient(100deg, var(--t1), var(--t2) 40%, var(--tg) 50%, var(--t2) 60%, var(--t1));
+  background-size: 240% auto;
+  filter: drop-shadow(0 0 var(--tgl) var(--tc));
 }
-@media (prefers-reduced-motion: no-preference) { .tier-fx { animation: enhShimmer 3.5s linear infinite; } }
-/* 一/二阶 珠光微流（入门级·有流光、无光环，最克制；继承 .tier-fx 的慢速 shimmer） */
-.tier-fx-0 { background-image: linear-gradient(90deg,#e2e8f0,#cbd5e1,#f1f5f9,#cbd5e1); filter: drop-shadow(0 0 3px rgba(203,213,225,.5)); }
-/* 三/四/五阶 翠光 */
-.tier-fx-1 { background-image: linear-gradient(90deg,#6ee7b7,#34d399,#a7f3d0,#34d399); filter: drop-shadow(0 0 3px rgba(52,211,153,.55)); }
-/* 六/七阶 青蓝 */
-.tier-fx-2 { background-image: linear-gradient(90deg,#7dd3fc,#38bdf8,#bae6fd,#38bdf8); filter: drop-shadow(0 0 5px rgba(56,189,248,.72)); }
-/* 八/九阶 碧蓝·流光呼吸 */
-.tier-fx-3 { background-image: linear-gradient(90deg,#67e8f9,#22d3ee,#cffafe,#22d3ee); filter: drop-shadow(0 0 7px rgba(34,211,238,.85)); }
-/* 绝强 金辉 + 光环 */
-.tier-fx-4 { background-image: linear-gradient(90deg,#fde68a,#f59e0b,#fff7cc,#f59e0b); filter: drop-shadow(0 0 8px rgba(245,158,11,.9)); }
-.tier-fx-4::before { content:''; position:absolute; inset:-50% -22%; border-radius:50%; z-index:-1; background: radial-gradient(circle, rgba(245,158,11,.5), transparent 70%); }
-/* 至强 紫电 + 强光环 */
-.tier-fx-5 { background-image: linear-gradient(90deg,#c4b5fd,#a78bfa,#f5d0fe,#a78bfa); filter: drop-shadow(0 0 10px rgba(167,139,250,1)); }
-.tier-fx-5::before { content:''; position:absolute; inset:-60% -26%; border-radius:50%; z-index:-1; background: radial-gradient(circle, rgba(167,139,250,.6), transparent 68%); }
-/* 巅峰至强 烈焰 */
-.tier-fx-6 { background-image: linear-gradient(90deg,#fdba74,#fb923c,#f87171,#fb923c); filter: drop-shadow(0 0 12px rgba(249,115,22,1)); }
-.tier-fx-6::before { content:''; position:absolute; inset:-68% -30%; border-radius:50%; z-index:-1; background: radial-gradient(circle, rgba(251,146,60,.62), rgba(239,68,68,.3) 45%, transparent 72%); }
-/* 无上之境 神性彩虹 + 多重光环 + 旋环 */
-.tier-fx-7 { background-image: linear-gradient(90deg,#f87171,#fbbf24,#34d399,#22d3ee,#a78bfa,#f472b6,#f87171); background-size:320% auto; filter: drop-shadow(0 0 7px rgba(255,255,255,.95)) drop-shadow(0 0 16px rgba(167,139,250,.85)); }
-.tier-fx-7::before { content:''; position:absolute; inset:-85% -40%; border-radius:50%; z-index:-1; opacity:.6; background: conic-gradient(from 0deg, rgba(248,113,113,.5),rgba(251,191,36,.5),rgba(52,211,153,.5),rgba(34,211,238,.5),rgba(167,139,250,.5),rgba(244,114,182,.5),rgba(248,113,113,.5)); }
-.tier-fx-7::after  { content:''; position:absolute; inset:-55% -28%; border-radius:50%; z-index:-1; background: radial-gradient(circle, rgba(255,255,255,.55), transparent 64%); }
+@media (prefers-reduced-motion: no-preference) { .tier-fx { animation: enhShimmer var(--tspd) linear infinite; } }
+
+/* 共享径向光环（四阶~巅峰至强；无上之境另用 conic）。逐阶 --hi 放大、--hc 加亮 = 越高越华丽 */
+.tier-fx-2::before,.tier-fx-3::before,.tier-fx-4::before,.tier-fx-5::before,.tier-fx-6::before,
+.tier-fx-7::before,.tier-fx-8::before,.tier-fx-9::before,.tier-fx-10::before {
+  content:''; position:absolute; inset:var(--hi); border-radius:50%; z-index:-1;
+  background: radial-gradient(circle, var(--hc), transparent 70%);
+}
+
+/* —— 一阶起逐阶配色/强度（灵气上升光谱：珠光→翠→青→蓝→靛→紫→金→赤金→焰→紫电→白金焰→彩虹）—— */
+.tier-fx-0 { }                                                                                                          /* 一/二阶 珠光（默认变量·银白慢流·无光环） */
+.tier-fx-1 { --t1:#34d399; --t2:#6ee7b7; --tg:#ecfdf5; --tc:rgba(52,211,153,.5);  --tgl:3px; --tspd:3.4s; }             /* 三阶 翠光（克制·无光环） */
+.tier-fx-2 { --t1:#22d3ee; --t2:#a5f3fc; --tg:#fff;    --tc:rgba(34,211,238,.85); --tgl:6px; --tspd:2.8s; --hi:-55% -24%; --hc:rgba(34,211,238,.45); }   /* 四阶 ★青·花哨起 */
+.tier-fx-3 { --t1:#38bdf8; --t2:#bae6fd; --tg:#fff;    --tc:rgba(56,189,248,.9);  --tgl:7px; --tspd:2.5s; --hi:-58% -26%; --hc:rgba(56,189,248,.5); }    /* 五阶 天蓝 */
+.tier-fx-4 { --t1:#818cf8; --t2:#c7d2fe; --tg:#fff;    --tc:rgba(129,140,248,.9); --tgl:8px; --tspd:2.3s; --hi:-60% -28%; --hc:rgba(129,140,248,.55); }  /* 六阶 靛蓝 */
+.tier-fx-5 { --t1:#a78bfa; --t2:#ddd6fe; --tg:#fff;    --tc:rgba(167,139,250,.95);--tgl:9px; --tspd:2.1s; --hi:-62% -29%; --hc:rgba(167,139,250,.6); }   /* 七阶 紫 */
+.tier-fx-6 { --t1:#f59e0b; --t2:#fde68a; --tg:#fffbeb; --tc:rgba(245,158,11,.95); --tgl:10px;--tspd:1.95s;--hi:-64% -30%; --hc:rgba(245,158,11,.62); }   /* 八阶 金 */
+.tier-fx-7 { --t1:#fb923c; --t2:#fdba74; --tg:#fff7ed; --tc:rgba(249,115,22,1);   --tgl:11px;--tspd:1.8s; --hi:-67% -32%; --hc:rgba(249,115,22,.65); }   /* 九阶 赤金 */
+.tier-fx-8 { --t1:#f43f5e; --t2:#fb7185; --tg:#fff1f2; --tc:rgba(244,63,94,1);    --tgl:12px;--tspd:1.6s; --hi:-72% -34%; --hc:rgba(244,63,94,.62); }    /* 绝强 赤焰 */
+.tier-fx-9 { --t1:#c084fc; --t2:#f0abfc; --tg:#fff;    --tc:rgba(192,132,252,1);  --tgl:13px;--tspd:1.45s;--hi:-76% -36%; --hc:rgba(192,132,252,.64); }  /* 至强 紫电 */
+.tier-fx-10{ --t1:#fbbf24; --t2:#fca5a5; --tg:#fff;    --tc:rgba(251,146,60,1);   --tgl:15px;--tspd:1.3s; --hi:-82% -38%; --hc:rgba(251,146,60,.64); }   /* 巅峰至强 白金烈焰 */
+/* 无上之境 神性彩虹：覆盖 7 色渐变 + conic 旋环 + 白芒（特效最多） */
+.tier-fx-11 { --tspd:1.15s;
+  background-image: linear-gradient(100deg,#f87171,#fbbf24,#34d399,#22d3ee,#a78bfa,#f472b6,#f87171);
+  background-size: 340% auto;
+  filter: drop-shadow(0 0 7px rgba(255,255,255,.95)) drop-shadow(0 0 16px rgba(167,139,250,.85));
+}
+.tier-fx-11::before { content:''; position:absolute; inset:-90% -44%; border-radius:50%; z-index:-1; opacity:.6; background: conic-gradient(from 0deg, rgba(248,113,113,.5),rgba(251,191,36,.5),rgba(52,211,153,.5),rgba(34,211,238,.5),rgba(167,139,250,.5),rgba(244,114,182,.5),rgba(248,113,113,.5)); }
+.tier-fx-11::after  { content:''; position:absolute; inset:-58% -30%; border-radius:50%; z-index:-1; background: radial-gradient(circle, rgba(255,255,255,.55), transparent 64%); }
+
 @media (prefers-reduced-motion: no-preference) {
-  .tier-fx-3 { animation: enhShimmer 2.6s linear infinite, enhBreath 2.2s ease-in-out infinite; }
-  .tier-fx-4 { animation: enhShimmer 2.3s linear infinite, enhBreath 2s   ease-in-out infinite; }
-  .tier-fx-5 { animation: enhShimmer 2s   linear infinite, enhBreath 1.6s ease-in-out infinite; }
-  .tier-fx-6 { animation: enhShimmer 1.6s linear infinite, enhFlame  0.55s ease-in-out infinite; }
-  .tier-fx-7 { animation: enhShimmer 1.2s linear infinite, enhBreath 1.1s ease-in-out infinite; }
-  .tier-fx-4::before { animation: enhHalo 1.8s ease-in-out infinite; }
-  .tier-fx-5::before { animation: enhHalo 1.4s ease-in-out infinite; }
-  .tier-fx-6::before { animation: enhHalo 1s   ease-in-out infinite; }
-  .tier-fx-7::before { animation: enhSpin 2.6s linear infinite; }
-  .tier-fx-7::after  { animation: enhHalo 1s   ease-in-out infinite; }
+  /* 光环脉冲（四阶起），逐阶加快 */
+  .tier-fx-2::before { animation: enhHalo 2s    ease-in-out infinite; }
+  .tier-fx-3::before { animation: enhHalo 1.8s  ease-in-out infinite; }
+  .tier-fx-4::before { animation: enhHalo 1.6s  ease-in-out infinite; }
+  .tier-fx-5::before { animation: enhHalo 1.4s  ease-in-out infinite; }
+  .tier-fx-6::before { animation: enhHalo 1.25s ease-in-out infinite; }
+  .tier-fx-7::before { animation: enhHalo 1.1s  ease-in-out infinite; }
+  .tier-fx-8::before { animation: enhHalo 1s    ease-in-out infinite; }
+  .tier-fx-9::before { animation: enhHalo 0.92s ease-in-out infinite; }
+  .tier-fx-10::before{ animation: enhHalo 0.84s ease-in-out infinite; }
+  /* 高阶叠呼吸/烈焰（六阶起特效更多：流光 + 第二条动画） */
+  .tier-fx-4 { animation: enhShimmer var(--tspd) linear infinite, enhBreath 2.4s ease-in-out infinite; }
+  .tier-fx-5 { animation: enhShimmer var(--tspd) linear infinite, enhBreath 2s   ease-in-out infinite; }
+  .tier-fx-6 { animation: enhShimmer var(--tspd) linear infinite, enhBreath 1.7s ease-in-out infinite; }
+  .tier-fx-7 { animation: enhShimmer var(--tspd) linear infinite, enhBreath 1.5s ease-in-out infinite; }
+  .tier-fx-8 { animation: enhShimmer var(--tspd) linear infinite, enhFlame  0.6s ease-in-out infinite; }
+  .tier-fx-9 { animation: enhShimmer var(--tspd) linear infinite, enhBreath 1.2s ease-in-out infinite; }
+  .tier-fx-10{ animation: enhShimmer var(--tspd) linear infinite, enhFlame  0.5s ease-in-out infinite; }
+  .tier-fx-11{ animation: enhShimmer var(--tspd) linear infinite, enhBreath 1s   ease-in-out infinite; }
+  .tier-fx-11::before { animation: enhSpin 2.6s linear infinite; }
+  .tier-fx-11::after  { animation: enhHalo 1s   ease-in-out infinite; }
 }
 
 /* ── 世界结算卡（任务结算页·华丽金边框）── */

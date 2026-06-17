@@ -6,7 +6,7 @@ import { computeAttrBreakdown, effectiveAttrs, ATTR_LABEL, type AttrBreak } from
 import { bioInnate, bioPower, bioStrengthLabel, BIO_TIER_NAMES, nominalTierNum } from '../systems/bioStrength';
 import { generateNpcAttrs, resolveForm, UNIT_TYPE_LABELS } from '../systems/npcAttrGen';
 import { usePlayer, type PlayerAttrs } from '../store/playerStore';
-import { gradeBadgeClass, gradeNameClass, gradeToNum } from '../store/itemStore';
+import { gradeBadgeClass, gradeNameClass, gradeToNum, splitAffixEntries } from '../store/itemStore';
 import NpcEquip from './NpcEquip';
 import NpcChatPanel from './NpcChatPanel';
 import { useTeam } from '../store/adventureTeamStore';
@@ -1267,13 +1267,13 @@ function NpcItemCard({ it, showSlot, ownerId, ownerGender }: { it: NonNullable<N
         </div>
       )}
       {it.requirement && <div className="text-[13px] text-sky-200/70 leading-relaxed"><span className="text-dim/40">需求·</span>{it.requirement}</div>}
-      {it.affix && <div className="text-[13px] text-amber-200/80 leading-relaxed"><span className="text-dim/40">词缀·</span>{it.affix}</div>}
+      {it.affix && <div className="text-[13px] text-amber-200/80 leading-snug"><span className="text-dim/40">词缀·</span>{splitAffixEntries(it.affix).map((a, i) => <span key={i} className="block">{a}</span>)}</div>}
       {(it.gems?.length ?? 0) > 0 && (
         <div className="text-[13px] leading-relaxed"><span className="text-dim/40">镶嵌·</span>
           {(it.gems ?? []).map((g, i) => <span key={i} className={g.high ? 'text-amber-200' : 'text-slate-300/80'}>{i > 0 ? '，' : ''}💎{g.name}</span>)}
         </div>
       )}
-      {it.effect && <div className="text-[13px] text-slate-300/80 leading-relaxed"><span className="text-god/50">效果·</span>{it.effect}</div>}
+      {it.effect && <div className="text-[13px] text-slate-300/80 leading-snug"><span className="text-god/50">效果·</span>{splitAffixEntries(it.effect).map((a, i) => <span key={i} className="block">{a}</span>)}</div>}
       {statLines.length > 0 && <div className="text-[12px] font-mono text-sky-400/70">属性词条：{statLines.join(' / ')}</div>}
       {it.intro && <div className="text-[13px] text-dim/55 leading-relaxed italic border-l-2 border-edge/50 pl-2"><span className="not-italic text-god/40">简介·</span>{it.intro}</div>}
       <div className="text-[13px] leading-relaxed italic border-l-2 border-edge/50 pl-2">

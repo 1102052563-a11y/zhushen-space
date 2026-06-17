@@ -206,14 +206,9 @@ export function normalizeTier(raw?: string): string {
 export function tierFxClass(tier?: string): string {
   const i = TIERS.indexOf(normalizeTier(tier) as typeof TIERS[number]);
   if (i < 0) return 'text-god';            // 认不出阶位 → 普通青光
-  if (i <= 1) return 'tier-fx tier-fx-0';  // 一/二阶 珠光微流（入门也有特效）
-  if (i <= 4) return 'tier-fx tier-fx-1';  // 三/四/五阶 翠光
-  if (i <= 6) return 'tier-fx tier-fx-2';  // 六/七阶 青蓝
-  if (i <= 8) return 'tier-fx tier-fx-3';  // 八/九阶 碧蓝流光呼吸
-  if (i === 9) return 'tier-fx tier-fx-4';  // 绝强 金辉光环
-  if (i === 10) return 'tier-fx tier-fx-5'; // 至强 紫电强光环
-  if (i === 11) return 'tier-fx tier-fx-6'; // 巅峰至强 烈焰
-  return 'tier-fx tier-fx-7';               // 无上之境 神性彩虹旋环
+  if (i <= 1) return 'tier-fx tier-fx-0';  // 一/二阶 珠光（克制·入门也有流光）
+  // 三阶=fx-1（仍克制）；四阶起"花哨"(glint+光环)且逐阶 +1：四阶=fx-2 … 无上之境=fx-11
+  return `tier-fx tier-fx-${i - 1}`;
 }
 
 /* ── 各阶位「单个基础属性」上限（普通属性口径；仅约束基础六维；装备/技能/天赋加成可超过此上限）──

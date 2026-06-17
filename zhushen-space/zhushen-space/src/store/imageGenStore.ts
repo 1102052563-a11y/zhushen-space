@@ -38,6 +38,7 @@ export interface NaiConfig {
 /* OpenAI 兼容图片（openai / gemini / custom 共用此结构）*/
 export interface OpenAIImgConfig {
   baseUrl: string; apiKey: string; model: string;
+  corsProxy?: string;                // CORS 代理：①含 {url} 前缀式 ②否则路径前缀式（拼到代理后，适配同源 /proxy/<上游>）。空=直连
   size: string; quality: string;     // size "1024x1024"，quality high/medium/low
 }
 
@@ -190,7 +191,9 @@ interface ImageGenState extends ImageGenSettings {
   resetStyles: () => void;
 }
 
-const DEFAULT_OPENAI_IMG: OpenAIImgConfig = { baseUrl: 'https://api.openai.com/v1', apiKey: '', model: 'gpt-image-1', size: '1024x1024', quality: 'high' };
+// 默认 CORS 代理：走部署站同源代理(绕过中转站/官方图接口的浏览器跨域)。玩家可改或清空，改后随 store 自动持久化、刷新不丢；点「↺默认」恢复此值。
+export const DEFAULT_IMG_CORS_PROXY = 'https://zhushen-space.pages.dev/proxy';
+const DEFAULT_OPENAI_IMG: OpenAIImgConfig = { baseUrl: 'https://api.openai.com/v1', apiKey: '', model: 'gpt-image-1', corsProxy: DEFAULT_IMG_CORS_PROXY, size: '1024x1024', quality: 'high' };
 
 export const useImageGen = create<ImageGenState>()(
   persist(

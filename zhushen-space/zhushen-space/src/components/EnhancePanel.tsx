@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { useItems, gradeNameClass, type InventoryItem } from '../store/itemStore';
+import { useItems, gradeNameClass, splitAffixEntries, type InventoryItem } from '../store/itemStore';
 import { useMisc } from '../store/miscStore';
 import { useEnhance, hydrateEnhancePortraits } from '../store/enhanceStore';
 import { CAT_ICON } from './BackpackModal';
@@ -15,13 +15,7 @@ import GemPanel from './GemPanel';
 export interface EnhanceFinalizeArgs { itemId: string; startLevel: number; newLevel: number; }
 export interface FinalizeStatus { ok: boolean; changed: boolean; error?: string; }
 
-/* 把词缀/效果文本按【…】拆成分条，逐条展示（排版更清晰）；无【】则整段当一条 */
-function splitAffixEntries(text?: string): string[] {
-  const t = String(text ?? '').trim();   // String() 兜底：affix/effect 万一是非字符串(数字/对象)也不崩
-  if (!t) return [];
-  if (!t.includes('【')) return [t];
-  return t.split(/(?=【)/g).map((s) => s.trim()).filter(Boolean);
-}
+/* splitAffixEntries 已提取到 itemStore 共享（各物品面板复用）。 */
 
 /* 强化所：左=看板娘立绘+切换+吐槽气泡 / 中=被强化装备+特效 / 右=操作区+本轮记录。
    仅乐园内（轮回乐园/专属房间）可强化；摇率/爆装/降级/保底全在 enhanceEngine 算，不花 API。

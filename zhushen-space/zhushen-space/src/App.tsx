@@ -1,10 +1,12 @@
 import {
+  buildPerspectiveRule,
   NARRATIVE_FIRST_RULE,
   TERRITORY_EFFECT_RULE,
   TERRITORY_STABILITY_RULE,
   EVO_VERIFY_RULE,
   BUFF_AS_STATUS_RULE,
   ITEM_FIXED_FORMAT_RULE,
+  AFFIX_EFFECT_RULE,
   ITEM_GRADE_TABLE_RULE,
   ITEM_ACQUIRE_RULE,
   ITEM_EXACT_REF_RULE,
@@ -1524,6 +1526,13 @@ export default function App() {
     // 任务世界结算：仅当本回合输入含【结算任务】时才注入（平时不喂，省 token、避免误触发）
     if (/【结算任务】/.test(userInput)) sysPrompt += '\n\n' + WORLD_SETTLEMENT_RULE;
 
+    // 叙事人称：前端「叙事人称」开关 → 注入到 system 最末尾（权重最高，压过预设文风块/历史第三人称惯性）；off=不注入、沿用预设
+    const povSel = useSettings.getState().narrativePov;
+    if (povSel && povSel !== 'off') {
+      const povName = usePlayer.getState().profile?.name || '主角';
+      sysPrompt += '\n\n' + buildPerspectiveRule(povSel, povName);
+    }
+
     // user/assistant 条目作为示例历史
     const examples = entries
       .filter((e) => e.role !== 'system' && !e.system_prompt && e.content)
@@ -1698,7 +1707,7 @@ export default function App() {
       `分类: ${it.category}${it.subType ? ' / ' + it.subType : ''}`,
       `品质(gradeDesc): ${it.gradeDesc || '—'}`,
       `强化峰值: 历史最高 +${args.startLevel} → +${args.newLevel}（词缀按历史最高等级生成；当前实际等级 +${lockedLevel}，降级不影响已有词缀）`,
-      `本次强化档数 N=${addAffix}（每 3 级 1 档）：先把已有词缀/效果按 ${addAffix} 档上调变强，再各新增 ${addAffix} 条全新词缀+全新效果（成对）`,
+      `本次强化档数 N=${addAffix}（每 3 级 1 档）：先把已有词缀/效果按 ${addAffix} 档上调变强，再新增 ${addAffix} 条全新词缀（每条「【名】：触发+数值+作用」自带详细说明）；效果(effect)只增强装备本体威能、不复述词缀`,
       `装备属性成长系数: ${growthCoef(it.gradeDesc, it.score)}（品级×评分得出；越高 → 新词缀/效果越强、攻防增幅越大、越有传说感）`,
       it.combatStat && `当前攻防(combatStat): ${it.combatStat}`,
       it.requirement && `装备需求: ${it.requirement}`,
@@ -1713,7 +1722,7 @@ export default function App() {
     try {
       const system = ENHANCE_FINALIZE_RULE + '\n' + ITEM_EXACT_REF_RULE;
       const user = `# 待刷新的强化装备\n${card}\n\n请按【装备强化·收尾刷新铁则】，输出这件装备强化到 +${args.newLevel} 后的 <upstore> updateItem 指令`
-        + `（${addAffix > 0 ? `档数 N=${addAffix}：**先**把已有每条词缀/效果按 ${addAffix} 档上调变强，**再**各新增 ${addAffix} 条各不相同的全新词缀+全新效果（成对）；保留 effect 里的【镶嵌加成】不动` : '本次未跨过 3 级整数倍，可不动词缀/效果（攻防/评分/外观/简介已由系统处理）'}）。只输出这一条 updateItem，只改 affix 和 effect。`;
+        + `（${addAffix > 0 ? `档数 N=${addAffix}：**先**把已有每条词缀/效果按 ${addAffix} 档上调变强，**再**新增 ${addAffix} 条各不相同的全新词缀（每条「【名】：触发+数值+作用+持续」自带说明、**禁止只写词缀名**）；效果(effect)按强化幅度增强装备本体威能、**不要逐条复述词缀**；保留 effect 里的【镶嵌加成】不动` : '本次未跨过 3 级整数倍，可不动词缀/效果（攻防/评分/外观/简介已由系统处理）'}）。只输出这一条 updateItem，只改 affix 和 effect。`;
       console.log('[Enhance] 收尾·发起 API 调用 →', chain[0]?.modelId, chain[0]?.baseUrl);
       const { content: reply } = await apiChatFallback(chain, [
         { role: 'system', content: system },
@@ -2980,7 +2989,8 @@ ${lines.join('\n')}`;
 - **可穿戴装备按身份/强弱给、宁少勿多**：平民/学生/杂兵/弱者 0~1 件(且多为日常衣物，绝不塞满身)，普通战斗者 1~2 件，精英 2~3 件，首领/强者/贵族才 3~5 件成套；**严禁给新手/平民/杂兵堆满装备**。每个 NPC 另给约 ${NPC_KIT_STORAGE_N} 件储物(随身杂物/消耗品/纪念品/钱袋等，储存空间可适当多给)。无战斗力的平民：装备位用**日常衣物/便服/制服**充当(category=防具)、武器可省或用日常工具，攻防可低或留空；品质(gradeDesc)按其身份与阶位给(平民多为白/绿色)。
 - **完整固定格式、与主角物品同标准、不准偷懒**：每件给 name/category(武器/防具/饰品/消耗品/材料/工具/重要物品/特殊物品/其他物品)/subType(类型细分)/gradeDesc(颜色品质)/combatStat(装备攻防,平民可低/无)/durability(耐久)/requirement(装备需求)/affix(词缀)/score(评分)/effect(效果)/intro(简介)/appearance(**逐部件外观,必填不可空**)；武器另加 killCount。
 - equip 每件给 equipSlot：武器→weapon:main，上身→armor:upper，鞋→armor:feet，头→armor:head，饰品→accessory:#1 等。
-只输出 JSON：{"kits":[{"npcId":"C1","equip":[{...固定格式字段, "equipSlot":"..."}],"storage":[{...固定格式字段}]}]}`;
+只输出 JSON：{"kits":[{"npcId":"C1","equip":[{...固定格式字段, "equipSlot":"..."}],"storage":[{...固定格式字段}]}]}
+${AFFIX_EFFECT_RULE}`;
     const user = `世界：${worldName}\nNPC 列表：\n${list}\n\n请为每个 NPC 生成贴合其身份的初始装备+储物（完整固定格式，别给学生/平民发军用装备）。`;
     try {
       const reply = await npcChatCompletion(sys, user);

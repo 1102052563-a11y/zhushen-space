@@ -227,6 +227,8 @@ export interface VecMemConfig {
   maxItems: number;            // 索引的记忆条目上限（与事实 FIFO 解耦，可放大）
 }
 
+export type NarrativePov = 'off' | 'first' | 'second' | 'third';  // 叙事人称：off=跟随预设（不干预）
+
 interface SettingsState {
   // 综合设置
   historyLimit: number;   // 0 = 不限制；> 0 = 仅显示/发送最近 N 条消息
@@ -247,6 +249,8 @@ interface SettingsState {
   setFanficMode: (v: boolean) => void;
   factCheck: boolean;     // 事实增强：核实正文里的现实可查证元素→锁定时代/事实锚点→下回合注入防穿帮
   setFactCheck: (v: boolean) => void;
+  narrativePov: NarrativePov;   // 叙事人称：off=跟随预设（不注入）；first/second/third=强制注入到正文 system 末尾（权重最高）
+  setNarrativePov: (v: NarrativePov) => void;
   apiLibrary: ApiEndpoint[];   // 中心 API 接口库（综合设置维护，各功能快捷选填）
   apiRoutes: Record<string, string[]>;  // 各功能的接口路由：featureKey → 有序 endpoint id 列表（上=优先，失败 fallback）
   apiThrottle: { maxConcurrent: number; minGapMs: number };  // 全局请求节流：最大并发 + 最小间隔（缓解 429）
@@ -585,6 +589,7 @@ export const useSettings = create<SettingsState>()(
       plotChoices: false,
       fanficMode: false,
       factCheck: false,
+      narrativePov: 'off',
       apiLibrary: [],
       apiRoutes: {},
       apiThrottle: { maxConcurrent: 3, minGapMs: 250 },
@@ -628,6 +633,7 @@ export const useSettings = create<SettingsState>()(
       setPlotChoices: (v) => set({ plotChoices: v }),
       setFanficMode: (v) => set({ fanficMode: v }),
       setFactCheck: (v) => set({ factCheck: v }),
+      setNarrativePov: (v) => set({ narrativePov: v }),
 
       addApiEndpoint: () => set((s) => ({
         apiLibrary: [...s.apiLibrary, {
