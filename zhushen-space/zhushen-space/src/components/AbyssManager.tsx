@@ -1,23 +1,16 @@
 import { useAbyss } from '../store/abyssStore';
-import { ABYSS_BIOMES } from '../data/abyssData';
 import { ABYSS_TUNING } from '../systems/abyssEngine';
 import ApiRoutePicker from './ApiRoutePicker';
 
-/* 深渊地牢设置页（变量管理 → 🕳深渊）：API 路由（加成卡/原罪物/觉醒/裁判剧情局的 AI 配文）+ 调参（门票/死亡保留）+ meta 总览 + 重置。
+/* 深渊地牢设置页（变量管理 → 🕳深渊）：API 路由（加成卡/原罪物/觉醒/裁判剧情局的 AI 配文）+ 调参（门票/死亡保留）+ 重置。
+   进度总览在玩法面板（右导航 🕳深渊）顶部展示，不在此页。
    提示词为代码注入（systems/abyssPrompts.ts 的 ABYSS_*_RULE），改即生效，无需在此配置；数值绝大多数在 systems/abyssEngine.ts 的 ABYSS_TUNING。 */
 export default function AbyssManager() {
-  const meta = useAbyss((s) => s.meta);
   const config = useAbyss((s) => s.config);
   const setConfig = useAbyss((s) => s.setConfig);
   const clearAbyss = useAbyss((s) => s.clearAbyss);
 
   const card = 'rounded-lg border border-edge bg-panel/60 p-4';
-  const stat = (label: string, value: React.ReactNode) => (
-    <div className="rounded bg-void/60 border border-edge px-2 py-1.5 text-center">
-      <div className="text-sm font-semibold text-violet-200">{value}</div>
-      <div className="text-[10px] text-dim/70">{label}</div>
-    </div>
-  );
 
   return (
     <div className="space-y-4 max-w-2xl mx-auto text-slate-300">
@@ -26,22 +19,6 @@ export default function AbyssManager() {
           入口在右侧导航「🕳深渊」。<b className="text-god/80">仅主神空间（轮回乐园）内开启</b>。多层地牢 roguelike：下探五险地（黑渊→界之底）、用腐蚀换力、夺取原罪物。
           <br />掉落/腐蚀/战斗/觉醒全前端确定性（副本沙盒，<b className="text-god/80">加成/腐蚀绝不外泄</b>，仅战利品/称号/结晶经结算带出）；需 AI 的环节（加成卡组合·原罪物文案·觉醒词缀·裁判剧情）走下方集成路由。提示词为代码注入（<span className="font-mono text-dim">abyssPrompts.ts</span>），改即生效。
         </div>
-      </div>
-
-      {/* meta 总览 */}
-      <div className={card}>
-        <div className="text-sm font-bold text-slate-200 mb-2">📊 进度总览（跨周目 meta）</div>
-        <div className="grid grid-cols-4 gap-2">
-          {stat('堕落结晶', meta.crystals)}
-          {stat('通关次数', meta.clearsCount)}
-          {stat('最深层', meta.deepestFloor)}
-          {stat('觉醒充能', meta.awakenCharges)}
-          {stat('解锁险地', `${meta.unlockedZones}/${ABYSS_BIOMES.length}`)}
-          {stat('星图节点', meta.starmapNodes.length)}
-          {stat('卡牌库', meta.cardLibrary.length)}
-          {stat('原罪图鉴', Object.keys(meta.sinCodex).length)}
-        </div>
-        <div className="mt-2 text-[11px] text-dim/70">无尽深渊：{meta.endlessUnlocked ? '已解锁 ✓（通关界之底）' : '未解锁（需先通关界之底）'}</div>
       </div>
 
       {/* API 路由 */}

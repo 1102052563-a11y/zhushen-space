@@ -154,12 +154,19 @@ export default function AbyssPanel({ onClose, onGenBoons, onGenSin, onGenAwaken,
           <button onClick={onClose} className="text-slate-400 hover:text-slate-100 text-sm px-2">✕</button>
         </div>
 
-        {/* meta 条 */}
+        {/* 进度总览（跨周目 meta） */}
         <div className="grid grid-cols-4 gap-px bg-violet-900/20 text-center text-[11px]">
           <Stat label="堕落结晶" value={meta.crystals} accent="text-fuchsia-300" />
-          <Stat label="最深" value={`${meta.deepestFloor} 层`} accent="text-violet-300" />
           <Stat label="通关" value={meta.clearsCount} accent="text-amber-300" />
+          <Stat label="最深层" value={meta.deepestFloor} accent="text-violet-300" />
           <Stat label="觉醒充能" value={meta.awakenCharges} accent="text-rose-300" />
+          <Stat label="解锁险地" value={`${meta.unlockedZones}/${ABYSS_BIOMES.length}`} accent="text-violet-300" />
+          <Stat label="星图节点" value={meta.starmapNodes.length} accent="text-fuchsia-300" />
+          <Stat label="卡牌库" value={meta.cardLibrary.length} accent="text-sky-300" />
+          <Stat label="原罪图鉴" value={Object.keys(meta.sinCodex).length} accent="text-rose-300" />
+        </div>
+        <div className="px-3 py-1 text-center text-[10px] text-violet-300/70 bg-violet-900/10">
+          无尽深渊：{meta.endlessUnlocked ? '已解锁 ♾' : '未解锁（需通关界之底）'}
         </div>
 
         <div className="p-4 space-y-4">
