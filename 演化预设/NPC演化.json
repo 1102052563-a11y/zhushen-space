@@ -619,7 +619,7 @@
                 {
                     "id": "standalone-cultivation-realm-output",
                     "name": "Standalone 境界字段规范",
-                    "content": "【阶位字段规范】本规则优先于所有阶位/等阶示例。\n- character.<id>.identity.realm 只允许写标准阶位枚举：凡人，以及 一阶·Lv.1 到 无上之境·Lv.140+（格式：阶位·Lv.当前等级，如 一阶·Lv.8、三阶·Lv.25；阶位一阶~九阶/绝强/至强/巅峰至强/无上之境，Lv 连续）；禁止把“(37%)”“圆满”等展示文本写入 realm 字段。\n- 伪装阶位必须写 `character.<id>.identity.disguiseRealm`，不得写入 identity.realm。伪装阶位只表示外界误以为的阶位，不含等阶进度，不影响属性、战斗或 numeric 数值。\n- 当本轮证据说明旧伪装阶位不再对外维持时，必须写 `character.<id>.identity.disguiseRealm = \"\"` 清空；不要用 `cr.<id>`、identity.realm 或背景/记忆文字来间接表达“伪装失效”。\n- NPC 阶段只处理普通人物/人族修士档案。宠物/召唤物、宠物/召唤物、兽群、化形妖修、尸傀、炼尸、机关傀儡、构装体、人形傀儡都不要写入 characters.*，统一交给 beast 预设维护 beasts.*。\n- 若当前目标已被证据判定属于 Beast 数据域，应停止输出 character(s).* 路径，并在思维链中说明应由 beast 阶段维护；不要为了化形、人形外观或傀儡外壳写 characters.<id>.identity.isYaozu。\n- 阶位变动必须有正文或长期演化依据；不确定时只小幅增减进阶点数，不擅自升级。\n\n",
+                    "content": "【阶位字段规范】本规则优先于所有阶位/等阶示例。\n- character.<id>.identity.realm 只允许写标准阶位枚举：凡人，以及 一阶·Lv.1 到 无上之境·Lv.140+（格式：阶位·Lv.当前等级，如 一阶·Lv.8、三阶·Lv.25；阶位一阶~九阶/绝强/至强/巅峰至强/无上之境，Lv 连续）；禁止把“(37%)”“圆满”等展示文本写入 realm 字段。\n- 伪装阶位必须写 `character.<id>.identity.disguiseRealm`，不得写入 identity.realm。伪装阶位只表示外界误以为的阶位，不含等阶进度，不影响属性、战斗或 numeric 数值。\n- 当本轮证据说明旧伪装阶位不再对外维持时，必须写 `character.<id>.identity.disguiseRealm = \"\"` 清空；不要用 `cr.<id>`、identity.realm 或背景/记忆文字来间接表达“伪装失效”。\n- NPC 阶段只处理普通人物/人族修士档案。宠物/召唤物、宠物/召唤物、兽群、化形妖修、尸傀、炼尸、机关傀儡、构装体、人形傀儡都不要写入 characters.*，统一交给 beast 预设维护 beasts.*。\n- 若当前目标已被证据判定属于 Beast 数据域，应停止输出 character(s).* 路径，并在思维链中说明应由 beast 阶段维护；不要为了化形、人形外观或傀儡外壳写 characters.<id>.identity.isYaozu。\n- 阶位变动必须有正文或长期演化依据；不确定时不擅自升级。\n\n",
                     "enabled": true,
                     "role": "system"
                 },
