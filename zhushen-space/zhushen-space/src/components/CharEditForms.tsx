@@ -29,7 +29,8 @@ function Actions({ onSave, onClose }: { onSave: () => void; onClose: () => void 
 }
 
 // skill 省略 = 「新增技能」模式：保存时走 addSkill 追加一条（id 留空交给 store 自动分配，技能数量无上限）。
-export function SkillEditForm({ charId, skill, onClose }: { charId: string; skill?: Skill; onClose: () => void }) {
+// onSubmit 提供时：不写 characterStore，改把组装好的字段回调给调用方（技能树节点 grants 复用此表单）。
+export function SkillEditForm({ charId, skill, onClose, onSubmit }: { charId?: string; skill?: Skill; onClose: () => void; onSubmit?: (fields: Omit<Skill, 'id' | 'addedAt'>) => void }) {
   const [d, setD] = useState({
     name: skill?.name ?? '', level: skill?.level ?? '', rarity: skill?.rarity ?? '', skillType: skill?.skillType ?? '',
     cost: skill?.cost ?? '', cooldown: skill?.cooldown ?? '', target: skill?.target ?? '', damage: skill?.damage ?? '',
@@ -48,8 +49,9 @@ export function SkillEditForm({ charId, skill, onClose }: { charId: string; skil
       layers: d.layers, layerProgress: d.layerProgress, tags,
       desc: d.desc, effect: d.effect, layerEffects: d.layerEffects, note: d.note,
     };
-    if (skill?.id) useCharacters.getState().updateSkill(charId, skill.id, fields);
-    else useCharacters.getState().addSkill(charId, { id: '', ...fields });   // 追加新技能，store 自动去重分配 id
+    if (onSubmit) { onSubmit(fields as Omit<Skill, 'id' | 'addedAt'>); onClose(); return; }   // 技能树节点：回调而非写 store
+    if (skill?.id) useCharacters.getState().updateSkill(charId!, skill.id, fields);
+    else useCharacters.getState().addSkill(charId!, { id: '', ...fields });   // 追加新技能，store 自动去重分配 id
     onClose();
   };
   return (
@@ -77,18 +79,22 @@ export function SkillEditForm({ charId, skill, onClose }: { charId: string; skil
   );
 }
 
-export function TraitEditForm({ charId, trait, onClose }: { charId: string; trait: Trait; onClose: () => void }) {
+// trait 省略 + onSubmit 提供 = 「新建天赋」模式（技能树节点 grants 复用）：回调字段，不写 store。
+export function TraitEditForm({ charId, trait, onClose, onSubmit }: { charId?: string; trait?: Trait; onClose: () => void; onSubmit?: (fields: Omit<Trait, 'addedAt'>) => void }) {
   const [d, setD] = useState({
-    name: trait.name ?? '', rarity: trait.rarity ?? '', category: trait.category ?? '', level: trait.level ?? '',
-    source: trait.source ?? '', attrBonus: trait.attrBonus ?? '',
-    desc: trait.desc ?? '', effect: trait.effect ?? '', note: trait.note ?? '',
+    name: trait?.name ?? '', rarity: trait?.rarity ?? '', category: trait?.category ?? '', level: trait?.level ?? '',
+    source: trait?.source ?? '', attrBonus: trait?.attrBonus ?? '',
+    desc: trait?.desc ?? '', effect: trait?.effect ?? '', note: trait?.note ?? '',
   });
   const set = (k: keyof typeof d) => (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => setD((p) => ({ ...p, [k]: e.target.value }));
   const save = () => {
-    useCharacters.getState().updateTrait(charId, trait.name, {
-      name: d.name.trim() || trait.name, rarity: d.rarity || trait.rarity, category: d.category, level: d.level,
+    const fields = {
+      name: d.name.trim() || trait?.name || '未命名天赋', rarity: d.rarity || trait?.rarity || 'C', category: d.category, level: d.level,
       source: d.source, attrBonus: d.attrBonus, desc: d.desc, effect: d.effect, note: d.note,
-    });
+    };
+    if (onSubmit) { onSubmit(fields as Omit<Trait, 'addedAt'>); onClose(); return; }
+    if (!trait) { onClose(); return; }
+    useCharacters.getState().updateTrait(charId!, trait.name, fields);
     onClose();
   };
   return (

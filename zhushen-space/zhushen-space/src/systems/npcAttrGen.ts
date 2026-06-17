@@ -1,5 +1,5 @@
 import type { PlayerAttrs } from '../store/playerStore';
-import { tierBounds, nominalTierNum, clampToTierWindow, TEMPLATE_FLEX_RANGES, templateFromRatio, PEAK_PCT, bioInnate } from './bioStrength';
+import { tierBounds, nominalTierNum, clampToTierWindow, peakCapForTier } from './bioStrength';
 
 /* ── NPC 六维·机械生成（生物强度反推，治 API 幻觉乱给离谱属性）─────────────────────
    是 bioStrength「读数(六维→档)」的逆运算「回填(档→六维)」，共用同一把尺子(tierBounds/窗口/模板 Flex%)，
@@ -38,26 +38,43 @@ const JOB_ALIASES: [JobArchetype, string[]][] = [
   ['allrounder', ['冒险', '万金油', '游民', '杂', '多面']],
 ];
 
-// ── 流派 → 前 N 名次占「Flex 增量」的百分比区间；余下名次均分剩余 ──
+// ── 流派 → 各名次「相对主属性」的比例(主=1，副属性递减)。峰值口径：主属性=该档峰值上限，副按此递减 ──
 export type AttrStyle = 'specialist' | 'dual' | 'balanced' | 'glass' | 'low' | 'underdog';
-const STYLE_PCT: Record<AttrStyle, [number, number][]> = {
-  specialist: [[0.50, 0.70], [0.15, 0.25]],            // 单核+明显短板
-  dual:       [[0.35, 0.45], [0.25, 0.35]],            // 双核
-  balanced:   [[0.24, 0.30], [0.20, 0.24], [0.16, 0.22]], // 三核均衡
-  glass:      [[0.55, 0.75], [0.15, 0.25]],            // 玻璃大炮
-  low:        [[0.40, 0.55], [0.15, 0.25]],            // 低强度单核
-  underdog:   [[0.28, 0.35], [0.18, 0.24]],            // 较平均(成长型)
+const STYLE_FALLOFF: Record<AttrStyle, number[]> = {
+  specialist: [1, 0.38, 0.20, 0.13, 0.10],  // 单核+明显短板
+  dual:       [1, 0.72, 0.34, 0.22, 0.16],  // 双核
+  balanced:   [1, 0.86, 0.72, 0.56, 0.46],  // 三核均衡
+  glass:      [1, 0.30, 0.16, 0.12, 0.10],  // 玻璃大炮
+  low:        [1, 0.42, 0.24, 0.16, 0.12],  // 低强度单核
+  underdog:   [1, 0.74, 0.56, 0.44, 0.36],  // 较平均(成长型)
 };
 
-// ── 形态 → 强制压到 Floor 的维度(非人/低智 int/cha/luck 很低，框架硬要求) ──
-export type CreatureForm = 'humanoid' | 'beast' | 'undead' | 'construct' | 'mindless';
-const FORM_SUPPRESS: Record<CreatureForm, (keyof PlayerAttrs)[]> = {
-  humanoid: [],
-  beast: ['int', 'cha'],
-  undead: ['cha'],
-  construct: ['cha', 'luck'],
-  mindless: ['int', 'cha', 'luck'],
+// ── 形态档 FORM_PROFILE：逐维处理策略，治"非人缺维度"且修高阶压制失效 ──
+//   keep=正常按职业 / weak=退化(绝对低值,脱离阶位) / none=缺失(≈1~3) / boost=增强(顶到本阶峰值)
+//   关键修复：旧版把缺失维压到「本阶 Min」，而高阶 Min 达数千(九阶=8641)→九阶妖兽智力 8641、EP 13万，压了个寂寞。
+//   现在 weak/none 用**绝对低值**(与阶位无关)：「没有智力的妖兽」无论几阶 int 都≈2~12。boost 顶到本阶峰值(不超 cap,保闭环)。
+export type DimRule = 'keep' | 'weak' | 'none' | 'boost';
+export type CreatureForm =
+  | 'humanoid' | 'beast' | 'greatbeast' | 'undead' | 'construct'
+  | 'mindless' | 'plant' | 'ooze' | 'elemental' | 'spirit' | 'divine';
+type FormDims = Record<keyof PlayerAttrs, DimRule>;
+const FORM_PROFILE: Record<CreatureForm, FormDims> = {
+  //            力          体          敏          智          魅          幸
+  humanoid:   { str: 'keep',  con: 'keep',  agi: 'keep',  int: 'keep',  cha: 'keep', luck: 'keep' },
+  beast:      { str: 'keep',  con: 'keep',  agi: 'keep',  int: 'weak',  cha: 'weak', luck: 'keep' }, // 妖兽·有本能无理智
+  greatbeast: { str: 'boost', con: 'boost', agi: 'keep',  int: 'weak',  cha: 'weak', luck: 'keep' }, // 巨兽/龙·力体碾压
+  undead:     { str: 'keep',  con: 'keep',  agi: 'keep',  int: 'weak',  cha: 'none', luck: 'weak' }, // 亡灵·无魅(惊悚)·智看生前
+  construct:  { str: 'keep',  con: 'keep',  agi: 'keep',  int: 'weak',  cha: 'none', luck: 'none' }, // 机械·无情感无命运
+  mindless:   { str: 'keep',  con: 'keep',  agi: 'keep',  int: 'none',  cha: 'none', luck: 'none' }, // 虫群·纯本能·无智
+  plant:      { str: 'keep',  con: 'boost', agi: 'none',  int: 'none',  cha: 'none', luck: 'weak' }, // 植物·固着高耐久
+  ooze:       { str: 'keep',  con: 'boost', agi: 'keep',  int: 'none',  cha: 'none', luck: 'weak' }, // 黏物·软体
+  elemental:  { str: 'keep',  con: 'keep',  agi: 'boost', int: 'keep',  cha: 'weak', luck: 'keep' }, // 元素·能量态
+  spirit:     { str: 'none',  con: 'keep',  agi: 'keep',  int: 'boost', cha: 'keep', luck: 'keep' }, // 精神体·无形体力·心识强
+  divine:     { str: 'boost', con: 'boost', agi: 'boost', int: 'boost', cha: 'boost',luck: 'keep' }, // 神性·高位全能
 };
+// 缺维绝对值(脱离阶位)：none≈"根本没有"、weak≈"退化/动物级"
+const absNone = (rng: () => number) => 1 + Math.floor(rng() * 3);   // 1~3
+const absWeak = (rng: () => number) => 3 + Math.floor(rng() * 10);  // 3~12
 
 // 幸运自然上限(按阶位序号 一阶..九阶；更高阶外推)。幸运不进 5 项预算、无来源优先低值。
 const LUCK_CAP_BY_TIER = [2, 3, 4, 5, 6, 8, 10, 12, 15];
@@ -108,15 +125,71 @@ export function resolveJob(job?: string): JobArchetype {
   for (const [arch, ks] of JOB_ALIASES) if (ks.some((k) => t.includes(k))) return arch;
   return 'allrounder';
 }
-/* 形态文本 → 归类(默认人形) */
+const FORM_ENUM = new Set<CreatureForm>(['humanoid', 'beast', 'greatbeast', 'undead', 'construct', 'mindless', 'plant', 'ooze', 'elemental', 'spirit', 'divine']);
+/* 形态文本 → 归类(默认人形)。顺序敏感：具体/易混的先判(幽灵→spirit先于幽魂→undead；龙→greatbeast先于兽→beast) */
 export function resolveForm(form?: string): CreatureForm {
   const t = (form ?? '').toString();
-  if (/无智|本能|植物|史莱姆|菌|虫群|尸潮/.test(t)) return 'mindless';
-  if (/机械|构装|傀儡|魔像|装置|自动|改造体/.test(t)) return 'construct';
-  if (/亡灵|不死|尸|骷髅|幽魂|怨灵|鬼/.test(t)) return 'undead';
-  if (/兽|龙|魔兽|妖兽|野|虫|蛇|狼|禽|爬虫|巨/.test(t)) return 'beast';
+  // 已是枚举值则直接返回——防"调用方先 resolveForm 成 'beast' 再传进来被二次解析(英文不匹配中文)→退化成 humanoid、形态压制失效"
+  if (FORM_ENUM.has(t as CreatureForm)) return t as CreatureForm;
+  if (/神性|神格|概念体|本源|至高神|主神|神祇|神明|造物主/.test(t)) return 'divine';
+  if (/精神体|灵体|怨念|幽灵|魂魄|鬼魂|残魂|魅影|魂灵/.test(t)) return 'spirit';
+  if (/元素|能量体|火灵|水灵|风灵|岩灵|焰魔|冰魄/.test(t)) return 'elemental';
+  if (/黏|粘|软体|泥|胶|史莱姆|斯莱姆/.test(t)) return 'ooze';
+  if (/植物|草木|树|花|藤|真菌|菌|苔|藓/.test(t)) return 'plant';
+  if (/无智|纯本能|虫群|蜂群|尸潮|菌潮/.test(t)) return 'mindless';
+  if (/机械|构装|傀儡|魔像|装置|自动|改造体|金属躯/.test(t)) return 'construct';
+  if (/亡灵|不死|死灵|尸|骷髅|幽魂|怨灵|鬼|僵|亡魂|死徒/.test(t)) return 'undead';
+  if (/巨龙|巨兽|泰坦|巨虫|远古龙|龙|巨/.test(t)) return 'greatbeast';
+  if (/兽|魔兽|妖兽|野|虫|蛇|狼|禽|爬虫|甲壳/.test(t)) return 'beast';
   return 'humanoid';
 }
+// ── 类型标签 UNIT_TYPE：一个封闭枚举一站式定 {职业排序 + 流派 + 凡人 + 形态}。AI 从清单选(选择题>填空题，治"自由职业花名匹配失败兜底力主") ──
+//   [标签, 别名关键词[], 规格]。命中标签或任一别名即取；顺序敏感(狂战在武者前，免得"狂战士"被武者的'战士'抢走)。
+export interface TypeSpec { arch: JobArchetype; style?: AttrStyle; mundane?: boolean; form?: CreatureForm; civBias?: keyof PlayerAttrs; }
+const UNIT_TYPE: [string, string[], TypeSpec][] = [
+  // 人形·战斗
+  ['狂战蛮兵', ['狂战', '蛮兵', '野蛮', '狂暴', '嗜血'], { arch: 'warrior', style: 'glass' }],
+  ['武者战士', ['武者', '战士', '剑', '枪', '骑士', '武士', '刀客', '勇士', '枪兵'], { arch: 'warrior', style: 'specialist' }],
+  ['武僧格斗', ['武僧', '格斗', '拳', '体术', '搏击'], { arch: 'warrior', style: 'dual' }],
+  ['重装坦克', ['重装', '坦克', '守护', '护卫', '盾', '铁卫', '壁垒'], { arch: 'tank', style: 'specialist' }],
+  ['敏捷刺客', ['刺客', '暗杀', '潜行', '暗影', '杀手', '盗'], { arch: 'assassin', style: 'glass' }],
+  ['远程射手', ['射手', '弓', '弩', '炮手', '狙', '箭'], { arch: 'assassin', style: 'glass' }],
+  ['游侠猎手', ['游侠', '猎手', '猎人', '驯兽', '游骑'], { arch: 'assassin', style: 'dual' }],
+  ['死灵巫师', ['死灵', '尸术', '骨法', '亡灵法师', '操尸'], { arch: 'summoner', style: 'glass' }],
+  ['元素法师', ['法师', '元素法', '术师', '魔导', '咒术师', '贤者', '学者', '炮'], { arch: 'mage', style: 'glass' }],
+  ['咒术邪法', ['术士', '邪术', '契约', '诅咒', '血法', '巫', '深渊'], { arch: 'warlock', style: 'glass' }],
+  ['圣职牧师', ['牧师', '圣职', '祭司', '神官', '治疗', '医', '德鲁伊', '修女'], { arch: 'priest', style: 'dual' }],
+  ['圣骑战僧', ['圣骑', '战僧', '圣战', '圣殿'], { arch: 'warrior', style: 'dual' }],
+  ['召唤操控', ['召唤', '操控', '傀儡师', '通灵', '役使', '咒灵'], { arch: 'summoner', style: 'dual' }],
+  ['魅惑吟游', ['吟游', '魅惑', '歌者', '诗人'], { arch: 'leader', style: 'dual' }],
+  ['统御指挥', ['统御', '指挥', '领袖', '队长', '统帅', '将', '帝', '皇'], { arch: 'leader', style: 'dual' }],
+  ['全能斗士', ['全能', '冒险', '万金油', '多面', '游民'], { arch: 'allrounder', style: 'balanced' }],
+  // 人形·非战斗(凡人)
+  ['平民百姓', ['平民', '百姓', '村民', '路人', '侍应', '侍女', '仆', '奴', '乞', '难民', '居民', '市民'], { arch: 'allrounder', mundane: true }],
+  ['匠人工役', ['匠', '铁匠', '苦力', '农夫', '渔夫', '樵夫', '船夫', '车夫', '杂役'], { arch: 'allrounder', mundane: true, civBias: 'con' }],
+  ['商贾文人', ['商人', '商贩', '掌柜', '货郎', '账房', '文官', '书生', '学童', '文人'], { arch: 'allrounder', mundane: true, civBias: 'int' }],
+  ['艺伶乐者', ['歌姬', '舞姬', '乐师', '艺伶', '伶', '妓', '优伶'], { arch: 'allrounder', mundane: true, civBias: 'cha' }],
+  // 非人(form)
+  ['巨兽龙类', ['巨兽', '巨龙', '泰坦', '远古龙', '龙'], { arch: 'warrior', style: 'specialist', form: 'greatbeast' }],
+  ['凶兽魔兽', ['凶兽', '妖兽', '魔兽', '野兽', '兽'], { arch: 'warrior', style: 'specialist', form: 'beast' }],
+  ['亡灵不死', ['亡灵', '不死', '骷髅', '幽魂', '怨灵', '僵尸', '尸'], { arch: 'warrior', style: 'specialist', form: 'undead' }],
+  ['机械构装', ['机械', '构装', '傀儡兵', '魔像', '装置', '自动机'], { arch: 'tank', style: 'specialist', form: 'construct' }],
+  ['虫群本能', ['虫群', '蜂群', '纯本能', '尸潮'], { arch: 'assassin', style: 'glass', form: 'mindless' }],
+  ['植物真菌', ['植物', '草木', '树人', '花妖', '藤', '真菌', '菌'], { arch: 'tank', style: 'low', form: 'plant' }],
+  ['黏物软体', ['黏', '粘', '软体', '泥', '胶', '史莱姆'], { arch: 'tank', style: 'low', form: 'ooze' }],
+  ['元素能量', ['元素体', '能量体', '火灵', '水灵', '风灵', '岩灵'], { arch: 'mage', style: 'glass', form: 'elemental' }],
+  ['精神怨灵', ['精神体', '灵体', '怨念', '幽灵', '魂魄', '残魂', '魅影'], { arch: 'mage', style: 'glass', form: 'spirit' }],
+  ['神性概念', ['神性', '神格', '概念体', '本源', '至高神', '造物主'], { arch: 'leader', style: 'dual', form: 'divine' }],
+];
+/* 类型标签 → 生成规格(收编 职业排序+流派+凡人+形态)。AI 从封闭清单选；未识别则退回职业花名归类(向后兼容旧花名/旧 genAttrs) */
+export function resolveType(tag?: string): TypeSpec {
+  const t = (tag ?? '').toString();
+  if (t) for (const [label, ks, spec] of UNIT_TYPE) if (t.includes(label) || ks.some((k) => t.includes(k))) return spec;
+  return { arch: resolveJob(t) };   // 兜底：按职业花名归类(arch)，其余维度走原 isMundane/resolveForm/resolveStyle
+}
+/* 类型标签清单(供手动 UI 下拉；与 UNIT_TYPE 同源不漂移) */
+export const UNIT_TYPE_LABELS: string[] = UNIT_TYPE.map(([label]) => label);
+
 /* 流派：AI 给则用，否则按 职业+档位+身份 兜底推导 */
 export function resolveStyle(style: AttrStyle | undefined, bioNum: number, arch: JobArchetype, identity?: string): AttrStyle {
   if (style) return style;
@@ -138,128 +211,97 @@ function parseBioNum(b: string | number | undefined): number {
 export interface GenAttrOpts {
   tier?: string; level?: number;
   bioTier: string | number;       // 生物强度档 T0~T9
-  job?: string;                   // 职业花名(自动归类)
-  style?: AttrStyle;              // 流派(可选；不给则推导)
-  form?: string | CreatureForm;   // 形态(可选；不给当人形)
+  type?: string;                  // 类型标签(封闭枚举,收编 职业排序+流派+凡人+形态；优先于 job)
+  job?: string;                   // 职业花名(自动归类；type 缺失时的兜底)
+  style?: AttrStyle;              // 流派(可选；不给则按类型/推导)
+  form?: string | CreatureForm;   // 形态(可选；显式给则覆盖类型自带形态；都没有当人形)
   role?: string;                  // 角色定位/段位(杂兵/精英/头目/首领/霸主/神话…)，前端据此把档位夹进合理区间、纠偏 AI 判档
   identity?: string;              // 身份(用于流派推导)
   seed?: string;                  // 随机种子(传 npc.id 以复现)
+  force?: boolean;                // true=手动指定了档位，跳过「凡人档」(把平民也按所选战斗档生成，用于隐藏高手)
+}
+
+// 平民/非战斗身份关键词 → 默认走「凡人档」(极低常人属性，不套战斗职业框架)；含战斗词则不算平民。
+const MUNDANE_RE = /侍应|侍女|丫鬟|婢女|女佣|佣人|仆从|仆人|店小二|小二|跑堂|掌柜|老板娘|老板|店主|村民|村姑|村妇|农夫|农妇|渔夫|樵夫|平民|路人|百姓|居民|市民|难民|流民|商人|商贩|小贩|货郎|摊主|船夫|车夫|马夫|乐师|歌姬|舞姬|厨子|厨娘|裁缝|绣娘|账房|杂役|苦力|乞丐|奴隶|侍童|书童|孩童|幼童|学童/;
+const COMBAT_HINT_RE = /战|剑|刀|枪|矛|斧|弓|箭|盾|法师|术士|巫|咒|骑士|武|斗|猎|杀|刺客|游侠|卫兵|护卫|镖|将|统领|首领|领主|圣骑|修士|战姬|佣兵|雇佣|强者|高手|宗师|魔|妖|兽|龙|神/;
+function isMundane(job?: string, tier?: string, identity?: string): boolean {
+  const t = `${job ?? ''} ${tier ?? ''} ${identity ?? ''}`;
+  if (/零阶|凡人|无修为|普通人|手无缚鸡|不会武/.test(t)) return true;   // 明确凡人
+  if (COMBAT_HINT_RE.test(t)) return false;                              // 有战斗身份 → 不算平民(可能隐藏高手)
+  return MUNDANE_RE.test(t);
 }
 
 /* 核心：生物强度 + 阶位 + 职业 → 机械生成六维 */
 export function generateNpcAttrs(opts: GenAttrOpts): PlayerAttrs {
   const rng = mulberry32(hashSeed(opts.seed ?? 'npc') ^ (parseBioNum(opts.bioTier) * 2654435761));
   const tierNum = nominalTierNum(opts.tier, opts.level);
-  const [min, cap] = tierBounds(tierNum);
-  const flexTotal = (cap - min) * 5;
+  const [min] = tierBounds(tierNum);
 
-  // 1+3. 档位校正：AI 档位 → 本阶窗口 ∩ 角色定位区间(纠偏 AI 判档偏高/偏低) → 在该档 Flex% 区间随机取占用率
+  // 类型规格(收编 职业排序+流派+凡人+形态)：type 优先，缺失退回 job 花名归类(向后兼容)
+  const ts = resolveType(opts.type || opts.job);
+
+  // 0. 凡人档：类型判平民、或 isMundane 命中(平民/非战斗/零阶)且未手动指定档 → 极低常人属性，不套战斗框架(治"零阶酒馆女侍应力22")
+  //    civBias 让匠人(体)/商文(智)/艺伶(魅)略高于纯平民；手动选档(force)则尊重(隐藏高手)。
+  if (!opts.force && (ts.mundane ?? isMundane(opts.job, opts.tier, opts.identity))) {
+    const r = (lo: number, hi: number) => lo + Math.floor(rng() * (hi - lo + 1));
+    const civ: PlayerAttrs = { str: r(2, 6), agi: r(3, 8), con: r(3, 8), int: r(2, 7), cha: r(3, 9), luck: r(0, 2) };
+    if (ts.civBias) civ[ts.civBias] = r(7, 16);   // 侧重维(体/智/魅)略高，仍属常人范围
+    return civ;
+  }
+
+  // 1. 资质潜力档：AI 档位 → 本阶窗口 ∩ 角色定位区间(纠偏 AI 判档偏高/偏低)
   let tk = clampToTierWindow(parseBioNum(opts.bioTier), tierNum);
+  const [winLo, winHi] = [Math.min(9, Math.max(0, tierNum - 1)), Math.min(9, tierNum + 2)];
   const band = roleBand(opts.role);
   if (band) {
-    const wlo = Math.min(9, Math.max(0, tierNum - 1)), whi = Math.min(9, tierNum + 2);
-    const lo = Math.max(band[0], wlo), hi = Math.min(band[1], whi);
-    if (lo <= hi) tk = Math.max(lo, Math.min(hi, tk));   // 定位×阶位有交集：把 AI 档位夹进交集
-    else tk = band[1] < wlo ? wlo : whi;                 // 无交集(三阶却报杂兵/一阶却报神话)：贴到阶位窗口靠定位的那一端
+    const lo = Math.max(band[0], winLo), hi = Math.min(band[1], winHi);
+    tk = lo <= hi ? Math.max(lo, Math.min(hi, tk)) : (band[1] < winLo ? winLo : winHi);
   }
-  const [flo, fhi] = TEMPLATE_FLEX_RANGES[Math.min(6, tk)];
-  // 取档内「内段」：避开正好落在档位边界 lo 上——templateFromRatio 用 <= 会把边界值归到下一档、造成掉档
-  const baseRatio = clamp(flo + (0.12 + 0.76 * rng()) * (fhi - flo), 0, 1);
-  // 等级成长：本阶内低等级压低占用率(治"1级却满属性")。Lv 满则不压；高阶仍受窗口下界保底、不跌破本阶基线
+  // 2. 等级成长：本阶内低等级把「实际档」往窗口下界压(治"1级却满属性")；Lv 满则 = tk
   const tierFloorLv = (tierNum - 1) * 10 + 1;
   const lvProg = clamp(((opts.level ?? 1) - tierFloorLv) / 9, 0, 1);
-  const ratio = clamp(baseRatio * (LV_GROWTH_START + (1 - LV_GROWTH_START) * lvProg), 0, 1);
-  const targetFlex = ratio * flexTotal;
-  const tkEff = clampToTierWindow(templateFromRatio(ratio), tierNum); // 等级压低后的「实际档」，自检对齐它(资质潜力档 tk 仅定占用区间/流派)
+  const lvGrowth = LV_GROWTH_START + (1 - LV_GROWTH_START) * lvProg;
+  const tkEff = clampToTierWindow(Math.round(winLo + (tk - winLo) * lvGrowth), tierNum);
+  // 3. 生物强度档 → 单属性峰值上限(窗口顶档=满 Cap)；主属性 roll 到接近该上限
+  const peakCap = peakCapForTier(tkEff, tierNum);
+  const mainPeak = Math.round(min + (peakCap - min) * (0.92 + 0.08 * rng()));
 
-  // 职业排序 + 流派百分比 + 形态压制维度
-  const arch = resolveJob(opts.job);
+  // 职业排序(类型/职业) + 流派(类型/推导) + 形态档(逐维处理策略)
+  const arch = ts.arch;
   const order = JOB_ORDER[arch];
-  const form = (typeof opts.form === 'string' ? resolveForm(opts.form) : opts.form) ?? 'humanoid';
-  const suppressed = new Set<keyof PlayerAttrs>(FORM_SUPPRESS[form]);
-  const style = resolveStyle(opts.style, tk, arch, opts.identity);
+  // 形态：显式 form 段「只在非人形时」覆盖类型自带形态(免得 AI 习惯性填"人形"把 凶兽魔兽 的兽形打回人形)
+  const explicitForm = (typeof opts.form === 'string' && opts.form) ? resolveForm(opts.form) : (opts.form as CreatureForm | undefined);
+  const form: CreatureForm = (explicitForm && explicitForm !== 'humanoid') ? explicitForm : (ts.form || explicitForm || 'humanoid');
+  const prof = FORM_PROFILE[form];
+  const style = opts.style ?? ts.style ?? resolveStyle(undefined, tkEff, arch, opts.identity);
+  const fall = STYLE_FALLOFF[style];
 
-  // 4. 每名次占 Flex 的比例：前 N 名按流派区间随机，其余均分剩余，再归一化
-  const sp = STYLE_PCT[style];
-  const pct: number[] = [];
-  let used = 0;
-  for (let i = 0; i < 5; i++) {
-    if (i < sp.length) { const [lo, hi] = sp[i]; const p = lo + rng() * (hi - lo); pct.push(p); used += p; }
-    else pct.push(-1);
-  }
-  const restCnt = 5 - sp.length;
-  const restEach = restCnt > 0 ? Math.max(0, 1 - used) / restCnt : 0;
-  for (let i = 0; i < 5; i++) if (pct[i] < 0) pct[i] = restEach;
-  const sum = pct.reduce((a, b) => a + b, 0) || 1;
-
-  // 铺分 Flex：按 pct 权重「注水式」分配 targetFlex 到未压维度——单维触及本阶上限则把溢出回灌其它维度，
-  // 守恒总预算（避免集中型流派把主属性顶到 Cap 后浪费预算、导致反算档位偏低、闭环失守）
+  // 4. 主属性=该档峰值 mainPeak，副属性按流派比例从主属性递减(+小抖动)
   const val: Record<keyof PlayerAttrs, number> = { str: min, agi: min, con: min, int: min, cha: min, luck: 0 };
-  const capRoom = cap - min;
-  const baseW = order.map((a, i) => (suppressed.has(a) ? 0 : pct[i] / sum));
-  const extra = [0, 0, 0, 0, 0];
-  let remaining = targetFlex;
-  for (let pass = 0; pass < 6 && remaining > 0.5; pass++) {
-    let wTot = 0;
-    order.forEach((a, i) => { if (!suppressed.has(a) && extra[i] < capRoom) wTot += baseW[i]; });
-    if (wTot <= 0) break;
-    let spilled = 0;
-    order.forEach((a, i) => {
-      if (suppressed.has(a) || extra[i] >= capRoom) return;
-      let give = remaining * (baseW[i] / wTot);
-      const room = capRoom - extra[i];
-      if (give > room) { spilled += give - room; give = room; }
-      extra[i] += give;
-    });
-    remaining = spilled;
-  }
-  order.forEach((a, i) => { val[a] = min + extra[i]; });
-  const mainAttr = order.find((a) => !suppressed.has(a)) ?? order[0];
+  const span = Math.max(0, mainPeak - min);
+  order.forEach((a, i) => {
+    const jitter = i === 0 ? 0 : (rng() - 0.5) * 0.10 * span;   // 主属性不抖(锁峰值)，副属性小幅起伏
+    val[a] = clamp(Math.round(min + span * fall[i] + jitter), min, peakCap);
+  });
+  val[order[0]] = clamp(mainPeak, min, peakCap);                // 主属性锁定该档峰值
+  // 形态档逐维改写：weak/none 用绝对低值(脱离阶位，治"九阶妖兽智力8641")，boost 顶到本阶峰值(≤cap 保闭环)。
+  // 主/次属性(order[0..1])受类型保护、形态不削——治"巫妖(warlock)int 被 undead 压成 9"，让智慧亡灵/法系非人保留核心维(骷髅兵 int 仍低=warrior 末位)。
+  const protectedDims = new Set<keyof PlayerAttrs>([order[0], order[1]]);
+  (['str', 'con', 'agi', 'int', 'cha'] as (keyof PlayerAttrs)[]).forEach((a) => {
+    const rule = prof[a];
+    if (rule === 'boost') val[a] = clamp(Math.round(min + span * (0.85 + 0.15 * rng())), min, peakCap); // 增强(可作用于主维)
+    else if (protectedDims.has(a)) return;                                               // 主/次属性不被形态削弱
+    else if (rule === 'none') val[a] = absNone(rng);                                     // 缺失≈1~3
+    else if (rule === 'weak') val[a] = Math.min(val[a], absWeak(rng));                   // 退化≈3~12
+  });
 
-  // 5. 两次 roll(0~7，按阶缩放) 给前两主属性 + 从短板守预算回收
-  const scale = flexTotal / 225; // 以一阶 Flex_total=225 为基准，高阶放大 roll 幅度
-  const m1 = order[0], m2 = order[1];
-  let added = 0;
-  for (const m of [m1, m2]) {
-    if (suppressed.has(m)) continue;
-    const r = Math.round(rng() * 7 * scale);
-    const real = Math.min(r, Math.max(0, cap - val[m])); // 只算「真加进去」的量(主属性已触顶则加不进)
-    val[m] += real; added += real;                       // 守预算只回收 real，避免顶档主属性把预算白白漏掉→掉档
-  }
-  for (let i = 4; i >= 2 && added > 0; i--) {
-    const a = order[i]; if (suppressed.has(a)) continue;
-    const take = Math.min(val[a] - min, added); val[a] -= take; added -= take;
-  }
-
-  // 6. 第3~5名次微抖动(被压维度跳过)
-  const jit = Math.max(1, flexTotal * 0.01);
-  for (let i = 2; i < 5; i++) { const a = order[i]; if (suppressed.has(a)) continue; val[a] += Math.round((rng() - 0.5) * 2 * jit); }
-
-  // clamp 五维 + 幸运单列(无来源低值；被压形态更低)
-  for (const a of order) val[a] = clamp(Math.round(val[a]), min, cap);
+  // 5. 幸运单列(不计入强度/峰值)：按形态档 none≈0 / weak低 / boost满 / keep正常(平方偏低)
   const luckCap = LUCK_CAP_BY_TIER[Math.min(8, tierNum - 1)] ?? 2;
   let luck = Math.round(rng() * rng() * luckCap); // 平方偏低
-  if (suppressed.has('luck')) luck = Math.min(luck, Math.ceil(luckCap * 0.2));
+  if (prof.luck === 'none') luck = Math.floor(rng() * 2);
+  else if (prof.luck === 'weak') luck = Math.min(luck, Math.ceil(luckCap * 0.2));
+  else if (prof.luck === 'boost') luck = luckCap;
   val.luck = clamp(luck, 0, luckCap);
 
-  // 7. 闭环自检：用 bioInnate 反算，若档位被 roll/抖动顶飞则微调主属性纠回
-  const step = Math.max(1, Math.ceil((cap - min) * 0.04));
-  for (let iter = 0; iter < 12; iter++) {
-    const got = bioInnate(val as PlayerAttrs, opts.tier, opts.level);
-    if (!got || got.num === tkEff) break;
-    // 顶飞→降主属性；不够→抬主属性；主属性触顶/触底时改调次主属性，避免卡死
-    const target = (got.num > tkEff) ? -step : step;
-    const a = (target < 0 ? (val[mainAttr] > min ? mainAttr : order[1]) : (val[mainAttr] < cap ? mainAttr : order[1]));
-    val[a] = clamp(val[a] + target, min, cap);
-  }
-
-  // 8. 生物强度档 → 单属性峰值上限：把最高单属性压进该档上限(如杂鱼一阶≤10)，
-  //    整体等比例缩放、保留职业主次形状(治"档已压低但主属性仍偏高")
-  const peakCap = Math.min(cap, Math.round(min + (cap - min) * (PEAK_PCT[tkEff] ?? 1)));
-  const curPeak = Math.max(val.str, val.agi, val.con, val.int, val.cha);
-  if (curPeak > peakCap && curPeak > min) {
-    const k = (peakCap - min) / (curPeak - min);
-    for (const a of order) val[a] = Math.max(min, Math.round(min + (val[a] - min) * k));
-  }
   return { str: val.str, agi: val.agi, con: val.con, int: val.int, cha: val.cha, luck: val.luck };
 }

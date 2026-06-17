@@ -1,14 +1,16 @@
 import { useState, useRef } from 'react';
 import { useNpc, type NpcRecord } from '../store/npcStore';
 import { useCharacters, RARITY_CLS, ELEMENT_CLS, SKILL_TIER_CLS, normSkillTier, type Deed } from '../store/characterStore';
-import { computeDerived, lvFromRealm, normalizeTier, realmFromLevel, trueAttr, computeMaxHp, computeMaxEp, gearMaxHpBonus, gearMaxEpBonus, abilityMaxHpBonus, abilityMaxEpBonus, effectiveResource } from '../systems/derivedStats';
+import { computeDerived, lvFromRealm, normalizeTier, realmFromLevel, trueAttr, computeMaxHp, computeMaxEp, gearMaxHpBonus, gearMaxEpBonus, abilityMaxHpBonus, abilityMaxEpBonus, effectiveResource, fullMaxHp, fullMaxEp } from '../systems/derivedStats';
 import { computeAttrBreakdown, effectiveAttrs, ATTR_LABEL, type AttrBreak } from '../systems/attrBonus';
 import { bioInnate, bioPower, bioStrengthLabel, BIO_TIER_NAMES, nominalTierNum } from '../systems/bioStrength';
-import { generateNpcAttrs, resolveForm } from '../systems/npcAttrGen';
+import { generateNpcAttrs, resolveForm, UNIT_TYPE_LABELS } from '../systems/npcAttrGen';
 import { usePlayer, type PlayerAttrs } from '../store/playerStore';
 import { gradeBadgeClass, gradeNameClass, gradeToNum } from '../store/itemStore';
 import NpcEquip from './NpcEquip';
 import NpcChatPanel from './NpcChatPanel';
+import { useTeam } from '../store/adventureTeamStore';
+import { generateJoinedTeam } from '../systems/adventureTeamGen';
 import StatusEffectChips from './StatusEffectChips';
 import { useImageGen, effectiveEquipService } from '../store/imageGenStore';
 import { generateImage, buildPortraitPrompt, buildEquipPrompt, shrinkDataUrl } from '../systems/imageGen';
@@ -286,6 +288,7 @@ function NpcEditForm({ npc, onDone }: { npc: NpcRecord; onDone: () => void }) {
     realm: npc.realm ?? '', title: npc.title ?? '', npcTag: npc.npcTag ?? '',
     profession: npc.profession ?? '', age: npc.age ?? '',
     contractorId: npc.contractorId ?? '', arenaRank: npc.arenaRank ?? '', brandLevel: npc.brandLevel ?? '',
+    affiliatedTeam: npc.affiliatedTeam ?? '',
     personality: npc.personality ?? '', review: npc.review ?? '', status: npc.status ?? '',
     callPlayer: npc.callPlayer ?? '', relations: npc.relations ?? '',
     appearance5: npc.appearance5 ?? '', appearanceDetail: npc.appearanceDetail ?? '', imageTags: npc.imageTags ?? '',
@@ -295,7 +298,7 @@ function NpcEditForm({ npc, onDone }: { npc: NpcRecord; onDone: () => void }) {
     str: sNum(npc.attrs?.str), agi: sNum(npc.attrs?.agi), con: sNum(npc.attrs?.con),
     int: sNum(npc.attrs?.int), cha: sNum(npc.attrs?.cha), luck: sNum(npc.attrs?.luck),
     hp: sNum(npc.hp), maxHp: sNum(npc.maxHp), mp: sNum(npc.mp), maxMp: sNum(npc.maxMp),
-    advancePoints: sNum(npc.advancePoints), attrPoints: sNum(npc.attrPoints),
+    attrPoints: sNum(npc.attrPoints),
     realAttrPoints: sNum(npc.realAttrPoints), skillPoints: sNum(npc.skillPoints),
     isDead: !!npc.isDead, inCombat: !!npc.inCombat,
   }));
@@ -311,6 +314,7 @@ function NpcEditForm({ npc, onDone }: { npc: NpcRecord; onDone: () => void }) {
       realm: f.realm.trim(), title: f.title.trim(), npcTag: f.npcTag.trim(),
       profession: f.profession.trim(), age: f.age.trim(),
       contractorId: f.contractorId.trim(), arenaRank: f.arenaRank.trim(), brandLevel: f.brandLevel.trim(),
+      affiliatedTeam: f.affiliatedTeam.trim(),
       personality: f.personality, review: f.review, status: f.status.trim() || '一切正常',
       callPlayer: f.callPlayer, relations: f.relations,
       appearance5: f.appearance5, appearanceDetail: f.appearanceDetail, imageTags: f.imageTags,
@@ -328,7 +332,7 @@ function NpcEditForm({ npc, onDone }: { npc: NpcRecord; onDone: () => void }) {
     }
     // 资源 / 点数：留空=保持不变（不写入），非空才覆盖
     for (const [k, v] of [['hp', f.hp], ['maxHp', f.maxHp], ['mp', f.mp], ['maxMp', f.maxMp],
-      ['advancePoints', f.advancePoints], ['attrPoints', f.attrPoints],
+      ['attrPoints', f.attrPoints],
       ['realAttrPoints', f.realAttrPoints], ['skillPoints', f.skillPoints]] as [keyof NpcRecord, string][]) {
       const n = optNum(v); if (n !== undefined) (patch as any)[k] = n;
     }
@@ -361,6 +365,7 @@ function NpcEditForm({ npc, onDone }: { npc: NpcRecord; onDone: () => void }) {
           <ERow label="职业"><input className={EDIT_INP} value={f.profession} onChange={(e) => set({ profession: e.target.value })} /></ERow>
           <ERow label="年龄"><input className={EDIT_INP} value={f.age} onChange={(e) => set({ age: e.target.value })} placeholder="如 约25岁/青年" /></ERow>
           <ERow label="契约者ID"><input className={EDIT_INP} value={f.contractorId} onChange={(e) => set({ contractorId: e.target.value })} /></ERow>
+          <ERow label="隶属冒险团" hint="仅契约者，如 暗渊远征队·斥候"><input className={EDIT_INP} value={f.affiliatedTeam} onChange={(e) => set({ affiliatedTeam: e.target.value })} /></ERow>
           <ERow label="竞技场排名"><input className={EDIT_INP} value={f.arenaRank} onChange={(e) => set({ arenaRank: e.target.value })} /></ERow>
           <ERow label="烙印等级"><input className={EDIT_INP} value={f.brandLevel} onChange={(e) => set({ brandLevel: e.target.value })} /></ERow>
         </div>
@@ -422,7 +427,6 @@ function NpcEditForm({ npc, onDone }: { npc: NpcRecord; onDone: () => void }) {
           <ERow label="HP 上限"><input type="number" className={EDIT_INP} value={f.maxHp} onChange={(e) => set({ maxHp: e.target.value })} placeholder="不改" /></ERow>
           <ERow label="当前 EP"><input type="number" className={EDIT_INP} value={f.mp} onChange={(e) => set({ mp: e.target.value })} placeholder="不改" /></ERow>
           <ERow label="EP 上限"><input type="number" className={EDIT_INP} value={f.maxMp} onChange={(e) => set({ maxMp: e.target.value })} placeholder="不改" /></ERow>
-          <ERow label="进阶点数"><input type="number" className={EDIT_INP} value={f.advancePoints} onChange={(e) => set({ advancePoints: e.target.value })} placeholder="不改" /></ERow>
           <ERow label="属性点"><input type="number" className={EDIT_INP} value={f.attrPoints} onChange={(e) => set({ attrPoints: e.target.value })} placeholder="不改" /></ERow>
           <ERow label="真实属性点"><input type="number" className={EDIT_INP} value={f.realAttrPoints} onChange={(e) => set({ realAttrPoints: e.target.value })} placeholder="不改" /></ERow>
           <ERow label="技能点"><input type="number" className={EDIT_INP} value={f.skillPoints} onChange={(e) => set({ skillPoints: e.target.value })} placeholder="不改" /></ERow>
@@ -615,7 +619,8 @@ export function DeedTimeline({
 }
 
 /* ────────── 基本信息 ────────── */
-function BasicTab({ npc, realm, genderCls }: { npc: NpcRecord; realm: ReturnType<typeof parseRealm>; genderCls: string }) {
+function BasicTab({ npc: npcProp, realm, genderCls }: { npc: NpcRecord; realm: ReturnType<typeof parseRealm>; genderCls: string }) {
+  const npc = useNpc((s) => s.npcs[npcProp.id]) ?? npcProp;   // 订阅实时记录：机械生成后生物强度档即时刷新
   const ap = parseAppearance5(npc.appearance5);
   const ex = npc.extra ?? {};
   const titles = useCharacters((s) => s.characters[npc.id]?.titles ?? []);
@@ -625,6 +630,29 @@ function BasicTab({ npc, realm, genderCls }: { npc: NpcRecord; realm: ReturnType
   // 生物强度：前端按六维机械判定（资质档=基础六维；战力档=含装备/技能/天赋加成），AI 不再判
   const npcBioEff = npc.attrs ? effectiveAttrs(npc.attrs, cdataBio?.skills ?? [], cdataBio?.traits ?? [], (npc.items ?? []).filter((i) => i.equipped) as any) : undefined;
   const npcBioLabel = npc.attrs ? bioStrengthLabel(bioInnate(npc.attrs, npc.realm, lvFromRealm(npc.realm)), bioPower(npcBioEff)) : (npc.bioStrength ?? '');
+
+  // ── 隶属冒险团：点击字段 → 强制加入该团（复用与私聊一致的 generateJoinedTeam）/ 退出当前冒险团 ──
+  const teamEstablished = useTeam((s) => s.established);
+  const teamName = useTeam((s) => s.name);
+  const teamLeaderId = useTeam((s) => s.leaderId);
+  const joinedOthers = teamEstablished && !!teamLeaderId && teamLeaderId !== 'B1';   // 已加入他人的团（主角非团长）
+  const affTeamName = (npc.affiliatedTeam || '').split(/[·・|｜（(]/)[0].trim();      // 该 NPC 所属团名（去掉职务后缀）
+  const alreadyInThis = teamEstablished && !!affTeamName && teamName === affTeamName;
+  const [teamActionOpen, setTeamActionOpen] = useState(false);
+  const [teamJoining, setTeamJoining] = useState(false);
+  const [teamActionMsg, setTeamActionMsg] = useState<string | null>(null);
+  const openTeamAction = () => { setTeamActionMsg(null); setTeamActionOpen(true); };
+  const forceJoinTeam = async () => {
+    setTeamJoining(true);
+    try {
+      const r = await generateJoinedTeam(npc);
+      setTeamActionMsg(r.ok
+        ? `✓ 已强制加入「${r.teamName || affTeamName}」——可在右侧导航「🛡 冒险团」查看全部信息。`
+        : `⚠ 加入失败：${r.error || '生成出错'}`);
+    } finally { setTeamJoining(false); }
+  };
+  const leaveTeam = () => { useTeam.getState().clearTeam(); setTeamActionMsg('✓ 已退出冒险团。'); };
+
   return (
     <div>
       <Section title="身份信息">
@@ -642,9 +670,19 @@ function BasicTab({ npc, realm, genderCls }: { npc: NpcRecord; realm: ReturnType
           <Field label="对你称呼" value={npc.callPlayer} />
           <Field label="称号" value={npc.title} accent={!!npc.title} />
           <Field label="职业" value={npc.profession} />
+          <Field label="类型" value={npc.unitType} />
           <Field label="竞技场排名" value={npc.arenaRank} />
           <Field label="烙印等级" value={npc.brandLevel} />
           <Field label="契约者ID" value={npc.contractorId} />
+          {npc.affiliatedTeam ? (
+            <button onClick={openTeamAction}
+              className="text-left rounded-lg bg-void/40 border border-amber-600/40 px-3 py-2 hover:border-amber-500/70 hover:bg-amber-900/10 transition-colors">
+              <div className="text-[12px] font-mono text-dim/50 flex items-center justify-between gap-2">隶属冒险团 <span className="text-amber-400/70 shrink-0">🛡 加入/退出</span></div>
+              <div className="text-sm mt-0.5 break-words text-god">{npc.affiliatedTeam}</div>
+            </button>
+          ) : (
+            <Field label="隶属冒险团" value={npc.affiliatedTeam} />
+          )}
           <Field label="生物强度" value={npcBioLabel} accent={!!npcBioLabel} />
         </div>
       </Section>
@@ -720,6 +758,66 @@ function BasicTab({ npc, realm, genderCls }: { npc: NpcRecord; realm: ReturnType
           </div>
         </div>
       </Section>
+
+      {/* 隶属冒险团·操作弹窗：强制加入该团 / 退出当前冒险团 */}
+      {teamActionOpen && (
+        <div className="fixed inset-0 z-[95] flex items-center justify-center bg-black/75 backdrop-blur-sm p-4"
+          onClick={() => { if (!teamJoining) setTeamActionOpen(false); }}>
+          <div className="relative w-full max-w-sm rounded-2xl border border-amber-500/40 bg-void shadow-[0_0_50px_rgba(0,0,0,0.9)] p-5 space-y-3"
+            onClick={(e) => e.stopPropagation()}>
+            <div className="text-base font-bold text-amber-200 flex items-center gap-2">🛡 冒险团</div>
+            <div className="text-[13px] text-slate-200 leading-relaxed">
+              <b className="text-slate-100">{npc.name || npc.id}</b> 隶属冒险团 <b className="text-amber-300">「{affTeamName || npc.affiliatedTeam}」</b>。
+            </div>
+            {teamEstablished && teamName && (
+              <div className="text-[12px] text-dim/60">
+                你当前所属：<b className="text-slate-200">{teamName}</b>{joinedOthers ? '（成员）' : '（你自建·团长）'}
+              </div>
+            )}
+
+            {teamActionMsg ? (
+              <>
+                <div className="text-[13px] text-slate-200 leading-relaxed rounded-lg border border-edge bg-void/40 px-3 py-2">{teamActionMsg}</div>
+                <button onClick={() => setTeamActionOpen(false)}
+                  className="w-full px-3 py-2 rounded-xl text-sm border border-edge text-dim/80 hover:text-slate-200 transition-colors">关闭</button>
+              </>
+            ) : (
+              <>
+                {alreadyInThis ? (
+                  <div className="text-[12px] text-emerald-300/70 leading-relaxed">你已在该冒险团中。</div>
+                ) : (
+                  <>
+                    <div className="text-[12px] text-dim/60 leading-relaxed">
+                      强制加入将由「冒险团」API 生成这支冒险团的全部信息（你为普通成员、非团长），逻辑与私聊获邀加入一致，仅跳过征得同意。
+                      {teamEstablished && teamName && teamName !== affTeamName && (
+                        <span className="block mt-1 text-amber-400/80">⚠ 你当前已属于【{teamName}】，加入新团将<b>替换</b>它。</span>
+                      )}
+                    </div>
+                    <button onClick={forceJoinTeam}
+                      className="w-full px-3 py-2 rounded-xl text-sm font-bold border border-amber-500/50 bg-amber-500/15 text-amber-200 hover:bg-amber-500/25 transition-colors">
+                      ⚔ 强制加入该冒险团
+                    </button>
+                  </>
+                )}
+                {joinedOthers && (
+                  <button onClick={leaveTeam}
+                    className="w-full px-3 py-2 rounded-xl text-sm font-bold border border-blood/50 bg-blood/10 text-blood hover:bg-blood/20 transition-colors">
+                    🚪 退出当前冒险团{teamName ? `（${teamName}）` : ''}
+                  </button>
+                )}
+                <button onClick={() => setTeamActionOpen(false)}
+                  className="w-full px-3 py-2 rounded-xl text-sm border border-edge text-dim/70 hover:text-slate-200 transition-colors">取消</button>
+              </>
+            )}
+
+            {teamJoining && (
+              <div className="absolute inset-0 rounded-2xl flex items-center justify-center bg-black/75 backdrop-blur-sm">
+                <div className="text-amber-200 text-sm font-mono animate-pulse">🛡 正在组建冒险团信息…</div>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -912,16 +1010,17 @@ function CustomTab({ npc }: { npc: NpcRecord }) {
 }
 
 /* ────────── 属性 ────────── */
-function AttrTab({ npc, realm }: { npc: NpcRecord; realm: ReturnType<typeof parseRealm> }) {
+function AttrTab({ npc: npcProp, realm }: { npc: NpcRecord; realm: ReturnType<typeof parseRealm> }) {
+  const npc = useNpc((s) => s.npcs[npcProp.id]) ?? npcProp;   // 订阅实时记录：点「机械生成」改 store 后本面板即时重渲染(上层传的是 getState 快照、不会触发刷新)
   const cdata = useCharacters((s) => s.characters[npc.id]);
   const equippedFull = (npc.items ?? []).filter((it) => it.equipped);
   // 属性构成：原始 + 装备/技能/天赋加成（真实加载）
   const breakdown = computeAttrBreakdown(npc.attrs, cdata?.skills ?? [], cdata?.traits ?? [], equippedFull as any);
   const effAttrs = { str: breakdown.str.total, agi: breakdown.agi.total, con: breakdown.con.total, int: breakdown.int.total, cha: breakdown.cha.total, luck: breakdown.luck.total } as PlayerAttrs;
   // HP/EP 上限由(有效)体质×20 / 智力×15 自动换算
-  // 最大HP/EP = 基础六维换算 + 装备里明确写"增加HP/EP上限"的效果；技能/天赋加成不计入上限
-  const maxHp = computeMaxHp(npc.attrs) + gearMaxHpBonus(equippedFull as any) + abilityMaxHpBonus(cdata?.skills, cdata?.traits);
-  const maxEp = computeMaxEp(npc.attrs) + gearMaxEpBonus(equippedFull as any) + abilityMaxEpBonus(cdata?.skills, cdata?.traits);
+  // 最大HP/EP = 基础六维换算 + 装备/被动明确写"增加HP/EP上限"的平值 + 百分比加成；技能/天赋的属性加成不计入上限
+  const maxHp = fullMaxHp(npc.attrs, equippedFull as any, cdata?.skills, cdata?.traits);
+  const maxEp = fullMaxEp(npc.attrs, equippedFull as any, cdata?.skills, cdata?.traits);
   const hpStr = `${effectiveResource(npc.hp, npc.maxHp, maxHp)} / ${maxHp}`;
   const epStr = `${effectiveResource(npc.mp, npc.maxMp, maxEp)} / ${maxEp}`;
   const attrDefs: { key: keyof PlayerAttrs; label: string }[] = [
@@ -929,18 +1028,20 @@ function AttrTab({ npc, realm }: { npc: NpcRecord; realm: ReturnType<typeof pars
     { key: 'int', label: '智力' }, { key: 'cha', label: '魅力' }, { key: 'luck', label: '幸运' },
   ];
   const hasAttrs = !!npc.attrs;
-  const [showTrue, setShowTrue] = useState(false);   // 基础属性 ↔ 真实属性
+  const [showTrue, setShowTrue] = useState(nominalTierNum(npc.realm, lvFromRealm(npc.realm)) >= 5);   // 五阶起默认显示真实属性点(=普通÷80)
   const upsertNpc = useNpc((s) => s.upsertNpc);
   const [rerollN, setRerollN] = useState(0);
   const [pickTier, setPickTier] = useState<string>(''); // 手动指定生物强度档(覆盖 AI 判定)；'' = 自动按当前资质档
+  const [pickType, setPickType] = useState<string>(''); // 手动指定类型标签(覆盖)；'' = 自动用登场判定/职业
   const _btn = nominalTierNum(npc.realm, lvFromRealm(npc.realm));
   const winLo = Math.max(0, _btn - 1), winHi = Math.min(9, _btn + 2); // 该 NPC 阶位可出现的档位窗口(下拉只列这些，免得选了被夹回看着没变)
-  // 机械生成/重置六维：按 阶位×(指定/当前资质)档×职业×形态 反推一套合理六维，修正 AI 幻觉给的离谱属性
+  // 机械生成/重置六维：按 阶位×(指定/当前资质)档×类型×形态 反推一套合理六维，修正 AI 幻觉给的离谱属性
   const regenAttrs = () => {
     const auto = npc.attrs ? (bioInnate(npc.attrs, npc.realm, lvFromRealm(npc.realm))?.num ?? 2) : 2;
     const bioNum = pickTier === '' ? auto : Number(pickTier);
-    const attrs = generateNpcAttrs({ tier: npc.realm, level: lvFromRealm(npc.realm), bioTier: bioNum, job: npc.profession, form: resolveForm(`${npc.npcTag ?? ''}${npc.profession ?? ''}${npc.name ?? ''}`), identity: npc.npcTag, seed: `${npc.id}#${rerollN}` });
-    upsertNpc(npc.id, { attrs });
+    const type = pickType || npc.unitType;   // 手选类型优先，否则用登场判定的类型标签
+    const attrs = generateNpcAttrs({ tier: npc.realm, level: lvFromRealm(npc.realm), bioTier: bioNum, type, job: npc.profession || npc.realm, form: resolveForm(`${npc.npcTag ?? ''}${npc.profession ?? ''}${npc.realm ?? ''}${npc.name ?? ''}`), identity: npc.npcTag, seed: `${npc.id}#${rerollN}`, force: pickTier !== '' });
+    upsertNpc(npc.id, { attrs, ...(pickType ? { unitType: pickType } : {}) });
     setRerollN((v) => v + 1);
   };
   const [attrPop, setAttrPop] = useState<keyof PlayerAttrs | null>(null);
@@ -956,7 +1057,6 @@ function AttrTab({ npc, realm }: { npc: NpcRecord; realm: ReturnType<typeof pars
           <Field label="蓝量 EP" value={epStr} />
           <Field label="阶位" value={realm.tier} accent />
           <Field label="等级" value={realm.lv != null ? `Lv.${realm.lv}` : ''} />
-          <Field label="进阶点数" value={npc.advancePoints != null ? String(npc.advancePoints) : undefined} />
           <Field label="属性点" value={npc.attrPoints != null ? String(npc.attrPoints) : undefined} />
           <Field label="真实属性点" value={npc.realAttrPoints != null ? String(npc.realAttrPoints) : undefined} />
           <Field label="技能点" value={npc.skillPoints != null ? String(npc.skillPoints) : undefined} />
@@ -970,6 +1070,11 @@ function AttrTab({ npc, realm }: { npc: NpcRecord; realm: ReturnType<typeof pars
               className="text-[11px] font-mono bg-void/60 border border-edge rounded px-1 py-0.5 text-dim/80 hover:border-god/40">
               <option value="">自动档</option>
               {BIO_TIER_NAMES.map((nm, i) => (i >= winLo && i <= winHi) ? <option key={i} value={i}>{`T${i}·${nm}`}</option> : null)}
+            </select>
+            <select value={pickType} onChange={(e) => setPickType(e.target.value)} title="指定类型（覆盖登场判定，决定主属性方向/形态/凡人）；自动=用登场类型或职业"
+              className="text-[11px] font-mono bg-void/60 border border-edge rounded px-1 py-0.5 text-dim/80 hover:border-god/40 max-w-[6.5rem]">
+              <option value="">自动类型</option>
+              {UNIT_TYPE_LABELS.map((lb) => <option key={lb} value={lb}>{lb}</option>)}
             </select>
             <button onClick={regenAttrs} title="按 阶位×(指定/当前)生物强度×职业×形态 机械重算六维（修正离谱属性；每次点击重 roll）"
               className="text-[11px] font-mono px-1.5 py-0.5 rounded border border-god/30 text-god/80 hover:bg-god/10 transition-colors">
@@ -1312,7 +1417,9 @@ function RelationTab({ npc, list, onSelect }: { npc: NpcRecord; list: NpcRecord[
       const ci = pair.search(/[:：]/);
       const tid = ci >= 0 ? pair.slice(0, ci).trim() : '';
       const rel = ci >= 0 ? pair.slice(ci + 1).trim() : pair;
-      const structured = /^[A-Za-z]\d{1,4}$/.test(tid);   // 左侧像 C1/G2/B1 才作结构化条目
+      // 左侧能解析到真实角色（或主角 B1）才作结构化可跳转条目——不限于 C1/G2 形态，
+      // AI 自创的 P_Aesc 等只要档案里确有该 ID 也能点进去；解析不到的悬空引用按描述行显示。
+      const structured = tid === 'B1' || list.some((x) => x.id === tid);
       return { tid, rel, structured, raw: pair };
     });
   if (rels.length === 0) return <Empty text="暂无人际关系记录" />;

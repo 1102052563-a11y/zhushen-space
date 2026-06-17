@@ -26,6 +26,9 @@ import { useFanfic } from '../store/fanficStore';
 import { useFact } from '../store/factStore';
 import { useCombat } from '../store/combatStore';
 import { useArena } from '../store/arenaStore';
+import { useSkillTree } from '../store/skillTreeStore';
+import { useCasino } from '../store/casinoStore';
+import { useAbyss } from '../store/abyssStore';
 import { clearJoySessions } from '../store/joyStore';
 
 /* 纳入快照的所有持久化 store（key 必须与各 store persist 的 name 一致）*/
@@ -54,6 +57,9 @@ const STORES: { key: string; api: any }[] = [
   { key: 'drpg-fact',       api: useFact },
   { key: 'drpg-combat',     api: useCombat },
   { key: 'drpg-arena',      api: useArena },
+  { key: 'drpg-skilltree',  api: useSkillTree },
+  { key: 'drpg-casino',     api: useCasino },
+  { key: 'drpg-abyss',      api: useAbyss },
 ];
 
 export interface SlotPreview { turn: number; playerName: string; location: string; lastText: string }
@@ -215,6 +221,9 @@ export async function clearProgress(): Promise<void> {
   try { useFact.getState().clearAll(); } catch { /* */ }             // 事实锚点缓存
   try { useCombat.getState().clearCombat(); } catch { /* */ }        // 战斗运行态（保留预设/API 配置）
   try { useArena.getState().clearArena(); } catch { /* */ }          // 竞技场榜单/击败记录/挑战（保留 API 配置）
+  try { useCasino.getState().clearCasino(); } catch { /* */ }        // 赌坊筹码/战绩/流水（保留限红/抽水等配置）
+  try { useAbyss.getState().clearAbyss(); } catch { /* */ }          // 深渊地牢 进行局 + meta（结晶/通关/觉醒充能/卡牌库）
+  try { useSkillTree.setState({ progress: {} }); } catch { /* */ }   // 技能树解锁进度/潜能点（保留 trees 模板库）
   try { clearJoySessions(); } catch { /* */ }                        // 欢愉宫情欲值/私密/聊天（保留名册/预设/API 配置）
   try { useCharacters.setState({ characters: {} }); } catch { /* */ }// 主角+全部角色技能/词条/称号/记忆
   try {

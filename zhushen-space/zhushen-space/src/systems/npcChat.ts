@@ -2,11 +2,12 @@ import { resolveApiChain, useSettings } from '../store/settingsStore';
 import { apiChatFallback } from './apiChat';
 import { usePlayer } from '../store/playerStore';
 import { useNpcChat } from '../store/npcChatStore';
+import { useChannel } from '../store/channelStore';
 import type { NpcRecord } from '../store/npcStore';
-import { NSFW_WRITING_RULE, NPC_CHAT_RULE } from '../promptRules';
+import { NSFW_WRITING_RULE, NPC_CHAT_RULE, NPC_TEAM_JOIN_CHAT_RULE } from '../promptRules';
 
 /* NPC 私聊：拼人设(含 NSFW 写作指导) → 调 API（一次产出 对白 + 交互描述）→ 解析 → 写缓存。
-   resolveApiChain('npcchat', 正文API兜底)；交互描述会随历史一并注入回 API 保证上下文连续。 */
+   API 已并入「公共频道」：与私信一致走 resolveApiChain('channel', 频道接口兜底)；交互描述会随历史一并注入回 API 保证上下文连续。 */
 
 const HISTORY_TURNS = 20;   // 每次调用回带的最近回合数
 
@@ -42,6 +43,7 @@ function serializeNpcPersona(npc: NpcRecord): string {
     field('性别', npc.gender),
     field('阶位·身份', npc.realm),
     field('标签', npc.npcTag),
+    field('隶属冒险团', npc.affiliatedTeam),
     field('年龄', npc.age),
     field('称号', npc.title),
     field('职业', npc.profession),
@@ -72,25 +74,34 @@ function playerBrief(): string {
   return bits.length ? bits.join('，') : '一名轮回乐园的契约者';
 }
 
-/** 拼一次 NPC 私聊的 system 提示词（NSFW 写作指导 + NPC 人设 + 输出格式）。*/
+/** 拼一次 NPC 私聊的 system 提示词（NSFW 写作指导 + NPC 人设 + 输出格式）。
+    NPC 隶属冒险团时，追加"加入意愿处理"规则（允许在同意时输出 <加入冒险团> 信号）。*/
 export function buildNpcChatSystem(npc: NpcRecord): string {
+  const hasTeam = !!(npc.affiliatedTeam && npc.affiliatedTeam.trim() && !/^无$|独行/.test(npc.affiliatedTeam.trim()));
   return [
     NSFW_WRITING_RULE,
     NPC_CHAT_RULE,
+    ...(hasTeam ? [NPC_TEAM_JOIN_CHAT_RULE] : []),
     `【你要扮演的 NPC 档案】\n${serializeNpcPersona(npc)}`,
-    `【对面的主角(玩家)】${playerBrief()}。这是你与主角私下独处的对话，与正文主线分开；请只产出 <对白> 与 <交互> 两块。`,
+    `【对面的主角(玩家)】${playerBrief()}。这是你与主角私下独处的对话，与正文主线分开；请只产出 <对白> 与 <交互> 两块${hasTeam ? '（同意接纳主角进团时可额外附 <加入冒险团> 信号块）' : ''}。`,
   ].join('\n\n');
 }
 
-/** 解析回复 → 对白(dialogue) + 交互描述(scene)。容错：缺标签则把非 <交互> 文本当对白。*/
-export function parseNpcChatReply(raw: string): { dialogue: string; scene: string } {
+/** 解析回复 → 对白(dialogue) + 交互描述(scene) + 加入冒险团信号(joinTeam，缺省空串)。
+    容错：缺标签则把非 <交互>/<加入冒险团> 文本当对白。*/
+export function parseNpcChatReply(raw: string): { dialogue: string; scene: string; joinTeam: string } {
+  const joinM = raw.match(/<加入冒险团>([\s\S]*?)<\/加入冒险团>/);
+  const joinTeam = joinM ? joinM[1].trim() : '';
   const sceneM = raw.match(/<交互>([\s\S]*?)<\/交互>/);
   const scene = sceneM ? sceneM[1].trim() : '';
   const dM = raw.match(/<对白>([\s\S]*?)<\/对白>/);
   let dialogue: string;
   if (dM) dialogue = dM[1].trim();
-  else dialogue = raw.replace(/<交互>[\s\S]*?<\/交互>/g, '').replace(/<\/?对白>/g, '').trim();
-  return { dialogue, scene };
+  else dialogue = raw
+    .replace(/<交互>[\s\S]*?<\/交互>/g, '')
+    .replace(/<加入冒险团>[\s\S]*?<\/加入冒险团>/g, '')
+    .replace(/<\/?对白>/g, '').trim();
+  return { dialogue, scene, joinTeam };
 }
 
 /** 把缓存回合还原成 chat messages（交互描述一并注入，保证上下文连续）。*/
@@ -109,10 +120,12 @@ export async function sendNpcChat(npc: NpcRecord, userText: string): Promise<voi
   chatStore.appendTurn(npc.id, { role: 'player', text: userText });
 
   const ss = useSettings.getState();
-  const legacy = ss.textUseSharedApi ? ss.api : ss.textApi;
-  const chain = resolveApiChain('npcchat', legacy);
+  const cs = useChannel.getState();
+  // NPC 私聊 API 已并入「公共频道」：与私信一致——走 channel 路由，兜底用频道接口（频道选共用则回退正文接口）
+  const channelApi = cs.channelUseSharedApi ? (ss.textUseSharedApi ? ss.api : ss.textApi) : cs.channelApi;
+  const chain = resolveApiChain('channel', channelApi);
   if (!chain[0]?.baseUrl || !chain[0]?.apiKey) {
-    useNpcChat.getState().appendTurn(npc.id, { role: 'npc', text: '（还没配置可用的 AI 接口…请到 设置→正文生成 或 API 接口库 配置；NPC 私聊默认复用正文接口）', scene: '' });
+    useNpcChat.getState().appendTurn(npc.id, { role: 'npc', text: '（还没配置可用的 AI 接口…NPC 私聊已并入「公共频道」接口：请到 设置→公共频道 配置其 API，或在 API 接口库 给「频道」路由挂接口）', scene: '' });
     return;
   }
 
@@ -124,8 +137,8 @@ export async function sendNpcChat(npc: NpcRecord, userText: string): Promise<voi
 
   try {
     const { content } = await apiChatFallback(chain, messages, { timeoutMs: 120000 });
-    const { dialogue, scene } = parseNpcChatReply(content);
-    useNpcChat.getState().appendTurn(npc.id, { role: 'npc', text: dialogue || '（她沉默着）', scene });
+    const { dialogue, scene, joinTeam } = parseNpcChatReply(content);
+    useNpcChat.getState().appendTurn(npc.id, { role: 'npc', text: dialogue || '（她沉默着）', scene, joinOffer: joinTeam || undefined });
   } catch (e: any) {
     useNpcChat.getState().appendTurn(npc.id, { role: 'npc', text: `（接口异常：${e?.message ?? '请求失败'}）`, scene: '' });
   }

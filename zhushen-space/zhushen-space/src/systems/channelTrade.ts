@@ -114,15 +114,27 @@ export function postSellItem(invItem: InventoryItem, p: {
   });
 }
 
+/* 该出售帖报价是否为「以物换物」：买家拿出 itemName 那件物品来换。
+   判定：仅出售帖；有 itemName；且（显式 barter 标记 或 提供的物品名与玩家出售物不同名）。*/
+export function isBarterQuote(post: ChannelMessage, quote: ChannelQuote): boolean {
+  if (post.kind !== 'sell') return false;
+  const offered = (quote.itemName || '').trim();
+  if (!offered) return false;
+  const playerItem = (post.offer?.itemName || '').trim();
+  return quote.barter === true || offered !== playerItem;
+}
+
 /* 接受某条报价/出价 → 确定性结算。
    - 玩家求购帖(kind=buy)：接受卖家报价 → 扣 quote.price，得 quote 物品。
-   - 玩家出售帖(kind=sell)：接受买家出价 → 得 quote.price，扣自己 offer.itemId 物品。*/
+   - 玩家出售帖(kind=sell)：接受买家出价 → 扣自己 offer.itemId 物品，得 quote.price（纯现金）
+       或「以物换物」→ 扣自己物品，收下买家的 quote 物品 + 额外找补现金 price。*/
 export function acceptQuote(post: ChannelMessage, quote: ChannelQuote): BuyResult {
   if (!post.byPlayer || post.fulfilled) return { ok: false, error: '该帖不可成交或已成交' };
   const items = useItems.getState();
   const price = parseChannelPrice(quote.price);
   const currency = normChannelCurrency(quote.currency);
-  if (price <= 0) return { ok: false, error: '该报价无有效金额' };
+  const barter = isBarterQuote(post, quote);
+  if (price <= 0 && !barter) return { ok: false, error: '该报价无有效金额' };
 
   if (post.kind === 'buy') {
     // 玩家求购 → 向卖家买：扣钱、入背包
@@ -150,7 +162,22 @@ export function acceptQuote(post: ChannelMessage, quote: ChannelQuote): BuyResul
     if (owned.equipped) return { ok: false, error: '该物品正装备中，请先卸下再出售' };
     if ((owned.quantity || 1) < sellQty) return { ok: false, error: `持有数量不足：需 ${sellQty}，现有 ${owned.quantity}` };
     items.consumeItem(itemId!, sellQty);
-    items.adjustCurrency(currency, price);
+    if (barter) {
+      // 以物换物：收下买家拿来交换的物品（带完整固定格式字段）；price>0 视为买家额外找补的现金
+      items.addItem({
+        name: (quote.itemName || '换购物品').trim(),
+        category: normCategory(quote.category),
+        gradeDesc: quote.gradeDesc || '',
+        effect: quote.effect || '',
+        quantity: Math.max(1, Number(quote.qty) || 1),
+        equipped: false,
+        tags: Array.isArray(quote.tags) ? quote.tags : ['频道交易', '以物换物'],
+        acquisition: `公共频道·以物换物，与 ${quote.fromName} 互换（付出「${owned.name}」${price > 0 ? `+对方找补 ${price} ${currency}` : '·平换'}）`,
+        intro: quote.intro || quote.note,
+        ...infoFields(quote),
+      });
+    }
+    if (price > 0) items.adjustCurrency(currency, price);
   } else {
     return { ok: false, error: '未知帖子类型' };
   }

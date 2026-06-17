@@ -232,6 +232,8 @@ interface SettingsState {
   historyLimit: number;   // 0 = 不限制；> 0 = 仅显示/发送最近 N 条消息
   disableEnterSend: boolean;  // 禁用回车发送（防误触）：开启后输入框回车不再发送，只能点发送按钮
   setDisableEnterSend: (v: boolean) => void;
+  showNewlineButton: boolean;  // 是否在正文输入框旁显示「↵ 换行键」（Shift+Enter 始终可换行，不受此开关影响）
+  setShowNewlineButton: (v: boolean) => void;
   allowAutoEquip: boolean;  // 是否允许 AI 自动装备主角拾取/生成的装备（关闭=仅能在装备面板手动穿戴）
   setAllowAutoEquip: (v: boolean) => void;
   allowAutoEquipNpc: boolean;  // 是否允许自动给 NPC 穿戴装备（含初始装备与 AI 装备指令；关闭=只入 NPC 储存空间）
@@ -387,7 +389,7 @@ function parseName(data: any, fileName: string): string {
   return data.name || data.originalName || data.worldName || fileName || '未命名世界书';
 }
 
-function parseWorldBook(raw: string, fileName = ''): { entries: WorldBookEntry[]; name: string } {
+export function parseWorldBook(raw: string, fileName = ''): { entries: WorldBookEntry[]; name: string } {
   const data = JSON.parse(raw);
   const name = parseName(data, fileName);
 
@@ -575,6 +577,7 @@ export const useSettings = create<SettingsState>()(
       // 综合设置
       historyLimit: 0,
       disableEnterSend: false,
+      showNewlineButton: true,
       allowAutoEquip: true,
       allowAutoEquipNpc: true,
       customOpening: '',
@@ -617,6 +620,7 @@ export const useSettings = create<SettingsState>()(
       // ── 综合设置操作 ──
       setHistoryLimit: (n) => set({ historyLimit: Math.max(0, n) }),
       setDisableEnterSend: (v) => set({ disableEnterSend: v }),
+      setShowNewlineButton: (v) => set({ showNewlineButton: v }),
       setAllowAutoEquip: (v) => set({ allowAutoEquip: v }),
       setAllowAutoEquipNpc: (v) => set({ allowAutoEquipNpc: v }),
       setCustomOpening: (s) => set({ customOpening: s }),

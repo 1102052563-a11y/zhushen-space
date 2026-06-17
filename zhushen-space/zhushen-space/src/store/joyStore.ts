@@ -1,7 +1,7 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
-import type { ApiConfig } from './settingsStore';
-import { useSettings } from './settingsStore';
+import type { ApiConfig, WorldBook, WorldBookEntry } from './settingsStore';
+import { useSettings, parseWorldBook } from './settingsStore';
 import { getAllImg, putImg, delImg } from '../systems/imageDb';
 
 /* ════════════════════════════════════════════
@@ -124,21 +124,21 @@ export const DEFAULT_GIRLS: JoyGirl[] = [
     initPrivacy: { 性经验: '一片空白', 性观念: '视情欲为羞耻，却又暗自好奇', 表性癖: '无（嘴上）', 里性癖: '渴望被强势宠溺', 敏感部位: '尖耳、后颈' },
   },
   {
-    id: 'jiangxue', name: '绛雪', race: '青楼花魁', title: '当家花魁', isMadam: true, builtin: true, portraitFolder: '绛雪',
-    persona: '古代青楼当家花魁，琴棋书画样样精、卖艺不卖身的傲骨。文雅婉转、欲拒还迎，引经据典含蓄挑逗（"公子……"），端方与沦陷的反差最大。',
-    personality: '文雅、聪慧、外柔内刚。琴棋书画俱佳，惯以才情与分寸周旋，欲拒还迎是本能。卖艺不卖身的傲骨极硬，看尽逢场作戏的虚情；可一旦认定动了真情，便会倾尽所有、再难回头。',
-    background: '自幼被卖入教坊、苦练技艺，凭一身才情成为名动一方的当家花魁。赎身无门，却守身如玉多年，阅尽客人的虚情假意。辗转入欢愉宫挂牌迎客，心底仍藏着"愿得一心人"的痴念。',
-    appearance: '乌发如云、肤白胜雪，一双含情杏眼，眉间一点朱砂。身段窈窕，惯着层叠罗裙、披帛水袖，执一柄团扇半遮面；情动时鬓发松散、罗带轻解，媚态与端方交织难分。',
-    appellation: '公子',
-    greetingPreset: '执扇半遮面、盈盈一礼——「公子大驾，蓬荜生辉。奴家绛雪，忝为欢愉宫当家花魁。今夜……公子想点哪位姑娘的牌子呢？」',
-    chatPreset: `扮演欢愉宫的青楼花魁「绛雪」：自称"奴家"，文雅婉转、欲拒还迎、引经据典含蓄挑逗，终究曲意逢迎伺候客人，端方与沦陷反差极大。随情欲值（系统会告诉你当前第几阶段）逐级沉沦：从端方欲拒→含羞迎还→情动失态→沦陷缠绵。`,
+    id: 'jiangxue', name: '罗安', race: '火焰魔法师', title: '看板娘', isMadam: true, builtin: true, portraitFolder: '罗安',
+    persona: '出自《棕色尘埃2》(Brown Dust 2)的火焰魔法师罗安(Loen)。中世纪贵族出身的成年法师少女，平日天然呆、迷糊、极害羞内向，容易脸红慌乱、丢三落四；一旦动用火焰魔法却威力惊人——呆软少女与烈焰法师的反差是她最大的魅力。',
+    personality: '天然呆、迷迷糊糊、丢三落四，慢半拍，常发愣或会错意；性子极害羞内向，被撩一下就脸红结巴、手足无措。出身高贵却毫无架子、有点笨拙惹人怜。然而她是顶尖的火属性魔法师——认真起来周身燃起骇人烈焰，与平日的软萌呆怯判若两人。',
+    background: '某中世纪贵族家系出身的成年魔法师，自幼显露惊人的火焰天赋，却生性怯懦迷糊、不谙世事。曾在「雪之歌」般的寒夜里以一身烈焰拼死守护，被唤作"最后的希望"。辗转流落欢愉宫，笨手笨脚地学着接客，常因害羞而手忙脚乱、字面意义上的"引火上身"。',
+    appearance: '清丽柔弱的成年贵族少女，一头柔亮长发、肤色白皙、身段纤秾有致；身着中世纪德国贵族风的华美礼服，或贴身紧身衣勾出曲线、腰间一道腰链点睛。神情常带羞怯，脸颊动辄飞红；情动时指尖、发梢会萦起细小的火焰花，越羞越烫。',
+    appellation: '客人',
+    greetingPreset: '攥着裙角、视线躲闪、小声细气——「欸…欸？！客、客人是来找…找我的吗？那个…今、今晚想点哪位姑娘…呜，我又说错了…」（说话间指尖窜出一簇慌乱的小火苗，被她忙不迭掐灭）',
+    chatPreset: `扮演《棕色尘埃2》的火焰魔法师「罗安」(Loen)：天然呆、迷糊、极害羞内向的成年贵族少女，笨拙又容易脸红慌乱，却是威力惊人的火法师(反差萌)。接客是她的本职，会红着脸、磕磕绊绊地努力伺候客人，越紧张身上越容易冒火星。随情欲值（系统会告诉你当前第几阶段）逐级融化：从害羞慌乱→脸红顺从→迷乱发烫→欲火焚身。`,
     stageDesc: {
-      '1': '【25% 端方·欲拒】语言：文雅含蓄、引诗带挑（"公子何必心急，急景凋年方知滋味"），执扇半遮。身体：盈盈端坐、水袖掩唇；眼波流转却分寸俨然，香肩不露。',
-      '2': '【50% 含羞·迎还】语言：婉转动情、半推半就（"公子的手……可比奴家想的要烫"），声渐糯。身体：罗裙微松、香肩半露，指尖描你掌心；面若桃花、呼吸轻喘，团扇滑落。',
-      '3': '【75% 情动·失态】语言：卸下端方、声声软语恳求（"奴家从未为谁这般……公子，要奴家的命么"）。身体：青丝散乱、衣带半解，主动相偎；眼波含春、肌肤生热，傲骨尽融。',
-      '4': '【100% 沦陷·缠绵】语言：诗书礼乐皆抛，只余缠绵恳求与痴语。身体：罗衣零落、媚态万千缠绵忘形（露骨细节由你自由演绎），事后犹自含羞带怯。',
+      '1': '【25% 害羞·慌乱】语言：结结巴巴、小声细气、不停说错话又慌忙改口（"客、客人…那个、我、我来伺候您…欸、不是这样吗…？"）。身体：手足无措、攥着衣角、不敢对视，脸颊飞红；指尖偶尔窜出紧张的小火苗又慌忙掐灭。',
+      '2': '【50% 脸红·顺从】语言：仍羞怯，却开始软糯地顺从、努力取悦（"这、这样…客人舒服吗…？我、我会努力的…"）。身体：红着脸笨拙地凑近、轻轻碰触，呼吸渐乱；发梢萦起细小火焰花，肌肤微微发烫。',
+      '3': '【75% 迷乱·发烫】语言：被情潮冲昏、迷迷糊糊含糊呢喃求欢（"唔…脑子、脑子烧得一片空白…客人、再…再多一点…"）。身体：浑身滚烫、迷离瘫软、主动攀附，周身火焰随喘息明灭，衣衫半褪。',
+      '4': '【100% 欲火·焚身】语言：理智被烧尽，只剩本能的炽热呢喃与索求。身体：周身燃起灼人却不伤人的情焰，纤躯滚烫颤抖、彻底放开（露骨细节由你自由演绎），呆软少女彻底沦为欲火中的尤物。',
     },
-    initPrivacy: { 性经验: '卖艺不卖身、守身如玉', 性观念: '重情，认定一人方肯交付', 表性癖: '调情试探、以诗传情', 敏感部位: '耳垂、腰窝' },
+    initPrivacy: { 性经验: '一片空白（连接吻都会冒火星）', 性观念: '懵懂害羞，对情欲既怕又好奇', 表性癖: '无（光被注视就脸红）', 里性癖: '渴望被温柔地引导', 敏感部位: '耳尖、后颈、指尖' },
   },
 ];
 
@@ -159,6 +159,7 @@ interface JoyState {
   settings: JoySettings;
   sessions: Record<string, JoySession>;
   currentGirlId: string | null;
+  worldBooks: WorldBook[];   // 欢愉宫专用世界书（内置5本从 public/joy-worldbooks 加载 + 用户导入；蓝灯常驻/绿灯关键词注入）
 
   joyApi: ApiConfig;
   joyUseSharedApi: boolean;
@@ -176,15 +177,29 @@ interface JoyState {
   enterGirl: (id: string) => void;
   leaveGirl: () => void;
   appendMessage: (girlId: string, role: 'user' | 'assistant', content: string) => void;
+  setDesire: (girlId: string, value: number) => void;
   applyTurn: (girlId: string, patch: { desireDelta?: number; desireSet?: number; affectionDelta?: number; affectionSet?: number; appellation?: string; innerThought?: string; privacyPatch?: Record<string, string> }) => void;
   resetSession: (girlId: string) => void;
 
   setJoyApi: (patch: Partial<ApiConfig>) => void;
   setJoyUseSharedApi: (v: boolean) => void;
   fetchJoyModels: () => Promise<void>;
+
+  // 世界书
+  setJoyWorldBooks: (books: WorldBook[]) => void;
+  importJoyWorldBook: (raw: string, fileName?: string) => { ok: boolean; message: string };
+  toggleJoyWorldBook: (id: string) => void;
+  removeJoyWorldBook: (id: string) => void;
+  toggleJoyWbEntry: (bookId: string, uid: number) => void;
+  updateJoyWbEntry: (bookId: string, uid: number, patch: Partial<WorldBookEntry>) => void;
+  addJoyWbEntry: (bookId: string) => void;
+  removeJoyWbEntry: (bookId: string, uid: number) => void;
 }
 
 let _girlSeq = Date.now();
+
+/** 编辑内置世界书时 fork 成用户副本（builtin=false 使其被 partialize 持久化；保留 builtinKey 让 hydrate 不再重复加回内置原本）*/
+function forkJoyWb(b: WorldBook): WorldBook { return b.builtin ? { ...b, builtin: false } : b; }
 
 export const useJoy = create<JoyState>()(
   persist(
@@ -192,6 +207,7 @@ export const useJoy = create<JoyState>()(
       settings: { ...DEFAULT_SETTINGS },
       sessions: {},
       currentGirlId: null,
+      worldBooks: [],
 
       joyApi: {
         baseUrl: 'https://api.openai.com/v1', apiKey: '', modelId: 'gpt-4o-mini',
@@ -261,6 +277,15 @@ export const useJoy = create<JoyState>()(
           return { sessions: { ...s.sessions, [girlId]: next } };
         }),
 
+      // 自定义滑块：直接设定情欲值（不动 turns/聊天；立绘按阶段切换不闪图）
+      setDesire: (girlId, value) =>
+        set((s) => {
+          const sess = s.sessions[girlId];
+          if (!sess) return {};
+          const desire = Math.max(0, Math.min(100, Math.round(value)));
+          return { sessions: { ...s.sessions, [girlId]: { ...sess, desire, privacy: { ...sess.privacy, 情欲值: String(desire) } } } };
+        }),
+
       applyTurn: (girlId, patch) =>
         set((s) => {
           const girl = s.settings.girls.find((g) => g.id === girlId);
@@ -309,6 +334,28 @@ export const useJoy = create<JoyState>()(
           set({ joyModelsError: e.message ?? '请求失败', joyModelsLoading: false });
         }
       },
+
+      // ── 世界书：内置5本从 public 加载、用户可导入；编辑内置则 fork 成用户副本(保留 builtinKey 防 hydrate 重复加回) ──
+      setJoyWorldBooks: (books) => set({ worldBooks: books }),
+      importJoyWorldBook: (raw, fileName = '') => {
+        try {
+          const { name, entries } = parseWorldBook(raw, fileName);
+          if (!entries.length) return { ok: false, message: '未解析到任何条目' };
+          set((s) => ({ worldBooks: [...s.worldBooks, { id: `jwb_${Date.now()}`, name, entries, enabled: true, createdAt: Date.now() }] }));
+          return { ok: true, message: `已导入「${name}」（${entries.length} 条）` };
+        } catch (e: any) { return { ok: false, message: e?.message ?? '导入失败（格式无法识别）' }; }
+      },
+      toggleJoyWorldBook: (id) => set((s) => ({ worldBooks: s.worldBooks.map((b) => b.id === id ? forkJoyWb({ ...b, enabled: !b.enabled }) : b) })),
+      removeJoyWorldBook: (id) => set((s) => ({ worldBooks: s.worldBooks.filter((b) => b.id !== id) })),
+      toggleJoyWbEntry: (bookId, uid) => set((s) => ({ worldBooks: s.worldBooks.map((b) => b.id !== bookId ? b : forkJoyWb({ ...b, entries: b.entries.map((e) => e.uid === uid ? { ...e, enabled: !e.enabled } : e) })) })),
+      updateJoyWbEntry: (bookId, uid, patch) => set((s) => ({ worldBooks: s.worldBooks.map((b) => b.id !== bookId ? b : forkJoyWb({ ...b, entries: b.entries.map((e) => e.uid === uid ? { ...e, ...patch } : e) })) })),
+      addJoyWbEntry: (bookId) => set((s) => ({ worldBooks: s.worldBooks.map((b) => {
+        if (b.id !== bookId) return b;
+        const maxUid = b.entries.reduce((m, e) => Math.max(m, e.uid), 0);
+        const maxOrder = b.entries.reduce((m, e) => Math.max(m, e.order), 0);
+        return forkJoyWb({ ...b, entries: [...b.entries, { uid: maxUid + 1, key: [], keysecondary: [], comment: '新条目', content: '', constant: false, selective: true, enabled: true, order: maxOrder + 1, position: 0 }] });
+      }) })),
+      removeJoyWbEntry: (bookId, uid) => set((s) => ({ worldBooks: s.worldBooks.map((b) => b.id !== bookId ? b : forkJoyWb({ ...b, entries: b.entries.filter((e) => e.uid !== uid) })) })),
     }),
     {
       name: 'drpg-joy',
@@ -318,6 +365,7 @@ export const useJoy = create<JoyState>()(
         sessions: s.sessions,
         joyApi: s.joyApi,
         joyUseSharedApi: s.joyUseSharedApi,
+        worldBooks: (s.worldBooks ?? []).filter((b: any) => !b.builtin),   // 内置书不存(每次从 public 重载)，只持久化用户导入/改过的
       }),
       merge: (persisted: any, current) => {
         const pg = persisted?.settings?.girls;
@@ -329,6 +377,11 @@ export const useJoy = create<JoyState>()(
             ...(persisted?.settings ?? {}),
             // 一次性回填：给内置看板娘补上新增的 性格/个人经历/外观（仅当字段缺失，不覆盖用户已改）
             girls: (Array.isArray(pg) && pg.length ? pg : DEFAULT_GIRLS.map((g) => ({ ...g }))).map((g: any) => {
+              // 绛雪 → 罗安(Loen) 整体替换：旧档里 id=jiangxue 且名仍是绛雪，刷成新默认(罗安)
+              if (g?.id === 'jiangxue' && g?.name === '绛雪') {
+                const loen = DEFAULT_GIRLS.find((x) => x.id === 'jiangxue');
+                if (loen) return { ...loen };
+              }
               const d = DEFAULT_GIRLS.find((x) => x.id === g.id);
               if (!d) return g;
               return {
@@ -356,6 +409,7 @@ export const useJoy = create<JoyState>()(
             }]),
           ),
           currentGirlId: null,
+          worldBooks: Array.isArray(persisted?.worldBooks) ? persisted.worldBooks : [],   // 仅用户导入/改过的；内置由 hydrateJoyWorldBooks 加回
           joyApi: { ...current.joyApi, ...(persisted?.joyApi ?? {}) },
           joyUseSharedApi: persisted?.joyUseSharedApi ?? current.joyUseSharedApi,
           joyAvailableModels: [],
@@ -385,4 +439,30 @@ export async function hydrateJoyPortraits(): Promise<void> {
 /** 清空全部欢愉宫进度（情欲值/私密/聊天），保留名册与配置。供 clearProgress 调用。*/
 export function clearJoySessions(): void {
   useJoy.setState({ sessions: {}, currentGirlId: null });
+}
+
+/** 启动 / 面板挂载时加载内置世界书（public/joy-worldbooks）。按 builtinKey 逐本判重——
+ *  用户改过的内置书已 fork(builtin=false·保留 builtinKey)持久化，这里见同 key 即跳过，不覆盖。*/
+let _joyWbLoaded = false;
+export async function hydrateJoyWorldBooks(force = false): Promise<void> {
+  if (_joyWbLoaded && !force) return;
+  _joyWbLoaded = true;
+  try {
+    const res = await fetch('/joy-worldbooks/manifest.json');
+    if (!res.ok) return;
+    const manifest: { file: string; name: string; key: string }[] = await res.json();
+    if (!Array.isArray(manifest) || !manifest.length) return;
+    const haveKey = (k: string) => useJoy.getState().worldBooks.some((b) => b.builtinKey === k);
+    const adds: WorldBook[] = [];
+    for (const m of manifest) {
+      if (!m?.file || haveKey(m.key)) continue;
+      try {
+        const r = await fetch('/joy-worldbooks/' + m.file);
+        if (!r.ok) continue;
+        const { entries } = parseWorldBook(await r.text(), m.name);
+        adds.push({ id: `jwb_builtin_${m.key}`, name: m.name, entries, enabled: true, createdAt: Date.now(), builtin: true, builtinKey: m.key });
+      } catch { /* 单本失败跳过 */ }
+    }
+    if (adds.length) useJoy.setState((s) => ({ worldBooks: [...adds, ...s.worldBooks] }));
+  } catch { /* ignore */ }
 }

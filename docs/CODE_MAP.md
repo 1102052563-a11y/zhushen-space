@@ -24,6 +24,7 @@
 | 向量资料库（原著+世界书语义检索） | `systems/novelVec.ts`；`store/novelVecStore.ts`；`components/NovelVecManager.tsx`；建库 `tools/build-novel-vectors.mjs` |
 | 技能/天赋/称号/副职业/成就/记忆 数据 | `store/characterStore.ts`（B1+Cx 共用）；成就在 `store/playerStore.ts` |
 | 技能/天赋指令 | `systems/stateParser.ts` → `parseAllCharCommands` / `applyCharacterCommands` |
+| 职业技能树（潜能点·节点解锁·可视化编辑） | `systems/skillTree.ts`（确定性结算/校验）；`store/skillTreeStore.ts`；`components/SkillTreePanel.tsx`(玩家🌳)/`TreeCanvas.tsx`(共享SVG)/`SkillTreeManager.tsx`(编辑器)；提示词 `SKILLTREE_GEN_PROMPT` |
 | 衍生属性 / HP·EP 上限 / 阶位↔等级 | `systems/derivedStats.ts` |
 | 装备槽位 | `systems/equipSlots.ts`；`components/EquipmentPanel.tsx` / `NpcEquip.tsx` |
 | 骰子判定 | `systems/diceEngine.ts`（确定性）/ `diceJudge.ts`（AI裁判）；`components/DicePanel.tsx` / `DiceManager.tsx` |
@@ -168,6 +169,7 @@
 | `creationTemplateStore.ts` | `drpg-creation-templates` | 角色创建模板 |
 | `novelVecStore.ts` | `drpg-novelvec` | 向量资料库设置（embedding 接口/topK/阈值/maxChars）|
 | `enhanceStore.ts` | `drpg-enhance` | 装备强化：老板名册/率表(配置)、`pity`垫子计数(账号级全局,不进存档/不导出)、`session`本轮日志。立绘 partialize→IndexedDB；`hydrateEnhancePortraits` |
+| `skillTreeStore.ts` | `drpg-skilltree` | 职业技能树：`trees`模板库(配置/可分享) + 每角色`progress`(解锁进度/潜能点,随存档)。`unlockNode`(扣潜能点+灌 addSkill/addTrait)、`respec`、编辑器ops(addNode/addEdge拒环/...)。仅 B1 |
 | `variableStore.ts` | — | 自定义变量（`<state>` 兜底查找）|
 | `imageViewerStore` / `imageBusyStore` | — | UI 瞬时（看图/生图忙提示）|
 | `composerStore` | — | UI 瞬时：`draft`/`fill(text)`，背包「使用」物品把「使用XX」填进主聊天输入框（App 订阅 draft→setInputValue+关背包+聚焦）|

@@ -75,6 +75,7 @@ function taskFromCols(o: Record<string, any>): MiscTask {
     addedAt: Date.now(),
   };
   applyQuestFields(t, o);
+  if (o.rating != null || o['评分'] != null) t.rating = String(o.rating ?? o['评分']);
   return t;
 }
 /* 任务状态是否为"已结算"（完成/失败/放弃/结束）——用于把任务移出进行中列表。
@@ -95,6 +96,7 @@ function patchFromCols(o: Record<string, any>): Partial<MiscTask> {
   if (o['startTime'] != null) p.startTime = String(o['startTime']);
   if (o['endTime'] != null) p.endTime = String(o['endTime']);
   applyQuestFields(p, o);
+  if (o.rating != null || o['评分'] != null) p.rating = String(o.rating ?? o['评分']);
   return p;
 }
 

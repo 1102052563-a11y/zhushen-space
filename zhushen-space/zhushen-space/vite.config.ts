@@ -132,12 +132,66 @@ function syncJoyGirls(): Plugin {
   return { name: 'sync-joy-girls', buildStart() { gen() }, configureServer() { gen() } }
 }
 
+// 赌坊荷官立绘：把仓库根 赌场荷官图片/<荷官>/*.png 同步进 public/casino-dealers/，
+// 并生成扁平 manifest.json = { "<荷官>": [urls] }。无图则前端回退 emoji 头像。
+function syncCasinoDealers(): Plugin {
+  const SRC = '../../赌场荷官图片'
+  const DST = 'public/casino-dealers'
+  const IMG = /\.(png|jpe?g|webp|gif|avif)$/i
+  const gen = () => {
+    try {
+      if (!existsSync(SRC)) return
+      const manifest: Record<string, string[]> = {}
+      for (const dealer of readdirSync(SRC, { withFileTypes: true })) {
+        if (!dealer.isDirectory()) continue
+        const dir = SRC + '/' + dealer.name
+        const files = readdirSync(dir).filter((f) => IMG.test(f))
+        if (!files.length) continue
+        const outDir = DST + '/' + dealer.name
+        mkdirSync(outDir, { recursive: true })
+        const urls: string[] = []
+        for (const f of files) {
+          try { copyFileSync(dir + '/' + f, outDir + '/' + f); urls.push(dealer.name + '/' + f) } catch { /* 单图失败跳过 */ }
+        }
+        if (urls.length) manifest[dealer.name] = urls
+      }
+      mkdirSync(DST, { recursive: true })
+      writeFileSync(DST + '/manifest.json', JSON.stringify(manifest, null, 2))
+    } catch { /* 失败不阻断构建 */ }
+  }
+  return { name: 'sync-casino-dealers', buildStart() { gen() }, configureServer() { gen() } }
+}
+
+// 欢愉宫世界书：把仓库根 世界书/新建文件夹/*.json 复制进 public/joy-worldbooks/（安全文件名 wbN.json）+ 生成 manifest（含显示名/稳定 key），前端启动加载为内置世界书（蓝灯常驻/绿灯关键词注入）。
+function syncJoyWorldBooks(): Plugin {
+  const SRC = '../../世界书/新建文件夹'
+  const DST = 'public/joy-worldbooks'
+  const clean = (f: string) => f.replace(/\.json$/i, '').replace(/^[-\s]+/, '').replace(/[\[\]【】]/g, '').replace(/\s*\(\d+\)\s*$/, '').trim()
+  const gen = () => {
+    try {
+      if (!existsSync(SRC)) return
+      const files = readdirSync(SRC).filter((f) => /\.json$/i.test(f))
+      mkdirSync(DST, { recursive: true })
+      const manifest: { file: string; name: string; key: string }[] = []
+      files.forEach((f, i) => {
+        try { copyFileSync(SRC + '/' + f, DST + '/wb' + i + '.json'); manifest.push({ file: 'wb' + i + '.json', name: clean(f), key: f }) } catch { /* 单本失败跳过 */ }
+      })
+      writeFileSync(DST + '/manifest.json', JSON.stringify(manifest, null, 2))
+    } catch { /* 失败不阻断构建 */ }
+  }
+  return { name: 'sync-joy-worldbooks', buildStart() { gen() }, configureServer() { gen() } }
+}
+
+
+
+
+
 // 开发代理目标：解决本地 localhost 跨域（CORS）问题
 // 如果你用的 API 地址不同，把 VITE_API_TARGET 写进 .env.local 文件
 const API_TARGET = process.env.VITE_API_TARGET ?? 'https://api.baimeow.icu'
 
 export default defineConfig({
-  plugins: [react(), copyBuiltinPresets(), buildPortraitManifest(), syncEnhanceBosses(), syncJoyGirls()],
+  plugins: [react(), copyBuiltinPresets(), buildPortraitManifest(), syncEnhanceBosses(), syncJoyGirls(), syncJoyWorldBooks(), syncCasinoDealers()],
   server: {
     proxy: {
       // 访问 http://localhost:5173/dev-proxy/* 时自动转发到目标 API

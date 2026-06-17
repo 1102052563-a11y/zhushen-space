@@ -109,11 +109,28 @@ export interface AbyssUnit {
   maxEp: number; ep: number;
   atk: number; def: number;
   lifesteal?: number;     // 吸血比例（加成卡赋予，0-1）
-  tags?: string[];        // 怪物机制标签（M2 接战斗 Layer2）
-  skills?: { name: string; effect: string }[];  // 敌人技能面板（AI 生成；战斗中按概率施放）
+  tags?: string[];        // 怪物机制标签
+  skills?: { name: string; effect: string }[];  // 技能面板（敌人 AI 生成 / 主角读 characterStore / 同伴读其 characterStore）
   bioStrength?: string;   // 生物强度模板（T0-T9，展示）
   race?: string;          // 种族（展示）
+  fx?: AbyssFx[];         // Layer2 状态效果（buff/debuff/DoT/HoT/控制/不死/锁血）
+  shield?: number;        // 护盾（先于 HP 吸收）
+  cd?: Record<string, number>;  // 技能冷却（按技能名）
+  summon?: boolean;       // 是否召唤物（限时，roundsLeft 到期消失）
+  summonLeft?: number;    // 召唤物剩余存在回合
   alive: boolean;
+}
+
+/** Layer2 战斗状态（仿战斗系统 CombatStatusMod，作用于沙盒单位）。 */
+export interface AbyssFx {
+  name: string; emoji: string; rounds: number; tone: 'buff' | 'debuff';
+  atkMult?: number;   // 攻击倍率增量
+  defMult?: number;   // 防御倍率增量（负=破甲）
+  dot?: number;       // 每回合持续伤害（定值）
+  hot?: number;       // 每回合持续治疗
+  stun?: boolean;     // 控制：无法行动
+  undying?: boolean;  // 不死：扣血保底 1
+  hpLock?: boolean;   // 锁血：完全不掉血
 }
 
 /** AI 生成的敌人面板（仿战斗系统 COMBAT_BATTLE_DATA_RULE 的内联敌人块）。 */
@@ -182,6 +199,7 @@ export interface PlayerSnapshot {
   level: number;
   tier?: string;
   equipped: { category: string; grade: number }[];
+  skills?: { name: string; effect: string }[];   // 战斗中可施放（主角读 characterStore；同伴读其 characterStore）
 }
 
 /* ════════ 确定性 RNG（mulberry32 + 字符串散列） ════════ */
@@ -222,7 +240,7 @@ export function buildPlayerUnit(snap: PlayerSnapshot): AbyssUnit {
     id: 'B1', name: snap.name || '契约者', isPlayer: true,
     attrs: { ...snap.attrs }, level: snap.level, tier: snap.tier,
     maxHp, hp: maxHp, maxEp, ep: maxEp,
-    atk: Math.max(1, d.patk), def: Math.max(0, d.pdef), alive: true,
+    atk: Math.max(1, d.patk), def: Math.max(0, d.pdef), skills: snap.skills ?? [], alive: true,
   };
 }
 
@@ -494,18 +512,112 @@ export function advanceZone(run: AbyssRun): AbyssRun {
   };
 }
 
-/** 玩家一次行动 → 推进一整回合（主角→队友→敌人）。返回新 run。 */
-export function combatAct(run: AbyssRun, action: 'attack' | 'defend' | 'flee', targetIdx = 0): AbyssRun {
+/* ════════ Layer2 战斗辅助（沙盒；概念对齐 combatEngine：状态/护盾/控制/DoT·HoT/不死·锁血） ════════ */
+const SKILL_CD = 2;   // 技能冷却回合
+const sumFxMul = (u: AbyssUnit, k: 'atkMult' | 'defMult') => (u.fx ?? []).reduce((s, f) => s + (f[k] ?? 0), 0);
+function effAtk(u: AbyssUnit): number { return Math.max(1, Math.round(u.atk * (1 + sumFxMul(u, 'atkMult')))); }
+function effDef(u: AbyssUnit): number { return Math.max(0, Math.round(u.def * (1 + sumFxMul(u, 'defMult')))); }
+const isStunned = (u: AbyssUnit) => (u.fx ?? []).some((f) => f.stun);
+const isHpLocked = (u: AbyssUnit) => (u.fx ?? []).some((f) => f.hpLock);
+const isUndying = (u: AbyssUnit) => (u.fx ?? []).some((f) => f.undying);
+function addFx(u: AbyssUnit, fx: AbyssFx) { u.fx = [...(u.fx ?? []).filter((f) => f.name !== fx.name), fx]; }
+/** 扣血：护盾先吸 → 锁血(0)/不死(保底1) → HP。返回实扣值 + 文案。 */
+function dealDamage(t: AbyssUnit, raw: number): { lost: number; note: string } {
+  if (raw <= 0) return { lost: 0, note: '' };
+  let d = raw, note = '';
+  if (t.shield && t.shield > 0) { const ab = Math.min(t.shield, d); t.shield -= ab; d -= ab; if (ab > 0) note += `（盾-${ab}）`; }
+  if (d <= 0) return { lost: 0, note };
+  if (isHpLocked(t)) return { lost: 0, note: note + '（锁血）' };
+  let nh = t.hp - d;
+  if (isUndying(t) && nh < 1) { nh = 1; note += '（不死）'; }
+  nh = Math.max(0, nh); const lost = t.hp - nh; t.hp = nh;
+  if (t.hp <= 0) t.alive = false;
+  return { lost, note };
+}
+/** 回合开始：DoT/HoT 结算 + 状态/护盾过期 + 召唤物计时。返回日志。 */
+function tickUnit(u: AbyssUnit): string[] {
+  if (!u.alive) return [];
+  const out: string[] = [];
+  for (const f of (u.fx ?? [])) {
+    if (f.dot) { const r = dealDamage(u, f.dot); if (r.lost) out.push(`${u.isPlayer ? '你' : u.name} 受【${f.name}】${r.lost}${u.alive ? '' : '（倒下）'}`); }
+    if (f.hot && u.alive) { const h = Math.min(u.maxHp - u.hp, f.hot); if (h > 0) { u.hp += h; out.push(`${u.isPlayer ? '你' : u.name}【${f.name}】回 ${h}`); } }
+  }
+  u.fx = (u.fx ?? []).map((f) => ({ ...f, rounds: f.rounds - 1 })).filter((f) => f.rounds > 0);
+  if (u.summon && u.summonLeft != null) { u.summonLeft -= 1; if (u.summonLeft <= 0) { u.alive = false; out.push(`${u.name} 消散`); } }
+  return out;
+}
+/** 关键词推断技能效果（紧凑版 inferSkillSpec）。 */
+function inferAbyssSkill(text: string) {
+  const t = text || '';
+  return {
+    aoe: /群|全体|范围|周围|横扫|溅射|波及|席卷|风暴|爆发/.test(t),
+    dot: /中毒|剧毒|淬毒/.test(t) ? { n: '中毒', e: '☠️' } : /灼烧|燃烧|点燃|焚|烈焰|龙息/.test(t) ? { n: '灼烧', e: '🔥' } : /流血|撕裂|出血|斩|噬/.test(t) ? { n: '流血', e: '🩸' } : /腐蚀|侵蚀|污染/.test(t) ? { n: '腐蚀', e: '🧪' } : null,
+    stun: /眩晕|定身|冰冻|麻痹|石化|沉默|禁锢|束缚|昏迷|震慑|控制|冻结/.test(t),
+    debuffDef: /破甲|碎甲|裂甲|破防/.test(t),
+    debuffAtk: /虚弱|弱化|削弱|降攻|缴械|衰弱|减速/.test(t),
+    buffAtk: /强化|增幅|狂暴|战意|怒|附魔|嗜血|蓄/.test(t),
+    shieldSelf: /护盾|护罩|护壁|格挡|结界|铁壁|金钟|护身|护甲|龙鳞|甲壳|壁/.test(t),
+    heal: /治疗|治愈|回复|恢复|疗|加血|吸取生命|生命汲取/.test(t),
+    undying: /不死|不灭|不屈|濒死|金身|打不死/.test(t),
+    summon: /召唤|唤出|呼唤|分裂|增援|召出|亡魂|尸潮/.test(t),
+  };
+}
+function makeSummon(caster: AbyssUnit, n: number): AbyssUnit {
+  return {
+    id: `${caster.id}_s${n}`, name: caster.isPlayer ? '渊仆' : `${caster.name.replace('堕落·', '')}·眷属`, isPlayer: caster.isPlayer,
+    attrs: caster.attrs, level: caster.level, maxHp: Math.max(1, Math.round(caster.maxHp * 0.35)), hp: Math.max(1, Math.round(caster.maxHp * 0.35)),
+    maxEp: 0, ep: 0, atk: Math.max(1, Math.round(caster.atk * 0.5)), def: Math.max(0, Math.round(caster.def * 0.5)),
+    summon: true, summonLeft: 3, alive: true,
+  };
+}
+/** 施放技能（玩家/同伴/敌人共用）。friends=施法者同侧、foes=对方；incoming=对目标受伤系数（主角防御/形态）。 */
+function castAbyssSkill(caster: AbyssUnit, skill: { name: string; effect: string }, friends: AbyssUnit[], foes: AbyssUnit[], rng: () => number, log: string[], atkMul: number, incoming: (t: AbyssUnit) => number): void {
+  const spec = inferAbyssSkill(`${skill.name}|${skill.effect}`);
+  const who = caster.isPlayer ? '你' : caster.name;
+  log.push(`${who} 施放【${skill.name}】`);
+  const aliveFoes = foes.filter((f) => f.alive);
+  const power = Math.round(effAtk(caster) * atkMul * 1.4);
+  const targets = spec.aoe ? aliveFoes : aliveFoes.sort((a, b) => a.hp - b.hp).slice(0, 1);
+  for (const tgt of targets) {
+    const base = Math.max(1, Math.round((power - effDef(tgt) * 0.5) * (0.85 + rng() * 0.3) * incoming(tgt)));
+    const r = dealDamage(tgt, base);
+    if (caster.lifesteal && r.lost) caster.hp = Math.min(caster.maxHp, caster.hp + Math.round(r.lost * caster.lifesteal));
+    if (spec.dot) addFx(tgt, { name: spec.dot.n, emoji: spec.dot.e, rounds: 3, tone: 'debuff', dot: Math.max(1, Math.round(power * 0.12)) });
+    if (spec.stun) addFx(tgt, { name: '眩晕', emoji: '💫', rounds: 1, tone: 'debuff', stun: true });
+    if (spec.debuffDef) addFx(tgt, { name: '破甲', emoji: '🛡️', rounds: 2, tone: 'debuff', defMult: -0.3 });
+    if (spec.debuffAtk) addFx(tgt, { name: '虚弱', emoji: '📉', rounds: 2, tone: 'debuff', atkMult: -0.3 });
+    log.push(`　→ ${tgt.name} ${r.lost}${r.note}${tgt.alive ? '' : '（倒下）'}`);
+  }
+  if (spec.shieldSelf) { caster.shield = (caster.shield ?? 0) + Math.round(effAtk(caster) * 0.6); log.push(`　${who} 获护盾`); }
+  if (spec.buffAtk) { addFx(caster, { name: '战意', emoji: '⚔️', rounds: 2, tone: 'buff', atkMult: 0.3 }); }
+  if (spec.undying) { addFx(caster, { name: '不死', emoji: '💀', rounds: 2, tone: 'buff', undying: true }); }
+  if (spec.heal) { const t = friends.filter((f) => f.alive).sort((a, b) => a.hp / a.maxHp - b.hp / b.maxHp)[0]; if (t) { const h = Math.min(t.maxHp - t.hp, Math.round(effAtk(caster) * 0.5)); if (h > 0) { t.hp += h; log.push(`　回复 ${t.isPlayer ? '你' : t.name} ${h}`); } } }
+  if (spec.summon && friends.length < 6) { const s = makeSummon(caster, friends.length); friends.push(s); log.push(`　召唤 ${s.name}`); }
+  caster.cd = { ...(caster.cd ?? {}), [skill.name]: SKILL_CD };
+}
+
+/** 玩家一次行动 → 推进一整回合（回合开始结算 → 主角 → 队友 → 敌人 → 计时）。 */
+export function combatAct(run: AbyssRun, action: 'attack' | 'defend' | 'flee' | 'skill', targetIdx = 0, skillIdx = 0): AbyssRun {
   if (!run.fight || run.status !== 'fighting') return run;
+  const cp = (u: AbyssUnit): AbyssUnit => ({ ...u, fx: u.fx ? u.fx.map((f) => ({ ...f })) : u.fx, cd: u.cd ? { ...u.cd } : u.cd });
   const next: AbyssRun = {
     ...run,
-    party: run.party.map((u) => ({ ...u })),
-    fight: { ...run.fight, enemies: run.fight.enemies.map((e) => ({ ...e })), log: [...run.fight.log] },
+    party: run.party.map(cp),
+    fight: { ...run.fight, enemies: run.fight.enemies.map(cp), log: [...run.fight.log] },
   };
   const fight = next.fight!;
   const rng = makeRng(`${next.seed}|fight|${next.posIdx}|r${fight.round}`);
   const dmg = (atk: number, def: number) => Math.max(1, Math.round((atk - def * 0.5) * (0.85 + rng() * 0.3)));
   const hero = next.party[0];
+  const formAtkMul = fight.form ? ABYSS_TUNING.formAtkMul : 1;
+  const incoming = (t: AbyssUnit) => (t.isPlayer && fight.heroDefending ? 0.45 : 1) * (t.isPlayer && fight.form ? ABYSS_TUNING.formDmgTaken : 1);
+  const basicAtk = (atkr: AbyssUnit, tgt: AbyssUnit, mul: number, label: string) => {
+    const d = Math.max(1, Math.round((effAtk(atkr) * mul - effDef(tgt) * 0.5) * (0.85 + rng() * 0.3) * incoming(tgt)));
+    const r = dealDamage(tgt, d);
+    if (atkr.lifesteal && r.lost) atkr.hp = Math.min(atkr.maxHp, atkr.hp + Math.round(r.lost * atkr.lifesteal));
+    fight.log.push(`${atkr.isPlayer ? '你' : atkr.name} ${label} 对 ${tgt.name} 造成 ${r.lost}${r.note}${tgt.alive ? '' : '（击杀）'}`);
+  };
+  void dmg;
 
   if (action === 'flee') {
     const rooms = next.map.rooms.map((r, i) => (i === next.posIdx ? { ...r, cleared: true } : r));
@@ -516,68 +628,52 @@ export function combatAct(run: AbyssRun, action: 'attack' | 'defend' | 'flee', t
     return next;
   }
 
-  // 失控（高堕落随机反噬，§3.3）——形态期免疫；星图「神智安抚」缓和
+  // 回合开始：DoT/HoT/状态过期/召唤计时
+  for (const u of [...next.party, ...fight.enemies]) for (const l of tickUnit(u)) fight.log.push(l);
+  if (!fight.enemies.some((e) => e.alive)) { next.log = [...next.log, '⚔ 敌人尽数倒于持续伤害']; return applyCombatWin(next); }
+  if (!next.party.some((u) => u.alive)) { next.lastBattle = { rounds: fight.round, foes: fight.enemies.map((e) => e.name), win: false }; next.fight = null; next.status = 'dead'; next.log = [...next.log, '💀 队伍全灭']; return next; }
+
+  // 失控（高堕落随机反噬）——形态期免疫；星图缓和
   const berserkChance = fight.form ? 0 : (ABYSS_TUNING.berserkChance[next.fallLevel] ?? 0) * (next.berserkMul ?? 1);
-  let effAction: 'attack' | 'defend' | 'skip' = action;
+  let effAction: 'attack' | 'defend' | 'skill' | 'skip' = action;
   let useTarget = targetIdx;
   if (berserkChance > 0 && rng() < berserkChance) {
     const k = rng();
-    if (k < 0.4) {
-      useTarget = Math.floor(rng() * Math.max(1, fight.enemies.filter((e) => e.alive).length));
-      effAction = 'attack';
-      fight.log.push('⚠ 失控·暴走：你失去理智，攻向随机目标！');
-    } else if (k < 0.75) {
-      const self = Math.round(hero.maxHp * 0.08);
-      hero.hp = Math.max(1, hero.hp - self);
-      effAction = 'skip';
-      fight.log.push(`⚠ 失控·反噬：黑暗反噬己身，自损 ${self}`);
-    } else {
-      effAction = 'skip';
-      fight.log.push('⚠ 失控·失神：你呆滞了一回合');
-    }
+    if (k < 0.4) { useTarget = Math.floor(rng() * Math.max(1, fight.enemies.filter((e) => e.alive).length)); effAction = 'attack'; fight.log.push('⚠ 失控·暴走：你失去理智，攻向随机目标！'); }
+    else if (k < 0.75) { const self = Math.round(hero.maxHp * 0.08); hero.hp = Math.max(1, hero.hp - self); effAction = 'skip'; fight.log.push(`⚠ 失控·反噬：黑暗反噬己身，自损 ${self}`); }
+    else { effAction = 'skip'; fight.log.push('⚠ 失控·失神：你呆滞了一回合'); }
   }
   fight.heroDefending = effAction === 'defend';
-  const formAtkMul = fight.form ? ABYSS_TUNING.formAtkMul : 1;
+
   // 1) 主角
-  if (effAction === 'attack' && hero.alive) {
+  if (isStunned(hero)) { fight.log.push('你被控制，无法行动'); }
+  else if (hero.alive && effAction === 'attack') {
     const aliveE = fight.enemies.filter((e) => e.alive);
     const tgt = aliveE[Math.min(useTarget, aliveE.length - 1)] || aliveE[0];
-    if (tgt) {
-      const d = dmg(Math.round(hero.atk * formAtkMul), tgt.def); tgt.hp -= d;
-      if (hero.lifesteal) hero.hp = Math.min(hero.maxHp, hero.hp + Math.round(d * hero.lifesteal));
-      if (tgt.hp <= 0) tgt.alive = false;
-      fight.log.push(`你${fight.form ? '【魔化】' : ''}对 ${tgt.name} 造成 ${d}${tgt.alive ? '' : '（击杀）'}`);
-    }
-  } else if (effAction === 'defend') {
-    fight.log.push('你摆出防御姿态，下次受击减伤');
+    if (tgt) basicAtk(hero, tgt, formAtkMul, fight.form ? '【魔化】' : '攻击');
+  } else if (hero.alive && effAction === 'skill') {
+    const sk = hero.skills?.[skillIdx];
+    if (sk && !hero.cd?.[sk.name]) castAbyssSkill(hero, sk, next.party, fight.enemies, rng, fight.log, formAtkMul, incoming);
+    else { const tgt = fight.enemies.filter((e) => e.alive).sort((a, b) => a.hp - b.hp)[0]; if (tgt) { if (sk) fight.log.push(`【${sk.name}】冷却中，改为攻击`); basicAtk(hero, tgt, formAtkMul, '攻击'); } }
+  } else if (effAction === 'defend') fight.log.push('你摆出防御姿态，下次受击减伤');
+
+  // 2) 队友自动（施法/攻击）
+  for (const a of [...next.party]) {
+    if (a.isPlayer || !a.alive || isStunned(a)) continue;
+    const sk = a.skills && a.skills.length && rng() < 0.4 ? a.skills[Math.floor(rng() * a.skills.length)] : null;
+    if (sk && !a.cd?.[sk.name]) castAbyssSkill(a, sk, next.party, fight.enemies, rng, fight.log, 1, incoming);
+    else { const tgt = fight.enemies.filter((e) => e.alive).sort((x, y) => x.hp - y.hp)[0]; if (tgt) basicAtk(a, tgt, 1, '攻击'); }
   }
-  // 2) 队友自动
-  for (let i = 1; i < next.party.length; i++) {
-    const a = next.party[i]; if (!a.alive) continue;
-    const tgt = fight.enemies.filter((e) => e.alive).sort((x, y) => x.hp - y.hp)[0];
-    if (!tgt) break;
-    const d = dmg(a.atk, tgt.def); tgt.hp -= d;
-    if (a.lifesteal) a.hp = Math.min(a.maxHp, a.hp + Math.round(d * a.lifesteal));
-    if (tgt.hp <= 0) tgt.alive = false;
-    fight.log.push(`${a.name} 对 ${tgt.name} 造成 ${d}${tgt.alive ? '' : '（击杀）'}`);
-  }
-  if (!fight.enemies.some((e) => e.alive)) {
-    next.log = [...next.log, `⚔ 战胜 ${fight.enemies.map((e) => e.name).join('、')}（${fight.round} 回合）`];
-    return applyCombatWin(next);
-  }
-  // 3) 敌人（有技能则按概率施放：×1.5 伤害 + 技能名，轻量对齐战斗系统的技能动作）
-  for (const e of fight.enemies) {
-    if (!e.alive) continue;
+  if (!fight.enemies.some((e) => e.alive)) { next.log = [...next.log, `⚔ 战胜 ${fight.enemies.filter((e) => !e.summon).map((e) => e.name).join('、') || '敌人'}（${fight.round} 回合）`]; return applyCombatWin(next); }
+
+  // 3) 敌人（施法/攻击）
+  for (const e of [...fight.enemies]) {
+    if (!e.alive || isStunned(e)) continue;
     const tgt = next.party.filter((u) => u.alive).sort((x, y) => x.hp - y.hp)[0];
     if (!tgt) break;
-    const useSkill = e.skills && e.skills.length > 0 && rng() < 0.4;
-    const sk = useSkill ? e.skills![Math.floor(rng() * e.skills!.length)] : null;
-    let d = dmg(e.atk, tgt.def);
-    if (sk) d = Math.round(d * 1.5);
-    if (tgt.isPlayer && fight.heroDefending) d = Math.round(d * 0.45);
-    if (tgt.isPlayer && fight.form) d = Math.round(d * ABYSS_TUNING.formDmgTaken);
-    tgt.hp -= d; if (tgt.hp <= 0) tgt.alive = false;
-    fight.log.push(`${e.name} ${sk ? `【${sk.name}】` : '攻击'} 对 ${tgt.name} 造成 ${d}${tgt.alive ? '' : '（倒下）'}`);
+    const sk = e.skills && e.skills.length && rng() < 0.4 ? e.skills[Math.floor(rng() * e.skills.length)] : null;
+    if (sk && !e.cd?.[sk.name]) castAbyssSkill(e, sk, fight.enemies, next.party, rng, fight.log, 1, incoming);
+    else basicAtk(e, tgt, 1, '攻击');
   }
   if (!next.party.some((u) => u.alive)) {
     next.lastBattle = { rounds: fight.round, foes: fight.enemies.map((e) => e.name), win: false };
@@ -595,12 +691,14 @@ export function combatAct(run: AbyssRun, action: 'attack' | 'defend' | 'flee', t
       next.corruption += ABYSS_TUNING.formBacklashCorrupt;
       next.fallLevel = corruptToFall(next.corruption);
       fight.log.push(`😈 堕落形态消退：反噬自损 ${back}，腐蚀 +${ABYSS_TUNING.formBacklashCorrupt}`);
-    } else {
-      fight.form = { roundsLeft: left };
-    }
+    } else fight.form = { roundsLeft: left };
   }
+  // 冷却递减 + 移除消散的召唤物
+  for (const u of [...next.party, ...fight.enemies]) if (u.cd) for (const k of Object.keys(u.cd)) { u.cd[k] -= 1; if (u.cd[k] <= 0) delete u.cd[k]; }
+  next.party = next.party.filter((u, i) => i === 0 || u.alive || !u.summon);
+  fight.enemies = fight.enemies.filter((e) => e.alive || !e.summon);
   fight.round += 1; fight.heroDefending = false;
-  fight.log = fight.log.slice(-30);
+  fight.log = fight.log.slice(-40);
   return next;
 }
 

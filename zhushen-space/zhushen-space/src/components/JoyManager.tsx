@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
-import { useJoy, hydrateJoyPortraits, DEFAULT_GIRLS, JOY_PRIVATE_COLS, type JoyGirl } from '../store/joyStore';
+import { useJoy, hydrateJoyPortraits, hydrateJoyWorldBooks, DEFAULT_GIRLS, JOY_PRIVATE_COLS, type JoyGirl } from '../store/joyStore';
+import type { WorldBook, WorldBookEntry } from '../store/settingsStore';
 import { shrinkDataUrl } from '../systems/imageGen';
 import ApiRoutePicker from './ApiRoutePicker';
 
@@ -8,7 +9,7 @@ import ApiRoutePicker from './ApiRoutePicker';
 
 const inputCls = 'bg-void border border-edge rounded px-2 py-1 text-sm text-slate-200 focus:outline-none focus:border-pink-400/40';
 const RACE_EMOJI = (race = ''): string =>
-  /蛇/.test(race) ? '🐍' : /魅魔|梦魔|魔/.test(race) ? '😈' : /精灵/.test(race) ? '🧝‍♀️'
+  /蛇/.test(race) ? '🐍' : /火|法师|魔法/.test(race) ? '🔥' : /魅魔|梦魔/.test(race) ? '😈' : /精灵/.test(race) ? '🧝‍♀️'
   : /青楼|花魁|古/.test(race) ? '🏮' : '💋';
 
 function GirlCard({ girl, onEditPreset }: { girl: JoyGirl; onEditPreset: () => void }) {
@@ -172,6 +173,155 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
   );
 }
 
+/* ── 欢愉宫世界书：导入 / 逐条开关·编辑 / 导出（蓝灯常驻 + 绿灯关键词，注入每轮包间对话） ── */
+function JoyLamp({ entry }: { entry: WorldBookEntry }) {
+  if (!entry.enabled) return <span className="w-2 h-2 rounded-full bg-dim/30 shrink-0" title="已禁用" />;
+  if (entry.constant) return <span className="w-2 h-2 rounded-full bg-sky-400 shrink-0 shadow-[0_0_4px_#38bdf8]" title="蓝灯：常驻，每轮都注入" />;
+  if (entry.selective) return <span className="w-2 h-2 rounded-full bg-emerald-400 shrink-0 shadow-[0_0_4px_#34d399]" title="绿灯：命中关键词才注入" />;
+  return <span className="w-2 h-2 rounded-full bg-slate-400 shrink-0" title="关键词触发" />;
+}
+
+// 导出为 SillyTavern 兼容 JSON（entries 数字键对象，可被本应用 / 酒馆再导入）
+function downloadJoyWb(book: WorldBook) {
+  const entries: Record<string, any> = {};
+  book.entries.forEach((e, i) => {
+    entries[i] = {
+      uid: e.uid ?? i, key: e.key ?? [], keysecondary: e.keysecondary ?? [],
+      comment: e.comment ?? '', content: e.content ?? '',
+      constant: !!e.constant, selective: !!e.selective, disable: e.enabled === false,
+      order: e.order ?? 100, position: e.position ?? 0,
+    };
+  });
+  const blob = new Blob([JSON.stringify({ name: book.name, entries }, null, 2)], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = `${(book.name || '世界书').replace(/[\\/:*?"<>|]/g, '_')}.json`;
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
+
+const switchCls = (on: boolean) => `shrink-0 rounded-full border transition-colors ${on ? 'bg-pink-500/40 border-pink-400/50' : 'bg-void border-edge'}`;
+
+function JoyWbEntryRow({ bookId, entry }: { bookId: string; entry: WorldBookEntry }) {
+  const toggleEntry = useJoy((s) => s.toggleJoyWbEntry);
+  const updateEntry = useJoy((s) => s.updateJoyWbEntry);
+  const removeEntry = useJoy((s) => s.removeJoyWbEntry);
+  const [open, setOpen] = useState(false);
+  return (
+    <div className={`px-2.5 py-1.5 ${!entry.enabled ? 'opacity-50' : ''}`}>
+      <div className="flex items-center gap-2">
+        <JoyLamp entry={entry} />
+        <button onClick={() => toggleEntry(bookId, entry.uid)} title={entry.enabled ? '点击禁用' : '点击启用'} className={`${switchCls(entry.enabled)} w-7 h-4`}>
+          <div className="w-2.5 h-2.5 rounded-full bg-white mx-0.5 transition-all" style={{ transform: entry.enabled ? 'translateX(12px)' : 'none' }} />
+        </button>
+        <span className="flex-1 min-w-0 text-[13px] text-slate-300 truncate">{entry.comment || '(无标题)'}</span>
+        <button onClick={() => setOpen(!open)} className="text-[11px] font-mono text-dim hover:text-pink-200 px-1 shrink-0">{open ? '收起' : '编辑'}</button>
+        <button onClick={() => removeEntry(bookId, entry.uid)} className="text-blood/50 hover:text-blood text-[12px] px-1 shrink-0">✕</button>
+      </div>
+      {open && (
+        <div className="mt-2 space-y-1.5 pl-4">
+          <input value={entry.comment} onChange={(e) => updateEntry(bookId, entry.uid, { comment: e.target.value })} placeholder="标题"
+            className="w-full bg-void border border-edge rounded px-2 py-1 text-[12px] text-slate-200 focus:outline-none focus:border-pink-400/40" />
+          <input value={entry.key.join(', ')} onChange={(e) => updateEntry(bookId, entry.uid, { key: e.target.value.split(/[,，]/).map((k) => k.trim()).filter(Boolean) })}
+            placeholder="关键词（逗号分隔；绿灯靠它命中你的输入）"
+            className="w-full bg-void border border-edge rounded px-2 py-1 text-[12px] text-emerald-200/80 font-mono focus:outline-none focus:border-emerald-400/40" />
+          <textarea value={entry.content} onChange={(e) => updateEntry(bookId, entry.uid, { content: e.target.value })} rows={3} placeholder="内容"
+            className="w-full bg-void border border-edge rounded px-2 py-1 text-[12px] text-slate-200 leading-snug resize-y focus:outline-none focus:border-pink-400/40" />
+          <div className="flex items-center gap-4 text-[11px] font-mono">
+            <label className="flex items-center gap-1 cursor-pointer text-sky-300/80">
+              <input type="checkbox" checked={entry.constant} onChange={() => updateEntry(bookId, entry.uid, { constant: !entry.constant })} className="accent-sky-500" />蓝灯·常驻
+            </label>
+            <label className="flex items-center gap-1 cursor-pointer text-emerald-300/80">
+              <input type="checkbox" checked={entry.selective} onChange={() => updateEntry(bookId, entry.uid, { selective: !entry.selective })} className="accent-emerald-500" />绿灯·关键词
+            </label>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function JoyWbCard({ book }: { book: WorldBook }) {
+  const toggleWb = useJoy((s) => s.toggleJoyWorldBook);
+  const removeWb = useJoy((s) => s.removeJoyWorldBook);
+  const addEntry = useJoy((s) => s.addJoyWbEntry);
+  const [open, setOpen] = useState(false);
+  const [q, setQ] = useState('');
+  const enabledCount = book.entries.filter((e) => e.enabled).length;
+  const sorted = [...book.entries].sort((a, b) => a.order - b.order);
+  const filtered = q.trim()
+    ? sorted.filter((e) => { const s = q.toLowerCase(); return e.comment.toLowerCase().includes(s) || e.content.toLowerCase().includes(s) || e.key.some((k) => k.toLowerCase().includes(s)); })
+    : sorted;
+  return (
+    <div className={`rounded-lg border overflow-hidden ${book.enabled ? 'border-edge' : 'border-edge/40 opacity-60'}`}>
+      <div className="flex items-center gap-2 px-3 py-2 bg-panel2/50">
+        <button onClick={() => toggleWb(book.id)} title={book.enabled ? '整本停用' : '整本启用'} className={`${switchCls(book.enabled)} w-9 h-5`}>
+          <div className="w-3 h-3 rounded-full bg-white mx-1 transition-all" style={{ transform: book.enabled ? 'translateX(16px)' : 'none' }} />
+        </button>
+        <div className="flex-1 min-w-0">
+          <div className="text-[13px] font-semibold text-slate-200 truncate">{book.name}{book.builtin && <span className="ml-1.5 text-[10px] font-mono text-pink-300/50">内置</span>}</div>
+          <div className="text-[11px] font-mono text-dim/55">{enabledCount} / {book.entries.length} 条启用</div>
+        </div>
+        <button onClick={() => setOpen(!open)} className="text-[12px] font-mono text-dim hover:text-pink-200 px-1.5 shrink-0">{open ? '收起 ∧' : '展开 ∨'}</button>
+        <button onClick={() => downloadJoyWb(book)} className="text-[12px] font-mono text-dim hover:text-pink-200 px-1.5 shrink-0" title="导出为 JSON（可再导入）">导出</button>
+        <button onClick={() => { if (confirm(`删除世界书「${book.name}」？`)) removeWb(book.id); }} className="text-blood/55 hover:text-blood text-[12px] px-1 shrink-0">删除</button>
+      </div>
+      {open && (
+        <div className="border-t border-edge">
+          <div className="flex items-center gap-2 px-2.5 py-1.5 bg-void/50 border-b border-edge/50">
+            <span className="flex items-center gap-1 text-[10px] font-mono text-dim shrink-0"><span className="w-2 h-2 rounded-full bg-sky-400 inline-block" />蓝<span className="w-2 h-2 rounded-full bg-emerald-400 inline-block ml-1.5" />绿</span>
+            <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="搜索标题 / 内容 / 关键词…" className="flex-1 bg-void border border-edge/60 rounded px-2 py-0.5 text-[12px] text-slate-300 font-mono focus:outline-none focus:border-pink-400/40" />
+            <button onClick={() => addEntry(book.id)} className="shrink-0 text-[12px] font-mono text-pink-300 border border-pink-400/30 px-2 py-0.5 rounded hover:bg-pink-500/10">+ 新建</button>
+          </div>
+          <div className="max-h-72 overflow-y-auto divide-y divide-edge/40">
+            {filtered.length === 0 && <div className="px-3 py-3 text-[12px] text-dim/50">{book.entries.length ? '无匹配条目' : '空世界书'}</div>}
+            {filtered.map((e) => <JoyWbEntryRow key={e.uid} bookId={book.id} entry={e} />)}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function JoyWorldBookSection() {
+  const worldBooks = useJoy((s) => s.worldBooks);
+  const importWb = useJoy((s) => s.importJoyWorldBook);
+  const fileRef = useRef<HTMLInputElement>(null);
+  const [msg, setMsg] = useState('');
+
+  useEffect(() => { hydrateJoyWorldBooks(); }, []);
+
+  const onFiles = async (files: FileList | null) => {
+    if (!files?.length) return;
+    const out: string[] = [];
+    for (const f of Array.from(files)) {
+      try { out.push(importWb(await f.text(), f.name).message); }
+      catch { out.push(`${f.name}：读取失败`); }
+    }
+    setMsg(out.join('；'));
+    if (fileRef.current) fileRef.current.value = '';
+  };
+
+  return (
+    <div className="space-y-2.5 rounded-xl border border-pink-500/20 bg-panel p-3">
+      <div className="flex items-center justify-between gap-2">
+        <span className="text-sm font-semibold text-slate-200">欢愉宫世界书（{worldBooks.length}）</span>
+        <div className="flex items-center gap-2">
+          <input ref={fileRef} type="file" accept=".json,application/json" multiple className="hidden" onChange={(e) => onFiles(e.target.files)} />
+          <button onClick={() => fileRef.current?.click()} className="text-[12px] font-mono py-1 px-2.5 rounded-lg border border-pink-400/40 text-pink-200 hover:bg-pink-500/10">+ 导入</button>
+        </div>
+      </div>
+      <p className="text-[11px] font-mono text-dim/55 leading-snug">
+        每轮包间对话自动注入：<span className="text-sky-300/80">蓝灯</span>条目常驻必注入；<span className="text-emerald-300/80">绿灯</span>条目按你的输入命中关键词才注入。兼容 SillyTavern 世界书 JSON，可逐条编辑 / 开关 / 导出再分享。其中「姿势」「BDSM」两本的条目标题还会出现在包间的快捷按钮里。
+      </p>
+      {msg && <div className="text-[12px] font-mono text-pink-200/80">{msg}</div>}
+      {worldBooks.length === 0
+        ? <div className="text-[12px] text-dim/45 py-2">尚无世界书（内置 5 本含 BDSM / 姿势 会自动加载，也可导入自己的）。</div>
+        : <div className="space-y-2">{worldBooks.map((b) => <JoyWbCard key={b.id} book={b} />)}</div>}
+    </div>
+  );
+}
+
 export default function JoyManager() {
   const settings = useJoy((s) => s.settings);
   const setSettings = useJoy((s) => s.setSettings);
@@ -228,6 +378,8 @@ export default function JoyManager() {
         </div>
         {settings.girls.map((g) => <GirlCard key={g.id} girl={g} onEditPreset={() => setEditId(g.id)} />)}
       </div>
+
+      <JoyWorldBookSection />
 
       <div className="space-y-2.5 rounded-xl border border-pink-500/20 bg-panel p-3">
         <div className="flex items-center justify-between">

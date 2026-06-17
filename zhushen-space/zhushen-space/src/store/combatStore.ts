@@ -123,7 +123,6 @@ export interface CombatConfig {
   settlementMode: 'code' | 'ai';     // code=骰子引擎确定性结算（默认）/ ai=交给 AI 兜底裁定
   turnDriverMode: 'llm' | 'local';   // NPC 回合由 AI 决策 / 本地启发式（第二层）
   manualAllyControl: boolean;        // 手动控制玩家方队友（默认 AI 托管）
-  postBattleRewards: boolean;        // 战后发放进阶点数奖励
   retryCount: number;                // AI 阶段解析失败重试次数
   activePresetId: string;
   savedPresets: CombatPreset[];
@@ -139,7 +138,6 @@ export const DEFAULT_COMBAT_CONFIG: CombatConfig = {
   settlementMode: 'code',
   turnDriverMode: 'llm',
   manualAllyControl: false,
-  postBattleRewards: true,
   retryCount: 2,
   activePresetId: 'default',
   savedPresets: [{ ...DEFAULT_PRESET }],
@@ -174,6 +172,7 @@ interface CombatState {
   actionInput: string;
   apiBusy: boolean;
   apiStatus: string;
+  undoSnapshot: BattleState | null; // 玩家本回合出手前的战况快照（撤销用，不持久化）
 
   // ── 战斗运行态 ──
   setBattle: (b: BattleState) => void;
@@ -205,6 +204,7 @@ interface CombatState {
   resetSelection: () => void;
   setApiBusy: (v: boolean) => void;
   setApiStatus: (s: string) => void;
+  setUndoSnapshot: (s: BattleState | null) => void;
 }
 
 export const useCombat = create<CombatState>()(
@@ -228,6 +228,7 @@ export const useCombat = create<CombatState>()(
       actionInput: '',
       apiBusy: false,
       apiStatus: '',
+      undoSnapshot: null,
 
       setBattle: (b) => set({ battle: b }),
       updateBattle: (fn) => set((s) => ({ battle: fn(s.battle) })),
@@ -237,12 +238,13 @@ export const useCombat = create<CombatState>()(
       })),
       endBattle: (victor, reason) => set((s) => ({
         battle: { ...s.battle, active: false, stage: 'ended', victor, endReason: reason },
+        undoSnapshot: null,
       })),
       exitCombat: () => set({
         battle: emptyBattle(), selectedAction: null, selectedSkillId: null, selectedItemId: null,
-        selectedTargetIds: [], actionInput: '', apiBusy: false, apiStatus: '',
+        selectedTargetIds: [], actionInput: '', apiBusy: false, apiStatus: '', undoSnapshot: null,
       }),
-      clearCombat: () => set({ battle: emptyBattle(), apiBusy: false, apiStatus: '' }),
+      clearCombat: () => set({ battle: emptyBattle(), apiBusy: false, apiStatus: '', undoSnapshot: null }),
 
       setConfig: (patch) => set((s) => ({ config: { ...s.config, ...patch } })),
       getActivePreset: () => {
@@ -280,6 +282,7 @@ export const useCombat = create<CombatState>()(
       resetSelection: () => set({ selectedAction: null, selectedSkillId: null, selectedItemId: null, selectedTargetIds: [], actionInput: '' }),
       setApiBusy: (v) => set({ apiBusy: v }),
       setApiStatus: (s) => set({ apiStatus: s }),
+      setUndoSnapshot: (snap) => set({ undoSnapshot: snap }),
     }),
     {
       name: 'drpg-combat',

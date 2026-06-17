@@ -154,6 +154,7 @@ export interface InventoryItem {
   intro?: string;         // 简介（flavor 文本）
   killCount?: string;     // 杀敌数量（仅武器类，随战斗累计）
   enhanceLevel?: number;  // 强化等级 0-16（装备强化系统，仅装备类；0/缺省=未强化）
+  awakenLv?: number;      // 深渊觉醒阶数（觉醒系统升品级+加词缀，0/缺省=未觉醒）
   // ── 宝石/镶嵌系统（仅装备类）──
   sockets?: number;       // 镶嵌孔总数（缺省时按品级 defaultSocketsByGrade 派生；打孔石可增至 MAX_SOCKETS）
   gems?: SocketedGem[];   // 已镶嵌宝石（length ≤ socketsOf(item)）
@@ -398,7 +399,6 @@ export const useItems = create<ItemState>()(
         // 精确匹配名称：只保留以下条目，其余全部禁用
         const KEEP_NAMES = new Set([
           '身份定义',
-          '进阶点数与技能点区分',
           'Standalone 物品装备固定条目模板',
           'Standalone 容器开启与一次性消耗强制自检',
           'Standalone 状态命令契约（SSOT）',

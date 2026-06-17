@@ -120,10 +120,13 @@ export default function VariableManager({
   onOpenCombatManager,
   onOpenArenaManager,
   onOpenEnhanceManager,
+  onOpenCasinoManager,
+  onOpenAbyssManager,
   onOpenJoyManager,
   onOpenChannelManager,
   onOpenNovelVecManager,
   onOpenWorldCodexManager,
+  onOpenSkillTreeManager,
 }: {
   onOpenItemManager?: () => void;
   onOpenPlayerManager?: () => void;
@@ -138,10 +141,13 @@ export default function VariableManager({
   onOpenCombatManager?: () => void;
   onOpenArenaManager?: () => void;
   onOpenEnhanceManager?: () => void;
+  onOpenCasinoManager?: () => void;
+  onOpenAbyssManager?: () => void;
   onOpenJoyManager?: () => void;
   onOpenChannelManager?: () => void;
   onOpenNovelVecManager?: () => void;
   onOpenWorldCodexManager?: () => void;
+  onOpenSkillTreeManager?: () => void;
 }) {
   const GROUPS: { title: string; items: ModuleItem[] }[] = [
     {
@@ -173,6 +179,9 @@ export default function VariableManager({
         { icon: '⚔️', label: '战斗系统',   desc: '回合制战斗 · 结算 · 预设',    color: 'rose',    cb: onOpenCombatManager },
         { icon: '🏟', label: '竞技场',     desc: '阶位榜单 · 挑战 · 奖励',      color: 'amber',   cb: onOpenArenaManager },
         { icon: '⚒', label: '装备强化',   desc: '强化等级 · 看板娘 · 保底',    color: 'amber',   cb: onOpenEnhanceManager },
+        { icon: '🎰', label: '赌场',       desc: '玩法 · API · 限红抽水 · 荷官',  color: 'amber',   cb: onOpenCasinoManager },
+        { icon: '🕳', label: '深渊地牢',   desc: 'API · 门票 · 进度 · 重置',     color: 'violet',  cb: onOpenAbyssManager },
+        { icon: '🌳', label: '技能树',     desc: '职业树 · 节点编辑 · 模板',    color: 'emerald', cb: onOpenSkillTreeManager },
         { icon: '💗', label: '欢愉宫',     desc: '看板娘 · 情欲值 · 四阶段',    color: 'pink',    cb: onOpenJoyManager },
       ],
     },

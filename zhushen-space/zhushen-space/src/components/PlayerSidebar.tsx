@@ -4,16 +4,18 @@ import { useGame } from '../store/gameStore';
 import { useItems, gradeToNum } from '../store/itemStore';
 import { StatusChips, SegmentedText } from './NpcDetail';
 import StatusEffectChips from './StatusEffectChips';
-import { computeDerived, realmFromLevel, trueAttr, computeMaxHp, computeMaxEp, gearMaxHpBonus, gearMaxEpBonus, abilityMaxHpBonus, abilityMaxEpBonus, effectiveResource } from '../systems/derivedStats';
+import { computeDerived, realmFromLevel, trueAttr, computeMaxHp, computeMaxEp, gearMaxHpBonus, gearMaxEpBonus, abilityMaxHpBonus, abilityMaxEpBonus, effectiveResource, fullMaxHp, fullMaxEp } from '../systems/derivedStats';
 import { useCharacters } from '../store/characterStore';
-import { computeAttrBreakdown, ATTR_LABEL, type AttrBreak } from '../systems/attrBonus';
-import { bioInnate, bioPower, bioStrengthLabel } from '../systems/bioStrength';
+import { computeAttrBreakdown, withAttrDelta, ATTR_LABEL, type AttrBreak } from '../systems/attrBonus';
+import { playerTreeAttrBonus } from '../store/skillTreeStore';
+import { playerTeamAttrBonus, playerTeamPerkAbilities } from '../store/adventureTeamStore';
+import { bioInnate, bioPower, bioStrengthLabel, nominalTierNum } from '../systems/bioStrength';
 import { useImageGen } from '../store/imageGenStore';
 import { generateImage, buildPortraitPrompt, shrinkDataUrl } from '../systems/imageGen';
 import { useImageViewer } from '../store/imageViewerStore';
 import { PortraitPicker, PortraitLibraryModal } from './PortraitPicker';
 import { genPortraitTags } from '../systems/imageTags';
-import Bar from './Bar';
+import Bar, { BAR_STYLES } from './Bar';
 
 function DerivedRow({ label, value }: { label: string; value: number }) {
   return (
@@ -93,11 +95,11 @@ function EditNum({ value, onSave }: { value: number; onSave: (v: number) => void
 }
 
 /* ── 一行：标签 + 可编辑值 ── */
-function Row({ label, children }: { label: string; children: React.ReactNode }) {
+function Row({ label, children, wrap }: { label: string; children: React.ReactNode; wrap?: boolean }) {
   return (
-    <div className="flex items-center gap-2 text-[13px]">
+    <div className={`flex gap-2 text-[13px] ${wrap ? 'items-start' : 'items-center'}`}>
       <span className="w-20 shrink-0 text-dim/60 font-mono">{label}</span>
-      <span className="flex-1 min-w-0 truncate">{children}</span>
+      <span className={`flex-1 min-w-0 ${wrap ? 'break-words' : 'truncate'}`}>{children}</span>
     </div>
   );
 }
@@ -177,12 +179,15 @@ export default function PlayerSidebar({ onClose }: { onClose?: () => void }) {
   const p = useGame((s) => s.player);
   const items = useItems((s) => s.items);
   const [editStatus, setEditStatus] = useState(false);
-  const [showTrueAttr, setShowTrueAttr] = useState(false);   // 基础属性 ↔ 真实属性 切换
+  const [personaOpen, setPersonaOpen] = useState(false);   // 性格详细描述：默认收起，点击「📖详情」展开查看/编辑
+  const [labelOpen, setLabelOpen] = useState(false);       // HP/EP 条自定义称呼（换皮）：默认收起，点血条下方小按钮展开
+  const [showTrueAttr, setShowTrueAttr] = useState(nominalTierNum(profile.tier, profile.level) >= 5);   // 五阶起默认显示真实属性点
   const b1 = useCharacters((s) => s.characters['B1']);
   const equippedFull = items.filter((it) => it.equipped);
   const equipped = equippedFull.map((it) => ({ category: it.category as string, grade: (it.numeric?.grade as number) ?? gradeToNum(it.gradeDesc) }));
-  // 属性构成：原始 + 装备/技能/天赋 的属性加成（真实加载，不只是摆设）
-  const breakdown = computeAttrBreakdown(profile.attrs, b1?.skills ?? [], b1?.traits ?? [], equippedFull);
+  // 属性构成：原始 + 技能树 + 装备/技能/天赋 的属性加成（真实加载，不只是摆设）
+  // 技能树六维折进 base（与战斗/骰子一致），资质档 bioInnate 仍用原始 profile.attrs
+  const breakdown = computeAttrBreakdown(withAttrDelta(withAttrDelta(profile.attrs, playerTreeAttrBonus()), playerTeamAttrBonus()), b1?.skills ?? [], b1?.traits ?? [], equippedFull);
   const effAttrs = { str: breakdown.str.total, agi: breakdown.agi.total, con: breakdown.con.total, int: breakdown.int.total, cha: breakdown.cha.total, luck: breakdown.luck.total } as PlayerAttrs;
   const derived = computeDerived(effAttrs, profile.level, equipped);   // 衍生属性按"有效六维"计算
   const derivedNoEq = computeDerived(effAttrs, profile.level, []);     // 仅六维+等级部分（用于拆出装备贡献）
@@ -224,6 +229,27 @@ export default function PlayerSidebar({ onClose }: { onClose?: () => void }) {
           <div className="text-sm text-god font-mono mb-1.5">❖ 身份</div>
           <Row label="所属乐园"><EditText value={profile.homeParadise} onSave={(v) => setProfile({ homeParadise: v })} placeholder="（开局选定）" /></Row>
           <Row label="主角背景"><EditText value={profile.preParadiseJob} onSave={(v) => setProfile({ preParadiseJob: v })} placeholder="（入园前职业）" /></Row>
+          {/* 性格：行内显示简短特质；详细描述默认收起，点「📖详情」展开查看/编辑（不占满面板） */}
+          <div className="flex items-center gap-2 text-[13px]">
+            <span className="w-20 shrink-0 text-dim/60 font-mono">性格</span>
+            <span className="flex-1 min-w-0 truncate"><EditText value={profile.personality || ''} onSave={(v) => setProfile({ personality: v })} placeholder="（性格特质）" /></span>
+            <button onClick={() => setPersonaOpen((v) => !v)} title="查看 / 编辑性格详细描述"
+              className="shrink-0 text-[11px] font-mono px-1.5 py-0.5 rounded border border-edge text-dim/60 hover:text-god hover:border-god/40 transition-colors">
+              📖{personaOpen ? '收起' : '详情'}
+            </button>
+          </div>
+          {personaOpen && (
+            <div className="rounded-lg border border-god/30 bg-void/40 p-2">
+              <div className="text-[11px] font-mono text-god/60 mb-1">性格详细描述</div>
+              <textarea
+                value={profile.personalityDetail || ''}
+                onChange={(e) => setProfile({ personalityDetail: e.target.value })}
+                rows={4}
+                placeholder="点击编辑性格的详细描述（成长经历 / 价值观 / 行为模式 / 软肋与执念…）。会注入 AI 上下文，影响人设刻画。"
+                className="w-full bg-void border border-edge rounded px-2 py-1.5 text-[13px] text-slate-200 outline-none focus:border-god/50 leading-relaxed resize-y"
+              />
+            </div>
+          )}
           <Row label="性别"><EditText value={profile.gender || ''} onSave={(v) => setProfile({ gender: v })} placeholder="（开局设定·生图据此定 1boy/1girl）" /></Row>
           <Row label="种族"><EditText value={profile.race || ''} onSave={(v) => setProfile({ race: v })} placeholder="（如 人类/精灵）" /></Row>
           <Row label="称号"><EditText value={profile.title} onSave={(v) => setProfile({ title: v })} placeholder="（无）" /></Row>
@@ -232,8 +258,7 @@ export default function PlayerSidebar({ onClose }: { onClose?: () => void }) {
           <Row label="竞技场排名"><EditText value={profile.arenaRank} onSave={(v) => setProfile({ arenaRank: v })} placeholder="（未上榜）" /></Row>
           <Row label="烙印等级"><EditText value={profile.brandLevel} onSave={(v) => setProfile({ brandLevel: v })} placeholder="（无）" /></Row>
           <Row label="契约者ID"><EditText value={profile.contractorId} onSave={(v) => setProfile({ contractorId: v })} placeholder="（未分配）" /></Row>
-          <Row label="生物强度"><span className="text-[13px] text-amber-300/90" title="前端按六维机械判定：资质档(基础六维)/战力档(含装备技能天赋加成)">{bioStrengthLabel(bioInnate(profile.attrs, profile.tier, profile.level), bioPower(effAttrs)) || '（六维待定）'}</span></Row>
-          <Row label="进阶点数"><EditNum value={profile.advancePoints ?? 0} onSave={(v) => setProfile({ advancePoints: v })} /></Row>
+          <Row label="生物强度" wrap><span className="text-[13px] text-amber-300/90 flex flex-col leading-snug" title="前端按六维机械判定：资质档(基础六维)/战力档(含装备技能天赋加成)">{(bioStrengthLabel(bioInnate(profile.attrs, profile.tier, profile.level), bioPower(effAttrs)) || '（六维待定）').split(' / ').map((p, i) => <span key={i}>{p}</span>)}</span></Row>
           <Row label="世界之源"><EditNum value={Math.round((profile.worldSource ?? 0) * 10) / 10} onSave={(v) => setProfile({ worldSource: Math.round(v * 10) / 10 })} /></Row>
         </div>
 
@@ -379,17 +404,70 @@ export default function PlayerSidebar({ onClose }: { onClose?: () => void }) {
       {/* 底部：生命值 HP / 蓝量 EP（上限由体质×20 / 智力×15 自动换算）*/}
       <div className="shrink-0 border-t border-edge p-3 space-y-2">
         {(() => {
-          // 最大HP/EP = 基础六维换算 + 装备里明确写"增加HP/EP上限"的效果；技能/天赋的属性加成不计入上限，避免乱跳
-          const maxHp = computeMaxHp(profile.attrs) + gearMaxHpBonus(equippedFull) + abilityMaxHpBonus(b1?.skills, b1?.traits);
-          const maxEp = computeMaxEp(profile.attrs) + gearMaxEpBonus(equippedFull) + abilityMaxEpBonus(b1?.skills, b1?.traits);
+          // 最大HP/EP = 基础六维换算 + 装备/被动里明确写"增加HP/EP上限"的平值 + 百分比加成(如被动"10%生命加成")；技能/天赋的属性加成不计入上限，避免乱跳
+          const teamAttrsBase = withAttrDelta(profile.attrs, playerTeamAttrBonus());   // 团队效果六维加成（体/智→HP/EP）
+          const teamPerkAbil = playerTeamPerkAbilities();                              // 团队效果显式「HP/EP上限」文本
+          const maxHp = fullMaxHp(teamAttrsBase, equippedFull, b1?.skills, [...(b1?.traits ?? []), ...teamPerkAbil]);
+          const maxEp = fullMaxEp(teamAttrsBase, equippedFull, b1?.skills, [...(b1?.traits ?? []), ...teamPerkAbil]);
           return (
             <>
-              <Bar value={effectiveResource(p.hp, p.maxHp, maxHp)} max={maxHp} color="bg-blood" label="生命 HP" />
-              <Bar value={effectiveResource(p.mp, p.maxMp, maxEp)} max={maxEp} color="bg-sky-500" label="蓝量 EP" />
+              <div onClick={() => setLabelOpen(true)} className="space-y-2 cursor-pointer" title="点击自定义血条皮肤 / 称呼">
+                <Bar value={effectiveResource(p.hp, p.maxHp, maxHp)} max={maxHp} color="bg-blood" label={profile.hpLabel || '生命 HP'} styleId={profile.barStyle} kind="hp" />
+                <Bar value={effectiveResource(p.mp, p.maxMp, maxEp)} max={maxEp} color="bg-sky-500" label={profile.epLabel || '蓝量 EP'} styleId={profile.barStyle} kind="ep" />
+              </div>
               <div className="text-[10px] text-dim/35 font-mono text-center">HP=体质×20 · EP=智力×15（按属性自动换算）</div>
             </>
           );
         })()}
+        {/* 自定义血条称呼（换皮）：默认收起，点小按钮展开填写；留空=默认「生命 HP / 蓝量 EP」。仅改显示，hp/ep 数值与指令通道不变 */}
+        <button
+          onClick={() => setLabelOpen((o) => !o)}
+          className="w-full text-[10px] text-dim/40 hover:text-god/70 font-mono text-center transition-colors"
+        >
+          {labelOpen ? '收起 ▲' : '✎ 自定义血条'}
+        </button>
+        {labelOpen && (
+          <div className="space-y-2 pt-1">
+            <label className="flex items-center gap-2 text-[11px] font-mono">
+              <span className="w-10 shrink-0 text-dim/60">HP 条</span>
+              <input
+                value={profile.hpLabel || ''}
+                onChange={(e) => setProfile({ hpLabel: e.target.value })}
+                placeholder="留空=生命 HP，如 血池"
+                className="flex-1 min-w-0 bg-void border border-edge rounded px-2 py-0.5 text-[12px] text-slate-200 outline-none focus:border-god/50"
+              />
+            </label>
+            <label className="flex items-center gap-2 text-[11px] font-mono">
+              <span className="w-10 shrink-0 text-dim/60">EP 条</span>
+              <input
+                value={profile.epLabel || ''}
+                onChange={(e) => setProfile({ epLabel: e.target.value })}
+                placeholder="留空=蓝量 EP，如 血怒"
+                className="flex-1 min-w-0 bg-void border border-edge rounded px-2 py-0.5 text-[12px] text-slate-200 outline-none focus:border-god/50"
+              />
+            </label>
+            {/* 血条皮肤切换（10 款，点格即换；每格为实时迷你预览）*/}
+            <div>
+              <div className="text-[10px] text-dim/50 font-mono mb-1">血条皮肤</div>
+              <div className="grid grid-cols-2 gap-1.5 max-h-[46vh] overflow-y-auto pr-0.5">
+                {BAR_STYLES.map((s) => {
+                  const sel = (profile.barStyle || 'classic') === s.id;
+                  return (
+                    <button
+                      key={s.id}
+                      onClick={() => setProfile({ barStyle: s.id })}
+                      className={`rounded border px-1.5 py-1 transition-colors ${sel ? 'border-god/70 bg-god/10' : 'border-edge hover:border-god/40'}`}
+                    >
+                      <div className={`text-[10px] font-mono mb-1 text-left ${sel ? 'text-god' : 'text-dim/70'}`}>{sel ? '✓ ' : ''}{s.name}</div>
+                      <div className="h-2 rounded-full bg-void border border-edge mb-1"><div className={`barfill bf-${s.id}-hp`} style={{ width: '85%' }} /></div>
+                      <div className="h-2 rounded-full bg-void border border-edge"><div className={`barfill bf-${s.id}-ep`} style={{ width: '68%' }} /></div>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     </>
   );

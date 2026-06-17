@@ -8,16 +8,21 @@ import {
   ITEM_GRADE_TABLE_RULE,
   ITEM_ACQUIRE_RULE,
   ITEM_EXACT_REF_RULE,
+  ITEM_UPDATE_RULE,
   MERGED_AUDIT_SYSTEM,
   MERGED_AUDIT_PROMPT,
   EVO_EXACT_REF_RULE,
   SUBPROF_RULE,
   NPC_AGE_RULE,
   NPC_GEN_ATTR_RULE,
+  NPC_ENTRY_BIO_RULE,
   NPC_REVIEW_TAG_RULE,
+  NPC_TEAM_AFFILIATION_RULE,
   FACTION_WORLD_RULE,
+  FACTION_DETECT_RULE,
   FACTION_FULL_FORMAT_RULE,
   NPC_DEAD_EXCLUDE_RULE,
+  NPC_ID_RULE,
   NPC_SKILL_KEEP_RULE,
   PLAYER_SKILL_KEEP_RULE,
   TIER_RULE,
@@ -26,7 +31,6 @@ import {
   IMAGE_TAGS_RULE,
   FIRST_UPDATE_COMPLETE_RULE,
   HPEP_NARRATIVE_ONLY_RULE,
-  ADVANCE_POINTS_RULE,
   WORLDSOURCE_RULE,
   POINTS_NARRATIVE_RULE,
   ATTR_SANITY_RULE,
@@ -44,7 +48,13 @@ import {
   ARENA_LADDER_RULE,
   ARENA_OPPONENT_RULE,
   ARENA_REWARD_RULE,
-  KILL_MANIFEST_RULE,
+  GLADIATOR_MATCH_RULE,
+  GLADIATOR_BATTLE_RULE,
+  GACHA_REWARD_RULE,
+  CASINO_BANTER_RULE,
+  SOUL_GAMBLE_RULE,
+  POTENTIAL_POINT_RULE,
+  WORLD_SETTLEMENT_RULE,
 } from './promptRules';
 
 import { useState, useRef, useEffect } from 'react';
@@ -52,17 +62,19 @@ import { useGame } from './store/gameStore';
 import { useSettings, resolveApiChain } from './store/settingsStore';
 import { apiChatFallback } from './systems/apiChat';
 import { useVariables } from './store/variableStore';
+import { useSkillTree } from './store/skillTreeStore';
+import { SKILLTREE_TUNING } from './systems/skillTree';
 import { parseAllStateUpdates, stripStateBlocks, parseAllItemCommands, applyItemCommands, parseAllCharCommands, applyCharacterCommands, parseAllNpcCommands, applyNpcCommands, parseAllFactionCommands, applyFactionCommands, applyTerritoryCommands, applyTeamCommands, isEquippable, setNpcOwnerResolver, lenientJsonParse, type StateUpdate } from './systems/stateParser';
-import { parseKillManifest, buildKillSettlement, freezeSettlementBlock } from './systems/advancePoints';
 import { useCombat, newLogId, type BattleState, type CombatStatBlock, type Side, type CombatActionKind } from './store/combatStore';
 import { buildCombatant, assembleBattle, settleAction, advanceTurn, checkEnd, currentActorId, aliveIds, makeActionLog, playerControlled } from './systems/combatEngine';
 import CombatPanel from './components/CombatPanel';
 import CombatSetup from './components/CombatSetup';
 import { resolveEquipSlot } from './systems/equipSlots';
 import { useTerritory, buildTerritorySystemPrompt, buildingCap } from './store/territoryStore';
-import { useTeam, buildTeamSystemPrompt, memberCap as teamMemberCap } from './store/adventureTeamStore';
+import { useTeam, buildTeamSystemPrompt, memberCap as teamMemberCap, playerTeamAttrBonus, playerTeamPerkAbilities } from './store/adventureTeamStore';
+import { withAttrDelta } from './systems/attrBonus';
 import { useCosmos, buildCosmosSystemPrompt, cosmosNameEq } from './store/cosmosStore';
-import { realmFromLevel, normalizeTier, lvFromRealm, trueAttr, computeMaxHp, computeMaxEp, gearMaxHpBonus, gearMaxEpBonus, abilityMaxHpBonus, abilityMaxEpBonus, effectiveResource, attrCapForTier } from './systems/derivedStats';
+import { realmFromLevel, normalizeTier, lvFromRealm, trueAttr, computeMaxHp, computeMaxEp, gearMaxHpBonus, gearMaxEpBonus, abilityMaxHpBonus, abilityMaxEpBonus, effectiveResource, attrCapForTier, fullMaxHp, fullMaxEp, TIERS } from './systems/derivedStats';
 import { bioInnate } from './systems/bioStrength';
 import { generateNpcAttrs, resolveForm } from './systems/npcAttrGen';
 import { useImageGen, effectiveEquipService } from './store/imageGenStore';
@@ -75,6 +87,7 @@ import CosmosPanel from './components/CosmosPanel';
 import WorldCodexPanel from './components/WorldCodexPanel';
 import AdventureTeamPanel from './components/AdventureTeamPanel';
 import ImageViewer from './components/ImageViewer';
+import { useImageViewer } from './store/imageViewerStore';
 import ImageBusyToast from './components/ImageBusyToast';
 import { useItems, extractItemPresetFromJson } from './store/itemStore';
 import type { ItemPresetEntry } from './store/itemStore';
@@ -100,9 +113,18 @@ import { serializePlayerCard, serializeNpcCard, buildNpcCandidateTitles, rankNpc
 import MiscPanel from './components/MiscPanel';
 import DicePanel from './components/DicePanel';
 import EnhancePanel from './components/EnhancePanel';
+import CasinoPanel from './components/CasinoPanel';
+import AbyssPanel from './components/AbyssPanel';
+import { ABYSS_BOON_GEN_RULE, ABYSS_SIN_GEN_RULE, ABYSS_AWAKEN_RULE, ABYSS_JUDGE_RULE, ABYSS_ENEMY_GEN_RULE } from './systems/abyssPrompts';
+import { materializeBoons, panelToEnemies, type SinFlavor, type SinTemplate, type BoonGenContext, type AwakenFlavor, type JudgeFlavor, type AbyssUnit as AbyssEnemyUnit } from './systems/abyssEngine';
+import { BOON_PRIM_LIST, BOON_SCHOOLS, type BoonCard as AbyssBoonCard } from './data/abyssData';
+import { useCasino } from './store/casinoStore';
+import { computeGladiatorOdds, type Gladiator, type GladiatorEval, type BattleRound, type GladiatorMatch } from './systems/casinoEngine';
+import { type GachaReward } from './systems/casinoGacha';
 import JoyPanel from './components/JoyPanel';
-import { useJoy } from './store/joyStore';
+import { useJoy, hydrateJoyWorldBooks } from './store/joyStore';
 import { buildJoySystem, parseJoyReply, buildGreetPrompt } from './systems/joyGirls';
+import { buildJoyWbInjection } from './systems/joyWorldBook';
 import ArenaPanel from './components/ArenaPanel';
 import { useArena } from './store/arenaStore';
 import { ladderBadge, rewardTierFor, REWARD_BANDS, streakBonusMul, pickInt as arenaPickInt, effectiveTier as arenaEffectiveTier, type ArenaDef as ArenaDefType, type LadderEntry as ArenaLadderEntry } from './systems/arena';
@@ -132,6 +154,7 @@ import CharacterPanel from './components/CharacterPanel';
 import TitlePanel from './components/TitlePanel';
 import AchievementPanel from './components/AchievementPanel';
 import SubProfessionPanel from './components/SubProfessionPanel';
+import SkillTreePanel from './components/SkillTreePanel';
 import NpcPanel from './components/NpcPanel';
 import NpcDetail from './components/NpcDetail';
 import OnScenePanel from './components/OnScenePanel';
@@ -343,7 +366,8 @@ function renderDiceCard(inner: string): string {
     + (consM ? '<div class="text-[12px] font-mono text-slate-400">后果：' + escapeHtml(consM[1]) + '</div>' : '')
     + '</div>';
 }
-/* 击杀结算卡：把已算定的 <击杀结算> 文本块渲染成卡片（首行=总计/当前，其余每行=名称|阶差|+点数）。 */
+/* 击杀结算卡：把已算定的 <击杀结算> 文本块渲染成卡片
+   （首行=主角增量/当前(/队友合计)，其余每行=被击杀者|阶差|受益方+点数）。 */
 function renderKillCard(inner: string): string {
   const lines = String(inner).trim().split('\n').map((s) => s.trim()).filter(Boolean);
   if (lines.length === 0) return '';
@@ -352,16 +376,25 @@ function renderKillCard(inner: string): string {
     const seg = r.split('|').map((s) => s.trim());
     const name = seg[0] || '', gap = seg[1] || '', pts = seg[2] || '';
     const gapColor = /越阶/.test(gap) ? 'text-rose-300' : /碾压/.test(gap) ? 'text-slate-500' : 'text-slate-300';
+    const ptsColor = /未建档/.test(pts) ? 'text-slate-500' : /^主角/.test(pts) ? 'text-amber-300' : 'text-sky-300';
     return '<div class="flex items-center justify-between text-[12px] py-0.5">'
       + '<span class="text-slate-200/90">' + escapeHtml(name) + '</span>'
       + '<span class="flex items-center gap-2"><span class="' + gapColor + '">' + escapeHtml(gap) + '</span>'
-      + '<span class="font-mono text-amber-300">' + escapeHtml(pts) + '</span></span></div>';
+      + '<span class="font-mono ' + ptsColor + '">' + escapeHtml(pts) + '</span></span></div>';
   }).join('');
   return '<div class="my-2 rounded-lg border border-amber-700/40 bg-amber-900/10 px-3 py-2">'
     + '<div class="flex items-center gap-2 mb-1"><span>⚔️</span>'
     + '<span class="text-[13px] font-bold text-amber-300 tracking-wider">击杀结算</span>'
     + '<span class="text-[12px] font-mono text-amber-200/80">' + escapeHtml(head) + '</span></div>'
     + rows + '</div>';
+}
+/* 世界结算卡：把 <世界结算>…</世界结算> 的 markdown 面板渲染成华丽边框结算卡（内部 markdown 走 toHtml）。 */
+function renderSettlementCard(inner: string): string {
+  const body = toHtml(String(inner).trim());
+  return '<div class="settlement-card">'
+    + '<div class="settlement-corner tl"></div><div class="settlement-corner tr"></div>'
+    + '<div class="settlement-corner bl"></div><div class="settlement-corner br"></div>'
+    + '<div class="settlement-body">' + body + '</div></div>';
 }
 const DICE_BLOCK_RE = /<检定结果>([\s\S]*?)<\/检定结果>\s*(（[^）\n]*）)?/g;
 /* 用户消息渲染：转义文本 + 把检定结果块替换成卡片（用户消息原本是纯文本） */
@@ -394,6 +427,13 @@ function toHtmlWithImages(text: string, images?: StoryImage[]): string {
     killCards.push(renderKillCard(String(inner)));
     return `\n${tok}\n`;
   });
+  // 世界结算块 → 占位符（最后替换成结算卡）
+  const settleCards: string[] = [];
+  work = work.replace(/<世界结算>([\s\S]*?)<\/世界结算>/gi, (_m, inner) => {
+    const tok = `@@ZSSETTLE${settleCards.length}@@`;
+    settleCards.push(renderSettlementCard(String(inner)));
+    return `\n${tok}\n`;
+  });
   // 图片占位符
   const tokens: string[] = [];
   (images ?? []).forEach((img, i) => {
@@ -405,11 +445,12 @@ function toHtmlWithImages(text: string, images?: StoryImage[]): string {
   });
   let html = toHtml(work);
   (images ?? []).forEach((img, i) => {
-    const tag = `<a href="${img.url}" target="_blank" rel="noopener" class="story-illust-link"><img src="${img.url}" alt="${escapeHtml(img.nsfw || '')}" class="story-illust" style="display:block;max-width:100%;border-radius:10px;margin:10px auto;border:1px solid rgba(255,255,255,0.08);cursor:zoom-in" loading="lazy" /></a>`;
+    const tag = `<img src="${img.url}" alt="${escapeHtml(img.nsfw || '')}" data-img-idx="${i}" title="单击看大图 · 双击重新生成" class="story-illust" style="display:block;max-width:100%;border-radius:10px;margin:10px auto;border:1px solid rgba(255,255,255,0.08);cursor:zoom-in" loading="lazy" />`;
     html = html.split(tokens[i]).join(tag);
   });
   diceCards.forEach((card, i) => { html = html.split(`@@ZSDICE${i}@@`).join(card); });
   killCards.forEach((card, i) => { html = html.split(`@@ZSKILL${i}@@`).join(card); });
+  settleCards.forEach((card, i) => { html = html.split(`@@ZSSETTLE${i}@@`).join(card); });
   return html;
 }
 
@@ -519,7 +560,7 @@ function applyOneUpdate(u: StateUpdate) {
         const npc = useNpc.getState();
         const rec = npc.npcs[cid];
         const nc = useCharacters.getState().characters[cid];
-        const dmax = stat === 'hp' ? computeMaxHp(rec?.attrs) + abilityMaxHpBonus(nc?.skills, nc?.traits) : computeMaxEp(rec?.attrs) + abilityMaxEpBonus(nc?.skills, nc?.traits);
+        const dmax = stat === 'hp' ? fullMaxHp(rec?.attrs, [], nc?.skills, nc?.traits) : fullMaxEp(rec?.attrs, [], nc?.skills, nc?.traits);
         const cur = effectiveResource(stat === 'hp' ? rec?.hp : rec?.mp, stat === 'hp' ? rec?.maxHp : rec?.maxMp, dmax);
         const next = toFull ? dmax : setMode ? Math.min(Math.max(0, amount), dmax) : op === '+=' ? Math.min(cur + amount, dmax) : Math.max(0, cur - amount);
         npc.upsertNpc(cid, stat === 'hp' ? { hp: next, maxHp: dmax } : { mp: next, maxMp: dmax });
@@ -538,22 +579,23 @@ function applyOneUpdate(u: StateUpdate) {
     return;
   }
 
-  // 货币：currency.乐园币 += 500 / currency.灵魂钱币 -= 10
-  const ccMatch = key.match(/^currency\.(乐园币|灵魂钱币)$/);
+  // 货币：currency.乐园币 += 500 / currency.灵魂钱币 -= 10 / currency.技能点 += 5 / currency.黄金技能点 += 1
+  const ccMatch = key.match(/^currency\.(乐园币|灵魂钱币|技能点|黄金技能点)$/);
   if (ccMatch && typeof value === 'number') {
-    const type = ccMatch[1] as '乐园币' | '灵魂钱币';
+    const type = ccMatch[1] as '乐园币' | '灵魂钱币' | '技能点' | '黄金技能点';
     const itemStore = useItems.getState();
     const cur = itemStore.currency[type];
     const next = op === '+=' ? cur + value : op === '-=' ? cur - value : value;
     itemStore.adjustCurrency(type, next - cur);
     return;
   }
-  // 简写：直接用货币名作为 key（乐园币 += 100）
-  if ((key === '乐园币' || key === '灵魂钱币') && typeof value === 'number') {
+  // 简写：直接用货币名作为 key（乐园币 += 100 / 技能点 += 5 / 黄金技能点 += 1）
+  if ((key === '乐园币' || key === '灵魂钱币' || key === '技能点' || key === '黄金技能点') && typeof value === 'number') {
+    const ck = key as '乐园币' | '灵魂钱币' | '技能点' | '黄金技能点';
     const itemStore = useItems.getState();
-    const cur = itemStore.currency[key as '乐园币' | '灵魂钱币'];
+    const cur = itemStore.currency[ck];
     const next = op === '+=' ? cur + value : op === '-=' ? cur - value : value;
-    itemStore.adjustCurrency(key as '乐园币' | '灵魂钱币', next - cur);
+    itemStore.adjustCurrency(ck, next - cur);
     return;
   }
 
@@ -666,6 +708,13 @@ function applyOneUpdate(u: StateUpdate) {
 }
 
 function applyStateUpdates(raw: string) {
+  // 潜能点（技能树）：pp.B1 += N / pp += N —— AI 在任务完成/奇遇时发放，单回合封顶防刷
+  const ppM = [...raw.matchAll(/\bpp(?:\.B1)?\s*\+?=\s*(\d+)/gi)];
+  if (ppM.length) {
+    let sum = 0; for (const m of ppM) sum += Number(m[1]) || 0;
+    sum = Math.min(sum, SKILLTREE_TUNING.aiBonusTurnCap);
+    if (sum > 0) { try { useSkillTree.getState().grantBonusPP('B1', sum); console.log(`[潜能点] +${sum}`); } catch { /* */ } }
+  }
   const updates = parseAllStateUpdates(raw);
   if (updates.length === 0) return;
   console.log('[State] 解析到变量更新:', updates);
@@ -685,24 +734,10 @@ function applyAllUpdates(raw: string) {
   applyStateUpdates(raw);
 }
 
-/* 击杀结算：解析正文末尾的 <kill> 清单 → 按阶位/等级公式机械算进阶点 → 累加到主角 advancePoints，
-   并把 <kill> 块替换成已算定的 <击杀结算> 显示块（渲染层只格式化、不再重算）。无清单则原样返回。
-   注：须在 applyAllUpdates 之后调用，使击杀点叠加在本轮 <state> 已设的总量之上。 */
-function settleKills(raw: string): string {
-  if (!/<kill>/i.test(raw)) return raw;
-  const KILL_RE = /<kill>[\s\S]*?<\/kill>/gi;
-  const prof = usePlayer.getState().profile;
-  const records = parseKillManifest(raw);
-  if (records.length === 0) return raw.replace(KILL_RE, '').trimEnd();
-  const settlement = buildKillSettlement(records, { tier: prof.tier, level: prof.level, name: prof.name });
-  const newAp = (prof.advancePoints || 0) + settlement.total;
-  if (settlement.total !== 0) {
-    usePlayer.getState().setProfile({ advancePoints: newAp });
-    console.log(`[击杀结算] +${settlement.total} 进阶点 → ${newAp}`, settlement.lines);
-  }
-  const frozen = freezeSettlementBlock(settlement, newAp);
-  let used = false;
-  return raw.replace(KILL_RE, () => { if (used) return ''; used = true; return frozen; });
+/* 过渡期：进阶点数/击杀结算已移除。正文若仍输出旧 <kill> 清单，直接剥除不显示
+   （世界结算改版后由「关键词触发 → 正文 AI 结算」的新机制接管升级）。 */
+function stripKillBlocks(raw: string): string {
+  return /<kill>/i.test(raw) ? raw.replace(/<kill>[\s\S]*?<\/kill>/gi, '').trimEnd() : raw;
 }
 
 /* ─── 物品管理阶段：构建注入 system prompt（替换模板变量）─── */
@@ -932,16 +967,16 @@ function reconcilePlayerVitals(): void {
 /* 主角 HP/EP 真实上限 = 体质/智力×系数 + 装备上限加成 + 被动/天赋上限加成（如「生命上限+100」被动）。
    各处统一用这两个，确保正文/面板/AI快照/短指令钳制一致。 */
 function playerMaxHp(): number {
-  const a = usePlayer.getState().profile.attrs;
+  const a = withAttrDelta(usePlayer.getState().profile.attrs, playerTeamAttrBonus());   // 冒险团团队效果的六维加成（体质→HP）
   const b1 = useCharacters.getState().characters['B1'];
   const eq = useItems.getState().items.filter((i) => i.equipped) as any[];
-  return computeMaxHp(a) + gearMaxHpBonus(eq) + abilityMaxHpBonus(b1?.skills, b1?.traits);
+  return fullMaxHp(a, eq, b1?.skills, [...(b1?.traits ?? []), ...playerTeamPerkAbilities()]);   // 团队效果里「生命上限+N / X%生命加成」一并计入
 }
 function playerMaxEp(): number {
-  const a = usePlayer.getState().profile.attrs;
+  const a = withAttrDelta(usePlayer.getState().profile.attrs, playerTeamAttrBonus());   // 团队效果的六维加成（智力→EP）
   const b1 = useCharacters.getState().characters['B1'];
   const eq = useItems.getState().items.filter((i) => i.equipped) as any[];
-  return computeMaxEp(a) + gearMaxEpBonus(eq) + abilityMaxEpBonus(b1?.skills, b1?.traits);
+  return fullMaxEp(a, eq, b1?.skills, [...(b1?.traits ?? []), ...playerTeamPerkAbilities()]);
 }
 
 const MISC_HOME_TIME_RULE = `
@@ -954,6 +989,11 @@ const TASK_OUTCOME_RULE = `
 - T_x **必须逐字照抄**【当前任务列表】里那条任务的真实 ID（如 T_3）；列表里没有的任务不要结算。
 - 标记为 已完成/已失败/已放弃 的任务会被系统**自动归档移出"进行中"列表**，无需再额外 de()；也不要把它当新任务重新创建。
 - **严格据正文、宁缺毋滥**：正文没有明确结算证据的任务一律保持"进行中"，绝不臆测完成或失败；仅"提出/尝试/谈判中/等待回应/进行到一半"都**不算**完成。`;
+
+const QUEST_RATING_RULE = `
+【任务评分（完成/失败时给定）】当某任务被标记为已完成/已达成/失败/放弃（status 进入结算态）时，在该任务的 updateTask 载荷里**额外给一个 rating 字段**，按完成质量评级（S/A/B/C/D/E；失败给 E，判断不了给 C）：
+- 主线任务综合各环完成度评级；支线/隐藏任务按达成度评级。
+- 形如：updateTask("T_5", {"5":"已完成","rating":"A"})。rating 会显示在任务面板"已结束"列表，并供世界结算综合参考。`;
 
 const QUEST_PLANNING_RULE = `
 【主线路线图规划·铁则（就主线而言优先于预设里"保守不新建任务"的示例）】区分两类任务：**主线**=本任务世界的核心目标线，每个世界通常**只有一条 active 主线**；其余多回合目标一律**支线**（支线也可多环）。
@@ -971,12 +1011,13 @@ const QUEST_PLANNING_RULE = `
       - **贪婪环**(optional:true)：高潮之后的**可选延伸**(隐藏升级 / 顶点·隐藏boss)，难度陡增、奖励跳一大档；**失败只损失本环额外奖励、不致死、不强制抹除**，排在强制环之后。
   · **reward 固定"四选三"**：从【①属性点 ②技能点 ③乐园币 ④一件契合当前世界风格的装备 或 技能书】里**任选 3 类**，每类给具体数值/名目（如 「属性点+3、技能点+2、乐园币+500」，或把一项换成"当前世界风格的武器/技能书"）；**奖励超线性增长——每往后一环奖励近翻倍，贪婪环更跳一大档**（默认你已吃掉前几环奖励变强）。
   · **penalty 按环型分**：**强制环固定三类**（按严重度递进：①扣除乐园币 ②全属性永久下降 ③强制抹除＝契约者被处决，仅用于高潮/致命失败），**不要写"被伏击/受伤/暴露行踪"等普通剧情后果**；**贪婪环 penalty 写"仅损失本环额外奖励(不死)"**。reward 不许留空。
+  · **每环时限(startTime/endTime，绝对游戏时间)·最低 7 天铁则**：给每一环（及单环任务）设执行窗口时，**endTime − startTime ≥ 7 天（任务世界时间）是地板**，绝不要设几小时/几天的紧逼窗口逼玩家赶场；**上不封顶、按难度与性质评估**——普通环 7~30 天起步，需长期经营/等待/养成/季节更替/远途的长线环给数月乃至一年以上（半年、一年、数年皆可）。startTime=本环开始时的绝对游戏时间，endTime=startTime+评估出的时长；推进到下一环时新环 startTime 接续上一环结束。
   · 顶层第2列(desc)同步写当前 active 环目标，第5列写"进行中"。
   · 新建主线的 T_ 编号用系统提供的"下一个可用任务ID"（同新建任务规则），下面示例里的 T_5 仅为占位。
   · 示例（一行内，双引号）：\`set({"0":"T_5","1":"哥布林讨伐","kind":"主线","2":"潜入受袭村庄、在哥布林夜袭中存活三日","5":"进行中","finale":"高潮·牧场守卫战，硬抗哥布林大军守住村庄","currentRing":1,"rings":[{"idx":1,"goal":"潜入受袭村庄、在哥布林夜袭中存活三日","status":"active","reward":"属性点+2、技能点+1、乐园币+300","penalty":"扣除乐园币300"},{"idx":2,"goal":"夺回被占的旧矿、击杀哥布林督军","status":"planned","reward":"属性点+3、乐园币+800、督军战旗(当前世界风格)","penalty":"全属性永久-2"},{"idx":3,"goal":"（高潮，待推进到再规划）","status":"planned"},{"idx":4,"goal":"（贪婪·隐藏委托，待解锁）","status":"planned","optional":true}]})\`
 - **何时不规划**：已存在当前世界的 active 主线时，**绝不重复新建主线**；主线的环推进交给【任务结算/推进】，这里不再造第二条主线。
 - 路线图是**规划而非预言**：**总环数(3~5)、各环的强制/贪婪定位、finale 定下后保持不变**，但环的具体内容渐进式补全（当前环+下一环写全、其余占位）；不要一开始就把整条线写死。每一环都是要打好几回合的"实质挑战"、规模/难度递增，不是琐碎子步骤。
-- **支线**：正文产生的其他多回合目标用 \`kind:"支线"\`（或不写 kind=默认支线）；需要分段的支线同样可带 rings，其每一环也要写全 goal/reward/penalty，reward 同样按"四选三"（属性点/技能点/乐园币/当前世界风格装备或技能书 任选3类）给，penalty 同样从「扣除乐园币 / 全属性永久下降 / 强制抹除」三类里取。`;
+- **支线**：正文产生的其他多回合目标用 \`kind:"支线"\`（或不写 kind=默认支线）；需要分段的支线同样可带 rings，其每一环也要写全 goal/reward/penalty，reward 同样按"四选三"（属性点/技能点/乐园币/当前世界风格装备或技能书 任选3类）给，penalty 同样从「扣除乐园币 / 全属性永久下降 / 强制抹除」三类里取；**时限同样适用上面的【每环时限·最低 7 天】**——支线的每一环、以及单环支线任务，都要设 startTime~endTime 执行窗口、且 endTime−startTime ≥ 7 天（上不封顶，按难度/需求评估，长线可数月乃至一年以上）。`;
 
 const QUEST_KILL_TIER_RULE = `
 【任务击杀目标·阶位上限铁则（防止给低阶主角派"正面单挑高阶强者"的送死任务）】凡任务（含主线/支线各环）要求主角**正面击杀/讨伐**的目标，其阶位按环型封顶：
@@ -993,7 +1034,7 @@ const TASK_RECONCILE_RULE = `
 ④ **高潮(最后一个强制环)达成＝主线达成**：**不要自动推进进贪婪环**。若该主线有贪婪环(optional:true) → 正文应向主角呈现"见好就收(主线已达成、可离场结算) / 继续赌(接受隐藏委托、进贪婪环)"的选择(附奖励预览+难度风险警告)；**仅当正文明确主角"接受/继续"才用 ringAdvance("T_x") 进贪婪环**，主角"见好就收/离场"则 add("T_x",{"5":"已完成"}) 结算。无贪婪环则高潮达成即直接结算。
 ⑤ **贪婪环**：成功给其超额奖励(再 ringAdvance 进下一贪婪环、或结算)；**失败只损失本环额外奖励、不致死、不强制抹除**，整条任务仍按"已达成"结算 add("T_x",{"5":"已完成"})。
 ⑥ 整条任务**失败/放弃**(强制环致命失败、或主角彻底放弃) → add("T_x",{"5":"已失败"}) 或 {"5":"已放弃"}。
-- **防抖护栏**：环的 idx 要稳定，**不要无故重命名/重排既有环**；只在正文给出**明确证据**时才推进/重排/改写（重排/改写/补环时，新环同样写全 goal/reward(四选三)/penalty(三类)）；绝大多数回合主线**没有**任何环指令；**总环数一旦定下保持不变（只填占位环、补全下一环，不随意增删环）**，≤5。
+- **防抖护栏**：环的 idx 要稳定，**不要无故重命名/重排既有环**；只在正文给出**明确证据**时才推进/重排/改写（重排/改写/补环时，新环同样写全 goal/reward(四选三)/penalty(三类)/时限(startTime~endTime≥7天)）；绝大多数回合主线**没有**任何环指令；**总环数一旦定下保持不变（只填占位环、补全下一环，不随意增删环）**，≤5。
 - 支线的环同理可用 \`ringAdvance\` / \`add rings\` 维护，但**优先保证主线**的环准确。`;
 
 const TASK_CANON_RULE = `
@@ -1090,10 +1131,10 @@ const rightMenuItems = [
   { icon: '⚔', label: '装备' },
   { icon: '🎒', label: '储存空间' },
   { icon: '⚒', label: '强化' },
-  { icon: '💗', label: '欢愉宫' },
   { icon: '📇', label: 'NPC' },
   { icon: '✨', label: '技能' },
   { icon: '🛠', label: '副职业' },
+  { icon: '🌳', label: '技能树' },
   { icon: '🎖', label: '称号' },
   { icon: '🏆', label: '成就' },
   { icon: '🏛', label: '势力' },
@@ -1103,7 +1144,8 @@ const rightMenuItems = [
   { icon: '📖', label: '世界百科' },
   { icon: '🎲', label: 'ROLL' },
   { icon: '⚔️', label: '战斗' },
-  { icon: '🏟', label: '竞技场' },
+  { icon: '🎡', label: '乐园设施' },
+  { icon: '🕳', label: '深渊' },
   { icon: '🔍', label: '回合洞察' },
   { icon: '📋', label: '任务' },
   { icon: '📡', label: '频道' },
@@ -1114,12 +1156,22 @@ const rightMenuItems = [
   { icon: '⚙', label: '设置' },
 ];
 
+/* 右侧导航·每个图标的独特 hover 特效类（定义见 index.css 的 .fx-*）*/
+const NAV_FX: Record<string, string> = {
+  '装备': 'fx-sword', '储存空间': 'fx-bag', '强化': 'fx-hammer', 'NPC': 'fx-card', '技能': 'fx-sparkle',
+  '副职业': 'fx-wrench', '技能树': 'fx-tree', '称号': 'fx-medal', '成就': 'fx-trophy', '势力': 'fx-pillar',
+  '领地': 'fx-castle', '冒险团': 'fx-shield', '万族': 'fx-cosmos', '世界百科': 'fx-book', 'ROLL': 'fx-dice',
+  '战斗': 'fx-clash', '乐园设施': 'fx-ferris', '深渊': 'fx-void', '回合洞察': 'fx-zoom', '任务': 'fx-quest',
+  '频道': 'fx-signal', '私信': 'fx-mail', '好友': 'fx-friends', '记忆': 'fx-brain', '存档': 'fx-save', '设置': 'fx-gear',
+};
+
 export default function App() {
   const hasSave = useGame((s) => s.player.cleared.length > 0 || s.player.points > 0);
 
   // 综合设置
   const historyLimit = useSettings((s) => s.historyLimit);
   const disableEnterSend = useSettings((s) => s.disableEnterSend);
+  const showNewlineButton = useSettings((s) => s.showNewlineButton);
   const reading = useSettings((s) => s.reading);
   const narrativeMem = useSettings((s) => s.narrativeMemory);
 
@@ -1175,11 +1227,15 @@ export default function App() {
   const [titlePanelOpen,   setTitlePanelOpen]   = useState(false);
   const [achievePanelOpen, setAchievePanelOpen] = useState(false);
   const [subProfOpen,      setSubProfOpen]      = useState(false);
+  const [skillTreeOpen,    setSkillTreeOpen]    = useState(false);
   const [npcPanelOpen,     setNpcPanelOpen]     = useState(false);
   const [miscPanelOpen,    setMiscPanelOpen]    = useState(false);
   const [dicePanelOpen,    setDicePanelOpen]    = useState(false);
   const [enhancePanelOpen, setEnhancePanelOpen] = useState(false);
+  const [casinoOpen,       setCasinoOpen]       = useState(false);
+  const [abyssOpen,        setAbyssOpen]        = useState(false);
   const [joyPanelOpen,     setJoyPanelOpen]     = useState(false);
+  const [facilitiesOpen,   setFacilitiesOpen]   = useState(false);   // 「乐园设施」聚合菜单（欢愉宫/竞技场/赌场）
   const joyEnabled = useJoy((s) => s.settings.enabled);
   const [channelPanelOpen, setChannelPanelOpen] = useState(false);
   const [shopOpen, setShopOpen] = useState(false);
@@ -1191,6 +1247,7 @@ export default function App() {
   const combatTurn     = useCombat((s) => s.battle.turn);
   const combatRound    = useCombat((s) => s.battle.round);
   const combatApiBusy  = useCombat((s) => s.apiBusy);
+  const combatHasUndo  = useCombat((s) => s.undoSnapshot !== null);
   const combatDrivingRef = useRef(false);
   const combatFinishingRef = useRef(false);
   // 战斗最终 HP/EP（finishBattle 写入）：下一回合（玩家发送战斗复盘后）防双扣——
@@ -1242,13 +1299,15 @@ export default function App() {
   const stickBottomRef = useRef(true);                     // 是否吸附底部（用户上滑查看时置 false，流式生成不再强拉到底）
   const msgId = useRef(0);
   const messagesRef = useRef<ChatMessage[]>([]);   // 始终镜像 messages，供 callApi 取到最新历史（避免 setState 后闭包仍是旧值）
+  const illustClickTimer = useRef<number | null>(null);   // 正文配图单击/双击消歧：单击延时开灯箱，双击则取消并重生成
+  const storyRegenBusy = useRef<Set<string>>(new Set());  // 正文配图重生成防连点（key=msgId:idx）
   const autoSaveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const abortRef = useRef<AbortController | null>(null);   // 正文生成中止控制器（停止生成用）
   const [canUndo, setCanUndo] = useState(false);           // 是否有可回退的上一回合
   const [confirmAction, setConfirmAction] = useState<null | { title: string; desc: string; run: () => void }>(null); // 回退/重新生成的确认弹窗
   const [editingMsgId, setEditingMsgId] = useState<number | null>(null);   // 正在编辑的正文楼层 id
   const [editDraft, setEditDraft] = useState('');                          // 编辑中的正文草稿
-  const chatInputRef = useRef<HTMLInputElement>(null);                     // 主聊天输入框（供「使用物品」填入后聚焦）
+  const chatInputRef = useRef<HTMLTextAreaElement>(null);                  // 主聊天输入框（供「使用物品」填入后聚焦）
 
   // 输入框草稿通道：背包等深层组件把「使用XX」填入输入框（露出输入框 + 聚焦，由用户确认后再发送）
   const composerDraft = useComposer((s) => s.draft);
@@ -1291,7 +1350,8 @@ export default function App() {
   }, [channelPanelOpen]);
 
   /* 每回合结束（生成完成、末条为正文）后，延时自动存档到固定槽（覆盖式）。
-     延时是为了等 NPC/物品/势力等并发演化阶段写完 store，使快照包含本回合变化。 */
+     延时是为了等 NPC/物品/势力等并发演化阶段写完 store，使存档包含本回合变化。
+     注：「回合洞察」快照已改为在 runPostNarrativePhases 里各演化阶段 settle 后即时抓（更准）；这里的 captureTurnSnapshot 仅作兜底（同回合覆盖，不会重复）。 */
   useEffect(() => {
     if (!started || generating) return;
     if (!chatHydrated.current) return;
@@ -1358,6 +1418,7 @@ export default function App() {
       try { useCharacters.getState().dedupeIds(); } catch { /* 修复历史存档的重复技能 id */ }
       try { useCharacters.getState().dedupeRecipes(); } catch { /* 修复历史存档的重复配方（去「配方：」前缀后合并） */ }
       try { useItems.getState().normalizeEquipSlots(); } catch { /* 规范化历史非规范装备槽（armor:armor→armor:upper 等），使装备面板与背包一致 */ }
+      try { const f = useNpc.getState().normalizeNpcIds(); if (f) console.log(`[NPC] 启动时规范化非法ID ${f} 个`); } catch { /* 修复历史存档里 AI 自创的非法ID(如 P_Aesc)，否则其属性更新被丢弃、面板点不开 */ }
       try { setCanUndo(await hasUndoPoint()); } catch { /* */ }
       if (sessionStorage.getItem(PENDING_STARTED_KEY)) {
         setStarted(true);
@@ -1434,7 +1495,7 @@ export default function App() {
   }
 
   // 从 entries[] 构建系统提示和示例消息
-  function buildPresetMessages(preset: (typeof textPresets)[0] | undefined, ctx: string) {
+  function buildPresetMessages(preset: (typeof textPresets)[0] | undefined, ctx: string, userInput = '') {
     const entries = (preset?.entries ?? []).filter((e) => e.enabled && !e.marker);
 
     // system role 条目拼成系统提示
@@ -1445,10 +1506,10 @@ export default function App() {
     if (ctx) sysPrompt += '\n\n[世界书信息]\n' + ctx;
     // 主角状态同步：让始终运行的主正文每回合输出位置/外观（前端解析后剥除），不依赖被节流的主角演化阶段
     sysPrompt += '\n\n' + PLAYER_STATE_EMIT_RULE;
-    // 击杀清单：本回合若有敌人确实死亡，正文末尾输出 <kill> 清单（只报事实），前端机械结算进阶点
-    sysPrompt += '\n\n' + KILL_MANIFEST_RULE;
     // 任务击杀目标阶位上限：强制环≤主角阶位、贪婪环≤+1；勿降级剧情高端战力，改派阶位相称的目标
     sysPrompt += '\n\n' + QUEST_KILL_TIER_RULE;
+    // 任务世界结算：仅当本回合输入含【结算任务】时才注入（平时不喂，省 token、避免误触发）
+    if (/【结算任务】/.test(userInput)) sysPrompt += '\n\n' + WORLD_SETTLEMENT_RULE;
 
     // user/assistant 条目作为示例历史
     const examples = entries
@@ -1543,7 +1604,7 @@ export default function App() {
         + '\n【勿重复生成·读已有清单】生成前先核对两份"已有清单"：主角背包(player_items) 与 在场NPC持有物(npc_items)。'
         + '凡清单里**已存在**的物品（哪怕只是名称相近、明显是同一件，如"止血喷雾"vs"次级止血喷雾"）**一律不要再 createItem**——要改就用 updateItem(同 itemId)，数量增减用 updateItemQuantity。'
         + '只有正文里**确实新入手**、且清单里确实没有的物品才 createItem。重复消耗品（如又捡到一瓶同款药剂）也别新建条目，用 updateItemQuantity 给已有条目加数量。'
-        + '\n' + FIRST_UPDATE_COMPLETE_RULE + '\n' + ITEM_EXACT_REF_RULE;
+        + '\n' + ITEM_UPDATE_RULE + '\n' + FIRST_UPDATE_COMPLETE_RULE + '\n' + ITEM_EXACT_REF_RULE;
 
       // user 消息：正文 + 指令要求
       const userContent = `# 本轮正文\n${trimmedNarrative}\n\n---\n${
@@ -1673,6 +1734,7 @@ export default function App() {
 
   /* 欢愉宫：包间一轮对话 —— 调 AI → 解析 <joy> → 写 store（情欲值/私密/立绘随之更新）*/
   async function onJoySend(girlId: string, text: string): Promise<void> {
+    await hydrateJoyWorldBooks();   // 确保内置世界书已加载（幂等，只首次拉）
     const J = useJoy.getState();
     const girl = J.settings.girls.find((g) => g.id === girlId);
     if (!girl) return;
@@ -1686,8 +1748,12 @@ export default function App() {
       return;
     }
     const history = (sess?.messages ?? []).slice(-12).map((m) => ({ role: m.role, content: m.content }));
+    // 世界书注入：matchCtx = 本轮输入 + 最近对话 → 蓝灯常驻 + 绿灯关键词命中
+    const matchCtx = [text, ...(sess?.messages ?? []).slice(-8).map((m) => m.content)].join(' ');
+    const wbText = buildJoyWbInjection(J.worldBooks, matchCtx);
     const messages = [
       { role: 'system', content: buildJoySystem(girl, sess) },
+      ...(wbText ? [{ role: 'system', content: wbText }] : []),
       ...history,
       { role: 'user', content: text },
     ];
@@ -1780,7 +1846,7 @@ export default function App() {
       const a = prof.attrs;
       const maxHp = playerMaxHp(), maxEp = playerMaxEp();
       panel = [
-        `姓名:${prof.name || '主角'} | 阶位:${prof.tier} Lv.${prof.level} | 进阶点数:${prof.advancePoints ?? 0}`,
+        `姓名:${prof.name || '主角'} | 阶位:${prof.tier} Lv.${prof.level}`,
         prof.title && `称号:${prof.title}`,
         prof.profession && `职业:${prof.profession}`,
         `六维: 力${a.str} 敏${a.agi} 体${a.con} 智${a.int} 魅${a.cha} 幸${a.luck}`,
@@ -1902,14 +1968,14 @@ export default function App() {
       // 主角演化发送【全部正文】（不截断）
       const trimmedNarrative = narrative;
 
-      // 注入主角当前档案快照，让主角演化看到等级/进阶点数/已有技能天赋（避免重复生成、便于进阶点数结算）
+      // 注入主角当前档案快照，让主角演化看到等级/已有技能天赋（避免重复生成）
       const prof = playerState.profile;
       const b1 = useCharacters.getState().characters['B1'];
       const pSkills = b1?.skills ?? [];
       const pTalents = b1?.traits ?? [];
       const a = prof.attrs;
       const playerProfileSnapshot = [
-        `姓名:${prof.name || '主角'} | 阶位:${prof.tier} Lv.${prof.level} | 进阶点数:${prof.advancePoints ?? 0} | 世界之源:${prof.worldSource ?? 0} | 属性点:${prof.attrPoints ?? 0} | 真实属性点:${prof.realAttrPoints ?? 0}`,
+        `姓名:${prof.name || '主角'} | 阶位:${prof.tier} Lv.${prof.level} | 世界之源:${prof.worldSource ?? 0} | 属性点:${prof.attrPoints ?? 0} | 真实属性点:${prof.realAttrPoints ?? 0}`,
         prof.homeParadise && `所属乐园:${prof.homeParadise}`,
         prof.preParadiseJob && `主角背景(入园前职业):${prof.preParadiseJob}`,
         prof.contractorId && `契约者ID:${prof.contractorId}`,
@@ -1933,7 +1999,7 @@ export default function App() {
         .replaceAll('${character_snapshot}', playerProfileSnapshot)
         .replaceAll('${player_skills}', pSkills.length ? pSkills.map((s) => `${s.id}「${s.name}」${s.level ?? ''}`).join('；') : '（无）')
         .replaceAll('${player_traits}', pTalents.length ? pTalents.map((t) => `「${t.name}」${t.category ?? ''}·${t.rarity}级`).join('；') : '（无）')
-        + '\n\n' + NARRATIVE_FIRST_RULE + '\n' + EVO_VERIFY_RULE + '\n' + BUFF_AS_STATUS_RULE + '\n' + SUBPROF_RULE + '\n' + TALENT_NO_CAP_RULE + '\n' + TITLE_DIVERSITY_RULE + '\n' + SKILL_TALENT_NOTE_RULE + '\n' + SKILL_TIER_RULE + '\n' + PLAYER_SKILL_KEEP_RULE + '\n' + TIER_RULE + '\n' + IMAGE_TAGS_RULE + '\n' + HPEP_NARRATIVE_ONLY_RULE + '\n' + ADVANCE_POINTS_RULE + '\n' + WORLDSOURCE_RULE + '\n' + POINTS_NARRATIVE_RULE + '\n' + ATTR_SANITY_RULE + '\n' + ATTR_CAP_RULE + '\n' + APPEARANCE_UPDATE_RULE + '\n' + STATUS_FORMAT_RULE + '\n' + FIRST_UPDATE_COMPLETE_RULE + '\n' + EVO_EXACT_REF_RULE;
+        + '\n\n' + NARRATIVE_FIRST_RULE + '\n' + EVO_VERIFY_RULE + '\n' + BUFF_AS_STATUS_RULE + '\n' + SUBPROF_RULE + '\n' + TALENT_NO_CAP_RULE + '\n' + TITLE_DIVERSITY_RULE + '\n' + SKILL_TALENT_NOTE_RULE + '\n' + SKILL_TIER_RULE + '\n' + PLAYER_SKILL_KEEP_RULE + '\n' + TIER_RULE + '\n' + IMAGE_TAGS_RULE + '\n' + HPEP_NARRATIVE_ONLY_RULE + '\n' + WORLDSOURCE_RULE + '\n' + POINTS_NARRATIVE_RULE + '\n' + ATTR_SANITY_RULE + '\n' + ATTR_CAP_RULE + '\n' + APPEARANCE_UPDATE_RULE + '\n' + STATUS_FORMAT_RULE + '\n' + FIRST_UPDATE_COMPLETE_RULE + '\n' + EVO_EXACT_REF_RULE;
       const userContent  = `# 本轮正文\n${trimmedNarrative}\n\n---\n请根据以上正文，输出本轮主角属性与状态变化指令。只输出 <state> 块，无变化时输出空块，禁止输出正文内容。`;
 
       const ss2 = useSettings.getState();
@@ -2088,6 +2154,9 @@ export default function App() {
     const skills = cdata?.skills ?? [];
     const talents = cdata?.traits ?? [];
     const attrs = r.attrs;
+    const snEqp = (r.items ?? []).filter((it) => it.equipped) as any;
+    const snMaxHp = attrs ? fullMaxHp(attrs, snEqp, skills, talents) : 0;
+    const snMaxEp = attrs ? fullMaxEp(attrs, snEqp, skills, talents) : 0;
     const lines = [
       `角色ID: ${r.id}`,
       `姓名: ${r.name || '（未命名）'}${r.gender ? ` | 性别:${r.gender}` : ''}`,
@@ -2100,12 +2169,12 @@ export default function App() {
       r.arenaRank && `竞技场排名: ${r.arenaRank}`,
       r.brandLevel && `烙印等级: ${r.brandLevel}`,
       r.contractorId && `契约者ID: ${r.contractorId}`,
+      r.affiliatedTeam && `隶属冒险团(列"冒险团"): ${r.affiliatedTeam}`,
       attrs && `生物强度(前端按基础六维机械判定·资质档,勿写): ${bioInnate(attrs, r.realm, lvFromRealm(r.realm))?.label ?? ''}`,
-      attrs && `生命HP: ${effectiveResource(r.hp, r.maxHp, computeMaxHp(attrs))}/${computeMaxHp(attrs)}（上限=体质×20，前端自动算，勿写maxHp）`,
-      attrs && `蓝量EP: ${effectiveResource(r.mp, r.maxMp, computeMaxEp(attrs))}/${computeMaxEp(attrs)}（上限=智力×15，前端自动算，勿写maxMp）`,
+      attrs && `生命HP: ${effectiveResource(r.hp, r.maxHp, snMaxHp)}/${snMaxHp}（上限=体质×20+装备/被动加成，前端自动算，勿写maxHp）`,
+      attrs && `蓝量EP: ${effectiveResource(r.mp, r.maxMp, snMaxEp)}/${snMaxEp}（上限=智力×15+装备/被动加成，前端自动算，勿写maxMp）`,
       !attrs && (r.hp != null || r.maxHp != null) && `HP: ${r.hp ?? '?'}/${r.maxHp ?? '?'}`,
       !attrs && (r.mp != null || r.maxMp != null) && `MP/EP: ${r.mp ?? '?'}/${r.maxMp ?? '?'}`,
-      r.advancePoints != null && `进阶点数: ${r.advancePoints}`,
       r.attrPoints != null && `属性点: ${r.attrPoints}`,
       r.realAttrPoints != null && `真实属性点: ${r.realAttrPoints}`,
       r.skillPoints != null && `技能点: ${r.skillPoints}`,
@@ -2159,7 +2228,7 @@ ${lines.join('\n')}`;
       .filter((e) => e.enabled && e.source !== 'entrySharedRules')
       .map((e) => fillVars(e.content, vars))
       .join('\n\n')
-      + '\n\n' + NARRATIVE_FIRST_RULE + '\n' + BUFF_AS_STATUS_RULE + '\n' + NPC_AGE_RULE + '\n' + TALENT_NO_CAP_RULE + '\n' + TITLE_DIVERSITY_RULE + '\n' + NPC_DEAD_EXCLUDE_RULE + '\n' + SKILL_TALENT_NOTE_RULE + '\n' + NPC_SKILL_KEEP_RULE + '\n' + NPC_REVIEW_TAG_RULE + '\n' + TIER_RULE + '\n' + IMAGE_TAGS_RULE + '\n' + HPEP_NARRATIVE_ONLY_RULE + '\n' + ADVANCE_POINTS_RULE + '\n' + POINTS_NARRATIVE_RULE + '\n' + NPC_GEN_ATTR_RULE + '\n' + ATTR_SANITY_RULE + '\n' + ATTR_CAP_RULE + '\n' + STATUS_FORMAT_RULE + '\n' + NPC_PRIVATE_EXTRA_RULE + '\n' + FIRST_UPDATE_COMPLETE_RULE + '\n' + EVO_EXACT_REF_RULE;
+      + '\n\n' + NARRATIVE_FIRST_RULE + '\n' + BUFF_AS_STATUS_RULE + '\n' + NPC_AGE_RULE + '\n' + TALENT_NO_CAP_RULE + '\n' + TITLE_DIVERSITY_RULE + '\n' + NPC_DEAD_EXCLUDE_RULE + '\n' + NPC_ID_RULE + '\n' + SKILL_TALENT_NOTE_RULE + '\n' + NPC_SKILL_KEEP_RULE + '\n' + NPC_REVIEW_TAG_RULE + '\n' + NPC_TEAM_AFFILIATION_RULE + '\n' + TIER_RULE + '\n' + IMAGE_TAGS_RULE + '\n' + HPEP_NARRATIVE_ONLY_RULE + '\n' + POINTS_NARRATIVE_RULE + '\n' + NPC_GEN_ATTR_RULE + '\n' + ATTR_SANITY_RULE + '\n' + ATTR_CAP_RULE + '\n' + STATUS_FORMAT_RULE + '\n' + NPC_PRIVATE_EXTRA_RULE + '\n' + FIRST_UPDATE_COMPLETE_RULE + '\n' + EVO_EXACT_REF_RULE;
   }
 
   /* 登场判断 system prompt（只取 entrySharedRules 条目） */
@@ -2172,7 +2241,7 @@ ${lines.join('\n')}`;
       .filter((e) => e.enabled && e.source === 'entrySharedRules')
       .map((e) => fillVars(e.content, vars))
       .join('\n\n')
-      + '\n\n' + NARRATIVE_FIRST_RULE + '\n' + EVO_VERIFY_RULE + '\n' + NPC_DEAD_EXCLUDE_RULE + '\n' + TIER_RULE + '\n' + SKILL_TIER_RULE + '\n' + NPC_GEN_ATTR_RULE;
+      + '\n\n' + NARRATIVE_FIRST_RULE + '\n' + EVO_VERIFY_RULE + '\n' + NPC_DEAD_EXCLUDE_RULE + '\n' + NPC_ID_RULE + '\n' + TIER_RULE + '\n' + SKILL_TIER_RULE + '\n' + NPC_GEN_ATTR_RULE + '\n' + NPC_TEAM_AFFILIATION_RULE + '\n' + NPC_ENTRY_BIO_RULE;
   }
 
   /* 解析 NPC <state> 短指令（favor/title/realm/hp），可按 charId 过滤 */
@@ -2252,12 +2321,15 @@ ${lines.join('\n')}`;
 
     // 新增身份字段：职业 / 竞技场排名 / 烙印等级 / 契约者ID
     const npcStr: Record<string, keyof import('./store/npcStore').NpcRecord> = {
-      profession: 'profession', arenaRank: 'arenaRank', brandLevel: 'brandLevel', contractorId: 'contractorId',
+      profession: 'profession', arenaRank: 'arenaRank', brandLevel: 'brandLevel', contractorId: 'contractorId', affiliatedTeam: 'affiliatedTeam',
     };
     for (const [field, key] of Object.entries(npcStr)) {
       const re = new RegExp(`\\bcharacter\\.(C\\d+)\\.identity\\.${field}\\s*=\\s*"([^"]*)"`, 'g');
       while ((m = re.exec(reply))) { if (ok(m[1])) { npc.upsertNpc(m[1], { [key]: m[2] } as any); n++; } }
     }
+    // 隶属冒险团：character.C1.affiliatedTeam = "团名·角色"（非 identity 路径的简写）
+    const teamAffRe = /\bcharacter\.(C\d+)\.affiliatedTeam\s*=\s*"([^"]*)"/g;
+    while ((m = teamAffRe.exec(reply))) { if (ok(m[1])) { npc.upsertNpc(m[1], { affiliatedTeam: m[2] }); n++; } }
     // 外观描写 → 列34
     const apRe = /\bcharacter\.(C\d+)\.appearance\s*=\s*"([^"]*)"/g;
     while ((m = apRe.exec(reply))) { if (ok(m[1])) { npc.upsertNpc(m[1], { appearanceDetail: m[2] }); n++; } }
@@ -2296,17 +2368,17 @@ ${lines.join('\n')}`;
       npc.upsertNpc(m[1], { attrs: { ...base, [m[2]]: Math.min(cap, Math.max(0, next)) } });
       n++;
     }
-    // NPC 六维·机械生成(治 API 幻觉乱给离谱属性)：character.<id>.genAttrs = "阶位·Lv|生物强度档|职业|形态[可选]"
-    // 前端据 阶位/生物强度档/职业归类/形态 用 generateNpcAttrs 反推六维(种子=id 可复现)；首次建档优先用它，不再让 AI 手写属性
+    // NPC 六维·机械生成(治 API 幻觉乱给离谱属性)：character.<id>.genAttrs = "阶位·Lv|生物强度档|类型|形态|定位"
+    // 前端据 阶位/生物强度档/类型/形态/定位 用 generateNpcAttrs 反推六维(种子=id 可复现)；首次建档优先用它，不再让 AI 手写属性
     const genAttrRe = /\bcharacter\.([CG]\d+)\.genAttrs\s*=\s*"([^"]*)"/g;
     while ((m = genAttrRe.exec(reply))) {
       if (!ok(m[1])) continue;
-      const [realmStr, bioTier, job, form, role] = m[2].split('|').map((s) => s.trim());
+      const [realmStr, bioTier, typeTag, form, role] = m[2].split('|').map((s) => s.trim());
       if (!bioTier) continue;
       const live = useNpc.getState().npcs[m[1]];
       const realm = realmStr || live?.realm || '';
-      const attrs = generateNpcAttrs({ tier: realm, level: lvFromRealm(realm), bioTier, job: job || live?.profession, form, role, identity: live?.npcTag, seed: m[1] });
-      npc.upsertNpc(m[1], realmStr && !live?.realm ? { attrs, realm: realmStr } : { attrs });
+      const attrs = generateNpcAttrs({ tier: realm, level: lvFromRealm(realm), bioTier, type: typeTag || live?.unitType, job: live?.profession, form, role, identity: live?.npcTag, seed: m[1] });
+      npc.upsertNpc(m[1], { attrs, ...(realmStr && !live?.realm ? { realm: realmStr } : {}), ...(typeTag ? { unitType: typeTag } : {}) });
       n++;
     }
     // mp.C1（蓝量 EP）：上限按智力×15 自动换算（忽略 AI 写的 /上限），未记录当前值时以满蓝为基准
@@ -2319,15 +2391,6 @@ ${lines.join('\n')}`;
       const v = Number(m[3]);
       const next = m[2] === '=' ? v : m[2] === '+=' ? Math.min(base + v, dmax) : Math.max(0, base - v);
       npc.upsertNpc(m[1], { mp: next, maxMp: dmax });
-      n++;
-    }
-    // 进阶点数：ap.C1 += N (正文获取) / ap.C1 -= N (升级消耗) / ap.C1 = N
-    const advPtsRe = /\bap\.(C\d+)\s*(=|-=|\+=)\s*(\d+)/g;
-    while ((m = advPtsRe.exec(reply))) {
-      if (!ok(m[1])) continue;
-      const cur = npc.npcs[m[1]]?.advancePoints ?? 0;
-      const v = Number(m[3]);
-      npc.upsertNpc(m[1], { advancePoints: m[2] === '=' ? v : m[2] === '+=' ? cur + v : Math.max(0, cur - v) });
       n++;
     }
     // 属性点 / 真实属性点 / 技能点：character.<id>.(attrPoints|realAttrPoints|skillPoints) = / += / -= N（完全按正文）
@@ -2415,14 +2478,6 @@ ${lines.join('\n')}`;
       // 列19 / imageTags：生图提示词（英文 NAI tags）→ profile.imageTags
       const tags19 = payload['19'] ?? payload.imageTags ?? payload['生图提示词'];
       if (typeof tags19 === 'string' && tags19.trim()) { sp({ imageTags: tags19.trim() }); n++; }
-    }
-    // 进阶点数：ap.B1 += N (正文获取) / ap.B1 -= N (升级消耗) / ap.B1 = N
-    const apRe = /\bap\.B\d+\s*(=|-=|\+=)\s*(\d+)/g;
-    while ((m = apRe.exec(reply))) {
-      const cur = usePlayer.getState().profile.advancePoints ?? 0;
-      const v = Number(m[2]);
-      sp({ advancePoints: m[1] === '=' ? v : m[1] === '+=' ? cur + v : Math.max(0, cur - v) });
-      n++;
     }
     // 世界之源：character.B1.worldSource += N（正文获取）/ = 0（回归乐园归零，支持小数百分比）
     const wsRe = /\bcharacter\.B\d+\.worldSource\s*(=|-=|\+=)\s*([\d.]+)/g;
@@ -2597,6 +2652,12 @@ ${lines.join('\n')}`;
           console.warn(`[NPC] 登场判断把新角色「${e.name ?? '?'}」分配到已占用ID ${id}（${exist.name}），改用空闲ID ${fresh} 防止覆盖`);
           id = fresh;
         }
+        // 非 C/G 编号（AI 自创 P_xxx 等）→ 改用空闲 C 编号，保证后续短指令(均按 C\d+ 匹配)能识别、面板可点开
+        if (!/^[CG]\d+$/.test(id) && !npc.npcs[id]) {
+          const fresh = nextFreeCId();
+          console.warn(`[NPC] 登场新角色「${e.name ?? '?'}」使用非法ID ${id}，改用 ${fresh}`);
+          id = fresh;
+        }
         used.add(id);
         if (nameKey) nameToId.set(nameKey, id);   // 登记新建名字，使本批后续同名条目并入此角色
         if (skel) npc.applySkeleton(id, skel.short);
@@ -2605,10 +2666,18 @@ ${lines.join('\n')}`;
         createdIds.add(id);
       } else {
         // reentry / 已存在
-        npc.setScene(e.id, true, turn);
-        if (e.name) npc.upsertNpc(e.id, { name: e.name });
+        let rid = e.id;
+        // 重新登场也用了非法ID且该ID不存在 → 先按姓名找回已建档角色，找不到再分配空闲 C 编号，绝不新建非法ID空壳
+        if (!/^[CG]\d+$/.test(rid) && !npc.npcs[rid]) {
+          const byName = e.name ? nameToId.get(String(e.name).split('|')[0].trim()) : undefined;
+          rid = byName ?? nextFreeCId();
+          used.add(rid);
+          console.warn(`[NPC] 重新登场用非法ID ${e.id}，改用 ${rid}`);
+        }
+        npc.setScene(rid, true, turn);
+        if (e.name) npc.upsertNpc(rid, { name: e.name });
         const loc = /loc\.[CG]\d+\s*=\s*([^\n]+)/.exec(e.stateCommands ?? '');
-        if (loc) npc.upsertNpc(e.id, { extra: { ...(npc.npcs[e.id]?.extra ?? {}), 位置: loc[1].trim() } });
+        if (loc) npc.upsertNpc(rid, { extra: { ...(npc.npcs[rid]?.extra ?? {}), 位置: loc[1].trim() } });
       }
     }
     for (const x of result.exits ?? []) { if (x?.id) npc.setScene(x.id, false); }
@@ -2633,6 +2702,7 @@ ${lines.join('\n')}`;
     console.log('[NPC] 登场判断响应:', reply);
     const result = parseEntryJson(reply);
     const createdIds = applyEntryResult(result, turnCountRef.current);
+    try { const f = useNpc.getState().normalizeNpcIds(); if (f) console.log(`[NPC] 规范化非法ID ${f} 个`); } catch { /* 修复历史存档里 AI 自创的非法ID(如 P_Aesc) */ }
     try { useNpc.getState().dedupeByName(); } catch { /* 合并同名重复角色（防一回合内重复建档）*/ }
     refreshNpcPreferredOwners(createdIds);   // 登场判断完成后刷新物品 owner 重定向目标
     return { result, createdIds };
@@ -3116,8 +3186,10 @@ ${lines.join('\n')}`;
       + '\n\n' + NARRATIVE_FIRST_RULE + '\n' + MISC_HOME_TIME_RULE
       + '\n\n' + MISC_SUMMARY_CADENCE_RULE
       + '\n\n' + TASK_OUTCOME_RULE
+      + '\n\n' + POTENTIAL_POINT_RULE
       + '\n\n' + QUEST_PLANNING_RULE
       + '\n\n' + QUEST_KILL_TIER_RULE
+      + '\n\n' + QUEST_RATING_RULE
       + '\n\n' + TASK_RECONCILE_RULE
       + '\n\n' + TASK_CANON_RULE
       + `\n【进入新世界信号】：${enteredNewWorld ? '是 —— 本轮检测到进入新的任务世界，请按【主线路线图规划】检查：当前任务世界若尚无 active 主线，则把该世界自身的核心目标立成主线并规划整张环路线图' : (isHomeWorld(M.worldName) ? '否 —— 当前在轮回乐园/专属房间(枢纽·任务间歇)，禁止规划任何主线，更不要生成"适应乐园环境/进入衍生世界/获取身份/回归乐园"等框架流程任务；等真正进入任务世界(衍生世界)再规划' : '否（沿用既有主线，勿重复新建）')}`
@@ -3343,6 +3415,26 @@ ${lines.join('\n')}`;
     }];
   }
 
+  /* <当前时空> 注入正文：把「杂项」的两个时间——轮回历(乐园时间) 与 世界时间——连同当前世界名常驻注入，
+     让写正文的 AI 始终知道此刻是什么时间、在哪个世界，叙事不与之矛盾（结构化召回里没有时间，故独立注入）。
+     时间都未设定时不注入。时间推进仍由「杂项演化」结算，正文只读不改。 */
+  function buildWorldTimeInjection(): { role: 'system'; content: string }[] {
+    const M = useMisc.getState();
+    const pt = (M.paradiseTime || '').trim();
+    const wt = (M.worldTime || '').trim();
+    const wn = (M.worldName || '').trim();
+    if (!pt && !wt) return [];   // 两个时间都没设就不注入
+    const bits = [
+      wn && `当前世界:${wn}`,
+      pt && `轮回历·乐园时间:${pt}`,
+      wt && `当前世界时间:${wt}`,
+    ].filter(Boolean);
+    return [{
+      role: 'system' as const,
+      content: `<当前时空>（叙事须与下列时间/世界保持一致，勿自相矛盾；时间由系统推进，正文勿擅自跳改）\n${bits.join(' | ')}\n</当前时空>`,
+    }];
+  }
+
   /* <当前任务> 注入正文：主线(重·当前目标+下一步+终局，作叙事节奏锚点) + 相关支线(轻·限量)。
      解决"主线没存在感、要手动口胡才回归"——把任务面板回流进正文生成上下文。 */
   function buildQuestInjection(): { role: 'system'; content: string }[] {
@@ -3495,10 +3587,15 @@ ${lines.join('\n')}`;
     const asLine = a.pending
       ? `考核中：${a.note || ''}（目标阶位 ${a.targetRank || '?'}，状态 ${a.status}）——进入考核世界后 startAssessment，出结果用 resolveAssessment(pass/fail/disband）`
       : (a.status !== 'none' ? `上次考核：${a.status}` : '无');
+    const joined = !!T.leaderId && T.leaderId !== 'B1';   // 加入他人团：主角非团长
+    const leaderLine = joined
+      ? `团长(领导人)：${T.leaderId.startsWith('C') ? T.leaderId + (T.leaderName ? '·' + T.leaderName : '') : (T.leaderName || '某 NPC')}（**主角不是团长，只是成员，勿改成主角领导**）`
+      : `团长(领导人)：主角(B1)`;
     return [
       `团名：${T.name || '（未命名）'}${T.disbanded ? '（已解散）' : ''}`,
+      leaderLine,
       `阶位：${T.rank}　团队经验：${T.teamExp}/100　活跃度：${T.activity}/100（晋级需活跃度≥${60}）`,
-      `成员：${T.members.length}/${cap}${T.members.length ? '——' + T.members.map((m) => `${m.id}${m.role ? '(' + m.role + ')' : ''}`).join('、') : '（仅团长主角）'}`,
+      `成员：${T.members.length}/${cap}${T.members.length ? '——' + T.members.map((m) => `${m.id || m.name}${m.role ? '(' + m.role + ')' : ''}`).join('、') : (joined ? '（无）' : '（仅团长主角）')}`,
       `团队效果：${T.perks.length ? T.perks.map((p) => p.name).join('、') : '（无）'}`,
       `考核：${asLine}`,
     ].join('\n');
@@ -3778,6 +3875,34 @@ ${lines.join('\n')}`;
     setTimeout(() => setImagePhaseLog(''), 8000);
   }
 
+  /* 双击正文配图 → 用该张原 prompt 重新生成（不重抽锚点、不动其它图）。复用 storyService 与 storySize。 */
+  async function regenerateStoryImage(msgId: number, idx: number) {
+    if (!Number.isInteger(idx) || idx < 0) return;
+    const key = `${msgId}:${idx}`;
+    if (storyRegenBusy.current.has(key)) return;                 // 防连点重复触发
+    const cur = (messagesRef.current ?? []).find((m) => m.id === msgId)?.images?.[idx];
+    if (!cur) return;
+    const ig = useImageGen.getState();
+    const size = ig.storySize && ig.storySize !== 'inherit' ? ig.storySize : undefined;
+    const prompt = cur.nsfw && cur.nsfw !== 'sfw' ? `${cur.prompt}, nsfw` : cur.prompt;   // 与首次生成同样按等级补 nsfw
+    storyRegenBusy.current.add(key);
+    setImagePhaseLog('正文配图·重新生成中…');
+    try {
+      const url = await generateImage(ig.storyService, { prompt, size, label: '重新生成配图' });
+      setMessages((prev) => prev.map((m) => m.id === msgId
+        ? { ...m, images: (m.images ?? []).map((x, i) => (i === idx ? { ...x, url, ts: Date.now() } : x)) }
+        : m));
+      setImagePhaseLog('✓ 配图已重新生成');
+      setTimeout(() => setImagePhaseLog(''), 4000);
+    } catch (e: any) {
+      console.warn('[StoryImg] 重新生成失败:', e?.message ?? e);
+      setImagePhaseLog(`⚠ 重新生成失败：${String(e?.message ?? e).slice(0, 40)}`);
+      setTimeout(() => setImagePhaseLog(''), 7000);
+    } finally {
+      storyRegenBusy.current.delete(key);
+    }
+  }
+
   /* ════════════════════════════════════════════
      叙事记忆 LLM 两步法（发送前查询改写 / 回复后事实抽取）
   ════════════════════════════════════════════ */
@@ -3884,15 +4009,15 @@ ${lines.join('\n')}`;
       cards.push(tLines.join('\n'));
     }
 
-    // ── 冒险团（已建立才注入；仅注入 等级/成员/团队效果）──
+    // ── 冒险团（已建立才注入；仅注入 团名 / 成员名称 / 团队效果，不注入阶位·团长等其余信息）──
     const TM = useTeam.getState();
     if (TM.established && !TM.disbanded) {
       const memberStr = TM.members.length
-        ? TM.members.map((m) => `${m.id}${m.role ? '·' + m.role : ''}`).join('、')
-        : '（仅团长主角）';
+        ? TM.members.map((m) => m.name || m.id).filter(Boolean).join('、')
+        : '（主角）';
       const perkStr = TM.perks.length ? TM.perks.map((p) => p.name + (p.desc ? '(' + p.desc + ')' : '')).join('；') : '（无）';
       cards.push([
-        `【冒险团】${TM.name || '（未命名）'}　${TM.rank} 阶`,
+        `【冒险团】${TM.name || '（未命名）'}`,
         `成员：${memberStr}`,
         `团队效果：${perkStr}`,
       ].join('\n'));
@@ -4530,7 +4655,7 @@ ${lines}`;
       .replaceAll('${world_name}', M.worldName || '轮回乐园')
       .replaceAll('${world_time}', M.worldTime || M.paradiseTime || '')
       .replaceAll('${enabled_channels}', '交易').replaceAll('${recent_events}', '').replaceAll('${existing_messages}', '').replaceAll('${message_count}', '0')
-      + '\n\n【报价生成铁则】针对玩家在交易频道挂的求购/出售帖，扮演多位**不同**契约者给出报价/出价，每条务必：① 价格贴合该物品的颜色品质定价与玩家预算（有人急出压价、有人坐地起价、有人给替代品/附赠）；② **求购帖里你是卖家**（报价把东西卖给玩家），**出售帖里你是买家**（出价收购玩家的东西）；③ 必带一句符合该契约者身份口吻的【留言】（可砍价/吹嘘/吐槽/玩梗/讲价由头）。货币用 乐园币 或 灵魂钱币。\n④ **求购帖的卖家报价：必须按固定格式给出所提供物品的完整属性**——名称/产地(origin)/品质色(gradeDesc)/类型(category+subType)/攻防(combatStat)/耐久(durability)/装备需求(requirement)/词缀(affix)/评分(score)/效果(effect)/简介(intro)/外观(appearance)，武器另加杀敌数(killCount)；**若是技能书/技能卷轴/知识卷轴/图纸/天赋碎片**，subType 写明类型、effect 明确写学会/获得什么（技能名+层阶 / 知识领域 / 可制造产品 / 天赋名+评级）；**一个都不能省略、不准偷懒**（与物品生成同标准）。出售帖你是买家、出价即可，不必重复物品属性。';
+      + '\n\n【报价生成铁则】针对玩家在交易频道挂的求购/出售帖，扮演多位**不同**契约者给出报价/出价，每条务必：① 价格贴合该物品的颜色品质定价与玩家预算（有人急出压价、有人坐地起价、有人给替代品/附赠）；② **求购帖里你是卖家**（报价把东西卖给玩家），**出售帖里你是买家**（出价收购玩家的东西）；③ 必带一句符合该契约者身份口吻的【留言】（可砍价/吹嘘/吐槽/玩梗/讲价由头）。货币用 乐园币 或 灵魂钱币。\n④ **求购帖的卖家报价：必须按固定格式给出所提供物品的完整属性**——名称/产地(origin)/品质色(gradeDesc)/类型(category+subType)/攻防(combatStat)/耐久(durability)/装备需求(requirement)/词缀(affix)/评分(score)/效果(effect)/简介(intro)/外观(appearance)，武器另加杀敌数(killCount)；**若是技能书/技能卷轴/知识卷轴/图纸/天赋碎片**，subType 写明类型、effect 明确写学会/获得什么（技能名+层阶 / 知识领域 / 可制造产品 / 天赋名+评级）；**一个都不能省略、不准偷懒**（与物品生成同标准）。\n⑤ **出售帖里你是买家**，有两种回应方式，让多位买家**混合采用**更真实：(a) **纯现金收购**——`barter` 设 false、`itemName` 留空，只给 price/currency/note；(b) **以物换物（barter）**——拿出你自己的一件物品跟玩家换：`barter` 设 true，并按固定格式给出**你这件换购物品**的完整属性（itemName/gradeDesc/category/subType/origin/combatStat/durability/requirement/affix/score/effect/intro/appearance，武器加 killCount；技能书/卷轴/图纸/天赋碎片同求购帖标准写明 subType+effect），`price` 填你**额外找补给玩家的现金**（平换则填 0）。换购物品必须是**与玩家那件不同、且贴合玩家诉求**的真实物品，属性一个都不能空。';
     const postsDesc = open.map((m) => {
       const o = m.offer ?? {};
       const base = `「${o.itemName}」${o.gradeDesc ? `(${o.gradeDesc})` : ''}${o.qty && o.qty > 1 ? ` ×${o.qty}` : ''}`;
@@ -4538,7 +4663,7 @@ ${lines}`;
         ? `${m.id} 求购：玩家想买 ${base}，预算 ${o.price || '面议'} ${o.currency || '乐园币'}；玩家留言：${o.note || '无'}`
         : `${m.id} 出售：玩家想卖 ${base}，期望 ${o.price || '面议'} ${o.currency || '乐园币'}；玩家留言：${o.note || '无'}`;
     }).join('\n');
-    const user = `玩家挂出的帖子如下，请为每个帖子生成 2~4 条报价/出价：\n${postsDesc}\n\n只输出 JSON：{"quotes":[{"postId":"<帖子号如 M_5>","fromName":"昵称","fromTier":"三阶·Lv.25","fromTag":"契约者","itemName":"(求购帖填你提供的物品名，出售帖填玩家那件物品名)","gradeDesc":"品质色","category":"分类","subType":"类型细分","origin":"产地","combatStat":"攻防数值","durability":"耐久","requirement":"装备需求","affix":"词缀","score":"评分","effect":"效果","intro":"简介","appearance":"逐部件外观","killCount":"杀敌数(武器)","qty":1,"price":数字,"currency":"乐园币","note":"留言"}]}（求购帖的卖家报价务必填全 origin/subType/combatStat/durability/requirement/affix/score/effect/intro/appearance 等固定格式字段；出售帖的买家出价可只给 price/currency/note）`;
+    const user = `玩家挂出的帖子如下，请为每个帖子生成 2~4 条报价/出价：\n${postsDesc}\n\n只输出 JSON：{"quotes":[{"postId":"<帖子号如 M_5>","fromName":"昵称","fromTier":"三阶·Lv.25","fromTag":"契约者","barter":false,"itemName":"(求购帖=你提供的物品名；出售帖纯现金收购留空，以物换物则填你拿出交换的物品名)","gradeDesc":"品质色","category":"分类","subType":"类型细分","origin":"产地","combatStat":"攻防数值","durability":"耐久","requirement":"装备需求","affix":"词缀","score":"评分","effect":"效果","intro":"简介","appearance":"逐部件外观","killCount":"杀敌数(武器)","qty":1,"price":数字,"currency":"乐园币","note":"留言"}]}（求购帖的卖家报价务必填全 origin/subType/combatStat/durability/requirement/affix/score/effect/intro/appearance 等固定格式字段；出售帖：纯现金收购 barter:false 只给 price/currency/note，以物换物则 barter:true 并把换购物品按上述固定格式字段写全、price=额外找补现金/平换填0）`;
     useChannel.getState().setRefreshing(true);
     try {
       const { content } = await apiChatFallback(chain, [{ role: 'system', content: sys }, { role: 'user', content: user }]);
@@ -4552,7 +4677,7 @@ ${lines}`;
         if (!live.some((m) => m.id === pid)) continue;
         useChannel.getState().addQuotes(pid, qs.map((q) => ({
           fromName: String(q.fromName ?? '某契约者').split('|')[0].trim(),
-          fromTier: q.fromTier, fromTag: q.fromTag,
+          fromTier: q.fromTier, fromTag: q.fromTag, barter: q.barter === true,
           itemName: q.itemName, category: q.category, gradeDesc: q.gradeDesc, qty: Number(q.qty) || 1,
           price: Number(q.price) || 0, currency: q.currency || '乐园币', note: q.note,
           // 固定格式完整字段（卖家报价的物品属性，供详情展示 + 购买带入）
@@ -4629,14 +4754,14 @@ ${lines}`;
   /* 策略B 第一段：当前世界判断 */
   async function runFactionWorldJudgment(narrative: string) {
     const { entries } = useFactionEvo.getState().settings;
-    const sys = buildFactionEntryPrompt(entries) + '\n\n' + NARRATIVE_FIRST_RULE + '\n' + FACTION_HOME_EXIT_RULE + '\n' + FACTION_WORLD_RULE + '\n' + FACTION_FULL_FORMAT_RULE + '\n' + FACTION_NAME_RULE;
+    const sys = buildFactionEntryPrompt(entries) + '\n\n' + NARRATIVE_FIRST_RULE + '\n' + FACTION_DETECT_RULE + '\n' + FACTION_HOME_EXIT_RULE + '\n' + FACTION_WORLD_RULE + '\n' + FACTION_FULL_FORMAT_RULE + '\n' + FACTION_NAME_RULE;
     const facStore = useFaction.getState();
     const list = Object.values(facStore.factions);
     const known = list.map((f) => `${f.id}(${f.name})${f.worldName ? '·所属世界:' + f.worldName : ''}${f.inCurrentWorld ? '·当前世界' : '·非当前世界'}`).join(', ') || '（无）';
     const cNums = list.map((f) => f.id.match(/^F(\d+)$/)?.[1]).filter(Boolean).map(Number);
     const nextId = `F${cNums.length ? Math.max(...cNums) + 1 : 1}`;
     const M = useMisc.getState();
-    const user = `# 本轮正文\n${trimNarrative(narrative)}\n\n当前世界: ${M.worldName || '轮回乐园'}\n已知势力: ${known}\n下一个可用势力ID: ${nextId}\n\n请判断本世界出现/相关的势力：新势力建档(type:new)、已知势力重新活跃(type:reentry)、离开本世界(exits)。只输出 JSON：{"entries":[{"id":"F1","type":"new|reentry","name":"…","stateCommands":"faction.F1.type=\\"…\\""}],"exits":[{"id":"F2"}]}`;
+    const user = `# 本轮正文\n${trimNarrative(narrative)}\n\n当前世界: ${M.worldName || '轮回乐园'}\n已知势力: ${known}\n下一个可用势力ID: ${nextId}\n\n请把本轮正文里**出现、提到、暗示或主角遭遇的每一个势力都列出（宁多勿漏，可同时建/拉回多个）**：新势力建档(type:new)、已知势力重新活跃(type:reentry)、离开本世界(exits)。只输出 JSON：{"entries":[{"id":"F1","type":"new|reentry","name":"…","stateCommands":"faction.F1.type=\\"…\\""}],"exits":[{"id":"F2"}]}`;
     const reply = await factionChatCompletion(sys || '你判断当前世界有哪些势力。', user);
     const j = parseEntryJson(reply); if (!j) return;
     const used = new Set(Object.keys(facStore.factions));
@@ -4686,11 +4811,12 @@ ${lines}`;
   /* 策略A：单次合并 */
   async function runFactionStrategyA(narrative: string) {
     const { entries } = useFactionEvo.getState().settings;
-    const sys = entries.filter((e) => e.enabled).map((e) => e.content).join('\n\n');
-    if (!sys) return;
+    const sysBase = entries.filter((e) => e.enabled).map((e) => e.content).join('\n\n');
+    if (!sysBase) return;
+    const sys = sysBase + '\n\n' + FACTION_DETECT_RULE + '\n' + FACTION_FULL_FORMAT_RULE + '\n' + FACTION_NAME_RULE;
     const list = Object.values(useFaction.getState().factions);
     const known = list.map((f) => `${f.id}(${f.name})${f.inCurrentWorld ? '·当前世界' : '·非'}`).join(', ') || '（无）';
-    const user = `# 本轮正文\n${trimNarrative(narrative)}\n已知势力: ${known}\n请为正文相关势力输出 addFaction()/deFaction()/faction.* 指令，无变化输出空。`;
+    const user = `# 本轮正文\n${trimNarrative(narrative)}\n已知势力: ${known}\n请把本轮正文里**出现/提到/遭遇的每一个势力都处理（宁多勿漏）**：新势力 addFaction() 建档、已变化的势力 faction.* 增量更新、覆灭的 deFaction()。无任何相关势力才输出空。`;
     const reply = await factionChatCompletion(sys, user);
     if (reply) {
       applyFactionCommands(parseAllFactionCommands(reply));
@@ -4900,8 +5026,9 @@ ${lines}`;
         const attrs = generateNpcAttrs({
           tier: r.realm, level: lvFromRealm(r.realm),
           bioTier: mT ? Number(mT[1]) : parseTierNum(r.realm),                  // realm/bio 写了 T 档就用，否则按阶位序估，再被定位/窗口夹正
-          job: r.profession || r.realm,                                         // 职业；缺则用 realm 身份段(神官/队长…)自动归类
-          role: `${r.profession ?? ''} ${r.realm ?? ''} ${r.npcTag ?? ''}`,     // 身份段+职业+标签 → 定位纠偏(首领抬、杂兵压)
+          type: r.unitType,                                                     // 登场判断 ty 字段(封闭类型标签)→收编 职业排序/形态/凡人
+          job: r.profession || r.realm,                                         // 类型缺失时的职业花名兜底(realm 身份段 神官/队长… 自动归类)
+          role: `${r.profession ?? ''} ${r.realm ?? ''} ${r.npcTag ?? ''} ${r.bioStrength ?? ''}`,  // 身份段+职业+标签+AI给的bs定位 → 定位纠偏(首领抬、杂兵压)
           form: resolveForm(`${r.npcTag ?? ''}${r.profession ?? ''}${(r as any).species ?? ''}${r.name ?? ''}`),
           identity: r.npcTag, seed: r.id,
         });
@@ -4922,12 +5049,22 @@ ${lines}`;
         turn: turnCountRef.current,
         time: Date.now(),
         worldName: useMisc.getState().worldName || '',
-        player: {
-          level: prof.level, attrs: { ...prof.attrs }, status: prof.status,
-          statusEffects: mapSE(prof.statusEffects), hp: game.hp, maxHp: game.maxHp, mp: game.mp, maxMp: game.maxMp,
-          skills: (b1?.skills ?? []).map((s) => s.name),
-          titlesEquipped: (b1?.titles ?? []).find((t) => t.equipped)?.name,
-        },
+        player: (() => {
+          // 上限走与面板/钳制一致的真实换算（体质×20 / 智力×15 + 装备/被动平值 + 百分比加成），勿用 gameStore 里滞后的 maxHp
+          const maxHp = playerMaxHp(), maxMp = playerMaxEp();
+          const it = useItems.getState();
+          const equips = it.items.filter((i) => i.equipped).map((i) => ({ name: i.name, grade: i.gradeDesc, plus: i.enhanceLevel || 0 }));
+          return {
+            level: prof.level, attrs: { ...prof.attrs }, status: prof.status,
+            statusEffects: mapSE(prof.statusEffects),
+            hp: effectiveResource(game.hp, game.maxHp, maxHp), maxHp,
+            mp: effectiveResource(game.mp, game.maxMp, maxMp), maxMp,
+            skills: (b1?.skills ?? []).map((s) => s.name),
+            titlesEquipped: (b1?.titles ?? []).find((t) => t.equipped)?.name,
+            parkCoin: it.currency?.乐园币, soulCoin: it.currency?.灵魂钱币,
+            equips,
+          };
+        })(),
         npcs: Object.fromEntries(Object.values(useNpc.getState().npcs).map((r) => [r.id, {
           name: r.name, favor: r.favor, status: r.status, motiveNow: r.motiveNow, realm: r.realm, onScene: r.onScene, statusEffects: mapSE(r.statusEffects ?? []),
         }])),
@@ -5284,6 +5421,333 @@ ${lines}`;
     startCombatWithSelection({ enemyIds: [cid], allyIds: [] });
   }
 
+  /* ════════════════════════════════════════════
+     赌场·角斗场：一次 API 生成两名角斗士 + 专家评估（赔率前端算）；下注后据预定胜者生成数据化分回合战斗
+  ════════════════════════════════════════════ */
+  function casinoChain() {
+    const ss = useSettings.getState();
+    const legacy = ss.textUseSharedApi ? ss.api : ss.textApi;   // 赌坊无专用路由时回退到正文/共享 API
+    return resolveApiChain('casino', legacy);
+  }
+  // ── 深渊地牢 AI 生成（铁则：AI 只挑原语/档位/文案，数值前端定；失败回退由调用方处理）──
+  function abyssChain(key: string) {
+    const ss = useSettings.getState();
+    const legacy = ss.textUseSharedApi ? ss.api : ss.textApi;
+    return resolveApiChain(key, legacy);   // 无专用路由→回退正文/共享 API
+  }
+  async function genAbyssBoons(ctx: BoonGenContext): Promise<AbyssBoonCard[]> {
+    // 只读主角 kit（技能/天赋/职业/副职业）供生成「契合卡」——绝不写回真实面板（隔离）
+    const prof = usePlayer.getState().profile;
+    const b1 = useCharacters.getState().characters['B1'];
+    const skillNames = (b1?.skills ?? []).map((s) => s.name).filter(Boolean).slice(0, 12);
+    const traitNames = (b1?.traits ?? []).map((t) => t.name).filter(Boolean).slice(0, 12);
+    const subProfNames = (b1?.subProfessions ?? []).map((p: any) => p.name).filter(Boolean).slice(0, 6);
+    const kit = `职业：${prof.profession || '（无）'}\n技能：${skillNames.join('、') || '（无）'}\n天赋：${traitNames.join('、') || '（无）'}\n副职业：${subProfNames.join('、') || '（无）'}`;
+    const user = `# 当前阶段\n险地#${ctx.biome} · 第 ${ctx.floor} 层 · 堕落 Lv${ctx.fallLevel}\n# 主角 kit（据此出 1-2 张契合卡）\n${kit}\n# 已选卡组（流派:卡名）\n${ctx.deck.map((d) => `${d.school}:${d.name}`).join('、') || '（空）'}\n# 偏向流派（堕落星图，优先多给这些）\n${ctx.affinity.join('、') || '（无）'}\n# 需要张数\n${ctx.want}\n# PRIMS（效果只能从此选）\n${BOON_PRIM_LIST.join(', ')}\n# SCHOOLS\n${BOON_SCHOOLS.join(', ')}`;
+    try {
+      const { content } = await apiChatFallback(abyssChain('abyss'), [{ role: 'system', content: ABYSS_BOON_GEN_RULE }, { role: 'user', content: user }], { timeoutMs: 60000 });
+      const m = content.match(/\[[\s\S]*\]/);
+      const arr = m ? lenientJsonParse(m[0]) : null;
+      return materializeBoons(arr, ctx.depth);
+    } catch (e) { console.warn('[Abyss] 加成卡生成失败:', e); return []; }
+  }
+  async function genAbyssSin(template: SinTemplate): Promise<SinFlavor | null> {
+    const skeleton = { quality: template.quality, type: `${template.category}/${template.sub}`, biome: '黑渊', stats: template.stats, active: template.active, passive: template.passive, curse: template.curse };
+    const user = `# 机械骨架（只配文，严禁改数值/改效果）\n${JSON.stringify(skeleton)}`;
+    try {
+      const { content } = await apiChatFallback(abyssChain('abyss'), [{ role: 'system', content: ABYSS_SIN_GEN_RULE }, { role: 'user', content: user }], { timeoutMs: 60000 });
+      const m = content.match(/\{[\s\S]*\}/);
+      const obj = m ? lenientJsonParse(m[0]) : null;
+      return obj && typeof obj === 'object' ? obj as SinFlavor : null;
+    } catch (e) { console.warn('[Abyss] 原罪物配文失败:', e); return null; }
+  }
+  async function genAbyssAwaken(item: { name: string; category: string; subType?: string; affix?: string; awakenLv?: number }): Promise<AwakenFlavor | null> {
+    const ctx = { item: { name: item.name, type: item.category + (item.subType ? '/' + item.subType : ''), 已有词缀: item.affix || '（无）' }, awakenLv: (item.awakenLv ?? 0) + 1 };
+    const user = `# 装备/原罪物（只配文+加1条新词缀，严禁改已有数值）\n${JSON.stringify(ctx.item)}\n# 觉醒后阶数\n${ctx.awakenLv}\n# PRIMS（新效果只能从此选）\n${BOON_PRIM_LIST.join(', ')}`;
+    try {
+      const { content } = await apiChatFallback(abyssChain('abyss'), [{ role: 'system', content: ABYSS_AWAKEN_RULE }, { role: 'user', content: user }], { timeoutMs: 60000 });
+      const m = content.match(/\{[\s\S]*\}/);
+      const obj = m ? lenientJsonParse(m[0]) : null;
+      return obj && typeof obj === 'object' ? obj as AwakenFlavor : null;
+    } catch (e) { console.warn('[Abyss] 觉醒配文失败:', e); return null; }
+  }
+  async function genAbyssJudge(options: { id: string; label: string }[]): Promise<JudgeFlavor | null> {
+    const user = `# 选项倾向（同序同数配文）\n${JSON.stringify({ options })}`;
+    try {
+      const { content } = await apiChatFallback(abyssChain('abyss'), [{ role: 'system', content: ABYSS_JUDGE_RULE }, { role: 'user', content: user }], { timeoutMs: 60000 });
+      const m = content.match(/\{[\s\S]*\}/);
+      const obj = m ? lenientJsonParse(m[0]) : null;
+      return obj && typeof obj === 'object' ? obj as JudgeFlavor : null;
+    } catch (e) { console.warn('[Abyss] 裁判剧情局配文失败:', e); return null; }
+  }
+  async function genAbyssEnemies(ctx: { biome: number; biomeName: string; kind: 'elite' | 'boss'; depth: number; floor: number; seed: string }): Promise<AbyssEnemyUnit[] | null> {
+    const user = `# 险地\n${ctx.biomeName}（#${ctx.biome}）· 全局第 ${ctx.depth} 层 · 本险地第 ${ctx.floor} 层\n# 强度档\n${ctx.kind === 'boss' ? '区主（强，1 只，可带 count 杂兵）' : '精英（1-2 只）'}`;
+    try {
+      const { content } = await apiChatFallback(abyssChain('abyss'), [{ role: 'system', content: ABYSS_ENEMY_GEN_RULE }, { role: 'user', content: user }], { timeoutMs: 60000 });
+      const m = content.match(/\[[\s\S]*\]/);
+      const arr = m ? lenientJsonParse(m[0]) : null;
+      return panelToEnemies(arr, ctx.depth, ctx.seed);
+    } catch (e) { console.warn('[Abyss] 敌人面板生成失败:', e); return null; }
+  }
+  const clampAttr = (v: any, d = 30) => Math.max(1, Math.min(99, parseInt(String(v), 10) || d));
+  const GLAD_SKILL_FILLERS = [
+    { name: '裂空斩', effect: '挥刃斩出三道真空刃，对正面直线敌人造成 160% 物理伤害，命中后附加 2 回合「破甲」(防御−15%)' },
+    { name: '守势架挡', effect: '举盾进入防御姿态，本回合受到的物理伤害减免 60%，并反弹其中 20% 给攻击者' },
+    { name: '疾影突进', effect: '瞬步位移至目标身侧 8 米，打断其蓄力并造成 120% 伤害，自身获得 1 回合「先手」' },
+    { name: '狂战乱舞', effect: '连续劈砍 4~6 段，每段 45% 伤害，每命中一次自身攻击力叠加 5%(最多 5 层)' },
+    { name: '破绽反震', effect: '被攻击后瞬间反震，将所受伤害的 35% 弹回对手，并使其下回合命中率降低 10%' },
+    { name: '聚气重击', effect: '蓄力 1 回合，下回合释放 280% 力量伤害的毁灭一击，命中必定击退并附 1 秒眩晕' },
+    { name: '战吼震慑', effect: '发出震慑战吼，全场敌人攻击力降低 18%、持续 2 回合，并有 50% 几率陷入 1 回合恐惧' },
+    { name: '血战狂暴', effect: '生命低于 40% 时进入狂暴，攻击力提升 40%、攻速提升 25%，但受到伤害增加 10%，持续 3 回合' },
+    { name: '领域·裁决', effect: '展开裁决领域笼罩全场 3 回合，期间每回合对敌方造成 60 点真实伤害并压制其 15% 闪避' },
+    { name: '奥义·灭杀', effect: '倾尽全力的奥义斩，消耗 50% 能量造成 350% 力量伤害，对生命低于 25% 的目标直接处决' },
+    { name: '残影分身', effect: '留下三道残影迷惑对手，规避接下来 2 次攻击，并在下次出手时获得 30% 暴击率加成' },
+    { name: '破甲穿刺', effect: '凝力一刺，无视目标 50% 防御造成 150% 伤害，命中后留下「裂创」每回合流失 3% 生命' },
+  ];
+  const GLAD_ITEM_FILLERS = [
+    { name: '淬毒短匕', effect: '攻击时 25% 几率附加剧毒，每回合损失 4% 生命、持续 3 回合，可叠加 2 层' },
+    { name: '护体重甲', effect: '提供 80 点物理防御，受到的暴击伤害降低 30%，生命低于 30% 时额外减伤 15%' },
+    { name: '疾风战靴', effect: '闪避率提升 12%、先手值提升 20，每回合自动恢复 5 点能量' },
+    { name: '回春丹', effect: '立即服下，瞬间回复 150 点生命，并在之后 2 回合每回合再生 40 点' },
+    { name: '爆裂符', effect: '掷出引爆，对半径 5 米内敌人造成 130% 法术范围伤害并附 1 回合灼烧' },
+    { name: '护身玉符', effect: '受到致命伤时自动碎裂，免疫该次伤害并回复 20% 生命，每场限一次' },
+    { name: '蕴能法宝', effect: '蓄力一回合后释放，造成 220% 法术伤害的爆发一击，命中驱散对方一个增益' },
+    { name: '净化香囊', effect: '立即解除自身全部减益状态，并在 2 回合内免疫中毒、灼烧、流血' },
+    { name: '虚空披风', effect: '短暂隐遁 1 回合，期间无法被锁定，脱离时下次攻击必定暴击' },
+    { name: '本命战旗', effect: '插旗鼓舞，自身全属性提升 12%、持续 4 回合，旗帜被摧毁则效果中断' },
+    { name: '残魂宝珠', effect: '濒死(生命≤15%)时自动触发，回复 30% 生命并对最近敌人反击 100% 伤害' },
+    { name: '镇魂符箓', effect: '抵御精神冲击，免疫接下来 2 次控制效果(眩晕/恐惧/魅惑)，并降低受到的法术伤害 20%' },
+  ];
+  const GLAD_TALENT_FILLERS = [
+    { name: '力拔山兮', effect: '天生神力，力量提升 25%，普通攻击有 15% 几率造成双倍伤害' },
+    { name: '疾如奔雷', effect: '身法卓绝，敏捷提升 20%、闪避提升 10%，每回合首次受击必定闪避' },
+    { name: '不屈之躯', effect: '体质强化，受到伤害减免 12%，且生命不会因单次伤害低于 1(每场一次)' },
+    { name: '战斗直觉', effect: '临战嗅觉敏锐，暴击率提升 12%、闪避提升 8%，对蓄力技能伤害减免 20%' },
+    { name: '血脉觉醒', effect: '濒死时血脉觉醒，生命低于 30% 时攻击力提升 30%、攻速提升 15%' },
+    { name: '万法亲和', effect: '亲和万法，技能威力提升 18%、能量回复提升 25%，技能消耗降低 15%' },
+  ];
+  const padNamed = (list: { name: string; effect: string }[], fillers: { name: string; effect: string }[], min: number) => {
+    const out = [...list]; let i = 0;
+    while (out.length < min && i < fillers.length) { const f = fillers[i++]; if (!out.some((x) => x.name === f.name)) out.push({ ...f }); }
+    return out;
+  };
+  const mapNamed = (raw: any, cap: number) => (Array.isArray(raw) ? raw : []).slice(0, cap)
+    .map((s: any) => ({ name: flattenAiText(s?.name).slice(0, 24), effect: flattenAiText(s?.effect).slice(0, 120) }))
+    .filter((s: any) => s.name);
+  function mkGladiator(f: any, pTier: string, tierNum = 1): Gladiator {
+    // 数量下限随阶位递增（一阶 技5/天1/物6 … 七阶 技11/天6/物12），仅作兜底地板；真实数量由 AI 决定
+    const tn = Math.max(1, Math.min(7, tierNum));
+    const minSkills = 4 + tn, minItems = 5 + tn, minTalents = Math.max(1, tn - 1);
+    const lvDefault = (tn - 1) * 10 + 5;   // 落在该阶位等级区间中段
+    const name = flattenAiText(f?.name).slice(0, 24) || '无名角斗士';
+    const race = flattenAiText(f?.race).slice(0, 16) || '人类';
+    const tier = flattenAiText(f?.tier).slice(0, 12) || pTier;
+    const level = Math.max(1, Math.min(140, parseInt(String(f?.level), 10) || lvDefault));
+    const profession = flattenAiText(f?.profession).slice(0, 20) || '角斗士';
+    const rareProfession = f?.rareProfession === true || /稀有|隐藏|传说/.test(flattenAiText(f?.profession));
+    const bioStrength = flattenAiText(f?.bioStrength).slice(0, 16) || `T${Math.min(9, tn)}·勇士`;
+    // 六维：复用 NPC 机械生成（生物强度档 + 阶位 + 职业排序 + 种族形态压制 + 等级成长），治 AI 乱给离谱属性、与强度自洽
+    const attrs = generateNpcAttrs({ tier, level, bioTier: bioStrength, job: profession, form: race, seed: `glad_${name}_${bioStrength}_${tier}` });
+    return {
+      name, race, tier, level, profession, rareProfession, bioStrength,
+      gender: flattenAiText(f?.gender).slice(0, 4) || '男',
+      style: flattenAiText(f?.style).slice(0, 40) || '全能战士',
+      appearance: flattenAiText(f?.appearance).slice(0, 200),
+      imagePrompt: flattenAiText(f?.imagePrompt).slice(0, 400) || undefined,
+      attrs,
+      skills: padNamed(mapNamed(f?.skills, 16), GLAD_SKILL_FILLERS, minSkills),
+      talents: padNamed(mapNamed(f?.talents, 12), GLAD_TALENT_FILLERS, minTalents),
+      items: padNamed(mapNamed(f?.items, 18), GLAD_ITEM_FILLERS, minItems),
+      hpMax: Math.max(100, attrs.con * 20),
+    };
+  }
+  const mkGladEval = (e: any): GladiatorEval => ({
+    strengths: flattenAiText(e?.strengths).slice(0, 160) || '攻守均衡，无明显短板。',
+    weaknesses: flattenAiText(e?.weaknesses).slice(0, 160) || '暂未观察到致命破绽。',
+    comment: flattenAiText(e?.comment).slice(0, 200) || '势均力敌，胜负在毫厘之间。',
+    verdict: flattenAiText(e?.verdict).slice(0, 80) || '不到终局，难分高下。',
+  });
+  // ① 生成对战：一次调用出两名角斗士 + 评估，前端算赔率（races 可由玩家自定义）
+  async function genGladiatorMatch(kind: 'normal' | 'soul', races?: [string, string], tierLo = 1, tierHi = 4): Promise<GladiatorMatch | null> {
+    // 双方阶位随机但一致：在 [tierLo, tierHi] 内掷一个，两人都用它
+    const lo = Math.max(1, Math.min(tierLo, tierHi)), hi = Math.min(13, Math.max(tierLo, tierHi));
+    const tierNum = lo + Math.floor(Math.random() * (hi - lo + 1));
+    const battleTier = TIERS[tierNum - 1] || '一阶';
+    const raceEntities = useCosmos.getState().entities.filter((e) => e.category === '种族' && !e.destroyed).map((e) => e.name).filter(Boolean);
+    const racePool = (raceEntities.length ? raceEntities.slice(0, 24) : ['羽族', '恶魔族', '龙族', '精灵', '兽人', '不死族', '机械体', '虚空魔裔', '星灵', '深渊爬虫']).join('、');
+    const customRace = races && (races[0]?.trim() || races[1]?.trim())
+      ? `\n\n# 指定种族（必须严格采用）\n一号位：${races[0]?.trim() || '（不限，你来定）'}\n二号位：${races[1]?.trim() || '（不限，你来定）'}`
+      : '';
+    const user = `# 可用种族池\n${racePool}\n\n# 对战阶位（两名角斗士的 tier 都必须等于此阶位；阶位越高技能/天赋/物品越多越离谱）\n${battleTier}${customRace}`;
+    let j: any = {};
+    try {
+      const { content } = await apiChatFallback(casinoChain(), [{ role: 'system', content: GLADIATOR_MATCH_RULE }, { role: 'user', content: user }], { timeoutMs: 75000 });
+      j = parseEntryJson(content) || lenientJsonParse(content) || {};
+    } catch (e) { console.warn('[Casino] 角斗士生成失败:', e); }
+    let fs = Array.isArray(j?.fighters) ? j.fighters : [];
+    const es = Array.isArray(j?.evals) ? j.evals : [];
+    if (fs.length < 2) {
+      // 兜底：AI 失败也给一对可下注的角斗士（技能/天赋/物品由 mkGladiator 按阶位补足下限），功能不死锁；指定种族/阶位也尊重
+      fs = [
+        { name: '铁壁拉戈', race: races?.[0]?.trim() || '兽人', tier: battleTier, gender: '男', style: '重甲铁壁·消耗', profession: '重盾卫士', appearance: '魁梧厚重的重甲战士，覆甲持盾、伤疤遍布，立如磐石', imagePrompt: '1boy, huge, muscular, heavy plate armor, tower shield, battle scars, stern face, dark fantasy, dynamic pose', attrs: { str: 42, agi: 22, con: 48, int: 20, cha: 14, luck: 12 }, skills: [{ name: '巨盾突进', effect: '举盾冲撞 8 米，对沿途敌人造成 140% 力量伤害并击退，命中附 1 回合眩晕' }, { name: '铁骨横封', effect: '硬化筋骨，本回合受到的物理伤害减免 50%，并免疫击退与位移效果' }], talents: [{ name: '不屈之躯', effect: '体质强化，受伤减免 12%，生命不会因单次伤害降至 1 以下(每场一次)' }] },
+        { name: '影刃赛拉', race: races?.[1]?.trim() || '精灵', tier: battleTier, gender: '女', style: '刺杀游斗·爆发', profession: '影刺客', appearance: '身形轻灵的刺客，双持短刃、步法飘忽，眼神锐利', imagePrompt: '1girl, agile, slender assassin, dual daggers, hooded light armor, sharp eyes, shadowy aura, dark fantasy, dynamic pose', attrs: { str: 30, agi: 46, con: 28, int: 34, cha: 22, luck: 18 }, skills: [{ name: '影袭', effect: '隐入暗影瞬移至目标背后，造成 180% 敏捷伤害且必定暴击，命中附 1 回合「流血」' }, { name: '风步', effect: '身随风动，闪避率提升 25%、持续 2 回合，期间每成功闪避一次反击 30% 伤害' }], talents: [{ name: '疾如奔雷', effect: '身法卓绝，敏捷提升 20%、闪避提升 10%，每回合首次受击必定闪避' }] },
+      ];
+    }
+    const fighters: [Gladiator, Gladiator] = [mkGladiator(fs[0], battleTier, tierNum), mkGladiator(fs[1], battleTier, tierNum)];
+    const evals: [GladiatorEval, GladiatorEval] = [mkGladEval(es[0]), mkGladEval(es[1])];
+    const { odds, winProb } = computeGladiatorOdds(fighters[0], fighters[1]);
+    return { id: `glad_${Date.now()}`, fighters, evals, odds, winProb, kind, status: 'ready', bet: null, result: null };
+  }
+  // 角斗士立绘：与「普通NPC自动肖像」共用 autoPortrait 开关；开则据 imagePrompt 生图，逐张异步补进 store（不阻塞卡片显示）
+  async function genGladiatorPortraits(match: GladiatorMatch): Promise<void> {
+    const ig = useImageGen.getState();
+    if (!ig.autoPortrait) return;
+    const service = ig.portraitService;
+    for (let i = 0 as 0 | 1; i <= 1; i = (i + 1) as 0 | 1) {
+      const g = match.fighters[i];
+      if (!g) continue;
+      try {
+        const prompt = buildPortraitPrompt({ gender: g.gender, race: g.race, appearance: g.appearance, tier: g.tier, imageTags: g.imagePrompt });
+        const url = await shrinkDataUrl(await generateImage(service, { prompt, negative: ig.portraitNegative, label: `角斗士 · ${g.name}` }));
+        if (useCasino.getState().gladiator?.id !== match.id) return;   // 期间已换对局 → 丢弃
+        useCasino.getState().setGladiatorPortrait(i, url);
+      } catch (e: any) { console.warn(`[Casino] 角斗士立绘生成失败(${g.name}):`, e?.message ?? e); }
+    }
+  }
+  const sanitizeRound = (r: any, idx: number): BattleRound => {
+    const hp = Array.isArray(r?.hp) ? r.hp : [];
+    const buffs = Array.isArray(r?.buffs) ? r.buffs : [];
+    const bsan = (x: any) => (Array.isArray(x) ? x.map((s: any) => flattenAiText(s).slice(0, 12)).filter(Boolean).slice(0, 4) : []);
+    const os = Array.isArray(r?.os) ? r.os : [];
+    return {
+      round: parseInt(String(r?.round), 10) || idx + 1,
+      actor: parseInt(String(r?.actor), 10) === 1 ? 1 : 0,
+      action: flattenAiText(r?.action).slice(0, 24) || '攻击',
+      desc: flattenAiText(r?.desc).slice(0, 400) || '双方激烈交锋。',
+      damage: Math.max(0, Math.round(Number(r?.damage) || 0)),
+      hp: [Math.max(0, Math.round(Number(hp[0]) || 0)), Math.max(0, Math.round(Number(hp[1]) || 0))],
+      buffs: [bsan(buffs[0]), bsan(buffs[1])],
+      os: [flattenAiText(os[0]).slice(0, 140), flattenAiText(os[1]).slice(0, 140)],
+    };
+  };
+  function fallbackBattle(match: GladiatorMatch, winner: 0 | 1): BattleRound[] {
+    const out: BattleRound[] = [];
+    const hp: [number, number] = [match.fighters[0].hpMax, match.fighters[1].hpMax];
+    const loser: 0 | 1 = winner === 0 ? 1 : 0;
+    const N = 6;
+    for (let i = 0; i < N; i++) {
+      const actor: 0 | 1 = (i % 2 === 0 ? winner : loser);
+      const tgt: 0 | 1 = actor === 0 ? 1 : 0;
+      const isLast = i === N - 1;
+      let dmg = Math.round(hp[tgt] / Math.max(1, (N - i) + (actor === winner ? 0 : 2)));
+      if (isLast && tgt === loser) dmg = hp[loser];
+      hp[tgt] = Math.max(0, hp[tgt] - dmg);
+      if (isLast) { hp[loser] = 0; if (hp[winner] <= 0) hp[winner] = Math.max(1, Math.round(match.fighters[winner].hpMax * 0.2)); }
+      const sk = match.fighters[actor].skills;
+      const OS_ATK = ['抓住破绽，结束这一切！', '力量，碾碎他！', '就是现在——一击制胜！', '别想躲开我的攻势！', '胜负，就在此刻！', '感受绝望吧。'];
+      const OS_DEF = ['唔…这一下好重，必须稳住。', '还没到认输的时候！', '可恶，被压制了…', '撑住，等他露出破绽。', '再这样下去会输的…', '不能倒在这里！'];
+      const atkOS = OS_ATK[i % OS_ATK.length], defOS = OS_DEF[i % OS_DEF.length];
+      const os: [string, string] = actor === 0 ? [atkOS, defOS] : [defOS, atkOS];
+      out.push({ round: i + 1, actor, action: sk[i % Math.max(1, sk.length)]?.name || '强袭', desc: `${match.fighters[actor].name}发动攻势，${match.fighters[tgt].name}勉力招架，仍被击中要害。`, damage: dmg, hp: [hp[0], hp[1]], buffs: [[], []], os });
+    }
+    return out;
+  }
+  // 随机戏剧桥段（~55% 触发、类型随机；不改变预定胜者）
+  function pickGladTwist(winnerName: string, loserName: string): string {
+    if (Math.random() < 0.45) return '';   // 多数场次打常规对决，不硬塞转折
+    const twists = [
+      `【反转】${winnerName} 前中段被 ${loserName} 死死压制、HP 一度跌到濒死边缘（某回合掉到极低），让全场以为要爆冷；最后关头才强行逆转翻盘。`,
+      `【爆种】${winnerName} 在濒死/绝境中骤然爆发（觉醒/暴走/血脉之力/second wind），用一个醒目 buff 体现这股暴涨的战力，随后一波带走对手。`,
+      `【临场突破】${winnerName} 在激战中当场突破到更高阶位或顿悟新招（desc 写明突破的瞬间、气息暴涨），实力跃升后锁定胜局。`,
+      `【绝望结局】${loserName} 在末段意识到毫无胜算、战意崩溃或重伤难支而放弃抵抗，${winnerName} 以处决式的一击终结战斗，悲壮收场。`,
+      `【险胜】双方鏖战到最后双双濒死、只差一口气，${winnerName} 凭一件储存空间物品或一个保命技能压线惨胜，HP 仅剩个位数。`,
+    ];
+    return twists[Math.floor(Math.random() * twists.length)];
+  }
+  // ② 战斗：据预定胜者叙述整场数据化分回合战斗（前端动画回放）
+  async function genGladiatorBattle(match: GladiatorMatch, winner: 0 | 1): Promise<{ rounds: BattleRound[]; summary: string }> {
+    const dossier = (g: Gladiator, i: number) => `【${i === 0 ? '一号位' : '二号位'}】${g.name}（${g.race}·${g.tier}·Lv.${g.level}·${g.profession}${g.rareProfession ? '(稀有职业)' : ''}·${g.bioStrength}·${g.style}）血量上限${g.hpMax}\n六维 力${g.attrs.str}/敏${g.attrs.agi}/体${g.attrs.con}/智${g.attrs.int}\n技能：${g.skills.map((s) => `${s.name}(${s.effect})`).join('；') || '近身搏斗'}\n天赋：${(g.talents ?? []).map((t) => `${t.name}(${t.effect})`).join('；') || '无'}\n储存空间：${g.items.map((it) => `${it.name}(${it.effect})`).join('；') || '无'}`;
+    const loser: 0 | 1 = winner === 0 ? 1 : 0;
+    const twist = pickGladTwist(match.fighters[winner].name, match.fighters[loser].name);
+    const user = `# 两名角斗士档案\n${dossier(match.fighters[0], 0)}\n\n${dossier(match.fighters[1], 1)}\n\n# 预定胜者（必须获胜，败方最终HP归零）\n${winner === 0 ? '一号位 ' + match.fighters[0].name : '二号位 ' + match.fighters[1].name}（下标 ${winner}）${twist ? `\n\n# 本场特殊桥段（必须自然融入剧情、成为记忆点，但绝不改变预定胜者）\n${twist}` : ''}`;
+    let j: any = {};
+    try {
+      const { content } = await apiChatFallback(casinoChain(), [{ role: 'system', content: GLADIATOR_BATTLE_RULE }, { role: 'user', content: user }], { timeoutMs: 90000 });
+      j = parseEntryJson(content) || lenientJsonParse(content) || {};
+    } catch (e) { console.warn('[Casino] 角斗战斗生成失败:', e); }
+    let rounds: BattleRound[] = Array.isArray(j?.rounds) ? j.rounds.map((r: any, i: number) => sanitizeRound(r, i)) : [];
+    if (rounds.length === 0) rounds = fallbackBattle(match, winner);
+    // 钉死结局：最后一回合败方 HP=0、胜方 HP>0（保证赔率公平、与预定胜者一致）
+    const last = rounds[rounds.length - 1];
+    last.hp[loser] = 0;
+    if (last.hp[winner] <= 0) last.hp[winner] = Math.max(1, Math.round(match.fighters[winner].hpMax * 0.15));
+    const summary = flattenAiText(j?.summary).slice(0, 160) || `${match.fighters[winner].name} 笑到了最后。`;
+    return { rounds, summary };
+  }
+
+  /* 命运福袋·物品奖励 AI 补全：前端已定稀有度/品级/大类，AI 一次生成全部固定格式信息（装备/材料/技能书）；
+     gem/currency/advance/soulcoin 不走 AI；AI 失败则保留 rollGachaBatch 的确定性兜底物品。 */
+  async function genGachaRewards(rewards: GachaReward[]): Promise<GachaReward[]> {
+    const slots = rewards.map((r, i) => ({ i, r })).filter(({ r }) => r.kind === 'equip' || r.kind === 'material' || r.kind === 'skillbook');
+    if (slots.length === 0) return rewards;
+    const typeLabel = (k: string) => (k === 'equip' ? '装备' : k === 'material' ? '材料' : '技能书');
+    const user = `# 待生成奖励槽（逐槽各生成一件，slot 顺序一一对应）\n` +
+      slots.map(({ r }, n) => `${n + 1}. slot=${n + 1} 类型=${typeLabel(r.kind)}${r.kind === 'equip' ? ` 大类=${r.item?.category ?? '武器'}` : ''} 品级=${r.grade}`).join('\n');
+    let arr: any[] = [];
+    try {
+      const { content } = await apiChatFallback(casinoChain(), [{ role: 'system', content: GACHA_REWARD_RULE }, { role: 'user', content: user }], { timeoutMs: 75000 });
+      arr = parseArenaArray(content);
+    } catch (e) { console.warn('[Casino] 福袋奖励生成失败:', e); }
+    if (!arr.length) return rewards;   // 兜底：用确定性模板物品
+    const out = rewards.map((r) => ({ ...r }));
+    slots.forEach(({ i, r }, n) => {
+      const j = arr.find((x) => parseInt(String(x?.slot), 10) === n + 1) || arr[n];
+      const aiName = flattenAiText(j?.name).slice(0, 40);
+      if (!j || !aiName) return;   // 该槽 AI 没给 → 保留确定性兜底
+      const category = (r.item?.category ?? '特殊物品');   // 大类锁定（公平）
+      const isWeapon = category === '武器' || /武器|剑|刀|枪|弓|杖|斧/.test(flattenAiText(j.subType));
+      const effect = [flattenAiText(j.effect), flattenAiText(j.attrBonus)].filter(Boolean).join('；').slice(0, 300) || (r.item?.effect ?? '');
+      out[i] = {
+        ...r, name: aiName,
+        item: {
+          name: aiName, category: category as any, gradeDesc: r.grade,   // 品级锁定（公平）
+          subType: flattenAiText(j.subType).slice(0, 30) || undefined,
+          combatStat: r.kind === 'equip' ? (flattenAiText(j.combatStat).slice(0, 40) || undefined) : undefined,
+          score: flattenAiText(j.score).slice(0, 60) || undefined,
+          affix: r.kind === 'equip' ? (flattenAiText(j.affix).slice(0, 120) || undefined) : undefined,
+          effect, intro: flattenAiText(j.intro).slice(0, 200) || undefined,
+          appearance: flattenAiText(j.appearance).slice(0, 300) || undefined,
+          killCount: isWeapon ? '0' : undefined,
+          quantity: r.item?.quantity ?? 1, equipped: false, tags: ['命运福袋'], acquisition: '命运福袋',
+        },
+      };
+    });
+    return out;
+  }
+
+  // 荷官吐槽：据人设 + 本局输赢说一句话（无接口/失败 → 返回 '' 让前端用兜底语）
+  async function casinoBanter(dealer: { name: string; gender: string; persona: string }, ctx: string): Promise<string> {
+    const chain = casinoChain();
+    if (!chain[0]?.baseUrl || !chain[0]?.apiKey) return '';
+    const user = `# 荷官\n${dealer.name}（${dealer.gender}）：${dealer.persona}\n\n# 本局情况\n${ctx}`;
+    try {
+      const { content } = await apiChatFallback(chain, [{ role: 'system', content: CASINO_BANTER_RULE }, { role: 'user', content: user }], { timeoutMs: 30000 });
+      return flattenAiText(content).replace(/^[「『"']+|[」』"']+$/g, '').slice(0, 60);
+    } catch { return ''; }
+  }
+
+  // 魂赌剧情局：前端已掷定胜负 → 魔笼据预定结果叙述一段命运对赌剧情（无接口/失败 → 空，前端用兜底文案）
+  async function genSoulGamble(stakeLabel: string, win: boolean, dealerPersona: string): Promise<{ narrative: string; verdict: string }> {
+    const chain = casinoChain();
+    if (!chain[0]?.baseUrl || !chain[0]?.apiKey) return { narrative: '', verdict: '' };
+    const user = `# 主持荷官\n魔笼（${dealerPersona}）\n\n# 契约者押上的筹码\n${stakeLabel}\n\n# 命运的预定结果（必须据此叙述，绝不反转）\n${win ? '契约者赢' : '契约者输'}`;
+    try {
+      const { content } = await apiChatFallback(chain, [{ role: 'system', content: SOUL_GAMBLE_RULE }, { role: 'user', content: user }], { timeoutMs: 75000 });
+      const j = parseEntryJson(content) || lenientJsonParse(content) || {};
+      return { narrative: flattenAiText(j?.narrative).slice(0, 800), verdict: flattenAiText(j?.verdict).slice(0, 80) };
+    } catch { return { narrative: '', verdict: '' }; }
+  }
+
   // ④ 奖励发放（仅前100；AI 出物品名 + 前端定档/限品级/确定性货币），返回奖励摘要
   async function grantArenaReward(pending: { arenaId: string; arenaName: string }, rank: number): Promise<string> {
     const tier = rewardTierFor(rank);
@@ -5416,8 +5880,11 @@ ${lines}`;
     return { narration: plain, dialogue: line };
   }
 
-  async function resolveAndNarrate(state: BattleState, actorId: string, kind: CombatActionKind, targetIds: string[], skillId?: string, line?: string) {
-    const out = settleAction({ state, actorId, kind, targetIds, skillId });
+  async function resolveAndNarrate(state: BattleState, actorId: string, kind: CombatActionKind, targetIds: string[], skillId?: string, line?: string, itemId?: string) {
+    const out = settleAction({ state, actorId, kind, targetIds, skillId, itemId });
+    if (out.consumedItem && actorId === 'B1') {
+      try { useItems.getState().consumeItem(out.consumedItem.id, out.consumedItem.qty); } catch {}
+    }
     let narration = out.logLines.join(' ');
     let dialogue = line;
     if (out.logLines.length > 0 && kind !== 'defend' && kind !== 'flee') {
@@ -5452,19 +5919,31 @@ ${lines}`;
     }
   }
 
-  async function submitCombatPlayerAction(kind: CombatActionKind, targetIds: string[], skillId?: string) {
+  async function submitCombatPlayerAction(kind: CombatActionKind, targetIds: string[], skillId?: string, itemId?: string) {
     const C = useCombat.getState();
     const state = C.battle;
     const cur = currentActorId(state);
     if (!cur || C.apiBusy) return;
+    // 撤销快照：记下玩家本回合出手前的完整战况（含其后 NPC 连动），供「撤销」回滚
+    try { C.setUndoSnapshot(JSON.parse(JSON.stringify(state))); } catch {}
     C.setApiBusy(true); C.setApiStatus('结算中…');
     try {
-      await resolveAndNarrate(state, cur, kind, targetIds, skillId);
+      await resolveAndNarrate(state, cur, kind, targetIds, skillId, undefined, itemId);
     } catch (e: any) {
       console.error('[Combat] 玩家回合失败:', e?.message ?? e);
     } finally {
       useCombat.getState().setApiBusy(false); useCombat.getState().setApiStatus('');
     }
+  }
+
+  function undoCombatAction() {
+    const C = useCombat.getState();
+    if (C.apiBusy || combatDrivingRef.current) return;
+    const snap = C.undoSnapshot;
+    if (!snap) return;
+    C.setBattle(JSON.parse(JSON.stringify(snap)));
+    C.setUndoSnapshot(null);
+    C.setSelectedTargetIds([]);
   }
 
   // ④ 战斗总结 + 收尾
@@ -5477,13 +5956,6 @@ ${lines}`;
       return (content || '').replace(/<\/?[a-zA-Z][^>]*>/g, '').trim();
     } catch { return ''; }
   }
-  function applyCombatRewards(state: BattleState): number {
-    const foes = Object.values(state.initialState).filter((b) => b.side === 'enemy');
-    const pts = foes.reduce((s, b) => s + Math.max(1, Math.round(b.level / 5) + 1), 0);
-    const prof = usePlayer.getState().profile;
-    usePlayer.getState().setProfile({ advancePoints: (prof.advancePoints || 0) + pts, worldSource: (prof.worldSource || 0) + pts });
-    return pts;
-  }
   function combatFinalVitals(state: BattleState): { hp: Record<string, number>; ep: Record<string, number> } {
     const hp: Record<string, number> = {}, ep: Record<string, number> = {};
     for (const id of Object.keys(state.participants)) {
@@ -5495,7 +5967,15 @@ ${lines}`;
   }
   function applyCombatVitals(v: { hp: Record<string, number>; ep: Record<string, number> }) {
     for (const id of Object.keys(v.hp)) {
-      if (id === 'B1') { useGame.getState().setPlayerField('hp', v.hp[id]); useGame.getState().setPlayerField('mp', v.ep[id]); }
+      if (id === 'B1') {
+        // 防截断：gameStore.maxHp 不随体质成长自动同步，若停留在低值会把战斗写回的 HP 夹掉。
+        // 先把 maxHp/maxMp 抬到至少 体×20 / 智×15（用 max 保留装备/能力已加成的更高上限），再写 hp/mp。
+        const attrs = usePlayer.getState().profile.attrs;
+        const g = useGame.getState();
+        g.setPlayerField('maxHp', Math.max(g.player.maxHp ?? 0, computeMaxHp(attrs)));
+        g.setPlayerField('maxMp', Math.max(g.player.maxMp ?? 0, computeMaxEp(attrs)));
+        g.setPlayerField('hp', v.hp[id]); g.setPlayerField('mp', v.ep[id]);
+      }
       else if (useNpc.getState().npcs[id]) { useNpc.getState().upsertNpc(id, { hp: v.hp[id], mp: v.ep[id] }); }
     }
   }
@@ -5509,7 +5989,9 @@ ${lines}`;
     const npcs = useNpc.getState().npcs;
     const enemyNames = state.context.enemyTeam.map((id) => state.initialState[id]?.name || npcs[id]?.name || id).join('、') || '对手';
     const head = victor === 'player' ? `我方击败了${enemyNames}` : victor === 'enemy' ? `我方不敌${enemyNames}，落败` : `与${enemyNames}的战斗结束`;
-    const lines = state.log.filter((e) => e.type === 'action').map((e) => e.narration || e.text).filter(Boolean);
+    let lines = state.log.filter((e) => e.type === 'action').map((e) => e.narration || e.text).filter(Boolean) as string[];
+    lines = lines.filter((l, i) => i === 0 || l !== lines[i - 1]);   // 去相邻重复
+    if (lines.length > 12) lines = [...lines.slice(0, 3), `……（中略 ${lines.length - 11} 个回合）……`, ...lines.slice(-8)];   // 长战斗只留首尾，免刷屏输入框
     return `【战斗结果】${head}。\n${lines.join('\n')}`;
   }
   async function finishBattle(victor: Side | null) {
@@ -5525,8 +6007,6 @@ ${lines}`;
       const full = resultText ? `${resultText}\n${settledNote}` : '';
       // 战斗结果写进用户输入框，由玩家确认/编辑后点发送续写正文（不自动插入正文楼层）
       if (full) setInputValue((prev) => (prev && prev.trim() ? `${prev}\n\n${full}` : full));
-      let reward = 0;
-      if (C.config.postBattleRewards && victor === 'player') reward = applyCombatRewards(state);
       writeBackCombatVitals(state);
       // 竞技场挑战结算（取代名次 + 前100奖励 + 击败记录 + 清理临时对手）
       const arenaPending = useArena.getState().pendingChallenge;
@@ -5536,7 +6016,7 @@ ${lines}`;
           if (arenaNote) setInputValue((prev) => (prev && prev.trim() ? `${prev}\n\n${arenaNote}` : arenaNote));
         } catch (e) { console.warn('[Arena] 战斗结算失败:', e); useArena.getState().setPendingChallenge(null); }
       }
-      useCombat.getState().endBattle(victor, victor === 'player' ? `战斗胜利${reward ? `，进阶点数+${reward}` : ''}` : victor === 'enemy' ? '战斗失败' : '战斗结束');
+      useCombat.getState().endBattle(victor, victor === 'player' ? '战斗胜利' : victor === 'enemy' ? '战斗失败' : '战斗结束');
     } catch (e: any) {
       console.error('[Combat] 战斗收尾失败:', e?.message ?? e);
       useCombat.getState().endBattle(victor, '战斗结束');
@@ -5568,19 +6048,24 @@ ${lines}`;
     const turn = turnCountRef.current;
     const due = (key: string) => turn % Math.max(1, sched[key]?.every || 1) === 0;
     const narr = (key: string) => buildRecentNarrative(narrative, sched[key]?.read ?? 1);
+    // 收集会改「回合洞察」快照变量的阶段(主角/物品/对账·NPC·势力)的 promise，全部 settle 后再抓快照，比固定 20s 估时更准
+    const snapTurn = turnCountRef.current;
+    const settleWaiters: Promise<any>[] = [];
     // 物品 / 主角演化（各自并发跑），跑完后合并成【一次】综合对账纠错
     const dueItem = due('item'), duePlayer = due('player');
     const itemP = dueItem ? runItemManagementPhase(narr('item')) : Promise.resolve();
     const playerP = duePlayer ? runPlayerEvolutionPhase(narr('player')) : Promise.resolve();
     if (dueItem || duePlayer) {
-      Promise.allSettled([itemP, playerP])
-        .then(() => runMergedAuditPhase(narrative, { player: duePlayer, item: dueItem }))
-        .then(() => { if (combatSettled) applyCombatVitals(combatSettled); });   // 对账若据复盘再扣 HP → 压回战斗结算值
+      settleWaiters.push(
+        Promise.allSettled([itemP, playerP])
+          .then(() => runMergedAuditPhase(narrative, { player: duePlayer, item: dueItem }))
+          .then(() => { if (combatSettled) applyCombatVitals(combatSettled); })   // 对账若据复盘再扣 HP → 压回战斗结算值
+      );
     }
     // NPC 演化（内部自行判断启用/API/策略）
-    if (due('npc')) { const npcEvoP = runNpcEvolutionPhase(narr('npc')); if (combatSettled) Promise.resolve(npcEvoP).then(() => applyCombatVitals(combatSettled)); }
+    if (due('npc')) { const npcEvoP = Promise.resolve(runNpcEvolutionPhase(narr('npc'))); settleWaiters.push(npcEvoP); if (combatSettled) npcEvoP.then(() => applyCombatVitals(combatSettled)); }
     // 势力演化
-    if (due('faction')) runFactionEvolutionPhase(narr('faction'));
+    if (due('faction')) settleWaiters.push(Promise.resolve(runFactionEvolutionPhase(narr('faction'))));
     // 领地演化（单一基地）
     if (due('territory')) runTerritoryEvolutionPhase(narr('territory'));
     // 冒险团演化（仅主角单一冒险团）
@@ -5595,6 +6080,8 @@ ${lines}`;
     if (due('nm')) runNarrativeIngestPhase(lastUserInputRef.current, narr('nm'));
     // 剧情选项 + 同人增强：正文后共用一个 API、只调用一次（受各自开关门控，不阻塞其它演化）
     runChoicesFanficPhase(narrative, assistantMsgId);
+    // 上述会改快照变量的阶段全部 settle 后抓「回合洞察」快照；若已被新回合取代(turn 变了)则跳过，避免写到错误回合（20s 定时器仍作兜底，同回合覆盖）
+    Promise.allSettled(settleWaiters).then(() => { if (turnCountRef.current === snapTurn) { try { captureTurnSnapshot(); } catch (e) { console.warn('[Insight] settle 后抓快照失败', e); } } });
     // 生图·肖像/装备自动化：受各自开关门控，独立并发（依赖 NPC/物品演化已写档，故延后触发）
     setTimeout(() => { runPortraitPhase(); runEquipImagePhase(); }, 6000);   // 延后约 6s 等演化先写档；肖像可用名字/阶位翻译、装备不再强求 appearance，故无需久等
     // 生图·正文配图：受 autoStory 门控，挂到本楼层
@@ -5650,7 +6137,7 @@ ${lines}`;
     } catch (e) { console.warn('[NovelVec] 检索失败', e); }
     const worldInfoText = [wbKeywordText, novelVecText].filter(Boolean).join('\n\n');
 
-    const { sysPrompt, examples } = buildPresetMessages(preset, worldInfoText);
+    const { sysPrompt, examples } = buildPresetMessages(preset, worldInfoText, userText);
 
     // 历史：叙事记忆（关键词召回，启用时）或按 historyLimit 切片（现状）
     let memory: { role: 'system'; content: string }[] = [];
@@ -5740,6 +6227,7 @@ ${lines}`;
       ...memory,                                       // <过往记忆> system 块（如有）
       ...structMem,                                    // <在场与相关档案> 结构化档案块（如有）
       ...buildPlayerCoreInjection(),                    // <主角核心> 始终注入主角真实外观/六维（结构化召回关时兜底，防 AI 改发色/清属性）
+      ...buildWorldTimeInjection(),                     // <当前时空> 杂项的两个时间(乐园时间/世界时间)+当前世界名，常驻注入正文
       ...buildQuestInjection(),                          // <当前任务> 主线(重)+相关支线(轻) 回流正文，给主线存在感+把控节奏
       ...buildCosmosInjection(),                        // <万族态势> 宇宙背景层（独立于叙事记忆开关，cosmos 自己的启用控制）
       ...buildFanficInjection(),                        // <同人设定·已锁定> 已识别的虚构作品角色设定（受 fanficMode 门控，下回合注入防 OOC）
@@ -5865,7 +6353,7 @@ ${lines}`;
         // 流结束后：先用原始文本解析 state 块，再执行正则并剥除 state 块
         applyAllUpdates(accumulated);
         try { applyPlayerProfileCommands(accumulated); } catch { /* 主角位置/外观/身份：正文若直接输出 character.B1.* 也即时生效，不必等主角演化阶段 */ }
-        const settledText = settleKills(accumulated);   // 击杀结算：算点+发点，<kill> → <击杀结算>
+        const settledText = stripKillBlocks(accumulated);   // 过渡期：剥除旧 <kill> 清单（不再结算进阶点）
         const finalDisplayed = stripStateBlocks(applyRegex(settledText, preset));
         setMessages((prev) =>
           prev.map((m) => m.id === streamMsgId ? { ...m, content: finalDisplayed } : m)
@@ -5887,7 +6375,7 @@ ${lines}`;
         if (!reply) throw new Error('模型未返回内容');
         applyAllUpdates(reply);
         try { applyPlayerProfileCommands(reply); } catch { /* 主角位置/外观/身份：正文直接输出 character.B1.* 即时生效 */ }
-        const settledReply = settleKills(reply);   // 击杀结算：算点+发点，<kill> → <击杀结算>
+        const settledReply = stripKillBlocks(reply);   // 过渡期：剥除旧 <kill> 清单（不再结算进阶点）
         const processed = stripStateBlocks(applyRegex(settledReply, preset));
         const newMsgId = ++msgId.current;
         setMessages((prev) => [...prev, { id: newMsgId, role: 'assistant', content: processed }]);
@@ -5950,6 +6438,7 @@ ${lines}`;
         race: d.race || '人类', 种族: d.race || '人类',
         raceDetail: d.raceDetail || '', 种族详情: d.raceDetail || '',
         personality: d.personality || '—', 性格: d.personality || '—',
+        personalityDetail: d.personalityDetail || '', 性格描述: d.personalityDetail || '', 性格详情: d.personalityDetail || '',
         prevProfession: d.prevProfession || '普通人', 入园前职业: d.prevProfession || '普通人', 职业: d.prevProfession || '普通人',
         paradise: d.paradise, 乐园: d.paradise, 所属乐园: d.paradise,
         difficulty: d.difficulty, 难度: d.difficulty,
@@ -5975,12 +6464,13 @@ ${lines}`;
     const talent = d.talentName || '（未觉醒）';
     const talentDesc = d.talentEffect || '（尚无明确说明，等待在试炼中显现）';
     const pastLife = `${d.age || '未知'}岁 · ${d.prevProfession || '普通人'}${d.personality ? `（${d.personality}）` : ''}`;
+    const persona = d.personalityDetail?.trim() || d.personality?.trim() || '';   // 性格：优先用详细描述，回退到简短特质
     const contractNo = d.contractId || '随机分配中';
     return [
       `# ${park}·开局`,
       `你在彻底的黑暗中苏醒。没有呼吸，没有心跳，连身体的轮廓都仿佛被剥离，只剩下意识在冰冷虚空中漂浮。`,
       `下一瞬，一行行淡金色的文字在你面前浮现——它们不是光，而是直接烙进灵魂的讯息。`,
-      `> 【${park}】正在校验灵魂。\n> 标识：${user}\n> 生理状态：死亡 / 临界。\n> 适配判定：通过。\n> 所属乐园：${park}\n> 主角背景：${pastLife}\n> 性别：${d.gender || '未知'}\n> 种族：${d.race || '人类'}${d.raceDetail ? `（${d.raceDetail}）` : ''}\n> 外观：${d.appearance?.trim() || '（待你在后续描写中确立）'}\n> 六维属性：${attrStr}\n> 初始天赋：${talent}\n> 契约者编号：${contractNo}`,
+      `> 【${park}】正在校验灵魂。\n> 标识：${user}\n> 生理状态：死亡 / 临界。\n> 适配判定：通过。\n> 所属乐园：${park}\n> 主角背景：${pastLife}${persona ? `\n> 性格：${persona}` : ''}\n> 性别：${d.gender || '未知'}\n> 种族：${d.race || '人类'}${d.raceDetail ? `（${d.raceDetail}）` : ''}\n> 外观：${d.appearance?.trim() || '（待你在后续描写中确立）'}\n> 六维属性：${attrStr}\n> 初始天赋：${talent}\n> 契约者编号：${contractNo}`,
       `某种冷漠却并不敌意的目光，从上而下打量着你。那不是人类的视角，更像是在审阅一份可回收资源。`,
       `它向你伸出了一只手——不是肉体的手，而是一份连注释都冷冰冰的契约。`,
       `只要应答，你将被记录为「${park}·一阶预备契约者」，以「${talent}」之天赋记录，投放诸多世界。`,
@@ -6007,6 +6497,8 @@ ${lines}`;
       gender: d.gender || undefined,      // 性别（开局设定，生图据此强制 1boy/1girl）
       race: d.race || undefined,          // 种族（开局设定）
       raceDetail: d.raceDetail || undefined,   // 种族详情（自由文本）
+      personality: d.personality || undefined,           // 性格特质（简短）
+      personalityDetail: d.personalityDetail || undefined,   // 性格详细描述（主角面板点击查看 + 注入 AI 上下文）
       homeParadise: d.paradise,
       preParadiseJob: d.prevProfession,   // 主角背景=入园前职业（开局设定）
       contractorId: d.contractId,         // 契约者ID（开局设定，可留空）
@@ -6114,12 +6606,12 @@ ${lines}`;
             onClick={() => setStarted(false)}
             className="px-2 py-0.5 border border-edge rounded text-dim hover:border-blood/40 hover:text-blood transition-colors"
           >
-            ← 主界面
+            ← <span className="max-lg:hidden">主界面</span>
           </button>
         </div>
-        <div className="text-center font-mono shrink-0">
-          <div className="text-slate-100 text-lg font-bold">🕒 {miscParadiseTime || '——'}</div>
-          <div className="text-dim text-xs mt-0.5">
+        <div className="text-center font-mono shrink-0 max-lg:min-w-0 max-lg:max-w-[46vw]">
+          <div className="text-slate-100 text-lg max-lg:text-[13px] max-lg:leading-tight font-bold max-lg:truncate">🕒 {miscParadiseTime || '——'}</div>
+          <div className="text-dim text-xs max-lg:text-[9px] mt-0.5 max-lg:truncate">
             {miscWorldName || '轮回乐园'}
             {/* 回归乐园时显示与轮回历一致的时间（兜底：底层数据下回合同步）*/}
             {(() => { const wt = isHomeWorld(miscWorldName) ? (miscParadiseTime || miscWorldTime) : miscWorldTime; return wt ? ` · ${wt}` : ''; })()}
@@ -6139,7 +6631,7 @@ ${lines}`;
             onClick={() => setSaveOpen(true)}
             className="px-2.5 py-1 border border-god/40 rounded text-god hover:bg-god/10 text-xs font-bold font-mono transition-colors"
           >
-            💾 存档
+            💾<span className="max-lg:hidden"> 存档</span>
           </button>
           <button
             onClick={() => setMobileDrawer((d) => (d === 'menu' ? null : 'menu'))}
@@ -6255,6 +6747,23 @@ ${lines}`;
                               <div
                                 className="text-slate-300 narrative-content"
                                 style={{ fontSize: `${reading.fontSize}px`, letterSpacing: `${reading.letterSpacing}px`, '--narr-lh': String(reading.lineHeight) } as any}
+                                onClick={(e) => {
+                                  const el = (e.target as HTMLElement).closest('.story-illust') as HTMLElement | null;
+                                  if (!el) return;
+                                  const idx = Number(el.dataset.imgIdx);
+                                  if (illustClickTimer.current) { clearTimeout(illustClickTimer.current); illustClickTimer.current = null; }
+                                  illustClickTimer.current = window.setTimeout(() => {   // 延时开灯箱：若紧跟双击会被取消
+                                    illustClickTimer.current = null;
+                                    const im = msg.images?.[idx];
+                                    if (im) useImageViewer.getState().open(im.url, im.nsfw || '正文配图');
+                                  }, 250);
+                                }}
+                                onDoubleClick={(e) => {
+                                  const el = (e.target as HTMLElement).closest('.story-illust') as HTMLElement | null;
+                                  if (!el) return;
+                                  if (illustClickTimer.current) { clearTimeout(illustClickTimer.current); illustClickTimer.current = null; }   // 取消单击开灯箱
+                                  void regenerateStoryImage(msg.id, Number(el.dataset.imgIdx));
+                                }}
                                 dangerouslySetInnerHTML={{ __html: toHtmlWithImages(msg.content, msg.images) }}
                               />
                               {msg.fanficNote && (
@@ -6485,6 +6994,7 @@ ${lines}`;
           {/* 选择世界 */}
           <WorldSelector
             onSelect={(text) => setInputValue(text)}
+            onSettle={() => setInputValue((prev) => (prev && prev.trim() ? `${prev}\n【结算任务】` : '【结算任务】'))}
             onRawResponse={(raw) => { setRawResponse(raw); setShowRaw(false); }}
             onPromptSent={(p) => { setPromptSent(p); setShowPrompt(false); }}
             onWorlds={(list) => { setWorlds(list); setCardIndex(0); }}
@@ -6525,15 +7035,39 @@ ${lines}`;
             >
               ↺
             </button>
-            <input
+            <textarea
               ref={chatInputRef}
-              type="text"
+              rows={1}
               value={inputValue}
               onChange={(e) => setInputValue(e.target.value)}
+              onInput={(e) => { const t = e.currentTarget; t.style.height = 'auto'; t.style.height = Math.min(t.scrollHeight, 128) + 'px'; }}
               onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { if (disableEnterSend) return; e.preventDefault(); sendMessage(); } }}
-              placeholder={disableEnterSend ? '在此输入你的行动…（回车发送已禁用，点 ▶ 发送）' : '在此输入你的行动...'}
-              className="flex-1 bg-transparent text-sm max-lg:text-base text-slate-200 placeholder:text-dim outline-none"
+              placeholder={disableEnterSend ? '在此输入你的行动…（回车发送已禁用，点 ▶ 发送）' : (showNewlineButton ? '在此输入你的行动…（Shift+Enter 或点 ↵ 换行）' : '在此输入你的行动…（Shift+Enter 换行）')}
+              className="flex-1 bg-transparent text-sm max-lg:text-base text-slate-200 placeholder:text-dim outline-none resize-none max-h-32 overflow-y-auto leading-relaxed py-1"
             />
+            {showNewlineButton && (
+            <button
+              onClick={() => {
+                const el = chatInputRef.current;
+                const start = el?.selectionStart ?? inputValue.length;
+                const end = el?.selectionEnd ?? inputValue.length;
+                const next = inputValue.slice(0, start) + '\n' + inputValue.slice(end);
+                setInputValue(next);
+                setTimeout(() => {
+                  if (!el) return;
+                  el.focus();
+                  const pos = start + 1;
+                  el.setSelectionRange(pos, pos);
+                  el.style.height = 'auto';
+                  el.style.height = Math.min(el.scrollHeight, 128) + 'px';
+                }, 0);
+              }}
+              title="插入换行（Shift+Enter 同效）"
+              className="w-7 h-7 max-lg:w-9 max-lg:h-9 flex items-center justify-center text-dim border border-edge rounded text-sm hover:bg-panel2 hover:text-slate-200 shrink-0 transition-colors"
+            >
+              ↵
+            </button>
+            )}
             <button
               onClick={() => sendMessage()}
               disabled={generating || !inputValue.trim()}
@@ -6552,7 +7086,7 @@ ${lines}`;
             ${mobileDrawer === 'menu' ? 'max-lg:translate-x-0' : 'max-lg:translate-x-full'}`}
         >
           <nav className="py-1">
-            {rightMenuItems.filter((item) => item.label !== '欢愉宫' || joyEnabled).map((item) => (
+            {rightMenuItems.map((item) => (
               <button
                 key={item.label}
                 onClick={() => {
@@ -6560,12 +7094,12 @@ ${lines}`;
                     item.label === '设置' ? () => setSettingsOpen(true) :
                     item.label === '储存空间' ? () => setBackpackOpen(true) :
                     item.label === '强化' ? () => setEnhancePanelOpen(true) :
-                    item.label === '欢愉宫' ? () => setJoyPanelOpen(true) :
                     item.label === '装备' ? () => setEquipOpen(true) :
                     item.label === '技能' ? () => setCharPanelOpen(true) :
                     item.label === '称号' ? () => setTitlePanelOpen(true) :
                     item.label === '成就' ? () => setAchievePanelOpen(true) :
                     item.label === '副职业' ? () => setSubProfOpen(true) :
+                    item.label === '技能树' ? () => setSkillTreeOpen(true) :
                     item.label === '势力' ? () => setFactionPanelOpen(true) :
                     item.label === '领地' ? () => setTerritoryPanelOpen(true) :
                     item.label === '冒险团' ? () => setTeamPanelOpen(true) :
@@ -6574,7 +7108,8 @@ ${lines}`;
                     item.label === '回合洞察' ? () => setInsightOpen(true) :
                     item.label === 'ROLL' ? () => setDicePanelOpen(true) :
                     item.label === '战斗' ? () => setCombatSetupOpen(true) :
-                    item.label === '竞技场' ? () => { sweepArenaOpponents(); setArenaPanelOpen(true); } :
+                    item.label === '乐园设施' ? () => setFacilitiesOpen(true) :
+                    item.label === '深渊' ? () => setAbyssOpen(true) :
                     item.label === 'NPC'  ? () => setNpcPanelOpen(true) :
                     item.label === '任务' ? () => setMiscPanelOpen(true) :
                     item.label === '频道' ? () => setChannelPanelOpen(true) :
@@ -6586,9 +7121,9 @@ ${lines}`;
                   open?.();
                   setMobileDrawer(null);
                 }}
-                className={`w-full flex items-center gap-3 px-4 py-2.5 text-sm transition-colors text-left ${item.label === '欢愉宫' ? 'joy-glow font-semibold hover:bg-pink-500/10' : 'text-dim hover:text-slate-200 hover:bg-panel2'}`}
+                className="nav-btn w-full flex items-center gap-3 px-4 py-2.5 text-sm transition-colors text-left text-dim hover:text-slate-200 hover:bg-panel2"
               >
-                <span className="w-4 text-center text-xs opacity-70">{item.icon}</span>
+                <span className={`nav-ico ${NAV_FX[item.label] || ''} w-4 text-center text-xs opacity-70`}>{item.icon}</span>
                 <span>{item.label}</span>
               </button>
             ))}
@@ -6703,7 +7238,36 @@ ${lines}`;
           onStart={(picks) => { setCombatSetupOpen(false); startCombatWithSelection(picks); }}
         />
       )}
-      {(combatActive || combatStage === 'ended') && <CombatPanel onPlayerAction={submitCombatPlayerAction} />}
+      {(combatActive || combatStage === 'ended') && <CombatPanel onPlayerAction={submitCombatPlayerAction} onUndo={undoCombatAction} canUndo={combatHasUndo && !combatApiBusy} />}
+
+      {/* ── 乐园设施聚合菜单：欢愉宫 / 竞技场 / 赌场 ── */}
+      {facilitiesOpen && (
+        <div className="fixed inset-0 z-[70] flex items-center justify-center bg-black/70 backdrop-blur-sm p-4" onClick={() => setFacilitiesOpen(false)}>
+          <div className="w-full max-w-xs rounded-2xl border border-edge bg-void shadow-[0_0_50px_rgba(0,0,0,0.85)] p-5 space-y-3" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center justify-between">
+              <h2 className="text-base font-bold text-slate-100 flex items-center gap-2">🎡 乐园设施</h2>
+              <button onClick={() => setFacilitiesOpen(false)} className="text-dim/50 hover:text-blood text-lg font-mono">✕</button>
+            </div>
+            <div className="text-[12px] text-dim/50">主神空间的娱乐去处。</div>
+            <div className="space-y-2">
+              {joyEnabled && (
+                <button onClick={() => { setFacilitiesOpen(false); setJoyPanelOpen(true); }}
+                  className="w-full flex items-center gap-3 px-4 py-3 rounded-xl border border-pink-500/40 joy-glow font-semibold text-pink-200 hover:bg-pink-500/10 transition-colors text-left">
+                  <span className="text-lg">💗</span><span>欢愉宫</span>
+                </button>
+              )}
+              <button onClick={() => { setFacilitiesOpen(false); sweepArenaOpponents(); setArenaPanelOpen(true); }}
+                className="w-full flex items-center gap-3 px-4 py-3 rounded-xl border border-edge text-slate-200 hover:border-god/50 hover:bg-panel2 transition-colors text-left">
+                <span className="text-lg">🏟</span><span>竞技场</span>
+              </button>
+              <button onClick={() => { setFacilitiesOpen(false); setCasinoOpen(true); }}
+                className="w-full flex items-center gap-3 px-4 py-3 rounded-xl border border-edge text-slate-200 hover:border-god/50 hover:bg-panel2 transition-colors text-left">
+                <span className="text-lg">🎰</span><span>赌场</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {arenaPanelOpen && (
         <ArenaPanel
@@ -6722,6 +7286,9 @@ ${lines}`;
           onFinalize={runEnhanceFinalizePhase}
         />
       )}
+
+      {casinoOpen && <CasinoPanel onClose={() => setCasinoOpen(false)} onGenMatch={genGladiatorMatch} onGenBattle={genGladiatorBattle} onGenRewards={genGachaRewards} onBanter={casinoBanter} onGenSoul={genSoulGamble} onGenPortraits={genGladiatorPortraits} />}
+      {abyssOpen && <AbyssPanel onClose={() => setAbyssOpen(false)} onGenBoons={genAbyssBoons} onGenSin={genAbyssSin} onGenAwaken={genAbyssAwaken} onGenJudge={genAbyssJudge} onGenEnemies={genAbyssEnemies} />}
 
       {joyPanelOpen && (
         <JoyPanel
@@ -6745,6 +7312,7 @@ ${lines}`;
       {titlePanelOpen && <TitlePanel onClose={() => setTitlePanelOpen(false)} />}
       {achievePanelOpen && <AchievementPanel onClose={() => setAchievePanelOpen(false)} />}
       {subProfOpen && <SubProfessionPanel onClose={() => setSubProfOpen(false)} />}
+      {skillTreeOpen && <SkillTreePanel onClose={() => setSkillTreeOpen(false)} />}
       {factionPanelOpen && <FactionPanel onClose={() => setFactionPanelOpen(false)} />}
       {territoryPanelOpen && <TerritoryPanel onClose={() => setTerritoryPanelOpen(false)} />}
       {teamPanelOpen && <AdventureTeamPanel onClose={() => setTeamPanelOpen(false)} />}
@@ -6822,7 +7390,7 @@ ${lines}`;
             />
           </div>
           {/* 文字提示 */}
-          <div className="self-center mt-1 flex items-center gap-2 bg-panel/95 backdrop-blur-sm border border-god/25 rounded-full px-3 py-0.5 text-[11px] font-mono shadow-lg">
+          <div className="self-center mt-1 max-lg:mt-[60px] flex items-center gap-2 bg-panel/95 backdrop-blur-sm border border-god/25 rounded-full px-3 py-0.5 text-[11px] font-mono shadow-lg">
             <span className="animate-spin inline-block text-xs text-god">◌</span>
             {generating && (
               <span className="text-god/85">正在进行剧情生成</span>

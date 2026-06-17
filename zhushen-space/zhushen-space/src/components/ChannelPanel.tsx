@@ -4,7 +4,7 @@ import { isDmableTag } from '../store/dmStore';
 import { useItems, ITEM_GRADES, gradeColorClass, gradeBadgeClass, gradeNameClass, type CurrencyWallet } from '../store/itemStore';
 import {
   buyFromListing, isBuyable, parseChannelPrice, normChannelCurrency,
-  acceptQuote, postWantToBuy, postSellItem, type BuyResult,
+  acceptQuote, isBarterQuote, postWantToBuy, postSellItem, type BuyResult,
 } from '../systems/channelTrade';
 
 /* 频道配色 */
@@ -179,8 +179,11 @@ function MessageCard({ m, onBuy, onAcceptQuote, onCancel, onDetail, onReply, onJ
           )}
           {quotes.map((q) => {
             const acceptable = !m.fulfilled;
-            const buyDetail = m.kind === 'buy'
+            const isBarter = isBarterQuote(m, q);   // 出售帖·买家以物换物：q 的物品字段=买家拿来换的物品
+            const detailFn = m.kind === 'buy'
               ? () => onDetail({ src: { ...(m.offer ?? {}), ...q }, price: q.price, currency: q.currency, fromName: q.fromName, action: acceptable ? () => onAcceptQuote(m, q) : undefined, actionLabel: '买下' })
+              : isBarter
+              ? () => onDetail({ src: q, price: q.price > 0 ? q.price : '', currency: q.currency, fromName: q.fromName, action: acceptable ? () => onAcceptQuote(m, q) : undefined, actionLabel: '换取' })
               : undefined;
             return (
               <div key={q.id} className="rounded bg-void/50 border border-amber-500/15 px-2 py-1.5">
@@ -188,17 +191,19 @@ function MessageCard({ m, onBuy, onAcceptQuote, onCancel, onDetail, onReply, onJ
                   <span className="text-slate-200">{q.fromName}</span>
                   {q.fromTier && <span className="text-dim/45">{q.fromTier}</span>}
                   {q.fromTag && <span className="text-[10px] px-1 rounded border border-edge text-dim/40">{q.fromTag}</span>}
-                  {buyDetail && q.itemName && (
-                    <button onClick={buyDetail} className="text-amber-200/80 hover:text-amber-200 underline decoration-dotted">
-                      → {q.itemName}{q.gradeDesc ? `(${q.gradeDesc})` : ''} 🔍
+                  {detailFn && q.itemName && (
+                    <button onClick={detailFn} className="text-amber-200/80 hover:text-amber-200 underline decoration-dotted">
+                      {isBarter ? '⇄' : '→'} {q.itemName}{q.gradeDesc ? `(${q.gradeDesc})` : ''} 🔍
                     </button>
                   )}
                   <span className="flex-1" />
-                  <span className="text-amber-300 font-bold">{q.price} {q.currency}{q.qty && q.qty > 1 ? ` /${q.qty}件` : ''}</span>
+                  {isBarter
+                    ? <span className="text-emerald-300/90 font-bold">{q.price > 0 ? `换 +${q.price} ${q.currency}` : '平换'}</span>
+                    : <span className="text-amber-300 font-bold">{q.price} {q.currency}{q.qty && q.qty > 1 ? ` /${q.qty}件` : ''}</span>}
                   {acceptable ? (
                     <button onClick={() => onAcceptQuote(m, q)}
                       className="shrink-0 px-2 py-0.5 rounded border border-emerald-600/50 text-emerald-300 hover:bg-emerald-900/30 transition-colors">
-                      {m.kind === 'buy' ? '买下' : '卖出'}
+                      {m.kind === 'buy' ? '买下' : (isBarter ? '换取' : '卖出')}
                     </button>
                   ) : <span className="shrink-0 text-dim/40">—</span>}
                 </div>
@@ -460,8 +465,10 @@ export default function ChannelPanel({ onClose, onRefresh, onSolicit, onPost, on
   }
   function doAcceptQuote(m: ChannelMessage, q: ChannelQuote) {
     const r = acceptQuote(m, q);
-    if (m.kind === 'buy') flash(r.ok, r.ok ? `已买下「${q.itemName ?? m.offer?.itemName ?? '物品'}」，花费 ${r.price} ${r.currency}` : (r.error ?? '成交失败'));
-    else flash(r.ok, r.ok ? `已卖出「${m.offer?.itemName ?? '物品'}」，收入 ${r.price} ${r.currency}` : (r.error ?? '成交失败'));
+    if (!r.ok) flash(false, r.error ?? '成交失败');
+    else if (m.kind === 'buy') flash(true, `已买下「${q.itemName ?? m.offer?.itemName ?? '物品'}」，花费 ${r.price} ${r.currency}`);
+    else if (isBarterQuote(m, q)) flash(true, `已换得「${q.itemName ?? '物品'}」${(r.price ?? 0) > 0 ? `+找补 ${r.price} ${r.currency}` : '（平换）'}，付出「${m.offer?.itemName ?? '物品'}」`);
+    else flash(true, `已卖出「${m.offer?.itemName ?? '物品'}」，收入 ${r.price} ${r.currency}`);
     if (r.ok) setTimeout(() => removeMessage(m.id), 600);   // 成交后删除该求购/出售帖（不再保留"已成交"记录）
   }
 

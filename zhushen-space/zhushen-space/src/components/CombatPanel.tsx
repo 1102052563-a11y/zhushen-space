@@ -3,6 +3,7 @@ import { useCombat, type CombatActionKind, type Combatant, type CombatStatBlock 
 import { useCharacters } from '../store/characterStore';
 import { usePlayer } from '../store/playerStore';
 import { useNpc } from '../store/npcStore';
+import { useItems } from '../store/itemStore';
 
 /* 模态战斗面板（仿 fanren-remake）。结算由引擎/编排器在 App 里完成；本组件只负责展示
    战况 + 收集玩家（B1）这一回合的动作，确认后回调 onPlayerAction。 */
@@ -79,14 +80,18 @@ function Card({ id, isCurrent, isTarget, onPick }: { id: string; isCurrent: bool
   );
 }
 
-export default function CombatPanel({ onPlayerAction }: {
-  onPlayerAction: (kind: CombatActionKind, targetIds: string[], skillId?: string) => void;
+export default function CombatPanel({ onPlayerAction, onUndo, canUndo }: {
+  onPlayerAction: (kind: CombatActionKind, targetIds: string[], skillId?: string, itemId?: string) => void;
+  onUndo?: () => void;
+  canUndo?: boolean;
 }) {
   const battle = useCombat((s) => s.battle);
   const apiBusy = useCombat((s) => s.apiBusy);
   const apiStatus = useCombat((s) => s.apiStatus);
   const exitCombat = useCombat((s) => s.exitCombat);
   const characters = useCharacters((s) => s.characters);
+  const playerItems = useItems((s) => s.items);
+  const npcsMap = useNpc((s) => s.npcs);
 
   const curId = battle.order[battle.turn];
   const curActor = curId ? battle.participants[curId] : undefined;
@@ -100,12 +105,25 @@ export default function CombatPanel({ onPlayerAction }: {
 
   const [action, setAction] = useState<CombatActionKind>('attack');
   const [skillId, setSkillId] = useState<string>('');
+  const [itemId, setItemId] = useState<string>('');
   const [targets, setTargets] = useState<string[]>([]);
 
   // 轮到（玩家操控的）当前角色时重置选择
   useEffect(() => {
-    if (myTurn) { setAction('attack'); setSkillId(''); setTargets([]); }
+    if (myTurn) { setAction('attack'); setSkillId(''); setItemId(''); setTargets([]); }
   }, [myTurn, curId, battle.round, battle.turn]);
+
+  // 当前出手角色可用的战斗道具（B1 取背包，队友取 NPC 物品；排除装备/已装备/空数量；要有效果或属消耗类）
+  const actorItems = curId === 'B1' ? playerItems : (npcsMap[curId ?? '']?.items ?? []);
+  const usableItems = useMemo(() => actorItems.filter((i: any) =>
+    !i.equipped && (i.quantity ?? 0) > 0 && !/武器|防具|饰品|宝石/.test(i.category ?? '')
+    && (!!i.effect || /消耗品|丹药|灵药|符箓/.test(i.category ?? ''))
+  ), [actorItems]);
+  const selItem = usableItems.find((i: any) => i.id === itemId);
+  const itemText = selItem ? `${selItem.name ?? ''}${selItem.subType ?? ''}${selItem.effect ?? ''}${(selItem.tags ?? []).join('')}` : '';
+  // UI 侧镜像 combatEngine.inferItemEffect 的「打谁」判断（攻击向→敌方，其余→友方）
+  const itemToEnemy = !!selItem && ((/炸弹|手雷|爆|燃烧弹|火焰弹|雷弹|轰|霰弹|爆裂/.test(itemText) && !/护|防/.test(itemText)) || /毒瓶|毒弹|剧毒|腐蚀|酸液/.test(itemText));
+  const itemAoe = !!selItem && /范围|全体|群|溅射|波及|周围|所有/.test(itemText);
 
   const activeSkills = useMemo(() => actorSkills.filter((s) => !/被动/.test(s.skillType ?? '')), [actorSkills]);
   const selSkill = activeSkills.find((s) => s.id === skillId);
@@ -115,18 +133,26 @@ export default function CombatPanel({ onPlayerAction }: {
   const isAoe = action === 'skill' && !!selSkill && /群体|全体|范围|周围|所有|群攻|横扫|波及|溅射/.test(skText(selSkill));
   const isSelfCast = action === 'skill' && !!selSkill && !isHeal && !isAoe && /自身|自我|己身|自己|self/i.test(`${selSkill.target ?? ''}`);
   const isDomain = action === 'skill' && !!selSkill && isDomainSkillUI(selSkill);
+  // 增益/支援类（buff/护盾/治疗、无攻击意图）→ 选友方目标（可给队友或主角加）
+  const isSupport = action === 'skill' && !!selSkill && !isSelfCast && !isDomain
+    && !/攻击|斩|劈|击|射|刺|炮|轰|冲|噬|咬|拳|爪/.test(skText(selSkill))
+    && /强化|增幅|狂暴|战意|护体|守护|护盾|护罩|铁壁|金钟|再生|回春|不死|不屈|锁血|加持|祝福|庇护|鼓舞|激励|治疗|治愈|回复|恢复|疗|加血/.test(skText(selSkill));
+  // 目标取友方：治疗/支援技能，或「非攻击向」道具（药剂/护盾/净化等）
+  const isAllyTarget = isHeal || isSupport || (action === 'item' && !!selItem && !itemToEnemy);
 
   const aliveEnemies = battle.order.filter((id) => battle.participants[id]?.side === 'enemy' && !battle.participants[id]?.left && battle.participants[id]?.curHp > 0);
   const aliveAllies = battle.order.filter((id) => battle.participants[id]?.side === 'player' && !battle.participants[id]?.left && battle.participants[id]?.curHp > 0);
-  const needsTarget = (action === 'attack' || action === 'skill') && !isAoe && !isSelfCast && !isDomain;
+  const needsTarget = ((action === 'attack' || action === 'skill') && !isAoe && !isSelfCast && !isDomain)
+    || (action === 'item' && !!selItem && !itemAoe);
 
   function toggleTarget(id: string) {
     setTargets((t) => (t.includes(id) ? t.filter((x) => x !== id) : [id]));  // 单目标
   }
   function confirm() {
     if (!myTurn || stunned) return;
+    if (action === 'item' && !itemId) return;
     if (needsTarget && targets.length === 0) return;
-    onPlayerAction(action, needsTarget ? targets : [], action === 'skill' ? skillId : undefined);
+    onPlayerAction(action, needsTarget ? targets : [], action === 'skill' ? skillId : undefined, action === 'item' ? itemId : undefined);
   }
   function skip() { if (myTurn) onPlayerAction('defend', []); }
 
@@ -154,14 +180,14 @@ export default function CombatPanel({ onPlayerAction }: {
             <div className="text-[11px] text-cyan-300 font-medium">我方</div>
             {playerTeam.map((id) => (
               <Card key={id} id={id} isCurrent={curId === id} isTarget={targets.includes(id)}
-                onPick={myTurn && needsTarget && isHeal ? () => toggleTarget(id) : undefined} />
+                onPick={myTurn && needsTarget && isAllyTarget ? () => toggleTarget(id) : undefined} />
             ))}
           </div>
           <div className="space-y-2">
             <div className="text-[11px] text-rose-300 font-medium">敌方</div>
             {enemyTeam.map((id) => (
               <Card key={id} id={id} isCurrent={curId === id} isTarget={targets.includes(id)}
-                onPick={myTurn && needsTarget && !isHeal ? () => toggleTarget(id) : undefined} />
+                onPick={myTurn && needsTarget && !isAllyTarget ? () => toggleTarget(id) : undefined} />
             ))}
           </div>
         </div>
@@ -218,9 +244,14 @@ export default function CombatPanel({ onPlayerAction }: {
             </div>
           ) : myTurn ? (
             <div className="space-y-2">
-              <div className="text-[11px] text-cyan-300">当前出手：{battle.initialState[curId]?.name ?? curId}</div>
+              <div className="flex items-center justify-between">
+                <div className="text-[11px] text-cyan-300">当前出手：{battle.initialState[curId]?.name ?? curId}</div>
+                {canUndo && onUndo && (
+                  <button onClick={onUndo} className="text-[11px] text-slate-400 hover:text-amber-300 underline decoration-dotted">↩ 撤销上一手</button>
+                )}
+              </div>
               <div className="flex flex-wrap gap-1.5">
-                {(['attack', 'skill', 'defend', 'flee'] as CombatActionKind[]).map((a) => (
+                {(['attack', 'skill', 'item', 'defend', 'flee'] as CombatActionKind[]).map((a) => (
                   <button key={a} onClick={() => { setAction(a); setTargets([]); }}
                     className={`px-3 py-1 rounded-md text-sm border ${action === a ? 'bg-cyan-600 border-cyan-400 text-white' : 'border-slate-600 text-slate-300 hover:bg-slate-800'}`}>
                     {ACTION_LABELS[a]}
@@ -236,20 +267,35 @@ export default function CombatPanel({ onPlayerAction }: {
                   ); })}
                 </select>
               )}
+              {action === 'item' && (
+                usableItems.length > 0 ? (
+                  <select value={itemId} onChange={(e) => { setItemId(e.target.value); setTargets([]); }}
+                    className="w-full bg-slate-800 border border-slate-600 rounded px-2 py-1 text-sm text-slate-200">
+                    <option value="">— 选择道具 —</option>
+                    {usableItems.map((i: any) => (
+                      <option key={i.id} value={i.id}>{i.name}{i.gradeDesc ? ` · ${i.gradeDesc}` : ''} ×{i.quantity}{i.effect ? ` — ${String(i.effect).slice(0, 16)}` : ''}</option>
+                    ))}
+                  </select>
+                ) : (
+                  <div className="text-xs text-slate-500">没有可用于战斗的道具（炸弹/药剂/丹药等）。</div>
+                )
+              )}
               <div className="flex items-center justify-between">
                 <div className="text-xs text-slate-400">
                   {isAoe
-                    ? `群体技能 · ${isHeal ? '我方全体' : '敌方全体'}（自动命中）`
+                    ? `群体技能 · ${isAllyTarget ? '我方全体' : '敌方全体'}（自动命中）`
                     : isSelfCast
                     ? '自身增益（无需目标）'
                     : isDomain
                     ? '展开领域（笼罩全场，无需目标）'
+                    : action === 'item' && selItem && itemAoe
+                    ? `范围道具 · ${itemToEnemy ? '敌方全体' : '我方全体'}（自动命中）`
                     : needsTarget
-                    ? (targets.length ? `目标：${battle.initialState[targets[0]]?.name ?? targets[0]}` : `点上方${isHeal ? '我方' : '敌方'}角色卡选目标`)
-                    : action === 'defend' ? '本回合承伤减半' : '尝试脱离战斗'}
+                    ? (targets.length ? `目标：${battle.initialState[targets[0]]?.name ?? targets[0]}` : `点上方${isAllyTarget ? '我方' : '敌方'}角色卡选目标${isAllyTarget ? '（给队友/自己加增益）' : action === 'item' ? '（投向敌人）' : ''}`)
+                    : action === 'item' ? '选择一件道具' : action === 'defend' ? '本回合承伤减半 · 回复 EP' : '尝试脱离战斗'}
                 </div>
                 <button onClick={confirm}
-                  disabled={(action === 'skill' && !skillId) || (needsTarget && targets.length === 0)}
+                  disabled={(action === 'skill' && !skillId) || (action === 'item' && !itemId) || (needsTarget && targets.length === 0)}
                   className="px-5 py-1.5 rounded-md bg-rose-600 hover:bg-rose-500 disabled:opacity-40 disabled:cursor-not-allowed text-white text-sm font-medium">
                   出手
                 </button>

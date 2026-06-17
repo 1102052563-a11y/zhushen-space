@@ -91,6 +91,7 @@ export default function MiscPanel({ onClose }: { onClose: () => void }) {
                       <div key={t.id} className="rounded-lg border border-edge/50 bg-panel/30 px-3 py-1.5 mb-1 flex items-center gap-2 opacity-70">
                         <span className="text-[11px] font-mono text-dim/40">{t.id}</span>
                         <span className="text-[13px] text-dim/70 line-through flex-1 truncate">{t.name || '（未命名任务）'}</span>
+                        {t.rating && <span className={`text-[11px] font-mono px-1 rounded ${failed ? 'bg-blood/15 text-blood/70' : 'bg-amber-500/15 text-amber-300/80'}`}>评{t.rating}</span>}
                         <span className={`text-[11px] font-mono ${failed ? 'text-blood/70' : 'text-emerald-400/70'}`}>{t.status}</span>
                       </div>
                     );

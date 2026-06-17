@@ -1,5 +1,5 @@
 import { JOY_PRIVATE_COLS, type JoyGirl, type JoySession } from '../store/joyStore';
-import { JOY_SYSTEM_RULE, JOY_OUTPUT_RULE, NSFW_WRITING_RULE } from '../promptRules';
+import { JOY_SYSTEM_RULE, JOY_OUTPUT_RULE, JOY_PRIVATE_FIELDS_RULE, NSFW_WRITING_RULE } from '../promptRules';
 
 /* 欢愉宫美女分阶段立绘清单（public/joy-girls/manifest.json，由 vite 插件 syncJoyGirls 生成）。
    结构：{ "<美女文件夹>": { "1":[相对路径...], "2":[...], "3":[...], "4":[...] } }
@@ -87,6 +87,7 @@ export function buildJoySystem(girl: JoyGirl, session: JoySession | undefined): 
     `【她当前的私密状态】\n${privacySnapshot(session?.privacy ?? {})}`,
     JOY_SYSTEM_RULE,
     JOY_OUTPUT_RULE,
+    JOY_PRIVATE_FIELDS_RULE,
   ].filter(Boolean).join('\n\n');
 }
 
@@ -146,6 +147,15 @@ export function parseJoyReply(raw: string): {
         privacyPatch[key] = val;   // 其余私密字段：直接以 AI 给的值覆盖（含 快感值 等）
       }
     }
+  }
+  // 兜底：AI 把情欲值变化只写进正文、没放进 <joy> 块（"文里说涨了、面板不动"）——从全文捞数值
+  if (desireDelta === undefined && desireSet === undefined) {
+    const inc  = raw.match(/情欲值[^\d+\-]{0,4}(?:\+=|＋|\+|增加了?|上升了?|提升了?|提高了?|涨了?|攀升了?|飙升了?)\s*(\d{1,3})/);
+    const dec  = raw.match(/情欲值[^\d+\-]{0,4}(?:-=|－|-|下降了?|降低了?|减少了?|回落了?|跌了?)\s*(\d{1,3})/);
+    const setM = raw.match(/情欲值[^\d+\-]{0,4}(?:=|＝|为|变为|达到|升到|降到|到)\s*(\d{1,3})/);
+    if (inc) desireDelta = Number(inc[1]);
+    else if (dec) desireDelta = -Number(dec[1]);
+    else if (setM) desireSet = Math.max(0, Math.min(100, Number(setM[1])));
   }
   return { narrative: narrative || raw.trim(), desireDelta, desireSet, affectionDelta, affectionSet, appellation, innerThought, privacyPatch };
 }

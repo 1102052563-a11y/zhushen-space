@@ -19,6 +19,9 @@ export interface TurnSnapshot {
     hp?: number; maxHp?: number; mp?: number; maxMp?: number;
     skills?: string[];      // 技能名清单
     titlesEquipped?: string; // 当前佩戴称号
+    parkCoin?: number;       // 乐园币
+    soulCoin?: number;       // 灵魂钱币（魂币）
+    equips?: { name: string; grade?: string; plus?: number }[];  // 已装备：名 / 品级 / 强化+N
   };
   npcs: Record<string, TurnNpc>;
   factions: Record<string, TurnFaction>;

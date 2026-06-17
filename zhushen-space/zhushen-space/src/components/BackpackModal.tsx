@@ -557,7 +557,6 @@ function ItemCard({ item, onOpen }: { item: InventoryItem; onOpen: () => void })
 
 /* ── 货币面板 ── */
 function CurrencyBar({ wallet }: { wallet: CurrencyWallet }) {
-  const advancePoints = usePlayer((s) => s.profile.advancePoints ?? 0);
   const attrPoints = usePlayer((s) => s.profile.attrPoints ?? 0);
   const realAttrPoints = usePlayer((s) => s.profile.realAttrPoints ?? 0);
   const [showReal, setShowReal] = useState(false);
@@ -582,17 +581,6 @@ function CurrencyBar({ wallet }: { wallet: CurrencyWallet }) {
             </div>
           );
         })}
-        {/* 固定项：进阶点数（来自主角档案，升级资源）*/}
-        <div className="flex items-center gap-2 px-3 py-3">
-          <span className="text-base">🔷</span>
-          <div className="flex-1 min-w-0">
-            <div className="text-sm font-mono font-semibold text-sky-300">进阶点数</div>
-            <div className="text-[12px] text-dim/50">升级资源</div>
-          </div>
-          <span className="text-lg font-bold font-mono text-sky-300">
-            {advancePoints.toLocaleString()}
-          </span>
-        </div>
         {/* 属性点（点击切换显示 真实属性点）*/}
         <button onClick={() => setShowReal((v) => !v)} className="w-full flex items-center gap-2 px-3 py-3 hover:bg-panel2/40 transition-colors text-left">
           <span className="text-base">{showReal ? '💠' : '🔶'}</span>
@@ -819,11 +807,11 @@ export default function BackpackModal({
           >✕</button>
         </header>
 
-        {/* ── 主体：左侧边栏 + 右侧内容 ── */}
-        <div className="flex flex-1 overflow-hidden">
+        {/* ── 主体：左侧边栏 + 右侧内容（手机端竖叠，整体一个滚动区，货币可正常下拉）── */}
+        <div className="flex max-lg:flex-col flex-1 overflow-hidden max-lg:overflow-y-auto">
 
           {/* 左侧边栏：货币 + 分类过滤 */}
-          <aside className="shrink-0 w-48 max-lg:w-40 border-r border-edge bg-panel flex flex-col gap-4 p-3 overflow-y-auto">
+          <aside className="shrink-0 w-48 max-lg:w-full border-r max-lg:border-r-0 max-lg:border-b border-edge bg-panel flex flex-col gap-4 p-3 overflow-y-auto max-lg:overflow-visible">
             <CurrencyBar wallet={currency} />
 
             <div className="space-y-1">
@@ -857,7 +845,7 @@ export default function BackpackModal({
           </aside>
 
           {/* 右侧物品列表 */}
-          <div className="flex-1 overflow-y-auto p-4 max-lg:p-2.5 space-y-4">
+          <div className="flex-1 overflow-y-auto p-4 max-lg:p-2.5 space-y-4 max-lg:flex-none max-lg:overflow-visible">
             {filtered.length === 0 ? (
               <div className="h-full flex items-center justify-center text-dim/30 text-sm font-mono select-none">
                 {items.length === 0 ? '背包空空如也…' : '无匹配物品'}

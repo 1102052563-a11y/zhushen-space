@@ -58,7 +58,7 @@
       "enabled": true,
       "injection_position": 0,
       "injection_depth": 4,
-      "content": "【术语铁则·禁修仙词回流】\n- 实力分级用「阶位」(E·D·C·B·A·S·SS·SSS…),不用境界·修为。\n- 资质用「天赋」(D–SSS,无上限),不用灵根。\n- 能力分「技能品级」(7档);成长用「进阶点数」。\n- 货币:乐园币、灵魂钱币(魂币)。属性为六维 + HP·EP。\n- 绝不出现「灵气·渡劫·金丹·元婴·筑基」等修仙词,即便采用玄幻文风也要换成上述轮回乐园术语。"
+      "content": "【术语铁则·禁修仙词回流】\n- 实力分级用「阶位」(E·D·C·B·A·S·SS·SSS…),不用境界·修为。\n- 资质用「天赋」(D–SSS,无上限),不用灵根。\n- 能力分「技能品级」(7档);成长靠等级提升（由世界结算统一发放）。\n- 货币:乐园币、灵魂钱币(魂币)。属性为六维 + HP·EP。\n- 绝不出现「灵气·渡劫·金丹·元婴·筑基」等修仙词,即便采用玄幻文风也要换成上述轮回乐园术语。"
     },
     {
       "identifier": "rp_pacing",
@@ -80,7 +80,7 @@
       "enabled": true,
       "injection_position": 0,
       "injection_depth": 4,
-      "content": "【战斗与成长 · 契约者群像】\n- 战斗致命而具体:阶位差距带来碾压或绝望,弱势时靠技能·天赋·道具·智谋搏命。\n- 变强有重量感:习得技能、阶位提升、获得进阶点数与战利品的瞬间,要让人感到实打实的收获与爽感,但点到为止——具体数值由系统结算,你只把「获得」写成有分量的叙事时刻。\n- 平衡生存惊悚与力量幻想:写得出绝境压迫,也写得出翻盘碾压的快意。\n- 任务世界里有受规则束缚的原住民,和与主角同源的其他契约者;后者是变量,可盟、可交易、可竞争乃至背叛,写出「同类相疑」的张力。"
+      "content": "【战斗与成长 · 契约者群像】\n- 战斗致命而具体:阶位差距带来碾压或绝望,弱势时靠技能·天赋·道具·智谋搏命。\n- 变强有重量感:习得技能、阶位提升获得战利品的瞬间,要让人感到实打实的收获与爽感,但点到为止——具体数值由系统结算,你只把「获得」写成有分量的叙事时刻。\n- 平衡生存惊悚与力量幻想:写得出绝境压迫,也写得出翻盘碾压的快意。\n- 任务世界里有受规则束缚的原住民,和与主角同源的其他契约者;后者是变量,可盟、可交易、可竞争乃至背叛,写出「同类相疑」的张力。"
     },
     {
       "identifier": "prose_style",
@@ -175,21 +175,66 @@
     {
       "character_id": 100001,
       "order": [
-        { "identifier": "core_persona", "enabled": true },
-        { "identifier": "model_jb", "enabled": true },
-        { "identifier": "content_permit", "enabled": true },
-        { "identifier": "rp_frame", "enabled": true },
-        { "identifier": "rp_terms", "enabled": true },
-        { "identifier": "rp_pacing", "enabled": true },
-        { "identifier": "rp_combat", "enabled": true },
-        { "identifier": "prose_style", "enabled": true },
-        { "identifier": "prose_humanlike", "enabled": true },
-        { "identifier": "model_antislop", "enabled": true },
-        { "identifier": "model_cot", "enabled": true },
-        { "identifier": "io_law", "enabled": true },
-        { "identifier": "start_signal", "enabled": true },
-        { "identifier": "aff_user", "enabled": true },
-        { "identifier": "aff_asst", "enabled": true }
+        {
+          "identifier": "core_persona",
+          "enabled": true
+        },
+        {
+          "identifier": "model_jb",
+          "enabled": true
+        },
+        {
+          "identifier": "content_permit",
+          "enabled": true
+        },
+        {
+          "identifier": "rp_frame",
+          "enabled": true
+        },
+        {
+          "identifier": "rp_terms",
+          "enabled": true
+        },
+        {
+          "identifier": "rp_pacing",
+          "enabled": true
+        },
+        {
+          "identifier": "rp_combat",
+          "enabled": true
+        },
+        {
+          "identifier": "prose_style",
+          "enabled": true
+        },
+        {
+          "identifier": "prose_humanlike",
+          "enabled": true
+        },
+        {
+          "identifier": "model_antislop",
+          "enabled": true
+        },
+        {
+          "identifier": "model_cot",
+          "enabled": true
+        },
+        {
+          "identifier": "io_law",
+          "enabled": true
+        },
+        {
+          "identifier": "start_signal",
+          "enabled": true
+        },
+        {
+          "identifier": "aff_user",
+          "enabled": true
+        },
+        {
+          "identifier": "aff_asst",
+          "enabled": true
+        }
       ]
     }
   ],
@@ -203,7 +248,9 @@
         "findRegex": "/^[\\s]*(好的[，,][^\\n]*[：:]|当然[，,][^\\n]*[：:]|(这|以下)(就)?是[^\\n]{0,10}(续写|正文|故事)[^\\n]*[：:]|here'?s the continuation[^\\n]*)[ \\t]*\\n?/gim",
         "trimStrings": [],
         "replaceString": "",
-        "placement": [2],
+        "placement": [
+          2
+        ],
         "substituteRegex": 0,
         "markdownOnly": true,
         "promptOnly": false

@@ -2,7 +2,7 @@ import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import type { ApiConfig } from './settingsStore';
 import { useSettings } from './settingsStore';
-import channelDefaultPreset from '../data/channelDefaultPreset.json';
+import channelDefaultPreset from '../data/channelDefaultPreset.json';   // v4: 公共频道改用 ${home_paradise} 占位（按主角所属乐园渲染）
 
 /* ════════════════════════════════════════════
    公共频道（一期：纯氛围·只读）
@@ -39,9 +39,10 @@ export interface ChannelOffer extends ChannelItemInfo {
 export interface ChannelQuote extends ChannelItemInfo {
   id: string;
   fromName: string; fromTier?: string; fromTag?: string;
-  itemName?: string; category?: string; gradeDesc?: string; qty?: number;   // 求购时卖家提供的物品（可替代品，带固定格式字段）
-  price: number; currency: string;     // 报价/出价金额
+  itemName?: string; category?: string; gradeDesc?: string; qty?: number;   // 求购时=卖家提供的物品；出售帖以物换物时=买家拿来换的物品（均带固定格式字段）
+  price: number; currency: string;     // 报价/出价金额；以物换物时=买家额外找补给玩家的现金（平换为 0）
   note?: string;                       // 卖家/买家的留言
+  barter?: boolean;                    // 出售帖：买家提议「以物换物」（用 itemName 那件物品+price 现金 换玩家的出售物）
   accepted?: boolean;
 }
 /* 组队帖（二期接入队用，一期仅展示）*/
@@ -254,7 +255,7 @@ export const useChannel = create<ChannelState>()(
             if (m.id !== postId) return m;
             const base = m.quotes ?? [];
             let n = base.reduce((mx, q) => Math.max(mx, Number(/_(\d+)$/.exec(q.id)?.[1]) || 0), 0);
-            const add = quotes.filter((q) => q && (q.price != null)).map((q) => ({ ...q, id: `Q_${postId}_${++n}`, price: Math.max(0, Math.round(Number(q.price) || 0)) }));
+            const add = quotes.filter((q) => q && (q.price != null || (q as any).barter || q.itemName)).map((q) => ({ ...q, id: `Q_${postId}_${++n}`, price: Math.max(0, Math.round(Number(q.price) || 0)) }));
             return { ...m, quotes: [...base, ...add] };
           }),
         })),

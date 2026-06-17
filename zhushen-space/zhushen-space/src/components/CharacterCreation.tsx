@@ -17,6 +17,7 @@ export interface CreationData {
   raceDetail: string;   // 种族详情（自由文本）
   age: string;
   personality: string;
+  personalityDetail: string;   // 性格详细描述（自由文本，写入档案 + 注入开场白/AI 上下文）
   prevProfession: string;
   appearance: string;   // 基底外观（不可变，生图始终包含）
   attrs: { str: number; agi: number; con: number; int: number; cha: number; luck: number };
@@ -56,6 +57,7 @@ export default function CharacterCreation({ onConfirm, onCancel }: { onConfirm: 
   const [name, setName] = useState('');
   const [age, setAge] = useState('');
   const [personality, setPersonality] = useState('');
+  const [personalityDetail, setPersonalityDetail] = useState('');
   const [prevProfession, setPrevProfession] = useState('');
   const [appearance, setAppearance] = useState('');
   const [attrs, setAttrs] = useState({ str: 0, agi: 0, con: 0, int: 0, cha: 0, luck: 0 });
@@ -70,11 +72,11 @@ export default function CharacterCreation({ onConfirm, onCancel }: { onConfirm: 
   const [tplName, setTplName] = useState('');
 
   function currentData(): CreationTemplateData {
-    return { difficulty, paradise, paradiseCustom, name, gender, genderCustom, race, raceCustom, raceDetail, age, personality, prevProfession, appearance, attrs: { ...attrs }, talentName, talentEffect, contractId };
+    return { difficulty, paradise, paradiseCustom, name, gender, genderCustom, race, raceCustom, raceDetail, age, personality, personalityDetail, prevProfession, appearance, attrs: { ...attrs }, talentName, talentEffect, contractId };
   }
   function loadTemplate(d: CreationTemplateData) {
     setDifficulty(d.difficulty); setParadise(d.paradise); setParadiseCustom(d.paradiseCustom ?? '');
-    setName(d.name ?? ''); setAge(d.age ?? ''); setPersonality(d.personality ?? ''); setPrevProfession(d.prevProfession ?? '');
+    setName(d.name ?? ''); setAge(d.age ?? ''); setPersonality(d.personality ?? ''); setPersonalityDetail(d.personalityDetail ?? ''); setPrevProfession(d.prevProfession ?? '');
     setGender(d.gender ?? '男'); setGenderCustom(d.genderCustom ?? '');
     setRace(d.race ?? '人类'); setRaceCustom(d.raceCustom ?? ''); setRaceDetail(d.raceDetail ?? '');
     setAppearance(d.appearance ?? '');
@@ -100,7 +102,7 @@ export default function CharacterCreation({ onConfirm, onCancel }: { onConfirm: 
   const data: CreationData = {
     difficulty, points: totalPoints, paradise: resolvedParadise,
     name: name.trim() || '无名者', gender: resolvedGender, race: resolvedRace, raceDetail: raceDetail.trim(),
-    age: age.trim(), personality: personality.trim(),
+    age: age.trim(), personality: personality.trim(), personalityDetail: personalityDetail.trim(),
     prevProfession: prevProfession.trim(), appearance: appearance.trim(), attrs, talentName: talentName.trim(), talentEffect: talentEffect.trim(),
     contractId: contractId.trim(),
   };
@@ -116,6 +118,7 @@ export default function CharacterCreation({ onConfirm, onCancel }: { onConfirm: 
       ['种族', resolvedRace],
       ['种族详情', raceDetail.trim() || '—'],
       ['性格', personality || '—'],
+      ['性格描述', personalityDetail.trim() || '—'],
       ['主角背景', prevProfession || '—'],
       ['基底外观', appearance || '（未填）'],
       ['契约者ID', contractId.trim() || '（随机分配）'],
@@ -209,6 +212,14 @@ export default function CharacterCreation({ onConfirm, onCancel }: { onConfirm: 
           <Labeled label="性格"><input value={personality} onChange={(e) => setPersonality(e.target.value)} placeholder="如 冷静、谨慎、重情义" className={inputCls} /></Labeled>
           <Labeled label="主角背景"><input value={prevProfession} onChange={(e) => setPrevProfession(e.target.value)} placeholder="进入乐园前的身份/经历，如 退伍军人 / 急诊医生 / 大学生" className={inputCls} /></Labeled>
           <Labeled label="契约者ID"><input value={contractId} onChange={(e) => setContractId(e.target.value)} placeholder="留空＝由乐园随机分配" className={inputCls} /></Labeled>
+        </div>
+
+        <div className="mt-2">
+          <Labeled label="性格描述（选填·自由展开：成长经历 / 价值观 / 行为模式 / 软肋与执念等，越详细 AI 越贴合人设）">
+            <textarea value={personalityDetail} onChange={(e) => setPersonalityDetail(e.target.value)} rows={3}
+              placeholder="如：表面吊儿郎当、爱用玩笑搪塞，实则极度谨慎，凡事先想退路；幼年寄人篱下养成的察言观色让他善于读人，却也难以真正信任谁；唯独对认定的伙伴会不计代价。"
+              className={`${inputCls} resize-y leading-relaxed`} />
+          </Labeled>
         </div>
 
         {/* 性别（影响生图：男→1boy / 女→1girl，避免马尾等特征被 AI 误判性别） */}

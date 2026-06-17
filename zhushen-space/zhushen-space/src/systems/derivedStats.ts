@@ -46,10 +46,10 @@ export function computeMaxEp(attrs?: PlayerAttrs): number {
 function vitalMaxBonus(texts: (string | undefined)[], kind: 'hp' | 'ep'): number {
   const names = kind === 'hp' ? '生命|HP|血量|气血|体力|血量值' : '蓝量|EP|法力|魔力|能量|精力|内力|蓝';
   const res = [
-    new RegExp(`(?:${names})(?:值)?\\s*(?:上限|最大值)\\s*(?:增加|提升|提高|额外|附加|为)?\\s*[:：]?\\s*[+＋]?\\s*(\\d+)`, 'gi'),
-    new RegExp(`最大\\s*(?:${names})(?:值)?\\s*[:：]?\\s*[+＋]?\\s*(\\d+)`, 'gi'),
-    new RegExp(`(?:增加|提升|提高|额外|附加)\\s*(\\d+)\\s*点?\\s*(?:${names})(?:值)?\\s*(?:上限|最大值)`, 'gi'),
-    new RegExp(`(?:${names})(?:值)?\\s*(?:上限|最大值)\\s*(?:增加|提升|提高)\\s*(\\d+)`, 'gi'),
+    new RegExp(`(?:${names})(?:值)?\\s*(?:上限|最大值)\\s*(?:增加|提升|提高|额外|附加|为)?\\s*[:：]?\\s*[+＋]?\\s*(\\d+)(?![\\d])(?!\\s*[%％])`, 'gi'),
+    new RegExp(`最大\\s*(?:${names})(?:值)?\\s*[:：]?\\s*[+＋]?\\s*(\\d+)(?![\\d])(?!\\s*[%％])`, 'gi'),
+    new RegExp(`(?:增加|提升|提高|额外|附加)\\s*(\\d+)(?![\\d])(?!\\s*[%％])\\s*点?\\s*(?:${names})(?:值)?\\s*(?:上限|最大值)`, 'gi'),
+    new RegExp(`(?:${names})(?:值)?\\s*(?:上限|最大值)\\s*(?:增加|提升|提高)\\s*(\\d+)(?![\\d])(?!\\s*[%％])`, 'gi'),
   ];
   let sum = 0;
   for (const raw of texts) {
@@ -75,6 +75,71 @@ export function abilityMaxHpBonus(skills: AbilityLite[] = [], traits: AbilityLit
 }
 export function abilityMaxEpBonus(skills: AbilityLite[] = [], traits: AbilityLite[] = []): number {
   return vitalMaxBonus([...skills.flatMap((s) => [s.effect, s.desc]), ...traits.flatMap((t) => [t.effect, t.desc])], 'ep');
+}
+
+/* 解析「百分比上限加成」（如「10%生命加成」「生命上限+10%」「生命值提升15%」「最大法力提高10%」）——
+   返回百分数之和（10 = +10%）。百分比作用于「六维换算 + 平值上限加成」之上：最终上限 = 平值上限 ×(1+∑%/100)。
+   只匹配 [生命/HP 名词] 紧邻 [上限/最大值/加成/增益/提升] 语义的百分比，避免把「造成10%生命值伤害」「8%独立减伤」「恢复10%生命」等误计。
+   以百分比子串在原文中的位置去重，防止「提升10%生命上限」被前/后两种写法重复累加。 */
+function vitalMaxPctBonus(texts: (string | undefined)[], kind: 'hp' | 'ep'): number {
+  const names = kind === 'hp' ? '生命|HP|血量|气血|体力|血量值' : '蓝量|EP|法力|魔力|能量|精力|内力|蓝';
+  // 分支A：百分比在名词【之前】(10%生命加成 / 10%最大生命上限)；分支B：百分比在名词【之后】(生命上限+10% / 生命提升10%)
+  const re = new RegExp(
+    `(\\d+(?:\\.\\d+)?)\\s*[%％]\\s*(?:的)?\\s*(?:最大\\s*)?(?:${names})(?:值)?\\s*(?:上限|最大值|加成|增益|提升)` +
+    `|(?:最大\\s*)?(?:${names})(?:值)?\\s*(?:上限|最大值|加成|增益)?\\s*(?:增加|提升|提高|额外|附加|为|\\+|＋)\\s*了?\\s*(\\d+(?:\\.\\d+)?)\\s*[%％]`,
+    'gi',
+  );
+  let sum = 0;
+  for (const raw of texts) {
+    if (!raw) continue;
+    const t = String(raw);
+    const seen = new Set<number>();
+    let m: RegExpExecArray | null;
+    while ((m = re.exec(t)) !== null) {
+      const val = m[1] ?? m[2];
+      if (val == null) continue;
+      const pctIdx = m.index + Math.max(m[0].lastIndexOf('%'), m[0].lastIndexOf('％'));
+      if (seen.has(pctIdx)) continue;
+      seen.add(pctIdx);
+      sum += Number(val);
+    }
+  }
+  return sum;
+}
+export function gearMaxHpPctBonus(equipped: { effect?: string; affix?: string }[] = []): number {
+  return equipped.reduce((s, it) => s + vitalMaxPctBonus([it.effect, it.affix], 'hp'), 0);
+}
+export function gearMaxEpPctBonus(equipped: { effect?: string; affix?: string }[] = []): number {
+  return equipped.reduce((s, it) => s + vitalMaxPctBonus([it.effect, it.affix], 'ep'), 0);
+}
+export function abilityMaxHpPctBonus(skills: AbilityLite[] = [], traits: AbilityLite[] = []): number {
+  return vitalMaxPctBonus([...skills.flatMap((s) => [s.effect, s.desc]), ...traits.flatMap((t) => [t.effect, t.desc])], 'hp');
+}
+export function abilityMaxEpPctBonus(skills: AbilityLite[] = [], traits: AbilityLite[] = []): number {
+  return vitalMaxPctBonus([...skills.flatMap((s) => [s.effect, s.desc]), ...traits.flatMap((t) => [t.effect, t.desc])], 'ep');
+}
+
+/* 统一口径的「真实最大 HP / EP」（主角与 NPC 共用）= (六维换算 + 装备平值上限加成 + 被动/天赋平值上限加成) ×(1 + 百分比加成)。
+   各处显示/钳制一律走这两个，确保面板、AI 快照、短指令钳制、战斗一致；含百分比加成（如被动「10%生命加成」）。 */
+export function fullMaxHp(
+  attrs?: PlayerAttrs,
+  equipped: { effect?: string; affix?: string }[] = [],
+  skills: AbilityLite[] = [],
+  traits: AbilityLite[] = [],
+): number {
+  const flat = computeMaxHp(attrs) + gearMaxHpBonus(equipped) + abilityMaxHpBonus(skills, traits);
+  const pct = gearMaxHpPctBonus(equipped) + abilityMaxHpPctBonus(skills, traits);
+  return Math.round(flat * (1 + pct / 100));
+}
+export function fullMaxEp(
+  attrs?: PlayerAttrs,
+  equipped: { effect?: string; affix?: string }[] = [],
+  skills: AbilityLite[] = [],
+  traits: AbilityLite[] = [],
+): number {
+  const flat = computeMaxEp(attrs) + gearMaxEpBonus(equipped) + abilityMaxEpBonus(skills, traits);
+  const pct = gearMaxEpPctBonus(equipped) + abilityMaxEpPctBonus(skills, traits);
+  return Math.round(flat * (1 + pct / 100));
 }
 /* 「当前值」显示：
    - 从未设过(undefined) → 视为满（= 当前上限），仅用于角色刚建档、还没发生任何增减时
@@ -136,15 +201,16 @@ export function normalizeTier(raw?: string): string {
   return '';
 }
 
-/* ── 各阶位「单个基础属性」上限（仅约束基础六维；装备/技能/天赋加成可超过此上限）──
-   数值取自世界书《轮回乐园·契约者阶位·单属性极值》：
-   一阶5–50 / 二阶51–80 / 三阶81–120 / 四阶121–149 / 五阶150–180 /
-   六阶181–250 / 七阶251–350 / 八阶351–500 / 九阶501–800。
-   绝强及以上世界书未列硬上限，按递进外推；无上之境视为无上限(Infinity)。 */
+/* ── 各阶位「单个基础属性」上限（普通属性口径；仅约束基础六维；装备/技能/天赋加成可超过此上限）──
+   一~四阶用普通属性：一阶5–50 / 二阶51–80 / 三阶81–120 / 四阶121–149。
+   **五阶起改「真实属性点」口径（=普通属性÷80）、每阶 ×3 倍数级**——真实点上限 五阶4 / 六阶12 / 七阶36 /
+   八阶108 / 九阶324；下表存的是其普通等值(真实×80)：五阶320 / 六阶960 / 七阶2880 / 八阶8640 / 九阶25920。
+   **九阶以上（绝强/至强/巅峰至强/无上之境）跨度更大、每阶 ×10**：真实点 3240 / 32400 / 324000 / 3240000（普通×80）。
+   HP=体质×20、EP=智力×15 仍按普通值算，故高阶数值随之倍数级膨胀。 */
 export const ATTR_CAP_BY_TIER: Record<string, number> = {
-  一阶: 50, 二阶: 80, 三阶: 120, 四阶: 149, 五阶: 180,
-  六阶: 250, 七阶: 350, 八阶: 500, 九阶: 800,
-  绝强: 1300, 至强: 2200, 巅峰至强: 3600, 无上之境: Infinity,
+  一阶: 50, 二阶: 80, 三阶: 120, 四阶: 149,
+  五阶: 320, 六阶: 960, 七阶: 2880, 八阶: 8640, 九阶: 25920,
+  绝强: 259200, 至强: 2592000, 巅峰至强: 25920000, 无上之境: 259200000,  // 九阶以上每阶 ×10(无上之境给有限巨值,避免生成 Infinity)
 };
 /* 取某阶位「单个基础属性」上限。阶位名与等级**取较高的一个上限**（避免阶位字段滞后于等级时把人误夹低）；
    两者都取不到返回 Infinity(不夹)。仅用于基础六维；有效属性(含装备/技能/天赋加成)不受此限。 */

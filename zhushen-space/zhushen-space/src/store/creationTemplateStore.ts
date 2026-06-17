@@ -14,6 +14,7 @@ export interface CreationTemplateData {
   raceDetail?: string;   // 种族详情（自由文本：特征/能力/弱点等）
   age: string;
   personality: string;
+  personalityDetail?: string;   // 性格详细描述（自由文本，注入 AI 上下文 + 主角面板点击查看）
   prevProfession: string;
   appearance?: string;   // 基底外观（开局设定，生图基准）
   attrs: { str: number; agi: number; con: number; int: number; cha: number; luck: number };

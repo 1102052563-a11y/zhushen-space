@@ -196,10 +196,10 @@ export default function EnhancePanel({
 
         {gemsOpen && <GemPanel onClose={() => setGemsOpen(false)} />}
 
-        <div className="flex-1 flex flex-col overflow-hidden">
+        <div className="flex-1 flex flex-col overflow-hidden max-lg:overflow-y-auto">
 
           {/* ── 上：看板娘立绘（整宽，占上方约 58% 高，给横图立绘更多纵向空间）── */}
-          <div className="h-[58%] shrink-0 border-b border-edge bg-panel2/30 p-3 flex flex-col min-h-0">
+          <div className="h-[58%] max-lg:h-[42vh] shrink-0 border-b border-edge bg-panel2/30 p-3 flex flex-col min-h-0">
             <div className="flex items-center justify-center gap-4 mb-2 shrink-0">
               <button onClick={() => cycleBoss(-1)} className="w-7 h-7 rounded-lg border border-edge text-dim hover:text-slate-100 hover:border-god/40 shrink-0">‹</button>
               <div className="text-center min-w-0">
@@ -233,10 +233,10 @@ export default function EnhancePanel({
           </div>
 
           {/* ── 下：强化(左) + 操作(右)，各占下方约 42% 的一半 ── */}
-          <div className="h-[42%] flex flex-col lg:flex-row min-h-0">
+          <div className="h-[42%] max-lg:h-auto flex flex-col lg:flex-row min-h-0">
 
           {/* 下左：被强化装备 + 特效 */}
-          <div className="flex-1 lg:w-1/2 shrink-0 border-b lg:border-b-0 lg:border-r border-edge flex flex-col items-center justify-center p-4 relative overflow-y-auto min-h-0">
+          <div className="flex-1 lg:w-1/2 shrink-0 border-b lg:border-b-0 lg:border-r border-edge flex flex-col items-center justify-center p-4 relative overflow-y-auto min-h-0 max-lg:overflow-visible max-lg:flex-none max-lg:min-h-[32vh]">
             {fx && (
               <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
                 <div className={`w-52 h-52 rounded-full enh-flash ${fx === 'destroy' ? 'bg-red-500/40' : fx === 'reset' ? 'bg-rose-500/30' : fx === 'crit' ? 'bg-fuchsia-400/40' : fx === 'success' || fx === 'guaranteed' ? 'bg-amber-300/40' : 'bg-slate-500/15'}`} />
@@ -271,8 +271,8 @@ export default function EnhancePanel({
           </div>
 
           {/* 下右：操作区（上半滚动 + 底部常驻操作条）*/}
-          <div className="flex-1 lg:w-1/2 shrink-0 bg-panel2/30 flex flex-col min-h-0">
-            <div className="flex-1 overflow-y-auto p-3 space-y-2.5 min-h-0">
+          <div className="flex-1 lg:w-1/2 shrink-0 bg-panel2/30 flex flex-col min-h-0 max-lg:flex-none max-lg:h-auto">
+            <div className="flex-1 overflow-y-auto p-3 space-y-2.5 min-h-0 max-lg:flex-none max-lg:overflow-visible">
             {!isHome && (
               <div className="rounded-xl border border-blood/40 bg-blood/10 px-3 py-2 text-[12px] text-blood/90 leading-snug">
                 强化所只在轮回乐园 / 专属房间内营业。当前世界「{worldName || '未知'}」无法强化。

@@ -58,6 +58,64 @@ body {
   .joy-glow, .joy-glow-soft { animation: none; }
 }
 
+/* ══ 右侧导航·每个图标独特 hover 特效 ══ */
+.nav-ico { display: inline-block; transform-origin: center; transition: transform .2s ease, filter .2s ease; }
+.nav-btn:hover .nav-ico { opacity: 1 !important; }
+
+@keyframes nfSword { 0%{transform:rotate(0)} 25%{transform:rotate(-26deg)} 55%{transform:rotate(16deg) scale(1.2); filter:brightness(1.9)} 100%{transform:rotate(0)} }
+.nav-btn:hover .fx-sword { animation: nfSword .55s ease; }
+@keyframes nfBag { 0%,100%{transform:translateY(0)} 30%{transform:translateY(-4px)} 60%{transform:translateY(1px) scaleY(.88)} }
+.nav-btn:hover .fx-bag { animation: nfBag .5s ease; }
+@keyframes nfHammer { 0%{transform:rotate(0)} 40%{transform:rotate(-38deg)} 55%{transform:rotate(8deg); filter:brightness(2) drop-shadow(0 0 5px #fde68a)} 100%{transform:rotate(0)} }
+.nav-btn:hover .fx-hammer { animation: nfHammer .5s ease; }
+@keyframes nfCard { 0%{transform:rotateY(0)} 100%{transform:rotateY(360deg)} }
+.nav-btn:hover .fx-card { animation: nfCard .6s ease; }
+@keyframes nfSparkle { 0%,100%{transform:scale(1) rotate(0)} 50%{transform:scale(1.4) rotate(180deg); filter:drop-shadow(0 0 6px #fef08a) brightness(1.6)} }
+.nav-btn:hover .fx-sparkle { animation: nfSparkle .6s ease; }
+@keyframes nfWrench { 0%,100%{transform:rotate(0)} 25%{transform:rotate(20deg)} 75%{transform:rotate(-20deg)} }
+.nav-btn:hover .fx-wrench { animation: nfWrench .5s ease; }
+@keyframes nfTree { 0%,100%{transform:skewX(0) scale(1)} 30%{transform:skewX(-9deg) scale(1.06)} 70%{transform:skewX(7deg)} }
+.nav-btn:hover .fx-tree { animation: nfTree .7s ease; }
+@keyframes nfMedal { 0%,100%{transform:rotate(0)} 20%{transform:rotate(22deg)} 50%{transform:rotate(-16deg); filter:drop-shadow(0 0 5px #fde68a)} 80%{transform:rotate(9deg)} }
+.nav-btn:hover .fx-medal { animation: nfMedal .7s ease; }
+@keyframes nfTrophy { 0%{transform:translateY(0)} 40%{transform:translateY(-3px) scale(1.16); filter:drop-shadow(0 0 7px #fcd34d) brightness(1.5)} 100%{transform:translateY(0)} }
+.nav-btn:hover .fx-trophy { animation: nfTrophy .55s ease; }
+@keyframes nfPillar { 0%{transform:translateY(2px)} 100%{transform:translateY(-2px) scale(1.1); filter:brightness(1.3)} }
+.nav-btn:hover .fx-pillar { animation: nfPillar .4s ease forwards; }
+@keyframes nfCastle { 0%{transform:scaleY(.8)} 60%{transform:scaleY(1.16)} 100%{transform:scaleY(1)} }
+.nav-btn:hover .fx-castle { animation: nfCastle .5s ease; transform-origin: bottom; }
+@keyframes nfShield { 0%,100%{transform:scale(1)} 50%{transform:scale(1.26); filter:drop-shadow(0 0 7px #60a5fa)} }
+.nav-btn:hover .fx-shield { animation: nfShield .6s ease; }
+@keyframes nfCosmos { 0%{transform:rotate(0); filter:hue-rotate(0)} 100%{transform:rotate(360deg); filter:hue-rotate(360deg)} }
+.nav-btn:hover .fx-cosmos { animation: nfCosmos 1.2s linear; }
+@keyframes nfBook { 0%{transform:rotateX(0)} 100%{transform:rotateX(360deg)} }
+.nav-btn:hover .fx-book { animation: nfBook .6s ease; }
+@keyframes nfDice { 0%{transform:rotate(0) scale(1)} 30%{transform:rotate(140deg) scale(1.2)} 60%{transform:rotate(280deg) scale(.9)} 100%{transform:rotate(360deg) scale(1)} }
+.nav-btn:hover .fx-dice { animation: nfDice .6s ease; }
+@keyframes nfClash { 0%,100%{transform:translateX(0)} 20%{transform:translateX(-3px) rotate(-12deg); filter:drop-shadow(0 0 5px #f87171)} 40%{transform:translateX(3px) rotate(12deg)} 60%{transform:translateX(-2px)} 80%{transform:translateX(2px)} }
+.nav-btn:hover .fx-clash { animation: nfClash .5s ease; }
+@keyframes nfFerris { 0%{transform:rotate(0)} 100%{transform:rotate(360deg)} }
+.nav-btn:hover .fx-ferris { animation: nfFerris 1.6s linear; }
+@keyframes nfVoid { 0%,100%{transform:scale(1)} 50%{transform:scale(.72); filter:drop-shadow(0 0 9px #a855f7) brightness(.7)} }
+.nav-btn:hover .fx-void { animation: nfVoid .8s ease; }
+@keyframes nfZoom { 0%,100%{transform:scale(1)} 50%{transform:scale(1.42); filter:drop-shadow(0 0 4px #67e8f9)} }
+.nav-btn:hover .fx-zoom { animation: nfZoom .5s ease; }
+@keyframes nfQuest { 0%,100%{transform:translateX(0)} 40%{transform:translateX(2px) scale(1.16); filter:drop-shadow(0 0 5px #86efac)} }
+.nav-btn:hover .fx-quest { animation: nfQuest .45s ease; }
+@keyframes nfSignal { 0%{transform:scale(1)} 50%{transform:scale(1.22); filter:drop-shadow(0 0 7px #38bdf8)} 100%{transform:scale(1)} }
+.nav-btn:hover .fx-signal { animation: nfSignal .6s ease; }
+@keyframes nfMail { 0%,100%{transform:translateY(0) rotate(0)} 30%{transform:translateY(-3px) rotate(-9deg)} 60%{transform:translateY(0) rotate(7deg)} }
+.nav-btn:hover .fx-mail { animation: nfMail .55s ease; }
+@keyframes nfFriends { 0%,100%{transform:translateY(0)} 30%{transform:translateY(-3px) scale(1.12)} 60%{transform:translateY(0)} }
+.nav-btn:hover .fx-friends { animation: nfFriends .5s ease; }
+@keyframes nfBrain { 0%,100%{transform:scale(1)} 50%{transform:scale(1.2); filter:drop-shadow(0 0 8px #5eead4) brightness(1.4)} }
+.nav-btn:hover .fx-brain { animation: nfBrain .7s ease; }
+@keyframes nfSave { 0%,100%{transform:scale(1)} 50%{transform:scale(1.18); filter:drop-shadow(0 0 6px #4ade80)} }
+.nav-btn:hover .fx-save { animation: nfSave .4s ease; }
+@keyframes nfGear { 0%{transform:rotate(0)} 100%{transform:rotate(360deg)} }
+.nav-btn:hover .fx-gear { animation: nfGear .8s linear; }
+@media (prefers-reduced-motion: reduce) { .nav-btn:hover .nav-ico { animation: none !important; } }
+
 /* 细网格背景，营造维度空间感 */
 .grid-bg {
   background-image:
@@ -166,6 +224,42 @@ body {
 @keyframes enhReset { 0% { transform: scale(1); filter: none; } 30% { transform: scale(0.82) translateY(10px); filter: grayscale(0.85) brightness(0.55); } 100% { transform: scale(1); filter: grayscale(0.35) brightness(0.85); } }
 .enh-reset     { animation: enhReset 0.75s ease-in-out; }
 
+/* ── 世界结算卡（任务结算页·华丽金边框）── */
+.settlement-card {
+  position: relative;
+  margin: 14px 0;
+  padding: 20px 22px;
+  border-radius: 16px;
+  background:
+    radial-gradient(120% 80% at 50% 0%, rgba(245,196,90,0.10), transparent 60%),
+    linear-gradient(165deg, rgba(32,26,14,0.95), rgba(16,15,20,0.97));
+  border: 1px solid rgba(245,196,90,0.42);
+  box-shadow:
+    inset 0 0 0 1px rgba(245,196,90,0.10),
+    inset 0 0 26px rgba(245,196,90,0.06),
+    0 0 26px rgba(245,196,90,0.10),
+    0 10px 34px rgba(0,0,0,0.5);
+  overflow: hidden;
+}
+.settlement-card::before {            /* 顶部流光描边 */
+  content: ''; position: absolute; inset: 0; border-radius: 16px; padding: 1.5px; pointer-events: none;
+  background: linear-gradient(120deg, rgba(252,211,77,0.85), rgba(245,196,90,0.05) 28%, rgba(245,196,90,0.05) 72%, rgba(252,211,77,0.85));
+  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor; mask-composite: exclude;
+}
+.settlement-corner { position: absolute; width: 16px; height: 16px; border: 2px solid rgba(252,211,77,0.7); pointer-events: none; }
+.settlement-corner.tl { top: 7px; left: 7px; border-right: 0; border-bottom: 0; border-top-left-radius: 6px; }
+.settlement-corner.tr { top: 7px; right: 7px; border-left: 0; border-bottom: 0; border-top-right-radius: 6px; }
+.settlement-corner.bl { bottom: 7px; left: 7px; border-right: 0; border-top: 0; border-bottom-left-radius: 6px; }
+.settlement-corner.br { bottom: 7px; right: 7px; border-left: 0; border-top: 0; border-bottom-right-radius: 6px; }
+.settlement-body { position: relative; z-index: 1; }
+.settlement-body h2, .settlement-body h3 { color: #fcd34d; text-align: center; letter-spacing: 1px; text-shadow: 0 0 10px rgba(252,211,77,0.35); margin: 6px 0; }
+.settlement-body h4 { color: #f5c45a; margin: 12px 0 4px; border-left: 3px solid rgba(252,211,77,0.6); padding-left: 8px; }
+.settlement-body strong { color: #ffe6a8; }
+.settlement-body hr { border: 0; border-top: 1px dashed rgba(245,196,90,0.28); margin: 10px 0; }
+.settlement-body ul { margin: 4px 0; padding-left: 18px; }
+.settlement-body li { margin: 2px 0; }
+
 /* ─────────────────────────────────────────────────────────────
    弹窗字体整体放大：所有居中弹窗（.fixed.inset-0 覆盖层）内的小字号统一提升约 +1.5px，
    覆盖 任务/NPC/势力/领地/冒险团/万族/记忆/频道/私信/好友/存档/骰子/装备/背包 等全部面板。
@@ -183,3 +277,98 @@ body {
 .fixed.inset-0 .text-sm   { font-size: 0.97rem; }        /* 14 → ~15.5 */
 .fixed.inset-0 .text-base { font-size: 1.06rem; }        /* 16 → ~17 */
 .fixed.inset-0 .text-lg   { font-size: 1.2rem; }         /* 18 → ~19 */
+
+/* ─────────────────────────────────────────────────────────────
+   血条 / 蓝条 皮肤（HP/EP bar skins，玩家在主角侧栏「✎ 自定义血条」里切换，10 款·多层炫彩）
+   分层：fill 背景(渐变/纹理) → ::before 玻璃高光+前沿能量亮边 → ::after 斜向流光扫过（后两者全款共享）。
+   外层 track 不裁切让 box-shadow 辉光外溢；fill 自身 overflow:hidden 裁切高光/流光/纹理层。
+   命名 bf-<style>-hp / -ep（hp 暖色 / ep 冷色）。纯展示，不碰 hp/ep 数值与指令。
+   ───────────────────────────────────────────────────────────── */
+.barfill { position: relative; height: 100%; border-radius: 9999px; overflow: hidden; transition: width .3s ease; }
+/* 通用①：玻璃高光(上) + 前沿能量亮边(右)，所有皮肤共享，营造立体厚度感 */
+.barfill::before { content:''; position:absolute; inset:0; border-radius:inherit; pointer-events:none; z-index:2;
+  background:linear-gradient(180deg,rgba(255,255,255,.42),rgba(255,255,255,.08) 42%,transparent 62%),linear-gradient(90deg,transparent 76%,rgba(255,255,255,.5)); }
+/* 通用②：斜向流光周期性扫过，所有皮肤共享 */
+.barfill::after { content:''; position:absolute; top:0; bottom:0; left:0; width:32%; z-index:3; pointer-events:none;
+  background:linear-gradient(105deg,transparent,rgba(255,255,255,.55),transparent); animation:barSweep 3.4s ease-in-out infinite; }
+
+/* 1 经典（立体管状）*/
+.bf-classic-hp { background:linear-gradient(180deg,#f05252,#b91c1c); }
+.bf-classic-ep { background:linear-gradient(180deg,#38bdf8,#0369a1); }
+/* 2 霓虹（流光 + 双重辉光）*/
+.bf-neon-hp { background:linear-gradient(90deg,#ff2d55,#ff85a1,#ff2d55); background-size:200% 100%; box-shadow:0 0 6px #ff2d55,0 0 15px rgba(255,45,85,.7); animation:barFlow 4s linear infinite; }
+.bf-neon-ep { background:linear-gradient(90deg,#00e5ff,#5cffe4,#00e5ff); background-size:200% 100%; box-shadow:0 0 6px #00e5ff,0 0 15px rgba(0,229,255,.7); animation:barFlow 4s linear infinite; }
+/* 3 熔岩（火焰呼吸 + 余烬漂移）*/
+.bf-lava-hp { background:radial-gradient(2px 2px at 20% 65%,rgba(255,235,160,.95),transparent 60%),radial-gradient(2px 2px at 62% 35%,rgba(255,190,80,.85),transparent 60%),linear-gradient(90deg,#7f1d1d,#ea580c,#f59e0b,#fde68a); background-size:45% 100%,55% 100%,100% 100%; box-shadow:0 0 9px rgba(249,115,22,.75); animation:barFlicker 1.5s ease-in-out infinite,barEmber 3.6s linear infinite; }
+.bf-lava-ep { background:radial-gradient(2px 2px at 22% 62%,rgba(200,255,255,.95),transparent 60%),radial-gradient(2px 2px at 64% 36%,rgba(120,230,255,.85),transparent 60%),linear-gradient(90deg,#0c4a6e,#0891b2,#06b6d4,#a5f3fc); background-size:45% 100%,55% 100%,100% 100%; box-shadow:0 0 9px rgba(6,182,212,.75); animation:barFlicker 1.5s ease-in-out infinite,barEmber 3.6s linear infinite; }
+/* 4 冰晶（棱面流光）*/
+.bf-frost-hp { background:linear-gradient(120deg,#fb7185,#fecdd3 45%,#fff1f2 52%,#fb7185); background-size:220% 100%; box-shadow:0 0 8px #fda4af; animation:barFlow 6s linear infinite; }
+.bf-frost-ep { background:linear-gradient(120deg,#22d3ee,#cffafe 45%,#ffffff 52%,#22d3ee); background-size:220% 100%; box-shadow:0 0 8px #a5f3fc; animation:barFlow 6s linear infinite; }
+/* 5 毒液（气泡上浮 + 呼吸）*/
+.bf-toxic-hp { background:radial-gradient(2.5px 2.5px at 30% 75%,rgba(220,255,150,.9),transparent 60%),radial-gradient(2px 2px at 62% 85%,rgba(190,255,120,.8),transparent 60%),linear-gradient(90deg,#365314,#4d7c0f,#84cc16,#bef264); background-size:38% 100%,48% 100%,100% 100%; box-shadow:0 0 9px rgba(132,204,22,.7); animation:barBubble 3s linear infinite,barFlicker 2.4s ease-in-out infinite; }
+.bf-toxic-ep { background:radial-gradient(2.5px 2.5px at 30% 75%,rgba(235,185,255,.9),transparent 60%),radial-gradient(2px 2px at 62% 85%,rgba(215,150,255,.8),transparent 60%),linear-gradient(90deg,#4c1d95,#7e22ce,#a855f7,#d8b4fe); background-size:38% 100%,48% 100%,100% 100%; box-shadow:0 0 9px rgba(168,85,247,.7); animation:barBubble 3s linear infinite,barFlicker 2.4s ease-in-out infinite; }
+/* 6 黄金（厚金流光）*/
+.bf-gold-hp { background:linear-gradient(90deg,#92400e,#d97706,#fbbf24,#fffbeb,#fbbf24,#d97706); background-size:220% 100%; box-shadow:0 0 9px rgba(251,191,36,.8); animation:barFlow 3.5s linear infinite; }
+.bf-gold-ep { background:linear-gradient(90deg,#854d0e,#ca8a04,#facc15,#fefce8,#facc15,#ca8a04); background-size:220% 100%; box-shadow:0 0 9px rgba(250,204,21,.8); animation:barFlow 3.5s linear infinite; }
+/* 7 赛博（分段 + 扫描滚动）*/
+.bf-cyber-hp { background:repeating-linear-gradient(90deg,#fb7185 0 6px,#f43f5e 6px 8px,#7f1d3a 8px 10px); box-shadow:0 0 8px rgba(244,63,94,.7); animation:barScan 1s linear infinite; }
+.bf-cyber-ep { background:repeating-linear-gradient(90deg,#67e8f9 0 6px,#06b6d4 6px 8px,#0e3a4f 8px 10px); box-shadow:0 0 8px rgba(6,182,212,.7); animation:barScan 1s linear infinite; }
+/* 8 血雾（红/蓝脉冲辉光 + 雾流）*/
+.bf-bloodmist-hp { background:linear-gradient(90deg,#450a0a,#991b1b,#ef4444,#991b1b,#450a0a); background-size:200% 100%; animation:barPulseRed 1.8s ease-in-out infinite,barFlow 6s linear infinite; }
+.bf-bloodmist-ep { background:linear-gradient(90deg,#1e1b4b,#3730a3,#818cf8,#3730a3,#1e1b4b); background-size:200% 100%; animation:barPulseBlue 1.8s ease-in-out infinite,barFlow 6s linear infinite; }
+/* 9 星河（多色流动 + 闪烁）*/
+.bf-galaxy-hp { background:linear-gradient(90deg,#831843,#db2777,#7c3aed,#4f46e5,#7c3aed,#db2777,#831843); background-size:220% 100%; box-shadow:0 0 9px rgba(168,85,247,.7); animation:barFlow 5s linear infinite,barTwinkle 2.4s ease-in-out infinite; }
+.bf-galaxy-ep { background:linear-gradient(90deg,#1e3a8a,#1d4ed8,#3b82f6,#22d3ee,#3b82f6,#1d4ed8,#1e3a8a); background-size:220% 100%; box-shadow:0 0 9px rgba(59,130,246,.7); animation:barFlow 5s linear infinite,barTwinkle 2.4s ease-in-out infinite; }
+/* 10 等离子（流动 + 色相流转）*/
+.bf-plasma-hp { background:linear-gradient(90deg,#ff0080,#ff8c00,#ffee00,#ff0080); background-size:300% 100%; box-shadow:0 0 10px rgba(255,0,128,.75); animation:barFlow 2.4s linear infinite,barHue 5s linear infinite; }
+.bf-plasma-ep { background:linear-gradient(90deg,#00d4ff,#7c3aed,#00ffd0,#00d4ff); background-size:300% 100%; box-shadow:0 0 10px rgba(124,58,237,.75); animation:barFlow 2.4s linear infinite,barHue 5s linear infinite; }
+/* ── 第二批（网络灵感原创：条纹/液体/格栅/聚能/极光）── */
+/* 11 条纹（理发店转灯·斜纹流动）*/
+.bf-stripe-hp { background:repeating-linear-gradient(45deg,#f87171 0 11px,#dc2626 11px 22px); box-shadow:0 0 7px rgba(239,68,68,.6); animation:barStripe .7s linear infinite; }
+.bf-stripe-ep { background:repeating-linear-gradient(45deg,#7dd3fc 0 11px,#0ea5e9 11px 22px); box-shadow:0 0 7px rgba(56,189,248,.6); animation:barStripe .7s linear infinite; }
+/* 12 波涛（液体水面·波纹横流）*/
+.bf-wave-hp { background:radial-gradient(10px 8px at 0 -2px,#fecaca,transparent 70%),linear-gradient(180deg,#f87171,#7f1d1d); background-size:20px 100%,100% 100%; background-repeat:repeat-x,no-repeat; box-shadow:0 0 8px rgba(239,68,68,.6); animation:barWaveMove 1.6s linear infinite; }
+.bf-wave-ep { background:radial-gradient(10px 8px at 0 -2px,#bae6fd,transparent 70%),linear-gradient(180deg,#38bdf8,#075985); background-size:20px 100%,100% 100%; background-repeat:repeat-x,no-repeat; box-shadow:0 0 8px rgba(14,165,233,.6); animation:barWaveMove 1.6s linear infinite; }
+/* 13 格栅（能量格·分块呼吸）*/
+.bf-cells-hp { background:repeating-linear-gradient(90deg,#f87171 0 15px,#dc2626 15px 17px,#450a0a 17px 20px); box-shadow:0 0 8px rgba(239,68,68,.65); animation:barTwinkle 1.8s ease-in-out infinite; }
+.bf-cells-ep { background:repeating-linear-gradient(90deg,#7dd3fc 0 15px,#0ea5e9 15px 17px,#0c2a3f 17px 20px); box-shadow:0 0 8px rgba(56,189,248,.65); animation:barTwinkle 1.8s ease-in-out infinite; }
+/* 14 聚能（能量充能·亮端渐强 + 脉冲）*/
+.bf-charge-hp { background:linear-gradient(90deg,#5f1414,#b91c1c 55%,#ef4444 80%,#fecaca 94%,#fff); animation:barPulseRed 1.4s ease-in-out infinite; }
+.bf-charge-ep { background:linear-gradient(90deg,#0c2a3f,#0369a1 55%,#0ea5e9 80%,#bae6fd 94%,#fff); animation:barPulseBlue 1.4s ease-in-out infinite; }
+/* 15 极光（柔彩流动·北境之光）*/
+.bf-aurora-hp { background:linear-gradient(90deg,#f472b6,#c084fc,#818cf8,#5eead4,#c084fc,#f472b6); background-size:220% 100%; box-shadow:0 0 9px rgba(192,132,252,.6); animation:barFlow 7s linear infinite; }
+.bf-aurora-ep { background:linear-gradient(90deg,#5eead4,#38bdf8,#818cf8,#a5b4fc,#38bdf8,#5eead4); background-size:220% 100%; box-shadow:0 0 9px rgba(56,189,248,.6); animation:barFlow 7s linear infinite; }
+@keyframes barStripe   { to { background-position:31px 0 } }
+@keyframes barWaveMove { to { background-position:20px 0,0 0 } }
+/* ── 第三批（网游血条风·原创复刻风格特征，不嵌任何游戏图片素材）── */
+/* 16 翠盟（MMO 翠绿生命 / 蔚蓝法力，WoW·LoL·FF 经典配色）*/
+.bf-verdant-hp { background:linear-gradient(180deg,#86efac,#22c55e 52%,#15803d); box-shadow:0 0 8px rgba(34,197,94,.6); }
+.bf-verdant-ep { background:linear-gradient(180deg,#93c5fd,#3b82f6 52%,#1d4ed8); box-shadow:0 0 8px rgba(59,130,246,.6); }
+/* 17 魔渊（暗黑破坏神·液体宝珠：玻璃穹顶高光 + 深液质感）*/
+.bf-orb-hp { background:radial-gradient(120% 150% at 50% -30%,rgba(255,255,255,.55),rgba(255,255,255,.1) 35%,transparent 55%),linear-gradient(180deg,#ef4444,#991b1b 45%,#3f0a0a); box-shadow:0 0 10px rgba(220,38,38,.7); }
+.bf-orb-ep { background:radial-gradient(120% 150% at 50% -30%,rgba(255,255,255,.55),rgba(255,255,255,.1) 35%,transparent 55%),linear-gradient(180deg,#3b82f6,#1e40af 45%,#172554); box-shadow:0 0 10px rgba(37,99,235,.7); }
+/* 18 街机（格斗游戏·黄橙红生命 + 青色超必杀槽脉冲）*/
+.bf-arcade-hp { background:linear-gradient(180deg,#fde047,#f59e0b 42%,#ea580c,#dc2626); box-shadow:0 0 8px rgba(245,158,11,.65); }
+.bf-arcade-ep { background:linear-gradient(180deg,#a5f3fc,#22d3ee 45%,#0891b2); box-shadow:0 0 9px rgba(34,211,238,.7); animation:barTwinkle 1.6s ease-in-out infinite; }
+/* 19 魂界（魂系·暗血红极简 + 顶端金线饰边）*/
+.bf-souls-hp { background:linear-gradient(180deg,rgba(253,224,71,.55) 0 1.5px,transparent 1.5px),linear-gradient(180deg,#9f1239,#7f1d1d 50%,#450a0a); box-shadow:0 0 6px rgba(159,18,57,.5); }
+.bf-souls-ep { background:linear-gradient(180deg,rgba(253,224,71,.55) 0 1.5px,transparent 1.5px),linear-gradient(180deg,#3b6ea5,#1e3a5f 50%,#0f1f33); box-shadow:0 0 6px rgba(59,110,165,.5); }
+/* 20 刻度（MOBA/Boss 血条·黑色分段刻度线）*/
+.bf-ticks-hp { background:repeating-linear-gradient(90deg,transparent 0 13px,rgba(0,0,0,.5) 13px 15px),linear-gradient(180deg,#fdba74,#f97316,#c2410c); box-shadow:0 0 7px rgba(249,115,22,.6); }
+.bf-ticks-ep { background:repeating-linear-gradient(90deg,transparent 0 13px,rgba(0,0,0,.5) 13px 15px),linear-gradient(180deg,#7dd3fc,#0ea5e9,#0369a1); box-shadow:0 0 7px rgba(14,165,233,.6); }
+
+@keyframes barSweep   { 0%{transform:translateX(-180%) skewX(-16deg)} 55%,100%{transform:translateX(380%) skewX(-16deg)} }
+@keyframes barFlow    { 0%{background-position:0% 50%} 100%{background-position:200% 50%} }
+@keyframes barFlicker { 0%,100%{filter:brightness(1)} 50%{filter:brightness(1.4)} }
+@keyframes barScan    { 0%{background-position:0 0} 100%{background-position:-20px 0} }
+@keyframes barHue     { 0%{filter:hue-rotate(0)} 100%{filter:hue-rotate(360deg)} }
+@keyframes barTwinkle { 0%,100%{filter:brightness(1)} 50%{filter:brightness(1.45)} }
+@keyframes barEmber   { 0%{background-position:0% 80%,0% 30%,0 0} 100%{background-position:120% 10%,130% 70%,0 0} }
+@keyframes barBubble  { 0%{background-position:0% 120%,0% 130%,0 0} 100%{background-position:30% -60%,-30% -70%,0 0} }
+@keyframes barPulseRed  { 0%,100%{box-shadow:0 0 4px rgba(185,28,28,.55)} 50%{box-shadow:0 0 13px #ef4444,0 0 22px rgba(239,68,68,.5)} }
+@keyframes barPulseBlue { 0%,100%{box-shadow:0 0 4px rgba(67,56,202,.55)} 50%{box-shadow:0 0 13px #818cf8,0 0 22px rgba(129,140,248,.5)} }
+/* 血量过低告警：HP ≤ 20% 时该条转红急促闪烁（由 Bar.tsx 加 .bf-danger，覆盖任何皮肤）*/
+.bf-danger { animation: barDanger .55s ease-in-out infinite !important; }
+@keyframes barDanger { 0%,100%{ background:#ef4444; box-shadow:0 0 10px #ef4444,0 0 18px rgba(239,68,68,.55); } 50%{ background:#7f1d1d; box-shadow:0 0 3px rgba(239,68,68,.5); } }
+/* 减少动态：所有皮肤动画关闭；告警仍保留静态红(去掉闪烁) */
+@media (prefers-reduced-motion: reduce) { .barfill, .barfill::after { animation: none !important; } .bf-danger { background:#dc2626 !important; box-shadow:0 0 8px #ef4444 !important; } }

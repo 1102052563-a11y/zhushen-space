@@ -13,7 +13,9 @@ import {
   type AttrKey, type Difficulty, type Advantage, type ResolveResult, type ResolveSide, type DiceAttrs, type EquipItemLite,
 } from '../systems/diceEngine';
 import { aiJudge, aiSuggest, buildJudgeBlock, type JudgeOutcome } from '../systems/diceJudge';
-import { effectiveAttrs } from '../systems/attrBonus';
+import { effectiveAttrs, withAttrDelta } from '../systems/attrBonus';
+import { playerTreeAttrBonus } from '../store/skillTreeStore';
+import { playerTeamAttrBonus } from '../store/adventureTeamStore';
 
 const LEVEL_COLOR: Record<string, string> = {
   大成功: 'text-amber-300', 碾压成功: 'text-emerald-300', 极难成功: 'text-emerald-300',
@@ -119,7 +121,7 @@ export default function DicePanel({ onClose, onInject }: { onClose: () => void; 
       if (social) favorTier = favorTierFromValue(foe.favor);
     }
     return resolve({
-      mode, attrs: effectiveAttrs(profile.attrs, [], [], items.filter((it) => it.equipped)) as DiceAttrs, attrKey, difficulty,
+      mode, attrs: effectiveAttrs(withAttrDelta(withAttrDelta(profile.attrs, playerTreeAttrBonus()), playerTeamAttrBonus()), [], [], items.filter((it) => it.equipped)) as DiceAttrs, attrKey, difficulty,
       skills: pskills, talents: ptalents, equipped: pEquipped,
       favorTier, extraMod, includeLuck: settings.includeLuck, advantage,
       opposed, myStrengthScore: strengthScoreFromBio(profile.bioStrength, profile.level),

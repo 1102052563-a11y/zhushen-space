@@ -92,12 +92,13 @@ export interface NpcRecord {
   arenaRank?: string;     // 竞技场排名
   brandLevel?: string;    // 烙印等级
   contractorId?: string;  // 契约者编号（ID）
-  advancePoints?: number; // 进阶点数（升级消耗，正文获取则增加，初始0）
+  affiliatedTeam?: string;// 隶属冒险团（仅契约者标签 NPC：生成时可能隶属某冒险团，存如"暗渊远征队·斥候"或"暗渊远征队（队长）"；主角可在私聊中请求加入）
   attrPoints?: number;    // 属性点（完全按正文更新，正文没出现就不动）
   realAttrPoints?: number;// 真实属性点（完全按正文更新，正文没出现就不动）
   skillPoints?: number;   // 技能点（完全按正文更新，正文没出现就不动）
   statusEffects?: StatusEffect[]; // 限时状态（引擎自动过期）
   bioStrength?: string;   // 生物强度模板（T0杂鱼~T9源初，存如"T3·勇士"；含非人生物，按强度框架）
+  unitType?: string;      // 类型标签（封闭枚举：武者战士/平民百姓/凶兽魔兽…→收编 职业排序/形态/凡人，供机械生成六维）
   age?: string;           // 年龄（正文有则照抄，没有则按设定生成；可写"约25岁/青年"等）
   review?: string;        // 诙谐评价（玩家视角的吐槽/锐评，幽默风格）
   npcTag?: string;        // 标签（限定：契约者/土著/随从/宠物/召唤物）
@@ -155,6 +156,7 @@ const COL_TO_FIELD: Record<string, keyof NpcRecord | null> = {
   // 命名键（add("C1",{...}) 直接用字段名/中文别名）
   'review': 'review', '评价': 'review',
   'npcTag': 'npcTag', '标签': 'npcTag', 'tag': 'npcTag',
+  'affiliatedTeam': 'affiliatedTeam', '冒险团': 'affiliatedTeam', '隶属冒险团': 'affiliatedTeam', '所属冒险团': 'affiliatedTeam',
   'age': 'age', '年龄': 'age',
   'imageTags': 'imageTags', '画像提示': 'imageTags', '生图提示词': 'imageTags',
 };
@@ -168,6 +170,10 @@ export function defaultNpcRecord(id: string): NpcRecord {
     onScene: true, updatedAt: Date.now(),
   };
 }
+
+/** 合法 NPC 编号：C 系（契约者/角色）+ G 系（召唤物/怪物）。AI 自创的 P_xxx / 名字缩写等都不算，
+ *  因为全部短指令(character.C\d+ / hp.C\d+ …)只匹配 C\d+/[CG]\d+，非法 ID 的更新会被静默丢弃。 */
+export const isNpcId = (id: string): boolean => /^[CG]\d+$/.test(id);
 
 interface NpcState {
   npcs: Record<string, NpcRecord>;
@@ -189,6 +195,7 @@ interface NpcState {
   hardRemoveNpc: (id: string) => void;    // 物理删除（清理路人）
   absorbOrphans: () => number;            // 把"只有物品没有档案"的空壳并入真实NPC
   dedupeByName: () => number;             // 合并同名真实NPC（防一回合/跨回合重复建档），返回合并掉的数量
+  normalizeNpcIds: () => number;          // 把 AI 自创的非法 ID(如 P_Aesc)重命名成空闲 C 编号 + 迁移技能/改写人际关系引用，返回修复数
   clearAll: () => void;
   addNpcItem: (ownerId: string, item: NpcOwnedItem) => void;
   dedupeNpcItems: (ownerId?: string) => void;   // 合并某NPC(或全部)储存空间内同名重复物品（可堆叠累加/装备取大值）
@@ -373,6 +380,8 @@ export const useNpc = create<NpcState>()(
           if (g('lg')) rec.extra = { ...rec.extra, '5': g('lg') }; // 灵根/天赋 → 列5
           if (g('bg')) rec.background = g('bg');      // 列10
           if (g('act')) rec.appearance5 = g('act');   // 列16
+          if (g('bs')) rec.bioStrength = g('bs');      // AI 登场判断据正文给的生物强度档/定位(T0~T9 或 杂鱼/首领…)→ 供 autoGen 生成贴合六维
+          if (g('ty')) rec.unitType = g('ty');         // AI 登场判断据正文选的类型标签(封闭枚举)→ 供 autoGen 按类型生成主属性方向/形态/凡人
           if (short['extraSy'] != null) rec.extra = { ...rec.extra, 额外寿元: g('extraSy') };
           if (short['apAge'] != null)   rec.extra = { ...rec.extra, 外貌年龄: g('apAge') };
           if (g('yrr')) rec.extra = { ...rec.extra, 驻颜理由: g('yrr') };
@@ -510,7 +519,7 @@ export const useNpc = create<NpcState>()(
               merged.items = items;
               if (dup.onScene) merged.onScene = true;
               // keeper 缺失的字段用 dup 补全
-              for (const f of ['realm', 'personality', 'background', 'appearanceDetail', 'title', 'profession', 'contractorId', 'gender', 'attrs', 'avatar', 'imageTags'] as (keyof NpcRecord)[]) {
+              for (const f of ['realm', 'personality', 'background', 'appearanceDetail', 'title', 'profession', 'contractorId', 'affiliatedTeam', 'gender', 'attrs', 'avatar', 'imageTags'] as (keyof NpcRecord)[]) {
                 if ((merged[f] == null || merged[f] === '') && dup[f] != null && dup[f] !== '') (merged as any)[f] = dup[f];
               }
               delete next[dup.id];
@@ -528,6 +537,46 @@ export const useNpc = create<NpcState>()(
           return s;
         });
         return removed;
+      },
+
+      normalizeNpcIds: () => {
+        let fixed = 0;
+        const remap = new Map<string, string>();   // 旧非法ID → 新 C 编号
+        set((s) => {
+          const bad = Object.keys(s.npcs).filter((id) => !isNpcId(id));
+          if (bad.length === 0) return s;
+          const used = new Set(Object.keys(s.npcs));
+          const nextC = () => { let n = 1; while (used.has(`C${n}`)) n++; const id = `C${n}`; used.add(id); return id; };
+          const next = { ...s.npcs };
+          for (const oldId of bad) {
+            const newId = nextC();
+            remap.set(oldId, newId);
+            next[newId] = { ...next[oldId], id: newId, updatedAt: Date.now() };
+            delete next[oldId];
+            fixed++;
+            console.warn(`[NPC] 非法ID规范化：${oldId} → ${newId}（${next[newId].name || '?'}）`);
+          }
+          // 改写所有 NPC 对旧 ID 的引用：人际关系(列13 "id:关系" 的左侧) + 契约者ID
+          for (const [id, r] of Object.entries(next)) {
+            let patch: Partial<NpcRecord> | null = null;
+            if (typeof r.relations === 'string' && r.relations) {
+              // 只替换每段 "左侧ID:" 的左侧（遇到第一个冒号为界），不碰关系描述文本
+              const rel2 = r.relations.replace(/([^;；\n:：]+)([:：])/g, (m, left: string, sep: string) => {
+                const mapped = remap.get(left.trim());
+                return mapped ? mapped + sep : m;
+              });
+              if (rel2 !== r.relations) patch = { relations: rel2 };
+            }
+            if (r.contractorId && remap.has(r.contractorId)) patch = { ...(patch ?? {}), contractorId: remap.get(r.contractorId)! };
+            if (patch) next[id] = { ...next[id], ...patch };
+          }
+          return { npcs: next };
+        });
+        if (fixed) {
+          // 同步把技能/天赋/称号/记忆迁到新 ID（characterStore 也按 ID 索引）
+          try { for (const [o, n] of remap) useCharacters.getState().renameCharacter(o, n); } catch { /* ignore */ }
+        }
+        return fixed;
       },
 
       clearAll: () => {

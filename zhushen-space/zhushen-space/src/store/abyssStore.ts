@@ -9,7 +9,14 @@ import { ABYSS_STARMAP, ABYSS_BIOMES, type AbyssLoot, type BoonCard } from '../d
 import { usePlayer } from './playerStore';
 import { useNpc } from './npcStore';
 import { useCosmos } from './cosmosStore';
+import { useCharacters } from './characterStore';
 import { useItems, gradeToNum, ITEM_GRADES } from './itemStore';
+
+/** 读某角色的技能（名+效果，战斗施放用；只读，隔离）。 */
+function readSkills(charId: string): { name: string; effect: string }[] {
+  const ch = useCharacters.getState().characters[charId];
+  return (ch?.skills ?? []).map((s: any) => ({ name: String(s.name || '').slice(0, 16), effect: String(s.effect ?? s.desc ?? '').slice(0, 80) })).filter((s) => s.name).slice(0, 8);
+}
 import { lvFromRealm } from '../systems/derivedStats';
 
 /* ════════════════════════════════════════════
@@ -57,8 +64,8 @@ interface AbyssState {
   start: (opts?: StartRunOpts) => boolean;
   /** 进入下一房间（战斗房→建立战斗态；非战斗房→即时结算）。 */
   enter: () => void;
-  /** 交互式战斗：玩家一次行动（攻击/防御/撤离），推进一回合。 */
-  act: (action: 'attack' | 'defend' | 'flee', targetIdx?: number) => void;
+  /** 交互式战斗：玩家一次行动（攻击/技能/防御/撤离），推进一回合。 */
+  act: (action: 'attack' | 'defend' | 'flee' | 'skill', targetIdx?: number, skillIdx?: number) => void;
   /** 面板把 AI 生成的敌人面板单位写回战斗（精英/区主；null=回退保留数据敌人）。 */
   setFightEnemies: (units: AbyssUnit[] | null) => void;
   /** 战斗中发动堕落形态（满堕落、本场未用过）。 */
@@ -125,7 +132,7 @@ function snapshotPlayer(): PlayerSnapshot {
   const equipped = useItems.getState().items
     .filter((it) => it.equipped)
     .map((it) => ({ category: it.category as string, grade: gradeToNum(it.gradeDesc) }));
-  return { name: p.name, attrs: p.attrs, level: p.level, tier: p.tier, equipped };
+  return { name: p.name, attrs: p.attrs, level: p.level, tier: p.tier, equipped, skills: readSkills('B1') };
 }
 
 /* 结算吸收：本局选过的加成卡进卡牌库（去重累计）、原罪物进图鉴（§8.6） */
@@ -192,7 +199,7 @@ export const useAbyss = create<AbyssState>()(
           if (!n) return null;
           return buildAllyUnit({
             name: n.name, attrs: n.attrs ?? { str: 10, agi: 10, con: 10, int: 10, cha: 10, luck: 10 },
-            level: lvFromRealm(n.realm) || 10, tier: n.realm, equipped: [],
+            level: lvFromRealm(n.realm) || 10, tier: n.realm, equipped: [], skills: readSkills(id),
           }, i + 1);
         }).filter((u): u is NonNullable<typeof u> => !!u);
         const m = get().meta;
@@ -241,10 +248,10 @@ export const useAbyss = create<AbyssState>()(
         set({ run: next, meta: { ...get().meta, deepestFloor: Math.max(get().meta.deepestFloor, next.globalDepth) } });
       },
 
-      act: (action, targetIdx = 0) => {
+      act: (action, targetIdx = 0, skillIdx = 0) => {
         const run = get().run;
         if (!run || run.status !== 'fighting') return;
-        set({ run: combatAct(run, action, targetIdx) });
+        set({ run: combatAct(run, action, targetIdx, skillIdx) });
       },
 
       setFightEnemies: (units) => set((s) => (s.run?.fight?.pendingPanel ? { run: applyEnemyPanels(s.run, units) } : {})),

@@ -19,6 +19,15 @@ const ATTR_ALIASES: Record<keyof PlayerAttrs, string[]> = {
 
 export type AttrDelta = Partial<Record<keyof PlayerAttrs, number>>;
 
+/* 把一组增减叠加到六维（用于把技能树等加成折进有效属性 base，供所有判定生效）*/
+export function withAttrDelta(base: PlayerAttrs | undefined, delta?: AttrDelta): PlayerAttrs {
+  const b = base ?? { str: 5, agi: 5, con: 5, int: 5, cha: 5, luck: 5 };
+  if (!delta) return b;
+  const out = { ...b } as PlayerAttrs;
+  for (const k of ATTR_KEYS) if (delta[k]) (out as any)[k] = ((out as any)[k] ?? 0) + delta[k]!;
+  return out;
+}
+
 /* 从一段文本解析六维增减：识别 "力量+5" / "+5力量" / "敏捷 +2" / "智力:8"；忽略百分比(如 暴击+10%) */
 export function parseAttrBonus(text?: string): AttrDelta {
   const out: AttrDelta = {};

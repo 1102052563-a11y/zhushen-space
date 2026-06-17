@@ -27,6 +27,7 @@ interface Props {
   onRawResponse: (raw: string) => void;
   onPromptSent: (prompt: string) => void;
   onWorlds: (worlds: WorldOption[]) => void;
+  onSettle?: () => void;   // 点「结算任务」：把【结算任务】塞进输入框，由正文 AI 按结算规则结算回归
 }
 
 type Stage = 'idle' | 'config' | 'loading' | 'results' | 'error';
@@ -70,7 +71,7 @@ function extractJson(raw: string): WorldOption[] {
   throw new Error('模型未返回有效 JSON，请点击「查看返回」查看原始内容');
 }
 
-export default function WorldSelector({ onSelect, onRawResponse, onPromptSent, onWorlds }: Props) {
+export default function WorldSelector({ onSelect, onRawResponse, onPromptSent, onWorlds, onSettle }: Props) {
   const [stage, setStage] = useState<Stage>('idle');
   const [rank, setRank] = useState('');
   const [rolls, setRolls] = useState<number[]>([]);
@@ -214,13 +215,22 @@ export default function WorldSelector({ onSelect, onRawResponse, onPromptSent, o
   /* ── idle ── */
   if (stage === 'idle') {
     return (
-      <div className="shrink-0 border-t border-edge bg-panel px-3 py-2 flex items-center">
+      <div className="shrink-0 border-t border-edge bg-panel px-3 py-2 flex items-center gap-2">
         <button
           onClick={() => setStage('config')}
           className="flex items-center gap-2 px-3 py-1.5 border border-god/30 text-god text-sm rounded hover:bg-god/10 transition-colors font-mono"
         >
           🌍 选择世界
         </button>
+        {onSettle && (
+          <button
+            onClick={onSettle}
+            title="结算本世界任务：在输入框插入【结算任务】，发送后由正文 AI 按结算规则回归专属房间并发放奖励"
+            className="flex items-center gap-2 px-3 py-1.5 border border-amber-500/40 text-amber-300 text-sm rounded hover:bg-amber-500/10 transition-colors font-mono"
+          >
+            📊 结算任务
+          </button>
+        )}
       </div>
     );
   }

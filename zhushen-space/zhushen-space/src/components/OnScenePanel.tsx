@@ -1,6 +1,6 @@
 import { useRef, useState } from 'react';
 import { useNpc, type NpcRecord } from '../store/npcStore';
-import { lvFromRealm, computeMaxHp, computeMaxEp, gearMaxHpBonus, gearMaxEpBonus, effectiveResource } from '../systems/derivedStats';
+import { lvFromRealm, computeMaxHp, computeMaxEp, gearMaxHpBonus, gearMaxEpBonus, effectiveResource, fullMaxHp, fullMaxEp } from '../systems/derivedStats';
 import { useImageViewer } from '../store/imageViewerStore';
 import { PortraitPicker } from './PortraitPicker';
 
@@ -112,10 +112,10 @@ function OnSceneCard({ npc, onOpen }: { npc: NpcRecord; onOpen: () => void }) {
         </div>
         {identity && <div className="text-[11px] text-dim/55 truncate">{identity}</div>}
         {(npc.attrs != null || npc.hp != null || npc.mp != null) && (() => {
-          // 最大HP/EP = 基础六维换算 + 装备"增加HP/EP上限"效果
+          // 最大HP/EP = 基础六维换算 + 装备"增加HP/EP上限"平值 + 百分比加成
           const eqp = (npc.items ?? []).filter((it) => it.equipped);
-          const maxHp = computeMaxHp(npc.attrs) + gearMaxHpBonus(eqp);
-          const maxEp = computeMaxEp(npc.attrs) + gearMaxEpBonus(eqp);
+          const maxHp = fullMaxHp(npc.attrs, eqp);
+          const maxEp = fullMaxEp(npc.attrs, eqp);
           return (
             <div className="flex items-center gap-2 text-[10px] font-mono whitespace-nowrap">
               <span className="text-rose-400/80">❤{effectiveResource(npc.hp, npc.maxHp, maxHp)}/{maxHp}</span>

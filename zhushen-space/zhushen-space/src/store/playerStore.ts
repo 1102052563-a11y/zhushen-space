@@ -50,7 +50,6 @@ export interface PlayerProfile {
   // 身份信息
   name: string;          // 姓名
   level: number;         // 等级
-  advancePoints: number; // 进阶点数（升级消耗，正文获取则增加，初始0）
   worldSource: number;   // 世界之源（当前任务世界累计获取，回归乐园后归0）
   attrPoints: number;    // 属性点（完全按正文更新，正文没出现就不动）
   realAttrPoints: number;// 真实属性点（完全按正文更新，正文没出现就不动）
@@ -72,6 +71,11 @@ export interface PlayerProfile {
   gender?: string;       // 性别（开局设定；生图据此强制 1boy/1girl 标签，避免被外观特征误判）
   race?: string;         // 种族（开局设定，如 人类/精灵/吸血鬼…）
   raceDetail?: string;   // 种族详情（自由文本：外貌特征/天生能力/弱点/文化等，注入 AI 上下文）
+  hpLabel?: string;      // HP 条自定义称呼（换皮，如吸血鬼「血池」；空=默认「生命 HP」。仅用于渲染+喂 AI 行文措辞，hp 数值与 <state> 指令通道永不改名）
+  epLabel?: string;      // EP 条自定义称呼（换皮，如「血怒」；空=默认「蓝量 EP」）
+  barStyle?: string;     // 血条/蓝条皮肤 id（纯展示外观切换，见 Bar.tsx BAR_STYLES；空=经典）
+  personality?: string;  // 性格特质（简短，如 冷静、谨慎、重情义）
+  personalityDetail?: string;  // 性格详细描述（自由文本，注入 AI 上下文；主角面板点击「📖详情」查看/编辑）
   location: string;      // 所处位置
   avatar?: string;       // 主角立绘（上传的图片 dataURL / AI 生成）
   avatarTags?: string;   // 生成当前立绘所用的 imageTags（"外观变化时刷新"判断用）
@@ -83,7 +87,7 @@ export interface PlayerProfile {
 }
 
 export const DEFAULT_PLAYER_PROFILE: PlayerProfile = {
-  name: '', level: 1, advancePoints: 0, worldSource: 0, attrPoints: 0, realAttrPoints: 0, tier: '一阶', title: '', profession: '', arenaRank: '',
+  name: '', level: 1, worldSource: 0, attrPoints: 0, realAttrPoints: 0, tier: '一阶', title: '', profession: '', arenaRank: '',
   identity: '', brandLevel: '', contractorId: '', homeParadise: '', preParadiseJob: '', bioStrength: '',
   attrs: { str: 5, agi: 5, con: 5, int: 5, cha: 5, luck: 5 },
   status: '', statusEffects: [], appearance: '', location: '',
@@ -168,7 +172,6 @@ const PLAYER_KEEP_NAMES = new Set([
   '所属乐园说明',
   '主角背景说明',
   '限时状态系统',
-  '进阶点数与技能点区分',
   'NPC属性更新与正文一致',
   '副职业系统(配方)',
   '身份定义',

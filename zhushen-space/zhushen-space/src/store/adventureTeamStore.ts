@@ -4,6 +4,7 @@ import type { ApiConfig } from './settingsStore';
 import { useSettings } from './settingsStore';
 import type { Deed } from './characterStore';
 import teamDefaultPreset from '../data/teamDefaultPreset.json';
+import { parseAttrBonus, ATTR_KEYS, type AttrDelta } from '../systems/attrBonus';
 
 /* ════════════════════════════════════════════
    冒险团（adventure team）——**仅主角自己的冒险团**，单一记录
@@ -37,8 +38,21 @@ function nextRank(rank: TeamRank): TeamRank | null {
   return i >= 0 && i < TEAM_RANKS.length - 1 ? TEAM_RANKS[i + 1] : null;
 }
 
-export interface TeamMember { id: string; role?: string; note?: string }   // id=关联 NPC 的 C-id（主角 B1=团长，单列）
+export interface TeamMember { id?: string; name?: string; tier?: string; role?: string; note?: string }   // id=关联 NPC 的 C-id（建档则可跳详情）；未建档的团队成员只填 name/tier；主角自建团时 B1=团长不单列，加入他人团时 B1 作为普通成员单列
 export interface TeamPerk { name: string; desc: string; source?: string }   // 团队效果/权限
+
+/** 加入他人冒险团：负责冒险团的 API 全量生成后的团队信息（主角不为领导人）。*/
+export interface JoinTeamPayload {
+  name: string;
+  rank?: TeamRank;
+  leaderId?: string;          // 团长（领导人）的 C-id（已建档时）；主角永远不是团长
+  leaderName?: string;        // 团长姓名（未建档时只有名字）
+  members?: TeamMember[];     // 全部成员（应含团长 + 主角 B1 + 其余成员）
+  perks?: TeamPerk[];
+  deeds?: Deed[];
+  teamExp?: number;
+  activity?: number;
+}
 export type AssessmentStatus = 'none' | 'required' | 'in_progress' | 'passed' | 'failed';
 export interface Assessment {
   pending: boolean;
@@ -99,6 +113,8 @@ interface TeamState {
   perks: TeamPerk[];
   deeds: Deed[];
   assessment: Assessment;
+  leaderId: string;       // 团长（领导人）：''/'B1'=主角自建团主角任团长；'C\d+'/'__npc'=加入他人团，团长是该 NPC，主角只是成员
+  leaderName: string;     // 团长姓名（团长未建档为 NPC 时用于显示）
 
   /* ── 演化设置 + 独立 API（配置，newGame 保留）── */
   settings: TeamSettings;
@@ -110,6 +126,7 @@ interface TeamState {
 
   /* ── 记录 actions ── */
   establish: (patch?: { name?: string }) => void;
+  joinTeam: (payload: JoinTeamPayload) => void;   // 加入他人冒险团（主角非团长），全量写入团队信息
   setTeam: (patch: Partial<Pick<TeamState, 'name' | 'disbanded' | 'established'>>) => void;
   addExp: (n: number) => void;          // 累积经验，满则自动晋级(小阶位)或触发考核(大阶位/需活跃度)
   setExp: (v: number) => void;
@@ -144,6 +161,7 @@ export const useTeam = create<TeamState>()(
       established: false, disbanded: false, name: '', rank: 'E', teamExp: 0, activity: 50,
       members: [], perks: [], deeds: [],
       assessment: { pending: false, targetRank: '', status: 'none' },
+      leaderId: '', leaderName: '',
 
       settings: { ...DEFAULT_SETTINGS },
       teamApi: { baseUrl: 'https://api.openai.com/v1', apiKey: '', modelId: 'gpt-4o', temperature: 0.6, maxTokens: 4096, topP: 1 },
@@ -157,8 +175,37 @@ export const useTeam = create<TeamState>()(
           name: patch?.name?.trim() || s.name || '',
           rank: s.established ? s.rank : 'E',
           teamExp: s.established ? s.teamExp : 0,
+          leaderId: s.established ? s.leaderId : '',        // 主角自建团：主角任团长
+          leaderName: s.established ? s.leaderName : '',
           assessment: s.established ? s.assessment : { pending: true, targetRank: 'E', isEstablish: true, status: 'required', note: '建团试炼' },
         })),
+      // 加入他人冒险团：全量写入（主角非团长，B1 作为普通成员）；清空建团考核（不是自建团）
+      joinTeam: (payload) =>
+        set(() => {
+          const rank = (payload.rank && TEAM_RANKS.includes(payload.rank)) ? payload.rank : 'C';
+          const leaderId = (payload.leaderId || '').trim();
+          // 成员：去重（按 C-id 或姓名），确保含主角 B1
+          const seen = new Set<string>();
+          const members: TeamMember[] = [];
+          for (const m of payload.members ?? []) {
+            const key = (m.id || m.name || '').trim().toLowerCase();
+            if (!key || seen.has(key)) continue;
+            seen.add(key);
+            members.push({ id: m.id?.trim() || undefined, name: m.name?.trim() || undefined, tier: m.tier?.trim() || undefined, role: m.role?.trim() || undefined, note: m.note?.trim() || undefined });
+          }
+          if (!members.some((m) => m.id === 'B1')) members.push({ id: 'B1', role: '新晋成员' });
+          return {
+            established: true, disbanded: false,
+            name: payload.name?.trim() || '（未命名冒险团）',
+            rank,
+            teamExp: clamp(payload.teamExp ?? 0),
+            activity: clamp(payload.activity ?? 60),
+            members, perks: payload.perks ?? [], deeds: (payload.deeds ?? []).map((d) => ({ ...d, addedAt: d.addedAt ?? Date.now() })),
+            assessment: { pending: false, targetRank: '', status: 'none' },
+            leaderId: leaderId || '__npc',
+            leaderName: (payload.leaderName || '').trim(),
+          };
+        }),
       setTeam: (patch) =>
         set((s) => ({
           ...s,
@@ -228,7 +275,7 @@ export const useTeam = create<TeamState>()(
       removePerk: (name) => set((s) => ({ perks: s.perks.filter((x) => !nameEq(x.name, name)) })),
       appendDeed: (d) => set((s) => ({ deeds: [...s.deeds, { ...d, addedAt: d.addedAt ?? Date.now() }].slice(-50) })),
 
-      clearTeam: () => set({ established: false, disbanded: false, name: '', rank: 'E', teamExp: 0, activity: 50, members: [], perks: [], deeds: [], assessment: { pending: false, targetRank: '', status: 'none' } }),
+      clearTeam: () => set({ established: false, disbanded: false, name: '', rank: 'E', teamExp: 0, activity: 50, members: [], perks: [], deeds: [], assessment: { pending: false, targetRank: '', status: 'none' }, leaderId: '', leaderName: '' }),
 
       setSettings: (patch) => set((s) => ({ settings: { ...s.settings, ...patch } })),
       setPresetEntries: (entries, name, version) => set((s) => ({ settings: { ...s.settings, entries, presetName: name, presetVersion: version } })),
@@ -270,3 +317,26 @@ export const useTeam = create<TeamState>()(
     },
   ),
 );
+
+/* ── 主角所属冒险团「团队效果(perk)」对主角的数值加成（仅已建立且未解散时生效）──
+   团队效果是自由文本，这里复用与装备/技能/天赋同一套解析：
+   - 六维加成：解析 perk 的 名称+描述 里的「力量+10 / 体质+5」等，折进主角有效六维 base，
+     让战斗/骰子/属性面板/衍生属性/HP·EP（HP=体×20、EP=智×15）等所有用到属性的功能一并生效。
+   - HP/EP 上限加成：把 perk 当作「能力文本」({effect,desc}) 交给 abilityMaxHp/EpBonus 系列解析，
+     使「生命上限+100 / 10%法力加成」之类显式上限文本同样计入主角 HP/EP 上限。
+   仅作用于主角（团队增益只加主角，不影响 NPC 的属性计算）。*/
+export function playerTeamAttrBonus(): AttrDelta {
+  const t = useTeam.getState();
+  if (!t.established || t.disbanded) return {};
+  const out: AttrDelta = {};
+  for (const p of t.perks ?? []) {
+    const d = parseAttrBonus(`${p.name ?? ''} ${p.desc ?? ''}`);
+    for (const k of ATTR_KEYS) if (d[k]) out[k] = (out[k] ?? 0) + d[k]!;
+  }
+  return out;
+}
+export function playerTeamPerkAbilities(): { effect?: string; desc?: string }[] {
+  const t = useTeam.getState();
+  if (!t.established || t.disbanded) return [];
+  return (t.perks ?? []).map((p) => ({ effect: p.desc, desc: p.name }));
+}

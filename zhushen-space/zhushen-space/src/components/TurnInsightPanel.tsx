@@ -62,6 +62,48 @@ function Card({ title, tag, children }: { title: string; tag?: 'new' | 'changed'
   );
 }
 
+/* 生命/蓝量「当前/上限 → 当前/上限」，上限有增减时着色并标↑/↓（上限随体质·智力与被动百分比加成变化）*/
+function VitalDelta({ label, pCur, pMax, cCur, cMax }: { label: string; pCur?: number; pMax?: number; cCur?: number; cMax?: number }) {
+  const capUp = (cMax ?? 0) > (pMax ?? 0);
+  const capCh = pMax !== cMax;
+  return (
+    <span className="text-slate-200">
+      <span className="text-dim/60">{label}</span> <span className="text-dim/45">{pCur ?? '?'}/{pMax ?? '?'}</span>
+      <span className="text-dim/40"> → </span>
+      <span>{cCur ?? '?'}</span><span className="text-dim/40">/</span>
+      <span className={capCh ? (capUp ? 'text-emerald-300' : 'text-rose-300') : 'text-slate-200'}>{cMax ?? '?'}</span>
+      {capCh && <span className={`text-[11px] ${capUp ? 'text-emerald-300/70' : 'text-rose-300/70'}`}> 上限{capUp ? '↑' : '↓'}</span>}
+    </span>
+  );
+}
+
+/* 资源「前→后 (±净变)」，增绿减红（乐园币 / 魂币）*/
+function ResDelta({ label, from, to }: { label: string; from?: number; to?: number }) {
+  const up = (to ?? 0) >= (from ?? 0);
+  const delta = (to ?? 0) - (from ?? 0);
+  return (
+    <span className="text-slate-200">
+      <span className="text-dim/60">{label}</span> <span className="text-dim/45">{from ?? 0}</span><span className="text-dim/40">→</span><span className={up ? 'text-emerald-300' : 'text-rose-300'}>{to ?? 0}</span>
+      <span className={`text-[11px] ${up ? 'text-emerald-300/60' : 'text-rose-300/60'}`}> ({delta >= 0 ? '+' : ''}{delta})</span>
+    </span>
+  );
+}
+
+/* 已装备清单 diff（按名匹配）：新出现=装上 / 消失=卸下 / 强化等级(+N)变化=强化 */
+type EquipLite = { name: string; grade?: string; plus?: number };
+function diffEquips(prev: EquipLite[] = [], cur: EquipLite[] = []) {
+  const pm = new Map(prev.map((e) => [e.name, e]));
+  const cm = new Map(cur.map((e) => [e.name, e]));
+  const out: { name: string; grade?: string; kind: 'on' | 'off' | 'enhance'; from?: number; to?: number }[] = [];
+  for (const e of cur) {
+    const p = pm.get(e.name);
+    if (!p) out.push({ name: e.name, grade: e.grade, kind: 'on', to: e.plus ?? 0 });
+    else if ((p.plus ?? 0) !== (e.plus ?? 0)) out.push({ name: e.name, grade: e.grade, kind: 'enhance', from: p.plus ?? 0, to: e.plus ?? 0 });
+  }
+  for (const e of prev) if (!cm.has(e.name)) out.push({ name: e.name, grade: e.grade, kind: 'off' });
+  return out;
+}
+
 export default function TurnInsightPanel({ onClose }: { onClose: () => void }) {
   const snapshots = useTurnInsight((s) => s.snapshots);
   const [offset, setOffset] = useState(0);   // 0=本轮(最新 vs 上一份)，1=上轮
@@ -106,7 +148,22 @@ function InsightBody({ cur, prev }: { cur: TurnSnapshot; prev: TurnSnapshot }) {
   const lvCh = prev.player.level !== cur.player.level && cur.player.level != null;
   const pSE = seDiff(prev.player.statusEffects, cur.player.statusEffects).filter((d) => d.kind !== 'kept' || (cur.player.statusEffects?.length ?? 0) <= 4);
   const statusTextCh = (prev.player.status ?? '') !== (cur.player.status ?? '') && (cur.player.status ?? '');
-  const playerHasChange = attrChanges.length || lvCh || pSE.some((d) => d.kind !== 'kept') || statusTextCh;
+  // 生命/蓝量：当前值或上限变化（上限现会随体质/智力与被动百分比加成而变）
+  const hpCh = (prev.player.hp !== cur.player.hp || prev.player.maxHp !== cur.player.maxHp) && cur.player.maxHp != null;
+  const epCh = (prev.player.mp !== cur.player.mp || prev.player.maxMp !== cur.player.maxMp) && cur.player.maxMp != null;
+  // 技能 学会/失去；佩戴称号变化
+  const prevSkills = new Set(prev.player.skills ?? []);
+  const curSkills = new Set(cur.player.skills ?? []);
+  const skillsLearned = (cur.player.skills ?? []).filter((s) => !prevSkills.has(s));
+  const skillsLost = (prev.player.skills ?? []).filter((s) => !curSkills.has(s));
+  const titleCh = (prev.player.titlesEquipped ?? '') !== (cur.player.titlesEquipped ?? '');
+  // 资源：乐园币 / 魂币
+  const parkCh = prev.player.parkCoin !== cur.player.parkCoin && cur.player.parkCoin != null;
+  const soulCh = prev.player.soulCoin !== cur.player.soulCoin && cur.player.soulCoin != null;
+  const resCh = parkCh || soulCh;
+  // 装备：装上/卸下/强化(+N 变化)
+  const equipDiff = diffEquips(prev.player.equips, cur.player.equips);
+  const playerHasChange = attrChanges.length || lvCh || pSE.some((d) => d.kind !== 'kept') || statusTextCh || hpCh || epCh || skillsLearned.length || skillsLost.length || titleCh || resCh || equipDiff.length;
 
   // NPC
   const npcIds = Array.from(new Set([...Object.keys(cur.npcs), ...Object.keys(prev.npcs)]));
@@ -117,9 +174,13 @@ function InsightBody({ cur, prev }: { cur: TurnSnapshot; prev: TurnSnapshot }) {
     const favorCh = p && p.favor !== c.favor;
     const statusCh = p && p.status !== c.status;
     const motiveCh = p && p.motiveNow !== c.motiveNow;
+    // 阶位只比 Lv./阶位部分（'|' 前），避免身份文字变动误报；登场/离场单独标
+    const realmKey = (s?: string) => (s ?? '').split('|')[0].trim();
+    const realmCh = !!p && realmKey(p.realm) !== realmKey(c.realm) && !!realmKey(c.realm);
+    const sceneCh = !!p && p.onScene !== c.onScene;
     const se = seDiff(p?.statusEffects, c.statusEffects).filter((d) => d.kind !== 'kept');
-    if (!isNew && !favorCh && !statusCh && !motiveCh && se.length === 0) return null;
-    return { id, c, p, isNew, favorCh, statusCh, motiveCh, se };
+    if (!isNew && !favorCh && !statusCh && !motiveCh && !realmCh && !sceneCh && se.length === 0) return null;
+    return { id, c, p, isNew, favorCh, statusCh, motiveCh, realmCh, sceneCh, se };
   }).filter(Boolean) as any[];
 
   // 关系（好感）单列
@@ -133,11 +194,12 @@ function InsightBody({ cur, prev }: { cur: TurnSnapshot; prev: TurnSnapshot }) {
     if (!c) return null;
     const isNew = !p;
     const favorCh = p && p.favorToPlayer !== c.favorToPlayer;
+    const worldCh = !!p && p.inCurrentWorld !== c.inCurrentWorld;
     const fieldCh = isNew
       ? FAC_FIELDS.filter(([k]) => c[k]).map(([k, label]) => ({ label, from: undefined as any, to: c[k] }))
       : FAC_FIELDS.filter(([k]) => (p![k] ?? '') !== (c[k] ?? '') && c[k]).map(([k, label]) => ({ label, from: p![k], to: c[k] }));
-    if (!isNew && !favorCh && fieldCh.length === 0) return null;
-    return { id, c, p, isNew, favorCh, fieldCh };
+    if (!isNew && !favorCh && !worldCh && fieldCh.length === 0) return null;
+    return { id, c, p, isNew, favorCh, worldCh, fieldCh };
   }).filter(Boolean) as any[];
 
   const nothing = !playerHasChange && npcRows.length === 0 && facRows.length === 0;
@@ -155,10 +217,46 @@ function InsightBody({ cur, prev }: { cur: TurnSnapshot; prev: TurnSnapshot }) {
               </div>
             </Card>
           )}
+          {(hpCh || epCh) && (
+            <Card title="生命 / 蓝量">
+              <div className="flex flex-wrap gap-x-5 gap-y-1 text-[13px] font-mono">
+                {hpCh && <VitalDelta label="HP" pCur={prev.player.hp} pMax={prev.player.maxHp} cCur={cur.player.hp} cMax={cur.player.maxHp} />}
+                {epCh && <VitalDelta label="EP" pCur={prev.player.mp} pMax={prev.player.maxMp} cCur={cur.player.mp} cMax={cur.player.maxMp} />}
+              </div>
+            </Card>
+          )}
           {(pSE.some((d) => d.kind !== 'kept') || statusTextCh) && (
             <Card title="当前状态">
               {statusTextCh && <div className="text-[12px] text-dim/60 mb-1">自由状态：{cur.player.status}</div>}
               <div className="space-y-1.5">{pSE.map((d, i) => <SeRow key={i} d={d} />)}</div>
+            </Card>
+          )}
+          {(skillsLearned.length > 0 || skillsLost.length > 0 || titleCh) && (
+            <Card title="技能 / 称号">
+              {skillsLearned.length > 0 && <div className="text-[12px]"><span className="text-emerald-300/80">学会</span> <span className="text-slate-200">{skillsLearned.join('、')}</span></div>}
+              {skillsLost.length > 0 && <div className="text-[12px]"><span className="text-rose-300/80">失去</span> <span className="text-dim/70">{skillsLost.join('、')}</span></div>}
+              {titleCh && <div className="text-[12px] text-dim/70">称号：{prev.player.titlesEquipped ? <span className="text-dim/50">{prev.player.titlesEquipped} → </span> : ''}<span className="text-amber-300/90">{cur.player.titlesEquipped || '（卸下）'}</span></div>}
+            </Card>
+          )}
+          {resCh && (
+            <Card title="资源">
+              <div className="flex flex-wrap gap-x-5 gap-y-1 text-[13px] font-mono">
+                {parkCh && <ResDelta label="乐园币" from={prev.player.parkCoin} to={cur.player.parkCoin} />}
+                {soulCh && <ResDelta label="魂币" from={prev.player.soulCoin} to={cur.player.soulCoin} />}
+              </div>
+            </Card>
+          )}
+          {equipDiff.length > 0 && (
+            <Card title="装备变化">
+              <div className="space-y-1 text-[12px]">
+                {equipDiff.map((e, i) => (
+                  <div key={i}>
+                    {e.kind === 'on' && <><span className="text-emerald-300/80">装上</span> <span className="text-slate-200">{e.name}</span>{e.grade && <span className="text-dim/45"> · {e.grade}</span>}{e.to ? <span className="font-mono text-emerald-300/80"> +{e.to}</span> : ''}</>}
+                    {e.kind === 'off' && <><span className="text-rose-300/80">卸下</span> <span className="text-dim/70">{e.name}</span></>}
+                    {e.kind === 'enhance' && <><span className="text-amber-300/80">强化</span> <span className="text-slate-200">{e.name}</span> <span className="font-mono text-dim/50">+{e.from}</span><span className="text-dim/40">→</span><span className={`font-mono ${(e.to ?? 0) >= (e.from ?? 0) ? 'text-emerald-300' : 'text-rose-300'}`}>+{e.to}</span></>}
+                  </div>
+                ))}
+              </div>
             </Card>
           )}
         </Section>
@@ -180,6 +278,8 @@ function InsightBody({ cur, prev }: { cur: TurnSnapshot; prev: TurnSnapshot }) {
             {npcRows.map((r) => (
               <Card key={r.id} title={r.c.name || r.id} tag={r.isNew ? 'new' : 'changed'}>
                 {r.favorCh && <div className="text-[12px] font-mono">好感 <span className="text-dim/50">{r.p.favor}</span>→<span className={r.c.favor >= r.p.favor ? 'text-emerald-300' : 'text-rose-300'}>{r.c.favor}</span></div>}
+                {r.realmCh && <div className="text-[12px] font-mono text-amber-300/80">阶位 <span className="text-dim/50">{r.p.realm?.split('|')[0] || '—'}</span>→<span>{r.c.realm?.split('|')[0] || '—'}</span></div>}
+                {r.sceneCh && <div className={`text-[12px] ${r.c.onScene ? 'text-emerald-300/70' : 'text-dim/55'}`}>{r.c.onScene ? '↗ 登场' : '↘ 离场'}</div>}
                 {r.statusCh && <div className="text-[12px] text-dim/70">状态：{r.c.status}</div>}
                 {r.motiveCh && <div className="text-[12px] text-dim/70">动机：{r.c.motiveNow}</div>}
                 {r.se.length > 0 && <div className="space-y-1 pt-1">{r.se.map((d: any, i: number) => <SeRow key={i} d={d} />)}</div>}
@@ -195,6 +295,7 @@ function InsightBody({ cur, prev }: { cur: TurnSnapshot; prev: TurnSnapshot }) {
             <Card key={r.id} title={`${r.c.name || r.id} · ${r.id}`} tag={r.isNew ? 'new' : 'changed'}>
               {r.favorCh && <div className="text-[12px] font-mono">对主角 <span className="text-dim/50">{r.p.favorToPlayer}</span>→<span className={r.c.favorToPlayer >= r.p.favorToPlayer ? 'text-emerald-300' : 'text-rose-300'}>{r.c.favorToPlayer}</span></div>}
               {r.isNew && <div className="text-[12px] font-mono text-emerald-300/80">对主角 {r.c.favorToPlayer}</div>}
+              {r.worldCh && <div className={`text-[12px] ${r.c.inCurrentWorld ? 'text-emerald-300/70' : 'text-dim/55'}`}>{r.c.inCurrentWorld ? '↗ 进入本世界' : '↘ 离开本世界'}</div>}
               {r.fieldCh.map((f: any) => (
                 <div key={f.label} className="text-[12px] text-dim/70 leading-relaxed">{f.label}：{r.isNew ? '' : <span className="text-dim/40">{f.from || '—'} → </span>}<span className="text-slate-300">{f.to}</span></div>
               ))}

@@ -1,7 +1,7 @@
 import type { ItemCategory, CurrencyWallet } from '../store/itemStore';
 import { useItems } from '../store/itemStore';
 import { useCharacters } from '../store/characterStore';
-import { useNpc, defaultNpcRecord } from '../store/npcStore';
+import { useNpc, defaultNpcRecord, isNpcId } from '../store/npcStore';
 import { useFaction } from '../store/factionStore';
 import { useTerritory } from '../store/territoryStore';
 import { useTeam, type TeamRank } from '../store/adventureTeamStore';
@@ -429,11 +429,14 @@ function applyOneItemCommand(cmd: ItemCommand, store: any): void {
 
     case 'updateItem': {
       const item = findItemById(store, data.itemId);
-      if (item && data.patch) {
-        const p: any = data.patch;
+      if (item) {
+        // 兼容两种写法：嵌套 updateItem({itemId, patch:{…}}) / 扁平 updateItem({itemId, name, affix:…})
+        // 此前只认 data.patch，AI 写成扁平就整条被丢弃（词缀/属性变化不生效的元凶之一）
+        const nested = !!(data.patch && typeof data.patch === 'object');
+        const p: any = nested ? data.patch : data;
         const patch: any = {};
-        // 同时接受列号('1'..'4')与具名字段，二者皆可
-        if (p['1'] ?? p.name) patch.name = p['1'] ?? p.name;
+        // 同时接受列号('1'..'4')与具名字段；name 仅在嵌套 patch 里才当改名（扁平里的 name 是引用名，不可误当改名）
+        if (nested && (p['1'] ?? p.name)) patch.name = p['1'] ?? p.name;
         if (p['2'] ?? p.category) patch.category = normalizeCategory(p['2'] ?? p.category);
         if (p['3'] ?? p.gradeDesc ?? p.quality) patch.gradeDesc = p['3'] ?? p.gradeDesc ?? p.quality;
         if (p['4'] ?? p.effect) patch.effect = p['4'] ?? p.effect;
@@ -450,7 +453,7 @@ function applyOneItemCommand(cmd: ItemCommand, store: any): void {
         if (p.notes) patch.notes = p.notes;
         if (p.acquisition) patch.acquisition = p.acquisition;
         if (p.killCount != null) patch.killCount = p.killCount;
-        store.updateItem(item.id, patch);
+        if (Object.keys(patch).length) store.updateItem(item.id, patch);
       }
       break;
     }
@@ -744,6 +747,14 @@ export function applyNpcCommands(cmds: NpcCommand[]): void {
             console.warn(`[NPC] add("${id}") 与既有同名角色「${nm}」(${exist.id}) 重复，重定向到 ${exist.id}（防重复建档）`);
             id = exist.id;
           }
+        }
+        // 规范化：AI 自创的非法 ID（如 P_Aesc）若是全新角色，改用下一个空闲 C 编号——
+        // 否则后续所有短指令(character.C\d+ / hp.C\d+ …)都匹配不到它，更新会被静默丢弃。
+        if (!isNpcId(id) && !store.npcs[id]) {
+          const used = new Set(Object.keys(store.npcs));
+          let k = 1; while (used.has(`C${k}`)) k++;
+          console.warn(`[NPC] add("${id}") 使用非法ID，改用空闲编号 C${k}`);
+          id = `C${k}`;
         }
         store.applyColumns(id, c.payload ?? {});
         console.log(`[NPC] add ${id}:`, c.payload);

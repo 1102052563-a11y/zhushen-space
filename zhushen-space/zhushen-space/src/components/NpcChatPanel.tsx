@@ -1,6 +1,8 @@
 import { useState, useEffect, useRef } from 'react';
 import { useNpcChat } from '../store/npcChatStore';
 import { sendNpcChat } from '../systems/npcChat';
+import { generateJoinedTeam } from '../systems/adventureTeamGen';
+import { useTeam } from '../store/adventureTeamStore';
 import type { NpcRecord } from '../store/npcStore';
 
 /* 与单个 NPC 的私聊：上=对话区(聊天气泡+输入) / 下=交互描述窗(第三人称旁白·可NSFW)。
@@ -8,16 +10,38 @@ import type { NpcRecord } from '../store/npcStore';
 export default function NpcChatPanel({ npc, onClose }: { npc: NpcRecord; onClose: () => void }) {
   const turns = useNpcChat((s) => s.chats[npc.id]) ?? [];
   const resetChat = useNpcChat((s) => s.resetChat);
+  const teamName = useTeam((s) => s.name);
+  const teamEstablished = useTeam((s) => s.established);
 
   const [input, setInput] = useState('');
   const [sending, setSending] = useState(false);
   const [confirmReset, setConfirmReset] = useState(false);
+  const [dismissedOfferId, setDismissedOfferId] = useState<string | null>(null);
+  const [joining, setJoining] = useState(false);
+  const [joinResult, setJoinResult] = useState<string | null>(null);
   const chatEndRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => { chatEndRef.current?.scrollIntoView({ behavior: 'smooth' }); }, [turns.length, sending]);
 
   // 最近一条交互描述（当下场景）
   const lastScene = (() => { for (let i = turns.length - 1; i >= 0; i--) if (turns[i].role === 'npc' && turns[i].scene) return turns[i].scene; return ''; })();
+
+  // 加入冒险团信号：仅当【最后一条】是带 joinOffer 的 npc 回合、未被本次忽略、且尚未加入该团时弹窗
+  const lastTurn = turns[turns.length - 1];
+  const offerTeam = (lastTurn?.role === 'npc' && lastTurn.joinOffer && lastTurn.id !== dismissedOfferId
+    && !(teamEstablished && teamName === lastTurn.joinOffer)) ? lastTurn.joinOffer : '';
+  const showJoinPopup = !!offerTeam && !joining && joinResult === null;
+
+  const confirmJoin = async () => {
+    if (!offerTeam) return;
+    setJoining(true);
+    try {
+      const r = await generateJoinedTeam(npc);
+      setJoinResult(r.ok ? `✓ 已加入「${r.teamName || offerTeam}」——可在右侧导航「🛡 冒险团」查看全部信息。` : `⚠ 加入失败：${r.error || '生成出错'}`);
+      if (lastTurn) setDismissedOfferId(lastTurn.id);
+    } finally { setJoining(false); }
+  };
+  const declineJoin = () => { if (lastTurn) setDismissedOfferId(lastTurn.id); };
 
   const send = async () => {
     const text = input.trim();
@@ -45,6 +69,7 @@ export default function NpcChatPanel({ npc, onClose }: { npc: NpcRecord; onClose
             <div className="text-[11px] font-mono text-dim/50 truncate">
               {npc.realm || npc.npcTag || '—'}
               {typeof npc.favor === 'number' && <span className={`ml-2 ${npc.favor >= 0 ? 'text-rose-300/70' : 'text-sky-300/70'}`}>❤好感 {npc.favor}</span>}
+              {npc.affiliatedTeam && <span className="ml-2 text-amber-300/70">🛡{npc.affiliatedTeam}</span>}
             </div>
           </div>
           <button
@@ -103,6 +128,57 @@ export default function NpcChatPanel({ npc, onClose }: { npc: NpcRecord; onClose
           </div>
         </div>
       </div>
+
+      {/* 加入冒险团·确认弹窗 */}
+      {showJoinPopup && (
+        <div className="absolute inset-0 z-[90] flex items-center justify-center bg-black/70 backdrop-blur-sm p-4" onClick={(e) => e.stopPropagation()}>
+          <div className="w-full max-w-sm rounded-2xl border border-amber-500/40 bg-void shadow-[0_0_50px_rgba(0,0,0,0.9)] p-5 space-y-3">
+            <div className="text-base font-bold text-amber-200 flex items-center gap-2">🛡 加入冒险团</div>
+            <div className="text-[13px] text-slate-200 leading-relaxed">
+              <b className="text-slate-100">{npc.name || npc.id}</b> 同意引荐你加入冒险团
+              <b className="text-amber-300">「{offerTeam}」</b>。是否加入？
+            </div>
+            <div className="text-[12px] text-dim/60 leading-relaxed">
+              加入后将由「冒险团」API 生成这支冒险团的全部信息（你为普通成员、非团长）。
+              {teamEstablished && teamName && teamName !== offerTeam && (
+                <span className="block mt-1 text-amber-400/80">⚠ 你当前已属于冒险团【{teamName}】，加入新团将<b>替换</b>它。</span>
+              )}
+            </div>
+            <div className="flex items-center gap-2 pt-1">
+              <button onClick={confirmJoin}
+                className="flex-1 px-3 py-2 rounded-xl text-sm font-bold border border-amber-500/50 bg-amber-500/15 text-amber-200 hover:bg-amber-500/25 transition-colors">
+                加入
+              </button>
+              <button onClick={declineJoin}
+                className="px-4 py-2 rounded-xl text-sm border border-edge text-dim/70 hover:text-slate-200 transition-colors">
+                暂不
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 生成中遮罩 */}
+      {joining && (
+        <div className="absolute inset-0 z-[90] flex items-center justify-center bg-black/75 backdrop-blur-sm" onClick={(e) => e.stopPropagation()}>
+          <div className="rounded-2xl border border-amber-500/40 bg-void px-6 py-4 text-amber-200 text-sm font-mono animate-pulse">
+            🛡 正在组建冒险团信息…
+          </div>
+        </div>
+      )}
+
+      {/* 加入结果提示 */}
+      {joinResult !== null && (
+        <div className="absolute inset-0 z-[90] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4" onClick={(e) => e.stopPropagation()}>
+          <div className="w-full max-w-sm rounded-2xl border border-edge bg-void shadow-[0_0_50px_rgba(0,0,0,0.9)] p-5 space-y-3">
+            <div className="text-[13px] text-slate-200 leading-relaxed">{joinResult}</div>
+            <button onClick={() => setJoinResult(null)}
+              className="w-full px-3 py-2 rounded-xl text-sm font-bold border border-god/50 bg-god/10 text-god hover:bg-god/20 transition-colors">
+              知道了
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

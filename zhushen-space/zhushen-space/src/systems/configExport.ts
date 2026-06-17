@@ -33,6 +33,7 @@ import { useImageGen } from '../store/imageGenStore';
 import { useNovelVec } from '../store/novelVecStore';
 import { useCreationTemplates } from '../store/creationTemplateStore';
 import { useCombat } from '../store/combatStore';
+import { useSkillTree } from '../store/skillTreeStore';
 
 export const CONFIG_KIND = 'zhushen-global-config';
 export const CONFIG_FORMAT_VERSION = 1;
@@ -72,13 +73,33 @@ function enhanceExtract(s: any): any {
 function joyExtract(s: any): any {
   const out = evoExtract(s);
   if (out.settings?.girls) out.settings = { ...out.settings, girls: out.settings.girls.map((g: any) => ({ ...g, portrait: undefined })) };
+  // 世界书：只导用户导入/改过的（非 builtin）；内置 5 本由 hydrateJoyWorldBooks 重载，不随配置走
+  out.worldBooks = (s.worldBooks ?? []).filter((b: any) => !b.builtin);
   return out;
+}
+// 欢愉宫导入：worldBooks 单独合并——保留当前内置书，叠加配置里的用户书（避免浅合并把内置从 state 抹掉）
+function joyApply(cur: any, cfg: any): any {
+  const patch = { ...cfg };
+  if ('worldBooks' in cfg) {
+    const builtin = (cur.worldBooks ?? []).filter((b: any) => b.builtin);
+    patch.worldBooks = [...builtin, ...(cfg.worldBooks ?? [])];
+  }
+  return patch;
 }
 
 // 战斗系统：配置在 config（开关+四阶段预设）+ combatApi/combatUseSharedApi；battle 是运行时、不导。
 // 路由 apiRoutes['combat'] 已随 settingsExtract 导出，这里无需再带。
 function combatExtract(s: any): any {
   return { config: s.config, combatApi: s.combatApi, combatUseSharedApi: s.combatUseSharedApi };
+}
+
+// 技能树：只导 trees 模板库（配置/可分享），剔 progress（每角色解锁进度=游戏进度，随存档走）
+function skillTreeExtract(s: any): any {
+  return { trees: s.trees };
+}
+// 技能树导入：合并模板库（导入项按 id 覆盖同名，保留本地其它树），不碰当前存档的解锁进度
+function skillTreeApply(cur: any, cfg: any): any {
+  return { trees: { ...(cur.trees ?? {}), ...(cfg.trees ?? {}) } };
 }
 
 // 扁平全配置 store（imageGen / creationTemplate）：取所有非函数字段（这些 store 本身无运行时数据）
@@ -173,10 +194,11 @@ const SPECS: StoreSpec[] = [
   { key: 'drpg-dice',               label: 'ROLL 点设置',  api: useDice as any,              extract: evoExtract },
   { key: 'drpg-combat',             label: '战斗系统',     api: useCombat as any,            extract: combatExtract },
   { key: 'drpg-enhance',            label: '装备强化',     api: useEnhance as any,           extract: enhanceExtract },
-  { key: 'drpg-joy',                label: '欢愉宫',       api: useJoy as any,               extract: joyExtract },
+  { key: 'drpg-joy',                label: '欢愉宫',       api: useJoy as any,               extract: joyExtract, apply: joyApply },
   { key: 'drpg-image-gen',          label: '生图设置',     api: useImageGen as any,          extract: plainExtract, apply: imageGenApply },
   { key: 'drpg-novelvec',           label: '向量资料库',   api: useNovelVec as any,          extract: evoExtract },
   { key: 'drpg-creation-templates', label: '角色创建模板', api: useCreationTemplates as any, extract: plainExtract },
+  { key: 'drpg-skilltree',          label: '技能树模板',   api: useSkillTree as any,         extract: skillTreeExtract, apply: skillTreeApply },
 ];
 
 // 递归清空 API 密钥（apiKey / apiToken），用于"不含密钥"导出（可安全分享）

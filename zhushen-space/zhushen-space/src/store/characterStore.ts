@@ -192,6 +192,7 @@ interface CharacterState {
   appendMemory: (charId: string, entry: MemoryEntry) => void;      // 追加一条 shortTerm 记忆
   setMemory:    (charId: string, memory: CharMemory) => void;      // 压缩后整体重写 short/long
   removeCharacter: (charId: string) => void;       // 删除某角色的全部技能/词条
+  renameCharacter: (oldId: string, newId: string) => void;   // 角色 ID 规范化时迁移其技能/天赋/称号/记忆到新 ID
   purgeNpcCharacters: () => void;                  // 清除所有 NPC(C*/G*) 的技能/词条，保留玩家 B*
   dedupeIds: () => void;                           // 修复历史脏数据：所有角色技能 id 去重
   dedupeRecipes: () => void;                        // 修复历史脏数据：配方名去「配方：」前缀 + 同名合并
@@ -497,6 +498,16 @@ export const useCharacters = create<CharacterState>()(
           if (!s.characters[charId]) return s;
           const next = { ...s.characters };
           delete next[charId];
+          return { characters: next };
+        }),
+
+      renameCharacter: (oldId, newId) =>
+        set((s) => {
+          if (oldId === newId || !s.characters[oldId]) return s;
+          const next = { ...s.characters };
+          const data = next[oldId];
+          delete next[oldId];
+          if (!next[newId]) next[newId] = data;   // 目标已有数据则保留目标，不覆盖
           return { characters: next };
         }),
 

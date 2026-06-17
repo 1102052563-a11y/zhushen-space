@@ -15,6 +15,9 @@ import DiceManager from './DiceManager';
 import CombatManager from './CombatManager';
 import ArenaManager from './ArenaManager';
 import EnhanceManager from './EnhanceManager';
+import CasinoManager from './CasinoManager';
+import AbyssManager from './AbyssManager';
+import SkillTreeManager from './SkillTreeManager';
 import JoyManager from './JoyManager';
 import NovelVecManager from './NovelVecManager';
 import WorldCodexManager from './WorldCodexManager';
@@ -29,7 +32,7 @@ interface SettingsPanelProps {
   onOpenSaveLoad: () => void;   // 打开存档管理面板（导出/导入/重置游戏数据；逻辑复用 SaveLoadPanel）
 }
 
-type Page = 'home' | 'world-detail' | 'textgen-detail' | 'regex-detail' | 'general' | 'variables' | 'item-manager' | 'player-manager' | 'npc-manager' | 'faction-manager' | 'territory-manager' | 'team-manager' | 'cosmos-manager' | 'memory-manager' | 'misc-manager' | 'channel-manager' | 'novelvec-manager' | 'codex-manager' | 'dice-manager' | 'combat-manager' | 'arena-manager' | 'enhance-manager' | 'joy-manager' | 'narrative-memory' | 'vector-memory' | 'image-gen' | 'appearance';
+type Page = 'home' | 'world-detail' | 'textgen-detail' | 'regex-detail' | 'general' | 'variables' | 'item-manager' | 'player-manager' | 'npc-manager' | 'faction-manager' | 'territory-manager' | 'team-manager' | 'cosmos-manager' | 'memory-manager' | 'misc-manager' | 'channel-manager' | 'novelvec-manager' | 'codex-manager' | 'dice-manager' | 'combat-manager' | 'arena-manager' | 'enhance-manager' | 'skilltree-manager' | 'joy-manager' | 'narrative-memory' | 'vector-memory' | 'image-gen' | 'appearance';
 type Tab = 'worldbook' | 'api' | 'prompt' | 'preset' | 'global-regex' | 'preset-regex';
 
 function DetailLayout({ title, onBack, tabs, activeTab, onTab, children }: {
@@ -194,6 +197,9 @@ export default function SettingsPanel({ onClose, onOpenSaveLoad }: SettingsPanel
             onOpenCombatManager={() => setPage('combat-manager')}
             onOpenArenaManager={() => setPage('arena-manager')}
             onOpenEnhanceManager={() => setPage('enhance-manager')}
+            onOpenCasinoManager={() => setPage('casino-manager')}
+            onOpenAbyssManager={() => setPage('abyss-manager')}
+            onOpenSkillTreeManager={() => setPage('skilltree-manager')}
             onOpenJoyManager={() => setPage('joy-manager')}
             onOpenChannelManager={() => setPage('channel-manager')}
             onOpenNovelVecManager={() => setPage('novelvec-manager')}
@@ -437,6 +443,57 @@ export default function SettingsPanel({ onClose, onOpenSaveLoad }: SettingsPanel
         </header>
         <div className="flex-1 overflow-y-auto p-6 max-lg:p-3">
           <EnhanceManager />
+        </div>
+      </div>
+    );
+  }
+
+  if (page === 'casino-manager') {
+    return (
+      <div className="h-screen flex flex-col bg-void text-slate-300">
+        <header className="shrink-0 h-10 flex items-center justify-between px-4 border-b border-edge bg-panel">
+          <button onClick={() => setPage('variables')} className="flex items-center gap-2 text-sm font-mono text-dim hover:text-slate-200 transition-colors">
+            ← 变量管理
+          </button>
+          <span className="text-sm font-mono text-dim">赌场</span>
+          <div className="w-20" />
+        </header>
+        <div className="flex-1 overflow-y-auto p-6 max-lg:p-3">
+          <CasinoManager />
+        </div>
+      </div>
+    );
+  }
+
+  if (page === 'abyss-manager') {
+    return (
+      <div className="h-screen flex flex-col bg-void text-slate-300">
+        <header className="shrink-0 h-10 flex items-center justify-between px-4 border-b border-edge bg-panel">
+          <button onClick={() => setPage('variables')} className="flex items-center gap-2 text-sm font-mono text-dim hover:text-slate-200 transition-colors">
+            ← 变量管理
+          </button>
+          <span className="text-sm font-mono text-dim">深渊地牢</span>
+          <div className="w-20" />
+        </header>
+        <div className="flex-1 overflow-y-auto p-6 max-lg:p-3">
+          <AbyssManager />
+        </div>
+      </div>
+    );
+  }
+
+  if (page === 'skilltree-manager') {
+    return (
+      <div className="h-screen flex flex-col bg-void text-slate-300">
+        <header className="shrink-0 h-10 flex items-center justify-between px-4 border-b border-edge bg-panel">
+          <button onClick={() => setPage('variables')} className="flex items-center gap-2 text-sm font-mono text-dim hover:text-slate-200 transition-colors">
+            ← 变量管理
+          </button>
+          <span className="text-sm font-mono text-dim">技能树</span>
+          <div className="w-20" />
+        </header>
+        <div className="flex-1 overflow-y-auto p-6 max-lg:p-3">
+          <SkillTreeManager />
         </div>
       </div>
     );
@@ -2089,6 +2146,8 @@ function GeneralSettingsSection() {
   const setCustomOpening = useSettings((s) => s.setCustomOpening);
   const disableEnterSend    = useSettings((s) => s.disableEnterSend);
   const setDisableEnterSend = useSettings((s) => s.setDisableEnterSend);
+  const showNewlineButton    = useSettings((s) => s.showNewlineButton);
+  const setShowNewlineButton = useSettings((s) => s.setShowNewlineButton);
   const [input, setInput] = useState(String(historyLimit));
 
   function commit(val: string) {
@@ -2157,6 +2216,13 @@ function GeneralSettingsSection() {
             <div className="text-sm text-dim mt-1 leading-relaxed">开启后，输入框按回车（Enter）不再发送消息，只能点击发送按钮 ▶，防止打字时误触发送。</div>
           </div>
         </div>
+        <div className="flex items-start gap-3 border border-edge rounded-lg p-4 bg-panel">
+          <Toggle checked={showNewlineButton} onChange={() => setShowNewlineButton(!showNewlineButton)} />
+          <div>
+            <div className="text-sm font-semibold text-slate-200">显示换行键</div>
+            <div className="text-sm text-dim mt-1 leading-relaxed">在正文输入框旁显示「↵ 换行」按钮，点击即可在光标处插入换行。关闭后仍可用 <span className="font-mono text-god/70">Shift+Enter</span> 换行。</div>
+          </div>
+        </div>
       </div>
 
       {/* API 接口库 */}
@@ -2172,7 +2238,7 @@ function GeneralSettingsSection() {
         <div className="border border-edge rounded-lg p-4 bg-panel space-y-3">
           <div className="text-[13px] text-dim/70 leading-relaxed">
             支持占位符（发送时按角色创建数据替换，<span className="text-god/70">中英文名均可</span>）：
-            <span className="font-mono text-god/70"> {'${主角名}'} {'${年龄}'} {'${性格}'} {'${入园前职业}'} {'${乐园}'} {'${难度}'} {'${外观}'} {'${天赋名}'} {'${天赋效果}'} {'${契约者ID}'}</span>
+            <span className="font-mono text-god/70"> {'${主角名}'} {'${年龄}'} {'${性格}'} {'${性格描述}'} {'${入园前职业}'} {'${乐园}'} {'${难度}'} {'${外观}'} {'${天赋名}'} {'${天赋效果}'} {'${契约者ID}'}</span>
             <div className="mt-1 text-dim/60">六维：合并 <span className="font-mono text-god/70">{'${六维}'}</span> 或单项 <span className="font-mono text-god/70">{'${力}${敏}${体}${智}${魅}${幸}'}</span>（英文 {'${name}/${str}/${attrs}'} 等同义）。写错的占位符会原样保留。</div>
           </div>
           <textarea

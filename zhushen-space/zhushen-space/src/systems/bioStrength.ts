@@ -24,14 +24,33 @@ export const TEMPLATE_FLEX_RANGES: ReadonlyArray<readonly [number, number]> = [
   [0.00, 0.20], [0.20, 0.35], [0.35, 0.55], [0.55, 0.75], [0.75, 0.92], [0.92, 1.00], [1.00, 1.00],
 ] as const;
 
-// 生物强度档 → 「单属性峰值」占本阶 [Min,Cap] 的比例上限（峰值口径：强度=最强一项的水平）。
-// 与 npcAttrGen 的峰值压缩共用同一张表，保证 生成峰值 ↔ 读数档 闭环一致。可调。
-export const PEAK_PCT: ReadonlyArray<number> = [0.11, 0.28, 0.50, 0.68, 0.85, 0.95, 1.0, 1.0, 1.0, 1.0];
+// 峰值口径：强度 = 「最强单属性」在本阶位**窗口内**的相对位置。
+// 关键：每个阶位「窗口最高档」(一阶T3、二阶T4、五阶T7…)的单属性上限 = 本阶满配 Cap；
+// 「窗口最低档」(杂鱼)≈ Min + (Cap-Min)×PEAK_FLOOR。于是一阶单属性顶到 50 自然=该阶最高档 T3，
+// 不会出现"单属性50却超出最高档峰值上限"的矛盾。可调 PEAK_FLOOR。
+const PEAK_FLOOR = 0.11; // 窗口最低档(杂鱼)的单属性占本阶 [Min,Cap] 的比例
+const clamp01 = (x: number) => Math.max(0, Math.min(1, x));
 
-// 单属性峰值占比 → 档位(0..9)：落在哪个档的上限内就是哪档(带小容差吸收取整误差)
-export function peakToTier(peakRatio: number): number {
-  for (let k = 0; k < PEAK_PCT.length; k++) if (peakRatio <= PEAK_PCT[k] + 0.02) return k;
-  return 9;
+// 阶位窗口 [winLo, winHi]：本阶可出现的档位区间
+export function tierWindow(tierNum: number): [number, number] {
+  return [Math.min(9, Math.max(0, tierNum - 1)), Math.min(9, tierNum + 2)];
+}
+
+// 档位 + 阶位 → 该档「单属性峰值上限」(绝对值)：窗口顶档=满 Cap，杂鱼档≈Min+(Cap-Min)×PEAK_FLOOR
+export function peakCapForTier(tk: number, tierNum: number): number {
+  const [min, cap] = tierBounds(tierNum);
+  const [lo, hi] = tierWindow(tierNum);
+  const pos = hi > lo ? (clampToTierWindow(tk, tierNum) - lo) / (hi - lo) : 1;
+  return Math.round(min + (cap - min) * (PEAK_FLOOR + (1 - PEAK_FLOOR) * pos));
+}
+
+// 单属性峰值(绝对) + 阶位 → 档位(本阶窗口内)：peakCapForTier 的反函数
+function peakToTierInTier(peak: number, tierNum: number): number {
+  const [min, cap] = tierBounds(tierNum);
+  const peakRatio = cap > min ? (peak - min) / (cap - min) : 1;
+  const pos = clamp01((peakRatio - PEAK_FLOOR) / (1 - PEAK_FLOOR));
+  const [lo, hi] = tierWindow(tierNum);
+  return clampToTierWindow(Math.round(lo + pos * (hi - lo)), tierNum);
 }
 
 // 五维(不含幸运)最高值
@@ -115,8 +134,9 @@ export function bioInnate(base?: PlayerAttrs, tier?: string, level?: number): Bi
   if (!base) return null;
   const tn = nominalTierNum(tier, level);
   const [min, cap] = tierBounds(tn);
-  const peakRatio = cap > min ? (peakOf(base) - min) / (cap - min) : 0;
-  return mk(clampToTierWindow(peakToTier(peakRatio), tn), peakRatio, tn);
+  const peak = peakOf(base);
+  const peakRatio = cap > min ? (peak - min) / (cap - min) : 0;
+  return mk(peakToTierInTier(peak, tn), peakRatio, tn);
 }
 
 /* 战力档：有效六维(含装备/技能/天赋加成)「最强一项」+ 等效阶位反查（峰值口径，浮动、可越阶） */
@@ -126,7 +146,7 @@ export function bioPower(eff?: PlayerAttrs): BioTier | null {
   const tn = effectiveTierNum(peak);             // 用峰值反查等效阶位(实现越阶战力)
   const [min, cap] = tierBounds(tn);
   const peakRatio = cap > min ? (peak - min) / (cap - min) : 0;
-  return mk(clampToTierWindow(peakToTier(peakRatio), tn), peakRatio, tn);
+  return mk(peakToTierInTier(peak, tn), peakRatio, tn);
 }
 
 type AbilityLite = { attrBonus?: string; effect?: string };

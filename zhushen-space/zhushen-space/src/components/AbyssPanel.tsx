@@ -377,9 +377,9 @@ export default function AbyssPanel({ onClose, onGenBoons, onGenSin, onGenAwaken,
                   <span>{run.mode === 'endless' && <span className="text-fuchsia-300">♾深{run.globalDepth} · </span>}{ABYSS_BIOMES[run.biome - 1]?.name ?? '深渊'} <span className="text-violet-400/60">({run.biome}/{ABYSS_BIOMES.length})</span> · 第 <b className="text-violet-100">{run.floor}</b>/{ABYSS_TUNING.floorsPerZone} 层 {run.hardcore && <span className="text-rose-300">· 极限</span>}</span>
                   <span>房间 {run.posIdx + 1}/{run.map.rooms.length}</span>
                 </div>
-                {/* 队伍 HP */}
+                {/* 队伍 HP（含护盾/状态/召唤标记） */}
                 {run.party.map((u) => (
-                  <Meter key={u.id} label={`${u.isPlayer ? '★' : '◦'}${u.name}`} pct={(u.hp / Math.max(1, u.maxHp)) * 100} text={`${u.hp}/${u.maxHp}`} color={u.alive ? 'bg-emerald-500' : 'bg-slate-600'} />
+                  <Meter key={u.id} label={`${u.isPlayer ? '★' : (u.summon ? '✣' : '◦')}${u.name}${u.shield ? ` 🛡${u.shield}` : ''}${(u.fx ?? []).map((f) => f.emoji).join('')}`} pct={(u.hp / Math.max(1, u.maxHp)) * 100} text={`${u.hp}/${u.maxHp}`} color={u.alive ? 'bg-emerald-500' : 'bg-slate-600'} />
                 ))}
                 {/* 腐蚀 / 堕落 */}
                 <Meter label={`腐蚀·堕落Lv${run.fallLevel}`} pct={fallPct} text={`${run.corruption}`} color="bg-fuchsia-600" />
@@ -424,7 +424,7 @@ export default function AbyssPanel({ onClose, onGenBoons, onGenSin, onGenAwaken,
                           <button key={e.id} disabled={!e.alive} onClick={() => setTargetIdx(idxInAlive)}
                             className={`w-full text-left rounded px-2 py-1 border transition ${e.alive ? (selected ? 'border-rose-400 bg-rose-900/40' : 'border-rose-800/40 hover:bg-rose-900/20') : 'border-slate-800 opacity-40'}`}>
                             <div className="flex items-center justify-between text-[11px]">
-                              <span className="text-rose-100">{selected ? '🎯 ' : ''}{e.name}{e.tier ? ` ·${e.tier}` : ''}</span>
+                              <span className="text-rose-100">{selected ? '🎯 ' : ''}{e.name}{e.tier ? ` ·${e.tier}` : ''}{e.shield ? ` 🛡${e.shield}` : ''}{(e.fx ?? []).map((f) => f.emoji).join('')}</span>
                               <span className="text-slate-300 tabular-nums">{Math.max(0, e.hp)}/{e.maxHp}</span>
                             </div>
                             <div className="h-1.5 mt-0.5 rounded-full bg-slate-800 overflow-hidden">
@@ -440,6 +440,19 @@ export default function AbyssPanel({ onClose, onGenBoons, onGenSin, onGenAwaken,
                         );
                       })}
                     </div>
+                    {hero.skills && hero.skills.length > 0 && (
+                      <div className="flex flex-wrap gap-1.5 justify-center">
+                        {hero.skills.map((s, i) => {
+                          const cd = hero.cd?.[s.name] || 0;
+                          return (
+                            <button key={i} disabled={loadingPanel || cd > 0} onClick={() => act('skill', tIdx, i)} title={s.effect}
+                              className="text-[11px] px-2 py-1 rounded border border-violet-600/50 bg-violet-950/30 text-violet-100 hover:brightness-125 disabled:opacity-40">
+                              ✦{s.name}{cd > 0 ? `(冷却${cd})` : ''}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    )}
                     <div className="flex flex-wrap gap-2 justify-center pt-1">
                       <button disabled={loadingPanel} onClick={() => act('attack', tIdx)} className="px-3 py-1.5 rounded bg-rose-700 hover:bg-rose-600 disabled:opacity-40 text-xs font-semibold text-white">⚔ 攻击</button>
                       <button disabled={loadingPanel} onClick={() => act('defend')} className="px-3 py-1.5 rounded bg-sky-800 hover:bg-sky-700 disabled:opacity-40 text-xs font-semibold text-white">🛡 防御</button>

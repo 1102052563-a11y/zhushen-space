@@ -67,10 +67,6 @@ export default function CombatManager() {
             className="mt-1 w-full bg-void border border-edge rounded px-2 py-1 text-sm" />
         </label>
         <label className="flex items-center gap-2 text-sm">
-          <input type="checkbox" checked={config.postBattleRewards} onChange={(e) => setConfig({ postBattleRewards: e.target.checked })} />
-          <span>战后发放进阶点数奖励</span>
-        </label>
-        <label className="flex items-center gap-2 text-sm">
           <input type="checkbox" checked={config.manualAllyControl} onChange={(e) => setConfig({ manualAllyControl: e.target.checked })} />
           <span>手动控制队友（默认 AI 托管）</span>
         </label>
