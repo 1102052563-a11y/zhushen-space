@@ -72,7 +72,7 @@ export const ABYSS_TUNING = {
   crystalsPerFloor: 5,          // 每到达 1 层结算的堕落结晶
   clearBonusCrystals: 30,       // 通关额外结晶
   floorScale: 0.28,             // 每全局层深怪物属性增幅
-  boonChoices: 3,               // 战后三选一
+  boonChoices: 4,               // 战后四选一（1-2 张贴合主角 kit + 其余无关多样）
   corruptIcePerBattle: 6,       // 每场战斗后腐蚀涨幅（基础推进）
   corruptThresholds: [0, 20, 45, 75, 110, 150],  // 堕落等级 0-5 阈值
   awakenEveryClears: 3,         // 每通关 N 次 → 1 枚觉醒充能
@@ -110,7 +110,16 @@ export interface AbyssUnit {
   atk: number; def: number;
   lifesteal?: number;     // 吸血比例（加成卡赋予，0-1）
   tags?: string[];        // 怪物机制标签（M2 接战斗 Layer2）
+  skills?: { name: string; effect: string }[];  // 敌人技能面板（AI 生成；战斗中按概率施放）
+  bioStrength?: string;   // 生物强度模板（T0-T9，展示）
+  race?: string;          // 种族（展示）
   alive: boolean;
+}
+
+/** AI 生成的敌人面板（仿战斗系统 COMBAT_BATTLE_DATA_RULE 的内联敌人块）。 */
+export interface AbyssEnemyPanel {
+  name: string; race?: string; tier?: string; bioStrength?: string;
+  attrs?: Partial<PlayerAttrs>; skills?: { name: string; effect: string }[]; count?: number;
 }
 
 export interface AbyssRoom {
@@ -163,6 +172,7 @@ export interface AbyssFight {
   form: { roundsLeft: number } | null;  // 堕落形态（魔化爆发）进行态
   formUsed: boolean;        // 本场是否已用过堕落形态
   mirror: boolean;          // 堕落镜像区主（高腐蚀触发，强化+掉堕落专属原罪物）
+  pendingPanel: { kind: 'elite' | 'boss'; biome: number; depth: number } | null;  // 待 AI 生成敌人面板（已落兜底敌人，可被替换）
   log: string[];
 }
 
@@ -236,6 +246,53 @@ function buildMonsterUnit(def: MonsterDef, globalDepth: number, idx: number, rng
     atk: Math.max(1, Math.round(def.atk * m)), def: Math.max(0, Math.round(def.def * m)),
     tags: def.tags, alive: true,
   };
+}
+
+/* ════════ AI 敌人面板（仿战斗系统：六维→derived，代码定数值；§5/M4） ════════ */
+const ATTR6: PlayerAttrs = { str: 5, agi: 5, con: 5, int: 5, cha: 5, luck: 5 };
+/** 把一个 AI 敌人面板 → 沙盒单位（六维走 computeDerived/computeMaxHp，与战斗系统同模型）。 */
+function buildEnemyFromPanel(p: AbyssEnemyPanel, globalDepth: number, idx: number, rng: () => number): AbyssUnit {
+  const attrs: PlayerAttrs = { ...ATTR6, ...(p.attrs ?? {}) };
+  const level = Math.max(1, Math.round(globalDepth * 5));
+  const d = computeDerived(attrs, level, []);
+  const jitter = 0.92 + rng() * 0.16;
+  const maxHp = Math.max(1, Math.round(computeMaxHp(attrs) * jitter));
+  return {
+    id: `E${idx}`, name: p.name || '深渊存在', isPlayer: false,
+    attrs, level, tier: p.tier, bioStrength: p.bioStrength, race: p.race,
+    maxHp, hp: maxHp, maxEp: Math.max(0, computeMaxEp(attrs)), ep: Math.max(0, computeMaxEp(attrs)),
+    atk: Math.max(1, Math.round(d.patk * jitter)), def: Math.max(0, Math.round(d.pdef * jitter)),
+    skills: Array.isArray(p.skills) ? p.skills.slice(0, 4).map((s) => ({ name: String(s?.name || '').slice(0, 16), effect: String(s?.effect || '').slice(0, 60) })).filter((s) => s.name) : [],
+    alive: true,
+  };
+}
+/** AI 面板数组 → 敌人单位（展开 count；上限 6）；空/无效返回 null（调用方回退数据敌人）。 */
+export function panelToEnemies(panels: any, globalDepth: number, seed: string): AbyssUnit[] | null {
+  if (!Array.isArray(panels) || !panels.length) return null;
+  const rng = makeRng(`${seed}|panel${globalDepth}`);
+  const out: AbyssUnit[] = [];
+  for (const p of panels) {
+    if (!p || !p.name) continue;
+    const count = Math.max(1, Math.min(4, Math.round(Number(p.count) || 1)));
+    for (let i = 0; i < count && out.length < 6; i++) out.push(buildEnemyFromPanel(p, globalDepth, out.length, rng));
+  }
+  return out.length ? out : null;
+}
+/** 敌人面板生成上下文（交面板请求 API）。 */
+export function enemyGenContext(run: AbyssRun): { biome: number; biomeName: string; kind: 'elite' | 'boss'; depth: number; floor: number; seed: string } | null {
+  const f = run.fight; if (!f?.pendingPanel) return null;
+  return { biome: f.pendingPanel.biome, biomeName: ABYSS_BIOMES[f.pendingPanel.biome - 1]?.name ?? '深渊', kind: f.pendingPanel.kind, depth: f.pendingPanel.depth, floor: run.floor, seed: `${run.seed}|e${run.posIdx}` };
+}
+/** AI 面板单位回来后替换战斗敌人（镜像同步强化）；null/空=回退保留数据敌人。 */
+export function applyEnemyPanels(run: AbyssRun, units: AbyssUnit[] | null): AbyssRun {
+  if (!run.fight?.pendingPanel) return run;
+  if (!units || !units.length) return { ...run, fight: { ...run.fight, pendingPanel: null } };
+  let enemies = units;
+  if (run.fight.mirror) {
+    const m = ABYSS_TUNING.mirrorStatMul;
+    enemies = units.map((e) => ({ ...e, name: `堕落·${e.name}`, maxHp: Math.round(e.maxHp * m), hp: Math.round(e.maxHp * m), atk: Math.round(e.atk * m), def: Math.round(e.def * m) }));
+  }
+  return { ...run, fight: { ...run.fight, enemies, pendingPanel: null, log: [...run.fight.log, `🜂 敌人面板：${enemies.map((e) => e.name).join('、')}`] } };
 }
 
 /* ════════ 生成一层（线性房间序列） ════════ */
@@ -323,7 +380,9 @@ export function stepEnterRoom(run: AbyssRun): AbyssRun {
         e.atk = Math.round(e.atk * m); e.def = Math.round(e.def * m);
       }
     }
-    next.fight = { enemies, round: 1, heroDefending: false, form: null, formUsed: false, mirror, log: [mirror ? `😈 堕落镜像降临：${enemies.map((e) => e.name).join('、')}！` : `⚔ ${room.name}：遭遇 ${enemies.map((e) => e.name).join('、')}`] };
+    // 精英/区主 → 标记待 AI 生成敌人面板（六维/技能），面板由 store/面板异步请求替换；普通战斗用数据敌人即可
+    const pendingPanel: AbyssFight['pendingPanel'] = (kind === 'elite' || kind === 'boss') ? { kind, biome: run.biome, depth: run.globalDepth } : null;
+    next.fight = { enemies, round: 1, heroDefending: false, form: null, formUsed: false, mirror, pendingPanel, log: [mirror ? `😈 堕落镜像降临：${enemies.map((e) => e.name).join('、')}！` : `⚔ ${room.name}：遭遇 ${enemies.map((e) => e.name).join('、')}`] };
     next.status = 'fighting';
     return next;
   }
@@ -506,16 +565,19 @@ export function combatAct(run: AbyssRun, action: 'attack' | 'defend' | 'flee', t
     next.log = [...next.log, `⚔ 战胜 ${fight.enemies.map((e) => e.name).join('、')}（${fight.round} 回合）`];
     return applyCombatWin(next);
   }
-  // 3) 敌人
+  // 3) 敌人（有技能则按概率施放：×1.5 伤害 + 技能名，轻量对齐战斗系统的技能动作）
   for (const e of fight.enemies) {
     if (!e.alive) continue;
     const tgt = next.party.filter((u) => u.alive).sort((x, y) => x.hp - y.hp)[0];
     if (!tgt) break;
+    const useSkill = e.skills && e.skills.length > 0 && rng() < 0.4;
+    const sk = useSkill ? e.skills![Math.floor(rng() * e.skills!.length)] : null;
     let d = dmg(e.atk, tgt.def);
+    if (sk) d = Math.round(d * 1.5);
     if (tgt.isPlayer && fight.heroDefending) d = Math.round(d * 0.45);
     if (tgt.isPlayer && fight.form) d = Math.round(d * ABYSS_TUNING.formDmgTaken);
     tgt.hp -= d; if (tgt.hp <= 0) tgt.alive = false;
-    fight.log.push(`${e.name} 对 ${tgt.name} 造成 ${d}${tgt.alive ? '' : '（倒下）'}`);
+    fight.log.push(`${e.name} ${sk ? `【${sk.name}】` : '攻击'} 对 ${tgt.name} 造成 ${d}${tgt.alive ? '' : '（倒下）'}`);
   }
   if (!next.party.some((u) => u.alive)) {
     next.lastBattle = { rounds: fight.round, foes: fight.enemies.map((e) => e.name), win: false };
@@ -696,7 +758,7 @@ export function materializeBoonFromAI(ai: any, depth: number): BoonCard | null {
   return {
     id: `api_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 6)}`,
     name, desc: String(ai.desc || '').slice(0, 60), school, quality, apply, prims,
-    needCorruption: Number(ai.needCorruption) || 0, capstone: !!ai.capstone,
+    needCorruption: Number(ai.needCorruption) || 0, capstone: !!ai.capstone, related: !!ai.related,
   };
 }
 /** 把 AI 回的 3 张卡（数组）物化；不足/失败由调用方回退种子池。 */

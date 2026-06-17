@@ -3,8 +3,8 @@ import { useAbyss } from '../store/abyssStore';
 import { useItems } from '../store/itemStore';
 import { useMisc } from '../store/miscStore';
 import { useNpc } from '../store/npcStore';
-import { ABYSS_TUNING, boonGenContext, rollBoons, makeRng, boonSig } from '../systems/abyssEngine';
-import type { RoomType, BoonGenContext, SinTemplate, SinFlavor, AwakenFlavor, JudgeFlavor } from '../systems/abyssEngine';
+import { ABYSS_TUNING, boonGenContext, rollBoons, makeRng, boonSig, enemyGenContext } from '../systems/abyssEngine';
+import type { RoomType, BoonGenContext, SinTemplate, SinFlavor, AwakenFlavor, JudgeFlavor, AbyssUnit } from '../systems/abyssEngine';
 import { BOON_PRIM_LABELS, ABYSS_STARMAP, STAR_BRANCH_LABEL, ABYSS_BIOMES, type BoonCard, type StarBranch } from '../data/abyssData';
 
 /* 深渊地牢面板（M2）——仅主神空间。线性多层地牢 + 自动战斗 + 战后 API 三选一 + 随机原罪物 + 队伍/极限。
@@ -25,9 +25,10 @@ interface Props {
   onGenSin?: (tpl: SinTemplate) => Promise<SinFlavor | null>;
   onGenAwaken?: (item: { name: string; category: string; subType?: string; affix?: string; awakenLv?: number }) => Promise<AwakenFlavor | null>;
   onGenJudge?: (options: { id: string; label: string }[]) => Promise<JudgeFlavor | null>;
+  onGenEnemies?: (ctx: { biome: number; biomeName: string; kind: 'elite' | 'boss'; depth: number; floor: number; seed: string }) => Promise<AbyssUnit[] | null>;
 }
 
-export default function AbyssPanel({ onClose, onGenBoons, onGenSin, onGenAwaken, onGenJudge }: Props) {
+export default function AbyssPanel({ onClose, onGenBoons, onGenSin, onGenAwaken, onGenJudge, onGenEnemies }: Props) {
   const run = useAbyss((s) => s.run);
   const meta = useAbyss((s) => s.meta);
   const boonLoading = useAbyss((s) => s.boonLoading);
@@ -35,6 +36,7 @@ export default function AbyssPanel({ onClose, onGenBoons, onGenSin, onGenAwaken,
   const start = useAbyss((s) => s.start);
   const enter = useAbyss((s) => s.enter);
   const act = useAbyss((s) => s.act);
+  const setFightEnemies = useAbyss((s) => s.setFightEnemies);
   const transform = useAbyss((s) => s.transform);
   const chooseAltar = useAbyss((s) => s.chooseAltar);
   const chooseJudge = useAbyss((s) => s.chooseJudge);
@@ -70,6 +72,7 @@ export default function AbyssPanel({ onClose, onGenBoons, onGenSin, onGenAwaken,
   const genRef = useRef(false);
   const sinRef = useRef<string | null>(null);
   const judgeRef = useRef<string | null>(null);
+  const panelRef = useRef<string | null>(null);
   useEffect(() => {
     if (!run) { genRef.current = false; sinRef.current = null; }
   }, [run?.seed]);
@@ -109,6 +112,20 @@ export default function AbyssPanel({ onClose, onGenBoons, onGenSin, onGenAwaken,
       enrichSin(flavor);
     })();
   }, [run?.pendingSin?.idx, run?.seed]);
+
+  // 精英/区主：AI 生成敌人面板（六维/技能），替换数据兜底敌人；战斗开始即触发，玩家在此期间无法行动
+  useEffect(() => {
+    if (!run?.fight?.pendingPanel) return;
+    const key = `${run.seed}#p${run.posIdx}`;
+    if (panelRef.current === key) return;
+    panelRef.current = key;
+    (async () => {
+      let units: AbyssUnit[] | null = null;
+      const ctx = enemyGenContext(run);
+      if (onGenEnemies && ctx) { try { units = await onGenEnemies(ctx); } catch { /* */ } }
+      setFightEnemies(units);
+    })();
+  }, [run?.fight?.pendingPanel, run?.posIdx, run?.seed]);
 
   // 深渊裁判剧情局 AI 配文（场景+选项文案，后果前端定）
   useEffect(() => {
@@ -394,9 +411,11 @@ export default function AbyssPanel({ onClose, onGenBoons, onGenSin, onGenAwaken,
               {run.status === 'fighting' && run.fight && (() => {
                 const aliveE = run.fight.enemies.filter((e) => e.alive);
                 const tIdx = Math.min(targetIdx, Math.max(0, aliveE.length - 1));
+                const loadingPanel = !!run.fight.pendingPanel;
                 return (
                   <div className="rounded-lg border border-rose-800/40 bg-rose-950/10 p-3 space-y-2">
                     <div className="text-center text-sm text-rose-200">⚔ 交战中 · 第 {run.fight.round} 回合 {run.fight.form && <span className="text-fuchsia-300">· 😈魔化 {run.fight.form.roundsLeft} 回合</span>}</div>
+                    {loadingPanel && <div className="text-center text-[11px] text-rose-300/70 animate-pulse">敌人逼近 · 解析面板中…（AI 生成六维/技能，失败回退）</div>}
                     <div className="space-y-1">
                       {run.fight.enemies.map((e) => {
                         const idxInAlive = aliveE.indexOf(e);
@@ -411,15 +430,21 @@ export default function AbyssPanel({ onClose, onGenBoons, onGenSin, onGenAwaken,
                             <div className="h-1.5 mt-0.5 rounded-full bg-slate-800 overflow-hidden">
                               <div className="h-full bg-rose-500" style={{ width: `${Math.max(0, Math.min(100, (e.hp / Math.max(1, e.maxHp)) * 100))}%` }} />
                             </div>
+                            {(e.race || e.bioStrength || (e.skills && e.skills.length > 0)) && (
+                              <div className="text-[9px] text-slate-500 mt-0.5">
+                                {[e.race, e.bioStrength, `攻${e.atk}/防${e.def}`].filter(Boolean).join(' · ')}
+                                {e.skills && e.skills.length > 0 && <span className="text-rose-300/70"> · 技：{e.skills.map((s) => s.name).join('、')}</span>}
+                              </div>
+                            )}
                           </button>
                         );
                       })}
                     </div>
                     <div className="flex flex-wrap gap-2 justify-center pt-1">
-                      <button onClick={() => act('attack', tIdx)} className="px-3 py-1.5 rounded bg-rose-700 hover:bg-rose-600 text-xs font-semibold text-white">⚔ 攻击</button>
-                      <button onClick={() => act('defend')} className="px-3 py-1.5 rounded bg-sky-800 hover:bg-sky-700 text-xs font-semibold text-white">🛡 防御</button>
+                      <button disabled={loadingPanel} onClick={() => act('attack', tIdx)} className="px-3 py-1.5 rounded bg-rose-700 hover:bg-rose-600 disabled:opacity-40 text-xs font-semibold text-white">⚔ 攻击</button>
+                      <button disabled={loadingPanel} onClick={() => act('defend')} className="px-3 py-1.5 rounded bg-sky-800 hover:bg-sky-700 disabled:opacity-40 text-xs font-semibold text-white">🛡 防御</button>
                       {run.fallLevel >= ABYSS_TUNING.formMinFall && !run.fight.form && !run.fight.formUsed && (
-                        <button onClick={transform} className="px-3 py-1.5 rounded bg-fuchsia-700 hover:bg-fuchsia-600 text-xs font-semibold text-white">😈 堕落形态</button>
+                        <button disabled={loadingPanel} onClick={transform} className="px-3 py-1.5 rounded bg-fuchsia-700 hover:bg-fuchsia-600 disabled:opacity-40 text-xs font-semibold text-white">😈 堕落形态</button>
                       )}
                       <button onClick={() => act('flee')} className="px-3 py-1.5 rounded bg-slate-700 hover:bg-slate-600 text-xs text-slate-200">🏃 撤离</button>
                     </div>
@@ -441,9 +466,12 @@ export default function AbyssPanel({ onClose, onGenBoons, onGenSin, onGenAwaken,
                       {run.pendingBoons.map((b) => (
                         <button key={b.id} onClick={() => chooseBoon(b)}
                           className={`text-left rounded-lg border p-3 transition hover:brightness-125 ${BOON_BORDER[b.quality]}`}>
-                          <div className="flex items-center justify-between">
+                          <div className="flex items-center justify-between gap-1">
                             <div className="text-sm font-semibold text-slate-100">{b.name}</div>
-                            {b.capstone && <span className="text-[9px] text-amber-300">★质变</span>}
+                            <div className="flex items-center gap-1 shrink-0">
+                              {b.related && <span className="text-[9px] text-cyan-300">✦契合</span>}
+                              {b.capstone && <span className="text-[9px] text-amber-300">★质变</span>}
+                            </div>
                           </div>
                           <div className="text-[10px] text-violet-300/70 mt-0.5">{SCHOOL_LABEL[b.school]} · {QUALITY_LABEL[b.quality]}</div>
                           <div className="text-xs text-slate-300 mt-1">{b.desc}</div>

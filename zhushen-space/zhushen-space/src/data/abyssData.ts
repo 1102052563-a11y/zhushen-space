@@ -46,6 +46,7 @@ export interface BoonCard {
   prims?: { id: BoonPrim; tier: BoonTier }[];  // API 生成时携带（展示/重算用）
   needCorruption?: number;                      // 需腐蚀≥X 才显著（§8.4，M2 auto-resolve 暂作展示）
   capstone?: boolean;                           // 流派质变核心
+  related?: boolean;                            // 契合卡（呼应主角技能/天赋/职业）
 }
 
 export interface BiomeData {

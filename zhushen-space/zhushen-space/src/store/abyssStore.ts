@@ -2,8 +2,8 @@ import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import {
   startRun, stepEnterRoom, applyBoon, descend, settleRun, corruptToFall,
-  buildAllyUnit, applySinFlavor, combatAct, activateForm, applyAltar, advanceZone, boonSig, applyJudge, applyJudgeFlavor,
-  ABYSS_TUNING, type AbyssRun, type PlayerSnapshot, type SinFlavor, type AwakenFlavor, type JudgeFlavor,
+  buildAllyUnit, applySinFlavor, combatAct, activateForm, applyAltar, advanceZone, boonSig, applyJudge, applyJudgeFlavor, applyEnemyPanels,
+  ABYSS_TUNING, type AbyssRun, type PlayerSnapshot, type SinFlavor, type AwakenFlavor, type JudgeFlavor, type AbyssUnit,
 } from '../systems/abyssEngine';
 import { ABYSS_STARMAP, ABYSS_BIOMES, type AbyssLoot, type BoonCard } from '../data/abyssData';
 import { usePlayer } from './playerStore';
@@ -59,6 +59,8 @@ interface AbyssState {
   enter: () => void;
   /** 交互式战斗：玩家一次行动（攻击/防御/撤离），推进一回合。 */
   act: (action: 'attack' | 'defend' | 'flee', targetIdx?: number) => void;
+  /** 面板把 AI 生成的敌人面板单位写回战斗（精英/区主；null=回退保留数据敌人）。 */
+  setFightEnemies: (units: AbyssUnit[] | null) => void;
   /** 战斗中发动堕落形态（满堕落、本场未用过）。 */
   transform: () => void;
   /** 堕落祭坛：选献祭（idx<0=拒绝离开）。 */
@@ -244,6 +246,8 @@ export const useAbyss = create<AbyssState>()(
         if (!run || run.status !== 'fighting') return;
         set({ run: combatAct(run, action, targetIdx) });
       },
+
+      setFightEnemies: (units) => set((s) => (s.run?.fight?.pendingPanel ? { run: applyEnemyPanels(s.run, units) } : {})),
 
       transform: () => {
         const run = get().run;
