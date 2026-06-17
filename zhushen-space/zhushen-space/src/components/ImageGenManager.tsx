@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { useImageGen, IMG_SERVICES, type ImgService, type OpenAIImgConfig } from '../store/imageGenStore';
+import { useImageGen, IMG_SERVICES, type ImgService, type OpenAIImgConfig, DEFAULT_IMG_CORS_PROXY } from '../store/imageGenStore';
 import ApiRoutePicker from './ApiRoutePicker';
 
 const inputCls = 'w-full bg-void border border-edge rounded px-2 py-1 text-[13px] font-mono text-slate-200 outline-none focus:border-god';
@@ -36,6 +36,12 @@ function OpenAIImgFields({ cfg, set }: { cfg: OpenAIImgConfig; set: (p: Partial<
         <Field label="尺寸"><input value={cfg.size} onChange={(e) => set({ size: e.target.value })} placeholder="1024x1024" className={inputCls} /></Field>
         <Field label="质量"><input value={cfg.quality} onChange={(e) => set({ quality: e.target.value })} placeholder="high" className={inputCls} /></Field>
       </div>
+      <Field label="CORS 代理地址（已默认填好·绕过浏览器跨域；改后自动保存、刷新不丢）" hint="留空=直连官方端点；含 {url} 为前缀式，否则 代理/真实地址。公益站/中转站直连常被浏览器跨域拦截（白扣次数）——用默认代理即可。点「↺默认」恢复。">
+        <div className="flex gap-1">
+          <input value={cfg.corsProxy ?? ''} onChange={(e) => set({ corsProxy: e.target.value })} placeholder="留空=直连" className={inputCls + ' flex-1'} />
+          <button type="button" onClick={() => set({ corsProxy: DEFAULT_IMG_CORS_PROXY })} title="恢复默认代理" className="shrink-0 px-2 text-[12px] font-mono text-dim hover:text-god border border-edge rounded transition-colors">↺默认</button>
+        </div>
+      </Field>
     </div>
   );
 }
