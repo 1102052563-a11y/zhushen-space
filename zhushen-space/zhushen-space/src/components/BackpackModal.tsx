@@ -2,6 +2,8 @@ import { useState, useRef } from 'react';
 import { useItems, ITEM_CATEGORIES, ITEM_GRADES, gradeColorClass, gradeBadgeClass, gradeNameClass, socketsOf, type InventoryItem, type ItemCategory, type CurrencyWallet } from '../store/itemStore';
 import { enhanceColorClass, enhancedCombat } from '../systems/enhanceEngine';
 import { usePlayer } from '../store/playerStore';
+import { useSkillTree } from '../store/skillTreeStore';
+import { availablePP } from '../systems/skillTree';
 import { useImageGen, effectiveEquipService } from '../store/imageGenStore';
 import { generateImage, buildEquipPrompt, shrinkDataUrl } from '../systems/imageGen';
 import { useImageViewer } from '../store/imageViewerStore';
@@ -559,6 +561,10 @@ function ItemCard({ item, onOpen }: { item: InventoryItem; onOpen: () => void })
 function CurrencyBar({ wallet }: { wallet: CurrencyWallet }) {
   const attrPoints = usePlayer((s) => s.profile.attrPoints ?? 0);
   const realAttrPoints = usePlayer((s) => s.profile.realAttrPoints ?? 0);
+  const level = usePlayer((s) => s.profile.level);
+  const tier = usePlayer((s) => s.profile.tier);
+  const treeProg = useSkillTree((s) => s.progress['B1']);
+  const potPoints = Math.max(0, availablePP(treeProg, { level, tier }));   // 技能树可用潜能点（预算+兑换−已花）
   const [showReal, setShowReal] = useState(false);
   return (
     <div className="border border-edge rounded-xl bg-panel overflow-hidden">
@@ -569,29 +575,40 @@ function CurrencyBar({ wallet }: { wallet: CurrencyWallet }) {
         {(Object.keys(CURRENCY_CFG) as (keyof CurrencyWallet)[]).map((type) => {
           const cfg = CURRENCY_CFG[type];
           return (
-            <div key={type} className="flex items-center gap-2 px-3 py-3">
-              <span className="text-base">{cfg.icon}</span>
+            <div key={type} className="flex items-center gap-2 px-3 py-2.5">
+              <span className="text-base shrink-0">{cfg.icon}</span>
               <div className="flex-1 min-w-0">
-                <div className={`text-sm font-mono font-semibold ${cfg.color}`}>{type}</div>
-                <div className="text-[12px] text-dim/50">{cfg.sub}</div>
+                <div className={`text-sm font-mono font-semibold truncate ${cfg.color}`}>{type}</div>
+                <div className="text-[11px] text-dim/50 truncate">{cfg.sub}</div>
               </div>
-              <span className={`text-lg font-bold font-mono ${cfg.color}`}>
+              <span className={`text-base font-bold font-mono shrink-0 tabular-nums ${cfg.color}`}>
                 {wallet[type].toLocaleString()}
               </span>
             </div>
           );
         })}
         {/* 属性点（点击切换显示 真实属性点）*/}
-        <button onClick={() => setShowReal((v) => !v)} className="w-full flex items-center gap-2 px-3 py-3 hover:bg-panel2/40 transition-colors text-left">
-          <span className="text-base">{showReal ? '💠' : '🔶'}</span>
+        <button onClick={() => setShowReal((v) => !v)} className="w-full flex items-center gap-2 px-3 py-2.5 hover:bg-panel2/40 transition-colors text-left">
+          <span className="text-base shrink-0">{showReal ? '💠' : '🔶'}</span>
           <div className="flex-1 min-w-0">
-            <div className="text-sm font-mono font-semibold text-amber-300">{showReal ? '真实属性点' : '属性点'}</div>
-            <div className="text-[12px] text-dim/50">点击切换{showReal ? '属性点' : '真实属性点'}</div>
+            <div className="text-sm font-mono font-semibold truncate text-amber-300">{showReal ? '真实属性点' : '属性点'}</div>
+            <div className="text-[11px] text-dim/50 truncate">点击切换{showReal ? '属性点' : '真实属性点'}</div>
           </div>
-          <span className="text-lg font-bold font-mono text-amber-300">
+          <span className="text-base font-bold font-mono shrink-0 tabular-nums text-amber-300">
             {(showReal ? realAttrPoints : attrPoints).toLocaleString()}
           </span>
         </button>
+        {/* 潜能点（技能树加点·确定性预算，随等级/阶位增长，−已花、+兑换）*/}
+        <div className="flex items-center gap-2 px-3 py-2.5">
+          <span className="text-base shrink-0">🌟</span>
+          <div className="flex-1 min-w-0">
+            <div className="text-sm font-mono font-semibold truncate text-lime-300">潜能点</div>
+            <div className="text-[11px] text-dim/50 truncate">技能树加点</div>
+          </div>
+          <span className="text-base font-bold font-mono shrink-0 tabular-nums text-lime-300">
+            {potPoints.toLocaleString()}
+          </span>
+        </div>
       </div>
       {/* 货币兑换：1 灵魂钱币 = 150,000 乐园币 */}
       <CurrencyConverter wallet={wallet} />
@@ -811,7 +828,7 @@ export default function BackpackModal({
         <div className="flex max-lg:flex-col flex-1 overflow-hidden max-lg:overflow-y-auto">
 
           {/* 左侧边栏：货币 + 分类过滤 */}
-          <aside className="shrink-0 w-48 max-lg:w-full border-r max-lg:border-r-0 max-lg:border-b border-edge bg-panel flex flex-col gap-4 p-3 overflow-y-auto max-lg:overflow-visible">
+          <aside className="shrink-0 w-56 max-lg:w-full border-r max-lg:border-r-0 max-lg:border-b border-edge bg-panel flex flex-col gap-4 p-3 overflow-y-auto max-lg:overflow-visible">
             <CurrencyBar wallet={currency} />
 
             <div className="space-y-1">

@@ -8,6 +8,7 @@ import {
 } from '../systems/casinoEngine';
 import { awardCasinoHonors } from '../systems/casinoHonors';
 import { bestRarity, type GachaReward } from '../systems/casinoGacha';
+import { parseWorldBook, type WorldBook, type WorldBookEntry } from './settingsStore';
 
 const BJ_LABEL: Record<BlackjackOutcome, string> = { blackjack: '黑杰克!', win: '胜', push: '平局', lose: '负', bust: '爆牌' };
 
@@ -52,6 +53,40 @@ const DEFAULT_STATS: CasinoStats = {
   winStreak: 0, loseStreak: 0, bestWinStreak: 0,
 };
 
+/* ── 内置「战斗写作指导」世界书 ──
+   注入角斗场/灵魂决斗场的「战斗过程生成」(genGladiatorBattle)，让 AI 把战斗写得更精彩。
+   蓝灯(constant)常驻必注入；绿灯(selective)按本场两名角斗士的种族/职业/风格/桥段命中关键词才注入。
+   builtin 本不写入 localStorage（partialize 剥离），每次启动由 ensureBattleWbDefaults 重挂；
+   用户一旦编辑/开关，forkCasinoWb 把它转为非内置本 → 随存档持久化。 */
+const BATTLE_WB_KEY = 'casino-combat-guide';
+function bwbEntry(uid: number, comment: string, content: string, key: string[] = []): WorldBookEntry {
+  const green = key.length > 0;
+  return {
+    uid, comment, content, key, keysecondary: [],
+    constant: !green, selective: green,   // 无关键词 = 蓝灯常驻；有关键词 = 绿灯触发
+    enabled: true, order: 100 + uid, position: 1,
+  };
+}
+const DEFAULT_BATTLE_WB: WorldBook = {
+  id: 'cwb_builtin_combat', name: '战斗写作指导（内置）',
+  builtin: true, builtinKey: BATTLE_WB_KEY, enabled: true, createdAt: 0,
+  entries: [
+    bwbEntry(1, '运镜与节奏', '像分镜导演：远景立势→中景交锋→特写定格。每个回合给一个清晰的战术意图与转折，张弛交替——蓄力、试探、爆发、收势各有轻重，忌一路平推、流水账。'),
+    bwbEntry(2, '感官与具象', '调动五感：兵刃破空的锐响、血与硫磺的气味、肌肉的灼痛、脚下地面的震颤。用具体动词与画面代替"发动攻击/进行防御"，让读者看见、听见、闻到这一击。'),
+    bwbEntry(3, '数值翻译成画面', '把伤害与 HP 变化写成可感的后果：护甲凹陷、肋骨闷响、踉跄半步、视野发白，而不是"造成 37 点伤害"。血量越低，动作越沉、呼吸越乱，让数字有体感。'),
+    bwbEntry(4, '内心独白(OS)', '双方 OS 要贴各自的性格、职业与出身，并随战况起伏：从轻敌、试探，到焦灼、不甘，再到决死或绝望。一句直击要害，忌空喊口号、忌两人 OS 雷同。'),
+    bwbEntry(5, '招式与资源博弈', '点名复用角斗士的技能/天赋/储存空间物品，写清"起手—命中—效果"的因果链。让 buff 叠加、技能进 CD、消耗品的取舍成为看点：何时交底牌、何时赌一把。'),
+    bwbEntry(6, '终局的仪式感', '终结回合要有落幅：致命一击前的静默、慢镜般的定格、尘埃落定后的余韵与一句点题。但无论过程多惊险，绝不更改系统给定的预定胜者与"败方 HP 归零"。'),
+    bwbEntry(7, '逆转时刻', '先把人逼到死角——血条见底、招式被破、底牌用尽；再以明确的代价点燃逆转（燃烧寿命、解封禁术、以伤换伤），让翻盘有重量、有牺牲，而非凭空爆发。', ['反转', '逆转', '绝境', '绝望', '爆种', '突破', '险胜']),
+    bwbEntry(8, '法系交锋', '法师/术士之战重在咏唱博弈与法术克制：读条被打断的风险、护盾与穿透的拉扯、元素相生相克、禁咒登场的视觉奇观与反噬代价。', ['法师', '术士', '亡灵法师', '咒', '符文', '法术', '元素', '巫']),
+    bwbEntry(9, '敏捷·刺杀流', '刺客/敏捷流强调身法、视野盲区与一击脱离。善用"快"的留白——对手反应不及、残影错位、致命一击来自意料之外的角度；节奏短促、危险贴身。', ['刺客', '影', '潜行', '暗杀', '敏捷', '游侠', '盗']),
+    bwbEntry(10, '重装·磨耗流', '重盾/坦克流是钢铁意志与消耗战：格挡迸出的火花、纹丝不动的压制、以血肉换时间、反震之力后发制人。把"扛住"写得比"打出"更惊心。', ['重盾', '坦克', '守护', '重甲', '壁', '骑士', '卫士']),
+    bwbEntry(11, '非人形态', '亡灵/恶魔/异兽等非人战法：不惧痛楚、肢体异变、再生与腐蚀、诅咒与血怒等种族异能；以扭曲感、气味与超出常理的动作，凸显其"非人"。', ['亡灵', '不死', '死灵', '恶魔', '魔鬼', '妖', '兽', '龙', '魔']),
+  ],
+};
+function cloneDefaultBattleWb(): WorldBook { return JSON.parse(JSON.stringify(DEFAULT_BATTLE_WB)); }
+function forkCasinoWb(b: WorldBook): WorldBook { return b.builtin ? { ...b, builtin: false } : b; }
+
 interface CasinoState {
   chips: number;        // 普通筹码（乐园币兑换）
   soulChips: number;    // 魂筹（魂币兑换，贵宾厅）
@@ -63,6 +98,7 @@ interface CasinoState {
   gachaPity: number;                 // 命运福袋账号级保底计数
   gachaLast: GachaReward[] | null;   // 最近一次抽取结果（展示用）
   log: CasinoLogEntry[];
+  battleWorldBooks: WorldBook[];     // 战斗写作指导世界书（注入角斗场战斗生成；内置1本 + 用户导入）
 
   addChips: (kind: ChipKind, delta: number) => void;
   /** 结算一局：profit 为净筹码变动（赢正输负），wagered 为本金。更新余额/战绩/流水。 */
@@ -96,6 +132,16 @@ interface CasinoState {
   /** 破产保护：两种筹码都为 0 时补发普通筹码，返回是否补发。 */
   claimBankruptcyGrant: () => boolean;
 
+  /* ── 战斗写作指导世界书 ── */
+  importBattleWorldBook: (raw: string, fileName?: string) => { ok: boolean; message: string };
+  toggleBattleWorldBook: (id: string) => void;
+  removeBattleWorldBook: (id: string) => void;
+  toggleBattleWbEntry: (bookId: string, uid: number) => void;
+  updateBattleWbEntry: (bookId: string, uid: number, patch: Partial<WorldBookEntry>) => void;
+  addBattleWbEntry: (bookId: string) => void;
+  removeBattleWbEntry: (bookId: string, uid: number) => void;
+  resetBattleWorldBooks: () => void;
+
   setConfig: (patch: Partial<CasinoConfig>) => void;
   resetStats: () => void;
   clearCasino: () => void;
@@ -114,6 +160,7 @@ export const useCasino = create<CasinoState>()(
       gachaPity: 0,
       gachaLast: null,
       log: [],
+      battleWorldBooks: [],
 
       addChips: (kind, delta) =>
         set((s) => kind === 'soul'
@@ -280,6 +327,27 @@ export const useCasino = create<CasinoState>()(
         return true;
       },
 
+      importBattleWorldBook: (raw, fileName = '') => {
+        try {
+          const { name, entries } = parseWorldBook(raw, fileName);
+          if (!entries.length) return { ok: false, message: '未解析到任何条目' };
+          set((s) => ({ battleWorldBooks: [...s.battleWorldBooks, { id: `cwb_${Date.now()}`, name, entries, enabled: true, createdAt: Date.now() }] }));
+          return { ok: true, message: `已导入「${name}」（${entries.length} 条）` };
+        } catch (e: any) { return { ok: false, message: e?.message || '解析失败：不是有效的世界书 JSON' }; }
+      },
+      toggleBattleWorldBook: (id) => set((s) => ({ battleWorldBooks: s.battleWorldBooks.map((b) => b.id === id ? forkCasinoWb({ ...b, enabled: !b.enabled }) : b) })),
+      removeBattleWorldBook: (id) => set((s) => ({ battleWorldBooks: s.battleWorldBooks.filter((b) => b.id !== id) })),
+      toggleBattleWbEntry: (bookId, uid) => set((s) => ({ battleWorldBooks: s.battleWorldBooks.map((b) => b.id !== bookId ? b : forkCasinoWb({ ...b, entries: b.entries.map((e) => e.uid === uid ? { ...e, enabled: !e.enabled } : e) })) })),
+      updateBattleWbEntry: (bookId, uid, patch) => set((s) => ({ battleWorldBooks: s.battleWorldBooks.map((b) => b.id !== bookId ? b : forkCasinoWb({ ...b, entries: b.entries.map((e) => e.uid === uid ? { ...e, ...patch } : e) })) })),
+      addBattleWbEntry: (bookId) => set((s) => ({ battleWorldBooks: s.battleWorldBooks.map((b) => {
+        if (b.id !== bookId) return b;
+        const maxUid = b.entries.reduce((m, e) => Math.max(m, e.uid), 0);
+        const maxOrder = b.entries.reduce((m, e) => Math.max(m, e.order), 100);
+        return forkCasinoWb({ ...b, entries: [...b.entries, { uid: maxUid + 1, key: [], keysecondary: [], comment: '新条目', content: '', constant: true, selective: false, enabled: true, order: maxOrder + 1, position: 1 }] });
+      }) })),
+      removeBattleWbEntry: (bookId, uid) => set((s) => ({ battleWorldBooks: s.battleWorldBooks.map((b) => b.id !== bookId ? b : forkCasinoWb({ ...b, entries: b.entries.filter((e) => e.uid !== uid) })) })),
+      resetBattleWorldBooks: () => set((s) => ({ battleWorldBooks: [cloneDefaultBattleWb(), ...s.battleWorldBooks.filter((b) => b.builtinKey !== BATTLE_WB_KEY)] })),
+
       setConfig: (patch) => set((s) => ({ config: { ...s.config, ...patch } })),
       resetStats: () => set({ stats: { ...DEFAULT_STATS } }),
       clearCasino: () => set({ chips: 0, soulChips: 0, stats: { ...DEFAULT_STATS }, ladder: null, gladiator: null, blackjack: null, gachaPity: 0, gachaLast: null, log: [] }),
@@ -291,6 +359,8 @@ export const useCasino = create<CasinoState>()(
         // 角斗士立绘 dataURL 不进 localStorage（太大）——剥离 portrait
         gladiator: s.gladiator ? { ...s.gladiator, fighters: s.gladiator.fighters.map((f) => ({ ...f, portrait: undefined })) as typeof s.gladiator.fighters } : null,
         blackjack: s.blackjack, gachaPity: s.gachaPity, gachaLast: s.gachaLast, log: s.log,
+        // 内置战斗写作指导本不持久化（启动重挂）；只存用户导入/改过(已 fork 成非内置)的
+        battleWorldBooks: (s.battleWorldBooks ?? []).filter((b) => !b.builtin),
       }),
       merge: (persisted: any, current) => ({
         ...current,
@@ -305,7 +375,16 @@ export const useCasino = create<CasinoState>()(
         gachaPity: typeof persisted?.gachaPity === 'number' ? persisted.gachaPity : 0,
         gachaLast: persisted?.gachaLast ?? null,
         log: Array.isArray(persisted?.log) ? persisted.log : [],
+        battleWorldBooks: Array.isArray(persisted?.battleWorldBooks) ? persisted.battleWorldBooks : [],   // 内置本由 ensureBattleWbDefaults 加回
       }),
     },
   ),
 );
+
+/** 确保内置「战斗写作指导」世界书存在（builtin 本不持久化，启动时按 builtinKey 判重重挂；
+ *  用户删/改后已 fork 成非内置本仍带 builtinKey，故不会重复添加）。 */
+export function ensureBattleWbDefaults() {
+  const have = useCasino.getState().battleWorldBooks.some((b) => b.builtinKey === BATTLE_WB_KEY);
+  if (!have) useCasino.setState((s) => ({ battleWorldBooks: [cloneDefaultBattleWb(), ...s.battleWorldBooks] }));
+}
+ensureBattleWbDefaults();

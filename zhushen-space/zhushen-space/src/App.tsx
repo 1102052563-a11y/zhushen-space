@@ -121,6 +121,7 @@ import { BOON_PRIM_LIST, BOON_SCHOOLS, type BoonCard as AbyssBoonCard } from './
 import { useCasino } from './store/casinoStore';
 import { computeGladiatorOdds, type Gladiator, type GladiatorEval, type BattleRound, type GladiatorMatch } from './systems/casinoEngine';
 import { type GachaReward } from './systems/casinoGacha';
+import { buildBattleWbInjection } from './systems/casinoBattleWb';
 import JoyPanel from './components/JoyPanel';
 import { useJoy, hydrateJoyWorldBooks } from './store/joyStore';
 import { buildJoySystem, parseJoyReply, buildGreetPrompt } from './systems/joyGirls';
@@ -1002,14 +1003,14 @@ const QUEST_PLANNING_RULE = `
 - **何时规划主线**：仅当主角**真正进入一个具体任务世界（衍生世界，非枢纽）**——【进入新世界信号】=是、或本轮正文明确把主角投放进了一个新任务世界，且【当前任务列表】里**没有**属于当前世界的 active 主线时——把**该任务世界自身的核心目标**（用该世界真实的地名/反派/势力，绝不用框架套话）立成一条主线，**先定好"总环数"与"终局"，环内容则渐进式规划**：
   · 用 set 新建，带 \`kind:"主线"\`、\`finale\`(终局/最后一环的 climax 目标)、\`currentRing:1\`、\`rings\`(**3~5 个环**：通常 2~3 个强制环 + 0~2 个贪婪环，见下)。**总环数与 finale 一旦定下就固定不变**。
   · **不要一上来就把所有环的内容写死——渐进式规划**：rings 按总环数建满 N 项，但只把"当前环 + 下一环"写完整，再后面的留占位：
-      ① **第1环(status="active") 与 第2环 写完整**：idx / goal / reward / penalty 全给（reward 四选三、penalty 三类，见下）。
+      ① **第1环(status="active") 与 第2环 写完整**：idx / goal / reward / penalty 全给（reward 五选三、penalty 三类，见下）。
       ② **第3环及以后只占位**：idx + status="planned" + goal 写「（待剧情展开后规划）」（最后一环可写 finale 的方向当钩子），**先不写 reward/penalty**，等推进到再补。
       ③ 之后**每推进一环，再把"新的下一环"补成完整内容**（见【任务环·自适应推进】），始终保持"当前环+下一环"写全、更后面的留占位。
   · **各环是规模/难度递增的"不同挑战"，不是一个目标的拆分步骤**——例：清剿哥布林巢穴 →(难度升)清剿大型巢穴 → 终局 牧场守卫战·硬抗海量哥布林；**绝不要写成 侦查→赶路→清剿 这类琐碎子步骤**（那会让推进很墨迹）。
   · **强制环 vs 贪婪环（结构命门，每环必标其一）**：一条主线 = 2~3 个**强制环** + 0~2 个**贪婪环(标 optional:true)**：
       - **强制环**(不写 optional)：保命底线、必经，**失败=死亡或重罚**(penalty 三类)。顺序：①入场钩子(低难度，把主角钉进本世界剧情、绑定动机) ②正式升级(硬仗，逼用本世界资源/规则、击杀中boss/夺关键物) ③高潮(最高强制难度，boss战/剧情爆点)。**打完高潮＝主线达成、可离场**(到此即完整闭环)；finale 写的就是高潮目标。
       - **贪婪环**(optional:true)：高潮之后的**可选延伸**(隐藏升级 / 顶点·隐藏boss)，难度陡增、奖励跳一大档；**失败只损失本环额外奖励、不致死、不强制抹除**，排在强制环之后。
-  · **reward 固定"四选三"**：从【①属性点 ②技能点 ③乐园币 ④一件契合当前世界风格的装备 或 技能书】里**任选 3 类**，每类给具体数值/名目（如 「属性点+3、技能点+2、乐园币+500」，或把一项换成"当前世界风格的武器/技能书"）；**奖励超线性增长——每往后一环奖励近翻倍，贪婪环更跳一大档**（默认你已吃掉前几环奖励变强）。
+  · **reward 固定"五选三"**：从【①属性点 ②技能点 ③乐园币 ④一件契合当前世界风格的装备 或 技能书 ⑤潜能点（职业技能树资源，按环规模给：普通环+1~5、贪婪环更多；完成时由【潜能点】规则用 \`pp.B1 += N\` 实际发放）】里**任选 3 类**，每类给具体数值/名目（如 「属性点+3、技能点+2、乐园币+500」 或 「乐园币+500、技能点+2、潜能点+3」，或把一项换成"当前世界风格的武器/技能书"）；**奖励超线性增长——每往后一环奖励近翻倍，贪婪环更跳一大档**（默认你已吃掉前几环奖励变强）。
   · **penalty 按环型分**：**强制环固定三类**（按严重度递进：①扣除乐园币 ②全属性永久下降 ③强制抹除＝契约者被处决，仅用于高潮/致命失败），**不要写"被伏击/受伤/暴露行踪"等普通剧情后果**；**贪婪环 penalty 写"仅损失本环额外奖励(不死)"**。reward 不许留空。
   · **每环时限(startTime/endTime，绝对游戏时间)·最低 7 天铁则**：给每一环（及单环任务）设执行窗口时，**endTime − startTime ≥ 7 天（任务世界时间）是地板**，绝不要设几小时/几天的紧逼窗口逼玩家赶场；**上不封顶、按难度与性质评估**——普通环 7~30 天起步，需长期经营/等待/养成/季节更替/远途的长线环给数月乃至一年以上（半年、一年、数年皆可）。startTime=本环开始时的绝对游戏时间，endTime=startTime+评估出的时长；推进到下一环时新环 startTime 接续上一环结束。
   · 顶层第2列(desc)同步写当前 active 环目标，第5列写"进行中"。
@@ -1017,7 +1018,7 @@ const QUEST_PLANNING_RULE = `
   · 示例（一行内，双引号）：\`set({"0":"T_5","1":"哥布林讨伐","kind":"主线","2":"潜入受袭村庄、在哥布林夜袭中存活三日","5":"进行中","finale":"高潮·牧场守卫战，硬抗哥布林大军守住村庄","currentRing":1,"rings":[{"idx":1,"goal":"潜入受袭村庄、在哥布林夜袭中存活三日","status":"active","reward":"属性点+2、技能点+1、乐园币+300","penalty":"扣除乐园币300"},{"idx":2,"goal":"夺回被占的旧矿、击杀哥布林督军","status":"planned","reward":"属性点+3、乐园币+800、督军战旗(当前世界风格)","penalty":"全属性永久-2"},{"idx":3,"goal":"（高潮，待推进到再规划）","status":"planned"},{"idx":4,"goal":"（贪婪·隐藏委托，待解锁）","status":"planned","optional":true}]})\`
 - **何时不规划**：已存在当前世界的 active 主线时，**绝不重复新建主线**；主线的环推进交给【任务结算/推进】，这里不再造第二条主线。
 - 路线图是**规划而非预言**：**总环数(3~5)、各环的强制/贪婪定位、finale 定下后保持不变**，但环的具体内容渐进式补全（当前环+下一环写全、其余占位）；不要一开始就把整条线写死。每一环都是要打好几回合的"实质挑战"、规模/难度递增，不是琐碎子步骤。
-- **支线**：正文产生的其他多回合目标用 \`kind:"支线"\`（或不写 kind=默认支线）；需要分段的支线同样可带 rings，其每一环也要写全 goal/reward/penalty，reward 同样按"四选三"（属性点/技能点/乐园币/当前世界风格装备或技能书 任选3类）给，penalty 同样从「扣除乐园币 / 全属性永久下降 / 强制抹除」三类里取；**时限同样适用上面的【每环时限·最低 7 天】**——支线的每一环、以及单环支线任务，都要设 startTime~endTime 执行窗口、且 endTime−startTime ≥ 7 天（上不封顶，按难度/需求评估，长线可数月乃至一年以上）。`;
+- **支线**：正文产生的其他多回合目标用 \`kind:"支线"\`（或不写 kind=默认支线）；需要分段的支线同样可带 rings，其每一环也要写全 goal/reward/penalty，reward 同样按"五选三"（属性点/技能点/乐园币/当前世界风格装备或技能书/潜能点 任选3类）给，penalty 同样从「扣除乐园币 / 全属性永久下降 / 强制抹除」三类里取；**时限同样适用上面的【每环时限·最低 7 天】**——支线的每一环、以及单环支线任务，都要设 startTime~endTime 执行窗口、且 endTime−startTime ≥ 7 天（上不封顶，按难度/需求评估，长线可数月乃至一年以上）。`;
 
 const QUEST_KILL_TIER_RULE = `
 【任务击杀目标·阶位上限铁则（防止给低阶主角派"正面单挑高阶强者"的送死任务）】凡任务（含主线/支线各环）要求主角**正面击杀/讨伐**的目标，其阶位按环型封顶：
@@ -1028,13 +1029,13 @@ const QUEST_KILL_TIER_RULE = `
 
 const TASK_RECONCILE_RULE = `
 【任务环·自适应推进铁则（带环路线图的任务专用，优先于"任务达成即整条结算"的旧理解）】对【当前任务列表】里展开了 环1/环2… 的任务，每轮据正文按下列情形维护；**单条任务每轮最多一种环操作，无明确证据则不动**：
-① 当前 active 环的目标在正文里**明确达成** → 输出 \`ringAdvance("T_x")\`（系统会把当前环标 done、下一 planned 环转 active）。**这不是结算整条任务**——多环任务达成的只是"这一环"，绝不能因为一环完成就写 \`{"5":"已完成"}\`。**推进后，若"新的下一环"还是占位（goal 含"待…规划"、或缺 reward/penalty）→ 同回合用 \`add("T_x",{"rings":[…完整新数组…]})\` 把它补全**（goal 给一个比上一环规模/难度更高的新挑战、reward 四选三、penalty 三类、指向 finale），**总环数保持不变**。
+① 当前 active 环的目标在正文里**明确达成** → 输出 \`ringAdvance("T_x")\`（系统会把当前环标 done、下一 planned 环转 active）。**这不是结算整条任务**——多环任务达成的只是"这一环"，绝不能因为一环完成就写 \`{"5":"已完成"}\`。**推进后，若"新的下一环"还是占位（goal 含"待…规划"、或缺 reward/penalty）→ 同回合用 \`add("T_x",{"rings":[…完整新数组…]})\` 把它补全**（goal 给一个比上一环规模/难度更高的新挑战、reward 五选三、penalty 三类、指向 finale），**总环数保持不变**。
 ② 主角**提前/跳跃**完成了某个 planned 环，或另辟蹊径使中间环失去意义 → 用 \`add("T_x",{"rings":[…完整新数组…],"currentRing":N})\` 重排路线图：把已被跨越的环标 "done" 或 "skipped"，把当前正在做的设 "active"，并**重规划其后的 planned 环**使其仍自洽地指向 finale。（例：主角第1环就直捣巢穴主洞，则环1/2/3 视情况标 done/skipped，currentRing 跳到对应环，必要时补一个收尾环。）
 ③ 某个 planned 环被正文**作废**（目标NPC死亡 / 路径关闭 / 前提消失）→ 用 \`add("T_x",{"rings":[…]})\` 改写该环 goal 或移除它，保持整张图自洽指向 finale。
 ④ **高潮(最后一个强制环)达成＝主线达成**：**不要自动推进进贪婪环**。若该主线有贪婪环(optional:true) → 正文应向主角呈现"见好就收(主线已达成、可离场结算) / 继续赌(接受隐藏委托、进贪婪环)"的选择(附奖励预览+难度风险警告)；**仅当正文明确主角"接受/继续"才用 ringAdvance("T_x") 进贪婪环**，主角"见好就收/离场"则 add("T_x",{"5":"已完成"}) 结算。无贪婪环则高潮达成即直接结算。
 ⑤ **贪婪环**：成功给其超额奖励(再 ringAdvance 进下一贪婪环、或结算)；**失败只损失本环额外奖励、不致死、不强制抹除**，整条任务仍按"已达成"结算 add("T_x",{"5":"已完成"})。
 ⑥ 整条任务**失败/放弃**(强制环致命失败、或主角彻底放弃) → add("T_x",{"5":"已失败"}) 或 {"5":"已放弃"}。
-- **防抖护栏**：环的 idx 要稳定，**不要无故重命名/重排既有环**；只在正文给出**明确证据**时才推进/重排/改写（重排/改写/补环时，新环同样写全 goal/reward(四选三)/penalty(三类)/时限(startTime~endTime≥7天)）；绝大多数回合主线**没有**任何环指令；**总环数一旦定下保持不变（只填占位环、补全下一环，不随意增删环）**，≤5。
+- **防抖护栏**：环的 idx 要稳定，**不要无故重命名/重排既有环**；只在正文给出**明确证据**时才推进/重排/改写（重排/改写/补环时，新环同样写全 goal/reward(五选三)/penalty(三类)/时限(startTime~endTime≥7天)）；绝大多数回合主线**没有**任何环指令；**总环数一旦定下保持不变（只填占位环、补全下一环，不随意增删环）**，≤5。
 - 支线的环同理可用 \`ringAdvance\` / \`add rings\` 维护，但**优先保证主线**的环准确。`;
 
 const TASK_CANON_RULE = `
@@ -1130,7 +1131,6 @@ function flattenAiText(v: any): string {
 const rightMenuItems = [
   { icon: '⚔', label: '装备' },
   { icon: '🎒', label: '储存空间' },
-  { icon: '⚒', label: '强化' },
   { icon: '📇', label: 'NPC' },
   { icon: '✨', label: '技能' },
   { icon: '🛠', label: '副职业' },
@@ -1158,7 +1158,7 @@ const rightMenuItems = [
 
 /* 右侧导航·每个图标的独特 hover 特效类（定义见 index.css 的 .fx-*）*/
 const NAV_FX: Record<string, string> = {
-  '装备': 'fx-sword', '储存空间': 'fx-bag', '强化': 'fx-hammer', 'NPC': 'fx-card', '技能': 'fx-sparkle',
+  '装备': 'fx-sword', '储存空间': 'fx-bag', 'NPC': 'fx-card', '技能': 'fx-sparkle',
   '副职业': 'fx-wrench', '技能树': 'fx-tree', '称号': 'fx-medal', '成就': 'fx-trophy', '势力': 'fx-pillar',
   '领地': 'fx-castle', '冒险团': 'fx-shield', '万族': 'fx-cosmos', '世界百科': 'fx-book', 'ROLL': 'fx-dice',
   '战斗': 'fx-clash', '乐园设施': 'fx-ferris', '深渊': 'fx-void', '回合洞察': 'fx-zoom', '任务': 'fx-quest',
@@ -5670,9 +5670,15 @@ ${lines}`;
     const loser: 0 | 1 = winner === 0 ? 1 : 0;
     const twist = pickGladTwist(match.fighters[winner].name, match.fighters[loser].name);
     const user = `# 两名角斗士档案\n${dossier(match.fighters[0], 0)}\n\n${dossier(match.fighters[1], 1)}\n\n# 预定胜者（必须获胜，败方最终HP归零）\n${winner === 0 ? '一号位 ' + match.fighters[0].name : '二号位 ' + match.fighters[1].name}（下标 ${winner}）${twist ? `\n\n# 本场特殊桥段（必须自然融入剧情、成为记忆点，但绝不改变预定胜者）\n${twist}` : ''}`;
+    // 战斗写作指导世界书：按两名角斗士的种族/职业/风格/技能/桥段命中关键词，注入写作风格指引，提升战斗精彩度
+    const wbCtx = [match.fighters[0], match.fighters[1]]
+      .map((g) => `${g.race} ${g.profession} ${g.style} ${g.bioStrength} ${g.skills.map((s) => s.name).join(' ')} ${(g.talents ?? []).map((t) => t.name).join(' ')} ${g.items.map((it) => it.name).join(' ')}`)
+      .join(' ') + ' ' + twist;
+    const wbInj = buildBattleWbInjection(useCasino.getState().battleWorldBooks, wbCtx);
+    const sys = wbInj ? `${GLADIATOR_BATTLE_RULE}\n\n${wbInj}` : GLADIATOR_BATTLE_RULE;
     let j: any = {};
     try {
-      const { content } = await apiChatFallback(casinoChain(), [{ role: 'system', content: GLADIATOR_BATTLE_RULE }, { role: 'user', content: user }], { timeoutMs: 90000 });
+      const { content } = await apiChatFallback(casinoChain(), [{ role: 'system', content: sys }, { role: 'user', content: user }], { timeoutMs: 90000 });
       j = parseEntryJson(content) || lenientJsonParse(content) || {};
     } catch (e) { console.warn('[Casino] 角斗战斗生成失败:', e); }
     let rounds: BattleRound[] = Array.isArray(j?.rounds) ? j.rounds.map((r: any, i: number) => sanitizeRound(r, i)) : [];
@@ -7093,7 +7099,6 @@ ${lines}`;
                   const open =
                     item.label === '设置' ? () => setSettingsOpen(true) :
                     item.label === '储存空间' ? () => setBackpackOpen(true) :
-                    item.label === '强化' ? () => setEnhancePanelOpen(true) :
                     item.label === '装备' ? () => setEquipOpen(true) :
                     item.label === '技能' ? () => setCharPanelOpen(true) :
                     item.label === '称号' ? () => setTitlePanelOpen(true) :
@@ -7248,8 +7253,12 @@ ${lines}`;
               <h2 className="text-base font-bold text-slate-100 flex items-center gap-2">🎡 乐园设施</h2>
               <button onClick={() => setFacilitiesOpen(false)} className="text-dim/50 hover:text-blood text-lg font-mono">✕</button>
             </div>
-            <div className="text-[12px] text-dim/50">主神空间的娱乐去处。</div>
+            <div className="text-[12px] text-dim/50">主神空间的功能与娱乐设施。</div>
             <div className="space-y-2">
+              <button onClick={() => { setFacilitiesOpen(false); setEnhancePanelOpen(true); }}
+                className="w-full flex items-center gap-3 px-4 py-3 rounded-xl border border-edge text-slate-200 hover:border-god/50 hover:bg-panel2 transition-colors text-left">
+                <span className="text-lg">⚒</span><span>装备强化</span>
+              </button>
               {joyEnabled && (
                 <button onClick={() => { setFacilitiesOpen(false); setJoyPanelOpen(true); }}
                   className="w-full flex items-center gap-3 px-4 py-3 rounded-xl border border-pink-500/40 joy-glow font-semibold text-pink-200 hover:bg-pink-500/10 transition-colors text-left">
