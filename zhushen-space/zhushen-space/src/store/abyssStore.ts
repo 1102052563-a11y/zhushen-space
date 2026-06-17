@@ -40,11 +40,16 @@ const DEFAULT_META: AbyssMeta = {
   unlockedZones: 1, endlessUnlocked: false, starmapNodes: [], cardLibrary: [], startDeck: [], sinCodex: {},
 };
 
+/** 可调参（设置项，AbyssManager 编辑；属配置不随新游戏清空）。 */
+export interface AbyssConfig { ticketCost: number; deathRetain: number; }
+const DEFAULT_CONFIG: AbyssConfig = { ticketCost: ABYSS_TUNING.ticketCost, deathRetain: ABYSS_TUNING.deathRetain };
+
 export interface StartRunOpts { hardcore?: boolean; allyIds?: string[]; startZone?: number; endless?: boolean; }
 
 interface AbyssState {
   run: AbyssRun | null;
   meta: AbyssMeta;
+  config: AbyssConfig;        // 可调参（门票/死亡保留）
   boonLoading: boolean;       // 加成卡 API 生成中
   lastSettle: { note: string; crystals: number; carry: number; cleared: boolean } | null;
 
@@ -86,6 +91,8 @@ interface AbyssState {
   clearLastSettle: () => void;
   /** clearProgress 用：清空 run + meta。 */
   clearAbyss: () => void;
+  /** 调参（门票/死亡保留），AbyssManager 用。 */
+  setConfig: (patch: Partial<AbyssConfig>) => void;
 }
 
 /* 把引擎战利品带出主线（白名单 §13.3）：货币进钱包、物品/原罪物进背包 */
@@ -166,14 +173,16 @@ export const useAbyss = create<AbyssState>()(
     (set, get) => ({
       run: null,
       meta: { ...DEFAULT_META },
+      config: { ...DEFAULT_CONFIG },
       boonLoading: false,
       lastSettle: null,
 
       start: (opts) => {
         if (get().run) return true;   // 已有进行中的局
         const I = useItems.getState();
-        if ((I.currency.乐园币 ?? 0) < ABYSS_TUNING.ticketCost) return false;
-        I.adjustCurrency('乐园币', -ABYSS_TUNING.ticketCost);
+        const ticket = get().config.ticketCost;
+        if ((I.currency.乐园币 ?? 0) < ticket) return false;
+        I.adjustCurrency('乐园币', -ticket);
         const hardcore = !!opts?.hardcore;
         const npcs = useNpc.getState().npcs;
         const allies = hardcore ? [] : (opts?.allyIds ?? []).slice(0, 3).map((id, i) => {
@@ -286,7 +295,7 @@ export const useAbyss = create<AbyssState>()(
       retreat: () => {
         const run = get().run;
         if (!run) return;
-        const r = settleRun(run, 'retreat');
+        const r = settleRun(run, 'retreat', get().config.deathRetain);
         carryLootToMainline(r.carry);
         feedCosmosAbyss(r.reachedDepth, false);
         set((s) => ({
@@ -299,7 +308,7 @@ export const useAbyss = create<AbyssState>()(
       ackDeath: () => {
         const run = get().run;
         if (!run) return;
-        const r = settleRun(run, 'dead');
+        const r = settleRun(run, 'dead', get().config.deathRetain);
         carryLootToMainline(r.carry);
         feedCosmosAbyss(r.reachedDepth, false);
         set((s) => ({
@@ -312,7 +321,7 @@ export const useAbyss = create<AbyssState>()(
       ackClear: () => {
         const run = get().run;
         if (!run) return;
-        const r = settleRun(run, 'cleared');
+        const r = settleRun(run, 'cleared', get().config.deathRetain);
         carryLootToMainline(r.carry);
         set((s) => {
           const clears = s.meta.clearsCount + 1;
@@ -337,15 +346,17 @@ export const useAbyss = create<AbyssState>()(
 
       abandon: () => set({ run: null }),
       clearLastSettle: () => set({ lastSettle: null }),
-      clearAbyss: () => set({ run: null, meta: { ...DEFAULT_META }, lastSettle: null }),
+      clearAbyss: () => set({ run: null, meta: { ...DEFAULT_META }, lastSettle: null }),   // config 属设置，不随重置清空
+      setConfig: (patch) => set((s) => ({ config: { ...s.config, ...patch } })),
     }),
     {
       name: 'drpg-abyss',
-      partialize: (s) => ({ run: s.run, meta: s.meta }),
+      partialize: (s) => ({ run: s.run, meta: s.meta, config: s.config }),
       merge: (persisted: any, current) => ({
         ...current,
         run: persisted?.run ?? null,
         meta: { ...DEFAULT_META, ...(persisted?.meta ?? {}) },
+        config: { ...DEFAULT_CONFIG, ...(persisted?.config ?? {}) },
       }),
     },
   ),

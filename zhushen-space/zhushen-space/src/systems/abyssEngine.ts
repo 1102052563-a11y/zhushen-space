@@ -855,12 +855,12 @@ export interface SettleResult {
   reachedDepth: number;
   note: string;
 }
-export function settleRun(run: AbyssRun, outcome: 'retreat' | 'dead' | 'cleared'): SettleResult {
+export function settleRun(run: AbyssRun, outcome: 'retreat' | 'dead' | 'cleared', deathRetain: number = ABYSS_TUNING.deathRetain): SettleResult {
   const reachedDepth = run.globalDepth;
   let carry: AbyssLoot[];
   if (outcome === 'dead') {
-    // 未带出战利品按比例保留（确定性：保留前 ceil(50%) 件）
-    const keep = Math.ceil(run.loot.length * ABYSS_TUNING.deathRetain);
+    // 未带出战利品按比例保留（确定性：保留前 ceil(retain) 件，retain 由设置可调）
+    const keep = Math.ceil(run.loot.length * deathRetain);
     carry = run.loot.slice(0, keep);
   } else {
     carry = [...run.loot];
