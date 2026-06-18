@@ -81,7 +81,7 @@ import { SKILLTREE_TUNING } from './systems/skillTree';
 import { parseAllStateUpdates, stripStateBlocks, parseAllItemCommands, applyItemCommands, parseAllCharCommands, applyCharacterCommands, parseAllNpcCommands, applyNpcCommands, parseAllFactionCommands, applyFactionCommands, applyTerritoryCommands, applyTeamCommands, isEquippable, setNpcOwnerResolver, lenientJsonParse, type StateUpdate } from './systems/stateParser';
 import { parseWeather, isLightSky, extractWeatherFxCss, sanitizeWeatherCss } from './systems/weatherFx';
 import { useCombat, newLogId, type BattleState, type CombatStatBlock, type Side, type CombatActionKind } from './store/combatStore';
-import { buildCombatant, assembleBattle, settleAction, advanceTurn, checkEnd, currentActorId, aliveIds, makeActionLog, playerControlled } from './systems/combatEngine';
+import { buildCombatant, assembleBattle, settleAction, advanceTurn, checkEnd, currentActorId, aliveIds, makeActionLog, playerControlled, setMpCombatItems, clearMpCombatItems } from './systems/combatEngine';
 import CombatPanel from './components/CombatPanel';
 import WeatherFx from './components/WeatherFx';
 import CombatSetup from './components/CombatSetup';
@@ -152,7 +152,7 @@ import DmPanel, { type DmHandlers } from './components/DmPanel';
 import MultiplayerPanel from './components/MultiplayerPanel';
 import { useMp } from './store/multiplayerStore';
 import { mpClient } from './systems/mpClient';
-import { buildPlayerSnapshot, buildPartyTurnText, buildWorldSnapshot, applyWorldSnapshot } from './systems/mpSnapshot';
+import { buildPlayerSnapshot, buildPartyTurnText, buildWorldSnapshot, applyWorldSnapshot, buildPartyProfiles, mpNarrativeRule, purgeMpCharacters } from './systems/mpSnapshot';
 import { onGiftResponse } from './systems/mpGift';
 import { myPlayerId } from './systems/mpConfig';
 import GiftPrompt from './components/GiftPrompt';
@@ -1105,23 +1105,17 @@ function playerMaxEp(): number {
   return fullMaxEp(a, eq, b1?.skills, [...(b1?.traits ?? []), ...playerTeamPerkAbilities()]);
 }
 
-/* HP/EP「成长即补满」(2026-06-18 用户拍板：上限变大时当前值自动补满)。
-   当技能树/属性点/装备/团队等**永久成长**把真实上限(playerMaxHp/EP)抬高、超过上一次记录的上限(game.player.maxHp/maxMp)时
-   → 把当前 HP/EP 自动补到满；上限变小(洗点/卸装)则把当前夹回新上限；并把存储上限同步到实时上限。
-   这样只有「正文/战斗明确造成的伤害消耗」(当前<上限、且上限没变)才会让血蓝低于满，不会再卡在旧的满值。
-   在 刷新挂载 + 每回合 callApi 开头 + 关闭技能树面板 各跑一次（即用户报告的"一刷新/重新生成内容"触发点）。 */
-function reconcilePlayerVitalsGrowth(): void {
+/* HP/EP 上限同步（忠于正文末尾结算·2026-06-18 用户最终拍板：刷新只夹到正确上限、不强行拉满）。
+   当前 HP/EP 一律由正文末尾 <状态结算>(applyNarrativeVitals)、战斗结算、hp.B1 指令驱动并**原样保留**——本函数绝不补血。
+   只把存储上限 game.player.maxHp/maxMp 同步到真实上限(playerMaxHp/EP，含技能树)，让 StatusBar/钳制口径正确；
+   setPlayerField 经 gameStore.clampPlayer(hp=min(hp,maxHp)) 顺带处理：上限调小(洗点/卸装)时当前自动夹回新上限，上限调大时当前原样不动(不回血)。
+   在 刷新挂载 / 每回合 callApi 开头 / 关技能树面板 各跑一次。 */
+function syncPlayerVitalsMax(): void {
   const g = useGame.getState();
   const p = g.player;
   const liveHp = playerMaxHp(), liveEp = playerMaxEp();
-  // 顺序要紧：setPlayerField 会把 hp/mp 夹到 maxHp/maxMp(gameStore.clampPlayer)，必须**先抬上限再写当前值**，
-  // 否则"补满"会被旧的低上限夹掉。下面用捕获的旧 p.maxHp/p.hp 判定，再按新上限写值。
-  if (p.maxHp !== liveHp) g.setPlayerField('maxHp', liveHp);                        // ① 先同步存储上限=实时上限
-  if (p.maxHp == null || liveHp > p.maxHp) g.setPlayerField('hp', liveHp);          // ② 上限因成长变大 → 当前补满
-  else if ((p.hp ?? liveHp) > liveHp) g.setPlayerField('hp', liveHp);               //    上限变小 → 当前夹回新上限
+  if (p.maxHp !== liveHp) g.setPlayerField('maxHp', liveHp);   // clampPlayer 顺带把超出新上限的 hp 夹回(只降不升)
   if (p.maxMp !== liveEp) g.setPlayerField('maxMp', liveEp);
-  if (p.maxMp == null || liveEp > p.maxMp) g.setPlayerField('mp', liveEp);
-  else if ((p.mp ?? liveEp) > liveEp) g.setPlayerField('mp', liveEp);
 }
 
 const MISC_HOME_TIME_RULE = `
@@ -1560,6 +1554,12 @@ export default function App() {
           useMp.getState()._set({ comments: [...useMp.getState().comments, c].slice(-100) });   // 分享 → 房间聊天卡片
         }
       },
+      onGuestJoin: () => {   // 来宾进房：把当前单机态快照到保留槽，隔离单机存档（联机存档）
+        try { void saveSlot('mp-solo-backup', '🔙 联机前·单机备份', messagesRef.current); } catch (e) { console.warn('[MP] 单机备份失败', e); }
+      },
+      onGuestRestore: async () => {   // 来宾离开/关房：还原单机存档（loadSlot 会整页 reload；无备份则 no-op）
+        try { await loadSlot('mp-solo-backup'); } catch (e) { console.warn('[MP] 单机还原失败', e); }
+      },
     });
   }, []);
 
@@ -1623,7 +1623,7 @@ export default function App() {
       } catch { /* */ }
       void loadBuiltinDefaults();   // 补内置（仅当对应仓库仍为空）；内置项标 builtin、不入库，每次从 public 重载
       try { reconcilePlayerVitals(); } catch { /* */ }   // 载入/旧档：HP/EP 仍是 100/50 旧默认时，开局即按六维拉满（不等到第一回合）
-      try { reconcilePlayerVitalsGrowth(); } catch { /* */ }   // 刷新即生效：技能树/成长把上限抬高后，当前血蓝自动补满（不再卡旧值）
+      try { syncPlayerVitalsMax(); } catch { /* */ }   // 刷新/读档：只同步存储上限到真实上限+夹回超出值；当前 HP/EP 忠于正文末尾结算、原样保留（不强行拉满）
       // 镜像：世界书/预设变化（剔除 builtin 内置项）→ 防抖写入 IndexedDB
       { let wbT: ReturnType<typeof setTimeout> | null = null; let wbLast: any[] | null = null;
         useSettings.subscribe((s) => {
@@ -6304,12 +6304,15 @@ ${lines}`;
     // 联机：在座来宾各自加成玩家方战斗角色（用其上报的角色卡六维，瞬时 combatant，由该来宾远程出手）
     { const mp = useMp.getState();
       if (mp.status === 'connected' && mp.role === 'host') {
+        purgeMpCharacters();   // 清掉上一场战斗注入的 MP_ 残留
+        clearMpCombatItems();
         for (const seat of mp.seats) {
           const cid = `MP_${seat.seatId}`;
           if (blocks[cid]) continue;
           const card: any = mp.cards.find((c) => c.seatId === seat.seatId)?.snapshot;
-          blocks[cid] = buildCombatant(cid, 'player', { isTransient: true, name: card?.name || seat.name, attrs: card?.attrs, tier: card?.tier || '' });
-          try { useCharacters.setState((s) => ({ characters: { ...s.characters, [cid]: { id: cid, skills: card?.skills || [], traits: [] } } })); } catch {}   // 注入来宾技能供房主结算
+          blocks[cid] = buildCombatant(cid, 'player', { isTransient: true, name: card?.name || seat.name, attrs: card?.attrs, tier: card?.tier || '', maxHp: card?.maxHp, maxEp: card?.maxEp });
+          try { useCharacters.setState((s) => ({ characters: { ...s.characters, [cid]: { id: cid, skills: card?.skills || [], traits: card?.traits || [] } } })); } catch {}   // 注入来宾技能/天赋供房主结算
+          try { setMpCombatItems(cid, card?.items || []); } catch {}   // 注入来宾战斗道具供房主结算
         }
       }
     }
@@ -6454,8 +6457,8 @@ ${lines}`;
   function applyCombatVitals(v: { hp: Record<string, number>; ep: Record<string, number> }) {
     for (const id of Object.keys(v.hp)) {
       if (id === 'B1') {
-        // 防截断 + 存储上限保真：把 maxHp/maxMp 同步到真实上限(playerMaxHp/EP=六维+装备+技能树/天赋上限加成，与面板同口径)。
-        // 既避免低值把战斗写回的 HP 夹掉，也让「成长即补满」的存储上限准确——否则战斗后存储上限偏低，下回合会被误判成"又成长了"而把受伤血量补满。
+        // 防截断 + 存储上限保真：先把 maxHp/maxMp 抬到真实上限(playerMaxHp/EP=六维+装备+技能树/天赋上限加成，与面板同口径)，
+        // 再写 hp/mp——避免旧的低上限把战斗写回的 HP 夹掉。当前值＝战斗结算结果（忠于战斗，不补血）。
         const g = useGame.getState();
         g.setPlayerField('maxHp', Math.max(g.player.maxHp ?? 0, playerMaxHp()));
         g.setPlayerField('maxMp', Math.max(g.player.maxMp ?? 0, playerMaxEp()));
@@ -6591,7 +6594,7 @@ ${lines}`;
     expireStatuses();                      // 回合推进：清理已过期的限时状态（主角+NPC）
     reconcileHomeWorld();                  // 回归乐园一致性兜底：时间同步 + 任务世界势力移出当前世界
     reconcilePlayerVitals();               // HP/EP 兜底：仍是 100/50 旧默认时按六维重算为满
-    reconcilePlayerVitalsGrowth();         // 重新生成/每回合：成长抬高上限→当前血蓝补满（在拼快照前跑，使 AI 拿到的也是补满后的值）
+    syncPlayerVitalsMax();                  // 每回合：同步存储上限=真实上限（当前 HP/EP 由正文末尾<状态结算>驱动，本函数不补血）
     reconcilePartyLifecycle();             // 临时队伍：非当前世界的队友自动解散（离场归档；有冒险团则弹转正）
 
     const api = textUseShared ? sharedApi : textApi;
@@ -6719,10 +6722,15 @@ ${lines}`;
       recent = visibleHistory.map((m) => ({ role: m.role as 'user' | 'assistant', content: m.content }));
     }
 
+    const mpPartyBlock = buildPartyProfiles();   // 联机房主：同行真人队友档案(技能/天赋/职业/装备/性格/外观/种族)
+    const mpRuleBlock = mpNarrativeRule();        // 联机专用正文规则（建房时房主可选启用）
     const history = [
       ...examples,
       ...memory,                                       // <过往记忆> system 块（如有）
       ...structMem,                                    // <在场与相关档案> 结构化档案块（如有）
+      ...(mpRuleBlock ? [{ role: 'system' as const, content: mpRuleBlock }] : []),     // <联机正文规则> 房主开了才注入
+      ...(mpPartyBlock ? [{ role: 'system' as const, content: mpPartyBlock }] : []),   // <同行队友> 联机其他玩家档案
+
       ...buildPlayerCoreInjection(),                    // <主角核心> 始终注入主角真实外观/六维（结构化召回关时兜底，防 AI 改发色/清属性）
       ...buildWorldTimeInjection(),                     // <当前时空> 杂项的两个时间(乐园时间/世界时间)+当前世界名，常驻注入正文
       ...buildQuestInjection(),                          // <当前任务> 主线(重)+相关支线(轻) 回流正文，给主线存在感+把控节奏
@@ -7654,7 +7662,7 @@ ${lines}`;
                     item.label === '世界百科' ? () => setWorldCodexOpen(true) :
                     item.label === '回合洞察' ? () => setInsightOpen(true) :
                     item.label === 'ROLL' ? () => setDicePanelOpen(true) :
-                    item.label === '战斗' ? () => setCombatSetupOpen(true) :
+                    item.label === '战斗' ? () => { if (mpGuest) { setGenError('联机中：战斗由房主发起'); setTimeout(() => setGenError(''), 4000); return; } setCombatSetupOpen(true); } :
                     item.label === '乐园设施' ? () => setFacilitiesOpen(true) :
                     item.label === '深渊' ? () => setAbyssOpen(true) :
                     item.label === 'NPC'  ? () => setNpcPanelOpen(true) :
@@ -7789,7 +7797,7 @@ ${lines}`;
         />
       )}
       {(combatActive || combatStage === 'ended') && <CombatPanel
-        onPlayerAction={mpMode === 'guest' ? ((kind, targetIds, skillId, itemId) => mpClient.submitCombatAction({ kind, targetIds, skillId, itemId })) : submitCombatPlayerAction}
+        onPlayerAction={mpMode === 'guest' ? ((kind, targetIds, skillId, itemId) => { if (kind === 'item' && itemId) { try { useItems.getState().consumeItem(itemId, 1); } catch {} } mpClient.submitCombatAction({ kind, targetIds, skillId, itemId }); }) : submitCombatPlayerAction}
         onUndo={undoCombatAction} canUndo={combatHasUndo && !combatApiBusy} mpMode={mpMode} mySeatId={mpMySeatId} />}
 
       {/* ── 乐园设施聚合菜单：欢愉宫 / 竞技场 / 赌场 ── */}
@@ -7868,7 +7876,7 @@ ${lines}`;
       {titlePanelOpen && <TitlePanel onClose={() => setTitlePanelOpen(false)} />}
       {achievePanelOpen && <AchievementPanel onClose={() => setAchievePanelOpen(false)} />}
       {subProfOpen && <SubProfessionPanel onClose={() => setSubProfOpen(false)} />}
-      {skillTreeOpen && <SkillTreePanel onClose={() => { setSkillTreeOpen(false); try { reconcilePlayerVitalsGrowth(); } catch { /* */ } }} />}
+      {skillTreeOpen && <SkillTreePanel onClose={() => { setSkillTreeOpen(false); try { syncPlayerVitalsMax(); } catch { /* */ } }} />}
       {factionPanelOpen && <FactionPanel onClose={() => setFactionPanelOpen(false)} />}
       {territoryPanelOpen && <TerritoryPanel onClose={() => setTerritoryPanelOpen(false)} />}
       {teamPanelOpen && <AdventureTeamPanel onClose={() => setTeamPanelOpen(false)} />}

@@ -12,6 +12,7 @@ let curRoom: string | null = null;
 let curName = '道友';
 let curWant: 'play' | 'watch' = 'play';
 let manualClose = false;
+let backupRoom: string | null = null;   // 已为哪个房间快照了单机存档（联机存档隔离）
 
 function set(p: any) { useMp.getState()._set(p); }
 
@@ -89,6 +90,7 @@ function leave() {
   cleanupSocket();
   curRoom = null;
   restoreWorldBackup();   // 还原来宾自己的世界（房主无备份则 no-op）
+  if (backupRoom) { backupRoom = null; useMp.getState().handlers.onGuestRestore?.(); }   // 来宾：还原单机存档（会 reload）
   useMp.getState().reset();
 }
 
@@ -103,6 +105,8 @@ function dispatch(m: any) {
         role: m.you?.role ?? st.role,
         mySeatId: m.you?.seatId ?? st.mySeatId,
       });
+      // 来宾首次进某房：快照单机存档以隔离（联机存档）
+      if (m.you?.role && m.you.role !== 'host' && backupRoom !== curRoom) { backupRoom = curRoom; st.handlers.onGuestJoin?.(); }
       break;
     case 'seats_updated': set({ seats: m.seats || [] }); break;
     case 'player_snapshots': set({ cards: m.seats || [] }); break;
@@ -118,7 +122,7 @@ function dispatch(m: any) {
       if (m.backlog) set({ comments: m.backlog });
       else if (m.comment) set({ comments: [...useMp.getState().comments, m.comment].slice(-100) });
       break;
-    case 'room_closed': set({ status: 'closed', error: '房间已被房主关闭' }); cleanupSocket(); restoreWorldBackup(); break;
+    case 'room_closed': set({ status: 'closed', error: '房间已被房主关闭' }); cleanupSocket(); restoreWorldBackup(); if (backupRoom) { backupRoom = null; st.handlers.onGuestRestore?.(); } break;
     case 'error': set({ error: m.reason || m.error || '未知错误' }); break;
   }
 }

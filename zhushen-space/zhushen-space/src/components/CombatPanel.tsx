@@ -119,7 +119,7 @@ export default function CombatPanel({ onPlayerAction, onUndo, canUndo, mpMode, m
   }, [myTurn, curId, battle.round, battle.turn]);
 
   // 当前出手角色可用的战斗道具（B1 取背包，队友取 NPC 物品；排除装备/已装备/空数量；要有效果或属消耗类）
-  const actorItems = curId === 'B1' ? playerItems : (npcsMap[curId ?? '']?.items ?? []);
+  const actorItems = (curId === 'B1' || (mpMode === 'guest' && curId === `MP_${mySeatId}`)) ? playerItems : (npcsMap[curId ?? '']?.items ?? []);
   const usableItems = useMemo(() => actorItems.filter((i: any) =>
     !i.equipped && (i.quantity ?? 0) > 0 && !/武器|防具|饰品|宝石/.test(i.category ?? '')
     && (!!i.effect || /消耗品|丹药|灵药|符箓/.test(i.category ?? ''))
@@ -256,7 +256,7 @@ export default function CombatPanel({ onPlayerAction, onUndo, canUndo, mpMode, m
                 )}
               </div>
               <div className="flex flex-wrap gap-1.5">
-                {((mpMode === 'guest' ? ['attack', 'skill', 'defend', 'flee'] : ['attack', 'skill', 'item', 'defend', 'flee']) as CombatActionKind[]).map((a) => (
+                {(['attack', 'skill', 'item', 'defend', 'flee'] as CombatActionKind[]).map((a) => (
                   <button key={a} onClick={() => { setAction(a); setTargets([]); }}
                     className={`px-3 py-1 rounded-md text-sm border ${action === a ? 'bg-cyan-600 border-cyan-400 text-white' : 'border-slate-600 text-slate-300 hover:bg-slate-800'}`}>
                     {ACTION_LABELS[a]}

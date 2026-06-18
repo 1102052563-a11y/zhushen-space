@@ -189,11 +189,13 @@ export const useGame = create<GameState>((set, get) => ({
     });
   },
 
-  setPlayerField: (key, value) =>
+  setPlayerField: (key, value) => {
     set((s) => {
       const updated = { ...s.player, [key]: value };
       return { player: clampPlayer(updated) };
-    }),
+    });
+    persist(get());   // 关键修复(2026-06-19)：HP/EP 改动必须落盘到 zhushen-save-v1。正文末尾<状态结算>/解析器/syncPlayerVitalsMax 全经 setPlayerField 改血蓝，旧实现不落盘→刷新/读档就回退到旧的持久化值(用户报"游戏中满血、一刷新就残血")。
+  },
 
   addItem: (name) =>
     set((s) => ({ inventory: [...s.inventory, name] })),

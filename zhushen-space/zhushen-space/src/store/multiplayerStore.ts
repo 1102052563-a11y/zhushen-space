@@ -16,6 +16,8 @@ export interface MpRoom { roomId: string; name: string; hostId: string; hostName
 export interface MpHandlers {
   onWorld?: (payload: any, isReplay?: boolean) => void;   // 来宾：世界快照 → 同步世界态(+非replay时渲染本回合正文)
   onNarrativeLog?: (entries: { role: string; content: string }[]) => void;  // 中途加入：补看房主正文进度
+  onGuestJoin?: () => void;     // 来宾进房：快照单机存档以隔离（联机存档）
+  onGuestRestore?: () => void;  // 来宾离开/关房：还原单机存档
   onCombat?: (payload: any) => void;       // 来宾：收到房主广播的战斗快照 → 渲染观战
   onCombatAction?: (payload: any) => void; // 房主：收到来宾的战斗出手 → 结算
   onRelay?: (m: { event: string; from: any; payload: any }) => void;  // 通用透传(赠予/分享)
@@ -37,9 +39,11 @@ interface MpState {
   lastWorldAt: number;
   error: string | null;
   incomingGift: any | null;   // 收到的赠予 → 弹窗
+  mpPresetOn: boolean;        // 房主：本局是否启用「联机专用正文规则」
   handlers: MpHandlers;
   _set: (p: Partial<MpState>) => void;
   setHandlers: (h: MpHandlers) => void;
+  setMpPresetOn: (v: boolean) => void;
   reset: () => void;
 }
 
@@ -62,7 +66,9 @@ const INIT = {
 export const useMp = create<MpState>((set) => ({
   ...INIT,
   handlers: {},
+  mpPresetOn: true,
   _set: (p) => set(p),
   setHandlers: (h) => set({ handlers: h }),
+  setMpPresetOn: (v) => set({ mpPresetOn: v }),
   reset: () => set({ ...INIT }),
 }));

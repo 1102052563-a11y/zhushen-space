@@ -118,6 +118,11 @@ export function playerControlled(id: string, side: Side, manualAlly: boolean): b
   return id === 'B1' || id.startsWith('MP_') || (side === 'player' && manualAlly);   // MP_*=联机来宾的战斗角色，由对应来宾远程出手（房主等待）
 }
 
+/* 联机：来宾(MP_*)战斗角色的可用道具——房主据此结算其用道具（来宾真实背包扣减在来宾本地做）。 */
+const mpCombatItems: Record<string, any[]> = {};
+export function setMpCombatItems(id: string, items: any[]) { mpCombatItems[id] = Array.isArray(items) ? items : []; }
+export function clearMpCombatItems() { for (const k of Object.keys(mpCombatItems)) delete mpCombatItems[k]; }
+
 /* 先攻：敏捷 + 智力×0.3 + 随机(0~3)，降序排（对应凡人 speed+0.3神识） */
 export function rollInitiative(b: CombatStatBlock): number {
   return b.attrs.agi + b.attrs.int * 0.3 + Math.random() * 3;
@@ -430,7 +435,9 @@ export function settleAction(opts: {
 
     // ── 用道具（炸弹/药剂/丹药/炼金等；威能为道具自身、不随六维）──
     if (opts.kind === 'item') {
-      const inv = opts.actorId === 'B1' ? useItems.getState().items : (useNpc.getState().npcs[opts.actorId]?.items ?? []);
+      const inv = opts.actorId === 'B1' ? useItems.getState().items
+        : opts.actorId.startsWith('MP_') ? (mpCombatItems[opts.actorId] ?? [])   // 联机来宾道具：房主从注册表读
+        : (useNpc.getState().npcs[opts.actorId]?.items ?? []);
       const item = inv.find((i: any) => i.id === opts.itemId || i.name === opts.itemId);
       if (!item || (item.quantity ?? 1) <= 0) { logLines.push(`${actorName} 没有可用的道具。`); return { state, logLines, actorName, defeated }; }
       const ie = inferItemEffect(item);

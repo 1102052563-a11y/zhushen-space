@@ -33,7 +33,7 @@ import { clearJoySessions } from '../store/joyStore';
 
 /* 纳入快照的所有持久化 store（key 必须与各 store persist 的 name 一致）*/
 const STORES: { key: string; api: any }[] = [
-  { key: 'drpg-save',       api: useGame },
+  { key: 'zhushen-save-v1', api: useGame },   // gameStore(主角 HP/EP/atk/def…)用自定义 writeSave 持久化到 zhushen-save-v1(非 zustand 的 drpg-save)——必须用真实键,否则存档快照抓不到主角血蓝、读档也还原不了(2026-06-19 修)
   { key: 'drpg-settings',   api: useSettings },
   { key: 'drpg-items',      api: useItems },
   { key: 'drpg-player-evo', api: usePlayer },
@@ -162,7 +162,7 @@ export async function loadSlot(id: string): Promise<boolean> {
   for (const { key } of STORES) {
     const v = slot.data.stores[key];
     if (typeof v === 'string') localStorage.setItem(key, mergeKeepApi(key, v));   // API 配置不随存档回滚
-    else localStorage.removeItem(key);   // 存档快照里没有的 store（多为存档创建时尚不存在的较新功能，如技能树/潜能点）→ 清掉本地残留，让其 reload 后回到默认；否则上一局的进度（如潜能点）会泄漏进读入的旧档
+    else if (key !== 'zhushen-save-v1') localStorage.removeItem(key);   // 存档快照里没有的 store（多为存档创建时尚不存在的较新功能，如技能树/潜能点）→ 清掉本地残留，让其 reload 后回到默认；否则上一局的进度（如潜能点）会泄漏进读入的旧档。**例外 zhushen-save-v1(主角HP/EP)**：旧档(改键前创建)没存它，清掉会把当前血蓝抹成默认，保留当前值（已由 setPlayerField 持久化）
   }
   // 图片：覆盖 IndexedDB（reload 后由 hydrateImages 回填到各 store）
   try { await clearAllImg(); if (slot.data.images) await bulkPutImg(slot.data.images); } catch { /* */ }

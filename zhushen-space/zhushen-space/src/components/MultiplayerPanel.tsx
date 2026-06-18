@@ -33,6 +33,7 @@ export default function MultiplayerPanel({ onClose }: { onClose: () => void }) {
   const [joinCode, setJoinCode] = useState('');
   const [busy, setBusy] = useState(false);
   const [comment, setComment] = useState('');
+  const [usePreset, setUsePreset] = useState(true);   // 建房：是否启用联机专用正文规则
 
   const refreshList = async () => {
     setLoadingList(true);
@@ -44,6 +45,7 @@ export default function MultiplayerPanel({ onClose }: { onClose: () => void }) {
   const ensureName = () => { const n = (name || '').trim() || '道友'; setMpName(n); return n; };
   const doCreate = async () => {
     const n = ensureName(); setBusy(true);
+    useMp.getState().setMpPresetOn(usePreset);   // 本局联机正文规则开关
     try {
       const id = await mpClient.createRoom({ name: roomName.trim() || `${n}的秘境`, hostName: n, maxSeats });
       mpClient.connect(id, { name: n, want: 'play' });
@@ -92,6 +94,10 @@ export default function MultiplayerPanel({ onClose }: { onClose: () => void }) {
                 <button disabled={busy} onClick={doCreate}
                   className="ml-auto px-4 py-1.5 rounded-lg bg-god/15 border border-god/40 text-god/90 text-sm hover:bg-god/25 disabled:opacity-50 transition-colors">建房并进入</button>
               </div>
+              <label className="flex items-start gap-2 text-[12px] text-dim/70 cursor-pointer leading-relaxed">
+                <input type="checkbox" checked={usePreset} onChange={(e) => setUsePreset(e.target.checked)} className="accent-god mt-0.5" />
+                <span>使用联机专用正文规则（推荐：让 AI 准确刻画队友、不把真人当 NPC、每回合分别回应每个人）</span>
+              </label>
             </div>
 
             <div className="rounded-xl border border-edge bg-panel/50 p-3 space-y-2.5">
