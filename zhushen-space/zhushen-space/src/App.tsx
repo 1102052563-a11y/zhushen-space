@@ -1397,6 +1397,9 @@ export default function App() {
   const combatRound    = useCombat((s) => s.battle.round);
   const combatApiBusy  = useCombat((s) => s.apiBusy);
   const combatHasUndo  = useCombat((s) => s.undoSnapshot !== null);
+  const mpRole = useMp((s) => s.role);
+  const mpStatus = useMp((s) => s.status);
+  const mpGuest = mpStatus === 'connected' && mpRole != null && mpRole !== 'host';   // 联机来宾(非房主)
   const combatDrivingRef = useRef(false);
   const combatFinishingRef = useRef(false);
   // 战斗最终 HP/EP（finishBattle 写入）：下一回合（玩家发送战斗复盘后）防双扣——
@@ -1405,6 +1408,7 @@ export default function App() {
   useEffect(() => {
     const C = useCombat.getState();
     const b = C.battle;
+    if (useMp.getState().status === 'connected' && useMp.getState().role && useMp.getState().role !== 'host') return;  // 来宾不本地驱动战斗，只渲染房主广播的快照
     if (!b.active || C.apiBusy || combatDrivingRef.current || combatFinishingRef.current) return;
     if (b.stage === 'ended') return;
     const victor = checkEnd(b);
@@ -1414,6 +1418,14 @@ export default function App() {
     if (!cur) return;
     if (playerControlled(cur, b.participants[cur]?.side ?? 'enemy', C.config.manualAllyControl)) return;
     void runNpcTurn(cur);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [combatActive, combatStage, combatTurn, combatRound, combatApiBusy]);
+
+  // 联机·房主：战斗每步把 battle 广播给全房（来宾观战，只读渲染）
+  useEffect(() => {
+    const mp = useMp.getState();
+    if (mp.status !== 'connected' || mp.role !== 'host') return;
+    mpClient.publishCombat({ battle: useCombat.getState().battle });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [combatActive, combatStage, combatTurn, combatRound, combatApiBusy]);
   const [combatSetupOpen, setCombatSetupOpen] = useState(false);  // 外置发起战斗：在场 NPC 选择器
@@ -1486,6 +1498,10 @@ export default function App() {
         applyWorldSnapshot(payload?.world);   // 来宾：同步房主世界(NPC/势力/世界状态)进本地面板
         const t = payload?.narrative;
         if (t) setMessages((prev) => [...prev, { id: ++msgId.current, role: 'assistant', content: String(t) }]);
+      },
+      onCombat: (payload: any) => {
+        if (useMp.getState().role === 'host') return;
+        if (payload?.battle) useCombat.setState({ battle: payload.battle });   // 来宾：渲染房主广播的战斗态
       },
     });
   }, []);
@@ -7676,7 +7692,7 @@ ${lines}`;
           onStart={(picks) => { setCombatSetupOpen(false); startCombatWithSelection(picks); }}
         />
       )}
-      {(combatActive || combatStage === 'ended') && <CombatPanel onPlayerAction={submitCombatPlayerAction} onUndo={undoCombatAction} canUndo={combatHasUndo && !combatApiBusy} />}
+      {(combatActive || combatStage === 'ended') && <CombatPanel onPlayerAction={submitCombatPlayerAction} onUndo={undoCombatAction} canUndo={combatHasUndo && !combatApiBusy} readOnly={mpGuest} />}
 
       {/* ── 乐园设施聚合菜单：欢愉宫 / 竞技场 / 赌场 ── */}
       {facilitiesOpen && (

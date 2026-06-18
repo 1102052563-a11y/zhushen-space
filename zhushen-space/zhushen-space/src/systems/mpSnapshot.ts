@@ -2,6 +2,7 @@ import { usePlayer } from '../store/playerStore';
 import { useNpc } from '../store/npcStore';
 import { useFaction } from '../store/factionStore';
 import { useMisc } from '../store/miscStore';
+import { useCombat } from '../store/combatStore';
 import type { MpTurn } from '../store/multiplayerStore';
 
 // 联机·快照与多人回合拼装。
@@ -115,5 +116,6 @@ export function restoreWorldBackup() {
     useFaction.setState({ factions: worldBackup.factions });
     useMisc.setState(worldBackup.misc);
   } catch (e) { console.warn('[MP] restoreWorldBackup 失败', e); }
+  try { useCombat.getState().exitCombat(); } catch {}   // 来宾退出 → 清掉房主广播过来的战斗态，避免残留冻结战斗
   worldBackup = null;
 }

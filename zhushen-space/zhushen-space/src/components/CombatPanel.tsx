@@ -80,10 +80,11 @@ function Card({ id, isCurrent, isTarget, onPick }: { id: string; isCurrent: bool
   );
 }
 
-export default function CombatPanel({ onPlayerAction, onUndo, canUndo }: {
+export default function CombatPanel({ onPlayerAction, onUndo, canUndo, readOnly }: {
   onPlayerAction: (kind: CombatActionKind, targetIds: string[], skillId?: string, itemId?: string) => void;
   onUndo?: () => void;
   canUndo?: boolean;
+  readOnly?: boolean;   // 联机来宾：只观战，不出手
 }) {
   const battle = useCombat((s) => s.battle);
   const apiBusy = useCombat((s) => s.apiBusy);
@@ -96,7 +97,7 @@ export default function CombatPanel({ onPlayerAction, onUndo, canUndo }: {
   const curId = battle.order[battle.turn];
   const curActor = curId ? battle.participants[curId] : undefined;
   // 当前角色由玩家操控时才轮到玩家出手（含「手动控制队友」时的队友）
-  const myTurn = battle.stage === 'awaiting_player' && battle.active && !!curActor;
+  const myTurn = !readOnly && battle.stage === 'awaiting_player' && battle.active && !!curActor;
   const stunned = !!curActor?.status?.some((s) => s.combat?.cannotAct);
   const charging = curActor?.charging;
   const actorSkills = (curId ? characters[curId]?.skills : undefined) ?? [];
@@ -303,7 +304,7 @@ export default function CombatPanel({ onPlayerAction, onUndo, canUndo }: {
             </div>
           ) : (
             <div className="text-center text-sm text-slate-400 py-1">
-              {battle.active ? `${battle.initialState[curId]?.name ?? '对手'} 行动中…` : '战斗进行中…'}
+              {readOnly ? '👀 观战中（房主操作）' : battle.active ? `${battle.initialState[curId]?.name ?? '对手'} 行动中…` : '战斗进行中…'}
             </div>
           )}
         </div>

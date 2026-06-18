@@ -110,7 +110,7 @@ function dispatch(m: any) {
     case 'turn_updated': set({ turn: m.turn || null }); break;
     case 'turn_resolved': set({ turn: m.turn || null }); st.handlers.onTurnResolved?.(m.turn || null); break;
     case 'world_snapshot': set({ worldSnapshot: m.payload, lastWorldAt: Date.now() }); st.handlers.onWorld?.(m.payload); break;
-    case 'combat_snapshot': set({ combatSnapshot: m.payload }); break;
+    case 'combat_snapshot': set({ combatSnapshot: m.payload }); st.handlers.onCombat?.(m.payload); break;
     case 'room_comment':
       if (m.backlog) set({ comments: m.backlog });
       else if (m.comment) set({ comments: [...useMp.getState().comments, m.comment].slice(-100) });

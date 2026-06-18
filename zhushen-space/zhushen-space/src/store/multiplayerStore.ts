@@ -14,7 +14,8 @@ export interface MpRoom { roomId: string; name: string; hostId: string; hostName
 
 // 深度接入回调槽：App.tsx 在 effect 里注册，把联机事件接进主聊天/AI 循环（Phase 1 第二步用）。
 export interface MpHandlers {
-  onWorld?: (payload: any) => void;        // 来宾：收到房主广播的世界快照 → 渲染正文
+  onWorld?: (payload: any) => void;        // 来宾：收到房主广播的世界快照 → 渲染正文 + 同步世界态
+  onCombat?: (payload: any) => void;       // 来宾：收到房主广播的战斗快照 → 渲染观战
   onTurnStarted?: (turn: MpTurn | null) => void;
   onTurnResolved?: (turn: MpTurn | null) => void;
 }

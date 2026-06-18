@@ -12,10 +12,10 @@ import { ATTR_TALENT_GEN_RULE } from '../promptRules';
 export const REAL_ATTR_STEP = 80;                 // 每 1 真实属性 ＝ 80 基础属性（与 derivedStats.trueAttr 对齐）
 export const ATTR_MILESTONES = [20, 80, 120];     // 真实属性里程碑：触发四选一逆天天赋
 
-/* 本次加点是否跨过某个里程碑（真实属性从 oldTrue 升到 newTrue）；返回跨过的里程碑值，未跨过返回 null。*/
-export function crossedMilestone(oldTrue: number, newTrue: number): number | null {
-  for (const m of ATTR_MILESTONES) if (oldTrue < m && newTrue >= m) return m;
-  return null;
+/* 本次加点跨过的所有里程碑（真实属性从 oldTrue 升到 newTrue，左开右闭）；一次确认可能跨多个。
+   例：oldTrue=19, newTrue=120 → [20, 80, 120]，逐个触发四选一。未跨过返回 []。*/
+export function milestonesCrossed(oldTrue: number, newTrue: number): number[] {
+  return ATTR_MILESTONES.filter((m) => oldTrue < m && newTrue >= m);
 }
 
 function extractJsonArray(text: string): string {

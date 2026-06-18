@@ -6,7 +6,7 @@ import { generateAttrTalents } from '../systems/attrTalent';
    挂载即调主角演化 API 生成 4 个该属性专属天赋 → 玩家选 1 个写进该角色天赋。
    背景点击不关闭（避免误触丢失里程碑奖励）；只能选 1 个或显式关闭/换一批。*/
 export default function AttrTalentPicker({
-  charId, charName, charTier, attrLabel, milestone, trueValue, isPlayer, onClose, onChosen,
+  charId, charName, charTier, attrLabel, milestone, trueValue, isPlayer, moreCount = 0, onClose, onChosen,
 }: {
   charId: string;
   charName: string;
@@ -15,6 +15,7 @@ export default function AttrTalentPicker({
   milestone: number;
   trueValue: number;
   isPlayer: boolean;
+  moreCount?: number;   // 本批确认中，本次之后还排队等待的里程碑数（多项同时突破时 >0）
   onClose: () => void;
   onChosen?: (name: string) => void;
 }) {
@@ -52,7 +53,10 @@ export default function AttrTalentPicker({
         <header className="shrink-0 flex items-center gap-3 px-5 py-3 border-b border-edge bg-gradient-to-b from-panel to-void">
           <span className="text-xl">🌟</span>
           <div className="flex-1 min-w-0">
-            <div className="text-sm font-bold text-god">真实{attrLabel}·里程碑 {milestone} —— 觉醒逆天天赋</div>
+            <div className="text-sm font-bold text-god flex items-center gap-2">
+              真实{attrLabel}·里程碑 {milestone} —— 觉醒逆天天赋
+              {moreCount > 0 && <span className="text-[11px] font-mono text-amber-300/80 px-1.5 py-0.5 rounded border border-amber-500/40 bg-amber-900/20">本批还剩 {moreCount} 项</span>}
+            </div>
             <div className="text-[12px] font-mono text-dim/60 truncate">
               {isPlayer ? '主角' : charName || '该角色'}　真实{attrLabel} 突破至 {trueValue}，从 4 选 1 纳入天赋
             </div>
