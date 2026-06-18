@@ -1,0 +1,55 @@
+/* 顶栏天气背景层(由 components/WeatherFx.tsx 引入；全局生效) */
+.wfx-bg{position:absolute;inset:0;z-index:0;overflow:hidden;pointer-events:none;transition:background .5s ease}
+.wfx-cv{position:absolute;inset:0}
+
+/* ── 天空背景色(随天气) ── */
+.wfx-bg.wfx-sun{background:linear-gradient(180deg,#5fb0ec 0%,#bfe3fb 62%,#eaf5ff 100%)}
+.wfx-bg.wfx-sun.wfx-tone-warm{background:linear-gradient(180deg,#7ec1ec 0%,#ffd9a0 100%)}
+.wfx-bg.wfx-overcast{background:linear-gradient(180deg,#7d8a9c,#aab4c2)}
+.wfx-bg.wfx-rain{background:linear-gradient(180deg,#2a3340,#3a4656)}
+.wfx-bg.wfx-thunder{background:linear-gradient(180deg,#141824,#212939)}
+.wfx-bg.wfx-snow{background:linear-gradient(180deg,#7a8aa0,#bcc8d8)}
+.wfx-bg.wfx-fog{background:linear-gradient(180deg,#9098a4,#b6bdc8)}
+.wfx-bg.wfx-wind{background:linear-gradient(180deg,#8ea7bf,#c6d3e0)}
+
+/* ── 太阳(右上角)：本体=金盘，外圈旋转光芒 ── */
+.wfx-sun{position:absolute;top:2px;right:12px;width:18px;height:18px;border-radius:50%;background:radial-gradient(circle at 37% 33%,#ffe98c,#ffc223 72%);box-shadow:0 0 11px 4px rgba(255,190,64,.6)}
+.wfx-rays{position:absolute;inset:-9px;border-radius:50%;background:repeating-conic-gradient(rgba(255,208,86,.92) 0deg 4deg,transparent 4deg 28deg);-webkit-mask:radial-gradient(circle,rgba(0,0,0,0) 0 49%,#000 51%,#000 92%,rgba(0,0,0,0) 96%);mask:radial-gradient(circle,rgba(0,0,0,0) 0 49%,#000 51%,#000 92%,rgba(0,0,0,0) 96%);animation:wfx-spin 22s linear infinite}
+@keyframes wfx-spin{to{transform:rotate(360deg)}}
+.wfx-tone-warm .wfx-sun{width:22px;height:22px;background:radial-gradient(circle at 37% 33%,#ffd884,#ff9b24 72%);box-shadow:0 0 16px 6px rgba(255,150,48,.66)}
+
+/* ── 云(多云/晴) ── */
+.wfx-clouds{position:absolute;inset:0}
+.wfx-cloud{position:absolute;height:11px;width:38px;background:#fdfeff;border-radius:7px}
+.wfx-cloud::before{content:"";position:absolute;width:17px;height:17px;background:inherit;border-radius:50%;top:-7px;left:6px}
+.wfx-cloud::after{content:"";position:absolute;width:13px;height:13px;background:inherit;border-radius:50%;top:-5px;left:19px}
+.wfx-c1{top:7px;animation:wfx-drift 26s linear infinite}
+.wfx-c2{top:24px;transform:scale(.74);opacity:.9;animation:wfx-drift 34s linear infinite;animation-delay:-10s}
+.wfx-c3{top:3px;transform:scale(1.08);opacity:.95;animation:wfx-drift 46s linear infinite;animation-delay:-24s}
+@keyframes wfx-drift{from{left:106%}to{left:-58px}}
+.wfx-overcast .wfx-cloud{background:#97a3b3}
+
+/* ── 被风吹弯的树(风) ── */
+.wfx-tree{position:absolute;bottom:0;left:30px;width:42px;height:46px;transform-origin:bottom center;animation:wfx-sway 1.6s ease-in-out infinite}
+.wfx-trunk{position:absolute;bottom:0;left:18px;width:5px;height:22px;background:#6b4f2a;border-radius:2px 2px 0 0}
+.wfx-canopy{position:absolute;bottom:16px;left:2px;width:38px;height:30px;background:#3f8a4a;border-radius:52% 48% 50% 50%;transform-origin:bottom center;animation:wfx-swayc 1.6s ease-in-out infinite}
+@keyframes wfx-sway{0%,100%{transform:rotate(-2deg)}50%{transform:rotate(-9deg)}}
+@keyframes wfx-swayc{0%,100%{transform:rotate(-3deg) skewX(5deg)}50%{transform:rotate(-14deg) skewX(13deg)}}
+.wfx-i-heavy .wfx-tree,.wfx-i-heavy .wfx-canopy{animation-duration:.95s}
+
+/* ── 雷闪 / 冷罩 ── */
+.wfx-bg.wfx-thunder::after{content:"";position:absolute;inset:0;background:rgba(224,233,255,.9);opacity:0;animation:wfx-flash 4.2s ease-out infinite}
+@keyframes wfx-flash{0%,92%,100%{opacity:0}93%{opacity:.5}95%{opacity:.08}96%{opacity:.45}98%{opacity:0}}
+.wfx-bg.wfx-tone-cold::before{content:"";position:absolute;inset:0;background:rgba(40,84,150,.16)}
+
+/* ── 亮天空时：顶栏文字/按钮转深色(否则浅字看不清) ── */
+header.wfx-lt .hdr-time{color:#0e1a27}
+header.wfx-lt .hdr-sub{color:#33485c}
+header.wfx-lt button{color:#1f3346;border-color:rgba(28,52,76,.45);background:rgba(255,255,255,.42)}
+header.wfx-lt button:hover{background:rgba(255,255,255,.6)}
+header.wfx-lt .hdr-ticker{color:#14202e}
+
+@media (prefers-reduced-motion:reduce){.wfx-rays,.wfx-cloud,.wfx-tree,.wfx-canopy{animation:none!important}}
+
+/* 奇异天气 AI-CSS 层宿主(内部走 Shadow DOM 隔离) */
+.wfx-ai-host{position:absolute;inset:0;z-index:0;pointer-events:none;overflow:hidden}

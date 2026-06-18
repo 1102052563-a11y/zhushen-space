@@ -104,6 +104,7 @@ export interface Title {
   rarity: string;        // 品级（颜色品质 或 D~SSS）
   source?: string;       // 来源（如何获得）
   effect?: string;       // 效果（数值化加成/特殊效果，可无）
+  bonusEffect?: string;  // 合成专属·额外效果（仅称号合成熔铸出的新称号才有：来源都没有的全新质变增益）
   desc?: string;         // 描述/flavor
   equipped?: boolean;    // 是否佩戴（每角色至多 1 个）
   addedAt: number;

@@ -186,9 +186,18 @@ export interface ItemPresetSettings {
   auditEnabled?: boolean;   // 物品阶段后追加一次"对账纠错"调用（默认开）
 }
 
+// 「最近删除」回收站条目：被 AI 自动删除/消耗的物品，记下删除回合（满 3 回合自动彻底清除）+ 删除原因
+export type DeletedItem = InventoryItem & {
+  deletedTurn: number;
+  deleteKind?: 'used' | 'broken';   // used=被使用/消耗殆尽 · broken=损坏/丢弃/失去
+  deleteReason?: string;            // 一句话原因（AI 给的 reason，或前端按指令类型合成）
+};
+
 interface ItemState {
   items: InventoryItem[];
   currency: CurrencyWallet;
+  recentlyDeleted: DeletedItem[];   // 最近被 AI 自动删除/消耗的物品（回收站），可恢复；进入后满 3 回合自动彻底清除
+  itemTurn: number;                 // 当前回合数（回收站「3 回合自动清除」计时用）
   settings: ItemPresetSettings;
 
   // 独立 API 配置
@@ -202,6 +211,10 @@ interface ItemState {
   updateItem: (id: string, patch: Partial<InventoryItem>) => void;
   removeItem: (id: string) => void;
   consumeItem: (id: string, quantity: number) => void;
+  binItem: (item: InventoryItem, info?: { kind?: 'used' | 'broken'; reason?: string }) => void;   // 把物品移入「最近删除」回收站并从背包移除（供 AI 销毁 / 消耗到 0 时调用）；info=删除原因
+  restoreDeleted: (id: string) => void;          // 从「最近删除」恢复回背包
+  clearRecentlyDeleted: () => void;              // 清空「最近删除」
+  setItemTurn: (turn: number) => void;           // 更新回合数 + 清除已进入回收站满 3 回合的物品
   equipItem: (id: string, slot: string) => void;
   unequipItem: (id: string) => void;
   normalizeEquipSlots: () => void;   // 规范化所有已装备物品的槽位（修复历史非规范槽）
@@ -244,6 +257,8 @@ export const useItems = create<ItemState>()(
     (set) => ({
       items: [],
       currency: { 乐园币: 0, 灵魂钱币: 0, 技能点: 0, 黄金技能点: 0 },
+      recentlyDeleted: [],
+      itemTurn: 0,
       settings: {
         enabled: false,
         frequency: 1,
@@ -306,6 +321,31 @@ export const useItems = create<ItemState>()(
           }),
         })),
 
+      // 移入「最近删除」回收站：从背包移除 + 记下删除回合与原因（解除装备态，恢复时不占槽）；表头去重保最近，封顶 100
+      binItem: (item, info) =>
+        set((s) => ({
+          items: s.items.filter((it) => it.id !== item.id),
+          recentlyDeleted: [
+            { ...item, equipped: false, equipSlot: undefined, deletedTurn: s.itemTurn, deleteKind: info?.kind, deleteReason: info?.reason },
+            ...s.recentlyDeleted.filter((d) => d.id !== item.id),
+          ].slice(0, 100),
+        })),
+
+      restoreDeleted: (id) =>
+        set((s) => {
+          const d = s.recentlyDeleted.find((it) => it.id === id);
+          if (!d) return s;
+          const { deletedTurn, deleteKind, deleteReason, ...rest } = d;   // 剥掉回收站专属字段，恢复成干净的背包物品
+          const item = (s.items.some((it) => it.id === rest.id) ? { ...rest, id: generateId(s.items) } : rest) as InventoryItem;   // id 撞了就换新
+          return { items: [...s.items, item], recentlyDeleted: s.recentlyDeleted.filter((it) => it.id !== id) };
+        }),
+
+      clearRecentlyDeleted: () => set({ recentlyDeleted: [] }),
+
+      // 每回合调用：刷新回合数 + 清除「已进入回收站满 3 回合」的物品（deletedTurn 起算第 3 回合彻底消失）
+      setItemTurn: (turn) =>
+        set((s) => ({ itemTurn: turn, recentlyDeleted: s.recentlyDeleted.filter((it) => turn - it.deletedTurn < 3) })),
+
       equipItem: (id, slot) =>
         set((s) => {
           const target = s.items.find((it) => it.id === id);
@@ -363,7 +403,7 @@ export const useItems = create<ItemState>()(
         return removed;
       },
 
-      clearAll: () => set({ items: [], currency: { 乐园币: 0, 灵魂钱币: 0, 技能点: 0, 黄金技能点: 0 } }),
+      clearAll: () => set({ items: [], currency: { 乐园币: 0, 灵魂钱币: 0, 技能点: 0, 黄金技能点: 0 }, recentlyDeleted: [], itemTurn: 0 }),
 
       adjustCurrency: (type, delta) =>
         set((s) => ({ currency: { ...s.currency, [type]: Math.max(0, s.currency[type] + delta) } })),

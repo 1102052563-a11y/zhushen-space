@@ -1,7 +1,7 @@
 import { useState, useRef } from 'react';
 import { useNpc, type NpcRecord } from '../store/npcStore';
 import { useCharacters, RARITY_CLS, ELEMENT_CLS, SKILL_TIER_CLS, normSkillTier, type Deed } from '../store/characterStore';
-import { computeDerived, lvFromRealm, normalizeTier, tierFxClass, realmFromLevel, trueAttr, computeMaxHp, computeMaxEp, gearMaxHpBonus, gearMaxEpBonus, abilityMaxHpBonus, abilityMaxEpBonus, effectiveResource, fullMaxHp, fullMaxEp } from '../systems/derivedStats';
+import { computeDerived, lvFromRealm, normalizeTier, tierFxClass, realmFromLevel, trueAttr, computeMaxHp, computeMaxEp, gearMaxHpBonus, gearMaxEpBonus, abilityMaxHpBonus, abilityMaxEpBonus, effectiveResource, fullMaxHp, fullMaxEp, TIERS } from '../systems/derivedStats';
 import { computeAttrBreakdown, effectiveAttrs, ATTR_LABEL, type AttrBreak } from '../systems/attrBonus';
 import { bioInnate, bioPower, bioStrengthLabel, BIO_TIER_NAMES, nominalTierNum } from '../systems/bioStrength';
 import { generateNpcAttrs, resolveForm, UNIT_TYPE_LABELS } from '../systems/npcAttrGen';
@@ -1031,17 +1031,25 @@ function AttrTab({ npc: npcProp, realm }: { npc: NpcRecord; realm: ReturnType<ty
   const [showTrue, setShowTrue] = useState(nominalTierNum(npc.realm, lvFromRealm(npc.realm)) >= 5);   // 五阶起默认显示真实属性点(=普通÷80)
   const upsertNpc = useNpc((s) => s.upsertNpc);
   const [rerollN, setRerollN] = useState(0);
+  const [pickRealm, setPickRealm] = useState<string>(''); // 手动指定阶位(覆盖 AI 给的离谱阶位)；'' = 用当前阶位
   const [pickTier, setPickTier] = useState<string>(''); // 手动指定生物强度档(覆盖 AI 判定)；'' = 自动按当前资质档
   const [pickType, setPickType] = useState<string>(''); // 手动指定类型标签(覆盖)；'' = 自动用登场判定/职业
-  const _btn = nominalTierNum(npc.realm, lvFromRealm(npc.realm));
+  // 选定阶位时取该阶代表等级(各阶中点)，让 nominalTierNum 锁定到所选阶——否则旧的高等级会经 max(阶位串,等级) 把所选低阶覆盖回去
+  const TIER_REP_LV = [5, 15, 25, 35, 45, 55, 65, 75, 85, 95, 110, 130, 150];
+  const effRealm = pickRealm || npc.realm;
+  const genLevel = pickRealm ? (TIER_REP_LV[TIERS.indexOf(pickRealm)] ?? lvFromRealm(npc.realm)) : lvFromRealm(npc.realm);
+  const _btn = nominalTierNum(effRealm, genLevel);
   const winLo = Math.max(0, _btn - 1), winHi = Math.min(9, _btn + 2); // 该 NPC 阶位可出现的档位窗口(下拉只列这些，免得选了被夹回看着没变)
   // 机械生成/重置六维：按 阶位×(指定/当前资质)档×类型×形态 反推一套合理六维，修正 AI 幻觉给的离谱属性
   const regenAttrs = () => {
-    const auto = npc.attrs ? (bioInnate(npc.attrs, npc.realm, lvFromRealm(npc.realm))?.num ?? 2) : 2;
+    const auto = npc.attrs ? (bioInnate(npc.attrs, effRealm, genLevel)?.num ?? 2) : 2;
     const bioNum = pickTier === '' ? auto : Number(pickTier);
     const type = pickType || npc.unitType;   // 手选类型优先，否则用登场判定的类型标签
-    const attrs = generateNpcAttrs({ tier: npc.realm, level: lvFromRealm(npc.realm), bioTier: bioNum, type, job: npc.profession || npc.realm, form: resolveForm(`${npc.npcTag ?? ''}${npc.profession ?? ''}${npc.realm ?? ''}${npc.name ?? ''}`), identity: npc.npcTag, seed: `${npc.id}#${rerollN}`, force: pickTier !== '' });
-    upsertNpc(npc.id, { attrs, ...(pickType ? { unitType: pickType } : {}) });
+    const attrs = generateNpcAttrs({ tier: effRealm, level: genLevel, bioTier: bioNum, type, job: npc.profession || effRealm, form: resolveForm(`${npc.npcTag ?? ''}${npc.profession ?? ''}${effRealm}${npc.name ?? ''}`), identity: npc.npcTag, seed: `${npc.id}#${rerollN}`, force: pickTier !== '' || pickRealm !== '' });
+    // 手动选了阶位 → 一并把 NPC 阶位改成所选阶(保留"|身份"后缀)，否则面板阶位仍显示离谱旧值
+    const idSuffix = (npc.realm ?? '').includes('|') ? (npc.realm ?? '').split('|').slice(1).join('|').trim() : '';
+    const realmPatch = pickRealm ? { realm: `${pickRealm}·Lv.${genLevel}${idSuffix ? '|' + idSuffix : ''}` } : {};
+    upsertNpc(npc.id, { attrs, ...realmPatch, ...(pickType ? { unitType: pickType } : {}) });
     setRerollN((v) => v + 1);
   };
   const [attrPop, setAttrPop] = useState<keyof PlayerAttrs | null>(null);
@@ -1066,6 +1074,11 @@ function AttrTab({ npc: npcProp, realm }: { npc: NpcRecord; realm: ReturnType<ty
       <Section title={showTrue ? '真实属性' : '基础属性'} hint={hasAttrs ? undefined : '尚未生成'}>
         <div className="flex justify-between items-center -mt-1 mb-1">
           <div className="flex items-center gap-1">
+            <select value={pickRealm} onChange={(e) => setPickRealm(e.target.value)} title="指定阶位（覆盖 AI 给的离谱阶位）：点「机械生成」时会把 NPC 阶位一并改成所选阶并按其重算六维。空=用当前阶位"
+              className="text-[11px] font-mono bg-void/60 border border-edge rounded px-1 py-0.5 text-dim/80 hover:border-god/40 max-w-[5.5rem]">
+              <option value="">当前阶位</option>
+              {TIERS.map((t) => <option key={t} value={t}>{t}</option>)}
+            </select>
             <select value={pickTier} onChange={(e) => setPickTier(e.target.value)} title="指定生物强度档（覆盖 AI 判定，仅列该阶位合法档）；自动档=按当前资质档"
               className="text-[11px] font-mono bg-void/60 border border-edge rounded px-1 py-0.5 text-dim/80 hover:border-god/40">
               <option value="">自动档</option>
@@ -1241,7 +1254,12 @@ function NpcItemCard({ it, showSlot, ownerId, ownerGender }: { it: NonNullable<N
       <div className="flex items-center gap-2">
         <span className={`text-sm font-semibold truncate flex-1 ${gradeNameClass(it.gradeDesc)}`}>{it.name}</span>
         {it.quantity > 1 && <span className="text-[12px] font-mono text-dim/60">×{it.quantity}</span>}
-        {ownerId && !it.equipped && (
+        {ownerId && (
+          <button onClick={() => updateNpcItem(ownerId, it.id, { locked: !it.locked })}
+            title={it.locked ? '解锁后 AI 可删除/消耗此物品' : '锁定后 AI 不会删除/消耗此物品（手动删除也隐藏）'}
+            className={`shrink-0 text-[12px] font-mono px-1.5 py-0.5 rounded border transition-colors ${it.locked ? 'border-blue-500/50 text-blue-400 bg-blue-900/20' : 'border-edge text-dim/50 hover:border-blue-500/40 hover:text-blue-400'}`}>{it.locked ? '🔒' : '🔓'}</button>
+        )}
+        {ownerId && !it.equipped && !it.locked && (
           <button onClick={() => removeNpcItem(ownerId, it.id)} title="删除该物品"
             className="shrink-0 text-[12px] font-mono px-1.5 py-0.5 rounded border border-edge text-dim/50 hover:border-blood/50 hover:text-blood transition-colors">删除</button>
         )}

@@ -700,12 +700,18 @@ export default function BackpackModal({
   const items       = useItems((s) => s.items);
   const currency    = useItems((s) => s.currency);
   const clearBag    = useItems((s) => s.clearBag);
+  const recentlyDeleted     = useItems((s) => s.recentlyDeleted);
+  const itemTurn            = useItems((s) => s.itemTurn);
+  const restoreDeleted      = useItems((s) => s.restoreDeleted);
+  const clearRecentlyDeleted = useItems((s) => s.clearRecentlyDeleted);
 
   const [searchQ,      setSearchQ]      = useState('');
   const [filterCat,    setFilterCat]    = useState<ItemCategory | 'all'>('all');
   const [sortBy,       setSortBy]       = useState<SortKey>('original');
   const [detailItemId, setDetailItemId] = useState<string | null>(null);
   const [confirmClear, setConfirmClear] = useState(false);
+  const [showDeleted,  setShowDeleted]  = useState(false);
+  const [confirmClearDel, setConfirmClearDel] = useState(false);
 
   const clearableCount = items.filter((it) => !it.equipped && !it.locked).length;
 
@@ -818,6 +824,19 @@ export default function BackpackModal({
             </button>
           )}
 
+          {/* 最近删除（回收站）按钮 */}
+          <button
+            onClick={() => setShowDeleted(true)}
+            title="查看最近被 AI 自动删除 / 消耗的物品（可恢复；进入后满 3 回合自动彻底清除）"
+            className={`flex items-center gap-1.5 px-3 py-1.5 border rounded-lg text-sm font-mono transition-colors ${
+              recentlyDeleted.length > 0
+                ? 'border-sky-400/50 text-sky-300 hover:bg-sky-500/10'
+                : 'border-edge text-dim hover:border-sky-400/40 hover:text-sky-400'
+            }`}
+          >
+            ♻ 最近删除{recentlyDeleted.length > 0 ? ` (${recentlyDeleted.length})` : ''}
+          </button>
+
           {/* 物品阶段日志（内嵌显示）*/}
           {itemPhaseLog && !itemPhaseRunning && (
             <span className={`text-[12px] font-mono max-w-40 truncate ${
@@ -917,6 +936,61 @@ export default function BackpackModal({
           item={detailItem}
           onClose={() => setDetailItemId(null)}
         />
+      )}
+
+      {/* ── 最近删除（回收站）面板 ── */}
+      {showDeleted && (
+        <div className="fixed inset-0 z-[60] bg-black/80 backdrop-blur-sm flex items-center justify-center p-4"
+          onClick={(e) => { if (e.target === e.currentTarget) setShowDeleted(false); }}>
+          <div className="w-full max-w-2xl max-h-[82vh] flex flex-col rounded-2xl border border-edge bg-void shadow-[0_0_60px_rgba(0,0,0,0.8)] overflow-hidden">
+            <header className="shrink-0 flex items-center gap-3 px-5 py-3 border-b border-edge bg-panel">
+              <span className="text-sky-300/80 text-lg">♻</span>
+              <div className="flex-1 min-w-0">
+                <div className="text-sm font-bold text-slate-100">最近删除</div>
+                <div className="text-[12px] font-mono text-dim/60">被 AI 自动删除 / 消耗的物品 · 进入后满 3 回合彻底清除 · 共 {recentlyDeleted.length} 件</div>
+              </div>
+              {recentlyDeleted.length > 0 && (
+                <button
+                  onClick={() => { if (!confirmClearDel) { setConfirmClearDel(true); return; } clearRecentlyDeleted(); setConfirmClearDel(false); }}
+                  onBlur={() => setConfirmClearDel(false)}
+                  className={`px-3 py-1.5 border rounded-lg text-sm font-mono transition-colors ${confirmClearDel ? 'border-blood/60 text-blood bg-blood/10' : 'border-edge text-dim hover:border-blood/40 hover:text-blood'}`}>
+                  {confirmClearDel ? '确认清空？' : '🗑 清空'}
+                </button>
+              )}
+              <button onClick={() => setShowDeleted(false)} className="text-dim/50 hover:text-blood text-lg">✕</button>
+            </header>
+            <div className="flex-1 overflow-y-auto p-4 space-y-2">
+              {recentlyDeleted.length === 0 ? (
+                <div className="text-center text-dim/40 text-sm font-mono py-16">暂无最近删除的物品
+                  <div className="text-[12px] mt-1 text-dim/30">被 AI 误删 / 消耗的物品会暂存在这里，可点「恢复」找回</div>
+                </div>
+              ) : recentlyDeleted.map((it) => {
+                const remain = 3 - (itemTurn - it.deletedTurn);
+                return (
+                  <div key={it.id} className="flex items-center gap-3 rounded-lg border border-edge bg-panel/50 px-3 py-2">
+                    <span className="text-lg shrink-0">{CAT_ICON[it.category] ?? '◆'}</span>
+                    <div className="min-w-0 flex-1">
+                      <div className={`text-sm font-semibold truncate ${gradeNameClass(it.gradeDesc)}`}>{it.name}{it.quantity > 1 ? <span className="text-dim/60 font-mono"> ×{it.quantity}</span> : null}</div>
+                      <div className="text-[11px] font-mono text-dim/50 truncate">{[it.category, it.gradeDesc].filter(Boolean).join(' · ')} · {remain > 0 ? `${remain} 回合后清除` : '即将清除'}</div>
+                      {(it.deleteKind || it.deleteReason) && (
+                        <div className="text-[11px] font-mono mt-0.5 flex items-center gap-1.5 min-w-0">
+                          <span className={`shrink-0 px-1 rounded border ${it.deleteKind === 'used'
+                            ? 'text-sky-300/90 border-sky-500/40 bg-sky-900/20'
+                            : 'text-amber-300/90 border-amber-500/40 bg-amber-900/20'}`}>
+                            {it.deleteKind === 'used' ? '已使用' : '损坏丢弃'}
+                          </span>
+                          {it.deleteReason && <span className="text-dim/60 truncate min-w-0" title={it.deleteReason}>{it.deleteReason}</span>}
+                        </div>
+                      )}
+                    </div>
+                    <button onClick={() => restoreDeleted(it.id)} title="恢复回背包"
+                      className="shrink-0 px-2.5 py-1 border border-emerald-500/40 text-emerald-300 hover:bg-emerald-500/10 rounded-lg text-[12px] font-mono transition-colors">↺ 恢复</button>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );

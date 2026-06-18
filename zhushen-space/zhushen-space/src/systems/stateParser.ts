@@ -207,6 +207,18 @@ function findStackTarget(list: any[], name: string, rawCategory: string): any | 
   ) ?? null;
 }
 
+/* 删除原因归类（供「最近删除」展示"为什么删"）：
+   - consumeItem 消耗殆尽 → 一律 used（被使用/消耗）
+   - destroyItem → 按 AI 给的 reason 关键词分 used / broken，缺省 broken（损坏·丢弃·失去）
+   reason 优先用 AI 原话，缺则按类型合成一句。 */
+function classifyDeletion(cmd: 'consume' | 'destroy', rawReason?: unknown): { kind: 'used' | 'broken'; reason: string } {
+  const r = String(rawReason ?? '').trim();
+  if (cmd === 'consume') return { kind: 'used', reason: r || '使用后消耗殆尽' };
+  const usedKw = /使用|用掉|用尽|用完|喝|吃|服用|服下|开启|打开|激活|启动|引爆|点燃|消耗|耗尽|释放|投掷|掷出|抛出|扔出/;
+  const kind: 'used' | 'broken' = r && usedKw.test(r) ? 'used' : 'broken';
+  return { kind, reason: r || (kind === 'used' ? '使用后消失' : '损坏 / 丢弃 / 失去') };
+}
+
 export function applyItemCommands(commands: ItemCommand[]): void {
   if (commands.length === 0) return;
   for (const cmd of commands) {
@@ -336,6 +348,7 @@ function applyOneItemCommand(cmd: ItemCommand, store: any): void {
         const bag = npcStore.npcs[owner]?.items ?? [];
         const nitem = pickTargetItem(bag, data.itemId, givenName);
         if (!nitem) { console.warn(`[Item] NPC ${owner} 未找到要消耗的物品（name=${givenName} id=${data.itemId}）`); break; }
+        if (nitem.locked) { console.warn(`[Item] 拒绝消耗 NPC ${owner} 已锁定物品「${nitem.name}」（玩家锁定·防误删）`); break; }
         if (nitem.equipped) { console.warn(`[Item] 拒绝消耗 NPC ${owner} 已装备物品「${nitem.name}」（需先卸下，防误删穿戴装备）`); break; }
         npcStore.consumeNpcItem(owner, nitem.id, qty);
         console.log(`[Item] NPC ${owner} 消耗 ${nitem.name} x${qty}`);
@@ -343,10 +356,11 @@ function applyOneItemCommand(cmd: ItemCommand, store: any): void {
       }
       const item = pickTargetItem(store.items, data.itemId, givenName);
       if (item) {
+        if (item.locked) { console.warn(`[Item] 拒绝消耗已锁定物品「${item.name}」（玩家锁定·防误删，需先解锁）`); break; }
         // ★ 已装备物品不应被"消耗"（消耗品不会处于装备态）——多为 AI 幻觉，拒绝以防穿戴装备无故消失
         if (item.equipped) { console.warn(`[Item] 拒绝消耗已装备物品「${item.name}」（需先 uneq 卸下）`); break; }
-        store.consumeItem(item.id, qty);
-        console.log(`[Item] 消耗 ${item.name} x${qty}`);
+        if ((item.quantity ?? 1) - qty <= 0) { store.binItem(item, classifyDeletion('consume', data.reason)); console.log(`[Item] 消耗 ${item.name} 用尽 → 移入最近删除（可恢复）`); }
+        else { store.consumeItem(item.id, qty); console.log(`[Item] 消耗 ${item.name} x${qty}`); }
       } else { console.warn(`[Item] 未找到要消耗的物品（name=${givenName} id=${data.itemId}）`); }
       break;
     }
@@ -359,6 +373,7 @@ function applyOneItemCommand(cmd: ItemCommand, store: any): void {
         const bag = npcStore.npcs[owner]?.items ?? [];
         const nitem = pickTargetItem(bag, data.itemId, givenName);
         if (!nitem) { console.warn(`[Item] NPC ${owner} 未找到要销毁的物品（name=${givenName} id=${data.itemId}）`); break; }
+        if (nitem.locked) { console.warn(`[Item] 拒绝销毁 NPC ${owner} 已锁定物品「${nitem.name}」（玩家锁定·防误删）`); break; }
         // 销毁=物品从世界消失（丢弃/卖掉/损毁/被夺走）：已装备也直接移除，装备槽随之清空（移除即等于先卸下）
         npcStore.removeNpcItem(owner, nitem.id);
         console.log(`[Item] NPC ${owner} 销毁 ${nitem.name}${nitem.equipped ? '（已自动从装备栏移除）' : ''}`);
@@ -366,10 +381,11 @@ function applyOneItemCommand(cmd: ItemCommand, store: any): void {
       }
       const item = pickTargetItem(store.items, data.itemId, givenName);
       if (item) {
-        // 销毁=物品彻底消失：若正穿戴，先自动卸下再移除（兑现"引擎自动先卸下再销毁"的承诺）
+        if (item.locked) { console.warn(`[Item] 拒绝销毁已锁定物品「${item.name}」（玩家锁定·防误删，需先解锁）`); break; }
+        // 销毁：若正穿戴，先自动卸下；不直接抹掉，改移入「最近删除」回收站（可恢复，满 3 回合自动清除），防 AI 误删
         if (item.equipped) { try { store.unequipItem(item.id); } catch { /* */ } console.log(`[Item] 销毁前自动卸下已装备物品「${item.name}」`); }
-        store.removeItem(item.id);
-        console.log(`[Item] 销毁 ${item.name}`);
+        store.binItem(item, classifyDeletion('destroy', data.reason));
+        console.log(`[Item] 销毁 ${item.name}（→ 最近删除）`);
       } else { console.warn(`[Item] 未找到要销毁的物品（name=${givenName} id=${data.itemId}）`); }
       break;
     }

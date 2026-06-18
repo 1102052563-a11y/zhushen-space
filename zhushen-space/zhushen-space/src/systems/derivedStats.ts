@@ -1,4 +1,5 @@
 import type { PlayerAttrs } from '../store/playerStore';
+import { effectiveAttrs } from './attrBonus';
 
 /* 衍生属性（主角与 NPC 共用）：由六维 + 等级 + 已装备物品换算
    - 物理ATK：max(力,敏)主导 + 武器          - 物理DEF：体质 + 防具
@@ -127,7 +128,9 @@ export function fullMaxHp(
   skills: AbilityLite[] = [],
   traits: AbilityLite[] = [],
 ): number {
-  const flat = computeMaxHp(attrs) + gearMaxHpBonus(equipped) + abilityMaxHpBonus(skills, traits);
+  // 先把技能/天赋/装备的「六维加成」(如 体质+1)折进六维，再按 体质×20 换算——否则技能加的体质涨不到 HP 上限
+  const eff = effectiveAttrs(attrs, skills as any, traits as any, equipped as any);
+  const flat = computeMaxHp(eff) + gearMaxHpBonus(equipped) + abilityMaxHpBonus(skills, traits);
   const pct = gearMaxHpPctBonus(equipped) + abilityMaxHpPctBonus(skills, traits);
   return Math.round(flat * (1 + pct / 100));
 }
@@ -137,7 +140,9 @@ export function fullMaxEp(
   skills: AbilityLite[] = [],
   traits: AbilityLite[] = [],
 ): number {
-  const flat = computeMaxEp(attrs) + gearMaxEpBonus(equipped) + abilityMaxEpBonus(skills, traits);
+  // 同 fullMaxHp：先把六维加成(如 智力+1)折进六维，再按 智力×15 换算
+  const eff = effectiveAttrs(attrs, skills as any, traits as any, equipped as any);
+  const flat = computeMaxEp(eff) + gearMaxEpBonus(equipped) + abilityMaxEpBonus(skills, traits);
   const pct = gearMaxEpPctBonus(equipped) + abilityMaxEpPctBonus(skills, traits);
   return Math.round(flat * (1 + pct / 100));
 }

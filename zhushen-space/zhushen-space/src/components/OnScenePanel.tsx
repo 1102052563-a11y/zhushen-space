@@ -1,5 +1,6 @@
 import { useRef, useState } from 'react';
-import { useNpc, type NpcRecord } from '../store/npcStore';
+import { useNpc, hasRealNpcName, type NpcRecord } from '../store/npcStore';
+import { useCharacters } from '../store/characterStore';
 import { lvFromRealm, tierFxClass, computeMaxHp, computeMaxEp, gearMaxHpBonus, gearMaxEpBonus, effectiveResource, fullMaxHp, fullMaxEp } from '../systems/derivedStats';
 import { useImageViewer } from '../store/imageViewerStore';
 import { PortraitPicker } from './PortraitPicker';
@@ -17,7 +18,7 @@ export default function OnScenePanel({ onOpenNpc }: { onOpenNpc: (id: string) =>
   const [collapsed, setCollapsed] = useState(false);
 
   const list = Object.values(npcs)
-    .filter((r) => r.onScene && !r.isDead)
+    .filter((r) => r.onScene && !r.isDead && hasRealNpcName(r))   // 杜绝无名编号空壳(C11/C22…)出现在在场浮窗
     .sort((a, b) => (b.lastSeenTurn ?? 0) - (a.lastSeenTurn ?? 0) || (b.favor ?? 0) - (a.favor ?? 0));
 
   if (list.length === 0) return null;
@@ -51,6 +52,7 @@ export default function OnScenePanel({ onOpenNpc }: { onOpenNpc: (id: string) =>
 
 function OnSceneCard({ npc, onOpen }: { npc: NpcRecord; onOpen: () => void }) {
   const upsert = useNpc((s) => s.upsertNpc);
+  const cdata = useCharacters((s) => s.characters[npc.id]);   // 技能/天赋（HP/EP 上限加成）→ 与详情页同口径
   const fileRef = useRef<HTMLInputElement>(null);
 
   const lv = lvFromRealm(npc.realm);
@@ -114,8 +116,8 @@ function OnSceneCard({ npc, onOpen }: { npc: NpcRecord; onOpen: () => void }) {
         {(npc.attrs != null || npc.hp != null || npc.mp != null) && (() => {
           // 最大HP/EP = 基础六维换算 + 装备"增加HP/EP上限"平值 + 百分比加成
           const eqp = (npc.items ?? []).filter((it) => it.equipped);
-          const maxHp = fullMaxHp(npc.attrs, eqp);
-          const maxEp = fullMaxEp(npc.attrs, eqp);
+          const maxHp = fullMaxHp(npc.attrs, eqp, cdata?.skills, cdata?.traits);
+          const maxEp = fullMaxEp(npc.attrs, eqp, cdata?.skills, cdata?.traits);
           return (
             <div className="flex items-center gap-2 text-[10px] font-mono whitespace-nowrap">
               <span className="text-rose-400/80">❤{effectiveResource(npc.hp, npc.maxHp, maxHp)}/{maxHp}</span>

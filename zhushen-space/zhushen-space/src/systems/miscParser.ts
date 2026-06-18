@@ -104,6 +104,14 @@ export function applyMiscCommands(reply: string, opts: { allowLarge?: boolean } 
   const allowLarge = opts.allowLarge !== false;   // 默认允许；非大总结周期传 false，丢弃 AI 误输出的大总结
   const block = (reply.match(/<upstore>([\s\S]*?)<\/upstore>/i)?.[1] ?? reply);
   const M = useMisc.getState();
+  // 世界大事「地点」补全所处世界前缀：让地点成为「所处世界 … 具体位置」的完整路径（如「生化危机2 浣熊市 警察局 二楼回廊」）。
+  // 已含当前世界名则不重复前缀；地点为空则不强加。
+  const withWorld = (loc: string) => {
+    const wn = (M.worldName || '').trim();
+    const l = (loc || '').trim();
+    if (!wn || !l) return l;
+    return l.includes(wn) ? l : `${wn} ${l}`;
+  };
   let n = 0;
   for (const raw of block.split('\n')) {
     const line = raw.trim();
@@ -119,10 +127,10 @@ export function applyMiscCommands(reply: string, opts: { allowLarge?: boolean } 
     if ((m = /^timeLocation\.weather\s*=\s*"([^"]*)"$/.exec(line)))      { M.setWeather(m[1]); n++; continue; }
 
     if ((m = /^addWorldEvent\(\s*"([^"]*)"\s*,\s*"([^"]*)"\s*,\s*"([\s\S]*)"\s*\)$/.exec(line))) {
-      M.addWorldEvent({ time: m[1], location: m[2], desc: unquote(m[3]) }); n++; continue;
+      M.addWorldEvent({ time: m[1], location: withWorld(m[2]), desc: unquote(m[3]) }); n++; continue;
     }
     if ((m = /^updateWorldEvent\(\s*"([^"]+)"\s*,\s*"([^"]*)"\s*,\s*"([^"]*)"\s*,\s*"([\s\S]*)"\s*\)$/.exec(line))) {
-      M.updateWorldEvent(m[1], { time: m[2], location: m[3], desc: unquote(m[4]) }); n++; continue;
+      M.updateWorldEvent(m[1], { time: m[2], location: withWorld(m[3]), desc: unquote(m[4]) }); n++; continue;
     }
     if ((m = /^deleteWorldEvent\(\s*"([^"]+)"\s*\)$/.exec(line))) { M.removeWorldEvent(m[1]); n++; continue; }
 

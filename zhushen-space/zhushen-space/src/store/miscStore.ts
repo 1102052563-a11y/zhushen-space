@@ -164,6 +164,8 @@ interface MiscState {
   summaryRound: number;   // 杂项演化已运行的回合计数（用于大总结周期判断，持久化）
   narrativeFacts: NarrativeFact[];
   weather: string;
+  weatherFxCss: string;   // AI 为奇异天气生成的纯 CSS 顶栏特效（已 sanitize）
+  weatherFxKey: string;   // 该 CSS 对应的天气串（按天气缓存；与当前天气失配则不用）
   paradiseTime: string;
   worldTime: string;
   worldName: string;
@@ -192,6 +194,7 @@ interface MiscState {
   removeNarrativeFact: (id: string) => void;
   clearNarrativeFacts: () => void;
   setWeather: (w: string) => void;
+  setWeatherFx: (key: string, css: string) => void;
   setTime: (patch: { paradiseTime?: string; worldTime?: string; worldName?: string }) => void;
   clearMisc: () => void;
 
@@ -218,6 +221,8 @@ export const useMisc = create<MiscState>()(
       summaryRound: 0,
       narrativeFacts: [],
       weather: '',
+      weatherFxCss: '',
+      weatherFxKey: '',
       paradiseTime: '',
       worldTime: '',
       worldName: '',
@@ -312,6 +317,7 @@ export const useMisc = create<MiscState>()(
       removeNarrativeFact: (id) => set((s) => ({ narrativeFacts: s.narrativeFacts.filter((f) => f.id !== id) })),
       clearNarrativeFacts: () => set({ narrativeFacts: [] }),
       setWeather: (w) => set({ weather: w }),
+      setWeatherFx: (key, css) => set({ weatherFxKey: key, weatherFxCss: css }),
       setTime: (patch) => set((s) => ({
         paradiseTime: patch.paradiseTime ?? s.paradiseTime,
         worldTime: patch.worldTime ?? s.worldTime,

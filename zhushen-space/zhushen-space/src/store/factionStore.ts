@@ -57,6 +57,17 @@ const FIELD_KEYS: (keyof FactionRecord)[] = [
   'relations', 'goal', 'resources', 'status', 'background', 'assets',
 ];
 
+/* 防占位名覆盖真实名：当传入名是占位（空 / 等于 id / 形如 F\d+）而该势力已有真实名时，保留原真实名；
+   否则采用传入名（去首尾空格）。修复「势力重入(reentry)时 AI 未复述全名，名字被重置回 F1/F2/F3…」的回归——
+   upsertFaction({name:e.name??id}) 与 addFaction 增量更新都会经过它。 */
+export function resolveFactionName(prevName: string | undefined, id: string, incoming: unknown): string {
+  const inc = String(incoming ?? '').trim();
+  const incPlaceholder = !inc || inc === id || /^F\d+$/i.test(inc);
+  const hasRealPrev = !!prevName && prevName !== id && !/^F\d+$/i.test(prevName);
+  if (incPlaceholder) return hasRealPrev ? (prevName as string) : (inc || id);
+  return inc;
+}
+
 export function defaultFaction(id: string): FactionRecord {
   return {
     id, name: id, type: '', inCurrentWorld: true, worldName: '', scale: '', powerLevel: '',
@@ -87,7 +98,9 @@ export const useFaction = create<FactionState>()(
       upsertFaction: (id, patch) =>
         set((s) => {
           const prev = s.factions[id] ?? defaultFaction(id);
-          return { factions: { ...s.factions, [id]: { ...prev, ...patch, id, updatedAt: Date.now() } } };
+          const merged: FactionRecord = { ...prev, ...patch, id, updatedAt: Date.now() };
+          if ('name' in patch) merged.name = resolveFactionName(prev.name, id, patch.name);   // 防占位名冲掉真实名（reentry）
+          return { factions: { ...s.factions, [id]: merged } };
         }),
 
       applyColumns: (id, cols) =>
@@ -99,8 +112,8 @@ export const useFaction = create<FactionState>()(
             if (k === 'favorToPlayer' || k === 'favor') { next.favorToPlayer = Number(v) || 0; continue; }
             if (k === 'inCurrentWorld') { next.inCurrentWorld = v === true || v === 'true'; continue; }
             if ((FIELD_KEYS as string[]).includes(k)) {
-              // 防改名：已有真名时不让 name 被覆盖成占位
-              if (k === 'name' && prev.name && prev.name !== prev.id && (!v || String(v).trim() === '')) continue;
+              // 防改名：已有真名时不让 name 被占位（空 / =id / F\d+）覆盖
+              if (k === 'name') { next.name = resolveFactionName(prev.name, id, v); continue; }
               (next as unknown as Record<string, unknown>)[k] = String(v);
             } else {
               next.extra = { ...next.extra, [k]: String(v) };

@@ -33,6 +33,34 @@ interface WorldCodexState {
 
 const blankEntry = (ipName = ''): WorldCodexEntry => ({ ipName, sections: {} });
 
+/* worldName 由「杂项演化」每回合按正文改写，常见格式/空格/「世界名+地点」漂移（与势力 worldName 同源问题）。
+   若直接拿 worldName 当存储键，漂移一发生就再也命中不到旧条目 ——「深挖后过一两个回合情报整片消失」。
+   照 App.tsx 既有 norm() 约定做归一 + 双向子串匹配，让漂移后的 worldName 仍解析回同一条目。 */
+const norm = (s: string) => (s || '').replace(/[\s·•・\-—_,，。、|｜（）()【】]/g, '').toLowerCase();
+
+/** 解析 worldName 在 byWorld 中的实际存储键：精确 > 归一相等 > 双向子串；都没有则返回原值（用于新建）。 */
+function resolveKey(byWorld: Record<string, WorldCodexEntry>, worldName: string): string {
+  if (byWorld[worldName]) return worldName;     // 精确命中（含空串）
+  const n = norm(worldName);
+  if (n.length < 2) return worldName;           // 太短/空：不做模糊，避免误并不同世界
+  let sub = '';
+  for (const k of Object.keys(byWorld)) {
+    const nk = norm(k);
+    if (!nk) continue;
+    if (nk === n) return k;                      // 归一后完全相等：最稳，直接复用
+    if (!sub && (nk.includes(n) || n.includes(nk))) sub = k;   // 「世界名 + 地点」之类子串漂移
+  }
+  return sub || worldName;
+}
+
+/** 面板按当前 worldName 解析读取已缓存条目（返回存储对象引用，保持 Zustand 选择器引用稳定）。 */
+export function resolveCodexEntry(
+  byWorld: Record<string, WorldCodexEntry>,
+  worldName: string,
+): WorldCodexEntry | undefined {
+  return byWorld[resolveKey(byWorld, worldName)];
+}
+
 export const useWorldCodex = create<WorldCodexState>()(
   persist(
     (set) => ({
@@ -42,21 +70,26 @@ export const useWorldCodex = create<WorldCodexState>()(
       setEnabled: (v) => set({ enabled: v }),
 
       ensureWorld: (worldName) =>
-        set((s) => (s.byWorld[worldName] ? s : { byWorld: { ...s.byWorld, [worldName]: blankEntry(worldName) } })),
+        set((s) => {
+          const key = resolveKey(s.byWorld, worldName);
+          return s.byWorld[key] ? s : { byWorld: { ...s.byWorld, [key]: blankEntry(worldName) } };
+        }),
 
       setIp: (worldName, ipName) =>
         set((s) => {
-          const cur = s.byWorld[worldName] ?? blankEntry();
-          return { byWorld: { ...s.byWorld, [worldName]: { ...cur, ipName } } };
+          const key = resolveKey(s.byWorld, worldName);
+          const cur = s.byWorld[key] ?? blankEntry();
+          return { byWorld: { ...s.byWorld, [key]: { ...cur, ipName } } };
         }),
 
       setSection: (worldName, moduleKey, content) =>
         set((s) => {
-          const cur = s.byWorld[worldName] ?? blankEntry(worldName);
+          const key = resolveKey(s.byWorld, worldName);
+          const cur = s.byWorld[key] ?? blankEntry(worldName);
           return {
             byWorld: {
               ...s.byWorld,
-              [worldName]: {
+              [key]: {
                 ...cur,
                 sections: { ...cur.sections, [moduleKey]: { content, updatedAt: Date.now() } },
               },
@@ -66,9 +99,10 @@ export const useWorldCodex = create<WorldCodexState>()(
 
       clearWorld: (worldName) =>
         set((s) => {
-          if (!s.byWorld[worldName]) return s;
+          const key = resolveKey(s.byWorld, worldName);
+          if (!s.byWorld[key]) return s;
           const next = { ...s.byWorld };
-          delete next[worldName];
+          delete next[key];
           return { byWorld: next };
         }),
 

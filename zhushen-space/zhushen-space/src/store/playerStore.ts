@@ -88,7 +88,7 @@ export interface PlayerProfile {
 
 export const DEFAULT_PLAYER_PROFILE: PlayerProfile = {
   name: '', level: 1, worldSource: 0, attrPoints: 0, realAttrPoints: 0, tier: '一阶', title: '', profession: '', arenaRank: '',
-  identity: '', brandLevel: '', contractorId: '', homeParadise: '', preParadiseJob: '', bioStrength: '',
+  identity: '', brandLevel: '1', contractorId: '', homeParadise: '', preParadiseJob: '', bioStrength: '',   // 烙印等级起始＝1（契约者基础烙印，非空）
   attrs: { str: 5, agi: 5, con: 5, int: 5, cha: 5, luck: 5 },
   status: '', statusEffects: [], appearance: '', location: '',
   background: '', deedLog: [],
@@ -418,6 +418,7 @@ export const usePlayer = create<PlayerState>()(
           ...(persisted?.profile ?? {}),
           attrs: { ...DEFAULT_PLAYER_PROFILE.attrs, ...(persisted?.profile?.attrs ?? {}) },
           deedLog: Array.isArray(persisted?.profile?.deedLog) ? persisted.profile.deedLog : [],
+          brandLevel: persisted?.profile?.brandLevel || DEFAULT_PLAYER_PROFILE.brandLevel,   // 旧档烙印等级为空→补成起始1（已有值保留）
         },
         achievements: Array.isArray(persisted?.achievements) ? persisted.achievements : [],
         playerApi: { ...current.playerApi, ...(persisted?.playerApi ?? {}) },

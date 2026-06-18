@@ -90,7 +90,7 @@ function EquipDetail({ npcId, item, onClose }: { npcId: string; item: NpcOwnedIt
           <span className="text-xl">{CAT_ICON[item.category] ?? '◇'}</span>
           <div className="flex-1 min-w-0">
             <div className={`text-sm font-bold truncate ${gradeNameClass(item.gradeDesc)}`}>{item.name}</div>
-            <div className="text-[12px] font-mono text-dim/50">{item.category}{item.equipSlot ? ` · ${item.equipSlot}` : ''}</div>
+            <div className="text-[12px] font-mono text-dim/50">{item.category}{item.equipSlot ? ` · ${item.equipSlot}` : ''}{item.locked ? <span className="text-blue-400"> · 🔒锁定</span> : ''}</div>
           </div>
           <button onClick={onClose} className="text-dim/50 hover:text-blood text-lg">✕</button>
         </div>
@@ -139,7 +139,14 @@ function EquipDetail({ npcId, item, onClose }: { npcId: string; item: NpcOwnedIt
         </div>
         <div className="px-4 py-3 border-t border-edge flex justify-end gap-2">
           <button onClick={() => { unequip(npcId, item.id); onClose(); }} className="px-3 py-1.5 text-sm font-mono rounded-lg border border-edge text-dim hover:border-amber-600/50 hover:text-amber-400 transition-colors">卸下到储存空间</button>
-          <button onClick={() => { removeItem(npcId, item.id); onClose(); }} className="px-3 py-1.5 text-sm font-mono rounded-lg border border-blood/40 text-blood/80 hover:bg-blood/10 transition-colors">删除</button>
+          <button onClick={() => updateItem(npcId, item.id, { locked: !item.locked })}
+            title={item.locked ? '解锁后 AI 可删除/消耗此物品' : '锁定后 AI 不会删除/消耗此物品（手动删除也隐藏）'}
+            className={`px-3 py-1.5 text-sm font-mono rounded-lg border transition-colors ${item.locked ? 'border-blue-500/50 text-blue-400 bg-blue-900/20' : 'border-edge text-dim hover:border-blue-500/40 hover:text-blue-400'}`}>
+            {item.locked ? '🔒 已锁定' : '🔓 锁定'}
+          </button>
+          {!item.locked && (
+            <button onClick={() => { removeItem(npcId, item.id); onClose(); }} className="px-3 py-1.5 text-sm font-mono rounded-lg border border-blood/40 text-blood/80 hover:bg-blood/10 transition-colors">删除</button>
+          )}
         </div>
       </div>
     </div>
@@ -251,6 +258,7 @@ export default function NpcEquip({ npc }: { npc: NpcRecord }) {
                 <button key={it.id} onClick={() => setDetail(it)} className={`flex items-center gap-2 px-3 py-2 rounded-xl border text-sm ${cfg.cls}`}>
                   <span>{CAT_ICON[it.category] ?? '◇'}</span>
                   <span className={`font-semibold ${gradeNameClass(it.gradeDesc)}`}>{it.name}</span>
+                  {it.locked && <span className="text-blue-400 text-[12px]">🔒</span>}
                   {it.equipSlot && <span className="text-dim/50 font-mono text-[12px]">{it.equipSlot}</span>}
                 </button>
               );

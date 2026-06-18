@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { useNpc, type NpcRecord } from '../store/npcStore';
+import { useNpc, hasRealNpcName, type NpcRecord } from '../store/npcStore';
 import { isDmableTag } from '../store/dmStore';
 import { normalizeTier, tierFxClass } from '../systems/derivedStats';
 import NpcDetail from './NpcDetail';
@@ -105,7 +105,9 @@ export default function NpcPanel({ onClose, onDm, onManualUpdate, manualUpdating
   // 只认 isDead 标记（与在场浮窗/其余各处一致）——不再在展示层重跑 looksDead，
   // 否则丧尸/不死生物这类「状态里本就含死字但其实是活跃敌人」的 NPC 会被误判死亡、整条从档案消失。
   const isDeadNpc = (r: NpcRecord) => !!r.isDead;
-  const records  = Object.values(npcs).filter((r) => !isDeadNpc(r)).sort((a, b) => b.updatedAt - a.updatedAt);
+  // 无名编号空壳(C11/C22…)不进档案列表——它们要么会被自动清理，要么待补名后才以真名出现。
+  // （仍想手动处理可去「设置→变量管理→NPC演化」的管理面板，那里不过滤。）
+  const records  = Object.values(npcs).filter((r) => !isDeadNpc(r) && hasRealNpcName(r)).sort((a, b) => b.updatedAt - a.updatedAt);
   const onScene  = records.filter((r) => r.onScene);
   const offScene = records.filter((r) => !r.onScene);
 

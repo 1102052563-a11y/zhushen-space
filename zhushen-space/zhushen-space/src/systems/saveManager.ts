@@ -162,6 +162,7 @@ export async function loadSlot(id: string): Promise<boolean> {
   for (const { key } of STORES) {
     const v = slot.data.stores[key];
     if (typeof v === 'string') localStorage.setItem(key, mergeKeepApi(key, v));   // API 配置不随存档回滚
+    else localStorage.removeItem(key);   // 存档快照里没有的 store（多为存档创建时尚不存在的较新功能，如技能树/潜能点）→ 清掉本地残留，让其 reload 后回到默认；否则上一局的进度（如潜能点）会泄漏进读入的旧档
   }
   // 图片：覆盖 IndexedDB（reload 后由 hydrateImages 回填到各 store）
   try { await clearAllImg(); if (slot.data.images) await bulkPutImg(slot.data.images); } catch { /* */ }

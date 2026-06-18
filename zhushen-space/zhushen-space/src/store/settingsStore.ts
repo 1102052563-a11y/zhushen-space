@@ -227,6 +227,8 @@ export interface VecMemConfig {
   maxItems: number;            // 索引的记忆条目上限（与事实 FIFO 解耦，可放大）
 }
 
+export type NarrativePov = 'off' | 'first' | 'second' | 'third';  // 叙事人称：off=跟随预设（不干预）
+
 interface SettingsState {
   // 综合设置
   historyLimit: number;   // 0 = 不限制；> 0 = 仅显示/发送最近 N 条消息
@@ -247,6 +249,8 @@ interface SettingsState {
   setFanficMode: (v: boolean) => void;
   factCheck: boolean;     // 事实增强：核实正文里的现实可查证元素→锁定时代/事实锚点→下回合注入防穿帮
   setFactCheck: (v: boolean) => void;
+  narrativePov: NarrativePov;   // 叙事人称：off=跟随预设（不注入）；first/second/third=强制注入到正文 system 末尾（权重最高）
+  setNarrativePov: (v: NarrativePov) => void;
   apiLibrary: ApiEndpoint[];   // 中心 API 接口库（综合设置维护，各功能快捷选填）
   apiRoutes: Record<string, string[]>;  // 各功能的接口路由：featureKey → 有序 endpoint id 列表（上=优先，失败 fallback）
   apiThrottle: { maxConcurrent: number; minGapMs: number };  // 全局请求节流：最大并发 + 最小间隔（缓解 429）
@@ -315,7 +319,7 @@ interface SettingsState {
   updateTextWorldBookEntry: (bookId: string, uid: number, patch: Partial<WorldBookEntry>) => void;
   addTextWorldBookEntry: (bookId: string) => void;
   removeTextWorldBookEntry: (bookId: string, uid: number) => void;
-  importTextPreset: (raw: string, fileName?: string) => { ok: boolean; message: string };
+  importTextPreset: (raw: string, fileName?: string, builtin?: boolean, activate?: boolean) => { ok: boolean; message: string };
   removeTextPreset: (id: string) => void;
   renameTextPreset: (id: string, name: string) => void;
   updateTextPreset: (id: string, patch: Partial<TextGenPreset>) => void;
@@ -585,6 +589,7 @@ export const useSettings = create<SettingsState>()(
       plotChoices: false,
       fanficMode: false,
       factCheck: false,
+      narrativePov: 'off',
       apiLibrary: [],
       apiRoutes: {},
       apiThrottle: { maxConcurrent: 3, minGapMs: 250 },
@@ -628,6 +633,7 @@ export const useSettings = create<SettingsState>()(
       setPlotChoices: (v) => set({ plotChoices: v }),
       setFanficMode: (v) => set({ fanficMode: v }),
       setFactCheck: (v) => set({ factCheck: v }),
+      setNarrativePov: (v) => set({ narrativePov: v }),
 
       addApiEndpoint: () => set((s) => ({
         apiLibrary: [...s.apiLibrary, {
@@ -789,12 +795,12 @@ export const useSettings = create<SettingsState>()(
       }),
       removeTextWorldBookEntry: (bookId, uid) => set((s) => ({ textWorldBooks: s.textWorldBooks.map((b) => b.id !== bookId ? b : forkIfBuiltin({ ...b, entries: b.entries.filter((e) => e.uid !== uid) })) })),
 
-      importTextPreset: (raw, fileName = '', builtin = false) => {
+      importTextPreset: (raw, fileName = '', builtin = false, activate = true) => {
         try {
           const data = JSON.parse(raw);
           const id = `preset_${Date.now()}`;
           const preset = parseSTPreset(data, fileName, id);
-          set((s) => ({ textPresets: [...s.textPresets, { ...preset, builtin }], activeTextPresetId: preset.id }));
+          set((s) => ({ textPresets: [...s.textPresets, { ...preset, builtin }], activeTextPresetId: activate ? preset.id : s.activeTextPresetId }));
           const rxCount = preset.regexScripts.length;
           return { ok: true, message: `已导入「${preset.name}」，共 ${preset.entries.length} 条 prompt${rxCount ? `，含 ${rxCount} 条正则` : ''}` };
         } catch (e: any) {

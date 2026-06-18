@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useMisc } from '../store/miscStore';
-import { useWorldCodex } from '../store/worldCodexStore';
+import { useWorldCodex, resolveCodexEntry } from '../store/worldCodexStore';
 import { CODEX_MODULES, type CodexModule } from '../worldCodexModules';
 import { genCodexSection } from '../systems/worldCodex';
 
@@ -233,7 +233,7 @@ function CodexBody({ text, type }: { text: string; type: 'text' | 'list' }) {
 export default function WorldCodexPanel({ onClose }: { onClose: () => void }) {
   const worldName = useMisc((s) => s.worldName);
   const enabled = useWorldCodex((s) => s.enabled);
-  const entry = useWorldCodex((s) => s.byWorld[worldName]);
+  const entry = useWorldCodex((s) => resolveCodexEntry(s.byWorld, worldName));
   const setIp = useWorldCodex((s) => s.setIp);
   const setSection = useWorldCodex((s) => s.setSection);
 

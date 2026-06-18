@@ -13,7 +13,7 @@ import { bioInnate, bioPower, bioStrengthLabel } from './bioStrength';
 function equippedTitleLine(titles: Title[] | undefined): string | undefined {
   const t = (titles ?? []).find((x) => x.equipped);
   if (!t) return undefined;
-  const extra = [t.rarity && `${t.rarity}`, t.effect && `效果:${t.effect}`].filter(Boolean).join('，');
+  const extra = [t.rarity && `${t.rarity}`, t.effect && `效果:${t.effect}`, t.bonusEffect && `额外效果:${t.bonusEffect}`].filter(Boolean).join('，');
   return `当前称号: 「${t.name}」${extra ? `（${extra}）` : ''}`;
 }
 
@@ -127,7 +127,8 @@ function itemLine(it: InventoryItem | NpcOwnedItem): string {
 
 /* ── 主角装备/物品 → 精简行：只注入 名称/类型/品级/杀敌数/词缀/效果（其他信息不注入）── */
 function playerItemLine(it: InventoryItem): string {
-  const head = `「${it.name}」${(it.category || it.gradeDesc) ? `[${[it.category, it.gradeDesc].filter(Boolean).join('·')}]` : ''}`;
+  const qty = (it.quantity ?? 1) > 1 ? ` ×${it.quantity}` : '';   // 消耗品/材料数量也注入，供 AI 感知库存
+  const head = `「${it.name}」${(it.category || it.gradeDesc) ? `[${[it.category, it.gradeDesc].filter(Boolean).join('·')}]` : ''}${qty}`;
   const body = [
     it.killCount && `杀敌:${it.killCount}`,
     it.affix && `词缀:${it.affix}`,

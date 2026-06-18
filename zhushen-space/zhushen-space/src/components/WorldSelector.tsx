@@ -28,6 +28,7 @@ interface Props {
   onPromptSent: (prompt: string) => void;
   onWorlds: (worlds: WorldOption[]) => void;
   onSettle?: () => void;   // 点「结算任务」：把【结算任务】塞进输入框，由正文 AI 按结算规则结算回归
+  expanded?: boolean;      // 收起时（idle 阶段）不渲染「选择世界/结算任务」按钮行，省空间；点状态栏展开
 }
 
 type Stage = 'idle' | 'config' | 'loading' | 'results' | 'error';
@@ -71,7 +72,7 @@ function extractJson(raw: string): WorldOption[] {
   throw new Error('模型未返回有效 JSON，请点击「查看返回」查看原始内容');
 }
 
-export default function WorldSelector({ onSelect, onRawResponse, onPromptSent, onWorlds, onSettle }: Props) {
+export default function WorldSelector({ onSelect, onRawResponse, onPromptSent, onWorlds, onSettle, expanded }: Props) {
   const [stage, setStage] = useState<Stage>('idle');
   const [rank, setRank] = useState('');
   const [rolls, setRolls] = useState<number[]>([]);
@@ -214,6 +215,7 @@ export default function WorldSelector({ onSelect, onRawResponse, onPromptSent, o
 
   /* ── idle ── */
   if (stage === 'idle') {
+    if (!expanded) return null;   // 默认收起，由状态命令栏点击展开（按钮不常用，省空间）
     return (
       <div className="shrink-0 border-t border-edge bg-panel px-3 py-2 flex items-center gap-2">
         <button

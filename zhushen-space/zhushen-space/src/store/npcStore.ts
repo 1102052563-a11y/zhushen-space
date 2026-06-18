@@ -40,6 +40,7 @@ export interface NpcOwnedItem {
   quantity: number;
   equipped: boolean;
   equipSlot?: string;
+  locked?: boolean;       // 锁定后 AI 不会删除/消耗（手动删除按钮也隐藏）
   appearance?: string;    // 外观描述
   acquisition?: string;   // 获得途径
   notes?: string;         // 备注/原因
@@ -162,6 +163,23 @@ const COL_TO_FIELD: Record<string, keyof NpcRecord | null> = {
   'imageTags': 'imageTags', '画像提示': 'imageTags', '生图提示词': 'imageTags',
 };
 
+/* 防占位名覆盖真实名：传入名是占位（空 / 等于 id / 形如 C1·G1 等编号）而该 NPC 已有真实名时，保留原真实名；
+   否则采用传入名（去掉 "|性别" 后缀、去首尾空格）。修复「登场判断重入(reentry)时把已命名 NPC 的名字
+   重置回 C10/G1…」的回归——upsertNpc({name:e.name??id}) 与重入分支 upsertNpc({name:e.name}) 都会经过它。 */
+export function resolveNpcName(prevName: string | undefined, id: string, incoming: unknown): string {
+  const inc = String(incoming ?? '').split('|')[0].trim();
+  const incPlaceholder = !inc || inc === id || /^[CG]\d+$/i.test(inc);
+  const hasRealPrev = !!prevName && prevName !== id && !/^[CG]\d+$/i.test(prevName);
+  if (incPlaceholder) return hasRealPrev ? (prevName as string) : (inc || id);
+  return inc;
+}
+
+/* 是否「已正式命名」的真实 NPC：名字存在、不是占位编号(=id 或 C1/G1…)。
+   展示层据此过滤掉"无名编号空壳"，保证面板永不出现 C11/C22 这类条目。 */
+export function hasRealNpcName(r: { name?: string; id: string }): boolean {
+  return !!r.name && r.name !== r.id && !/^[CG]\d+$/i.test(r.name);
+}
+
 export function defaultNpcRecord(id: string): NpcRecord {
   return {
     id, name: id, gender: '', realm: '', personality: '', status: '一切正常',
@@ -222,8 +240,18 @@ export const useNpc = create<NpcState>()(
 
       upsertNpc: (id, patch) =>
         set((s) => {
-          const existing = s.npcs[id] ?? defaultNpcRecord(id);
-          return { npcs: { ...s.npcs, [id]: { ...existing, ...patch, updatedAt: Date.now() } } };
+          const prev = s.npcs[id];
+          // 档案不存在 + 本次又没带真实姓名 → 不凭空建壳。散落的 hp.C22 / favor / status 等短指令命中一个
+          // 不存在的ID时，原先会用 defaultNpcRecord 建出一个"只有血条的无名编号空壳"（如 8/100·好感0），此处拦掉。
+          if (!prev) {
+            const inc = 'name' in patch ? String((patch as { name?: unknown }).name ?? '').split('|')[0].trim() : '';
+            const realName = !!inc && inc !== id && !/^[CG]\d+$/i.test(inc);
+            if (!realName) return s;
+          }
+          const existing = prev ?? defaultNpcRecord(id);
+          const merged = { ...existing, ...patch, updatedAt: Date.now() };
+          if ('name' in patch) merged.name = resolveNpcName(existing.name, id, patch.name);   // 防占位名冲掉真实名（reentry）
+          return { npcs: { ...s.npcs, [id]: merged } };
         }),
 
       applyColumns: (id, cols) =>
@@ -372,7 +400,7 @@ export const useNpc = create<NpcState>()(
           const n = g('n');
           if (n) {
             const [nm, gd] = n.split('|');
-            if (nm?.trim()) rec.name = nm.trim();
+            if (nm?.trim()) rec.name = resolveNpcName(rec.name, id, nm);   // 防占位名冲掉真实名
             if (gd === '男' || gd === '女') rec.gender = gd;
           }
           if (g('r')) rec.realm = g('r');            // 境界(进度%)|身份 → 列2
@@ -690,7 +718,7 @@ export const useNpc = create<NpcState>()(
         set((s) => {
           const rec = s.npcs[ownerId];
           if (!rec) return s;
-          const items = rec.items.filter((it) => it.equipped); // 只保留已装备
+          const items = rec.items.filter((it) => it.equipped || it.locked); // 只保留已装备 / 已锁定
           return { npcs: { ...s.npcs, [ownerId]: { ...rec, items, updatedAt: Date.now() } } };
         }),
 
