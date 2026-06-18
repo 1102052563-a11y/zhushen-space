@@ -182,6 +182,8 @@ export default function SkillTreeManager() {
       const skillNodes = rawNodes.filter((n) => ['medium', 'major', 'capstone'].includes(n?.kind));
       const branchName = (id: string) => (raw1?.branches || []).find((b: any) => b?.id === id)?.name || id;
       const skillsById = new Map<string, any>();
+      const skillsByName = new Map<string, any>();   // 技能名兜底匹配（AI 常不照抄 id）
+      const normName = (x: any) => String(x ?? '').replace(/[\s·•・\-—_,，.。、|｜【】（）()]/g, '').toLowerCase();
       const BATCH = 14;
       const batches: any[][] = [];
       for (let i = 0; i < skillNodes.length; i += BATCH) batches.push(skillNodes.slice(i, i + BATCH));
@@ -192,14 +194,27 @@ export default function SkillTreeManager() {
         try {
           const c2 = await call(SKILLTREE_SKILLS_PROMPT, skillMsg, !!webSearch);   // 详写也走联网搜索(还原真实技能)
           const raw2: any = lenientJsonParse(extractJson(c2));
-          for (const s of (Array.isArray(raw2?.skills) ? raw2.skills : [])) if (s?.id) skillsById.set(String(s.id), s);
+          // 兼容 {skills:[...]} 或直接 [...] 或 {nodeId:{skill}} 等形态
+          const arr = Array.isArray(raw2?.skills) ? raw2.skills : (Array.isArray(raw2) ? raw2 : []);
+          for (const s of arr) {
+            if (!s || typeof s !== 'object') continue;
+            if (s.id) skillsById.set(String(s.id), s);
+            const nm = s.skill?.name ?? s.trait?.name ?? s.name;
+            if (nm) skillsByName.set(normName(nm), s);
+          }
         } catch { /* 单批失败不致命，继续其它批 */ }
       }
 
-      // ── 合并 grants → 校验 → 落树 ──
+      // ── 合并 grants（id 优先、技能名兜底）→ 节点说明取技能简述 → 校验 → 落树 ──
+      let mergedCnt = 0;
       const mergedNodes = rawNodes.map((n) => {
-        const s = skillsById.get(String(n.id));
-        if (s && (s.skill || s.trait)) return { ...n, grants: s.skill ? { skill: s.skill } : { trait: s.trait } };
+        const s = skillsById.get(String(n.id)) || skillsByName.get(normName(n.name));
+        if (s && (s.skill || s.trait)) {
+          mergedCnt++;
+          const grant = s.skill ? { skill: s.skill } : { trait: s.trait };
+          const oneLiner = String(s.skill?.desc || s.skill?.effect || s.trait?.desc || s.trait?.effect || '').trim();
+          return { ...n, grants: grant, desc: n.desc || (oneLiner ? oneLiner.slice(0, 60) : n.desc) };   // 节点「说明」= 技能简述(若空)
+        }
         return n;
       });
       const v = validateTree({ ...raw1, nodes: mergedNodes, source: 'ai' });
@@ -207,10 +222,10 @@ export default function SkillTreeManager() {
       const t = autoLayout(v.tree);
       st.upsertTree(t); setEditId(t.id); setSelId(undefined);
       const filled = t.nodes.filter((n) => n.grants?.skill || n.grants?.trait).length;
-      const missing = skillNodes.length - skillsById.size;
+      const missing = skillNodes.length - mergedCnt;
       const extra: string[] = [];
       if (t.branches.length !== nBr) extra.push(`流派数 ${t.branches.length}（要求 ${nBr}）`);
-      if (missing > 0) extra.push(`${missing} 个技能未详写成功（可对该节点单独补/重生成）`);
+      if (missing > 0) extra.push(`${missing}/${skillNodes.length} 个技能未详写成功（多半是详写阶段被接口截断/报错，可重新生成、或对该节点单独补）`);
       setValid({ errors: [], warnings: [...v.warnings, ...extra] });
       flash(`已生成（${t.nodes.length}节点 / ${t.branches.length}流派 / ${filled}个技能）${extra.length ? '·' + extra.join('；') : '，可继续编辑'}`);
     } catch (e: any) {
@@ -452,6 +467,20 @@ export default function SkillTreeManager() {
                     <button onClick={() => setGrantForm(grantForm === 'skill' ? null : 'skill')} className="text-god hover:underline">{selNode.grants.skill ? '编辑' : '添加'}</button>
                     {selNode.grants.skill && <button onClick={() => setGrant({ skill: undefined })} className="text-dim/40 hover:text-blood">清除</button>}
                   </div>
+                  {/* 技能详情内联预览（不必点编辑就能看到 AI 写的完整效果）*/}
+                  {selNode.grants.skill && grantForm !== 'skill' && (
+                    <div className="text-[11px] bg-void/50 rounded px-2 py-1 space-y-0.5 -mt-1">
+                      <div className="flex gap-x-2 gap-y-0.5 flex-wrap text-dim/50">
+                        {selNode.grants.skill.skillType && <span>{String(selNode.grants.skill.skillType)}</span>}
+                        {selNode.grants.skill.rarity && <span className="text-amber-300/70">{String(selNode.grants.skill.rarity)}</span>}
+                        {selNode.grants.skill.cost && <span>消耗:{String(selNode.grants.skill.cost)}</span>}
+                        {selNode.grants.skill.cooldown && <span>冷却:{String(selNode.grants.skill.cooldown)}</span>}
+                        {selNode.grants.skill.damage && <span>伤害:{String(selNode.grants.skill.damage)}</span>}
+                      </div>
+                      {selNode.grants.skill.effect && <div className="text-slate-300/75 leading-snug whitespace-pre-wrap">{String(selNode.grants.skill.effect)}</div>}
+                      {selNode.grants.skill.desc && <div className="text-dim/45 italic">{String(selNode.grants.skill.desc)}</div>}
+                    </div>
+                  )}
                   {grantForm === 'skill' && (
                     <SkillEditForm skill={selNode.grants.skill as any} onClose={() => setGrantForm(null)}
                       onSubmit={(f) => setGrant({ skill: f })} />
@@ -463,6 +492,12 @@ export default function SkillTreeManager() {
                     <button onClick={() => setGrantForm(grantForm === 'trait' ? null : 'trait')} className="text-god hover:underline">{selNode.grants.trait ? '编辑' : '添加'}</button>
                     {selNode.grants.trait && <button onClick={() => setGrant({ trait: undefined })} className="text-dim/40 hover:text-blood">清除</button>}
                   </div>
+                  {selNode.grants.trait && grantForm !== 'trait' && (selNode.grants.trait.effect || selNode.grants.trait.rarity) && (
+                    <div className="text-[11px] bg-void/50 rounded px-2 py-1 space-y-0.5 -mt-1">
+                      {selNode.grants.trait.rarity && <span className="text-amber-300/70">{String(selNode.grants.trait.rarity)}级</span>}
+                      {selNode.grants.trait.effect && <div className="text-slate-300/75 leading-snug whitespace-pre-wrap">{String(selNode.grants.trait.effect)}</div>}
+                    </div>
+                  )}
                   {grantForm === 'trait' && (
                     <TraitEditForm trait={selNode.grants.trait as any} onClose={() => setGrantForm(null)}
                       onSubmit={(f) => setGrant({ trait: f })} />

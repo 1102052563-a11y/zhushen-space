@@ -505,6 +505,24 @@ function newRegexScript(): RegexScript {
   };
 }
 
+/* 内置全局正则「反极其」（参考 正文预设/regex-反极其.json）：删除 AI 正文里被滥用/复读的口头禅「极其」。
+   仅作用 AI 输出（本项目原生 placement [1]）。与 App.collapseRunaway 互补——
+   collapseRunaway 在【流式期】先把「极其」×成千的失控串折叠成 1 个、防前端渲染卡死；本脚本再在 applyRegex 里把残留的「极其」一并删除。
+   新用户默认启用；可在「设置→正则」禁用或改写（编辑/删除后即成用户脚本，迁移不再覆盖）。id 固定以便迁移判重。 */
+const BUILTIN_FANJIQI_ID = 'rx-builtin-fanjiqi';
+function builtinFanjiqi(): RegexScript {
+  return {
+    id: BUILTIN_FANJIQI_ID,
+    scriptName: '反极其',
+    findRegex: '极其',
+    replaceString: '',
+    trimStrings: [],
+    placement: [1],   // 本项目原生：1=AI输出（ST 的 2 经 normalizePlacement 也归一到此）
+    disabled: false,
+    flags: 'g',
+  };
+}
+
 type SetFn = (partial: Partial<SettingsState> | ((s: SettingsState) => Partial<SettingsState>)) => void;
 
 /* 编辑内置正文预设/世界书即「转为用户副本」：清掉 builtin 标记（保留 builtinKey 以便逐本判重）。
@@ -624,7 +642,7 @@ export const useSettings = create<SettingsState>()(
       textWorldBooks: [],
       textPresets: [],
       activeTextPresetId: null,
-      globalRegexScripts: [],
+      globalRegexScripts: [builtinFanjiqi()],   // 内置「反极其」默认启用（删 AI 正文里的口头禅「极其」）
 
       // ── 综合设置操作 ──
       setHistoryLimit: (n) => set({ historyLimit: Math.max(0, n) }),
@@ -882,6 +900,16 @@ export const useSettings = create<SettingsState>()(
     }),
     {
       name: 'drpg-settings',
+      // v1：为存量用户注入内置全局正则「反极其」（仅一次，按固定 id 判重；用户删/改后版本已升级，不再覆盖）。
+      //     新用户走初始 state 已含该脚本，不经 migrate。
+      version: 1,
+      migrate: (persisted: any, _fromVersion: number) => {
+        if (persisted && typeof persisted === 'object') {
+          const arr: any[] = Array.isArray(persisted.globalRegexScripts) ? persisted.globalRegexScripts : [];
+          persisted.globalRegexScripts = arr.some((r) => r?.id === BUILTIN_FANJIQI_ID) ? arr : [builtinFanjiqi(), ...arr];
+        }
+        return persisted;
+      },
       // 世界书 / 正文世界书 / 文本预设 改存 IndexedDB（见 systems/wbDb），localStorage 不再保存它们——
       // 既容纳大世界书（IndexedDB 容量大），又避免撑爆 localStorage 5MB 配额。
       partialize: (s) => ({

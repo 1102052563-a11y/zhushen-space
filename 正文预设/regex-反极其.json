@@ -1,0 +1,17 @@
+{
+    "id": "1599cad5-818b-4177-8852-288b2a5f3921",
+    "scriptName": "反极其",
+    "findRegex": "/极其/g",
+    "replaceString": "",
+    "trimStrings": [],
+    "placement": [
+        2
+    ],
+    "disabled": false,
+    "markdownOnly": true,
+    "promptOnly": true,
+    "runOnEdit": true,
+    "substituteRegex": 0,
+    "minDepth": null,
+    "maxDepth": null
+}

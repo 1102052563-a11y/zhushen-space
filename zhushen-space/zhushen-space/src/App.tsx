@@ -150,6 +150,9 @@ import { PITY_THRESHOLD, stageFromLevel, growthCoef } from './systems/enhanceEng
 import ChannelPanel from './components/ChannelPanel';
 import DmPanel, { type DmHandlers } from './components/DmPanel';
 import MultiplayerPanel from './components/MultiplayerPanel';
+import { useMp } from './store/multiplayerStore';
+import { mpClient } from './systems/mpClient';
+import { buildPlayerSnapshot, buildPartyTurnText, buildWorldSnapshot, applyWorldSnapshot } from './systems/mpSnapshot';
 import FriendsPanel from './components/FriendsPanel';
 import { retrieveNovel } from './systems/novelVec';
 import { useDm, isDmableTag } from './store/dmStore';
@@ -848,6 +851,15 @@ function stripWorldSourceBlocks(raw: string): string {
     : raw;
 }
 
+/* 安全网：折叠"失控复读"（反极其）。模型偶发卡死会把同一短串（如「极其」「哈」「。」「\n」）连续复读成百上千次，
+   原始文本直接渲染会把前端卡死（本仓库即名「前端卡」）。这里把任意 1–8 字的单元连续重复 ≥8 次的串折叠回单个单元。
+   阈值 8 远高于中文正常叠词（好好/看看/高高兴兴）与笑声「哈哈哈」，故只命中病态复读、不误伤正常文本；
+   只折叠"连续"重复，分散出现的同一短语（A…A）不受影响。dotAll 让换行/多行块也能折叠。 */
+function collapseRunaway(raw: string): string {
+  if (!raw || raw.length < 8) return raw;   // 不足 8 字不可能构成"单元×8"的失控串，省正则开销
+  return raw.replace(/(.{1,8}?)\1{7,}/gs, '$1');
+}
+
 /* ─── 物品管理阶段：构建注入 system prompt（替换模板变量）─── */
 function buildItemPhaseSystemPrompt(entries: ItemPresetEntry[], narrative: string): string {
   const { items, currency } = useItems.getState();
@@ -1466,6 +1478,18 @@ export default function App() {
     if (stickBottomRef.current) messagesEndRef.current?.scrollIntoView({ behavior: generating ? 'auto' : 'smooth' });
   }, [messages, generating]);
 
+  // 联机·来宾：收到房主广播的正文 → 渲染进主聊天（房主自己已本地添加，跳过以免重复）
+  useEffect(() => {
+    useMp.getState().setHandlers({
+      onWorld: (payload: any) => {
+        if (useMp.getState().role === 'host') return;
+        applyWorldSnapshot(payload?.world);   // 来宾：同步房主世界(NPC/势力/世界状态)进本地面板
+        const t = payload?.narrative;
+        if (t) setMessages((prev) => [...prev, { id: ++msgId.current, role: 'assistant', content: String(t) }]);
+      },
+    });
+  }, []);
+
   // 滚动监听：判断是否贴近底部（贴近=继续吸附跟随；上滑超过阈值=暂停跟随）
   function onChatScroll() {
     const el = chatScrollRef.current;
@@ -1593,6 +1617,8 @@ export default function App() {
     // ── 安全网：隐藏常见「思考/推理」标签块（dotAll），即便用户正则漏配或模型变体也兜底 ──
     //   覆盖 <thinking>/<think>/<reasoning>/<reason>/<plan>/<analysis>/<scratchpad>/<cot> 配对标签
     result = result.replace(/<(thinking|think|reasoning|reason|plan|analysis|scratchpad|cot)\b[^>]*>[\s\S]*?<\/\1>/gi, '');
+    // ── 安全网：折叠失控复读（极其极其…），即便用户没配反复读正则也兜底，防最终文本仍带成千上万字重复 ──
+    result = collapseRunaway(result);
     for (const s of scripts) {
       try {
         // 兼容存量数据：运行时再剥一次 /pattern/flags 格式
@@ -6690,7 +6716,11 @@ ${lines}`;
                 const delta = json.choices?.[0]?.delta?.content ?? '';
                 if (delta) {
                   accumulated += delta;
-                  // 流式期间显示原始内容，避免正则对不完整结构误判导致内容闪烁
+                  // 流式期间显示原始内容，避免正则对不完整结构误判导致内容闪烁。
+                  // 但"失控复读"（极其极其…数万字）若原样渲染会直接卡死前端，故廉价预检末尾、命中才就地折叠 accumulated：
+                  // 折叠后它不再膨胀（解析/渲染都有界）；卡死的复读循环本就不会再吐 <state>，折叠不影响后续状态解析。
+                  if (accumulated.length > 64 && /(.{1,8}?)\1{7,}$/s.test(accumulated.slice(-128)))
+                    accumulated = collapseRunaway(accumulated);
                   setMessages((prev) =>
                     prev.map((m) => m.id === streamMsgId ? { ...m, content: accumulated } : m)
                   );
@@ -6730,6 +6760,7 @@ ${lines}`;
         lastNarrativeRef.current = narrativeForEvo;
         // 正文完成后：策略B先登场判断再并发其余阶段（修复NPC装备挂错ID）
         runPostNarrativePhases(narrativeForEvo, streamMsgId);
+        return finalDisplayed;
 
       } else {
         // ── 非流式：等待完整响应 ──
@@ -6752,6 +6783,7 @@ ${lines}`;
         lastNarrativeRef.current = narrativeForEvo;
         // 正文完成后：策略B先登场判断再并发其余阶段（修复NPC装备挂错ID）
         runPostNarrativePhases(narrativeForEvo, newMsgId);
+        return processed;
       }
     } catch (e: any) {
       if (e?.name === 'AbortError') { setGenError(''); console.log('[正文] 已手动停止生成'); }
@@ -6785,11 +6817,32 @@ ${lines}`;
   async function sendMessage(textArg?: string) {
     const text = (textArg ?? inputValue).trim();
     if (!text || generating) return;
+
+    // ── 联机分叉 ──
+    const mp = useMp.getState();
+    // 来宾：不调 AI，提交行动给房主 + 本地回显，等房主广播正文
+    if (mp.status === 'connected' && mp.role === 'player') {
+      mpClient.submitInput(text, buildPlayerSnapshot());
+      setMessages((prev) => [...prev, { id: ++msgId.current, role: 'user', content: text }]);
+      if (textArg == null) setInputValue('');
+      return;
+    }
+
     await captureUndoPoint();   // 发送前记录回退点（=上一回合结束状态）
-    const userMsg: ChatMessage = { id: ++msgId.current, role: 'user', content: text };
+    // 房主：把队友本回合已提交的行动并进这一回合（无队友行动则与单人完全一致）
+    const isMpHost = mp.status === 'connected' && mp.role === 'host';
+    const effectiveText = isMpHost ? buildPartyTurnText(text, mp.turn?.inputs, mp.room?.hostName || '房主') : text;
+
+    const userMsg: ChatMessage = { id: ++msgId.current, role: 'user', content: effectiveText };
     setMessages((prev) => [...prev, userMsg]);
     if (textArg == null) setInputValue('');
-    await callApi(text);
+    const narrative = await callApi(effectiveText);
+
+    // 房主：把算好的正文广播给全房，并开启下一回合（清空本回合已用的队友行动）
+    if (isMpHost && narrative) {
+      mpClient.publishWorld({ narrative, turnId: mp.turn?.turnId || 0, world: buildWorldSnapshot() });
+      if (mp.seats.length > 0) mpClient.startTurn();
+    }
   }
 
   /* 角色创建·开场白：用创建数据填充模板（设置里有自定义则用自定义） */

@@ -1,5 +1,6 @@
 import { useMp } from '../store/multiplayerStore';
 import { mpBase, mpWsBase, myPlayerId } from './mpConfig';
+import { restoreWorldBackup } from './mpSnapshot';
 
 // 联机 WebSocket 客户端（事件名照搬后端协议）。心跳发字符串 "ping"（运行时自动回 pong，不唤醒 DO）。
 // 断线自动重连（房主关房 / 主动离开除外）。所有状态写进 multiplayerStore，UI 订阅。
@@ -87,6 +88,7 @@ function leave() {
   sendRaw({ type: 'leave_room' });
   cleanupSocket();
   curRoom = null;
+  restoreWorldBackup();   // 还原来宾自己的世界（房主无备份则 no-op）
   useMp.getState().reset();
 }
 
@@ -113,7 +115,7 @@ function dispatch(m: any) {
       if (m.backlog) set({ comments: m.backlog });
       else if (m.comment) set({ comments: [...useMp.getState().comments, m.comment].slice(-100) });
       break;
-    case 'room_closed': set({ status: 'closed', error: '房间已被房主关闭' }); cleanupSocket(); break;
+    case 'room_closed': set({ status: 'closed', error: '房间已被房主关闭' }); cleanupSocket(); restoreWorldBackup(); break;
     case 'error': set({ error: m.reason || m.error || '未知错误' }); break;
   }
 }
