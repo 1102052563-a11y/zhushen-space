@@ -2579,8 +2579,8 @@ function NarrativeMemorySettings() {
 
           <div className="flex items-start justify-between gap-4 border-t border-edge/40 pt-4">
             <div className="flex-1">
-              <div className="text-sm font-semibold text-slate-200">用 API 判定注入哪些 NPC <span className="text-[11px] font-mono text-amber-400/70">（每轮 +1 次 API 调用）</span></div>
-              <div className="text-sm text-dim mt-1">开：每轮发送前**调一次 API**（走「叙事记忆」接口路由），按「你这轮的输入 + 最近正文」判断把哪些已建档 NPC 的档案注入正文（更贴合当下剧情）。关：用本地排序兜底（在场 &gt; 好感高 &gt; 最近在场，零 API）。叙事记忆接口未配置时自动回退本地。</div>
+              <div className="text-sm font-semibold text-slate-200">用 API 判定注入哪些条目 <span className="text-[11px] font-mono text-amber-400/70">（每轮 +1 次 API 调用）</span></div>
+              <div className="text-sm text-dim mt-1">开：每轮发送前**调一次 API**（走「叙事记忆」接口路由），按「你这轮的输入 + 最近正文」判断该注入哪些 **相关 NPC** + **主角此刻相关的技能 / 装备**（更贴合当下剧情，要打架就调战斗技/武器、要交涉就调社交技…）。关：用本地排序兜底（NPC 在场&gt;好感&gt;最近；技能/装备按品阶，零 API）。**副职业不走 API、始终机械取**。叙事记忆接口未配置时自动回退本地。</div>
             </div>
             <Toggle checked={cfg.structApiSelect ?? false} onChange={() => set({ structApiSelect: !(cfg.structApiSelect ?? false) })} />
           </div>
@@ -2595,7 +2595,7 @@ function NarrativeMemorySettings() {
             {!recallOn
               ? '● 需先启用叙事记忆 或 向量记忆'
               : (cfg.structEnabled ?? true)
-                ? `● 当前：主角(技能≤${cfg.structMaxSkills ?? 3}/装备≤${cfg.structMaxItems ?? 2}) + 最多 ${cfg.structMaxNpcs ?? 2} 个NPC(全量)　NPC选取:${cfg.structApiSelect ? 'API判定(+1调用)' : '本地排序'}${vmEnabled && !cfg.enabled ? '　[向量记忆模式]' : ''}`
+                ? `● 当前：主角(技能≤${cfg.structMaxSkills ?? 3}/装备≤${cfg.structMaxItems ?? 2}) + 最多 ${cfg.structMaxNpcs ?? 2} 个NPC(全量)　条目选取:${cfg.structApiSelect ? 'API判定NPC+技能+装备(+1调用)' : '本地排序'}${vmEnabled && !cfg.enabled ? '　[向量记忆模式]' : ''}`
                 : '● 未启用结构化档案召回'}
           </div>
         </div>

@@ -151,44 +151,68 @@ export default function SkillTreeManager() {
     const ref = genRef.trim();
     const desc = genDesc.trim();
     const nBr = Math.max(2, Math.min(12, parseInt(genBranches, 10) || 4));
-    const userMsg = [
-      `职业：${prof}`,
-      `流派数量：${nBr}（必须设计 ${nBr} 条 branch，从中心原点放射 ${nBr} 条初始线；每条 branch 12~16 个节点，但多数是微星不写技能，只约 4~5 个节点带技能——绝不要每个节点都写完整技能，否则 JSON 过长会被截断、生成失败）`,
-      ref && `参考来源/风格：${ref}（请贴近此蓝本的技能体系）`,
-      desc && `主角对该职业的描述/期望（请据此定调流派、命名、气质与招牌能力）：\n${desc}`,
-      webSearch ? '请先用联网搜索查阅该职业及相关游戏/小说的真实技能资料，再据实设计。' : '',
-      `请为该职业设计一棵丰富的星图式技能树（${nBr} 条流派、每条 12~16 节点）：每条多数是微星(只属性·不写技能)，约 2~3 颗中型(medium·精简技能 5 字段)、1~2 颗中星(完整)、1 颗主星(完整)。按系统要求只输出 JSON。`,
-    ].filter(Boolean).join('\n');
-    // 联网搜索：经 extra 注入工具（Gemini/兼容接口的 google_search）；不支持就回退无搜索
     const searchExtra = webSearch ? { tools: [{ google_search: {} }] } : undefined;
-    const callOnce = (extra?: Record<string, unknown>) => apiChatFallback(chain, [
-      { role: 'system', content: SKILLTREE_GEN_PROMPT },
-      { role: 'user', content: userMsg },
-    ], { timeoutMs: 150000, extra });
+    // 调一次 AI；可选联网搜索(失败回退无搜索)
+    const call = async (sys: string, user: string, useSearch: boolean) => {
+      const ex = useSearch ? searchExtra : undefined;
+      const once = (extra?: Record<string, unknown>) => apiChatFallback(chain, [
+        { role: 'system', content: sys }, { role: 'user', content: user },
+      ], { timeoutMs: 150000, extra });
+      try { return (await once(ex)).content; }
+      catch (e) { if (!ex) throw e; return (await once(undefined)).content; }
+    };
 
-    setGenBusy(true); flash(webSearch ? 'AI 联网生成中…（约 20~60 秒）' : 'AI 生成中…（约 10~40 秒）');
+    setGenBusy(true);
     try {
-      let content: string;
-      try {
-        ({ content } = await callOnce(searchExtra));
-      } catch (e1) {
-        if (!searchExtra) throw e1;
-        flash('该接口不支持联网搜索，已改用普通生成…');   // 搜索工具被拒 → 退回无搜索
-        ({ content } = await callOnce(undefined));
+      // ── 第一阶段：结构骨架（短·不会被截断）──
+      flash('① 生成结构骨架中…（约 10~30 秒）');
+      const structMsg = [
+        `职业：${prof}`,
+        `流派数量：${nBr}（必须 ${nBr} 条 branch；每条至少 5 颗中型(medium 小技能) + 2 颗大节点(major/capstone)，外加微星/星核位/无尽端点，约 15~22 节点）`,
+        ref && `参考来源/风格：${ref}`,
+        desc && `主角对该职业的描述/期望：\n${desc}`,
+        '只搭结构 + 技能名，不要写技能描述。只输出 JSON。',
+      ].filter(Boolean).join('\n');
+      const c1 = await call(SKILLTREE_STRUCT_PROMPT, structMsg, !!webSearch);
+      const raw1: any = lenientJsonParse(extractJson(c1));
+      const rawNodes: any[] = Array.isArray(raw1?.nodes) ? raw1.nodes : [];
+      if (!rawNodes.length) { flash('结构生成失败（未返回节点，可重试）'); return; }
+
+      // ── 第二阶段：技能详写（按批，防截断）──
+      const skillNodes = rawNodes.filter((n) => ['medium', 'major', 'capstone'].includes(n?.kind));
+      const branchName = (id: string) => (raw1?.branches || []).find((b: any) => b?.id === id)?.name || id;
+      const skillsById = new Map<string, any>();
+      const BATCH = 14;
+      const batches: any[][] = [];
+      for (let i = 0; i < skillNodes.length; i += BATCH) batches.push(skillNodes.slice(i, i + BATCH));
+      for (let bi = 0; bi < batches.length; bi++) {
+        flash(`② 详写技能中… 第 ${bi + 1}/${batches.length} 批（共 ${skillNodes.length} 个技能）`);
+        const list = batches[bi].map((n) => ({ id: n.id, name: n.name, kind: n.kind, 流派: branchName(n.branch) }));
+        const skillMsg = `职业：${prof}\n请为以下 ${list.length} 个技能节点逐个【详细】撰写(覆盖全部、按 id 一一对应)：\n${JSON.stringify(list)}`;
+        try {
+          const c2 = await call(SKILLTREE_SKILLS_PROMPT, skillMsg, !!webSearch);   // 详写也走联网搜索(还原真实技能)
+          const raw2: any = lenientJsonParse(extractJson(c2));
+          for (const s of (Array.isArray(raw2?.skills) ? raw2.skills : [])) if (s?.id) skillsById.set(String(s.id), s);
+        } catch { /* 单批失败不致命，继续其它批 */ }
       }
-      const raw = lenientJsonParse(extractJson(content));
-      const v = validateTree({ ...(raw as any), source: 'ai' });
+
+      // ── 合并 grants → 校验 → 落树 ──
+      const mergedNodes = rawNodes.map((n) => {
+        const s = skillsById.get(String(n.id));
+        if (s && (s.skill || s.trait)) return { ...n, grants: s.skill ? { skill: s.skill } : { trait: s.trait } };
+        return n;
+      });
+      const v = validateTree({ ...raw1, nodes: mergedNodes, source: 'ai' });
       if (!v.ok) { setValid({ errors: v.errors, warnings: v.warnings }); flash('生成的树有误：' + v.errors[0]); return; }
       const t = autoLayout(v.tree);
       st.upsertTree(t); setEditId(t.id); setSelId(undefined);
-      // 校验：流派数对得上、每条 branch 不要太瘦（< 8 节点提示，可能是被截断了）
+      const filled = t.nodes.filter((n) => n.grants?.skill || n.grants?.trait).length;
+      const missing = skillNodes.length - skillsById.size;
       const extra: string[] = [];
       if (t.branches.length !== nBr) extra.push(`流派数 ${t.branches.length}（要求 ${nBr}）`);
-      const thin = t.branches.filter((b) => t.nodes.filter((n) => n.branch === b.id).length < 8).map((b) => b.name);
-      if (thin.length) extra.push(`这些流派偏瘦(<8节点，可能 JSON 被截断)：${thin.join('、')}`);
-      const warns = [...v.warnings, ...extra];
-      setValid({ errors: [], warnings: warns });
-      flash(extra.length ? `已生成但未达标（${extra.join('；')}）——可重新生成或手动补足` : (v.warnings.length ? `已生成（${t.nodes.length}节点，${v.warnings.length}条提醒，可手动微调）` : `已生成职业树（${t.nodes.length}节点 / ${t.branches.length}流派），可继续编辑`));
+      if (missing > 0) extra.push(`${missing} 个技能未详写成功（可对该节点单独补/重生成）`);
+      setValid({ errors: [], warnings: [...v.warnings, ...extra] });
+      flash(`已生成（${t.nodes.length}节点 / ${t.branches.length}流派 / ${filled}个技能）${extra.length ? '·' + extra.join('；') : '，可继续编辑'}`);
     } catch (e: any) {
       flash('生成失败：' + (e?.message || String(e)));
     } finally { setGenBusy(false); }
@@ -310,7 +334,7 @@ export default function SkillTreeManager() {
           className="px-3 py-1 rounded border border-fuchsia-500/50 text-fuchsia-200 bg-fuchsia-500/10 hover:bg-fuchsia-500/20 text-[12px] font-mono disabled:opacity-50">
           {genBusy ? '生成中…' : '生成一棵'}
         </button>
-        <span className="text-[11px] text-dim/40 w-full sm:w-auto">按【流派数】生成放射星图（每条流派 ≥15 节点·总 ≥50），每个技能走完整固定格式；落为新预设，可手动改 / 导出分享</span>
+        <span className="text-[11px] text-dim/40 w-full sm:w-auto">两阶段生成：①先搭结构骨架 ②再逐批【详细】详写技能（每条流派 ≥5 小技能 + ≥2 大技能·全详写）。耗时较长(约 1~2 分钟)，落为新预设可手动改 / 导出分享</span>
         {/* AI 生成用的接口路由（留空则回退到正文/综合 API）*/}
         <div className="w-full mt-1">
           <div className="text-[11px] font-mono text-dim/50 mb-1">AI 接口（从「综合设置 → API 接口库」勾选，留空用正文/综合 API）</div>

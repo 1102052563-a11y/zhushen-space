@@ -174,6 +174,7 @@ export interface InventoryItem {
   gemSlot?: GemSlotKind;  // 该宝石可镶嵌的部位
   gemAttr?: string;       // 该宝石的属性类型
   image?: string;         // 物品图片（上传的自定义图片 dataURL / 未来生图位）
+  numeric?: Record<string, unknown>;  // 原始数值结构（rarityTier/grade/statLines…）；多由 NPC 物品转入时带过来，保留以便round-trip
   addedAt: number;
 }
 

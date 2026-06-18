@@ -1,4 +1,4 @@
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { useNpc, type NpcRecord } from '../store/npcStore';
 import { useCharacters, RARITY_CLS, ELEMENT_CLS, SKILL_TIER_CLS, normSkillTier, type Deed } from '../store/characterStore';
 import { computeDerived, lvFromRealm, normalizeTier, tierFxClass, realmFromLevel, trueAttr, computeMaxHp, computeMaxEp, gearMaxHpBonus, gearMaxEpBonus, abilityMaxHpBonus, abilityMaxEpBonus, effectiveResource, fullMaxHp, fullMaxEp, TIERS } from '../systems/derivedStats';
@@ -6,7 +6,9 @@ import { computeAttrBreakdown, effectiveAttrs, ATTR_LABEL, type AttrBreak } from
 import { bioInnate, bioPower, bioStrengthLabel, BIO_TIER_NAMES, nominalTierNum } from '../systems/bioStrength';
 import { generateNpcAttrs, resolveForm, UNIT_TYPE_LABELS } from '../systems/npcAttrGen';
 import { usePlayer, type PlayerAttrs } from '../store/playerStore';
-import { gradeBadgeClass, gradeNameClass, gradeToNum, splitAffixEntries } from '../store/itemStore';
+import { useItems, gradeBadgeClass, gradeNameClass, gradeToNum, splitAffixEntries } from '../store/itemStore';
+import { movePlayerItemToNpc, moveNpcItemToPlayer } from '../systems/itemTransfer';
+import { CAT_ICON } from './BackpackModal';
 import NpcEquip from './NpcEquip';
 import NpcChatPanel from './NpcChatPanel';
 import { useTeam } from '../store/adventureTeamStore';
@@ -245,7 +247,7 @@ export default function NpcDetail({
           {tab === 'hidden'   && <HiddenTab npc={npc} />}
           {tab === 'custom'   && <CustomTab npc={npc} />}
           {tab === 'attr'     && <AttrTab npc={npc} realm={realm} />}
-          {tab === 'bag'      && <ItemsTab items={bag} empty="储存空间空空如也" ownerId={npc.id} ownerGender={npc.gender} onClear={() => clearNpcBag(npc.id)} />}
+          {tab === 'bag'      && <ItemsTab items={bag} empty="储存空间空空如也" ownerId={npc.id} ownerName={npc.name} ownerGender={npc.gender} onClear={() => clearNpcBag(npc.id)} />}
           {tab === 'equip'    && <NpcEquip npc={npc} />}
           {tab === 'skill'    && <SkillTab skills={skills} charId={npc.id} />}
           {tab === 'trait'    && <TraitTab traits={traits} charId={npc.id} />}
@@ -1169,32 +1171,116 @@ function AttrTab({ npc: npcProp, realm }: { npc: NpcRecord; realm: ReturnType<ty
 }
 
 /* ────────── 物品（储物袋 / 装备）────────── */
-function ItemsTab({ items, empty, showSlot, onClear, ownerId, ownerGender }: { items: NpcRecord['items']; empty: string; showSlot?: boolean; onClear?: () => void; ownerId?: string; ownerGender?: string }) {
+function ItemsTab({ items, empty, showSlot, onClear, ownerId, ownerName, ownerGender }: { items: NpcRecord['items']; empty: string; showSlot?: boolean; onClear?: () => void; ownerId?: string; ownerName?: string; ownerGender?: string }) {
   const [confirm, setConfirm] = useState(false);
-  if (!items || items.length === 0) return <Empty text={empty} />;
+  const [pickOpen, setPickOpen] = useState(false);
+  const [flash, setFlash] = useState('');
+  const flashTimer = useRef<number | null>(null);
+  // 显示一条短暂的转移确认（2.5s 后自动消失）；卸载时清掉定时器，避免对已卸载组件 setState
+  const showFlash = (msg: string) => {
+    setFlash(msg);
+    if (flashTimer.current) clearTimeout(flashTimer.current);
+    flashTimer.current = window.setTimeout(() => setFlash(''), 2500);
+  };
+  useEffect(() => () => { if (flashTimer.current) clearTimeout(flashTimer.current); }, []);
+  const count = items?.length ?? 0;
   return (
     <div className="space-y-3">
-      {onClear && (
-        <div className="flex justify-end">
+      {/* 工具条：从主角储存空间转入（始终显示，空储存也能给） + 清空 */}
+      {ownerId && (
+        <div className="flex flex-wrap items-center justify-between gap-2">
           <button
-            onClick={() => { if (!confirm) { setConfirm(true); return; } onClear(); setConfirm(false); }}
-            onBlur={() => setConfirm(false)}
-            className={`px-3 py-1.5 text-sm font-mono rounded-lg border transition-colors ${
-              confirm ? 'border-blood/60 text-blood bg-blood/10' : 'border-edge text-dim hover:border-blood/40 hover:text-blood'
-            }`}
+            onClick={() => setPickOpen(true)}
+            title="把你（主角）储存空间里的物品转交给该角色"
+            className="px-3 py-1.5 text-sm font-mono rounded-lg border border-god/40 text-god hover:bg-god/10 transition-colors"
           >
-            {confirm ? `确认清空 ${items.length} 件？` : `🗑 清空储存空间 (${items.length})`}
+            📥 从我的储存空间转入
           </button>
+          {onClear && count > 0 && (
+            <button
+              onClick={() => { if (!confirm) { setConfirm(true); return; } onClear(); setConfirm(false); }}
+              onBlur={() => setConfirm(false)}
+              className={`px-3 py-1.5 text-sm font-mono rounded-lg border transition-colors ${
+                confirm ? 'border-blood/60 text-blood bg-blood/10' : 'border-edge text-dim hover:border-blood/40 hover:text-blood'
+              }`}
+            >
+              {confirm ? `确认清空 ${count} 件？` : `🗑 清空储存空间 (${count})`}
+            </button>
+          )}
         </div>
       )}
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 items-start">
-      {items.map((it, i) => <NpcItemCard key={`${it.id}-${i}`} it={it} showSlot={showSlot} ownerId={ownerId} ownerGender={ownerGender} />)}
+      {flash && <div className="text-[12px] font-mono text-emerald-300/85 px-1 py-0.5">{flash}</div>}
+      {count === 0 ? <Empty text={empty} /> : (
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 items-start">
+          {items!.map((it, i) => <NpcItemCard key={`${it.id}-${i}`} it={it} showSlot={showSlot} ownerId={ownerId} ownerGender={ownerGender} onFlash={showFlash} />)}
+        </div>
+      )}
+      {pickOpen && ownerId && (
+        <GiveItemPicker npcId={ownerId} npcName={ownerName} onClose={() => setPickOpen(false)} onGiven={(n) => showFlash(`已转入「${n}」给 ${ownerName || '对方'}`)} />
+      )}
+    </div>
+  );
+}
+
+/* 主角储存空间物品选择器：点物品即整堆转交给该 NPC（确定性，AI 不参与）*/
+function GiveItemPicker({ npcId, npcName, onClose, onGiven }: { npcId: string; npcName?: string; onClose: () => void; onGiven: (name: string) => void }) {
+  const items = useItems((s) => s.items);
+  const [q, setQ] = useState('');
+  const givable = items.filter((it) => !it.equipped);   // 已装备的不可转交（先卸下）
+  const ql = q.trim().toLowerCase();
+  const list = ql
+    ? givable.filter((it) => it.name.toLowerCase().includes(ql) || (it.gradeDesc ?? '').toLowerCase().includes(ql) || it.category.toLowerCase().includes(ql))
+    : givable;
+  return (
+    <div className="fixed inset-0 z-[90] flex items-center justify-center bg-black/75 backdrop-blur-sm p-4"
+      onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}>
+      <div className="w-full max-w-lg max-h-[82vh] flex flex-col rounded-2xl border border-edge bg-void shadow-[0_0_60px_rgba(0,0,0,0.85)] overflow-hidden">
+        <header className="shrink-0 flex items-center gap-3 px-4 py-3 border-b border-edge bg-panel">
+          <span className="text-god/70 text-lg">📥</span>
+          <div className="flex-1 min-w-0">
+            <div className="text-sm font-bold text-slate-100 truncate">转交物品给 {npcName || '该角色'}</div>
+            <div className="text-[12px] font-mono text-dim/60">点物品即整堆转入对方储存空间（已装备的需先卸下）</div>
+          </div>
+          <button onClick={onClose} className="text-dim/50 hover:text-blood text-lg shrink-0">✕</button>
+        </header>
+        <div className="shrink-0 px-4 py-2 border-b border-edge/60 bg-panel/60">
+          <div className="flex items-center gap-1.5 bg-void border border-edge rounded-lg px-3 py-1.5 focus-within:border-god/40 transition-colors">
+            <span className="text-dim/40 text-sm">🔍</span>
+            <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="搜索我的物品…"
+              className="flex-1 bg-transparent text-sm text-slate-200 outline-none placeholder:text-dim/40 font-mono" />
+            {q && <button onClick={() => setQ('')} className="text-dim/50 hover:text-blood text-sm">✕</button>}
+          </div>
+        </div>
+        <div className="flex-1 overflow-y-auto p-3 space-y-1.5">
+          {list.length === 0 ? (
+            <div className="text-center text-dim/40 text-sm font-mono py-16">{givable.length === 0 ? '你的储存空间没有可转移的物品' : '无匹配物品'}</div>
+          ) : list.map((it) => (
+            <button key={it.id}
+              onClick={() => { const r = movePlayerItemToNpc(npcId, it.id); if (r.ok) onGiven(it.name); else alert(r.error ?? '转移失败'); }}
+              title="转交给对方"
+              className="w-full flex items-center gap-2.5 rounded-lg border border-edge bg-panel/50 px-3 py-2 text-left hover:border-god/40 hover:bg-god/5 transition-colors">
+              <span className="w-8 h-8 rounded-lg flex items-center justify-center text-base shrink-0 border border-edge/60 bg-panel2">{CAT_ICON[it.category] ?? '◆'}</span>
+              <div className="min-w-0 flex-1">
+                <div className="flex items-center gap-2">
+                  <span className={`text-sm font-semibold truncate ${gradeNameClass(it.gradeDesc)}`}>{it.name}</span>
+                  {it.quantity > 1 && <span className="text-[12px] font-mono text-dim/50 shrink-0">×{it.quantity}</span>}
+                </div>
+                <div className="flex items-center gap-1.5 mt-0.5 flex-wrap">
+                  <span className="text-[11px] font-mono px-1.5 py-0.5 rounded border border-edge text-dim/60">{it.category}</span>
+                  {it.gradeDesc && <span className={`text-[11px] font-mono ${gradeBadgeClass(it.gradeDesc)}`}>{it.gradeDesc}</span>}
+                  {it.locked && <span className="text-[11px] font-mono text-blue-400" title="已锁定（仍可手动转交）">🔒</span>}
+                </div>
+              </div>
+              <span className="shrink-0 text-[12px] font-mono text-god/70">转入→</span>
+            </button>
+          ))}
+        </div>
       </div>
     </div>
   );
 }
 
-function NpcItemCard({ it, showSlot, ownerId, ownerGender }: { it: NonNullable<NpcRecord['items']>[number]; showSlot?: boolean; ownerId?: string; ownerGender?: string }) {
+function NpcItemCard({ it, showSlot, ownerId, ownerGender, onFlash }: { it: NonNullable<NpcRecord['items']>[number]; showSlot?: boolean; ownerId?: string; ownerGender?: string; onFlash?: (msg: string) => void }) {
   const num = (it.numeric ?? {}) as Record<string, any>;
   const statLines: string[] = Array.isArray(num.statLines) ? num.statLines : [];
   const updateNpcItem = useNpc((s) => s.updateNpcItem);
@@ -1258,6 +1344,11 @@ function NpcItemCard({ it, showSlot, ownerId, ownerGender }: { it: NonNullable<N
           <button onClick={() => updateNpcItem(ownerId, it.id, { locked: !it.locked })}
             title={it.locked ? '解锁后 AI 可删除/消耗此物品' : '锁定后 AI 不会删除/消耗此物品（手动删除也隐藏）'}
             className={`shrink-0 text-[12px] font-mono px-1.5 py-0.5 rounded border transition-colors ${it.locked ? 'border-blue-500/50 text-blue-400 bg-blue-900/20' : 'border-edge text-dim/50 hover:border-blue-500/40 hover:text-blue-400'}`}>{it.locked ? '🔒' : '🔓'}</button>
+        )}
+        {ownerId && !it.equipped && (
+          <button onClick={() => { const r = moveNpcItemToPlayer(ownerId, it.id); onFlash?.(r.ok ? `已取走「${it.name}」→ 我的储存空间` : (r.error ?? '转移失败')); }}
+            title="把该物品转入主角（我的）储存空间"
+            className="shrink-0 text-[12px] font-mono px-1.5 py-0.5 rounded border border-edge text-dim/60 hover:border-god/50 hover:text-god transition-colors">取走→我</button>
         )}
         {ownerId && !it.equipped && !it.locked && (
           <button onClick={() => removeNpcItem(ownerId, it.id)} title="删除该物品"

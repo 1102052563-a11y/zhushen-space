@@ -125,7 +125,7 @@ import { buildNarrativeHistory, NM_COMPILE_PROMPT, NM_INGEST_PROMPT } from './sy
 import { buildMemPool, loadAll as factVecLoadAll, ensureVectors as factVecEnsure, embedOne as factVecEmbedOne, search as factVecSearch } from './systems/factVec';
 import { parseGameMinutes, parseDurationMinutes, parseDurationTurns } from './systems/gameClock';
 import type { StatusEffect } from './store/playerStore';
-import { serializePlayerCard, serializeNpcCard, buildNpcCandidateTitles, rankNpcsLocal, serializeFactionsSection, NM_STRUCT_SELECT_PROMPT, type RecallLimits } from './systems/structuredRecall';
+import { serializePlayerCard, serializeNpcCard, buildNpcCandidateTitles, buildPlayerSkillCandidates, buildPlayerItemCandidates, rankNpcsLocal, serializeFactionsSection, NM_STRUCT_SELECT_PROMPT, type RecallLimits } from './systems/structuredRecall';
 import MiscPanel from './components/MiscPanel';
 import DicePanel from './components/DicePanel';
 import EnhancePanel from './components/EnhancePanel';
@@ -249,6 +249,7 @@ async function loadBuiltinDefaults() {
       const has = (n: string) => useSettings.getState().textPresets.some((p) => p.name === n);
       if (!has('轮回乐园·Claude')) { const c = await grab('zhushen-claude.json'); if (c) useSettings.getState().importTextPreset(c, '轮回乐园·Claude', true, false); }
       if (!has('轮回乐园·Gemini')) { const g = await grab('zhushen-gemini.json'); if (g) useSettings.getState().importTextPreset(g, '轮回乐园·Gemini', true, false); }
+      if (!has('轮回乐园·DeepSeek')) { const d = await grab('zhushen-deepseek.json'); if (d) useSettings.getState().importTextPreset(d, '轮回乐园·DeepSeek', true, false); }
     }
     // 自动去重：同名正文预设只留一份（清掉历史手动导入 / 配置导入 / 早期补种留下的重复，如两份「轮回乐园·Claude」）。
     //   同名优先保留：启用中的 > 玩家改过的(非 builtin) > 内置；启用项分值最高、必被保留，故不动 activeTextPresetId。
@@ -4181,19 +4182,29 @@ ${AFFIX_EFFECT_RULE}`;
     } catch (e) { console.warn('[NM] 发送前整理失败:', e); return []; }
   }
   /* 结构化召回·LLM 预测下回合相关 NPC → 返回 id 列表（失败/未开 LLM 回 []）*/
-  async function narrativeSelectChars(context: string, candidateTitles: string, maxNpcs: number): Promise<string[]> {
+  /* 结构化条目 API 选取：一次调用，按「用户输入+最近正文」返回该注入的 NPC(id) + 主角技能/装备(名称) */
+  async function narrativeSelectStruct(
+    context: string, npcCandidates: string, skillCandidates: string, itemCandidates: string,
+    maxNpcs: number, maxSkills: number, maxItems: number,
+  ): Promise<{ npcs: string[]; skills: string[]; items: string[] }> {
+    const empty = { npcs: [], skills: [], items: [] };
     const chain = resolveApiChain('nm', getNmApi());   // 优先用接口路由；路由为空才回退到单独配置的 nmApi
-    if (!chain[0]?.baseUrl || !chain[0]?.apiKey) return [];
+    if (!chain[0]?.baseUrl || !chain[0]?.apiKey) return empty;
     const cfg = useSettings.getState().narrativeMemory;
     const sys = NM_STRUCT_SELECT_PROMPT
       .replaceAll('${context}', context)
-      .replaceAll('${candidates}', candidateTitles || '（无）')
-      .replaceAll('${max_npcs}', String(maxNpcs));
+      .replaceAll('${candidates}', npcCandidates || '（无）')
+      .replaceAll('${skill_candidates}', skillCandidates || '（无）')
+      .replaceAll('${item_candidates}', itemCandidates || '（无）')
+      .replaceAll('${max_npcs}', String(maxNpcs))
+      .replaceAll('${max_skills}', String(maxSkills))
+      .replaceAll('${max_items}', String(maxItems));
     try {
       const reply = await nmChatCompletion(sys, '请只输出 JSON 对象。', cfg.compileModelId || undefined);
       const j = parseEntryJson(reply);
-      return Array.isArray(j?.npcs) ? j.npcs.map(String).filter(Boolean) : [];
-    } catch (e) { console.warn('[NM] 结构化预测失败:', e); return []; }
+      const arr = (v: any) => Array.isArray(v) ? v.map(String).filter(Boolean) : [];
+      return { npcs: arr(j?.npcs), skills: arr(j?.skills), items: arr(j?.items) };
+    } catch (e) { console.warn('[NM] 结构化选取失败:', e); return empty; }
   }
 
   /* 结构化档案召回：主角必含 + 选中 NPC，序列化成 <在场与相关档案> system 块。
@@ -4209,23 +4220,37 @@ ${AFFIX_EFFECT_RULE}`;
     };
     const chars = useCharacters.getState().characters;
     const npcs = Object.values(useNpc.getState().npcs);
-
-    // ── 主角卡（必含）──
     const profile = usePlayer.getState().profile;
     const game = useGame.getState().player;
     const b1 = chars['B1'];
+    const allItems = useItems.getState().items;
+
+    // ── API 选取（开「用 API 选条目」开关 / 旧 LLM 模式）：**一次调用**判定注入哪些 NPC + 主角技能/装备（按"用户输入+最近正文"）──
+    // structApiSelect 开 → 不论向量/关键词模式都调一次；关 / 失败 / 接口没配 → 下面各自走本地兜底（NPC 本地排序、技能装备本地 pickTop）。副职业不走 API，仍机械取。
+    const wantApi = cfg.structApiSelect || (cfg.llmMode && !opts.noLlmSelect);
+    let apiPick: { npcs: string[]; skills: string[]; items: string[] } | null = null;
+    if (wantApi) {
+      apiPick = await narrativeSelectStruct(
+        context,
+        buildNpcCandidateTitles(npcs),
+        buildPlayerSkillCandidates(b1?.skills ?? []),
+        buildPlayerItemCandidates(allItems),
+        limits.maxNpcs, limits.maxSkills, limits.maxItems,
+      );
+    }
+
+    // ── 主角卡（必含；API 选取的技能/装备覆盖本地 pickTop，副职业仍机械取）──
     const cards: string[] = [
-      serializePlayerCard(profile, game, b1?.skills ?? [], b1?.traits ?? [], useItems.getState().items, limits, b1?.titles, b1?.subProfessions, useItems.getState().currency),
+      serializePlayerCard(profile, game, b1?.skills ?? [], b1?.traits ?? [], allItems, limits, b1?.titles, b1?.subProfessions, useItems.getState().currency,
+        apiPick ? { skills: apiPick.skills, items: apiPick.items } : undefined),
     ];
 
-    // ── NPC 选择：API 判定（开「用 API 选条目」开关 / 旧 LLM 模式）→ 本地在场优先兜底 ──
-    // structApiSelect 开 → 不论向量/关键词模式都调一次 API，按「用户输入 + 最近正文」判定注入哪些 NPC；关则走本地排序。
+    // ── NPC 选择：用上面那次 API 选的 npc → 本地在场优先兜底 ──
     if (limits.maxNpcs > 0 && npcs.length > 0) {
       let chosen: import('./store/npcStore').NpcRecord[] = [];
-      if (cfg.structApiSelect || (cfg.llmMode && !opts.noLlmSelect)) {
-        const ids = await narrativeSelectChars(context, buildNpcCandidateTitles(npcs), limits.maxNpcs);
+      if (apiPick?.npcs.length) {
         const byId = new Map(npcs.map((r) => [r.id, r]));
-        chosen = ids.map((id) => byId.get(id)).filter((r): r is import('./store/npcStore').NpcRecord => !!r && !r.isDead).slice(0, limits.maxNpcs);
+        chosen = apiPick.npcs.map((id) => byId.get(id)).filter((r): r is import('./store/npcStore').NpcRecord => !!r && !r.isDead).slice(0, limits.maxNpcs);
       }
       if (chosen.length === 0) chosen = rankNpcsLocal(npcs, limits.maxNpcs);  // 兜底（API 关闭/失败/无配置）
       for (const r of chosen) {
