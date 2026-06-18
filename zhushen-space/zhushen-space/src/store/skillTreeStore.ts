@@ -43,7 +43,7 @@ export interface TreeNode {
   tierGate: string;        // 解锁所需最低阶位（TIERS 之一；空=不限）
   cost: number;            // 每点消耗潜能点（每个节点可点多次，每次 cost）
   prereqs: string[];       // 前置节点 id（前置 rank≥1 才可点；空=起点）
-  kind: 'minor' | 'major' | 'capstone';  // 普通/流派核心/终极
+  kind: 'minor' | 'medium' | 'major' | 'capstone';  // 微星(只属性)/中型(衍生子技能)/流派核心/终极
   grants: NodeGrants;      // rank 1 时灌入技能/天赋
   maxRank?: number;        // 可点次数（豆子数），默认 3；sink 节点为大数=无上限
   ptAttr?: AttrDelta;      // 每点六维加成（线性等差）；普通节点=普通属性点；主星可用负值=代价

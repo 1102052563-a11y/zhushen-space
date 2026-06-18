@@ -20,7 +20,7 @@ export const SKILLTREE_TUNING = {
   ppCoinStep: 1.25,     // 越买越贵：每兑换 1 潜能点，下一点价 ×此值（防一次性囤大量潜能点）
   respecCoinPerPoint: 200,  // 洗点代价：每洗 1 个小节点点数 花 200 乐园币（大节点不可洗）
   socketRadius: 240,    // 星核默认作用半径（画布像素）；半径内已点亮微星受其增益
-  costByKind: { minor: 2, major: 6, capstone: 14 } as Record<TreeNode['kind'], number>,
+  costByKind: { minor: 2, medium: 4, major: 6, capstone: 14 } as Record<TreeNode['kind'], number>,
   // 层 → 默认阶位 gate（编辑器「按层套用阶位」用；可被节点单独覆盖）
   layerTierGate: ['一阶', '三阶', '五阶', '七阶', '九阶'] as string[],
 };
@@ -135,8 +135,8 @@ export function canRankUp(
     const names = missing.map((id) => tree.nodes.find((n) => n.id === id)?.name ?? id);
     return { ok: false, reason: `需先解锁：${names.join('、')}` };
   }
-  // 大节点(技能/天赋)：紧邻它的前置节点必须【点满】才能解锁这个大节点（投满铺垫→再拿大招，增加爽感）
-  if (isBigNode(node)) {
+  // 大节点(中星/主星)：紧邻它的前置节点必须【点满】才能解锁（投满铺垫→再拿大招，增加爽感）；中型子技能不受此限
+  if (node.kind === 'major' || node.kind === 'capstone') {
     const notMaxed = (node.prereqs ?? []).filter((p) => {
       const pn = tree.nodes.find((n) => n.id === p);
       if (!pn || pn.socket || pn.sink) return false;   // 星核位(嵌核即满足)/无尽端点(无上限) 不要求点满
@@ -216,11 +216,35 @@ function sanitizeAttr(a: any, clampPositive = false): AttrDelta | undefined {
   for (const k of ATTR_KEYS) { let v = Math.trunc(Number((a as any)[k])); if (clampPositive && v < 0) v = 0; if (v) out[k] = v; }   // 技能树不产生负面/代价 → ptAttr 负值归零
   return Object.keys(out).length ? out : undefined;
 }
+/* 把 AI/手填的任意字段安全转成字符串（防对象/数组进了字符串字段，渲染时整页崩溃）*/
+function fieldText(v: any): string | undefined {
+  if (v == null) return undefined;
+  if (typeof v === 'string') return v || undefined;
+  if (typeof v === 'number' || typeof v === 'boolean') return String(v);
+  if (Array.isArray(v)) return v.map((x) => fieldText(x)).filter(Boolean).join('、') || undefined;
+  if (typeof v === 'object') return attrDeltaText(v) || Object.entries(v).map(([k, val]) => `${k}:${fieldText(val)}`).join('、') || undefined;
+  return String(v);
+}
+/* tags 规整成字符串数组（字符串按分隔符拆、数组逐项转字符串）*/
+function fieldTags(v: any): string[] | undefined {
+  let arr: string[] = [];
+  if (Array.isArray(v)) arr = v.map((x) => fieldText(x) ?? '').filter(Boolean);
+  else if (typeof v === 'string') arr = v.split(/[,，、/|]/).map((s) => s.trim()).filter(Boolean);
+  return arr.length ? arr : undefined;
+}
+function sanitizeSkill(s: any): any {
+  if (!s || typeof s !== 'object') return undefined;
+  return { ...s, name: fieldText(s.name) ?? '', level: fieldText(s.level), skillType: fieldText(s.skillType), rarity: fieldText(s.rarity), cost: fieldText(s.cost), cooldown: fieldText(s.cooldown), target: fieldText(s.target), damage: fieldText(s.damage), effect: fieldText(s.effect), attrBonus: fieldText(s.attrBonus), desc: fieldText(s.desc), tags: fieldTags(s.tags) };
+}
+function sanitizeTrait(t: any): any {
+  if (!t || typeof t !== 'object') return undefined;
+  return { ...t, name: fieldText(t.name) ?? '', level: fieldText(t.level), rarity: fieldText(t.rarity), category: fieldText(t.category), source: fieldText(t.source), effect: fieldText(t.effect), attrBonus: fieldText(t.attrBonus), desc: fieldText(t.desc) };
+}
 function sanitizeGrants(g: any): TreeNode['grants'] {
   if (!g || typeof g !== 'object') return {};
   const out: TreeNode['grants'] = {};
-  if (g.skill && typeof g.skill === 'object') out.skill = g.skill;   // 入 characterStore.addSkill 时会再 sanitize
-  if (g.trait && typeof g.trait === 'object') out.trait = g.trait;
+  if (g.skill && typeof g.skill === 'object') out.skill = sanitizeSkill(g.skill);   // 字段全转字符串/tags转数组，防崩溃
+  if (g.trait && typeof g.trait === 'object') out.trait = sanitizeTrait(g.trait);
   const a = sanitizeAttr(g.attr);
   if (a) out.attr = a;
   return out;
@@ -265,7 +289,7 @@ export function validateTree(raw: any): TreeValidation {
     let id = String(n?.id || '').trim();
     if (!id || usedIds.has(id)) { let k = i + 1; while (usedIds.has(`N_${k}`)) k++; id = `N_${k}`; }
     usedIds.add(id);
-    const kind: TreeNode['kind'] = n?.kind === 'major' || n?.kind === 'capstone' ? n.kind : 'minor';
+    const kind: TreeNode['kind'] = n?.kind === 'major' || n?.kind === 'capstone' || n?.kind === 'medium' ? n.kind : 'minor';
     let branch = String(n?.branch || '').trim();
     if (branch && !branchIds.has(branch)) { warnings.push(`节点「${n?.name || id}」的分支不存在，已归入首支`); branch = branches[0]?.id || ''; }
     const tg = normalizeTier(n?.tierGate);

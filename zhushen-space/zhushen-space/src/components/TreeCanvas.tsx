@@ -5,7 +5,7 @@ import { treeBounds, nodeMaxRank } from '../systems/skillTree';
 /* 职业技能树共享 SVG 画布：玩家面板(只读) 与 编辑器(可拖/连线) 复用。
    节点按 x/y 摆位，连线 = prereq 边；按 分支配色 + 点数(豆子)状态 着色。 */
 
-const R_BY_KIND: Record<TreeNode['kind'], number> = { minor: 20, major: 26, capstone: 32 };
+const R_BY_KIND: Record<TreeNode['kind'], number> = { minor: 20, medium: 23, major: 26, capstone: 32 };
 
 export interface TreeCanvasProps {
   tree: TreeDef;

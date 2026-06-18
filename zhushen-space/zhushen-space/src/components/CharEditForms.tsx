@@ -35,7 +35,7 @@ export function SkillEditForm({ charId, skill, onClose, onSubmit }: { charId?: s
     name: skill?.name ?? '', level: skill?.level ?? '', rarity: skill?.rarity ?? '', skillType: skill?.skillType ?? '',
     cost: skill?.cost ?? '', cooldown: skill?.cooldown ?? '', target: skill?.target ?? '', damage: skill?.damage ?? '',
     attrBonus: skill?.attrBonus ?? '', layers: skill?.layers ?? '', layerProgress: skill?.layerProgress ?? '',
-    tags: (skill?.tags ?? []).join('，'),
+    tags: Array.isArray(skill?.tags) ? skill!.tags.join('，') : (typeof skill?.tags === 'string' ? skill!.tags : ''),
     desc: skill?.desc ?? '', effect: skill?.effect ?? '', layerEffects: skill?.layerEffects ?? '', note: skill?.note ?? '',
   });
   const set = (k: keyof typeof d) => (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => setD((p) => ({ ...p, [k]: e.target.value }));

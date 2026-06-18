@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useNpc, type NpcRecord, type NpcOwnedItem } from '../store/npcStore';
-import { gradeBadgeClass, gradeNameClass } from '../store/itemStore';
+import { gradeBadgeClass, gradeNameClass, splitAffixEntries } from '../store/itemStore';
 import { enhanceFxClass } from '../systems/enhanceEngine';
 import { useSettings } from '../store/settingsStore';
 import { SLOT_DEFS, type SlotDef } from './EquipmentPanel';
@@ -122,13 +122,13 @@ function EquipDetail({ npcId, item, onClose }: { npcId: string; item: NpcOwnedIt
             </div>
           ) : item.affix ? (
             <div className="text-[13px] text-fuchsia-300/70 flex items-start gap-2">
-              <span className="min-w-0"><span className="text-dim/40">词缀·</span>{item.affix}</span>
+              <span className="min-w-0 leading-snug"><span className="text-dim/40">词缀·</span>{splitAffixEntries(item.affix).map((a, i) => <span key={i} className="block">{a}</span>)}</span>
               <button onClick={() => setEditAffix(item.affix ?? '')} className="text-[11px] text-dim/40 hover:text-fuchsia-300 shrink-0">✎ 改</button>
             </div>
           ) : (
             <button onClick={() => setEditAffix('')} className="text-[11px] font-mono text-dim/40 hover:text-fuchsia-300">＋ 添加词缀</button>
           )}
-          {item.effect && <div className="text-slate-300/80"><span className="text-god/50">效果·</span>{item.effect}</div>}
+          {item.effect && <div className="text-slate-300/80 leading-snug"><span className="text-god/50">效果·</span>{splitAffixEntries(item.effect).map((a, i) => <span key={i} className="block">{a}</span>)}</div>}
           {statLines.length > 0 && <div className="font-mono text-sky-400/70 text-[13px]">属性词条：{statLines.join(' / ')}</div>}
           {item.intro && <div className="text-dim/60 leading-relaxed">{item.intro}</div>}
           <div className="italic border-l-2 border-edge/50 pl-2 text-[13px]">

@@ -381,9 +381,9 @@ export default function SkillTreePanel({ onClose }: { onClose: () => void }) {
             <div className="flex items-start justify-between gap-3">
               <div className="min-w-0">
                 <div className="flex items-center gap-2 flex-wrap">
-                  <span className="text-sm font-bold text-slate-100">{selNode.name}</span>
+                  <span className="text-sm font-bold text-slate-100">{asText(selNode.name)}</span>
                   <span className="text-[11px] px-1.5 py-0.5 rounded border border-edge text-dim/70">
-                    {selNode.socket ? '星核镶嵌位' : selNode.sink ? '无尽' : selNode.kind === 'capstone' ? '终极' : selNode.kind === 'major' ? '核心' : '普通'}
+                    {selNode.socket ? '星核镶嵌位' : selNode.sink ? '无尽' : selNode.kind === 'capstone' ? '终极' : selNode.kind === 'major' ? '核心' : selNode.kind === 'medium' ? '中型' : '普通'}
                   </span>
                   {!selNode.socket && (
                   <span className="text-[11px] px-1.5 py-0.5 rounded border border-sky-600/50 text-sky-300 font-mono">
@@ -393,7 +393,7 @@ export default function SkillTreePanel({ onClose }: { onClose: () => void }) {
                   {selExpress && <span className="text-[11px] px-1.5 py-0.5 rounded border border-amber-400/60 text-amber-200 bg-amber-500/15 font-mono">传承·提前解锁（每点 1）</span>}
                   {selNode.ptAttr && <span className="text-[11px] text-dim/70">每点 {attrDeltaText(selNode.ptAttr)}{selNode.realAttr ? '（真实属性）' : ''}</span>}
                 </div>
-                {selNode.desc && <p className="text-[13px] text-dim/70 mt-1 leading-relaxed">{selNode.desc}</p>}
+                {selNode.desc && <p className="text-[13px] text-dim/70 mt-1 leading-relaxed">{asText(selNode.desc)}</p>}
               </div>
               {!selNode.socket && (
               <button
@@ -480,6 +480,22 @@ export default function SkillTreePanel({ onClose }: { onClose: () => void }) {
   );
 }
 
+/* 把 AI 生成的任意字段安全转成可渲染文本（防对象/数组直接当 React child 导致整页崩溃）*/
+function asText(v: any): string {
+  if (v == null) return '';
+  if (typeof v === 'string') return v;
+  if (typeof v === 'number' || typeof v === 'boolean') return String(v);
+  if (Array.isArray(v)) return v.map(asText).filter(Boolean).join('、');
+  if (typeof v === 'object') { const ad = attrDeltaText(v); return ad || Object.entries(v).map(([k, val]) => `${k}:${asText(val)}`).join('、'); }
+  return String(v);
+}
+/* tags 容错：数组→规整；字符串→按分隔符拆；其它→空 */
+function asTags(v: any): string[] {
+  if (Array.isArray(v)) return v.map(asText).filter(Boolean);
+  if (typeof v === 'string') return v.split(/[,，、/|]/).map((s) => s.trim()).filter(Boolean);
+  return [];
+}
+
 function GrantPreview({ grant }: { grant: NodeGrants }) {
   const g = grant ?? {};
   if (!g.skill && !g.trait && !g.attr) return null;
@@ -487,37 +503,37 @@ function GrantPreview({ grant }: { grant: NodeGrants }) {
     <div className="mt-3 space-y-2">
       <div className="text-[11px] font-mono text-dim/50">当前技能/天赋（解锁即入技能栏；rank2/3 升级同步更新）</div>
       {g.skill && (
-        <div className={`rounded border px-2.5 py-1.5 ${SKILL_TIER_CLS[normSkillTier(g.skill.rarity)] ?? 'border-edge text-slate-300'}`}>
+        <div className={`rounded border px-2.5 py-1.5 ${SKILL_TIER_CLS[normSkillTier(asText(g.skill.rarity))] ?? 'border-edge text-slate-300'}`}>
           <div className="flex items-center gap-2 text-[13px] flex-wrap">
-            <span className="font-semibold">⚡ {g.skill.name}</span>
-            {g.skill.level && <span className="text-[11px] opacity-70">{g.skill.level}</span>}
-            {g.skill.skillType && <span className="text-[11px] opacity-70">{g.skill.skillType}</span>}
-            {g.skill.rarity && <span className="text-[11px] opacity-80">{g.skill.rarity}</span>}
+            <span className="font-semibold">⚡ {asText(g.skill.name)}</span>
+            {g.skill.level && <span className="text-[11px] opacity-70">{asText(g.skill.level)}</span>}
+            {g.skill.skillType && <span className="text-[11px] opacity-70">{asText(g.skill.skillType)}</span>}
+            {g.skill.rarity && <span className="text-[11px] opacity-80">{asText(g.skill.rarity)}</span>}
           </div>
           <div className="flex items-center gap-x-2 gap-y-0.5 flex-wrap text-[11px] opacity-70 mt-0.5">
-            {g.skill.cost && <span>消耗:{g.skill.cost}</span>}
-            {g.skill.cooldown && <span>冷却:{g.skill.cooldown}</span>}
-            {g.skill.target && <span>目标:{g.skill.target}</span>}
-            {g.skill.damage && <span>伤害:{g.skill.damage}</span>}
+            {g.skill.cost && <span>消耗:{asText(g.skill.cost)}</span>}
+            {g.skill.cooldown && <span>冷却:{asText(g.skill.cooldown)}</span>}
+            {g.skill.target && <span>目标:{asText(g.skill.target)}</span>}
+            {g.skill.damage && <span>伤害:{asText(g.skill.damage)}</span>}
           </div>
-          {g.skill.effect && <div className="text-[12px] opacity-80 mt-0.5">{g.skill.effect}</div>}
-          {g.skill.attrBonus && <div className="text-[11px] opacity-70 mt-0.5">加成：{g.skill.attrBonus}</div>}
-          {(g.skill.tags?.length ?? 0) > 0 && (
+          {g.skill.effect && <div className="text-[12px] opacity-80 mt-0.5">{asText(g.skill.effect)}</div>}
+          {g.skill.attrBonus && <div className="text-[11px] opacity-70 mt-0.5">加成：{asText(g.skill.attrBonus)}</div>}
+          {asTags(g.skill.tags).length > 0 && (
             <div className="flex gap-1 flex-wrap mt-1">
-              {g.skill.tags!.map((t, i) => <span key={i} className="text-[10px] px-1 rounded bg-black/30 border border-current/20 opacity-70">{t}</span>)}
+              {asTags(g.skill.tags).map((t, i) => <span key={i} className="text-[10px] px-1 rounded bg-black/30 border border-current/20 opacity-70">{t}</span>)}
             </div>
           )}
         </div>
       )}
       {g.trait && (
-        <div className={`rounded border px-2.5 py-1.5 ${RARITY_CLS[g.trait.rarity] ?? 'border-edge text-slate-300'}`}>
+        <div className={`rounded border px-2.5 py-1.5 ${RARITY_CLS[asText(g.trait.rarity)] ?? 'border-edge text-slate-300'}`}>
           <div className="flex items-center gap-2 text-[13px]">
-            <span className="font-semibold">✦ {g.trait.name}</span>
-            {g.trait.category && <span className="text-[11px] opacity-70">{g.trait.category}</span>}
-            {g.trait.rarity && <span className="text-[11px] opacity-80">{g.trait.rarity}级</span>}
+            <span className="font-semibold">✦ {asText(g.trait.name)}</span>
+            {g.trait.category && <span className="text-[11px] opacity-70">{asText(g.trait.category)}</span>}
+            {g.trait.rarity && <span className="text-[11px] opacity-80">{asText(g.trait.rarity)}级</span>}
           </div>
-          {g.trait.effect && <div className="text-[12px] opacity-80 mt-0.5">{g.trait.effect}</div>}
-          {g.trait.attrBonus && <div className="text-[11px] opacity-70 mt-0.5">加成：{g.trait.attrBonus}</div>}
+          {g.trait.effect && <div className="text-[12px] opacity-80 mt-0.5">{asText(g.trait.effect)}</div>}
+          {g.trait.attrBonus && <div className="text-[11px] opacity-70 mt-0.5">加成：{asText(g.trait.attrBonus)}</div>}
         </div>
       )}
       {g.attr && Object.keys(g.attr).length > 0 && (

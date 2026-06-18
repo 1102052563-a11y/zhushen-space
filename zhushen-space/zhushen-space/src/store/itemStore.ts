@@ -31,6 +31,16 @@ export const ITEM_GRADES = [
 ] as const;
 export type ItemGrade = typeof ITEM_GRADES[number];
 
+/** 把词缀/效果文本按【…】拆成分条，逐条展示（每条「【名】：说明」自成一行，排版更清晰）；
+ *  无【】则整段当一条。前瞻 split 只在每个【前断开，说明里的「：；」不会被拆碎。
+ *  String() 兜底：affix/effect 万一是非字符串(数字/对象)也不崩。供各物品面板复用。*/
+export function splitAffixEntries(text?: string): string[] {
+  const t = String(text ?? '').trim();
+  if (!t) return [];
+  if (!t.includes('【')) return [t];
+  return t.split(/(?=【)/g).map((s) => s.trim()).filter(Boolean);
+}
+
 /** 品级字串 → 数值档位（1=白色 … 15=创世，由低到高）。
  *  供装备判定/排序在 AI 未给出 numeric.grade 时按品级文字兜底取档。
  *  关键字按「更具体的在前」匹配（暗金先于金、淡金先于金、暗紫先于紫），避免子串误命中。*/

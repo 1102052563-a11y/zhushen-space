@@ -111,11 +111,17 @@ export default function TitlePanel({ onClose }: { onClose: () => void }) {
             </p>
           </div>
           <div className="flex items-center gap-2 shrink-0">
-            {titles.length >= 2 && (
-              fuseMode
-                ? <button onClick={exitFuse} disabled={fusing} className="text-[12px] font-mono px-2 py-1 rounded border border-edge text-dim hover:text-blood hover:border-blood/50 transition-colors disabled:opacity-40">取消合成</button>
-                : <button onClick={() => { setFuseMode(true); setFuseMsg(''); }} className="text-[12px] font-mono px-2 py-1 rounded border border-god/40 text-god hover:bg-god/10 transition-colors">🔮 合成</button>
-            )}
+            {fuseMode
+              ? <button onClick={exitFuse} disabled={fusing} className="text-[12px] font-mono px-2 py-1 rounded border border-edge text-dim hover:text-blood hover:border-blood/50 transition-colors disabled:opacity-40">取消合成</button>
+              : <button
+                  onClick={() => {
+                    if (titles.length < 2) { setFuseMsg('至少需要 2 个称号才能合成（二合一 / 三合一）'); setTimeout(() => setFuseMsg(''), 3500); return; }
+                    setFuseMode(true); setFuseMsg('');
+                  }}
+                  title={titles.length < 2 ? '至少需要 2 个称号才能合成' : '选 2~3 个称号熔铸成一个更强的新称号'}
+                  className={`text-[12px] font-mono px-2 py-1 rounded border transition-colors ${titles.length < 2 ? 'border-edge text-dim/40 hover:text-dim/70' : 'border-god/40 text-god hover:bg-god/10'}`}>
+                  🔮 合成
+                </button>}
             <button onClick={onClose} disabled={fusing} className="text-dim/50 hover:text-blood text-lg font-mono disabled:opacity-40">✕</button>
           </div>
         </header>

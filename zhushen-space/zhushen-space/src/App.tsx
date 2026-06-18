@@ -6,6 +6,7 @@ import {
   EVO_VERIFY_RULE,
   BUFF_AS_STATUS_RULE,
   ITEM_FIXED_FORMAT_RULE,
+  AFFIX_EFFECT_RULE,
   ITEM_GRADE_TABLE_RULE,
   ITEM_ACQUIRE_RULE,
   ITEM_DESTROY_GUARD_RULE,
@@ -766,21 +767,26 @@ function applyOneUpdate(u: StateUpdate) {
 }
 
 function applyStateUpdates(raw: string) {
-  // 潜能点（技能树）：pp.B1 += N / pp += N —— AI 在任务完成/奇遇时发放，单回合封顶防刷
-  const ppM = [...raw.matchAll(/\bpp(?:\.B1)?\s*\+?=\s*(\d+)/gi)];
-  if (ppM.length) {
-    let sum = 0; for (const m of ppM) sum += Number(m[1]) || 0;
-    sum = Math.min(sum, SKILLTREE_TUNING.aiBonusTurnCap);
-    if (sum > 0) { try { useSkillTree.getState().grantBonusPP('B1', sum); console.log(`[潜能点] +${sum}`); } catch { /* */ } }
+  // ★ 点数（潜能点/技能点/黄金技能点/属性点）**只在「世界结算」时由正文一次性发放**：
+  //   平时正文只"计入/统计"不入账（防提前发），消耗交由前端确定性系统处理（防按正文"消耗"乱扣），
+  //   且各演化阶段(物品/主角/NPC/对账)的输出都不含 <世界结算>，故不会重复计数。判据=本段文本是否含 <世界结算> 块。
+  const atSettlement = /<世界结算>/.test(raw);
+  // 潜能点（技能树）：pp.B1 += N / pp += N —— 仅世界结算发放，单回合封顶防刷
+  if (atSettlement) {
+    const ppM = [...raw.matchAll(/\bpp(?:\.B1)?\s*\+?=\s*(\d+)/gi)];
+    if (ppM.length) {
+      let sum = 0; const seen = new Set<string>();
+      for (const m of ppM) { const k = m[0].replace(/\s+/g, ''); if (seen.has(k)) continue; seen.add(k); sum += Number(m[1]) || 0; }   // 去重：同一条 += 在「统计」「发放」各写一遍 → 只算一次
+      sum = Math.min(sum, SKILLTREE_TUNING.aiBonusTurnCap);
+      if (sum > 0) { try { useSkillTree.getState().grantBonusPP('B1', sum); console.log(`[潜能点] +${sum}`); } catch { /* */ } }
+    }
   }
-  // 技能点 / 黄金技能点（世界结算奖励）：parseLine 的 key 用 [\w.]+ 不认中文，`技能点 += N`/`黄金技能点 += N`
-  // 永远进不了 applyOneUpdate，货币分支成死代码 → 正文发的技能点从不入账。这里专门抽取并入账。
-  // 长名「黄金技能点」放前面避免被当成「技能点」重复匹配；兼容 `currency.技能点` 前缀写法；
-  // 仅世界结算 <state> 用此写法发放，物品对账阶段只碰乐园币/魂币，故无重复计数风险。
-  {
+  // 技能点 / 黄金技能点（世界结算奖励）：`技能点 += N`/`黄金技能点 += N`；长名放前面避免被当成「技能点」重复匹配。
+  if (atSettlement) {
     const spRe = /(黄金技能点|技能点)\s*([-+]?=)\s*(-?\d+)/g;
-    let sm: RegExpExecArray | null;
+    let sm: RegExpExecArray | null; const seenSp = new Set<string>();
     while ((sm = spRe.exec(raw))) {
+      const k = sm[0].replace(/\s+/g, ''); if (seenSp.has(k)) continue; seenSp.add(k);   // 去重：统计+发放同一条只算一次
       const type = sm[1] as '技能点' | '黄金技能点';
       const n = Number(sm[3]);
       if (!Number.isFinite(n)) continue;
@@ -1188,8 +1194,13 @@ const CHANNEL_AUTHOR_INFO_RULE = `
 【发帖人信息·铁则】每条帖子/回复都要给发帖契约者补上这三项（作为该项的**同级 JSON 字段**，不要写进 content）：
 - "persona"：性格，简短（如 狂热好战 / 谨慎多疑 / 吊儿郎当 / 沉默寡言 / 唯利是图 / 重情重义 / 高冷毒舌）。
 - "job"：职业——**务必多样、有新意，别老用法师/牧师/战士这种古早设定**。多用网游 / 网络小说式职业，含隐藏职业·进阶职业·特殊血脉，例：毁灭术士、龙之子、噬魂者、时空裁决官、契约骑士、暗影行者、神机操纵者、瘟疫使徒、星陨炮手、傀儡师、血祭司、深渊代行者、符文铸造师、亡语者、机械先知、星语者……（贴合发帖人所在世界；同人世界用其原作职业设定）。
-- "strength"：生物强度档（T0杂鱼 ~ T9源初，如 "T3·勇士"、"T5·战将"），与其阶位/语气相称。
-这三项**每条都要给**，后续会用来生成该契约者的临时队友 NPC 档案。`;
+- "strength"：生物强度档（T0杂鱼 ~ T9源初，如 "T3·勇士"、"T6·王者"），与其阶位/语气相称。
+这三项**每条都要给**，后续会用来生成该契约者的临时队友 NPC 档案。
+
+【发帖人属性·自洽铁则（阶位 / 等级 / 强度档 / 职业必须互相匹配，禁止乱配）】发帖契约者按"角色生成"的同一套规则生成，"tier"(阶位·Lv)、"strength"、"job" 三项必须前后自洽，绝不能各填各的：
+- **阶位 ↔ 等级一一对应**：一阶=Lv.1-10、二阶=11-20、三阶=21-30、四阶=31-40、五阶=41-50、六阶=51-60、七阶=61-70、八阶=71-80、九阶=81-90、绝强=91-100、至强=101-120、巅峰至强=121-140、无上之境=140+。阶位与 Lv **必须落在同一档**，绝不能写「四阶·Lv.15」这种阶位与等级错配的组合。
+- **生物强度档 T0~T9 的称呼只能照抄这套**：T0杂鱼 / T1兵卒 / T2精英 / T3勇士 / T4英雄 / T5领主 / T6王者 / T7半神 / T8真神 / T9源初。绝不能错配称呼（如写「T6·领主」——T6 是「王者」、「领主」是 T5）。
+- **四项彼此相称**：阶位越高 → 等级、强度档越高、职业越响亮、口气越大；低阶（一~三阶）就配 T0~T3 与朴实职业，别动辄 T7 半神或「噬神者 / 界之主」这类顶级职业名。务必内部一致、不自相矛盾。`;
 
 /* 临时队伍解散 → "转正进冒险团" 询问弹窗（仅在有冒险团时弹出）*/
 function PartyPromoteDialog({ ids, onClose }: { ids: string[]; onClose: () => void }) {
@@ -1397,6 +1408,7 @@ export default function App() {
   const miscWeather      = useMisc((s) => s.weather);
   const miscWeatherFxCss = useMisc((s) => s.weatherFxCss);
   const miscWeatherFxKey = useMisc((s) => s.weatherFxKey);
+  const weatherFxOn      = useSettings((s) => s.weatherFx);
 
   const [started, setStarted] = useState(false);
   const [creating, setCreating] = useState(false);   // 角色创建页
@@ -1843,7 +1855,7 @@ export default function App() {
       `分类: ${it.category}${it.subType ? ' / ' + it.subType : ''}`,
       `品质(gradeDesc): ${it.gradeDesc || '—'}`,
       `强化峰值: 历史最高 +${args.startLevel} → +${args.newLevel}（词缀按历史最高等级生成；当前实际等级 +${lockedLevel}，降级不影响已有词缀）`,
-      `本次强化档数 N=${addAffix}（每 3 级 1 档）：先把已有词缀/效果按 ${addAffix} 档上调变强，再各新增 ${addAffix} 条全新词缀+全新效果（成对）`,
+      `本次强化档数 N=${addAffix}（每 3 级 1 档）：先把已有词缀威力按 ${addAffix} 档上调变强，再新增 ${addAffix} 条全新词缀（每条「【名】：触发+作用」自带说明，**贴合装备主用途、类型多样不只伤害**）；effect 是**非数值特殊性质描述**(对持有者的定性影响)、不写数值不出现词缀名；数值由系统/combatStat 处理`,
       `装备属性成长系数: ${growthCoef(it.gradeDesc, it.score)}（品级×评分得出；越高 → 新词缀/效果越强、攻防增幅越大、越有传说感）`,
       it.combatStat && `当前攻防(combatStat): ${it.combatStat}`,
       it.requirement && `装备需求: ${it.requirement}`,
@@ -1858,7 +1870,7 @@ export default function App() {
     try {
       const system = ENHANCE_FINALIZE_RULE + '\n' + ITEM_EXACT_REF_RULE;
       const user = `# 待刷新的强化装备\n${card}\n\n请按【装备强化·收尾刷新铁则】，输出这件装备强化到 +${args.newLevel} 后的 <upstore> updateItem 指令`
-        + `（${addAffix > 0 ? `档数 N=${addAffix}：**先**把已有每条词缀/效果按 ${addAffix} 档上调变强，**再**各新增 ${addAffix} 条各不相同的全新词缀+全新效果（成对）；保留 effect 里的【镶嵌加成】不动` : '本次未跨过 3 级整数倍，可不动词缀/效果（攻防/评分/外观/简介已由系统处理）'}）。只输出这一条 updateItem，只改 affix 和 effect。`;
+        + `（${addAffix > 0 ? `档数 N=${addAffix}：**先**把已有每条词缀威力按 ${addAffix} 档上调变强，**再**新增 ${addAffix} 条各不相同的全新词缀（每条「【名】：触发+作用+持续」自带说明、**禁止只写词缀名**，**且贴合装备主用途、绝不只给伤害类**）；effect 是**非数值的特殊性质描述**(对持有者的定性影响/特质，数值归 combatStat、**不写数值/不出现词缀名/不复述词缀**)；保留 effect 里的【镶嵌加成】不动` : '本次未跨过 3 级整数倍，可不动词缀/效果（攻防/评分/外观/简介已由系统处理）'}）。只输出这一条 updateItem，只改 affix 和 effect。`;
       console.log('[Enhance] 收尾·发起 API 调用 →', chain[0]?.modelId, chain[0]?.baseUrl);
       const { content: reply } = await apiChatFallback(chain, [
         { role: 'system', content: system },
@@ -2071,7 +2083,7 @@ export default function App() {
           try { const su = parseAllStateUpdates(cleanReply); if (su.length) { auditWhat['主角状态(六维/HP/状态/位置/等级等)'] = su; did += su.length; } } catch { /* */ }
           try { applyStateUpdates(cleanReply); } catch { /* hp.B1/mp.B1/san.B1/eq */ }
           try { applyPlayerProfileCommands(cleanReply); } catch { /* character.B1.*：六维/状态/位置/外观/等级 */ }
-          try { const c = parseAllCharCommands(cleanReply).filter((x) => x.charId === 'B1'); applyCharacterCommands(c); did += c.length; if (c.length) auditWhat['主角技能/天赋'] = c; } catch { /* 仅主角技能/天赋 */ }
+          try { const c = parseAllCharCommands(cleanReply).filter((x) => x.charId === 'B1'); applyCharacterCommands(c, twoTurnNarr); did += c.length; if (c.length) auditWhat['主角技能/天赋'] = c; } catch { /* 仅主角技能/天赋 */ }
         }
         if (checkItems) {
           // 安全网：只允许删/扣/穿脱，硬过滤 createItem（防重复生成）+ 货币指令（防重复计数）
@@ -2204,7 +2216,7 @@ export default function App() {
         applyAllUpdates(cleanReply);
         applyPlayerProfileCommands(cleanReply, narrative);   // 主角身份/属性/外观/位置变量（传正文：基础六维只在正文写明成长时才许上调）
         const charCmds  = parseAllCharCommands(cleanReply);
-        applyCharacterCommands(charCmds);
+        applyCharacterCommands(charCmds, trimmedNarrative);   // 传正文：全新副职业须正文有明确习得动作才建，杜绝凭空生成
         const stateUpds = parseAllStateUpdates(cleanReply);
         const total = stateUpds.length + charCmds.length;
         setPlayerPhaseLog(
@@ -2590,15 +2602,17 @@ ${lines.join('\n')}`;
       npc.upsertNpc(m[1], { mp: next, maxMp: dmax });
       n++;
     }
-    // 属性点 / 真实属性点 / 技能点：character.<id>.(attrPoints|realAttrPoints|skillPoints) = / += / -= N（完全按正文）
-    const npcPtRe = /\bcharacter\.([CG]\w*)\.(attrPoints|realAttrPoints|skillPoints)\s*(=|-=|\+=)\s*(\d+)/g;
-    while ((m = npcPtRe.exec(reply))) {
-      if (!ok(m[1])) continue;
-      const key = m[2] as 'attrPoints' | 'realAttrPoints' | 'skillPoints';
-      const cur = ((npc.npcs[m[1]] as any)?.[key]) ?? 0;
-      const v = Number(m[4]);
-      npc.upsertNpc(m[1], { [key]: m[3] === '=' ? v : m[3] === '+=' ? cur + v : Math.max(0, cur - v) } as any);
-      n++;
+    // 属性点 / 真实属性点 / 技能点：**只在「世界结算」时由正文发放**（同主角口径，平时不入账、不按"消耗"扣减）
+    if (/<世界结算>/.test(reply)) {
+      const npcPtRe = /\bcharacter\.([CG]\w*)\.(attrPoints|realAttrPoints|skillPoints)\s*(=|-=|\+=)\s*(\d+)/g;
+      while ((m = npcPtRe.exec(reply))) {
+        if (!ok(m[1])) continue;
+        const key = m[2] as 'attrPoints' | 'realAttrPoints' | 'skillPoints';
+        const cur = ((npc.npcs[m[1]] as any)?.[key]) ?? 0;
+        const v = Number(m[4]);
+        npc.upsertNpc(m[1], { [key]: m[3] === '=' ? v : m[3] === '+=' ? cur + v : Math.max(0, cur - v) } as any);
+        n++;
+      }
     }
     applyTimedStatusCommands(reply, onlyId);   // NPC 限时状态 addStatus/deStatus
     return n;
@@ -2690,14 +2704,18 @@ ${lines.join('\n')}`;
       sp({ worldSource: Math.round(raw * 10) / 10 });   // 最多保留 1 位小数，避免 0.3000000004 浮点误差
       n++;
     }
-    // 属性点 / 真实属性点：character.B1.(attrPoints|realAttrPoints) = / += / -= N（完全按正文，正文没出现就不动）
-    const ptRe = /\bcharacter\.B\d+\.(attrPoints|realAttrPoints)\s*(=|-=|\+=)\s*(\d+)/g;
-    while ((m = ptRe.exec(reply))) {
-      const key = m[1] as 'attrPoints' | 'realAttrPoints';
-      const cur = (usePlayer.getState().profile as any)[key] ?? 0;
-      const v = Number(m[3]);
-      sp({ [key]: m[2] === '=' ? v : m[2] === '+=' ? cur + v : Math.max(0, cur - v) } as any);
-      n++;
+    // 属性点 / 真实属性点：**只在「世界结算」时由正文发放**（平时只"计入/统计"不入账，消耗交前端确定性系统；演化阶段输出不含 <世界结算> 故不会重复计数）
+    if (/<世界结算>/.test(reply)) {
+      const ptRe = /\bcharacter\.B\d+\.(attrPoints|realAttrPoints)\s*(=|-=|\+=)\s*(\d+)/g;
+      const seenPt = new Set<string>();
+      while ((m = ptRe.exec(reply))) {
+        const dk = m[0].replace(/\s+/g, ''); if (seenPt.has(dk)) continue; seenPt.add(dk);   // 去重：统计+发放同一条只算一次
+        const key = m[1] as 'attrPoints' | 'realAttrPoints';
+        const cur = (usePlayer.getState().profile as any)[key] ?? 0;
+        const v = Number(m[3]);
+        sp({ [key]: m[2] === '=' ? v : m[2] === '+=' ? cur + v : Math.max(0, cur - v) } as any);
+        n++;
+      }
     }
     applyTimedStatusCommands(reply);   // 主角限时状态 addStatus/deStatus
     return n;
@@ -3164,7 +3182,8 @@ ${lines.join('\n')}`;
 - **可穿戴装备按身份/强弱给、宁少勿多**：平民/学生/杂兵/弱者 0~1 件(且多为日常衣物，绝不塞满身)，普通战斗者 1~2 件，精英 2~3 件，首领/强者/贵族才 3~5 件成套；**严禁给新手/平民/杂兵堆满装备**。每个 NPC 另给约 ${NPC_KIT_STORAGE_N} 件储物(随身杂物/消耗品/纪念品/钱袋等，储存空间可适当多给)。无战斗力的平民：装备位用**日常衣物/便服/制服**充当(category=防具)、武器可省或用日常工具，攻防可低或留空；品质(gradeDesc)按其身份与阶位给(平民多为白/绿色)。
 - **完整固定格式、与主角物品同标准、不准偷懒**：每件给 name/category(武器/防具/饰品/消耗品/材料/工具/重要物品/特殊物品/其他物品)/subType(类型细分)/gradeDesc(颜色品质)/combatStat(装备攻防,平民可低/无)/durability(耐久)/requirement(装备需求)/affix(词缀)/score(评分)/effect(效果)/intro(简介)/appearance(**逐部件外观,必填不可空**)；武器另加 killCount。
 - equip 每件给 equipSlot：武器→weapon:main，上身→armor:upper，鞋→armor:feet，头→armor:head，饰品→accessory:#1 等。
-只输出 JSON：{"kits":[{"npcId":"C1","equip":[{...固定格式字段, "equipSlot":"..."}],"storage":[{...固定格式字段}]}]}`;
+只输出 JSON：{"kits":[{"npcId":"C1","equip":[{...固定格式字段, "equipSlot":"..."}],"storage":[{...固定格式字段}]}]}
+${AFFIX_EFFECT_RULE}`;
     const user = `世界：${worldName}\nNPC 列表：\n${list}\n\n请为每个 NPC 生成贴合其身份的初始装备+储物（完整固定格式，别给学生/平民发军用装备）。`;
     try {
       const reply = await npcChatCompletion(sys, user);
@@ -4199,15 +4218,16 @@ ${lines.join('\n')}`;
       serializePlayerCard(profile, game, b1?.skills ?? [], b1?.traits ?? [], useItems.getState().items, limits, b1?.titles, b1?.subProfessions, useItems.getState().currency),
     ];
 
-    // ── NPC 选择：LLM 预测（开 LLM 模式）→ 本地在场优先兜底 ──
+    // ── NPC 选择：API 判定（开「用 API 选条目」开关 / 旧 LLM 模式）→ 本地在场优先兜底 ──
+    // structApiSelect 开 → 不论向量/关键词模式都调一次 API，按「用户输入 + 最近正文」判定注入哪些 NPC；关则走本地排序。
     if (limits.maxNpcs > 0 && npcs.length > 0) {
       let chosen: import('./store/npcStore').NpcRecord[] = [];
-      if (cfg.llmMode && !opts.noLlmSelect) {
+      if (cfg.structApiSelect || (cfg.llmMode && !opts.noLlmSelect)) {
         const ids = await narrativeSelectChars(context, buildNpcCandidateTitles(npcs), limits.maxNpcs);
         const byId = new Map(npcs.map((r) => [r.id, r]));
         chosen = ids.map((id) => byId.get(id)).filter((r): r is import('./store/npcStore').NpcRecord => !!r && !r.isDead).slice(0, limits.maxNpcs);
       }
-      if (chosen.length === 0) chosen = rankNpcsLocal(npcs, limits.maxNpcs);  // 兜底
+      if (chosen.length === 0) chosen = rankNpcsLocal(npcs, limits.maxNpcs);  // 兜底（API 关闭/失败/无配置）
       for (const r of chosen) {
         const cd = chars[r.id];
         cards.push(serializeNpcCard(r, cd?.skills ?? [], cd?.traits ?? [], cd?.titles));  // NPC 全量，无上限（副职业仅主角）
@@ -6785,7 +6805,7 @@ ${lines}`;
       `# ${park}·开局`,
       `你在彻底的黑暗中苏醒。没有呼吸，没有心跳，连身体的轮廓都仿佛被剥离，只剩下意识在冰冷虚空中漂浮。`,
       `下一瞬，一行行淡金色的文字在你面前浮现——它们不是光，而是直接烙进灵魂的讯息。`,
-      `> 【${park}】正在校验灵魂。\n> 标识：${user}\n> 生理状态：死亡 / 临界。\n> 适配判定：通过。\n> 所属乐园：${park}\n> 主角背景：${pastLife}${persona ? `\n> 性格：${persona}` : ''}\n> 性别：${d.gender || '未知'}\n> 种族：${d.race || '人类'}${d.raceDetail ? `（${d.raceDetail}）` : ''}\n> 外观：${d.appearance?.trim() || '（待你在后续描写中确立）'}\n> 六维属性：${attrStr}\n> 初始天赋：${talent}\n> 契约者编号：${contractNo}`,
+      `> 【${park}】正在校验灵魂。\n> 标识：${user}\n> 生理状态：死亡 / 临界。\n> 适配判定：通过。\n> 所属乐园：${park}\n> 难度评级：${d.difficulty}\n> 主角背景：${pastLife}${persona ? `\n> 性格：${persona}` : ''}\n> 性别：${d.gender || '未知'}\n> 种族：${d.race || '人类'}${d.raceDetail ? `（${d.raceDetail}）` : ''}\n> 外观：${d.appearance?.trim() || '（待你在后续描写中确立）'}\n> 六维属性：${attrStr}\n> 初始天赋：${talent}\n> 契约者编号：${contractNo}`,
       `某种冷漠却并不敌意的目光，从上而下打量着你。那不是人类的视角，更像是在审阅一份可回收资源。`,
       `它向你伸出了一只手——不是肉体的手，而是一份连注释都冷冰冰的契约。`,
       `只要应答，你将被记录为「${park}·一阶预备契约者」，以「${talent}」之天赋记录，投放诸多世界。`,
@@ -6908,8 +6928,8 @@ ${lines}`;
     <div className="h-screen flex flex-col bg-void text-slate-300 overflow-hidden" style={{ fontFamily: 'var(--app-font)' }}>
 
       {/* ── 顶部状态栏 ── */}
-      <header className={`shrink-0 h-14 flex items-center justify-between px-3 border-b border-edge bg-panel z-10 relative overflow-hidden ${(!!miscWeather && !isHomeWorld(miscWorldName) && isLightSky(parseWeather(miscWeather).kind)) ? 'wfx-lt' : ''}`}>
-        <WeatherFx weather={miscWeather} active={!!miscWeather && !isHomeWorld(miscWorldName)} aiCss={miscWeatherFxKey === miscWeather ? miscWeatherFxCss : ''} />
+      <header className={`shrink-0 h-14 flex items-center justify-between px-3 border-b border-edge bg-panel z-10 relative overflow-hidden ${(weatherFxOn && !!miscWeather && !isHomeWorld(miscWorldName) && isLightSky(parseWeather(miscWeather).kind)) ? 'wfx-lt' : ''}`}>
+        <WeatherFx weather={miscWeather} active={weatherFxOn && !!miscWeather && !isHomeWorld(miscWorldName)} aiCss={miscWeatherFxKey === miscWeather ? miscWeatherFxCss : ''} />
         <div className="flex-1 flex items-center gap-2 text-xs font-mono min-w-0 relative z-10">
           <button
             onClick={() => setMobileDrawer((d) => (d === 'player' ? null : 'player'))}

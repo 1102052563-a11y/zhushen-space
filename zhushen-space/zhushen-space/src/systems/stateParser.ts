@@ -1,6 +1,6 @@
 import type { ItemCategory, CurrencyWallet } from '../store/itemStore';
 import { useItems } from '../store/itemStore';
-import { useCharacters } from '../store/characterStore';
+import { useCharacters, canonProfName, sameProf } from '../store/characterStore';
 import { useNpc, defaultNpcRecord, isNpcId } from '../store/npcStore';
 import { useFaction } from '../store/factionStore';
 import { useTerritory } from '../store/territoryStore';
@@ -1014,7 +1014,29 @@ export function applyTeamCommands(text: string): number {
   return n;
 }
 
-export function applyCharacterCommands(commands: CharCommand[]): void {
+/* 副职业「习得动作」关键词：只认明确表示主角本轮获得/拜师/开启某门手艺的强动词，
+   不含「精通/擅长/造诣」等表既有水平的词（那些常出现在对路人/背景的描述里，是误生成的源头）。 */
+const SUBPROF_ACQUIRE_RE = /(拜师|拜入|师从|师承|入门|出师|入行|习得|学会|学成|学得|学到|修习|研习|钻研|领悟|顿悟|觉醒|开启|开通|点亮|解锁|转职|授予|传授|教授|传承|衣钵|收徒|收为徒|拜.{0,4}为师|成(为|了)(一名)?\S{0,6}(师|匠|学徒))/;
+/* 判断正文是否真有「获得这门副职业」的动作：要求某个含习得动词的句子里也出现该副职业名/词根。
+   只「提到名词」而无习得动词 → 返回 false，从而拦下凭空生成的副职业。 */
+function narrativeShowsSubprofAcquisition(narrative: string, profName: string): boolean {
+  const text = (narrative ?? '');
+  if (!text.trim()) return true;   // 没正文可判时不拦（交由其它校验/其它调用点）
+  const names = new Set<string>();
+  for (const n of [canonProfName(profName), profName]) {
+    const t = (n ?? '').trim(); if (!t) continue;
+    names.add(t);
+    const cjk = t.replace(/[^㐀-鿿]/g, '');
+    for (let i = 0; i + 2 <= cjk.length; i++) names.add(cjk.slice(i, i + 2));   // 2 字词根，容忍正文用「炼金」而非「禁忌炼金学徒」
+  }
+  for (const sent of text.split(/[。！？!?\n；;]+/)) {
+    if (!SUBPROF_ACQUIRE_RE.test(sent)) continue;
+    for (const nm of names) if (nm.length >= 2 && sent.includes(nm)) return true;
+  }
+  return false;
+}
+
+export function applyCharacterCommands(commands: CharCommand[], narrative?: string): void {
   if (commands.length === 0) return;
   const store = useCharacters.getState();
 
@@ -1132,6 +1154,14 @@ export function applyCharacterCommands(commands: CharCommand[]): void {
         if (!/^B\d+$/.test(charId)) { continue; }   // 副职业仅主角，NPC 不建模
         const d: any = payload;
         if (!d.name) { console.warn('[Char] addSubProfession 缺少 name'); continue; }
+        // 凭空生成拦截：若这是「全新」副职业（store 里无同名/同义），且本轮正文里没有「明确习得动作」
+        // （只是提到了这个名词），一律跳过——杜绝「正文只是提到炼金术就生成副职业」。已有副职业不受影响。
+        const existing = useCharacters.getState().characters[charId]?.subProfessions ?? [];
+        const isNew = !existing.some((x) => sameProf(x.name, d.name));
+        if (isNew && narrative != null && !narrativeShowsSubprofAcquisition(narrative, d.name)) {
+          console.warn(`[Char] 跳过疑似凭空生成的副职业（正文无明确习得动作，仅提及名词）: ${d.name}`);
+          continue;
+        }
         store.addSubProfession(charId, {
           name: d.name, tier: d.tier ?? '新手', progress: d.progress,
           category: d.category, recipeLabel: d.recipeLabel ?? d.recipeKind, desc: d.desc, effect: d.effect,

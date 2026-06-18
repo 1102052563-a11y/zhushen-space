@@ -214,6 +214,38 @@ function nameEq(a?: string, b?: string): boolean {
   return !!x && !!y && x === y;
 }
 
+/* 副职业名归一化：AI 常给同一门手艺写「中英双名」（炼金术 / Alchemy）或加术/学/师等后缀，
+   导致同一副职业被拆成两栏。先按别名表把英文/变体映射到规范中文名，配合「纯英文新副职业一律拒建」
+   彻底杜绝重复栏。key 用 normNm 归一化后的形式（去标点/小写）。 */
+const PROF_ALIAS: Record<string, string> = {
+  alchemy: '炼金术', alchemist: '炼金术', 炼金: '炼金术', 炼金学: '炼金术', 炼金术士: '炼金术', 炼金师: '炼金术',
+  forging: '锻造', forge: '锻造', smithing: '锻造', blacksmith: '锻造', blacksmithing: '锻造', 铁匠: '锻造', 打铁: '锻造', 锻造术: '锻造', 铸造: '锻造',
+  炼器术: '炼器', 炼器师: '炼器',
+  炼丹术: '炼丹', 丹道: '炼丹', 炼丹师: '炼丹',
+  pharmacy: '制药', 炼药: '制药', 制药术: '制药', 制药师: '制药',
+  talisman: '制符', 符箓: '制符', 画符: '制符', 制符术: '制符', 符师: '制符',
+  formation: '阵法', array: '阵法', 阵法术: '阵法', 布阵: '阵法', 阵法师: '阵法',
+  enchanting: '附魔', enchant: '附魔', 附魔术: '附魔', 附魔师: '附魔',
+  inscription: '铭文', 铭文术: '铭文', 铭文师: '铭文',
+  taming: '驯兽', 驯兽术: '驯兽', 御兽: '驯兽', 驯兽师: '驯兽',
+  cooking: '烹饪', 料理: '烹饪', 厨艺: '烹饪', 厨师: '烹饪',
+  tailoring: '裁缝', 缝纫: '裁缝',
+  mining: '采矿', 挖矿: '采矿',
+  herbalism: '采药', 采草药: '采药',
+  divination: '占卜', 卜算: '占卜',
+  medicine: '医术', 医道: '医术',
+};
+const CJK_RE = /[㐀-鿿豈-﫿]/;   // 是否含中日韩汉字
+export function profHasCJK(name?: string): boolean { return CJK_RE.test(name ?? ''); }
+/* 归一到规范中文副职业名：命中别名表则返回中文规范名；否则返回去空白的原名。 */
+export function canonProfName(name?: string): string {
+  const raw = (name ?? '').trim();
+  if (!raw) return raw;
+  return PROF_ALIAS[normNm(raw)] ?? raw;
+}
+/* 两个副职业名是否同一门手艺（先归一别名再按名相等）。 */
+export function sameProf(a?: string, b?: string): boolean { return nameEq(canonProfName(a), canonProfName(b)); }
+
 /* 配方名归一化：AI 常给配方名加「配方：/图纸：/药方：…」标签前缀，导致同一配方两条（带/不带前缀）。
    存储与匹配前统一剥掉前缀，杜绝重复。 */
 const RECIPE_LABEL_RE = /^\s*(配方|图纸|药方|食谱|菜谱|丹方|锻造图|图鉴|图谱|蓝图|设计图|方子|秘方|制法|做法)\s*[:：]\s*/;
@@ -404,14 +436,21 @@ export const useCharacters = create<CharacterState>()(
       addSubProfession: (charId, sp) =>
         set((s) => {
           sp = sanitizeStrings(sp);
+          const canon = canonProfName(sp.name);
           const char = ensureChar(s.characters, charId);
           const list = char.subProfessions ?? [];
-          const idx = list.findIndex((x) => nameEq(x.name, sp.name));
+          const idx = list.findIndex((x) => sameProf(x.name, sp.name));
           const ex = idx >= 0 ? list[idx] : undefined;
-          // 部分更新时保留已有字段（不被 undefined 覆盖）
+          // 纯英文/无中文名的「全新」副职业一律拒建：游戏内副职业均为规范中文名，
+          // 这类多是 AI 给已有中文副职业又写了个英文名想另起一栏 → 直接丢弃，杜绝中英重复栏。
+          if (idx < 0 && !profHasCJK(canon)) {
+            console.warn('[Char] 拒绝新建纯英文/无中文名副职业:', sp.name);
+            return s;
+          }
+          // 部分更新时保留已有字段（不被 undefined 覆盖）；新建用规范中文名，更新照抄原名
           const prom = promoteTier(sp.tier || ex?.tier || '新手', sp.progress ?? ex?.progress ?? 0);
           const entry: SubProfession = {
-            name: sp.name, tier: prom.tier, progress: prom.progress,
+            name: ex?.name ?? canon, tier: prom.tier, progress: prom.progress,
             category: sp.category ?? ex?.category,
             recipeLabel: sp.recipeLabel ?? ex?.recipeLabel,
             desc: sp.desc ?? ex?.desc,
@@ -427,14 +466,14 @@ export const useCharacters = create<CharacterState>()(
       removeSubProfession: (charId, name) =>
         set((s) => {
           const char = ensureChar(s.characters, charId);
-          return { characters: { ...s.characters, [charId]: { ...char, subProfessions: (char.subProfessions ?? []).filter((x) => !nameEq(x.name, name)) } } };
+          return { characters: { ...s.characters, [charId]: { ...char, subProfessions: (char.subProfessions ?? []).filter((x) => !sameProf(x.name, name)) } } };
         }),
 
       bumpSubProf: (charId, name, delta) =>
         set((s) => {
           const char = ensureChar(s.characters, charId);
           const list = char.subProfessions ?? [];
-          const idx = list.findIndex((x) => nameEq(x.name, name));
+          const idx = list.findIndex((x) => sameProf(x.name, name));
           if (idx < 0) return {};
           const prom = promoteTier(list[idx].tier, (list[idx].progress ?? 0) + delta);
           const next = [...list]; next[idx] = { ...list[idx], tier: prom.tier, progress: prom.progress };
@@ -448,8 +487,13 @@ export const useCharacters = create<CharacterState>()(
           if (cleanName && cleanName !== recipe.name) recipe = { ...recipe, name: cleanName };
           const char = ensureChar(s.characters, charId);
           const list = [...(char.subProfessions ?? [])];
-          let pIdx = list.findIndex((x) => nameEq(x.name, profName));
-          if (pIdx < 0) { list.push({ name: profName, tier: '新手', progress: 0, recipes: [], addedAt: Date.now() }); pIdx = list.length - 1; }
+          let pIdx = list.findIndex((x) => sameProf(x.name, profName));
+          if (pIdx < 0) {
+            const canon = canonProfName(profName);
+            // 配方挂到不存在的副职业才自动建；纯英文/无中文名一律不建（防 AI 借 addRecipe 凭空冒出英文栏）
+            if (!profHasCJK(canon)) { console.warn('[Char] addRecipe 拒绝为纯英文/无中文名副职业自动建栏:', profName); return s; }
+            list.push({ name: canon, tier: '新手', progress: 0, recipes: [], addedAt: Date.now() }); pIdx = list.length - 1;
+          }
           const recs = [...(list[pIdx].recipes ?? [])];
           const rIdx = recs.findIndex((r) => (recipe.id && r.id === recipe.id) || nameEq(r.name, recipe.name));
           const entry: Recipe = { ...recipe, progress: Math.min(100, Math.max(0, recipe.progress ?? (rIdx >= 0 ? recs[rIdx].progress ?? 0 : 0))), addedAt: rIdx >= 0 ? recs[rIdx].addedAt : Date.now() };
@@ -462,7 +506,7 @@ export const useCharacters = create<CharacterState>()(
         set((s) => {
           const char = ensureChar(s.characters, charId);
           const target = stripRecipeLabel(recipeName);   // 容忍 deRecipe 带「配方：」前缀
-          const list = (char.subProfessions ?? []).map((p) => nameEq(p.name, profName) ? { ...p, recipes: (p.recipes ?? []).filter((r) => !nameEq(r.name, target) && r.id !== recipeName) } : p);
+          const list = (char.subProfessions ?? []).map((p) => sameProf(p.name, profName) ? { ...p, recipes: (p.recipes ?? []).filter((r) => !nameEq(r.name, target) && r.id !== recipeName) } : p);
           return { characters: { ...s.characters, [charId]: { ...char, subProfessions: list } } };
         }),
 
@@ -471,7 +515,7 @@ export const useCharacters = create<CharacterState>()(
           const char = ensureChar(s.characters, charId);
           const target = stripRecipeLabel(recipeName);   // 容忍 bumpRecipe 带「配方：」前缀
           const list = (char.subProfessions ?? []).map((p) => {
-            if (!nameEq(p.name, profName)) return p;
+            if (!sameProf(p.name, profName)) return p;
             const recs = (p.recipes ?? []).map((r) => (nameEq(r.name, target) || r.id === recipeName) ? { ...r, progress: Math.min(100, Math.max(0, (r.progress ?? 0) + delta)) } : r);
             return { ...p, recipes: recs };
           });
@@ -537,10 +581,37 @@ export const useCharacters = create<CharacterState>()(
         set((s) => {
           let anyChange = false;
           const next: Record<string, CharacterData> = {};
+          const tierRank = (t?: string) => { const i = SUBPROF_TIERS.indexOf((t ?? '') as typeof SUBPROF_TIERS[number]); return i < 0 ? 0 : i; };
           for (const [cid, ch] of Object.entries(s.characters)) {
-            const sps = ch.subProfessions;
+            let sps = ch.subProfessions;
             if (!sps?.length) { next[cid] = ch; continue; }
             let charChanged = false;
+
+            // ① 先按规范名合并重复副职业（修复历史存档里「炼金术 / Alchemy」等中英/变体双栏 → 并成一栏，名字取规范中文）
+            const merged: SubProfession[] = [];
+            for (const sp of sps) {
+              const canon = canonProfName(sp.name);
+              const hit = merged.find((m) => sameProf(m.name, sp.name));
+              if (hit) {
+                charChanged = true;
+                if (!profHasCJK(hit.name) && profHasCJK(canon)) hit.name = canon;   // 优先保留中文规范名
+                if (tierRank(sp.tier) > tierRank(hit.tier)) { hit.tier = sp.tier; hit.progress = sp.progress ?? hit.progress; }
+                else if (tierRank(sp.tier) === tierRank(hit.tier)) hit.progress = Math.max(hit.progress ?? 0, sp.progress ?? 0);
+                hit.recipes = [...(hit.recipes ?? []), ...(sp.recipes ?? [])];
+                hit.category = hit.category ?? sp.category;
+                hit.recipeLabel = hit.recipeLabel ?? sp.recipeLabel;
+                hit.desc = hit.desc ?? sp.desc;
+                hit.effect = hit.effect ?? sp.effect;
+                hit.addedAt = Math.min(hit.addedAt ?? Date.now(), sp.addedAt ?? Date.now());
+              } else {
+                const name = (!profHasCJK(sp.name) && profHasCJK(canon)) ? canon : sp.name;   // 纯英文且可映射 → 用中文规范名
+                if (name !== sp.name) charChanged = true;
+                merged.push({ ...sp, name, recipes: [...(sp.recipes ?? [])] });
+              }
+            }
+            sps = merged;
+
+            // ② 每个副职业内部：配方去「配方：」前缀后同名合并
             const newSps = sps.map((sp) => {
               const recs = sp.recipes ?? [];
               const out: Recipe[] = [];

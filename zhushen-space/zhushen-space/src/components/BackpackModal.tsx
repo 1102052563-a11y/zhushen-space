@@ -1,5 +1,5 @@
 import { useState, useRef } from 'react';
-import { useItems, ITEM_CATEGORIES, ITEM_GRADES, gradeColorClass, gradeBadgeClass, gradeNameClass, socketsOf, type InventoryItem, type ItemCategory, type CurrencyWallet } from '../store/itemStore';
+import { useItems, ITEM_CATEGORIES, ITEM_GRADES, gradeColorClass, gradeBadgeClass, gradeNameClass, socketsOf, splitAffixEntries, type InventoryItem, type ItemCategory, type CurrencyWallet } from '../store/itemStore';
 import { enhanceColorClass, enhancedCombat } from '../systems/enhanceEngine';
 import { usePlayer } from '../store/playerStore';
 import { useSkillTree } from '../store/skillTreeStore';
@@ -298,7 +298,9 @@ export function ItemDetailModal({ item, onClose }: { item: InventoryItem; onClos
                     className="w-full bg-void border border-edge rounded px-2 py-1 text-[13px] text-dim/80 focus:outline-none focus:border-god/50 resize-none"
                   />
                 ) : (
-                  <div className="text-[13px] text-dim/80 leading-relaxed">{item.effect}</div>
+                  <div className="space-y-1">
+                    {splitAffixEntries(item.effect).map((a, i) => <div key={i} className="text-[13px] leading-snug text-dim/80 border-l-2 border-god/25 pl-2">{a}</div>)}
+                  </div>
                 )}
               </div>
             </Field>
@@ -319,11 +321,13 @@ export function ItemDetailModal({ item, onClose }: { item: InventoryItem; onClos
                   value={draft.affix}
                   onChange={(e) => setDraft((d) => ({ ...d, affix: e.target.value }))}
                   rows={2}
-                  placeholder="如：[烈焰] 攻击附带 15% 火焰伤害"
+                  placeholder="每条词缀写「【名】：说明」，如 【烈焰】：攻击附带 15% 火焰伤害"
                   className="w-full bg-void border border-edge rounded px-2 py-1 text-[13px] text-amber-200/85 focus:outline-none focus:border-god/50 resize-none"
                 />
               ) : (
-                <div className="text-[13px] text-amber-200/85 leading-relaxed">{item.affix}</div>
+                <div className="space-y-1">
+                  {splitAffixEntries(item.affix).map((a, i) => <div key={i} className="text-[13px] leading-snug text-amber-200/85 border-l-2 border-amber-400/25 pl-2">{a}</div>)}
+                </div>
               )}
             </Field>
           )}

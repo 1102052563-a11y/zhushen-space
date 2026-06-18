@@ -2165,6 +2165,8 @@ function GeneralSettingsSection() {
   const setDisableEnterSend = useSettings((s) => s.setDisableEnterSend);
   const showNewlineButton    = useSettings((s) => s.showNewlineButton);
   const setShowNewlineButton = useSettings((s) => s.setShowNewlineButton);
+  const weatherFx            = useSettings((s) => s.weatherFx);
+  const setWeatherFx         = useSettings((s) => s.setWeatherFx);
   const [input, setInput] = useState(String(historyLimit));
 
   function commit(val: string) {
@@ -2242,6 +2244,18 @@ function GeneralSettingsSection() {
         </div>
       </div>
 
+      {/* 界面显示 */}
+      <div className="space-y-4">
+        <div className="text-sm font-mono text-god/70 uppercase tracking-widest">界面显示</div>
+        <div className="flex items-start gap-3 border border-edge rounded-lg p-4 bg-panel">
+          <Toggle checked={weatherFx} onChange={() => setWeatherFx(!weatherFx)} />
+          <div>
+            <div className="text-sm font-semibold text-slate-200">顶栏天气特效（天启）</div>
+            <div className="text-sm text-dim mt-1 leading-relaxed">任务世界有天气时，顶栏铺一层动态天空背景：雨丝 / 飘雪 / 雾烟 / 雷闪 / 风卷落叶 + 太阳·流云等粒子动画。关闭后顶栏维持原暗色、零性能开销，适合低配设备或想专注阅读时。回归乐园本就无此效果。</div>
+          </div>
+        </div>
+      </div>
+
       {/* API 接口库 */}
       <ApiLibrarySection />
       {/* API 请求节流（缓解 429）*/}
@@ -2255,7 +2269,7 @@ function GeneralSettingsSection() {
         <div className="border border-edge rounded-lg p-4 bg-panel space-y-3">
           <div className="text-[13px] text-dim/70 leading-relaxed">
             支持占位符（发送时按角色创建数据替换，<span className="text-god/70">中英文名均可</span>）：
-            <span className="font-mono text-god/70"> {'${主角名}'} {'${年龄}'} {'${性格}'} {'${性格描述}'} {'${入园前职业}'} {'${乐园}'} {'${难度}'} {'${外观}'} {'${天赋名}'} {'${天赋效果}'} {'${契约者ID}'}</span>
+            <span className="font-mono text-god/70"> {'${主角名}'} {'${年龄}'} {'${性格}'} {'${性格描述}'} {'${入园前职业}'} {'${乐园}'} {'${难度}'} {'${性别}'} {'${种族}'} {'${种族详情}'} {'${外观}'} {'${天赋名}'} {'${天赋效果}'} {'${契约者ID}'}</span>
             <div className="mt-1 text-dim/60">六维：合并 <span className="font-mono text-god/70">{'${六维}'}</span> 或单项 <span className="font-mono text-god/70">{'${力}${敏}${体}${智}${魅}${幸}'}</span>（英文 {'${name}/${str}/${attrs}'} 等同义）。写错的占位符会原样保留。</div>
           </div>
           <textarea
@@ -2563,6 +2577,14 @@ function NarrativeMemorySettings() {
             <Toggle checked={cfg.structEnabled ?? true} onChange={() => set({ structEnabled: !(cfg.structEnabled ?? true) })} />
           </div>
 
+          <div className="flex items-start justify-between gap-4 border-t border-edge/40 pt-4">
+            <div className="flex-1">
+              <div className="text-sm font-semibold text-slate-200">用 API 判定注入哪些 NPC <span className="text-[11px] font-mono text-amber-400/70">（每轮 +1 次 API 调用）</span></div>
+              <div className="text-sm text-dim mt-1">开：每轮发送前**调一次 API**（走「叙事记忆」接口路由），按「你这轮的输入 + 最近正文」判断把哪些已建档 NPC 的档案注入正文（更贴合当下剧情）。关：用本地排序兜底（在场 &gt; 好感高 &gt; 最近在场，零 API）。叙事记忆接口未配置时自动回退本地。</div>
+            </div>
+            <Toggle checked={cfg.structApiSelect ?? false} onChange={() => set({ structApiSelect: !(cfg.structApiSelect ?? false) })} />
+          </div>
+
           {num('注入 NPC 数量上限', 'structMaxNpcs', 0, 10, '每轮注入的相关 NPC 数量（主角不占此额度）。默认 2。')}
           {num('主角技能数量上限', 'structMaxSkills', 0, 12, '仅限主角：注入的技能条数（按品阶/新近优先）。默认 3。NPC 不受此限，被选中即全量。')}
           {num('主角装备数量上限', 'structMaxItems', 0, 12, '仅限主角：注入的装备条数（已装备优先，再按品阶）。材料/消耗品全部显示(名称+效果)、其它物品不注入。默认 2。NPC 不受此限，被选中即全量。')}
@@ -2573,7 +2595,7 @@ function NarrativeMemorySettings() {
             {!recallOn
               ? '● 需先启用叙事记忆 或 向量记忆'
               : (cfg.structEnabled ?? true)
-                ? `● 当前：主角(技能≤${cfg.structMaxSkills ?? 3}/装备≤${cfg.structMaxItems ?? 2}) + 最多 ${cfg.structMaxNpcs ?? 2} 个NPC(全量)${vmEnabled && !cfg.enabled ? '　[向量记忆模式]' : ''}`
+                ? `● 当前：主角(技能≤${cfg.structMaxSkills ?? 3}/装备≤${cfg.structMaxItems ?? 2}) + 最多 ${cfg.structMaxNpcs ?? 2} 个NPC(全量)　NPC选取:${cfg.structApiSelect ? 'API判定(+1调用)' : '本地排序'}${vmEnabled && !cfg.enabled ? '　[向量记忆模式]' : ''}`
                 : '● 未启用结构化档案召回'}
           </div>
         </div>

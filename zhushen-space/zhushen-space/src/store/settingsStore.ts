@@ -207,6 +207,7 @@ export interface NarrativeMemConfig {
   ingestModelId: string;           // 回复后写入模型（空=用 nmApi.modelId）
   // ── 结构化档案召回（把主角/在场NPC的完整档案+技能+装备注入正文）──
   structEnabled: boolean;          // 启用结构化档案召回
+  structApiSelect: boolean;        // 用 API 判定注入哪些结构化条目(NPC)：开则按"用户输入+最近正文"调一次 API 选 NPC；关则本地排序(在场/好感)兜底
   structMaxNpcs: number;           // 注入的 NPC 数量上限（主角必含、不占此额度）
   structMaxSkills: number;         // 每个角色注入的技能数量上限
   structMaxItems: number;          // 主角注入的装备数量上限（材料/消耗品全显示、其它不注入；NPC 给全量）
@@ -236,6 +237,8 @@ interface SettingsState {
   setDisableEnterSend: (v: boolean) => void;
   showNewlineButton: boolean;  // 是否在正文输入框旁显示「↵ 换行键」（Shift+Enter 始终可换行，不受此开关影响）
   setShowNewlineButton: (v: boolean) => void;
+  weatherFx: boolean;  // 顶栏天气/天启特效（动态天空背景+粒子动画）总开关；关闭后顶栏维持原暗色、零开销
+  setWeatherFx: (v: boolean) => void;
   allowAutoEquip: boolean;  // 是否允许 AI 自动装备主角拾取/生成的装备（关闭=仅能在装备面板手动穿戴）
   setAllowAutoEquip: (v: boolean) => void;
   allowAutoEquipNpc: boolean;  // 是否允许自动给 NPC 穿戴装备（含初始装备与 AI 装备指令；关闭=只入 NPC 储存空间）
@@ -582,6 +585,7 @@ export const useSettings = create<SettingsState>()(
       historyLimit: 0,
       disableEnterSend: false,
       showNewlineButton: true,
+      weatherFx: true,
       allowAutoEquip: true,
       allowAutoEquipNpc: true,
       customOpening: '',
@@ -594,7 +598,7 @@ export const useSettings = create<SettingsState>()(
       apiRoutes: {},
       apiThrottle: { maxConcurrent: 3, minGapMs: 250 },
       phaseSched: {},
-      narrativeMemory: { enabled: false, recentFullTextCount: 5, distantKeywordThreshold: 200, recallTopK: 6, recallMinScore: 1, requestTimeout: 90, llmMode: false, compileModelId: '', ingestModelId: '', structEnabled: true, structMaxNpcs: 2, structMaxSkills: 3, structMaxItems: 2, structMaxSubProfs: 4, structMaxFactions: 4 },
+      narrativeMemory: { enabled: false, recentFullTextCount: 5, distantKeywordThreshold: 200, recallTopK: 6, recallMinScore: 1, requestTimeout: 90, llmMode: false, compileModelId: '', ingestModelId: '', structEnabled: true, structApiSelect: false, structMaxNpcs: 2, structMaxSkills: 3, structMaxItems: 2, structMaxSubProfs: 4, structMaxFactions: 4 },
       vectorMemory: { enabled: false, apiBase: 'https://api.siliconflow.cn/v1', apiKey: '', model: 'Pro/BAAI/bge-m3', topK: 6, threshold: 0.3, recentFullTextCount: 5, maxItems: 1000 },
       nmApi: { ...DEFAULT_API },
       nmUseSharedApi: true,
@@ -626,6 +630,7 @@ export const useSettings = create<SettingsState>()(
       setHistoryLimit: (n) => set({ historyLimit: Math.max(0, n) }),
       setDisableEnterSend: (v) => set({ disableEnterSend: v }),
       setShowNewlineButton: (v) => set({ showNewlineButton: v }),
+      setWeatherFx: (v) => set({ weatherFx: v }),
       setAllowAutoEquip: (v) => set({ allowAutoEquip: v }),
       setAllowAutoEquipNpc: (v) => set({ allowAutoEquipNpc: v }),
       setCustomOpening: (s) => set({ customOpening: s }),

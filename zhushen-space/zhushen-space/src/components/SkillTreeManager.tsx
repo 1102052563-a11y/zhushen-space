@@ -50,7 +50,7 @@ export default function SkillTreeManager() {
   const [genProf, setGenProf] = useState('');
   const [genRef, setGenRef] = useState('');
   const [genDesc, setGenDesc] = useState('');   // 主角对该职业的描述（喂给 AI 定调）
-  const [genBranches, setGenBranches] = useState(4);   // 流派数量（= 从中心放射的初始线条数；每条 ≥15 节点）
+  const [genBranches, setGenBranches] = useState('4');   // 流派数量（字符串态·允许自由输入；用时再 clamp 到 2~12）
   const [webSearch, setWebSearch] = useState(false);
   const [genBusy, setGenBusy] = useState(false);
   const [zoom, setZoom] = useState(1);
@@ -150,14 +150,14 @@ export default function SkillTreeManager() {
     if (!chain[0]?.baseUrl || !chain[0]?.apiKey) { flash('未配置 AI 接口（设置→综合设置 / 正文生成）'); return; }
     const ref = genRef.trim();
     const desc = genDesc.trim();
-    const nBr = Math.max(2, Math.min(12, Math.round(genBranches) || 4));
+    const nBr = Math.max(2, Math.min(12, parseInt(genBranches, 10) || 4));
     const userMsg = [
       `职业：${prof}`,
-      `流派数量：${nBr}（必须设计 ${nBr} 条 branch，从中心原点放射 ${nBr} 条初始线；每条 branch 至少 15 个节点）`,
+      `流派数量：${nBr}（必须设计 ${nBr} 条 branch，从中心原点放射 ${nBr} 条初始线；每条 branch 12~16 个节点，但多数是微星不写技能，只约 4~5 个节点带技能——绝不要每个节点都写完整技能，否则 JSON 过长会被截断、生成失败）`,
       ref && `参考来源/风格：${ref}（请贴近此蓝本的技能体系）`,
       desc && `主角对该职业的描述/期望（请据此定调流派、命名、气质与招牌能力）：\n${desc}`,
       webSearch ? '请先用联网搜索查阅该职业及相关游戏/小说的真实技能资料，再据实设计。' : '',
-      `请为该职业设计一棵丰富的星图式技能树（${nBr} 条流派、每条 ≥15 节点），每个技能/天赋走完整固定格式，按系统要求只输出 JSON。`,
+      `请为该职业设计一棵丰富的星图式技能树（${nBr} 条流派、每条 12~16 节点）：每条多数是微星(只属性·不写技能)，约 2~3 颗中型(medium·精简技能 5 字段)、1~2 颗中星(完整)、1 颗主星(完整)。按系统要求只输出 JSON。`,
     ].filter(Boolean).join('\n');
     // 联网搜索：经 extra 注入工具（Gemini/兼容接口的 google_search）；不支持就回退无搜索
     const searchExtra = webSearch ? { tools: [{ google_search: {} }] } : undefined;
@@ -181,12 +181,11 @@ export default function SkillTreeManager() {
       if (!v.ok) { setValid({ errors: v.errors, warnings: v.warnings }); flash('生成的树有误：' + v.errors[0]); return; }
       const t = autoLayout(v.tree);
       st.upsertTree(t); setEditId(t.id); setSelId(undefined);
-      // 校验：节点≥50、流派数对得上、每条 branch ≥15 节点
+      // 校验：流派数对得上、每条 branch 不要太瘦（< 8 节点提示，可能是被截断了）
       const extra: string[] = [];
-      if (t.nodes.length < 50) extra.push(`总节点仅 ${t.nodes.length}（< 50 硬性下限）`);
       if (t.branches.length !== nBr) extra.push(`流派数 ${t.branches.length}（要求 ${nBr}）`);
-      const thin = t.branches.filter((b) => t.nodes.filter((n) => n.branch === b.id).length < 15).map((b) => b.name);
-      if (thin.length) extra.push(`这些流派不足 15 节点：${thin.join('、')}`);
+      const thin = t.branches.filter((b) => t.nodes.filter((n) => n.branch === b.id).length < 8).map((b) => b.name);
+      if (thin.length) extra.push(`这些流派偏瘦(<8节点，可能 JSON 被截断)：${thin.join('、')}`);
       const warns = [...v.warnings, ...extra];
       setValid({ errors: [], warnings: warns });
       flash(extra.length ? `已生成但未达标（${extra.join('；')}）——可重新生成或手动补足` : (v.warnings.length ? `已生成（${t.nodes.length}节点，${v.warnings.length}条提醒，可手动微调）` : `已生成职业树（${t.nodes.length}节点 / ${t.branches.length}流派），可继续编辑`));
@@ -287,13 +286,14 @@ export default function SkillTreeManager() {
         <input value={genProf} onChange={(e) => setGenProf(e.target.value)} placeholder="职业名，如：枪械师 / 元素法师 / 死灵术士"
           onKeyDown={(e) => { if (e.key === 'Enter' && !genBusy) aiGen(); }}
           className="flex-1 min-w-[160px] bg-void border border-edge rounded px-2 py-1 text-[13px] text-slate-200 outline-none focus:border-fuchsia-500/50" />
-        {/* 流派数量：= 从中心放射的初始线条数，每条 branch ≥15 节点 */}
-        <label className="flex items-center gap-1 text-[12px] text-dim/70 shrink-0" title="从中心原点放射的流派（初始线）条数；每条流派至少 15 个节点">
+        {/* 流派数量：= 从中心放射的初始线条数，每条 branch 12~16 节点 */}
+        <label className="flex items-center gap-1 text-[12px] text-dim/70 shrink-0" title="从中心原点放射的流派（初始线）条数（2~12）；每条流派 12~16 个节点">
           <span className="font-mono text-fuchsia-300/90">流派数</span>
           <input type="number" min={2} max={12} value={genBranches}
-            onChange={(e) => setGenBranches(Math.max(2, Math.min(12, parseInt(e.target.value, 10) || 4)))}
+            onChange={(e) => setGenBranches(e.target.value)}
+            onBlur={() => setGenBranches(String(Math.max(2, Math.min(12, parseInt(genBranches, 10) || 4))))}
             className="w-14 bg-void border border-edge rounded px-2 py-1 text-[13px] text-slate-200 outline-none focus:border-fuchsia-500/50" />
-          <span className="text-[10px] text-dim/40">条·每条≥15节点</span>
+          <span className="text-[10px] text-dim/40">条(2~12)·每条≥12节点</span>
         </label>
         <input value={genRef} onChange={(e) => setGenRef(e.target.value)} placeholder="参考来源/风格（选填，如：英雄联盟剑圣 / 某小说）"
           onKeyDown={(e) => { if (e.key === 'Enter' && !genBusy) aiGen(); }}
@@ -389,7 +389,7 @@ export default function SkillTreeManager() {
                   <label className="block space-y-0.5"><span className={labelCls}>类型</span>
                     <select className={inputCls} value={selNode.kind}
                       onChange={(e) => { const kind = e.target.value as any; patchNode({ kind, cost: defaultCost(kind) }); }}>
-                      <option value="minor">普通</option><option value="major">核心</option><option value="capstone">终极</option>
+                      <option value="minor">微星(只属性)</option><option value="medium">中型(子技能)</option><option value="major">核心</option><option value="capstone">终极</option>
                     </select></label>
                   <label className="block space-y-0.5"><span className={labelCls}>层</span>
                     <input type="number" min={1} className={inputCls} value={selNode.layer} onChange={(e) => patchNode({ layer: Math.max(1, Number(e.target.value) || 1) })} /></label>
