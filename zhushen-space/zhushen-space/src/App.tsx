@@ -1661,10 +1661,13 @@ export default function App() {
 
     // user/assistant 条目作为示例历史
     const examples = entries
-      .filter((e) => e.role !== 'system' && !e.system_prompt && e.content)
+      .filter((e) => e.role !== 'system' && !e.system_prompt && e.content && e.identifier !== 'prefill')
       .map((e) => ({ role: e.role as 'user' | 'assistant', content: e.content }));
 
-    return { sysPrompt, examples };
+    // 末尾预填充：identifier='prefill' 的 assistant 块不入 few-shot，改放 messages 最末尾让模型续写（DeepSeek 穿甲 / Claude prefill；端点须支持末尾 assistant）
+    const prefillEntry = entries.find((e) => e.identifier === 'prefill' && e.role === 'assistant' && e.content);
+    const prefill = prefillEntry?.content ?? '';
+    return { sysPrompt, examples, prefill };
   }
 
   // 无预设条目时的内置兜底提示词
@@ -6491,7 +6494,7 @@ ${lines}`;
     } catch (e) { console.warn('[NovelVec] 检索失败', e); }
     const worldInfoText = [wbKeywordText, novelVecText].filter(Boolean).join('\n\n');
 
-    const { sysPrompt, examples } = buildPresetMessages(preset, worldInfoText, userText);
+    const { sysPrompt, examples, prefill } = buildPresetMessages(preset, worldInfoText, userText);
 
     // 历史：叙事记忆（关键词召回，启用时）或按 historyLimit 切片（现状）
     let memory: { role: 'system'; content: string }[] = [];
@@ -6588,6 +6591,7 @@ ${lines}`;
       ...buildFactInjection(),                          // <事实锚点·已锁定> 已核实的现实/时代事实（受 factCheck 门控，下回合注入防穿帮）
       ...recent,                                       // 最近原文楼层
       { role: 'user' as const, content: userText },
+      ...(prefill ? [{ role: 'assistant' as const, content: prefill }] : []),   // 末尾预填充（prefill 块启用时）
     ];
 
     // stream 以预设为准，统一一个变量
