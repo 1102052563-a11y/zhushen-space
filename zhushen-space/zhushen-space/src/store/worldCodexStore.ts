@@ -33,24 +33,26 @@ interface WorldCodexState {
 
 const blankEntry = (ipName = ''): WorldCodexEntry => ({ ipName, sections: {} });
 
-/* worldName 由「杂项演化」每回合按正文改写，常见格式/空格/「世界名+地点」漂移（与势力 worldName 同源问题）。
-   若直接拿 worldName 当存储键，漂移一发生就再也命中不到旧条目 ——「深挖后过一两个回合情报整片消失」。
-   照 App.tsx 既有 norm() 约定做归一 + 双向子串匹配，让漂移后的 worldName 仍解析回同一条目。 */
+/* worldName 由「杂项演化」每回合按正文改写：常见格式/空格/「世界名+地点」漂移，且刚进世界那一两回合
+   worldName 往往还是空串 —— 此时深挖会把情报建在空键 byWorld[""] 上，等 AI 补上真实世界名后就再也找不回，
+   表现为「退出百科/过一两个回合，生成的东西就消失了」。
+   解决：照 App.tsx 既有 norm() 约定做归一匹配，且候选键同时含「存储键」与该条目的「作品名 ipName」——
+   作品名是玩家手动输入、稳定不漂移的锚点，靠它即使 worldName 变了/当初建在空键上也能把旧条目找回来。 */
 const norm = (s: string) => (s || '').replace(/[\s·•・\-—_,，。、|｜（）()【】]/g, '').toLowerCase();
 
-/** 解析 worldName 在 byWorld 中的实际存储键：精确 > 归一相等 > 双向子串；都没有则返回原值（用于新建）。 */
+/** 解析 worldName 在 byWorld 中的实际存储键：精确 > 归一相等 > 双向子串（键或作品名）；都没有则返回原值（用于新建）。 */
 function resolveKey(byWorld: Record<string, WorldCodexEntry>, worldName: string): string {
   if (byWorld[worldName]) return worldName;     // 精确命中（含空串）
   const n = norm(worldName);
   if (n.length < 2) return worldName;           // 太短/空：不做模糊，避免误并不同世界
-  let sub = '';
+  let sub: string | null = null;                // 用 null 占位：命中的键可能是空串（当初 worldName 为空时建的），不能当 falsy 丢弃
   for (const k of Object.keys(byWorld)) {
-    const nk = norm(k);
-    if (!nk) continue;
-    if (nk === n) return k;                      // 归一后完全相等：最稳，直接复用
-    if (!sub && (nk.includes(n) || n.includes(nk))) sub = k;   // 「世界名 + 地点」之类子串漂移
+    // 候选 = 存储键 + 条目作品名(ipName)：worldName 漂移、甚至当初建在空键上，靠作品名也能找回
+    const cands = [norm(k), norm(byWorld[k]?.ipName || '')].filter(Boolean);
+    if (cands.includes(n)) return k;                                              // 归一相等：最稳，直接复用
+    if (sub === null && cands.some((c) => c.includes(n) || n.includes(c))) sub = k;  // 「世界名 + 地点」之类子串漂移
   }
-  return sub || worldName;
+  return sub ?? worldName;
 }
 
 /** 面板按当前 worldName 解析读取已缓存条目（返回存储对象引用，保持 Zustand 选择器引用稳定）。 */

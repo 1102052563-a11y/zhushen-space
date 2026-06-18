@@ -49,6 +49,7 @@ function SeedSection() {
   const seedFromCanon = useCosmos((s) => s.seedFromCanon);
   const seedEntities = useCosmos((s) => s.seedEntities);
   const clearCosmos = useCosmos((s) => s.clearCosmos);
+  const dedupeEntities = useCosmos((s) => s.dedupeEntities);
   const count = useCosmos((s) => s.entities.length);
   const useShared = useCosmos((s) => s.cosmosUseSharedApi);
   const cosmosApi = useCosmos((s) => s.cosmosApi);
@@ -123,6 +124,8 @@ priority: 0核心/1次要/2边缘。顶层最重要的给 0。`;
           <button onClick={genRandom} disabled={busy}
             className="px-3 py-1.5 text-[13px] font-mono border border-fuchsia-500/40 text-fuchsia-300 rounded hover:bg-fuchsia-900/20 disabled:opacity-40 transition-colors">{busy ? '生成中…' : '🎲 随机生成'}</button>
         )}
+        <button onClick={() => { const before = useCosmos.getState().entities.length; dedupeEntities(); const removed = before - useCosmos.getState().entities.length; flash(removed > 0 ? `✓ 已合并 ${removed} 条重复实体` : '✓ 无重复实体'); }}
+          className="px-3 py-1.5 text-[13px] font-mono border border-edge text-dim rounded hover:border-god/40 hover:text-god transition-colors">🧹 清理重复</button>
         <button onClick={() => { clearCosmos(); flash('✓ 已清空棋盘'); }}
           className="px-3 py-1.5 text-[13px] font-mono border border-edge text-dim rounded hover:border-blood/40 hover:text-blood transition-colors">清空棋盘</button>
       </div>

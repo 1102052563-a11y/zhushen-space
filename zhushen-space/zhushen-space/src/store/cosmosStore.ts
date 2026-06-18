@@ -41,10 +41,28 @@ export interface CosmosEntity {
   lastEvolvedTurn: number;
 }
 
-/* 名称归一化匹配（去空白/标点/大小写）——同名→更新、按名删除，容忍 AI 细微差异 */
+/* 名称归一化匹配（去空白/标点/装饰括号/大小写）——同名→更新、按名删除，容忍 AI 细微差异。
+   ★必须吃掉角括号「」『』《》〈〉等装饰：快照里实体名是用「名」包起来展示的，AI 常把这层括号
+   （甚至 [乐园·优先级N] 标签）一起抄回当成名字，cNorm 对不上 → 每回合新建一条，于是
+   「天启乐园」→「「天启乐园」」→「「「天启乐园」」」越堆越多。 */
 function cNorm(s?: string): string {
-  return (s ?? '').replace(/[\s·•・\-—_,，.。、|｜()（）【】\[\]:：]/g, '').trim().toLowerCase();
+  return (s ?? '').replace(/[\s·•・\-—_,，.。、|｜()（）【】\[\]:：「」『』《》〈〉“”‘’"']/g, '').trim().toLowerCase();
 }
+
+/* 清洗 AI 抄回来的"带装饰"实体名：剥掉首尾角括号/书名号/引号，以及尾部从快照/态势注入复制来的
+   [乐园·优先级1] / (种族·稳固·排名3) 这类标签，还原成裸名
+   （如「「天启乐园」」[乐园·优先级1] → 天启乐园）。清洗后为空则退回原值。 */
+export function cleanCosmosName(raw?: string): string {
+  const orig = (raw ?? '').trim();
+  if (!orig) return '';
+  let s = orig;
+  // 1) 去尾部装饰标签：[…]/(…)/（…）/【…】，且其中含 · 或 优先级/排名（避免误伤正常括注）
+  s = s.replace(/\s*[\[\(（【][^\]\)）】]*?(?:优先级|排名|·)[^\]\)）】]*[\]\)）】]\s*$/g, '').trim();
+  // 2) 剥首尾成对的装饰括号/引号
+  s = s.replace(/^[「」『』《》〈〉【】\[\]\s"'“”‘’]+/, '').replace(/[「」『』《》〈〉【】\[\]\s"'“”‘’]+$/, '').trim();
+  return s || orig;
+}
+
 export function cosmosNameEq(a?: string, b?: string): boolean {
   const x = cNorm(a), y = cNorm(b);
   return !!x && !!y && x === y;
@@ -62,6 +80,7 @@ function cTxt(v: any): string {
 function coerceCosmosInput(e: any): any {
   if (!e || typeof e !== 'object') return e;
   const o: any = { ...e };
+  if (o.name != null) o.name = cleanCosmosName(cTxt(o.name));   // 进库即去装饰括号/标签，杜绝重复建条
   for (const k of ['name', 'power', 'territory', 'resources', 'goal', 'towardParadise', 'era', 'status']) {
     if (o[k] != null && typeof o[k] !== 'string') o[k] = cTxt(o[k]);
   }
@@ -189,6 +208,48 @@ function normalizeEntity(e: Partial<CosmosEntity>, idHint?: string): CosmosEntit
   };
 }
 
+/* 把一组"归一化后同名"的实体并成一条：选最干净/最新/大事记最多者为基准，其余字段空则补、列表取并集。
+   用于清理历史存档里堆积的「「天启乐园」」级联重复。 */
+function mergeCosmosGroup(list: CosmosEntity[]): CosmosEntity {
+  if (list.length === 1) return { ...list[0], name: cleanCosmosName(list[0].name) || list[0].name };
+  const score = (e: CosmosEntity) =>
+    (cleanCosmosName(e.name) === e.name ? 1e12 : 0) + (e.lastEvolvedTurn || 0) * 1000 + (e.deeds?.length || 0);
+  const [head, ...rest] = [...list].sort((a, b) => score(b) - score(a));
+  const base: CosmosEntity = { ...head, name: cleanCosmosName(head.name) || head.name, relations: [...(head.relations ?? [])], deeds: [...(head.deeds ?? [])], extra: { ...(head.extra ?? {}) } };
+  for (const e of rest) {
+    base.power = base.power || e.power;
+    base.territory = base.territory || e.territory;
+    base.resources = base.resources || e.resources;
+    base.goal = base.goal || e.goal;
+    base.towardParadise = base.towardParadise || e.towardParadise;
+    base.era = base.era || e.era;
+    if (base.rank == null) base.rank = e.rank;
+    base.isPlayerKnown = base.isPlayerKnown || e.isPlayerKnown;
+    base.destroyed = base.destroyed || e.destroyed;
+    base.lastEvolvedTurn = Math.max(base.lastEvolvedTurn || 0, e.lastEvolvedTurn || 0);
+    base.extra = { ...(e.extra ?? {}), ...base.extra };
+    const rseen = new Set(base.relations.map((r) => cNorm(r.target)));
+    for (const r of e.relations ?? []) if (r?.target && !rseen.has(cNorm(r.target))) { base.relations.push(r); rseen.add(cNorm(r.target)); }
+    const dseen = new Set(base.deeds.map((d) => cNorm(d.desc)));
+    for (const d of e.deeds ?? []) if (d?.desc && !dseen.has(cNorm(d.desc))) { base.deeds.push(d); dseen.add(cNorm(d.desc)); }
+  }
+  base.deeds = base.deeds.slice(0, 30);
+  return base;
+}
+
+/* 全表按归一化裸名分组去重合并；保持各组首次出现的相对顺序。 */
+export function dedupeCosmosList(entities: CosmosEntity[]): CosmosEntity[] {
+  const groups = new Map<string, CosmosEntity[]>();
+  const order: string[] = [];
+  for (const raw of entities ?? []) {
+    if (!raw || !raw.name) continue;
+    const key = cNorm(cleanCosmosName(raw.name)) || cNorm(raw.name) || `__k${order.length}`;
+    if (!groups.has(key)) { groups.set(key, []); order.push(key); }
+    groups.get(key)!.push(raw);
+  }
+  return order.map((k) => mergeCosmosGroup(groups.get(k)!));
+}
+
 interface CosmosState {
   entities: CosmosEntity[];
   seeded: boolean;
@@ -209,6 +270,7 @@ interface CosmosState {
   markKnown: (name: string) => void;
   markEvolved: (name: string, turn: number) => void;
   clearCosmos: () => void;
+  dedupeEntities: () => void;
 
   /* 预设 / 设置 actions */
   setSettings: (patch: Partial<Omit<CosmosSettings, 'entries'>>) => void;
@@ -301,12 +363,13 @@ export const useCosmos = create<CosmosState>()(
           return { entities: [...s.entities, normalizeEntity(e)] };
         }),
 
-      removeEntity: (name) => set((s) => ({ entities: s.entities.filter((x) => !cosmosNameEq(x.name, name) && x.id !== name) })),
+      removeEntity: (name) => set((s) => { const nm = cleanCosmosName(name); return { entities: s.entities.filter((x) => !cosmosNameEq(x.name, nm) && x.id !== name) }; }),
 
       appendDeed: (name, deed) =>
         set((s) => {
           if (!deed || !deed.desc) return s;
-          const i = s.entities.findIndex((x) => cosmosNameEq(x.name, name) || x.id === name);
+          const nm = cleanCosmosName(name);
+          const i = s.entities.findIndex((x) => cosmosNameEq(x.name, nm) || x.id === name);
           if (i < 0) return s;
           const next = [...s.entities];
           next[i] = { ...next[i], deeds: [{ time: deed.time, desc: deed.desc }, ...next[i].deeds].slice(0, 30) };
@@ -314,12 +377,14 @@ export const useCosmos = create<CosmosState>()(
         }),
 
       markKnown: (name) =>
-        set((s) => ({ entities: s.entities.map((x) => (cosmosNameEq(x.name, name) || x.id === name) ? { ...x, isPlayerKnown: true } : x) })),
+        set((s) => { const nm = cleanCosmosName(name); return { entities: s.entities.map((x) => (cosmosNameEq(x.name, nm) || x.id === name) ? { ...x, isPlayerKnown: true } : x) }; }),
 
       markEvolved: (name, turn) =>
-        set((s) => ({ entities: s.entities.map((x) => (cosmosNameEq(x.name, name) || x.id === name) ? { ...x, lastEvolvedTurn: turn } : x) })),
+        set((s) => { const nm = cleanCosmosName(name); return { entities: s.entities.map((x) => (cosmosNameEq(x.name, nm) || x.id === name) ? { ...x, lastEvolvedTurn: turn } : x) }; }),
 
       clearCosmos: () => set({ entities: [], seeded: false }),
+
+      dedupeEntities: () => set((s) => ({ entities: dedupeCosmosList(s.entities) })),
 
       setSettings: (patch) => set((s) => ({ settings: { ...s.settings, ...patch } })),
       setPresetEntries: (entries, name, version) =>
@@ -363,6 +428,8 @@ export const useCosmos = create<CosmosState>()(
         return {
           ...current,
           ...persisted,
+          // 读档即去重：合并历史存档里因 AI 抄括号堆出来的「「天启乐园」」级联重复
+          entities: dedupeCosmosList(Array.isArray(persisted?.entities) ? persisted.entities : (current.entities ?? [])),
           settings: {
             ...DEFAULT_SETTINGS,
             ...ps,

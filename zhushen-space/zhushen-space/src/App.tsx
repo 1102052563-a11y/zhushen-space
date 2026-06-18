@@ -3810,6 +3810,7 @@ ${AFFIX_EFFECT_RULE}`;
         useCosmos.getState().markEvolved(String(e.name), turn);
         n++;
       }
+      try { useCosmos.getState().dedupeEntities(); } catch { /* 防御：本轮即合并任何漏网的同名重复 */ }
       const digest = typeof j?.digest === 'string' ? j.digest : '';
       console.log(`[Cosmos] 万族演化应用 ${n} 个实体变更`, digest);
       setCosmosPhaseLog(digest ? `✓ 万族演化：${digest.slice(0, 40)}` : `✓ 万族演化完成（${n} 项变更）`);

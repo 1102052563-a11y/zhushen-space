@@ -1,0 +1,24 @@
+name = "zhushen-multiplayer"
+main = "src/index.js"
+compatibility_date = "2026-05-01"
+
+# 两个 Durable Object：
+#   RoomDO  —— 每个房间一个实例（WS 协调 + 房间权威状态）
+#   LobbyDO —— 单例（idFromName("global")），公共大厅注册表
+[[durable_objects.bindings]]
+name = "ROOMS"
+class_name = "RoomDO"
+
+[[durable_objects.bindings]]
+name = "LOBBY"
+class_name = "LobbyDO"
+
+# SQLite 后端：免费计划可用，且是我们算过的低价档
+[[migrations]]
+tag = "v1"
+new_sqlite_classes = ["RoomDO", "LobbyDO"]
+
+[vars]
+# 允许的前端来源（逗号分隔）。留空 = 反射请求来源（本后端无 cookie，可接受）。
+# 上线后建议填：https://zhushen-space.pages.dev,http://localhost:5173
+ALLOWED_ORIGINS = ""

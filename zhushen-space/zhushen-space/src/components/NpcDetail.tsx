@@ -8,6 +8,8 @@ import { generateNpcAttrs, resolveForm, UNIT_TYPE_LABELS } from '../systems/npcA
 import { usePlayer, type PlayerAttrs } from '../store/playerStore';
 import { useItems, gradeBadgeClass, gradeNameClass, gradeToNum, splitAffixEntries } from '../store/itemStore';
 import { movePlayerItemToNpc, moveNpcItemToPlayer } from '../systems/itemTransfer';
+import { REAL_ATTR_STEP, crossedMilestone } from '../systems/attrTalent';
+import AttrTalentPicker from './AttrTalentPicker';
 import { CAT_ICON } from './BackpackModal';
 import NpcEquip from './NpcEquip';
 import NpcChatPanel from './NpcChatPanel';
@@ -1059,6 +1061,20 @@ function AttrTab({ npc: npcProp, realm }: { npc: NpcRecord; realm: ReturnType<ty
   const derived = computeDerived(effAttrs, lvFromRealm(npc.realm), npcEquipped);   // 衍生属性按"有效六维"
   const derivedNoEq = computeDerived(effAttrs, lvFromRealm(npc.realm), []);
   const [derivedPop, setDerivedPop] = useState<keyof typeof derived | null>(null);
+  // 真实属性·加点（NPC）：消耗 1 真实属性点 → 该属性真实属性 +1（基础 +80）；跨里程碑 20/80/120 触发四选一逆天天赋（玩家替 NPC 选）
+  const realPts = npc.realAttrPoints ?? 0;
+  const [attrPicker, setAttrPicker] = useState<{ key: keyof PlayerAttrs; label: string; milestone: number; trueValue: number } | null>(null);
+  const allocateRealNpc = (key: keyof PlayerAttrs, label: string) => {
+    const rec = useNpc.getState().npcs[npc.id];
+    if (!rec || (rec.realAttrPoints ?? 0) <= 0) return;
+    const base = rec.attrs?.[key] ?? 0;
+    const oldTrue = trueAttr(base);
+    const newBase = base + REAL_ATTR_STEP;
+    const baseAttrs: PlayerAttrs = rec.attrs ?? { str: 0, agi: 0, con: 0, int: 0, cha: 0, luck: 0 };
+    upsertNpc(npc.id, { realAttrPoints: (rec.realAttrPoints ?? 0) - 1, attrs: { ...baseAttrs, [key]: newBase } });
+    const ms = crossedMilestone(oldTrue, trueAttr(newBase));
+    if (ms != null) setAttrPicker({ key, label, milestone: ms, trueValue: trueAttr(newBase) });
+  };
   return (
     <div>
       <Section title="资源与状态">
@@ -1097,22 +1113,41 @@ function AttrTab({ npc: npcProp, realm }: { npc: NpcRecord; realm: ReturnType<ty
             </button>
           </div>
           {hasAttrs && (
-            <button onClick={() => setShowTrue((v) => !v)} title="真实属性 = 每80点普通属性折算1点"
-              className="text-[11px] font-mono px-1.5 py-0.5 rounded border border-edge text-dim/60 hover:border-god/40 hover:text-god transition-colors">
-              {showTrue ? '基础属性' : '真实属性'}
-            </button>
+            <div className="flex items-center gap-1.5 shrink-0">
+              {showTrue && <span className="text-[11px] font-mono text-amber-300/80" title="真实属性点：点属性「+」消耗它加真实属性（五阶后任务结算发放）">🔶{realPts}</span>}
+              <button onClick={() => setShowTrue((v) => !v)} title="真实属性 = 每80点普通属性折算1点；切到真实属性可加点（消耗真实属性点）"
+                className="text-[11px] font-mono px-1.5 py-0.5 rounded border border-edge text-dim/60 hover:border-god/40 hover:text-god transition-colors">
+                {showTrue ? '基础属性' : '真实属性'}
+              </button>
+            </div>
           )}
         </div>
         <div className="grid grid-cols-3 gap-2">
           {attrDefs.map(({ key, label }) => {
             const bk = breakdown[key]; const bonus = bk.total - bk.base;
+            // 真实属性视图：可加点（消耗真实属性点），故用 div + 内嵌「+」按钮（按钮不可嵌套于按钮）
+            if (showTrue) {
+              return (
+                <div key={key} className="rounded-lg border border-edge bg-void/40 px-2 py-1.5">
+                  <div className="text-[11px] font-mono text-dim/50">真实{label}</div>
+                  <div className="flex items-center justify-between gap-1">
+                    <span className="text-sm font-mono font-bold text-amber-300/90">{npc.attrs ? trueAttr(bk.total) : '—'}</span>
+                    {hasAttrs && (
+                      <button onClick={() => allocateRealNpc(key, label)} disabled={realPts <= 0}
+                        title={realPts > 0 ? `消耗 1 真实属性点：真实${label} +1（基础 +80）；跨里程碑20/80/120触发逆天天赋四选一` : '该 NPC 暂无真实属性点'}
+                        className="w-5 h-5 flex items-center justify-center rounded border text-[14px] font-bold leading-none transition-colors border-god/40 text-god hover:bg-god/15 disabled:opacity-25 disabled:cursor-not-allowed">+</button>
+                    )}
+                  </div>
+                </div>
+              );
+            }
             return (
               <button key={key} onClick={() => hasAttrs && setAttrPop(attrPop === key ? null : key)} title="点击查看属性构成"
                 className="text-left rounded-lg border border-edge bg-void/40 px-2 py-1.5 hover:border-god/40 transition-colors">
-                <div className="text-[11px] font-mono text-dim/50">{showTrue ? `真实${label}` : label}</div>
-                <div className={`text-sm font-mono font-bold ${showTrue ? 'text-amber-300/90' : 'text-slate-100'}`}>
-                  {npc.attrs ? (showTrue ? trueAttr(bk.total) : bk.total) : '—'}
-                  {!showTrue && bonus !== 0 && <span className={`ml-0.5 text-[11px] ${bonus > 0 ? 'text-emerald-400/70' : 'text-blood/70'}`}>({bonus > 0 ? '+' : ''}{bonus})</span>}
+                <div className="text-[11px] font-mono text-dim/50">{label}</div>
+                <div className="text-sm font-mono font-bold text-slate-100">
+                  {npc.attrs ? bk.total : '—'}
+                  {bonus !== 0 && <span className={`ml-0.5 text-[11px] ${bonus > 0 ? 'text-emerald-400/70' : 'text-blood/70'}`}>({bonus > 0 ? '+' : ''}{bonus})</span>}
                 </div>
               </button>
             );
@@ -1166,6 +1201,20 @@ function AttrTab({ npc: npcProp, realm }: { npc: NpcRecord; realm: ReturnType<ty
           </div>
         </div>
       </Section>
+
+      {/* 真实属性里程碑·四选一逆天天赋（NPC，玩家替其选） */}
+      {attrPicker && (
+        <AttrTalentPicker
+          charId={npc.id}
+          charName={npc.name || '该角色'}
+          charTier={realm.tier}
+          attrLabel={attrPicker.label}
+          milestone={attrPicker.milestone}
+          trueValue={attrPicker.trueValue}
+          isPlayer={false}
+          onClose={() => setAttrPicker(null)}
+        />
+      )}
     </div>
   );
 }

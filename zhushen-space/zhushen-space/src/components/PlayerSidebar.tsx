@@ -16,6 +16,8 @@ import { useImageViewer } from '../store/imageViewerStore';
 import { PortraitPicker, PortraitLibraryModal } from './PortraitPicker';
 import { genPortraitTags } from '../systems/imageTags';
 import Bar, { BAR_STYLES } from './Bar';
+import AttrTalentPicker from './AttrTalentPicker';
+import { REAL_ATTR_STEP, crossedMilestone } from '../systems/attrTalent';
 
 function DerivedRow({ label, value }: { label: string; value: number }) {
   return (
@@ -193,6 +195,19 @@ export default function PlayerSidebar({ onClose }: { onClose?: () => void }) {
   const derivedNoEq = computeDerived(effAttrs, profile.level, []);     // 仅六维+等级部分（用于拆出装备贡献）
   const [attrPop, setAttrPop] = useState<keyof PlayerAttrs | null>(null);   // 点击查看属性构成
   const [derivedPop, setDerivedPop] = useState<keyof typeof derived | null>(null);
+  // 真实属性·加点：消耗 1 真实属性点 → 该属性真实属性 +1（基础 +80）；跨里程碑 20/80/120 触发四选一逆天天赋
+  const realPts = profile.realAttrPoints ?? 0;
+  const [attrPicker, setAttrPicker] = useState<{ key: keyof PlayerAttrs; label: string; milestone: number; trueValue: number } | null>(null);
+  const allocateReal = (key: keyof PlayerAttrs, label: string) => {
+    const cur = usePlayer.getState().profile;
+    if ((cur.realAttrPoints ?? 0) <= 0) return;
+    const base = cur.attrs[key] ?? 0;
+    const oldTrue = trueAttr(base);
+    const newBase = base + REAL_ATTR_STEP;
+    setProfile({ realAttrPoints: (cur.realAttrPoints ?? 0) - 1, attrs: { ...cur.attrs, [key]: newBase } });
+    const ms = crossedMilestone(oldTrue, trueAttr(newBase));
+    if (ms != null) setAttrPicker({ key, label, milestone: ms, trueValue: trueAttr(newBase) });
+  };
 
   return (
     <>
@@ -264,12 +279,14 @@ export default function PlayerSidebar({ onClose }: { onClose?: () => void }) {
 
         {/* 基础属性 / 真实属性（切换；真实=普通÷80 向下取整，>80 才产生） */}
         <div className="p-3 border-b border-edge">
-          <div className="text-sm text-god font-mono mb-2 flex items-center justify-between">
-            <span>⚔ {showTrueAttr ? '真实属性' : '基础属性'}</span>
+          <div className="text-sm text-god font-mono mb-2 flex items-center justify-between gap-2">
+            <span className="flex items-center gap-2">⚔ {showTrueAttr ? '真实属性' : '基础属性'}
+              {showTrueAttr && <span className="text-[11px] font-mono text-amber-300/80" title="真实属性点：五阶后由任务结算发放，点属性旁「+」消耗它加真实属性">🔶真实属性点 {realPts}</span>}
+            </span>
             <button
               onClick={() => setShowTrueAttr((v) => !v)}
-              title="真实属性 = 每80点普通属性折算1点"
-              className="text-[11px] font-mono px-1.5 py-0.5 rounded border border-edge text-dim/60 hover:border-god/40 hover:text-god transition-colors"
+              title="真实属性 = 每80点普通属性折算1点；切到真实属性可加点（消耗真实属性点）"
+              className="text-[11px] font-mono px-1.5 py-0.5 rounded border border-edge text-dim/60 hover:border-god/40 hover:text-god transition-colors shrink-0"
             >{showTrueAttr ? '基础属性' : '真实属性'}</button>
           </div>
           <div className="grid grid-cols-2 gap-x-3 gap-y-1.5">
@@ -280,7 +297,14 @@ export default function PlayerSidebar({ onClose }: { onClose?: () => void }) {
                 <div key={key} className="flex items-center justify-between text-[13px]">
                   <span className="text-dim/60 font-mono">{showTrueAttr ? `真实${label}` : label}</span>
                   {showTrueAttr
-                    ? <span className="font-mono font-bold text-amber-300/90">{trueAttr(bk.total)}</span>
+                    ? (
+                      <span className="flex items-center gap-1.5">
+                        <span className="font-mono font-bold text-amber-300/90">{trueAttr(bk.total)}</span>
+                        <button onClick={() => allocateReal(key, label)} disabled={realPts <= 0}
+                          title={realPts > 0 ? `消耗 1 真实属性点：真实${label} +1（基础 +80）；跨里程碑20/80/120触发逆天天赋四选一` : '暂无真实属性点（主角五阶后由任务结算发放）'}
+                          className="w-5 h-5 flex items-center justify-center rounded border text-[14px] font-bold leading-none transition-colors border-god/40 text-god hover:bg-god/15 disabled:opacity-25 disabled:cursor-not-allowed">+</button>
+                      </span>
+                    )
                     : (
                       <button onClick={() => setAttrPop(attrPop === key ? null : key)} title="点击查看属性构成"
                         className="font-mono font-bold text-slate-100 hover:text-god transition-colors">
@@ -469,6 +493,20 @@ export default function PlayerSidebar({ onClose }: { onClose?: () => void }) {
           </div>
         )}
       </div>
+
+      {/* 真实属性里程碑·四选一逆天天赋（主角） */}
+      {attrPicker && (
+        <AttrTalentPicker
+          charId="B1"
+          charName={profile.name || '主角'}
+          charTier={profile.tier}
+          attrLabel={attrPicker.label}
+          milestone={attrPicker.milestone}
+          trueValue={attrPicker.trueValue}
+          isPlayer
+          onClose={() => setAttrPicker(null)}
+        />
+      )}
     </>
   );
 }
