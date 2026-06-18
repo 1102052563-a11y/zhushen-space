@@ -6,7 +6,7 @@ import { ATTR_KEYS, ATTR_LABEL } from '../systems/attrBonus';
 import { useSettings, resolveApiChain } from '../store/settingsStore';
 import { apiChatFallback } from '../systems/apiChat';
 import { lenientJsonParse } from '../systems/stateParser';
-import { SKILLTREE_GEN_PROMPT } from '../promptRules';
+import { SKILLTREE_STRUCT_PROMPT, SKILLTREE_SKILLS_PROMPT } from '../promptRules';
 import { SkillEditForm, TraitEditForm } from './CharEditForms';
 import ApiRoutePicker from './ApiRoutePicker';
 import TreeCanvas from './TreeCanvas';
