@@ -1,7 +1,8 @@
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect, useMemo } from 'react';
 import { useSettings, resolveApiChain } from '../store/settingsStore';
 import { apiChatFallback } from '../systems/apiChat';
 import { WORLD_GEN_PROMPT } from '../worldGenPrompt';
+import { findJoyBook, quickInsertTitles } from '../systems/joyWorldBook';   // 通用：按书名(姿势/BDSM)定位 + 取条目标题，复用于正文世界书
 
 export interface WorldOption {
   name: string;
@@ -28,6 +29,7 @@ interface Props {
   onPromptSent: (prompt: string) => void;
   onWorlds: (worlds: WorldOption[]) => void;
   onSettle?: () => void;   // 点「结算任务」：把【结算任务】塞进输入框，由正文 AI 按结算规则结算回归
+  onInsertText?: (text: string) => void;   // 点姿势/BDSM条目标题：把标题追加进输入框（绿灯关键词，发送后触发正文世界书注入）
   expanded?: boolean;      // 收起时（idle 阶段）不渲染「选择世界/结算任务」按钮行，省空间；点状态栏展开
 }
 
@@ -72,8 +74,9 @@ function extractJson(raw: string): WorldOption[] {
   throw new Error('模型未返回有效 JSON，请点击「查看返回」查看原始内容');
 }
 
-export default function WorldSelector({ onSelect, onRawResponse, onPromptSent, onWorlds, onSettle, expanded }: Props) {
+export default function WorldSelector({ onSelect, onRawResponse, onPromptSent, onWorlds, onSettle, onInsertText, expanded }: Props) {
   const [stage, setStage] = useState<Stage>('idle');
+  const [quickKind, setQuickKind] = useState<'pose' | 'bdsm' | null>(null);  // 展开的快捷条目类别（姿势/BDSM）
   const [rank, setRank] = useState('');
   const [rolls, setRolls] = useState<number[]>([]);
   const [worlds, setWorlds] = useState<WorldOption[]>([]);
@@ -84,6 +87,13 @@ export default function WorldSelector({ onSelect, onRawResponse, onPromptSent, o
   const api = useSettings((s) => s.api);
   const systemPrompt = useSettings((s) => s.systemPrompt);
   const worldBooks = useSettings((s) => s.worldBooks);
+  const textWorldBooks = useSettings((s) => s.textWorldBooks);
+
+  // 姿势 / BDSM 快捷按钮：从正文世界书里按书名定位两本，提取可插入的条目标题（参考欢愉宫包间快捷按钮）
+  const poseTitles = useMemo(() => quickInsertTitles(findJoyBook(textWorldBooks, 'pose')), [textWorldBooks]);
+  const bdsmTitles = useMemo(() => quickInsertTitles(findJoyBook(textWorldBooks, 'bdsm')), [textWorldBooks]);
+  const quickTitles = quickKind === 'pose' ? poseTitles : quickKind === 'bdsm' ? bdsmTitles : [];
+  const insertQuick = (title: string) => { onInsertText?.(title); };
 
   useEffect(() => {
     if (stage === 'config') rankRef.current?.focus();
@@ -217,21 +227,54 @@ export default function WorldSelector({ onSelect, onRawResponse, onPromptSent, o
   if (stage === 'idle') {
     if (!expanded) return null;   // 默认收起，由状态命令栏点击展开（按钮不常用，省空间）
     return (
-      <div className="shrink-0 border-t border-edge bg-panel px-3 py-2 flex items-center gap-2">
-        <button
-          onClick={() => setStage('config')}
-          className="flex items-center gap-2 px-3 py-1.5 border border-god/30 text-god text-sm rounded hover:bg-god/10 transition-colors font-mono"
-        >
-          🌍 选择世界
-        </button>
-        {onSettle && (
+      <div className="shrink-0 border-t border-edge bg-panel px-3 py-2 flex flex-col gap-2">
+        <div className="flex items-center gap-2 flex-wrap">
           <button
-            onClick={onSettle}
-            title="结算本世界任务：在输入框插入【结算任务】，发送后由正文 AI 按结算规则回归专属房间并发放奖励"
-            className="flex items-center gap-2 px-3 py-1.5 border border-amber-500/40 text-amber-300 text-sm rounded hover:bg-amber-500/10 transition-colors font-mono"
+            onClick={() => setStage('config')}
+            className="flex items-center gap-2 px-3 py-1.5 border border-god/30 text-god text-sm rounded hover:bg-god/10 transition-colors font-mono"
           >
-            📊 结算任务
+            🌍 选择世界
           </button>
+          {onSettle && (
+            <button
+              onClick={onSettle}
+              title="结算本世界任务：在输入框插入【结算任务】，发送后由正文 AI 按结算规则回归专属房间并发放奖励"
+              className="flex items-center gap-2 px-3 py-1.5 border border-amber-500/40 text-amber-300 text-sm rounded hover:bg-amber-500/10 transition-colors font-mono"
+            >
+              📊 结算任务
+            </button>
+          )}
+          {/* 姿势 / BDSM 快捷按钮（参考欢愉宫包间）：展开正文世界书条目标题→点一下填进输入框，发送后绿灯关键词触发对应描写注入 */}
+          {onInsertText && poseTitles.length > 0 && (
+            <button
+              onClick={() => setQuickKind(quickKind === 'pose' ? null : 'pose')}
+              title="性爱姿势世界书：点选体位标题填入输入框（绿灯关键词，发送后正文世界书自动注入对应描写）"
+              className={`flex items-center gap-1.5 px-3 py-1.5 border text-sm rounded font-mono transition-colors ${quickKind === 'pose' ? 'border-pink-400/60 text-pink-100 bg-pink-500/15' : 'border-pink-500/30 text-pink-300/90 hover:bg-pink-500/10'}`}
+            >
+              🤸 姿势 <span className="text-pink-300/40">{poseTitles.length}</span>
+            </button>
+          )}
+          {onInsertText && bdsmTitles.length > 0 && (
+            <button
+              onClick={() => setQuickKind(quickKind === 'bdsm' ? null : 'bdsm')}
+              title="BDSM 世界书：点选道具/调教标题填入输入框（绿灯关键词，发送后正文世界书自动注入对应描写）"
+              className={`flex items-center gap-1.5 px-3 py-1.5 border text-sm rounded font-mono transition-colors ${quickKind === 'bdsm' ? 'border-pink-400/60 text-pink-100 bg-pink-500/15' : 'border-pink-500/30 text-pink-300/90 hover:bg-pink-500/10'}`}
+            >
+              ⛓ BDSM <span className="text-pink-300/40">{bdsmTitles.length}</span>
+            </button>
+          )}
+          {quickKind && <span className="text-[11px] font-mono text-dim/45">点选填入输入框 · 可多选</span>}
+          {quickKind && <button onClick={() => setQuickKind(null)} className="ml-auto text-dim/40 hover:text-pink-200 text-[12px] font-mono">收起 ✕</button>}
+        </div>
+        {quickKind && (
+          <div className="max-h-32 overflow-y-auto flex flex-wrap gap-1.5 rounded-lg border border-pink-500/15 bg-void/50 p-2">
+            {quickTitles.map((t) => (
+              <button key={t} onClick={() => insertQuick(t)}
+                className="text-[12px] px-2 py-0.5 rounded-full border border-pink-500/25 text-pink-100/90 bg-pink-500/5 hover:bg-pink-500/20 hover:border-pink-400/50 transition-colors">
+                {t}
+              </button>
+            ))}
+          </div>
         )}
       </div>
     );

@@ -63,7 +63,9 @@ export interface PlayerProfile {
   homeParadise: string;  // 所属乐园（开局选定，基本不变：轮回乐园/圣光/死亡/天启/守望/自定义）
   preParadiseJob: string;// 主角背景（进入乐园前从事的职业；开局设定，基本不变）
   bioStrength: string;   // 生物强度模板（T0杂鱼~T9源初，存如"T3·勇士"；按强度框架由AI维护）
-  attrs: PlayerAttrs;    // 基础属性
+  attrs: PlayerAttrs;    // 基础属性（普通属性；属性点加点直接 +1 这里）
+  realAttrs?: Partial<PlayerAttrs>;  // 真实属性·直加分配（真实属性点加点 +1 这里，与基础属性互相独立、互不影响）；
+                                     // 面板显示的真实属性 = floor(基础/80) + 这里的直加值（缺省=0）
   status: string;        // 当前状态/Buff（长期/无时限，自由文本，主角演化维护列4）
   statusEffects: StatusEffect[]; // 限时状态（引擎自动过期）
   appearance: string;    // 外观描写（会随剧情演化）
@@ -89,7 +91,7 @@ export interface PlayerProfile {
 export const DEFAULT_PLAYER_PROFILE: PlayerProfile = {
   name: '', level: 1, worldSource: 0, attrPoints: 0, realAttrPoints: 0, tier: '一阶', title: '', profession: '', arenaRank: '',
   identity: '', brandLevel: '1', contractorId: '', homeParadise: '', preParadiseJob: '', bioStrength: '',   // 烙印等级起始＝1（契约者基础烙印，非空）
-  attrs: { str: 5, agi: 5, con: 5, int: 5, cha: 5, luck: 5 },
+  attrs: { str: 5, agi: 5, con: 5, int: 5, cha: 5, luck: 5 }, realAttrs: {},
   status: '', statusEffects: [], appearance: '', location: '',
   background: '', deedLog: [],
 };

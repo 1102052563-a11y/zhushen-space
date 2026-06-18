@@ -19,6 +19,7 @@ export class RoomDO {
     this.combat = null; // 最后一次 combat_snapshot 载荷
     this.turn = null; // {turnId,phase:'collecting'|'resolved',startedAt,inputs:{seatId:{name,text,at}}}
     this.comments = []; // 弹幕环形缓冲（最多 100）
+    this.transcript = []; // 正文进度日志（供中途加入者补看，最多 80 条）
     this._loaded = null;
     // 心跳：客户端发字符串 "ping" → 运行时直接回 "pong"，不唤醒 DO（不计费）
     try {
@@ -30,13 +31,14 @@ export class RoomDO {
   #ensureLoaded() {
     if (!this._loaded) {
       this._loaded = (async () => {
-        const s = await this.ctx.storage.get(["meta", "seats", "world", "combat", "turn", "comments"]);
+        const s = await this.ctx.storage.get(["meta", "seats", "world", "combat", "turn", "comments", "transcript"]);
         this.meta = s.get("meta") || this.meta;
         this.seats = s.get("seats") || [];
         this.world = s.get("world") || null;
         this.combat = s.get("combat") || null;
         this.turn = s.get("turn") || null;
         this.comments = s.get("comments") || [];
+        this.transcript = s.get("transcript") || [];
       })();
     }
     return this._loaded;
@@ -131,7 +133,8 @@ export class RoomDO {
 
     // 给新连接做完整同步（晚加入/重连都靠这一段）
     this.#sendTo(server, { type: "room_state", room: this.#publicState(), you: { playerId, role, seatId } });
-    if (this.world) this.#sendTo(server, { type: "world_snapshot", payload: this.world });
+    if (this.world) this.#sendTo(server, { type: "world_snapshot", payload: this.world, replay: true });   // replay=只同步世界态，正文走 narrative_log 免重复
+    if (this.transcript.length) this.#sendTo(server, { type: "narrative_log", entries: this.transcript });  // 中途加入：补看房主正文进度
     if (this.combat) this.#sendTo(server, { type: "combat_snapshot", payload: this.combat });
     this.#sendTo(server, { type: "player_snapshots", seats: this.#seatCards() });
     if (this.comments.length) this.#sendTo(server, { type: "room_comment", backlog: this.comments.slice(-50) });
@@ -180,6 +183,12 @@ export class RoomDO {
         if (!isHost) return this.#deny(ws);
         this.world = msg.payload;
         if (this.turn) this.turn.phase = "resolved";
+        // 累积正文进度日志（供中途加入者补看）
+        { const pl = msg.payload || {};
+          if (pl.turnUser) this.transcript.push({ role: "user", content: String(pl.turnUser).slice(0, 4000) });
+          if (pl.narrative) this.transcript.push({ role: "assistant", content: String(pl.narrative).slice(0, 8000) });
+          if (this.transcript.length > 80) this.transcript = this.transcript.slice(-80);
+          await this.ctx.storage.put("transcript", this.transcript); }
         await this.ctx.storage.put("world", this.world);
         if (this.turn) await this.ctx.storage.put("turn", this.turn);
         this.#broadcast({ type: "world_snapshot", payload: this.world });
@@ -236,6 +245,16 @@ export class RoomDO {
       case "close_room": {
         if (!isHost) return this.#deny(ws);
         await this.#close();
+        break;
+      }
+      case "relay": {
+        // 通用透传（赠予/分享等都走这条，免得每个新功能都改后端）：广播给全房，带上发送者信息
+        this.#broadcast({
+          type: "relayed",
+          event: String(msg.event || ""),
+          from: { seatId: att.seatId, name: att.name, role: att.role, playerId: att.playerId },
+          payload: msg.payload,
+        });
         break;
       }
       case "ping": {

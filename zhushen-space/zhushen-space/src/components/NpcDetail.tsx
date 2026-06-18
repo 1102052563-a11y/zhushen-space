@@ -8,7 +8,7 @@ import { generateNpcAttrs, resolveForm, UNIT_TYPE_LABELS } from '../systems/npcA
 import { usePlayer, type PlayerAttrs } from '../store/playerStore';
 import { useItems, gradeBadgeClass, gradeNameClass, gradeToNum, splitAffixEntries } from '../store/itemStore';
 import { movePlayerItemToNpc, moveNpcItemToPlayer } from '../systems/itemTransfer';
-import { REAL_ATTR_STEP, milestonesCrossed } from '../systems/attrTalent';
+import { milestonesCrossed } from '../systems/attrTalent';
 import AttrTalentPicker from './AttrTalentPicker';
 import { CAT_ICON } from './BackpackModal';
 import NpcEquip from './NpcEquip';
@@ -1061,19 +1061,24 @@ function AttrTab({ npc: npcProp, realm }: { npc: NpcRecord; realm: ReturnType<ty
   const derived = computeDerived(effAttrs, lvFromRealm(npc.realm), npcEquipped);   // 衍生属性按"有效六维"
   const derivedNoEq = computeDerived(effAttrs, lvFromRealm(npc.realm), []);
   const [derivedPop, setDerivedPop] = useState<keyof typeof derived | null>(null);
-  // 属性加点（NPC，待确认/结算模型，玩家替其操作）：普通属性「+」消耗 NPC「属性点」(每点+1基础)，真实属性「+」消耗「真实属性点」(每点+1真实=+80基础)。
+  // 属性加点（NPC，待确认/结算模型，玩家替其操作）：普通属性「+」消耗「属性点」(每点+1基础 attrs)，真实属性「+」消耗「真实属性点」(每点+1真实·直加 realAttrs，**不动基础**，两者独立)。
   // 点「+/−」只暂存；点「✓ 确认加点」才结算：扣点、加属性，并为跨过的所有里程碑逐个弹四选一逆天天赋写进该 NPC 天赋。
   const attrPts = npc.attrPoints ?? 0;
   const realPts = npc.realAttrPoints ?? 0;
+  const realAttrs = npc.realAttrs ?? {};   // 真实属性·直加分配（与基础独立）
   const [pending, setPending] = useState<Record<string, { ap: number; rap: number }>>({});
   const [pickerQueue, setPickerQueue] = useState<{ key: keyof PlayerAttrs; label: string; milestone: number }[]>([]);
   const stagedAp = Object.values(pending).reduce((s, v) => s + (v.ap || 0), 0);
   const stagedRap = Object.values(pending).reduce((s, v) => s + (v.rap || 0), 0);
   const apLeft = attrPts - stagedAp, rapLeft = realPts - stagedRap;
   const stage = (key: keyof PlayerAttrs) => setPending((p) => {
+    if (key === 'luck') return p;   // 幸运禁止加点（前端机械生成）
     const cur = p[key] ?? { ap: 0, rap: 0 };
-    if (showTrue) return rapLeft <= 0 ? p : { ...p, [key]: { ...cur, rap: cur.rap + 1 } };
-    return apLeft <= 0 ? p : { ...p, [key]: { ...cur, ap: cur.ap + 1 } };
+    // 在 updater 内部按最新 pending 算剩余，避免同一渲染内连点超额暂存（attrPts/realPts 在确认前不变）
+    const usedAp = Object.values(p).reduce((s, v) => s + (v.ap || 0), 0);
+    const usedRap = Object.values(p).reduce((s, v) => s + (v.rap || 0), 0);
+    if (showTrue) return realPts - usedRap <= 0 ? p : { ...p, [key]: { ...cur, rap: cur.rap + 1 } };
+    return attrPts - usedAp <= 0 ? p : { ...p, [key]: { ...cur, ap: cur.ap + 1 } };
   });
   const unstage = (key: keyof PlayerAttrs) => setPending((p) => {
     const cur = p[key]; if (!cur) return p;
@@ -1087,17 +1092,20 @@ function AttrTab({ npc: npcProp, realm }: { npc: NpcRecord; realm: ReturnType<ty
     const rec = useNpc.getState().npcs[npc.id]; if (!rec) return;
     const baseAttrs: PlayerAttrs = rec.attrs ?? { str: 0, agi: 0, con: 0, int: 0, cha: 0, luck: 0 };
     const newAttrs = { ...baseAttrs };
+    const newReal: Partial<PlayerAttrs> = { ...(rec.realAttrs ?? {}) };
     const queue: { key: keyof PlayerAttrs; label: string; milestone: number }[] = [];
     let useAp = 0, useRap = 0;
     for (const def of attrDefs) {
       const pd = pending[def.key]; if (!pd || (!pd.ap && !pd.rap)) continue;
       const oldBase = baseAttrs[def.key] ?? 0;
-      const newBase = oldBase + pd.ap + pd.rap * REAL_ATTR_STEP;
-      newAttrs[def.key] = newBase; useAp += pd.ap; useRap += pd.rap;
-      for (const m of milestonesCrossed(trueAttr(oldBase), trueAttr(newBase))) queue.push({ key: def.key, label: def.label, milestone: m });
+      const oldAlloc = (rec.realAttrs?.[def.key]) ?? 0;
+      const newBase = oldBase + pd.ap;            // 属性点 → +1 基础
+      const newAlloc = oldAlloc + pd.rap;         // 真实属性点 → +1 真实·直加（不动基础）
+      newAttrs[def.key] = newBase; newReal[def.key] = newAlloc; useAp += pd.ap; useRap += pd.rap;
+      for (const m of milestonesCrossed(trueAttr(oldBase) + oldAlloc, trueAttr(newBase) + newAlloc)) queue.push({ key: def.key, label: def.label, milestone: m });
     }
     if (!useAp && !useRap) return;
-    upsertNpc(npc.id, { attrs: newAttrs, attrPoints: Math.max(0, (rec.attrPoints ?? 0) - useAp), realAttrPoints: Math.max(0, (rec.realAttrPoints ?? 0) - useRap) });
+    upsertNpc(npc.id, { attrs: newAttrs, realAttrs: newReal, attrPoints: Math.max(0, (rec.attrPoints ?? 0) - useAp), realAttrPoints: Math.max(0, (rec.realAttrPoints ?? 0) - useRap) });
     setPending({});
     if (queue.length) setPickerQueue(queue);
   };
@@ -1156,24 +1164,27 @@ function AttrTab({ npc: npcProp, realm }: { npc: NpcRecord; realm: ReturnType<ty
             const pd = pending[key] ?? { ap: 0, rap: 0 };
             const pendCount = showTrue ? pd.rap : pd.ap;     // 当前视图单位下的待加点数
             const canStage = showTrue ? rapLeft > 0 : apLeft > 0;
+            const allocatable = key !== 'luck';              // 幸运由前端机械生成，禁止手动加点
             return (
               <div key={key} className="rounded-lg border border-edge bg-void/40 px-2 py-1.5">
                 <div className="text-[11px] font-mono text-dim/50">{showTrue ? `真实${label}` : label}</div>
                 <div className="flex items-center justify-between gap-1">
                   {showTrue
-                    ? <span className="text-sm font-mono font-bold text-amber-300/90">{npc.attrs ? trueAttr(bk.total) : '—'}</span>
+                    ? <span className="text-sm font-mono font-bold text-amber-300/90" title="真实属性 = 基础÷80 + 真实属性点直加">{npc.attrs ? trueAttr(bk.total) + (realAttrs[key] ?? 0) : '—'}</span>
                     : <button onClick={() => hasAttrs && setAttrPop(attrPop === key ? null : key)} title="点击查看属性构成"
                         className="text-sm font-mono font-bold text-slate-100 hover:text-god transition-colors text-left">
                         {npc.attrs ? bk.total : '—'}{bonus !== 0 && <span className={`ml-0.5 text-[11px] ${bonus > 0 ? 'text-emerald-400/70' : 'text-blood/70'}`}>({bonus > 0 ? '+' : ''}{bonus})</span>}
                       </button>}
                   {hasAttrs && (
                     <span className="flex items-center gap-1 shrink-0">
-                      {pendCount > 0 && <span className="text-[11px] font-mono text-emerald-400/90" title="待确认的加点">+{pendCount}</span>}
-                      {pendCount > 0 && <button onClick={() => unstage(key)} title="撤销一点待加点"
+                      {allocatable && pendCount > 0 && <span className="text-[11px] font-mono text-emerald-400/90" title="待确认的加点">+{pendCount}</span>}
+                      {allocatable && pendCount > 0 && <button onClick={() => unstage(key)} title="撤销一点待加点"
                         className="w-4 h-4 flex items-center justify-center rounded border border-edge text-dim/60 hover:text-blood hover:border-blood/40 text-[12px] font-bold leading-none">−</button>}
-                      <button onClick={() => stage(key)} disabled={!canStage}
-                        title={showTrue ? (canStage ? `暂存 1 真实属性点：真实${label} +1（基础 +80）` : '真实属性点不足') : (canStage ? `暂存 1 属性点：${label} +1` : '属性点不足')}
-                        className="w-5 h-5 flex items-center justify-center rounded border text-[14px] font-bold leading-none transition-colors border-god/40 text-god hover:bg-god/15 disabled:opacity-25 disabled:cursor-not-allowed">+</button>
+                      {allocatable
+                        ? <button onClick={() => stage(key)} disabled={!canStage}
+                            title={showTrue ? (canStage ? `暂存 1 真实属性点：真实${label} +1（真实属性直加，不动基础）` : '真实属性点不足') : (canStage ? `暂存 1 属性点：${label} +1` : '属性点不足')}
+                            className="w-5 h-5 flex items-center justify-center rounded border text-[14px] font-bold leading-none transition-colors border-god/40 text-god hover:bg-god/15 disabled:opacity-25 disabled:cursor-not-allowed">+</button>
+                        : <span title="幸运由前端机械生成，不可手动加点" className="text-[12px] text-dim/30 leading-none px-1">🔒</span>}
                     </span>
                   )}
                 </div>

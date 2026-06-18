@@ -39,6 +39,11 @@ function trueScore(a: DiceAttrs): number {
   return ATTR_KEYS.reduce((s, k) => s + trueAttr(a[k]), 0);
 }
 
+/* 真实属性·直加分配总和（Σ realAttrs[k]）。真实属性点直加的真实属性也计入战斗碾压因子（与面板显示口径一致）。 */
+function sumRealAttrs(ra?: Partial<Record<AttrKey, number>>): number {
+  return ra ? ATTR_KEYS.reduce((s, k) => s + (ra[k] ?? 0), 0) : 0;
+}
+
 const equippedOf = (arr: any[] | undefined): EquipItemLite[] =>
   (arr ?? []).filter((it) => it?.equipped).map((it) => ({ category: it?.category as string, grade: (it?.numeric?.grade as number) ?? gradeToNum(it?.gradeDesc) }));
 
@@ -84,7 +89,7 @@ export function buildCombatant(id: string, side: Side, override?: Partial<Combat
     const maxHp = fullMaxHp(baseTT, equippedFull as any, b1c?.skills, [...(b1c?.traits ?? []), ...teamPerkAbil]), maxEp = fullMaxEp(baseTT, equippedFull as any, b1c?.skills, [...(b1c?.traits ?? []), ...teamPerkAbil]);
     const g = useGame.getState().player;
     return {
-      side, name: p.name || '主角', attrs, level: p.level, tier: p.tier || realmFromLevel(p.level),
+      side, name: p.name || '主角', attrs, trueBonus: sumRealAttrs(p.realAttrs), level: p.level, tier: p.tier || realmFromLevel(p.level),
       bioStrength: p.bioStrength || '', favor: undefined,
       patk: d.patk, pdef: d.pdef, matk: d.matk, mdef: d.mdef,
       maxHp, maxEp, initHp: effectiveResource(g.hp, g.maxHp, maxHp), initEp: effectiveResource(g.mp, g.maxMp, maxEp),
@@ -100,7 +105,7 @@ export function buildCombatant(id: string, side: Side, override?: Partial<Combat
   // 上限传**基础六维**（fullMaxHp 内部会折六维加成；传 attrs 会双算）
   const maxHp = fullMaxHp(npc?.attrs ?? DEFAULT_ATTRS, equippedFull as any, npcC?.skills, npcC?.traits), maxEp = fullMaxEp(npc?.attrs ?? DEFAULT_ATTRS, equippedFull as any, npcC?.skills, npcC?.traits);
   return {
-    side, name: npc?.name || id, attrs, level, tier: normalizeTier(npc?.realm) || realmFromLevel(level),
+    side, name: npc?.name || id, attrs, trueBonus: sumRealAttrs(npc?.realAttrs), level, tier: normalizeTier(npc?.realm) || realmFromLevel(level),
     bioStrength: npc?.bioStrength || '', favor: npc?.favor,
     patk: d.patk, pdef: d.pdef, matk: d.matk, mdef: d.mdef,
     maxHp, maxEp,
@@ -110,7 +115,7 @@ export function buildCombatant(id: string, side: Side, override?: Partial<Combat
 
 /* 是否由玩家手动操控：主角 B1 永远是；玩家方队友仅在开启「手动控制队友」时 */
 export function playerControlled(id: string, side: Side, manualAlly: boolean): boolean {
-  return id === 'B1' || (side === 'player' && manualAlly);
+  return id === 'B1' || id.startsWith('MP_') || (side === 'player' && manualAlly);   // MP_*=联机来宾的战斗角色，由对应来宾远程出手（房主等待）
 }
 
 /* 先攻：敏捷 + 智力×0.3 + 随机(0~3)，降序排（对应凡人 speed+0.3神识） */
@@ -569,7 +574,7 @@ export function settleAction(opts: {
     const tEff = effCombatStats(target, tBlock);
     const defStat = magic ? tEff.mdef : tEff.pdef;
     // 幸运双向（出手方加成、防御方进 DC）+ 真实属性差（碾压）：都走 extraMod
-    const atkTrue = trueScore(actorBlock.attrs), defTrue = trueScore(tBlock.attrs);
+    const atkTrue = trueScore(actorBlock.attrs) + (actorBlock.trueBonus ?? 0), defTrue = trueScore(tBlock.attrs) + (tBlock.trueBonus ?? 0);
     const fe = resolve({
       mode: 'd20', attrs: actorBlock.attrs, attrKey: atkKey, difficulty: '普通',
       skills: abilities.skills, talents: abilities.talents, equipped: abilities.equipped,

@@ -6,10 +6,10 @@ import type { Trait } from '../store/characterStore';
 import { ATTR_TALENT_GEN_RULE } from '../promptRules';
 
 /* 真实属性·加点与里程碑天赋（主角 B1 + NPC Cx 共用，纯前端确定性 + 一次 AI 生成）。
-   - 加点消耗「真实属性点」(realAttrPoints)，每 1 点让该属性的真实属性 +1（＝基础属性 +80，trueAttr=floor(基础/80)）。
-   - 当某属性的真实属性跨过里程碑 20/80/120 时，调主角演化 API 生成 4 个该属性专属的「逆天级」天赋供玩家四选一。*/
+   - 普通属性加点消耗「属性点」(attrPoints)，每点 +1 基础属性(attrs)。
+   - 真实属性加点消耗「真实属性点」(realAttrPoints)，每点 +1 真实属性·直加分配(realAttrs)，**不动基础属性**（两者独立）。
+   - 真实属性显示值 = floor(基础/80) + realAttrs 直加值；跨里程碑 20/80/120 时调主角演化 API 生成 4 个逆天天赋供四选一。*/
 
-export const REAL_ATTR_STEP = 80;                 // 每 1 真实属性 ＝ 80 基础属性（与 derivedStats.trueAttr 对齐）
 export const ATTR_MILESTONES = [20, 80, 120];     // 真实属性里程碑：触发四选一逆天天赋
 
 /* 本次加点跨过的所有里程碑（真实属性从 oldTrue 升到 newTrue，左开右闭）；一次确认可能跨多个。

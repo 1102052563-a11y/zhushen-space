@@ -25,12 +25,27 @@ function download(name: string, data: string) {
   setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
 
-/* 从 AI 回复里抠出 JSON 本体（容忍 markdown 代码块/前后废话）*/
+/* 从 AI 回复里抠出 JSON 本体（容忍 markdown 代码块/前后废话/思考模型的整段思维链）。
+   思维链里常有零碎 {…}，故优先取代码块、再用「从末尾配平括号」抓最后一个完整 JSON 对象，最后才退首{到末}。 */
 function extractJson(text: string): string {
-  let s = String(text ?? '').replace(/```json/gi, '').replace(/```/g, '').trim();
+  let s = String(text ?? '');
+  // 1) 优先取最后一个 ```json … ``` / ``` … ``` 代码块（模型常把最终答案放代码块）
+  const fences = [...s.matchAll(/```(?:json)?\s*([\s\S]*?)```/gi)];
+  for (let k = fences.length - 1; k >= 0; k--) { const blk = fences[k][1].trim(); if (blk.includes('{')) { s = blk; break; } }
+  s = s.replace(/```json/gi, '').replace(/```/g, '').trim();
+  // 2) 从最后一个 } 往回配平括号，取最后一个完整 JSON 对象（绕开思维链里的零碎 {}）
+  const end = s.lastIndexOf('}');
+  if (end >= 0) {
+    let depth = 0;
+    for (let k = end; k >= 0; k--) {
+      const c = s[k];
+      if (c === '}') depth++;
+      else if (c === '{') { depth--; if (depth === 0) return s.slice(k, end + 1); }
+    }
+  }
+  // 3) 兜底：首 { 到末 }
   const i = s.indexOf('{'), j = s.lastIndexOf('}');
-  if (i >= 0 && j > i) s = s.slice(i, j + 1);
-  return s;
+  return (i >= 0 && j > i) ? s.slice(i, j + 1) : s;
 }
 
 export default function SkillTreeManager() {
@@ -152,14 +167,16 @@ export default function SkillTreeManager() {
     const desc = genDesc.trim();
     const nBr = Math.max(2, Math.min(12, parseInt(genBranches, 10) || 4));
     const searchExtra = webSearch ? { tools: [{ google_search: {} }] } : undefined;
-    // 调一次 AI；可选联网搜索(失败回退无搜索)
+    // 调一次 AI；统一给足 max_tokens（思考模型要留够 思维链 + 正文输出的空间，否则只思考不出答案）；可选联网搜索(失败回退无搜索)
+    const GEN_MAX_TOKENS = 80000;
     const call = async (sys: string, user: string, useSearch: boolean) => {
-      const ex = useSearch ? searchExtra : undefined;
-      const once = (extra?: Record<string, unknown>) => apiChatFallback(chain, [
+      const base = { max_tokens: GEN_MAX_TOKENS };
+      const withSearch = useSearch ? { ...base, ...searchExtra } : base;
+      const once = (extra: Record<string, unknown>) => apiChatFallback(chain, [
         { role: 'system', content: sys }, { role: 'user', content: user },
       ], { timeoutMs: 150000, extra });
-      try { return (await once(ex)).content; }
-      catch (e) { if (!ex) throw e; return (await once(undefined)).content; }
+      try { return (await once(withSearch)).content; }
+      catch (e) { if (!useSearch) throw e; return (await once(base)).content; }   // 搜索被拒→退回无搜索(仍带 max_tokens)
     };
 
     setGenBusy(true);

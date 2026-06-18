@@ -95,27 +95,91 @@ export interface PortraitStyle {
   equipNegative: string;
 }
 
+/* 通用正向质量串（NAI v4.5；真正起效的是 very aesthetic/masterpiece 这档，8k/4k 偏弱、只是锦上添花）*/
+const Q = 'very aesthetic, masterpiece, best quality, amazing quality, ultra-detailed, absurdres, highres, 8k';
+/* 通用负向：质量/版面瑕疵 + 人体手眼修正。
+   ⚠️ 铁律（用户明确要求）：绝不放 nsfw / nude / nipples 等"防擦边"压制词——欢愉宫/成人向场景必须能正常出图。改这里务必守住。*/
+const NEG = 'lowres, worst quality, bad quality, jpeg artifacts, artistic error, scan artifacts, chromatic aberration, blurry, multiple views, watermark, signature, username, logo, text, error, displeasing, very displeasing, abstract, unfinished, white blank page, negative space, bad anatomy, bad hands, bad proportions, extra digits, fewer digits, missing fingers, extra fingers, fused fingers, mutated hands, malformed limbs, extra arms, extra legs, deformed, long neck, cropped, bad eyes, mismatched pupils';
+
 export const DEFAULT_STYLES: PortraitStyle[] = [
   {
-    id: 'nai-anime', name: 'NAI 动漫（默认）',
-    artistTags: DEFAULT_ARTIST_TAGS, styleGuide: '画风：高质量日系动漫插画，干净线条，细腻上色。',
-    portraitPositive: '', portraitNegative: DEFAULT_PORTRAIT_NEG,
+    id: 'nai-anime', name: '日系动漫·通用（默认）',
+    artistTags: `${Q}, 1.3::artist:ciloranko::, artist:rella, artist:atdan, artist:as109, artist:fjsmu, artist:hiten, [artist:ke-ta], artist:ningen mame, 1.2::intricate details, sharp focus::, clean lineart, detailed eyes, year 2023`,
+    styleGuide: '画风：高质量日系动漫插画，干净线条、细腻上色、通透光感，人物精致。',
+    portraitPositive: 'anime, clean lineart, soft lighting',
+    portraitNegative: NEG,
+    portraitTemplate: DEFAULT_PORTRAIT_TEMPLATE, equipTemplate: DEFAULT_EQUIP_TEMPLATE, equipNegative: DEFAULT_EQUIP_NEG,
+  },
+  {
+    id: 'thick-paint', name: '半写实厚涂·特写',
+    artistTags: `${Q}, 1.4::artist:wlop::, 1.2::artist:ciloranko::, artist:ke-ta, artist:rhasta, artist:ruan jia, artist:jiu ye sang, [artist:ask (askzy)], 1.2::intricate details, sharp focus::, painterly, thick coating, detailed skin`,
+    styleGuide: '画风：电影概念艺术级半写实厚涂，真人骨相比例、厚涂笔触、强戏剧光影，质感厚重。',
+    portraitPositive: 'painterly, thick coating, dramatic lighting, rim lighting, depth of field',
+    portraitNegative: NEG,
+    portraitTemplate: DEFAULT_PORTRAIT_TEMPLATE, equipTemplate: DEFAULT_EQUIP_TEMPLATE, equipNegative: DEFAULT_EQUIP_NEG,
+  },
+  {
+    id: 'ethereal', name: '唯美仙气·华丽',
+    artistTags: `${Q}, artist:ciloranko, 1.3::artist:wlop::, artist:quasarcake, artist:tianliang duohe fangdongye, artist:rella, artist:as109, artist:ke-ta, intricate details, beautiful detailed sky`,
+    styleGuide: '画风：唯美梦幻、仙气飘渺，柔光、光粒子、辉光，华丽精致，氛围空灵。',
+    portraitPositive: 'ethereal, light particles, glowing, bloom, cinematic composition',
+    portraitNegative: NEG,
+    portraitTemplate: DEFAULT_PORTRAIT_TEMPLATE, equipTemplate: DEFAULT_EQUIP_TEMPLATE, equipNegative: DEFAULT_EQUIP_NEG,
+  },
+  {
+    id: 'vivid-pop', name: '鲜艳波普·活力',
+    artistTags: `${Q}, 1.3::artist:mika pikazo::, artist:ke-ta, artist:ningen mame, artist:sho_(sho_lwlw), artist:rhasta, artist:wlop, [artist:ciloranko], detailed background`,
+    styleGuide: '画风：鲜艳高饱和、波普活力，色彩冲击、动感构图，明亮通透。',
+    portraitPositive: 'vivid colors, saturated, pop art, dynamic angle, colorful, glowing',
+    portraitNegative: `${NEG}, muted colors, monochrome, desaturated`,
+    portraitTemplate: DEFAULT_PORTRAIT_TEMPLATE, equipTemplate: DEFAULT_EQUIP_TEMPLATE, equipNegative: DEFAULT_EQUIP_NEG,
+  },
+  {
+    id: 'watercolor', name: '水彩清新·柔和',
+    artistTags: `very aesthetic, masterpiece, best quality, highres, detailed, delicate details, 1.2::artist:hokori sakuni::, artist:houkisei, artist:kedama milk, artist:ke-ta, artist:ciloranko, artist:momoko_(momopoco), [artist:avogado6]`,
+    styleGuide: '画风：水彩/淡彩，柔光、低饱和粉彩、纸张质感，温柔清新。',
+    portraitPositive: 'watercolor (medium), traditional media, soft lighting, pastel colors, gentle, light particles',
+    portraitNegative: NEG,
+    portraitTemplate: DEFAULT_PORTRAIT_TEMPLATE, equipTemplate: DEFAULT_EQUIP_TEMPLATE, equipNegative: DEFAULT_EQUIP_NEG,
+  },
+  {
+    id: 'dark-horror', name: '暗黑恐怖·克苏鲁',
+    artistTags: `${Q}, 1.3::artist:nixeu::, artist:tianliang duohe fangdongye, artist:carnelian, [artist:wlop], intricate details, cinematic lighting`,
+    styleGuide: '画风：暗黑恐怖、克苏鲁氛围，低饱和、强明暗对比、阴翳雾气，压抑诡谲。',
+    portraitPositive: 'dark, horror (theme), eldritch, gloomy, muted colors, desaturated, chiaroscuro, dramatic shadows, fog, ominous atmosphere',
+    portraitNegative: `${NEG}, bright colors, cheerful`,
+    portraitTemplate: DEFAULT_PORTRAIT_TEMPLATE, equipTemplate: DEFAULT_EQUIP_TEMPLATE, equipNegative: DEFAULT_EQUIP_NEG,
+  },
+  {
+    id: 'cyberpunk', name: '赛博朋克·科幻',
+    artistTags: `${Q}, 1.3::artist:liang xing::, artist:nixeu, artist:redjuice, [artist:wlop], intricate mechanical details, reflective surfaces`,
+    styleGuide: '画风：赛博朋克/科幻，霓虹辉光、全息、冷色金属反光、电影光，未来感。',
+    portraitPositive: 'cyberpunk, neon lights, sci-fi, futuristic, holographic, glowing, rim lighting, cinematic lighting, depth of field',
+    portraitNegative: NEG,
+    portraitTemplate: DEFAULT_PORTRAIT_TEMPLATE, equipTemplate: DEFAULT_EQUIP_TEMPLATE, equipNegative: DEFAULT_EQUIP_NEG,
+  },
+  {
+    id: 'guofeng-ink', name: '国风水墨·仙侠',
+    artistTags: `${Q}, 1.3::artist:wlop::, artist:ruan jia, artist:ciloranko, artist:tianliang duohe fangdongye, intricate details, mist`,
+    styleGuide: '画风：国风水墨/仙侠，水墨晕染、汉服飘逸、留白雾气，空灵雅致。',
+    portraitPositive: 'ink wash painting, chinese ink painting, traditional media, chinese clothes, hanfu, ethereal, flowing fabric, ink splash, elegant',
+    portraitNegative: NEG,
     portraitTemplate: DEFAULT_PORTRAIT_TEMPLATE, equipTemplate: DEFAULT_EQUIP_TEMPLATE, equipNegative: DEFAULT_EQUIP_NEG,
   },
   {
     id: 'realistic', name: '写实电影感',
-    artistTags: '2.0::photorealistic, realistic, masterpiece, best quality, ultra detailed::,1.4::cinematic lighting, film grain, depth of field, sharp focus, detailed skin::',
-    styleGuide: '画风：真人电影感写实质感，电影布光，真实材质与皮肤质感，浅景深，克制的色彩分级。',
-    portraitPositive: 'realistic, photorealistic, cinematic lighting',
-    portraitNegative: DEFAULT_PORTRAIT_NEG + ', cartoon, anime, 3d, cel shading, flat color',
+    artistTags: `masterpiece, best quality, amazing quality, ultra-detailed, highres, 8k, sharp focus, 1.2::artist:guweiz::, 0.8::artist:wlop::, [artist:ciloranko], subsurface scattering, detailed skin`,
+    styleGuide: '画风：真人电影感写实，电影布光、真实皮肤材质、浅景深、克制色彩分级。',
+    portraitPositive: 'realistic, photorealistic, semi-realistic, cinematic lighting, film grain, depth of field, detailed skin, volumetric lighting, muted color grading',
+    portraitNegative: `${NEG}, anime, cartoon, cel shading, flat color, 2d, 3d, cgi, doll, illustration`,
     portraitTemplate: DEFAULT_PORTRAIT_TEMPLATE, equipTemplate: DEFAULT_EQUIP_TEMPLATE, equipNegative: DEFAULT_EQUIP_NEG,
   },
   {
-    id: 'thick-paint', name: '半写实厚涂',
-    artistTags: '1.6::semi-realistic, thick coating, painterly, concept art, intricate details, masterpiece, best quality, dramatic lighting::',
-    styleGuide: '画风：电影概念艺术级半写实厚涂，真人骨相比例，厚涂笔触，强戏剧光影，质感厚重。',
-    portraitPositive: 'semi-realistic, painterly, concept art, dramatic lighting',
-    portraitNegative: DEFAULT_PORTRAIT_NEG,
+    id: 'glamour', name: '魅惑魅艳·欢愉宫',
+    artistTags: `${Q}, 1.3::artist:liang xing::, artist:wlop, artist:rhasta, artist:sciamano240, artist:guweiz, [artist:ciloranko], intricate details`,
+    styleGuide: '画风：魅惑魅艳、华丽性感，润泽肌肤质感、柔焦轮廓光、虚化背景，撩人氛围。',
+    portraitPositive: 'glamour, seductive, sultry, alluring, detailed skin, glossy skin, soft rim lighting, bokeh, sensual atmosphere',
+    portraitNegative: NEG,
     portraitTemplate: DEFAULT_PORTRAIT_TEMPLATE, equipTemplate: DEFAULT_EQUIP_TEMPLATE, equipNegative: DEFAULT_EQUIP_NEG,
   },
 ];
@@ -200,7 +264,7 @@ export const useImageGen = create<ImageGenState>()(
     (set) => ({
       portraitService: 'nai', storyService: 'nai', equipUsePortrait: true, equipService: 'nai',
       portraitPromptFormat: 'nai', topAvatarCount: 0, autoPortrait: false, refreshOnLook: true,
-      portraitPositive: '', portraitNegative: DEFAULT_PORTRAIT_NEG,
+      portraitPositive: DEFAULT_STYLES[0].portraitPositive, portraitNegative: DEFAULT_STYLES[0].portraitNegative,
       portraitTemplate: DEFAULT_PORTRAIT_TEMPLATE, styleGuide: DEFAULT_STYLES[0].styleGuide,
       autoEquipPlayer: false, autoEquipNpc: false, equipTemplate: DEFAULT_EQUIP_TEMPLATE, equipNegative: DEFAULT_EQUIP_NEG,
       activeStyleId: 'nai-anime',
@@ -211,7 +275,7 @@ export const useImageGen = create<ImageGenState>()(
         apiUrl: 'https://image.novelai.net', corsProxy: '', apiToken: '', model: 'nai-diffusion-4-5-full',
         width: 1024, height: 1024, timeoutSec: 600, queueEnabled: true, queueGapSec: 10, rpm: 0,
         sampler: 'k_dpmpp_2m_sde', steps: 28, promptGuidance: 5, promptGuidanceRescale: 0, undesiredContentStrength: 1,
-        negativePrompt: DEFAULT_PORTRAIT_NEG, artistTags: DEFAULT_ARTIST_TAGS, seed: '',
+        negativePrompt: DEFAULT_STYLES[0].portraitNegative, artistTags: DEFAULT_STYLES[0].artistTags, seed: '',
       },
       openai: { ...DEFAULT_OPENAI_IMG },
       gemini: { ...DEFAULT_OPENAI_IMG, baseUrl: 'https://generativelanguage.googleapis.com/v1beta/openai', model: 'imagen-3.0-generate-002' },
@@ -257,9 +321,15 @@ export const useImageGen = create<ImageGenState>()(
       // 避免输入框 value 从 undefined→有值 触发"受控/非受控切换"警告。
       merge: (persisted, current) => {
         const p = (persisted ?? {}) as any;
+        // 画风预设：保留用户已存/改过的，同时把新增的内置画风（按 id）补进来，老用户也能看到新风格（不覆盖自定义）
+        const persistedStyles = Array.isArray(p.styles) ? p.styles : null;
+        const styles = persistedStyles
+          ? [...persistedStyles, ...current.styles.filter((d) => !persistedStyles.some((x: any) => x && x.id === d.id))]
+          : current.styles;
         return {
           ...current,
           ...p,
+          styles,
           nai: { ...current.nai, ...(p.nai ?? {}) },
           openai: { ...current.openai, ...(p.openai ?? {}) },
           gemini: { ...current.gemini, ...(p.gemini ?? {}) },

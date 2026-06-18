@@ -20,20 +20,33 @@ async function aiJson(systemPrompt: string, userMsg: string): Promise<any> {
   const legacy = ss.textUseSharedApi ? ss.api : ss.textApi;
   const chain = resolveApiChain('skilltree', legacy);
   if (!chain[0]?.baseUrl || !chain[0]?.apiKey) throw new Error('未配置 AI 接口（设置→综合设置/正文生成）');
-  const once = (extra?: Record<string, unknown>) => apiChatFallback(chain, [
+  const once = (extra: Record<string, unknown>) => apiChatFallback(chain, [
     { role: 'system', content: systemPrompt }, { role: 'user', content: userMsg },
   ], { timeoutMs: 150000, extra });
+  const base = { max_tokens: 80000 };   // 思考模型留够 思维链+正文 空间
   let content: string;
-  try { ({ content } = await once({ tools: [{ google_search: {} }] })); }
-  catch { ({ content } = await once(undefined)); }
+  try { ({ content } = await once({ ...base, tools: [{ google_search: {} }] })); }
+  catch { ({ content } = await once(base)); }
   return lenientJsonParse(extractJson(content));
 }
 
+/* 抠 JSON 本体：优先代码块 → 从末尾配平括号取最后一个完整对象(绕开思维链零碎{}) → 兜底首{到末} */
 function extractJson(text: string): string {
-  let s = String(text ?? '').replace(/```json/gi, '').replace(/```/g, '').trim();
+  let s = String(text ?? '');
+  const fences = [...s.matchAll(/```(?:json)?\s*([\s\S]*?)```/gi)];
+  for (let k = fences.length - 1; k >= 0; k--) { const blk = fences[k][1].trim(); if (blk.includes('{')) { s = blk; break; } }
+  s = s.replace(/```json/gi, '').replace(/```/g, '').trim();
+  const end = s.lastIndexOf('}');
+  if (end >= 0) {
+    let depth = 0;
+    for (let k = end; k >= 0; k--) {
+      const c = s[k];
+      if (c === '}') depth++;
+      else if (c === '{') { depth--; if (depth === 0) return s.slice(k, end + 1); }
+    }
+  }
   const i = s.indexOf('{'), j = s.lastIndexOf('}');
-  if (i >= 0 && j > i) s = s.slice(i, j + 1);
-  return s;
+  return (i >= 0 && j > i) ? s.slice(i, j + 1) : s;
 }
 
 /* 玩家技能树面板（主角 B1）：选职业树 → 花潜能点逐点点节点(3豆子) → 灌进技能/天赋 + 六维加成。 */

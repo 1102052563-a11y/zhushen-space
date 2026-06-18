@@ -2,6 +2,9 @@ import { useEffect, useState } from 'react';
 import { useMp } from '../store/multiplayerStore';
 import { mpClient } from '../systems/mpClient';
 import { myMpName, setMpName } from '../systems/mpConfig';
+import { useItems } from '../store/itemStore';
+import { useCharacters } from '../store/characterStore';
+import { giveItems, shareToRoom } from '../systems/mpGift';
 
 /* 联机面板：大厅（建房/邀请码加入/公共房间列表）+ 房内（队伍/回合状态/弹幕聊天）。
    连接层在 systems/mpClient.ts，状态在 store/multiplayerStore.ts。
@@ -181,14 +184,26 @@ function RoomView({ st, comment, setComment }: { st: any; comment: string; setCo
         )}
       </div>
 
+      <ShareGift seats={st.seats} mySeatId={st.mySeatId} />
+
       <div className="flex-1 overflow-y-auto px-5 py-3 space-y-1.5">
-        {st.comments.length === 0 && <div className="text-[12px] text-dim/40 text-center py-6">房间内聊天 · 旁观弹幕都在这里</div>}
+        {st.comments.length === 0 && <div className="text-[12px] text-dim/40 text-center py-6">房间内聊天 · 旁观弹幕 · 分享都在这里</div>}
         {st.comments.map((c: any) => (
-          <div key={c.id} className="text-[13px] leading-relaxed">
-            <span className={`font-semibold ${c.role === 'host' ? 'text-amber-300/80' : c.role === 'spectator' ? 'text-dim/60' : 'text-god/80'}`}>{c.name}</span>
-            <span className="text-dim/40 text-[11px]">{c.role === 'spectator' ? ' (旁观)' : ''}：</span>
-            <span className="text-slate-200">{c.text}</span>
-          </div>
+          c.share ? (
+            <div key={c.id} className="text-[13px]">
+              <span className="text-dim/50 text-[11px]">{c.name} 分享了{c.share.kind === 'item' ? '物品' : c.share.kind === 'skill' ? '技能' : '天赋'}</span>
+              <div className="mt-0.5 rounded-lg border border-god/30 bg-god/5 p-2">
+                <div className="text-[13px] text-slate-100">{c.share.data?.name || '（无名）'}{c.share.data?.gradeDesc ? <span className="text-[11px] text-amber-300/70"> · {c.share.data.gradeDesc}</span> : c.share.data?.level ? <span className="text-[11px] text-cyan-300/70"> · {c.share.data.level}</span> : null}</div>
+                {(c.share.data?.effect || c.share.data?.desc) && <div className="text-[12px] text-dim/70 mt-0.5 leading-relaxed">{String(c.share.data.effect || c.share.data.desc).slice(0, 120)}</div>}
+              </div>
+            </div>
+          ) : (
+            <div key={c.id} className="text-[13px] leading-relaxed">
+              <span className={`font-semibold ${c.role === 'host' ? 'text-amber-300/80' : c.role === 'spectator' ? 'text-dim/60' : 'text-god/80'}`}>{c.name}</span>
+              <span className="text-dim/40 text-[11px]">{c.role === 'spectator' ? ' (旁观)' : ''}：</span>
+              <span className="text-slate-200">{c.text}</span>
+            </div>
+          )
         ))}
       </div>
 
@@ -197,6 +212,64 @@ function RoomView({ st, comment, setComment }: { st: any; comment: string; setCo
           placeholder="说点什么…" className="flex-1 px-3 py-2 rounded-lg bg-panel border border-edge text-sm text-slate-100 focus:border-god/50 outline-none" />
         <button onClick={sendComment} className="px-4 py-2 rounded-lg bg-god/15 border border-god/40 text-god/90 text-sm hover:bg-god/25 transition-colors">发送</button>
       </div>
+    </div>
+  );
+}
+
+/* 赠予/分享：从自己物品/技能/天赋里选一个 → 分享到房间聊天，或（物品）赠予某位在座成员 */
+function ShareGift({ seats, mySeatId }: { seats: any[]; mySeatId: string | null }) {
+  const items = useItems((s) => s.items);
+  const skills = useCharacters((s) => s.characters['B1']?.skills || []);
+  const traits = useCharacters((s) => s.characters['B1']?.traits || []);
+  const [open, setOpen] = useState(false);
+  const [tab, setTab] = useState<'item' | 'skill' | 'talent'>('item');
+  const [sel, setSel] = useState('');
+  const [recipient, setRecipient] = useState('');
+  const others = (seats || []).filter((s) => s.seatId !== mySeatId);
+  const list: any[] = tab === 'item' ? items : tab === 'skill' ? skills : traits;
+  const selData = list.find((x) => (x.id || x.name) === sel) || null;
+
+  const doShare = () => { if (selData) shareToRoom(tab, selData); };
+  const doGift = () => {
+    const it = items.find((x) => (x.id || x.name) === sel);
+    const to = others.find((s) => s.seatId === recipient);
+    if (it && to) { giveItems(to.playerId, [it]); setSel(''); setRecipient(''); }
+  };
+
+  return (
+    <div className="shrink-0 border-b border-edge">
+      <button onClick={() => setOpen((v) => !v)} className="w-full px-5 py-2 text-left text-[12px] font-mono text-dim/70 hover:text-god/80 transition-colors">
+        {open ? '▾' : '▸'} 🎁 赠予 / 📢 分享
+      </button>
+      {open && (
+        <div className="px-5 pb-3 space-y-2">
+          <div className="flex gap-1">
+            {(['item', 'skill', 'talent'] as const).map((t) => (
+              <button key={t} onClick={() => { setTab(t); setSel(''); }}
+                className={`px-2.5 py-1 rounded-md text-[12px] border ${tab === t ? 'bg-god/15 border-god/40 text-god/90' : 'border-edge text-dim/70 hover:text-slate-200'}`}>
+                {t === 'item' ? '物品' : t === 'skill' ? '技能' : '天赋'}
+              </button>
+            ))}
+          </div>
+          <select value={sel} onChange={(e) => setSel(e.target.value)} className="w-full px-2 py-1.5 rounded-lg bg-panel border border-edge text-sm text-slate-100 outline-none">
+            <option value="">— 选择{tab === 'item' ? '物品' : tab === 'skill' ? '技能' : '天赋'} —</option>
+            {list.map((x, i) => <option key={x.id || i} value={x.id || x.name}>{x.name}{x.quantity > 1 ? ` ×${x.quantity}` : ''}{x.gradeDesc ? ` · ${x.gradeDesc}` : x.level ? ` · ${x.level}` : ''}</option>)}
+          </select>
+          <div className="flex items-center gap-2 flex-wrap">
+            <button onClick={doShare} disabled={!selData} className="px-3 py-1.5 rounded-lg bg-god/15 border border-god/40 text-god/90 text-[13px] hover:bg-god/25 disabled:opacity-40 transition-colors">📢 分享到房间</button>
+            {tab === 'item' && (
+              <>
+                <select value={recipient} onChange={(e) => setRecipient(e.target.value)} className="px-2 py-1.5 rounded-lg bg-panel border border-edge text-[13px] text-slate-100 outline-none">
+                  <option value="">— 赠予给 —</option>
+                  {others.map((s) => <option key={s.seatId} value={s.seatId}>{s.name}</option>)}
+                </select>
+                <button onClick={doGift} disabled={!sel || !recipient} className="px-3 py-1.5 rounded-lg border border-amber-600/40 text-amber-300/80 text-[13px] hover:bg-amber-600/10 disabled:opacity-40 transition-colors">🎁 赠予</button>
+              </>
+            )}
+          </div>
+          {tab === 'item' && <div className="text-[11px] text-dim/40">赠予的物品会从你背包暂扣，对方收下才转移；拒收/超时自动退回。</div>}
+        </div>
+      )}
     </div>
   );
 }

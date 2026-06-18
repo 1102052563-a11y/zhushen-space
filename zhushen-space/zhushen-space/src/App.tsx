@@ -153,6 +153,9 @@ import MultiplayerPanel from './components/MultiplayerPanel';
 import { useMp } from './store/multiplayerStore';
 import { mpClient } from './systems/mpClient';
 import { buildPlayerSnapshot, buildPartyTurnText, buildWorldSnapshot, applyWorldSnapshot } from './systems/mpSnapshot';
+import { onGiftResponse } from './systems/mpGift';
+import { myPlayerId } from './systems/mpConfig';
+import GiftPrompt from './components/GiftPrompt';
 import FriendsPanel from './components/FriendsPanel';
 import { retrieveNovel } from './systems/novelVec';
 import { useDm, isDmableTag } from './store/dmStore';
@@ -227,7 +230,8 @@ async function loadBuiltinDefaults() {
       overwriteWb(await grab('worldgen.json'), '世界选择', 'wb-worldsel');
       overwriteWb(await grab('leisure.json'),  '休闲世界', 'wb-leisure');   // 休闲/恋爱世界：同属「世界选择」世界书
     }
-    // 正文世界书 → textWorldBooks（正文生成读取）；按要求只内置 ST模块化·铁律 + 轮回乐园小说（______.json 不内置）。
+    // 正文世界书 → textWorldBooks（正文生成读取）；内置 ST模块化·铁律 + 轮回乐园小说 + 性爱姿势 + BDSM（______.json 不内置）。
+    //   性爱姿势/BDSM 两本已转纯绿灯（constant 全 false）：仅关键词命中才注入，不污染日常正文；配套 WorldSelector 的🤸姿势/⛓BDSM快捷按钮按书名定位取条目标题。
     // 逐本按 builtinKey 判重：缺哪本补哪本（各自从 public 取最新）。旧的"整类非空即跳过"会在用户改/导入其中一本后，
     // 把其余未改的内置一并丢弃；改用 per-key 后，编辑某本转正持久化、未改的兄弟仍每次刷新重载。
     // **每次启动强制覆盖成内置最新**（含玩家改过的）：按 builtinKey 先删旧再导入最新；fetch 失败则保留现有。
@@ -238,6 +242,8 @@ async function loadBuiltinDefaults() {
       };
       overwriteTwb(await grab('modular-output.json'), 'ST模块化输出·铁律', 'twb-modular');
       overwriteTwb(await grab('novel.json'),          '轮回乐园小说',     'twb-novel');
+      overwriteTwb(await grab('pose.json'),           '性爱姿势·小鸟游六花', 'twb-pose');
+      overwriteTwb(await grab('bdsm.json'),           'BDSM·调教束缚·S15',   'twb-bdsm');
       // 自动去重：清掉历史上手动导入的「ST模块化」旧本（文件名命名、无 twb-modular builtinKey）——内置「ST模块化输出·铁律」已按 key 覆盖它、留着纯重复。
       //   每次启动都跑（不设一次性标记）：即便日后被读档/配置导入带回，下次启动也会再清掉；删 state 后由下方 subscribe 镜像写回干净的 wbDb，一劳永逸。
       try {
@@ -1099,6 +1105,23 @@ function playerMaxEp(): number {
   return fullMaxEp(a, eq, b1?.skills, [...(b1?.traits ?? []), ...playerTeamPerkAbilities()]);
 }
 
+/* HP/EP「成长即补满」(2026-06-18 用户拍板：上限变大时当前值自动补满)。
+   当技能树/属性点/装备/团队等**永久成长**把真实上限(playerMaxHp/EP)抬高、超过上一次记录的上限(game.player.maxHp/maxMp)时
+   → 把当前 HP/EP 自动补到满；上限变小(洗点/卸装)则把当前夹回新上限；并把存储上限同步到实时上限。
+   这样只有「正文/战斗明确造成的伤害消耗」(当前<上限、且上限没变)才会让血蓝低于满，不会再卡在旧的满值。
+   在 刷新挂载 + 每回合 callApi 开头 + 关闭技能树面板 各跑一次（即用户报告的"一刷新/重新生成内容"触发点）。 */
+function reconcilePlayerVitalsGrowth(): void {
+  const g = useGame.getState();
+  const p = g.player;
+  const liveHp = playerMaxHp(), liveEp = playerMaxEp();
+  if (p.maxHp == null || liveHp > p.maxHp) g.setPlayerField('hp', liveHp);          // 上限因成长变大 → 当前补满
+  else if ((p.hp ?? liveHp) > liveHp) g.setPlayerField('hp', liveHp);               // 上限变小 → 当前夹回新上限
+  if (p.maxHp !== liveHp) g.setPlayerField('maxHp', liveHp);                        // 存储上限同步=实时上限
+  if (p.maxMp == null || liveEp > p.maxMp) g.setPlayerField('mp', liveEp);
+  else if ((p.mp ?? liveEp) > liveEp) g.setPlayerField('mp', liveEp);
+  if (p.maxMp !== liveEp) g.setPlayerField('maxMp', liveEp);
+}
+
 const MISC_HOME_TIME_RULE = `
 【回归乐园·时间一致】当主角身处轮回乐园/专属房间（任务间歇或已回归）时，**世界时间(worldTime / current_world_time) 必须与轮回历(paradiseTime) 完全一致**，并把 worldName 设为「轮回乐园」或「轮回乐园·专属房间」。绝不要把上一个任务世界的时间（如 1943 年）继续留在世界时间里。`;
 
@@ -1400,6 +1423,9 @@ export default function App() {
   const mpRole = useMp((s) => s.role);
   const mpStatus = useMp((s) => s.status);
   const mpGuest = mpStatus === 'connected' && mpRole != null && mpRole !== 'host';   // 联机来宾(非房主)
+  const mpMySeatId = useMp((s) => s.mySeatId);
+  const mpMode: 'host' | 'guest' | null = mpStatus === 'connected' ? (mpRole === 'host' ? 'host' : 'guest') : null;
+  const mpIncomingGift = useMp((s) => s.incomingGift);
   const combatDrivingRef = useRef(false);
   const combatFinishingRef = useRef(false);
   // 战斗最终 HP/EP（finishBattle 写入）：下一回合（玩家发送战斗复盘后）防双扣——
@@ -1493,15 +1519,41 @@ export default function App() {
   // 联机·来宾：收到房主广播的正文 → 渲染进主聊天（房主自己已本地添加，跳过以免重复）
   useEffect(() => {
     useMp.getState().setHandlers({
-      onWorld: (payload: any) => {
+      onWorld: (payload: any, isReplay?: boolean) => {
         if (useMp.getState().role === 'host') return;
         applyWorldSnapshot(payload?.world);   // 来宾：同步房主世界(NPC/势力/世界状态)进本地面板
+        if (isReplay) return;                 // 中途加入的状态回放：正文交给 narrative_log，不重复追加
         const t = payload?.narrative;
         if (t) setMessages((prev) => [...prev, { id: ++msgId.current, role: 'assistant', content: String(t) }]);
+      },
+      onNarrativeLog: (entries: { role: string; content: string }[]) => {
+        if (useMp.getState().role === 'host' || !entries?.length) return;   // 中途加入：把房主正文进度补进聊天
+        const msgs = entries.map((e) => ({ id: ++msgId.current, role: (e.role === 'user' ? 'user' : 'assistant') as 'user' | 'assistant', content: String(e.content || '') }));
+        setMessages((prev) => [...prev, { id: ++msgId.current, role: 'system' as const, content: '—— 已接入房主的剧情进度 ——' }, ...msgs]);
       },
       onCombat: (payload: any) => {
         if (useMp.getState().role === 'host') return;
         if (payload?.battle) useCombat.setState({ battle: payload.battle });   // 来宾：渲染房主广播的战斗态
+        const seat = useMp.getState().mySeatId;   // 把自己的技能注到 MP_<座位> 下，战斗面板技能下拉才认得
+        if (seat && !useCharacters.getState().characters[`MP_${seat}`]) {
+          const sk = useCharacters.getState().characters['B1']?.skills || [];
+          try { useCharacters.setState((s) => ({ characters: { ...s.characters, [`MP_${seat}`]: { id: `MP_${seat}`, skills: sk, traits: [] } } })); } catch {}
+        }
+      },
+      onCombatAction: (payload: any) => {
+        if (useMp.getState().role !== 'host') return;
+        void submitCombatPlayerAction(payload?.kind, payload?.targetIds || [], payload?.skillId, payload?.itemId);   // 房主：替来宾的战斗角色结算其出手
+      },
+      onRelay: (m: any) => {
+        const ev = m?.event, from = m?.from, payload = m?.payload;
+        if (ev === 'gift_offer') {
+          if (payload?.toPlayerId === myPlayerId()) useMp.getState()._set({ incomingGift: { ...payload, from } });   // 收件人弹窗
+        } else if (ev === 'gift_response') {
+          onGiftResponse(payload);   // 赠予方：拒收/超时退回
+        } else if (ev === 'share') {
+          const c = { id: 'sh_' + Date.now() + Math.random().toString(36).slice(2, 5), name: from?.name || '', role: from?.role || 'player', share: payload, at: Date.now() };
+          useMp.getState()._set({ comments: [...useMp.getState().comments, c].slice(-100) });   // 分享 → 房间聊天卡片
+        }
       },
     });
   }, []);
@@ -1566,6 +1618,7 @@ export default function App() {
       } catch { /* */ }
       void loadBuiltinDefaults();   // 补内置（仅当对应仓库仍为空）；内置项标 builtin、不入库，每次从 public 重载
       try { reconcilePlayerVitals(); } catch { /* */ }   // 载入/旧档：HP/EP 仍是 100/50 旧默认时，开局即按六维拉满（不等到第一回合）
+      try { reconcilePlayerVitalsGrowth(); } catch { /* */ }   // 刷新即生效：技能树/成长把上限抬高后，当前血蓝自动补满（不再卡旧值）
       // 镜像：世界书/预设变化（剔除 builtin 内置项）→ 防抖写入 IndexedDB
       { let wbT: ReturnType<typeof setTimeout> | null = null; let wbLast: any[] | null = null;
         useSettings.subscribe((s) => {
@@ -2228,7 +2281,7 @@ export default function App() {
         prof.arenaRank && `竞技场排名:${prof.arenaRank}`,
         a && `生物强度(前端按基础六维机械判定·资质档,勿写): ${bioInnate(a, prof.tier, prof.level)?.label ?? ''}`,
         `六维(基础·默认锁定·非正文逐字写明成长一律别改): 力${a.str} 敏${a.agi} 体${a.con} 智${a.int} 魅${a.cha} 幸${a.luck}`,
-        `真实属性(每80普通=1真实,前端自动算,勿写入): 真力${trueAttr(a.str)} 真敏${trueAttr(a.agi)} 真体${trueAttr(a.con)} 真智${trueAttr(a.int)} 真魅${trueAttr(a.cha)} 真幸${trueAttr(a.luck)}`,
+        `真实属性(基础÷80+真实属性点直加,前端自动算,勿写入): 真力${trueAttr(a.str) + (prof.realAttrs?.str ?? 0)} 真敏${trueAttr(a.agi) + (prof.realAttrs?.agi ?? 0)} 真体${trueAttr(a.con) + (prof.realAttrs?.con ?? 0)} 真智${trueAttr(a.int) + (prof.realAttrs?.int ?? 0)} 真魅${trueAttr(a.cha) + (prof.realAttrs?.cha ?? 0)} 真幸${trueAttr(a.luck) + (prof.realAttrs?.luck ?? 0)}`,
         `生命HP上限=体质×20+被动天赋/装备的上限加成=${playerMaxHp()}，蓝量EP上限=智力×15+加成=${playerMaxEp()}（前端自动换算，勿写maxHp/maxMp；只有受伤/消耗时才用 hp.B1 -=N / mp.B1 -=N 改当前值）`,
         `当前状态/Buff: ${prof.status || '一切正常'}`,
         (prof.statusEffects?.length ?? 0) > 0 && `限时状态(引擎自动过期,勿重复添加): ${prof.statusEffects.map((e) => `${e.name}${e.durationDesc ? `(${e.durationDesc})` : ''}`).join('；')}`,
@@ -2425,7 +2478,7 @@ export default function App() {
       r.realAttrPoints != null && `真实属性点: ${r.realAttrPoints}`,
       r.skillPoints != null && `技能点: ${r.skillPoints}`,
       attrs && `六维: 力${attrs.str ?? '?'} 敏${attrs.agi ?? '?'} 体${attrs.con ?? '?'} 智${attrs.int ?? '?'} 魅${attrs.cha ?? '?'} 幸${attrs.luck ?? '?'}`,
-      attrs && `真实属性(每80普通=1真实,前端自动算,勿写入): 真力${trueAttr(attrs.str ?? 0)} 真敏${trueAttr(attrs.agi ?? 0)} 真体${trueAttr(attrs.con ?? 0)} 真智${trueAttr(attrs.int ?? 0)} 真魅${trueAttr(attrs.cha ?? 0)} 真幸${trueAttr(attrs.luck ?? 0)}`,
+      attrs && `真实属性(基础÷80+真实属性点直加,前端自动算,勿写入): 真力${trueAttr(attrs.str ?? 0) + (r.realAttrs?.str ?? 0)} 真敏${trueAttr(attrs.agi ?? 0) + (r.realAttrs?.agi ?? 0)} 真体${trueAttr(attrs.con ?? 0) + (r.realAttrs?.con ?? 0)} 真智${trueAttr(attrs.int ?? 0) + (r.realAttrs?.int ?? 0)} 真魅${trueAttr(attrs.cha ?? 0) + (r.realAttrs?.cha ?? 0)} 真幸${trueAttr(attrs.luck ?? 0) + (r.realAttrs?.luck ?? 0)}`,
       r.personality && `性格(列3): ${r.personality}`,
       r.status && `状态(列4): ${r.status}`,
       (r.statusEffects?.length ?? 0) > 0 && `限时状态(引擎自动过期,勿重复添加): ${r.statusEffects!.map((e) => `${e.name}${e.durationDesc ? `(${e.durationDesc})` : ''}`).join('；')}`,
@@ -6221,6 +6274,18 @@ ${lines}`;
     const blocks: Record<string, CombatStatBlock> = { B1: buildCombatant('B1', 'player') };
     for (const id of picks.allyIds) if (id !== 'B1' && !blocks[id]) blocks[id] = buildCombatant(id, 'player');
     for (const id of picks.enemyIds) if (!blocks[id]) blocks[id] = buildCombatant(id, 'enemy');
+    // 联机：在座来宾各自加成玩家方战斗角色（用其上报的角色卡六维，瞬时 combatant，由该来宾远程出手）
+    { const mp = useMp.getState();
+      if (mp.status === 'connected' && mp.role === 'host') {
+        for (const seat of mp.seats) {
+          const cid = `MP_${seat.seatId}`;
+          if (blocks[cid]) continue;
+          const card: any = mp.cards.find((c) => c.seatId === seat.seatId)?.snapshot;
+          blocks[cid] = buildCombatant(cid, 'player', { isTransient: true, name: card?.name || seat.name, attrs: card?.attrs, tier: card?.tier || '' });
+          try { useCharacters.setState((s) => ({ characters: { ...s.characters, [cid]: { id: cid, skills: card?.skills || [], traits: [] } } })); } catch {}   // 注入来宾技能供房主结算
+        }
+      }
+    }
     const npcs = useNpc.getState().npcs;
     const enemyNames = picks.enemyIds.map((id) => npcs[id]?.name || id).join('、');
     const battle = assembleBattle(blocks, {
@@ -6362,12 +6427,11 @@ ${lines}`;
   function applyCombatVitals(v: { hp: Record<string, number>; ep: Record<string, number> }) {
     for (const id of Object.keys(v.hp)) {
       if (id === 'B1') {
-        // 防截断：gameStore.maxHp 不随体质成长自动同步，若停留在低值会把战斗写回的 HP 夹掉。
-        // 先把 maxHp/maxMp 抬到至少 体×20 / 智×15（用 max 保留装备/能力已加成的更高上限），再写 hp/mp。
-        const attrs = usePlayer.getState().profile.attrs;
+        // 防截断 + 存储上限保真：把 maxHp/maxMp 同步到真实上限(playerMaxHp/EP=六维+装备+技能树/天赋上限加成，与面板同口径)。
+        // 既避免低值把战斗写回的 HP 夹掉，也让「成长即补满」的存储上限准确——否则战斗后存储上限偏低，下回合会被误判成"又成长了"而把受伤血量补满。
         const g = useGame.getState();
-        g.setPlayerField('maxHp', Math.max(g.player.maxHp ?? 0, computeMaxHp(attrs)));
-        g.setPlayerField('maxMp', Math.max(g.player.maxMp ?? 0, computeMaxEp(attrs)));
+        g.setPlayerField('maxHp', Math.max(g.player.maxHp ?? 0, playerMaxHp()));
+        g.setPlayerField('maxMp', Math.max(g.player.maxMp ?? 0, playerMaxEp()));
         g.setPlayerField('hp', v.hp[id]); g.setPlayerField('mp', v.ep[id]);
       }
       else if (useNpc.getState().npcs[id]) { useNpc.getState().upsertNpc(id, { hp: v.hp[id], mp: v.ep[id] }); }
@@ -6498,6 +6562,7 @@ ${lines}`;
     expireStatuses();                      // 回合推进：清理已过期的限时状态（主角+NPC）
     reconcileHomeWorld();                  // 回归乐园一致性兜底：时间同步 + 任务世界势力移出当前世界
     reconcilePlayerVitals();               // HP/EP 兜底：仍是 100/50 旧默认时按六维重算为满
+    reconcilePlayerVitalsGrowth();         // 重新生成/每回合：成长抬高上限→当前血蓝补满（在拼快照前跑，使 AI 拿到的也是补满后的值）
     reconcilePartyLifecycle();             // 临时队伍：非当前世界的队友自动解散（离场归档；有冒险团则弹转正）
 
     const api = textUseShared ? sharedApi : textApi;
@@ -6856,7 +6921,7 @@ ${lines}`;
 
     // 房主：把算好的正文广播给全房，并开启下一回合（清空本回合已用的队友行动）
     if (isMpHost && narrative) {
-      mpClient.publishWorld({ narrative, turnId: mp.turn?.turnId || 0, world: buildWorldSnapshot() });
+      mpClient.publishWorld({ narrative, turnUser: effectiveText, turnId: mp.turn?.turnId || 0, world: buildWorldSnapshot() });
       if (mp.seats.length > 0) mpClient.startTurn();
     }
   }
@@ -7445,6 +7510,7 @@ ${lines}`;
             expanded={worldBarOpen}
             onSelect={(text) => setInputValue(text)}
             onSettle={() => setInputValue((prev) => (prev && prev.trim() ? `${prev}\n【结算任务】` : '【结算任务】'))}
+            onInsertText={(t) => setInputValue((prev) => (prev && prev.trim() ? `${prev.replace(/\s+$/, '')} ${t}` : t))}
             onRawResponse={(raw) => { setRawResponse(raw); setShowRaw(false); }}
             onPromptSent={(p) => { setPromptSent(p); setShowPrompt(false); }}
             onWorlds={(list) => { setWorlds(list); setCardIndex(0); }}
@@ -7671,6 +7737,7 @@ ${lines}`;
       )}
       {dmPanelOpen && <DmPanel onClose={() => setDmPanelOpen(false)} focusThreadId={dmFocusThread} h={dmHandlers} />}
       {mpPanelOpen && <MultiplayerPanel onClose={() => setMpPanelOpen(false)} />}
+      {mpIncomingGift && <GiftPrompt gift={mpIncomingGift} onClose={() => useMp.getState()._set({ incomingGift: null })} />}
       {friendsPanelOpen && <FriendsPanel onClose={() => setFriendsPanelOpen(false)} turn={turnCountRef.current}
         onOpenNpc={(cid) => { setFriendsPanelOpen(false); setOnSceneDetailId(cid); }}
         onDm={(cid) => { const r = useNpc.getState().npcs[cid]; if (!r) return; setFriendsPanelOpen(false); openDmFor({ targetId: r.id, targetName: r.name || r.id, targetTier: (r.realm || '').split(/[·|]/)[0] || undefined, targetJob: r.profession, targetPersona: r.personality, targetStrength: r.bioStrength, targetTag: r.npcTag }); }} />}
@@ -7692,7 +7759,9 @@ ${lines}`;
           onStart={(picks) => { setCombatSetupOpen(false); startCombatWithSelection(picks); }}
         />
       )}
-      {(combatActive || combatStage === 'ended') && <CombatPanel onPlayerAction={submitCombatPlayerAction} onUndo={undoCombatAction} canUndo={combatHasUndo && !combatApiBusy} readOnly={mpGuest} />}
+      {(combatActive || combatStage === 'ended') && <CombatPanel
+        onPlayerAction={mpMode === 'guest' ? ((kind, targetIds, skillId, itemId) => mpClient.submitCombatAction({ kind, targetIds, skillId, itemId })) : submitCombatPlayerAction}
+        onUndo={undoCombatAction} canUndo={combatHasUndo && !combatApiBusy} mpMode={mpMode} mySeatId={mpMySeatId} />}
 
       {/* ── 乐园设施聚合菜单：欢愉宫 / 竞技场 / 赌场 ── */}
       {facilitiesOpen && (
@@ -7770,7 +7839,7 @@ ${lines}`;
       {titlePanelOpen && <TitlePanel onClose={() => setTitlePanelOpen(false)} />}
       {achievePanelOpen && <AchievementPanel onClose={() => setAchievePanelOpen(false)} />}
       {subProfOpen && <SubProfessionPanel onClose={() => setSubProfOpen(false)} />}
-      {skillTreeOpen && <SkillTreePanel onClose={() => setSkillTreeOpen(false)} />}
+      {skillTreeOpen && <SkillTreePanel onClose={() => { setSkillTreeOpen(false); try { reconcilePlayerVitalsGrowth(); } catch { /* */ } }} />}
       {factionPanelOpen && <FactionPanel onClose={() => setFactionPanelOpen(false)} />}
       {territoryPanelOpen && <TerritoryPanel onClose={() => setTerritoryPanelOpen(false)} />}
       {teamPanelOpen && <AdventureTeamPanel onClose={() => setTeamPanelOpen(false)} />}

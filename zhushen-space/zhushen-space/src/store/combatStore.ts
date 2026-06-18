@@ -45,6 +45,7 @@ export interface CombatStatBlock {
   side: Side;
   name: string;
   attrs: DiceAttrs;       // 力/敏/体/智/魅/幸
+  trueBonus?: number;     // 真实属性·直加分配的总和(Σ realAttrs)；战斗真实属性总分 = trueScore(attrs) + trueBonus（直加也计入碾压因子）
   level: number;
   tier: string;           // 阶位（一阶~无上之境）
   bioStrength: string;    // 生物强度模板（T0~T9），对抗算绝对强度差

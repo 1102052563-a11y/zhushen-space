@@ -3,6 +3,7 @@ import { useNpc } from '../store/npcStore';
 import { useFaction } from '../store/factionStore';
 import { useMisc } from '../store/miscStore';
 import { useCombat } from '../store/combatStore';
+import { useCharacters } from '../store/characterStore';
 import type { MpTurn } from '../store/multiplayerStore';
 
 // 联机·快照与多人回合拼装。
@@ -21,6 +22,7 @@ export function buildPlayerSnapshot() {
       profession: p.profession || '',
       attrs: a,
       line: [head, stat].filter(Boolean).join(' '),
+      skills: useCharacters.getState().characters['B1']?.skills || [],   // 供联机战斗里来宾放技能（房主据此结算）
     };
   } catch {
     return { name: '', line: '' };

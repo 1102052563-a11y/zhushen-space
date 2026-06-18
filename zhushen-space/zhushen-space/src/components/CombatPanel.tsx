@@ -80,11 +80,12 @@ function Card({ id, isCurrent, isTarget, onPick }: { id: string; isCurrent: bool
   );
 }
 
-export default function CombatPanel({ onPlayerAction, onUndo, canUndo, readOnly }: {
+export default function CombatPanel({ onPlayerAction, onUndo, canUndo, mpMode, mySeatId }: {
   onPlayerAction: (kind: CombatActionKind, targetIds: string[], skillId?: string, itemId?: string) => void;
   onUndo?: () => void;
   canUndo?: boolean;
-  readOnly?: boolean;   // 联机来宾：只观战，不出手
+  mpMode?: 'host' | 'guest' | null;   // 联机角色；null/缺省=单机
+  mySeatId?: string | null;           // 来宾自己的座位（决定能控哪个 MP_ 战斗角色）
 }) {
   const battle = useCombat((s) => s.battle);
   const apiBusy = useCombat((s) => s.apiBusy);
@@ -97,7 +98,10 @@ export default function CombatPanel({ onPlayerAction, onUndo, canUndo, readOnly 
   const curId = battle.order[battle.turn];
   const curActor = curId ? battle.participants[curId] : undefined;
   // 当前角色由玩家操控时才轮到玩家出手（含「手动控制队友」时的队友）
-  const myTurn = !readOnly && battle.stage === 'awaiting_player' && battle.active && !!curActor;
+  // 谁能本地出手：单机=stage 已保证；房主=非 MP_ 角色；来宾=自己的 MP_<座位> 角色
+  const curIsGuestOwned = !!curId && curId.startsWith('MP_');
+  const mineToControl = mpMode === 'guest' ? curId === `MP_${mySeatId}` : mpMode === 'host' ? !curIsGuestOwned : true;
+  const myTurn = battle.stage === 'awaiting_player' && battle.active && !!curActor && mineToControl;
   const stunned = !!curActor?.status?.some((s) => s.combat?.cannotAct);
   const charging = curActor?.charging;
   const actorSkills = (curId ? characters[curId]?.skills : undefined) ?? [];
@@ -252,7 +256,7 @@ export default function CombatPanel({ onPlayerAction, onUndo, canUndo, readOnly 
                 )}
               </div>
               <div className="flex flex-wrap gap-1.5">
-                {(['attack', 'skill', 'item', 'defend', 'flee'] as CombatActionKind[]).map((a) => (
+                {((mpMode === 'guest' ? ['attack', 'skill', 'defend', 'flee'] : ['attack', 'skill', 'item', 'defend', 'flee']) as CombatActionKind[]).map((a) => (
                   <button key={a} onClick={() => { setAction(a); setTargets([]); }}
                     className={`px-3 py-1 rounded-md text-sm border ${action === a ? 'bg-cyan-600 border-cyan-400 text-white' : 'border-slate-600 text-slate-300 hover:bg-slate-800'}`}>
                     {ACTION_LABELS[a]}
@@ -304,7 +308,7 @@ export default function CombatPanel({ onPlayerAction, onUndo, canUndo, readOnly 
             </div>
           ) : (
             <div className="text-center text-sm text-slate-400 py-1">
-              {readOnly ? '👀 观战中（房主操作）' : battle.active ? `${battle.initialState[curId]?.name ?? '对手'} 行动中…` : '战斗进行中…'}
+              {mpMode === 'guest' ? '👀 观战中…（轮到你的角色时可出手）' : battle.active ? `${battle.initialState[curId]?.name ?? '对手'} 行动中…` : '战斗进行中…'}
             </div>
           )}
         </div>
