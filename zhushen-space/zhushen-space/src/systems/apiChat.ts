@@ -71,10 +71,10 @@ async function readChatContent(res: Response, api: ApiConfig): Promise<string> {
     return parseOnceOrSse(await res.text().catch(() => ''), res.status, api);
   }
 
-  // 流式 SSE：逐块读，累积 delta
+  // 流式 SSE：逐块读，累积 delta.content；同时累积 reasoning_content 作兜底（思考模型可能把答案放思维链里、content 为空）
   const reader = res.body.getReader();
   const decoder = new TextDecoder();
-  let buffer = '', acc = '', rawAll = '';
+  let buffer = '', acc = '', accR = '', rawAll = '';
   while (true) {
     const { done, value } = await reader.read();
     if (done) break;
@@ -83,10 +83,11 @@ async function readChatContent(res: Response, api: ApiConfig): Promise<string> {
     buffer += chunk;
     const lines = buffer.split('\n');
     buffer = lines.pop() ?? '';        // 末行可能不完整，留到下次
-    for (const line of lines) acc += sseLineDelta(line);
+    for (const line of lines) { acc += sseLineDelta(line); accR += sseLineReasoning(line); }
   }
-  acc += sseLineDelta(buffer);          // flush 末尾残留
+  acc += sseLineDelta(buffer); accR += sseLineReasoning(buffer);   // flush 末尾残留
   if (acc.trim()) return acc;
+  if (accR.trim()) { console.warn('[API] content 为空，回退使用 reasoning_content（思考模型把答案写进了思维链）', { model: api.modelId, reasoningLen: accR.length }); return accR; }
   // 流式分支没解析出内容 → 可能其实回的是一次性 JSON（content-type 没写对）；用累计的原始体再兜一次
   return parseOnceOrSse(rawAll, res.status, api);
 }
@@ -99,6 +100,14 @@ function sseLineDelta(line: string): string {
   if (!d || d === '[DONE]') return '';
   try { const j = JSON.parse(d); return j.choices?.[0]?.delta?.content ?? j.choices?.[0]?.message?.content ?? ''; } catch { return ''; }
 }
+/* 取一行 SSE 的 reasoning_content 增量（思考模型的思维链；content 为空时兜底用） */
+function sseLineReasoning(line: string): string {
+  const t = line.trim();
+  if (!t.startsWith('data:')) return '';
+  const d = t.replace(/^data:\s*/, '').trim();
+  if (!d || d === '[DONE]') return '';
+  try { const ch = JSON.parse(d).choices?.[0] ?? {}; return ch.delta?.reasoning_content ?? ch.delta?.reasoning ?? ch.message?.reasoning_content ?? ''; } catch { return ''; }
+}
 
 /* 一次性 JSON 优先；非 JSON 当 SSE 文本兜底；都拿不到 → 清晰报错 */
 function parseOnceOrSse(raw: string, status: number, api: ApiConfig): string {
@@ -109,15 +118,18 @@ function parseOnceOrSse(raw: string, status: number, api: ApiConfig): string {
   let data: any = null;
   try { data = JSON.parse(raw); } catch { /* 非 JSON，下面按 SSE 文本兜底 */ }
   if (data) {
-    const content: string = data.choices?.[0]?.message?.content ?? data.choices?.[0]?.text ?? '';
-    if (!content || !String(content).trim()) {
-      const ch = data.choices?.[0] ?? {};
-      console.warn('[API] 返回内容为空', { status, model: api.modelId, finish_reason: ch.finish_reason, messageKeys: Object.keys(ch.message ?? {}), reasoningLen: String(ch.message?.reasoning_content ?? '').length });
-    }
+    const ch = data.choices?.[0] ?? {};
+    const content: string = ch.message?.content ?? ch.text ?? '';
+    if (content && String(content).trim()) return content;
+    const reasoning: string = ch.message?.reasoning_content ?? ch.delta?.reasoning_content ?? '';   // content 空 → 用思维链兜底
+    if (reasoning && String(reasoning).trim()) { console.warn('[API] content 空，回退使用 reasoning_content', { status, model: api.modelId, reasoningLen: String(reasoning).length }); return reasoning; }
+    console.warn('[API] 返回内容为空', { status, model: api.modelId, finish_reason: ch.finish_reason, messageKeys: Object.keys(ch.message ?? {}) });
     return content;
   }
   const acc = raw.split('\n').reduce((a, l) => a + sseLineDelta(l), '');
   if (acc.trim()) return acc;
+  const accR = raw.split('\n').reduce((a, l) => a + sseLineReasoning(l), '');   // SSE 也兜底思维链
+  if (accR.trim()) { console.warn('[API] SSE content 空，回退使用 reasoning_content', { status, model: api.modelId, reasoningLen: accR.length }); return accR; }
   console.warn('[API] 响应无法解析（非 JSON 非 SSE）', { status, model: api.modelId, snippet: raw.slice(0, 200) });
   throw new Error(`接口响应无法解析（HTTP ${status}，${raw.replace(/\s+/g, ' ').slice(0, 140)}）`);
 }

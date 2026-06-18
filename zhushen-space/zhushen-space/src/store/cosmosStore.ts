@@ -56,8 +56,12 @@ export function cleanCosmosName(raw?: string): string {
   const orig = (raw ?? '').trim();
   if (!orig) return '';
   let s = orig;
-  // 1) 去尾部装饰标签：[…]/(…)/（…）/【…】，且其中含 · 或 优先级/排名（避免误伤正常括注）
-  s = s.replace(/\s*[\[\(（【][^\]\)）】]*?(?:优先级|排名|·)[^\]\)）】]*[\]\)）】]\s*$/g, '').trim();
+  // 1) 反复去尾部装饰标签：[…]/(…)/（…）/【…】，只在其中含 ·/优先级/排名/合法状态 时才剥（避免误伤正常括注）。
+  //    覆盖快照三种格式：焦点「名」[类·优先级N]、态势注入「名」(类·状态·排名N)、名录 名(状态)。
+  const TAGRE = new RegExp(`\\s*[\\[\\(（【][^\\[\\]\\(\\)（）【】]*?(?:优先级|排名|·|${COSMOS_STATUSES.join('|')})[^\\[\\]\\(\\)（）【】]*[\\]\\)）】]\\s*$`);
+  let prev: string;
+  do { prev = s; s = s.replace(TAGRE, '').trim(); } while (s !== prev && s);
+  if (!s) s = orig;
   // 2) 剥首尾成对的装饰括号/引号
   s = s.replace(/^[「」『』《》〈〉【】\[\]\s"'“”‘’]+/, '').replace(/[「」『』《》〈〉【】\[\]\s"'“”‘’]+$/, '').trim();
   return s || orig;
@@ -208,26 +212,34 @@ function normalizeEntity(e: Partial<CosmosEntity>, idHint?: string): CosmosEntit
   };
 }
 
-/* 把一组"归一化后同名"的实体并成一条：选最干净/最新/大事记最多者为基准，其余字段空则补、列表取并集。
-   用于清理历史存档里堆积的「「天启乐园」」级联重复。 */
+/* 把一组"归一化后同名"的实体并成一条。级联重复其实是同一实体一次次演化被拆成多行的"时间线"，
+   故以【最近演化（lastEvolvedTurn 最大）那条为准】——它的字段视作当前最新状态，应替代旧的原始条；
+   旧条目仅回填 latest 没给的空字段（如 rank 常只在原始 canon 条上），列表(大事记/关系/备注)取并集。
+   名字一律用裸名、id 沿用最干净那条（多为原始条）保持引用稳定。用于清理历史存档里堆积的级联重复。 */
 function mergeCosmosGroup(list: CosmosEntity[]): CosmosEntity {
   if (list.length === 1) return { ...list[0], name: cleanCosmosName(list[0].name) || list[0].name };
-  const score = (e: CosmosEntity) =>
-    (cleanCosmosName(e.name) === e.name ? 1e12 : 0) + (e.lastEvolvedTurn || 0) * 1000 + (e.deeds?.length || 0);
-  const [head, ...rest] = [...list].sort((a, b) => score(b) - score(a));
-  const base: CosmosEntity = { ...head, name: cleanCosmosName(head.name) || head.name, relations: [...(head.relations ?? [])], deeds: [...(head.deeds ?? [])], extra: { ...(head.extra ?? {}) } };
-  for (const e of rest) {
+  const byRecency = [...list].sort((a, b) => (b.lastEvolvedTurn || 0) - (a.lastEvolvedTurn || 0));   // 新→旧
+  const latest = byRecency[0];
+  const cleanSrc = list.find((e) => cleanCosmosName(e.name) === e.name) || latest;   // 本来就干净的那条（原始条）
+  const base: CosmosEntity = {
+    ...latest,                                                                        // ★最新演化的数据为准（替代旧值）
+    id: cleanSrc.id,
+    name: cleanCosmosName(latest.name) || cleanCosmosName(cleanSrc.name) || latest.name,
+    relations: [...(latest.relations ?? [])],
+    deeds: [...(latest.deeds ?? [])],
+    extra: { ...(latest.extra ?? {}) },
+  };
+  for (const e of byRecency.slice(1)) {   // 次新→最旧：只补 latest 缺的，列表并集
     base.power = base.power || e.power;
     base.territory = base.territory || e.territory;
     base.resources = base.resources || e.resources;
     base.goal = base.goal || e.goal;
     base.towardParadise = base.towardParadise || e.towardParadise;
     base.era = base.era || e.era;
-    if (base.rank == null) base.rank = e.rank;
+    if (base.rank == null) base.rank = e.rank;        // rank/排名常只在原始条上 → 回填
     base.isPlayerKnown = base.isPlayerKnown || e.isPlayerKnown;
     base.destroyed = base.destroyed || e.destroyed;
-    base.lastEvolvedTurn = Math.max(base.lastEvolvedTurn || 0, e.lastEvolvedTurn || 0);
-    base.extra = { ...(e.extra ?? {}), ...base.extra };
+    base.extra = { ...(e.extra ?? {}), ...base.extra };   // 新值覆盖旧值
     const rseen = new Set(base.relations.map((r) => cNorm(r.target)));
     for (const r of e.relations ?? []) if (r?.target && !rseen.has(cNorm(r.target))) { base.relations.push(r); rseen.add(cNorm(r.target)); }
     const dseen = new Set(base.deeds.map((d) => cNorm(d.desc)));

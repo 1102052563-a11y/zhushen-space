@@ -76,7 +76,7 @@ import { useGame } from './store/gameStore';
 import { useSettings, resolveApiChain } from './store/settingsStore';
 import { apiChatFallback } from './systems/apiChat';
 import { useVariables } from './store/variableStore';
-import { useSkillTree } from './store/skillTreeStore';
+import { useSkillTree, playerTreeAttrBonus } from './store/skillTreeStore';
 import { SKILLTREE_TUNING } from './systems/skillTree';
 import { parseAllStateUpdates, stripStateBlocks, parseAllItemCommands, applyItemCommands, parseAllCharCommands, applyCharacterCommands, parseAllNpcCommands, applyNpcCommands, parseAllFactionCommands, applyFactionCommands, applyTerritoryCommands, applyTeamCommands, isEquippable, setNpcOwnerResolver, lenientJsonParse, type StateUpdate } from './systems/stateParser';
 import { parseWeather, isLightSky, extractWeatherFxCss, sanitizeWeatherCss } from './systems/weatherFx';
@@ -89,7 +89,7 @@ import { resolveEquipSlot } from './systems/equipSlots';
 import { useTerritory, buildTerritorySystemPrompt, buildingCap } from './store/territoryStore';
 import { useTeam, buildTeamSystemPrompt, memberCap as teamMemberCap, playerTeamAttrBonus, playerTeamPerkAbilities } from './store/adventureTeamStore';
 import { withAttrDelta } from './systems/attrBonus';
-import { useCosmos, buildCosmosSystemPrompt, cosmosNameEq } from './store/cosmosStore';
+import { useCosmos, buildCosmosSystemPrompt, cosmosNameEq, cleanCosmosName } from './store/cosmosStore';
 import { realmFromLevel, normalizeTier, lvFromRealm, trueAttr, computeMaxHp, computeMaxEp, gearMaxHpBonus, gearMaxEpBonus, abilityMaxHpBonus, abilityMaxEpBonus, effectiveResource, attrCapForTier, fullMaxHp, fullMaxEp, TIERS } from './systems/derivedStats';
 import { bioInnate } from './systems/bioStrength';
 import { generateNpcAttrs, resolveForm, generateLuck } from './systems/npcAttrGen';
@@ -149,6 +149,7 @@ import { useEnhance } from './store/enhanceStore';
 import { PITY_THRESHOLD, stageFromLevel, growthCoef } from './systems/enhanceEngine';
 import ChannelPanel from './components/ChannelPanel';
 import DmPanel, { type DmHandlers } from './components/DmPanel';
+import MultiplayerPanel from './components/MultiplayerPanel';
 import FriendsPanel from './components/FriendsPanel';
 import { retrieveNovel } from './systems/novelVec';
 import { useDm, isDmableTag } from './store/dmStore';
@@ -1074,13 +1075,13 @@ function reconcilePlayerVitals(): void {
 /* 主角 HP/EP 真实上限 = 体质/智力×系数 + 装备上限加成 + 被动/天赋上限加成（如「生命上限+100」被动）。
    各处统一用这两个，确保正文/面板/AI快照/短指令钳制一致。 */
 function playerMaxHp(): number {
-  const a = withAttrDelta(usePlayer.getState().profile.attrs, playerTeamAttrBonus());   // 冒险团团队效果的六维加成（体质→HP）
+  const a = withAttrDelta(withAttrDelta(usePlayer.getState().profile.attrs, playerTreeAttrBonus()), playerTeamAttrBonus());   // 技能树 + 冒险团团队的六维加成（体质→HP，与属性面板/战斗同口径）
   const b1 = useCharacters.getState().characters['B1'];
   const eq = useItems.getState().items.filter((i) => i.equipped) as any[];
   return fullMaxHp(a, eq, b1?.skills, [...(b1?.traits ?? []), ...playerTeamPerkAbilities()]);   // 团队效果里「生命上限+N / X%生命加成」一并计入
 }
 function playerMaxEp(): number {
-  const a = withAttrDelta(usePlayer.getState().profile.attrs, playerTeamAttrBonus());   // 团队效果的六维加成（智力→EP）
+  const a = withAttrDelta(withAttrDelta(usePlayer.getState().profile.attrs, playerTreeAttrBonus()), playerTeamAttrBonus());   // 技能树 + 团队的六维加成（智力→EP，与属性面板/战斗同口径）
   const b1 = useCharacters.getState().characters['B1'];
   const eq = useItems.getState().items.filter((i) => i.equipped) as any[];
   return fullMaxEp(a, eq, b1?.skills, [...(b1?.traits ?? []), ...playerTeamPerkAbilities()]);
@@ -1282,6 +1283,7 @@ const rightMenuItems = [
   { icon: '📡', label: '频道' },
   { icon: '✉', label: '私信' },
   { icon: '👥', label: '好友' },
+  { icon: '🌐', label: '联机' },
   { icon: '🧠', label: '记忆' },
   { icon: '💾', label: '存档' },
   { icon: '⚙', label: '设置' },
@@ -1372,6 +1374,7 @@ export default function App() {
   const [facilitiesOpen,   setFacilitiesOpen]   = useState(false);   // 「乐园设施」聚合菜单（欢愉宫/竞技场/赌场）
   const joyEnabled = useJoy((s) => s.settings.enabled);
   const [channelPanelOpen, setChannelPanelOpen] = useState(false);
+  const [mpPanelOpen, setMpPanelOpen] = useState(false);  // 联机面板
   const [shopOpen, setShopOpen] = useState(false);
   const [summaryPanelOpen, setSummaryPanelOpen] = useState(false);
   const [saveOpen,         setSaveOpen]         = useState(false);
@@ -3554,7 +3557,7 @@ ${AFFIX_EFFECT_RULE}`;
     const home = (usePlayer.getState().profile.homeParadise || '').trim() || '轮回乐园';
     const detail = all.filter((e) => focusIds.has(e.id)).map((e) => {
       const bits = [
-        `「${e.name}」[${e.category}·优先级${e.priority}]`,
+        `「${cleanCosmosName(e.name)}」[${e.category}·优先级${e.priority}]`,
         `状态:${e.status}${e.destroyed ? '(已覆灭)' : ''}`,
         e.rank ? `排名:${e.rank}` : '',
         e.power && `实力:${e.power}`,
@@ -3567,7 +3570,7 @@ ${AFFIX_EFFECT_RULE}`;
       ].filter(Boolean);
       return '· ' + bits.join('；');
     });
-    const others = all.filter((e) => !focusIds.has(e.id)).map((e) => `${e.name}(${e.status})`);
+    const others = all.filter((e) => !focusIds.has(e.id)).map((e) => `${cleanCosmosName(e.name)}(${e.status})`);
     return `【焦点实体（本轮重点推演）】\n${detail.join('\n') || '（无）'}\n\n【其余实体名录（一般不动，必要时可微调）】\n${others.join('、') || '（无）'}`;
   }
 
@@ -3627,7 +3630,7 @@ ${AFFIX_EFFECT_RULE}`;
     for (let i = 0; i < sampleN && rest.length; i++) add(rest.splice(Math.floor(Math.random() * rest.length), 1)[0]);
 
     const lines = [...picked.values()].map((e) => {
-      const head = `「${e.name}」(${e.category}·${e.status}${e.rank ? '·排名' + e.rank : ''})`;
+      const head = `「${cleanCosmosName(e.name)}」(${e.category}·${e.status}${e.rank ? '·排名' + e.rank : ''})`;
       const bits = [e.power, e.goal && `动向:${e.goal}`, e.towardParadise && `对${home}:${e.towardParadise}`].filter(Boolean);
       return `- ${head} ${bits.join('；')}`;
     });
@@ -7495,6 +7498,7 @@ ${lines}`;
                     item.label === '频道' ? () => setChannelPanelOpen(true) :
                     item.label === '私信' ? () => { setDmFocusThread(undefined); setDmPanelOpen(true); } :
                     item.label === '好友' ? () => setFriendsPanelOpen(true) :
+                    item.label === '联机' ? () => setMpPanelOpen(true) :
                     item.label === '记忆' ? () => setSummaryPanelOpen(true) :
                     item.label === '存档' ? () => setSaveOpen(true) :
                     undefined;
@@ -7597,6 +7601,7 @@ ${lines}`;
           onAddFriend={addFriendFromChannel} />
       )}
       {dmPanelOpen && <DmPanel onClose={() => setDmPanelOpen(false)} focusThreadId={dmFocusThread} h={dmHandlers} />}
+      {mpPanelOpen && <MultiplayerPanel onClose={() => setMpPanelOpen(false)} />}
       {friendsPanelOpen && <FriendsPanel onClose={() => setFriendsPanelOpen(false)} turn={turnCountRef.current}
         onOpenNpc={(cid) => { setFriendsPanelOpen(false); setOnSceneDetailId(cid); }}
         onDm={(cid) => { const r = useNpc.getState().npcs[cid]; if (!r) return; setFriendsPanelOpen(false); openDmFor({ targetId: r.id, targetName: r.name || r.id, targetTier: (r.realm || '').split(/[·|]/)[0] || undefined, targetJob: r.profession, targetPersona: r.personality, targetStrength: r.bioStrength, targetTag: r.npcTag }); }} />}

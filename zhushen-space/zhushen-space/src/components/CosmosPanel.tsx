@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { useCosmos, COSMOS_CATEGORIES, type CosmosCategory, type CosmosEntity } from '../store/cosmosStore';
+import { useCosmos, cleanCosmosName, COSMOS_CATEGORIES, type CosmosCategory, type CosmosEntity } from '../store/cosmosStore';
 
 /* 万族态势面板：宇宙背景层（七乐园/虚空万族/文明组织/原生世界/神灵/深渊）的只读浏览。
    顶部七乐园战力排行榜 + 按类型分 tab + 实体卡。 */
@@ -28,7 +28,7 @@ function EntityCard({ e }: { e: CosmosEntity }) {
       <button onClick={() => setOpen((v) => !v)} className="w-full text-left">
         <div className="flex items-center gap-2 flex-wrap">
           <span className="text-base">{CAT_ICON[e.category]}</span>
-          <span className="text-sm font-bold text-slate-100">{e.name}</span>
+          <span className="text-sm font-bold text-slate-100">{cleanCosmosName(e.name)}</span>
           {e.rank != null && <span className="text-[11px] font-mono px-1.5 py-0.5 rounded border border-god/40 text-god bg-god/10">第{e.rank}</span>}
           <span className="text-[11px] font-mono px-1.5 py-0.5 rounded border border-current/40">{e.status}</span>
           {!e.isPlayerKnown && <span className="text-[10px] font-mono text-dim/40">未接触</span>}
@@ -102,7 +102,7 @@ export default function CosmosPanel({ onClose }: { onClose: () => void }) {
                 <div className="flex flex-wrap gap-1.5">
                   {paradises.map((p) => (
                     <span key={p.id} className={`text-[11px] font-mono px-2 py-0.5 rounded-full border ${STATUS_CLS[p.status] ?? STATUS_CLS['稳固']} ${p.destroyed ? 'opacity-50' : ''}`}>
-                      {p.rank ?? '?'}·{p.name}
+                      {p.rank ?? '?'}·{cleanCosmosName(p.name)}
                     </span>
                   ))}
                 </div>

@@ -193,8 +193,8 @@ export function serializePlayerCard(
   ].filter(Boolean).join(' | ');
   const a = profile.attrs;
   const pEqp = items.filter((it) => it.equipped);
-  // HP/EP 上限的基 = 基础 + 冒险团团队六维(体/智→HP/EP)，团队增益里的「生命/法力上限+N」并入天赋（与 App.playerMaxHp/EP 一致；上限不含技能树，防乱跳）
-  const hpBase = withAttrDelta(a, playerTeamAttrBonus());
+  // HP/EP 上限的基 = 基础 + 技能树 + 冒险团团队六维(体/智→HP/EP)，团队增益里的「生命/法力上限+N」并入天赋（与 App.playerMaxHp/EP、属性面板同口径，技能树加的体质/智力同步抬高上限）
+  const hpBase = withAttrDelta(withAttrDelta(a, playerTreeAttrBonus('B1')), playerTeamAttrBonus());
   const hpTalents = [...(talents ?? []), ...playerTeamPerkAbilities()];
   const pMaxHp = fullMaxHp(hpBase, pEqp, skills, hpTalents);
   const pMaxEp = fullMaxEp(hpBase, pEqp, skills, hpTalents);

@@ -428,8 +428,8 @@ export default function PlayerSidebar({ onClose }: { onClose?: () => void }) {
       {/* 底部：生命值 HP / 蓝量 EP（上限由体质×20 / 智力×15 自动换算）*/}
       <div className="shrink-0 border-t border-edge p-3 space-y-2">
         {(() => {
-          // 最大HP/EP = 基础六维换算 + 装备/被动里明确写"增加HP/EP上限"的平值 + 百分比加成(如被动"10%生命加成")；技能/天赋的属性加成不计入上限，避免乱跳
-          const teamAttrsBase = withAttrDelta(profile.attrs, playerTeamAttrBonus());   // 团队效果六维加成（体/智→HP/EP）
+          // 最大HP/EP = (基础六维 + 技能树 + 团队的六维加成) 换算 + 装备/被动里明确写"增加HP/EP上限"的平值 + 百分比加成(如被动"10%生命加成")；与上方属性面板同口径，技能树加的体质/智力同步抬高 HP/EP 上限
+          const teamAttrsBase = withAttrDelta(withAttrDelta(profile.attrs, playerTreeAttrBonus()), playerTeamAttrBonus());   // 技能树 + 团队效果的六维加成（体/智→HP/EP）
           const teamPerkAbil = playerTeamPerkAbilities();                              // 团队效果显式「HP/EP上限」文本
           const maxHp = fullMaxHp(teamAttrsBase, equippedFull, b1?.skills, [...(b1?.traits ?? []), ...teamPerkAbil]);
           const maxEp = fullMaxEp(teamAttrsBase, equippedFull, b1?.skills, [...(b1?.traits ?? []), ...teamPerkAbil]);
