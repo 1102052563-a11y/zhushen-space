@@ -1114,12 +1114,14 @@ function reconcilePlayerVitalsGrowth(): void {
   const g = useGame.getState();
   const p = g.player;
   const liveHp = playerMaxHp(), liveEp = playerMaxEp();
-  if (p.maxHp == null || liveHp > p.maxHp) g.setPlayerField('hp', liveHp);          // 上限因成长变大 → 当前补满
-  else if ((p.hp ?? liveHp) > liveHp) g.setPlayerField('hp', liveHp);               // 上限变小 → 当前夹回新上限
-  if (p.maxHp !== liveHp) g.setPlayerField('maxHp', liveHp);                        // 存储上限同步=实时上限
+  // 顺序要紧：setPlayerField 会把 hp/mp 夹到 maxHp/maxMp(gameStore.clampPlayer)，必须**先抬上限再写当前值**，
+  // 否则"补满"会被旧的低上限夹掉。下面用捕获的旧 p.maxHp/p.hp 判定，再按新上限写值。
+  if (p.maxHp !== liveHp) g.setPlayerField('maxHp', liveHp);                        // ① 先同步存储上限=实时上限
+  if (p.maxHp == null || liveHp > p.maxHp) g.setPlayerField('hp', liveHp);          // ② 上限因成长变大 → 当前补满
+  else if ((p.hp ?? liveHp) > liveHp) g.setPlayerField('hp', liveHp);               //    上限变小 → 当前夹回新上限
+  if (p.maxMp !== liveEp) g.setPlayerField('maxMp', liveEp);
   if (p.maxMp == null || liveEp > p.maxMp) g.setPlayerField('mp', liveEp);
   else if ((p.mp ?? liveEp) > liveEp) g.setPlayerField('mp', liveEp);
-  if (p.maxMp !== liveEp) g.setPlayerField('maxMp', liveEp);
 }
 
 const MISC_HOME_TIME_RULE = `
@@ -1524,7 +1526,10 @@ export default function App() {
         applyWorldSnapshot(payload?.world);   // 来宾：同步房主世界(NPC/势力/世界状态)进本地面板
         if (isReplay) return;                 // 中途加入的状态回放：正文交给 narrative_log，不重复追加
         const t = payload?.narrative;
-        if (t) setMessages((prev) => [...prev, { id: ++msgId.current, role: 'assistant', content: String(t) }]);
+        if (t) {
+          setMessages((prev) => [...prev, { id: ++msgId.current, role: 'assistant', content: String(t) }]);
+          void runGuestSelfEvolution(String(t));   // 来宾：用自己的 API 演化自己的角色
+        }
       },
       onNarrativeLog: (entries: { role: string; content: string }[]) => {
         if (useMp.getState().role === 'host' || !entries?.length) return;   // 中途加入：把房主正文进度补进聊天
@@ -3390,7 +3395,28 @@ ${AFFIX_EFFECT_RULE}`;
   /* ════════════════════════════════════════════
      生平压缩 / 记忆整理阶段（达阈值时批量压缩 short/long 记忆）
   ════════════════════════════════════════════ */
-  async function runMemoryCompressionPhase() {
+  // 联机房主：真人队友不是NPC的铁则（附给 NPC + 物品阶段，避免房主把队友当NPC演化/给物品）
+  function mpHostExcludeRule(): string {
+    const mp = useMp.getState();
+    if (mp.status !== 'connected' || mp.role !== 'host') return '';
+    const names = (mp.seats || []).map((s) => s.name).filter(Boolean);
+    if (!names.length) return '';
+    return `\n\n【联机·真人队友铁则】以下是真人玩家操控的队友角色，**不是NPC**：${names.join('、')}。绝不要为他们建立或更新NPC档案、不要演化他们的属性/技能、不要给他们增减任何物品或装备——他们由各自的玩家自行演化。你只演化真正的NPC与世界本身。`;
+  }
+
+  // 联机来宾：用自己的 API 演化自己的角色(六维/身份/技能天赋/背包/生平)，不碰共享世界
+  async function runGuestSelfEvolution(narrative: string) {
+    turnCountRef.current += 1;   // 来宾自己的回合推进（让各阶段频率门正常工作）
+    try { useItems.getState().setItemTurn(turnCountRef.current); } catch { /* */ }
+    const selfRule = '\n\n【联机·只演化自己】你只演化"主角"(本玩家)的角色与物品。正文里其他真人队友/NPC的获得、成长、变化都与主角无关，绝不要把别人的物品/技能/属性加到主角身上。';
+    await Promise.allSettled([
+      runPlayerEvolutionPhase(narrative + selfRule),
+      runItemManagementPhase(narrative + selfRule),
+    ]);
+    try { await runMemoryCompressionPhase(true); } catch { /* */ }   // 只压自己 B*
+  }
+
+  async function runMemoryCompressionPhase(onlyPlayer = false) {
     const { settings } = useMemory.getState();
     if (!settings.enabled) return;
 
@@ -3398,6 +3424,7 @@ ${AFFIX_EFFECT_RULE}`;
     const inScope = (id: string) => {
       const isPlayer = /^B\d+$/.test(id);
       const isNpc = /^[CG]\d+$/.test(id);
+      if (onlyPlayer) return isPlayer;   // 联机来宾：只压自己(B*)，不碰房主同步来的 NPC
       if (settings.scope === 'player') return isPlayer;
       if (settings.scope === 'npc') return isNpc;
       return isPlayer || isNpc;
@@ -6508,12 +6535,14 @@ ${lines}`;
     const turn = turnCountRef.current;
     const due = (key: string) => turn % Math.max(1, sched[key]?.every || 1) === 0;
     const narr = (key: string) => buildRecentNarrative(narrative, sched[key]?.read ?? 1);
+    // 联机房主：把"真人队友不是NPC、别演化他们/别给他们物品"的铁则附给 NPC + 物品阶段
+    const mpEx = mpHostExcludeRule();
     // 收集会改「回合洞察」快照变量的阶段(主角/物品/对账·NPC·势力)的 promise，全部 settle 后再抓快照，比固定 20s 估时更准
     const snapTurn = turnCountRef.current;
     const settleWaiters: Promise<any>[] = [];
     // 物品 / 主角演化（各自并发跑），跑完后合并成【一次】综合对账纠错
     const dueItem = due('item'), duePlayer = due('player');
-    const itemP = dueItem ? runItemManagementPhase(narr('item')) : Promise.resolve();
+    const itemP = dueItem ? runItemManagementPhase(narr('item') + mpEx) : Promise.resolve();
     const playerP = duePlayer ? runPlayerEvolutionPhase(narr('player')) : Promise.resolve();
     if (dueItem || duePlayer) {
       settleWaiters.push(
@@ -6523,7 +6552,7 @@ ${lines}`;
       );
     }
     // NPC 演化（内部自行判断启用/API/策略）
-    if (due('npc')) { const npcEvoP = Promise.resolve(runNpcEvolutionPhase(narr('npc'))); settleWaiters.push(npcEvoP); if (combatSettled) npcEvoP.then(() => applyCombatVitals(combatSettled)); }
+    if (due('npc')) { const npcEvoP = Promise.resolve(runNpcEvolutionPhase(narr('npc') + mpEx)); settleWaiters.push(npcEvoP); if (combatSettled) npcEvoP.then(() => applyCombatVitals(combatSettled)); }
     // 势力演化
     if (due('faction')) settleWaiters.push(Promise.resolve(runFactionEvolutionPhase(narr('faction'))));
     // 领地演化（单一基地）
