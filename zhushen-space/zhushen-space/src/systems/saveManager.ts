@@ -166,10 +166,16 @@ function mergeKeepApi(key: string, savedJson: string): string {
 export async function loadSlot(id: string): Promise<boolean> {
   const slot = await saveDb.get<SaveSlot>(id);
   if (!slot) return false;
+  // 读档时 store 写回策略：
+  // - 快照里有 → 写回（API 字段保当前）。
+  // - 快照里没有 → **只清【较新功能的进度缓存】**（防上一局的 潜能点/筹码/深渊进度 等泄漏进读入的旧档）；
+  //   **核心存档（主角技能/天赋/副职业·背包·NPC·主角档案·HP/EP 等）绝不因快照缺失而清空**——
+  //   否则读个缺这些键的旧档/回退点就会把当前的技能天赋副职业全抹掉（"读档后技能丢失"的根因，已修）。
+  const CLEAR_ON_MISSING = new Set(['drpg-skilltree', 'drpg-casino', 'drpg-abyss', 'drpg-world-codex']);
   for (const { key } of STORES) {
     const v = slot.data.stores[key];
     if (typeof v === 'string') localStorage.setItem(key, mergeKeepApi(key, v));   // API 配置不随存档回滚
-    else if (key !== 'zhushen-save-v1') localStorage.removeItem(key);   // 存档快照里没有的 store（多为存档创建时尚不存在的较新功能，如技能树/潜能点）→ 清掉本地残留，让其 reload 后回到默认；否则上一局的进度（如潜能点）会泄漏进读入的旧档。**例外 zhushen-save-v1(主角HP/EP)**：旧档(改键前创建)没存它，清掉会把当前血蓝抹成默认，保留当前值（已由 setPlayerField 持久化）
+    else if (CLEAR_ON_MISSING.has(key)) localStorage.removeItem(key);             // 仅较新功能缓存缺失才清（防泄漏）；核心存档一律保留当前，绝不抹
   }
   // 图片：覆盖 IndexedDB（reload 后由 hydrateImages 回填到各 store）。
   // 仅当快照带了图片才清+写；不带图片的快照（如降级保存的回退点）保留现有图片，避免回退把图全清掉。
@@ -183,6 +189,56 @@ export async function loadSlot(id: string): Promise<boolean> {
   try { sessionStorage.setItem(PENDING_STARTED_KEY, '1'); } catch (e) { logWarn('saveManager.loadSlot.pendingFlag', e); }
   location.reload();
   return true;
+}
+
+/* ── 从某个存档「只提取主角(B1)的 技能/天赋/副职业/称号」并入当前游戏 ─────────────
+   救「主角技能/天赋/副职业丢了，但旧存档里还在」——又不想整档读回去丢掉当前进度。
+   只**新增**（按名字去重；当前已有的一律保留，只把存档里缺的补进来），绝不删除/覆盖当前其它字段或其它角色。
+   直接写**运行中的 store**（非裸改 localStorage），persist 自然落盘，不 reload、无竞态。
+   返回并入后 B1 的各项计数 + 本次新增的名字，供面板提示；存档无该项/无 B1 则返回 null。 */
+export async function extractPlayerFromSlot(
+  id: string,
+): Promise<{ counts: { skills: number; traits: number; subProfessions: number; titles: number }; added: string[] } | null> {
+  const slot = await saveDb.get<SaveSlot>(id);
+  const raw = slot?.data?.stores?.['drpg-characters'];
+  if (!raw) return null;
+  let savedB1: any = null;
+  try { savedB1 = JSON.parse(raw)?.state?.characters?.B1; } catch { return null; }
+  if (!savedB1) return null;
+
+  const cur: any = useCharacters.getState().characters['B1'] || {};
+  const keyOf = (x: any) => (typeof x === 'string' ? x : (x?.name ?? x?.title ?? ''));
+  const added: string[] = [];
+  // 当前在前、存档补后；按名字去重，记录新增
+  const mergeByName = (a: any[] = [], b: any[] = [], label = '') => {
+    const out = [...(a || [])];
+    const have = new Set((a || []).map(keyOf));
+    for (const x of (b || [])) {
+      const k = keyOf(x);
+      if (k && !have.has(k)) { out.push(x); have.add(k); if (label) added.push(`${label}「${k}」`); }
+    }
+    return out;
+  };
+  const mergedB1 = {
+    ...savedB1,   // 存档 B1 作底（B1 整个丢了时这一步就把基础字段也带回来）
+    ...cur,       // 当前字段覆盖（保住当前进度里的 name/六维/外观… 等）
+    skills:         mergeByName(cur.skills, savedB1.skills, '技能'),
+    traits:         mergeByName(cur.traits, savedB1.traits, '天赋'),
+    subProfessions: mergeByName(cur.subProfessions, savedB1.subProfessions, '副职业'),
+    titles:         mergeByName(cur.titles, savedB1.titles, '称号'),
+  };
+  useCharacters.setState((s) => ({ characters: { ...s.characters, B1: mergedB1 } }));
+  try { useCharacters.getState().dedupeIds?.(); } catch { /* 合并可能撞历史 id，去重一次（与启动时同一处理） */ }
+
+  return {
+    counts: {
+      skills: (mergedB1.skills || []).length,
+      traits: (mergedB1.traits || []).length,
+      subProfessions: (mergedB1.subProfessions || []).length,
+      titles: (mergedB1.titles || []).length,
+    },
+    added,
+  };
 }
 
 export async function renameSlot(id: string, name: string) {

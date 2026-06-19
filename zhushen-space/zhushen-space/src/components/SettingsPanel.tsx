@@ -2083,6 +2083,8 @@ function ApiLibrarySection() {
       } else if (e?.name === 'AbortError' || /abort/i.test(msg)) {
         // 超时被中止：多为推理模型/中转太慢，接口本身大概率可用
         setTestById((p) => ({ ...p, [ep.id]: { ok: false, msg: '超时（>60s，模型或中转响应太慢）；接口可能可用，正文用大上下文/换更快模型再试' } }));
+      } else if (/localhost|127\.0\.0\.1/.test(ep.baseUrl || '') && /failed to fetch|load failed|networkerror|connection refused/i.test(msg)) {
+        setTestById((p) => ({ ...p, [ep.id]: { ok: false, msg: '连不上本地 worker：先在 multiplayer-worker 跑 `npx wrangler dev`（Vertex 仅本地可用）' } }));
       } else {
         setTestById((p) => ({ ...p, [ep.id]: { ok: false, msg: msg.slice(0, 180) } }));
       }
@@ -2100,7 +2102,8 @@ function ApiLibrarySection() {
       setModels((p) => ({ ...p, [ep.id]: list }));
       if (list.length === 0) setErrById((p) => ({ ...p, [ep.id]: '该接口未返回模型列表' }));
     } catch (e: any) {
-      setErrById((p) => ({ ...p, [ep.id]: e.message ?? '获取失败' }));
+      const localDown = /localhost|127\.0\.0\.1/.test(ep.baseUrl || '') && /failed to fetch|load failed|networkerror|connection refused/i.test(String(e?.message || ''));
+      setErrById((p) => ({ ...p, [ep.id]: localDown ? '连不上本地 worker：先在 multiplayer-worker 跑 `npx wrangler dev`（Vertex 仅本地可用）' : (e.message ?? '获取失败') }));
     } finally { setLoadingId(null); }
   }
 
