@@ -1,130 +1,182 @@
-/* 创意工坊核心逻辑（纯逻辑，无 React）。
+/* 创意工坊核心（纯逻辑，无 React）。
  *
- * 设计（呼应 fanren-remake 的「创意工坊」+ remoteLibraryInstall）：
- *   - 「在线读取为主」：fetchWorkshopIndex 拉一个托管的索引 JSON → 浏览 → installWorkshopItem 一键装。
- *   - 安装即在 workshopStore.installs 记 版本/内容哈希 → itemStatus 判 新装/已装/有更新（仿 contentHash + dirty 思路）。
- *   - 「投稿」走 buildSubmission/downloadSubmission 导出文件（无社区后端，作者把文件给维护者合进索引）；
- *     installFromFile 支持把别人给的投稿文件 / 整包配置直接装进来（本地点对点分享）。
+ * 社区工坊：无审核直传 + 浏览 + 下载数。后端 = zhushen-multiplayer Worker 的 /api/workshop/*（Cloudflare D1）。
+ *   - 浏览：wsList 拉列表(带下载数) → installFromBackend(取 payload→装进对应 store→下载数+1→记账本)。
+ *   - 上传：uploadLocal(把本地某条 pack 成 payload → POST 直传，实时可见)。
  *
- * 内容颗粒度：分类条目 + 整包。各类型用 KIND 注册表登记 listLocal/pack/install，
- * 复用各 store 既有形状（textPreset/worldbook/skillTree/creationTemplate）+ configExport（整包）。
- * 想再加「强化老板包 / 荷官包」等：往 KINDS 加一条即可。
+ * 内容类型（KIND 注册表，每类型 listLocal/pack/install）：
+ *   角色：技能 skill / 天赋 talent / 称号 title / 副职业 subProfession（都装到主角 B1）
+ *   装备：装备 equipment(武器/防具/饰品/法宝) / 宝石 gem
+ *   物品：item(消耗品/材料/工具/…非装备)
+ *   NPC ：npc(召唤物/随从/契约者/土著；连同其技能天赋/持有物一起分享)
+ *   模板：技能树 skillTree / 角色创建 creationTemplate
+ * 加新类型 = 往 KINDS 加一条。
  */
-import { useSettings, type TextGenPreset, type WorldBook } from '../store/settingsStore';
+import { useItems, type InventoryItem } from '../store/itemStore';
+import { useCharacters } from '../store/characterStore';
+import { useNpc } from '../store/npcStore';
 import { useSkillTree, type TreeDef } from '../store/skillTreeStore';
 import { useCreationTemplates, type CreationTemplateData } from '../store/creationTemplateStore';
-import { buildGlobalConfig, importGlobalConfig, type GlobalConfig } from './configExport';
 import { useWorkshop } from '../store/workshopStore';
+import { mpBase, myPlayerId } from './mpConfig';
 
-export const INDEX_KIND = 'zhushen-workshop-index';
-export const ITEM_KIND = 'zhushen-workshop-item';
-export const FORMAT_VERSION = 1;
+const PLAYER_ID = 'B1';
+const EQUIP_CATS = ['武器', '防具', '饰品', '法宝'];
+const GEM_CAT = '宝石';
+const NPC_CATS = ['召唤物', '随从', '契约者', '土著'];
+const ITEM_CATS = ['消耗品', '材料', '工具', '重要物品', '特殊物品', '凡物', '其他物品'];
 
-export type WorkshopKindId = 'textPreset' | 'worldbook' | 'skillTree' | 'creationTemplate' | 'configBundle';
+export type WorkshopKindId =
+  | 'skill' | 'talent' | 'title' | 'subProfession'
+  | 'equipment' | 'gem' | 'item' | 'npc'
+  | 'skillTree' | 'creationTemplate';
 
 export interface WorkshopMeta {
   id: string;
   type: WorkshopKindId;
+  category?: string;
   name: string;
   author?: string;
   version?: string;
   summary?: string;
   tags?: string[];
-  updatedAt?: string;
+  downloads?: number;
+  createdAt?: number;
   contentHash?: string;
 }
+export interface WorkshopItem extends WorkshopMeta { payload: any }
 
-// 索引里的一条：meta + 内容（内联 payload 或外链 payloadUrl，二选一）
-export interface WorkshopIndexItem extends WorkshopMeta {
-  payload?: any;
-  payloadUrl?: string;
-}
-
-export interface WorkshopIndex {
-  kind: typeof INDEX_KIND;
-  formatVersion: number;
-  name?: string;
-  updatedAt?: string;
-  items: WorkshopIndexItem[];
-}
-
-// 单条分享 / 投稿文件
-export interface WorkshopItemFile {
-  kind: typeof ITEM_KIND;
-  formatVersion: number;
-  meta: WorkshopMeta;
-  payload: any;
-}
-
-/* ── 内容类型注册表 ── */
+export interface LocalEntry { id: string; name: string; category?: string }
+export interface PackResult { payload: any; name: string; category?: string }
 export interface WorkshopKindDef {
   id: WorkshopKindId;
   label: string;
   emoji: string;
-  listLocal: () => { id: string; name: string }[];   // 本地可投稿的条目
-  pack: (localId: string) => any;                      // 取一条本地条目 → 可移植 payload
-  install: (payload: any) => void;                     // 把 payload 装进对应 store（去重）
+  group: '角色' | '装备' | '物品' | 'NPC' | '模板';
+  categories?: string[];
+  listLocal: () => LocalEntry[];
+  pack: (localId: string) => PackResult | null;
+  install: (payload: any) => void;
 }
 
+/* ── 工具 ── */
+function stripKeys<T extends object>(o: T, keys: string[]): any {
+  const c: any = { ...o };
+  for (const k of keys) delete c[k];
+  return c;
+}
+const rid = () => Math.random().toString(36).slice(2, 9);
+
+// 装备/宝石/物品：保留全部具体信息（效果/品级/攻防/耐久/词缀/评分/简介/强化/觉醒/宝石/图片…），
+// 只剥掉「库存实例」字段（id/获得时间/装备态/锁定）。别人下载即得完整物品。
+function packInvItem(it: InventoryItem): any {
+  const c = stripKeys(it, ['id', 'addedAt', 'equipped', 'equipSlot', 'locked']);
+  c.quantity = 1;   // 分享一件
+  return c;
+}
+function installInvItem(payload: any) {
+  useItems.getState().addItem({ ...payload, equipped: false, quantity: 1 });
+}
+function listInvByCats(filter: (cat: string) => boolean): LocalEntry[] {
+  return useItems.getState().items
+    .filter((i) => filter(i.category))
+    .map((i) => ({ id: i.id, name: i.name, category: i.category }));
+}
+function packInvById(id: string): PackResult | null {
+  const it = useItems.getState().items.find((x) => x.id === id);
+  return it ? { payload: packInvItem(it), name: it.name, category: it.category } : null;
+}
+
+const ch = () => useCharacters.getState();
+const player = () => ch().characters[PLAYER_ID];
+
 export const KINDS: Record<WorkshopKindId, WorkshopKindDef> = {
-  textPreset: {
-    id: 'textPreset', label: '正文预设', emoji: '📖',
-    listLocal: () => useSettings.getState().textPresets.map((p) => ({ id: p.id, name: p.name })),
-    pack: (id) => useSettings.getState().textPresets.find((p) => p.id === id) ?? null,
-    install: (payload) => useSettings.setState((s) => {
-      const p = payload as TextGenPreset;
-      const incoming: TextGenPreset = { ...p, id: `preset_${Date.now()}`, builtin: false };
-      const others = s.textPresets.filter((x) => x.name !== incoming.name);   // 同名覆盖，不堆叠
-      return { textPresets: [...others, incoming] };
-    }),
+  skill: {
+    id: 'skill', label: '技能', emoji: '✨', group: '角色',
+    listLocal: () => (player()?.skills ?? []).map((s) => ({ id: s.id, name: s.name })),
+    pack: (id) => { const s = (player()?.skills ?? []).find((x) => x.id === id); return s ? { payload: stripKeys(s, ['addedAt']), name: s.name } : null; },
+    install: (payload) => ch().addSkill(PLAYER_ID, { ...payload, id: `S_${PLAYER_ID}_${rid()}` }),
   },
-  worldbook: {
-    id: 'worldbook', label: '世界书', emoji: '📚',
-    listLocal: () => useSettings.getState().worldBooks.map((b) => ({ id: b.id, name: b.name })),
-    pack: (id) => useSettings.getState().worldBooks.find((b) => b.id === id) ?? null,
-    install: (payload) => useSettings.setState((s) => {
-      const b = payload as WorldBook;
-      const incoming: WorldBook = { ...b, id: `wb_${Date.now()}`, builtin: false, builtinKey: undefined, enabled: b.enabled ?? true, createdAt: Date.now() };
-      const others = s.worldBooks.filter((x) => x.name !== incoming.name);
-      return { worldBooks: [...others, incoming] };
-    }),
+  talent: {
+    id: 'talent', label: '天赋', emoji: '🧬', group: '角色',
+    listLocal: () => (player()?.traits ?? []).map((t) => ({ id: t.name, name: t.name })),
+    pack: (id) => { const t = (player()?.traits ?? []).find((x) => x.name === id); return t ? { payload: stripKeys(t, ['addedAt']), name: t.name } : null; },
+    install: (payload) => ch().addTrait(PLAYER_ID, payload),
+  },
+  title: {
+    id: 'title', label: '称号', emoji: '🎖', group: '角色',
+    listLocal: () => (player()?.titles ?? []).map((t) => ({ id: t.name, name: t.name })),
+    pack: (id) => { const t = (player()?.titles ?? []).find((x) => x.name === id); return t ? { payload: stripKeys(t, ['addedAt']), name: t.name } : null; },
+    install: (payload) => ch().addTitle(PLAYER_ID, { ...payload, equipped: false }),
+  },
+  subProfession: {
+    id: 'subProfession', label: '副职业', emoji: '🛠', group: '角色',
+    listLocal: () => (player()?.subProfessions ?? []).map((sp) => ({ id: sp.name, name: sp.name })),
+    pack: (id) => { const sp = (player()?.subProfessions ?? []).find((x) => x.name === id); return sp ? { payload: stripKeys(sp, ['addedAt']), name: sp.name } : null; },
+    install: (payload) => ch().addSubProfession(PLAYER_ID, payload),
+  },
+  equipment: {
+    id: 'equipment', label: '装备', emoji: '⚔', group: '装备', categories: EQUIP_CATS,
+    listLocal: () => listInvByCats((c) => EQUIP_CATS.includes(c)),
+    pack: packInvById,
+    install: installInvItem,
+  },
+  gem: {
+    id: 'gem', label: '宝石', emoji: '💎', group: '装备',
+    listLocal: () => listInvByCats((c) => c === GEM_CAT),
+    pack: packInvById,
+    install: installInvItem,
+  },
+  item: {
+    id: 'item', label: '物品', emoji: '🎒', group: '物品', categories: ITEM_CATS,
+    listLocal: () => listInvByCats((c) => !EQUIP_CATS.includes(c) && c !== GEM_CAT),
+    pack: packInvById,
+    install: installInvItem,
+  },
+  npc: {
+    id: 'npc', label: 'NPC', emoji: '📇', group: 'NPC', categories: NPC_CATS,
+    listLocal: () => Object.values(useNpc.getState().npcs)
+      .filter((r) => NPC_CATS.includes(r.npcTag ?? '') && (r.name || '').trim())
+      .map((r) => ({ id: r.id, name: r.name || r.id, category: r.npcTag })),
+    pack: (id) => {
+      const r = useNpc.getState().npcs[id];
+      if (!r) return null;
+      const rec = stripKeys(r, ['id', 'avatar', 'avatarTags', 'onScene', 'isDead', 'deadTurn',
+        'isFriend', 'friendedAt', 'partyMember', 'partyWorld', 'partyRole', 'lastEvolvedTurn', 'keepForever', 'kitDone', 'arenaRank']);
+      if (Array.isArray(rec.items)) rec.items = rec.items.map((x: any) => stripKeys(x, ['image']));
+      const cd = useCharacters.getState().characters[id];
+      const character = cd ? { skills: cd.skills ?? [], traits: cd.traits ?? [], titles: cd.titles ?? [], subProfessions: cd.subProfessions ?? [] } : undefined;
+      return { payload: { record: rec, character }, name: r.name || r.id, category: r.npcTag };
+    },
+    install: (payload) => {
+      const data = payload as { record: any; character?: { skills?: any[]; traits?: any[]; titles?: any[]; subProfessions?: any[] } };
+      const id = `Cw${Date.now().toString(36)}${rid().slice(0, 3)}`;
+      useNpc.getState().upsertNpc(id, { ...data.record, onScene: false, isDead: false, isFriend: false });
+      const c = useCharacters.getState();
+      (data.character?.skills ?? []).forEach((s) => c.addSkill(id, { ...s, id: `S_${id}_${rid()}` }));
+      (data.character?.traits ?? []).forEach((t) => c.addTrait(id, t));
+      (data.character?.titles ?? []).forEach((t) => c.addTitle(id, t));
+      (data.character?.subProfessions ?? []).forEach((sp) => c.addSubProfession(id, sp));
+    },
   },
   skillTree: {
-    id: 'skillTree', label: '技能树模板', emoji: '🌳',
+    id: 'skillTree', label: '技能树模板', emoji: '🌳', group: '模板',
     listLocal: () => Object.values(useSkillTree.getState().trees).map((t) => ({ id: t.id, name: t.title || t.profession })),
-    pack: (id) => useSkillTree.getState().trees[id] ?? null,
-    install: (payload) => {
-      const t = payload as TreeDef;
-      useSkillTree.getState().upsertTree({ ...t, source: 'manual' });   // 同 id 覆盖=更新；标记为手动来源
-    },
+    pack: (id) => { const t = useSkillTree.getState().trees[id]; return t ? { payload: t, name: t.title || t.profession } : null; },
+    install: (payload) => useSkillTree.getState().upsertTree({ ...(payload as TreeDef), source: 'manual' }),
   },
   creationTemplate: {
-    id: 'creationTemplate', label: '角色创建模板', emoji: '🎭',
+    id: 'creationTemplate', label: '角色创建模板', emoji: '🎭', group: '模板',
     listLocal: () => useCreationTemplates.getState().templates.map((t) => ({ id: t.id, name: t.name })),
-    pack: (id) => {
-      const t = useCreationTemplates.getState().templates.find((x) => x.id === id);
-      return t ? { name: t.name, data: t.data } : null;
-    },
-    install: (payload) => {
-      const p = payload as { name: string; data: CreationTemplateData };
-      useCreationTemplates.getState().addTemplate(p.name, p.data);   // 同名覆盖
-    },
-  },
-  configBundle: {
-    id: 'configBundle', label: '整套配置', emoji: '📦',
-    listLocal: () => [{ id: '__current__', name: '当前全部配置（整包）' }],
-    pack: () => buildGlobalConfig(false),   // 整包默认不含 API 密钥
-    install: (payload) => {
-      const r = importGlobalConfig(JSON.stringify(payload as GlobalConfig));
-      if (!r.ok) throw new Error(r.message);
-    },
+    pack: (id) => { const t = useCreationTemplates.getState().templates.find((x) => x.id === id); return t ? { payload: { name: t.name, data: t.data }, name: t.name } : null; },
+    install: (payload) => { const p = payload as { name: string; data: CreationTemplateData }; useCreationTemplates.getState().addTemplate(p.name, p.data); },
   },
 };
 
 export const KIND_LIST: WorkshopKindDef[] = Object.values(KINDS);
 export function kindOf(type: string): WorkshopKindDef | undefined { return (KINDS as Record<string, WorkshopKindDef>)[type]; }
 
-/* ── 内容哈希（稳定 stringify + FNV-1a，仿 fanren contentHash）── */
+/* ── 内容哈希（稳定 stringify + FNV-1a）── */
 function stable(v: any): string {
   if (Array.isArray(v)) return `[${v.map(stable).join(',')}]`;
   if (v && typeof v === 'object') return `{${Object.keys(v).sort().map((k) => `${JSON.stringify(k)}:${stable((v as any)[k])}`).join(',')}}`;
@@ -137,126 +189,108 @@ export function hashPayload(v: any): string {
   return (h >>> 0).toString(16).padStart(8, '0');
 }
 
-/* ── 安装状态：新装 / 已装 / 有更新 ── */
+/* ── 安装状态 ── */
 export type ItemStatus = 'new' | 'installed' | 'update';
-export function itemStatus(item: Pick<WorkshopMeta, 'id' | 'version' | 'contentHash'>): ItemStatus {
-  const rec = useWorkshop.getState().installs[item.id];
+export function statusFor(installs: Record<string, { version?: string; contentHash?: string }>, meta: Pick<WorkshopMeta, 'id' | 'version' | 'contentHash'>): ItemStatus {
+  const rec = installs[meta.id];
   if (!rec) return 'new';
-  if (item.version && rec.version && item.version !== rec.version) return 'update';
-  if (item.contentHash && rec.contentHash && item.contentHash !== rec.contentHash) return 'update';
+  if (meta.version && rec.version && meta.version !== rec.version) return 'update';
+  if (meta.contentHash && rec.contentHash && meta.contentHash !== rec.contentHash) return 'update';
   return 'installed';
 }
 
-/* ── 远程索引 ── */
-function absUrl(url: string): string {
-  try { return new URL(url, window.location.href).toString(); } catch { return url; }
+/* ── 后端 API 客户端 ── */
+export function apiBase(): string {
+  const o = useWorkshop.getState().apiBase;
+  return (o || mpBase()).replace(/\/+$/, '');
+}
+async function errMsg(res: Response): Promise<string> {
+  try { const d = await res.json(); return d.error || `HTTP ${res.status}`; } catch { return `HTTP ${res.status}`; }
 }
 
-export async function fetchWorkshopIndex(url: string): Promise<WorkshopIndex> {
-  const res = await fetch(absUrl(url), { cache: 'no-cache' });
-  if (!res.ok) throw new Error(`拉取失败 HTTP ${res.status}`);
-  let data: any;
-  try { data = await res.json(); } catch { throw new Error('索引不是合法 JSON'); }
-  if (!data || data.kind !== INDEX_KIND || !Array.isArray(data.items)) {
-    throw new Error('不是有效的工坊索引（kind 应为 zhushen-workshop-index）');
-  }
-  return data as WorkshopIndex;
+export interface ListParams { type?: string; category?: string; q?: string; sort?: 'recent' | 'downloads' }
+export async function wsList(params: ListParams = {}): Promise<WorkshopMeta[]> {
+  const u = new URL(apiBase() + '/api/workshop/items');
+  if (params.type) u.searchParams.set('type', params.type);
+  if (params.category) u.searchParams.set('category', params.category);
+  if (params.q) u.searchParams.set('q', params.q);
+  if (params.sort) u.searchParams.set('sort', params.sort);
+  const res = await fetch(u.toString(), { cache: 'no-cache' });
+  if (!res.ok) throw new Error(await errMsg(res));
+  const data = await res.json();
+  return (data.items ?? []) as WorkshopMeta[];
+}
+export async function wsGet(id: string): Promise<WorkshopItem> {
+  const res = await fetch(`${apiBase()}/api/workshop/items/${encodeURIComponent(id)}`, { cache: 'no-cache' });
+  if (!res.ok) throw new Error(await errMsg(res));
+  return (await res.json()).item as WorkshopItem;
+}
+async function wsBumpDownload(id: string): Promise<number> {
+  try {
+    const res = await fetch(`${apiBase()}/api/workshop/items/${encodeURIComponent(id)}/download`, { method: 'POST' });
+    return (await res.json()).downloads ?? 0;
+  } catch { return 0; }
 }
 
-async function resolvePayload(item: WorkshopIndexItem, sourceUrl: string): Promise<any> {
-  if (item.payload != null) return item.payload;
-  if (item.payloadUrl) {
-    const u = new URL(item.payloadUrl, absUrl(sourceUrl)).toString();
-    const res = await fetch(u, { cache: 'no-cache' });
-    if (!res.ok) throw new Error(`拉取内容失败 HTTP ${res.status}`);
-    const data = await res.json();
-    return (data && data.kind === ITEM_KIND && 'payload' in data) ? data.payload : data;
-  }
-  throw new Error('该条目缺少内容（payload / payloadUrl 均为空）');
-}
-
-export async function installWorkshopItem(item: WorkshopIndexItem, sourceUrl: string, sourceId?: string): Promise<void> {
-  const kind = kindOf(item.type);
-  if (!kind) throw new Error(`未知内容类型「${item.type}」`);
-  const payload = await resolvePayload(item, sourceUrl);
-  kind.install(payload);
+/* ── 高层操作 ── */
+// 安装：取 payload → 装进 store → 下载数+1 → 记账本。返回最新下载数。
+export async function installFromBackend(meta: WorkshopMeta): Promise<number> {
+  const kind = kindOf(meta.type);
+  if (!kind) throw new Error(`未知内容类型「${meta.type}」`);
+  const full = await wsGet(meta.id);
+  kind.install(full.payload);
+  const downloads = await wsBumpDownload(meta.id);
   useWorkshop.getState().recordInstall({
-    id: item.id, type: item.type, name: item.name,
-    version: item.version, contentHash: item.contentHash ?? hashPayload(payload),
-    sourceId, installedAt: Date.now(),
+    id: meta.id, type: meta.type, name: meta.name,
+    version: meta.version, contentHash: meta.contentHash ?? full.contentHash, installedAt: Date.now(),
   });
+  return downloads;
 }
 
-/* ── 投稿：导出文件 ── */
-export interface SubmissionMeta { name: string; author?: string; version?: string; summary?: string; tags?: string[] }
-
-function slug(s: string): string {
-  return s.trim().toLowerCase().replace(/[^\w一-龥]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 24) || 'item';
-}
-
-export function buildSubmission(type: WorkshopKindId, localId: string, meta: SubmissionMeta): WorkshopItemFile {
+export interface UploadMeta { name: string; author?: string; version?: string; summary?: string; tags?: string[] }
+// 上传：把本地某条 pack 成 payload → POST。返回新 id。
+export async function uploadLocal(type: WorkshopKindId, localId: string, meta: UploadMeta): Promise<string> {
   const kind = kindOf(type);
   if (!kind) throw new Error(`未知类型 ${type}`);
-  const payload = kind.pack(localId);
-  if (payload == null) throw new Error('没有可打包的内容');
-  return {
-    kind: ITEM_KIND, formatVersion: FORMAT_VERSION,
-    meta: {
-      id: `${type}-${slug(meta.name)}-${Date.now().toString(36)}`,
-      type,
-      name: meta.name.trim() || '未命名',
-      author: meta.author?.trim() || undefined,
-      version: meta.version?.trim() || '1.0.0',
-      summary: meta.summary?.trim() || undefined,
-      tags: (meta.tags ?? []).filter(Boolean),
-      updatedAt: new Date().toISOString().slice(0, 10),
-      contentHash: hashPayload(payload),
-    },
-    payload,
+  const packed = kind.pack(localId);
+  if (!packed) throw new Error('没有可上传的内容');
+  const finalName = meta.name.trim() || packed.name;
+  const finalVersion = meta.version?.trim() || '1.0.0';
+  const body = {
+    type,
+    category: packed.category,
+    name: finalName,
+    author: meta.author?.trim() || undefined,
+    version: finalVersion,
+    summary: meta.summary?.trim() || undefined,
+    tags: (meta.tags ?? []).filter(Boolean),
+    contentHash: hashPayload(packed.payload),
+    owner: myPlayerId(),   // 归属（删除鉴权 + 「已上传」过滤）
+    payload: packed.payload,
   };
+  const res = await fetch(`${apiBase()}/api/workshop/items`, {
+    method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body),
+  });
+  if (!res.ok) throw new Error(await errMsg(res));
+  const id = (await res.json()).id as string;
+  useWorkshop.getState().recordUpload({ id, type, name: finalName, version: finalVersion, uploadedAt: Date.now() });
+  return id;
 }
 
-export function downloadSubmission(file: WorkshopItemFile): void {
-  const blob = new Blob([JSON.stringify(file, null, 2)], { type: 'application/json' });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url;
-  a.download = `工坊-${file.meta.name}-${file.meta.version ?? ''}.json`;
-  a.click();
-  URL.revokeObjectURL(url);
+// 「已上传」：按 owner 查我上传的条目（含下载数）
+export async function wsListMine(): Promise<WorkshopMeta[]> {
+  const u = new URL(apiBase() + '/api/workshop/items');
+  u.searchParams.set('owner', myPlayerId());
+  const res = await fetch(u.toString(), { cache: 'no-cache' });
+  if (!res.ok) throw new Error(await errMsg(res));
+  return ((await res.json()).items ?? []) as WorkshopMeta[];
 }
 
-/* ── 从文件安装（点对点分享）：支持工坊投稿文件 / 整包全局配置 ── */
-export function installFromFile(raw: string): { ok: boolean; message: string } {
-  let data: any;
-  try { data = JSON.parse(raw); } catch { return { ok: false, message: '文件不是合法 JSON' }; }
-
-  // 兼容直接喂整包全局配置文件
-  if (data && data.kind === 'zhushen-global-config') {
-    const r = importGlobalConfig(raw);
-    if (r.ok) {
-      useWorkshop.getState().recordInstall({
-        id: `bundle-${hashPayload(data)}`, type: 'configBundle', name: '导入的整包配置',
-        version: data.appVersion, contentHash: hashPayload(data), installedAt: Date.now(),
-      });
-    }
-    return { ok: r.ok, message: r.message };
-  }
-
-  if (!data || data.kind !== ITEM_KIND || !data.meta || data.payload == null) {
-    return { ok: false, message: '不是有效的工坊投稿文件（kind 应为 zhushen-workshop-item）' };
-  }
-  const meta = data.meta as WorkshopMeta;
-  const kind = kindOf(meta.type);
-  if (!kind) return { ok: false, message: `未知内容类型「${meta.type}」` };
-  try {
-    kind.install(data.payload);
-    useWorkshop.getState().recordInstall({
-      id: meta.id, type: meta.type, name: meta.name,
-      version: meta.version, contentHash: meta.contentHash ?? hashPayload(data.payload), installedAt: Date.now(),
-    });
-    return { ok: true, message: `已安装「${meta.name}」` };
-  } catch (e: any) {
-    return { ok: false, message: `安装失败：${e?.message ?? e}` };
-  }
+// 删除我上传的条目（同时从工坊下架；后端校验 owner）
+export async function wsDelete(id: string): Promise<void> {
+  const u = new URL(`${apiBase()}/api/workshop/items/${encodeURIComponent(id)}`);
+  u.searchParams.set('owner', myPlayerId());
+  const res = await fetch(u.toString(), { method: 'DELETE' });
+  if (!res.ok) throw new Error(await errMsg(res));
+  useWorkshop.getState().forgetUpload(id);
 }

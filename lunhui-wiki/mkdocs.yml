@@ -1,0 +1,107 @@
+site_name: 轮回乐园百科
+site_description: 《轮回乐园》世界观百科 · 逐章考据 · 忠于原著
+docs_dir: docs
+use_directory_urls: true
+
+theme:
+  name: material
+  language: zh
+  logo: assets/favicon.svg
+  favicon: assets/favicon.svg
+  palette:
+    - media: "(prefers-color-scheme: light)"
+      scheme: default
+      primary: cyan
+      accent: cyan
+      toggle:
+        icon: material/weather-night
+        name: 切换到深色
+    - media: "(prefers-color-scheme: dark)"
+      scheme: slate
+      primary: cyan
+      accent: cyan
+      toggle:
+        icon: material/weather-sunny
+        name: 切换到浅色
+  features:
+    - navigation.tabs
+    - navigation.sections
+    - navigation.indexes
+    - navigation.top
+    - navigation.tracking
+    - navigation.footer
+    - search.suggest
+    - search.highlight
+    - search.share
+    - content.code.copy
+    - toc.follow
+
+nav:
+  - 总览:
+      - 总览/index.md
+      - 轮回乐园机制: 总览/轮回乐园机制.md
+      - 乐园: 总览/乐园.md
+      - 货币与商店: 总览/货币与商店.md
+      - 纪元与宇宙背景: 总览/纪元与宇宙背景.md
+      - 时间线: 总览/时间线.md
+  - 力量体系:
+      - 力量体系/index.md
+      - 阶位: 力量体系/阶位.md
+      - 属性（六维）: 力量体系/属性.md
+      - 天赋: 力量体系/天赋.md
+      - 技能·功法: 力量体系/技能.md
+      - 血脉·体质: 力量体系/血脉体质.md
+      - 装备·道具: 力量体系/装备道具.md
+      - 消耗品·材料: 力量体系/消耗品材料.md
+  - 人物:
+      - 人物/index.md
+      - 苏晓: 人物/苏晓.md
+      - 米娅: 人物/米娅.md
+      - 汉克: 人物/汉克.md
+      - 布兰登·欧卡: 人物/布兰登·欧卡.md
+      - 左大臣: 人物/左大臣.md
+      - 蒙奇·D·路飞: 人物/路飞.md
+      - 克利克: 人物/克利克.md
+      - 希珞珞: 人物/希珞珞.md
+      - 神代利世: 人物/神代利世.md
+      - 壁虎: 人物/壁虎.md
+  - 势力:
+      - 势力/index.md
+  - 世界:
+      - 世界/index.md
+      - 任务世界:
+          - 世界/任务世界/index.md
+          - 海贼王: 世界/任务世界/海贼王.md
+          - 东京喰种: 世界/任务世界/东京喰种.md
+      - 地点: 世界/地点/index.md
+      - 生物·万族:
+          - 世界/生物万族/index.md
+          - 科尔波山的主人: 世界/生物万族/科尔波山的主人.md
+  - 参考:
+      - 章节梗概: 参考/章节梗概/index.md
+      - 编写规范: 参考/编写规范.md
+
+markdown_extensions:
+  - admonition
+  - pymdownx.details
+  - pymdownx.superfences
+  - pymdownx.tasklist:
+      custom_checkbox: true
+  - attr_list
+  - md_in_html
+  - tables
+  - toc:
+      permalink: true
+
+plugins:
+  - search
+
+validation:
+  nav:
+    omitted_files: info
+    not_found: warn
+  links:
+    not_found: warn
+    absolute_links: warn
+    unrecognized_links: warn
+    anchors: warn

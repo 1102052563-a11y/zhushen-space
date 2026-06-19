@@ -18,6 +18,13 @@ class_name = "LobbyDO"
 tag = "v1"
 new_sqlite_classes = ["RoomDO", "LobbyDO"]
 
+# 创意工坊存储（Cloudflare D1，免费额度内基本 $0）。
+# 部署前：先 `wrangler d1 create zhushen-workshop`，把它返回的 database_id 填到下面 database_id：
+[[d1_databases]]
+binding = "DB"
+database_name = "zhushen-workshop"
+database_id = "ab5a8c23-7f89-4d85-b961-563909602257"
+
 [vars]
 # 允许的前端来源（逗号分隔）。留空 = 反射请求来源（本后端无 cookie，可接受）。
 # 上线后建议填：https://zhushen-space.pages.dev,http://localhost:5173

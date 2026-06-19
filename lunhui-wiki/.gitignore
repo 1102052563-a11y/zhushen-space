@@ -1,4 +1,15 @@
-node_modules/
-docs/.vitepress/cache/
-docs/.vitepress/dist/
+# MkDocs build output
+site/
+.cache/
+
+# Python
+__pycache__/
+*.pyc
+.venv/
+venv/
+
+# 原著源文本（不入库——含版权、体积大）
+_source/
+轮回乐园*.txt
+
 *.log

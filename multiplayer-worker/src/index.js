@@ -5,6 +5,7 @@
 import { RoomDO } from "./RoomDO.js";
 import { LobbyDO } from "./LobbyDO.js";
 import { handleGateway } from "./gateway.js";
+import { handleWorkshop } from "./workshop.js";
 
 // wrangler 需要从入口模块导出 DO 类
 export { RoomDO, LobbyDO };
@@ -62,6 +63,11 @@ export default {
       // AI 反代网关（AI Studio / Vertex → OpenAI 兼容；解决浏览器 CORS）
       if (p.startsWith("/api/gw/")) {
         return await handleGateway(request, env, ch);
+      }
+
+      // 创意工坊（社区共享内容：浏览/上传/下载计数；存 Cloudflare D1）
+      if (p.startsWith("/api/workshop")) {
+        return await handleWorkshop(request, env, ch, url);
       }
 
       // 健康检查
