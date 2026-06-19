@@ -1,4 +1,5 @@
 import { useCharacters } from '../store/characterStore';
+import { useSkillTree } from '../store/skillTreeStore';
 
 /* ── 主角(B1) 轻量镜像 + 启动自检兜底 ─────────────────────────────────────
    characterStore 里 B1 的 技能/天赋/副职业/称号/记忆 单独镜像到一个**独立 localStorage 键**，
@@ -11,7 +12,19 @@ const MIRROR_KEY = 'drpg-b1-mirror';
 
 interface B1Mirror {
   skills: any[]; traits: any[]; subProfessions: any[]; titles: any[]; memories: any[];
+  tree?: { progress: any; treeId?: string; treeDef?: any };   // 技能树 progress.B1（整体拷贝）+ 当前激活树定义，随技能一起镜像/恢复，保持点位与技能一致
   updatedAt: number;
+}
+
+/** 取 B1 当前技能树快照（progress.B1 整体 + 激活树定义），无则 undefined */
+function snapshotTree(): B1Mirror['tree'] {
+  try {
+    const tp: any = useSkillTree.getState();
+    const prog = tp.progress?.['B1'];
+    if (!prog) return undefined;
+    const tid = prog.activeTreeId;
+    return { progress: prog, treeId: tid, treeDef: tid ? tp.trees?.[tid] : undefined };
+  } catch { return undefined; }
 }
 
 const len = (a: any) => (Array.isArray(a) ? a.length : 0);
@@ -31,7 +44,7 @@ export function writeB1Mirror(): void {
     if (!hasContent(b)) return;
     const m: B1Mirror = {
       skills: b.skills || [], traits: b.traits || [], subProfessions: b.subProfessions || [],
-      titles: b.titles || [], memories: b.memories || [], updatedAt: Date.now(),
+      titles: b.titles || [], memories: b.memories || [], tree: snapshotTree(), updatedAt: Date.now(),
     };
     localStorage.setItem(MIRROR_KEY, JSON.stringify(m));
   } catch { /* 兜底写失败忽略 */ }
@@ -66,6 +79,17 @@ export function restoreB1IfWiped(): { counts: { skills: number; traits: number; 
     };
     useCharacters.setState((s) => ({ characters: { ...s.characters, B1: merged } }));
     try { (useCharacters.getState() as any).dedupeIds?.(); } catch { /* 合并可能撞历史 id，去重一次 */ }
+    // 技能树一并恢复（与镜像里的技能同源同帧 → 点位和技能一致）：整体换回 progress.B1，树定义缺则补
+    try {
+      if (m.tree?.progress) {
+        useSkillTree.setState((s: any) => ({
+          progress: { ...s.progress, B1: m.tree!.progress },
+          trees: (m.tree!.treeId && m.tree!.treeDef && !s.trees?.[m.tree!.treeId])
+            ? { ...s.trees, [m.tree!.treeId]: m.tree!.treeDef }
+            : s.trees,
+        }));
+      }
+    } catch { /* 技能树恢复失败不影响技能恢复 */ }
     return {
       counts: {
         skills: len(merged.skills), traits: len(merged.traits),

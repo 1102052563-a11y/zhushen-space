@@ -66,8 +66,9 @@ export default function SaveLoadPanel({ messages, onClose }: Props) {
       const r = await extractPlayerFromSlot(id);
       if (!r) { flash('❌ 该存档里没有主角(B1)数据，无法提取'); return; }
       const c = r.counts;
-      if (r.added.length === 0) flash(`当前主角已包含该存档的全部 技能/天赋/副职业（无新增）。现 技能${c.skills}/天赋${c.traits}/副职业${c.subProfessions}`);
-      else flash(`✓ 已并入主角：${r.added.join('、')}。现 技能${c.skills}/天赋${c.traits}/副职业${c.subProfessions}/称号${c.titles}`);
+      const tree = r.treeApplied ? '；技能树点位已同步该档' : '';
+      if (r.added.length === 0) flash(`当前主角已包含该存档的全部 技能/天赋/副职业（无新增）${tree}。现 技能${c.skills}/天赋${c.traits}/副职业${c.subProfessions}`);
+      else flash(`✓ 已并入主角：${r.added.join('、')}${tree}。现 技能${c.skills}/天赋${c.traits}/副职业${c.subProfessions}/称号${c.titles}`);
     } catch (e: any) { flash('❌ 提取失败：' + (e?.message ?? e)); }
     finally { setBusy(false); }
   }
@@ -170,7 +171,7 @@ export default function SaveLoadPanel({ messages, onClose }: Props) {
                   </>
                 ) : confirmExtract === s.id ? (
                   <>
-                    <span className="text-[12px] font-mono text-god">把此档的主角技能/天赋/副职业并入当前游戏（只增不减，不动当前进度）？</span>
+                    <span className="text-[12px] font-mono text-god">把此档的主角技能/天赋/副职业并入当前游戏（技能只增不减；<span className="text-amber-400">技能树点位会换成此档的</span>以保持一致）？</span>
                     <button onClick={() => handleExtract(s.id)} disabled={busy} className="px-2 py-0.5 text-[12px] font-mono border border-god/60 text-god rounded hover:bg-god/10">确认提取</button>
                     <button onClick={() => setConfirmExtract(null)} className="px-2 py-0.5 text-[12px] font-mono border border-edge text-dim rounded">取消</button>
                   </>
@@ -180,7 +181,7 @@ export default function SaveLoadPanel({ messages, onClose }: Props) {
                     <Btn onClick={() => handleOverwrite(s)} cls="border-edge text-dim hover:border-god/40 hover:text-god">覆盖</Btn>
                     <Btn onClick={() => { setRenaming(s.id); setRenameVal(s.name); }} cls="border-edge text-dim hover:text-slate-200">改名</Btn>
                     <Btn onClick={() => exportSlot(s.id)} cls="border-edge text-dim hover:text-slate-200">导出</Btn>
-                    <Btn onClick={() => setConfirmExtract(s.id)} cls="border-god/30 text-god/80 hover:bg-god/10" title="只把这个存档里【主角(B1)的 技能/天赋/副职业/称号】补进当前游戏（按名字去重、只增不减），不读回整档、不丢当前进度——救「技能丢了但旧档还在」">提主角</Btn>
+                    <Btn onClick={() => setConfirmExtract(s.id)} cls="border-god/30 text-god/80 hover:bg-god/10" title="把这个存档里【主角(B1)的 技能/天赋/副职业/称号】补进当前游戏（按名字去重、只增不减），并把技能树点位同步成此档的以保持一致；不读回整档、不动剧情/其它角色——救「技能丢了但旧档还在」">提主角</Btn>
                     <Btn onClick={() => setConfirmDel(s.id)} cls="border-edge text-dim hover:border-blood/40 hover:text-blood">删除</Btn>
                   </>
                 )}

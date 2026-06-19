@@ -215,7 +215,7 @@ export async function loadSlot(id: string): Promise<boolean> {
    返回并入后 B1 的各项计数 + 本次新增的名字，供面板提示；存档无该项/无 B1 则返回 null。 */
 export async function extractPlayerFromSlot(
   id: string,
-): Promise<{ counts: { skills: number; traits: number; subProfessions: number; titles: number }; added: string[] } | null> {
+): Promise<{ counts: { skills: number; traits: number; subProfessions: number; titles: number }; added: string[]; treeApplied: boolean } | null> {
   const slot = await saveDb.get<SaveSlot>(id);
   const raw = slot?.data?.stores?.['drpg-characters'];
   if (!raw) return null;
@@ -247,6 +247,22 @@ export async function extractPlayerFromSlot(
   useCharacters.setState((s) => ({ characters: { ...s.characters, B1: mergedB1 } }));
   try { useCharacters.getState().dedupeIds?.(); } catch { /* 合并可能撞历史 id，去重一次（与启动时同一处理） */ }
 
+  // 技能树一并换成该存档的（用户选：提主角连树一起换旧档，使技能树点位与恢复的技能严格对应）。
+  // 整体拷贝 progress.B1（不做字段级合并，零风险）；树定义并集（保留当前没有的，带回该档的）。
+  let treeApplied = false;
+  try {
+    const treeRaw = slot?.data?.stores?.['drpg-skilltree'];
+    const ts = treeRaw ? JSON.parse(treeRaw)?.state : null;
+    const savedProg = ts?.progress?.B1;
+    if (savedProg) {
+      useSkillTree.setState((s: any) => ({
+        progress: { ...s.progress, B1: savedProg },
+        trees: { ...s.trees, ...(ts.trees || {}) },
+      }));
+      treeApplied = true;
+    }
+  } catch { /* 技能树非必需，失败不影响技能恢复 */ }
+
   return {
     counts: {
       skills: (mergedB1.skills || []).length,
@@ -255,6 +271,7 @@ export async function extractPlayerFromSlot(
       titles: (mergedB1.titles || []).length,
     },
     added,
+    treeApplied,
   };
 }
 
