@@ -64,9 +64,9 @@ export default function SaveLoadPanel({ messages, onClose }: Props) {
       onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}>
       <div className="w-full max-w-2xl h-[88vh] flex flex-col rounded-2xl border border-edge bg-void shadow-[0_0_60px_rgba(0,0,0,0.85)] overflow-hidden">
 
-        <header className="shrink-0 flex items-center gap-3 px-5 py-3 border-b border-edge bg-panel">
-          <span className="text-god/60 text-lg">💾</span>
-          <div className="flex-1">
+        <header className="shrink-0 flex flex-wrap items-center gap-3 max-lg:gap-2 px-5 max-lg:px-3 py-3 border-b border-edge bg-panel">
+          <span className="text-god/60 text-lg shrink-0">💾</span>
+          <div className="flex-1 min-w-0 max-lg:basis-full">
             <div className="text-sm font-bold text-slate-100">存档管理</div>
             <div className="text-[12px] font-mono text-dim/60">每个存档 = 当前全部进度 + 对话历史的快照</div>
           </div>

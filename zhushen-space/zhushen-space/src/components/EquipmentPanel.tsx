@@ -177,10 +177,8 @@ function SlotPicker({
 /* ════════════════════════════════════════════
    主组件
 ════════════════════════════════════════════ */
-export default function EquipmentPanel({
-  onDetailOpen,
-}: {
-  onDetailOpen: (id: string) => void;
+export default function EquipmentPanel(_props: {
+  onDetailOpen?: (id: string) => void;   // 调用方传入但当前未接线（点装备打开 NPC/详情的预留信号）；保留在 API、组件暂不消费
 }) {
   const items     = useItems((s) => s.items);
   const equipItem = useItems((s) => s.equipItem);

@@ -71,3 +71,21 @@ describe('settleAction（结算·无 store 依赖的分支）', () => {
     expect(out.state.order).not.toContain('C1');
   });
 });
+
+describe('settleAction（攻击 / 控制·结算）', () => {
+  it('被控制(cannotAct) → 本回合无法行动，不伤害目标', () => {
+    const actor = mkC('B1', 'player', 100, { status: [{ id: 's1', name: '眩晕', combat: { cannotAct: true } } as any] });
+    const state = mkState([actor, mkC('C1', 'enemy', 100)], { B1: mkB('主角', 'player'), C1: mkB('敌', 'enemy') });
+    const out = settleAction({ state, actorId: 'B1', kind: 'attack', targetIds: ['C1'] });
+    expect(out.state.participants['C1'].curHp).toBe(100);          // 没出手，敌人零掉血
+    expect(out.logLines.join('')).toMatch(/无法行动|被控制/);
+  });
+  it('普通攻击：跑通、产出日志、绝不治疗敌人、不改原 state', () => {
+    const state = mkState([mkC('B1', 'player', 100), mkC('C1', 'enemy', 100)], { B1: mkB('主角', 'player'), C1: mkB('敌', 'enemy') });
+    const out = settleAction({ state, actorId: 'B1', kind: 'attack', targetIds: ['C1'] });
+    expect(out.logLines.length).toBeGreaterThan(0);
+    expect(out.state.participants['C1'].curHp).toBeLessThanOrEqual(100);  // 命中扣血/闪避不变，绝不增加
+    expect(out.state.participants['C1'].curHp).toBeGreaterThanOrEqual(0);
+    expect(state.participants['C1'].curHp).toBe(100);                      // 原 state 未变（克隆）
+  });
+});

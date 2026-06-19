@@ -302,7 +302,7 @@ export default function SkillTreePanel({ onClose }: { onClose: () => void }) {
         </header>
 
         {/* 职业树选择 + 洗点 */}
-        <div className="flex items-center gap-2 px-4 py-2 border-b border-edge/60 shrink-0">
+        <div className="flex flex-wrap items-center gap-2 max-lg:gap-y-2 px-4 py-2 border-b border-edge/60 shrink-0">
           <span className="text-[12px] text-dim/60 font-mono">职业树</span>
           <select
             value={activeId ?? ''}
@@ -313,7 +313,7 @@ export default function SkillTreePanel({ onClose }: { onClose: () => void }) {
             {treeList.map((t) => <option key={t.id} value={t.id}>{t.title || t.profession}</option>)}
           </select>
           {tree && (
-            <div className="ml-auto flex items-center gap-3">
+            <div className="ml-auto flex flex-wrap items-center gap-3 max-lg:ml-0 max-lg:w-full max-lg:justify-end">
               <div className="hidden sm:flex items-center gap-2">
                 {tree.branches.map((b) => (
                   <span key={b.id} className="flex items-center gap-1 text-[11px] text-dim/60">

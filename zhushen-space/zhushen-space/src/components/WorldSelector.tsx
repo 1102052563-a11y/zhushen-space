@@ -39,7 +39,7 @@ function rollDice(): number[] {
   return Array.from({ length: 12 }, () => Math.floor(Math.random() * 1501));
 }
 
-function extractJson(raw: string): WorldOption[] {
+function extractJson(raw: string): any[] {
   // 剥掉 markdown 代码块
   let text = raw.replace(/```json\s*/gi, '').replace(/```\s*/g, '').trim();
 
@@ -63,7 +63,7 @@ function extractJson(raw: string): WorldOption[] {
   }
 
   // 最后兜底：逐行找 {"name":...,"desc":...} 对象
-  const items: WorldOption[] = [];
+  const items: any[] = [];
   const lineReg = /\{[^{}]*"name"\s*:\s*"([^"]+)"[^{}]*"desc"\s*:\s*"([^"]+)"[^{}]*\}/g;
   let m: RegExpExecArray | null;
   while ((m = lineReg.exec(text)) !== null) {
@@ -74,7 +74,7 @@ function extractJson(raw: string): WorldOption[] {
   throw new Error('模型未返回有效 JSON，请点击「查看返回」查看原始内容');
 }
 
-export default function WorldSelector({ onSelect, onRawResponse, onPromptSent, onWorlds, onSettle, onInsertText, expanded }: Props) {
+export default function WorldSelector({ onRawResponse, onPromptSent, onWorlds, onSettle, onInsertText, expanded }: Props) {
   const [stage, setStage] = useState<Stage>('idle');
   const [quickKind, setQuickKind] = useState<'pose' | 'bdsm' | null>(null);  // 展开的快捷条目类别（姿势/BDSM）
   const [rank, setRank] = useState('');

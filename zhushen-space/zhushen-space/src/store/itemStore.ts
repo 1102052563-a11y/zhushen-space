@@ -604,37 +604,6 @@ export function buildItemSystemPrompt(entries: ItemPresetEntry[]): string {
    - 用户可用「⚡ 智能筛选」进一步调整
 ────────────────────────────────────────────────────────────── */
 
-// 这些 ID 的条目默认启用（物品/装备相关）
-const ITEM_RELATED_IDS = new Set([
-  'standalone-state-command-contract',
-  'shared-item-domain-contract',
-  'shared-item-format',
-  'shared-item-id',
-  'item-shared-item-columns',
-  'shared-equipment-feature-table',
-  'standalone-item-attribute-parse-boundary',
-  'standalone-item-gongfa-attribute-semantics',
-  'standalone-item-learned-ability-boundary',
-  'standalone-item-stack-unit-boundary',
-  'standalone-item-category-enum',
-  'standalone-item-consumable-name-boundary',
-  'standalone-item-misc-intake-boundary',
-  'standalone-item-gongfa-attribute-cot',
-  'standalone-item-task-outcome-context',
-  'standalone-item-spirit-stone-currency',
-  'standalone-item-structured-grade-render',
-  'im-item-rules',
-  'standalone-item-attribute-parse-boundary',
-]);
-
-// ID 或名称含这些关键词的条目也默认启用
-const ITEM_KEYWORDS = ['item', '物品', '装备', 'equipment', 'inventory', '背包', '灵石', '货币'];
-
-function isItemRelated(id: string, name: string): boolean {
-  if (ITEM_RELATED_IDS.has(id)) return true;
-  const lower = (id + ' ' + name).toLowerCase();
-  return ITEM_KEYWORDS.some((kw) => lower.includes(kw));
-}
 
 export function extractItemPresetFromJson(
   raw: string

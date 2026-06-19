@@ -57,9 +57,6 @@ import {
   PLOT_CHOICES_RULE,
   ENHANCE_FINALIZE_RULE,
   ENHANCE_BANTER_RULE,
-  COMBAT_NPC_ACTION_RULE,
-  COMBAT_RESULT_RULE,
-  COMBAT_SUMMARY_RULE,
   ARENA_LADDER_RULE,
   ARENA_OPPONENT_RULE,
   ARENA_REWARD_RULE,
@@ -83,10 +80,10 @@ import { runPhasePipeline, type Phase } from './systems/phasePipeline';
 import { buildFanficInjection, buildFactInjection, buildCosmosInjection, buildPlayerCoreInjection, buildWorldTimeInjection, buildQuestInjection } from './systems/promptInjections';
 import { applyPlayerProfileCommands, applyTimedStatusCommands, expireStatuses } from './systems/statusCommands';
 import { getNpcApi, trimNarrative, npcChatCompletion, buildNpcVars, fillVars, serializeNpcSnapshot } from './systems/npcEvolutionHelpers';
-import { combatChain, combatPreset, combatSnapshot, combatFinalVitals, applyCombatVitals, buildCombatResultFallback, runNpcActionPhase, runResultPhase, runBattleSummaryPhase } from './systems/combatHelpers';
+import { combatFinalVitals, applyCombatVitals, buildCombatResultFallback, runNpcActionPhase, runResultPhase, runBattleSummaryPhase } from './systems/combatHelpers';
 import { parseWeather, isLightSky, extractWeatherFxCss, sanitizeWeatherCss } from './systems/weatherFx';
 import { useCombat, newLogId, type BattleState, type CombatStatBlock, type Side, type CombatActionKind } from './store/combatStore';
-import { buildCombatant, assembleBattle, settleAction, advanceTurn, checkEnd, currentActorId, aliveIds, makeActionLog, playerControlled, setMpCombatItems, clearMpCombatItems, rollInitiative } from './systems/combatEngine';
+import { buildCombatant, assembleBattle, settleAction, advanceTurn, checkEnd, currentActorId, makeActionLog, playerControlled, setMpCombatItems, clearMpCombatItems, rollInitiative } from './systems/combatEngine';
 import { generateRaidBoss, type RaidBoss, type RaidDifficulty } from './systems/raidBoss';
 import { generateRaidLoot } from './systems/raidLoot';
 const RaidLootModal = lazy(() => import('./components/RaidLootModal'));
@@ -4259,18 +4256,6 @@ ${lines}`;
     if (applied > 0) console.log(`[Vitals] 正文照抄 NPC HP/EP：${applied} 个角色`);
   }
 
-  /* 无信息卡时，按阶位预算自动生成【有起伏】的六维（一主一次三低，非平均），替代"全5"默认 */
-  const TIER_ATTR: Record<number, { min: number; max: number; budget: number; luckMax: number }> = {
-    1: { min: 5, max: 20, budget: 55, luckMax: 2 },
-    2: { min: 18, max: 50, budget: 150, luckMax: 3 },
-    3: { min: 45, max: 80, budget: 300, luckMax: 4 },
-    4: { min: 75, max: 149, budget: 510, luckMax: 5 },
-    5: { min: 110, max: 220, budget: 760, luckMax: 6 },
-    6: { min: 180, max: 360, budget: 1250, luckMax: 8 },
-    7: { min: 300, max: 600, budget: 2000, luckMax: 10 },
-    8: { min: 480, max: 950, budget: 3200, luckMax: 12 },
-    9: { min: 750, max: 1500, budget: 5000, luckMax: 15 },
-  };
   function parseTierNum(realm?: string): number {
     const map: Record<string, number> = { 一: 1, 二: 2, 三: 3, 四: 4, 五: 5, 六: 6, 七: 7, 八: 8, 九: 9 };
     const m = /([一二三四五六七八九])阶/.exec(realm ?? '');
@@ -4278,45 +4263,6 @@ ${lines}`;
     if (/无上|巅峰至强/.test(realm ?? '')) return 9;
     if (/至强|绝强/.test(realm ?? '')) return 9;
     return 1;
-  }
-  /* 按职业（从正文写入的 profession/realm 身份）判定主副属性排序，对齐框架【职业主属性排序】 */
-  function professionOrder(text?: string): string[] | null {
-    const p = text ?? '';
-    if (/战士|骑士|武者|剑|斗士|战|拳|武僧|蛮|狂战/.test(p)) return ['str', 'con', 'agi', 'cha', 'int'];
-    if (/刺客|游侠|盗|猎|弓|潜|斥候|杀手|忍|飞贼|枪手|射手/.test(p)) return ['agi', 'str', 'con', 'cha', 'int'];
-    if (/坦克|守护|盾|护卫|卫兵|肉盾|重装/.test(p)) return ['con', 'str', 'agi', 'cha', 'int'];
-    if (/法师|术士|学者|巫|咒|魔导|奥术|秘法|工程|黑客|医师|药剂/.test(p)) return ['int', 'cha', 'agi', 'con', 'str'];
-    if (/牧师|圣职|祭司|医|治疗|辅助|支援|召唤|吟游|歌|圣骑/.test(p)) return ['cha', 'int', 'con', 'agi', 'str'];
-    if (/领袖|统御|首领|王|领主|队长|头目|教主|主教|社交|谈判|商人/.test(p)) return ['cha', 'con', 'int', 'str', 'agi'];
-    return null;
-  }
-  /* realm/bioStrength（含 T0~T9 模板）→ 模板档（越高越特化/越强）；无则按阶位估 */
-  function templateNum(realm?: string, bio?: string): number {
-    const m = /[Tt]\s*(\d)/.exec(bio ?? '') ?? /[Tt]\s*(\d)/.exec(realm ?? '');
-    if (m) return Number(m[1]);
-    return Math.min(6, Math.max(0, parseTierNum(realm) - 1));   // 一阶≈T0、二阶≈T1…
-  }
-  function genVariedAttrs(realm?: string, profession?: string, bio?: string) {
-    const t = TIER_ATTR[parseTierNum(realm)] ?? TIER_ATTR[1];
-    const tpl = templateNum(realm, bio);                       // 0~9，越高越特化
-    const keys = ['str', 'agi', 'con', 'int', 'cha'];
-    // 主副排序：优先职业，其次身份(realm里的身份段)，都没有则随机
-    const order = professionOrder(profession) ?? professionOrder(realm) ?? [...keys].sort(() => Math.random() - 0.5);
-    const spec = 1.7 + tpl * 0.12 + Math.random() * 0.5;       // 主属性权重随模板档提高（越强越偏科）
-    const w: Record<string, number> = {};
-    w[order[0]] = spec;
-    w[order[1]] = 1.1 + tpl * 0.05 + Math.random() * 0.4;
-    w[order[2]] = 0.7 + Math.random() * 0.35;
-    w[order[3]] = 0.55 + Math.random() * 0.3;
-    w[order[4]] = 0.45 + Math.random() * 0.25;
-    const wsum = keys.reduce((s, k) => s + w[k], 0);
-    // 低模板(T0/T1杂兵)只用部分预算，整体更弱；高模板用满
-    const budget = t.budget * (tpl <= 1 ? 0.55 + tpl * 0.15 : Math.min(1, 0.78 + tpl * 0.04));
-    const attrs: Record<string, number> = {};
-    const cap = attrCapForTier(realm);   // 再夹一道世界书阶位上限，防高阶自动生成超过单属性极值
-    for (const k of keys) attrs[k] = Math.max(t.min, Math.min(t.max, cap, Math.round((budget * w[k]) / wsum)));
-    attrs.luck = Math.floor(Math.random() * Math.random() * (t.luckMax + 1));
-    return attrs as { str: number; agi: number; con: number; int: number; cha: number; luck: number };
   }
   /* 给在场、缺六维（或五项全等=平均默认）的 NPC 自动生成六维——走 bioStrength 机械引擎
      (注水分配/形态压制/定位纠偏/闭环自检)，与属性面板·生物强度显示同尺度(ATTR_CAP)，治旧版尺度不一致+离谱 */

@@ -119,17 +119,17 @@ export default function NpcDetail({
   }
 
   return (
-    <div className="fixed inset-0 z-[60] bg-black/80 backdrop-blur-sm flex items-stretch justify-center p-0 sm:p-4">
-      <div className="w-full max-w-5xl flex flex-col rounded-none sm:rounded-2xl border border-edge bg-void shadow-[0_0_80px_rgba(0,0,0,0.85)] overflow-hidden">
+    <div className="fixed inset-0 z-[60] bg-black/80 backdrop-blur-sm flex items-stretch justify-center p-2 sm:p-4" onClick={() => { if (window.innerWidth < 1024) onClose(); }}>
+      <div className="w-full max-w-5xl max-h-full flex flex-col rounded-2xl border border-edge bg-void shadow-[0_0_80px_rgba(0,0,0,0.85)] overflow-hidden" onClick={(e) => e.stopPropagation()}>
 
         {/* ── 头部 ── */}
-        <header className="shrink-0 flex items-center gap-3 px-5 py-3 border-b border-edge bg-gradient-to-b from-panel to-void">
+        <header className="shrink-0 flex flex-wrap items-center gap-3 max-lg:gap-2 px-5 max-lg:px-3 py-3 border-b border-edge bg-gradient-to-b from-panel to-void">
           <div className={`shrink-0 w-12 h-12 rounded-xl border flex items-center justify-center text-lg font-bold ${
             npc.onScene ? 'border-god/40 bg-god/5 text-god' : 'border-edge bg-void text-dim/50'
           }`}>
             {(npc.name || npc.id).slice(0, 1)}
           </div>
-          <div className="min-w-0">
+          <div className="min-w-0 max-lg:flex-1">
             <div className="flex items-center gap-2">
               <span className="text-lg font-bold text-slate-100 truncate">{npc.name || npc.id}</span>
               {npc.gender && <span className={`text-sm font-mono px-1.5 py-0.5 rounded border border-edge ${genderCls}`}>{npc.gender}</span>}
@@ -141,7 +141,7 @@ export default function NpcDetail({
             </div>
           </div>
 
-          <div className="flex-1" />
+          <div className="flex-1 max-lg:hidden" />
 
           {/* 手动更新：按最近一次正文，单独用 AI 重新演化该 NPC（档案/属性/技能/天赋）*/}
           {onManualUpdate && (
