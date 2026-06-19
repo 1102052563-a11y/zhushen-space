@@ -1,5 +1,7 @@
-import { useState } from 'react';
+import { lazy, Suspense, useState } from 'react';
 import { useCreationTemplates, type CreationTemplateData } from '../store/creationTemplateStore';
+import { useCreationContent } from '../store/creationContentStore';
+const WorkshopPanel = lazy(() => import('./WorkshopPanel'));
 
 /* ════════════════════════════════════════════
    开局·角色创建
@@ -70,6 +72,17 @@ export default function CharacterCreation({ onConfirm, onCancel }: { onConfirm: 
   const removeTemplate = useCreationTemplates((s) => s.removeTemplate);
   const [tplMode, setTplMode] = useState<'none' | 'save' | 'import'>('none');
   const [tplName, setTplName] = useState('');
+  // 创意工坊·自定义内容库（乐园/种族/天赋）
+  const [workshopOpen, setWorkshopOpen] = useState(false);
+  const customParadises = useCreationContent((s) => s.paradises);
+  const customRaces = useCreationContent((s) => s.races);
+  const customTalents = useCreationContent((s) => s.talents);
+  const addCustomParadise = useCreationContent((s) => s.addParadise);
+  const addCustomRace = useCreationContent((s) => s.addRace);
+  const addCustomTalent = useCreationContent((s) => s.addTalent);
+  const removeCustomParadise = useCreationContent((s) => s.removeParadise);
+  const removeCustomRace = useCreationContent((s) => s.removeRace);
+  const removeCustomTalent = useCreationContent((s) => s.removeTalent);
 
   function currentData(): CreationTemplateData {
     return { difficulty, paradise, paradiseCustom, name, gender, genderCustom, race, raceCustom, raceDetail, age, personality, personalityDetail, prevProfession, appearance, attrs: { ...attrs }, talentName, talentEffect, contractId };
@@ -154,6 +167,8 @@ export default function CharacterCreation({ onConfirm, onCancel }: { onConfirm: 
             className="px-2.5 py-1 text-[12px] font-mono border border-god/40 text-god rounded hover:bg-god/10 transition-colors">💾 存为模板</button>
           <button onClick={() => setTplMode(tplMode === 'import' ? 'none' : 'import')}
             className="px-2.5 py-1 text-[12px] font-mono border border-edge text-dim rounded hover:border-god/40 hover:text-god transition-colors">📥 导入模板{templates.length > 0 ? `（${templates.length}）` : ''}</button>
+          <button onClick={() => setWorkshopOpen(true)}
+            className="px-2.5 py-1 text-[12px] font-mono border border-god/40 text-god rounded hover:bg-god/10 transition-colors">🧩 创意工坊</button>
         </div>
         {tplMode === 'save' && (
           <div className="flex gap-2">
@@ -198,10 +213,22 @@ export default function CharacterCreation({ onConfirm, onCancel }: { onConfirm: 
               {p}
             </button>
           ))}
+          {customParadises.map((p) => (
+            <span key={p.id} className={`inline-flex items-center rounded-lg border text-sm transition-colors ${paradise === p.name ? 'border-god/60 bg-god/10 text-god' : 'border-edge text-dim hover:border-god/30'}`}>
+              <button onClick={() => setParadise(p.name)} title={p.desc || '自定义乐园'} className="pl-3 pr-1.5 py-1.5">🏝{p.name}</button>
+              <button onClick={() => removeCustomParadise(p.id)} title="删除" className="pr-2 text-dim/40 hover:text-blood">×</button>
+            </span>
+          ))}
         </div>
         {paradise === '自定义' && (
-          <input value={paradiseCustom} onChange={(e) => setParadiseCustom(e.target.value)} placeholder="输入自定义乐园名称…"
-            className="w-full bg-void border border-edge rounded px-3 py-1.5 text-sm text-slate-200 outline-none focus:border-god/50" />
+          <div className="flex gap-2">
+            <input value={paradiseCustom} onChange={(e) => setParadiseCustom(e.target.value)} placeholder="输入自定义乐园名称…"
+              className="flex-1 bg-void border border-edge rounded px-3 py-1.5 text-sm text-slate-200 outline-none focus:border-god/50" />
+            {paradiseCustom.trim() && (
+              <button onClick={() => { addCustomParadise({ name: paradiseCustom.trim() }); }} title="存入自定义库（之后可上传分享/复用）"
+                className="shrink-0 px-2.5 py-1.5 text-[12px] font-mono border border-god/40 text-god rounded hover:bg-god/10 transition-colors">＋存为自定义</button>
+            )}
+          </div>
         )}
       </Section>
 
@@ -250,10 +277,20 @@ export default function CharacterCreation({ onConfirm, onCancel }: { onConfirm: 
                   {r}
                 </button>
               ))}
+              {customRaces.map((r) => (
+                <span key={r.id} className={`inline-flex items-center rounded-lg border text-sm transition-colors ${race === r.name ? 'border-god/60 bg-god/10 text-god' : 'border-edge text-dim hover:border-god/30'}`}>
+                  <button onClick={() => { setRace(r.name); if (r.detail) setRaceDetail(r.detail); }} title={r.detail || '自定义种族'} className="pl-3 pr-1.5 py-1.5">🧝{r.name}</button>
+                  <button onClick={() => removeCustomRace(r.id)} title="删除" className="pr-2 text-dim/40 hover:text-blood">×</button>
+                </span>
+              ))}
             </div>
           </Labeled>
           {race === '自定义' && (
             <input value={raceCustom} onChange={(e) => setRaceCustom(e.target.value)} placeholder="输入自定义种族名称…" className={inputCls} />
+          )}
+          {race === '自定义' && raceCustom.trim() && (
+            <button onClick={() => addCustomRace({ name: raceCustom.trim(), detail: raceDetail.trim() })} title="把当前种族名+详情存入自定义库（之后可上传分享/复用）"
+              className="px-2.5 py-1.5 text-[12px] font-mono border border-god/40 text-god rounded hover:bg-god/10 transition-colors">＋存为自定义种族</button>
           )}
           <Labeled label="种族详情（选填·自由填写：外貌特征 / 天生能力 / 弱点 / 文化等，越详细 AI 越贴合）">
             <textarea value={raceDetail} onChange={(e) => setRaceDetail(e.target.value)} rows={3}
@@ -290,8 +327,24 @@ export default function CharacterCreation({ onConfirm, onCancel }: { onConfirm: 
       </Section>
 
       <Section n={5} title="天赋设定（自填）">
+        {customTalents.length > 0 && (
+          <Labeled label="自定义/工坊天赋（点击填入下方）">
+            <div className="flex flex-wrap gap-2">
+              {customTalents.map((t) => (
+                <span key={t.id} className={`inline-flex items-center rounded-lg border text-sm transition-colors ${talentName === t.name ? 'border-god/60 bg-god/10 text-god' : 'border-edge text-dim hover:border-god/30'}`}>
+                  <button onClick={() => { setTalentName(t.name); setTalentEffect(t.effect ?? ''); }} title={t.effect || ''} className="pl-3 pr-1.5 py-1.5">🧬{t.name}</button>
+                  <button onClick={() => removeCustomTalent(t.id)} title="删除" className="pr-2 text-dim/40 hover:text-blood">×</button>
+                </span>
+              ))}
+            </div>
+          </Labeled>
+        )}
         <Labeled label="天赋名称"><input value={talentName} onChange={(e) => setTalentName(e.target.value)} placeholder="如 不死之身 / 过目不忘" className={inputCls} /></Labeled>
         <Labeled label="天赋效果"><textarea value={talentEffect} onChange={(e) => setTalentEffect(e.target.value)} rows={3} placeholder="描述这个天赋的具体效果（尽量写数值/机制）…" className={inputCls + ' resize-y'} /></Labeled>
+        {talentName.trim() && (
+          <button onClick={() => addCustomTalent({ name: talentName.trim(), effect: talentEffect.trim() })} title="把当前天赋存入自定义库（之后可上传分享/复用）"
+            className="px-2.5 py-1.5 text-[12px] font-mono border border-god/40 text-god rounded hover:bg-god/10 transition-colors">＋存为自定义天赋</button>
+        )}
       </Section>
 
       <div className="flex gap-3 pt-1">
@@ -303,6 +356,12 @@ export default function CharacterCreation({ onConfirm, onCancel }: { onConfirm: 
           {remaining < 0 ? '属性点超额，请调整' : '下一步 · 确认设定'}
         </button>
       </div>
+
+      {workshopOpen && (
+        <Suspense fallback={null}>
+          <WorkshopPanel creationMode onClose={() => setWorkshopOpen(false)} />
+        </Suspense>
+      )}
     </Shell>
   );
 }
