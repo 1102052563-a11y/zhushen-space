@@ -77,9 +77,11 @@ import { useGame } from './store/gameStore';
 import { useSettings, resolveApiChain } from './store/settingsStore';
 import { apiChatFallback } from './systems/apiChat';
 import { parseAllStateUpdates, stripStateBlocks, parseAllItemCommands, applyItemCommands, parseAllCharCommands, applyCharacterCommands, parseAllNpcCommands, applyNpcCommands, parseAllFactionCommands, applyFactionCommands, applyTerritoryCommands, applyTeamCommands, isEquippable, lenientJsonParse } from './systems/stateParser';
-import { isRealNpc, ATTR_GROWTH_RE, setNpcPreferredOwners, applyStateUpdates, applyAllUpdates, stripKillBlocks, stripVitalsBlocks, stripWorldSourceBlocks, collapseRunaway } from './systems/stateApply';
+import { isRealNpc, setNpcPreferredOwners, applyStateUpdates, applyAllUpdates, stripKillBlocks, stripVitalsBlocks, stripWorldSourceBlocks, collapseRunaway } from './systems/stateApply';
 import { flattenAiText } from './systems/flattenAiText';
 import { runPhasePipeline, type Phase } from './systems/phasePipeline';
+import { buildFanficInjection, buildFactInjection, buildCosmosInjection, buildPlayerCoreInjection, buildWorldTimeInjection, buildQuestInjection } from './systems/promptInjections';
+import { applyPlayerProfileCommands, applyTimedStatusCommands, expireStatuses } from './systems/statusCommands';
 import { parseWeather, isLightSky, extractWeatherFxCss, sanitizeWeatherCss } from './systems/weatherFx';
 import { useCombat, newLogId, type BattleState, type CombatStatBlock, type Side, type CombatActionKind } from './store/combatStore';
 import { buildCombatant, assembleBattle, settleAction, advanceTurn, checkEnd, currentActorId, aliveIds, makeActionLog, playerControlled, setMpCombatItems, clearMpCombatItems, rollInitiative } from './systems/combatEngine';
@@ -124,11 +126,9 @@ import { useCharacters, type MemoryEntry } from './store/characterStore';
 import { useMemory } from './store/memoryStore';
 import { useMisc, buildMiscSystemPrompt } from './store/miscStore';
 import { useChannel, buildChannelSystemPrompt, CHANNEL_DEFS } from './store/channelStore';
-import { applyMiscCommands, serializeTasks, serializeQuestsForNarrative, serializeEvents, extractTurnSummaries } from './systems/miscParser';
+import { applyMiscCommands, serializeTasks, serializeEvents, extractTurnSummaries } from './systems/miscParser';
 import { buildNarrativeHistory, NM_COMPILE_PROMPT, NM_INGEST_PROMPT } from './systems/narrativeMemory';
 import { buildMemPool, loadAll as factVecLoadAll, ensureVectors as factVecEnsure, embedOne as factVecEmbedOne, search as factVecSearch } from './systems/factVec';
-import { parseGameMinutes, parseDurationMinutes, parseDurationTurns } from './systems/gameClock';
-import type { StatusEffect } from './store/playerStore';
 import { serializePlayerCard, serializeNpcCard, buildNpcCandidateTitles, buildPlayerSkillCandidates, buildPlayerItemCandidates, rankNpcsLocal, serializeFactionsSection, NM_STRUCT_SELECT_PROMPT, type RecallLimits } from './systems/structuredRecall';
 const MiscPanel = lazy(() => import('./components/MiscPanel'));
 const DicePanel = lazy(() => import('./components/DicePanel'));
@@ -586,10 +586,6 @@ const FACTION_HOME_EXIT_RULE = `
 - 切换到新任务世界时，旧世界势力同样移出。判断 exits 时优先看势力的 worldName 是否等于当前世界。`;
 
 /* ── 限时状态过期：硬控类应短暂，无明确时长的也要给默认回合数，避免"持续"类永不消失 ── */
-const CC_STATUS_RE = /昏迷|眩晕|晕眩|麻痹|麻痺|定身|冰冻|冻结|石化|沉默|击晕|僵直|瘫痪|震慑|束缚|禁锢|缴械|致盲|恐惧|魅惑|催眠|休克|窒息|击飞|倒地|失神|眩/;
-const INDEFINITE_STATUS_RE = /永久|永远|长期|永续|不限|无限|terminal|permanent/i;
-const DEFAULT_STATUS_TURNS = 4;   // 限时状态无明确时长时的默认持续回合
-const STALE_STATUS_TURNS = 5;     // 旧存档里无任何时限、未标永久的限时状态，超过此回合数强制清理（兜底）
 
 /* 频道发帖人信息铁则（代码注入频道生成 + 发言回复）：每条帖子/回复都给发帖人补 性格/职业/生物强度，供后续生成临时队友 NPC */
 const CHANNEL_AUTHOR_INFO_RULE = `
@@ -1553,7 +1549,7 @@ export default function App() {
         if (checkPlayer) {
           try { const su = parseAllStateUpdates(cleanReply); if (su.length) { auditWhat['主角状态(六维/HP/状态/位置/等级等)'] = su; did += su.length; } } catch { /* */ }
           try { applyStateUpdates(cleanReply); } catch { /* hp.B1/mp.B1/san.B1/eq */ }
-          try { applyPlayerProfileCommands(cleanReply); } catch { /* character.B1.*：六维/状态/位置/外观/等级 */ }
+          try { applyPlayerProfileCommands(cleanReply, '', turnCountRef.current); } catch { /* character.B1.*：六维/状态/位置/外观/等级 */ }
           try { const c = parseAllCharCommands(cleanReply).filter((x) => x.charId === 'B1'); applyCharacterCommands(c, twoTurnNarr); did += c.length; if (c.length) auditWhat['主角技能/天赋'] = c; } catch { /* 仅主角技能/天赋 */ }
         }
         if (checkItems) {
@@ -1685,7 +1681,7 @@ export default function App() {
       if (reply) {
         const cleanReply = reply.replace(/<think[^>]*>[\s\S]*?<\/think>/gi, '').trim();   // 剥掉思维链，避免其自然语言被误判成指令
         applyAllUpdates(cleanReply);
-        applyPlayerProfileCommands(cleanReply, narrative);   // 主角身份/属性/外观/位置变量（传正文：基础六维只在正文写明成长时才许上调）
+        applyPlayerProfileCommands(cleanReply, narrative, turnCountRef.current);   // 主角身份/属性/外观/位置变量（传正文：基础六维只在正文写明成长时才许上调）
         const charCmds  = parseAllCharCommands(cleanReply);
         applyCharacterCommands(charCmds, trimmedNarrative);   // 传正文：全新副职业须正文有明确习得动作才建，杜绝凭空生成
         const stateUpds = parseAllStateUpdates(cleanReply);
@@ -2085,193 +2081,10 @@ ${lines.join('\n')}`;
         n++;
       }
     }
-    applyTimedStatusCommands(reply, onlyId);   // NPC 限时状态 addStatus/deStatus
+    applyTimedStatusCommands(reply, turnCountRef.current, onlyId);   // NPC 限时状态 addStatus/deStatus
     return n;
   }
 
-  /* 主角档案短指令（character.B1.* / 仅主角演化阶段）→ playerStore
-     narrative=本轮正文（用于「基础六维只在正文写明成长时才许上调」的防乱加校验；缺省回退用 reply 自身查信号） */
-  function applyPlayerProfileCommands(reply: string, narrative = ''): number {
-    const sp = usePlayer.getState().setProfile;
-    const sa = usePlayer.getState().setAttr;
-    let n = 0; let m: RegExpExecArray | null;
-
-    const strMap: Record<string, string> = {
-      title: 'title', profession: 'profession', arenaRank: 'arenaRank',
-      role: 'identity', identity: 'identity', brandLevel: 'brandLevel', contractorId: 'contractorId',
-    };
-    for (const [field, key] of Object.entries(strMap)) {
-      const re = new RegExp(`\\bcharacter\\.B\\d+\\.identity\\.${field}\\s*=\\s*"([^"]*)"`, 'g');
-      while ((m = re.exec(reply))) { sp({ [key]: m[1] } as any); n++; }
-    }
-    // 阶位：只接受合法阶位名（一阶~无上之境）；非法则按当前等级推导，绝不写入"结丹/三阶中期"等
-    const tierRe = /\bcharacter\.B\d+\.identity\.tier\s*=\s*"([^"]*)"/g;
-    while ((m = tierRe.exec(reply))) { sp({ tier: normalizeTier(m[1]) || realmFromLevel(usePlayer.getState().profile.level) }); n++; }
-    for (const field of ['appearance', 'location', 'bioStrength', 'homeParadise', 'preParadiseJob', 'imageTags', 'gender', 'race', 'raceDetail'] as const) {
-      const re = new RegExp(`\\bcharacter\\.B\\d+\\.${field}\\s*=\\s*"([^"]*)"`, 'g');
-      while ((m = re.exec(reply))) { sp({ [field]: m[1] } as any); n++; }
-    }
-    // 当前状态：固定格式 = 含「:Emoji(…)」结构。若新值是纯状态名、而当前已是固定格式，拒绝覆盖
-    // （避免主角演化阶段用纯文本把主正文写好的"带图标+可展开详情"的状态胶囊清掉）。
-    const statusRe = /\bcharacter\.B\d+\.status\s*=\s*"([^"]*)"/g;
-    const isFmtStatus = (s: string) => /[:：]\s*\S{0,4}\s*[（(]/.test(s || '');
-    while ((m = statusRe.exec(reply))) {
-      const incoming = m[1];
-      const cur = usePlayer.getState().profile.status ?? '';
-      if (incoming && !isFmtStatus(incoming) && isFmtStatus(cur)) continue;   // 纯文本不覆盖已格式化状态
-      sp({ status: incoming }); n++;
-    }
-    // 等级变化时，阶位随等级自动对应（保证阶位↔等级一致、且只为合法阶位）
-    const lvRe = /\bcharacter\.B\d+\.level\s*=\s*(\d+)/g;
-    while ((m = lvRe.exec(reply))) { const lv = Number(m[1]); sp({ level: lv, tier: realmFromLevel(lv) }); n++; }
-    const attrRe = /\bcharacter\.B\d+\.attrs\.(str|agi|con|int|cha|luck)\s*(=|\+=|-=)\s*(-?\d+)/g;
-    const hasGrowth = ATTR_GROWTH_RE.test(narrative || reply);   // 本轮正文是否写了「属性/实力成长」依据
-    while ((m = attrRe.exec(reply))) {
-      const prof = usePlayer.getState().profile;
-      const a = prof.attrs as unknown as Record<string, number>;
-      const cur = a[m[1]] ?? 5;
-      const v = Number(m[3]);
-      const next0 = m[2] === '=' ? v : m[2] === '+=' ? cur + v : cur - v;
-      // 忠于原文·防乱加：正文毫无「属性/实力成长」描写时，拒绝任何让基础六维「上调」的指令（下调/受损不挡）
-      if (next0 > cur && !hasGrowth) { console.warn(`[Player] 拒绝无正文依据的基础属性上调 ${m[1]} ${cur}→${next0}（本轮正文无成长描写）`); continue; }
-      const cap = attrCapForTier(prof.tier, prof.level);   // 基础属性夹到本阶上限（装备/技能/天赋加成另算，不受限）
-      sa(m[1] as any, Math.min(cap, Math.max(0, next0)));
-      n++;
-    }
-    // 兼容预设的列写法 add("B1",{"16":动作|穿着|位置|身段|样貌,"10":背景}) → 同步到 profile.appearance/location/background
-    // （侧栏外观描写读 profile.appearance，旧预设却用列16输出，导致外观不更新——这里做映射）
-    const b1AddRe = /\badd\s*\(\s*"B\d+"\s*,\s*(\{[\s\S]*?\})\s*\)/g;
-    while ((m = b1AddRe.exec(reply))) {
-      let payload: any;
-      try { payload = JSON.parse(m[1]); } catch { try { payload = JSON.parse(m[1].replace(/'/g, '"')); } catch { continue; } }
-      if (typeof payload['16'] === 'string' && payload['16'].trim()) {
-        const parts = payload['16'].split('|').map((s: string) => s.trim());
-        if (parts.length >= 5) {
-          sp({ appearance: [parts[1], parts[3], parts[4]].filter(Boolean).join('；') });
-          if (parts[2]) sp({ location: parts[2] });
-        } else {
-          sp({ appearance: payload['16'].trim() });
-        }
-        n++;
-      }
-      if (typeof payload['4'] === 'string' && payload['4'].trim()) {
-        sp({ status: payload['4'].trim() });  // 列4 当前状态/Buff → 侧栏当前状态
-        n++;
-      }
-      if (typeof payload['10'] === 'string' && payload['10'].trim()) {
-        usePlayer.getState().setBackground(payload['10'].trim());
-        n++;
-      }
-      // 列19 / imageTags：生图提示词（英文 NAI tags）→ profile.imageTags
-      const tags19 = payload['19'] ?? payload.imageTags ?? payload['生图提示词'];
-      if (typeof tags19 === 'string' && tags19.trim()) { sp({ imageTags: tags19.trim() }); n++; }
-    }
-    // 世界之源：character.B1.worldSource += N（正文获取）/ = 0（回归乐园归零，支持小数百分比）
-    const wsRe = /\bcharacter\.B\d+\.worldSource\s*(=|-=|\+=)\s*([\d.]+)/g;
-    while ((m = wsRe.exec(reply))) {
-      const cur = usePlayer.getState().profile.worldSource ?? 0;
-      const v = Number(m[2]);
-      const raw = m[1] === '=' ? v : m[1] === '+=' ? cur + v : Math.max(0, cur - v);
-      sp({ worldSource: Math.round(raw * 10) / 10 });   // 最多保留 1 位小数，避免 0.3000000004 浮点误差
-      n++;
-    }
-    // 属性点 / 真实属性点：**只在「世界结算」时由正文发放**（平时只"计入/统计"不入账，消耗交前端确定性系统；演化阶段输出不含 <世界结算> 故不会重复计数）
-    if (/<世界结算>/.test(reply)) {
-      const ptRe = /\bcharacter\.B\d+\.(attrPoints|realAttrPoints)\s*(=|-=|\+=)\s*(\d+)/g;
-      const seenPt = new Set<string>();
-      while ((m = ptRe.exec(reply))) {
-        const dk = m[0].replace(/\s+/g, ''); if (seenPt.has(dk)) continue; seenPt.add(dk);   // 去重：统计+发放同一条只算一次
-        const key = m[1] as 'attrPoints' | 'realAttrPoints';
-        const cur = (usePlayer.getState().profile as any)[key] ?? 0;
-        const v = Number(m[3]);
-        sp({ [key]: m[2] === '=' ? v : m[2] === '+=' ? cur + v : Math.max(0, cur - v) } as any);
-        n++;
-      }
-    }
-    applyTimedStatusCommands(reply);   // 主角限时状态 addStatus/deStatus
-    return n;
-  }
-
-  /* 限时状态指令：addStatus("B1"/"C1",{name,emoji,tone,effect,source,duration}) / deStatus("id","name")
-     duration 例："3回合"（回合制）/ "5分钟"/"2小时"/"3天"（游戏时间制，需杂项演化时间可解析）。
-     引擎据此自动过期（见 expireStatuses）。仅处理 onlyId（若给）以适配策略B单角色。 */
-  function applyTimedStatusCommands(reply: string, onlyId?: string) {
-    const M = useMisc.getState();
-    const nowGameMin = parseGameMinutes(M.worldTime || M.paradiseTime);
-    const turn = turnCountRef.current;
-    let m: RegExpExecArray | null;
-    // 新增/更新
-    const addRe = /\baddStatus\s*\(\s*"([A-Za-z]\w*)"\s*,\s*(\{[\s\S]*?\})\s*\)/g;
-    while ((m = addRe.exec(reply))) {
-      const cid = m[1];
-      if (onlyId && cid !== onlyId) continue;
-      let d: any; try { d = JSON.parse(m[2]); } catch { try { d = JSON.parse(m[2].replace(/'/g, '"')); } catch { continue; } }
-      const name = String(d.name ?? '').trim();
-      if (!name) continue;
-      const durStr = String(d.duration ?? d.dur ?? d.durationDesc ?? '').trim();
-      let durTurns = parseDurationTurns(durStr);
-      const durMin = parseDurationMinutes(durStr);
-      // 无明确时长（如"持续"）→ 按类型给默认回合数，避免限时状态永不过期；显式"永久/长期"才保留无限期
-      if (durTurns == null && durMin == null && !INDEFINITE_STATUS_RE.test(durStr)) {
-        durTurns = CC_STATUS_RE.test(`${name}${d.type ?? ''}${d.effect ?? ''}`) ? 2 : DEFAULT_STATUS_TURNS;
-      }
-      const eff: StatusEffect = {
-        id: `ST_${cid}_${Date.now()}_${Math.floor(Math.random() * 1000)}`,
-        name,
-        type: d.type,
-        emoji: d.emoji,
-        tone: d.tone === 'buff' || d.tone === 'debuff' || d.tone === 'neutral' ? d.tone : undefined,
-        effect: d.effect,
-        desc: d.desc ?? d.description,
-        tags: Array.isArray(d.tags) ? d.tags : undefined,
-        source: d.source,
-        startTurn: turn,
-        durationTurns: durTurns ?? undefined,
-        durationDesc: durStr || undefined,
-        startGameMin: nowGameMin,
-        expireAtMin: (durMin != null && nowGameMin != null) ? nowGameMin + durMin : null,
-        addedAt: Date.now(),
-      };
-      if (/^B\d+$/.test(cid)) usePlayer.getState().addStatusEffect(eff);
-      else if (/^[CG]\d+$/.test(cid)) { if (useNpc.getState().npcs[cid]) useNpc.getState().addNpcStatus(cid, eff); }
-    }
-    // 移除
-    const delRe = /\bdeStatus\s*\(\s*"([A-Za-z]\w*)"\s*,\s*"([^"]*)"\s*\)/g;
-    while ((m = delRe.exec(reply))) {
-      const cid = m[1]; const nm = m[2];
-      if (onlyId && cid !== onlyId) continue;
-      if (/^B\d+$/.test(cid)) usePlayer.getState().removeStatusEffect(nm);
-      else if (/^[CG]\d+$/.test(cid)) useNpc.getState().removeNpcStatus(cid, nm);
-    }
-  }
-
-  /* 限时状态过期清理：按回合数或游戏时间判定，移除已过期项。每回合发请求前调用。 */
-  function expireStatuses() {
-    const M = useMisc.getState();
-    const nowMin = parseGameMinutes(M.worldTime || M.paradiseTime);
-    const turn = turnCountRef.current;
-    const isExpired = (e: StatusEffect): boolean => {
-      if (e.durationTurns != null && turn - e.startTurn >= e.durationTurns) return true;
-      if (e.expireAtMin != null && nowMin != null && nowMin >= e.expireAtMin) return true;
-      // 兜底：旧存档里既无回合上限也无时间上限、且未标注永久/长期的限时状态，超过 STALE 回合强制清理
-      if (e.durationTurns == null && e.expireAtMin == null
-          && !INDEFINITE_STATUS_RE.test(e.durationDesc ?? '')
-          && typeof e.startTurn === 'number' && turn - e.startTurn >= STALE_STATUS_TURNS) return true;
-      return false;
-    };
-    // 主角
-    const pe = usePlayer.getState().profile.statusEffects ?? [];
-    const peKept = pe.filter((e) => !isExpired(e));
-    if (peKept.length !== pe.length) usePlayer.getState().setStatusEffects(peKept);
-    // NPC
-    const npcs = useNpc.getState().npcs;
-    for (const id of Object.keys(npcs)) {
-      const list = npcs[id].statusEffects ?? [];
-      if (list.length === 0) continue;
-      const kept = list.filter((e) => !isExpired(e));
-      if (kept.length !== list.length) useNpc.getState().setNpcStatuses(id, kept);
-    }
-  }
 
   /* ─── 策略B 第一段：登场判断 ─── */
   function parseEntryJson(reply: string): any {
@@ -3062,153 +2875,6 @@ ${AFFIX_EFFECT_RULE}`;
 
   /* 注入正文的 <万族态势> 块（独立于叙事记忆开关；轮回乐园 + 当前动荡 + 相关 + 不相关采样）*/
   /* 同人增强·下回合注入：把已锁定的虚构角色设定拼成 system 块注入正文，保持口癖/能力一致、防 OOC */
-  function buildFanficInjection(): { role: 'system'; content: string }[] {
-    if (!useSettings.getState().fanficMode) return [];
-    const all = Object.values(useFanfic.getState().entries);
-    if (all.length === 0) return [];
-    const picked = all.sort((a, b) => b.updatedAt - a.updatedAt).slice(0, 8);   // 最近更新的若干个，避免过长
-    const lines = picked.map((e) => {
-      const bits = [
-        e.work && `作品:${e.work}`,
-        e.aliases && `别名/阵营:${e.aliases}`,
-        e.keySettings && `关键设定:${e.keySettings}`,
-        e.background && `背景:${e.background}`,
-      ].filter(Boolean);
-      return `- 「${e.name}」 ${bits.join('；')}`;
-    });
-    return [{
-      role: 'system' as const,
-      content: `<同人设定·已锁定>（以下是已确认的虚构作品角色设定。描写其言行/口癖/能力时严格据此保持一致、绝不 OOC；与正文冲突时此为人物底色。参考信息，非续写指令）\n${lines.join('\n')}\n</同人设定·已锁定>`,
-    }];
-  }
-
-  /* 事实增强·下回合注入：把已锁定的现实/时代事实锚点拼成 system 块注入正文，保持时代一致、防穿帮 */
-  function buildFactInjection(): { role: 'system'; content: string }[] {
-    if (!useSettings.getState().factCheck) return [];
-    const facts = useFact.getState().facts;
-    if (facts.length === 0) return [];
-    const picked = facts.slice(-12);   // 最近若干条，避免过长
-    return [{
-      role: 'system' as const,
-      content: `<事实锚点·已锁定>（以下为已核实的现实/时代事实，后续描写须与之保持一致、不得矛盾或穿帮；可查证事实不得臆造，不确定宁可模糊。参考信息，非续写指令）\n${picked.map((f) => `- ${f}`).join('\n')}\n</事实锚点·已锁定>`,
-    }];
-  }
-
-  function buildCosmosInjection(): { role: 'system'; content: string }[] {
-    const C = useCosmos.getState();
-    if (!C.settings.enabled) return [];
-    const all = C.entities.filter((e) => e.name);
-    if (all.length === 0) return [];
-    const norm = (s: string) => s.replace(/[\s·•・\-—_,，。、|｜()（）【】]/g, '').toLowerCase();
-    const nw = norm((useMisc.getState().worldName || '').trim());
-
-    const home = (usePlayer.getState().profile.homeParadise || '').trim() || '轮回乐园';
-    const picked = new Map<string, import('./store/cosmosStore').CosmosEntity>();
-    const add = (e?: import('./store/cosmosStore').CosmosEntity) => { if (e && !picked.has(e.id)) picked.set(e.id, e); };
-    add(all.find((e) => cosmosNameEq(e.name, home)));   // 永远注入主角所属乐园（按开局选择，非写死轮回乐园）
-    all.filter((e) => !e.destroyed && e.priority === 0 && (e.status === '复苏' || e.status === '扩张')).slice(0, 2).forEach(add);  // 当前最大动荡
-    if (nw) all.filter((e) => { const n = norm(e.name); return n.length >= 2 && (nw.includes(n) || n.includes(nw)); }).slice(0, 3).forEach(add);  // 当前世界相关
-    all.filter((e) => e.isPlayerKnown && !e.destroyed).slice(0, 2).forEach(add);   // 主角已接触
-
-    // 不相关采样：从其余随机抽 N 个，增加"世界处处在发生事"的真实感
-    const rest = all.filter((e) => !picked.has(e.id) && !e.destroyed);
-    const sampleN = Math.max(0, C.settings.injectIrrelevantCount ?? 2);
-    for (let i = 0; i < sampleN && rest.length; i++) add(rest.splice(Math.floor(Math.random() * rest.length), 1)[0]);
-
-    const lines = [...picked.values()].map((e) => {
-      const head = `「${cleanCosmosName(e.name)}」(${e.category}·${e.status}${e.rank ? '·排名' + e.rank : ''})`;
-      const bits = [e.power, e.goal && `动向:${e.goal}`, e.towardParadise && `对${home}:${e.towardParadise}`].filter(Boolean);
-      return `- ${head} ${bits.join('；')}`;
-    });
-    if (lines.length === 0) return [];
-    return [{
-      role: 'system' as const,
-      content: `<万族态势>（轮回乐园宇宙宏观格局，背景氛围参考、非剧情指令；多数与主角无直接关系，体现世界辽阔鲜活即可，勿照搬复述）\n${lines.join('\n')}\n</万族态势>`,
-    }];
-  }
-
-  /* 始终注入的「主角核心」——结构化召回(叙事记忆)默认关，多数玩家的正文 API 读不到主角真实外观/六维，
-     于是 AI 会凭空改发色、写出默认属性卡再被回写 → 清零。这里无条件补一份精简主角卡兜底（结构化召回开着时跳过，避免重复）。*/
-  function buildPlayerCoreInjection(): { role: 'system'; content: string }[] {
-    const nm = useSettings.getState().narrativeMemory;
-    if (nm?.enabled && nm?.structEnabled !== false) return [];   // 结构化召回已注入完整主角卡
-    const p = usePlayer.getState().profile;
-    if (!p.name) return [];   // 尚未创建角色
-    const a = p.attrs;
-    const look = (p.baseAppearance || p.appearance || '').trim();
-    const gp = useGame.getState().player;
-    const hpMax = playerMaxHp(), epMax = playerMaxEp();
-    const hpCur = effectiveResource(gp.hp, gp.maxHp, hpMax), epCur = effectiveResource(gp.mp, gp.maxMp, epMax);
-    const bits = [
-      `姓名:${p.name}`,
-      p.tier && `阶位:${p.tier}`,
-      p.level != null && `Lv.${p.level}`,
-      a && `六维: 力${a.str} 敏${a.agi} 体${a.con} 智${a.int} 魅${a.cha} 幸${a.luck}`,
-      `当前HP:${hpCur}/${hpMax} 当前EP:${epCur}/${epMax}`,
-      look && `外观:${look}`,
-      p.profession && `职业:${p.profession}`,
-      p.homeParadise && `所属乐园:${p.homeParadise}`,
-    ].filter(Boolean);
-    return [{
-      role: 'system' as const,
-      content: `<主角核心>（这是主角的真实设定，描写时严格据此，**不要擅自更改主角的发色/外观，也不要改动其六维属性**——属性变化只由系统结算）\n${bits.join(' | ')}\n</主角核心>`,
-    }];
-  }
-
-  /* <当前时空> 注入正文：把「杂项」的两个时间——轮回历(乐园时间) 与 世界时间——连同当前世界名常驻注入，
-     让写正文的 AI 始终知道此刻是什么时间、在哪个世界，叙事不与之矛盾（结构化召回里没有时间，故独立注入）。
-     时间都未设定时不注入。时间推进仍由「杂项演化」结算，正文只读不改。 */
-  function buildWorldTimeInjection(): { role: 'system'; content: string }[] {
-    const M = useMisc.getState();
-    const pt = (M.paradiseTime || '').trim();
-    const wt = (M.worldTime || '').trim();
-    const wn = (M.worldName || '').trim();
-    if (!pt && !wt) return [];   // 两个时间都没设就不注入
-    const bits = [
-      wn && `当前世界:${wn}`,
-      pt && `轮回历·乐园时间:${pt}`,
-      wt && `当前世界时间:${wt}`,
-    ].filter(Boolean);
-    return [{
-      role: 'system' as const,
-      content: `<当前时空>（叙事须与下列时间/世界保持一致，勿自相矛盾；时间由系统推进，正文勿擅自跳改）\n${bits.join(' | ')}\n</当前时空>`,
-    }];
-  }
-
-  /* <当前任务> 注入正文：主线(重·当前目标+下一步+终局，作叙事节奏锚点) + 相关支线(轻·限量)。
-     解决"主线没存在感、要手动口胡才回归"——把任务面板回流进正文生成上下文。 */
-  function buildQuestInjection(): { role: 'system'; content: string }[] {
-    const M = useMisc.getState();
-    if (M.settings.questInjectEnabled === false) return [];
-    const tasks = M.tasks ?? [];
-    if (tasks.length === 0) return [];
-    // 场景信号：当前地点 + 在场 NPC 名（支线相关性排序用）
-    const loc = (usePlayer.getState().profile.location || M.worldName || '').trim();
-    const onScene = Object.values(useNpc.getState().npcs)
-      .filter((n: any) => n?.onScene)
-      .map((n: any) => n?.name)
-      .filter(Boolean)
-      .join(' ');
-    const body = serializeQuestsForNarrative(tasks, {
-      sideCap: M.settings.questSideCap ?? 3,
-      sceneText: `${loc} ${onScene}`.trim(),
-    });
-    if (!body) return [];
-    return [{
-      role: 'system' as const,
-      content:
-        `<当前任务>（主角任务线 = 预先规划好的剧情大方向；你必须据此推进，但勿在正文里罗列或写"环/任务/进度"等系统词）\n${body}\n` +
-        `【叙事推进·强约束】\n` +
-        `- **大方向由任务线定、细节由你补全**：本回合正文要积极推动主角朝主线【当前环目标】行动并取得实质进展，把该目标落成具体的场景、人物、事件与冲突；不要让主线停滞、跑题或长期失联。\n` +
-        `- 适时把"本环奖励 / 惩罚"自然呈现给主角（接近达成给奖励钩子、拖延或失误示惩罚代价），强化目标分量。\n` +
-        `- **当前环目标在本轮正文中达成后**，立刻顺着"完成本环后下一环走向"把剧情导向下一环（系统随后会把下一环转为当前环，下回合继续据此推进）。\n` +
-        `- **强制环 vs 贪婪环**：强制环(保命底线)要积极推进、失败=死亡或重罚；贪婪环(可选·高潮之后)是"够强才来"的额外赌注，可推进但别逼玩家、失败只丢该环额外奖励。\n` +
-        `- **高潮(最后一个强制环)达成、且还有贪婪环时**：本回合要给主角一个"见好就收(主线已达成、可安全离场) 还是 接受隐藏委托·继续赌(进贪婪环)"的**选择点**——附贪婪环奖励预览 + 难度陡增/风险警告，让玩家在安全位置自己决定、别替他选。\n` +
-        `- 支线：仅当当前场景/人物契合时按其当前目标自然推进，不喧宾夺主、不强行塞入。\n` +
-        `- **唯一例外**：玩家本轮输入明确转向别处时以玩家为准（顺其自然写、系统会据正文重排路线）；除此之外都应朝当前环目标推进。\n` +
-        `</当前任务>`,
-    }];
-  }
 
   async function runCosmosEvolutionPhase(narrative: string) {
     const C = useCosmos.getState();
@@ -6096,7 +5762,7 @@ ${lines}`;
     turnCountRef.current += 1;
     try { useItems.getState().setItemTurn(turnCountRef.current); } catch { /* */ }   // 推进「最近删除」回收站回合数 + 清除满 3 回合的条目
     lastUserInputRef.current = userText;   // 供叙事记忆·回复后写入使用
-    expireStatuses();                      // 回合推进：清理已过期的限时状态（主角+NPC）
+    expireStatuses(turnCountRef.current);                      // 回合推进：清理已过期的限时状态（主角+NPC）
     reconcileHomeWorld();                  // 回归乐园一致性兜底：时间同步 + 任务世界势力移出当前世界
     reconcilePlayerVitals();               // HP/EP 兜底：仍是 100/50 旧默认时按六维重算为满
     syncPlayerVitalsMax();                  // 每回合：同步存储上限=真实上限（当前 HP/EP 由正文末尾<状态结算>驱动，本函数不补血）
@@ -6367,7 +6033,7 @@ ${lines}`;
         }
         // 流结束后：先用原始文本解析 state 块，再执行正则并剥除 state 块
         applyAllUpdates(accumulated);
-        try { applyPlayerProfileCommands(accumulated); } catch { /* 主角位置/外观/身份：正文若直接输出 character.B1.* 也即时生效，不必等主角演化阶段 */ }
+        try { applyPlayerProfileCommands(accumulated, '', turnCountRef.current); } catch { /* 主角位置/外观/身份：正文若直接输出 character.B1.* 也即时生效，不必等主角演化阶段 */ }
         const settledText = stripKillBlocks(accumulated);   // 过渡期：剥除旧 <kill> 清单（不再结算进阶点）
         // 演化/解析读的正文：剥 <state>/<upstore> 等，但【保留】<状态结算> HP/EP 块（解析器与 HP/EP 管理阶段要吃它）
         const narrativeForEvoRaw = stripStateBlocks(applyRegex(settledText, preset));
@@ -6393,7 +6059,7 @@ ${lines}`;
         const reply: string = data.choices?.[0]?.message?.content ?? data.choices?.[0]?.text ?? '';
         if (!reply) throw new Error('模型未返回内容');
         applyAllUpdates(reply);
-        try { applyPlayerProfileCommands(reply); } catch { /* 主角位置/外观/身份：正文直接输出 character.B1.* 即时生效 */ }
+        try { applyPlayerProfileCommands(reply, '', turnCountRef.current); } catch { /* 主角位置/外观/身份：正文直接输出 character.B1.* 即时生效 */ }
         const settledReply = stripKillBlocks(reply);   // 过渡期：剥除旧 <kill> 清单（不再结算进阶点）
         // 演化/解析读的正文：剥 <state>/<upstore> 等，但【保留】<状态结算> HP/EP 块（解析器与 HP/EP 管理阶段要吃它）
         const narrativeForEvoRaw = stripStateBlocks(applyRegex(settledReply, preset));
