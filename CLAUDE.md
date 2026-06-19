@@ -1,6 +1,6 @@
 # CLAUDE.md
 
-总览与铁则（精简版）。功能细节 → `docs/FEATURES.md`；代码定位 → `docs/CODE_MAP.md`。
+总览与铁则（精简版）。功能细节 → `docs/FEATURES.md`；代码定位 → `docs/CODE_MAP.md`；**改动流程/规约（每次加改功能照这走）→ `docs/DEV_WORKFLOW.md`**。
 
 > ## ⚙️ 工作流（省 token）
 > 1. 改动前先读 `CODE_MAP.md` 定位 文件+函数名 → `Grep` 拿行号 → `Read` 只读那段。**勿整文件读**（App.tsx 32万字 / SettingsPanel 11万 / NpcDetail 6万）。

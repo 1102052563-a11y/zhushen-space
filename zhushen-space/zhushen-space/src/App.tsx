@@ -161,6 +161,7 @@ import { onGiftResponse } from './systems/mpGift';
 import { myPlayerId } from './systems/mpConfig';
 import GiftPrompt from './components/GiftPrompt';
 const FriendsPanel = lazy(() => import('./components/FriendsPanel'));
+const WorkshopPanel = lazy(() => import('./components/WorkshopPanel'));
 import { retrieveNovel } from './systems/novelVec';
 import { useDm, isDmableTag } from './store/dmStore';
 import { useFanfic } from './store/fanficStore';
@@ -626,6 +627,7 @@ const rightMenuItems = [
   { icon: '👥', label: '好友' },
   { icon: '🌐', label: '联机' },
   { icon: '🧠', label: '记忆' },
+  { icon: '🧩', label: '创意工坊' },
   { icon: '💾', label: '存档' },
   { icon: '⚙', label: '设置' },
 ];
@@ -636,7 +638,7 @@ const NAV_FX: Record<string, string> = {
   '副职业': 'fx-wrench', '技能树': 'fx-tree', '称号': 'fx-medal', '成就': 'fx-trophy', '势力': 'fx-pillar',
   '领地': 'fx-castle', '冒险团': 'fx-shield', '万族': 'fx-cosmos', '世界百科': 'fx-book', 'ROLL': 'fx-dice',
   '战斗': 'fx-clash', '乐园设施': 'fx-ferris', '深渊': 'fx-void', '回合洞察': 'fx-zoom', '任务': 'fx-quest',
-  '频道': 'fx-signal', '私信': 'fx-mail', '好友': 'fx-friends', '记忆': 'fx-brain', '存档': 'fx-save', '设置': 'fx-gear',
+  '频道': 'fx-signal', '私信': 'fx-mail', '好友': 'fx-friends', '记忆': 'fx-brain', '创意工坊': 'fx-sparkle', '存档': 'fx-save', '设置': 'fx-gear',
 };
 
 export default function App() {
@@ -691,6 +693,7 @@ export default function App() {
   const [dmPanelOpen,        setDmPanelOpen]        = useState(false);  // 私信面板
   const [dmFocusThread,      setDmFocusThread]      = useState<string | undefined>(undefined);  // 私信打开时聚焦的会话
   const [friendsPanelOpen,   setFriendsPanelOpen]   = useState(false);  // 好友面板
+  const [workshopOpen,       setWorkshopOpen]       = useState(false);  // 创意工坊
   const [imagePhaseLog,      setImagePhaseLog]      = useState('');     // 生图（肖像/装备）阶段提示
   const [onSceneDetailId,    setOnSceneDetailId]    = useState<string | null>(null);  // 在场人物浮窗 → NPC 详情
   const [insightOpen,        setInsightOpen]        = useState(false);
@@ -6544,6 +6547,7 @@ ${lines}`;
                     item.label === '联机' ? () => setMpPanelOpen(true) :
                     item.label === '记忆' ? () => setSummaryPanelOpen(true) :
                     item.label === '存档' ? () => setSaveOpen(true) :
+                    item.label === '创意工坊' ? () => setWorkshopOpen(true) :
                     undefined;
                   open?.();
                   setMobileDrawer(null);
@@ -6651,6 +6655,7 @@ ${lines}`;
       {friendsPanelOpen && <FriendsPanel onClose={() => setFriendsPanelOpen(false)} turn={turnCountRef.current}
         onOpenNpc={(cid) => { setFriendsPanelOpen(false); setOnSceneDetailId(cid); }}
         onDm={(cid) => { const r = useNpc.getState().npcs[cid]; if (!r) return; setFriendsPanelOpen(false); openDmFor({ targetId: r.id, targetName: r.name || r.id, targetTier: (r.realm || '').split(/[·|]/)[0] || undefined, targetJob: r.profession, targetPersona: r.personality, targetStrength: r.bioStrength, targetTag: r.npcTag }); }} />}
+      {workshopOpen && <WorkshopPanel onClose={() => setWorkshopOpen(false)} />}
       {promoteCandidates.length > 0 && <PartyPromoteDialog ids={promoteCandidates} onClose={() => setPromoteCandidates([])} />}
       {shopOpen && <SystemShop onGenShop={genShopItems} onQuoteSell={genSellQuotes} onClose={() => setShopOpen(false)} />}
       {miscPanelOpen && (
