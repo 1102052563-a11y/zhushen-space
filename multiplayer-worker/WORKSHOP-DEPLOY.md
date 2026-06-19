@@ -43,6 +43,10 @@ GET  https://<你的worker域名>/api/workshop/items      → {"items":[]}（空
 ## 防护 / 成本
 
 - 单条 payload ≤ 256KB；同 IP（盐哈希）1 小时最多 20 条；字段长度截断。
-- 无审核公开上传 = 有滥用面（垃圾/违规）。需要时手动清理：
-  `wrangler d1 execute zhushen-workshop --remote --command "DELETE FROM workshop_items WHERE id='xxx'"`
+- 无审核公开上传 = 有滥用面（垃圾/违规）。**管理员删除**：在 worker 设一个密钥，之后在游戏里「创意工坊 → 设置 → 管理员密钥」填同一个，即可删除任意条目（内容审核）：
+  ```powershell
+  npx wrangler secret put WS_ADMIN_KEY      # 按提示输入你的密钥；改完无需手动 deploy（secret 即时生效）
+  ```
+- 也可命令行直接删：
+  `npx wrangler d1 execute zhushen-workshop --remote --command "DELETE FROM workshop_items WHERE id='xxx'"`
 - D1/Workers 免费额度对这种体量基本 $0；详见 Cloudflare 计费。可选给上传加道口令：在 worker env 设 `WS_SALT` 仅影响限流哈希（非鉴权）。

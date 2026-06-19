@@ -306,13 +306,19 @@ export default function WorkshopPanel({ onClose }: { onClose: () => void }) {
                               {(m.tags ?? []).slice(0, 4).map((t) => <span key={t} className="px-1 rounded bg-void/60 text-dim/50">#{t}</span>)}
                             </div>
                           </div>
-                          <div className="shrink-0 self-center">
+                          <div className="shrink-0 self-center flex flex-col items-end gap-1">
                             {st === 'installed' ? (
                               <span className="text-[11px] font-mono px-2 py-1 rounded border border-emerald-600/40 text-emerald-300/80">✓ 已装</span>
                             ) : (
                               <button onClick={(e) => { e.stopPropagation(); doInstall(m); }} disabled={installingId === m.id}
                                 className={`text-[11px] font-mono px-2.5 py-1 rounded border transition-colors disabled:opacity-50 ${st === 'update' ? 'border-amber-500/50 text-amber-300/90 hover:bg-amber-900/25' : 'border-god/50 text-god hover:bg-god/10'}`}>
                                 {installingId === m.id ? '…' : st === 'update' ? '↻ 更新' : '⤓ 安装'}
+                              </button>
+                            )}
+                            {adminKey && (
+                              <button onClick={(e) => { e.stopPropagation(); adminDelete(m); }} disabled={deletingId === m.id} title="管理员删除"
+                                className="text-[10px] font-mono px-2 py-0.5 rounded border border-blood/40 text-blood/70 hover:bg-blood/10 transition-colors disabled:opacity-50">
+                                {deletingId === m.id ? '…' : '🗑 删'}
                               </button>
                             )}
                           </div>
@@ -457,6 +463,18 @@ export default function WorkshopPanel({ onClose }: { onClose: () => void }) {
               </div>
               <div className="text-[11px] font-mono text-dim/40 pt-1">后端是 zhushen-multiplayer Worker 的 /api/workshop（存 Cloudflare D1）。首次启用需建 D1 库并部署，见 multiplayer-worker/WORKSHOP-DEPLOY.md。</div>
             </div>
+
+            <div className="max-w-2xl mx-auto rounded-xl border border-edge bg-panel/50 p-4 space-y-3">
+              <div className="text-[14px] font-semibold text-slate-200">管理员密钥 {adminKey && <span className="text-[11px] font-mono text-emerald-300/80">· 已开启</span>}</div>
+              <div className="text-[11px] font-mono text-dim/50 -mt-1">填入你在 worker 上设的密钥（<span className="text-dim/70">wrangler secret put WS_ADMIN_KEY</span>），开启后可删除工坊里任意条目（用于内容审核）。留空保存=关闭。</div>
+              <div className="flex items-center gap-2">
+                <input type="password" value={adminInput} onChange={(e) => setAdminInput(e.target.value)} placeholder="管理员密钥…"
+                  className="flex-1 min-w-0 bg-void border border-edge rounded px-2.5 py-1.5 text-[13px] text-slate-200 placeholder:text-dim/30 focus:outline-none focus:border-god/50" />
+                <button onClick={saveAdmin} disabled={savingAdmin}
+                  className="shrink-0 text-[12px] font-mono px-3 py-1.5 rounded border border-god/50 text-god hover:bg-god/10 transition-colors disabled:opacity-50">{savingAdmin ? '验证中…' : '验证开启'}</button>
+              </div>
+              {adminKey && <div className="text-[11px] font-mono text-emerald-300/70">管理员模式已开：浏览/详情/已上传 里都能删除任意条目。</div>}
+            </div>
           </div>
         )}
 
@@ -481,13 +499,19 @@ export default function WorkshopPanel({ onClose }: { onClose: () => void }) {
               {!detailLoading && detailFull && <DetailBody type={detail.type} payload={detailFull.payload} />}
               {!detailLoading && !detailFull && <div className="py-10 text-center text-blood/60 text-[12px] font-mono">详情加载失败</div>}
             </div>
-            <div className="shrink-0 p-3 border-t border-edge">
+            <div className="shrink-0 p-3 border-t border-edge space-y-2">
               {statusFor(installs, detail) === 'installed' ? (
                 <div className="text-center text-[12px] font-mono text-emerald-300/80 py-1.5">✓ 已安装</div>
               ) : (
                 <button onClick={() => doInstall(detail)} disabled={installingId === detail.id}
                   className="w-full text-[13px] font-mono px-3 py-2 rounded-lg border border-god/50 text-god hover:bg-god/10 transition-colors disabled:opacity-50">
                   {installingId === detail.id ? '安装中…' : statusFor(installs, detail) === 'update' ? '↻ 更新' : '⤓ 安装'}
+                </button>
+              )}
+              {adminKey && (
+                <button onClick={() => adminDelete(detail)} disabled={deletingId === detail.id}
+                  className="w-full text-[12px] font-mono px-3 py-1.5 rounded-lg border border-blood/40 text-blood/80 hover:bg-blood/10 transition-colors disabled:opacity-50">
+                  {deletingId === detail.id ? '删除中…' : '🗑 管理员删除'}
                 </button>
               )}
             </div>
