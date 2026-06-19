@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest';
-import { normalizeGradeLabel, scoreToGradeNum } from './itemStore';
+import { normalizeGradeLabel, scoreToGradeNum, useItems } from './itemStore';
+import { useNpc } from './npcStore';
 
 describe('scoreToGradeNum（评分 → 物品档位 1-14，区间同 ITEM_GRADE_TABLE_RULE）', () => {
   it('区间边界', () => {
@@ -67,5 +68,33 @@ describe('normalizeGradeLabel（一物一档·复合品级收敛护栏）', () =
     expect(normalizeGradeLabel('史诗级')).toEqual({ grade: '史诗级', changed: false });
     expect(normalizeGradeLabel('')).toEqual({ grade: '', changed: false });
     expect(normalizeGradeLabel(undefined)).toEqual({ grade: '', changed: false });
+  });
+});
+
+describe('入库防御网 + 历史迁移（store 集成）', () => {
+  it('addItem 入库即折叠复合品级（兜住扭蛋/赠予/导入路径）', () => {
+    useItems.setState({ items: [] });
+    useItems.getState().addItem({ name: '测试剑', category: '武器', gradeDesc: '紫色/史诗', score: '100', quantity: 1, effect: '', tags: [] } as any);
+    expect(useItems.getState().items[0].gradeDesc).toBe('紫色');
+  });
+
+  it('normalizeGrades 扫历史背包旧物，返回收敛件数、净物不动', () => {
+    useItems.setState({ items: [
+      { id: 'A', name: '旧剑', category: '武器', gradeDesc: '暗金/史诗级', score: '450', quantity: 1, effect: '', equipped: false, tags: [], addedAt: 0 },
+      { id: 'B', name: '净物', category: '武器', gradeDesc: '蓝色', quantity: 1, effect: '', equipped: false, tags: [], addedAt: 0 },
+    ] as any });
+    expect(useItems.getState().normalizeGrades()).toBe(1);
+    expect(useItems.getState().items.find((i) => i.id === 'A')!.gradeDesc).toBe('暗金');
+    expect(useItems.getState().items.find((i) => i.id === 'B')!.gradeDesc).toBe('蓝色');
+    // 幂等：再跑一次应为 0
+    expect(useItems.getState().normalizeGrades()).toBe(0);
+  });
+
+  it('normalizeItemGrades 扫 NPC 持有物', () => {
+    useNpc.setState({ npcs: { C1: { id: 'C1', name: '甲', items: [
+      { id: 'X', name: 'NPC剑', category: '武器', gradeDesc: '白色·普通', quantity: 1, effect: '', equipped: false },
+    ] } } as any });
+    expect(useNpc.getState().normalizeItemGrades()).toBe(1);
+    expect(useNpc.getState().npcs.C1.items[0].gradeDesc).toBe('白色');
   });
 });

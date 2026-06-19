@@ -14,6 +14,19 @@ import { SKILLTREE_TUNING } from './skillTree';
 export const isRealNpc = (r?: { name: string; id: string; isDead?: boolean }) =>
   !!(r && r.name && r.name !== r.id && !r.isDead);
 
+/* 新角色姓名清洗（ENTRY_NAME_CN_RULE 轻量护栏）：剥离中文名后缀/括号里的罗马音注释
+   （「艾莉丝(Alice)」→「艾莉丝」、「卡尔·Karl」→「卡尔」），仅当剥离后仍含中文时才剥；
+   纯英文/罗马音名无法机翻 → 原样返回（由调用方告警，不强行删角色）。确定性、无 API。 */
+export function sanitizeEntryName(raw?: string): string {
+  const s = String(raw ?? '').trim();
+  if (!s) return s;
+  const stripped = s
+    .replace(/[（(][A-Za-z0-9·\s.'-]+[)）]/g, '')          // 括号里的纯罗马音注释
+    .replace(/[·•\s]+[A-Za-z][A-Za-z0-9·•\s.'-]*$/g, '')   // 中文名尾部的「·英文 / 空格英文」
+    .trim();
+  return stripped && /[一-鿿]/.test(stripped) ? stripped : s;
+}
+
 /* 主角「属性成长信号」——正文里出现 ①某属性/实力词＋成长词(近邻)、②突破/晋阶到更高阶位、或 ③显式数值加成，
    才算"原文写了属性提升"。用于挡住「正文根本没写属性成长、演化阶段却自行给主角加六维」的乱加：无信号一律不许上调。
    宁可漏判(真成长偶尔被挡，交由提示词把关)也不在毫无成长描写时纵容——与"忠于原文"诉求一致。 */

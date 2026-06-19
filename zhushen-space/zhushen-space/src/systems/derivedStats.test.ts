@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest';
 import {
   computeMaxHp, computeMaxEp, effectiveResource,
   realmFromLevel, normalizeTier, trueAttr, lvFromRealm,
-  attrCapForTier, gearMaxHpBonus, gearMaxHpPctBonus, fullMaxHp,
+  attrCapForTier, clampBaseAttrs, gearMaxHpBonus, gearMaxHpPctBonus, fullMaxHp,
 } from './derivedStats';
 import type { PlayerAttrs } from '../store/playerStore';
 
@@ -89,6 +89,23 @@ describe('attrCapForTier（基础六维上限，取阶位/等级较高者）', (
     expect(attrCapForTier(undefined, 15)).toBe(80); // 二阶
   });
   it('都取不到 → Infinity（不夹）', () => expect(attrCapForTier()).toBe(Infinity));
+});
+
+describe('clampBaseAttrs（基础六维封顶护栏，绕过短指令的入口同护栏）', () => {
+  it('超过本阶上限 → 夹到上限', () => {
+    // 三阶 cap=120：力500 夹到 120，体80 不动
+    expect(clampBaseAttrs({ str: 500, con: 80 }, '三阶')).toEqual({ str: 120, con: 80 });
+  });
+  it('六项都夹（含幸运），负值兜到 0', () => {
+    const out = clampBaseAttrs({ str: 999, agi: 10, con: 999, int: 5, cha: 200, luck: -3 }, '一阶'); // cap=50
+    expect(out).toEqual({ str: 50, agi: 10, con: 50, int: 5, cha: 50, luck: 0 });
+  });
+  it('取不到阶位上限 → 原样不夹', () => {
+    expect(clampBaseAttrs({ str: 9999 })).toEqual({ str: 9999 });
+  });
+  it('按等级推导上限（无阶位字段时）', () => {
+    expect(clampBaseAttrs({ str: 300 }, undefined, 15).str).toBe(80); // lv15=二阶 cap80
+  });
 });
 
 describe('装备「上限加成」解析（只认明写"上限/最大值"，不认回复/伤害类）', () => {

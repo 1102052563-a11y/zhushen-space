@@ -281,6 +281,7 @@ interface ItemState {
   itemModelsError: string;
 
   addItem: (item: Omit<InventoryItem, 'id' | 'addedAt'> & { id?: string }) => void;
+  normalizeGrades: () => number;   // 一次性迁移：把已存背包物品的复合品级收敛为单一档，返回收敛件数
   updateItem: (id: string, patch: Partial<InventoryItem>) => void;
   removeItem: (id: string) => void;
   consumeItem: (id: string, quantity: number) => void;
@@ -355,6 +356,11 @@ export const useItems = create<ItemState>()(
 
       addItem: (item) =>
         set((s) => {
+          // 防御网：任何入库路径(扭蛋/赠予/导入/对账)都把复合品级收敛为单一档（与 stateParser 同护栏）
+          if (item.gradeDesc) {
+            const ng = normalizeGradeLabel(item.gradeDesc, { score: (item as any).score, grade: (item as any).numeric?.grade });
+            if (ng.changed) item = { ...item, gradeDesc: ng.grade };
+          }
           const wantId = (item as { id?: string }).id;
           const wantEquipped = !!(item as { equipped?: boolean }).equipped;
           // ① 指定 id 且该 id 已存在：同名→原地更新（防重复生成、保留装备/锁定）；异名→落到堆叠/新增
@@ -378,6 +384,20 @@ export const useItems = create<ItemState>()(
           const id = wantId && !s.items.some((it) => it.id === wantId) ? wantId : generateId(s.items);
           return { items: [...s.items, { ...item, id, addedAt: Date.now() } as InventoryItem] };
         }),
+
+      normalizeGrades: () => {
+        let n = 0;
+        set((s) => {
+          const items = s.items.map((it) => {
+            if (!it.gradeDesc) return it;
+            const ng = normalizeGradeLabel(it.gradeDesc, { score: (it as any).score, grade: (it as any).numeric?.grade });
+            if (ng.changed) { n++; return { ...it, gradeDesc: ng.grade }; }
+            return it;
+          });
+          return n ? { items } : s;   // 无变化返回原 state，避免无谓通知/写盘
+        });
+        return n;
+      },
 
       updateItem: (id, patch) =>
         set((s) => ({ items: s.items.map((it) => it.id === id ? { ...it, ...patch } : it) })),

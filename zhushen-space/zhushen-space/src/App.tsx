@@ -74,7 +74,7 @@ import { useGame } from './store/gameStore';
 import { useSettings, resolveApiChain } from './store/settingsStore';
 import { apiChatFallback } from './systems/apiChat';
 import { parseAllStateUpdates, stripStateBlocks, parseAllItemCommands, applyItemCommands, parseAllCharCommands, applyCharacterCommands, parseAllNpcCommands, applyNpcCommands, parseAllFactionCommands, applyFactionCommands, applyTerritoryCommands, applyTeamCommands, isEquippable, lenientJsonParse } from './systems/stateParser';
-import { isRealNpc, setNpcPreferredOwners, applyStateUpdates, applyAllUpdates, stripKillBlocks, stripVitalsBlocks, stripWorldSourceBlocks, collapseRunaway } from './systems/stateApply';
+import { isRealNpc, sanitizeEntryName, setNpcPreferredOwners, applyStateUpdates, applyAllUpdates, stripKillBlocks, stripVitalsBlocks, stripWorldSourceBlocks, collapseRunaway } from './systems/stateApply';
 import { flattenAiText } from './systems/flattenAiText';
 import { runPhasePipeline, type Phase } from './systems/phasePipeline';
 import { buildFanficInjection, buildFactInjection, buildCosmosInjection, buildPlayerCoreInjection, buildWorldTimeInjection, buildQuestInjection } from './systems/promptInjections';
@@ -93,7 +93,7 @@ const CombatSetup = lazy(() => import('./components/CombatSetup'));
 import { useTerritory, buildTerritorySystemPrompt, buildingCap } from './store/territoryStore';
 import { useTeam, buildTeamSystemPrompt, memberCap as teamMemberCap } from './store/adventureTeamStore';
 import { useCosmos, buildCosmosSystemPrompt, cosmosNameEq, cleanCosmosName } from './store/cosmosStore';
-import { realmFromLevel, normalizeTier, lvFromRealm, trueAttr, computeMaxHp, computeMaxEp, effectiveResource, attrCapForTier, fullMaxHp, fullMaxEp, TIERS } from './systems/derivedStats';
+import { realmFromLevel, normalizeTier, lvFromRealm, trueAttr, computeMaxHp, computeMaxEp, effectiveResource, attrCapForTier, clampBaseAttrs, fullMaxHp, fullMaxEp, TIERS } from './systems/derivedStats';
 import { isHomeWorld, reconcileHomeWorld, reconcilePlayerVitals, playerMaxHp, playerMaxEp, syncPlayerVitalsMax } from './systems/playerVitals';
 import { bioInnate } from './systems/bioStrength';
 import { generateNpcAttrs, resolveForm, generateLuck } from './systems/npcAttrGen';
@@ -1031,6 +1031,16 @@ export default function App() {
         setTimeout(() => { sendMessage(regen); }, 400);
       }
     })();
+  }, []);
+
+  // 一次性迁移：把历史已存物品(背包+NPC持有)的复合品级收敛为单一档。
+  // 读档=reload，故每个存档加载时自愈一次；幂等（清完后 normalize* 返 0、不写盘）。
+  useEffect(() => {
+    try {
+      const a = useItems.getState().normalizeGrades();
+      const b = useNpc.getState().normalizeItemGrades();
+      if (a + b) console.log(`[Item] 历史品级收敛迁移：背包 ${a} 件 + NPC持有 ${b} 件 → 单一档`);
+    } catch (e) { console.warn('[Item] 品级迁移失败:', e); }
   }, []);
 
   // 对话变化时增量写入 IndexedDB（流式只写变化的 1 条；hydrate 完成前不写，避免覆盖）
@@ -1987,7 +1997,10 @@ export default function App() {
       if (!e?.id) continue;
       if (e.type === 'new') {
         const skel = parseSkeleton(e.stateCommands ?? '');
-        const nameKey = String(e.name ?? skel?.short?.n ?? '').split('|')[0].trim();   // 去掉"|性别"后缀，确保同名能匹配
+        const rawFull = String(e.name ?? skel?.short?.n ?? '').trim();
+        const genderSuffix = rawFull.includes('|') ? rawFull.slice(rawFull.indexOf('|')) : '';
+        const nameKey = sanitizeEntryName(rawFull.split('|')[0]);   // 去"|性别"后缀 + 剥罗马音注释(ENTRY_NAME_CN护栏)，确保同名能匹配
+        const storeName = nameKey ? nameKey + genderSuffix : (e.name ?? '');   // 落档名：清洗后的名 + 保留原"|性别"后缀
         // 本回合即死亡：条目自带死亡关键词，或正文里该角色名紧邻死亡描述 → 不建档
         const blob = `${e.name ?? ''} ${e.status ?? ''} ${e.note ?? ''} ${e.stateCommands ?? ''}`;
         const deadInNarr = !!(nameKey && narrativeNow.includes(nameKey) &&
@@ -2004,6 +2017,8 @@ export default function App() {
           console.warn(`[NPC] 丢弃无真实姓名的新角色（id=${e.id}, name=${nameKey || '∅'}${skel ? ' · 有骨架但无名' : ''}）`);
           continue;
         }
+        // 纯英文/罗马音名无法机翻 → 不丢角色（它是真实角色），仅告警提示 AI 按 ENTRY_NAME_CN_RULE 重命名
+        if (!/[一-鿿]/.test(nameKey)) console.warn(`[NPC] 新角色「${nameKey}」为纯英文/罗马音名（应中文·ENTRY_NAME_CN_RULE）；暂保留，待 AI 重命名`);
         // 已存在/本批已建同名真实角色 → 复用其ID当作"重新登场"，不再新建（防重复）
         const dupId = nameKey ? nameToId.get(nameKey) : undefined;
         if (dupId && npc.npcs[dupId]) {
@@ -2029,7 +2044,7 @@ export default function App() {
         used.add(id);
         if (nameKey) nameToId.set(nameKey, id);   // 登记新建名字，使本批后续同名条目并入此角色
         if (skel) npc.applySkeleton(id, skel.short);
-        else npc.upsertNpc(id, { name: e.name ?? id, onScene: true });
+        else npc.upsertNpc(id, { name: storeName || id, onScene: true });
         npc.setScene(id, true, turn);
         createdIds.add(id);
       } else {
@@ -4167,7 +4182,7 @@ ${lines}`;
       if (pName && (name === pName || name.includes(pName) || pName.includes(name))) {
         const c = P.profile.attrs;
         const untouched = !c || (c.str === 5 && c.agi === 5 && c.con === 5 && c.int === 5 && c.cha === 5 && c.luck === 5);
-        if (untouched) { P.setProfile({ attrs }); applied++; }
+        if (untouched) { P.setProfile({ attrs: clampBaseAttrs(attrs, P.profile.tier, P.profile.level) }); applied++; }
         continue;
       }
       // 已建档 NPC（按名字匹配；卡名常含前缀如"灰烬拾荒者·卡尔"，做包含匹配，名字≥2字防误配）
@@ -4176,7 +4191,7 @@ ${lines}`;
         return rn && rn !== r.id && rn.length >= 2 && (rn === name || name.includes(rn) || rn.includes(name));
       });
       // 幸运不照抄卡片(前端独占)：保留该 NPC 现有幸运，随后由 ensureNpcLuck 统一重算为 base+delta
-      if (rec) { npc.upsertNpc(rec.id, { attrs: { ...attrs, luck: rec.attrs?.luck ?? attrs.luck } }); applied++; }
+      if (rec) { npc.upsertNpc(rec.id, { attrs: { ...clampBaseAttrs(attrs, rec.realm), luck: rec.attrs?.luck ?? attrs.luck } }); applied++; }
     }
     if (applied > 0) console.log(`[Attr] 从正文人物卡照抄六维：${applied} 个角色`);
   }

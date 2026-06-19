@@ -4,6 +4,7 @@ import { useCharacters, type Deed } from './characterStore';
 import type { PlayerAttrs, StatusEffect } from './playerStore';
 import { normalizeTier, realmFromLevel, lvFromRealm } from '../systems/derivedStats';
 import type { SocketedGem, GemSlotKind } from './itemStore';
+import { normalizeGradeLabel } from './itemStore';
 
 /* 判断「列4状态」是否表示该角色【真的死亡】。
    只认明确的死亡状态，**排除**只是提到"死"字却没死的情况（濒死/濒临死亡/挚友身亡/恐惧死亡/假死/不死之身…），
@@ -219,6 +220,7 @@ interface NpcState {
   clearAll: () => void;
   addNpcItem: (ownerId: string, item: NpcOwnedItem) => void;
   dedupeNpcItems: (ownerId?: string) => void;   // 合并某NPC(或全部)储存空间内同名重复物品（可堆叠累加/装备取大值）
+  normalizeItemGrades: () => number;   // 一次性迁移：收敛所有NPC持有物的复合品级为单一档，返回收敛件数
   updateNpcItem: (ownerId: string, itemId: string, patch: Partial<NpcOwnedItem>) => void;
   removeNpcItem: (ownerId: string, itemId: string) => void;
   equipNpcItem: (ownerId: string, itemId: string, slot: string) => void;
@@ -666,6 +668,27 @@ export const useNpc = create<NpcState>()(
           for (const id of Object.keys(npcs)) { const d = dedupeOne(npcs[id]); if (d !== npcs[id]) { npcs[id] = d; changed = true; } }
           return changed ? { npcs } : s;
         }),
+
+      normalizeItemGrades: () => {
+        let n = 0;
+        set((s) => {
+          const npcs = { ...s.npcs };
+          let changedAny = false;
+          for (const id of Object.keys(npcs)) {
+            const rec = npcs[id];
+            let recChanged = false;
+            const items = (rec.items ?? []).map((it) => {
+              if (!it.gradeDesc) return it;
+              const ng = normalizeGradeLabel(it.gradeDesc, { score: (it as any).score, grade: (it as any).numeric?.grade });
+              if (ng.changed) { n++; recChanged = true; return { ...it, gradeDesc: ng.grade }; }
+              return it;
+            });
+            if (recChanged) { npcs[id] = { ...rec, items, updatedAt: Date.now() }; changedAny = true; }
+          }
+          return changedAny ? { npcs } : s;
+        });
+        return n;
+      },
 
       updateNpcItem: (ownerId, itemId, patch) =>
         set((s) => {

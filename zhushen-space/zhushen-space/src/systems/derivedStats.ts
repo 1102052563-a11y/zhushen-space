@@ -241,3 +241,16 @@ export function attrCapForTier(tier?: string, level?: number): number {
   const cap = Math.max(tCap, lCap);
   return cap === -Infinity ? Infinity : cap;
 }
+
+/* 把基础六维整体夹进本阶上限（六维封顶护栏）。六维=力/敏/体/智/魅/幸的【基础值】；
+   装备/技能/天赋加成另算、不受此限。取不到阶位上限(Infinity)时原样返回不夹。
+   用于"照抄正文人物卡六维"等绕过短指令的入口，与短指令路径(statusCommands)同护栏。 */
+export function clampBaseAttrs<T extends Record<string, number | undefined>>(attrs: T, tier?: string, level?: number): T {
+  const cap = attrCapForTier(tier, level);
+  if (!isFinite(cap)) return attrs;
+  const out: Record<string, number | undefined> = { ...attrs };
+  for (const k of ['str', 'agi', 'con', 'int', 'cha', 'luck'] as const) {
+    if (typeof out[k] === 'number') out[k] = Math.min(cap, Math.max(0, out[k] as number));
+  }
+  return out as T;
+}
