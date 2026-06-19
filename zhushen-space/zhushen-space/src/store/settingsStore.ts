@@ -909,7 +909,13 @@ export const useSettings = create<SettingsState>()(
           return forkIfBuiltin({ ...p, entries: arr });
         }),
       })),
-      setActiveTextPreset: (id) => set({ activeTextPresetId: id }),
+      setActiveTextPreset: (id) => set((s) => ({
+        activeTextPresetId: id,
+        // 激活即固化：把被启用的内置预设转成用户副本(builtin=false)，纳入 IndexedDB 持久化、id 稳定，
+        // 此后启动时的内置补种因「同名已存在」不再覆盖它（除非用户删除该预设，删后下次启动才补回最新内置版）。
+        // 满足：DS/Claude/Gemini 任一被开启使用后，那一份就锁定为用户在用的版本、不被覆盖。
+        textPresets: s.textPresets.map((x) => x.id === id ? forkIfBuiltin(x) : x),
+      })),
 
       // ── 正则通用工具 ──
       ...buildRegexOps(set),

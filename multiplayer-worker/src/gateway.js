@@ -25,17 +25,26 @@ function bearer(request) {
 function staticModels() {
   return { object: 'list', data: MODELS.map((id) => ({ id, object: 'model', owned_by: 'google' })) };
 }
-// AI Studio：用调用方自带 key 动态拉取 Google 全量模型清单（与 SillyTavern 刷新一致）；无 key 或失败回退精选
+// AI Studio：用调用方自带 key 动态拉取 Google 全量模型（原生 /v1beta/models，最可靠）；只筛支持 generateContent 的
+// 失败直接回报错（而不是悄悄给精选），方便定位；只有「没填 key」时才回退精选清单。
 async function aiStudioModels(request, cors) {
   const key = bearer(request);
   if (!key) return json(staticModels(), {}, cors);
   try {
-    const r = await fetch('https://generativelanguage.googleapis.com/v1beta/openai/models', { headers: { Authorization: `Bearer ${key}` } });
-    if (!r.ok) return json(staticModels(), {}, cors);
+    const r = await fetch(`https://generativelanguage.googleapis.com/v1beta/models?pageSize=1000&key=${encodeURIComponent(key)}`);
+    if (!r.ok) {
+      const t = await r.text().catch(() => '');
+      return json({ error: { message: `拉取模型失败 HTTP ${r.status}: ${t.replace(/\s+/g, ' ').slice(0, 220)}` } }, { status: r.status }, cors);
+    }
     const j = await r.json();
-    const data = (j.data || []).map((m) => ({ ...m, id: String(m.id || '').replace(/^models\//, '') })).filter((m) => m.id);
+    const data = (j.models || [])
+      .filter((m) => (m.supportedGenerationMethods || []).some((x) => /generateContent/i.test(x)))
+      .map((m) => ({ id: String(m.name || '').replace(/^models\//, ''), object: 'model', owned_by: 'google' }))
+      .filter((m) => m.id);
     return json({ object: 'list', data: data.length ? data : staticModels().data }, {}, cors);
-  } catch { return json(staticModels(), {}, cors); }
+  } catch (e) {
+    return json({ error: { message: '拉取模型异常：' + String((e && e.message) || e) } }, { status: 502 }, cors);
+  }
 }
 
 /** 网关总入口：按子路径分流到 AI Studio / Vertex */
