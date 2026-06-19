@@ -10,7 +10,7 @@ export interface MpSeat { seatId: string; name: string; playerId: string; hasCar
 export interface MpSeatCard { seatId: string; name: string; snapshot: any | null }
 export interface MpComment { id: string; name: string; role: string; text?: string; at: number; share?: { kind: string; data: any } }
 export interface MpTurn { turnId: number; phase: string; inputs: Record<string, { name: string; text: string; at: number }> }
-export interface MpRoom { roomId: string; name: string; hostId: string; hostName: string; maxSeats: number; status: string }
+export interface MpRoom { roomId: string; name: string; hostId: string; hostName: string; maxSeats: number; status: string; mode?: string }
 
 // 深度接入回调槽：App.tsx 在 effect 里注册，把联机事件接进主聊天/AI 循环（Phase 1 第二步用）。
 export interface MpHandlers {
@@ -18,6 +18,9 @@ export interface MpHandlers {
   onNarrativeLog?: (entries: { role: string; content: string }[]) => void;  // 中途加入：补看房主正文进度
   onGuestJoin?: () => void;     // 来宾进房：快照单机存档以隔离（联机存档）
   onGuestRestore?: () => void;  // 来宾离开/关房：还原单机存档
+  onStartRaid?: (boss: any) => void;  // 房主：开战组队讨伐 BOSS
+  onRaidTally?: () => void;           // 房主：结算讨伐战利 ROLL 分配
+  onGenRaidBoss?: (opts: { theme: string; difficulty: string }) => void;  // 房主：AI 现生 BOSS
   onCombat?: (payload: any) => void;       // 来宾：收到房主广播的战斗快照 → 渲染观战
   onCombatAction?: (payload: any) => void; // 房主：收到来宾的战斗出手 → 结算
   onRelay?: (m: { event: string; from: any; payload: any }) => void;  // 通用透传(赠予/分享)
@@ -40,6 +43,8 @@ interface MpState {
   error: string | null;
   incomingGift: any | null;   // 收到的赠予 → 弹窗
   mpPresetOn: boolean;        // 房主：本局是否启用「联机专用正文规则」
+  raidBoss: any | null;       // 组队讨伐：当前 BOSS 规格（房主生成→广播→全员预览）
+  raidLoot: any | null;       // 组队讨伐：胜利战利（含 results 分配结果）→ 弹窗
   handlers: MpHandlers;
   _set: (p: Partial<MpState>) => void;
   setHandlers: (h: MpHandlers) => void;
@@ -61,6 +66,8 @@ const INIT = {
   lastWorldAt: 0,
   error: null as string | null,
   incomingGift: null as any,
+  raidBoss: null as any,
+  raidLoot: null as any,
 };
 
 export const useMp = create<MpState>((set) => ({

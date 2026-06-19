@@ -51,12 +51,6 @@ export interface ComfyConfig {
   seed: string;
 }
 
-const DEFAULT_ARTIST_TAGS = `15::best quality,ultra-detailed,absurdres, very aesthetic, detailed, masterpiece::,1.2::8k,4k,highres::,
-1.3::intricate details, finely detailed features, illustration::,
-1.1::detailed eyes, detailed face::,
-2.5::highly detailed texture, sharp focus, perfect anatomy::`;
-
-const DEFAULT_PORTRAIT_NEG = `lowres, artistic error, scan artifacts, worst quality, bad quality, jpeg artifacts, multiple views, very displeasing, too many watermarks, negative space, blank page`;
 
 const DEFAULT_EQUIP_NEG = `人物, 人手, 模特, 穿戴者, 多个主体, 第二件装备, 文字, 印章, 水印, logo, 现代元素, 过度华丽, 夸张宝石, 复杂链坠, 尖刺过多, 浮空配件, 巨大光效, 魔法阵, 符文环, 粒子风暴, 强烈发光, 特效遮挡主体, 背景复杂, 构图拥挤, 脏污纸感, 模糊, 材质塑料感, 颜色过饱和`;
 
@@ -261,7 +255,7 @@ const DEFAULT_OPENAI_IMG: OpenAIImgConfig = { baseUrl: 'https://api.openai.com/v
 
 export const useImageGen = create<ImageGenState>()(
   persist(
-    (set) => ({
+    (set): ImageGenState => ({
       portraitService: 'nai', storyService: 'nai', equipUsePortrait: true, equipService: 'nai',
       portraitPromptFormat: 'nai', topAvatarCount: 0, autoPortrait: false, refreshOnLook: true,
       portraitPositive: DEFAULT_STYLES[0].portraitPositive, portraitNegative: DEFAULT_STYLES[0].portraitNegative,

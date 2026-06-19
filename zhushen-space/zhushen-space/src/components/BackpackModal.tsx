@@ -9,7 +9,6 @@ import { generateImage, buildEquipPrompt, shrinkDataUrl } from '../systems/image
 import { useImageViewer } from '../store/imageViewerStore';
 import { useComposer } from '../store/composerStore';
 import { genEquipTags, isTagService } from '../systems/imageTags';
-import { pickEquipSlot } from '../systems/equipSlots';
 
 /* 物品图片：上传/替换/移除/AI生成（dataURL 存 InventoryItem.image）*/
 function ItemImageBlock({ item, onUpdate }: { item: InventoryItem; onUpdate: (patch: Partial<InventoryItem>) => void }) {
@@ -78,6 +77,7 @@ export const CAT_CFG: Record<ItemCategory, { cls: string; dot: string; light: st
   '武器':    { cls: 'bg-red-900/40 text-red-400 border-red-700/40',             dot: 'bg-red-400',     light: 'text-red-400' },
   '防具':    { cls: 'bg-sky-900/40 text-sky-400 border-sky-700/40',             dot: 'bg-sky-400',     light: 'text-sky-400' },
   '饰品':    { cls: 'bg-violet-900/40 text-violet-400 border-violet-700/40',    dot: 'bg-violet-400',  light: 'text-violet-400' },
+  '宝石':    { cls: 'bg-rose-900/40 text-rose-400 border-rose-700/40',          dot: 'bg-rose-400',    light: 'text-rose-400' },
   // 轮回乐园主分类
   '消耗品':  { cls: 'bg-emerald-900/40 text-emerald-400 border-emerald-700/40', dot: 'bg-emerald-400', light: 'text-emerald-400' },
   '材料':    { cls: 'bg-slate-700/40 text-slate-400 border-slate-600/40',       dot: 'bg-slate-400',   light: 'text-slate-400' },
@@ -130,10 +130,8 @@ const ICO_SAVE        = 'M5 13l4 4L19 7';
 export function ItemDetailModal({ item, onClose }: { item: InventoryItem; onClose: () => void }) {
   const consumeItem = useItems((s) => s.consumeItem);
   const removeItem  = useItems((s) => s.removeItem);
-  const equipItem   = useItems((s) => s.equipItem);
   const unequipItem = useItems((s) => s.unequipItem);
   const updateItem  = useItems((s) => s.updateItem);
-  const allItems    = useItems((s) => s.items);   // 用于「一键装备」时挑选空槽，避免不同部位互相覆盖
 
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState({

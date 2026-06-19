@@ -95,7 +95,7 @@ let _bossSeq = Date.now();
 
 export const useEnhance = create<EnhanceState>()(
   persist(
-    (set, get) => ({
+    (set, get): EnhanceState => ({
       settings: { ...DEFAULT_SETTINGS },
       pity: 0,
       session: null,

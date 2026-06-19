@@ -1,0 +1,10 @@
+# 本地专用模板 —— 复制为 .dev.vars（已 gitignore，不会进仓库），仅 `wrangler dev` 本地加载。
+# Vertex 锁定为「仅本人·本地」：你的服务账号私钥只存在这里，永不上传公开 worker、永不经请求传输。
+
+# 1) 把你下载的服务账号 JSON 转成 base64（PowerShell）：
+#      [Convert]::ToBase64String([IO.File]::ReadAllBytes("vertex-st-xxxxxx.json"))
+# 2) 把整段 base64 贴到下面（一行）：
+VERTEX_SA_JSON=
+
+# 可选：仅当你哪天把 Vertex 也公开部署时，设个口令当闸门；纯本地用不需要。
+# VERTEX_GATE=

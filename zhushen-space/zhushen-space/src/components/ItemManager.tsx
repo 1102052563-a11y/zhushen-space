@@ -1,6 +1,5 @@
 import { useState, useRef } from 'react';
 import { useItems, ITEM_CATEGORIES, extractItemPresetFromJson, type InventoryItem, type ItemCategory, type CurrencyWallet, type ItemPresetEntry } from '../store/itemStore';
-import { useSettings } from '../store/settingsStore';
 import ApiRoutePicker from './ApiRoutePicker';
 
 /* ── 分类颜色 ── */
@@ -18,6 +17,10 @@ const CAT_CFG: Record<ItemCategory, { cls: string; dot: string }> = {
   '重要物品':{ cls: 'bg-orange-900/40 text-orange-400 border-orange-700/40', dot: 'bg-orange-400' },
   '凡物':   { cls: 'bg-zinc-800/40 text-zinc-500 border-zinc-700/40',    dot: 'bg-zinc-500' },
   '其他物品':{ cls: 'bg-panel2 text-dim border-edge',                    dot: 'bg-dim' },
+  '宝石':   { cls: 'bg-rose-900/40 text-rose-400 border-rose-700/40',   dot: 'bg-rose-400' },
+  '消耗品': { cls: 'bg-emerald-900/40 text-emerald-400 border-emerald-700/40', dot: 'bg-emerald-400' },
+  '工具':   { cls: 'bg-cyan-900/40 text-cyan-400 border-cyan-700/40',    dot: 'bg-cyan-400' },
+  '特殊物品':{ cls: 'bg-amber-900/40 text-amber-400 border-amber-700/40', dot: 'bg-amber-400' },
 };
 
 function CatBadge({ cat }: { cat: ItemCategory }) {
@@ -212,6 +215,8 @@ function ItemForm({ initial, onSave, onCancel }: {
 const CURRENCY_CFG: Record<keyof CurrencyWallet, { color: string; icon: string; sub: string }> = {
   乐园币:   { color: 'text-amber-300',  icon: '🪙', sub: '通用货币' },
   灵魂钱币: { color: 'text-violet-300', icon: '💎', sub: '稀有货币' },
+  技能点:   { color: 'text-sky-300',    icon: '📘', sub: '技能升级' },
+  黄金技能点:{ color: 'text-yellow-300', icon: '🌟', sub: '稀有技能点' },
 };
 
 function CurrencyPanel() {
@@ -732,10 +737,6 @@ function PresetSettings() {
    API 设置
 ════════════════════════════════════════════ */
 function ItemApiSection() {
-  // 全局 API（世界选择 / 正文生成）
-  const sharedApi      = useSettings((s) => s.api);
-  const textApi        = useSettings((s) => s.textApi);
-  const textUseShared  = useSettings((s) => s.textUseSharedApi);
 
   // 物品管理独立 API
   const itemApi            = useItems((s) => s.itemApi);
@@ -747,10 +748,6 @@ function ItemApiSection() {
   const setItemUseSharedApi= useItems((s) => s.setItemUseSharedApi);
   const fetchModels        = useItems((s) => s.fetchItemModels);
 
-  // 实际生效的 API（供预览）
-  const effectiveApi = itemUseSharedApi
-    ? (textUseShared ? sharedApi : textApi)
-    : itemApi;
 
   return (
     <div className="space-y-6">

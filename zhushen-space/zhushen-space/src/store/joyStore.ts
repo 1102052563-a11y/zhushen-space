@@ -203,7 +203,7 @@ function forkJoyWb(b: WorldBook): WorldBook { return b.builtin ? { ...b, builtin
 
 export const useJoy = create<JoyState>()(
   persist(
-    (set, get) => ({
+    (set, get): JoyState => ({
       settings: { ...DEFAULT_SETTINGS },
       sessions: {},
       currentGirlId: null,
@@ -260,7 +260,7 @@ export const useJoy = create<JoyState>()(
           if (!existing) return { currentGirlId: id, sessions: { ...s.sessions, [id]: newSession(id, girl) } };
           const TRANSIENT = new Set(['情欲值', '快感值', '性器状态']);
           const privacy: Record<string, string> = {};
-          for (const [k, v] of Object.entries(existing.privacy)) if (!TRANSIENT.has(k)) privacy[k] = v;
+          for (const [k, v] of Object.entries(existing.privacy) as [string, string][]) if (!TRANSIENT.has(k)) privacy[k] = v;
           privacy['情欲值'] = '0';
           privacy['快感值'] = '0';
           const next: JoySession = { ...existing, desire: 0, privacy };

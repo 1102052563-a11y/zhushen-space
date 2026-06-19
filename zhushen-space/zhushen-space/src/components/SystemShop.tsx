@@ -38,8 +38,8 @@ export default function SystemShop({ onGenShop, onQuoteSell, onClose }: {
   function toggle(key: number | string) { setSel((s) => { const n = new Set(s); n.has(key) ? n.delete(key) : n.add(key); return n; }); }
   function switchTab(t: 'buy' | 'sell') { setTab(t); setSel(new Set()); }
 
-  const buyTotal = [...sel].reduce((sum, i) => sum + (typeof i === 'number' ? (Number(shop[i]?.price) || 0) : 0), 0);
-  const sellTotal = [...sel].reduce((sum, id) => sum + (quotes[id as string]?.price || 0), 0);
+  const buyTotal = [...sel].reduce<number>((sum, i) => sum + (typeof i === 'number' ? (Number(shop[i]?.price) || 0) : 0), 0);
+  const sellTotal = [...sel].reduce<number>((sum, id) => sum + (quotes[id as string]?.price || 0), 0);
 
   function doBuy() {
     let need乐园 = 0, need魂 = 0;

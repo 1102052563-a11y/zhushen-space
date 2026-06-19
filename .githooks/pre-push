@@ -1,0 +1,12 @@
+#!/bin/sh
+# 推送前运行 tsc 类型门禁(zhushen-space 内层的 scripts/check-types.mjs)，
+# 挡住带「基线之外新类型错误」的 push。万不得已跳过：git push --no-verify
+# 注：git 跑 hook 时 cwd = 仓库根，故这里 cd 进内层真项目目录。
+cd zhushen-space/zhushen-space || { echo "[pre-push] 找不到项目目录 zhushen-space/zhushen-space"; exit 1; }
+echo "[pre-push] 运行 tsc 类型门禁…"
+if node scripts/check-types.mjs; then
+  exit 0
+else
+  echo "[pre-push] ❌ 类型门禁未通过，已阻止 push。修掉新增错误后重试，或 'git push --no-verify' 跳过(不建议)。"
+  exit 1
+fi

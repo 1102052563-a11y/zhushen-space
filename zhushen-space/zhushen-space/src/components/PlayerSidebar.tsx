@@ -4,7 +4,7 @@ import { useGame } from '../store/gameStore';
 import { useItems, gradeToNum } from '../store/itemStore';
 import { StatusChips, SegmentedText } from './NpcDetail';
 import StatusEffectChips from './StatusEffectChips';
-import { computeDerived, tierFxClass, realmFromLevel, trueAttr, computeMaxHp, computeMaxEp, gearMaxHpBonus, gearMaxEpBonus, abilityMaxHpBonus, abilityMaxEpBonus, effectiveResource, fullMaxHp, fullMaxEp } from '../systems/derivedStats';
+import { computeDerived, tierFxClass, realmFromLevel, trueAttr, effectiveResource, fullMaxHp, fullMaxEp } from '../systems/derivedStats';
 import { useCharacters } from '../store/characterStore';
 import { computeAttrBreakdown, withAttrDelta, ATTR_LABEL, type AttrBreak } from '../systems/attrBonus';
 import { playerTreeAttrBonus } from '../store/skillTreeStore';
@@ -19,14 +19,6 @@ import Bar, { BAR_STYLES } from './Bar';
 import AttrTalentPicker from './AttrTalentPicker';
 import { milestonesCrossed } from '../systems/attrTalent';
 
-function DerivedRow({ label, value }: { label: string; value: number }) {
-  return (
-    <div className="flex items-center justify-between text-[13px]">
-      <span className="text-dim/60 font-mono">{label}</span>
-      <span className="font-mono text-amber-300/90">{value}</span>
-    </div>
-  );
-}
 
 /* ── 可编辑文本（点击切换为输入框）；segmented=true 时显示态按分隔符分行排版 ── */
 function EditText({

@@ -3,7 +3,7 @@ import type { FactionRecord } from '../store/factionStore';
 import type { Skill, Talent, Title, SubProfession } from '../store/characterStore';
 import { gradeToNum, type InventoryItem, type CurrencyWallet } from '../store/itemStore';
 import type { PlayerProfile, PlayerAttrs } from '../store/playerStore';
-import { computeMaxHp, computeMaxEp, effectiveResource, lvFromRealm, fullMaxHp, fullMaxEp, computeDerived } from './derivedStats';
+import { effectiveResource, lvFromRealm, fullMaxHp, fullMaxEp, computeDerived } from './derivedStats';
 import { effectiveAttrs, withAttrDelta } from './attrBonus';
 import { playerTreeAttrBonus } from '../store/skillTreeStore';
 import { playerTeamAttrBonus, playerTeamPerkAbilities } from '../store/adventureTeamStore';

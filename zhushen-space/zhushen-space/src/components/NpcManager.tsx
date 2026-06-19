@@ -1,5 +1,4 @@
 import { useRef, useState } from 'react';
-import { useSettings } from '../store/settingsStore';
 import { useNpcEvo, extractNpcPresetFromJson, type NpcPresetEntry } from '../store/npcEvoStore';
 import { useNpc } from '../store/npcStore';
 import { usePlayer } from '../store/playerStore';
@@ -202,9 +201,6 @@ function EntryList() {
 
 /* ── NPC 图鉴面板 ── */
 function NpcRoster() {
-  const npcs = useNpcEvo((s) => s.settings); // placeholder access
-  const npcStore = useNpc.getState();
-  const [_, forceUpdate] = useState(0);
   const records = Object.values(useNpc((s) => s.npcs));
   const removeNpc = useNpc((s) => s.removeNpc);
   const hardRemoveNpc = useNpc((s) => s.hardRemoveNpc);
@@ -291,7 +287,6 @@ function NpcRoster() {
 
 function NpcRow({ npc, onRemove }: { npc: import('../store/npcStore').NpcRecord; onRemove: () => void }) {
   const [open, setOpen] = useState(false);
-  const upsertNpc = useNpc((s) => s.upsertNpc);
 
   return (
     <div className="px-3 py-2">
@@ -528,9 +523,6 @@ function PresetSettings() {
 
 /* ── API 设置 ── */
 function NpcApiSection() {
-  const sharedApi     = useSettings((s) => s.api);
-  const textApi       = useSettings((s) => s.textApi);
-  const textUseShared = useSettings((s) => s.textUseSharedApi);
 
   const npcApi           = useNpcEvo((s) => s.npcApi);
   const npcUseSharedApi  = useNpcEvo((s) => s.npcUseSharedApi);
@@ -541,9 +533,6 @@ function NpcApiSection() {
   const setNpcUseShared  = useNpcEvo((s) => s.setNpcUseSharedApi);
   const fetchModels      = useNpcEvo((s) => s.fetchNpcModels);
 
-  const effectiveApi = npcUseSharedApi
-    ? (textUseShared ? sharedApi : textApi)
-    : npcApi;
 
   return (
     <div className="space-y-6">

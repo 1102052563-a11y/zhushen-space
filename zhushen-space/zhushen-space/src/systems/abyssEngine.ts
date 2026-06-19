@@ -845,8 +845,8 @@ export function materializeBoonFromAI(ai: any, depth: number): BoonCard | null {
   const apply: BoonApply = {};
   const depthMul = 1 + depth * 0.04;
   for (const p of prims) {
-    const def = BOON_PRIM_BASE[p.id];
-    const v = def.base * BOON_TIER_MUL[p.tier] * depthMul;
+    const def = BOON_PRIM_BASE[p.id as BoonPrim];
+    const v = def.base * BOON_TIER_MUL[p.tier as BoonTier] * depthMul;
     if (p.id === 'domain') { apply.atkMult = (apply.atkMult ?? 0) + v * 0.7; apply.defMult = (apply.defMult ?? 0) + v * 0.7; }
     else (apply as any)[def.field] = ((apply as any)[def.field] ?? 0) + v;
   }

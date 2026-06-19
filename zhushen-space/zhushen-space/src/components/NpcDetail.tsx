@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect } from 'react';
 import { useNpc, type NpcRecord } from '../store/npcStore';
 import { useCharacters, RARITY_CLS, ELEMENT_CLS, SKILL_TIER_CLS, normSkillTier, type Deed } from '../store/characterStore';
-import { computeDerived, lvFromRealm, normalizeTier, tierFxClass, realmFromLevel, trueAttr, computeMaxHp, computeMaxEp, gearMaxHpBonus, gearMaxEpBonus, abilityMaxHpBonus, abilityMaxEpBonus, effectiveResource, fullMaxHp, fullMaxEp, TIERS } from '../systems/derivedStats';
+import { computeDerived, lvFromRealm, normalizeTier, tierFxClass, realmFromLevel, trueAttr, effectiveResource, fullMaxHp, fullMaxEp, TIERS } from '../systems/derivedStats';
 import { computeAttrBreakdown, effectiveAttrs, ATTR_LABEL, type AttrBreak } from '../systems/attrBonus';
 import { bioInnate, bioPower, bioStrengthLabel, BIO_TIER_NAMES, nominalTierNum } from '../systems/bioStrength';
 import { generateNpcAttrs, resolveForm, UNIT_TYPE_LABELS } from '../systems/npcAttrGen';
@@ -1041,7 +1041,7 @@ function AttrTab({ npc: npcProp, realm }: { npc: NpcRecord; realm: ReturnType<ty
   // 选定阶位时取该阶代表等级(各阶中点)，让 nominalTierNum 锁定到所选阶——否则旧的高等级会经 max(阶位串,等级) 把所选低阶覆盖回去
   const TIER_REP_LV = [5, 15, 25, 35, 45, 55, 65, 75, 85, 95, 110, 130, 150];
   const effRealm = pickRealm || npc.realm;
-  const genLevel = pickRealm ? (TIER_REP_LV[TIERS.indexOf(pickRealm)] ?? lvFromRealm(npc.realm)) : lvFromRealm(npc.realm);
+  const genLevel = pickRealm ? (TIER_REP_LV[(TIERS as readonly string[]).indexOf(pickRealm)] ?? lvFromRealm(npc.realm)) : lvFromRealm(npc.realm);
   const _btn = nominalTierNum(effRealm, genLevel);
   const winLo = Math.max(0, _btn - 1), winHi = Math.min(9, _btn + 2); // 该 NPC 阶位可出现的档位窗口(下拉只列这些，免得选了被夹回看着没变)
   // 机械生成/重置六维：按 阶位×(指定/当前资质)档×类型×形态 反推一套合理六维，修正 AI 幻觉给的离谱属性

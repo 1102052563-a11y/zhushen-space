@@ -106,7 +106,7 @@ function proxifyImg(proxy: string | undefined, realUrl: string): string {
 async function inflateEntry(bytes: Uint8Array, method: number): Promise<Uint8Array> {
   if (method === 0) return bytes;                          // stored 未压缩
   if (method !== 8 || typeof DecompressionStream === 'undefined') throw new Error('NAI 返回了浏览器暂不支持解析的压缩图片包');
-  const stream = new Blob([bytes]).stream().pipeThrough(new DecompressionStream('deflate-raw'));
+  const stream = new Blob([bytes as BlobPart]).stream().pipeThrough(new DecompressionStream('deflate-raw'));
   return new Uint8Array(await new Response(stream).arrayBuffer());
 }
 function isImgHead(u8: Uint8Array): boolean {

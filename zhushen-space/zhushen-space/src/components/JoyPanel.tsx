@@ -1,6 +1,5 @@
 import { useState, useEffect, useRef, useMemo } from 'react';
-import { useJoy, hydrateJoyPortraits, hydrateJoyWorldBooks, JOY_PRIVATE_COLS, type JoyGirl } from '../store/joyStore';
-import { useMisc } from '../store/miscStore';
+import { useJoy, hydrateJoyPortraits, hydrateJoyWorldBooks, JOY_PRIVATE_COLS } from '../store/joyStore';
 import { loadGirlManifest, pickStagePortrait, stageFromDesire, girlCardPortrait, type GirlManifest } from '../systems/joyGirls';
 import { findJoyBook, quickInsertTitles } from '../systems/joyWorldBook';
 
@@ -47,13 +46,11 @@ export default function JoyPanel({
   const resetSession  = useJoy((s) => s.resetSession);
   const setDesire     = useJoy((s) => s.setDesire);
   const worldBooks    = useJoy((s) => s.worldBooks);
-  const worldName     = useMisc((s) => s.worldName);
 
   const girls = settings.girls;
   const madams = girls.filter((g) => g.isMadam);
   const madamPool = madams.length ? madams : girls;
   const madam = madamPool.find((g) => g.id === settings.selectedMadamId) ?? madamPool[0];
-  const isHome = true;   // 区域限制已取消：欢愉宫在任何世界均可进入
 
   const [view, setView] = useState<'lobby' | 'picker' | 'chamber'>(currentGirlId ? 'chamber' : 'lobby');
   const [manifest, setManifest] = useState<GirlManifest | null>(null);

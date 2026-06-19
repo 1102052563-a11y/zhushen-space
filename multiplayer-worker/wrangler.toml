@@ -22,3 +22,13 @@ new_sqlite_classes = ["RoomDO", "LobbyDO"]
 # 允许的前端来源（逗号分隔）。留空 = 反射请求来源（本后端无 cookie，可接受）。
 # 上线后建议填：https://zhushen-space.pages.dev,http://localhost:5173
 ALLOWED_ORIGINS = ""
+
+# ── AI 反代网关（src/gateway.js）──
+# AI Studio：无状态多租户——网关不存 key，凭据由每个请求自带。你部署一次，别人各填自己的 key，无需再部署。
+# Vertex：🔒锁定「仅本人·本地」——服务账号(SA) 只从 env.VERTEX_SA_JSON 读，放本地 .dev.vars（已 gitignore），
+#         跑 `wrangler dev`，前端 Vertex 接口地址指向 http://localhost:8787/api/gw/vertex。
+#         公开部署不配 SA → Vertex 自动关闭，SA 永不离开你的机器。
+VERTEX_LOCATION = "global"
+# 机密放 .dev.vars（仅本地、不进仓库），勿写在此：
+#   VERTEX_SA_JSON = <服务账号 JSON 的 base64>   # 见 .dev.vars.example
+#   VERTEX_GATE    = <可选口令>                   # 若哪天把 Vertex 公开部署，给它加一道闸

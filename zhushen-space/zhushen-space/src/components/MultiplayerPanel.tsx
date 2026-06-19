@@ -5,6 +5,8 @@ import { myMpName, setMpName } from '../systems/mpConfig';
 import { useItems } from '../store/itemStore';
 import { useCharacters } from '../store/characterStore';
 import { giveItems, shareToRoom } from '../systems/mpGift';
+import { usePlayer } from '../store/playerStore';
+import { generateRaidBoss, RAID_DIFFS, affixById, type RaidDifficulty } from '../systems/raidBoss';
 
 /* 联机面板：大厅（建房/邀请码加入/公共房间列表）+ 房内（队伍/回合状态/弹幕聊天）。
    连接层在 systems/mpClient.ts，状态在 store/multiplayerStore.ts。
@@ -34,6 +36,7 @@ export default function MultiplayerPanel({ onClose }: { onClose: () => void }) {
   const [busy, setBusy] = useState(false);
   const [comment, setComment] = useState('');
   const [usePreset, setUsePreset] = useState(true);   // 建房：是否启用联机专用正文规则
+  const [mode, setMode] = useState<'adventure' | 'raid'>('adventure');   // 建房模式：共同冒险 / 组队讨伐
 
   const refreshList = async () => {
     setLoadingList(true);
@@ -47,7 +50,7 @@ export default function MultiplayerPanel({ onClose }: { onClose: () => void }) {
     const n = ensureName(); setBusy(true);
     useMp.getState().setMpPresetOn(usePreset);   // 本局联机正文规则开关
     try {
-      const id = await mpClient.createRoom({ name: roomName.trim() || `${n}的秘境`, hostName: n, maxSeats });
+      const id = await mpClient.createRoom({ name: roomName.trim() || `${n}的${mode === 'raid' ? '讨伐战' : '秘境'}`, hostName: n, maxSeats, mode });
       mpClient.connect(id, { name: n, want: 'play' });
     } catch (e: any) { alert('建房失败：' + (e?.message || e)); }
     setBusy(false);
@@ -83,6 +86,11 @@ export default function MultiplayerPanel({ onClose }: { onClose: () => void }) {
 
             <div className="rounded-xl border border-edge bg-panel/50 p-3 space-y-2.5">
               <div className="text-[13px] font-semibold text-god/80">开新房间</div>
+              <div className="flex gap-1.5">
+                <button onClick={() => setMode('adventure')} className={`flex-1 px-2 py-1.5 rounded-lg text-[12px] border ${mode === 'adventure' ? 'bg-god/15 border-god/40 text-god/90' : 'border-edge text-dim/70 hover:text-slate-200'}`}>🗺 共同冒险</button>
+                <button onClick={() => setMode('raid')} className={`flex-1 px-2 py-1.5 rounded-lg text-[12px] border ${mode === 'raid' ? 'bg-god/15 border-god/40 text-god/90' : 'border-edge text-dim/70 hover:text-slate-200'}`}>⚔ 组队讨伐</button>
+              </div>
+              <div className="text-[11px] text-dim/50">{mode === 'adventure' ? '开放剧情 co-op，房主驱动世界演化。' : '整局讨伐 BOSS（多阶段 · 难度叠词缀）；进房备战。'}</div>
               <input value={roomName} onChange={(e) => setRoomName(e.target.value)} placeholder="房间名（留空自动取名）"
                 className="w-full px-3 py-2 rounded-lg bg-panel border border-edge text-sm text-slate-100 focus:border-god/50 outline-none" />
               <div className="flex items-center gap-2">
@@ -157,6 +165,8 @@ function RoomView({ st, comment, setComment }: { st: any; comment: string; setCo
             : <button onClick={() => mpClient.leave()} className="text-[12px] px-2.5 py-1 rounded-lg border border-edge text-dim/80 hover:text-slate-200 transition-colors">离开</button>}
         </div>
       </div>
+
+      {st.room?.mode === 'raid' && <RaidView st={st} />}
 
       <div className="shrink-0 px-5 py-3 border-b border-edge">
         <div className="text-[12px] font-mono text-dim/60 mb-2">队伍 {st.seats.length}/{st.room?.maxSeats}</div>
@@ -274,6 +284,68 @@ function ShareGift({ seats, mySeatId }: { seats: any[]; mySeatId: string | null 
             )}
           </div>
           {tab === 'item' && <div className="text-[11px] text-dim/40">赠予的物品会从你背包暂扣，对方收下才转移；拒收/超时自动退回。</div>}
+        </div>
+      )}
+    </div>
+  );
+}
+
+/* 组队讨伐：房主选难度→生成多阶段 BOSS→广播预览→开战；来宾看预览等开战。战斗本身复用联机战斗(CombatPanel)。 */
+function RaidView({ st }: { st: any }) {
+  const isHost = st.role === 'host';
+  const boss = st.raidBoss;
+  const myTier = usePlayer((s) => s.profile?.tier);
+  const [diff, setDiff] = useState<RaidDifficulty>('normal');
+  const [theme, setTheme] = useState('');
+  const partySize = (st.seats?.length || 0) + 1;
+
+  const gen = () => {
+    const b = generateRaidBoss(diff, { partySize, partyTier: myTier });
+    useMp.getState()._set({ raidBoss: b });
+    mpClient.relay('raid_boss', b);   // 广播给来宾预览
+  };
+  const start = () => { if (boss) useMp.getState().handlers.onStartRaid?.(boss); };
+
+  return (
+    <div className="shrink-0 px-5 py-3 border-b border-edge bg-rose-950/10">
+      <div className="text-[12px] font-mono text-rose-300/70 mb-2">⚔ 组队讨伐</div>
+      {boss ? (
+        <div className="rounded-xl border border-rose-500/30 bg-rose-950/20 p-3 space-y-1.5">
+          <div className="flex items-center gap-2">
+            <span className="text-2xl">{boss.emoji}</span>
+            <div className="flex-1 min-w-0">
+              <div className="text-[15px] font-bold text-slate-100 truncate">{boss.name}</div>
+              <div className="text-[11px] font-mono text-dim/60">{boss.tier} · 【{boss.difficultyLabel}】· {boss.phases?.length} 阶段 · HP {Number(boss.maxHp).toLocaleString()}</div>
+            </div>
+          </div>
+          {boss.affixes?.length > 0 && (
+            <div className="flex flex-wrap gap-1">
+              {boss.affixes.map((id: string) => { const a = affixById(id); return a ? <span key={id} title={a.desc} className="text-[11px] px-1.5 py-0.5 rounded border border-rose-600/40 text-rose-300/80">{a.emoji}{a.name}</span> : null; })}
+            </div>
+          )}
+          <div className="text-[12px] text-dim/70 leading-relaxed">{boss.intro}</div>
+        </div>
+      ) : (
+        <div className="text-[12px] text-dim/40 py-2 text-center">{isHost ? '选难度 → 生成 BOSS' : '等待房主生成 BOSS…'}</div>
+      )}
+      {isHost && (
+        <div className="mt-2 space-y-2">
+          <div className="flex gap-1">
+            {RAID_DIFFS.map((d) => (
+              <button key={d.id} onClick={() => setDiff(d.id)}
+                className={`flex-1 px-1.5 py-1 rounded-md text-[12px] border ${diff === d.id ? 'bg-rose-600/20 border-rose-500/50 text-rose-200' : 'border-edge text-dim/70 hover:text-slate-200'}`}>{d.label}</button>
+            ))}
+          </div>
+          <div className="flex gap-2">
+            <input value={theme} onChange={(e) => setTheme(e.target.value)} placeholder="AI BOSS 主题(可选，如：堕落剑圣)"
+              className="flex-1 px-2 py-1.5 rounded-lg bg-panel border border-edge text-[12px] text-slate-100 focus:border-rose-500/50 outline-none" />
+            <button onClick={() => useMp.getState().handlers.onGenRaidBoss?.({ theme, difficulty: diff })}
+              className="px-3 py-1.5 rounded-lg bg-fuchsia-600/20 border border-fuchsia-500/40 text-fuchsia-200 text-[13px] hover:bg-fuchsia-600/30 transition-colors">✨ AI 生成</button>
+          </div>
+          <div className="flex gap-2">
+            <button onClick={gen} className="flex-1 px-3 py-1.5 rounded-lg bg-god/15 border border-god/40 text-god/90 text-[13px] hover:bg-god/25 transition-colors">{boss ? '↻ 重生(图鉴)' : '生成 BOSS(图鉴)'}</button>
+            <button onClick={start} disabled={!boss} className="flex-1 px-3 py-1.5 rounded-lg bg-rose-600/20 border border-rose-500/50 text-rose-200 text-[13px] hover:bg-rose-600/30 disabled:opacity-40 transition-colors">⚔ 开战</button>
+          </div>
         </div>
       )}
     </div>

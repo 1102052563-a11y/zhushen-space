@@ -3,7 +3,6 @@ import {
   useItems, gradeNameClass, gradeBadgeClass, socketsOf, gradeToNum, MAX_SOCKETS, ITEM_GRADES,
   type InventoryItem,
 } from '../store/itemStore';
-import { useMisc } from '../store/miscStore';
 import {
   generateGemShop, gemFromItem, itemFromGem, gemFitsSlot, isHighGem,
   applyGemsToEffect, drillCost, drillRate, synthesizeGem, stabilizerCost,
@@ -35,7 +34,6 @@ export default function GemPanel({ onClose }: { onClose: () => void }) {
   const removeItem     = useItems((s) => s.removeItem);
   const updateItem     = useItems((s) => s.updateItem);
   const adjustCurrency = useItems((s) => s.adjustCurrency);
-  const worldName      = useMisc((s) => s.worldName);
   const isHome = true;   // 区域限制已取消：宝石交易/镶嵌在任何世界均可进行
 
   const [tab, setTab]           = useState<'shop' | 'socket' | 'synth'>('shop');

@@ -16,7 +16,7 @@ let backupRoom: string | null = null;   // 已为哪个房间快照了单机存�
 
 function set(p: any) { useMp.getState()._set(p); }
 
-async function createRoom(opts: { name: string; hostName: string; maxSeats?: number; visibility?: string }) {
+async function createRoom(opts: { name: string; hostName: string; maxSeats?: number; visibility?: string; mode?: string }) {
   const r = await fetch(`${mpBase()}/api/multiplayer/rooms`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -26,6 +26,7 @@ async function createRoom(opts: { name: string; hostName: string; maxSeats?: num
       name: opts.name,
       maxSeats: opts.maxSeats,
       visibility: opts.visibility,
+      mode: opts.mode,
     }),
   });
   if (!r.ok) throw new Error('建房失败 ' + r.status);

@@ -65,7 +65,7 @@ export function buildCombatant(id: string, side: Side, override?: Partial<Combat
     const level = override.level ?? Math.max(1, lvFromRealm(override.tier));
     const tier = normalizeTier(override.tier) || realmFromLevel(level);
     const equipped: EquipItemLite[] = [];
-    const d = computeDerived(attrs, level, equipped);
+    const d = computeDerived(attrs, level, equipped as any);
     return {
       side, name: override.name ?? id, attrs, level, tier,
       bioStrength: override.bioStrength ?? '', favor: undefined,
@@ -83,7 +83,7 @@ export function buildCombatant(id: string, side: Side, override?: Partial<Combat
     const baseTT = withAttrDelta(withAttrDelta(p.attrs ?? DEFAULT_ATTRS, playerTreeAttrBonus()), playerTeamAttrBonus());
     const attrs = effectiveAttrs(baseTT, b1c?.skills, b1c?.traits, equippedFull) as DiceAttrs;
     const equipped = equippedOf(useItems.getState().items);
-    const d = computeDerived(attrs, p.level, equipped);
+    const d = computeDerived(attrs, p.level, equipped as any);
     const teamPerkAbil = playerTeamPerkAbilities();   // 团队效果里显式的「生命/法力上限」文本一并计入主角 HP/EP 上限
     // 上限传**基础六维**（fullMaxHp 内部会折六维加成；传 attrs 会双算技能/天赋的体质加成）
     const maxHp = fullMaxHp(baseTT, equippedFull as any, b1c?.skills, [...(b1c?.traits ?? []), ...teamPerkAbil]), maxEp = fullMaxEp(baseTT, equippedFull as any, b1c?.skills, [...(b1c?.traits ?? []), ...teamPerkAbil]);
@@ -101,7 +101,7 @@ export function buildCombatant(id: string, side: Side, override?: Partial<Combat
   const attrs = effectiveAttrs(npc?.attrs ?? DEFAULT_ATTRS, npcC?.skills, npcC?.traits, equippedFull as any) as DiceAttrs;  // 基础六维 + 装备(含宝石) + 技能/天赋的六维加成（与详情面板/正文注入一致）
   const level = lvFromRealm(npc?.realm);
   const equipped = equippedOf(npc?.items);
-  const d = computeDerived(attrs, level, equipped);
+  const d = computeDerived(attrs, level, equipped as any);
   // 上限传**基础六维**（fullMaxHp 内部会折六维加成；传 attrs 会双算）
   const maxHp = fullMaxHp(npc?.attrs ?? DEFAULT_ATTRS, equippedFull as any, npcC?.skills, npcC?.traits), maxEp = fullMaxEp(npc?.attrs ?? DEFAULT_ATTRS, equippedFull as any, npcC?.skills, npcC?.traits);
   return {

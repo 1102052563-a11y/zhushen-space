@@ -190,7 +190,7 @@ export const useCasino = create<CasinoState>()(
       },
 
       logExchange: (kind, text) =>
-        set((s) => ({ log: [{ game: 'exchange', kind, text, delta: 0, ts: Date.now() }, ...s.log].slice(0, 60) })),
+        set((s) => ({ log: [{ game: 'exchange', kind, text, delta: 0, ts: Date.now() } as CasinoLogEntry, ...s.log].slice(0, 60) })),
 
       startLadder: (kind, bet) =>
         set((s) => {
@@ -312,12 +312,12 @@ export const useCasino = create<CasinoState>()(
         set((s) => ({
           gachaLast: rewards,
           gachaPity: newPity,
-          log: [{ game: 'gacha', kind: 'soul', text: `命运福袋 ×${rewards.length} · 最佳 ${bestRarity(rewards)}`, delta: 0, ts: Date.now() }, ...s.log].slice(0, 60),
+          log: [{ game: 'gacha', kind: 'soul', text: `命运福袋 ×${rewards.length} · 最佳 ${bestRarity(rewards)}`, delta: 0, ts: Date.now() } as CasinoLogEntry, ...s.log].slice(0, 60),
         })),
       clearGachaLast: () => set({ gachaLast: null }),
 
       logSoul: (text, delta) =>
-        set((s) => ({ log: [{ game: 'soul', kind: 'soul', text, delta, ts: Date.now() }, ...s.log].slice(0, 60) })),
+        set((s) => ({ log: [{ game: 'soul', kind: 'soul', text, delta, ts: Date.now() } as CasinoLogEntry, ...s.log].slice(0, 60) })),
 
       claimBankruptcyGrant: () => {
         const s = get();

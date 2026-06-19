@@ -1,5 +1,4 @@
 import { useRef, useState } from 'react';
-import { useSettings } from '../store/settingsStore';
 import { usePlayer, extractPlayerPresetFromJson, type PlayerPresetEntry } from '../store/playerStore';
 import ApiRoutePicker from './ApiRoutePicker';
 
@@ -424,9 +423,6 @@ function PresetSettings() {
 
 /* ── API 设置 ── */
 function PlayerApiSection() {
-  const sharedApi     = useSettings((s) => s.api);
-  const textApi       = useSettings((s) => s.textApi);
-  const textUseShared = useSettings((s) => s.textUseSharedApi);
 
   const playerApi          = usePlayer((s) => s.playerApi);
   const playerUseSharedApi = usePlayer((s) => s.playerUseSharedApi);
@@ -437,9 +433,6 @@ function PlayerApiSection() {
   const setPlayerUseShared = usePlayer((s) => s.setPlayerUseSharedApi);
   const fetchModels        = usePlayer((s) => s.fetchPlayerModels);
 
-  const effectiveApi = playerUseSharedApi
-    ? (textUseShared ? sharedApi : textApi)
-    : playerApi;
 
   return (
     <div className="space-y-6">

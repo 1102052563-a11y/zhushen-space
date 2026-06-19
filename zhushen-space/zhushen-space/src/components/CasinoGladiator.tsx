@@ -1,7 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { useCasino } from '../store/casinoStore';
 import { useCosmos } from '../store/cosmosStore';
-import { useMisc } from '../store/miscStore';
 import {
   rollGladiatorWinner, settleGladiatorBet,
   type Gladiator, type GladiatorMatch, type BattleRound,
@@ -27,7 +26,6 @@ export default function CasinoGladiator({
   const match = useCasino((s) => s.gladiator);
   const chips = useCasino((s) => s.chips);
   const soulChips = useCasino((s) => s.soulChips);
-  const worldName = useMisc((s) => s.worldName);
   const entities = useCosmos((s) => s.entities);
   const racePool = entities.filter((e) => e.category === '种族' && !e.destroyed).map((e) => e.name).filter(Boolean);
   const [busy, setBusy] = useState(false);

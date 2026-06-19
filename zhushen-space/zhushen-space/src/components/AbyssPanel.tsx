@@ -12,7 +12,7 @@ import { BOON_PRIM_LABELS, ABYSS_STARMAP, STAR_BRANCH_LABEL, ABYSS_BIOMES, type 
 
 const ROOM_ICON: Record<RoomType, string> = {
   entry: '🚪', battle: '⚔', elite: '💀', boss: '👑', event: '❓',
-  rest: '🔥', treasure: '💎', beacon: '🌀', sin: '🩸',
+  rest: '🔥', treasure: '💎', beacon: '🌀', sin: '🩸', altar: '🛐', judge: '⚖',
 };
 
 function isHome(name?: string): boolean {

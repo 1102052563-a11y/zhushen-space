@@ -94,19 +94,6 @@ export function clampToTierWindow(num: number, tierNum: number): number {
   return Math.max(lo, Math.min(hi, num));
 }
 
-// 5 项基础属性之和 + 阶位序号 → 档位数字(0..9，已按本阶窗口钳制) + 占用率
-function codeFromSum5(sum5: number, tierNum: number): { num: number; ratio: number } {
-  const [min, cap] = tierBounds(tierNum);
-  const denom = (cap - min) * 5;
-  const ratio = denom > 0 && isFinite(denom) ? (sum5 - min * 5) / denom : 0;
-  return { num: clampToTierWindow(templateFromRatio(ratio), tierNum), ratio };
-}
-
-// 5 项基础属性之和（幸运不计入）
-function sum5Of(a: PlayerAttrs): number {
-  return (a.str || 0) + (a.agi || 0) + (a.con || 0) + (a.int || 0) + (a.cha || 0);
-}
-
 function mk(num: number, ratio: number, tierNum: number): BioTier {
   const n = Math.max(0, Math.min(9, num));
   return { code: `T${n}`, num: n, name: BIO_TIER_NAMES[n], label: `T${n}·${BIO_TIER_NAMES[n]}`, ratio, tierNum };

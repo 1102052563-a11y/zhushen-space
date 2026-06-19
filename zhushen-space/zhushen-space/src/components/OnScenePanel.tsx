@@ -1,7 +1,7 @@
 import { useRef, useState } from 'react';
 import { useNpc, hasRealNpcName, type NpcRecord } from '../store/npcStore';
 import { useCharacters } from '../store/characterStore';
-import { lvFromRealm, tierFxClass, computeMaxHp, computeMaxEp, gearMaxHpBonus, gearMaxEpBonus, effectiveResource, fullMaxHp, fullMaxEp } from '../systems/derivedStats';
+import { lvFromRealm, tierFxClass, effectiveResource, fullMaxHp, fullMaxEp } from '../systems/derivedStats';
 import { useImageViewer } from '../store/imageViewerStore';
 import { PortraitPicker } from './PortraitPicker';
 

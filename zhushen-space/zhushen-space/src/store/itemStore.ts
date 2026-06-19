@@ -265,7 +265,7 @@ const stackNorm = (x?: string) => (x ?? '').replace(/[\s·•・\-—_,，.。�
 
 export const useItems = create<ItemState>()(
   persist(
-    (set) => ({
+    (set): ItemState => ({
       items: [],
       currency: { 乐园币: 0, 灵魂钱币: 0, 技能点: 0, 黄金技能点: 0 },
       recentlyDeleted: [],

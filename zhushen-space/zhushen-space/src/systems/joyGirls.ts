@@ -14,7 +14,7 @@ export async function loadGirlManifest(): Promise<GirlManifest> {
   if (_loading) return _loading;
   _loading = fetch('/joy-girls/manifest.json')
     .then((r) => (r.ok ? r.json() : {}))
-    .then((m) => { _manifest = (m && typeof m === 'object') ? m : {}; return _manifest!; })
+    .then((m) => { _manifest = ((m && typeof m === 'object') ? m : {}) as GirlManifest; return _manifest!; })
     .catch(() => { _manifest = {}; return _manifest!; });
   return _loading;
 }

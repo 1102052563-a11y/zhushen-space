@@ -5,7 +5,9 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "tsc && vite build",
+    "build": "node scripts/check-types.mjs && vite build",
+    "typecheck": "node scripts/check-types.mjs",
+    "typecheck:update": "node scripts/check-types.mjs --update",
     "preview": "vite preview",
     "build-vectors": "node tools/build-novel-vectors.mjs",
     "build-vectors-wb": "node tools/build-novel-vectors.mjs --input=../../______.json --out=public/worldbook-vectors",

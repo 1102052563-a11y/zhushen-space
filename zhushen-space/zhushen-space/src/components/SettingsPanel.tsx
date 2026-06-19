@@ -1,5 +1,6 @@
 import { useRef, useState } from 'react';
-import { useSettings, type WorldBook, type WorldBookEntry, type TextGenPreset, type STPromptEntry, type RegexScript } from '../store/settingsStore';
+import { useSettings, endpointToConfig, type WorldBook, type WorldBookEntry, type TextGenPreset, type STPromptEntry, type RegexScript, type ApiEndpoint } from '../store/settingsStore';
+import { apiChatFallback } from '../systems/apiChat';
 import VariableManager from './VariableManager';
 import ApiRoutePicker from './ApiRoutePicker';
 import ItemManager from './ItemManager';
@@ -32,7 +33,7 @@ interface SettingsPanelProps {
   onOpenSaveLoad: () => void;   // 打开存档管理面板（导出/导入/重置游戏数据；逻辑复用 SaveLoadPanel）
 }
 
-type Page = 'home' | 'world-detail' | 'textgen-detail' | 'regex-detail' | 'general' | 'variables' | 'item-manager' | 'player-manager' | 'npc-manager' | 'faction-manager' | 'territory-manager' | 'team-manager' | 'cosmos-manager' | 'memory-manager' | 'misc-manager' | 'channel-manager' | 'novelvec-manager' | 'codex-manager' | 'dice-manager' | 'combat-manager' | 'arena-manager' | 'enhance-manager' | 'skilltree-manager' | 'joy-manager' | 'narrative-memory' | 'vector-memory' | 'image-gen' | 'appearance';
+type Page = 'home' | 'world-detail' | 'textgen-detail' | 'regex-detail' | 'general' | 'variables' | 'item-manager' | 'player-manager' | 'npc-manager' | 'faction-manager' | 'territory-manager' | 'team-manager' | 'cosmos-manager' | 'memory-manager' | 'misc-manager' | 'channel-manager' | 'novelvec-manager' | 'codex-manager' | 'dice-manager' | 'combat-manager' | 'arena-manager' | 'enhance-manager' | 'skilltree-manager' | 'joy-manager' | 'casino-manager' | 'abyss-manager' | 'narrative-memory' | 'vector-memory' | 'image-gen' | 'appearance';
 type Tab = 'worldbook' | 'api' | 'prompt' | 'preset' | 'global-regex' | 'preset-regex';
 
 function DetailLayout({ title, onBack, tabs, activeTab, onTab, children }: {
@@ -2003,13 +2004,33 @@ function ApiLibrarySection() {
   const update  = useSettings((s) => s.updateApiEndpoint);
   const remove  = useSettings((s) => s.removeApiEndpoint);
   const move    = useSettings((s) => s.moveApiEndpoint);
+  const addGw   = useSettings((s) => s.addGatewayEndpoints);
+  const [gwHint, setGwHint] = useState(false);
   const [openId, setOpenId] = useState<string | null>(null);
   const [confirmDel, setConfirmDel] = useState<string | null>(null);
   const [models, setModels] = useState<Record<string, string[]>>({});   // 每条接口的可用模型列表
   const [loadingId, setLoadingId] = useState<string | null>(null);
   const [errById, setErrById] = useState<Record<string, string>>({});
+  const [testingId, setTestingId] = useState<string | null>(null);
+  const [testById, setTestById] = useState<Record<string, { ok: boolean; msg: string } | undefined>>({});
 
   const inputCls = 'w-full bg-void border border-edge rounded px-2 py-1 text-[13px] font-mono text-slate-200 outline-none focus:border-god';
+
+  // 测试连接：走与正文/演化完全一致的 apiChatFallback（含流式解析），发一条极短请求，验证 CORS+鉴权+模型+上游全链路
+  async function testEndpoint(ep: ApiEndpoint) {
+    if (!ep.baseUrl || !ep.apiKey) { setTestById((p) => ({ ...p, [ep.id]: { ok: false, msg: '请先填地址和 Key' } })); return; }
+    setTestingId(ep.id); setTestById((p) => ({ ...p, [ep.id]: undefined }));
+    try {
+      const { content } = await apiChatFallback(
+        [endpointToConfig(ep)],
+        [{ role: 'user', content: '连接测试，请只回复两个字：在的' }],
+        { timeoutMs: 30000, extra: { max_tokens: 30 } },
+      );
+      setTestById((p) => ({ ...p, [ep.id]: { ok: true, msg: (content || '').trim().slice(0, 40) || '(通了，空回复)' } }));
+    } catch (e: any) {
+      setTestById((p) => ({ ...p, [ep.id]: { ok: false, msg: String(e?.message ?? e).slice(0, 180) } }));
+    } finally { setTestingId(null); }
+  }
 
   async function fetchModels(ep: { id: string; baseUrl: string; apiKey: string }) {
     if (!ep.baseUrl || !ep.apiKey) { setErrById((p) => ({ ...p, [ep.id]: '请先填写地址和 Key' })); return; }
@@ -2081,12 +2102,35 @@ function ApiLibrarySection() {
                   <label className="space-y-1"><span className="text-[12px] font-mono text-dim/50">Top-P</span><input type="number" step={0.05} min={0} max={1} value={ep.topP} onChange={(e) => update(ep.id, { topP: parseFloat(e.target.value) || 0 })} className={inputCls} /></label>
                   <label className="space-y-1"><span className="text-[12px] font-mono text-dim/50">Max Tokens</span><input type="number" step={128} min={128} value={ep.maxTokens} onChange={(e) => update(ep.id, { maxTokens: parseInt(e.target.value) || 512 })} className={inputCls} /></label>
                 </div>
+                <div className="flex items-center gap-2 pt-0.5">
+                  <button onClick={() => testEndpoint(ep)} disabled={testingId === ep.id}
+                    className="shrink-0 px-2.5 py-1 text-[12px] font-mono border border-god/40 text-god rounded hover:bg-god/10 disabled:opacity-40 transition-colors">
+                    {testingId === ep.id ? '测试中…' : '🔌 测试连接'}
+                  </button>
+                  {testById[ep.id] && (
+                    <span className={`text-[11px] font-mono truncate ${testById[ep.id]!.ok ? 'text-god' : 'text-blood'}`}>
+                      {testById[ep.id]!.ok ? '✅ ' : '❌ '}{testById[ep.id]!.msg}
+                    </span>
+                  )}
+                </div>
               </div>
             )}
           </div>
         ))}
-        <button onClick={add} className="w-full px-3 py-2.5 text-sm font-mono text-god hover:bg-god/5 transition-colors">+ 添加接口</button>
+        <div className="flex divide-x divide-edge/50">
+          <button onClick={add} className="flex-1 px-3 py-2.5 text-sm font-mono text-god hover:bg-god/5 transition-colors">+ 添加接口</button>
+          <button onClick={() => { addGw(); setGwHint(true); }} title="一键添加指向你 Cloudflare 反代网关的 AI Studio + Vertex 两条接口"
+            className="flex-1 px-3 py-2.5 text-sm font-mono text-god/90 hover:bg-god/5 transition-colors">⚡ 一键填入 AI Studio / Vertex 网关</button>
+        </div>
       </div>
+      {gwHint && (
+        <div className="text-[12px] font-mono text-god/80 bg-god/5 border border-god/30 rounded px-2.5 py-2 leading-relaxed space-y-1">
+          <div>✅ 已加入 <b>AI Studio (网关)</b> + <b>Vertex (网关·本地)</b> 两条接口：</div>
+          <div>· <b>AI Studio (网关)</b> → 线上网关，API Key 填你的 <b>AI Studio key</b>（aistudio.google.com/apikey）；点「刷新模型」可拉全量。</div>
+          <div>· <b>Vertex (网关·本地)</b> → 🔒仅你本人：先在 multiplayer-worker 跑 <code className="text-god">wrangler dev</code>（.dev.vars 配好 SA），地址已指向 localhost:8787，API Key 留空即可。</div>
+          <div className="text-dim/50">填好点「🔌 测试连接」自检。</div>
+        </div>
+      )}
       <div className="text-[12px] text-dim/40 font-mono px-1">在各功能的「API 设置」页选「⚡ 接口库快捷填入」即可一键套用此处接口，无需重复填写。</div>
     </div>
   );

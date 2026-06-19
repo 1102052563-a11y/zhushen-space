@@ -92,11 +92,11 @@ interface FactionState {
 
 export const useFaction = create<FactionState>()(
   persist(
-    (set) => ({
+    (set): FactionState => ({
       factions: {},
 
       upsertFaction: (id, patch) =>
-        set((s) => {
+        set((s: FactionState) => {
           const prev = s.factions[id] ?? defaultFaction(id);
           const merged: FactionRecord = { ...prev, ...patch, id, updatedAt: Date.now() };
           if ('name' in patch) merged.name = resolveFactionName(prev.name, id, patch.name);   // 防占位名冲掉真实名（reentry）
@@ -104,7 +104,7 @@ export const useFaction = create<FactionState>()(
         }),
 
       applyColumns: (id, cols) =>
-        set((s) => {
+        set((s: FactionState) => {
           const prev = s.factions[id] ?? defaultFaction(id);
           const next: FactionRecord = { ...prev, id, updatedAt: Date.now() };
           for (const [k, v] of Object.entries(cols)) {
@@ -124,44 +124,44 @@ export const useFaction = create<FactionState>()(
         }),
 
       setWorld: (id, inCurrentWorld, turn) =>
-        set((s) => {
+        set((s: FactionState) => {
           const prev = s.factions[id] ?? defaultFaction(id);
           return { factions: { ...s.factions, [id]: { ...prev, inCurrentWorld, lastSeenTurn: inCurrentWorld ? (turn ?? prev.lastSeenTurn) : prev.lastSeenTurn, updatedAt: Date.now() } } };
         }),
 
       setSchedule: (id, patch) =>
-        set((s) => {
+        set((s: FactionState) => {
           const prev = s.factions[id]; if (!prev) return s;
           return { factions: { ...s.factions, [id]: { ...prev, ...patch, updatedAt: Date.now() } } };
         }),
 
       markEvolved: (id, turn) =>
-        set((s) => {
+        set((s: FactionState) => {
           const prev = s.factions[id]; if (!prev) return s;
           return { factions: { ...s.factions, [id]: { ...prev, lastEvolvedTurn: turn } } };
         }),
 
       appendDeed: (id, deed) =>
-        set((s) => {
+        set((s: FactionState) => {
           const prev = s.factions[id] ?? defaultFaction(id);
           const d: Deed = typeof deed === 'string' ? { time: '', location: '', description: deed, addedAt: Date.now() } : { ...deed, addedAt: deed.addedAt ?? Date.now() };
           return { factions: { ...s.factions, [id]: { ...prev, deeds: [...(prev.deeds ?? []), d].slice(-50), updatedAt: Date.now() } } };
         }),
 
       removeDeed: (id, index) =>
-        set((s) => {
+        set((s: FactionState) => {
           const prev = s.factions[id]; if (!prev) return s;
-          return { factions: { ...s.factions, [id]: { ...prev, deeds: (prev.deeds ?? []).filter((_, i) => i !== index) } } };
+          return { factions: { ...s.factions, [id]: { ...prev, deeds: (prev.deeds ?? []).filter((_: unknown, i: number) => i !== index) } } };
         }),
 
       removeFaction: (id) =>
-        set((s) => {
+        set((s: FactionState) => {
           const prev = s.factions[id]; if (!prev) return s;
           return { factions: { ...s.factions, [id]: { ...prev, inCurrentWorld: false, updatedAt: Date.now() } } };  // 软删除=移出当前世界
         }),
 
       hardRemoveFaction: (id) =>
-        set((s) => { const next = { ...s.factions }; delete next[id]; return { factions: next }; }),
+        set((s: FactionState) => { const next = { ...s.factions }; delete next[id]; return { factions: next }; }),
 
       clearAll: () => set({ factions: {} }),
     }),

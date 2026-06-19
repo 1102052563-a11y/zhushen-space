@@ -9,7 +9,7 @@ import { useItems } from '../store/itemStore';
    战况 + 收集玩家（B1）这一回合的动作，确认后回调 onPlayerAction。 */
 
 const ACTION_LABELS: Record<CombatActionKind, string> = {
-  attack: '普攻', skill: '技能', item: '道具', defend: '防御', flee: '逃跑',
+  attack: '普攻', skill: '技能', item: '道具', defend: '防御', flee: '逃跑', charge: '蓄力', cancel: '撤销',
 };
 
 function hpPct(c: Combatant, b: CombatStatBlock) { return b.maxHp > 0 ? Math.max(0, Math.min(100, (c.curHp / b.maxHp) * 100)) : 0; }
@@ -80,12 +80,13 @@ function Card({ id, isCurrent, isTarget, onPick }: { id: string; isCurrent: bool
   );
 }
 
-export default function CombatPanel({ onPlayerAction, onUndo, canUndo, mpMode, mySeatId }: {
+export default function CombatPanel({ onPlayerAction, onUndo, canUndo, mpMode, mySeatId, takeover }: {
   onPlayerAction: (kind: CombatActionKind, targetIds: string[], skillId?: string, itemId?: string) => void;
   onUndo?: () => void;
   canUndo?: boolean;
   mpMode?: 'host' | 'guest' | null;   // 联机角色；null/缺省=单机
   mySeatId?: string | null;           // 来宾自己的座位（决定能控哪个 MP_ 战斗角色）
+  takeover?: string[];                 // 房主因来宾 AFK 而可接手的 MP_ 战斗角色 id
 }) {
   const battle = useCombat((s) => s.battle);
   const apiBusy = useCombat((s) => s.apiBusy);
@@ -100,7 +101,8 @@ export default function CombatPanel({ onPlayerAction, onUndo, canUndo, mpMode, m
   // 当前角色由玩家操控时才轮到玩家出手（含「手动控制队友」时的队友）
   // 谁能本地出手：单机=stage 已保证；房主=非 MP_ 角色；来宾=自己的 MP_<座位> 角色
   const curIsGuestOwned = !!curId && curId.startsWith('MP_');
-  const mineToControl = mpMode === 'guest' ? curId === `MP_${mySeatId}` : mpMode === 'host' ? !curIsGuestOwned : true;
+  const canTakeOver = mpMode === 'host' && !!curId && (takeover ?? []).includes(curId);   // 来宾 AFK → 房主已解锁接手该角色
+  const mineToControl = mpMode === 'guest' ? curId === `MP_${mySeatId}` : mpMode === 'host' ? (!curIsGuestOwned || canTakeOver) : true;
   const myTurn = battle.stage === 'awaiting_player' && battle.active && !!curActor && mineToControl;
   const stunned = !!curActor?.status?.some((s) => s.combat?.cannotAct);
   const charging = curActor?.charging;
@@ -145,8 +147,6 @@ export default function CombatPanel({ onPlayerAction, onUndo, canUndo, mpMode, m
   // 目标取友方：治疗/支援技能，或「非攻击向」道具（药剂/护盾/净化等）
   const isAllyTarget = isHeal || isSupport || (action === 'item' && !!selItem && !itemToEnemy);
 
-  const aliveEnemies = battle.order.filter((id) => battle.participants[id]?.side === 'enemy' && !battle.participants[id]?.left && battle.participants[id]?.curHp > 0);
-  const aliveAllies = battle.order.filter((id) => battle.participants[id]?.side === 'player' && !battle.participants[id]?.left && battle.participants[id]?.curHp > 0);
   const needsTarget = ((action === 'attack' || action === 'skill') && !isAoe && !isSelfCast && !isDomain)
     || (action === 'item' && !!selItem && !itemAoe);
 
@@ -249,6 +249,9 @@ export default function CombatPanel({ onPlayerAction, onUndo, canUndo, mpMode, m
             </div>
           ) : myTurn ? (
             <div className="space-y-2">
+              {canTakeOver && (
+                <div className="text-[11px] text-amber-300 bg-amber-950/40 border border-amber-600/30 rounded px-2 py-1">🎮 来宾挂机，你已接手「{battle.initialState[curId]?.name ?? curId}」——可替其出手（其回归后自动收回控制权）</div>
+              )}
               <div className="flex items-center justify-between">
                 <div className="text-[11px] text-cyan-300">当前出手：{battle.initialState[curId]?.name ?? curId}</div>
                 {canUndo && onUndo && (

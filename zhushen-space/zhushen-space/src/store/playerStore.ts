@@ -238,7 +238,7 @@ const PLAYER_KEEP_NAMES = new Set([
 
 export const usePlayer = create<PlayerState>()(
   persist(
-    (set) => ({
+    (set): PlayerState => ({
       settings: {
         enabled: false,
         frequency: 1,

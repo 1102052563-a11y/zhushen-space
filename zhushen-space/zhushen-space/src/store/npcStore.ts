@@ -236,7 +236,7 @@ const npcStackNorm = (x?: string) => (x ?? '').replace(/[\s·•・\-—_,，.�
 
 export const useNpc = create<NpcState>()(
   persist(
-    (set) => ({
+    (set): NpcState => ({
       npcs: {},
 
       upsertNpc: (id, patch) =>
@@ -368,7 +368,7 @@ export const useNpc = create<NpcState>()(
         const out: string[] = [];
         set((s) => {
           const npcs = { ...s.npcs };
-          for (const [id, r] of Object.entries(s.npcs)) {
+          for (const [id, r] of Object.entries(s.npcs) as [string, NpcRecord][]) {
             if (r.partyMember && (r.partyWorld || '') !== cw) {
               out.push(id);
               npcs[id] = { ...r, partyMember: false, onScene: false, updatedAt: Date.now() };   // 离队 + 离场归档（软删除，保留档案）
@@ -488,7 +488,7 @@ export const useNpc = create<NpcState>()(
       absorbOrphans: () => {
         let merged = 0;
         set((s) => {
-          const all = Object.values(s.npcs);
+          const all = Object.values(s.npcs) as NpcRecord[];
           const isReal = (r: NpcRecord) =>
             !!(r.name && r.name !== r.id && (r.realm || r.personality || r.background));
           const orphans = all.filter((r) => (r.items?.length ?? 0) > 0 && !isReal(r));
@@ -523,7 +523,7 @@ export const useNpc = create<NpcState>()(
         set((s) => {
           // 按"去空白姓名"分组真实、未死亡的 NPC（占位名 = id 的不参与）
           const groups = new Map<string, NpcRecord[]>();
-          for (const r of Object.values(s.npcs)) {
+          for (const r of Object.values(s.npcs) as NpcRecord[]) {
             if (r.isDead) continue;
             const key = (r.name || '').trim();
             if (!key || key === r.id) continue;
@@ -587,7 +587,7 @@ export const useNpc = create<NpcState>()(
             console.warn(`[NPC] 非法ID规范化：${oldId} → ${newId}（${next[newId].name || '?'}）`);
           }
           // 改写所有 NPC 对旧 ID 的引用：人际关系(列13 "id:关系" 的左侧) + 契约者ID
-          for (const [id, r] of Object.entries(next)) {
+          for (const [id, r] of Object.entries(next) as [string, NpcRecord][]) {
             let patch: Partial<NpcRecord> | null = null;
             if (typeof r.relations === 'string' && r.relations) {
               // 只替换每段 "左侧ID:" 的左侧（遇到第一个冒号为界），不碰关系描述文本

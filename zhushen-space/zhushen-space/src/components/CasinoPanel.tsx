@@ -1,6 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
 import { useItems } from '../store/itemStore';
-import { useMisc } from '../store/miscStore';
 import { usePlayer } from '../store/playerStore';
 import { useCasino } from '../store/casinoStore';
 import { TIERS, normalizeTier } from '../systems/derivedStats';
@@ -31,7 +30,6 @@ export default function CasinoPanel({ onClose, onGenMatch, onGenBattle, onGenRew
 }) {
   const currency       = useItems((s) => s.currency);
   const adjustCurrency = useItems((s) => s.adjustCurrency);
-  const worldName      = useMisc((s) => s.worldName);
   const tier           = usePlayer((s) => s.profile.tier);
 
   const chips      = useCasino((s) => s.chips);
@@ -43,7 +41,7 @@ export default function CasinoPanel({ onClose, onGenMatch, onGenBattle, onGenRew
   const cas        = useCasino;   // 取 actions 用 getState，避免重渲染
 
   const isHome = true;   // 区域限制已取消：赌坊在任何世界均可营业
-  const tierIdx = TIERS.indexOf(normalizeTier(tier));
+  const tierIdx = (TIERS as readonly string[]).indexOf(normalizeTier(tier));
   const vipUnlocked = tierIdx >= config.vipMinTier - 1;
 
   const [hall, setHall] = useState<'normal' | 'soul'>('normal');

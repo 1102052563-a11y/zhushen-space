@@ -259,6 +259,7 @@ interface SettingsState {
   apiThrottle: { maxConcurrent: number; minGapMs: number };  // 全局请求节流：最大并发 + 最小间隔（缓解 429）
   phaseSched: Record<string, { every: number; read: number }>;  // 各演化阶段：every=每N回合调用一次，read=读取最近N回合正文（默认 1/1）
   addApiEndpoint: () => void;
+  addGatewayEndpoints: (workerBase?: string) => void;   // 一键加 AI Studio + Vertex 网关两条接口
   updateApiEndpoint: (id: string, patch: Partial<ApiEndpoint>) => void;
   removeApiEndpoint: (id: string) => void;
   moveApiEndpoint: (id: string, dir: -1 | 1) => void;
@@ -298,7 +299,7 @@ interface SettingsState {
   setApi: (patch: Partial<ApiConfig>) => void;
   fetchModels: () => Promise<void>;
   setSystemPrompt: (prompt: string) => void;
-  importWorldBook: (raw: string, fileName?: string) => { ok: boolean; message: string };
+  importWorldBook: (raw: string, fileName?: string, builtin?: boolean, builtinKey?: string) => { ok: boolean; message: string };
   toggleWorldBook: (id: string) => void;
   removeWorldBook: (id: string) => void;
   dedupeWorldBooks: () => number;
@@ -313,7 +314,7 @@ interface SettingsState {
   setTextUseSharedApi: (v: boolean) => void;
   setTextStream: (v: boolean) => void;
   fetchTextModels: () => Promise<void>;
-  importTextWorldBook: (raw: string, fileName?: string) => { ok: boolean; message: string };
+  importTextWorldBook: (raw: string, fileName?: string, builtin?: boolean, builtinKey?: string) => { ok: boolean; message: string };
   toggleTextWorldBook: (id: string) => void;
   removeTextWorldBook: (id: string) => void;
   dedupeTextWorldBooks: () => number;
@@ -557,7 +558,7 @@ function buildRegexOps(set: SetFn) {
   }
 
   return {
-    importGlobalRegex: (raw: string, fileName = '') => {
+    importGlobalRegex: (raw: string, _fileName = '') => {
       try {
         const scripts = parseRegexArr(JSON.parse(raw));
         if (!scripts.length) return { ok: false, message: '未找到正则脚本' };
@@ -598,7 +599,7 @@ function buildRegexOps(set: SetFn) {
 
 export const useSettings = create<SettingsState>()(
   persist(
-    (set, get) => ({
+    (set, get): SettingsState => ({
       // 综合设置
       historyLimit: 0,
       disableEnterSend: false,
@@ -665,6 +666,21 @@ export const useSettings = create<SettingsState>()(
           baseUrl: 'https://api.openai.com/v1', apiKey: '', modelId: 'gpt-4o', temperature: 0.6, maxTokens: 4096, topP: 1,
         }],
       })),
+      // 一键加两条网关接口：AI Studio→线上 worker（多租户，自带 key）；Vertex→本地 worker（仅本人，跑 wrangler dev）
+      addGatewayEndpoints: (workerBase) => set((s) => {
+        const root = (workerBase || 'https://zhushen-multiplayer.1102052563.workers.dev').replace(/\/+$/, '');
+        const mk = (base: string, suffix: string, name: string, modelId: string): ApiEndpoint => ({
+          id: `EP_gw_${suffix}_${Date.now()}`,
+          name, enabled: true,
+          baseUrl: `${base}/api/gw/${suffix}`, apiKey: '', modelId,
+          temperature: 0.6, maxTokens: 8192, topP: 1,
+        });
+        return { apiLibrary: [
+          ...s.apiLibrary,
+          mk(root, 'aistudio', 'AI Studio (网关)', 'gemini-2.5-flash'),
+          mk('http://localhost:8787', 'vertex', 'Vertex (网关·本地)', 'gemini-2.5-pro'),
+        ] };
+      }),
       updateApiEndpoint: (id, patch) => set((s) => ({ apiLibrary: s.apiLibrary.map((e) => e.id === id ? { ...e, ...patch } : e) })),
       removeApiEndpoint: (id) => set((s) => ({ apiLibrary: s.apiLibrary.filter((e) => e.id !== id) })),
       moveApiEndpoint: (id, dir) => set((s) => {
@@ -677,7 +693,7 @@ export const useSettings = create<SettingsState>()(
       }),
       setApiRoute: (key, ids) => set((s) => ({ apiRoutes: { ...s.apiRoutes, [key]: ids } })),
       setApiThrottle: (patch) => set((s) => ({ apiThrottle: { ...s.apiThrottle, ...patch } })),
-      setPhaseSched: (key, patch) => set((s) => ({ phaseSched: { ...s.phaseSched, [key]: { every: 1, read: 1, ...(s.phaseSched?.[key] ?? {}), ...patch } } })),
+      setPhaseSched: (key, patch) => set((s) => ({ phaseSched: { ...s.phaseSched, [key]: { ...(s.phaseSched?.[key] ?? { every: 1, read: 1 }), ...patch } } })),
       setNarrativeMemory: (patch) => set((s) => ({ narrativeMemory: { ...s.narrativeMemory, ...patch } })),
       setVectorMemory: (patch) => set((s) => ({ vectorMemory: { ...s.vectorMemory, ...patch } })),
       setNmApi: (patch) => set((s) => ({ nmApi: { ...s.nmApi, ...patch } })),

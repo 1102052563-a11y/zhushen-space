@@ -51,6 +51,35 @@ ALLOWED_ORIGINS = "https://zhushen-space.pages.dev,http://localhost:5173"
 
 **服务器 → 客户端**：`room_state` · `world_snapshot` · `combat_snapshot` · `player_snapshots` · `turn_started` / `turn_updated` / `turn_resolved` · `seats_updated` · `combat_action_required` / `combat_action_updated` · `room_comment` · `room_closed` · `error`
 
+## AI 反代网关（src/gateway.js）
+把 Google 两条线包成 **OpenAI 兼容** 的 `/chat/completions`，解决浏览器直连 Google 的 CORS。前端接口库当普通 OpenAI 接口加即可。两条线安全模型不同：
+
+**AI Studio = 无状态多租户**：网关不存 key，凭据由每个请求自带 → 你部署一次（线上），别人各填自己的 AI Studio key，谁都不用再部署（类似 SillyTavern「自带 key + 后端转发」，只是后端共享）。
+**Vertex = 🔒 锁定「仅本人·本地」**：服务账号(SA) 只从 `env.VERTEX_SA_JSON` 读（放本地 `.dev.vars`），SA 永不离开你的机器、不进公开部署、不经请求传输。只有你本地 `wrangler dev` 能用。
+
+| 路径 | 谁能用 | 凭据来源 |
+|---|---|---|
+| POST `/api/gw/aistudio/chat/completions` | 任何人（自带 key） | 请求的 `Authorization: Bearer <AI Studio key>` |
+| GET `/api/gw/aistudio/models` | 任何人 | 同上 → **动态拉 Google 全量模型**（和 ST 刷新一致） |
+| POST `/api/gw/vertex/chat/completions` | 仅你·仅本地 | `env.VERTEX_SA_JSON`（`.dev.vars`）；可选 `VERTEX_GATE` 口令 |
+
+### 线上部署（给所有人用 AI Studio；无需任何 secret）
+```powershell
+cd multiplayer-worker
+npx wrangler deploy
+```
+AI Studio 接口地址：`https://zhushen-multiplayer.<子域>.workers.dev/api/gw/aistudio`，apiKey 填各自的 AI Studio key。
+
+### 本地 Vertex（仅你自己，花 GCP 赠金）
+```powershell
+cd multiplayer-worker
+copy .dev.vars.example .dev.vars     # 按里面说明把服务账号 JSON 转 base64 填进 VERTEX_SA_JSON
+npx wrangler dev                     # 本地起在 http://localhost:8787
+```
+前端 Vertex 接口地址指向 `http://localhost:8787/api/gw/vertex`，模型 `gemini-2.5-pro`（apiKey 留空即可，除非设了 VERTEX_GATE）。
+> https 的线上页面调 `http://localhost` 不受混合内容拦截（localhost 视为可信源），所以你用线上 app 也能连本地 Vertex。
+> Vertex 默认 `safetySettings: BLOCK_NONE`（RPG 含成人/暴力叙事，避免正文被拦空）。
+
 ## v1 边界（已知，后续再加）
 - 自动入座，无审批（`approve_join`/`reject_join` 已留类型）
 - 身份只认客户端传的 `pid`，房主动作靠 `pid===hostId` 校验；**未做签名 token**（后续加）

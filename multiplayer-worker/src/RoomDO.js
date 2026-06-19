@@ -67,6 +67,7 @@ export class RoomDO {
       hostName: b.hostName || "房主",
       maxSeats: Math.max(2, Math.min(8, b.maxSeats || 4)),
       visibility: b.visibility === "private" ? "private" : "public",
+      mode: b.mode === "raid" ? "raid" : "adventure",   // adventure=共同冒险 / raid=组队讨伐
       status: "open",
       createdAt: Date.now(),
     };

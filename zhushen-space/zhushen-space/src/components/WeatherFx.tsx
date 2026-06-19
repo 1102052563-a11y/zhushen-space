@@ -45,8 +45,8 @@ export default function WeatherFx({ weather, active, aiCss }: { weather?: string
     function size() {
       const r = host.getBoundingClientRect();
       W = r.width; H = r.height;
-      cv.width = Math.round(W * dpr); cv.height = Math.round(H * dpr);
-      cv.style.width = W + 'px'; cv.style.height = H + 'px';
+      cv!.width = Math.round(W * dpr); cv!.height = Math.round(H * dpr);
+      cv!.style.width = W + 'px'; cv!.style.height = H + 'px';
       ctx!.setTransform(dpr, 0, 0, dpr, 0, 0);
     }
     function build() {

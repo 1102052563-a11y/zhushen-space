@@ -4,6 +4,7 @@
 
 import { RoomDO } from "./RoomDO.js";
 import { LobbyDO } from "./LobbyDO.js";
+import { handleGateway } from "./gateway.js";
 
 // wrangler 需要从入口模块导出 DO 类
 export { RoomDO, LobbyDO };
@@ -27,7 +28,7 @@ function corsHeaders(origin, allowed) {
   return {
     "Access-Control-Allow-Origin": pickOrigin(origin, allowed),
     "Access-Control-Allow-Methods": "GET,POST,DELETE,OPTIONS",
-    "Access-Control-Allow-Headers": "Content-Type",
+    "Access-Control-Allow-Headers": "Content-Type, Authorization",
     "Access-Control-Max-Age": "86400",
     Vary: "Origin",
   };
@@ -58,6 +59,11 @@ export default {
 
     const p = url.pathname;
     try {
+      // AI 反代网关（AI Studio / Vertex → OpenAI 兼容；解决浏览器 CORS）
+      if (p.startsWith("/api/gw/")) {
+        return await handleGateway(request, env, ch);
+      }
+
       // 健康检查
       if (p === "/api/multiplayer/diagnostics") {
         return json({ ok: true, service: "zhushen-multiplayer", ts: Date.now() }, {}, ch);
@@ -86,6 +92,7 @@ export default {
             hostName: b.hostName,
             maxSeats: b.maxSeats,
             visibility: b.visibility,
+            mode: b.mode,
           }),
         });
         const data = await init.json();
@@ -100,6 +107,7 @@ export default {
             maxSeats: b.maxSeats || 4,
             status: "open",
             visibility: b.visibility || "public",
+            mode: b.mode === "raid" ? "raid" : "adventure",
             updatedAt: Date.now(),
           }),
         });

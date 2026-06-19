@@ -1,5 +1,5 @@
 import { useState, useMemo } from 'react';
-import { useItems, gradeColorClass, gradeBadgeClass, gradeNameClass, type InventoryItem } from '../store/itemStore';
+import { useItems, gradeBadgeClass, gradeNameClass, type InventoryItem } from '../store/itemStore';
 import { useSettings } from '../store/settingsStore';
 import { CAT_CFG, CAT_ICON, ItemDetailModal } from './BackpackModal';
 import { useImageViewer } from '../store/imageViewerStore';

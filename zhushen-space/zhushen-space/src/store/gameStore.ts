@@ -339,3 +339,16 @@ function winInstance(
   });
   persist(get());
 }
+
+/* ── 自动落盘兜底（2026-06-19）──
+   gameStore 没用 zustand persist 中间件(其它 store 才用,改了自动存)，而是自定义 writeSave→localStorage['zhushen-save-v1']，
+   原本只有部分 action 手动 persist(get())、setPlayerField 等曾漏掉→改了血蓝不落盘→刷新丢失。
+   这里订阅 store：任何令 player/enhanceLevels 引用变化的 set **一律自动 writeSave**，等效于 persist 中间件的"改了就存"，
+   但保留自定义存档格式(export/import 的 encodeSave/decodeSave 与存档槽都依赖它),零迁移、不动既有存档。
+   各 action 里已有的 persist(get()) 并存(幂等无害)；即便将来新增动作忘了手动存，这里兜底——彻底杜绝"漏存"。
+   guard：仅 player/enhanceLevels 引用变化才写(view/combat 等纯 UI 变化不触发),避免无谓写盘。 */
+useGame.subscribe((s, prev) => {
+  if (s.player !== prev.player || s.enhanceLevels !== prev.enhanceLevels) {
+    try { writeSave(s.player, s.enhanceLevels); } catch { /* localStorage 不可用时静默忽略 */ }
+  }
+});
