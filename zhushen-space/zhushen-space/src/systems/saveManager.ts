@@ -31,6 +31,7 @@ import { useCasino } from '../store/casinoStore';
 import { useAbyss } from '../store/abyssStore';
 import { clearJoySessions } from '../store/joyStore';
 import { logWarn } from '../utils/log';
+import { writeB1Mirror, clearB1Mirror } from './b1Mirror';
 
 /* ── 持久化 store 单一注册表 ──────────────────────────────────────────────
    一份清单同时驱动「存档快照」(snapshotStores/loadSlot 读写 key 的 localStorage JSON)
@@ -127,8 +128,24 @@ export async function saveSlot(id: string | null, name: string, messages: any[],
 export const AUTOSAVE_ID = 'autosave';
 /* ── 回退点：每次发送前覆盖此槽，记录"上一回合结束时"的完整状态（所有演化+对话+图），供回退/重新生成 ── */
 export const UNDO_ID = 'undo-point';
+/* ── 滚动自动备份：每回合多留一份**轻量(不含图片)**快照，仅保最近 N 份 ──
+   防"单一 autosave 被坏状态一次覆盖光、没有后悔药"。不含图片(图片同设备由 imageDb 现存回填)，
+   故体积远小于带图 autosave，可放心多留几份；可在存档面板直接「读取」回滚或「提主角」抽回。 */
+export const AUTOSNAP_PREFIX = 'autosnap_';
+export const AUTOSNAP_KEEP = 5;
 export async function autoSaveSlot(messages: any[]): Promise<void> {
   try { await saveSlot(AUTOSAVE_ID, '⏱ 自动存档', messages); } catch (e) { console.warn('[Save] 自动存档失败:', e); }
+  // 滚动备份(轻量·不含图)：留最近 N 份，超出删最旧
+  try {
+    const now = Date.now();
+    await saveSlot(`${AUTOSNAP_PREFIX}${now}`, `🛟 自动备份 ${new Date(now).toLocaleString('zh-CN', { hour12: false })}`, messages, false);
+    const snaps = (await saveDb.all<SaveSlot>())
+      .filter((s) => typeof s.id === 'string' && s.id.startsWith(AUTOSNAP_PREFIX))
+      .sort((a, b) => b.updatedAt - a.updatedAt);
+    for (const old of snaps.slice(AUTOSNAP_KEEP)) { try { await saveDb.del(old.id); } catch { /* 删旧备份失败忽略 */ } }
+  } catch (e) { console.warn('[Save] 滚动备份失败:', e); }
+  // 主角镜像兜底(随回合更新；仅 B1 非空时写)
+  try { writeB1Mirror(); } catch { /* */ }
 }
 
 export async function hasUndoPoint(): Promise<boolean> {
@@ -281,6 +298,12 @@ export async function clearProgress(): Promise<void> {
   // 注：不在此清向量库（drpg-factvec）——它是全局内容寻址缓存，清了会误伤其它存档的向量索引；
   // 残留向量不会污染任何档（召回只在当前档事实池内 cosine）。想回收空间用设置→向量记忆的「清空向量库」按钮。
   await replaceChat([]);           // 对话历史
+  try { clearB1Mirror(); } catch (e) { logWarn('clearProgress:b1mirror', e); }   // 主角镜像兜底：新游戏清掉，避免误把上一局主角补进空白新档
+  // 滚动自动备份：新游戏清掉上一局的所有轻量备份（属"进度"，不该带进新局）
+  try {
+    const snaps = (await saveDb.all<SaveSlot>()).filter((s) => typeof s.id === 'string' && s.id.startsWith(AUTOSNAP_PREFIX));
+    for (const s of snaps) { try { await saveDb.del(s.id); } catch { /* */ } }
+  } catch (e) { logWarn('clearProgress:autosnap', e); }
   // 删除上一局的内部「回退点」固定槽：否则新开局第一回合失败后点「重新生成/回退」，
   // 会载入仍残留的上一局回退点 → 瞬间跳回另一局的中断处重发。
   // UNDO_ID 是内部槽（不在存档列表显示、非用户命名存档），删它不影响任何旧存档；

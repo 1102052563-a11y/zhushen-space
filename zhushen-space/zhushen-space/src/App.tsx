@@ -171,6 +171,7 @@ const SystemShop = lazy(() => import('./components/SystemShop'));
 const SummaryPanel = lazy(() => import('./components/SummaryPanel'));
 const SaveLoadPanel = lazy(() => import('./components/SaveLoadPanel'));
 import { PENDING_STARTED_KEY, clearProgress, autoSaveSlot, saveSlot, loadSlot, UNDO_ID, hasUndoPoint } from './systems/saveManager';
+import { restoreB1IfWiped } from './systems/b1Mirror';
 import * as chatDb from './systems/chatDb';
 import PlayerSidebar from './components/PlayerSidebar';
 import StartScreen from './components/StartScreen';
@@ -799,6 +800,7 @@ export default function App() {
 
   const [started, setStarted] = useState(false);
   const [creating, setCreating] = useState(false);   // 角色创建页
+  const [b1Notice, setB1Notice] = useState('');       // 主角自检兜底：自动恢复后的提示横幅
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [mobileDrawer, setMobileDrawer] = useState<'player' | 'menu' | null>(null); // 手机端：左角色栏 / 右导航 抽屉
   const [inputValue, setInputValue] = useState('');
@@ -1014,6 +1016,8 @@ export default function App() {
       try { useItems.getState().normalizeEquipSlots(); } catch { /* 规范化历史非规范装备槽（armor:armor→armor:upper 等），使装备面板与背包一致 */ }
       try { const f = useNpc.getState().normalizeNpcIds(); if (f) console.log(`[NPC] 启动时规范化非法ID ${f} 个`); } catch { /* 修复历史存档里 AI 自创的非法ID(如 P_Aesc)，否则其属性更新被丢弃、面板点不开 */ }
       try { ensureNpcLuck(); } catch { /* 载入时一次性把在场 NPC 幸运按前端独占规则重算(治旧档 AI 乱给的高/乱幸运；保留 luckDelta 剧情增减) */ }
+      // 主角自检兜底：B1 技能/天赋异常空但对局在进行中 → 从镜像自动补回（治"读档/回退误清角色库后主角莫名空白"）
+      try { const rb = restoreB1IfWiped(); if (rb) { setB1Notice(`检测到主角技能/天赋异常丢失，已自动从镜像兜底恢复：技能${rb.counts.skills} / 天赋${rb.counts.traits} / 副职业${rb.counts.subProfessions}`); console.warn('[B1自检] 已自动从镜像恢复', rb.counts); } } catch { /* */ }
       try { setCanUndo(await hasUndoPoint()); } catch { /* */ }
       if (sessionStorage.getItem(PENDING_STARTED_KEY)) {
         setStarted(true);
@@ -6014,6 +6018,15 @@ ${lines}`;
 
   return (
     <div className="h-screen flex flex-col bg-void text-slate-300 overflow-hidden" style={{ fontFamily: 'var(--app-font)' }}>
+
+      {/* 主角自检兜底：自动从镜像恢复后的提示横幅（可关） */}
+      {b1Notice && (
+        <div className="shrink-0 flex items-center gap-2 px-4 py-2 bg-god/15 border-b border-god/40 text-god text-[13px] font-mono">
+          <span className="shrink-0">🛟</span>
+          <span className="flex-1 leading-snug">{b1Notice}</span>
+          <button onClick={() => setB1Notice('')} className="shrink-0 px-2 py-0.5 border border-god/40 rounded hover:bg-god/10">知道了</button>
+        </div>
+      )}
 
       {/* ── 顶部状态栏 ── */}
       <header className={`shrink-0 h-14 flex items-center justify-between px-3 border-b border-edge bg-panel z-10 relative overflow-hidden ${(weatherFxOn && !!miscWeather && !isHomeWorld(miscWorldName) && isLightSky(parseWeather(miscWeather).kind)) ? 'wfx-lt' : ''}`}>

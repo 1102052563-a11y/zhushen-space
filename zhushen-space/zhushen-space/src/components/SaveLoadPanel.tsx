@@ -215,9 +215,9 @@ export default function SaveLoadPanel({ messages, onClose }: Props) {
   );
 }
 
-function Btn({ onClick, cls, children }: { onClick: () => void; cls: string; children: React.ReactNode }) {
+function Btn({ onClick, cls, children, title }: { onClick: () => void; cls: string; children: React.ReactNode; title?: string }) {
   return (
-    <button onClick={onClick} className={`px-2 py-0.5 text-[12px] font-mono border rounded transition-colors ${cls}`}>
+    <button onClick={onClick} title={title} className={`px-2 py-0.5 text-[12px] font-mono border rounded transition-colors ${cls}`}>
       {children}
     </button>
   );
