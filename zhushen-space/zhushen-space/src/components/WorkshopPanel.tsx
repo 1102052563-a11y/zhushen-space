@@ -250,15 +250,10 @@ export default function WorkshopPanel({ onClose }: { onClose: () => void }) {
                   className="shrink-0 text-[13px] font-mono px-2.5 py-1.5 rounded border border-edge text-dim/70 hover:text-god hover:border-god/40 transition-colors">↻</button>
               </div>
               {/* 类型筛（分组） */}
-              <div className="flex items-start gap-2 flex-wrap">
+              <div className="flex items-center gap-1.5 flex-wrap">
                 <FilterChip active={filterType === 'all'} onClick={() => setFilterType('all')} label="全部" />
-                {GROUPS.map((g) => (
-                  <div key={g} className="flex items-center gap-1.5">
-                    <span className="text-[10px] font-mono text-dim/35">{g}</span>
-                    {KIND_LIST.filter((k) => k.group === g).map((k) => (
-                      <FilterChip key={k.id} active={filterType === k.id} onClick={() => setFilterType(k.id)} label={`${k.emoji}${k.label}`} />
-                    ))}
-                  </div>
+                {KIND_LIST.map((k) => (
+                  <FilterChip key={k.id} active={filterType === k.id} onClick={() => setFilterType(k.id)} label={`${k.emoji}${k.label}`} />
                 ))}
               </div>
               {/* 子分类筛 */}
