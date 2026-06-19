@@ -249,14 +249,7 @@ async function loadBuiltinDefaults() {
       overwriteTwb(await grab('novel.json'),          '轮回乐园小说',     'twb-novel');
       overwriteTwb(await grab('pose.json'),           '性爱姿势·小鸟游六花', 'twb-pose');
       overwriteTwb(await grab('bdsm.json'),           'BDSM·调教束缚·S15',   'twb-bdsm');
-      // 自动去重：清掉历史上手动导入的「ST模块化」旧本（文件名命名、无 twb-modular builtinKey）——内置「ST模块化输出·铁律」已按 key 覆盖它、留着纯重复。
-      //   每次启动都跑（不设一次性标记）：即便日后被读档/配置导入带回，下次启动也会再清掉；删 state 后由下方 subscribe 镜像写回干净的 wbDb，一劳永逸。
-      try {
-        const _dups = (useSettings.getState().textWorldBooks ?? []).filter(
-          (b: any) => b.builtinKey !== 'twb-modular' && /ST[_\s]?WI[_\s]?Modular[_\s]?Output|modular[-_\s]?output/i.test(String(b.name || '')),
-        );
-        for (const b of _dups) useSettings.getState().removeTextWorldBook(b.id);
-      } catch { /* */ }
+      // （已移除世界书自动去重：玩家手动导入的世界书一律不强制删——哪怕与内置同名/重复也保留；要去重请玩家自己在设置里删。）
     }
     // 双人成行内置已移除(2026-06-18)：不再自动加载/激活任何默认正文预设；新用户开局走最简兜底，自行去预设列表选（轮回乐园两份已内置但默认关闭）。
     // 轮回乐园特化预设(Claude/Gemini)→ 内置补种：按名判重(不覆盖玩家上传/已有预设)、默认不激活(activate=false)；玩家若编辑过(转非 builtin 入库、同名已在)则不再补
@@ -266,19 +259,19 @@ async function loadBuiltinDefaults() {
       if (!has('轮回乐园·Gemini')) { const g = await grab('zhushen-gemini.json'); if (g) useSettings.getState().importTextPreset(g, '轮回乐园·Gemini', true, false); }
       if (!has('轮回乐园·DeepSeek')) { const d = await grab('zhushen-deepseek.json'); if (d) useSettings.getState().importTextPreset(d, '轮回乐园·DeepSeek', true, false); }
     }
-    // 自动去重：同名正文预设只留一份（清掉历史手动导入 / 配置导入 / 早期补种留下的重复，如两份「轮回乐园·Claude」）。
-    //   同名优先保留：启用中的 > 玩家改过的(非 builtin) > 内置；启用项分值最高、必被保留，故不动 activeTextPresetId。
-    //   每次启动都跑（不设一次性标记）：即便被读档/配置导入又带回，下次启动也会再清；删 state 后由下方 subscribe 镜像写回干净 wbDb。
+    // 自动去重（仅清内置补种自身的重复，绝不碰玩家的预设）：玩家导入/编辑/激活固化过的(非 builtin)一律保留；
+    //   只删「多余的同名 builtin」——同名 builtin 留一个、其余删；某 builtin 若已有同名的非 builtin(玩家版) 则该 builtin 多余、删（玩家版优先）。
     try {
-      const _list = useSettings.getState().textPresets;
-      const _act = useSettings.getState().activeTextPresetId;
-      const _score = (p: any) => (p.id === _act ? 2 : (!p.builtin ? 1 : 0));
-      const _keep = new Map<string, any>();
-      for (const p of _list) { const cur = _keep.get(p.name); if (!cur || _score(p) > _score(cur)) _keep.set(p.name, p); }
-      if (_keep.size !== _list.length) {
-        const _ids = new Set(Array.from(_keep.values()).map((p: any) => p.id));
-        useSettings.setState((s) => ({ textPresets: s.textPresets.filter((p: any) => _ids.has(p.id)) }));
+      const _list = useSettings.getState().textPresets as any[];
+      const _nonBuiltinNames = new Set(_list.filter((x) => !x.builtin).map((x) => x.name));
+      const _seenBuiltin = new Set<string>();
+      const _rm = new Set<string>();
+      for (const x of _list) {
+        if (!x.builtin) continue;
+        if (_nonBuiltinNames.has(x.name) || _seenBuiltin.has(x.name)) _rm.add(x.id);
+        else _seenBuiltin.add(x.name);
       }
+      if (_rm.size) useSettings.setState((st) => ({ textPresets: st.textPresets.filter((x: any) => !_rm.has(x.id)) }));
     } catch { /* */ }
     // 四个演化预设（主角/物品/NPC/势力）→ **每次启动强制覆盖成内置最新**（按要求：玩家对这些预设的改动不保留，始终以内置为准）。
     // 仅当 fetch+解析成功才覆盖；失败则保留现有，避免断网把预设清空。setPresetEntries 只换 entries/名称/版本，保留各自的 API 路由配置。
