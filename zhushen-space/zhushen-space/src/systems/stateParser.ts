@@ -529,16 +529,17 @@ function nameLike(a?: string, b?: string): boolean {
   if (!x || !y) return false;
   return x === y || x.includes(y) || y.includes(x);
 }
-/* 解析销毁/消耗的目标物品：AI 常臆造 itemId。规则——
+/* 解析销毁/消耗的目标物品：AI 常臆造 itemId，或把物品名误塞进 itemId 字段（漏填 name）。规则——
    ① itemId 命中、且名字与给定 name 相符（或未给 name）→ 用它；
-   ② itemId 命中但名字对不上（多为幻觉 id）→ 改按 name 找；
-   ③ 给了 name 却找不到 → 返回 null（宁可不删，也不按幻觉 id 删错你的装备/武器）；只有完全没给 name 时才退回 byId。 */
-function pickTargetItem(items: any[], itemId?: string, name?: string): any | null {
+   ② itemId 没命中（多为幻觉 id 或其实是个名字）→ name 与 itemId 都当作"可能的名字"做模糊匹配兜底；
+   ③ 仍找不到 → 返回 null（宁可不删，也不按幻觉 id 删错你的装备/武器）；只有完全没给 name/itemId 时才退回 byId。 */
+export function pickTargetItem(items: any[], itemId?: string, name?: string): any | null {
   const byId = itemId ? (items ?? []).find((x: any) => x.id === itemId) : null;
   if (byId && (!name || nameLike(byId.name, name))) return byId;
-  const byName = name ? fuzzyFindItem(items, name) : null;
+  // name 与 itemId 双查：AI 常把物品名误写进 itemId 且漏填 name，故 itemId 也当作可能的名字模糊匹配（id 格式串匹配不到中文名，安全）
+  const byName = fuzzyFindItem(items, name, itemId);
   if (byName) return byName;
-  return name ? null : byId;
+  return (name || itemId) ? null : byId;
 }
 
 /* 名称归一化：去空白 + 去常见标点/间隔符，跨回合"荒野行者·战术背心" vs "荒野行者战术背心"也能判为同物去重 */
