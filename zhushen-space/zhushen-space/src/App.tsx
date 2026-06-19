@@ -3324,13 +3324,16 @@ ${AFFIX_EFFECT_RULE}`;
   }
 
   /* 回复后写入：LLM 从本轮正文抽取长期事实 → 存入 narrativeFacts */
-  async function runNarrativeIngestPhase(userText: string, narrative: string) {
+  async function runNarrativeIngestPhase(userText: string, narrative: string, opts: { force?: boolean } = {}) {
     const cfg = useSettings.getState().narrativeMemory;
     const vmOn = useSettings.getState().vectorMemory.enabled;
-    // 关键词 LLM 模式 或 向量召回 任一启用，都需要抽取长期事实（向量引擎也靠这些事实，靠 NM 接口抽取）
-    if ((!cfg.enabled || !cfg.llmMode) && !vmOn) return;
+    // 关键词 LLM 模式 或 向量召回 任一启用，都自动抽取长期事实（向量引擎也靠这些事实，靠 NM 接口抽取）；force=手动更新，跳过开关门控（仍需 NM 接口）
+    if (!opts.force && (!cfg.enabled || !cfg.llmMode) && !vmOn) return;
     const chain = resolveApiChain('nm', getNmApi());   // 优先用接口路由；路由为空才回退到单独配置的 nmApi
-    if (!chain[0]?.baseUrl || !chain[0]?.apiKey) return;
+    if (!chain[0]?.baseUrl || !chain[0]?.apiKey) {
+      if (opts.force) { setNmPhaseLog('⚠ 叙事记忆接口未配置（设置→叙事记忆→API）'); setTimeout(() => setNmPhaseLog(''), 5000); }
+      return;
+    }
     setNmPhaseLog('🧠 记忆整理中…');
     const M = useMisc.getState();
     const existing = M.narrativeFacts.slice(-30).map((f) => f.title).join('、') || '（无）';
@@ -3349,6 +3352,18 @@ ${AFFIX_EFFECT_RULE}`;
       setNmPhaseLog(items.length ? `🧠 记忆整理：新增 ${items.length} 条长期事实` : '🧠 记忆整理：本轮无新事实');
       setTimeout(() => setNmPhaseLog(''), 8000);
     } catch (e) { console.warn('[NM] 回复后写入失败:', e); setNmPhaseLog('⚠ 记忆整理失败'); }
+  }
+
+  /* 长期记忆·手动更新：按最近一次正文(+用户输入)**强制**抽取一次长期事实（绕过自动开关门控，仍需 NM 接口）。供「记忆」面板长期事实页的按钮调用。*/
+  async function triggerNmIngestManually(): Promise<void> {
+    const narrative = lastNarrativeRef.current
+      || [...(messagesRef.current ?? [])].reverse().find((m) => m.role === 'assistant')?.content
+      || '';
+    if (!narrative) { setNmPhaseLog('⚠ 暂无正文——先发一条消息再手动更新'); setTimeout(() => setNmPhaseLog(''), 4000); return; }
+    const userText = lastUserInputRef.current
+      || [...(messagesRef.current ?? [])].reverse().find((m) => m.role === 'user')?.content
+      || '';
+    await runNarrativeIngestPhase(userText, narrative, { force: true });
   }
 
   /* ════════════════════════════════════════════
@@ -6735,7 +6750,7 @@ ${lines}`;
 
       {/* ── 记忆（小总结/大总结）面板 ── */}
       {summaryPanelOpen && (
-        <SummaryPanel onClose={() => setSummaryPanelOpen(false)} />
+        <SummaryPanel onClose={() => setSummaryPanelOpen(false)} onManualUpdate={triggerNmIngestManually} />
       )}
 
       {/* ── 存档管理面板 ── */}

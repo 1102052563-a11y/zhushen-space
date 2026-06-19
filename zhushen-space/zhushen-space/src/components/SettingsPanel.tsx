@@ -2043,8 +2043,26 @@ function ApiLibrarySection() {
   const [errById, setErrById] = useState<Record<string, string>>({});
   const [testingId, setTestingId] = useState<string | null>(null);
   const [testById, setTestById] = useState<Record<string, { ok: boolean; msg: string } | undefined>>({});
+  const [vImport, setVImport] = useState<Record<string, { ok: boolean; msg: string } | undefined>>({});
 
   const inputCls = 'w-full bg-void border border-edge rounded px-2 py-1 text-[13px] font-mono text-slate-200 outline-none focus:border-god';
+
+  // Vertex：直接导入服务账号 JSON 文件 → 校验 → 转 base64 存进 apiKey（HTTP header 安全；worker 本地解码用）
+  function importVertexJson(epId: string, file: File) {
+    const reader = new FileReader();
+    reader.onload = () => {
+      try {
+        const obj = JSON.parse(String(reader.result || ''));
+        if (!obj.private_key || !obj.client_email) throw new Error('不像服务账号 JSON（缺 private_key / client_email）');
+        update(epId, { apiKey: btoa(JSON.stringify(obj)) });
+        setVImport((p) => ({ ...p, [epId]: { ok: true, msg: '已导入：' + obj.client_email } }));
+      } catch (e: any) {
+        setVImport((p) => ({ ...p, [epId]: { ok: false, msg: '导入失败：' + String(e?.message || e) } }));
+      }
+    };
+    reader.onerror = () => setVImport((p) => ({ ...p, [epId]: { ok: false, msg: '读取文件失败' } }));
+    reader.readAsText(file);
+  }
 
   // 测试连接：走与正文/演化完全一致的 apiChatFallback（含流式解析），发一条极短请求，验证 CORS+鉴权+模型+上游全链路
   async function testEndpoint(ep: ApiEndpoint) {
@@ -2054,11 +2072,17 @@ function ApiLibrarySection() {
       const { content } = await apiChatFallback(
         [endpointToConfig(ep)],
         [{ role: 'user', content: '连接测试，请只回复两个字：在的' }],
-        { timeoutMs: 30000, extra: { max_tokens: 30 } },
+        { timeoutMs: 30000, extra: { max_tokens: 2048 } },   // 思考模型(gemini-3.x)要留够 token，否则思考占满、无可见文本
       );
       setTestById((p) => ({ ...p, [ep.id]: { ok: true, msg: (content || '').trim().slice(0, 40) || '(通了，空回复)' } }));
     } catch (e: any) {
-      setTestById((p) => ({ ...p, [ep.id]: { ok: false, msg: String(e?.message ?? e).slice(0, 180) } }));
+      const msg = String(e?.message ?? e);
+      // 上游已 2xx（连接/鉴权/模型都通），只是没解析出文本（常见于思考模型 token 不够）→ 仍算连接成功
+      if (/HTTP\s*2\d\d/.test(msg)) {
+        setTestById((p) => ({ ...p, [ep.id]: { ok: true, msg: '连接成功（本次无文本输出，思考模型所致，正文不受影响）' } }));
+      } else {
+        setTestById((p) => ({ ...p, [ep.id]: { ok: false, msg: msg.slice(0, 180) } }));
+      }
     } finally { setTestingId(null); }
   }
 
@@ -2113,6 +2137,18 @@ function ApiLibrarySection() {
                     <span className="text-[12px] font-mono text-dim/50 block">API Key<span className="text-dim/30"> · 一行一个，网关自动轮换 + 限额(429)自动切换</span></span>
                     <ApiKeyEditor value={ep.apiKey} onChange={(v) => update(ep.id, { apiKey: v })} inputCls={inputCls} />
                   </div>
+                ) : (ep.baseUrl || '').includes('/api/gw/vertex') ? (
+                  <div className="space-y-1">
+                    <span className="text-[12px] font-mono text-dim/50 block">服务账号 JSON<span className="text-dim/30"> · 仅本人本地，SA 只发到你本地 wrangler dev</span></span>
+                    <div className="flex gap-2 items-center">
+                      <input type="password" value={ep.apiKey} onChange={(e) => update(ep.id, { apiKey: e.target.value })} placeholder="点右侧导入，或粘贴 base64" className={inputCls + ' flex-1'} />
+                      <label className="shrink-0 px-2.5 py-1 text-[12px] font-mono border border-god/40 text-god rounded hover:bg-god/10 cursor-pointer transition-colors whitespace-nowrap">
+                        📁 导入 JSON
+                        <input type="file" accept=".json,application/json" className="hidden" onChange={(e) => { const f = e.target.files?.[0]; if (f) importVertexJson(ep.id, f); e.currentTarget.value = ''; }} />
+                      </label>
+                    </div>
+                    {vImport[ep.id] && <div className={`text-[11px] font-mono ${vImport[ep.id]!.ok ? 'text-god' : 'text-blood'}`}>{vImport[ep.id]!.ok ? '✅ ' : '❌ '}{vImport[ep.id]!.msg}</div>}
+                  </div>
                 ) : (
                   <label className="space-y-1 block"><span className="text-[12px] font-mono text-dim/50">API Key</span><input type="password" value={ep.apiKey} onChange={(e) => update(ep.id, { apiKey: e.target.value })} placeholder="sk-..." className={inputCls} /></label>
                 )}
@@ -2164,7 +2200,7 @@ function ApiLibrarySection() {
         <div className="text-[12px] font-mono text-god/80 bg-god/5 border border-god/30 rounded px-2.5 py-2 leading-relaxed space-y-1">
           <div>✅ 已加入 <b>AI Studio (网关)</b> + <b>Vertex (网关·本地)</b> 两条接口：</div>
           <div>· <b>AI Studio (网关)</b> → 线上网关，API Key 填你的 <b>AI Studio key</b>（aistudio.google.com/apikey）；点「刷新模型」可拉全量。</div>
-          <div>· <b>Vertex (网关·本地)</b> → 🔒仅你本人：先在 multiplayer-worker 跑 <code className="text-god">wrangler dev</code>（.dev.vars 配好 SA），地址已指向 localhost:8787，API Key 留空即可。</div>
+          <div>· <b>Vertex (网关·本地)</b> → 🔒仅你本人：multiplayer-worker 跑 <code className="text-god">wrangler dev</code>，展开本接口点 <b>📁 导入 JSON</b> 选服务账号文件即可（地址已指向 localhost:8787）。</div>
           <div className="text-dim/50">填好点「🔌 测试连接」自检。</div>
         </div>
       )}

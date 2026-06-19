@@ -112,15 +112,19 @@ async function proxyAiStudio(request, env, cors) {
 
 /* ─────────────── Vertex：用调用方自带的服务账号 JSON 鉴权 + OpenAI⇄Gemini 互转 ─────────────── */
 async function proxyVertex(request, env, cors) {
-  // 🔒 锁定为「仅本人·本地」：SA 只从服务端环境读（放本地 .dev.vars），不接受请求自带，绝不进公开部署。
-  if (!env.VERTEX_SA_JSON) {
-    return json({ error: { message: 'Vertex 未启用（仅本人本地）：在 multiplayer-worker/.dev.vars 配 VERTEX_SA_JSON 后跑 `wrangler dev`，并把本接口地址指向 http://localhost:8787/api/gw/vertex' } }, { status: 503 }, cors);
+  // 🔒 仍是「仅本人·本地」。SA 来源优先级：
+  //   ① 服务端 env.VERTEX_SA_JSON(.dev.vars，最安全，SA 不进浏览器) →
+  //   ② 仅当本地 worker(localhost) 时，允许请求自带 SA(前端「📁 导入 JSON」走这条，方便) →
+  //   ③ 否则 503。公开部署既无 env、又非 localhost → 永远 503，Vertex 不对外。
+  const isLocal = ['localhost', '127.0.0.1'].includes(new URL(request.url).hostname);
+  const saRaw = env.VERTEX_SA_JSON || (isLocal ? bearer(request) : '');
+  if (!saRaw) {
+    return json({ error: { message: isLocal
+      ? 'Vertex 未配置：用该接口的「📁 导入服务账号 JSON」导入，或在 .dev.vars 配 VERTEX_SA_JSON'
+      : 'Vertex 仅本人·本地：把本接口地址指向 http://localhost:8787/api/gw/vertex 并本地 `wrangler dev`（公开网关不处理 Vertex）' } }, { status: 503 }, cors);
   }
-  if (env.VERTEX_GATE && bearer(request) !== env.VERTEX_GATE) {
-    return json({ error: { message: 'Vertex 已锁定：本接口 apiKey 需填 VERTEX_GATE 口令' } }, { status: 401 }, cors);
-  }
-  const sa = parseServiceAccount(env.VERTEX_SA_JSON);
-  if (!sa) return json({ error: { message: 'VERTEX_SA_JSON 不是有效的服务账号 JSON（用原文或 base64）' } }, { status: 500 }, cors);
+  const sa = parseServiceAccount(saRaw);
+  if (!sa) return json({ error: { message: '服务账号 JSON 无效（需原文或 base64）' } }, { status: 400 }, cors);
   const project = sa.project_id;
   const location = env.VERTEX_LOCATION || 'global';
   if (!project) return json({ error: { message: '服务账号 JSON 缺 project_id' } }, { status: 400 }, cors);

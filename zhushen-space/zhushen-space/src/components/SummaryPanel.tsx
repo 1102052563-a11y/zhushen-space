@@ -4,12 +4,13 @@ import { useMisc } from '../store/miscStore';
 type Tab = 'facts' | 'small' | 'large';
 
 /* 记忆面板：查看长期事实（叙事记忆抽取）/ 小总结 / 大总结（杂项演化产出）*/
-export default function SummaryPanel({ onClose }: { onClose: () => void }) {
+export default function SummaryPanel({ onClose, onManualUpdate }: { onClose: () => void; onManualUpdate?: () => Promise<void> }) {
   const small = useMisc((s) => s.smallSummaries);
   const large = useMisc((s) => s.largeSummaries);
   const facts = useMisc((s) => s.narrativeFacts);
   const removeFact = useMisc((s) => s.removeNarrativeFact);
   const [tab, setTab] = useState<Tab>('facts');
+  const [updating, setUpdating] = useState(false);   // 长期事实「手动更新」中
   const list = tab === 'small' ? small : large;
 
   return (
@@ -26,13 +27,22 @@ export default function SummaryPanel({ onClose }: { onClose: () => void }) {
           <button onClick={onClose} className="text-dim/50 hover:text-blood text-lg transition-colors">✕</button>
         </header>
 
-        <div className="shrink-0 flex gap-1 px-4 py-2 border-b border-edge bg-panel">
+        <div className="shrink-0 flex items-center gap-1 px-4 py-2 border-b border-edge bg-panel">
           {([['facts', '长期事实', facts.length], ['small', '小总结', small.length], ['large', '大总结', large.length]] as const).map(([k, label, n]) => (
             <button key={k} onClick={() => setTab(k)}
               className={`px-3 py-1 rounded text-sm font-mono border transition-colors ${tab === k ? 'border-god/50 text-god bg-god/10' : 'border-edge text-dim hover:text-slate-200'}`}>
               {label}{n > 0 ? ` (${n})` : ''}
             </button>
           ))}
+          {tab === 'facts' && onManualUpdate && (
+            <button
+              onClick={async () => { if (updating) return; setUpdating(true); try { await onManualUpdate(); } finally { setUpdating(false); } }}
+              disabled={updating}
+              title="按最近一次正文(+你上一条输入)强制抽取一次长期事实（绕过自动开关，需先配置「叙事记忆」接口）"
+              className="ml-auto flex items-center gap-1.5 px-3 py-1 rounded text-sm font-mono border border-god/40 text-god hover:bg-god/10 disabled:opacity-50 disabled:cursor-not-allowed transition-colors">
+              {updating ? <><span className="animate-spin inline-block">◌</span> 更新中…</> : <>⟳ 手动更新</>}
+            </button>
+          )}
         </div>
 
         <div className="flex-1 overflow-y-auto p-4 space-y-2">
