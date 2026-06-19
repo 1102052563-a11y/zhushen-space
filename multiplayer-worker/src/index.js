@@ -29,7 +29,7 @@ function corsHeaders(origin, allowed) {
   return {
     "Access-Control-Allow-Origin": pickOrigin(origin, allowed),
     "Access-Control-Allow-Methods": "GET,POST,DELETE,OPTIONS",
-    "Access-Control-Allow-Headers": "Content-Type, Authorization",
+    "Access-Control-Allow-Headers": "Content-Type, Authorization, X-Admin-Key",
     "Access-Control-Max-Age": "86400",
     Vary: "Origin",
   };

@@ -1,9 +1,10 @@
 import { useState, useEffect } from 'react';
 import { useWorkshop } from '../store/workshopStore';
 import {
-  wsList, wsGet, wsListMine, wsDelete, installFromBackend, uploadLocal, statusFor, KIND_LIST, kindOf, apiBase,
+  wsList, wsGet, wsListMine, wsDelete, wsRename, wsVerifyAdmin, installFromBackend, uploadLocal, statusFor, KIND_LIST, kindOf, apiBase,
   type WorkshopMeta, type WorkshopItem, type WorkshopKindId,
 } from '../systems/workshop';
+import { myMpName } from '../systems/mpConfig';
 
 /* 创意工坊：社区共享内容（无审核直传 + 浏览 + 下载数）。后端=zhushen-multiplayer Worker(D1)。
    页签：浏览 / 上传 / 已安装 / 设置。 */
@@ -20,6 +21,10 @@ export default function WorkshopPanel({ onClose }: { onClose: () => void }) {
   const myUploads = useWorkshop((s) => s.myUploads);
   const apiOverride = useWorkshop((s) => s.apiBase);
   const setApiBase = useWorkshop((s) => s.setApiBase);
+  const nickname = useWorkshop((s) => s.nickname);
+  const setNickname = useWorkshop((s) => s.setNickname);
+  const adminKey = useWorkshop((s) => s.adminKey);
+  const setAdminKey = useWorkshop((s) => s.setAdminKey);
 
   const [tab, setTab] = useState<Tab>('browse');
   const [toast, setToast] = useState('');
@@ -54,6 +59,50 @@ export default function WorkshopPanel({ onClose }: { onClose: () => void }) {
 
   // 设置
   const [apiInput, setApiInput] = useState(apiOverride);
+  const [nickInput, setNickInput] = useState(nickname || myMpName());
+  const [savingNick, setSavingNick] = useState(false);
+  const [adminInput, setAdminInput] = useState(adminKey);
+  const [savingAdmin, setSavingAdmin] = useState(false);
+
+  async function saveNick() {
+    const nm = nickInput.trim();
+    if (!nm) { flash('昵称不能为空'); return; }
+    setSavingNick(true);
+    try {
+      const n = await wsRename(nm);   // 传播到已上传（后端按 owner 改署名）
+      setNickname(nm);
+      flash(n > 0 ? `昵称已改为「${nm}」，同步更新了 ${n} 个已上传` : `昵称已设为「${nm}」`);
+      setMineRefresh((k) => k + 1); setRefreshKey((k) => k + 1);
+    } catch (e: any) {
+      setNickname(nm);   // 后端同步失败也先存本地（之后上传用新名）
+      flash(`昵称已保存，但同步到已上传失败：${e?.message ?? e}`);
+    } finally { setSavingNick(false); }
+  }
+
+  async function saveAdmin() {
+    const k = adminInput.trim();
+    if (!k) { setAdminKey(''); flash('已关闭管理员'); return; }
+    setSavingAdmin(true);
+    try {
+      const ok = await wsVerifyAdmin(k);
+      if (ok) { setAdminKey(k); flash('✓ 管理员已开启——可删除任意条目'); }
+      else { flash('管理员密钥不正确'); }
+    } catch (e: any) { flash(`验证失败：${e?.message ?? e}`); }
+    finally { setSavingAdmin(false); }
+  }
+
+  async function adminDelete(m: WorkshopMeta) {
+    if (!window.confirm(`【管理员】删除「${m.name}」？将从工坊永久移除，所有人都看不到。`)) return;
+    setDeletingId(m.id);
+    try {
+      await wsDelete(m.id);
+      setList((prev) => prev.filter((x) => x.id !== m.id));
+      setMineList((prev) => prev.filter((x) => x.id !== m.id));
+      if (detail?.id === m.id) setDetail(null);
+      flash(`已删除「${m.name}」`);
+    } catch (e: any) { flash(`删除失败：${e?.message ?? e}`); }
+    finally { setDeletingId(null); }
+  }
 
   const catsOfType = filterType === 'all' ? undefined : kindOf(filterType)?.categories;
 
@@ -139,6 +188,7 @@ export default function WorkshopPanel({ onClose }: { onClose: () => void }) {
   }
 
   async function doUpload() {
+    if (!nickname.trim()) { flash('请先在「设置」起一个工坊昵称'); setTab('settings'); return; }
     if (!pubLocalId) { flash('没有可上传的本地条目'); return; }
     setUploading(true);
     try {
@@ -308,7 +358,12 @@ export default function WorkshopPanel({ onClose }: { onClose: () => void }) {
 
               <div className="grid grid-cols-2 gap-2.5">
                 <Field label="标题" value={form.name} onChange={(v) => setForm((f) => ({ ...f, name: v }))} />
-                <Field label="作者（可留空匿名）" value={form.author} onChange={(v) => setForm((f) => ({ ...f, author: v }))} />
+                <label className="text-[11px] font-mono text-dim/60 block">上传者（署名）
+                  <div className="w-full mt-1 bg-void/60 border border-edge rounded px-2 py-1.5 text-[12px] flex items-center justify-between gap-2">
+                    <span className={`truncate ${nickname ? 'text-slate-200' : 'text-amber-300/70'}`}>{nickname || '未设置昵称'}</span>
+                    <button type="button" onClick={() => setTab('settings')} className="shrink-0 text-god/80 text-[11px] hover:underline">{nickname ? '改名' : '去设置'}</button>
+                  </div>
+                </label>
                 <Field label="版本" value={form.version} onChange={(v) => setForm((f) => ({ ...f, version: v }))} />
                 <Field label="标签（逗号分隔）" value={form.tags} onChange={(v) => setForm((f) => ({ ...f, tags: v }))} />
               </div>
@@ -320,6 +375,37 @@ export default function WorkshopPanel({ onClose }: { onClose: () => void }) {
               </button>
               <div className="text-[11px] font-mono text-dim/40">上传会剥离图片/强化等运行时数据，只分享条目本体；NPC 连同其技能天赋与持有物一起分享。</div>
             </div>
+          </div>
+        )}
+
+        {/* ── 已上传（我的）── */}
+        {tab === 'mine' && (
+          <div className="flex-1 overflow-y-auto p-3 space-y-2">
+            <div className="flex items-center justify-between px-1">
+              <span className="text-[11px] font-mono text-dim/50">我上传到工坊的内容（删除会同时从工坊下架）</span>
+              <button onClick={() => setMineRefresh((k) => k + 1)} title="刷新"
+                className="text-[12px] font-mono px-2 py-1 rounded border border-edge text-dim/70 hover:text-god hover:border-god/40 transition-colors">↻</button>
+            </div>
+            {mineLoading && <div className="py-16 text-center text-dim/50 text-sm font-mono">加载中…</div>}
+            {mineErr && !mineLoading && (
+              <div className="py-12 text-center text-blood/70 text-[13px] font-mono border border-dashed border-blood/30 rounded-xl px-4">{mineErr}</div>
+            )}
+            {!mineLoading && !mineErr && mineList.length === 0 && (
+              <div className="py-16 text-center text-dim/40 text-sm font-mono border border-dashed border-edge rounded-xl">还没上传过内容 · 去「上传」分享一个吧</div>
+            )}
+            {!mineLoading && !mineErr && mineList.map((m) => (
+              <div key={m.id} className="flex items-center gap-2.5 rounded-xl border border-edge bg-panel/60 p-2.5">
+                <span className="text-lg shrink-0">{kindOf(m.type)?.emoji ?? '❔'}</span>
+                <div className="flex-1 min-w-0 cursor-pointer" onClick={() => setDetail(m)} title="点击看详情">
+                  <div className="text-[13px] font-semibold text-slate-100 truncate">{m.name}</div>
+                  <div className="text-[10px] font-mono text-dim/45">{kindOf(m.type)?.label ?? m.type}{m.category ? `·${m.category}` : ''}{m.version ? ` · v${m.version}` : ''} · <span className="text-god/60">⬇ {m.downloads ?? 0}</span> · {fmtDate(m.createdAt)}</div>
+                </div>
+                <button onClick={() => doDelete(m)} disabled={deletingId === m.id}
+                  className="shrink-0 text-[11px] font-mono px-2.5 py-1 rounded border border-blood/40 text-blood/80 hover:bg-blood/10 transition-colors disabled:opacity-50">
+                  {deletingId === m.id ? '删除中…' : '🗑 删除'}
+                </button>
+              </div>
+            ))}
           </div>
         )}
 
@@ -347,7 +433,18 @@ export default function WorkshopPanel({ onClose }: { onClose: () => void }) {
 
         {/* ── 设置 ── */}
         {tab === 'settings' && (
-          <div className="flex-1 overflow-y-auto p-4">
+          <div className="flex-1 overflow-y-auto p-4 space-y-4">
+            <div className="max-w-2xl mx-auto rounded-xl border border-edge bg-panel/50 p-4 space-y-3">
+              <div className="text-[14px] font-semibold text-slate-200">工坊昵称（上传署名）</div>
+              <div className="text-[11px] font-mono text-dim/50 -mt-1">上传的内容都会署上这个名字；改名后，你已上传的内容署名也会一起更新。</div>
+              <div className="flex items-center gap-2">
+                <input value={nickInput} onChange={(e) => setNickInput(e.target.value)} placeholder="给自己起个名字…" maxLength={40}
+                  className="flex-1 min-w-0 bg-void border border-edge rounded px-2.5 py-1.5 text-[13px] text-slate-200 placeholder:text-dim/30 focus:outline-none focus:border-god/50" />
+                <button onClick={saveNick} disabled={savingNick}
+                  className="shrink-0 text-[12px] font-mono px-3 py-1.5 rounded border border-god/50 text-god hover:bg-god/10 transition-colors disabled:opacity-50">{savingNick ? '保存中…' : '保存'}</button>
+              </div>
+              {nickname && <div className="text-[11px] font-mono text-dim/45">当前昵称：<span className="text-slate-300">{nickname}</span></div>}
+            </div>
             <div className="max-w-2xl mx-auto rounded-xl border border-edge bg-panel/50 p-4 space-y-3">
               <div className="text-[14px] font-semibold text-slate-200">工坊后端地址</div>
               <div className="text-[11px] font-mono text-dim/50 -mt-1">默认连联机用的同一个 Worker：<span className="text-dim/70">{apiBase()}</span></div>

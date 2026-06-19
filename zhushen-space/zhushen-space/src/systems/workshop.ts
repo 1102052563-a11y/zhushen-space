@@ -248,19 +248,34 @@ export async function installFromBackend(meta: WorkshopMeta): Promise<number> {
 }
 
 export interface UploadMeta { name: string; author?: string; version?: string; summary?: string; tags?: string[] }
+
+// 工坊昵称（上传署名）
+export function uploaderName(): string { return (useWorkshop.getState().nickname || '').trim(); }
+
+// 改名：把我已上传的所有条目署名批量改成新昵称（后端按 owner 更新）
+export async function wsRename(newName: string): Promise<number> {
+  const res = await fetch(`${apiBase()}/api/workshop/rename`, {
+    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ owner: myPlayerId(), author: newName.trim() }),
+  });
+  if (!res.ok) throw new Error(await errMsg(res));
+  return (await res.json()).updated ?? 0;
+}
 // 上传：把本地某条 pack 成 payload → POST。返回新 id。
 export async function uploadLocal(type: WorkshopKindId, localId: string, meta: UploadMeta): Promise<string> {
   const kind = kindOf(type);
   if (!kind) throw new Error(`未知类型 ${type}`);
   const packed = kind.pack(localId);
   if (!packed) throw new Error('没有可上传的内容');
+  const author = uploaderName();
+  if (!author) throw new Error('请先在「设置」里起一个工坊昵称');
   const finalName = meta.name.trim() || packed.name;
   const finalVersion = meta.version?.trim() || '1.0.0';
   const body = {
     type,
     category: packed.category,
     name: finalName,
-    author: meta.author?.trim() || undefined,
+    author,   // 署名=工坊昵称（改名会传播到已上传）
     version: finalVersion,
     summary: meta.summary?.trim() || undefined,
     tags: (meta.tags ?? []).filter(Boolean),
@@ -286,11 +301,21 @@ export async function wsListMine(): Promise<WorkshopMeta[]> {
   return ((await res.json()).items ?? []) as WorkshopMeta[];
 }
 
-// 删除我上传的条目（同时从工坊下架；后端校验 owner）
+// 删除条目（同时从工坊下架）。本人删=带 owner；管理员删任意=带 X-Admin-Key。
 export async function wsDelete(id: string): Promise<void> {
   const u = new URL(`${apiBase()}/api/workshop/items/${encodeURIComponent(id)}`);
   u.searchParams.set('owner', myPlayerId());
-  const res = await fetch(u.toString(), { method: 'DELETE' });
+  const adminKey = useWorkshop.getState().adminKey;
+  const res = await fetch(u.toString(), { method: 'DELETE', headers: adminKey ? { 'X-Admin-Key': adminKey } : {} });
   if (!res.ok) throw new Error(await errMsg(res));
   useWorkshop.getState().forgetUpload(id);
+}
+
+// 校验管理员密钥（与 worker env.WS_ADMIN_KEY 比对）
+export async function wsVerifyAdmin(key: string): Promise<boolean> {
+  const res = await fetch(`${apiBase()}/api/workshop/admin/verify`, {
+    method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ key }),
+  });
+  if (!res.ok) throw new Error(await errMsg(res));
+  return !!(await res.json()).ok;
 }

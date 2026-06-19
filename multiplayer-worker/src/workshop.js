@@ -92,6 +92,22 @@ export async function handleWorkshop(request, env, ch, url) {
   const p = url.pathname;
   const method = request.method;
 
+  // 管理员密钥校验（前端「设置」里验证用）
+  if (p === "/api/workshop/admin/verify" && method === "POST") {
+    const b = await request.json().catch(() => ({}));
+    const ok = !!env.WS_ADMIN_KEY && !!b.key && b.key === env.WS_ADMIN_KEY;
+    return json({ ok }, {}, ch);
+  }
+
+  // 改名：把该 owner 所有条目的署名(author)批量改成新昵称
+  if (p === "/api/workshop/rename" && method === "POST") {
+    const b = await request.json().catch(() => null);
+    if (!b || !b.owner) return json({ error: "owner required" }, { status: 400 }, ch);
+    const r = await db.prepare("UPDATE workshop_items SET author = ? WHERE owner = ?")
+      .bind(str(b.author, 40), b.owner).run();
+    return json({ updated: (r.meta && r.meta.changes) || 0 }, {}, ch);
+  }
+
   // 列表
   if (p === "/api/workshop/items" && method === "GET") {
     const type = url.searchParams.get("type");
@@ -183,15 +199,19 @@ export async function handleWorkshop(request, env, ch, url) {
       return json({ item: { ...rowToMeta(row), payload } }, {}, ch);
     }
 
-    // 删除（仅本人：owner 必须匹配上传时记录的 owner）
+    // 删除：管理员(密钥匹配)可删任意；否则仅本人(owner 匹配)
     if (!isDownload && method === "DELETE") {
-      const owner = url.searchParams.get("owner");
-      if (!owner) return json({ error: "owner required" }, { status: 400 }, ch);
+      const adminKey = request.headers.get("X-Admin-Key") || url.searchParams.get("admin");
+      const isAdmin = !!env.WS_ADMIN_KEY && !!adminKey && adminKey === env.WS_ADMIN_KEY;
       const row = await db.prepare("SELECT owner FROM workshop_items WHERE id = ?").bind(id).first();
       if (!row) return json({ error: "not found" }, { status: 404 }, ch);
-      if (!row.owner || row.owner !== owner) return json({ error: "无权删除（不是你上传的）" }, { status: 403 }, ch);
+      if (!isAdmin) {
+        const owner = url.searchParams.get("owner");
+        if (!owner) return json({ error: "owner required" }, { status: 400 }, ch);
+        if (!row.owner || row.owner !== owner) return json({ error: "无权删除（不是你上传的）" }, { status: 403 }, ch);
+      }
       await db.prepare("DELETE FROM workshop_items WHERE id = ?").bind(id).run();
-      return json({ ok: true }, {}, ch);
+      return json({ ok: true, admin: isAdmin }, {}, ch);
     }
   }
 

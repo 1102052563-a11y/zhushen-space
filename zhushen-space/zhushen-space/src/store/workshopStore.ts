@@ -28,10 +28,14 @@ export interface UploadRecord {
 
 interface WorkshopState {
   apiBase: string;        // 覆盖后端地址；空字符串=用 mpBase()
+  nickname: string;       // 工坊昵称（上传署名；改名会传播到已上传）
+  adminKey: string;       // 管理员密钥（与 worker env.WS_ADMIN_KEY 匹配则可删任意条目）
   installs: Record<string, InstallRecord>;
   myUploads: Record<string, UploadRecord>;
 
   setApiBase: (url: string) => void;
+  setNickname: (name: string) => void;
+  setAdminKey: (key: string) => void;
   recordInstall: (rec: InstallRecord) => void;
   forgetInstall: (id: string) => void;
   recordUpload: (rec: UploadRecord) => void;
@@ -42,10 +46,14 @@ export const useWorkshop = create<WorkshopState>()(
   persist(
     (set): WorkshopState => ({
       apiBase: '',
+      nickname: '',
+      adminKey: '',
       installs: {},
       myUploads: {},
 
       setApiBase: (url) => set({ apiBase: url.trim().replace(/\/+$/, '') }),
+      setNickname: (name) => set({ nickname: name.trim().slice(0, 40) }),
+      setAdminKey: (key) => set({ adminKey: key.trim() }),
       recordInstall: (rec) => set((s) => ({ installs: { ...s.installs, [rec.id]: rec } })),
       forgetInstall: (id) =>
         set((s) => {
@@ -65,7 +73,7 @@ export const useWorkshop = create<WorkshopState>()(
       name: 'drpg-workshop',
       merge: (persisted, current) => {
         const p = (persisted ?? {}) as Partial<WorkshopState>;
-        return { ...current, ...p, apiBase: p.apiBase ?? '', installs: p.installs ?? {}, myUploads: p.myUploads ?? {} };
+        return { ...current, ...p, apiBase: p.apiBase ?? '', nickname: p.nickname ?? '', adminKey: p.adminKey ?? '', installs: p.installs ?? {}, myUploads: p.myUploads ?? {} };
       },
     }
   )
