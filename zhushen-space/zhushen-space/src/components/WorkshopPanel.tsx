@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { useWorkshop } from '../store/workshopStore';
 import {
   wsList, wsGet, wsListMine, wsDelete, wsRename, wsVerifyAdmin, installFromBackend, uploadLocal, statusFor, KIND_LIST, kindOf, apiBase,
+  CREATION_TYPES, ccListLocal,
   type WorkshopMeta, type WorkshopItem, type WorkshopKindId,
 } from '../systems/workshop';
 import { myMpName } from '../systems/mpConfig';
@@ -10,12 +11,15 @@ import { myMpName } from '../systems/mpConfig';
    页签：浏览 / 上传 / 已安装 / 设置。 */
 
 type Tab = 'browse' | 'upload' | 'mine' | 'installed' | 'settings';
-const GROUPS: WorkshopKindDefGroup[] = ['角色', '装备', '物品', 'NPC', '模板'];
-type WorkshopKindDefGroup = '角色' | '装备' | '物品' | 'NPC' | '模板';
 
 function fmtDate(ts?: number): string { try { return ts ? new Date(ts).toLocaleDateString() : ''; } catch { return ''; } }
 
-export default function WorkshopPanel({ onClose }: { onClose: () => void }) {
+export default function WorkshopPanel({ onClose, creationMode = false }: { onClose: () => void; creationMode?: boolean }) {
+  // 创建模式：只显「乐园/种族/天赋」，安装/上传走自定义内容库；普通模式：全部(去掉 creationOnly)
+  const visibleKinds = creationMode ? KIND_LIST.filter((k) => CREATION_TYPES.includes(k.id)) : KIND_LIST.filter((k) => !k.creationOnly);
+  const groupsPresent = [...new Set(visibleKinds.map((k) => k.group))];
+  const localEntriesOf = (t: WorkshopKindId) => (creationMode ? ccListLocal(t) : (kindOf(t)?.listLocal() ?? []));
+
   const installs = useWorkshop((s) => s.installs);
   const forgetInstall = useWorkshop((s) => s.forgetInstall);
   const myUploads = useWorkshop((s) => s.myUploads);
@@ -52,7 +56,7 @@ export default function WorkshopPanel({ onClose }: { onClose: () => void }) {
   const [deletingId, setDeletingId] = useState<string | null>(null);
 
   // 上传
-  const [pubType, setPubType] = useState<WorkshopKindId>('skill');
+  const [pubType, setPubType] = useState<WorkshopKindId>(creationMode ? 'paradise' : 'skill');
   const [pubLocalId, setPubLocalId] = useState('');
   const [form, setForm] = useState({ name: '', author: '', version: '1.0.0', summary: '', tags: '' });
   const [uploading, setUploading] = useState(false);
@@ -145,7 +149,7 @@ export default function WorkshopPanel({ onClose }: { onClose: () => void }) {
 
   // 切上传类型 → 复位条目 + 预填名
   useEffect(() => {
-    const l = kindOf(pubType)?.listLocal() ?? [];
+    const l = localEntriesOf(pubType);
     setPubLocalId(l[0]?.id ?? '');
     setForm((f) => ({ ...f, name: l[0]?.name ?? '' }));
   }, [pubType]);
@@ -153,8 +157,8 @@ export default function WorkshopPanel({ onClose }: { onClose: () => void }) {
   // 进「上传」页时，若当前类型没条目，自动跳到第一个有内容的类型（免得默认空类型让人以为坏了）
   useEffect(() => {
     if (tab !== 'upload') return;
-    if ((kindOf(pubType)?.listLocal().length ?? 0) > 0) return;
-    const firstNonEmpty = KIND_LIST.find((k) => k.listLocal().length > 0);
+    if (localEntriesOf(pubType).length > 0) return;
+    const firstNonEmpty = visibleKinds.find((k) => localEntriesOf(k.id).length > 0);
     if (firstNonEmpty) setPubType(firstNonEmpty.id);
   }, [tab]);
 
@@ -167,7 +171,7 @@ export default function WorkshopPanel({ onClose }: { onClose: () => void }) {
   async function doInstall(meta: WorkshopMeta) {
     setInstallingId(meta.id);
     try {
-      const dl = await installFromBackend(meta);
+      const dl = await installFromBackend(meta, creationMode);
       setList((prev) => prev.map((m) => (m.id === meta.id ? { ...m, downloads: dl } : m)));
       flash(`已安装「${meta.name}」`);
     } catch (e: any) {
@@ -193,10 +197,10 @@ export default function WorkshopPanel({ onClose }: { onClose: () => void }) {
     setUploading(true);
     try {
       const tags = form.tags.split(/[,，]/).map((s) => s.trim()).filter(Boolean);
-      await uploadLocal(pubType, pubLocalId, { name: form.name, author: form.author, version: form.version, summary: form.summary, tags });
+      await uploadLocal(pubType, pubLocalId, { name: form.name, author: form.author, version: form.version, summary: form.summary, tags }, creationMode);
       flash(`已上传「${form.name || '未命名'}」，现在所有人都能看到`);
       // 上传成功 → 退回（重置）上传页：清掉本次简介/标签，保留作者/版本，便于连续上传
-      const cur = (kindOf(pubType)?.listLocal() ?? []).find((x) => x.id === pubLocalId);
+      const cur = localEntriesOf(pubType).find((x) => x.id === pubLocalId);
       setForm((f) => ({ ...f, name: cur?.name ?? '', summary: '', tags: '' }));
       setTab('upload');
     } catch (e: any) {
@@ -205,7 +209,7 @@ export default function WorkshopPanel({ onClose }: { onClose: () => void }) {
   }
 
   const installedList = Object.values(installs).sort((a, b) => b.installedAt - a.installedAt);
-  const pubList = kindOf(pubType)?.listLocal() ?? [];
+  const pubList = localEntriesOf(pubType);
 
   const TabBtn = ({ id, label }: { id: Tab; label: string }) => (
     <button onClick={() => setTab(id)}
@@ -252,7 +256,7 @@ export default function WorkshopPanel({ onClose }: { onClose: () => void }) {
               {/* 类型筛（分组） */}
               <div className="flex items-center gap-1.5 flex-wrap">
                 <FilterChip active={filterType === 'all'} onClick={() => setFilterType('all')} label="全部" />
-                {KIND_LIST.map((k) => (
+                {visibleKinds.map((k) => (
                   <FilterChip key={k.id} active={filterType === k.id} onClick={() => setFilterType(k.id)} label={`${k.emoji}${k.label}`} />
                 ))}
               </div>
@@ -338,9 +342,9 @@ export default function WorkshopPanel({ onClose }: { onClose: () => void }) {
                 <label className="text-[11px] font-mono text-dim/60">类型
                   <select value={pubType} onChange={(e) => setPubType(e.target.value as WorkshopKindId)}
                     className="w-full mt-1 bg-void border border-edge rounded px-2 py-1.5 text-[12px] text-slate-200 focus:outline-none focus:border-god/50">
-                    {GROUPS.map((g) => (
+                    {groupsPresent.map((g) => (
                       <optgroup key={g} label={g}>
-                        {KIND_LIST.filter((k) => k.group === g).map((k) => <option key={k.id} value={k.id}>{k.emoji} {k.label}（{k.listLocal().length}）</option>)}
+                        {visibleKinds.filter((k) => k.group === g).map((k) => <option key={k.id} value={k.id}>{k.emoji} {k.label}（{localEntriesOf(k.id).length}）</option>)}
                       </optgroup>
                     ))}
                   </select>

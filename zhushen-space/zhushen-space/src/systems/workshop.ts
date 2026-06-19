@@ -17,11 +17,12 @@ import { useCharacters } from '../store/characterStore';
 import { useNpc } from '../store/npcStore';
 import { useSkillTree, type TreeDef } from '../store/skillTreeStore';
 import { useCreationTemplates, type CreationTemplateData } from '../store/creationTemplateStore';
+import { useCreationContent } from '../store/creationContentStore';
 import { useWorkshop } from '../store/workshopStore';
 import { mpBase, myPlayerId } from './mpConfig';
 
 const PLAYER_ID = 'B1';
-const EQUIP_CATS = ['武器', '防具', '饰品', '法宝'];
+const EQUIP_CATS = ['武器', '防具', '饰品'];
 const GEM_CAT = '宝石';
 const NPC_CATS = ['召唤物', '随从', '契约者', '土著'];
 const ITEM_CATS = ['消耗品', '材料', '工具', '重要物品', '特殊物品', '凡物', '其他物品'];
@@ -29,7 +30,11 @@ const ITEM_CATS = ['消耗品', '材料', '工具', '重要物品', '特殊物�
 export type WorkshopKindId =
   | 'skill' | 'talent' | 'title' | 'subProfession'
   | 'equipment' | 'gem' | 'item' | 'npc'
-  | 'skillTree' | 'creationTemplate';
+  | 'skillTree' | 'creationTemplate'
+  | 'paradise' | 'race';   // 角色创建专属（乐园/种族）
+
+// 角色创建模式下走「自定义内容库」的类型（乐园/种族/天赋）
+export const CREATION_TYPES: WorkshopKindId[] = ['paradise', 'race', 'talent'];
 
 export interface WorkshopMeta {
   id: string;
@@ -52,8 +57,9 @@ export interface WorkshopKindDef {
   id: WorkshopKindId;
   label: string;
   emoji: string;
-  group: '角色' | '装备' | '物品' | 'NPC' | '模板';
+  group: '角色' | '装备' | '物品' | 'NPC' | '模板' | '创建';
   categories?: string[];
+  creationOnly?: boolean;   // 仅在「角色创建」工坊里出现，普通工坊不显示
   listLocal: () => LocalEntry[];
   pack: (localId: string) => PackResult | null;
   install: (payload: any) => void;
@@ -89,6 +95,26 @@ function packInvById(id: string): PackResult | null {
 
 const ch = () => useCharacters.getState();
 const player = () => ch().characters[PLAYER_ID];
+
+/* ── 角色创建·自定义内容库（乐园/种族/天赋）：listLocal/pack/install 走 creationContentStore ── */
+const cc = () => useCreationContent.getState();
+export function ccListLocal(type: WorkshopKindId): LocalEntry[] {
+  if (type === 'paradise') return cc().paradises.map((p) => ({ id: p.id, name: p.name }));
+  if (type === 'race') return cc().races.map((r) => ({ id: r.id, name: r.name }));
+  if (type === 'talent') return cc().talents.map((t) => ({ id: t.id, name: t.name }));
+  return [];
+}
+export function ccPack(type: WorkshopKindId, id: string): PackResult | null {
+  if (type === 'paradise') { const p = cc().paradises.find((x) => x.id === id); return p ? { payload: { name: p.name, desc: p.desc }, name: p.name } : null; }
+  if (type === 'race') { const r = cc().races.find((x) => x.id === id); return r ? { payload: { name: r.name, detail: r.detail }, name: r.name } : null; }
+  if (type === 'talent') { const t = cc().talents.find((x) => x.id === id); return t ? { payload: { name: t.name, effect: t.effect }, name: t.name } : null; }
+  return null;
+}
+export function ccInstall(type: WorkshopKindId, payload: any): void {
+  if (type === 'paradise') cc().addParadise({ name: payload.name, desc: payload.desc });
+  else if (type === 'race') cc().addRace({ name: payload.name, detail: payload.detail ?? payload.raceDetail });
+  else if (type === 'talent') cc().addTalent({ name: payload.name, effect: payload.effect ?? payload.desc });
+}
 
 export const KINDS: Record<WorkshopKindId, WorkshopKindDef> = {
   skill: {
@@ -171,6 +197,18 @@ export const KINDS: Record<WorkshopKindId, WorkshopKindDef> = {
     pack: (id) => { const t = useCreationTemplates.getState().templates.find((x) => x.id === id); return t ? { payload: { name: t.name, data: t.data }, name: t.name } : null; },
     install: (payload) => { const p = payload as { name: string; data: CreationTemplateData }; useCreationTemplates.getState().addTemplate(p.name, p.data); },
   },
+  paradise: {
+    id: 'paradise', label: '乐园', emoji: '🏝', group: '创建', creationOnly: true,
+    listLocal: () => ccListLocal('paradise'),
+    pack: (id) => ccPack('paradise', id),
+    install: (payload) => ccInstall('paradise', payload),
+  },
+  race: {
+    id: 'race', label: '种族', emoji: '🧝', group: '创建', creationOnly: true,
+    listLocal: () => ccListLocal('race'),
+    pack: (id) => ccPack('race', id),
+    install: (payload) => ccInstall('race', payload),
+  },
 };
 
 export const KIND_LIST: WorkshopKindDef[] = Object.values(KINDS);
@@ -234,11 +272,12 @@ async function wsBumpDownload(id: string): Promise<number> {
 
 /* ── 高层操作 ── */
 // 安装：取 payload → 装进 store → 下载数+1 → 记账本。返回最新下载数。
-export async function installFromBackend(meta: WorkshopMeta): Promise<number> {
+export async function installFromBackend(meta: WorkshopMeta, creation = false): Promise<number> {
   const kind = kindOf(meta.type);
   if (!kind) throw new Error(`未知内容类型「${meta.type}」`);
   const full = await wsGet(meta.id);
-  kind.install(full.payload);
+  if (creation && CREATION_TYPES.includes(meta.type)) ccInstall(meta.type, full.payload);   // 角色创建：导入到自定义内容库
+  else kind.install(full.payload);
   const downloads = await wsBumpDownload(meta.id);
   useWorkshop.getState().recordInstall({
     id: meta.id, type: meta.type, name: meta.name,
@@ -262,10 +301,10 @@ export async function wsRename(newName: string): Promise<number> {
   return (await res.json()).updated ?? 0;
 }
 // 上传：把本地某条 pack 成 payload → POST。返回新 id。
-export async function uploadLocal(type: WorkshopKindId, localId: string, meta: UploadMeta): Promise<string> {
+export async function uploadLocal(type: WorkshopKindId, localId: string, meta: UploadMeta, creation = false): Promise<string> {
   const kind = kindOf(type);
   if (!kind) throw new Error(`未知类型 ${type}`);
-  const packed = kind.pack(localId);
+  const packed = (creation && CREATION_TYPES.includes(type)) ? ccPack(type, localId) : kind.pack(localId);
   if (!packed) throw new Error('没有可上传的内容');
   const author = uploaderName();
   if (!author) throw new Error('请先在「设置」里起一个工坊昵称');
