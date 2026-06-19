@@ -192,6 +192,7 @@ const API_TARGET = process.env.VITE_API_TARGET ?? 'https://api.baimeow.icu'
 
 export default defineConfig({
   plugins: [react(), copyBuiltinPresets(), buildPortraitManifest(), syncEnhanceBosses(), syncJoyGirls(), syncJoyWorldBooks(), syncCasinoDealers()],
+  build: { emptyOutDir: true },   // 始终清空 dist 再构建（防 index-*.js 历史残留堆积；从外层目录构建时 Vite 默认会跳过清空）
   server: {
     proxy: {
       // 访问 http://localhost:5173/dev-proxy/* 时自动转发到目标 API

@@ -2,6 +2,8 @@
    每次只写"内容变化的那几条"（流式时只有正在生成的 1 条在变 → 只写 1 行，不卡）。
    参考 fanren-remake 的 archiveChatMessages 增量写法。 */
 
+import { logWarn } from '../utils/log';
+
 const DB_NAME = 'drpg-chat';
 const STORE = 'messages';
 
@@ -44,7 +46,7 @@ export async function loadAll(): Promise<StoredMsg[]> {
     lastJson.clear();
     for (const m of all) lastJson.set(m.id, JSON.stringify(m));
     return all;
-  } catch { return []; }
+  } catch (e) { logWarn('chatDb.loadAll', e); return []; }   // 读失败→历史看起来空了，出声便于排查
 }
 
 /** 增量写：只写内容变化/新增的消息，删除已不存在的消息 */
@@ -63,7 +65,7 @@ export async function putChanged(messages: StoredMsg[]): Promise<void> {
       if (!seen.has(id)) { store.delete(id); lastJson.delete(id); }
     }
     await txDone(tx);
-  } catch { /* 忽略写入失败，不影响游戏 */ }
+  } catch (e) { logWarn('chatDb.putChanged', e); }   // 写失败→对话没增量落库（不阻断游戏，但出声）
 }
 
 /** 整表替换（读档时用：把存档里的对话写成当前对话）*/
@@ -77,7 +79,7 @@ export async function replaceAll(messages: StoredMsg[]): Promise<void> {
     await txDone(tx);
     lastJson.clear();
     for (const m of messages) lastJson.set(m.id, JSON.stringify(m));
-  } catch { /* ignore */ }
+  } catch (e) { logWarn('chatDb.replaceAll', e); }   // 读档整表替换失败→对话没还原
 }
 
 export async function clearAll(): Promise<void> {

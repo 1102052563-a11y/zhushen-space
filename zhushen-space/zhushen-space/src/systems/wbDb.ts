@@ -1,5 +1,7 @@
 // 世界书 / 正文世界书 / 文本预设 改存 IndexedDB（localStorage 仅 ~5MB，存不下大世界书）。
 // 只存玩家自己导入/编辑的（非 builtin）；内置项每次启动从 public/presets 重载，不入库。
+import { logWarn } from '../utils/log';
+
 const DB_NAME = 'drpg-wb';
 const STORE = 'kv';
 const KEY = 'books';
@@ -27,7 +29,7 @@ export async function loadWb(): Promise<WbBlob | null> {
       rq.onsuccess = () => resolve((rq.result as WbBlob) ?? null);
       rq.onerror = () => resolve(null);
     });
-  } catch { return null; }
+  } catch (e) { logWarn('wbDb.loadWb', e); return null; }   // 读失败→世界书没加载
 }
 
 export async function saveWb(data: WbBlob): Promise<void> {
@@ -39,12 +41,12 @@ export async function saveWb(data: WbBlob): Promise<void> {
       tx.oncomplete = () => resolve();
       tx.onerror = () => resolve();
     });
-  } catch { /* */ }
+  } catch (e) { logWarn('wbDb.saveWb', e); }   // 写失败→世界书没存进库（多为配额/大世界书）
 }
 
 export async function clearWb(): Promise<void> {
   try {
     const db = await open();
     db.transaction(STORE, 'readwrite').objectStore(STORE).delete(KEY);
-  } catch { /* */ }
+  } catch (e) { logWarn('wbDb.clearWb', e); }
 }

@@ -32,35 +32,40 @@ import { useAbyss } from '../store/abyssStore';
 import { clearJoySessions } from '../store/joyStore';
 import { logWarn } from '../utils/log';
 
-/* 纳入快照的所有持久化 store（key 必须与各 store persist 的 name 一致）*/
-const STORES: { key: string; api: any }[] = [
-  { key: 'zhushen-save-v1', api: useGame },   // gameStore(主角 HP/EP/atk/def…)用自定义 writeSave 持久化到 zhushen-save-v1(非 zustand 的 drpg-save)——必须用真实键,否则存档快照抓不到主角血蓝、读档也还原不了(2026-06-19 修)
-  { key: 'drpg-settings',   api: useSettings },
-  { key: 'drpg-items',      api: useItems },
-  { key: 'drpg-player-evo', api: usePlayer },
-  { key: 'drpg-npc',        api: useNpc },
-  { key: 'drpg-npc-chat',   api: useNpcChat },
-  { key: 'drpg-npc-evo',    api: useNpcEvo },
-  { key: 'drpg-faction',    api: useFaction },
-  { key: 'drpg-faction-evo', api: useFactionEvo },
-  { key: 'drpg-territory',   api: useTerritory },
-  { key: 'drpg-team',        api: useTeam },
-  { key: 'drpg-image-gen',   api: useImageGen },
-  { key: 'drpg-turn-insight', api: useTurnInsight },
-  { key: 'drpg-characters', api: useCharacters },
-  { key: 'drpg-memory',     api: useMemory },
-  { key: 'drpg-misc',       api: useMisc },
-  { key: 'drpg-channel',    api: useChannel },
-  { key: 'drpg-cosmos',     api: useCosmos },
-  { key: 'drpg-world-codex', api: useWorldCodex },
-  { key: 'drpg-dm',         api: useDm },
-  { key: 'drpg-fanfic',     api: useFanfic },
-  { key: 'drpg-fact',       api: useFact },
-  { key: 'drpg-combat',     api: useCombat },
-  { key: 'drpg-arena',      api: useArena },
-  { key: 'drpg-skilltree',  api: useSkillTree },
-  { key: 'drpg-casino',     api: useCasino },
-  { key: 'drpg-abyss',      api: useAbyss },
+/* ── 持久化 store 单一注册表 ──────────────────────────────────────────────
+   一份清单同时驱动「存档快照」(snapshotStores/loadSlot 读写 key 的 localStorage JSON)
+   与「新游戏清空」(clearProgress 调 clear)。加新 store 只改这一处,不再两份清单漂移。
+   - key：必须与各 store persist 的 name 一致(gameStore 例外,用自定义 writeSave 键)。
+   - clear：新游戏要清的「进度」store 才给；不给 clear 的=「配置/预设」store(settings/各 evo 预设/
+     image-gen/memory)→ 自动随新游戏保留。clear 即原 clearProgress 里对该 store 的那步,语义不变。 */
+const STORES: { key: string; api: any; clear?: () => void }[] = [
+  { key: 'zhushen-save-v1', api: useGame, clear: () => useGame.getState().hardReset() },   // gameStore(主角HP/EP/atk/def…)用自定义 writeSave 持久化到 zhushen-save-v1(非 drpg-save)——键必须真实,否则存档抓不到主角血蓝(2026-06-19 修)
+  { key: 'drpg-settings',   api: useSettings },   // 配置：新游戏保留
+  { key: 'drpg-items',      api: useItems, clear: () => useItems.getState().clearAll() },
+  { key: 'drpg-player-evo', api: usePlayer, clear: () => { usePlayer.getState().setProfile({ ...DEFAULT_PLAYER_PROFILE }); usePlayer.setState({ achievements: [] }); } },
+  { key: 'drpg-npc',        api: useNpc, clear: () => useNpc.getState().clearAll() },
+  { key: 'drpg-npc-chat',   api: useNpcChat, clear: () => useNpcChat.getState().clearAll() },
+  { key: 'drpg-npc-evo',    api: useNpcEvo },     // 预设：保留
+  { key: 'drpg-faction',    api: useFaction, clear: () => useFaction.getState().clearAll() },
+  { key: 'drpg-faction-evo', api: useFactionEvo }, // 预设：保留
+  { key: 'drpg-territory',   api: useTerritory, clear: () => useTerritory.getState().clearTerritory() },
+  { key: 'drpg-team',        api: useTeam, clear: () => useTeam.getState().clearTeam() },
+  { key: 'drpg-image-gen',   api: useImageGen },   // 配置：保留（图片走 IndexedDB 单独清）
+  { key: 'drpg-turn-insight', api: useTurnInsight, clear: () => useTurnInsight.getState().clear() },
+  { key: 'drpg-characters', api: useCharacters, clear: () => useCharacters.setState({ characters: {} }) },
+  { key: 'drpg-memory',     api: useMemory },      // 保留
+  { key: 'drpg-misc',       api: useMisc, clear: () => { const m = useMisc.getState(); m.clearMisc(); m.clearNarrativeFacts(); m.setTime({ paradiseTime: '', worldTime: '', worldName: '' }); m.setWeather(''); } },
+  { key: 'drpg-channel',    api: useChannel, clear: () => useChannel.getState().clearChannel() },
+  { key: 'drpg-cosmos',     api: useCosmos, clear: () => useCosmos.getState().clearCosmos() },
+  { key: 'drpg-world-codex', api: useWorldCodex, clear: () => useWorldCodex.getState().clearAll() },
+  { key: 'drpg-dm',         api: useDm, clear: () => useDm.getState().clearAll() },
+  { key: 'drpg-fanfic',     api: useFanfic, clear: () => useFanfic.getState().clearAll() },
+  { key: 'drpg-fact',       api: useFact, clear: () => useFact.getState().clearAll() },
+  { key: 'drpg-combat',     api: useCombat, clear: () => useCombat.getState().clearCombat() },
+  { key: 'drpg-arena',      api: useArena, clear: () => useArena.getState().clearArena() },
+  { key: 'drpg-skilltree',  api: useSkillTree, clear: () => useSkillTree.setState({ progress: {} }) },
+  { key: 'drpg-casino',     api: useCasino, clear: () => useCasino.getState().clearCasino() },
+  { key: 'drpg-abyss',      api: useAbyss, clear: () => useAbyss.getState().clearAbyss() },
 ];
 
 export interface SlotPreview { turn: number; playerName: string; location: string; lastText: string }
@@ -209,39 +214,14 @@ export async function exportSlot(id: string) {
 /** 清空全部游戏进度（不 reload），保留配置（API/世界书/预设等）。
  *  供「新游戏」与「开局角色创建」复用——后者清完再写入新角色。 */
 export async function clearProgress(): Promise<void> {
-  try { useGame.getState().hardReset(); } catch (e) { logWarn('clearProgress', e); }            // 玩家属性 → 默认
-  try { useItems.getState().clearAll(); } catch (e) { logWarn('clearProgress', e); }            // 背包/货币
-  try { useNpc.getState().clearAll(); } catch (e) { logWarn('clearProgress', e); }              // NPC 档案（含其技能词条）
-  try { useNpcChat.getState().clearAll(); } catch (e) { logWarn('clearProgress', e); }          // NPC 私聊缓存（对话+交互描述）
-  try { useFaction.getState().clearAll(); } catch (e) { logWarn('clearProgress', e); }          // 势力档案
-  try { useTerritory.getState().clearTerritory(); } catch (e) { logWarn('clearProgress', e); }  // 领地记录（保留预设/API 配置）
-  try { useTeam.getState().clearTeam(); } catch (e) { logWarn('clearProgress', e); }            // 冒险团记录（保留预设/API 配置）
-  try { useTurnInsight.getState().clear(); } catch (e) { logWarn('clearProgress', e); }         // 回合洞察快照
-  try { useChannel.getState().clearChannel(); } catch (e) { logWarn('clearProgress', e); }      // 公共频道消息（保留预设/API 配置）
-  try { useCosmos.getState().clearCosmos(); } catch (e) { logWarn('clearProgress', e); }        // 万族棋盘（保留预设/API 配置；新游戏后下次演化会按种子模式重新播种）
-  try { useWorldCodex.getState().clearAll(); } catch (e) { logWarn('clearProgress', e); }       // 世界百科情报缓存（保留启用/API 路由）
-  try { useDm.getState().clearAll(); } catch (e) { logWarn('clearProgress', e); }               // 私信会话
-  try { useFanfic.getState().clearAll(); } catch (e) { logWarn('clearProgress', e); }           // 同人角色设定缓存
-  try { useFact.getState().clearAll(); } catch (e) { logWarn('clearProgress', e); }             // 事实锚点缓存
-  try { useCombat.getState().clearCombat(); } catch (e) { logWarn('clearProgress', e); }        // 战斗运行态（保留预设/API 配置）
-  try { useArena.getState().clearArena(); } catch (e) { logWarn('clearProgress', e); }          // 竞技场榜单/击败记录/挑战（保留 API 配置）
-  try { useCasino.getState().clearCasino(); } catch (e) { logWarn('clearProgress', e); }        // 赌坊筹码/战绩/流水（保留限红/抽水等配置）
-  try { useAbyss.getState().clearAbyss(); } catch (e) { logWarn('clearProgress', e); }          // 深渊地牢 进行局 + meta（结晶/通关/觉醒充能/卡牌库）
-  try { useSkillTree.setState({ progress: {} }); } catch (e) { logWarn('clearProgress', e); }   // 技能树解锁进度/潜能点（保留 trees 模板库）
-  try { clearJoySessions(); } catch (e) { logWarn('clearProgress', e); }                        // 欢愉宫情欲值/私密/聊天（保留名册/预设/API 配置）
-  try { useCharacters.setState({ characters: {} }); } catch (e) { logWarn('clearProgress', e); }// 主角+全部角色技能/词条/称号/记忆
-  try {
-    usePlayer.getState().setProfile({ ...DEFAULT_PLAYER_PROFILE }); // 主角档案
-    usePlayer.setState({ achievements: [] });                       // 成就清空
-  } catch (e) { logWarn('clearProgress', e); }
-  try {
-    const m = useMisc.getState();
-    m.clearMisc();                 // 任务/世界大事/大小总结
-    m.clearNarrativeFacts();       // 长期事实
-    m.setTime({ paradiseTime: '', worldTime: '', worldName: '' });
-    m.setWeather('');
-  } catch (e) { logWarn('clearProgress', e); }
-  try { await clearAllImg(); } catch (e) { logWarn('clearProgress', e); }  // 清空 IndexedDB 里的头像/装备图
+  // 各「进度」store 清空 → 从单一注册表 STORES 派生（带 clear 的才清；config/预设 store 无 clear 故自动保留）。
+  // 「保存」与「清空」共用同一份 STORES，加新 store 只改一处，杜绝两份清单漂移。
+  for (const s of STORES) {
+    if (s.clear) { try { s.clear(); } catch (e) { logWarn(`clearProgress:${s.key}`, e); } }
+  }
+  // 不入存档快照 / 走 IndexedDB 的额外清理：
+  try { clearJoySessions(); } catch (e) { logWarn('clearProgress:joy', e); }      // 欢愉宫情欲值/私密/聊天（独立 store，不入快照；保留名册/预设/API）
+  try { await clearAllImg(); } catch (e) { logWarn('clearProgress:images', e); }  // IndexedDB 头像/装备图
   // 注：不在此清向量库（drpg-factvec）——它是全局内容寻址缓存，清了会误伤其它存档的向量索引；
   // 残留向量不会污染任何档（召回只在当前档事实池内 cosine）。想回收空间用设置→向量记忆的「清空向量库」按钮。
   await replaceChat([]);           // 对话历史

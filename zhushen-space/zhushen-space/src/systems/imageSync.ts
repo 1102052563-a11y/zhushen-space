@@ -2,6 +2,7 @@ import { usePlayer } from '../store/playerStore';
 import { useNpc } from '../store/npcStore';
 import { useItems } from '../store/itemStore';
 import * as imageDb from './imageDb';
+import { logWarn } from '../utils/log';
 
 /* ════════════════════════════════════════════
    图片同步：把各 store 内存里的 avatar/image（dataURL）镜像到 IndexedDB；
@@ -35,8 +36,8 @@ let timer: ReturnType<typeof setTimeout> | null = null;
 function syncNow(): void {
   const cur = collect();
   // 新增/变化 → put；消失 → del
-  for (const [k, v] of cur) if (last.get(k) !== v) imageDb.putImg(k, v).catch(() => {});
-  for (const k of last.keys()) if (!cur.has(k)) imageDb.delImg(k).catch(() => {});
+  for (const [k, v] of cur) if (last.get(k) !== v) imageDb.putImg(k, v).catch((e) => logWarn('imageSync.putImg', e));   // 写失败(多为配额)→图没落库,出声方便排查
+  for (const k of last.keys()) if (!cur.has(k)) imageDb.delImg(k).catch((e) => logWarn('imageSync.delImg', e));
   last = cur;
 }
 function scheduleSync(): void {
@@ -48,7 +49,7 @@ function scheduleSync(): void {
     并把 store 里现有的图（可能来自旧版 localStorage）迁移进 IndexedDB，避免被 partialize 抹掉后丢失。*/
 export async function hydrateImages(): Promise<void> {
   let all: Record<string, string> = {};
-  try { all = await imageDb.getAllImg(); } catch { /* */ }
+  try { all = await imageDb.getAllImg(); } catch (e) { logWarn('imageSync.hydrate', e); }   // 读失败→图回填不了(全没图),不该静默
   if (!all || Object.keys(all).length === 0) {
     // IndexedDB 为空：把 store 现有图（旧 localStorage 迁移过来的）全量写入 IndexedDB
     last = new Map();
