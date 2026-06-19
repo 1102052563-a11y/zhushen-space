@@ -7,6 +7,7 @@
 //
 // 两种安全模型：
 //   • AI Studio = 无状态多租户：网关不存 key，凭据由每个请求自带 → 你部署一次，别人各填自己的 key，谁都不用再部署。
+//                 apiKey 可填多个（逗号/空格/换行分隔）→ 每请求轮换起点，遇 429/401/403 自动切下一个 key（叠加免费额度）。
 //   • Vertex    = 锁定单租户：服务账号(SA) 只从 env.VERTEX_SA_JSON 读（放本地 .dev.vars，跑 wrangler dev）。
 //                 公开部署不配 SA → Vertex 自动关闭；只有你本地能用，SA 永不离开你的机器。可选 VERTEX_GATE 口令再加一道闸。
 // 变量：VERTEX_LOCATION（默认 global）；机密：VERTEX_SA_JSON、VERTEX_GATE（仅本地 .dev.vars）。
@@ -22,29 +23,49 @@ function json(obj, init = {}, headers = {}) {
 function bearer(request) {
   return (request.headers.get('Authorization') || '').replace(/^Bearer\s+/i, '').trim();
 }
+// apiKey 字段可填多个 key（逗号/空格/换行分隔）→ 拆成数组
+function splitKeys(s) {
+  return String(s || '').split(/[\s,]+/).map((x) => x.trim()).filter(Boolean);
+}
+// 轮换：每次请求换一个起点（round-robin），其余作为失败兜底顺序
+let _rr = 0;
+function orderedKeys(keys) {
+  if (keys.length <= 1) return keys.slice();
+  const start = (_rr++) % keys.length;
+  return keys.slice(start).concat(keys.slice(0, start));
+}
+// 该不该换下一个 key 再试：限额(429)/无权限(401/403)，或某个 key 本身无效(400 API_KEY_INVALID)。
+// 其它错误（如 400 模型/参数错、5xx 服务端）换 key 也没用 → 直接返回。
+function shouldTryNextKey(status, text) {
+  if (status === 429 || status === 401 || status === 403) return true;
+  if (status === 400 && /api[_ ]?key|API_KEY_INVALID|not valid/i.test(text || '')) return true;
+  return false;
+}
 function staticModels() {
   return { object: 'list', data: MODELS.map((id) => ({ id, object: 'model', owned_by: 'google' })) };
 }
 // AI Studio：用调用方自带 key 动态拉取 Google 全量模型（原生 /v1beta/models，最可靠）；只筛支持 generateContent 的
-// 失败直接回报错（而不是悄悄给精选），方便定位；只有「没填 key」时才回退精选清单。
+// 多 key 时逐个轮换尝试；失败直接回报错（而不是悄悄给精选），方便定位；只有「没填 key」时才回退精选清单。
 async function aiStudioModels(request, cors) {
-  const key = bearer(request);
-  if (!key) return json(staticModels(), {}, cors);
-  try {
-    const r = await fetch(`https://generativelanguage.googleapis.com/v1beta/models?pageSize=1000&key=${encodeURIComponent(key)}`);
-    if (!r.ok) {
-      const t = await r.text().catch(() => '');
-      return json({ error: { message: `拉取模型失败 HTTP ${r.status}: ${t.replace(/\s+/g, ' ').slice(0, 220)}` } }, { status: r.status }, cors);
-    }
-    const j = await r.json();
-    const data = (j.models || [])
-      .filter((m) => (m.supportedGenerationMethods || []).some((x) => /generateContent/i.test(x)))
-      .map((m) => ({ id: String(m.name || '').replace(/^models\//, ''), object: 'model', owned_by: 'google' }))
-      .filter((m) => m.id);
-    return json({ object: 'list', data: data.length ? data : staticModels().data }, {}, cors);
-  } catch (e) {
-    return json({ error: { message: '拉取模型异常：' + String((e && e.message) || e) } }, { status: 502 }, cors);
+  const keys = splitKeys(bearer(request));
+  if (!keys.length) return json(staticModels(), {}, cors);
+  let last = 0, lastText = '';
+  for (const k of orderedKeys(keys)) {
+    try {
+      const r = await fetch(`https://generativelanguage.googleapis.com/v1beta/models?pageSize=1000&key=${encodeURIComponent(k)}`);
+      if (r.ok) {
+        const j = await r.json();
+        const data = (j.models || [])
+          .filter((m) => (m.supportedGenerationMethods || []).some((x) => /generateContent/i.test(x)))
+          .map((m) => ({ id: String(m.name || '').replace(/^models\//, ''), object: 'model', owned_by: 'google' }))
+          .filter((m) => m.id);
+        return json({ object: 'list', data: data.length ? data : staticModels().data }, {}, cors);
+      }
+      last = r.status; lastText = await r.text().catch(() => '');
+      if (!shouldTryNextKey(r.status, lastText)) break;   // 非 key 问题就别换了
+    } catch (e) { last = 502; lastText = String((e && e.message) || e); }
   }
+  return json({ error: { message: `拉取模型失败 HTTP ${last}: ${lastText.replace(/\s+/g, ' ').slice(0, 220)}` } }, { status: last || 502 }, cors);
 }
 
 /** 网关总入口：按子路径分流到 AI Studio / Vertex */
@@ -67,17 +88,26 @@ export async function handleGateway(request, env, cors) {
 
 /* ─────────────── AI Studio：透传到官方 OpenAI 兼容端点（用调用方自带的 key）─────────────── */
 async function proxyAiStudio(request, env, cors) {
-  const key = bearer(request);
-  if (!key) return json({ error: { message: '请在该接口的 apiKey 填入你自己的 AI Studio key' } }, { status: 401 }, cors);
-  const upstream = await fetch('https://generativelanguage.googleapis.com/v1beta/openai/chat/completions', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${key}` },
-    body: await request.text(), // 已是 OpenAI 格式，原样转发
-  });
-  const h = new Headers(cors);
-  h.set('Content-Type', upstream.headers.get('Content-Type') || 'application/json');
-  h.set('Cache-Control', 'no-cache');
-  return new Response(upstream.body, { status: upstream.status, headers: h });
+  const keys = splitKeys(bearer(request));
+  if (!keys.length) return json({ error: { message: '请在该接口的 apiKey 填入你自己的 AI Studio key（多个用逗号/空格分隔，自动轮换）' } }, { status: 401 }, cors);
+  const body = await request.text(); // 已是 OpenAI 格式；读成字符串以便对多个 key 重试
+  let last = 0, lastText = '';
+  for (const k of orderedKeys(keys)) {     // 轮换起点 + 限额(429)/无效(401/403)自动切下一个 key
+    const upstream = await fetch('https://generativelanguage.googleapis.com/v1beta/openai/chat/completions', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${k}` },
+      body,
+    });
+    if (upstream.ok) {
+      const h = new Headers(cors);
+      h.set('Content-Type', upstream.headers.get('Content-Type') || 'application/json');
+      h.set('Cache-Control', 'no-cache');
+      return new Response(upstream.body, { status: upstream.status, headers: h });
+    }
+    last = upstream.status; lastText = await upstream.text().catch(() => '');
+    if (!shouldTryNextKey(upstream.status, lastText)) break;   // 非 key/限额问题，换 key 也没用
+  }
+  return json({ error: { message: `${keys.length} 个 key 均失败（最后 HTTP ${last}: ${lastText.replace(/\s+/g, ' ').slice(0, 200)}）` } }, { status: last || 502 }, cors);
 }
 
 /* ─────────────── Vertex：用调用方自带的服务账号 JSON 鉴权 + OpenAI⇄Gemini 互转 ─────────────── */

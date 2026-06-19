@@ -1997,6 +1997,36 @@ function GlobalRegexSection() {
 /* ════════════════════════════════════════════
    综合设置
 ════════════════════════════════════════════ */
+/* AI Studio 网关接口的多 key 编辑器：一行一个，可加可删；内部以逗号拼回单串存储（HTTP header 安全，网关按逗号/空格拆分轮换） */
+function ApiKeyEditor({ value, onChange, inputCls }: { value: string; onChange: (v: string) => void; inputCls: string }) {
+  const [rows, setRows] = useState<string[]>(() => {
+    const p = (value || '').split(/[\s,]+/).map((s) => s.trim()).filter(Boolean);
+    return p.length ? p : [''];
+  });
+  const commit = (next: string[]) => {
+    setRows(next);
+    onChange(next.map((r) => r.trim()).filter(Boolean).join(','));
+  };
+  return (
+    <div className="space-y-1.5">
+      {rows.map((row, i) => (
+        <div key={i} className="flex items-center gap-1.5">
+          <span className="text-[11px] font-mono text-dim/30 w-3.5 text-right shrink-0">{i + 1}</span>
+          <input type="password" value={row} placeholder={`第 ${i + 1} 个 key（AIza…）`}
+            onChange={(e) => { const r = [...rows]; r[i] = e.target.value; commit(r); }}
+            className={inputCls + ' flex-1'} />
+          {rows.length > 1 && (
+            <button onClick={() => { const r = rows.filter((_, idx) => idx !== i); commit(r.length ? r : ['']); }}
+              title="删除这个 key" className="text-dim/40 hover:text-blood px-1 shrink-0 text-base leading-none">×</button>
+          )}
+        </div>
+      ))}
+      <button onClick={() => commit([...rows, ''])}
+        className="text-[12px] font-mono text-god/80 hover:text-god transition-colors">+ 添加 key</button>
+    </div>
+  );
+}
+
 /* API 接口库：统一维护多条 LLM 接口，各功能可在其 API 设置里「快捷填入」 */
 function ApiLibrarySection() {
   const library = useSettings((s) => s.apiLibrary);
@@ -2078,7 +2108,14 @@ function ApiLibrarySection() {
               <div className="mt-2 pl-6 space-y-2">
                 <label className="space-y-1 block"><span className="text-[12px] font-mono text-dim/50">名称</span><input value={ep.name} onChange={(e) => update(ep.id, { name: e.target.value })} className={inputCls} /></label>
                 <label className="space-y-1 block"><span className="text-[12px] font-mono text-dim/50">接口地址</span><input value={ep.baseUrl} onChange={(e) => update(ep.id, { baseUrl: e.target.value })} placeholder="https://api.openai.com/v1" className={inputCls} /></label>
-                <label className="space-y-1 block"><span className="text-[12px] font-mono text-dim/50">API Key</span><input type="password" value={ep.apiKey} onChange={(e) => update(ep.id, { apiKey: e.target.value })} placeholder="sk-..." className={inputCls} /></label>
+                {(ep.baseUrl || '').includes('/api/gw/aistudio') ? (
+                  <div className="space-y-1">
+                    <span className="text-[12px] font-mono text-dim/50 block">API Key<span className="text-dim/30"> · 一行一个，网关自动轮换 + 限额(429)自动切换</span></span>
+                    <ApiKeyEditor value={ep.apiKey} onChange={(v) => update(ep.id, { apiKey: v })} inputCls={inputCls} />
+                  </div>
+                ) : (
+                  <label className="space-y-1 block"><span className="text-[12px] font-mono text-dim/50">API Key</span><input type="password" value={ep.apiKey} onChange={(e) => update(ep.id, { apiKey: e.target.value })} placeholder="sk-..." className={inputCls} /></label>
+                )}
                 <div className="space-y-1">
                   <span className="text-[12px] font-mono text-dim/50">模型 ID</span>
                   <div className="flex gap-2">

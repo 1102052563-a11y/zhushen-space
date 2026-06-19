@@ -757,9 +757,9 @@ export default function BackpackModal({
       <div className="w-full max-w-5xl h-[88vh] flex flex-col rounded-2xl border border-edge bg-void shadow-[0_0_60px_rgba(0,0,0,0.8)] overflow-hidden">
 
         {/* ── 顶部标题栏 ── */}
-        <header className="shrink-0 flex items-center gap-3 px-5 py-3 border-b border-edge bg-panel">
-          <span className="text-god/60 text-lg">🎒</span>
-          <div>
+        <header className="shrink-0 flex flex-wrap items-center gap-3 max-lg:gap-2 px-5 max-lg:px-3 py-3 border-b border-edge bg-panel">
+          <span className="text-god/60 text-lg shrink-0">🎒</span>
+          <div className="shrink-0">
             <div className="text-sm font-bold text-slate-100">储存空间</div>
             <div className="text-[12px] font-mono text-dim/60">
               共 {items.length} 件 · 已装备 {items.filter(i => i.equipped).length} 件
@@ -767,7 +767,7 @@ export default function BackpackModal({
           </div>
 
           {/* 搜索 */}
-          <div className="flex-1 flex items-center gap-1.5 bg-panel2 border border-edge rounded-lg px-3 py-1.5 focus-within:border-god/40 transition-colors ml-4">
+          <div className="flex-1 min-w-0 flex items-center gap-1.5 bg-panel2 border border-edge rounded-lg px-3 py-1.5 focus-within:border-god/40 transition-colors ml-4 max-lg:ml-0 max-lg:basis-full">
             <span className="text-dim/40 text-sm">🔍</span>
             <input
               value={searchQ}

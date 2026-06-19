@@ -79,6 +79,7 @@ import { apiChatFallback } from './systems/apiChat';
 import { parseAllStateUpdates, stripStateBlocks, parseAllItemCommands, applyItemCommands, parseAllCharCommands, applyCharacterCommands, parseAllNpcCommands, applyNpcCommands, parseAllFactionCommands, applyFactionCommands, applyTerritoryCommands, applyTeamCommands, isEquippable, lenientJsonParse } from './systems/stateParser';
 import { isRealNpc, ATTR_GROWTH_RE, setNpcPreferredOwners, applyStateUpdates, applyAllUpdates, stripKillBlocks, stripVitalsBlocks, stripWorldSourceBlocks, collapseRunaway } from './systems/stateApply';
 import { flattenAiText } from './systems/flattenAiText';
+import { runPhasePipeline, type Phase } from './systems/phasePipeline';
 import { parseWeather, isLightSky, extractWeatherFxCss, sanitizeWeatherCss } from './systems/weatherFx';
 import { useCombat, newLogId, type BattleState, type CombatStatBlock, type Side, type CombatActionKind } from './store/combatStore';
 import { buildCombatant, assembleBattle, settleAction, advanceTurn, checkEnd, currentActorId, aliveIds, makeActionLog, playerControlled, setMpCombatItems, clearMpCombatItems, rollInitiative } from './systems/combatEngine';
@@ -6056,48 +6057,38 @@ ${lines}`;
     const mpEx = mpHostExcludeRule();
     // 收集会改「回合洞察」快照变量的阶段(主角/物品/对账·NPC·势力)的 promise，全部 settle 后再抓快照，比固定 20s 估时更准
     const snapTurn = turnCountRef.current;
-    const settleWaiters: Promise<any>[] = [];
-    // 物品 / 主角演化（各自并发跑），跑完后合并成【一次】综合对账纠错
+    const onCombat = () => { if (combatSettled) applyCombatVitals(combatSettled); };   // 战斗回合：演化跑完把 HP 压回战斗结算值（防复盘重复扣血）
     const dueItem = due('item'), duePlayer = due('player');
-    const itemP = dueItem ? runItemManagementPhase(narr('item') + mpEx) : Promise.resolve();
-    const playerP = duePlayer ? runPlayerEvolutionPhase(narr('player')) : Promise.resolve();
-    if (dueItem || duePlayer) {
-      settleWaiters.push(
-        Promise.allSettled([itemP, playerP])
-          .then(() => runMergedAuditPhase(narrative, { player: duePlayer, item: dueItem }))
-          .then(() => { if (combatSettled) applyCombatVitals(combatSettled); })   // 对账若据复盘再扣 HP → 压回战斗结算值
-      );
-    }
-    // NPC 演化（内部自行判断启用/API/策略）
-    if (due('npc')) { const npcEvoP = Promise.resolve(runNpcEvolutionPhase(narr('npc') + mpEx)); settleWaiters.push(npcEvoP); if (combatSettled) npcEvoP.then(() => applyCombatVitals(combatSettled)); }
-    // 势力演化
-    if (due('faction')) settleWaiters.push(Promise.resolve(runFactionEvolutionPhase(narr('faction'))));
-    // 领地演化（单一基地）
-    if (due('territory')) runTerritoryEvolutionPhase(narr('territory'));
-    // 冒险团演化（仅主角单一冒险团）
-    if (due('team')) runTeamEvolutionPhase(narr('team'));
-    // 万族演化（宇宙背景层：七乐园/万族/文明/原生世界/神灵/深渊）
-    if (due('cosmos')) runCosmosEvolutionPhase(narr('cosmos'));
-    // 生平压缩：达阈值才会真正调用 AI，不走回合门控
-    runMemoryCompressionPhase();
-    // 杂项演化（总结/双时间/天气/世界大事/任务）
-    if (due('misc')) runMiscEvolutionPhase(narr('misc'));
-    // 叙事记忆·回复后写入：LLM 抽取长期事实
-    if (due('nm')) runNarrativeIngestPhase(lastUserInputRef.current, narr('nm'));
-    // 剧情选项 + 同人增强：正文后共用一个 API、只调用一次（受各自开关门控，不阻塞其它演化）
-    runChoicesFanficPhase(narrative, assistantMsgId);
-    // 上述会改快照变量的阶段全部 settle 后抓「回合洞察」快照；若已被新回合取代(turn 变了)则跳过，避免写到错误回合（20s 定时器仍作兜底，同回合覆盖）
-    Promise.allSettled(settleWaiters).then(() => {
-      if (turnCountRef.current !== snapTurn) return;   // 已被新回合取代→跳过，避免把旧值写到新回合
-      // 非战斗回合：以正文末尾「当前HP/EP：X/Y」为**最终权威**——所有演化阶段(主角/物品/NPC/对账)跑完后再压回一次主角+NPC 的 HP/EP，
-      // 纠正"演化阶段把正文已结算好的血量再扣一遍/改写"导致面板与正文末尾对不上的问题。(战斗回合以战斗结算值为准，上面已 applyCombatVitals。)
+    // ── 演化阶段·声明式表（加阶段/调顺序/开关 gate/依赖都改这里；调度器见 systems/phasePipeline）──
+    //   awaitForSnapshot=会改「回合洞察」快照变量的阶段，抓快照前需等它们 settle；delayMs=延后启动（生图等演化先写档）。
+    const phases: Phase[] = [
+      // 物品 / 主角各自并发，两者 settle 后合并成【一次】综合对账纠错（audit 依赖 item+player）
+      { key: 'item',      enabled: dueItem,             awaitForSnapshot: true, run: () => runItemManagementPhase(narr('item') + mpEx) },
+      { key: 'player',    enabled: duePlayer,           awaitForSnapshot: true, run: () => runPlayerEvolutionPhase(narr('player')) },
+      { key: 'audit',     enabled: dueItem || duePlayer, deps: ['item', 'player'], awaitForSnapshot: true,
+        run: () => runMergedAuditPhase(narrative, { player: duePlayer, item: dueItem }), onDone: onCombat },
+      { key: 'npc',       enabled: due('npc'),          awaitForSnapshot: true, run: () => runNpcEvolutionPhase(narr('npc') + mpEx), onDone: onCombat },
+      { key: 'faction',   enabled: due('faction'),      awaitForSnapshot: true, run: () => runFactionEvolutionPhase(narr('faction')) },
+      { key: 'territory', enabled: due('territory'),    run: () => runTerritoryEvolutionPhase(narr('territory')) },
+      { key: 'team',      enabled: due('team'),         run: () => runTeamEvolutionPhase(narr('team')) },
+      { key: 'cosmos',    enabled: due('cosmos'),       run: () => runCosmosEvolutionPhase(narr('cosmos')) },
+      { key: 'memory',    enabled: true,                run: () => runMemoryCompressionPhase() },   // 内部按阈值判定，不走回合门控
+      { key: 'misc',      enabled: due('misc'),         run: () => runMiscEvolutionPhase(narr('misc')) },
+      { key: 'nm',        enabled: due('nm'),           run: () => runNarrativeIngestPhase(lastUserInputRef.current, narr('nm')) },
+      { key: 'choices',   enabled: true,                run: () => runChoicesFanficPhase(narrative, assistantMsgId) },   // 内部各自开关门控
+      // 生图：延后约 6s 等演化先写档；正文配图需有楼层 id
+      { key: 'portrait',  enabled: true, delayMs: 6000, run: () => runPortraitPhase() },
+      { key: 'equipImg',  enabled: true, delayMs: 6000, run: () => runEquipImagePhase() },
+      { key: 'storyImg',  enabled: assistantMsgId != null, run: () => runStoryImagePhase(narrative, assistantMsgId!) },
+    ];
+    const pipe = runPhasePipeline(phases);
+    // 会改快照变量的阶段全部 settle 后抓「回合洞察」快照；若已被新回合取代则跳过（20s 定时器仍兜底，同回合覆盖）
+    pipe.snapshotReady.then(() => {
+      if (turnCountRef.current !== snapTurn) return;
+      // 非战斗回合：以正文末尾「当前HP/EP：X/Y」为**最终权威**——演化阶段全跑完后再压回一次主角+NPC 的 HP/EP，纠正演化把血量改写导致面板与正文末尾对不上。(战斗回合以战斗结算值为准。)
       if (!combatSettled) { try { applyNarrativeVitals(narrative); applyNarrativeNpcVitals(narrative); } catch (e) { console.warn('[Vitals] settle 后压回失败', e); } }
       try { captureTurnSnapshot(); } catch (e) { console.warn('[Insight] settle 后抓快照失败', e); }
     });
-    // 生图·肖像/装备自动化：受各自开关门控，独立并发（依赖 NPC/物品演化已写档，故延后触发）
-    setTimeout(() => { runPortraitPhase(); runEquipImagePhase(); }, 6000);   // 延后约 6s 等演化先写档；肖像可用名字/阶位翻译、装备不再强求 appearance，故无需久等
-    // 生图·正文配图：受 autoStory 门控，挂到本楼层
-    if (assistantMsgId != null) runStoryImagePhase(narrative, assistantMsgId);
   }
 
   async function callApi(userText: string, extraHistory: ChatMessage[] = []) {
@@ -6428,8 +6419,11 @@ ${lines}`;
 
   /* 记录回退点：每次发送前，把"上一回合结束时"的完整状态（所有演化 store + 对话 + 图）存到固定槽，供回退/重新生成 */
   async function captureUndoPoint() {
-    try { await saveSlot(UNDO_ID, '↩ 回退点', messagesRef.current); setCanUndo(true); }
-    catch (e) { console.warn('[Undo] 记录回退点失败:', e); }
+    try { await saveSlot(UNDO_ID, '↩ 回退点', messagesRef.current); setCanUndo(true); return; }
+    catch (e) { console.warn('[Undo] 记录回退点失败(含图)，降级重试:', e); }
+    // 降级：不打包图片再存一次（大图往往是 IndexedDB 配额超限主因）。状态/对话仍可回退，仅图片不随本次回退还原。
+    try { await saveSlot(UNDO_ID, '↩ 回退点', messagesRef.current, false); setCanUndo(true); }
+    catch (e) { console.warn('[Undo] 记录回退点失败:', e); setGenError('记录回退点失败，"回退/重新生成"暂不可用（可能浏览器存储空间已满）'); setTimeout(() => setGenError(''), 6000); }
   }
   function stopGeneration() { abortRef.current?.abort(); }
   /* 回退到上一回合：恢复所有演化/对话/图到发送本回合之前（整页 reload）*/

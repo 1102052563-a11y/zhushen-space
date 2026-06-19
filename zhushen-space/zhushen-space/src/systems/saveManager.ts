@@ -100,7 +100,7 @@ function buildPreview(messages: any[]): SlotPreview {
 }
 
 /* 新建或覆盖一个存档槽 */
-export async function saveSlot(id: string | null, name: string, messages: any[]): Promise<string> {
+export async function saveSlot(id: string | null, name: string, messages: any[], includeImages = true): Promise<string> {
   const now = Date.now();
   const realId = id ?? `slot_${now}`;
   const existing = id ? await saveDb.get<SaveSlot>(id) : null;
@@ -111,7 +111,8 @@ export async function saveSlot(id: string | null, name: string, messages: any[])
     createdAt: existing?.createdAt ?? now,
     updatedAt: now,
     preview: buildPreview(messages),
-    data: { stores: snapshotStores(), messages, images: snapshotImages() },   // 图片(IndexedDB)取内存最新快照打包进存档
+    // 图片(IndexedDB)取内存最新快照打包进存档；includeImages=false 时不打包——降级用，避免大图把整次保存撑爆 IndexedDB 配额而失败
+    data: { stores: snapshotStores(), messages, ...(includeImages ? { images: snapshotImages() } : {}) },
   };
   await saveDb.put(slot);
   return realId;
@@ -165,8 +166,9 @@ export async function loadSlot(id: string): Promise<boolean> {
     if (typeof v === 'string') localStorage.setItem(key, mergeKeepApi(key, v));   // API 配置不随存档回滚
     else if (key !== 'zhushen-save-v1') localStorage.removeItem(key);   // 存档快照里没有的 store（多为存档创建时尚不存在的较新功能，如技能树/潜能点）→ 清掉本地残留，让其 reload 后回到默认；否则上一局的进度（如潜能点）会泄漏进读入的旧档。**例外 zhushen-save-v1(主角HP/EP)**：旧档(改键前创建)没存它，清掉会把当前血蓝抹成默认，保留当前值（已由 setPlayerField 持久化）
   }
-  // 图片：覆盖 IndexedDB（reload 后由 hydrateImages 回填到各 store）
-  try { await clearAllImg(); if (slot.data.images) await bulkPutImg(slot.data.images); } catch (e) { logWarn('saveManager.loadSlot.images', e); }
+  // 图片：覆盖 IndexedDB（reload 后由 hydrateImages 回填到各 store）。
+  // 仅当快照带了图片才清+写；不带图片的快照（如降级保存的回退点）保留现有图片，避免回退把图全清掉。
+  try { if (slot.data.images) { await clearAllImg(); await bulkPutImg(slot.data.images); } } catch (e) { logWarn('saveManager.loadSlot.images', e); }
   await replaceChat(slot.data.messages ?? []);   // 覆盖当前对话为存档对话
   // 读「用户存档」会让回退点失效：它仍指向读档前那条时间线（不同的对话/演化），
   // 留着会导致读档后点「回退/重新生成」跳回另一条时间线（表现为"回退不生效/乱跳"）。
