@@ -54,6 +54,68 @@ export function gradeToNum(grade?: string): number {
   return 1;
 }
 
+/** 评分(score) → 物品档位(1-14)。区间同 ITEM_GRADE_TABLE_RULE；非法/缺失返回 0。
+ *  创世(15)为旧版神话档，不由评分自动落档（8000+ 落永恒14）。*/
+export function scoreToGradeNum(score?: number | string): number {
+  const n = typeof score === 'number' ? score : parseFloat(String(score ?? '').replace(/[^\d.]/g, ''));
+  if (!isFinite(n) || n <= 0) return 0;
+  if (n <= 10) return 1;
+  if (n <= 30) return 2;
+  if (n <= 70) return 3;
+  if (n <= 150) return 4;
+  if (n <= 260) return 5;
+  if (n <= 310) return 6;
+  if (n <= 400) return 7;
+  if (n <= 530) return 8;
+  if (n <= 700) return 9;
+  if (n <= 1000) return 10;
+  if (n <= 1500) return 11;
+  if (n <= 3000) return 12;
+  if (n <= 8000) return 13;
+  return 14;
+}
+
+/** 技能/天赋品级词（普通/精良/稀有/奥义/极境）——绝不该出现在物品 gradeDesc 里。 */
+const SKILL_GRADE_WORDS = ['普通', '精良', '稀有', '奥义', '极境'];
+// 物品 15 档全部拼写（长名/具体名在前，避免「暗金」被「金」抢匹配）。
+const TIER_ALT =
+  '暗紫色|暗紫|暗金|淡金|金色|创世|永恒|起源|不朽级|不朽|圣灵级|圣灵|史诗级|史诗|传说级|传说|白色|绿色|蓝色|紫色|白|绿|蓝|紫|金';
+// 「档名 + 分隔符 + 档名」复合品级（如「紫色/史诗」「暗金·史诗级」）；两端用边界/分隔约束，
+// 避免把描述里的品级字（如「暗金·金属之心」的「金属」）误判成第二个档。
+const COMPOSITE_GRADE_RE = new RegExp(
+  `(?<=^|[\\s/／、,，·•])(${TIER_ALT})\\s*[/／、,，·•]\\s*(${TIER_ALT})(?=$|[\\s/／、,，·•])`,
+);
+function gradeNumFromOpt(grade?: number | string): number {
+  const n = typeof grade === 'number' ? grade : parseInt(String(grade ?? ''), 10);
+  return Number.isFinite(n) && n >= 1 && n <= 15 ? n : 0;
+}
+
+/** 把物品品级文字收敛成【单一档】（ITEM_GRADE_TABLE_RULE「一物一档」铁则的纯前端护栏）：
+ *  ① 剥离误用的技能/天赋品级词（普通/精良/稀有/奥义/极境）；
+ *  ② 折叠「紫色/史诗」这类复合品级 → 一个档名：评分(score)优先 → numeric.grade → 取较低档（防越级爆品）。
+ *  单一档（含「紫色·带3条词缀」这类合法描述后缀）原样保留。确定性、无 API。*/
+export function normalizeGradeLabel(
+  gradeDesc?: string,
+  opts?: { score?: number | string; grade?: number | string },
+): { grade: string; changed: boolean } {
+  const original = String(gradeDesc ?? '').trim();
+  if (!original) return { grade: original, changed: false };
+  let g = original;
+  // ① 剥离技能/天赋品级词（连同其前导分隔符）
+  for (const w of SKILL_GRADE_WORDS) g = g.replace(new RegExp(`[\\s/／、,，·•]*${w}`, 'g'), '');
+  // ② 折叠复合品级（可能叠写三档以上，循环到收敛；每轮 tier-token 数严格减少必终止）
+  for (let m = COMPOSITE_GRADE_RE.exec(g); m; m = COMPOSITE_GRADE_RE.exec(g)) {
+    const pick =
+      scoreToGradeNum(opts?.score) || gradeNumFromOpt(opts?.grade) || Math.min(gradeToNum(m[1]), gradeToNum(m[2]));
+    const name = ITEM_GRADES[pick - 1] ?? m[1];
+    g = g.slice(0, m.index) + name + g.slice(m.index + m[0].length);
+  }
+  // 清理剥离/折叠后残留的首尾分隔符
+  g = g.replace(/^[\s/／、,，·•]+|[\s/／、,，·•]+$/g, '').trim();
+  if (!g) g = original; // 防清空：万一全被剥掉，回退原值
+  return { grade: g, changed: g !== original };
+}
+
 /** 镶嵌孔系统上限（任何装备孔位都不超过这个数）*/
 export const MAX_SOCKETS = 6;
 /** 装备按品级自带的初始孔位（高品质自带更多孔）：白/绿0、蓝~暗紫1、淡金~暗金2、传说~圣灵3、不朽~永恒4、创世5 */

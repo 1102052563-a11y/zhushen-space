@@ -1,5 +1,5 @@
 import type { ItemCategory, CurrencyWallet } from '../store/itemStore';
-import { useItems } from '../store/itemStore';
+import { useItems, normalizeGradeLabel } from '../store/itemStore';
 import { useCharacters, canonProfName, sameProf } from '../store/characterStore';
 import { useNpc, defaultNpcRecord, isNpcId } from '../store/npcStore';
 import { useFaction } from '../store/factionStore';
@@ -250,6 +250,12 @@ function applyOneItemCommand(cmd: ItemCommand, store: any): void {
       if (!item['1'] && !item.name) break;
       const name: string = item['1'] ?? item.name ?? '未知物品';
 
+      // 品级收敛（一物一档·纯前端护栏）：剥技能品级词 + 折叠「紫色/史诗」复合品级，评分优先定档
+      const rawGrade = item['3'] ?? item.grade ?? item.quality ?? '';
+      const ng = normalizeGradeLabel(rawGrade, { score: item.score, grade: (item.numeric as any)?.grade });
+      if (ng.changed) console.log(`[Item] 品级收敛: 「${rawGrade}」→「${ng.grade}」(${name})`);
+      const normGrade = ng.grade;
+
       // 非玩家物品 → 写入 NPC 持有物而非玩家背包
       if (owner !== 'B1') {
         const npcStore = useNpc.getState();
@@ -272,7 +278,7 @@ function applyOneItemCommand(cmd: ItemCommand, store: any): void {
           id:         npcGivenId ?? `I_${owner}_${Date.now()}`,
           name,
           category:   item['2'] ?? item.category ?? '其他物品',
-          gradeDesc:  item['3'] ?? item.grade ?? item.quality ?? '',
+          gradeDesc:  normGrade,
           effect:     item['4'] ?? item.effect ?? '',
           quantity:   parseInt(item['5'] ?? item.quantity ?? '1') || 1,
           equipped:   false,
@@ -316,7 +322,7 @@ function applyOneItemCommand(cmd: ItemCommand, store: any): void {
         id: wantId,
         name,
         category,
-        gradeDesc: item['3'] ?? item.grade ?? item.quality ?? '',
+        gradeDesc: normGrade,
         effect: item['4'] ?? item.effect ?? '',
         quantity: qty,
         equipped: false,
@@ -474,7 +480,8 @@ function applyOneItemCommand(cmd: ItemCommand, store: any): void {
         // 同时接受列号('1'..'4')与具名字段；name 仅在嵌套 patch 里才当改名（扁平里的 name 是引用名，不可误当改名）
         if (nested && (p['1'] ?? p.name)) patch.name = p['1'] ?? p.name;
         if (p['2'] ?? p.category) patch.category = normalizeCategory(p['2'] ?? p.category);
-        if (p['3'] ?? p.gradeDesc ?? p.quality) patch.gradeDesc = p['3'] ?? p.gradeDesc ?? p.quality;
+        if (p['3'] ?? p.gradeDesc ?? p.quality)
+          patch.gradeDesc = normalizeGradeLabel(p['3'] ?? p.gradeDesc ?? p.quality, { score: p.score, grade: (p.numeric as any)?.grade }).grade;
         if (p['4'] ?? p.effect) patch.effect = p['4'] ?? p.effect;
         // ↓ 这些具名字段此前被静默丢弃——装备强化收尾刷「词缀(affix)/效果(effect)」全靠它们
         if (p.affix) patch.affix = p.affix;
