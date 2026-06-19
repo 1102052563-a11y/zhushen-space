@@ -36,6 +36,9 @@ ALLOWED_ORIGINS = ""
 #         跑 `wrangler dev`，前端 Vertex 接口地址指向 http://localhost:8787/api/gw/vertex。
 #         公开部署不配 SA → Vertex 自动关闭，SA 永不离开你的机器。
 VERTEX_LOCATION = "global"
-# 机密放 .dev.vars（仅本地、不进仓库），勿写在此：
-#   VERTEX_SA_JSON = <服务账号 JSON 的 base64>   # 见 .dev.vars.example
-#   VERTEX_GATE    = <可选口令>                   # 若哪天把 Vertex 公开部署，给它加一道闸
+# Vertex 服务账号两种给法（二选一，都只对本地 worker 生效）：
+#   ① 最省事：前端该接口点「📁 导入 JSON」选服务账号文件（SA 经本地请求送进本地 worker）；
+#   ② 最安全：.dev.vars 配 VERTEX_SA_JSON=<服务账号 JSON 的 base64>（SA 不进浏览器；见 .dev.vars.example，优先级更高）。
+# AI Studio 的 gemini 思考强度（默认 low=轻思考，省 token/快、结构化输出稳）。
+#   可选：minimal(更省，仅 3.x Flash) / low / high / none(仅 2.5 系可关) / auto(不注入，交给 gemini 自己定)。
+GEMINI_REASONING_EFFORT = "low"

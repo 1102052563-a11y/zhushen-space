@@ -109,7 +109,14 @@ export function buildNarrativeHistory(
   const topK = cfg.recallTopK ?? 6;
   const minScore = cfg.recallMinScore ?? 1;
   const distant = cfg.distantKeywordThreshold ?? 200;
-  const hits = recallFacts(query, facts, topK, minScore);
+  let hits = recallFacts(query, facts, topK, minScore);
+  // 关键词无命中·近期兜底：库里明明有长期事实却一条都没召回到（本轮输入与任何事实都不共享关键词）时，
+  // 退而注入「最近的长期事实」，确保有记忆就不会整轮空注入（最近=数组尾部，narrativeFacts 按时间追加）。
+  if (hits.length === 0 && facts.length > 0) {
+    const factKind = facts.filter((f) => f.kind === 'fact');
+    const pool = factKind.length ? factKind : facts;
+    hits = pool.slice(-topK).reverse().map((fact) => ({ fact, score: 0 }));
+  }
 
   const lines = hits.map(({ fact }, i) => {
     const compressed = distant > 0 && i >= distant;   // 超过阈值名次只留标题

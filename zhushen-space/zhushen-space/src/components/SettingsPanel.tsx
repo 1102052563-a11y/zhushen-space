@@ -2072,14 +2072,17 @@ function ApiLibrarySection() {
       const { content } = await apiChatFallback(
         [endpointToConfig(ep)],
         [{ role: 'user', content: '连接测试，请只回复两个字：在的' }],
-        { timeoutMs: 30000, extra: { max_tokens: 2048 } },   // 思考模型(gemini-3.x)要留够 token，否则思考占满、无可见文本
+        { timeoutMs: 60000, extra: { max_tokens: 256 } },   // 短输出够测连通(2xx 兜底覆盖思考模型)；放宽超时给慢中转/推理模型留时间
       );
       setTestById((p) => ({ ...p, [ep.id]: { ok: true, msg: (content || '').trim().slice(0, 40) || '(通了，空回复)' } }));
     } catch (e: any) {
       const msg = String(e?.message ?? e);
-      // 上游已 2xx（连接/鉴权/模型都通），只是没解析出文本（常见于思考模型 token 不够）→ 仍算连接成功
       if (/HTTP\s*2\d\d/.test(msg)) {
+        // 上游已 2xx（连接/鉴权/模型都通），只是没解析出文本（常见于思考模型）→ 仍算连接成功
         setTestById((p) => ({ ...p, [ep.id]: { ok: true, msg: '连接成功（本次无文本输出，思考模型所致，正文不受影响）' } }));
+      } else if (e?.name === 'AbortError' || /abort/i.test(msg)) {
+        // 超时被中止：多为推理模型/中转太慢，接口本身大概率可用
+        setTestById((p) => ({ ...p, [ep.id]: { ok: false, msg: '超时（>60s，模型或中转响应太慢）；接口可能可用，正文用大上下文/换更快模型再试' } }));
       } else {
         setTestById((p) => ({ ...p, [ep.id]: { ok: false, msg: msg.slice(0, 180) } }));
       }

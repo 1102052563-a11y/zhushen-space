@@ -30,6 +30,8 @@ function corsHeaders(origin, allowed) {
     "Access-Control-Allow-Origin": pickOrigin(origin, allowed),
     "Access-Control-Allow-Methods": "GET,POST,DELETE,OPTIONS",
     "Access-Control-Allow-Headers": "Content-Type, Authorization, X-Admin-Key",
+    // 允许「公开 https 页面 → 本地 localhost worker」(Chrome Private Network Access)，否则本地 Vertex 会 Failed to fetch
+    "Access-Control-Allow-Private-Network": "true",
     "Access-Control-Max-Age": "86400",
     Vary: "Origin",
   };

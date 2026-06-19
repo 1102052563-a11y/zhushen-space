@@ -5537,11 +5537,13 @@ ${lines}`;
         const qvec = await factVecEmbedOne(ctx, vm);
         const hits = qvec ? factVecSearch(qvec, pool.map((p) => p.key), vm.topK ?? 6, vm.threshold ?? 0.3) : [];
         const byKey = new Map(pool.map((p) => [p.key, p]));
-        const lines = hits.map(({ key }) => {
-          const p = byKey.get(key)!;
-          const tag = p.kind === 'event' ? '世界大事' : p.kind === 'large' ? '阶段记忆' : p.kind === 'fact' ? '长期事实' : '近期记忆';
-          return `[${tag}] ${p.body}`;
-        });
+        const tagOf = (k: string) => k === 'event' ? '世界大事' : k === 'large' ? '阶段记忆' : k === 'fact' ? '长期事实' : '近期记忆';
+        let lines = hits.map(({ key }) => { const p = byKey.get(key)!; return `[${tagOf(p.kind)}] ${p.body}`; });
+        // 向量无命中(或尚未索引)·近期兜底：库里明明有却整轮空注入时，退而注入最近的长期事实
+        if (lines.length === 0 && pool.length > 0) {
+          const factPool = pool.filter((p) => p.kind === 'fact');
+          lines = (factPool.length ? factPool : pool).slice(-(vm.topK ?? 6)).reverse().map((p) => `[${tagOf(p.kind)}] ${p.body}`);
+        }
         memory = lines.length ? [{ role: 'system' as const, content: `<相关记忆>\n${lines.join('\n\n')}\n</相关记忆>` }] : [];
         const recentN = historyLimit > 0 ? historyLimit : (vm.recentFullTextCount ?? 5);
         recent = (recentN > 0 ? allHistory.slice(-recentN) : []).map((m) => ({ role: m.role as 'user' | 'assistant', content: m.content }));

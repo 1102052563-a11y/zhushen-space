@@ -90,7 +90,15 @@ export async function handleGateway(request, env, cors) {
 async function proxyAiStudio(request, env, cors) {
   const keys = splitKeys(bearer(request));
   if (!keys.length) return json({ error: { message: '请在该接口的 apiKey 填入你自己的 AI Studio key（多个用逗号/空格分隔，自动轮换）' } }, { status: 401 }, cors);
-  const body = await request.text(); // 已是 OpenAI 格式；读成字符串以便对多个 key 重试
+  // gemini 思考模型默认「轻思考」：否则容易把 token/时间全耗在思维链上 → content 空、结构化输出拿不到。
+  // 请求自带 reasoning_effort 时尊重之；可用 env.GEMINI_REASONING_EFFORT 调（默认 low；设 'auto' 则不注入、交给 gemini 自定）。
+  let bodyObj = {};
+  try { bodyObj = JSON.parse(await request.text()); } catch { /* 非 JSON 不应发生 */ }
+  const effort = env.GEMINI_REASONING_EFFORT || 'low';
+  if (bodyObj && typeof bodyObj === 'object' && bodyObj.reasoning_effort == null && effort !== 'auto') {
+    bodyObj.reasoning_effort = effort;
+  }
+  const body = JSON.stringify(bodyObj); // 读成字符串以便对多个 key 重试
   let last = 0, lastText = '';
   for (const k of orderedKeys(keys)) {     // 轮换起点 + 限额(429)/无效(401/403)自动切下一个 key
     const upstream = await fetch('https://generativelanguage.googleapis.com/v1beta/openai/chat/completions', {

@@ -26,7 +26,14 @@ export async function apiChatFallback(
       if (body.temperature === undefined && api.temperature != null && isFinite(api.temperature) && api.temperature > 0) body.temperature = api.temperature;
       if (body.max_tokens === undefined && api.maxTokens != null && api.maxTokens > 0) body.max_tokens = api.maxTokens;
       const ctrl = new AbortController();
-      const to = opts?.timeoutMs ? setTimeout(() => ctrl.abort(), opts.timeoutMs) : null;
+      // timeoutMs 当「空闲超时」用：只要流还在持续吐数据就不中止（推理模型/慢中转的流式总时长常超过它，
+      // 按总时长掐断反而拿不到任何内容）；另设绝对上限防止真卡死无限挂起。
+      const idleMs = opts?.timeoutMs ?? 0;
+      let idleTimer: ReturnType<typeof setTimeout> | null = null;
+      const bump = () => { if (!idleMs) return; if (idleTimer) clearTimeout(idleTimer); idleTimer = setTimeout(() => ctrl.abort(), idleMs); };
+      const hardTimer = idleMs ? setTimeout(() => ctrl.abort(), Math.max(idleMs * 4, 240000)) : null;
+      const cleanup = () => { if (idleTimer) clearTimeout(idleTimer); if (hardTimer) clearTimeout(hardTimer); };
+      bump();   // 起始：覆盖连接 + 首字延迟
       try {
         const res = await fetch(api.baseUrl.replace(/\/$/, '') + '/chat/completions', {
           method: 'POST',
@@ -39,11 +46,12 @@ export async function apiChatFallback(
           const errBody = await res.text().catch(() => '');
           throw new Error(`HTTP ${res.status}${errBody ? ' · ' + errBody.replace(/\s+/g, ' ').slice(0, 200) : ''}`);
         }
-        const content = await readChatContent(res, api);   // 超时仍生效：挂起的流会被 ctrl.abort 打断
-        if (to) clearTimeout(to);
+        bump();   // 已收到响应头 = 有进展，给正文读取一个新的空闲窗口
+        const content = await readChatContent(res, api, bump);   // 每收到一块流数据就 bump()，重置空闲超时
+        cleanup();
         return { content, api };
       } catch (e) {
-        if (to) clearTimeout(to);
+        cleanup();
         lastErr = e;
         const more = i < usable.length - 1;
         console.warn(`[API] 接口失败${more ? '，回退下一条' : ''}：${api.modelId} @ ${api.baseUrl}`, e);
@@ -59,7 +67,7 @@ export async function apiChatFallback(
    - 流式 SSE：getReader 逐块读，取每个 data: 行的 choices[0].delta.content 累积（与正文 callApi 一致）；
    - 一次性 JSON：取 choices[0].message.content；
    两种都兼容；空内容/204 给清晰报错。 */
-async function readChatContent(res: Response, api: ApiConfig): Promise<string> {
+async function readChatContent(res: Response, api: ApiConfig, onProgress?: () => void): Promise<string> {
   const ctype = (res.headers.get('content-type') || '').toLowerCase();
 
   // 明确是一次性 JSON（接口忽略了 stream）
@@ -78,6 +86,7 @@ async function readChatContent(res: Response, api: ApiConfig): Promise<string> {
   while (true) {
     const { done, value } = await reader.read();
     if (done) break;
+    onProgress?.();   // 有数据在流动 → 重置空闲超时（慢推理模型只要还在吐字就不掐断）
     const chunk = decoder.decode(value, { stream: true });
     rawAll += chunk;
     buffer += chunk;
@@ -109,7 +118,30 @@ function sseLineReasoning(line: string): string {
   try { const ch = JSON.parse(d).choices?.[0] ?? {}; return ch.delta?.reasoning_content ?? ch.delta?.reasoning ?? ch.message?.reasoning_content ?? ''; } catch { return ''; }
 }
 
-/* 一次性 JSON 优先；非 JSON 当 SSE 文本兜底；都拿不到 → 清晰报错 */
+/* 从响应（一次性 JSON 或 SSE 文本）里抠出上游错误（429 限流 / 5xx 等）——很多中转把错误塞进 200 的 body，
+   content 抠不到时用它给「清晰报错」而不是含糊的「无法解析」 */
+function extractUpstreamError(raw: string): { code?: number; message: string } | null {
+  for (const line of raw.split('\n')) {
+    const t = line.trim();
+    if (!t) continue;
+    const d = t.startsWith('data:') ? t.replace(/^data:\s*/, '').trim() : t;
+    if (!d || d === '[DONE]') continue;
+    try {
+      const j = JSON.parse(d);
+      const err = j?.error ?? ((j?.code && j?.message) ? j : null);
+      if (err && (err.message || err.code)) return { code: err.code, message: String(err.message || err.type || '') };
+    } catch { /* 跳过非 JSON 行 */ }
+  }
+  return null;
+}
+function throwUpstream(err: { code?: number; message?: string; type?: string }, status: number): never {
+  const code = err.code ?? status;
+  const msg = String(err.message || err.type || '未知错误').replace(/\s+/g, ' ').slice(0, 180);
+  const tag = code === 429 ? '上游限流 429（配额/频率超限，换接口或多 key 轮换）' : `上游错误 ${code}`;
+  throw new Error(`${tag}：${msg}`);
+}
+
+/* 一次性 JSON 优先；非 JSON 当 SSE 文本兜底；都拿不到 → 先看是不是上游错误，再清晰报错 */
 function parseOnceOrSse(raw: string, status: number, api: ApiConfig): string {
   if (!raw || !raw.trim()) {
     console.warn('[API] 接口返回空响应体', { status, model: api.modelId });
@@ -123,6 +155,7 @@ function parseOnceOrSse(raw: string, status: number, api: ApiConfig): string {
     if (content && String(content).trim()) return content;
     const reasoning: string = ch.message?.reasoning_content ?? ch.delta?.reasoning_content ?? '';   // content 空 → 用思维链兜底
     if (reasoning && String(reasoning).trim()) { console.warn('[API] content 空，回退使用 reasoning_content', { status, model: api.modelId, reasoningLen: String(reasoning).length }); return reasoning; }
+    if (data.error) throwUpstream(data.error, status);   // 一次性 JSON 里塞了 error（限流/配额等）→ 清晰报错
     console.warn('[API] 返回内容为空', { status, model: api.modelId, finish_reason: ch.finish_reason, messageKeys: Object.keys(ch.message ?? {}) });
     return content;
   }
@@ -130,6 +163,8 @@ function parseOnceOrSse(raw: string, status: number, api: ApiConfig): string {
   if (acc.trim()) return acc;
   const accR = raw.split('\n').reduce((a, l) => a + sseLineReasoning(l), '');   // SSE 也兜底思维链
   if (accR.trim()) { console.warn('[API] SSE content 空，回退使用 reasoning_content', { status, model: api.modelId, reasoningLen: accR.length }); return accR; }
+  const up = extractUpstreamError(raw);   // SSE/文本里塞了 error 事件（如 200 里夹 429）→ 清晰报错而非「无法解析」
+  if (up) throwUpstream(up, status);
   console.warn('[API] 响应无法解析（非 JSON 非 SSE）', { status, model: api.modelId, snippet: raw.slice(0, 200) });
   throw new Error(`接口响应无法解析（HTTP ${status}，${raw.replace(/\s+/g, ' ').slice(0, 140)}）`);
 }
