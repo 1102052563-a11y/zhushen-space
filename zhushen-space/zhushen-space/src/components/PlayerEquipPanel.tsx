@@ -1,5 +1,5 @@
 import { useRef, useState } from 'react';
-import { useItems, gradeBadgeClass, gradeNameClass, type InventoryItem } from '../store/itemStore';
+import { useItems, gradeBadgeClass, gradeNameClass, asText, type InventoryItem } from '../store/itemStore';
 import { ItemDetailModal, CAT_ICON } from './BackpackModal';
 import { useImageViewer } from '../store/imageViewerStore';
 
@@ -87,7 +87,7 @@ function EquipCard({ item, onOpen }: { item: InventoryItem; onOpen: () => void }
           {item.category}{item.gradeDesc ? <>·<span className={gradeBadgeClass(item.gradeDesc)}>{item.gradeDesc}</span></> : ''}
         </div>
         <div className="flex items-center gap-2 text-[10px] font-mono text-dim/50 truncate">
-          {item.combatStat && <span className="text-amber-300/70">{item.combatStat}</span>}
+          {item.combatStat && <span className="text-amber-300/70">{asText(item.combatStat)}</span>}
           {slotLabel && <span className="text-god/50">{slotLabel}</span>}
         </div>
         {item.affix && <div className="text-[10px] leading-tight text-amber-200/70 truncate" title={String(item.affix)}><span className="text-dim/40">缀·</span>{String(item.affix)}</div>}

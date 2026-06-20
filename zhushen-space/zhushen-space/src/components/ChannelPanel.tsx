@@ -1,7 +1,7 @@
 import { useState, useRef } from 'react';
 import { useChannel, CHANNEL_DEFS, type ChannelKey, type ChannelMessage, type ChannelQuote } from '../store/channelStore';
 import { isDmableTag } from '../store/dmStore';
-import { useItems, ITEM_GRADES, gradeColorClass, gradeBadgeClass, gradeNameClass, type CurrencyWallet } from '../store/itemStore';
+import { useItems, ITEM_GRADES, gradeColorClass, gradeBadgeClass, gradeNameClass, asText, type CurrencyWallet } from '../store/itemStore';
 import {
   buyFromListing, isBuyable, parseChannelPrice, normChannelCurrency,
   acceptQuote, isBarterQuote, postWantToBuy, postSellItem, type BuyResult,
@@ -53,7 +53,7 @@ function ChannelItemDetail({ p, onClose }: { p: DetailPayload; onClose: () => vo
             <div className="grid grid-cols-2 gap-3 bg-panel2 rounded-xl p-3 border border-edge/40">
               <F label="产地" value={s.origin} />
               <F label="类型" value={s.subType} />
-              <F label="攻击/防御" value={s.combatStat} cls="font-mono text-amber-300/90" />
+              <F label="攻击/防御" value={asText(s.combatStat)} cls="font-mono text-amber-300/90" />
               <F label="耐久度" value={s.durability} cls="font-mono text-slate-300" />
               <F label="评分" value={s.score} cls="font-mono text-emerald-300/90" />
               <F label="杀敌数量" value={s.killCount} cls="font-mono text-blood/90" />

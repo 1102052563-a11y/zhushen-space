@@ -691,6 +691,7 @@ export default function App() {
   const [territoryPhaseLog,  setTerritoryPhaseLog]  = useState('');     // 领地演化阶段提示
   const [territoryPanelOpen, setTerritoryPanelOpen] = useState(false);
   const [cosmosPhaseLog,     setCosmosPhaseLog]     = useState('');     // 万族演化阶段提示
+  const [miscPhaseLog,       setMiscPhaseLog]       = useState('');     // 杂项演化阶段提示（仅失败时显示「杂项更新失败」）
   const [cosmosPanelOpen,    setCosmosPanelOpen]    = useState(false);
   const [worldCodexOpen,     setWorldCodexOpen]     = useState(false);
   const [cosmosTicker,       setCosmosTicker]       = useState('');     // 万族本回合更新（顶部滚动条）
@@ -1367,7 +1368,7 @@ export default function App() {
     } catch (e: any) {
       const msg = e.message ?? '未知错误';
       console.error('[Item] 物品管理阶段失败:', msg);
-      setItemPhaseLog(`⚠ 物品阶段失败：${msg.slice(0, 60)}`);
+      setItemPhaseLog(`⚠ 物品更新失败：${msg.slice(0, 60)}`);
     } finally {
       setItemPhaseRunning(false);
       setTimeout(() => setItemPhaseLog(''), 8000);
@@ -1777,7 +1778,7 @@ export default function App() {
     } catch (e: any) {
       const msg = e.message ?? '未知错误';
       console.error('[Player] 主角演化阶段失败:', msg);
-      setPlayerPhaseLog(`⚠ 主角演化失败：${msg.slice(0, 60)}`);
+      setPlayerPhaseLog(`⚠ 主角更新失败：${msg.slice(0, 60)}`);
     } finally {
       setPlayerPhaseRunning(false);
       setTimeout(() => setPlayerPhaseLog(''), 8000);
@@ -2373,7 +2374,7 @@ export default function App() {
       maybePurgeDead(turn);   // 死亡 NPC 延迟自动清除（带护栏，默认关）
     } catch (e: any) {
       console.error('[NPC] 调度演化失败:', e?.message ?? e);
-      setNpcPhaseLog(`⚠ NPC 演化失败：${String(e?.message ?? '').slice(0, 60)}`);
+      setNpcPhaseLog(`⚠ NPC 更新失败：${String(e?.message ?? '').slice(0, 60)}`);
     } finally {
       setNpcPhaseRunning(false);
       setTimeout(() => setNpcPhaseLog(''), 8000);
@@ -2482,7 +2483,7 @@ ${AFFIX_EFFECT_RULE}`;
     } catch (e: any) {
       const msg = e.message ?? '未知错误';
       console.error('[NPC] NPC 演化阶段失败:', msg);
-      setNpcPhaseLog(`⚠ NPC 演化失败：${msg.slice(0, 60)}`);
+      setNpcPhaseLog(`⚠ NPC 更新失败：${msg.slice(0, 60)}`);
     } finally {
       setNpcPhaseRunning(false);
       setTimeout(() => setNpcPhaseLog(''), 8000);
@@ -2729,6 +2730,8 @@ ${AFFIX_EFFECT_RULE}`;
       }
     } catch (e: any) {
       console.error('[Misc] 杂项演化失败:', e.message ?? e);
+      setMiscPhaseLog(`⚠ 杂项更新失败：${(e.message ?? '').slice(0, 50)}`);
+      setTimeout(() => setMiscPhaseLog(''), 8000);
     }
   }
 
@@ -2795,7 +2798,7 @@ ${AFFIX_EFFECT_RULE}`;
       setTerritoryPhaseLog('✓ 领地演化完成');
     } catch (e: any) {
       console.error('[Territory] 领地演化失败:', e.message ?? e);
-      setTerritoryPhaseLog(`⚠ 领地演化失败：${(e.message ?? '').slice(0, 50)}`);
+      setTerritoryPhaseLog(`⚠ 领地更新失败：${(e.message ?? '').slice(0, 50)}`);
     } finally { setTimeout(() => setTerritoryPhaseLog(''), 8000); }
   }
 
@@ -2932,7 +2935,7 @@ ${AFFIX_EFFECT_RULE}`;
       if (ticker) setCosmosTicker('🌌 ' + ticker);
     } catch (e: any) {
       console.error('[Cosmos] 万族演化失败:', e.message ?? e);
-      setCosmosPhaseLog(`⚠ 万族演化失败：${(e.message ?? '').slice(0, 50)}`);
+      setCosmosPhaseLog(`⚠ 万族更新失败：${(e.message ?? '').slice(0, 50)}`);
     } finally { setTimeout(() => setCosmosPhaseLog(''), 8000); }
   }
 
@@ -2996,7 +2999,7 @@ ${AFFIX_EFFECT_RULE}`;
       setTeamPhaseLog('✓ 冒险团演化完成');
     } catch (e: any) {
       console.error('[Team] 冒险团演化失败:', e.message ?? e);
-      setTeamPhaseLog(`⚠ 冒险团演化失败：${(e.message ?? '').slice(0, 50)}`);
+      setTeamPhaseLog(`⚠ 冒险团更新失败：${(e.message ?? '').slice(0, 50)}`);
     } finally { setTimeout(() => setTeamPhaseLog(''), 8000); }
   }
 
@@ -3453,7 +3456,7 @@ ${AFFIX_EFFECT_RULE}`;
       if (items.length) { useMisc.getState().addNarrativeFacts(items); console.log(`[NM] 抽取 ${items.length} 条长期事实`); }
       setNmPhaseLog(items.length ? `🧠 记忆整理：新增 ${items.length} 条长期事实` : '🧠 记忆整理：本轮无新事实');
       setTimeout(() => setNmPhaseLog(''), 8000);
-    } catch (e) { console.warn('[NM] 回复后写入失败:', e); setNmPhaseLog('⚠ 记忆整理失败'); }
+    } catch (e) { console.warn('[NM] 回复后写入失败:', e); setNmPhaseLog('⚠ 记忆更新失败'); }
   }
 
   /* 长期记忆·手动更新：按最近一次正文(+用户输入)**强制**抽取一次长期事实（绕过自动开关门控，仍需 NM 接口）。供「记忆」面板长期事实页的按钮调用。*/
@@ -4243,7 +4246,7 @@ ${lines}`;
       if (settings.strategy === 'B') { await runFactionWorldJudgment(narrative); await runFactionFocusEvolution(narrative); }
       else { if (turnCountRef.current % (settings.frequency || 1) === 0) await runFactionStrategyA(narrative); }
       setFactionPhaseLog('✓ 势力演化完成');
-    } catch (e: any) { setFactionPhaseLog(`⚠ 势力演化失败：${(e.message ?? '').slice(0, 50)}`); }
+    } catch (e: any) { setFactionPhaseLog(`⚠ 势力更新失败：${(e.message ?? '').slice(0, 50)}`); }
     finally { setTimeout(() => setFactionPhaseLog(''), 8000); }
   }
 
@@ -6743,6 +6746,11 @@ ${lines}`;
             {cosmosPhaseLog && (
               <span className={cosmosPhaseLog.startsWith('⚠') ? 'text-blood' : 'text-fuchsia-400/80'}>
                 {cosmosPhaseLog}
+              </span>
+            )}
+            {miscPhaseLog && (
+              <span className={miscPhaseLog.startsWith('⚠') ? 'text-blood' : 'text-slate-300/80'}>
+                {miscPhaseLog}
               </span>
             )}
             {imagePhaseLog && (

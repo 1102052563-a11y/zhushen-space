@@ -56,11 +56,11 @@ function renderSettleBlock(title: string, body: string[]): string {
 function wrapSettlementBlocks(text: string): string {
   const lines = text.split('\n');
   const out: string[] = [];
-  const isQuote = (l: string) => /^\s*>\s?\S/.test(l);
+  const isQuote = (l: string) => /^\s*[>＞]\s*\S/.test(l);   // 容多空格/Tab/全角＞ 前缀（AI 常缩进体行，否则散落在卡外不被包裹）
   const isHtmlLine = (l: string) => /<[a-zA-Z/][^>]*>/.test(l);
   const opensHtml = (l: string) => (l.match(/<(div|details|table|section|article|blockquote|ul|ol|pre)\b/gi) ?? []).length;
   const closesHtml = (l: string) => (l.match(/<\/(div|details|table|section|article|blockquote|ul|ol|pre)>/gi) ?? []).length;
-  const unquote = (l: string) => l.replace(/^\s*>\s?/, '').replace(/\*\*/g, '');
+  const unquote = (l: string) => l.replace(/^\s*[>＞]\s*/, '').replace(/\*\*/g, '');
   let i = 0;
   let htmlDepth = 0;   // 处于未闭合的 HTML 块内时，一律原样透传，不当结算块处理
   while (i < lines.length) {
@@ -80,13 +80,15 @@ function wrapSettlementBlocks(text: string): string {
       out.push(renderSettleBlock(hasTitle ? run[0].trim() : '', hasTitle ? run.slice(1) : run));
       continue;
     }
-    // 2) 无 > 前缀但以【…模块名…】开头：兜底打包（到空行/下个标题/引用行/HTML 行止）
+    // 2) 无 > 前缀但以【…模块名…】开头：兜底打包。连同其后的体行（含带 > 前缀的引用体行）一并并入【同一张卡】，
+    //    修复"标题进了琥珀格子、> 体行却散落在卡外没被包裹"。到空行/下个标题/HTML 行止；标题与体行间允许一个空行。
     if (SETTLE_HEADER_RE.test(line)) {
       const header = line.replace(/\*\*/g, '').trim();
       i++;
+      if (i < lines.length && lines[i].trim() === '' && i + 1 < lines.length && isQuote(lines[i + 1])) i++;   // 容标题与 > 体行间一个空行
       const body: string[] = [];
-      while (i < lines.length && lines[i].trim() !== '' && !SETTLE_HEADER_RE.test(lines[i]) && !isQuote(lines[i]) && !isHtmlLine(lines[i])) {
-        body.push(lines[i].replace(/\*\*/g, '')); i++;
+      while (i < lines.length && lines[i].trim() !== '' && !SETTLE_HEADER_RE.test(lines[i]) && !isHtmlLine(lines[i])) {
+        body.push(unquote(lines[i])); i++;   // unquote 兼容带 > 前缀（含多空格）的体行：剥掉 > 再并入本卡
       }
       out.push(renderSettleBlock(header, body));
       continue;

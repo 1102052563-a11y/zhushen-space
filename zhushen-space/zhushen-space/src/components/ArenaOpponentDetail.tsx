@@ -1,7 +1,7 @@
 import type { ReactNode } from 'react';
 import { useNpc } from '../store/npcStore';
 import { useCharacters } from '../store/characterStore';
-import { gradeNameClass } from '../store/itemStore';
+import { gradeNameClass, asText } from '../store/itemStore';
 import type { LadderEntry } from '../systems/arena';
 
 /* 竞技场对手详情（点击榜单对手 → 先建档再展示其面板：六维/装备/技能/天赋）。
@@ -78,7 +78,7 @@ export default function ArenaOpponentDetail({ entry, cid, building, onChallenge,
 
             <Section title={`装备（${equipped.length}）`}>
               {equipped.length === 0 && <div className="text-[10px] text-slate-500">（无）</div>}
-              {equipped.map((it) => <Row key={it.id} name={it.name} grade={it.gradeDesc} right={it.combatStat} sub={it.effect} />)}
+              {equipped.map((it) => <Row key={it.id} name={it.name} grade={it.gradeDesc} right={asText(it.combatStat)} sub={it.effect} />)}
               {bag.length > 0 && <div className="text-[10px] text-slate-500 mt-1">储存空间：{bag.map((b) => b.name).join('、')}</div>}
             </Section>
 

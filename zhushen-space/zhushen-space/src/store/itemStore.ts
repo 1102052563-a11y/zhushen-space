@@ -41,6 +41,24 @@ export function splitAffixEntries(text?: string): string[] {
   return t.split(/(?=【)/g).map((s) => s.trim()).filter(Boolean);
 }
 
+/** 安全把「本该是字符串、却被 AI 偶尔写成对象/数组」的字段转成可渲染文本，避免 React #31
+ *  「Objects are not valid as a React child」整页崩（典型：combatStat / damage 被写成 {atk:15}）。
+ *  {atk:15,def:8} → "atk:15 def:8"；[a,b] → "a / b"；字符串/数字原样。供直接渲染这类字段的面板兜底。*/
+export function asText(v: unknown): string {
+  if (v == null) return '';
+  if (typeof v === 'string') return v;
+  if (typeof v === 'number' || typeof v === 'boolean') return String(v);
+  if (Array.isArray(v)) return v.map(asText).filter(Boolean).join(' / ');
+  if (typeof v === 'object') {
+    try {
+      return Object.entries(v as Record<string, unknown>)
+        .map(([k, val]) => { const t = asText(val); return t ? `${k}:${t}` : ''; })
+        .filter(Boolean).join(' ');
+    } catch { return ''; }
+  }
+  return String(v);
+}
+
 /** 货币/点数类「伪物品」：本应是 currency 计数（乐园币/灵魂钱币/技能点/黄金技能点/潜能点/属性点…），
  *  被 AI 误用 createItem 建成「特殊物品」时，绝不可装备、不进装备选择器、不能上装备栏。按名精确识别（无误伤真装备）。 */
 const RESOURCE_PSEUDO_RE = /^(乐园币|灵魂钱币|魂币|魂钱币|金币)$|(技能点|黄金技能点|潜能点|进阶点|属性点|真实属性点)$/;

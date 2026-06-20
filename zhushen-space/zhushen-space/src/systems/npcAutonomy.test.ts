@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { decideNpcTick, runNpcAutonomy, homeParadise, addRelation, findRival, boundedGrowth, powerOf, arenaWinProb, profKey } from './npcAutonomy';
 import { makeRng, getCorpus, pickDeed } from './autonomyCorpus';
-import { defaultNpcRecord, type NpcRecord } from '../store/npcStore';
+import { defaultNpcRecord, useNpc, type NpcRecord } from '../store/npcStore';
 import { useSettings } from '../store/settingsStore';
 
 function npc(patch: Partial<NpcRecord>): NpcRecord {
@@ -206,9 +206,41 @@ describe('npcAutonomy · 新增行为事件（v11）', () => {
   });
 });
 
+describe('npcAutonomy · 真获得装备/技能/天赋（写进面板）', () => {
+  it('偶尔产出可写进面板的装备/技能/天赋，且带必需字段', () => {
+    let gotEquip = false, gotSkill = false, gotTalent = false;
+    const n = npc({ profession: '剑客' });
+    for (let t = 1; t <= 1000; t++) {
+      const g = decideNpcTick(n, t, []).grant;
+      if (g?.equip) { gotEquip = true; expect(g.equip.name).toBeTruthy(); expect(g.equip.category).toBeTruthy(); expect(g.equip.id).toMatch(/^I_/); }
+      if (g?.skill) { gotSkill = true; expect(g.skill.name).toBeTruthy(); expect(g.skill.id).toMatch(/^S_/); }
+      if (g?.talent) { gotTalent = true; expect(g.talent.name).toBeTruthy(); expect(g.talent.rarity).toBeTruthy(); }
+    }
+    expect(gotEquip).toBe(true);
+    expect(gotSkill).toBe(true);
+    expect(gotTalent).toBe(true);
+  });
+});
+
 describe('npcAutonomy · runNpcAutonomy（开关守卫）', () => {
   it('开关关闭时不动任何 NPC（返回 0）', () => {
     useSettings.getState().setNpcAutonomyOn(false);
     expect(runNpcAutonomy(1)).toBe(0);
+  });
+  it('每 N 回合一次：非整除回合不运行（返回 0），人数上限生效', () => {
+    useNpc.getState().clearAll();
+    for (let i = 1; i <= 8; i++) useNpc.getState().upsertNpc(`C${i}`, { name: `甲${i}`, personality: '功利精明', realm: '三阶·Lv.25', onScene: false, bioStrength: 'T3·勇士' });
+    useSettings.getState().setNpcAutonomyOn(true);
+    useSettings.getState().setNpcAutonomyEvery(5);
+    expect(runNpcAutonomy(1)).toBe(0);   // 1%5≠0 不运行
+    expect(runNpcAutonomy(2)).toBe(0);
+    expect(runNpcAutonomy(4)).toBe(0);
+    // 人数上限：每次≤设定值
+    useSettings.getState().setNpcAutonomyEvery(1);
+    useSettings.getState().setNpcAutonomyMax(2);
+    expect(runNpcAutonomy(10)).toBeLessThanOrEqual(2);
+    useSettings.getState().setNpcAutonomyMax(16);
+    useSettings.getState().setNpcAutonomyOn(false);
+    useNpc.getState().clearAll();
   });
 });

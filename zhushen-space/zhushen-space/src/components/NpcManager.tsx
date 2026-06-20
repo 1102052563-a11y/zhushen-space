@@ -968,6 +968,10 @@ export default function NpcManager() {
   const setAutonomyOn    = useSettings((s) => s.setNpcAutonomyOn);
   const autonomyDeath    = useSettings((s) => s.npcAutonomyDeath);
   const setAutonomyDeath = useSettings((s) => s.setNpcAutonomyDeath);
+  const autonomyMax      = useSettings((s) => s.npcAutonomyMax);
+  const setAutonomyMax   = useSettings((s) => s.setNpcAutonomyMax);
+  const autonomyEvery    = useSettings((s) => s.npcAutonomyEvery);
+  const setAutonomyEvery = useSettings((s) => s.setNpcAutonomyEvery);
   const [tab, setTab] = useState<NpcTab>('settings');
 
   const tabs: { key: NpcTab; label: string; icon: string }[] = [
@@ -1033,6 +1037,19 @@ export default function NpcManager() {
             <div className="text-[12px] text-dim leading-relaxed">
               <b className="text-amber-300/90">允许任务致死（陨落）</b>：离场契约者出 E 级任务有<b className="text-slate-200">小概率回不来</b>。<b className="text-slate-200">好友 / 羁绊 / 长留 / 队友永不会死</b>。默认关，怕丢 NPC 就别开。
             </div>
+          </div>
+        )}
+        {autonomyOn && (
+          <div className="flex flex-wrap items-center gap-x-4 gap-y-2 pt-2 mt-1 border-t border-edge/60 text-[12px] text-dim">
+            <label className="flex items-center gap-1.5">每次最多演化
+              <input type="number" min={1} max={60} value={autonomyMax} onChange={(e) => setAutonomyMax(Number(e.target.value))}
+                className="w-14 px-1.5 py-0.5 bg-black/30 border border-edge rounded text-center text-slate-200" /> 人
+            </label>
+            <label className="flex items-center gap-1.5">每
+              <input type="number" min={1} max={30} value={autonomyEvery} onChange={(e) => setAutonomyEvery(Number(e.target.value))}
+                className="w-14 px-1.5 py-0.5 bg-black/30 border border-edge rounded text-center text-slate-200" /> 回合运行一次
+            </label>
+            <span className="text-dim/60">超出上限的离场 NPC 按轮换分批演化，不会漏掉。</span>
           </div>
         )}
       </div>

@@ -6,7 +6,7 @@ import { computeAttrBreakdown, effectiveAttrs, ATTR_LABEL, type AttrBreak } from
 import { bioInnate, bioPower, bioStrengthLabel, BIO_TIER_NAMES, nominalTierNum } from '../systems/bioStrength';
 import { generateNpcAttrs, resolveForm, UNIT_TYPE_LABELS } from '../systems/npcAttrGen';
 import { usePlayer, type PlayerAttrs } from '../store/playerStore';
-import { useItems, gradeBadgeClass, gradeNameClass, gradeToNum, splitAffixEntries } from '../store/itemStore';
+import { useItems, gradeBadgeClass, gradeNameClass, gradeToNum, splitAffixEntries, asText } from '../store/itemStore';
 import { movePlayerItemToNpc, moveNpcItemToPlayer } from '../systems/itemTransfer';
 import { milestonesCrossed } from '../systems/attrTalent';
 import AttrTalentPicker from './AttrTalentPicker';
@@ -1469,7 +1469,7 @@ function NpcItemCard({ it, showSlot, ownerId, ownerGender, onFlash }: { it: NonN
         <div className="flex flex-wrap gap-x-3 gap-y-0.5 text-[12px] font-mono text-dim/60">
           {it.origin && <span>产地:{it.origin}</span>}
           {it.subType && <span>类型:{it.subType}</span>}
-          {it.combatStat && <span className="text-amber-300/80">攻防:{it.combatStat}</span>}
+          {it.combatStat && <span className="text-amber-300/80">攻防:{asText(it.combatStat)}</span>}
           {it.durability && <span>耐久:{it.durability}</span>}
           {it.score && <span className="text-emerald-300/80">评分:{it.score}</span>}
           {it.killCount && <span className="text-blood/80">杀敌:{it.killCount}</span>}
@@ -1527,7 +1527,7 @@ function NpcSkillCard({ sk, charId }: { sk: ReturnType<typeof useCharacters.getS
           {sk.effect && <div className="text-[13px] text-slate-300/80 leading-relaxed"><span className="text-god/50">效果·</span>{sk.effect}</div>}
           <div className="flex flex-wrap gap-x-3 gap-y-0.5 text-[12px] font-mono text-dim/60">
             {sk.target && <span>目标 {sk.target}</span>}
-            {sk.damage && <span className="text-blood/70">伤害 {sk.damage}</span>}
+            {sk.damage && <span className="text-blood/70">伤害 {asText(sk.damage)}</span>}
             {sk.attrBonus && <span className="text-emerald-300/70">属性加成 {sk.attrBonus}</span>}
           </div>
           {sk.tags && sk.tags.length > 0 && <div className="flex flex-wrap gap-1">{sk.tags.map((tg) => <span key={tg} className="text-[11px] font-mono px-1 py-0.5 bg-void border border-edge/50 text-dim/50 rounded">{tg}</span>)}</div>}

@@ -125,6 +125,8 @@ function settingsExtract(s: any): any {
     factCheck: s.factCheck,
     npcAutonomyOn: s.npcAutonomyOn,
     npcAutonomyDeath: s.npcAutonomyDeath,
+    npcAutonomyMax: s.npcAutonomyMax,
+    npcAutonomyEvery: s.npcAutonomyEvery,
     apiLibrary: s.apiLibrary,
     apiRoutes: s.apiRoutes,
     apiThrottle: s.apiThrottle,

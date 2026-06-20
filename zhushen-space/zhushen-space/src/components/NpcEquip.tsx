@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useNpc, type NpcRecord, type NpcOwnedItem } from '../store/npcStore';
-import { gradeBadgeClass, gradeNameClass, splitAffixEntries, isResourcePseudoItem } from '../store/itemStore';
+import { gradeBadgeClass, gradeNameClass, splitAffixEntries, isResourcePseudoItem, asText } from '../store/itemStore';
 import { enhanceFxClass } from '../systems/enhanceEngine';
 import { useSettings } from '../store/settingsStore';
 import { SLOT_DEFS, type SlotDef } from './EquipmentPanel';
@@ -103,7 +103,7 @@ function EquipDetail({ npcId, item, onClose }: { npcId: string; item: NpcOwnedIt
             <div className="flex flex-wrap gap-x-3 gap-y-0.5 text-[12px] font-mono text-dim/60">
               {item.origin && <span>产地:{item.origin}</span>}
               {item.subType && <span>类型:{item.subType}</span>}
-              {item.combatStat && <span className="text-amber-300/80">攻防:{item.combatStat}</span>}
+              {item.combatStat && <span className="text-amber-300/80">攻防:{asText(item.combatStat)}</span>}
               {item.durability && <span>耐久:{item.durability}</span>}
               {item.score && <span className="text-emerald-300/80">评分:{item.score}</span>}
               {item.killCount && <span className="text-blood/80">杀敌:{item.killCount}</span>}

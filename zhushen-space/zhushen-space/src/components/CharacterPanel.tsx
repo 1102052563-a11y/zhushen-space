@@ -6,6 +6,7 @@ import {
   SKILL_TIER_CLS, normSkillTier,
 } from '../store/characterStore';
 import { usePlayer } from '../store/playerStore';
+import { asText } from '../store/itemStore';
 import { useNpc } from '../store/npcStore';
 import { DeedTimeline, CharMemoryView } from './NpcDetail';
 import { SkillEditForm, TraitEditForm } from './CharEditForms';
@@ -60,7 +61,7 @@ function SkillCard({ skill, charId, onDelete }: { skill: Skill; charId: string; 
             {skill.cooldown    && <span>冷却: {skill.cooldown}</span>}
             {skill.cost        && <span>消耗: {skill.cost}</span>}
             {skill.target      && <span>目标: {skill.target}</span>}
-            {skill.damage      && <span className="text-blood/70">伤害: {skill.damage}</span>}
+            {skill.damage      && <span className="text-blood/70">伤害: {asText(skill.damage)}</span>}
             {skill.layers      && <span>层数: {skill.layers}</span>}
             {skill.layerProgress && <span>进度: {skill.layerProgress}</span>}
             {skill.attrBonus   && <span className="text-emerald-300/70">属性加成: {skill.attrBonus}</span>}

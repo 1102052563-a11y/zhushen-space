@@ -65,7 +65,9 @@ const NATIVE_EVENTS: readonly DeedEvent[] = [
 const CN_NUM: Record<string, number> = { 一: 1, 二: 2, 三: 3, 四: 4, 五: 5, 六: 6, 七: 7, 八: 8, 九: 9 };
 
 interface RelationFx { otherName: string; label: string; }
-export interface TickOutcome { deed?: Deed; patch?: Partial<NpcRecord>; relation?: RelationFx; }
+/** 真实获得：写进 NPC 物品/技能/天赋栏（显示在面板） */
+export interface TickGrant { equip?: NpcOwnedItem; skill?: Omit<Skill, 'addedAt'>; talent?: Omit<Talent, 'addedAt'>; }
+export interface TickOutcome { deed?: Deed; patch?: Partial<NpcRecord>; relation?: RelationFx; grant?: TickGrant; }
 export interface TickOpts { allowDeath?: boolean; }
 
 function mkDeed(turn: number, location: string, description: string): Deed {
@@ -147,19 +149,19 @@ export function profKey(npc: NpcRecord): string {
   return '通用';
 }
 /** 装备名：优先真实已装备物品，否则按职业组合生成（共享前缀 × 职业词根，治"随身装备"占位） */
-function genEquip(npc: NpcRecord, rng: () => number): string {
-  const eq = (npc.items ?? []).find((it) => it.equipped)?.name;
-  if (eq) return eq;
+/** 按职业组合一件装备（前缀×职业武器/防具/饰品词根），返回名称+类别+槽位 */
+function composeEquip(npc: NpcRecord, rng: () => number): { name: string; category: string; slot: string } {
   const b = getCorpus().banks;
   const g = b.profGear?.[profKey(npc)] ?? b.profGear?.['通用'];
   const pre = b.gearPrefix?.length ? pickFrom(rng, b.gearPrefix) : '';
   const roll = rng();
-  let core: string | undefined;
-  if (roll < 0.78) core = g?.weapon?.length ? pickFrom(rng, g.weapon) : undefined;
-  else if (roll < 0.92) core = b.armorCore?.length ? pickFrom(rng, b.armorCore) : undefined;
-  else core = b.accessoryCore?.length ? pickFrom(rng, b.accessoryCore) : undefined;
-  if (core) return pre + core;
-  return b.equipment?.length ? pickFrom(rng, b.equipment) : '随身装备';
+  if (roll < 0.78 && g?.weapon?.length) return { name: pre + pickFrom(rng, g.weapon), category: '武器', slot: '武器' };
+  if (roll < 0.92 && b.armorCore?.length) return { name: pre + pickFrom(rng, b.armorCore), category: '防具', slot: '防具' };
+  if (b.accessoryCore?.length) return { name: pre + pickFrom(rng, b.accessoryCore), category: '饰品', slot: '饰品' };
+  return { name: b.equipment?.length ? pre + pickFrom(rng, b.equipment) : '随身装备', category: '武器', slot: '武器' };
+}
+function genEquip(npc: NpcRecord, rng: () => number): string {
+  return (npc.items ?? []).find((it) => it.equipped)?.name || composeEquip(npc, rng).name;
 }
 /** 技能/天赋名：按职业组合（前缀 × 职业招式词根，或直接取职业天赋全名） */
 function genSkill(npc: NpcRecord, rng: () => number): string {
@@ -173,6 +175,41 @@ function genSkill(npc: NpcRecord, rng: () => number): string {
     }
   }
   return b.skillTalent?.length ? pickFrom(rng, b.skillTalent) : '一门绝技';
+}
+/** 取职业天赋全名（用于「觉醒天赋」真获得） */
+function genTalentName(npc: NpcRecord, rng: () => number): string {
+  const b = getCorpus().banks;
+  const g = b.profGear?.[profKey(npc)] ?? b.profGear?.['通用'];
+  if (g?.talent?.length) return pickFrom(rng, g.talent);
+  return b.skillTalent?.length ? pickFrom(rng, b.skillTalent) : '天赋异禀';
+}
+
+const EQUIP_GRADES = ['精良', '稀有', '史诗', '传说'];
+const SKILL_RARITY = ['人', '玄', '地'];
+const TALENT_RARITY = ['C', 'B', 'A'];
+
+/** 真获得：按职业造一件可写进 NPC 储物栏的装备 */
+function makeEquipItem(npc: NpcRecord, rng: () => number, turn: number): NpcOwnedItem {
+  const c = composeEquip(npc, rng);
+  return {
+    id: `I_${npc.id}_a${turn}`, name: c.name, category: c.category, gradeDesc: pickFrom(rng, EQUIP_GRADES),
+    effect: '六维小幅加成', quantity: 1, equipped: false, equipSlot: c.slot, acquisition: '离场历练所得',
+    addedAt: Date.now(),
+  };
+}
+/** 真获得：按职业造一门可写进 NPC 技能栏的技能 */
+function makeSkill(npc: NpcRecord, rng: () => number, turn: number): Omit<Skill, 'addedAt'> {
+  return {
+    id: `S_${npc.id}_a${turn}`, name: genSkill(npc, rng), level: '初窥·Lv.1', desc: '离场历练中习得',
+    effect: '依招式发挥', rarity: pickFrom(rng, SKILL_RARITY), skillType: '主动',
+  };
+}
+/** 真获得：按职业造一项可写进 NPC 天赋栏的天赋 */
+function makeTalent(npc: NpcRecord, rng: () => number): Omit<Talent, 'addedAt'> {
+  return {
+    name: genTalentName(npc, rng), desc: '离场历练中觉醒', effect: '据天赋发挥',
+    rarity: pickFrom(rng, TALENT_RARITY), source: '历练顿悟', category: '特殊异能类',
+  };
 }
 
 export function homeParadise(id: string): string {
@@ -298,6 +335,19 @@ function decideContractorTick(npc: NpcRecord, turn: number, peers: string[], opt
     const ev: DeedEvent = enc < 0.035 ? 'inner_demon' : enc < 0.065 ? 'encounter_violator' : 'windfall';
     return { deed: mkDeed(turn, '主神空间', pickDeed(ev, base, txtSeed)), patch: { auto: { phase: 'hub', turns: 0 }, status: '主神空间' } };
   }
+  // 真获得（小概率·写进 NPC 面板）：装备 3% / 技能 2% / 天赋 1%
+  if (enc < 0.15) {
+    if (enc < 0.12) {
+      const item = makeEquipItem(npc, rng, turn);
+      return { deed: mkDeed(turn, '主神空间', pickDeed('gain_equip', { ...base, item: item.name }, txtSeed)), patch: { auto: { phase: 'hub', turns: 0 }, status: '主神空间' }, grant: { equip: item } };
+    }
+    if (enc < 0.14) {
+      const sk = makeSkill(npc, rng, turn);
+      return { deed: mkDeed(turn, '主神空间', pickDeed('gain_skill', { ...base, skill: sk.name }, txtSeed)), patch: { auto: { phase: 'hub', turns: 0 }, status: '主神空间' }, grant: { skill: sk } };
+    }
+    const tl = makeTalent(npc, rng);
+    return { deed: mkDeed(turn, '主神空间', pickDeed('gain_talent', { ...base, skill: tl.name }, txtSeed)), patch: { auto: { phase: 'hub', turns: 0 }, status: '主神空间' }, grant: { talent: tl } };
+  }
 
   const tier = realmTier(npc);
   if (tier >= 4 && rng() < WAR_CHANCE) {
@@ -385,7 +435,12 @@ function isActiveThisTurn(n: NpcRecord, turn: number): boolean {
 
 /** 每回合调用：对离场 NPC 跑一次自治（零 API）。返回本回合新增的经历条数。自带开关守卫。 */
 export function runNpcAutonomy(turn: number): number {
-  if (!useSettings.getState().npcAutonomyOn) return 0;
+  const ss = useSettings.getState();
+  if (!ss.npcAutonomyOn) return 0;
+  const every = Math.max(1, ss.npcAutonomyEvery ?? 1);
+  if (turn % every !== 0) return 0;                   // 每 N 回合才运行一次
+  const runIdx = Math.floor(turn / every);            // 轮换计数：按"运行次数"循环，与 every 解耦防只跑一个分组
+  const maxTicks = Math.max(1, ss.npcAutonomyMax ?? MAX_TICKS_PER_TURN);
   const store = useNpc.getState();
   const eligible = Object.values(store.npcs).filter((n) => !n.onScene && !n.isDead && hasRealNpcName(n));
   if (!eligible.length) return 0;
@@ -393,7 +448,7 @@ export function runNpcAutonomy(turn: number): number {
   const contractorNames = eligible.filter((n) => !isNative(n)).map((n) => n.name).filter(Boolean);
   const nativeNames = eligible.filter((n) => isNative(n)).map((n) => n.name).filter(Boolean);
 
-  const ranked = eligible.filter((n) => isActiveThisTurn(n, turn)).sort((a, b) => score(b) - score(a)).slice(0, MAX_TICKS_PER_TURN);
+  const ranked = eligible.filter((n) => isActiveThisTurn(n, runIdx)).sort((a, b) => score(b) - score(a)).slice(0, maxTicks);
 
   const acc = new Map<string, { deed?: Deed; patch: Partial<NpcRecord> }>();
   const ensure = (id: string) => { let e = acc.get(id); if (!e) { e = { patch: {} }; acc.set(id, e); } return e; };
@@ -448,20 +503,31 @@ export function runNpcAutonomy(turn: number): number {
 
   // ── 逐个模拟未配对的 NPC ──
   const allowDeath = useSettings.getState().npcAutonomyDeath;
+  const grants: Array<{ id: string; grant: TickGrant }> = [];
   for (const npc of ranked) {
     if (handled.has(npc.id)) continue;
     const pool = (isNative(npc) ? nativeNames : contractorNames).filter((p) => p !== npc.name);
     const out = decideNpcTick(npc, turn, pool, { allowDeath });
-    if (!out.deed && !out.patch && !out.relation) continue;
+    if (!out.deed && !out.patch && !out.relation && !out.grant) continue;
     if (out.deed || out.patch) accSet(npc.id, out.deed, out.patch ?? {});
     if (out.relation) {
       relAdd(npc.id, out.relation.otherName, out.relation.label);
       const other = eligible.find((n) => n.name === out.relation!.otherName);
       if (other && other.id !== npc.id) relAdd(other.id, npc.name, out.relation.label);
     }
+    if (out.grant) grants.push({ id: npc.id, grant: out.grant });
   }
 
   const updates = [...acc.entries()].map(([id, e]) => ({ id, deed: e.deed, patch: e.patch }));
   if (updates.length) store.applyAutonomy(updates);
+  // 真实获得 → 写进 NPC 物品/技能/天赋栏（显示在面板）
+  if (grants.length) {
+    const chars = useCharacters.getState();
+    for (const { id, grant } of grants) {
+      if (grant.equip) store.addNpcItem(id, grant.equip);
+      if (grant.skill) chars.addSkill(id, grant.skill);
+      if (grant.talent) chars.addTrait(id, grant.talent);
+    }
+  }
   return updates.filter((u) => u.deed).length;
 }

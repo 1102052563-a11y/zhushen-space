@@ -1,5 +1,5 @@
 import { useState, useRef } from 'react';
-import { useItems, ITEM_CATEGORIES, ITEM_GRADES, gradeColorClass, gradeBadgeClass, gradeNameClass, socketsOf, splitAffixEntries, isResourcePseudoItem, type InventoryItem, type ItemCategory, type CurrencyWallet } from '../store/itemStore';
+import { useItems, ITEM_CATEGORIES, ITEM_GRADES, gradeColorClass, gradeBadgeClass, gradeNameClass, socketsOf, splitAffixEntries, isResourcePseudoItem, asText, type InventoryItem, type ItemCategory, type CurrencyWallet } from '../store/itemStore';
 import { enhanceColorClass, enhancedCombat } from '../systems/enhanceEngine';
 import { usePlayer } from '../store/playerStore';
 import { useSkillTree } from '../store/skillTreeStore';
@@ -241,7 +241,7 @@ export function ItemDetailModal({ item, onClose }: { item: InventoryItem; onClos
                 return (<div><div className="text-[12px] font-mono text-dim/40">攻击/防御</div>
                   {ec
                     ? <div className="text-[13px] font-mono flex flex-wrap items-baseline gap-x-1"><span className="text-dim/40 line-through">{ec.base}</span><span className="text-dim/40">→</span><span className={`font-bold ${cls}`}>{ec.enhanced}</span><span className={`text-[11px] ${cls}`}>强化+{item.enhanceLevel}·+{ec.pct}%</span></div>
-                    : <div className="text-[13px] font-mono text-amber-300/90">{item.combatStat}</div>}
+                    : <div className="text-[13px] font-mono text-amber-300/90">{asText(item.combatStat)}</div>}
                 </div>);
               })()}
               {item.durability && (<div><div className="text-[12px] font-mono text-dim/40">耐久度</div><div className="text-[13px] font-mono text-slate-300">{item.durability}</div></div>)}

@@ -260,6 +260,10 @@ interface SettingsState {
   setNpcAutonomyOn: (v: boolean) => void;
   npcAutonomyDeath: boolean; // 离场自治·允许任务致死（陨落）；默认关，仅 npcAutonomyOn 开时生效；护好友/羁绊/长留/队友
   setNpcAutonomyDeath: (v: boolean) => void;
+  npcAutonomyMax: number;    // 离场自治·每次运行最多演化的 NPC 数（控性能/刷屏；超出的按轮换分批）
+  setNpcAutonomyMax: (v: number) => void;
+  npcAutonomyEvery: number;  // 离场自治·每 N 回合运行一次（1=每回合）
+  setNpcAutonomyEvery: (v: number) => void;
   narrativePov: NarrativePov;   // 叙事人称：off=跟随预设（不注入）；first/second/third=强制注入到正文 system 末尾（权重最高）
   setNarrativePov: (v: NarrativePov) => void;
   apiLibrary: ApiEndpoint[];   // 中心 API 接口库（综合设置维护，各功能快捷选填）
@@ -633,6 +637,8 @@ export const useSettings = create<SettingsState>()(
       factCheck: false,
       npcAutonomyOn: false,
       npcAutonomyDeath: false,
+      npcAutonomyMax: 16,
+      npcAutonomyEvery: 1,
       narrativePov: 'off',
       apiLibrary: [],
       apiRoutes: {},
@@ -683,6 +689,8 @@ export const useSettings = create<SettingsState>()(
       setPlotChoices: (v) => set({ plotChoices: v }),
       setNpcAutonomyOn: (v) => set({ npcAutonomyOn: v }),
       setNpcAutonomyDeath: (v) => set({ npcAutonomyDeath: v }),
+      setNpcAutonomyMax: (v) => set({ npcAutonomyMax: Math.min(60, Math.max(1, Math.floor(v) || 1)) }),
+      setNpcAutonomyEvery: (v) => set({ npcAutonomyEvery: Math.min(30, Math.max(1, Math.floor(v) || 1)) }),
       setFanficMode: (v) => set({ fanficMode: v }),
       setFactCheck: (v) => set({ factCheck: v }),
       setNarrativePov: (v) => set({ narrativePov: v }),
