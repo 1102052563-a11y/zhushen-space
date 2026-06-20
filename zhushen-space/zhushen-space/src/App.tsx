@@ -15,8 +15,7 @@ import {
   PLAYER_COT_RULE,
   NPC_COT_RULE,
   NPC_SELF_NARRATION_RULE,
-  RENDER_PASS_RULE,
-  SETTLEMENT_PACKET_RULE,
+  PLOT_GUIDANCE_RULE,
   ENTRY_COT_RULE,
   ENTRY_NAME_CN_RULE,
   ENTRY_DEDUP_RULE,
@@ -77,7 +76,7 @@ import { useGame } from './store/gameStore';
 import { useSettings, resolveApiChain } from './store/settingsStore';
 import { apiChatFallback } from './systems/apiChat';
 import { parseAllStateUpdates, stripStateBlocks, parseAllItemCommands, applyItemCommands, parseAllCharCommands, applyCharacterCommands, parseAllNpcCommands, applyNpcCommands, parseAllFactionCommands, applyFactionCommands, applyTerritoryCommands, applyTeamCommands, isEquippable, lenientJsonParse } from './systems/stateParser';
-import { isRealNpc, sanitizeEntryName, stripLeakedThinking, maskProtectedBlocks, restoreProtectedBlocks, setNpcPreferredOwners, applyStateUpdates, applyAllUpdates, stripKillBlocks, stripVitalsBlocks, stripWorldSourceBlocks, collapseRunaway } from './systems/stateApply';
+import { isRealNpc, sanitizeEntryName, stripLeakedThinking, setNpcPreferredOwners, applyStateUpdates, applyAllUpdates, stripKillBlocks, stripVitalsBlocks, stripWorldSourceBlocks, collapseRunaway } from './systems/stateApply';
 import { flattenAiText } from './systems/flattenAiText';
 import { runPhasePipeline, type Phase } from './systems/phasePipeline';
 import { buildFanficInjection, buildFactInjection, buildCosmosInjection, buildPlayerCoreInjection, buildWorldTimeInjection, buildQuestInjection } from './systems/promptInjections';
@@ -657,9 +656,8 @@ export default function App() {
   const activePresetId   = useSettings((s) => s.activeTextPresetId);
   const textStream           = useSettings((s) => s.textStream);
   const skipNarrativeThinking = useSettings((s) => s.skipNarrativeThinking);
-  const twoPassRender        = useSettings((s) => s.twoPassRender);
-  const renderPassPrompt     = useSettings((s) => s.renderPassPrompt);
-  const twoPassFull          = useSettings((s) => s.twoPassFull);
+  const plotGuidance         = useSettings((s) => s.plotGuidance);
+  const guidancePrompt       = useSettings((s) => s.guidancePrompt);
   const globalRegexScripts   = useSettings((s) => s.globalRegexScripts);
 
   // 物品管理 + 主角演化：回合计数 + 阶段状态 + 最近正文缓存
@@ -5507,44 +5505,24 @@ ${lines}`;
     });
   }
 
-  /* 两段式·渲染遍（spike）：拿"结算遍已定稿的正文"重渲染成一段干净沉浸的正文，仅替换显示，
-     完全不动 state 解析 / 演化（那些已用结算原文跑过）。失败/超时/无配置 → 返回 ''，调用方保留结算原文。
-     可挂独立 render 路由（设置→正文生成→两段式渲染），并复用「跳过思维链」预填充。 */
-  async function runRenderPass(userText: string, settledProse: string, msgId: number): Promise<string> {
-    if (!settledProse.trim()) return '';
-    const renderApi = textUseShared ? sharedApi : textApi;
-    const chain = resolveApiChain('render', renderApi);   // 未配 render 路由则回退到正文 API
-    if (!chain[0]?.baseUrl || !chain[0]?.apiKey) { console.warn('[渲染] render 路由与正文 API 均未配置，跳过渲染遍'); return ''; }
-    // 保护结构化块（时间结算块 / 【主角资源】/【敌方信息】/【环境效果】/【任务】等）：替换成 〔§N〕，只把正文送渲染，渲染完原样拼回
-    const { masked, blocks } = maskProtectedBlocks(settledProse);
-    const sys = (renderPassPrompt && renderPassPrompt.trim()) ? renderPassPrompt : RENDER_PASS_RULE;
-    const sentinelNote = blocks.length
-      ? `\n\n〔重要·占位符规则〕上文中的 〔§数字〕 是**受保护的信息块**（状态栏/任务块等）——请**原样保留、放在原来的位置、绝不改写或删除**，只重写占位符之间与之外的正文。`
-      : '';
-    const packet = `【本回合·已结算定稿，按此渲染，勿改情节】\n\n〔玩家这一步〕\n${userText || '（无显式输入，续写上一拍）'}\n\n〔已经发生的事（含对白/动作/结果，以此为准）〕\n${masked}${sentinelNote}`;
-    const msgs: { role: 'system' | 'user' | 'assistant'; content: string }[] = [
-      { role: 'system', content: sys },
-      { role: 'user', content: packet },
-    ];
-    if (skipNarrativeThinking) msgs.push({ role: 'assistant', content: '</think>' });   // 渲染遍跳过原生思维链
+  /* 剧情指导：正文生成【前】先跑一次，据「最近5楼 + 玩家这步 + 当前任务/场景」产出剧情优化建议（提示词允许联网搜原作剧情让切入更合理）。
+     建议像叙事回忆一样注入主正文，由主正文据此写。失败/无配置 → 返回 ''（不注入，正文照常生成）。可挂独立 guidance 路由。 */
+  async function runPlotGuidance(userText: string): Promise<string> {
+    const gApi = textUseShared ? sharedApi : textApi;
+    const chain = resolveApiChain('guidance', gApi);   // 未配 guidance 路由则回退到正文 API
+    if (!chain[0]?.baseUrl || !chain[0]?.apiKey) { console.warn('[剧情指导] guidance 路由与正文 API 均未配置，跳过'); return ''; }
+    // 上下文：最近5楼 + 玩家这步 + 当前任务/场景
+    const recent5 = (messagesRef.current ?? []).slice(-5)
+      .map((m) => `[${m.role === 'user' ? '玩家' : '正文'}] ${m.content}`).join('\n\n');
+    const questScene = [...buildQuestInjection(), ...buildWorldTimeInjection()].map((m) => m.content).join('\n');
+    const sys = (guidancePrompt && guidancePrompt.trim()) ? guidancePrompt : PLOT_GUIDANCE_RULE;
+    const user = `【最近正文（最多5楼）】\n${recent5 || '（暂无）'}\n\n【玩家这一步】\n${userText || '（无显式输入，续写）'}\n\n【当前任务 / 场景】\n${questScene || '（暂无）'}\n\n请据上面，给出本回合的【剧情优化建议】（要点式，不写正文）。`;
     try {
-      const { content } = await apiChatFallback(chain, msgs, {
-        timeoutMs: 120000,
-        onDelta: (acc) => {   // 逐字流式：边收边显（中途只替换已到的占位符，未到的块先不补到开头）
-          const partial = restoreProtectedBlocks(stripLeakedThinking(acc), blocks, false).trimStart();
-          if (partial) setMessages((prev) => prev.map((m) => (m.id === msgId ? { ...m, content: partial } : m)));
-        },
-      });
-      const clean = stripLeakedThinking(content || '').trim();
-      if (!clean) { console.warn('[渲染] 渲染遍返回空，保留结算原文'); return ''; }
-      const restored = restoreProtectedBlocks(clean, blocks);   // 定稿：状态栏/任务块逐字拼回（漏掉的补回开头）
-      setMessages((prev) => prev.map((m) => (m.id === msgId ? { ...m, content: restored } : m)));
-      console.log(`[渲染] 渲染遍完成（正文 ${clean.length} 字 + 保护块 ${blocks.length} 个），逐字流式（结算原文见「查看原始响应」）`);
-      return restored;
-    } catch (e) {
-      console.warn('[渲染] 渲染遍失败，保留结算原文：', e);
-      return '';
-    }
+      const { content } = await apiChatFallback(chain, [{ role: 'system', content: sys }, { role: 'user', content: user }], { timeoutMs: 90000 });
+      const g = stripLeakedThinking(content || '').trim();
+      if (g) console.log(`[剧情指导] 已生成建议（${g.length} 字）`);
+      return g;
+    } catch (e) { console.warn('[剧情指导] 失败，本回合跳过：', e); return ''; }
   }
 
   async function callApi(userText: string, extraHistory: ChatMessage[] = []) {
@@ -5602,9 +5580,12 @@ ${lines}`;
     const { sysPrompt, examples, prefill } = buildPresetMessages(preset, worldInfoText, userText);
     // 跳过思维链（设置开时）：末尾预填充 </think>，让思考模型以为思考已结束、直接出正文（与 preset 自带 prefill 叠加）
     const effectivePrefill = skipNarrativeThinking ? ('</think>\n' + (prefill ?? '')).trimEnd() : prefill;
-    // 完整两段式（需 twoPassRender 同开）：结算遍系统提示词追加"只出 <结算包>、不写正文"规则（含创作自由框架，防分析式摘要触发拒绝）
-    const fullMode = twoPassRender && twoPassFull;
-    const settleSys = fullMode ? `${sysPrompt}\n\n${SETTLEMENT_PACKET_RULE}` : sysPrompt;
+    // 剧情指导（开启时）：正文生成【前】先跑一次，产出剧情优化建议 → 像叙事回忆一样注入主正文，由主正文据此写（仅一次正文生成）
+    let guidanceBlock: { role: 'system'; content: string }[] = [];
+    if (plotGuidance) {
+      const g = await runPlotGuidance(userText);
+      if (g) guidanceBlock = [{ role: 'system', content: `【剧情指导·本回合写作建议（参考·把方向自然融入正文，勿照抄成对白/旁白/标题）】\n${g}` }];
+    }
 
     // 历史：叙事记忆（关键词召回，启用时）或按 historyLimit 切片（现状）
     let memory: { role: 'system'; content: string }[] = [];
@@ -5699,14 +5680,14 @@ ${lines}`;
       ...structMem,                                    // <在场与相关档案> 结构化档案块（如有）
       ...(mpRuleBlock ? [{ role: 'system' as const, content: mpRuleBlock }] : []),     // <联机正文规则> 房主开了才注入
       ...(mpPartyBlock ? [{ role: 'system' as const, content: mpPartyBlock }] : []),   // <同行队友> 联机其他玩家档案
-
-      ...buildPlayerCoreInjection(),                    // <主角核心> 始终注入主角真实外观/六维（结构化召回关时兜底，防 AI 改发色/清属性）
-      ...buildWorldTimeInjection(),                     // <当前时空> 杂项的两个时间(乐园时间/世界时间)+当前世界名，常驻注入正文
-      ...buildQuestInjection(),                          // <当前任务> 主线(重)+相关支线(轻) 回流正文，给主线存在感+把控节奏
-      ...buildCosmosInjection(),                        // <万族态势> 宇宙背景层（独立于叙事记忆开关，cosmos 自己的启用控制）
-      ...buildFanficInjection(),                        // <同人设定·已锁定> 已识别的虚构作品角色设定（受 fanficMode 门控，下回合注入防 OOC）
-      ...buildFactInjection(),                          // <事实锚点·已锁定> 已核实的现实/时代事实（受 factCheck 门控，下回合注入防穿帮）
+      ...buildPlayerCoreInjection(),                    // <主角核心>
+      ...buildWorldTimeInjection(),                     // <当前时空>
+      ...buildQuestInjection(),                          // <当前任务>
+      ...buildCosmosInjection(),                        // <万族态势>
+      ...buildFanficInjection(),                        // <同人设定·已锁定>
+      ...buildFactInjection(),                          // <事实锚点·已锁定>
       ...recent,                                       // 最近原文楼层
+      ...guidanceBlock,                                // <剧情指导> 本回合写作建议（剧情指导开启时，紧贴用户输入注入，像叙事回忆一样）
       { role: 'user' as const, content: userText },
       ...(effectivePrefill ? [{ role: 'assistant' as const, content: effectivePrefill }] : []),   // 末尾预填充（prefill 块 / 跳过思维链）
     ];
@@ -5748,7 +5729,7 @@ ${lines}`;
         if (!ep.baseUrl || !ep.apiKey) continue;
         const reqBody: Record<string, unknown> = {
           model:       ep.modelId,
-          messages:    [{ role: 'system', content: settleSys }, ...history],
+          messages:    [{ role: 'system', content: sysPrompt }, ...history],
           temperature: preset?.temperature ?? ep.temperature,
           max_tokens:  preset?.max_tokens  ?? Math.max(ep.maxTokens || 0, 60000),   // 按用户要求保持 60000（若遇变慢/network error，多为大提示词+60000 撑爆上下文，可调小）
           top_p:       preset?.top_p       ?? ep.topP,
@@ -5809,7 +5790,7 @@ ${lines}`;
                   if (accumulated.length > 64 && /(.{1,8}?)\1{7,}$/s.test(accumulated.slice(-128)))
                     accumulated = collapseRunaway(accumulated);
                   setMessages((prev) =>
-                    prev.map((m) => m.id === streamMsgId ? { ...m, content: fullMode ? '⏳ 结算中（完整两段式）…' : accumulated } : m)
+                    prev.map((m) => m.id === streamMsgId ? { ...m, content: accumulated } : m)
                   );
                 }
               } catch { /* 忽略解析失败的行 */ }
@@ -5838,28 +5819,17 @@ ${lines}`;
         const narrativeForEvoRaw = stripStateBlocks(applyRegex(settledText, preset));
         // 显示给玩家的正文：在此之上再剥掉 <状态结算>（纯数据通道，玩家看不到 HP/EP 原词，侧栏照旧用自定义血条名）
         const finalDisplayed = stripWorldSourceBlocks(stripVitalsBlocks(narrativeForEvoRaw));
-        // 完整两段式：finalDisplayed 是「状态块+结算包」不是正文 → 先挂"渲染中"占位，别把骨架显示给玩家；普通/spike 直接显示结算正文
         setMessages((prev) =>
-          prev.map((m) => m.id === streamMsgId ? { ...m, content: fullMode ? '⏳ 正在渲染本回合正文…（已结算）' : finalDisplayed } : m)
+          prev.map((m) => m.id === streamMsgId ? { ...m, content: finalDisplayed } : m)
         );
         setRawResponse(accumulated);
         if (!accumulated) throw new Error('模型未返回内容');
         // 演化阶段读的正文：去 state 块外，再去掉击杀结算块（保留 <状态结算> 供 HP/EP 结算用，避免演化AI看到点数又重复发 ap）
         const narrativeForEvo = narrativeForEvoRaw.replace(/<击杀结算>[\s\S]*?<\/击杀结算>/gi, '').trimEnd();
-        // 两段式·渲染遍（开关开时）：先渲染→玩家先看到最终正文，渲染独占接口；完整模式下喂的是结算包，渲染据此从零写正文
-        let displayOut = finalDisplayed;
-        let evoNarrative = narrativeForEvo;   // 单段/spike：演化读结算正文
-        if (twoPassRender && !aborted) {
-          const rendered = await runRenderPass(userText, finalDisplayed, streamMsgId);
-          if (rendered) { displayOut = rendered; if (fullMode) evoNarrative = rendered; }   // 完整模式：结算遍无正文，演化改读渲染版正文
-          else {   // 渲染失败/空：恢复显示结算内容（spike=正文 / 完整=结算包），清掉流式残留的半截
-            setMessages((prev) => prev.map((m) => m.id === streamMsgId ? { ...m, content: finalDisplayed } : m));
-          }
-        }
-        lastNarrativeRef.current = evoNarrative;
-        // 正文+渲染都完成后，再并发起各演化阶段（策略B先登场判断）——避免演化与渲染抢接口、也让"演化"发生在最终正文之后
-        runPostNarrativePhases(evoNarrative, streamMsgId);
-        return displayOut;
+        lastNarrativeRef.current = narrativeForEvo;
+        // 正文完成后：策略B先登场判断再并发其余阶段
+        runPostNarrativePhases(narrativeForEvo, streamMsgId);
+        return finalDisplayed;
 
       } else {
         // ── 非流式：等待完整响应 ──
@@ -5877,24 +5847,12 @@ ${lines}`;
         // 显示给玩家的正文：在此之上再剥掉 <状态结算>（纯数据通道，玩家看不到 HP/EP 原词）
         const processed = stripWorldSourceBlocks(stripVitalsBlocks(narrativeForEvoRaw));
         const newMsgId = ++msgId.current;
-        // 完整模式：processed 是结算包不是正文 → 先挂占位，等渲染出正文
-        setMessages((prev) => [...prev, { id: newMsgId, role: 'assistant', content: fullMode ? '⏳ 正在渲染本回合正文…（已结算）' : processed }]);
+        setMessages((prev) => [...prev, { id: newMsgId, role: 'assistant', content: processed }]);
         // 演化阶段读的正文：去 state 块外，再去掉击杀结算块（保留 <状态结算> 供 HP/EP 结算用，避免演化AI看到点数又重复发 ap）
         const narrativeForEvo = narrativeForEvoRaw.replace(/<击杀结算>[\s\S]*?<\/击杀结算>/gi, '').trimEnd();
-        // 两段式·渲染遍（开关开时）：先渲染再起演化（同流式路径）
-        let displayOut = processed;
-        let evoNarrative = narrativeForEvo;
-        if (twoPassRender) {
-          const rendered = await runRenderPass(userText, processed, newMsgId);
-          if (rendered) { displayOut = rendered; if (fullMode) evoNarrative = rendered; }   // 完整模式：演化改读渲染版正文
-          else {   // 渲染失败/空：恢复显示结算内容，清掉流式残留的半截
-            setMessages((prev) => prev.map((m) => m.id === newMsgId ? { ...m, content: processed } : m));
-          }
-        }
-        lastNarrativeRef.current = evoNarrative;
-        // 渲染遍完成后才并发起各演化阶段（避免抢接口、让演化发生在最终正文之后）
-        runPostNarrativePhases(evoNarrative, newMsgId);
-        return displayOut;
+        lastNarrativeRef.current = narrativeForEvo;
+        runPostNarrativePhases(narrativeForEvo, newMsgId);
+        return processed;
       }
     } catch (e: any) {
       if (e?.name === 'AbortError') { setGenError(''); console.log('[正文] 已手动停止生成'); }

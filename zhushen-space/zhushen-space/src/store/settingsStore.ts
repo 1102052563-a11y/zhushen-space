@@ -288,9 +288,8 @@ interface SettingsState {
   textUseSharedApi: boolean;
   textStream: boolean;
   skipNarrativeThinking: boolean;   // 正文末尾预填充 </think>，让思考模型跳过原生思维链直接出正文（提速·省 token）
-  twoPassRender: boolean;           // 两段式：结算遍照常出正文+state→再单独渲染遍把它重写成干净沉浸正文（仅显示渲染版；每回合 +1 调用，可挂独立 render 路由）
-  renderPassPrompt: string;         // 渲染遍自定义提示词（留空=用内置 RENDER_PASS_RULE）
-  twoPassFull: boolean;             // 完整两段式（需 twoPassRender 同开）：结算遍只出 <结算包>+状态块·不写正文 → 渲染遍据包从零写正文（文笔天花板更高）
+  plotGuidance: boolean;            // 剧情指导：正文生成前先跑一次"剧情优化建议"调用 → 像叙事回忆一样注入主正文（仅一次正文生成·受指导）
+  guidancePrompt: string;           // 剧情指导自定义提示词（留空=用内置 PLOT_GUIDANCE_RULE）
   textAvailableModels: string[];
   textModelsLoading: boolean;
   textModelsError: string;
@@ -318,9 +317,8 @@ interface SettingsState {
   setTextUseSharedApi: (v: boolean) => void;
   setTextStream: (v: boolean) => void;
   setSkipNarrativeThinking: (v: boolean) => void;
-  setTwoPassRender: (v: boolean) => void;
-  setRenderPassPrompt: (v: string) => void;
-  setTwoPassFull: (v: boolean) => void;
+  setPlotGuidance: (v: boolean) => void;
+  setGuidancePrompt: (v: string) => void;
   fetchTextModels: () => Promise<void>;
   importTextWorldBook: (raw: string, fileName?: string, builtin?: boolean, builtinKey?: string) => { ok: boolean; message: string };
   toggleTextWorldBook: (id: string) => void;
@@ -646,9 +644,8 @@ export const useSettings = create<SettingsState>()(
       textUseSharedApi: true,
       textStream: true,
       skipNarrativeThinking: false,
-      twoPassRender: false,
-      renderPassPrompt: '',
-      twoPassFull: false,
+      plotGuidance: false,
+      guidancePrompt: '',
       textAvailableModels: [],
       textModelsLoading: false,
       textModelsError: '',
@@ -789,9 +786,8 @@ export const useSettings = create<SettingsState>()(
       setTextUseSharedApi: (v) => set({ textUseSharedApi: v }),
       setTextStream: (v) => set({ textStream: v }),
       setSkipNarrativeThinking: (v) => set({ skipNarrativeThinking: v }),
-      setTwoPassRender: (v) => set({ twoPassRender: v }),
-      setRenderPassPrompt: (v) => set({ renderPassPrompt: v }),
-      setTwoPassFull: (v) => set({ twoPassFull: v }),
+      setPlotGuidance: (v) => set({ plotGuidance: v }),
+      setGuidancePrompt: (v) => set({ guidancePrompt: v }),
 
       fetchTextModels: async () => {
         const s = get();

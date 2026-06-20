@@ -1388,20 +1388,24 @@ function TextApiSection() {
   const textApi            = useSettings((s) => s.textApi);
   const textUseSharedApi   = useSettings((s) => s.textUseSharedApi);
   const textStream         = useSettings((s) => s.textStream);
+  const narrativeWordCount = useSettings((s) => s.narrativeWordCount);
   const skipNarrativeThinking = useSettings((s) => s.skipNarrativeThinking);
   const twoPassRender      = useSettings((s) => s.twoPassRender);
   const renderPassPrompt   = useSettings((s) => s.renderPassPrompt);
   const twoPassFull        = useSettings((s) => s.twoPassFull);
+  const renderPresetId     = useSettings((s) => s.renderPresetId);
   const textAvailableModels= useSettings((s) => s.textAvailableModels);
   const textModelsLoading  = useSettings((s) => s.textModelsLoading);
   const textModelsError    = useSettings((s) => s.textModelsError);
   const setTextApi         = useSettings((s) => s.setTextApi);
   const setTextUseSharedApi= useSettings((s) => s.setTextUseSharedApi);
   const setTextStream      = useSettings((s) => s.setTextStream);
+  const setNarrativeWordCount = useSettings((s) => s.setNarrativeWordCount);
   const setSkipNarrativeThinking = useSettings((s) => s.setSkipNarrativeThinking);
   const setTwoPassRender   = useSettings((s) => s.setTwoPassRender);
   const setRenderPassPrompt= useSettings((s) => s.setRenderPassPrompt);
   const setTwoPassFull     = useSettings((s) => s.setTwoPassFull);
+  const setRenderPresetId  = useSettings((s) => s.setRenderPresetId);
   const fetchTextModels    = useSettings((s) => s.fetchTextModels);
   const plotChoices        = useSettings((s) => s.plotChoices);
   const setPlotChoices     = useSettings((s) => s.setPlotChoices);
@@ -1484,6 +1488,25 @@ function TextApiSection() {
             ))}
           </div>
         </div>
+        <div className="p-3 bg-panel border border-edge rounded-lg">
+          <div className="text-sm text-slate-200">正文字数（强制）</div>
+          <div className="text-sm text-dim mt-0.5 mb-2"><b>仅两段式生效</b>：每回合正文<b>强制写到约这么多字</b>（语气很硬，反复要求模型写满、禁止草草收尾）；作用于<b>渲染遍</b>（最终正文那一遍）。<b>普通生成不受影响，由你的预设决定。</b> <b>0 = 不限</b>。</div>
+          <div className="flex flex-wrap items-center gap-2">
+            <input type="number" min={0} step={100} value={narrativeWordCount || ''}
+              onChange={(e) => setNarrativeWordCount(parseInt(e.target.value) || 0)}
+              placeholder="0（不限）"
+              className="w-28 px-3 py-1.5 bg-black/30 border border-edge rounded-md text-sm text-slate-200 placeholder:text-dim/40 focus:border-god/50 focus:outline-none" />
+            <span className="text-xs text-dim">字 / 回合</span>
+            <div className="flex flex-wrap gap-1.5">
+              {([0, 800, 1200, 1600, 2000] as const).map((n) => (
+                <button key={n} onClick={() => setNarrativeWordCount(n)}
+                  className={`px-2.5 py-1 rounded-md text-xs border transition ${narrativeWordCount === n ? 'bg-god/20 text-god border-god/50' : 'bg-black/20 text-dim border-edge hover:text-slate-200'}`}>
+                  {n === 0 ? '不限' : n}
+                </button>
+              ))}
+            </div>
+          </div>
+        </div>
       </div>
 
       {(plotChoices || fanficMode || factCheck) && (
@@ -1514,23 +1537,52 @@ function TextApiSection() {
               ? '完整：结算遍（text 路由·建议挂 Pro 强模型）只判定剧情、出 <结算包>+状态块、不写正文；渲染遍（render 路由·可挂便宜 prose 模型）据结算包从零写正文。文笔天花板更高、结算遍更省 token；结算包不写文采但要点说全。'
               : '润色：结算遍照常写完整正文，渲染遍只在其上润色（你已测过的那版）。'}</div>
           </div>
-          <div className="text-xs text-dim">「渲染遍」专用接口路由：建议挂一条<b>文笔强/便宜</b>的模型（纪律交给结算遍）。<b>留空则复用上面的「正文 API」</b>。</div>
-          <ApiRoutePicker routeKey="render" />
-          <div className="space-y-1.5">
-            <div className="text-sm text-slate-200">渲染遍提示词（自定义）</div>
-            <div className="text-xs text-dim">留空 = 用内置默认（只渲染不改情节、纯正文、禁指令/分割线/交付语）。想自己调渲染口吻/篇幅就写在这里。</div>
-            <textarea
-              value={renderPassPrompt}
-              onChange={(e) => setRenderPassPrompt(e.target.value)}
-              rows={4}
-              placeholder="（留空用内置默认渲染提示词）"
-              className="w-full px-3 py-2 bg-black/30 border border-edge rounded-md text-sm text-slate-200 placeholder:text-dim/40 font-mono resize-y focus:border-violet-600/50 focus:outline-none"
-            />
+          <div className="space-y-1.5 pt-1 border-t border-violet-700/20">
+            <div className="text-sm text-violet-200">🧮 结算遍（骨架）· 接口路由</div>
+            <div className="text-xs text-dim">出 <code>&lt;结算包&gt;</code>、判定剧情、发 state——建议挂 <b>Pro 强模型</b>（结算错了会污染后续演化）。<b>这就是「正文 API」那条</b>；关掉两段式后它即恢复成普通正文 API。</div>
+            <ApiRoutePicker routeKey="text" />
           </div>
+          <div className="space-y-1.5 pt-1 border-t border-violet-700/20">
+            <div className="text-sm text-violet-200">🎨 渲染遍 · 接口路由</div>
+            <div className="text-xs text-dim">据结算包写正文——建议挂一条<b>文笔强/便宜</b>的模型（纪律交给结算遍）。<b>留空则复用上面的结算遍/正文 API</b>。</div>
+            <ApiRoutePicker routeKey="render" />
+          </div>
+          <div className="space-y-1.5 pt-1 border-t border-violet-700/20">
+            <div className="text-sm text-violet-200">📝 渲染预设（渲染遍 system · 按模型脾气调）</div>
+            <div className="text-xs text-dim">据结算包写正文那一遍的提示词；已自带<b>破限/NSFW + 文风 + 渲染输出合同</b>。世界书/记忆召回/角色档案/历史楼层由代码<b>与正文同源</b>注入，无需写进这里。按你 render 路由挂的模型选：</div>
+            <div className="flex flex-wrap gap-1.5">
+              {([['gemini', 'Gemini'], ['deepseek', 'DeepSeek'], ['claude', 'Claude'], ['custom', '自定义']] as const).map(([val, label]) => (
+                <button key={val} onClick={() => setRenderPresetId(val)}
+                  className={`px-3 py-1.5 rounded-md text-sm border transition ${renderPresetId === val ? 'bg-violet-900/40 text-violet-200 border-violet-600/50' : 'bg-black/20 text-dim border-edge hover:text-slate-200'}`}>
+                  {label}
+                </button>
+              ))}
+            </div>
+            <div className="text-xs text-dim">{
+              renderPresetId === 'gemini' ? 'Gemini：最强破限 + 反八股（治它「I am processing…」式刻板、爱端着）+ 压成自然口语。'
+              : renderPresetId === 'deepseek' ? 'DeepSeek：轻破限，顺它本就自然、有人味的叙述发挥。'
+              : renderPresetId === 'claude' ? 'Claude：借 prose 强项 + 克制文风，破限按 Claude 方式给。'
+              : '自定义：用下面的提示词（留空 = 内置默认 RENDER_PASS_RULE，不含完整破限）。'
+            }</div>
+          </div>
+          {renderPresetId === 'custom' && (
+            <div className="space-y-1.5">
+              <div className="text-sm text-slate-200">渲染遍提示词（自定义）</div>
+              <div className="text-xs text-dim">留空 = 用内置默认（只渲染不改情节、纯正文、禁指令/分割线/交付语）。想自己调渲染口吻/篇幅就写在这里。</div>
+              <textarea
+                value={renderPassPrompt}
+                onChange={(e) => setRenderPassPrompt(e.target.value)}
+                rows={4}
+                placeholder="（留空用内置默认渲染提示词）"
+                className="w-full px-3 py-2 bg-black/30 border border-edge rounded-md text-sm text-slate-200 placeholder:text-dim/40 font-mono resize-y focus:border-violet-600/50 focus:outline-none"
+              />
+            </div>
+          )}
         </div>
       )}
 
-      <ApiRoutePicker routeKey="text" />
+      {/* 两段式开启时，「正文 API」即上面的「结算遍」路由（同一条 routeKey=text），不再单独重复显示；关闭后恢复为普通正文 API */}
+      {!twoPassRender && <ApiRoutePicker routeKey="text" />}
       {!textUseSharedApi && (
         <div className="space-y-4">
           <Field label="API 地址">
