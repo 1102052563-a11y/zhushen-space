@@ -1,4 +1,5 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
+import { useRaidImages, fileToScaledDataUrl } from '../store/raidImageStore';
 import { useMp } from '../store/multiplayerStore';
 import { mpClient } from '../systems/mpClient';
 import { myMpName, setMpName } from '../systems/mpConfig';
@@ -290,10 +291,36 @@ function ShareGift({ seats, mySeatId }: { seats: any[]; mySeatId: string | null 
   );
 }
 
+/* 副本 BOSS 立绘框：有图显图、无图回退 emoji；房主可 📷 导入(自动压缩)/✕ 清除。图存本机 raidImageStore(按 encId)，各客户端各自设、不碰版权素材。 */
+function RaidBossFrame({ id, emoji, isHost }: { id: string; emoji: string; isHost: boolean }) {
+  const img = useRaidImages((s) => s.images[id]);
+  const fileRef = useRef<HTMLInputElement>(null);
+  const onPick = async (e: any) => {
+    const f = e.target.files?.[0]; if (!f) return;
+    try { const url = await fileToScaledDataUrl(f); useRaidImages.getState().setImage(id, url); } catch { /* */ }
+    e.target.value = '';
+  };
+  return (
+    <div className="relative shrink-0">
+      <div className="w-11 h-11 rounded-lg border border-rose-500/30 bg-slate-900/60 overflow-hidden flex items-center justify-center">
+        {img ? <img src={img} alt="" className="w-full h-full object-cover" /> : <span className="text-2xl">{emoji}</span>}
+      </div>
+      {isHost && (
+        <>
+          <button onClick={() => fileRef.current?.click()} title="导入立绘" className="absolute -bottom-1 -right-1 w-5 h-5 rounded-full bg-slate-800 border border-rose-500/40 text-[10px] flex items-center justify-center hover:bg-slate-700">📷</button>
+          {img && <button onClick={() => useRaidImages.getState().clearImage(id)} title="清除立绘" className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-slate-800 border border-slate-600 text-[9px] text-slate-300 flex items-center justify-center hover:text-rose-300">✕</button>}
+          <input ref={fileRef} type="file" accept="image/*" onChange={onPick} className="hidden" />
+        </>
+      )}
+    </div>
+  );
+}
+
 /* 组队讨伐：房主选难度→生成多阶段 BOSS→广播预览→开战；来宾看预览等开战。战斗本身复用联机战斗(CombatPanel)。 */
 function RaidView({ st }: { st: any }) {
   const isHost = st.role === 'host';
   const boss = st.raidBoss;
+  const dungeon = st.raidDungeon;
   const myTier = usePlayer((s) => s.profile?.tier);
   const [diff, setDiff] = useState<RaidDifficulty>('normal');
   const [theme, setTheme] = useState('');
@@ -305,6 +332,56 @@ function RaidView({ st }: { st: any }) {
     mpClient.relay('raid_boss', b);   // 广播给来宾预览
   };
   const start = () => { if (boss) useMp.getState().handlers.onStartRaid?.(boss); };
+  const genDungeon = () => useMp.getState().handlers.onStartDungeon?.({ difficulty: diff });
+  const resetDungeon = () => { useMp.getState()._set({ raidDungeon: null }); mpClient.relay('raid_dungeon', null); };
+
+  // ── 组队副本：巴卡尔攻坚战进度面板（多场战斗串联，自选顺序打三龙→解锁龙王） ──
+  if (dungeon) {
+    const dragonsLeft = dungeon.encounters.filter((e: any) => e.kind === 'dragon' && e.status !== 'cleared').length;
+    const cleared = dungeon.encounters.every((e: any) => e.status === 'cleared');
+    return (
+      <div className="shrink-0 px-5 py-3 border-b border-edge bg-rose-950/10">
+        <div className="flex items-center justify-between mb-2">
+          <div className="text-[13px] font-bold text-rose-200 truncate">🐉 {dungeon.name}</div>
+          <span className="text-[11px] font-mono text-dim/60 shrink-0">【{dungeon.difficultyLabel}】</span>
+        </div>
+        <div className="mb-2">
+          <div className="flex items-center justify-between text-[11px] mb-0.5">
+            <span className="text-rose-300/80">🔥 恐惧之龙王槽（满则团灭·快通关）</span>
+            <span className="font-mono text-rose-300/70">{Math.round(dungeon.dread || 0)}/{dungeon.dreadMax || 100}</span>
+          </div>
+          <div className="h-2 rounded-full bg-slate-800 overflow-hidden">
+            <div className="h-full bg-gradient-to-r from-amber-500 to-rose-600 transition-all duration-300" style={{ width: `${Math.min(100, ((dungeon.dread || 0) / (dungeon.dreadMax || 100)) * 100)}%` }} />
+          </div>
+        </div>
+        {cleared
+          ? <div className="mb-2 py-1 rounded-lg bg-amber-600/15 border border-amber-500/40 text-center text-[13px] text-amber-200 font-bold">🏆 副本通关！</div>
+          : <div className="mb-2 text-[11px] text-dim/50">三龙未灭时龙王锁血（剩 {dragonsLeft} 龙）。自选顺序逐个开打。</div>}
+        <div className="space-y-1.5">
+          {dungeon.encounters.map((e: any) => {
+            const locked = e.kind === 'boss' && dragonsLeft > 0;
+            const done = e.status === 'cleared';
+            return (
+              <div key={e.id} className={`flex items-center gap-2 rounded-lg border px-2.5 py-1.5 ${done ? 'border-emerald-600/30 bg-emerald-950/20' : e.kind === 'boss' ? 'border-rose-500/40 bg-rose-950/25' : 'border-edge bg-panel/40'}`}>
+                <RaidBossFrame id={e.id} emoji={e.emoji} isHost={isHost} />
+                <div className="flex-1 min-w-0">
+                  <div className="text-[13px] font-medium text-slate-100 truncate">{e.name}{e.kind === 'boss' ? ' · 龙王' : ''}</div>
+                  <div className="text-[11px] font-mono text-dim/50 truncate">{e.boss?.tier} · HP {Number(e.boss?.maxHp).toLocaleString()}{e.note ? ` · ${e.note}` : ''}</div>
+                </div>
+                {done ? <span className="text-[11px] text-emerald-300 font-medium shrink-0">✅ 已击破</span>
+                  : locked ? <span className="text-[11px] text-dim/50 shrink-0">🔒 血锁</span>
+                  : isHost ? <button onClick={() => useMp.getState().handlers.onStartDungeonEncounter?.(e.id)} className="px-2.5 py-1 rounded-md text-[12px] bg-rose-600/25 border border-rose-500/50 text-rose-100 hover:bg-rose-600/40 shrink-0 transition-colors">{e.kind === 'boss' ? '讨伐龙王' : '开打'}</button>
+                  : <span className="text-[11px] text-dim/50 shrink-0">待战</span>}
+              </div>
+            );
+          })}
+        </div>
+        {isHost
+          ? <div className="mt-2 flex justify-end"><button onClick={resetDungeon} className="text-[11px] text-dim/50 hover:text-rose-300 transition-colors">解散副本</button></div>
+          : <div className="mt-2 text-[11px] text-dim/40 text-center">房主推进副本进度，你随房主战斗</div>}
+      </div>
+    );
+  }
 
   return (
     <div className="shrink-0 px-5 py-3 border-b border-edge bg-rose-950/10">
@@ -346,6 +423,7 @@ function RaidView({ st }: { st: any }) {
             <button onClick={gen} className="flex-1 px-3 py-1.5 rounded-lg bg-god/15 border border-god/40 text-god/90 text-[13px] hover:bg-god/25 transition-colors">{boss ? '↻ 重生(图鉴)' : '生成 BOSS(图鉴)'}</button>
             <button onClick={start} disabled={!boss} className="flex-1 px-3 py-1.5 rounded-lg bg-rose-600/20 border border-rose-500/50 text-rose-200 text-[13px] hover:bg-rose-600/30 disabled:opacity-40 transition-colors">⚔ 开战</button>
           </div>
+          <button onClick={genDungeon} className="w-full px-3 py-1.5 rounded-lg bg-amber-600/15 border border-amber-500/40 text-amber-200 text-[13px] hover:bg-amber-600/25 transition-colors">🐉 巴卡尔攻坚战（多场副本）</button>
         </div>
       )}
     </div>

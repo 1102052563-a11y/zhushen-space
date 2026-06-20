@@ -1388,24 +1388,18 @@ function TextApiSection() {
   const textApi            = useSettings((s) => s.textApi);
   const textUseSharedApi   = useSettings((s) => s.textUseSharedApi);
   const textStream         = useSettings((s) => s.textStream);
-  const narrativeWordCount = useSettings((s) => s.narrativeWordCount);
   const skipNarrativeThinking = useSettings((s) => s.skipNarrativeThinking);
-  const twoPassRender      = useSettings((s) => s.twoPassRender);
-  const renderPassPrompt   = useSettings((s) => s.renderPassPrompt);
-  const twoPassFull        = useSettings((s) => s.twoPassFull);
-  const renderPresetId     = useSettings((s) => s.renderPresetId);
+  const plotGuidance       = useSettings((s) => s.plotGuidance);
+  const guidancePrompt     = useSettings((s) => s.guidancePrompt);
   const textAvailableModels= useSettings((s) => s.textAvailableModels);
   const textModelsLoading  = useSettings((s) => s.textModelsLoading);
   const textModelsError    = useSettings((s) => s.textModelsError);
   const setTextApi         = useSettings((s) => s.setTextApi);
   const setTextUseSharedApi= useSettings((s) => s.setTextUseSharedApi);
   const setTextStream      = useSettings((s) => s.setTextStream);
-  const setNarrativeWordCount = useSettings((s) => s.setNarrativeWordCount);
   const setSkipNarrativeThinking = useSettings((s) => s.setSkipNarrativeThinking);
-  const setTwoPassRender   = useSettings((s) => s.setTwoPassRender);
-  const setRenderPassPrompt= useSettings((s) => s.setRenderPassPrompt);
-  const setTwoPassFull     = useSettings((s) => s.setTwoPassFull);
-  const setRenderPresetId  = useSettings((s) => s.setRenderPresetId);
+  const setPlotGuidance    = useSettings((s) => s.setPlotGuidance);
+  const setGuidancePrompt  = useSettings((s) => s.setGuidancePrompt);
   const fetchTextModels    = useSettings((s) => s.fetchTextModels);
   const plotChoices        = useSettings((s) => s.plotChoices);
   const setPlotChoices     = useSettings((s) => s.setPlotChoices);
@@ -1446,10 +1440,10 @@ function TextApiSection() {
           </div>
         </div>
         <div className="flex items-center gap-3 p-3 bg-panel border border-edge rounded-lg">
-          <Toggle checked={twoPassRender} onChange={() => setTwoPassRender(!twoPassRender)} />
+          <Toggle checked={plotGuidance} onChange={() => setPlotGuidance(!plotGuidance)} />
           <div>
-            <div className="text-sm text-slate-200">两段式渲染（实验 · 提升文笔）</div>
-            <div className="text-sm text-dim mt-0.5">开启后：结算遍照常出正文+结算（state/演化照旧），再<b>单独跑一遍「渲染」</b>把它重写成更干净沉浸的正文给你看；结算原文仍可在「查看原始响应」对比。<b className="text-amber-400/90">每回合 +1 次调用</b>（可在下方挂独立 render 路由/便宜模型，并复用上面的跳思维链）。失败/超时自动回退结算原文，不挡路。默认关。</div>
+            <div className="text-sm text-slate-200">剧情指导（实验 · 先出建议再写正文）</div>
+            <div className="text-sm text-dim mt-0.5">开启后：正文生成<b>前</b>先<b>单独跑一遍「剧情指导」</b>——据「最近 5 楼 + 你这步输入 + 当前任务/场景」产出本回合的<b>剧情优化建议</b>（要点式、不写正文），再像<b>叙事回忆</b>那样注入正文，由正文据此写。<b className="text-amber-400/90">每回合 +1 次调用</b>（可在下方挂独立 guidance 路由/便宜模型）。提示词允许它<b>联网搜原作剧情</b>让切入更合理。失败/超时自动跳过、正文照常生成。默认关。</div>
           </div>
         </div>
         <div className="flex items-center gap-3 p-3 bg-panel border border-edge rounded-lg">
@@ -1488,25 +1482,6 @@ function TextApiSection() {
             ))}
           </div>
         </div>
-        <div className="p-3 bg-panel border border-edge rounded-lg">
-          <div className="text-sm text-slate-200">正文字数（强制）</div>
-          <div className="text-sm text-dim mt-0.5 mb-2"><b>仅两段式生效</b>：每回合正文<b>强制写到约这么多字</b>（语气很硬，反复要求模型写满、禁止草草收尾）；作用于<b>渲染遍</b>（最终正文那一遍）。<b>普通生成不受影响，由你的预设决定。</b> <b>0 = 不限</b>。</div>
-          <div className="flex flex-wrap items-center gap-2">
-            <input type="number" min={0} step={100} value={narrativeWordCount || ''}
-              onChange={(e) => setNarrativeWordCount(parseInt(e.target.value) || 0)}
-              placeholder="0（不限）"
-              className="w-28 px-3 py-1.5 bg-black/30 border border-edge rounded-md text-sm text-slate-200 placeholder:text-dim/40 focus:border-god/50 focus:outline-none" />
-            <span className="text-xs text-dim">字 / 回合</span>
-            <div className="flex flex-wrap gap-1.5">
-              {([0, 800, 1200, 1600, 2000] as const).map((n) => (
-                <button key={n} onClick={() => setNarrativeWordCount(n)}
-                  className={`px-2.5 py-1 rounded-md text-xs border transition ${narrativeWordCount === n ? 'bg-god/20 text-god border-god/50' : 'bg-black/20 text-dim border-edge hover:text-slate-200'}`}>
-                  {n === 0 ? '不限' : n}
-                </button>
-              ))}
-            </div>
-          </div>
-        </div>
       </div>
 
       {(plotChoices || fanficMode || factCheck) && (
@@ -1517,72 +1492,30 @@ function TextApiSection() {
         </div>
       )}
 
-      {twoPassRender && (
+      {plotGuidance && (
         <div className="p-3 bg-panel border border-violet-700/40 rounded-lg space-y-3">
-          <div className="text-sm text-slate-200">两段式渲染 · 配置</div>
-          <div className="space-y-1.5">
-            <div className="text-sm text-slate-200">模式</div>
-            <div className="flex flex-wrap gap-1.5">
-              {([['polish', '润色（结算遍照写正文，渲染润色）'], ['full', '完整（结算遍只出结算包，渲染从零写正文）']] as const).map(([val, label]) => {
-                const active = (val === 'full') === twoPassFull;
-                return (
-                  <button key={val} onClick={() => setTwoPassFull(val === 'full')}
-                    className={`px-3 py-1.5 rounded-md text-sm border transition ${active ? 'bg-violet-900/40 text-violet-200 border-violet-600/50' : 'bg-black/20 text-dim border-edge hover:text-slate-200'}`}>
-                    {label}
-                  </button>
-                );
-              })}
-            </div>
-            <div className="text-xs text-dim">{twoPassFull
-              ? '完整：结算遍（text 路由·建议挂 Pro 强模型）只判定剧情、出 <结算包>+状态块、不写正文；渲染遍（render 路由·可挂便宜 prose 模型）据结算包从零写正文。文笔天花板更高、结算遍更省 token；结算包不写文采但要点说全。'
-              : '润色：结算遍照常写完整正文，渲染遍只在其上润色（你已测过的那版）。'}</div>
+          <div className="text-sm text-slate-200">剧情指导 · 配置</div>
+          <div className="text-xs text-dim">正文生成<b>前</b>先据「最近 5 楼 + 你这步输入 + 当前任务/场景」跑一次，产出本回合的<b>剧情优化建议</b>（要点式、不写正文），再像叙事回忆一样注入正文，由正文据此写。世界书/记忆/角色档案仍由正文那遍照常注入。</div>
+          <div className="space-y-1.5 pt-1 border-t border-violet-700/20">
+            <div className="text-sm text-violet-200">🧭 剧情指导 · 接口路由</div>
+            <div className="text-xs text-dim">跑剧情指导用的模型——建议挂一条<b>能联网搜索（Google）</b>的模型，让它据原作剧情给更合理的切入/推进；只出建议、不写正文，挂便宜模型即可。<b>留空则复用上面的正文 API</b>。</div>
+            <ApiRoutePicker routeKey="guidance" />
           </div>
           <div className="space-y-1.5 pt-1 border-t border-violet-700/20">
-            <div className="text-sm text-violet-200">🧮 结算遍（骨架）· 接口路由</div>
-            <div className="text-xs text-dim">出 <code>&lt;结算包&gt;</code>、判定剧情、发 state——建议挂 <b>Pro 强模型</b>（结算错了会污染后续演化）。<b>这就是「正文 API」那条</b>；关掉两段式后它即恢复成普通正文 API。</div>
-            <ApiRoutePicker routeKey="text" />
+            <div className="text-sm text-slate-200">剧情指导提示词（自定义）</div>
+            <div className="text-xs text-dim">留空 = 用内置默认（要点式建议 + 允许联网搜原作剧情 + 禁写正文/对白）。想自己调指导口吻/侧重就写在这里。</div>
+            <textarea
+              value={guidancePrompt}
+              onChange={(e) => setGuidancePrompt(e.target.value)}
+              rows={4}
+              placeholder="（留空用内置默认剧情指导提示词）"
+              className="w-full px-3 py-2 bg-black/30 border border-edge rounded-md text-sm text-slate-200 placeholder:text-dim/40 font-mono resize-y focus:border-violet-600/50 focus:outline-none"
+            />
           </div>
-          <div className="space-y-1.5 pt-1 border-t border-violet-700/20">
-            <div className="text-sm text-violet-200">🎨 渲染遍 · 接口路由</div>
-            <div className="text-xs text-dim">据结算包写正文——建议挂一条<b>文笔强/便宜</b>的模型（纪律交给结算遍）。<b>留空则复用上面的结算遍/正文 API</b>。</div>
-            <ApiRoutePicker routeKey="render" />
-          </div>
-          <div className="space-y-1.5 pt-1 border-t border-violet-700/20">
-            <div className="text-sm text-violet-200">📝 渲染预设（渲染遍 system · 按模型脾气调）</div>
-            <div className="text-xs text-dim">据结算包写正文那一遍的提示词；已自带<b>破限/NSFW + 文风 + 渲染输出合同</b>。世界书/记忆召回/角色档案/历史楼层由代码<b>与正文同源</b>注入，无需写进这里。按你 render 路由挂的模型选：</div>
-            <div className="flex flex-wrap gap-1.5">
-              {([['gemini', 'Gemini'], ['deepseek', 'DeepSeek'], ['claude', 'Claude'], ['custom', '自定义']] as const).map(([val, label]) => (
-                <button key={val} onClick={() => setRenderPresetId(val)}
-                  className={`px-3 py-1.5 rounded-md text-sm border transition ${renderPresetId === val ? 'bg-violet-900/40 text-violet-200 border-violet-600/50' : 'bg-black/20 text-dim border-edge hover:text-slate-200'}`}>
-                  {label}
-                </button>
-              ))}
-            </div>
-            <div className="text-xs text-dim">{
-              renderPresetId === 'gemini' ? 'Gemini：最强破限 + 反八股（治它「I am processing…」式刻板、爱端着）+ 压成自然口语。'
-              : renderPresetId === 'deepseek' ? 'DeepSeek：轻破限，顺它本就自然、有人味的叙述发挥。'
-              : renderPresetId === 'claude' ? 'Claude：借 prose 强项 + 克制文风，破限按 Claude 方式给。'
-              : '自定义：用下面的提示词（留空 = 内置默认 RENDER_PASS_RULE，不含完整破限）。'
-            }</div>
-          </div>
-          {renderPresetId === 'custom' && (
-            <div className="space-y-1.5">
-              <div className="text-sm text-slate-200">渲染遍提示词（自定义）</div>
-              <div className="text-xs text-dim">留空 = 用内置默认（只渲染不改情节、纯正文、禁指令/分割线/交付语）。想自己调渲染口吻/篇幅就写在这里。</div>
-              <textarea
-                value={renderPassPrompt}
-                onChange={(e) => setRenderPassPrompt(e.target.value)}
-                rows={4}
-                placeholder="（留空用内置默认渲染提示词）"
-                className="w-full px-3 py-2 bg-black/30 border border-edge rounded-md text-sm text-slate-200 placeholder:text-dim/40 font-mono resize-y focus:border-violet-600/50 focus:outline-none"
-              />
-            </div>
-          )}
         </div>
       )}
 
-      {/* 两段式开启时，「正文 API」即上面的「结算遍」路由（同一条 routeKey=text），不再单独重复显示；关闭后恢复为普通正文 API */}
-      {!twoPassRender && <ApiRoutePicker routeKey="text" />}
+      <ApiRoutePicker routeKey="text" />
       {!textUseSharedApi && (
         <div className="space-y-4">
           <Field label="API 地址">

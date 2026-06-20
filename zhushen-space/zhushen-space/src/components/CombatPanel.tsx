@@ -4,6 +4,7 @@ import { useCharacters } from '../store/characterStore';
 import { usePlayer } from '../store/playerStore';
 import { useNpc } from '../store/npcStore';
 import { useItems } from '../store/itemStore';
+import { useMp } from '../store/multiplayerStore';
 
 /* 模态战斗面板（仿 fanren-remake）。结算由引擎/编排器在 App 里完成；本组件只负责展示
    战况 + 收集玩家（B1）这一回合的动作，确认后回调 onPlayerAction。 */
@@ -95,6 +96,7 @@ export default function CombatPanel({ onPlayerAction, onUndo, canUndo, mpMode, m
   const characters = useCharacters((s) => s.characters);
   const playerItems = useItems((s) => s.items);
   const npcsMap = useNpc((s) => s.npcs);
+  const raidDungeon = useMp((s) => s.raidDungeon);   // 副本：恐惧值团灭计时条（房主权威·relay 同步给来宾）
 
   const curId = battle.order[battle.turn];
   const curActor = curId ? battle.participants[curId] : undefined;
@@ -178,6 +180,19 @@ export default function CombatPanel({ onPlayerAction, onUndo, canUndo, mpMode, m
           </div>
           {apiBusy && <span className="text-xs text-amber-300 animate-pulse">{apiStatus || 'AI 思考中…'}</span>}
         </div>
+
+        {/* 组队副本：恐惧之龙王槽（团灭计时） */}
+        {raidDungeon && (
+          <div className="px-4 py-1.5 border-b border-slate-800 bg-slate-950/40">
+            <div className="flex items-center justify-between text-[11px] mb-0.5">
+              <span className="text-rose-300/90">🔥 恐惧之龙王槽 · 满则团灭</span>
+              <span className="font-mono text-rose-300/70">{Math.round(raidDungeon.dread || 0)}/{raidDungeon.dreadMax || 100}</span>
+            </div>
+            <div className="h-1.5 rounded-full bg-slate-800 overflow-hidden">
+              <div className="h-full bg-gradient-to-r from-amber-500 to-rose-600 transition-all duration-300" style={{ width: `${Math.min(100, ((raidDungeon.dread || 0) / (raidDungeon.dreadMax || 100)) * 100)}%` }} />
+            </div>
+          </div>
+        )}
 
         {/* 双方阵容 */}
         <div className="grid grid-cols-2 gap-3 p-3 border-b border-slate-800">

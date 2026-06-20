@@ -189,7 +189,13 @@ export async function loadSlot(id: string): Promise<boolean> {
   //   **核心存档（主角技能/天赋/副职业·背包·NPC·主角档案·HP/EP 等）绝不因快照缺失而清空**——
   //   否则读个缺这些键的旧档/回退点就会把当前的技能天赋副职业全抹掉（"读档后技能丢失"的根因，已修）。
   const CLEAR_ON_MISSING = new Set(['drpg-skilltree', 'drpg-casino', 'drpg-abyss', 'drpg-world-codex']);
+  // 设备级全局配置：读档一律保留【当前】值、绝不回滚到存档快照。否则读个旧档/回退点，就会把
+  // 「剧情指导」等功能开关、人称、记忆/向量配置等全冲回存档当时的旧值——这正是「开启剧情指导后
+  // 一刷新/读档又关闭」的根因（2026-06-20 修）。API 字段原本已由 mergeKeepApi 保当前，这里把整个
+  // settings store 统一归为全局配置，不随存档回滚（配置与具体存档解绑，全局一致）。
+  const KEEP_CURRENT = new Set(['drpg-settings']);
   for (const { key } of STORES) {
+    if (KEEP_CURRENT.has(key)) continue;   // 全局配置：保留当前，不被存档快照覆盖
     const v = slot.data.stores[key];
     if (typeof v === 'string') localStorage.setItem(key, mergeKeepApi(key, v));   // API 配置不随存档回滚
     else if (CLEAR_ON_MISSING.has(key)) localStorage.removeItem(key);             // 仅较新功能缓存缺失才清（防泄漏）；核心存档一律保留当前，绝不抹

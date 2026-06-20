@@ -86,8 +86,10 @@ import { combatFinalVitals, applyCombatVitals, buildCombatResultFallback, runNpc
 import { parseWeather, isLightSky, extractWeatherFxCss, sanitizeWeatherCss } from './systems/weatherFx';
 import { useCombat, newLogId, type BattleState, type CombatStatBlock, type Side, type CombatActionKind } from './store/combatStore';
 import { buildCombatant, assembleBattle, settleAction, advanceTurn, checkEnd, currentActorId, makeActionLog, playerControlled, setMpCombatItems, clearMpCombatItems, rollInitiative } from './systems/combatEngine';
-import { generateRaidBoss, type RaidBoss, type RaidDifficulty } from './systems/raidBoss';
-import { generateRaidLoot } from './systems/raidLoot';
+import { generateRaidBoss, generateBakalDungeon, type RaidBoss, type RaidDifficulty } from './systems/raidBoss';
+import { generateRaidLoot, generateBakalReward } from './systems/raidLoot';
+import { useSkillTree } from './store/skillTreeStore';
+import RaidDungeonReward from './components/RaidDungeonReward';
 const RaidLootModal = lazy(() => import('./components/RaidLootModal'));
 const CombatPanel = lazy(() => import('./components/CombatPanel'));
 import WeatherFx from './components/WeatherFx';
@@ -699,6 +701,7 @@ export default function App() {
   const [cleanupNpcs,        setCleanupNpcs]        = useState<{ id: string; name: string }[]>([]);  // NPC 定期清理提醒弹窗
   const [nmRecalling,        setNmRecalling]        = useState(false);  // 叙事记忆：正在进行记忆回溯
   const [nmPhaseLog,         setNmPhaseLog]         = useState('');     // 叙事记忆：回溯/整理结果提示
+  const [guidanceRunning,    setGuidanceRunning]    = useState(false);  // 剧情指导：正在生成本回合剧情建议（状态栏提示）
   const [backpackOpen,     setBackpackOpen]     = useState(false);
   const [showVer,          setShowVer]          = useState(false);   // 版本「已更新」提示横幅
   const [equipOpen,        setEquipOpen]        = useState(false);
@@ -736,9 +739,11 @@ export default function App() {
   const mpIncomingGift = useMp((s) => s.incomingGift);
   const mpRaidLoot = useMp((s) => s.raidLoot);
   const combatDrivingRef = useRef(false);
-  const raidRef = useRef<{ boss: RaidBoss; phase: number; lastRound?: number; marked?: { id: string; round: number }; toughness?: number; bossHpMark?: number } | null>(null);   // 组队讨伐：BOSS/阶段/回合机制/韧性
+  const raidRef = useRef<{ boss: RaidBoss; phase: number; lastRound?: number; marked?: { id: string; round: number }; toughness?: number; bossHpMark?: number; poison?: number } | null>(null);   // 组队讨伐：BOSS/阶段/回合机制/韧性/毒层
+  const currentEncounterRef = useRef<{ encId: string; kind: 'dragon' | 'boss' } | null>(null);   // 组队副本：当前战斗对应的 encounter（胜利后推进进度/控制掉落）
   const [hostTakeover, setHostTakeover] = useState<string[]>([]);   // 联机：房主因来宾(MP_)AFK 而临时接管的战斗角色 id
   const raidRollsRef = useRef<Record<string, Record<string, any>>>({});      // 战利 ROLL 收集（房主侧：lootId→playerId→{name,picks}）
+  const appliedRewardRef = useRef<Record<string, boolean>>({});   // 副本豪华奖励去重（rewardId→已应用），防 relay 回显双发
   const combatFinishingRef = useRef(false);
   // 战斗最终 HP/EP（finishBattle 写入）：下一回合（玩家发送战斗复盘后）防双扣——
   // 跳过正文 HP 抽取，并在演化对账后把战斗结算值压回，免得 AI 复盘把已扣的血再扣一遍。
@@ -911,6 +916,18 @@ export default function App() {
             for (const it of (lt.items || [])) { const r = payload.results?.[it.id]; if (r?.winnerId === myPlayerId()) { try { useItems.getState().addItem({ name: it.name, category: it.category, gradeDesc: it.gradeDesc, effect: it.effect, quantity: it.quantity } as any); } catch {} } }
             useMp.getState()._set({ raidLoot: { ...lt, results: payload.results } });
           }
+        } else if (ev === 'raid_dungeon') {
+          if (useMp.getState().role !== 'host') useMp.getState()._set({ raidDungeon: payload });   // 来宾：同步副本进度（含解散=null）
+        } else if (ev === 'raid_reward') {
+          const rw = payload;   // 副本通关豪华奖励：全员（含房主 relay 回显）各自把全套入账到自己 B1，并弹庆祝结算
+          if (rw?.rewardId && !appliedRewardRef.current[rw.rewardId]) {
+            appliedRewardRef.current[rw.rewardId] = true;
+            try { const I = useItems.getState(); for (const [k, v] of Object.entries(rw.currency || {})) I.adjustCurrency(k as any, Number(v) || 0); } catch (e) { console.warn('[Raid] 奖励货币入账失败', e); }
+            try { if (rw.potentialPoints) useSkillTree.getState().grantBonusPP('B1', Number(rw.potentialPoints) || 0); } catch (e) { console.warn('[Raid] 奖励潜能点入账失败', e); }
+            try { for (const it of (rw.items || [])) useItems.getState().addItem({ name: it.name, category: it.category, gradeDesc: it.gradeDesc, effect: it.effect, quantity: it.quantity } as any); } catch (e) { console.warn('[Raid] 奖励物品入账失败', e); }
+            try { if (rw.title) useCharacters.getState().addTitle('B1', rw.title); } catch (e) { console.warn('[Raid] 奖励称号入账失败', e); }
+            useMp.getState()._set({ raidReward: rw });
+          }
         }
       },
       onGuestJoin: () => {   // 来宾进房：把当前单机态快照到保留槽，隔离单机存档（联机存档）
@@ -922,6 +939,8 @@ export default function App() {
       onStartRaid: (boss: any) => { if (useMp.getState().role === 'host') startRaidCombat(boss); },   // 房主：开战组队讨伐
       onRaidTally: () => { if (useMp.getState().role === 'host') tallyRaidLoot(); },   // 房主：结算战利分配
       onGenRaidBoss: (opts: any) => { if (useMp.getState().role === 'host') void genRaidBossAI(opts?.theme || '', opts?.difficulty || 'normal'); },   // 房主：AI 现生 BOSS
+      onStartDungeon: (opts: any) => { if (useMp.getState().role === 'host') startRaidDungeon(opts?.difficulty || 'normal'); },   // 房主：开启巴卡尔攻坚战副本
+      onStartDungeonEncounter: (encId: any) => { if (useMp.getState().role === 'host') startDungeonEncounter(String(encId)); },   // 房主：开打副本某一场
     });
   }, []);
 
@@ -5196,6 +5215,26 @@ ${lines}`;
     if (affixes.includes('regen')) { const heal = Math.round((block.maxHp || 0) * 0.1); part.curHp = Math.min(block.maxHp || part.curHp, part.curHp + heal); }  // 再生：换阶段回血
   }
 
+  // ── 组队副本：巴卡尔攻坚战（多场战斗串联，复用 startRaidCombat 打每一场） ──
+  function startRaidDungeon(difficulty: string) {
+    const mp = useMp.getState();
+    if (mp.status !== 'connected' || mp.role !== 'host') return;
+    const pf = usePlayer.getState().profile;
+    const partyTier = arenaEffectiveTier(pf.tier, pf.level || 1);   // 有效阶位，避免子龙被碾压秒杀
+    const dj = generateBakalDungeon(difficulty as RaidDifficulty, { partySize: (mp.seats.length || 0) + 1, partyTier });
+    mp._set({ raidDungeon: dj, raidBoss: null });
+    try { mpClient.relay('raid_dungeon', dj); } catch (e) { console.warn('[Raid] 副本广播失败', e); }
+  }
+  function startDungeonEncounter(encId: string) {
+    if (useCombat.getState().battle.active) return;
+    const dj = useMp.getState().raidDungeon; if (!dj) return;
+    const enc = dj.encounters.find((e: any) => e.id === encId);
+    if (!enc || enc.status === 'cleared') return;
+    if (enc.kind === 'boss' && dj.encounters.some((e: any) => e.kind === 'dragon' && e.status !== 'cleared')) return;   // 血锁：三龙未灭，龙王不可打
+    currentEncounterRef.current = { encId: enc.id, kind: enc.kind };
+    startRaidCombat(enc.boss);
+  }
+
   function startRaidCombat(boss: RaidBoss) {
     const C = useCombat.getState();
     if (C.battle.active) return;
@@ -5266,6 +5305,29 @@ ${lines}`;
       }
     }
     const alivePlayers = (x: any) => Object.keys(x.participants).filter((id) => x.initialState[id]?.side === 'player' && x.participants[id].curHp > 0 && !x.participants[id].left);
+    // 恐惧值团灭计时（副本全局·贯穿各场战斗累积）：每回合涨，龙王/深阶段更快；满则团灭（判负·无额外惩罚）。击破子龙时回落见 finishBattle
+    {
+      const enc = currentEncounterRef.current;
+      const dj: any = enc ? useMp.getState().raidDungeon : null;
+      if (enc && dj && (dj.stage ?? 'ongoing') === 'ongoing') {
+        const dmax = dj.dreadMax || 100;
+        const rate = enc.kind === 'boss' ? 5 + raid.phase * 2 : 3;   // 龙王更快、阶段越深越快
+        const dread = Math.min(dmax, (dj.dread || 0) + rate);
+        if (dread >= dmax) {   // 恐惧满 → 团灭：本场判负 + 副本失败 + 广播
+          const failed = { ...dj, dread: dmax, stage: 'failed' };
+          useMp.getState()._set({ raidDungeon: failed });
+          try { mpClient.relay('raid_dungeon', failed); } catch { /* */ }
+          const x = ensure();
+          x.log = [...x.log, raidLog(x.round, '☠️ 恐惧之龙王槽已满——龙王之怒降临，全军覆没！副本失败。')];
+          C.setBattle(x);
+          void finishBattle('enemy');   // 强制判负（不清玩家血→不额外惩罚）
+          return true;
+        }
+        const nextDj = { ...dj, dread };
+        useMp.getState()._set({ raidDungeon: nextDj });
+        try { mpClient.relay('raid_dungeon', nextDj); } catch { /* */ }
+      }
+    }
     // 燃域：每回合群伤
     if (affixes.includes('burn')) {
       const dmg = Math.max(1, Math.round((raid.boss.attrs.int || 20) * 1.2));
@@ -5276,12 +5338,34 @@ ${lines}`;
     // 点名：先结算上回合标记的重击，再每 2 回合标记新目标（下回合落下）
     if (raid.marked && b.round > raid.marked.round) {
       const x = ensure(); const p = x.participants[raid.marked.id];
-      if (p && p.curHp > 0) { const dmg = Math.max(1, Math.round((raid.boss.attrs.str || 20) * 2)); p.curHp = Math.max(0, p.curHp - dmg); x.log = [...x.log, raidLog(x.round, `🎯 点名重击落在 ${x.initialState[raid.marked.id]?.name} 身上，重创 ${dmg}！`)]; }
+      if (p && p.curHp > 0) {
+        const dmg = Math.max(1, Math.round((raid.boss.attrs.str || 20) * 2)); p.curHp = Math.max(0, p.curHp - dmg);
+        let extra = '';
+        if (currentEncounterRef.current?.encId === 'stun' && !p.status?.some((s: any) => s.combat?.cannotAct)) {   // 眩龙·麻痹点名：点名重击附带眩晕
+          p.status = [...(p.status || []), { id: `cs_stun_${Date.now()}`, name: '麻痹', emoji: '⚡', tone: 'debuff', type: '减益', effect: '麻痹·无法行动', startTurn: x.round, durationTurns: 1, addedAt: Date.now(), combat: { cannotAct: true } }];
+          extra = ' 并被麻痹（1 回合无法行动）';
+        }
+        x.log = [...x.log, raidLog(x.round, `🎯 点名重击落在 ${x.initialState[raid.marked.id]?.name} 身上，重创 ${dmg}${extra}！`)];
+      }
       raid.marked = undefined;
     }
     if (!raid.marked && b.round % 2 === 1) {
       const x = ensure(); const ps = alivePlayers(x);
       if (ps.length) { const tid = ps[Math.floor(Math.random() * ps.length)]; raid.marked = { id: tid, round: x.round }; x.log = [...x.log, raidLog(x.round, `🎯 ${raid.boss.name} 锁定了 ${x.initialState[tid]?.name}——下回合将重击，速作防护！`)]; }
+    }
+    // 三龙差异化机制 + 龙王军团（副本专属·按当前 encounter 区分）
+    const encId = currentEncounterRef.current?.encId;
+    if (encId === 'ice' && b.round % 2 === 0) {   // 冰龙·寒霜冰封：定期冻结随机玩家（纯控制）
+      const x = ensure(); const ps = alivePlayers(x).filter((id) => !x.participants[id].status?.some((s: any) => s.combat?.cannotAct));
+      if (ps.length) { const tid = ps[Math.floor(Math.random() * ps.length)]; x.participants[tid].status = [...(x.participants[tid].status || []), { id: `cs_freeze_${Date.now()}`, name: '冻结', emoji: '❄️', tone: 'debuff', type: '减益', effect: '冰封·无法行动', startTurn: x.round, durationTurns: 1, addedAt: Date.now(), combat: { cannotAct: true } }]; x.log = [...x.log, raidLog(x.round, `❄️ 斯皮拉齐的寒霜冰封了 ${x.initialState[tid]?.name}，1 回合无法行动！`)]; }
+    } else if (encId === 'poison') {   // 毒龙·剧毒叠层：每回合全队 DoT，层数递增（越拖越痛→速斩）
+      raid.poison = (raid.poison || 0) + 1;
+      const x = ensure(); const dmg = Math.max(1, Math.round((raid.boss.attrs.int || 20) * 0.5 * (raid.poison || 1)));
+      for (const id of alivePlayers(x)) x.participants[id].curHp = Math.max(0, x.participants[id].curHp - dmg);
+      x.log = [...x.log, raidLog(x.round, `🧪 斯卡萨的毒雾侵蚀全队（${raid.poison} 层中毒），各损 ${dmg} 生命——速斩！`)];
+    } else if (encId === 'bakal' && b.round % 4 === 0) {   // 龙王·龙人军团：定期增援爪牙（上限 3·走现有 NPC 驱动行动）
+      const x = ensure(); const live = Object.keys(x.participants).filter((id) => id.startsWith('ADD_') && x.participants[id].curHp > 0).length;
+      if (live < 3) { addRaidMinions(x, raid.boss, 1); x.log = [...x.log, raidLog(x.round, '🐲 龙人军团增援登场——速清，别被夹击！')]; }
     }
     if (nb) { C.setBattle(nb); return true; }
     return false;
@@ -5416,8 +5500,28 @@ ${lines}`;
       const state = C.battle;
       // 组队讨伐胜利 → 房主生成战利并广播（经 relay 回显，全员统一发币+弹窗+ROLL）
       if (raidRef.current && victor === 'player' && useMp.getState().role === 'host') {
-        try { mpClient.relay('raid_loot', generateRaidLoot(raidRef.current.boss.rewardTier, raidRef.current.boss.name)); } catch (e) { console.warn('[Raid] 掉落生成失败', e); }
+        const enc = currentEncounterRef.current;
+        if (enc) {   // 副本场次：标记该 encounter 已击破并广播进度（解锁血锁/通关由 UI 据 status 判定）
+          const dj = useMp.getState().raidDungeon;
+          if (dj) {
+            const e = dj.encounters.find((x: any) => x.id === enc.encId); if (e) e.status = 'cleared';
+            const dread = enc.kind === 'dragon' ? Math.max(0, (dj.dread || 0) - 18) : (dj.dread || 0);   // 击破子龙 → 恐惧回落（奖励活跃推进）
+            const next = { ...dj, dread, stage: dj.encounters.every((x: any) => x.status === 'cleared') ? 'cleared' : 'ongoing' };
+            useMp.getState()._set({ raidDungeon: next });
+            try { mpClient.relay('raid_dungeon', next); } catch (err) { console.warn('[Raid] 副本进度广播失败', err); }
+          }
+        }
+        if (!enc) {   // 单 BOSS 讨伐 → 普通 ROLL 掉落
+          try { mpClient.relay('raid_loot', generateRaidLoot(raidRef.current.boss.rewardTier, raidRef.current.boss.name)); } catch (e) { console.warn('[Raid] 掉落生成失败', e); }
+        } else if (enc.kind === 'boss') {   // 副本龙王击破=全清通关 → 豪华奖励（按评级·全员均得全套·经 relay 回显入账）
+          try {
+            const dj2: any = useMp.getState().raidDungeon;
+            const remainPct = dj2 ? Math.max(0, ((dj2.dreadMax || 100) - (dj2.dread || 0)) / (dj2.dreadMax || 100)) : 1;
+            mpClient.relay('raid_reward', generateBakalReward(dj2?.difficulty || 'normal', remainPct, dj2?.difficultyLabel || ''));
+          } catch (e) { console.warn('[Raid] 豪华奖励生成失败', e); }
+        }
       }
+      currentEncounterRef.current = null;
       const summary = await runBattleSummaryPhase(state, victor);
       const resultText = summary || buildCombatResultFallback(state, victor);
       const settledNote = '（系统：本场战斗的 HP/EP 已结算并写入面板，续写正文请从当前面板状态出发，不要重复结算战斗伤害或再加减 HP/EP。）';
@@ -5517,12 +5621,23 @@ ${lines}`;
     const questScene = [...buildQuestInjection(), ...buildWorldTimeInjection()].map((m) => m.content).join('\n');
     const sys = (guidancePrompt && guidancePrompt.trim()) ? guidancePrompt : PLOT_GUIDANCE_RULE;
     const user = `【最近正文（最多5楼）】\n${recent5 || '（暂无）'}\n\n【玩家这一步】\n${userText || '（无显式输入，续写）'}\n\n【当前任务 / 场景】\n${questScene || '（暂无）'}\n\n请据上面，给出本回合的【剧情优化建议】（要点式，不写正文）。`;
+    setGuidanceRunning(true);   // 状态栏「💡 剧情提示生成中…」
     try {
-      const { content } = await apiChatFallback(chain, [{ role: 'system', content: sys }, { role: 'user', content: user }], { timeoutMs: 90000 });
-      const g = stripLeakedThinking(content || '').trim();
+      // 剧情指导只是正文前的「锦上添花」前置建议，绝不能挡住正文生成：用墙钟硬超时兜底——
+      // guidance 接口卡死/超慢（中转大请求挂起、节流排不到名额…）时，最多等 WALL_MS 就放弃、
+      // 用空建议照常生成正文。修「开了剧情指导后正文一直转、生成不出来」（apiChatFallback 的
+      // timeoutMs 是空闲超时·绝对上限达 4~6 分钟，会把正文挡死这么久）。
+      const WALL_MS = 35000;
+      const call = apiChatFallback(chain, [{ role: 'system', content: sys }, { role: 'user', content: user }], { timeoutMs: 20000 })
+        .then(({ content }) => stripLeakedThinking(content || '').trim())
+        .catch((e) => { console.warn('[剧情指导] 调用失败，本回合跳过：', e); return ''; });
+      const g = await Promise.race([
+        call,
+        new Promise<string>((resolve) => setTimeout(() => { console.warn(`[剧情指导] 超过 ${WALL_MS}ms 未返回，跳过本回合、正文照常生成`); resolve(''); }, WALL_MS)),
+      ]);
       if (g) console.log(`[剧情指导] 已生成建议（${g.length} 字）`);
       return g;
-    } catch (e) { console.warn('[剧情指导] 失败，本回合跳过：', e); return ''; }
+    } finally { setGuidanceRunning(false); }
   }
 
   async function callApi(userText: string, extraHistory: ChatMessage[] = []) {
@@ -5558,12 +5673,17 @@ ${lines}`;
       ...visibleHistory.slice(-10).map((m) => m.content),
     ]).join(' ').toLowerCase();
 
+    // C：主角【所属乐园】专属世界书条目强制每回合纳入（不靠关键词命中），避免任务世界里整体串味成轮回乐园。
+    //   只认乐园档案条目（comment 以「X乐园」结尾，如「[mvu_plot]天启乐园」），不误命中「战斗描写·轮回乐园(笔法)」等；
+    //   轮回乐园无独立档案条目→不额外注入，自然回退到常驻世界观设定，无副作用。
+    const homeBare = (usePlayer.getState().profile.homeParadise || '').trim().replace(/乐园$/, '');   // 归一裸乐园名（"天启乐园"→"天启"）
     const wbEntries = textWorldBooks
       .filter((b) => b.enabled)
       .flatMap((b) => b.entries.filter((e) =>
         e.enabled && (
           e.constant ||   // 蓝灯：常驻，无条件纳入
-          (e.selective && e.key.some((k) => k && matchCtx.includes(k.toLowerCase())))
+          (e.selective && e.key.some((k) => k && matchCtx.includes(k.toLowerCase()))) ||
+          (!!homeBare && (e.comment || '').endsWith(homeBare + '乐园'))   // 所属乐园档案条目：常驻注入
         )
       ));
     const wbKeywordText = wbEntries.map((e) => `[${e.comment}]\n${e.content}`).join('\n\n');
@@ -5584,7 +5704,7 @@ ${lines}`;
     let guidanceBlock: { role: 'system'; content: string }[] = [];
     if (plotGuidance) {
       const g = await runPlotGuidance(userText);
-      if (g) guidanceBlock = [{ role: 'system', content: `【剧情指导·本回合写作建议（参考·把方向自然融入正文，勿照抄成对白/旁白/标题）】\n${g}` }];
+      if (g) guidanceBlock = [{ role: 'system', content: `【剧情指导·本回合写作建议（仅"剧情方向"参考）】\n${g}\n\n（以上仅为剧情方向建议：把方向自然融入正文即可，勿照抄成对白/旁白/标题。⚠️正文的输出格式与一切结构模块——状态栏／时间结算／【主角资源】等世界书与预设规定的模块——一律照常严格输出，不得因本建议而省略、简化或改变格式。本建议只影响"写什么剧情"，不影响"怎么排版输出"。）` }];
     }
 
     // 历史：叙事记忆（关键词召回，启用时）或按 historyLimit 切片（现状）
@@ -5888,7 +6008,7 @@ ${lines}`;
 
   async function sendMessage(textArg?: string) {
     const text = (textArg ?? inputValue).trim();
-    if (!text || generating) return;
+    if (!text || generating || guidanceRunning) return;   // 剧情指导前置阶段也算「忙」，防重复发起并发调用
 
     // ── 联机分叉 ──
     const mp = useMp.getState();
@@ -6361,6 +6481,12 @@ ${lines}`;
               <span>本回合状态命令 · {turnCountRef.current} 回合</span>
               <span className={`text-god/50 transition-transform ${worldBarOpen ? 'rotate-180' : ''}`}>▾</span>
             </button>
+            {guidanceRunning && (
+              <span className="flex items-center gap-1 text-indigo-300/90">
+                <span className="animate-spin inline-block">◌</span>
+                💡 剧情提示生成中…
+              </span>
+            )}
             {choicesRunning && (
               <span className="flex items-center gap-1 text-fuchsia-300/90">
                 <span className="animate-spin inline-block">◌</span>
@@ -6526,6 +6652,8 @@ ${lines}`;
                   <button onClick={stopGeneration}
                     className="flex items-center gap-1 px-2.5 py-1 rounded border border-blood/40 text-blood hover:bg-blood/10 transition-colors">■ 停止生成</button>
                 </>
+              ) : guidanceRunning ? (
+                <span className="flex items-center gap-1.5 text-indigo-300/90"><span className="animate-spin inline-block">◌</span>💡 正在生成剧情指导…（最多 ~35 秒，完成后自动开始正文）</span>
               ) : (
                 <>
                   <button onClick={() => setConfirmAction({
@@ -6742,6 +6870,7 @@ ${lines}`;
       {mpPanelOpen && <MultiplayerPanel onClose={() => setMpPanelOpen(false)} />}
       {mpIncomingGift && <GiftPrompt gift={mpIncomingGift} onClose={() => useMp.getState()._set({ incomingGift: null })} />}
       {mpRaidLoot && <RaidLootModal onClose={() => useMp.getState()._set({ raidLoot: null })} />}
+      <RaidDungeonReward />
       {friendsPanelOpen && <FriendsPanel onClose={() => setFriendsPanelOpen(false)} turn={turnCountRef.current}
         onOpenNpc={(cid) => { setFriendsPanelOpen(false); setOnSceneDetailId(cid); }}
         onDm={(cid) => { const r = useNpc.getState().npcs[cid]; if (!r) return; setFriendsPanelOpen(false); openDmFor({ targetId: r.id, targetName: r.name || r.id, targetTier: (r.realm || '').split(/[·|]/)[0] || undefined, targetJob: r.profession, targetPersona: r.personality, targetStrength: r.bioStrength, targetTag: r.npcTag }); }} />}

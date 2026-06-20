@@ -21,6 +21,8 @@ export interface MpHandlers {
   onStartRaid?: (boss: any) => void;  // 房主：开战组队讨伐 BOSS
   onRaidTally?: () => void;           // 房主：结算讨伐战利 ROLL 分配
   onGenRaidBoss?: (opts: { theme: string; difficulty: string }) => void;  // 房主：AI 现生 BOSS
+  onStartDungeon?: (opts: { difficulty: string }) => void;  // 房主：生成并开启巴卡尔攻坚战副本
+  onStartDungeonEncounter?: (encId: string) => void;        // 房主：开打副本中某一场（子龙/龙王）
   onCombat?: (payload: any) => void;       // 来宾：收到房主广播的战斗快照 → 渲染观战
   onCombatAction?: (payload: any) => void; // 房主：收到来宾的战斗出手 → 结算
   onRelay?: (m: { event: string; from: any; payload: any }) => void;  // 通用透传(赠予/分享)
@@ -45,6 +47,8 @@ interface MpState {
   mpPresetOn: boolean;        // 房主：本局是否启用「联机专用正文规则」
   raidBoss: any | null;       // 组队讨伐：当前 BOSS 规格（房主生成→广播→全员预览）
   raidLoot: any | null;       // 组队讨伐：胜利战利（含 results 分配结果）→ 弹窗
+  raidDungeon: any | null;    // 组队副本：巴卡尔攻坚战进度（房主权威·relay 广播给来宾）
+  raidReward: any | null;     // 组队副本：通关豪华结算奖励 → 弹窗
   handlers: MpHandlers;
   _set: (p: Partial<MpState>) => void;
   setHandlers: (h: MpHandlers) => void;
@@ -68,6 +72,8 @@ const INIT = {
   incomingGift: null as any,
   raidBoss: null as any,
   raidLoot: null as any,
+  raidDungeon: null as any,
+  raidReward: null as any,
 };
 
 export const useMp = create<MpState>((set) => ({
