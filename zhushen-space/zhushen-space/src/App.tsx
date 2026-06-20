@@ -165,6 +165,7 @@ import { onGiftResponse } from './systems/mpGift';
 import { myPlayerId } from './systems/mpConfig';
 import GiftPrompt from './components/GiftPrompt';
 const FriendsPanel = lazy(() => import('./components/FriendsPanel'));
+const PartyPanel = lazy(() => import('./components/PartyPanel'));
 const WorkshopPanel = lazy(() => import('./components/WorkshopPanel'));
 import { retrieveNovel } from './systems/novelVec';
 import { useDm, isDmableTag } from './store/dmStore';
@@ -613,6 +614,7 @@ const rightMenuItems = [
   { icon: '🏛', label: '势力' },
   { icon: '🏯', label: '领地' },
   { icon: '🛡', label: '冒险团' },
+  { icon: '🤝', label: '队伍' },
   { icon: '🌌', label: '万族' },
   { icon: '📖', label: '世界百科' },
   { icon: '🎲', label: 'ROLL' },
@@ -635,7 +637,7 @@ const rightMenuItems = [
 const NAV_FX: Record<string, string> = {
   '装备': 'fx-sword', '储存空间': 'fx-bag', 'NPC': 'fx-card', '技能': 'fx-sparkle',
   '副职业': 'fx-wrench', '技能树': 'fx-tree', '称号': 'fx-medal', '成就': 'fx-trophy', '势力': 'fx-pillar',
-  '领地': 'fx-castle', '冒险团': 'fx-shield', '万族': 'fx-cosmos', '世界百科': 'fx-book', 'ROLL': 'fx-dice',
+  '领地': 'fx-castle', '冒险团': 'fx-shield', '队伍': 'fx-friends', '万族': 'fx-cosmos', '世界百科': 'fx-book', 'ROLL': 'fx-dice',
   '战斗': 'fx-clash', '乐园设施': 'fx-ferris', '深渊': 'fx-void', '回合洞察': 'fx-zoom', '任务': 'fx-quest',
   '频道': 'fx-signal', '私信': 'fx-mail', '好友': 'fx-friends', '记忆': 'fx-brain', '创意工坊': 'fx-sparkle', '存档': 'fx-save', '设置': 'fx-gear',
 };
@@ -696,6 +698,7 @@ export default function App() {
   const [dmPanelOpen,        setDmPanelOpen]        = useState(false);  // 私信面板
   const [dmFocusThread,      setDmFocusThread]      = useState<string | undefined>(undefined);  // 私信打开时聚焦的会话
   const [friendsPanelOpen,   setFriendsPanelOpen]   = useState(false);  // 好友面板
+  const [partyPanelOpen,     setPartyPanelOpen]     = useState(false);  // 临时队伍面板
   const [workshopOpen,       setWorkshopOpen]       = useState(false);  // 创意工坊
   const [imagePhaseLog,      setImagePhaseLog]      = useState('');     // 生图（肖像/装备）阶段提示
   const [onSceneDetailId,    setOnSceneDetailId]    = useState<string | null>(null);  // 在场人物浮窗 → NPC 详情
@@ -746,6 +749,17 @@ export default function App() {
   const [hostTakeover, setHostTakeover] = useState<string[]>([]);   // 联机：房主因来宾(MP_)AFK 而临时接管的战斗角色 id
   const raidRollsRef = useRef<Record<string, Record<string, any>>>({});      // 战利 ROLL 收集（房主侧：lootId→playerId→{name,picks}）
   const appliedRewardRef = useRef<Record<string, boolean>>({});   // 副本豪华奖励去重（rewardId→已应用），防 relay 回显双发
+  // 副本通关豪华奖励入账（房主本地直接调 + relay 回显也调，靠 rewardId 去重防双发）：
+  // 关键——房主清掉本体后必须本地立即入账+弹窗，不能只 relay 等服务器回显（断线/单机时回显丢失会导致清本无奖励）。
+  function applyRaidReward(rw: any) {
+    if (!rw?.rewardId || appliedRewardRef.current[rw.rewardId]) return;
+    appliedRewardRef.current[rw.rewardId] = true;
+    try { const I = useItems.getState(); for (const [k, v] of Object.entries(rw.currency || {})) I.adjustCurrency(k as any, Number(v) || 0); } catch (e) { console.warn('[Raid] 奖励货币入账失败', e); }
+    try { if (rw.potentialPoints) useSkillTree.getState().grantBonusPP('B1', Number(rw.potentialPoints) || 0); } catch (e) { console.warn('[Raid] 奖励潜能点入账失败', e); }
+    try { for (const it of (rw.items || [])) useItems.getState().addItem({ name: it.name, category: it.category, gradeDesc: it.gradeDesc, effect: it.effect, quantity: it.quantity } as any); } catch (e) { console.warn('[Raid] 奖励物品入账失败', e); }
+    try { if (rw.title) useCharacters.getState().addTitle('B1', rw.title); } catch (e) { console.warn('[Raid] 奖励称号入账失败', e); }
+    useMp.getState()._set({ raidReward: rw });
+  }
   const combatFinishingRef = useRef(false);
   // 战斗最终 HP/EP（finishBattle 写入）：下一回合（玩家发送战斗复盘后）防双扣——
   // 跳过正文 HP 抽取，并在演化对账后把战斗结算值压回，免得 AI 复盘把已扣的血再扣一遍。
@@ -921,15 +935,7 @@ export default function App() {
         } else if (ev === 'raid_dungeon') {
           if (useMp.getState().role !== 'host') useMp.getState()._set({ raidDungeon: payload });   // 来宾：同步副本进度（含解散=null）
         } else if (ev === 'raid_reward') {
-          const rw = payload;   // 副本通关豪华奖励：全员（含房主 relay 回显）各自把全套入账到自己 B1，并弹庆祝结算
-          if (rw?.rewardId && !appliedRewardRef.current[rw.rewardId]) {
-            appliedRewardRef.current[rw.rewardId] = true;
-            try { const I = useItems.getState(); for (const [k, v] of Object.entries(rw.currency || {})) I.adjustCurrency(k as any, Number(v) || 0); } catch (e) { console.warn('[Raid] 奖励货币入账失败', e); }
-            try { if (rw.potentialPoints) useSkillTree.getState().grantBonusPP('B1', Number(rw.potentialPoints) || 0); } catch (e) { console.warn('[Raid] 奖励潜能点入账失败', e); }
-            try { for (const it of (rw.items || [])) useItems.getState().addItem({ name: it.name, category: it.category, gradeDesc: it.gradeDesc, effect: it.effect, quantity: it.quantity } as any); } catch (e) { console.warn('[Raid] 奖励物品入账失败', e); }
-            try { if (rw.title) useCharacters.getState().addTitle('B1', rw.title); } catch (e) { console.warn('[Raid] 奖励称号入账失败', e); }
-            useMp.getState()._set({ raidReward: rw });
-          }
+          applyRaidReward(payload);   // 副本通关豪华奖励：全员（含房主 relay 回显）各自把全套入账到自己 B1，并弹庆祝结算（rewardId 去重防双发）
         }
       },
       onGuestJoin: () => {   // 来宾进房：把当前单机态快照到保留槽，隔离单机存档（联机存档）
@@ -5609,12 +5615,14 @@ ${lines}`;
         }
         if (!enc) {   // 单 BOSS 讨伐 → 普通 ROLL 掉落
           try { mpClient.relay('raid_loot', generateRaidLoot(raidRef.current.boss.rewardTier, raidRef.current.boss.name)); } catch (e) { console.warn('[Raid] 掉落生成失败', e); }
-        } else if (enc.kind === 'boss') {   // 副本龙王击破=全清通关 → 豪华奖励（按评级·全员均得全套·经 relay 回显入账）
+        } else if (enc.kind === 'boss') {   // 副本龙王击破=全清通关 → 豪华奖励（按评级·全员均得全套）
           try {
             const dj2: any = useMp.getState().raidDungeon;
             const remainPct = dj2 ? Math.max(0, ((dj2.dreadMax || 100) - (dj2.dread || 0)) / (dj2.dreadMax || 100)) : 1;
             const rkind = dj2?.bossId || 'bakal';   // 按副本本体 id 取奖励主题（bakal/anton/vykas）
-            mpClient.relay('raid_reward', generateRaidReward(rkind, dj2?.difficulty || 'normal', remainPct, dj2?.difficultyLabel || ''));
+            const rw = generateRaidReward(rkind, dj2?.difficulty || 'normal', remainPct, dj2?.difficultyLabel || '');
+            applyRaidReward(rw);   // 房主本地立即入账+弹窗（不依赖 relay 回显·断线/单机也保底）
+            try { mpClient.relay('raid_reward', rw); } catch (err) { console.warn('[Raid] 奖励广播失败', err); }   // 再广播给来宾各自入账
           } catch (e) { console.warn('[Raid] 豪华奖励生成失败', e); }
         }
       }
@@ -6899,6 +6907,7 @@ ${lines}`;
                     item.label === '频道' ? () => setChannelPanelOpen(true) :
                     item.label === '私信' ? () => { setDmFocusThread(undefined); setDmPanelOpen(true); } :
                     item.label === '好友' ? () => setFriendsPanelOpen(true) :
+                    item.label === '队伍' ? () => setPartyPanelOpen(true) :
                     item.label === '联机' ? () => setMpPanelOpen(true) :
                     item.label === '记忆' ? () => setSummaryPanelOpen(true) :
                     item.label === '存档' ? () => setSaveOpen(true) :
@@ -7011,6 +7020,9 @@ ${lines}`;
       {friendsPanelOpen && <FriendsPanel onClose={() => setFriendsPanelOpen(false)} turn={turnCountRef.current}
         onOpenNpc={(cid) => { setFriendsPanelOpen(false); setOnSceneDetailId(cid); }}
         onDm={(cid) => { const r = useNpc.getState().npcs[cid]; if (!r) return; setFriendsPanelOpen(false); openDmFor({ targetId: r.id, targetName: r.name || r.id, targetTier: (r.realm || '').split(/[·|]/)[0] || undefined, targetJob: r.profession, targetPersona: r.personality, targetStrength: r.bioStrength, targetTag: r.npcTag }); }} />}
+      {partyPanelOpen && <PartyPanel onClose={() => setPartyPanelOpen(false)}
+        onOpenNpc={(cid) => { setPartyPanelOpen(false); setOnSceneDetailId(cid); }}
+        onDm={(cid) => { const r = useNpc.getState().npcs[cid]; if (!r) return; setPartyPanelOpen(false); openDmFor({ targetId: r.id, targetName: r.name || r.id, targetTier: (r.realm || '').split(/[·|]/)[0] || undefined, targetJob: r.profession, targetPersona: r.personality, targetStrength: r.bioStrength, targetTag: r.npcTag }); }} />}
       {workshopOpen && <WorkshopPanel onClose={() => setWorkshopOpen(false)} />}
       {promoteCandidates.length > 0 && <PartyPromoteDialog ids={promoteCandidates} onClose={() => setPromoteCandidates([])} />}
       {shopOpen && <SystemShop onGenShop={genShopItems} onQuoteSell={genSellQuotes} onClose={() => setShopOpen(false)} />}

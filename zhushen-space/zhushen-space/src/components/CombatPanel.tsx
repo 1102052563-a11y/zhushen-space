@@ -193,7 +193,7 @@ export default function CombatPanel({ onPlayerAction, onUndo, canUndo, mpMode, m
         {raidDungeon && (
           <div className="px-4 py-1.5 border-b border-slate-800 bg-slate-950/40">
             <div className="flex items-center justify-between text-[11px] mb-0.5">
-              <span className="text-rose-300/90">🔥 {raidDungeon.dreadLabel || '恐惧之龙王槽'} · 满则团灭</span>
+              <span className="text-rose-300/90">🔥 {raidDungeon.dreadLabel || '恐惧之龙王槽'} · {(raidDungeon as any).dreadMode === 'dot' ? '越满越痛' : '满则团灭'}</span>
               <span className="font-mono text-rose-300/70">{Math.round(raidDungeon.dread || 0)}/{raidDungeon.dreadMax || 100}</span>
             </div>
             <div className="h-1.5 rounded-full bg-slate-800 overflow-hidden">

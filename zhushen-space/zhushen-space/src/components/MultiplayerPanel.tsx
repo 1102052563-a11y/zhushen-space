@@ -347,7 +347,7 @@ function RaidView({ st }: { st: any }) {
         </div>
         <div className="mb-2">
           <div className="flex items-center justify-between text-[11px] mb-0.5">
-            <span className="text-rose-300/80">🔥 {dungeon.dreadLabel || '恐惧之龙王槽'}（满则团灭·快通关）</span>
+            <span className="text-rose-300/80">🔥 {dungeon.dreadLabel || '恐惧之龙王槽'}（{dungeon.dreadMode === 'dot' ? '越满越痛·速清子目标' : '满则团灭·快通关'}）</span>
             <span className="font-mono text-rose-300/70">{Math.round(dungeon.dread || 0)}/{dungeon.dreadMax || 100}</span>
           </div>
           <div className="h-2 rounded-full bg-slate-800 overflow-hidden">
@@ -356,10 +356,12 @@ function RaidView({ st }: { st: any }) {
         </div>
         {cleared
           ? <div className="mb-2 py-1 rounded-lg bg-amber-600/15 border border-amber-500/40 text-center text-[13px] text-amber-200 font-bold">🏆 副本通关！</div>
-          : <div className="mb-2 text-[11px] text-dim/50">三龙未灭时龙王锁血（剩 {dragonsLeft} 龙）。自选顺序逐个开打。</div>}
+          : <div className="mb-2 text-[11px] text-dim/50">子目标未灭时本体锁血（剩 {dragonsLeft} 个）。{dungeon.linear ? '须按顺序逐关开打。' : '自选顺序逐个开打。'}</div>}
         <div className="space-y-1.5">
-          {dungeon.encounters.map((e: any) => {
-            const locked = e.kind === 'boss' && dragonsLeft > 0;
+          {dungeon.encounters.map((e: any, idx: number) => {
+            const bloodLocked = e.kind === 'boss' && dragonsLeft > 0;
+            const linearLocked = !!dungeon.linear && idx > 0 && dungeon.encounters.slice(0, idx).some((p: any) => p.status !== 'cleared');
+            const locked = bloodLocked || linearLocked;
             const done = e.status === 'cleared';
             return (
               <div key={e.id} className={`flex items-center gap-2 rounded-lg border px-2.5 py-1.5 ${done ? 'border-emerald-600/30 bg-emerald-950/20' : e.kind === 'boss' ? 'border-rose-500/40 bg-rose-950/25' : 'border-edge bg-panel/40'}`}>
@@ -369,7 +371,7 @@ function RaidView({ st }: { st: any }) {
                   <div className="text-[11px] font-mono text-dim/50 truncate">{e.boss?.tier} · HP {Number(e.boss?.maxHp).toLocaleString()}{e.note ? ` · ${e.note}` : ''}</div>
                 </div>
                 {done ? <span className="text-[11px] text-emerald-300 font-medium shrink-0">✅ 已击破</span>
-                  : locked ? <span className="text-[11px] text-dim/50 shrink-0">🔒 血锁</span>
+                  : locked ? <span className="text-[11px] text-dim/50 shrink-0">🔒 {bloodLocked ? '血锁' : '待解锁'}</span>
                   : isHost ? <button onClick={() => useMp.getState().handlers.onStartDungeonEncounter?.(e.id)} className="px-2.5 py-1 rounded-md text-[12px] bg-rose-600/25 border border-rose-500/50 text-rose-100 hover:bg-rose-600/40 shrink-0 transition-colors">{e.kind === 'boss' ? '讨伐龙王' : '开打'}</button>
                   : <span className="text-[11px] text-dim/50 shrink-0">待战</span>}
               </div>
