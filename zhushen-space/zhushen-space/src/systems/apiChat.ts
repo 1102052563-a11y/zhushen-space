@@ -10,7 +10,8 @@ export async function fetchWithProxy(url: string, init?: RequestInit): Promise<R
   try {
     return await fetch(url, init);
   } catch (e) {
-    if (/localhost|127\.0\.0\.1/i.test(url) || url.includes('/api/gw/')) throw e;   // 本地中转/已是网关 → 不重试
+    // 仅代理「绝对 http/https 的公网地址」；空/相对路径、localhost、已是网关 → 不重试（避免 ?url=/models 这种垃圾请求）
+    if (!/^https?:\/\//i.test(url) || /^https?:\/\/(localhost|127\.0\.0\.1)/i.test(url) || url.includes('/api/gw/')) throw e;
     return await fetch(`${GW_PROXY}?url=${encodeURIComponent(url)}`, init);
   }
 }
