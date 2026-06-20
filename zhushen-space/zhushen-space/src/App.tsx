@@ -14,6 +14,7 @@ import {
   ITEM_COT_RULE,
   PLAYER_COT_RULE,
   NPC_COT_RULE,
+  NPC_SELF_NARRATION_RULE,
   ENTRY_COT_RULE,
   ENTRY_NAME_CN_RULE,
   ENTRY_DEDUP_RULE,
@@ -74,7 +75,7 @@ import { useGame } from './store/gameStore';
 import { useSettings, resolveApiChain } from './store/settingsStore';
 import { apiChatFallback } from './systems/apiChat';
 import { parseAllStateUpdates, stripStateBlocks, parseAllItemCommands, applyItemCommands, parseAllCharCommands, applyCharacterCommands, parseAllNpcCommands, applyNpcCommands, parseAllFactionCommands, applyFactionCommands, applyTerritoryCommands, applyTeamCommands, isEquippable, lenientJsonParse } from './systems/stateParser';
-import { isRealNpc, sanitizeEntryName, setNpcPreferredOwners, applyStateUpdates, applyAllUpdates, stripKillBlocks, stripVitalsBlocks, stripWorldSourceBlocks, collapseRunaway } from './systems/stateApply';
+import { isRealNpc, sanitizeEntryName, stripLeakedThinking, setNpcPreferredOwners, applyStateUpdates, applyAllUpdates, stripKillBlocks, stripVitalsBlocks, stripWorldSourceBlocks, collapseRunaway } from './systems/stateApply';
 import { flattenAiText } from './systems/flattenAiText';
 import { runPhasePipeline, type Phase } from './systems/phasePipeline';
 import { buildFanficInjection, buildFactInjection, buildCosmosInjection, buildPlayerCoreInjection, buildWorldTimeInjection, buildQuestInjection } from './systems/promptInjections';
@@ -653,6 +654,7 @@ export default function App() {
   const textPresets      = useSettings((s) => s.textPresets);
   const activePresetId   = useSettings((s) => s.activeTextPresetId);
   const textStream           = useSettings((s) => s.textStream);
+  const skipNarrativeThinking = useSettings((s) => s.skipNarrativeThinking);
   const globalRegexScripts   = useSettings((s) => s.globalRegexScripts);
 
   // 物品管理 + 主角演化：回合计数 + 阶段状态 + 最近正文缓存
@@ -1758,7 +1760,9 @@ export default function App() {
       .filter((e) => e.enabled && e.source !== 'entrySharedRules')
       .map((e) => fillVars(e.content, vars))
       .join('\n\n')
-      + '\n\n' + NARRATIVE_FIRST_RULE + '\n' + BUFF_AS_STATUS_RULE + '\n' + NPC_AGE_RULE + '\n' + TALENT_NO_CAP_RULE + '\n' + TITLE_DIVERSITY_RULE + '\n' + NPC_DEAD_EXCLUDE_RULE + '\n' + NPC_ID_RULE + '\n' + SKILL_TALENT_NOTE_RULE + '\n' + NPC_SKILL_KEEP_RULE + '\n' + NPC_REVIEW_TAG_RULE + '\n' + NPC_TEAM_AFFILIATION_RULE + '\n' + TIER_RULE + '\n' + IMAGE_TAGS_RULE + '\n' + HPEP_NARRATIVE_ONLY_RULE + '\n' + POINTS_NARRATIVE_RULE + '\n' + NPC_GEN_ATTR_RULE + '\n' + ATTR_SANITY_RULE + '\n' + ATTR_CAP_RULE + '\n' + STATUS_FORMAT_RULE + '\n' + NPC_PRIVATE_EXTRA_RULE + '\n' + FIRST_UPDATE_COMPLETE_RULE + '\n' + EVO_EXACT_REF_RULE + '\n' + NPC_COT_RULE;
+      + '\n\n' + NARRATIVE_FIRST_RULE + '\n' + BUFF_AS_STATUS_RULE + '\n' + NPC_AGE_RULE + '\n' + TALENT_NO_CAP_RULE + '\n' + TITLE_DIVERSITY_RULE + '\n' + NPC_DEAD_EXCLUDE_RULE + '\n' + NPC_ID_RULE + '\n' + SKILL_TALENT_NOTE_RULE + '\n' + NPC_SKILL_KEEP_RULE + '\n' + NPC_REVIEW_TAG_RULE + '\n' + NPC_TEAM_AFFILIATION_RULE + '\n' + TIER_RULE + '\n' + IMAGE_TAGS_RULE + '\n' + HPEP_NARRATIVE_ONLY_RULE + '\n' + POINTS_NARRATIVE_RULE + '\n' + NPC_GEN_ATTR_RULE + '\n' + ATTR_SANITY_RULE + '\n' + ATTR_CAP_RULE + '\n' + STATUS_FORMAT_RULE + '\n' + NPC_PRIVATE_EXTRA_RULE + '\n' + FIRST_UPDATE_COMPLETE_RULE + '\n' + EVO_EXACT_REF_RULE + '\n' + NPC_COT_RULE
+      // 门控：仅当该 NPC 已有背景、却还没第一人称自述时，才追加"生成自述"规则（一次性·省 token）
+      + (rec && rec.background && !rec.selfNarration ? '\n' + NPC_SELF_NARRATION_RULE : '');
   }
 
   /* 登场判断 system prompt（只取 entrySharedRules 条目） */
@@ -2163,7 +2167,9 @@ export default function App() {
     const { settings } = useNpcEvo.getState();
     const trimmed = trimNarrative(narrative);
     const systemPrompt = buildNpcPhaseSystemPrompt(settings.entries, trimmed, charId, createdIds);
-    const userContent = `# 本轮正文\n${trimmed}\n\n---\n**先输出一个 <think>…</think> 思考块**，按系统提示里的「NPC 演化思维链」对角色 ${charId} 逐项自检；**随后**只为角色 ${charId} 输出 <state> 与 <upstore> 指令（无变化输出空标签）。禁止输出其他角色的指令、禁止输出正文；除 <think> / <state> / <upstore> 外不要有其它文字。`;
+    const recForSelf = useNpc.getState().npcs[charId];
+    const needSelf = !!(recForSelf && recForSelf.background && !recForSelf.selfNarration);   // 门控：已有背景但还没自述 → 本轮一并生成
+    const userContent = `# 本轮正文\n${trimmed}\n\n---\n**先输出一个 <think>…</think> 思考块**，按系统提示里的「NPC 演化思维链」对角色 ${charId} 逐项自检；**随后**只为角色 ${charId} 输出 <state> 与 <upstore> 指令（无变化输出空标签）${needSelf ? `，并按系统提示为该角色生成一个 <自述 id="${charId}"> 第一人称自述块` : ''}。禁止输出其他角色的指令、禁止输出正文；除 <think> / <state> / <upstore>${needSelf ? ' / <自述>' : ''} 外不要有其它文字。`;
     // 失败重试：单条请求失败/超时后额外重试 retryCount 次
     const retries = Math.max(0, settings.scheduling.retryCount ?? 0);
     let reply = '';
@@ -2179,6 +2185,14 @@ export default function App() {
     const charCmds = parseAllCharCommands(cleanReply).filter((c) => c.charId === charId);
     applyCharacterCommands(charCmds);
     const shorts = applyNpcShortCommands(cleanReply, charId);
+    // 第一人称自述块（门控生成）：<自述 id="C1">…</自述> → selfNarration（仅写入本目标，幂等：已有则不会再生成）
+    const selfRe = /<自述\s+id\s*=\s*["']?([CG]\d+)["']?\s*>([\s\S]*?)<\/自述>/gi;
+    for (let sm = selfRe.exec(cleanReply); sm; sm = selfRe.exec(cleanReply)) {
+      if (sm[1] === charId && sm[2].trim()) {
+        useNpc.getState().upsertNpc(charId, { selfNarration: sm[2].trim() });
+        console.log(`[NPC] ${charId} 第一人称自述已生成（${sm[2].trim().length} 字）`);
+      }
+    }
     useNpc.getState().markEvolved(charId, turnCountRef.current);
     console.log(`[NPC] ${charId} 演化：${npcCmds.length} 档案 / ${charCmds.length} 技能天赋 / ${shorts} 短指令`);
     return npcCmds.length + charCmds.length + shorts;
@@ -2335,7 +2349,7 @@ export default function App() {
 - 所处世界=「${worldName}」，物品的风格/科技必须符合该世界（现代/校园/科幻/奇幻/末世等）。
 - **可穿戴装备按身份/强弱给、宁少勿多**：平民/学生/杂兵/弱者 0~1 件(且多为日常衣物，绝不塞满身)，普通战斗者 1~2 件，精英 2~3 件，首领/强者/贵族才 3~5 件成套；**严禁给新手/平民/杂兵堆满装备**。每个 NPC 另给约 ${NPC_KIT_STORAGE_N} 件储物(随身杂物/消耗品/纪念品/钱袋等，储存空间可适当多给)。无战斗力的平民：装备位用**日常衣物/便服/制服**充当(category=防具)、武器可省或用日常工具，攻防可低或留空；品质(gradeDesc)按其身份与阶位给(平民多为白/绿色)。
 - **完整固定格式、与主角物品同标准、不准偷懒**：每件给 name/category(武器/防具/饰品/消耗品/材料/工具/重要物品/特殊物品/其他物品)/subType(类型细分)/gradeDesc(颜色品质)/combatStat(装备攻防,平民可低/无)/durability(耐久)/requirement(装备需求)/affix(词缀)/score(评分)/effect(效果)/intro(简介)/appearance(**逐部件外观,必填不可空**)；武器另加 killCount。
-- equip 每件给 equipSlot：武器→weapon:main，上身→armor:upper，鞋→armor:feet，头→armor:head，饰品→accessory:#1 等。
+- equip 每件给 equipSlot：武器→weapon:main，上身→armor:upper，头→armor:head，下装→armor:lower，鞋→armor:feet，手套→armor:hands，**护臂/臂铠/护腕→armor:arms**，肩→armor:shoulder，腰带→armor:belt，饰品→accessory:#1 等（按部位对号入座，别都堆 upper）。
 只输出 JSON：{"kits":[{"npcId":"C1","equip":[{...固定格式字段, "equipSlot":"..."}],"storage":[{...固定格式字段}]}]}
 ${AFFIX_EFFECT_RULE}`;
     const user = `世界：${worldName}\nNPC 列表：\n${list}\n\n请为每个 NPC 生成贴合其身份的初始装备+储物（完整固定格式，别给学生/平民发军用装备）。`;
@@ -3850,7 +3864,7 @@ ${replyTo.authorName} 之前说：「${String(replyTo.content).slice(0, 200)}」
 
       // 随身物品/装备 → 写入该 NPC 的储存空间（部分 equipped 进装备面板）
       if (Array.isArray(j.items) && (useNpc.getState().npcs[cid]?.items?.length ?? 0) === 0) {
-        const armorParts = ['armor:upper', 'armor:head', 'armor:lower', 'armor:feet', 'armor:hands'];
+        const armorParts = ['armor:upper', 'armor:head', 'armor:lower', 'armor:feet', 'armor:hands', 'armor:arms', 'armor:shoulder', 'armor:belt'];
         let wN = 0, aN = 0, cN = 0, tN = 0;
         j.items.slice(0, 8).forEach((it: any, idx: number) => {
           if (!it || !it.name) return;
@@ -4560,7 +4574,7 @@ ${lines}`;
   // 对手物品：保证 ≥6 件且 ≥6 件已装备（AI 不足则确定性补足）
   function ensureArenaItems(cid: string, raw: any[], entry: ArenaLadderEntry) {
     const npc = useNpc.getState();
-    const armorParts = ['armor:upper', 'armor:head', 'armor:lower', 'armor:feet', 'armor:hands'];
+    const armorParts = ['armor:upper', 'armor:head', 'armor:lower', 'armor:feet', 'armor:hands', 'armor:arms', 'armor:shoulder', 'armor:belt'];
     const grade = arenaGradeForRank(entry.rank);
     const list = raw.slice(0, 10).map((it: any) => ({
       name: flattenAiText(it.name).slice(0, 40), category: String(it.category || '特殊物品'),
@@ -5536,6 +5550,8 @@ ${lines}`;
     const worldInfoText = [wbKeywordText, novelVecText].filter(Boolean).join('\n\n');
 
     const { sysPrompt, examples, prefill } = buildPresetMessages(preset, worldInfoText, userText);
+    // 跳过思维链（设置开时）：末尾预填充 </think>，让思考模型以为思考已结束、直接出正文（与 preset 自带 prefill 叠加）
+    const effectivePrefill = skipNarrativeThinking ? ('</think>\n' + (prefill ?? '')).trimEnd() : prefill;
 
     // 历史：叙事记忆（关键词召回，启用时）或按 historyLimit 切片（现状）
     let memory: { role: 'system'; content: string }[] = [];
@@ -5639,7 +5655,7 @@ ${lines}`;
       ...buildFactInjection(),                          // <事实锚点·已锁定> 已核实的现实/时代事实（受 factCheck 门控，下回合注入防穿帮）
       ...recent,                                       // 最近原文楼层
       { role: 'user' as const, content: userText },
-      ...(prefill ? [{ role: 'assistant' as const, content: prefill }] : []),   // 末尾预填充（prefill 块启用时）
+      ...(effectivePrefill ? [{ role: 'assistant' as const, content: effectivePrefill }] : []),   // 末尾预填充（prefill 块 / 跳过思维链）
     ];
 
     // stream 以预设为准，统一一个变量
@@ -5760,10 +5776,11 @@ ${lines}`;
           console.log('[正文] 已手动停止，保留部分正文（未触发演化）');
           return;   // finally 仍会执行 setGenerating(false)
         }
-        // 流结束后：先用原始文本解析 state 块，再执行正则并剥除 state 块
-        applyAllUpdates(accumulated);
-        try { applyPlayerProfileCommands(accumulated, '', turnCountRef.current); } catch { /* 主角位置/外观/身份：正文若直接输出 character.B1.* 也即时生效，不必等主角演化阶段 */ }
-        const settledText = stripKillBlocks(accumulated);   // 过渡期：剥除旧 <kill> 清单（不再结算进阶点）
+        // 流结束后：先剥掉泄漏进正文的思维链块（中转把 <think> 拍平进 content / 末尾 </think> 预填充被回显），再解析/渲染
+        const cleaned = stripLeakedThinking(accumulated);
+        applyAllUpdates(cleaned);
+        try { applyPlayerProfileCommands(cleaned, '', turnCountRef.current); } catch { /* 主角位置/外观/身份：正文若直接输出 character.B1.* 也即时生效，不必等主角演化阶段 */ }
+        const settledText = stripKillBlocks(cleaned);   // 过渡期：剥除旧 <kill> 清单（不再结算进阶点）
         // 演化/解析读的正文：剥 <state>/<upstore> 等，但【保留】<状态结算> HP/EP 块（解析器与 HP/EP 管理阶段要吃它）
         const narrativeForEvoRaw = stripStateBlocks(applyRegex(settledText, preset));
         // 显示给玩家的正文：在此之上再剥掉 <状态结算>（纯数据通道，玩家看不到 HP/EP 原词，侧栏照旧用自定义血条名）
@@ -5787,9 +5804,10 @@ ${lines}`;
         const data = JSON.parse(rawText);
         const reply: string = data.choices?.[0]?.message?.content ?? data.choices?.[0]?.text ?? '';
         if (!reply) throw new Error('模型未返回内容');
-        applyAllUpdates(reply);
-        try { applyPlayerProfileCommands(reply, '', turnCountRef.current); } catch { /* 主角位置/外观/身份：正文直接输出 character.B1.* 即时生效 */ }
-        const settledReply = stripKillBlocks(reply);   // 过渡期：剥除旧 <kill> 清单（不再结算进阶点）
+        const cleanedReply = stripLeakedThinking(reply);   // 剥泄漏进正文的思维链块（同流式路径）
+        applyAllUpdates(cleanedReply);
+        try { applyPlayerProfileCommands(cleanedReply, '', turnCountRef.current); } catch { /* 主角位置/外观/身份：正文直接输出 character.B1.* 即时生效 */ }
+        const settledReply = stripKillBlocks(cleanedReply);   // 过渡期：剥除旧 <kill> 清单（不再结算进阶点）
         // 演化/解析读的正文：剥 <state>/<upstore> 等，但【保留】<状态结算> HP/EP 块（解析器与 HP/EP 管理阶段要吃它）
         const narrativeForEvoRaw = stripStateBlocks(applyRegex(settledReply, preset));
         // 显示给玩家的正文：在此之上再剥掉 <状态结算>（纯数据通道，玩家看不到 HP/EP 原词）

@@ -297,6 +297,7 @@ export function serializeNpcCard(
     npc.shortGoal && `短期目标:${npc.shortGoal}`,
     npc.longGoal && `长期目标:${npc.longGoal}`,
     npc.innerThought && `内心:${npc.innerThought}`,
+    npc.selfNarration && `第一人称自述:${npc.selfNarration}`,
     npc.appearance5 && `肖像:${npc.appearance5}`,
     npc.appearanceDetail && `容貌:${npc.appearanceDetail}`,
     npc.background && `背景:${npc.background}`,

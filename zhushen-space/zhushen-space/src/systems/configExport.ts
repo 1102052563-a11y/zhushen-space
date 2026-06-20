@@ -136,6 +136,7 @@ function settingsExtract(s: any): any {
     textApi: s.textApi,
     textUseSharedApi: s.textUseSharedApi,
     textStream: s.textStream,
+    skipNarrativeThinking: s.skipNarrativeThinking,
     activeTextPresetId: s.activeTextPresetId,
     globalRegexScripts: s.globalRegexScripts,
     worldBooks: (s.worldBooks ?? []).filter((b: any) => !b?.builtin),

@@ -18,12 +18,13 @@ export const SLOT_DEFS: SlotDef[] = [
   { key: 'weapon:off1',  label: '副武器1', icon: '🗡',  group: 'weapon',    allowedCats: ['武器', '饰品', '特殊物品', '法宝'] },
   { key: 'weapon:off2',  label: '副武器2', icon: '🗡',  group: 'weapon',    allowedCats: ['武器', '饰品', '特殊物品', '法宝'] },
   { key: 'weapon:off3',  label: '副武器3', icon: '🗡',  group: 'weapon',    allowedCats: ['武器', '饰品', '特殊物品', '法宝'] },
-  // ── 防具 7槽 ──
+  // ── 防具 8槽 ──
   { key: 'armor:head',     label: '头部',   icon: '⛑',  group: 'armor',     allowedCats: ['防具'] },
   { key: 'armor:upper',    label: '上装',   icon: '🛡',  group: 'armor',     allowedCats: ['防具'] },
   { key: 'armor:lower',    label: '下装',   icon: '🩱',  group: 'armor',     allowedCats: ['防具'] },
   { key: 'armor:feet',     label: '鞋子',   icon: '👢',  group: 'armor',     allowedCats: ['防具'] },
   { key: 'armor:hands',    label: '手部',   icon: '🧤',  group: 'armor',     allowedCats: ['防具'] },
+  { key: 'armor:arms',     label: '手臂',   icon: '💪',  group: 'armor',     allowedCats: ['防具'] },
   { key: 'armor:shoulder', label: '肩部',   icon: '🪖',  group: 'armor',     allowedCats: ['防具'] },
   { key: 'armor:belt',     label: '腰带',   icon: '🪢',  group: 'armor',     allowedCats: ['防具'] },
   // ── 饰品 6槽 ──
@@ -66,6 +67,7 @@ export function normalizeEquipSlot(raw?: string, category?: string): string {
         lower: 'armor:lower', legs: 'armor:lower', leg: 'armor:lower', pants: 'armor:lower', bottom: 'armor:lower', skirt: 'armor:lower',
         feet: 'armor:feet', foot: 'armor:feet', boots: 'armor:feet', boot: 'armor:feet', shoes: 'armor:feet', shoe: 'armor:feet',
         hands: 'armor:hands', hand: 'armor:hands', gloves: 'armor:hands', glove: 'armor:hands', gauntlet: 'armor:hands',
+        arms: 'armor:arms', arm: 'armor:arms', bracer: 'armor:arms', bracers: 'armor:arms', vambrace: 'armor:arms', forearm: 'armor:arms', sleeve: 'armor:arms', sleeves: 'armor:arms', wrist: 'armor:arms',
         shoulder: 'armor:shoulder', shoulders: 'armor:shoulder', pauldron: 'armor:shoulder', cloak: 'armor:shoulder', cape: 'armor:shoulder',
         belt: 'armor:belt', waist: 'armor:belt', sash: 'armor:belt',
       };
@@ -89,7 +91,8 @@ function inferArmorSlot(name: string): string | null {
   const n = name || '';
   if (/(头盔|头部|帽|盔|面罩|面具|头巾|发带|发冠|王冠|护目|眼罩|兜帽|斗笠|头环)/.test(n)) return 'armor:head';
   if (/(鞋|靴|履|足具|脚)/.test(n)) return 'armor:feet';
-  if (/(手套|护手|手甲|拳套|臂铠|护臂|袖)/.test(n)) return 'armor:hands';
+  if (/(臂铠|护臂|臂甲|臂带|护腕|腕甲|腕轮|臂环|套袖|护袖|臂鞲|手臂)/.test(n)) return 'armor:arms';   // 仅明确的护臂/腕件；bare「袖」太宽会误吞长袖袍故不收
+  if (/(手套|护手|手甲|拳套|指虎)/.test(n)) return 'armor:hands';
   if (/(肩甲|护肩|披风|斗篷|肩)/.test(n)) return 'armor:shoulder';
   if (/(腰带|腰封|护腰|腰)/.test(n)) return 'armor:belt';
   if (/(裤|下装|护腿|腿甲|战裙|胫甲|裙甲)/.test(n)) return 'armor:lower';

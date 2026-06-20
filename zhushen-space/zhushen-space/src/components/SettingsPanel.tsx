@@ -1388,12 +1388,14 @@ function TextApiSection() {
   const textApi            = useSettings((s) => s.textApi);
   const textUseSharedApi   = useSettings((s) => s.textUseSharedApi);
   const textStream         = useSettings((s) => s.textStream);
+  const skipNarrativeThinking = useSettings((s) => s.skipNarrativeThinking);
   const textAvailableModels= useSettings((s) => s.textAvailableModels);
   const textModelsLoading  = useSettings((s) => s.textModelsLoading);
   const textModelsError    = useSettings((s) => s.textModelsError);
   const setTextApi         = useSettings((s) => s.setTextApi);
   const setTextUseSharedApi= useSettings((s) => s.setTextUseSharedApi);
   const setTextStream      = useSettings((s) => s.setTextStream);
+  const setSkipNarrativeThinking = useSettings((s) => s.setSkipNarrativeThinking);
   const fetchTextModels    = useSettings((s) => s.fetchTextModels);
   const plotChoices        = useSettings((s) => s.plotChoices);
   const setPlotChoices     = useSettings((s) => s.setPlotChoices);
@@ -1424,6 +1426,13 @@ function TextApiSection() {
           <div>
             <div className="text-sm text-slate-200">流式输出（Streaming）</div>
             <div className="text-sm text-dim mt-0.5">开启后正文逐字生成，关闭则等待完整响应后一次性显示</div>
+          </div>
+        </div>
+        <div className="flex items-center gap-3 p-3 bg-panel border border-edge rounded-lg">
+          <Toggle checked={skipNarrativeThinking} onChange={() => setSkipNarrativeThinking(!skipNarrativeThinking)} />
+          <div>
+            <div className="text-sm text-slate-200">跳过正文思维链（提速·思考模型）</div>
+            <div className="text-sm text-dim mt-0.5">在正文请求末尾预填充 <code>&lt;/think&gt;</code>，让思考模型跳过原生思维链直接出正文——更快首字节、更省 token。只影响正文渲染，不碰各演化阶段的推理；并自动剥除泄漏进正文的思维链。默认关；若你的接口不支持「助手预填充」可关掉。</div>
           </div>
         </div>
         <div className="flex items-center gap-3 p-3 bg-panel border border-edge rounded-lg">

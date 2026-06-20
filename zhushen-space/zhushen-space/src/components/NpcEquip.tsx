@@ -32,6 +32,7 @@ function normalizeSlot(raw: string, category: string): string | null {
       lower: 'armor:lower', legs: 'armor:lower', leg: 'armor:lower', pants: 'armor:lower',
       feet: 'armor:feet', foot: 'armor:feet', boots: 'armor:feet', shoes: 'armor:feet',
       hands: 'armor:hands', hand: 'armor:hands', gloves: 'armor:hands',
+      arms: 'armor:arms', arm: 'armor:arms', bracer: 'armor:arms', vambrace: 'armor:arms', sleeve: 'armor:arms', wrist: 'armor:arms',
       shoulder: 'armor:shoulder', pauldron: 'armor:shoulder',
       belt: 'armor:belt', waist: 'armor:belt',
     };

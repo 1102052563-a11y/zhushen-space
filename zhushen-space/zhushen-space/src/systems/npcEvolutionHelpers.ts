@@ -134,6 +134,7 @@ export function serializeNpcSnapshot(r: NpcRecord): string {
     r.callPlayer && `对你称呼(列7): ${r.callPlayer}`,
     r.background && `背景(列10): ${r.background}`,
     r.innerThought && `内心(列12): ${r.innerThought}`,
+    r.selfNarration && `第一人称自述(已生成·沿用·勿重写·勿再输出<自述>块): ${r.selfNarration}`,
     r.relations && `关系(列13): ${r.relations}`,
     `好感(列15): ${r.favor}`,
     r.appearance5 && `肖像(列16): ${r.appearance5}`,

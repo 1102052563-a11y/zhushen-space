@@ -103,6 +103,7 @@ export interface NpcRecord {
   unitType?: string;      // 类型标签（封闭枚举：武者战士/平民百姓/凶兽魔兽…→收编 职业排序/形态/凡人，供机械生成六维）
   age?: string;           // 年龄（正文有则照抄，没有则按设定生成；可写"约25岁/青年"等）
   review?: string;        // 诙谐评价（玩家视角的吐槽/锐评，幽默风格）
+  selfNarration?: string; // 第一人称自述（NPC演化门控生成一次：作私聊/正文/演化的"自我认知"锚点，防 AI 凭刻板印象脑补人设）
   npcTag?: string;        // 标签（限定：契约者/土著/随从/宠物/召唤物）
   avatar?: string;        // 人物头像（上传的自定义图片 dataURL / 未来生图地址；在场面板与肖像栏展示）
   avatarTags?: string;    // 生成当前头像所用的 imageTags（用于"外观变化时刷新肖像"判断是否需要重绘）

@@ -10,7 +10,7 @@ import { enhanceFxClass } from '../systems/enhanceEngine';
 export { SLOT_DEFS };
 export type { SlotDef };
 
-/* 分组信息（仅 武器 / 防具(头部·上装·下装·鞋子·手部·肩部·腰带) / 饰品 / 特殊装备）*/
+/* 分组信息（仅 武器 / 防具(头部·上装·下装·鞋子·手部·手臂·肩部·腰带) / 饰品 / 特殊装备）*/
 const GROUP_META: Record<SlotDef['group'], { title: string; cols: number }> = {
   weapon:    { title: '武器',   cols: 4 },
   armor:     { title: '防具',   cols: 4 },
@@ -222,7 +222,7 @@ export default function EquipmentPanel(_props: {
         </button>
       </div>
 
-      {/* 固定槽位分组：武器 / 防具(头部·上装·下装·鞋子·手部·肩部·腰带) / 饰品 / 特殊装备 */}
+      {/* 固定槽位分组：武器 / 防具(头部·上装·下装·鞋子·手部·手臂·肩部·腰带) / 饰品 / 特殊装备 */}
       {(['weapon', 'armor', 'accessory', 'treasure'] as const).map((g) => (
         <SlotGroup
           key={g}

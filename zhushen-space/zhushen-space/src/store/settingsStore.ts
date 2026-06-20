@@ -287,6 +287,7 @@ interface SettingsState {
   textApi: ApiConfig;
   textUseSharedApi: boolean;
   textStream: boolean;
+  skipNarrativeThinking: boolean;   // 正文末尾预填充 </think>，让思考模型跳过原生思维链直接出正文（提速·省 token）
   textAvailableModels: string[];
   textModelsLoading: boolean;
   textModelsError: string;
@@ -313,6 +314,7 @@ interface SettingsState {
   setTextApi: (patch: Partial<ApiConfig>) => void;
   setTextUseSharedApi: (v: boolean) => void;
   setTextStream: (v: boolean) => void;
+  setSkipNarrativeThinking: (v: boolean) => void;
   fetchTextModels: () => Promise<void>;
   importTextWorldBook: (raw: string, fileName?: string, builtin?: boolean, builtinKey?: string) => { ok: boolean; message: string };
   toggleTextWorldBook: (id: string) => void;
@@ -637,6 +639,7 @@ export const useSettings = create<SettingsState>()(
       textApi: { ...DEFAULT_API },
       textUseSharedApi: true,
       textStream: true,
+      skipNarrativeThinking: false,
       textAvailableModels: [],
       textModelsLoading: false,
       textModelsError: '',
@@ -776,6 +779,7 @@ export const useSettings = create<SettingsState>()(
       setTextApi: (patch) => set((s) => ({ textApi: { ...s.textApi, ...patch } })),
       setTextUseSharedApi: (v) => set({ textUseSharedApi: v }),
       setTextStream: (v) => set({ textStream: v }),
+      setSkipNarrativeThinking: (v) => set({ skipNarrativeThinking: v }),
 
       fetchTextModels: async () => {
         const s = get();

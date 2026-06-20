@@ -27,6 +27,18 @@ export function sanitizeEntryName(raw?: string): string {
   return stripped && /[一-鿿]/.test(stripped) ? stripped : s;
 }
 
+/* 剥掉「泄漏进正文」的思维链块：部分中转/代理会把思考模型的 <think> 拍平进 content 流，
+   或末尾 </think> 预填充被回显——这些不该出现在玩家看到的正文里，也不该喂给演化阶段。
+   只删【闭合】的 <think>/<thinking>/<thought> 块 + 开头残留的孤立 </think>（预填充回显）；
+   不动未闭合的开标签（删它会把悬空链内容暴露成正文，宁可留着由长度/坏味把关）。确定性、无 API。 */
+export function stripLeakedThinking(text: string): string {
+  if (!text || !/<\/?(?:think|thinking|thought)\b/i.test(text)) return text;
+  return text
+    .replace(/<(think|thinking|thought)\b[^>]*>[\s\S]*?<\/\1>/gi, '')   // 闭合思维块（任意位置）
+    .replace(/^\s*<\/(?:think|thinking|thought)>\s*/i, '')               // 开头孤立的闭合标签（预填充回显残留）
+    .trimStart();
+}
+
 /* 主角「属性成长信号」——正文里出现 ①某属性/实力词＋成长词(近邻)、②突破/晋阶到更高阶位、或 ③显式数值加成，
    才算"原文写了属性提升"。用于挡住「正文根本没写属性成长、演化阶段却自行给主角加六维」的乱加：无信号一律不许上调。
    宁可漏判(真成长偶尔被挡，交由提示词把关)也不在毫无成长描写时纵容——与"忠于原文"诉求一致。 */
