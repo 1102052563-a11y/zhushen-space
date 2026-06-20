@@ -75,41 +75,72 @@ const DRAGON_GEMS = [
   { name: '龙王精魄·玄', effect: '玄铁之魄，镶嵌增幅防御' },
   { name: '龙王精魄·金', effect: '王权之魄，镶嵌全属性增幅' },
 ];
+const ANTON_MATERIALS = [
+  { name: '黑曜核心碎片', effect: '擎天之柱崩解的黑曜核心，合成安图恩套所需' },
+  { name: '异面结晶',     effect: '异面世界凝结的能量结晶，合成安图恩套所需' },
+  { name: '魔能燃料',     effect: '驱动安图恩的魔能燃料，合成安图恩套所需' },
+];
+const ANTON_EQUIP = [
+  { name: '安图恩·黑曜核心炮', category: '武器', effect: '凝异面能量的核心炮，攻击附带能量灼烧' },
+  { name: '安图恩·魔能装甲',   category: '防具', effect: '异面合金锻造的重型装甲，巨额减伤' },
+  { name: '安图恩·力场护盾仪', category: '饰品', effect: '受创时自动展开力场护盾' },
+  { name: '安图恩·异面棱镜',   category: '饰品', effect: '折射异面之力，大幅提升能量伤害与暴击' },
+];
+const ANTON_GEMS = [
+  { name: '安图恩精魄·赤', effect: '炽能之魄，镶嵌增幅攻击' },
+  { name: '安图恩精魄·玄', effect: '装甲之魄，镶嵌增幅防御' },
+  { name: '安图恩精魄·紫', effect: '异面之魄，镶嵌增幅全属性' },
+];
+
+/* 副本奖励主题：巴卡尔/安图恩各自的装备/宝石/材料/核心/宝箱/称号皮（结构相同，只换名） */
+const REWARD_THEMES: Record<string, { emoji: string; themeName: string; fullName: string; equip: typeof DRAGON_EQUIP; gems: typeof DRAGON_GEMS; materials: typeof DRAGON_MATERIALS; core: { name: string; effect: string }; box: string; titles: [string, string, string]; titleEffect: string }> = {
+  bakal: { emoji: '🐉', themeName: '巴卡尔攻坚战', fullName: '机械之乱·巴卡尔攻坚战', equip: DRAGON_EQUIP, gems: DRAGON_GEMS, materials: DRAGON_MATERIALS, core: { name: '龙王核心', effect: '黑龙·巴卡尔的本源核心，合成龙王套的核心材料' }, box: '巴卡尔宝藏', titles: ['讨龙勇士', '屠龙者', '灭龙者'], titleEffect: '对龙类伤害提升·威慑全场' },
+  anton: { emoji: '🤖', themeName: '安图恩攻坚战', fullName: '黑色大地·安图恩攻坚战', equip: ANTON_EQUIP, gems: ANTON_GEMS, materials: ANTON_MATERIALS, core: { name: '安图恩核心', effect: '巨型安图恩的异面能量核心，合成安图恩套的核心材料' }, box: '安图恩宝藏', titles: ['讨伐勇士', '安图恩讨伐者', '黑色大地征服者'], titleEffect: '对机械·异面之敌伤害提升·威慑全场' },
+};
 
 export interface BakalReward {
   rewardId: string;
   rating: string;
   difficultyLabel: string;
+  emoji: string;
+  themeName: string;
   currency: { 乐园币: number; 灵魂钱币: number; 技能点: number; 黄金技能点: number };
   potentialPoints: number;
   items: { id: string; name: string; category: string; gradeDesc: string; effect: string; quantity: number }[];
   title: { name: string; level: string; source: string; effect: string; desc: string };
 }
 
-export function generateBakalReward(difficulty: string, dreadRemainPct: number, difficultyLabel = ''): BakalReward {
+/* 通关豪华奖励（主题化：kind=bakal/anton）。评级=难度floor+计时剩余加成→E~SSS，倍率随评级。 */
+export function generateRaidReward(kind: string, difficulty: string, dreadRemainPct: number, difficultyLabel = ''): BakalReward {
+  const t = REWARD_THEMES[kind] || REWARD_THEMES.bakal;
   const base = DIFF_REWARD[difficulty] || DIFF_REWARD.normal;
   const floor = DIFF_FLOOR[difficulty] ?? 2;
-  const bonus = dreadRemainPct >= 0.6 ? 2 : dreadRemainPct >= 0.3 ? 1 : 0;   // 恐惧剩余越多（越高效）评级越高
+  const bonus = dreadRemainPct >= 0.6 ? 2 : dreadRemainPct >= 0.3 ? 1 : 0;   // 计时剩余越多（越高效）评级越高
   const idx = Math.min(RATING_BANDS.length - 1, floor + bonus);
   const rating = RATING_BANDS[idx];
   const mul = 1 + bonus * 0.5;   // 评级越高·倍率越大（1.0 / 1.5 / 2.0）
   const uid = () => `${Date.now()}_${Math.floor(Math.random() * 1e5)}`;
   const items: BakalReward['items'] = [];
-  [...DRAGON_EQUIP].sort(() => Math.random() - 0.5).slice(0, base.eqN).forEach((e, i) =>
+  [...t.equip].sort(() => Math.random() - 0.5).slice(0, base.eqN).forEach((e, i) =>
     items.push({ id: `BR_eq_${uid()}_${i}`, name: e.name, category: e.category, gradeDesc: base.grade, effect: e.effect, quantity: 1 }));
-  [...DRAGON_GEMS].sort(() => Math.random() - 0.5).slice(0, base.gemN).forEach((g, i) =>
+  [...t.gems].sort(() => Math.random() - 0.5).slice(0, base.gemN).forEach((g, i) =>
     items.push({ id: `BR_gem_${uid()}_${i}`, name: g.name, category: '宝石', gradeDesc: base.grade, effect: g.effect, quantity: 1 }));
-  DRAGON_MATERIALS.forEach((m, i) =>
+  t.materials.forEach((m, i) =>
     items.push({ id: `BR_mat_${uid()}_${i}`, name: m.name, category: '材料', gradeDesc: '橙色', effect: m.effect, quantity: 1 }));
-  items.push({ id: `BR_core_${uid()}`, name: '龙王核心', category: '材料', gradeDesc: '红色', effect: '黑龙·巴卡尔的本源核心，合成龙王套的核心材料', quantity: 1 });
-  items.push({ id: `BR_box_${uid()}`, name: '巴卡尔宝藏', category: '宝箱', gradeDesc: base.treasure, effect: '开启获得龙王宝物（装备/宝石/材料随机其一）', quantity: 1 });
-  const titleName = idx >= 6 ? '灭龙者' : idx >= 4 ? '屠龙者' : '讨龙勇士';
-  const title = { name: titleName, level: base.grade, source: '巴卡尔攻坚战', effect: '对龙类伤害提升·威慑全场', desc: `通关「机械之乱·巴卡尔攻坚战」（评级 ${rating}）所获，龙王之敌的荣耀印记。` };
+  items.push({ id: `BR_core_${uid()}`, name: t.core.name, category: '材料', gradeDesc: '红色', effect: t.core.effect, quantity: 1 });
+  items.push({ id: `BR_box_${uid()}`, name: t.box, category: '宝箱', gradeDesc: base.treasure, effect: '开启获得宝物（装备/宝石/材料随机其一）', quantity: 1 });
+  const titleName = idx >= 6 ? t.titles[2] : idx >= 4 ? t.titles[1] : t.titles[0];
+  const title = { name: titleName, level: base.grade, source: t.themeName, effect: t.titleEffect, desc: `通关「${t.fullName}」（评级 ${rating}）所获的荣耀印记。` };
   return {
     rewardId: `BR_${uid()}`,
-    rating, difficultyLabel,
+    rating, difficultyLabel, emoji: t.emoji, themeName: t.themeName,
     currency: { 乐园币: Math.round(base.coin * mul), 灵魂钱币: Math.round(base.soul * mul), 技能点: Math.round(base.sp * mul), 黄金技能点: Math.round(base.gsp * mul) },
     potentialPoints: Math.round(base.pp * mul),
     items, title,
   };
+}
+
+/* 兼容旧调用：巴卡尔奖励 = 主题 'bakal'。 */
+export function generateBakalReward(difficulty: string, dreadRemainPct: number, difficultyLabel = ''): BakalReward {
+  return generateRaidReward('bakal', difficulty, dreadRemainPct, difficultyLabel);
 }

@@ -69,6 +69,14 @@ function Card({ id, isCurrent, isTarget, onPick }: { id: string; isCurrent: bool
         {c.curShield > 0 && (
           <div className="text-[9px] text-amber-300">护盾 {c.curShield}</div>
         )}
+        {(c as any).coreArmorMax > 0 && ((c as any).breaking
+          ? <div className="text-[9px] text-rose-300 font-medium">💥 破防中——全力输出！</div>
+          : <div className="flex items-center gap-1">
+              <span className="text-[9px] text-violet-300 w-5">护甲</span>
+              <div className="flex-1 h-1.5 rounded-full bg-slate-800 overflow-hidden"><div className="h-full bg-violet-500 transition-all" style={{ width: `${Math.min(100, ((c as any).coreArmor / ((c as any).coreArmorMax || 1)) * 100)}%` }} /></div>
+              <span className="text-[9px] text-slate-300 tabular-nums w-12 text-right">{(c as any).coreArmor}/{(c as any).coreArmorMax}</span>
+            </div>
+        )}
       </div>
       {c.status.length > 0 && (
         <div className="flex flex-wrap gap-1 mt-1">
@@ -185,7 +193,7 @@ export default function CombatPanel({ onPlayerAction, onUndo, canUndo, mpMode, m
         {raidDungeon && (
           <div className="px-4 py-1.5 border-b border-slate-800 bg-slate-950/40">
             <div className="flex items-center justify-between text-[11px] mb-0.5">
-              <span className="text-rose-300/90">🔥 恐惧之龙王槽 · 满则团灭</span>
+              <span className="text-rose-300/90">🔥 {raidDungeon.dreadLabel || '恐惧之龙王槽'} · 满则团灭</span>
               <span className="font-mono text-rose-300/70">{Math.round(raidDungeon.dread || 0)}/{raidDungeon.dreadMax || 100}</span>
             </div>
             <div className="h-1.5 rounded-full bg-slate-800 overflow-hidden">

@@ -12,9 +12,11 @@
 //                 公开部署不配 SA → Vertex 自动关闭；只有你本地能用，SA 永不离开你的机器。可选 VERTEX_GATE 口令再加一道闸。
 // 变量：VERTEX_LOCATION（默认 global）；机密：VERTEX_SA_JSON、VERTEX_GATE（仅本地 .dev.vars）。
 
+// 给「刷新模型」当清单用（AI Studio 有 key 时会被动态全量覆盖；Vertex 用这个静态清单）。
+// 注意：Vertex 的 gemini-3 系是带 -preview 的 ID，写错会 404 模型不存在。
 const MODELS = [
   'gemini-2.5-flash', 'gemini-2.5-pro', 'gemini-2.5-flash-lite',
-  'gemini-3-flash', 'gemini-3-pro-preview',
+  'gemini-3-flash-preview', 'gemini-3-pro-preview',
 ];
 
 function json(obj, init = {}, headers = {}) {
@@ -71,6 +73,10 @@ async function aiStudioModels(request, cors) {
 /** 网关总入口：按子路径分流到 AI Studio / Vertex */
 export async function handleGateway(request, env, cors) {
   const p = new URL(request.url).pathname;
+  // 通用后端代理（仿 SillyTavern 后端转发）：目标在 ?url=，server-side 转发任意中转，绕过浏览器 SSL/混合内容/CORS
+  if (p.endsWith('/api/gw/proxy')) {
+    return await proxyGeneric(request, cors);
+  }
   if (request.method === 'GET' && p.endsWith('/models')) {
     if (p.includes('/aistudio/')) return await aiStudioModels(request, cors);   // 动态拉 Google 全量
     return json(staticModels(), {}, cors);                                       // Vertex：精选清单
@@ -84,6 +90,34 @@ export async function handleGateway(request, env, cors) {
     }
   }
   return json({ error: { message: 'gateway route not found' } }, { status: 404 }, cors);
+}
+
+/* ─────────────── 通用后端代理：把浏览器够不着的中转（http 裸 IP / 无 CORS / 无 HTTPS）server-side 转发 ───────────────
+   接口地址填：https://<worker>/api/gw/proxy?url=<你中转的 base，如 http://1.2.3.4:8050/v1>
+   前端会自动把 /chat/completions、/models 接在后面，一并进 ?url=，原样转发；Authorization(中转的 key) 照传。
+   ⚠ 这是「开放转发」：拿到本 URL 的人也能借你 worker 转发（需自带目标 key）；只转 http/https，CF Worker 无内网，风险有限。*/
+async function proxyGeneric(request, cors) {
+  const target = new URL(request.url).searchParams.get('url') || '';
+  if (!/^https?:\/\//i.test(target)) {
+    return json({ error: { message: '通用代理：接口地址应为 https://<worker>/api/gw/proxy?url=http://你的中转/v1' } }, { status: 400 }, cors);
+  }
+  const fwd = new Headers();
+  const auth = request.headers.get('Authorization'); if (auth) fwd.set('Authorization', auth);
+  fwd.set('Content-Type', request.headers.get('Content-Type') || 'application/json');
+  let upstream;
+  try {
+    upstream = await fetch(target, {
+      method: request.method,
+      headers: fwd,
+      body: (request.method === 'GET' || request.method === 'HEAD') ? undefined : await request.text(),
+    });
+  } catch (e) {
+    return json({ error: { message: '代理转发失败（目标连不上）：' + String((e && e.message) || e) } }, { status: 502 }, cors);
+  }
+  const h = new Headers(cors);
+  h.set('Content-Type', upstream.headers.get('Content-Type') || 'application/json');
+  h.set('Cache-Control', 'no-cache');
+  return new Response(upstream.body, { status: upstream.status, headers: h });
 }
 
 /* ─────────────── AI Studio：透传到官方 OpenAI 兼容端点（用调用方自带的 key）─────────────── */

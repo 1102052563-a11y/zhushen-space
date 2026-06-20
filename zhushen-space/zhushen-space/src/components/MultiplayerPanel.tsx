@@ -332,7 +332,7 @@ function RaidView({ st }: { st: any }) {
     mpClient.relay('raid_boss', b);   // 广播给来宾预览
   };
   const start = () => { if (boss) useMp.getState().handlers.onStartRaid?.(boss); };
-  const genDungeon = () => useMp.getState().handlers.onStartDungeon?.({ difficulty: diff });
+  const genDungeon = (kind: string) => useMp.getState().handlers.onStartDungeon?.({ difficulty: diff, kind });
   const resetDungeon = () => { useMp.getState()._set({ raidDungeon: null }); mpClient.relay('raid_dungeon', null); };
 
   // ── 组队副本：巴卡尔攻坚战进度面板（多场战斗串联，自选顺序打三龙→解锁龙王） ──
@@ -347,7 +347,7 @@ function RaidView({ st }: { st: any }) {
         </div>
         <div className="mb-2">
           <div className="flex items-center justify-between text-[11px] mb-0.5">
-            <span className="text-rose-300/80">🔥 恐惧之龙王槽（满则团灭·快通关）</span>
+            <span className="text-rose-300/80">🔥 {dungeon.dreadLabel || '恐惧之龙王槽'}（满则团灭·快通关）</span>
             <span className="font-mono text-rose-300/70">{Math.round(dungeon.dread || 0)}/{dungeon.dreadMax || 100}</span>
           </div>
           <div className="h-2 rounded-full bg-slate-800 overflow-hidden">
@@ -423,7 +423,10 @@ function RaidView({ st }: { st: any }) {
             <button onClick={gen} className="flex-1 px-3 py-1.5 rounded-lg bg-god/15 border border-god/40 text-god/90 text-[13px] hover:bg-god/25 transition-colors">{boss ? '↻ 重生(图鉴)' : '生成 BOSS(图鉴)'}</button>
             <button onClick={start} disabled={!boss} className="flex-1 px-3 py-1.5 rounded-lg bg-rose-600/20 border border-rose-500/50 text-rose-200 text-[13px] hover:bg-rose-600/30 disabled:opacity-40 transition-colors">⚔ 开战</button>
           </div>
-          <button onClick={genDungeon} className="w-full px-3 py-1.5 rounded-lg bg-amber-600/15 border border-amber-500/40 text-amber-200 text-[13px] hover:bg-amber-600/25 transition-colors">🐉 巴卡尔攻坚战（多场副本）</button>
+          <div className="flex gap-2">
+            <button onClick={() => genDungeon('bakal')} className="flex-1 px-3 py-1.5 rounded-lg bg-amber-600/15 border border-amber-500/40 text-amber-200 text-[13px] hover:bg-amber-600/25 transition-colors">🐉 巴卡尔攻坚战</button>
+            <button onClick={() => genDungeon('anton')} className="flex-1 px-3 py-1.5 rounded-lg bg-slate-600/20 border border-slate-400/40 text-slate-200 text-[13px] hover:bg-slate-600/30 transition-colors">🤖 安图恩攻坚战</button>
+          </div>
         </div>
       )}
     </div>

@@ -2134,6 +2134,16 @@ function ApiLibrarySection() {
     } finally { setTestingId(null); }
   }
 
+  // 一键把接口「套进网关后端代理」：http 裸 IP / 无 CORS / 无 HTTPS 的中转，经 worker 服务端转发即可用（仿 SillyTavern 后端）。再点一次取消。
+  const PROXY_BASE = 'https://zhushen-multiplayer.1102052563.workers.dev/api/gw/proxy';
+  function toggleProxy(ep: ApiEndpoint) {
+    if ((ep.baseUrl || '').includes('/api/gw/proxy')) {
+      try { const orig = new URL(ep.baseUrl).searchParams.get('url'); if (orig) update(ep.id, { baseUrl: orig }); } catch { /* 解析失败就不动 */ }
+    } else {
+      update(ep.id, { baseUrl: `${PROXY_BASE}?url=${encodeURIComponent((ep.baseUrl || '').replace(/\/+$/, ''))}` });
+    }
+  }
+
   async function fetchModels(ep: { id: string; baseUrl: string; apiKey: string }) {
     if (!ep.baseUrl || !ep.apiKey) { setErrById((p) => ({ ...p, [ep.id]: '请先填写地址和 Key' })); return; }
     setLoadingId(ep.id); setErrById((p) => ({ ...p, [ep.id]: '' }));
@@ -2229,6 +2239,12 @@ function ApiLibrarySection() {
                     className="shrink-0 px-2.5 py-1 text-[12px] font-mono border border-god/40 text-god rounded hover:bg-god/10 disabled:opacity-40 transition-colors">
                     {testingId === ep.id ? '测试中…' : '🔌 测试连接'}
                   </button>
+                  {!/\/api\/gw\/(aistudio|vertex)/.test(ep.baseUrl || '') && (
+                    <button onClick={() => toggleProxy(ep)} title="http裸IP / 无CORS / 无HTTPS 的中转，套上网关后端转发即可用（仿 SillyTavern 后端）"
+                      className="shrink-0 px-2.5 py-1 text-[12px] font-mono border border-edge text-dim hover:text-god hover:border-god/40 rounded transition-colors">
+                      {(ep.baseUrl || '').includes('/api/gw/proxy') ? '↩ 取消代理' : '🛡 经网关代理'}
+                    </button>
+                  )}
                   {testById[ep.id] && (
                     <span className={`text-[11px] font-mono truncate ${testById[ep.id]!.ok ? 'text-god' : 'text-blood'}`}>
                       {testById[ep.id]!.ok ? '✅ ' : '❌ '}{testById[ep.id]!.msg}

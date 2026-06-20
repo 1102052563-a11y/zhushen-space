@@ -86,8 +86,8 @@ import { combatFinalVitals, applyCombatVitals, buildCombatResultFallback, runNpc
 import { parseWeather, isLightSky, extractWeatherFxCss, sanitizeWeatherCss } from './systems/weatherFx';
 import { useCombat, newLogId, type BattleState, type CombatStatBlock, type Side, type CombatActionKind } from './store/combatStore';
 import { buildCombatant, assembleBattle, settleAction, advanceTurn, checkEnd, currentActorId, makeActionLog, playerControlled, setMpCombatItems, clearMpCombatItems, rollInitiative } from './systems/combatEngine';
-import { generateRaidBoss, generateBakalDungeon, type RaidBoss, type RaidDifficulty } from './systems/raidBoss';
-import { generateRaidLoot, generateBakalReward } from './systems/raidLoot';
+import { generateRaidBoss, generateBakalDungeon, generateAntonDungeon, type RaidBoss, type RaidDifficulty } from './systems/raidBoss';
+import { generateRaidLoot, generateRaidReward } from './systems/raidLoot';
 import { useSkillTree } from './store/skillTreeStore';
 import RaidDungeonReward from './components/RaidDungeonReward';
 const RaidLootModal = lazy(() => import('./components/RaidLootModal'));
@@ -739,7 +739,7 @@ export default function App() {
   const mpIncomingGift = useMp((s) => s.incomingGift);
   const mpRaidLoot = useMp((s) => s.raidLoot);
   const combatDrivingRef = useRef(false);
-  const raidRef = useRef<{ boss: RaidBoss; phase: number; lastRound?: number; marked?: { id: string; round: number }; toughness?: number; bossHpMark?: number; poison?: number } | null>(null);   // 组队讨伐：BOSS/阶段/回合机制/韧性/毒层
+  const raidRef = useRef<{ boss: RaidBoss; phase: number; lastRound?: number; marked?: { id: string; round: number }; toughness?: number; bossHpMark?: number; poison?: number; armor?: number; armorMax?: number; breakUntil?: number } | null>(null);   // 组队讨伐：BOSS/阶段/回合机制/韧性/毒层/破核护甲
   const currentEncounterRef = useRef<{ encId: string; kind: 'dragon' | 'boss' } | null>(null);   // 组队副本：当前战斗对应的 encounter（胜利后推进进度/控制掉落）
   const [hostTakeover, setHostTakeover] = useState<string[]>([]);   // 联机：房主因来宾(MP_)AFK 而临时接管的战斗角色 id
   const raidRollsRef = useRef<Record<string, Record<string, any>>>({});      // 战利 ROLL 收集（房主侧：lootId→playerId→{name,picks}）
@@ -939,7 +939,7 @@ export default function App() {
       onStartRaid: (boss: any) => { if (useMp.getState().role === 'host') startRaidCombat(boss); },   // 房主：开战组队讨伐
       onRaidTally: () => { if (useMp.getState().role === 'host') tallyRaidLoot(); },   // 房主：结算战利分配
       onGenRaidBoss: (opts: any) => { if (useMp.getState().role === 'host') void genRaidBossAI(opts?.theme || '', opts?.difficulty || 'normal'); },   // 房主：AI 现生 BOSS
-      onStartDungeon: (opts: any) => { if (useMp.getState().role === 'host') startRaidDungeon(opts?.difficulty || 'normal'); },   // 房主：开启巴卡尔攻坚战副本
+      onStartDungeon: (opts: any) => { if (useMp.getState().role === 'host') startRaidDungeon(opts?.difficulty || 'normal', opts?.kind || 'bakal'); },   // 房主：开启副本（巴卡尔/安图恩）
       onStartDungeonEncounter: (encId: any) => { if (useMp.getState().role === 'host') startDungeonEncounter(String(encId)); },   // 房主：开打副本某一场
     });
   }, []);
@@ -5216,12 +5216,13 @@ ${lines}`;
   }
 
   // ── 组队副本：巴卡尔攻坚战（多场战斗串联，复用 startRaidCombat 打每一场） ──
-  function startRaidDungeon(difficulty: string) {
+  function startRaidDungeon(difficulty: string, kind: string = 'bakal') {
     const mp = useMp.getState();
     if (mp.status !== 'connected' || mp.role !== 'host') return;
     const pf = usePlayer.getState().profile;
-    const partyTier = arenaEffectiveTier(pf.tier, pf.level || 1);   // 有效阶位，避免子龙被碾压秒杀
-    const dj = generateBakalDungeon(difficulty as RaidDifficulty, { partySize: (mp.seats.length || 0) + 1, partyTier });
+    const partyTier = arenaEffectiveTier(pf.tier, pf.level || 1);   // 有效阶位，避免子目标被碾压秒杀
+    const o = { partySize: (mp.seats.length || 0) + 1, partyTier };
+    const dj = kind === 'anton' ? generateAntonDungeon(difficulty as RaidDifficulty, o) : generateBakalDungeon(difficulty as RaidDifficulty, o);
     mp._set({ raidDungeon: dj, raidBoss: null });
     try { mpClient.relay('raid_dungeon', dj); } catch (e) { console.warn('[Raid] 副本广播失败', e); }
   }
@@ -5295,7 +5296,34 @@ ${lines}`;
     // 韧性击破：本回合对 boss 造成的伤害削韧；削空→击破眩晕（全力输出窗口）
     const dealt = Math.max(0, (raid.bossHpMark ?? bossPart.curHp) - bossPart.curHp);
     raid.bossHpMark = bossPart.curHp;
-    if (raid.toughness != null) {
+    if (raid.boss.breakArmor) {
+      // 破核破防（安图恩）：本体无敌→伤害先扣能量护甲→破甲后 2 回合破防窗口（可被伤害）→重新覆甲。与韧性击破互斥
+      if (raid.armor == null) { raid.armorMax = raid.boss.breakArmor; raid.armor = raid.boss.breakArmor; }
+      if (raid.breakUntil != null && b.round >= raid.breakUntil) {   // 破防窗口到期 → 重新覆甲
+        raid.breakUntil = undefined; raid.armor = raid.armorMax;
+        const x = ensure(); x.log = [...x.log, raidLog(b.round, `🛡 ${raid.boss.name} 重新覆上能量护甲——须再次破核才能伤到它！`)];
+      }
+      const inBreak = raid.breakUntil != null && b.round < raid.breakUntil;
+      if (!inBreak && dealt > 0) {   // 无敌期：把本回合对 HP 的伤害还原、转移扣护甲
+        const restored = Math.min(raid.boss.maxHp, bossPart.curHp + dealt);
+        raid.bossHpMark = restored; raid.armor = Math.max(0, (raid.armor ?? 0) - dealt);
+        const x = ensure(); x.participants['BOSS'].curHp = restored;
+        if (raid.armor <= 0) {
+          raid.breakUntil = b.round + 2;
+          x.log = [...x.log, raidLog(b.round, `💥 能量核心击破！${raid.boss.name} 破防——2 回合全力输出窗口！`)];
+        } else {
+          x.log = [...x.log, raidLog(b.round, `🛡 攻击被能量护甲弹开（核心护甲 ${Math.round(raid.armor)}/${raid.armorMax}）。`)];
+        }
+      }
+      { const x = ensure(); const cur = x.participants['BOSS']; const st = (cur.status || []).filter((s: any) => s.name !== '核心护甲' && s.name !== '破防');   // 护甲/破防 状态条（每回合刷新显示）
+        const showBreak = raid.breakUntil != null && b.round < raid.breakUntil;
+        st.push(showBreak
+          ? { id: `cs_brk_${b.round}`, name: '破防', emoji: '💥', tone: 'debuff', type: '减益', effect: '破防·可被伤害', startTurn: b.round, durationTurns: 1, addedAt: Date.now() }
+          : { id: `cs_arm_${b.round}`, name: '核心护甲', emoji: '🛡', tone: 'buff', type: '增益', effect: `无敌（护甲 ${Math.round(raid.armor || 0)}/${raid.armorMax}）`, startTurn: b.round, durationTurns: 1, addedAt: Date.now() });
+        cur.status = st;
+        cur.coreArmor = Math.round(raid.armor || 0); cur.coreArmorMax = raid.armorMax; cur.breaking = showBreak;   // 喂 CombatPanel 渲染核心护甲条/破防态
+      }
+    } else if (raid.toughness != null) {
       raid.toughness -= dealt;
       if (raid.toughness <= 0 && !bossPart.status?.some((s: any) => s.combat?.cannotAct)) {
         const x = ensure();
@@ -5311,14 +5339,15 @@ ${lines}`;
       const dj: any = enc ? useMp.getState().raidDungeon : null;
       if (enc && dj && (dj.stage ?? 'ongoing') === 'ongoing') {
         const dmax = dj.dreadMax || 100;
-        const rate = enc.kind === 'boss' ? 5 + raid.phase * 2 : 3;   // 龙王更快、阶段越深越快
+        const mode = dj.dreadMode || 'wipe';   // wipe=巴卡尔·恐惧满团灭 / dot=安图恩·黑雾群毒不团灭
+        const rate = enc.kind === 'boss' ? 5 + raid.phase * 2 : 3;   // 越深越快
         const dread = Math.min(dmax, (dj.dread || 0) + rate);
-        if (dread >= dmax) {   // 恐惧满 → 团灭：本场判负 + 副本失败 + 广播
+        if (mode === 'wipe' && dread >= dmax) {   // 满则团灭：本场判负 + 副本失败 + 广播
           const failed = { ...dj, dread: dmax, stage: 'failed' };
           useMp.getState()._set({ raidDungeon: failed });
           try { mpClient.relay('raid_dungeon', failed); } catch { /* */ }
           const x = ensure();
-          x.log = [...x.log, raidLog(x.round, '☠️ 恐惧之龙王槽已满——龙王之怒降临，全军覆没！副本失败。')];
+          x.log = [...x.log, raidLog(x.round, `☠️ ${dj.dreadLabel || '恐惧之龙王槽'}已满——全军覆没！副本失败。`)];
           C.setBattle(x);
           void finishBattle('enemy');   // 强制判负（不清玩家血→不额外惩罚）
           return true;
@@ -5326,6 +5355,12 @@ ${lines}`;
         const nextDj = { ...dj, dread };
         useMp.getState()._set({ raidDungeon: nextDj });
         try { mpClient.relay('raid_dungeon', nextDj); } catch { /* */ }
+        if (mode === 'dot' && dread > 0) {   // 黑雾 DoT：按浓度对全队群伤（不团灭·纯消耗→逼速通/清子目标压制）
+          const x = ensure();
+          const dmg = Math.max(1, Math.round((raid.boss.attrs.int || 20) * 1.5 * (dread / dmax)));
+          for (const id of alivePlayers(x)) x.participants[id].curHp = Math.max(0, x.participants[id].curHp - dmg);
+          x.log = [...x.log, raidLog(x.round, `🌫 ${dj.dreadLabel || '黑雾'}侵蚀全队（浓度 ${Math.round(dread)}%），各损 ${dmg} 生命——速清子目标压制！`)];
+        }
       }
     }
     // 燃域：每回合群伤
@@ -5517,7 +5552,8 @@ ${lines}`;
           try {
             const dj2: any = useMp.getState().raidDungeon;
             const remainPct = dj2 ? Math.max(0, ((dj2.dreadMax || 100) - (dj2.dread || 0)) / (dj2.dreadMax || 100)) : 1;
-            mpClient.relay('raid_reward', generateBakalReward(dj2?.difficulty || 'normal', remainPct, dj2?.difficultyLabel || ''));
+            const rkind = dj2?.bossId === 'anton' ? 'anton' : 'bakal';   // 按副本类型发对应主题奖励
+            mpClient.relay('raid_reward', generateRaidReward(rkind, dj2?.difficulty || 'normal', remainPct, dj2?.difficultyLabel || ''));
           } catch (e) { console.warn('[Raid] 豪华奖励生成失败', e); }
         }
       }

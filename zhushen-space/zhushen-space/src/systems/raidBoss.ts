@@ -27,6 +27,7 @@ export interface RaidBoss {
   affixes: string[];          // 本场词缀 id（难度越高越多）
   rewardTier: string;         // 掉落档（E~SSS 思路，沿用世界结算评级口径）
   intro: string;
+  breakArmor?: number;        // 破核破防：>0 时本体无敌，伤害先扣此护甲，破甲→破防窗口（安图恩擎天之柱/本体）
 }
 
 export const RAID_DIFFS: { id: RaidDifficulty; label: string; hpMul: number; affixN: number; phases: number; tierBump: number; reward: string }[] = [
@@ -146,6 +147,50 @@ const BOSS_ARCHETYPES: Record<string, ASkill[]> = {
     { name: '末日龙炎', skillType: '攻击', effect: '末日龙炎吞噬全场，巨伤+持续灼烧', level: '极道', cost: 28, tags: ['群攻', '群体', '灼烧'], minPhase: 2 },
     { name: '王权降临', skillType: '增益', effect: '龙王权能加身，全属性狂暴', level: '极道', cost: 30, tags: ['buff'], minPhase: 2 },
   ],
+  antonpillar: [
+    { name: '巨柱践踏', skillType: '攻击', effect: '抬起钢铁巨柱践踏单体，造成重击', level: '精通', cost: 0, tags: ['单体'], minPhase: 0 },
+    { name: '大地震荡', skillType: '攻击', effect: '砸地引发震荡，对全体造成伤害', level: '精通', cost: 6, tags: ['群攻', '群体'], minPhase: 0 },
+    { name: '机械臂横扫', skillType: '攻击', effect: '机械巨臂横扫全场，击退我方', level: '精通', cost: 5, tags: ['群攻', '群体'], minPhase: 0 },
+    { name: '装甲格挡', skillType: '防御', effect: '展开装甲格挡，为自身生成护盾', level: '精通', cost: 8, tags: ['护盾'], minPhase: 0 },
+    { name: '黑雾喷吐', skillType: '攻击', effect: '喷出黑雾，全体受腐蚀伤害', level: '精通', cost: 6, tags: ['群攻', '群体', '中毒'], minPhase: 0 },
+    { name: '钢铁直拳', skillType: '攻击', effect: '钢铁巨拳直击单体', level: '精通', cost: 4, tags: ['单体'], minPhase: 0 },
+    { name: '崩地重击', skillType: '攻击', effect: '砸碎地面，单体巨额冲击伤害', level: '大师', cost: 12, tags: ['单体'], minPhase: 1 },
+    { name: '能量过载', skillType: '增益', effect: '核心过载，下次出手大幅增伤', level: '大师', cost: 10, tags: ['蓄力'], minPhase: 1 },
+    { name: '震地波', skillType: '攻击', effect: '掀起连环震地波，全体受创', level: '大师', cost: 14, tags: ['群攻', '群体'], minPhase: 1 },
+    { name: '黑雾弥散', skillType: '攻击', effect: '弥散黑雾，全体叠加腐蚀', level: '大师', cost: 11, tags: ['群攻', '群体', '中毒'], minPhase: 1 },
+    { name: '倾覆崩塌', skillType: '攻击', effect: '蓄力后巨柱倾覆崩塌，全场毁灭打击', level: '极道', cost: 30, tags: ['群攻', '群体', '蓄力'], minPhase: 2 },
+    { name: '黑雾领域', skillType: '领域', effect: '释放黑雾领域，全场每回合持续腐蚀', level: '极道', cost: 22, tags: ['领域', '群体'], minPhase: 2 },
+  ],
+  antonenergy: [
+    { name: '能量射线', skillType: '攻击', effect: '聚焦能量射线灼烧单体', level: '精通', cost: 0, tags: ['单体'], minPhase: 0 },
+    { name: '电弧放电', skillType: '攻击', effect: '向全场释放电弧，群体雷伤', level: '精通', cost: 6, tags: ['群攻', '群体', '麻痹'], minPhase: 0 },
+    { name: '过载脉冲', skillType: '攻击', effect: '过载脉冲冲击全体', level: '精通', cost: 5, tags: ['群攻', '群体'], minPhase: 0 },
+    { name: '力场护罩', skillType: '防御', effect: '展开力场护罩，生成高额护盾', level: '精通', cost: 8, tags: ['护盾'], minPhase: 0 },
+    { name: '聚能光束', skillType: '攻击', effect: '聚能光束贯穿单体', level: '精通', cost: 4, tags: ['单体'], minPhase: 0 },
+    { name: '电磁干扰', skillType: '攻击', effect: '电磁干扰单体，有几率麻痹', level: '精通', cost: 6, tags: ['单体', '麻痹'], minPhase: 0 },
+    { name: '高能激光', skillType: '攻击', effect: '高能激光重创单体', level: '大师', cost: 12, tags: ['单体'], minPhase: 1 },
+    { name: '能量虹吸', skillType: '治疗', effect: '虹吸场上能量，回复自身', level: '大师', cost: 12, tags: ['治疗'], minPhase: 1 },
+    { name: '链式过载', skillType: '攻击', effect: '链式能量在我方间弹跳，群体伤害', level: '大师', cost: 13, tags: ['群攻', '群体'], minPhase: 1 },
+    { name: '力场领域', skillType: '领域', effect: '布下力场领域，全场每回合受能量灼烧', level: '大师', cost: 16, tags: ['领域', '群体'], minPhase: 1 },
+    { name: '湮灭炮', skillType: '攻击', effect: '蓄力轰出湮灭炮，全场巨额能量伤害', level: '极道', cost: 30, tags: ['群攻', '群体', '蓄力'], minPhase: 2 },
+    { name: '能量奇点', skillType: '领域', effect: '坍缩能量奇点，全场持续吞噬伤害', level: '极道', cost: 25, tags: ['领域', '群体'], minPhase: 2 },
+  ],
+  anton: [
+    { name: '黑曜巨拳', skillType: '攻击', effect: '黑曜巨拳碾击单体，势大力沉', level: '精通', cost: 0, tags: ['单体'], minPhase: 0 },
+    { name: '黑雾吐息', skillType: '攻击', effect: '吐出滚滚黑雾，全体腐蚀伤害', level: '精通', cost: 8, tags: ['群攻', '群体', '中毒'], minPhase: 0 },
+    { name: '横扫光炮', skillType: '攻击', effect: '横扫一道光炮，全体受能量伤害', level: '精通', cost: 7, tags: ['群攻', '群体'], minPhase: 0 },
+    { name: '威慑咆哮', skillType: '减益', effect: '异面威慑咆哮，全场降低攻击', level: '精通', cost: 10, tags: ['群体', '控制'], minPhase: 0 },
+    { name: '碾压', skillType: '攻击', effect: '巨躯碾压单体，重创', level: '精通', cost: 6, tags: ['单体'], minPhase: 0 },
+    { name: '毁灭主炮', skillType: '攻击', effect: '充能后轰出毁灭主炮，全体巨伤', level: '大师', cost: 16, tags: ['群攻', '群体'], minPhase: 1 },
+    { name: '核心过载', skillType: '增益', effect: '能量核心过载，自身陷入狂暴增伤', level: '大师', cost: 14, tags: ['buff'], minPhase: 1 },
+    { name: '黑雾爆发', skillType: '攻击', effect: '黑雾骤然爆发，全体叠加腐蚀', level: '大师', cost: 13, tags: ['群攻', '群体', '中毒'], minPhase: 1 },
+    { name: '装甲领域', skillType: '领域', effect: '展开装甲力场领域，自身减伤并护盾', level: '大师', cost: 15, tags: ['领域', '护盾'], minPhase: 1 },
+    { name: '异面侵蚀', skillType: '领域', effect: '异面之力侵蚀战场，全场每回合受创', level: '大师', cost: 18, tags: ['领域', '群体'], minPhase: 1 },
+    { name: '终末·黑色火山', skillType: '攻击', effect: '蓄力引爆黑色火山，对全场释放终末毁灭', level: '极道', cost: 35, tags: ['群攻', '群体', '蓄力'], minPhase: 2 },
+    { name: '绝望黑雾', skillType: '减益', effect: '绝望黑雾笼罩全场，全体陷入恐惧·眩晕', level: '极道', cost: 25, tags: ['群体', '控制'], minPhase: 2 },
+    { name: '湮灭射线', skillType: '攻击', effect: '全功率湮灭射线，全体巨额能量伤害', level: '极道', cost: 28, tags: ['群攻', '群体'], minPhase: 2 },
+    { name: '暴走形态', skillType: '增益', effect: '进入暴走形态，全属性狂暴并加速', level: '极道', cost: 30, tags: ['buff'], minPhase: 2 },
+  ],
 };
 
 /* 按主题招池 + 阶段构建 skillsByPhase：每阶段=minPhase≤当前阶段的全部技能（渐次解锁，越深招越多越猛）。 */
@@ -227,8 +272,10 @@ export interface RaidDungeon {
   encounters: RaidEncounter[];   // 三子龙在前、龙王在末
   bossId: string;
   stage?: 'ongoing' | 'cleared' | 'failed';
-  dread?: number;       // 恐惧之龙王槽（团灭计时·贯穿整个副本累积，满则团灭）
+  dread?: number;       // 团灭/环境计时条（贯穿整个副本累积）
   dreadMax?: number;
+  dreadLabel?: string;  // 计时条标签（巴卡尔=恐惧之龙王槽 / 安图恩=黑雾浓度）
+  dreadMode?: 'wipe' | 'dot';  // wipe=满则团灭（巴卡尔）/ dot=按浓度群体毒DoT不团灭（安图恩）
 }
 
 const BAKAL_DRAGONS: { id: string; name: string; emoji: string; affixes: string[]; note: string; intro: string }[] = [
@@ -257,5 +304,36 @@ export function generateBakalDungeon(
     boss: generateRaidBoss(bossDiff, { ...opts, name: '黑龙·巴卡尔', emoji: '🐉', affixes: ['enrage', 'burn', 'tough', 'shield'], intro: '黑龙·巴卡尔睁眼——龙王之怒将焚尽一切。三龙已陨、血锁尽开，决战！', archetype: 'bakal' }),
     status: 'pending',
   });
-  return { id: 'bakal_raid_' + Date.now(), name: '机械之乱 · 巴卡尔攻坚战', difficulty, difficultyLabel: d.label, encounters, bossId: 'bakal', stage: 'ongoing', dread: 0, dreadMax: 100 };
+  return { id: 'bakal_raid_' + Date.now(), name: '机械之乱 · 巴卡尔攻坚战', difficulty, difficultyLabel: d.label, encounters, bossId: 'bakal', stage: 'ongoing', dread: 0, dreadMax: 100, dreadLabel: '恐惧之龙王槽', dreadMode: 'wipe' };
+}
+
+/* ════════════════════════════════════════════
+   组队副本 II：黑色大地 · 安图恩攻坚战（复用 RaidDungeon 骨架）
+   子目标（自选并行）：擎天之柱·削腿×2 + 能量核心阻截 → 解锁 → 巨型安图恩本体战。
+   骨架版每场=普通联机战斗（破防机制/部位破坏/黑雾DoT 在后续增量加）；计时条复用 dread，标签改「黑雾浓度」。
+   （原创设计，以 DNF 安图恩团本机制为蓝本重写，非搬运其素材/文案。）
+════════════════════════════════════════════ */
+const ANTON_SUB: { id: string; name: string; emoji: string; archetype: string; note: string; intro: string }[] = [
+  { id: 'leg1',   name: '擎天之柱·左柱', emoji: '🗼', archetype: 'antonpillar', note: '破防·削腿', intro: '擎天之柱·左柱轰然挡路——破其防、削安图恩一条腿！' },
+  { id: 'leg2',   name: '擎天之柱·右柱', emoji: '🗼', archetype: 'antonpillar', note: '破防·削腿', intro: '擎天之柱·右柱轰然挡路——破其防、削安图恩一条腿！' },
+  { id: 'energy', name: '能量核心·阻截', emoji: '⚡', archetype: 'antonenergy', note: '压能量条', intro: '能量核心高速运转——阻截它，压低安图恩的能量！' },
+];
+
+/* 生成「安图恩攻坚战」副本：三子目标（选定难度）+ 巨型安图恩（难度+1档·更猛）。partyTier 传有效阶位防碾压。 */
+export function generateAntonDungeon(
+  difficulty: RaidDifficulty,
+  opts: { partySize?: number; partyTier?: string } = {},
+): RaidDungeon {
+  const di = Math.max(0, DIFF_ORDER.indexOf(difficulty));
+  const bossDiff = DIFF_ORDER[Math.min(DIFF_ORDER.length - 1, di + 1)];
+  const d = RAID_DIFFS.find((x) => x.id === difficulty) ?? RAID_DIFFS[0];
+  const encounters: RaidEncounter[] = ANTON_SUB.map((e) => {
+    const b = generateRaidBoss(difficulty, { ...opts, name: e.name, emoji: e.emoji, affixes: e.id.startsWith('leg') ? ['tough'] : ['shield', 'enrage'], archetype: e.archetype, intro: e.intro });
+    if (e.id.startsWith('leg')) b.breakArmor = Math.round(b.maxHp * 0.25);   // 擎天之柱：破核破防（无敌→破甲→破防窗口）；能量核心不破防、走压条
+    return { id: e.id, kind: 'dragon' as EncounterKind, name: e.name, emoji: e.emoji, note: e.note, boss: b, status: 'pending' as const };
+  });
+  const antonBoss = generateRaidBoss(bossDiff, { ...opts, name: '巨型安图恩', emoji: '🤖', affixes: ['enrage', 'tough', 'regen'], archetype: 'anton', intro: '黑色火山喷发——巨型安图恩自异面降临，黑雾遮天蔽日！' });
+  antonBoss.breakArmor = Math.round(antonBoss.maxHp * 0.25);   // 巨型安图恩：破核破防
+  encounters.push({ id: 'anton', kind: 'boss', name: '巨型安图恩', emoji: '🤖', note: '破核破防·多阶段', boss: antonBoss, status: 'pending' });
+  return { id: 'anton_raid_' + Date.now(), name: '黑色大地 · 安图恩攻坚战', difficulty, difficultyLabel: d.label, encounters, bossId: 'anton', stage: 'ongoing', dread: 0, dreadMax: 100, dreadLabel: '黑雾浓度', dreadMode: 'dot' };
 }
