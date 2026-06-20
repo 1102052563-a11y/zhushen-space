@@ -174,15 +174,18 @@ export async function listAutoSnaps(): Promise<SlotMeta[]> {
 
 export const PENDING_STARTED_KEY = 'drpg-pending-started';
 
-/* 读档时保留「当前」的 API 配置，不被存档里的旧 API 覆盖——API 属设备级全局配置，不该绑定到具体存档。
-   做法：每个 store 的持久化 JSON，state 里键名含 "api"(不分大小写：api/textApi/各功能*Api/apiLibrary/apiRoutes/*UseSharedApi) 的字段，用当前值覆盖存档值。*/
+/* 读档时保留「当前」的设备级配置，不被存档里的旧配置覆盖——这些属全局设置，不该绑定到具体存档：
+   - API（键名含 "api"：api/textApi/各功能*Api/apiLibrary/apiRoutes/*UseSharedApi）；
+   - 演化等功能的 settings（enabled 总开关 / 预设 entries / 调度 scheduling…）——和「新游戏不清这些 store」同口径，
+     否则读档/回退/重新生成/续档会把存档里(常为关闭的旧)演化开关写回来，玩家刚开的「主角/物品/NPC/领地…演化」一走剧情就被关掉(本次修复)。
+   做法：每个 store 的持久化 JSON，state 里命中的键用「当前值」覆盖存档值。*/
 function mergeKeepApi(key: string, savedJson: string): string {
   try {
     const cur = localStorage.getItem(key);
     if (!cur) return savedJson;
     const sv = JSON.parse(savedJson), cv = JSON.parse(cur);
     if (sv && cv && sv.state && cv.state) {
-      for (const k of Object.keys(cv.state)) if (/api/i.test(k)) sv.state[k] = cv.state[k];
+      for (const k of Object.keys(cv.state)) if (/api/i.test(k) || k === 'settings') sv.state[k] = cv.state[k];
       return JSON.stringify(sv);
     }
   } catch (e) { logWarn('saveManager.mergeKeepApi', e); }
