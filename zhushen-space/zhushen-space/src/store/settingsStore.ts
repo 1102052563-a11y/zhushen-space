@@ -256,6 +256,8 @@ interface SettingsState {
   setFactCheck: (v: boolean) => void;
   npcAutonomyOn: boolean;   // 离场角色自治（轨道A）：每回合零 API 推进离场 NPC 的「出任务/主神空间」生活并写经历
   setNpcAutonomyOn: (v: boolean) => void;
+  npcAutonomyDeath: boolean; // 离场自治·允许任务致死（陨落）；默认关，仅 npcAutonomyOn 开时生效；护好友/羁绊/长留/队友
+  setNpcAutonomyDeath: (v: boolean) => void;
   narrativePov: NarrativePov;   // 叙事人称：off=跟随预设（不注入）；first/second/third=强制注入到正文 system 末尾（权重最高）
   setNarrativePov: (v: NarrativePov) => void;
   apiLibrary: ApiEndpoint[];   // 中心 API 接口库（综合设置维护，各功能快捷选填）
@@ -627,6 +629,7 @@ export const useSettings = create<SettingsState>()(
       fanficMode: false,
       factCheck: false,
       npcAutonomyOn: false,
+      npcAutonomyDeath: false,
       narrativePov: 'off',
       apiLibrary: [],
       apiRoutes: {},
@@ -676,6 +679,7 @@ export const useSettings = create<SettingsState>()(
       setReading: (patch) => set((s) => ({ reading: { ...s.reading, ...patch } })),
       setPlotChoices: (v) => set({ plotChoices: v }),
       setNpcAutonomyOn: (v) => set({ npcAutonomyOn: v }),
+      setNpcAutonomyDeath: (v) => set({ npcAutonomyDeath: v }),
       setFanficMode: (v) => set({ fanficMode: v }),
       setFactCheck: (v) => set({ factCheck: v }),
       setNarrativePov: (v) => set({ narrativePov: v }),

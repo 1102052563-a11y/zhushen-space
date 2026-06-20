@@ -26,7 +26,7 @@ function roundNice(n: number): number {
   return Math.max(1, Math.round(n));
 }
 
-type GemDef = { attr: string; slot: GemSlotKind; flavor: string; gen: (n: number, rng: Rng) => string };
+type GemDef = { attr: string; slot: GemSlotKind; flavor: string; cat?: '战斗' | '功能' | '生活'; gen: (n: number, rng: Rng) => string };
 
 /* 低阶（白~暗金）：基础面板加成。n = 品级档 1-8 */
 const LOW_GEMS: GemDef[] = [
@@ -65,6 +65,35 @@ const HIGH_GEMS: GemDef[] = [
   { attr: '真实属性判定', slot: '通用', flavor: '真我', gen: (n, r) => `关键判定时全属性+${rint(r, (n - 8) * 2, (n - 8) * 4)}（真实判定，无视压制）` },
 ];
 
+/* 功能类（utility·便利/资源/成长）：移动·负重·耐久·寻宝·招财·经验·抗性·冷却等机械便利，
+   低~高阶皆可出，数值随品级档 n(1-15) 缩放、带上限。参考各游戏 QoL/magic-find/move-speed 类词条。 */
+const UTILITY_GEMS: GemDef[] = [
+  { attr: '移动速度', slot: '防具', flavor: '疾风', cat: '功能', gen: (n, r) => `移动速度+${Math.min(40, rint(r, 3 + n, 5 + n * 2))}%` },
+  { attr: '负重上限', slot: '通用', flavor: '扛山', cat: '功能', gen: (n, r) => `负重上限+${roundNice(rint(r, n * 12, n * 24))}（可携带更多）` },
+  { attr: '耐久节省', slot: '通用', flavor: '恒久', cat: '功能', gen: (n, r) => `装备耐久消耗-${Math.min(60, rint(r, 8 + n * 2, 12 + n * 3))}%，偶尔自行修复少量耐久` },
+  { attr: '魔法寻宝', slot: '饰品', flavor: '探宝', cat: '功能', gen: (n, r) => `稀有物品掉落率+${Math.min(50, rint(r, 5 + n * 2, 8 + n * 3))}%` },
+  { attr: '招财', slot: '饰品', flavor: '招财', cat: '功能', gen: (n, r) => `击杀/开箱掉落乐园币+${Math.min(90, rint(r, 6 + n * 3, 10 + n * 4))}%` },
+  { attr: '历练', slot: '饰品', flavor: '顿悟', cat: '功能', gen: (n, r) => `获得经验/历练值+${Math.min(35, rint(r, 4 + n, 6 + n * 2))}%` },
+  { attr: '全抗性', slot: '防具', flavor: '调和', cat: '功能', gen: (n, r) => `火/冰/雷/毒抗性各+${Math.min(45, rint(r, 5 + n * 2, 7 + n * 2))}%` },
+  { attr: '冷却缩减', slot: '通用', flavor: '轮转', cat: '功能', gen: (n, r) => `技能冷却缩减${Math.min(35, rint(r, 4 + n, 6 + n * 2))}%` },
+  { attr: '脱战回复', slot: '防具', flavor: '休复', cat: '功能', gen: (n, r) => `脱离战斗后生命/法力回复速度+${Math.min(120, rint(r, 15 + n * 5, 25 + n * 8))}%` },
+  { attr: '自动拾取', slot: '通用', flavor: '集纳', cat: '功能', gen: (n) => `自动拾取范围+${Math.min(8, 1 + Math.floor(n / 2))}米，掉落物更快入包` },
+];
+
+/* 生活类（采集/生产/社交/生存·"生活技能"向）：采矿·采集·垂钓·匠艺·探脉·庖厨·交涉·社交·御兽·环境。 */
+const LIFE_GEMS: GemDef[] = [
+  { attr: '采掘', slot: '通用', flavor: '裂岩', cat: '生活', gen: (n, r) => `采矿/采掘速度+${Math.min(60, rint(r, 6 + n * 2, 10 + n * 3))}%，矿石产量+${Math.min(40, rint(r, 4 + n, 6 + n * 2))}%` },
+  { attr: '采集', slot: '通用', flavor: '丰收', cat: '生活', gen: (n, r) => `采药/伐木/采集产出+${Math.min(50, rint(r, 5 + n * 2, 8 + n * 2))}%，偶得额外稀有材料` },
+  { attr: '垂钓', slot: '通用', flavor: '渔获', cat: '生活', gen: (n, r) => `垂钓效率+${Math.min(50, rint(r, 5 + n * 2, 8 + n * 2))}%，稀有鱼种上钩几率提升` },
+  { attr: '匠艺', slot: '通用', flavor: '巧匠', cat: '生活', gen: (n, r) => `制作/锻造成功率与成品品质提升（精良率+${Math.min(40, rint(r, 4 + n, 6 + n * 2))}%）` },
+  { attr: '探脉', slot: '饰品', flavor: '寻脉', cat: '生活', gen: (n, r) => `自动感知周围${Math.min(60, rint(r, 10 + n * 3, 15 + n * 4))}米内的矿脉/资源/采集点` },
+  { attr: '庖厨', slot: '通用', flavor: '飨食', cat: '生活', gen: (n, r) => `烹饪/炼药所得增益的时长与强度+${Math.min(50, rint(r, 6 + n * 2, 10 + n * 2))}%` },
+  { attr: '交涉', slot: '饰品', flavor: '巧舌', cat: '生活', gen: (n, r) => `商店买价-${Math.min(30, rint(r, 3 + n, 5 + n))}%、卖价+${Math.min(30, rint(r, 3 + n, 5 + n))}%` },
+  { attr: '魅力社交', slot: '饰品', flavor: '倾城', cat: '生活', gen: (n, r) => `与 NPC 互动的好感增长+${Math.min(60, rint(r, 8 + n * 2, 12 + n * 3))}%，初见印象更佳` },
+  { attr: '御兽', slot: '通用', flavor: '驭灵', cat: '生活', gen: (n, r) => `召唤物/宠物/随从属性+${Math.min(35, rint(r, 4 + n, 6 + n * 2))}%，更易驯服野生生物` },
+  { attr: '环境适应', slot: '防具', flavor: '适存', cat: '生活', gen: (n, r) => `严寒/酷热/缺氧等环境减益减弱${Math.min(70, rint(r, 10 + n * 3, 16 + n * 4))}%，夜间视野清晰` },
+];
+
 const LOW_NOUNS = ['石', '原石', '晶石', '宝石'];
 const HIGH_NOUNS = ['魔晶', '魂晶', '秘晶', '源石', '圣晶', '神石'];
 
@@ -80,7 +109,8 @@ export function gemPrice(num: number, secondary: boolean, rng: Rng = Math.random
 
 /** 按需求挑一条属性定义：优先指定属性(锁定)，否则优先同部位，再否则全池随机 */
 function pickDef(grade: string, rng: Rng, want?: { attr?: string; slot?: GemSlotKind }): GemDef {
-  const pool = gradeToNum(grade) >= GEM_HIGH_FROM ? HIGH_GEMS : LOW_GEMS;
+  const base = gradeToNum(grade) >= GEM_HIGH_FROM ? HIGH_GEMS : LOW_GEMS;
+  const pool = [...base, ...UTILITY_GEMS, ...LIFE_GEMS];   // 战斗 + 功能 + 生活 三类混合 → 商店更多元
   if (want?.attr) { const d = pool.find((g) => g.attr === want.attr); if (d) return d; }
   if (want?.slot) { const cands = pool.filter((g) => g.slot === want.slot || g.slot === '通用'); if (cands.length) return pick(rng, cands); }
   return pick(rng, pool);
@@ -90,15 +120,17 @@ function pickDef(grade: string, rng: Rng, want?: { attr?: string; slot?: GemSlot
 function buildGem(grade: string, def: GemDef, rng: Rng): GeneratedGem {
   const n = gradeToNum(grade);
   const high = n >= GEM_HIGH_FROM;
+  const cat = def.cat ?? '战斗';
   let stat = def.gen(n, rng);
   let secondary = false;
-  // 高阶（史诗级+）有概率附带第二条同部位高阶效果，更丰富
-  if (high && n >= 10 && rng() < 0.38) {
+  // 高阶（史诗级+）**战斗类**有概率附带第二条同部位高阶战斗效果，更丰富（功能/生活类保持单一清晰效果）
+  if (high && n >= 10 && cat === '战斗' && rng() < 0.38) {
     const cand = HIGH_GEMS.filter((g) => g.attr !== def.attr && (g.slot === def.slot || g.slot === '通用' || def.slot === '通用'));
     if (cand.length) { stat += `；${pick(rng, cand).gen(n, rng)}`; secondary = true; }
   }
   const noun = pick(rng, high ? HIGH_NOUNS : LOW_NOUNS);
   const slotLabel = def.slot === '通用' ? '任意装备' : `仅${def.slot}`;
+  const tierLabel = cat === '战斗' ? (high ? '高阶战斗属性' : '基础面板加成') : `${cat}类`;
   return {
     item: {
       name: `${grade}·${def.flavor}${noun}`,
@@ -109,11 +141,11 @@ function buildGem(grade: string, def: GemDef, rng: Rng): GeneratedGem {
       effect: stat,
       quantity: 1,
       equipped: false,
-      tags: ['宝石', high ? '高阶' : '基础'],
+      tags: ['宝石', high ? '高阶' : '基础', `${cat}类`],
       subType: high ? '高阶宝石' : '基础宝石',
-      intro: `${high ? '高阶' : '基础'}宝石 · ${slotLabel}镶嵌 · ${def.attr}`,
+      intro: `${cat}类宝石 · ${slotLabel}镶嵌 · ${def.attr}`,
       acquisition: '宝石商店',
-      score: `${grade}（${high ? '高阶战斗属性' : '基础面板加成'}）`,
+      score: `${grade}（${tierLabel}）`,
     },
     price: gemPrice(n, secondary, rng),
   };

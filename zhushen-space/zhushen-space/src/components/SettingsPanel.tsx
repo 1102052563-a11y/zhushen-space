@@ -1409,6 +1409,8 @@ function TextApiSection() {
   const setFactCheck       = useSettings((s) => s.setFactCheck);
   const npcAutonomyOn      = useSettings((s) => s.npcAutonomyOn);
   const setNpcAutonomyOn   = useSettings((s) => s.setNpcAutonomyOn);
+  const npcAutonomyDeath   = useSettings((s) => s.npcAutonomyDeath);
+  const setNpcAutonomyDeath = useSettings((s) => s.setNpcAutonomyDeath);
   const narrativePov       = useSettings((s) => s.narrativePov);
   const setNarrativePov    = useSettings((s) => s.setNarrativePov);
 
@@ -1473,9 +1475,18 @@ function TextApiSection() {
           <Toggle checked={npcAutonomyOn} onChange={() => setNpcAutonomyOn(!npcAutonomyOn)} />
           <div>
             <div className="text-sm text-slate-200">离场角色自治（零 API · 轨道A）</div>
-            <div className="text-sm text-dim mt-0.5">开启后，<b>不在场的契约者</b>每回合会<b>零 API</b> 地自行「出任务世界 / 在主神空间强化·竞技·社交」，并把近况写进各自档案（NPC 详情可见）；这些经历会注入正文，让 AI 知道他们离场期间干了啥。纯前端确定性推进，<b>不调接口、不花 token</b>；MVP 不改六维/等级、不致死。默认关。</div>
+            <div className="text-sm text-dim mt-0.5">开启后，<b>不在场的契约者/土著</b>每回合会<b>零 API</b> 地自行过日子——契约者「出任务世界 / 强化 / 竞技 / 结仇结盟 / 壁障考核」、土著在故土「营生 / 御敌 / 部族纷争」，并把近况写进各自档案（NPC 详情可见）、注入正文。好结局会让其<b>档内有界</b>地涨等级/六维（按阶位封顶、不越档）。纯前端确定性、<b>不花 token</b>。默认关。</div>
           </div>
         </div>
+        {npcAutonomyOn && (
+          <div className="flex items-center gap-3 p-3 bg-panel border border-edge rounded-lg ml-6">
+            <Toggle checked={npcAutonomyDeath} onChange={() => setNpcAutonomyDeath(!npcAutonomyDeath)} />
+            <div>
+              <div className="text-sm text-slate-200">└ 允许任务致死（陨落）</div>
+              <div className="text-sm text-dim mt-0.5">开启后，离场契约者出低评级(E)任务有<b>小概率回不来</b>——无限流的残酷张力。<b>好友 / 羁绊角色 / 手动长留 / 当前队友永不会死</b>。默认关，怕丢 NPC 就别开。</div>
+            </div>
+          </div>
+        )}
         <div className="p-3 bg-panel border border-edge rounded-lg">
           <div className="text-sm text-slate-200">叙事人称</div>
           <div className="text-sm text-dim mt-0.5 mb-2">强制正文以指定人称叙述主角，最高优先（压过预设文风块与历史惯性，无需依赖预设里的人称块）。「跟随预设」=不干预，由预设/模型决定。仅作用于主角，NPC 始终第三人称；对白不受影响。</div>

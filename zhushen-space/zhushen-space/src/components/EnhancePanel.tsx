@@ -12,7 +12,7 @@ import {
 import { loadBossManifest, pickStagePortrait, type BossManifest } from '../systems/enhanceBosses';
 import GemPanel from './GemPanel';
 
-export interface EnhanceFinalizeArgs { itemId: string; startLevel: number; newLevel: number; }
+export interface EnhanceFinalizeArgs { itemId: string; startLevel: number; newLevel: number; tendency?: string; }
 export interface FinalizeStatus { ok: boolean; changed: boolean; error?: string; }
 
 /* 把词缀/效果文本按【…】拆成分条，逐条展示（排版更清晰）；无【】则整段当一条 */
@@ -67,6 +67,7 @@ export default function EnhancePanel({
   const [portraitUrl, setPortraitUrl] = useState<string | null>(null);
   const [gemsOpen, setGemsOpen] = useState(false);
   const [finalizing, setFinalizing] = useState(false);   // 结束强化的收尾 AI 调用中（显示"正在为您强化装备"）
+  const [tendency, setTendency] = useState('');   // 玩家指定的词缀/效果生成方向（攻击类/辅助类/挖矿类…），收尾时传给 AI 按此方向生成
   const [finalizeResult, setFinalizeResult] = useState<{ status: 'ok' | 'fail'; name: string; level: number; affix: string; effect: string; error?: string; args: EnhanceFinalizeArgs } | null>(null);  // 收尾结果（成功展示词缀/效果，失败显示原因+重试）
   const fxTimer = useRef<ReturnType<typeof setTimeout>>();
 
@@ -113,7 +114,7 @@ export default function EnhancePanel({
     const sess = useEnhance.getState().session;
     if (!sess) return;
     const { base, newMax, gained } = peakGain(sess);
-    if (gained) onFinalize({ itemId: sess.itemId, startLevel: base, newLevel: newMax });
+    if (gained) onFinalize({ itemId: sess.itemId, startLevel: base, newLevel: newMax, tendency: tendency.trim() || undefined });
   };
 
   const pickItem = (id: string) => {
@@ -122,7 +123,7 @@ export default function EnhancePanel({
     endSession();
     const it = items.find((x) => x.id === id);
     if (it) startSession(it.id, it.name, it.enhanceLevel ?? 0, Math.max(it.enhanceLevel ?? 0, it.maxEnhanceLevel ?? 0));
-    setBanter(''); setWarn(''); setUseProtect(false); setUseAmulet(false);
+    setBanter(''); setWarn(''); setUseProtect(false); setUseAmulet(false); setTendency('');
   };
 
   const handleClose = () => { if (finalizing) return; finalizeIfGained(); endSession(); onClose(); };
@@ -148,17 +149,17 @@ export default function EnhancePanel({
     const sess = useEnhance.getState().session;
     if (!sess || finalizing) return;
     const { base, newMax, gained } = peakGain(sess);
-    if (gained) { await runFinalize({ itemId: sess.itemId, startLevel: base, newLevel: newMax }); return; }
+    if (gained) { await runFinalize({ itemId: sess.itemId, startLevel: base, newLevel: newMax, tendency: tendency.trim() || undefined }); return; }
     endSession();
-    setBanter(''); setWarn(''); setUseProtect(false); setUseAmulet(false);
+    setBanter(''); setWarn(''); setUseProtect(false); setUseAmulet(false); setTendency('');
   };
   // 失败后「重新强化」：用同样的参数再调一次收尾 AI
-  const retryFinalize = () => { if (finalizeResult && !finalizing) runFinalize(finalizeResult.args); };
+  const retryFinalize = () => { if (finalizeResult && !finalizing) runFinalize({ ...finalizeResult.args, tendency: tendency.trim() || finalizeResult.args.tendency }); };
   // 关闭强化结果面板 → 真正结束本轮
   const closeResult = () => {
     setFinalizeResult(null);
     endSession();
-    setBanter(''); setWarn(''); setUseProtect(false); setUseAmulet(false);
+    setBanter(''); setWarn(''); setUseProtect(false); setUseAmulet(false); setTendency('');
   };
 
   const cycleBoss = (dir: 1 | -1) => {
@@ -492,6 +493,13 @@ export default function EnhancePanel({
                   className={`w-full py-2.5 rounded-xl text-base font-bold transition-all ${canEnhance && !finalizing ? (pityReady ? 'bg-emerald-500/20 border border-emerald-400/50 text-emerald-200 hover:bg-emerald-500/30' : 'bg-god/20 border border-god/50 text-god hover:bg-god/30') : 'bg-void border border-edge/40 text-dim/30 cursor-not-allowed'}`}>
                   {rolling ? '强化中…' : atMax ? '已满级 +16' : pityReady ? '★ 保底·必成强化 ★' : `⚒ 强化 · ${totalCost.toLocaleString()} 🪙`}
                 </button>
+                {/* 词缀/效果生成方向（选填）：玩家指定倾向，结束强化时 AI 按此方向生成 */}
+                <input
+                  type="text" value={tendency} onChange={(e) => setTendency(e.target.value)} disabled={finalizing}
+                  placeholder="✎ 词缀/效果方向（选填）：如 攻击类 / 辅助类 / 挖矿类 / 隐匿类"
+                  title="结束强化时 AI 会按这个方向生成词缀与效果；留空则结合装备本身自动判定"
+                  className="w-full px-2.5 py-1.5 rounded-lg bg-void border border-edge/50 text-[12px] text-slate-200 placeholder:text-dim/35 focus:outline-none focus:border-god/50"
+                />
                 {(() => {
                   const base = session ? (selItem?.affixLevel ?? session.startMax) : 0;   // 已结算基线（持久化）
                   const peak = session ? Math.max(base, selItem?.maxEnhanceLevel ?? session.curLevel) : 0;

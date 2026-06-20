@@ -1364,7 +1364,7 @@ export default function App() {
   /* ─── 装备强化·收尾刷装备（主角停止强化时调一次，仅对净涨了强化等级的那件）───
      读装备整张卡 + 旧→新强化等级，让 AI 每跨 4 级加 1 条词缀、并刷新攻防/effect/外观/简介/评分。
      AI 只吐 <upstore> updateItem，复用现有解析；事后再保险把 enhanceLevel 钉回正确值。*/
-  async function runEnhanceFinalizePhase(args: { itemId: string; startLevel: number; newLevel: number }): Promise<{ ok: boolean; changed: boolean; error?: string }> {
+  async function runEnhanceFinalizePhase(args: { itemId: string; startLevel: number; newLevel: number; tendency?: string }): Promise<{ ok: boolean; changed: boolean; error?: string }> {
     const it = useItems.getState().items.find((x) => x.id === args.itemId);
     if (!it) return { ok: false, changed: false, error: '物品不存在' };
     const lockedLevel = it.enhanceLevel ?? 0;   // 收尾前的"当前实际等级"（可能因降级低于峰值）——词缀按峰值生成，但等级保持此值
@@ -1388,6 +1388,7 @@ export default function App() {
       `品质(gradeDesc): ${it.gradeDesc || '—'}`,
       `强化峰值: 历史最高 +${args.startLevel} → +${args.newLevel}（词缀按历史最高等级生成；当前实际等级 +${lockedLevel}，降级不影响已有词缀）`,
       `本次强化档数 N=${addAffix}（每 3 级 1 档）：先把已有词缀威力按 ${addAffix} 档上调变强，再新增 ${addAffix} 条全新词缀（每条「【名】：触发+作用」自带说明，**贴合装备主用途、类型多样不只伤害**）；effect 是**非数值特殊性质描述**(对持有者的定性影响)、不写数值不出现词缀名；数值由系统/combatStat 处理`,
+      args.tendency && `★【玩家指定的生成方向·最高优先·务必紧扣】：「${args.tendency}」——本次新增/强化的词缀与效果都要朝这个方向走（例：「攻击类」→给斩击破甲连击增伤系；「辅助类」→给增益光环治疗减控系；「挖矿类/采集类」→给采掘提速·产量·矿脉探测系；「隐匿类」→给潜行·消音·感知规避系）。仍要符合装备本身性质，且 effect 仍只写非数值的特殊性质描述（不写数值/不出现词缀名）。`,
       `装备属性成长系数: ${growthCoef(it.gradeDesc, it.score)}（品级×评分得出；越高 → 新词缀/效果越强、攻防增幅越大、越有传说感）`,
       it.combatStat && `当前攻防(combatStat): ${it.combatStat}`,
       it.requirement && `装备需求: ${it.requirement}`,

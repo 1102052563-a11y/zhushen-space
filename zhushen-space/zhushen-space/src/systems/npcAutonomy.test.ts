@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest';
-import { decideNpcTick, runNpcAutonomy, homeParadise } from './npcAutonomy';
+import { decideNpcTick, runNpcAutonomy, homeParadise, addRelation, findRival, boundedGrowth } from './npcAutonomy';
+import { makeRng } from './autonomyCorpus';
 import { defaultNpcRecord, type NpcRecord } from '../store/npcStore';
 import { useSettings } from '../store/settingsStore';
 
@@ -92,6 +93,48 @@ describe('npcAutonomy · 土著本地生活分支', () => {
   it('土著结果可复现', () => {
     const n = native({});
     expect(decideNpcTick(n, 9, ['二柱']).deed?.description).toBe(decideNpcTick(n, 9, ['二柱']).deed?.description);
+  });
+});
+
+describe('npcAutonomy · 关系网（档A）', () => {
+  it('addRelation 追加并按名去重', () => {
+    expect(addRelation('', '周岩', '宿敌')).toBe('周岩:宿敌');
+    expect(addRelation('周岩:盟友', '周岩', '宿敌')).toBe('周岩:宿敌');                  // 同名覆盖
+    expect(addRelation('陈默:盟友', '周岩', '宿敌')).toBe('陈默:盟友;周岩:宿敌');        // 不同名追加
+    expect(addRelation('陈默:盟友;周岩:盟友', '周岩', '宿敌')).toBe('陈默:盟友;周岩:宿敌'); // 多条中覆盖一条
+  });
+  it('findRival 找出 relations 里仍在场的宿敌', () => {
+    expect(findRival(npc({ relations: '周岩:宿敌;陈默:盟友' }), ['陈默', '周岩'])).toBe('周岩');
+    expect(findRival(npc({ relations: '' }), ['周岩'])).toBeUndefined();
+    expect(findRival(npc({ relations: '周岩:宿敌' }), ['陈默'])).toBeUndefined();        // 宿敌不在场
+  });
+});
+
+describe('npcAutonomy · 档内有界成长 & 陨落（档B）', () => {
+  it('boundedGrowth：六维按档封顶、等级不越阶', () => {
+    const n = npc({ realm: '五阶·Lv.50', attrs: { str: 319, agi: 319, con: 319, int: 319, cha: 319, luck: 50 } });
+    const g = boundedGrowth(n, makeRng(123), { levelUp: true, attrGain: 5 });
+    if (g.realm) expect(g.realm).toContain('Lv.50');   // 已在五阶顶，不越阶
+    if (g.attrs) {
+      expect(g.attrs.str).toBeLessThanOrEqual(320);     // 五阶单属性上限 320
+      expect(g.attrs.con).toBeLessThanOrEqual(320);
+    }
+  });
+  it('boundedGrowth：阶中可升级（四阶 Lv.35 → Lv.36）', () => {
+    const g = boundedGrowth(npc({ realm: '四阶·Lv.35' }), makeRng(1), { levelUp: true });
+    expect(g.realm).toContain('Lv.36');
+  });
+  it('陨落：致死开关关时绝不死', () => {
+    const dying = npc({ bioStrength: 'T0·杂鱼', auto: { phase: 'mission', turns: 1, world: '丧尸围城' } });
+    for (let t = 1; t <= 200; t++) expect(decideNpcTick(dying, t, [], { allowDeath: false }).patch?.isDead).toBeFalsy();
+  });
+  it('陨落：开关开时低阶非保护会死、好友永不死', () => {
+    const weak = npc({ bioStrength: 'T0·杂鱼', auto: { phase: 'mission', turns: 1, world: '丧尸围城' } });
+    let deaths = 0;
+    for (let t = 1; t <= 200; t++) if (decideNpcTick(weak, t, [], { allowDeath: true }).patch?.isDead) deaths++;
+    expect(deaths).toBeGreaterThan(0);
+    const friend = npc({ bioStrength: 'T0·杂鱼', isFriend: true, auto: { phase: 'mission', turns: 1, world: '丧尸围城' } });
+    for (let t = 1; t <= 200; t++) expect(decideNpcTick(friend, t, [], { allowDeath: true }).patch?.isDead).toBeFalsy();
   });
 });
 
