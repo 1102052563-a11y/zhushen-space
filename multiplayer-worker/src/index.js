@@ -6,6 +6,7 @@ import { RoomDO } from "./RoomDO.js";
 import { LobbyDO } from "./LobbyDO.js";
 import { handleGateway } from "./gateway.js";
 import { handleWorkshop } from "./workshop.js";
+import { handleCloud } from "./cloud.js";
 
 // wrangler 需要从入口模块导出 DO 类
 export { RoomDO, LobbyDO };
@@ -29,7 +30,7 @@ function corsHeaders(origin, allowed) {
   return {
     "Access-Control-Allow-Origin": pickOrigin(origin, allowed),
     "Access-Control-Allow-Methods": "GET,POST,DELETE,OPTIONS",
-    "Access-Control-Allow-Headers": "Content-Type, Authorization, X-Admin-Key",
+    "Access-Control-Allow-Headers": "Content-Type, Authorization, X-Admin-Key, X-Cloud-Meta",
     // 允许「公开 https 页面 → 本地 localhost worker」(Chrome Private Network Access)，否则本地 Vertex 会 Failed to fetch
     "Access-Control-Allow-Private-Network": "true",
     "Access-Control-Max-Age": "86400",
@@ -70,6 +71,11 @@ export default {
       // 创意工坊（社区共享内容：浏览/上传/下载计数；存 Cloudflare D1）
       if (p.startsWith("/api/workshop")) {
         return await handleWorkshop(request, env, ch, url);
+      }
+
+      // 云存档（Discord 登录 + R2 存档 blob + D1 索引；手动上传/下载，含图）
+      if (p.startsWith("/api/cloud")) {
+        return await handleCloud(request, env, ch, url);
       }
 
       // 健康检查

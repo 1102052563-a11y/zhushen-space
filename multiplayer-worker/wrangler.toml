@@ -24,8 +24,23 @@ new_sqlite_classes = ["RoomDO", "LobbyDO"]
 binding = "DB"
 database_name = "zhushen-workshop"
 database_id = "ab5a8c23-7f89-4d85-b961-563909602257"
+# 云存档复用同一个 D1（DB）——另建一张 cloud_saves 表，无需新建库。
+
+# 云存档大 blob 存储（Cloudflare R2，10GB 免费，专放几十 MB 含图存档）。
+# 部署前：先 `wrangler r2 bucket create zhushen-cloud-saves`，下面绑定名保持 CLOUD_BUCKET 即可。
+[[r2_buckets]]
+binding = "CLOUD_BUCKET"
+bucket_name = "zhushen-cloud-saves"
 
 [vars]
+# ── 云存档·Discord 登录 ──
+# 去 https://discord.com/developers 建 Application，OAuth2 里：
+#   ① 复制 Client ID 填到下面 DISCORD_CLIENT_ID；
+#   ② Client Secret 用密钥方式放（别进仓库）：`wrangler secret put DISCORD_CLIENT_SECRET`；
+#   ③ Redirects 白名单加：https://<你的worker域名>/api/cloud/callback （本地调试再加 http://localhost:8787/api/cloud/callback）
+# 留空 = 云存档自动关闭（前端按钮置灰），不影响其它功能。
+DISCORD_CLIENT_ID = ""
+
 # 允许的前端来源（逗号分隔）。留空 = 反射请求来源（本后端无 cookie，可接受）。
 # 上线后建议填：https://zhushen-space.pages.dev,http://localhost:5173
 ALLOWED_ORIGINS = ""

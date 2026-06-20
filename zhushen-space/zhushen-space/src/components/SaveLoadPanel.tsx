@@ -5,6 +5,10 @@ import {
 } from '../systems/saveManager';
 import { buildDiagnosticBundle } from '../systems/diagnostics';
 import { useSettings } from '../store/settingsStore';
+import {
+  cloudUser, cloudLoggedIn, cloudLogin, cloudLogout, cloudListSaves, cloudUpload, cloudDownload, cloudDelete,
+  type CloudUser, type CloudSaveMeta,
+} from '../systems/cloudSave';
 
 interface Props {
   messages: any[];     // 当前对话历史（保存时快照）
@@ -27,12 +31,53 @@ export default function SaveLoadPanel({ messages, onClose }: Props) {
   const autoSaveEvery = useSettings((s) => s.autoSaveEvery);
   const setAutoSaveEnabled = useSettings((s) => s.setAutoSaveEnabled);
   const setAutoSaveEvery = useSettings((s) => s.setAutoSaveEvery);
+  const [cUser, setCUser] = useState<CloudUser | null>(cloudUser());   // 云存档登录用户
+  const [cloudOpen, setCloudOpen] = useState(false);                   // 展开云存档区
+  const [cloudSaves, setCloudSaves] = useState<CloudSaveMeta[]>([]);
+  const [cloudBusy, setCloudBusy] = useState(false);
+  const [confirmCloudDel, setConfirmCloudDel] = useState<string | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
 
   async function refresh() { setSlots(await listSlots()); }
   useEffect(() => { refresh(); }, []);
+  // 展开云存档区且已登录 → 拉云端列表
+  useEffect(() => { if (cloudOpen && cloudLoggedIn()) void refreshCloud(); /* eslint-disable-next-line */ }, [cloudOpen]);
 
   function flash(t: string) { setMsg(t); setTimeout(() => setMsg(''), 4000); }
+
+  async function refreshCloud() {
+    if (!cloudLoggedIn()) { setCloudSaves([]); return; }
+    setCloudBusy(true);
+    try { setCloudSaves(await cloudListSaves()); }
+    catch (e: any) { flash('❌ ' + (e?.message ?? e)); setCUser(cloudUser()); }
+    finally { setCloudBusy(false); }
+  }
+  async function handleCloudLogin() {
+    setCloudBusy(true);
+    try { const u = await cloudLogin(); setCUser(u); await refreshCloud(); flash(`✓ 已登录云存档：${u.name}`); }
+    catch (e: any) { flash('❌ ' + (e?.message ?? e)); }
+    finally { setCloudBusy(false); }
+  }
+  function handleCloudLogout() { cloudLogout(); setCUser(null); setCloudSaves([]); flash('已登出云存档'); }
+  async function handleCloudUpload(s: SlotMeta) {
+    if (!cloudLoggedIn()) { flash('请先登录云存档'); setCloudOpen(true); return; }
+    setCloudBusy(true);
+    try { await cloudUpload(s.id); await refreshCloud(); flash(`☁️ 已上传「${s.name}」到云端`); }
+    catch (e: any) { flash('❌ 上传失败：' + (e?.message ?? e)); }
+    finally { setCloudBusy(false); }
+  }
+  async function handleCloudDownload(cs: CloudSaveMeta) {
+    setCloudBusy(true);
+    try { await cloudDownload(cs.id); await refresh(); flash(`✓ 已从云端下载「${cs.name}」到本地（新存档槽）`); }
+    catch (e: any) { flash('❌ 下载失败：' + (e?.message ?? e)); }
+    finally { setCloudBusy(false); }
+  }
+  async function handleCloudDelete(cloudId: string) {
+    setConfirmCloudDel(null); setCloudBusy(true);
+    try { await cloudDelete(cloudId); await refreshCloud(); flash('已删除云端存档'); }
+    catch (e: any) { flash('❌ 删除失败：' + (e?.message ?? e)); }
+    finally { setCloudBusy(false); }
+  }
 
   async function handleDiag() {
     if (diagBusy) return;
@@ -152,6 +197,58 @@ export default function SaveLoadPanel({ messages, onClose }: Props) {
           <span className="text-dim/40 max-lg:basis-full">{autoSaveEnabled !== false ? '自动档不含图片(省内存)；跨设备/备份请用「新建存档」(带图)' : '已关闭——进度不再自动保存，请手动「新建/覆盖存档」'}</span>
         </div>
 
+        {/* ☁️ 云存档（Discord 登录 + 手动上传/下载，含图） */}
+        <div className="shrink-0 border-b border-edge/60 bg-panel/30">
+          <button onClick={() => setCloudOpen((v) => !v)} className="w-full flex items-center gap-2 px-5 max-lg:px-3 py-2 text-[12px] font-mono text-dim hover:text-god transition-colors">
+            <span className="text-god/70">☁️</span>
+            <span className="font-bold text-slate-200">云存档</span>
+            {cUser ? <span className="text-god/80">· {cUser.name}</span> : <span className="text-dim/50">· 未登录</span>}
+            {cloudBusy && <span className="animate-spin inline-block">◌</span>}
+            <span className={`ml-auto text-god/50 transition-transform ${cloudOpen ? 'rotate-180' : ''}`}>▾</span>
+          </button>
+          {cloudOpen && (
+            <div className="px-5 max-lg:px-3 pb-2 space-y-2">
+              {!cUser ? (
+                <div className="flex items-center gap-2 flex-wrap text-[12px] font-mono text-dim">
+                  <button onClick={handleCloudLogin} disabled={cloudBusy}
+                    className="px-3 py-1 rounded border border-[#5865F2]/60 text-[#aab4ff] bg-[#5865F2]/10 hover:bg-[#5865F2]/20 disabled:opacity-50 transition-colors">🎮 用 Discord 登录</button>
+                  <span className="text-dim/40">登录后可把存档(含图)同步到云端，换设备/重装都能拉回</span>
+                </div>
+              ) : (
+                <>
+                  <div className="flex items-center gap-2 flex-wrap text-[12px] font-mono">
+                    <span className="text-dim">已登录 <span className="text-god">{cUser.name}</span></span>
+                    <button onClick={refreshCloud} disabled={cloudBusy} className="px-2 py-0.5 border border-edge text-dim rounded hover:text-god disabled:opacity-50">刷新</button>
+                    <button onClick={handleCloudLogout} className="px-2 py-0.5 border border-edge text-dim rounded hover:text-blood">登出</button>
+                    <span className="text-dim/40 max-lg:basis-full">本地存档点「☁️上传」推到云端；下方为你的云端存档</span>
+                  </div>
+                  {cloudSaves.length === 0 ? (
+                    <div className="text-[12px] font-mono text-dim/40 py-1">云端暂无存档——在下方本地存档上点「☁️上传」</div>
+                  ) : cloudSaves.map((cs) => (
+                    <div key={cs.id} className="rounded-lg border border-god/15 bg-god/5 px-3 py-2 flex items-center gap-2 flex-wrap">
+                      <div className="flex-1 min-w-0">
+                        <div className="text-sm font-semibold text-slate-100 truncate">{cs.name} {cs.hasImages && <span className="text-[11px] text-god/60">🖼</span>}</div>
+                        <div className="text-[12px] font-mono text-dim/60 truncate">回合 {cs.turn ?? 0}{cs.playerName ? ` · ${cs.playerName}` : ''} · {new Date(cs.updatedAt).toLocaleString('zh-CN', { hour12: false })} · {(cs.size / 1024 / 1024).toFixed(1)}MB</div>
+                      </div>
+                      {confirmCloudDel === cs.id ? (
+                        <>
+                          <button onClick={() => handleCloudDelete(cs.id)} className="px-2 py-0.5 text-[12px] font-mono border border-blood/60 text-blood rounded hover:bg-blood/10">删云端</button>
+                          <button onClick={() => setConfirmCloudDel(null)} className="px-2 py-0.5 text-[12px] font-mono border border-edge text-dim rounded">取消</button>
+                        </>
+                      ) : (
+                        <>
+                          <button onClick={() => handleCloudDownload(cs)} disabled={cloudBusy} className="px-2 py-0.5 text-[12px] font-mono border border-god/40 text-god rounded hover:bg-god/10 disabled:opacity-50">⬇ 下载</button>
+                          <button onClick={() => setConfirmCloudDel(cs.id)} className="px-2 py-0.5 text-[12px] font-mono border border-edge text-dim rounded hover:border-blood/40 hover:text-blood">删</button>
+                        </>
+                      )}
+                    </div>
+                  ))}
+                </>
+              )}
+            </div>
+          )}
+        </div>
+
         <div className="flex-1 overflow-y-auto p-4 space-y-2">
           {slots.length === 0 ? (
             <div className="py-16 text-center text-dim/40 text-sm font-mono border border-dashed border-edge rounded-xl">
@@ -203,6 +300,7 @@ export default function SaveLoadPanel({ messages, onClose }: Props) {
                     <Btn onClick={() => handleOverwrite(s)} cls="border-edge text-dim hover:border-god/40 hover:text-god">覆盖</Btn>
                     <Btn onClick={() => { setRenaming(s.id); setRenameVal(s.name); }} cls="border-edge text-dim hover:text-slate-200">改名</Btn>
                     <Btn onClick={() => exportSlot(s.id)} cls="border-edge text-dim hover:text-slate-200">导出</Btn>
+                    <Btn onClick={() => handleCloudUpload(s)} cls="border-god/30 text-god/80 hover:bg-god/10" title="把这个存档（含图）上传到云端（需先在上方☁️登录）；同名存档会覆盖云端那份">☁️上传</Btn>
                     <Btn onClick={() => setConfirmExtract(s.id)} cls="border-god/30 text-god/80 hover:bg-god/10" title="把这个存档里【主角(B1)的 技能/天赋/副职业/称号】补进当前游戏（按名字去重、只增不减），并把技能树点位同步成此档的以保持一致；不读回整档、不动剧情/其它角色——救「技能丢了但旧档还在」">提主角</Btn>
                     <Btn onClick={() => setConfirmDel(s.id)} cls="border-edge text-dim hover:border-blood/40 hover:text-blood">删除</Btn>
                   </>
