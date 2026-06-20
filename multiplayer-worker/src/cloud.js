@@ -118,7 +118,11 @@ export async function handleCloud(request, env, ch, url) {
           grant_type: 'authorization_code', code, redirect_uri: redirectUri(request.url),
         }),
       }).then((r) => r.json());
-      if (!tok || !tok.access_token) return new Response('Discord 授权失败（code 无效或回调地址未在应用里白名单）', { status: 401 });
+      if (!tok || !tok.access_token) {
+        // 把 Discord 的真实错误透出来，便于定位：redirect_uri_mismatch=回调地址没精确白名单；invalid_client=Client Secret 错；invalid_grant=code 过期/已用
+        const why = tok && (tok.error_description || tok.error) ? `Discord：${tok.error_description || tok.error}` : 'code 无效';
+        return new Response(`Discord 授权失败 —— ${why}\n\n本应用要求回调地址精确等于（去 OAuth2→Redirects 核对并保存）：\n${redirectUri(request.url)}`, { status: 401 });
+      }
       const me = await fetch('https://discord.com/api/users/@me', { headers: { Authorization: `Bearer ${tok.access_token}` } }).then((r) => r.json());
       if (!me || !me.id) return new Response('取 Discord 用户信息失败', { status: 401 });
       const user = { uid: 'discord:' + me.id, name: me.global_name || me.username || ('用户' + String(me.id).slice(-4)) };
