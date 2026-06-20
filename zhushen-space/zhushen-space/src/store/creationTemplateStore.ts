@@ -20,6 +20,12 @@ export interface CreationTemplateData {
   attrs: { str: number; agi: number; con: number; int: number; cha: number; luck: number };
   talentName: string;
   talentEffect: string;
+  talentRarity?: string;     // 天赋评级 D~SSS（固定格式）
+  talentCategory?: string;   // 天赋类型
+  talentLevel?: string;      // 天赋等级
+  talentSource?: string;     // 来源/觉醒方式
+  talentAttrBonus?: string;  // 属性加成
+  talentDesc?: string;       // 简描
   contractId: string;
 }
 export interface SavedTemplate { id: string; name: string; createdAt: number; data: CreationTemplateData }

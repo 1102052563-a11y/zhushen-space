@@ -25,6 +25,12 @@ export interface CreationData {
   attrs: { str: number; agi: number; con: number; int: number; cha: number; luck: number };
   talentName: string;
   talentEffect: string;
+  talentRarity?: string;     // 天赋评级 D~SSS（固定格式）
+  talentCategory?: string;   // 天赋类型（属性类/特殊异能类/能量类/技巧类）
+  talentLevel?: string;      // 天赋等级（成长档，如 觉醒·Lv.1 / 一阶）
+  talentSource?: string;     // 来源/觉醒方式
+  talentAttrBonus?: string;  // 属性加成（如 力量+10、智力+15%）
+  talentDesc?: string;       // 简描（flavor/点评）
   contractId: string;
 }
 
@@ -39,6 +45,8 @@ const DIFFICULTIES: { key: string; points: number; desc: string }[] = [
 const PARADISES = ['轮回乐园', '死亡乐园', '圣域乐园', '天启乐园', '圣光乐园', '曙光乐园', '守望乐园', '自定义'];
 const GENDERS = ['男', '女', '其他'];
 const RACES = ['人类', '精灵', '兽人', '妖族', '龙族', '不死族', '机械体', '神祇', '自定义'];
+const TALENT_RARITIES = ['D', 'C', 'B', 'A', 'S', 'SS', 'SSS', '负面'];   // 天赋评级（与正文固定格式一致）
+const TALENT_CATEGORIES = ['属性类', '特殊异能类', '能量类', '技巧类'];   // 天赋类型（不可重复类型约束）
 
 const ATTRS: { key: keyof CreationData['attrs']; label: string }[] = [
   { key: 'str', label: '力量' }, { key: 'agi', label: '敏捷' }, { key: 'con', label: '体质' },
@@ -65,6 +73,12 @@ export default function CharacterCreation({ onConfirm, onCancel }: { onConfirm: 
   const [attrs, setAttrs] = useState({ str: 0, agi: 0, con: 0, int: 0, cha: 0, luck: 0 });
   const [talentName, setTalentName] = useState('');
   const [talentEffect, setTalentEffect] = useState('');
+  const [talentRarity, setTalentRarity] = useState('C');
+  const [talentCategory, setTalentCategory] = useState('特殊异能类');
+  const [talentLevel, setTalentLevel] = useState('');
+  const [talentSource, setTalentSource] = useState('开局自带');
+  const [talentAttrBonus, setTalentAttrBonus] = useState('');
+  const [talentDesc, setTalentDesc] = useState('');
   const [contractId, setContractId] = useState('');
   // 模板
   const templates = useCreationTemplates((s) => s.templates);
@@ -85,7 +99,7 @@ export default function CharacterCreation({ onConfirm, onCancel }: { onConfirm: 
   const removeCustomTalent = useCreationContent((s) => s.removeTalent);
 
   function currentData(): CreationTemplateData {
-    return { difficulty, paradise, paradiseCustom, name, gender, genderCustom, race, raceCustom, raceDetail, age, personality, personalityDetail, prevProfession, appearance, attrs: { ...attrs }, talentName, talentEffect, contractId };
+    return { difficulty, paradise, paradiseCustom, name, gender, genderCustom, race, raceCustom, raceDetail, age, personality, personalityDetail, prevProfession, appearance, attrs: { ...attrs }, talentName, talentEffect, talentRarity, talentCategory, talentLevel, talentSource, talentAttrBonus, talentDesc, contractId };
   }
   function loadTemplate(d: CreationTemplateData) {
     setDifficulty(d.difficulty); setParadise(d.paradise); setParadiseCustom(d.paradiseCustom ?? '');
@@ -94,7 +108,9 @@ export default function CharacterCreation({ onConfirm, onCancel }: { onConfirm: 
     setRace(d.race ?? '人类'); setRaceCustom(d.raceCustom ?? ''); setRaceDetail(d.raceDetail ?? '');
     setAppearance(d.appearance ?? '');
     setAttrs(d.attrs ? { ...d.attrs } : { str: 0, agi: 0, con: 0, int: 0, cha: 0, luck: 0 });
-    setTalentName(d.talentName ?? ''); setTalentEffect(d.talentEffect ?? ''); setContractId(d.contractId ?? '');
+    setTalentName(d.talentName ?? ''); setTalentEffect(d.talentEffect ?? '');
+    setTalentRarity(d.talentRarity ?? 'C'); setTalentCategory(d.talentCategory ?? '特殊异能类'); setTalentLevel(d.talentLevel ?? ''); setTalentSource(d.talentSource ?? '开局自带'); setTalentAttrBonus(d.talentAttrBonus ?? ''); setTalentDesc(d.talentDesc ?? '');
+    setContractId(d.contractId ?? '');
     setTplMode('none');
   }
 
@@ -117,6 +133,7 @@ export default function CharacterCreation({ onConfirm, onCancel }: { onConfirm: 
     name: name.trim() || '无名者', gender: resolvedGender, race: resolvedRace, raceDetail: raceDetail.trim(),
     age: age.trim(), personality: personality.trim(), personalityDetail: personalityDetail.trim(),
     prevProfession: prevProfession.trim(), appearance: appearance.trim(), attrs, talentName: talentName.trim(), talentEffect: talentEffect.trim(),
+    talentRarity: talentRarity.trim(), talentCategory: talentCategory.trim(), talentLevel: talentLevel.trim(), talentSource: talentSource.trim(), talentAttrBonus: talentAttrBonus.trim(), talentDesc: talentDesc.trim(),
     contractId: contractId.trim(),
   };
 
@@ -136,7 +153,7 @@ export default function CharacterCreation({ onConfirm, onCancel }: { onConfirm: 
       ['基底外观', appearance || '（未填）'],
       ['契约者ID', contractId.trim() || '（随机分配）'],
       ['六维属性', ATTRS.map((a) => `${a.label}${attrs[a.key]}`).join(' / ') + `（已用 ${used}/${totalPoints}）`],
-      ['天赋', talentName ? `「${talentName}」${talentEffect ? '：' + talentEffect : ''}` : '（无）'],
+      ['天赋', formatCreationTalent(data) || '（无）'],
     ];
     return (
       <Shell title="最终确认" subtitle="请核对你的开局设定，确认后将写入档案并开始故事">
@@ -326,9 +343,9 @@ export default function CharacterCreation({ onConfirm, onCancel }: { onConfirm: 
         </div>
       </Section>
 
-      <Section n={5} title="天赋设定（自填）">
+      <Section n={5} title="天赋设定（固定格式·自填）">
         {customTalents.length > 0 && (
-          <Labeled label="自定义/工坊天赋（点击填入下方）">
+          <Labeled label="自定义/工坊天赋（点击填入名称+效果）">
             <div className="flex flex-wrap gap-2">
               {customTalents.map((t) => (
                 <span key={t.id} className={`inline-flex items-center rounded-lg border text-sm transition-colors ${talentName === t.name ? 'border-god/60 bg-god/10 text-god' : 'border-edge text-dim hover:border-god/30'}`}>
@@ -339,10 +356,23 @@ export default function CharacterCreation({ onConfirm, onCancel }: { onConfirm: 
             </div>
           </Labeled>
         )}
-        <Labeled label="天赋名称"><input value={talentName} onChange={(e) => setTalentName(e.target.value)} placeholder="如 不死之身 / 过目不忘" className={inputCls} /></Labeled>
-        <Labeled label="天赋效果"><textarea value={talentEffect} onChange={(e) => setTalentEffect(e.target.value)} rows={3} placeholder="描述这个天赋的具体效果（尽量写数值/机制）…" className={inputCls + ' resize-y'} /></Labeled>
+        <div className="grid grid-cols-2 gap-3">
+          <Labeled label="天赋名称"><input value={talentName} onChange={(e) => setTalentName(e.target.value)} placeholder="如 不死之身 / 过目不忘" className={inputCls} /></Labeled>
+          <Labeled label="评级（D~SSS）"><select value={talentRarity} onChange={(e) => setTalentRarity(e.target.value)} className={inputCls}>{TALENT_RARITIES.map((r) => <option key={r} value={r}>{r === '负面' ? '负面' : r + '级'}</option>)}</select></Labeled>
+          <Labeled label="类型"><select value={talentCategory} onChange={(e) => setTalentCategory(e.target.value)} className={inputCls}>{TALENT_CATEGORIES.map((c) => <option key={c} value={c}>{c}</option>)}</select></Labeled>
+          <Labeled label="等级（可空）"><input value={talentLevel} onChange={(e) => setTalentLevel(e.target.value)} placeholder="如 觉醒·Lv.1 / 一阶" className={inputCls} /></Labeled>
+          <Labeled label="来源 / 觉醒方式"><input value={talentSource} onChange={(e) => setTalentSource(e.target.value)} placeholder="如 开局自带 / 血脉传承" className={inputCls} /></Labeled>
+          <Labeled label="属性加成（可空）"><input value={talentAttrBonus} onChange={(e) => setTalentAttrBonus(e.target.value)} placeholder="如 力量+10、智力+15%" className={inputCls} /></Labeled>
+        </div>
+        <Labeled label="效果"><textarea value={talentEffect} onChange={(e) => setTalentEffect(e.target.value)} rows={3} placeholder="描述这个天赋的具体效果（尽量写数值/机制）…" className={inputCls + ' resize-y'} /></Labeled>
+        <Labeled label="简描（可空·flavor / 点评）"><textarea value={talentDesc} onChange={(e) => setTalentDesc(e.target.value)} rows={2} placeholder="一句话点评 / 寓言风描述（可空）…" className={inputCls + ' resize-y'} /></Labeled>
         {talentName.trim() && (
-          <button onClick={() => addCustomTalent({ name: talentName.trim(), effect: talentEffect.trim() })} title="把当前天赋存入自定义库（之后可上传分享/复用）"
+          <div className="rounded-lg border border-god/20 bg-god/5 px-3 py-2 text-[12px] text-dim/80 font-mono leading-relaxed break-all">
+            <span className="text-god/60">固定格式预览：</span>{formatCreationTalent(data)}
+          </div>
+        )}
+        {talentName.trim() && (
+          <button onClick={() => addCustomTalent({ name: talentName.trim(), effect: talentEffect.trim() })} title="把当前天赋（名称+效果）存入自定义库（之后可上传分享/复用）"
             className="px-2.5 py-1.5 text-[12px] font-mono border border-god/40 text-god rounded hover:bg-god/10 transition-colors">＋存为自定义天赋</button>
         )}
       </Section>
@@ -367,6 +397,22 @@ export default function CharacterCreation({ onConfirm, onCancel }: { onConfirm: 
 }
 
 const inputCls = 'w-full bg-void border border-edge rounded px-3 py-1.5 text-sm text-slate-200 outline-none focus:border-god/50';
+
+/** 把开局天赋按「正文固定格式」拼成一行（与 structuredRecall 的 talentLine 同款）：
+ *  「名」·评级级·类型·等级 — 来源:…；简描；效果:…；属性加成:… 。无 talentName 返回空串。 */
+export function formatCreationTalent(d: Pick<CreationData, 'talentName' | 'talentRarity' | 'talentCategory' | 'talentLevel' | 'talentSource' | 'talentEffect' | 'talentAttrBonus' | 'talentDesc'>): string {
+  const nm = d.talentName?.trim();
+  if (!nm) return '';
+  const rar = d.talentRarity ? (d.talentRarity === '负面' ? '·负面' : `·${d.talentRarity}级`) : '';
+  const head = `「${nm}」${rar}${d.talentCategory ? `·${d.talentCategory}` : ''}${d.talentLevel ? `·${d.talentLevel}` : ''}`;
+  const body = [
+    d.talentSource && `来源:${d.talentSource}`,
+    d.talentDesc,
+    d.talentEffect && `效果:${d.talentEffect}`,
+    d.talentAttrBonus && `属性加成:${d.talentAttrBonus}`,
+  ].filter(Boolean).join('；');
+  return `${head}${body ? ` — ${body}` : ''}`;
+}
 
 function Section({ n, title, children }: { n: number; title: string; children: React.ReactNode }) {
   return (

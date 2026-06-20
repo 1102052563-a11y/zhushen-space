@@ -104,6 +104,10 @@ async function proxyGeneric(request, cors) {
   const fwd = new Headers();
   const auth = request.headers.get('Authorization'); if (auth) fwd.set('Authorization', auth);
   fwd.set('Content-Type', request.headers.get('Content-Type') || 'application/json');
+  // 透传调用方真实 IP（标准反代行为）：让中转的「IP 限制」看到你的浏览器 IP，而不是 Cloudflare 的，
+  // 这样"本地能用、线上 403"（中转按 IP 判）就有机会解决——前提是中转按 X-Forwarded-For/X-Real-IP 判 IP。
+  const clientIp = request.headers.get('CF-Connecting-IP') || (request.headers.get('X-Forwarded-For') || '').split(',')[0].trim();
+  if (clientIp) { fwd.set('X-Forwarded-For', clientIp); fwd.set('X-Real-IP', clientIp); }
   let upstream;
   try {
     upstream = await fetch(target, {

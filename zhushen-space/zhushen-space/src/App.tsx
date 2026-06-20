@@ -181,7 +181,7 @@ import { restoreB1IfWiped } from './systems/b1Mirror';
 import * as chatDb from './systems/chatDb';
 import PlayerSidebar from './components/PlayerSidebar';
 import StartScreen from './components/StartScreen';
-import CharacterCreation, { type CreationData } from './components/CharacterCreation';
+import CharacterCreation, { type CreationData, formatCreationTalent } from './components/CharacterCreation';
 const SettingsPanel = lazy(() => import('./components/SettingsPanel'));
 import WorldSelector, { type WorldOption } from './components/WorldSelector';
 import WorldCardView from './components/WorldCardView';
@@ -6188,6 +6188,7 @@ ${lines}`;
   function buildOpening(d: CreationData): string {
     const custom = useSettings.getState().customOpening?.trim();
     const attrStr = `力${d.attrs.str} 敏${d.attrs.agi} 体${d.attrs.con} 智${d.attrs.int} 魅${d.attrs.cha} 幸${d.attrs.luck}`;
+    const talentFull = formatCreationTalent(d);   // 天赋·正文固定格式整行（含评级/类型/等级/来源/效果/属性加成/简描）
     if (custom) {
       const A = d.attrs;
       // 占位符 → 值：英文名与中文别名都认，含单个六维(中英)、外观、契约者编号；未知占位符原样保留(便于发现拼错)。
@@ -6204,7 +6205,14 @@ ${lines}`;
         difficulty: d.difficulty, 难度: d.difficulty,
         appearance: d.appearance?.trim() || '（待你在后续描写中确立）', 外观: d.appearance?.trim() || '（待你在后续描写中确立）',
         talentName: d.talentName || '（无）', 天赋名: d.talentName || '（无）', 天赋: d.talentName || '（无）',
-        talentEffect: d.talentEffect || '', 天赋效果: d.talentEffect || '', 天赋描述: d.talentEffect || '',
+        talentEffect: d.talentEffect || '', 天赋效果: d.talentEffect || '',
+        talentDesc: d.talentDesc || '', 天赋描述: d.talentDesc || '', 天赋简描: d.talentDesc || '',
+        talentRarity: d.talentRarity || '', 天赋评级: d.talentRarity || '', 天赋品级: d.talentRarity || '',
+        talentCategory: d.talentCategory || '', 天赋类型: d.talentCategory || '', 天赋类别: d.talentCategory || '',
+        talentLevel: d.talentLevel || '', 天赋等级: d.talentLevel || '',
+        talentSource: d.talentSource || '', 天赋来源: d.talentSource || '',
+        talentAttrBonus: d.talentAttrBonus || '', 天赋属性加成: d.talentAttrBonus || '',
+        talentFull: talentFull || '（无）', 天赋全文: talentFull || '（无）', 天赋固定格式: talentFull || '（无）',
         contractId: d.contractId || '随机分配中', 契约者ID: d.contractId || '随机分配中', 契约者编号: d.contractId || '随机分配中', 编号: d.contractId || '随机分配中',
         attrs: attrStr, 六维: attrStr, 属性: attrStr,
         str: String(A.str), 力: String(A.str),
@@ -6222,7 +6230,8 @@ ${lines}`;
     const park = d.paradise;
     const user = d.name;
     const talent = d.talentName || '（未觉醒）';
-    const talentDesc = d.talentEffect || '（尚无明确说明，等待在试炼中显现）';
+    const talentFmt = talentFull || '（未觉醒）';   // 天赋·正文固定格式整行
+    const talentDesc = [d.talentEffect, d.talentDesc].filter(Boolean).join('；') || '（尚无明确说明，等待在试炼中显现）';
     const pastLife = `${d.age || '未知'}岁 · ${d.prevProfession || '普通人'}${d.personality ? `（${d.personality}）` : ''}`;
     const persona = d.personalityDetail?.trim() || d.personality?.trim() || '';   // 性格：优先用详细描述，回退到简短特质
     const contractNo = d.contractId || '随机分配中';
@@ -6230,7 +6239,7 @@ ${lines}`;
       `# ${park}·开局`,
       `你在彻底的黑暗中苏醒。没有呼吸，没有心跳，连身体的轮廓都仿佛被剥离，只剩下意识在冰冷虚空中漂浮。`,
       `下一瞬，一行行淡金色的文字在你面前浮现——它们不是光，而是直接烙进灵魂的讯息。`,
-      `> 【${park}】正在校验灵魂。\n> 标识：${user}\n> 生理状态：死亡 / 临界。\n> 适配判定：通过。\n> 所属乐园：${park}\n> 难度评级：${d.difficulty}\n> 主角背景：${pastLife}${persona ? `\n> 性格：${persona}` : ''}\n> 性别：${d.gender || '未知'}\n> 种族：${d.race || '人类'}${d.raceDetail ? `（${d.raceDetail}）` : ''}\n> 外观：${d.appearance?.trim() || '（待你在后续描写中确立）'}\n> 六维属性：${attrStr}\n> 初始天赋：${talent}\n> 契约者编号：${contractNo}`,
+      `> 【${park}】正在校验灵魂。\n> 标识：${user}\n> 生理状态：死亡 / 临界。\n> 适配判定：通过。\n> 所属乐园：${park}\n> 难度评级：${d.difficulty}\n> 主角背景：${pastLife}${persona ? `\n> 性格：${persona}` : ''}\n> 性别：${d.gender || '未知'}\n> 种族：${d.race || '人类'}${d.raceDetail ? `（${d.raceDetail}）` : ''}\n> 外观：${d.appearance?.trim() || '（待你在后续描写中确立）'}\n> 六维属性：${attrStr}\n> 初始天赋：${talentFmt}\n> 契约者编号：${contractNo}`,
       `某种冷漠却并不敌意的目光，从上而下打量着你。那不是人类的视角，更像是在审阅一份可回收资源。`,
       `它向你伸出了一只手——不是肉体的手，而是一份连注释都冷冰冰的契约。`,
       `只要应答，你将被记录为「${park}·一阶预备契约者」，以「${talent}」之天赋记录，投放诸多世界。`,
@@ -6273,8 +6282,14 @@ ${lines}`;
       g.setPlayerField('maxHp', mh); g.setPlayerField('hp', mh); g.setPlayerField('maxMp', me); g.setPlayerField('mp', me); }
     if (d.talentName) {
       useCharacters.getState().addTrait('B1', {
-        name: d.talentName, desc: d.talentEffect, effect: d.talentEffect,
-        rarity: 'C', category: '特殊异能类', source: '开局自带',
+        name: d.talentName,
+        desc: d.talentDesc?.trim() || d.talentEffect,
+        effect: d.talentEffect,
+        rarity: d.talentRarity?.trim() || 'C',
+        category: d.talentCategory?.trim() || '特殊异能类',
+        level: d.talentLevel?.trim() || undefined,
+        source: d.talentSource?.trim() || '开局自带',
+        attrBonus: d.talentAttrBonus?.trim() || undefined,
       });
     }
     setCreating(false);

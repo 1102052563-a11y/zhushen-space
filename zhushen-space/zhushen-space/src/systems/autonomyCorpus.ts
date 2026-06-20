@@ -18,6 +18,10 @@ export interface AutonomyCorpus {
     ratingFlavor: Record<string, string[]>;
     tone: Record<string, string[]>;
     emote: string[];
+    paradise?: string[];      // 七乐园名（契约者归属），mission_* 的 {paradise} 由引擎按 id 指派
+    nativePlace?: string[];   // 土著本地地点（村落/集镇…），native_* 事件用
+    nativeThreat?: string[];  // 土著本地威胁（流寇/野兽/瘟疫…）
+    nativeTone?: Record<string, string[]>;  // 土著专属语气库（按性格分桶，纯本地词不沾乐园术语），{ntone} 槽用
   };
   events: Record<string, string[]>;
   behaviorBias: Record<string, Record<string, number>>;
@@ -64,6 +68,10 @@ export function getCorpus(): AutonomyCorpus {
       ratingFlavor: concatArrMap(defaultCorpus.banks.ratingFlavor, override.banks?.ratingFlavor),
       tone: concatArrMap(defaultCorpus.banks.tone, override.banks?.tone),
       emote: [...defaultCorpus.banks.emote, ...(override.banks?.emote ?? [])],
+      paradise: [...(defaultCorpus.banks.paradise ?? []), ...(override.banks?.paradise ?? [])],
+      nativePlace: [...(defaultCorpus.banks.nativePlace ?? []), ...(override.banks?.nativePlace ?? [])],
+      nativeThreat: [...(defaultCorpus.banks.nativeThreat ?? []), ...(override.banks?.nativeThreat ?? [])],
+      nativeTone: concatArrMap(defaultCorpus.banks.nativeTone ?? {}, override.banks?.nativeTone),
     },
     events: concatArrMap(defaultCorpus.events, override.events),
     behaviorBias: { ...defaultCorpus.behaviorBias, ...(override.behaviorBias ?? {}) },
@@ -199,6 +207,19 @@ function resolveSlot(key: string, ctx: DeedCtx, corpus: AutonomyCorpus, rng: () 
     }
     case 'paradise':
       return ctx.paradise || '';
+    case 'place': {
+      const arr = corpus.banks.nativePlace;
+      return arr?.length ? pick(rng, arr) : '本地';
+    }
+    case 'threat': {
+      const arr = corpus.banks.nativeThreat;
+      return arr?.length ? pick(rng, arr) : '祸患';
+    }
+    case 'ntone': {
+      const bank = corpus.banks.nativeTone;
+      const arr = bank?.[personalityBucket(ctx.personality)] ?? bank?.['中性'];
+      return arr?.length ? pick(rng, arr) : '';
+    }
     default: {
       const v = (ctx as unknown as Record<string, unknown>)[key];
       return v == null ? '' : String(v);

@@ -1,9 +1,12 @@
 /*
-  轨道A · 离场契约者自治引擎（零 API）
+  轨道A · 离场角色自治引擎（零 API）
   ────────────────────────────────────────────────────────────────
   每回合(runPostNarrativePhases)调用 runNpcAutonomy(turn)：对「离场·有真名·未死」的
-  NPC 跑一次确定性「任务世界 ↔ 主神空间」双相循环，产出经历(deedLog)与相位(auto)，
-  全程不调 API。文本取自 autonomyCorpus 语料库；随机基于 seedFrom(turn,id) 可复现。
+  NPC 跑一次确定性模拟，产出经历(deedLog)与相位(auto)，全程不调 API。
+  按 npcTag 分流：
+    · 契约者/随从/默认 → 双相循环「任务世界 ↔ 主神空间」(decideContractorTick)
+    · 土著(native)     → 留在自己的任务世界过本地生活(decideNativeTick)，绝不碰乐园术语
+  文本取自 autonomyCorpus 语料库；随机基于 seedFrom(turn,id) 可复现。
   与演化AI分工：演化AI管在场NPC、本引擎只碰离场NPC，互不重叠。
   安全(MVP)：不改六维/等级、不致死（忠于「不凭空涨数值」铁律）；只生活、写经历、转相位。
 */
@@ -11,14 +14,15 @@ import { useNpc, hasRealNpcName, type NpcRecord, type NpcAuto } from '../store/n
 import type { Deed } from '../store/characterStore';
 import { useSettings } from '../store/settingsStore';
 import {
-  pickDeed, seedFrom, behaviorBiasFor, makeRng, pickFrom, getCorpus,
+  pickDeed, seedFrom, behaviorBiasFor, makeRng, pickFrom, getCorpus, hashStr,
   type DeedCtx, type DeedEvent,
 } from './autonomyCorpus';
 
 const MAX_TICKS_PER_TURN = 14;             // 每回合最多模拟的离场 NPC 数（控性能/刷屏）
 const MISSION_MIN = 2, MISSION_SPAN = 3;   // 任务时长 2..4 回合
 const HUB_REST_MIN = 1, HUB_REST_SPAN = 1; // 归来后休整 1..2 回合
-const IDLE_WEIGHT = 1.3;                    // 「啥也不干」权重 → 控制刷经历密度
+const IDLE_WEIGHT = 1.3;                    // 契约者「啥也不干」权重 → 控制刷经历密度
+const NATIVE_IDLE = 0.45;                   // 土著每回合「无事发生」概率
 
 /** 主神空间候选行动 → behaviorBias 权重键 + 语料事件（mission/arena 特殊处理） */
 const HUB_TABLE: ReadonlyArray<{ action: string; biasKey: string; event?: DeedEvent }> = [
@@ -27,8 +31,22 @@ const HUB_TABLE: ReadonlyArray<{ action: string; biasKey: string; event?: DeedEv
   { action: 'enhance', biasKey: 'enhance', event: 'enhance' },
   { action: 'trade', biasKey: 'trade', event: 'trade' },
   { action: 'team', biasKey: 'team', event: 'team_join' },
+  { action: 'bounty', biasKey: 'bounty', event: 'bounty' },
+  { action: 'study', biasKey: 'study', event: 'study' },
   { action: 'casino', biasKey: 'casino', event: 'casino' },
+  { action: 'leisure', biasKey: 'leisure', event: 'leisure' },
+  { action: 'brand', biasKey: 'trade', event: 'brand' },
+  { action: 'bloodline', biasKey: 'study', event: 'bloodline' },
+  { action: 'barrier_break', biasKey: 'study', event: 'barrier_break' },
+  { action: 'title_smelt', biasKey: 'enhance', event: 'title_smelt' },
   { action: 'heal', biasKey: 'heal', event: 'heal' },
+];
+
+/** 土著本地生活事件（绝不含乐园术语；称契约者为「外来者」） */
+const NATIVE_EVENTS: readonly DeedEvent[] = [
+  'native_daily', 'native_survive', 'native_outsider', 'native_power',
+  'native_rumor', 'native_trade', 'native_strife', 'native_train', 'native_event',
+  'native_kin', 'native_festival', 'native_clan',
 ];
 
 export interface TickOutcome {
@@ -74,13 +92,27 @@ function pickHubAction(rng: () => number, npc: NpcRecord): { action: string; eve
 
 const missionStatus = (world?: string) => `执行任务中（${world || '任务世界'}）`;
 
-/** 纯函数：给定 NPC 与回合号，决定本回合自治产出（经历 + 相位/状态补丁）。可单测。 */
+/** 是否任务世界原住民（土著）：不参与主神空间/任务循环，过本地生活 */
+const isNative = (npc: NpcRecord) => npc.npcTag === '土著';
+
+/** 契约者归属的乐园（七乐园之一，按 id 稳定指派；纯背景 flavor，喂 {paradise} 槽） */
+export function homeParadise(id: string): string {
+  const bank = getCorpus().banks.paradise;
+  return bank?.length ? bank[hashStr(id) % bank.length] : '';
+}
+
+/** 入口：按 npcTag 分流 */
 export function decideNpcTick(npc: NpcRecord, turn: number, peers: string[] = []): TickOutcome {
+  return isNative(npc) ? decideNativeTick(npc, turn, peers) : decideContractorTick(npc, turn, peers);
+}
+
+/* ── 契约者：双相循环 ───────────────────────────────────────── */
+function decideContractorTick(npc: NpcRecord, turn: number, peers: string[]): TickOutcome {
   const auto: NpcAuto = npc.auto ?? { phase: 'hub', turns: 0 };
   const seed = seedFrom(turn, npc.id);
   const rng = makeRng(seed);
   const txtSeed = (seed ^ 0x5bd1e995) >>> 0;
-  const base: DeedCtx = { name: npc.name, realm: npc.realm, personality: npc.personality };
+  const base: DeedCtx = { name: npc.name, realm: npc.realm, personality: npc.personality, paradise: homeParadise(npc.id) };
 
   // ── 任务世界相 ──
   if (auto.phase === 'mission') {
@@ -131,12 +163,31 @@ export function decideNpcTick(npc: NpcRecord, turn: number, peers: string[] = []
     ctx.item = '一批资源';
   } else if (action.action === 'team') {
     ctx.enemy = peers.length ? pickFrom(rng, peers) : '几名契约者';
+  } else if (action.action === 'bounty') {
+    ctx.enemy = peers.length ? pickFrom(rng, peers) : '一名违规者';
+    ctx.coin = (1 + Math.floor(rng() * 9)) * 1000;
   }
+  // study / leisure / casino / heal 仅用 tone/emote，无需额外 ctx
   const desc = pickDeed(event, ctx, txtSeed);
   return {
     deed: desc ? mkDeed(turn, '主神空间', desc) : undefined,
     patch: { auto: { phase: 'hub', turns: 0 }, status: '主神空间' },
   };
+}
+
+/* ── 土著：留在任务世界过本地生活（无相位机，无乐园术语） ──── */
+function decideNativeTick(npc: NpcRecord, turn: number, peers: string[]): TickOutcome {
+  const seed = seedFrom(turn, npc.id);
+  const rng = makeRng(seed);
+  const txtSeed = (seed ^ 0x5bd1e995) >>> 0;
+  if (rng() < NATIVE_IDLE) return {};            // 平淡的一天，不记
+  const event = pickFrom(rng, NATIVE_EVENTS as DeedEvent[]);
+  const ctx: DeedCtx = { name: npc.name, personality: npc.personality };
+  if (event === 'native_strife' || event === 'native_outsider') {
+    ctx.enemy = peers.length ? pickFrom(rng, peers) : '邻人';
+  }
+  const desc = pickDeed(event, ctx, txtSeed);
+  return desc ? { deed: mkDeed(turn, '故土', desc) } : {};
 }
 
 /** 离场 NPC 的模拟优先级：好友/羁绊/长留 + 任务中（免得卡进度） + 最近活跃 */

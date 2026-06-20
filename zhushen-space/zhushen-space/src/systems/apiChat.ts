@@ -2,17 +2,27 @@ import type { ApiConfig } from '../store/settingsStore';
 import { useSettings } from '../store/settingsStore';
 import { acquireApiSlot } from './apiThrottle';
 
-// 网关通用代理地址（仿 SillyTavern 后端转发）
-export const GW_PROXY = 'https://zhushen-multiplayer.1102052563.workers.dev/api/gw/proxy';
+// 默认云端网关；可被「本地网关地址」覆盖（localStorage drpg-gateway-url），用于走你本地 worker（你家 IP，仿 SillyTavern 本地后端）
+const GW_DEPLOYED = 'https://zhushen-multiplayer.1102052563.workers.dev/api/gw/proxy';
+/** 当前生效的网关代理地址：填了「本地网关地址」就用本地 worker（你家 IP），否则用云端 */
+export function gwProxyBase(): string {
+  try {
+    const u = (typeof localStorage !== 'undefined' ? localStorage.getItem('drpg-gateway-url') : '') || '';
+    const t = u.trim().replace(/\/+$/, '');
+    if (t) return /\/api\/gw\/proxy$/.test(t) ? t : t + '/api/gw/proxy';
+  } catch { /* ignore */ }
+  return GW_DEPLOYED;
+}
 /** 先直连中转；若因 SSL / CORS / 混合内容失败（fetch throw），自动改走网关代理服务端转发再试一次。
- *  傻瓜化：用户只管粘地址，http/裸IP/无CORS 的公网中转会被自动救活；localhost 中转代理够不着、不重试。 */
+ *  傻瓜化：用户只管粘地址；http/裸IP/无CORS 的公网中转会被自动救活。
+ *  注:IP 锁定的中转(本地能用线上不能)需把「本地网关地址」设为你本地 worker，才会用你家 IP 转发。 */
 export async function fetchWithProxy(url: string, init?: RequestInit): Promise<Response> {
   try {
     return await fetch(url, init);
   } catch (e) {
-    // 仅代理「绝对 http/https 的公网地址」；空/相对路径、localhost、已是网关 → 不重试（避免 ?url=/models 这种垃圾请求）
-    if (!/^https?:\/\//i.test(url) || /^https?:\/\/(localhost|127\.0\.0\.1)/i.test(url) || url.includes('/api/gw/')) throw e;
-    return await fetch(`${GW_PROXY}?url=${encodeURIComponent(url)}`, init);
+    // 仅代理「绝对 http/https 的公网地址」；空/相对路径、已是网关 → 不重试（避免 ?url=/models 这种垃圾请求）
+    if (!/^https?:\/\//i.test(url) || url.includes('/api/gw/')) throw e;
+    return await fetch(`${gwProxyBase()}?url=${encodeURIComponent(url)}`, init);
   }
 }
 

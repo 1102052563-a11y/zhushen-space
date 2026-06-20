@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { decideNpcTick, runNpcAutonomy } from './npcAutonomy';
+import { decideNpcTick, runNpcAutonomy, homeParadise } from './npcAutonomy';
 import { defaultNpcRecord, type NpcRecord } from '../store/npcStore';
 import { useSettings } from '../store/settingsStore';
 
@@ -52,6 +52,46 @@ describe('npcAutonomy · decideNpcTick（纯函数·确定性）', () => {
       const out = decideNpcTick(npc({}), t, ['周岩', '陈默']);
       if (out.deed) expect(out.deed.description).not.toMatch(/\{[a-zA-Z]+\}/);
     }
+  });
+
+  it('契约者归属乐园取自七乐园库且稳定可复现', () => {
+    const SEVEN = ['轮回乐园', '曙光乐园', '死亡乐园', '圣域乐园', '守望乐园', '圣光乐园', '天启乐园'];
+    for (const id of ['C1', 'C2', 'C9', 'G3', 'C17', 'C88']) {
+      expect(SEVEN).toContain(homeParadise(id));
+      expect(homeParadise(id)).toBe(homeParadise(id));
+    }
+  });
+});
+
+describe('npcAutonomy · 土著本地生活分支', () => {
+  function native(patch: Partial<NpcRecord>): NpcRecord {
+    return { ...defaultNpcRecord('C7'), name: '阿木', npcTag: '土著', personality: '老实本分', onScene: false, ...patch };
+  }
+
+  it('土著永不进任务世界相（不参与主神空间循环）', () => {
+    const n = native({});
+    for (let t = 1; t <= 80; t++) {
+      expect(decideNpcTick(n, t, ['二柱', '王婶']).patch?.auto?.phase).not.toBe('mission');
+    }
+  });
+
+  it('土著经历绝不泄露乐园术语，且无残留占位符', () => {
+    const FORBIDDEN = /乐园|契约者|主神空间|任务世界|乐园币|魂币|阶位|竞技场|世界之源|烙印|强化大厅/;
+    let got = 0;
+    for (let t = 1; t <= 120; t++) {
+      const out = decideNpcTick(native({}), t, ['二柱', '王婶']);
+      if (out.deed) {
+        got++;
+        expect(out.deed.description).not.toMatch(FORBIDDEN);
+        expect(out.deed.description).not.toMatch(/\{[a-zA-Z]+\}/);
+      }
+    }
+    expect(got).toBeGreaterThan(0);
+  });
+
+  it('土著结果可复现', () => {
+    const n = native({});
+    expect(decideNpcTick(n, 9, ['二柱']).deed?.description).toBe(decideNpcTick(n, 9, ['二柱']).deed?.description);
   });
 });
 

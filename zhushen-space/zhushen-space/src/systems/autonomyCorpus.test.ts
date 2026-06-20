@@ -101,3 +101,22 @@ describe('autonomyCorpus · 只增不改的扩展', () => {
     expect(pickDeed('marry', baseCtx, 1)).toContain('凌薇');
   });
 });
+
+describe('autonomyCorpus · 土著语气库(nativeTone)', () => {
+  const collect = (p: string) => {
+    const s = new Set<string>();
+    for (let i = 0; i < 50; i++) s.add(pickDeed('native_daily', { name: '阿木', personality: p }, i));
+    return s;
+  };
+  it('性格影响土著经历用词（嗜杀 vs 中性 输出有别）', () => {
+    const fierce = collect('凶悍好斗嗜杀');
+    const plain = collect('老实本分');
+    expect([...fierce].some((t) => !plain.has(t))).toBe(true);
+  });
+  it('土著经历不混入契约者语气（不含 乐园/赌坊/欢愉宫 等）', () => {
+    const FORBIDDEN = /乐园|赌坊|欢愉宫|魂币|契约者|主神空间/;
+    for (let i = 0; i < 80; i++) {
+      expect(pickDeed('native_daily', { name: '阿木', personality: '功利精明' }, i)).not.toMatch(FORBIDDEN);
+    }
+  });
+});

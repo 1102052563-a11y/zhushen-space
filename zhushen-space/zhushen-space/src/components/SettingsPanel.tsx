@@ -1,6 +1,6 @@
 import { useRef, useState } from 'react';
 import { useSettings, endpointToConfig, type WorldBook, type WorldBookEntry, type TextGenPreset, type STPromptEntry, type RegexScript, type ApiEndpoint } from '../store/settingsStore';
-import { apiChatFallback, fetchWithProxy } from '../systems/apiChat';
+import { apiChatFallback, fetchWithProxy, gwProxyBase } from '../systems/apiChat';
 import VariableManager from './VariableManager';
 import ApiRoutePicker from './ApiRoutePicker';
 import ItemManager from './ItemManager';
@@ -2096,6 +2096,7 @@ function ApiLibrarySection() {
   const [testingId, setTestingId] = useState<string | null>(null);
   const [testById, setTestById] = useState<Record<string, { ok: boolean; msg: string } | undefined>>({});
   const [vImport, setVImport] = useState<Record<string, { ok: boolean; msg: string } | undefined>>({});
+  const [gwUrl, setGwUrl] = useState(() => { try { return localStorage.getItem('drpg-gateway-url') || ''; } catch { return ''; } });
 
   const inputCls = 'w-full bg-void border border-edge rounded px-2 py-1 text-[13px] font-mono text-slate-200 outline-none focus:border-god';
 
@@ -2144,12 +2145,12 @@ function ApiLibrarySection() {
   }
 
   // 一键把接口「套进网关后端代理」：http 裸 IP / 无 CORS / 无 HTTPS 的中转，经 worker 服务端转发即可用（仿 SillyTavern 后端）。再点一次取消。
-  const PROXY_BASE = 'https://zhushen-multiplayer.1102052563.workers.dev/api/gw/proxy';
+  // 用 gwProxyBase()：填了「本地网关地址」就走你本地 worker（你家 IP，可救 IP 锁定的中转），否则走云端。
   function toggleProxy(ep: ApiEndpoint) {
     if ((ep.baseUrl || '').includes('/api/gw/proxy')) {
       try { const orig = new URL(ep.baseUrl).searchParams.get('url'); if (orig) update(ep.id, { baseUrl: orig }); } catch { /* 解析失败就不动 */ }
     } else {
-      update(ep.id, { baseUrl: `${PROXY_BASE}?url=${encodeURIComponent((ep.baseUrl || '').replace(/\/+$/, ''))}` });
+      update(ep.id, { baseUrl: `${gwProxyBase()}?url=${encodeURIComponent((ep.baseUrl || '').replace(/\/+$/, ''))}` });
     }
   }
 
@@ -2172,6 +2173,13 @@ function ApiLibrarySection() {
   return (
     <div className="space-y-3">
       <SectionTitle title="API 接口库" desc="统一填写并管理 LLM 接口（可多条）。各功能的 API 设置页可「⚡ 接口库快捷填入」，不必逐个手填。Key 仅存本地浏览器。" />
+      <div className="rounded-lg border border-edge/60 bg-panel px-3 py-2 space-y-1">
+        <div className="text-[12px] font-mono text-dim/60">本地网关地址<span className="text-dim/40">（选填 · 解决「本地能用、线上 403」的 IP 锁定中转，仿 SillyTavern 本地后端）</span></div>
+        <input value={gwUrl}
+          onChange={(e) => { const v = e.target.value; setGwUrl(v); try { v.trim() ? localStorage.setItem('drpg-gateway-url', v.trim()) : localStorage.removeItem('drpg-gateway-url'); } catch { /* ignore */ } }}
+          placeholder="留空=云端网关；本机填 http://localhost:8787；手机填 http://电脑局域网IP:8787" className={inputCls} />
+        <div className="text-[11px] text-dim/40 font-mono">填了之后，中转经「你本地跑的 worker（你家 IP）」转发，中转看到的是你家 IP（和本地直连一样）。需先在 multiplayer-worker 跑 <code className="text-god">npx wrangler dev</code>。</div>
+      </div>
       <div className="border border-edge rounded-lg bg-panel divide-y divide-edge/50">
         {(library ?? []).length === 0 && (
           <div className="px-3 py-6 text-center text-sm text-dim/40 font-mono">接口库为空，点下方「+ 添加接口」</div>
@@ -2463,6 +2471,7 @@ function GeneralSettingsSection() {
           <div className="text-[13px] text-dim/70 leading-relaxed">
             支持占位符（发送时按角色创建数据替换，<span className="text-god/70">中英文名均可</span>）：
             <span className="font-mono text-god/70"> {'${主角名}'} {'${年龄}'} {'${性格}'} {'${性格描述}'} {'${入园前职业}'} {'${乐园}'} {'${难度}'} {'${性别}'} {'${种族}'} {'${种族详情}'} {'${外观}'} {'${天赋名}'} {'${天赋效果}'} {'${契约者ID}'}</span>
+            <div className="mt-1 text-dim/60">天赋（固定格式）：<span className="font-mono text-god/70">{'${天赋全文}'}</span> = 整行固定格式（含评级/类型/等级/来源/效果/属性加成/简描）；也可单取 <span className="font-mono text-god/70">{'${天赋评级}'} {'${天赋类型}'} {'${天赋等级}'} {'${天赋来源}'} {'${天赋属性加成}'} {'${天赋描述}'}</span>。</div>
             <div className="mt-1 text-dim/60">六维：合并 <span className="font-mono text-god/70">{'${六维}'}</span> 或单项 <span className="font-mono text-god/70">{'${力}${敏}${体}${智}${魅}${幸}'}</span>（英文 {'${name}/${str}/${attrs}'} 等同义）。写错的占位符会原样保留。</div>
           </div>
           <textarea
