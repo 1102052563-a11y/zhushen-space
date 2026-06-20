@@ -11,8 +11,8 @@
     部族结盟，一次结算双方都受影响) ③ war/trial 差异化结算(胜→强成长·败→高死亡率)。
   安全：仅离场 NPC、不碰主角；致死护 好友/羁绊/长留/队友。
 */
-import { useNpc, hasRealNpcName, type NpcRecord, type NpcAuto } from '../store/npcStore';
-import type { Deed } from '../store/characterStore';
+import { useNpc, hasRealNpcName, type NpcRecord, type NpcAuto, type NpcOwnedItem } from '../store/npcStore';
+import { useCharacters, type Deed, type Skill, type Talent } from '../store/characterStore';
 import { useSettings } from '../store/settingsStore';
 import {
   pickDeed, seedFrom, behaviorBiasFor, makeRng, pickFrom, getCorpus, hashStr,
@@ -43,6 +43,10 @@ const HUB_TABLE: ReadonlyArray<{ action: string; biasKey: string; event?: DeedEv
   { action: 'study', biasKey: 'study', event: 'study' },
   { action: 'acquire', biasKey: 'study', event: 'acquire' },
   { action: 'leisure', biasKey: 'leisure', event: 'leisure' },
+  { action: 'socialize', biasKey: 'social', event: 'socialize' },
+  { action: 'joy', biasKey: 'leisure', event: 'joy' },
+  { action: 'black_market', biasKey: 'trade', event: 'black_market' },
+  { action: 'mentor', biasKey: 'team', event: 'mentor' },
   { action: 'brand', biasKey: 'trade', event: 'brand' },
   { action: 'bloodline', biasKey: 'study', event: 'bloodline' },
   { action: 'barrier_break', biasKey: 'study', event: 'barrier_break' },
@@ -55,6 +59,7 @@ const NATIVE_EVENTS: readonly DeedEvent[] = [
   'native_daily', 'native_survive', 'native_outsider', 'native_power',
   'native_rumor', 'native_trade', 'native_strife', 'native_train', 'native_event',
   'native_kin', 'native_festival', 'native_clan',
+  'native_craft', 'native_worship', 'native_hunt', 'native_journey', 'native_legend',
 ];
 
 const CN_NUM: Record<string, number> = { 一: 1, 二: 2, 三: 3, 四: 4, 五: 5, 六: 6, 七: 7, 八: 8, 九: 9 };
@@ -96,7 +101,19 @@ function rollRating(rng: () => number, npc: NpcRecord): string {
 }
 /** 职业归类关键词表：NPC 的 profession/unitType 文本 → 职业库键 */
 const PROF_KEYS: ReadonlyArray<readonly [string, readonly string[]]> = [
-  // 细分优先（含 法/战士/骑士/兽/咒 等通用字，须排在通用职业前避免误判）
+  // 细分优先（含 法/战士/骑士/兽/咒/剑/元素 等通用字，须排在通用职业前避免误判）
+  ['魔剑士', ['魔剑', '附魔剑', '法剑', '魔战士']],
+  ['元素使', ['元素']],
+  ['时空法师', ['时空', '时间法师', '空间法师', '时之子']],
+  ['术士', ['术士', '邪术', '巫术', '恶魔法师']],
+  ['龙骑士', ['龙骑', '龙枪', '驭龙', '御龙', '屠龙']],
+  ['武魂师', ['武魂', '魂师', '魂技', '魂环']],
+  ['死神', ['死神', '镰刀', '收割者', '夺魂']],
+  ['灵植师', ['灵植', '植灵', '草木', '木灵师']],
+  ['占卜师', ['占卜', '卜算', '预言', '星象师', '命师']],
+  ['盗贼', ['盗贼', '盗', '飞贼', '游荡者', '窃贼']],
+  ['舞者', ['舞者', '舞姬', '战舞', '歌舞', '舞娘']],
+  ['画师', ['画师', '丹青', '画修', '画灵']],
   ['死灵法师', ['死灵', '亡灵', '尸', '骸骨']],
   ['阵法师', ['阵法', '阵师', '布阵', '阵纹']],
   ['符咒师', ['符咒', '符箓', '符师', '咒术', '咒师', '画符']],
@@ -275,6 +292,13 @@ function decideContractorTick(npc: NpcRecord, turn: number, peers: string[], opt
 
   if (auto.turns > 0 && rng() < 0.7) return { patch: { auto: { ...auto, turns: auto.turns - 1 } } };
 
+  // 随机际遇（小概率·不受性格驱动）：心魔 / 遭遇违规者 / 奇遇横财
+  const enc = rng();
+  if (enc < 0.09) {
+    const ev: DeedEvent = enc < 0.035 ? 'inner_demon' : enc < 0.065 ? 'encounter_violator' : 'windfall';
+    return { deed: mkDeed(turn, '主神空间', pickDeed(ev, base, txtSeed)), patch: { auto: { phase: 'hub', turns: 0 }, status: '主神空间' } };
+  }
+
   const tier = realmTier(npc);
   if (tier >= 4 && rng() < WAR_CHANCE) {
     const desc = pickDeed('war_world', { ...base, world: '世界争夺战' }, txtSeed);
@@ -324,6 +348,8 @@ function decideContractorTick(npc: NpcRecord, turn: number, peers: string[], opt
     ctx.item = rng() < 0.5 ? genEquip(npc, rng) : '一批资源';
   } else if (action.action === 'acquire') {
     ctx.skill = genSkill(npc, rng);
+  } else if (action.action === 'socialize' || action.action === 'mentor') {
+    if (peers.length) ctx.enemy = pickFrom(rng, peers);
   }
   const desc = pickDeed(event, ctx, txtSeed);
   const grow = (action.action === 'barrier_break' || action.action === 'bloodline')

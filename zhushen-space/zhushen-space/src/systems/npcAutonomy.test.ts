@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { decideNpcTick, runNpcAutonomy, homeParadise, addRelation, findRival, boundedGrowth, powerOf, arenaWinProb, profKey } from './npcAutonomy';
-import { makeRng, getCorpus } from './autonomyCorpus';
+import { makeRng, getCorpus, pickDeed } from './autonomyCorpus';
 import { defaultNpcRecord, type NpcRecord } from '../store/npcStore';
 import { useSettings } from '../store/settingsStore';
 
@@ -175,8 +175,34 @@ describe('npcAutonomy · 装备库 / 技能天赋库', () => {
     expect(profKey(npc({ profession: '狂战士' }))).toBe('狂战士');     // 不被"战士"误判成重装
     expect(profKey(npc({ profession: '御兽师' }))).toBe('御兽师');     // 不被误判成召唤师
     expect(profKey(npc({ profession: '吟游诗人' }))).toBe('吟游诗人');
+    expect(profKey(npc({ profession: '魔剑士' }))).toBe('魔剑士');     // 不被"剑/魔"误判成剑士/法师
+    expect(profKey(npc({ profession: '火元素使' }))).toBe('元素使');   // 不被"元素"误判成法师
+    expect(profKey(npc({ profession: '暗影术士' }))).toBe('术士');     // 不被"术"误判成法师
+    expect(profKey(npc({ profession: '龙骑士' }))).toBe('龙骑士');     // 不被"骑士"误判成重装
     expect(profKey(npc({ profession: '剑客' }))).toBe('剑士');         // 通用职业仍正常
     expect(profKey(npc({ profession: '路人甲' }))).toBe('通用');       // 无命中回退
+  });
+});
+
+describe('npcAutonomy · 新增行为事件（v11）', () => {
+  it('7 契约者 + 5 土著新事件齐备且可填充', () => {
+    const ev = getCorpus().events;
+    for (const k of ['socialize', 'joy', 'black_market', 'mentor', 'inner_demon', 'encounter_violator', 'windfall',
+      'native_craft', 'native_worship', 'native_hunt', 'native_journey', 'native_legend']) {
+      expect(ev[k]?.length ?? 0, k).toBeGreaterThan(0);
+    }
+    expect(pickDeed('joy', { name: '凌薇', personality: '享乐' }, 1)).toContain('凌薇');
+    expect(pickDeed('native_worship', { name: '阿木' }, 1)).toContain('阿木');
+  });
+  it('新契约者行为会被触发（社交/欢愉宫/黑市/心魔/奇遇 多种现身）', () => {
+    const NEW = ['结识', '攀谈', '小聚', '欢愉宫', '寻欢', '黑市', '虚空商会', '黑渊', '拜入', '徒弟', '讨教', '心魔', '梦魇', '违规者', '横财', '奇遇', '捡漏', '机缘'];
+    const seen = new Set<string>();
+    const n = npc({ personality: '享乐放纵' });
+    for (let t = 1; t <= 400; t++) {
+      const d = decideNpcTick(n, t, ['周岩']).deed?.description ?? '';
+      for (const w of NEW) if (d.includes(w)) seen.add(w);
+    }
+    expect(seen.size).toBeGreaterThan(3);
   });
 });
 
