@@ -86,7 +86,7 @@ import { combatFinalVitals, applyCombatVitals, buildCombatResultFallback, runNpc
 import { parseWeather, isLightSky, extractWeatherFxCss, sanitizeWeatherCss } from './systems/weatherFx';
 import { useCombat, newLogId, type BattleState, type CombatStatBlock, type Side, type CombatActionKind } from './store/combatStore';
 import { buildCombatant, assembleBattle, settleAction, advanceTurn, checkEnd, currentActorId, makeActionLog, playerControlled, setMpCombatItems, clearMpCombatItems, rollInitiative } from './systems/combatEngine';
-import { generateRaidBoss, generateBakalDungeon, generateAntonDungeon, type RaidBoss, type RaidDifficulty } from './systems/raidBoss';
+import { generateRaidBoss, generateBakalDungeon, generateAntonDungeon, generateVykasDungeon, type RaidBoss, type RaidDifficulty } from './systems/raidBoss';
 import { generateRaidLoot, generateRaidReward } from './systems/raidLoot';
 import { useSkillTree } from './store/skillTreeStore';
 import RaidDungeonReward from './components/RaidDungeonReward';
@@ -199,6 +199,7 @@ import VersionToast from './components/VersionToast';
 import { APP_VERSION, VERSION_NOTE } from './version';
 
 const PENDING_REGEN_KEY = 'drpg-pending-regen';   // reload 后自动重发的输入（重新生成用）
+const PENDING_REVAR_KEY = 'drpg-pending-revar';   // reload 后「仅重算变量」用：JSON {input,narrative}——复用本回合原正文重跑演化，不重新生成正文
 interface ChatMessage {
   id: number;
   role: 'user' | 'assistant' | 'system';
@@ -666,6 +667,7 @@ export default function App() {
   const turnCountRef         = useRef(0);
   const lastUserInputRef     = useRef('');
   const lastNarrativeRef     = useRef('');
+  const lastRawNarrativeRef  = useRef('');   // 本回合正文「含 <state>/<upstore> 指令的原文」(仅剥思维链)，供「仅重算变量」回退后重放——刷新会丢
   // 物品演化「本回合快照」：每回合首次跑物品演化前，按当回合正文 key 存一份物品状态(主角背包+货币+各NPC持有物)的引用快照；
   // 同一回合再次触发(储存空间「手动更新」=重跑)时，先回退到这份快照(撤销本回合物品演化的修改)，再重新演化一次，避免在已改过的状态上叠加(重复/错乱)。
   const itemPhaseUndoRef     = useRef<{ key: number; items: any[]; currency: any; npcItems: Record<string, any[]> } | null>(null);
@@ -740,7 +742,7 @@ export default function App() {
   const mpRaidLoot = useMp((s) => s.raidLoot);
   const combatDrivingRef = useRef(false);
   const raidRef = useRef<{ boss: RaidBoss; phase: number; lastRound?: number; marked?: { id: string; round: number }; toughness?: number; bossHpMark?: number; poison?: number; armor?: number; armorMax?: number; breakUntil?: number } | null>(null);   // 组队讨伐：BOSS/阶段/回合机制/韧性/毒层/破核护甲
-  const currentEncounterRef = useRef<{ encId: string; kind: 'dragon' | 'boss' } | null>(null);   // 组队副本：当前战斗对应的 encounter（胜利后推进进度/控制掉落）
+  const currentEncounterRef = useRef<{ encId: string; kind: 'dragon' | 'side' | 'boss' } | null>(null);   // 组队副本：当前战斗对应的 encounter（胜利后推进进度/控制掉落）
   const [hostTakeover, setHostTakeover] = useState<string[]>([]);   // 联机：房主因来宾(MP_)AFK 而临时接管的战斗角色 id
   const raidRollsRef = useRef<Record<string, Record<string, any>>>({});      // 战利 ROLL 收集（房主侧：lootId→playerId→{name,picks}）
   const appliedRewardRef = useRef<Record<string, boolean>>({});   // 副本豪华奖励去重（rewardId→已应用），防 relay 回显双发
@@ -977,7 +979,14 @@ export default function App() {
     const last = messages[messages.length - 1];
     if (!last || last.role !== 'assistant') return;
     if (autoSaveTimer.current) clearTimeout(autoSaveTimer.current);
-    autoSaveTimer.current = setTimeout(() => { captureTurnSnapshot(); void autoSaveSlot(messagesRef.current); }, 20000);
+    autoSaveTimer.current = setTimeout(() => {
+      captureTurnSnapshot();   // 回合洞察快照(轻量·非存档)始终抓，与自动存档开关无关
+      // 自动存档：受设置「自动存档总开关 + 每N回合」控制；关掉/未到频率则不写自动档（省内存·防大档撑爆）。手动「新建/覆盖存档」不受影响。
+      const st = useSettings.getState();
+      if (st.autoSaveEnabled !== false && turnCountRef.current % Math.max(1, st.autoSaveEvery || 1) === 0) {
+        void autoSaveSlot(messagesRef.current);
+      }
+    }, 20000);
     return () => { if (autoSaveTimer.current) clearTimeout(autoSaveTimer.current); };
   }, [messages, generating, started]);
 
@@ -1049,6 +1058,14 @@ export default function App() {
       if (sessionStorage.getItem(PENDING_STARTED_KEY)) {
         setStarted(true);
         sessionStorage.removeItem(PENDING_STARTED_KEY);
+      }
+      // 仅重算变量：回退点已 reload 恢复 → 复用本回合原正文重跑演化（不重新生成正文）
+      const revar = sessionStorage.getItem(PENDING_REVAR_KEY);
+      if (revar) {
+        sessionStorage.removeItem(PENDING_REVAR_KEY);
+        setStarted(true);
+        try { const { input, narrative } = JSON.parse(revar); setTimeout(() => { reprocessVars(narrative, input || ''); }, 400); }
+        catch (e) { console.warn('[Revar] 解析待重算数据失败:', e); }
       }
       // 重新生成：回退点已 reload 恢复，自动重发同一条输入（演化不叠加）
       const regen = sessionStorage.getItem(PENDING_REGEN_KEY);
@@ -5222,7 +5239,7 @@ ${lines}`;
     const pf = usePlayer.getState().profile;
     const partyTier = arenaEffectiveTier(pf.tier, pf.level || 1);   // 有效阶位，避免子目标被碾压秒杀
     const o = { partySize: (mp.seats.length || 0) + 1, partyTier };
-    const dj = kind === 'anton' ? generateAntonDungeon(difficulty as RaidDifficulty, o) : generateBakalDungeon(difficulty as RaidDifficulty, o);
+    const dj = kind === 'anton' ? generateAntonDungeon(difficulty as RaidDifficulty, o) : kind === 'vykas' ? generateVykasDungeon(difficulty as RaidDifficulty, o) : generateBakalDungeon(difficulty as RaidDifficulty, o);
     mp._set({ raidDungeon: dj, raidBoss: null });
     try { mpClient.relay('raid_dungeon', dj); } catch (e) { console.warn('[Raid] 副本广播失败', e); }
   }
@@ -5540,8 +5557,9 @@ ${lines}`;
           const dj = useMp.getState().raidDungeon;
           if (dj) {
             const e = dj.encounters.find((x: any) => x.id === enc.encId); if (e) e.status = 'cleared';
-            const dread = enc.kind === 'dragon' ? Math.max(0, (dj.dread || 0) - 18) : (dj.dread || 0);   // 击破子龙 → 恐惧回落（奖励活跃推进）
-            const next = { ...dj, dread, stage: dj.encounters.every((x: any) => x.status === 'cleared') ? 'cleared' : 'ongoing' };
+            const drop = enc.kind === 'side' ? 35 : enc.kind === 'dragon' ? 18 : 0;   // 清侧目标大幅压计时·子目标次之·本体不回落
+            const dread = Math.max(0, (dj.dread || 0) - drop);
+            const next = { ...dj, dread, stage: enc.kind === 'boss' ? 'cleared' : 'ongoing' };   // 本体击破=副本通关（侧目标可选·不影响通关）
             useMp.getState()._set({ raidDungeon: next });
             try { mpClient.relay('raid_dungeon', next); } catch (err) { console.warn('[Raid] 副本进度广播失败', err); }
           }
@@ -5552,7 +5570,7 @@ ${lines}`;
           try {
             const dj2: any = useMp.getState().raidDungeon;
             const remainPct = dj2 ? Math.max(0, ((dj2.dreadMax || 100) - (dj2.dread || 0)) / (dj2.dreadMax || 100)) : 1;
-            const rkind = dj2?.bossId === 'anton' ? 'anton' : 'bakal';   // 按副本类型发对应主题奖励
+            const rkind = dj2?.bossId || 'bakal';   // 按副本本体 id 取奖励主题（bakal/anton/vykas）
             mpClient.relay('raid_reward', generateRaidReward(rkind, dj2?.difficulty || 'normal', remainPct, dj2?.difficultyLabel || ''));
           } catch (e) { console.warn('[Raid] 豪华奖励生成失败', e); }
         }
@@ -5968,6 +5986,7 @@ ${lines}`;
         }
         // 流结束后：先剥掉泄漏进正文的思维链块（中转把 <think> 拍平进 content / 末尾 </think> 预填充被回显），再解析/渲染
         const cleaned = stripLeakedThinking(accumulated);
+        lastRawNarrativeRef.current = cleaned;   // 存含指令原文，供「仅重算变量」复用
         applyAllUpdates(cleaned);
         try { applyPlayerProfileCommands(cleaned, '', turnCountRef.current); } catch { /* 主角位置/外观/身份：正文若直接输出 character.B1.* 也即时生效，不必等主角演化阶段 */ }
         const settledText = stripKillBlocks(cleaned);   // 过渡期：剥除旧 <kill> 清单（不再结算进阶点）
@@ -5995,6 +6014,7 @@ ${lines}`;
         const reply: string = data.choices?.[0]?.message?.content ?? data.choices?.[0]?.text ?? '';
         if (!reply) throw new Error('模型未返回内容');
         const cleanedReply = stripLeakedThinking(reply);   // 剥泄漏进正文的思维链块（同流式路径）
+        lastRawNarrativeRef.current = cleanedReply;   // 存含指令原文，供「仅重算变量」复用
         applyAllUpdates(cleanedReply);
         try { applyPlayerProfileCommands(cleanedReply, '', turnCountRef.current); } catch { /* 主角位置/外观/身份：正文直接输出 character.B1.* 即时生效 */ }
         const settledReply = stripKillBlocks(cleanedReply);   // 过渡期：剥除旧 <kill> 清单（不再结算进阶点）
@@ -6019,11 +6039,10 @@ ${lines}`;
     }
   }
 
-  /* 记录回退点：每次发送前，把"上一回合结束时"的完整状态（所有演化 store + 对话 + 图）存到固定槽，供回退/重新生成 */
+  /* 记录回退点：每次发送前，把"上一回合结束时"的状态（所有演化 store + 对话）存到固定槽，供回退/重新生成 */
   async function captureUndoPoint() {
-    try { await saveSlot(UNDO_ID, '↩ 回退点', messagesRef.current); setCanUndo(true); return; }
-    catch (e) { console.warn('[Undo] 记录回退点失败(含图)，降级重试:', e); }
-    // 降级：不打包图片再存一次（大图往往是 IndexedDB 配额超限主因）。状态/对话仍可回退，仅图片不随本次回退还原。
+    // 回退点**不含图片**：图片同设备由 imageDb 现存回填；带图会让每回合写入几十 MB→内存/配额压力大(页面崩溃主因之一)。
+    // 代价：回退不还原"本回合新生成的图片"——可接受，换稳定与省内存；状态/对话照常回退。
     try { await saveSlot(UNDO_ID, '↩ 回退点', messagesRef.current, false); setCanUndo(true); }
     catch (e) { console.warn('[Undo] 记录回退点失败:', e); setGenError('记录回退点失败，"回退/重新生成"暂不可用（可能浏览器存储空间已满）'); setTimeout(() => setGenError(''), 6000); }
   }
@@ -6040,6 +6059,39 @@ ${lines}`;
     try { sessionStorage.setItem(PENDING_REGEN_KEY, input); } catch { /* */ }
     const ok = await loadSlot(UNDO_ID);
     if (!ok) { try { sessionStorage.removeItem(PENDING_REGEN_KEY); } catch { /* */ } setGenError('没有回退点，无法重新生成'); setTimeout(() => setGenError(''), 5000); }
+  }
+  /* 仅重算变量（保留正文）：回退到本回合之前 → reload → 复用本回合原正文重跑「指令解析+全部演化」，不重新生成正文。
+     必须先回退，否则会在已应用过的状态上二次叠加（HP/物品翻倍等）。原文(含 <state>)存 lastRawNarrativeRef，刷新会丢→须本会话内点。*/
+  async function regenerateVarsOnly() {
+    const raw = lastRawNarrativeRef.current;
+    const input = lastUserInputRef.current;
+    if (!raw) { setGenError('拿不到本回合正文原文（刷新后会丢失），请改用「重新生成」'); setTimeout(() => setGenError(''), 5000); return; }
+    try { sessionStorage.setItem(PENDING_REVAR_KEY, JSON.stringify({ input, narrative: raw })); } catch { /* */ }
+    const ok = await loadSlot(UNDO_ID);
+    if (!ok) { try { sessionStorage.removeItem(PENDING_REVAR_KEY); } catch { /* */ } setGenError('没有回退点，无法重算变量'); setTimeout(() => setGenError(''), 5000); }
+  }
+  /* 回退点 reload 后：重建本回合对话(用户输入+原正文) + 重跑指令解析与全部演化。等价 callApi 收到正文后的处理，但跳过调用 AI 生成正文。*/
+  function reprocessVars(rawNarrative: string, userInput: string) {
+    turnCountRef.current += 1;
+    try { useMisc.getState().setTurnCount(turnCountRef.current); } catch { /* */ }
+    try { useItems.getState().setItemTurn(turnCountRef.current); } catch { /* */ }
+    lastUserInputRef.current = userInput;
+    expireStatuses(turnCountRef.current);
+    reconcileHomeWorld(); reconcilePlayerVitals(); syncPlayerVitalsMax(); reconcilePartyLifecycle();
+    if (userInput) setMessages((prev) => [...prev, { id: ++msgId.current, role: 'user', content: userInput }]);
+    const cleaned = stripLeakedThinking(rawNarrative);
+    lastRawNarrativeRef.current = cleaned;
+    applyAllUpdates(cleaned);
+    try { applyPlayerProfileCommands(cleaned, '', turnCountRef.current); } catch { /* */ }
+    const settled = stripKillBlocks(cleaned);
+    const preset = activePresetId == null ? undefined : (textPresets.find((p) => p.id === activePresetId) ?? textPresets[0]);
+    const narrativeForEvoRaw = stripStateBlocks(applyRegex(settled, preset));
+    const processed = stripWorldSourceBlocks(stripVitalsBlocks(narrativeForEvoRaw));
+    const newMsgId = ++msgId.current;
+    setMessages((prev) => [...prev, { id: newMsgId, role: 'assistant', content: processed }]);
+    const narrativeForEvo = narrativeForEvoRaw.replace(/<击杀结算>[\s\S]*?<\/击杀结算>/gi, '').trimEnd();
+    lastNarrativeRef.current = narrativeForEvo;
+    runPostNarrativePhases(narrativeForEvo, newMsgId);
   }
 
   async function sendMessage(textArg?: string) {
@@ -6681,7 +6733,7 @@ ${lines}`;
 
           {/* 操作行：停止生成 / 重新生成 / 回退上一回合 */}
           {started && messages.length > 0 && (
-            <div className="shrink-0 border-t border-edge bg-panel/60 flex items-center gap-2 px-3 py-1 text-[12px] font-mono">
+            <div className="shrink-0 border-t border-edge bg-panel/60 flex flex-wrap items-center gap-2 px-3 py-1 text-[12px] font-mono">
               {generating ? (
                 <>
                   <span className="flex items-center gap-1.5 text-god/85"><span className="animate-spin inline-block text-god">◌</span>正在进行剧情生成</span>
@@ -6704,6 +6756,12 @@ ${lines}`;
                       run: rollbackTurn })} disabled={!canUndo}
                     className="flex items-center gap-1 px-2.5 py-1 rounded border border-edge text-dim hover:border-amber-500/40 hover:text-amber-300 disabled:opacity-35 disabled:cursor-not-allowed transition-colors"
                     title="回退到上一回合结束时的状态（撤销本回合的正文+所有演化）">↩ 回退上一回合</button>
+                  <button onClick={() => setConfirmAction({
+                      title: '重算变量（保留正文）',
+                      desc: '保留本回合正文不变，撤销并重新生成本回合产生的所有「变量」（NPC / 物品 / 主角属性 / 势力 / 领地 / 冒险团 / 杂项 / 记忆 / HP 等演化），用同一段正文重跑一遍。操作会刷新页面，确定继续？',
+                      run: regenerateVarsOnly })} disabled={!canUndo}
+                    className="flex items-center gap-1 px-2.5 py-1 rounded border border-edge text-dim hover:border-sky-500/40 hover:text-sky-300 disabled:opacity-35 disabled:cursor-not-allowed transition-colors"
+                    title="保留本回合正文，只把其他所有变量/演化重新生成一遍（不重新生成正文）">♻ 重算变量</button>
                   {canUndo && <span className="text-dim/35">回退/重生会撤销上一回合的全部演化</span>}
                 </>
               )}

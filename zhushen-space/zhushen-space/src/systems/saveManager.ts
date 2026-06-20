@@ -156,10 +156,10 @@ export async function hasUndoPoint(): Promise<boolean> {
 }
 
 export async function listSlots(): Promise<SlotMeta[]> {
-  const all = await saveDb.all<SaveSlot>();
-  return all
+  // 用 allMeta(游标逐条剥 data)而非 all()——后者会把所有存档(各可能几十 MB 含图)一次性载入内存，多档时直接崩溃。
+  const metas = await saveDb.allMeta<SlotMeta>();
+  return metas
     .filter((s) => s.id !== UNDO_ID)   // 内部回退点不在存档列表显示
-    .map(({ data, ...meta }) => meta)
     .sort((a, b) => b.updatedAt - a.updatedAt);
 }
 

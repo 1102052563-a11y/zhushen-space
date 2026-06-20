@@ -4,6 +4,7 @@ import {
   extractPlayerFromSlot, type SlotMeta,
 } from '../systems/saveManager';
 import { buildDiagnosticBundle } from '../systems/diagnostics';
+import { useSettings } from '../store/settingsStore';
 
 interface Props {
   messages: any[];     // 当前对话历史（保存时快照）
@@ -22,6 +23,10 @@ export default function SaveLoadPanel({ messages, onClose }: Props) {
   const [confirmNew, setConfirmNew] = useState(false);
   const [diag, setDiag] = useState('');         // 诊断包文本（非空=显示结果浮层）
   const [diagBusy, setDiagBusy] = useState(false);
+  const autoSaveEnabled = useSettings((s) => s.autoSaveEnabled);
+  const autoSaveEvery = useSettings((s) => s.autoSaveEvery);
+  const setAutoSaveEnabled = useSettings((s) => s.setAutoSaveEnabled);
+  const setAutoSaveEvery = useSettings((s) => s.setAutoSaveEvery);
   const fileRef = useRef<HTMLInputElement>(null);
 
   async function refresh() { setSlots(await listSlots()); }
@@ -129,6 +134,23 @@ export default function SaveLoadPanel({ messages, onClose }: Props) {
         </header>
 
         {msg && <div className={`shrink-0 px-5 py-1.5 text-sm font-mono ${msg.includes('❌') ? 'text-blood' : 'text-god'}`}>{msg}</div>}
+
+        {/* 自动存档开关（省内存/防大档撑爆）：自动档不含图片，手动「新建存档」才带图 */}
+        <div className="shrink-0 flex flex-wrap items-center gap-x-3 gap-y-1 px-5 max-lg:px-3 py-2 border-b border-edge/60 bg-panel/40 text-[12px] font-mono text-dim">
+          <label className="flex items-center gap-1.5 cursor-pointer select-none">
+            <input type="checkbox" checked={autoSaveEnabled !== false} onChange={(e) => setAutoSaveEnabled(e.target.checked)} className="accent-god" />
+            <span className={autoSaveEnabled !== false ? 'text-god' : 'text-dim'}>每回合自动存档</span>
+          </label>
+          {autoSaveEnabled !== false && (
+            <label className="flex items-center gap-1.5">
+              <span>每</span>
+              <input type="number" min={1} value={autoSaveEvery} onChange={(e) => setAutoSaveEvery(Number(e.target.value))}
+                className="w-12 bg-void border border-edge rounded px-1 py-0.5 text-center text-slate-200 outline-none focus:border-god/50" />
+              <span>回合存一次</span>
+            </label>
+          )}
+          <span className="text-dim/40 max-lg:basis-full">{autoSaveEnabled !== false ? '自动档不含图片(省内存)；跨设备/备份请用「新建存档」(带图)' : '已关闭——进度不再自动保存，请手动「新建/覆盖存档」'}</span>
+        </div>
 
         <div className="flex-1 overflow-y-auto p-4 space-y-2">
           {slots.length === 0 ? (
