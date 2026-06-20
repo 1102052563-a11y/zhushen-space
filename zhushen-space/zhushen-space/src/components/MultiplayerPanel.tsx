@@ -338,7 +338,7 @@ function RaidView({ st }: { st: any }) {
   // ── 组队副本：巴卡尔攻坚战进度面板（多场战斗串联，自选顺序打三龙→解锁龙王） ──
   if (dungeon) {
     const dragonsLeft = dungeon.encounters.filter((e: any) => e.kind === 'dragon' && e.status !== 'cleared').length;
-    const cleared = dungeon.encounters.every((e: any) => e.status === 'cleared');
+    const cleared = dungeon.stage === 'cleared';   // 本体击破即通关（侧目标可选·不计入）
     return (
       <div className="shrink-0 px-5 py-3 border-b border-edge bg-rose-950/10">
         <div className="flex items-center justify-between mb-2">
@@ -365,7 +365,7 @@ function RaidView({ st }: { st: any }) {
               <div key={e.id} className={`flex items-center gap-2 rounded-lg border px-2.5 py-1.5 ${done ? 'border-emerald-600/30 bg-emerald-950/20' : e.kind === 'boss' ? 'border-rose-500/40 bg-rose-950/25' : 'border-edge bg-panel/40'}`}>
                 <RaidBossFrame id={e.id} emoji={e.emoji} isHost={isHost} />
                 <div className="flex-1 min-w-0">
-                  <div className="text-[13px] font-medium text-slate-100 truncate">{e.name}{e.kind === 'boss' ? ' · 龙王' : ''}</div>
+                  <div className="text-[13px] font-medium text-slate-100 truncate">{e.name}{e.kind === 'boss' ? ' · 本体' : e.kind === 'side' ? ' · 可选' : ''}</div>
                   <div className="text-[11px] font-mono text-dim/50 truncate">{e.boss?.tier} · HP {Number(e.boss?.maxHp).toLocaleString()}{e.note ? ` · ${e.note}` : ''}</div>
                 </div>
                 {done ? <span className="text-[11px] text-emerald-300 font-medium shrink-0">✅ 已击破</span>
@@ -423,9 +423,11 @@ function RaidView({ st }: { st: any }) {
             <button onClick={gen} className="flex-1 px-3 py-1.5 rounded-lg bg-god/15 border border-god/40 text-god/90 text-[13px] hover:bg-god/25 transition-colors">{boss ? '↻ 重生(图鉴)' : '生成 BOSS(图鉴)'}</button>
             <button onClick={start} disabled={!boss} className="flex-1 px-3 py-1.5 rounded-lg bg-rose-600/20 border border-rose-500/50 text-rose-200 text-[13px] hover:bg-rose-600/30 disabled:opacity-40 transition-colors">⚔ 开战</button>
           </div>
-          <div className="flex gap-2">
-            <button onClick={() => genDungeon('bakal')} className="flex-1 px-3 py-1.5 rounded-lg bg-amber-600/15 border border-amber-500/40 text-amber-200 text-[13px] hover:bg-amber-600/25 transition-colors">🐉 巴卡尔攻坚战</button>
-            <button onClick={() => genDungeon('anton')} className="flex-1 px-3 py-1.5 rounded-lg bg-slate-600/20 border border-slate-400/40 text-slate-200 text-[13px] hover:bg-slate-600/30 transition-colors">🤖 安图恩攻坚战</button>
+          <div className="text-[11px] text-dim/50 mb-0.5">开多场副本：</div>
+          <div className="flex gap-1.5">
+            <button onClick={() => genDungeon('bakal')} className="flex-1 px-2 py-1.5 rounded-lg bg-amber-600/15 border border-amber-500/40 text-amber-200 text-[12px] hover:bg-amber-600/25 transition-colors">🐉 巴卡尔</button>
+            <button onClick={() => genDungeon('anton')} className="flex-1 px-2 py-1.5 rounded-lg bg-slate-600/20 border border-slate-400/40 text-slate-200 text-[12px] hover:bg-slate-600/30 transition-colors">🤖 安图恩</button>
+            <button onClick={() => genDungeon('vykas')} className="flex-1 px-2 py-1.5 rounded-lg bg-pink-600/15 border border-pink-500/40 text-pink-200 text-[12px] hover:bg-pink-600/25 transition-colors">💋 比阿基斯</button>
           </div>
         </div>
       )}

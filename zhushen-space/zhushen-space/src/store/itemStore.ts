@@ -41,6 +41,13 @@ export function splitAffixEntries(text?: string): string[] {
   return t.split(/(?=【)/g).map((s) => s.trim()).filter(Boolean);
 }
 
+/** 货币/点数类「伪物品」：本应是 currency 计数（乐园币/灵魂钱币/技能点/黄金技能点/潜能点/属性点…），
+ *  被 AI 误用 createItem 建成「特殊物品」时，绝不可装备、不进装备选择器、不能上装备栏。按名精确识别（无误伤真装备）。 */
+const RESOURCE_PSEUDO_RE = /^(乐园币|灵魂钱币|魂币|魂钱币|金币)$|(技能点|黄金技能点|潜能点|进阶点|属性点|真实属性点)$/;
+export function isResourcePseudoItem(item?: { name?: string }): boolean {
+  return RESOURCE_PSEUDO_RE.test((item?.name ?? '').trim());
+}
+
 /** 品级字串 → 数值档位（1=白色 … 15=创世，由低到高）。
  *  供装备判定/排序在 AI 未给出 numeric.grade 时按品级文字兜底取档。
  *  关键字按「更具体的在前」匹配（暗金先于金、淡金先于金、暗紫先于紫），避免子串误命中。*/

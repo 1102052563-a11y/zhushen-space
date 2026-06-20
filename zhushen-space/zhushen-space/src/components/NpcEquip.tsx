@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useNpc, type NpcRecord, type NpcOwnedItem } from '../store/npcStore';
-import { gradeBadgeClass, gradeNameClass, splitAffixEntries } from '../store/itemStore';
+import { gradeBadgeClass, gradeNameClass, splitAffixEntries, isResourcePseudoItem } from '../store/itemStore';
 import { enhanceFxClass } from '../systems/enhanceEngine';
 import { useSettings } from '../store/settingsStore';
 import { SLOT_DEFS, type SlotDef } from './EquipmentPanel';
@@ -158,7 +158,7 @@ function EquipDetail({ npcId, item, onClose }: { npcId: string; item: NpcOwnedIt
 /* 空槽 → 从 NPC 储物袋挑选 */
 function SlotPicker({ npcId, slot, bag, onClose }: { npcId: string; slot: SlotDef; bag: NpcOwnedItem[]; onClose: () => void }) {
   const equip = useNpc((s) => s.equipNpcItem);
-  const cands = bag.filter((it) => (slot.allowedCats as string[]).includes(it.category));
+  const cands = bag.filter((it) => (slot.allowedCats as string[]).includes(it.category) && !isResourcePseudoItem(it));
   return (
     <div className="fixed inset-0 z-[70] bg-black/60 backdrop-blur-sm flex items-end justify-center p-4" onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}>
       <div className="w-full max-w-lg bg-void border border-edge rounded-2xl max-h-[60vh] overflow-hidden flex flex-col">

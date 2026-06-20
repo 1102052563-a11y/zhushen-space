@@ -28,6 +28,7 @@ export interface RaidBoss {
   rewardTier: string;         // 掉落档（E~SSS 思路，沿用世界结算评级口径）
   intro: string;
   breakArmor?: number;        // 破核破防：>0 时本体无敌，伤害先扣此护甲，破甲→破防窗口（安图恩擎天之柱/本体）
+  parts?: { name: string; armor: number; atkCut?: number }[];   // 多部位破坏（比阿基斯左翼/右翼/心脏）：逐部位破·破翼削攻·破末位(心脏)开破防窗口
 }
 
 export const RAID_DIFFS: { id: RaidDifficulty; label: string; hpMul: number; affixN: number; phases: number; tierBump: number; reward: string }[] = [
@@ -191,6 +192,36 @@ const BOSS_ARCHETYPES: Record<string, ASkill[]> = {
     { name: '湮灭射线', skillType: '攻击', effect: '全功率湮灭射线，全体巨额能量伤害', level: '极道', cost: 28, tags: ['群攻', '群体'], minPhase: 2 },
     { name: '暴走形态', skillType: '增益', effect: '进入暴走形态，全属性狂暴并加速', level: '极道', cost: 30, tags: ['buff'], minPhase: 2 },
   ],
+  vykasclone: [
+    { name: '魅影爪', skillType: '攻击', effect: '魅影利爪单体重击', level: '精通', cost: 0, tags: ['单体'], minPhase: 0 },
+    { name: '诱惑之吻', skillType: '攻击', effect: '送出诱惑之吻，单体伤害并扰乱心神', level: '精通', cost: 5, tags: ['单体'], minPhase: 0 },
+    { name: '欲望波动', skillType: '攻击', effect: '欲望波动席卷全体', level: '精通', cost: 6, tags: ['群攻', '群体'], minPhase: 0 },
+    { name: '血色护盾', skillType: '防御', effect: '凝血成盾，为自身生成护盾', level: '精通', cost: 8, tags: ['护盾'], minPhase: 0 },
+    { name: '媚惑乱舞', skillType: '攻击', effect: '媚惑乱舞，对全体造成伤害', level: '精通', cost: 6, tags: ['群攻', '群体'], minPhase: 0 },
+    { name: '暗影突袭', skillType: '攻击', effect: '潜入暗影突袭单体', level: '精通', cost: 4, tags: ['单体'], minPhase: 0 },
+    { name: '血色狂舞', skillType: '攻击', effect: '血色狂舞横扫全体', level: '大师', cost: 14, tags: ['群攻', '群体', '出血'], minPhase: 1 },
+    { name: '魅惑低语', skillType: '减益', effect: '魅惑低语涣散斗志，全场降低攻击', level: '大师', cost: 10, tags: ['群体', '控制'], minPhase: 1 },
+    { name: '欲望汲取', skillType: '治疗', effect: '汲取场上欲望之力，回复自身', level: '大师', cost: 12, tags: ['治疗'], minPhase: 1 },
+    { name: '暗影领域', skillType: '领域', effect: '展开暗影领域，全场每回合受蚀', level: '大师', cost: 16, tags: ['领域', '群体'], minPhase: 1 },
+    { name: '欲望爆发', skillType: '攻击', effect: '蓄力后欲望爆发，全场巨额伤害', level: '极道', cost: 30, tags: ['群攻', '群体', '蓄力'], minPhase: 2 },
+    { name: '血色深渊', skillType: '领域', effect: '坠入血色深渊，全场持续吞噬', level: '极道', cost: 25, tags: ['领域', '群体'], minPhase: 2 },
+  ],
+  vykas: [
+    { name: '欲望之爪', skillType: '攻击', effect: '欲望之爪撕裂单体，重创', level: '精通', cost: 0, tags: ['单体'], minPhase: 0 },
+    { name: '媚惑光波', skillType: '攻击', effect: '释放媚惑光波，全体受创', level: '精通', cost: 8, tags: ['群攻', '群体'], minPhase: 0 },
+    { name: '血翼横扫', skillType: '攻击', effect: '血色双翼横扫全场，击退我方', level: '精通', cost: 6, tags: ['群攻', '群体', '出血'], minPhase: 0 },
+    { name: '军团长威压', skillType: '减益', effect: '军团长威压，全场降低攻击', level: '精通', cost: 10, tags: ['群体', '控制'], minPhase: 0 },
+    { name: '致命诱惑', skillType: '攻击', effect: '致命诱惑直取单体，重伤', level: '精通', cost: 7, tags: ['单体'], minPhase: 0 },
+    { name: '欲望狂潮', skillType: '攻击', effect: '掀起欲望狂潮，全体巨额伤害', level: '大师', cost: 16, tags: ['群攻', '群体'], minPhase: 1 },
+    { name: '血色狂暴', skillType: '增益', effect: '血色狂暴附身，自身大幅增伤', level: '大师', cost: 14, tags: ['buff'], minPhase: 1 },
+    { name: '魅惑领域', skillType: '领域', effect: '展开魅惑领域，全场持续蛊惑受创', level: '大师', cost: 18, tags: ['领域', '群体'], minPhase: 1 },
+    { name: '双翼乱舞', skillType: '攻击', effect: '血翼乱舞，多段横扫全体', level: '大师', cost: 13, tags: ['群攻', '群体', '出血'], minPhase: 1 },
+    { name: '心脏脉动', skillType: '治疗', effect: '心脏脉动回复生命并覆护盾', level: '大师', cost: 12, tags: ['治疗', '护盾'], minPhase: 1 },
+    { name: '终焉·欲望吞噬', skillType: '攻击', effect: '蓄力后欲望吞噬全场，终末毁灭', level: '极道', cost: 35, tags: ['群攻', '群体', '蓄力'], minPhase: 2 },
+    { name: '绝对魅惑', skillType: '减益', effect: '绝对魅惑令全体沉沦·眩晕', level: '极道', cost: 25, tags: ['群体', '控制'], minPhase: 2 },
+    { name: '血色风暴', skillType: '攻击', effect: '血色风暴吞噬全场，巨额出血伤害', level: '极道', cost: 28, tags: ['群攻', '群体', '出血'], minPhase: 2 },
+    { name: '欲望真身', skillType: '增益', effect: '显化欲望真身，全属性狂暴', level: '极道', cost: 30, tags: ['buff'], minPhase: 2 },
+  ],
 };
 
 /* 按主题招池 + 阶段构建 skillsByPhase：每阶段=minPhase≤当前阶段的全部技能（渐次解锁，越深招越多越猛）。 */
@@ -276,6 +307,7 @@ export interface RaidDungeon {
   dreadMax?: number;
   dreadLabel?: string;  // 计时条标签（巴卡尔=恐惧之龙王槽 / 安图恩=黑雾浓度）
   dreadMode?: 'wipe' | 'dot';  // wipe=满则团灭（巴卡尔）/ dot=按浓度群体毒DoT不团灭（安图恩）
+  linear?: boolean;            // true=门必须按顺序清（前序门未清不可开·比阿基斯）
 }
 
 const BAKAL_DRAGONS: { id: string; name: string; emoji: string; affixes: string[]; note: string; intro: string }[] = [
@@ -345,4 +377,38 @@ export function generateAntonDungeon(
   antonBoss.breakArmor = Math.round(antonBoss.maxHp * 0.25);   // 巨型安图恩：破核破防
   encounters.push({ id: 'anton', kind: 'boss', name: '巨型安图恩', emoji: '🤖', note: '破核破防·多阶段', boss: antonBoss, status: 'pending' });
   return { id: 'anton_raid_' + Date.now(), name: '黑色大地 · 安图恩攻坚战', difficulty, difficultyLabel: d.label, encounters, bossId: 'anton', stage: 'ongoing', dread: 0, dreadMax: 100, dreadLabel: '黑雾浓度', dreadMode: 'dot' };
+}
+
+/* ════════════════════════════════════════════
+   组队副本 III：欲望军团长 · 比阿基斯攻坚战（复用 RaidDungeon 骨架）
+   线性 3 门：欲望分身 → 诱惑回廊 → 比阿基斯本体（部位破坏 + 终极魅惑）。
+   骨架版每场=普通联机战斗（魅惑/多部位破坏 在后续增量加；本体先单护甲=破心脏破防）；计时条标签「魅惑值」。
+   （原创设计，以 Lost Ark 比阿基斯军团长机制为蓝本重写，非搬运其素材/文案。）
+════════════════════════════════════════════ */
+const VYKAS_GATES: { id: string; name: string; emoji: string; archetype: string; note: string; intro: string }[] = [
+  { id: 'clone1', name: '第1门·欲望分身', emoji: '👥', archetype: 'vykasclone', note: '清欲望化身·小魅惑', intro: '比阿基斯的欲望分身环绕而来——先清化身，当心反水的队友！' },
+  { id: 'clone2', name: '第2门·诱惑回廊', emoji: '💋', archetype: 'vykasclone', note: '魅惑全开·队友反水', intro: '诱惑回廊深处魅惑笼罩全场——被夺控的队友将反攻友方，打醒他们！' },
+];
+
+/* 生成「比阿基斯攻坚战」副本：两道前置门（选定难度）+ 比阿基斯本体（难度+1档）。partyTier 传有效阶位防碾压。 */
+export function generateVykasDungeon(
+  difficulty: RaidDifficulty,
+  opts: { partySize?: number; partyTier?: string } = {},
+): RaidDungeon {
+  const di = Math.max(0, DIFF_ORDER.indexOf(difficulty));
+  const bossDiff = DIFF_ORDER[Math.min(DIFF_ORDER.length - 1, di + 1)];
+  const d = RAID_DIFFS.find((x) => x.id === difficulty) ?? RAID_DIFFS[0];
+  const encounters: RaidEncounter[] = VYKAS_GATES.map((e) => ({
+    id: e.id, kind: 'dragon' as EncounterKind, name: e.name, emoji: e.emoji, note: e.note,
+    boss: generateRaidBoss(difficulty, { ...opts, name: e.name, emoji: e.emoji, affixes: ['enrage', 'bleed'], archetype: e.archetype, intro: e.intro }),
+    status: 'pending' as const,
+  }));
+  const vykasBoss = generateRaidBoss(bossDiff, { ...opts, name: '比阿基斯', emoji: '💋', affixes: ['enrage', 'tough', 'regen', 'bleed'], archetype: 'vykas', intro: '欲望军团长·比阿基斯展开血色双翼——堕入她的诱惑，便永世沉沦！' });
+  vykasBoss.parts = [   // 多部位破坏：依次破左翼→右翼（各削攻 15%）→心脏（开破防窗口）
+    { name: '左翼', armor: Math.round(vykasBoss.maxHp * 0.15), atkCut: 0.15 },
+    { name: '右翼', armor: Math.round(vykasBoss.maxHp * 0.15), atkCut: 0.15 },
+    { name: '心脏', armor: Math.round(vykasBoss.maxHp * 0.2) },
+  ];
+  encounters.push({ id: 'vykas', kind: 'boss', name: '比阿基斯', emoji: '💋', note: '部位破坏(左翼/右翼/心脏)·多阶段', boss: vykasBoss, status: 'pending' });
+  return { id: 'vykas_raid_' + Date.now(), name: '欲望军团长 · 比阿基斯攻坚战', difficulty, difficultyLabel: d.label, encounters, bossId: 'vykas', stage: 'ongoing', dread: 0, dreadMax: 100, dreadLabel: '魅惑值', dreadMode: 'dot', linear: true };
 }

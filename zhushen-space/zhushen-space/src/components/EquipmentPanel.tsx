@@ -1,5 +1,5 @@
 import { useState, useMemo } from 'react';
-import { useItems, gradeBadgeClass, gradeNameClass, type InventoryItem } from '../store/itemStore';
+import { useItems, gradeBadgeClass, gradeNameClass, isResourcePseudoItem, type InventoryItem } from '../store/itemStore';
 import { useSettings } from '../store/settingsStore';
 import { CAT_CFG, CAT_ICON, ItemDetailModal } from './BackpackModal';
 import { useImageViewer } from '../store/imageViewerStore';
@@ -204,7 +204,7 @@ export default function EquipmentPanel(_props: {
   const handleDetail = (item: InventoryItem) => setDetailItem(item);
 
   const candidates = pickingSlotDef
-    ? items.filter((it) => !it.equipped && (pickingSlotDef.allowedCats as string[]).includes(it.category))
+    ? items.filter((it) => !it.equipped && (pickingSlotDef.allowedCats as string[]).includes(it.category) && !isResourcePseudoItem(it))
     : [];
 
   return (

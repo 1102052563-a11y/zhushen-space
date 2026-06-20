@@ -741,7 +741,7 @@ export default function App() {
   const mpIncomingGift = useMp((s) => s.incomingGift);
   const mpRaidLoot = useMp((s) => s.raidLoot);
   const combatDrivingRef = useRef(false);
-  const raidRef = useRef<{ boss: RaidBoss; phase: number; lastRound?: number; marked?: { id: string; round: number }; toughness?: number; bossHpMark?: number; poison?: number; armor?: number; armorMax?: number; breakUntil?: number } | null>(null);   // 组队讨伐：BOSS/阶段/回合机制/韧性/毒层/破核护甲
+  const raidRef = useRef<{ boss: RaidBoss; phase: number; lastRound?: number; marked?: { id: string; round: number }; toughness?: number; bossHpMark?: number; poison?: number; armor?: number; armorMax?: number; breakUntil?: number; partArmor?: number; partIdx?: number } | null>(null);   // 组队讨伐：BOSS/阶段/回合机制/韧性/毒层/破核护甲/多部位
   const currentEncounterRef = useRef<{ encId: string; kind: 'dragon' | 'side' | 'boss' } | null>(null);   // 组队副本：当前战斗对应的 encounter（胜利后推进进度/控制掉落）
   const [hostTakeover, setHostTakeover] = useState<string[]>([]);   // 联机：房主因来宾(MP_)AFK 而临时接管的战斗角色 id
   const raidRollsRef = useRef<Record<string, Record<string, any>>>({});      // 战利 ROLL 收集（房主侧：lootId→playerId→{name,picks}）
@@ -5248,7 +5248,11 @@ ${lines}`;
     const dj = useMp.getState().raidDungeon; if (!dj) return;
     const enc = dj.encounters.find((e: any) => e.id === encId);
     if (!enc || enc.status === 'cleared') return;
-    if (enc.kind === 'boss' && dj.encounters.some((e: any) => e.kind === 'dragon' && e.status !== 'cleared')) return;   // 血锁：三龙未灭，龙王不可打
+    if (dj.linear) {   // 线性门：前序门未清不可开（比阿基斯）
+      const idx = dj.encounters.findIndex((e: any) => e.id === encId);
+      if (idx > 0 && dj.encounters.slice(0, idx).some((e: any) => e.status !== 'cleared')) return;
+    }
+    if (enc.kind === 'boss' && dj.encounters.some((e: any) => e.kind === 'dragon' && e.status !== 'cleared')) return;   // 血锁：子目标未清，本体不可打
     currentEncounterRef.current = { encId: enc.id, kind: enc.kind };
     startRaidCombat(enc.boss);
   }
@@ -5313,7 +5317,46 @@ ${lines}`;
     // 韧性击破：本回合对 boss 造成的伤害削韧；削空→击破眩晕（全力输出窗口）
     const dealt = Math.max(0, (raid.bossHpMark ?? bossPart.curHp) - bossPart.curHp);
     raid.bossHpMark = bossPart.curHp;
-    if (raid.boss.breakArmor) {
+    if (raid.boss.parts) {
+      // 多部位破坏（比阿基斯）：无敌期还原 HP、扣当前部位护甲；破左翼/右翼各削攻、破心脏(末位)开破防窗口→重置重甲。与韧性互斥
+      if (raid.partArmor == null) { raid.partIdx = 0; raid.partArmor = raid.boss.parts[0].armor; }
+      if (raid.breakUntil != null && b.round >= raid.breakUntil) {   // 破防窗口到期 → 重置部位、重新护甲
+        raid.breakUntil = undefined; raid.partIdx = 0; raid.partArmor = raid.boss.parts[0].armor;
+        const x = ensure(); x.log = [...x.log, raidLog(b.round, `🛡 ${raid.boss.name} 重新护住要害——须重新破部位！`)];
+      }
+      const inBreak = raid.breakUntil != null && b.round < raid.breakUntil;
+      if (!inBreak && dealt > 0) {
+        const restored = Math.min(raid.boss.maxHp, bossPart.curHp + dealt);
+        raid.bossHpMark = restored; raid.partArmor = Math.max(0, (raid.partArmor ?? 0) - dealt);
+        const x = ensure(); x.participants['BOSS'].curHp = restored;
+        const part = raid.boss.parts[raid.partIdx ?? 0];
+        if (raid.partArmor <= 0) {
+          if (part?.atkCut) {   // 破翼 → 永久削攻
+            const blk = x.initialState['BOSS']; if (blk) { blk.patk = Math.round((blk.patk || 0) * (1 - part.atkCut)); blk.matk = Math.round((blk.matk || 0) * (1 - part.atkCut)); }
+            x.log = [...x.log, raidLog(b.round, `🦋 击破「${part.name}」！${raid.boss.name} 攻击大幅下降。`)];
+          }
+          raid.partIdx = (raid.partIdx ?? 0) + 1;
+          if (raid.partIdx >= raid.boss.parts.length) {   // 心脏(末位)破 → 破防窗口
+            raid.breakUntil = b.round + 2;
+            x.log = [...x.log, raidLog(b.round, `💥 击破「心脏」！${raid.boss.name} 破防——2 回合全力输出！`)];
+          } else {
+            raid.partArmor = raid.boss.parts[raid.partIdx].armor;
+            x.log = [...x.log, raidLog(b.round, `▶ 转为攻击「${raid.boss.parts[raid.partIdx].name}」。`)];
+          }
+        } else {
+          x.log = [...x.log, raidLog(b.round, `🛡 攻击被「${part?.name}」格挡（部位护甲 ${Math.round(raid.partArmor)}）。`)];
+        }
+      }
+      { const x = ensure(); const cur = x.participants['BOSS']; const st = (cur.status || []).filter((s: any) => s.name !== '部位护甲' && s.name !== '破防');   // 部位/破防 状态条 + 复用护甲条 UI
+        const showBreak = raid.breakUntil != null && b.round < raid.breakUntil;
+        const part = raid.boss.parts[raid.partIdx ?? 0];
+        st.push(showBreak
+          ? { id: `cs_brk_${b.round}`, name: '破防', emoji: '💥', tone: 'debuff', type: '减益', effect: '破防·可被伤害', startTurn: b.round, durationTurns: 1, addedAt: Date.now() }
+          : { id: `cs_part_${b.round}`, name: '部位护甲', emoji: '🛡', tone: 'buff', type: '增益', effect: `无敌·破「${part?.name ?? '部位'}」`, startTurn: b.round, durationTurns: 1, addedAt: Date.now() });
+        cur.status = st;
+        cur.coreArmor = Math.round(raid.partArmor || 0); cur.coreArmorMax = part?.armor || 1; cur.breaking = showBreak;
+      }
+    } else if (raid.boss.breakArmor) {
       // 破核破防（安图恩）：本体无敌→伤害先扣能量护甲→破甲后 2 回合破防窗口（可被伤害）→重新覆甲。与韧性击破互斥
       if (raid.armor == null) { raid.armorMax = raid.boss.breakArmor; raid.armor = raid.boss.breakArmor; }
       if (raid.breakUntil != null && b.round >= raid.breakUntil) {   // 破防窗口到期 → 重新覆甲

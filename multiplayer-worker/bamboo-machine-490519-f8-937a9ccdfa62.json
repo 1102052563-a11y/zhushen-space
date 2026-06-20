@@ -1,0 +1,13 @@
+{
+  "type": "service_account",
+  "project_id": "bamboo-machine-490519-f8",
+  "private_key_id": "937a9ccdfa620d5fc369c0f62fcce16732acad18",
+  "private_key": "-----BEGIN PRIVATE KEY-----\nMIIEvAIBADANBgkqhkiG9w0BAQEFAASCBKYwggSiAgEAAoIBAQDGxfK90tH2xiup\n1Ah57m9SQiW2NoNT9dLXZofF7iapSHhJ9vGUYWw4V0I6c1Lm7YdVR0/kHUpGSRAc\nPCrRW357DiMNfV2EWbr8T3I0YftAClmLo4JjG0wOPwwkwolO8kSZKNKojPjgo2ML\ncYq5w4zjlEXGsKqpWT4dJly/IdRgA6lt5XaVu9g9HOg39RsKqbwuSazUC4cZFcXE\n6oLu5yNWE+dqKjNpQNAXwaUMAjfUKpsq6x/ZXni+U2+S6mo4lJd9EkNHfxtFV6wB\nG/9YYTcCcu2LTnoQ1wYRuWnz7QIVuTp/1gBxLzuL4KmEQv0pSypJLjXIoDvhhEc0\n0CUV+PmhAgMBAAECggEAMLHXmKcn5rN/iNg3x18hCF7KDExoec4T+87TXirMb9Yg\nGcaUQgxnzZma0OTln0r7R2nz6Wc/hd5qQvB+cNFgN9crwSdAHKc6xorT6H9EZNjk\nPPAuhgbu5+KMIAlESAHTyk2U5dO7OJTuM6R6Hq4IOsxdF6K5/EivjcaTHAO2mlp8\nwUU81cZSNhjthuoUnq/BW1AjlHYrCRHM/WmqkqkyZtD30urE+sk/nXXBnFG/YnFN\n3h49fAnZP31vqxSAssuJRZfumSdJHo0hce5gEIgWvVoGoCarDlPY873m8utn9KQ1\nbjg7Ma01NymsTUfbqJ4soul9gAhNVqUP66tlkfFs0QKBgQDltQJQQDehIaS8b53m\nFf+Rjw/2xQSiAjHbBT0uFcgXHUJYyXf4KpSeOiUq4X8/OKryNy8cGxAI8958BZIe\nU5d+2sMKHSdPqzy2BXODxd7m0Mn2NQ7nnFSZ/5EmK4mvoKwNDIhaAsptfO7IMSS7\nZ8nGAy6Ky+vJzbywJd6l5RQgRQKBgQDdhoApC2aW3g/xfU8Q+Jz2k2bzChqYX5Iy\na0C2igFC2ZaIpm1RZlczVlef8GK8E5ImxNJsh908upzDlK1NxXIBWhs9KpFquLtm\nwyrNhB/AcOsXWh5KitmnYKx4pNcqd0f7dJWWlUsqsarSLW/pw0MW/FiKMgtvyDFs\n2xGPDRCvrQKBgG/94DLgHD8i9/4nLQSQlRmSdmYJiEi0aTovQ7TESdl7Gm3PS/5i\nRDMghh5x8mgQaMfOv9kkGJ1EyKQO0z6V4ramUZEMxa3B/sd/wOHuBs7h3JV9KNcj\nENxEDbBeabKG01tJUPERiz/2OTTBQPddkrJHutlQspShCe2XiQW4uidBAoGAd9mq\nAwrRATS5SXzzRwpK2bjcDQfdZaznSvHt/BRkJEfWgq4QHOcSrIq9M6H5uSmZe/Im\nqmNDVfTclZAdxyLY0FRwwkIClMvHUAytXq1qBFLTTjoKg2fl5AGQrmD4rFgGkMv9\nlo/FMB8ZfUbp8n4bEReLy5DR0TNtUiifslZuPa0CgYAZh2u7aveHkFqMgdUhmAdf\nwzeiNi7aBA7/IScDrVhLlkuonNDdEcdzpl6vuLGT+9DuA3DYQoIMuolcvBGzwhOA\nZvZdjZ+RHf87jKRaX4CAfxUQe2VLFH6IaGz5oT8vlHg6L1gLKK9rAljJnRqURto3\nXgvz5WPRLBmu8+40uoNG5A==\n-----END PRIVATE KEY-----\n",
+  "client_email": "vertex-st@bamboo-machine-490519-f8.iam.gserviceaccount.com",
+  "client_id": "113431904088104319933",
+  "auth_uri": "https://accounts.google.com/o/oauth2/auth",
+  "token_uri": "https://oauth2.googleapis.com/token",
+  "auth_provider_x509_cert_url": "https://www.googleapis.com/oauth2/v1/certs",
+  "client_x509_cert_url": "https://www.googleapis.com/robot/v1/metadata/x509/vertex-st%40bamboo-machine-490519-f8.iam.gserviceaccount.com",
+  "universe_domain": "googleapis.com"
+}

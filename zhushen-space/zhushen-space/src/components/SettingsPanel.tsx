@@ -2198,13 +2198,15 @@ function ApiLibrarySection() {
                   </div>
                 ) : (ep.baseUrl || '').includes('/api/gw/vertex') ? (
                   <div className="space-y-1">
-                    <span className="text-[12px] font-mono text-dim/50 block">服务账号 JSON<span className="text-dim/30"> · 仅本人本地，SA 只发到你本地 wrangler dev</span></span>
+                    <span className="text-[12px] font-mono text-dim/50 block">API Key<span className="text-dim/30"> · 线上：填 VERTEX_GATE 口令；本地：「📁 导入 JSON」或 base64</span></span>
                     <div className="flex gap-2 items-center">
-                      <input type="password" value={ep.apiKey} onChange={(e) => update(ep.id, { apiKey: e.target.value })} placeholder="点右侧导入，或粘贴 base64" className={inputCls + ' flex-1'} />
-                      <label className="shrink-0 px-2.5 py-1 text-[12px] font-mono border border-god/40 text-god rounded hover:bg-god/10 cursor-pointer transition-colors whitespace-nowrap">
-                        📁 导入 JSON
-                        <input type="file" accept=".json,application/json" className="hidden" onChange={(e) => { const f = e.target.files?.[0]; if (f) importVertexJson(ep.id, f); e.currentTarget.value = ''; }} />
-                      </label>
+                      <input type="password" value={ep.apiKey} onChange={(e) => update(ep.id, { apiKey: e.target.value })} placeholder="线上填口令 / 本地导入服务账号" className={inputCls + ' flex-1'} />
+                      {/(localhost|127\.0\.0\.1)/.test(ep.baseUrl || '') && (
+                        <label className="shrink-0 px-2.5 py-1 text-[12px] font-mono border border-god/40 text-god rounded hover:bg-god/10 cursor-pointer transition-colors whitespace-nowrap">
+                          📁 导入 JSON
+                          <input type="file" accept=".json,application/json" className="hidden" onChange={(e) => { const f = e.target.files?.[0]; if (f) importVertexJson(ep.id, f); e.currentTarget.value = ''; }} />
+                        </label>
+                      )}
                     </div>
                     {vImport[ep.id] && <div className={`text-[11px] font-mono ${vImport[ep.id]!.ok ? 'text-god' : 'text-blood'}`}>{vImport[ep.id]!.ok ? '✅ ' : '❌ '}{vImport[ep.id]!.msg}</div>}
                   </div>
@@ -2265,7 +2267,7 @@ function ApiLibrarySection() {
         <div className="text-[12px] font-mono text-god/80 bg-god/5 border border-god/30 rounded px-2.5 py-2 leading-relaxed space-y-1">
           <div>✅ 已加入 <b>AI Studio (网关)</b> + <b>Vertex (网关·本地)</b> 两条接口：</div>
           <div>· <b>AI Studio (网关)</b> → 线上网关，API Key 填你的 <b>AI Studio key</b>（aistudio.google.com/apikey）；点「刷新模型」可拉全量。</div>
-          <div>· <b>Vertex (网关·本地)</b> → 🔒仅你本人：multiplayer-worker 跑 <code className="text-god">wrangler dev</code>，展开本接口点 <b>📁 导入 JSON</b> 选服务账号文件即可（地址已指向 localhost:8787）。</div>
+          <div>· <b>Vertex (网关)</b> → 线上免本地：worker 设 <code className="text-god">VERTEX_SA_JSON</code> + <code className="text-god">VERTEX_GATE</code> 两个密钥再 deploy，本接口 API Key 填那个口令即可（手机也能用）。</div>
           <div className="text-dim/50">填好点「🔌 测试连接」自检。</div>
         </div>
       )}

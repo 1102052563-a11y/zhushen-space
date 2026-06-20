@@ -1,5 +1,5 @@
 import { useState, useRef } from 'react';
-import { useItems, ITEM_CATEGORIES, ITEM_GRADES, gradeColorClass, gradeBadgeClass, gradeNameClass, socketsOf, splitAffixEntries, type InventoryItem, type ItemCategory, type CurrencyWallet } from '../store/itemStore';
+import { useItems, ITEM_CATEGORIES, ITEM_GRADES, gradeColorClass, gradeBadgeClass, gradeNameClass, socketsOf, splitAffixEntries, isResourcePseudoItem, type InventoryItem, type ItemCategory, type CurrencyWallet } from '../store/itemStore';
 import { enhanceColorClass, enhancedCombat } from '../systems/enhanceEngine';
 import { usePlayer } from '../store/playerStore';
 import { useSkillTree } from '../store/skillTreeStore';
@@ -142,7 +142,7 @@ export function ItemDetailModal({ item, onClose }: { item: InventoryItem; onClos
 
   const cfg  = CAT_CFG[item.category] ?? CAT_CFG['其他物品'];
   const icon = CAT_ICON[item.category] ?? '◆';
-  const canEquip   = (['武器','防具','饰品','法宝','功法','特殊物品'] as string[]).includes(item.category);
+  const canEquip   = (['武器','防具','饰品','法宝','功法','特殊物品'] as string[]).includes(item.category) && !isResourcePseudoItem(item);
   const canConsume = (['消耗品','丹药','符箓','灵药'] as string[]).includes(item.category);
 
   const saveEdit = () => {

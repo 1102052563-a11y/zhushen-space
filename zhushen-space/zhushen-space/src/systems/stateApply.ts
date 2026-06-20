@@ -1,7 +1,7 @@
 import { useGame } from '../store/gameStore';
 import { useVariables } from '../store/variableStore';
 import { useNpc } from '../store/npcStore';
-import { useItems } from '../store/itemStore';
+import { useItems, isResourcePseudoItem } from '../store/itemStore';
 import { useCharacters } from '../store/characterStore';
 import { useSettings } from '../store/settingsStore';
 import { useSkillTree } from '../store/skillTreeStore';
@@ -75,7 +75,7 @@ function equipNpcItemFallback(itemId: string, slotStr: string): boolean {
   for (const rec of Object.values(npc.npcs)) {
     const ni = rec.items.find((it) => it.id === itemId || it.name === itemId);
     if (ni) {
-      if (!isEquippable(ni.category)) { console.warn(`[State] 拒绝装备 NPC ${rec.id}「${ni.name}」：${ni.category} 非装备类`); return true; }
+      if (!isEquippable(ni.category) || isResourcePseudoItem(ni)) { console.warn(`[State] 拒绝装备 NPC ${rec.id}「${ni.name}」：${isResourcePseudoItem(ni) ? '货币/点数类资源' : ni.category + ' 非装备类'}`); return true; }
       npc.equipNpcItem(rec.id, ni.id, slotStr);
       console.log(`[State] NPC ${rec.id} 装备 ${ni.name} → ${slotStr}`);
       return true;
@@ -218,7 +218,7 @@ function applyOneUpdate(u: StateUpdate) {
       if (item) {
         // 主角自动装备开关：关闭时忽略 AI 对主角的 eq 指令（玩家在装备面板手动穿戴）
         if (key === 'eq.B1' && !useSettings.getState().allowAutoEquip) { console.log('[State] 已关闭自动装备，忽略主角 eq 指令'); return; }
-        if (!isEquippable(item.category)) { console.warn(`[State] 拒绝装备「${item.name}」：${item.category} 非装备类，不能上装备栏`); return; }
+        if (!isEquippable(item.category) || isResourcePseudoItem(item)) { console.warn(`[State] 拒绝装备「${item.name}」：${isResourcePseudoItem(item) ? '货币/点数类资源，不可装备' : item.category + ' 非装备类'}`); return; }
         // 按分类校验槽位：AI 槽位与分类不符（如武器→饰品槽）时自动改到正确槽
         const fixedSlot = resolveEquipSlot(item, itemStore.items, slotStr);
         itemStore.equipItem(item.id, fixedSlot);

@@ -91,11 +91,28 @@ const ANTON_GEMS = [
   { name: '安图恩精魄·玄', effect: '装甲之魄，镶嵌增幅防御' },
   { name: '安图恩精魄·紫', effect: '异面之魄，镶嵌增幅全属性' },
 ];
+const VYKAS_MATERIALS = [
+  { name: '欲望结晶', effect: '比阿基斯欲望凝结的结晶，合成欲望套所需' },
+  { name: '魅惑之翼', effect: '比阿基斯血色双翼的残片，合成欲望套所需' },
+  { name: '心脏碎片', effect: '比阿基斯心脏崩裂的碎片，合成欲望套所需' },
+];
+const VYKAS_EQUIP = [
+  { name: '比阿基斯·噬欲血镰', category: '武器', effect: '饮血而强的血色镰刃，攻击附带噬血' },
+  { name: '比阿基斯·魅影软甲', category: '防具', effect: '魅影编织的软甲，闪避与减伤兼备' },
+  { name: '比阿基斯·诱惑之冠', category: '饰品', effect: '诱惑之冠，大幅提升暴击与魅惑抗性' },
+  { name: '比阿基斯·心脏护符', category: '饰品', effect: '以心脏碎片所制，受创时回血' },
+];
+const VYKAS_GEMS = [
+  { name: '欲望精魄·赤', effect: '噬血之魄，镶嵌增幅攻击' },
+  { name: '欲望精魄·玄', effect: '魅影之魄，镶嵌增幅防御' },
+  { name: '欲望精魄·魅', effect: '欲望之魄，镶嵌增幅全属性' },
+];
 
-/* 副本奖励主题：巴卡尔/安图恩各自的装备/宝石/材料/核心/宝箱/称号皮（结构相同，只换名） */
+/* 副本奖励主题：各副本各自的装备/宝石/材料/核心/宝箱/称号皮（结构相同，只换名） */
 const REWARD_THEMES: Record<string, { emoji: string; themeName: string; fullName: string; equip: typeof DRAGON_EQUIP; gems: typeof DRAGON_GEMS; materials: typeof DRAGON_MATERIALS; core: { name: string; effect: string }; box: string; titles: [string, string, string]; titleEffect: string }> = {
   bakal: { emoji: '🐉', themeName: '巴卡尔攻坚战', fullName: '机械之乱·巴卡尔攻坚战', equip: DRAGON_EQUIP, gems: DRAGON_GEMS, materials: DRAGON_MATERIALS, core: { name: '龙王核心', effect: '黑龙·巴卡尔的本源核心，合成龙王套的核心材料' }, box: '巴卡尔宝藏', titles: ['讨龙勇士', '屠龙者', '灭龙者'], titleEffect: '对龙类伤害提升·威慑全场' },
   anton: { emoji: '🤖', themeName: '安图恩攻坚战', fullName: '黑色大地·安图恩攻坚战', equip: ANTON_EQUIP, gems: ANTON_GEMS, materials: ANTON_MATERIALS, core: { name: '安图恩核心', effect: '巨型安图恩的异面能量核心，合成安图恩套的核心材料' }, box: '安图恩宝藏', titles: ['讨伐勇士', '安图恩讨伐者', '黑色大地征服者'], titleEffect: '对机械·异面之敌伤害提升·威慑全场' },
+  vykas: { emoji: '💋', themeName: '比阿基斯攻坚战', fullName: '欲望军团长·比阿基斯攻坚战', equip: VYKAS_EQUIP, gems: VYKAS_GEMS, materials: VYKAS_MATERIALS, core: { name: '比阿基斯之心', effect: '欲望军团长的心脏本源，合成欲望套的核心材料' }, box: '比阿基斯宝藏', titles: ['诱惑征服者', '欲望终结者', '欲望军团终结者'], titleEffect: '对魅惑·异能之敌伤害提升·威慑全场' },
 };
 
 export interface BakalReward {

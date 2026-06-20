@@ -1,5 +1,5 @@
 import type { ItemCategory, CurrencyWallet } from '../store/itemStore';
-import { useItems, normalizeGradeLabel } from '../store/itemStore';
+import { useItems, normalizeGradeLabel, isResourcePseudoItem } from '../store/itemStore';
 import { useCharacters, canonProfName, sameProf } from '../store/characterStore';
 import { useNpc, defaultNpcRecord, isNpcId } from '../store/npcStore';
 import { useFaction } from '../store/factionStore';
@@ -425,7 +425,7 @@ function applyOneItemCommand(cmd: ItemCommand, store: any): void {
         const nitem = (givenName ? bag.find((x) => x.name === givenName) : undefined)
           ?? bag.find((x) => x.id === data.itemId) ?? bag.find((x) => x.name === data.itemId);
         if (!nitem) { console.warn(`[Item] NPC ${owner} 未找到要装备的物品（name=${givenName} id=${data.itemId}）`); break; }
-        if (!isEquippable(nitem.category)) { console.warn(`[Item] 拒绝装备 NPC ${owner}「${nitem.name}」：${nitem.category} 非装备类，不能上装备栏`); break; }
+        if (!isEquippable(nitem.category) || isResourcePseudoItem(nitem)) { console.warn(`[Item] 拒绝装备 NPC ${owner}「${nitem.name}」：${isResourcePseudoItem(nitem) ? '货币/点数类资源，不可装备' : nitem.category + ' 非装备类'}`); break; }
         // 按分类校验槽位：AI 槽位与分类不符（如武器→饰品槽）时自动改到正确槽
         const slot = resolveEquipSlot(nitem as any, bag as any, buildSlotString(data));
         npcStore.equipNpcItem(owner, nitem.id, slot);
@@ -438,7 +438,7 @@ function applyOneItemCommand(cmd: ItemCommand, store: any): void {
         ?? findItemById(store, data.itemId) ?? findItemByName(store, data.itemId);
       if (item) {
         // ★ 只有装备类可上装备栏：拒绝把 重要物品/消耗品/材料 等装上去
-        if (!isEquippable(item.category)) { console.warn(`[Item] 拒绝装备「${item.name}」：${item.category} 非装备类，不能上装备栏`); break; }
+        if (!isEquippable(item.category) || isResourcePseudoItem(item)) { console.warn(`[Item] 拒绝装备「${item.name}」：${isResourcePseudoItem(item) ? '货币/点数类资源，不可装备' : item.category + ' 非装备类'}`); break; }
         // 按分类校验槽位：AI 槽位与分类不符（如武器→饰品槽）时自动改到正确槽
         const slot = resolveEquipSlot(item, store.items, buildSlotString(data));
         store.equipItem(item.id, slot);

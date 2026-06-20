@@ -154,16 +154,22 @@ async function proxyAiStudio(request, env, cors) {
 
 /* ─────────────── Vertex：用调用方自带的服务账号 JSON 鉴权 + OpenAI⇄Gemini 互转 ─────────────── */
 async function proxyVertex(request, env, cors) {
-  // 🔒 仍是「仅本人·本地」。SA 来源优先级：
-  //   ① 服务端 env.VERTEX_SA_JSON(.dev.vars，最安全，SA 不进浏览器) →
-  //   ② 仅当本地 worker(localhost) 时，允许请求自带 SA(前端「📁 导入 JSON」走这条，方便) →
-  //   ③ 否则 503。公开部署既无 env、又非 localhost → 永远 503，Vertex 不对外。
+  // 仿 SillyTavern「后端常驻持有 SA」。两种部署：
+  //   • 线上（推荐·免本地）：SA 放 `wrangler secret put VERTEX_SA_JSON` + `wrangler secret put VERTEX_GATE`(口令)；
+  //     前端该接口 apiKey 填口令。SA 不进浏览器、不进仓库；口令校验防别人盗用你的赠金。
+  //   • 本地：SA 来自 .dev.vars(env) 或请求自带(前端「📁 导入 JSON」)，localhost 免口令。
   const isLocal = ['localhost', '127.0.0.1'].includes(new URL(request.url).hostname);
+  if (!isLocal) {
+    if (!env.VERTEX_SA_JSON) {
+      return json({ error: { message: 'Vertex 线上未启用：worker 跑 `wrangler secret put VERTEX_SA_JSON` 和 `wrangler secret put VERTEX_GATE`，再 `wrangler deploy`' } }, { status: 503 }, cors);
+    }
+    if (!env.VERTEX_GATE || bearer(request) !== env.VERTEX_GATE) {
+      return json({ error: { message: 'Vertex 线上需口令：该接口 apiKey 填你设的 VERTEX_GATE 口令（别填服务账号）' } }, { status: 401 }, cors);
+    }
+  }
   const saRaw = env.VERTEX_SA_JSON || (isLocal ? bearer(request) : '');
   if (!saRaw) {
-    return json({ error: { message: isLocal
-      ? 'Vertex 未配置：用该接口的「📁 导入服务账号 JSON」导入，或在 .dev.vars 配 VERTEX_SA_JSON'
-      : 'Vertex 仅本人·本地：把本接口地址指向 http://localhost:8787/api/gw/vertex 并本地 `wrangler dev`（公开网关不处理 Vertex）' } }, { status: 503 }, cors);
+    return json({ error: { message: 'Vertex 未配置：本地用该接口「📁 导入 JSON」或 .dev.vars；线上用 wrangler secret' } }, { status: 503 }, cors);
   }
   const sa = parseServiceAccount(saRaw);
   if (!sa) return json({ error: { message: '服务账号 JSON 无效（需原文或 base64）' } }, { status: 400 }, cors);
@@ -199,9 +205,10 @@ async function proxyVertex(request, env, cors) {
 
 /** 解析调用方传来的服务账号 JSON（容忍：原文 JSON / base64(JSON)）；无效返回 null */
 function parseServiceAccount(raw) {
+  raw = String(raw || '').trim();   // 去掉管道/粘贴可能带的首尾换行空格，免得 atob 失败
   if (!raw) return null;
   try { const j = JSON.parse(raw); if (j && j.private_key) return j; } catch { /* 试 base64 */ }
-  try { const j = JSON.parse(atob(raw)); if (j && j.private_key) return j; } catch { /* 都不是 */ }
+  try { const j = JSON.parse(atob(raw.replace(/\s+/g, ''))); if (j && j.private_key) return j; } catch { /* 都不是 */ }
   return null;
 }
 
