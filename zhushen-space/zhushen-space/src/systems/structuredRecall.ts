@@ -103,23 +103,29 @@ function numericOf(it: InventoryItem | NpcOwnedItem): Record<string, unknown> | 
   return (it as { numeric?: Record<string, unknown> }).numeric;
 }
 
-/* ── 单条技能 → 全量可读行（排除 addedAt / numeric 原始结构等 UI/内部字段）── */
+/* ── 单条技能 → 全量可读行（排除 addedAt / numeric 原始结构等 UI/内部字段）──
+   注：**手动编辑表单能改的字段必须全注入**，否则改了品级/类型/目标/伤害/属性加成/标签
+   却没进正文 → AI 仍按历史里的旧值描述（"改了正文依旧是老的"的根因）。 */
 function skillLine(s: Skill): string {
-  const parts = [`「${s.name}」`, s.level && `[${s.level}]`].filter(Boolean);
+  const parts = [`「${s.name}」`, s.level && `[${s.level}]`, s.rarity && `·${s.rarity}`, s.skillType && `·${s.skillType}`].filter(Boolean);
   const tail: string[] = [];
   if (s.cooldown) tail.push(`冷却:${s.cooldown}`);
   if (s.cost) tail.push(`消耗:${s.cost}`);
+  if (s.target) tail.push(`目标:${s.target}`);
+  if (s.damage) tail.push(`伤害:${s.damage}`);
   if (s.layers) tail.push(`层数:${s.layers}`);
   if (s.layerProgress) tail.push(`层级:${s.layerProgress}`);
-  const desc = [s.desc, s.effect && `效果:${s.effect}`, s.layerEffects && `各层:${s.layerEffects}`, s.note && `备注:${s.note}`]
+  if (s.attrBonus) tail.push(`属性加成:${s.attrBonus}`);
+  const tagsTxt = Array.isArray(s.tags) ? s.tags.join('/') : (typeof s.tags === 'string' ? s.tags : '');
+  const desc = [s.desc, s.effect && `效果:${s.effect}`, s.layerEffects && `各层:${s.layerEffects}`, tagsTxt && `标签:${tagsTxt}`, s.note && `备注:${s.note}`]
     .filter(Boolean).join('；');
   return `    · ${parts.join(' ')}${tail.length ? ` (${tail.join(' ')})` : ''}${desc ? ` — ${desc}` : ''}`;
 }
 
-/* ── 单条天赋 → 全量可读行 ── */
+/* ── 单条天赋 → 全量可读行（同理：编辑表单能改的等级/属性加成也要注入）── */
 function talentLine(t: Talent): string {
-  const head = `「${t.name}」${t.rarity ? `·${t.rarity}级` : ''}${t.category ? `·${t.category}` : ''}`;
-  const body = [t.source && `来源:${t.source}`, t.desc, t.effect && `效果:${t.effect}`, t.note && `备注:${t.note}`].filter(Boolean).join('；');
+  const head = `「${t.name}」${t.rarity ? `·${t.rarity}级` : ''}${t.category ? `·${t.category}` : ''}${t.level ? `·${t.level}` : ''}`;
+  const body = [t.source && `来源:${t.source}`, t.desc, t.effect && `效果:${t.effect}`, t.attrBonus && `属性加成:${t.attrBonus}`, t.note && `备注:${t.note}`].filter(Boolean).join('；');
   return `    · ${head}${body ? ` — ${body}` : ''}`;
 }
 
