@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import {
-  listSlots, saveSlot, loadSlot, renameSlot, deleteSlot, exportSlot, importSlot, newGame,
+  listSlots, listAutoSnaps, saveSlot, loadSlot, renameSlot, deleteSlot, exportSlot, importSlot, newGame,
   extractPlayerFromSlot, type SlotMeta,
 } from '../systems/saveManager';
 import { buildDiagnosticBundle } from '../systems/diagnostics';
@@ -36,10 +36,14 @@ export default function SaveLoadPanel({ messages, onClose }: Props) {
   const [cloudSaves, setCloudSaves] = useState<CloudSaveMeta[]>([]);
   const [cloudBusy, setCloudBusy] = useState(false);
   const [confirmCloudDel, setConfirmCloudDel] = useState<string | null>(null);
+  const [snapsOpen, setSnapsOpen] = useState(false);                   // 展开「自动备份」折叠区
+  const [autoSnaps, setAutoSnaps] = useState<SlotMeta[]>([]);
   const fileRef = useRef<HTMLInputElement>(null);
 
   async function refresh() { setSlots(await listSlots()); }
+  async function refreshSnaps() { setAutoSnaps(await listAutoSnaps()); }
   useEffect(() => { refresh(); }, []);
+  useEffect(() => { if (snapsOpen) void refreshSnaps(); }, [snapsOpen]);
   // 展开云存档区且已登录 → 拉云端列表
   useEffect(() => { if (cloudOpen && cloudLoggedIn()) void refreshCloud(); /* eslint-disable-next-line */ }, [cloudOpen]);
 
@@ -130,7 +134,7 @@ export default function SaveLoadPanel({ messages, onClose }: Props) {
     if (!ok) { setBusy(false); setConfirmLoad(null); flash('❌ 存档不存在'); }
   }
   async function handleDelete(id: string) {
-    await deleteSlot(id); await refresh(); setConfirmDel(null); flash('已删除');
+    await deleteSlot(id); await refresh(); if (snapsOpen) await refreshSnaps(); setConfirmDel(null); flash('已删除');
   }
   async function handleRename(id: string) {
     await renameSlot(id, renameVal); setRenaming(null); await refresh();
@@ -308,6 +312,47 @@ export default function SaveLoadPanel({ messages, onClose }: Props) {
               </div>
             </div>
           ))}
+
+          {/* 🛟 自动备份（滚动·从主列表移到这里，避免一堆刷屏）：每回合一份、保最近 5 份，供回滚 */}
+          <div className="rounded-lg border border-edge/60 bg-panel/20">
+            <button onClick={() => setSnapsOpen((v) => !v)} className="w-full flex items-center gap-2 px-3 py-2 text-[12px] font-mono text-dim hover:text-god transition-colors">
+              <span className="text-god/60">🛟</span>
+              <span className="font-bold text-slate-300">自动备份{snapsOpen && autoSnaps.length ? ` (${autoSnaps.length})` : ''}</span>
+              <span className="text-dim/40 max-lg:hidden">每回合自动留一份·保最近 5 份·供回滚</span>
+              <span className={`ml-auto text-god/50 transition-transform ${snapsOpen ? 'rotate-180' : ''}`}>▾</span>
+            </button>
+            {snapsOpen && (
+              <div className="px-3 pb-2 space-y-1.5">
+                {autoSnaps.length === 0 ? (
+                  <div className="text-[12px] font-mono text-dim/40 py-1">暂无自动备份</div>
+                ) : autoSnaps.map((s) => (
+                  <div key={s.id} className="rounded border border-edge/60 bg-void/40 px-2.5 py-1.5 flex items-center gap-2 flex-wrap">
+                    <div className="flex-1 min-w-0">
+                      <div className="text-[13px] text-slate-200 truncate">{s.name}</div>
+                      <div className="text-[11px] font-mono text-dim/50 truncate">回合 {s.preview?.turn ?? 0}{s.preview?.location ? ` · 📍${s.preview.location}` : ''} · {new Date(s.updatedAt).toLocaleString('zh-CN', { hour12: false })}</div>
+                    </div>
+                    {confirmLoad === s.id ? (
+                      <>
+                        <span className="text-[12px] font-mono text-amber-400">回滚到此备份(覆盖当前)？</span>
+                        <button onClick={() => handleLoad(s.id)} disabled={busy} className="px-2 py-0.5 text-[12px] font-mono border border-amber-500/50 text-amber-300 rounded hover:bg-amber-900/20">确认</button>
+                        <button onClick={() => setConfirmLoad(null)} className="px-2 py-0.5 text-[12px] font-mono border border-edge text-dim rounded">取消</button>
+                      </>
+                    ) : confirmDel === s.id ? (
+                      <>
+                        <button onClick={() => handleDelete(s.id)} className="px-2 py-0.5 text-[12px] font-mono border border-blood/60 text-blood rounded hover:bg-blood/10">删</button>
+                        <button onClick={() => setConfirmDel(null)} className="px-2 py-0.5 text-[12px] font-mono border border-edge text-dim rounded">取消</button>
+                      </>
+                    ) : (
+                      <>
+                        <button onClick={() => setConfirmLoad(s.id)} className="px-2 py-0.5 text-[12px] font-mono border border-god/40 text-god rounded hover:bg-god/10">回滚</button>
+                        <button onClick={() => setConfirmDel(s.id)} className="px-2 py-0.5 text-[12px] font-mono border border-edge text-dim rounded hover:border-blood/40 hover:text-blood">删</button>
+                      </>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
         </div>
       </div>
 

@@ -159,7 +159,16 @@ export async function listSlots(): Promise<SlotMeta[]> {
   // 用 allMeta(游标逐条剥 data)而非 all()——后者会把所有存档(各可能几十 MB 含图)一次性载入内存，多档时直接崩溃。
   const metas = await saveDb.allMeta<SlotMeta>();
   return metas
-    .filter((s) => s.id !== UNDO_ID)   // 内部回退点不在存档列表显示
+    // 主列表只放：手动存档 + 单一自动存档(⏱)。回退点、滚动备份(🛟)都不混进来——后者另列在「自动备份」折叠区，避免一堆刷屏。
+    .filter((s) => s.id !== UNDO_ID && !(typeof s.id === 'string' && s.id.startsWith(AUTOSNAP_PREFIX)))
+    .sort((a, b) => b.updatedAt - a.updatedAt);
+}
+
+/* 滚动自动备份(🛟)单独列出——供存档面板「自动备份」折叠区显示/回滚，不占主列表。*/
+export async function listAutoSnaps(): Promise<SlotMeta[]> {
+  const metas = await saveDb.allMeta<SlotMeta>();
+  return metas
+    .filter((s) => typeof s.id === 'string' && s.id.startsWith(AUTOSNAP_PREFIX))
     .sort((a, b) => b.updatedAt - a.updatedAt);
 }
 
