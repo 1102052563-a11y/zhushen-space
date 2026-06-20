@@ -67,6 +67,13 @@ export interface NpcOwnedItem {
   addedAt: number;
 }
 
+/** 轨道A 自治状态（离场契约者零API模拟用）：当前相位 + 剩余回合 + 任务世界名 */
+export interface NpcAuto {
+  phase: 'hub' | 'mission';   // 主神空间相 / 任务世界相
+  turns: number;              // 当前相位剩余回合
+  world?: string;             // 任务世界名（mission 相期间固定，供归来引用）
+}
+
 export interface NpcRecord {
   id: string;
   name: string;
@@ -140,6 +147,7 @@ export interface NpcRecord {
 
   deeds?: string;         // 旧版：纯文本近况（保留兼容，勿删）
   deedLog?: Deed[];       // 新版：结构化经历时间线
+  auto?: NpcAuto;         // 轨道A 自治状态（离场零API模拟的相位机；见 systems/npcAutonomy.ts）
   updatedAt: number;
 }
 
@@ -231,6 +239,7 @@ interface NpcState {
   addNpcStatus: (id: string, e: StatusEffect) => void;        // upsert by name
   removeNpcStatus: (id: string, idOrName: string) => void;
   setNpcStatuses: (id: string, list: StatusEffect[]) => void; // 过期清理整体重写
+  applyAutonomy: (updates: Array<{ id: string; deed?: Deed; patch?: Partial<NpcRecord> }>) => void;  // 轨道A：批量套用离场自治结果（经历+相位），一次 set 防刷屏重渲染
 }
 
 /* NPC 储存空间同名堆叠：装备类（武器/防具/饰品/特殊/法宝）不堆叠，余者同名累加 */
@@ -486,6 +495,27 @@ export const useNpc = create<NpcState>()(
           const rec = s.npcs[id];
           if (!rec) return s;
           return { npcs: { ...s.npcs, [id]: { ...rec, deedLog: [], deeds: '', updatedAt: Date.now() } } };
+        }),
+
+      applyAutonomy: (updates) =>
+        set((s) => {
+          if (!updates.length) return s;
+          const npcs = { ...s.npcs };
+          const now = Date.now();
+          for (const u of updates) {
+            const rec = npcs[u.id];
+            if (!rec) continue;
+            let next: NpcRecord = { ...rec, ...(u.patch ?? {}), updatedAt: now };
+            if (u.deed) {
+              const log = [...(rec.deedLog ?? []), u.deed].slice(-12);
+              const legacy = log
+                .map((d) => (d.time || d.location ? `[${d.time}@${d.location}] ` : '') + d.description)
+                .slice(-6).join('\n');
+              next = { ...next, deedLog: log, deeds: legacy };
+            }
+            npcs[u.id] = next;
+          }
+          return { npcs };
         }),
 
       absorbOrphans: () => {

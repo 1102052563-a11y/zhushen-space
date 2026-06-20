@@ -1407,6 +1407,8 @@ function TextApiSection() {
   const setFanficMode      = useSettings((s) => s.setFanficMode);
   const factCheck          = useSettings((s) => s.factCheck);
   const setFactCheck       = useSettings((s) => s.setFactCheck);
+  const npcAutonomyOn      = useSettings((s) => s.npcAutonomyOn);
+  const setNpcAutonomyOn   = useSettings((s) => s.setNpcAutonomyOn);
   const narrativePov       = useSettings((s) => s.narrativePov);
   const setNarrativePov    = useSettings((s) => s.setNarrativePov);
 
@@ -1465,6 +1467,13 @@ function TextApiSection() {
           <div>
             <div className="text-sm text-slate-200">事实增强（防穿帮）</div>
             <div className="text-sm text-dim mt-0.5">核实正文里的现实可查证元素（年代/真实地名/品牌价格/专业内容）→ 锁定时代与事实锚点 → 下回合注入正文保持一致、不穿帮。同样能否联网取决于你的模型。</div>
+          </div>
+        </div>
+        <div className="flex items-center gap-3 p-3 bg-panel border border-edge rounded-lg">
+          <Toggle checked={npcAutonomyOn} onChange={() => setNpcAutonomyOn(!npcAutonomyOn)} />
+          <div>
+            <div className="text-sm text-slate-200">离场角色自治（零 API · 轨道A）</div>
+            <div className="text-sm text-dim mt-0.5">开启后，<b>不在场的契约者</b>每回合会<b>零 API</b> 地自行「出任务世界 / 在主神空间强化·竞技·社交」，并把近况写进各自档案（NPC 详情可见）；这些经历会注入正文，让 AI 知道他们离场期间干了啥。纯前端确定性推进，<b>不调接口、不花 token</b>；MVP 不改六维/等级、不致死。默认关。</div>
           </div>
         </div>
         <div className="p-3 bg-panel border border-edge rounded-lg">

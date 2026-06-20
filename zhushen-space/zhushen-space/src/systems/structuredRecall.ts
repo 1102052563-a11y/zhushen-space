@@ -307,6 +307,7 @@ export function serializeNpcCard(
     npc.appearance5 && `肖像:${npc.appearance5}`,
     npc.appearanceDetail && `容貌:${npc.appearanceDetail}`,
     npc.background && `背景:${npc.background}`,
+    (npc.deedLog?.length ?? 0) > 0 && `近期经历:${npc.deedLog!.slice(-3).map((d) => d.description).join('；')}`,
   ].filter(Boolean).join('\n  ');
 
   // 被选中的 NPC 给全量信息（仅排序，不截断）

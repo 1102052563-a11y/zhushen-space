@@ -254,6 +254,8 @@ interface SettingsState {
   setFanficMode: (v: boolean) => void;
   factCheck: boolean;     // 事实增强：核实正文里的现实可查证元素→锁定时代/事实锚点→下回合注入防穿帮
   setFactCheck: (v: boolean) => void;
+  npcAutonomyOn: boolean;   // 离场角色自治（轨道A）：每回合零 API 推进离场 NPC 的「出任务/主神空间」生活并写经历
+  setNpcAutonomyOn: (v: boolean) => void;
   narrativePov: NarrativePov;   // 叙事人称：off=跟随预设（不注入）；first/second/third=强制注入到正文 system 末尾（权重最高）
   setNarrativePov: (v: NarrativePov) => void;
   apiLibrary: ApiEndpoint[];   // 中心 API 接口库（综合设置维护，各功能快捷选填）
@@ -624,6 +626,7 @@ export const useSettings = create<SettingsState>()(
       plotChoices: false,
       fanficMode: false,
       factCheck: false,
+      npcAutonomyOn: false,
       narrativePov: 'off',
       apiLibrary: [],
       apiRoutes: {},
@@ -672,6 +675,7 @@ export const useSettings = create<SettingsState>()(
       setCustomOpening: (s) => set({ customOpening: s }),
       setReading: (patch) => set((s) => ({ reading: { ...s.reading, ...patch } })),
       setPlotChoices: (v) => set({ plotChoices: v }),
+      setNpcAutonomyOn: (v) => set({ npcAutonomyOn: v }),
       setFanficMode: (v) => set({ fanficMode: v }),
       setFactCheck: (v) => set({ factCheck: v }),
       setNarrativePov: (v) => set({ narrativePov: v }),

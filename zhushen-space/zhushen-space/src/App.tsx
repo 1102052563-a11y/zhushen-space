@@ -84,6 +84,7 @@ import { applyPlayerProfileCommands, applyTimedStatusCommands, expireStatuses } 
 import { getNpcApi, trimNarrative, npcChatCompletion, buildNpcVars, fillVars, serializeNpcSnapshot } from './systems/npcEvolutionHelpers';
 import { combatFinalVitals, applyCombatVitals, buildCombatResultFallback, runNpcActionPhase, runResultPhase, runBattleSummaryPhase } from './systems/combatHelpers';
 import { parseWeather, isLightSky, extractWeatherFxCss, sanitizeWeatherCss } from './systems/weatherFx';
+import { runNpcAutonomy } from './systems/npcAutonomy';
 import { useCombat, newLogId, type BattleState, type CombatStatBlock, type Side, type CombatActionKind } from './store/combatStore';
 import { buildCombatant, assembleBattle, settleAction, advanceTurn, checkEnd, currentActorId, makeActionLog, playerControlled, setMpCombatItems, clearMpCombatItems, rollInitiative } from './systems/combatEngine';
 import { generateRaidBoss, generateBakalDungeon, generateAntonDungeon, generateVykasDungeon, type RaidBoss, type RaidDifficulty } from './systems/raidBoss';
@@ -5660,6 +5661,8 @@ ${lines}`;
     // 战斗刚结算（本回合是玩家发送的"战斗复盘"）→ HP/EP 已由战斗系统定死：本回合不从正文再抽 HP（防 AI 复盘重复扣血），改以战斗结算值为准
     const combatSettled = combatSettledRef.current;
     combatSettledRef.current = null;
+    // 轨道A：离场契约者零API自治（按 turnCount 推进；自带开关守卫；失败不影响演化阶段）
+    try { runNpcAutonomy(useMisc.getState().turnCount); } catch (e) { console.warn('[轨道A] 自治模拟失败', e); }
     // 先从正文人物卡照抄六维（同步，先于各演化阶段，使快照与显示即刻正确）
     try { applyNarrativeAttrs(narrative); ensureNpcLuck(); } catch (e) { console.warn('[Attr] 六维抽取失败:', e); }
     if (combatSettled) {

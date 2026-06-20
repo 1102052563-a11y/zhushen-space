@@ -111,6 +111,14 @@ function pick<T>(rng: () => number, arr: T[]): T {
   return arr[Math.floor(rng() * arr.length)];
 }
 
+/** 暴露给轨道A 引擎复用同一套确定性随机/抽取 */
+export function makeRng(seed: number): () => number {
+  return mulberry32(seed >>> 0);
+}
+export function pickFrom<T>(rng: () => number, arr: T[]): T {
+  return pick(rng, arr);
+}
+
 /* ── 性格分桶（自由文本 → 语气/行为原型） ───────────────────── */
 
 const BUCKET_KEYWORDS: ReadonlyArray<readonly [string, readonly string[]]> = [
@@ -190,7 +198,7 @@ function resolveSlot(key: string, ctx: DeedCtx, corpus: AutonomyCorpus, rng: () 
       return arr?.length ? pick(rng, arr) : '';
     }
     case 'paradise':
-      return ctx.paradise || '主神空间';
+      return ctx.paradise || '';
     default: {
       const v = (ctx as unknown as Record<string, unknown>)[key];
       return v == null ? '' : String(v);
@@ -202,6 +210,8 @@ function resolveSlot(key: string, ctx: DeedCtx, corpus: AutonomyCorpus, rng: () 
 function tidy(s: string): string {
   return s
     .replace(/「」/g, '')
+    .replace(/「\s*·\s*/g, '「')
+    .replace(/\s*·\s*」/g, '」')
     .replace(/（\s*级）/g, '')
     .replace(/\s{2,}/g, ' ')
     .replace(/，{2,}/g, '，')
