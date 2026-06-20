@@ -74,7 +74,7 @@ import {
 import { useState, useRef, useEffect, lazy, Suspense } from 'react';
 import { useGame } from './store/gameStore';
 import { useSettings, resolveApiChain } from './store/settingsStore';
-import { apiChatFallback } from './systems/apiChat';
+import { apiChatFallback, fetchWithProxy } from './systems/apiChat';
 import { parseAllStateUpdates, stripStateBlocks, parseAllItemCommands, applyItemCommands, parseAllCharCommands, applyCharacterCommands, parseAllNpcCommands, applyNpcCommands, parseAllFactionCommands, applyFactionCommands, applyTerritoryCommands, applyTeamCommands, isEquippable, lenientJsonParse } from './systems/stateParser';
 import { isRealNpc, sanitizeEntryName, stripLeakedThinking, setNpcPreferredOwners, applyStateUpdates, applyAllUpdates, stripKillBlocks, stripVitalsBlocks, stripWorldSourceBlocks, collapseRunaway } from './systems/stateApply';
 import { flattenAiText } from './systems/flattenAiText';
@@ -854,6 +854,7 @@ export default function App() {
   const illustClickTimer = useRef<number | null>(null);   // 正文配图单击/双击消歧：单击延时开灯箱，双击则取消并重生成
   const storyRegenBusy = useRef<Set<string>>(new Set());  // 正文配图重生成防连点（key=msgId:idx）
   const autoSaveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const lastAutoSaveTurn = useRef(-1);   // 本回合是否已自动存过：防同回合内(生图/选项等异步改 messages 反复触发定时器)重复自动存、刷出多份🛟备份
   const abortRef = useRef<AbortController | null>(null);   // 正文生成中止控制器（停止生成用）
   const [canUndo, setCanUndo] = useState(false);           // 是否有可回退的上一回合
   const [confirmAction, setConfirmAction] = useState<null | { title: string; desc: string; run: () => void }>(null); // 回退/重新生成的确认弹窗
@@ -989,7 +990,11 @@ export default function App() {
       captureTurnSnapshot();   // 回合洞察快照(轻量·非存档)始终抓，与自动存档开关无关
       // 自动存档：受设置「自动存档总开关 + 每N回合」控制；关掉/未到频率则不写自动档（省内存·防大档撑爆）。手动「新建/覆盖存档」不受影响。
       const st = useSettings.getState();
-      if (st.autoSaveEnabled !== false && turnCountRef.current % Math.max(1, st.autoSaveEvery || 1) === 0) {
+      const t = turnCountRef.current;
+      // 同一回合只自动存一次：生图/选项/同人等异步会在回合结束后陆续改 messages，每次都重排这个定时器并再次触发，
+      // 不设这道闸就会一回合刷出好几份🛟自动备份。改用「本回合已存过就跳过」，每回合至多一份。
+      if (st.autoSaveEnabled !== false && lastAutoSaveTurn.current !== t && t % Math.max(1, st.autoSaveEvery || 1) === 0) {
+        lastAutoSaveTurn.current = t;
         void autoSaveSlot(messagesRef.current);
       }
     }, 20000);
@@ -5965,7 +5970,7 @@ ${lines}`;
         if ((preset?.seed ?? -1) !== -1)             reqBody.seed              = preset!.seed;
         if ((preset?.n ?? 1) > 1)                    reqBody.n                 = preset!.n;
         try {
-          const r = await fetch(ep.baseUrl.replace(/\/$/, '') + '/chat/completions', {
+          const r = await fetchWithProxy(ep.baseUrl.replace(/\/$/, '') + '/chat/completions', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${ep.apiKey}` },
             body: JSON.stringify(reqBody),
