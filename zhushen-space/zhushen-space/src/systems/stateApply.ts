@@ -39,6 +39,38 @@ export function stripLeakedThinking(text: string): string {
     .trimStart();
 }
 
+/* 两段式渲染·保护结构化信息块：把「时间结算块 / 【…】状态块·任务块」等替换成 〔§N〕 占位符，
+   只把它们之间的【正文】送去渲染遍，渲染完用 restoreProtectedBlocks 原样拼回（块逐字不变，避免渲染模型把状态栏/任务块"洗"掉）。
+   判定：以 `【` 或 `时间结算` 开头的一行起，收到下一个空行为止，整段视为一个受保护块（含其下的 HP/数量等内容行）。 */
+export function maskProtectedBlocks(text: string): { masked: string; blocks: string[] } {
+  const lines = (text ?? '').split('\n');
+  const blocks: string[] = [];
+  const out: string[] = [];
+  let i = 0;
+  while (i < lines.length) {
+    if (/^\s*(?:【|〖|时间结算)/.test(lines[i])) {
+      const start = i;
+      while (i < lines.length && lines[i].trim() !== '') i++;   // 收到下一个空行（或文末）为止
+      out.push(`〔§${blocks.length}〕`);
+      blocks.push(lines.slice(start, i).join('\n'));
+    } else {
+      out.push(lines[i]); i++;
+    }
+  }
+  return { masked: out.join('\n'), blocks };
+}
+
+/* 还原：把 〔§N〕 占位符换回原块（逐字）；渲染模型若漏掉某个占位符，则把该块补回开头，确保信息不丢。 */
+export function restoreProtectedBlocks(rendered: string, blocks: string[], prependDropped = true): string {
+  if (!blocks.length) return rendered;
+  let out = rendered;
+  blocks.forEach((b, n) => { out = out.split(`〔§${n}〕`).join(b); });
+  // 流式中途(prependDropped=false)：只替换已出现的占位符，未出现的块别补到开头（它们还在流的路上，会自然到来）
+  if (!prependDropped) return out;
+  const dropped = blocks.filter((_, n) => !rendered.includes(`〔§${n}〕`));
+  return dropped.length ? dropped.join('\n\n') + '\n\n' + out.trimStart() : out;
+}
+
 /* 主角「属性成长信号」——正文里出现 ①某属性/实力词＋成长词(近邻)、②突破/晋阶到更高阶位、或 ③显式数值加成，
    才算"原文写了属性提升"。用于挡住「正文根本没写属性成长、演化阶段却自行给主角加六维」的乱加：无信号一律不许上调。
    宁可漏判(真成长偶尔被挡，交由提示词把关)也不在毫无成长描写时纵容——与"忠于原文"诉求一致。 */

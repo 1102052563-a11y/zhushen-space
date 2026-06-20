@@ -18,9 +18,10 @@ export const SLOT_DEFS: SlotDef[] = [
   { key: 'weapon:off1',  label: '副武器1', icon: '🗡',  group: 'weapon',    allowedCats: ['武器', '饰品', '特殊物品', '法宝'] },
   { key: 'weapon:off2',  label: '副武器2', icon: '🗡',  group: 'weapon',    allowedCats: ['武器', '饰品', '特殊物品', '法宝'] },
   { key: 'weapon:off3',  label: '副武器3', icon: '🗡',  group: 'weapon',    allowedCats: ['武器', '饰品', '特殊物品', '法宝'] },
-  // ── 防具 8槽 ──
+  // ── 防具 9槽 ──
   { key: 'armor:head',     label: '头部',   icon: '⛑',  group: 'armor',     allowedCats: ['防具'] },
-  { key: 'armor:upper',    label: '上装',   icon: '🛡',  group: 'armor',     allowedCats: ['防具'] },
+  { key: 'armor:upper',    label: '外衣',   icon: '🧥',  group: 'armor',     allowedCats: ['防具'] },
+  { key: 'armor:inner',    label: '内衬',   icon: '👕',  group: 'armor',     allowedCats: ['防具'] },
   { key: 'armor:lower',    label: '下装',   icon: '🩱',  group: 'armor',     allowedCats: ['防具'] },
   { key: 'armor:feet',     label: '鞋子',   icon: '👢',  group: 'armor',     allowedCats: ['防具'] },
   { key: 'armor:hands',    label: '手部',   icon: '🧤',  group: 'armor',     allowedCats: ['防具'] },
@@ -63,7 +64,8 @@ export function normalizeEquipSlot(raw?: string, category?: string): string {
     if (grp === 'armor') {
       const m: Record<string, string> = {
         head: 'armor:head', helmet: 'armor:head', hat: 'armor:head', cap: 'armor:head',
-        upper: 'armor:upper', armor: 'armor:upper', body: 'armor:upper', chest: 'armor:upper', torso: 'armor:upper', robe: 'armor:upper', top: 'armor:upper', coat: 'armor:upper',
+        upper: 'armor:upper', outer: 'armor:upper', armor: 'armor:upper', body: 'armor:upper', chest: 'armor:upper', torso: 'armor:upper', robe: 'armor:upper', top: 'armor:upper', coat: 'armor:upper', jacket: 'armor:upper', overcoat: 'armor:upper', mantle: 'armor:upper',
+        inner: 'armor:inner', lining: 'armor:inner', undershirt: 'armor:inner', undergarment: 'armor:inner', underclothes: 'armor:inner', baselayer: 'armor:inner', underlayer: 'armor:inner',
         lower: 'armor:lower', legs: 'armor:lower', leg: 'armor:lower', pants: 'armor:lower', bottom: 'armor:lower', skirt: 'armor:lower',
         feet: 'armor:feet', foot: 'armor:feet', boots: 'armor:feet', boot: 'armor:feet', shoes: 'armor:feet', shoe: 'armor:feet',
         hands: 'armor:hands', hand: 'armor:hands', gloves: 'armor:hands', glove: 'armor:hands', gauntlet: 'armor:hands',
@@ -96,7 +98,8 @@ function inferArmorSlot(name: string): string | null {
   if (/(肩甲|护肩|披风|斗篷|肩)/.test(n)) return 'armor:shoulder';
   if (/(腰带|腰封|护腰|腰)/.test(n)) return 'armor:belt';
   if (/(裤|下装|护腿|腿甲|战裙|胫甲|裙甲)/.test(n)) return 'armor:lower';
-  if (/(战服|战甲|胸甲|铠甲|护甲|盔甲|上衣|上装|外套|大衣|风衣|长袍|道袍|袍|衣|甲|马甲|背心|罩袍|躯干|防护服|作战服|制服|胸)/.test(n)) return 'armor:upper';
+  if (/(内衬|衬衣|衬衫|衬甲|中衣|亵衣|里衣|内衫|内搭|打底衫|汗衫|贴身衣)/.test(n)) return 'armor:inner';   // 内层衬衣；放 lower 之后让「打底裤」仍归下装、放 upper 之前优先于通用「衣/甲」
+  if (/(战服|战甲|胸甲|铠甲|护甲|盔甲|上衣|上装|外衣|外套|大衣|风衣|长袍|道袍|袍|衣|甲|马甲|背心|罩袍|躯干|防护服|作战服|制服|胸)/.test(n)) return 'armor:upper';
   return null;
 }
 

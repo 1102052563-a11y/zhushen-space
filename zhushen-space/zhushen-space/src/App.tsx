@@ -5528,12 +5528,18 @@ ${lines}`;
     ];
     if (skipNarrativeThinking) msgs.push({ role: 'assistant', content: '</think>' });   // 渲染遍跳过原生思维链
     try {
-      const { content } = await apiChatFallback(chain, msgs, { timeoutMs: 120000 });
+      const { content } = await apiChatFallback(chain, msgs, {
+        timeoutMs: 120000,
+        onDelta: (acc) => {   // 逐字流式：边收边显（中途只替换已到的占位符，未到的块先不补到开头）
+          const partial = restoreProtectedBlocks(stripLeakedThinking(acc), blocks, false).trimStart();
+          if (partial) setMessages((prev) => prev.map((m) => (m.id === msgId ? { ...m, content: partial } : m)));
+        },
+      });
       const clean = stripLeakedThinking(content || '').trim();
       if (!clean) { console.warn('[渲染] 渲染遍返回空，保留结算原文'); return ''; }
-      const restored = restoreProtectedBlocks(clean, blocks);   // 状态栏/任务块逐字拼回，渲染只动正文
+      const restored = restoreProtectedBlocks(clean, blocks);   // 定稿：状态栏/任务块逐字拼回（漏掉的补回开头）
       setMessages((prev) => prev.map((m) => (m.id === msgId ? { ...m, content: restored } : m)));
-      console.log(`[渲染] 渲染遍完成（正文 ${clean.length} 字 + 保护块 ${blocks.length} 个），已替换显示（结算原文见「查看原始响应」）`);
+      console.log(`[渲染] 渲染遍完成（正文 ${clean.length} 字 + 保护块 ${blocks.length} 个），逐字流式（结算原文见「查看原始响应」）`);
       return restored;
     } catch (e) {
       console.warn('[渲染] 渲染遍失败，保留结算原文：', e);
@@ -5846,7 +5852,7 @@ ${lines}`;
         if (twoPassRender && !aborted) {
           const rendered = await runRenderPass(userText, finalDisplayed, streamMsgId);
           if (rendered) { displayOut = rendered; if (fullMode) evoNarrative = rendered; }   // 完整模式：结算遍无正文，演化改读渲染版正文
-          else if (fullMode) {   // 完整模式·渲染失败兜底：把结算包显示出来，别卡在占位
+          else {   // 渲染失败/空：恢复显示结算内容（spike=正文 / 完整=结算包），清掉流式残留的半截
             setMessages((prev) => prev.map((m) => m.id === streamMsgId ? { ...m, content: finalDisplayed } : m));
           }
         }
@@ -5881,7 +5887,7 @@ ${lines}`;
         if (twoPassRender) {
           const rendered = await runRenderPass(userText, processed, newMsgId);
           if (rendered) { displayOut = rendered; if (fullMode) evoNarrative = rendered; }   // 完整模式：演化改读渲染版正文
-          else if (fullMode) {   // 渲染失败兜底：显示结算包
+          else {   // 渲染失败/空：恢复显示结算内容，清掉流式残留的半截
             setMessages((prev) => prev.map((m) => m.id === newMsgId ? { ...m, content: processed } : m));
           }
         }

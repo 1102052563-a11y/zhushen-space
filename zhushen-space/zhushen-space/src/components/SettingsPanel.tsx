@@ -1389,6 +1389,9 @@ function TextApiSection() {
   const textUseSharedApi   = useSettings((s) => s.textUseSharedApi);
   const textStream         = useSettings((s) => s.textStream);
   const skipNarrativeThinking = useSettings((s) => s.skipNarrativeThinking);
+  const twoPassRender      = useSettings((s) => s.twoPassRender);
+  const renderPassPrompt   = useSettings((s) => s.renderPassPrompt);
+  const twoPassFull        = useSettings((s) => s.twoPassFull);
   const textAvailableModels= useSettings((s) => s.textAvailableModels);
   const textModelsLoading  = useSettings((s) => s.textModelsLoading);
   const textModelsError    = useSettings((s) => s.textModelsError);
@@ -1396,6 +1399,9 @@ function TextApiSection() {
   const setTextUseSharedApi= useSettings((s) => s.setTextUseSharedApi);
   const setTextStream      = useSettings((s) => s.setTextStream);
   const setSkipNarrativeThinking = useSettings((s) => s.setSkipNarrativeThinking);
+  const setTwoPassRender   = useSettings((s) => s.setTwoPassRender);
+  const setRenderPassPrompt= useSettings((s) => s.setRenderPassPrompt);
+  const setTwoPassFull     = useSettings((s) => s.setTwoPassFull);
   const fetchTextModels    = useSettings((s) => s.fetchTextModels);
   const plotChoices        = useSettings((s) => s.plotChoices);
   const setPlotChoices     = useSettings((s) => s.setPlotChoices);
@@ -1433,6 +1439,13 @@ function TextApiSection() {
           <div>
             <div className="text-sm text-slate-200">跳过正文思维链（提速·思考模型）</div>
             <div className="text-sm text-dim mt-0.5">在正文请求末尾预填充 <code>&lt;/think&gt;</code>，让思考模型跳过原生思维链直接出正文——更快首字节、更省 token。只影响正文渲染，不碰各演化阶段的推理；并自动剥除泄漏进正文的思维链。默认关；若你的接口不支持「助手预填充」可关掉。</div>
+          </div>
+        </div>
+        <div className="flex items-center gap-3 p-3 bg-panel border border-edge rounded-lg">
+          <Toggle checked={twoPassRender} onChange={() => setTwoPassRender(!twoPassRender)} />
+          <div>
+            <div className="text-sm text-slate-200">两段式渲染（实验 · 提升文笔）</div>
+            <div className="text-sm text-dim mt-0.5">开启后：结算遍照常出正文+结算（state/演化照旧），再<b>单独跑一遍「渲染」</b>把它重写成更干净沉浸的正文给你看；结算原文仍可在「查看原始响应」对比。<b className="text-amber-400/90">每回合 +1 次调用</b>（可在下方挂独立 render 路由/便宜模型，并复用上面的跳思维链）。失败/超时自动回退结算原文，不挡路。默认关。</div>
           </div>
         </div>
         <div className="flex items-center gap-3 p-3 bg-panel border border-edge rounded-lg">
@@ -1478,6 +1491,42 @@ function TextApiSection() {
           <div className="text-sm text-slate-200">选项 / 同人 / 事实 · 共用 API 路由</div>
           <div className="text-xs text-dim">三者共用同一接口、正文生成后只调用一次。留空则复用上面的「正文 API」。</div>
           <ApiRoutePicker routeKey="plot" />
+        </div>
+      )}
+
+      {twoPassRender && (
+        <div className="p-3 bg-panel border border-violet-700/40 rounded-lg space-y-3">
+          <div className="text-sm text-slate-200">两段式渲染 · 配置</div>
+          <div className="space-y-1.5">
+            <div className="text-sm text-slate-200">模式</div>
+            <div className="flex flex-wrap gap-1.5">
+              {([['polish', '润色（结算遍照写正文，渲染润色）'], ['full', '完整（结算遍只出结算包，渲染从零写正文）']] as const).map(([val, label]) => {
+                const active = (val === 'full') === twoPassFull;
+                return (
+                  <button key={val} onClick={() => setTwoPassFull(val === 'full')}
+                    className={`px-3 py-1.5 rounded-md text-sm border transition ${active ? 'bg-violet-900/40 text-violet-200 border-violet-600/50' : 'bg-black/20 text-dim border-edge hover:text-slate-200'}`}>
+                    {label}
+                  </button>
+                );
+              })}
+            </div>
+            <div className="text-xs text-dim">{twoPassFull
+              ? '完整：结算遍（text 路由·建议挂 Pro 强模型）只判定剧情、出 <结算包>+状态块、不写正文；渲染遍（render 路由·可挂便宜 prose 模型）据结算包从零写正文。文笔天花板更高、结算遍更省 token；结算包不写文采但要点说全。'
+              : '润色：结算遍照常写完整正文，渲染遍只在其上润色（你已测过的那版）。'}</div>
+          </div>
+          <div className="text-xs text-dim">「渲染遍」专用接口路由：建议挂一条<b>文笔强/便宜</b>的模型（纪律交给结算遍）。<b>留空则复用上面的「正文 API」</b>。</div>
+          <ApiRoutePicker routeKey="render" />
+          <div className="space-y-1.5">
+            <div className="text-sm text-slate-200">渲染遍提示词（自定义）</div>
+            <div className="text-xs text-dim">留空 = 用内置默认（只渲染不改情节、纯正文、禁指令/分割线/交付语）。想自己调渲染口吻/篇幅就写在这里。</div>
+            <textarea
+              value={renderPassPrompt}
+              onChange={(e) => setRenderPassPrompt(e.target.value)}
+              rows={4}
+              placeholder="（留空用内置默认渲染提示词）"
+              className="w-full px-3 py-2 bg-black/30 border border-edge rounded-md text-sm text-slate-200 placeholder:text-dim/40 font-mono resize-y focus:border-violet-600/50 focus:outline-none"
+            />
+          </div>
         </div>
       )}
 

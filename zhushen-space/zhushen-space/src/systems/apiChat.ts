@@ -10,7 +10,7 @@ import { acquireApiSlot } from './apiThrottle';
 export async function apiChatFallback(
   chain: ApiConfig[],
   messages: { role: string; content: string }[],
-  opts?: { timeoutMs?: number; extra?: Record<string, unknown> },
+  opts?: { timeoutMs?: number; extra?: Record<string, unknown>; onDelta?: (accumulated: string) => void },
 ): Promise<{ content: string; api: ApiConfig }> {
   const usable = (chain ?? []).filter((a) => a && a.baseUrl && a.apiKey);
   if (usable.length === 0) throw new Error('无可用 API 接口（请在功能 API 设置选择接口库接口，或填写单独配置）');
@@ -47,7 +47,7 @@ export async function apiChatFallback(
           throw new Error(`HTTP ${res.status}${errBody ? ' · ' + errBody.replace(/\s+/g, ' ').slice(0, 200) : ''}`);
         }
         bump();   // 已收到响应头 = 有进展，给正文读取一个新的空闲窗口
-        const content = await readChatContent(res, api, bump);   // 每收到一块流数据就 bump()，重置空闲超时
+        const content = await readChatContent(res, api, bump, opts?.onDelta);   // 每收到一块流数据就 bump() + 回调增量内容（供流式展示）
         cleanup();
         return { content, api };
       } catch (e) {
@@ -67,7 +67,7 @@ export async function apiChatFallback(
    - 流式 SSE：getReader 逐块读，取每个 data: 行的 choices[0].delta.content 累积（与正文 callApi 一致）；
    - 一次性 JSON：取 choices[0].message.content；
    两种都兼容；空内容/204 给清晰报错。 */
-async function readChatContent(res: Response, api: ApiConfig, onProgress?: () => void): Promise<string> {
+async function readChatContent(res: Response, api: ApiConfig, onProgress?: () => void, onDelta?: (acc: string) => void): Promise<string> {
   const ctype = (res.headers.get('content-type') || '').toLowerCase();
 
   // 明确是一次性 JSON（接口忽略了 stream）
@@ -93,6 +93,7 @@ async function readChatContent(res: Response, api: ApiConfig, onProgress?: () =>
     const lines = buffer.split('\n');
     buffer = lines.pop() ?? '';        // 末行可能不完整，留到下次
     for (const line of lines) { acc += sseLineDelta(line); accR += sseLineReasoning(line); }
+    if (acc) onDelta?.(acc);   // 增量回调：供调用方做流式展示（背景调用不传 onDelta 则无开销）
   }
   acc += sseLineDelta(buffer); accR += sseLineReasoning(buffer);   // flush 末尾残留
   if (acc.trim()) return acc;

@@ -28,7 +28,8 @@ function normalizeSlot(raw: string, category: string): string | null {
   if (grp === 'armor') {
     const m: Record<string, string> = {
       head: 'armor:head', helmet: 'armor:head',
-      upper: 'armor:upper', armor: 'armor:upper', body: 'armor:upper', chest: 'armor:upper', torso: 'armor:upper', robe: 'armor:upper',
+      upper: 'armor:upper', outer: 'armor:upper', armor: 'armor:upper', body: 'armor:upper', chest: 'armor:upper', torso: 'armor:upper', robe: 'armor:upper', jacket: 'armor:upper', coat: 'armor:upper',
+      inner: 'armor:inner', lining: 'armor:inner', undershirt: 'armor:inner', undergarment: 'armor:inner', baselayer: 'armor:inner',
       lower: 'armor:lower', legs: 'armor:lower', leg: 'armor:lower', pants: 'armor:lower',
       feet: 'armor:feet', foot: 'armor:feet', boots: 'armor:feet', shoes: 'armor:feet',
       hands: 'armor:hands', hand: 'armor:hands', gloves: 'armor:hands',
