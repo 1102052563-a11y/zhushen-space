@@ -254,7 +254,7 @@ export function generateRaidBoss(
    每场 encounter 复用 generateRaidBoss + 现有联机战斗；副本进度由房主权威、relay 广播。
    （原创设计，以 DNF 巴卡尔团本机制为蓝本重写，非搬运其素材/文案。）
 ════════════════════════════════════════════ */
-export type EncounterKind = 'dragon' | 'boss';
+export type EncounterKind = 'dragon' | 'side' | 'boss';   // dragon=必打子目标(gate本体)/side=可选侧目标(压计时·不gate)/boss=本体
 export interface RaidEncounter {
   id: string;                 // 'ice' | 'poison' | 'stun' | 'bakal'
   kind: EncounterKind;
@@ -318,6 +318,11 @@ const ANTON_SUB: { id: string; name: string; emoji: string; archetype: string; n
   { id: 'leg2',   name: '擎天之柱·右柱', emoji: '🗼', archetype: 'antonpillar', note: '破防·削腿', intro: '擎天之柱·右柱轰然挡路——破其防、削安图恩一条腿！' },
   { id: 'energy', name: '能量核心·阻截', emoji: '⚡', archetype: 'antonenergy', note: '压能量条', intro: '能量核心高速运转——阻截它，压低安图恩的能量！' },
 ];
+/* 安图恩可选侧目标：不 gate 本体，清了大幅压黑雾、跳过则黑雾涨更快（自选并行·跳过有代价） */
+const ANTON_SIDE: { id: string; name: string; emoji: string; archetype: string; note: string; intro: string }[] = [
+  { id: 'quake',  name: '震颤大地',   emoji: '🌋', archetype: 'antonpillar', note: '可选·清了压黑雾', intro: '震颤大地翻涌不息——清剿它，平息黑雾涌动！' },
+  { id: 'cannon', name: '舰炮防御战', emoji: '💣', archetype: 'antonenergy', note: '可选·清了压黑雾', intro: '异面舰炮锁定全场——摧毁它，阻断黑雾喷涌！' },
+];
 
 /* 生成「安图恩攻坚战」副本：三子目标（选定难度）+ 巨型安图恩（难度+1档·更猛）。partyTier 传有效阶位防碾压。 */
 export function generateAntonDungeon(
@@ -331,6 +336,10 @@ export function generateAntonDungeon(
     const b = generateRaidBoss(difficulty, { ...opts, name: e.name, emoji: e.emoji, affixes: e.id.startsWith('leg') ? ['tough'] : ['shield', 'enrage'], archetype: e.archetype, intro: e.intro });
     if (e.id.startsWith('leg')) b.breakArmor = Math.round(b.maxHp * 0.25);   // 擎天之柱：破核破防（无敌→破甲→破防窗口）；能量核心不破防、走压条
     return { id: e.id, kind: 'dragon' as EncounterKind, name: e.name, emoji: e.emoji, note: e.note, boss: b, status: 'pending' as const };
+  });
+  ANTON_SIDE.forEach((e) => {   // 可选侧目标（kind 'side'·不 gate 本体）
+    const b = generateRaidBoss(difficulty, { ...opts, name: e.name, emoji: e.emoji, affixes: ['enrage'], archetype: e.archetype, intro: e.intro });
+    encounters.push({ id: e.id, kind: 'side' as EncounterKind, name: e.name, emoji: e.emoji, note: e.note, boss: b, status: 'pending' });
   });
   const antonBoss = generateRaidBoss(bossDiff, { ...opts, name: '巨型安图恩', emoji: '🤖', affixes: ['enrage', 'tough', 'regen'], archetype: 'anton', intro: '黑色火山喷发——巨型安图恩自异面降临，黑雾遮天蔽日！' });
   antonBoss.breakArmor = Math.round(antonBoss.maxHp * 0.25);   // 巨型安图恩：破核破防

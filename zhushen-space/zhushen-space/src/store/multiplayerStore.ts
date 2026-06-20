@@ -21,7 +21,7 @@ export interface MpHandlers {
   onStartRaid?: (boss: any) => void;  // 房主：开战组队讨伐 BOSS
   onRaidTally?: () => void;           // 房主：结算讨伐战利 ROLL 分配
   onGenRaidBoss?: (opts: { theme: string; difficulty: string }) => void;  // 房主：AI 现生 BOSS
-  onStartDungeon?: (opts: { difficulty: string }) => void;  // 房主：生成并开启巴卡尔攻坚战副本
+  onStartDungeon?: (opts: { difficulty: string; kind?: string }) => void;  // 房主：生成并开启副本（巴卡尔/安图恩，kind 区分）
   onStartDungeonEncounter?: (encId: string) => void;        // 房主：开打副本中某一场（子龙/龙王）
   onCombat?: (payload: any) => void;       // 来宾：收到房主广播的战斗快照 → 渲染观战
   onCombatAction?: (payload: any) => void; // 房主：收到来宾的战斗出手 → 结算

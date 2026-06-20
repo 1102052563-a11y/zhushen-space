@@ -134,15 +134,18 @@ export const UNDO_ID = 'undo-point';
 export const AUTOSNAP_PREFIX = 'autosnap_';
 export const AUTOSNAP_KEEP = 5;
 export async function autoSaveSlot(messages: any[]): Promise<void> {
-  try { await saveSlot(AUTOSAVE_ID, '⏱ 自动存档', messages); } catch (e) { console.warn('[Save] 自动存档失败:', e); }
-  // 滚动备份(轻量·不含图)：留最近 N 份，超出删最旧
+  // 自动存档**不含图片**：图片同设备由 imageDb 现存回填(读档不带图则不动 imageDb)，自动档每回合带图会膨胀到几十 MB×多档→撑爆内存。
+  // 跨设备/备份用「手动新建存档」(仍带图)。
+  try { await saveSlot(AUTOSAVE_ID, '⏱ 自动存档', messages, false); } catch (e) { console.warn('[Save] 自动存档失败:', e); }
+  // 滚动备份(轻量·不含图)：留最近 N 份，超出删最旧。
+  // 裁剪只读**主键**(saveDb.keys，零数据加载)——绝不能用 all() 逐回合把所有大存档载入内存(那正是页面崩溃的元凶)。
   try {
     const now = Date.now();
     await saveSlot(`${AUTOSNAP_PREFIX}${now}`, `🛟 自动备份 ${new Date(now).toLocaleString('zh-CN', { hour12: false })}`, messages, false);
-    const snaps = (await saveDb.all<SaveSlot>())
-      .filter((s) => typeof s.id === 'string' && s.id.startsWith(AUTOSNAP_PREFIX))
-      .sort((a, b) => b.updatedAt - a.updatedAt);
-    for (const old of snaps.slice(AUTOSNAP_KEEP)) { try { await saveDb.del(old.id); } catch { /* 删旧备份失败忽略 */ } }
+    const snapKeys = ((await saveDb.keys()) as IDBValidKey[])
+      .filter((k): k is string => typeof k === 'string' && k.startsWith(AUTOSNAP_PREFIX))
+      .sort();   // 键 = autosnap_<13位时间戳>，等长→字符串序即时间序(升序：旧→新)
+    for (const old of snapKeys.slice(0, Math.max(0, snapKeys.length - AUTOSNAP_KEEP))) { try { await saveDb.del(old); } catch { /* 删旧备份失败忽略 */ } }
   } catch (e) { console.warn('[Save] 滚动备份失败:', e); }
   // 主角镜像兜底(随回合更新；仅 B1 非空时写)
   try { writeB1Mirror(); } catch { /* */ }
@@ -322,10 +325,10 @@ export async function clearProgress(): Promise<void> {
   // 残留向量不会污染任何档（召回只在当前档事实池内 cosine）。想回收空间用设置→向量记忆的「清空向量库」按钮。
   await replaceChat([]);           // 对话历史
   try { clearB1Mirror(); } catch (e) { logWarn('clearProgress:b1mirror', e); }   // 主角镜像兜底：新游戏清掉，避免误把上一局主角补进空白新档
-  // 滚动自动备份：新游戏清掉上一局的所有轻量备份（属"进度"，不该带进新局）
+  // 滚动自动备份：新游戏清掉上一局的所有轻量备份（属"进度"，不该带进新局）。只读主键、不载入数据。
   try {
-    const snaps = (await saveDb.all<SaveSlot>()).filter((s) => typeof s.id === 'string' && s.id.startsWith(AUTOSNAP_PREFIX));
-    for (const s of snaps) { try { await saveDb.del(s.id); } catch { /* */ } }
+    const snapKeys = ((await saveDb.keys()) as IDBValidKey[]).filter((k): k is string => typeof k === 'string' && k.startsWith(AUTOSNAP_PREFIX));
+    for (const k of snapKeys) { try { await saveDb.del(k); } catch { /* */ } }
   } catch (e) { logWarn('clearProgress:autosnap', e); }
   // 删除上一局的内部「回退点」固定槽：否则新开局第一回合失败后点「重新生成/回退」，
   // 会载入仍残留的上一局回退点 → 瞬间跳回另一局的中断处重发。
