@@ -1,6 +1,6 @@
 import { useRef, useState } from 'react';
 import { useSettings, endpointToConfig, type WorldBook, type WorldBookEntry, type TextGenPreset, type STPromptEntry, type RegexScript, type ApiEndpoint } from '../store/settingsStore';
-import { apiChatFallback } from '../systems/apiChat';
+import { apiChatFallback, fetchWithProxy } from '../systems/apiChat';
 import VariableManager from './VariableManager';
 import ApiRoutePicker from './ApiRoutePicker';
 import ItemManager from './ItemManager';
@@ -2148,7 +2148,7 @@ function ApiLibrarySection() {
     if (!ep.baseUrl || !ep.apiKey) { setErrById((p) => ({ ...p, [ep.id]: '请先填写地址和 Key' })); return; }
     setLoadingId(ep.id); setErrById((p) => ({ ...p, [ep.id]: '' }));
     try {
-      const res = await fetch(ep.baseUrl.replace(/\/$/, '') + '/models', { headers: { Authorization: `Bearer ${ep.apiKey}` } });
+      const res = await fetchWithProxy(ep.baseUrl.replace(/\/$/, '') + '/models', { headers: { Authorization: `Bearer ${ep.apiKey}` } });
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const json = await res.json();
       const list = (json.data ?? json.models ?? []).map((m: any) => m.id ?? m.name ?? '').filter(Boolean).sort();

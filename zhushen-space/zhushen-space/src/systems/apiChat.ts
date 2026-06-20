@@ -2,6 +2,19 @@ import type { ApiConfig } from '../store/settingsStore';
 import { useSettings } from '../store/settingsStore';
 import { acquireApiSlot } from './apiThrottle';
 
+// 网关通用代理地址（仿 SillyTavern 后端转发）
+export const GW_PROXY = 'https://zhushen-multiplayer.1102052563.workers.dev/api/gw/proxy';
+/** 先直连中转；若因 SSL / CORS / 混合内容失败（fetch throw），自动改走网关代理服务端转发再试一次。
+ *  傻瓜化：用户只管粘地址，http/裸IP/无CORS 的公网中转会被自动救活；localhost 中转代理够不着、不重试。 */
+export async function fetchWithProxy(url: string, init?: RequestInit): Promise<Response> {
+  try {
+    return await fetch(url, init);
+  } catch (e) {
+    if (/localhost|127\.0\.0\.1/i.test(url) || url.includes('/api/gw/')) throw e;   // 本地中转/已是网关 → 不重试
+    return await fetch(`${GW_PROXY}?url=${encodeURIComponent(url)}`, init);
+  }
+}
+
 /* 多接口轮流调用 + 失败 fallback 的 chat completion（供收尾/吐槽/NPC/物品演化/骰子 等非正文功能用）。
    ⚠ 统一带 stream:true——很多中转站/「假流式」模型对**非流式**请求直接回 204 空体；与正文生成 callApi 的逻辑保持一致。
    响应：流式 SSE（data:{delta}）逐块读取、累积成整段返回（背景调用要完整内容，不做增量展示）；
@@ -35,7 +48,7 @@ export async function apiChatFallback(
       const cleanup = () => { if (idleTimer) clearTimeout(idleTimer); if (hardTimer) clearTimeout(hardTimer); };
       bump();   // 起始：覆盖连接 + 首字延迟
       try {
-        const res = await fetch(api.baseUrl.replace(/\/$/, '') + '/chat/completions', {
+        const res = await fetchWithProxy(api.baseUrl.replace(/\/$/, '') + '/chat/completions', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${api.apiKey}` },
           body: JSON.stringify(body),
