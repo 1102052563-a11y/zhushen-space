@@ -15,6 +15,8 @@ import {
   PLAYER_COT_RULE,
   NPC_COT_RULE,
   NPC_SELF_NARRATION_RULE,
+  RENDER_PASS_RULE,
+  SETTLEMENT_PACKET_RULE,
   ENTRY_COT_RULE,
   ENTRY_NAME_CN_RULE,
   ENTRY_DEDUP_RULE,
@@ -75,7 +77,7 @@ import { useGame } from './store/gameStore';
 import { useSettings, resolveApiChain } from './store/settingsStore';
 import { apiChatFallback } from './systems/apiChat';
 import { parseAllStateUpdates, stripStateBlocks, parseAllItemCommands, applyItemCommands, parseAllCharCommands, applyCharacterCommands, parseAllNpcCommands, applyNpcCommands, parseAllFactionCommands, applyFactionCommands, applyTerritoryCommands, applyTeamCommands, isEquippable, lenientJsonParse } from './systems/stateParser';
-import { isRealNpc, sanitizeEntryName, stripLeakedThinking, setNpcPreferredOwners, applyStateUpdates, applyAllUpdates, stripKillBlocks, stripVitalsBlocks, stripWorldSourceBlocks, collapseRunaway } from './systems/stateApply';
+import { isRealNpc, sanitizeEntryName, stripLeakedThinking, maskProtectedBlocks, restoreProtectedBlocks, setNpcPreferredOwners, applyStateUpdates, applyAllUpdates, stripKillBlocks, stripVitalsBlocks, stripWorldSourceBlocks, collapseRunaway } from './systems/stateApply';
 import { flattenAiText } from './systems/flattenAiText';
 import { runPhasePipeline, type Phase } from './systems/phasePipeline';
 import { buildFanficInjection, buildFactInjection, buildCosmosInjection, buildPlayerCoreInjection, buildWorldTimeInjection, buildQuestInjection } from './systems/promptInjections';
@@ -655,6 +657,9 @@ export default function App() {
   const activePresetId   = useSettings((s) => s.activeTextPresetId);
   const textStream           = useSettings((s) => s.textStream);
   const skipNarrativeThinking = useSettings((s) => s.skipNarrativeThinking);
+  const twoPassRender        = useSettings((s) => s.twoPassRender);
+  const renderPassPrompt     = useSettings((s) => s.renderPassPrompt);
+  const twoPassFull          = useSettings((s) => s.twoPassFull);
   const globalRegexScripts   = useSettings((s) => s.globalRegexScripts);
 
   // 物品管理 + 主角演化：回合计数 + 阶段状态 + 最近正文缓存
@@ -1009,9 +1014,12 @@ export default function App() {
       if (loaded.length) {
         setMessages(loaded as any);
         msgId.current = loaded.reduce((mx, x) => Math.max(mx, x.id ?? 0), 0);
-        // 回合数按已有用户消息数恢复——否则刷新/读档后 turnCount 归0，与持久化的 lastSeenTurn/lastRefreshTurn 等错位（回合数"乱"）
-        turnCountRef.current = (loaded as any[]).filter((m) => m.role === 'user').length;
       }
+      // 回合数：以持久化「累计总回合数」(miscStore.turnCount，每次发送+1·跨任务世界/刷新/读档都不归零) 为准；
+      // 与对话里的用户消息数取较大值，兼容无此字段的旧档。**进入世界会清空对话**，若仍按"对话用户消息数"会被重置成
+      // 新世界的局部回合数——这正是"回合数进世界就归零"的根因；改用持久化累计值后不再归零。
+      turnCountRef.current = Math.max(useMisc.getState().turnCount ?? 0, (loaded as any[]).filter((m) => m.role === 'user').length);
+      try { useMisc.getState().setTurnCount(turnCountRef.current); } catch { /* 回填持久化累计回合数：旧档迁移 + 与存档预览口径一致 */ }
       chatHydrated.current = true;
       try { useCharacters.getState().dedupeIds(); } catch { /* 修复历史存档的重复技能 id */ }
       try { useCharacters.getState().dedupeRecipes(); } catch { /* 修复历史存档的重复配方（去「配方：」前缀后合并） */ }
@@ -2349,7 +2357,7 @@ export default function App() {
 - 所处世界=「${worldName}」，物品的风格/科技必须符合该世界（现代/校园/科幻/奇幻/末世等）。
 - **可穿戴装备按身份/强弱给、宁少勿多**：平民/学生/杂兵/弱者 0~1 件(且多为日常衣物，绝不塞满身)，普通战斗者 1~2 件，精英 2~3 件，首领/强者/贵族才 3~5 件成套；**严禁给新手/平民/杂兵堆满装备**。每个 NPC 另给约 ${NPC_KIT_STORAGE_N} 件储物(随身杂物/消耗品/纪念品/钱袋等，储存空间可适当多给)。无战斗力的平民：装备位用**日常衣物/便服/制服**充当(category=防具)、武器可省或用日常工具，攻防可低或留空；品质(gradeDesc)按其身份与阶位给(平民多为白/绿色)。
 - **完整固定格式、与主角物品同标准、不准偷懒**：每件给 name/category(武器/防具/饰品/消耗品/材料/工具/重要物品/特殊物品/其他物品)/subType(类型细分)/gradeDesc(颜色品质)/combatStat(装备攻防,平民可低/无)/durability(耐久)/requirement(装备需求)/affix(词缀)/score(评分)/effect(效果)/intro(简介)/appearance(**逐部件外观,必填不可空**)；武器另加 killCount。
-- equip 每件给 equipSlot：武器→weapon:main，上身→armor:upper，头→armor:head，下装→armor:lower，鞋→armor:feet，手套→armor:hands，**护臂/臂铠/护腕→armor:arms**，肩→armor:shoulder，腰带→armor:belt，饰品→accessory:#1 等（按部位对号入座，别都堆 upper）。
+- equip 每件给 equipSlot：武器→weapon:main，外衣/战甲/外套→armor:upper，**内衬/衬衣/打底→armor:inner**，头→armor:head，下装→armor:lower，鞋→armor:feet，手套→armor:hands，护臂/臂铠/护腕→armor:arms，肩→armor:shoulder，腰带→armor:belt，饰品→accessory:#1 等（按部位对号入座，别都堆 upper）。
 只输出 JSON：{"kits":[{"npcId":"C1","equip":[{...固定格式字段, "equipSlot":"..."}],"storage":[{...固定格式字段}]}]}
 ${AFFIX_EFFECT_RULE}`;
     const user = `世界：${worldName}\nNPC 列表：\n${list}\n\n请为每个 NPC 生成贴合其身份的初始装备+储物（完整固定格式，别给学生/平民发军用装备）。`;
@@ -2468,6 +2476,7 @@ ${AFFIX_EFFECT_RULE}`;
   // 联机来宾：用自己的 API 演化自己的角色(六维/身份/技能天赋/背包/生平)，不碰共享世界
   async function runGuestSelfEvolution(narrative: string) {
     turnCountRef.current += 1;   // 来宾自己的回合推进（让各阶段频率门正常工作）
+    try { useMisc.getState().setTurnCount(turnCountRef.current); } catch { /* 持久化累计回合数 */ }
     try { useItems.getState().setItemTurn(turnCountRef.current); } catch { /* */ }
     const selfRule = '\n\n【联机·只演化自己】你只演化"主角"(本玩家)的角色与物品。正文里其他真人队友/NPC的获得、成长、变化都与主角无关，绝不要把别人的物品/技能/属性加到主角身上。';
     await Promise.allSettled([
@@ -3864,7 +3873,7 @@ ${replyTo.authorName} 之前说：「${String(replyTo.content).slice(0, 200)}」
 
       // 随身物品/装备 → 写入该 NPC 的储存空间（部分 equipped 进装备面板）
       if (Array.isArray(j.items) && (useNpc.getState().npcs[cid]?.items?.length ?? 0) === 0) {
-        const armorParts = ['armor:upper', 'armor:head', 'armor:lower', 'armor:feet', 'armor:hands', 'armor:arms', 'armor:shoulder', 'armor:belt'];
+        const armorParts = ['armor:upper', 'armor:inner', 'armor:head', 'armor:lower', 'armor:feet', 'armor:hands', 'armor:arms', 'armor:shoulder', 'armor:belt'];
         let wN = 0, aN = 0, cN = 0, tN = 0;
         j.items.slice(0, 8).forEach((it: any, idx: number) => {
           if (!it || !it.name) return;
@@ -4574,7 +4583,7 @@ ${lines}`;
   // 对手物品：保证 ≥6 件且 ≥6 件已装备（AI 不足则确定性补足）
   function ensureArenaItems(cid: string, raw: any[], entry: ArenaLadderEntry) {
     const npc = useNpc.getState();
-    const armorParts = ['armor:upper', 'armor:head', 'armor:lower', 'armor:feet', 'armor:hands', 'armor:arms', 'armor:shoulder', 'armor:belt'];
+    const armorParts = ['armor:upper', 'armor:inner', 'armor:head', 'armor:lower', 'armor:feet', 'armor:hands', 'armor:arms', 'armor:shoulder', 'armor:belt'];
     const grade = arenaGradeForRank(entry.rank);
     const list = raw.slice(0, 10).map((it: any) => ({
       name: flattenAiText(it.name).slice(0, 40), category: String(it.category || '特殊物品'),
@@ -5498,9 +5507,44 @@ ${lines}`;
     });
   }
 
+  /* 两段式·渲染遍（spike）：拿"结算遍已定稿的正文"重渲染成一段干净沉浸的正文，仅替换显示，
+     完全不动 state 解析 / 演化（那些已用结算原文跑过）。失败/超时/无配置 → 返回 ''，调用方保留结算原文。
+     可挂独立 render 路由（设置→正文生成→两段式渲染），并复用「跳过思维链」预填充。 */
+  async function runRenderPass(userText: string, settledProse: string, msgId: number): Promise<string> {
+    if (!settledProse.trim()) return '';
+    const renderApi = textUseShared ? sharedApi : textApi;
+    const chain = resolveApiChain('render', renderApi);   // 未配 render 路由则回退到正文 API
+    if (!chain[0]?.baseUrl || !chain[0]?.apiKey) { console.warn('[渲染] render 路由与正文 API 均未配置，跳过渲染遍'); return ''; }
+    // 保护结构化块（时间结算块 / 【主角资源】/【敌方信息】/【环境效果】/【任务】等）：替换成 〔§N〕，只把正文送渲染，渲染完原样拼回
+    const { masked, blocks } = maskProtectedBlocks(settledProse);
+    const sys = (renderPassPrompt && renderPassPrompt.trim()) ? renderPassPrompt : RENDER_PASS_RULE;
+    const sentinelNote = blocks.length
+      ? `\n\n〔重要·占位符规则〕上文中的 〔§数字〕 是**受保护的信息块**（状态栏/任务块等）——请**原样保留、放在原来的位置、绝不改写或删除**，只重写占位符之间与之外的正文。`
+      : '';
+    const packet = `【本回合·已结算定稿，按此渲染，勿改情节】\n\n〔玩家这一步〕\n${userText || '（无显式输入，续写上一拍）'}\n\n〔已经发生的事（含对白/动作/结果，以此为准）〕\n${masked}${sentinelNote}`;
+    const msgs: { role: 'system' | 'user' | 'assistant'; content: string }[] = [
+      { role: 'system', content: sys },
+      { role: 'user', content: packet },
+    ];
+    if (skipNarrativeThinking) msgs.push({ role: 'assistant', content: '</think>' });   // 渲染遍跳过原生思维链
+    try {
+      const { content } = await apiChatFallback(chain, msgs, { timeoutMs: 120000 });
+      const clean = stripLeakedThinking(content || '').trim();
+      if (!clean) { console.warn('[渲染] 渲染遍返回空，保留结算原文'); return ''; }
+      const restored = restoreProtectedBlocks(clean, blocks);   // 状态栏/任务块逐字拼回，渲染只动正文
+      setMessages((prev) => prev.map((m) => (m.id === msgId ? { ...m, content: restored } : m)));
+      console.log(`[渲染] 渲染遍完成（正文 ${clean.length} 字 + 保护块 ${blocks.length} 个），已替换显示（结算原文见「查看原始响应」）`);
+      return restored;
+    } catch (e) {
+      console.warn('[渲染] 渲染遍失败，保留结算原文：', e);
+      return '';
+    }
+  }
+
   async function callApi(userText: string, extraHistory: ChatMessage[] = []) {
     // 每次用户发消息计为一回合
     turnCountRef.current += 1;
+    try { useMisc.getState().setTurnCount(turnCountRef.current); } catch { /* 持久化「累计总回合数」：跨任务世界/刷新/读档不归零 */ }
     try { useItems.getState().setItemTurn(turnCountRef.current); } catch { /* */ }   // 推进「最近删除」回收站回合数 + 清除满 3 回合的条目
     lastUserInputRef.current = userText;   // 供叙事记忆·回复后写入使用
     expireStatuses(turnCountRef.current);                      // 回合推进：清理已过期的限时状态（主角+NPC）
@@ -5552,6 +5596,9 @@ ${lines}`;
     const { sysPrompt, examples, prefill } = buildPresetMessages(preset, worldInfoText, userText);
     // 跳过思维链（设置开时）：末尾预填充 </think>，让思考模型以为思考已结束、直接出正文（与 preset 自带 prefill 叠加）
     const effectivePrefill = skipNarrativeThinking ? ('</think>\n' + (prefill ?? '')).trimEnd() : prefill;
+    // 完整两段式（需 twoPassRender 同开）：结算遍系统提示词追加"只出 <结算包>、不写正文"规则（含创作自由框架，防分析式摘要触发拒绝）
+    const fullMode = twoPassRender && twoPassFull;
+    const settleSys = fullMode ? `${sysPrompt}\n\n${SETTLEMENT_PACKET_RULE}` : sysPrompt;
 
     // 历史：叙事记忆（关键词召回，启用时）或按 historyLimit 切片（现状）
     let memory: { role: 'system'; content: string }[] = [];
@@ -5695,7 +5742,7 @@ ${lines}`;
         if (!ep.baseUrl || !ep.apiKey) continue;
         const reqBody: Record<string, unknown> = {
           model:       ep.modelId,
-          messages:    [{ role: 'system', content: sysPrompt }, ...history],
+          messages:    [{ role: 'system', content: settleSys }, ...history],
           temperature: preset?.temperature ?? ep.temperature,
           max_tokens:  preset?.max_tokens  ?? Math.max(ep.maxTokens || 0, 60000),   // 按用户要求保持 60000（若遇变慢/network error，多为大提示词+60000 撑爆上下文，可调小）
           top_p:       preset?.top_p       ?? ep.topP,
@@ -5756,7 +5803,7 @@ ${lines}`;
                   if (accumulated.length > 64 && /(.{1,8}?)\1{7,}$/s.test(accumulated.slice(-128)))
                     accumulated = collapseRunaway(accumulated);
                   setMessages((prev) =>
-                    prev.map((m) => m.id === streamMsgId ? { ...m, content: accumulated } : m)
+                    prev.map((m) => m.id === streamMsgId ? { ...m, content: fullMode ? '⏳ 结算中（完整两段式）…' : accumulated } : m)
                   );
                 }
               } catch { /* 忽略解析失败的行 */ }
@@ -5785,17 +5832,28 @@ ${lines}`;
         const narrativeForEvoRaw = stripStateBlocks(applyRegex(settledText, preset));
         // 显示给玩家的正文：在此之上再剥掉 <状态结算>（纯数据通道，玩家看不到 HP/EP 原词，侧栏照旧用自定义血条名）
         const finalDisplayed = stripWorldSourceBlocks(stripVitalsBlocks(narrativeForEvoRaw));
+        // 完整两段式：finalDisplayed 是「状态块+结算包」不是正文 → 先挂"渲染中"占位，别把骨架显示给玩家；普通/spike 直接显示结算正文
         setMessages((prev) =>
-          prev.map((m) => m.id === streamMsgId ? { ...m, content: finalDisplayed } : m)
+          prev.map((m) => m.id === streamMsgId ? { ...m, content: fullMode ? '⏳ 正在渲染本回合正文…（已结算）' : finalDisplayed } : m)
         );
         setRawResponse(accumulated);
         if (!accumulated) throw new Error('模型未返回内容');
         // 演化阶段读的正文：去 state 块外，再去掉击杀结算块（保留 <状态结算> 供 HP/EP 结算用，避免演化AI看到点数又重复发 ap）
         const narrativeForEvo = narrativeForEvoRaw.replace(/<击杀结算>[\s\S]*?<\/击杀结算>/gi, '').trimEnd();
-        lastNarrativeRef.current = narrativeForEvo;
-        // 正文完成后：策略B先登场判断再并发其余阶段（修复NPC装备挂错ID）
-        runPostNarrativePhases(narrativeForEvo, streamMsgId);
-        return finalDisplayed;
+        // 两段式·渲染遍（开关开时）：先渲染→玩家先看到最终正文，渲染独占接口；完整模式下喂的是结算包，渲染据此从零写正文
+        let displayOut = finalDisplayed;
+        let evoNarrative = narrativeForEvo;   // 单段/spike：演化读结算正文
+        if (twoPassRender && !aborted) {
+          const rendered = await runRenderPass(userText, finalDisplayed, streamMsgId);
+          if (rendered) { displayOut = rendered; if (fullMode) evoNarrative = rendered; }   // 完整模式：结算遍无正文，演化改读渲染版正文
+          else if (fullMode) {   // 完整模式·渲染失败兜底：把结算包显示出来，别卡在占位
+            setMessages((prev) => prev.map((m) => m.id === streamMsgId ? { ...m, content: finalDisplayed } : m));
+          }
+        }
+        lastNarrativeRef.current = evoNarrative;
+        // 正文+渲染都完成后，再并发起各演化阶段（策略B先登场判断）——避免演化与渲染抢接口、也让"演化"发生在最终正文之后
+        runPostNarrativePhases(evoNarrative, streamMsgId);
+        return displayOut;
 
       } else {
         // ── 非流式：等待完整响应 ──
@@ -5813,13 +5871,24 @@ ${lines}`;
         // 显示给玩家的正文：在此之上再剥掉 <状态结算>（纯数据通道，玩家看不到 HP/EP 原词）
         const processed = stripWorldSourceBlocks(stripVitalsBlocks(narrativeForEvoRaw));
         const newMsgId = ++msgId.current;
-        setMessages((prev) => [...prev, { id: newMsgId, role: 'assistant', content: processed }]);
+        // 完整模式：processed 是结算包不是正文 → 先挂占位，等渲染出正文
+        setMessages((prev) => [...prev, { id: newMsgId, role: 'assistant', content: fullMode ? '⏳ 正在渲染本回合正文…（已结算）' : processed }]);
         // 演化阶段读的正文：去 state 块外，再去掉击杀结算块（保留 <状态结算> 供 HP/EP 结算用，避免演化AI看到点数又重复发 ap）
         const narrativeForEvo = narrativeForEvoRaw.replace(/<击杀结算>[\s\S]*?<\/击杀结算>/gi, '').trimEnd();
-        lastNarrativeRef.current = narrativeForEvo;
-        // 正文完成后：策略B先登场判断再并发其余阶段（修复NPC装备挂错ID）
-        runPostNarrativePhases(narrativeForEvo, newMsgId);
-        return processed;
+        // 两段式·渲染遍（开关开时）：先渲染再起演化（同流式路径）
+        let displayOut = processed;
+        let evoNarrative = narrativeForEvo;
+        if (twoPassRender) {
+          const rendered = await runRenderPass(userText, processed, newMsgId);
+          if (rendered) { displayOut = rendered; if (fullMode) evoNarrative = rendered; }   // 完整模式：演化改读渲染版正文
+          else if (fullMode) {   // 渲染失败兜底：显示结算包
+            setMessages((prev) => prev.map((m) => m.id === newMsgId ? { ...m, content: processed } : m));
+          }
+        }
+        lastNarrativeRef.current = evoNarrative;
+        // 渲染遍完成后才并发起各演化阶段（避免抢接口、让演化发生在最终正文之后）
+        runPostNarrativePhases(evoNarrative, newMsgId);
+        return displayOut;
       }
     } catch (e: any) {
       if (e?.name === 'AbortError') { setGenError(''); console.log('[正文] 已手动停止生成'); }
@@ -5950,6 +6019,7 @@ ${lines}`;
     await clearProgress();   // 开始游戏=全新存档：先清空之前的玩家/NPC/物品/角色/杂项/对话
     msgId.current = 0;
     turnCountRef.current = 0;   // 新存档：回合数归零（不依赖刷新；下方 setStarted/setMessages 会触发重渲染刷新显示）
+    try { useMisc.getState().setTurnCount(0); } catch { /* 累计回合数归零（clearProgress 也会清，双保险） */ }
     messagesRef.current = [];   // 立即清空内存历史，杜绝上一局聊天/回合残留
     const P = usePlayer.getState();
     P.setProfile({

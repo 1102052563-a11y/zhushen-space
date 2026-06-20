@@ -162,6 +162,7 @@ interface MiscState {
   smallSummaries: string[];
   largeSummaries: string[];
   summaryRound: number;   // 杂项演化已运行的回合计数（用于大总结周期判断，持久化）
+  turnCount: number;      // 本存档**累计总回合数**（持久化）：每次玩家发送 +1，跨任务世界/刷新/读档都不归零（进入世界会清空对话，故不能再用"对话里的用户消息数"当回合数）
   narrativeFacts: NarrativeFact[];
   weather: string;
   weatherFxCss: string;   // AI 为奇异天气生成的纯 CSS 顶栏特效（已 sanitize）
@@ -190,6 +191,7 @@ interface MiscState {
   pushSmall: (s: string) => void;
   pushLarge: (s: string) => void;
   bumpSummaryRound: () => number;   // +1 并返回新值
+  setTurnCount: (n: number) => void;   // 设置累计总回合数（持久化）
   addNarrativeFacts: (items: { title: string; text: string; keywords: string[] }[]) => void;
   removeNarrativeFact: (id: string) => void;
   clearNarrativeFacts: () => void;
@@ -219,6 +221,7 @@ export const useMisc = create<MiscState>()(
       smallSummaries: [],
       largeSummaries: [],
       summaryRound: 0,
+      turnCount: 0,
       narrativeFacts: [],
       weather: '',
       weatherFxCss: '',
@@ -306,6 +309,7 @@ export const useMisc = create<MiscState>()(
       pushSmall: (str) => set((s) => ({ smallSummaries: [...s.smallSummaries, str].slice(-s.settings.smallKeep) })),
       pushLarge: (str) => set((s) => ({ largeSummaries: [...s.largeSummaries, str].slice(-s.settings.largeKeep) })),
       bumpSummaryRound: () => { const n = get().summaryRound + 1; set({ summaryRound: n }); return n; },
+      setTurnCount: (n) => set({ turnCount: Math.max(0, Math.floor(n) || 0) }),
       addNarrativeFacts: (items) =>
         set((s) => {
           let max = s.narrativeFacts.reduce((m, f) => Math.max(m, Number(/^F_(\d+)$/.exec(f.id)?.[1]) || 0), 0);
@@ -323,7 +327,7 @@ export const useMisc = create<MiscState>()(
         worldTime: patch.worldTime ?? s.worldTime,
         worldName: patch.worldName ?? s.worldName,
       })),
-      clearMisc: () => set({ tasks: [], archivedTasks: [], worldEvents: [], smallSummaries: [], largeSummaries: [], summaryRound: 0 }),
+      clearMisc: () => set({ tasks: [], archivedTasks: [], worldEvents: [], smallSummaries: [], largeSummaries: [], summaryRound: 0, turnCount: 0 }),
 
       setSettings: (patch) => set((s) => ({ settings: { ...s.settings, ...patch } })),
       setPresetEntries: (entries, name, version) =>
