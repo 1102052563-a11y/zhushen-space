@@ -107,6 +107,7 @@ import { generateImage, buildPortraitPrompt, buildEquipPrompt, shrinkDataUrl } f
 import { genPortraitTags, genEquipTags, isTagService } from './systems/imageTags';
 import { hydrateImages, initImageSync } from './systems/imageSync';
 import { loadWb, saveWb } from './systems/wbDb';
+import ApiPromptPanel, { type PromptPart } from './components/ApiPromptPanel';
 const TerritoryPanel = lazy(() => import('./components/TerritoryPanel'));
 const CosmosPanel = lazy(() => import('./components/CosmosPanel'));
 const WorldCodexPanel = lazy(() => import('./components/WorldCodexPanel'));
@@ -839,6 +840,8 @@ export default function App() {
   const [showPrompt, setShowPrompt] = useState(false);
   const [injectedMem, setInjectedMem] = useState('');   // 上次注入正文的记忆/档案块（叙事记忆+结构化档案）
   const [showInjected, setShowInjected] = useState(false);
+  const [showDevPrompt, setShowDevPrompt] = useState(false);
+  const [debugParts, setDebugParts] = useState<PromptPart[]>([]);
   const [worlds, setWorlds] = useState<WorldOption[]>([]);
   const [cardIndex, setCardIndex] = useState(0);
   const [prevWorlds, setPrevWorlds] = useState<WorldOption[]>([]);
@@ -1166,7 +1169,7 @@ export default function App() {
     const entries = (preset?.entries ?? []).filter((e) => e.enabled && !e.marker);
 
     // system role 条目拼成系统提示
-    const sysParts = entries.filter((e) => e.role === 'system' || e.system_prompt).map((e) => e.content).filter(Boolean);
+    const sysParts = entries.filter((e) => (e.role === 'system' || e.system_prompt) && e.injection_position !== 1).map((e) => e.content).filter(Boolean);
     let sysPrompt = sysParts.join('\n\n') || '你是一个沉浸式文字RPG的故事叙述者。';
 
     // 注入世界书
@@ -1189,13 +1192,22 @@ export default function App() {
 
     // user/assistant 条目作为示例历史
     const examples = entries
-      .filter((e) => e.role !== 'system' && !e.system_prompt && e.content && e.identifier !== 'prefill')
+      .filter((e) => e.role !== 'system' && !e.system_prompt && e.content && e.identifier !== 'prefill' && e.injection_position !== 1)
       .map((e) => ({ role: e.role as 'user' | 'assistant', content: e.content }));
 
-    // 末尾预填充：identifier='prefill' 的 assistant 块不入 few-shot，改放 messages 最末尾让模型续写（DeepSeek 穿甲 / Claude prefill；端点须支持末尾 assistant）
+    // 深度注入：injection_position===1 的块（system 或 user/assistant）→ 不进 system 大块/few-shot，改按 injection_depth 插到对话末尾附近（贴近当前生成＝优先级高，ST 风格）
+    const depthInjections = entries
+      .filter((e) => e.injection_position === 1 && e.content && e.identifier !== 'prefill')
+      .map((e) => ({
+        role: (e.role === 'system' || e.system_prompt) ? ('system' as const) : (e.role as 'user' | 'assistant'),
+        content: e.content,
+        depth: typeof e.injection_depth === 'number' ? e.injection_depth : 4,
+      }));
+
+    // 末尾预填充：identifier='prefill' 的 assistant 块改放 messages 最末尾让模型续写
     const prefillEntry = entries.find((e) => e.identifier === 'prefill' && e.role === 'assistant' && e.content);
     const prefill = prefillEntry?.content ?? '';
-    return { sysPrompt, examples, prefill };
+    return { sysPrompt, examples, prefill, depthInjections };
   }
 
   // 无预设条目时的内置兜底提示词
@@ -5800,7 +5812,16 @@ ${lines}`;
           (!!homeBare && (e.comment || '').endsWith(homeBare + '乐园'))   // 所属乐园档案条目：常驻注入
         )
       ));
-    const wbKeywordText = wbEntries.map((e) => `[${e.comment}]\n${e.content}`).join('\n\n');
+    // 分流：position===4 的条目 → ⚡深度注入（贴近对话末尾＝高优先级）；其余 → [世界书信息] 塞 system 顶（按 order 升序排）
+    const wbNormal = wbEntries.filter((e) => e.position !== 4).slice().sort((a, b) => ((a.order ?? 100) - (b.order ?? 100)));
+    const wbDepthInjections = wbEntries
+      .filter((e) => e.position === 4)
+      .map((e) => ({
+        role: (e.role === 1 ? 'user' : e.role === 2 ? 'assistant' : 'system') as 'system' | 'user' | 'assistant',
+        content: '[' + e.comment + ']\n' + e.content,
+        depth: typeof e.depth === 'number' ? e.depth : 4,
+      }));
+    const wbKeywordText = wbNormal.map((e) => '[' + e.comment + ']\n' + e.content).join('\n\n');
     // 向量资料库（原著当世界书）：把当前查询 embed → 语义检索 topK 原著片段 → 追加进世界书注入
     let novelVecText = '';
     try {
@@ -5811,7 +5832,7 @@ ${lines}`;
     } catch (e) { console.warn('[NovelVec] 检索失败', e); }
     const worldInfoText = [wbKeywordText, novelVecText].filter(Boolean).join('\n\n');
 
-    const { sysPrompt, examples, prefill } = buildPresetMessages(preset, worldInfoText, userText);
+    const { sysPrompt, examples, prefill, depthInjections } = buildPresetMessages(preset, worldInfoText, userText);
     // 跳过思维链（设置开时）：末尾预填充 </think>，让思考模型以为思考已结束、直接出正文（与 preset 自带 prefill 叠加）
     const effectivePrefill = skipNarrativeThinking ? ('</think>\n' + (prefill ?? '')).trimEnd() : prefill;
     // 剧情指导（开启时）：正文生成【前】先跑一次，产出剧情优化建议 → 像叙事回忆一样注入主正文，由主正文据此写（仅一次正文生成）
@@ -5922,6 +5943,7 @@ ${lines}`;
       ...buildFactInjection(),                          // <事实锚点·已锁定>
       ...recent,                                       // 最近原文楼层
       ...guidanceBlock,                                // <剧情指导> 本回合写作建议（剧情指导开启时，紧贴用户输入注入，像叙事回忆一样）
+      ...[...depthInjections, ...wbDepthInjections].sort((a, b) => b.depth - a.depth).map((inj) => ({ role: inj.role, content: inj.content })),
       { role: 'user' as const, content: userText },
       ...(effectivePrefill ? [{ role: 'assistant' as const, content: effectivePrefill }] : []),   // 末尾预填充（prefill 块 / 跳过思维链）
     ];
@@ -5931,6 +5953,13 @@ ${lines}`;
 
     setPromptSent(`=== SYSTEM ===\n${sysPrompt}\n\n=== HISTORY ===\n${history.map((m) => `[${m.role}] ${m.content}`).join('\n')}`);
     setShowPrompt(false);
+    // 开发者·正文API提示词：把本回合「实际发给模型」的提示词拆成卡片（重点＝深度注入块），供「🛠 开发者」查看
+    setDebugParts([
+      { label: '① 系统提示词（预设拼接 + 前端注入规则）', role: 'system', content: sysPrompt },
+      ...[...depthInjections, ...wbDepthInjections].map((inj, i) => ({ label: '⚡ 深度注入 #' + (i + 1) + ' · depth ' + inj.depth, role: inj.role, content: inj.content })),
+      ...(effectivePrefill ? [{ label: '末尾预填充 prefill（assistant 续写）', role: 'assistant', content: effectivePrefill }] : []),
+      { label: '② 完整发送序列（system + 历史 + 各注入 + 输入 + prefill）', role: 'all', content: '=== SYSTEM ===\n' + sysPrompt + '\n\n=== MESSAGES ===\n' + history.map((m) => '[' + m.role + '] ' + m.content).join('\n\n') },
+    ]);
     // 记录本回合实际注入正文的「记忆/档案」块，供「查看注入记忆」核对
     {
       const vmOn = vm.enabled && !!vm.apiBase && !!vm.apiKey;   // 向量召回是否在生效
@@ -6746,6 +6775,13 @@ ${lines}`;
               </button>
             )}
             <div className="ml-auto flex items-center gap-2">
+              {debugParts.length > 0 && (
+                <button
+                  onClick={() => setShowDevPrompt(true)}
+                  className="px-2 py-0.5 border rounded transition-colors font-mono text-[10px] border-god/30 text-god/80 hover:border-god/50 hover:text-god"
+                  title="查看本回合实际发给模型的提示词 + 注入块（调试用）"
+                >🛠 开发者</button>
+              )}
               {injectedMem && (
                 <button
                   onClick={() => { setShowInjected((v) => !v); setShowPrompt(false); setShowRaw(false); }}
@@ -6778,6 +6814,7 @@ ${lines}`;
               )}
             </div>
           </div>
+          {showDevPrompt && <ApiPromptPanel parts={debugParts} onClose={() => setShowDevPrompt(false)} />}
           {showInjected && injectedMem && (
             <div className="shrink-0 border-t border-emerald-900/40 bg-void px-4 py-3 max-h-72 overflow-y-auto">
               <div className="text-[10px] font-mono text-emerald-400/70 mb-1.5">本回合实际注入正文的记忆 / 结构化档案（即主叙事 API 能看到的内容）</div>

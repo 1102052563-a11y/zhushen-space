@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
-import { decideNpcTick, runNpcAutonomy, homeParadise, addRelation, findRival, boundedGrowth } from './npcAutonomy';
-import { makeRng } from './autonomyCorpus';
+import { decideNpcTick, runNpcAutonomy, homeParadise, addRelation, findRival, boundedGrowth, powerOf, arenaWinProb, profKey } from './npcAutonomy';
+import { makeRng, getCorpus } from './autonomyCorpus';
 import { defaultNpcRecord, type NpcRecord } from '../store/npcStore';
 import { useSettings } from '../store/settingsStore';
 
@@ -135,6 +135,48 @@ describe('npcAutonomy · 档内有界成长 & 陨落（档B）', () => {
     expect(deaths).toBeGreaterThan(0);
     const friend = npc({ bioStrength: 'T0·杂鱼', isFriend: true, auto: { phase: 'mission', turns: 1, world: '丧尸围城' } });
     for (let t = 1; t <= 200; t++) expect(decideNpcTick(friend, t, [], { allowDeath: true }).patch?.isDead).toBeFalsy();
+  });
+});
+
+describe('npcAutonomy · 竞技场战力加权（档C）', () => {
+  it('arenaWinProb：高战力胜率远高于低战力、同档五五开', () => {
+    expect(arenaWinProb(7, 4)).toBeGreaterThan(0.8);   // 七阶水准打四阶水准
+    expect(arenaWinProb(1, 4)).toBeLessThan(0.2);       // 一阶打四阶水准，难赢
+    expect(arenaWinProb(5, 5)).toBeCloseTo(0.5, 5);
+  });
+  it('powerOf：取阶位与 bioStrength 档的较高者', () => {
+    expect(powerOf(npc({ realm: '七阶·Lv.65', bioStrength: 'T3·勇士' }))).toBe(7);
+    expect(powerOf(npc({ realm: '一阶·Lv.5', bioStrength: 'T6·强者' }))).toBe(6);
+  });
+});
+
+describe('npcAutonomy · 装备库 / 技能天赋库', () => {
+  it('按职业细分：剑士强化出剑类装备、兑换出剑类技能/天赋（前缀×词根组合）', () => {
+    const b = getCorpus().banks;
+    const sword = b.profGear?.['剑士'];
+    expect((b.gearPrefix ?? []).length).toBeGreaterThan(10);
+    expect((sword?.weapon ?? []).length).toBeGreaterThan(5);
+    const distinctSkill = (sword?.skill ?? []).filter((s) => s.length >= 2); // 多字招式(剑意/剑域…)，不与"斩落"等误撞
+    let hitW = false, hitS = false;
+    const n = npc({ profession: '剑客' }); // → 剑士
+    for (let t = 1; t <= 400; t++) {
+      const d = decideNpcTick(n, t, []).deed?.description ?? '';
+      if ((sword?.weapon ?? []).some((w) => d.includes(w))) hitW = true;
+      if (distinctSkill.some((s) => d.includes(s)) || (sword?.talent ?? []).some((s) => d.includes(s))) hitS = true;
+    }
+    expect(hitW).toBe(true);   // 强化/交易出现剑士武器词根
+    expect(hitS).toBe(true);   // 兑换出现剑士招式/天赋
+  });
+
+  it('职业分类：含通用字的细分职业不被误判（细分优先排序）', () => {
+    expect(profKey(npc({ profession: '死灵法师' }))).toBe('死灵法师'); // 不被"法"误判成法师
+    expect(profKey(npc({ profession: '阵法师' }))).toBe('阵法师');
+    expect(profKey(npc({ profession: '圣骑士' }))).toBe('圣骑士');     // 不被"骑士"误判成重装
+    expect(profKey(npc({ profession: '狂战士' }))).toBe('狂战士');     // 不被"战士"误判成重装
+    expect(profKey(npc({ profession: '御兽师' }))).toBe('御兽师');     // 不被误判成召唤师
+    expect(profKey(npc({ profession: '吟游诗人' }))).toBe('吟游诗人');
+    expect(profKey(npc({ profession: '剑客' }))).toBe('剑士');         // 通用职业仍正常
+    expect(profKey(npc({ profession: '路人甲' }))).toBe('通用');       // 无命中回退
   });
 });
 

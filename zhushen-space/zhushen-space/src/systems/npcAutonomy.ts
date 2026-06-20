@@ -1,14 +1,15 @@
 /*
   轨道A · 离场角色自治引擎（零 API）
   ────────────────────────────────────────────────────────────────
-  每回合(runPostNarrativePhases)调用 runNpcAutonomy(turn)：对「离场·有真名·未死」的
-  NPC 跑一次确定性模拟，产出经历(deedLog)、相位(auto)与关系(relations)，全程不调 API。
-  按 npcTag 分流：
-    · 契约者/随从/默认 → 双相循环「任务世界 ↔ 主神空间」(decideContractorTick)
-    · 土著(native)     → 留在自己的任务世界过本地生活(decideNativeTick)，绝不碰乐园术语
-  档A(2026-06-20)：① 关系网双向落地(feud/team/native_strife/arena 改双方 relations) + 复仇定向
-    ② 公平轮换(分片让全体离场 NPC 轮流活) ③ 世界争夺战/试炼按阶位触发。
-  安全：仍不改六维/等级、不致死、不发奖（成长/陨落是档B，待用户拍板）。
+  每回合 runNpcAutonomy(turn)：对「离场·有真名·未死」NPC 跑确定性模拟，产出经历(deedLog)、
+  相位(auto)、关系(relations)、成长(realm/attrs)，全程不调 API。按 npcTag 分流：
+    · 契约者/默认 → 双相循环「任务世界 ↔ 主神空间」(decideContractorTick)
+    · 土著(native) → 留在故土过本地生活(decideNativeTick)，绝不碰乐园术语
+  档A：关系网双向 + 复仇定向 + 公平轮换 + war/trial 触发。
+  档B：档内有界成长(boundedGrowth·按 ATTR_CAP_BY_TIER 封顶不越档) + 陨落(npcAutonomyDeath 子开关)。
+  档C(2026-06-20)：① 竞技场战力加权(arenaWinProb·治"一阶赢五阶") ② NPC-NPC 真联动(配对对决/组队/
+    部族结盟，一次结算双方都受影响) ③ war/trial 差异化结算(胜→强成长·败→高死亡率)。
+  安全：仅离场 NPC、不碰主角；致死护 好友/羁绊/长留/队友。
 */
 import { useNpc, hasRealNpcName, type NpcRecord, type NpcAuto } from '../store/npcStore';
 import type { Deed } from '../store/characterStore';
@@ -19,18 +20,18 @@ import {
 } from './autonomyCorpus';
 import { attrCapForTier } from './derivedStats';
 
-const MAX_TICKS_PER_TURN = 16;             // 每回合最多模拟的离场 NPC 数（控性能/刷屏）
-const CADENCE = 3;                          // 背景离场 NPC 分 3 组轮流（好友/任务中者不受限）
-const MISSION_MIN = 2, MISSION_SPAN = 3;   // 任务时长 2..4 回合
-const HUB_REST_MIN = 1, HUB_REST_SPAN = 1; // 归来后休整 1..2 回合
-const IDLE_WEIGHT = 1.3;                    // 契约者「啥也不干」权重 → 控制刷经历密度
-const NATIVE_IDLE = 0.45;                   // 土著每回合「无事发生」概率
-const WAR_CHANCE = 0.05, TRIAL_CHANCE = 0.05; // ≥四阶征召世界争夺战 / ≥三阶进试炼
-const DEATH_CHANCE = 0.3;                    // E 级任务·致死开关开·非保护 NPC 的陨落概率
-const ATTR_KEYS = ['str', 'agi', 'con', 'int', 'cha'] as const; // 成长微调的六维（不动 luck，前端独占）
+const MAX_TICKS_PER_TURN = 16;
+const CADENCE = 3;                          // 背景离场 NPC 分 3 组轮流
+const MISSION_MIN = 2, MISSION_SPAN = 3;
+const HUB_REST_MIN = 1, HUB_REST_SPAN = 1;
+const IDLE_WEIGHT = 1.3;
+const NATIVE_IDLE = 0.45;
+const WAR_CHANCE = 0.05, TRIAL_CHANCE = 0.05;
+const DEATH_CHANCE = 0.3;                    // 普通 E 级致死率（war/trial 更高，见 missionSettle）
+const PAIR_CHANCE = 0.45;                    // 一对同类 hub NPC 触发联动的概率
+const ATTR_KEYS = ['str', 'agi', 'con', 'int', 'cha'] as const;
 const TIER_NAMES = ['一阶', '二阶', '三阶', '四阶', '五阶', '六阶', '七阶', '八阶', '九阶'];
 
-/** 主神空间候选行动 → behaviorBias 权重键 + 语料事件 */
 const HUB_TABLE: ReadonlyArray<{ action: string; biasKey: string; event?: DeedEvent }> = [
   { action: 'mission', biasKey: 'mission' },
   { action: 'arena', biasKey: 'arena' },
@@ -40,6 +41,7 @@ const HUB_TABLE: ReadonlyArray<{ action: string; biasKey: string; event?: DeedEv
   { action: 'team', biasKey: 'team', event: 'team_join' },
   { action: 'bounty', biasKey: 'bounty', event: 'bounty' },
   { action: 'study', biasKey: 'study', event: 'study' },
+  { action: 'acquire', biasKey: 'study', event: 'acquire' },
   { action: 'leisure', biasKey: 'leisure', event: 'leisure' },
   { action: 'brand', biasKey: 'trade', event: 'brand' },
   { action: 'bloodline', biasKey: 'study', event: 'bloodline' },
@@ -49,7 +51,6 @@ const HUB_TABLE: ReadonlyArray<{ action: string; biasKey: string; event?: DeedEv
   { action: 'heal', biasKey: 'heal', event: 'heal' },
 ];
 
-/** 土著本地生活事件（绝不含乐园术语；称契约者为「外来者」） */
 const NATIVE_EVENTS: readonly DeedEvent[] = [
   'native_daily', 'native_survive', 'native_outsider', 'native_power',
   'native_rumor', 'native_trade', 'native_strife', 'native_train', 'native_event',
@@ -58,28 +59,28 @@ const NATIVE_EVENTS: readonly DeedEvent[] = [
 
 const CN_NUM: Record<string, number> = { 一: 1, 二: 2, 三: 3, 四: 4, 五: 5, 六: 6, 七: 7, 八: 8, 九: 9 };
 
-/** 关系副作用：与某 NPC（按名）结成的双向关系（宿敌/盟友） */
 interface RelationFx { otherName: string; label: string; }
-
-export interface TickOutcome {
-  deed?: Deed;
-  patch?: Partial<NpcRecord>;
-  relation?: RelationFx;
-}
+export interface TickOutcome { deed?: Deed; patch?: Partial<NpcRecord>; relation?: RelationFx; }
+export interface TickOpts { allowDeath?: boolean; }
 
 function mkDeed(turn: number, location: string, description: string): Deed {
   return { time: `第${turn}回合`, location, description, addedAt: Date.now() };
 }
-
 function tierNum(npc: NpcRecord): number {
   const m = /T(\d)/i.exec(npc.bioStrength ?? '');
   return m ? Number(m[1]) : 3;
 }
-
-/** 从 realm 解析阶位数（一~九阶 → 1~9）；无则回退 bioStrength T 档 */
 function realmTier(npc: NpcRecord): number {
   const m = /([一二三四五六七八九])阶/.exec(npc.realm ?? '');
   return m ? (CN_NUM[m[1]] ?? 3) : tierNum(npc);
+}
+/** 战力档（0~9+）：取 realm 阶位与 bioStrength T 档的较高者 */
+export function powerOf(npc: NpcRecord): number {
+  return Math.max(realmTier(npc), tierNum(npc));
+}
+/** 竞技胜率：战力差经 logistic 映射。同档≈0.5，每差一档显著拉开。治"一阶赢五阶"。 */
+export function arenaWinProb(self: number, opp: number): number {
+  return 1 / (1 + Math.exp(-(self - opp) * 0.6));
 }
 
 function rollRating(rng: () => number, npc: NpcRecord): string {
@@ -93,19 +94,75 @@ function rollRating(rng: () => number, npc: NpcRecord): string {
   if (margin >= -3.5) return 'D';
   return 'E';
 }
-
-function equippedItemName(npc: NpcRecord): string {
-  const eq = (npc.items ?? []).find((it) => it.equipped);
-  return eq?.name || '随身装备';
+/** 职业归类关键词表：NPC 的 profession/unitType 文本 → 职业库键 */
+const PROF_KEYS: ReadonlyArray<readonly [string, readonly string[]]> = [
+  // 细分优先（含 法/战士/骑士/兽/咒 等通用字，须排在通用职业前避免误判）
+  ['死灵法师', ['死灵', '亡灵', '尸', '骸骨']],
+  ['阵法师', ['阵法', '阵师', '布阵', '阵纹']],
+  ['符咒师', ['符咒', '符箓', '符师', '咒术', '咒师', '画符']],
+  ['炼丹师', ['炼丹', '丹师', '丹修', '丹道', '药师', '制药']],
+  ['炼器师', ['炼器', '器师', '锻造', '铸器', '铭文', '锻师']],
+  ['傀儡师', ['傀儡', '偃甲', '操偶', '机关师']],
+  ['御兽师', ['御兽', '驭兽', '灵兽', '驯兽', '兽师', '宠物', '驭灵', '牧兽']],
+  ['圣骑士', ['圣骑', '圣堂', '圣殿', '圣武']],
+  ['狂战士', ['狂战', '狂暴', '蛮战', '野蛮', '狂乱']],
+  ['吟游诗人', ['吟游', '诗人', '乐师', '琴师', '歌姬']],
+  ['德鲁伊', ['德鲁伊', '德鲁', '自然', '变形者']],
+  ['萨满', ['萨满', '图腾', '巫医', '祭灵']],
+  // 通用职业
+  ['剑士', ['剑', '刀', '武士', '侍']],
+  ['枪手', ['枪', '铳', '狙', '炮手', '枪械']],
+  ['法师', ['法', '术', '魔', '咒', '元素']],
+  ['拳师', ['拳', '武者', '格斗', '体术', '武僧', '搏击']],
+  ['弓手', ['弓', '箭', '游侠', '弩']],
+  ['刺客', ['刺', '暗杀', '影', '杀手', '忍']],
+  ['重装', ['重装', '坦', '盾', '守卫', '骑士', '战士']],
+  ['异能者', ['异能', '超能', '念力', '精神', '超能力']],
+  ['召唤师', ['召唤', '契灵', '通灵', '唤灵']],
+  ['治疗', ['治疗', '医', '辅助', '牧', '祭司']],
+  ['血族', ['血族', '吸血', '血裔']],
+  ['机械师', ['机械', '工程', '机师', '炮兵', '改造']],
+];
+/** 把 NPC 的 职业/类型 文本归类到职业库键；无命中回退「通用」。export 供测试。 */
+export function profKey(npc: NpcRecord): string {
+  const p = (npc.profession ?? '') + (npc.unitType ?? '');
+  for (const [k, kws] of PROF_KEYS) if (kws.some((w) => p.includes(w))) return k;
+  return '通用';
+}
+/** 装备名：优先真实已装备物品，否则按职业组合生成（共享前缀 × 职业词根，治"随身装备"占位） */
+function genEquip(npc: NpcRecord, rng: () => number): string {
+  const eq = (npc.items ?? []).find((it) => it.equipped)?.name;
+  if (eq) return eq;
+  const b = getCorpus().banks;
+  const g = b.profGear?.[profKey(npc)] ?? b.profGear?.['通用'];
+  const pre = b.gearPrefix?.length ? pickFrom(rng, b.gearPrefix) : '';
+  const roll = rng();
+  let core: string | undefined;
+  if (roll < 0.78) core = g?.weapon?.length ? pickFrom(rng, g.weapon) : undefined;
+  else if (roll < 0.92) core = b.armorCore?.length ? pickFrom(rng, b.armorCore) : undefined;
+  else core = b.accessoryCore?.length ? pickFrom(rng, b.accessoryCore) : undefined;
+  if (core) return pre + core;
+  return b.equipment?.length ? pickFrom(rng, b.equipment) : '随身装备';
+}
+/** 技能/天赋名：按职业组合（前缀 × 职业招式词根，或直接取职业天赋全名） */
+function genSkill(npc: NpcRecord, rng: () => number): string {
+  const b = getCorpus().banks;
+  const g = b.profGear?.[profKey(npc)] ?? b.profGear?.['通用'];
+  if (g) {
+    if (rng() < 0.4 && g.talent?.length) return pickFrom(rng, g.talent);
+    if (g.skill?.length) {
+      const pre = b.skillPrefix?.length ? pickFrom(rng, b.skillPrefix) : '';
+      return pre + pickFrom(rng, g.skill);
+    }
+  }
+  return b.skillTalent?.length ? pickFrom(rng, b.skillTalent) : '一门绝技';
 }
 
-/** 契约者归属的乐园（七乐园之一，按 id 稳定指派；纯背景 flavor，喂 {paradise} 槽） */
 export function homeParadise(id: string): string {
   const bank = getCorpus().banks.paradise;
   return bank?.length ? bank[hashStr(id) % bank.length] : '';
 }
 
-/** 受保护、永不被自治致死的 NPC：好友 / 羁绊开局 / 手动长留 / 当前队友 */
 const isProtected = (n: NpcRecord) => !!(n.isFriend || n.isBond || n.keepForever || n.partyMember);
 
 function npcTierName(npc: NpcRecord): string | undefined {
@@ -116,53 +173,28 @@ function npcLevel(npc: NpcRecord): number | undefined {
   return m ? Number(m[1]) : undefined;
 }
 
-/**
- * 档内有界成长（档B·②）：涨 Lv（不越当前阶）+ 微调六维（clampBaseAttrs 按 ATTR_CAP_BY_TIER 封顶）。
- * 返回要并入 patch 的字段；无实际变化则返回空对象。绝不越档、绝不碰主角（仅离场 NPC）。
- */
+/** 档内有界成长：涨 Lv(不越当前阶)+微调六维(attrCapForTier 按档封顶)。无变化返回空对象。 */
 export function boundedGrowth(npc: NpcRecord, rng: () => number, opts: { levelUp?: boolean; attrGain?: number }): Partial<NpcRecord> {
   const out: Partial<NpcRecord> = {};
   const tierName = npcTierName(npc);
   const lv = npcLevel(npc);
   if (opts.levelUp && lv != null) {
     const ti = (TIER_NAMES.indexOf(tierName ?? '') + 1) || Math.ceil(lv / 10);
-    const newLv = Math.min(lv + 1, ti * 10);    // 阶顶 = 阶序 ×10 级，封死不越阶
+    const newLv = Math.min(lv + 1, ti * 10);
     if (newLv !== lv) out.realm = (npc.realm ?? '').replace(/Lv\.?\s*\d+/i, `Lv.${newLv}`);
   }
   if (opts.attrGain && npc.attrs) {
-    const cap = attrCapForTier(tierName, lv);   // 该档「单个基础属性」硬上限
+    const cap = attrCapForTier(tierName, lv);
     const next = { ...npc.attrs };
     let changed = false;
     for (let i = 0; i < opts.attrGain; i++) {
       const k = ATTR_KEYS[Math.floor(rng() * ATTR_KEYS.length)];
-      const v = Math.min((next[k] ?? 0) + 1, cap);   // 按档封顶，不越档
+      const v = Math.min((next[k] ?? 0) + 1, cap);
       if (v !== next[k]) { next[k] = v; changed = true; }
     }
     if (changed) out.attrs = next;
   }
   return out;
-}
-
-/** 往 relations 串追加一条关系，按名去重（同名覆盖）。格式 "名:关系;名:关系" */
-export function addRelation(rel: string | undefined, name: string, label: string): string {
-  const kept = (rel ?? '')
-    .split(/[;；]/).map((s) => s.trim()).filter(Boolean)
-    .filter((e) => e.split(/[:：]/)[0]?.trim() !== name);
-  kept.push(`${name}:${label}`);
-  return kept.join(';');
-}
-
-/** relations 里登记过的宿敌，且仍在场上（peers）→ 用于复仇定向 */
-export function findRival(npc: NpcRecord, peers: string[]): string | undefined {
-  const rel = npc.relations ?? '';
-  return peers.find((name) => rel.includes(`${name}:宿敌`) || rel.includes(`${name}：宿敌`));
-}
-
-/** 挑对手：优先盯着已有宿敌（复仇），否则随机 */
-function pickEnemy(rng: () => number, npc: NpcRecord, peers: string[]): string | null {
-  if (!peers.length) return null;
-  const rival = findRival(npc, peers);
-  return rival && rng() < 0.6 ? rival : pickFrom(rng, peers);
 }
 
 function pickHubAction(rng: () => number, npc: NpcRecord): { action: string; event?: DeedEvent } | null {
@@ -175,12 +207,52 @@ function pickHubAction(rng: () => number, npc: NpcRecord): { action: string; eve
   return null;
 }
 
-const missionStatus = (world?: string) => `执行任务中（${world || '任务世界'}）`;
+export function addRelation(rel: string | undefined, name: string, label: string): string {
+  const kept = (rel ?? '')
+    .split(/[;；]/).map((s) => s.trim()).filter(Boolean)
+    .filter((e) => e.split(/[:：]/)[0]?.trim() !== name);
+  kept.push(`${name}:${label}`);
+  return kept.join(';');
+}
+export function findRival(npc: NpcRecord, peers: string[]): string | undefined {
+  const rel = npc.relations ?? '';
+  return peers.find((name) => rel.includes(`${name}:宿敌`) || rel.includes(`${name}：宿敌`));
+}
+function pickEnemy(rng: () => number, npc: NpcRecord, peers: string[]): string | null {
+  if (!peers.length) return null;
+  const rival = findRival(npc, peers);
+  return rival && rng() < 0.6 ? rival : pickFrom(rng, peers);
+}
 
-/** 是否任务世界原住民（土著）：不参与主神空间/任务循环，过本地生活 */
+const missionStatus = (world?: string) => `执行任务中（${world || '任务世界'}）`;
 const isNative = (npc: NpcRecord) => npc.npcTag === '土著';
 
-export interface TickOpts { allowDeath?: boolean; }
+/** 任务归来结算：陨落 + 成长 + war/trial 差异化。普通 E 致死 0.3；war/trial 致死 D|E 共 0.4。 */
+function missionSettle(npc: NpcRecord, world: string | undefined, rating: string, rng: () => number, txtSeed: number, opts: TickOpts, turn: number, base: DeedCtx): TickOutcome {
+  const isWar = world === '世界争夺战', isTrial = world === '试炼世界';
+  const lethal = isWar || isTrial ? (rating === 'E' || rating === 'D') : rating === 'E';
+  const deathP = isWar || isTrial ? 0.4 : DEATH_CHANCE;
+  if (lethal && opts.allowDeath && !isProtected(npc) && rng() < deathP) {
+    const dead = pickDeed('mission_death', { ...base, world }, txtSeed);
+    return { deed: mkDeed(turn, world ?? '', dead), patch: { isDead: true, deadTurn: turn, status: '已死亡', auto: { phase: 'hub', turns: 0 } } };
+  }
+  const good = rating === 'S' || rating === 'SS' || rating === 'SSS';
+  let event: DeedEvent = 'mission_return';
+  let grow: Partial<NpcRecord>;
+  if (isWar) {
+    event = good ? 'war_return_win' : 'war_return_loss';
+    grow = boundedGrowth(npc, rng, { levelUp: good, attrGain: good ? 2 : 0 });
+  } else if (isTrial) {
+    const pass = good || rating === 'A';
+    event = pass ? 'trial_pass' : 'trial_fail';
+    grow = boundedGrowth(npc, rng, { levelUp: pass, attrGain: pass ? 1 : 0 });
+  } else {
+    grow = boundedGrowth(npc, rng, { levelUp: good, attrGain: rating === 'SSS' ? 2 : rating === 'SS' ? 1 : 0 });
+  }
+  const desc = pickDeed(event, { ...base, world, rating }, txtSeed);
+  const rest = HUB_REST_MIN + Math.floor(rng() * (HUB_REST_SPAN + 1));
+  return { deed: mkDeed(turn, world ?? '', desc), patch: { auto: { phase: 'hub', turns: rest }, status: '主神空间·休整', ...grow } };
+}
 
 /** 入口：按 npcTag 分流 */
 export function decideNpcTick(npc: NpcRecord, turn: number, peers: string[] = [], opts: TickOpts = {}): TickOutcome {
@@ -195,77 +267,44 @@ function decideContractorTick(npc: NpcRecord, turn: number, peers: string[], opt
   const txtSeed = (seed ^ 0x5bd1e995) >>> 0;
   const base: DeedCtx = { name: npc.name, realm: npc.realm, personality: npc.personality, paradise: homeParadise(npc.id) };
 
-  // ── 任务世界相 ──
   if (auto.phase === 'mission') {
     const left = auto.turns - 1;
-    if (left > 0) {
-      return { patch: { auto: { ...auto, turns: left }, status: missionStatus(auto.world) } };
-    }
-    const rating = rollRating(rng, npc);
-    // 陨落（档B）：仅 E 级·致死开关开·非保护·低概率
-    if (rating === 'E' && opts.allowDeath && !isProtected(npc) && rng() < DEATH_CHANCE) {
-      const dead = pickDeed('mission_death', { ...base, world: auto.world }, txtSeed);
-      return {
-        deed: mkDeed(turn, auto.world ?? '', dead),
-        patch: { isDead: true, deadTurn: turn, status: '已死亡', auto: { phase: 'hub', turns: 0 } },
-      };
-    }
-    const desc = pickDeed('mission_return', { ...base, world: auto.world, rating }, txtSeed);
-    const rest = HUB_REST_MIN + Math.floor(rng() * (HUB_REST_SPAN + 1));
-    // 档内有界成长（档B·②）：好评级真涨等级/六维，按档封顶不越档
-    const grow = boundedGrowth(npc, rng, {
-      levelUp: rating === 'S' || rating === 'SS' || rating === 'SSS',
-      attrGain: rating === 'SSS' ? 2 : rating === 'SS' ? 1 : 0,
-    });
-    return {
-      deed: mkDeed(turn, auto.world ?? '', desc),
-      patch: { auto: { phase: 'hub', turns: rest }, status: '主神空间·休整', ...grow },
-    };
+    if (left > 0) return { patch: { auto: { ...auto, turns: left }, status: missionStatus(auto.world) } };
+    return missionSettle(npc, auto.world, rollRating(rng, npc), rng, txtSeed, opts, turn, base);
   }
 
-  // ── 主神空间相 ──
-  if (auto.turns > 0 && rng() < 0.7) {            // 休整中，大概率不动
-    return { patch: { auto: { ...auto, turns: auto.turns - 1 } } };
-  }
+  if (auto.turns > 0 && rng() < 0.7) return { patch: { auto: { ...auto, turns: auto.turns - 1 } } };
 
-  // 特殊征召（优先于普通行动）：世界争夺战（≥四阶）/ 试炼世界（≥三阶）
   const tier = realmTier(npc);
   if (tier >= 4 && rng() < WAR_CHANCE) {
     const desc = pickDeed('war_world', { ...base, world: '世界争夺战' }, txtSeed);
-    const dur = MISSION_MIN + 2 + Math.floor(rng() * 3);
-    return { deed: mkDeed(turn, '世界争夺战', desc), patch: { auto: { phase: 'mission', turns: dur, world: '世界争夺战' }, status: missionStatus('世界争夺战') } };
+    return { deed: mkDeed(turn, '世界争夺战', desc), patch: { auto: { phase: 'mission', turns: MISSION_MIN + 2 + Math.floor(rng() * 3), world: '世界争夺战' }, status: missionStatus('世界争夺战') } };
   }
   if (tier >= 3 && rng() < TRIAL_CHANCE) {
     const desc = pickDeed('trial', { ...base, world: '试炼世界' }, txtSeed);
-    const dur = MISSION_MIN + Math.floor(rng() * 2);
-    return { deed: mkDeed(turn, '试炼世界', desc), patch: { auto: { phase: 'mission', turns: dur, world: '试炼世界' }, status: missionStatus('试炼世界') } };
+    return { deed: mkDeed(turn, '试炼世界', desc), patch: { auto: { phase: 'mission', turns: MISSION_MIN + Math.floor(rng() * 2), world: '试炼世界' }, status: missionStatus('试炼世界') } };
   }
 
   const action = pickHubAction(rng, npc);
-  if (!action) {                                  // idle：不刷经历
-    return { patch: { auto: { phase: 'hub', turns: Math.max(0, auto.turns - 1) } } };
-  }
+  if (!action) return { patch: { auto: { phase: 'hub', turns: Math.max(0, auto.turns - 1) } } };
 
-  if (action.action === 'mission') {              // 出任务 → 进任务世界相
+  if (action.action === 'mission') {
     const world = pickFrom(rng, getCorpus().banks.worldTheme);
-    const dur = MISSION_MIN + Math.floor(rng() * (MISSION_SPAN + 1));
     const desc = pickDeed('mission_depart', { ...base, world }, txtSeed);
-    return {
-      deed: mkDeed(turn, world, desc),
-      patch: { auto: { phase: 'mission', turns: dur, world }, status: missionStatus(world) },
-    };
+    return { deed: mkDeed(turn, world, desc), patch: { auto: { phase: 'mission', turns: MISSION_MIN + Math.floor(rng() * (MISSION_SPAN + 1)), world }, status: missionStatus(world) } };
   }
 
-  // 主神空间内的其余行动 → 出一条经历、留在 hub（部分带关系副作用）
   let event = action.event as DeedEvent;
   const ctx: DeedCtx = { ...base };
   let relation: RelationFx | undefined;
   if (action.action === 'arena') {
     const target = pickEnemy(rng, npc, peers);
-    event = rng() < 0.5 ? 'arena_win' : 'arena_lose';
+    // 战力加权：对手取随机挑战者强度，自身越强越易胜（治"一阶赢五阶"）
+    const win = rng() < arenaWinProb(powerOf(npc), Math.floor(rng() * 10));
+    event = win ? 'arena_win' : 'arena_lose';
     ctx.enemy = target ?? '某位契约者';
     ctx.n = 1 + Math.floor(rng() * 60);
-    if (target && rng() < 0.3) relation = { otherName: target, label: '宿敌' };  // 竞技结仇
+    if (target && rng() < 0.3) relation = { otherName: target, label: '宿敌' };
   } else if (action.action === 'feud') {
     const target = pickEnemy(rng, npc, peers);
     ctx.enemy = target ?? '某位契约者';
@@ -278,31 +317,26 @@ function decideContractorTick(npc: NpcRecord, turn: number, peers: string[], opt
     ctx.enemy = pickEnemy(rng, npc, peers) ?? '一名违规者';
     ctx.coin = (1 + Math.floor(rng() * 9)) * 1000;
   } else if (action.action === 'enhance') {
-    ctx.item = equippedItemName(npc);
+    ctx.item = genEquip(npc, rng);
     ctx.coin = (1 + Math.floor(rng() * 9)) * 1000;
     ctx.n = 1 + Math.floor(rng() * 8);
   } else if (action.action === 'trade') {
-    ctx.item = '一批资源';
+    ctx.item = rng() < 0.5 ? genEquip(npc, rng) : '一批资源';
+  } else if (action.action === 'acquire') {
+    ctx.skill = genSkill(npc, rng);
   }
-  // study / leisure / casino / heal / brand / title_smelt 仅用 tone/emote
   const desc = pickDeed(event, ctx, txtSeed);
-  // 壁障突破考核 / 血脉炼化 → 档内有界微调六维
   const grow = (action.action === 'barrier_break' || action.action === 'bloodline')
-    ? boundedGrowth(npc, rng, { attrGain: 1 })
-    : {};
-  return {
-    deed: desc ? mkDeed(turn, '主神空间', desc) : undefined,
-    patch: { auto: { phase: 'hub', turns: 0 }, status: '主神空间', ...grow },
-    relation,
-  };
+    ? boundedGrowth(npc, rng, { attrGain: 1 }) : {};
+  return { deed: desc ? mkDeed(turn, '主神空间', desc) : undefined, patch: { auto: { phase: 'hub', turns: 0 }, status: '主神空间', ...grow }, relation };
 }
 
-/* ── 土著：留在任务世界过本地生活（无相位机，无乐园术语） ──── */
+/* ── 土著：留在故土过本地生活（无相位机·无乐园术语） ──────── */
 function decideNativeTick(npc: NpcRecord, turn: number, peers: string[]): TickOutcome {
   const seed = seedFrom(turn, npc.id);
   const rng = makeRng(seed);
   const txtSeed = (seed ^ 0x5bd1e995) >>> 0;
-  if (rng() < NATIVE_IDLE) return {};            // 平淡的一天，不记
+  if (rng() < NATIVE_IDLE) return {};
   const event = pickFrom(rng, NATIVE_EVENTS as DeedEvent[]);
   const ctx: DeedCtx = { name: npc.name, personality: npc.personality };
   let relation: RelationFx | undefined;
@@ -315,18 +349,12 @@ function decideNativeTick(npc: NpcRecord, turn: number, peers: string[]): TickOu
   return desc ? { deed: mkDeed(turn, '故土', desc), relation } : {};
 }
 
-/** 离场 NPC 的模拟优先级：好友/羁绊/长留 + 任务中（免得卡进度） + 最近活跃 */
 function score(n: NpcRecord): number {
   return (n.isFriend ? 100 : 0) + (n.isBond ? 50 : 0) + (n.keepForever ? 30 : 0)
-    + (n.auto?.phase === 'mission' ? 40 : 0)
-    + (n.updatedAt ?? 0) / 1e13;
+    + (n.auto?.phase === 'mission' ? 40 : 0) + (n.updatedAt ?? 0) / 1e13;
 }
-
-/** 本回合是否轮到该 NPC 行动：好友/羁绊/长留/任务中者每回合都活；其余按分片轮换 */
 function isActiveThisTurn(n: NpcRecord, turn: number): boolean {
-  return !!(n.isFriend || n.isBond || n.keepForever)
-    || n.auto?.phase === 'mission'
-    || (hashStr(n.id) % CADENCE) === (turn % CADENCE);
+  return !!(n.isFriend || n.isBond || n.keepForever) || n.auto?.phase === 'mission' || (hashStr(n.id) % CADENCE) === (turn % CADENCE);
 }
 
 /** 每回合调用：对离场 NPC 跑一次自治（零 API）。返回本回合新增的经历条数。自带开关守卫。 */
@@ -336,41 +364,73 @@ export function runNpcAutonomy(turn: number): number {
   const eligible = Object.values(store.npcs).filter((n) => !n.onScene && !n.isDead && hasRealNpcName(n));
   if (!eligible.length) return 0;
 
-  // 关系只在同类之间结（契约者↔契约者在主神空间；土著↔土著在故土），避免跨界乱配
   const contractorNames = eligible.filter((n) => !isNative(n)).map((n) => n.name).filter(Boolean);
   const nativeNames = eligible.filter((n) => isNative(n)).map((n) => n.name).filter(Boolean);
-  const byName = new Map<string, NpcRecord>();
-  for (const n of eligible) if (n.name) byName.set(n.name, n);
 
-  const ranked = eligible
-    .filter((n) => isActiveThisTurn(n, turn))
-    .sort((a, b) => score(b) - score(a))
-    .slice(0, MAX_TICKS_PER_TURN);
+  const ranked = eligible.filter((n) => isActiveThisTurn(n, turn)).sort((a, b) => score(b) - score(a)).slice(0, MAX_TICKS_PER_TURN);
 
-  // 累积本回合所有改动（同一 NPC 可被多方关系波及 → 关系串需逐步合并，故用 Map 累积）
   const acc = new Map<string, { deed?: Deed; patch: Partial<NpcRecord> }>();
-  const ensure = (id: string) => {
-    let e = acc.get(id);
-    if (!e) { e = { patch: {} }; acc.set(id, e); }
-    return e;
+  const ensure = (id: string) => { let e = acc.get(id); if (!e) { e = { patch: {} }; acc.set(id, e); } return e; };
+  const accSet = (id: string, deed: Deed | undefined, patch: Partial<NpcRecord>) => {
+    const e = ensure(id); if (deed) e.deed = deed; Object.assign(e.patch, patch);
   };
   const relAdd = (id: string, name: string, label: string) => {
     const e = ensure(id);
-    const baseRel = e.patch.relations ?? store.npcs[id]?.relations ?? '';
-    e.patch.relations = addRelation(baseRel, name, label);
+    e.patch.relations = addRelation(e.patch.relations ?? store.npcs[id]?.relations ?? '', name, label);
   };
 
+  // ── 配对联动（档C）：同类 hub NPC 两两配对，一次结算双方都受影响 ──
+  const handled = new Set<string>();
+  const prng = makeRng(seedFrom(turn, 'pair') >>> 0);
+  const ds = () => Math.floor(prng() * 0xffffffff) >>> 0;
+  const pairUp = (list: NpcRecord[], native: boolean) => {
+    const pool = list.filter((n) => n.auto?.phase !== 'mission' && !handled.has(n.id));
+    const shuffled = pool.map((n) => ({ n, k: prng() })).sort((x, y) => x.k - y.k).map((x) => x.n);
+    for (let i = 0; i + 1 < shuffled.length; i += 2) {
+      if (prng() > PAIR_CHANCE) continue;
+      const a = shuffled[i], b = shuffled[i + 1];
+      handled.add(a.id); handled.add(b.id);
+      if (native) {
+        if (prng() < 0.5) {  // 部族械斗 → 宿敌
+          accSet(a.id, mkDeed(turn, '故土', pickDeed('native_strife', { name: a.name, enemy: b.name, personality: a.personality }, ds())), {});
+          accSet(b.id, mkDeed(turn, '故土', pickDeed('native_strife', { name: b.name, enemy: a.name, personality: b.personality }, ds())), {});
+          relAdd(a.id, b.name, '宿敌'); relAdd(b.id, a.name, '宿敌');
+        } else {              // 结盟/联姻 → 盟友
+          accSet(a.id, mkDeed(turn, '故土', pickDeed('native_ally', { name: a.name, enemy: b.name }, ds())), {});
+          accSet(b.id, mkDeed(turn, '故土', pickDeed('native_ally', { name: b.name, enemy: a.name }, ds())), {});
+          relAdd(a.id, b.name, '盟友'); relAdd(b.id, a.name, '盟友');
+        }
+        continue;
+      }
+      if (prng() < 0.7) {     // 契约者对决（战力加权）→ 胜者升名次·败者下滑·或结仇
+        const aWins = prng() < arenaWinProb(powerOf(a), powerOf(b));
+        const W = aWins ? a : b, L = aWins ? b : a;
+        accSet(W.id, mkDeed(turn, '竞技场', pickDeed('arena_win', { name: W.name, enemy: L.name, n: 1 + Math.floor(prng() * 30), personality: W.personality, realm: W.realm }, ds())), { status: '主神空间' });
+        accSet(L.id, mkDeed(turn, '竞技场', pickDeed('arena_lose', { name: L.name, enemy: W.name, personality: L.personality, realm: L.realm }, ds())), { status: '主神空间' });
+        if (prng() < 0.4) { relAdd(W.id, L.name, '宿敌'); relAdd(L.id, W.name, '宿敌'); }
+      } else {                // 组队出征 → 双方进同一任务相 + 结盟
+        const world = pickFrom(prng, getCorpus().banks.worldTheme);
+        const dur = MISSION_MIN + Math.floor(prng() * (MISSION_SPAN + 1));
+        accSet(a.id, mkDeed(turn, world, pickDeed('coop_depart', { name: a.name, enemy: b.name, world }, ds())), { auto: { phase: 'mission', turns: dur, world }, status: missionStatus(world) });
+        accSet(b.id, mkDeed(turn, world, pickDeed('coop_depart', { name: b.name, enemy: a.name, world }, ds())), { auto: { phase: 'mission', turns: dur, world }, status: missionStatus(world) });
+        relAdd(a.id, b.name, '盟友'); relAdd(b.id, a.name, '盟友');
+      }
+    }
+  };
+  pairUp(ranked.filter((n) => !isNative(n)), false);
+  pairUp(ranked.filter((n) => isNative(n)), true);
+
+  // ── 逐个模拟未配对的 NPC ──
   const allowDeath = useSettings.getState().npcAutonomyDeath;
   for (const npc of ranked) {
+    if (handled.has(npc.id)) continue;
     const pool = (isNative(npc) ? nativeNames : contractorNames).filter((p) => p !== npc.name);
     const out = decideNpcTick(npc, turn, pool, { allowDeath });
     if (!out.deed && !out.patch && !out.relation) continue;
-    const e = ensure(npc.id);
-    if (out.deed) e.deed = out.deed;
-    if (out.patch) Object.assign(e.patch, out.patch);
+    if (out.deed || out.patch) accSet(npc.id, out.deed, out.patch ?? {});
     if (out.relation) {
       relAdd(npc.id, out.relation.otherName, out.relation.label);
-      const other = byName.get(out.relation.otherName);
+      const other = eligible.find((n) => n.name === out.relation!.otherName);
       if (other && other.id !== npc.id) relAdd(other.id, npc.name, out.relation.label);
     }
   }

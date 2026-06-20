@@ -123,6 +123,8 @@ function settingsExtract(s: any): any {
     plotChoices: s.plotChoices,
     fanficMode: s.fanficMode,
     factCheck: s.factCheck,
+    npcAutonomyOn: s.npcAutonomyOn,
+    npcAutonomyDeath: s.npcAutonomyDeath,
     apiLibrary: s.apiLibrary,
     apiRoutes: s.apiRoutes,
     apiThrottle: s.apiThrottle,

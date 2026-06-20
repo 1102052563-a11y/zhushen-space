@@ -1062,6 +1062,29 @@ function EntryEditor({ entry, onChange, onClose }: {
         </div>
       </div>
 
+      {/* 注入位置 / 优先级（深度注入 / 排序） */}
+      <div className="space-y-1.5 border-t border-edge/30 pt-3">
+        <label className="text-[12px] font-mono text-dim">注入位置（优先级 / 深度）</label>
+        <div className="flex items-center gap-3 flex-wrap">
+          <select value={entry.position === 4 ? '4' : '0'} onChange={(e) => onChange({ position: Number(e.target.value) })} className="input-base text-sm w-auto">
+            <option value="0">普通（拼进 system 顶部）</option>
+            <option value="4">⚡深度注入（@D 贴近用户输入＝优先级高）</option>
+          </select>
+          {entry.position === 4 ? (
+            <label className="flex items-center gap-1.5 text-sm text-slate-300">
+              深度
+              <input type="number" min={0} max={50} value={entry.depth ?? 4} onChange={(e) => onChange({ depth: Number(e.target.value) })} className="input-base text-sm w-16" />
+              <span className="text-[11px] text-dim/60">越小越贴近输入＝优先级越高</span>
+            </label>
+          ) : (
+            <label className="flex items-center gap-1.5 text-sm text-slate-300">
+              排序
+              <input type="number" value={entry.order ?? 100} onChange={(e) => onChange({ order: Number(e.target.value) })} className="input-base text-sm w-20" />
+              <span className="text-[11px] text-dim/60">system 块内越大越靠后＝越贴近对话</span>
+            </label>
+          )}
+        </div>
+      </div>
       {/* 内容编辑 */}
       <div className="space-y-1">
         <div className="flex items-center justify-between">
@@ -1407,10 +1430,6 @@ function TextApiSection() {
   const setFanficMode      = useSettings((s) => s.setFanficMode);
   const factCheck          = useSettings((s) => s.factCheck);
   const setFactCheck       = useSettings((s) => s.setFactCheck);
-  const npcAutonomyOn      = useSettings((s) => s.npcAutonomyOn);
-  const setNpcAutonomyOn   = useSettings((s) => s.setNpcAutonomyOn);
-  const npcAutonomyDeath   = useSettings((s) => s.npcAutonomyDeath);
-  const setNpcAutonomyDeath = useSettings((s) => s.setNpcAutonomyDeath);
   const narrativePov       = useSettings((s) => s.narrativePov);
   const setNarrativePov    = useSettings((s) => s.setNarrativePov);
 
@@ -1471,22 +1490,6 @@ function TextApiSection() {
             <div className="text-sm text-dim mt-0.5">核实正文里的现实可查证元素（年代/真实地名/品牌价格/专业内容）→ 锁定时代与事实锚点 → 下回合注入正文保持一致、不穿帮。同样能否联网取决于你的模型。</div>
           </div>
         </div>
-        <div className="flex items-center gap-3 p-3 bg-panel border border-edge rounded-lg">
-          <Toggle checked={npcAutonomyOn} onChange={() => setNpcAutonomyOn(!npcAutonomyOn)} />
-          <div>
-            <div className="text-sm text-slate-200">离场角色自治（零 API · 轨道A）</div>
-            <div className="text-sm text-dim mt-0.5">开启后，<b>不在场的契约者/土著</b>每回合会<b>零 API</b> 地自行过日子——契约者「出任务世界 / 强化 / 竞技 / 结仇结盟 / 壁障考核」、土著在故土「营生 / 御敌 / 部族纷争」，并把近况写进各自档案（NPC 详情可见）、注入正文。好结局会让其<b>档内有界</b>地涨等级/六维（按阶位封顶、不越档）。纯前端确定性、<b>不花 token</b>。默认关。</div>
-          </div>
-        </div>
-        {npcAutonomyOn && (
-          <div className="flex items-center gap-3 p-3 bg-panel border border-edge rounded-lg ml-6">
-            <Toggle checked={npcAutonomyDeath} onChange={() => setNpcAutonomyDeath(!npcAutonomyDeath)} />
-            <div>
-              <div className="text-sm text-slate-200">└ 允许任务致死（陨落）</div>
-              <div className="text-sm text-dim mt-0.5">开启后，离场契约者出低评级(E)任务有<b>小概率回不来</b>——无限流的残酷张力。<b>好友 / 羁绊角色 / 手动长留 / 当前队友永不会死</b>。默认关，怕丢 NPC 就别开。</div>
-            </div>
-          </div>
-        )}
         <div className="p-3 bg-panel border border-edge rounded-lg">
           <div className="text-sm text-slate-200">叙事人称</div>
           <div className="text-sm text-dim mt-0.5 mb-2">强制正文以指定人称叙述主角，最高优先（压过预设文风块与历史惯性，无需依赖预设里的人称块）。「跟随预设」=不干预，由预设/模型决定。仅作用于主角，NPC 始终第三人称；对白不受影响。</div>
@@ -1657,6 +1660,7 @@ function PresetCard({ preset, active, expanded, onToggleExpand, onActivate, onRe
   const addEntry         = useSettings((s) => s.addTextPresetEntry);
   const removeEntry      = useSettings((s) => s.removeTextPresetEntry);
   const moveEntry        = useSettings((s) => s.moveTextPresetEntry);
+  const reorderEntry     = useSettings((s) => s.reorderTextPresetEntry);
   const renamePreset     = useSettings((s) => s.renameTextPreset);
   const updatePreset     = useSettings((s) => s.updateTextPreset);
 
@@ -1664,6 +1668,7 @@ function PresetCard({ preset, active, expanded, onToggleExpand, onActivate, onRe
   const [nameVal, setNameVal]         = useState(preset.name);
   const [editingId, setEditingId]     = useState<string | null>(null);
   const [pPage, setPPage]             = useState(0);
+  const [dragId, setDragId]           = useState<string | null>(null);
 
   const entries = preset.entries ?? [];
   const pagedEntries = entries.slice(pPage * PAGE_SIZE, (pPage + 1) * PAGE_SIZE);
@@ -1745,7 +1750,15 @@ function PresetCard({ preset, active, expanded, onToggleExpand, onActivate, onRe
               const tokens = tokenCount(entry.content);
               const isEditing = editingId === entry.identifier;
               return (
-                <div key={entry.identifier}>
+                <div
+                  key={entry.identifier}
+                  draggable
+                  onDragStart={(e) => { setDragId(entry.identifier); e.dataTransfer.effectAllowed = 'move'; }}
+                  onDragOver={(e) => e.preventDefault()}
+                  onDrop={(e) => { e.preventDefault(); if (dragId && dragId !== entry.identifier) reorderEntry(preset.id, dragId, idx_real); setDragId(null); }}
+                  onDragEnd={() => setDragId(null)}
+                  className={dragId === entry.identifier ? 'opacity-50' : ''}
+                >
                   {/* 条目行 */}
                   <div className={`flex items-center gap-2 px-3 py-2 hover:bg-panel2 transition-colors ${!entry.enabled ? 'opacity-40' : ''}`}>
                     <Toggle checked={entry.enabled} onChange={() => toggleEntry(preset.id, entry.identifier)} small />
@@ -1759,6 +1772,9 @@ function PresetCard({ preset, active, expanded, onToggleExpand, onActivate, onRe
                     )}
                     {/* 名称 */}
                     <span className="flex-1 text-sm text-slate-300 truncate">{entry.name}</span>
+                    {entry.injection_position === 1 && (
+                      <span className="shrink-0 text-[10px] font-mono px-1.5 py-0.5 rounded bg-emerald-900/30 border border-emerald-500/40 text-emerald-400" title="深度注入：贴近当前生成＝高优先级（depth 越小越高）">⚡深{entry.injection_depth ?? 4}</span>
+                    )}
                     {/* 词符 */}
                     <span className="w-10 text-right text-[12px] font-mono text-dim shrink-0">
                       {tokens > 0 ? tokens : '—'}
@@ -1883,6 +1899,23 @@ function PresetEntryEditor({ entry, onChange, onClose }: {
             <Toggle checked={entry.marker} onChange={() => onChange({ marker: !entry.marker })} />
             <span className="text-sm text-slate-300"><span className="text-dim/60 mr-1">▸</span>marker（占位符）</span>
           </label>
+        </div>
+      </div>
+      {/* 注入位置 / 优先级 */}
+      <div className="space-y-1.5 border-t border-edge/30 pt-3">
+        <label className="text-[12px] font-mono text-dim">注入位置（优先级）</label>
+        <div className="flex items-center gap-3 flex-wrap">
+          <select value={entry.injection_position === 1 ? '1' : '0'} onChange={(e) => onChange({ injection_position: Number(e.target.value) })} className="input-base text-sm w-auto">
+            <option value="0">普通（拼进 system 顶部，按数组顺序）</option>
+            <option value="1">⚡深度注入（插到对话末尾、贴近当前生成＝优先级高）</option>
+          </select>
+          {entry.injection_position === 1 && (
+            <label className="flex items-center gap-1.5 text-sm text-slate-300">
+              深度
+              <input type="number" min={0} max={50} value={entry.injection_depth ?? 4} onChange={(e) => onChange({ injection_depth: Number(e.target.value) })} className="input-base text-sm w-16" />
+              <span className="text-[11px] text-dim/60">越小越贴近输入＝优先级越高</span>
+            </label>
+          )}
         </div>
       </div>
       {/* 内容 */}

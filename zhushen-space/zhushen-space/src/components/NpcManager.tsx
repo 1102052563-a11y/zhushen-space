@@ -2,6 +2,7 @@ import { useRef, useState } from 'react';
 import { useNpcEvo, extractNpcPresetFromJson, type NpcPresetEntry } from '../store/npcEvoStore';
 import { useNpc } from '../store/npcStore';
 import { usePlayer } from '../store/playerStore';
+import { useSettings } from '../store/settingsStore';
 import ApiRoutePicker from './ApiRoutePicker';
 
 /* ── 开关 ── */
@@ -963,6 +964,10 @@ export default function NpcManager() {
   const enabled     = useNpcEvo((s) => s.settings.enabled);
   const strategy    = useNpcEvo((s) => s.settings.strategy);
   const setSettings = useNpcEvo((s) => s.setSettings);
+  const autonomyOn       = useSettings((s) => s.npcAutonomyOn);
+  const setAutonomyOn    = useSettings((s) => s.setNpcAutonomyOn);
+  const autonomyDeath    = useSettings((s) => s.npcAutonomyDeath);
+  const setAutonomyDeath = useSettings((s) => s.setNpcAutonomyDeath);
   const [tab, setTab] = useState<NpcTab>('settings');
 
   const tabs: { key: NpcTab; label: string; icon: string }[] = [
@@ -1011,6 +1016,25 @@ export default function NpcManager() {
             <div className="text-[12px] opacity-70 mt-0.5">登场判断 + 调度 + 每 NPC 单独演化，忠实原版</div>
           </button>
         </div>
+      </div>
+
+      {/* 离场角色自治（轨道A·零 API）：演化 AI 管在场，本开关管离场 NPC 自己活 */}
+      <div className="p-3 bg-panel border border-edge rounded-xl space-y-2">
+        <div className="flex items-center justify-between">
+          <div className="text-sm font-mono text-god/70 uppercase tracking-widest">离场角色自治 · 轨道A</div>
+          <Toggle checked={autonomyOn} onChange={() => setAutonomyOn(!autonomyOn)} />
+        </div>
+        <div className="text-[12px] text-dim leading-relaxed">
+          开启后<b className="text-slate-200">不在场的契约者/土著</b>每回合<b className="text-slate-200">零 API</b> 地自行过日子——出任务 / 强化 / 竞技 / 结仇结盟 / 壁障考核，土著在故土营生御敌；近况写进各自档案并注入正文，好结局会<b className="text-slate-200">档内有界</b>地涨等级六维（按阶位封顶、不越档）。纯前端确定性、不花 token。默认关。
+        </div>
+        {autonomyOn && (
+          <div className="flex items-start gap-3 pt-2 mt-1 border-t border-edge/60">
+            <Toggle checked={autonomyDeath} onChange={() => setAutonomyDeath(!autonomyDeath)} />
+            <div className="text-[12px] text-dim leading-relaxed">
+              <b className="text-amber-300/90">允许任务致死（陨落）</b>：离场契约者出 E 级任务有<b className="text-slate-200">小概率回不来</b>。<b className="text-slate-200">好友 / 羁绊 / 长留 / 队友永不会死</b>。默认关，怕丢 NPC 就别开。
+            </div>
+          </div>
+        )}
       </div>
 
       <div className="flex gap-1 p-1 bg-panel rounded-lg border border-edge">

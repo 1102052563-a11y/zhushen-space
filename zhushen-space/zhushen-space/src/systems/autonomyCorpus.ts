@@ -22,6 +22,13 @@ export interface AutonomyCorpus {
     nativePlace?: string[];   // 土著本地地点（村落/集镇…），native_* 事件用
     nativeThreat?: string[];  // 土著本地威胁（流寇/野兽/瘟疫…）
     nativeTone?: Record<string, string[]>;  // 土著专属语气库（按性格分桶，纯本地词不沾乐园术语），{ntone} 槽用
+    equipment?: string[];     // 装备库（通用兜底）：enhance/trade 的 {item} 在 NPC 无装备时从这取
+    skillTalent?: string[];   // 技能天赋库（通用兜底）：acquire 的 {skill} 从这取
+    gearPrefix?: string[];    // 装备共享前缀（噬魂/裂空…）× 职业词根 = 组合装备名
+    skillPrefix?: string[];   // 技能共享前缀（裂空/焚天…）× 职业招式词根 = 组合技能名
+    armorCore?: string[];     // 防具词根（重铠/战衣…），跨职业共享
+    accessoryCore?: string[]; // 饰品词根（指环/项链…），跨职业共享
+    profGear?: Record<string, { weapon?: string[]; skill?: string[]; talent?: string[] }>; // 职业细分：武器/招式/天赋词根
   };
   events: Record<string, string[]>;
   behaviorBias: Record<string, Record<string, number>>;
@@ -72,6 +79,13 @@ export function getCorpus(): AutonomyCorpus {
       nativePlace: [...(defaultCorpus.banks.nativePlace ?? []), ...(override.banks?.nativePlace ?? [])],
       nativeThreat: [...(defaultCorpus.banks.nativeThreat ?? []), ...(override.banks?.nativeThreat ?? [])],
       nativeTone: concatArrMap(defaultCorpus.banks.nativeTone ?? {}, override.banks?.nativeTone),
+      equipment: [...(defaultCorpus.banks.equipment ?? []), ...(override.banks?.equipment ?? [])],
+      skillTalent: [...(defaultCorpus.banks.skillTalent ?? []), ...(override.banks?.skillTalent ?? [])],
+      gearPrefix: [...(defaultCorpus.banks.gearPrefix ?? []), ...(override.banks?.gearPrefix ?? [])],
+      skillPrefix: [...(defaultCorpus.banks.skillPrefix ?? []), ...(override.banks?.skillPrefix ?? [])],
+      armorCore: [...(defaultCorpus.banks.armorCore ?? []), ...(override.banks?.armorCore ?? [])],
+      accessoryCore: [...(defaultCorpus.banks.accessoryCore ?? []), ...(override.banks?.accessoryCore ?? [])],
+      profGear: { ...(defaultCorpus.banks.profGear ?? {}), ...(override.banks?.profGear ?? {}) },
     },
     events: concatArrMap(defaultCorpus.events, override.events),
     behaviorBias: { ...defaultCorpus.behaviorBias, ...(override.behaviorBias ?? {}) },

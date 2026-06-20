@@ -13,6 +13,8 @@ export interface WorldBookEntry {
   enabled: boolean;
   order: number;       // 插入排序权重
   position: number;    // 插入位置
+  depth?: number;      // @D 深度注入（position===4 时）：插到对话历史倒数第 N 层
+  role?: number;       // @D 注入身份：0=system 1=user 2=assistant
 }
 
 export interface WorldBook {
@@ -344,6 +346,7 @@ interface SettingsState {
   addTextPresetEntry: (presetId: string) => void;
   removeTextPresetEntry: (presetId: string, identifier: string) => void;
   moveTextPresetEntry: (presetId: string, identifier: string, dir: 1 | -1) => void;
+  reorderTextPresetEntry: (presetId: string, fromId: string, toIdx: number) => void;
   setActiveTextPreset: (id: string | null) => void;
 
   // 综合设置操作
@@ -934,6 +937,18 @@ export const useSettings = create<SettingsState>()(
           const next = idx + dir;
           if (next < 0 || next >= arr.length) return p;
           [arr[idx], arr[next]] = [arr[next], arr[idx]];
+          return forkIfBuiltin({ ...p, entries: arr });
+        }),
+      })),
+      reorderTextPresetEntry: (presetId, fromId, toIdx) => set((s) => ({
+        textPresets: s.textPresets.map((p) => {
+          if (p.id !== presetId) return p;
+          const arr = [...(p.entries ?? [])];
+          const from = arr.findIndex((e) => e.identifier === fromId);
+          if (from < 0) return p;
+          const [moved] = arr.splice(from, 1);
+          const dest = Math.max(0, Math.min(arr.length, toIdx > from ? toIdx - 1 : toIdx));
+          arr.splice(dest, 0, moved);
           return forkIfBuiltin({ ...p, entries: arr });
         }),
       })),
