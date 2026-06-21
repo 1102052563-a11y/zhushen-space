@@ -266,7 +266,7 @@ export const useImageGen = create<ImageGenState>()(
       styles: DEFAULT_STYLES.map((s) => ({ ...s })),
 
       nai: {
-        apiUrl: 'https://image.novelai.net', corsProxy: '', apiToken: '', model: 'nai-diffusion-4-5-full',
+        apiUrl: 'https://image.novelai.net', corsProxy: DEFAULT_IMG_CORS_PROXY, apiToken: '', model: 'nai-diffusion-4-5-full',
         width: 1024, height: 1024, timeoutSec: 600, queueEnabled: true, queueGapSec: 10, rpm: 0,
         sampler: 'k_dpmpp_2m_sde', steps: 28, promptGuidance: 5, promptGuidanceRescale: 0, undesiredContentStrength: 1,
         negativePrompt: DEFAULT_STYLES[0].portraitNegative, artistTags: DEFAULT_STYLES[0].artistTags, seed: '',

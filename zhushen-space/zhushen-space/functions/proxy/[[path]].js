@@ -13,7 +13,7 @@
 const CORS = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Methods': 'GET,POST,OPTIONS',
-  'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+  'Access-Control-Allow-Headers': 'Content-Type, Authorization, X-Upstream, Accept',
   'Access-Control-Max-Age': '86400',
 };
 
@@ -26,27 +26,35 @@ export async function onRequest(context) {
   }
 
   const url = new URL(request.url);
-  // 取 /proxy/ 之后的整段作为上游地址；容忍用户写了 http(s):// 前缀、或被规范化成 https:/ 的情况
-  let rest = url.pathname.replace(/^\/proxy\/?/, '');
-  rest = rest.replace(/^https?:\/+/i, '');
-  if (!rest) {
-    return json({ error: 'proxy: 缺少上游地址，应形如 /proxy/api.openai.com/v1/chat/completions' }, 400);
+  // 上游地址两种来源（并存）：① 头式 X-Upstream（兼容 NAI / fanren 的 applyProxy，真实地址放头里，同源零配置）② 路径式 /proxy/<上游>
+  const xUpstream = (request.headers.get('X-Upstream') || '').trim();
+  let target, upstreamHost;
+  if (xUpstream) {
+    const up = xUpstream.replace(/^https?:\/+/i, '');                 // 容忍带不带 http(s)://
+    if (!up) return json({ error: 'proxy: X-Upstream 为空' }, 400);
+    upstreamHost = up.split('/')[0].split('?')[0];
+    target = 'https://' + up;                                         // 头里已是完整地址，不再拼 url.search
+  } else {
+    // 取 /proxy/ 之后的整段作为上游地址；容忍写了 http(s):// 前缀、或被规范化成 https:/ 的情况
+    const rest = url.pathname.replace(/^\/proxy\/?/, '').replace(/^https?:\/+/i, '');
+    if (!rest) {
+      return json({ error: 'proxy: 缺少上游地址，应形如 /proxy/api.openai.com/v1/... 或用 X-Upstream 头' }, 400);
+    }
+    upstreamHost = rest.split('/')[0].split('?')[0];
+    target = 'https://' + rest + url.search;
   }
 
   // 上游主机白名单（可选）
   const allow = String((env && env.ALLOWED_HOSTS) || '')
     .split(',').map((s) => s.trim()).filter(Boolean);
-  const upstreamHost = rest.split('/')[0].split('?')[0];
   if (allow.length && !allow.includes(upstreamHost)) {
     return json({ error: `proxy: 上游主机 ${upstreamHost} 不在白名单(ALLOWED_HOSTS)` }, 403);
   }
 
-  const target = 'https://' + rest + url.search;
-
   // 透传请求头，去掉 host / Cloudflare 专有头，避免上游拒绝
   const headers = new Headers(request.headers);
   ['host', 'cf-connecting-ip', 'cf-ipcountry', 'cf-ray', 'cf-visitor',
-   'x-forwarded-host', 'x-forwarded-proto', 'x-real-ip'].forEach((h) => headers.delete(h));
+   'x-forwarded-host', 'x-forwarded-proto', 'x-real-ip', 'x-upstream'].forEach((h) => headers.delete(h));
 
   let upstream;
   try {

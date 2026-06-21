@@ -67,7 +67,12 @@ function ApiConfigPage() {
         {svc === 'nai' && (
           <div className="space-y-2">
             <Field label="API URL" hint="默认填 NovelAI 域名，程序自动补 /ai/generate-image"><input value={s.nai.apiUrl} onChange={(e) => s.setNai({ apiUrl: e.target.value })} className={inputCls} /></Field>
-            <Field label="CORS 代理地址（必填·NAI 浏览器直连会被跨域拦截）" hint="含 {url} 为前缀式(如 https://代理/?url={url})；否则头式：请求发到该地址、真实 NAI 地址放 X-Upstream 头（兼容 fanren）。留空=直连=Failed to fetch。部署见下方说明。"><input value={s.nai.corsProxy ?? ''} onChange={(e) => s.setNai({ corsProxy: e.target.value })} placeholder="https://your-worker.workers.dev  或  https://代理/?url={url}" className={inputCls} /></Field>
+            <Field label="CORS 代理地址（默认已填同源代理·开箱即用·无需配置；改后自动保存）" hint="默认 https://zhushen-space.pages.dev/proxy 是与本站同源的内置代理（头式 X-Upstream），玩家零配置直接用。也可换自己的：含 {url} 为前缀式；否则头式。留空=直连=Failed to fetch。">
+              <div className="flex gap-1">
+                <input value={s.nai.corsProxy ?? ''} onChange={(e) => s.setNai({ corsProxy: e.target.value })} placeholder="留空=直连" className={inputCls + ' flex-1'} />
+                <button type="button" onClick={() => s.setNai({ corsProxy: DEFAULT_IMG_CORS_PROXY })} title="恢复默认同源代理" className="shrink-0 px-2 text-[12px] font-mono text-dim hover:text-god border border-edge rounded transition-colors">↺默认</button>
+              </div>
+            </Field>
             <Field label="Persistent API Token"><input type="password" value={s.nai.apiToken} onChange={(e) => s.setNai({ apiToken: e.target.value })} className={inputCls} /></Field>
             <div className="grid grid-cols-2 gap-2">
               <Field label="模型"><input value={s.nai.model} onChange={(e) => s.setNai({ model: e.target.value })} className={inputCls} /></Field>

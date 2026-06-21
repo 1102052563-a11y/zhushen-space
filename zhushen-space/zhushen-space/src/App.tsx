@@ -7162,7 +7162,7 @@ ${lines}`;
                 { icon: '🖼', label: '生图（肖像 + 装备）', run: () => { runPortraitPhase(); runEquipImagePhase(); } },
               ].map((it) => (
                 <button key={it.label}
-                  onClick={() => { const x = it as { label: string; run: () => void; desc?: string; all?: boolean }; setRevarOpen(false); setConfirmAction({ title: x.all ? '重算全部变量' : `重 ROLL「${x.label}」`, desc: x.desc || `仅重新生成「${x.label}」这一项（基于本回合正文重跑该演化）、其它变量不动。确定？`, run: x.run }); }}
+                  onClick={() => { const x = it as { label: string; run: () => void; desc?: string; all?: boolean }; setConfirmAction({ title: x.all ? '重算全部变量' : `重 ROLL「${x.label}」`, desc: x.desc || `仅重新生成「${x.label}」这一项（基于本回合正文重跑该演化）、其它变量不动。确定？`, run: () => { setRevarOpen(false); x.run(); } }); }}
                   className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-left text-dim hover:text-god hover:bg-god/10 transition-colors">
                   <span className="w-5 text-center text-xs opacity-80">{it.icon}</span>
                   <span className="flex-1">{it.label}</span>
@@ -7385,7 +7385,7 @@ ${lines}`;
       {showVer && <VersionToast version={APP_VERSION} note={VERSION_NOTE} onClose={() => setShowVer(false)} />}
       {/* 回退 / 重新生成 确认弹窗（破坏性操作，先确认）*/}
       {confirmAction && (
-        <div className="fixed inset-0 z-[80] bg-black/70 backdrop-blur-sm flex items-center justify-center p-4"
+        <div className="fixed inset-0 z-[130] bg-black/70 backdrop-blur-sm flex items-center justify-center p-4"
           onClick={(e) => { if (e.target === e.currentTarget) setConfirmAction(null); }}>
           <div className="w-full max-w-sm rounded-2xl border border-edge bg-void shadow-[0_0_50px_rgba(0,0,0,0.8)] overflow-hidden">
             <div className="px-5 py-3 border-b border-edge bg-panel flex items-center gap-2">
