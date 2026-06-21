@@ -3,6 +3,7 @@ import { useItems } from '../store/itemStore';
 import { mpWsBase } from './mpConfig';
 import { chatAvatarVer, chatDicebearSeed } from './chatIdentity';
 import { chatNameColor } from './chatCosmetics';
+import type { TradeInbound, TradeOutbound } from './tradeProtocol';
 
 // 全局交易行 WebSocket 客户端（事件名照搬后端 TradeDO 协议）。
 // 与聊天室共用 Discord 身份：连接带 chatToken(→后端 pid=chat:uid) + 头像/名牌(avv/ds/nc)，挂牌/还价显示同一身份。
@@ -46,7 +47,7 @@ function reconcileEscrow(listings: TradeListing[]) {
     if (e.listingId) {
       if (!ids.has(e.listingId)) { returnItem(e.item); delete mm[tok]; changed = true; }   // 挂牌已下架/过期/掉出 → 归还
     } else {
-      const match = listings.find((L) => (L as any).clientToken === tok);
+      const match = listings.find((L) => L.clientToken === tok);
       if (match) { e.listingId = match.id; changed = true; }                                // 补回确认
       else if (now - e.at > 15000) { returnItem(e.item); delete mm[tok]; changed = true; }  // 久未确认 → 视为失败归还
     }
@@ -81,7 +82,7 @@ function connect(name: string, token: string) {
   ws.onerror = () => { set({ error: '连接错误' }); };
 }
 
-function dispatch(m: any) {
+function dispatch(m: TradeInbound) {
   const st = useTrade.getState();
   switch (m.type) {
     case 'hello':
@@ -117,8 +118,11 @@ function dispatch(m: any) {
       set({ error: m.reason || m.error || '操作失败' });
       setTimeout(() => { const e = useTrade.getState().error; if (e === (m.reason || m.error || '操作失败')) set({ error: null }); }, 2500);
       break;
+    default:
+      assertNever(m);   // 新增 TradeInbound 类型却忘了在此处理 → 编译期报错（穷尽性守卫）
   }
 }
+function assertNever(_m: never): void { /* 仅用于穷尽性检查；运行时对未知 type 是 no-op */ }
 
 function listItem(item: any, price: number, currency: string, note: string) {
   if (!item) return false;
@@ -135,7 +139,7 @@ function listItem(item: any, price: number, currency: string, note: string) {
   return true;
 }
 
-function sendRaw(obj: any) {
+function sendRaw(obj: TradeOutbound) {
   if (ws && ws.readyState === 1) { ws.send(JSON.stringify(obj)); return true; }
   return false;
 }

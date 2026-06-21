@@ -94,6 +94,7 @@ import RaidDungeonReward from './components/RaidDungeonReward';
 const RaidLootModal = lazy(() => import('./components/RaidLootModal'));
 const CombatPanel = lazy(() => import('./components/CombatPanel'));
 import WeatherFx from './components/WeatherFx';
+import CommandPalette from './components/CommandPalette';
 const CombatSetup = lazy(() => import('./components/CombatSetup'));
 import { useTerritory, buildTerritorySystemPrompt, buildingCap } from './store/territoryStore';
 import { useTeam, buildTeamSystemPrompt, memberCap as teamMemberCap } from './store/adventureTeamStore';
@@ -719,6 +720,14 @@ export default function App() {
   const [nmPhaseLog,         setNmPhaseLog]         = useState('');     // 叙事记忆：回溯/整理结果提示
   const [guidanceRunning,    setGuidanceRunning]    = useState(false);  // 剧情指导：正在生成本回合剧情建议（状态栏提示）
   const [backpackOpen,     setBackpackOpen]     = useState(false);
+  const [cmdkOpen,         setCmdkOpen]         = useState(false);   // 命令面板（⌘K / Ctrl+K / 顶栏🔍 快速跳转面板）
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && (e.key === 'k' || e.key === 'K')) { e.preventDefault(); setCmdkOpen((v) => !v); }
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, []);
   const [showVer,          setShowVer]          = useState(false);   // 版本「已更新」提示横幅
   const [equipOpen,        setEquipOpen]        = useState(false);
   const [charPanelOpen,    setCharPanelOpen]    = useState(false);
@@ -6160,6 +6169,42 @@ ${lines}`;
     catch (e) { console.warn('[Undo] 记录回退点失败:', e); setGenError('记录回退点失败，"回退/重新生成"暂不可用（可能浏览器存储空间已满）'); setTimeout(() => setGenError(''), 6000); }
   }
   function stopGeneration() { abortRef.current?.abort(); }
+  /* 右侧导航·标签 → 打开对应面板（命令面板与导航按钮共用同一份开法，保证一致） */
+  function runNavAction(label: string) {
+    const open =
+      label === '设置' ? () => setSettingsOpen(true) :
+      label === '储存空间' ? () => setBackpackOpen(true) :
+      label === '装备' ? () => setEquipOpen(true) :
+      label === '技能' ? () => setCharPanelOpen(true) :
+      label === '称号' ? () => setTitlePanelOpen(true) :
+      label === '成就' ? () => setAchievePanelOpen(true) :
+      label === '副职业' ? () => setSubProfOpen(true) :
+      label === '技能树' ? () => setSkillTreeOpen(true) :
+      label === '势力' ? () => setFactionPanelOpen(true) :
+      label === '领地' ? () => setTerritoryPanelOpen(true) :
+      label === '冒险团' ? () => setTeamPanelOpen(true) :
+      label === '万族' ? () => setCosmosPanelOpen(true) :
+      label === '世界百科' ? () => setWorldCodexOpen(true) :
+      label === '回合洞察' ? () => setInsightOpen(true) :
+      label === 'ROLL' ? () => setDicePanelOpen(true) :
+      label === '战斗' ? () => { if (mpGuest) { setGenError('联机中：战斗由房主发起'); setTimeout(() => setGenError(''), 4000); return; } setCombatSetupOpen(true); } :
+      label === '乐园设施' ? () => setFacilitiesOpen(true) :
+      label === '深渊' ? () => setAbyssOpen(true) :
+      label === 'NPC'  ? () => setNpcPanelOpen(true) :
+      label === '任务' ? () => setMiscPanelOpen(true) :
+      label === '频道' ? () => setChannelPanelOpen(true) :
+      label === '私信' ? () => { setDmFocusThread(undefined); setDmPanelOpen(true); } :
+      label === '好友' ? () => setFriendsPanelOpen(true) :
+      label === '队伍' ? () => setPartyPanelOpen(true) :
+      label === '联机' ? () => setMpPanelOpen(true) :
+      label === '聊天室' ? () => setChatRoomOpen(true) :
+      label === '交易行' ? () => setTradeOpen(true) :
+      label === '记忆' ? () => setSummaryPanelOpen(true) :
+      label === '存档' ? () => setSaveOpen(true) :
+      label === '创意工坊' ? () => setWorkshopOpen(true) :
+      undefined;
+    open?.();
+  }
   /* 回退到上一回合：恢复所有演化/对话/图到发送本回合之前（整页 reload）*/
   async function rollbackTurn() {
     const ok = await loadSlot(UNDO_ID);
@@ -6448,6 +6493,12 @@ ${lines}`;
           >
             ← <span className="max-lg:hidden">主界面</span>
           </button>
+          <button
+            onClick={() => setCmdkOpen(true)}
+            title="命令面板 · 快速跳转面板（Ctrl/⌘ K）"
+            aria-label="命令面板"
+            className="w-7 h-7 flex items-center justify-center border border-edge rounded text-dim hover:border-god/40 hover:text-god transition-colors text-sm shrink-0"
+          >🔍</button>
         </div>
         <div className="text-center font-mono shrink-0 max-lg:min-w-0 max-lg:max-w-[46vw] relative z-10">
           <div className="hdr-time text-slate-100 text-lg max-lg:text-[13px] max-lg:leading-tight font-bold max-lg:truncate">🕒 {miscParadiseTime || '——'}</div>
@@ -6988,42 +7039,7 @@ ${lines}`;
             {rightMenuItems.map((item) => (
               <button
                 key={item.label}
-                onClick={() => {
-                  const open =
-                    item.label === '设置' ? () => setSettingsOpen(true) :
-                    item.label === '储存空间' ? () => setBackpackOpen(true) :
-                    item.label === '装备' ? () => setEquipOpen(true) :
-                    item.label === '技能' ? () => setCharPanelOpen(true) :
-                    item.label === '称号' ? () => setTitlePanelOpen(true) :
-                    item.label === '成就' ? () => setAchievePanelOpen(true) :
-                    item.label === '副职业' ? () => setSubProfOpen(true) :
-                    item.label === '技能树' ? () => setSkillTreeOpen(true) :
-                    item.label === '势力' ? () => setFactionPanelOpen(true) :
-                    item.label === '领地' ? () => setTerritoryPanelOpen(true) :
-                    item.label === '冒险团' ? () => setTeamPanelOpen(true) :
-                    item.label === '万族' ? () => setCosmosPanelOpen(true) :
-                    item.label === '世界百科' ? () => setWorldCodexOpen(true) :
-                    item.label === '回合洞察' ? () => setInsightOpen(true) :
-                    item.label === 'ROLL' ? () => setDicePanelOpen(true) :
-                    item.label === '战斗' ? () => { if (mpGuest) { setGenError('联机中：战斗由房主发起'); setTimeout(() => setGenError(''), 4000); return; } setCombatSetupOpen(true); } :
-                    item.label === '乐园设施' ? () => setFacilitiesOpen(true) :
-                    item.label === '深渊' ? () => setAbyssOpen(true) :
-                    item.label === 'NPC'  ? () => setNpcPanelOpen(true) :
-                    item.label === '任务' ? () => setMiscPanelOpen(true) :
-                    item.label === '频道' ? () => setChannelPanelOpen(true) :
-                    item.label === '私信' ? () => { setDmFocusThread(undefined); setDmPanelOpen(true); } :
-                    item.label === '好友' ? () => setFriendsPanelOpen(true) :
-                    item.label === '队伍' ? () => setPartyPanelOpen(true) :
-                    item.label === '联机' ? () => setMpPanelOpen(true) :
-                    item.label === '聊天室' ? () => setChatRoomOpen(true) :
-                    item.label === '交易行' ? () => setTradeOpen(true) :
-                    item.label === '记忆' ? () => setSummaryPanelOpen(true) :
-                    item.label === '存档' ? () => setSaveOpen(true) :
-                    item.label === '创意工坊' ? () => setWorkshopOpen(true) :
-                    undefined;
-                  open?.();
-                  setMobileDrawer(null);
-                }}
+                onClick={() => { runNavAction(item.label); setMobileDrawer(null); }}
                 className="nav-btn w-full flex items-center gap-3 px-4 py-2.5 text-sm transition-colors text-left text-dim hover:text-slate-200 hover:bg-panel2"
               >
                 <span className={`nav-ico ${NAV_FX[item.label] || ''} w-4 text-center text-xs opacity-70`}>{item.icon}</span>
@@ -7036,6 +7052,15 @@ ${lines}`;
           </nav>
         </aside>
       </div>
+
+      {/* ── 命令面板（⌘K/Ctrl+K/顶栏🔍 → 模糊搜索快速跳转面板）── */}
+      <CommandPalette
+        open={cmdkOpen}
+        items={rightMenuItems}
+        unread={{ '聊天室': chatUnread }}
+        onClose={() => setCmdkOpen(false)}
+        onPick={(label) => { setCmdkOpen(false); setMobileDrawer(null); runNavAction(label); }}
+      />
 
       {/* ── 底部状态栏 ── */}
       <footer className="shrink-0 h-7 flex items-center justify-between px-4 border-t border-edge bg-panel text-[10px] font-mono text-dim/60">

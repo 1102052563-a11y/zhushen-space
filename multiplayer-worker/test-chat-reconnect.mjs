@@ -75,6 +75,16 @@ async function main() {
   check(a.rosterLen() === 2 && a.rosterHas(PIDA) && a.rosterHas(PIDC), 'A 名单含自己+仿生人=2');
   check(c.rosterHas(PIDA) && c.rosterHas(PIDC), 'C 名单含双方');
 
+  // 2.5 表情包（大贴纸）：A 发内置贴纸 → C 收到带 sticker 引用的 message；非法 data: 外链被服务端拒绝
+  a.send({ type: 'sticker', sticker: { pack: 'mood', id: 'haha' } });
+  const stk = await c.waitFor((m) => m.type === 'message' && m.message?.sticker);
+  check(stk.message.sticker.pack === 'mood' && stk.message.sticker.id === 'haha', 'C 收到 A 的内置贴纸(pack=mood,id=haha)');
+  await sleep(800);   // 过防刷窗口，确保下面被拒是因校验而非限速
+  const stkMark = c.msgs.length;
+  a.send({ type: 'sticker', sticker: { url: 'data:image/svg+xml,<svg/>' } });   // 仅允许 https 外链 → data: 必须被拒
+  await sleep(400);
+  check(!c.msgs.slice(stkMark).some((m) => m.type === 'message' && m.message?.sticker), '非法 data: 贴纸被服务端拒绝(不广播)');
+
   // 3. ★核心修复：A 同 UID 重连（第二连接 a2，模拟换标签/网络重连/改头像色触发的 connect()）
   const cBefore = a2reconnectMark(c);
   const a2 = mkChat(WS_BASE, tokA, 'Carliee');

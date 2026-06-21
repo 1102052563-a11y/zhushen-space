@@ -1,6 +1,7 @@
 import { useMp } from '../store/multiplayerStore';
 import { mpBase, mpWsBase, myPlayerId } from './mpConfig';
 import { restoreWorldBackup } from './mpSnapshot';
+import type { MpInbound, MpOutbound } from './mpProtocol';
 
 // 联机 WebSocket 客户端（事件名照搬后端协议）。心跳发字符串 "ping"（运行时自动回 pong，不唤醒 DO）。
 // 断线自动重连（房主关房 / 主动离开除外）。所有状态写进 multiplayerStore，UI 订阅。
@@ -65,7 +66,7 @@ function connect(roomId: string, opts: { name: string; want: 'play' | 'watch' })
   ws.onerror = () => { set({ error: '连接错误' }); };
 }
 
-function sendRaw(obj: any) {
+function sendRaw(obj: MpOutbound) {
   if (ws && ws.readyState === 1) { ws.send(JSON.stringify(obj)); return true; }
   return false;
 }
@@ -95,7 +96,7 @@ function leave() {
   useMp.getState().reset();
 }
 
-function dispatch(m: any) {
+function dispatch(m: MpInbound) {
   const st = useMp.getState();
   switch (m.type) {
     case 'room_state':
@@ -125,8 +126,10 @@ function dispatch(m: any) {
       break;
     case 'room_closed': set({ status: 'closed', error: '房间已被房主关闭' }); cleanupSocket(); restoreWorldBackup(); if (backupRoom) { backupRoom = null; st.handlers.onGuestRestore?.(); } break;
     case 'error': set({ error: m.reason || m.error || '未知错误' }); break;
+    default: assertNever(m);   // 新增 MpInbound 类型却忘了在此处理 → 编译期报错（穷尽性守卫）
   }
 }
+function assertNever(_m: never): void { /* 仅用于穷尽性检查；运行时对未知 type 是 no-op */ }
 
 export const mpClient = {
   createRoom,

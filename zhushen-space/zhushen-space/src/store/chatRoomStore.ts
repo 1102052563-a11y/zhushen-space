@@ -1,12 +1,15 @@
 import { create } from 'zustand';
+import type { ChatMsg, RosterEntry, ChatSelf } from '../systems/chatProtocol';
 
 // 全局实时聊天室·会话态。【不持久化】——和 multiplayerStore 一样是 live 状态，刷新即断开重来。
 // 由 systems/chatClient.ts 在收到 WS 事件时写入；ChatRoomPanel 订阅它。
 
 export type ChatStatus = 'idle' | 'connecting' | 'connected' | 'closed' | 'error';
-export interface ChatMsg { id: string; playerId?: string; name: string; hue?: number; text?: string; at: number; system?: string; share?: { kind: string; data: any }; reactions?: Record<string, string[]> }
-export interface ChatPeer { playerId: string; name: string; hue?: number; avv?: number; ds?: string; nc?: string }
-export interface ChatMe { playerId: string; name: string; hue?: number; avv?: number; ds?: string; nc?: string }
+// 载荷类型（ChatMsg/RosterEntry/ChatSelf）已上移到 systems/chatProtocol.ts 作单一事实来源；
+// 这里再导出 + 保留 ChatPeer/ChatMe 别名，使「从 store 引类型」的现有用法（如 ChatRoomPanel）不变。
+export type { ChatMsg };
+export type ChatPeer = RosterEntry;
+export type ChatMe = ChatSelf;
 
 interface ChatState {
   status: ChatStatus;

@@ -6,6 +6,8 @@ dist
 public/enhance-bosses/
 # 欢愉宫美女立绘：由 vite 插件从仓库根 欢愉宫图片/<美女>/阶段N/ 自动同步生成，副本不入库
 public/joy-girls/
+# 聊天室表情包清单：由 vite 插件扫描 public/stickers/<包名>/ 自动生成（贴纸图本身需入库才能部署分发）
+public/stickers/manifest.json
 # NAI 批量生图工具的本地 Token（含密钥，勿入库；模板见 config.example.json）
 tools/nai-batch/config.json
 # R2 上传工具的本地密钥（含 S3 Access Key/Secret，勿入库；模板见 config.example.json）

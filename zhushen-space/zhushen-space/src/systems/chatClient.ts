@@ -2,6 +2,7 @@ import { useChatRoom } from '../store/chatRoomStore';
 import { mpWsBase } from './mpConfig';
 import { chatAvatarVer, chatDicebearSeed } from './chatIdentity';
 import { chatNameColor } from './chatCosmetics';
+import type { ChatInbound, ChatOutbound, StickerRef, ShareKind } from './chatProtocol';
 
 // 全局实时聊天室 WebSocket 客户端（事件名照搬后端 ChatDO 协议）。
 // 心跳发字符串 "ping"（运行时自动回 pong，不唤醒 DO）。**连接持久化**：进入后即常驻，
@@ -66,14 +67,14 @@ function connect(name: string, token: string, channel = 'lobby') {
   ws.onerror = () => { set({ error: '连接错误' }); };
 }
 
-function dispatch(m: any) {
+function dispatch(m: ChatInbound) {
   switch (m.type) {
     case 'hello':
       gotHelloThisConn = true; failCount = 0;
       set({
         me: m.you || null,
         roster: m.roster || [],
-        messages: (m.backlog || []).map((x: any) => ({ ...x })),
+        messages: (m.backlog || []).map((x) => ({ ...x })),
         entered: true,
       });
       break;
@@ -100,10 +101,13 @@ function dispatch(m: any) {
       set({ error: RATE_MSG });
       setTimeout(() => { if (useChatRoom.getState().error === RATE_MSG) set({ error: null }); }, 1500);
       break;
+    default:
+      assertNever(m);   // 新增 ChatInbound 类型却忘了在此处理 → 编译期报错（穷尽性守卫）
   }
 }
+function assertNever(_m: never): void { /* 仅用于穷尽性检查；运行时对未知 type 是 no-op（与旧行为一致） */ }
 
-function sendRaw(obj: any) {
+function sendRaw(obj: ChatOutbound) {
   if (ws && ws.readyState === 1) { ws.send(JSON.stringify(obj)); return true; }
   return false;
 }
@@ -142,7 +146,8 @@ export const chatClient = {
   leave,
   send: (text: string) => sendRaw({ type: 'chat', text }),
   react: (id: string, emoji: string) => sendRaw({ type: 'react', id, emoji }),
-  share: (kind: 'skill' | 'talent' | 'equip' | 'item' | 'npc', data: any) => {
+  sticker: (ref: StickerRef) => sendRaw({ type: 'sticker', sticker: ref }),
+  share: (kind: ShareKind, data: any) => {
     const d = { ...(data || {}) };
     delete (d as any).image; delete (d as any).avatar;   // 分享卡不带大图
     return sendRaw({ type: 'share', kind, data: d });

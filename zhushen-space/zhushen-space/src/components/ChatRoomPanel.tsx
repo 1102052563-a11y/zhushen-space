@@ -15,6 +15,8 @@ import { EntityCard, EntityDetailModal, type EntityKind } from './EntityDetail';
 import ChatAvatar from './ChatAvatar';
 import MessageText from './MessageText';
 import EmojiPicker from './EmojiPicker';
+import StickerPicker from './StickerPicker';
+import { stickerSrc, loadStickerPacks } from '../systems/chatStickers';
 import { DICEBEAR_STYLES, parseDicebear } from '../systems/dicebearAvatar';
 import { chatNameColor, setChatNameColor, chatBubble, setChatBubble, NAME_COLORS, BUBBLE_SKINS, bubbleCls } from '../systems/chatCosmetics';
 
@@ -117,6 +119,13 @@ export default function ChatRoomPanel({ onClose }: { onClose: () => void }) {
   const npcs = useMemo(() => Object.values(npcRecords || {}).filter((n: any) => hasRealNpcName(n)), [npcRecords]);
   const [sharePick, setSharePick] = useState(false);
   const [emojiOpen, setEmojiOpen] = useState(false);
+  const [stickerOpen, setStickerOpen] = useState(false);
+  const [, setStickersV] = useState(0);   // 文件夹直投的表情包 manifest 异步加载完后，bump 一下让消息流里的贴纸重新解析
+  const sendSticker = (pack: string, id: string) => {
+    chatClient.sticker({ pack, id });   // sendRaw 自身在未连接时是 no-op
+    setStickerOpen(false);
+    atBottomRef.current = true;
+  };
   const [shareTab, setShareTab] = useState<EntityKind>('skill');
   const [shareSel, setShareSel] = useState('');
   const [detail, setDetail] = useState<{ kind: EntityKind; data: any } | null>(null);
@@ -135,6 +144,7 @@ export default function ChatRoomPanel({ onClose }: { onClose: () => void }) {
   // 离场：仅标记关闭——不断连、不清消息（老消息保留，关闭期间新消息走未读红点）。
   useEffect(() => {
     useChatRoom.getState()._set({ open: true, unread: 0 });
+    loadStickerPacks().then(() => setStickersV((v) => v + 1));   // 拉文件夹直投的表情包，加载完重渲染让消息流里的贴纸出图
     if (discordLoggedIn()) {
       setLoggedIn(true);
       if (chatName()) setName(chatName());
@@ -405,6 +415,25 @@ export default function ChatRoomPanel({ onClose }: { onClose: () => void }) {
                   const isMe = m.playerId && m.playerId === st.me?.playerId;
                   const uidTag = uidOf(m.playerId);
                   const nc = ncOf(m.playerId) || nameColor(m.hue);   // 名牌颜色：自定义优先，否则按编号确定性配色
+                  if (m.sticker) {
+                    const src = stickerSrc(m.sticker);
+                    return (
+                      <div key={m.id} className="group flex gap-2 items-start text-sm break-words">
+                        <button onClick={() => toggleMute(m.playerId)} title="点击屏蔽 / 取消屏蔽此人" className="shrink-0 mt-0.5"><ChatAvatar uid={parseUid(m.playerId)} avv={avvOf(m.playerId)} ds={dsOf(m.playerId)} size={24} ring={nc} /></button>
+                        <div className="min-w-0 flex-1">
+                          <span className="font-mono text-[11px] text-dim/35 mr-1.5">{fmtTime(m.at)}</span>
+                          {uidTag && <span className="font-mono text-[10px] text-god/45 mr-1">{uidTag}</span>}
+                          <button onClick={() => toggleMute(m.playerId)} className="font-semibold hover:underline" style={{ color: nc }}>{m.name}{isMe ? ' (你)' : ''}</button>
+                          <div className="mt-1">
+                            {src
+                              ? <img src={src} alt="贴纸" loading="lazy" className="w-[116px] h-[116px] rounded-xl object-contain bg-panel/40 border border-edge" draggable={false} />
+                              : <span className="text-dim/40 text-[12px]">[表情包]</span>}
+                          </div>
+                          {reactionsRow(m)}
+                        </div>
+                      </div>
+                    );
+                  }
                   if (m.share) return (
                     <div key={m.id} className="group flex gap-2 items-start text-sm break-words">
                       <span className="shrink-0 mt-0.5"><ChatAvatar uid={parseUid(m.playerId)} avv={avvOf(m.playerId)} ds={dsOf(m.playerId)} size={24} ring={nc} /></span>
@@ -436,6 +465,7 @@ export default function ChatRoomPanel({ onClose }: { onClose: () => void }) {
               {/* 输入区 */}
               <div className="shrink-0 border-t border-edge bg-panel/60 p-3 relative">
                 {emojiOpen && <EmojiPicker onPick={(e) => setDraft((d) => (d + e).slice(0, 500))} onClose={() => setEmojiOpen(false)} />}
+                {stickerOpen && <StickerPicker onPick={sendSticker} onClose={() => setStickerOpen(false)} />}
                 {sharePick && (
                   <div className="mb-2 rounded-lg border border-edge bg-void/60 p-2 space-y-2">
                     <div className="flex gap-1 flex-wrap">
@@ -456,8 +486,9 @@ export default function ChatRoomPanel({ onClose }: { onClose: () => void }) {
                 )}
                 {st.error && <div className="text-[11px] font-mono text-amber-400/80 mb-1.5">{st.error}</div>}
                 <div className="flex items-end gap-2">
-                  <button onClick={() => setSharePick((v) => !v)} disabled={!connected} title="分享 技能 / 天赋 / 装备 / NPC" className="shrink-0 px-2.5 py-2 rounded-lg text-sm border border-edge text-dim/70 hover:text-god hover:border-god/40 disabled:opacity-40 transition-colors">📢</button>
-                  <button onClick={() => setEmojiOpen((v) => !v)} disabled={!connected} title="表情" className="shrink-0 px-2.5 py-2 rounded-lg text-sm border border-edge text-dim/70 hover:text-god hover:border-god/40 disabled:opacity-40 transition-colors">😀</button>
+                  <button onClick={() => { setSharePick((v) => !v); setEmojiOpen(false); setStickerOpen(false); }} disabled={!connected} title="分享 技能 / 天赋 / 装备 / NPC" className="shrink-0 px-2.5 py-2 rounded-lg text-sm border border-edge text-dim/70 hover:text-god hover:border-god/40 disabled:opacity-40 transition-colors">📢</button>
+                  <button onClick={() => { setStickerOpen((v) => !v); setEmojiOpen(false); setSharePick(false); }} disabled={!connected} title="表情包（大贴纸）" className="shrink-0 px-2.5 py-2 rounded-lg text-sm border border-edge text-dim/70 hover:text-god hover:border-god/40 disabled:opacity-40 transition-colors">🖼</button>
+                  <button onClick={() => { setEmojiOpen((v) => !v); setSharePick(false); setStickerOpen(false); }} disabled={!connected} title="表情" className="shrink-0 px-2.5 py-2 rounded-lg text-sm border border-edge text-dim/70 hover:text-god hover:border-god/40 disabled:opacity-40 transition-colors">😀</button>
                   <textarea value={draft} onChange={(e) => setDraft(e.target.value.slice(0, 500))} onKeyDown={onKey} rows={1}
                     placeholder={connected ? '说点什么…（Enter 发送，Shift+Enter 换行）' : '连接中…'} disabled={!connected}
                     className="flex-1 resize-none rounded-lg bg-void border border-edge px-3 py-2 text-sm text-slate-100 placeholder:text-dim/40 focus:outline-none focus:border-god/40 max-h-32 disabled:opacity-50" />

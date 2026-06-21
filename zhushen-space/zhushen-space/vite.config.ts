@@ -55,6 +55,31 @@ function buildPortraitManifest(): Plugin {
   return { name: 'build-portrait-manifest', buildStart() { gen() }, configureServer() { gen() } }
 }
 
+// 聊天室表情包（大贴纸·文件夹直投）：扫描 public/stickers/<包名>/ 自动生成 manifest.json：
+//   - 子文件夹名 = 包 id/显示名；包内每个图(gif/png/webp/…) = 一张贴纸，id=文件名(去扩展名)。
+//   - 你把自己的 gif/png/webp 丢进 public/stickers/<包名>/，build（含 Cloudflare）与 dev 启动时自动重写 manifest，无需手写。
+//   - 动图(gif/apng/动态webp) 由前端 <img> 自动播放。**素材版权由放置者自负**（站点公开部署）。
+function buildStickerManifest(): Plugin {
+  const DIR = 'public/stickers'
+  const IMG = /\.(gif|png|jpe?g|webp|apng|avif|svg)$/i
+  const gen = () => {
+    try {
+      if (!existsSync(DIR)) return
+      const packs: { id: string; label: string; stickers: { id: string; file: string }[] }[] = []
+      for (const top of readdirSync(DIR, { withFileTypes: true })) {
+        if (!top.isDirectory()) continue
+        const stickers: { id: string; file: string }[] = []
+        for (const f of readdirSync(DIR + '/' + top.name)) {
+          if (IMG.test(f)) stickers.push({ id: f.replace(IMG, ''), file: top.name + '/' + f })
+        }
+        if (stickers.length) packs.push({ id: top.name, label: top.name, stickers })
+      }
+      writeFileSync(DIR + '/manifest.json', JSON.stringify(packs, null, 2))
+    } catch { /* 失败不阻断构建 */ }
+  }
+  return { name: 'build-sticker-manifest', buildStart() { gen() }, configureServer() { gen() } }
+}
+
 // 强化老板分阶段立绘：把仓库根 图片/<老板>/阶段N/*.png 同步进 public/enhance-bosses/，
 // 并生成 manifest.json = { "<老板>": { "1":[urls], "2":[...], "3":[...], "4":[...] } }。
 // 你只要把图丢进 图片/凯莉/阶段1..4/，build（含 Cloudflare）与 dev 启动时自动同步+重写清单。
@@ -191,7 +216,7 @@ function syncJoyWorldBooks(): Plugin {
 const API_TARGET = process.env.VITE_API_TARGET ?? 'https://api.baimeow.icu'
 
 export default defineConfig({
-  plugins: [react(), copyBuiltinPresets(), buildPortraitManifest(), syncEnhanceBosses(), syncJoyGirls(), syncJoyWorldBooks(), syncCasinoDealers()],
+  plugins: [react(), copyBuiltinPresets(), buildPortraitManifest(), buildStickerManifest(), syncEnhanceBosses(), syncJoyGirls(), syncJoyWorldBooks(), syncCasinoDealers()],
   build: { emptyOutDir: true },   // 始终清空 dist 再构建（防 index-*.js 历史残留堆积；从外层目录构建时 Vite 默认会跳过清空）
   server: {
     proxy: {
