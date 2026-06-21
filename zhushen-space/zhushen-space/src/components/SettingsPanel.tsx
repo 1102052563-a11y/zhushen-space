@@ -2412,6 +2412,8 @@ function GeneralSettingsSection() {
   const setShowNewlineButton = useSettings((s) => s.setShowNewlineButton);
   const weatherFx            = useSettings((s) => s.weatherFx);
   const setWeatherFx         = useSettings((s) => s.setWeatherFx);
+  const audio                = useSettings((s) => s.audio);
+  const setAudio             = useSettings((s) => s.setAudio);
   const [input, setInput] = useState(String(historyLimit));
 
   function commit(val: string) {
@@ -2497,6 +2499,33 @@ function GeneralSettingsSection() {
           <div>
             <div className="text-sm font-semibold text-slate-200">顶栏天气特效（天启）</div>
             <div className="text-sm text-dim mt-1 leading-relaxed">任务世界有天气时，顶栏铺一层动态天空背景：雨丝 / 飘雪 / 雾烟 / 雷闪 / 风卷落叶 + 太阳·流云等粒子动画。关闭后顶栏维持原暗色、零性能开销，适合低配设备或想专注阅读时。回归乐园本就无此效果。</div>
+          </div>
+        </div>
+      </div>
+
+      {/* 音效 */}
+      <div className="space-y-4">
+        <div className="text-sm font-mono text-god/70 uppercase tracking-widest">音效</div>
+        <div className="flex items-start gap-3 border border-edge rounded-lg p-4 bg-panel">
+          <Toggle checked={audio.enabled} onChange={() => setAudio({ enabled: !audio.enabled })} />
+          <div className="flex-1 min-w-0">
+            <div className="text-sm font-semibold text-slate-200">游戏音效</div>
+            <div className="text-sm text-dim mt-1 leading-relaxed">开启后：掷骰 / 战斗命中·暴击·格挡 / 世界结算 / 升级 / 赌坊 / 聊天室新消息 等播放音效；并随天气放环境音（雨·雷·雪·风·雾）。音频文件放在 <span className="font-mono text-god/70">public/audio/</span> 下，<span className="text-dim/60">缺文件不报错、自动跳过</span>；引擎懒加载（Howler），不进主包。</div>
+            {audio.enabled && (
+              <div className="mt-3 space-y-3">
+                <div className="flex items-center gap-3">
+                  <span className="text-[12px] text-dim/70 w-14 shrink-0">总音量</span>
+                  <input type="range" min={0} max={100} step={1} value={Math.round(audio.volume * 100)} onChange={(e) => setAudio({ volume: (parseInt(e.target.value) || 0) / 100 })} className="flex-1" />
+                  <span className="text-[12px] font-mono text-god/80 w-10 text-right">{Math.round(audio.volume * 100)}%</span>
+                </div>
+                <div className="flex items-center gap-3">
+                  <Toggle checked={audio.ambient} onChange={() => setAudio({ ambient: !audio.ambient })} />
+                  <span className="text-[12px] text-dim/70 w-14 shrink-0">环境音</span>
+                  <input type="range" min={0} max={100} step={1} value={Math.round(audio.ambientVolume * 100)} disabled={!audio.ambient} onChange={(e) => setAudio({ ambientVolume: (parseInt(e.target.value) || 0) / 100 })} className="flex-1 disabled:opacity-40" />
+                  <span className="text-[12px] font-mono text-god/80 w-10 text-right">{Math.round(audio.ambientVolume * 100)}%</span>
+                </div>
+              </div>
+            )}
           </div>
         </div>
       </div>

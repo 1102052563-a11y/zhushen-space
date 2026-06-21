@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import {
-  stickerPacks, loadStickerPacks, loadMyCloudStickers, stickerDefSrc, refForDef,
-  uploadCloudSticker, deleteMyCloudSticker, type StickerRef,
+  stickerPacks, loadStickerPacks, loadMyCloudStickers, loadPublicStickers, stickerDefSrc, refForDef,
+  uploadCloudSticker, deleteMyCloudSticker, hidePublicSticker, type StickerRef,
 } from '../systems/chatStickers';
 
 /* 表情包（大贴纸）选择器：包标签 + 贴纸网格，点一下即回调 onPick(ref) 发送。
@@ -18,6 +18,7 @@ export default function StickerPicker({ onPick, onClose }: { onPick: (ref: Stick
   useEffect(() => {
     loadStickerPacks().then(rerender);
     loadMyCloudStickers().then(rerender);
+    loadPublicStickers().then(rerender);
   }, []);
 
   const packs = stickerPacks();
@@ -31,6 +32,7 @@ export default function StickerPicker({ onPick, onClose }: { onPick: (ref: Stick
     setErr(''); setBusy(true);
     try {
       await uploadCloudSticker(f);
+      loadPublicStickers().then(rerender);   // 上传的也进「大家的」
       rerender();
       const mi = stickerPacks().findIndex((p) => p.id === 'mine');
       if (mi >= 0) setPi(mi);   // 切到「我的」看刚上传的
@@ -38,6 +40,7 @@ export default function StickerPicker({ onPick, onClose }: { onPick: (ref: Stick
     setBusy(false);
   };
   const onDelete = async (hash: string) => { await deleteMyCloudSticker(hash); rerender(); };
+  const onHide = (hash: string) => { hidePublicSticker(hash); rerender(); };
 
   return (
     <>
@@ -59,6 +62,10 @@ export default function StickerPicker({ onPick, onClose }: { onPick: (ref: Stick
               {pack.id === 'mine' && (
                 <button onClick={() => onDelete(s.id)} title="删除这张"
                   className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-blood/90 text-white text-[10px] leading-none flex items-center justify-center opacity-0 group-hover/stk:opacity-100 transition-opacity">✕</button>
+              )}
+              {pack.id === 'public' && (
+                <button onClick={() => onHide(s.id)} title="隐藏这张（仅你看不到）"
+                  className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-black/70 text-white text-[9px] leading-none flex items-center justify-center opacity-0 group-hover/stk:opacity-100 transition-opacity">🚫</button>
               )}
             </div>
           ))}

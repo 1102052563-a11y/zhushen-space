@@ -95,6 +95,7 @@ const RaidLootModal = lazy(() => import('./components/RaidLootModal'));
 const CombatPanel = lazy(() => import('./components/CombatPanel'));
 import WeatherFx from './components/WeatherFx';
 import CommandPalette from './components/CommandPalette';
+import { setAudioSettings, playSfx, setAmbient } from './systems/audio';
 const CombatSetup = lazy(() => import('./components/CombatSetup'));
 import { useTerritory, buildTerritorySystemPrompt, buildingCap } from './store/territoryStore';
 import { useTeam, buildTeamSystemPrompt, memberCap as teamMemberCap } from './store/adventureTeamStore';
@@ -860,6 +861,18 @@ export default function App() {
   const miscWeatherFxCss = useMisc((s) => s.weatherFxCss);
   const miscWeatherFxKey = useMisc((s) => s.weatherFxKey);
   const weatherFxOn      = useSettings((s) => s.weatherFx);
+  // ── 游戏音效（懒加载 Howler·缺音频文件静默）──
+  const audioCfg = useSettings((s) => s.audio);
+  const prevChatUnread = useRef<number | null>(null);
+  useEffect(() => { setAudioSettings(audioCfg); }, [audioCfg]);   // 设置 → 音效引擎
+  useEffect(() => {   // 天气环境音：随顶栏天气切换（仅任务世界有天气；回归乐园/无天气→停）
+    const kind = (!!miscWeather && !isHomeWorld(miscWorldName)) ? parseWeather(miscWeather).kind : 'none';
+    setAmbient(kind);
+  }, [miscWeather, miscWorldName]);
+  useEffect(() => {   // 聊天室新消息提示音（未读数变多时；首帧不响）
+    if (prevChatUnread.current !== null && chatUnread > prevChatUnread.current) playSfx('msg');
+    prevChatUnread.current = chatUnread;
+  }, [chatUnread]);
 
   const [started, setStarted] = useState(false);
   const [creating, setCreating] = useState(false);   // 角色创建页
@@ -6128,6 +6141,7 @@ ${lines}`;
         // 流结束后：先剥掉泄漏进正文的思维链块（中转把 <think> 拍平进 content / 末尾 </think> 预填充被回显），再解析/渲染
         const cleaned = stripLeakedThinking(accumulated);
         lastRawNarrativeRef.current = cleaned;   // 存含指令原文，供「仅重算变量」复用
+        if (/<世界结算>/.test(cleaned)) playSfx('fanfare');   // 世界结算 → 号角音效
         applyAllUpdates(cleaned);
         try { applyPlayerProfileCommands(cleaned, '', turnCountRef.current); } catch { /* 主角位置/外观/身份：正文若直接输出 character.B1.* 也即时生效，不必等主角演化阶段 */ }
         const settledText = stripKillBlocks(cleaned);   // 过渡期：剥除旧 <kill> 清单（不再结算进阶点）
@@ -6156,6 +6170,7 @@ ${lines}`;
         if (!reply) throw new Error('模型未返回内容');
         const cleanedReply = stripLeakedThinking(reply);   // 剥泄漏进正文的思维链块（同流式路径）
         lastRawNarrativeRef.current = cleanedReply;   // 存含指令原文，供「仅重算变量」复用
+        if (/<世界结算>/.test(cleanedReply)) playSfx('fanfare');   // 世界结算 → 号角音效
         applyAllUpdates(cleanedReply);
         try { applyPlayerProfileCommands(cleanedReply, '', turnCountRef.current); } catch { /* 主角位置/外观/身份：正文直接输出 character.B1.* 即时生效 */ }
         const settledReply = stripKillBlocks(cleanedReply);   // 过渡期：剥除旧 <kill> 清单（不再结算进阶点）

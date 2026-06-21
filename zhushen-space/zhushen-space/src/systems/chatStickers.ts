@@ -64,14 +64,16 @@ const BUILTIN_PACKS: StickerPack[] = [
 // 运行时 fetch 合并进 stickerPacks()。图片是公开静态资源(动图由 <img> 自动播放)；发送仍只广播 {pack,id} 引用，
 // 各端用自己 build 里的同一份 manifest 解析出 URL（不走 WS 传图）。素材版权由放置者自负。
 let filePacks: StickerPack[] = [];
-let cloudPack: StickerPack | null = null;   // 「我的」云端上传（登录后 loadMyCloudStickers 拉取）
+let cloudPack: StickerPack | null = null;    // 「⭐我的」云端上传（登录后 loadMyCloudStickers 拉取）
+let publicPack: StickerPack | null = null;   // 「🌐大家的」公共池（所有人上传的，loadPublicStickers 拉取）
 let _loaded = false;
 let _loading: Promise<void> | null = null;
 
 /** 全部表情包 = 内置 SVG 两套 + 文件夹直投的若干套 + 「我的」云端上传一套（各需对应 load 才出现）。 */
 export function stickerPacks(): StickerPack[] {
   const out = [...BUILTIN_PACKS, ...filePacks];
-  if (cloudPack && cloudPack.stickers.length) out.unshift(cloudPack);   // 「我的」放最前，常用
+  if (publicPack && publicPack.stickers.length) out.unshift(publicPack);   // 「🌐大家的」
+  if (cloudPack && cloudPack.stickers.length) out.unshift(cloudPack);      // 「⭐我的」最前，常用
   return out;
 }
 export function stickerPacksLoaded(): boolean { return _loaded; }
@@ -171,4 +173,33 @@ export async function deleteMyCloudSticker(hash: string): Promise<void> {
   if (!tok) return;
   try { await fetch(`${mpBase()}/api/chat/sticker/${hash}`, { method: 'DELETE', headers: { Authorization: 'Bearer ' + tok } }); } catch { /* */ }
   if (cloudPack) cloudPack = { ...cloudPack, stickers: cloudPack.stickers.filter((s) => s.hash !== hash) };
+}
+
+// ── 「🌐大家的」公共池：所有人上传的都进这里，谁都能挑用（无需登录即可浏览）。本地可隐藏不想看的。──
+const HIDDEN_KEY = 'drpg-sticker-hidden';
+function loadHidden(): Set<string> {
+  try { return new Set(JSON.parse(localStorage.getItem(HIDDEN_KEY) || '[]')); } catch { return new Set(); }
+}
+let _pubItems: { hash: string; name?: string }[] = [];
+function rebuildPublic() {
+  const hidden = loadHidden();
+  const list = _pubItems.filter((it) => !hidden.has(it.hash));
+  publicPack = list.length
+    ? { id: 'public', label: '大家的', emoji: '🌐', stickers: list.map((it): StickerDef => ({ id: it.hash, label: it.name || '贴纸', hash: it.hash })) }
+    : null;
+}
+
+/** 拉取公共池（所有人上传的·按 hash 去重·最近优先）。无需登录；失败/后端未部署则不显示「大家的」。 */
+export async function loadPublicStickers(): Promise<void> {
+  try {
+    const res = await fetch(`${mpBase()}/api/chat/stickers?scope=public`);
+    if (res.ok) { const j = await res.json(); _pubItems = Array.isArray(j.stickers) ? j.stickers : []; rebuildPublic(); }
+  } catch { /* 离线 / 后端未部署 → 不显示「大家的」 */ }
+}
+
+/** 本地隐藏一张公共池贴纸（防别人传的内容刷屏·仅本机生效·不影响他人）。 */
+export function hidePublicSticker(hash: string) {
+  const s = loadHidden(); s.add(hash);
+  try { localStorage.setItem(HIDDEN_KEY, JSON.stringify([...s])); } catch { /* */ }
+  rebuildPublic();
 }

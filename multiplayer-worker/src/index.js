@@ -107,7 +107,7 @@ export default {
         return await handleStickerUpload(request, env, ch, url);
       }
       if (p === "/api/chat/stickers") {
-        return await handleStickerList(request, env, ch);
+        return await handleStickerList(request, env, ch, url);
       }
       if (p.startsWith("/api/chat/sticker/")) {
         const hash = decodeURIComponent(p.slice("/api/chat/sticker/".length));

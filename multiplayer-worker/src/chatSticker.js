@@ -85,12 +85,17 @@ export async function handleStickerServe(request, env, hash) {
   });
 }
 
-// GET /api/chat/stickers  列出「我的」云端贴纸
-export async function handleStickerList(request, env, ch) {
+// GET /api/chat/stickers               列出「我的」云端贴纸（Bearer chatToken）
+// GET /api/chat/stickers?scope=public   公共池：所有人上传的（按 hash 去重·最近优先·限 200），谁都能浏览取用（聊天本就公开·无需鉴权）
+export async function handleStickerList(request, env, ch, url) {
   if (!env.DB) return json({ stickers: [] }, {}, ch);
+  await ensureSchema(env.DB);
+  if (url && url.searchParams.get('scope') === 'public') {
+    const rs = await env.DB.prepare('SELECT hash, name, MAX(at) AS at FROM chat_stickers GROUP BY hash ORDER BY at DESC LIMIT 200').all();
+    return json({ stickers: (rs?.results || []).map((r) => ({ hash: r.hash, name: r.name, at: r.at })) }, {}, ch);
+  }
   const a = await auth(env, request);
   if (!a) return json({ error: '未登录' }, { status: 401 }, ch);
-  await ensureSchema(env.DB);
   const rs = await env.DB.prepare('SELECT hash,name,ct,at FROM chat_stickers WHERE uid=? ORDER BY at DESC').bind(a.cuid).all();
   return json({ stickers: (rs?.results || []).map((r) => ({ hash: r.hash, name: r.name, ct: r.ct, at: r.at })) }, {}, ch);
 }

@@ -11,6 +11,7 @@ import {
   computeDerived, computeMaxHp, computeMaxEp, fullMaxHp, fullMaxEp, lvFromRealm, normalizeTier, realmFromLevel, effectiveResource, trueAttr,
 } from './derivedStats';
 import { effectiveAttrs, withAttrDelta } from './attrBonus';
+import { playSfx } from './audio';
 import { playerTreeAttrBonus } from '../store/skillTreeStore';
 import { playerTeamAttrBonus, playerTeamPerkAbilities } from '../store/adventureTeamStore';
 import { usePlayer, type StatusEffect, type CombatStatusMod } from '../store/playerStore';
@@ -615,6 +616,7 @@ export function settleAction(opts: {
     const critTag = fe.isCrit ? '【暴击】' : fe.multiplier > 1 ? `【${fe.level}】` : '';
     const shieldTag = absorbed > 0 ? `（护盾抵消 ${absorbed}）` : '';
     logLines.push(`${actorName} ${label} 命中 ${tName}${critTag}，造成 ${lost} 点伤害${note}${shieldTag}（d20:${fe.chosen}，倍率×${fe.multiplier}）。`);
+    playSfx(fe.isCrit ? 'crit' : 'hit');   // 命中音效（暴击/普通）
     // 命中附加敌方 debuff / DoT / 控制
     if (target.curHp > 0) {
       for (const st of spec.statuses.filter((s) => s.toEnemy)) {

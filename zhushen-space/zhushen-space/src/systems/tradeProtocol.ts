@@ -35,7 +35,7 @@ export type TradeInbound =
   | { type: 'hello'; you?: TradeMe; listings: TradeListing[]; online: number }
   | { type: 'listing_added'; listing: TradeListing }
   | { type: 'offer_added'; listingId: string; offer: TradeOffer }
-  | { type: 'listing_removed'; listingId: string }
+  | { type: 'listing_removed'; listingId: string; reason?: string }   // reason: 'closed'|'expired'（前端目前不读，仅记录线上真有此字段）
   | { type: 'rate_limited' }
   | { type: 'error'; reason?: string; error?: string };
 

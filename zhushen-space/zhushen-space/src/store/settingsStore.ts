@@ -243,6 +243,8 @@ interface SettingsState {
   setShowNewlineButton: (v: boolean) => void;
   weatherFx: boolean;  // 顶栏天气/天启特效（动态天空背景+粒子动画）总开关；关闭后顶栏维持原暗色、零开销
   setWeatherFx: (v: boolean) => void;
+  audio: { enabled: boolean; volume: number; ambient: boolean; ambientVolume: number };   // 游戏音效（开关/总音量0~1/环境音开关+音量）
+  setAudio: (patch: Partial<{ enabled: boolean; volume: number; ambient: boolean; ambientVolume: number }>) => void;
   allowAutoEquip: boolean;  // 是否允许 AI 自动装备主角拾取/生成的装备（关闭=仅能在装备面板手动穿戴）
   setAllowAutoEquip: (v: boolean) => void;
   allowAutoEquipNpc: boolean;  // 是否允许自动给 NPC 穿戴装备（含初始装备与 AI 装备指令；关闭=只入 NPC 储存空间）
@@ -628,6 +630,7 @@ export const useSettings = create<SettingsState>()(
       disableEnterSend: false,
       showNewlineButton: true,
       weatherFx: true,
+      audio: { enabled: true, volume: 0.7, ambient: true, ambientVolume: 0.4 },
       allowAutoEquip: true,
       allowAutoEquipNpc: true,
       customOpening: '',
@@ -682,6 +685,7 @@ export const useSettings = create<SettingsState>()(
       setDisableEnterSend: (v) => set({ disableEnterSend: v }),
       setShowNewlineButton: (v) => set({ showNewlineButton: v }),
       setWeatherFx: (v) => set({ weatherFx: v }),
+      setAudio: (patch) => set((s) => ({ audio: { ...s.audio, ...patch } })),
       setAllowAutoEquip: (v) => set({ allowAutoEquip: v }),
       setAllowAutoEquipNpc: (v) => set({ allowAutoEquipNpc: v }),
       setCustomOpening: (s) => set({ customOpening: s }),

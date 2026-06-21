@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
+import { playSfx } from '../systems/audio';
 import { usePlayer } from '../store/playerStore';
 import { useCharacters } from '../store/characterStore';
 import { useNpc } from '../store/npcStore';
@@ -131,6 +132,7 @@ export default function DicePanel({ onClose, onInject }: { onClose: () => void; 
 
   async function onRoll() {
     if (judging) return;
+    playSfx('dice');   // 掷骰音效
     const fe = computeFe();
     setResult(fe); setVerdict(null); setRollToken((t) => t + 1);
     let level = fe.level, success = fe.success;

@@ -121,8 +121,8 @@ export default function ChatRoomPanel({ onClose }: { onClose: () => void }) {
   const [emojiOpen, setEmojiOpen] = useState(false);
   const [stickerOpen, setStickerOpen] = useState(false);
   const [, setStickersV] = useState(0);   // 文件夹直投的表情包 manifest 异步加载完后，bump 一下让消息流里的贴纸重新解析
-  const sendSticker = (pack: string, id: string) => {
-    chatClient.sticker({ pack, id });   // sendRaw 自身在未连接时是 no-op
+  const sendSticker = (ref: StickerRef) => {
+    chatClient.sticker(ref);   // 内置/文件={pack,id}；云端上传={hash}。sendRaw 自身在未连接时是 no-op
     setStickerOpen(false);
     atBottomRef.current = true;
   };

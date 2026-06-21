@@ -1,0 +1,20 @@
+{
+  // 仅类型检查 JS（noEmit）——给 worker 上一层「服务端也被检查」的护栏。
+  // 宽松档：catch 真错误（拼错变量/属性、未定义名、参数个数、明显类型不符），但不强制 noImplicitAny（避免给既有 JS 刷一地隐式 any 噪音）。
+  // 运行时全局（DurableObjectState/WebSocketPair/WebSocket/Response/crypto/btoa/D1/R2…）由 @cloudflare/workers-types 提供。
+  "compilerOptions": {
+    "noEmit": true,
+    "checkJs": true,
+    "allowJs": true,
+    "module": "ESNext",
+    "moduleResolution": "Bundler",
+    "target": "ES2022",
+    "lib": ["ES2022"],
+    "types": ["@cloudflare/workers-types"],
+    "strict": false,
+    "noImplicitAny": false,
+    "skipLibCheck": true,
+    "forceConsistentCasingInFileNames": true
+  },
+  "include": ["src/**/*.js"]
+}
