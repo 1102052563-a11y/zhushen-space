@@ -18,6 +18,11 @@ const HERE = path.dirname(fileURLToPath(import.meta.url));            // …/zhu
 const SRC = path.resolve(HERE, '../_sticker_upload');                 // 本地 staging（gitignore）
 const OUT = path.resolve(HERE, '../src/data/r2StickerPacks.ts');     // 生成的前端哈希清单
 const BUCKET = 'zhushen-cloud-saves';                                 // 与云存档同一 R2 桶
+// wrangler 的 node 入口：用 `node wrangler.js` 直接跑，绕开 Windows 上 spawn 找不到 .cmd shim 的坑（ENOENT）。
+const WRANGLER_JS = [
+  path.resolve(HERE, '../../../multiplayer-worker/node_modules/wrangler/bin/wrangler.js'),
+  path.resolve(HERE, '../node_modules/wrangler/bin/wrangler.js'),
+].find((c) => existsSync(c));
 const EMOJI = { '动态奶龙': '🐉' };                                    // 包标签 emoji（缺省 🖼）
 const IMG = /\.(gif|png|jpe?g|webp)$/i;
 const ctOf = (f) => /\.gif$/i.test(f) ? 'image/gif' : /\.png$/i.test(f) ? 'image/png' : /\.webp$/i.test(f) ? 'image/webp' : 'image/jpeg';
@@ -50,16 +55,18 @@ function writeManifest(packs) {
 }
 
 function upload(packs) {
-  let n = 0, skip = 0;
+  if (!WRANGLER_JS) { console.error('找不到 wrangler（在 multiplayer-worker 里 npm install 过吗？）'); process.exit(1); }
+  let n = 0, fail = 0;
+  const total = packs.reduce((a, p) => a + p.stickers.length, 0);
   for (const p of packs) for (const s of p.stickers) {
     try {
-      // 内容寻址：已存在就跳过（幂等）
-      try { execFileSync('wrangler', ['r2', 'object', 'get', `${BUCKET}/stk/${s.hash}`, '--remote', '--pipe'], { stdio: ['ignore', 'ignore', 'ignore'] }); skip++; continue; } catch { /* 不存在→传 */ }
-      execFileSync('wrangler', ['r2', 'object', 'put', `${BUCKET}/stk/${s.hash}`, '--file', s.file, '--content-type', s.ct, '--remote'], { stdio: 'inherit' });
+      // 用 node 直接跑 wrangler.js（绕开 Windows .cmd 坑）；put 覆盖式幂等，重跑只是重传无副作用
+      execFileSync(process.execPath, [WRANGLER_JS, 'r2', 'object', 'put', `${BUCKET}/stk/${s.hash}`, '--file', s.file, '--content-type', s.ct, '--remote'], { stdio: ['ignore', 'ignore', 'inherit'] });
       n++;
-    } catch (e) { console.error('上传失败', s.file, e.message); }
+      if (n % 10 === 0 || n === total) console.log(`  ${n}/${total} 已传…`);
+    } catch (e) { fail++; console.error('上传失败', s.file, e.message); }
   }
-  console.log(`✓ 上传完成：新传 ${n} / 已存在跳过 ${skip}`);
+  console.log(`✓ 上传完成：成功 ${n} / 失败 ${fail} / 共 ${total}`);
 }
 
 const mode = process.argv[2] || 'manifest';
