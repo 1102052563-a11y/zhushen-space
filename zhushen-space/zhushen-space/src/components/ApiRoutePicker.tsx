@@ -19,9 +19,14 @@ export default function ApiRoutePicker({ routeKey, className = '' }: { routeKey:
 
   const move = (i: number, dir: -1 | 1) => {
     const j = i + dir;
-    if (j < 0 || j >= route.length) return;
+    if (j < 0 || j >= inRoute.length) return;
+    // i/j 是「可见列表 inRoute」的下标；route 里可能夹着指向已删除接口的 stale id，
+    // 直接拿 i 去 swap route 会错位 → 顺序调整看起来失效。改为按可见项的 id 定位 route 中真实位置再交换。
     const next = [...route];
-    [next[i], next[j]] = [next[j], next[i]];
+    const ai = next.indexOf(inRoute[i].id);
+    const bi = next.indexOf(inRoute[j].id);
+    if (ai < 0 || bi < 0) return;
+    [next[ai], next[bi]] = [next[bi], next[ai]];
     setApiRoute(routeKey, next);
   };
   const remove = (id: string) => setApiRoute(routeKey, route.filter((x) => x !== id));

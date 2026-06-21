@@ -722,7 +722,11 @@ export const useSettings = create<SettingsState>()(
         ] };
       }),
       updateApiEndpoint: (id, patch) => set((s) => ({ apiLibrary: s.apiLibrary.map((e) => e.id === id ? { ...e, ...patch } : e) })),
-      removeApiEndpoint: (id) => set((s) => ({ apiLibrary: s.apiLibrary.filter((e) => e.id !== id) })),
+      removeApiEndpoint: (id) => set((s) => ({
+        apiLibrary: s.apiLibrary.filter((e) => e.id !== id),
+        // 同步把该接口从所有功能路由里摘掉，避免留下指向已删除接口的 stale id（会让路由顺序调整错位）
+        apiRoutes: Object.fromEntries(Object.entries(s.apiRoutes ?? {}).map(([k, ids]) => [k, ids.filter((x) => x !== id)])),
+      })),
       moveApiEndpoint: (id, dir) => set((s) => {
         const i = s.apiLibrary.findIndex((e) => e.id === id);
         const j = i + dir;

@@ -11,6 +11,7 @@ export interface TradeOffer {
   price: number;
   message?: string;
   at: number;
+  clientToken?: string;   // 服务端回显出价者的本地 token —— 货币托管对账用（reconcileCoin）
 }
 
 export interface TradeListing {
@@ -27,15 +28,29 @@ export interface TradeListing {
   clientToken?: string;   // 服务端回显上架者的本地 token —— 托管对账用（reconcileEscrow）
 }
 
+/** 一笔完成的成交（卖家接受还价时生成；进历史看板）。 */
+export interface TradeRecord {
+  id: string;
+  listingId: string;         // 原挂牌 id（卖家客户端据此匹配本地托管物来消费）
+  offerId: string;           // 中标还价 id（买家客户端据此匹配本地托管的货币来消费）
+  item: any;                 // 物品快照
+  sellerId: string; sellerName: string;
+  buyerId: string; buyerName: string;
+  price: number;
+  currency: string;
+  at: number;
+}
+
 export interface TradeMe { playerId: string; name: string; hue?: number }
 
 // ── 服务端 → 客户端（dispatch 的入参联合）──────────────────────────
 // 注：心跳 "pong" 是裸字符串、在 JSON.parse 之前被吃掉，不属于本联合。
 export type TradeInbound =
-  | { type: 'hello'; you?: TradeMe; listings: TradeListing[]; online: number }
+  | { type: 'hello'; you?: TradeMe; listings: TradeListing[]; online: number; history?: TradeRecord[] }
   | { type: 'listing_added'; listing: TradeListing }
   | { type: 'offer_added'; listingId: string; offer: TradeOffer }
-  | { type: 'listing_removed'; listingId: string; reason?: string }   // reason: 'closed'|'expired'（前端目前不读，仅记录线上真有此字段）
+  | { type: 'listing_removed'; listingId: string; reason?: string }   // reason: 'closed'|'expired'|'sold'（前端目前不读，仅记录线上真有此字段）
+  | { type: 'trade_completed'; record: TradeRecord }                  // 卖家接受还价 → 一笔成交进历史
   | { type: 'rate_limited' }
   | { type: 'error'; reason?: string; error?: string };
 
@@ -43,5 +58,6 @@ export type TradeInbound =
 // 注：心跳 "ping" 同样是裸字符串、不走 JSON，不属于本联合。
 export type TradeOutbound =
   | { type: 'list_item'; item: unknown; price: number; currency: string; note: string; clientToken: string }
-  | { type: 'make_offer'; listingId: string; price: number; message: string }
-  | { type: 'close_listing'; listingId: string };
+  | { type: 'make_offer'; listingId: string; price: number; message: string; clientToken: string }
+  | { type: 'close_listing'; listingId: string }
+  | { type: 'accept_offer'; listingId: string; offerId: string };

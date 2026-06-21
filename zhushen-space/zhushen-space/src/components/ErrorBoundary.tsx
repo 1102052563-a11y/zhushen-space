@@ -16,6 +16,20 @@ export default class ErrorBoundary extends React.Component<{ children: React.Rea
   state: State = { error: null, loop: false, copied: false };
 
   static getDerivedStateFromError(error: Error): Partial<State> {
+    // 陈旧部署：打开的页面引用旧 chunk 哈希，新版上线后旧 chunk 404 →「Failed to fetch dynamically imported module」。
+    // 静默刷新一次拿最新版（20s 内只刷一次防循环；置 PENDING_STARTED 使刷新后直接回到游戏）。
+    const emsg = String((error as { message?: string })?.message || error || '');
+    if (/dynamically imported module|module script failed/i.test(emsg)) {
+      try {
+        const last = Number(sessionStorage.getItem('zs-chunk-reload-ts') || 0);
+        if (Date.now() - last > 20000) {
+          sessionStorage.setItem('zs-chunk-reload-ts', String(Date.now()));
+          sessionStorage.setItem(PENDING_STARTED, '1');
+          location.reload();
+          return { error: null };   // 即将刷新，不显示错误屏
+        }
+      } catch { /* */ }
+    }
     return { error };
   }
 

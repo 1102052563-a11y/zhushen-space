@@ -274,7 +274,7 @@ async function loadBuiltinDefaults() {
       if (!has('轮回乐园·Claude')) { const c = await grab('zhushen-claude.json'); if (c) useSettings.getState().importTextPreset(c, '轮回乐园·Claude', true, false); }
       if (!has('轮回乐园·Gemini')) { const g = await grab('zhushen-gemini.json'); if (g) useSettings.getState().importTextPreset(g, '轮回乐园·Gemini', true, false); }
       if (!has('轮回乐园·DeepSeek')) { const d = await grab('zhushen-deepseek.json'); if (d) useSettings.getState().importTextPreset(d, '轮回乐园·DeepSeek', true, false); }
-      if (!has('双人成行 V7.1—长风渡')) { const sc = await grab('shuangren-changfeng.json'); if (sc) useSettings.getState().importTextPreset(sc, '双人成行 V7.1—长风渡', true, false); }
+      if (!has('双人成行 V7.1—长风渡')) { const sc = await grab('shuangren-changfeng.json'); if (sc) useSettings.getState().importTextPreset(sc, '双人成行 V7.1—长风渡', true, false); }
     }
     // 自动去重（仅清内置补种自身的重复，绝不碰玩家的预设）：玩家导入/编辑/激活固化过的(非 builtin)一律保留；
     //   只删「多余的同名 builtin」——同名 builtin 留一个、其余删；某 builtin 若已有同名的非 builtin(玩家版) 则该 builtin 多余、删（玩家版优先）。

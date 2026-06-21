@@ -41,6 +41,7 @@ export default function TradePanel({ onClose }: { onClose: () => void }) {
   const [currency, setCurrency] = useState(CURRENCIES[0]);
   const [note, setNote] = useState('');
   const [detail, setDetail] = useState<{ kind: EntityKind; data: any } | null>(null);
+  const [view, setView] = useState<'board' | 'history'>('board');   // 看板 / 历史成交
 
   // 进场：已登录则确保身份后连接（与聊天室同一 Discord 身份）；未登录显门禁。离场断开。
   useEffect(() => {
@@ -91,7 +92,8 @@ export default function TradePanel({ onClose }: { onClose: () => void }) {
               <span>{!entered ? '未进入' : connected ? `${st.listings.length} 条挂牌 · ${st.online} 人在线` : st.status === 'connecting' ? '连接中…' : st.status === 'closed' ? '已断开' : '未连接'}</span>
             </div>
           </div>
-          {entered && <button onClick={() => setShowForm((v) => !v)} disabled={!connected} className="px-3 py-1.5 rounded-lg text-[13px] font-semibold bg-god/20 border border-god/40 text-god hover:bg-god/30 disabled:opacity-40 transition-colors">{showForm ? '收起' : '➕ 上架物品'}</button>}
+          {entered && <button onClick={() => setView((v) => (v === 'history' ? 'board' : 'history'))} className="px-3 py-1.5 rounded-lg text-[13px] border border-edge text-dim/70 hover:text-god hover:border-god/40 transition-colors">{view === 'history' ? '← 挂牌' : '📜 历史'}</button>}
+          {entered && view === 'board' && <button onClick={() => setShowForm((v) => !v)} disabled={!connected} className="px-3 py-1.5 rounded-lg text-[13px] font-semibold bg-god/20 border border-god/40 text-god hover:bg-god/30 disabled:opacity-40 transition-colors">{showForm ? '收起' : '➕ 上架物品'}</button>}
           <button onClick={onClose} className="text-dim/50 hover:text-blood text-lg transition-colors">✕</button>
         </header>
 
@@ -104,12 +106,36 @@ export default function TradePanel({ onClose }: { onClose: () => void }) {
             <button onClick={doLogin} disabled={busy} className="px-5 py-2.5 rounded-lg text-sm font-semibold bg-god/20 border border-god/40 text-god hover:bg-god/30 disabled:opacity-50 transition-colors">{busy ? '登录中…' : (loggedIn ? '进入交易行' : '用 Discord 登录')}</button>
             {gateErr && <div className="text-[11px] text-amber-400/80 max-w-xs leading-relaxed">{gateErr}</div>}
           </div>
+        ) : view === 'history' ? (
+          /* ── 历史成交 ── */
+          <div className="flex-1 overflow-y-auto px-4 py-3 space-y-2">
+            {st.error && <div className="text-[11px] font-mono text-amber-400/80 pb-1">{st.error}</div>}
+            <div className="text-[11px] font-mono text-dim/40 px-1 pb-1">历史成交 · {st.history.length} 笔（最多 100，全员公开）</div>
+            {st.history.length === 0 && (
+              <div className="text-center text-dim/40 text-xs font-mono py-12">— 还没有成交记录 · 卖家在某条还价上点「接受」即成交 —</div>
+            )}
+            {st.history.map((r) => (
+              <div key={r.id} className="rounded-xl border border-edge bg-panel/30 p-3 space-y-1.5">
+                <EntityCard kind={itemKind(r.item)} data={r.item} onOpen={() => setDetail({ kind: itemKind(r.item), data: r.item })} />
+                <div className="flex items-center gap-1.5 flex-wrap text-[12px]">
+                  <span className="font-mono font-bold text-amber-300">{r.price} {r.currency}</span>
+                  <span className="text-dim/40">·</span>
+                  {uidTag(r.sellerId) && <span className="font-mono text-[10px] text-god/40">{uidTag(r.sellerId)}</span>}
+                  <span className="text-dim/70">{r.sellerName}</span>
+                  <span className="text-god/60 font-bold">→</span>
+                  {uidTag(r.buyerId) && <span className="font-mono text-[10px] text-god/40">{uidTag(r.buyerId)}</span>}
+                  <span className="text-dim/70">{r.buyerName}</span>
+                  <span className="ml-auto text-[10px] font-mono text-dim/35">{fmtTime(r.at)}</span>
+                </div>
+              </div>
+            ))}
+          </div>
         ) : (
           <>
             {/* 上架表单 */}
             {showForm && (
               <div className="shrink-0 border-b border-edge bg-panel/50 px-5 py-3 space-y-2">
-                <div className="text-[11px] font-mono text-amber-400/60">上架后物品从背包移出「托管」，手动下架或满 1 天自动归还背包</div>
+                <div className="text-[11px] font-mono text-amber-400/60">上架后物品移入「托管」：被接受成交 → 自动交付买家并收款；手动下架 / 满 1 天未成交 → 自动归还背包</div>
                 <select value={selId} onChange={(e) => setSelId(e.target.value)} className="w-full px-2.5 py-2 rounded-lg bg-void border border-edge text-sm text-slate-100 outline-none focus:border-god/40">
                   <option value="">— 选择背包物品 —</option>
                   {sellable.map((it: any) => (
@@ -167,8 +193,8 @@ function ListingCard({ listing, mePid, connected, onOpenDetail }: {
 
   const submitOffer = () => {
     if (!connected) return;
-    tradeClient.makeOffer(listing.id, Math.max(0, parseInt(offerPrice || '0', 10) || 0), offerMsg.trim());
-    setOfferPrice(''); setOfferMsg(''); setOffering(false);
+    const ok = tradeClient.makeOffer(listing.id, Math.max(0, parseInt(offerPrice || '0', 10) || 0), offerMsg.trim(), listing.currency);
+    if (ok) { setOfferPrice(''); setOfferMsg(''); setOffering(false); }   // 失败(余额不足)→保留表单，错误提示在顶部 st.error
   };
 
   return (
@@ -196,7 +222,12 @@ function ListingCard({ listing, mePid, connected, onOpenDetail }: {
               <ChatAvatar uid={parseUid(o.buyerId)} avv={o.avv} ds={o.ds} size={16} />
               <span style={{ color: o.nc || nameColor(o.hue) }} className="shrink-0">{o.buyerName}{o.buyerId === mePid ? '(你)' : ''}</span>
               {o.message && <span className="text-dim/60 break-words">「{o.message}」</span>}
-              <span className="ml-auto text-[10px] font-mono text-dim/30 shrink-0">{fmtTime(o.at)}</span>
+              {mine && (
+                <button onClick={() => { if (window.confirm(`确认接受「${o.buyerName}」的还价 ${o.price} ${listing.currency}？\n成交后自动交付：物品给买家、${o.price} ${listing.currency} 到你账上，并下架。`)) tradeClient.acceptOffer(listing.id, o.id); }}
+                  disabled={!connected}
+                  className="ml-auto shrink-0 px-2 py-0.5 rounded-md text-[11px] font-semibold bg-god/15 border border-god/40 text-god/90 hover:bg-god/25 disabled:opacity-40 transition-colors">✅ 接受</button>
+              )}
+              <span className={`${mine ? '' : 'ml-auto'} text-[10px] font-mono text-dim/30 shrink-0`}>{fmtTime(o.at)}</span>
             </div>
           ))}
         </div>
@@ -216,6 +247,7 @@ function ListingCard({ listing, mePid, connected, onOpenDetail }: {
         <div className="space-y-1.5 pt-1.5 border-t border-edge/60">
           <input type="number" min={0} value={offerPrice} onChange={(e) => setOfferPrice(e.target.value)} placeholder={`你的出价（${listing.currency}）`} className="w-full px-2.5 py-1.5 rounded-lg bg-void border border-edge text-[13px] text-slate-100 placeholder:text-dim/40 outline-none focus:border-cyan-500/40" />
           <input value={offerMsg} onChange={(e) => setOfferMsg(e.target.value.slice(0, 200))} placeholder="留言（可选）" className="w-full px-2.5 py-1.5 rounded-lg bg-void border border-edge text-[13px] text-slate-100 placeholder:text-dim/40 outline-none focus:border-cyan-500/40" />
+          <div className="text-[10px] font-mono text-cyan-300/50">出价即扣款托管：被接受 → 付卖家 + 物品入背包；未成交（被买走 / 下架 / 过期）→ 自动退回</div>
           <div className="flex items-center justify-end gap-2">
             <button onClick={() => { setOffering(false); setOfferPrice(''); setOfferMsg(''); }} className="px-3 py-1.5 rounded-lg text-[12px] border border-edge text-dim/70 hover:text-slate-200 transition-colors">取消</button>
             <button onClick={submitOffer} disabled={!connected} className="px-3 py-1.5 rounded-lg text-[12px] font-semibold bg-cyan-600/20 border border-cyan-500/40 text-cyan-200 hover:bg-cyan-600/30 disabled:opacity-40 transition-colors">提交还价</button>
