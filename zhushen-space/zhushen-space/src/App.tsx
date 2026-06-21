@@ -274,7 +274,7 @@ async function loadBuiltinDefaults() {
       if (!has('轮回乐园·Claude')) { const c = await grab('zhushen-claude.json'); if (c) useSettings.getState().importTextPreset(c, '轮回乐园·Claude', true, false); }
       if (!has('轮回乐园·Gemini')) { const g = await grab('zhushen-gemini.json'); if (g) useSettings.getState().importTextPreset(g, '轮回乐园·Gemini', true, false); }
       if (!has('轮回乐园·DeepSeek')) { const d = await grab('zhushen-deepseek.json'); if (d) useSettings.getState().importTextPreset(d, '轮回乐园·DeepSeek', true, false); }
-      if (!has('双人成行 V7.1—长风渡')) { const sc = await grab('shuangren-changfeng.json'); if (sc) useSettings.getState().importTextPreset(sc, '双人成行 V7.1—长风渡', true, false); }
+      if (!has('双人成行 V7.1—长风渡')) { const sc = await grab('shuangren-changfeng.json'); if (sc) useSettings.getState().importTextPreset(sc, '双人成行 V7.1—长风渡', true, false); }
     }
     // 自动去重（仅清内置补种自身的重复，绝不碰玩家的预设）：玩家导入/编辑/激活固化过的(非 builtin)一律保留；
     //   只删「多余的同名 builtin」——同名 builtin 留一个、其余删；某 builtin 若已有同名的非 builtin(玩家版) 则该 builtin 多余、删（玩家版优先）。
@@ -723,6 +723,7 @@ export default function App() {
   const [guidanceRunning,    setGuidanceRunning]    = useState(false);  // 剧情指导：正在生成本回合剧情建议（状态栏提示）
   const [backpackOpen,     setBackpackOpen]     = useState(false);
   const [cmdkOpen,         setCmdkOpen]         = useState(false);   // 命令面板（⌘K / Ctrl+K / 顶栏🔍 快速跳转面板）
+  const [revarOpen,        setRevarOpen]        = useState(false);   // 重算单项变量菜单（重 ROLL）
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if ((e.metaKey || e.ctrlKey) && (e.key === 'k' || e.key === 'K')) { e.preventDefault(); setCmdkOpen((v) => !v); }
@@ -6208,6 +6209,13 @@ ${lines}`;
     catch (e) { console.warn('[Undo] 记录回退点失败:', e); setGenError('记录回退点失败，"回退/重新生成"暂不可用（可能浏览器存储空间已满）'); setTimeout(() => setGenError(''), 6000); }
   }
   function stopGeneration() { abortRef.current?.abort(); }
+  /* 重算单项变量：取本回合正文（无则回退到最后一条 AI 正文）；空则提示不跑 */
+  function revarNarr(): string {
+    return lastNarrativeRef.current || [...(messagesRef.current ?? [])].reverse().find((m) => m.role === 'assistant')?.content || '';
+  }
+  function revarRun(fn: (n: string) => void): () => void {
+    return () => { const n = revarNarr(); if (!n) { setGenError('暂无正文可重算（先发一条消息再重算）'); setTimeout(() => setGenError(''), 4000); return; } fn(n); };
+  }
   /* 聊天室悬浮气泡·拖动：夹紧在叙事区容器内；移动超过阈值算"拖动"（拖完那次 click 不开聊天室） */
   function clampBubbleOff(dx: number, dy: number) {
     const host = chatBubbleHostRef.current; if (!host) return { dx, dy };
@@ -7031,12 +7039,9 @@ ${lines}`;
                       run: rollbackTurn })} disabled={!canUndo}
                     className="flex items-center gap-1 px-2.5 py-1 rounded border border-edge text-dim hover:border-amber-500/40 hover:text-amber-300 disabled:opacity-35 disabled:cursor-not-allowed transition-colors"
                     title="回退到上一回合结束时的状态（撤销本回合的正文+所有演化）">↩ 回退上一回合</button>
-                  <button onClick={() => setConfirmAction({
-                      title: '重算变量（保留正文）',
-                      desc: '保留本回合正文不变，撤销并重新生成本回合产生的所有「变量」（NPC / 物品 / 主角属性 / 势力 / 领地 / 冒险团 / 杂项 / 记忆 / HP 等演化），用同一段正文重跑一遍。操作会刷新页面，确定继续？',
-                      run: regenerateVarsOnly })} disabled={!canUndo}
-                    className="flex items-center gap-1 px-2.5 py-1 rounded border border-edge text-dim hover:border-sky-500/40 hover:text-sky-300 disabled:opacity-35 disabled:cursor-not-allowed transition-colors"
-                    title="保留本回合正文，只把其他所有变量/演化重新生成一遍（不重新生成正文）">♻ 重算变量</button>
+                  <button onClick={() => setRevarOpen(true)}
+                    className="flex items-center gap-1 px-2.5 py-1 rounded border border-edge text-dim hover:border-sky-500/40 hover:text-sky-300 transition-colors"
+                    title="重算单项变量：打开菜单，单独重 ROLL 物品/主角/NPC/势力… 某一项（或全部）">♻ 重算变量</button>
                   {canUndo && <span className="text-dim/35">回退/重生会撤销上一回合的全部演化</span>}
                 </>
               )}
@@ -7128,6 +7133,48 @@ ${lines}`;
         onClose={() => setCmdkOpen(false)}
         onPick={(label) => { setCmdkOpen(false); setMobileDrawer(null); runNavAction(label); }}
       />
+
+      {/* ── 重算单项变量菜单（重 ROLL，样式同命令面板）：选一项 → 确认 → 仅重跑该演化 ── */}
+      {revarOpen && (
+        <div className="fixed inset-0 z-[120] bg-black/70 backdrop-blur-sm flex items-start justify-center p-4 pt-[12vh] max-lg:pt-[8vh]"
+          onClick={(e) => { if (e.target === e.currentTarget) setRevarOpen(false); }}>
+          <div className="w-full max-w-lg rounded-2xl border border-god/30 bg-void shadow-[0_0_50px_rgba(0,0,0,0.85)] overflow-hidden">
+            <div className="flex items-center gap-2 px-4 py-3 border-b border-edge">
+              <span className="text-god/70 text-base">♻</span>
+              <div className="flex-1 min-w-0">
+                <div className="text-sm font-bold text-slate-100">重算单项变量（重 ROLL）</div>
+                <div className="text-[11px] text-dim/60 leading-snug">选一项 → 确认后仅重跑该演化（基于本回合正文）、其它变量不动；「全部」=旧的整体重算</div>
+              </div>
+              <button onClick={() => setRevarOpen(false)} aria-label="关闭" className="shrink-0 w-8 h-8 flex items-center justify-center rounded-lg border border-edge text-dim/70 hover:text-blood hover:border-blood/40 transition-colors text-base">✕</button>
+            </div>
+            <div className="max-h-[60vh] overflow-y-auto py-1">
+              {[
+                { icon: '♻', label: '全部变量', desc: '撤销并重跑本回合全部演化（原「重算变量」行为·会刷新页面）。确定？', run: regenerateVarsOnly, all: true },
+                { icon: '🎒', label: '物品 / 背包', run: () => triggerItemPhaseManually() },
+                { icon: '🧬', label: '主角属性', run: revarRun(runPlayerEvolutionPhase) },
+                { icon: '📇', label: 'NPC', run: revarRun(runNpcEvolutionPhase) },
+                { icon: '🏛', label: '势力', run: revarRun(runFactionEvolutionPhase) },
+                { icon: '🏯', label: '领地', run: revarRun(runTerritoryEvolutionPhase) },
+                { icon: '🛡', label: '冒险团', run: revarRun(runTeamEvolutionPhase) },
+                { icon: '🌌', label: '万族', run: revarRun(runCosmosEvolutionPhase) },
+                { icon: '📋', label: '任务 / 世界 / 杂项', run: revarRun(runMiscEvolutionPhase) },
+                { icon: '🧠', label: '记忆整理', run: () => runMemoryCompressionPhase() },
+                { icon: '🖼', label: '生图（肖像 + 装备）', run: () => { runPortraitPhase(); runEquipImagePhase(); } },
+              ].map((it) => (
+                <button key={it.label}
+                  onClick={() => { const x = it as { label: string; run: () => void; desc?: string; all?: boolean }; setRevarOpen(false); setConfirmAction({ title: x.all ? '重算全部变量' : `重 ROLL「${x.label}」`, desc: x.desc || `仅重新生成「${x.label}」这一项（基于本回合正文重跑该演化）、其它变量不动。确定？`, run: x.run }); }}
+                  className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-left text-dim hover:text-god hover:bg-god/10 transition-colors">
+                  <span className="w-5 text-center text-xs opacity-80">{it.icon}</span>
+                  <span className="flex-1">{it.label}</span>
+                  {(it as { all?: boolean }).all
+                    ? <span className="text-[10px] font-mono text-amber-300/70 border border-amber-600/40 rounded px-1.5 py-0.5 shrink-0">刷新页面</span>
+                    : <span className="text-[10px] font-mono text-dim/40 shrink-0">重 ROLL ›</span>}
+                </button>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* ── 底部状态栏 ── */}
       <footer className="shrink-0 h-7 flex items-center justify-between px-4 border-t border-edge bg-panel text-[10px] font-mono text-dim/60">

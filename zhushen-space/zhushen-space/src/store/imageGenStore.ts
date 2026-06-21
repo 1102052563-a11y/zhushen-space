@@ -98,7 +98,7 @@ const NEG = 'lowres, worst quality, bad quality, jpeg artifacts, artistic error,
 export const DEFAULT_STYLES: PortraitStyle[] = [
   {
     id: 'nai-anime', name: '日系动漫·通用（默认）',
-    artistTags: `${Q}, 1.3::artist:ciloranko::, artist:rella, artist:atdan, artist:as109, artist:fjsmu, artist:hiten, [artist:ke-ta], artist:ningen mame, 1.2::intricate details, sharp focus::, clean lineart, detailed eyes, year 2023`,
+    artistTags: `${Q}, 1.3::artist:ciloranko::, artist:rella, artist:atdan, artist:as109, artist:fjsmu, artist:hiten, artist:ke-ta, artist:ningen mame, 1.2::intricate details, sharp focus::, clean lineart, detailed eyes, year 2023`,
     styleGuide: '画风：高质量日系动漫插画，干净线条、细腻上色、通透光感，人物精致。',
     portraitPositive: 'anime, clean lineart, soft lighting',
     portraitNegative: NEG,
@@ -106,7 +106,7 @@ export const DEFAULT_STYLES: PortraitStyle[] = [
   },
   {
     id: 'thick-paint', name: '半写实厚涂·特写',
-    artistTags: `${Q}, 1.4::artist:wlop::, 1.2::artist:ciloranko::, artist:ke-ta, artist:rhasta, artist:ruan jia, artist:jiu ye sang, [artist:ask (askzy)], 1.2::intricate details, sharp focus::, painterly, thick coating, detailed skin`,
+    artistTags: `${Q}, 1.4::artist:wlop::, 1.2::artist:ciloranko::, artist:ke-ta, artist:rhasta, artist:ruan jia, artist:jiu ye sang, artist:ask (askzy), 1.2::intricate details, sharp focus::, painterly, thick coating, detailed skin`,
     styleGuide: '画风：电影概念艺术级半写实厚涂，真人骨相比例、厚涂笔触、强戏剧光影，质感厚重。',
     portraitPositive: 'painterly, thick coating, dramatic lighting, rim lighting, depth of field',
     portraitNegative: NEG,
@@ -122,7 +122,7 @@ export const DEFAULT_STYLES: PortraitStyle[] = [
   },
   {
     id: 'vivid-pop', name: '鲜艳波普·活力',
-    artistTags: `${Q}, 1.3::artist:mika pikazo::, artist:ke-ta, artist:ningen mame, artist:sho_(sho_lwlw), artist:rhasta, artist:wlop, [artist:ciloranko], detailed background`,
+    artistTags: `${Q}, 1.3::artist:mika pikazo::, artist:ke-ta, artist:ningen mame, artist:sho_(sho_lwlw), artist:rhasta, artist:wlop, artist:ciloranko, detailed background`,
     styleGuide: '画风：鲜艳高饱和、波普活力，色彩冲击、动感构图，明亮通透。',
     portraitPositive: 'vivid colors, saturated, pop art, dynamic angle, colorful, glowing',
     portraitNegative: `${NEG}, muted colors, monochrome, desaturated`,
@@ -130,7 +130,7 @@ export const DEFAULT_STYLES: PortraitStyle[] = [
   },
   {
     id: 'watercolor', name: '水彩清新·柔和',
-    artistTags: `very aesthetic, masterpiece, best quality, highres, detailed, delicate details, 1.2::artist:hokori sakuni::, artist:houkisei, artist:kedama milk, artist:ke-ta, artist:ciloranko, artist:momoko_(momopoco), [artist:avogado6]`,
+    artistTags: `very aesthetic, masterpiece, best quality, highres, detailed, delicate details, 1.2::artist:hokori sakuni::, artist:houkisei, artist:kedama milk, artist:ke-ta, artist:ciloranko, artist:momoko_(momopoco), artist:avogado6`,
     styleGuide: '画风：水彩/淡彩，柔光、低饱和粉彩、纸张质感，温柔清新。',
     portraitPositive: 'watercolor (medium), traditional media, soft lighting, pastel colors, gentle, light particles',
     portraitNegative: NEG,
@@ -138,7 +138,7 @@ export const DEFAULT_STYLES: PortraitStyle[] = [
   },
   {
     id: 'dark-horror', name: '暗黑恐怖·克苏鲁',
-    artistTags: `${Q}, 1.3::artist:nixeu::, artist:tianliang duohe fangdongye, artist:carnelian, [artist:wlop], intricate details, cinematic lighting`,
+    artistTags: `${Q}, 1.3::artist:nixeu::, artist:tianliang duohe fangdongye, artist:carnelian, artist:wlop, intricate details, cinematic lighting`,
     styleGuide: '画风：暗黑恐怖、克苏鲁氛围，低饱和、强明暗对比、阴翳雾气，压抑诡谲。',
     portraitPositive: 'dark, horror (theme), eldritch, gloomy, muted colors, desaturated, chiaroscuro, dramatic shadows, fog, ominous atmosphere',
     portraitNegative: `${NEG}, bright colors, cheerful`,
@@ -146,7 +146,7 @@ export const DEFAULT_STYLES: PortraitStyle[] = [
   },
   {
     id: 'cyberpunk', name: '赛博朋克·科幻',
-    artistTags: `${Q}, 1.3::artist:liang xing::, artist:nixeu, artist:redjuice, [artist:wlop], intricate mechanical details, reflective surfaces`,
+    artistTags: `${Q}, 1.3::artist:liang xing::, artist:nixeu, artist:redjuice, artist:wlop, intricate mechanical details, reflective surfaces`,
     styleGuide: '画风：赛博朋克/科幻，霓虹辉光、全息、冷色金属反光、电影光，未来感。',
     portraitPositive: 'cyberpunk, neon lights, sci-fi, futuristic, holographic, glowing, rim lighting, cinematic lighting, depth of field',
     portraitNegative: NEG,
@@ -162,7 +162,7 @@ export const DEFAULT_STYLES: PortraitStyle[] = [
   },
   {
     id: 'realistic', name: '写实电影感',
-    artistTags: `masterpiece, best quality, amazing quality, ultra-detailed, highres, 8k, sharp focus, 1.2::artist:guweiz::, 0.8::artist:wlop::, [artist:ciloranko], subsurface scattering, detailed skin`,
+    artistTags: `masterpiece, best quality, amazing quality, ultra-detailed, highres, 8k, sharp focus, 1.2::artist:guweiz::, 0.8::artist:wlop::, artist:ciloranko, subsurface scattering, detailed skin`,
     styleGuide: '画风：真人电影感写实，电影布光、真实皮肤材质、浅景深、克制色彩分级。',
     portraitPositive: 'realistic, photorealistic, semi-realistic, cinematic lighting, film grain, depth of field, detailed skin, volumetric lighting, muted color grading',
     portraitNegative: `${NEG}, anime, cartoon, cel shading, flat color, 2d, 3d, cgi, doll, illustration`,
@@ -170,7 +170,7 @@ export const DEFAULT_STYLES: PortraitStyle[] = [
   },
   {
     id: 'glamour', name: '魅惑魅艳·欢愉宫',
-    artistTags: `${Q}, 1.3::artist:liang xing::, artist:wlop, artist:rhasta, artist:sciamano240, artist:guweiz, [artist:ciloranko], intricate details`,
+    artistTags: `${Q}, 1.3::artist:liang xing::, artist:wlop, artist:rhasta, artist:sciamano240, artist:guweiz, artist:ciloranko, intricate details`,
     styleGuide: '画风：魅惑魅艳、华丽性感，润泽肌肤质感、柔焦轮廓光、虚化背景，撩人氛围。',
     portraitPositive: 'glamour, seductive, sultry, alluring, detailed skin, glossy skin, soft rim lighting, bokeh, sensual atmosphere',
     portraitNegative: NEG,
