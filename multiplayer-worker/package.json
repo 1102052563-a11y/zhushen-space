@@ -6,7 +6,8 @@
     "dev": "wrangler dev",
     "deploy": "wrangler deploy",
     "tail": "wrangler tail",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "upload-stickers": "node ../zhushen-space/zhushen-space/tools/stickers-r2.mjs upload"
   },
   "devDependencies": {
     "@cloudflare/workers-types": "^4.20260621.1",

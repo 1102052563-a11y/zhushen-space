@@ -5,6 +5,7 @@
 
 import { mpBase } from './mpConfig';
 import { chatToken } from './chatIdentity';
+import { R2_STICKER_PACKS } from '../data/r2StickerPacks';   // R2 托管的大体积表情包（仅哈希清单·图在 R2）
 
 export interface StickerDef { id: string; label: string; svg?: string; url?: string; hash?: string }   // 内置=svg；文件夹直投=url；云端上传=hash
 export interface StickerPack { id: string; label: string; emoji: string; stickers: StickerDef[] }
@@ -71,7 +72,7 @@ let _loading: Promise<void> | null = null;
 
 /** 全部表情包 = 内置 SVG 两套 + 文件夹直投的若干套 + 「我的」云端上传一套（各需对应 load 才出现）。 */
 export function stickerPacks(): StickerPack[] {
-  const out = [...BUILTIN_PACKS, ...filePacks];
+  const out = [...R2_STICKER_PACKS, ...BUILTIN_PACKS, ...filePacks];        // R2 托管包(动态奶龙等) + 内置 SVG + 文件夹直投
   if (publicPack && publicPack.stickers.length) out.unshift(publicPack);   // 「🌐大家的」
   if (cloudPack && cloudPack.stickers.length) out.unshift(cloudPack);      // 「⭐我的」最前，常用
   return out;

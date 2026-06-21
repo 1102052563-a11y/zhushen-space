@@ -8,6 +8,8 @@ public/enhance-bosses/
 public/joy-girls/
 # 聊天室表情包清单：由 vite 插件扫描 public/stickers/<包名>/ 自动生成（贴纸图本身需入库才能部署分发）
 public/stickers/manifest.json
+# R2 托管表情包的本地暂存（压缩好的图在此，由 tools/stickers-r2.mjs 上传到 R2；图不入库，仓库只留 src/data/r2StickerPacks.ts 哈希清单）
+_sticker_upload/
 # NAI 批量生图工具的本地 Token（含密钥，勿入库；模板见 config.example.json）
 tools/nai-batch/config.json
 # R2 上传工具的本地密钥（含 S3 Access Key/Secret，勿入库；模板见 config.example.json）
