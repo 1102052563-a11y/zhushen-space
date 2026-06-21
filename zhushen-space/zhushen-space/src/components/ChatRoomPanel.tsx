@@ -38,10 +38,6 @@ function leanNpc(n: any) {
    进入需 Discord 登录 → 获得从 #1 起的专属顺序 UID（systems/chatIdentity.ts，复用云存档登录）。
    连接层 systems/chatClient.ts（带 chatToken），状态 store/chatRoomStore.ts，后端 ChatDO.js。 */
 
-const MUTE_KEY = 'drpg-chat-mutes';   // 本地屏蔽名单（按 playerId=chat:uid）
-function loadMutes(): string[] { try { return JSON.parse(localStorage.getItem(MUTE_KEY) || '[]'); } catch { return []; } }
-function saveMutes(list: string[]) { try { localStorage.setItem(MUTE_KEY, JSON.stringify(list)); } catch {} }
-
 function nameColor(hue?: number) { return typeof hue === 'number' ? `hsl(${hue} 70% 72%)` : '#cbd5e1'; }
 function uidOf(playerId?: string): string { return playerId && playerId.startsWith('chat:') ? '#' + playerId.slice(5) : ''; }
 function parseUid(playerId?: string): number { return playerId && playerId.startsWith('chat:') ? (parseInt(playerId.slice(5), 10) || 0) : 0; }
@@ -105,7 +101,6 @@ export default function ChatRoomPanel({ onClose }: { onClose: () => void }) {
   // ── 聊天态 ──
   const [editingName, setEditingName] = useState(false);
   const [draft, setDraft] = useState('');
-  const [mutes, setMutes] = useState<string[]>(() => loadMutes());
   const [showRoster, setShowRoster] = useState(true);
   const listRef = useRef<HTMLDivElement>(null);
   const atBottomRef = useRef(true);
@@ -144,6 +139,7 @@ export default function ChatRoomPanel({ onClose }: { onClose: () => void }) {
   // 离场：仅标记关闭——不断连、不清消息（老消息保留，关闭期间新消息走未读红点）。
   useEffect(() => {
     useChatRoom.getState()._set({ open: true, unread: 0 });
+    try { localStorage.removeItem('drpg-chat-mutes'); } catch { /* 屏蔽功能已移除：清掉旧屏蔽名单，让之前误屏蔽全员的人自动恢复 */ }
     loadStickerPacks().then(() => setStickersV((v) => v + 1));   // 拉文件夹直投的表情包，加载完重渲染让消息流里的贴纸出图
     if (discordLoggedIn()) {
       setLoggedIn(true);
@@ -207,10 +203,6 @@ export default function ChatRoomPanel({ onClose }: { onClose: () => void }) {
     const n = (name || '').trim() || '道友';
     setName(n); setMpName(n); chatClient.rename(n); setEditingName(false);
     fetchChatIdentity(n).catch(() => {});   // 同步改名到 D1（不阻塞）
-  };
-  const toggleMute = (pid?: string) => {
-    if (!pid) return;
-    setMutes((p) => { const next = p.includes(pid) ? p.filter((x) => x !== pid) : [...p, pid]; saveMutes(next); return next; });
   };
 
   // ── 个人设置动作 ──
@@ -277,7 +269,7 @@ export default function ChatRoomPanel({ onClose }: { onClose: () => void }) {
     );
   };
 
-  const visible = useMemo(() => st.messages.filter((m) => m.system || !mutes.includes(m.playerId || '')), [st.messages, mutes]);
+  const visible = st.messages;   // 屏蔽功能已移除（点名字误屏蔽的坑），全部显示
 
   return (
     <div className="fixed inset-0 z-50 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4" onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}>
@@ -419,11 +411,11 @@ export default function ChatRoomPanel({ onClose }: { onClose: () => void }) {
                     const src = stickerSrc(m.sticker);
                     return (
                       <div key={m.id} className="group flex gap-2 items-start text-sm break-words">
-                        <button onClick={() => toggleMute(m.playerId)} title="点击屏蔽 / 取消屏蔽此人" className="shrink-0 mt-0.5"><ChatAvatar uid={parseUid(m.playerId)} avv={avvOf(m.playerId)} ds={dsOf(m.playerId)} size={24} ring={nc} /></button>
+                        <span className="shrink-0 mt-0.5"><ChatAvatar uid={parseUid(m.playerId)} avv={avvOf(m.playerId)} ds={dsOf(m.playerId)} size={24} ring={nc} /></span>
                         <div className="min-w-0 flex-1">
                           <span className="font-mono text-[11px] text-dim/35 mr-1.5">{fmtTime(m.at)}</span>
                           {uidTag && <span className="font-mono text-[10px] text-god/45 mr-1">{uidTag}</span>}
-                          <button onClick={() => toggleMute(m.playerId)} className="font-semibold hover:underline" style={{ color: nc }}>{m.name}{isMe ? ' (你)' : ''}</button>
+                          <span className="font-semibold" style={{ color: nc }}>{m.name}{isMe ? ' (你)' : ''}</span>
                           <div className="mt-1">
                             {src
                               ? <img src={src} alt="贴纸" loading="lazy" className="w-[116px] h-[116px] rounded-xl object-contain bg-panel/40 border border-edge" draggable={false} />
@@ -440,7 +432,7 @@ export default function ChatRoomPanel({ onClose }: { onClose: () => void }) {
                       <div className="min-w-0 flex-1">
                         <span className="font-mono text-[11px] text-dim/35 mr-1.5">{fmtTime(m.at)}</span>
                         {uidTag && <span className="font-mono text-[10px] text-god/45 mr-1">{uidTag}</span>}
-                        <button onClick={() => toggleMute(m.playerId)} className="font-semibold hover:underline" style={{ color: nc }}>{m.name}{isMe ? ' (你)' : ''}</button>
+                        <span className="font-semibold" style={{ color: nc }}>{m.name}{isMe ? ' (你)' : ''}</span>
                         <span className="text-dim/50"> 分享了{m.share.kind === 'skill' ? '技能' : m.share.kind === 'talent' ? '天赋' : m.share.kind === 'npc' ? 'NPC' : '装备'}</span>
                         <div className="mt-1"><EntityCard kind={m.share.kind as EntityKind} data={m.share.data} onOpen={() => setDetail({ kind: m.share!.kind as EntityKind, data: m.share!.data })} /></div>
                         {reactionsRow(m)}
@@ -449,11 +441,11 @@ export default function ChatRoomPanel({ onClose }: { onClose: () => void }) {
                   );
                   return (
                     <div key={m.id} className="group flex gap-2 items-start text-sm break-words">
-                      <button onClick={() => toggleMute(m.playerId)} title="点击屏蔽 / 取消屏蔽此人" className="shrink-0 mt-0.5"><ChatAvatar uid={parseUid(m.playerId)} avv={avvOf(m.playerId)} ds={dsOf(m.playerId)} size={24} ring={nc} /></button>
+                      <span className="shrink-0 mt-0.5"><ChatAvatar uid={parseUid(m.playerId)} avv={avvOf(m.playerId)} ds={dsOf(m.playerId)} size={24} ring={nc} /></span>
                       <div className="min-w-0 flex-1 leading-relaxed">
                         <span className="font-mono text-[11px] text-dim/35 mr-1.5">{fmtTime(m.at)}</span>
                         {uidTag && <span className="font-mono text-[10px] text-god/45 mr-1">{uidTag}</span>}
-                        <button onClick={() => toggleMute(m.playerId)} title="点击屏蔽 / 取消屏蔽此人" className="font-semibold mr-1.5 hover:underline" style={{ color: nc }}>{m.name}{isMe ? ' (你)' : ''}</button>
+                        <span className="font-semibold mr-1.5" style={{ color: nc }}>{m.name}{isMe ? ' (你)' : ''}</span>
                         <span className={`text-slate-200 ${bubbleCls(bubble)}`}><MessageText text={m.text || ''} /></span>
                         {reactionsRow(m)}
                       </div>
@@ -519,19 +511,15 @@ export default function ChatRoomPanel({ onClose }: { onClose: () => void }) {
               <aside className="shrink-0 w-40 border-l border-edge bg-panel/40 overflow-y-auto py-2 hidden sm:block">
                 <div className="px-3 pb-1 text-[10px] font-mono text-dim/40 uppercase tracking-wide">在线 {st.roster.length}</div>
                 {st.roster.length === 0 && <div className="px-3 py-1 text-[11px] text-dim/30">—</div>}
-                {st.roster.map((p) => {
-                  const muted = mutes.includes(p.playerId);
-                  return (
-                    <button key={p.playerId} onClick={() => toggleMute(p.playerId)} title={muted ? '已屏蔽 · 点击取消' : '点击屏蔽此人'}
-                      className="w-full flex items-center gap-1.5 text-left px-3 py-1 text-xs hover:bg-panel2 transition-colors">
-                      <ChatAvatar uid={parseUid(p.playerId)} avv={p.avv ?? 0} ds={p.ds ?? ''} size={18} />
-                      <span className={`flex items-center gap-1 min-w-0 ${muted ? 'line-through text-dim/30' : ''}`} style={muted ? undefined : { color: ncOf(p.playerId) || nameColor(p.hue) }}>
-                        {uidOf(p.playerId) && <span className="font-mono text-[10px] text-god/40 shrink-0">{uidOf(p.playerId)}</span>}
-                        <span className="truncate">{p.name}{p.playerId === st.me?.playerId ? ' (你)' : ''}</span>
-                      </span>
-                    </button>
-                  );
-                })}
+                {st.roster.map((p) => (
+                  <div key={p.playerId} className="w-full flex items-center gap-1.5 px-3 py-1 text-xs">
+                    <ChatAvatar uid={parseUid(p.playerId)} avv={p.avv ?? 0} ds={p.ds ?? ''} size={18} />
+                    <span className="flex items-center gap-1 min-w-0" style={{ color: ncOf(p.playerId) || nameColor(p.hue) }}>
+                      {uidOf(p.playerId) && <span className="font-mono text-[10px] text-god/40 shrink-0">{uidOf(p.playerId)}</span>}
+                      <span className="truncate">{p.name}{p.playerId === st.me?.playerId ? ' (你)' : ''}</span>
+                    </span>
+                  </div>
+                ))}
               </aside>
             )}
           </div>
