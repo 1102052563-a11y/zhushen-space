@@ -630,7 +630,7 @@ export default function SettingsPanel({ onClose, onOpenSaveLoad }: SettingsPanel
           <SettingsMenuItem icon="🧠" title="叙事记忆"  desc="关键词召回长期剧情记忆，按相关性注入正文（无需向量）" onClick={() => setPage('narrative-memory')} />
           <SettingsMenuItem icon="🧭" title="向量记忆"  desc="语义向量召回长期记忆（更快·需 embedding 接口）；开启后接管召回" onClick={() => setPage('vector-memory')} />
           <SettingsMenuItem icon="🖼" title="生图设置"  desc="NAI/OpenAI/Gemini/ComfyUI 多服务 · 肖像/装备/正文配图" onClick={() => setPage('image-gen')} />
-          <SettingsMenuItem icon="🎨" title="界面外观"  desc="正文字体大小、字间距、行间距"      onClick={() => setPage('appearance')} />
+          <SettingsMenuItem icon="🎨" title="界面外观美化"  desc="护眼色调 / 暗角 / 正文字体 / 字号·行距"      onClick={() => setPage('appearance')} />
           <SettingsMenuItem icon="🔊" title="音效设置"  desc="背景音乐与音效音量"              onClick={() => {}} disabled />
           <SettingsMenuItem icon="💾" title="存档管理"  desc="导出、导入与重置游戏数据"        onClick={onOpenSaveLoad} />
         </div>

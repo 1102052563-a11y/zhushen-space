@@ -468,18 +468,15 @@ body {
    用 body 的伪元素实现，全局生效（开始页 + 游戏内皆覆盖），不需任何 React 节点。
    固定全屏 + pointer-events:none，永不拦截点击、不影响布局。
    护眼/暖光用 mix-blend-mode:multiply —— 把刺眼的纯白高亮压成暖白、降低「光晕(halation)」并滤蓝光；深色背景几乎不变。关闭(classic)时 opacity:0、零开销。 */
-body::after {  /* 护眼/暖光柔化层 */
-  content: ''; position: fixed; inset: 0; pointer-events: none; z-index: 2147483000;
-  mix-blend-mode: multiply; opacity: 0; transition: opacity .3s ease; will-change: opacity;
+body::after {  /* 护眼/暖光柔化层：纯半透明暖色纱（普通叠加，跨层级稳定、零性能开销；不用 mix-blend(受 #root 层叠上下文阻隔) 也不用 backdrop-filter(整屏滤镜在动画背景上太吃 GPU)）；classic=透明 */
+  content: ''; position: fixed; inset: 0; pointer-events: none; z-index: 2147483002;
+  background: transparent;
 }
-html[data-appearance="eyecare"] body::after { opacity: 1; background: #f4efe6; }  /* 柔光护眼：高亮压到暖白、弱化纯白光晕 */
-html[data-appearance="warm"]    body::after { opacity: 1; background: #f2e1bb; }  /* 夜读暖光：更暖、滤蓝光 */
+html[data-appearance="eyecare"] body::after { background: rgba(255, 234, 194, 0.07); }  /* 柔光护眼：淡暖纱，降蓝光、柔化整体对比 */
+html[data-appearance="warm"]    body::after { background: rgba(255, 206, 128, 0.15); }  /* 夜读暖光：更暖更明显，夜间久读护眼 */
 
-body::before {  /* 暗角氛围层 */
-  content: ''; position: fixed; inset: 0; pointer-events: none; z-index: 2147483001;
-  opacity: 0; transition: opacity .3s ease;
+body::before {  /* 暗角氛围层：纯半透明径向暗边（普通叠加、不依赖混合模式），display 切换即时生效 */
+  content: ''; position: fixed; inset: 0; pointer-events: none; z-index: 2147483001; display: none;
   background: radial-gradient(ellipse 120% 130% at 50% 42%, transparent 58%, rgba(0,0,0,0.34) 100%);
 }
-html[data-vignette="1"] body::before { opacity: 1; }
-
-@media (prefers-reduced-motion: reduce) { body::after, body::before { transition: none !important; } }
+html[data-vignette="1"] body::before { display: block; }
