@@ -43,8 +43,10 @@ export default function WikiPanel({ onClose }: { onClose: () => void }) {
         <iframe
           src="/wiki/index.html"
           title="轮回WIKI"
-          className="w-full h-full border-0 bg-white"
-          style={{ WebkitOverflowScrolling: 'touch' }}
+          className="w-full h-full border-0"
+          /* 深色底：切页瞬间的空白用深色兜底，杜绝「耀眼白屏」（与暗色 app + slate wiki 一致）。
+             真正的无闪屏靠 MkDocs navigation.instant（线上 pages.dev 生效，见 mkdocs.yml）。 */
+          style={{ WebkitOverflowScrolling: 'touch', backgroundColor: '#1b1c22' }}
           onLoad={() => setLoading(false)}
         />
       </div>
