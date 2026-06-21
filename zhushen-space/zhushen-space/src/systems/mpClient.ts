@@ -1,7 +1,7 @@
 import { useMp } from '../store/multiplayerStore';
 import { mpBase, mpWsBase, myPlayerId } from './mpConfig';
 import { restoreWorldBackup } from './mpSnapshot';
-import type { MpInbound, MpOutbound } from './mpProtocol';
+import type { MpInbound, MpOutbound, RelayEvent, RelayPayloads } from './mpProtocol';
 
 // 联机 WebSocket 客户端（事件名照搬后端协议）。心跳发字符串 "ping"（运行时自动回 pong，不唤醒 DO）。
 // 断线自动重连（房主关房 / 主动离开除外）。所有状态写进 multiplayerStore，UI 订阅。
@@ -141,7 +141,7 @@ export const mpClient = {
   publishWorld: (payload: any) => sendRaw({ type: 'publish_world_snapshot', payload }),
   publishCombat: (payload: any) => sendRaw({ type: 'publish_combat_snapshot', payload }),
   submitCombatAction: (payload: any) => sendRaw({ type: 'submit_combat_action', payload }),
-  relay: (event: string, payload: any) => sendRaw({ type: 'relay', event, payload }),
+  relay: <E extends RelayEvent>(event: E, payload: RelayPayloads[E]) => sendRaw({ type: 'relay', event, payload }),
   comment: (text: string) => sendRaw({ type: 'send_room_comment', text }),
   closeRoom: () => sendRaw({ type: 'close_room' }),
   send: sendRaw,

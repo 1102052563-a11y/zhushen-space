@@ -71,7 +71,7 @@ import {
   WORLD_SETTLEMENT_RULE,
 } from './promptRules';
 
-import { useState, useRef, useEffect, lazy, Suspense } from 'react';
+import { useState, useRef, useEffect, lazy, Suspense, type PointerEvent as RPointerEvent } from 'react';
 import { useGame } from './store/gameStore';
 import { useSettings, resolveApiChain } from './store/settingsStore';
 import { apiChatFallback, fetchWithProxy } from './systems/apiChat';
@@ -747,6 +747,12 @@ export default function App() {
   const [channelPanelOpen, setChannelPanelOpen] = useState(false);
   const [mpPanelOpen, setMpPanelOpen] = useState(false);  // 联机面板
   const [chatRoomOpen, setChatRoomOpen] = useState(false);  // 全局实时聊天室
+  // 聊天室悬浮气泡：可拖动（位置偏移记忆到 localStorage；拖动时按叙事区容器夹紧）
+  const [chatBubbleOff, setChatBubbleOff] = useState<{ dx: number; dy: number }>(() => {
+    try { return JSON.parse(localStorage.getItem('drpg-chat-bubble-off') || 'null') || { dx: 0, dy: 0 }; } catch { return { dx: 0, dy: 0 }; }
+  });
+  const chatBubbleHostRef = useRef<HTMLDivElement>(null);
+  const chatBubbleDrag = useRef({ active: false, sx: 0, sy: 0, bx: 0, by: 0, moved: false, lx: 0, ly: 0 });
   const [tradeOpen, setTradeOpen] = useState(false);  // 全局交易行
   const chatUnread = useChatRoom((s) => s.unread);   // 导航红点：聊天室未读
   const chatOnline = useChatRoom((s) => s.roster.length);   // 在线人数（= 当前在玩且已登录的人）
@@ -942,34 +948,47 @@ export default function App() {
         if (useMp.getState().role !== 'host') return;
         void submitCombatPlayerAction(payload?.kind, payload?.targetIds || [], payload?.skillId, payload?.itemId);   // 房主：替来宾的战斗角色结算其出手
       },
-      onRelay: (m: any) => {
-        const ev = m?.event, from = m?.from, payload = m?.payload;
-        if (ev === 'gift_offer') {
-          if (payload?.toPlayerId === myPlayerId()) useMp.getState()._set({ incomingGift: { ...payload, from } });   // 收件人弹窗
-        } else if (ev === 'gift_response') {
-          onGiftResponse(payload);   // 赠予方：拒收/超时退回
-        } else if (ev === 'share') {
-          const c = { id: 'sh_' + Date.now() + Math.random().toString(36).slice(2, 5), name: from?.name || '', role: from?.role || 'player', share: payload, at: Date.now() };
-          useMp.getState()._set({ comments: [...useMp.getState().comments, c].slice(-100) });   // 分享 → 房间聊天卡片
-        } else if (ev === 'raid_boss') {
-          if (useMp.getState().role !== 'host') useMp.getState()._set({ raidBoss: payload });   // 来宾：同步房主生成的 BOSS 预览
-        } else if (ev === 'raid_loot') {
-          useMp.getState()._set({ raidLoot: { ...payload, results: null } });   // 全员：弹战利分配窗
-          try { useItems.getState().adjustCurrency('乐园币', Number(payload.currency) || 0); } catch {}   // 货币全员均得
-        } else if (ev === 'raid_roll') {
-          if (useMp.getState().role === 'host') {   // 房主：收集各人投点
-            const lid = payload?.lootId; if (lid) { raidRollsRef.current[lid] = raidRollsRef.current[lid] || {}; raidRollsRef.current[lid][from?.playerId] = { name: from?.name, picks: payload.picks }; }
+      onRelay: (m) => {
+        const from = m.from;
+        switch (m.event) {   // m.payload 按 event 收窄（见 mpProtocol RelayPayloads）
+          case 'gift_offer':
+            if (m.payload?.toPlayerId === myPlayerId()) useMp.getState()._set({ incomingGift: { ...m.payload, from } });   // 收件人弹窗
+            break;
+          case 'gift_response':
+            onGiftResponse(m.payload);   // 赠予方：拒收/超时退回
+            break;
+          case 'share': {
+            const c = { id: 'sh_' + Date.now() + Math.random().toString(36).slice(2, 5), name: from?.name || '', role: from?.role || 'player', share: m.payload, at: Date.now() };
+            useMp.getState()._set({ comments: [...useMp.getState().comments, c].slice(-100) });   // 分享 → 房间聊天卡片
+            break;
           }
-        } else if (ev === 'raid_loot_result') {
-          const lt = useMp.getState().raidLoot;
-          if (lt && payload?.lootId === lt.lootId) {
-            for (const it of (lt.items || [])) { const r = payload.results?.[it.id]; if (r?.winnerId === myPlayerId()) { try { useItems.getState().addItem({ name: it.name, category: it.category, gradeDesc: it.gradeDesc, effect: it.effect, quantity: it.quantity } as any); } catch {} } }
-            useMp.getState()._set({ raidLoot: { ...lt, results: payload.results } });
+          case 'raid_boss':
+            if (useMp.getState().role !== 'host') useMp.getState()._set({ raidBoss: m.payload });   // 来宾：同步房主生成的 BOSS 预览
+            break;
+          case 'raid_loot':
+            useMp.getState()._set({ raidLoot: { ...m.payload, results: null } });   // 全员：弹战利分配窗
+            try { useItems.getState().adjustCurrency('乐园币', Number(m.payload.currency) || 0); } catch {}   // 货币全员均得
+            break;
+          case 'raid_roll':
+            if (useMp.getState().role === 'host') {   // 房主：收集各人投点
+              const lid = m.payload?.lootId; if (lid) { raidRollsRef.current[lid] = raidRollsRef.current[lid] || {}; raidRollsRef.current[lid][from?.playerId] = { name: from?.name, picks: m.payload.picks }; }
+            }
+            break;
+          case 'raid_loot_result': {
+            const lt = useMp.getState().raidLoot;
+            if (lt && m.payload?.lootId === lt.lootId) {
+              for (const it of (lt.items || [])) { const r = m.payload.results?.[it.id]; if (r?.winnerId === myPlayerId()) { try { useItems.getState().addItem({ name: it.name, category: it.category, gradeDesc: it.gradeDesc, effect: it.effect, quantity: it.quantity } as any); } catch {} } }
+              useMp.getState()._set({ raidLoot: { ...lt, results: m.payload.results } });
+            }
+            break;
           }
-        } else if (ev === 'raid_dungeon') {
-          if (useMp.getState().role !== 'host') useMp.getState()._set({ raidDungeon: payload });   // 来宾：同步副本进度（含解散=null）
-        } else if (ev === 'raid_reward') {
-          applyRaidReward(payload);   // 副本通关豪华奖励：全员（含房主 relay 回显）各自把全套入账到自己 B1，并弹庆祝结算（rewardId 去重防双发）
+          case 'raid_dungeon':
+            if (useMp.getState().role !== 'host') useMp.getState()._set({ raidDungeon: m.payload });   // 来宾：同步副本进度（含解散=null）
+            break;
+          case 'raid_reward':
+            applyRaidReward(m.payload);   // 副本通关豪华奖励：全员（含房主 relay 回显）各自把全套入账到自己 B1，并弹庆祝结算（rewardId 去重防双发）
+            break;
+          default: { const _exhaustive: never = m; void _exhaustive; }   // 新增 relay 事件却没在此处理 → 编译期报错（穷尽性守卫）
         }
       },
       onGuestJoin: () => {   // 来宾进房：把当前单机态快照到保留槽，隔离单机存档（联机存档）
@@ -6169,6 +6188,35 @@ ${lines}`;
     catch (e) { console.warn('[Undo] 记录回退点失败:', e); setGenError('记录回退点失败，"回退/重新生成"暂不可用（可能浏览器存储空间已满）'); setTimeout(() => setGenError(''), 6000); }
   }
   function stopGeneration() { abortRef.current?.abort(); }
+  /* 聊天室悬浮气泡·拖动：夹紧在叙事区容器内；移动超过阈值算"拖动"（拖完那次 click 不开聊天室） */
+  function clampBubbleOff(dx: number, dy: number) {
+    const host = chatBubbleHostRef.current; if (!host) return { dx, dy };
+    const r = host.getBoundingClientRect(); const S = 48, M = 8;
+    const minDx = M - 16, maxDx = Math.max(minDx, r.width - S - M - 16);
+    const minDy = M - (r.height - 64), maxDy = Math.max(minDy, 16 - M);
+    return { dx: Math.max(minDx, Math.min(dx, maxDx)), dy: Math.max(minDy, Math.min(dy, maxDy)) };
+  }
+  function onChatBubbleDown(e: RPointerEvent<HTMLButtonElement>) {
+    const d = chatBubbleDrag.current;
+    d.active = true; d.sx = e.clientX; d.sy = e.clientY; d.bx = chatBubbleOff.dx; d.by = chatBubbleOff.dy; d.moved = false; d.lx = chatBubbleOff.dx; d.ly = chatBubbleOff.dy;
+    try { e.currentTarget.setPointerCapture(e.pointerId); } catch { /* */ }
+  }
+  function onChatBubbleMove(e: RPointerEvent<HTMLButtonElement>) {
+    const d = chatBubbleDrag.current; if (!d.active) return;
+    const ddx = e.clientX - d.sx, ddy = e.clientY - d.sy;
+    if (Math.abs(ddx) + Math.abs(ddy) > 5) d.moved = true;
+    const c = clampBubbleOff(d.bx + ddx, d.by + ddy);
+    d.lx = c.dx; d.ly = c.dy; setChatBubbleOff(c);
+  }
+  function onChatBubbleUp(e: RPointerEvent<HTMLButtonElement>) {
+    const d = chatBubbleDrag.current; if (!d.active) return; d.active = false;
+    try { e.currentTarget.releasePointerCapture(e.pointerId); } catch { /* */ }
+    if (d.moved) { try { localStorage.setItem('drpg-chat-bubble-off', JSON.stringify({ dx: d.lx, dy: d.ly })); } catch { /* */ } }
+  }
+  function onChatBubbleClick() {
+    if (chatBubbleDrag.current.moved) { chatBubbleDrag.current.moved = false; return; }   // 刚拖动完，不当作点击
+    setChatRoomOpen(true);
+  }
   /* 右侧导航·标签 → 打开对应面板（命令面板与导航按钮共用同一份开法，保证一致） */
   function runNavAction(label: string) {
     const open =
@@ -6520,14 +6568,15 @@ ${lines}`;
           )}
           <button
             onClick={() => setSaveOpen(true)}
-            className="px-2.5 py-1 border border-god/40 rounded text-god hover:bg-god/10 text-xs font-bold font-mono transition-colors"
+            className="px-2.5 py-1 border border-god/40 rounded text-god hover:bg-god/10 text-xs font-bold font-mono transition-colors max-lg:hidden"
           >
             💾<span className="max-lg:hidden"> 存档</span>
           </button>
+          {/* ⊞ 功能菜单(右侧面板抽屉)开关：手机端隐藏——改用顶栏 🔍 命令面板跳转面板。要恢复把 hidden 改回 lg:hidden flex 即可 */}
           <button
             onClick={() => setMobileDrawer((d) => (d === 'menu' ? null : 'menu'))}
             aria-label="功能菜单"
-            className="lg:hidden w-8 h-8 flex items-center justify-center border border-edge rounded text-god hover:bg-god/10 transition-colors text-base"
+            className="hidden w-8 h-8 items-center justify-center border border-edge rounded text-god hover:bg-god/10 transition-colors text-base"
           >
             ⊞
           </button>
@@ -6558,12 +6607,17 @@ ${lines}`;
         {/* ── 中间主内容区 ── */}
         <main className="flex-1 flex flex-col overflow-hidden min-w-0">
           {/* 叙事/对话滚动区 */}
-          <div className="flex-1 overflow-hidden relative">
-            {/* 💬 聊天室悬浮气泡（左下角·全场景空闲位·随未读红点·不滚动常驻；点开聊天面板）*/}
+          <div ref={chatBubbleHostRef} className="flex-1 overflow-hidden relative">
+            {/* 💬 聊天室悬浮气泡（可拖动·点击开聊天室·拖动位置记忆 localStorage）*/}
             <button
-              onClick={() => setChatRoomOpen(true)}
-              title="聊天室"
-              className="absolute bottom-4 left-4 z-30 w-12 h-12 rounded-full bg-god/20 border border-god/50 backdrop-blur-sm shadow-[0_4px_20px_rgba(0,0,0,0.55)] flex items-center justify-center text-xl hover:bg-god/30 hover:scale-105 active:scale-95 transition-all"
+              onPointerDown={onChatBubbleDown}
+              onPointerMove={onChatBubbleMove}
+              onPointerUp={onChatBubbleUp}
+              onPointerCancel={onChatBubbleUp}
+              onClick={onChatBubbleClick}
+              title="聊天室（可拖动）"
+              style={{ transform: `translate(${chatBubbleOff.dx}px, ${chatBubbleOff.dy}px)` }}
+              className="absolute bottom-4 left-4 z-30 w-12 h-12 rounded-full bg-god/20 border border-god/50 backdrop-blur-sm shadow-[0_4px_20px_rgba(0,0,0,0.55)] flex items-center justify-center text-xl hover:bg-god/30 transition-colors cursor-grab active:cursor-grabbing touch-none select-none"
             >
               💬
               {chatUnread > 0 && (

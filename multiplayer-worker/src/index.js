@@ -10,6 +10,7 @@ import { handleGateway } from "./gateway.js";
 import { handleWorkshop } from "./workshop.js";
 import { handleCloud } from "./cloud.js";
 import { handleChatMe, handleChatAvatar } from "./chatId.js";
+import { handleStickerUpload, handleStickerServe, handleStickerList, handleStickerDelete } from "./chatSticker.js";
 import { verifyChatToken } from "./auth.js";
 
 // wrangler 需要从入口模块导出 DO 类
@@ -100,6 +101,18 @@ export default {
       // 聊天室头像：按 UID 取自定义头像 dataURL（公开读）
       if (p === "/api/chat/avatar") {
         return await handleChatAvatar(request, env, ch, url);
+      }
+      // 聊天室云端表情包：上传(POST·chatToken) / 列出我的(GET·chatToken) / 取图(GET·公开) / 删除(DELETE·chatToken)
+      if (p === "/api/chat/sticker" && request.method === "POST") {
+        return await handleStickerUpload(request, env, ch, url);
+      }
+      if (p === "/api/chat/stickers") {
+        return await handleStickerList(request, env, ch);
+      }
+      if (p.startsWith("/api/chat/sticker/")) {
+        const hash = decodeURIComponent(p.slice("/api/chat/sticker/".length));
+        if (request.method === "DELETE") return await handleStickerDelete(request, env, ch, hash);
+        return await handleStickerServe(request, env, hash);   // GET 公开取图
       }
 
       // 全局实时聊天室（独立 ChatDO 单例；与游戏房解耦，不进大厅）

@@ -16,7 +16,7 @@ import ChatAvatar from './ChatAvatar';
 import MessageText from './MessageText';
 import EmojiPicker from './EmojiPicker';
 import StickerPicker from './StickerPicker';
-import { stickerSrc, loadStickerPacks } from '../systems/chatStickers';
+import { stickerSrc, loadStickerPacks, type StickerRef } from '../systems/chatStickers';
 import { DICEBEAR_STYLES, parseDicebear } from '../systems/dicebearAvatar';
 import { chatNameColor, setChatNameColor, chatBubble, setChatBubble, NAME_COLORS, BUBBLE_SKINS, bubbleCls } from '../systems/chatCosmetics';
 

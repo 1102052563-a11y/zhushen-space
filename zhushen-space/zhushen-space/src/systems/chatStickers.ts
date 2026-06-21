@@ -1,9 +1,12 @@
 // 内置表情包（大贴纸）—— 纯原创 inline SVG，自包含、零外链、零依赖，渲染成 <img src=dataURI>。
 // 思路同 pixelPals / dicebearAvatar：发送时**只广播 {pack,id} 引用**，各端从这里本地解析出图
 // （沿用「绝不广播大图」铁则，零图片传输、离线可用、$0）。
-// 扩充：往 STICKER_PACKS 加包/加贴即可；未来「用户上传到 R2」「URL 贴图」走 sticker.url / sticker.hash，与内置并存。
+// 三种来源并存：① 内置 SVG（svg）② 文件夹直投 public/stickers/<包名>/（url）③ 用户云端上传 R2（hash·见下方 cloud 区）。
 
-export interface StickerDef { id: string; label: string; svg?: string; url?: string }   // 内置=svg；文件夹直投=url
+import { mpBase } from './mpConfig';
+import { chatToken } from './chatIdentity';
+
+export interface StickerDef { id: string; label: string; svg?: string; url?: string; hash?: string }   // 内置=svg；文件夹直投=url；云端上传=hash
 export interface StickerPack { id: string; label: string; emoji: string; stickers: StickerDef[] }
 
 // 聊天里随消息传的小引用（只有这点东西过 WS）。pack+id=内置；url/hash 预留给路线②③。
@@ -61,11 +64,16 @@ const BUILTIN_PACKS: StickerPack[] = [
 // 运行时 fetch 合并进 stickerPacks()。图片是公开静态资源(动图由 <img> 自动播放)；发送仍只广播 {pack,id} 引用，
 // 各端用自己 build 里的同一份 manifest 解析出 URL（不走 WS 传图）。素材版权由放置者自负。
 let filePacks: StickerPack[] = [];
+let cloudPack: StickerPack | null = null;   // 「我的」云端上传（登录后 loadMyCloudStickers 拉取）
 let _loaded = false;
 let _loading: Promise<void> | null = null;
 
-/** 全部表情包 = 内置 SVG 两套 + 文件夹直投的若干套（需先 loadStickerPacks 才含后者）。 */
-export function stickerPacks(): StickerPack[] { return filePacks.length ? [...BUILTIN_PACKS, ...filePacks] : BUILTIN_PACKS; }
+/** 全部表情包 = 内置 SVG 两套 + 文件夹直投的若干套 + 「我的」云端上传一套（各需对应 load 才出现）。 */
+export function stickerPacks(): StickerPack[] {
+  const out = [...BUILTIN_PACKS, ...filePacks];
+  if (cloudPack && cloudPack.stickers.length) out.unshift(cloudPack);   // 「我的」放最前，常用
+  return out;
+}
 export function stickerPacksLoaded(): boolean { return _loaded; }
 
 /** 拉取 /stickers/manifest.json 合并文件包。幂等；失败(无 manifest/离线)则只用内置。 */
@@ -96,12 +104,71 @@ export function findSticker(pack?: string, id?: string): StickerDef | null {
   return p?.stickers.find((s) => s.id === id) || null;
 }
 
-// 解析一条 StickerRef → 可直接塞 <img src> 的地址。内置=本地 SVG dataURI；文件包/外链=URL。
+/** 云端上传贴纸的取图地址（按内容哈希走 worker 公开端点·长缓存）。 */
+export function stickerServeUrl(hash: string): string { return `${mpBase()}/api/chat/sticker/${hash}`; }
+
+// 解析一条 StickerRef → 可直接塞 <img src> 的地址。内置=SVG dataURI；文件包=URL；云端=按 hash 取 worker 端点。
 export function stickerSrc(ref?: StickerRef): string {
   if (!ref) return '';
   if (ref.url) return ref.url;
+  if (ref.hash) return stickerServeUrl(ref.hash);
   const s = findSticker(ref.pack, ref.id);
   if (!s) return '';
+  if (s.hash) return stickerServeUrl(s.hash);
   if (s.url) return s.url;
   return s.svg ? `data:image/svg+xml,${encodeURIComponent(s.svg)}` : '';
+}
+
+/** 选择器里一个贴纸格的显示地址。 */
+export function stickerDefSrc(def: StickerDef): string {
+  if (def.hash) return stickerServeUrl(def.hash);
+  if (def.url) return def.url;
+  return def.svg ? `data:image/svg+xml,${encodeURIComponent(def.svg)}` : '';
+}
+
+/** 点一个贴纸格 → 要发出去的引用（云端只发 hash；内置/文件发 pack+id）。 */
+export function refForDef(packId: string, def: StickerDef): StickerRef {
+  return def.hash ? { hash: def.hash } : { pack: packId, id: def.id };
+}
+
+// ── 「我的」云端上传（R2，复用云存档桶 CLOUD_BUCKET）：列出 / 上传 / 删除。需 Discord 登录(chatToken)。──
+const CLOUD_PACK_ID = 'mine';
+function setCloudPack(items: { hash: string; name?: string }[]) {
+  cloudPack = {
+    id: CLOUD_PACK_ID, label: '我的', emoji: '⭐',
+    stickers: items.map((it): StickerDef => ({ id: it.hash, label: it.name || '贴纸', hash: it.hash })),
+  };
+}
+
+/** 拉取「我的」云端贴纸；未登录/失败则不显示「我的」包。 */
+export async function loadMyCloudStickers(): Promise<void> {
+  const tok = chatToken();
+  if (!tok) { cloudPack = null; return; }
+  try {
+    const res = await fetch(`${mpBase()}/api/chat/stickers`, { headers: { Authorization: 'Bearer ' + tok } });
+    if (res.ok) { const j = await res.json(); setCloudPack(Array.isArray(j.stickers) ? j.stickers : []); }
+  } catch { /* 离线 / 后端未部署 → 不显示「我的」 */ }
+}
+
+/** 上传一张到云端（成功后并入「我的」并返回其 ref 供立即发送）。 */
+export async function uploadCloudSticker(file: File, name?: string): Promise<StickerRef> {
+  const tok = chatToken();
+  if (!tok) throw new Error('请先登录聊天室');
+  const nm = name || file.name.replace(/\.[^.]+$/, '') || '贴纸';
+  const res = await fetch(`${mpBase()}/api/chat/sticker?name=${encodeURIComponent(nm)}`, {
+    method: 'POST', headers: { 'Content-Type': file.type, Authorization: 'Bearer ' + tok }, body: file,
+  });
+  const j = await res.json().catch(() => ({} as any));
+  if (!res.ok) throw new Error(j.error || '上传失败');
+  const cur = (cloudPack?.stickers || []).filter((s) => s.hash !== j.hash).map((s) => ({ hash: s.hash!, name: s.label }));
+  setCloudPack([{ hash: j.hash, name: j.name }, ...cur]);   // 去重置顶
+  return { hash: j.hash };
+}
+
+/** 从「我的」删除一张云端贴纸。 */
+export async function deleteMyCloudSticker(hash: string): Promise<void> {
+  const tok = chatToken();
+  if (!tok) return;
+  try { await fetch(`${mpBase()}/api/chat/sticker/${hash}`, { method: 'DELETE', headers: { Authorization: 'Bearer ' + tok } }); } catch { /* */ }
+  if (cloudPack) cloudPack = { ...cloudPack, stickers: cloudPack.stickers.filter((s) => s.hash !== hash) };
 }

@@ -18,7 +18,7 @@ export type MpInbound =
   | { type: 'narrative_log'; entries?: { role: string; content: string }[] }
   | { type: 'combat_snapshot'; payload: any }
   | { type: 'combat_action_updated'; payload: any }
-  | { type: 'relayed'; event: string; from: any; payload: any }
+  | ({ type: 'relayed' } & RelayedInbound)
   | { type: 'room_comment'; backlog?: MpComment[]; comment?: MpComment }
   | { type: 'room_closed' }
   | { type: 'error'; reason?: string; error?: string };
@@ -35,3 +35,32 @@ export type MpOutbound =
   | { type: 'relay'; event: string; payload: unknown }
   | { type: 'send_room_comment'; text: string }
   | { type: 'close_room' };
+
+// ── relay/relayed 通用通道之上的「内层事件协议」──────────────────────
+// relay(event,payload) 发 → 服务端原样 relayed 广播 → onRelay(m) 收。事件名过去是裸 string、payload 全 any
+//（最易漂的一摊：副本中继 / 赠予 / 分享）。这里把【事件名 + 各自 payload】钉成判别联合：
+//   · 结构化小 payload（赠予/投点/分配/分享）精确建模 → 拦字段漂移；
+//   · 重型 payload（boss/dungeon/reward 是大块游戏态、整体交各自领域函数消费）保持 unknown，只钉事件名。
+// **新增一个 relay 事件 = 在 RelayPayloads 加一行**，发送(mpClient.relay)与接收(App.onRelay switch)两端同时被锁。
+export interface GiftOfferPayload { giftId: string; toPlayerId: string; items: unknown[] }
+export interface GiftResponsePayload { giftId?: string; accepted: boolean }
+export interface ShareRelayPayload { kind: string; data: unknown }
+export interface RaidLootPayload { lootId?: string; name?: string; currency?: number | string; items?: any[] }
+export interface RaidRollPayload { lootId: string; picks: unknown }
+export interface RaidLootResultPayload { lootId: string; results: Record<string, any> }
+
+export interface RelayPayloads {
+  gift_offer: GiftOfferPayload;
+  gift_response: GiftResponsePayload;
+  share: ShareRelayPayload;
+  raid_boss: unknown;            // BOSS 规格（raidBoss.ts），整体转发给来宾预览
+  raid_loot: RaidLootPayload;
+  raid_roll: RaidRollPayload;
+  raid_loot_result: RaidLootResultPayload;
+  raid_dungeon: unknown;         // 副本进度（可为 null=解散），整体同步
+  raid_reward: unknown;          // 通关豪华奖励，整体交 applyRaidReward 入账
+}
+export type RelayEvent = keyof RelayPayloads;
+
+/** 收到的 relayed 消息：按 event 收窄 payload 的判别联合（from=发送者身份，宽松）。 */
+export type RelayedInbound = { [E in RelayEvent]: { event: E; from: any; payload: RelayPayloads[E] } }[RelayEvent];

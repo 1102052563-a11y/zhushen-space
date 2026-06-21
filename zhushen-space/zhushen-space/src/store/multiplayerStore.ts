@@ -1,4 +1,5 @@
 import { create } from 'zustand';
+import type { RelayedInbound } from '../systems/mpProtocol';
 
 // 联机实时会话态。【不持久化】——和 imageViewerStore 一样是 live 状态，刷新即断开重来。
 // 由 systems/mpClient.ts 在收到 WS 事件时写入；UI 订阅它。
@@ -25,7 +26,7 @@ export interface MpHandlers {
   onStartDungeonEncounter?: (encId: string) => void;        // 房主：开打副本中某一场（子龙/龙王）
   onCombat?: (payload: any) => void;       // 来宾：收到房主广播的战斗快照 → 渲染观战
   onCombatAction?: (payload: any) => void; // 房主：收到来宾的战斗出手 → 结算
-  onRelay?: (m: { event: string; from: any; payload: any }) => void;  // 通用透传(赠予/分享)
+  onRelay?: (m: RelayedInbound) => void;  // 通用透传(赠予/分享/副本中继)——payload 按 event 收窄，见 mpProtocol RelayPayloads
   onTurnStarted?: (turn: MpTurn | null) => void;
   onTurnResolved?: (turn: MpTurn | null) => void;
 }
