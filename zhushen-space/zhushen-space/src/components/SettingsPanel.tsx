@@ -2643,7 +2643,7 @@ function AppearanceSettingsSection() {
       <div className="space-y-3">
         <div className="text-sm font-mono text-god/70 uppercase tracking-widest">正文字体</div>
         <div className="border border-edge rounded-lg p-4 bg-panel space-y-3">
-          <div className="text-sm text-dim leading-relaxed">AI 正文楼层的字体。「霞鹜文楷」首次选用时按需联网加载（仅下载用到的字形），离线则自动回退系统字体。</div>
+          <div className="text-sm text-dim leading-relaxed">AI 正文楼层的字体。「霞鹜文楷」已内置（按需加载用到的字形、无需联网）；「宋体」用系统字体。</div>
           <div className="grid grid-cols-3 gap-2">
             {(['default', 'kai', 'song'] as const).map((k) => (
               <button key={k} onClick={() => setReading({ fontFamily: k })}
