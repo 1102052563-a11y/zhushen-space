@@ -41,6 +41,7 @@ const INIT = {
 export const useChatRoom = create<ChatState>((set): ChatState => ({
   ...INIT,
   _set: (p) => set(p),
-  pushMessage: (m) => set((s) => ({ messages: [...s.messages, m].slice(-MAX_MESSAGES) })),
+  // 按 id 去重再追加：防双连接/重连回显把同一条消息收两遍（发言显示两次）。id 已存在则原样不动。
+  pushMessage: (m) => set((s) => (s.messages.some((x) => x.id === m.id) ? {} : { messages: [...s.messages, m].slice(-MAX_MESSAGES) })),
   reset: () => set((s) => ({ ...INIT, open: s.open })),   // 保留 open（面板挂载态由面板拥有，不被 leave 重置）
 }));

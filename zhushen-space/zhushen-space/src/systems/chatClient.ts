@@ -122,7 +122,11 @@ function scheduleReconnect() {
 function cleanup() {
   stopHb();
   if (reconnectTimer) { clearTimeout(reconnectTimer); reconnectTimer = null; }
-  if (ws) { try { ws.onclose = null; ws.close(); } catch {} ws = null; }
+  if (ws) {
+    // 解绑全部回调再关：close() 是异步的，旧 socket 在关闭握手期间仍可能收到消息→onmessage 重复分发（发言显示两次的根因）。
+    try { ws.onopen = ws.onmessage = ws.onerror = ws.onclose = null; ws.close(); } catch {}
+    ws = null;
+  }
 }
 
 function leave() {
