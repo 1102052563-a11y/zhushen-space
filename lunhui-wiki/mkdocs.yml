@@ -1,7 +1,11 @@
 site_name: 轮回乐园百科
 site_description: 《轮回乐园》世界观百科 · 逐章考据 · 忠于原著
 docs_dir: docs
-use_directory_urls: true
+# 内置进前端用 iframe 加载：必须用扁平 .html（false），否则目录式 URL（/wiki/某页/）在 SPA 静态服务下会被
+# index.html 兜底重写回游戏本体。false → 每页生成真实 .html 文件 + 相对链接，任何静态/SPA 部署都能正确解析。
+use_directory_urls: false
+# 构建产物直接落到 zhushen 的 public/wiki/，App 里用 iframe 加载（/wiki/index.html，离线）。
+site_dir: ../zhushen-space/zhushen-space/public/wiki
 
 theme:
   name: material
@@ -292,6 +296,7 @@ nav:
           - 罪七欲（异常违规者·七欲之镰·求和后清记忆重做契约者）: 人物/罪七欲.md
       - 恶魔古堡游戏 世界（第14卷·强者之证明）:
           - 爱丽丝（恶魔古堡女王·力量近神·须让她微笑）: 人物/爱丽丝.md
+          - 狼管家（公平的裁决者·高等炼金生物·银·厄泊替代品）: 人物/狼管家.md
           - 莎（恶魔古堡囚徒·半精灵战斗族·教苏晓野兽直感）: 人物/莎.md
           - 史提尔·马格努斯（魔法侧·条码脸魔法师·被斩首·殁）: 人物/史提尔·马格努斯.md
           - 冥土追魂（神级医生·学园都市善势力·接苏晓断臂）: 人物/冥土追魂.md

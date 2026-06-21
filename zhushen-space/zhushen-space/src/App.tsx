@@ -113,6 +113,7 @@ import ApiPromptPanel, { type PromptPart } from './components/ApiPromptPanel';
 const TerritoryPanel = lazy(() => import('./components/TerritoryPanel'));
 const CosmosPanel = lazy(() => import('./components/CosmosPanel'));
 const WorldCodexPanel = lazy(() => import('./components/WorldCodexPanel'));
+const WikiPanel = lazy(() => import('./components/WikiPanel'));
 const AdventureTeamPanel = lazy(() => import('./components/AdventureTeamPanel'));
 import ImageViewer from './components/ImageViewer';
 import { useImageViewer } from './store/imageViewerStore';
@@ -628,6 +629,7 @@ const rightMenuItems = [
   { icon: '🤝', label: '队伍' },
   { icon: '🌌', label: '万族' },
   { icon: '📖', label: '世界百科' },
+  { icon: '📚', label: '轮回WIKI' },
   { icon: '🎲', label: 'ROLL' },
   { icon: '⚔️', label: '战斗' },
   { icon: '🎡', label: '乐园设施' },
@@ -650,7 +652,7 @@ const rightMenuItems = [
 const NAV_FX: Record<string, string> = {
   '装备': 'fx-sword', '储存空间': 'fx-bag', 'NPC': 'fx-card', '技能': 'fx-sparkle',
   '副职业': 'fx-wrench', '技能树': 'fx-tree', '称号': 'fx-medal', '成就': 'fx-trophy', '势力': 'fx-pillar',
-  '领地': 'fx-castle', '冒险团': 'fx-shield', '队伍': 'fx-friends', '万族': 'fx-cosmos', '世界百科': 'fx-book', 'ROLL': 'fx-dice',
+  '领地': 'fx-castle', '冒险团': 'fx-shield', '队伍': 'fx-friends', '万族': 'fx-cosmos', '世界百科': 'fx-book', '轮回WIKI': 'fx-book', 'ROLL': 'fx-dice',
   '战斗': 'fx-clash', '乐园设施': 'fx-ferris', '深渊': 'fx-void', '回合洞察': 'fx-zoom', '任务': 'fx-quest',
   '频道': 'fx-signal', '私信': 'fx-mail', '好友': 'fx-friends', '聊天室': 'fx-signal', '交易行': 'fx-bag', '记忆': 'fx-brain', '创意工坊': 'fx-sparkle', '存档': 'fx-save', '设置': 'fx-gear',
 };
@@ -704,6 +706,7 @@ export default function App() {
   const [miscPhaseLog,       setMiscPhaseLog]       = useState('');     // 杂项演化阶段提示（仅失败时显示「杂项更新失败」）
   const [cosmosPanelOpen,    setCosmosPanelOpen]    = useState(false);
   const [worldCodexOpen,     setWorldCodexOpen]     = useState(false);
+  const [wikiOpen,           setWikiOpen]           = useState(false);
   const [cosmosTicker,       setCosmosTicker]       = useState('');     // 万族本回合更新（顶部滚动条）
   const [choicesRunning,     setChoicesRunning]     = useState(false);  // 剧情选项/同人增强后处理调用中
   const [promoteCandidates,  setPromoteCandidates]  = useState<string[]>([]);  // 临时队伍解散→待"转正进冒险团"的队友 id
@@ -6261,6 +6264,7 @@ ${lines}`;
       label === '冒险团' ? () => setTeamPanelOpen(true) :
       label === '万族' ? () => setCosmosPanelOpen(true) :
       label === '世界百科' ? () => setWorldCodexOpen(true) :
+      label === '轮回WIKI' ? () => setWikiOpen(true) :
       label === '回合洞察' ? () => setInsightOpen(true) :
       label === 'ROLL' ? () => setDicePanelOpen(true) :
       label === '战斗' ? () => { if (mpGuest) { setGenError('联机中：战斗由房主发起'); setTimeout(() => setGenError(''), 4000); return; } setCombatSetupOpen(true); } :
@@ -7380,6 +7384,7 @@ ${lines}`;
       {teamPanelOpen && <AdventureTeamPanel onClose={() => setTeamPanelOpen(false)} />}
       {cosmosPanelOpen && <CosmosPanel onClose={() => setCosmosPanelOpen(false)} />}
       {worldCodexOpen && <WorldCodexPanel onClose={() => setWorldCodexOpen(false)} />}
+      {wikiOpen && <WikiPanel onClose={() => setWikiOpen(false)} />}
       <ImageViewer />
       <ImageBusyToast />
       {showVer && <VersionToast version={APP_VERSION} note={VERSION_NOTE} onClose={() => setShowVer(false)} />}
