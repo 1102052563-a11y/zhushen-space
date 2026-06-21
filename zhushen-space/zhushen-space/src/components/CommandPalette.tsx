@@ -34,7 +34,8 @@ export default function CommandPalette({ open, items, onClose, onPick, unread }:
 
   // 打开时清空 + 选中第一项 + 聚焦输入框
   useEffect(() => {
-    if (open) { setQ(''); setSel(0); const t = setTimeout(() => inputRef.current?.focus(), 30); return () => clearTimeout(t); }
+    // 手机端(<1024)不自动聚焦——避免一打开就弹输入法；默认已列出全部面板可直接点选，想筛选时点搜索框即可。桌面端照常聚焦便于立即键入。
+    if (open) { setQ(''); setSel(0); if (window.innerWidth >= 1024) { const t = setTimeout(() => inputRef.current?.focus(), 30); return () => clearTimeout(t); } }
   }, [open]);
 
   const query = q.trim().toLowerCase();

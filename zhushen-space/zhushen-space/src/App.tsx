@@ -6556,12 +6556,6 @@ ${lines}`;
           >
             ← <span className="max-lg:hidden">主界面</span>
           </button>
-          <button
-            onClick={() => setCmdkOpen(true)}
-            title="命令面板 · 快速跳转面板（Ctrl/⌘ K）"
-            aria-label="命令面板"
-            className="w-7 h-7 flex items-center justify-center border border-edge rounded text-dim hover:border-god/40 hover:text-god transition-colors text-sm shrink-0"
-          >🔍</button>
         </div>
         <div className="text-center font-mono shrink-0 max-lg:min-w-0 max-lg:max-w-[46vw] relative z-10">
           <div className="hdr-time text-slate-100 text-lg max-lg:text-[13px] max-lg:leading-tight font-bold max-lg:truncate">🕒 {miscParadiseTime || '——'}</div>
@@ -6587,14 +6581,13 @@ ${lines}`;
           >
             💾<span className="max-lg:hidden"> 存档</span>
           </button>
-          {/* ⊞ 功能菜单(右侧面板抽屉)开关：手机端隐藏——改用顶栏 🔍 命令面板跳转面板。要恢复把 hidden 改回 lg:hidden flex 即可 */}
+          {/* 🔍 命令面板（放在原「功能菜单 ⊞」位置·靠右远离返回键防误触；桌面 Ctrl/⌘K 亦可）*/}
           <button
-            onClick={() => setMobileDrawer((d) => (d === 'menu' ? null : 'menu'))}
-            aria-label="功能菜单"
-            className="hidden w-8 h-8 items-center justify-center border border-edge rounded text-god hover:bg-god/10 transition-colors text-base"
-          >
-            ⊞
-          </button>
+            onClick={() => setCmdkOpen(true)}
+            title="命令面板 · 快速跳转面板（Ctrl/⌘ K）"
+            aria-label="命令面板"
+            className="w-8 h-8 flex items-center justify-center border border-edge rounded text-god hover:bg-god/10 transition-colors text-base shrink-0"
+          >🔍</button>
         </div>
       </header>
 
