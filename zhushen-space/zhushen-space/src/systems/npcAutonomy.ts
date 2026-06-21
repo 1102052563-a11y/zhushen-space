@@ -29,6 +29,7 @@ const NATIVE_IDLE = 0.45;
 const WAR_CHANCE = 0.05, TRIAL_CHANCE = 0.05;
 const DEATH_CHANCE = 0.3;                    // 普通 E 级致死率（war/trial 更高，见 missionSettle）
 const PAIR_CHANCE = 0.45;                    // 一对同类 hub NPC 触发联动的概率
+const MAX_AUTO_GEAR = 8;                     // 单 NPC 自治获得装备总量上限（防长局囤积；消耗品/物资不计）
 const ATTR_KEYS = ['str', 'agi', 'con', 'int', 'cha'] as const;
 const TIER_NAMES = ['一阶', '二阶', '三阶', '四阶', '五阶', '六阶', '七阶', '八阶', '九阶'];
 
@@ -37,6 +38,7 @@ const HUB_TABLE: ReadonlyArray<{ action: string; biasKey: string; event?: DeedEv
   { action: 'arena', biasKey: 'arena' },
   { action: 'feud', biasKey: 'arena', event: 'feud' },
   { action: 'enhance', biasKey: 'enhance', event: 'enhance' },
+  { action: 'repair', biasKey: 'enhance', event: 'repair' },
   { action: 'trade', biasKey: 'trade', event: 'trade' },
   { action: 'team', biasKey: 'team', event: 'team_join' },
   { action: 'bounty', biasKey: 'bounty', event: 'bounty' },
@@ -61,13 +63,20 @@ const NATIVE_EVENTS: readonly DeedEvent[] = [
   'native_kin', 'native_festival', 'native_clan',
   'native_craft', 'native_worship', 'native_hunt', 'native_journey', 'native_legend',
 ];
+// 土著成长事件：苦练/扬名/展力/狩猎中六维微涨
+const NATIVE_GROW_EVENTS = new Set<DeedEvent>(['native_train', 'native_legend', 'native_power', 'native_hunt']);
 
 const CN_NUM: Record<string, number> = { 一: 1, 二: 2, 三: 3, 四: 4, 五: 5, 六: 6, 七: 7, 八: 8, 九: 9 };
 
 interface RelationFx { otherName: string; label: string; }
 /** 真实获得：写进 NPC 物品/技能/天赋栏（显示在面板） */
 export interface TickGrant { equip?: NpcOwnedItem; skill?: Omit<Skill, 'addedAt'>; talent?: Omit<Talent, 'addedAt'>; }
-export interface TickOutcome { deed?: Deed; patch?: Partial<NpcRecord>; relation?: RelationFx; grant?: TickGrant; }
+export interface TickOutcome {
+  deed?: Deed; patch?: Partial<NpcRecord>; relation?: RelationFx; grant?: TickGrant;
+  consume?: { itemId: string };                                  // 消耗一件物品（数量-1）
+  itemPatch?: { itemId: string; patch: Partial<NpcOwnedItem> };  // 改一件物品（损坏/修复）
+  drop?: number;                                                 // 陨落时丢失的物品数
+}
 export interface TickOpts { allowDeath?: boolean; }
 
 function mkDeed(turn: number, location: string, description: string): Deed {
@@ -103,8 +112,15 @@ function rollRating(rng: () => number, npc: NpcRecord): string {
 }
 /** 职业归类关键词表：NPC 的 profession/unitType 文本 → 职业库键 */
 const PROF_KEYS: ReadonlyArray<readonly [string, readonly string[]]> = [
-  // 细分优先（含 法/战士/骑士/兽/咒/剑/元素 等通用字，须排在通用职业前避免误判）
+  // 细分优先（含 法/战士/骑士/兽/咒/剑/刀/元素 等通用字，须排在通用职业前避免误判）
   ['魔剑士', ['魔剑', '附魔剑', '法剑', '魔战士']],
+  ['刀客', ['刀客', '刀法', '刀修', '刀手', '刀魔', '用刀', '拔刀']],
+  ['毒师', ['毒师', '毒医', '用毒', '下毒', '毒修', '百毒']],
+  ['幻术师', ['幻术', '幻师', '幻修', '迷幻', '梦境']],
+  ['蛊师', ['蛊师', '蛊术', '养蛊', '巫蛊', '下蛊']],
+  ['死亡骑士', ['死亡骑士', '死骑', '亡灵骑士', '冥骑', '符文骑士']],
+  ['猎魔人', ['猎魔', '狩魔', '巫师猎人', '怪物猎人']],
+  ['审判官', ['审判官', '审判者', '裁决官', '宗教裁判', '圣裁官']],
   ['元素使', ['元素']],
   ['时空法师', ['时空', '时间法师', '空间法师', '时之子']],
   ['术士', ['术士', '邪术', '巫术', '恶魔法师']],
@@ -191,10 +207,29 @@ const TALENT_RARITY = ['C', 'B', 'A'];
 /** 真获得：按职业造一件可写进 NPC 储物栏的装备 */
 function makeEquipItem(npc: NpcRecord, rng: () => number, turn: number): NpcOwnedItem {
   const c = composeEquip(npc, rng);
+  const slotTaken = (npc.items ?? []).some((it) => it.equipped && it.category === c.category);
   return {
     id: `I_${npc.id}_a${turn}`, name: c.name, category: c.category, gradeDesc: pickFrom(rng, EQUIP_GRADES),
-    effect: '六维小幅加成', quantity: 1, equipped: false, equipSlot: c.slot, acquisition: '离场历练所得',
-    addedAt: Date.now(),
+    effect: '六维小幅加成', quantity: 1, equipped: !slotTaken, equipSlot: c.slot, acquisition: '离场历练所得',
+    durability: '100/100', addedAt: Date.now(),   // 自动换装（同类无已装备则穿上）+ 满耐久
+  };
+}
+/** 真获得：消耗品（可堆叠） */
+function makeConsumable(npc: NpcRecord, rng: () => number, turn: number): NpcOwnedItem {
+  const b = getCorpus().banks;
+  return {
+    id: `I_${npc.id}_c${turn}`, name: b.consumable?.length ? pickFrom(rng, b.consumable) : '恢复药剂',
+    category: '消耗品', gradeDesc: pickFrom(rng, ['普通', '精良', '稀有']), effect: '使用后恢复/增益',
+    quantity: 2 + Math.floor(rng() * 3), equipped: false, acquisition: '离场历练所得', addedAt: Date.now(),
+  };
+}
+/** 土著本地物资 */
+function makeNativeGood(npc: NpcRecord, rng: () => number, turn: number): NpcOwnedItem {
+  const b = getCorpus().banks;
+  return {
+    id: `I_${npc.id}_n${turn}`, name: b.nativeGoods?.length ? pickFrom(rng, b.nativeGoods) : '山货',
+    category: '物资', gradeDesc: '普通', effect: '本地物产',
+    quantity: 1 + Math.floor(rng() * 3), equipped: false, acquisition: '故土所得', addedAt: Date.now(),
   };
 }
 /** 真获得：按职业造一门可写进 NPC 技能栏的技能 */
@@ -246,7 +281,12 @@ export function boundedGrowth(npc: NpcRecord, rng: () => number, opts: { levelUp
       const v = Math.min((next[k] ?? 0) + 1, cap);
       if (v !== next[k]) { next[k] = v; changed = true; }
     }
-    if (changed) out.attrs = next;
+    if (changed) {
+      out.attrs = next;
+      // HP/EP 上限随六维重算（体×20 / 智×15）；只抬上限，不补血
+      if (next.con) out.maxHp = next.con * 20;
+      if (next.int) out.maxMp = next.int * 15;
+    }
   }
   return out;
 }
@@ -281,6 +321,20 @@ function pickEnemy(rng: () => number, npc: NpcRecord, peers: string[]): string |
 const missionStatus = (world?: string) => `执行任务中（${world || '任务世界'}）`;
 const isNative = (npc: NpcRecord) => npc.npcTag === '土著';
 
+/** 试炼晋阶：阶位 +1（唯一不越档例外·仅 SS+ 通过试炼触发）。九阶封顶/无法解析返回 undefined。 */
+function promoteRealm(npc: NpcRecord): string | undefined {
+  const cur = npcTierName(npc);
+  if (!cur) return undefined;
+  const i = TIER_NAMES.indexOf(cur);
+  if (i < 0 || i + 1 >= TIER_NAMES.length) return undefined;   // 九阶封顶
+  const next = TIER_NAMES[i + 1];
+  const newLv = (i + 1) * 10 + 1;                              // 新阶底部等级
+  let r = npc.realm ?? '';
+  r = r.includes(cur) ? r.replace(cur, next) : (r ? `${next}·${r}` : next);
+  r = /Lv\.?\s*\d+/i.test(r) ? r.replace(/Lv\.?\s*\d+/i, `Lv.${newLv}`) : `${r}·Lv.${newLv}`;
+  return r;
+}
+
 /** 任务归来结算：陨落 + 成长 + war/trial 差异化。普通 E 致死 0.3；war/trial 致死 D|E 共 0.4。 */
 function missionSettle(npc: NpcRecord, world: string | undefined, rating: string, rng: () => number, txtSeed: number, opts: TickOpts, turn: number, base: DeedCtx): TickOutcome {
   const isWar = world === '世界争夺战', isTrial = world === '试炼世界';
@@ -288,29 +342,37 @@ function missionSettle(npc: NpcRecord, world: string | undefined, rating: string
   const deathP = isWar || isTrial ? 0.4 : DEATH_CHANCE;
   if (lethal && opts.allowDeath && !isProtected(npc) && rng() < deathP) {
     const dead = pickDeed('mission_death', { ...base, world }, txtSeed);
-    return { deed: mkDeed(turn, world ?? '', dead), patch: { isDead: true, deadTurn: turn, status: '已死亡', auto: { phase: 'hub', turns: 0 } } };
+    return { deed: mkDeed(turn, world ?? '', dead), patch: { isDead: true, deadTurn: turn, status: '已死亡', auto: { phase: 'hub', turns: 0 } }, drop: 1 + (rng() < 0.5 ? 1 : 0) };
   }
   const good = rating === 'S' || rating === 'SS' || rating === 'SSS';
   let event: DeedEvent = 'mission_return';
   let grow: Partial<NpcRecord>;
+  let grant: TickGrant | undefined;
+  let ctx: DeedCtx = { ...base, world, rating };
   if (isWar) {
     event = good ? 'war_return_win' : 'war_return_loss';
     grow = boundedGrowth(npc, rng, { levelUp: good, attrGain: good ? 2 : 0 });
+    if (good) grant = { equip: makeEquipItem(npc, rng, turn) };   // 战利品：胜则必得一件装备
   } else if (isTrial) {
     const pass = good || rating === 'A';
     event = pass ? 'trial_pass' : 'trial_fail';
     grow = boundedGrowth(npc, rng, { levelUp: pass, attrGain: pass ? 1 : 0 });
+    // 试炼晋阶：SS/SSS 通过·~35%·唯一不越档例外（官方晋阶考核）
+    if ((rating === 'SS' || rating === 'SSS') && rng() < 0.35) {
+      const promo = promoteRealm(npc);
+      if (promo) { event = 'trial_promote'; grow = { ...grow, realm: promo }; ctx = { ...ctx, realm: promo }; }
+    }
   } else {
     grow = boundedGrowth(npc, rng, { levelUp: good, attrGain: rating === 'SSS' ? 2 : rating === 'SS' ? 1 : 0 });
   }
-  const desc = pickDeed(event, { ...base, world, rating }, txtSeed);
+  const desc = pickDeed(event, ctx, txtSeed);
   const rest = HUB_REST_MIN + Math.floor(rng() * (HUB_REST_SPAN + 1));
-  return { deed: mkDeed(turn, world ?? '', desc), patch: { auto: { phase: 'hub', turns: rest }, status: '主神空间·休整', ...grow } };
+  return { deed: mkDeed(turn, world ?? '', desc), patch: { auto: { phase: 'hub', turns: rest }, status: '主神空间·休整', ...grow }, grant };
 }
 
 /** 入口：按 npcTag 分流 */
 export function decideNpcTick(npc: NpcRecord, turn: number, peers: string[] = [], opts: TickOpts = {}): TickOutcome {
-  return isNative(npc) ? decideNativeTick(npc, turn, peers) : decideContractorTick(npc, turn, peers, opts);
+  return isNative(npc) ? decideNativeTick(npc, turn, peers, opts) : decideContractorTick(npc, turn, peers, opts);
 }
 
 /* ── 契约者：双相循环 ───────────────────────────────────────── */
@@ -335,18 +397,18 @@ function decideContractorTick(npc: NpcRecord, turn: number, peers: string[], opt
     const ev: DeedEvent = enc < 0.035 ? 'inner_demon' : enc < 0.065 ? 'encounter_violator' : 'windfall';
     return { deed: mkDeed(turn, '主神空间', pickDeed(ev, base, txtSeed)), patch: { auto: { phase: 'hub', turns: 0 }, status: '主神空间' } };
   }
-  // 真获得（小概率·写进 NPC 面板）：装备 3% / 技能 2% / 天赋 1%
-  if (enc < 0.15) {
-    if (enc < 0.12) {
-      const item = makeEquipItem(npc, rng, turn);
-      return { deed: mkDeed(turn, '主神空间', pickDeed('gain_equip', { ...base, item: item.name }, txtSeed)), patch: { auto: { phase: 'hub', turns: 0 }, status: '主神空间' }, grant: { equip: item } };
-    }
-    if (enc < 0.14) {
-      const sk = makeSkill(npc, rng, turn);
-      return { deed: mkDeed(turn, '主神空间', pickDeed('gain_skill', { ...base, skill: sk.name }, txtSeed)), patch: { auto: { phase: 'hub', turns: 0 }, status: '主神空间' }, grant: { skill: sk } };
-    }
-    const tl = makeTalent(npc, rng);
-    return { deed: mkDeed(turn, '主神空间', pickDeed('gain_talent', { ...base, skill: tl.name }, txtSeed)), patch: { auto: { phase: 'hub', turns: 0 }, status: '主神空间' }, grant: { talent: tl } };
+  // 真获得（小概率·写进 NPC 面板）：装备 3% / 消耗品 2% / 技能 2% / 天赋 1%
+  if (enc < 0.17) {
+    const hub: Partial<NpcRecord> = { auto: { phase: 'hub', turns: 0 }, status: '主神空间' };
+    if (enc < 0.12) { const item = makeEquipItem(npc, rng, turn); return { deed: mkDeed(turn, '主神空间', pickDeed('gain_equip', { ...base, item: item.name }, txtSeed)), patch: hub, grant: { equip: item } }; }
+    if (enc < 0.14) { const item = makeConsumable(npc, rng, turn); return { deed: mkDeed(turn, '主神空间', pickDeed('gain_consumable', { ...base, item: item.name }, txtSeed)), patch: hub, grant: { equip: item } }; }
+    if (enc < 0.16) { const sk = makeSkill(npc, rng, turn); return { deed: mkDeed(turn, '主神空间', pickDeed('gain_skill', { ...base, skill: sk.name }, txtSeed)), patch: hub, grant: { skill: sk } }; }
+    const tl = makeTalent(npc, rng); return { deed: mkDeed(turn, '主神空间', pickDeed('gain_talent', { ...base, skill: tl.name }, txtSeed)), patch: hub, grant: { talent: tl } };
+  }
+  // 装备损坏（小概率·仅当有已装备物品）：标记损坏并卸下，待 repair 修复
+  if (enc < 0.195) {
+    const eq = (npc.items ?? []).find((it) => it.equipped);
+    if (eq) return { deed: mkDeed(turn, '主神空间', pickDeed('equip_break', { ...base, item: eq.name }, txtSeed)), patch: { auto: { phase: 'hub', turns: 0 }, status: '主神空间' }, itemPatch: { itemId: eq.id, patch: { durability: '0/100', equipped: false, effect: (eq.effect || '') + '【已损坏】' } } };
   }
 
   const tier = realmTier(npc);
@@ -371,6 +433,8 @@ function decideContractorTick(npc: NpcRecord, turn: number, peers: string[], opt
   let event = action.event as DeedEvent;
   const ctx: DeedCtx = { ...base };
   let relation: RelationFx | undefined;
+  let consume: { itemId: string } | undefined;
+  let itemPatch: { itemId: string; patch: Partial<NpcOwnedItem> } | undefined;
   if (action.action === 'arena') {
     const target = pickEnemy(rng, npc, peers);
     // 战力加权：对手取随机挑战者强度，自身越强越易胜（治"一阶赢五阶"）
@@ -400,19 +464,47 @@ function decideContractorTick(npc: NpcRecord, turn: number, peers: string[], opt
     ctx.skill = genSkill(npc, rng);
   } else if (action.action === 'socialize' || action.action === 'mentor') {
     if (peers.length) ctx.enemy = pickFrom(rng, peers);
+  } else if (action.action === 'heal') {
+    const con = (npc.items ?? []).find((it) => it.category === '消耗品' && (it.quantity ?? 0) > 0);
+    if (con) { event = 'use_consumable'; ctx.item = con.name; consume = { itemId: con.id }; }   // 有药就服一枚
+  } else if (action.action === 'repair') {
+    const dmg = (npc.items ?? []).find((it) => (it.durability ?? '').startsWith('0') || (it.effect ?? '').includes('已损坏'));
+    ctx.item = dmg?.name ?? genEquip(npc, rng);
+    if (dmg) itemPatch = { itemId: dmg.id, patch: { durability: '100/100', equipped: true, effect: (dmg.effect ?? '').replace('【已损坏】', '') || '六维小幅加成' } };
   }
   const desc = pickDeed(event, ctx, txtSeed);
   const grow = (action.action === 'barrier_break' || action.action === 'bloodline')
     ? boundedGrowth(npc, rng, { attrGain: 1 }) : {};
-  return { deed: desc ? mkDeed(turn, '主神空间', desc) : undefined, patch: { auto: { phase: 'hub', turns: 0 }, status: '主神空间', ...grow }, relation };
+  return { deed: desc ? mkDeed(turn, '主神空间', desc) : undefined, patch: { auto: { phase: 'hub', turns: 0 }, status: '主神空间', ...grow }, relation, consume, itemPatch };
 }
 
 /* ── 土著：留在故土过本地生活（无相位机·无乐园术语） ──────── */
-function decideNativeTick(npc: NpcRecord, turn: number, peers: string[]): TickOutcome {
+/** 土著成长：随六维微涨（+1 随机一维，封顶=自身现有最高维，绝不越过既定身份强度）。同步重算 HP/EP 上限。 */
+function nativeGrow(npc: NpcRecord, rng: () => number): Partial<NpcRecord> {
+  if (!npc.attrs) return {};
+  const cap = Math.max(...ATTR_KEYS.map((k) => npc.attrs![k] ?? 0), 1);
+  const next = { ...npc.attrs };
+  const k = ATTR_KEYS[Math.floor(rng() * ATTR_KEYS.length)];
+  const v = Math.min((next[k] ?? 0) + 1, cap);
+  if (v === next[k]) return {};
+  next[k] = v;
+  const out: Partial<NpcRecord> = { attrs: next };
+  if (next.con) out.maxHp = next.con * 20;   // HP 上限=体×20（只抬上限）
+  if (next.int) out.maxMp = next.int * 15;   // EP 上限=智×15
+  return out;
+}
+
+function decideNativeTick(npc: NpcRecord, turn: number, peers: string[], opts: TickOpts): TickOutcome {
   const seed = seedFrom(turn, npc.id);
   const rng = makeRng(seed);
   const txtSeed = (seed ^ 0x5bd1e995) >>> 0;
   if (rng() < NATIVE_IDLE) return {};
+  // 土著偶尔添置本地家当（写进储物，~8%·专属掷骰不靠稀有事件）
+  if (rng() < 0.08) {
+    const item = makeNativeGood(npc, rng, turn);
+    const d = pickDeed('native_gain', { name: npc.name, personality: npc.personality, item: item.name }, txtSeed);
+    return d ? { deed: mkDeed(turn, '故土', d), grant: { equip: item } } : {};
+  }
   const event = pickFrom(rng, NATIVE_EVENTS as DeedEvent[]);
   const ctx: DeedCtx = { name: npc.name, personality: npc.personality };
   let relation: RelationFx | undefined;
@@ -421,8 +513,15 @@ function decideNativeTick(npc: NpcRecord, turn: number, peers: string[]): TickOu
     ctx.enemy = target ?? '邻人';
     if (target) relation = { otherName: target, label: '宿敌' };
   }
+  // 土著陨落：御敌/求生失利可能殒命（需开关 + 非受保护）
+  if (event === 'native_survive' && opts.allowDeath && !isProtected(npc) && rng() < 0.12) {
+    const dead = pickDeed('native_death', { name: npc.name, personality: npc.personality }, txtSeed);
+    return { deed: mkDeed(turn, '故土', dead || `${npc.name} 殒命故土。`), patch: { isDead: true, deadTurn: turn, status: '已死亡' }, drop: 1 };
+  }
+  // 土著成长：苦练/扬名/狩猎中六维微涨（封顶自身峰值）
+  const grow = NATIVE_GROW_EVENTS.has(event) ? nativeGrow(npc, rng) : {};
   const desc = pickDeed(event, ctx, txtSeed);
-  return desc ? { deed: mkDeed(turn, '故土', desc), relation } : {};
+  return desc ? { deed: mkDeed(turn, '故土', desc), relation, patch: Object.keys(grow).length ? grow : undefined } : {};
 }
 
 function score(n: NpcRecord): number {
@@ -503,30 +602,41 @@ export function runNpcAutonomy(turn: number): number {
 
   // ── 逐个模拟未配对的 NPC ──
   const allowDeath = useSettings.getState().npcAutonomyDeath;
-  const grants: Array<{ id: string; grant: TickGrant }> = [];
+  const itemFx: Array<{ id: string; out: TickOutcome }> = [];
   for (const npc of ranked) {
     if (handled.has(npc.id)) continue;
     const pool = (isNative(npc) ? nativeNames : contractorNames).filter((p) => p !== npc.name);
     const out = decideNpcTick(npc, turn, pool, { allowDeath });
-    if (!out.deed && !out.patch && !out.relation && !out.grant) continue;
+    if (!out.deed && !out.patch && !out.relation && !out.grant && !out.consume && !out.itemPatch && !out.drop) continue;
     if (out.deed || out.patch) accSet(npc.id, out.deed, out.patch ?? {});
     if (out.relation) {
       relAdd(npc.id, out.relation.otherName, out.relation.label);
       const other = eligible.find((n) => n.name === out.relation!.otherName);
       if (other && other.id !== npc.id) relAdd(other.id, npc.name, out.relation.label);
     }
-    if (out.grant) grants.push({ id: npc.id, grant: out.grant });
+    if (out.grant || out.consume || out.itemPatch || out.drop) itemFx.push({ id: npc.id, out });
   }
 
   const updates = [...acc.entries()].map(([id, e]) => ({ id, deed: e.deed, patch: e.patch }));
   if (updates.length) store.applyAutonomy(updates);
-  // 真实获得 → 写进 NPC 物品/技能/天赋栏（显示在面板）
-  if (grants.length) {
+  // 真实物品效果 → 写进 NPC 面板：获得（带上限）/ 消耗 / 损坏修复 / 陨落掉落
+  if (itemFx.length) {
     const chars = useCharacters.getState();
-    for (const { id, grant } of grants) {
-      if (grant.equip) store.addNpcItem(id, grant.equip);
-      if (grant.skill) chars.addSkill(id, grant.skill);
-      if (grant.talent) chars.addTrait(id, grant.talent);
+    const GEAR_CATS = ['武器', '防具', '饰品'];
+    for (const { id, out } of itemFx) {
+      const rec = store.npcs[id];
+      if (out.grant?.equip) {
+        const gear = GEAR_CATS.includes(out.grant.equip.category);
+        const gearCount = (rec?.items ?? []).filter((it) => it.acquisition === '离场历练所得' && GEAR_CATS.includes(it.category)).length;
+        if (!gear || gearCount < MAX_AUTO_GEAR) store.addNpcItem(id, out.grant.equip);   // 装备总量上限
+      }
+      if (out.grant?.skill) chars.addSkill(id, out.grant.skill);
+      if (out.grant?.talent) chars.addTrait(id, out.grant.talent);
+      if (out.consume) store.consumeNpcItem(id, out.consume.itemId, 1);
+      if (out.itemPatch) store.updateNpcItem(id, out.itemPatch.itemId, out.itemPatch.patch);
+      if (out.drop && rec) {
+        for (const it of (rec.items ?? []).filter((x) => !x.locked).slice(0, out.drop)) store.removeNpcItem(id, it.id);
+      }
     }
   }
   return updates.filter((u) => u.deed).length;

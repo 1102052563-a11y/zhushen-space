@@ -2,9 +2,11 @@ name = "zhushen-multiplayer"
 main = "src/index.js"
 compatibility_date = "2026-05-01"
 
-# 两个 Durable Object：
+# 四个 Durable Object：
 #   RoomDO  —— 每个房间一个实例（WS 协调 + 房间权威状态）
 #   LobbyDO —— 单例（idFromName("global")），公共大厅注册表
+#   ChatDO  —— 单例（idFromName("global")），全局实时聊天室（与游戏房解耦）
+#   TradeDO —— 单例（idFromName("global")），全局交易行（挂牌 + 还价 公开看板）
 [[durable_objects.bindings]]
 name = "ROOMS"
 class_name = "RoomDO"
@@ -13,10 +15,26 @@ class_name = "RoomDO"
 name = "LOBBY"
 class_name = "LobbyDO"
 
+[[durable_objects.bindings]]
+name = "CHAT"
+class_name = "ChatDO"
+
+[[durable_objects.bindings]]
+name = "TRADE"
+class_name = "TradeDO"
+
 # SQLite 后端：免费计划可用，且是我们算过的低价档
 [[migrations]]
 tag = "v1"
 new_sqlite_classes = ["RoomDO", "LobbyDO"]
+
+[[migrations]]
+tag = "v2"
+new_sqlite_classes = ["ChatDO"]
+
+[[migrations]]
+tag = "v3"
+new_sqlite_classes = ["TradeDO"]
 
 # 创意工坊存储（Cloudflare D1，免费额度内基本 $0）。
 # 部署前：先 `wrangler d1 create zhushen-workshop`，把它返回的 database_id 填到下面 database_id：

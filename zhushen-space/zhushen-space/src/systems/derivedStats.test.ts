@@ -128,4 +128,12 @@ describe('fullMaxHp（无加成时 = computeMaxHp，叠加装备上限）', () =
   it('叠加装备平值上限', () => {
     expect(fullMaxHp(A({ con: 5 }), [{ effect: '生命值上限+50' }])).toBe(150);
   });
+  it('跨资源公式：生命=最大法力的300%（灵影体质类）', () => {
+    // con5→基础HP100, int48→最大EP720, +300%×720=2160 → 2260
+    expect(fullMaxHp(A({ con: 5, int: 48 }), [], [{ effect: '生命值额外提升量=最大法力值的300%' }])).toBe(2260);
+  });
+  it('跨资源不误吃伤害/恢复类', () => {
+    expect(fullMaxHp(A({ con: 5, int: 48 }), [], [{ effect: '对目标造成其最大法力值10%的伤害' }])).toBe(100);
+    expect(fullMaxHp(A({ con: 5, int: 48 }), [], [{ effect: '每回合恢复最大生命5%' }])).toBe(100);
+  });
 });

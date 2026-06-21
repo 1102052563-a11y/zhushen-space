@@ -134,7 +134,7 @@ import { useChannel, buildChannelSystemPrompt, CHANNEL_DEFS } from './store/chan
 import { applyMiscCommands, serializeTasks, serializeEvents, extractTurnSummaries } from './systems/miscParser';
 import { buildNarrativeHistory, NM_COMPILE_PROMPT, NM_INGEST_PROMPT } from './systems/narrativeMemory';
 import { buildMemPool, loadAll as factVecLoadAll, ensureVectors as factVecEnsure, embedOne as factVecEmbedOne, search as factVecSearch } from './systems/factVec';
-import { serializePlayerCard, serializeNpcCard, buildNpcCandidateTitles, buildPlayerSkillCandidates, buildPlayerItemCandidates, rankNpcsLocal, serializeFactionsSection, NM_STRUCT_SELECT_PROMPT, type RecallLimits } from './systems/structuredRecall';
+import { serializePlayerCard, serializeNpcCard, buildNpcCandidateTitles, buildPlayerSkillCandidates, buildPlayerItemCandidates, rankNpcsLocal, serializeFactionsSection, namesMentionedIn, NM_STRUCT_SELECT_PROMPT, type RecallLimits } from './systems/structuredRecall';
 const MiscPanel = lazy(() => import('./components/MiscPanel'));
 const DicePanel = lazy(() => import('./components/DicePanel'));
 const EnhancePanel = lazy(() => import('./components/EnhancePanel'));
@@ -160,11 +160,16 @@ const ChannelPanel = lazy(() => import('./components/ChannelPanel'));
 import type { DmHandlers } from './components/DmPanel';
 const DmPanel = lazy(() => import('./components/DmPanel'));
 const MultiplayerPanel = lazy(() => import('./components/MultiplayerPanel'));
+const ChatRoomPanel = lazy(() => import('./components/ChatRoomPanel'));
+const TradePanel = lazy(() => import('./components/TradePanel'));
 import { useMp } from './store/multiplayerStore';
 import { mpClient } from './systems/mpClient';
 import { buildPlayerSnapshot, buildPartyTurnText, buildWorldSnapshot, applyWorldSnapshot, buildPartyProfiles, mpNarrativeRule, purgeMpCharacters } from './systems/mpSnapshot';
 import { onGiftResponse } from './systems/mpGift';
 import { myPlayerId } from './systems/mpConfig';
+import { useChatRoom } from './store/chatRoomStore';
+import { chatClient } from './systems/chatClient';
+import { discordLoggedIn as chatDiscordLoggedIn, chatReady, chatName, chatToken } from './systems/chatIdentity';
 import GiftPrompt from './components/GiftPrompt';
 const FriendsPanel = lazy(() => import('./components/FriendsPanel'));
 const PartyPanel = lazy(() => import('./components/PartyPanel'));
@@ -630,6 +635,8 @@ const rightMenuItems = [
   { icon: '✉', label: '私信' },
   { icon: '👥', label: '好友' },
   { icon: '🌐', label: '联机' },
+  { icon: '💬', label: '聊天室' },
+  { icon: '🛒', label: '交易行' },
   { icon: '🧠', label: '记忆' },
   { icon: '🧩', label: '创意工坊' },
   { icon: '💾', label: '存档' },
@@ -642,7 +649,7 @@ const NAV_FX: Record<string, string> = {
   '副职业': 'fx-wrench', '技能树': 'fx-tree', '称号': 'fx-medal', '成就': 'fx-trophy', '势力': 'fx-pillar',
   '领地': 'fx-castle', '冒险团': 'fx-shield', '队伍': 'fx-friends', '万族': 'fx-cosmos', '世界百科': 'fx-book', 'ROLL': 'fx-dice',
   '战斗': 'fx-clash', '乐园设施': 'fx-ferris', '深渊': 'fx-void', '回合洞察': 'fx-zoom', '任务': 'fx-quest',
-  '频道': 'fx-signal', '私信': 'fx-mail', '好友': 'fx-friends', '记忆': 'fx-brain', '创意工坊': 'fx-sparkle', '存档': 'fx-save', '设置': 'fx-gear',
+  '频道': 'fx-signal', '私信': 'fx-mail', '好友': 'fx-friends', '聊天室': 'fx-signal', '交易行': 'fx-bag', '记忆': 'fx-brain', '创意工坊': 'fx-sparkle', '存档': 'fx-save', '设置': 'fx-gear',
 };
 
 export default function App() {
@@ -730,6 +737,17 @@ export default function App() {
   const joyEnabled = useJoy((s) => s.settings.enabled);
   const [channelPanelOpen, setChannelPanelOpen] = useState(false);
   const [mpPanelOpen, setMpPanelOpen] = useState(false);  // 联机面板
+  const [chatRoomOpen, setChatRoomOpen] = useState(false);  // 全局实时聊天室
+  const [tradeOpen, setTradeOpen] = useState(false);  // 全局交易行
+  const chatUnread = useChatRoom((s) => s.unread);   // 导航红点：聊天室未读
+  const chatOnline = useChatRoom((s) => s.roster.length);   // 在线人数（= 当前在玩且已登录的人）
+  // 已登录(有聊天身份) → 一进游戏就后台连接聊天室：「在玩存档即在线」（不必开聊天面板，新消息也进未读红点）
+  useEffect(() => {
+    if (chatDiscordLoggedIn() && chatReady()) {
+      chatClient.ensureConnected(chatName() || '道友', chatToken());
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
   const [shopOpen, setShopOpen] = useState(false);
   const [summaryPanelOpen, setSummaryPanelOpen] = useState(false);
   const [saveOpen,         setSaveOpen]         = useState(false);
@@ -3357,7 +3375,7 @@ ${AFFIX_EFFECT_RULE}`;
     // ── 主角卡（必含；API 选取的技能/装备覆盖本地 pickTop，副职业仍机械取）──
     const cards: string[] = [
       serializePlayerCard(profile, game, b1?.skills ?? [], b1?.traits ?? [], allItems, limits, b1?.titles, b1?.subProfessions, useItems.getState().currency,
-        apiPick ? { skills: apiPick.skills, items: apiPick.items } : undefined),
+        apiPick ? { skills: apiPick.skills, items: apiPick.items } : undefined, context),
     ];
 
     // ── NPC 选择：用上面那次 API 选的 npc → 本地在场优先兜底 ──
@@ -3368,6 +3386,8 @@ ${AFFIX_EFFECT_RULE}`;
         chosen = apiPick.npcs.map((id) => byId.get(id)).filter((r): r is import('./store/npcStore').NpcRecord => !!r && !r.isDead).slice(0, limits.maxNpcs);
       }
       if (chosen.length === 0) chosen = rankNpcsLocal(npcs, limits.maxNpcs);  // 兜底（API 关闭/失败/无配置）
+      // 护栏：情境里字面点名的 NPC 强制并入（绕过 API 漏选 / maxNpcs 上限；已死的仍排除）——与主角技能护栏同源
+      for (const r of namesMentionedIn(npcs, context)) if (!r.isDead && !chosen.includes(r)) chosen.unshift(r);
       for (const r of chosen) {
         const cd = chars[r.id];
         cards.push(serializeNpcCard(r, cd?.skills ?? [], cd?.traits ?? [], cd?.titles));  // NPC 全量，无上限（副职业仅主角）
@@ -6488,6 +6508,22 @@ ${lines}`;
         <main className="flex-1 flex flex-col overflow-hidden min-w-0">
           {/* 叙事/对话滚动区 */}
           <div className="flex-1 overflow-hidden relative">
+            {/* 💬 聊天室悬浮气泡（左下角·全场景空闲位·随未读红点·不滚动常驻；点开聊天面板）*/}
+            <button
+              onClick={() => setChatRoomOpen(true)}
+              title="聊天室"
+              className="absolute bottom-4 left-4 z-30 w-12 h-12 rounded-full bg-god/20 border border-god/50 backdrop-blur-sm shadow-[0_4px_20px_rgba(0,0,0,0.55)] flex items-center justify-center text-xl hover:bg-god/30 hover:scale-105 active:scale-95 transition-all"
+            >
+              💬
+              {chatUnread > 0 && (
+                <span className="absolute -top-1 -right-1 min-w-[18px] h-[18px] px-1 rounded-full bg-blood text-white text-[10px] font-bold flex items-center justify-center leading-none animate-pulse shadow">{chatUnread > 99 ? '99+' : chatUnread}</span>
+              )}
+              {chatOnline > 0 && (
+                <span className="absolute -bottom-1 -right-1 flex items-center gap-0.5 px-1 h-[15px] rounded-full bg-emerald-600 border border-void text-white text-[9px] font-bold leading-none" title={`${chatOnline} 人在线`}>
+                  <span className="w-1 h-1 rounded-full bg-emerald-200" />{chatOnline > 99 ? '99+' : chatOnline}
+                </span>
+              )}
+            </button>
             {/* 左上角「主角装备」/ 右上角「在场人物」/ 右下角「物品栏」浮窗（仅叙事视图；手机端隐藏，改用左/右抽屉）*/}
             {worlds.length === 0 && started && (
               <div className="max-lg:hidden">
@@ -6979,6 +7015,8 @@ ${lines}`;
                     item.label === '好友' ? () => setFriendsPanelOpen(true) :
                     item.label === '队伍' ? () => setPartyPanelOpen(true) :
                     item.label === '联机' ? () => setMpPanelOpen(true) :
+                    item.label === '聊天室' ? () => setChatRoomOpen(true) :
+                    item.label === '交易行' ? () => setTradeOpen(true) :
                     item.label === '记忆' ? () => setSummaryPanelOpen(true) :
                     item.label === '存档' ? () => setSaveOpen(true) :
                     item.label === '创意工坊' ? () => setWorkshopOpen(true) :
@@ -6990,6 +7028,9 @@ ${lines}`;
               >
                 <span className={`nav-ico ${NAV_FX[item.label] || ''} w-4 text-center text-xs opacity-70`}>{item.icon}</span>
                 <span>{item.label}</span>
+                {item.label === '聊天室' && chatUnread > 0 && (
+                  <span className="ml-auto min-w-[18px] h-[18px] px-1 rounded-full bg-blood text-white text-[10px] font-bold flex items-center justify-center leading-none animate-pulse">{chatUnread > 99 ? '99+' : chatUnread}</span>
+                )}
               </button>
             ))}
           </nav>
@@ -7084,6 +7125,8 @@ ${lines}`;
       )}
       {dmPanelOpen && <DmPanel onClose={() => setDmPanelOpen(false)} focusThreadId={dmFocusThread} h={dmHandlers} />}
       {mpPanelOpen && <MultiplayerPanel onClose={() => setMpPanelOpen(false)} />}
+      {chatRoomOpen && <ChatRoomPanel onClose={() => setChatRoomOpen(false)} />}
+      {tradeOpen && <TradePanel onClose={() => setTradeOpen(false)} />}
       {mpIncomingGift && <GiftPrompt gift={mpIncomingGift} onClose={() => useMp.getState()._set({ incomingGift: null })} />}
       {mpRaidLoot && <RaidLootModal onClose={() => useMp.getState()._set({ raidLoot: null })} />}
       <RaidDungeonReward />

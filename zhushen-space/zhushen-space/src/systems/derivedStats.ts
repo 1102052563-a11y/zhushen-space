@@ -120,19 +120,51 @@ export function abilityMaxEpPctBonus(skills: AbilityLite[] = [], traits: Ability
   return vitalMaxPctBonus([...skills.flatMap((s) => [s.effect, s.desc]), ...traits.flatMap((t) => [t.effect, t.desc])], 'ep');
 }
 
-/* 统一口径的「真实最大 HP / EP」（主角与 NPC 共用）= (六维换算 + 装备平值上限加成 + 被动/天赋平值上限加成) ×(1 + 百分比加成)。
-   各处显示/钳制一律走这两个，确保面板、AI 快照、短指令钳制、战斗一致；含百分比加成（如被动「10%生命加成」）。 */
+/* 「基础真实上限」(不含跨资源公式) = (六维换算 + 装备/被动平值上限加成) ×(1 + 百分比加成)。 */
+function baseMaxHp(attrs?: PlayerAttrs, equipped: { effect?: string; affix?: string }[] = [], skills: AbilityLite[] = [], traits: AbilityLite[] = []): number {
+  const eff = effectiveAttrs(attrs, skills as any, traits as any, equipped as any);   // 六维加成(如体质+1)折进六维，再 体质×20
+  const flat = computeMaxHp(eff) + gearMaxHpBonus(equipped) + abilityMaxHpBonus(skills, traits);
+  const pct = gearMaxHpPctBonus(equipped) + abilityMaxHpPctBonus(skills, traits);
+  return Math.round(flat * (1 + pct / 100));
+}
+function baseMaxEp(attrs?: PlayerAttrs, equipped: { effect?: string; affix?: string }[] = [], skills: AbilityLite[] = [], traits: AbilityLite[] = []): number {
+  const eff = effectiveAttrs(attrs, skills as any, traits as any, equipped as any);
+  const flat = computeMaxEp(eff) + gearMaxEpBonus(equipped) + abilityMaxEpBonus(skills, traits);
+  const pct = gearMaxEpPctBonus(equipped) + abilityMaxEpPctBonus(skills, traits);
+  return Math.round(flat * (1 + pct / 100));
+}
+/* 跨资源上限公式：如「生命值额外提升量=最大法力值的300%」→ HP += 300% × 最大EP（灵影体质类）。
+   kind='hp' 解析「生命…最大法力…X%」用 EP 算；kind='ep' 反之。用 base 值算，避免 HP↔EP 循环。 */
+function vitalCrossBonus(texts: (string | undefined)[], kind: 'hp' | 'ep', otherMax: number): number {
+  const pat = kind === 'hp'
+    ? '(?:生命|HP|血量|气血|体力)(?:值)?[^。；,\\n]{0,16}?最大\\s*(?:法力|魔力|蓝量|能量|内力|精力)(?:值)?[^。；,\\n]{0,8}?(\\d+(?:\\.\\d+)?)\\s*[%％]'
+    : '(?:法力|魔力|蓝量|能量|内力|精力)(?:值)?[^。；,\\n]{0,16}?最大\\s*(?:生命|HP|血量|气血|体力)(?:值)?[^。；,\\n]{0,8}?(\\d+(?:\\.\\d+)?)\\s*[%％]';
+  let pctSum = 0;
+  for (const raw of texts) {
+    if (!raw) continue;
+    const re = new RegExp(pat, 'gi'); let m: RegExpExecArray | null;
+    while ((m = re.exec(String(raw))) !== null) pctSum += Number(m[1]);
+  }
+  return Math.round((pctSum / 100) * (otherMax || 0));
+}
+function crossTexts(equipped: { effect?: string; affix?: string }[], skills: AbilityLite[], traits: AbilityLite[]): (string | undefined)[] {
+  return [
+    ...skills.flatMap((s) => [s.effect, s.desc]),
+    ...traits.flatMap((t) => [t.effect, t.desc]),
+    ...equipped.flatMap((e) => [e.effect, e.affix]),
+  ];
+}
+
+/* 统一口径的「真实最大 HP / EP」（主角与 NPC 共用）= 基础上限 + 跨资源公式加成。
+   各处显示/钳制/战斗/AI快照一律走这两个，确保一致；含百分比加成与「生命=最大法力X%」类跨资源公式。 */
 export function fullMaxHp(
   attrs?: PlayerAttrs,
   equipped: { effect?: string; affix?: string }[] = [],
   skills: AbilityLite[] = [],
   traits: AbilityLite[] = [],
 ): number {
-  // 先把技能/天赋/装备的「六维加成」(如 体质+1)折进六维，再按 体质×20 换算——否则技能加的体质涨不到 HP 上限
-  const eff = effectiveAttrs(attrs, skills as any, traits as any, equipped as any);
-  const flat = computeMaxHp(eff) + gearMaxHpBonus(equipped) + abilityMaxHpBonus(skills, traits);
-  const pct = gearMaxHpPctBonus(equipped) + abilityMaxHpPctBonus(skills, traits);
-  return Math.round(flat * (1 + pct / 100));
+  return baseMaxHp(attrs, equipped, skills, traits)
+    + vitalCrossBonus(crossTexts(equipped, skills, traits), 'hp', baseMaxEp(attrs, equipped, skills, traits));
 }
 export function fullMaxEp(
   attrs?: PlayerAttrs,
@@ -140,11 +172,8 @@ export function fullMaxEp(
   skills: AbilityLite[] = [],
   traits: AbilityLite[] = [],
 ): number {
-  // 同 fullMaxHp：先把六维加成(如 智力+1)折进六维，再按 智力×15 换算
-  const eff = effectiveAttrs(attrs, skills as any, traits as any, equipped as any);
-  const flat = computeMaxEp(eff) + gearMaxEpBonus(equipped) + abilityMaxEpBonus(skills, traits);
-  const pct = gearMaxEpPctBonus(equipped) + abilityMaxEpPctBonus(skills, traits);
-  return Math.round(flat * (1 + pct / 100));
+  return baseMaxEp(attrs, equipped, skills, traits)
+    + vitalCrossBonus(crossTexts(equipped, skills, traits), 'ep', baseMaxHp(attrs, equipped, skills, traits));
 }
 /* 「当前值」显示：
    - 从未设过(undefined) → 视为满（= 当前上限），仅用于角色刚建档、还没发生任何增减时

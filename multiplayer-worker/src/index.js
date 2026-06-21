@@ -4,12 +4,16 @@
 
 import { RoomDO } from "./RoomDO.js";
 import { LobbyDO } from "./LobbyDO.js";
+import { ChatDO } from "./ChatDO.js";
+import { TradeDO } from "./TradeDO.js";
 import { handleGateway } from "./gateway.js";
 import { handleWorkshop } from "./workshop.js";
 import { handleCloud } from "./cloud.js";
+import { handleChatMe, handleChatAvatar } from "./chatId.js";
+import { verifyChatToken } from "./auth.js";
 
 // wrangler 需要从入口模块导出 DO 类
-export { RoomDO, LobbyDO };
+export { RoomDO, LobbyDO, ChatDO, TradeDO };
 
 // 房间码：去掉易混字符（0/O/1/I），6 位
 const ALPHABET = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
@@ -47,6 +51,12 @@ function json(obj, init = {}, headers = {}) {
 function lobbyStub(env) {
   return env.LOBBY.get(env.LOBBY.idFromName("global"));
 }
+function chatStub(env) {
+  return env.CHAT.get(env.CHAT.idFromName("global"));
+}
+function tradeStub(env) {
+  return env.TRADE.get(env.TRADE.idFromName("global"));
+}
 function roomStub(env, id) {
   return env.ROOMS.get(env.ROOMS.idFromName(id));
 }
@@ -81,6 +91,63 @@ export default {
       // 健康检查
       if (p === "/api/multiplayer/diagnostics") {
         return json({ ok: true, service: "zhushen-multiplayer", ts: Date.now() }, {}, ch);
+      }
+
+      // 聊天室身份：Discord 登录(复用云存档会话) → 分配顺序 UID + 签发 chatToken + 个人资料
+      if (p === "/api/chat/me") {
+        return await handleChatMe(request, env, ch, url);
+      }
+      // 聊天室头像：按 UID 取自定义头像 dataURL（公开读）
+      if (p === "/api/chat/avatar") {
+        return await handleChatAvatar(request, env, ch, url);
+      }
+
+      // 全局实时聊天室（独立 ChatDO 单例；与游戏房解耦，不进大厅）
+      // 鉴权：必须带有效 chatToken（含顺序 UID）；验签后改写 pid=chat:<uid> 再转发，ChatDO 不碰令牌。
+      if (p === "/api/chat/ws") {
+        if (request.headers.get("Upgrade") !== "websocket") {
+          return new Response("expected websocket", { status: 426, headers: ch });
+        }
+        const payload = await verifyChatToken(env, url.searchParams.get("token"));
+        if (!payload || !payload.cuid) {
+          return new Response("需要 Discord 登录", { status: 401, headers: ch });
+        }
+        const u = new URL(request.url);
+        u.searchParams.set("pid", "chat:" + payload.cuid);                                  // 身份=顺序 UID，权威来自验签
+        u.searchParams.set("name", (u.searchParams.get("name") || payload.name || "道友"));
+        u.searchParams.delete("token");
+        return chatStub(env).fetch(new Request(u.toString(), request));
+      }
+      if (p === "/api/chat/info") {
+        const r = await chatStub(env).fetch("https://do/info" + url.search);
+        return new Response(await r.text(), {
+          status: r.status,
+          headers: { ...ch, "Content-Type": "application/json" },
+        });
+      }
+
+      // 全局交易行（独立 TradeDO 单例；挂牌 + 还价 公开看板）。
+      // 与聊天室共用 Discord 身份：验 chatToken → pid=chat:<uid>，并保留 name/avv/ds/nc 供挂牌显示头像/名牌。
+      if (p === "/api/trade/ws") {
+        if (request.headers.get("Upgrade") !== "websocket") {
+          return new Response("expected websocket", { status: 426, headers: ch });
+        }
+        const payload = await verifyChatToken(env, url.searchParams.get("token"));
+        if (!payload || !payload.cuid) {
+          return new Response("需要 Discord 登录", { status: 401, headers: ch });
+        }
+        const u = new URL(request.url);
+        u.searchParams.set("pid", "chat:" + payload.cuid);
+        u.searchParams.set("name", (u.searchParams.get("name") || payload.name || "道友"));
+        u.searchParams.delete("token");
+        return tradeStub(env).fetch(new Request(u.toString(), request));
+      }
+      if (p === "/api/trade/info") {
+        const r = await tradeStub(env).fetch("https://do/info");
+        return new Response(await r.text(), {
+          status: r.status,
+          headers: { ...ch, "Content-Type": "application/json" },
+        });
       }
 
       // 大厅列表

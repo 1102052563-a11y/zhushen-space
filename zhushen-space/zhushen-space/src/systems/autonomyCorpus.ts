@@ -24,6 +24,8 @@ export interface AutonomyCorpus {
     nativeTone?: Record<string, string[]>;  // 土著专属语气库（按性格分桶，纯本地词不沾乐园术语），{ntone} 槽用
     equipment?: string[];     // 装备库（通用兜底）：enhance/trade 的 {item} 在 NPC 无装备时从这取
     skillTalent?: string[];   // 技能天赋库（通用兜底）：acquire 的 {skill} 从这取
+    consumable?: string[];    // 消耗品名库（恢复药剂/丹药/卷轴…）
+    nativeGoods?: string[];   // 土著本地物资名库（腌肉/草药/兽皮…）
     gearPrefix?: string[];    // 装备共享前缀（噬魂/裂空…）× 职业词根 = 组合装备名
     skillPrefix?: string[];   // 技能共享前缀（裂空/焚天…）× 职业招式词根 = 组合技能名
     armorCore?: string[];     // 防具词根（重铠/战衣…），跨职业共享
@@ -81,6 +83,8 @@ export function getCorpus(): AutonomyCorpus {
       nativeTone: concatArrMap(defaultCorpus.banks.nativeTone ?? {}, override.banks?.nativeTone),
       equipment: [...(defaultCorpus.banks.equipment ?? []), ...(override.banks?.equipment ?? [])],
       skillTalent: [...(defaultCorpus.banks.skillTalent ?? []), ...(override.banks?.skillTalent ?? [])],
+      consumable: [...(defaultCorpus.banks.consumable ?? []), ...(override.banks?.consumable ?? [])],
+      nativeGoods: [...(defaultCorpus.banks.nativeGoods ?? []), ...(override.banks?.nativeGoods ?? [])],
       gearPrefix: [...(defaultCorpus.banks.gearPrefix ?? []), ...(override.banks?.gearPrefix ?? [])],
       skillPrefix: [...(defaultCorpus.banks.skillPrefix ?? []), ...(override.banks?.skillPrefix ?? [])],
       armorCore: [...(defaultCorpus.banks.armorCore ?? []), ...(override.banks?.armorCore ?? [])],

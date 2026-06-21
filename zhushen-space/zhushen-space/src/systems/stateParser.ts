@@ -190,6 +190,17 @@ function normalizeCurrencyType(raw: unknown): keyof CurrencyWallet {
   return '乐园币'; // 缺省 / 乐园币 / 下品 / 中品
 }
 
+/* 角色成长「点数」（属性点 / 真实属性点 / 技能点 / 黄金技能点 / 潜能点）只能在「世界结算」(玩家输入【结算任务】)
+   由结算路径发放：属性点·真实属性点 → 主角演化 applyPlayerProfileCommands；技能点·黄金技能点·潜能点 → <state> 结算门控。
+   物品演化阶段的 transferSpiritStones 绝不发放它们——AI 若在此误发，一律忽略（防越过结算门槛、防被错塞进乐园币）。*/
+function isProgressionPointGrade(raw: unknown): boolean {
+  const s = String(raw ?? '').trim();
+  if (!s) return false;
+  return s.includes('属性点') || (s.includes('属性') && s.includes('点'))
+      || s.includes('技能点')   // 含「黄金技能点」
+      || s.includes('潜能');     // 潜能点
+}
+
 /* 可堆叠分类：同名消耗类物品应累加数量而非生成重复条目（装备/法宝/特殊物等"唯一物"不堆叠，
    它们各自有独立的攻防/耐久/杀敌数等，不能合并）。修复"不同回合获得的同名消耗品堆成一堆重复条目"。*/
 const STACKABLE_CATS = new Set<ItemCategory>(['消耗品', '材料', '凡物', '丹药', '灵药', '符箓']);
@@ -401,6 +412,11 @@ function applyOneItemCommand(cmd: ItemCommand, store: any): void {
     case 'transferSpiritStones':
     case 'transferCurrency': {
       const amount: number = data.amount ?? 0;
+      // 成长点数（属性点/真实属性点/技能点/黄金技能点/潜能点）只在【结算任务】世界结算时由结算路径发放，物品阶段一律拒发
+      if (isProgressionPointGrade(data.type ?? data.grade)) {
+        console.warn(`[Item] 忽略物品阶段发放点数「${String(data.type ?? data.grade)}」：属性点/技能点/黄金技能点/潜能点只在【结算任务】世界结算时发放`);
+        break;
+      }
       const type = normalizeCurrencyType(data.type ?? data.grade);
       if (data.to === 'B1' || data.from === null || data.from === undefined) {
         store.adjustCurrency(type, amount);

@@ -1,0 +1,72 @@
+import { describe, it, expect } from 'vitest';
+import { namesMentionedIn } from './structuredRecall';
+
+/* 护栏：情境（用户输入+最近正文）里字面喊到的条目名 → 强制注入。
+   治"都喊技能名字了还不注入进去"。仅测纯匹配逻辑（namesMentionedIn）。 */
+
+const named = (...names: string[]) => names.map((name) => ({ name }));
+const pick = (arr: { name: string }[]) => arr.map((x) => x.name);
+
+describe('namesMentionedIn（字面喊到→强制命中）', () => {
+  const skills = named(
+    '神威·空洞褫夺（天启魔改版）',
+    '十尾原核·森罗万象',
+    '巨人之盾·不破之壁',
+    '极值奖励·源血熔炉',
+  );
+
+  it('喊整名 → 命中', () => {
+    expect(pick(namesMentionedIn(skills, '我催动神威·空洞褫夺（天启魔改版）！')))
+      .toEqual(['神威·空洞褫夺（天启魔改版）']);
+  });
+
+  it('只喊核心段（·之后）也命中——玩家常只喊核心', () => {
+    expect(pick(namesMentionedIn(skills, '苏晓低喝一声，空洞褫夺撕裂了空间。')))
+      .toEqual(['神威·空洞褫夺（天启魔改版）']);
+    expect(pick(namesMentionedIn(skills, '森罗万象铺展开来')))
+      .toEqual(['十尾原核·森罗万象']);
+  });
+
+  it('归一化容差：去掉间隔点/空格/「」引号仍命中', () => {
+    expect(pick(namesMentionedIn(skills, '他展开「不破之壁」'))).toEqual(['巨人之盾·不破之壁']);
+    expect(pick(namesMentionedIn(skills, '巨人 之 盾 撑起'))).toEqual(['巨人之盾·不破之壁']);
+  });
+
+  it('多个技能同时被喊 → 全部命中（不受数量上限约束，上限在调用处之外）', () => {
+    const out = pick(namesMentionedIn(skills, '空洞褫夺配合森罗万象齐发'));
+    expect(out).toContain('神威·空洞褫夺（天启魔改版）');
+    expect(out).toContain('十尾原核·森罗万象');
+    expect(out).toHaveLength(2);
+  });
+
+  it('没喊到 → 不命中（无误注入）', () => {
+    expect(namesMentionedIn(skills, '他只是普通地挥了一拳')).toEqual([]);
+  });
+
+  it('短通用前缀（<3字的段）单独出现不误命中', () => {
+    // "神威"=2字段、"巨人"被"之盾"拆出后……核心段≥3字才参与，避免泛词污染
+    expect(namesMentionedIn(named('神威·空洞褫夺'), '神威凛凛的气势')).toEqual([]);
+  });
+
+  it('空/undefined 情境 → []', () => {
+    expect(namesMentionedIn(skills, '')).toEqual([]);
+    expect(namesMentionedIn(skills, undefined)).toEqual([]);
+  });
+
+  it('对装备同样适用（同一护栏）', () => {
+    const items = named('湮灭·灭世之刃', '寻常布衣');
+    expect(pick(namesMentionedIn(items, '他抽出灭世之刃'))).toEqual(['湮灭·灭世之刃']);
+  });
+
+  it('对 NPC（含 isDead 等额外字段）同样适用——2字专名也命中', () => {
+    const npcs = [
+      { name: '苏晓', isDead: false, id: 'C1' },
+      { name: '薇妮', isDead: false, id: 'C2' },
+      { name: '病犬', isDead: false, id: 'C3' },
+    ];
+    const out = namesMentionedIn(npcs, '薇妮远远看见苏晓走来').map((r) => r.id);
+    expect(out).toContain('C1');
+    expect(out).toContain('C2');
+    expect(out).not.toContain('C3');
+  });
+});

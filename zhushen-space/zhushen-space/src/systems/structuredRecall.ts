@@ -68,18 +68,42 @@ function pickTop<T>(arr: T[], n: number, score: (x: T) => number): T[] {
     .map((e) => e.x);
 }
 
+/* 名称归一化（去空白/分隔符/标点，小写）——API 名称匹配与「字面喊到」护栏共用 */
+function normName(s: string): string {
+  return (s ?? '').replace(/[\s·•・\-—_,，.。、|｜【】（）()「」『』""''的之]/g, '').toLowerCase();
+}
+
 /* API 选取的名称 → 实际对象（按归一化名匹配，保 API 给的顺序，封顶 max）；供主角技能/装备的 API 判定用 */
 function matchByName<T extends { name: string }>(arr: T[], names: string[] | undefined, max: number): T[] {
   if (!names?.length || max <= 0) return [];
-  const norm = (s: string) => (s ?? '').replace(/[\s·•・\-—_,，.。、|｜【】（）()的之]/g, '').toLowerCase();
   const out: T[] = [];
   for (const nm of names) {
-    const w = norm(nm); if (!w) continue;
-    const found = arr.find((x) => { const xn = norm(x.name); return xn === w || xn.includes(w) || w.includes(xn); });
+    const w = normName(nm); if (!w) continue;
+    const found = arr.find((x) => { const xn = normName(x.name); return xn === w || xn.includes(w) || w.includes(xn); });
     if (found && !out.includes(found)) out.push(found);
     if (out.length >= max) break;
   }
   return out;
+}
+
+/* ── 护栏：当前情境（用户输入 + 最近正文）里**字面喊到**的条目名 → 强制注入 ──
+   不受 API 漏选 / pickTop 上限约束：玩家或正文喊了技能/装备名，就一定把它的完整档案注入。
+   匹配「整名」或「分隔段(≥3字，如 神威·空洞褫夺 的『空洞褫夺』)」是否为情境子串——
+   复合名玩家常只喊核心段，故按段匹配；≥3字门槛避免「神威 / 之力」这类通用短前缀误命中。*/
+function mentionTokens(name: string): string[] {
+  const toks = new Set<string>();
+  const full = normName(name);
+  if (full.length >= 2) toks.add(full);
+  for (const seg of (name || '').split(/[·•・|｜\/／（）()【】「」『』，,、\s]+/)) {
+    const t = normName(seg);
+    if (t.length >= 3) toks.add(t);
+  }
+  return [...toks];
+}
+export function namesMentionedIn<T extends { name: string }>(arr: T[], context: string | undefined): T[] {
+  const ctx = normName(context || '');
+  if (!ctx) return [];
+  return arr.filter((x) => mentionTokens(x.name).some((t) => ctx.includes(t)));
 }
 
 const TALENT_RANK: Record<string, number> = { sss: 7, ss: 6, s: 5, a: 4, b: 3, c: 2, d: 1 };
@@ -182,6 +206,7 @@ export function serializePlayerCard(
   subProfs?: SubProfession[],
   wallet?: CurrencyWallet,
   pick?: { skills?: string[]; items?: string[] },   // API 选取的技能名/装备名；提供则覆盖本地 pickTop（副职业不受影响，仍机械取）
+  context?: string,   // 当前情境（用户输入+最近正文）：字面喊到的技能/装备强制注入（护栏，不受 API/上限约束）
 ): string {
   const id = ['姓名:' + (profile.name || '主角'),
     profile.gender && `性别:${profile.gender}`,
@@ -235,12 +260,16 @@ export function serializePlayerCard(
   // 技能：开了 API 选取(pick.skills)→按 API 选的名字注入；否则本地 pickTop(品阶/新近) 兜底（API 给的名都没匹配上也回退本地，避免空）
   let skillSel = matchByName(skills, pick?.skills, limits.maxSkills);
   if (!skillSel.length) skillSel = pickTop(skills, limits.maxSkills, skillScore);
+  // 护栏：情境里字面喊到的技能强制并入（置顶去重，不受 maxSkills 上限约束）——治"都喊技能名了还不注入"
+  for (const s of namesMentionedIn(skills, context)) if (!skillSel.includes(s)) skillSel.unshift(s);
   const topSkills = skillSel.map(skillLine);
   // 装备(武器/防具/饰品 或 已装备)：同理 API 选取优先、本地 pickTop 兜底；材料+消耗品全部显示(名称+效果)；其它类一律不注入
   const EQUIP_CATS = new Set<string>(['武器', '防具', '饰品']);
   const equipPool = items.filter((it) => it.equipped || EQUIP_CATS.has(it.category));
   let equipSel = matchByName(equipPool, pick?.items, limits.maxItems);
   if (!equipSel.length) equipSel = pickTop(equipPool, limits.maxItems, itemScore);
+  // 护栏：情境里字面喊到的物品强制并入（材料/消耗品下方已全量注入，排除以免重复；不受 maxItems 上限约束）
+  for (const it of namesMentionedIn(items, context)) if (it.category !== '材料' && it.category !== '消耗品' && !equipSel.includes(it)) equipSel.unshift(it);
   const equipItems = equipSel.map(playerItemLine);
   const matConItems = items.filter((it) => it.category === '材料' || it.category === '消耗品').map(playerItemLine);
   const talLines = talents.slice().sort((x, y) => talentScore(y) - talentScore(x)).map(talentLine);
