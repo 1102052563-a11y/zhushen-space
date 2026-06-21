@@ -26,6 +26,22 @@
 - 单张控制在 ~256px、几百 KB 以内，太大的图会拖慢加载（聊天里显示约 116px）。
 - 发送时只在玩家之间广播 `{包名, id}` 引用，**图片本身由部署站点当静态资源分发**，不走聊天连接。
 
+## 体积 / 压缩
+
+动图 GIF 很容易几 MB 一张，**别把原图直接丢进来**（会撑爆仓库 + 拖慢加载）。建议先用 `gifsicle` 批量压：缩到 ~160px、降调色板、有损压缩，flat 卡通(如奶龙)能压掉 ~80%（实测 150 张 142MB → 26MB），116px 显示完全看不出差别。
+
+```powershell
+# 在临时目录装 gifsicle（别装进本项目，免污染 package.json）
+mkdir _t; cd _t; npm init -y; npm i gifsicle
+$bin = "$PWD\node_modules\gifsicle\vendor\gifsicle.exe"   # Windows
+# 把原图所在目录里的 gif 压进表情包目录
+Get-ChildItem "原图目录\*.gif" | ForEach-Object {
+  & $bin --resize-fit 160x160 --colors 128 -O3 --lossy=110 -o "public\stickers\<包名>\$($_.Name)" $_.FullName
+}
+```
+
+太大/太糊就调 `--lossy`（小=更清晰大体积，大=更小更糊）和 `--resize-fit`。
+
 ## ⚠️ 版权
 
 这些文件会随仓库**公开部署**（任何人可访问），等于你在公开再分发它们。

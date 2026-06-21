@@ -1,6 +1,8 @@
 # ───── 本地工具 / 临时文件（不入库）─────
 .claude/
 *.tmp
+# 表情包压缩用的临时 gifsicle 安装目录（scratch，可随时删）
+/_sticker_tools/
 
 # ───── 依赖与构建产物（Cloudflare 会自己 npm install + 构建）─────
 node_modules/
@@ -10,6 +12,8 @@ zhushen-space/zhushen-space/public/portraits/manifest.json
 
 # ───── 大体积立绘素材（欢愉宫看板娘，走 Cloudflare R2 部署，vite 插件本地同步进 public/joy-girls/；见 tools/upload-r2/R2部署说明.md）─────
 /欢愉宫图片/
+# 表情包原图（动态奶龙等的高清原件，142MB）——已 gifsicle 压缩进 public/stickers/<包名>/ 入库部署，原件留本地不入库
+/动态奶龙/
 
 # ───── 第三方 / 参考资料（非本项目代码，不入库，保持仓库精简）─────
 # 另一个预构建 app，仅作移植参考，不需要部署，也不必备份

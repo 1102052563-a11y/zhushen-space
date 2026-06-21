@@ -88,9 +88,8 @@ function dispatch(m: ChatInbound) {
       break;
     case 'presence':
       set({ roster: m.roster || [] });
-      if (m.join?.name) sysLine(`${m.join.name} 进入了聊天室`);
-      else if (m.leave?.name) sysLine(`${m.leave.name} 离开了聊天室`);
-      else if (m.rename) sysLine(`${m.rename.from} 改名为 ${m.rename.to}`);
+      // 进入/离开聊天室不再推消息流（人一多就刷屏；谁在线看右侧在线名单即可）。改名仍提示（少见且有用）。
+      if (m.rename) sysLine(`${m.rename.from} 改名为 ${m.rename.to}`);
       break;
     case 'reaction_update': {
       const s = useChatRoom.getState();
