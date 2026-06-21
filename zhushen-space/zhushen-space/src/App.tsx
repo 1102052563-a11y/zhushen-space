@@ -274,6 +274,7 @@ async function loadBuiltinDefaults() {
       if (!has('轮回乐园·Claude')) { const c = await grab('zhushen-claude.json'); if (c) useSettings.getState().importTextPreset(c, '轮回乐园·Claude', true, false); }
       if (!has('轮回乐园·Gemini')) { const g = await grab('zhushen-gemini.json'); if (g) useSettings.getState().importTextPreset(g, '轮回乐园·Gemini', true, false); }
       if (!has('轮回乐园·DeepSeek')) { const d = await grab('zhushen-deepseek.json'); if (d) useSettings.getState().importTextPreset(d, '轮回乐园·DeepSeek', true, false); }
+      if (!has('双人成行 V7.1—长风渡')) { const sc = await grab('shuangren-changfeng.json'); if (sc) useSettings.getState().importTextPreset(sc, '双人成行 V7.1—长风渡', true, false); }
     }
     // 自动去重（仅清内置补种自身的重复，绝不碰玩家的预设）：玩家导入/编辑/激活固化过的(非 builtin)一律保留；
     //   只删「多余的同名 builtin」——同名 builtin 留一个、其余删；某 builtin 若已有同名的非 builtin(玩家版) 则该 builtin 多余、删（玩家版优先）。
@@ -879,7 +880,7 @@ export default function App() {
   const [b1Notice, setB1Notice] = useState('');       // 主角自检兜底：自动恢复后的提示横幅
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [mobileDrawer, setMobileDrawer] = useState<'player' | 'menu' | null>(null); // 手机端：左角色栏 / 右导航 抽屉
-  const [inputValue, setInputValue] = useState('');
+  const [inputValue, setInputValue] = useState(() => { try { return localStorage.getItem('drpg-chat-draft') || ''; } catch { return ''; } });   // 输入草稿持久化：误触返回/刷新/崩溃也不丢已输入的行动
   const [openChoiceIds, setOpenChoiceIds] = useState<Set<number>>(new Set());   // 剧情选项：按楼层展开（附在正文末尾，点击查看；默认收起）
   const [worldBarOpen, setWorldBarOpen] = useState(false); // 选择世界/结算任务 按钮行（默认收起，点状态栏展开，省空间）
   const [rawResponse, setRawResponse] = useState('');
@@ -923,6 +924,10 @@ export default function App() {
     useComposer.getState().fill('');   // 一次性消费，清空草稿
     setTimeout(() => chatInputRef.current?.focus(), 0);
   }, [composerDraft]);
+  // 输入草稿持久化：随输入存 localStorage，发送后(inputValue→'')自动清；刷新/误触返回/崩溃后自动恢复，绝不丢已输入的行动
+  useEffect(() => {
+    try { if (inputValue) localStorage.setItem('drpg-chat-draft', inputValue); else localStorage.removeItem('drpg-chat-draft'); } catch { /* */ }
+  }, [inputValue]);
 
   useEffect(() => {
     messagesRef.current = messages;

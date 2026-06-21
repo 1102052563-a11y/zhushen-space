@@ -74,7 +74,7 @@ export default function CommandPalette({ open, items, onClose, onPick, unread }:
             placeholder="跳转到面板…  试试 背包 / sl / shezhi"
             className="flex-1 bg-transparent text-sm text-slate-100 outline-none placeholder:text-dim/40 font-mono"
           />
-          <span className="text-[10px] font-mono text-dim/40 border border-edge rounded px-1.5 py-0.5 shrink-0">Esc</span>
+          <button onClick={onClose} aria-label="关闭命令面板" className="shrink-0 w-8 h-8 flex items-center justify-center rounded-lg border border-edge text-dim/70 hover:text-blood hover:border-blood/40 transition-colors text-base">✕</button>
         </div>
         {/* 列表 */}
         <div ref={listRef} className="max-h-[52vh] overflow-y-auto py-1">
