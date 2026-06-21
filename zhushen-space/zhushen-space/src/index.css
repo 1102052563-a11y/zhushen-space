@@ -463,3 +463,23 @@ body {
 @keyframes barDanger { 0%,100%{ background:#ef4444; box-shadow:0 0 10px #ef4444,0 0 18px rgba(239,68,68,.55); } 50%{ background:#7f1d1d; box-shadow:0 0 3px rgba(239,68,68,.5); } }
 /* 减少动态：所有皮肤动画关闭；告警仍保留静态红(去掉闪烁) */
 @media (prefers-reduced-motion: reduce) { .barfill, .barfill::after { animation: none !important; } .bf-danger { background:#dc2626 !important; box-shadow:0 0 8px #ef4444 !important; } }
+
+/* ───────── 外观美化：全局护眼/暖光滤镜 + 暗角氛围（由 App.tsx 在 <html> 上写 data-appearance / data-vignette 切换）─────────
+   用 body 的伪元素实现，全局生效（开始页 + 游戏内皆覆盖），不需任何 React 节点。
+   固定全屏 + pointer-events:none，永不拦截点击、不影响布局。
+   护眼/暖光用 mix-blend-mode:multiply —— 把刺眼的纯白高亮压成暖白、降低「光晕(halation)」并滤蓝光；深色背景几乎不变。关闭(classic)时 opacity:0、零开销。 */
+body::after {  /* 护眼/暖光柔化层 */
+  content: ''; position: fixed; inset: 0; pointer-events: none; z-index: 2147483000;
+  mix-blend-mode: multiply; opacity: 0; transition: opacity .3s ease; will-change: opacity;
+}
+html[data-appearance="eyecare"] body::after { opacity: 1; background: #f4efe6; }  /* 柔光护眼：高亮压到暖白、弱化纯白光晕 */
+html[data-appearance="warm"]    body::after { opacity: 1; background: #f2e1bb; }  /* 夜读暖光：更暖、滤蓝光 */
+
+body::before {  /* 暗角氛围层 */
+  content: ''; position: fixed; inset: 0; pointer-events: none; z-index: 2147483001;
+  opacity: 0; transition: opacity .3s ease;
+  background: radial-gradient(ellipse 120% 130% at 50% 42%, transparent 58%, rgba(0,0,0,0.34) 100%);
+}
+html[data-vignette="1"] body::before { opacity: 1; }
+
+@media (prefers-reduced-motion: reduce) { body::after, body::before { transition: none !important; } }

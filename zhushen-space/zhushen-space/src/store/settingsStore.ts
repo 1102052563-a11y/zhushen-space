@@ -250,8 +250,12 @@ interface SettingsState {
   allowAutoEquipNpc: boolean;  // 是否允许自动给 NPC 穿戴装备（含初始装备与 AI 装备指令；关闭=只入 NPC 储存空间）
   setAllowAutoEquipNpc: (v: boolean) => void;
   customOpening: string;  // 自定义开场白模板（角色创建确认后自动发送；含 ${...} 占位符，空=用内置默认）
-  reading: { fontSize: number; letterSpacing: number; lineHeight: number };  // 正文阅读排版：字号(px)/字间距(px)/行距(倍数)；默认 17/0/1.8=现状
-  setReading: (patch: Partial<{ fontSize: number; letterSpacing: number; lineHeight: number }>) => void;
+  reading: { fontSize: number; letterSpacing: number; lineHeight: number; fontFamily: 'default' | 'kai' | 'song' };  // 正文阅读排版：字号(px)/字间距(px)/行距(倍数)/正文字体；默认 17/0/1.8/default=现状
+  setReading: (patch: Partial<{ fontSize: number; letterSpacing: number; lineHeight: number; fontFamily: 'default' | 'kai' | 'song' }>) => void;
+  appearance: 'classic' | 'eyecare' | 'warm';  // 外观护眼色调：classic=原版青光黑底 / eyecare=柔光护眼(暖白·弱化纯白光晕) / warm=夜读暖光(滤蓝光)；全局固定滤镜层，pointer-events:none
+  setAppearance: (v: 'classic' | 'eyecare' | 'warm') => void;
+  uiVignette: boolean;  // 背景暗角氛围：四周轻微压暗、聚焦中央正文（纯视觉·pointer-events:none）
+  setUiVignette: (v: boolean) => void;
   plotChoices: boolean;   // 剧情选项：每段正文生成后，额外生成 8 个主角行动选项（最后 1 个限制级）
   setPlotChoices: (v: boolean) => void;
   fanficMode: boolean;    // 同人增强：识别已知作品角色→输出/锁定设定→下回合注入正文防 OOC
@@ -634,7 +638,9 @@ export const useSettings = create<SettingsState>()(
       allowAutoEquip: true,
       allowAutoEquipNpc: true,
       customOpening: '',
-      reading: { fontSize: 17, letterSpacing: 0, lineHeight: 1.8 },
+      reading: { fontSize: 17, letterSpacing: 0, lineHeight: 1.8, fontFamily: 'default' },
+      appearance: 'classic',
+      uiVignette: false,
       plotChoices: false,
       fanficMode: false,
       factCheck: false,
@@ -690,6 +696,8 @@ export const useSettings = create<SettingsState>()(
       setAllowAutoEquipNpc: (v) => set({ allowAutoEquipNpc: v }),
       setCustomOpening: (s) => set({ customOpening: s }),
       setReading: (patch) => set((s) => ({ reading: { ...s.reading, ...patch } })),
+      setAppearance: (v) => set({ appearance: v }),
+      setUiVignette: (v) => set({ uiVignette: v }),
       setPlotChoices: (v) => set({ plotChoices: v }),
       setNpcAutonomyOn: (v) => set({ npcAutonomyOn: v }),
       setNpcAutonomyDeath: (v) => set({ npcAutonomyDeath: v }),

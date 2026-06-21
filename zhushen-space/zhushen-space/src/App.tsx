@@ -96,6 +96,7 @@ const CombatPanel = lazy(() => import('./components/CombatPanel'));
 import WeatherFx from './components/WeatherFx';
 import CommandPalette from './components/CommandPalette';
 import { setAudioSettings, playSfx, setAmbient } from './systems/audio';
+import { readingFontStack, LXGW_WENKAI_CSS } from './systems/readingFonts';
 const CombatSetup = lazy(() => import('./components/CombatSetup'));
 import { useTerritory, buildTerritorySystemPrompt, buildingCap } from './store/territoryStore';
 import { useTeam, buildTeamSystemPrompt, memberCap as teamMemberCap } from './store/adventureTeamStore';
@@ -866,10 +867,23 @@ export default function App() {
   const miscWeatherFxCss = useMisc((s) => s.weatherFxCss);
   const miscWeatherFxKey = useMisc((s) => s.weatherFxKey);
   const weatherFxOn      = useSettings((s) => s.weatherFx);
+  const appearanceMode   = useSettings((s) => s.appearance);   // 外观护眼色调（classic/eyecare/warm）→ <html data-appearance>
+  const uiVignette       = useSettings((s) => s.uiVignette);   // 背景暗角氛围 → <html data-vignette>
   // ── 游戏音效（懒加载 Howler·缺音频文件静默）──
   const audioCfg = useSettings((s) => s.audio);
   const prevChatUnread = useRef<number | null>(null);
   useEffect(() => { setAudioSettings(audioCfg); }, [audioCfg]);   // 设置 → 音效引擎
+  // 外观美化：把护眼色调 / 暗角写到 <html> 属性，由 index.css 的固定滤镜层响应（全局生效、不影响布局与点击）
+  useEffect(() => { document.documentElement.setAttribute('data-appearance', appearanceMode || 'classic'); }, [appearanceMode]);
+  useEffect(() => { document.documentElement.setAttribute('data-vignette', uiVignette ? '1' : '0'); }, [uiVignette]);
+  // 正文字体选「霞鹜文楷」时才懒加载其 webfont CSS（分块 woff2，仅用到的字形下载）；加载一次即留存，切走不卸载
+  useEffect(() => {
+    if ((reading.fontFamily || 'default') === 'kai' && !document.getElementById('lxgw-wenkai-css')) {
+      const l = document.createElement('link');
+      l.id = 'lxgw-wenkai-css'; l.rel = 'stylesheet'; l.href = LXGW_WENKAI_CSS;
+      document.head.appendChild(l);
+    }
+  }, [reading.fontFamily]);
   useEffect(() => {   // 天气环境音：随顶栏天气切换（仅任务世界有天气；回归乐园/无天气→停）
     const kind = (!!miscWeather && !isHomeWorld(miscWorldName)) ? parseWeather(miscWeather).kind : 'none';
     setAmbient(kind);
@@ -6732,7 +6746,7 @@ ${lines}`;
                               </button>
                               <div
                                 className="text-slate-300 narrative-content"
-                                style={{ fontSize: `${reading.fontSize}px`, letterSpacing: `${reading.letterSpacing}px`, '--narr-lh': String(reading.lineHeight) } as any}
+                                style={{ fontSize: `${reading.fontSize}px`, letterSpacing: `${reading.letterSpacing}px`, fontFamily: readingFontStack(reading.fontFamily), '--narr-lh': String(reading.lineHeight) } as any}
                                 onClick={(e) => {
                                   const el = (e.target as HTMLElement).closest('.story-illust') as HTMLElement | null;
                                   if (!el) return;

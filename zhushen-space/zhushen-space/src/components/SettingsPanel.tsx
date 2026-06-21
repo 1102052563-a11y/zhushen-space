@@ -1,6 +1,7 @@
 import { useRef, useState } from 'react';
 import { useSettings, endpointToConfig, type WorldBook, type WorldBookEntry, type TextGenPreset, type STPromptEntry, type RegexScript, type ApiEndpoint } from '../store/settingsStore';
 import { apiChatFallback, fetchWithProxy, gwProxyBase } from '../systems/apiChat';
+import { READING_FONTS, readingFontStack } from '../systems/readingFonts';
 import VariableManager from './VariableManager';
 import ApiRoutePicker from './ApiRoutePicker';
 import ItemManager from './ItemManager';
@@ -2596,12 +2597,67 @@ function ReadingOptionRow({ title, desc, opts, cur, onPick, fmt }: {
   );
 }
 
+const APPEARANCE_TINTS: { key: 'classic' | 'eyecare' | 'warm'; label: string; desc: string; sw: string }[] = [
+  { key: 'classic', label: '经典',     desc: '原版青光黑底',   sw: 'linear-gradient(135deg,#070a10,#0e141d)' },
+  { key: 'eyecare', label: '柔光护眼', desc: '暖白·弱化光晕',   sw: 'linear-gradient(135deg,#11161f,#f4efe6)' },
+  { key: 'warm',    label: '夜读暖光', desc: '滤蓝光·暖色调',   sw: 'linear-gradient(135deg,#11161f,#f2e1bb)' },
+];
+
 function AppearanceSettingsSection() {
   const reading    = useSettings((s) => s.reading);
   const setReading = useSettings((s) => s.setReading);
+  const appearance    = useSettings((s) => s.appearance);
+  const setAppearance = useSettings((s) => s.setAppearance);
+  const uiVignette    = useSettings((s) => s.uiVignette);
+  const setUiVignette = useSettings((s) => s.setUiVignette);
+  const ff = reading.fontFamily || 'default';
   return (
     <div className="space-y-8">
-      <SectionTitle title="界面外观" desc="正文阅读区的字体排版，实时生效（仅影响 AI 正文楼层的显示，不改变存档与发送给 AI 的内容）" />
+      <SectionTitle title="界面外观美化" desc="护眼色调 / 暗角 / 正文字体与排版，实时生效。色调与暗角是全局柔化滤镜，不改变存档、也不发送给 AI。" />
+
+      {/* 护眼色调（全局滤镜）+ 暗角 */}
+      <div className="space-y-3">
+        <div className="text-sm font-mono text-god/70 uppercase tracking-widest">护眼色调</div>
+        <div className="border border-edge rounded-lg p-4 bg-panel space-y-3">
+          <div className="text-sm text-dim leading-relaxed">全局柔化滤镜：把刺眼的纯白高亮压成暖白、降低「光晕」并滤蓝光，深色背景几乎不变——长时间阅读更不易疲劳。「经典」=关闭、零开销。</div>
+          <div className="grid grid-cols-3 gap-2">
+            {APPEARANCE_TINTS.map((o) => (
+              <button key={o.key} onClick={() => setAppearance(o.key)}
+                className={`px-2 py-2.5 rounded-lg border text-sm font-mono transition-colors ${
+                  appearance === o.key ? 'border-god/60 bg-god/15 text-god' : 'border-edge bg-void/40 text-dim hover:border-god/30 hover:text-slate-300'}`}>
+                <div className="h-5 rounded mb-1.5 border border-edge/60" style={{ background: o.sw }} />
+                <div className="font-semibold">{o.label}</div>
+                <div className="text-[11px] opacity-60 mt-0.5">{o.desc}</div>
+              </button>
+            ))}
+          </div>
+          <label className="flex items-center gap-2.5 pt-1 cursor-pointer select-none">
+            <input type="checkbox" checked={uiVignette} onChange={(e) => setUiVignette(e.target.checked)} className="accent-god w-4 h-4" />
+            <span className="text-sm text-slate-300">背景暗角</span>
+            <span className="text-[12px] text-dim/60">四周轻微压暗、聚焦中央正文（纯视觉氛围）</span>
+          </label>
+        </div>
+      </div>
+
+      {/* 正文字体 */}
+      <div className="space-y-3">
+        <div className="text-sm font-mono text-god/70 uppercase tracking-widest">正文字体</div>
+        <div className="border border-edge rounded-lg p-4 bg-panel space-y-3">
+          <div className="text-sm text-dim leading-relaxed">AI 正文楼层的字体。「霞鹜文楷」首次选用时按需联网加载（仅下载用到的字形），离线则自动回退系统字体。</div>
+          <div className="grid grid-cols-3 gap-2">
+            {(['default', 'kai', 'song'] as const).map((k) => (
+              <button key={k} onClick={() => setReading({ fontFamily: k })}
+                className={`px-2 py-3 rounded-lg border transition-colors ${
+                  ff === k ? 'border-god/60 bg-god/15 text-god' : 'border-edge bg-void/40 text-dim hover:border-god/30 hover:text-slate-300'}`}>
+                <div className="text-xl leading-none mb-2" style={{ fontFamily: readingFontStack(k) }}>永恒契约</div>
+                <div className="font-semibold text-sm font-mono">{READING_FONTS[k].label}</div>
+                <div className="text-[11px] opacity-60 mt-0.5">{READING_FONTS[k].desc}</div>
+              </button>
+            ))}
+          </div>
+        </div>
+      </div>
+
       <ReadingOptionRow title="字体大小" desc="正文文字的字号大小。" opts={READ_FONT_SIZES} cur={reading.fontSize} onPick={(v) => setReading({ fontSize: v })} fmt={(v) => `${v}px`} />
       <ReadingOptionRow title="字间距" desc="文字之间的横向间隔。" opts={READ_LETTER_SPACES} cur={reading.letterSpacing} onPick={(v) => setReading({ letterSpacing: v })} fmt={(v) => v === 0 ? 'normal' : `${v}px`} />
       <ReadingOptionRow title="行间距" desc="正文段落内行与行的高度。" opts={READ_LINE_HEIGHTS} cur={reading.lineHeight} onPick={(v) => setReading({ lineHeight: v })} fmt={(v) => `${v}×`} />
@@ -2609,13 +2665,13 @@ function AppearanceSettingsSection() {
         <div className="text-sm font-mono text-god/70 uppercase tracking-widest">实时预览</div>
         <div className="border border-edge rounded-lg p-5 bg-void/40">
           <div className="text-slate-300 narrative-content"
-            style={{ fontSize: `${reading.fontSize}px`, letterSpacing: `${reading.letterSpacing}px`, '--narr-lh': String(reading.lineHeight) } as any}>
+            style={{ fontSize: `${reading.fontSize}px`, letterSpacing: `${reading.letterSpacing}px`, fontFamily: readingFontStack(ff), '--narr-lh': String(reading.lineHeight) } as any}>
             <p>淡金色的文字在你面前浮现——它们不是光，而是直接烙进灵魂的讯息。【乐园】正在校验你的灵魂，适配判定：通过。</p>
             <p>“欢迎加入，契约者。”冰冷的提示音在空旷的大厅里回响，你能感觉到黑暗深处有无数双眼睛正注视着你。</p>
           </div>
         </div>
-        <button onClick={() => setReading({ fontSize: 17, letterSpacing: 0, lineHeight: 1.8 })}
-          className="text-[13px] font-mono text-dim/50 hover:text-blood transition-colors">↺ 恢复默认（17px / normal / 1.8×）</button>
+        <button onClick={() => setReading({ fontSize: 17, letterSpacing: 0, lineHeight: 1.8, fontFamily: 'default' })}
+          className="text-[13px] font-mono text-dim/50 hover:text-blood transition-colors">↺ 恢复默认排版（17px / normal / 1.8× / 默认字体）</button>
       </div>
     </div>
   );

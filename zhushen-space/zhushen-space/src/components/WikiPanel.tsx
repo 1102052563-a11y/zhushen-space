@@ -7,21 +7,28 @@ export default function WikiPanel({ onClose }: { onClose: () => void }) {
   const [loading, setLoading] = useState(true);
   return (
     <div className="fixed inset-0 z-[120] bg-void flex flex-col">
-      <div className="flex items-center gap-2 px-4 py-2 border-b border-edge bg-panel">
-        <span className="text-god/80 text-base">📚</span>
-        <span className="text-sm font-semibold text-slate-100">轮回WIKI · 世界观百科</span>
+      {/* 顶栏：手机端缩短标题、放大点击区(min 40px)、避让刘海(safe-area) */}
+      <div
+        className="flex items-center gap-1.5 sm:gap-2 px-2 sm:px-4 border-b border-edge bg-panel"
+        style={{ paddingTop: 'max(0.375rem, env(safe-area-inset-top))', paddingBottom: '0.375rem' }}
+      >
+        <span className="text-god/80 text-base shrink-0 pl-1">📚</span>
+        <span className="text-sm font-semibold text-slate-100 truncate">
+          轮回WIKI<span className="hidden sm:inline text-dim font-normal"> · 世界观百科</span>
+        </span>
         <a
           href="/wiki/index.html"
           target="_blank"
           rel="noreferrer"
-          className="ml-auto text-xs text-dim hover:text-slate-200 transition-colors"
+          className="ml-auto shrink-0 flex items-center justify-center min-w-[40px] h-9 px-2 rounded-lg text-dim hover:text-slate-200 hover:bg-panel2 transition-colors"
           title="在新标签页打开"
         >
-          ↗ 新窗口
+          <span className="hidden sm:inline text-xs">↗ 新窗口</span>
+          <span className="sm:hidden text-base leading-none">↗</span>
         </a>
         <button
           onClick={onClose}
-          className="text-dim hover:text-slate-200 transition-colors text-lg leading-none px-1"
+          className="shrink-0 flex items-center justify-center min-w-[40px] h-9 px-2 rounded-lg text-lg leading-none text-dim hover:text-slate-200 hover:bg-panel2 transition-colors"
           title="关闭"
         >
           ✕
@@ -37,6 +44,7 @@ export default function WikiPanel({ onClose }: { onClose: () => void }) {
           src="/wiki/index.html"
           title="轮回WIKI"
           className="w-full h-full border-0 bg-white"
+          style={{ WebkitOverflowScrolling: 'touch' }}
           onLoad={() => setLoading(false)}
         />
       </div>
