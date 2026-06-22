@@ -1,6 +1,7 @@
-import { useState } from 'react';
+import { useState, type ChangeEvent } from 'react';
 import { useImageGen, IMG_SERVICES, type ImgService, type OpenAIImgConfig, DEFAULT_IMG_CORS_PROXY } from '../store/imageGenStore';
 import ApiRoutePicker from './ApiRoutePicker';
+import { parseImgPromptPreset, saveImgPromptPreset, clearImgPromptPreset } from '../systems/imagePromptPreset';
 
 const inputCls = 'w-full bg-void border border-edge rounded px-2 py-1 text-[13px] font-mono text-slate-200 outline-none focus:border-god';
 function Field({ label, children, hint }: { label: string; children: React.ReactNode; hint?: string }) {
@@ -186,6 +187,20 @@ function EquipPage() {
 /* ── 子页4：正文生图 ── */
 function StoryPage() {
   const s = useImageGen();
+  const onImportPreset = async (e: ChangeEvent<HTMLInputElement>) => {
+    const f = e.target.files?.[0]; e.target.value = '';
+    if (!f) return;
+    try {
+      const { name, entries } = parseImgPromptPreset(await f.text());
+      saveImgPromptPreset(name, entries);
+      s.setSettings({ naiPromptPresetName: name, naiPromptPresetCount: entries.length, storyUseNaiPreset: true });
+      alert(`已导入「${name}」${entries.length} 条`);
+    } catch (err: any) { alert('导入失败：' + (err?.message ?? err)); }
+  };
+  const onClearPreset = () => {
+    clearImgPromptPreset();
+    s.setSettings({ naiPromptPresetName: '', naiPromptPresetCount: 0, storyUseNaiPreset: false });
+  };
   return (
     <div className="space-y-3 max-w-2xl">
       <Field label="正文生图服务"><ServiceSelect value={s.storyService} onChange={(v) => s.setService('storyService', v)} /></Field>
@@ -204,6 +219,29 @@ function StoryPage() {
         <button onClick={s.resetStoryTemplate} className="text-[12px] font-mono text-dim/50 hover:text-god">恢复默认</button>
       </div>
       <textarea rows={10} value={s.storyTemplate} onChange={(e) => s.setSettings({ storyTemplate: e.target.value })} className={inputCls + ' resize-y leading-relaxed'} />
+
+      {/* NAI 生图预设（世界书式）：读取后用它生成提示词，覆盖上面的模板 */}
+      <div className="rounded-lg border border-edge bg-panel p-3 space-y-2">
+        <Row
+          title="用 NAI 生图预设生成提示词"
+          desc="导入世界书式预设（破限/身份/Tag规则/Tag库）→ 提示词 LLM 先读预设再产出。开启后覆盖上方模板；输出仍按 image/anchor/nsfw/prompt，解析与生图不变。"
+          checked={s.storyUseNaiPreset}
+          onChange={() => s.setSettings({ storyUseNaiPreset: !s.storyUseNaiPreset })}
+        />
+        <div className="flex items-center gap-2 flex-wrap">
+          <label className="px-2 py-1 text-[12px] font-mono text-god border border-god/40 rounded cursor-pointer hover:bg-god/10 transition-colors">
+            导入预设(.json)
+            <input type="file" accept=".json,application/json" className="hidden" onChange={onImportPreset} />
+          </label>
+          {s.naiPromptPresetName
+            ? <span className="text-[12px] text-dim">已载：<span className="text-god">{s.naiPromptPresetName}</span>（{s.naiPromptPresetCount} 条）<button onClick={onClearPreset} className="ml-2 text-dim/50 hover:text-god">清除</button></span>
+            : <span className="text-[12px] text-dim/50">未导入</span>}
+        </div>
+        <div className="text-[11px] text-dim/45 leading-relaxed">
+          支持 {'{名:{entries:[…]}}'} 世界书格式。常驻条目始终注入，关键词条目按正文命中注入（绿灯）；ST 宏（{'{{上下文}}'} / {'{@getvar::生图数量@}'} 等）会自动替换或剥离。
+        </div>
+      </div>
+
       <div className="text-[12px] text-dim/50">注：正文配图的「逐回合自动抽锚点+插图」流程为后续阶段（见集成指导）。本页配置先就位。</div>
     </div>
   );

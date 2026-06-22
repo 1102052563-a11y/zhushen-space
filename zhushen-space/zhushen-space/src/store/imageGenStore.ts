@@ -224,6 +224,9 @@ export interface ImageGenSettings {
   autoStory: boolean; storyImageCount: number; storySize: string;
   storyTemplate: string;
   storyLlmRoutes: string[];         // 复用 apiLibrary endpoint id
+  storyUseNaiPreset: boolean;       // 用导入的 NAI 生图预设(世界书格式)生成提示词，覆盖 storyTemplate
+  naiPromptPresetName: string;      // 已导入预设名（仅显示；条目本体存 systems/imagePromptPreset 独立 LS，避免每次写盘）
+  naiPromptPresetCount: number;     // 已导入条目数（仅显示）
 }
 
 interface ImageGenState extends ImageGenSettings {
@@ -263,6 +266,7 @@ export const useImageGen = create<ImageGenState>()(
       autoEquipPlayer: false, autoEquipNpc: false, equipTemplate: DEFAULT_EQUIP_TEMPLATE, equipNegative: DEFAULT_EQUIP_NEG,
       activeStyleId: 'nai-anime',
       autoStory: false, storyImageCount: 4, storySize: 'inherit', storyTemplate: DEFAULT_STORY_TEMPLATE, storyLlmRoutes: [],
+      storyUseNaiPreset: false, naiPromptPresetName: '', naiPromptPresetCount: 0,
       styles: DEFAULT_STYLES.map((s) => ({ ...s })),
 
       nai: {
