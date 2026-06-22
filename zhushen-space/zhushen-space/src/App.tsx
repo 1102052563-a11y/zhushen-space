@@ -6803,6 +6803,7 @@ ${lines}`;
                 onPrev={() => setCardIndex((i) => (i - 1 + worlds.length) % worlds.length)}
                 onNext={() => setCardIndex((i) => (i + 1) % worlds.length)}
                 onJump={(i) => setCardIndex(i)}
+                onEdit={(i, patch) => setWorlds((ws) => ws.map((w, idx) => idx === i ? { ...w, ...patch } : w))}
                 onSelect={(_, world) => {
                   setPrevWorlds(worlds);
                   enterWorld(world);

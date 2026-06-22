@@ -1,15 +1,34 @@
+import { useState } from 'react';
 import { type WorldOption } from './WorldSelector';
 
-export default function WorldCardView({ worlds, index, onPrev, onNext, onJump, onSelect, onClose }: {
+// 可编辑的正文字段（均为字符串）。顺序即卡片正文展示顺序，与 enterWorld 拼装顺序一致。
+type SectionKey =
+  | 'desc' | 'peakPower' | 'contractorDist' | 'entryPoint'
+  | 'mainMission' | 'sideMission' | 'warning' | 'reward';
+
+const SECTIONS: { key: SectionKey; label: string; accent?: string }[] = [
+  { key: 'desc',           label: '世界简介' },
+  { key: 'peakPower',      label: '巅峰战力' },
+  { key: 'contractorDist', label: '契约者分布' },
+  { key: 'entryPoint',     label: '切入点',   accent: 'god' },
+  { key: 'mainMission',    label: '主线任务', accent: 'amber' },
+  { key: 'sideMission',    label: '支线任务' },
+  { key: 'warning',        label: '警告',     accent: 'blood' },
+  { key: 'reward',         label: '奖励预览', accent: 'gold' },
+];
+
+export default function WorldCardView({ worlds, index, onPrev, onNext, onJump, onSelect, onEdit, onClose }: {
   worlds: WorldOption[];
   index: number;
   onPrev: () => void;
   onNext: () => void;
   onJump: (i: number) => void;
   onSelect: (name: string, world: WorldOption) => void;
+  onEdit: (index: number, patch: Partial<WorldOption>) => void;   // 编辑卡片字段：把改动提升到上层 worlds 状态，"进入此世界"即用改后的内容
   onClose: () => void;
 }) {
   const world = worlds[index];
+  const [editing, setEditing] = useState(false);
 
   return (
     <div className="absolute inset-0 flex flex-col items-center justify-center bg-void/90 backdrop-blur-sm px-6">
@@ -24,6 +43,7 @@ export default function WorldCardView({ worlds, index, onPrev, onNext, onJump, o
       {/* 计数 */}
       <div className="mb-2 text-sm font-mono text-dim tracking-widest">
         {index + 1} / {worlds.length}
+        {editing && <span className="ml-3 text-god/70">✎ 编辑中（改完点「进入此世界」即用改后内容）</span>}
       </div>
 
       {/* 卡片 + 左右箭头 */}
@@ -45,45 +65,100 @@ export default function WorldCardView({ worlds, index, onPrev, onNext, onJump, o
               <span className="text-sm font-mono text-god/40 tracking-widest uppercase">
                 World · {String(index + 1).padStart(2, '0')}
               </span>
-              {world.worldType && (
+              {editing ? (
+                <input
+                  value={world.worldType}
+                  onChange={(e) => onEdit(index, { worldType: e.target.value })}
+                  placeholder="类型"
+                  className="text-sm font-mono px-2 py-0.5 w-28 bg-void border border-god/30 text-god/70 rounded outline-none focus:border-god/60 text-center"
+                />
+              ) : world.worldType ? (
                 <span className="text-sm font-mono px-3 py-0.5 border border-god/20 text-god/60 rounded">
                   {world.worldType}
                 </span>
-              )}
+              ) : null}
             </div>
-            <h2 className="text-2xl font-bold text-slate-100 leading-snug god-glow mt-0.5">{world.name}</h2>
+
+            {editing ? (
+              <input
+                value={world.name}
+                onChange={(e) => onEdit(index, { name: e.target.value })}
+                placeholder="世界名称"
+                className="w-full text-2xl font-bold text-slate-100 leading-snug bg-void border border-god/30 rounded px-2 py-1 mt-0.5 outline-none focus:border-god/60"
+              />
+            ) : (
+              <h2 className="text-2xl font-bold text-slate-100 leading-snug god-glow mt-0.5">{world.name}</h2>
+            )}
+
             {/* 阶位 + 难度 + 区域 */}
-            <div className="flex items-center gap-4 mt-2 flex-wrap">
-              {world.tier !== '' && (
-                <span className="text-base font-mono text-sky-400/80">
-                  {typeof world.tier === 'number' || /^\d+$/.test(world.tier)
-                    ? `${world.tier} 阶`
-                    : world.tier}
-                </span>
-              )}
-              {world.dangerLevel && (
-                <span className="text-base font-mono text-amber-400/80">{world.dangerLevel}</span>
-              )}
-              {world.region && (
-                <span className="text-sm font-mono text-dim truncate max-w-sm">📍 {world.region}</span>
-              )}
-            </div>
+            {editing ? (
+              <div className="flex items-center gap-2 mt-2 flex-wrap text-sm font-mono">
+                <label className="flex items-center gap-1 text-sky-400/70">阶位
+                  <input
+                    value={world.tier}
+                    onChange={(e) => onEdit(index, { tier: e.target.value })}
+                    className="w-16 bg-void border border-god/30 rounded px-1.5 py-0.5 text-sky-300 outline-none focus:border-god/60"
+                  />
+                </label>
+                <label className="flex items-center gap-1 text-amber-400/70">难度
+                  <input
+                    value={world.dangerLevel}
+                    onChange={(e) => onEdit(index, { dangerLevel: e.target.value })}
+                    className="w-32 bg-void border border-god/30 rounded px-1.5 py-0.5 text-amber-300 outline-none focus:border-god/60"
+                  />
+                </label>
+                <label className="flex items-center gap-1 text-dim">📍
+                  <input
+                    value={world.region}
+                    onChange={(e) => onEdit(index, { region: e.target.value })}
+                    placeholder="任务区域"
+                    className="w-44 bg-void border border-god/30 rounded px-1.5 py-0.5 text-slate-300 outline-none focus:border-god/60"
+                  />
+                </label>
+              </div>
+            ) : (
+              <div className="flex items-center gap-4 mt-2 flex-wrap">
+                {world.tier !== '' && (
+                  <span className="text-base font-mono text-sky-400/80">
+                    {typeof world.tier === 'number' || /^\d+$/.test(world.tier)
+                      ? `${world.tier} 阶`
+                      : world.tier}
+                  </span>
+                )}
+                {world.dangerLevel && (
+                  <span className="text-base font-mono text-amber-400/80">{world.dangerLevel}</span>
+                )}
+                {world.region && (
+                  <span className="text-sm font-mono text-dim truncate max-w-sm">📍 {world.region}</span>
+                )}
+              </div>
+            )}
           </div>
 
-          {/* ── 可滚动正文 ── */}
+          {/* ── 可滚动正文 ── 编辑模式下展示全部字段（含空字段，便于补写）；浏览模式只显示非空字段 */}
           <div className="flex-1 overflow-y-auto min-h-0 divide-y divide-edge/40">
-            {world.desc       && <CardSection label="世界简介" content={world.desc} />}
-            {world.peakPower  && <CardSection label="巅峰战力" content={world.peakPower} />}
-            {world.contractorDist && <CardSection label="契约者分布" content={world.contractorDist} />}
-            {world.entryPoint && <CardSection label="切入点"   content={world.entryPoint}  accent="god" />}
-            {world.mainMission && <CardSection label="主线任务" content={world.mainMission} accent="amber" />}
-            {world.sideMission && <CardSection label="支线任务" content={world.sideMission} />}
-            {world.warning    && <CardSection label="警告"     content={world.warning}     accent="blood" />}
-            {world.reward     && <CardSection label="奖励预览" content={world.reward}      accent="gold" />}
+            {SECTIONS.filter((s) => editing || world[s.key]).map((s) => (
+              <CardSection
+                key={s.key}
+                label={s.label}
+                accent={s.accent}
+                content={String(world[s.key] ?? '')}
+                editing={editing}
+                onChange={(v) => onEdit(index, { [s.key]: v } as Partial<WorldOption>)}
+              />
+            ))}
           </div>
 
           {/* ── 底部按钮 ── */}
-          <div className="px-8 py-3 border-t border-edge text-center shrink-0">
+          <div className="px-8 py-3 border-t border-edge flex items-center justify-center gap-3 shrink-0">
+            <button
+              onClick={() => setEditing((v) => !v)}
+              className={`px-4 py-2.5 border text-base rounded-xl font-mono transition-colors ${
+                editing ? 'border-god/60 text-god bg-god/15' : 'border-edge text-dim hover:border-god/40 hover:text-god'
+              }`}
+            >
+              {editing ? '✓ 完成编辑' : '✎ 编辑'}
+            </button>
             <button
               onClick={() => onSelect(world.name, world)}
               className="px-12 py-2.5 border border-god/50 text-god text-base rounded-xl hover:bg-god/10 font-mono transition-colors"
@@ -125,12 +200,28 @@ const accentMap: Record<string, string> = {
   gold:  'text-gold/70',
 };
 
-function CardSection({ label, content, accent }: { label: string; content: string; accent?: string }) {
+function CardSection({ label, content, accent, editing, onChange }: {
+  label: string;
+  content: string;
+  accent?: string;
+  editing: boolean;
+  onChange: (v: string) => void;
+}) {
   const labelColor = accent ? accentMap[accent] ?? 'text-dim' : 'text-dim';
   return (
     <div className="px-8 py-3">
       <div className={`text-sm font-mono mb-1 ${labelColor}`}>{label}</div>
-      <p className="text-[15px] text-slate-300 leading-relaxed">{content}</p>
+      {editing ? (
+        <textarea
+          value={content}
+          onChange={(e) => onChange(e.target.value)}
+          rows={Math.min(8, Math.max(2, content.split('\n').length + 1))}
+          placeholder={`填写${label}…`}
+          className="w-full bg-void border border-god/30 rounded px-2 py-1.5 text-[15px] text-slate-300 leading-relaxed outline-none focus:border-god/60 resize-y placeholder:text-dim/40"
+        />
+      ) : (
+        <p className="text-[15px] text-slate-300 leading-relaxed whitespace-pre-wrap">{content}</p>
+      )}
     </div>
   );
 }
