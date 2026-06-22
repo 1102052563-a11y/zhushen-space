@@ -186,7 +186,7 @@ import { settleDmDeal, normCur as dmNormCur } from './systems/dmTrade';
 const SystemShop = lazy(() => import('./components/SystemShop'));
 const SummaryPanel = lazy(() => import('./components/SummaryPanel'));
 const SaveLoadPanel = lazy(() => import('./components/SaveLoadPanel'));
-import { PENDING_STARTED_KEY, clearProgress, autoSaveSlot, saveSlot, loadSlot, UNDO_ID, hasUndoPoint } from './systems/saveManager';
+import { PENDING_STARTED_KEY, clearProgress, autoSaveSlot, saveSlot, loadSlot, UNDO_ID, undoPointHasChat } from './systems/saveManager';
 import { restoreB1IfWiped } from './systems/b1Mirror';
 import * as chatDb from './systems/chatDb';
 import PlayerSidebar from './components/PlayerSidebar';
@@ -759,6 +759,7 @@ export default function App() {
   const [backpackOpen,     setBackpackOpen]     = useState(false);
   const [cmdkOpen,         setCmdkOpen]         = useState(false);   // 命令面板（⌘K / Ctrl+K / 顶栏🔍 快速跳转面板）
   const [revarOpen,        setRevarOpen]        = useState(false);   // 重算单项变量菜单（重 ROLL）
+  const [phaseFail,        setPhaseFail]        = useState<Record<string, boolean>>({});   // 各演化阶段「上次更新失败」持久标记（重算菜单据此标红；key: item/player/npc/faction/territory/team/cosmos/misc/image）
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if ((e.metaKey || e.ctrlKey) && (e.key === 'k' || e.key === 'K')) { e.preventDefault(); setCmdkOpen((v) => !v); }
@@ -915,6 +916,23 @@ export default function App() {
       document.head.appendChild(l);
     }
   }, [reading.fontFamily]);
+  // 观察各演化阶段状态日志：命中「失败」→记一笔持久标记（日志 8s 后自动清空也不影响）；命中「✓」成功→清除。供「重算单项变量」菜单标红对应项。
+  // 另两处清除：① 新回合重跑全部演化时(runPostNarrativePhases 开头 setPhaseFail({})) ② 从菜单重 ROLL 该项时乐观清除。
+  useEffect(() => {
+    const pairs: [string, string][] = [
+      ['item', itemPhaseLog], ['player', playerPhaseLog], ['npc', npcPhaseLog],
+      ['faction', factionPhaseLog], ['territory', territoryPhaseLog], ['team', teamPhaseLog],
+      ['cosmos', cosmosPhaseLog], ['misc', miscPhaseLog], ['image', imagePhaseLog],
+    ];
+    setPhaseFail((prev) => {
+      let n = prev, changed = false;
+      for (const [k, log] of pairs) {
+        if (/失败/.test(log) && !prev[k]) { if (!changed) { n = { ...prev }; changed = true; } n[k] = true; }
+        else if (/✓/.test(log) && prev[k]) { if (!changed) { n = { ...prev }; changed = true; } delete n[k]; }
+      }
+      return changed ? n : prev;
+    });
+  }, [itemPhaseLog, playerPhaseLog, npcPhaseLog, factionPhaseLog, territoryPhaseLog, teamPhaseLog, cosmosPhaseLog, miscPhaseLog, imagePhaseLog]);
   useEffect(() => {   // 天气环境音：随顶栏天气切换（仅任务世界有天气；回归乐园/无天气→停）
     const kind = (!!miscWeather && !isHomeWorld(miscWorldName)) ? parseWeather(miscWeather).kind : 'none';
     setAmbient(kind);
@@ -1184,7 +1202,7 @@ export default function App() {
       try { ensureNpcLuck(); ensureNpcVitalsCap(); } catch { /* 载入时一次性把在场 NPC 幸运按前端独占规则重算(治旧档 AI 乱给的高/乱幸运；保留 luckDelta 剧情增减) */ }
       // 主角自检兜底：B1 技能/天赋异常空但对局在进行中 → 从镜像自动补回（治"读档/回退误清角色库后主角莫名空白"）
       try { const rb = restoreB1IfWiped(); if (rb) { setB1Notice(`检测到主角技能/天赋异常丢失，已自动从镜像兜底恢复：技能${rb.counts.skills} / 天赋${rb.counts.traits} / 副职业${rb.counts.subProfessions}`); console.warn('[B1自检] 已自动从镜像恢复', rb.counts); } } catch { /* */ }
-      try { setCanUndo(await hasUndoPoint()); } catch { /* */ }
+      try { setCanUndo(await undoPointHasChat()); } catch { /* */ }   // 仅当回退点**有真实对话**才亮按钮（空回退点会清屏，当无回退点处理）
       if (sessionStorage.getItem(PENDING_STARTED_KEY)) {
         setStarted(true);
         sessionStorage.removeItem(PENDING_STARTED_KEY);
@@ -5839,6 +5857,7 @@ ${lines}`;
     }
   }
   function runPostNarrativePhases(narrative: string, assistantMsgId?: number) {
+    setPhaseFail({});   // 新回合重跑全部演化：先清空上轮的「更新失败」标记，本轮哪个再失败由其状态日志重新标记
     // 战斗刚结算（本回合是玩家发送的"战斗复盘"）→ HP/EP 已由战斗系统定死：本回合不从正文再抽 HP（防 AI 复盘重复扣血），改以战斗结算值为准
     const combatSettled = combatSettledRef.current;
     combatSettledRef.current = null;
@@ -6311,6 +6330,10 @@ ${lines}`;
 
   /* 记录回退点：每次发送前，把"上一回合结束时"的状态（所有演化 store + 对话）存到固定槽，供回退/重新生成 */
   async function captureUndoPoint() {
+    // 没有任何对话历史时不记回退点：空回退点一旦被回退/读档载入会把聊天清空（"回退后清屏、之前信息全没"的根因）。
+    // 开局/进入世界时 messagesRef 尚为空（setMessages 异步、ref 本回合还没同步）→ 跳过即可；真正第一回合发送时
+    // 历史已非空，会记下正确回退点。注意：勿在此 setCanUndo(false)，以免误关掉一个已存在的有效回退点。
+    if (!messagesRef.current || messagesRef.current.length === 0) return;
     // 回退点**不含图片**：图片同设备由 imageDb 现存回填；带图会让每回合写入几十 MB→内存/配额压力大(页面崩溃主因之一)。
     // 代价：回退不还原"本回合新生成的图片"——可接受，换稳定与省内存；状态/对话照常回退。
     try { await saveSlot(UNDO_ID, '↩ 回退点', messagesRef.current, false); setCanUndo(true); }
@@ -6392,6 +6415,8 @@ ${lines}`;
   }
   /* 回退到上一回合：恢复所有演化/对话/图到发送本回合之前（整页 reload）*/
   async function rollbackTurn() {
+    // 守卫：回退点为空(旧版遗留/开局所记)就不执行——否则会把聊天清成空白。同步关掉按钮。
+    if (!(await undoPointHasChat())) { setCanUndo(false); setGenError('没有可回退的对话（回退点为空，避免清屏已取消）'); setTimeout(() => setGenError(''), 5000); return; }
     const ok = await loadSlot(UNDO_ID);
     if (!ok) { setGenError('没有可回退的回合（本局还没产生过回退点）'); setTimeout(() => setGenError(''), 5000); }
   }
@@ -6401,6 +6426,8 @@ ${lines}`;
     // （读档恢复的对话仍含它）——这样读档后也能「重新生成」上一回合。
     const input = lastUserInputRef.current || ([...(messagesRef.current ?? [])].reverse().find((m) => m.role === 'user')?.content ?? '');
     if (!input) { setGenError('找不到可重新生成的上一条输入（请直接重新输入）'); setTimeout(() => setGenError(''), 5000); return; }
+    // 守卫：回退点为空则不执行——否则回退到空白聊天后再重发，会丢掉前文
+    if (!(await undoPointHasChat())) { setCanUndo(false); setGenError('没有可重新生成的回合（回退点为空）'); setTimeout(() => setGenError(''), 5000); return; }
     try { sessionStorage.setItem(PENDING_REGEN_KEY, input); } catch { /* */ }
     const ok = await loadSlot(UNDO_ID);
     if (!ok) { try { sessionStorage.removeItem(PENDING_REGEN_KEY); } catch { /* */ } setGenError('没有回退点，无法重新生成'); setTimeout(() => setGenError(''), 5000); }
@@ -7261,27 +7288,34 @@ ${lines}`;
             <div className="max-h-[60vh] overflow-y-auto py-1">
               {[
                 { icon: '♻', label: '全部变量', desc: '撤销并重跑本回合全部演化（原「重算变量」行为·会刷新页面）。确定？', run: regenerateVarsOnly, all: true },
-                { icon: '🎒', label: '物品 / 背包', run: () => triggerItemPhaseManually() },
-                { icon: '🧬', label: '主角属性', run: revarRun(runPlayerEvolutionPhase) },
-                { icon: '📇', label: 'NPC', run: revarRun(runNpcEvolutionPhase) },
-                { icon: '🏛', label: '势力', run: revarRun(runFactionEvolutionPhase) },
-                { icon: '🏯', label: '领地', run: revarRun(runTerritoryEvolutionPhase) },
-                { icon: '🛡', label: '冒险团', run: revarRun(runTeamEvolutionPhase) },
-                { icon: '🌌', label: '万族', run: revarRun(runCosmosEvolutionPhase) },
-                { icon: '📋', label: '任务 / 世界 / 杂项', run: revarRun(runMiscEvolutionPhase) },
+                { icon: '🎒', label: '物品 / 背包', fk: 'item', run: () => triggerItemPhaseManually() },
+                { icon: '🧬', label: '主角属性', fk: 'player', run: revarRun(runPlayerEvolutionPhase) },
+                { icon: '📇', label: 'NPC', fk: 'npc', run: revarRun(runNpcEvolutionPhase) },
+                { icon: '🏛', label: '势力', fk: 'faction', run: revarRun(runFactionEvolutionPhase) },
+                { icon: '🏯', label: '领地', fk: 'territory', run: revarRun(runTerritoryEvolutionPhase) },
+                { icon: '🛡', label: '冒险团', fk: 'team', run: revarRun(runTeamEvolutionPhase) },
+                { icon: '🌌', label: '万族', fk: 'cosmos', run: revarRun(runCosmosEvolutionPhase) },
+                { icon: '📋', label: '任务 / 世界 / 杂项', fk: 'misc', run: revarRun(runMiscEvolutionPhase) },
                 { icon: '🧠', label: '记忆整理', run: () => runMemoryCompressionPhase() },
-                { icon: '🖼', label: '生图（肖像 + 装备）', run: () => { runPortraitPhase(); runEquipImagePhase(); } },
-              ].map((it) => (
-                <button key={it.label}
-                  onClick={() => { const x = it as { label: string; run: () => void; desc?: string; all?: boolean }; setConfirmAction({ title: x.all ? '重算全部变量' : `重 ROLL「${x.label}」`, desc: x.desc || `仅重新生成「${x.label}」这一项（基于本回合正文重跑该演化）、其它变量不动。确定？`, run: () => { setRevarOpen(false); x.run(); } }); }}
-                  className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-left text-dim hover:text-god hover:bg-god/10 transition-colors">
-                  <span className="w-5 text-center text-xs opacity-80">{it.icon}</span>
-                  <span className="flex-1">{it.label}</span>
-                  {(it as { all?: boolean }).all
+                { icon: '🖼', label: '生图（肖像 + 装备）', fk: 'image', run: () => { runPortraitPhase(); runEquipImagePhase(); } },
+              ].map((it) => {
+                const x = it as { icon: string; label: string; run: () => void; desc?: string; all?: boolean; fk?: string };
+                const failed = !!(x.fk && phaseFail[x.fk]);
+                return (
+                <button key={x.label}
+                  onClick={() => { setConfirmAction({ title: x.all ? '重算全部变量' : `重 ROLL「${x.label}」`, desc: x.desc || `仅重新生成「${x.label}」这一项（基于本回合正文重跑该演化）、其它变量不动。确定？`, run: () => { setRevarOpen(false); if (x.fk) setPhaseFail((p) => { if (!p[x.fk!]) return p; const n = { ...p }; delete n[x.fk!]; return n; }); x.run(); } }); }}
+                  className={`w-full flex items-center gap-3 px-4 py-2.5 text-sm text-left transition-colors ${failed ? 'text-slate-200 hover:bg-blood/10' : 'text-dim hover:text-god hover:bg-god/10'}`}>
+                  <span className="w-5 text-center text-xs opacity-80">{x.icon}</span>
+                  <span className="flex-1">{x.label}</span>
+                  {x.all
                     ? <span className="text-[10px] font-mono text-amber-300/70 border border-amber-600/40 rounded px-1.5 py-0.5 shrink-0">刷新页面</span>
-                    : <span className="text-[10px] font-mono text-dim/40 shrink-0">重 ROLL ›</span>}
+                    : <span className="flex items-center gap-1.5 shrink-0">
+                        {failed && <span className="text-[10px] font-mono text-blood border border-blood/40 bg-blood/10 rounded px-1.5 py-0.5">⚠ 更新失败</span>}
+                        <span className="text-[10px] font-mono text-dim/40">重 ROLL ›</span>
+                      </span>}
                 </button>
-              ))}
+                );
+              })}
             </div>
           </div>
         </div>

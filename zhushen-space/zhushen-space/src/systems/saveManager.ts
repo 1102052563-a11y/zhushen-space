@@ -124,7 +124,9 @@ export async function saveSlot(id: string | null, name: string, messages: any[],
   if (realId !== UNDO_ID && !realId.startsWith(AUTOSNAP_PREFIX)) {
     try {
       const up = await saveDb.get<SaveSlot>(UNDO_ID);
-      if (up?.data) undo = { stores: up.data.stores, messages: up.data.messages ?? [] };
+      // 仅当回退点**有真实对话**才嵌入：空回退点(开局/进入世界时 messagesRef 尚空所记)一旦被读档还原+回退，
+      // 会把聊天清空成空白（"回退后清屏"的根因之一）→ 宁可不带，也不带一个会清屏的空回退点。
+      if (up?.data && up.data.messages && up.data.messages.length > 0) undo = { stores: up.data.stores, messages: up.data.messages };
     } catch (e) { logWarn('saveManager.saveSlot.embedUndo', e); }
   }
   const slot: SaveSlot = {
@@ -170,6 +172,12 @@ export async function autoSaveSlot(messages: any[]): Promise<void> {
 
 export async function hasUndoPoint(): Promise<boolean> {
   return !!(await saveDb.get<SaveSlot>(UNDO_ID));
+}
+/* 回退点是否**有真实对话**——回退/重生按钮该不该亮、回退动作该不该执行都看这个：
+   空回退点(开局/进入世界时所记，或旧版遗留)一旦载入会把聊天清成空白，故空的一律当"无回退点"。*/
+export async function undoPointHasChat(): Promise<boolean> {
+  const s = await saveDb.get<SaveSlot>(UNDO_ID);
+  return !!(s?.data?.messages && s.data.messages.length > 0);
 }
 
 export async function listSlots(): Promise<SlotMeta[]> {
@@ -243,9 +251,9 @@ export async function loadSlot(id: string): Promise<boolean> {
   // 注意：回退/重新生成自身也走 loadSlot(UNDO_ID)，那种情况 id===UNDO_ID，不动回退点（否则连续回退失效）。
   if (id !== UNDO_ID) {
     try {
-      if (slot.data.undo) {
-        const u = slot.data.undo;
-        await saveDb.put({ ...slot, id: UNDO_ID, name: '↩ 回退点', data: { stores: u.stores, messages: u.messages ?? [] } });
+      if (slot.data.undo && slot.data.undo.messages && slot.data.undo.messages.length > 0) {
+        const u = slot.data.undo;   // 仅还原**有真实对话**的回退点；空的不还原（删掉旧回退点）以防回退后清屏
+        await saveDb.put({ ...slot, id: UNDO_ID, name: '↩ 回退点', data: { stores: u.stores, messages: u.messages } });
       } else {
         await saveDb.del(UNDO_ID);
       }
