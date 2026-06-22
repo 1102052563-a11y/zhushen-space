@@ -103,7 +103,7 @@ import { useTeam, buildTeamSystemPrompt, memberCap as teamMemberCap } from './st
 import { useCosmos, buildCosmosSystemPrompt, cosmosNameEq, cleanCosmosName } from './store/cosmosStore';
 import { realmFromLevel, normalizeTier, lvFromRealm, trueAttr, computeMaxHp, computeMaxEp, effectiveResource, attrCapForTier, clampBaseAttrs, fullMaxHp, fullMaxEp, TIERS } from './systems/derivedStats';
 import { isHomeWorld, reconcileHomeWorld, reconcilePlayerVitals, playerMaxHp, playerMaxEp, syncPlayerVitalsMax } from './systems/playerVitals';
-import { bioInnate } from './systems/bioStrength';
+import { bioInnate, tierVitalMult } from './systems/bioStrength';
 import { generateNpcAttrs, resolveForm, generateLuck } from './systems/npcAttrGen';
 import { useImageGen, effectiveEquipService } from './store/imageGenStore';
 import { generateImage, buildPortraitPrompt, buildEquipPrompt, shrinkDataUrl } from './systems/imageGen';
@@ -484,6 +484,32 @@ const NPC_PRIVATE_EXTRA_RULE = `
 - 性爱姿势：记录**已掌握**的体位（传教士/观音坐莲/后入/骑乘等），每次性爱把本轮新掌握的并入、**合并类似姿势**；下列仅参考，禁止不经思考照抄。
 - 开发玩法：该女性被主角**开发过**的玩法，分号分隔累积。**参考库（仅供参考、禁止无脑照抄，按实际剧情思考选用）**：阿黑颜；性玩具[假阳具/口球/跳蛋/炮机/尿道塞/乳夹/阴蒂夹/肛塞/肛珠/肛勾/振动棒/圆头按摩棒/眼罩/手足枷/口衔]；装置[十字架/反省板/三角木马/拘束推车]；捆绑[后手反捆/龟甲缚/M字开腿缚/高抬腿缚/片足上吊缚]。
 铁则：①只对女性 NPC、且正文有相应剧情才写；②**累积式更新**，不要每轮清空重来；无新进展则不输出这些字段；③参考库只是清单，必须结合角色与剧情思考，禁止照抄堆砌；④**【强制】本轮正文只要发生了**人形**女性的性行为（性接触/插入/口交/调教/被开发等；非人形的动物/野兽/宠物不适用），事后必须把该女性的全部私密条目逐项更新或新增——既包括上面这些命名字段，也包括性相关列（8性经验/17表性癖/18里性癖/20敏感部位/21性器状态/22情欲值/23快感值/24性观念），一项都不能漏；情欲值/快感值给具体数值，独特技巧/性爱姿势/开发玩法按本轮新进展累积。`;
+
+const NPC_TIER_LOADOUT_RULE = `
+【NPC 配置·档位强制表（生物强度档 T0~T9·建档基准）】给某 NPC 生成或补全「技能 / 天赋 / 储存空间物品」时，**数量与品级必须落在其档位区间内**。档位看该 NPC 的阶位＋战力定位：杂兵/平民≈T0–T1、精英/老兵≈T2、勇士/头目/小Boss≈T3、英雄/首领/主将≈T4、领主/魔将/Boss≈T5、王者/霸主/宗师≈T6、半神≈T7、真神≈T8、源初/神话/主神≈T9。
+| 档 | 技能数 | 天赋数 | 物品数 | 技能品级(封顶) | 天赋品级(封顶) | 物品品级(封顶) |
+|----|----|----|----|----|----|----|
+| T0 杂鱼 | 1–2 | 0–1 | 0–2 | 普通 | D | 白色~绿色 |
+| T1 兵卒 | 1–3 | 0–1 | 0–2 | 普通~精良 | D~C | 白色~蓝色 |
+| T2 精英 | 2–3 | 1–2 | 1–3 | 精良~稀有 | C~B | 绿色~蓝色 |
+| T3 勇士 | 2–4 | 1–2 | 1–3 | 稀有~史诗 | C~B | 蓝色~紫色 |
+| T4 英雄 | 6–8 | 2–6 | 4–8 | 史诗 | B~A | 紫色~暗紫色 |
+| T5 领主 | 6–10 | 4–6 | 4–8 | 史诗~传说 | A~S | 暗紫色~淡金 |
+| T6 王者 | 8–10 | 4–6 | 4–10 | 传说~奥义 | S~SS | 金色~暗金 |
+| T7 半神 | 8–12 | 4–8 | 6–10 | 奥义 | SS | 暗金~传说级 |
+| T8 真神 | 10–14 | 6–8 | 6–12 | 奥义~极境 | SS~SSS | 史诗级~不朽级 |
+| T9 源初 | 10–16 | 6–10 | 6–12 | 极境 | SSS | 圣灵级~创世 |
+（注：T4 起数量较 T3 翻倍，对应"英雄级及以上"。）
+铁则：
+① **品级是封顶不是保底**：可低于封顶，**严禁越级**——低档 NPC 绝不能持有超出其档位的技能/天赋/物品品级（杜绝"杂兵爆神装/极境技能"）。三套品级阶梯：技能7档 普通<精良<稀有<史诗<传说<奥义<极境；天赋7档 D<C<B<A<S<SS<SSS；物品15档 白色<绿色<蓝色<紫色<暗紫色<淡金<金色<暗金<传说级<史诗级<圣灵级<不朽级<起源级<永恒级<创世。
+② **数量是建档基准、非终身死锁**：剧情确有「觉醒/夺宝/传承/融合」等明确证据时，可再用 add 突破区间（与天赋解除上限规则共存）；无证据则按区间配齐、不要为凑数硬堆。
+③ **形态修正**：野兽/虫群/无智(纯本能)形态——储存物品数=0(无背包携带)、技能取下限且多为天生本能、天赋0–1；凡人/平民——0 战斗技能、0 天赋、物品仅限白色~绿色的生活杂物。
+④ **HP/EP 上限由前端按档位机械计算（体质×20 / 智力×15 再乘档位倍率，T4起翻倍），你写的 maxHp/maxMp 会被前端重算覆盖、不必纠结其数值**；你只需把六维、技能、天赋、物品按上表配齐。
+⑤ **每一条都要按固定格式逐项填全·严禁偷懒只给名字**：凡新增的技能/天赋/物品（无论是首次建档还是后续给已有 NPC 新增的），**必须一次性把固定格式的每个字段都填上**，不得只写一个名字、不得留空、不得"以后再补"——
+　· 技能（add skill）：名称｜等级｜类型(主动/被动/奥义/光环/领域…)｜品级(技能7档之一)｜消耗｜目标(单体/群体/自身/范围)｜效果｜伤害(数值化)｜层级｜属性加成｜描述｜标签，逐项填全。
+　· 天赋（addTalent）：名称｜等级｜品级(D~SSS)｜来源(觉醒/血脉传承/顿悟…)｜效果｜属性加成｜描述，逐项填全。
+　· 物品（createItem/储存空间）：名称｜数量｜品质(物品15档之一)｜类型(大类+细分)｜攻击力或防御力｜属性加成｜评分｜词缀｜效果｜描述｜外观｜获取途径，逐项填全（同【物品固定格式铁则】，评分/品级/grade 三者自洽）。
+　名称、效果、描述都要贴合该 NPC 的身份/世界观与其所在档位的品级，**禁止占位式糊弄**（如"技能一""强力一击""神秘物品""效果待定"）。宁可少给一条，也不要给一条只有名字的空壳。`;
 
 const FACTION_NAME_RULE = `
 【势力命名·铁则】势力 name 必须是**符合当前世界观、有具体含义的中文名称**（如「青云宗」「黑鸦佣兵团」「哥布林巢穴·血牙部族」「圣盾骑士团」）。**严禁**用势力ID（F1/F2…）、英文代号、或「未命名/某势力/势力一」这类无意义占位文字当名字。正文已出现该势力名号则照用；未命名时按其类型/规模/首领/所处世界自拟一个贴切中文名。**若某势力当前的名字仍是 ID/英文/无意义占位（如 F1），必须在本次演化中把它改成贴切的中文名。**`;
@@ -1150,7 +1176,7 @@ export default function App() {
       try { useCharacters.getState().dedupeRecipes(); } catch { /* 修复历史存档的重复配方（去「配方：」前缀后合并） */ }
       try { useItems.getState().normalizeEquipSlots(); } catch { /* 规范化历史非规范装备槽（armor:armor→armor:upper 等），使装备面板与背包一致 */ }
       try { const f = useNpc.getState().normalizeNpcIds(); if (f) console.log(`[NPC] 启动时规范化非法ID ${f} 个`); } catch { /* 修复历史存档里 AI 自创的非法ID(如 P_Aesc)，否则其属性更新被丢弃、面板点不开 */ }
-      try { ensureNpcLuck(); } catch { /* 载入时一次性把在场 NPC 幸运按前端独占规则重算(治旧档 AI 乱给的高/乱幸运；保留 luckDelta 剧情增减) */ }
+      try { ensureNpcLuck(); ensureNpcVitalsCap(); } catch { /* 载入时一次性把在场 NPC 幸运按前端独占规则重算(治旧档 AI 乱给的高/乱幸运；保留 luckDelta 剧情增减) */ }
       // 主角自检兜底：B1 技能/天赋异常空但对局在进行中 → 从镜像自动补回（治"读档/回退误清角色库后主角莫名空白"）
       try { const rb = restoreB1IfWiped(); if (rb) { setB1Notice(`检测到主角技能/天赋异常丢失，已自动从镜像兜底恢复：技能${rb.counts.skills} / 天赋${rb.counts.traits} / 副职业${rb.counts.subProfessions}`); console.warn('[B1自检] 已自动从镜像恢复', rb.counts); } } catch { /* */ }
       try { setCanUndo(await hasUndoPoint()); } catch { /* */ }
@@ -1911,7 +1937,7 @@ export default function App() {
       .filter((e) => e.enabled && e.source !== 'entrySharedRules')
       .map((e) => fillVars(e.content, vars))
       .join('\n\n')
-      + '\n\n' + NARRATIVE_FIRST_RULE + '\n' + BUFF_AS_STATUS_RULE + '\n' + NPC_AGE_RULE + '\n' + TALENT_NO_CAP_RULE + '\n' + TITLE_DIVERSITY_RULE + '\n' + NPC_DEAD_EXCLUDE_RULE + '\n' + NPC_ID_RULE + '\n' + SKILL_TALENT_NOTE_RULE + '\n' + NPC_SKILL_KEEP_RULE + '\n' + NPC_REVIEW_TAG_RULE + '\n' + NPC_TEAM_AFFILIATION_RULE + '\n' + TIER_RULE + '\n' + IMAGE_TAGS_RULE + '\n' + HPEP_NARRATIVE_ONLY_RULE + '\n' + POINTS_NARRATIVE_RULE + '\n' + NPC_GEN_ATTR_RULE + '\n' + ATTR_SANITY_RULE + '\n' + ATTR_CAP_RULE + '\n' + STATUS_FORMAT_RULE + '\n' + NPC_PRIVATE_EXTRA_RULE + '\n' + FIRST_UPDATE_COMPLETE_RULE + '\n' + EVO_EXACT_REF_RULE + '\n' + NPC_COT_RULE
+      + '\n\n' + NARRATIVE_FIRST_RULE + '\n' + BUFF_AS_STATUS_RULE + '\n' + NPC_AGE_RULE + '\n' + TALENT_NO_CAP_RULE + '\n' + TITLE_DIVERSITY_RULE + '\n' + NPC_DEAD_EXCLUDE_RULE + '\n' + NPC_ID_RULE + '\n' + SKILL_TALENT_NOTE_RULE + '\n' + NPC_SKILL_KEEP_RULE + '\n' + NPC_REVIEW_TAG_RULE + '\n' + NPC_TEAM_AFFILIATION_RULE + '\n' + TIER_RULE + '\n' + IMAGE_TAGS_RULE + '\n' + HPEP_NARRATIVE_ONLY_RULE + '\n' + POINTS_NARRATIVE_RULE + '\n' + NPC_GEN_ATTR_RULE + '\n' + ATTR_SANITY_RULE + '\n' + ATTR_CAP_RULE + '\n' + STATUS_FORMAT_RULE + '\n' + NPC_PRIVATE_EXTRA_RULE + '\n' + NPC_TIER_LOADOUT_RULE + '\n' + FIRST_UPDATE_COMPLETE_RULE + '\n' + EVO_EXACT_REF_RULE + '\n' + NPC_COT_RULE
       // 门控：仅当该 NPC 已有背景、却还没第一人称自述时，才追加"生成自述"规则（一次性·省 token）
       + (rec && rec.background && !rec.selfNarration ? '\n' + NPC_SELF_NARRATION_RULE : '');
   }
@@ -2472,7 +2498,7 @@ export default function App() {
     catch (e: any) { console.error('[NPC] 登场判断失败:', e?.message ?? e); }
     try { applyNarrativeAttrs(narrative); } catch { /* 新建NPC的卡六维 */ }   // 登场建档后照抄
     await runNpcFocusEvolution(narrative, createdIds);
-    try { applyNarrativeAttrs(narrative); autoGenMissingAttrs(); ensureNpcLuck(); } catch { /* 重点演化后：先以正文卡为准覆盖，再给无卡NPC自动生成有起伏六维，最后前端独占重算幸运 */ }
+    try { applyNarrativeAttrs(narrative); autoGenMissingAttrs(); ensureNpcLuck(); ensureNpcVitalsCap(); } catch { /* 重点演化后：先以正文卡为准覆盖，再给无卡NPC自动生成有起伏六维，最后前端独占重算幸运 */ }
     try { const merged = useNpc.getState().dedupeByName(); if (merged) console.log(`[NPC] 重点演化后合并了 ${merged} 个同名重复角色`); } catch { /* 防重复兜底 */ }
     try { backfillNpcStarterKits(); } catch (e) { console.warn('[NPC] 初始家当发放失败:', e); }   // 码内保证新NPC初次出现就有固定装备+储物
   }
@@ -2554,7 +2580,7 @@ ${AFFIX_EFFECT_RULE}`;
         const shorts   = applyNpcShortCommands(cleanReply);
         try { useNpc.getState().dedupeByName(); } catch { /* 防同名重复建档 */ }
         try { backfillNpcStarterKits(); } catch { /* 初始家当 */ }
-        try { applyNarrativeAttrs(narrative); autoGenMissingAttrs(); ensureNpcLuck(); } catch { /* 卡六维优先，无卡则自动生成有起伏六维，最后前端独占重算幸运 */ }
+        try { applyNarrativeAttrs(narrative); autoGenMissingAttrs(); ensureNpcLuck(); ensureNpcVitalsCap(); } catch { /* 卡六维优先，无卡则自动生成有起伏六维，最后前端独占重算幸运 */ }
         const total = npcCmds.length + charCmds.length + shorts;
         setNpcPhaseLog(total > 0
           ? `✓ NPC 演化完成：${npcCmds.length} 条档案更新，${charCmds.length} 条技能/天赋指令`
@@ -4512,6 +4538,28 @@ ${lines}`;
     if (n > 0) console.log(`[Attr] 幸运·前端重算(base+delta)：${n} 个NPC`);
   }
 
+  /* 前端机械·NPC 生命/能量上限（强制·覆盖 AI 写的 maxHp/maxMp）：按资质档(T0~T9)倍率把
+     maxHp = 体质×20×倍率、maxMp = 智力×15×倍率（T4起翻倍，见 tierVitalMult）。满血/满蓝或未设→顶满到新上限；
+     受伤(未满)→只钳上限不补血（与主角 HP 规则一致，不凭空回血）。仅对有六维(attrs)的 NPC 生效；确定性·幂等。 */
+  function ensureNpcVitalsCap() {
+    const npc = useNpc.getState(); let n = 0;
+    for (const r of Object.values(npc.npcs)) {
+      if (r.isDead || !r.attrs) continue;   // 无六维者先由 autoGenMissingAttrs 生成，下一轮再算上限
+      const a = r.attrs;
+      const mult = tierVitalMult(bioInnate(a, r.realm, lvFromRealm(r.realm))?.num ?? 0);
+      const maxHp = Math.round(computeMaxHp(a) * mult);
+      const maxMp = Math.round(computeMaxEp(a) * mult);
+      const hpFull = (r.hp ?? 0) >= (r.maxHp ?? 0);   // 含未设(0)→视作满，顶满到新上限
+      const epFull = (r.mp ?? 0) >= (r.maxMp ?? 0);
+      const hp = hpFull ? maxHp : Math.min(r.hp ?? maxHp, maxHp);
+      const mp = epFull ? maxMp : Math.min(r.mp ?? maxMp, maxMp);
+      if (r.maxHp !== maxHp || r.maxMp !== maxMp || r.hp !== hp || r.mp !== mp) {
+        npc.upsertNpc(r.id, { maxHp, maxMp, hp, mp }); n++;
+      }
+    }
+    if (n > 0) console.log(`[Attr] HP/EP上限·前端按档位机械重算：${n} 个NPC`);
+  }
+
   /* 抓取本回合精简快照，供「回合洞察」对比变化 */
   function captureTurnSnapshot() {
     try {
@@ -5765,7 +5813,7 @@ ${lines}`;
     // 轨道A：离场契约者零API自治（按 turnCount 推进；自带开关守卫；失败不影响演化阶段）
     try { runNpcAutonomy(useMisc.getState().turnCount); } catch (e) { console.warn('[轨道A] 自治模拟失败', e); }
     // 先从正文人物卡照抄六维（同步，先于各演化阶段，使快照与显示即刻正确）
-    try { applyNarrativeAttrs(narrative); ensureNpcLuck(); } catch (e) { console.warn('[Attr] 六维抽取失败:', e); }
+    try { applyNarrativeAttrs(narrative); ensureNpcLuck(); ensureNpcVitalsCap(); } catch (e) { console.warn('[Attr] 六维抽取失败:', e); }
     if (combatSettled) {
       applyCombatVitals(combatSettled);   // 以战斗结算值为准，跳过正文 HP 抽取（避免双扣）
     } else {

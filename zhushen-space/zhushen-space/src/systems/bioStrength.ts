@@ -17,6 +17,13 @@ import { effectiveAttrs } from './attrBonus';
 // 档位中文名（数组下标 = 档位数字 T0..T9）
 export const BIO_TIER_NAMES = ['杂鱼', '兵卒', '精英', '勇士', '英雄', '领主', '王者', '半神', '真神', '源初'] as const;
 
+/* NPC 生命/能量上限·档位倍率：T0~T3 = ×1，T4 起逐档翻倍（T4 ×2 / T5 ×4 / T6 ×8 / T7 ×16 / T8 ×32 / T9 ×64）。
+   前端机械计算 NPC maxHp = 体质×20×倍率、maxMp = 智力×15×倍率（强制·覆盖 AI 写的数值）。bioNum 取 0..9。 */
+export function tierVitalMult(bioNum: number): number {
+  const n = Math.max(0, Math.min(9, Math.round(bioNum || 0)));
+  return n < 4 ? 1 : Math.pow(2, n - 3);
+}
+
 // 各档「Flex 使用率」区间 [lo,hi]（占本阶 Flex_total 的比例）——生物强度框架模板 T0~T6 的 Flex%。
 // 反推档位(templateFromRatio)与正向生成属性(npcAttrGen)共用同一套边界，确保 读数↔回填 闭环一致。
 // T6 封顶满配(1.0)：基础六维不得超本阶硬上限，T6+ 的「外源加成」属装备/技能层，不在基础六维生成范围。
