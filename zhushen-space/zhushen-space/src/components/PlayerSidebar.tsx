@@ -438,13 +438,18 @@ export default function PlayerSidebar({ onClose }: { onClose?: () => void }) {
           )}
         </div>
 
-        {/* 基底外观（开局设定·不可变·生图基准）*/}
-        {profile.baseAppearance && (
-          <div className="p-3 border-b border-edge">
-            <div className="text-sm text-dim font-mono mb-1.5">基底外观 <span className="text-[11px] text-dim/40">开局设定·不可变·生图基准</span></div>
-            <div className="text-[13px] leading-relaxed text-slate-300/90 whitespace-pre-wrap">{profile.baseAppearance}</div>
-          </div>
-        )}
+        {/* 基底外观（生图基准·可点击编辑）*/}
+        <div className="p-3 border-b border-edge">
+          <div className="text-sm text-dim font-mono mb-1.5">基底外观 <span className="text-[11px] text-dim/40">生图始终包含·长相最底层基准</span></div>
+          <EditText
+            value={profile.baseAppearance || ''}
+            onSave={(v) => setProfile({ baseAppearance: v })}
+            placeholder="点击填写基底外观（脸型 / 瞳色 / 发色发型 / 体型 / 标志特征等不变的长相基准）…"
+            multiline
+            segmented
+            className="text-[13px] leading-relaxed block w-full"
+          />
+        </div>
 
         {/* 外观描写 */}
         <div className="p-3 border-b border-edge">

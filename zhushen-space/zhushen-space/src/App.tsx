@@ -515,6 +515,38 @@ const NPC_TIER_LOADOUT_RULE = `
 　· 物品（createItem/储存空间）：名称｜数量｜品质(物品15档之一)｜类型(大类+细分)｜攻击力或防御力｜属性加成｜评分｜词缀｜效果｜描述｜外观｜获取途径，逐项填全（同【物品固定格式铁则】，评分/品级/grade 三者自洽）。
 　名称、效果、描述都要贴合该 NPC 的身份/世界观与其所在档位的品级，**禁止占位式糊弄**（如"技能一""强力一击""神秘物品""效果待定"）。宁可少给一条，也不要给一条只有名字的空壳。`;
 
+const SKILL_TALENT_ATTR_CAP_RULE = `
+【技能/天赋·属性加成数值上限·铁则（最高优先，禁止越级·禁止迂回）】凡 add skill / addTalent 写出的 attrBonus（含六维直加与百分比加成），**单项数值、百分比、加成项数、累计总值四项任何一项都不得越过下表上限**——这套限制凌驾任何"剧情强大"的措辞：
+
+【天赋·D~SSS】
+| 评级 | 单项·六维+N | 单项·百分比 | 项数 | 累计加成总值 |
+| 负面 | -3 ~ -1     | -10% ~ -5%  | 1-2  | 净 ≤ 0       |
+| D    | +1          | +2%         | 1    | +1           |
+| C    | +2          | +3%         | 1    | +3           |
+| B    | +4          | +5%         | 2    | +6           |
+| A    | +6          | +8%         | 2    | +10          |
+| S    | +10         | +12%        | 3    | +18          |
+| SS   | +15         | +18%        | 3    | +28          |
+| SSS  | +25         | +25%        | 4    | +45          |
+
+【技能·7档（仅被动/光环/领域/烙印等常驻类技能才有 attrBonus；主动技能的威力用 damage 字段表达，不挤进 attrBonus）】
+| 品级 | 单项·六维+N | 单项·百分比 | 项数 | 累计加成总值 |
+| 普通 | 0           | 0           | 0    | 0            |
+| 精良 | +1          | +2%         | 1    | +1           |
+| 稀有 | +2          | +3%         | 1    | +2           |
+| 史诗 | +3          | +5%         | 2    | +4           |
+| 传说 | +5          | +8%         | 2    | +8           |
+| 奥义 | +8          | +12%        | 3    | +14          |
+| 极境 | +15         | +20%        | 3    | +25          |
+
+铁则：
+① **四项任一超限即不合格**：单项数值 / 单项百分比 / 项数 / 累计总值——必须全部 ≤ 表上限。例：A 级天赋写「力+10、体+5」累计 +15 已超 +10，违规；改成「力+4、体+4」累计 +8 才合规。
+② **百分比加成清单**（受 % 列约束）：暴击+% / 闪避+% / 物攻+% / 法攻+% / 法强+% / 各系抗性+% / HP 上限+% / EP 上限+% / 一切「+X%」字段，全部按品级上限钳制。
+③ **damage 与 attrBonus 不串台**：技能的"攻击+200%""法伤+150%"等**威力公式**写进 damage 字段（不受本表约束），不要写到 attrBonus 当六维/百分比加成。
+④ **禁止迂回**：禁止把数值加成藏进 effect 文本（如 effect 里写"实际增加力量 30"）绕开表上限——effect 只描述**效果概念/触发方式**，**所有数值加成只能写在 attrBonus 字段里**并受本表约束。
+⑤ **档位与品级仍叠加**：高品级技能/天赋本身仍受【NPC 配置·档位强制表】的"品级封顶"约束——本表只是品级**已定**后的数值天花板。
+⑥ **对账纠错**：发现既有技能/天赋的 attrBonus 越过表上限，应用 add skill / addTalent 同名更新把数值收敛到所属品级的上限内（保留名称/效果文案，只压数值）。`;
+
 const FACTION_NAME_RULE = `
 【势力命名·铁则】势力 name 必须是**符合当前世界观、有具体含义的中文名称**（如「青云宗」「黑鸦佣兵团」「哥布林巢穴·血牙部族」「圣盾骑士团」）。**严禁**用势力ID（F1/F2…）、英文代号、或「未命名/某势力/势力一」这类无意义占位文字当名字。正文已出现该势力名号则照用；未命名时按其类型/规模/首领/所处世界自拟一个贴切中文名。**若某势力当前的名字仍是 ID/英文/无意义占位（如 F1），必须在本次演化中把它改成贴切的中文名。**`;
 
@@ -760,6 +792,7 @@ export default function App() {
   const [cmdkOpen,         setCmdkOpen]         = useState(false);   // 命令面板（⌘K / Ctrl+K / 顶栏🔍 快速跳转面板）
   const [revarOpen,        setRevarOpen]        = useState(false);   // 重算单项变量菜单（重 ROLL）
   const [phaseFail,        setPhaseFail]        = useState<Record<string, boolean>>({});   // 各演化阶段「上次更新失败」持久标记（重算菜单据此标红；key: item/player/npc/faction/territory/team/cosmos/misc/image）
+  const [phaseBusy,        setPhaseBusy]        = useState<Record<string, boolean>>({});   // 各演化阶段「正在重 ROLL」标记（菜单内点重 ROLL 时置位，完成/失败/兜底超时清除）
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if ((e.metaKey || e.ctrlKey) && (e.key === 'k' || e.key === 'K')) { e.preventDefault(); setCmdkOpen((v) => !v); }
@@ -929,6 +962,14 @@ export default function App() {
       for (const [k, log] of pairs) {
         if (/失败/.test(log) && !prev[k]) { if (!changed) { n = { ...prev }; changed = true; } n[k] = true; }
         else if (/✓/.test(log) && prev[k]) { if (!changed) { n = { ...prev }; changed = true; } delete n[k]; }
+      }
+      return changed ? n : prev;
+    });
+    // 「正在重 ROLL」：该阶段日志一出现 ✓/失败（=跑完）就清除（misc 无完成日志，靠 markBusy 的兜底超时清）
+    setPhaseBusy((prev) => {
+      let n = prev, changed = false;
+      for (const [k, log] of pairs) {
+        if (prev[k] && /✓|失败/.test(log)) { if (!changed) { n = { ...prev }; changed = true; } delete n[k]; }
       }
       return changed ? n : prev;
     });
@@ -1878,7 +1919,7 @@ export default function App() {
         .replaceAll('${character_snapshot}', playerProfileSnapshot)
         .replaceAll('${player_skills}', pSkills.length ? pSkills.map((s) => `${s.id}「${s.name}」${s.level ?? ''}`).join('；') : '（无）')
         .replaceAll('${player_traits}', pTalents.length ? pTalents.map((t) => `「${t.name}」${t.category ?? ''}·${t.rarity}级`).join('；') : '（无）')
-        + '\n\n' + NARRATIVE_FIRST_RULE + '\n' + EVO_VERIFY_RULE + '\n' + BUFF_AS_STATUS_RULE + '\n' + SUBPROF_RULE + '\n' + TALENT_NO_CAP_RULE + '\n' + TITLE_DIVERSITY_RULE + '\n' + SKILL_TALENT_NOTE_RULE + '\n' + SKILL_TIER_RULE + '\n' + PLAYER_SKILL_KEEP_RULE + '\n' + TIER_RULE + '\n' + IMAGE_TAGS_RULE + '\n' + HPEP_NARRATIVE_ONLY_RULE + '\n' + WORLDSOURCE_RULE + '\n' + POINTS_NARRATIVE_RULE + '\n' + ATTR_SANITY_RULE + '\n' + ATTR_CAP_RULE + '\n' + PLAYER_ATTR_LOCK_RULE + '\n' + APPEARANCE_UPDATE_RULE + '\n' + STATUS_FORMAT_RULE + '\n' + FIRST_UPDATE_COMPLETE_RULE + '\n' + EVO_EXACT_REF_RULE + '\n' + PLAYER_COT_RULE;
+        + '\n\n' + NARRATIVE_FIRST_RULE + '\n' + EVO_VERIFY_RULE + '\n' + BUFF_AS_STATUS_RULE + '\n' + SUBPROF_RULE + '\n' + TALENT_NO_CAP_RULE + '\n' + TITLE_DIVERSITY_RULE + '\n' + SKILL_TALENT_NOTE_RULE + '\n' + SKILL_TIER_RULE + '\n' + SKILL_TALENT_ATTR_CAP_RULE + '\n' + PLAYER_SKILL_KEEP_RULE + '\n' + TIER_RULE + '\n' + IMAGE_TAGS_RULE + '\n' + HPEP_NARRATIVE_ONLY_RULE + '\n' + WORLDSOURCE_RULE + '\n' + POINTS_NARRATIVE_RULE + '\n' + ATTR_SANITY_RULE + '\n' + ATTR_CAP_RULE + '\n' + PLAYER_ATTR_LOCK_RULE + '\n' + APPEARANCE_UPDATE_RULE + '\n' + STATUS_FORMAT_RULE + '\n' + FIRST_UPDATE_COMPLETE_RULE + '\n' + EVO_EXACT_REF_RULE + '\n' + PLAYER_COT_RULE;
       const userContent  = `# 本轮正文\n${trimmedNarrative}\n\n---\n请根据以上正文处理本轮主角属性与状态的变化。**先输出一个 <think>…</think> 思考块**，按系统提示里的「主角演化思维链」逐项自检；**随后**输出 <state>（及如有需要的 <upstore>）指令块，无变化时输出空块。除 <think> / <state> / <upstore> 外不要有其它文字。`;
 
       const ss2 = useSettings.getState();
@@ -1966,7 +2007,7 @@ export default function App() {
       .filter((e) => e.enabled && e.source !== 'entrySharedRules')
       .map((e) => fillVars(e.content, vars))
       .join('\n\n')
-      + '\n\n' + NARRATIVE_FIRST_RULE + '\n' + BUFF_AS_STATUS_RULE + '\n' + NPC_AGE_RULE + '\n' + TALENT_NO_CAP_RULE + '\n' + TITLE_DIVERSITY_RULE + '\n' + NPC_DEAD_EXCLUDE_RULE + '\n' + NPC_ID_RULE + '\n' + SKILL_TALENT_NOTE_RULE + '\n' + NPC_SKILL_KEEP_RULE + '\n' + NPC_REVIEW_TAG_RULE + '\n' + NPC_TEAM_AFFILIATION_RULE + '\n' + TIER_RULE + '\n' + IMAGE_TAGS_RULE + '\n' + HPEP_NARRATIVE_ONLY_RULE + '\n' + POINTS_NARRATIVE_RULE + '\n' + NPC_GEN_ATTR_RULE + '\n' + ATTR_SANITY_RULE + '\n' + ATTR_CAP_RULE + '\n' + STATUS_FORMAT_RULE + '\n' + NPC_PRIVATE_EXTRA_RULE + '\n' + NPC_TIER_LOADOUT_RULE + '\n' + FIRST_UPDATE_COMPLETE_RULE + '\n' + EVO_EXACT_REF_RULE + '\n' + NPC_COT_RULE
+      + '\n\n' + NARRATIVE_FIRST_RULE + '\n' + BUFF_AS_STATUS_RULE + '\n' + NPC_AGE_RULE + '\n' + TALENT_NO_CAP_RULE + '\n' + TITLE_DIVERSITY_RULE + '\n' + NPC_DEAD_EXCLUDE_RULE + '\n' + NPC_ID_RULE + '\n' + SKILL_TALENT_NOTE_RULE + '\n' + NPC_SKILL_KEEP_RULE + '\n' + NPC_REVIEW_TAG_RULE + '\n' + NPC_TEAM_AFFILIATION_RULE + '\n' + TIER_RULE + '\n' + IMAGE_TAGS_RULE + '\n' + HPEP_NARRATIVE_ONLY_RULE + '\n' + POINTS_NARRATIVE_RULE + '\n' + NPC_GEN_ATTR_RULE + '\n' + ATTR_SANITY_RULE + '\n' + ATTR_CAP_RULE + '\n' + STATUS_FORMAT_RULE + '\n' + NPC_PRIVATE_EXTRA_RULE + '\n' + NPC_TIER_LOADOUT_RULE + '\n' + SKILL_TALENT_ATTR_CAP_RULE + '\n' + FIRST_UPDATE_COMPLETE_RULE + '\n' + EVO_EXACT_REF_RULE + '\n' + NPC_COT_RULE
       // 门控：仅当该 NPC 已有背景、却还没第一人称自述时，才追加"生成自述"规则（一次性·省 token）
       + (rec && rec.background && !rec.selfNarration ? '\n' + NPC_SELF_NARRATION_RULE : '');
   }
@@ -7301,18 +7342,32 @@ ${lines}`;
                 { icon: '🖼', label: '生图（肖像 + 装备）', fk: 'image', run: () => { runPortraitPhase(); runEquipImagePhase(); } },
               ].map((it) => {
                 const x = it as { icon: string; label: string; run: () => void; desc?: string; all?: boolean; fk?: string };
-                const failed = !!(x.fk && phaseFail[x.fk]);
+                const busy = !!(x.fk && phaseBusy[x.fk]);
+                const failed = !busy && !!(x.fk && phaseFail[x.fk]);
                 return (
-                <button key={x.label}
-                  onClick={() => { setConfirmAction({ title: x.all ? '重算全部变量' : `重 ROLL「${x.label}」`, desc: x.desc || `仅重新生成「${x.label}」这一项（基于本回合正文重跑该演化）、其它变量不动。确定？`, run: () => { setRevarOpen(false); if (x.fk) setPhaseFail((p) => { if (!p[x.fk!]) return p; const n = { ...p }; delete n[x.fk!]; return n; }); x.run(); } }); }}
-                  className={`w-full flex items-center gap-3 px-4 py-2.5 text-sm text-left transition-colors ${failed ? 'text-slate-200 hover:bg-blood/10' : 'text-dim hover:text-god hover:bg-god/10'}`}>
+                <button key={x.label} disabled={busy}
+                  onClick={() => { setConfirmAction({ title: x.all ? '重算全部变量' : `重 ROLL「${x.label}」`, desc: x.desc || `仅重新生成「${x.label}」这一项（基于本回合正文重跑该演化）、其它变量不动。确定？`, run: () => {
+                    if (x.all) { setRevarOpen(false); x.run(); return; }
+                    if (x.fk) {
+                      const k = x.fk;
+                      setPhaseFail((p) => { if (!p[k]) return p; const n = { ...p }; delete n[k]; return n; });
+                      setPhaseBusy((p) => ({ ...p, [k]: true }));   // 标「正在重 ROLL」（菜单不关，本行实时显示进度）
+                      setTimeout(() => setPhaseBusy((p) => { if (!p[k]) return p; const n = { ...p }; delete n[k]; return n; }), 45000);   // 兜底清（misc 无完成日志）
+                    }
+                    x.run();
+                  } }); }}
+                  className={`w-full flex items-center gap-3 px-4 py-2.5 text-sm text-left transition-colors disabled:cursor-default ${busy ? 'text-god bg-god/5' : failed ? 'text-slate-200 hover:bg-blood/10' : 'text-dim hover:text-god hover:bg-god/10'}`}>
                   <span className="w-5 text-center text-xs opacity-80">{x.icon}</span>
                   <span className="flex-1">{x.label}</span>
                   {x.all
                     ? <span className="text-[10px] font-mono text-amber-300/70 border border-amber-600/40 rounded px-1.5 py-0.5 shrink-0">刷新页面</span>
                     : <span className="flex items-center gap-1.5 shrink-0">
-                        {failed && <span className="text-[10px] font-mono text-blood border border-blood/40 bg-blood/10 rounded px-1.5 py-0.5">⚠ 更新失败</span>}
-                        <span className="text-[10px] font-mono text-dim/40">重 ROLL ›</span>
+                        {busy
+                          ? <span className="text-[10px] font-mono text-god border border-god/50 bg-god/10 rounded px-1.5 py-0.5 flex items-center gap-1"><span className="inline-block animate-spin">⟳</span>正在重 ROLL…</span>
+                          : <>
+                              {failed && <span className="text-[10px] font-mono text-blood border border-blood/40 bg-blood/10 rounded px-1.5 py-0.5">⚠ 更新失败</span>}
+                              <span className="text-[10px] font-mono text-dim/40">重 ROLL ›</span>
+                            </>}
                       </span>}
                 </button>
                 );
