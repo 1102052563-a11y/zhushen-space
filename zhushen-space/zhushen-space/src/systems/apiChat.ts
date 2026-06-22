@@ -13,16 +13,59 @@ export function gwProxyBase(): string {
   } catch { /* ignore */ }
   return GW_DEPLOYED;
 }
-/** 先直连中转；若因 SSL / CORS / 混合内容失败（fetch throw），自动改走网关代理服务端转发再试一次。
+/* ── 仿 fanren：按 origin 记忆「直连失败过」的源 ──
+   某个源直连撞过 CORS/混合内容后记下，之后**直接走代理**，不再每回合先撞一遍（控制台不再刷红错、也省一次必失败的请求）。
+   会话级、命中即粘（与 fanren 的按 host 缓存一致：一旦判定不可直连，整会话不再尝试直连）。*/
+const directFailedOrigins = new Set<string>();
+function originOf(url: string): string {
+  try { return new URL(url, typeof location !== 'undefined' ? location.href : undefined).origin; } catch { return ''; }
+}
+function isSameOrigin(url: string): boolean {
+  try { return typeof location !== 'undefined' && new URL(url, location.href).origin === location.origin; } catch { return false; }
+}
+/* 同源 /proxy（Cloudflare Pages Function）是否可用：部署域名有；本地 vite dev 没有 Functions → 回退网关 worker。*/
+function sameOriginProxyAvailable(): boolean {
+  try {
+    if (typeof location === 'undefined') return false;
+    const h = location.hostname;
+    return !(h === 'localhost' || h === '127.0.0.1' || h === '0.0.0.0' || h === '::1' || h === '[::1]');
+  } catch { return false; }
+}
+function isAbortError(e: unknown): boolean {
+  return !!e && typeof e === 'object' && (e as { name?: string }).name === 'AbortError';
+}
+/* 服务端转发（绕过浏览器 SSL/混合内容/CORS）：
+   ① 部署环境优先**同源** /proxy（真实地址放 X-Upstream 头）——proxy 调用本身同源、无 CORS、零外部依赖，与 fanren 的 /api/llm-proxy 同款；
+   ② 同源代理缺失(本地 dev / 非 Pages 部署) → 回退跨站网关 worker（?url=，仿 SillyTavern 后端转发）。*/
+async function fetchViaProxy(url: string, init?: RequestInit): Promise<Response> {
+  if (sameOriginProxyAvailable()) {
+    try {
+      const headers = new Headers(init?.headers as HeadersInit | undefined);
+      headers.set('X-Upstream', url);                                   // 真实上游地址(含 http/https)放头里，由同源代理服务端转发
+      const r = await fetch('/proxy/llm', { ...init, headers });
+      // 我们的 proxy 函数对任何响应(含上游错误码)都带 ACAO 头；没有=该响应非本函数(如非 Pages 部署的 404) → 落网关
+      if (r.headers.has('access-control-allow-origin')) return r;
+    } catch { /* 同源代理不可用 → 落网关 */ }
+  }
+  return await fetch(`${gwProxyBase()}?url=${encodeURIComponent(url)}`, init);
+}
+/** 先直连中转；若因 SSL / CORS / 混合内容失败，自动改走服务端代理转发。
  *  傻瓜化：用户只管粘地址；http/裸IP/无CORS 的公网中转会被自动救活。
+ *  仿 fanren：按 origin 记忆——某源直连失败过，之后直接走代理，不再每回合先撞一遍 CORS。
  *  注:IP 锁定的中转(本地能用线上不能)需把「本地网关地址」设为你本地 worker，才会用你家 IP 转发。 */
 export async function fetchWithProxy(url: string, init?: RequestInit): Promise<Response> {
+  // 不需要/不能代理：非绝对 http(s)、已是代理地址(网关 /api/gw/)、或本就同源(如手填 /proxy/<上游>) → 直接发
+  const proxyable = /^https?:\/\//i.test(url) && !url.includes('/api/gw/') && !isSameOrigin(url);
+  if (!proxyable) return await fetch(url, init);
+
+  const origin = originOf(url);
+  if (origin && directFailedOrigins.has(origin)) return await fetchViaProxy(url, init);   // 已知此源直连不行 → 直接走代理
   try {
     return await fetch(url, init);
   } catch (e) {
-    // 仅代理「绝对 http/https 的公网地址」；空/相对路径、已是网关 → 不重试（避免 ?url=/models 这种垃圾请求）
-    if (!/^https?:\/\//i.test(url) || url.includes('/api/gw/')) throw e;
-    return await fetch(`${gwProxyBase()}?url=${encodeURIComponent(url)}`, init);
+    if (isAbortError(e)) throw e;                                       // 用户中止：不当作 CORS 失败、不回退代理
+    if (origin) directFailedOrigins.add(origin);                       // 记住这个源直连不行，下回直接走代理
+    return await fetchViaProxy(url, init);
   }
 }
 

@@ -30,10 +30,12 @@ export async function onRequest(context) {
   const xUpstream = (request.headers.get('X-Upstream') || '').trim();
   let target, upstreamHost;
   if (xUpstream) {
+    const schemeMatch = /^(https?):\/+/i.exec(xUpstream);             // 保留上游原始 scheme（http 中转才能被转发）
+    const scheme = schemeMatch ? schemeMatch[1].toLowerCase() : 'https';   // 没写协议则默认 https
     const up = xUpstream.replace(/^https?:\/+/i, '');                 // 容忍带不带 http(s)://
     if (!up) return json({ error: 'proxy: X-Upstream 为空' }, 400);
     upstreamHost = up.split('/')[0].split('?')[0];
-    target = 'https://' + up;                                         // 头里已是完整地址，不再拼 url.search
+    target = scheme + '://' + up;                                     // 头里已是完整地址，不再拼 url.search
   } else {
     // 取 /proxy/ 之后的整段作为上游地址；容忍写了 http(s):// 前缀、或被规范化成 https:/ 的情况
     const rest = url.pathname.replace(/^\/proxy\/?/, '').replace(/^https?:\/+/i, '');
