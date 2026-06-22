@@ -1,11 +1,11 @@
 /* ════════════════════════════════════════════
-   NAI 生图提示词预设（SillyTavern 世界书格式 {名:{entries:[…]}}）→ 适配到「正文配图提示词 LLM」
+   内置「生图预设」（SillyTavern 世界书格式）→ 正文配图提示词 LLM
+   - **强制启用、内置打包、不在 UI 暴露**（预设本体 src/data/imgPromptPreset.json，随本模块懒加载，不进主 chunk）
    - 常驻(triggerMode=always)条目按数组序进消息；关键词(trigger)条目命中正文才注入（绿灯）
    - ST 宏前端不支持，统一替换/剥离（{{上下文}}/{{用户需求}}/{@getvar::生图数量@}/{{roll}}…）
    - 末尾追加「输出格式覆盖」，把模型拉回前端解析器认的 <image><anchor><nsfw_rating><prompt> 格式
-   预设体积大（数十万字），单独存 localStorage(drpg-img-prompt-preset) + 模块缓存，
-   **不进 imageGenStore**（否则每次改生图设置都要重写几百 KB 到 drpg-image-gen）。
 ════════════════════════════════════════════ */
+import builtinRaw from '../data/imgPromptPreset.json';
 
 export interface ImgPromptEntry {
   id: string;
@@ -17,48 +17,17 @@ export interface ImgPromptEntry {
   enabled: boolean;
 }
 
-const LS_KEY = 'drpg-img-prompt-preset';
-let _cache: { name: string; entries: ImgPromptEntry[] } | null | undefined; // undefined = 尚未从 LS 读取
-
-export function getImgPromptPreset(): { name: string; entries: ImgPromptEntry[] } | null {
-  if (_cache === undefined) {
-    try {
-      const raw = localStorage.getItem(LS_KEY);
-      _cache = raw ? JSON.parse(raw) : null;
-    } catch {
-      _cache = null;
-    }
-  }
-  return _cache ?? null;
-}
-
-export function saveImgPromptPreset(name: string, entries: ImgPromptEntry[]): void {
-  _cache = { name, entries };
-  try {
-    localStorage.setItem(LS_KEY, JSON.stringify(_cache));
-  } catch (e) {
-    console.warn('[imgPreset] 写入 localStorage 失败（可能超配额）:', e);
-  }
-}
-
-export function clearImgPromptPreset(): void {
-  _cache = null;
-  try { localStorage.removeItem(LS_KEY); } catch { /* ignore */ }
-}
-
-/* 解析导入的 JSON：兼容 {名:{entries:[…]}} / {entries:[…]} / [entries] 三种 */
-export function parseImgPromptPreset(text: string): { name: string; entries: ImgPromptEntry[] } {
-  const j = JSON.parse(text);
+/* 兼容 {名:{entries:[…]}} / {entries:[…]} / [entries] 三种，规范化成 ImgPromptEntry[] */
+function normalize(j: any): ImgPromptEntry[] {
   let raw: any[] | undefined;
-  let name = '生图预设';
   if (Array.isArray(j)) raw = j;
-  else if (Array.isArray(j?.entries)) raw = j.entries;
+  else if (j && Array.isArray(j.entries)) raw = j.entries;
   else if (j && typeof j === 'object') {
     const k = Object.keys(j).find((key) => j[key] && Array.isArray(j[key].entries));
-    if (k) { name = k; raw = j[k].entries; }
+    if (k) raw = j[k].entries;
   }
-  if (!Array.isArray(raw)) throw new Error('未找到 entries 数组（应为 {名:{entries:[…]}} 世界书格式）');
-  const entries: ImgPromptEntry[] = raw.map((e: any, i: number) => ({
+  if (!Array.isArray(raw)) return [];
+  return raw.map((e: any, i: number): ImgPromptEntry => ({
     id: String(e?.id ?? `e${i}`),
     name: String(e?.name ?? ''),
     content: String(e?.content ?? ''),
@@ -67,8 +36,13 @@ export function parseImgPromptPreset(text: string): { name: string; entries: Img
     triggerWords: String(e?.triggerWords ?? ''),
     enabled: e?.enabled !== false,
   })).filter((e) => e.content.trim());
-  if (!entries.length) throw new Error('entries 为空或没有有效 content');
-  return { name, entries };
+}
+
+let _entries: ImgPromptEntry[] | null = null;
+/* 内置生图预设（强制启用）。名字固定「生图预设」。*/
+export function getImgPromptPreset(): { name: string; entries: ImgPromptEntry[] } {
+  if (_entries === null) _entries = normalize(builtinRaw as any);
+  return { name: '生图预设', entries: _entries };
 }
 
 /* 输出格式覆盖：放在最后（最高优先/最近），把模型从预设自带的 <images>/Character N/坐标/UC 格式拉回前端解析器认的格式 */

@@ -107,7 +107,6 @@ import { bioInnate, tierVitalMult } from './systems/bioStrength';
 import { generateNpcAttrs, resolveForm, generateLuck } from './systems/npcAttrGen';
 import { useImageGen, effectiveEquipService } from './store/imageGenStore';
 import { generateImage, buildPortraitPrompt, buildEquipPrompt, shrinkDataUrl } from './systems/imageGen';
-import { getImgPromptPreset, buildImagePromptMessages } from './systems/imagePromptPreset';
 import { genPortraitTags, genEquipTags, isTagService } from './systems/imageTags';
 import { hydrateImages, initImageSync } from './systems/imageSync';
 import { loadWb, saveWb } from './systems/wbDb';
@@ -3290,29 +3289,32 @@ ${AFFIX_EFFECT_RULE}`;
       : '（无在场 NPC 资料）';
     const M = useMisc.getState();
 
-    // 提示词来源：开启「NAI 生图预设」且已导入 → 用预设组装多条消息；否则用 storyTemplate 单串（原行为）
-    let messages: { role: 'system' | 'user' | 'assistant'; content: string }[];
-    const imgPreset = ig.storyUseNaiPreset ? getImgPromptPreset() : null;
-    if (imgPreset?.entries?.length) {
-      messages = buildImagePromptMessages(imgPreset.entries, {
-        story: narrative, charsFull, count,
-        time: M.worldTime || M.paradiseTime || '', location: M.worldName || '',
-      });
-    } else {
-      const sys = ig.storyTemplate
-        .replaceAll('${image_count}', String(count))
-        .replaceAll('${onscreen_characters_full}', charsFull)
-        .replaceAll('${current_time}', M.worldTime || M.paradiseTime || '（未设定）')
-        .replaceAll('${current_location}', M.worldName || '（未设定）')
-        .replaceAll('${entry_decision_new_characters}', '（见正文）')
-        .replaceAll('${story_text}', narrative);
-      messages = [
-        { role: 'system', content: sys },
-        { role: 'user', content: `请只输出 ${count} 个 <image> 块（含 <anchor>/<nsfw_rating>/<prompt>），不要其它内容。` },
-      ];
-    }
+    // 提示词来源：强制使用内置「生图预设」（懒加载、不在 UI 暴露）；加载失败则回退 storyTemplate
+    const sys = ig.storyTemplate
+      .replaceAll('${image_count}', String(count))
+      .replaceAll('${onscreen_characters_full}', charsFull)
+      .replaceAll('${current_time}', M.worldTime || M.paradiseTime || '（未设定）')
+      .replaceAll('${current_location}', M.worldName || '（未设定）')
+      .replaceAll('${entry_decision_new_characters}', '（见正文）')
+      .replaceAll('${story_text}', narrative);
+    let messages: { role: 'system' | 'user' | 'assistant'; content: string }[] = [
+      { role: 'system', content: sys },
+      { role: 'user', content: `请只输出 ${count} 个 <image> 块（含 <anchor>/<nsfw_rating>/<prompt>），不要其它内容。` },
+    ];
+    let usedPreset = false;
+    try {
+      const mod = await import('./systems/imagePromptPreset');
+      const preset = mod.getImgPromptPreset();
+      if (preset.entries.length) {
+        messages = mod.buildImagePromptMessages(preset.entries, {
+          story: narrative, charsFull, count,
+          time: M.worldTime || M.paradiseTime || '', location: M.worldName || '',
+        });
+        usedPreset = true;
+      }
+    } catch (e) { console.warn('[StoryImg] 生图预设加载失败，回退模板:', e); }
 
-    setImagePhaseLog(imgPreset?.entries?.length ? '正文配图·按生图预设抽取中…' : '正文配图·抽取画面中…');
+    setImagePhaseLog(usedPreset ? '正文配图·按生图预设抽取中…' : '正文配图·抽取画面中…');
     let reply = '';
     try {
       const r = await apiChatFallback(chain, messages);
