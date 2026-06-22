@@ -6368,8 +6368,10 @@ ${lines}`;
   }
   /* 重新生成本次正文：先回退到本回合之前，reload 后自动重发同一条输入（演化不会叠加）*/
   async function regenerateTurn() {
-    const input = lastUserInputRef.current;
-    if (!input) { setGenError('本会话无可重新生成的输入（刷新后会丢失，请直接重新输入）'); setTimeout(() => setGenError(''), 5000); return; }
+    // 输入优先用本会话内存值；刷新/读档后内存丢失，则回退到对话历史里最后一条用户消息
+    // （读档恢复的对话仍含它）——这样读档后也能「重新生成」上一回合。
+    const input = lastUserInputRef.current || ([...(messagesRef.current ?? [])].reverse().find((m) => m.role === 'user')?.content ?? '');
+    if (!input) { setGenError('找不到可重新生成的上一条输入（请直接重新输入）'); setTimeout(() => setGenError(''), 5000); return; }
     try { sessionStorage.setItem(PENDING_REGEN_KEY, input); } catch { /* */ }
     const ok = await loadSlot(UNDO_ID);
     if (!ok) { try { sessionStorage.removeItem(PENDING_REGEN_KEY); } catch { /* */ } setGenError('没有回退点，无法重新生成'); setTimeout(() => setGenError(''), 5000); }

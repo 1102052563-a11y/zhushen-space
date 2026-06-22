@@ -77,7 +77,14 @@ export interface SaveSlot {
   createdAt: number;
   updatedAt: number;
   preview: SlotPreview;
-  data: { stores: Record<string, string>; messages: any[]; images?: Record<string, string> };
+  data: {
+    stores: Record<string, string>;
+    messages: any[];
+    images?: Record<string, string>;
+    // 随档嵌入的「上一回合结束态」回退点(不含图片)。读档时还原成 UNDO_ID 槽，让读档后能立刻
+    // 「回退上一回合/重新生成」**本档时间线**的上一回合（旧档无此字段，读档退回删旧回退点的老行为）。
+    undo?: { stores: Record<string, string>; messages: any[] };
+  };
 }
 export type SlotMeta = Omit<SaveSlot, 'data'>;
 
@@ -110,6 +117,16 @@ export async function saveSlot(id: string | null, name: string, messages: any[],
   const now = Date.now();
   const realId = id ?? `slot_${now}`;
   const existing = id ? await saveDb.get<SaveSlot>(id) : null;
+  // 把「当前回退点」(=上一回合结束态)随档嵌入，让读档后能回退/重新生成属于**本档时间线**的上一回合，
+  // 而不必删掉回退点（删掉=读档后回退/重生按钮置灰，正是本次要修的）。嵌入快照不含图片→体积小。
+  // 例外：① UNDO_ID 槽自身不嵌（避免 undo-in-undo 套娃）；② 滚动备份(autosnap)按设计保持轻量、不嵌。
+  let undo: SaveSlot['data']['undo'];
+  if (realId !== UNDO_ID && !realId.startsWith(AUTOSNAP_PREFIX)) {
+    try {
+      const up = await saveDb.get<SaveSlot>(UNDO_ID);
+      if (up?.data) undo = { stores: up.data.stores, messages: up.data.messages ?? [] };
+    } catch (e) { logWarn('saveManager.saveSlot.embedUndo', e); }
+  }
   const slot: SaveSlot = {
     id: realId,
     name: name.trim() || `存档 ${new Date(now).toLocaleString()}`,
@@ -118,7 +135,7 @@ export async function saveSlot(id: string | null, name: string, messages: any[],
     updatedAt: now,
     preview: buildPreview(messages),
     // 图片(IndexedDB)取内存最新快照打包进存档；includeImages=false 时不打包——降级用，避免大图把整次保存撑爆 IndexedDB 配额而失败
-    data: { stores: snapshotStores(), messages, ...(includeImages ? { images: snapshotImages() } : {}) },
+    data: { stores: snapshotStores(), messages, ...(includeImages ? { images: snapshotImages() } : {}), ...(undo ? { undo } : {}) },
   };
   await saveDb.put(slot);
   return realId;
@@ -219,11 +236,21 @@ export async function loadSlot(id: string): Promise<boolean> {
   // 仅当快照带了图片才清+写；不带图片的快照（如降级保存的回退点）保留现有图片，避免回退把图全清掉。
   try { if (slot.data.images) { await clearAllImg(); await bulkPutImg(slot.data.images); } } catch (e) { logWarn('saveManager.loadSlot.images', e); }
   await replaceChat(slot.data.messages ?? []);   // 覆盖当前对话为存档对话
-  // 读「用户存档」会让回退点失效：它仍指向读档前那条时间线（不同的对话/演化），
-  // 留着会导致读档后点「回退/重新生成」跳回另一条时间线（表现为"回退不生效/乱跳"）。
-  // 清掉它——读档后本时间线尚无"上一回合"，回退按钮置灰（canUndo=false），下次发送会重建属于本档的回退点。
-  // 注意：回退/重新生成自身也走 loadSlot(UNDO_ID)，那种情况 id===UNDO_ID，不可误删（否则连续回退失效）。
-  if (id !== UNDO_ID) { try { await saveDb.del(UNDO_ID); } catch (e) { logWarn('saveManager.loadSlot.undoDel', e); } }
+  // 回退点与时间线绑定：读「用户存档」时——
+  //  · 若该档随身带了**属于它自己时间线**的回退点(slot.data.undo，存档时嵌入=该档上一回合结束态)，
+  //    就把它还原成回退点 → 读档后可立刻「回退上一回合 / 重新生成」本档的上一回合（本次修复）。
+  //  · 旧档无嵌入回退点 → 删掉旧回退点；否则会留下读档前那条时间线的回退点，回退会乱跳到别的时间线。
+  // 注意：回退/重新生成自身也走 loadSlot(UNDO_ID)，那种情况 id===UNDO_ID，不动回退点（否则连续回退失效）。
+  if (id !== UNDO_ID) {
+    try {
+      if (slot.data.undo) {
+        const u = slot.data.undo;
+        await saveDb.put({ ...slot, id: UNDO_ID, name: '↩ 回退点', data: { stores: u.stores, messages: u.messages ?? [] } });
+      } else {
+        await saveDb.del(UNDO_ID);
+      }
+    } catch (e) { logWarn('saveManager.loadSlot.undoRestore', e); }
+  }
   try { sessionStorage.setItem(PENDING_STARTED_KEY, '1'); } catch (e) { logWarn('saveManager.loadSlot.pendingFlag', e); }
   location.reload();
   return true;

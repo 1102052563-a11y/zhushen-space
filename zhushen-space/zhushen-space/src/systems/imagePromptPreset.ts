@@ -57,11 +57,12 @@ function applyMacros(s: string, ctx: { story: string; count: number }): string {
     .replace(/\{@setvar::[^@]*@\}/g, '')                         // setvar → 删
     .replace(/\{@getvar::\s*生图数量\s*@\}/g, String(ctx.count)) // getvar 生图数量 → 张数
     .replace(/\{@getvar::[^@]*@\}/g, '')                          // 其它 getvar → 删
-    .replace(/\{\{\s*roll[^}]*\}\}/gi, rnd)                       // roll → 随机数（防缓存噪音）
+    .replace(/\{\{\s*roll[^}]*\}+/gi, rnd)                        // roll（含畸形单括号）→ 随机数（防缓存噪音）
     .replace(/\{\{\s*上下文\s*\}\}/g, ctx.story)                  // 上下文 → 正文
     .replace(/\{\{\s*世界书触发\s*\}\}/g, '')                     // 触发库占位 → 留空（命中条目已按序在消息里）
     .replace(/\{\{\s*用户需求\s*\}\}/g, ctx.story)                // 用户需求 → 正文
-    .replace(/\{\{[^}]*\}\}/g, '');                               // 兜底剥掉其它 ST 宏
+    .replace(/\{\{[^}]*\}\}/g, '')                                // 兜底剥掉其它成对 ST 宏
+    .replace(/\{\{|\}\}/g, '');                                   // 再兜底：剥掉残留的孤立 {{ }} 噪音
 }
 
 /* 组装「正文配图提示词 LLM」的 messages：常驻 + 命中绿灯 → 合并连续同 role → 末尾追加可调用角色 + 格式覆盖 + 本轮正文 */
