@@ -706,7 +706,6 @@ export default function App() {
   const textPresets      = useSettings((s) => s.textPresets);
   const activePresetId   = useSettings((s) => s.activeTextPresetId);
   const activePresetName = useSettings((s) => s.activeTextPresetName);
-  if (import.meta.env.DEV && typeof window !== 'undefined') { (window as any).__zsSettings = useSettings; (window as any).__buildPM = buildPresetMessages; } // DEV 验证暴露
   const textStream           = useSettings((s) => s.textStream);
   const skipNarrativeThinking = useSettings((s) => s.skipNarrativeThinking);
   const plotGuidance         = useSettings((s) => s.plotGuidance);
