@@ -108,5 +108,39 @@ export async function buildDiagnosticBundle(): Promise<string> {
     L.push(`  向量记忆 ${vm.enabled ? '开' : '关'}`);
   } catch { /* 设置读取失败：跳过开关段 */ }
 
+  // ── 正文预设（注入诊断）── 直接回答「预设到底注没注入正文」 ──
+  try {
+    const ss: any = useSettings.getState();
+    const tp: any[] = ss.textPresets || [];
+    const aid = ss.activeTextPresetId;
+    const aname = ss.activeTextPresetName;
+    // 复刻 App.tsx 的解析顺序：id → 名 → 第一个
+    const resolved = tp.find((p) => p.id === aid) || tp.find((p) => p.name === aname) || tp[0];
+    L.push('\n## 正文预设（注入诊断）');
+    L.push(`  激活 id：${aid ?? '(null)'}　激活名(记忆)：${aname ?? '(无)'}`);
+    if (!tp.length) {
+      L.push('  ⚠ 预设库为空！补种没跑或被回退 → 正文必然无预设注入（只剩最简默认，约几百词符）。');
+    } else if (!resolved) {
+      L.push('  ⚠ 解析不到任何预设 → 正文无预设注入！');
+    } else {
+      const entries: any[] = resolved.entries || [];
+      const enCount = entries.filter((e) => e.enabled !== false).length;
+      const depthCount = entries.filter((e) => e.enabled !== false && (e.injection_position === 1 || e.injection_position === '1')).length;
+      const idHit = tp.some((p) => p.id === aid);
+      const nameHit = tp.some((p) => p.name === aname);
+      L.push(`  实际解析到：「${resolved.name}」　条目 ${entries.length}（启用 ${enCount}，其中深度注入 ${depthCount}）　正则 ${(resolved.regexScripts || []).length}`);
+      L.push(`  解析途径：${idHit ? 'id 命中 ✓' : aid == null ? 'activeId=null → 回落库内第一个' : nameHit ? 'id 失配 → 按名找回 ✓' : 'id 失配且无同名 → 回落第一个'}`);
+      if (!idHit && aid != null) L.push('  ⚠ activeId 不在库中（内置预设旧版每次启动换 id 的指纹）——已被「稳定 id + 按名兜底」修复救回。');
+      if (enCount === 0) L.push('  ⚠ 该预设没有任何启用条目 → 系统提示词会极短，等于没注入！');
+    }
+    L.push(`  预设库（${tp.length}）：`);
+    for (const p of tp) {
+      const mark = p.id === aid ? '  ← 激活(id)' : p.name === aname ? '  ← 激活(名)' : '';
+      L.push(`    ${p.builtin ? '[内置]' : '[用户]'} ${p.name}　id=${p.id}　条目=${(p.entries || []).length}${mark}`);
+    }
+  } catch (e: any) {
+    L.push(`\n## 正文预设：读取失败 — ${e?.message || e}`);
+  }
+
   return L.join('\n');
 }

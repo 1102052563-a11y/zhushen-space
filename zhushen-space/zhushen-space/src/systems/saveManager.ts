@@ -1,5 +1,5 @@
 import { saveDb } from './saveDb';
-import { replaceAll as replaceChat } from './chatDb';
+import { replaceAll as replaceChat, loadAll as loadChat } from './chatDb';
 import { bulkPutImg, clearAllImg } from './imageDb';
 import { snapshotImages } from './imageSync';
 import { useGame } from '../store/gameStore';
@@ -347,11 +347,50 @@ export async function exportSlot(id: string) {
   URL.revokeObjectURL(url);
 }
 
+/* 「上一局存档」：在 clearProgress（新游戏 / 开局角色创建）真正清空前，先把当前这局整存成一个带时间戳的
+   手动档（slot_archive_ 前缀 → 不随以后的清空消失，正常显示在存档列表里），防误开新游戏把整局清光、没有后悔药。
+   - 仅当存在真实进度时才存（全新空局不留垃圾档）；
+   - 含图片=整局完整可恢复；含图失败(配额)则退化成不含图轻量档；
+   - 只保留最近 ARCHIVE_KEEP 份，超出删旧。*/
+export const ARCHIVE_PREFIX = 'slot_archive_';
+export const ARCHIVE_KEEP = 3;
+async function archivePreviousRun(): Promise<void> {
+  // 是否有真实进度：主角有名 / B1 有技能 / 有 NPC / 回合数>0，任一成立即存；判定异常则保守存（宁可多留一份）。
+  let hasProgress = true;
+  try {
+    const prof = usePlayer.getState().profile;
+    const b1 = useCharacters.getState().characters?.['B1'] as any;
+    const npcCount = Object.keys(useNpc.getState().npcs ?? {}).length;
+    const turn = Number((useMisc.getState() as any).turnCount ?? 0);
+    hasProgress = !!(prof?.name && prof.name.trim()) || ((b1?.skills?.length ?? 0) > 0) || npcCount > 0 || turn > 0;
+  } catch (e) { logWarn('archivePreviousRun:detect', e); }
+  if (!hasProgress) return;
+  const now = Date.now();
+  const id = `${ARCHIVE_PREFIX}${now}`;
+  const name = `🗄 上一局存档 ${new Date(now).toLocaleString('zh-CN', { hour12: false })}`;
+  const msgs = await loadChat().catch(() => []);
+  try {
+    await saveSlot(id, name, msgs, true);            // 含图：整局完整可恢复
+  } catch (e) {
+    logWarn('archivePreviousRun:withImages', e);     // 含图可能撞 IndexedDB 配额 → 退化成轻量(无图)档，至少保住六维/技能/NPC/对话
+    try { await saveSlot(id, `${name}（无图）`, msgs, false); } catch (e2) { logWarn('archivePreviousRun:noImages', e2); return; }
+  }
+  // 只保留最近 ARCHIVE_KEEP 份「上一局存档」，超出按时间删旧（键=slot_archive_<13位时间戳>，等长→字符串序即时间序）
+  try {
+    const keys = ((await saveDb.keys()) as IDBValidKey[])
+      .filter((k): k is string => typeof k === 'string' && k.startsWith(ARCHIVE_PREFIX))
+      .sort();
+    for (const old of keys.slice(0, Math.max(0, keys.length - ARCHIVE_KEEP))) { try { await saveDb.del(old); } catch { /* */ } }
+  } catch (e) { logWarn('archivePreviousRun:prune', e); }
+}
+
 /* 新游戏：清空全部「游戏进度」（角色/NPC/物品/对话/任务/世界状态），
    保留「配置」（API / 世界书 / 预设 / 调度 / 提示词等）。完成后整页 reload 回到封面。*/
 /** 清空全部游戏进度（不 reload），保留配置（API/世界书/预设等）。
  *  供「新游戏」与「开局角色创建」复用——后者清完再写入新角色。 */
 export async function clearProgress(): Promise<void> {
+  // 防误清：真正清空前，先把当前这局整存成「上一局存档」(手动档,不随以后清空消失)——哪怕误开新游戏也能捞回整局。
+  try { await archivePreviousRun(); } catch (e) { logWarn('clearProgress:archive', e); }
   // 各「进度」store 清空 → 从单一注册表 STORES 派生（带 clear 的才清；config/预设 store 无 clear 故自动保留）。
   // 「保存」与「清空」共用同一份 STORES，加新 store 只改一处，杜绝两份清单漂移。
   for (const s of STORES) {

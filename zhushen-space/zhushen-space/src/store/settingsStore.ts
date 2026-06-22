@@ -314,6 +314,7 @@ interface SettingsState {
   textWorldBooks: WorldBook[];
   textPresets: TextGenPreset[];
   activeTextPresetId: string | null;
+  activeTextPresetName?: string;   // 记住激活预设的「名字」，内置预设 id 失配时按名兜底找回
   globalRegexScripts: RegexScript[];
 
   // 世界选择操作
@@ -682,6 +683,7 @@ export const useSettings = create<SettingsState>()(
       textWorldBooks: [],
       textPresets: [],
       activeTextPresetId: null,
+      activeTextPresetName: undefined,
       globalRegexScripts: [builtinFanjiqi()],   // 内置「反极其」默认启用（删 AI 正文里的口头禅「极其」）
 
       // ── 综合设置操作 ──
@@ -893,7 +895,11 @@ export const useSettings = create<SettingsState>()(
         try {
           const data = JSON.parse(raw);
           const id = `preset_${Date.now()}`;
-          const preset = parseSTPreset(data, fileName, id);
+          const parsed = parseSTPreset(data, fileName, id);
+          // 内置预设用「稳定 id」(builtin:<名>)：每次启动补种都得到同一 id，用户激活后 activeTextPresetId
+          // 跨刷新不再失配（旧版用 Date.now() 每次都换 id → 激活态对不上 → 预设静默不注入，722 词符裸奔）。
+          const finalId = builtin ? `builtin:${parsed.name}` : parsed.id;
+          const preset = { ...parsed, id: finalId };
           set((s) => ({ textPresets: [...s.textPresets, { ...preset, builtin }], activeTextPresetId: activate ? preset.id : s.activeTextPresetId }));
           const rxCount = preset.regexScripts.length;
           return { ok: true, message: `已导入「${preset.name}」，共 ${preset.entries.length} 条 prompt${rxCount ? `，含 ${rxCount} 条正则` : ''}` };
@@ -976,13 +982,17 @@ export const useSettings = create<SettingsState>()(
           return forkIfBuiltin({ ...p, entries: arr });
         }),
       })),
-      setActiveTextPreset: (id) => set((s) => ({
-        activeTextPresetId: id,
-        // 激活即固化：把被启用的内置预设转成用户副本(builtin=false)，纳入 IndexedDB 持久化、id 稳定，
-        // 此后启动时的内置补种因「同名已存在」不再覆盖它（除非用户删除该预设，删后下次启动才补回最新内置版）。
-        // 满足：DS/Claude/Gemini 任一被开启使用后，那一份就锁定为用户在用的版本、不被覆盖。
-        textPresets: s.textPresets.map((x) => x.id === id ? forkIfBuiltin(x) : x),
-      })),
+      setActiveTextPreset: (id) => set((s) => {
+        const target = s.textPresets.find((x) => x.id === id);
+        return {
+          activeTextPresetId: id,
+          // 同时记住「激活预设名」：万一内置预设 id 仍失配，App 端可按名兜底找回用户的选择。
+          activeTextPresetName: target?.name ?? s.activeTextPresetName,
+          // 激活即固化：把被启用的内置预设转成用户副本(builtin=false)，纳入 IndexedDB 持久化、id 稳定，
+          // 此后启动时的内置补种因「同名已存在」不再覆盖它（除非用户删除该预设，删后下次启动才补回最新内置版）。
+          textPresets: s.textPresets.map((x) => x.id === id ? forkIfBuiltin(x) : x),
+        };
+      }),
 
       // ── 正则通用工具 ──
       ...buildRegexOps(set),

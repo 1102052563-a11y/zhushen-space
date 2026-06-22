@@ -701,6 +701,8 @@ export default function App() {
   const textWorldBooks   = useSettings((s) => s.textWorldBooks);
   const textPresets      = useSettings((s) => s.textPresets);
   const activePresetId   = useSettings((s) => s.activeTextPresetId);
+  const activePresetName = useSettings((s) => s.activeTextPresetName);
+  if (import.meta.env.DEV && typeof window !== 'undefined') (window as any).__zsSettings = useSettings; // DEV-only 调试暴露(prod 构建 dead-code 剥除)
   const textStream           = useSettings((s) => s.textStream);
   const skipNarrativeThinking = useSettings((s) => s.skipNarrativeThinking);
   const plotGuidance         = useSettings((s) => s.plotGuidance);
@@ -1341,7 +1343,8 @@ export default function App() {
   /* ─── 物品管理手动触发（跳过频率检查）─── */
   async function triggerItemPhaseManually() {
     if (itemPhaseRunning) return;
-    const narrative = lastNarrativeRef.current;
+    // 读档/刷新后 lastNarrativeRef 为空 → 回退到对话历史最后一条正文（与「主角/NPC…」各重算项统一走 revarNarr，免去"先跑一回合"才能重 ROLL 物品）
+    const narrative = revarNarr();
     if (!narrative) {
       setItemPhaseLog('⚠ 暂无正文内容，请先发送消息后再手动更新');
       setTimeout(() => setItemPhaseLog(''), 4000);
@@ -5942,9 +5945,9 @@ ${lines}`;
       return;
     }
 
-    // activePresetId 为 null = 用户主动「关闭」所有正文预设 → 不用任何预设（buildPresetMessages 走内置默认）；
-    // 非 null 时正常取该预设，万一 id 失效则兜底用第一个，避免空叙事。
-    const preset = activePresetId == null ? undefined : (textPresets.find((p) => p.id === activePresetId) ?? textPresets[0]);
+    // 解析激活预设：先按 id，再按名（id 失配兜底——内置预设跨刷新 id 可能变），最后退到库内第一个；
+    // 只要预设库非空就一定注入某个预设，绝不因 activeId 为 null/失配而「裸奔」无预设（修「预设没注入」）。
+    const preset = textPresets.find((p) => p.id === activePresetId) ?? textPresets.find((p) => p.name === activePresetName) ?? textPresets[0];
 
     // 历史裁切：historyLimit > 0 时只取最近 N 条（即"显示楼层"范围）
     const allHistory = extraHistory.length > 0 ? extraHistory : messagesRef.current;
@@ -6409,7 +6412,7 @@ ${lines}`;
     applyAllUpdates(cleaned);
     try { applyPlayerProfileCommands(cleaned, '', turnCountRef.current); } catch { /* */ }
     const settled = stripKillBlocks(cleaned);
-    const preset = activePresetId == null ? undefined : (textPresets.find((p) => p.id === activePresetId) ?? textPresets[0]);
+    const preset = textPresets.find((p) => p.id === activePresetId) ?? textPresets.find((p) => p.name === activePresetName) ?? textPresets[0];
     const narrativeForEvoRaw = stripStateBlocks(applyRegex(settled, preset));
     const processed = stripWorldSourceBlocks(stripVitalsBlocks(narrativeForEvoRaw));
     const newMsgId = ++msgId.current;
