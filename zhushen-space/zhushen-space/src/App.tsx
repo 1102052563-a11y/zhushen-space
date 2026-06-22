@@ -476,6 +476,7 @@ const STATUS_FORMAT_RULE = `
 - 每个状态写 \`状态名:Emoji(效果|激活条件|结束条件|来源)\`，**多个状态之间用中文分号 ；分隔**。
 - 例：\`受伤:🩸(每回合-5HP|战斗中受创|休息或治疗后|被抓伤)；疲惫:😮‍💨(行动效率-20%|连续奔逃|充分休息后|长时间逃命)\`。
 - 括号内四段用半角竖线 | 分隔，顺序固定为「效果|激活|结束|来源」；某段不详可留空但保留 |。状态名后紧跟一个 Emoji（半角冒号 : 连接）。
+- **「结束条件」段若写持续回合数，必须与正文写明的回合数一致**：正文说该效果持续 3 回合，这里就写「持续3回合」，**不得另给 15 回合之类不一样的数字**，更不得把"每秒×N回合"按秒折算放大（回合是最小单位，只数回合）。
 - **不要把当前状态写成整段自由文本/句子**，必须严格按上述结构，否则前端解析不出胶囊。没有任何状态时写「一切正常」或留空，不要编造。`;
 
 const NPC_PRIVATE_EXTRA_RULE = `
@@ -705,6 +706,7 @@ export default function App() {
   const textPresets      = useSettings((s) => s.textPresets);
   const activePresetId   = useSettings((s) => s.activeTextPresetId);
   const activePresetName = useSettings((s) => s.activeTextPresetName);
+  if (import.meta.env.DEV && typeof window !== 'undefined') { (window as any).__zsSettings = useSettings; (window as any).__buildPM = buildPresetMessages; } // DEV 验证暴露
   const textStream           = useSettings((s) => s.textStream);
   const skipNarrativeThinking = useSettings((s) => s.skipNarrativeThinking);
   const plotGuidance         = useSettings((s) => s.plotGuidance);
@@ -1282,26 +1284,30 @@ export default function App() {
   function buildPresetMessages(preset: (typeof textPresets)[0] | undefined, ctx: string, userInput = '') {
     const entries = (preset?.entries ?? []).filter((e) => e.enabled && !e.marker);
 
-    // system role 条目拼成系统提示
-    const sysParts = entries.filter((e) => (e.role === 'system' || e.system_prompt) && e.injection_position !== 1).map((e) => e.content).filter(Boolean);
+    // system role 条目拼成系统提示（同时留一份「分段明细」sysSegments 给开发者面板：每个预设块/前端规则各自一段）
+    const sysBlocks = entries.filter((e) => (e.role === 'system' || e.system_prompt) && e.injection_position !== 1 && e.content);
+    const sysSegments: { label: string; content: string }[] = sysBlocks.map((e) => ({ label: '预设块 · ' + (e.name || e.identifier || '(无名)'), content: e.content }));
+    const sysParts = sysBlocks.map((e) => e.content);
     let sysPrompt = sysParts.join('\n\n') || '你是一个沉浸式文字RPG的故事叙述者。';
+    if (!sysBlocks.length) sysSegments.push({ label: '⚠ 预设无启用的 system 块（仅用最简默认）', content: sysPrompt });
 
     // 注入世界书
-    if (ctx) sysPrompt += '\n\n[世界书信息]\n' + ctx;
+    if (ctx) { sysPrompt += '\n\n[世界书信息]\n' + ctx; sysSegments.push({ label: '前端 · 世界书信息', content: ctx }); }
     // 主角状态同步：让始终运行的主正文每回合输出位置/外观（前端解析后剥除），不依赖被节流的主角演化阶段
-    sysPrompt += '\n\n' + PLAYER_STATE_EMIT_RULE;
+    sysPrompt += '\n\n' + PLAYER_STATE_EMIT_RULE; sysSegments.push({ label: '前端规则 · 主角状态输出', content: PLAYER_STATE_EMIT_RULE });
     // HP/EP 结算：让主正文每回合末尾输出主角+在场NPC的当前 HP/EP（前端 applyNarrativeVitals/NpcVitals 解析，HP/EP 管理阶段也以此为最终值）
-    sysPrompt += '\n\n' + VITALS_SETTLEMENT_EMIT_RULE;
+    sysPrompt += '\n\n' + VITALS_SETTLEMENT_EMIT_RULE; sysSegments.push({ label: '前端规则 · HP/EP 结算输出', content: VITALS_SETTLEMENT_EMIT_RULE });
     // 任务击杀目标阶位上限：强制环≤主角阶位、贪婪环≤+1；勿降级剧情高端战力，改派阶位相称的目标
-    sysPrompt += '\n\n' + QUEST_KILL_TIER_RULE;
+    sysPrompt += '\n\n' + QUEST_KILL_TIER_RULE; sysSegments.push({ label: '前端规则 · 击杀阶位上限', content: QUEST_KILL_TIER_RULE });
     // 任务世界结算：仅当本回合输入含【结算任务】时才注入（平时不喂，省 token、避免误触发）
-    if (/【结算任务】/.test(userInput)) sysPrompt += '\n\n' + WORLD_SETTLEMENT_RULE;
+    if (/【结算任务】/.test(userInput)) { sysPrompt += '\n\n' + WORLD_SETTLEMENT_RULE; sysSegments.push({ label: '前端规则 · 任务世界结算（本回合触发）', content: WORLD_SETTLEMENT_RULE }); }
 
     // 叙事人称：前端「叙事人称」开关 → 注入到 system 最末尾（权重最高，压过预设文风块/历史第三人称惯性）；off=不注入、沿用预设
     const povSel = useSettings.getState().narrativePov;
     if (povSel && povSel !== 'off') {
       const povName = usePlayer.getState().profile?.name || '主角';
-      sysPrompt += '\n\n' + buildPerspectiveRule(povSel, povName);
+      const povRule = buildPerspectiveRule(povSel, povName);
+      sysPrompt += '\n\n' + povRule; sysSegments.push({ label: '前端规则 · 叙事人称（' + povSel + '）', content: povRule });
     }
 
     // user/assistant 条目作为示例历史
@@ -1313,6 +1319,7 @@ export default function App() {
     const depthInjections = entries
       .filter((e) => e.injection_position === 1 && e.content && e.identifier !== 'prefill')
       .map((e) => ({
+        label: e.name || e.identifier || '(无名)',
         role: (e.role === 'system' || e.system_prompt) ? ('system' as const) : (e.role as 'user' | 'assistant'),
         content: e.content,
         depth: typeof e.injection_depth === 'number' ? e.injection_depth : 4,
@@ -1321,7 +1328,7 @@ export default function App() {
     // 末尾预填充：identifier='prefill' 的 assistant 块改放 messages 最末尾让模型续写
     const prefillEntry = entries.find((e) => e.identifier === 'prefill' && e.role === 'assistant' && e.content);
     const prefill = prefillEntry?.content ?? '';
-    return { sysPrompt, examples, prefill, depthInjections };
+    return { sysPrompt, examples, prefill, depthInjections, sysSegments };
   }
 
   // 无预设条目时的内置兜底提示词
@@ -5994,7 +6001,7 @@ ${lines}`;
     } catch (e) { console.warn('[NovelVec] 检索失败', e); }
     const worldInfoText = [wbKeywordText, novelVecText].filter(Boolean).join('\n\n');
 
-    const { sysPrompt, examples, prefill, depthInjections } = buildPresetMessages(preset, worldInfoText, userText);
+    const { sysPrompt, examples, prefill, depthInjections, sysSegments } = buildPresetMessages(preset, worldInfoText, userText);
     // 跳过思维链（设置开时）：末尾预填充 </think>，让思考模型以为思考已结束、直接出正文（与 preset 自带 prefill 叠加）
     const effectivePrefill = skipNarrativeThinking ? ('</think>\n' + (prefill ?? '')).trimEnd() : prefill;
     // 剧情指导（开启时）：正文生成【前】先跑一次，产出剧情优化建议 → 像叙事回忆一样注入主正文，由主正文据此写（仅一次正文生成）
@@ -6119,10 +6126,19 @@ ${lines}`;
     setShowPrompt(false);
     // 开发者·正文API提示词：把本回合「实际发给模型」的提示词拆成卡片（重点＝深度注入块），供「🛠 开发者」查看
     setDebugParts([
-      { label: '① 系统提示词（预设拼接 + 前端注入规则）', role: 'system', content: sysPrompt },
-      ...[...depthInjections, ...wbDepthInjections].map((inj, i) => ({ label: '⚡ 深度注入 #' + (i + 1) + ' · depth ' + inj.depth, role: inj.role, content: inj.content })),
-      ...(effectivePrefill ? [{ label: '末尾预填充 prefill（assistant 续写）', role: 'assistant', content: effectivePrefill }] : []),
-      { label: '② 完整发送序列（system + 历史 + 各注入 + 输入 + prefill）', role: 'all', content: '=== SYSTEM ===\n' + sysPrompt + '\n\n=== MESSAGES ===\n' + history.map((m) => '[' + m.role + '] ' + m.content).join('\n\n') },
+      { label: '📊 概览（本回合实际发送结构）', role: 'info', content:
+        '激活预设：' + (preset?.name ?? '（无 → 最简默认）') + '\n' +
+        '预设条目：' + ((preset?.entries ?? []).length) + ' 总 / ' + ((preset?.entries ?? []).filter((e) => e.enabled && !e.marker).length) + ' 启用\n' +
+        '拆分去向：system 分段 ' + sysSegments.length + ' 段（预设块+前端规则）· 少样本 ' + examples.length + ' 条 · 深度注入 ' + depthInjections.length + ' 块（+世界书深注入 ' + wbDepthInjections.length + '）· prefill ' + (effectivePrefill ? '有' : '无') + '\n' +
+        '总消息条数：' + (1 + history.length) + '（1 条合并 system ＋ ' + history.length + ' 条历史/注入/输入/prefill）\n' +
+        '合并 system 总长：~' + Math.round(sysPrompt.length / 3.5) + ' 词符 · 流式 ' + ((preset?.stream ?? textStream) ? '开' : '关') },
+      ...sysSegments.map((s) => ({ label: (s.label.startsWith('预设块') ? '🧩 ' : '🔧 ') + s.label, role: 'system', content: s.content })),
+      ...examples.map((e, i) => ({ label: '💬 少样本示例 #' + (i + 1) + '（' + e.role + '）', role: e.role as string, content: e.content })),
+      ...depthInjections.map((inj) => ({ label: '⚡ 深度注入 · ' + ((inj as any).label ?? '块') + ' · depth ' + inj.depth, role: inj.role, content: inj.content })),
+      ...wbDepthInjections.map((inj) => ({ label: '⚡ 世界书·深度注入 · depth ' + inj.depth, role: inj.role, content: inj.content })),
+      ...(effectivePrefill ? [{ label: '🅰 末尾预填充 prefill（assistant 续写）', role: 'assistant', content: effectivePrefill }] : []),
+      { label: '① 合并后完整 system（实际发送的整段）', role: 'system', content: sysPrompt },
+      { label: '② 完整发送序列（全部消息）', role: 'all', content: '=== SYSTEM ===\n' + sysPrompt + '\n\n=== MESSAGES ===\n' + history.map((m) => '[' + m.role + '] ' + m.content).join('\n\n') },
     ]);
     // 记录本回合实际注入正文的「记忆/档案」块，供「查看注入记忆」核对
     {

@@ -27,7 +27,7 @@ export default function ApiPromptPanel({ parts, onClose }: { parts: PromptPart[]
         {/* 标题 */}
         <div className="text-center mb-4 shrink-0">
           <h2 className="text-2xl font-bold text-slate-100 tracking-wide">正文 API 提示词</h2>
-          <div className="text-[11px] font-mono tracking-[0.3em] text-god/60 mt-1">API PROMPT · 开发者调试</div>
+          <div className="text-[11px] font-mono tracking-[0.3em] text-god/60 mt-1">API PROMPT · 开发者调试 · 共 {parts.length} 段</div>
           <div className="mx-auto mt-2 w-24 h-px bg-gradient-to-r from-transparent via-god/50 to-transparent" />
         </div>
 
@@ -38,12 +38,13 @@ export default function ApiPromptPanel({ parts, onClose }: { parts: PromptPart[]
           )}
           {parts.map((part, i) => {
             const isInj = part.label.startsWith('⚡');
+            const isOverview = part.label.startsWith('📊');
             const open = openIdx === i;
             return (
-              <div key={i} className={`rounded-lg border transition-colors ${isInj ? 'border-emerald-500/40 bg-emerald-900/10' : 'border-edge bg-void/40'}`}>
+              <div key={i} className={`rounded-lg border transition-colors ${isInj ? 'border-emerald-500/40 bg-emerald-900/10' : isOverview ? 'border-god/50 bg-god/5' : 'border-edge bg-void/40'}`}>
                 {/* 行头 */}
                 <div className="flex items-center gap-2.5 px-3.5 py-2.5">
-                  <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${isInj ? 'bg-emerald-400' : 'bg-god/60'}`} />
+                  <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${isInj ? 'bg-emerald-400' : isOverview ? 'bg-god' : 'bg-god/60'}`} />
                   <span className="flex-1 text-sm font-semibold text-slate-200 truncate">{part.label}</span>
                   <span className="shrink-0 text-[10px] font-mono px-1.5 py-0.5 rounded border border-edge text-dim">{part.role}</span>
                   <span className="shrink-0 text-[10px] font-mono text-dim/70 w-16 text-right">~{tok(part.content)} 词符</span>
