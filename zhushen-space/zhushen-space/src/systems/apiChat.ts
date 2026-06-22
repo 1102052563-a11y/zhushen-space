@@ -1,6 +1,7 @@
 import type { ApiConfig } from '../store/settingsStore';
 import { useSettings } from '../store/settingsStore';
 import { acquireApiSlot } from './apiThrottle';
+import { apiDebugLog, autoApiLabel } from './apiDebugLog';
 
 // 默认云端网关；可被「本地网关地址」覆盖（localStorage drpg-gateway-url），用于走你本地 worker（你家 IP，仿 SillyTavern 本地后端）
 const GW_DEPLOYED = 'https://zhushen-multiplayer.1102052563.workers.dev/api/gw/proxy';
@@ -77,10 +78,12 @@ export async function fetchWithProxy(url: string, init?: RequestInit): Promise<R
 export async function apiChatFallback(
   chain: ApiConfig[],
   messages: { role: string; content: string }[],
-  opts?: { timeoutMs?: number; extra?: Record<string, unknown>; onDelta?: (accumulated: string) => void },
+  opts?: { timeoutMs?: number; extra?: Record<string, unknown>; onDelta?: (accumulated: string) => void; label?: string },
 ): Promise<{ content: string; api: ApiConfig }> {
   const usable = (chain ?? []).filter((a) => a && a.baseUrl && a.apiKey);
   if (usable.length === 0) throw new Error('无可用 API 接口（请在功能 API 设置选择接口库接口，或填写单独配置）');
+  // 开发者调试日志：登记本次调用的输入消息（含 system/历史/各注入），返回后补 finish（见下）
+  const _logId = apiDebugLog.push(opts?.label || autoApiLabel(messages), messages);
   // 全局节流：限制并发 + 最小间隔，缓解中转站 429（整条逻辑调用占一个名额，含 fallback 重试）
   const th = useSettings.getState().apiThrottle;
   const release = await acquireApiSlot(th?.maxConcurrent ?? 3, th?.minGapMs ?? 0);
@@ -116,6 +119,7 @@ export async function apiChatFallback(
         bump();   // 已收到响应头 = 有进展，给正文读取一个新的空闲窗口
         const content = await readChatContent(res, api, bump, opts?.onDelta);   // 每收到一块流数据就 bump() + 回调增量内容（供流式展示）
         cleanup();
+        apiDebugLog.finish(_logId, content, true);
         return { content, api };
       } catch (e) {
         cleanup();
@@ -124,6 +128,7 @@ export async function apiChatFallback(
         console.warn(`[API] 接口失败${more ? '，回退下一条' : ''}：${api.modelId} @ ${api.baseUrl}`, e);
       }
     }
+    apiDebugLog.finish(_logId, String((lastErr as any)?.message ?? lastErr ?? '失败'), false, String((lastErr as any)?.message ?? lastErr ?? '失败'));
     throw lastErr ?? new Error('全部接口调用失败');
   } finally {
     release();

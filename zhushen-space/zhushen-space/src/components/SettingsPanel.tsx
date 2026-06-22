@@ -2,6 +2,7 @@ import { useRef, useState } from 'react';
 import { useSettings, endpointToConfig, type WorldBook, type WorldBookEntry, type TextGenPreset, type STPromptEntry, type RegexScript, type ApiEndpoint } from '../store/settingsStore';
 import { apiChatFallback, fetchWithProxy, gwProxyBase } from '../systems/apiChat';
 import { READING_FONTS, readingFontStack } from '../systems/readingFonts';
+import { UI_THEMES } from '../systems/uiThemes';
 import VariableManager from './VariableManager';
 import ApiRoutePicker from './ApiRoutePicker';
 import ItemManager from './ItemManager';
@@ -2610,10 +2611,35 @@ function AppearanceSettingsSection() {
   const setAppearance = useSettings((s) => s.setAppearance);
   const uiVignette    = useSettings((s) => s.uiVignette);
   const setUiVignette = useSettings((s) => s.setUiVignette);
+  const uiTheme    = useSettings((s) => s.uiTheme);
+  const setUiTheme = useSettings((s) => s.setUiTheme);
   const ff = reading.fontFamily || 'default';
   return (
     <div className="space-y-8">
-      <SectionTitle title="界面外观美化" desc="护眼色调 / 暗角 / 正文字体与排版，实时生效。色调与暗角是全局柔化滤镜，不改变存档、也不发送给 AI。" />
+      <SectionTitle title="界面外观美化" desc="主题配色 / 护眼色调 / 暗角 / 正文字体与排版，实时生效（不改变存档、也不发送给 AI）。" />
+
+      {/* 主题配色：整体界面色 + 文字色，多套开源配色（Solarized / Gruvbox / Nord / Dracula / Tokyo Night）*/}
+      <div className="space-y-3">
+        <div className="text-sm font-mono text-god/70 uppercase tracking-widest">主题配色</div>
+        <div className="border border-edge rounded-lg p-4 bg-panel space-y-3">
+          <div className="text-sm text-dim leading-relaxed">一键切换整体界面色与文字色。含浅色「羊皮纸 / 暖阳」（暖黄底、深色字，久看更柔和）与多套暗色主题，取材自知名开源配色。</div>
+          <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+            {UI_THEMES.map((t) => (
+              <button key={t.key} onClick={() => setUiTheme(t.key)}
+                className={`rounded-lg border p-2 text-left transition-colors ${uiTheme === t.key ? 'border-god/70 ring-1 ring-god/40' : 'border-edge hover:border-god/40'}`}>
+                <div className="h-10 rounded-md mb-1.5 flex items-center gap-1.5 px-2 overflow-hidden border border-black/10" style={{ background: t.swatch.bg }}>
+                  <span className="text-base font-bold leading-none" style={{ color: t.swatch.ink }}>永</span>
+                  <span className="text-[11px] leading-none" style={{ color: t.swatch.ink, opacity: 0.65 }}>Aa</span>
+                  <span className="flex-1" />
+                  <span className="w-3.5 h-3.5 rounded-full shrink-0" style={{ background: t.swatch.accent }} />
+                </div>
+                <div className="text-[13px] font-semibold font-mono text-slate-200">{t.label}</div>
+                <div className="text-[10px] text-dim/60 leading-tight truncate">{t.desc}</div>
+              </button>
+            ))}
+          </div>
+        </div>
+      </div>
 
       {/* 护眼色调（全局滤镜）+ 暗角 */}
       <div className="space-y-3">

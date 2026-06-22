@@ -1,86 +1,120 @@
 import { useState } from 'react';
+import { useApiDebugLog } from '../systems/apiDebugLog';
 
-export interface PromptPart {
-  label: string;
-  role: string;
-  content: string;
-}
+// 兼容旧引用：App 的 debugParts 状态仍用此类型（喂给正文日志的 parts）
+export interface PromptPart { label: string; role: string; content: string; }
 
-/* 开发者·正文API提示词查看器：把本回合「实际发给模型」的提示词拆成卡片，
-   重点用来调试注入/深度注入——⚡开头的卡＝深度注入块（贴近当前生成的高优先级注入）。 */
-export default function ApiPromptPanel({ parts, onClose }: { parts: PromptPart[]; onClose: () => void }) {
-  const [openIdx, setOpenIdx] = useState<number | null>(parts.length ? 0 : null);
-  const [copied, setCopied] = useState<string>('');
-  const tok = (s: string) => Math.round(s.length / 3.5);
+const tok = (s: string) => Math.round((s || '').length / 3.5);
+const fmtTime = (ts: number) => new Date(ts).toLocaleTimeString('zh-CN', { hour12: false });
+
+/* 开发者 · API 调试台：分选项卡浏览每一次 API 调用（正文 + 所有演化阶段/功能）的
+   输入（正文带结构化分段：预设块/后历史/深度注入…；其他显示原始消息含聊天记录）+ 返回。
+   左栏＝调用列表（选项卡），右栏＝该调用的紧凑可展开卡片。数据来自全局 apiDebugLog。 */
+export default function ApiPromptPanel({ onClose }: { onClose: () => void }) {
+  const calls = useApiDebugLog((s) => s.calls);
+  const clear = useApiDebugLog((s) => s.clear);
+  const capturing = useApiDebugLog((s) => s.capturing);
+  const setCapturing = useApiDebugLog((s) => s.setCapturing);
+  const [selId, setSelId] = useState<number | null>(null);
+  const [copied, setCopied] = useState('');
+
+  const cur = calls.find((c) => c.id === selId) ?? calls[0];
 
   function copy(text: string, tag: string) {
-    try { navigator.clipboard.writeText(text); setCopied(tag); setTimeout(() => setCopied(''), 1500); } catch { /* */ }
-  }
-  function copyAll() {
-    copy(parts.map((p) => `===== ${p.label} =====\n${p.content}`).join('\n\n\n'), 'all');
+    try { navigator.clipboard.writeText(text); setCopied(tag); setTimeout(() => setCopied(''), 1200); } catch { /* */ }
   }
 
   return (
     <div className="fixed inset-0 z-[60] bg-black/80 backdrop-blur-sm flex flex-col" onClick={onClose}>
-      <div className="flex-1 flex flex-col max-w-4xl w-full mx-auto px-4 py-6 min-h-0" onClick={(e) => e.stopPropagation()}>
+      <div className="flex-1 flex flex-col max-w-6xl w-full mx-auto px-3 py-4 min-h-0" onClick={(e) => e.stopPropagation()}>
 
-        {/* 标题 */}
-        <div className="text-center mb-4 shrink-0">
-          <h2 className="text-2xl font-bold text-slate-100 tracking-wide">正文 API 提示词</h2>
-          <div className="text-[11px] font-mono tracking-[0.3em] text-god/60 mt-1">API PROMPT · 开发者调试 · 共 {parts.length} 段</div>
-          <div className="mx-auto mt-2 w-24 h-px bg-gradient-to-r from-transparent via-god/50 to-transparent" />
+        {/* 标题栏 */}
+        <div className="shrink-0 flex items-center gap-3 mb-2">
+          <h2 className="text-lg font-bold text-slate-100">API 调试台</h2>
+          <span className="text-[10px] font-mono text-god/60">{calls.length} 条调用</span>
+          <label className="text-[10px] font-mono text-dim flex items-center gap-1 cursor-pointer select-none">
+            <input type="checkbox" checked={capturing} onChange={(e) => setCapturing(e.target.checked)} /> 捕获
+          </label>
+          <button onClick={clear} className="text-[10px] font-mono px-2 py-0.5 border border-edge rounded text-dim hover:text-slate-200 transition-colors">清空</button>
+          <span className="ml-auto text-[10px] text-dim/60 hidden sm:inline">正文＝结构化分段 · 其他阶段＝原始消息+返回</span>
+          <button onClick={onClose} className="text-[11px] font-mono px-3 py-1 border border-edge rounded text-dim hover:text-slate-200 transition-colors">← 返回</button>
         </div>
 
-        {/* 卡片列表 */}
-        <div className="flex-1 min-h-0 overflow-y-auto rounded-xl border border-edge bg-panel/40 p-3 space-y-2">
-          {parts.length === 0 && (
-            <div className="text-center text-dim text-sm py-16">还没有数据——先发送一条消息生成正文，再打开本页。</div>
-          )}
-          {parts.map((part, i) => {
-            const isInj = part.label.startsWith('⚡');
-            const isOverview = part.label.startsWith('📊');
-            const open = openIdx === i;
-            return (
-              <div key={i} className={`rounded-lg border transition-colors ${isInj ? 'border-emerald-500/40 bg-emerald-900/10' : isOverview ? 'border-god/50 bg-god/5' : 'border-edge bg-void/40'}`}>
-                {/* 行头 */}
-                <div className="flex items-center gap-2.5 px-3.5 py-2.5">
-                  <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${isInj ? 'bg-emerald-400' : isOverview ? 'bg-god' : 'bg-god/60'}`} />
-                  <span className="flex-1 text-sm font-semibold text-slate-200 truncate">{part.label}</span>
-                  <span className="shrink-0 text-[10px] font-mono px-1.5 py-0.5 rounded border border-edge text-dim">{part.role}</span>
-                  <span className="shrink-0 text-[10px] font-mono text-dim/70 w-16 text-right">~{tok(part.content)} 词符</span>
-                  <button onClick={() => copy(part.content, String(i))}
-                    className="shrink-0 text-[11px] font-mono px-2 py-0.5 rounded border border-edge text-dim hover:border-god/40 hover:text-god transition-colors">
-                    {copied === String(i) ? '✓' : '复制'}
-                  </button>
-                  <button onClick={() => setOpenIdx(open ? null : i)}
-                    className="shrink-0 text-dim hover:text-slate-200 px-1 transition-colors">{open ? '∧' : '∨'}</button>
-                </div>
-                {/* 展开内容 */}
-                {open && (
-                  <div className="border-t border-edge/40 px-3.5 py-3 max-h-[46vh] overflow-y-auto">
-                    <pre className="text-[11px] font-mono text-slate-300 whitespace-pre-wrap break-words leading-relaxed">{part.content || '（空）'}</pre>
+        <div className="flex-1 min-h-0 flex gap-2">
+          {/* 左：调用列表（选项卡） */}
+          <div className="w-52 shrink-0 overflow-y-auto rounded-lg border border-edge bg-panel/40 p-1.5 space-y-1">
+            {calls.length === 0 && <div className="text-center text-dim text-[11px] py-8 leading-relaxed">还没有调用<br />发一条消息 / 跑个演化阶段试试</div>}
+            {calls.map((c) => {
+              const active = cur?.id === c.id;
+              return (
+                <button key={c.id} onClick={() => setSelId(c.id)}
+                  className={`w-full text-left px-2 py-1.5 rounded text-[11px] transition-colors border ${active ? 'border-god/50 bg-god/10 text-slate-100' : 'border-transparent hover:bg-void/50 text-dim'}`}>
+                  <div className="flex items-center gap-1.5">
+                    <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${c.pending ? 'bg-amber-400 animate-pulse' : c.ok ? 'bg-emerald-400' : 'bg-rose-500'}`} />
+                    <span className="flex-1 truncate font-semibold">{c.label}</span>
                   </div>
-                )}
-              </div>
-            );
-          })}
-        </div>
+                  <div className="text-[9px] font-mono text-dim/70 mt-0.5">
+                    {fmtTime(c.ts)} · {c.messages.length}条 · ~{tok(c.messages.map((m) => m.content).join(''))}词
+                    {c.ms ? ' · ' + c.ms + 'ms' : c.pending ? ' · …' : ''}
+                  </div>
+                </button>
+              );
+            })}
+          </div>
 
-        {/* 底部 */}
-        <div className="shrink-0 flex items-center gap-3 mt-4">
-          <button onClick={onClose}
-            className="px-4 py-1.5 text-sm font-mono border border-edge text-dim hover:border-slate-400/40 hover:text-slate-200 rounded transition-colors">
-            ← 返回
-          </button>
-          <span className="flex-1 text-center text-[11px] text-dim/70">
-            ⓘ 本页展示本回合「实际发给模型」的提示词；<span className="text-emerald-400/80">⚡绿色卡＝深度注入块</span>（贴近当前生成的高优先级注入）
-          </span>
-          <button onClick={copyAll}
-            className="px-4 py-1.5 text-sm font-mono border border-god/40 text-god hover:bg-god/10 rounded transition-colors">
-            {copied === 'all' ? '✓ 已复制' : '复制全部 ⧉'}
-          </button>
+          {/* 右：选中调用详情 */}
+          <div className="flex-1 min-h-0 overflow-y-auto rounded-lg border border-edge bg-panel/40 p-2 space-y-1.5">
+            {!cur && <div className="text-center text-dim text-sm py-16">选择左侧一条调用查看其输入与返回</div>}
+            {cur && (
+              <>
+                <div className="text-[10px] font-mono text-dim/70 px-1 pb-0.5">
+                  {cur.label} · {fmtTime(cur.ts)} · {cur.pending ? '生成中…' : cur.ok ? '成功 ' + (cur.ms ?? '?') + 'ms' : '失败'}
+                  {cur.parts ? ' · 结构化分段' : ' · 原始消息'}
+                </div>
+                {cur.parts
+                  ? cur.parts.map((p, i) => <DbgCard key={'p' + i} label={p.label} role={p.role} content={p.content} onCopy={copy} tag={'p' + i} copied={copied} />)
+                  : cur.messages.map((m, i) => <DbgCard key={'m' + i} label={'消息 #' + (i + 1)} role={m.role} content={m.content} onCopy={copy} tag={'m' + i} copied={copied} />)}
+                <DbgCard label="↩ 返回 response" role={cur.ok ? 'ok' : cur.pending ? '…' : 'error'}
+                  content={cur.pending ? '（生成中…）' : cur.response || cur.error || '（空）'}
+                  onCopy={copy} tag="resp" copied={copied} defaultOpen />
+              </>
+            )}
+          </div>
         </div>
       </div>
+    </div>
+  );
+}
+
+function DbgCard({ label, role, content, onCopy, tag, copied, defaultOpen }: {
+  label: string; role: string; content: string;
+  onCopy: (t: string, tag: string) => void; tag: string; copied: string; defaultOpen?: boolean;
+}) {
+  const [open, setOpen] = useState(!!defaultOpen);
+  const tk = tok(content);
+  const isInj = label.startsWith('⚡');
+  const isOv = label.startsWith('📊');
+  const isResp = label.startsWith('↩');
+  const isTail = label.startsWith('📜');
+  const cls = isResp || isOv ? 'border-god/40 bg-god/5'
+    : isInj ? 'border-emerald-500/40 bg-emerald-900/10'
+    : isTail ? 'border-sky-500/30 bg-sky-900/10'
+    : 'border-edge bg-void/40';
+  return (
+    <div className={`rounded border ${cls}`}>
+      <div className="flex items-center gap-2 px-2.5 py-1.5 cursor-pointer" onClick={() => setOpen((o) => !o)}>
+        <span className="flex-1 text-[12px] font-semibold text-slate-200 truncate">{label}</span>
+        <span className="shrink-0 text-[9px] font-mono px-1 py-0.5 rounded border border-edge text-dim">{role}</span>
+        <span className="shrink-0 text-[9px] font-mono text-dim/60 w-12 text-right">~{tk}词</span>
+        <button onClick={(e) => { e.stopPropagation(); onCopy(content, tag); }}
+          className="shrink-0 text-[10px] font-mono text-dim hover:text-god transition-colors">{copied === tag ? '✓' : '复制'}</button>
+        <span className="shrink-0 text-dim text-[10px] w-3 text-center">{open ? '∧' : '∨'}</span>
+      </div>
+      {open && (
+        <div className="border-t border-edge/40 px-2.5 py-2 max-h-[42vh] overflow-y-auto">
+          <pre className="text-[11px] font-mono text-slate-300 whitespace-pre-wrap break-words leading-relaxed">{content || '（空）'}</pre>
+        </div>
+      )}
     </div>
   );
 }

@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect } from 'react';
 import { useNpc, type NpcRecord } from '../store/npcStore';
 import { useCharacters, RARITY_CLS, ELEMENT_CLS, SKILL_TIER_CLS, normSkillTier, type Deed } from '../store/characterStore';
-import { computeDerived, lvFromRealm, normalizeTier, tierFxClass, realmFromLevel, trueAttr, effectiveResource, fullMaxHp, fullMaxEp, TIERS } from '../systems/derivedStats';
+import { computeDerived, lvFromRealm, normalizeTier, tierFxClass, realmFromLevel, trueAttr, effectiveResource, fullMaxHp, fullMaxEp, TIERS, realAttrCapForTier } from '../systems/derivedStats';
 import { computeAttrBreakdown, effectiveAttrs, ATTR_LABEL, type AttrBreak } from '../systems/attrBonus';
 import { bioInnate, bioPower, bioStrengthLabel, BIO_TIER_NAMES, nominalTierNum } from '../systems/bioStrength';
 import { generateNpcAttrs, resolveForm, UNIT_TYPE_LABELS } from '../systems/npcAttrGen';
@@ -1066,6 +1066,7 @@ function AttrTab({ npc: npcProp, realm }: { npc: NpcRecord; realm: ReturnType<ty
   const attrPts = npc.attrPoints ?? 0;
   const realPts = npc.realAttrPoints ?? 0;
   const realAttrs = npc.realAttrs ?? {};   // 真实属性·直加分配（与基础独立）
+  const realCap = realAttrCapForTier(npc.realm, lvFromRealm(npc.realm));   // 真实属性·每项上限（五阶起·含派生+直加；一~四阶=Infinity）
   const [pending, setPending] = useState<Record<string, { ap: number; rap: number }>>({});
   const [pickerQueue, setPickerQueue] = useState<{ key: keyof PlayerAttrs; label: string; milestone: number }[]>([]);
   const stagedAp = Object.values(pending).reduce((s, v) => s + (v.ap || 0), 0);
@@ -1077,7 +1078,12 @@ function AttrTab({ npc: npcProp, realm }: { npc: NpcRecord; realm: ReturnType<ty
     // 在 updater 内部按最新 pending 算剩余，避免同一渲染内连点超额暂存（attrPts/realPts 在确认前不变）
     const usedAp = Object.values(p).reduce((s, v) => s + (v.ap || 0), 0);
     const usedRap = Object.values(p).reduce((s, v) => s + (v.rap || 0), 0);
-    if (showTrue) return realPts - usedRap <= 0 ? p : { ...p, [key]: { ...cur, rap: cur.rap + 1 } };
+    if (showTrue) {
+      if (realPts - usedRap <= 0) return p;                                   // 真实属性点不足
+      const projected = trueAttr(npc.attrs?.[key] ?? 0) + (realAttrs[key] ?? 0) + cur.rap + 1;
+      if (projected > realCap) return p;                                      // 已达本阶真实属性上限，禁止再加
+      return { ...p, [key]: { ...cur, rap: cur.rap + 1 } };
+    }
     return attrPts - usedAp <= 0 ? p : { ...p, [key]: { ...cur, ap: cur.ap + 1 } };
   });
   const unstage = (key: keyof PlayerAttrs) => setPending((p) => {
@@ -1100,8 +1106,11 @@ function AttrTab({ npc: npcProp, realm }: { npc: NpcRecord; realm: ReturnType<ty
       const oldBase = baseAttrs[def.key] ?? 0;
       const oldAlloc = (rec.realAttrs?.[def.key]) ?? 0;
       const newBase = oldBase + pd.ap;            // 属性点 → +1 基础
-      const newAlloc = oldAlloc + pd.rap;         // 真实属性点 → +1 真实·直加（不动基础）
-      newAttrs[def.key] = newBase; newReal[def.key] = newAlloc; useAp += pd.ap; useRap += pd.rap;
+      // 真实属性点 → +1 真实·直加（不动基础）；按本阶真实属性上限钳制「派生+直加」合计，超出部分不消耗点(退回)
+      const cap = realAttrCapForTier(rec.realm, lvFromRealm(rec.realm));
+      const maxAlloc = isFinite(cap) ? Math.max(oldAlloc, cap - trueAttr(newBase)) : Infinity;
+      const newAlloc = Math.min(oldAlloc + pd.rap, maxAlloc);
+      newAttrs[def.key] = newBase; newReal[def.key] = newAlloc; useAp += pd.ap; useRap += (newAlloc - oldAlloc);
       for (const m of milestonesCrossed(trueAttr(oldBase) + oldAlloc, trueAttr(newBase) + newAlloc)) queue.push({ key: def.key, label: def.label, milestone: m });
     }
     if (!useAp && !useRap) return;

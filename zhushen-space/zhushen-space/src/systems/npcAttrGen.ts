@@ -232,7 +232,7 @@ function isMundane(job?: string, tier?: string, identity?: string): boolean {
 export function generateNpcAttrs(opts: GenAttrOpts): PlayerAttrs {
   const rng = mulberry32(hashSeed(opts.seed ?? 'npc') ^ (parseBioNum(opts.bioTier) * 2654435761));
   const tierNum = nominalTierNum(opts.tier, opts.level);
-  const [min] = tierBounds(tierNum);
+  const [min, tierCap] = tierBounds(tierNum);
 
   // 类型规格(收编 职业排序+流派+凡人+形态)：type 优先，缺失退回 job 花名归类(向后兼容)
   const ts = resolveType(opts.type || opts.job);
@@ -292,6 +292,22 @@ export function generateNpcAttrs(opts: GenAttrOpts): PlayerAttrs {
     else if (rule === 'weak') val[a] = Math.min(val[a], absWeak(rng));                   // 退化≈3~12
   });
 
+  // 4.5 五维总和上限（前端硬护栏·防"五维全顶"）：sumCap = 2×阶位上限 + 3×阶位下限（≈"至多两项满配 + 三项保底"）。
+  //     超出则把「高于地板 min 的部分」等比例压回预算内：保留主次结构、不破 min 地板、不动被形态压到 min 以下的维(none/weak)。
+  const sumCap = 2 * tierCap + 3 * min;
+  const dims5: (keyof PlayerAttrs)[] = ['str', 'agi', 'con', 'int', 'cha'];
+  const sum5 = dims5.reduce((t, a) => t + val[a], 0);
+  if (sum5 > sumCap) {
+    const lowBase = dims5.reduce((t, a) => t + Math.min(val[a], min), 0);  // 每维 ≤min 的部分(地板及被压维原样保留)
+    const headroom = sum5 - lowBase;                                       // 高于地板的总余量
+    const budget = Math.max(0, sumCap - lowBase);                         // 可保留的余量预算
+    if (headroom > budget && headroom > 0) {
+      const scale = budget / headroom;
+      for (const a of dims5) if (val[a] > min) val[a] = min + Math.round((val[a] - min) * scale);
+      console.log(`[NpcAttr] 五维总和 ${sum5}>${sumCap}（${tierNum}阶）→ 等比压回上限`);
+    }
+  }
+
   // 5. 幸运(单列，不进 5 项预算/不算战力)：抽到 generateLuck() 独立函数(前端独占·确定性)，正文 NPC 也复用同一套。
   const mean5 = (val.str + val.agi + val.con + val.int + val.cha) / 5;
   val.luck = generateLuck({ mean5, cap: peakCap, form, themeText: `${opts.job ?? ''}${opts.identity ?? ''}${opts.type ?? ''}`, seed: opts.seed });
@@ -319,10 +335,9 @@ export function generateLuck(o: LuckOpts): number {
   const rule: DimRule = FORM_PROFILE[form].luck;
   const themed = !!o.themeText && LUCK_THEME_RE.test(o.themeText);
   const luckyBorn = rule === 'boost' || themed || rng() < 0.15;        // 偶发/主题/形态 → 天生幸运
-  let luck = luckyBorn
-    ? Math.round(o.mean5 * (0.6 + 0.9 * rng()))   // 天生幸运：均值的 0.6~1.5，随五维上下浮动(可超 20)
-    : Math.floor(rng() * 21);                      // 常态：0~20 浮动
+  // 幸运恒锁死在 0~20（特殊属性，量级与五维无关，绝不随五维膨胀）：天生幸运取高位 12~20，常态全区间 0~20。
+  let luck = luckyBorn ? 12 + Math.floor(rng() * 9) : Math.floor(rng() * 21);
   if (rule === 'none') luck = Math.floor(rng() * 3);                   // 机械/虫群·无命数≈0~2
   else if (rule === 'weak') luck = Math.round(luck * 0.5);             // 亡灵/植物/黏·倒霉折半
-  return clamp(luck, 0, Math.max(20, Math.round(o.cap ?? 20)));
+  return clamp(luck, 0, 20);
 }

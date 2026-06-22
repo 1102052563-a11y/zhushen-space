@@ -4,15 +4,17 @@ export default {
   theme: {
     extend: {
       colors: {
-        void: '#070a10',
-        panel: '#0e141d',
-        panel2: '#141c28',
-        edge: '#1e2a3a',
-        god: '#46e3cf',      // 主神系统青光
-        blood: '#e0445a',    // 危险 / 伤害
-        gold: '#d8b14e',     // 奖励点
-        san: '#9b7ad6',      // 精神
-        dim: '#8b9db2',      // 次要文字（已调亮以提升对比度/可读性）
+        // token 改为 CSS 变量（"R G B" 三元组 + <alpha-value>）→ 切主题只改 <html> 上的 --c-* 即可全局换色。
+        // 默认值见 index.css :root；各主题见 systems/uiThemes.ts。
+        void:   'rgb(var(--c-void) / <alpha-value>)',
+        panel:  'rgb(var(--c-panel) / <alpha-value>)',
+        panel2: 'rgb(var(--c-panel2) / <alpha-value>)',
+        edge:   'rgb(var(--c-edge) / <alpha-value>)',
+        god:    'rgb(var(--c-god) / <alpha-value>)',      // 主神系统青光（随主题）
+        blood:  'rgb(var(--c-blood) / <alpha-value>)',    // 危险 / 伤害
+        gold:   'rgb(var(--c-gold) / <alpha-value>)',     // 奖励点
+        san:    'rgb(var(--c-san) / <alpha-value>)',      // 精神
+        dim:    'rgb(var(--c-dim) / <alpha-value>)',      // 次要文字
       },
       fontFamily: {
         mono: ['"JetBrains Mono"', 'ui-monospace', 'SFMono-Regular', 'Menlo', 'monospace'],

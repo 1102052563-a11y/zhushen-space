@@ -97,6 +97,7 @@ import WeatherFx from './components/WeatherFx';
 import CommandPalette from './components/CommandPalette';
 import { setAudioSettings, playSfx, setAmbient } from './systems/audio';
 import { readingFontStack, LXGW_WENKAI_CSS } from './systems/readingFonts';
+import { applyUiTheme } from './systems/uiThemes';
 const CombatSetup = lazy(() => import('./components/CombatSetup'));
 import { useTerritory, buildTerritorySystemPrompt, buildingCap } from './store/territoryStore';
 import { useTeam, buildTeamSystemPrompt, memberCap as teamMemberCap } from './store/adventureTeamStore';
@@ -110,6 +111,7 @@ import { generateImage, buildPortraitPrompt, buildEquipPrompt, shrinkDataUrl } f
 import { genPortraitTags, genEquipTags, isTagService } from './systems/imageTags';
 import { hydrateImages, initImageSync } from './systems/imageSync';
 import { loadWb, saveWb } from './systems/wbDb';
+import { apiDebugLog } from './systems/apiDebugLog';
 import ApiPromptPanel, { type PromptPart } from './components/ApiPromptPanel';
 const TerritoryPanel = lazy(() => import('./components/TerritoryPanel'));
 const CosmosPanel = lazy(() => import('./components/CosmosPanel'));
@@ -738,6 +740,7 @@ export default function App() {
   const textPresets      = useSettings((s) => s.textPresets);
   const activePresetId   = useSettings((s) => s.activeTextPresetId);
   const activePresetName = useSettings((s) => s.activeTextPresetName);
+  if (import.meta.env.DEV && typeof window !== 'undefined') { (window as any).__zsSettings = useSettings; (window as any).__buildPM = buildPresetMessages; } // DEV 验证暴露
   const textStream           = useSettings((s) => s.textStream);
   const skipNarrativeThinking = useSettings((s) => s.skipNarrativeThinking);
   const plotGuidance         = useSettings((s) => s.plotGuidance);
@@ -934,6 +937,7 @@ export default function App() {
   const weatherFxOn      = useSettings((s) => s.weatherFx);
   const appearanceMode   = useSettings((s) => s.appearance);   // 外观护眼色调（classic/eyecare/warm）→ <html data-appearance>
   const uiVignette       = useSettings((s) => s.uiVignette);   // 背景暗角氛围 → <html data-vignette>
+  const uiTheme          = useSettings((s) => s.uiTheme);      // 主题配色（整体界面色+文字色）→ 改写 <html> 上的 --c-* 变量
   // ── 游戏音效（懒加载 Howler·缺音频文件静默）──
   const audioCfg = useSettings((s) => s.audio);
   const prevChatUnread = useRef<number | null>(null);
@@ -941,6 +945,7 @@ export default function App() {
   // 外观美化：把护眼色调 / 暗角写到 <html> 属性，由 index.css 的固定滤镜层响应（全局生效、不影响布局与点击）
   useEffect(() => { document.documentElement.setAttribute('data-appearance', appearanceMode || 'classic'); }, [appearanceMode]);
   useEffect(() => { document.documentElement.setAttribute('data-vignette', uiVignette ? '1' : '0'); }, [uiVignette]);
+  useEffect(() => { applyUiTheme(uiTheme); }, [uiTheme]);   // 主题配色：把 --c-* 变量改写到 <html>（含浅色标记 data-ui-light）
   // 正文字体选「霞鹜文楷」时才懒加载其 webfont CSS（分块 woff2，仅用到的字形下载）；加载一次即留存，切走不卸载
   useEffect(() => {
     if ((reading.fontFamily || 'default') === 'kai' && !document.getElementById('lxgw-wenkai-css')) {
@@ -1340,10 +1345,17 @@ export default function App() {
 
   // 从 entries[] 构建系统提示和示例消息
   function buildPresetMessages(preset: (typeof textPresets)[0] | undefined, ctx: string, userInput = '') {
-    const entries = (preset?.entries ?? []).filter((e) => e.enabled && !e.marker);
+    // 仿 fanren 范式：认 chatHistory marker，把「相对块(非深度注入)」切成 前历史 / 后历史。
+    //   前历史 system→合并系统提示、user/assistant→少样本；后历史块→插在真实楼层之后(post-history)。
+    //   无 chatHistory marker 的预设（轮回乐园三本）→ 全部当前历史，行为不变。
+    const enabled = (preset?.entries ?? []).filter((e) => e.enabled);
+    const relative = enabled.filter((e) => e.injection_position !== 1);
+    const chatIdx = relative.findIndex((e) => e.marker && e.identifier === 'chatHistory');
+    const preRel = chatIdx >= 0 ? relative.slice(0, chatIdx) : relative;
+    const postRel = chatIdx >= 0 ? relative.slice(chatIdx + 1) : [];
 
-    // system role 条目拼成系统提示（同时留一份「分段明细」sysSegments 给开发者面板：每个预设块/前端规则各自一段）
-    const sysBlocks = entries.filter((e) => (e.role === 'system' || e.system_prompt) && e.injection_position !== 1 && e.content);
+    // 前历史 system 块 → 拼成系统提示（同时留 sysSegments 给开发者面板）
+    const sysBlocks = preRel.filter((e) => !e.marker && (e.role === 'system' || e.system_prompt) && e.content);
     const sysSegments: { label: string; content: string }[] = sysBlocks.map((e) => ({ label: '预设块 · ' + (e.name || e.identifier || '(无名)'), content: e.content }));
     const sysParts = sysBlocks.map((e) => e.content);
     let sysPrompt = sysParts.join('\n\n') || '你是一个沉浸式文字RPG的故事叙述者。';
@@ -1368,13 +1380,22 @@ export default function App() {
       sysPrompt += '\n\n' + povRule; sysSegments.push({ label: '前端规则 · 叙事人称（' + povSel + '）', content: povRule });
     }
 
-    // user/assistant 条目作为示例历史
-    const examples = entries
-      .filter((e) => e.role !== 'system' && !e.system_prompt && e.content && e.identifier !== 'prefill' && e.injection_position !== 1)
+    // 前历史 user/assistant 条目 → 少样本示例
+    const examples = preRel
+      .filter((e) => !e.marker && e.role !== 'system' && !e.system_prompt && e.content && e.identifier !== 'prefill')
       .map((e) => ({ role: e.role as 'user' | 'assistant', content: e.content }));
 
-    // 深度注入：injection_position===1 的块（system 或 user/assistant）→ 不进 system 大块/few-shot，改按 injection_depth 插到对话末尾附近（贴近当前生成＝优先级高，ST 风格）
-    const depthInjections = entries
+    // 后历史块（chatHistory marker 之后的相对块）→ 插在真实楼层之后（post-history，仿 fanren）
+    const tail = postRel
+      .filter((e) => !e.marker && e.content && e.identifier !== 'prefill')
+      .map((e) => ({
+        label: e.name || e.identifier || '(无名)',
+        role: (e.role === 'system' || e.system_prompt) ? ('system' as const) : (e.role as 'user' | 'assistant'),
+        content: e.content,
+      }));
+
+    // 深度注入：injection_position===1 的块（全量，不分前后历史）→ 按 injection_depth 插到对话末尾附近（贴近生成＝高优先，ST 风格）
+    const depthInjections = enabled
       .filter((e) => e.injection_position === 1 && e.content && e.identifier !== 'prefill')
       .map((e) => ({
         label: e.name || e.identifier || '(无名)',
@@ -1384,9 +1405,9 @@ export default function App() {
       }));
 
     // 末尾预填充：identifier='prefill' 的 assistant 块改放 messages 最末尾让模型续写
-    const prefillEntry = entries.find((e) => e.identifier === 'prefill' && e.role === 'assistant' && e.content);
+    const prefillEntry = enabled.find((e) => e.identifier === 'prefill' && e.role === 'assistant' && e.content);
     const prefill = prefillEntry?.content ?? '';
-    return { sysPrompt, examples, prefill, depthInjections, sysSegments };
+    return { sysPrompt, examples, prefill, depthInjections, sysSegments, tail };
   }
 
   // 无预设条目时的内置兜底提示词
@@ -6063,7 +6084,7 @@ ${lines}`;
     } catch (e) { console.warn('[NovelVec] 检索失败', e); }
     const worldInfoText = [wbKeywordText, novelVecText].filter(Boolean).join('\n\n');
 
-    const { sysPrompt, examples, prefill, depthInjections, sysSegments } = buildPresetMessages(preset, worldInfoText, userText);
+    const { sysPrompt, examples, prefill, depthInjections, sysSegments, tail } = buildPresetMessages(preset, worldInfoText, userText);
     // 跳过思维链（设置开时）：末尾预填充 </think>，让思考模型以为思考已结束、直接出正文（与 preset 自带 prefill 叠加）
     const effectivePrefill = skipNarrativeThinking ? ('</think>\n' + (prefill ?? '')).trimEnd() : prefill;
     // 剧情指导（开启时）：正文生成【前】先跑一次，产出剧情优化建议 → 像叙事回忆一样注入主正文，由主正文据此写（仅一次正文生成）
@@ -6176,6 +6197,7 @@ ${lines}`;
       ...recent,                                       // 最近原文楼层
       ...structPlayer,                                 // <主角当前档案> 浅注入：紧贴最近正文/用户输入，让主角数值更难被 API 忽略
       ...guidanceBlock,                                // <剧情指导> 本回合写作建议（剧情指导开启时，紧贴用户输入注入，像叙事回忆一样）
+      ...tail.map((t) => ({ role: t.role, content: t.content })),   // <后历史预设块> chatHistory marker 之后的预设块（破限/格式/规则等）→ 真实楼层之后（仿 fanren post-history）
       ...[...depthInjections, ...wbDepthInjections].sort((a, b) => b.depth - a.depth).map((inj) => ({ role: inj.role, content: inj.content })),
       { role: 'user' as const, content: userText },
       ...(effectivePrefill ? [{ role: 'assistant' as const, content: effectivePrefill }] : []),   // 末尾预填充（prefill 块 / 跳过思维链）
@@ -6187,21 +6209,27 @@ ${lines}`;
     setPromptSent(`=== SYSTEM ===\n${sysPrompt}\n\n=== HISTORY ===\n${history.map((m) => `[${m.role}] ${m.content}`).join('\n')}`);
     setShowPrompt(false);
     // 开发者·正文API提示词：把本回合「实际发给模型」的提示词拆成卡片（重点＝深度注入块），供「🛠 开发者」查看
-    setDebugParts([
+    let narrLogId = -1;
+    const narrParts = [
       { label: '📊 概览（本回合实际发送结构）', role: 'info', content:
         '激活预设：' + (preset?.name ?? '（无 → 最简默认）') + '\n' +
         '预设条目：' + ((preset?.entries ?? []).length) + ' 总 / ' + ((preset?.entries ?? []).filter((e) => e.enabled && !e.marker).length) + ' 启用\n' +
-        '拆分去向：system 分段 ' + sysSegments.length + ' 段（预设块+前端规则）· 少样本 ' + examples.length + ' 条 · 深度注入 ' + depthInjections.length + ' 块（+世界书深注入 ' + wbDepthInjections.length + '）· prefill ' + (effectivePrefill ? '有' : '无') + '\n' +
+        '拆分去向：system 分段 ' + sysSegments.length + ' 段 · 少样本 ' + examples.length + ' 条 · 后历史块 ' + tail.length + ' 块 · 深度注入 ' + depthInjections.length + '（+世界书 ' + wbDepthInjections.length + '）· prefill ' + (effectivePrefill ? '有' : '无') + '\n' +
+        (tail.length ? '✅ 已认出 chatHistory marker：' + tail.length + ' 个后历史块已插到真实楼层之后(仿 fanren)\n' : '（无 chatHistory marker：全部当前历史，行为同旧版）\n') +
         '总消息条数：' + (1 + history.length) + '（1 条合并 system ＋ ' + history.length + ' 条历史/注入/输入/prefill）\n' +
         '合并 system 总长：~' + Math.round(sysPrompt.length / 3.5) + ' 词符 · 流式 ' + ((preset?.stream ?? textStream) ? '开' : '关') },
       ...sysSegments.map((s) => ({ label: (s.label.startsWith('预设块') ? '🧩 ' : '🔧 ') + s.label, role: 'system', content: s.content })),
       ...examples.map((e, i) => ({ label: '💬 少样本示例 #' + (i + 1) + '（' + e.role + '）', role: e.role as string, content: e.content })),
+      ...tail.map((t) => ({ label: '📜 后历史块 · ' + (t as any).label, role: t.role as string, content: t.content })),
       ...depthInjections.map((inj) => ({ label: '⚡ 深度注入 · ' + ((inj as any).label ?? '块') + ' · depth ' + inj.depth, role: inj.role, content: inj.content })),
       ...wbDepthInjections.map((inj) => ({ label: '⚡ 世界书·深度注入 · depth ' + inj.depth, role: inj.role, content: inj.content })),
       ...(effectivePrefill ? [{ label: '🅰 末尾预填充 prefill（assistant 续写）', role: 'assistant', content: effectivePrefill }] : []),
       { label: '① 合并后完整 system（实际发送的整段）', role: 'system', content: sysPrompt },
       { label: '② 完整发送序列（全部消息）', role: 'all', content: '=== SYSTEM ===\n' + sysPrompt + '\n\n=== MESSAGES ===\n' + history.map((m) => '[' + m.role + '] ' + m.content).join('\n\n') },
-    ]);
+    ];
+    setDebugParts(narrParts);
+    // 主正文也登记进全局 API 日志（带结构化 parts + 待补响应），让开发者面板与各演化阶段统一分选项卡浏览
+    narrLogId = apiDebugLog.push('📖 正文', [{ role: 'system', content: sysPrompt }, ...history], narrParts);
     // 记录本回合实际注入正文的「记忆/档案」块，供「查看注入记忆」核对
     {
       const vmOn = vm.enabled && !!vm.apiBase && !!vm.apiKey;   // 向量召回是否在生效
@@ -6313,6 +6341,7 @@ ${lines}`;
             prev.map((m) => m.id === streamMsgId ? { ...m, content: partial || accumulated || '（已停止生成）' } : m)
           );
           console.log('[正文] 已手动停止，保留部分正文（未触发演化）');
+          apiDebugLog.finish(narrLogId, accumulated || '（已停止）', true);
           return;   // finally 仍会执行 setGenerating(false)
         }
         // 流结束后：先剥掉泄漏进正文的思维链块（中转把 <think> 拍平进 content / 末尾 </think> 预填充被回显），再解析/渲染
@@ -6330,6 +6359,7 @@ ${lines}`;
           prev.map((m) => m.id === streamMsgId ? { ...m, content: finalDisplayed } : m)
         );
         setRawResponse(accumulated);
+        apiDebugLog.finish(narrLogId, accumulated, true);
         if (!accumulated) throw new Error('模型未返回内容');
         // 演化阶段读的正文：去 state 块外，再去掉击杀结算块（保留 <状态结算> 供 HP/EP 结算用，避免演化AI看到点数又重复发 ap）
         const narrativeForEvo = narrativeForEvoRaw.replace(/<击杀结算>[\s\S]*?<\/击杀结算>/gi, '').trimEnd();
@@ -6342,6 +6372,7 @@ ${lines}`;
         // ── 非流式：等待完整响应 ──
         const rawText = await res.text();
         setRawResponse(rawText);
+        apiDebugLog.finish(narrLogId, rawText, true);
         const data = JSON.parse(rawText);
         const reply: string = data.choices?.[0]?.message?.content ?? data.choices?.[0]?.text ?? '';
         if (!reply) throw new Error('模型未返回内容');
@@ -6364,6 +6395,7 @@ ${lines}`;
         return processed;
       }
     } catch (e: any) {
+      apiDebugLog.finish(narrLogId, String(e?.message ?? e ?? '失败'), false);
       if (e?.name === 'AbortError') { setGenError(''); console.log('[正文] 已手动停止生成'); }
       else setGenError(e.message ?? '请求失败');
     } finally {
@@ -7168,7 +7200,7 @@ ${lines}`;
               )}
             </div>
           </div>
-          {showDevPrompt && <ApiPromptPanel parts={debugParts} onClose={() => setShowDevPrompt(false)} />}
+          {showDevPrompt && <ApiPromptPanel onClose={() => setShowDevPrompt(false)} />}
           {showInjected && injectedMem && (
             <div className="shrink-0 border-t border-emerald-900/40 bg-void px-4 py-3 max-h-72 overflow-y-auto">
               <div className="text-[10px] font-mono text-emerald-400/70 mb-1.5">本回合实际注入正文的记忆 / 结构化档案（即主叙事 API 能看到的内容）</div>

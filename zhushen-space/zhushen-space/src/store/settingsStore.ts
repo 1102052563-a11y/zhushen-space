@@ -252,7 +252,9 @@ interface SettingsState {
   customOpening: string;  // 自定义开场白模板（角色创建确认后自动发送；含 ${...} 占位符，空=用内置默认）
   reading: { fontSize: number; letterSpacing: number; lineHeight: number; fontFamily: 'default' | 'kai' | 'song' };  // 正文阅读排版：字号(px)/字间距(px)/行距(倍数)/正文字体；默认 17/0/1.8/default=现状
   setReading: (patch: Partial<{ fontSize: number; letterSpacing: number; lineHeight: number; fontFamily: 'default' | 'kai' | 'song' }>) => void;
-  appearance: 'classic' | 'eyecare' | 'warm';  // 外观护眼色调：classic=原版青光黑底 / eyecare=柔光护眼(暖白·弱化纯白光晕) / warm=夜读暖光(滤蓝光)；全局固定滤镜层，pointer-events:none
+  uiTheme: string;  // 主题配色（整体界面色+文字色）key，见 systems/uiThemes.ts（default/solarized-light/gruvbox-light/nord/dracula…）
+  setUiTheme: (v: string) => void;
+  appearance: 'classic' | 'eyecare' | 'warm';  // 外观护眼色调（叠加在主题之上的暖光滤镜）：classic=关 / eyecare=柔光护眼 / warm=夜读暖光；全局固定层，pointer-events:none
   setAppearance: (v: 'classic' | 'eyecare' | 'warm') => void;
   uiVignette: boolean;  // 背景暗角氛围：四周轻微压暗、聚焦中央正文（纯视觉·pointer-events:none）
   setUiVignette: (v: boolean) => void;
@@ -640,6 +642,7 @@ export const useSettings = create<SettingsState>()(
       allowAutoEquipNpc: true,
       customOpening: '',
       reading: { fontSize: 17, letterSpacing: 0, lineHeight: 1.8, fontFamily: 'default' },
+      uiTheme: 'default',
       appearance: 'classic',
       uiVignette: false,
       plotChoices: false,
@@ -698,6 +701,7 @@ export const useSettings = create<SettingsState>()(
       setAllowAutoEquipNpc: (v) => set({ allowAutoEquipNpc: v }),
       setCustomOpening: (s) => set({ customOpening: s }),
       setReading: (patch) => set((s) => ({ reading: { ...s.reading, ...patch } })),
+      setUiTheme: (v) => set({ uiTheme: v }),
       setAppearance: (v) => set({ appearance: v }),
       setUiVignette: (v) => set({ uiVignette: v }),
       setPlotChoices: (v) => set({ plotChoices: v }),
