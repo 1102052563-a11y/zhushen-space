@@ -628,7 +628,7 @@ export const useSettings = create<SettingsState>()(
   persist(
     (set, get): SettingsState => ({
       // 综合设置
-      historyLimit: 0,
+      historyLimit: 3,   // 默认仅显示/发送最近 3 条楼层（0=不限制）
       autoSaveEnabled: true,
       autoSaveEvery: 1,
       disableEnterSend: false,

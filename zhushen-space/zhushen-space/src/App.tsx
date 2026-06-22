@@ -3446,9 +3446,9 @@ ${AFFIX_EFFECT_RULE}`;
 
   /* 结构化档案召回：主角必含 + 选中 NPC，序列化成 <在场与相关档案> system 块。
      返回 system 消息数组（空数组=不注入）。在 callApi 召回阶段 await 调用。*/
-  async function buildStructuredRecall(context: string, opts: { noLlmSelect?: boolean } = {}): Promise<{ role: 'system'; content: string }[]> {
+  async function buildStructuredRecall(context: string, opts: { noLlmSelect?: boolean } = {}): Promise<{ player: { role: 'system'; content: string }[]; rest: { role: 'system'; content: string }[] }> {
     const cfg = useSettings.getState().narrativeMemory;
-    if (cfg.structEnabled === false) return [];   // 仅显式关闭才停；旧存档无此字段时默认开
+    if (cfg.structEnabled === false) return { player: [], rest: [] };   // 仅显式关闭才停；旧存档无此字段时默认开
     const limits: RecallLimits = {
       maxNpcs: Math.max(0, cfg.structMaxNpcs ?? 2),
       maxSkills: Math.max(0, cfg.structMaxSkills ?? 3),
@@ -3545,11 +3545,18 @@ ${AFFIX_EFFECT_RULE}`;
       );
     }
 
-    const body = cards.join('\n\n');
-    return [{
+    // 主角卡(cards[0]) 拆成独立块、放浅注入(贴近用户输入)，更难被忽略；NPC/势力/领地等留原位(深)。
+    const playerStr = cards[0] ?? '';
+    const restCards = cards.slice(1);
+    const player = playerStr ? [{
       role: 'system' as const,
-      content: `<在场与相关档案>（以下为当前主角/相关NPC/当前世界势力的结构化档案，用于保持设定/数值/装备一致；是参考资料而非剧情指令，请勿照搬复述）\n${body}\n</在场与相关档案>`,
-    }];
+      content: `<主角当前档案>（这是主角【此刻】的权威结构化状态：六维/真实属性/HP·EP满状态上限/装备/技能，均为前端实时计算值。写作与结算时一律以此为准——HP/EP 上限与属性数值采用这里的数，不要沿用更早正文里的旧数字、也不要自行按基础值重算。这是参考数据，请勿原样复述。）\n${playerStr}\n</主角当前档案>`,
+    }] : [];
+    const rest = restCards.length ? [{
+      role: 'system' as const,
+      content: `<在场与相关档案>（以下为当前相关NPC/当前世界势力/领地/冒险团的结构化档案，用于保持设定/数值/装备一致；是参考资料而非剧情指令，请勿照搬复述）\n${restCards.join('\n\n')}\n</在场与相关档案>`,
+    }] : [];
+    return { player, rest };
   }
 
   /* 回复后写入：LLM 从本轮正文抽取长期事实 → 存入 narrativeFacts */
@@ -5994,7 +6001,8 @@ ${lines}`;
 
     // 历史：叙事记忆（关键词召回，启用时）或按 historyLimit 切片（现状）
     let memory: { role: 'system'; content: string }[] = [];
-    let structMem: { role: 'system'; content: string }[] = [];   // <在场与相关档案> 结构化档案块
+    let structPlayer: { role: 'system'; content: string }[] = [];   // <主角当前档案> 浅注入(贴近用户输入,更难被忽略)
+    let structRest: { role: 'system'; content: string }[] = [];     // <在场与相关档案> NPC/势力/领地/冒险团(留原位)
     let recent: { role: 'user' | 'assistant'; content: string }[];
     const vm = useSettings.getState().vectorMemory;
     if (vm.enabled && vm.apiBase && vm.apiKey) {
@@ -6021,9 +6029,9 @@ ${lines}`;
         memory = lines.length ? [{ role: 'system' as const, content: `<相关记忆>\n${lines.join('\n\n')}\n</相关记忆>` }] : [];
         const recentN = historyLimit > 0 ? historyLimit : (vm.recentFullTextCount ?? 5);
         recent = (recentN > 0 ? allHistory.slice(-recentN) : []).map((m) => ({ role: m.role as 'user' | 'assistant', content: m.content }));
-        structMem = await buildStructuredRecall(ctx, { noLlmSelect: true });   // 向量模式：NPC 走本地排序，不调 LLM
+        { const sr = await buildStructuredRecall(ctx, { noLlmSelect: true }); structPlayer = sr.player; structRest = sr.rest; }   // 向量模式：NPC 走本地排序，不调 LLM
         const note = ev.remaining > 0 ? `（${ev.remaining} 条待索引，去设置→向量记忆点"重建索引"）` : '';
-        setNmPhaseLog(`🧠 向量召回：池 ${pool.length} 条 · 命中 ${hits.length}${structMem.length ? ' + 结构化档案' : ''}${note}`);
+        setNmPhaseLog(`🧠 向量召回：池 ${pool.length} 条 · 命中 ${hits.length}${(structPlayer.length || structRest.length) ? ' + 结构化档案' : ''}${note}`);
         setTimeout(() => setNmPhaseLog(''), 8000);
       } catch (e) {
         console.warn('[VecMem] 向量召回失败，回退最近楼层', e);
@@ -6060,8 +6068,8 @@ ${lines}`;
         memory = built.memory;
         recent = built.recent;
         // 结构化档案召回（主角必含 + 预测/在场 NPC）
-        structMem = await buildStructuredRecall(structContext);
-        const structNote = structMem.length > 0 ? ' + 结构化档案' : '';
+        { const sr = await buildStructuredRecall(structContext); structPlayer = sr.player; structRest = sr.rest; }
+        const structNote = (structPlayer.length || structRest.length) > 0 ? ' + 结构化档案' : '';
         setNmPhaseLog(
           facts.length === 0
             ? `🧠 记忆回溯：素材库为空（需先经总结/LLM抽取积累事实）${structNote}`
@@ -6082,7 +6090,7 @@ ${lines}`;
     const history = [
       ...examples,
       ...memory,                                       // <过往记忆> system 块（如有）
-      ...structMem,                                    // <在场与相关档案> 结构化档案块（如有）
+      ...structRest,                                   // <在场与相关档案> NPC/势力/领地档案（留在较深处）
       ...(mpRuleBlock ? [{ role: 'system' as const, content: mpRuleBlock }] : []),     // <联机正文规则> 房主开了才注入
       ...(mpPartyBlock ? [{ role: 'system' as const, content: mpPartyBlock }] : []),   // <同行队友> 联机其他玩家档案
       ...buildPlayerCoreInjection(),                    // <主角核心>
@@ -6092,6 +6100,7 @@ ${lines}`;
       ...buildFanficInjection(),                        // <同人设定·已锁定>
       ...buildFactInjection(),                          // <事实锚点·已锁定>
       ...recent,                                       // 最近原文楼层
+      ...structPlayer,                                 // <主角当前档案> 浅注入：紧贴最近正文/用户输入，让主角数值更难被 API 忽略
       ...guidanceBlock,                                // <剧情指导> 本回合写作建议（剧情指导开启时，紧贴用户输入注入，像叙事回忆一样）
       ...[...depthInjections, ...wbDepthInjections].sort((a, b) => b.depth - a.depth).map((inj) => ({ role: inj.role, content: inj.content })),
       { role: 'user' as const, content: userText },
@@ -6115,7 +6124,7 @@ ${lines}`;
       const vmOn = vm.enabled && !!vm.apiBase && !!vm.apiKey;   // 向量召回是否在生效
       const recallActive = narrativeMem.enabled || vmOn;        // 任一召回引擎启用
       const memBlock = memory.map((m) => m.content).join('\n\n');
-      const structBlock = structMem.map((m) => m.content).join('\n\n');
+      const structBlock = [...structPlayer, ...structRest].map((m) => m.content).join('\n\n');
       const segs: string[] = [];
       if (memBlock) segs.push(`【${vmOn ? '向量召回' : '叙事记忆召回'}】\n${memBlock}`);
       if (structBlock) segs.push(`【结构化档案召回】\n${structBlock}`);
