@@ -9,6 +9,8 @@ node_modules/
 dist/
 # 肖像图库清单：由 vite 插件按 public/portraits/ 子文件夹自动生成，不必入库
 zhushen-space/zhushen-space/public/portraits/manifest.json
+# 轮回WIKI 构建产物：由 vite 插件 build-wiki 每次 build 时用 mkdocs 自动重建（Cloudflare 同理），不入库；只提交 lunhui-wiki/docs/*.md 源
+zhushen-space/zhushen-space/public/wiki/
 
 # ───── 大体积立绘素材（欢愉宫看板娘，走 Cloudflare R2 部署，vite 插件本地同步进 public/joy-girls/；见 tools/upload-r2/R2部署说明.md）─────
 /欢愉宫图片/

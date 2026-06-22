@@ -1,6 +1,33 @@
 import { defineConfig, type Plugin } from 'vite'
 import react from '@vitejs/plugin-react'
 import { copyFileSync, existsSync, mkdirSync, readdirSync, writeFileSync } from 'fs'
+import { execSync } from 'child_process'
+
+// 轮回WIKI：每次 vite build（含 Cloudflare）自动用 mkdocs 重建静态站到 public/wiki/。
+// 好处：你只改 lunhui-wiki/docs/*.md，build 时自动重建 → 无需手动 mkdocs、无需提交几百个构建产物（public/wiki 已 gitignore）。
+// Cloudflare 需在构建命令前装好依赖（见仓库根 部署到网页-指导.md：pip install -r ../../lunhui-wiki/requirements.txt）。
+// 失败不阻断游戏构建（保留已有 public/wiki）；本地需已装 mkdocs-material+jieba。
+function buildWiki(): Plugin {
+  const CFG = '../../lunhui-wiki/mkdocs.yml'
+  const OUT = 'public/wiki/index.html'
+  const build = () => {
+    // 兼容不同环境的 python 入口；任一成功即停。
+    const cmds = [
+      `python -m mkdocs build -f ${CFG}`,
+      `python3 -m mkdocs build -f ${CFG}`,
+      `mkdocs build -f ${CFG}`,
+    ]
+    for (const c of cmds) {
+      try { execSync(c, { stdio: 'inherit' }); return } catch { /* 试下一个入口 */ }
+    }
+    console.warn('[build-wiki] mkdocs 未能构建（python/mkdocs 不可用？）— 保留已有 public/wiki')
+  }
+  return {
+    name: 'build-wiki',
+    buildStart() { build() },                               // 生产构建：每次重建
+    configureServer() { if (!existsSync(OUT)) build() },    // dev：仅当产物缺失时建一次（不拖慢日常启动）
+  }
+}
 
 // 把根目录的世界书/预设源文件同步到 public/presets/（即部署后的内置默认值）。
 // 好处：你照常编辑 预设/*.json、______.json、ST_WI…json，build 时（含 Cloudflare 构建）自动同步，
@@ -216,7 +243,7 @@ function syncJoyWorldBooks(): Plugin {
 const API_TARGET = process.env.VITE_API_TARGET ?? 'https://api.baimeow.icu'
 
 export default defineConfig({
-  plugins: [react(), copyBuiltinPresets(), buildPortraitManifest(), buildStickerManifest(), syncEnhanceBosses(), syncJoyGirls(), syncJoyWorldBooks(), syncCasinoDealers()],
+  plugins: [react(), buildWiki(), copyBuiltinPresets(), buildPortraitManifest(), buildStickerManifest(), syncEnhanceBosses(), syncJoyGirls(), syncJoyWorldBooks(), syncCasinoDealers()],
   build: { emptyOutDir: true },   // 始终清空 dist 再构建（防 index-*.js 历史残留堆积；从外层目录构建时 Vite 默认会跳过清空）
   server: {
     proxy: {
