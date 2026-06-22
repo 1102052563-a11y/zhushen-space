@@ -1499,6 +1499,9 @@ export default function App() {
         + '\n【勿重复生成·读已有清单】生成前先核对两份"已有清单"：主角背包(player_items) 与 在场NPC持有物(npc_items)。'
         + '凡清单里**已存在**的物品（哪怕只是名称相近、明显是同一件，如"止血喷雾"vs"次级止血喷雾"）**一律不要再 createItem**——要改就用 updateItem(同 itemId)，数量增减用 updateItemQuantity。'
         + '只有正文里**确实新入手**、且清单里确实没有的物品才 createItem。重复消耗品（如又捡到一瓶同款药剂）也别新建条目，用 updateItemQuantity 给已有条目加数量。'
+        + '\n【物品归属·唯一持有者铁则（防串包）】每件物品**只属于一个持有者**：createItem 的 owner 必须是该物品**真正拥有者**的确切编号（玩家=B1；某 NPC=其真实 C 编号，见「NPC 角色注册表」），不要用名字或编错的 ID。'
+        + '**玩家给某一个队友买的/某个角色获得的装备，就只进那一个角色的包**——严禁因为"队伍/在场多人"就把同一件（或同名同款）装备复制分发给其他 NPC；正文里属于 A 的东西绝不写到 B 名下。'
+        + '一件具体装备只 createItem 一次、owner 只填一个；归属拿不准时，宁可只发给最明确的那一个，也不要复制成多份分给多人。'
         + '\n' + ITEM_UPDATE_RULE + '\n' + FIRST_UPDATE_COMPLETE_RULE + '\n' + ITEM_EXACT_REF_RULE
         + '\n' + ITEM_COT_RULE;
 

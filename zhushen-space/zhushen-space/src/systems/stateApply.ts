@@ -55,17 +55,20 @@ let npcPreferredOwners: string[] = [];
 export function setNpcPreferredOwners(ids: string[]) { npcPreferredOwners = ids; }
 setNpcOwnerResolver((owner) => {
   const npc = useNpc.getState();
-  if (isRealNpc(npc.npcs[owner])) return owner;            // owner 本就是真实NPC → 保持
-  // 1) 优先本回合涉及的真实 NPC
-  for (const id of npcPreferredOwners) {
-    if (isRealNpc(npc.npcs[id])) { console.log(`[Item] owner ${owner} → 重定向到 ${id}（本回合目标）`); return id; }
+  if (isRealNpc(npc.npcs[owner])) return owner;            // owner 本就是真实NPC id → 保持
+  // 1) owner 可能是 NPC 名字（AI 常用名而非 id）→ 按名精确匹配到「唯一」真实 NPC
+  const norm = (s?: string) => (s ?? '').replace(/\s+/g, '').toLowerCase();
+  const on = norm(owner);
+  if (on) {
+    const byName = Object.values(npc.npcs).filter((r) => isRealNpc(r) && norm(r.name) === on);
+    if (byName.length === 1) { console.log(`[Item] owner「${owner}」按名匹配到 ${byName[0].id}`); return byName[0].id; }
   }
-  // 2) 退化：所有真实 NPC，在场优先、最近更新优先
-  const cands = Object.values(npc.npcs)
-    .filter(isRealNpc)
-    .sort((a, b) => (Number(b.onScene) - Number(a.onScene)) || (b.updatedAt - a.updatedAt));
-  if (cands[0]) { console.log(`[Item] owner ${owner} → 重定向到 ${cands[0].id}（最近真实NPC）`); return cands[0].id; }
-  console.warn(`[Item] owner ${owner} 无可重定向的真实 NPC，保持原 ID`);
+  // 2) 仅当本回合涉及「恰好一个」真实 NPC 时，才把无法解析的 owner 归到它（确属该 NPC 的概率高）
+  const pref = npcPreferredOwners.filter((id) => isRealNpc(npc.npcs[id]));
+  if (pref.length === 1) { console.log(`[Item] owner ${owner} → 重定向到本回合唯一目标 ${pref[0]}`); return pref[0]; }
+  // 3) 归属不明（真实NPC不唯一）→ 保持原 owner、绝不喷到任意在场NPC，
+  //    避免「莫名其妙把别人的装备塞进某个无关NPC包里」。原 owner 若是无效串，至多生成一个可见可清理的占位记录。
+  console.warn(`[Item] owner「${owner}」归属不明（非真实id、按名匹配不到唯一NPC、本回合目标也不唯一）——保持原ID，不重定向到在场NPC`);
   return owner;
 });
 

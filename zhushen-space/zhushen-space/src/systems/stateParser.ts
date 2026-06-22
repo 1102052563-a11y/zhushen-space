@@ -232,10 +232,12 @@ function classifyDeletion(cmd: 'consume' | 'destroy', rawReason?: unknown): { ki
 
 export function applyItemCommands(commands: ItemCommand[]): void {
   if (commands.length === 0) return;
+  // 同一批内：装备类 name|品级 → 首个 NPC 持有者，用于拦截「同一件装备被复制发给多个 NPC」(如玩家给一个队友买套装、AI 却塞进每个人包里)
+  const npcEquipDupCtx = new Map<string, string>();
   for (const cmd of commands) {
     try {
       // 每条都取最新状态：否则同一批里第2条 createItem 看不到第1条刚加的物品 → 重复生成
-      applyOneItemCommand(cmd, useItems.getState());
+      applyOneItemCommand(cmd, useItems.getState(), npcEquipDupCtx);
     } catch (e) {
       console.warn('[Item] 应用指令失败:', cmd, e);
     }
@@ -243,7 +245,7 @@ export function applyItemCommands(commands: ItemCommand[]): void {
   // 是否重复生成物品交由 AI（物品管理预设的「获得即生成」规则）判断，不再机械合并同名
 }
 
-function applyOneItemCommand(cmd: ItemCommand, store: any): void {
+function applyOneItemCommand(cmd: ItemCommand, store: any, npcEquipDupCtx?: Map<string, string>): void {
   const { type, data } = cmd;
 
   switch (type) {
@@ -282,6 +284,17 @@ function applyOneItemCommand(cmd: ItemCommand, store: any): void {
           npcStore.updateNpcItem(owner, npcStack.id, { quantity: (npcStack.quantity || 1) + npcQty });
           console.log(`[Item] NPC ${owner} 堆叠 ${name} +${npcQty} → 共 ${(npcStack.quantity || 1) + npcQty}`);
           break;
+        }
+        // 跨 NPC 同款装备拦截（仅同一批 createItem 内、仅装备类）：同一件 name+品级 的装备本批已发给别的 NPC → 跳过，
+        // 防「给一个队友买/获得一套装备，AI 却把同款复制塞进每个在场 NPC 的包里」。可堆叠消耗品不受限（多人各持同款药剂合理）。
+        if (npcEquipDupCtx && isEquippable(String(npcRawCat))) {
+          const dupKey = `${name.replace(/\s+/g, '').toLowerCase()}|${normGrade}`;
+          const firstOwner = npcEquipDupCtx.get(dupKey);
+          if (firstOwner && firstOwner !== owner) {
+            console.warn(`[Item] 跨NPC同款装备拦截：「${name}」(${normGrade}) 本轮已归 ${firstOwner}，跳过重复发给 ${owner}`);
+            break;
+          }
+          if (!firstOwner) npcEquipDupCtx.set(dupKey, owner);
         }
         // 是否重复生成交由 AI 判断（同 id 会累加数量；新 id 同名则按 AI 意图新建）
         const npcGivenId: string | undefined = item['0'] ?? item.id;
