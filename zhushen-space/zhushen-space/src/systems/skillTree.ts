@@ -315,6 +315,17 @@ export function validateTree(raw: any): TreeValidation {
       y: Number.isFinite(n?.y) ? Number(n.y) : undefined,
     };
   });
+  // 严格：大/中节点不给六维属性点——只留技能 + buff(buff 写进 effect / 作为天赋永久生效)；六维只由微星(minor)与无尽端点(sink)提供。
+  // 仅对非内置树生效（内置剑士/灭法的大节点保留原设计的属性加成，不动）。
+  if (raw?.source !== 'builtin') {
+    for (const n of nodes) {
+      if ((n.kind === 'medium' || n.kind === 'major' || n.kind === 'capstone') && !n.sink && !n.socket) {
+        n.ptAttr = undefined;                                      // 去掉「每点 力量+1」类六维
+        if (n.grants?.skill) (n.grants.skill as any).attrBonus = '';   // 去掉技能里的六维加成(buff 应写在 effect)
+        if (n.grants?.trait) (n.grants.trait as any).attrBonus = '';   // 去掉天赋里的六维加成
+      }
+    }
+  }
   // 清理悬空/自引用前置
   const idSet = new Set(nodes.map((n) => n.id));
   for (const n of nodes) {
