@@ -281,16 +281,19 @@ async function loadBuiltinDefaults() {
     // 自动去重（仅清内置补种自身的重复，绝不碰玩家的预设）：玩家导入/编辑/激活固化过的(非 builtin)一律保留；
     //   只删「多余的同名 builtin」——同名 builtin 留一个、其余删；某 builtin 若已有同名的非 builtin(玩家版) 则该 builtin 多余、删（玩家版优先）。
     try {
+      // 去重「按出现顺序保留第一个」：内置预设现用稳定 id(builtin:<名>)，StrictMode 双跑会产出同 id 副本，
+      // 旧版收集「要删的 id」再 filter 会把同 id 的全部删掉（含该留的那个）→ textPresets 被清空；改成重建保留首个。
       const _list = useSettings.getState().textPresets as any[];
       const _nonBuiltinNames = new Set(_list.filter((x) => !x.builtin).map((x) => x.name));
       const _seenBuiltin = new Set<string>();
-      const _rm = new Set<string>();
+      const _kept: any[] = [];
       for (const x of _list) {
-        if (!x.builtin) continue;
-        if (_nonBuiltinNames.has(x.name) || _seenBuiltin.has(x.name)) _rm.add(x.id);
-        else _seenBuiltin.add(x.name);
+        if (!x.builtin) { _kept.push(x); continue; }
+        if (_nonBuiltinNames.has(x.name) || _seenBuiltin.has(x.name)) continue;   // 同名有玩家版/已留过内置 → 丢弃多余
+        _seenBuiltin.add(x.name);
+        _kept.push(x);
       }
-      if (_rm.size) useSettings.setState((st) => ({ textPresets: st.textPresets.filter((x: any) => !_rm.has(x.id)) }));
+      if (_kept.length !== _list.length) useSettings.setState({ textPresets: _kept });
     } catch { /* */ }
     // 四个演化预设（主角/物品/NPC/势力）→ **每次启动强制覆盖成内置最新**（按要求：玩家对这些预设的改动不保留，始终以内置为准）。
     // 仅当 fetch+解析成功才覆盖；失败则保留现有，避免断网把预设清空。setPresetEntries 只换 entries/名称/版本，保留各自的 API 路由配置。
