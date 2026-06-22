@@ -1,5 +1,7 @@
 import { describe, it, expect } from 'vitest';
-import { namesMentionedIn } from './structuredRecall';
+import { namesMentionedIn, serializePlayerCard } from './structuredRecall';
+import type { PlayerProfile } from '../store/playerStore';
+import type { Talent } from '../store/characterStore';
 
 /* 护栏：情境（用户输入+最近正文）里字面喊到的条目名 → 强制注入。
    治"都喊技能名字了还不注入进去"。仅测纯匹配逻辑（namesMentionedIn）。 */
@@ -68,5 +70,30 @@ describe('namesMentionedIn（字面喊到→强制命中）', () => {
     expect(out).toContain('C1');
     expect(out).toContain('C2');
     expect(out).not.toContain('C3');
+  });
+});
+
+/* serializePlayerCard：叙事回忆注入的主角基本信息——HP/EP 满状态须含天赋/装备六维加成，
+   且新增「真实属性（含加成）」行。治"正文识别不到加成后的血量/蓝量、恢复不到面板满状态"。 */
+describe('serializePlayerCard（HP/EP 满状态含加成 + 真实属性注入）', () => {
+  const profile = { name: '云舒', attrs: { str: 50, agi: 50, con: 50, int: 50, cha: 50, luck: 50 } } as unknown as PlayerProfile;
+  // 天赋给「体质+30」→ 实战体质 50+30=80 → 满血上限 80×20=1600（基础体质 50 只有 1000）
+  const talents = [{ name: '造物主权', attrBonus: '体质+30，智力+20' }] as unknown as Talent[];
+  const limits = { maxNpcs: 0, maxSkills: 3, maxItems: 2 };
+  // game 里塞旧的 200/200（模拟天赋后没同步上限），卡片不该被它压低
+  const card = serializePlayerCard(profile, { hp: 200, maxHp: 200, mp: 100, maxMp: 100 }, [], talents, [], limits);
+
+  it('HP 满状态上限折入天赋体质加成（体80×20=1600），不被旧的 200 压成上限', () => {
+    expect(card).toContain('/1600');
+    expect(card).toContain('满状态上限=1600');
+    expect(card).not.toContain('HP:200/200');
+  });
+
+  it('注入「真实属性」行（按含加成实战六维换算：体80→1点真实）', () => {
+    expect(card).toMatch(/真实属性[^\n]*体1/);
+  });
+
+  it('六维实战值标注基础值（体: 80(基50)）', () => {
+    expect(card).toContain('体80(基50)');
   });
 });
