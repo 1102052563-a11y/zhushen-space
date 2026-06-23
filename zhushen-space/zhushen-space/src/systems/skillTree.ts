@@ -109,9 +109,13 @@ export function availablePP(progress: ProgressLike | undefined, ctx: TreeCtx): n
   return potentialBudget(ctx.level, ctx.tier) + (progress?.aiBonusPP ?? 0) - (progress?.spent ?? 0);
 }
 
-/* 阶位 gate 已移除（2026-06-17 用户要求）：所有节点不再受 tierGate 限制，恒通过。 */
-export function gatePass(_node: TreeNode, _ctx: TreeCtx): boolean {
-  return true;
+/* 阶位 gate（2026-06-23 重新启用·用户要求「每个节点加阶位限制·越后越高·封顶七阶」）：
+   节点需主角「有效阶位」≥ node.tierGate 才能点亮。tierGate 由 validateTree 按前置链深度统一分配(空缺填充·显式保留·封顶七阶)。
+   传承提前解锁(express)的路线免 gate（已凭终极技能证明掌握，仅在 canRankUp 里对 express 跳过本检查）。 */
+export function gatePass(node: TreeNode, ctx: TreeCtx): boolean {
+  const need = tierIdxOf(node.tierGate);
+  if (need < 0) return true;                                   // 无阶位要求 → 放行
+  return tierIdxOf(effectiveTierName(ctx.tier, ctx.level)) >= need;
 }
 
 /* sink「无上限」节点是否满足前提：本树所有非 sink 节点都已点满 */
@@ -148,6 +152,7 @@ export function canRankUp(
     }
   }
   const express = !!(node.branch && ctx.expressBranches?.has(node.branch));
+  if (!express && !gatePass(node, ctx)) return { ok: false, reason: `阶位不足：需 ${node.tierGate}（现 ${effectiveTierName(ctx.tier, ctx.level)}）` };
   if (!express && node.spentGate && (progress?.spent ?? 0) < node.spentGate) return { ok: false, reason: `需累计投入 ${node.spentGate} 潜能点（现 ${progress?.spent ?? 0}）` };
   if (node.sink && !allNonSinkMaxed(tree, progress)) return { ok: false, reason: '需先点满其余全部节点' };
   const avail = availablePP(progress, ctx);
@@ -315,15 +320,20 @@ export function validateTree(raw: any): TreeValidation {
       y: Number.isFinite(n?.y) ? Number(n.y) : undefined,
     };
   });
-  // 严格：大/中节点不给六维属性点——只留技能 + buff(buff 写进 effect / 作为天赋永久生效)；六维只由微星(minor)与无尽端点(sink)提供。
-  // 仅对非内置树生效（内置剑士/灭法的大节点保留原设计的属性加成，不动）。
-  if (raw?.source !== 'builtin') {
-    for (const n of nodes) {
-      if ((n.kind === 'medium' || n.kind === 'major' || n.kind === 'capstone') && !n.sink && !n.socket) {
-        n.ptAttr = undefined;                                      // 去掉「每点 力量+1」类六维
-        if (n.grants?.skill) (n.grants.skill as any).attrBonus = '';   // 去掉技能里的六维加成(buff 应写在 effect)
-        if (n.grants?.trait) (n.grants.trait as any).attrBonus = '';   // 去掉天赋里的六维加成
-      }
+  // 属性加成收口（2026-06-23·用户要求「减少每个节点属性·大中节点不给」——所有树含内置一律适用）：
+  //  · 中型/大节点/终极(medium/major/capstone)一律不给六维——只留技能 + buff(buff 写 effect / 作天赋永久生效)。
+  //  · 微星(minor)每维属性封顶 +1·削弱属性堆叠(治「智力+31」式溢出；含内置 ptByLayer 递增值)。
+  //  · 无尽端点(sink·真实属性 ×80) 与 星核位(socket) 不动；中心 core(kind=minor)走微星封顶、其 +1/+1/+1 保留。
+  for (const n of nodes) {
+    if (n.sink || n.socket) continue;
+    if (n.kind === 'medium' || n.kind === 'major' || n.kind === 'capstone') {
+      n.ptAttr = undefined;                                        // 去掉「每点 力量+1」类六维
+      if (n.grants?.skill) (n.grants.skill as any).attrBonus = '';   // 去掉技能里的六维加成(buff 应写在 effect)
+      if (n.grants?.trait) (n.grants.trait as any).attrBonus = '';   // 去掉天赋里的六维加成
+    } else if (n.ptAttr) {                                          // 微星：每维封顶 +1
+      const capped: AttrDelta = {};
+      for (const k of ATTR_KEYS) { const v = Math.trunc(Number((n.ptAttr as any)[k]) || 0); if (v > 0) capped[k] = Math.min(v, 1); }
+      n.ptAttr = Object.keys(capped).length ? capped : undefined;
     }
   }
   // 清理悬空/自引用前置
@@ -332,6 +342,32 @@ export function validateTree(raw: any): TreeValidation {
     const before = n.prereqs.length;
     n.prereqs = n.prereqs.filter((p) => idSet.has(p) && p !== n.id);
     if (n.prereqs.length !== before) warnings.push(`节点「${n.name}」有无效前置已清理`);
+  }
+  // 阶位 gate（2026-06-23·用户要求「每个节点加阶位限制·越往后越高·封顶七阶」）：
+  //  · 已有合法阶位的节点(内置大节点 nb.tier / DIY 手设) → 保留(仅封顶七阶)。
+  //  · 空缺者 → 按「前置链深度」递进填充：深度1=一阶，每深一层+1阶，封顶七阶(TIERS[6])。
+  //  · 用前置链深度而非 layer，保证语义上「越往后(越靠依赖链末端)阶位越高」即便 layer 扁平也成立。
+  {
+    const NODE_TIER_CAP = 6;   // 七阶 = TIERS[6]
+    const byId = new Map(nodes.map((n) => [n.id, n] as const));
+    const depthMemo = new Map<string, number>();
+    const depthOf = (id: string, stack: Set<string>): number => {
+      const memo = depthMemo.get(id); if (memo != null) return memo;
+      if (stack.has(id)) return 0;                                  // 环保护(环另有致命检测)
+      stack.add(id);
+      const nd = byId.get(id);
+      const ps = (nd?.prereqs ?? []).filter((p) => byId.has(p) && p !== id);
+      const d = ps.length ? 1 + Math.max(...ps.map((p) => depthOf(p, stack))) : Math.max(0, Math.floor(Number(nd?.layer) || 0));
+      stack.delete(id);
+      depthMemo.set(id, d);
+      return d;
+    };
+    for (const n of nodes) {
+      const cur = tierIdxOf(n.tierGate);
+      if (cur >= 0) { n.tierGate = TIERS[Math.min(cur, NODE_TIER_CAP)]; continue; }   // 显式阶位保留·封顶七阶
+      const idx = Math.min(NODE_TIER_CAP, Math.max(0, depthOf(n.id, new Set()) - 1));
+      n.tierGate = TIERS[idx];
+    }
   }
   // 环检测（致命）
   const cyc = findCycleNode(nodes);
