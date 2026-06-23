@@ -3,6 +3,7 @@ import { useSettings, endpointToConfig, type WorldBook, type WorldBookEntry, typ
 import { apiChatFallback, fetchWithProxy, gwProxyBase } from '../systems/apiChat';
 import { READING_FONTS, readingFontStack } from '../systems/readingFonts';
 import { UI_THEMES } from '../systems/uiThemes';
+import { toSTPreset } from '../systems/stPresetExport';
 import VariableManager from './VariableManager';
 import ApiRoutePicker from './ApiRoutePicker';
 import ItemManager from './ItemManager';
@@ -1683,7 +1684,8 @@ function PresetCard({ preset, active, expanded, onToggleExpand, onActivate, onRe
   }
 
   function handleExport() {
-    const blob = new Blob([JSON.stringify(preset, null, 2)], { type: 'application/json' });
+    // 导出为 SillyTavern 可导入格式（entries→prompts+prompt_order+补齐标准 marker），而非 zhushen 内部 entries 格式
+    const blob = new Blob([JSON.stringify(toSTPreset(preset), null, 2)], { type: 'application/json' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url; a.download = `${preset.name || 'preset'}.json`; a.click();
