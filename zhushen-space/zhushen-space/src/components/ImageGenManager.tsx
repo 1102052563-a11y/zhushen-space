@@ -199,6 +199,7 @@ function StoryPage() {
         <ApiRoutePicker routeKey="image_story_llm" />
       </div>
       <Row title="自动正文生图" desc="每回合抽 N 个锚点逐张生成并插入正文" checked={s.autoStory} onChange={() => s.setSettings({ autoStory: !s.autoStory })} />
+      <Row title="边写边出图（流式逐段）" desc="正文还在写时，每写完一段就给那段配 1 张图，更快看到图。代价：每段各调一次提取 LLM（调用次数≈段落数）。需先开「自动正文生图」。" checked={s.storyProgressive} onChange={() => s.setSettings({ storyProgressive: !s.storyProgressive })} />
       <div className="flex items-center justify-between">
         <span className="text-[12px] font-mono text-dim/60">正文生图提示词模板（输出 N 个 image/anchor/nsfw/prompt）</span>
         <button onClick={s.resetStoryTemplate} className="text-[12px] font-mono text-dim/50 hover:text-god">恢复默认</button>

@@ -221,7 +221,7 @@ export interface ImageGenSettings {
   // 画风预设
   activeStyleId: string;
   // 正文配图
-  autoStory: boolean; storyImageCount: number; storySize: string;
+  autoStory: boolean; storyProgressive: boolean; storyImageCount: number; storySize: string;
   storyTemplate: string;
   storyLlmRoutes: string[];         // 复用 apiLibrary endpoint id
 }
@@ -262,7 +262,7 @@ export const useImageGen = create<ImageGenState>()(
       portraitTemplate: DEFAULT_PORTRAIT_TEMPLATE, styleGuide: DEFAULT_STYLES[0].styleGuide,
       autoEquipPlayer: false, autoEquipNpc: false, equipTemplate: DEFAULT_EQUIP_TEMPLATE, equipNegative: DEFAULT_EQUIP_NEG,
       activeStyleId: 'nai-anime',
-      autoStory: false, storyImageCount: 4, storySize: 'inherit', storyTemplate: DEFAULT_STORY_TEMPLATE, storyLlmRoutes: [],
+      autoStory: false, storyProgressive: false, storyImageCount: 4, storySize: 'inherit', storyTemplate: DEFAULT_STORY_TEMPLATE, storyLlmRoutes: [],
       styles: DEFAULT_STYLES.map((s) => ({ ...s })),
 
       nai: {

@@ -62,11 +62,11 @@ function vitalMaxBonus(texts: (string | undefined)[], kind: 'hp' | 'ep'): number
   return sum;
 }
 /* 已装备物品对 最大HP / 最大EP 的上限加成合计（装备效果/词缀里写明"X上限"的部分）*/
-export function gearMaxHpBonus(equipped: { effect?: string; affix?: string }[] = []): number {
-  return equipped.reduce((s, it) => s + vitalMaxBonus([it.effect, it.affix], 'hp'), 0);
+export function gearMaxHpBonus(equipped: { effect?: string; affix?: string; combatStat?: string }[] = []): number {
+  return equipped.reduce((s, it) => s + vitalMaxBonus([it.effect, it.affix, it.combatStat], 'hp'), 0);
 }
-export function gearMaxEpBonus(equipped: { effect?: string; affix?: string }[] = []): number {
-  return equipped.reduce((s, it) => s + vitalMaxBonus([it.effect, it.affix], 'ep'), 0);
+export function gearMaxEpBonus(equipped: { effect?: string; affix?: string; combatStat?: string }[] = []): number {
+  return equipped.reduce((s, it) => s + vitalMaxBonus([it.effect, it.affix, it.combatStat], 'ep'), 0);
 }
 /* 技能/天赋（被动）effect/desc 文本里写明的「X上限+N」加成合计——
    如被动「初级病毒适应：生命值上限额外+100」会让最大 HP 在六维换算之外再 +100。*/
@@ -107,11 +107,11 @@ function vitalMaxPctBonus(texts: (string | undefined)[], kind: 'hp' | 'ep'): num
   }
   return sum;
 }
-export function gearMaxHpPctBonus(equipped: { effect?: string; affix?: string }[] = []): number {
-  return equipped.reduce((s, it) => s + vitalMaxPctBonus([it.effect, it.affix], 'hp'), 0);
+export function gearMaxHpPctBonus(equipped: { effect?: string; affix?: string; combatStat?: string }[] = []): number {
+  return equipped.reduce((s, it) => s + vitalMaxPctBonus([it.effect, it.affix, it.combatStat], 'hp'), 0);
 }
-export function gearMaxEpPctBonus(equipped: { effect?: string; affix?: string }[] = []): number {
-  return equipped.reduce((s, it) => s + vitalMaxPctBonus([it.effect, it.affix], 'ep'), 0);
+export function gearMaxEpPctBonus(equipped: { effect?: string; affix?: string; combatStat?: string }[] = []): number {
+  return equipped.reduce((s, it) => s + vitalMaxPctBonus([it.effect, it.affix, it.combatStat], 'ep'), 0);
 }
 export function abilityMaxHpPctBonus(skills: AbilityLite[] = [], traits: AbilityLite[] = []): number {
   return vitalMaxPctBonus([...skills.flatMap((s) => [s.effect, s.desc]), ...traits.flatMap((t) => [t.effect, t.desc])], 'hp');
@@ -150,11 +150,11 @@ function vitalCrossBonus(texts: (string | undefined)[], kind: 'hp' | 'ep', other
   }
   return Math.round((pctSum / 100) * (otherMax || 0));
 }
-function crossTexts(equipped: { effect?: string; affix?: string }[], skills: AbilityLite[], traits: AbilityLite[]): (string | undefined)[] {
+function crossTexts(equipped: { effect?: string; affix?: string; combatStat?: string }[], skills: AbilityLite[], traits: AbilityLite[]): (string | undefined)[] {
   return [
     ...skills.flatMap((s) => [s.effect, s.desc]),
     ...traits.flatMap((t) => [t.effect, t.desc]),
-    ...equipped.flatMap((e) => [e.effect, e.affix]),
+    ...equipped.flatMap((e) => [e.effect, e.affix, e.combatStat]),
   ];
 }
 

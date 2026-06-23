@@ -190,7 +190,7 @@ import { settleDmDeal, normCur as dmNormCur } from './systems/dmTrade';
 const SystemShop = lazy(() => import('./components/SystemShop'));
 const SummaryPanel = lazy(() => import('./components/SummaryPanel'));
 const SaveLoadPanel = lazy(() => import('./components/SaveLoadPanel'));
-import { PENDING_STARTED_KEY, clearProgress, autoSaveSlot, saveSlot, loadSlot, UNDO_ID, undoPointHasChat } from './systems/saveManager';
+import { PENDING_STARTED_KEY, clearProgress, autoSaveSlot, saveSlot, loadSlot, UNDO_ID, undoPointHasChat, requestPersistentStorage } from './systems/saveManager';
 import { restoreB1IfWiped } from './systems/b1Mirror';
 import * as chatDb from './systems/chatDb';
 import PlayerSidebar from './components/PlayerSidebar';
@@ -1027,6 +1027,7 @@ export default function App() {
   const messagesRef = useRef<ChatMessage[]>([]);   // 始终镜像 messages，供 callApi 取到最新历史（避免 setState 后闭包仍是旧值）
   const illustClickTimer = useRef<number | null>(null);   // 正文配图单击/双击消歧：单击延时开灯箱，双击则取消并重生成
   const storyRegenBusy = useRef<Set<string>>(new Set());  // 正文配图重生成防连点（key=msgId:idx）
+  const progImgRef = useRef<{ offset: number; dispatched: number }>({ offset: 0, dispatched: 0 });  // 「边写边出」：流式期间已处理到的字符 offset + 已派发出图段数（每回合重置）
   const autoSaveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const lastAutoSaveTurn = useRef(-1);   // 本回合是否已自动存过：防同回合内(生图/选项等异步改 messages 反复触发定时器)重复自动存、刷出多份🛟备份
   const abortRef = useRef<AbortController | null>(null);   // 正文生成中止控制器（停止生成用）
@@ -1235,6 +1236,8 @@ export default function App() {
         if (sv && sv !== APP_VERSION) setShowVer(true);
         localStorage.setItem('zs-seen-version', APP_VERSION);
       } catch { /* */ }
+      // 申请持久化存储：防浏览器在存储紧张时整源淘汰 IndexedDB（"手动存档过段时间消失、只剩自动档"的根因）
+      void requestPersistentStorage();
       // 图片：从 IndexedDB 回填 avatar/image 到各 store（localStorage 已不存图），再开启自动镜像
       try { await hydrateImages(); } catch { /* */ }
       initImageSync();
@@ -3403,15 +3406,13 @@ ${AFFIX_EFFECT_RULE}`;
      生图·正文配图：独立 LLM 抽锚点(<image>/<anchor>/<nsfw_rating>/<prompt>) → 逐张生成 → 按 anchor 插入该楼层
      —— 受 autoStory 开关门控；LLM 走 image_story_llm 路由，配图走 storyService
   ════════════════════════════════════════════ */
-  async function runStoryImagePhase(narrative: string, msgId: number) {
+  // 抽取+生成正文配图（被一次性 runStoryImagePhase 与「边写边出」逐段共用）。返回成功生成张数。
+  async function genStoryImagesFor(narrative: string, count: number, msgId: number): Promise<number> {
     const ig = useImageGen.getState();
-    if (!ig.autoStory) return;
-    const count = Math.max(1, Math.min(9, ig.storyImageCount || 4));
-
     const ss = useSettings.getState();
     const legacy = ss.textUseSharedApi ? ss.api : ss.textApi;
     const chain = resolveApiChain('image_story_llm', legacy);
-    if (!chain[0]?.baseUrl || !chain[0]?.apiKey) { console.warn('[StoryImg] 正文生图 LLM 未配置（综合设置→生图设置→正文生图→独立 LLM 路由），跳过'); return; }
+    if (!chain[0]?.baseUrl || !chain[0]?.apiKey) { console.warn('[StoryImg] 正文生图 LLM 未配置（综合设置→生图设置→正文生图→独立 LLM 路由），跳过'); return 0; }
 
     // 在场角色外观资料
     const onNpcs = Object.values(useNpc.getState().npcs).filter((r) => !r.isDead && r.onScene);
@@ -3436,7 +3437,6 @@ ${AFFIX_EFFECT_RULE}`;
       { role: 'system', content: sys },
       { role: 'user', content: `请只输出 ${count} 个 <image> 块（含 <anchor>/<nsfw_rating>/<prompt>），不要其它内容。` },
     ];
-    let usedPreset = false;
     try {
       const mod = await import('./systems/imagePromptPreset');
       const preset = mod.getImgPromptPreset();
@@ -3445,19 +3445,16 @@ ${AFFIX_EFFECT_RULE}`;
           story: narrative, charsFull, count,
           time: M.worldTime || M.paradiseTime || '', location: M.worldName || '',
         });
-        usedPreset = true;
       }
     } catch (e) { console.warn('[StoryImg] 生图预设加载失败，回退模板:', e); }
 
-    setImagePhaseLog(usedPreset ? '正文配图·按生图预设抽取中…' : '正文配图·抽取画面中…');
     let reply = '';
     try {
       const r = await apiChatFallback(chain, messages);
       reply = r.content;
     } catch (e: any) {
       console.error('[StoryImg] 抽取失败:', e.message ?? e);
-      setImagePhaseLog(`⚠ 正文配图抽取失败：${(e.message ?? '').slice(0, 40)}`);
-      setTimeout(() => setImagePhaseLog(''), 8000); return;
+      return 0;
     }
 
     // 解析 <image> 块
@@ -3470,16 +3467,13 @@ ${AFFIX_EFFECT_RULE}`;
       specs = proms.map((p) => ({ anchor: get(p, 'anchor'), nsfw: 'sfw', prompt: get(p, 'prompt') })).filter((s) => s.prompt);
     }
     if (specs.length === 0) {
-      // 打印模型原始回复片段，便于判断是"拒绝"还是"格式没遵守"
       console.warn('[StoryImg] 未解析到有效 <image> 块。模型回复前 200 字：', (reply || '（空回复）').slice(0, 200));
-      setImagePhaseLog('⚠ 正文配图：抽取模型未按 <image> 格式输出（可能拒绝NSFW/模型不支持），本轮跳过');
-      setTimeout(() => setImagePhaseLog(''), 7000);
-      return;
+      return 0;
     }
+    specs = specs.slice(0, count);   // 不超过本次请求张数
 
     const size = ig.storySize && ig.storySize !== 'inherit' ? ig.storySize : undefined;
-    setImagePhaseLog(`正文配图生成中…（0/${specs.length}）`);
-    let done = 0, ok = 0;
+    let ok = 0;
     for (const sp of specs) {
       try {
         // 按 NSFW 等级补一个 nsfw tag（忠实正文，仅做强度提示）
@@ -3489,11 +3483,41 @@ ${AFFIX_EFFECT_RULE}`;
         setMessages((prev) => prev.map((m) => m.id === msgId ? { ...m, images: [...(m.images ?? []), img] } : m));
         ok++;
       } catch (e: any) { console.warn('[StoryImg] 生成失败:', e.message ?? e); }
-      done++;
-      setImagePhaseLog(`正文配图生成中…（${done}/${specs.length}）`);
     }
-    setImagePhaseLog(ok > 0 ? `✓ 正文配图完成（${ok}/${specs.length}）` : `⚠ 正文配图失败（0/${specs.length}）`);
+    return ok;
+  }
+
+  /* 正文配图（一次性）：整段正文写完后抽 N 张。若「边写边出」已在流式期间逐段处理过本回合 → 跳过避免重复。 */
+  async function runStoryImagePhase(narrative: string, msgId: number) {
+    const ig = useImageGen.getState();
+    if (!ig.autoStory) return;
+    if (progImgRef.current.dispatched > 0) { progImgRef.current = { offset: 0, dispatched: 0 }; return; }   // 边写边出已逐段处理本回合
+    const count = Math.max(1, Math.min(9, ig.storyImageCount || 4));
+    setImagePhaseLog('正文配图·抽取画面中…');
+    const ok = await genStoryImagesFor(narrative, count, msgId);
+    setImagePhaseLog(ok > 0 ? `✓ 正文配图完成（${ok}）` : '⚠ 正文配图：未生成（模型未按格式/拒绝NSFW/未配置）');
     setTimeout(() => setImagePhaseLog(''), 8000);
+  }
+
+  /* 「边写边出」：流式期间每写完一整段(空行分段)就给那段抽 1 张图，fire-and-forget，本回合累计上限=storyImageCount。 */
+  function maybeDispatchProgressiveImages(text: string, msgId: number) {
+    const ig = useImageGen.getState();
+    if (!ig.autoStory || !ig.storyProgressive) return;
+    const st = progImgRef.current;
+    const count = Math.max(1, Math.min(9, ig.storyImageCount || 4));
+    if (st.dispatched >= count) return;
+    const lastBreak = text.lastIndexOf('\n\n');
+    if (lastBreak <= st.offset) return;                       // 没有新写完的整段
+    const fresh = text.slice(st.offset, lastBreak);
+    st.offset = lastBreak;
+    const paras = fresh.split(/\n\s*\n/).map((p) => p.trim())
+      .filter((p) => p.length >= 60 && !/^[<【]|<state|<upstore|<状态结算|<世界|<击杀|<battle/i.test(p));   // 够长、且不是指令/结算块
+    for (const para of paras) {
+      if (st.dispatched >= count) break;
+      st.dispatched++;
+      setImagePhaseLog(`正文配图·边写边出（${st.dispatched}/${count}）`);
+      void genStoryImagesFor(para, 1, msgId);                 // 不 await：立即开始出图、不挡流式
+    }
   }
 
   /* 双击正文配图 → 用该张原 prompt 重新生成（不重抽锚点、不动其它图）。复用 storyService 与 storySize。 */
@@ -6342,6 +6366,7 @@ ${lines}`;
         let accumulated = '';
         let buffer = '';
         let aborted = false;
+        progImgRef.current = { offset: 0, dispatched: 0 };   // 「边写边出」：每回合开始重置已派发段落
 
         try {
           while (true) {
@@ -6371,6 +6396,7 @@ ${lines}`;
                   setMessages((prev) =>
                     prev.map((m) => m.id === streamMsgId ? { ...m, content: accumulated } : m)
                   );
+                  maybeDispatchProgressiveImages(accumulated, streamMsgId);   // 「边写边出」：每写完一段就给那段配图
                 }
               } catch { /* 忽略解析失败的行 */ }
             }

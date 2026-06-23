@@ -524,7 +524,14 @@ function applyOneItemCommand(cmd: ItemCommand, store: any, npcEquipDupCtx?: Map<
         if (p.origin) patch.origin = p.origin;
         if (p.notes) patch.notes = p.notes;
         if (p.acquisition) patch.acquisition = p.acquisition;
-        if (p.killCount != null) patch.killCount = p.killCount;
+        if (p.killCount != null) {
+          // 杀敌数支持「+N」/「+=N」增量（AI 不必知道总数，只报本轮击杀）；裸数字则按绝对总数
+          const kc = String(p.killCount).trim();
+          const rel = kc.match(/^\+\s*=?\s*(\d+)$/);
+          patch.killCount = rel
+            ? String((parseInt(String(item.killCount ?? '0'), 10) || 0) + parseInt(rel[1], 10))
+            : kc;
+        }
         // 强制把所有字段转成字符串：AI 偶把 effect/affix 等写成数字或对象，否则渲染时 (x).trim()/.replace() 会整页崩
         for (const k of Object.keys(patch)) {
           const v = patch[k];

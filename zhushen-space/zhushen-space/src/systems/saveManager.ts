@@ -343,6 +343,32 @@ export async function deleteSlot(id: string) {
   await saveDb.del(id);
 }
 
+/* 申请「持久化存储」(navigator.storage.persist)。
+   根因：默认是 best-effort 存储，浏览器在磁盘/配额紧张时会把本源 IndexedDB **整体清空淘汰**——
+   表现正是"手动存档过段时间消失、只剩每回合都会被重写重建的自动存档"（自动档清掉后下一回合又生成，手动档不会）。
+   申请 persist 后浏览器不再随意淘汰本源数据。Chrome 按参与度/权限/是否安装等启发式决定是否授予；幂等、失败静默。
+   返回是否处于持久化状态，供调用方提示用户（未授予时建议「加书签/常访问本站」以提高授予率）。*/
+export async function requestPersistentStorage(): Promise<{ supported: boolean; persisted: boolean }> {
+  try {
+    if (typeof navigator === 'undefined' || !navigator.storage || !navigator.storage.persist) {
+      return { supported: false, persisted: false };
+    }
+    if (navigator.storage.persisted && (await navigator.storage.persisted())) {
+      return { supported: true, persisted: true };   // 已持久化，无需再申请
+    }
+    const granted = await navigator.storage.persist();
+    let usage = '';
+    try {
+      if (navigator.storage.estimate) {
+        const est = await navigator.storage.estimate();
+        if (est.usage != null && est.quota) usage = `（已用 ${(est.usage / 1048576).toFixed(0)}MB / 配额 ${(est.quota / 1048576).toFixed(0)}MB）`;
+      }
+    } catch { /* */ }
+    console.log(`[Save] 持久化存储：${granted ? '✓ 已授予，存档不再被浏览器随意淘汰' : '✗ 未授予——存储紧张时手动档可能被清理，建议给本站加书签/常访问以提高授予率'}${usage}`);
+    return { supported: true, persisted: granted };
+  } catch { return { supported: false, persisted: false }; }
+}
+
 export async function exportSlot(id: string) {
   const slot = await saveDb.get<SaveSlot>(id);
   if (!slot) return;

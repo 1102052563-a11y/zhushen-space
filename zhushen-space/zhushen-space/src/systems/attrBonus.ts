@@ -77,7 +77,7 @@ export function computeAttrBreakdown(
   const b = base ?? { str: 5, agi: 5, con: 5, int: 5, cha: 5, luck: 5 };
   const sk = sumBonus(skills, ['effect']);
   const ta = sumBonus(talents, ['effect']);
-  const eq = sumBonus(equipped, ['effect', 'affix']);
+  const eq = sumBonus(equipped, ['effect', 'affix', 'combatStat']);   // 也读 combatStat：AI 常把「智力+11」等六维加成塞进攻防字段，否则不生效
   const out = {} as Record<keyof PlayerAttrs, AttrBreak>;
   for (const k of ATTR_KEYS) {
     const base0 = b[k] ?? 0, e = eq[k] ?? 0, s = sk[k] ?? 0, t = ta[k] ?? 0;
