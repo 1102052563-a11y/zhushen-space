@@ -2,6 +2,8 @@ import type { ApiConfig } from '../store/settingsStore';
 import { useSettings } from '../store/settingsStore';
 import { acquireApiSlot } from './apiThrottle';
 import { apiDebugLog, autoApiLabel } from './apiDebugLog';
+import { processMacros, makeMacroCtx } from './stMacros';
+import { usePlayer } from '../store/playerStore';
 
 // 默认云端网关；可被「本地网关地址」覆盖（localStorage drpg-gateway-url），用于走你本地 worker（你家 IP，仿 SillyTavern 本地后端）
 const GW_DEPLOYED = 'https://zhushen-multiplayer.1102052563.workers.dev/api/gw/proxy';
@@ -82,8 +84,19 @@ export async function apiChatFallback(
 ): Promise<{ content: string; api: ApiConfig }> {
   const usable = (chain ?? []).filter((a) => a && a.baseUrl && a.apiKey);
   if (usable.length === 0) throw new Error('无可用 API 接口（请在功能 API 设置选择接口库接口，或填写单独配置）');
-  // 开发者调试日志：登记本次调用的输入消息（含 system/历史/各注入），返回后补 finish（见下）
-  const _logId = apiDebugLog.push(opts?.label || autoApiLabel(messages), messages);
+  // ST 宏（全局）：对所有调用的消息内容求值，让用户可编辑的人设/预设里的 {{user}}/{{getvar}}/{{random}} 等宏到处生效；
+  //   仅当真含宏时才处理（无宏走原数组，零开销）；全局这条**不清残留**（stripLeftover=false），绝不误删代码提示词里合法的 {{。
+  let procMessages = messages;
+  if (messages.some((m) => m.content && (m.content.includes('{{') || m.content.includes('${') || m.content.includes('<user>')))) {
+    try {
+      const pname = usePlayer.getState().profile?.name || '主角';
+      const lastUser = [...messages].reverse().find((m) => m.role === 'user')?.content || '';
+      const mc = makeMacroCtx({ user: pname, char: pname, lastUserMessage: lastUser });
+      procMessages = messages.map((m) => ({ role: m.role, content: processMacros(m.content || '', mc, false) }));
+    } catch { procMessages = messages; }
+  }
+  // 开发者调试日志：登记本次调用的输入消息（宏求值后＝实际发送），返回后补 finish（见下）
+  const _logId = apiDebugLog.push(opts?.label || autoApiLabel(procMessages), procMessages);
   // 全局节流：限制并发 + 最小间隔，缓解中转站 429（整条逻辑调用占一个名额，含 fallback 重试）
   const th = useSettings.getState().apiThrottle;
   const release = await acquireApiSlot(th?.maxConcurrent ?? 3, th?.minGapMs ?? 0);
@@ -91,7 +104,7 @@ export async function apiChatFallback(
     let lastErr: unknown;
     for (let i = 0; i < usable.length; i++) {
       const api = usable[i];
-      const body: Record<string, unknown> = { model: api.modelId, messages, stream: true, ...(opts?.extra ?? {}) };
+      const body: Record<string, unknown> = { model: api.modelId, messages: procMessages, stream: true, ...(opts?.extra ?? {}) };
       // 接口自带 temperature/max_tokens；若 extra 已指定（如收尾的 max_tokens）则尊重 extra，不覆盖
       if (body.temperature === undefined && api.temperature != null && isFinite(api.temperature) && api.temperature > 0) body.temperature = api.temperature;
       if (body.max_tokens === undefined && api.maxTokens != null && api.maxTokens > 0) body.max_tokens = api.maxTokens;

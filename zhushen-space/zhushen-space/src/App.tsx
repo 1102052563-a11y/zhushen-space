@@ -112,6 +112,7 @@ import { genPortraitTags, genEquipTags, isTagService } from './systems/imageTags
 import { hydrateImages, initImageSync } from './systems/imageSync';
 import { loadWb, saveWb } from './systems/wbDb';
 import { apiDebugLog } from './systems/apiDebugLog';
+import { processMacros, makeMacroCtx } from './systems/stMacros';
 import ApiPromptPanel, { type PromptPart } from './components/ApiPromptPanel';
 const TerritoryPanel = lazy(() => import('./components/TerritoryPanel'));
 const CosmosPanel = lazy(() => import('./components/CosmosPanel'));
@@ -740,7 +741,6 @@ export default function App() {
   const textPresets      = useSettings((s) => s.textPresets);
   const activePresetId   = useSettings((s) => s.activeTextPresetId);
   const activePresetName = useSettings((s) => s.activeTextPresetName);
-  if (import.meta.env.DEV && typeof window !== 'undefined') { (window as any).__zsSettings = useSettings; (window as any).__buildPM = buildPresetMessages; } // DEV 验证暴露
   const textStream           = useSettings((s) => s.textStream);
   const skipNarrativeThinking = useSettings((s) => s.skipNarrativeThinking);
   const plotGuidance         = useSettings((s) => s.plotGuidance);
@@ -1348,7 +1348,14 @@ export default function App() {
     // 仿 fanren 范式：认 chatHistory marker，把「相对块(非深度注入)」切成 前历史 / 后历史。
     //   前历史 system→合并系统提示、user/assistant→少样本；后历史块→插在真实楼层之后(post-history)。
     //   无 chatHistory marker 的预设（轮回乐园三本）→ 全部当前历史，行为不变。
-    const enabled = (preset?.entries ?? []).filter((e) => e.enabled);
+    // ST 宏引擎：按预设顺序对每个块的 content 求值（setvar→后续 getvar 生效），未识别宏末尾清掉防泄漏。
+    //   轮回乐园/双人成行无宏=无操作；让导入的任意 ST 预设不必再手工摊平宏。
+    const _macroCtx = makeMacroCtx({
+      user: usePlayer.getState().profile?.name || '主角',
+      char: usePlayer.getState().profile?.name || '主角',
+      lastUserMessage: userInput,
+    });
+    const enabled = (preset?.entries ?? []).filter((e) => e.enabled).map((e) => ({ ...e, content: processMacros(e.content || '', _macroCtx) }));
     const relative = enabled.filter((e) => e.injection_position !== 1);
     const chatIdx = relative.findIndex((e) => e.marker && e.identifier === 'chatHistory');
     const preRel = chatIdx >= 0 ? relative.slice(0, chatIdx) : relative;
@@ -1361,8 +1368,24 @@ export default function App() {
     let sysPrompt = sysParts.join('\n\n') || '你是一个沉浸式文字RPG的故事叙述者。';
     if (!sysBlocks.length) sysSegments.push({ label: '⚠ 预设无启用的 system 块（仅用最简默认）', content: sysPrompt });
 
-    // 注入世界书
-    if (ctx) { sysPrompt += '\n\n[世界书信息]\n' + ctx; sysSegments.push({ label: '前端 · 世界书信息', content: ctx }); }
+    // 注入世界书：仿 fanren——若预设有 worldInfoBefore/After 或 charDescription marker，把世界书放到该 marker 的位置+角色（前/后历史）；
+    //   否则回落 system 顶部（轮回乐园三本无此 marker → 行为不变）。世界书角色严格按该预设条目的 role。
+    const wbMarker = relative.find((e) => e.marker && (e.identifier === 'worldInfoBefore' || e.identifier === 'worldInfoAfter'))
+                  || relative.find((e) => e.marker && e.identifier === 'charDescription');
+    const wbPost = !!wbMarker && chatIdx >= 0 && relative.indexOf(wbMarker) > chatIdx;
+    const wbRole: 'system' | 'user' | 'assistant' = wbMarker
+      ? ((wbMarker.role === 'system' || wbMarker.system_prompt) ? 'system' : (wbMarker.role as 'user' | 'assistant'))
+      : 'system';
+    let worldbook: { role: 'system' | 'user' | 'assistant'; content: string; post: boolean } | null = null;
+    if (ctx) {
+      if (wbMarker) {
+        worldbook = { role: wbRole, content: '[世界书信息]\n' + ctx, post: wbPost };
+        sysSegments.push({ label: '世界书 → ' + wbMarker.identifier + ' marker（' + wbRole + (wbPost ? ' · 后历史' : ' · 前历史') + '）', content: ctx });
+      } else {
+        sysPrompt += '\n\n[世界书信息]\n' + ctx;
+        sysSegments.push({ label: '前端 · 世界书信息（system顶部 · 无 worldInfo marker）', content: ctx });
+      }
+    }
     // 主角状态同步：让始终运行的主正文每回合输出位置/外观（前端解析后剥除），不依赖被节流的主角演化阶段
     sysPrompt += '\n\n' + PLAYER_STATE_EMIT_RULE; sysSegments.push({ label: '前端规则 · 主角状态输出', content: PLAYER_STATE_EMIT_RULE });
     // HP/EP 结算：让主正文每回合末尾输出主角+在场NPC的当前 HP/EP（前端 applyNarrativeVitals/NpcVitals 解析，HP/EP 管理阶段也以此为最终值）
@@ -1407,7 +1430,7 @@ export default function App() {
     // 末尾预填充：identifier='prefill' 的 assistant 块改放 messages 最末尾让模型续写
     const prefillEntry = enabled.find((e) => e.identifier === 'prefill' && e.role === 'assistant' && e.content);
     const prefill = prefillEntry?.content ?? '';
-    return { sysPrompt, examples, prefill, depthInjections, sysSegments, tail };
+    return { sysPrompt, examples, prefill, depthInjections, sysSegments, tail, worldbook };
   }
 
   // 无预设条目时的内置兜底提示词
@@ -6084,7 +6107,7 @@ ${lines}`;
     } catch (e) { console.warn('[NovelVec] 检索失败', e); }
     const worldInfoText = [wbKeywordText, novelVecText].filter(Boolean).join('\n\n');
 
-    const { sysPrompt, examples, prefill, depthInjections, sysSegments, tail } = buildPresetMessages(preset, worldInfoText, userText);
+    const { sysPrompt, examples, prefill, depthInjections, sysSegments, tail, worldbook } = buildPresetMessages(preset, worldInfoText, userText);
     // 跳过思维链（设置开时）：末尾预填充 </think>，让思考模型以为思考已结束、直接出正文（与 preset 自带 prefill 叠加）
     const effectivePrefill = skipNarrativeThinking ? ('</think>\n' + (prefill ?? '')).trimEnd() : prefill;
     // 剧情指导（开启时）：正文生成【前】先跑一次，产出剧情优化建议 → 像叙事回忆一样注入主正文，由主正文据此写（仅一次正文生成）
@@ -6184,6 +6207,7 @@ ${lines}`;
     const mpRuleBlock = mpNarrativeRule();        // 联机专用正文规则（建房时房主可选启用）
     const history = [
       ...examples,
+      ...(worldbook && !worldbook.post ? [{ role: worldbook.role, content: worldbook.content }] : []),   // <世界书> worldInfo/charDescription marker 在前历史 → 楼层前注入（按条目 role，仿 fanren）
       ...memory,                                       // <过往记忆> system 块（如有）
       ...structRest,                                   // <在场与相关档案> NPC/势力/领地档案（留在较深处）
       ...(mpRuleBlock ? [{ role: 'system' as const, content: mpRuleBlock }] : []),     // <联机正文规则> 房主开了才注入
@@ -6197,6 +6221,7 @@ ${lines}`;
       ...recent,                                       // 最近原文楼层
       ...structPlayer,                                 // <主角当前档案> 浅注入：紧贴最近正文/用户输入，让主角数值更难被 API 忽略
       ...guidanceBlock,                                // <剧情指导> 本回合写作建议（剧情指导开启时，紧贴用户输入注入，像叙事回忆一样）
+      ...(worldbook && worldbook.post ? [{ role: worldbook.role, content: worldbook.content }] : []),   // <世界书> worldInfo/charDescription marker 在后历史 → 楼层后注入（按条目 role）
       ...tail.map((t) => ({ role: t.role, content: t.content })),   // <后历史预设块> chatHistory marker 之后的预设块（破限/格式/规则等）→ 真实楼层之后（仿 fanren post-history）
       ...[...depthInjections, ...wbDepthInjections].sort((a, b) => b.depth - a.depth).map((inj) => ({ role: inj.role, content: inj.content })),
       { role: 'user' as const, content: userText },
