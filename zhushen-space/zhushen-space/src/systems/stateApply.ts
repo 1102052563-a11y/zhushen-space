@@ -32,11 +32,29 @@ export function sanitizeEntryName(raw?: string): string {
    只删【闭合】的 <think>/<thinking>/<thought> 块 + 开头残留的孤立 </think>（预填充回显）；
    不动未闭合的开标签（删它会把悬空链内容暴露成正文，宁可留着由长度/坏味把关）。确定性、无 API。 */
 export function stripLeakedThinking(text: string): string {
-  if (!text || !/<\/?(?:think|thinking|thought)\b/i.test(text)) return text;
-  return text
-    .replace(/<(think|thinking|thought)\b[^>]*>[\s\S]*?<\/\1>/gi, '')   // 闭合思维块（任意位置）
-    .replace(/^\s*<\/(?:think|thinking|thought)>\s*/i, '')               // 开头孤立的闭合标签（预填充回显残留）
-    .trimStart();
+  if (!text) return text;
+  let t = text;
+  if (/<\/?(?:think|thinking|thought)\b/i.test(t)) {
+    t = t
+      .replace(/<(think|thinking|thought)\b[^>]*>[\s\S]*?<\/\1>/gi, '')   // 闭合思维块（任意位置）
+      .replace(/^\s*<\/(?:think|thinking|thought)>\s*/i, '')               // 开头孤立的闭合标签（预填充回显残留）
+      .trimStart();
+  }
+  return stripLeadingPlanLeak(t);
+}
+
+/* 兜底：模型把「动笔前思考」草稿裸奔在正文最前（没包 <think>，故上面按标签剥不到）。
+   仅当开头那段——含 ≥2 个规划标记（切入点/节拍/防OOC/字数目标/世界之源/要输出/钩子/落点/时间设定…）——
+   且以「落笔」收口时，整段剥掉。两道闸（≥2标记 + 落笔收口）保证普通正文绝不误伤。 */
+const PLAN_MARKS = ['切入点', '节拍', '防OOC', '字数目标', '字数设定', '世界之源', '要输出', '信息卡', '钩子', '落点', '时间设定', '观察核心', '本回合是'];
+function stripLeadingPlanLeak(text: string): string {
+  if (!text || text.indexOf('落笔') < 0) return text;
+  const m = text.match(/^\s*([\s\S]{20,5000}?落笔[。.!！]?)\s*(?:\n|$)/);
+  if (!m) return text;
+  const head = m[1].replace(/\s/g, '');
+  const hits = PLAN_MARKS.filter((k) => head.includes(k)).length;
+  if (hits >= 2) return text.slice(m[0].length).trimStart();
+  return text;
 }
 
 /* 主角「属性成长信号」——正文里出现 ①某属性/实力词＋成长词(近邻)、②突破/晋阶到更高阶位、或 ③显式数值加成，

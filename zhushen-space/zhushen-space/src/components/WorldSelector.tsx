@@ -79,6 +79,14 @@ export default function WorldSelector({ onRawResponse, onPromptSent, onWorlds, o
   const [quickKind, setQuickKind] = useState<'pose' | 'bdsm' | null>(null);  // 展开的快捷条目类别（姿势/BDSM）
   const [rank, setRank] = useState('');
   const [rolls, setRolls] = useState<number[]>([]);
+  const [editIdx, setEditIdx] = useState(-1);   // 正在手动编辑的 Roll 点下标（-1=无）
+  const [editVal, setEditVal] = useState('');    // 编辑中的临时字符串（允许自由输入，提交时再钳到 0–1500 整数）
+  const commitRollEdit = () => {
+    if (editIdx < 0) return;
+    const n = Math.max(0, Math.min(1500, Math.round(Number(editVal) || 0)));
+    setRolls((prev) => prev.map((x, j) => (j === editIdx ? n : x)));
+    setEditIdx(-1);
+  };
   const [worlds, setWorlds] = useState<WorldOption[]>([]);
   const [errorMsg, setErrorMsg] = useState('');
   const [leisure, setLeisure] = useState(false);   // 休闲世界模式：忽略阶位，按「休闲世界」世界书生成休闲/恋爱向世界
@@ -330,17 +338,29 @@ export default function WorldSelector({ onRawResponse, onPromptSent, onWorlds, o
           {rolls.length > 0 ? (
             <div className="flex-1 flex flex-wrap gap-1 items-center">
               {rolls.map((v, i) => (
-                <span key={i} className={`text-[13px] font-mono px-1.5 py-0.5 rounded border ${
-                  v >= 1200 ? 'text-amber-300 border-amber-500/50 bg-amber-900/20' :
-                  v >= 800  ? 'text-god border-god/30 bg-god/5' :
-                  v >= 400  ? 'text-slate-300 border-edge bg-panel2' :
-                              'text-dim border-edge/50'
-                }`}>{v}</span>
+                editIdx === i ? (
+                  <input key={i} type="number" min={0} max={1500} autoFocus
+                    value={editVal}
+                    onChange={(e) => setEditVal(e.target.value)}
+                    onBlur={commitRollEdit}
+                    onKeyDown={(e) => { if (e.key === 'Enter') commitRollEdit(); else if (e.key === 'Escape') setEditIdx(-1); }}
+                    className="w-16 text-[13px] font-mono px-1 py-0.5 rounded border border-god/60 bg-void text-slate-100 outline-none"
+                  />
+                ) : (
+                  <span key={i} onClick={() => { setEditIdx(i); setEditVal(String(v)); }} title="点击修改这个点数"
+                    className={`text-[13px] font-mono px-1.5 py-0.5 rounded border cursor-pointer hover:border-god/60 transition-colors ${
+                      v >= 1200 ? 'text-amber-300 border-amber-500/50 bg-amber-900/20' :
+                      v >= 800  ? 'text-god border-god/30 bg-god/5' :
+                      v >= 400  ? 'text-slate-300 border-edge bg-panel2' :
+                                  'text-dim border-edge/50'
+                    }`}>{v}</span>
+                )
               ))}
-              <button onClick={() => setRolls(rollDice())} className="text-[12px] text-dim hover:text-god font-mono ml-1">↺</button>
+              <button onClick={() => setRolls(rollDice())} title="全部重新Roll" className="text-[12px] text-dim hover:text-god font-mono ml-1">↺</button>
+              <span className="text-[11px] text-dim/40 font-mono ml-0.5">点数字可改</span>
             </div>
           ) : (
-            <span className="text-sm text-dim/50 font-mono self-center">点击可Roll 12 个点（范围 0–1500）</span>
+            <span className="text-sm text-dim/50 font-mono self-center">点击可Roll 12 个点（范围 0–1500，Roll 后可手动改每个数）</span>
           )}
         </div>
 
