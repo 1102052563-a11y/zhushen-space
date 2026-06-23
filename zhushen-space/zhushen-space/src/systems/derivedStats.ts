@@ -136,14 +136,17 @@ function baseMaxEp(attrs?: PlayerAttrs, equipped: { effect?: string; affix?: str
 /* 跨资源上限公式：如「生命值额外提升量=最大法力值的300%」→ HP += 300% × 最大EP（灵影体质类）。
    kind='hp' 解析「生命…最大法力…X%」用 EP 算；kind='ep' 反之。用 base 值算，避免 HP↔EP 循环。 */
 function vitalCrossBonus(texts: (string | undefined)[], kind: 'hp' | 'ep', otherMax: number): number {
+  // 需出现「增益动词」(提升/=/为…)以区分加成与伤害公式(如「生命与法力之和X%伤害」不算)。
+  // 全角逗号「，」纳入断句字符，配合「每条文本只取首个百分比」避免阶梯式「初始30%，突破45%，最终100%」被累加。
+  const verb = '(?:提升|提高|增加|增幅|加成|额外|提供|转化|=|＝|为|等于|达到?)';
   const pat = kind === 'hp'
-    ? '(?:生命|HP|血量|气血|体力)(?:值)?[^。；,\\n]{0,16}?最大\\s*(?:法力|魔力|蓝量|能量|内力|精力)(?:值)?[^。；,\\n]{0,8}?(\\d+(?:\\.\\d+)?)\\s*[%％]'
-    : '(?:法力|魔力|蓝量|能量|内力|精力)(?:值)?[^。；,\\n]{0,16}?最大\\s*(?:生命|HP|血量|气血|体力)(?:值)?[^。；,\\n]{0,8}?(\\d+(?:\\.\\d+)?)\\s*[%％]';
+    ? '(?:生命|HP|血量|气血|体力)[^。；，,\\n]{0,6}?' + verb + '[^。；，,\\n]{0,14}?(?:最大\\s*)?(?:法力|魔力|蓝量|能量|内力|精力)(?:值)?[^。；，,\\n]{0,16}?(\\d+(?:\\.\\d+)?)\\s*[%％]'
+    : '(?:法力|魔力|蓝量|能量|内力|精力)[^。；，,\\n]{0,6}?' + verb + '[^。；，,\\n]{0,14}?(?:最大\\s*)?(?:生命|HP|血量|气血|体力)(?:值)?[^。；，,\\n]{0,16}?(\\d+(?:\\.\\d+)?)\\s*[%％]';
   let pctSum = 0;
   for (const raw of texts) {
     if (!raw) continue;
-    const re = new RegExp(pat, 'gi'); let m: RegExpExecArray | null;
-    while ((m = re.exec(String(raw))) !== null) pctSum += Number(m[1]);
+    const m = new RegExp(pat, 'i').exec(String(raw)); // 每条文本仅取首个百分比(阶梯值取初始)
+    if (m) pctSum += Number(m[1]);
   }
   return Math.round((pctSum / 100) * (otherMax || 0));
 }

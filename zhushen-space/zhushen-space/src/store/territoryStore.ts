@@ -64,6 +64,44 @@ function nameEq(a?: string, b?: string): boolean {
   return !!x && !!y && x === y;
 }
 
+/* 物资身份归一化：AI 常把"数量级括注"嵌进物品名（罪孽精华(微量) vs 罪孽精华），
+   导致同一物资被当成两条囤积。识别物资身份时剥掉**结尾**的纯数量级括注；
+   只剥纯数量词，**不动**元素/属性/部位等会区分物品的括注（如「强化石（火）」不剥）。 */
+const QTY_QUALIFIER_RE = /[（(]\s*(?:微量|少量|大量|海量|巨量|极少量|极微量|些许|一点|一些|少许|若干|大批|数个|数件)\s*[）)]\s*$/;
+function stripQtyQualifier(s?: string): string {
+  return (s ?? '').replace(QTY_QUALIFIER_RE, '').trim();
+}
+/** 仓库同名累加/去重用的身份键（剥掉数量级括注后再归一化） */
+function itemKey(s?: string): string {
+  return tNorm(stripQtyQualifier(s));
+}
+
+/** 仓库去重：同一物资（按 itemKey）只留一条、数量累加、缺字段回填；顺手把残留的数量级括注从名字里清掉。 */
+function dedupeStorageList(items: TerritoryItem[]): TerritoryItem[] {
+  const out: TerritoryItem[] = [];
+  const idx: Record<string, number> = {};
+  for (const it of items ?? []) {
+    const cleanName = stripQtyQualifier(it.name) || it.name;
+    const key = itemKey(it.name);
+    if (key && idx[key] != null) {
+      const t = out[idx[key]];
+      out[idx[key]] = {
+        ...t,
+        quantity: t.quantity + (it.quantity || 0),
+        category: t.category ?? it.category,
+        gradeDesc: t.gradeDesc ?? it.gradeDesc,
+        effect: t.effect ?? it.effect,
+        desc: t.desc ?? it.desc,
+        appearance: t.appearance ?? it.appearance,
+      };
+    } else {
+      if (key) idx[key] = out.length;
+      out.push({ ...it, name: cleanName });
+    }
+  }
+  return out;
+}
+
 /** 建筑数量上限：每升一级 +1，初始（Lv.1）3 栋 */
 export function buildingCap(level: number): number {
   return Math.max(1, (level || 1) + 2);
@@ -183,8 +221,12 @@ interface TerritoryState {
   clearEffects: () => void;
   addMember: (id: string, patch?: { role?: string; note?: string }) => void;
   removeMember: (id: string) => void;
+  /** 成员去重自愈：把"用 NPC 名字误当 id"的成员归位到真实 C-id，并合并同一 NPC 的重复条目 */
+  reconcileMembers: (npcs: Record<string, { id: string; name: string }>) => void;
   storeItem: (it: Partial<TerritoryItem> & { name: string }) => void;
   takeItem: (name: string, qty?: number) => void;
+  /** 仓库去重自愈：同名物资合并（含 "X(微量)" 与 "X" 这类被数量级括注拆开的重复） */
+  dedupeStorage: () => void;
   clearTerritory: () => void;
 
   /* ── 预设 / 设置 actions ── */
@@ -332,17 +374,45 @@ export const useTerritory = create<TerritoryState>()(
           return { members: [...s.members, { id: cid, role: patch?.role, note: patch?.note }] };
         }),
       removeMember: (id) => set((s) => ({ members: s.members.filter((m) => m.id !== id) })),
+      reconcileMembers: (npcs) =>
+        set((s) => {
+          const resolve = (mid: string): string => {
+            if (npcs[mid]) return mid;                                   // 已是有效 C-id
+            const hit = Object.values(npcs).find((r) => nameEq(r.name, mid));
+            return hit ? hit.id : mid;                                   // 把名字误当 id 的归位到 C-id
+          };
+          const out: TerritoryMember[] = [];
+          const seen: Record<string, number> = {};
+          let changed = false;
+          for (const m of s.members) {
+            const cid = resolve(m.id);
+            if (cid !== m.id) changed = true;
+            if (seen[cid] != null) {
+              changed = true;                                           // 同一 NPC 重复条目 → 合并
+              const t = out[seen[cid]];
+              out[seen[cid]] = { ...t, role: t.role ?? m.role, note: t.note ?? m.note };
+            } else {
+              seen[cid] = out.length;
+              out.push({ ...m, id: cid });
+            }
+          }
+          return changed ? { members: out } : s;
+        }),
 
       storeItem: (it) =>
         set((s) => {
-          const nm = it.name.trim();
-          if (!nm) return s;
-          const i = s.storageItems.findIndex((x) => nameEq(x.name, nm));
+          const rawNm = it.name.trim();
+          if (!rawNm) return s;
+          const nm = stripQtyQualifier(rawNm) || rawNm;   // 入库即剥掉"(微量)"等数量级括注，name 存纯净物资名
+          const key = itemKey(nm);
+          // 先精确匹配，再按"剥数量级括注"的身份键匹配（合并 "X(微量)" 与 "X"）
+          const i = s.storageItems.findIndex((x) => nameEq(x.name, nm) || (!!key && itemKey(x.name) === key));
           if (i >= 0) {
             const next = [...s.storageItems];
             const addQty = it.quantity != null ? Math.round(it.quantity) : 1;
             next[i] = {
               ...next[i],
+              name: stripQtyQualifier(next[i].name) || next[i].name,   // 顺手清掉旧条目残留的数量级括注
               quantity: next[i].quantity + addQty,
               ...(it.category != null ? { category: it.category } : {}),
               ...(it.gradeDesc != null ? { gradeDesc: it.gradeDesc } : {}),
@@ -372,6 +442,7 @@ export const useTerritory = create<TerritoryState>()(
           else next[i] = { ...next[i], quantity: remain };
           return { storageItems: next };
         }),
+      dedupeStorage: () => set((s) => ({ storageItems: dedupeStorageList(s.storageItems) })),
 
       clearTerritory: () =>
         set({
@@ -414,6 +485,8 @@ export const useTerritory = create<TerritoryState>()(
       merge: (persisted: any, current) => ({
         ...current,
         ...persisted,
+        // 读档即对仓库去重（修存量重复条目；成员归位需 NPC 表，放在领地演化阶段做）
+        storageItems: dedupeStorageList(persisted?.storageItems ?? current.storageItems ?? []),
         settings: {
           ...DEFAULT_SETTINGS,
           ...(persisted?.settings ?? {}),

@@ -1,6 +1,6 @@
 {
   "name": "内置·领地演化",
-  "version": 1,
+  "version": 2,
   "entrySharedRules": [
     {
       "id": "ter-role",
@@ -42,21 +42,21 @@
       "name": "领地成员（关联 NPC）",
       "enabled": true,
       "role": "system",
-      "content": "【领地成员】只能是已建档的 NPC（C-id，见【在场可关联 NPC】）。正文中某 NPC 加入/常驻/受雇于领地时关联，离开时移除。\n指令：addMember(\"C1\",{\"role\":\"工坊主管\",\"note\":\"负责装备维护\"}) / removeMember(\"C1\")。\n不要凭空捏造不存在的 NPC id；不要把主角(B1)加为成员。成员数量与阶位会推动建设进度（见“领地等级与建设进度”）。"
+      "content": "【领地成员】只能是已建档的 NPC（C-id，见【在场可关联 NPC】）。正文中某 NPC 加入/常驻/受雇于领地时关联，离开时移除。\n指令：addMember(\"C1\",{\"role\":\"工坊主管\",\"note\":\"负责装备维护\"}) / removeMember(\"C1\")。\n**反重复·只认 C-id**：addMember 的第一个参数**必须是 C-id**（如 \"C1\"），**严禁用 NPC 名字当 id**——写 addMember(\"莉莉丝\") 是错的，会和 addMember(\"C1\") 各建一条重复成员（“莉莉丝”与“C1·莉莉丝”）。关联前先看【当前领地档案】成员行：该 NPC 的 C-id 已在成员里就**不要再** addMember。\n不要凭空捏造不存在的 NPC id；不要把主角(B1)加为成员。成员数量与阶位会推动建设进度（见“领地等级与建设进度”）。"
     },
     {
       "id": "ter-warehouse",
       "name": "领地仓库",
       "enabled": true,
       "role": "system",
-      "content": "【仓库】与主角随身储存空间分离，存放领地产出/囤积物资。\n指令：storeItem({\"name\":\"\",\"quantity\":N,\"category\":\"材料\",\"gradeDesc\":\"蓝色\",\"effect\":\"\"}) 存入（同名累加）/ takeItem(\"物品名\", N) 取出。\n只在正文明确发生入库/出库时调用，不要把主角背包物品搬来搬去。"
+      "content": "【仓库】与主角随身储存空间分离，存放领地产出/囤积物资。\n指令：storeItem({\"name\":\"\",\"quantity\":N,\"category\":\"材料\",\"gradeDesc\":\"蓝色\",\"effect\":\"\"}) 存入（同名累加）/ takeItem(\"物品名\", N) 取出。\n**反重复·纯净命名**：name **只写纯净物资名**，数量（含“微量/少量/大量/×N”）放 quantity 字段、品级颜色放 gradeDesc 字段，**绝不**把数量/品级嵌进 name——写 storeItem({\"name\":\"罪孽精华(微量)\"}) 是错的，正确写 storeItem({\"name\":\"罪孽精华\",\"quantity\":1,\"gradeDesc\":\"白色\"})，否则会和 {\"name\":\"罪孽精华\"} 拆成两条。入库已有物资时 name **照抄【当前领地档案】仓库里的现有全名**使其累加，勿换写法另建。\n只在正文明确发生入库/出库时调用，不要把主角背包物品搬来搬去。"
     },
     {
       "id": "ter-anti-dup",
       "name": "反重造·反累积铁则",
       "enabled": true,
       "role": "system",
-      "content": "【反重造】领地是单一持续档案，**只增量更新，不重建**。开辟前（档案显示未开辟）才用 unlockTerritory；已开辟后绝不再 unlock。已有建筑/成员/效果沿用，只在正文明确发生变化时增改。\n【反累积】不要每回合重复 addBuilding 同名建筑、不要无理由刷进度/刷等级/刷产出。建筑达数量上限时只升级不新增。无变化就输出空 <upstore></upstore>。"
+      "content": "【反重造】领地是单一持续档案，**只增量更新，不重建**。开辟前（档案显示未开辟）才用 unlockTerritory；已开辟后绝不再 unlock。已有建筑/成员/效果沿用，只在正文明确发生变化时增改。\n【反累积】不要每回合重复 addBuilding 同名建筑、不要无理由刷进度/刷等级/刷产出。建筑达数量上限时只升级不新增。无变化就输出空 <upstore></upstore>。\n【反重复条目·成员与仓库】同一 NPC 成员、同一种仓库物资**至多一条**：成员只用 C-id（勿用名字当 id），仓库物名只写纯净名（数量进 quantity、品级进 gradeDesc）、入库已有物资照抄全名累加。绝不让“莉莉丝/C1·莉莉丝”“罪孽精华/罪孽精华(微量)”这类重复堆叠。"
     }
   ]
 }

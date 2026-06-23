@@ -4,6 +4,7 @@ import {
   NARRATIVE_FIRST_RULE,
   TERRITORY_EFFECT_RULE,
   TERRITORY_STABILITY_RULE,
+  TERRITORY_DEDUP_RULE,
   EVO_VERIFY_RULE,
   BUFF_AS_STATUS_RULE,
   ITEM_FIXED_FORMAT_RULE,
@@ -747,8 +748,7 @@ export default function App() {
   const textUseShared    = useSettings((s) => s.textUseSharedApi);
   const textWorldBooks   = useSettings((s) => s.textWorldBooks);
   const textPresets      = useSettings((s) => s.textPresets);
-  const activePresetId   = useSettings((s) => s.activeTextPresetId);
-  const activePresetName = useSettings((s) => s.activeTextPresetName);
+  // activeTextPresetId/Name 现由 sendMessage/演化处直接走 useSettings.getState() 实时读取（免 stale 闭包），不再在此订阅
   const textStream           = useSettings((s) => s.textStream);
   const skipNarrativeThinking = useSettings((s) => s.skipNarrativeThinking);
   const plotGuidance         = useSettings((s) => s.plotGuidance);
@@ -1274,7 +1274,9 @@ export default function App() {
       if (regen) {
         sessionStorage.removeItem(PENDING_REGEN_KEY);
         setStarted(true);
-        setTimeout(() => { sendMessage(regen); }, 400);
+        // 等「补种」把 textPresets 填好再重发：loadBuiltinDefaults 要先 fetch 一堆大文件才填 textPresets，常超 400ms；
+        //   若此刻就发会在空库瞬间发出→预设没注入(722)。轮询有了即发，最多 ~10s 兜底（真没预设也照发，不卡死）。
+        { const fireRegen = (n = 0) => { if (useSettings.getState().textPresets.length > 0 || n >= 50) sendMessage(regen); else setTimeout(() => fireRegen(n + 1), 200); }; setTimeout(() => fireRegen(), 300); }
       }
     })();
   }, []);
@@ -2976,13 +2978,16 @@ ${AFFIX_EFFECT_RULE}`;
     const T = useTerritory.getState();
     if (!T.unlocked) return '（领地尚未开辟。若本回合正文中主角建立/获得了据点/基地/领地，用 unlockTerritory 开辟；name 取正文中该基地的既有称呼或主角为其起的名字，正文未命名则留空 name（待玩家自定义），**不要凭空编一个通用名如“轮回乐园基地/我的领地”**。）';
     const cap = buildingCap(T.level);
+    const npcs = useNpc.getState().npcs;
     const lines: string[] = [
       `名称：${T.name || '（未命名）'}`,
       `等级：${realmFromLevel(T.level)}·Lv.${T.level}（建设进度 ${T.buildProgress}/100）`,
       `建筑：${T.buildings.length}/${cap} 栋${T.buildings.length ? '——' + T.buildings.map((b) => `${b.name}(Lv.${b.level})`).join('、') : '（无）'}`,
       `领地效果：${T.effects.length ? T.effects.map((e) => e.name).join('、') : '（无）'}`,
-      `成员：${T.members.length ? T.members.map((m) => `${m.id}${m.role ? '(' + m.role + ')' : ''}`).join('、') : '（无）'}`,
-      `仓库：${T.storageItems.length ? T.storageItems.map((i) => `${i.name}×${i.quantity}`).slice(0, 12).join('、') : '（空）'}`,
+      // 成员标出 C-id↔NPC名：AI 关联只能用 C-id；已列出的 NPC 即已是成员，勿重复 addMember
+      `成员（关联只用 C-id）：${T.members.length ? T.members.map((m) => { const nm = npcs[m.id]?.name; return `${m.id}${nm && nm !== m.id ? '·' + nm : ''}${m.role ? '(' + m.role + ')' : ''}`; }).join('、') : '（无）'}`,
+      // 仓库列出现有全名+品级：入库已有物资须照抄全名使其累加，勿换写法另建
+      `仓库（入库已有物资照抄全名）：${T.storageItems.length ? T.storageItems.map((i) => `${i.name}${i.gradeDesc ? '[' + i.gradeDesc + ']' : ''}×${i.quantity}`).slice(0, 20).join('、') : '（空）'}`,
       `外观：${T.appearance || '（未描写）'}`,
       `被动产出：${T.passiveOutput || '（无）'}`,
     ];
@@ -3003,6 +3008,10 @@ ${AFFIX_EFFECT_RULE}`;
     const enabledEntries = (T.settings.entries ?? []).filter((e) => e.enabled);
     if (enabledEntries.length === 0) { console.warn('[Territory] 无启用预设条目，跳过'); return; }
 
+    // 演化前先自愈存量重复条目（成员名字误当id / 仓库同名拆条），让快照与面板立即变干净
+    T.reconcileMembers(useNpc.getState().npcs);
+    T.dedupeStorage();
+
     const npcRecords = Object.values(useNpc.getState().npcs).filter((r) => !r.isDead);
     const onscreenNpcs = npcRecords.filter((r) => r.onScene).length > 0
       ? npcRecords.filter((r) => r.onScene).map((r) => `[${r.id}] ${r.name}（${r.realm || '阶位未知'}）`).join('\n')
@@ -3014,7 +3023,7 @@ ${AFFIX_EFFECT_RULE}`;
       .replaceAll('${territory_snapshot}', serializeTerritorySnapshot())
       .replaceAll('${onscreen_npcs}', onscreenNpcs)
       .replaceAll('${player_name}', playerName)
-      + '\n\n' + NARRATIVE_FIRST_RULE + '\n' + TERRITORY_EFFECT_RULE + '\n' + TERRITORY_STABILITY_RULE + '\n' + TERRITORY_COT_RULE;
+      + '\n\n' + NARRATIVE_FIRST_RULE + '\n' + TERRITORY_EFFECT_RULE + '\n' + TERRITORY_STABILITY_RULE + '\n' + TERRITORY_DEDUP_RULE + '\n' + TERRITORY_COT_RULE;
 
     setTerritoryPhaseLog('领地演化中…');
     try {
@@ -6071,7 +6080,10 @@ ${lines}`;
 
     // 解析激活预设：先按 id，再按名（id 失配兜底——内置预设跨刷新 id 可能变），最后退到库内第一个；
     // 只要预设库非空就一定注入某个预设，绝不因 activeId 为 null/失配而「裸奔」无预设（修「预设没注入」）。
-    const preset = textPresets.find((p) => p.id === activePresetId) ?? textPresets.find((p) => p.name === activePresetName) ?? textPresets[0];
+    // **实时读 store**：重新生成走「reload+自动重发」，sendMessage 是挂载时的空闭包(textPresets 旧值为空)；
+    //   从 useSettings.getState() 现取，免受 stale 闭包影响（配合下方重发前「等补种」轮询）→ 否则 reroll 预设没注入(722 裸奔)。
+    const _ssNarr = useSettings.getState();
+    const preset = _ssNarr.textPresets.find((p) => p.id === _ssNarr.activeTextPresetId) ?? _ssNarr.textPresets.find((p) => p.name === _ssNarr.activeTextPresetName) ?? _ssNarr.textPresets[0];
 
     // 历史裁切：historyLimit > 0 时只取最近 N 条（即"显示楼层"范围）
     const allHistory = extraHistory.length > 0 ? extraHistory : messagesRef.current;
@@ -6566,7 +6578,8 @@ ${lines}`;
     applyAllUpdates(cleaned);
     try { applyPlayerProfileCommands(cleaned, '', turnCountRef.current); } catch { /* */ }
     const settled = stripKillBlocks(cleaned);
-    const preset = textPresets.find((p) => p.id === activePresetId) ?? textPresets.find((p) => p.name === activePresetName) ?? textPresets[0];
+    const _ssEvo = useSettings.getState();   // 同上：实时读 store，免 stale 闭包导致演化也拿不到预设
+    const preset = _ssEvo.textPresets.find((p) => p.id === _ssEvo.activeTextPresetId) ?? _ssEvo.textPresets.find((p) => p.name === _ssEvo.activeTextPresetName) ?? _ssEvo.textPresets[0];
     const narrativeForEvoRaw = stripStateBlocks(applyRegex(settled, preset));
     const processed = stripWorldSourceBlocks(stripVitalsBlocks(narrativeForEvoRaw));
     const newMsgId = ++msgId.current;

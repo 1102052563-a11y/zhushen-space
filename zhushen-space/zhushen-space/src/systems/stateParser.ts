@@ -961,6 +961,9 @@ export function applyTerritoryCommands(text: string): number {
       n++;
     }
     for (const mm of idArgCall('takeItem')) { store.takeItem(mm[1], mm[2] != null ? Number(mm[2]) : undefined); n++; }
+    // 去重自愈：把"用名字误当 id"的成员归位到 C-id 并合并；仓库同名物资合并（修 AI 反复生成的重复条目）
+    store.reconcileMembers(useNpc.getState().npcs);
+    store.dedupeStorage();
   } catch (e) { console.warn('[Territory] upstore 指令应用失败:', e); }
 
   // ── <state> 短指令 ──
