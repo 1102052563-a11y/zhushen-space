@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
+import type { CombatSpec } from '../systems/combatTags';
 
 /* ════════════════════════════════════════════
    经历（对齐 fanren-remake bio.deeds schema）
@@ -60,6 +61,7 @@ export interface Skill {
     targetScope?: string;
     maxTargets?: number;
     mpCostMultiplier?: number;
+    combat?: CombatSpec;             // 战斗标签规格（Tag VM 读取；缺省时引擎用 inferEffectsFromSkill 关键词兜底）
     [key: string]: unknown;
   };
   addedAt: number;

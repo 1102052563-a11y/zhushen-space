@@ -105,7 +105,7 @@ const CombatSetup = lazy(() => import('./components/CombatSetup'));
 import { useTerritory, buildTerritorySystemPrompt, buildingCap } from './store/territoryStore';
 import { useTeam, buildTeamSystemPrompt, memberCap as teamMemberCap } from './store/adventureTeamStore';
 import { useCosmos, buildCosmosSystemPrompt, cosmosNameEq, cleanCosmosName } from './store/cosmosStore';
-import { realmFromLevel, normalizeTier, lvFromRealm, trueAttr, computeMaxHp, computeMaxEp, effectiveResource, attrCapForTier, clampBaseAttrs, fullMaxHp, fullMaxEp, TIERS } from './systems/derivedStats';
+import { realmFromLevel, normalizeTier, lvFromRealm, computeMaxHp, computeMaxEp, effectiveResource, attrCapForTier, clampBaseAttrs, fullMaxHp, fullMaxEp, TIERS } from './systems/derivedStats';
 import { isHomeWorld, reconcileHomeWorld, reconcilePlayerVitals, playerMaxHp, playerMaxEp, syncPlayerVitalsMax } from './systems/playerVitals';
 import { bioInnate, tierVitalMult } from './systems/bioStrength';
 import { generateNpcAttrs, resolveForm, generateLuck } from './systems/npcAttrGen';
@@ -1967,7 +1967,7 @@ export default function App() {
         prof.arenaRank && `竞技场排名:${prof.arenaRank}`,
         a && `生物强度(前端按基础六维机械判定·资质档,勿写): ${bioInnate(a, prof.tier, prof.level)?.label ?? ''}`,
         `六维(基础·默认锁定·非正文逐字写明成长一律别改): 力${a.str} 敏${a.agi} 体${a.con} 智${a.int} 魅${a.cha} 幸${a.luck}`,
-        `真实属性(基础÷80+真实属性点直加,前端自动算,勿写入): 真力${trueAttr(a.str) + (prof.realAttrs?.str ?? 0)} 真敏${trueAttr(a.agi) + (prof.realAttrs?.agi ?? 0)} 真体${trueAttr(a.con) + (prof.realAttrs?.con ?? 0)} 真智${trueAttr(a.int) + (prof.realAttrs?.int ?? 0)} 真魅${trueAttr(a.cha) + (prof.realAttrs?.cha ?? 0)} 真幸${trueAttr(a.luck) + (prof.realAttrs?.luck ?? 0)}`,
+        `真实属性口径(重要): 四阶起上方六维数值本身即「真实属性」(勿÷80折算成另一套小数字)，1点真实≈5点普通之效、判定享绝对优先级；一~三阶为「普通属性」(≤99，99=普通绝对极限)。唯有自身锻炼/强化的裸装六维计入单属性极值突破，装备/技能/天赋加成不计极值。`,
         `生命HP上限=体质×20+被动天赋/装备的上限加成=${playerMaxHp()}，蓝量EP上限=智力×15+加成=${playerMaxEp()}（前端自动换算，勿写maxHp/maxMp；只有受伤/消耗时才用 hp.B1 -=N / mp.B1 -=N 改当前值）`,
         `当前状态/Buff: ${prof.status || '一切正常'}`,
         (prof.statusEffects?.length ?? 0) > 0 && `限时状态(引擎自动过期,勿重复添加): ${prof.statusEffects.map((e) => `${e.name}${e.durationDesc ? `(${e.durationDesc})` : ''}`).join('；')}`,

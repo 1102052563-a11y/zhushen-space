@@ -6,7 +6,7 @@ import { useMisc } from '../store/miscStore';
 import { useCharacters } from '../store/characterStore';
 import { apiChatFallback } from './apiChat';
 import { serializeEvents } from './miscParser';
-import { fullMaxHp, fullMaxEp, effectiveResource, lvFromRealm, trueAttr } from './derivedStats';
+import { fullMaxHp, fullMaxEp, effectiveResource, lvFromRealm } from './derivedStats';
 import { bioInnate } from './bioStrength';
 export function getNpcApi() {
   const npcEvoState = useNpcEvo.getState();
@@ -127,7 +127,7 @@ export function serializeNpcSnapshot(r: NpcRecord): string {
     r.realAttrPoints != null && `真实属性点: ${r.realAttrPoints}`,
     r.skillPoints != null && `技能点: ${r.skillPoints}`,
     attrs && `六维: 力${attrs.str ?? '?'} 敏${attrs.agi ?? '?'} 体${attrs.con ?? '?'} 智${attrs.int ?? '?'} 魅${attrs.cha ?? '?'} 幸${attrs.luck ?? '?'}`,
-    attrs && `真实属性(基础÷80+真实属性点直加,前端自动算,勿写入): 真力${trueAttr(attrs.str ?? 0) + (r.realAttrs?.str ?? 0)} 真敏${trueAttr(attrs.agi ?? 0) + (r.realAttrs?.agi ?? 0)} 真体${trueAttr(attrs.con ?? 0) + (r.realAttrs?.con ?? 0)} 真智${trueAttr(attrs.int ?? 0) + (r.realAttrs?.int ?? 0)} 真魅${trueAttr(attrs.cha ?? 0) + (r.realAttrs?.cha ?? 0)} 真幸${trueAttr(attrs.luck ?? 0) + (r.realAttrs?.luck ?? 0)}`,
+    attrs && `真实属性口径: 四阶起该 NPC 六维即「真实属性」(勿÷80)，1点真实≈5点普通之效、判定享绝对优先；一~三阶为普通属性(≤99)。`,
     r.personality && `性格(列3): ${r.personality}`,
     r.status && `状态(列4): ${r.status}`,
     (r.statusEffects?.length ?? 0) > 0 && `限时状态(引擎自动过期,勿重复添加): ${r.statusEffects!.map((e) => `${e.name}${e.durationDesc ? `(${e.durationDesc})` : ''}`).join('；')}`,

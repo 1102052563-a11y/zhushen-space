@@ -333,20 +333,20 @@ export function validateTree(raw: any): TreeValidation {
       y: Number.isFinite(n?.y) ? Number(n.y) : undefined,
     };
   });
-  // 属性加成收口（2026-06-23·用户要求「减少每个节点属性·大中节点不给」——所有树含内置一律适用）：
+  // 属性加成收口（2026-06-23·用户要求「减少每个节点属性·大中节点不给·每次点亮只 +1 属性点」——所有树含内置一律适用）：
   //  · 中型/大节点/终极(medium/major/capstone)一律不给六维——只留技能 + buff(buff 写 effect / 作天赋永久生效)。
-  //  · 微星(minor)每维属性封顶 +1·削弱属性堆叠(治「智力+31」式溢出；含内置 ptByLayer 递增值)。
-  //  · 无尽端点(sink·真实属性 ×80) 与 星核位(socket) 不动；中心 core(kind=minor)走微星封顶、其 +1/+1/+1 保留。
+  //  · 微星(minor)每次点亮只 +1 个属性点 → ptAttr 收敛到「单一主维·值 1」(取原值最大的那一维)，多维/大数值一律压成 +1。
+  //  · 无尽端点(sink·真实属性 ×80) 与 星核位(socket) 不动；中心 core(kind=minor)也按此收敛(其 +1/+1/+1 → 单维 +1)。
   for (const n of nodes) {
     if (n.sink || n.socket) continue;
     if (n.kind === 'medium' || n.kind === 'major' || n.kind === 'capstone') {
       n.ptAttr = undefined;                                        // 去掉「每点 力量+1」类六维
       if (n.grants?.skill) (n.grants.skill as any).attrBonus = '';   // 去掉技能里的六维加成(buff 应写在 effect)
       if (n.grants?.trait) (n.grants.trait as any).attrBonus = '';   // 去掉天赋里的六维加成
-    } else if (n.ptAttr) {                                          // 微星：每维封顶 +1
-      const capped: AttrDelta = {};
-      for (const k of ATTR_KEYS) { const v = Math.trunc(Number((n.ptAttr as any)[k]) || 0); if (v > 0) capped[k] = Math.min(v, 1); }
-      n.ptAttr = Object.keys(capped).length ? capped : undefined;
+    } else if (n.ptAttr) {                                          // 微星：每次点亮只 +1 属性点 → 单一主维·值 1
+      let bestK: typeof ATTR_KEYS[number] | undefined; let bestV = 0;
+      for (const k of ATTR_KEYS) { const v = Math.trunc(Number((n.ptAttr as any)[k]) || 0); if (v > bestV) { bestV = v; bestK = k; } }
+      n.ptAttr = bestK ? ({ [bestK]: 1 } as AttrDelta) : undefined;
     }
   }
   // 清理悬空/自引用前置

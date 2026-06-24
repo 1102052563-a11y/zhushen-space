@@ -89,8 +89,9 @@ describe('serializePlayerCard（HP/EP 满状态含加成 + 真实属性注入）
     expect(card).not.toContain('HP:200/200');
   });
 
-  it('注入「真实属性」行（按含加成实战六维换算：体80→1点真实）', () => {
-    expect(card).toMatch(/真实属性[^\n]*体1/);
+  it('注入「真实属性口径」说明行（四阶起六维即真实属性，勿÷80）', () => {
+    expect(card).toMatch(/真实属性口径/);
+    expect(card).toContain('四阶起');
   });
 
   it('六维实战值标注基础值（体: 80(基50)）', () => {

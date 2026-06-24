@@ -19,7 +19,7 @@ describe('tierBounds（阶位 → 单属性 [下限,上限]）', () => {
   it('下限 = 上一阶上限+1（一阶特例 5）', () => {
     expect(tierBounds(1)).toEqual([5, 50]);
     expect(tierBounds(2)).toEqual([51, 80]);
-    expect(tierBounds(3)).toEqual([81, 120]);
+    expect(tierBounds(3)).toEqual([81, 99]);
   });
 });
 

@@ -30,23 +30,25 @@ describe('validateTree · 阶位 gate 按前置链深度递进（封顶七阶）
 });
 
 describe('validateTree · 属性收口（减少微星 + 大/中节点不给·所有树含内置）', () => {
-  it('微星每维封顶 +1；medium/major/capstone 清 ptAttr+attrBonus；sink/core 保留', () => {
+  it('微星每次点亮只 +1 属性点(收敛单一主维)；medium/major/capstone 清 ptAttr+attrBonus；sink 保留', () => {
     const { tree } = validateTree({ source: 'builtin', branches: [{ id: 'b1', name: 'B1' }], nodes: [
       { id: 'core', kind: 'minor', layer: 0, branch: 'b1', prereqs: [], ptAttr: { str: 1, int: 1 }, grants: { trait: { name: 'CoreT', attrBonus: '力量+2', effect: 'x' } } },
       { id: 'mi', kind: 'minor', layer: 1, branch: 'b1', prereqs: ['core'], ptAttr: { int: 3 } },
+      { id: 'mu', kind: 'minor', layer: 1, branch: 'b1', prereqs: ['core'], ptAttr: { str: 2, agi: 3, int: 1 } },
       { id: 'me', kind: 'medium', layer: 2, branch: 'b1', prereqs: ['mi'], ptAttr: { int: 2 }, grants: { skill: { name: 'MS', attrBonus: '智力+2' } } },
       { id: 'mj', kind: 'major', layer: 3, branch: 'b1', prereqs: ['me'], ptAttr: { int: 4 }, grants: { skill: { name: 'JS', attrBonus: '智力+4' } } },
       { id: 'sk', kind: 'capstone', layer: 4, branch: 'b1', prereqs: ['mj'], sink: true, realAttr: true, ptAttr: { int: 1 } },
     ] });
     const m = byId(tree);
-    expect(m.mi.ptAttr).toEqual({ int: 1 });            // 微星 3 → 1
-    expect(m.core.ptAttr).toEqual({ str: 1, int: 1 });  // core(minor) 已 ≤1 → 保留
-    expect(m.core.grants.trait.attrBonus).toBe('力量+2'); // core 不被清
+    expect(m.mi.ptAttr).toEqual({ int: 1 });            // 微星 {int:3} → {int:1}
+    expect(m.mu.ptAttr).toEqual({ agi: 1 });            // 多维 {str:2,agi:3,int:1} → 取最大维 agi=1（总 +1）
+    expect(m.core.ptAttr).toEqual({ str: 1 });          // core {str:1,int:1} → 收敛单维 {str:1}（每次点亮只 +1）
+    expect(m.core.grants.trait.attrBonus).toBe('力量+2'); // core 的天赋 attrBonus 不被清
     expect(m.me.ptAttr).toBeUndefined();                // medium 清 ptAttr
     expect(m.me.grants.skill.attrBonus).toBe('');       // medium 清 attrBonus
     expect(m.mj.ptAttr).toBeUndefined();                // major 清
     expect(m.mj.grants.skill.attrBonus).toBe('');
-    expect(m.sk.ptAttr).toEqual({ int: 1 });            // 无尽端点 sink 保留
+    expect(m.sk.ptAttr).toEqual({ int: 1 });            // 无尽端点 sink 保留（真实属性 ×80）
   });
   it('treeAttrDelta 反映微星封顶（智力堆叠被削）', () => {
     const { tree } = validateTree({ source: 'builtin', branches: [{ id: 'b1', name: 'B1' }], nodes: [

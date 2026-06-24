@@ -17,12 +17,21 @@ export interface PlayerAttrs {
 /* 战斗内数值修正（仅战斗系统使用；挂在 StatusEffect.combat 上，由 combatEngine 解读）。 */
 export interface CombatStatusMod {
   atkMult?: number;      // 攻击倍率增量（+0.25 = 攻击×1.25；负为削弱）
-  defMult?: number;      // 防御倍率增量（负=破甲，受伤更高）
-  dotPerRound?: number;  // 每回合持续伤害（已折算成定值）
-  hotPerRound?: number;  // 每回合持续治疗
+  defMult?: number;      // 防御倍率增量（负=破甲/碎甲，受伤更高）
+  dotPerRound?: number;  // 每回合持续伤害（已折算成定值，如燃烧）
+  hotPerRound?: number;  // 每回合持续治疗（如再生）
   cannotAct?: boolean;   // 控制：本状态存续期间无法行动（眩晕/定身等）
   undying?: boolean;     // 不死：扣血保底 1，期间不会被打死
   hpLock?: boolean;      // 锁血：生命锁定，期间完全不掉血
+  // ── 标签 VM(战斗系统重置)新增的 STS 原语；仅战斗引擎读写，详见 systems/combatTags.ts ──
+  strengthStacks?: number;  // 力量层数：每层使出手伤害 +10%×攻击力档（折成加值）
+  dexterityStacks?: number; // 敏捷层数：每层使格挡量 +10%×防御力档
+  vulnerable?: boolean;     // 易伤：该单位受到的伤害 ×1.5
+  weak?: boolean;           // 虚弱：该单位造成的伤害 ×0.75
+  poisonStacks?: number;    // 中毒层数：每回合损失=层数 HP，然后层数−1（耗尽即移除）
+  thorns?: number;          // 荆棘：受到攻击时反弹的固定伤害
+  silenced?: boolean;       // 沉默：无法使用技能（只能普攻/防御/道具）
+  taunt?: boolean;          // 嘲讽：被迫优先攻击施法者（由本地敌人 AI 读取，source=施法者）
 }
 
 /* 限时状态效果（buff/debuff，引擎按回合/游戏时间自动过期）。主角与 NPC 共用此结构。 */

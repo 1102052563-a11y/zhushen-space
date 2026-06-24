@@ -1,14 +1,17 @@
 /* ════════════════════════════════════════════
-   战斗结算引擎（纯逻辑，无 React）—— 建在 systems/diceEngine 之上。
-   每次出手 = 一次 diceEngine.resolve 对抗判定（已聚合双方全部技能/天赋/装备/强度差），
-   伤害 = max(1, 攻ATK - 守DEF×防御系数) × 成功等级倍率 × 缩放；护盾先吸收再扣 HP。
-   数值全部由代码算，AI 只负责叙事 + 判暴击。轮回乐园重皮：阶位/强度走 T0-T9，技能品级走入门~极道。
+   战斗结算引擎（纯逻辑，无 React）—— 标签 VM 版（战斗系统重置 Step 2）。
+   每次出手 = 执行该技能的「标签效果列表」(systems/combatTags)，数值全部由代码确定性算定：
+   · **必中**（无命中/闪避/暴击骰）；伤害 = mult×攻击力档 → 虚弱×0.75 → +力量 → 易伤×1.5 → −防御 → 扣盾 → 扣 HP。
+   · 增益/减益走 StatusEffect+CombatStatusMod；护盾(格挡)每回合开始清零（STS 式）。
+   · 蓄力大招 / 领域阵法 / 道具 保留原机制；技能本体走标签。
+   敌人决策走 systems/enemyAI（本地启发式，0 API，Step 3）；AI 只在战斗结束据 BATTLE_RECORD 润色一次。
+   阶位/强度走 T0-T9，技能品级走入门~极道。设计文档：指导/战斗系统-重置-设计.md
 ════════════════════════════════════════════ */
 import {
-  resolve, strengthScoreFromBio, luckMod, ATTR_KEYS, type AttrKey, type DiceAttrs, type ResolveSide, type EquipItemLite,
+  ATTR_KEYS, type AttrKey, type DiceAttrs, type EquipItemLite,
 } from './diceEngine';
 import {
-  computeDerived, computeMaxHp, computeMaxEp, fullMaxHp, fullMaxEp, lvFromRealm, normalizeTier, realmFromLevel, effectiveResource, trueAttr,
+  computeDerived, computeMaxHp, computeMaxEp, fullMaxHp, fullMaxEp, lvFromRealm, normalizeTier, realmFromLevel, effectiveResource,
 } from './derivedStats';
 import { effectiveAttrs, withAttrDelta } from './attrBonus';
 import { playSfx } from './audio';
@@ -22,25 +25,26 @@ import { useItems, gradeToNum } from '../store/itemStore';
 import type { Skill } from '../store/characterStore';
 import type { BattleState, CombatStatBlock, Combatant, Side, CombatActionKind, DomainState } from '../store/combatStore';
 import { newLogId } from '../store/combatStore';
+import {
+  parseCombatSpec, applyDamageModifiers, strengthBonus, dexterityBonus, TAG_REGISTRY, EXECUTE_THRESHOLD,
+  type CombatEffect, type CombatSpec, type CombatTag, type TargetMode,
+} from './combatTags';
 
 const DEFAULT_ATTRS: DiceAttrs = { str: 5, agi: 5, con: 5, int: 5, cha: 5, luck: 5 };
 
 /* 调参常量（手感调节集中在此） */
-const DMG_SCALE = 2;          // 全局伤害缩放（让一场仗约 3~6 回合）
-const DEF_FACTOR = 0.6;       // 防御对攻击的削减系数
+const DMG_SCALE = 2;          // 全局伤害缩放（让一场仗约 4~6 回合）
+const DEF_FACTOR = 0.6;       // 防御对伤害的削减系数（必中模型里防御=减伤，不再是命中对抗）
 const DEFEND_MITIGATION = 0.5;// 防御姿态承伤倍率
-const BACKLASH_FACTOR = 0.5;  // 大失败反噬己方比例
 const SKILL_EP_BY_TIER: Record<string, number> = { 入门: 5, 精通: 10, 大师: 15, 宗师: 20, 极道: 30 };
-const LUCK_W = 2;             // 幸运在对抗里的权重（双向：出手方加、防御方减；luckMod 本体 ±2 → 净边际 ±~6~8）
-const TRUE_W = 4;             // 真实属性差在对抗里的权重（每 80 普通=1 真实，差距大即碾压命中）
 const EP_REGEN_RATE = 0.06;  // 每回合自动回蓝比例（按上限），防长仗技能荒；防御额外回更多
 
-/* 真实属性总分 = Σ floor(六维/80)。后期属性破 80 后才>0，故只在高阶产生碾压效果。 */
-function trueScore(a: DiceAttrs): number {
-  return ATTR_KEYS.reduce((s, k) => s + trueAttr(a[k]), 0);
-}
+/* 默认朝向「敌方」的标签（其余标签默认作用于己方/友方） */
+const ENEMY_TAGS = new Set<CombatTag>([
+  'deal', 'vulnerable', 'weak', 'poison', 'stun', 'burn', 'sunder', 'silence', 'execute', 'pierce', 'lifesteal', 'dispel', 'taunt',
+]);
 
-/* 真实属性·直加分配总和（Σ realAttrs[k]）。真实属性点直加的真实属性也计入战斗碾压因子（与面板显示口径一致）。 */
+/* 真实属性·直加分配总和（Σ realAttrs[k]）—— 计入参战者 trueBonus（展示/平衡用）。 */
 function sumRealAttrs(ra?: Partial<Record<AttrKey, number>>): number {
   return ra ? ATTR_KEYS.reduce((s, k) => s + (ra[k] ?? 0), 0) : 0;
 }
@@ -79,8 +83,7 @@ export function buildCombatant(id: string, side: Side, override?: Partial<Combat
     const p = usePlayer.getState().profile;
     const equippedFull = useItems.getState().items.filter((it) => it.equipped);
     const b1c = useCharacters.getState().characters['B1'];
-    // 主角有效六维 = 基础 + 技能树 + 团队效果 + 装备(含宝石) + **技能/天赋的六维加成**（与属性面板/正文注入一致）。
-    // 技能/天赋的「品级/评级相关性」另由骰子 mSkill/mTalent 计——那是相关性加成、与六维加成是两回事，不会双算。
+    // 主角有效六维 = 基础 + 技能树 + 团队效果 + 装备(含宝石) + 技能/天赋的六维加成（与属性面板/正文注入一致）。
     const baseTT = withAttrDelta(withAttrDelta(p.attrs ?? DEFAULT_ATTRS, playerTreeAttrBonus()), playerTeamAttrBonus());
     const attrs = effectiveAttrs(baseTT, b1c?.skills, b1c?.traits, equippedFull) as DiceAttrs;
     const equipped = equippedOf(useItems.getState().items);
@@ -159,16 +162,11 @@ export function assembleBattle(
   };
 }
 
-/* ── 出手攻击/伤害通道推断 ── */
+/* ── 出手攻击通道推断（决定用物攻档还是法攻档） ── */
 function isMagicSkill(skill?: Skill): boolean {
   if (!skill) return false;
   const t = `${skill.skillType ?? ''}${skill.damage ?? ''}${skill.effect ?? ''}${skill.name ?? ''}`;
   return /法术|术法|灵能|精神|意念|咒|魔|元素|能量|智力/.test(t);
-}
-function isHealSkill(skill?: Skill): boolean {
-  if (!skill) return false;
-  const t = `${skill.skillType ?? ''}${skill.target ?? ''}${skill.effect ?? ''}${skill.name ?? ''}${skill.desc ?? ''}`;
-  return /治疗|治愈|回复|恢复|疗伤|救治|加血/.test(t);
 }
 function skillEpCost(skill?: Skill): number {
   if (!skill) return 0;
@@ -176,11 +174,6 @@ function skillEpCost(skill?: Skill): number {
   if (m) return Math.max(0, Number(m[1]));
   for (const tier of Object.keys(SKILL_EP_BY_TIER)) if ((skill.level ?? '').includes(tier)) return SKILL_EP_BY_TIER[tier];
   return 8;
-}
-
-function resolveSideOf(id: string, attrKey: AttrKey, block: CombatStatBlock): ResolveSide {
-  const ab = fetchAbilities(id);
-  return { attrs: block.attrs, attrKey, skills: ab.skills, talents: ab.talents, equipped: ab.equipped };
 }
 
 function parseCooldownRounds(skill?: Skill): number {
@@ -235,6 +228,14 @@ function effCombatStats(c: Combatant, b: CombatStatBlock): { patk: number; matk:
   };
 }
 
+/* ── STS 原语读取（力量/敏捷/荆棘层数 + 易伤/虚弱/沉默标志） ── */
+function effStr(c: Combatant): number { let n = 0; for (const s of c.status) { const v = s.combat?.strengthStacks; if (v) n += v; } return n; }
+function effDex(c: Combatant): number { let n = 0; for (const s of c.status) { const v = s.combat?.dexterityStacks; if (v) n += v; } return n; }
+function effThorns(c: Combatant): number { let n = 0; for (const s of c.status) { const v = s.combat?.thorns; if (v) n += v; } return n; }
+function hasVuln(c: Combatant): boolean { return c.status.some((s) => !!s.combat?.vulnerable); }
+function hasWeak(c: Combatant): boolean { return c.status.some((s) => !!s.combat?.weak); }
+function isSilenced(c: Combatant): boolean { return c.status.some((s) => !!s.combat?.silenced); }
+
 /* 不死/锁血保命标志（汇总当前生效的状态） */
 function statusFlags(c: Combatant): { undying: boolean; hpLock: boolean } {
   let undying = false, hpLock = false;
@@ -254,46 +255,47 @@ function damageHp(c: Combatant, dmg: number): { lost: number; note: string } {
   return { lost, note };
 }
 
-interface SkillStatusTpl { name: string; emoji: string; tone: 'buff' | 'debuff'; effect: string; rounds: number; mod: CombatStatusMod; toEnemy: boolean }
-interface SkillSpec { aoe: boolean; shieldAmount: number; statuses: SkillStatusTpl[] }
+interface SkillStatusTpl { name: string; emoji: string; tone: 'buff' | 'debuff'; effect: string; rounds?: number; mod: CombatStatusMod; toEnemy: boolean }
 
-/* 施加一条战斗状态（同名刷新） */
-function applyCombatStatus(target: Combatant, tpl: SkillStatusTpl, round: number) {
+/* 施加一条战斗状态（同名刷新）。source 用于嘲讽等需要回溯施法者的标签。 */
+function applyCombatStatus(target: Combatant, tpl: SkillStatusTpl, round: number, source?: string) {
   const eff: StatusEffect = {
     id: `cs_${tpl.name}_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
     name: tpl.name, emoji: tpl.emoji, tone: tpl.tone, type: tpl.tone === 'buff' ? '增益' : '减益',
-    effect: tpl.effect, startTurn: round, durationTurns: tpl.rounds, addedAt: Date.now(), combat: tpl.mod,
+    effect: tpl.effect, startTurn: round, durationTurns: tpl.rounds, addedAt: Date.now(), combat: tpl.mod, source,
   };
   target.status = [...target.status.filter((s) => s.name !== tpl.name), eff];
 }
 
-/* 关键词推断技能的附加效果（护盾/buff/debuff/DoT/HoT/控制/群体）——纯关键词、确定性 */
-function inferSkillSpec(skill: Skill | undefined, casterMatk: number): SkillSpec {
-  const spec: SkillSpec = { aoe: false, shieldAmount: 0, statuses: [] };
-  if (!skill) return spec;
-  const t = `${skill.name ?? ''}|${skill.skillType ?? ''}|${skill.effect ?? ''}|${skill.desc ?? ''}|${skill.target ?? ''}|${(skill.tags ?? []).join('')}`;
-  spec.aoe = /群体|全体|范围|周围|所有|群攻|横扫|波及|溅射|aoe/i.test(t);
-  if (/护盾|护罩|护壁|护甲罩|格挡|结界|铁壁|金钟|护身|抵挡/.test(t)) spec.shieldAmount = Math.max(1, Math.round(casterMatk * 0.8));
-  const dot = /中毒|剧毒|淬毒/.test(t) ? { n: '中毒', e: '☠️' } : /灼烧|燃烧|点燃|焚|烈焰/.test(t) ? { n: '灼烧', e: '🔥' } : /流血|撕裂|出血/.test(t) ? { n: '流血', e: '🩸' } : /腐蚀|侵蚀/.test(t) ? { n: '腐蚀', e: '🧪' } : null;
-  if (dot) { const d = Math.max(1, Math.round(casterMatk * 0.15)); spec.statuses.push({ name: dot.n, emoji: dot.e, tone: 'debuff', effect: `每回合损失 ${d} 点生命`, rounds: 3, mod: { dotPerRound: d }, toEnemy: true }); }
-  if (/眩晕|定身|冰冻|麻痹|石化|沉默|禁锢|束缚|昏迷|震慑/.test(t)) spec.statuses.push({ name: '眩晕', emoji: '💫', tone: 'debuff', effect: '无法行动', rounds: 1, mod: { cannotAct: true }, toEnemy: true });
-  if (/破甲|碎甲|裂甲|破防/.test(t)) spec.statuses.push({ name: '破甲', emoji: '🛡️', tone: 'debuff', effect: '防御下降、受伤增加', rounds: 2, mod: { defMult: -0.3 }, toEnemy: true });
-  else if (/虚弱|弱化|削弱|降攻|缴械/.test(t)) spec.statuses.push({ name: '虚弱', emoji: '📉', tone: 'debuff', effect: '攻击下降', rounds: 2, mod: { atkMult: -0.3 }, toEnemy: true });
-  if (/强化|增幅|狂暴|战意|怒意|附魔/.test(t)) spec.statuses.push({ name: '战意', emoji: '⚔️', tone: 'buff', effect: '攻击提升', rounds: 2, mod: { atkMult: 0.3 }, toEnemy: false });
-  if (!spec.shieldAmount && /护体|硬化|防御提升|金身|守护|庇护/.test(t)) spec.statuses.push({ name: '守护', emoji: '🛡️', tone: 'buff', effect: '防御提升', rounds: 2, mod: { defMult: 0.3 }, toEnemy: false });
-  if (/再生|回春|持续治疗|生命恢复|疗愈/.test(t)) { const h = Math.max(1, Math.round(casterMatk * 0.12)); spec.statuses.push({ name: '再生', emoji: '💚', tone: 'buff', effect: `每回合回复 ${h} 点生命`, rounds: 3, mod: { hotPerRound: h }, toEnemy: false }); }
-  if (/锁血|血量锁定|生命锁定|绝对防御|无敌/.test(t)) spec.statuses.push({ name: '锁血', emoji: '🔒', tone: 'buff', effect: '生命锁定，期间不掉血', rounds: 1, mod: { hpLock: true }, toEnemy: false });
-  else if (/不死|不屈|不灭金身|金身不灭|大难不死|濒死|打不死|九条命|血战不退|坚韧不拔/.test(t)) spec.statuses.push({ name: '不死', emoji: '💀', tone: 'buff', effect: '扣血保底 1，不会被打死', rounds: 2, mod: { undying: true }, toEnemy: false });
-  return spec;
+/* 标签 → 状态模板（仅增益/减益/控制类标签；伤害/护盾/治疗等直接结算，不走这里） */
+function buildStatusTpl(tag: CombatTag, e: CombatEffect, atkTier: number): SkillStatusTpl | null {
+  const reg = TAG_REGISTRY[tag];
+  const stacks = Math.max(1, e.stacks ?? 1);
+  const rounds = e.turns;   // 可为 undefined
+  switch (tag) {
+    case 'strength': return { name: '力量', emoji: reg.emoji, tone: 'buff', effect: `造成伤害 +${stacks * 10}%`, rounds: rounds ?? 99, mod: { strengthStacks: stacks }, toEnemy: false };
+    case 'dexterity': return { name: '敏捷', emoji: reg.emoji, tone: 'buff', effect: `格挡 +${stacks * 10}%`, rounds: rounds ?? 99, mod: { dexterityStacks: stacks }, toEnemy: false };
+    case 'thorns': return { name: '荆棘', emoji: reg.emoji, tone: 'buff', effect: `反弹 ${stacks} 点伤害`, rounds: rounds ?? 99, mod: { thorns: stacks }, toEnemy: false };
+    case 'regen': return { name: '再生', emoji: reg.emoji, tone: 'buff', effect: '每回合回复生命', rounds: rounds ?? 3, mod: { hotPerRound: Math.max(1, Math.round(stacks * atkTier * 0.05)) }, toEnemy: false };
+    case 'vulnerable': return { name: '易伤', emoji: reg.emoji, tone: 'debuff', effect: '受到伤害 ×1.5', rounds: rounds ?? stacks, mod: { vulnerable: true }, toEnemy: true };
+    case 'weak': return { name: '虚弱', emoji: reg.emoji, tone: 'debuff', effect: '造成伤害 ×0.75', rounds: rounds ?? stacks, mod: { weak: true }, toEnemy: true };
+    case 'sunder': return { name: '碎甲', emoji: reg.emoji, tone: 'debuff', effect: `防御 −${stacks * 10}%`, rounds: rounds ?? 2, mod: { defMult: -0.1 * stacks }, toEnemy: true };
+    case 'poison': return { name: '中毒', emoji: reg.emoji, tone: 'debuff', effect: `每回合按层数掉血（${stacks} 层）`, rounds: undefined, mod: { poisonStacks: stacks }, toEnemy: true };
+    case 'burn': return { name: '燃烧', emoji: reg.emoji, tone: 'debuff', effect: `每回合损失 ${Math.max(1, e.flat ?? 8)} 点生命`, rounds: rounds ?? 3, mod: { dotPerRound: Math.max(1, e.flat ?? 8) }, toEnemy: true };
+    case 'stun': return { name: '眩晕', emoji: reg.emoji, tone: 'debuff', effect: '无法行动', rounds: rounds ?? 1, mod: { cannotAct: true }, toEnemy: true };
+    case 'silence': return { name: '沉默', emoji: reg.emoji, tone: 'debuff', effect: '无法使用技能', rounds: rounds ?? 1, mod: { silenced: true }, toEnemy: true };
+    case 'taunt': return { name: '嘲讽', emoji: reg.emoji, tone: 'debuff', effect: '被迫优先攻击施法者', rounds: rounds ?? 2, mod: { taunt: true }, toEnemy: true };
+    default: return null;
+  }
 }
 
-/* 回合开始结算：持续伤害/治疗 + 状态过期（advanceTurn 进入新一轮时调用） */
+/* 回合开始结算：持续伤害(燃烧/中毒)/持续治疗 + 状态过期 + 小回蓝（advanceTurn 进入新一轮时调用） */
 export function tickRoundStart(state: BattleState): void {
   for (const id of state.order) {
     const c = state.participants[id]; const b = state.initialState[id];
     if (!c || !b || c.left) continue;
     let dot = 0, hot = 0;
-    for (const s of c.status) { const mm = s.combat; if (!mm) continue; if (mm.dotPerRound) dot += mm.dotPerRound; if (mm.hotPerRound) hot += mm.hotPerRound; }
+    for (const s of c.status) { const mm = s.combat; if (!mm) continue; if (mm.dotPerRound) dot += mm.dotPerRound; if (mm.hotPerRound) hot += mm.hotPerRound; if (mm.poisonStacks) dot += mm.poisonStacks; }
     if (c.curHp > 0 && dot > 0) {
       const { lost, note } = damageHp(c, dot);
       if (lost > 0 || note) state.log.push({ id: newLogId(), round: state.round, type: 'system', actorId: id, text: `${b.name} 受到持续效果 ${lost} 点伤害${note}。`, timestamp: Date.now() });
@@ -303,7 +305,13 @@ export function tickRoundStart(state: BattleState): void {
       if (c.curHp > before) state.log.push({ id: newLogId(), round: state.round, type: 'system', actorId: id, text: `${b.name} 持续回复 ${c.curHp - before} 点生命。`, timestamp: Date.now() });
     }
     if (c.curHp > 0) c.curEp = Math.min(b.maxEp, c.curEp + Math.max(3, Math.round(b.maxEp * EP_REGEN_RATE)));   // 每回合小回蓝
-    c.status = c.status.filter((s) => s.durationTurns == null || (state.round - (s.startTurn ?? state.round)) < s.durationTurns);
+    // 中毒层数每回合 −1
+    for (const s of c.status) { if (s.combat?.poisonStacks) s.combat.poisonStacks -= 1; }
+    // 过期：毒层耗尽即移除；其余按 durationTurns
+    c.status = c.status.filter((s) => {
+      if (s.combat?.poisonStacks != null && s.combat.poisonStacks <= 0) return false;
+      return s.durationTurns == null || (state.round - (s.startTurn ?? state.round)) < s.durationTurns;
+    });
   }
 
   // 领域/阵法每回合结算（主人倒下则消散）
@@ -361,13 +369,13 @@ function inferItemEffect(item: any): ItemEffect {
 
 export interface SettleOutcome {
   state: BattleState;
-  logLines: string[];        // 结算明细（注入 result 阶段，让 AI 据此叙事）
+  logLines: string[];        // 结算明细（攒进战斗日志，结束时压成 BATTLE_RECORD）
   actorName: string;
   defeated: string[];        // 本次出手被打到 HP≤0 的参战者 id
   consumedItem?: { id: string; qty: number };   // 本次用掉的道具（由调用方从背包扣除）
 }
 
-/* 结算一次出手（玩家或 NPC）。kind: attack/skill/item/defend/flee/charge/cancel */
+/* 结算一次出手（玩家或 NPC）。kind: attack/skill/item/defend/flee/charge/cancel。全确定性、必中。 */
 export function settleAction(opts: {
   state: BattleState;
   actorId: string;
@@ -431,7 +439,7 @@ export function settleAction(opts: {
   } else {
     // ── 非蓄力分支 ──
     if (opts.kind === 'defend') { actor.defending = true; const ep = Math.max(5, Math.round(actorBlock.maxEp * EP_REGEN_RATE * 2)); actor.curEp = Math.min(actorBlock.maxEp, actor.curEp + ep); logLines.push(`${actorName} 摆出防御姿态，本回合承受伤害减半，回复 ${ep} 点 EP。`); return { state, logLines, actorName, defeated }; }
-    if (opts.kind === 'flee') { actor.left = true; state.order = state.order.filter((id) => id !== opts.actorId); logLines.push(`${actorName} 试图脱离战斗。`); return { state, logLines, actorName, defeated }; }
+    if (opts.kind === 'flee') { actor.left = true; state.order = state.order.filter((id) => id !== opts.actorId); logLines.push(`${actorName} 脱离了战斗。`); return { state, logLines, actorName, defeated }; }
     if (opts.kind === 'charge' || opts.kind === 'cancel') { logLines.push(`${actorName} 当前没有可蓄力的大招。`); return { state, logLines, actorName, defeated }; }
 
     // ── 用道具（炸弹/药剂/丹药/炼金等；威能为道具自身、不随六维）──
@@ -450,7 +458,7 @@ export function settleAction(opts: {
         for (const tid of tg) {
           const tc = state.participants[tid]; const tb = state.initialState[tid]; if (!tc || !tb) continue;
           if (ie.kind === 'damage') { const { lost, note } = damageHp(tc, ie.amount); logLines.push(`${actorName} 投出「${ie.name}」，${tb.name} 受到 ${lost} 点伤害${note}。`); if (tc.curHp <= 0 && !defeated.includes(tid)) defeated.push(tid); }
-          else { applyCombatStatus(tc, { name: '中毒', emoji: '☠️', tone: 'debuff', effect: `每回合损失 ${ie.amount} 点生命`, rounds: 3, mod: { dotPerRound: ie.amount }, toEnemy: true }, state.round); logLines.push(`${actorName} 用「${ie.name}」使 ${tb.name} 中毒。`); }
+          else { applyCombatStatus(tc, { name: '中毒', emoji: '🧪', tone: 'debuff', effect: `中毒（${Math.max(1, Math.round(ie.amount / 3))} 层）`, mod: { poisonStacks: Math.max(1, Math.round(ie.amount / 3)) }, toEnemy: true }, state.round); logLines.push(`${actorName} 用「${ie.name}」使 ${tb.name} 中毒。`); }
         }
       } else {
         let tg = ie.aoe ? aliveIds(state, actorBlock.side) : pick(opts.targetIds, actorBlock.side);
@@ -460,7 +468,7 @@ export function settleAction(opts: {
           if (ie.kind === 'heal') { const before = tc.curHp; tc.curHp = Math.min(tb.maxHp, tc.curHp + ie.amount); logLines.push(`${actorName} 用「${ie.name}」为 ${tb.name} 回复 ${tc.curHp - before} 点生命。`); }
           else if (ie.kind === 'restoreEp') { const before = tc.curEp; tc.curEp = Math.min(tb.maxEp, tc.curEp + ie.amount); logLines.push(`${actorName} 用「${ie.name}」为 ${tb.name} 回复 ${tc.curEp - before} 点 EP。`); }
           else if (ie.kind === 'shield') { tc.curShield = Math.max(tc.curShield, ie.amount); tc.maxShield = Math.max(tc.maxShield, ie.amount); logLines.push(`${actorName} 用「${ie.name}」为 ${tb.name} 罩上 ${ie.amount} 点护盾。`); }
-          else if (ie.kind === 'buff') { applyCombatStatus(tc, { name: '药力', emoji: '⚗️', tone: 'buff', effect: '攻击提升', rounds: 3, mod: { atkMult: 0.3 }, toEnemy: false }, state.round); logLines.push(`${actorName} 用「${ie.name}」强化了 ${tb.name} 的攻击。`); }
+          else if (ie.kind === 'buff') { applyCombatStatus(tc, { name: '力量', emoji: '💪', tone: 'buff', effect: '攻击提升', rounds: 3, mod: { strengthStacks: 3 }, toEnemy: false }, state.round); logLines.push(`${actorName} 用「${ie.name}」强化了 ${tb.name} 的攻击。`); }
           else if (ie.kind === 'cleanse') { const n = tc.status.filter((s) => s.tone === 'debuff' || s.combat?.cannotAct).length; tc.status = tc.status.filter((s) => !(s.tone === 'debuff' || s.combat?.cannotAct)); logLines.push(`${actorName} 用「${ie.name}」为 ${tb.name} 解除了 ${n} 个负面状态。`); }
           else logLines.push(`${actorName} 使用了「${ie.name}」。`);
         }
@@ -469,6 +477,11 @@ export function settleAction(opts: {
     }
 
     skill = opts.skillId ? abilities.skills.find((s: Skill) => s.id === opts.skillId || s.name === opts.skillId) : undefined;
+    // 沉默 → 退化普攻
+    if (opts.kind === 'skill' && skill && isSilenced(actor)) {
+      logLines.push(`${actorName} 被沉默，无法施展「${skill.name}」，改为普通攻击。`);
+      skill = undefined;
+    }
     // 冷却 → 退化普攻
     if (opts.kind === 'skill' && skill && (actor.cooldowns[skill.id] ?? 0) > 0) {
       logLines.push(`${actorName} 的「${skill.name}」尚在冷却（剩 ${actor.cooldowns[skill.id]} 回合），改为普通攻击。`);
@@ -506,131 +519,164 @@ export function settleAction(opts: {
         return { state, logLines, actorName, defeated };
       }
     }
-    // 普通技能 EP + 冷却
+    // 普通技能 EP + 冷却（消耗取标签规格 cost，缺则按品级兜底）
     if (opts.kind === 'skill' && skill) {
-      const cost = skillEpCost(skill);
+      const sp = parseCombatSpec(skill as any);
+      const cost = sp.cost && sp.cost > 0 ? sp.cost : skillEpCost(skill);
       if (cost > 0 && actor.curEp < cost) { logLines.push(`${actorName} 法力不足（需 ${cost} EP），「${skill.name}」未能施展，改为普通攻击。`); skill = undefined; }
       else if (cost > 0) actor.curEp = Math.max(0, actor.curEp - cost);
+      if (skill) { const cd = parseCooldownRounds(skill); if (cd > 0) actor.cooldowns[skill.id] = cd; }
     }
-    if (opts.kind === 'skill' && skill) { const cd = parseCooldownRounds(skill); if (cd > 0) actor.cooldowns[skill.id] = cd; }
   }
 
-  // ===== 共用施放（普通技能 / 蓄力释放）=====
-  const usingSkill = !!skill;
+  // ===== 标签 VM 施放（普通技能 / 普攻 / 蓄力释放共用）=====
+  const spec: CombatSpec = skill ? parseCombatSpec(skill as any) : { target: 'enemy', effects: [{ tag: 'deal', mult: 1.0, times: 1 }] };
   const magic = isMagicSkill(skill);
-  const heal = isHealSkill(skill);
-  const spec = inferSkillSpec(skill, actorBlock.matk);
-  const label = (usingSkill ? `「${skill!.name}」` : '普通攻击') + (chargeMult > 1 ? '·蓄力' : '');
+  const label = (skill ? `「${skill.name}」` : '普通攻击') + (chargeMult > 1 ? '·蓄力' : '');
+  const myEff = effCombatStats(actor, actorBlock);
+  const atkTier = magic ? myEff.matk : myEff.patk;
+  const allySide: Side = actorBlock.side;
+  const enemySide: Side = allySide === 'player' ? 'enemy' : 'player';
+  const selected = targetIds.filter((id) => state.participants[id] && !state.participants[id].left);
 
-  const buffStatuses = spec.statuses.filter((s) => !s.toEnemy);   // 增益（给己方）
-  const skTxt = `${skill?.name ?? ''}${skill?.skillType ?? ''}${skill?.effect ?? ''}${skill?.damage ?? ''}${(skill?.tags ?? []).join('')}`;
-  const hasAttack = spec.statuses.some((s) => s.toEnemy) || /攻击|斩|劈|击|射|刺|炮|轰|冲|噬|咬|拳|爪/.test(skTxt);
-  // 增益/支援类技能（治疗/buff/护盾，且无攻击意图）：作用于友方，可给队友或主角
-  const isSupportSkill = usingSkill && !hasAttack && (heal || buffStatuses.length > 0 || spec.shieldAmount > 0);
-
-  const enemySide: Side = actorBlock.side === 'player' ? 'enemy' : 'player';
-  let targets = targetIds.filter((id) => state.participants[id] && !state.participants[id].left && state.participants[id].curHp > 0);
-
-  // ── 增益/支援：对选中的友方（含主角）施加治疗/buff/护盾；没选/自身→施法者；群体→全体友方。不打敌人 ──
-  if (isSupportSkill) {
-    const allyPicked = targets.filter((id) => state.initialState[id]?.side === actorBlock.side);
-    const supTargets = spec.aoe ? aliveIds(state, actorBlock.side) : (allyPicked.length ? allyPicked : [opts.actorId]);
-    for (const aid of supTargets) {
-      const ac = state.participants[aid]; const ab = state.initialState[aid];
-      if (!ac || !ab || ac.left) continue;
-      for (const st of buffStatuses) { applyCombatStatus(ac, st, state.round); logLines.push(`${actorName} 为 ${ab.name} 施加【${st.emoji}${st.name}】（${st.effect}）。`); }
-      if (spec.shieldAmount > 0) { const amt = Math.round(spec.shieldAmount * chargeMult); ac.curShield = Math.max(ac.curShield, amt); ac.maxShield = Math.max(ac.maxShield, amt); logLines.push(`${actorName} 为 ${ab.name} 凝起护盾（${amt} 点）。`); }
-      if (heal) {
-        const fe = resolve({ mode: 'd20', attrs: actorBlock.attrs, attrKey: 'int', difficulty: '普通', skills: abilities.skills, talents: abilities.talents, includeLuck: true, opposed: false });
-        const healAmt = Math.max(1, Math.round(actorBlock.matk * 0.8 * fe.multiplier * chargeMult));
-        const before = ac.curHp; ac.curHp = Math.min(ab.maxHp, ac.curHp + healAmt);
-        logLines.push(`${actorName} 以${label}治疗 ${ab.name}，回复 ${ac.curHp - before} 点生命（${fe.level}）。`);
-      }
-    }
-    return { state, logLines, actorName, defeated };
-  }
-
-  // ── 攻击向：自身增益（如战意斩等组合技给施法者）+ 护盾 ──
-  for (const st of buffStatuses) {
-    applyCombatStatus(actor, st, state.round);
-    logLines.push(`${actorName} 获得【${st.emoji}${st.name}】（${st.effect}）。`);
-  }
-  if (spec.shieldAmount > 0) {
-    const amt = Math.round(spec.shieldAmount * chargeMult);
-    actor.curShield = Math.max(actor.curShield, amt);
-    actor.maxShield = Math.max(actor.maxShield, amt);
-    logLines.push(`${actorName} 凝起护盾（${amt} 点）。`);
-  }
-  // 目标=敌方（群体→全体敌方；蓄力释放原目标已亡→改打其它敌人；其余只保留敌方目标）
-  if (spec.aoe) targets = aliveIds(state, enemySide);
-  else if (targets.length === 0 && chargeMult > 1) targets = aliveIds(state, enemySide).slice(0, 1);
-  else targets = targets.filter((id) => state.initialState[id]?.side === enemySide);
-
-  const eff = effCombatStats(actor, actorBlock);
-  const atkKey: AttrKey = magic ? 'int' : (actorBlock.attrs.str >= actorBlock.attrs.agi ? 'str' : 'agi');
-  const atkStat = magic ? eff.matk : eff.patk;
-
-  for (const tid of targets) {
-    const target = state.participants[tid];
-    const tBlock = state.initialState[tid];
-    if (!target || !tBlock || target.left) continue;
-    const tName = tBlock.name;
-
-    if (tBlock.side === actorBlock.side) continue;   // 攻击向只打敌方（保险）
-
-    const defKey: AttrKey = magic ? 'int' : 'con';
-    const tEff = effCombatStats(target, tBlock);
-    const defStat = magic ? tEff.mdef : tEff.pdef;
-    // 幸运双向（出手方加成、防御方进 DC）+ 真实属性差（碾压）：都走 extraMod
-    const atkTrue = trueScore(actorBlock.attrs) + (actorBlock.trueBonus ?? 0), defTrue = trueScore(tBlock.attrs) + (tBlock.trueBonus ?? 0);
-    const fe = resolve({
-      mode: 'd20', attrs: actorBlock.attrs, attrKey: atkKey, difficulty: '普通',
-      skills: abilities.skills, talents: abilities.talents, equipped: abilities.equipped,
-      includeLuck: false, opposed: true,
-      extraMod: LUCK_W * luckMod(actorBlock.attrs, 'd20') + TRUE_W * atkTrue,
-      myStrengthScore: strengthScoreFromBio(actorBlock.bioStrength, actorBlock.level),
-      enemyStrengthScore: strengthScoreFromBio(tBlock.bioStrength, tBlock.level),
-      enemy: { ...resolveSideOf(tid, defKey, tBlock), extraMod: LUCK_W * luckMod(tBlock.attrs, 'd20') + TRUE_W * defTrue },
-    });
-    // 真实属性差 → 伤害碾压倍率（强者多打、弱者几乎打不动；同档=1）
-    const realGap = atkTrue - defTrue;
-    const crushMult = realGap > 0 ? 1 + Math.min(realGap, 12) * 0.25 : realGap < 0 ? 1 / (1 + Math.min(-realGap, 12) * 0.25) : 1;
-
-    if (fe.backlash) {
-      const self = Math.max(1, Math.round(Math.max(1, atkStat - defStat * DEF_FACTOR) * BACKLASH_FACTOR * DMG_SCALE));
-      const { lost: sLost, note: sNote } = damageHp(actor, self);
-      logLines.push(`${actorName} 对 ${tName} 的${label}弄巧成拙（大失败），反噬自身 ${sLost} 点${sNote}（d20:${fe.chosen}）。`);
-      if (actor.curHp <= 0 && !defeated.includes(opts.actorId)) defeated.push(opts.actorId);
-      continue;
-    }
-    if (!fe.success) {
-      logLines.push(`${actorName} 的${label}被 ${tName} 闪避/格挡，未造成伤害（d20:${fe.chosen} < DC${fe.dc}）。`);
-      continue;
-    }
-
-    let dmg = Math.max(1, Math.round(Math.max(1, atkStat - defStat * DEF_FACTOR) * fe.multiplier * DMG_SCALE * chargeMult * crushMult));
-    if (target.defending) dmg = Math.max(1, Math.round(dmg * DEFEND_MITIGATION));
-    let absorbed = 0;
-    if (target.curShield > 0) { absorbed = Math.min(target.curShield, dmg); target.curShield -= absorbed; dmg -= absorbed; }
-    const { lost, note } = damageHp(target, dmg);
-    const critTag = fe.isCrit ? '【暴击】' : fe.multiplier > 1 ? `【${fe.level}】` : '';
-    const shieldTag = absorbed > 0 ? `（护盾抵消 ${absorbed}）` : '';
-    logLines.push(`${actorName} ${label} 命中 ${tName}${critTag}，造成 ${lost} 点伤害${note}${shieldTag}（d20:${fe.chosen}，倍率×${fe.multiplier}）。`);
-    playSfx(fe.isCrit ? 'crit' : 'hit');   // 命中音效（暴击/普通）
-    // 命中附加敌方 debuff / DoT / 控制
-    if (target.curHp > 0) {
-      for (const st of spec.statuses.filter((s) => s.toEnemy)) {
-        applyCombatStatus(target, st, state.round);
-        logLines.push(`${tName} 陷入【${st.emoji}${st.name}】（${st.effect}）。`);
-      }
-    }
-    if (target.curHp <= 0 && !defeated.includes(tid)) defeated.push(tid);
-  }
-
+  for (const e of spec.effects) runEffect(e, spec.target);
   return { state, logLines, actorName, defeated };
+
+  // ───────── 标签执行闭包（捕获本场上下文） ─────────
+  function pushDefeated(id: string) { if (!defeated.includes(id)) defeated.push(id); }
+
+  function sideFor(tag: CombatTag, mode?: TargetMode): 'ally' | 'enemy' {
+    if (mode === 'self' || mode === 'ally' || mode === 'allAlly') return 'ally';
+    if (mode === 'enemy' || mode === 'allEnemy') return 'enemy';
+    return ENEMY_TAGS.has(tag) ? 'enemy' : 'ally';
+  }
+
+  function targetsFor(e: CombatEffect, specTarget?: TargetMode): string[] {
+    const mode = e.target ?? specTarget;
+    const side = sideFor(e.tag, mode);
+    const wantSide = side === 'ally' ? allySide : enemySide;
+    if (mode === 'self') return [opts.actorId];
+    const all = mode === 'all' || mode === 'allAlly' || mode === 'allEnemy';
+    if (all) return aliveIds(state, wantSide);
+    const picked = selected.filter((id) => state.initialState[id]?.side === wantSide && state.participants[id].curHp > 0);
+    if (picked.length) return picked;
+    return side === 'ally' ? [opts.actorId] : aliveIds(state, enemySide).slice(0, 1);
+  }
+
+  function runEffect(e: CombatEffect, specTarget?: TargetMode) {
+    const ids = targetsFor(e, specTarget);
+    switch (e.tag) {
+      case 'deal': case 'pierce': case 'lifesteal': case 'execute': {
+        const times = Math.max(1, e.times ?? 1);
+        for (const tid of ids) for (let n = 0; n < times; n++) {
+          const tc = state.participants[tid];
+          if (!tc || tc.left || tc.curHp <= 0) break;
+          dealDamage(tid, e);
+        }
+        break;
+      }
+      case 'block': {
+        for (const tid of ids) {
+          const tc = state.participants[tid]; const tb = state.initialState[tid]; if (!tc || !tb) continue;
+          const defTier = effCombatStats(tc, tb).pdef;
+          const amt = Math.max(1, Math.round(((e.mult ?? 0) * defTier + (e.flat ?? 0)) * DMG_SCALE) + dexterityBonus(effDex(tc), defTier));
+          tc.curShield += amt; tc.maxShield = Math.max(tc.maxShield, tc.curShield);
+          logLines.push(`${actorName} 以${label}为 ${tb.name} 凝起 ${amt} 点护盾。`);
+        }
+        break;
+      }
+      case 'heal': {
+        for (const tid of ids) {
+          const tc = state.participants[tid]; const tb = state.initialState[tid]; if (!tc || !tb) continue;
+          const amt = Math.max(1, Math.round(((e.mult ?? 0) * atkTier + (e.flat ?? 0)) * DMG_SCALE));
+          const before = tc.curHp; tc.curHp = Math.min(tb.maxHp, tc.curHp + amt);
+          logLines.push(`${actorName} 以${label}为 ${tb.name} 回复 ${tc.curHp - before} 点生命。`);
+        }
+        break;
+      }
+      case 'restore': {
+        for (const tid of ids) {
+          const tc = state.participants[tid]; const tb = state.initialState[tid]; if (!tc || !tb) continue;
+          const amt = Math.max(1, Math.round((e.flat ?? 0) || atkTier * 0.3));
+          const before = tc.curEp; tc.curEp = Math.min(tb.maxEp, tc.curEp + amt);
+          logLines.push(`${actorName} 以${label}为 ${tb.name} 回复 ${tc.curEp - before} 点 EP。`);
+        }
+        break;
+      }
+      case 'cleanse': {
+        for (const tid of ids) {
+          const tc = state.participants[tid]; const tb = state.initialState[tid]; if (!tc || !tb) continue;
+          const n = tc.status.filter((s) => s.tone === 'debuff').length;
+          tc.status = tc.status.filter((s) => s.tone !== 'debuff');
+          logLines.push(`${actorName} 以${label}为 ${tb.name} 净化了 ${n} 个减益。`);
+        }
+        break;
+      }
+      case 'dispel': {
+        for (const tid of ids) {
+          const tc = state.participants[tid]; const tb = state.initialState[tid]; if (!tc || !tb) continue;
+          const n = tc.status.filter((s) => s.tone === 'buff').length;
+          tc.status = tc.status.filter((s) => s.tone !== 'buff');
+          logLines.push(`${actorName} 以${label}驱散了 ${tb.name} 的 ${n} 个增益。`);
+        }
+        break;
+      }
+      default: {
+        // 增益/减益/控制类标签 → 施加状态（含 taunt 记 source=施法者，供敌人 AI 读取）
+        const tpl = buildStatusTpl(e.tag, e, atkTier);
+        if (tpl) {
+          for (const tid of ids) {
+            const tc = state.participants[tid]; const tb = state.initialState[tid]; if (!tc || !tb || tc.left) continue;
+            applyCombatStatus(tc, tpl, state.round, opts.actorId);
+            logLines.push(`${actorName} 以${label}使 ${tb.name} ${tpl.tone === 'buff' ? '获得' : '陷入'}【${tpl.emoji}${tpl.name}】（${tpl.effect}）。`);
+          }
+        } else {
+          logLines.push(`${actorName} 施放了${label}。`);
+        }
+        break;
+      }
+    }
+  }
+
+  function dealDamage(tid: string, e: CombatEffect) {
+    const tc = state.participants[tid]; const tb = state.initialState[tid];
+    if (!tc || !tb) return;
+    const defTier = magic ? effCombatStats(tc, tb).mdef : effCombatStats(tc, tb).pdef;
+    // 斩杀：目标 HP 占比 ≤ 阈值 → 直接打到 0（仍遵守锁血/不死）
+    if (e.tag === 'execute' && tc.curHp / Math.max(1, tb.maxHp) <= EXECUTE_THRESHOLD) {
+      const { lost, note } = damageHp(tc, tc.curHp + 1);
+      logLines.push(`${actorName} 以${label}对濒死的 ${tb.name} 发动斩杀，造成 ${lost} 点伤害${note}。`);
+      playSfx('crit');
+      if (tc.curHp <= 0) pushDefeated(tid);
+      return;
+    }
+    const base = (e.mult ?? 0) * atkTier + (e.flat ?? 0);
+    let dmg = applyDamageModifiers({ base, strengthBonus: strengthBonus(effStr(actor), atkTier), attackerWeak: hasWeak(actor), targetVulnerable: hasVuln(tc) });
+    dmg = Math.round(dmg * chargeMult * DMG_SCALE);
+    dmg = Math.max(1, dmg - Math.round(defTier * DEF_FACTOR));
+    if (tc.defending) dmg = Math.max(1, Math.round(dmg * DEFEND_MITIGATION));
+    let absorbed = 0;
+    if (e.tag !== 'pierce' && tc.curShield > 0) { absorbed = Math.min(tc.curShield, dmg); tc.curShield -= absorbed; dmg -= absorbed; }
+    const { lost, note } = damageHp(tc, dmg);
+    const shieldTag = absorbed > 0 ? `（护盾抵消 ${absorbed}）` : '';
+    const pierceTag = e.tag === 'pierce' ? '（穿透）' : '';
+    logLines.push(`${actorName} ${label} 命中 ${tb.name}，造成 ${lost} 点伤害${note}${shieldTag}${pierceTag}。`);
+    playSfx('hit');
+    if (e.tag === 'lifesteal' && lost > 0) {
+      const heal = Math.max(1, Math.round(lost * 0.5));
+      const before = actor.curHp; actor.curHp = Math.min(actorBlock.maxHp, actor.curHp + heal);
+      if (actor.curHp > before) logLines.push(`${actorName} 汲取 ${actor.curHp - before} 点生命。`);
+    }
+    const th = effThorns(tc);
+    if (th > 0 && e.tag !== 'pierce' && actor.curHp > 0) {
+      const { lost: sl } = damageHp(actor, th);
+      if (sl > 0) { logLines.push(`${tb.name} 的荆棘反弹 ${sl} 点伤害给 ${actorName}。`); if (actor.curHp <= 0) pushDefeated(opts.actorId); }
+    }
+    if (tc.curHp <= 0) pushDefeated(tid);
+  }
 }
 
-/* 推进回合：标记被击败者，跳过死亡/离场者，必要时进入下一轮（回合数+1、清防御姿态、冷却-1） */
+/* 推进回合：标记被击败者，跳过死亡/离场者，必要时进入下一轮（回合数+1、清防御姿态/护盾、冷却-1） */
 export function advanceTurn(prev: BattleState, manualAlly = false): BattleState {
   const state: BattleState = structuredClone(prev);
   const isOut = (id: string) => {
@@ -643,16 +689,17 @@ export function advanceTurn(prev: BattleState, manualAlly = false): BattleState 
     if (state.turn >= state.order.length) {
       state.turn = 0;
       state.round += 1;
-      // 新一轮：清防御姿态、冷却递减
+      // 新一轮：清防御姿态、清护盾（STS 式格挡每回合重置）、冷却递减
       for (const id of Object.keys(state.participants)) {
         const p = state.participants[id];
         p.defending = false;
+        p.curShield = 0; p.maxShield = 0;
         for (const k of Object.keys(p.cooldowns)) {
           p.cooldowns[k] = Math.max(0, p.cooldowns[k] - 1);
           if (p.cooldowns[k] === 0) delete p.cooldowns[k];
         }
       }
-      tickRoundStart(state);   // 持续伤害/治疗 + 状态过期
+      tickRoundStart(state);   // 持续伤害/治疗 + 状态过期 + 小回蓝 + 领域结算
     }
     guard += 1;
   } while (isOut(state.order[state.turn]) && guard < state.order.length * 4 + 8);
