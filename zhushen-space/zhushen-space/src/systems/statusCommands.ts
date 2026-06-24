@@ -3,6 +3,7 @@
 import { usePlayer, type StatusEffect } from '../store/playerStore';
 import { useMisc } from '../store/miscStore';
 import { useNpc } from '../store/npcStore';
+import { useItems } from '../store/itemStore';
 import { normalizeTier, realmFromLevel, attrCapForTier } from './derivedStats';
 import { ATTR_GROWTH_RE } from './stateApply';
 import { parseGameMinutes, parseDurationMinutes, parseDurationTurns } from './gameClock';
@@ -63,9 +64,18 @@ export function applyPlayerProfileCommands(reply: string, narrative: string, tur
     if (incoming && !isFmtStatus(incoming) && isFmtStatus(cur)) continue;   // 纯文本不覆盖已格式化状态
     sp({ status: incoming }); n++;
   }
-  // 等级变化时，阶位随等级自动对应（保证阶位↔等级一致、且只为合法阶位）
+  // 等级变化时，阶位随等级自动对应；并按「真实上升的级数」自动结算每级奖励：+3 属性点 + 1 技能点。
+  //（前端确定性·仿潜能点 4/级；delta 守卫=仅 lv>旧值才发，AI 每轮重写同一等级 delta=0 不重复发，本函数被多处多次调用亦幂等）
   const lvRe = /\bcharacter\.B\d+\.level\s*=\s*(\d+)/g;
-  while ((m = lvRe.exec(reply))) { const lv = Number(m[1]); sp({ level: lv, tier: realmFromLevel(lv) }); n++; }
+  while ((m = lvRe.exec(reply))) {
+    const lv = Number(m[1]);
+    const oldLv = usePlayer.getState().profile.level ?? 1;
+    const gained = Math.max(0, lv - oldLv);
+    const curAttrPts = usePlayer.getState().profile.attrPoints ?? 0;
+    sp({ level: lv, tier: realmFromLevel(lv), ...(gained > 0 ? { attrPoints: curAttrPts + 3 * gained } : {}) });
+    if (gained > 0) { try { useItems.getState().adjustCurrency('技能点', gained); } catch { /* 货币 store 未就绪兜底 */ } }
+    n++;
+  }
   const attrRe = /\bcharacter\.B\d+\.attrs\.(str|agi|con|int|cha|luck)\s*(=|\+=|-=)\s*(-?\d+)/g;
   const hasGrowth = ATTR_GROWTH_RE.test(narrative || reply);   // 本轮正文是否写了「属性/实力成长」依据
   while ((m = attrRe.exec(reply))) {

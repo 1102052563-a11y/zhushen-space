@@ -1,5 +1,7 @@
 import { describe, it, expect } from 'vitest';
-import { playerControlled, checkEnd, currentActorId, aliveIds, settleAction, tickRoundStart } from './combatEngine';
+import { playerControlled, checkEnd, currentActorId, aliveIds, settleAction, tickRoundStart, assembleBattle, advanceTurn } from './combatEngine';
+import { pickEnemyAction } from './enemyAI';
+import { buildBattleRecord } from './battleRecord';
 import { useCharacters } from '../store/characterStore';
 import type { BattleState, Combatant, CombatStatBlock, Side } from '../store/combatStore';
 
@@ -148,5 +150,34 @@ describe('settleAction（技能·numeric.combat 标签端到端）', () => {
     const out = settleAction({ state, actorId: 'B1', kind: 'skill', skillId: 'S_pz', targetIds: ['C1'] });
     expect(out.state.participants['C1'].curHp).toBeLessThan(100);
     expect(out.state.participants['C1'].status.find((x) => x.name === '中毒')?.combat?.poisonStacks).toBe(3);
+  });
+});
+
+describe('整场战斗循环（端到端·必中确定性·0 API）', () => {
+  it('主角普攻 + 敌人本地 AI 自动应战 → 收敛出胜负并产出 BATTLE_RECORD', () => {
+    useCharacters.setState({ characters: {} as any });   // 无技能：双方走普攻
+    const blocks: Record<string, CombatStatBlock> = {
+      B1: { side: 'player', name: '主角', attrs: { str: 30, agi: 20, con: 20, int: 10, cha: 10, luck: 10 }, level: 5, tier: '二阶', bioStrength: 'T2', patk: 40, pdef: 15, matk: 20, mdef: 10, maxHp: 200, maxEp: 100 },
+      E1: { side: 'enemy', name: '木桩怪', attrs: { str: 12, agi: 8, con: 12, int: 4, cha: 4, luck: 3 }, level: 1, tier: '一阶', bioStrength: 'T1', patk: 12, pdef: 5, matk: 5, mdef: 5, maxHp: 90, maxEp: 50 },
+    };
+    let battle = assembleBattle(blocks, { reason: '测试', location: '试炼场', endConditions: ['击败敌人'] }, false);
+    let victor: Side | null = checkEnd(battle);
+    let guard = 0;
+    while (!victor && guard < 200) {
+      const actor = currentActorId(battle)!;
+      const isPlayer = battle.initialState[actor]?.side === 'player';
+      const action = isPlayer ? { kind: 'attack' as const, targetIds: aliveIds(battle, 'enemy') } : pickEnemyAction(battle, actor);
+      const out = settleAction({ state: battle, actorId: actor, kind: action.kind, targetIds: action.targetIds, skillId: (action as any).skillId });
+      battle = out.state;
+      victor = checkEnd(battle);
+      if (!victor) battle = advanceTurn(battle, false);
+      guard += 1;
+    }
+    expect(victor).toBe('player');           // 主角远强于木桩 → 必胜
+    expect(guard).toBeLessThan(200);          // 循环收敛、不死锁
+    const rec = buildBattleRecord(battle, victor);
+    expect(rec).toMatch(/^BATTLE_RECORD: /);
+    expect(rec).toContain('结果=胜');
+    expect(rec).toMatch(/敌方=\[木桩怪:KO\]/);
   });
 });

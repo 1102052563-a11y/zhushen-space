@@ -1,16 +1,15 @@
-// 战斗·纯助手（从 App.tsx 抽出 P4 第1步）：API 链/预设、战斗快照、HP/EP 结算写回、离线兜底文本。
-// 只读/写 store + 入参，无组件 state/ref/effect 耦合。applyCombatVitals 同时被演化管线复用，故抽成共享模块。
+// 战斗·纯助手（战斗系统重置后）：API 链/预设、HP/EP 结算写回、战斗结束据 BATTLE_RECORD 一次润色、离线兜底文本。
+// 战斗中 0 次 API（敌人本地 AI=systems/enemyAI，逐动作不再调 AI）；applyCombatVitals 同时被演化管线复用，故抽成共享模块。
 import { useSettings, resolveApiChain } from '../store/settingsStore';
 import { useCombat } from '../store/combatStore';
-import { useCharacters } from '../store/characterStore';
 import { useGame } from '../store/gameStore';
 import { useNpc } from '../store/npcStore';
 import { playerMaxHp, playerMaxEp } from './playerVitals';
-import { aliveIds } from './combatEngine';
-import type { BattleState, Side, CombatActionKind } from '../store/combatStore';
+import type { BattleState, Side } from '../store/combatStore';
 import { apiChatFallback } from './apiChat';
-import { lenientJsonParse } from './stateParser';
-import { COMBAT_NPC_ACTION_RULE, COMBAT_RESULT_RULE, COMBAT_SUMMARY_RULE } from '../promptRules';
+import { COMBAT_NARRATE_RULE } from '../promptRules';
+import { buildBattleRecord } from './battleRecord';
+
 export function combatChain() {
   const ss = useSettings.getState();
   const C = useCombat.getState();
@@ -18,23 +17,7 @@ export function combatChain() {
   return resolveApiChain('combat', legacyApi);
 }
 export function combatPreset() { return useCombat.getState().getActivePreset(); }
-export function fetchActorSkills(id: string): string {
-  const ch = useCharacters.getState().characters[id];
-  return (ch?.skills ?? []).filter((s: any) => !/被动/.test(s.skillType ?? '')).map((s: any) => `${s.id}=${s.name}${s.level ? `(${s.level})` : ''}`).join('、');
-}
-export function combatSnapshot(state: BattleState, actorId: string): string {
-  const lines: string[] = [`回合 ${state.round} · 出手者 ${state.initialState[actorId]?.name ?? actorId}（${actorId}）`];
-  for (const id of state.order) {
-    const c = state.participants[id]; const b = state.initialState[id];
-    if (!c || !b) continue;
-    lines.push(`${b.side === 'player' ? '我方' : '敌方'} ${id} ${b.name} HP${Math.max(0, c.curHp)}/${b.maxHp} EP${Math.max(0, c.curEp)}/${b.maxEp}${c.left ? ' [已离场]' : c.curHp <= 0 ? ' [倒地]' : ''}`);
-  }
-  const side: Side = state.participants[actorId]?.side ?? 'player';
-  lines.push(`可选敌方目标 id：${aliveIds(state, side === 'player' ? 'enemy' : 'player').join('、') || '无'}`);
-  lines.push(`可选友方目标 id：${aliveIds(state, side).join('、') || '无'}`);
-  lines.push(`本角色技能：${fetchActorSkills(actorId) || '无'}`);
-  return lines.join('\n');
-}
+
 export function combatFinalVitals(state: BattleState): { hp: Record<string, number>; ep: Record<string, number> } {
   const hp: Record<string, number> = {}, ep: Record<string, number> = {};
   for (const id of Object.keys(state.participants)) {
@@ -68,54 +51,12 @@ export function buildCombatResultFallback(state: BattleState, victor: Side | nul
   return `【战斗结果】${head}。\n${lines.join('\n')}`;
 }
 
-// ② NPC 行动决策（失败兜底=攻击最近敌人）
-export async function runNpcActionPhase(state: BattleState, actorId: string): Promise<{ kind: CombatActionKind; targetIds: string[]; skillId?: string; line?: string }> {
-  // 蓄力中的 NPC 自动继续灌注 / 释放
-  const chg = state.participants[actorId]?.charging;
-  if (chg) return { kind: 'charge', targetIds: chg.targetIds, line: '' };
-  const side: Side = state.participants[actorId]?.side ?? 'enemy';
-  const foes = aliveIds(state, side === 'player' ? 'enemy' : 'player');
-  if (foes.length === 0) return { kind: 'defend', targetIds: [] };
-  const fallback = { kind: 'attack' as CombatActionKind, targetIds: foes.slice(0, 1), line: '' };
-  const retries = Math.max(0, useCombat.getState().config.retryCount ?? 0);
-  const sys = (combatPreset().npcActionPrompt?.trim() || '') + '\n\n' + COMBAT_NPC_ACTION_RULE;
-  const user = combatSnapshot(state, actorId);
-  for (let attempt = 0; attempt <= retries; attempt++) {
-    try {
-      const { content } = await apiChatFallback(combatChain(), [{ role: 'system', content: sys }, { role: 'user', content: user }]);
-      const d = lenientJsonParse(content);
-      if (d && ['attack', 'skill', 'item', 'defend', 'flee'].includes(d.kind)) {
-        let targetIds: string[] = Array.isArray(d.targetIds) ? d.targetIds.map(String).filter((t: string) => state.participants[t] && !state.participants[t].left) : [];
-        if ((d.kind === 'attack' || d.kind === 'skill') && targetIds.length === 0) targetIds = fallback.targetIds;
-        return { kind: d.kind, targetIds, skillId: d.skillId ? String(d.skillId) : undefined, line: d.line ? String(d.line) : '' };
-      }
-    } catch { /* 重试 */ }
-  }
-  return fallback;
-}
-
-// ③ 行动叙事（代码已结算；失败兜底=结算明细当叙事）
-export async function runResultPhase(logLines: string[], actorId: string, line?: string): Promise<{ narration: string; dialogue?: string }> {
-  const plain = logLines.join(' ');
-  const retries = Math.max(0, useCombat.getState().config.retryCount ?? 0);
-  const sys = (combatPreset().resultPrompt?.trim() || '') + '\n\n' + COMBAT_RESULT_RULE;
-  const user = `# 出手者\n${useCombat.getState().battle.initialState[actorId]?.name ?? actorId}\n\n# 代码结算明细\n${plain}${line ? `\n\n# 出手者台词参考\n${line}` : ''}`;
-  for (let attempt = 0; attempt <= retries; attempt++) {
-    try {
-      const { content } = await apiChatFallback(combatChain(), [{ role: 'system', content: sys }, { role: 'user', content: user }]);
-      const d = lenientJsonParse(content);
-      if (d && typeof d.narration === 'string' && d.narration.trim()) return { narration: d.narration.trim(), dialogue: d.dialogue ? String(d.dialogue) : line };
-    } catch { /* 重试 */ }
-  }
-  return { narration: plain, dialogue: line };
-}
-// ④ 战斗总结 + 收尾
+// 战斗总结：把整场战斗压成 BATTLE_RECORD → AI 据 COMBAT_NARRATE_RULE 一次性润色成正文（数值已落库，AI 不再改数值）。
 export async function runBattleSummaryPhase(state: BattleState, victor: Side | null): Promise<string> {
   try {
-    const sys = (combatPreset().summaryPrompt?.trim() || '') + '\n\n' + COMBAT_SUMMARY_RULE;
-    const logText = state.log.map((e) => [e.narration, e.dialogue ? `「${e.dialogue}」` : '', e.text].filter(Boolean).join(' ')).join('\n');
-    const result = victor === 'player' ? '我方获胜' : victor === 'enemy' ? '我方落败' : '战斗结束';
-    const { content } = await apiChatFallback(combatChain(), [{ role: 'system', content: sys }, { role: 'user', content: `# 最终结果\n${result}\n\n# 完整战斗日志\n${logText}` }]);
+    const sys = (combatPreset().summaryPrompt?.trim() || '') + '\n\n' + COMBAT_NARRATE_RULE;
+    const record = buildBattleRecord(state, victor);
+    const { content } = await apiChatFallback(combatChain(), [{ role: 'system', content: sys }, { role: 'user', content: record }]);
     return (content || '').replace(/<\/?[a-zA-Z][^>]*>/g, '').trim();
   } catch { return ''; }
 }

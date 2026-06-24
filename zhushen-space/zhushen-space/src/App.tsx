@@ -3510,7 +3510,8 @@ ${AFFIX_EFFECT_RULE}`;
     const charsFull = rosterLines.length ? rosterLines.join('\n') : '（无在场角色资料）';
     const M = useMisc.getState();
 
-    // 提示词来源：强制使用内置「生图预设」（懒加载、不在 UI 暴露）；加载失败则回退 storyTemplate
+    // 普通模板 messages（兜底）：内置「生图预设」是 NSFW 破限大提示，受审查端点(GPT网页反代等)常整条拒绝、或因体积过大被拦，
+    // 连正常场景都出不了图。故：先用预设抽，抽不到(被拦/拒绝/没按格式) → 自动回退到这份小巧的普通模板再试一次。
     const sys = ig.storyTemplate
       .replaceAll('${image_count}', String(count))
       .replaceAll('${onscreen_characters_full}', charsFull)
@@ -3518,41 +3519,43 @@ ${AFFIX_EFFECT_RULE}`;
       .replaceAll('${current_location}', M.worldName || '（未设定）')
       .replaceAll('${entry_decision_new_characters}', '（见正文）')
       .replaceAll('${story_text}', narrative);
-    let messages: { role: 'system' | 'user' | 'assistant'; content: string }[] = [
+    const plainMessages: { role: 'system' | 'user' | 'assistant'; content: string }[] = [
       { role: 'system', content: sys },
       { role: 'user', content: `请只输出 ${count} 个 <image> 块（含 <anchor>/<nsfw_rating>/<prompt>），不要其它内容。` },
     ];
+    let presetMessages: typeof plainMessages | null = null;
     try {
       const mod = await import('./systems/imagePromptPreset');
       const preset = mod.getImgPromptPreset();
-      if (preset.entries.length) {
-        messages = mod.buildImagePromptMessages(preset.entries, {
-          story: narrative, charsFull, count,
-          time: M.worldTime || M.paradiseTime || '', location: M.worldName || '',
-        });
-      }
-    } catch (e) { console.warn('[StoryImg] 生图预设加载失败，回退模板:', e); }
+      if (preset.entries.length) presetMessages = mod.buildImagePromptMessages(preset.entries, {
+        story: narrative, charsFull, count,
+        time: M.worldTime || M.paradiseTime || '', location: M.worldName || '',
+      });
+    } catch (e) { console.warn('[StoryImg] 生图预设加载失败，仅用普通模板:', e); }
 
-    let reply = '';
-    try {
-      const r = await apiChatFallback(chain, messages);
-      reply = r.content;
-    } catch (e: any) {
-      console.error('[StoryImg] 抽取失败:', e.message ?? e);
-      return 0;
-    }
-
-    // 解析 <image> 块
-    const blocks = reply.match(/<image>[\s\S]*?<\/image>/gi) ?? [];
     const get = (s: string, tag: string) => (s.match(new RegExp(`<${tag}>([\\s\\S]*?)</${tag}>`, 'i'))?.[1] ?? '').trim();
-    let specs = blocks.map((b) => ({ anchor: get(b, 'anchor'), nsfw: get(b, 'nsfw_rating') || 'sfw', prompt: get(b, 'prompt') })).filter((s) => s.prompt);
-    // 兜底①：模型没用 <image> 外层包裹，但给了 <prompt> 块 → 直接抽 prompt
+    const parseSpecs = (reply: string) => {
+      const blocks = reply.match(/<image>[\s\S]*?<\/image>/gi) ?? [];
+      let arr = blocks.map((b) => ({ anchor: get(b, 'anchor'), nsfw: get(b, 'nsfw_rating') || 'sfw', prompt: get(b, 'prompt') })).filter((s) => s.prompt);
+      if (arr.length === 0) {   // 兜底：没用 <image> 外层包裹但给了 <prompt> 块
+        const proms = reply.match(/<prompt>[\s\S]*?<\/prompt>/gi) ?? [];
+        arr = proms.map((pp) => ({ anchor: get(pp, 'anchor'), nsfw: 'sfw', prompt: get(pp, 'prompt') })).filter((s) => s.prompt);
+      }
+      return arr;
+    };
+    const extract = async (msgs: typeof plainMessages, label: string) => {
+      try { const r = await apiChatFallback(chain, msgs); return { specs: parseSpecs(r.content), raw: r.content }; }
+      catch (e: any) { console.error(`[StoryImg] 抽取失败(${label}):`, e.message ?? e); return { specs: [] as ReturnType<typeof parseSpecs>, raw: '' }; }
+    };
+
+    // 先试预设；抽不到(端点拦了 NSFW 预设/体积过大/拒绝) → 自动回退普通模板再试一次
+    let { specs, raw } = presetMessages ? await extract(presetMessages, '预设') : { specs: [] as ReturnType<typeof parseSpecs>, raw: '' };
     if (specs.length === 0) {
-      const proms = reply.match(/<prompt>[\s\S]*?<\/prompt>/gi) ?? [];
-      specs = proms.map((p) => ({ anchor: get(p, 'anchor'), nsfw: 'sfw', prompt: get(p, 'prompt') })).filter((s) => s.prompt);
+      console.warn('[StoryImg] 预设抽取无结果，回退普通模板重试（端点可能拦了 NSFW 预设或体积过大）');
+      ({ specs, raw } = await extract(plainMessages, '普通模板'));
     }
     if (specs.length === 0) {
-      console.warn('[StoryImg] 未解析到有效 <image> 块。模型回复前 200 字：', (reply || '（空回复）').slice(0, 200));
+      console.warn('[StoryImg] 预设+普通模板都未解析到有效 <image> 块。最后回复前 200 字：', (raw || '（空回复）').slice(0, 200));
       return 0;
     }
     specs = specs.slice(0, count);   // 不超过本次请求张数
