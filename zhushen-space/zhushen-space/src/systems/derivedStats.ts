@@ -33,13 +33,13 @@ export function computeDerived(attrs: PlayerAttrs | undefined, level: number, eq
    HP=体×20 / EP=智×15 直接作用于六维，自动随阶位线性缩放。 */
 export const HP_PER_CON = 20;
 export const EP_PER_INT = 15;
-export function computeMaxHp(attrs?: PlayerAttrs): number {
+export function computeMaxHp(attrs?: PlayerAttrs, realMult = 1): number {
   const con = Math.max(0, attrs?.con ?? 5);
-  return Math.round(con * HP_PER_CON);
+  return Math.round(con * HP_PER_CON * realMult);   // 四阶起真实属性 realMult=5（体×100），见 realAttrMult
 }
-export function computeMaxEp(attrs?: PlayerAttrs): number {
+export function computeMaxEp(attrs?: PlayerAttrs, realMult = 1): number {
   const intel = Math.max(0, attrs?.int ?? 5);
-  return Math.round(intel * EP_PER_INT);
+  return Math.round(intel * EP_PER_INT * realMult);  // 四阶起 realMult=5（智×75）
 }
 
 /* 从效果/词缀文本里解析"增加 HP/EP 最大值"的平值加成。供 最大HP/EP = 六维换算 + 此加成。
@@ -159,15 +159,15 @@ export function abilityMaxEpPctBonus(skills: AbilityLite[] = [], traits: Ability
 }
 
 /* 「基础真实上限」(不含跨资源公式) = (六维换算 + 装备/被动平值上限加成) ×(1 + 百分比加成)。 */
-function baseMaxHp(attrs?: PlayerAttrs, equipped: { effect?: string; affix?: string }[] = [], skills: AbilityLite[] = [], traits: AbilityLite[] = []): number {
-  const eff = effectiveAttrs(attrs, skills as any, traits as any, equipped as any);   // 六维加成(如体质+1)折进六维，再 体质×20
-  const flat = computeMaxHp(eff) + gearMaxHpBonus(equipped) + abilityMaxHpBonus(skills, traits);
+function baseMaxHp(attrs?: PlayerAttrs, equipped: { effect?: string; affix?: string }[] = [], skills: AbilityLite[] = [], traits: AbilityLite[] = [], realMult = 1): number {
+  const eff = effectiveAttrs(attrs, skills as any, traits as any, equipped as any);   // 六维加成(如体质+1)折进六维，再 体质×20×真实倍率
+  const flat = computeMaxHp(eff, realMult) + gearMaxHpBonus(equipped) + abilityMaxHpBonus(skills, traits);  // 六维部分×realMult；装备/被动平值加成不×
   const pct = gearMaxHpPctBonus(equipped) + abilityMaxHpPctBonus(skills, traits);
   return Math.round(flat * (1 + pct / 100));
 }
-function baseMaxEp(attrs?: PlayerAttrs, equipped: { effect?: string; affix?: string }[] = [], skills: AbilityLite[] = [], traits: AbilityLite[] = []): number {
+function baseMaxEp(attrs?: PlayerAttrs, equipped: { effect?: string; affix?: string }[] = [], skills: AbilityLite[] = [], traits: AbilityLite[] = [], realMult = 1): number {
   const eff = effectiveAttrs(attrs, skills as any, traits as any, equipped as any);
-  const flat = computeMaxEp(eff) + gearMaxEpBonus(equipped) + abilityMaxEpBonus(skills, traits);
+  const flat = computeMaxEp(eff, realMult) + gearMaxEpBonus(equipped) + abilityMaxEpBonus(skills, traits);
   const pct = gearMaxEpPctBonus(equipped) + abilityMaxEpPctBonus(skills, traits);
   return Math.round(flat * (1 + pct / 100));
 }
@@ -203,18 +203,20 @@ export function fullMaxHp(
   equipped: { effect?: string; affix?: string }[] = [],
   skills: AbilityLite[] = [],
   traits: AbilityLite[] = [],
+  realMult = 1,
 ): number {
-  return baseMaxHp(attrs, equipped, skills, traits)
-    + vitalCrossBonus(crossTexts(equipped, skills, traits), 'hp', baseMaxEp(attrs, equipped, skills, traits));
+  return baseMaxHp(attrs, equipped, skills, traits, realMult)
+    + vitalCrossBonus(crossTexts(equipped, skills, traits), 'hp', baseMaxEp(attrs, equipped, skills, traits, realMult));
 }
 export function fullMaxEp(
   attrs?: PlayerAttrs,
   equipped: { effect?: string; affix?: string }[] = [],
   skills: AbilityLite[] = [],
   traits: AbilityLite[] = [],
+  realMult = 1,
 ): number {
-  return baseMaxEp(attrs, equipped, skills, traits)
-    + vitalCrossBonus(crossTexts(equipped, skills, traits), 'ep', baseMaxHp(attrs, equipped, skills, traits));
+  return baseMaxEp(attrs, equipped, skills, traits, realMult)
+    + vitalCrossBonus(crossTexts(equipped, skills, traits), 'ep', baseMaxHp(attrs, equipped, skills, traits, realMult));
 }
 /* 「当前值」显示：
    - 从未设过(undefined) → 视为满（= 当前上限），仅用于角色刚建档、还没发生任何增减时
@@ -321,6 +323,15 @@ export function realAttrCapForTier(tier?: string, level?: number): number {
   const idx = TIERS.indexOf((normalizeTier(tier) || (level != null ? realmFromLevel(level) : '')) as typeof TIERS[number]);
   if (idx >= 0 && idx < 3) return Infinity;   // 一~三阶（idx0-2）：普通属性阶段，真实属性不设限
   return attrCapForTier(tier, level);         // 四阶起：真实属性(基础+直加) ≤ 本阶单属性极值
+}
+
+/* 真实属性·战斗/HP 倍率（2026-06-24·5:1强制）：四阶起「六维即真实属性」、1真实=5普通之效，
+   故 HP/EP 池(体×20/智×15)与战斗攻防/伤害(computeDerived/strengthBonus)按此倍率放大；一~三阶普通属性=1。
+   传入 computeMaxHp/EP、fullMaxHp/EP 的 realMult 参数，或在战斗块里缩放参战六维。 */
+export const REAL_ATTR_MULT = 5;
+export function realAttrMult(tier?: string, level?: number): number {
+  const idx = TIERS.indexOf((normalizeTier(tier) || (level != null ? realmFromLevel(level) : '')) as typeof TIERS[number]);
+  return idx >= 3 ? REAL_ATTR_MULT : 1;   // 四阶(idx3)起 ×5；认不出阶位/一~三阶 = 1
 }
 
 /* 把基础六维整体夹进本阶上限（六维封顶护栏）。六维=力/敏/体/智/魅/幸的【基础值】；

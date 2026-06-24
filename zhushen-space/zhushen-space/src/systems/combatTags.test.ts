@@ -89,4 +89,9 @@ describe('parseCombatSpec（有 numeric.combat 用之，否则兜底）', () => 
     expect(spec.effects.length).toBeGreaterThan(0);
     expect(spec.effects[0].tag).toBe('deal');
   });
+  it('读取 AI 输出的顶层 combat 字段（addSkill 透传）', () => {
+    const spec = parseCombatSpec({ name: '冰封', combat: { cost: 10, target: 'enemy', effects: [{ tag: 'deal', mult: 1.2 }, { tag: 'stun', turns: 1 }] } } as any);
+    expect(spec.cost).toBe(10);
+    expect(spec.effects.map((e) => e.tag)).toEqual(['deal', 'stun']);
+  });
 });

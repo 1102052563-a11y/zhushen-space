@@ -113,10 +113,7 @@ export interface CombatPreset {
   id: string;
   name: string;
   isBuiltIn?: boolean;
-  battleDataPrompt: string;
-  npcActionPrompt: string;
-  resultPrompt: string;
-  summaryPrompt: string;
+  summaryPrompt: string;   // 战斗结束据 BATTLE_RECORD 一次性润色（空=用 COMBAT_NARRATE_RULE 内置默认）。旧的 battleData/npcAction/result 三阶段已随重置移除。
 }
 
 export interface CombatConfig {
@@ -130,8 +127,7 @@ export interface CombatConfig {
 }
 
 const DEFAULT_PRESET: CombatPreset = {
-  id: 'default', name: '默认战斗预设', isBuiltIn: true,
-  battleDataPrompt: '', npcActionPrompt: '', resultPrompt: '', summaryPrompt: '',
+  id: 'default', name: '默认战斗预设', isBuiltIn: true, summaryPrompt: '',
 };
 
 export const DEFAULT_COMBAT_CONFIG: CombatConfig = {
@@ -287,7 +283,15 @@ export const useCombat = create<CombatState>()(
     }),
     {
       name: 'drpg-combat',
-      version: 1,
+      version: 2,
+      // v2：战斗系统重置——预设裁成单条 summaryPrompt，剥掉旧的 battleData/npcAction/result 三字段。
+      migrate: (persisted: any) => {
+        const sp = persisted?.config?.savedPresets;
+        if (Array.isArray(sp)) {
+          persisted.config.savedPresets = sp.map((p: any) => ({ id: p.id, name: p.name, isBuiltIn: p.isBuiltIn, summaryPrompt: p.summaryPrompt ?? '' }));
+        }
+        return persisted;
+      },
       // 模型列表/瞬时 UI 不持久化
       partialize: (s) => ({
         battle: s.battle, config: s.config,

@@ -7,7 +7,7 @@ import { useCharacters } from '../store/characterStore';
 import { useItems } from '../store/itemStore';
 import { useMp, type MpTurn } from '../store/multiplayerStore';
 import { effectiveAttrs, withAttrDelta } from './attrBonus';
-import { fullMaxHp, fullMaxEp } from './derivedStats';
+import { fullMaxHp, fullMaxEp, realAttrMult } from './derivedStats';
 import { playerTreeAttrBonus } from '../store/skillTreeStore';
 import { playerTeamAttrBonus, playerTeamPerkAbilities } from '../store/adventureTeamStore';
 
@@ -25,8 +25,9 @@ export function buildPlayerSnapshot() {
     const baseTT = withAttrDelta(withAttrDelta(base, playerTreeAttrBonus()), playerTeamAttrBonus());
     const a: any = effectiveAttrs(baseTT, c.skills, c.traits, equipped as any);
     const teamPerk = playerTeamPerkAbilities();
-    const maxHp = fullMaxHp(baseTT, equipped as any, c.skills, [...(c.traits || []), ...teamPerk]);
-    const maxEp = fullMaxEp(baseTT, equipped as any, c.skills, [...(c.traits || []), ...teamPerk]);
+    const rmP = realAttrMult(p.tier, p.level);   // 四阶起 HP/EP×5（联机与单机一致）
+    const maxHp = fullMaxHp(baseTT, equipped as any, c.skills, [...(c.traits || []), ...teamPerk], rmP);
+    const maxEp = fullMaxEp(baseTT, equipped as any, c.skills, [...(c.traits || []), ...teamPerk], rmP);
     const stat = `力${a.str ?? '?'} 敏${a.agi ?? '?'} 体${a.con ?? '?'} 智${a.int ?? '?'} 魅${a.cha ?? '?'} 幸${a.luck ?? '?'}`;
     const head = [p.tier, p.profession].filter(Boolean).join('·');
     return {

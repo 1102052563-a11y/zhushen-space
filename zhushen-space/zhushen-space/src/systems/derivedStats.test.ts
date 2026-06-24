@@ -3,6 +3,7 @@ import {
   computeMaxHp, computeMaxEp, effectiveResource,
   realmFromLevel, normalizeTier, trueAttr, lvFromRealm,
   attrCapForTier, clampBaseAttrs, gearMaxHpBonus, gearMaxHpPctBonus, fullMaxHp,
+  realAttrMult,
 } from './derivedStats';
 import type { PlayerAttrs } from '../store/playerStore';
 
@@ -20,6 +21,25 @@ describe('computeMaxHp / computeMaxEp（HP=体质×20, EP=智力×15）', () => 
     expect(computeMaxHp(undefined)).toBe(100); // 默认 con 5
     expect(computeMaxEp(undefined)).toBe(75);  // 默认 int 5
     expect(computeMaxHp(A({ con: 0 }))).toBe(0);
+  });
+});
+
+describe('realAttrMult / HP·EP ×5（四阶起六维即真实属性·5:1）', () => {
+  it('realAttrMult：一~三阶=1，四阶起=5', () => {
+    expect(realAttrMult('三阶')).toBe(1);
+    expect(realAttrMult('四阶')).toBe(5);
+    expect(realAttrMult('至强')).toBe(5);
+    expect(realAttrMult(undefined, 35)).toBe(5);  // Lv35=四阶
+    expect(realAttrMult(undefined, 20)).toBe(1);  // Lv20=二阶
+  });
+  it('computeMaxHp/EP 按 realMult 放大（四阶 体100→HP1万、智100→EP7500）', () => {
+    expect(computeMaxHp(A({ con: 100 }), 5)).toBe(10000);
+    expect(computeMaxEp(A({ int: 100 }), 5)).toBe(7500);
+    expect(computeMaxHp(A({ con: 100 }))).toBe(2000);  // 默认倍率1不变
+  });
+  it('fullMaxHp 透传 realMult（六维部分×5，装备平值加成不×）', () => {
+    expect(fullMaxHp(A({ con: 100 }), [], [], [], 5)).toBe(10000);
+    expect(fullMaxHp(A({ con: 100 }), [{ effect: '生命值上限+1000' }], [], [], 5)).toBe(11000); // 10000(六维×5)+1000(装备不×)
   });
 });
 

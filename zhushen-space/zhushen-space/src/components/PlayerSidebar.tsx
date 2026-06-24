@@ -4,7 +4,7 @@ import { useGame } from '../store/gameStore';
 import { useItems, gradeToNum } from '../store/itemStore';
 import { StatusChips, SegmentedText } from './NpcDetail';
 import StatusEffectChips from './StatusEffectChips';
-import { computeDerived, tierFxClass, realmFromLevel, effectiveResource, fullMaxHp, fullMaxEp } from '../systems/derivedStats';
+import { computeDerived, tierFxClass, realmFromLevel, effectiveResource, fullMaxHp, fullMaxEp, realAttrMult } from '../systems/derivedStats';
 import { useCharacters } from '../store/characterStore';
 import { computeAttrBreakdown, withAttrDelta, ATTR_LABEL, type AttrBreak } from '../systems/attrBonus';
 import { playerTreeAttrBonus } from '../store/skillTreeStore';
@@ -482,8 +482,9 @@ export default function PlayerSidebar({ onClose }: { onClose?: () => void }) {
           // 最大HP/EP = (基础六维 + 技能树 + 团队的六维加成) 换算 + 装备/被动里明确写"增加HP/EP上限"的平值 + 百分比加成(如被动"10%生命加成")；与上方属性面板同口径，技能树加的体质/智力同步抬高 HP/EP 上限
           const teamAttrsBase = withAttrDelta(withAttrDelta(profile.attrs, playerTreeAttrBonus()), playerTeamAttrBonus());   // 技能树 + 团队效果的六维加成（体/智→HP/EP）
           const teamPerkAbil = playerTeamPerkAbilities();                              // 团队效果显式「HP/EP上限」文本
-          const maxHp = fullMaxHp(teamAttrsBase, equippedFull, b1?.skills, [...(b1?.traits ?? []), ...teamPerkAbil]);
-          const maxEp = fullMaxEp(teamAttrsBase, equippedFull, b1?.skills, [...(b1?.traits ?? []), ...teamPerkAbil]);
+          const rmP = realAttrMult(profile.tier, profile.level);   // 四阶起 HP/EP×5（与战斗/AI一致）
+          const maxHp = fullMaxHp(teamAttrsBase, equippedFull, b1?.skills, [...(b1?.traits ?? []), ...teamPerkAbil], rmP);
+          const maxEp = fullMaxEp(teamAttrsBase, equippedFull, b1?.skills, [...(b1?.traits ?? []), ...teamPerkAbil], rmP);
           return (
             <>
               <div onClick={() => setLabelOpen(true)} className="space-y-2 cursor-pointer" title="点击自定义血条皮肤 / 称呼">

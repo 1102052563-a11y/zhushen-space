@@ -154,6 +154,7 @@ function validTarget(x: unknown): TargetMode | undefined {
 export interface SkillLike {
   name?: string; desc?: string; effect?: string; damage?: string; skillType?: string;
   tags?: string[]; cost?: string;
+  combat?: unknown;   // AI 可直接输出顶层 combat（addSkill 透传保留）；与 numeric.combat 等价
   numeric?: { combat?: unknown;[k: string]: unknown };
 }
 
@@ -216,9 +217,9 @@ function guessTarget(effects: CombatEffect[]): TargetMode {
   return allSelf ? 'self' : 'enemy';
 }
 
-/** 取技能的战斗规格：有合法 numeric.combat 用之，否则关键词兜底。前端战斗只调这里。 */
+/** 取技能的战斗规格：有合法 combat(顶层或 numeric.combat) 用之，否则关键词兜底。前端战斗只调这里。 */
 export function parseCombatSpec(skill: SkillLike): CombatSpec {
-  const raw: any = skill?.numeric?.combat;
+  const raw: any = skill?.numeric?.combat ?? (skill as any)?.combat;
   if (raw && typeof raw === 'object') {
     const effects = normalizeEffects(raw.effects);
     if (effects.length) return { cost: parseCost(skill, raw.cost), target: validTarget(raw.target) ?? guessTarget(effects), effects };

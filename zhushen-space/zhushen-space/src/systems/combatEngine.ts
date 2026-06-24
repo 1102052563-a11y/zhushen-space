@@ -11,7 +11,7 @@ import {
   ATTR_KEYS, type AttrKey, type DiceAttrs, type EquipItemLite,
 } from './diceEngine';
 import {
-  computeDerived, computeMaxHp, computeMaxEp, fullMaxHp, fullMaxEp, lvFromRealm, normalizeTier, realmFromLevel, effectiveResource,
+  computeDerived, computeMaxHp, computeMaxEp, fullMaxHp, fullMaxEp, lvFromRealm, normalizeTier, realmFromLevel, effectiveResource, realAttrMult,
 } from './derivedStats';
 import { effectiveAttrs, withAttrDelta } from './attrBonus';
 import { playSfx } from './audio';
@@ -49,6 +49,12 @@ function sumRealAttrs(ra?: Partial<Record<AttrKey, number>>): number {
   return ra ? ATTR_KEYS.reduce((s, k) => s + (ra[k] ?? 0), 0) : 0;
 }
 
+/* 战斗六维缩放（四阶起真实属性 ×5·5:1强制）：放大 str/agi/con/int/cha（→攻防/伤害/HP/EP 一并×5），
+   luck 不缩放（特殊属性）。同阶 ×5 对 ×5 抵消=平衡；跨阶四阶打三阶 = 攻×5对防×1 碾压。 */
+function scaleCombat(a: DiceAttrs, m: number): DiceAttrs {
+  return m === 1 ? a : { str: a.str * m, agi: a.agi * m, con: a.con * m, int: a.int * m, cha: a.cha * m, luck: a.luck };
+}
+
 const equippedOf = (arr: any[] | undefined): EquipItemLite[] =>
   (arr ?? []).filter((it) => it?.equipped).map((it) => ({ category: it?.category as string, grade: (it?.numeric?.grade as number) ?? gradeToNum(it?.gradeDesc) }));
 
@@ -66,9 +72,9 @@ function fetchAbilities(id: string): { skills: any[]; talents: any[]; equipped: 
 /* 建参战者静态统计块（建战时算一次并锚定）。B1=主角，Cx=NPC，其余视为临时敌（用传入 override）。 */
 export function buildCombatant(id: string, side: Side, override?: Partial<CombatStatBlock> & { attrs?: DiceAttrs }): CombatStatBlock {
   if (override?.isTransient) {
-    const attrs = override.attrs ?? DEFAULT_ATTRS;
     const level = override.level ?? Math.max(1, lvFromRealm(override.tier));
     const tier = normalizeTier(override.tier) || realmFromLevel(level);
+    const attrs = scaleCombat(override.attrs ?? DEFAULT_ATTRS, realAttrMult(tier, level));   // 四阶起六维×5（攻防+HP/EP一并放大）
     const equipped: EquipItemLite[] = [];
     const d = computeDerived(attrs, level, equipped as any);
     return {
@@ -85,12 +91,13 @@ export function buildCombatant(id: string, side: Side, override?: Partial<Combat
     const b1c = useCharacters.getState().characters['B1'];
     // 主角有效六维 = 基础 + 技能树 + 团队效果 + 装备(含宝石) + 技能/天赋的六维加成（与属性面板/正文注入一致）。
     const baseTT = withAttrDelta(withAttrDelta(p.attrs ?? DEFAULT_ATTRS, playerTreeAttrBonus()), playerTeamAttrBonus());
-    const attrs = effectiveAttrs(baseTT, b1c?.skills, b1c?.traits, equippedFull) as DiceAttrs;
+    const rm = realAttrMult(p.tier, p.level);   // 四阶起六维×5（攻防/伤害/HP/EP 一并放大）
+    const attrs = scaleCombat(effectiveAttrs(baseTT, b1c?.skills, b1c?.traits, equippedFull) as DiceAttrs, rm);
     const equipped = equippedOf(useItems.getState().items);
     const d = computeDerived(attrs, p.level, equipped as any);
     const teamPerkAbil = playerTeamPerkAbilities();   // 团队效果里显式的「生命/法力上限」文本一并计入主角 HP/EP 上限
-    // 上限传**基础六维**（fullMaxHp 内部会折六维加成；传 attrs 会双算技能/天赋的体质加成）
-    const maxHp = fullMaxHp(baseTT, equippedFull as any, b1c?.skills, [...(b1c?.traits ?? []), ...teamPerkAbil]), maxEp = fullMaxEp(baseTT, equippedFull as any, b1c?.skills, [...(b1c?.traits ?? []), ...teamPerkAbil]);
+    // 上限传**基础六维**（fullMaxHp 内部会折六维加成；传 attrs 会双算技能/天赋的体质加成）；realMult=rm 让四阶起 HP/EP×5
+    const maxHp = fullMaxHp(baseTT, equippedFull as any, b1c?.skills, [...(b1c?.traits ?? []), ...teamPerkAbil], rm), maxEp = fullMaxEp(baseTT, equippedFull as any, b1c?.skills, [...(b1c?.traits ?? []), ...teamPerkAbil], rm);
     const g = useGame.getState().player;
     return {
       side, name: p.name || '主角', attrs, trueBonus: sumRealAttrs(p.realAttrs), level: p.level, tier: p.tier || realmFromLevel(p.level),
@@ -102,12 +109,13 @@ export function buildCombatant(id: string, side: Side, override?: Partial<Combat
   const npc = useNpc.getState().npcs[id];
   const equippedFull = (npc?.items ?? []).filter((it) => it.equipped);
   const npcC = useCharacters.getState().characters[id];
-  const attrs = effectiveAttrs(npc?.attrs ?? DEFAULT_ATTRS, npcC?.skills, npcC?.traits, equippedFull as any) as DiceAttrs;  // 基础六维 + 装备(含宝石) + 技能/天赋的六维加成（与详情面板/正文注入一致）
   const level = lvFromRealm(npc?.realm);
+  const rm = realAttrMult(npc?.realm, level);   // 四阶起六维×5（攻防/伤害/HP/EP 一并放大）
+  const attrs = scaleCombat(effectiveAttrs(npc?.attrs ?? DEFAULT_ATTRS, npcC?.skills, npcC?.traits, equippedFull as any) as DiceAttrs, rm);  // 基础六维 + 装备(含宝石) + 技能/天赋加成（与详情面板/正文一致）再×真实倍率
   const equipped = equippedOf(npc?.items);
   const d = computeDerived(attrs, level, equipped as any);
-  // 上限传**基础六维**（fullMaxHp 内部会折六维加成；传 attrs 会双算）
-  const maxHp = fullMaxHp(npc?.attrs ?? DEFAULT_ATTRS, equippedFull as any, npcC?.skills, npcC?.traits), maxEp = fullMaxEp(npc?.attrs ?? DEFAULT_ATTRS, equippedFull as any, npcC?.skills, npcC?.traits);
+  // 上限传**基础六维**（fullMaxHp 内部会折六维加成；传 attrs 会双算）；realMult=rm 让四阶起 HP/EP×5
+  const maxHp = fullMaxHp(npc?.attrs ?? DEFAULT_ATTRS, equippedFull as any, npcC?.skills, npcC?.traits, rm), maxEp = fullMaxEp(npc?.attrs ?? DEFAULT_ATTRS, equippedFull as any, npcC?.skills, npcC?.traits, rm);
   return {
     side, name: npc?.name || id, attrs, trueBonus: sumRealAttrs(npc?.realAttrs), level, tier: normalizeTier(npc?.realm) || realmFromLevel(level),
     bioStrength: npc?.bioStrength || '', favor: npc?.favor,

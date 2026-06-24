@@ -42,6 +42,7 @@ import {
   NPC_ID_RULE,
   NPC_SKILL_KEEP_RULE,
   PLAYER_SKILL_KEEP_RULE,
+  SKILL_COMBAT_TAG_RULE,
   TIER_RULE,
   SKILL_TALENT_NOTE_RULE,
   SKILL_TIER_RULE,
@@ -106,7 +107,7 @@ const CombatSetup = lazy(() => import('./components/CombatSetup'));
 import { useTerritory, buildTerritorySystemPrompt, buildingCap } from './store/territoryStore';
 import { useTeam, buildTeamSystemPrompt, memberCap as teamMemberCap } from './store/adventureTeamStore';
 import { useCosmos, buildCosmosSystemPrompt, cosmosNameEq, cleanCosmosName } from './store/cosmosStore';
-import { realmFromLevel, normalizeTier, lvFromRealm, computeMaxHp, computeMaxEp, effectiveResource, attrCapForTier, clampBaseAttrs, fullMaxHp, fullMaxEp, TIERS } from './systems/derivedStats';
+import { realmFromLevel, normalizeTier, lvFromRealm, computeMaxHp, computeMaxEp, effectiveResource, attrCapForTier, clampBaseAttrs, fullMaxHp, fullMaxEp, TIERS, realAttrMult } from './systems/derivedStats';
 import { isHomeWorld, reconcileHomeWorld, reconcilePlayerVitals, playerMaxHp, playerMaxEp, syncPlayerVitalsMax } from './systems/playerVitals';
 import { bioInnate, tierVitalMult } from './systems/bioStrength';
 import { generateNpcAttrs, resolveForm, generateLuck } from './systems/npcAttrGen';
@@ -807,6 +808,11 @@ export default function App() {
   const [revarOpen,        setRevarOpen]        = useState(false);   // 重算单项变量菜单（重 ROLL）
   const [phaseFail,        setPhaseFail]        = useState<Record<string, boolean>>({});   // 各演化阶段「上次更新失败」持久标记（重算菜单据此标红；key: item/player/npc/faction/territory/team/cosmos/misc/image）
   const [phaseBusy,        setPhaseBusy]        = useState<Record<string, boolean>>({});   // 各演化阶段「正在重 ROLL」标记（菜单内点重 ROLL 时置位，完成/失败/兜底超时清除）
+  const [floorCfg,         setFloorCfg]         = useState<{ fk: string; label: string; total: number } | null>(null);   // 「按楼层批量更新」配置弹窗
+  const [floorStart,       setFloorStart]       = useState('1');
+  const [floorEnd,         setFloorEnd]         = useState('1');
+  const [floorStep,        setFloorStep]        = useState('1');
+  const [floorProg,        setFloorProg]        = useState<{ fk: string; cur: number; total: number } | null>(null);   // 批量更新进度（菜单行显示「批量 X/M」）
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if ((e.metaKey || e.ctrlKey) && (e.key === 'k' || e.key === 'K')) { e.preventDefault(); setCmdkOpen((v) => !v); }
@@ -1985,7 +1991,7 @@ export default function App() {
         .replaceAll('${character_snapshot}', playerProfileSnapshot)
         .replaceAll('${player_skills}', pSkills.length ? pSkills.map((s) => `${s.id}「${s.name}」${s.level ?? ''}`).join('；') : '（无）')
         .replaceAll('${player_traits}', pTalents.length ? pTalents.map((t) => `「${t.name}」${t.category ?? ''}·${t.rarity}级`).join('；') : '（无）')
-        + '\n\n' + NARRATIVE_FIRST_RULE + '\n' + EVO_VERIFY_RULE + '\n' + BUFF_AS_STATUS_RULE + '\n' + SUBPROF_RULE + '\n' + TALENT_NO_CAP_RULE + '\n' + TITLE_DIVERSITY_RULE + '\n' + SKILL_TALENT_NOTE_RULE + '\n' + SKILL_TIER_RULE + '\n' + SKILL_TALENT_ATTR_CAP_RULE + '\n' + PLAYER_SKILL_KEEP_RULE + '\n' + TIER_RULE + '\n' + IMAGE_TAGS_RULE + '\n' + HPEP_NARRATIVE_ONLY_RULE + '\n' + WORLDSOURCE_RULE + '\n' + POINTS_NARRATIVE_RULE + '\n' + ATTR_SANITY_RULE + '\n' + ATTR_CAP_RULE + '\n' + PLAYER_ATTR_LOCK_RULE + '\n' + APPEARANCE_UPDATE_RULE + '\n' + STATUS_FORMAT_RULE + '\n' + FIRST_UPDATE_COMPLETE_RULE + '\n' + EVO_EXACT_REF_RULE + '\n' + PLAYER_COT_RULE;
+        + '\n\n' + NARRATIVE_FIRST_RULE + '\n' + EVO_VERIFY_RULE + '\n' + BUFF_AS_STATUS_RULE + '\n' + SUBPROF_RULE + '\n' + TALENT_NO_CAP_RULE + '\n' + TITLE_DIVERSITY_RULE + '\n' + SKILL_TALENT_NOTE_RULE + '\n' + SKILL_TIER_RULE + '\n' + SKILL_TALENT_ATTR_CAP_RULE + '\n' + PLAYER_SKILL_KEEP_RULE + '\n' + SKILL_COMBAT_TAG_RULE + '\n' + TIER_RULE +'\n' + IMAGE_TAGS_RULE + '\n' + HPEP_NARRATIVE_ONLY_RULE + '\n' + WORLDSOURCE_RULE + '\n' + POINTS_NARRATIVE_RULE + '\n' + ATTR_SANITY_RULE + '\n' + ATTR_CAP_RULE + '\n' + PLAYER_ATTR_LOCK_RULE + '\n' + APPEARANCE_UPDATE_RULE + '\n' + STATUS_FORMAT_RULE + '\n' + FIRST_UPDATE_COMPLETE_RULE + '\n' + EVO_EXACT_REF_RULE + '\n' + PLAYER_COT_RULE;
       const userContent  = `# 本轮正文\n${trimmedNarrative}\n\n---\n请根据以上正文处理本轮主角属性与状态的变化。**先输出一个 <think>…</think> 思考块**，按系统提示里的「主角演化思维链」逐项自检；**随后**输出 <state>（及如有需要的 <upstore>）指令块，无变化时输出空块。除 <think> / <state> / <upstore> 外不要有其它文字。`;
 
       const ss2 = useSettings.getState();
@@ -2073,7 +2079,7 @@ export default function App() {
       .filter((e) => e.enabled && e.source !== 'entrySharedRules')
       .map((e) => fillVars(e.content, vars))
       .join('\n\n')
-      + '\n\n' + NARRATIVE_FIRST_RULE + '\n' + BUFF_AS_STATUS_RULE + '\n' + NPC_AGE_RULE + '\n' + TALENT_NO_CAP_RULE + '\n' + TITLE_DIVERSITY_RULE + '\n' + NPC_DEAD_EXCLUDE_RULE + '\n' + NPC_ID_RULE + '\n' + SKILL_TALENT_NOTE_RULE + '\n' + NPC_SKILL_KEEP_RULE + '\n' + NPC_REVIEW_TAG_RULE + '\n' + NPC_TEAM_AFFILIATION_RULE + '\n' + TIER_RULE + '\n' + IMAGE_TAGS_RULE + '\n' + HPEP_NARRATIVE_ONLY_RULE + '\n' + POINTS_NARRATIVE_RULE + '\n' + NPC_GEN_ATTR_RULE + '\n' + ATTR_SANITY_RULE + '\n' + ATTR_CAP_RULE + '\n' + STATUS_FORMAT_RULE + '\n' + NPC_PRIVATE_EXTRA_RULE + '\n' + NPC_TIER_LOADOUT_RULE + '\n' + SKILL_TALENT_ATTR_CAP_RULE + '\n' + FIRST_UPDATE_COMPLETE_RULE + '\n' + EVO_EXACT_REF_RULE + '\n' + NPC_COT_RULE
+      + '\n\n' + NARRATIVE_FIRST_RULE + '\n' + BUFF_AS_STATUS_RULE + '\n' + NPC_AGE_RULE + '\n' + TALENT_NO_CAP_RULE + '\n' + TITLE_DIVERSITY_RULE + '\n' + NPC_DEAD_EXCLUDE_RULE + '\n' + NPC_ID_RULE + '\n' + SKILL_TALENT_NOTE_RULE + '\n' + NPC_SKILL_KEEP_RULE + '\n' + SKILL_COMBAT_TAG_RULE + '\n' + NPC_REVIEW_TAG_RULE +'\n' + NPC_TEAM_AFFILIATION_RULE + '\n' + TIER_RULE + '\n' + IMAGE_TAGS_RULE + '\n' + HPEP_NARRATIVE_ONLY_RULE + '\n' + POINTS_NARRATIVE_RULE + '\n' + NPC_GEN_ATTR_RULE + '\n' + ATTR_SANITY_RULE + '\n' + ATTR_CAP_RULE + '\n' + STATUS_FORMAT_RULE + '\n' + NPC_PRIVATE_EXTRA_RULE + '\n' + NPC_TIER_LOADOUT_RULE + '\n' + SKILL_TALENT_ATTR_CAP_RULE + '\n' + FIRST_UPDATE_COMPLETE_RULE + '\n' + EVO_EXACT_REF_RULE + '\n' + NPC_COT_RULE
       // 门控：仅当该 NPC 已有背景、却还没第一人称自述时，才追加"生成自述"规则（一次性·省 token）
       + (rec && rec.background && !rec.selfNarration ? '\n' + NPC_SELF_NARRATION_RULE : '');
   }
@@ -2137,7 +2143,7 @@ export default function App() {
       if (!ok(m[1])) continue;
       const rec = npc.npcs[m[1]];
       const nc = useCharacters.getState().characters[m[1]];
-      const dmax = fullMaxHp(rec?.attrs, (rec?.items ?? []).filter((it) => it.equipped) as any[], nc?.skills, nc?.traits);
+      const dmax = fullMaxHp(rec?.attrs, (rec?.items ?? []).filter((it) => it.equipped) as any[], nc?.skills, nc?.traits, realAttrMult(rec?.realm, lvFromRealm(rec?.realm)));
       const base = effectiveResource(rec?.hp, rec?.maxHp, dmax);
       const v = Number(m[3]);
       const next = m[2] === '=' ? v : m[2] === '+=' ? Math.min(base + v, dmax) : Math.max(0, base - v);
@@ -2244,7 +2250,7 @@ export default function App() {
       if (!ok(m[1])) continue;
       const rec = npc.npcs[m[1]];
       const nc = useCharacters.getState().characters[m[1]];
-      const dmax = fullMaxEp(rec?.attrs, (rec?.items ?? []).filter((it) => it.equipped) as any[], nc?.skills, nc?.traits);
+      const dmax = fullMaxEp(rec?.attrs, (rec?.items ?? []).filter((it) => it.equipped) as any[], nc?.skills, nc?.traits, realAttrMult(rec?.realm, lvFromRealm(rec?.realm)));
       const base = effectiveResource(rec?.mp, rec?.maxMp, dmax);
       const v = Number(m[3]);
       const next = m[2] === '=' ? v : m[2] === '+=' ? Math.min(base + v, dmax) : Math.max(0, base - v);
@@ -4741,7 +4747,8 @@ ${lines}`;
       // 上限与面板/详情同口径：fullMaxHp/EP = 体×20/智×15 + 装备 + 技能/天赋的「HP/EP上限」加成（之前用 computeMaxHp 只算基础六维→与卡片显示的最大值对不上）
       const cdata = useCharacters.getState().characters[r.id];
       const eqp = (r.items ?? []).filter((it) => it.equipped) as any[];
-      const dmh = fullMaxHp(r.attrs!, eqp, cdata?.skills, cdata?.traits), dme = fullMaxEp(r.attrs!, eqp, cdata?.skills, cdata?.traits);
+      const rmR = realAttrMult(r.realm, lvFromRealm(r.realm));
+      const dmh = fullMaxHp(r.attrs!, eqp, cdata?.skills, cdata?.traits, rmR), dme = fullMaxEp(r.attrs!, eqp, cdata?.skills, cdata?.traits, rmR);
       const selfName = r.name.split('|')[0].trim();
       const nameEsc = selfName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
       // 跨越词：别的角色名 + 敌怪死亡词；出现在 name→HP 之间，说明这段 HP 属于别人
@@ -4833,8 +4840,9 @@ ${lines}`;
       if (r.isDead || !r.attrs) continue;   // 无六维者先由 autoGenMissingAttrs 生成，下一轮再算上限
       const a = r.attrs;
       const mult = tierVitalMult(bioInnate(a, r.realm, lvFromRealm(r.realm))?.num ?? 0);
-      const maxHp = Math.round(computeMaxHp(a) * mult);
-      const maxMp = Math.round(computeMaxEp(a) * mult);
+      const rmR = realAttrMult(r.realm, lvFromRealm(r.realm));   // 四阶起六维×5（与面板/战斗一致）
+      const maxHp = Math.round(computeMaxHp(a, rmR) * mult);
+      const maxMp = Math.round(computeMaxEp(a, rmR) * mult);
       const hpFull = (r.hp ?? 0) >= (r.maxHp ?? 0);   // 含未设(0)→视作满，顶满到新上限
       const epFull = (r.mp ?? 0) >= (r.maxMp ?? 0);
       const hp = hpFull ? maxHp : Math.min(r.hp ?? maxHp, maxHp);
@@ -6603,6 +6611,43 @@ ${lines}`;
   function revarRun(fn: (n: string) => void): () => void {
     return () => { const n = revarNarr(); if (!n) { setGenError('暂无正文可重算（先发一条消息再重算）'); setTimeout(() => setGenError(''), 4000); return; } fn(n); };
   }
+  // 「按楼层批量更新」：把某变量的演化在指定「正文楼层」范围内分批重跑（每 N 层一批，逐批顺序调用其演化）。
+  // 仅支持吃正文的 8 个阶段（item 走 core；其余 run*EvolutionPhase）；记忆/生图不吃正文不在此列。
+  const BATCH_RUNNERS: Record<string, (n: string) => Promise<void> | void> = {
+    item: runItemManagementPhaseCore, player: runPlayerEvolutionPhase, npc: runNpcEvolutionPhase,
+    faction: runFactionEvolutionPhase, territory: runTerritoryEvolutionPhase, team: runTeamEvolutionPhase,
+    cosmos: runCosmosEvolutionPhase, misc: runMiscEvolutionPhase,
+  };
+  function narrativeFloors(): string[] {   // 楼层 = 每条 AI 正文（从旧到新）
+    return (messagesRef.current ?? []).filter((m) => m.role === 'assistant' && m.content).map((m) => m.content as string);
+  }
+  function openFloorCfg(fk: string, label: string) {
+    const T = narrativeFloors().length;
+    setFloorCfg({ fk, label, total: T });
+    setFloorStart(String(T || 1)); setFloorEnd(String(T || 1)); setFloorStep('1');   // 默认=只更新最新一层（即原「最新正文」行为）
+  }
+  async function runFloorBatches() {
+    const cfg = floorCfg; if (!cfg) return;
+    const floors = narrativeFloors(); const T = floors.length;
+    const runner = BATCH_RUNNERS[cfg.fk];
+    setFloorCfg(null);
+    if (!runner || T === 0) return;
+    let start = Math.max(1, Math.min(T, Math.round(Number(floorStart) || 1)));
+    let end = Math.max(1, Math.min(T, Math.round(Number(floorEnd) || T)));
+    if (start > end) { const t = start; start = end; end = t; }
+    const step = Math.max(1, Math.round(Number(floorStep) || 1));
+    const batches: [number, number][] = [];
+    for (let lo = start; lo <= end; lo += step) batches.push([lo, Math.min(end, lo + step - 1)]);
+    setPhaseFail((p) => { if (!p[cfg.fk]) return p; const n = { ...p }; delete n[cfg.fk]; return n; });
+    try {
+      for (let bi = 0; bi < batches.length; bi++) {
+        const [lo, hi] = batches[bi];
+        setFloorProg({ fk: cfg.fk, cur: bi + 1, total: batches.length });
+        const chunk = floors.slice(lo - 1, hi).join('\n\n');
+        if (chunk.trim()) { try { await runner(chunk); } catch (e) { console.warn('[按楼层更新] 批次失败', e); } }
+      }
+    } finally { setFloorProg(null); }
+  }
   /* 聊天室悬浮气泡·拖动：夹紧在叙事区容器内；移动超过阈值算"拖动"（拖完那次 click 不开聊天室） */
   function clampBubbleOff(dx: number, dy: number) {
     const host = chatBubbleHostRef.current; if (!host) return { dx, dy };
@@ -6848,7 +6893,7 @@ ${lines}`;
       background: `【开局设定】所属乐园：${d.paradise}｜游戏难度：${d.difficulty}（${d.points}属性点）｜性别：${d.gender || '未知'}｜种族：${d.race || '人类'}${d.raceDetail ? `（${d.raceDetail}）` : ''}｜年龄：${d.age || '未知'}｜性格：${d.personality || '—'}｜主角背景：${d.prevProfession || '普通人'}`,
     });
     // 开局按六维换算 HP/EP 上限（体质×20 / 智力×15）并拉满，避免主角永远停在 100/50 默认值
-    { const g = useGame.getState(); const mh = computeMaxHp(d.attrs), me = computeMaxEp(d.attrs);
+    { const g = useGame.getState(); const pf = usePlayer.getState().profile; const rmC = realAttrMult(pf.tier, pf.level); const mh = computeMaxHp(d.attrs, rmC), me = computeMaxEp(d.attrs, rmC);
       g.setPlayerField('maxHp', mh); g.setPlayerField('hp', mh); g.setPlayerField('maxMp', me); g.setPlayerField('mp', me); }
     if (d.talentName) {
       useCharacters.getState().addTrait('B1', {
@@ -7558,43 +7603,49 @@ ${lines}`;
             <div className="max-h-[60vh] overflow-y-auto py-1">
               {[
                 { icon: '♻', label: '全部变量', desc: '撤销并重跑本回合全部演化（原「重算变量」行为·会刷新页面）。确定？', run: regenerateVarsOnly, all: true },
-                { icon: '🎒', label: '物品 / 背包', fk: 'item', run: () => triggerItemPhaseManually() },
-                { icon: '🧬', label: '主角属性', fk: 'player', run: revarRun(runPlayerEvolutionPhase) },
-                { icon: '📇', label: 'NPC', fk: 'npc', run: revarRun(runNpcEvolutionPhase) },
-                { icon: '🏛', label: '势力', fk: 'faction', run: revarRun(runFactionEvolutionPhase) },
-                { icon: '🏯', label: '领地', fk: 'territory', run: revarRun(runTerritoryEvolutionPhase) },
-                { icon: '🛡', label: '冒险团', fk: 'team', run: revarRun(runTeamEvolutionPhase) },
-                { icon: '🌌', label: '万族', fk: 'cosmos', run: revarRun(runCosmosEvolutionPhase) },
-                { icon: '📋', label: '任务 / 世界 / 杂项', fk: 'misc', run: revarRun(runMiscEvolutionPhase) },
+                { icon: '🎒', label: '物品 / 背包', fk: 'item', batch: true, run: () => triggerItemPhaseManually() },
+                { icon: '🧬', label: '主角属性', fk: 'player', batch: true, run: revarRun(runPlayerEvolutionPhase) },
+                { icon: '📇', label: 'NPC', fk: 'npc', batch: true, run: revarRun(runNpcEvolutionPhase) },
+                { icon: '🏛', label: '势力', fk: 'faction', batch: true, run: revarRun(runFactionEvolutionPhase) },
+                { icon: '🏯', label: '领地', fk: 'territory', batch: true, run: revarRun(runTerritoryEvolutionPhase) },
+                { icon: '🛡', label: '冒险团', fk: 'team', batch: true, run: revarRun(runTeamEvolutionPhase) },
+                { icon: '🌌', label: '万族', fk: 'cosmos', batch: true, run: revarRun(runCosmosEvolutionPhase) },
+                { icon: '📋', label: '任务 / 世界 / 杂项', fk: 'misc', batch: true, run: revarRun(runMiscEvolutionPhase) },
                 { icon: '🧠', label: '记忆整理', run: () => runMemoryCompressionPhase() },
                 { icon: '🖼', label: '生图（肖像 + 装备）', fk: 'image', run: () => { runPortraitPhase(); runEquipImagePhase(); } },
               ].map((it) => {
-                const x = it as { icon: string; label: string; run: () => void; desc?: string; all?: boolean; fk?: string };
-                const busy = !!(x.fk && phaseBusy[x.fk]);
-                const failed = !busy && !!(x.fk && phaseFail[x.fk]);
+                const x = it as { icon: string; label: string; run: () => void; desc?: string; all?: boolean; fk?: string; batch?: boolean };
+                const prog = (floorProg && x.fk && floorProg.fk === x.fk) ? floorProg : null;
+                const busy = !prog && !!(x.fk && phaseBusy[x.fk]);
+                const failed = !prog && !busy && !!(x.fk && phaseFail[x.fk]);
                 return (
-                <button key={x.label} disabled={busy}
-                  onClick={() => { setConfirmAction({ title: x.all ? '重算全部变量' : `重 ROLL「${x.label}」`, desc: x.desc || `仅重新生成「${x.label}」这一项（基于本回合正文重跑该演化）、其它变量不动。确定？`, run: () => {
-                    if (x.all) { setRevarOpen(false); x.run(); return; }
-                    if (x.fk) {
-                      const k = x.fk;
-                      setPhaseFail((p) => { if (!p[k]) return p; const n = { ...p }; delete n[k]; return n; });
-                      setPhaseBusy((p) => ({ ...p, [k]: true }));   // 标「正在重 ROLL」（菜单不关，本行实时显示进度）
-                      setTimeout(() => setPhaseBusy((p) => { if (!p[k]) return p; const n = { ...p }; delete n[k]; return n; }), 45000);   // 兜底清（misc 无完成日志）
-                    }
-                    x.run();
-                  } }); }}
-                  className={`w-full flex items-center gap-3 px-4 py-2.5 text-sm text-left transition-colors disabled:cursor-default ${busy ? 'text-god bg-god/5' : failed ? 'text-slate-200 hover:bg-blood/10' : 'text-dim hover:text-god hover:bg-god/10'}`}>
+                <button key={x.label} disabled={busy || !!prog}
+                  onClick={() => {
+                    if (x.batch && x.fk) { openFloorCfg(x.fk, x.label); return; }   // 吃正文的阶段 → 弹「按楼层更新」配置框
+                    setConfirmAction({ title: x.all ? '重算全部变量' : `重 ROLL「${x.label}」`, desc: x.desc || `仅重新生成「${x.label}」这一项（基于本回合正文重跑该演化）、其它变量不动。确定？`, run: () => {
+                      if (x.all) { setRevarOpen(false); x.run(); return; }
+                      if (x.fk) {
+                        const k = x.fk;
+                        setPhaseFail((p) => { if (!p[k]) return p; const n = { ...p }; delete n[k]; return n; });
+                        setPhaseBusy((p) => ({ ...p, [k]: true }));
+                        setTimeout(() => setPhaseBusy((p) => { if (!p[k]) return p; const n = { ...p }; delete n[k]; return n; }), 45000);
+                      }
+                      x.run();
+                    } });
+                  }}
+                  className={`w-full flex items-center gap-3 px-4 py-2.5 text-sm text-left transition-colors disabled:cursor-default ${(prog || busy) ? 'text-god bg-god/5' : failed ? 'text-slate-200 hover:bg-blood/10' : 'text-dim hover:text-god hover:bg-god/10'}`}>
                   <span className="w-5 text-center text-xs opacity-80">{x.icon}</span>
                   <span className="flex-1">{x.label}</span>
                   {x.all
                     ? <span className="text-[10px] font-mono text-amber-300/70 border border-amber-600/40 rounded px-1.5 py-0.5 shrink-0">刷新页面</span>
                     : <span className="flex items-center gap-1.5 shrink-0">
-                        {busy
+                        {prog
+                          ? <span className="text-[10px] font-mono text-god border border-god/50 bg-god/10 rounded px-1.5 py-0.5 flex items-center gap-1"><span className="inline-block animate-spin">⟳</span>批量 {prog.cur}/{prog.total}</span>
+                          : busy
                           ? <span className="text-[10px] font-mono text-god border border-god/50 bg-god/10 rounded px-1.5 py-0.5 flex items-center gap-1"><span className="inline-block animate-spin">⟳</span>正在重 ROLL…</span>
                           : <>
                               {failed && <span className="text-[10px] font-mono text-blood border border-blood/40 bg-blood/10 rounded px-1.5 py-0.5">⚠ 更新失败</span>}
-                              <span className="text-[10px] font-mono text-dim/40">重 ROLL ›</span>
+                              <span className="text-[10px] font-mono text-dim/40">{x.batch ? '按楼层 ›' : '重 ROLL ›'}</span>
                             </>}
                       </span>}
                 </button>
@@ -7604,6 +7655,60 @@ ${lines}`;
           </div>
         </div>
       )}
+
+      {/* ── 按楼层批量更新·配置弹窗（从重算菜单某项点开；叠在菜单上方 z-130）── */}
+      {floorCfg && (() => {
+        const T = floorCfg.total;
+        const s = Math.max(1, Math.min(T || 1, Math.round(Number(floorStart) || 1)));
+        const e = Math.max(1, Math.min(T || 1, Math.round(Number(floorEnd) || (T || 1))));
+        const lo = Math.min(s, e), hi = Math.max(s, e);
+        const step = Math.max(1, Math.round(Number(floorStep) || 1));
+        const span = hi - lo + 1;
+        const times = Math.max(1, Math.ceil(span / step));
+        return (
+          <div className="fixed inset-0 z-[130] bg-black/70 backdrop-blur-sm flex items-center justify-center p-4"
+            onClick={(ev) => { if (ev.target === ev.currentTarget) setFloorCfg(null); }}>
+            <div className="w-full max-w-md rounded-2xl border border-god/30 bg-void shadow-[0_0_50px_rgba(0,0,0,0.85)] overflow-hidden">
+              <div className="px-5 py-3 border-b border-edge bg-panel flex items-center gap-2">
+                <span className="text-god/70 text-lg">♻</span>
+                <div className="text-sm font-bold text-slate-100">按楼层更新「{floorCfg.label}」</div>
+              </div>
+              <div className="px-5 py-4 space-y-3 text-[13px] text-slate-300">
+                <div className="text-dim leading-relaxed">楼层 = 第几条 AI 正文（从旧到新，共 <b className="text-slate-200">{T}</b> 层，最新 = 第 {T} 层）。默认只更新最新一层；可指定一段楼层范围，每隔几层做一次更新（用历史正文重跑该变量的演化）。</div>
+                {T === 0 ? (
+                  <div className="text-blood/90 font-mono">暂无正文楼层 —— 先发一条消息再来。</div>
+                ) : (
+                  <>
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <span className="w-20 shrink-0 text-dim/70 font-mono">楼层范围</span>
+                      <input type="number" min={1} max={T} value={floorStart} onChange={(ev) => setFloorStart(ev.target.value)}
+                        className="w-20 bg-void border border-edge rounded px-2 py-1 font-mono text-slate-100 outline-none focus:border-god/50" />
+                      <span className="text-dim/60 font-mono">→</span>
+                      <input type="number" min={1} max={T} value={floorEnd} onChange={(ev) => setFloorEnd(ev.target.value)}
+                        className="w-20 bg-void border border-edge rounded px-2 py-1 font-mono text-slate-100 outline-none focus:border-god/50" />
+                      <button onClick={() => { setFloorStart('1'); setFloorEnd(String(T)); }}
+                        className="text-[11px] font-mono text-dim hover:text-god ml-auto">全部楼层</button>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <span className="w-20 shrink-0 text-dim/70 font-mono">每几层一次</span>
+                      <input type="number" min={1} max={Math.max(1, span)} value={floorStep} onChange={(ev) => setFloorStep(ev.target.value)}
+                        className="w-20 bg-void border border-edge rounded px-2 py-1 font-mono text-slate-100 outline-none focus:border-god/50" />
+                    </div>
+                    <div className="rounded-lg border border-god/20 bg-god/5 px-3 py-2 text-[12px] font-mono text-god/80">
+                      第 {lo}–{hi} 层（共 {span} 层）· 每 {step} 层一次 → <b className="text-god">本次更新 {times} 次</b>
+                    </div>
+                    <div className="text-[11px] text-dim/50 leading-relaxed">将按顺序逐批调用「{floorCfg.label}」演化（{times} 次 API，耗时较久、请勿关页）；失败的批次会自动跳过。</div>
+                  </>
+                )}
+              </div>
+              <div className="px-5 py-3 border-t border-edge bg-panel/60 flex justify-end gap-2">
+                <button onClick={() => setFloorCfg(null)} className="px-3 py-1.5 rounded border border-edge text-dim hover:text-slate-200 text-sm font-mono transition-colors">取消</button>
+                <button disabled={T === 0} onClick={runFloorBatches} className="px-3 py-1.5 rounded border border-god/50 text-god hover:bg-god/10 disabled:opacity-40 text-sm font-mono transition-colors">开始更新（{times} 次）</button>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
 
       {/* ── 底部状态栏 ── */}
       <footer className="shrink-0 h-7 flex items-center justify-between px-4 border-t border-edge bg-panel text-[10px] font-mono text-dim/60">

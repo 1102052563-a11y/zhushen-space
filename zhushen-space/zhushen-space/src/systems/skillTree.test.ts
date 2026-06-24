@@ -77,6 +77,7 @@ describe('canRankUp · 阶位 gate 实际拦截', () => {
     expect(canRankUp(mk(), 'n3', prog, { level: 25, tier: '三阶' }).ok).toBe(true);
   });
   it('传承提前解锁(express) → 免阶位 gate', () => {
-    expect(canRankUp(mk(), 'n3', prog, { level: 1, tier: '一阶', expressBranches: new Set(['b1']) }).ok).toBe(true);
+    // ppBase=0 后 1 级玩家潜能点为 0；本例只验「express 免阶位 gate」，故给足潜能点(aiBonusPP)以隔离 PP 预算变量。
+    expect(canRankUp(mk(), 'n3', { ...prog, aiBonusPP: 5 }, { level: 1, tier: '一阶', expressBranches: new Set(['b1']) }).ok).toBe(true);
   });
 });

@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect } from 'react';
 import { useNpc, type NpcRecord } from '../store/npcStore';
 import { useCharacters, RARITY_CLS, ELEMENT_CLS, SKILL_TIER_CLS, normSkillTier, type Deed } from '../store/characterStore';
-import { computeDerived, lvFromRealm, normalizeTier, tierFxClass, realmFromLevel, effectiveResource, fullMaxHp, fullMaxEp, TIERS, realAttrCapForTier } from '../systems/derivedStats';
+import { computeDerived, lvFromRealm, normalizeTier, tierFxClass, realmFromLevel, effectiveResource, fullMaxHp, fullMaxEp, TIERS, realAttrCapForTier, realAttrMult } from '../systems/derivedStats';
 import { computeAttrBreakdown, effectiveAttrs, ATTR_LABEL, type AttrBreak } from '../systems/attrBonus';
 import { bioInnate, bioPower, bioStrengthLabel, BIO_TIER_NAMES, nominalTierNum } from '../systems/bioStrength';
 import { generateNpcAttrs, resolveForm, UNIT_TYPE_LABELS } from '../systems/npcAttrGen';
@@ -1021,8 +1021,9 @@ function AttrTab({ npc: npcProp, realm }: { npc: NpcRecord; realm: ReturnType<ty
   const effAttrs = { str: breakdown.str.total, agi: breakdown.agi.total, con: breakdown.con.total, int: breakdown.int.total, cha: breakdown.cha.total, luck: breakdown.luck.total } as PlayerAttrs;
   // HP/EP 上限由(有效)体质×20 / 智力×15 自动换算
   // 最大HP/EP = 基础六维换算 + 装备/被动明确写"增加HP/EP上限"的平值 + 百分比加成；技能/天赋的属性加成不计入上限
-  const maxHp = fullMaxHp(npc.attrs, equippedFull as any, cdata?.skills, cdata?.traits);
-  const maxEp = fullMaxEp(npc.attrs, equippedFull as any, cdata?.skills, cdata?.traits);
+  const rmN = realAttrMult(npc.realm, lvFromRealm(npc.realm));   // 四阶起 HP/EP×5
+  const maxHp = fullMaxHp(npc.attrs, equippedFull as any, cdata?.skills, cdata?.traits, rmN);
+  const maxEp = fullMaxEp(npc.attrs, equippedFull as any, cdata?.skills, cdata?.traits, rmN);
   const hpStr = `${effectiveResource(npc.hp, npc.maxHp, maxHp)} / ${maxHp}`;
   const epStr = `${effectiveResource(npc.mp, npc.maxMp, maxEp)} / ${maxEp}`;
   const attrDefs: { key: keyof PlayerAttrs; label: string }[] = [

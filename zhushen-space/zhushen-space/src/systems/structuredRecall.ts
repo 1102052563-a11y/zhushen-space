@@ -3,7 +3,7 @@ import type { FactionRecord } from '../store/factionStore';
 import type { Skill, Talent, Title, SubProfession } from '../store/characterStore';
 import { gradeToNum, type InventoryItem, type CurrencyWallet } from '../store/itemStore';
 import type { PlayerProfile, PlayerAttrs } from '../store/playerStore';
-import { effectiveResource, lvFromRealm, fullMaxHp, fullMaxEp, computeDerived } from './derivedStats';
+import { effectiveResource, lvFromRealm, fullMaxHp, fullMaxEp, computeDerived, realAttrMult } from './derivedStats';
 import { effectiveAttrs, withAttrDelta } from './attrBonus';
 import { playerTreeAttrBonus } from '../store/skillTreeStore';
 import { playerTeamAttrBonus, playerTeamPerkAbilities } from '../store/adventureTeamStore';
@@ -227,16 +227,17 @@ export function serializePlayerCard(
   // HP/EP 上限的基 = 基础 + 技能树 + 冒险团团队六维(体/智→HP/EP)，团队增益里的「生命/法力上限+N」并入天赋（与 App.playerMaxHp/EP、属性面板同口径，技能树加的体质/智力同步抬高上限）
   const hpBase = withAttrDelta(withAttrDelta(a, playerTreeAttrBonus('B1')), playerTeamAttrBonus());
   const hpTalents = [...(talents ?? []), ...playerTeamPerkAbilities()];
-  const pMaxHp = fullMaxHp(hpBase, pEqp, skills, hpTalents);
-  const pMaxEp = fullMaxEp(hpBase, pEqp, skills, hpTalents);
+  const rmP = realAttrMult(profile.tier, profile.level);   // 四阶起 HP/EP×5（AI 看到的血量与面板/战斗同尺度）
+  const pMaxHp = fullMaxHp(hpBase, pEqp, skills, hpTalents, rmP);
+  const pMaxEp = fullMaxEp(hpBase, pEqp, skills, hpTalents, rmP);
   // 有效六维 = 基础 + 装备/技能/天赋 + 技能树 + 团队加成（与属性面板/战斗/骰子完全一致；注入正文用实战值，并标注基础值）
   const effA = effectiveAttrs(withAttrDelta(withAttrDelta(a, playerTreeAttrBonus('B1')), playerTeamAttrBonus()), skills, talents, pEqp);
   // 衍生攻防（与属性面板同式：有效六维 + 等级 + 已装备品级）
   const derived = computeDerived(effA, profile.level, pEqp.map((it) => ({ category: it.category as string, grade: (it.numeric?.grade as number) ?? gradeToNum(it.gradeDesc) })));
   const faP = (k: keyof PlayerAttrs) => { if (!a) return ''; return effA[k] === a[k] ? `${effA[k]}` : `${effA[k]}(基${a[k]})`; };
   const stat = [
-    `HP:${effectiveResource(game.hp, game.maxHp, pMaxHp)}/${pMaxHp}（满状态上限=${pMaxHp}，已含体质×20及天赋/装备/技能/技能树/团队全部加成，前端实算；回满/满血即回到 ${pMaxHp}，勿按基础体质自行重算、勿沿用历史旧上限${profile.hpLabel ? `；正文叙述称「${profile.hpLabel}」，状态行/指令仍写 HP` : ''}）`,
-    `EP:${effectiveResource(game.mp, game.maxMp, pMaxEp)}/${pMaxEp}（满状态上限=${pMaxEp}，已含智力×15及天赋/装备/技能/技能树/团队全部加成，前端实算；回满即回到 ${pMaxEp}，勿自行重算、勿沿用历史旧上限${profile.epLabel ? `；正文叙述称「${profile.epLabel}」，状态行/指令仍写 EP` : ''}）`,
+    `HP:${effectiveResource(game.hp, game.maxHp, pMaxHp)}/${pMaxHp}（满状态上限=${pMaxHp}，已含体质×20（四阶起真实属性×5＝体质×100）及天赋/装备/技能/技能树/团队全部加成，前端实算；回满/满血即回到 ${pMaxHp}，勿按基础体质自行重算、勿沿用历史旧上限${profile.hpLabel ? `；正文叙述称「${profile.hpLabel}」，状态行/指令仍写 HP` : ''}）`,
+    `EP:${effectiveResource(game.mp, game.maxMp, pMaxEp)}/${pMaxEp}（满状态上限=${pMaxEp}，已含智力×15（四阶起×5＝智力×75）及天赋/装备/技能/技能树/团队全部加成，前端实算；回满即回到 ${pMaxEp}，勿自行重算、勿沿用历史旧上限${profile.epLabel ? `；正文叙述称「${profile.epLabel}」，状态行/指令仍写 EP` : ''}）`,
     game.san != null && `SAN:${game.san}/${game.maxSan ?? '?'}`,
     a && `六维(实战值=基础+装备/技能/天赋/技能树/团队全部加成,括号内为基础值): 力${faP('str')} 敏${faP('agi')} 体${faP('con')} 智${faP('int')} 魅${faP('cha')} 幸${faP('luck')}`,
     a && `（真实属性口径·重要：四阶起上方六维即「真实属性」，勿÷80换算；1点真实≈5点普通之效、判定享绝对优先；一~三阶为普通属性≤99）`,
@@ -310,8 +311,9 @@ export function serializeNpcCard(
   const effA = a ? effectiveAttrs(a, skills, talents, (npc.items ?? []).filter((it) => it.equipped) as any) : undefined;
   const faN = (k: keyof PlayerAttrs) => { if (!a || !effA) return ''; return effA[k] === a[k] ? `${effA[k]}` : `${effA[k]}(基${a[k]})`; };
   const nEqp = (npc.items ?? []).filter((it) => it.equipped) as any;
-  const nMaxHp = a ? fullMaxHp(a, nEqp, skills, talents) : 0;
-  const nMaxEp = a ? fullMaxEp(a, nEqp, skills, talents) : 0;
+  const rmN = realAttrMult(npc.realm, lvFromRealm(npc.realm));   // 四阶起 HP/EP×5
+  const nMaxHp = a ? fullMaxHp(a, nEqp, skills, talents, rmN) : 0;
+  const nMaxEp = a ? fullMaxEp(a, nEqp, skills, talents, rmN) : 0;
   const nDerived = a && effA ? computeDerived(effA, lvFromRealm(npc.realm), nEqp.map((it: any) => ({ category: it.category as string, grade: (it.numeric?.grade as number) ?? gradeToNum(it.gradeDesc) }))) : undefined;
   const stat = [
     a && `HP:${effectiveResource(npc.hp, npc.maxHp, nMaxHp)}/${nMaxHp}（上限=体质×20，自动算）`,
