@@ -273,20 +273,24 @@ export function generateNpcAttrs(opts: GenAttrOpts): PlayerAttrs {
   const style = opts.style ?? ts.style ?? resolveStyle(undefined, tkEff, arch, opts.identity);
   const fall = STYLE_FALLOFF[style];
 
-  // 4. 主属性=该档峰值 mainPeak，副属性按流派比例从主属性递减(+小抖动)
-  const val: Record<keyof PlayerAttrs, number> = { str: min, agi: min, con: min, int: min, cha: min, luck: 0 };
-  const span = Math.max(0, mainPeak - min);
+  // 4. 主属性=该档峰值 mainPeak，副属性按流派比例从「低地板 lowFloor」往峰值铺(+小抖动)。
+  //    ★阶位由「最强单属性(峰值)」定，其余维**不受本阶下限 min 约束、可远低于本阶**——
+  //    治"二阶 NPC 除幸运全>50"：旧版把 5 维都垫到 min(二阶=51) 当地板，导致每项都过 50；
+  //    现在仅**主属性**须落进本阶 [min,cap]，副属性从 lowFloor 按流派 falloff 自然铺开（专精流→其余可十几二十）。
+  const lowFloor = Math.max(3, Math.round(min * 0.12));         // 非主属性低地板（随阶位略升，但远低于 min）
+  const val: Record<keyof PlayerAttrs, number> = { str: lowFloor, agi: lowFloor, con: lowFloor, int: lowFloor, cha: lowFloor, luck: 0 };
+  const span = Math.max(0, mainPeak - lowFloor);
   order.forEach((a, i) => {
     const jitter = i === 0 ? 0 : (rng() - 0.5) * 0.10 * span;   // 主属性不抖(锁峰值)，副属性小幅起伏
-    val[a] = clamp(Math.round(min + span * fall[i] + jitter), min, peakCap);
+    val[a] = clamp(Math.round(lowFloor + span * fall[i] + jitter), lowFloor, peakCap);
   });
-  val[order[0]] = clamp(mainPeak, min, peakCap);                // 主属性锁定该档峰值
+  val[order[0]] = clamp(mainPeak, min, peakCap);                // 主属性(峰值)锁定该档峰值，且须 ≥ 本阶下限 min（定阶）
   // 形态档逐维改写：weak/none 用绝对低值(脱离阶位，治"九阶妖兽智力8641")，boost 顶到本阶峰值(≤cap 保闭环)。
   // 主/次属性(order[0..1])受类型保护、形态不削——治"巫妖(warlock)int 被 undead 压成 9"，让智慧亡灵/法系非人保留核心维(骷髅兵 int 仍低=warrior 末位)。
   const protectedDims = new Set<keyof PlayerAttrs>([order[0], order[1]]);
   (['str', 'con', 'agi', 'int', 'cha'] as (keyof PlayerAttrs)[]).forEach((a) => {
     const rule = prof[a];
-    if (rule === 'boost') val[a] = clamp(Math.round(min + span * (0.85 + 0.15 * rng())), min, peakCap); // 增强(可作用于主维)
+    if (rule === 'boost') val[a] = clamp(Math.round(lowFloor + span * (0.85 + 0.15 * rng())), lowFloor, peakCap); // 增强(顶到接近本阶峰值)
     else if (protectedDims.has(a)) return;                                               // 主/次属性不被形态削弱
     else if (rule === 'none') val[a] = absNone(rng);                                     // 缺失≈1~3
     else if (rule === 'weak') val[a] = Math.min(val[a], absWeak(rng));                   // 退化≈3~12

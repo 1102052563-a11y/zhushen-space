@@ -9,6 +9,7 @@ import type { BattleState, Side } from '../store/combatStore';
 import { apiChatFallback } from './apiChat';
 import { COMBAT_NARRATE_RULE } from '../promptRules';
 import { buildBattleRecord } from './battleRecord';
+import { COMBAT_WRITING_GUIDE_RULE } from './combatWritingGuide';   // 内嵌·据《战斗写作指导》世界书
 
 export function combatChain() {
   const ss = useSettings.getState();
@@ -54,9 +55,15 @@ export function buildCombatResultFallback(state: BattleState, victor: Side | nul
 // 战斗总结：把整场战斗压成 BATTLE_RECORD → AI 据 COMBAT_NARRATE_RULE 一次性润色成正文（数值已落库，AI 不再改数值）。
 export async function runBattleSummaryPhase(state: BattleState, victor: Side | null): Promise<string> {
   try {
-    const sys = (combatPreset().summaryPrompt?.trim() || '') + '\n\n' + COMBAT_NARRATE_RULE;
+    // 战斗叙事提示词 = 自定义预设(可空) + 叙事铁则 + 内嵌《战斗写作指导》(思维链/物理具现化/镜头感/力量标尺)
+    const sys = (combatPreset().summaryPrompt?.trim() || '') + '\n\n' + COMBAT_NARRATE_RULE + '\n\n' + COMBAT_WRITING_GUIDE_RULE;
     const record = buildBattleRecord(state, victor);
     const { content } = await apiChatFallback(combatChain(), [{ role: 'system', content: sys }, { role: 'user', content: record }]);
-    return (content || '').replace(/<\/?[a-zA-Z][^>]*>/g, '').trim();
+    // 先剥掉 <think_battle> 内部推演（连内容），再去残留标签
+    return (content || '')
+      .replace(/<think_battle>[\s\S]*?<\/think_battle>/gi, '')
+      .replace(/<think>[\s\S]*?<\/think>/gi, '')
+      .replace(/<\/?[a-zA-Z][^>]*>/g, '')
+      .trim();
   } catch { return ''; }
 }

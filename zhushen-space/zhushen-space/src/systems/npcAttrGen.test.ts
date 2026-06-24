@@ -56,12 +56,22 @@ describe('generateNpcAttrs（机械生成六维·种子确定性）', () => {
     const a = generateNpcAttrs({ bioTier: 'T3', tier: '一阶', type: '武者战士', seed: 'w1' });
     expect(a.str).toBe(Math.max(a.str, a.agi, a.con, a.int, a.cha));
   });
-  it('人形一阶六维落在 [min,cap]=[5,50]', () => {
+  it('人形一阶：峰值落在 [min,cap]=[5,50]，副属性可低至 lowFloor(≥3)', () => {
     const a = generateNpcAttrs({ bioTier: 'T2', tier: '一阶', type: '武者战士', seed: 'w2' });
+    const peak = Math.max(a.str, a.agi, a.con, a.int, a.cha);
+    expect(peak).toBeGreaterThanOrEqual(5);    // 峰值≥本阶下限(定阶)
+    expect(peak).toBeLessThanOrEqual(50);
     for (const k of ['str', 'agi', 'con', 'int', 'cha'] as const) {
-      expect(a[k]).toBeGreaterThanOrEqual(5);
+      expect(a[k]).toBeGreaterThanOrEqual(3);   // 非主属性低地板：不受本阶下限约束
       expect(a[k]).toBeLessThanOrEqual(50);
     }
+  });
+  it('★二阶专精：仅主属性>50、副属性可远低（修复"二阶除幸运全>50"）', () => {
+    const a = generateNpcAttrs({ bioTier: 'T2', tier: '二阶', type: '敏捷刺客', seed: 'sp2' });
+    const dims = ['str', 'agi', 'con', 'int', 'cha'] as const;
+    const peak = Math.max(...dims.map((k) => a[k]));
+    expect(peak).toBeGreaterThan(50);          // 二阶峰值须落进 (50,80]
+    expect(dims.filter((k) => a[k] > 50).length).toBeLessThanOrEqual(2);  // 旧bug=5；专精流应≤2
   });
   it('凡人档 → 常人低属性（不套战斗框架）', () => {
     const a = generateNpcAttrs({ bioTier: 'T3', tier: '一阶', type: '平民百姓', seed: 'civ1' });

@@ -234,6 +234,24 @@ interface ChatMessage {
 
 // 首次启动自动载入内置世界书 + 各演化预设（仅当对应项为空才填，永不覆盖玩家已有数据）。
 // 文件放 public/presets/，按需 fetch、不进 JS 包；某项 fetch 失败则下次启动重试（因仍为空）。
+/* 激活预设解析：同 id/同名可能有多副本（补种 builtin 版 + wbDb hydrate 的玩家编辑版竞态共存）；
+   优先返回「非 builtin（玩家编辑/固化过）」副本，否则取首个——修「游戏里改预设没用」（旧 .find 可能命中未编辑的 builtin 副本）。 */
+function resolveActivePreset(ss: { textPresets: any[]; activeTextPresetId: string | null; activeTextPresetName?: string }): any {
+  const list = ss.textPresets || [];
+  const byId = ss.activeTextPresetId ? list.filter((p) => p && p.id === ss.activeTextPresetId) : [];
+  if (byId.length) return byId.find((p) => !p.builtin) ?? byId[0];
+  const byName = ss.activeTextPresetName ? list.filter((p) => p && p.name === ss.activeTextPresetName) : [];
+  if (byName.length) return byName.find((p) => !p.builtin) ?? byName[0];
+  return list[0];
+}
+
+/* 内置补种就绪信号：正文生成前 await，确保正文世界书/预设已从 public 加载完，杜绝「首条消息赶在加载前→偶发没世界书注入」。
+   8s 安全兜底：万一某 fetch 卡死也不永久阻塞生成。 */
+let _resolveBuiltins: (() => void) | null = null;
+const builtinsReady: Promise<void> = new Promise((r) => { _resolveBuiltins = r; });
+function markBuiltinsReady() { if (_resolveBuiltins) { _resolveBuiltins(); _resolveBuiltins = null; } }
+setTimeout(markBuiltinsReady, 8000);
+
 async function loadBuiltinDefaults() {
   const base = import.meta.env.BASE_URL || '/';
   const grab = async (f: string): Promise<string | null> => {
@@ -271,10 +289,14 @@ async function loadBuiltinDefaults() {
         useSettings.setState((s) => ({ textWorldBooks: (s.textWorldBooks ?? []).filter((b: any) => b.builtinKey !== key) }));
         useSettings.getState().importTextWorldBook(json, name, true, key);
       };
-      overwriteTwb(await grab('modular-output.json'), 'ST模块化输出·铁律', 'twb-modular');
-      overwriteTwb(await grab('novel.json'),          '轮回乐园小说',     'twb-novel');
-      overwriteTwb(await grab('pose.json'),           '性爱姿势·小鸟游六花', 'twb-pose');
-      overwriteTwb(await grab('bdsm.json'),           'BDSM·调教束缚·S15',   'twb-bdsm');
+      // 并发取四本（而非逐本 await）：取回后连续 apply，把「正文世界书尚未就绪」的竞态窗口压到最小（修偶发没世界书）。
+      const [twMod, twNovel, twPose, twBdsm] = await Promise.all([
+        grab('modular-output.json'), grab('novel.json'), grab('pose.json'), grab('bdsm.json'),
+      ]);
+      overwriteTwb(twMod,   'ST模块化输出·铁律', 'twb-modular');
+      overwriteTwb(twNovel, '轮回乐园小说',     'twb-novel');
+      overwriteTwb(twPose,  '性爱姿势·小鸟游六花', 'twb-pose');
+      overwriteTwb(twBdsm,  'BDSM·调教束缚·S15',   'twb-bdsm');
       // （已移除世界书自动去重：玩家手动导入的世界书一律不强制删——哪怕与内置同名/重复也保留；要去重请玩家自己在设置里删。）
     }
     // 双人成行内置已移除(2026-06-18)：不再自动加载/激活任何默认正文预设；新用户开局走最简兜底，自行去预设列表选（轮回乐园两份已内置但默认关闭）。
@@ -1224,7 +1246,7 @@ export default function App() {
           }
         }
       } catch { /* */ }
-      void loadBuiltinDefaults();   // 补内置（仅当对应仓库仍为空）；内置项标 builtin、不入库，每次从 public 重载
+      void loadBuiltinDefaults().finally(markBuiltinsReady);   // 补内置（仅当对应仓库仍为空）；内置项标 builtin、不入库，每次从 public 重载
       try { reconcilePlayerVitals(); } catch { /* */ }   // 载入/旧档：HP/EP 仍是 100/50 旧默认时，开局即按六维拉满（不等到第一回合）
       try { syncPlayerVitalsMax(); } catch { /* */ }   // 刷新/读档：只同步存储上限到真实上限+夹回超出值；当前 HP/EP 忠于正文末尾结算、原样保留（不强行拉满）
       // 镜像：世界书/预设变化（剔除 builtin 内置项）→ 防抖写入 IndexedDB
@@ -1289,7 +1311,8 @@ export default function App() {
         setStarted(true);
         // 等「补种」把 textPresets 填好再重发：loadBuiltinDefaults 要先 fetch 一堆大文件才填 textPresets，常超 400ms；
         //   若此刻就发会在空库瞬间发出→预设没注入(722)。轮询有了即发，最多 ~10s 兜底（真没预设也照发，不卡死）。
-        { const fireRegen = (n = 0) => { if (useSettings.getState().textPresets.length > 0 || n >= 50) sendMessage(regen); else setTimeout(() => fireRegen(n + 1), 200); }; setTimeout(() => fireRegen(), 300); }
+        // 等内置补种「全部」就绪（含正文世界书，非仅 textPresets）再重发——否则 reroll reload 后赶在世界书加载完前发出 → 偶发没世界书/722。
+        { void builtinsReady.then(() => sendMessage(regen)); }
       }
     })();
   }, []);
@@ -6219,8 +6242,9 @@ ${lines}`;
     // 只要预设库非空就一定注入某个预设，绝不因 activeId 为 null/失配而「裸奔」无预设（修「预设没注入」）。
     // **实时读 store**：重新生成走「reload+自动重发」，sendMessage 是挂载时的空闭包(textPresets 旧值为空)；
     //   从 useSettings.getState() 现取，免受 stale 闭包影响（配合下方重发前「等补种」轮询）→ 否则 reroll 预设没注入(722 裸奔)。
+    await builtinsReady;   // 等内置正文世界书/预设加载完，杜绝首条消息偶发「没世界书注入」
     const _ssNarr = useSettings.getState();
-    const preset = _ssNarr.textPresets.find((p) => p.id === _ssNarr.activeTextPresetId) ?? _ssNarr.textPresets.find((p) => p.name === _ssNarr.activeTextPresetName) ?? _ssNarr.textPresets[0];
+    const preset = resolveActivePreset(_ssNarr);
 
     // 历史裁切：historyLimit > 0 时只取最近 N 条（即"显示楼层"范围）
     const allHistory = extraHistory.length > 0 ? extraHistory : messagesRef.current;
@@ -6397,7 +6421,9 @@ ${lines}`;
     let narrLogId = -1;
     const narrParts = [
       { label: '📊 概览（本回合实际发送结构）', role: 'info', content:
-        '激活预设：' + (preset?.name ?? '（无 → 最简默认）') + '\n' +
+        '激活预设：' + (preset?.name ?? '（无 → 最简默认）') + (preset ? (preset.builtin ? ' · ⚠️builtin(未固化,改动可能被补种覆盖)' : ' · ✓玩家副本') + ' · id=' + preset.id : '') + '\n' +
+        (preset && _ssNarr.textPresets.filter((p) => p.id === preset.id).length > 1 ? '⚠️ 同 id 副本 ' + _ssNarr.textPresets.filter((p) => p.id === preset.id).length + ' 个 → 已优先取你编辑过的非 builtin 版（修「改预设没用」）\n' : '') +
+        '世界书：启用 ' + textWorldBooks.filter((b) => b.enabled).length + '/' + textWorldBooks.length + ' 本 · 命中 ' + wbEntries.length + ' 条 → 注入 ' + wbKeywordText.length + ' 字' + (novelVecText ? ' +向量 ' + novelVecText.length + ' 字' : '') + (worldInfoText ? '' : ' · ⚠️本回合世界书空！(书未加载或全未命中)') + '\n' +
         '预设条目：' + ((preset?.entries ?? []).length) + ' 总 / ' + ((preset?.entries ?? []).filter((e) => e.enabled && !e.marker).length) + ' 启用\n' +
         '拆分去向：system 分段 ' + sysSegments.length + ' 段 · 少样本 ' + examples.length + ' 条 · 后历史块 ' + tail.length + ' 块 · 深度注入 ' + depthInjections.length + '（+世界书 ' + wbDepthInjections.length + '）· prefill ' + (effectivePrefill ? '有' : '无') + '\n' +
         (tail.length ? '✅ 已认出 chatHistory marker：' + tail.length + ' 个后历史块已插到真实楼层之后(仿 fanren)\n' : '（无 chatHistory marker：全部当前历史，行为同旧版）\n') +
@@ -6758,7 +6784,7 @@ ${lines}`;
     try { applyPlayerProfileCommands(cleaned, '', turnCountRef.current); } catch { /* */ }
     const settled = stripKillBlocks(cleaned);
     const _ssEvo = useSettings.getState();   // 同上：实时读 store，免 stale 闭包导致演化也拿不到预设
-    const preset = _ssEvo.textPresets.find((p) => p.id === _ssEvo.activeTextPresetId) ?? _ssEvo.textPresets.find((p) => p.name === _ssEvo.activeTextPresetName) ?? _ssEvo.textPresets[0];
+    const preset = resolveActivePreset(_ssEvo);
     const narrativeForEvoRaw = stripStateBlocks(applyRegex(settled, preset));
     const processed = stripWorldSourceBlocks(stripVitalsBlocks(narrativeForEvoRaw));
     const newMsgId = ++msgId.current;

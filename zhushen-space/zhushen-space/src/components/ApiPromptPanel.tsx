@@ -17,6 +17,7 @@ export default function ApiPromptPanel({ onClose }: { onClose: () => void }) {
   const setCapturing = useApiDebugLog((s) => s.setCapturing);
   const [selId, setSelId] = useState<number | null>(null);
   const [copied, setCopied] = useState('');
+  const [view, setView] = useState<'parts' | 'raw'>('parts');
 
   const cur = calls.find((c) => c.id === selId) ?? calls[0];
 
@@ -67,13 +68,19 @@ export default function ApiPromptPanel({ onClose }: { onClose: () => void }) {
             {!cur && <div className="text-center text-dim text-sm py-16">选择左侧一条调用查看其输入与返回</div>}
             {cur && (
               <>
-                <div className="text-[10px] font-mono text-dim/70 px-1 pb-0.5">
-                  {cur.label} · {fmtTime(cur.ts)} · {cur.pending ? '生成中…' : cur.ok ? '成功 ' + (cur.ms ?? '?') + 'ms' : '失败'}
-                  {cur.parts ? ' · 结构化分段' : ' · 原始消息'}
+                <div className="text-[10px] font-mono text-dim/70 px-1 pb-0.5 flex items-center gap-2 flex-wrap">
+                  <span>{cur.label} · {fmtTime(cur.ts)} · {cur.pending ? '生成中…' : cur.ok ? '成功 ' + (cur.ms ?? '?') + 'ms' : '失败'}</span>
+                  {/* 正文有结构化分段时给个切换：结构化 ⇄ 原始消息（实际发给模型的消息数组，一条不漏）。其他调用只有原始消息。 */}
+                  {cur.parts ? (
+                    <span className="inline-flex rounded border border-edge overflow-hidden ml-auto text-[10px]">
+                      <button onClick={() => setView('parts')} className={`px-2 py-0.5 ${view === 'parts' ? 'bg-god/20 text-god' : 'text-dim hover:text-slate-200'}`}>结构化分段</button>
+                      <button onClick={() => setView('raw')} className={`px-2 py-0.5 border-l border-edge ${view === 'raw' ? 'bg-god/20 text-god' : 'text-dim hover:text-slate-200'}`}>原始消息（实发 {cur.messages.length} 条）</button>
+                    </span>
+                  ) : <span className="ml-auto">原始消息 · {cur.messages.length} 条</span>}
                 </div>
-                {cur.parts
+                {cur.parts && view === 'parts'
                   ? cur.parts.map((p, i) => <DbgCard key={'p' + i} label={p.label} role={p.role} content={p.content} onCopy={copy} tag={'p' + i} copied={copied} />)
-                  : cur.messages.map((m, i) => <DbgCard key={'m' + i} label={'消息 #' + (i + 1)} role={m.role} content={m.content} onCopy={copy} tag={'m' + i} copied={copied} />)}
+                  : cur.messages.map((m, i) => <DbgCard key={'m' + i} label={'#' + (i + 1) + ' · ' + m.role} role={m.role} content={m.content} onCopy={copy} tag={'m' + i} copied={copied} defaultOpen={cur.messages.length <= 3} />)}
                 <DbgCard label="↩ 返回 response" role={cur.ok ? 'ok' : cur.pending ? '…' : 'error'}
                   content={cur.pending ? '（生成中…）' : cur.response || cur.error || '（空）'}
                   onCopy={copy} tag="resp" copied={copied} defaultOpen />

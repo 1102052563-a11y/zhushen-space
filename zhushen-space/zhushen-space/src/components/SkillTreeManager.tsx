@@ -6,7 +6,7 @@ import { ATTR_KEYS, ATTR_LABEL } from '../systems/attrBonus';
 import { useSettings, resolveApiChain } from '../store/settingsStore';
 import { apiChatFallback } from '../systems/apiChat';
 import { lenientJsonParse } from '../systems/stateParser';
-import { SKILLTREE_STRUCT_PROMPT, SKILLTREE_SKILLS_PROMPT } from '../promptRules';
+import { SKILLTREE_STRUCT_PROMPT, SKILLTREE_SKILLS_PROMPT, SKILLTREE_NODES_PROMPT } from '../promptRules';
 import { SkillEditForm, TraitEditForm } from './CharEditForms';
 import ApiRoutePicker from './ApiRoutePicker';
 import TreeCanvas from './TreeCanvas';
@@ -68,6 +68,9 @@ export default function SkillTreeManager() {
   const [genBranches, setGenBranches] = useState('4');   // 流派数量（字符串态·允许自由输入；用时再 clamp 到 2~12）
   const [webSearch, setWebSearch] = useState(false);
   const [genBusy, setGenBusy] = useState(false);
+  const [pickIds, setPickIds] = useState<Set<string>>(new Set());   // AI 单独/批量重写：选中的已生成节点 id
+  const [nodeReq, setNodeReq] = useState('');                        // 对选中节点的重写要求
+  const [nodeBusy, setNodeBusy] = useState(false);
   const [zoom, setZoom] = useState(1);
   const fileRef = useRef<HTMLInputElement>(null);
 
@@ -237,7 +240,7 @@ export default function SkillTreeManager() {
       const v = validateTree({ ...raw1, nodes: mergedNodes, source: 'ai' });
       if (!v.ok) { setValid({ errors: v.errors, warnings: v.warnings }); flash('生成的树有误：' + v.errors[0]); return; }
       const t = autoLayout(v.tree);
-      st.upsertTree(t); setEditId(t.id); setSelId(undefined);
+      st.upsertTree(t); setEditId(t.id); setSelId(undefined); setPickIds(new Set());
       const filled = t.nodes.filter((n) => n.grants?.skill || n.grants?.trait).length;
       const missing = skillNodes.length - mergedCnt;
       const extra: string[] = [];
@@ -248,6 +251,75 @@ export default function SkillTreeManager() {
     } catch (e: any) {
       flash('生成失败：' + (e?.message || String(e)));
     } finally { setGenBusy(false); }
+  };
+
+  // ── AI 单独/批量重写选中节点（与整树生成同 API 路由 skilltree，独立提示词，只改选中节点）──
+  const togglePick = (id: string) => setPickIds((s) => { const n = new Set(s); if (n.has(id)) n.delete(id); else n.add(id); return n; });
+  const callSkilltree = async (sys: string, user: string): Promise<string> => {
+    const ss = useSettings.getState();
+    const legacy = ss.textUseSharedApi ? ss.api : ss.textApi;
+    const chain = resolveApiChain('skilltree', legacy);
+    if (!chain[0]?.baseUrl || !chain[0]?.apiKey) throw new Error('未配置 AI 接口（设置→综合设置 / 正文生成）');
+    const base = { max_tokens: 80000 };
+    const searchExtra = webSearch ? { tools: [{ google_search: {} }] } : undefined;
+    const once = (extra: Record<string, unknown>) => apiChatFallback(chain, [
+      { role: 'system', content: sys }, { role: 'user', content: user },
+    ], { timeoutMs: 150000, extra });
+    try { return (await once(webSearch ? { ...base, ...searchExtra } : base)).content; }
+    catch (e) { if (!webSearch) throw e; return (await once(base)).content; }   // 搜索被拒→退回无搜索
+  };
+  const aiGenNodes = async () => {
+    if (!tree) return;
+    const ids = [...pickIds].filter((id) => tree.nodes.some((n) => n.id === id));
+    if (!ids.length) { flash('先选中要重写的节点（在画布点节点→「节点检视」里点 ＋AI重写）'); return; }
+    const req = nodeReq.trim();
+    if (!req) { flash('先写一句对这些节点的要求'); return; }
+    setNodeBusy(true);
+    try {
+      flash(`正在重写选中的 ${ids.length} 个节点…`);
+      const branchName = (bid: string) => tree.branches.find((b) => b.id === bid)?.name || bid;
+      const picked = ids.map((id) => tree.nodes.find((n) => n.id === id)!);
+      const payload = picked.map((n) => ({
+        id: n.id, name: n.name, kind: n.kind, 流派: branchName(n.branch),
+        当前内容: n.grants?.skill ? { skill: n.grants.skill } : (n.grants?.trait ? { trait: n.grants.trait } : (n.ptAttr ? { ptAttr: n.ptAttr } : {})),
+        当前说明: n.desc,
+      }));
+      const ctx = JSON.stringify({ 职业: tree.profession, 标题: tree.title, 流派: tree.branches.map((b) => ({ id: b.id, name: b.name })) });
+      const userMsg = `职业上下文：${ctx}\n\n主角的要求：${req}\n\n请【只重写】以下 ${picked.length} 个节点（按 id 一一对应、覆盖全部）：\n${JSON.stringify(payload)}`;
+      const c = await callSkilltree(SKILLTREE_NODES_PROMPT, userMsg);
+      const raw: any = lenientJsonParse(extractJson(c));
+      const arr: any[] = Array.isArray(raw?.nodes) ? raw.nodes : (Array.isArray(raw) ? raw : (Array.isArray(raw?.skills) ? raw.skills : []));
+      if (!arr.length) { flash('未返回有效节点，可重试'); return; }
+      const norm = (x: any) => String(x ?? '').replace(/[\s·•・\-—_,，.。、|｜【】（）()]/g, '').toLowerCase();
+      const byId = new Map<string, any>(); const byName = new Map<string, any>();
+      for (const a of arr) { if (!a || typeof a !== 'object') continue; if (a.id) byId.set(String(a.id), a); const nm = a.name ?? a.skill?.name ?? a.trait?.name; if (nm) byName.set(norm(nm), a); }
+      let cnt = 0;
+      const updated = tree.nodes.map((n) => {
+        if (!pickIds.has(n.id)) return n;
+        const a = byId.get(n.id) || byName.get(norm(n.name));
+        if (!a || typeof a !== 'object') return n;
+        cnt++;
+        const newKind = ['minor', 'medium', 'major', 'capstone'].includes(a.kind) ? a.kind : n.kind;
+        const grant = a.skill ? { skill: a.skill } : (a.trait ? { trait: a.trait } : (a.grants ?? n.grants));
+        return {
+          ...n,
+          name: typeof a.name === 'string' && a.name.trim() ? a.name.trim() : n.name,
+          kind: newKind,
+          cost: newKind !== n.kind ? defaultCost(newKind) : n.cost,
+          grants: grant,
+          ptAttr: a.ptAttr ?? n.ptAttr,
+          desc: typeof a.desc === 'string' && a.desc.trim() ? a.desc.trim() : n.desc,
+        };
+      });
+      if (!cnt) { flash('返回的节点对不上所选 id/名称，可重试'); return; }
+      const v = validateTree({ ...tree, nodes: updated, source: tree.source });   // 复用引擎规则(属性收口/阶位)；不重排版保留布局
+      if (!v.ok) { setValid({ errors: v.errors, warnings: v.warnings }); flash('重写结果有误：' + v.errors[0]); return; }
+      st.upsertTree(v.tree);
+      setValid({ errors: [], warnings: v.warnings });
+      flash(`已重写 ${cnt}/${ids.length} 个节点` + (cnt < ids.length ? '（部分未匹配，可重试）' : '，可继续编辑'));
+    } catch (e: any) {
+      flash('重写失败：' + (e?.message || String(e)));
+    } finally { setNodeBusy(false); }
   };
 
   // ── 画布交互 ──
@@ -320,7 +392,7 @@ export default function SkillTreeManager() {
 
       {/* 树级控制 */}
       <div className="flex flex-wrap items-center gap-2 mb-3">
-        <select value={editId ?? ''} onChange={(e) => { setEditId(e.target.value); setSelId(undefined); }}
+        <select value={editId ?? ''} onChange={(e) => { setEditId(e.target.value); setSelId(undefined); setPickIds(new Set()); setNodeReq(''); }}
           className="bg-panel2 border border-edge rounded px-2 py-1 text-[13px] text-slate-200 outline-none focus:border-god/50">
           {!treeList.length && <option value="">（无树，点新建）</option>}
           {treeList.map((t) => <option key={t.id} value={t.id}>{t.title || t.profession}{t.source === 'builtin' ? '（内置）' : ''}</option>)}
@@ -427,13 +499,47 @@ export default function SkillTreeManager() {
 
           {/* 侧栏：节点检视 / 树信息 / 流派 */}
           <div className="w-80 max-lg:w-full shrink-0 space-y-4">
+            {/* ✨ AI 单独/批量重写节点 */}
+            <div className="border border-fuchsia-500/30 rounded-xl p-3 space-y-2 bg-fuchsia-500/[0.03]">
+              <div className="flex items-center justify-between">
+                <span className="text-[12px] font-mono text-fuchsia-300">✨ AI 重写节点 <span className="text-dim/50">（已选 {pickIds.size}）</span></span>
+                {pickIds.size > 0 && <button onClick={() => setPickIds(new Set())} className="text-[11px] font-mono text-dim/50 hover:text-blood">清空</button>}
+              </div>
+              {pickIds.size === 0 ? (
+                <p className="text-[11px] text-dim/45 leading-snug">在画布点已生成的节点，再到下方「节点检视」点 <b className="text-fuchsia-300/80">＋AI重写</b> 把它加进来（可多选）；然后写要求、一次生成。</p>
+              ) : (
+                <div className="flex flex-wrap gap-1">
+                  {[...pickIds].map((id) => {
+                    const nd = tree?.nodes.find((n) => n.id === id);
+                    return (
+                      <span key={id} className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-void border border-edge text-[11px] text-slate-300">
+                        {nd?.name ?? id}
+                        <button onClick={() => togglePick(id)} className="text-dim/40 hover:text-blood">✕</button>
+                      </span>
+                    );
+                  })}
+                </div>
+              )}
+              <textarea rows={2} className={inputCls + ' resize-y'} placeholder="对选中节点的要求（如：改成火属性爆发流、提高机制密度、把这两个小技能升成大招、改名为…）"
+                value={nodeReq} onChange={(e) => setNodeReq(e.target.value)} />
+              <button onClick={aiGenNodes} disabled={nodeBusy || pickIds.size === 0}
+                className="w-full px-3 py-1.5 rounded bg-fuchsia-600/80 hover:bg-fuchsia-600 disabled:opacity-40 disabled:cursor-not-allowed text-[12px] font-mono text-white transition-colors">
+                {nodeBusy ? '重写中…' : `✨ 重写选中的 ${pickIds.size} 个节点`}
+              </button>
+              <p className="text-[10px] text-dim/35 leading-snug">用与「生成技能树」相同的 API 路由（skilltree），独立提示词，只改这些节点、不动整棵树。</p>
+            </div>
             {/* 节点检视 */}
             {selNode ? (
               <div className="border border-edge rounded-xl p-3 space-y-2">
                 <div className="flex items-center justify-between">
                   <span className="text-[12px] font-mono text-god">节点检视</span>
-                  <button onClick={() => { if (tree) { st.removeNode(tree.id, selNode.id); setSelId(undefined); } }}
-                    className="text-[11px] font-mono text-dim/50 hover:text-blood">🗑 删除节点</button>
+                  <div className="flex items-center gap-2.5">
+                    <button onClick={() => togglePick(selNode.id)}
+                      className={`text-[11px] font-mono transition-colors ${pickIds.has(selNode.id) ? 'text-fuchsia-300' : 'text-dim/50 hover:text-fuchsia-300'}`}>
+                      {pickIds.has(selNode.id) ? '✓ 已加入重写' : '＋AI重写'}</button>
+                    <button onClick={() => { if (tree) { st.removeNode(tree.id, selNode.id); setSelId(undefined); setPickIds((s) => { const n = new Set(s); n.delete(selNode.id); return n; }); } }}
+                      className="text-[11px] font-mono text-dim/50 hover:text-blood">🗑 删除</button>
+                  </div>
                 </div>
                 <label className="block space-y-0.5"><span className={labelCls}>名称</span>
                   <input className={inputCls} value={selNode.name} onChange={(e) => patchNode({ name: e.target.value })} /></label>
