@@ -103,7 +103,7 @@ export function strengthDelta(myScore: number | undefined, enemyScore: number | 
 
 export interface SkillLite { level?: string }
 export interface TalentLite { rarity?: string }
-export interface EquipItemLite { category: string; grade?: number }
+export interface EquipItemLite { category: string; grade?: number; combatStat?: string }
 
 /** 递减收益：正贡献降序后按几何衰减求和（最强几项有用、长尾趋零，杜绝"堆数量"刷爆）；
  *  负贡献（负面天赋等）全额计入——惩罚不打折。decay 越小递减越狠（0.55≈有效项约前 3 个）。 */

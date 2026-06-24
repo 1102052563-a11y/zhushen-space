@@ -56,7 +56,7 @@ function scaleCombat(a: DiceAttrs, m: number): DiceAttrs {
 }
 
 const equippedOf = (arr: any[] | undefined): EquipItemLite[] =>
-  (arr ?? []).filter((it) => it?.equipped).map((it) => ({ category: it?.category as string, grade: (it?.numeric?.grade as number) ?? gradeToNum(it?.gradeDesc) }));
+  (arr ?? []).filter((it) => it?.equipped).map((it) => ({ category: it?.category as string, grade: (it?.numeric?.grade as number) ?? gradeToNum(it?.gradeDesc), combatStat: it?.combatStat }));
 
 /* 取某角色的技能/天赋/已装备（live 读 store；临时敌无建档则空） */
 function fetchAbilities(id: string): { skills: any[]; talents: any[]; equipped: EquipItemLite[] } {

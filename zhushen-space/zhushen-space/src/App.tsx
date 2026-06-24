@@ -1073,6 +1073,8 @@ export default function App() {
   const [mobileDrawer, setMobileDrawer] = useState<'player' | 'menu' | null>(null); // 手机端：左角色栏 / 右导航 抽屉
   const [inputValue, setInputValue] = useState(() => { try { return localStorage.getItem('drpg-chat-draft') || ''; } catch { return ''; } });   // 输入草稿持久化：误触返回/刷新/崩溃也不丢已输入的行动
   const [openChoiceIds, setOpenChoiceIds] = useState<Set<number>>(new Set());   // 剧情选项：按楼层展开（附在正文末尾，点击查看；默认收起）
+  const [choiceRegenId, setChoiceRegenId] = useState<number | null>(null);      // 正在「重新生成选项」的楼层 id（按钮 loading）
+  const [choiceDir, setChoiceDir] = useState<Record<number, string>>({});       // 每楼「重新生成选项」的自定义方向提示词
   const [worldBarOpen, setWorldBarOpen] = useState(false); // 选择世界/结算任务 按钮行（默认收起，点状态栏展开，省空间）
   const [rawResponse, setRawResponse] = useState('');
   const [showRaw, setShowRaw] = useState(false);
@@ -5056,37 +5058,8 @@ ${lines}`;
     if (wantTheater) sysParts.push(MINI_THEATER_RULE);
     sysParts.push(`【本次输出顺序】${wantFanfic ? '先输出 <details>同人搜索内容</details> 块（涉及已知作品角色才输出，可多个）；' : ''}${wantFact ? '再输出 <details>事实查证</details> 块（涉及现实可查证元素才输出）；' : ''}${wantChoices ? '然后输出 <choices> 块（A~H 共 8 个选项，最后一个 H 为限制级）；' : ''}${wantTheater ? '最后输出 <xiaojuchang> 小剧场块（严格按「小剧场世界书」的 HTML/内联 CSS 折叠格式，与主线无关的番外彩蛋）。' : ''}除这些标签块外不要有任何其它文字。`);
 
-    // 判定上下文：主角全卡(含物品) + 在场 NPC 全信息(含持有物) + 最近两回合正文，供选项/同人/事实联合判定
-    const P = usePlayer.getState();
-    const game = useGame.getState().player;
-    const b1 = useCharacters.getState().characters['B1'];
-    const playerCard = serializePlayerCard(
-      P.profile, game, b1?.skills ?? [], b1?.traits ?? [], useItems.getState().items,
-      { maxNpcs: 0, maxSkills: 99, maxItems: 99, maxSubProfs: 99 },
-      b1?.titles, b1?.subProfessions, useItems.getState().currency,
-    );
-    const npcBlocks = Object.values(useNpc.getState().npcs)
-      .filter((n) => n.onScene && !n.isDead)
-      .map((r) => {
-        const a = r.attrs;
-        const bits = [
-          `${r.name || r.id}${r.gender ? `(${r.gender})` : ''}`,
-          r.npcTag && `标签:${r.npcTag}`, r.realm && `阶位/身份:${r.realm}`,
-          r.profession && `职业:${r.profession}`, r.age && `年龄:${r.age}`,
-          a && `六维:力${a.str} 敏${a.agi} 体${a.con} 智${a.int} 魅${a.cha} 幸${a.luck}`,
-          r.personality && `性格:${r.personality}`, `好感:${r.favor}`,
-          (r.items?.length ?? 0) > 0 && `持有物:${r.items.map((it) => `${it.name}(${it.category}${it.gradeDesc ? '·' + it.gradeDesc : ''})`).join('、')}`,
-        ].filter(Boolean);
-        return '· ' + bits.join(' | ');
-      }).join('\n');
-    // 当前任务（主线/支线）→ 供「任务导向」选项 A~D 生成（仅生成选项时才取）
-    const questText = wantChoices ? serializeTasks(useMisc.getState().tasks ?? []) : '';
-    const userMsg = [
-      `【主角全部信息】\n${playerCard}`,
-      `【在场角色全部信息（含持有物）】\n${npcBlocks || '（无）'}`,
-      wantChoices ? `【当前任务（主线/支线 → 据此生成"任务导向"选项 A~D）】\n${questText}` : '',
-      `【最近两回合正文】\n${buildRecentNarrative(text, 2).slice(-9000)}`,
-    ].filter(Boolean).join('\n\n');
+    // 判定上下文：主角全卡(含物品) + 在场 NPC 全信息(含持有物) + (选项时)当前任务 + 最近两回合正文
+    const userMsg = buildChoicesPhaseContext(text, wantChoices);
 
     setChoicesRunning(true);
     try {

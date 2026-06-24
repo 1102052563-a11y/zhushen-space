@@ -1056,7 +1056,7 @@ function AttrTab({ npc: npcProp, realm }: { npc: NpcRecord; realm: ReturnType<ty
     setRerollN((v) => v + 1);
   };
   const [attrPop, setAttrPop] = useState<keyof PlayerAttrs | null>(null);
-  const npcEquipped = equippedFull.map((it) => ({ category: it.category, grade: (it.numeric?.grade as number) ?? gradeToNum(it.gradeDesc) }));
+  const npcEquipped = equippedFull.map((it) => ({ category: it.category, grade: (it.numeric?.grade as number) ?? gradeToNum(it.gradeDesc), combatStat: it.combatStat }));
   const derived = computeDerived(effAttrs, lvFromRealm(npc.realm), npcEquipped);   // 衍生属性按"有效六维"
   const derivedNoEq = computeDerived(effAttrs, lvFromRealm(npc.realm), []);
   const [derivedPop, setDerivedPop] = useState<keyof typeof derived | null>(null);

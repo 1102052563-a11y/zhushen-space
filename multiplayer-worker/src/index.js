@@ -128,6 +128,7 @@ export default {
         const u = new URL(request.url);
         u.searchParams.set("pid", "chat:" + payload.cuid);                                  // 身份=顺序 UID，权威来自验签
         u.searchParams.set("name", (u.searchParams.get("name") || payload.name || "道友"));
+        u.searchParams.set("du", String(payload.du || payload.cuid));                        // 显示号(自定义靓号)权威来自令牌，防客户端伪造
         u.searchParams.delete("token");
         return chatStub(env).fetch(new Request(u.toString(), request));
       }

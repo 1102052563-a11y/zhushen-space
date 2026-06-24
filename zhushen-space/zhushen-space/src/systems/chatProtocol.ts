@@ -12,10 +12,10 @@ export type ShareKind = 'skill' | 'talent' | 'equip' | 'item' | 'npc';
 export interface StickerRef { pack?: string; id?: string; url?: string; hash?: string; w?: number; h?: number }
 
 /** 在线名单条目（hello.roster / presence.roster 的元素）。 */
-export interface RosterEntry { playerId: string; name: string; hue?: number; avv?: number; ds?: string; nc?: string }
+export interface RosterEntry { playerId: string; name: string; hue?: number; avv?: number; ds?: string; nc?: string; du?: number }   // du=显示号(自定义靓号·0/缺省=用内部 uid)
 
 /** 自己的身份（hello.you）。 */
-export interface ChatSelf { playerId: string; name: string; hue?: number; avv?: number; ds?: string; nc?: string }
+export interface ChatSelf { playerId: string; name: string; hue?: number; avv?: number; ds?: string; nc?: string; du?: number }
 
 /** 一条消息（hello.backlog / message.message 的元素；亦含客户端本地合成的 system 行）。 */
 export interface ChatMsg {

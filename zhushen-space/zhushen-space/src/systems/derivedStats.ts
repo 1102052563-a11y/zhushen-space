@@ -5,14 +5,48 @@ import { effectiveAttrs } from './attrBonus';
    - 物理ATK：max(力,敏)主导 + 武器          - 物理DEF：体质 + 防具
    - 法术ATK：智力 + 装备                     - 法术DEF：智力(感知/精神) + 魅力 + 装备法抗
    公式系数可调；换装/升级/加点会让上层组件重新调用本函数 */
-export interface EquipLite { category: string; grade: number }
+export interface EquipLite { category: string; grade: number; combatStat?: string }
 export interface DerivedStats { patk: number; pdef: number; matk: number; mdef: number }
+
+/* 解析装备「攻防字段(combatStat)」里写明的实际攻防数值，折算成对衍生攻防的贡献。
+   旧版只按品级估算(grade×N)，导致卡面写的「法术攻击力 60-135」等数值根本没加进主角法术攻击——本函数把它真正读出来。
+   口径：
+   - 类型判定按数值前的标签窗口：含 法/术/魔/奥 → 法术(matk/mdef)，否则物理(patk/pdef)；含 防御/护甲/抗 → 防御，否则攻击。
+   - 数值：范围「a-b / a~b」取均值(期望伤害)四舍五入；单值原样。允许前导「+」(强化基础值)。
+   识别不到任何数字 → 返回全 0（调用方回退到品级估算，保持旧装备兼容）。 */
+export interface CombatStatDelta { patk: number; matk: number; pdef: number; mdef: number }
+export function parseCombatStat(text?: string): CombatStatDelta {
+  const out: CombatStatDelta = { patk: 0, matk: 0, pdef: 0, mdef: 0 };
+  const t = String(text ?? '');
+  if (!/\d/.test(t)) return out;
+  const re = /(\d+)\s*(?:[-~～至]\s*(\d+))?/g;   // 单值或「下限-上限」范围
+  let m: RegExpExecArray | null;
+  let lastEnd = 0;
+  while ((m = re.exec(t)) !== null) {
+    const lo = Number(m[1]);
+    const hi = m[2] != null ? Number(m[2]) : lo;
+    const val = Math.round((lo + hi) / 2);   // 范围取均值（期望攻防），单值即本身
+    const ctx = t.slice(lastEnd, m.index);   // 本数值前的标签窗口（上个数值之后到此数值之前）
+    lastEnd = re.lastIndex;
+    const isMagic = /法|术|魔|奥/.test(ctx);
+    const isDef = /防御|护甲|防护|抗性|法抗|魔抗|抗|防/.test(ctx);
+    if (isDef) { if (isMagic) out.mdef += val; else out.pdef += val; }
+    else { if (isMagic) out.matk += val; else out.patk += val; }
+  }
+  return out;
+}
 
 export function computeDerived(attrs: PlayerAttrs | undefined, level: number, equipped: EquipLite[]): DerivedStats {
   const a = attrs ?? { str: 5, agi: 5, con: 5, int: 5, cha: 5, luck: 5 };
   const lv = Math.max(1, level || 1);
   const eq = equipped.reduce((acc, it) => {
-    const g = Math.max(1, it.grade);
+    const cs = parseCombatStat(it.combatStat);
+    if (cs.patk || cs.matk || cs.pdef || cs.mdef) {
+      // 卡面写明了攻防数值 → 以实际数值为准（所见即所得），不再按品级估算本件
+      acc.patk += cs.patk; acc.matk += cs.matk; acc.pdef += cs.pdef; acc.mdef += cs.mdef;
+      return acc;
+    }
+    const g = Math.max(1, it.grade);   // 无可识别攻防数值 → 回退按品级估算（兼容旧档/无攻防数值的装备）
     if (it.category === '武器') { acc.patk += g * 8; acc.matk += g * 4; }
     else if (it.category === '防具') { acc.pdef += g * 6; acc.mdef += g * 4; }
     else { acc.patk += g * 2; acc.pdef += g * 2; acc.matk += g * 2; acc.mdef += g * 2; } // 饰品/特殊/其他

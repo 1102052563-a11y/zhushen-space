@@ -256,7 +256,7 @@ export function serializePlayerCard(
   // 有效六维 = 基础 + 装备/技能/天赋 + 技能树 + 团队加成（与属性面板/战斗/骰子完全一致；注入正文用实战值，并标注基础值）
   const effA = effectiveAttrs(withAttrDelta(withAttrDelta(a, playerTreeAttrBonus('B1')), playerTeamAttrBonus()), skills, talents, pEqp);
   // 衍生攻防（与属性面板同式：有效六维 + 等级 + 已装备品级）
-  const derived = computeDerived(effA, profile.level, pEqp.map((it) => ({ category: it.category as string, grade: (it.numeric?.grade as number) ?? gradeToNum(it.gradeDesc) })));
+  const derived = computeDerived(effA, profile.level, pEqp.map((it) => ({ category: it.category as string, grade: (it.numeric?.grade as number) ?? gradeToNum(it.gradeDesc), combatStat: it.combatStat })));
   const faP = (k: keyof PlayerAttrs) => { if (!a) return ''; return effA[k] === a[k] ? `${effA[k]}` : `${effA[k]}(基${a[k]})`; };
   const stat = [
     `HP:${effectiveResource(game.hp, game.maxHp, pMaxHp)}/${pMaxHp}（满状态上限=${pMaxHp}，已含体质×20（四阶起真实属性×5＝体质×100）及天赋/装备/技能/技能树/团队全部加成，前端实算；回满/满血即回到 ${pMaxHp}，勿按基础体质自行重算、勿沿用历史旧上限${profile.hpLabel ? `；正文叙述称「${profile.hpLabel}」，状态行/指令仍写 HP` : ''}）`,
@@ -352,7 +352,7 @@ export function serializeNpcCard(
   const rmN = realAttrMult(npc.realm, lvFromRealm(npc.realm));   // 四阶起 HP/EP×5
   const nMaxHp = a ? fullMaxHp(a, nEqp, skills, talents, rmN) : 0;
   const nMaxEp = a ? fullMaxEp(a, nEqp, skills, talents, rmN) : 0;
-  const nDerived = a && effA ? computeDerived(effA, lvFromRealm(npc.realm), nEqp.map((it: any) => ({ category: it.category as string, grade: (it.numeric?.grade as number) ?? gradeToNum(it.gradeDesc) }))) : undefined;
+  const nDerived = a && effA ? computeDerived(effA, lvFromRealm(npc.realm), nEqp.map((it: any) => ({ category: it.category as string, grade: (it.numeric?.grade as number) ?? gradeToNum(it.gradeDesc), combatStat: it.combatStat }))) : undefined;
   const stat = [
     a && `HP:${effectiveResource(npc.hp, npc.maxHp, nMaxHp)}/${nMaxHp}（上限=体质×20，自动算）`,
     a && `EP:${effectiveResource(npc.mp, npc.maxMp, nMaxEp)}/${nMaxEp}（上限=智力×15，自动算）`,

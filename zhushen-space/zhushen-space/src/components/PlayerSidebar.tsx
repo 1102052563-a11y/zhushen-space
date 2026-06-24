@@ -178,7 +178,7 @@ export default function PlayerSidebar({ onClose }: { onClose?: () => void }) {
   const [showTrueAttr, setShowTrueAttr] = useState(nominalTierNum(profile.tier, profile.level) >= 4);   // 四阶起默认显示真实属性（六维即真实属性）
   const b1 = useCharacters((s) => s.characters['B1']);
   const equippedFull = items.filter((it) => it.equipped);
-  const equipped = equippedFull.map((it) => ({ category: it.category as string, grade: (it.numeric?.grade as number) ?? gradeToNum(it.gradeDesc) }));
+  const equipped = equippedFull.map((it) => ({ category: it.category as string, grade: (it.numeric?.grade as number) ?? gradeToNum(it.gradeDesc), combatStat: it.combatStat }));
   // 属性构成：原始 + 技能树 + 装备/技能/天赋 的属性加成（真实加载，不只是摆设）
   // 技能树六维折进 base（与战斗/骰子一致），资质档 bioInnate 仍用原始 profile.attrs
   const breakdown = computeAttrBreakdown(withAttrDelta(withAttrDelta(profile.attrs, playerTreeAttrBonus()), playerTeamAttrBonus()), b1?.skills ?? [], b1?.traits ?? [], equippedFull);

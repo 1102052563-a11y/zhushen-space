@@ -16,7 +16,9 @@ CREATE TABLE IF NOT EXISTS chat_identity (
   avatar TEXT,
   avatar_ver INTEGER DEFAULT 0,
   name_changed_at INTEGER DEFAULT 0,
-  dicebear_seed TEXT DEFAULT ''
+  dicebear_seed TEXT DEFAULT '',
+  custom_uid INTEGER,
+  uid_changed_at INTEGER DEFAULT 0
 );
 `;
 // 老表(只有基础列)就地补列；列已存在的 ALTER 会报错，忽略即可
@@ -25,17 +27,23 @@ const ALTERS = [
   'ALTER TABLE chat_identity ADD COLUMN avatar_ver INTEGER DEFAULT 0',
   'ALTER TABLE chat_identity ADD COLUMN name_changed_at INTEGER DEFAULT 0',
   "ALTER TABLE chat_identity ADD COLUMN dicebear_seed TEXT DEFAULT ''",
+  'ALTER TABLE chat_identity ADD COLUMN custom_uid INTEGER',           // 自定义靓号(显示用·全局唯一·可空)
+  'ALTER TABLE chat_identity ADD COLUMN uid_changed_at INTEGER DEFAULT 0',
 ];
 let ready = false;
 async function ensureSchema(db) {
   if (ready) return;
   await db.exec(SCHEMA.replace(/\n\s*/g, ' ').trim());
   for (const a of ALTERS) { try { await db.exec(a); } catch { /* 列已存在 */ } }
+  // 自定义 UID 全局唯一（部分索引：仅约束非空值；多个 NULL 不冲突）
+  try { await db.exec('CREATE UNIQUE INDEX IF NOT EXISTS idx_chat_custom_uid ON chat_identity(custom_uid) WHERE custom_uid IS NOT NULL'); } catch { /* */ }
   ready = true;
 }
 
 const CHAT_TTL_MS = 7 * 24 * 3600 * 1000;
 const NAME_COOLDOWN_MS = 2 * 24 * 3600 * 1000;   // 昵称改名冷却：2 天
+const UID_COOLDOWN_MS = 2 * 24 * 3600 * 1000;    // 自定义 UID 更改冷却：2 天
+const cleanUid = (v) => { const n = Math.floor(Number(v)); return Number.isFinite(n) && n >= 1 && n <= 9999999 ? n : 0; };   // 1~9999999；0=无效/未提供
 const MAX_AVATAR = 40000;                        // 头像 dataURL 长度上限(~30KB)
 function json(obj, init = {}, headers = {}) {
   return new Response(JSON.stringify(obj), { ...init, headers: { 'Content-Type': 'application/json', ...headers } });
@@ -56,11 +64,12 @@ export async function handleChatMe(request, env, ch, url) {
   if (avatar && (avatar.length > MAX_AVATAR || !/^data:image\//.test(avatar))) avatar = ''; // 非法/超大 → 忽略
   const dicebearSeed = typeof body.dicebearSeed === 'string' ? cleanSeed(body.dicebearSeed) : undefined;  // DiceBear 种子(非空=用 DiceBear)
   const avatarMode = String(body.avatarMode || '');                                                       // 'pal' = 回退像素动物
+  const wantUid = body.customUid !== undefined ? cleanUid(body.customUid) : 0;                            // 自定义靓号(0=未提供/非法)
 
   // 首次出现 → 分配下一个顺序 UID（AUTOINCREMENT 原子，从 1 起）
   await env.DB.prepare('INSERT OR IGNORE INTO chat_identity (discord_id,name,created_at,avatar_ver,name_changed_at,dicebear_seed) VALUES (?,?,?,0,0,?)')
     .bind(discordId, wantName || cleanName(sess.name) || '道友', Date.now(), '').run();
-  let row = await env.DB.prepare('SELECT uid,name,avatar_ver,name_changed_at,dicebear_seed FROM chat_identity WHERE discord_id=?').bind(discordId).first();
+  let row = await env.DB.prepare('SELECT uid,name,avatar_ver,name_changed_at,dicebear_seed,custom_uid,uid_changed_at FROM chat_identity WHERE discord_id=?').bind(discordId).first();
   if (!row) return json({ error: 'UID 分配失败' }, { status: 500 }, ch);
 
   const now = Date.now();
@@ -95,9 +104,34 @@ export async function handleChatMe(request, env, ch, url) {
     await env.DB.prepare('UPDATE chat_identity SET dicebear_seed=? WHERE discord_id=?').bind(seed, discordId).run();
   }
 
+  // 自定义 UID（靓号·仅显示用·全局唯一防冒充·2 天冷却）；内部 uid 与身份 chat:<uid> 不变
+  let uidLocked = false, uidLockMsg = '';
+  let customUid = row.custom_uid != null ? Number(row.custom_uid) : null;
+  if (wantUid && wantUid !== (customUid ?? row.uid)) {                  // 想改且与当前显示号不同
+    const since = Number(row.uid_changed_at) || 0;
+    if (since > 0 && now - since < UID_COOLDOWN_MS) {
+      uidLocked = true;
+      const days = Math.ceil((UID_COOLDOWN_MS - (now - since)) / (24 * 3600 * 1000));
+      uidLockMsg = `UID ${days} 天后才能再次更改`;
+    } else if (wantUid === row.uid) {                                   // 还原成自己的原始顺序号 → 清自定义
+      await env.DB.prepare('UPDATE chat_identity SET custom_uid=NULL, uid_changed_at=? WHERE discord_id=?').bind(now, discordId).run();
+      customUid = null; row.uid_changed_at = now;
+    } else {                                                           // 查重（不得占用他人的 uid 或 custom_uid）
+      const taken = await env.DB.prepare('SELECT 1 FROM chat_identity WHERE discord_id!=? AND (uid=? OR custom_uid=?) LIMIT 1').bind(discordId, wantUid, wantUid).first();
+      if (taken) { uidLocked = true; uidLockMsg = `编号 ${wantUid} 已被占用`; }
+      else {
+        try {
+          await env.DB.prepare('UPDATE chat_identity SET custom_uid=?, uid_changed_at=? WHERE discord_id=?').bind(wantUid, now, discordId).run();
+          customUid = wantUid; row.uid_changed_at = now;
+        } catch { uidLocked = true; uidLockMsg = `编号 ${wantUid} 已被占用`; }   // 唯一索引兜底(并发抢号)
+      }
+    }
+  }
+  const displayUid = customUid ?? row.uid;
+
   const cuid = row.uid;
-  const chatToken = await signChatToken(env, { cuid, name, exp: now + CHAT_TTL_MS });
-  return json({ uid: cuid, name, chatToken, avatarVer, dicebearSeed: seed, nameChangedAt: Number(row.name_changed_at) || 0, nameLocked, nameLockMsg }, {}, ch);
+  const chatToken = await signChatToken(env, { cuid, name, du: displayUid, exp: now + CHAT_TTL_MS });   // du 进签名令牌 → 显示号权威、不可伪造
+  return json({ uid: cuid, displayUid, customUid, name, chatToken, avatarVer, dicebearSeed: seed, nameChangedAt: Number(row.name_changed_at) || 0, nameLocked, nameLockMsg, uidChangedAt: Number(row.uid_changed_at) || 0, uidLocked, uidLockMsg }, {}, ch);
 }
 
 export async function handleChatAvatar(request, env, ch, url) {
