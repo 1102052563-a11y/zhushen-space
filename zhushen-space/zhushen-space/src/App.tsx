@@ -437,14 +437,25 @@ function buildItemPhaseSystemPrompt(entries: ItemPresetEntry[], narrative: strin
 function parseChoices(raw: string): string[] {
   const m = raw.match(/<choices>([\s\S]*?)<\/choices>/i);
   const body = m ? m[1] : raw;
+  // 逐行扫描：遇到 A~H 标记起一个选项；后续不带标记的行并入当前选项（支持 200 字的长/多行选项），
+  // 遇到看似标签行（以 < 开头）则停止并入，避免把别的标签块吞进选项。
+  const items: { L: string; text: string }[] = [];
+  let cur: { L: string; text: string } | null = null;
+  for (const rawLine of body.split(/\r?\n/)) {
+    const line = rawLine.trim();
+    const lm = /^[\s>*\-—·]*([A-Ha-h])\s*[.、:：)）]\s*(.*)$/.exec(line);
+    if (lm) {
+      cur = { L: lm[1].toUpperCase(), text: lm[2].trim() };
+      items.push(cur);
+    } else if (cur && line && !/^</.test(line)) {
+      cur.text += (cur.text ? ' ' : '') + line;   // 续行并入当前选项
+    }
+  }
   const out: string[] = [];
   const seen = new Set<string>();
-  for (const line of body.split(/\r?\n/)) {
-    const lm = /^[\s>*\-—·]*([A-Ha-h])\s*[.、:：)）]\s*(.+)$/.exec(line.trim());
-    if (lm) {
-      const L = lm[1].toUpperCase();
-      if (!seen.has(L)) { seen.add(L); out.push(lm[2].trim()); }
-    }
+  for (const it of items) {
+    const t = it.text.trim();
+    if (t && !seen.has(it.L)) { seen.add(it.L); out.push(t); }
   }
   return out.slice(0, 8);
 }
@@ -485,8 +496,9 @@ const FACT_RULE = `<事实增强>
 规则：可查证的事实**不得臆造**；无法确定时**宁可模糊、不可编造**；故事设定与现实矛盾时**以设定为准**；信息自然融入叙事，禁止百科罗列。
 【事实查证】核对当前场景、物品与事件逻辑，确保其 100% 贴合当前时代，不引入任何违和感。
 【输出格式】**仅当本轮正文涉及可查证的现实元素时**输出下面这个块（不涉及则完全省略、不要输出空块、不要写"无"）：
+【字数硬要求】**「本轮可查证元素」一栏不少于 200 字（中文）**——逐条把元素核实清楚、写具体（给出准确年份/型号/位置/价格区间等，并说明应为何状、有误处如何修正），不要敷衍成一两条。
 <details><summary>事实查证</summary>
-本轮可查证元素：（逐条"元素 → 核实结论/应为…"；有误的标出修正）
+本轮可查证元素：（逐条"元素 → 核实结论/应为…"；有误的标出修正；详尽展开，合计≥200字）
 需锁定的时代/事实锚点：（几条简短事实，每条一句、用；分隔，供后续剧情保持一致；无则写 —）
 </details>`;
 
@@ -860,6 +872,7 @@ export default function App() {
   const [floorStart,       setFloorStart]       = useState('1');
   const [floorEnd,         setFloorEnd]         = useState('1');
   const [floorStep,        setFloorStep]        = useState('1');
+  const [floorExtra,       setFloorExtra]       = useState('');   // 「按楼层更新」本次额外提示词（可留空，附到每批正文末尾一起喂给该变量演化）
   const [floorProg,        setFloorProg]        = useState<{ fk: string; cur: number; total: number } | null>(null);   // 批量更新进度（菜单行显示「批量 X/M」）
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -5080,7 +5093,7 @@ ${lines}`;
       const { content } = await apiChatFallback(chain, [
         { role: 'system', content: sysParts.join('\n\n') },
         { role: 'user', content: userMsg },
-      ], { timeoutMs: wantTheater ? 120000 : 90000, extra: { temperature: wantTheater ? 1.0 : 0.9, max_tokens: wantTheater ? 5200 : 2600 } });
+      ], { timeoutMs: wantTheater ? 180000 : 140000, extra: { temperature: wantTheater ? 1.0 : 0.9, max_tokens: wantTheater ? 9000 : 6000 } });
 
       if (wantChoices) {
         const opts = parseChoices(content);
@@ -6698,7 +6711,7 @@ ${lines}`;
   function openFloorCfg(fk: string, label: string) {
     const T = narrativeFloors().length;
     setFloorCfg({ fk, label, total: T });
-    setFloorStart(String(T || 1)); setFloorEnd(String(T || 1)); setFloorStep('1');   // 默认=只更新最新一层（即原「最新正文」行为）
+    setFloorStart(String(T || 1)); setFloorEnd(String(T || 1)); setFloorStep('1'); setFloorExtra('');   // 默认=只更新最新一层（即原「最新正文」行为）·额外提示词清空
   }
   async function runFloorBatches() {
     const cfg = floorCfg; if (!cfg) return;
@@ -6712,12 +6725,14 @@ ${lines}`;
     const step = Math.max(1, Math.round(Number(floorStep) || 1));
     const batches: [number, number][] = [];
     for (let lo = start; lo <= end; lo += step) batches.push([lo, Math.min(end, lo + step - 1)]);
+    const extra = floorExtra.trim();   // 本次额外提示词：附到每批正文末尾喂给演化（trimNarrative 留尾，附末尾不会被截掉）
     setPhaseFail((p) => { if (!p[cfg.fk]) return p; const n = { ...p }; delete n[cfg.fk]; return n; });
     try {
       for (let bi = 0; bi < batches.length; bi++) {
         const [lo, hi] = batches[bi];
         setFloorProg({ fk: cfg.fk, cur: bi + 1, total: batches.length });
-        const chunk = floors.slice(lo - 1, hi).join('\n\n');
+        let chunk = floors.slice(lo - 1, hi).join('\n\n');
+        if (extra) chunk += `\n\n【本次手动更新·玩家额外要求（请在更新该变量时优先遵循）】：${extra}`;
         if (chunk.trim()) { try { await runner(chunk); } catch (e) { console.warn('[按楼层更新] 批次失败', e); } }
       }
     } finally { setFloorProg(null); }
@@ -7778,7 +7793,13 @@ ${lines}`;
                     <div className="rounded-lg border border-god/20 bg-god/5 px-3 py-2 text-[12px] font-mono text-god/80">
                       第 {lo}–{hi} 层（共 {span} 层）· 每 {step} 层一次 → <b className="text-god">本次更新 {times} 次</b>
                     </div>
-                    <div className="text-[11px] text-dim/50 leading-relaxed">将按顺序逐批调用「{floorCfg.label}」演化（{times} 次 API，耗时较久、请勿关页）；失败的批次会自动跳过。</div>
+                    <div className="space-y-1">
+                      <div className="text-dim/70 font-mono text-[12px]">额外提示词（可留空）</div>
+                      <textarea value={floorExtra} onChange={(ev) => setFloorExtra(ev.target.value)} rows={2}
+                        placeholder="例：重点更新主角心境变化 / 把 NPC 关系网补全 / 只记录本段新出现的势力…"
+                        className="w-full bg-void border border-edge rounded px-2 py-1.5 text-[13px] text-slate-200 outline-none focus:border-god/50 resize-y leading-relaxed" />
+                    </div>
+                    <div className="text-[11px] text-dim/50 leading-relaxed">将按顺序逐批调用「{floorCfg.label}」演化（{times} 次 API，耗时较久、请勿关页）；失败的批次会自动跳过。额外提示词会附在每批正文末尾一起发给 AI。</div>
                   </>
                 )}
               </div>
