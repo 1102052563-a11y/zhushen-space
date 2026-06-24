@@ -10,9 +10,9 @@ function check(c, l) { if (c) { pass++; log('  PASS', l); } else { fail++; log('
 // 自签 chatToken（本地无 DISCORD_CLIENT_SECRET → 派生用 'dev'；/api/trade/ws 验签后 pid=chat:<cuid>）
 function b64u(bytes) { let s = ''; const a = new Uint8Array(bytes); for (let i = 0; i < a.length; i++) s += String.fromCharCode(a[i]); return btoa(s).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, ''); }
 const strB64u = (s) => b64u(new TextEncoder().encode(s));
-async function mkToken(cuid, name) {
+async function mkToken(cuid, name, du) {
   const key = await crypto.subtle.importKey('raw', new TextEncoder().encode('zhushen-chat-tok|dev'), { name: 'HMAC', hash: 'SHA-256' }, false, ['sign']);
-  const body = strB64u(JSON.stringify({ cuid, name, exp: Date.now() + 3600_000 }));
+  const body = strB64u(JSON.stringify({ cuid, name, du, exp: Date.now() + 3600_000 }));
   const sig = await crypto.subtle.sign('HMAC', key, new TextEncoder().encode(body));
   return body + '.' + b64u(sig);
 }
@@ -47,8 +47,8 @@ async function main() {
   worker = await unstable_dev('src/index.js', { config: 'wrangler.toml', experimental: { disableExperimentalWarning: true, disableDevRegistry: true } });
   const WS_BASE = `ws://${worker.address}:${worker.port}`;
   log('worker up at', WS_BASE);
-  const tSeller = await mkToken(1, '卖家甲');
-  const tBuyer = await mkToken(2, '买家乙');
+  const tSeller = await mkToken(1, '卖家甲', 888);   // 卖家显示号(靓号) 888
+  const tBuyer = await mkToken(2, '买家乙', 666);    // 买家显示号(靓号) 666
 
   // 1. 卖家上架
   const seller = mkClient(WS_BASE, tSeller, '卖家甲');
@@ -57,6 +57,7 @@ async function main() {
   const added = await seller.waitFor((m) => m.type === 'listing_added');
   const listingId = added.listing.id;
   check(!!listingId && added.listing.item.name === '九转还魂丹', '卖家上架成功');
+  check(added.listing.sellerDu === 888, '挂牌带卖家显示号(靓号) du=888');
 
   // 2. 买家还价
   const buyer = mkClient(WS_BASE, tBuyer, '买家乙');
@@ -81,6 +82,7 @@ async function main() {
   const r = done.record;
   check(!!r && r.item.name === '九转还魂丹', '成交记录含物品');
   check(r.sellerName === '卖家甲' && r.buyerName === '买家乙', '成交记录含买卖双方');
+  check(r.sellerDu === 888 && r.buyerDu === 666, '成交记录带买卖双方显示号(靓号 888/666)');
   check(r.price === 80 && r.currency === '乐园币', '成交记录含价格(=还价80)+货币');
   check(r.sellerId === 'chat:1' && r.buyerId === 'chat:2', '成交记录买卖方 UID 正确');
   const removed = await seller.waitFor((m) => m.type === 'listing_removed' && m.listingId === listingId);

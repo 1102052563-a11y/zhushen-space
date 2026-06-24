@@ -12,6 +12,7 @@ export interface TradeOffer {
   message?: string;
   at: number;
   clientToken?: string;   // 服务端回显出价者的本地 token —— 货币托管对账用（reconcileCoin）
+  buyerDu?: number;       // 出价人显示号(自定义靓号·0/缺省=用内部 uid)
 }
 
 export interface TradeListing {
@@ -26,6 +27,7 @@ export interface TradeListing {
   at: number;
   offers: TradeOffer[];
   clientToken?: string;   // 服务端回显上架者的本地 token —— 托管对账用（reconcileEscrow）
+  sellerDu?: number;      // 卖家显示号(自定义靓号·0/缺省=用内部 uid)
 }
 
 /** 一笔完成的成交（卖家接受还价时生成；进历史看板）。 */
@@ -34,8 +36,8 @@ export interface TradeRecord {
   listingId: string;         // 原挂牌 id（卖家客户端据此匹配本地托管物来消费）
   offerId: string;           // 中标还价 id（买家客户端据此匹配本地托管的货币来消费）
   item: any;                 // 物品快照
-  sellerId: string; sellerName: string;
-  buyerId: string; buyerName: string;
+  sellerId: string; sellerName: string; sellerDu?: number;
+  buyerId: string; buyerName: string; buyerDu?: number;
   price: number;
   currency: string;
   at: number;

@@ -20,7 +20,7 @@ function fmtTime(at: number) {
 }
 function nameColor(hue?: number) { return typeof hue === 'number' ? `hsl(${hue} 70% 72%)` : '#cbd5e1'; }
 function parseUid(pid?: string): number { return pid && pid.startsWith('chat:') ? (parseInt(pid.slice(5), 10) || 0) : 0; }
-function uidTag(pid?: string): string { return pid && pid.startsWith('chat:') ? '#' + pid.slice(5) : ''; }
+function uidTag(pid?: string, du?: number): string { const n = du || parseUid(pid); return n ? '#' + n : ''; }   // du=自定义靓号优先，回退内部 uid
 function StatusDot({ status }: { status: string }) {
   const c = status === 'connected' ? 'bg-emerald-400' : status === 'connecting' ? 'bg-amber-400 animate-pulse' : 'bg-dim/40';
   return <span className={`inline-block w-2 h-2 rounded-full ${c}`} />;
@@ -120,10 +120,10 @@ export default function TradePanel({ onClose }: { onClose: () => void }) {
                 <div className="flex items-center gap-1.5 flex-wrap text-[12px]">
                   <span className="font-mono font-bold text-amber-300">{r.price} {r.currency}</span>
                   <span className="text-dim/40">·</span>
-                  {uidTag(r.sellerId) && <span className="font-mono text-[10px] text-god/40">{uidTag(r.sellerId)}</span>}
+                  {uidTag(r.sellerId, r.sellerDu) && <span className="font-mono text-[10px] text-god/40">{uidTag(r.sellerId, r.sellerDu)}</span>}
                   <span className="text-dim/70">{r.sellerName}</span>
                   <span className="text-god/60 font-bold">→</span>
-                  {uidTag(r.buyerId) && <span className="font-mono text-[10px] text-god/40">{uidTag(r.buyerId)}</span>}
+                  {uidTag(r.buyerId, r.buyerDu) && <span className="font-mono text-[10px] text-god/40">{uidTag(r.buyerId, r.buyerDu)}</span>}
                   <span className="text-dim/70">{r.buyerName}</span>
                   <span className="ml-auto text-[10px] font-mono text-dim/35">{fmtTime(r.at)}</span>
                 </div>
@@ -205,7 +205,7 @@ function ListingCard({ listing, mePid, connected, onOpenDetail }: {
         <span className="font-mono font-bold text-amber-300">{listing.price} {listing.currency}</span>
         <span className="text-dim/40">·</span>
         <ChatAvatar uid={parseUid(listing.sellerId)} avv={listing.avv} ds={listing.ds} size={18} />
-        {uidTag(listing.sellerId) && <span className="font-mono text-[10px] text-god/40">{uidTag(listing.sellerId)}</span>}
+        {uidTag(listing.sellerId, listing.sellerDu) && <span className="font-mono text-[10px] text-god/40">{uidTag(listing.sellerId, listing.sellerDu)}</span>}
         <span style={{ color: sellerColor }}>{listing.sellerName}</span>
         {mine && <span className="text-[10px] font-mono text-god/50">(你)</span>}
         <span className="ml-auto text-[10px] font-mono text-dim/35">{fmtTime(listing.at)}</span>

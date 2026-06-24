@@ -153,6 +153,7 @@ export default {
         const u = new URL(request.url);
         u.searchParams.set("pid", "chat:" + payload.cuid);
         u.searchParams.set("name", (u.searchParams.get("name") || payload.name || "道友"));
+        u.searchParams.set("du", String(payload.du || payload.cuid));                        // 显示号(自定义靓号)权威来自令牌，挂牌/还价显示用
         u.searchParams.delete("token");
         return tradeStub(env).fetch(new Request(u.toString(), request));
       }
