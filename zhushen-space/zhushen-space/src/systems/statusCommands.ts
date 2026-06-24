@@ -71,8 +71,12 @@ export function applyPlayerProfileCommands(reply: string, narrative: string, tur
     const lv = Number(m[1]);
     const oldLv = usePlayer.getState().profile.level ?? 1;
     const gained = Math.max(0, lv - oldLv);
-    const curAttrPts = usePlayer.getState().profile.attrPoints ?? 0;
-    sp({ level: lv, tier: realmFromLevel(lv), ...(gained > 0 ? { attrPoints: curAttrPts + 3 * gained } : {}) });
+    const prof0 = usePlayer.getState().profile;
+    // 四阶起(Lv.31+)「六维即真实属性」→ 每级奖励发「真实属性点」(realAttrPoints)；否则发「普通属性点」(attrPoints)
+    const ptPatch = gained <= 0 ? {}
+      : lv >= 31 ? { realAttrPoints: (prof0.realAttrPoints ?? 0) + 3 * gained }
+      : { attrPoints: (prof0.attrPoints ?? 0) + 3 * gained };
+    sp({ level: lv, tier: realmFromLevel(lv), ...ptPatch });
     if (gained > 0) { try { useItems.getState().adjustCurrency('技能点', gained); } catch { /* 货币 store 未就绪兜底 */ } }
     n++;
   }

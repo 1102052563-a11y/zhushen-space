@@ -95,3 +95,21 @@ export function pickEnemyAction(state: BattleState, actorId: string): EnemyActio
   // 6. 普攻兜底
   return { kind: 'attack', targetIds: [target] };
 }
+
+/* 敌人「意图预告」（面板头顶显示的姿态提示·非硬承诺）：据当前战况粗判这名 AI 角色倾向做什么。 */
+export function telegraphIntent(state: BattleState, actorId: string): { emoji: string; label: string } {
+  const actor = state.participants[actorId];
+  const block = state.initialState[actorId];
+  if (!actor || !block || actor.curHp <= 0 || actor.left) return { emoji: '—', label: '' };
+  if (actor.charging) return { emoji: '⚡', label: '蓄力' };
+  if (actor.status.some((s) => s.combat?.cannotAct)) return { emoji: '💫', label: '被控' };
+  const hpRatio = actor.curHp / Math.max(1, block.maxHp);
+  const skills = (useCharacters.getState().characters[actorId]?.skills ?? []).filter((s: any) => !/被动|光环/.test(s?.skillType ?? ''));
+  const canCast = (pred: (sp: CombatSpec) => boolean) =>
+    skills.some((s: any) => (actor.cooldowns[s.id] ?? 0) <= 0 && actor.curEp >= (parseCombatSpec(s).cost ?? 0) && pred(parseCombatSpec(s)));
+  if (hpRatio < 0.25 && canCast((sp) => sp.effects.some((e) => e.tag === 'heal'))) return { emoji: '💚', label: '欲治疗' };
+  if (hpRatio < 0.2) return { emoji: '🛡️', label: '死守' };
+  const CTRL = new Set<CombatTag>(['stun', 'silence', 'vulnerable', 'weak', 'poison', 'sunder', 'taunt']);
+  if (canCast((sp) => sp.effects.some((e) => CTRL.has(e.tag)))) return { emoji: '✦', label: '施法' };
+  return { emoji: '⚔️', label: '进攻' };
+}

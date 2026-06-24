@@ -5,6 +5,7 @@ import { usePlayer } from '../store/playerStore';
 import { useNpc } from '../store/npcStore';
 import { useItems } from '../store/itemStore';
 import { useMp } from '../store/multiplayerStore';
+import { telegraphIntent } from '../systems/enemyAI';
 
 /* 模态战斗面板（仿 fanren-remake）。结算由引擎/编排器在 App 里完成；本组件只负责展示
    战况 + 收集玩家（B1）这一回合的动作，确认后回调 onPlayerAction。 */
@@ -54,6 +55,10 @@ function Card({ id, isCurrent, isTarget, onPick }: { id: string; isCurrent: bool
           <div className="text-xs font-medium text-slate-100 truncate">{b.name}{c.defending ? ' 🛡' : ''}</div>
           <div className="text-[10px] text-slate-400 truncate">{b.tier || ''}{b.bioStrength ? ` · ${b.bioStrength}` : ''}{realTop > 0 && <span className="text-amber-300"> · 真{realTop}</span>}</div>
         </div>
+        {enemy && !dead && battle.active && (() => {
+          const it = telegraphIntent(battle, id);
+          return it.label ? <span className="self-start text-[9px] px-1 rounded bg-rose-950/70 text-rose-200 border border-rose-700/40 flex-none" title="敌方意图（预判）">{it.emoji}{it.label}</span> : null;
+        })()}
       </div>
       <div className="space-y-1">
         <div className="flex items-center gap-1">
@@ -80,9 +85,18 @@ function Card({ id, isCurrent, isTarget, onPick }: { id: string; isCurrent: bool
       </div>
       {c.status.length > 0 && (
         <div className="flex flex-wrap gap-1 mt-1">
-          {c.status.map((s, i) => (
-            <span key={i} className="text-[9px] px-1 rounded bg-slate-700/60 text-slate-200">{s.emoji ?? ''}{s.name}</span>
-          ))}
+          {c.status.map((s, i) => {
+            const tone = s.tone === 'buff' ? 'bg-emerald-800/50 text-emerald-200 border-emerald-600/30'
+              : s.tone === 'debuff' ? 'bg-rose-900/50 text-rose-200 border-rose-600/30'
+              : 'bg-slate-700/60 text-slate-200 border-slate-600/30';
+            const m = s.combat ?? {};
+            const stacks = m.poisonStacks ?? m.strengthStacks ?? m.dexterityStacks ?? m.thorns;
+            const turns = s.durationTurns != null ? Math.max(0, s.durationTurns - (battle.round - (s.startTurn ?? battle.round))) : undefined;
+            const badge = stacks != null ? `×${stacks}` : turns != null ? `${turns}回` : '';
+            return (
+              <span key={i} title={s.effect || s.name} className={`text-[9px] px-1 rounded border ${tone}`}>{s.emoji ?? ''}{s.name}{badge ? ` ${badge}` : ''}</span>
+            );
+          })}
         </div>
       )}
     </button>

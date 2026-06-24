@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect } from 'react';
 import { useNpc, type NpcRecord } from '../store/npcStore';
 import { useCharacters, RARITY_CLS, ELEMENT_CLS, SKILL_TIER_CLS, normSkillTier, type Deed } from '../store/characterStore';
-import { computeDerived, lvFromRealm, normalizeTier, tierFxClass, realmFromLevel, trueAttr, effectiveResource, fullMaxHp, fullMaxEp, TIERS, realAttrCapForTier } from '../systems/derivedStats';
+import { computeDerived, lvFromRealm, normalizeTier, tierFxClass, realmFromLevel, effectiveResource, fullMaxHp, fullMaxEp, TIERS, realAttrCapForTier } from '../systems/derivedStats';
 import { computeAttrBreakdown, effectiveAttrs, ATTR_LABEL, type AttrBreak } from '../systems/attrBonus';
 import { bioInnate, bioPower, bioStrengthLabel, BIO_TIER_NAMES, nominalTierNum } from '../systems/bioStrength';
 import { generateNpcAttrs, resolveForm, UNIT_TYPE_LABELS } from '../systems/npcAttrGen';
@@ -1030,7 +1030,7 @@ function AttrTab({ npc: npcProp, realm }: { npc: NpcRecord; realm: ReturnType<ty
     { key: 'int', label: '智力' }, { key: 'cha', label: '魅力' }, { key: 'luck', label: '幸运' },
   ];
   const hasAttrs = !!npc.attrs;
-  const [showTrue, setShowTrue] = useState(nominalTierNum(npc.realm, lvFromRealm(npc.realm)) >= 5);   // 五阶起默认显示真实属性点(=普通÷80)
+  const [showTrue, setShowTrue] = useState(nominalTierNum(npc.realm, lvFromRealm(npc.realm)) >= 4);   // 四阶起默认显示真实属性（六维即真实属性）
   const upsertNpc = useNpc((s) => s.upsertNpc);
   const [rerollN, setRerollN] = useState(0);
   const [pickRealm, setPickRealm] = useState<string>(''); // 手动指定阶位(覆盖 AI 给的离谱阶位)；'' = 用当前阶位
@@ -1064,7 +1064,7 @@ function AttrTab({ npc: npcProp, realm }: { npc: NpcRecord; realm: ReturnType<ty
   const attrPts = npc.attrPoints ?? 0;
   const realPts = npc.realAttrPoints ?? 0;
   const realAttrs = npc.realAttrs ?? {};   // 真实属性·直加分配（与基础独立）
-  const realCap = realAttrCapForTier(npc.realm, lvFromRealm(npc.realm));   // 真实属性·每项上限（五阶起·含派生+直加；一~四阶=Infinity）
+  const realCap = realAttrCapForTier(npc.realm, lvFromRealm(npc.realm));   // 真实属性·每项上限（四阶起=本阶单属性极值；一~三阶=Infinity）
   const [pending, setPending] = useState<Record<string, { ap: number; rap: number }>>({});
   const [pickerQueue, setPickerQueue] = useState<{ key: keyof PlayerAttrs; label: string; milestone: number }[]>([]);
   const stagedAp = Object.values(pending).reduce((s, v) => s + (v.ap || 0), 0);
@@ -1078,7 +1078,7 @@ function AttrTab({ npc: npcProp, realm }: { npc: NpcRecord; realm: ReturnType<ty
     const usedRap = Object.values(p).reduce((s, v) => s + (v.rap || 0), 0);
     if (showTrue) {
       if (realPts - usedRap <= 0) return p;                                   // 真实属性点不足
-      const projected = trueAttr(npc.attrs?.[key] ?? 0) + (realAttrs[key] ?? 0) + cur.rap + 1;
+      const projected = (npc.attrs?.[key] ?? 0) + (realAttrs[key] ?? 0) + cur.rap + 1;
       if (projected > realCap) return p;                                      // 已达本阶真实属性上限，禁止再加
       return { ...p, [key]: { ...cur, rap: cur.rap + 1 } };
     }
@@ -1106,10 +1106,10 @@ function AttrTab({ npc: npcProp, realm }: { npc: NpcRecord; realm: ReturnType<ty
       const newBase = oldBase + pd.ap;            // 属性点 → +1 基础
       // 真实属性点 → +1 真实·直加（不动基础）；按本阶真实属性上限钳制「派生+直加」合计，超出部分不消耗点(退回)
       const cap = realAttrCapForTier(rec.realm, lvFromRealm(rec.realm));
-      const maxAlloc = isFinite(cap) ? Math.max(oldAlloc, cap - trueAttr(newBase)) : Infinity;
+      const maxAlloc = isFinite(cap) ? Math.max(oldAlloc, cap - newBase) : Infinity;
       const newAlloc = Math.min(oldAlloc + pd.rap, maxAlloc);
       newAttrs[def.key] = newBase; newReal[def.key] = newAlloc; useAp += pd.ap; useRap += (newAlloc - oldAlloc);
-      for (const m of milestonesCrossed(trueAttr(oldBase) + oldAlloc, trueAttr(newBase) + newAlloc)) queue.push({ key: def.key, label: def.label, milestone: m });
+      for (const m of milestonesCrossed(oldBase + oldAlloc, newBase + newAlloc)) queue.push({ key: def.key, label: def.label, milestone: m });
     }
     if (!useAp && !useRap) return;
     upsertNpc(npc.id, { attrs: newAttrs, realAttrs: newReal, attrPoints: Math.max(0, (rec.attrPoints ?? 0) - useAp), realAttrPoints: Math.max(0, (rec.realAttrPoints ?? 0) - useRap) });
@@ -1158,7 +1158,7 @@ function AttrTab({ npc: npcProp, realm }: { npc: NpcRecord; realm: ReturnType<ty
               <span className="text-[11px] font-mono text-amber-300/80" title={showTrue ? '真实属性点：点「+」暂存、确认后消耗（每点真实+1）' : '属性点：点「+」暂存、确认后消耗（每点基础+1）'}>
                 {showTrue ? `🔶${rapLeft}` : `🔷${apLeft}`}{(showTrue ? stagedRap : stagedAp) > 0 && <span className="text-emerald-400/80"> (−{showTrue ? stagedRap : stagedAp})</span>}
               </span>
-              <button onClick={() => setShowTrue((v) => !v)} title="真实属性 = 每80点普通属性折算1点；两个视图都可加点（普通用属性点 / 真实用真实属性点）"
+              <button onClick={() => setShowTrue((v) => !v)} title="四阶起六维即真实属性（不再÷80）；两个视图都可加点（普通用属性点 / 真实用真实属性点）"
                 className="text-[11px] font-mono px-1.5 py-0.5 rounded border border-edge text-dim/60 hover:border-god/40 hover:text-god transition-colors">
                 {showTrue ? '基础属性' : '真实属性'}
               </button>
@@ -1177,7 +1177,7 @@ function AttrTab({ npc: npcProp, realm }: { npc: NpcRecord; realm: ReturnType<ty
                 <div className="text-[11px] font-mono text-dim/50">{showTrue ? `真实${label}` : label}</div>
                 <div className="flex items-center justify-between gap-1">
                   {showTrue
-                    ? <span className="text-sm font-mono font-bold text-amber-300/90" title="真实属性 = 基础÷80 + 真实属性点直加">{npc.attrs ? trueAttr(bk.total) + (realAttrs[key] ?? 0) : '—'}</span>
+                    ? <span className="text-sm font-mono font-bold text-amber-300/90 ra-gold" title="真实属性 = 基础六维 + 真实属性点直加（四阶起六维即真实属性）">{npc.attrs ? bk.total + (realAttrs[key] ?? 0) : '—'}</span>
                     : <button onClick={() => hasAttrs && setAttrPop(attrPop === key ? null : key)} title="点击查看属性构成"
                         className="text-sm font-mono font-bold text-slate-100 hover:text-god transition-colors text-left">
                         {npc.attrs ? bk.total : '—'}{bonus !== 0 && <span className={`ml-0.5 text-[11px] ${bonus > 0 ? 'text-emerald-400/70' : 'text-blood/70'}`}>({bonus > 0 ? '+' : ''}{bonus})</span>}

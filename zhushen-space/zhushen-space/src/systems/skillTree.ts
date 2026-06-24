@@ -10,8 +10,8 @@ import { allTreePool } from './treePool';
 
 /* ── 调参旋钮（改即生效）────────────────────────────────────────────────────── */
 export const SKILLTREE_TUNING = {
-  ppBase: 4,            // 出生基础潜能点
-  ppPerLevel: 4,        // 每升一级获得 4 潜能点
+  ppBase: 0,            // 出生基础潜能点（2026-06-24：初始 0）
+  ppPerLevel: 2,        // 每升一级获得潜能点（2026-06-24：4→2）
   ppPerTier: 0,         // 阶位里程碑额外潜能点（默认并入升级；保留旋钮）
   aiBonusTurnCap: 50,   // 单回合 AI/任务加成封顶（防刷）
   maxRankDefault: 3,    // 每个普通节点可点 3 次（3 个豆子）

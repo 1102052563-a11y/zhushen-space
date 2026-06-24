@@ -4,7 +4,7 @@ import { useGame } from '../store/gameStore';
 import { useItems, gradeToNum } from '../store/itemStore';
 import { StatusChips, SegmentedText } from './NpcDetail';
 import StatusEffectChips from './StatusEffectChips';
-import { computeDerived, tierFxClass, realmFromLevel, trueAttr, effectiveResource, fullMaxHp, fullMaxEp } from '../systems/derivedStats';
+import { computeDerived, tierFxClass, realmFromLevel, effectiveResource, fullMaxHp, fullMaxEp } from '../systems/derivedStats';
 import { useCharacters } from '../store/characterStore';
 import { computeAttrBreakdown, withAttrDelta, ATTR_LABEL, type AttrBreak } from '../systems/attrBonus';
 import { playerTreeAttrBonus } from '../store/skillTreeStore';
@@ -174,7 +174,7 @@ export default function PlayerSidebar({ onClose }: { onClose?: () => void }) {
   const [editStatus, setEditStatus] = useState(false);
   const [personaOpen, setPersonaOpen] = useState(false);   // 性格详细描述：默认收起，点击「📖详情」展开查看/编辑
   const [labelOpen, setLabelOpen] = useState(false);       // HP/EP 条自定义称呼（换皮）：默认收起，点血条下方小按钮展开
-  const [showTrueAttr, setShowTrueAttr] = useState(nominalTierNum(profile.tier, profile.level) >= 5);   // 五阶起默认显示真实属性点
+  const [showTrueAttr, setShowTrueAttr] = useState(nominalTierNum(profile.tier, profile.level) >= 4);   // 四阶起默认显示真实属性（六维即真实属性）
   const b1 = useCharacters((s) => s.characters['B1']);
   const equippedFull = items.filter((it) => it.equipped);
   const equipped = equippedFull.map((it) => ({ category: it.category as string, grade: (it.numeric?.grade as number) ?? gradeToNum(it.gradeDesc) }));
@@ -226,8 +226,8 @@ export default function PlayerSidebar({ onClose }: { onClose?: () => void }) {
       const newBase = oldBase + pd.ap;            // 属性点 → +1 基础
       const newAlloc = oldAlloc + pd.rap;         // 真实属性点 → +1 真实·直加（不动基础）
       newAttrs[def.key] = newBase; newReal[def.key] = newAlloc; useAp += pd.ap; useRap += pd.rap;
-      // 里程碑按「显示真实属性 = floor(基础/80) + 直加」计算（普通属性点堆基础也可能跨过）
-      for (const m of milestonesCrossed(trueAttr(oldBase) + oldAlloc, trueAttr(newBase) + newAlloc)) queue.push({ key: def.key, label: def.label, milestone: m });
+      // 里程碑按「真实属性 = 基础六维 + 真实属性点直加」计算（2026-06-24 起不再 ÷80；四阶起六维即真实属性）
+      for (const m of milestonesCrossed(oldBase + oldAlloc, newBase + newAlloc)) queue.push({ key: def.key, label: def.label, milestone: m });
     }
     if (!useAp && !useRap) return;
     setProfile({ attrs: newAttrs, realAttrs: newReal, attrPoints: Math.max(0, (cur.attrPoints ?? 0) - useAp), realAttrPoints: Math.max(0, (cur.realAttrPoints ?? 0) - useRap) });
@@ -303,18 +303,18 @@ export default function PlayerSidebar({ onClose }: { onClose?: () => void }) {
           <Row label="世界之源"><EditNum value={Math.round((profile.worldSource ?? 0) * 10) / 10} onSave={(v) => setProfile({ worldSource: Math.round(v * 10) / 10 })} /></Row>
         </div>
 
-        {/* 基础属性 / 真实属性（切换；真实=普通÷80 向下取整，>80 才产生） */}
-        <div className="p-3 border-b border-edge">
+        {/* 基础属性 / 真实属性（切换；四阶起六维即真实属性，真实属性=基础六维+真实属性点直加，不再÷80） */}
+        <div className={`p-3 border-b border-edge${showTrueAttr ? ' ra-gold-panel' : ''}`}>
           <div className="text-sm text-god font-mono mb-2 flex items-center justify-between gap-2">
             <span className="flex items-center gap-2 min-w-0">⚔ {showTrueAttr ? '真实属性' : '基础属性'}
-              <span className="text-[11px] font-mono text-amber-300/80 truncate" title={showTrueAttr ? '真实属性点：五阶后由任务结算发放；点「+」暂存、确认后消耗（每点真实+1）' : '属性点：任务结算发放；点「+」暂存、确认后消耗（每点基础+1）'}>
+              <span className="text-[11px] font-mono text-amber-300/80 truncate" title={showTrueAttr ? '真实属性点：四阶起由任务结算/升级发放；点「+」暂存、确认后消耗（每点真实属性+1）' : '属性点：任务结算/升级发放；点「+」暂存、确认后消耗（每点基础+1）'}>
                 {showTrueAttr ? `🔶真实属性点 ${rapLeft}` : `🔷属性点 ${apLeft}`}
                 {(showTrueAttr ? stagedRap : stagedAp) > 0 && <span className="text-emerald-400/80"> (待确认 −{showTrueAttr ? stagedRap : stagedAp})</span>}
               </span>
             </span>
             <button
               onClick={() => setShowTrueAttr((v) => !v)}
-              title="真实属性 = 每80点普通属性折算1点；两个视图都可加点（普通属性用属性点，真实属性用真实属性点）"
+              title="四阶起六维即真实属性（不再÷80）；两个视图都可加点（普通属性用属性点，真实属性用真实属性点）"
               className="text-[11px] font-mono px-1.5 py-0.5 rounded border border-edge text-dim/60 hover:border-god/40 hover:text-god transition-colors shrink-0"
             >{showTrueAttr ? '基础属性' : '真实属性'}</button>
           </div>
@@ -331,7 +331,7 @@ export default function PlayerSidebar({ onClose }: { onClose?: () => void }) {
                   <span className="text-dim/60 font-mono">{showTrueAttr ? `真实${label}` : label}</span>
                   <span className="flex items-center gap-1">
                     {showTrueAttr
-                      ? <span className="font-mono font-bold text-amber-300/90" title="真实属性 = 基础÷80 + 真实属性点直加">{trueAttr(bk.total) + (realAttrs[key] ?? 0)}</span>
+                      ? <span className="font-mono font-bold text-amber-300/90 ra-gold" title="真实属性 = 基础六维 + 真实属性点直加（四阶起六维即真实属性）">{bk.total + (realAttrs[key] ?? 0)}</span>
                       : <button onClick={() => setAttrPop(attrPop === key ? null : key)} title="点击查看属性构成"
                           className="font-mono font-bold text-slate-100 hover:text-god transition-colors">
                           {bk.total}{bonus !== 0 && <span className={`ml-0.5 text-[11px] ${bonus > 0 ? 'text-emerald-400/70' : 'text-blood/70'}`}>({bonus > 0 ? '+' : ''}{bonus})</span>}

@@ -315,17 +315,12 @@ export function attrCapForTier(tier?: string, level?: number): number {
   return cap === -Infinity ? Infinity : cap;
 }
 
-/* 真实属性·每项上限（旧 ÷80 分配面板专用·保留）：含「base 派生 floor(值/80) + 直加 realAttrs」的合计上限。
-   仅五阶起生效（一~四阶返回 Infinity 不设限）。= 该阶单属性极值的 ÷80 折算 × 档位倍率（五阶起 ×2/×4/…每阶 +2）。
-   注：主口径「四阶起六维即真实属性」走 ATTR_CAP_BY_TIER；此函数只服务旧真实属性点分配 UI，不影响主显示。 */
+/* 真实属性·每项上限（新口径 2026-06-24）：四阶起「六维即真实属性」，故真实属性(基础六维 + 真实属性点直加 realAttrs)
+   的合计上限 = 本阶「单属性极值」(attrCapForTier)。一~三阶为普通属性阶段、不发放真实属性点 → 返回 Infinity 不设限。 */
 export function realAttrCapForTier(tier?: string, level?: number): number {
-  const tName = normalizeTier(tier) || (level != null ? realmFromLevel(level) : '');
-  const idx = TIERS.indexOf(tName as typeof TIERS[number]);   // 0=一阶 … 4=五阶 …
-  if (idx < 4) return Infinity;                                // 一~四阶不设真实属性上限
-  const baseCap = ATTR_CAP_BY_TIER[tName] ?? Infinity;
-  if (!isFinite(baseCap)) return Infinity;
-  const mult = (idx - 3) * 2;                                  // 五阶(idx4)→2、六阶→4、七阶→6 …（每阶 +2）
-  return Math.round(baseCap / 80 * mult);
+  const idx = TIERS.indexOf((normalizeTier(tier) || (level != null ? realmFromLevel(level) : '')) as typeof TIERS[number]);
+  if (idx >= 0 && idx < 3) return Infinity;   // 一~三阶（idx0-2）：普通属性阶段，真实属性不设限
+  return attrCapForTier(tier, level);         // 四阶起：真实属性(基础+直加) ≤ 本阶单属性极值
 }
 
 /* 把基础六维整体夹进本阶上限（六维封顶护栏）。六维=力/敏/体/智/魅/幸的【基础值】；

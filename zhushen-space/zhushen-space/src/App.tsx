@@ -1399,8 +1399,10 @@ export default function App() {
         worldbook = { role: wbRole, content: '[世界书信息]\n' + ctx, post: wbPost };
         sysSegments.push({ label: '世界书 → ' + wbMarker.identifier + ' marker（' + wbRole + (wbPost ? ' · 后历史' : ' · 前历史') + '）', content: ctx });
       } else {
-        sysPrompt += '\n\n[世界书信息]\n' + ctx;
-        sysSegments.push({ label: '前端 · 世界书信息（system顶部 · 无 worldInfo marker）', content: ctx });
+        // 缓存优化：世界书（含向量 RAG 每回合都变）不进 system 顶部——否则 system 每回合不一样、前缀缓存全失效；
+        //   改作独立 system 消息放到聊天记录之后（稳定前缀之外、贴近生成）。system 保持稳定 → DeepSeek 等前缀缓存能命中。
+        worldbook = { role: 'system', content: '[世界书信息]\n' + ctx, post: true };
+        sysSegments.push({ label: '前端 · 世界书信息（独立消息 · 楼层后 · 稳定前缀外·利于缓存）', content: ctx });
       }
     }
     // 主角状态同步：让始终运行的主正文每回合输出位置/外观（前端解析后剥除），不依赖被节流的主角演化阶段
@@ -6355,21 +6357,23 @@ ${lines}`;
     const mpRuleBlock = mpNarrativeRule();        // 联机专用正文规则（建房时房主可选启用）
     const history = [
       ...examples,
-      ...(worldbook && !worldbook.post ? [{ role: worldbook.role, content: worldbook.content }] : []),   // <世界书> worldInfo/charDescription marker 在前历史 → 楼层前注入（按条目 role，仿 fanren）
+      ...(worldbook && !worldbook.post ? [{ role: worldbook.role, content: worldbook.content }] : []),   // <世界书> marker 在前历史 → 楼层前（罕见，ST 预设）
+      ...recent,                                       // 最近原文楼层（与 system+示例 一起构成「稳定前缀」→ 利于 DeepSeek 等前缀缓存命中）
+      // ↓↓ 缓存优化（2026-06-23）：把每回合都变的「记忆/档案/世界书」从聊天记录之前挪到之后——
+      //    放在稳定前缀外、贴近生成处；既让长前缀可缓存（命中↑成本/延迟↓），又因「贴近生成」对相关性更好。
       ...memory,                                       // <过往记忆> system 块（如有）
-      ...structRest,                                   // <在场与相关档案> NPC/势力/领地档案（留在较深处）
-      ...(mpRuleBlock ? [{ role: 'system' as const, content: mpRuleBlock }] : []),     // <联机正文规则> 房主开了才注入
-      ...(mpPartyBlock ? [{ role: 'system' as const, content: mpPartyBlock }] : []),   // <同行队友> 联机其他玩家档案
+      ...structRest,                                   // <在场与相关档案> NPC/势力/领地档案
+      ...(mpRuleBlock ? [{ role: 'system' as const, content: mpRuleBlock }] : []),     // <联机正文规则>
+      ...(mpPartyBlock ? [{ role: 'system' as const, content: mpPartyBlock }] : []),   // <同行队友>
       ...buildPlayerCoreInjection(),                    // <主角核心>
       ...buildWorldTimeInjection(),                     // <当前时空>
       ...buildQuestInjection(),                          // <当前任务>
       ...buildCosmosInjection(),                        // <万族态势>
       ...buildFanficInjection(),                        // <同人设定·已锁定>
       ...buildFactInjection(),                          // <事实锚点·已锁定>
-      ...recent,                                       // 最近原文楼层
-      ...structPlayer,                                 // <主角当前档案> 浅注入：紧贴最近正文/用户输入，让主角数值更难被 API 忽略
-      ...guidanceBlock,                                // <剧情指导> 本回合写作建议（剧情指导开启时，紧贴用户输入注入，像叙事回忆一样）
-      ...(worldbook && worldbook.post ? [{ role: worldbook.role, content: worldbook.content }] : []),   // <世界书> worldInfo/charDescription marker 在后历史 → 楼层后注入（按条目 role）
+      ...structPlayer,                                 // <主角当前档案> 浅注入：紧贴最近正文/用户输入
+      ...guidanceBlock,                                // <剧情指导> 本回合写作建议
+      ...(worldbook && worldbook.post ? [{ role: worldbook.role, content: worldbook.content }] : []),   // <世界书+RAG> 无 marker → 楼层后（稳定前缀外·缓存友好）；marker 后历史亦此
       ...tail.map((t) => ({ role: t.role, content: t.content })),   // <后历史预设块> chatHistory marker 之后的预设块（破限/格式/规则等）→ 真实楼层之后（仿 fanren post-history）
       ...[...depthInjections, ...wbDepthInjections].sort((a, b) => b.depth - a.depth).map((inj) => ({ role: inj.role, content: inj.content })),
       { role: 'user' as const, content: userText },

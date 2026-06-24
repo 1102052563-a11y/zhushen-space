@@ -5,10 +5,9 @@ import ApiRoutePicker from './ApiRoutePicker';
 
 /* 战斗系统设置页（变量管理 → ⚔️战斗系统）：开关 + 四阶段提示词预设 + 独立 API + 🧪测试战斗 */
 
-const PHASE_FIELDS: { key: 'npcActionPrompt' | 'resultPrompt' | 'summaryPrompt'; label: string; hint: string }[] = [
-  { key: 'npcActionPrompt', label: '① NPC 行动决策', hint: '为当前 NPC 选动作/目标/技能/台词（留空=内置默认）' },
-  { key: 'resultPrompt', label: '② 行动叙事', hint: '代码已结算，AI 据明细叙事（留空=内置默认）' },
-  { key: 'summaryPrompt', label: '③ 战斗总结', hint: '战后压缩成散文，写入输入框由你发送（留空=内置默认）' },
+// 战斗系统重置后：战斗中 0 次 API（敌人本地 AI 决策、标签 VM 结算），只在战斗结束据 BATTLE_RECORD 战报润色一次。
+const PHASE_FIELDS: { key: 'summaryPrompt'; label: string; hint: string }[] = [
+  { key: 'summaryPrompt', label: '战斗叙事润色', hint: '战斗结束后据 BATTLE_RECORD 战报一次性润色成正文（留空=内置默认）' },
 ];
 
 export default function CombatManager() {
@@ -45,7 +44,6 @@ export default function CombatManager() {
   }
 
   const card = 'rounded-lg border border-edge bg-panel/60 p-4';
-  const lbl = 'text-xs text-dim';
 
   return (
     <div className="space-y-4 max-w-2xl mx-auto text-slate-300">
@@ -59,13 +57,7 @@ export default function CombatManager() {
       </div>
 
       {/* 规则开关 */}
-      <div className={`${card} grid grid-cols-2 gap-3`}>
-        <label className="block">
-          <span className={lbl}>AI 解析失败重试次数</span>
-          <input type="number" min={0} max={5} value={config.retryCount}
-            onChange={(e) => setConfig({ retryCount: Math.max(0, Math.min(5, Number(e.target.value) || 0)) })}
-            className="mt-1 w-full bg-void border border-edge rounded px-2 py-1 text-sm" />
-        </label>
+      <div className={card}>
         <label className="flex items-center gap-2 text-sm">
           <input type="checkbox" checked={config.manualAllyControl} onChange={(e) => setConfig({ manualAllyControl: e.target.checked })} />
           <span>手动控制队友（默认 AI 托管）</span>
