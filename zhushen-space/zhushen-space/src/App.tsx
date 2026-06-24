@@ -1534,7 +1534,7 @@ export default function App() {
     // 任务世界结算：仅当本回合输入含【结算任务】时才注入（平时不喂，省 token、避免误触发）
     if (/【结算任务】/.test(userInput)) { sysPrompt += '\n\n' + WORLD_SETTLEMENT_RULE; sysSegments.push({ label: '前端规则 · 任务世界结算（本回合触发）', content: WORLD_SETTLEMENT_RULE }); }
     // 装备世界书·生成总纲：本回合涉及装备/掉落/打造等时全量注入（让正文 createItem 的品级/评分/数值/词缀合理且机器可读；其余装备生成阶段恒注入）
-    if (/装备|武器|防具|饰品|法宝|宝石|掉落|战利品|宝箱|开箱|打造|锻造|锻冶|合成|缴获|搜刮/.test(userInput)) { sysPrompt += '\n\n' + EQUIP_CODEX; sysSegments.push({ label: '装备世界书 · 生成总纲（本回合触发）', content: EQUIP_CODEX }); }
+    if (/装备|武器|防具|饰品|法宝|宝石|掉落|战利品|宝箱|开箱|打造|锻造|锻冶|合成|缴获|搜刮|结算任务/.test(userInput)) { sysPrompt += '\n\n' + EQUIP_CODEX; sysSegments.push({ label: '装备世界书 · 生成总纲（本回合触发）', content: EQUIP_CODEX }); }
     // 主角前端加点 → 一次性事件：玩家在属性面板自行加点(前端确定性结算)，正文看不到此动作 → 注入告知，让叙事"知道"并据此用最新余额（一次性，注入后即清空）
     const allocNotices = drainAllocNotices();
     if (allocNotices.length) {
@@ -4334,7 +4334,8 @@ ${AFFIX_EFFECT_RULE}`;
       .replaceAll('${existing_messages}', existing)
       .replaceAll('${message_count}', String(C.settings.genCount))
       + '\n\n【交易出售帖·固定格式铁则】交易频道里 kind="sell" 的出售帖，其 offer 必须按**物品固定格式给全所有属性**，供玩家查看与购买带入：offer={"itemName","category","subType","gradeDesc"(品质色),"origin"(产地),"combatStat"(攻防数值),"durability"(耐久),"requirement"(装备需求),"affix"(词缀),"score"(评分),"effect"(效果),"intro"(简介),"appearance"(逐部件外观),"killCount"(武器杀敌数),"qty","price","currency"}。装备类必给攻防/耐久/装备需求/词缀；消耗品必给效果；**技能书/技能卷轴/知识卷轴/图纸配方/天赋碎片类**必给 subType(类型，如「技能卷轴」「技能书」「知识卷轴」「图纸」「天赋碎片」) + effect(**明确写清学会/获得什么**——技能名及层阶(入门/精通/大师/宗师/极道)、或知识领域、或可制造产品、或天赋名及评级 D~SSS)；**外观一律必填、不准省略或偷懒**（与物品生成同标准）。'
-      + '\n\n' + CHANNEL_AUTHOR_INFO_RULE;
+      + '\n\n' + CHANNEL_AUTHOR_INFO_RULE
+      + '\n\n' + EQUIP_CODEX;   // 交易频道 sell 帖会生成装备 → 全量注入装备世界书，品级/数值/词缀按体系来
 
     useChannel.getState().setRefreshing(true);
     try {
@@ -4884,7 +4885,8 @@ ${lines}`;
       .replaceAll('${world_name}', M.worldName || '轮回乐园')
       .replaceAll('${world_time}', M.worldTime || M.paradiseTime || '')
       .replaceAll('${enabled_channels}', '交易').replaceAll('${recent_events}', '').replaceAll('${existing_messages}', '').replaceAll('${message_count}', '0')
-      + '\n\n【报价生成铁则】针对玩家在交易频道挂的求购/出售帖，扮演多位**不同**契约者给出报价/出价，每条务必：① 价格贴合该物品的颜色品质定价与玩家预算（有人急出压价、有人坐地起价、有人给替代品/附赠）；② **求购帖里你是卖家**（报价把东西卖给玩家），**出售帖里你是买家**（出价收购玩家的东西）；③ 必带一句符合该契约者身份口吻的【留言】（可砍价/吹嘘/吐槽/玩梗/讲价由头）。货币用 乐园币 或 灵魂钱币。\n④ **求购帖的卖家报价：必须按固定格式给出所提供物品的完整属性**——名称/产地(origin)/品质色(gradeDesc)/类型(category+subType)/攻防(combatStat)/耐久(durability)/装备需求(requirement)/词缀(affix)/评分(score)/效果(effect)/简介(intro)/外观(appearance)，武器另加杀敌数(killCount)；**若是技能书/技能卷轴/知识卷轴/图纸/天赋碎片**，subType 写明类型、effect 明确写学会/获得什么（技能名+层阶 / 知识领域 / 可制造产品 / 天赋名+评级）；**一个都不能省略、不准偷懒**（与物品生成同标准）。\n⑤ **出售帖里你是买家**，有两种回应方式，让多位买家**混合采用**更真实：(a) **纯现金收购**——`barter` 设 false、`itemName` 留空，只给 price/currency/note；(b) **以物换物（barter）**——拿出你自己的一件物品跟玩家换：`barter` 设 true，并按固定格式给出**你这件换购物品**的完整属性（itemName/gradeDesc/category/subType/origin/combatStat/durability/requirement/affix/score/effect/intro/appearance，武器加 killCount；技能书/卷轴/图纸/天赋碎片同求购帖标准写明 subType+effect），`price` 填你**额外找补给玩家的现金**（平换则填 0）。换购物品必须是**与玩家那件不同、且贴合玩家诉求**的真实物品，属性一个都不能空。';
+      + '\n\n【报价生成铁则】针对玩家在交易频道挂的求购/出售帖，扮演多位**不同**契约者给出报价/出价，每条务必：① 价格贴合该物品的颜色品质定价与玩家预算（有人急出压价、有人坐地起价、有人给替代品/附赠）；② **求购帖里你是卖家**（报价把东西卖给玩家），**出售帖里你是买家**（出价收购玩家的东西）；③ 必带一句符合该契约者身份口吻的【留言】（可砍价/吹嘘/吐槽/玩梗/讲价由头）。货币用 乐园币 或 灵魂钱币。\n④ **求购帖的卖家报价：必须按固定格式给出所提供物品的完整属性**——名称/产地(origin)/品质色(gradeDesc)/类型(category+subType)/攻防(combatStat)/耐久(durability)/装备需求(requirement)/词缀(affix)/评分(score)/效果(effect)/简介(intro)/外观(appearance)，武器另加杀敌数(killCount)；**若是技能书/技能卷轴/知识卷轴/图纸/天赋碎片**，subType 写明类型、effect 明确写学会/获得什么（技能名+层阶 / 知识领域 / 可制造产品 / 天赋名+评级）；**一个都不能省略、不准偷懒**（与物品生成同标准）。\n⑤ **出售帖里你是买家**，有两种回应方式，让多位买家**混合采用**更真实：(a) **纯现金收购**——`barter` 设 false、`itemName` 留空，只给 price/currency/note；(b) **以物换物（barter）**——拿出你自己的一件物品跟玩家换：`barter` 设 true，并按固定格式给出**你这件换购物品**的完整属性（itemName/gradeDesc/category/subType/origin/combatStat/durability/requirement/affix/score/effect/intro/appearance，武器加 killCount；技能书/卷轴/图纸/天赋碎片同求购帖标准写明 subType+effect），`price` 填你**额外找补给玩家的现金**（平换则填 0）。换购物品必须是**与玩家那件不同、且贴合玩家诉求**的真实物品，属性一个都不能空。'
+      + '\n\n' + EQUIP_CODEX;   // 求购帖卖家报价/以物换路换购物品都会生成装备 → 全量注入装备世界书
     const postsDesc = open.map((m) => {
       const o = m.offer ?? {};
       const base = `「${o.itemName}」${o.gradeDesc ? `(${o.gradeDesc})` : ''}${o.qty && o.qty > 1 ? ` ×${o.qty}` : ''}`;
@@ -5838,7 +5840,7 @@ ${lines}`;
     const user = `# 可用种族池\n${racePool}\n\n# 对战阶位（两名角斗士的 tier 都必须等于此阶位；阶位越高技能/天赋/物品越多越离谱）\n${battleTier}${customRace}`;
     let j: any = {};
     try {
-      const { content } = await apiChatFallback(casinoChain(), [{ role: 'system', content: GLADIATOR_MATCH_RULE }, { role: 'user', content: user }], { timeoutMs: 75000 });
+      const { content } = await apiChatFallback(casinoChain(), [{ role: 'system', content: GLADIATOR_MATCH_RULE + '\n' + EQUIP_CODEX }, { role: 'user', content: user }], { timeoutMs: 75000 });
       j = parseEntryJson(content) || lenientJsonParse(content) || {};
     } catch (e) { console.warn('[Casino] 角斗士生成失败:', e); }
     let fs = Array.isArray(j?.fighters) ? j.fighters : [];
