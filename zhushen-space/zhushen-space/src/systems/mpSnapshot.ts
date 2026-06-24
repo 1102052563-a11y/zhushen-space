@@ -109,12 +109,18 @@ export function buildPartyTurnText(
   inputs: MpTurn['inputs'] | undefined,
   hostName: string,
 ): string {
+  // 行动署名一律用「真实角色名」(座位卡 snapshot.name，按 seatId 反查)，而非开房/进房时填的花名。
+  // 否则花名(如默认「道友」)会被 AI 当成一个谁都不认识的新角色塞进正文 → 幻影队友 bug。
+  const cards = useMp.getState().cards || [];
+  const realBySeat = (seatId: string, fallback: string) =>
+    cards.find((c) => c.seatId === seatId)?.snapshot?.name || fallback;
+
   const lines: string[] = [];
   const ht = (hostText || '').trim();
   if (ht) lines.push(`- ${hostName || '房主'}（房主）：${ht}`);
-  for (const v of Object.values(inputs || {})) {
+  for (const [seatId, v] of Object.entries(inputs || {})) {
     const t = (v?.text || '').trim();
-    if (t) lines.push(`- ${v.name || '队友'}：${t}`);
+    if (t) lines.push(`- ${realBySeat(seatId, v?.name || '队友')}：${t}`);
   }
   if (lines.length <= 1) return hostText; // 没有队友行动 → 退化为普通单人输入
   return `【多人组队·本回合全队行动】\n${lines.join('\n')}\n\n${MP_PARTY_HINT}`;

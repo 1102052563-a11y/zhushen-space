@@ -3,7 +3,7 @@ import {
   computeMaxHp, computeMaxEp, effectiveResource,
   realmFromLevel, normalizeTier, trueAttr, lvFromRealm,
   attrCapForTier, clampBaseAttrs, gearMaxHpBonus, gearMaxHpPctBonus, fullMaxHp,
-  realAttrMult,
+  realAttrMult, parseCombatStat, computeDerived,
 } from './derivedStats';
 import type { PlayerAttrs } from '../store/playerStore';
 
@@ -188,6 +188,45 @@ describe('attrBonus 字段·HP/EP 上限加成（规范字段，与六维同处�
   });
   it('attrBonus 只写六维时，仍从 effect 读上限加成（兜底）', () => {
     expect(gearMaxHpBonus([{ attrBonus: '体质+10', effect: '生命上限+2000' }])).toBe(2000);
+  });
+});
+
+describe('parseCombatStat（装备攻防字段→衍生攻防贡献，范围取均值）', () => {
+  it('法术攻击力 60-135 → matk 98（均值）', () => {
+    expect(parseCombatStat('法术攻击力 60-135')).toEqual({ patk: 0, matk: 98, pdef: 0, mdef: 0 });
+  });
+  it('物理攻击 范围/单值', () => {
+    expect(parseCombatStat('攻击力 15-28')).toEqual({ patk: 22, matk: 0, pdef: 0, mdef: 0 });
+    expect(parseCombatStat('攻击 80')).toEqual({ patk: 80, matk: 0, pdef: 0, mdef: 0 });
+  });
+  it('防御（物理/法术分流）', () => {
+    expect(parseCombatStat('防御力 8-12')).toEqual({ patk: 0, matk: 0, pdef: 10, mdef: 0 });
+    expect(parseCombatStat('法术防御力 40-60')).toEqual({ patk: 0, matk: 0, pdef: 0, mdef: 50 });
+  });
+  it('攻防混合一条 → 各归各位', () => {
+    expect(parseCombatStat('攻击力 15-28 / 防御力 8-12')).toEqual({ patk: 22, matk: 0, pdef: 10, mdef: 0 });
+  });
+  it('允许强化前导 +', () => {
+    expect(parseCombatStat('攻击 +15')).toEqual({ patk: 15, matk: 0, pdef: 0, mdef: 0 });
+  });
+  it('无数字/空 → 全 0', () => {
+    expect(parseCombatStat('')).toEqual({ patk: 0, matk: 0, pdef: 0, mdef: 0 });
+    expect(parseCombatStat('锋利无比')).toEqual({ patk: 0, matk: 0, pdef: 0, mdef: 0 });
+    expect(parseCombatStat(undefined)).toEqual({ patk: 0, matk: 0, pdef: 0, mdef: 0 });
+  });
+});
+
+describe('computeDerived 读取 combatStat（写明攻防数值时所见即所得，否则回退品级）', () => {
+  it('法杖 法术攻击力 60-135 真正加进 matk（int50：基础 matk=152，+98=250）', () => {
+    const noEq = computeDerived(A({ int: 50 }), 1, []);
+    const withStaff = computeDerived(A({ int: 50 }), 1, [{ category: '武器', grade: 5, combatStat: '法术攻击力 60-135' }]);
+    expect(withStaff.matk - noEq.matk).toBe(98);   // 卡面均值，而非旧的 grade×4=20
+    expect(withStaff.patk - noEq.patk).toBe(0);    // 纯法系不给物理攻击
+  });
+  it('无可识别攻防数值 → 回退按品级估算（武器 grade5：matk+20）', () => {
+    const noEq = computeDerived(A({ int: 50 }), 1, []);
+    const legacy = computeDerived(A({ int: 50 }), 1, [{ category: '武器', grade: 5 }]);
+    expect(legacy.matk - noEq.matk).toBe(20);      // grade×4 旧口径仍兼容
   });
 });
 

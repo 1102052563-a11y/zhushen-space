@@ -61,6 +61,13 @@ export function moveNpcItemToPlayer(npcId: string, npcItemId: string): TransferR
   const src = (rec.items ?? []).find((it) => it.id === npcItemId);
   if (!src) return { ok: false, error: '该角色储存空间里找不到此物品' };
   if (src.equipped) return { ok: false, error: `「${src.name}」是 ${rec.name || '对方'} 的装备，请先到「🛡 装备」卸下再取走` };
+  // 好感门禁：随意翻动他人储物既违和、又容易被联机房主当刷子（每回合扒一次 NPC 装备进货）。
+  // 己方同伴（随从/宠物/召唤物）免门禁；其余角色需好感达标才肯让你取走。
+  const FAVOR_TO_TAKE = 60;   // favor 区间 -100~100
+  const isOwnCompanion = ['随从', '宠物', '召唤物'].includes(rec.npcTag || '');
+  if (!isOwnCompanion && (rec.favor ?? 0) < FAVOR_TO_TAKE) {
+    return { ok: false, error: `${rec.name || '对方'}对你好感不足（${rec.favor ?? 0}/${FAVOR_TO_TAKE}），不愿让你翻动其储物` };
+  }
   const qty = Math.max(1, src.quantity || 1);
 
   items.addItem({

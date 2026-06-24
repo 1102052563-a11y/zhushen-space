@@ -8,7 +8,7 @@ import { useCharacters } from '../store/characterStore';
 import { useNpc, hasRealNpcName } from '../store/npcStore';
 import { fileToScaledDataUrl } from '../store/raidImageStore';
 import {
-  discordLoggedIn, discordLogin, fetchChatIdentity, fullLogout, chatUid, chatName,
+  discordLoggedIn, discordLogin, fetchChatIdentity, fullLogout, chatUid, chatDisplayUid, chatName,
   chatBound, setChatBound, chatReady, chatToken, chatAvatarVer, chatDicebearSeed, updateChatProfile,
 } from '../systems/chatIdentity';
 import { EntityCard, EntityDetailModal, type EntityKind } from './EntityDetail';
@@ -39,7 +39,6 @@ function leanNpc(n: any) {
    连接层 systems/chatClient.ts（带 chatToken），状态 store/chatRoomStore.ts，后端 ChatDO.js。 */
 
 function nameColor(hue?: number) { return typeof hue === 'number' ? `hsl(${hue} 70% 72%)` : '#cbd5e1'; }
-function uidOf(playerId?: string): string { return playerId && playerId.startsWith('chat:') ? '#' + playerId.slice(5) : ''; }
 function parseUid(playerId?: string): number { return playerId && playerId.startsWith('chat:') ? (parseInt(playerId.slice(5), 10) || 0) : 0; }
 function fmtTime(at: number) {
   const d = new Date(at);
@@ -57,6 +56,8 @@ export default function ChatRoomPanel({ onClose }: { onClose: () => void }) {
   const entered = st.entered;   // 会话级：是否已进入(连过)——由 chatClient/后台连接驱动
   const [loggedIn, setLoggedIn] = useState(() => discordLoggedIn());
   const [uid, setUid] = useState(() => chatUid());
+  const [dispUid, setDispUid] = useState(() => chatDisplayUid());   // 显示号(自定义靓号·缺省=内部 uid)
+  const [customUidInput, setCustomUidInput] = useState(() => String(chatDisplayUid() || ''));
   const [busy, setBusy] = useState(false);
   const [gateErr, setGateErr] = useState('');
   const [name, setName] = useState(() => chatName() || '道友');
@@ -96,6 +97,13 @@ export default function ChatRoomPanel({ onClose }: { onClose: () => void }) {
     if (pid === st.me?.playerId) return st.me?.ds || chatDicebearSeed();
     return st.roster.find((r) => r.playerId === pid)?.ds || '';
   };
+  // 显示号(自定义靓号)：自己用 dispUid、他人从名单取 du，缺省回退内部 uid（头像仍按内部 uid，互不影响）
+  const duOf = (pid?: string): number => {
+    if (!pid) return 0;
+    if (pid === st.me?.playerId) return st.me?.du || dispUid || parseUid(pid);
+    return st.roster.find((r) => r.playerId === pid)?.du || parseUid(pid);
+  };
+  const duTag = (pid?: string): string => { const n = duOf(pid); return n ? '#' + n : ''; };
   const avatarMode: 'pal' | 'upload' | 'dicebear' = myDs ? 'dicebear' : (myAvv > 0 ? 'upload' : 'pal');
 
   // ── 聊天态 ──
@@ -147,7 +155,7 @@ export default function ChatRoomPanel({ onClose }: { onClose: () => void }) {
       if (chatBound() && chatReady() && !useChatRoom.getState().entered) {
         chatClient.ensureConnected(chatName() || '道友', chatToken());
       }
-      fetchChatIdentity().then((id) => setUid(id.uid)).catch(() => {});
+      fetchChatIdentity().then((id) => { setUid(id.uid); setDispUid(id.displayUid ?? id.uid); setCustomUidInput(String(id.displayUid ?? id.uid)); }).catch(() => {});
     }
     return () => { useChatRoom.getState()._set({ open: false }); };
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -173,7 +181,7 @@ export default function ChatRoomPanel({ onClose }: { onClose: () => void }) {
     try {
       await discordLogin();
       setLoggedIn(true);
-      try { const id = await fetchChatIdentity(); setUid(id.uid); if (!name.trim() || name === '道友') setName(id.name || name); } catch { /* */ }
+      try { const id = await fetchChatIdentity(); setUid(id.uid); setDispUid(id.displayUid ?? id.uid); setCustomUidInput(String(id.displayUid ?? id.uid)); if (!name.trim() || name === '道友') setName(id.name || name); } catch { /* */ }
     } catch (e: any) { setGateErr(e?.message || '登录失败'); }
     setBusy(false);
   };
@@ -182,14 +190,14 @@ export default function ChatRoomPanel({ onClose }: { onClose: () => void }) {
     setBusy(true); setGateErr('');
     try {
       const id = await fetchChatIdentity(n);
-      setUid(id.uid); setMpName(n);
+      setUid(id.uid); setDispUid(id.displayUid ?? id.uid); setCustomUidInput(String(id.displayUid ?? id.uid)); setMpName(n);
       chatClient.connect(n, id.chatToken);   // entered 由 hello 置真 → 面板转聊天
       if (!chatBound() && !bindAskedRef.current) { bindAskedRef.current = true; setBindConfirm(true); }   // 进入后弹一次绑定确认
     } catch (e: any) { setGateErr(e?.message || '进入失败'); }
     setBusy(false);
   };
   const confirmBind = (yes: boolean) => { if (yes) setChatBound(true); setBindConfirm(false); };
-  const doLogout = () => { chatClient.leave(); fullLogout(); setLoggedIn(false); setUid(0); setGateErr(''); };
+  const doLogout = () => { chatClient.leave(); fullLogout(); setLoggedIn(false); setUid(0); setDispUid(0); setCustomUidInput(''); setGateErr(''); };
   const doExit = () => { chatClient.leave(); setChatBound(false); };   // 退出：断开+解绑→回门禁（保留 Discord 登录）
 
   // ── 聊天动作 ──
@@ -227,6 +235,22 @@ export default function ChatRoomPanel({ onClose }: { onClose: () => void }) {
       if (id.nameLocked) { setProfMsg('⚠ ' + (id.nameLockMsg || '昵称暂时无法更改')); }
       else { setMpName(id.name); chatClient.rename(id.name); setProfMsg('✓ 昵称已更新'); }
     } catch (err: any) { setProfMsg(err?.message || '改名失败'); }
+    setProfBusy(false);
+  };
+  const onChangeUid = async () => {
+    const want = parseInt((customUidInput || '').replace(/\D/g, ''), 10) || 0;
+    if (!want) { setProfMsg('⚠ 请输入有效编号（纯数字）'); return; }
+    setProfBusy(true); setProfMsg('');
+    try {
+      const id = await updateChatProfile({ customUid: want });
+      if (id.uidLocked) { setProfMsg('⚠ ' + (id.uidLockMsg || 'UID 暂时无法更改')); }
+      else {
+        const du = id.displayUid ?? id.uid;
+        setDispUid(du); setCustomUidInput(String(du));
+        chatClient.connect(chatName() || name, id.chatToken);   // 重连：把新显示号(令牌里的 du)广播给在场所有人
+        setProfMsg('✓ 编号已更新为 #' + du);
+      }
+    } catch (err: any) { setProfMsg(err?.message || '更改失败'); }
     setProfBusy(false);
   };
   // 头像来源切换（DiceBear / 像素动物），切完重连广播给在场所有人
@@ -278,7 +302,7 @@ export default function ChatRoomPanel({ onClose }: { onClose: () => void }) {
         <header className="shrink-0 flex items-center gap-3 px-5 py-3 border-b border-edge bg-panel">
           <span className="text-god/70 text-lg">💬</span>
           <div className="flex-1 min-w-0">
-            <div className="text-base font-bold text-slate-100">聊天室 · 实时 {entered && uid > 0 && <span className="text-[12px] font-mono text-god/60">#{uid}</span>}</div>
+            <div className="text-base font-bold text-slate-100">聊天室 · 实时 {entered && uid > 0 && <span className="text-[12px] font-mono text-god/60">#{dispUid || uid}</span>}</div>
             <div className="text-[11px] font-mono text-dim/60 flex items-center gap-1.5">
               <StatusDot status={entered ? st.status : 'idle'} />
               <span>{!entered ? '未进入' : connected ? `${st.roster.length} 人在线` : st.status === 'connecting' ? '连接中…' : st.status === 'closed' ? '已断开' : '未连接'}</span>
@@ -305,7 +329,7 @@ export default function ChatRoomPanel({ onClose }: { onClose: () => void }) {
               <>
                 <div className="text-3xl">✦</div>
                 {uid > 0
-                  ? <div className="text-sm text-slate-200">你的专属编号 <span className="text-god font-bold text-lg font-mono">#{uid}</span></div>
+                  ? <div className="text-sm text-slate-200">你的专属编号 <span className="text-god font-bold text-lg font-mono">#{dispUid || uid}</span></div>
                   : <div className="text-[12px] text-dim/50">正在分配编号…</div>}
                 <div className="text-[12px] text-dim/60">起个名字，进入聊天室</div>
                 <input value={name} onChange={(e) => setName(e.target.value.slice(0, 24))} onKeyDown={(e) => { if (e.key === 'Enter') doEnter(); }} placeholder="你的昵称" autoFocus
@@ -324,7 +348,7 @@ export default function ChatRoomPanel({ onClose }: { onClose: () => void }) {
             <div className="flex items-center gap-3">
               <ChatAvatar uid={uid} avv={myAvv} ds={myDs} size={56} ring="#5fd3bc" />
               <div>
-                <div className="text-sm font-bold text-slate-100">{(name || '道友').trim() || '道友'} <span className="font-mono text-god/60 text-xs">#{uid}</span></div>
+                <div className="text-sm font-bold text-slate-100">{(name || '道友').trim() || '道友'} <span className="font-mono text-god/60 text-xs">#{dispUid || uid}</span></div>
                 <div className="text-[11px] text-dim/50">你的专属编号永久不变</div>
               </div>
             </div>
@@ -366,6 +390,17 @@ export default function ChatRoomPanel({ onClose }: { onClose: () => void }) {
               </div>
             </div>
 
+            {/* 自定义编号（靓号·全局唯一·2 天冷却）*/}
+            <div className="space-y-1.5">
+              <div className="text-[12px] font-semibold text-slate-200">自定义编号 <span className="text-[10px] text-amber-400/70 font-normal">· 靓号·全局唯一·改一次后 2 天内不能再改</span></div>
+              <div className="flex items-center gap-2 max-w-sm">
+                <span className="text-god font-mono text-sm">#</span>
+                <input value={customUidInput} onChange={(e) => setCustomUidInput(e.target.value.replace(/\D/g, '').slice(0, 7))} inputMode="numeric" placeholder="纯数字编号" className="flex-1 bg-void border border-edge rounded-lg px-3 py-1.5 text-sm text-slate-100 focus:outline-none focus:border-god/40" />
+                <button onClick={onChangeUid} disabled={profBusy} className="px-3 py-1.5 rounded-lg text-[13px] bg-god/15 border border-god/40 text-god/90 hover:bg-god/25 disabled:opacity-40 transition-colors">{profBusy ? '…' : '更改'}</button>
+              </div>
+              <div className="text-[10px] text-dim/40">只能改成没被占用的编号；改后聊天里别人看到的就是这个号（身份不变）。</div>
+            </div>
+
             {/* 名牌颜色（他人可见）*/}
             <div className="space-y-1.5">
               <div className="text-[12px] font-semibold text-slate-200">名牌颜色 <span className="text-[10px] text-dim/40 font-normal">· 你名字的颜色，聊天里其他人也能看到</span></div>
@@ -405,7 +440,7 @@ export default function ChatRoomPanel({ onClose }: { onClose: () => void }) {
                 {visible.map((m) => {
                   if (m.system) return <div key={m.id} className="text-center text-[10px] font-mono text-dim/40 py-0.5">— {m.system} —</div>;
                   const isMe = m.playerId && m.playerId === st.me?.playerId;
-                  const uidTag = uidOf(m.playerId);
+                  const uidTag = duTag(m.playerId);   // 显示号优先用自定义靓号(名单 du)，回退内部 uid
                   const nc = ncOf(m.playerId) || nameColor(m.hue);   // 名牌颜色：自定义优先，否则按编号确定性配色
                   if (m.sticker) {
                     const src = stickerSrc(m.sticker);
@@ -489,7 +524,7 @@ export default function ChatRoomPanel({ onClose }: { onClose: () => void }) {
                 <div className="mt-1 flex items-center justify-between text-[10px] font-mono text-dim/40">
                   <span>{draft.length}/500</span>
                   <span className="flex items-center gap-1">
-                    {uid > 0 && <span className="text-god/50">#{uid}</span>}
+                    {uid > 0 && <span className="text-god/50">#{dispUid || uid}</span>}
                     以
                     {editingName ? (
                       <>
@@ -515,7 +550,7 @@ export default function ChatRoomPanel({ onClose }: { onClose: () => void }) {
                   <div key={p.playerId} className="w-full flex items-center gap-1.5 px-3 py-1 text-xs">
                     <ChatAvatar uid={parseUid(p.playerId)} avv={p.avv ?? 0} ds={p.ds ?? ''} size={18} />
                     <span className="flex items-center gap-1 min-w-0" style={{ color: ncOf(p.playerId) || nameColor(p.hue) }}>
-                      {uidOf(p.playerId) && <span className="font-mono text-[10px] text-god/40 shrink-0">{uidOf(p.playerId)}</span>}
+                      {duTag(p.playerId) && <span className="font-mono text-[10px] text-god/40 shrink-0">{duTag(p.playerId)}</span>}
                       <span className="truncate">{p.name}{p.playerId === st.me?.playerId ? ' (你)' : ''}</span>
                     </span>
                   </div>
@@ -534,7 +569,7 @@ export default function ChatRoomPanel({ onClose }: { onClose: () => void }) {
           <div className="w-full max-w-sm rounded-2xl border border-god/40 bg-void p-5 shadow-[0_0_60px_rgba(0,0,0,0.85)] text-center space-y-3">
             <div className="text-2xl">🔗</div>
             <div className="text-sm font-bold text-slate-100">绑定到此存档？</div>
-            <div className="text-[12px] text-dim/60 leading-relaxed">把聊天身份 <span className="text-god font-mono">#{uid}</span>「{(name || '道友').trim() || '道友'}」绑定到此存档。<br />以后进聊天室<span className="text-god">免登录直接进</span>，不用每次重来。</div>
+            <div className="text-[12px] text-dim/60 leading-relaxed">把聊天身份 <span className="text-god font-mono">#{dispUid || uid}</span>「{(name || '道友').trim() || '道友'}」绑定到此存档。<br />以后进聊天室<span className="text-god">免登录直接进</span>，不用每次重来。</div>
             <div className="flex gap-2 pt-1">
               <button onClick={() => confirmBind(true)} className="flex-1 px-3 py-2 rounded-lg text-sm font-semibold bg-god/20 border border-god/40 text-god hover:bg-god/30 transition-colors">绑定</button>
               <button onClick={() => confirmBind(false)} className="flex-1 px-3 py-2 rounded-lg text-sm border border-edge text-dim/70 hover:text-slate-200 transition-colors">暂不</button>
