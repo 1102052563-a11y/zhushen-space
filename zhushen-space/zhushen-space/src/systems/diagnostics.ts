@@ -61,6 +61,28 @@ export async function buildDiagnosticBundle(): Promise<string> {
   L.push(`\n## localStorage 占用：${mb.toFixed(2)} MB / ~5 MB${mb > 4.3 ? '   ⚠ 已接近上限，持久化写入可能失败！' : ''}`);
   L.push(lines.length ? lines.join('\n') : '  （无 drpg-/zhushen- 键）');
 
+  // ── 存储持久化 / IndexedDB 配额 ── 直接回答「存档为什么会整批消失」（存档在 IndexedDB，与上面 5MB 的 localStorage 是两回事）──
+  try {
+    const nav: any = typeof navigator !== 'undefined' ? navigator : null;
+    if (nav?.storage) {
+      const persisted = nav.storage.persisted ? await nav.storage.persisted() : false;
+      let usage = '', quota = '';
+      try {
+        if (nav.storage.estimate) {
+          const est = await nav.storage.estimate();
+          if (est.usage != null) usage = `${(est.usage / 1048576).toFixed(0)} MB`;
+          if (est.quota != null) quota = `${(est.quota / 1048576).toFixed(0)} MB`;
+        }
+      } catch { /* estimate 不支持 */ }
+      L.push('\n## 存储持久化（存档=IndexedDB，与上面 localStorage 不同库）');
+      L.push(`  持久化状态：${persisted ? '✓ 已授予（浏览器不会随意清除存档）' : '✗ 未授予 ⚠ — best-effort，存储紧张时浏览器可能整批清掉全部存档（手动档先没→只剩自动档→最后全没的根因）'}`);
+      L.push(`  IndexedDB 占用：${usage || '?'} / 配额 ${quota || '?'}`);
+      if (!persisted) L.push('  建议：① 存档面板点「🔒 申请持久化保护」；② 把本站加书签/常访问以提高授予率；③ 重要进度用 ☁️云存档 或「导出」备份（最稳）。');
+    } else {
+      L.push('\n## 存储持久化：浏览器不支持 navigator.storage（隐私/无痕模式？存档可能关闭即丢）');
+    }
+  } catch (e: any) { L.push(`\n## 存储持久化：检测失败 — ${e?.message || e}`); }
+
   // ── 主角：内存 vs 本地存储 ──
   L.push('\n## 主角角色  （内存 = 界面现在看到的；本地 = 刷新/读档后会加载的）');
   const memChars = (() => { try { return useCharacters.getState().characters || {}; } catch { return {}; } })();

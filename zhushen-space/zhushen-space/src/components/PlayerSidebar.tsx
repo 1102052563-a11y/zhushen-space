@@ -119,13 +119,12 @@ function PlayerAvatar() {
   async function handleGen() {
     setGening(true); setErr('');
     try {
-      // 无英文生图标签(列19)时，先用 LLM 把中文外观翻成英文 danbooru tags（NAI 必须英文才像）
-      let tags = profile.imageTags;
-      if (!tags || !tags.trim()) {
-        const desc = [profile.gender, profile.race, profile.baseAppearance, profile.appearance, profile.profession, realmFromLevel(profile.level), profile.background].filter(Boolean).join('，');
-        const gen = await genPortraitTags(desc);
-        if (gen) { tags = gen; setProfile({ imageTags: gen }); }
-      }
+      // 手动「生成」：每次按【当前外观】重新翻译生图标签(列19)，确保新图反映当下场景/外观。
+      // 旧逻辑只在"无标签"时翻译 → 复用几回合前的旧标签 → 出旧场景图（用户反馈的根因），故改为每次重译；翻译失败再回退旧标签。
+      const desc = [profile.gender, profile.race, profile.baseAppearance, profile.appearance, profile.profession, realmFromLevel(profile.level), profile.background].filter(Boolean).join('，');
+      const gen = await genPortraitTags(desc);
+      const tags = gen || profile.imageTags;
+      if (gen && gen !== profile.imageTags) setProfile({ imageTags: gen });
       const prompt = buildPortraitPrompt({ gender: profile.gender, race: profile.race, appearance: profile.appearance, baseAppearance: profile.baseAppearance, profession: profile.profession, tier: realmFromLevel(profile.level), imageTags: tags });
       const url = await generateImage(portraitService, { prompt, negative: portraitNegative, label: '生成主角立绘' });
       setProfile({ avatar: await shrinkDataUrl(url), avatarTags: tags || '' });

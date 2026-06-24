@@ -28,7 +28,7 @@ export const SKILLTREE_TUNING = {
 
 export const DEFAULT_BRANCH_COLORS = ['#38bdf8', '#f59e0b', '#a78bfa', '#34d399', '#f472b6'];
 
-export interface TreeCtx { level: number; tier?: string; expressBranches?: Set<string>; charId?: string }
+export interface TreeCtx { level: number; tier?: string; expressBranches?: Set<string>; charId?: string; ignoreTierGate?: boolean }
 
 /* 「传承·提前解锁」：主角已通过其它途径获得某路【终极技能/天赋】(capstone) → 该路全程提前解锁(免阶位/累计闸门)、每节点仅 1 潜能点。 */
 function normName(s?: string): string { return String(s ?? '').trim().toLowerCase(); }
@@ -118,6 +118,7 @@ export function availablePP(progress: ProgressLike | undefined, ctx: TreeCtx): n
    节点需主角「有效阶位」≥ node.tierGate 才能点亮。tierGate 由 validateTree 按前置链深度统一分配(空缺填充·显式保留·封顶七阶)。
    传承提前解锁(express)的路线免 gate（已凭终极技能证明掌握，仅在 canRankUp 里对 express 跳过本检查）。 */
 export function gatePass(node: TreeNode, ctx: TreeCtx): boolean {
+  if (ctx.ignoreTierGate) return true;                         // 副职业树：取消阶位限制（任何阶位都可学）
   const need = tierIdxOf(node.tierGate);
   if (need < 0) return true;                                   // 无阶位要求 → 放行
   return tierIdxOf(effectiveTierName(ctx.tier, ctx.level)) >= need;

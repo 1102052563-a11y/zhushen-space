@@ -33,6 +33,7 @@ import { useAbyss } from '../store/abyssStore';
 import { clearJoySessions } from '../store/joyStore';
 import { logWarn } from '../utils/log';
 import { writeB1Mirror, clearB1Mirror } from './b1Mirror';
+import { isFolderBackupSupported, folderAutoEnabled, checkPermission as fbCheckPermission, writeFile as fbWriteFile, FOLDER_AUTOSAVE_FILE } from './folderBackup';
 
 /* ── 持久化 store 单一注册表 ──────────────────────────────────────────────
    一份清单同时驱动「存档快照」(snapshotStores/loadSlot 读写 key 的 localStorage JSON)
@@ -116,8 +117,8 @@ function buildPreview(messages: any[]): SlotPreview {
   };
 }
 
-/* 新建或覆盖一个存档槽 */
-export async function saveSlot(id: string | null, name: string, messages: any[], includeImages = true): Promise<string> {
+/* 组装一个存档槽对象（不落库）——saveSlot 落 IndexedDB、folderBackup 序列化到磁盘文件都复用它。 */
+async function buildSlot(id: string | null, name: string, messages: any[], includeImages = true): Promise<SaveSlot> {
   const now = Date.now();
   const realId = id ?? `slot_${now}`;
   const existing = id ? await saveDb.get<SaveSlot>(id) : null;
@@ -145,8 +146,25 @@ export async function saveSlot(id: string | null, name: string, messages: any[],
     // 图片(IndexedDB)取内存最新快照打包进存档；includeImages=false 时不打包——降级用，避免大图把整次保存撑爆 IndexedDB 配额而失败
     data: { stores: snapshotStores(), messages, ...(includeImages ? { images: snapshotImages() } : {}), ...(narrativeArchive ? { narrativeArchive } : {}), ...(undo ? { undo } : {}) },
   };
+  return slot;
+}
+
+/* 新建或覆盖一个存档槽（落 IndexedDB）。 */
+export async function saveSlot(id: string | null, name: string, messages: any[], includeImages = true): Promise<string> {
+  const slot = await buildSlot(id, name, messages, includeImages);
   await saveDb.put(slot);
-  return realId;
+  return slot.id;
+}
+
+/* 「立即备份到本地文件夹」：把当前整局（含图）写成带时间戳的 .json 到用户选定的真实磁盘文件夹。
+   文件在磁盘上 → 不受浏览器对 IndexedDB 的整源淘汰影响，是抗「存档被清」的根治备份。返回写出的文件名。 */
+export async function backupCurrentToFolder(messages: any[]): Promise<string> {
+  const now = Date.now();
+  const stamp = new Date(now).toLocaleString('sv-SE').replace(/[: ]/g, '-');   // 形如 2026-06-24-12-30-00
+  const slot = await buildSlot(`slot_${now}`, `📁 文件夹备份 ${new Date(now).toLocaleString('zh-CN', { hour12: false })}`, messages, true);
+  const file = `主神空间-存档-${stamp}.json`;
+  await fbWriteFile(file, JSON.stringify(slot));
+  return file;
 }
 
 /* ── 自动存档：每回合结束覆盖同一个固定槽 ── */
@@ -172,6 +190,14 @@ export async function autoSaveSlot(messages: any[]): Promise<void> {
       .sort();   // 键 = autosnap_<13位时间戳>，等长→字符串序即时间序(升序：旧→新)
     for (const old of snapKeys.slice(0, Math.max(0, snapKeys.length - AUTOSNAP_KEEP))) { try { await saveDb.del(old); } catch { /* 删旧备份失败忽略 */ } }
   } catch (e) { console.warn('[Save] 滚动备份失败:', e); }
+  // 本地文件夹自动备份（电脑·已选文件夹+已开启+已授权时）：把本回合状态(不含图、小)写到真实磁盘文件，抗浏览器整源淘汰。
+  // 不在用户手势内 → 只用已 granted 的权限；prompt/denied 一律跳过（面板里引导用户点一下重新授权）。
+  try {
+    if (isFolderBackupSupported() && (await folderAutoEnabled()) && (await fbCheckPermission(false)) === 'granted') {
+      const slot = await buildSlot(AUTOSAVE_ID, '⏱ 自动存档', messages, false);
+      await fbWriteFile(FOLDER_AUTOSAVE_FILE, JSON.stringify(slot));
+    }
+  } catch (e) { logWarn('autoSaveSlot.folder', e); }
   // 主角镜像兜底(随回合更新；仅 B1 非空时写)
   try { writeB1Mirror(); } catch { /* */ }
 }
@@ -378,6 +404,25 @@ export async function requestPersistentStorage(): Promise<{ supported: boolean; 
     console.log(`[Save] 持久化存储：${granted ? '✓ 已授予，存档不再被浏览器随意淘汰' : '✗ 未授予——存储紧张时手动档可能被清理，建议给本站加书签/常访问以提高授予率'}${usage}`);
     return { supported: true, persisted: granted };
   } catch { return { supported: false, persisted: false }; }
+}
+
+/* 只读查询存储持久化状态 + IndexedDB 配额占用（**不发起申请**）——供存档面板/诊断包展示。
+   让"存档随时可能被浏览器整批清掉"这件事对用户**可见**：persisted=false 即处于 best-effort，
+   存储紧张时本源 IndexedDB（=全部存档）可能被整体淘汰（手动档先没→只剩自动档→最后全没的根因）。*/
+export async function getStorageStatus(): Promise<{ supported: boolean; persisted: boolean; usageMB: number | null; quotaMB: number | null }> {
+  try {
+    if (typeof navigator === 'undefined' || !navigator.storage) return { supported: false, persisted: false, usageMB: null, quotaMB: null };
+    const persisted = navigator.storage.persisted ? await navigator.storage.persisted() : false;
+    let usageMB: number | null = null, quotaMB: number | null = null;
+    try {
+      if (navigator.storage.estimate) {
+        const est = await navigator.storage.estimate();
+        if (est.usage != null) usageMB = Math.round(est.usage / 1048576);
+        if (est.quota != null) quotaMB = Math.round(est.quota / 1048576);
+      }
+    } catch { /* estimate 不支持：忽略 */ }
+    return { supported: !!navigator.storage.persist, persisted, usageMB, quotaMB };
+  } catch { return { supported: false, persisted: false, usageMB: null, quotaMB: null }; }
 }
 
 export async function exportSlot(id: string) {

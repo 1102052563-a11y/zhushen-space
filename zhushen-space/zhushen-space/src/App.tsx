@@ -1030,6 +1030,7 @@ export default function App() {
   const illustClickTimer = useRef<number | null>(null);   // 正文配图单击/双击消歧：单击延时开灯箱，双击则取消并重生成
   const storyRegenBusy = useRef<Set<string>>(new Set());  // 正文配图重生成防连点（key=msgId:idx）
   const progImgRef = useRef<{ offset: number; dispatched: number }>({ offset: 0, dispatched: 0 });  // 「边写边出」：流式期间已处理到的字符 offset + 已派发出图段数（每回合重置）
+  const [storyImgBusyId, setStoryImgBusyId] = useState<number | null>(null);   // 手动「为本回合生图」：正在生图的楼层 id（防并发 + 按钮态）
   const autoSaveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const lastAutoSaveTurn = useRef(-1);   // 本回合是否已自动存过：防同回合内(生图/选项等异步改 messages 反复触发定时器)重复自动存、刷出多份🛟备份
   const abortRef = useRef<AbortController | null>(null);   // 正文生成中止控制器（停止生成用）
@@ -3601,6 +3602,22 @@ ${AFFIX_EFFECT_RULE}`;
       setImagePhaseLog(`正文配图·边写边出（${st.dispatched}/${count}）`);
       void genStoryImagesFor(para, 1, msgId);                 // 不 await：立即开始出图、不挡流式
     }
+  }
+
+  /* 手动「为本回合生图」：拿该楼正文重新抽画面+出图（追加到该楼 images，不重写正文）。Muyi 反馈：救"失败/没出图"的错，不用重 roll 正文。 */
+  async function manualStoryImagesForMsg(msgId: number) {
+    if (storyImgBusyId != null) return;                                          // 防并发
+    const msg = (messagesRef.current ?? []).find((m) => m.id === msgId);
+    if (!msg || !msg.content?.trim()) return;
+    const ig = useImageGen.getState();
+    const count = Math.max(1, Math.min(9, ig.storyImageCount || 4));
+    setStoryImgBusyId(msgId);
+    setImagePhaseLog('手动正文生图·抽取中…');
+    try {
+      const ok = await genStoryImagesFor(msg.content, count, msgId);
+      setImagePhaseLog(ok > 0 ? `✓ 已生成 ${ok} 张配图` : '⚠ 没生成（模型未按格式/拒绝NSFW/未配置生图标签 LLM）');
+    } catch (e: any) { setImagePhaseLog(`⚠ 生图失败：${String(e?.message ?? e).slice(0, 40)}`); }
+    finally { setStoryImgBusyId(null); setTimeout(() => setImagePhaseLog(''), 7000); }
   }
 
   /* 双击正文配图 → 用该张原 prompt 重新生成（不重抽锚点、不动其它图）。复用 storyService 与 storySize。 */
@@ -6852,12 +6869,6 @@ ${lines}`;
 
   // 选择世界：把卡片全部内容作为上下文发给 API
   async function enterWorld(world: WorldOption) {
-    // 进入新世界前：把"当前世界即将被清空的对话"追加进正文归档，让「导出全部正文」能拿到所有世界。
-    // 此刻 worldName/messagesRef 仍是要离开的那一局（下方会切到新世界并清空对话）；归档失败不阻断进入。
-    try {
-      const leavingWorld = (useMisc.getState().worldName || '').trim();
-      await chatDb.appendArchive((messagesRef.current || []).map((m) => ({ role: m.role, content: m.content, world: leavingWorld })));
-    } catch (e) { console.warn('[Novel] 归档上一世界对话失败:', e); }
     setWorlds([]);
     setCardIndex(0);
 
@@ -6890,10 +6901,12 @@ ${lines}`;
       }
     } catch { /* */ }
     const systemMsg: ChatMessage = { id: ++msgId.current, role: 'user', content: contextText };
-    messagesRef.current = [];   // 进入新世界：以空历史起头，避免取到旧对话
-    setMessages([systemMsg]);
-    await captureUndoPoint();   // 记录进入世界前的回退点 → 让「进入世界」的首条正文也能重新生成
-    await callApi(contextText, []);
+    // 切换世界**不再清空对话**：把世界入场作为新楼层追加，旧世界正文继续保留在聊天里（不会"页面被清空"）。
+    // 给正文 AI 的上下文仍由「历史楼层限制 historyLimit」截断——callApi 取 messagesRef.current 的最近 N 楼，
+    // 故旧世界几楼后自然滚出上下文，不串味；导出小说时整条 messages 跨全部世界，天然完整。
+    setMessages((prev) => [...prev, systemMsg]);
+    await captureUndoPoint();   // 记录进入世界前的回退点 → 让「进入世界」的首条正文也能重新生成/回退
+    await callApi(contextText, []);   // extraHistory=[] → callApi 内部回退用 messagesRef.current（按 historyLimit 截断）
   }
 
   if (settingsOpen) {
@@ -7128,6 +7141,16 @@ ${lines}`;
                                 }}
                                 dangerouslySetInnerHTML={{ __html: toHtmlWithImages(msg.content, msg.images) }}
                               />
+                              {/* 手动正文生图：重新为本回合配图（不重 roll 正文，救"没出图/失败"的错）*/}
+                              <div className="mt-1">
+                                <button
+                                  onClick={() => void manualStoryImagesForMsg(msg.id)}
+                                  disabled={storyImgBusyId === msg.id}
+                                  title="重新为本回合正文生成配图（不会改写正文）"
+                                  className="text-[11px] font-mono text-dim/45 hover:text-god transition-colors disabled:opacity-50">
+                                  {storyImgBusyId === msg.id ? '◌ 生图中…' : (msg.images?.length ? '🖼 追加配图' : '🖼 为本回合生图')}
+                                </button>
+                              </div>
                               {msg.fanficNote && (
                                 <details className="mt-2 rounded-lg border border-fuchsia-500/25 bg-fuchsia-500/5 px-3 py-2 text-[13px]">
                                   <summary className="cursor-pointer text-fuchsia-300/80 font-mono select-none">🔍 同人搜索内容</summary>

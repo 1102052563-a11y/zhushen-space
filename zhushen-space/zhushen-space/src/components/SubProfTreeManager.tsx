@@ -374,6 +374,7 @@ export default function SubProfTreeManager() {
                     <input type="number" min={0} className={inputCls} value={selNode.cost} onChange={(e) => patchNode({ cost: Math.max(0, Number(e.target.value) || 0) })} /></label>
                   <label className="block space-y-0.5 col-span-2"><span className={labelCls}>累计点数门槛(spentGate·0=无)</span>
                     <input type="number" min={0} className={inputCls} value={selNode.spentGate ?? ''} placeholder="0=无" onChange={(e) => { const v = Math.max(0, Math.floor(Number(e.target.value) || 0)); patchNode({ spentGate: v || undefined }); }} /></label>
+                  {/* 副职业树已取消阶位限制：不再有「阶位 gate」字段（任何阶位都可学配方） */}
                 </div>
                 <label className="block space-y-0.5"><span className={labelCls}>说明</span>
                   <textarea rows={2} className={inputCls + ' resize-y'} value={selNode.desc ?? ''} onChange={(e) => patchNode({ desc: e.target.value })} /></label>

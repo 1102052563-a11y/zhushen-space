@@ -123,7 +123,7 @@ export default function SubProfessionPanel({ onClose }: { onClose: () => void })
     try { scrollRef.current?.releasePointerCapture(e.pointerId); } catch { /* 已释放 */ }
   };
 
-  const ctx = { level: profile.level, tier: profile.tier, charId: 'B1' };
+  const ctx = { level: profile.level, tier: profile.tier, charId: 'B1', ignoreTierGate: true };   // 副职业树取消阶位限制
   const ranks = prog?.ranks ?? {};
   const availableIds = new Set((tree?.nodes ?? []).filter((n) => canRankUp(tree, n.id, prog, ctx).ok).map((n) => n.id));
   const avail = availablePP(prog, ctx);
@@ -265,6 +265,7 @@ export default function SubProfessionPanel({ onClose }: { onClose: () => void })
                         {selIsRecipe ? (selNode.kind === 'capstone' ? `宗师级${recipeLabel}` : selNode.kind === 'major' ? `招牌${recipeLabel}` : `${recipeLabel}`) : '基本功'}
                       </span>
                       <span className="text-[11px] px-1.5 py-0.5 rounded border border-sky-600/50 text-sky-300 font-mono">点数 {selRank}/{selMaxR}</span>
+                      {selNode.tierGate && <span className="text-[11px] px-1.5 py-0.5 rounded border border-violet-600/50 text-violet-300 font-mono">需 {selNode.tierGate}</span>}
                       {!!selNode.spentGate && <span className="text-[11px] px-1.5 py-0.5 rounded border border-edge text-amber-300/80 font-mono">需累计 {selNode.spentGate} 点</span>}
                     </div>
                     {selNode.desc && <p className="text-[13px] text-dim/70 mt-1 leading-relaxed">{asText(selNode.desc)}</p>}

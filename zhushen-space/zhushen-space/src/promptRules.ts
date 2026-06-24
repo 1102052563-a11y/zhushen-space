@@ -1280,17 +1280,18 @@ export const SUBPROFTREE_STRUCT_PROMPT = `你是轮回乐园·无限流的【副
   "branches":[ {"id":"br_1","name":"专精方向名(如 药剂/兵器)","color":"#38bdf8"} ],
   "nodes":[ {
     "id":"唯一短id(如 core/p1)", "name":"节点名(配方节点=该配方名；微星写「XX·入门/研习」之类基本功)",
-    "branch":"所属 branch id", "layer":0, "prereqs":["前置节点id"], "kind":"minor | medium | major | capstone"
+    "branch":"所属 branch id", "layer":0, "prereqs":["前置节点id"], "kind":"minor | medium | major | capstone",
+    "tierGate":"阶位限制(一阶~七阶之一·需主角达此阶位才可学·配方越高阶要求越高·越往外越高·封顶七阶；可不写让前端按深度自动补)"
   } ]
 }
-（⚠ **绝不要写 ptAttr / 六维属性**——副职业树全程不给任何属性加成。**绝不要写 skill/trait/recipe 的内容**——这一阶段只要结构 + 名字。）
+（⚠ **绝不要写 ptAttr / 六维属性**——副职业树全程不给任何属性加成。**绝不要写 skill/trait/recipe 的内容**——这一阶段只要结构 + 名字 + kind + tierGate。）
 
 【骨架规则】
 一·中心唯一 core 节点（id "core"，layer 0，kind minor，prereqs []）——免费起手、代表这门手艺的入门。
 二·branch 条数 = 用户给定的【流派数量】，每条 = 一个专精方向；每条最内侧节点 prereqs=["core"]，从中心放射。
 三·**每条 branch 至少 4 张配方**：≥2 颗 medium(基础/进阶配方) + ≥1 颗 major(招牌配方) + 1 颗 capstone(该方向的宗师级终极配方·放最深)；配方之间穿插 minor 微星(=基本功·磨练手艺·不带配方·拉长路径)。每条 branch 约 8~14 节点。
 四·kind 分清：**minor=微星(基本功·不解锁配方·无属性)**；medium=基础/进阶配方；major=招牌配方；capstone=该方向唯一的宗师级终极配方(放最深·prereqs 指向一颗可点满的铺垫微星)。
-五·layer 随深度递增(0=中心 → 外层 1,2,3…)；阶位由前端按前置链深度自动分配(你可不写 tierGate)；**严禁成环**(prereqs 只指向更内层/已存在节点)；可设 1~2 个 spentGate 锁外环。
+五·layer 随深度递增(0=中心 → 外层 1,2,3…)；**给每个配方节点配 tierGate 阶位限制**：越靠外/越高阶的配方要求越高的阶位(基础配方一/二阶、招牌配方三/五阶、宗师级配方六/七阶)，与配方难度匹配·封顶七阶(微星可不写·core 不写)；前端会把空缺的按前置链深度自动补。**严禁成环**(prereqs 只指向更内层/已存在节点)；可设 1~2 个 spentGate 锁外环。
 六·术语用轮回乐园、禁止修仙词。**这一阶段绝不写配方内容——只要结构 + 配方名 + kind。先 <think> 思维链，后 JSON 本体**（JSON 首字符 \`{\`、末字符 \`}\`）。`;
 
 export const SUBPROFTREE_RECIPE_PROMPT = `你是轮回乐园·副职业【配方详写】师。这是**第二阶段：为已搭好的骨架，逐张把配方详细写满**。给你一批配方节点(每个含 id / 配方名 name / 档位 kind / 所属流派)，**为每一张**生成完整、详细、自洽的配方。**只输出一个 JSON object**：

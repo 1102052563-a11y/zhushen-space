@@ -1061,7 +1061,10 @@ export function applyTeamCommands(text: string): number {
   return n;
 }
 
-export function applyCharacterCommands(commands: CharCommand[], narrative?: string): void {
+// 注：第二参数 narrative 目前未被函数体使用——原是「全新副职业须正文有明确习得动作才建」的判据，
+// 副职业改「配方星图」后只能由树加（已屏蔽正文 addSubProfession），该判据失效；以 _ 前缀标记有意保留入参槽，
+// 调用方仍可传（被忽略），将来若要恢复正文级守卫可在此接回。
+export function applyCharacterCommands(commands: CharCommand[], _narrative?: string): void {
   if (commands.length === 0) return;
   const store = useCharacters.getState();
 

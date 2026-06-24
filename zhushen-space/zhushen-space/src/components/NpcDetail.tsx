@@ -849,13 +849,11 @@ function AvatarBlock({ npc }: { npc: NpcRecord }) {
     try {
       const ap = parseAppearance5(npc.appearance5);
       const appearance = [ap.look, ap.figure, ap.outfit, npc.appearanceDetail].filter(Boolean).join('，');
-      // 无英文生图标签(列19)时，先用 LLM 把中文外观翻成英文 danbooru tags（NAI 必须英文才像）
-      let tags = npc.imageTags;
-      if (!tags || !tags.trim()) {
-        const desc = [`${npc.name}`, npc.gender, appearance, npc.profession, parseRealm(npc.realm).tier, npc.npcTag].filter(Boolean).join('，');
-        const gen = await genPortraitTags(desc);
-        if (gen) { tags = gen; upsert(npc.id, { imageTags: gen }); }
-      }
+      // 手动「生成」：每次按【当前外观】重新翻译生图标签(列19)，确保新图反映当下场景/外观（旧逻辑只在无标签时翻译→复用旧标签出旧图，正是头像不更新的根因）。翻译失败回退旧标签。
+      const desc = [`${npc.name}`, npc.gender, appearance, npc.profession, parseRealm(npc.realm).tier, npc.npcTag].filter(Boolean).join('，');
+      const gen = await genPortraitTags(desc);
+      const tags = gen || npc.imageTags;
+      if (gen && gen !== npc.imageTags) upsert(npc.id, { imageTags: gen });
       const prompt = buildPortraitPrompt({ gender: npc.gender, age: npc.age, appearance, profession: npc.profession, tier: parseRealm(npc.realm).tier, npcTag: npc.npcTag, imageTags: tags,
         action: ap.action, attire: ap.outfit, location: ap.location, figure: ap.figure, appearanceDetails: npc.appearanceDetail });
       const url = await generateImage(portraitService, { prompt, negative: portraitNegative, label: `生成 ${npc.name} 肖像` });

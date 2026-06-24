@@ -307,7 +307,7 @@ export const useSubProfTree = create<SubProfTreeState>()(
         const tree = prog.activeTreeId ? s.trees[prog.activeTreeId] : undefined;
         if (!tree) return false;
         const profile = usePlayer.getState().profile;
-        const ctx = { level: profile.level, tier: profile.tier, charId };   // charId → 共享池校验潜能点
+        const ctx = { level: profile.level, tier: profile.tier, charId, ignoreTierGate: true };   // charId→共享池；ignoreTierGate→副职业树取消阶位限制
         if (!canRankUp(tree, nodeId, prog, ctx).ok) return false;
         const node = tree.nodes.find((n) => n.id === nodeId)!;
         const wasRank = nodeRank(prog, nodeId);
@@ -348,7 +348,7 @@ export const useSubProfTree = create<SubProfTreeState>()(
         const tree = prog.activeTreeId ? s.trees[prog.activeTreeId] : undefined;
         if (!tree) return false;
         const profile = usePlayer.getState().profile;
-        const ctx = { level: profile.level, tier: profile.tier, charId };
+        const ctx = { level: profile.level, tier: profile.tier, charId, ignoreTierGate: true };
         if (!canRankUp(tree, nodeId, prog, ctx).ok) return false;
         const node = tree.nodes.find((n) => n.id === nodeId); if (!node) return false;
         const rec = node.grants?.recipe; if (!rec?.name) return false;

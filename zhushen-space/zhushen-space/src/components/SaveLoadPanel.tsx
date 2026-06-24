@@ -1,8 +1,13 @@
 import { useEffect, useRef, useState } from 'react';
 import {
   listSlots, listAutoSnaps, saveSlot, loadSlot, renameSlot, deleteSlot, exportSlot, importSlot, newGame,
-  extractPlayerFromSlot, type SlotMeta,
+  extractPlayerFromSlot, getStorageStatus, requestPersistentStorage, backupCurrentToFolder, type SlotMeta,
 } from '../systems/saveManager';
+import {
+  isFolderBackupSupported, getFolderHandle, pickFolder, forgetFolder,
+  folderAutoEnabled, setFolderAutoEnabled, checkPermission as fbCheckPermission,
+  listJsonFiles, readJsonFile,
+} from '../systems/folderBackup';
 import { buildDiagnosticBundle } from '../systems/diagnostics';
 import { exportFullNovelTxt } from '../systems/novelExport';
 import { useSettings } from '../store/settingsStore';
@@ -39,11 +44,85 @@ export default function SaveLoadPanel({ messages, onClose }: Props) {
   const [confirmCloudDel, setConfirmCloudDel] = useState<string | null>(null);
   const [snapsOpen, setSnapsOpen] = useState(false);                   // 展开「自动备份」折叠区
   const [autoSnaps, setAutoSnaps] = useState<SlotMeta[]>([]);
+  // 存储持久化状态：未授予=best-effort，存储紧张时整批存档可能被浏览器清掉（"手动档先没→只剩自动档→全没"的根因）。让它可见。
+  const [persist, setPersist] = useState<{ supported: boolean; persisted: boolean; usageMB: number | null; quotaMB: number | null } | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
 
   async function refresh() { setSlots(await listSlots()); }
   async function refreshSnaps() { setAutoSnaps(await listAutoSnaps()); }
-  useEffect(() => { refresh(); }, []);
+  useEffect(() => { refresh(); void getStorageStatus().then(setPersist); }, []);
+  // 申请持久化（用户手势触发，比启动时静默申请更易被浏览器授予）
+  async function handleRequestPersist() {
+    setBusy(true);
+    try {
+      const r = await requestPersistentStorage();
+      setPersist(await getStorageStatus());
+      flash(r.persisted ? '🔒 已开启持久化存储，存档不会被浏览器随意清除'
+                        : '浏览器暂未授予持久化——请把本站加书签/常访问后再试，或用 ☁️云存档/导出 备份（最稳）');
+    } finally { setBusy(false); }
+  }
+
+  // ── 📁 本地文件夹存档（电脑 Chrome/Edge）：写到真实磁盘文件，抗浏览器整源淘汰 ──
+  const [fbSupported] = useState(isFolderBackupSupported());
+  const [fbOpen, setFbOpen] = useState(false);
+  const [fbFolder, setFbFolder] = useState<string | null>(null);
+  const [fbAuto, setFbAuto] = useState(false);
+  const [fbPerm, setFbPerm] = useState<'granted' | 'prompt' | 'denied' | 'none'>('none');
+  const [fbFiles, setFbFiles] = useState<string[] | null>(null);   // null=未列出
+  const [fbBusy, setFbBusy] = useState(false);
+  async function fbRefresh() {
+    if (!fbSupported) return;
+    const h = await getFolderHandle();
+    setFbFolder(h?.name ?? null);
+    setFbAuto(await folderAutoEnabled());
+    setFbPerm(h ? await fbCheckPermission(false) : 'none');
+  }
+  useEffect(() => { if (fbOpen) void fbRefresh(); /* eslint-disable-next-line */ }, [fbOpen]);
+  async function fbPick() {
+    setFbBusy(true);
+    try {
+      const name = await pickFolder();
+      await fbCheckPermission(true);        // 选完即在手势内确保读写权限
+      await setFolderAutoEnabled(true);     // 选了就默认开启自动备份
+      await fbRefresh();
+      flash(`✓ 已选文件夹「${name}」，之后每回合自动备份到此处（存到真实磁盘，浏览器清存储也不会丢）`);
+    } catch (e: any) { if (e?.name !== 'AbortError') flash('❌ ' + (e?.message ?? e)); }
+    finally { setFbBusy(false); }
+  }
+  async function fbToggleAuto(v: boolean) {
+    setFbBusy(true);
+    try {
+      if (v) { const p = await fbCheckPermission(true); if (p !== 'granted') { flash('❌ 未授予写入权限，无法开启自动备份'); setFbPerm(p); return; } }
+      await setFolderAutoEnabled(v); await fbRefresh();
+      flash(v ? '✓ 已开启文件夹自动备份' : '已关闭文件夹自动备份');
+    } finally { setFbBusy(false); }
+  }
+  async function fbGrant() {
+    setFbBusy(true);
+    try { const p = await fbCheckPermission(true); setFbPerm(p); flash(p === 'granted' ? '✓ 已恢复写入授权，自动备份继续' : '❌ 未授权'); }
+    finally { setFbBusy(false); }
+  }
+  async function fbBackupNow() {
+    setFbBusy(true);
+    try { const f = await backupCurrentToFolder(messages); if (fbFiles) await fbListFiles(); flash(`✓ 已备份到文件夹：${f}`); }
+    catch (e: any) { flash('❌ 备份失败：' + (e?.message ?? e)); }
+    finally { setFbBusy(false); }
+  }
+  async function fbListFiles() {
+    try { setFbFiles(await listJsonFiles()); }
+    catch (e: any) { flash('❌ 读取文件夹失败：' + (e?.message ?? e)); }
+  }
+  async function fbRestore(name: string) {
+    setFbBusy(true);
+    try { const txt = await readJsonFile(name); await importSlot(txt); await refresh(); flash(`✓ 已从「${name}」导入到下方存档列表，点「读取」即可进入`); }
+    catch (e: any) { flash('❌ 恢复失败：' + (e?.message ?? e)); }
+    finally { setFbBusy(false); }
+  }
+  async function fbForget() {
+    setFbBusy(true);
+    try { await forgetFolder(); await setFolderAutoEnabled(false); setFbFiles(null); await fbRefresh(); flash('已忘记文件夹（磁盘上的文件不会被删除）'); }
+    finally { setFbBusy(false); }
+  }
   useEffect(() => { if (snapsOpen) void refreshSnaps(); }, [snapsOpen]);
   // 展开云存档区且已登录 → 拉云端列表
   useEffect(() => { if (cloudOpen && cloudLoggedIn()) void refreshCloud(); /* eslint-disable-next-line */ }, [cloudOpen]);
@@ -197,6 +276,26 @@ export default function SaveLoadPanel({ messages, onClose }: Props) {
 
         {msg && <div className={`shrink-0 px-5 py-1.5 text-sm font-mono ${msg.includes('❌') ? 'text-blood' : 'text-god'}`}>{msg}</div>}
 
+        {/* ⚠ 存储持久化告警：未授予=浏览器随时可能整批清掉存档（手动档先没→只剩自动档→全没的根因）。让风险可见+可自救。 */}
+        {persist && persist.supported && !persist.persisted && (
+          <div className="shrink-0 mx-4 mt-3 rounded-lg border border-blood/50 bg-blood/10 px-4 py-2.5 text-[12px] font-mono leading-relaxed">
+            <div className="text-blood font-bold mb-1">⚠ 存档未受持久化保护——可能被浏览器清除</div>
+            <div className="text-dim/80">
+              浏览器未授予「持久化存储」。存储紧张时本站存档（IndexedDB）可能被<span className="text-blood font-bold">整批清掉</span>——
+              这正是「手动存档先消失、只剩自动档、最后连自动档也没」的原因。
+              {persist.usageMB != null && persist.quotaMB != null && <> 当前已用 {persist.usageMB}MB / 配额 {persist.quotaMB}MB。</>}
+            </div>
+            <div className="mt-1.5 flex flex-wrap items-center gap-2">
+              <button onClick={handleRequestPersist} disabled={busy}
+                className="px-2.5 py-1 border border-god/50 text-god rounded hover:bg-god/10 disabled:opacity-40">🔒 申请持久化保护</button>
+              <span className="text-dim/60">或：把本站<b className="text-dim/80">加书签/常访问</b>提高授予率；重要进度用下方 <b className="text-god/80">☁️云存档</b> 或「导出」备份（最稳）。</span>
+            </div>
+          </div>
+        )}
+        {persist && persist.persisted && (
+          <div className="shrink-0 px-5 max-lg:px-3 pt-2 text-[11px] font-mono text-god/55">🔒 持久化存储已开启（存档不会被浏览器随意清除）{persist.usageMB != null && ` · 已用 ${persist.usageMB}MB${persist.quotaMB != null ? ` / ${persist.quotaMB}MB` : ''}`}</div>
+        )}
+
         {/* 自动存档开关（省内存/防大档撑爆）：自动档不含图片，手动「新建存档」才带图 */}
         <div className="shrink-0 flex flex-wrap items-center gap-x-3 gap-y-1 px-5 max-lg:px-3 py-2 border-b border-edge/60 bg-panel/40 text-[12px] font-mono text-dim">
           <label className="flex items-center gap-1.5 cursor-pointer select-none">
@@ -261,6 +360,64 @@ export default function SaveLoadPanel({ messages, onClose }: Props) {
                     </div>
                   ))}
                 </>
+              )}
+            </div>
+          )}
+        </div>
+
+        {/* 📁 本地文件夹存档（电脑 Chrome/Edge）：存档写成文件落到真实磁盘，浏览器清存储也删不掉——最稳的防丢 */}
+        <div className="shrink-0 border-b border-edge/60 bg-panel/30">
+          <button onClick={() => setFbOpen((v) => !v)} className="w-full flex items-center gap-2 px-5 max-lg:px-3 py-2 text-[12px] font-mono text-dim hover:text-god transition-colors">
+            <span className="text-god/70">📁</span>
+            <span className="font-bold text-slate-200">本地文件夹</span>
+            {fbSupported
+              ? (fbFolder ? <span className="text-god/80 truncate max-w-[45%]">· {fbFolder}{fbAuto && fbPerm === 'granted' ? ' · 自动备份中' : ''}</span> : <span className="text-dim/50">· 防清除·推荐</span>)
+              : <span className="text-dim/40">· 此浏览器不支持</span>}
+            {fbBusy && <span className="animate-spin inline-block">◌</span>}
+            <span className={`ml-auto text-god/50 transition-transform ${fbOpen ? 'rotate-180' : ''}`}>▾</span>
+          </button>
+          {fbOpen && (
+            <div className="px-5 max-lg:px-3 pb-2.5 space-y-2 text-[12px] font-mono">
+              {!fbSupported ? (
+                <div className="text-dim/60 leading-relaxed">当前浏览器不支持「选择文件夹」（手机浏览器、Firefox、Safari 都不支持）。请改用上方 <b className="text-god/80">☁️云存档</b>，或下方每个存档的「导出」存成文件备份。</div>
+              ) : !fbFolder ? (
+                <div className="space-y-1.5">
+                  <div className="text-dim/70 leading-relaxed">选一个磁盘文件夹，存档自动写成文件存到那里——文件在你电脑上，<b className="text-god/80">浏览器清存储也删不掉</b>，是最稳的防丢办法。</div>
+                  <button onClick={fbPick} disabled={fbBusy} className="px-3 py-1 rounded border border-god/50 text-god bg-god/10 hover:bg-god/20 disabled:opacity-50">📁 选择存档文件夹</button>
+                </div>
+              ) : (
+                <div className="space-y-2">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <span className="text-dim">文件夹 <span className="text-god">{fbFolder}</span></span>
+                    <button onClick={fbPick} disabled={fbBusy} className="px-2 py-0.5 border border-edge text-dim rounded hover:text-god disabled:opacity-50">更换</button>
+                    <button onClick={fbForget} disabled={fbBusy} className="px-2 py-0.5 border border-edge text-dim rounded hover:text-blood disabled:opacity-50">忘记</button>
+                  </div>
+                  {fbPerm !== 'granted' && (
+                    <div className="flex items-center gap-2 flex-wrap rounded border border-amber-600/40 bg-amber-900/10 px-2 py-1">
+                      <span className="text-amber-400">⚠ 写入权限已失效（刷新后浏览器要求重新授权一次）</span>
+                      <button onClick={fbGrant} disabled={fbBusy} className="px-2 py-0.5 border border-amber-500/50 text-amber-300 rounded hover:bg-amber-900/20">授权写入</button>
+                    </div>
+                  )}
+                  <label className="flex items-center gap-1.5 cursor-pointer select-none">
+                    <input type="checkbox" checked={fbAuto} onChange={(e) => fbToggleAuto(e.target.checked)} className="accent-god" />
+                    <span className={fbAuto ? 'text-god' : 'text-dim'}>每回合自动备份到此文件夹（不含图·省空间）</span>
+                  </label>
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <button onClick={fbBackupNow} disabled={fbBusy} className="px-2.5 py-1 border border-god/40 text-god rounded hover:bg-god/10 disabled:opacity-50">💾 立即备份（含图）</button>
+                    <button onClick={fbListFiles} disabled={fbBusy} className="px-2.5 py-1 border border-edge text-dim rounded hover:text-god disabled:opacity-50">📂 从文件夹恢复</button>
+                  </div>
+                  {fbFiles && (
+                    fbFiles.length === 0 ? <div className="text-dim/40">文件夹里暂无 .json 存档文件</div>
+                      : <div className="space-y-1 max-h-40 overflow-y-auto">
+                          {fbFiles.map((name) => (
+                            <div key={name} className="flex items-center gap-2 rounded border border-edge/60 bg-void/40 px-2 py-1">
+                              <span className="flex-1 min-w-0 truncate text-slate-300">{name}</span>
+                              <button onClick={() => fbRestore(name)} disabled={fbBusy} className="px-2 py-0.5 border border-god/40 text-god rounded hover:bg-god/10 disabled:opacity-50 shrink-0">导入</button>
+                            </div>
+                          ))}
+                        </div>
+                  )}
+                </div>
               )}
             </div>
           )}

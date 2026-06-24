@@ -2,7 +2,6 @@
 // 仅保留剧情正文：剥掉游戏数据块（<世界结算>/<检定结果>/<状态结算>…）、结算/日志卡片（【…结算…】+ > 引用块）、HTML 卡片标记与 markdown。
 // 玩家行动以「▷」标出，AI 正文作为故事主体。放在 存档管理（SaveLoadPanel）里调用。
 import { usePlayer } from '../store/playerStore';
-import { useMisc } from '../store/miscStore';
 import { loadArchive } from './chatDb';
 
 export interface NovelMsg { role: string; content: string; world?: string }
@@ -111,14 +110,20 @@ export function exportNovelTxt(messages: NovelMsg[], opts?: NovelOpts): { chapte
   return { chapters, chars: text.length };
 }
 
-// 「导出全部正文」：过往世界（归档）+ 当前世界（实时 messages）合并后导出成小说。
-// 修复"换世界后只导当前世界"——进入新世界会清空 messages，旧世界正文已在切换时转存进归档，这里把两者拼回来。
+// 切换世界已不再清空对话 → 整条 messages 天然跨越全部世界，导出直接拿它即可。
+// 按「【进入世界：X】」入场标记给每条消息标注世界归属，让导出按世界分隔成章；标记本身（冗长的世界设定）不进正文。
+// 仍叠加 loadArchive()：兼容"曾经的归档版"老存档（那时切世界会清空、旧世界转存进了归档）——归档在前、messages 在后，互不重叠。
 export async function exportFullNovelTxt(liveMessages: NovelMsg[], opts?: NovelOpts): Promise<{ chapters: number; chars: number }> {
-  const archived = await loadArchive();                          // 过往世界（按 seq＝时间顺序）
-  const curWorld = (useMisc.getState().worldName || '').trim();   // 当前世界名，给实时消息打上归属
-  const live: NovelMsg[] = (liveMessages || [])
-    .filter((m) => m && m.role !== 'system' && m.content)
-    .map((m) => ({ role: m.role, content: m.content, world: curWorld }));
+  const archived = await loadArchive();   // 旧"归档版"遗留的过往世界（新版不再写入；通常为空）
+  const ENTER_RE = /【进入世界[:：]\s*([^】]+)】/;
+  let curWorld = '';   // 首段（无入场标记前）= 主神空间/轮回乐园，buildNovel 会渲染成"轮回乐园"
+  const live: NovelMsg[] = [];
+  for (const m of liveMessages || []) {
+    if (!m || m.role === 'system' || !m.content) continue;
+    const mk = ENTER_RE.exec(m.content);
+    if (mk) { curWorld = mk[1].trim(); continue; }   // 世界入场标记：只切换归属，不写进正文（分隔标题已表世界名）
+    live.push({ role: m.role, content: m.content, world: curWorld });
+  }
   const all: NovelMsg[] = [
     ...archived.map((a) => ({ role: a.role, content: a.content, world: a.world || '' })),
     ...live,
