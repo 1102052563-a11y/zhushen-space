@@ -614,6 +614,12 @@ const QUEST_RATING_RULE = `
 - 主线任务综合各环完成度评级；支线/隐藏任务按达成度评级。
 - 形如：updateTask("T_5", {"5":"已完成","rating":"A"})。rating 会显示在任务面板"已结束"列表，并供世界结算综合参考。`;
 
+const QUEST_HOME_NO_GEN_RULE = `
+【乐园·枢纽禁止生成任务·铁则（最高优先，覆盖下方一切"新建/规划/补建任务"的示例）】当主角身处**乐园·枢纽**——轮回乐园 / 主神空间 / 专属房间 / 主角所属乐园 / 任一乐园（即【进入新世界信号】=否，且【当前世界】是上述任一枢纽，任务间歇·回归态）时——**禁止生成任何新任务**：主线 / 支线 / 隐藏 / 单环任务一律不建（不 set 新 T_、不补 rings 路线图、不把枢纽里的活动落成任务条目）。
+- **尤其禁止"熟悉环境 / 适应乐园 / 熟悉规则 / 逛街采购 / 兑换装备 / 强化打磨 / 休整调息 / 参观设施 / 拜访某NPC / 报到登记"这类围绕枢纽日常的流程性·杂事性任务**——它们毫无主线意义、纯属凑数，无论正文怎么写都**一律不生成**。
+- 原因：乐园·枢纽是任务的**间歇与回归地**，本身没有任务线；任务只在主角被投放进**具体任务世界（衍生世界）**后才产生。枢纽里的休整、采购、社交、备战靠正文叙述即可，绝不落成任务。
+- 本规则**只禁止"新建/补建任务"**：对【当前任务列表】里既有任务的**结算 / 归档 / 推进**仍照常按【任务结算】【任务环·自适应推进】执行（若上个世界的任务尚未结清）；总结 / 天气 / 时间 / 世界大事等其它杂项输出也照常。`;
+
 const QUEST_PLANNING_RULE = `
 【主线路线图规划·铁则（就主线而言优先于预设里"保守不新建任务"的示例）】区分两类任务：**主线**=本任务世界的核心目标线，每个世界通常**只有一条 active 主线**；其余多回合目标一律**支线**（支线也可多环）。
 - **【最高铁则·主线必须分环】新建主线一律用 rings 数组建成 3~5 个环（强制环+贪婪环，见下）；严禁建成"无 rings 的扁平主线"——扁平=错误，会丢失"一环一环"的路线图与逐环奖惩。支线若多回合也尽量分环。**
@@ -2962,12 +2968,13 @@ ${AFFIX_EFFECT_RULE}`;
       + '\n\n' + MISC_WEATHER_RULE
       + '\n\n' + TASK_OUTCOME_RULE
       + '\n\n' + POTENTIAL_POINT_RULE
+      + '\n\n' + QUEST_HOME_NO_GEN_RULE
       + '\n\n' + QUEST_PLANNING_RULE
       + '\n\n' + QUEST_KILL_TIER_RULE
       + '\n\n' + QUEST_RATING_RULE
       + '\n\n' + TASK_RECONCILE_RULE
       + '\n\n' + TASK_CANON_RULE
-      + `\n【进入新世界信号】：${enteredNewWorld ? '是 —— 本轮检测到进入新的任务世界，请按【主线路线图规划】检查：当前任务世界若尚无 active 主线，则把该世界自身的核心目标立成主线并规划整张环路线图' : (isHomeWorld(M.worldName) ? '否 —— 当前在轮回乐园/专属房间(枢纽·任务间歇)，禁止规划任何主线，更不要生成"适应乐园环境/进入衍生世界/获取身份/回归乐园"等框架流程任务；等真正进入任务世界(衍生世界)再规划' : '否（沿用既有主线，勿重复新建）')}`
+      + `\n【进入新世界信号】：${enteredNewWorld ? '是 —— 本轮检测到进入新的任务世界，请按【主线路线图规划】检查：当前任务世界若尚无 active 主线，则把该世界自身的核心目标立成主线并规划整张环路线图' : (isHomeWorld(M.worldName) ? '否 —— 当前在轮回乐园/专属房间(枢纽·任务间歇)，按【乐园·枢纽禁止生成任务】**禁止生成任何新任务**（主线/支线/隐藏/单环全不建），更不要"熟悉环境/适应乐园/逛街采购/进入衍生世界/获取身份/回归乐园"等流程·杂事任务；只对既有任务做结算/推进，等真正进入任务世界(衍生世界)再规划' : '否（沿用既有主线，勿重复新建）')}`
       + `\n【当前世界】：${M.worldName || '轮回乐园'}`
       + `\n【同人增强】：${fanficOn ? '开 —— 若当前世界为已知虚构作品，按【同人世界·任务接地】先联网搜索原作设定，再据此规划/生成任务' : '关（不联网搜索，按正文与世界设定生成任务）'}`
       + `\n【主角当前处境（任务须与之契合）】：${playerSituation || '（未建档）'}`
@@ -6424,7 +6431,7 @@ ${lines}`;
         '激活预设：' + (preset?.name ?? '（无 → 最简默认）') + (preset ? (preset.builtin ? ' · ⚠️builtin(未固化,改动可能被补种覆盖)' : ' · ✓玩家副本') + ' · id=' + preset.id : '') + '\n' +
         (preset && _ssNarr.textPresets.filter((p) => p.id === preset.id).length > 1 ? '⚠️ 同 id 副本 ' + _ssNarr.textPresets.filter((p) => p.id === preset.id).length + ' 个 → 已优先取你编辑过的非 builtin 版（修「改预设没用」）\n' : '') +
         '世界书：启用 ' + textWorldBooks.filter((b) => b.enabled).length + '/' + textWorldBooks.length + ' 本 · 命中 ' + wbEntries.length + ' 条 → 注入 ' + wbKeywordText.length + ' 字' + (novelVecText ? ' +向量 ' + novelVecText.length + ' 字' : '') + (worldInfoText ? '' : ' · ⚠️本回合世界书空！(书未加载或全未命中)') + '\n' +
-        '预设条目：' + ((preset?.entries ?? []).length) + ' 总 / ' + ((preset?.entries ?? []).filter((e) => e.enabled && !e.marker).length) + ' 启用\n' +
+        '预设条目：' + ((preset?.entries ?? []).length) + ' 总 / ' + ((preset?.entries ?? []).filter((e: any) => e.enabled && !e.marker).length) + ' 启用\n' +
         '拆分去向：system 分段 ' + sysSegments.length + ' 段 · 少样本 ' + examples.length + ' 条 · 后历史块 ' + tail.length + ' 块 · 深度注入 ' + depthInjections.length + '（+世界书 ' + wbDepthInjections.length + '）· prefill ' + (effectivePrefill ? '有' : '无') + '\n' +
         (tail.length ? '✅ 已认出 chatHistory marker：' + tail.length + ' 个后历史块已插到真实楼层之后(仿 fanren)\n' : '（无 chatHistory marker：全部当前历史，行为同旧版）\n') +
         '总消息条数：' + (1 + history.length) + '（1 条合并 system ＋ ' + history.length + ' 条历史/注入/输入/prefill）\n' +
