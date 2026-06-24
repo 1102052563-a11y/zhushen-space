@@ -265,7 +265,7 @@ export function serializePlayerCard(
     a && `六维(实战值=基础+装备/技能/天赋/技能树/团队全部加成,括号内为基础值): 力${faP('str')} 敏${faP('agi')} 体${faP('con')} 智${faP('int')} 魅${faP('cha')} 幸${faP('luck')}`,
     a && `（真实属性口径·重要：四阶起上方六维即「真实属性」，勿÷80换算；1点真实≈5点普通之效、判定享绝对优先；一~三阶为普通属性≤99）`,
     a && `衍生属性(由含加成的实战六维+已装备品级现算): 物攻${derived.patk} 物防${derived.pdef} 法攻${derived.matk} 法防${derived.mdef}`,
-    a && `生物强度(前端按六维机械判定,勿改): ${bioStrengthLabel(bioInnate(a, profile.tier, profile.level), bioPower(effA))}`,
+    a && `生物强度(前端按六维机械判定,勿改): ${bioStrengthLabel(bioInnate(a, profile.tier, profile.level), bioPower(effA, profile.tier, profile.level))}`,
     (profile.attrPoints != null || profile.realAttrPoints != null) &&
       `属性点:${profile.attrPoints ?? 0} | 真实属性点:${profile.realAttrPoints ?? 0}（⚠最新余额·唯一真相，遵【属性点·唯一真相铁则】：玩家在前端面板自行加点消耗，勿复读旧剩余、勿自行增减）`,
     profile.worldSource != null && `世界之源:${profile.worldSource}`,

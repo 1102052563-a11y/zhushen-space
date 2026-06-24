@@ -633,7 +633,7 @@ function BasicTab({ npc: npcProp, realm, genderCls }: { npc: NpcRecord; realm: R
   const cdataBio = useCharacters((s) => s.characters[npc.id]);
   // 生物强度：前端按六维机械判定（资质档=基础六维；战力档=含装备/技能/天赋加成），AI 不再判
   const npcBioEff = npc.attrs ? effectiveAttrs(npc.attrs, cdataBio?.skills ?? [], cdataBio?.traits ?? [], (npc.items ?? []).filter((i) => i.equipped) as any) : undefined;
-  const npcBioLabel = npc.attrs ? bioStrengthLabel(bioInnate(npc.attrs, npc.realm, lvFromRealm(npc.realm)), bioPower(npcBioEff)) : (npc.bioStrength ?? '');
+  const npcBioLabel = npc.attrs ? bioStrengthLabel(bioInnate(npc.attrs, npc.realm, lvFromRealm(npc.realm)), bioPower(npcBioEff, npc.realm, lvFromRealm(npc.realm))) : (npc.bioStrength ?? '');
 
   // ── 隶属冒险团：点击字段 → 强制加入该团（复用与私聊一致的 generateJoinedTeam）/ 退出当前冒险团 ──
   const teamEstablished = useTeam((s) => s.established);

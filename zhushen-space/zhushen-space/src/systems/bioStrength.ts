@@ -14,14 +14,18 @@ import { effectiveAttrs } from './attrBonus';
    后者那套 Range/Budget 数值与前端上限系统性错位、直接套会爆表判顶档，故弃用。
    ──────────────────────────────────────────────────────────────────────────── */
 
-// 档位中文名（数组下标 = 档位数字 T0..T9）
-export const BIO_TIER_NAMES = ['杂鱼', '兵卒', '精英', '勇士', '英雄', '领主', '王者', '半神', '真神', '源初'] as const;
+// 档位中文名（数组下标 = 档位数字 T0..T16）。T0~T9 原档；T10~T16 为新增顶阶档（绝强~无上用·2026-06-24 B），让 T9源初 不再是天花板。
+export const BIO_TIER_NAMES = ['杂鱼', '兵卒', '精英', '勇士', '英雄', '领主', '王者', '半神', '真神', '源初', '界主', '永恒', '至尊', '主宰', '寰宇', '创世', '无上'] as const;
+export const MAX_BIO_NUM = BIO_TIER_NAMES.length - 1;   // 16
+// 战力越阶封顶（C）：等效阶位最多比名义阶位高这么多阶。**0 = 战力不越阶、封顶在名义阶位**
+// （如三阶最高只到 T5·领主，绝不出现真神/源初；战力仍可因装备在本阶窗口内高于资质）。
+export const MAX_CROSS_TIER = 0;
 
 /* NPC 生命/能量上限·档位倍率：T0~T3 = ×1，T4 起逐档翻倍（T4 ×2 / T5 ×4 / T6 ×8 / T7 ×16 / T8 ×32 / T9 ×64）。
    前端机械计算 NPC maxHp = 体质×20×倍率、maxMp = 智力×15×倍率（强制·覆盖 AI 写的数值）。bioNum 取 0..9。 */
 export function tierVitalMult(bioNum: number): number {
-  const n = Math.max(0, Math.min(9, Math.round(bioNum || 0)));
-  return n < 4 ? 1 : Math.pow(2, n - 3);
+  const n = Math.max(0, Math.min(MAX_BIO_NUM, Math.round(bioNum || 0)));
+  return n < 4 ? 1 : Math.pow(2, Math.min(6, n - 3));   // 封顶 ×64：T9 起不再翻倍，防 NPC HP 爆炸
 }
 
 // 各档「Flex 使用率」区间 [lo,hi]（占本阶 Flex_total 的比例）——生物强度框架模板 T0~T6 的 Flex%。
@@ -38,9 +42,9 @@ export const TEMPLATE_FLEX_RANGES: ReadonlyArray<readonly [number, number]> = [
 const PEAK_FLOOR = 0.11; // 窗口最低档(杂鱼)的单属性占本阶 [Min,Cap] 的比例
 const clamp01 = (x: number) => Math.max(0, Math.min(1, x));
 
-// 阶位窗口 [winLo, winHi]：本阶可出现的档位区间
+// 阶位窗口 [winLo, winHi]：本阶可出现的档位区间（绝强~无上不再封顶 T9，可达 T10~T16）
 export function tierWindow(tierNum: number): [number, number] {
-  return [Math.min(9, Math.max(0, tierNum - 1)), Math.min(9, tierNum + 2)];
+  return [Math.max(0, tierNum - 1), Math.min(MAX_BIO_NUM, tierNum + 2)];
 }
 
 // 档位 + 阶位 → 该档「单属性峰值上限」(绝对值)：窗口顶档=满 Cap，杂鱼档≈Min+(Cap-Min)×PEAK_FLOOR
@@ -66,12 +70,13 @@ function peakOf(a: PlayerAttrs): number {
 }
 
 export interface BioTier {
-  code: string;    // 'T0'..'T9'
-  num: number;     // 0..9
+  code: string;    // 'T0'..'T16'
+  num: number;     // 0..16
   name: string;    // 中文档名
   label: string;   // 'T3·勇士'
+  realm: string;   // 判定所用阶位名（资质=名义阶位 / 战力=等效阶位）——A：战力越阶时标签带它
   ratio: number;   // 本阶预算占用率（调试/展示用，可能 <0 或 >1）
-  tierNum: number; // 判定所用阶位序号（资质=名义阶位，战力=等效阶位），1..13
+  tierNum: number; // 判定所用阶位序号（资质=名义阶位，战力=等效阶位），1..14
 }
 
 // 阶位序号(1=一阶 … 9=九阶 … 13=无上之境) → 该阶「单个基础属性」的 [下限,上限]
@@ -94,16 +99,16 @@ export function templateFromRatio(r: number): number {
   return 6;                // T6 王者（> 满配，靠外源加成）
 }
 
-// 档位按本阶窗口 [tierNum-1, min(9,tierNum+2)] 钳制（框架阶位窗口规律；高阶封顶 T9）
+// 档位按本阶窗口钳制（同 tierWindow；绝强~无上不再封顶 T9，可达 T10~T16）
 export function clampToTierWindow(num: number, tierNum: number): number {
-  const lo = Math.min(9, Math.max(0, tierNum - 1));
-  const hi = Math.min(9, tierNum + 2);
+  const [lo, hi] = tierWindow(tierNum);
   return Math.max(lo, Math.min(hi, num));
 }
 
 function mk(num: number, ratio: number, tierNum: number): BioTier {
-  const n = Math.max(0, Math.min(9, num));
-  return { code: `T${n}`, num: n, name: BIO_TIER_NAMES[n], label: `T${n}·${BIO_TIER_NAMES[n]}`, ratio, tierNum };
+  const n = Math.max(0, Math.min(MAX_BIO_NUM, num));
+  const realm = TIERS[Math.max(0, Math.min(TIERS.length - 1, tierNum - 1))] ?? '';
+  return { code: `T${n}`, num: n, name: BIO_TIER_NAMES[n], label: `T${n}·${BIO_TIER_NAMES[n]}`, realm, ratio, tierNum };
 }
 
 // 名义阶位字符串/等级 → 阶位序号(1..13)，取「显式阶位」与「按等级推导」较高者（与 attrCapForTier 同源）
@@ -133,11 +138,13 @@ export function bioInnate(base?: PlayerAttrs, tier?: string, level?: number): Bi
   return mk(peakToTierInTier(peak, tn), peakRatio, tn);
 }
 
-/* 战力档：有效六维(含装备/技能/天赋加成)「最强一项」+ 等效阶位反查（峰值口径，浮动、可越阶） */
-export function bioPower(eff?: PlayerAttrs): BioTier | null {
+/* 战力档：有效六维「最强一项」+ 等效阶位反查（可越阶·浮动）。
+   C·越阶封顶：传名义阶位/等级时，等效阶位最多比名义阶位高 MAX_CROSS_TIER 阶（治"三阶却显源初战力"）。 */
+export function bioPower(eff?: PlayerAttrs, nominalTier?: string, level?: number): BioTier | null {
   if (!eff) return null;
   const peak = peakOf(eff);
-  const tn = effectiveTierNum(peak);             // 用峰值反查等效阶位(实现越阶战力)
+  let tn = effectiveTierNum(peak);               // 用峰值反查等效阶位(实现越阶战力)
+  if (nominalTier != null || level != null) tn = Math.min(tn, nominalTierNum(nominalTier, level) + MAX_CROSS_TIER);
   const [min, cap] = tierBounds(tn);
   const peakRatio = cap > min ? (peak - min) / (cap - min) : 0;
   return mk(peakToTierInTier(peak, tn), peakRatio, tn);
@@ -154,10 +161,11 @@ export function bioStrengthOf(args: {
 }): { innate: BioTier | null; power: BioTier | null } {
   const { base, tier, level, skills = [], talents = [], equipped = [] } = args;
   const eff = base ? effectiveAttrs(base, skills, talents, equipped) : undefined;
-  return { innate: bioInnate(base, tier, level), power: bioPower(eff) };
+  return { innate: bioInnate(base, tier, level), power: bioPower(eff, tier, level) };
 }
 
-/* 资质档 + 战力档 合成一行展示文本：两档相同时只显一个，不同时显「资质X / 战力Y」 */
+/* 资质档 + 战力档 合成一行展示文本：两档相同只显一个；不同显「资质X / 战力Y」。
+   战力封顶在名义阶位(MAX_CROSS_TIER=0)，不越阶、不带等效阶位前缀（三阶顶 T5·领主）。 */
 export function bioStrengthLabel(innate: BioTier | null, power: BioTier | null): string {
   if (!innate && !power) return '';
   if (!power) return innate!.label;

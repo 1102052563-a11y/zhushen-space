@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import {
   tierWindow, tierBounds, templateFromRatio, clampToTierWindow,
-  nominalTierNum, bioInnate, bioStrengthLabel,
+  nominalTierNum, bioInnate, bioPower, bioStrengthLabel,
 } from './bioStrength';
 import type { PlayerAttrs } from '../store/playerStore';
 
@@ -11,7 +11,8 @@ describe('tierWindow（本阶可出现的档位区间）', () => {
   it('[min(9,t-1), min(9,t+2)]', () => {
     expect(tierWindow(1)).toEqual([0, 3]);
     expect(tierWindow(5)).toEqual([4, 7]);
-    expect(tierWindow(13)).toEqual([9, 9]); // 高阶封顶 9
+    expect(tierWindow(13)).toEqual([12, 15]); // 巅峰至强：扩展档窗口(不再封顶 T9)
+    expect(tierWindow(14)).toEqual([13, 16]); // 无上：可达 T16无上
   });
 });
 
@@ -70,4 +71,22 @@ describe('bioStrengthLabel（资质/战力合成展示）', () => {
   it('两档不同显「资质X / 战力Y」', () => expect(bioStrengthLabel(t0, t3)).toBe('资质T0·杂鱼 / 战力T3·勇士'));
   it('都为空 → 空串', () => expect(bioStrengthLabel(null, null)).toBe(''));
   it('只有一档 → 显该档', () => expect(bioStrengthLabel(t3, null)).toBe('T3·勇士'));
+});
+
+describe('bioPower 越阶封顶(C·封顶名义阶位) + B扩展档', () => {
+  it('三阶角色有效六维到绝强级 → 战力封顶在名义阶位三阶(T5·领主)，不出现真神/源初', () => {
+    const p = bioPower(A({ con: 955 }), '三阶', 25);
+    expect(p?.tierNum).toBe(3);        // 封顶在名义阶位三阶(MAX_CROSS_TIER=0)
+    expect(p?.label).toBe('T5·领主');  // 三阶顶档
+  });
+  it('bioStrengthLabel：战力封顶名义阶位、无等效阶位前缀（三阶资质战力合一显 T5·领主）', () => {
+    const innate = bioInnate(A({ con: 99 }), '三阶', 25);
+    const power = bioPower(A({ con: 955 }), '三阶', 25);
+    expect(bioStrengthLabel(innate, power)).toBe('T5·领主');
+  });
+  it('绝强角色(名义即绝强)真到顶 → 战力达新档 T12·至尊(B·不再封顶源初)', () => {
+    const p = bioPower(A({ con: 1000 }), '绝强', 95);
+    expect(p?.num).toBeGreaterThan(9);   // 突破 T9 天花板
+    expect(p?.realm).toBe('绝强');
+  });
 });

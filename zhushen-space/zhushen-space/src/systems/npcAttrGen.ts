@@ -1,5 +1,5 @@
 import type { PlayerAttrs } from '../store/playerStore';
-import { tierBounds, nominalTierNum, clampToTierWindow, peakCapForTier } from './bioStrength';
+import { tierBounds, nominalTierNum, clampToTierWindow, peakCapForTier, MAX_BIO_NUM } from './bioStrength';
 
 /* ── NPC 六维·机械生成（生物强度反推，治 API 幻觉乱给离谱属性）─────────────────────
    是 bioStrength「读数(六维→档)」的逆运算「回填(档→六维)」，共用同一把尺子(tierBounds/窗口/模板 Flex%)，
@@ -90,7 +90,7 @@ const ROLE_BANDS: [string[], [number, number]][] = [
   [['头目', '勇者', '勇士', '悍将', '强者', '队长', '小队长', '小首领', '小Boss', '小boss'], [3, 4]],
   [['首领', '头领', '主将', '大将', '统领', 'Boss', 'BOSS', 'boss', '魔将', '霸者'], [4, 5]],
   [['霸主', '枭雄', '宗师', '魔头', '王者', '大能', '传说'], [5, 6]],
-  [['神话', '世界级', '半神', '真神', '神祇', '至高', '源初', '规则级', '主神'], [6, 9]],
+  [['神话', '世界级', '半神', '真神', '神祇', '至高', '源初', '规则级', '主神'], [6, 16]],
 ];
 function roleBand(role?: string): [number, number] | null {
   const t = (role ?? '').toString();
@@ -198,11 +198,11 @@ export function resolveStyle(style: AttrStyle | undefined, bioNum: number, arch:
   return 'balanced';
 }
 
-// 'T3·勇士' / 'T3' / 3 → 档位数字 0..9
+// 'T3·勇士' / 'T12' / 3 → 档位数字 0..MAX_BIO_NUM（支持 T10~T16 顶阶档·多位数）
 function parseBioNum(b: string | number | undefined): number {
-  if (typeof b === 'number') return clamp(Math.round(b), 0, 9);
-  const m = /T?(\d)/i.exec((b ?? '').toString());
-  return m ? clamp(Number(m[1]), 0, 9) : 2;
+  if (typeof b === 'number') return clamp(Math.round(b), 0, MAX_BIO_NUM);
+  const m = /T?(\d+)/i.exec((b ?? '').toString());
+  return m ? clamp(Number(m[1]), 0, MAX_BIO_NUM) : 2;
 }
 
 export interface GenAttrOpts {
