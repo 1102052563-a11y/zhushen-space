@@ -46,7 +46,7 @@ export default function AttrTalentPicker({
       setLoading(false);
     }
   };
-  const reload = () => { settledRef.current = false; setCands([]); load(); };   // 换一批：重置落定标记，重新生成
+  const reload = () => { settledRef.current = false; setCands([]); setEditIdx(null); setDraft(null); setEditedIdxs(new Set()); load(); };   // 换一批：重置落定标记+编辑态，重新生成
   useEffect(() => { load(); /* eslint-disable-next-line react-hooks/exhaustive-deps */ }, []);
 
   const choose = (t: Omit<Trait, 'addedAt'>) => {
@@ -56,6 +56,36 @@ export default function AttrTalentPicker({
     onChosen?.(t.name);
     onClose();
   };
+
+  // ── 生成内容编辑：把某张卡切到表单，改完保存回该卡（再点「选这个」纳入编辑后的版本）──
+  type EditableKey = 'name' | 'level' | 'rarity' | 'category' | 'source' | 'effect' | 'attrBonus' | 'desc';
+  const [editIdx, setEditIdx] = useState<number | null>(null);
+  const [draft, setDraft] = useState<Omit<Trait, 'addedAt'> | null>(null);
+  const [editedIdxs, setEditedIdxs] = useState<Set<number>>(new Set());
+  const startEdit = (i: number) => { setEditIdx(i); setDraft({ ...cands[i] }); };
+  const cancelEdit = () => { setEditIdx(null); setDraft(null); };
+  const setField = (k: EditableKey, v: string) => setDraft((d) => (d ? ({ ...d, [k]: v } as Omit<Trait, 'addedAt'>) : d));
+  const saveEdit = () => {
+    if (editIdx == null || !draft) return;
+    const name = (draft.name || '').trim();
+    if (!name) return;                        // 名称必填
+    const idx = editIdx;
+    setCands((cs) => cs.map((c, j) => (j === idx ? { ...draft, name } : c)));
+    setEditedIdxs((s) => new Set(s).add(idx));
+    setEditIdx(null); setDraft(null);
+  };
+  // 表单字段（函数返回 JSX，非组件 → 不会每次渲染丢焦点）
+  const inputCls = 'mt-0.5 w-full bg-void border border-edge rounded px-2 py-1 text-[13px] text-slate-200 outline-none focus:border-god/50';
+  const fInput = (label: string, k: EditableKey, ph = '') => (
+    <label className="block text-[11px] font-mono text-dim/55">{label}
+      <input className={inputCls} value={draft?.[k] ?? ''} onChange={(e) => setField(k, e.target.value)} placeholder={ph} />
+    </label>
+  );
+  const fArea = (label: string, k: EditableKey, rows: number, ph = '') => (
+    <label className="block text-[11px] font-mono text-dim/55">{label}
+      <textarea rows={rows} className={`${inputCls} leading-relaxed resize-y`} value={draft?.[k] ?? ''} onChange={(e) => setField(k, e.target.value)} placeholder={ph} />
+    </label>
+  );
 
   return (
     <div className="fixed inset-0 z-[95] flex items-center justify-center bg-black/80 backdrop-blur-sm p-4">
@@ -88,11 +118,38 @@ export default function AttrTalentPicker({
           )}
           {!loading && !err && cands.map((t, i) => {
             const cls = RARITY_CLS[t.rarity] ?? 'border-edge text-slate-300';
+            // 编辑态：该卡切换为表单
+            if (editIdx === i) {
+              return (
+                <div key={i} className={`rounded-xl border p-3 space-y-2 bg-panel ${cls}`}>
+                  <div className="text-[11px] font-mono text-god/70">✏️ 编辑天赋 · 改完点「保存修改」，再「选这个」纳入</div>
+                  {fInput('名称', 'name')}
+                  <div className="flex gap-2">
+                    <div className="flex-1">{fInput('等级', 'level', '如 觉醒·初')}</div>
+                    <div className="w-28 shrink-0">{fInput('品级', 'rarity', 'A/S/SS/SSS')}</div>
+                  </div>
+                  <div className="flex gap-2">
+                    <div className="flex-1">{fInput('类型', 'category', '属性类/特殊异能类…')}</div>
+                    <div className="flex-1">{fInput('来源', 'source')}</div>
+                  </div>
+                  {fArea('效果', 'effect', 3)}
+                  {fInput('属性加成', 'attrBonus', '如 力量+50%、无视30%防御')}
+                  {fArea('描述', 'desc', 2)}
+                  <div className="flex items-center gap-2 pt-0.5">
+                    <button onClick={saveEdit} disabled={!draft?.name?.trim()}
+                      className="text-[12px] font-mono px-3 py-1 rounded border border-god/50 text-god bg-god/10 hover:bg-god/20 transition-colors disabled:opacity-40">💾 保存修改</button>
+                    <button onClick={cancelEdit}
+                      className="text-[12px] font-mono px-3 py-1 rounded border border-edge text-dim/70 hover:text-slate-200 transition-colors">✕ 取消</button>
+                  </div>
+                </div>
+              );
+            }
+            // 展示态：信息卡 + 底部「编辑 / 选这个」两个动作
             return (
-              <button key={i} onClick={() => choose(t)} disabled={done}
-                className={`w-full text-left rounded-xl border p-3 space-y-1.5 bg-panel hover:bg-god/5 transition-colors disabled:opacity-50 ${cls} hover:ring-1 hover:ring-god/50`}>
+              <div key={i} className={`rounded-xl border p-3 space-y-1.5 bg-panel transition-colors ${cls} ${done ? 'opacity-50' : ''}`}>
                 <div className="flex items-center gap-2">
                   <span className="flex-1 font-semibold text-sm text-slate-100 truncate">{t.name}</span>
+                  {editedIdxs.has(i) && <span className="text-[10px] font-mono text-emerald-400/80 shrink-0">✎已改</span>}
                   {t.level && <span className="text-[12px] font-mono text-dim/55 shrink-0">{t.level}</span>}
                   {t.rarity && <span className={`text-[12px] font-mono font-bold shrink-0 ${cls.split(' ').slice(1).join(' ')}`}>{t.rarity}</span>}
                 </div>
@@ -105,8 +162,14 @@ export default function AttrTalentPicker({
                 {t.effect && <div className="text-[13px] text-emerald-300/85 leading-relaxed"><span className="text-dim/40">效果·</span>{t.effect}</div>}
                 {t.attrBonus && <div className="text-[13px] text-amber-300/90 leading-relaxed"><span className="text-dim/40">属性加成·</span>{t.attrBonus}</div>}
                 {t.desc && <div className="text-[13px] text-dim/60 leading-relaxed italic border-l-2 border-edge/40 pl-2">{t.desc}</div>}
-                <div className="text-right text-[12px] font-mono text-god/70">选这个 →</div>
-              </button>
+                <div className="flex items-center gap-2 pt-1">
+                  <button onClick={() => startEdit(i)} disabled={done}
+                    className="text-[12px] font-mono px-2.5 py-1 rounded border border-edge text-dim/70 hover:text-god hover:border-god/40 transition-colors disabled:opacity-40">✏️ 编辑</button>
+                  <div className="flex-1" />
+                  <button onClick={() => choose(t)} disabled={done}
+                    className="text-[12px] font-mono px-3 py-1 rounded border border-god/50 text-god bg-god/10 hover:bg-god/20 transition-colors disabled:opacity-40">选这个 →</button>
+                </div>
+              </div>
             );
           })}
         </div>

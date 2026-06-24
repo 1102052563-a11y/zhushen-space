@@ -297,14 +297,16 @@ async function loadBuiltinDefaults() {
         useSettings.setState((s) => ({ textWorldBooks: (s.textWorldBooks ?? []).filter((b: any) => b.builtinKey !== key) }));
         useSettings.getState().importTextWorldBook(json, name, true, key);
       };
-      // 并发取四本（而非逐本 await）：取回后连续 apply，把「正文世界书尚未就绪」的竞态窗口压到最小（修偶发没世界书）。
-      const [twMod, twNovel, twPose, twBdsm] = await Promise.all([
-        grab('modular-output.json'), grab('novel.json'), grab('pose.json'), grab('bdsm.json'),
+      // 并发取五本（而非逐本 await）：取回后连续 apply，把「正文世界书尚未就绪」的竞态窗口压到最小（修偶发没世界书）。
+      const [twMod, twNovel, twPose, twBdsm, twPower] = await Promise.all([
+        grab('modular-output.json'), grab('novel.json'), grab('pose.json'), grab('bdsm.json'), grab('power-codex.json'),
       ]);
       overwriteTwb(twMod,   'ST模块化输出·铁律', 'twb-modular');
       overwriteTwb(twNovel, '轮回乐园小说',     'twb-novel');
       overwriteTwb(twPose,  '性爱姿势·小鸟游六花', 'twb-pose');
       overwriteTwb(twBdsm,  'BDSM·调教束缚·S15',   'twb-bdsm');
+      // 阶位·生物强度战力图鉴：登场判断专用参照系（buildEntryPhaseSystemPrompt 强制全量注入）；条目全为无关键词绿灯，正文默认不注入、不污染日常。
+      overwriteTwb(twPower, '阶位·生物强度战力图鉴', 'twb-power');
       // （已移除世界书自动去重：玩家手动导入的世界书一律不强制删——哪怕与内置同名/重复也保留；要去重请玩家自己在设置里删。）
     }
     // 双人成行内置已移除(2026-06-18)：不再自动加载/激活任何默认正文预设；新用户开局走最简兜底，自行去预设列表选（轮回乐园两份已内置但默认关闭）。
@@ -2201,11 +2203,19 @@ export default function App() {
     narrative: string,
   ): string {
     const vars = buildNpcVars(narrative);
+    // 阶位·生物强度战力图鉴（builtinKey='twb-power'）：登场判断专用参照系，强制全量注入本书所有启用条目（不看蓝/绿灯）。
+    // 整本书禁用或被删则优雅留空——治"杂兵虚高"的对照表来自这里，可在「正文世界书」列表里编辑、改即生效。
+    const codexInjection = (() => {
+      const book = useSettings.getState().textWorldBooks.find((b) => b.builtinKey === 'twb-power');
+      if (!book || book.enabled === false) return '';
+      const body = book.entries.filter((e) => e.enabled !== false).map((e) => e.content.trim()).filter(Boolean).join('\n\n');
+      return body ? `\n\n【阶位·生物强度战力图鉴（登场判断参照系·定阶位/等级/生物强度档前务必逐条对照）】\n${body}` : '';
+    })();
     return entries
       .filter((e) => e.enabled && e.source === 'entrySharedRules')
       .map((e) => fillVars(e.content, vars))
       .join('\n\n')
-      + '\n\n' + NARRATIVE_FIRST_RULE + '\n' + EVO_VERIFY_RULE + '\n' + NPC_DEAD_EXCLUDE_RULE + '\n' + NPC_ID_RULE + '\n' + TIER_RULE + '\n' + SKILL_TIER_RULE + '\n' + NPC_GEN_ATTR_RULE + '\n' + NPC_TEAM_AFFILIATION_RULE + '\n' + NPC_ENTRY_BIO_RULE + '\n' + ENTRY_NAME_CN_RULE + '\n' + ENTRY_DEDUP_RULE + '\n' + ENTRY_COT_RULE;
+      + '\n\n' + NARRATIVE_FIRST_RULE + '\n' + EVO_VERIFY_RULE + '\n' + NPC_DEAD_EXCLUDE_RULE + '\n' + NPC_ID_RULE + '\n' + TIER_RULE + '\n' + SKILL_TIER_RULE + '\n' + NPC_GEN_ATTR_RULE + '\n' + NPC_TEAM_AFFILIATION_RULE + '\n' + NPC_ENTRY_BIO_RULE + '\n' + ENTRY_NAME_CN_RULE + '\n' + ENTRY_DEDUP_RULE + codexInjection + '\n' + ENTRY_COT_RULE;
   }
 
   /* 解析 NPC <state> 短指令（favor/title/realm/hp），可按 charId 过滤 */
@@ -7134,17 +7144,19 @@ ${lines}`;
     await captureUndoPoint();   // 发送前记录回退点（=上一回合结束状态）
     // 房主：把队友本回合已提交的行动并进这一回合（无队友行动则与单人完全一致）
     const isMpHost = mp.status === 'connected' && mp.role === 'host';
+    const convergence = isMpHost ? drainConvergence() : '';   // 归队见闻注入（只房主、每回合只取一次）
+    const withConv = (s: string) => convergence ? `${convergence}\n\n${s}` : s;
 
     // 完整版双视角：房主走「主控-分支-对齐」三段式编排，替代普通单正文广播
     if (isMpHost && mp.povMode) {
-      const partyText = buildPartyTurnText(text, mp.turn?.inputs, usePlayer.getState().profile.name || mp.room?.hostName || '房主');
+      const partyText = withConv(buildPartyTurnText(text, mp.turn?.inputs, usePlayer.getState().profile.name || mp.room?.hostName || '房主'));
       setMessages((prev) => [...prev, { id: ++msgId.current, role: 'user', content: partyText }]);
       if (textArg == null) setInputValue('');
       await runPovTurn(text, partyText);
       return;
     }
 
-    const effectiveText = isMpHost ? buildPartyTurnText(text, mp.turn?.inputs, usePlayer.getState().profile.name || mp.room?.hostName || '房主') : text;
+    const effectiveText = isMpHost ? withConv(buildPartyTurnText(text, mp.turn?.inputs, usePlayer.getState().profile.name || mp.room?.hostName || '房主')) : text;
 
     const userMsg: ChatMessage = { id: ++msgId.current, role: 'user', content: effectiveText };
     setMessages((prev) => [...prev, userMsg]);
