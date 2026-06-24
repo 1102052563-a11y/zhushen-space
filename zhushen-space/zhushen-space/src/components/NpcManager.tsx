@@ -555,6 +555,12 @@ function NpcApiSection() {
       </div>
 
       <ApiRoutePicker routeKey="npc" />
+
+      <div className="space-y-1.5 p-3 bg-panel/60 border border-edge rounded-lg">
+        <div className="text-sm text-slate-200">登场判断·专用接口（可选）</div>
+        <div className="text-xs text-dim leading-snug">登场判断负责给<b>新 NPC 定阶位 / 等级 / 生物强度档</b>，很吃模型的判断力（判飘了小兵也能给五阶）。可在此单独挂一个更强的接口（如 Opus / Gemini）专跑登场判断；它会读到内置「阶位·生物强度战力图鉴」世界书作参照。<b>留空则沿用上面的 NPC 接口</b>，行为不变。</div>
+        <ApiRoutePicker routeKey="npcEntry" />
+      </div>
       {!npcUseSharedApi && (
         <div className="space-y-4">
           <div className="space-y-1.5">

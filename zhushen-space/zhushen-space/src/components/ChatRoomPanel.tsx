@@ -244,7 +244,9 @@ export default function ChatRoomPanel({ onClose }: { onClose: () => void }) {
     try {
       const id = await updateChatProfile({ customUid: want });
       if (id.uidLocked) { setProfMsg('⚠ ' + (id.uidLockMsg || 'UID 暂时无法更改')); }
-      else {
+      else if (want !== id.uid && id.customUid !== want) {   // 后端没把自定义号应用上 → 多半 worker 还没部署最新版（旧 /api/chat/me 忽略 customUid，返回原 uid）
+        setProfMsg('⚠ 没生效：后端还没更新（请在 multiplayer-worker 里跑 npm run deploy 部署）');
+      } else {
         const du = id.displayUid ?? id.uid;
         setDispUid(du); setCustomUidInput(String(du));
         chatClient.connect(chatName() || name, id.chatToken);   // 重连：把新显示号(令牌里的 du)广播给在场所有人

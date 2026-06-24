@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useCharacters, RARITY_CLS, type Trait } from '../store/characterStore';
 import { generateAttrTalents } from '../systems/attrTalent';
 
@@ -25,18 +25,28 @@ export default function AttrTalentPicker({
   const [cands, setCands] = useState<Omit<Trait, 'addedAt'>[]>([]);
   const [done, setDone] = useState(false);
 
+  // 竞态保护：StrictMode(dev) 把挂载 effect 跑两遍 → 两次 generateAttrTalents 命中同一实例；其一常被中止
+  // (signal is aborted)。不守卫的话，中止那次的报错会盖掉另一次的成功结果 → "返回有效却报错"。
+  // 规则：①忽略中止错误 ②某批成功落定后，后续中止/失败不再覆盖；换一批时重置。
+  const settledRef = useRef(false);
+  const isAbortErr = (e: any) => !!e && (e.name === 'AbortError' || /\babort/i.test(String(e?.message || e)));
+
   const load = async () => {
     setLoading(true); setErr('');
     try {
       const list = await generateAttrTalents({ attrLabel, milestone, trueValue, charName, charTier, isPlayer });
-      if (!list.length) setErr('AI 未返回有效天赋，请「换一批」重试');
-      setCands(list);
+      if (!list.length) { if (!settledRef.current) setErr('AI 未返回有效天赋，请「换一批」重试'); return; }
+      settledRef.current = true;
+      setErr(''); setCands(list);
     } catch (e: any) {
+      if (settledRef.current) return;                                        // 已有成功批次 → 忽略随后的中止/失败
+      if (isAbortErr(e)) { setErr('AI 调用被中断，请「换一批」重试'); return; }   // 中止：友好提示，不再暴露 "signal is aborted without reason"
       setErr(e?.message || String(e));
     } finally {
       setLoading(false);
     }
   };
+  const reload = () => { settledRef.current = false; setCands([]); load(); };   // 换一批：重置落定标记，重新生成
   useEffect(() => { load(); /* eslint-disable-next-line react-hooks/exhaustive-deps */ }, []);
 
   const choose = (t: Omit<Trait, 'addedAt'>) => {
@@ -104,7 +114,7 @@ export default function AttrTalentPicker({
         <footer className="shrink-0 flex items-center gap-2 px-5 py-3 border-t border-edge bg-panel">
           <span className="text-[12px] font-mono text-dim/45">里程碑奖励 · 选一个纳入天赋；不满意可换一批（再次计费）</span>
           <div className="flex-1" />
-          <button onClick={load} disabled={loading || done}
+          <button onClick={reload} disabled={loading || done}
             className="text-sm font-mono px-3 py-1.5 rounded-lg border border-god/40 text-god hover:bg-god/10 transition-colors disabled:opacity-40">
             {loading ? '生成中…' : '🔄 换一批'}
           </button>

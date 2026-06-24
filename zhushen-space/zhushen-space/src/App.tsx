@@ -75,6 +75,9 @@ import {
   SOUL_GAMBLE_RULE,
   POTENTIAL_POINT_RULE,
   WORLD_SETTLEMENT_RULE,
+  buildPovOutlineRule,
+  buildPovRenderRule,
+  buildPovAlignRule,
 } from './promptRules';
 
 import { useState, useRef, useEffect, lazy, Suspense, type PointerEvent as RPointerEvent } from 'react';
@@ -1104,6 +1107,9 @@ export default function App() {
   const autoSaveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const lastAutoSaveTurn = useRef(-1);   // 本回合是否已自动存过：防同回合内(生图/选项等异步改 messages 反复触发定时器)重复自动存、刷出多份🛟备份
   const abortRef = useRef<AbortController | null>(null);   // 正文生成中止控制器（停止生成用）
+  const povCollectRef = useRef<{ onDraft: (p: { seatId: string; draft: string; noKey?: boolean }) => void } | null>(null);   // 双视角·房主收集来宾初稿的活跃收集器
+  const povGuestMsgRef = useRef<number | null>(null);   // 双视角·来宾「推演中」占位消息 id（pov_final 来替换）
+  const pendingConvergenceRef = useRef<{ name: string; digest: string }[]>([]);   // 分头行动·汇流：待注入主线的归队者支线见闻（房主侧·下回合注入后清空）
   const [canUndo, setCanUndo] = useState(false);           // 是否有可回退的上一回合
   const [confirmAction, setConfirmAction] = useState<null | { title: string; desc: string; run: () => void }>(null); // 回退/重新生成的确认弹窗
   const [editingMsgId, setEditingMsgId] = useState<number | null>(null);   // 正在编辑的正文楼层 id
@@ -1135,12 +1141,15 @@ export default function App() {
     useMp.getState().setHandlers({
       onWorld: (payload: any, isReplay?: boolean) => {
         if (useMp.getState().role === 'host') return;
+        if (useMp.getState().soloMode) return;   // 脱队单走：忽略主线广播（正文+世界态），自己跑自己的支线；归队后下次广播自动重新同步
         applyWorldSnapshot(payload?.world);   // 来宾：同步房主世界(NPC/势力/世界状态)进本地面板
         if (isReplay) return;                 // 中途加入的状态回放：正文交给 narrative_log，不重复追加
         const t = payload?.narrative;
         if (t) {
-          setMessages((prev) => [...prev, { id: ++msgId.current, role: 'assistant', content: String(t) }]);
-          void runGuestSelfEvolution(String(t));   // 来宾：用自己的 API 演化自己的角色
+          const mid = ++msgId.current;
+          setMessages((prev) => [...prev, { id: mid, role: 'assistant', content: String(t) }]);
+          if (useMp.getState().guestPovOn) void runGuestPovRewrite(String(t), mid);   // 来宾：用自己 API 把客观正文改写成本人视角(display-only，失败保留原文)
+          void runGuestSelfEvolution(String(t));   // 来宾：用自己的 API 演化自己的角色(始终基于客观正文，不受改写影响)
         }
       },
       onNarrativeLog: (entries: { role: string; content: string }[]) => {
@@ -1201,6 +1210,33 @@ export default function App() {
           case 'raid_reward':
             applyRaidReward(m.payload);   // 副本通关豪华奖励：全员（含房主 relay 回显）各自把全套入账到自己 B1，并弹庆祝结算（rewardId 去重防双发）
             break;
+          case 'pov_outline': {   // 双视角·来宾：收到专属大纲 → 用自己 key 渲染本人 POV 初稿回传房主
+            if (useMp.getState().role === 'host') break;
+            if (m.payload.toSeatId !== useMp.getState().mySeatId) break;
+            void runGuestPovRound(m.payload.outline);
+            break;
+          }
+          case 'pov_draft':   // 双视角·房主：收到来宾初稿 → 喂给活跃收集器
+            if (useMp.getState().role === 'host') povCollectRef.current?.onDraft(m.payload);
+            break;
+          case 'solo_toggle': {   // 分头行动：维护全房「谁在单走」的显示列表
+            const sset = new Set(useMp.getState().soloSeats);
+            if (m.payload.solo) sset.add(m.payload.seatId); else sset.delete(m.payload.seatId);
+            useMp.getState()._set({ soloSeats: Array.from(sset) });
+            break;
+          }
+          case 'rejoin_digest':   // 分头行动·汇流：房主收下归队者支线见闻 → 下回合注入主线产生联动
+            if (useMp.getState().role === 'host' && m.payload.digest) pendingConvergenceRef.current.push({ name: m.payload.name || '队友', digest: m.payload.digest });
+            break;
+          case 'pov_final': {   // 双视角·来宾：收到对齐后的最终正文 → 替换占位 + 用大纲自我演化
+            if (useMp.getState().role === 'host') break;
+            if (m.payload.toSeatId !== useMp.getState().mySeatId) break;
+            const fid = povGuestMsgRef.current;
+            if (fid != null) { setMessages((prev) => prev.map((mm) => mm.id === fid ? { ...mm, content: m.payload.text } : mm)); povGuestMsgRef.current = null; }
+            else setMessages((prev) => [...prev, { id: ++msgId.current, role: 'assistant', content: m.payload.text }]);
+            if (m.payload.outline) void runGuestSelfEvolution(m.payload.outline);
+            break;
+          }
           default: { const _exhaustive: never = m; void _exhaustive; }   // 新增 relay 事件却没在此处理 → 编译期报错（穷尽性守卫）
         }
       },
@@ -1215,6 +1251,7 @@ export default function App() {
       onGenRaidBoss: (opts: any) => { if (useMp.getState().role === 'host') void genRaidBossAI(opts?.theme || '', opts?.difficulty || 'normal'); },   // 房主：AI 现生 BOSS
       onStartDungeon: (opts: any) => { if (useMp.getState().role === 'host') startRaidDungeon(opts?.difficulty || 'normal', opts?.kind || 'bakal'); },   // 房主：开启副本（巴卡尔/安图恩）
       onStartDungeonEncounter: (encId: any) => { if (useMp.getState().role === 'host') startDungeonEncounter(String(encId)); },   // 房主：开打副本某一场
+      onSoloRejoin: () => { void onSoloRejoin(); },   // 分头行动·归队：本人回传支线见闻摘要给房主
     });
   }, []);
 
@@ -2485,7 +2522,7 @@ export default function App() {
     const trimmed = trimNarrative(narrative);
     const systemPrompt = buildEntryPhaseSystemPrompt(settings.entries, trimmed);
     const userContent = `# 本轮正文\n${trimmed}\n\n---\n**先输出一个 <think>…</think> 思考块**，按系统提示里的「登场判断思维链」逐项自检——尤其逐个新登场角色想清楚「阶位 + 生物强度档是否合理」（这会被前端机械生成属性采用，定离谱属性就离谱）；**随后**按【输出格式】输出登场/退场判断的 JSON object（含 entries/exits/deedsUpdates/globalCommands）。除 <think> 与该 JSON 外不要有多余文字，不要输出 <state>/<upstore> 块。`;
-    const reply = await npcChatCompletion(systemPrompt, userContent);
+    const reply = await npcChatCompletion(systemPrompt, userContent, 'entry');
     console.log('[NPC] 登场判断响应:', reply);
     const result = parseEntryJson(reply);
     const createdIds = applyEntryResult(result, turnCountRef.current);
@@ -2859,6 +2896,205 @@ ${AFFIX_EFFECT_RULE}`;
   }
 
   // 联机来宾：用自己的 API 演化自己的角色(六维/身份/技能天赋/背包/生平)，不碰共享世界
+  // ════ 联机·完整版双视角（主控-分支-对齐，建房勾选「双视角模式」启用）════
+  function povJson(s: string): any { try { const m = (s || '').match(/\{[\s\S]*\}/); return lenientJsonParse(m ? m[0] : s) || {}; } catch { return {}; } }
+  function povWordOf(): string { const p = useSettings.getState().narrativePov; const sel = p && p !== 'off' ? p : 'second'; return sel === 'first' ? '第一人称（我）' : sel === 'third' ? '第三人称' : '第二人称（你）'; }
+  function myTextChain() { const ss = useSettings.getState(); return resolveApiChain('text', ss.textUseSharedApi ? ss.api : ss.textApi); }
+
+  // 用本人/房主 key 把一段大纲渲染成某角色的 POV 正文（无 key 返回 ''）
+  async function povRender(outline: string, name: string, others: string[]): Promise<string> {
+    const chain = myTextChain();
+    if (!chain[0]?.baseUrl || !chain[0]?.apiKey) return '';
+    try {
+      const { content } = await apiChatFallback(chain, [
+        { role: 'system', content: buildPovRenderRule(name, others, povWordOf()) },
+        { role: 'user', content: `【你的本回合视角大纲】\n${outline}` },
+      ], { timeoutMs: 120000 });
+      return (content || '').trim();
+    } catch (e) { console.warn('[POV] 渲染失败', name, e); return ''; }
+  }
+
+  // 主控：从客观正文为每位玩家提炼专属大纲（房主 key）
+  async function povDeriveOutlines(objective: string, roster: { id: string; name: string; text: string }[]): Promise<Record<string, string>> {
+    const chain = myTextChain();
+    if (!chain[0]?.baseUrl || !chain[0]?.apiKey) return {};
+    try {
+      const { content } = await apiChatFallback(chain, [
+        { role: 'system', content: buildPovOutlineRule(roster) },
+        { role: 'user', content: `【客观正文】\n${objective}` },
+      ], { timeoutMs: 120000 });
+      const out = povJson(content).outlines;
+      const r: Record<string, string> = {};
+      if (out && typeof out === 'object') for (const k of Object.keys(out)) r[k] = String(out[k] ?? '');
+      return r;
+    } catch (e) { console.warn('[POV] 大纲生成失败', e); return {}; }
+  }
+
+  // 主控：逐份对齐各玩家初稿与客观事实的冲突（房主 key，只 Edit）
+  async function povAlign(objective: string, drafts: Record<string, string>, idNames: { id: string; name: string }[]): Promise<Record<string, string>> {
+    const chain = myTextChain();
+    if (!chain[0]?.baseUrl || !chain[0]?.apiKey) return drafts;
+    try {
+      const block = idNames.map((x) => `【${x.id}（${x.name}）的初稿】\n${drafts[x.id] || '（无）'}`).join('\n\n');
+      const { content } = await apiChatFallback(chain, [
+        { role: 'system', content: buildPovAlignRule(idNames) },
+        { role: 'user', content: `【客观正文】\n${objective}\n\n${block}` },
+      ], { timeoutMs: 120000 });
+      const j = povJson(content);
+      const r: Record<string, string> = {};
+      for (const x of idNames) r[x.id] = String(j[x.id] ?? drafts[x.id] ?? '');
+      return r;
+    } catch (e) { console.warn('[POV] 对齐失败，用初稿', e); return drafts; }
+  }
+
+  // 主控：收集来宾 POV 初稿（无 key/超时 → 房主代渲染兜底）
+  async function collectPovDrafts(guests: { seatId: string; name: string }[], outlines: Record<string, string>, drafts: Record<string, string>, otherNames: (self: string) => string[], timeoutMs: number): Promise<void> {
+    if (!guests.length) return;
+    const expected = new Set(guests.map((g) => g.seatId));
+    const fallbackRender = async (g: { seatId: string; name: string }) => (await povRender(outlines[g.seatId] || '', g.name, otherNames(g.name))) || outlines[g.seatId] || '';
+    await new Promise<void>((resolve) => {
+      let done = false;
+      const finish = () => { if (done) return; done = true; povCollectRef.current = null; resolve(); };
+      povCollectRef.current = {
+        onDraft: async (p) => {
+          if (!expected.has(p.seatId) || drafts[p.seatId] != null) return;
+          const g = guests.find((x) => x.seatId === p.seatId)!;
+          drafts[p.seatId] = (p.noKey || !p.draft) ? await fallbackRender(g) : p.draft;
+          if (guests.every((x) => drafts[x.seatId] != null)) finish();
+        },
+      };
+      setTimeout(async () => {   // 超时：未回传的来宾，房主用其大纲代渲染兜底
+        for (const g of guests) if (drafts[g.seatId] == null) drafts[g.seatId] = await fallbackRender(g);
+        finish();
+      }, timeoutMs);
+    });
+  }
+
+  // 房主：本回合三段式编排（partyText 复用现有 callApi 出客观正文+入账状态；hostText 是房主本人这回合的行动）
+  async function runPovTurn(hostText: string, partyText: string) {
+    const mp = useMp.getState();
+    const inputs = mp.turn?.inputs || {};
+    const myName = usePlayer.getState().profile.name || '主角';
+    const cardName = (seatId: string) => (mp.cards || []).find((c) => c.seatId === seatId)?.snapshot?.name;
+    const guests = Object.entries(inputs).map(([seatId, v]) => ({ seatId, name: cardName(seatId) || v.name || '队友', text: (v.text || '').trim() })).filter((g) => g.text);
+    const roster = [{ id: 'HOST', name: myName, text: hostText }, ...guests.map((g) => ({ id: g.seatId, name: g.name, text: g.text }))];
+    const allNames = roster.map((r) => r.name);
+    const otherNames = (self: string) => Array.from(new Set(allNames.filter((n) => n !== self)));
+
+    const hostMsgId = ++msgId.current;
+    setMessages((prev) => [...prev, { id: hostMsgId, role: 'assistant', content: '🎬 主控推演中……（你的视角马上呈现）' }]);
+    useMp.getState()._set({ povBusy: '🎬 主控推演客观剧情…' });
+
+    // Round1：客观正文（复用 callApi·房主不显示；状态/NPC/世界演化照常入账）
+    let objective = '';
+    try { objective = (await callApi(partyText, [], { povHost: true })) || ''; }
+    catch (e) { console.warn('[POV] 客观正文失败', e); }
+    if (!objective) { useMp.getState()._set({ povBusy: '' }); setMessages((prev) => prev.map((m) => m.id === hostMsgId ? { ...m, content: '（主控推演失败，请重试）' } : m)); return; }
+
+    // Round1.5：派发专属大纲
+    useMp.getState()._set({ povBusy: '✍️ 分配各自视角大纲…' });
+    const outlines = await povDeriveOutlines(objective, roster);
+    for (const g of guests) mpClient.relay('pov_outline', { toSeatId: g.seatId, outline: outlines[g.seatId] || objective });
+
+    // Round2：房主渲染自己 POV + 收集来宾初稿（含无 key 由房主代渲染）
+    useMp.getState()._set({ povBusy: '🎨 各自渲染视角…' });
+    const drafts: Record<string, string> = {};
+    const hostOutline = outlines.HOST || objective;
+    await Promise.allSettled([
+      povRender(hostOutline, myName, otherNames(myName)).then((d) => { drafts.HOST = d || hostOutline; }),
+      collectPovDrafts(guests, outlines, drafts, otherNames, 60000),
+    ]);
+
+    // Round3：主控对齐（只 Edit 冲突）
+    useMp.getState()._set({ povBusy: '🧭 主控对齐冲突…' });
+    const idNames = roster.map((r) => ({ id: r.id, name: r.name }));
+    const finals = await povAlign(objective, drafts, idNames);
+
+    // 分发各自最终正文（带大纲供来宾自我演化）+ 房主显示自己的
+    for (const g of guests) mpClient.relay('pov_final', { toSeatId: g.seatId, text: finals[g.seatId] || drafts[g.seatId] || outlines[g.seatId] || objective, outline: outlines[g.seatId] || '' });
+    setMessages((prev) => prev.map((m) => m.id === hostMsgId ? { ...m, content: finals.HOST || drafts.HOST || hostOutline } : m));
+    useMp.getState()._set({ povBusy: '' });
+
+    // 广播世界态（无 narrative，来宾正文走 pov_final）+ 开新回合
+    mpClient.publishWorld({ povMode: true, turnId: mp.turn?.turnId || 0, world: buildWorldSnapshot() });
+    if (mp.seats.length > 0) mpClient.startTurn();
+  }
+
+  // 来宾：收到专属大纲 → 用自己 key 渲染本人 POV 初稿回传房主（无 key 则请房主代渲染）
+  async function runGuestPovRound(outline: string) {
+    const mid = ++msgId.current;
+    setMessages((prev) => [...prev, { id: mid, role: 'assistant', content: '🎬 你的视角推演中……' }]);
+    povGuestMsgRef.current = mid;
+    const myName = usePlayer.getState().profile.name || '主角';
+    const mp = useMp.getState();
+    const others = Array.from(new Set([mp.room?.hostName, ...(mp.cards || []).map((c) => c?.snapshot?.name), ...(mp.seats || []).map((s) => s.name)].filter((n): n is string => !!n && n !== myName)));
+    const draft = await povRender(outline, myName, others);
+    const seatId = mp.mySeatId || '';
+    if (draft) mpClient.relay('pov_draft', { seatId, draft });
+    else mpClient.relay('pov_draft', { seatId, draft: '', noKey: true });   // 无 key → 请房主代渲染
+  }
+
+  // ── 分头行动·汇流（Phase 2 化学反应）──
+  // 归队者：把脱队期间的本地经历用自己 key 浓缩成一句「支线见闻」，回传房主注入主线。
+  async function makeSoloDigest(): Promise<string> {
+    const recent = (messagesRef.current ?? []).slice(-14).filter((m) => m.role === 'assistant').map((m) => String(m.content || '')).join('\n').trim().slice(-3000);
+    if (!recent) return '';
+    const chain = myTextChain();
+    if (!chain[0]?.baseUrl || !chain[0]?.apiKey) return recent.slice(-220);   // 无 key → 用支线正文末段兜底
+    try {
+      const { content } = await apiChatFallback(chain, [
+        { role: 'system', content: '下面是一名玩家「独自行动的支线经历」。请浓缩成 2~3 句话的见闻摘要：他去了哪、做了什么、得到了什么关键之物/能力、当前处境与心境。只输出摘要本身，不要前缀。' },
+        { role: 'user', content: recent },
+      ], { timeoutMs: 60000 });
+      return (content || '').trim().slice(0, 400) || recent.slice(-220);
+    } catch (e) { console.warn('[汇流] 见闻摘要失败，用末段兜底', e); return recent.slice(-220); }
+  }
+  async function onSoloRejoin() {
+    try {
+      const digest = await makeSoloDigest();
+      if (!digest) return;
+      const name = usePlayer.getState().profile.name || '队友';
+      mpClient.relay('rejoin_digest', { seatId: useMp.getState().mySeatId || '', name, digest });
+    } catch (e) { console.warn('[汇流] 归队见闻回传失败', e); }
+  }
+  // 房主：取出并清空待注入的归队见闻，拼成主线注入块（无则返回 ''）
+  function drainConvergence(): string {
+    const list = pendingConvergenceRef.current;
+    if (!list.length) return '';
+    pendingConvergenceRef.current = [];
+    return `【同伴归队·分头行动联动】以下同伴刚结束独自行动归队。请让他们在本回合自然登场/汇合，并让其支线见闻与所获**对主线剧情产生联动（化学反应）**，而非无视：\n${list.map((c) => `- ${c.name}：${c.digest}`).join('\n')}`;
+  }
+
+  // 来宾·视角改写（P2 双视角轻量版）：把房主广播的「客观群像正文」用来宾自己的正文 API 改写成本人视角。
+  // 纯展示层——只替换聊天里那条消息的文本，绝不碰权威世界态、也不喂演化(runGuestSelfEvolution 仍用客观原文)。
+  // 没配 key / 改写失败 / 返回过短 → 静默保留客观正文，不打断体验。
+  async function runGuestPovRewrite(src: string, msgId: number) {
+    try {
+      const ss = useSettings.getState();
+      const api = ss.textUseSharedApi ? ss.api : ss.textApi;
+      const chain = resolveApiChain('text', api);
+      if (!chain[0]?.baseUrl || !chain[0]?.apiKey) return;   // 来宾没配正文 key → 保留客观正文
+      const myName = usePlayer.getState().profile.name || '主角';
+      const mpSt = useMp.getState();
+      const others = Array.from(new Set([
+        mpSt.room?.hostName,
+        ...(mpSt.cards || []).map((c) => c?.snapshot?.name),
+        ...(mpSt.seats || []).map((s) => s.name),
+      ].filter((n): n is string => !!n && n !== myName)));
+      const povSel = ss.narrativePov && ss.narrativePov !== 'off' ? ss.narrativePov : 'second';
+      const povWord = povSel === 'first' ? '第一人称（我）' : povSel === 'third' ? '第三人称' : '第二人称（你）';
+      const sys = `你是联机正文的「视角改写器」。下面给你一段【客观群像正文】(房主视角，多名真人玩家同场)。任务：以玩家【${myName}】为主视角，用${povWord}改写成【${myName}】本人的临场叙事。\n硬性要求：\n1. **客观事实/动作/结果/对白的含义一字不改**——谁做了什么、谁受伤、谁拿到什么、时间地点都必须与原文一致，只改叙述视角、感官与心理着墨重心。\n2. 突出【${myName}】的所见所感所想；${others.length ? `其他同伴（${others.join('、')}）是别人，保留其行动但**不要替他们新增戏份或心理**。` : '其他出场者是别人，不要替他们加戏。'}\n3. 不要新增剧情、不要总结、不要加旁白说明，直接输出改写后的正文本身。`;
+      const { content } = await apiChatFallback(chain, [
+        { role: 'system', content: sys },
+        { role: 'user', content: src },
+      ], { timeoutMs: 120000 });
+      const out = (content || '').trim();
+      if (out.length > 10 && useMp.getState().role === 'player') {   // 仍在房里当来宾才替换，避免离开后晚到的改写污染
+        setMessages((prev) => prev.map((m) => m.id === msgId ? { ...m, content: out } : m));
+      }
+    } catch (e) { console.warn('[MP] 来宾视角改写失败，保留客观正文', e); }
+  }
+
   async function runGuestSelfEvolution(narrative: string) {
     turnCountRef.current += 1;   // 来宾自己的回合推进（让各阶段频率门正常工作）
     try { useMisc.getState().setTurnCount(turnCountRef.current); } catch { /* 持久化累计回合数 */ }
@@ -6303,7 +6539,7 @@ ${lines}`;
     } finally { setGuidanceRunning(false); }
   }
 
-  async function callApi(userText: string, extraHistory: ChatMessage[] = []) {
+  async function callApi(userText: string, extraHistory: ChatMessage[] = [], povOpts: { povHost?: boolean } = {}) {
     // 每次用户发消息计为一回合
     turnCountRef.current += 1;
     try { useMisc.getState().setTurnCount(turnCountRef.current); } catch { /* 持久化「累计总回合数」：跨任务世界/刷新/读档不归零 */ }
@@ -6585,7 +6821,7 @@ ${lines}`;
       if (useStream) {
         // ── 流式读取 SSE ──
         const streamMsgId = ++msgId.current;
-        setMessages((prev) => [...prev, { id: streamMsgId, role: 'assistant', content: '' }]);
+        if (!povOpts.povHost) setMessages((prev) => [...prev, { id: streamMsgId, role: 'assistant', content: '' }]);   // pov 模式：客观正文不进房主聊天(后续 map 更新自动 no-op)，由 runPovTurn 用本人 POV 显示
 
         const reader = res.body!.getReader();
         const decoder = new TextDecoder();
@@ -6685,7 +6921,7 @@ ${lines}`;
         // 显示给玩家的正文：在此之上再剥掉 <状态结算>（纯数据通道，玩家看不到 HP/EP 原词）
         const processed = stripWorldSourceBlocks(stripVitalsBlocks(narrativeForEvoRaw));
         const newMsgId = ++msgId.current;
-        setMessages((prev) => [...prev, { id: newMsgId, role: 'assistant', content: processed }]);
+        if (!povOpts.povHost) setMessages((prev) => [...prev, { id: newMsgId, role: 'assistant', content: processed }]);   // pov 模式：客观正文不进房主聊天，由 runPovTurn 用本人 POV 显示
         // 演化阶段读的正文：去 state 块外，再去掉击杀结算块（保留 <状态结算> 供 HP/EP 结算用，避免演化AI看到点数又重复发 ap）
         const narrativeForEvo = narrativeForEvoRaw.replace(/<击杀结算>[\s\S]*?<\/击杀结算>/gi, '').trimEnd();
         lastNarrativeRef.current = narrativeForEvo;
@@ -6887,7 +7123,8 @@ ${lines}`;
     // ── 联机分叉 ──
     const mp = useMp.getState();
     // 来宾：不调 AI，提交行动给房主 + 本地回显，等房主广播正文
-    if (mp.status === 'connected' && mp.role === 'player') {
+    // 例外·脱队单走：soloMode 时不提交房主，往下走本地单机流程（用自己的 key 独立跑支线）
+    if (mp.status === 'connected' && mp.role === 'player' && !mp.soloMode) {
       mpClient.submitInput(text, buildPlayerSnapshot());
       setMessages((prev) => [...prev, { id: ++msgId.current, role: 'user', content: text }]);
       if (textArg == null) setInputValue('');
@@ -6897,6 +7134,16 @@ ${lines}`;
     await captureUndoPoint();   // 发送前记录回退点（=上一回合结束状态）
     // 房主：把队友本回合已提交的行动并进这一回合（无队友行动则与单人完全一致）
     const isMpHost = mp.status === 'connected' && mp.role === 'host';
+
+    // 完整版双视角：房主走「主控-分支-对齐」三段式编排，替代普通单正文广播
+    if (isMpHost && mp.povMode) {
+      const partyText = buildPartyTurnText(text, mp.turn?.inputs, usePlayer.getState().profile.name || mp.room?.hostName || '房主');
+      setMessages((prev) => [...prev, { id: ++msgId.current, role: 'user', content: partyText }]);
+      if (textArg == null) setInputValue('');
+      await runPovTurn(text, partyText);
+      return;
+    }
+
     const effectiveText = isMpHost ? buildPartyTurnText(text, mp.turn?.inputs, usePlayer.getState().profile.name || mp.room?.hostName || '房主') : text;
 
     const userMsg: ChatMessage = { id: ++msgId.current, role: 'user', content: effectiveText };

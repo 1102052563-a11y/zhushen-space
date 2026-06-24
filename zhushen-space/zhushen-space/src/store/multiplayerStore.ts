@@ -27,6 +27,7 @@ export interface MpHandlers {
   onCombat?: (payload: any) => void;       // 来宾：收到房主广播的战斗快照 → 渲染观战
   onCombatAction?: (payload: any) => void; // 房主：收到来宾的战斗出手 → 结算
   onRelay?: (m: RelayedInbound) => void;  // 通用透传(赠予/分享/副本中继)——payload 按 event 收窄，见 mpProtocol RelayPayloads
+  onSoloRejoin?: () => void;   // 分头行动·归队：本人把支线见闻摘要(自己 key 概括)回传房主，注入主线产生联动
   onTurnStarted?: (turn: MpTurn | null) => void;
   onTurnResolved?: (turn: MpTurn | null) => void;
 }
@@ -50,10 +51,18 @@ interface MpState {
   raidLoot: any | null;       // 组队讨伐：胜利战利（含 results 分配结果）→ 弹窗
   raidDungeon: any | null;    // 组队副本：巴卡尔攻坚战进度（房主权威·relay 广播给来宾）
   raidReward: any | null;     // 组队副本：通关豪华结算奖励 → 弹窗
+  guestPovOn: boolean;        // 来宾：用自己 API 把房主客观正文改写成本人视角（display-only，需自配正文 key）
+  povMode: boolean;           // 房主：本局是否启用「完整版双视角」（主控-分支-对齐三段式·建房勾选）
+  povBusy: string;            // pov 进行中的状态提示（'' = 空闲），UI 显示「主控推演中…」之类
+  soloMode: boolean;          // 来宾·我自己：是否脱队单走（用自己 key 独立跑支线，不提交房主/不收主线广播）
+  soloSeats: string[];        // 全房显示：当前脱队单走的座位（由 solo_toggle 广播维护）
   handlers: MpHandlers;
   _set: (p: Partial<MpState>) => void;
   setHandlers: (h: MpHandlers) => void;
   setMpPresetOn: (v: boolean) => void;
+  setGuestPovOn: (v: boolean) => void;
+  setPovMode: (v: boolean) => void;
+  setSoloMode: (v: boolean) => void;
   reset: () => void;
 }
 
@@ -75,14 +84,22 @@ const INIT = {
   raidLoot: null as any,
   raidDungeon: null as any,
   raidReward: null as any,
+  povBusy: '',
+  soloMode: false,
+  soloSeats: [] as string[],
 };
 
 export const useMp = create<MpState>((set) => ({
   ...INIT,
   handlers: {},
   mpPresetOn: true,
+  guestPovOn: false,
+  povMode: false,
   _set: (p) => set(p),
   setHandlers: (h) => set({ handlers: h }),
   setMpPresetOn: (v) => set({ mpPresetOn: v }),
+  setGuestPovOn: (v) => set({ guestPovOn: v }),
+  setPovMode: (v) => set({ povMode: v }),
+  setSoloMode: (v) => set({ soloMode: v }),
   reset: () => set({ ...INIT }),
 }));

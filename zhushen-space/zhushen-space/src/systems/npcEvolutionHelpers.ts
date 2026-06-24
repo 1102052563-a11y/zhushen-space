@@ -25,8 +25,9 @@ export function trimNarrative(narrative: string) {
 }
 
 /* 统一的一次 chat/completions 调用，返回正文字符串（接口路由多选→轮流+fallback）*/
-export async function npcChatCompletion(systemPrompt: string, userContent: string): Promise<string> {
-  const chain = resolveApiChain('npc', getNpcApi());
+export async function npcChatCompletion(systemPrompt: string, userContent: string, feature: 'npc' | 'entry' = 'npc'): Promise<string> {
+  // 登场判断(entry)可在「API 路由」里单独挂 npcEntry 接口跑（用更强的模型判阶位/强度更准）；未配 npcEntry 路由则回退到 npc 接口/共享，零回归。
+  const chain = resolveApiChain(feature === 'entry' ? 'npcEntry' : 'npc', getNpcApi());
   const ss2 = useSettings.getState();
   const activePreset = ss2.textPresets.find((p) => p.id === ss2.activeTextPresetId) ?? ss2.textPresets[0];
   const extra: Record<string, unknown> = {};
