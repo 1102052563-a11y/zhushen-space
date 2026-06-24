@@ -85,21 +85,35 @@ function vitalMaxBonus(texts: (string | undefined)[], kind: 'hp' | 'ep'): number
   }
   return sum;
 }
-/* 已装备物品对 最大HP / 最大EP 的上限加成合计（装备效果/词缀里写明"X上限"的部分）*/
-export function gearMaxHpBonus(equipped: { effect?: string; affix?: string; combatStat?: string }[] = []): number {
-  return equipped.reduce((s, it) => s + vitalMaxBonus([it.effect, it.affix, it.combatStat], 'hp'), 0);
+/* 选取一条 技能/天赋/装备 里「应计入 HP/EP 上限」的文本（平值与百分比共用同一取数口径）。
+   规范写法是把数值上限加成写进 **attrBonus** 字段（与六维同字段，如「生命上限+5000」「法力上限+15%」）：
+   - attrBonus 里**已写明本类资源(生命/法力…)的上限/加成** → **只认 attrBonus**，不再扫 effect/desc/affix，
+     避免「effect 顺带复述了同一加成、attrBonus 又结构化写了一遍」造成双计（AI 常两边都写）。
+   - attrBonus 没写本类上限（或只写了别的，如纯六维「体质+10」）→ 退回扫描描述字段(effect/desc/affix/combatStat)，
+     并把 attrBonus 也一并带上兜底（旧档常把"生命上限+N"直接写在 effect 自由文本里）。 */
+type GearLite = { effect?: string; affix?: string; combatStat?: string; attrBonus?: string };
+type AbilityLite = { effect?: string; desc?: string; attrBonus?: string };
+function pickVitalTexts(descFields: (string | undefined)[], attrBonus: string | undefined, kind: 'hp' | 'ep'): (string | undefined)[] {
+  const names = kind === 'hp' ? /生命|HP|血量|气血|体力/i : /蓝量|EP|法力|魔力|能量|精力|内力|蓝/i;
+  const ab = (attrBonus ?? '').trim();
+  if (ab && names.test(ab) && /\d/.test(ab)) return [ab];   // attrBonus 已结构化写明本类上限加成 → 只认它，防与描述字段重复计
+  return [...descFields, ab || undefined];
 }
-export function gearMaxEpBonus(equipped: { effect?: string; affix?: string; combatStat?: string }[] = []): number {
-  return equipped.reduce((s, it) => s + vitalMaxBonus([it.effect, it.affix, it.combatStat], 'ep'), 0);
+
+/* 已装备物品对 最大HP / 最大EP 的「平值上限加成」合计（attrBonus/effect/affix 里写明"生命上限+N"等的部分）*/
+export function gearMaxHpBonus(equipped: GearLite[] = []): number {
+  return equipped.reduce((s, it) => s + vitalMaxBonus(pickVitalTexts([it.effect, it.affix, it.combatStat], it.attrBonus, 'hp'), 'hp'), 0);
 }
-/* 技能/天赋（被动）effect/desc 文本里写明的「X上限+N」加成合计——
-   如被动「初级病毒适应：生命值上限额外+100」会让最大 HP 在六维换算之外再 +100。*/
-type AbilityLite = { effect?: string; desc?: string };
+export function gearMaxEpBonus(equipped: GearLite[] = []): number {
+  return equipped.reduce((s, it) => s + vitalMaxBonus(pickVitalTexts([it.effect, it.affix, it.combatStat], it.attrBonus, 'ep'), 'ep'), 0);
+}
+/* 技能/天赋（被动）的「平值上限加成」合计——规范写进 attrBonus(如「生命上限+5000」)，同时兼容写在 effect/desc 的旧档。
+   如被动「初级病毒适应：生命上限+100」会让最大 HP 在六维换算之外再 +100。*/
 export function abilityMaxHpBonus(skills: AbilityLite[] = [], traits: AbilityLite[] = []): number {
-  return vitalMaxBonus([...skills.flatMap((s) => [s.effect, s.desc]), ...traits.flatMap((t) => [t.effect, t.desc])], 'hp');
+  return [...skills, ...traits].reduce((s, a) => s + vitalMaxBonus(pickVitalTexts([a.effect, a.desc], a.attrBonus, 'hp'), 'hp'), 0);
 }
 export function abilityMaxEpBonus(skills: AbilityLite[] = [], traits: AbilityLite[] = []): number {
-  return vitalMaxBonus([...skills.flatMap((s) => [s.effect, s.desc]), ...traits.flatMap((t) => [t.effect, t.desc])], 'ep');
+  return [...skills, ...traits].reduce((s, a) => s + vitalMaxBonus(pickVitalTexts([a.effect, a.desc], a.attrBonus, 'ep'), 'ep'), 0);
 }
 
 /* 解析「百分比上限加成」（如「10%生命加成」「生命上限+10%」「生命值提升15%」「最大法力提高10%」）——
@@ -131,17 +145,17 @@ function vitalMaxPctBonus(texts: (string | undefined)[], kind: 'hp' | 'ep'): num
   }
   return sum;
 }
-export function gearMaxHpPctBonus(equipped: { effect?: string; affix?: string; combatStat?: string }[] = []): number {
-  return equipped.reduce((s, it) => s + vitalMaxPctBonus([it.effect, it.affix, it.combatStat], 'hp'), 0);
+export function gearMaxHpPctBonus(equipped: GearLite[] = []): number {
+  return equipped.reduce((s, it) => s + vitalMaxPctBonus(pickVitalTexts([it.effect, it.affix, it.combatStat], it.attrBonus, 'hp'), 'hp'), 0);
 }
-export function gearMaxEpPctBonus(equipped: { effect?: string; affix?: string; combatStat?: string }[] = []): number {
-  return equipped.reduce((s, it) => s + vitalMaxPctBonus([it.effect, it.affix, it.combatStat], 'ep'), 0);
+export function gearMaxEpPctBonus(equipped: GearLite[] = []): number {
+  return equipped.reduce((s, it) => s + vitalMaxPctBonus(pickVitalTexts([it.effect, it.affix, it.combatStat], it.attrBonus, 'ep'), 'ep'), 0);
 }
 export function abilityMaxHpPctBonus(skills: AbilityLite[] = [], traits: AbilityLite[] = []): number {
-  return vitalMaxPctBonus([...skills.flatMap((s) => [s.effect, s.desc]), ...traits.flatMap((t) => [t.effect, t.desc])], 'hp');
+  return [...skills, ...traits].reduce((s, a) => s + vitalMaxPctBonus(pickVitalTexts([a.effect, a.desc], a.attrBonus, 'hp'), 'hp'), 0);
 }
 export function abilityMaxEpPctBonus(skills: AbilityLite[] = [], traits: AbilityLite[] = []): number {
-  return vitalMaxPctBonus([...skills.flatMap((s) => [s.effect, s.desc]), ...traits.flatMap((t) => [t.effect, t.desc])], 'ep');
+  return [...skills, ...traits].reduce((s, a) => s + vitalMaxPctBonus(pickVitalTexts([a.effect, a.desc], a.attrBonus, 'ep'), 'ep'), 0);
 }
 
 /* 「基础真实上限」(不含跨资源公式) = (六维换算 + 装备/被动平值上限加成) ×(1 + 百分比加成)。 */
@@ -174,11 +188,11 @@ function vitalCrossBonus(texts: (string | undefined)[], kind: 'hp' | 'ep', other
   }
   return Math.round((pctSum / 100) * (otherMax || 0));
 }
-function crossTexts(equipped: { effect?: string; affix?: string; combatStat?: string }[], skills: AbilityLite[], traits: AbilityLite[]): (string | undefined)[] {
+function crossTexts(equipped: GearLite[], skills: AbilityLite[], traits: AbilityLite[]): (string | undefined)[] {
   return [
-    ...skills.flatMap((s) => [s.effect, s.desc]),
-    ...traits.flatMap((t) => [t.effect, t.desc]),
-    ...equipped.flatMap((e) => [e.effect, e.affix, e.combatStat]),
+    ...skills.flatMap((s) => [s.effect, s.desc, s.attrBonus]),
+    ...traits.flatMap((t) => [t.effect, t.desc, t.attrBonus]),
+    ...equipped.flatMap((e) => [e.effect, e.affix, e.combatStat, e.attrBonus]),
   ];
 }
 

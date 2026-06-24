@@ -151,6 +151,26 @@ describe('上限加成·宽松档（未写"上限"但显然是「加生命/HP」
   });
 });
 
+describe('attrBonus 字段·HP/EP 上限加成（规范字段，与六维同处；含百分比）', () => {
+  it('装备 attrBonus 平值/百分比都读得到', () => {
+    expect(gearMaxHpBonus([{ attrBonus: '生命上限+5000' }])).toBe(5000);
+    expect(gearMaxHpPctBonus([{ attrBonus: '生命上限+20%' }])).toBe(20);
+    expect(gearMaxHpBonus([{ attrBonus: '体质+10、生命上限+3000' }])).toBe(3000); // 六维与上限并存，只取上限部分
+  });
+  it('天赋 attrBonus 让 fullMaxHp 叠加（con5 基础100 + 5000）', () => {
+    expect(fullMaxHp(A({ con: 5 }), [], [{ attrBonus: '生命上限+5000' }])).toBe(5100);
+  });
+  it('天赋 attrBonus 平值+百分比并存（(100+2000)×1.5=3150）', () => {
+    expect(fullMaxHp(A({ con: 5 }), [], [{ attrBonus: '生命上限+2000、生命上限+50%' }])).toBe(3150);
+  });
+  it('attrBonus 与 effect 复述同一加成 → 只计一次（不双算）', () => {
+    expect(gearMaxHpBonus([{ attrBonus: '生命上限+5000', effect: '大幅强化生命，生命上限+5000' }])).toBe(5000);
+  });
+  it('attrBonus 只写六维时，仍从 effect 读上限加成（兜底）', () => {
+    expect(gearMaxHpBonus([{ attrBonus: '体质+10', effect: '生命上限+2000' }])).toBe(2000);
+  });
+});
+
 describe('fullMaxHp（无加成时 = computeMaxHp，叠加装备上限）', () => {
   it('纯六维', () => {
     expect(fullMaxHp(A({ con: 5 }))).toBe(100);

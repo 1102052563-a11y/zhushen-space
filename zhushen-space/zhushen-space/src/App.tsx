@@ -84,7 +84,8 @@ import { runPhasePipeline, type Phase } from './systems/phasePipeline';
 import { buildFanficInjection, buildFactInjection, buildCosmosInjection, buildPlayerCoreInjection, buildWorldTimeInjection, buildQuestInjection } from './systems/promptInjections';
 import { applyPlayerProfileCommands, applyTimedStatusCommands, expireStatuses } from './systems/statusCommands';
 import { getNpcApi, trimNarrative, npcChatCompletion, buildNpcVars, fillVars, serializeNpcSnapshot } from './systems/npcEvolutionHelpers';
-import { combatFinalVitals, applyCombatVitals, buildCombatResultFallback, runNpcActionPhase, runResultPhase, runBattleSummaryPhase } from './systems/combatHelpers';
+import { combatFinalVitals, applyCombatVitals, buildCombatResultFallback, runBattleSummaryPhase } from './systems/combatHelpers';
+import { pickEnemyAction } from './systems/enemyAI';
 import { parseWeather, isLightSky, extractWeatherFxCss, sanitizeWeatherCss } from './systems/weatherFx';
 import { runNpcAutonomy } from './systems/npcAutonomy';
 import { useCombat, newLogId, type BattleState, type CombatStatBlock, type Side, type CombatActionKind } from './store/combatStore';
@@ -5962,14 +5963,10 @@ ${lines}`;
     if (out.consumedItem && actorId === 'B1') {
       try { useItems.getState().consumeItem(out.consumedItem.id, out.consumedItem.qty); } catch {}
     }
-    let narration = out.logLines.join(' ');
-    let dialogue = line;
-    if (out.logLines.length > 0 && kind !== 'defend' && kind !== 'flee') {
-      const r = await runResultPhase(out.logLines, actorId, line);
-      narration = r.narration; dialogue = r.dialogue ?? line;
-    }
+    // 标签 VM 结算明细即叙事来源（不再逐动作调 AI）；最终由 finishBattle 据完整战斗日志一次性润色。
+    const narration = out.logLines.join(' ');
     const st = out.state;
-    st.log = [...st.log, makeActionLog(st.round, actorId, out.logLines.join(' '), narration, dialogue)];
+    st.log = [...st.log, makeActionLog(st.round, actorId, out.logLines.join(' '), narration, line)];
     const victor = checkEnd(st);
     if (victor) {
       useCombat.getState().setBattle(st);
@@ -5986,7 +5983,8 @@ ${lines}`;
     C.setApiBusy(true); C.setApiStatus(`${C.battle.initialState[actorId]?.name ?? '对手'} 行动中…`);
     try {
       const state = useCombat.getState().battle;
-      const action = await runNpcActionPhase(state, actorId);
+      const action = pickEnemyAction(state, actorId);   // 本地启发式决策，0 API
+      await new Promise((r) => setTimeout(r, 320));      // 节奏：让每个敌方动作可见（非等待 API）
       await resolveAndNarrate(state, actorId, action.kind, action.targetIds, action.skillId, action.line);
     } catch (e: any) {
       console.error('[Combat] NPC 回合失败:', e?.message ?? e);
