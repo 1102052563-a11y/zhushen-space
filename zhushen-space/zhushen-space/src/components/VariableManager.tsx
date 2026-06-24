@@ -110,6 +110,7 @@ export default function VariableManager({
   onOpenItemManager,
   onOpenPlayerManager,
   onOpenNpcManager,
+  onOpenEntryJudgeManager,
   onOpenFactionManager,
   onOpenTerritoryManager,
   onOpenTeamManager,
@@ -132,6 +133,7 @@ export default function VariableManager({
   onOpenItemManager?: () => void;
   onOpenPlayerManager?: () => void;
   onOpenNpcManager?: () => void;
+  onOpenEntryJudgeManager?: () => void;
   onOpenFactionManager?: () => void;
   onOpenTerritoryManager?: () => void;
   onOpenTeamManager?: () => void;
@@ -156,7 +158,8 @@ export default function VariableManager({
       title: '演化系统',
       items: [
         { icon: '🧬', label: '主角演化',   desc: '六维 · 技能 · 天赋 · 身份',  color: 'sky',     cb: onOpenPlayerManager },
-        { icon: '🧑‍🤝‍🧑', label: 'NPC 演化', desc: '角色档案 · 登场调度',        color: 'violet',  cb: onOpenNpcManager },
+        { icon: '🧑‍🤝‍🧑', label: 'NPC 演化', desc: '角色档案 · 重点演化',        color: 'violet',  cb: onOpenNpcManager },
+        { icon: '🚪', label: '登场判断',   desc: 'API · 世界书 · 提示词 · 联网',  color: 'violet',  cb: onOpenEntryJudgeManager },
         { icon: '⚔',  label: '物品管理',   desc: '背包 · 装备 · 定价',         color: 'amber',   cb: onOpenItemManager },
         { icon: '🧩', label: '杂项演化',   desc: '任务 · 大事 · 时间天气',      color: 'teal',    cb: onOpenMiscManager },
         { icon: '🏛', label: '势力演化',   desc: '组织 · 帮派 · 阵营',         color: 'orange',  cb: onOpenFactionManager },

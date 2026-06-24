@@ -9,6 +9,7 @@ import ApiRoutePicker from './ApiRoutePicker';
 import ItemManager from './ItemManager';
 import PlayerManager from './PlayerManager';
 import NpcManager from './NpcManager';
+import EntryJudgeManager from './EntryJudgeManager';
 import FactionManager from './FactionManager';
 import TerritoryManager from './TerritoryManager';
 import AdventureTeamManager from './AdventureTeamManager';
@@ -37,7 +38,7 @@ interface SettingsPanelProps {
   onOpenSaveLoad: () => void;   // 打开存档管理面板（导出/导入/重置游戏数据；逻辑复用 SaveLoadPanel）
 }
 
-type Page = 'home' | 'world-detail' | 'textgen-detail' | 'regex-detail' | 'general' | 'variables' | 'item-manager' | 'player-manager' | 'npc-manager' | 'faction-manager' | 'territory-manager' | 'team-manager' | 'cosmos-manager' | 'memory-manager' | 'misc-manager' | 'channel-manager' | 'novelvec-manager' | 'codex-manager' | 'dice-manager' | 'combat-manager' | 'arena-manager' | 'enhance-manager' | 'skilltree-manager' | 'subprof-manager' | 'joy-manager' | 'casino-manager' | 'abyss-manager' | 'narrative-memory' | 'vector-memory' | 'image-gen' | 'appearance';
+type Page = 'home' | 'world-detail' | 'textgen-detail' | 'regex-detail' | 'general' | 'variables' | 'item-manager' | 'player-manager' | 'npc-manager' | 'entry-judge-manager' | 'faction-manager' | 'territory-manager' | 'team-manager' | 'cosmos-manager' | 'memory-manager' | 'misc-manager' | 'channel-manager' | 'novelvec-manager' | 'codex-manager' | 'dice-manager' | 'combat-manager' | 'arena-manager' | 'enhance-manager' | 'skilltree-manager' | 'subprof-manager' | 'joy-manager' | 'casino-manager' | 'abyss-manager' | 'narrative-memory' | 'vector-memory' | 'image-gen' | 'appearance';
 type Tab = 'worldbook' | 'api' | 'prompt' | 'preset' | 'global-regex' | 'preset-regex';
 
 function DetailLayout({ title, onBack, tabs, activeTab, onTab, children }: {
@@ -192,6 +193,7 @@ export default function SettingsPanel({ onClose, onOpenSaveLoad }: SettingsPanel
             onOpenItemManager={() => setPage('item-manager')}
             onOpenPlayerManager={() => setPage('player-manager')}
             onOpenNpcManager={() => setPage('npc-manager')}
+            onOpenEntryJudgeManager={() => setPage('entry-judge-manager')}
             onOpenFactionManager={() => setPage('faction-manager')}
             onOpenTerritoryManager={() => setPage('territory-manager')}
             onOpenTeamManager={() => setPage('team-manager')}
@@ -262,6 +264,23 @@ export default function SettingsPanel({ onClose, onOpenSaveLoad }: SettingsPanel
         </header>
         <div className="flex-1 overflow-y-auto p-6 max-lg:p-3">
           <NpcManager />
+        </div>
+      </div>
+    );
+  }
+
+  if (page === 'entry-judge-manager') {
+    return (
+      <div className="h-screen flex flex-col bg-void text-slate-300">
+        <header className="shrink-0 h-10 flex items-center justify-between px-4 border-b border-edge bg-panel">
+          <button onClick={() => setPage('variables')} className="flex items-center gap-2 text-sm font-mono text-dim hover:text-slate-200 transition-colors">
+            ← 变量管理
+          </button>
+          <span className="text-sm font-mono text-dim">登场判断</span>
+          <div className="w-20" />
+        </header>
+        <div className="flex-1 overflow-y-auto p-6 max-lg:p-3">
+          <EntryJudgeManager />
         </div>
       </div>
     );

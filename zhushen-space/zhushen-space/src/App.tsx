@@ -11,6 +11,7 @@ import {
   ITEM_FIXED_FORMAT_RULE,
   AFFIX_EFFECT_RULE,
   ITEM_GRADE_TABLE_RULE,
+  EQUIP_CODEX,
   ITEM_ACQUIRE_RULE,
   ITEM_DESTROY_GUARD_RULE,
   ITEM_COT_RULE,
@@ -138,6 +139,7 @@ import type { ItemPresetEntry } from './store/itemStore';
 import { useComposer } from './store/composerStore';
 import { usePlayer, buildPlayerSystemPrompt, extractPlayerPresetFromJson } from './store/playerStore';
 import { useNpcEvo, extractNpcPresetFromJson } from './store/npcEvoStore';
+import { useEntryJudge } from './store/entryJudgeStore';
 import { useFaction } from './store/factionStore';
 import { useFactionEvo, buildFactionSystemPrompt, buildFactionEntryPrompt, extractFactionPresetFromJson } from './store/factionEvoStore';
 const FactionPanel = lazy(() => import('./components/FactionPanel'));
@@ -342,7 +344,10 @@ async function loadBuiltinDefaults() {
     { const t = await grab('item.json'); const p = t ? extractItemPresetFromJson(t) : null;
       if (p) useItems.getState().setPresetEntries(p.entries, p.name, p.version); }
     { const t = await grab('npc.json'); const p = t ? extractNpcPresetFromJson(t) : null;
-      if (p) useNpcEvo.getState().setPresetEntries(p.entries, p.name, p.version); }
+      // NPC 演化只取「重点演化」条目；登场判断条目(entrySharedRules)已分割到独立的「登场判断」模块(entryJudge)。
+      if (p) useNpcEvo.getState().setPresetEntries(p.entries.filter((e) => e.source !== 'entrySharedRules'), p.name, p.version); }
+    { const t = await grab('entry-judge.json'); const p = t ? extractNpcPresetFromJson(t) : null;   // 登场判断·独立预设
+      if (p) useEntryJudge.getState().setPresetEntries(p.entries, p.name, p.version); }
     { const t = await grab('faction.json'); const p = t ? extractFactionPresetFromJson(t) : null;
       if (p) useFactionEvo.getState().setPresetEntries(p.entries, p.name, p.version); }
   } catch (e) { console.warn('[内置预设] 载入失败', e); }
@@ -1528,6 +1533,8 @@ export default function App() {
     sysPrompt += '\n\n' + QUEST_KILL_TIER_RULE; sysSegments.push({ label: '前端规则 · 击杀阶位上限', content: QUEST_KILL_TIER_RULE });
     // 任务世界结算：仅当本回合输入含【结算任务】时才注入（平时不喂，省 token、避免误触发）
     if (/【结算任务】/.test(userInput)) { sysPrompt += '\n\n' + WORLD_SETTLEMENT_RULE; sysSegments.push({ label: '前端规则 · 任务世界结算（本回合触发）', content: WORLD_SETTLEMENT_RULE }); }
+    // 装备世界书·生成总纲：本回合涉及装备/掉落/打造等时全量注入（让正文 createItem 的品级/评分/数值/词缀合理且机器可读；其余装备生成阶段恒注入）
+    if (/装备|武器|防具|饰品|法宝|宝石|掉落|战利品|宝箱|开箱|打造|锻造|锻冶|合成|缴获|搜刮/.test(userInput)) { sysPrompt += '\n\n' + EQUIP_CODEX; sysSegments.push({ label: '装备世界书 · 生成总纲（本回合触发）', content: EQUIP_CODEX }); }
     // 主角前端加点 → 一次性事件：玩家在属性面板自行加点(前端确定性结算)，正文看不到此动作 → 注入告知，让叙事"知道"并据此用最新余额（一次性，注入后即清空）
     const allocNotices = drainAllocNotices();
     if (allocNotices.length) {
@@ -1675,7 +1682,7 @@ export default function App() {
       const systemPrompt = (usingFallback
         ? ITEM_FALLBACK_PROMPT
         : buildItemPhaseSystemPrompt(enabledEntries, ''))   // 不在 system 里放正文
-        + '\n\n' + NARRATIVE_FIRST_RULE + '\n' + ITEM_FIXED_FORMAT_RULE + '\n' + ITEM_GRADE_TABLE_RULE
+        + '\n\n' + NARRATIVE_FIRST_RULE + '\n' + ITEM_FIXED_FORMAT_RULE + '\n' + ITEM_GRADE_TABLE_RULE + '\n' + EQUIP_CODEX
         + '\n【穿戴装备处理·换装≠销毁】① **替换/换装**：穿上新装备时只需对**新装备** equipItem（引擎会自动把同槽位的旧装备卸回储存空间）——被换下来的旧装备**只是脱下放回储存空间、并没有消失，绝对不要对它 destroyItem 或 consumeItem**（这是最常见的误删，务必避免）。② 只有正文**明确**把某件装备"丢弃/扔掉/卖掉/损毁/被夺走/送人"时，才对那件 destroyItem（引擎会自动先卸下再销毁）。③ 不要无故销毁正在穿的装备；已装备物品一律不要 consumeItem。'
         + '\n【destroy/consume 必带物品名+原因】destroyItem/consumeItem **必须带 "name" 字段=物品全名**（与背包清单一致），itemId 用清单里的真实 ID；引擎优先按 name 匹配。**严禁臆造 itemId**——若不确定 ID，只写 name。**还必须带 "reason" 字段**＝一句话说明它为何消失，并据正文如实区分「被使用/消耗」(喝下、吃掉、开启、激活、引爆、投掷…) 还是「损坏/丢弃/失去」(碎裂、熔毁、报废、丢弃、卖掉、送人、被夺走…)——这句会原样显示在「最近删除」里给玩家看。例：destroyItem({"name":"白色宝箱","reason":"开启后化作光点消失"})；destroyItem({"name":"精钢长剑","reason":"被酸液彻底腐蚀熔毁"})；consumeItem({"name":"残旧的止血绷带","quantity":1,"reason":"包扎伤口用掉"})。'
         + '\n' + ITEM_ACQUIRE_RULE
@@ -1780,7 +1787,7 @@ export default function App() {
 
     setItemPhaseLog(`✨ 强化收尾：刷新「${it.name}」+${args.newLevel}…`);
     try {
-      const system = ENHANCE_FINALIZE_RULE + '\n' + ITEM_EXACT_REF_RULE;
+      const system = ENHANCE_FINALIZE_RULE + '\n' + ITEM_EXACT_REF_RULE + '\n' + EQUIP_CODEX;
       const user = `# 待刷新的强化装备\n${card}\n\n请按【装备强化·收尾刷新铁则】，输出这件装备强化到 +${args.newLevel} 后的 <upstore> updateItem 指令`
         + `（${addAffix > 0 ? `档数 N=${addAffix}：**先**把已有每条词缀威力按 ${addAffix} 档上调变强，**再**新增 ${addAffix} 条各不相同的全新词缀（每条「【名】：触发+作用+持续」自带说明、**禁止只写词缀名**，**且贴合装备主用途、绝不只给伤害类**）；effect 是**非数值的特殊性质描述**(对持有者的定性影响/特质，数值归 combatStat、**不写数值/不出现词缀名/不复述词缀**)；保留 effect 里的【镶嵌加成】不动` : '本次未跨过 3 级整数倍，可不动词缀/效果（攻防/评分/外观/简介已由系统处理）'}）。只输出这一条 updateItem，只改 affix 和 effect。`;
       console.log('[Enhance] 收尾·发起 API 调用 →', chain[0]?.modelId, chain[0]?.baseUrl);
@@ -1982,7 +1989,7 @@ export default function App() {
     try {
       setItemPhaseLog('🔍 综合对账·纠正中…');
       const { content: reply } = await apiChatFallback(chain, [
-        { role: 'system', content: MERGED_AUDIT_SYSTEM + '\n' + ITEM_GRADE_TABLE_RULE + '\n' + STATUS_COUNTDOWN_TURN_RULE },
+        { role: 'system', content: MERGED_AUDIT_SYSTEM + '\n' + ITEM_GRADE_TABLE_RULE + '\n' + EQUIP_CODEX + '\n' + STATUS_COUNTDOWN_TURN_RULE },
         { role: 'user', content: userContent },
       ]);
       console.log('[MergedAudit] 对账原始响应:', reply);
@@ -2216,7 +2223,7 @@ export default function App() {
       return body ? `\n\n【阶位·生物强度战力图鉴（登场判断参照系·定阶位/等级/生物强度档前务必逐条对照）】\n${body}` : '';
     })();
     return entries
-      .filter((e) => e.enabled && e.source === 'entrySharedRules')
+      .filter((e) => e.enabled)   // entries 来自独立的「登场判断」预设(entryJudge)，整本都是登场判断条目
       .map((e) => fillVars(e.content, vars))
       .join('\n\n')
       + '\n\n' + NARRATIVE_FIRST_RULE + '\n' + EVO_VERIFY_RULE + '\n' + NPC_DEAD_EXCLUDE_RULE + '\n' + NPC_ID_RULE + '\n' + TIER_RULE + '\n' + SKILL_TIER_RULE + '\n' + NPC_GEN_ATTR_RULE + '\n' + NPC_TEAM_AFFILIATION_RULE + '\n' + NPC_ENTRY_BIO_RULE + '\n' + ENTRY_NAME_CN_RULE + '\n' + ENTRY_DEDUP_RULE + codexInjection + '\n' + ENTRY_COT_RULE;
@@ -2527,14 +2534,18 @@ export default function App() {
   }
 
   async function runEntryJudgment(narrative: string): Promise<{ result: any; createdIds: Set<string> }> {
-    const { settings } = useNpcEvo.getState();
-    const entryEntries = (settings.entries ?? []).filter((e) => e.enabled && e.source === 'entrySharedRules');
+    const ej = useEntryJudge.getState();
+    if (ej.enabled === false) {
+      console.log('[NPC] 登场判断已在「登场判断」设置里关闭，跳过');
+      return { result: null, createdIds: new Set() };
+    }
+    const entryEntries = (ej.entries ?? []).filter((e) => e.enabled);
     if (entryEntries.length === 0) {
       console.log('[NPC] 无启用的登场判断条目，跳过登场判断');
       return { result: null, createdIds: new Set() };
     }
     const trimmed = trimNarrative(narrative);
-    const systemPrompt = buildEntryPhaseSystemPrompt(settings.entries, trimmed);
+    const systemPrompt = buildEntryPhaseSystemPrompt(ej.entries, trimmed);
     const userContent = `# 本轮正文\n${trimmed}\n\n---\n**先输出一个 <think>…</think> 思考块**，按系统提示里的「登场判断思维链」逐项自检——尤其逐个新登场角色想清楚「阶位 + 生物强度档是否合理」（这会被前端机械生成属性采用，定离谱属性就离谱）；**随后**按【输出格式】输出登场/退场判断的 JSON object（含 entries/exits/deedsUpdates/globalCommands）。除 <think> 与该 JSON 外不要有多余文字，不要输出 <state>/<upstore> 块。`;
     const reply = await npcChatCompletion(systemPrompt, userContent, 'entry');
     console.log('[NPC] 登场判断响应:', reply);
@@ -4826,7 +4837,9 @@ ${replyTo.authorName} 之前说：「${String(replyTo.content).slice(0, 200)}」
     const M = useMisc.getState();
     const sys = `你是「轮回乐园·系统商店」补货员。一次性生成 **10 件** 待售商品，类别要丰富搭配：消耗品、制式装备(武器/防具/饰品)、技能书/技能卷轴、材料、工具、特殊物品等。
 - 贴合当前世界(${M.worldName || '轮回乐园'})与主角阶位(${prof.tier || '一阶'}·Lv.${prof.level})的强度区间；**价格一般偏高**（系统商店溢价，约市场价 1.2~1.8 倍）。
-- 每件按物品固定格式给全字段。**只输出 JSON**：{"items":[{"name","category"(武器/防具/饰品/消耗品/材料/工具/特殊物品/重要物品等),"subType","gradeDesc"(品质色由低到高:白/绿/蓝/紫/暗紫/淡金/金/暗金/传说级/史诗级/圣灵级/不朽级/起源级/永恒级/创世,按强度选合适档),"price"(数字),"currency"("乐园币"或"魂币"),"effect","combatStat"(装备攻防如"防御8-8"),"durability","requirement","affix","origin","intro","appearance","qty"(默认1)}]}，共 10 件，不要任何多余文字或 markdown。`;
+- 每件按物品固定格式给全字段。**只输出 JSON**：{"items":[{"name","category"(武器/防具/饰品/消耗品/材料/工具/特殊物品/重要物品等),"subType","gradeDesc"(品质色由低到高:白/绿/蓝/紫/暗紫/淡金/金/暗金/传说级/史诗级/圣灵级/不朽级/起源级/永恒级/创世,按强度选合适档),"price"(数字),"currency"("乐园币"或"魂币"),"effect","combatStat"(装备攻防机器可读如"法术攻击力 60-135"/"防御力 8-12"),"durability","requirement","affix","origin","intro","appearance","qty"(默认1)}]}，共 10 件，不要任何多余文字或 markdown。
+
+${EQUIP_CODEX}`;
     try {
       const { content } = await apiChatFallback(chain, [{ role: 'system', content: sys }, { role: 'user', content: '只输出 JSON {"items":[…10件…]}。' }], { timeoutMs: 90000 });
       const j = parseEntryJson(content);
@@ -5613,7 +5626,7 @@ ${lines}`;
     const user = `# 对手信息\n名号：${entry.name}\n阶位：${entry.tier}\n职业：${entry.job || '—'}\n生物强度：${entry.strength || '—'}\n竞技场名次：第${entry.rank}名（${def.name}）\n\n# 主角阶位\n${arenaEffectiveTier(prof.tier, prof.level)}（主角名次 #${useArena.getState().ladders[def.id]?.playerRank ?? '—'}）`;
     let j: any = {};
     try {
-      const { content } = await apiChatFallback(arenaChain(), [{ role: 'system', content: ARENA_OPPONENT_RULE }, { role: 'user', content: user }], { timeoutMs: 75000 });
+      const { content } = await apiChatFallback(arenaChain(), [{ role: 'system', content: ARENA_OPPONENT_RULE + '\n' + EQUIP_CODEX }, { role: 'user', content: user }], { timeoutMs: 75000 });
       j = parseEntryJson(content) || lenientJsonParse(content) || {};
     } catch (e) { console.warn('[Arena] 对手建档失败:', e); }
     const a = (v: any, d = 30) => Math.max(1, Math.min(99, parseInt(String(v), 10) || d));
@@ -5700,7 +5713,7 @@ ${lines}`;
     const skeleton = { quality: template.quality, type: `${template.category}/${template.sub}`, biome: '黑渊', stats: template.stats, active: template.active, passive: template.passive, curse: template.curse };
     const user = `# 机械骨架（只配文，严禁改数值/改效果）\n${JSON.stringify(skeleton)}`;
     try {
-      const { content } = await apiChatFallback(abyssChain('abyss'), [{ role: 'system', content: ABYSS_SIN_GEN_RULE }, { role: 'user', content: user }], { timeoutMs: 60000 });
+      const { content } = await apiChatFallback(abyssChain('abyss'), [{ role: 'system', content: ABYSS_SIN_GEN_RULE + '\n' + EQUIP_CODEX }, { role: 'user', content: user }], { timeoutMs: 60000 });
       const m = content.match(/\{[\s\S]*\}/);
       const obj = m ? lenientJsonParse(m[0]) : null;
       return obj && typeof obj === 'object' ? obj as SinFlavor : null;
@@ -5945,7 +5958,7 @@ ${lines}`;
       slots.map(({ r }, n) => `${n + 1}. slot=${n + 1} 类型=${typeLabel(r.kind)}${r.kind === 'equip' ? ` 大类=${r.item?.category ?? '武器'}` : ''} 品级=${r.grade}`).join('\n');
     let arr: any[] = [];
     try {
-      const { content } = await apiChatFallback(casinoChain(), [{ role: 'system', content: GACHA_REWARD_RULE }, { role: 'user', content: user }], { timeoutMs: 75000 });
+      const { content } = await apiChatFallback(casinoChain(), [{ role: 'system', content: GACHA_REWARD_RULE + '\n' + EQUIP_CODEX }, { role: 'user', content: user }], { timeoutMs: 75000 });
       arr = parseArenaArray(content);
     } catch (e) { console.warn('[Casino] 福袋奖励生成失败:', e); }
     if (!arr.length) return rewards;   // 兜底：用确定性模板物品
@@ -6007,7 +6020,7 @@ ${lines}`;
     const user = `# 奖励档位\n${band.label}（名次 #${rank}）\n允许品级：${band.grades}\n物品件数：${band.itemCount[0]}~${band.itemCount[1]} 件\n是否附唯一称号：${band.giveTitle ? '是' : '否'}\n说明：${band.note}\n\n# 主角阶位\n${arenaEffectiveTier(prof.tier, prof.level)}\n竞技场：${pending.arenaName}`;
     let j: any = {};
     try {
-      const { content } = await apiChatFallback(arenaChain(), [{ role: 'system', content: ARENA_REWARD_RULE }, { role: 'user', content: user }], { timeoutMs: 60000 });
+      const { content } = await apiChatFallback(arenaChain(), [{ role: 'system', content: ARENA_REWARD_RULE + '\n' + EQUIP_CODEX }, { role: 'user', content: user }], { timeoutMs: 60000 });
       j = parseEntryJson(content) || lenientJsonParse(content) || {};
     } catch (e) { console.warn('[Arena] 奖励生成失败:', e); }
     const items = useItems.getState();

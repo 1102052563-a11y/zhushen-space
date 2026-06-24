@@ -1,5 +1,6 @@
 // NPC 演化·API/上下文/序列化助手（从 App.tsx 抽出；只读 store + 入参，无组件 state/ref 耦合）。
 import { useNpcEvo } from '../store/npcEvoStore';
+import { useEntryJudge } from '../store/entryJudgeStore';
 import { useSettings, resolveApiChain } from '../store/settingsStore';
 import { useNpc, type NpcRecord } from '../store/npcStore';
 import { useMisc } from '../store/miscStore';
@@ -24,17 +25,29 @@ export function trimNarrative(narrative: string) {
     : narrative;
 }
 
+/* 登场判断的 legacy 回退接口（集成路由 npcEntry 为空时用）：自配接口 / 与正文共用。 */
+export function getEntryApi() {
+  const ej = useEntryJudge.getState();
+  const ss = useSettings.getState();
+  return ej.useSharedApi ? (ss.textUseSharedApi ? ss.api : ss.textApi) : ej.api;
+}
+
 /* 统一的一次 chat/completions 调用，返回正文字符串（接口路由多选→轮流+fallback）*/
 export async function npcChatCompletion(systemPrompt: string, userContent: string, feature: 'npc' | 'entry' = 'npc'): Promise<string> {
-  // 登场判断(entry)可在「API 路由」里单独挂 npcEntry 接口跑（用更强的模型判阶位/强度更准）；未配 npcEntry 路由则回退到 npc 接口/共享，零回归。
-  const chain = resolveApiChain(feature === 'entry' ? 'npcEntry' : 'npc', getNpcApi());
+  const isEntry = feature === 'entry';
+  // 登场判断(entry)走独立集成路由 npcEntry（可挂更强的模型判阶位/强度更准）；未配路由则回退到登场判断自配/共享接口，零回归。
+  const chain = resolveApiChain(isEntry ? 'npcEntry' : 'npc', isEntry ? getEntryApi() : getNpcApi());
   const ss2 = useSettings.getState();
   const activePreset = ss2.textPresets.find((p) => p.id === ss2.activeTextPresetId) ?? ss2.textPresets[0];
   const extra: Record<string, unknown> = {};
   if (activePreset?.temperature != null) extra.temperature = activePreset.temperature;
   if (activePreset?.max_tokens != null) extra.max_tokens = activePreset.max_tokens;
   if (activePreset?.top_p != null && activePreset.top_p > 0 && activePreset.top_p <= 1) extra.top_p = activePreset.top_p;
-  const timeoutSec = Math.max(10, useNpcEvo.getState().settings.scheduling.requestTimeout || 90);
+  // 联网搜索（仅登场判断·开关在登场判断设置）：给请求体加 Gemini google_search 工具，让模型联网查同人/角色资料后再定档。
+  if (isEntry && useEntryJudge.getState().webSearch) extra.tools = [{ google_search: {} }];
+  const timeoutSec = isEntry
+    ? Math.max(10, useEntryJudge.getState().requestTimeout || 90)
+    : Math.max(10, useNpcEvo.getState().settings.scheduling.requestTimeout || 90);
   const { content } = await apiChatFallback(
     chain,
     [{ role: 'system', content: systemPrompt }, { role: 'user', content: userContent }],

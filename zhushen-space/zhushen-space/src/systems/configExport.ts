@@ -19,6 +19,7 @@ import { useSettings } from '../store/settingsStore';
 import { usePlayer } from '../store/playerStore';
 import { useItems } from '../store/itemStore';
 import { useNpcEvo } from '../store/npcEvoStore';
+import { useEntryJudge } from '../store/entryJudgeStore';
 import { useFactionEvo } from '../store/factionEvoStore';
 import { useTerritory } from '../store/territoryStore';
 import { useTeam } from '../store/adventureTeamStore';
@@ -57,6 +58,17 @@ function evoExtract(s: any): any {
   for (const k of Object.keys(s ?? {})) {
     if (typeof s[k] === 'function') continue;
     if (/Api$/.test(k) || /UseSharedApi$/.test(k)) out[k] = s[k];
+  }
+  return out;
+}
+
+// 登场判断：只导开关/超时/API（不导 entries——每次启动从内置 entry-judge.json 重载，导出徒增体积）。
+function entryJudgeExtract(s: any): any {
+  const out: any = {};
+  for (const k of Object.keys(s ?? {})) {
+    if (typeof s[k] === 'function') continue;
+    if (k === 'entries' || k === 'presetName' || k === 'presetVersion') continue;
+    out[k] = s[k];
   }
   return out;
 }
@@ -192,6 +204,7 @@ const SPECS: StoreSpec[] = [
   { key: 'drpg-player-evo',         label: '主角演化',     api: usePlayer as any,            extract: evoExtract },
   { key: 'drpg-items',              label: '物品管理',     api: useItems as any,             extract: evoExtract },
   { key: 'drpg-npc-evo',            label: 'NPC 演化',     api: useNpcEvo as any,            extract: evoExtract },
+  { key: 'drpg-entry-judge',        label: '登场判断',     api: useEntryJudge as any,        extract: entryJudgeExtract },
   { key: 'drpg-faction-evo',        label: '势力演化',     api: useFactionEvo as any,        extract: evoExtract },
   { key: 'drpg-territory',          label: '领地演化',     api: useTerritory as any,         extract: evoExtract },
   { key: 'drpg-team',               label: '冒险团演化',   api: useTeam as any,              extract: evoExtract },
