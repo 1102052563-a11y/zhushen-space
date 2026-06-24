@@ -255,6 +255,24 @@ function makeOffer(listingId: string, price: number, message: string, currency: 
   return true;
 }
 
+// 立即购买：先按挂牌价扣款入货币托管（余额不足直接拒），再发买断。8s 没成交则退币。
+// 成交不需卖家在线：买家收 trade_completed 即得物 + 消费托管币；卖家的托管物在其下次上线由 hello→history 对账消费。
+function buyListing(listing: TradeListing): boolean {
+  const price = Math.max(0, Math.floor(Number(listing.price) || 0));
+  const token = 'b_' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
+  if (!escrowCoin(token, listing.id, price, listing.currency)) {
+    set({ error: `${listing.currency}不足，无法购买` });
+    setTimeout(() => { if ((useTrade.getState().error || '').includes('不足')) set({ error: null }); }, 2500);
+    return false;
+  }
+  const ok = sendRaw({ type: 'buy_listing', listingId: listing.id, clientToken: token });
+  if (!ok) { const cm = loadCoin(); const e = cm[token]; if (e) { returnCoin(e); delete cm[token]; saveCoin(cm); } return false; }   // 发送失败 → 退币
+  setTimeout(() => {   // 8s 没成交（trade_completed 会消费掉托管）→ 视为失败（已售/下架/过期），退币
+    const cm = loadCoin(); const e = cm[token]; if (e) { returnCoin(e); delete cm[token]; saveCoin(cm); }
+  }, 8000);
+  return true;
+}
+
 function sendRaw(obj: TradeOutbound) {
   if (ws && ws.readyState === 1) { ws.send(JSON.stringify(obj)); return true; }
   return false;
@@ -281,6 +299,7 @@ export const tradeClient = {
   leave,
   listItem,
   makeOffer,
+  buyListing,
   closeListing: (listingId: string) => sendRaw({ type: 'close_listing', listingId }),
   acceptOffer: (listingId: string, offerId: string) => sendRaw({ type: 'accept_offer', listingId, offerId }),
   isOpen: () => !!ws && ws.readyState === 1,

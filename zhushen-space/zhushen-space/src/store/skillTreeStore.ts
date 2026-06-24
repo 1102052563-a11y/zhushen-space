@@ -11,6 +11,7 @@ import {
   isBigNode, respecMinorPoints, coinPerPP,
   expressBranchIds, ownedNameSet, nodeCostFor,
 } from '../systems/skillTree';
+import { registerTreePool } from '../systems/treePool';
 
 /* 主角(或某角色)当前技能树的六维总加成（普通等值；普通节点普通点、sink 真实点 ×80）。
    供 combat/dice/bio/属性面板把它折进有效属性 base，使所有判定生效。 */
@@ -33,6 +34,7 @@ export interface NodeGrants {
   skill?: Omit<Skill, 'id' | 'addedAt'>;   // 解锁 → characterStore.addSkill('B1',…)
   trait?: Omit<Trait, 'addedAt'>;          // 解锁 → characterStore.addTrait('B1',…)
   attr?: AttrDelta;                         // 解锁 → 合成一条「潜能」被动天赋承载六维加成
+  recipe?: { name: string; tier?: string; materials?: string; output?: string; desc?: string };   // 副职业树专用：解锁 → characterStore.addRecipe(tree.profession,…)（进副职业面板，不进技能/天赋栏）
 }
 
 export interface TreeNode {
@@ -68,13 +70,15 @@ export interface TreeConstellation {
 
 export interface TreeDef {
   id: string;
-  profession: string;      // 职业名（对 profile.profession 匹配）
+  profession: string;      // 职业名（对 profile.profession 匹配）；副职业树里 = 副职业名（炼金术/锻造…）
   title?: string;          // 显示标题
   branches: TreeBranch[];
   nodes: TreeNode[];
   constellations?: TreeConstellation[];   // 星座成型奖励
   source: 'builtin' | 'ai' | 'manual';
   version: number;
+  recipeLabel?: string;    // 副职业树专用：配方的叫法（图纸/药方/食谱/锻造图…），仅副职业树用，技能树忽略
+  category?: string;       // 副职业树专用：副职业大类（制造/医疗/生活…）
 }
 
 export interface GrantedRef { kind: 'skill' | 'trait'; name: string }
@@ -429,7 +433,7 @@ export const useSkillTree = create<SkillTreeState>()(
         const profile = usePlayer.getState().profile;
         const ch = useCharacters.getState().characters['B1'];
         const expressBranches = expressBranchIds(tree, ownedNameSet(ch?.skills, ch?.traits));   // 传承提前解锁的路线
-        const ctx = { level: profile.level, tier: profile.tier, expressBranches };
+        const ctx = { level: profile.level, tier: profile.tier, expressBranches, charId };   // charId → availablePP 走共享池（与副职业树共用潜能）
         if (!canRankUp(tree, nodeId, prog, ctx).ok) return false;
         const node = tree.nodes.find((n) => n.id === nodeId)!;
         const wasRank = nodeRank(prog, nodeId);
@@ -476,7 +480,7 @@ export const useSkillTree = create<SkillTreeState>()(
         const tree = prog.activeTreeId ? s.trees[prog.activeTreeId] : undefined;
         if (!tree) return false;
         const profile = usePlayer.getState().profile;
-        if (!canRankUp(tree, nodeId, prog, { level: profile.level, tier: profile.tier }).ok) return false;
+        if (!canRankUp(tree, nodeId, prog, { level: profile.level, tier: profile.tier, charId }).ok) return false;
         const node = tree.nodes.find((n) => n.id === nodeId); if (!node) return false;
         const refs: GrantedRef[] = [...prog.grantedRefs];
         if (upd.skill?.name) {
@@ -697,3 +701,9 @@ export const useSkillTree = create<SkillTreeState>()(
     },
   ),
 );
+
+// 共享潜能池：把「技能树已花/额外潜能点」登记进 treePool，与副职业树合并计算可用潜能（任一棵点点，另一棵同步减少）
+registerTreePool((charId) => {
+  const p = useSkillTree.getState().progress[charId];
+  return { spent: p?.spent ?? 0, bonus: p?.aiBonusPP ?? 0 };
+});

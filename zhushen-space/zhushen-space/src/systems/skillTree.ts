@@ -6,6 +6,7 @@
 import { TIERS, normalizeTier, realmFromLevel } from './derivedStats';
 import { ATTR_KEYS, ATTR_LABEL, type AttrDelta } from './attrBonus';
 import type { TreeDef, TreeNode } from '../store/skillTreeStore';
+import { allTreePool } from './treePool';
 
 /* ── 调参旋钮（改即生效）────────────────────────────────────────────────────── */
 export const SKILLTREE_TUNING = {
@@ -27,7 +28,7 @@ export const SKILLTREE_TUNING = {
 
 export const DEFAULT_BRANCH_COLORS = ['#38bdf8', '#f59e0b', '#a78bfa', '#34d399', '#f472b6'];
 
-export interface TreeCtx { level: number; tier?: string; expressBranches?: Set<string> }
+export interface TreeCtx { level: number; tier?: string; expressBranches?: Set<string>; charId?: string }
 
 /* 「传承·提前解锁」：主角已通过其它途径获得某路【终极技能/天赋】(capstone) → 该路全程提前解锁(免阶位/累计闸门)、每节点仅 1 潜能点。 */
 function normName(s?: string): string { return String(s ?? '').trim().toLowerCase(); }
@@ -104,9 +105,13 @@ export function isUnlocked(progress: ProgressLike | undefined, id: string): bool
   return !!(sk && sk.active !== false);
 }
 
-/* 当前可用潜能点 = 预算 + 累计(兑换/任务/奇遇) − 已花费 */
+/* 当前可用潜能点 = 预算 + 累计(兑换/任务/奇遇) − 已花费。
+   ctx.charId 存在时走「共享池」：预算 + 全部树合计额外 − 全部树合计已花（技能树与副职业树共用一池，
+   任一棵点一点，另一棵可用同步减少）；不传 charId 时回退单树（向后兼容）。 */
 export function availablePP(progress: ProgressLike | undefined, ctx: TreeCtx): number {
-  return potentialBudget(ctx.level, ctx.tier) + (progress?.aiBonusPP ?? 0) - (progress?.spent ?? 0);
+  const budget = potentialBudget(ctx.level, ctx.tier);
+  if (ctx.charId) { const p = allTreePool(ctx.charId); return budget + p.bonus - p.spent; }
+  return budget + (progress?.aiBonusPP ?? 0) - (progress?.spent ?? 0);
 }
 
 /* 阶位 gate（2026-06-23 重新启用·用户要求「每个节点加阶位限制·越后越高·封顶七阶」）：
@@ -196,9 +201,9 @@ export function treeAttrDelta(tree: TreeDef | undefined, progress: ProgressLike 
   return out;
 }
 
-/* 大节点 = 解锁技能/天赋的节点（中星/主星）。洗点不动它们。*/
+/* 大节点 = 解锁技能/天赋/配方的节点（中星/主星）。洗点不动它们。*/
 export function isBigNode(node: TreeNode | undefined): boolean {
-  return !!(node && (node.grants?.skill || node.grants?.trait));
+  return !!(node && (node.grants?.skill || node.grants?.trait || node.grants?.recipe));
 }
 /* 洗点退还的小节点点数（仅非大节点 rank×cost 之和）→ 乘 respecCoinPerPoint = 乐园币代价 */
 export function respecMinorPoints(tree: TreeDef | undefined, progress: ProgressLike | undefined): number {
@@ -245,11 +250,18 @@ function sanitizeTrait(t: any): any {
   if (!t || typeof t !== 'object') return undefined;
   return { ...t, name: fieldText(t.name) ?? '', level: fieldText(t.level), rarity: fieldText(t.rarity), category: fieldText(t.category), source: fieldText(t.source), effect: fieldText(t.effect), attrBonus: fieldText(t.attrBonus), desc: fieldText(t.desc) };
 }
+function sanitizeRecipe(r: any): any {
+  if (!r || typeof r !== 'object') return undefined;
+  const name = fieldText(r.name) ?? '';
+  if (!name) return undefined;
+  return { name, tier: fieldText(r.tier), materials: fieldText(r.materials), output: fieldText(r.output), desc: fieldText(r.desc) };
+}
 function sanitizeGrants(g: any): TreeNode['grants'] {
   if (!g || typeof g !== 'object') return {};
   const out: TreeNode['grants'] = {};
   if (g.skill && typeof g.skill === 'object') out.skill = sanitizeSkill(g.skill);   // 字段全转字符串/tags转数组，防崩溃
   if (g.trait && typeof g.trait === 'object') out.trait = sanitizeTrait(g.trait);
+  if (g.recipe && typeof g.recipe === 'object') { const rec = sanitizeRecipe(g.recipe); if (rec) out.recipe = rec; }   // 副职业树：节点解锁的配方
   const a = sanitizeAttr(g.attr);
   if (a) out.attr = a;
   return out;
@@ -396,6 +408,8 @@ export function validateTree(raw: any): TreeValidation {
     constellations: constellations.length ? constellations : undefined,
     source: raw?.source === 'ai' || raw?.source === 'builtin' ? raw.source : 'manual',
     version: Math.max(1, Math.floor(Number(raw?.version) || 1)),
+    recipeLabel: raw?.recipeLabel ? String(raw.recipeLabel) : undefined,   // 副职业树专用（技能树忽略）
+    category: raw?.category ? String(raw.category) : undefined,
   };
   return { ok: errors.length === 0, errors, warnings, tree };
 }

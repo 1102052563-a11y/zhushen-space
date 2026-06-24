@@ -25,6 +25,19 @@ export function isTagService(s: ImgService): boolean {
   return s === 'nai' || s === 'comfy';
 }
 
+/** 把中文/英文性别词映射成 danbooru 主体性别 tag（1girl/1boy/futanari）。
+ *  正文生图据此把性别「钉死」，避免被外观/服装/气质误判成异性（女被画成男是常见 bug）。
+ *  无法明确判断（含「其它/未知」/非人）时返回 ''——交由 LLM 按正文判断，不强行套用。
+ *  注意：「female」含「male」、「woman」含「man」，故必须女判定优先于男。*/
+export function genderToTag(gender?: string): string {
+  const g = (gender || '').trim().toLowerCase();
+  if (!g) return '';
+  if (/(女|雌|girl|female|woman|♀)/.test(g)) return '1girl';
+  if (/(男|雄|boy|male|\bman\b|♂)/.test(g)) return '1boy';
+  if (/(扶她|双性|futa|herm|intersex)/.test(g)) return 'futanari';
+  return '';
+}
+
 function clean(t: string): string {
   return (t || '')
     .replace(/```[\s\S]*?```/g, (m) => m.replace(/```/g, ''))

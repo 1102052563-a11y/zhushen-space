@@ -112,7 +112,7 @@ export default function TradePanel({ onClose }: { onClose: () => void }) {
             {st.error && <div className="text-[11px] font-mono text-amber-400/80 pb-1">{st.error}</div>}
             <div className="text-[11px] font-mono text-dim/40 px-1 pb-1">历史成交 · {st.history.length} 笔（最多 100，全员公开）</div>
             {st.history.length === 0 && (
-              <div className="text-center text-dim/40 text-xs font-mono py-12">— 还没有成交记录 · 卖家在某条还价上点「接受」即成交 —</div>
+              <div className="text-center text-dim/40 text-xs font-mono py-12">— 还没有成交记录 · 买家点「立即购买」或卖家接受还价即成交 —</div>
             )}
             {st.history.map((r) => (
               <div key={r.id} className="rounded-xl border border-edge bg-panel/30 p-3 space-y-1.5">
@@ -234,8 +234,14 @@ function ListingCard({ listing, mePid, connected, onOpenDetail }: {
       )}
 
       {/* 操作行 */}
-      <div className="flex items-center gap-2 pt-0.5">
-        {!offering && (
+      <div className="flex items-center gap-2 flex-wrap pt-0.5">
+        {!mine && (
+          <button
+            onClick={() => { if (window.confirm(`确认以 ${listing.price} ${listing.currency} 立即购买「${listing.item?.name || '该物品'}」？\n款项立即从你账上扣除交付卖家，物品立刻到你背包，此挂牌随即下架。`)) tradeClient.buyListing(listing); }}
+            disabled={!connected}
+            className="px-3 py-1.5 rounded-lg text-[12px] font-semibold bg-god/20 border border-god/40 text-god hover:bg-god/30 disabled:opacity-40 transition-colors">🛒 立即购买 · {listing.price} {listing.currency}</button>
+        )}
+        {!mine && !offering && (
           <button onClick={() => setOffering(true)} disabled={!connected} className="px-3 py-1.5 rounded-lg text-[12px] font-semibold border border-cyan-600/40 text-cyan-300/90 hover:bg-cyan-600/10 disabled:opacity-40 transition-colors">💱 还价</button>
         )}
         {mine && (

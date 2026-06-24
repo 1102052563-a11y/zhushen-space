@@ -68,11 +68,11 @@ export default function ArenaPanel({ onClose, onGenerateLadder, onScout, onChall
     return run(`正在加载第 ${target} 名附近…`, () => onGenerateLadder(d.id, d, buildWindowRanks(target, d.kind), `t${target}`));
   }
 
-  // 选定可进入竞技场且无缓存榜单 → 自动加载主榜
+  // 选定竞技场 → 仅确保榜单记录存在(播种「我的名次」)，**不再自动生成榜单**。
+  // 榜单一旦生成就缓存为「记忆」，重开/切回不刷新；要换一批对手由玩家手动点「🔄 刷新」。
   useEffect(() => {
     if (!def || def.locked) return;
-    const seeded = useArena.getState().ensureLadder(def.id, seedPlayerRank(def));
-    if (seeded.entries.length === 0) void loadHome(def);
+    useArena.getState().ensureLadder(def.id, seedPlayerRank(def));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [def?.id]);
 
@@ -209,7 +209,14 @@ export default function ArenaPanel({ onClose, onGenerateLadder, onScout, onChall
 
                 {/* 榜单 */}
                 <div className="flex-1 overflow-y-auto p-2 space-y-1">
-                  {sortedEntries.length === 0 && !busy && <div className="text-slate-500 text-sm text-center py-10">点「刷新」生成排行榜。</div>}
+                  {sortedEntries.length === 0 && !busy && (
+                    <div className="flex flex-col items-center gap-3 py-12 text-center">
+                      <div className="text-slate-500 text-sm">还没有这个竞技场的排行榜。</div>
+                      <button onClick={() => def && loadHome(def)}
+                        className="px-4 py-2 rounded-lg bg-cyan-700 hover:bg-cyan-600 text-white text-sm font-medium">🔄 生成排行榜</button>
+                      <div className="text-[11px] text-slate-500/80 max-w-xs leading-relaxed">榜单生成后会被记住，重新打开不会自动刷新；想换一批对手时再点「刷新」。</div>
+                    </div>
+                  )}
                   {sortedEntries.map((e) => {
                     const badge = e.badge ?? ladderBadge(def.kind, e.rank);
                     const clickable = !e.isPlayer;

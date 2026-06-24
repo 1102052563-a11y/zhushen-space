@@ -140,7 +140,7 @@ export default function SkillTreePanel({ onClose }: { onClose: () => void }) {
   // 传承·提前解锁：主角已通过其它途径拥有某路终极技能/天赋 → 该路提前解锁、每节点 1 潜能点
   const b1 = useCharacters((s) => s.characters['B1']);
   const expressBranches = expressBranchIds(tree, ownedNameSet(b1?.skills, b1?.traits));
-  const ctx = { level: profile.level, tier: profile.tier, expressBranches };
+  const ctx = { level: profile.level, tier: profile.tier, expressBranches, charId: 'B1' };   // 共享潜能池（与副职业树合计）
   const ranks = prog?.ranks ?? {};
   const availableIds = new Set(
     (tree?.nodes ?? []).filter((n) => canRankUp(tree, n.id, prog, ctx).ok).map((n) => n.id),

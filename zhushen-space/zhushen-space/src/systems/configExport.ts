@@ -34,6 +34,7 @@ import { useNovelVec } from '../store/novelVecStore';
 import { useCreationTemplates } from '../store/creationTemplateStore';
 import { useCombat } from '../store/combatStore';
 import { useSkillTree } from '../store/skillTreeStore';
+import { useSubProfTree } from '../store/subProfTreeStore';
 
 export const CONFIG_KIND = 'zhushen-global-config';
 export const CONFIG_FORMAT_VERSION = 1;
@@ -206,6 +207,7 @@ const SPECS: StoreSpec[] = [
   { key: 'drpg-novelvec',           label: '向量资料库',   api: useNovelVec as any,          extract: evoExtract },
   { key: 'drpg-creation-templates', label: '角色创建模板', api: useCreationTemplates as any, extract: plainExtract },
   { key: 'drpg-skilltree',          label: '技能树模板',   api: useSkillTree as any,         extract: skillTreeExtract, apply: skillTreeApply },
+  { key: 'drpg-subproftree',        label: '副职业树模板', api: useSubProfTree as any,       extract: skillTreeExtract, apply: skillTreeApply },
 ];
 
 // 递归清空 API 密钥（apiKey / apiToken），用于"不含密钥"导出（可安全分享）

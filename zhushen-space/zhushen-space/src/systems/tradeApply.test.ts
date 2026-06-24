@@ -85,6 +85,16 @@ describe('交易行 结算 + 货币托管', () => {
     expect(useItems.getState().currency.乐园币).toBe(20);          // 不二次扣款
   });
 
+  it('立即购买：record.offerId 为空 + 托管 offerId=null → 按 listingId+price 兜底消费、得物不二次扣款', () => {
+    useTrade.setState({ me: { playerId: 'chat:2', name: 'B' } });
+    useItems.setState({ currency: { 乐园币: 0, 灵魂钱币: 0, 技能点: 0, 黄金技能点: 0 } });   // 买断时已扣，余 0
+    setCoin({ b1: coin({ token: 'b1', offerId: null }) });        // 立即购买的托管（无 offerId）
+    applyTrade(rec({ offerId: '' }));                             // 买断记录无中标 offerId
+    expect(useItems.getState().items.some((it) => it.name === '九转还魂丹')).toBe(true);   // 得物
+    expect(getCoin().b1).toBeUndefined();                        // 托管按 listingId+price 兜底消费
+    expect(useItems.getState().currency.乐园币).toBe(0);          // 不二次扣款
+  });
+
   it('买家：找不到货币托管 → 兜底现扣(≥0 钳制)', () => {
     useTrade.setState({ me: { playerId: 'chat:2', name: 'B' } });
     useItems.setState({ currency: { 乐园币: 100, 灵魂钱币: 0, 技能点: 0, 黄金技能点: 0 } });

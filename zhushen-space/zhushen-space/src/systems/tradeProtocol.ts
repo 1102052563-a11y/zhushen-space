@@ -59,5 +59,6 @@ export type TradeInbound =
 export type TradeOutbound =
   | { type: 'list_item'; item: unknown; price: number; currency: string; note: string; clientToken: string }
   | { type: 'make_offer'; listingId: string; price: number; message: string; clientToken: string }
+  | { type: 'buy_listing'; listingId: string; clientToken: string }   // 立即购买：按挂牌价单方成交（无需卖家在线接受）
   | { type: 'close_listing'; listingId: string }
   | { type: 'accept_offer'; listingId: string; offerId: string };

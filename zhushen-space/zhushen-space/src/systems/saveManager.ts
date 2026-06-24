@@ -27,6 +27,7 @@ import { useFact } from '../store/factStore';
 import { useCombat } from '../store/combatStore';
 import { useArena } from '../store/arenaStore';
 import { useSkillTree } from '../store/skillTreeStore';
+import { useSubProfTree } from '../store/subProfTreeStore';
 import { useCasino } from '../store/casinoStore';
 import { useAbyss } from '../store/abyssStore';
 import { clearJoySessions } from '../store/joyStore';
@@ -65,6 +66,7 @@ const STORES: { key: string; api: any; clear?: () => void }[] = [
   { key: 'drpg-combat',     api: useCombat, clear: () => useCombat.getState().clearCombat() },
   { key: 'drpg-arena',      api: useArena, clear: () => useArena.getState().clearArena() },
   { key: 'drpg-skilltree',  api: useSkillTree, clear: () => useSkillTree.setState({ progress: {} }) },
+  { key: 'drpg-subproftree', api: useSubProfTree, clear: () => useSubProfTree.setState({ progress: {} }) },
   { key: 'drpg-casino',     api: useCasino, clear: () => useCasino.getState().clearCasino() },
   { key: 'drpg-abyss',      api: useAbyss, clear: () => useAbyss.getState().clearAbyss() },
 ];
@@ -228,7 +230,7 @@ export async function loadSlot(id: string): Promise<boolean> {
   // - 快照里没有 → **只清【较新功能的进度缓存】**（防上一局的 潜能点/筹码/深渊进度 等泄漏进读入的旧档）；
   //   **核心存档（主角技能/天赋/副职业·背包·NPC·主角档案·HP/EP 等）绝不因快照缺失而清空**——
   //   否则读个缺这些键的旧档/回退点就会把当前的技能天赋副职业全抹掉（"读档后技能丢失"的根因，已修）。
-  const CLEAR_ON_MISSING = new Set(['drpg-skilltree', 'drpg-casino', 'drpg-abyss', 'drpg-world-codex']);
+  const CLEAR_ON_MISSING = new Set(['drpg-skilltree', 'drpg-subproftree', 'drpg-casino', 'drpg-abyss', 'drpg-world-codex']);
   // 设备级全局配置：读档一律保留【当前】值、绝不回滚到存档快照。否则读个旧档/回退点，就会把
   // 「剧情指导」等功能开关、人称、记忆/向量配置等全冲回存档当时的旧值——这正是「开启剧情指导后
   // 一刷新/读档又关闭」的根因（2026-06-20 修）。API 字段原本已由 mergeKeepApi 保当前，这里把整个

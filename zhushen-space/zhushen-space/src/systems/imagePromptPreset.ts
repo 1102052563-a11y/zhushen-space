@@ -48,8 +48,9 @@ export function getImgPromptPreset(): { name: string; entries: ImgPromptEntry[] 
 /* 输出格式覆盖：放在最后（最高优先/最近），把模型从预设自带的 <images>/Character N/坐标/UC 格式拉回前端解析器认的格式 */
 export const IMG_OUTPUT_OVERRIDE = `【输出格式 · 最高优先 · 覆盖以上一切格式规定】
 忽略上文里关于 <images> 外层包裹 / <thinking> / <Tag_think> / Character N Prompt / centers 坐标 / 逐角色 UC 的所有格式要求。本次**只允许**输出 {count} 个 <image> 块，严格如下，块外不要任何其它文字：
-<image><anchor>正文里连续出现、可 Ctrl+F 命中的 8~30 字原文片段</anchor><nsfw_rating>sfw / nsfw_mild / nsfw_moderate / nsfw_explicit 之一</nsfw_rating><prompt>英文 NAI danbooru tags，主体数量+性别开头（1girl/1boy…），充分运用你掌握的标签库与 Tag 规则，忠实正文</prompt></image>
-重复 {count} 个。不要 <Tag_think>/<thinking>、不要坐标/UC、不要中文说明。`;
+<image><anchor>正文里连续出现、可 Ctrl+F 命中的 8~30 字原文片段</anchor><nsfw_rating>sfw / nsfw_mild / nsfw_moderate / nsfw_explicit 之一</nsfw_rating><prompt>英文 NAI danbooru tags，开头写主体数量+性别（严格按「在场可调用角色」资料里标注的性别：女=1girl、男=1boy、futanari 等），充分运用你掌握的标签库与 Tag 规则，忠实正文</prompt></image>
+重复 {count} 个。不要 <Tag_think>/<thinking>、不要坐标/UC、不要中文说明。
+【性别·硬性铁则·最高优先】每个角色的性别**只认上方「在场可调用角色」资料里给出的标注**（写「女 → 1girl」就必须 1girl，写「男 → 1boy」就必须 1boy，futanari 同理）；**严禁**凭外观/发型/服装/身材/气质/职业/语气去猜性别，更不许把女性画成男性、或把男性画成女性。资料未标注性别的角色，才依正文判断。开头的 1girl/1boy/1other 必须与角色资料完全一致——画错性别属于严重错误，宁可少加别的 tag 也要先把性别钉死。`;
 
 function applyMacros(s: string, ctx: { story: string; count: number }): string {
   const rnd = () => String(Math.floor(Math.random() * 900000) + 100000);

@@ -127,6 +127,7 @@ export default function VariableManager({
   onOpenNovelVecManager,
   onOpenWorldCodexManager,
   onOpenSkillTreeManager,
+  onOpenSubProfManager,
 }: {
   onOpenItemManager?: () => void;
   onOpenPlayerManager?: () => void;
@@ -148,6 +149,7 @@ export default function VariableManager({
   onOpenNovelVecManager?: () => void;
   onOpenWorldCodexManager?: () => void;
   onOpenSkillTreeManager?: () => void;
+  onOpenSubProfManager?: () => void;
 }) {
   const GROUPS: { title: string; items: ModuleItem[] }[] = [
     {
@@ -182,6 +184,7 @@ export default function VariableManager({
         { icon: '🎰', label: '赌场',       desc: '玩法 · API · 限红抽水 · 荷官',  color: 'amber',   cb: onOpenCasinoManager },
         { icon: '🕳', label: '深渊地牢',   desc: 'API · 门票 · 进度 · 重置',     color: 'violet',  cb: onOpenAbyssManager },
         { icon: '🌳', label: '技能树',     desc: '职业树 · 节点编辑 · 模板',    color: 'emerald', cb: onOpenSkillTreeManager },
+        { icon: '🛠', label: '副职业设置', desc: '配方星图 · AI 生成 · 独立API',  color: 'teal',    cb: onOpenSubProfManager },
         { icon: '💗', label: '欢愉宫',     desc: '看板娘 · 情欲值 · 四阶段',    color: 'pink',    cb: onOpenJoyManager },
       ],
     },

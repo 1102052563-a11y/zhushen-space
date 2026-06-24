@@ -109,7 +109,7 @@ import { bioInnate, tierVitalMult } from './systems/bioStrength';
 import { generateNpcAttrs, resolveForm, generateLuck } from './systems/npcAttrGen';
 import { useImageGen, effectiveEquipService } from './store/imageGenStore';
 import { generateImage, buildPortraitPrompt, buildEquipPrompt, shrinkDataUrl } from './systems/imageGen';
-import { genPortraitTags, genEquipTags, isTagService } from './systems/imageTags';
+import { genPortraitTags, genEquipTags, isTagService, genderToTag } from './systems/imageTags';
 import { hydrateImages, initImageSync } from './systems/imageSync';
 import { loadWb, saveWb } from './systems/wbDb';
 import { apiDebugLog } from './systems/apiDebugLog';
@@ -3414,15 +3414,29 @@ ${AFFIX_EFFECT_RULE}`;
     const chain = resolveApiChain('image_story_llm', legacy);
     if (!chain[0]?.baseUrl || !chain[0]?.apiKey) { console.warn('[StoryImg] 正文生图 LLM 未配置（综合设置→生图设置→正文生图→独立 LLM 路由），跳过'); return 0; }
 
-    // 在场角色外观资料
+    // 在场角色外观资料（含主角 B1）：性别显式映射成 1girl/1boy/futanari，避免被外观特征误判成异性
+    const genderLabel = (g?: string) => {
+      const tag = genderToTag(g);
+      const raw = (g || '').trim();
+      return tag ? (raw ? `${raw} → ${tag}` : tag) : (raw || '性别未知');
+    };
+    const p = usePlayer.getState().profile;
+    const rosterLines: string[] = [];
+    if (p?.name) {
+      const pa = (p.appearance || p.baseAppearance || '').trim();
+      const ptags = (p.imageTags || '').trim();
+      rosterLines.push(
+        `[B1] ${p.name}（主角／${genderLabel(p.gender)}）：${pa || '外观见正文'}` +
+        (ptags ? `。画像锚点(imageTags)：${ptags}` : ''),
+      );
+    }
     const onNpcs = Object.values(useNpc.getState().npcs).filter((r) => !r.isDead && r.onScene);
-    const charsFull = onNpcs.length
-      ? onNpcs.map((r) => {
-          const seg = (r.appearance5 || '').split('|');
-          const ap = [seg[4], seg[3], seg[1], r.appearanceDetail].map((x) => (x || '').trim()).filter(Boolean).join('，');
-          return `[${r.id}] ${r.name}（${r.gender || '性别未知'}）：${ap || '外观未知'}`;
-        }).join('\n')
-      : '（无在场 NPC 资料）';
+    for (const r of onNpcs) {
+      const seg = (r.appearance5 || '').split('|');
+      const ap = [seg[4], seg[3], seg[1], r.appearanceDetail].map((x) => (x || '').trim()).filter(Boolean).join('，');
+      rosterLines.push(`[${r.id}] ${r.name}（${genderLabel(r.gender)}）：${ap || '外观未知'}`);
+    }
+    const charsFull = rosterLines.length ? rosterLines.join('\n') : '（无在场角色资料）';
     const M = useMisc.getState();
 
     // 提示词来源：强制使用内置「生图预设」（懒加载、不在 UI 暴露）；加载失败则回退 storyTemplate
@@ -4945,7 +4959,8 @@ ${lines}`;
   }
   // 从 AI 输出稳健抽取 JSON 数组（去 ``` 围栏 + 截取 [..]）
   const parseArenaArray = (content: string): any[] => {
-    let t = (content || '').trim().replace(/^```(?:json)?/i, '').replace(/```$/i, '').trim();
+    let t = (content || '').replace(/<think[^>]*>[\s\S]*?<\/think>/gi, '').trim()   // 先剥思维链，避免 think 里的方括号被当成数组边界
+      .replace(/^```(?:json)?/i, '').replace(/```$/i, '').trim();
     const i = t.indexOf('['); const j = t.lastIndexOf(']');
     if (i >= 0 && j > i) t = t.slice(i, j + 1);
     const v = lenientJsonParse(t);
@@ -6288,7 +6303,7 @@ ${lines}`;
         (tail.length ? '✅ 已认出 chatHistory marker：' + tail.length + ' 个后历史块已插到真实楼层之后(仿 fanren)\n' : '（无 chatHistory marker：全部当前历史，行为同旧版）\n') +
         '总消息条数：' + (1 + history.length) + '（1 条合并 system ＋ ' + history.length + ' 条历史/注入/输入/prefill）\n' +
         '合并 system 总长：~' + Math.round(sysPrompt.length / 3.5) + ' 词符 · 流式 ' + ((preset?.stream ?? textStream) ? '开' : '关') },
-      ...sysSegments.map((s) => ({ label: (s.label.startsWith('预设块') ? '🧩 ' : '🔧 ') + s.label, role: 'system', content: s.content })),
+      ...sysSegments.map((s) => ({ label: (s.label.startsWith('预设块') ? '🧩 ' : s.label.includes('世界书') ? '📚 ' : '🔧 ') + s.label, role: 'system', content: s.content })),
       ...examples.map((e, i) => ({ label: '💬 少样本示例 #' + (i + 1) + '（' + e.role + '）', role: e.role as string, content: e.content })),
       ...tail.map((t) => ({ label: '📜 后历史块 · ' + (t as any).label, role: t.role as string, content: t.content })),
       ...depthInjections.map((inj) => ({ label: '⚡ 深度注入 · ' + ((inj as any).label ?? '块') + ' · depth ' + inj.depth, role: inj.role, content: inj.content })),
