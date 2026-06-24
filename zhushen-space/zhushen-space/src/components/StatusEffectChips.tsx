@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import type { StatusEffect } from '../store/playerStore';
+import { useMisc } from '../store/miscStore';
 
 /* 限时状态胶囊：展示 buff/debuff + 时效，点击展开效果/来源，✕ 手动移除。
    引擎会按回合/游戏时间自动过期，这里只负责展示与手动清除。 */
@@ -19,15 +20,24 @@ function toneOf(e: StatusEffect): string {
   if (/增|强化|加速|护盾|回复|提升|狂暴|祝福|再生/.test(t)) return 'buff';
   return 'neutral';
 }
-function durLabel(e: StatusEffect): string {
+/* 回合制限时状态的「实时剩余回合」：startTurn + durationTurns 对照当前累计回合数 curTurn 实算，
+   与战斗面板 / expireStatuses 同口径（durationTurns − 已过回合），随回合推进自动倒数。
+   非回合制（时间制/条件制）durationTurns 为空 → 返回 null，仍按 durationDesc 展示。 */
+function remainTurns(e: StatusEffect, curTurn: number): number | null {
+  if (e.durationTurns == null) return null;
+  return Math.max(0, e.durationTurns - (curTurn - (e.startTurn ?? curTurn)));
+}
+function durLabel(e: StatusEffect, curTurn: number): string {
+  const rem = remainTurns(e, curTurn);
+  if (rem != null) return `${rem}回合`;
   if (e.durationDesc) return e.durationDesc;
-  if (e.durationTurns != null) return `${e.durationTurns}回合`;
   return '';
 }
 /* 仅「数字+单位」的短时长才进胶囊（3回合/5分钟…）；条件式解除（"重新接战后解除"等长文本）不塞进胶囊，
    否则会把小圆胶囊撑爆、文字挤成一团，改放到展开区显示。 */
-function durShort(e: StatusEffect): string {
-  if (e.durationTurns != null) return `${e.durationTurns}回合`;
+function durShort(e: StatusEffect, curTurn: number): string {
+  const rem = remainTurns(e, curTurn);
+  if (rem != null) return `${rem}回合`;
   const d = (e.durationDesc ?? '').trim();
   return /^\d+\s*(回合|分钟|小时|天|秒|分|时)$/.test(d) ? d : '';
 }
@@ -52,6 +62,7 @@ function permWord(e: StatusEffect): string {
 
 export default function StatusEffectChips({ effects, onRemove }: { effects: StatusEffect[]; onRemove?: (name: string) => void }) {
   const [open, setOpen] = useState<string | null>(null);
+  const curTurn = useMisc((s) => s.turnCount ?? 0);   // 订阅累计回合数：回合推进时自动重渲染→倒计时跟着减
   if (!effects || effects.length === 0) return <span className="text-[12px] text-dim/40">（无限时状态）</span>;
   // 最多显示约 4 个，超过则用滑窗（限高 + 纵向滚动）
   const scroll = effects.length > 4;
@@ -59,8 +70,8 @@ export default function StatusEffectChips({ effects, onRemove }: { effects: Stat
     <div className={`flex flex-wrap gap-1.5 ${scroll ? 'max-h-[4.75rem] overflow-y-auto onscene-scroll pr-1' : ''}`}>
       {effects.map((e) => {
         const cls = TONE_CLS[toneOf(e)] ?? TONE_CLS.neutral;
-        const d = durLabel(e);
-        const ds = durShort(e);   // 进胶囊的短时长（无则不显示长条件，避免挤）
+        const d = durLabel(e, curTurn);
+        const ds = durShort(e, curTurn);   // 进胶囊的短时长（无则不显示长条件，避免挤）
         const perm = isLongPerm(e);   // 超长/永久 → 显示「♾ 长期」而非倒计时大数字
         const expanded = open === e.id;
         return (

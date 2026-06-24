@@ -3551,28 +3551,16 @@ ${AFFIX_EFFECT_RULE}`;
     const charsFull = rosterLines.length ? rosterLines.join('\n') : '（无在场角色资料）';
     const M = useMisc.getState();
 
-    // 普通模板 messages（兜底）：内置「生图预设」是 NSFW 破限大提示，受审查端点(GPT网页反代等)常整条拒绝、或因体积过大被拦，
-    // 连正常场景都出不了图。故：先用预设抽，抽不到(被拦/拒绝/没按格式) → 自动回退到这份小巧的普通模板再试一次。
-    const sys = ig.storyTemplate
+    // 模板占位符填充（NAI 标签模型 / GPT 自然语言模型 共用）
+    const fill = (tpl: string) => tpl
       .replaceAll('${image_count}', String(count))
       .replaceAll('${onscreen_characters_full}', charsFull)
       .replaceAll('${current_time}', M.worldTime || M.paradiseTime || '（未设定）')
       .replaceAll('${current_location}', M.worldName || '（未设定）')
       .replaceAll('${entry_decision_new_characters}', '（见正文）')
       .replaceAll('${story_text}', narrative);
-    const plainMessages: { role: 'system' | 'user' | 'assistant'; content: string }[] = [
-      { role: 'system', content: sys },
-      { role: 'user', content: `请只输出 ${count} 个 <image> 块（含 <anchor>/<nsfw_rating>/<prompt>），不要其它内容。` },
-    ];
-    let presetMessages: typeof plainMessages | null = null;
-    try {
-      const mod = await import('./systems/imagePromptPreset');
-      const preset = mod.getImgPromptPreset();
-      if (preset.entries.length) presetMessages = mod.buildImagePromptMessages(preset.entries, {
-        story: narrative, charsFull, count,
-        time: M.worldTime || M.paradiseTime || '', location: M.worldName || '',
-      });
-    } catch (e) { console.warn('[StoryImg] 生图预设加载失败，仅用普通模板:', e); }
+    const userTail = `请只输出 ${count} 个 <image> 块（含 <anchor>/<nsfw_rating>/<prompt>），不要其它内容。`;
+    type Msg = { role: 'system' | 'user' | 'assistant'; content: string };
 
     const get = (s: string, tag: string) => (s.match(new RegExp(`<${tag}>([\\s\\S]*?)</${tag}>`, 'i'))?.[1] ?? '').trim();
     const parseSpecs = (reply: string) => {
@@ -3584,19 +3572,36 @@ ${AFFIX_EFFECT_RULE}`;
       }
       return arr;
     };
-    const extract = async (msgs: typeof plainMessages, label: string) => {
+    const extract = async (msgs: Msg[], label: string) => {
       try { const r = await apiChatFallback(chain, msgs); return { specs: parseSpecs(r.content), raw: r.content }; }
       catch (e: any) { console.error(`[StoryImg] 抽取失败(${label}):`, e.message ?? e); return { specs: [] as ReturnType<typeof parseSpecs>, raw: '' }; }
     };
 
-    // 先试预设；抽不到(端点拦了 NSFW 预设/体积过大/拒绝) → 自动回退普通模板再试一次
-    let { specs, raw } = presetMessages ? await extract(presetMessages, '预设') : { specs: [] as ReturnType<typeof parseSpecs>, raw: '' };
-    if (specs.length === 0) {
-      console.warn('[StoryImg] 预设抽取无结果，回退普通模板重试（端点可能拦了 NSFW 预设或体积过大）');
-      ({ specs, raw } = await extract(plainMessages, '普通模板'));
+    let specs: ReturnType<typeof parseSpecs> = [];
+    let raw = '';
+    if (!isTagService(ig.storyService)) {
+      // 自然语言图像模型(gpt-image-2 / OpenAI / Gemini / 自定义)：用 GPT 自然语言模板（<prompt> 内是中文自然语言，不用 NAI 标签/破限预设——gpt-image-2 受审查，破限反而被拒）
+      const gptMessages: Msg[] = [{ role: 'system', content: fill(ig.gptStoryTemplate) }, { role: 'user', content: userTail }];
+      ({ specs, raw } = await extract(gptMessages, 'GPT模板'));
+    } else {
+      // 标签模型(NAI / ComfyUI)：内置破限预设优先 → 抽不到(被拦/拒绝/体积过大) 回退普通标签模板
+      const plainMessages: Msg[] = [{ role: 'system', content: fill(ig.storyTemplate) }, { role: 'user', content: userTail }];
+      let presetMessages: Msg[] | null = null;
+      try {
+        const mod = await import('./systems/imagePromptPreset');
+        const preset = mod.getImgPromptPreset();
+        if (preset.entries.length) presetMessages = mod.buildImagePromptMessages(preset.entries, {
+          story: narrative, charsFull, count, time: M.worldTime || M.paradiseTime || '', location: M.worldName || '',
+        });
+      } catch (e) { console.warn('[StoryImg] 生图预设加载失败，仅用普通模板:', e); }
+      ({ specs, raw } = presetMessages ? await extract(presetMessages, '预设') : { specs: [], raw: '' });
+      if (specs.length === 0) {
+        console.warn('[StoryImg] 预设抽取无结果，回退普通标签模板（端点可能拦了 NSFW 预设或体积过大）');
+        ({ specs, raw } = await extract(plainMessages, '普通模板'));
+      }
     }
     if (specs.length === 0) {
-      console.warn('[StoryImg] 预设+普通模板都未解析到有效 <image> 块。最后回复前 200 字：', (raw || '（空回复）').slice(0, 200));
+      console.warn('[StoryImg] 未解析到有效 <image> 块。最后回复前 200 字：', (raw || '（空回复）').slice(0, 200));
       return 0;
     }
     specs = specs.slice(0, count);   // 不超过本次请求张数

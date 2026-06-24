@@ -201,11 +201,16 @@ function StoryPage() {
       <Row title="自动正文生图" desc="每回合抽 N 个锚点逐张生成并插入正文" checked={s.autoStory} onChange={() => s.setSettings({ autoStory: !s.autoStory })} />
       <Row title="边写边出图（流式逐段）" desc="正文还在写时，每写完一段就给那段配 1 张图，更快看到图。代价：每段各调一次提取 LLM（调用次数≈段落数）。需先开「自动正文生图」。" checked={s.storyProgressive} onChange={() => s.setSettings({ storyProgressive: !s.storyProgressive })} />
       <div className="flex items-center justify-between">
-        <span className="text-[12px] font-mono text-dim/60">正文生图提示词模板（输出 N 个 image/anchor/nsfw/prompt）</span>
+        <span className="text-[12px] font-mono text-dim/60">正文生图·标签模板（NAI/ComfyUI 用·内置预设失败时回退）</span>
         <button onClick={s.resetStoryTemplate} className="text-[12px] font-mono text-dim/50 hover:text-god">恢复默认</button>
       </div>
       <textarea rows={10} value={s.storyTemplate} onChange={(e) => s.setSettings({ storyTemplate: e.target.value })} className={inputCls + ' resize-y leading-relaxed'} />
-      <div className="text-[12px] text-dim/50">注：正文配图已内置「生图预设」自动生成提示词（强制启用、不可见）；上面的模板仅在内置预设加载失败时作回退。</div>
+      <div className="flex items-center justify-between mt-2">
+        <span className="text-[12px] font-mono text-dim/60">正文生图·GPT 自然语言模板（gpt-image-2/OpenAI/Gemini/自定义 自动改用·输出中文自然语言而非标签）</span>
+        <button onClick={s.resetGptStoryTemplate} className="text-[12px] font-mono text-dim/50 hover:text-god">恢复默认</button>
+      </div>
+      <textarea rows={10} value={s.gptStoryTemplate} onChange={(e) => s.setSettings({ gptStoryTemplate: e.target.value })} className={inputCls + ' resize-y leading-relaxed'} />
+      <div className="text-[12px] text-dim/50">注：正文生图按【生图服务】自动选模板——NAI/ComfyUI(标签)走内置「生图预设」(NSFW破限)，失败回退上面"标签模板"；gpt-image-2/OpenAI/Gemini/自定义(自然语言)走"GPT 模板"(中文自然语言·SFW)。</div>
     </div>
   );
 }

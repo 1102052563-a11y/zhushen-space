@@ -293,7 +293,7 @@ export const useImageGen = create<ImageGenState>()(
       portraitTemplate: DEFAULT_PORTRAIT_TEMPLATE, styleGuide: DEFAULT_STYLES[0].styleGuide,
       autoEquipPlayer: false, autoEquipNpc: false, equipTemplate: DEFAULT_EQUIP_TEMPLATE, equipNegative: DEFAULT_EQUIP_NEG,
       activeStyleId: 'nai-anime',
-      autoStory: false, storyProgressive: false, storyImageCount: 4, storySize: 'inherit', storyTemplate: DEFAULT_STORY_TEMPLATE, storyLlmRoutes: [],
+      autoStory: false, storyProgressive: false, storyImageCount: 4, storySize: 'inherit', storyTemplate: DEFAULT_STORY_TEMPLATE, gptStoryTemplate: DEFAULT_GPT_STORY_TEMPLATE, storyLlmRoutes: [],
       styles: DEFAULT_STYLES.map((s) => ({ ...s })),
 
       nai: {
@@ -316,6 +316,7 @@ export const useImageGen = create<ImageGenState>()(
       setComfy: (patch) => set((s) => ({ comfy: { ...s.comfy, ...patch } })),
       resetEquipTemplate: () => set({ equipTemplate: DEFAULT_EQUIP_TEMPLATE, equipNegative: DEFAULT_EQUIP_NEG }),
       resetStoryTemplate: () => set({ storyTemplate: DEFAULT_STORY_TEMPLATE }),
+      resetGptStoryTemplate: () => set({ gptStoryTemplate: DEFAULT_GPT_STORY_TEMPLATE }),
       applyStyle: (id) => set((s) => {
         const st = s.styles.find((x) => x.id === id);
         if (!st) return {} as any;
