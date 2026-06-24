@@ -26,13 +26,40 @@ export interface SubProfTreeProgress {
   aiBonusPP: number;               // 兑换/任务额外潜能点（计入共享池）
   exchangedPP?: number;            // 累计【乐园币兑换】出的潜能点（越买越贵的递增基数）
   spent: number;                   // 已花潜能点（= Σ rank×cost，计入共享池）
+  evoSeenTier?: Record<string, number>;   // 副职业名 → 演化阶段上次见到的熟练度档序（升档→质变全部配方）
 }
 
 const newProgress = (): SubProfTreeProgress => ({ ranks: {}, aiBonusPP: 0, exchangedPP: 0, spent: 0 });
 
 /* 解锁配方时给的初始熟练度（学了图纸但还没多练）；越高阶起步越低 */
 const LEARN_PROGRESS: Record<string, number> = { medium: 30, major: 15, capstone: 6 };
-const RANK_BUMP = 35;   // 同一配方节点每多投一点（钻研）→ 配方熟练度 +35
+
+/* ── 副职业熟练度 = 在该副职业配方树上累计耗费的潜能点（总盘约 400），按阶梯升档：达阈值才升一档。
+   每次升档 → 对该副职业名下所有配方做一次「质变」（演化阶段触发，~4 次/整盘，省 token）。 ── */
+export const SUBPROF_MASTERY_LADDER: { tier: string; min: number }[] = [
+  { tier: '新手', min: 0 }, { tier: '熟练', min: 50 }, { tier: '专家', min: 130 }, { tier: '大师', min: 250 }, { tier: '宗师', min: 400 },
+];
+const GROWTH_MUL = [1.0, 1.4, 1.9, 2.5, 3.2];   // 副职业熟练度越高，配方熟练度涨得越快（喂给演化阶段的 bumpRecipe 乘子）
+
+/** 某副职业在其配方树上累计耗费的潜能点（= 副职业熟练度原始值；跨同名多棵树求和） */
+export function subProfTreeSpent(profName: string, charId = 'B1'): number {
+  const s = useSubProfTree.getState();
+  const prog = s.progress[charId]; if (!prog) return 0;
+  let sum = 0;
+  for (const tree of Object.values(s.trees)) {
+    if (tree.profession !== profName) continue;
+    for (const n of tree.nodes) { const r = prog.ranks[n.id] ?? 0; if (r > 0) sum += r * (n.cost ?? 0); }
+  }
+  return sum;
+}
+/** 副职业熟练度档位信息：原始点数 spent、档序 idx、档名 tier、下一档阈值、配方成长倍率、本档进度% */
+export function subProfMastery(profName: string, charId = 'B1'): { spent: number; idx: number; tier: string; nextMin?: number; growthMul: number; pct: number } {
+  const spent = subProfTreeSpent(profName, charId);
+  let idx = 0;
+  for (let i = SUBPROF_MASTERY_LADDER.length - 1; i >= 0; i--) { if (spent >= SUBPROF_MASTERY_LADDER[i].min) { idx = i; break; } }
+  const cur = SUBPROF_MASTERY_LADDER[idx], next = SUBPROF_MASTERY_LADDER[idx + 1];
+  return { spent, idx, tier: cur.tier, nextMin: next?.min, growthMul: GROWTH_MUL[idx] ?? 1, pct: next ? Math.min(100, Math.round((spent - cur.min) / (next.min - cur.min) * 100)) : 100 };
+}
 
 /* ── 配方星图组装器：core 放射 N 条流派臂；每臂 起步微星 → 配方(medium) → 径(minor) → 配方(major) → … → 终极配方(capstone)。
    微星=基本功(无 grant·点了加总熟练度)；配方节点 grants.recipe（图纸信息完整）。无属性/无星核/无星座。 */
@@ -167,7 +194,9 @@ interface SubProfTreeState {
 
   // 进度
   grantBonusPP: (charId: string, n: number) => void;
-  rankUpNode: (charId: string, nodeId: string) => boolean;   // 点一个点：配方节点学/精进配方；微星加总熟练度。无 API、纯确定性
+  rankUpNode: (charId: string, nodeId: string) => boolean;   // 点一个点：配方节点 rank0→1 学会配方；其余（微星/配方加点）纯花潜能点（→副职业熟练度）。无 API
+  applyRecipeUpgrade: (charId: string, nodeId: string, upgraded: { tier?: string; materials?: string; output?: string; desc?: string; progress?: number }) => boolean;  // 配方节点 rank≥1 再投点：用 AI 质变后的配方覆盖（同名 upsert·不重置熟练度）+ 加一点
+  setEvoSeenTier: (charId: string, profName: string, idx: number) => void;   // 演化阶段记录某副职业已质变到的熟练度档（防重复触发全质变）
   exchangePP: (charId: string, count: number) => number;     // 乐园币兑换潜能点（计入共享池）；返回实际兑换数
 }
 
@@ -289,22 +318,16 @@ export const useSubProfTree = create<SubProfTreeState>()(
         chars.addSubProfession('B1', { name: tree.profession, tier: '新手', category: tree.category, recipeLabel: tree.recipeLabel, desc: tree.title });
 
         const rec = node.grants?.recipe;
-        if (rec?.name) {
-          if (wasRank === 0) {
-            // 首次：学会该配方（进副职业面板的配方清单，绝不进技能/天赋栏）
-            chars.addRecipe('B1', tree.profession, {
-              id: `RT_${node.id}`, name: rec.name, tier: rec.tier,
-              progress: LEARN_PROGRESS[node.kind] ?? 20, materials: rec.materials, output: rec.output, desc: rec.desc,
-            });
-          } else {
-            // 再投一点：钻研精进该配方 → 熟练度上涨（封顶 100）
-            chars.bumpRecipe('B1', tree.profession, rec.name, RANK_BUMP);
-            chars.bumpSubProf('B1', tree.profession, Math.round(RANK_BUMP / 3));
-          }
-        } else {
-          // 微星=磨练基本功 → 副职业总熟练度上涨（全程不给六维属性）
-          chars.bumpSubProf('B1', tree.profession, node.kind === 'minor' ? 6 : 3);
+        // 配方节点 rank≥1 的「再投点=质变」走 applyRecipeUpgrade（要调 AI），rankUpNode 不处理，交回面板
+        if (rec?.name && wasRank >= 1) return false;
+        if (rec?.name && wasRank === 0) {
+          // 首次：学会该配方（进副职业面板的配方清单，绝不进技能/天赋栏）
+          chars.addRecipe('B1', tree.profession, {
+            id: `RT_${node.id}`, name: rec.name, tier: rec.tier,
+            progress: LEARN_PROGRESS[node.kind] ?? 20, materials: rec.materials, output: rec.output, desc: rec.desc,
+          });
         }
+        // 微星 / 任何节点：只花潜能点 → 累计耗费即「副职业熟练度」(subProfTreeSpent 派生·不再 bumpSubProf)
 
         set((st) => {
           const cur = st.progress[charId] ?? newProgress();
@@ -317,6 +340,36 @@ export const useSubProfTree = create<SubProfTreeState>()(
         });
         return true;
       },
+
+      // 配方节点 rank≥1 再投点：先由面板调 AI 把配方【质变升级】（提产出/品质/效果/加新效果），再用结果覆盖配方（同名 upsert·不重置熟练度）+ 加一点 + 配方熟练度小涨。与职业技能树「大节点升级」一致。
+      applyRecipeUpgrade: (charId, nodeId, upgraded) => {
+        const s = get();
+        const prog = s.progress[charId] ?? newProgress();
+        const tree = prog.activeTreeId ? s.trees[prog.activeTreeId] : undefined;
+        if (!tree) return false;
+        const profile = usePlayer.getState().profile;
+        const ctx = { level: profile.level, tier: profile.tier, charId };
+        if (!canRankUp(tree, nodeId, prog, ctx).ok) return false;
+        const node = tree.nodes.find((n) => n.id === nodeId); if (!node) return false;
+        const rec = node.grants?.recipe; if (!rec?.name) return false;
+        const chars = useCharacters.getState();
+        chars.addRecipe('B1', tree.profession, {   // 质变覆盖：略去 progress → addRecipe 保留原熟练度
+          id: `RT_${node.id}`, name: rec.name,
+          tier: upgraded.tier ?? rec.tier, materials: upgraded.materials ?? rec.materials,
+          output: upgraded.output ?? rec.output, desc: upgraded.desc ?? rec.desc,
+        });
+        chars.bumpRecipe('B1', tree.profession, rec.name, 25);   // 投点钻研 → 配方熟练度+25
+        set((st) => {
+          const cur = st.progress[charId] ?? newProgress();
+          return { progress: { ...st.progress, [charId]: { ...cur, activeTreeId: prog.activeTreeId, ranks: { ...cur.ranks, [nodeId]: nodeRank(cur, nodeId) + 1 }, spent: (cur.spent ?? 0) + nodeCostFor(node, ctx) } } };
+        });
+        return true;
+      },
+
+      setEvoSeenTier: (charId, profName, idx) => set((st) => {
+        const cur = st.progress[charId] ?? newProgress();
+        return { progress: { ...st.progress, [charId]: { ...cur, evoSeenTier: { ...(cur.evoSeenTier ?? {}), [profName]: idx } } } };
+      }),
 
       // 乐园币兑换潜能点：单价 = 阶位基础价 × ppCoinStep^已兑换数（越买越贵）；计入共享池。返回实际兑换数
       exchangePP: (charId, count) => {
@@ -354,7 +407,7 @@ export const useSubProfTree = create<SubProfTreeState>()(
         }
         const progress: Record<string, SubProfTreeProgress> = {};
         for (const [cid, raw] of Object.entries((p.progress ?? {}) as Record<string, any>)) {
-          progress[cid] = { activeTreeId: raw?.activeTreeId, ranks: raw?.ranks ?? {}, aiBonusPP: raw?.aiBonusPP ?? 0, exchangedPP: raw?.exchangedPP ?? 0, spent: raw?.spent ?? 0 };
+          progress[cid] = { activeTreeId: raw?.activeTreeId, ranks: raw?.ranks ?? {}, aiBonusPP: raw?.aiBonusPP ?? 0, exchangedPP: raw?.exchangedPP ?? 0, spent: raw?.spent ?? 0, evoSeenTier: raw?.evoSeenTier ?? {} };
         }
         return { ...current, trees, progress };
       },

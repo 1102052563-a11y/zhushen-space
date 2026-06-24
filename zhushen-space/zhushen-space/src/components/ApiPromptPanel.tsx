@@ -97,9 +97,11 @@ function DbgCard({ label, role, content, onCopy, tag, copied, defaultOpen }: {
   const isResp = label.startsWith('↩');
   const isTail = label.startsWith('📜');
   const isWb = label.startsWith('📚');
+  const isPreset = label.startsWith('📦');
   const cls = isResp || isOv ? 'border-god/40 bg-god/5'
     : isInj ? 'border-emerald-500/40 bg-emerald-900/10'
     : isWb ? 'border-amber-500/40 bg-amber-900/10'
+    : isPreset ? 'border-violet-500/40 bg-violet-900/10'
     : isTail ? 'border-sky-500/30 bg-sky-900/10'
     : 'border-edge bg-void/40';
   return (

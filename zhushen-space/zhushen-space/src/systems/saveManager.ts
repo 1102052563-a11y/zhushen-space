@@ -1,5 +1,5 @@
 import { saveDb } from './saveDb';
-import { replaceAll as replaceChat, loadAll as loadChat } from './chatDb';
+import { replaceAll as replaceChat, loadAll as loadChat, loadArchive, replaceArchive, clearArchive, type ArchivedMsg } from './chatDb';
 import { bulkPutImg, clearAllImg } from './imageDb';
 import { snapshotImages } from './imageSync';
 import { useGame } from '../store/gameStore';
@@ -83,6 +83,8 @@ export interface SaveSlot {
     stores: Record<string, string>;
     messages: any[];
     images?: Record<string, string>;
+    // 随档嵌入的「过往世界正文归档」：仅手动存档(含图)携带；读档时还原成当前归档，让「导出全部正文」跨存档/跨人物也正确。
+    narrativeArchive?: ArchivedMsg[];
     // 随档嵌入的「上一回合结束态」回退点(不含图片)。读档时还原成 UNDO_ID 槽，让读档后能立刻
     // 「回退上一回合/重新生成」**本档时间线**的上一回合（旧档无此字段，读档退回删旧回退点的老行为）。
     undo?: { stores: Record<string, string>; messages: any[] };
@@ -131,6 +133,8 @@ export async function saveSlot(id: string | null, name: string, messages: any[],
       if (up?.data && up.data.messages && up.data.messages.length > 0) undo = { stores: up.data.stores, messages: up.data.messages };
     } catch (e) { logWarn('saveManager.saveSlot.embedUndo', e); }
   }
+  // 过往世界正文归档：仅手动存档(含图)随身带，读档可还原 → 导出全部正文跨存档也对；自动档/回退点不带(省体积，同一时间线靠全局归档即可)。
+  const narrativeArchive = includeImages ? await loadArchive() : undefined;
   const slot: SaveSlot = {
     id: realId,
     name: name.trim() || `存档 ${new Date(now).toLocaleString()}`,
@@ -139,7 +143,7 @@ export async function saveSlot(id: string | null, name: string, messages: any[],
     updatedAt: now,
     preview: buildPreview(messages),
     // 图片(IndexedDB)取内存最新快照打包进存档；includeImages=false 时不打包——降级用，避免大图把整次保存撑爆 IndexedDB 配额而失败
-    data: { stores: snapshotStores(), messages, ...(includeImages ? { images: snapshotImages() } : {}), ...(undo ? { undo } : {}) },
+    data: { stores: snapshotStores(), messages, ...(includeImages ? { images: snapshotImages() } : {}), ...(narrativeArchive ? { narrativeArchive } : {}), ...(undo ? { undo } : {}) },
   };
   await saveDb.put(slot);
   return realId;
@@ -246,6 +250,11 @@ export async function loadSlot(id: string): Promise<boolean> {
   // 仅当快照带了图片才清+写；不带图片的快照（如降级保存的回退点）保留现有图片，避免回退把图全清掉。
   try { if (slot.data.images) { await clearAllImg(); await bulkPutImg(slot.data.images); } } catch (e) { logWarn('saveManager.loadSlot.images', e); }
   await replaceChat(slot.data.messages ?? []);   // 覆盖当前对话为存档对话
+  // 过往世界正文归档：仅当该档**带了**归档才还原（手动档带）；自动档/回退点/旧档不带 → 保留当前全局归档不动
+  // （同一时间线本就正确，不会因读个不带归档的回退点而把过往世界从导出里抹掉）。
+  if (slot.data.narrativeArchive !== undefined) {
+    try { await replaceArchive(slot.data.narrativeArchive); } catch (e) { logWarn('saveManager.loadSlot.archive', e); }
+  }
   // 回退点与时间线绑定：读「用户存档」时——
   //  · 若该档随身带了**属于它自己时间线**的回退点(slot.data.undo，存档时嵌入=该档上一回合结束态)，
   //    就把它还原成回退点 → 读档后可立刻「回退上一回合 / 重新生成」本档的上一回合（本次修复）。
@@ -438,6 +447,7 @@ export async function clearProgress(): Promise<void> {
   // 注：不在此清向量库（drpg-factvec）——它是全局内容寻址缓存，清了会误伤其它存档的向量索引；
   // 残留向量不会污染任何档（召回只在当前档事实池内 cosine）。想回收空间用设置→向量记忆的「清空向量库」按钮。
   await replaceChat([]);           // 对话历史
+  try { await clearArchive(); } catch (e) { logWarn('clearProgress:archive', e); }   // 正文归档：新游戏清掉上一局过往世界（archivePreviousRun 已先把整局含归档存成「上一局存档」兜底）
   try { clearB1Mirror(); } catch (e) { logWarn('clearProgress:b1mirror', e); }   // 主角镜像兜底：新游戏清掉，避免误把上一局主角补进空白新档
   // 滚动自动备份：新游戏清掉上一局的所有轻量备份（属"进度"，不该带进新局）。只读主键、不载入数据。
   try {

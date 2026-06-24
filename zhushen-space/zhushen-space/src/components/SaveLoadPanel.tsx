@@ -4,7 +4,7 @@ import {
   extractPlayerFromSlot, type SlotMeta,
 } from '../systems/saveManager';
 import { buildDiagnosticBundle } from '../systems/diagnostics';
-import { exportNovelTxt } from '../systems/novelExport';
+import { exportFullNovelTxt } from '../systems/novelExport';
 import { useSettings } from '../store/settingsStore';
 import {
   cloudUser, cloudLoggedIn, cloudLogin, cloudLogout, cloudListSaves, cloudUpload, cloudDownload, cloudDelete,
@@ -50,12 +50,11 @@ export default function SaveLoadPanel({ messages, onClose }: Props) {
 
   function flash(t: string) { setMsg(t); setTimeout(() => setMsg(''), 4000); }
 
-  // 把当前对话历史导出成小说形式的 TXT（自动分章，剥除游戏数据块/结算卡，仅留剧情）
-  function handleNovelExport() {
-    const real = (messages || []).filter((m) => m && m.role !== 'system');
-    if (real.length === 0) { flash('暂无对话内容可导出'); return; }
+  // 把【全部世界】对话导出成小说形式的 TXT（过往世界归档 + 当前世界实时；自动分章，剥除游戏数据块/结算卡，仅留剧情）
+  async function handleNovelExport() {
     try {
-      const { chapters, chars } = exportNovelTxt(messages);
+      const { chapters, chars } = await exportFullNovelTxt(messages);
+      if (chapters === 0) { flash('暂无对话内容可导出'); return; }
       flash(`📖 已导出小说 TXT：${chapters} 章 · ${chars.toLocaleString()} 字`);
     } catch (e: any) { flash('❌ 导出失败：' + (e?.message ?? e)); }
   }
@@ -184,7 +183,7 @@ export default function SaveLoadPanel({ messages, onClose }: Props) {
               className="px-2.5 py-1 text-[13px] font-mono border border-amber-600/50 text-amber-400 rounded hover:bg-amber-900/20 transition-colors disabled:opacity-40">🆕 新游戏</button>
           )}
           <button onClick={handleNovelExport} disabled={busy}
-            title="把当前对话历史导出成小说形式的 TXT（自动分章：第一章/第二章…；只留剧情正文，剥除 <state>/结算卡/骰子卡等游戏数据；玩家行动以 ▷ 标出）"
+            title="把【全部世界】的对话导出成小说形式的 TXT：含已离开的旧世界（按世界分隔标题）+ 当前世界；自动分章，只留剧情正文，剥除 <state>/结算卡/骰子卡等游戏数据，玩家行动以 ▷ 标出"
             className="px-2.5 py-1 text-[13px] font-mono border border-edge text-dim rounded hover:border-god/40 hover:text-god transition-colors disabled:opacity-40">📖 导出小说</button>
           <button onClick={handleDiag} disabled={diagBusy}
             title="导出精简诊断包（不含图片/对话）：各存档与当前进度的 技能/天赋/副职业 计数 + 内存vs本地对照 + 容量占用，可直接粘贴给开发者排查"

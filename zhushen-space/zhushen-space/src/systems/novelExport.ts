@@ -2,8 +2,10 @@
 // 仅保留剧情正文：剥掉游戏数据块（<世界结算>/<检定结果>/<状态结算>…）、结算/日志卡片（【…结算…】+ > 引用块）、HTML 卡片标记与 markdown。
 // 玩家行动以「▷」标出，AI 正文作为故事主体。放在 存档管理（SaveLoadPanel）里调用。
 import { usePlayer } from '../store/playerStore';
+import { useMisc } from '../store/miscStore';
+import { loadArchive } from './chatDb';
 
-export interface NovelMsg { role: string; content: string }
+export interface NovelMsg { role: string; content: string; world?: string }
 export interface NovelOpts { includePlayer?: boolean; charsPerChapter?: number }
 
 // 数字 → 中文章节序号（支持到几百章，足够）
@@ -31,7 +33,7 @@ export function toProse(content: string): string {
   // 成对游戏数据块整段删（含内文）
   s = s.replace(/<世界结算>[\s\S]*?<\/世界结算>/gi, '')
     .replace(/<检定结果>[\s\S]*?<\/检定结果>/gi, '')
-    .replace(/<(状态结算|世界源|击杀结算|battle|image)>[\s\S]*?<\/\1>/gi, '');
+    .replace(/<(状态结算|世界源|击杀结算|state|upstore|battle|image)>[\s\S]*?<\/\1>/gi, '');   // state/upstore=纯机器指令块，连内文一起删（正常已在入库前剥掉，这里兜底归档/旧数据）
   // 残留的任意尖括号标签（ST 正则输出的 HTML 卡片 / 自闭合标签 / 漏网标签）
   s = s.replace(/<\/?[a-zA-Z一-龥][^>]*>/g, '');
   // 行级清理：删 > / ＞ 引用结算块 + 以【…结算…】开头的标题块
@@ -59,8 +61,13 @@ export function buildNovel(messages: NovelMsg[], opts: NovelOpts = {}): { text: 
 
   // 整理成段落序列
   const paras: string[] = [];
+  let lastWorld: string | null = null;   // 跟踪世界归属：切换时插入分隔标题，让导出清楚标明每段属于哪个世界
   for (const m of messages || []) {
     if (!m || !m.content) continue;
+    if (m.world !== undefined && m.world !== lastWorld) {
+      paras.push(`◇ ◇ ◇　　世界 · ${(m.world || '').trim() || '轮回乐园'}　　◇ ◇ ◇`);
+      lastWorld = m.world;
+    }
     if (m.role === 'user') {
       if (!includePlayer) continue;
       const t = toProse(m.content).replace(/\n+/g, ' ').trim();
@@ -102,4 +109,20 @@ export function exportNovelTxt(messages: NovelMsg[], opts?: NovelOpts): { chapte
   a.href = url; a.download = fname; document.body.appendChild(a); a.click();
   setTimeout(() => { document.body.removeChild(a); URL.revokeObjectURL(url); }, 100);
   return { chapters, chars: text.length };
+}
+
+// 「导出全部正文」：过往世界（归档）+ 当前世界（实时 messages）合并后导出成小说。
+// 修复"换世界后只导当前世界"——进入新世界会清空 messages，旧世界正文已在切换时转存进归档，这里把两者拼回来。
+export async function exportFullNovelTxt(liveMessages: NovelMsg[], opts?: NovelOpts): Promise<{ chapters: number; chars: number }> {
+  const archived = await loadArchive();                          // 过往世界（按 seq＝时间顺序）
+  const curWorld = (useMisc.getState().worldName || '').trim();   // 当前世界名，给实时消息打上归属
+  const live: NovelMsg[] = (liveMessages || [])
+    .filter((m) => m && m.role !== 'system' && m.content)
+    .map((m) => ({ role: m.role, content: m.content, world: curWorld }));
+  const all: NovelMsg[] = [
+    ...archived.map((a) => ({ role: a.role, content: a.content, world: a.world || '' })),
+    ...live,
+  ];
+  if (all.length === 0) return { chapters: 0, chars: 0 };   // 真没内容：不下载空文件，交由调用方提示
+  return exportNovelTxt(all, opts);
 }

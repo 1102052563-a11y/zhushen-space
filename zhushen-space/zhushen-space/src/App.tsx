@@ -29,6 +29,7 @@ import {
   MERGED_AUDIT_PROMPT,
   EVO_EXACT_REF_RULE,
   SUBPROF_RULE,
+  SUBPROF_EVO_PROMPT,
   NPC_AGE_RULE,
   NPC_GEN_ATTR_RULE,
   NPC_ENTRY_BIO_RULE,
@@ -91,6 +92,7 @@ import { buildCombatant, assembleBattle, settleAction, advanceTurn, checkEnd, cu
 import { generateRaidBoss, generateBakalDungeon, generateAntonDungeon, generateVykasDungeon, type RaidBoss, type RaidDifficulty } from './systems/raidBoss';
 import { generateRaidLoot, generateRaidReward } from './systems/raidLoot';
 import { useSkillTree } from './store/skillTreeStore';
+import { useSubProfTree, subProfMastery } from './store/subProfTreeStore';
 import RaidDungeonReward from './components/RaidDungeonReward';
 const RaidLootModal = lazy(() => import('./components/RaidLootModal'));
 const CombatPanel = lazy(() => import('./components/CombatPanel'));
@@ -3046,6 +3048,73 @@ ${AFFIX_EFFECT_RULE}`;
       console.error('[Territory] 领地演化失败:', e.message ?? e);
       setTerritoryPhaseLog(`⚠ 领地更新失败：${(e.message ?? '').slice(0, 50)}`);
     } finally { setTimeout(() => setTerritoryPhaseLog(''), 8000); }
+  }
+
+  /* ════════════════════════════════════════════
+     副职业演化（subprof）——只据正文结算【配方熟练度】+ 对配方【质变】；副职业本体与「副职业熟练度」只由配方树管，这里不碰。
+     机械预筛：正文提到某副职业名/某配方名，或某副职业熟练度档位较上次升了 → 才调 API（与副职业生成同 subproftree 路由）。
+     熟练度增量按副职业熟练度档位的成长倍率放大；升档则对该副职业名下全部配方做一次质变。
+  ════════════════════════════════════════════ */
+  async function runSubProfEvolutionPhase(narrative: string) {
+    const subs = useCharacters.getState().characters['B1']?.subProfessions ?? [];
+    if (!subs.length) return;
+
+    // 各副职业当前熟练度档 + 「升档」检测（与上次演化所见对比 → 全配方质变）
+    const seen = useSubProfTree.getState().progress['B1']?.evoSeenTier ?? {};
+    const masteryOf: Record<string, ReturnType<typeof subProfMastery>> = {};
+    const tierUpProfs: string[] = [];
+    for (const sp of subs) {
+      const m = subProfMastery(sp.name, 'B1'); masteryOf[sp.name] = m;
+      if (m.idx > (seen[sp.name] ?? 0)) tierUpProfs.push(sp.name);
+    }
+    const qualiaList = tierUpProfs.flatMap((prof) => (subs.find((x) => x.name === prof)?.recipes ?? []).map((r) => `${prof}::${r.name}`));
+
+    // 机械预筛：正文提到任一副职业名 / 任一配方名，或本轮有副职业升档 → 才调 API
+    const text = narrative || '';
+    const mentioned = subs.some((sp) => (sp.name && text.includes(sp.name)) || (sp.recipes ?? []).some((r) => r.name && text.includes(r.name)));
+    if (!mentioned && qualiaList.length === 0) return;
+
+    const ss = useSettings.getState();
+    const legacy = ss.textUseSharedApi ? ss.api : ss.textApi;
+    const chain = resolveApiChain('subproftree', legacy);
+    if (!chain[0]?.baseUrl || !chain[0]?.apiKey) { console.warn('[SubProf] API 未配置，跳过副职业演化'); return; }
+
+    const ctxLines = subs.map((sp) => {
+      const m = masteryOf[sp.name];
+      const recs = (sp.recipes ?? []).map((r) => `  · ${r.name}（${r.tier ?? ''}·熟练${r.progress ?? 0}%）产物:${r.output ?? r.desc ?? ''}`).join('\n') || '  （暂无配方）';
+      return `【${sp.name}】副职业熟练度:${m.tier}（第${m.idx + 1}档·配方成长×${m.growthMul}）\n${recs}`;
+    }).join('\n');
+    const qualiaLine = qualiaList.length ? qualiaList.join('、') : '（本轮无副职业升档；除非正文明确写某配方"被改良/做得远胜从前"，否则一律别质变）';
+    const userContent = `# 主角副职业与配方\n${ctxLines}\n\n# 待质变清单（这些配方所属副职业刚晋升，请逐张 addRecipe 质变）\n${qualiaLine}\n\n# 本轮正文\n${narrative}\n\n---\n据上面【铁则】只输出 <upstore> 指令块（无变化输出空 <upstore></upstore>）。`;
+
+    try {
+      const { content: rawReply } = await apiChatFallback(chain, [
+        { role: 'system', content: SUBPROF_EVO_PROMPT },
+        { role: 'user', content: userContent },
+      ]);
+      const reply = (rawReply || '').replace(/<think[^>]*>[\s\S]*?<\/think>/gi, '').trim();
+      const cmds = parseAllCharCommands(reply).filter((c) => c.charId === 'B1' && (c.type === 'bumpRecipe' || c.type === 'addRecipe'));
+      let applied = 0;
+      const chars = useCharacters.getState();
+      for (const c of cmds) {
+        const d: any = c.payload;
+        const prof = d.prof ?? d.subProfession ?? d.profession;
+        if (!prof) continue;
+        const m = masteryOf[prof] ?? subProfMastery(prof, 'B1');
+        if (c.type === 'bumpRecipe') {
+          const name = d.name ?? d.recipe; const base = Number(d.delta ?? d.progress ?? d.amount);
+          if (name && Number.isFinite(base) && base !== 0) { chars.bumpRecipe('B1', prof, name, Math.max(1, Math.round(base * m.growthMul))); applied++; }   // 副职业熟练度越高，配方涨得越快
+        } else if (c.type === 'addRecipe' && d.name) {
+          // 质变覆盖：只更新【已存在】的配方（不新增）；略去 progress → 保留熟练度；缺字段沿用旧值
+          const old = (useCharacters.getState().characters['B1']?.subProfessions ?? []).find((sp) => sp.name === prof)?.recipes?.find((r) => r.name === d.name);
+          if (old) { chars.addRecipe('B1', prof, { id: old.id, name: d.name, tier: d.tier ?? old.tier, materials: d.materials ?? old.materials, output: d.output ?? old.output, desc: d.desc ?? old.desc } as any); applied++; }
+        }
+      }
+      for (const prof of tierUpProfs) useSubProfTree.getState().setEvoSeenTier('B1', prof, masteryOf[prof].idx);   // 记录已质变到的档，防重复全质变
+      console.log(`[SubProf] 副职业演化应用 ${applied} 条（提到=${mentioned}，升档=${tierUpProfs.join('/') || '无'}）`);
+    } catch (e: any) {
+      console.error('[SubProf] 副职业演化失败:', e?.message ?? e);
+    }
   }
 
   /* ════════════════════════════════════════════
@@ -6046,6 +6115,7 @@ ${lines}`;
       { key: 'npc',       enabled: due('npc'),          awaitForSnapshot: true, run: () => runNpcEvolutionPhase(narr('npc') + mpEx), onDone: onCombat },
       { key: 'faction',   enabled: due('faction'),      awaitForSnapshot: true, run: () => runFactionEvolutionPhase(narr('faction')) },
       { key: 'territory', enabled: due('territory'),    run: () => runTerritoryEvolutionPhase(narr('territory')) },
+      { key: 'subprof',   enabled: due('subprof'),      run: () => runSubProfEvolutionPhase(narr('subprof')) },   // 内部机械预筛（提到副职业/配方 或 升档）才真正调 API
       { key: 'team',      enabled: due('team'),         run: () => runTeamEvolutionPhase(narr('team')) },
       { key: 'cosmos',    enabled: due('cosmos'),       run: () => runCosmosEvolutionPhase(narr('cosmos')) },
       { key: 'memory',    enabled: true,                run: () => runMemoryCompressionPhase() },   // 内部按阈值判定，不走回合门控
@@ -6303,6 +6373,7 @@ ${lines}`;
         (tail.length ? '✅ 已认出 chatHistory marker：' + tail.length + ' 个后历史块已插到真实楼层之后(仿 fanren)\n' : '（无 chatHistory marker：全部当前历史，行为同旧版）\n') +
         '总消息条数：' + (1 + history.length) + '（1 条合并 system ＋ ' + history.length + ' 条历史/注入/输入/prefill）\n' +
         '合并 system 总长：~' + Math.round(sysPrompt.length / 3.5) + ' 词符 · 流式 ' + ((preset?.stream ?? textStream) ? '开' : '关') },
+      { label: '📦 预设原文（仅预设块合并 · 不含前端规则/世界书）', role: 'preset', content: sysSegments.filter((s) => s.label.startsWith('预设块')).map((s) => s.content).join('\n\n') || '（本预设无 system 块）' },
       ...sysSegments.map((s) => ({ label: (s.label.startsWith('预设块') ? '🧩 ' : s.label.includes('世界书') ? '📚 ' : '🔧 ') + s.label, role: 'system', content: s.content })),
       ...examples.map((e, i) => ({ label: '💬 少样本示例 #' + (i + 1) + '（' + e.role + '）', role: e.role as string, content: e.content })),
       ...tail.map((t) => ({ label: '📜 后历史块 · ' + (t as any).label, role: t.role as string, content: t.content })),
@@ -6781,6 +6852,12 @@ ${lines}`;
 
   // 选择世界：把卡片全部内容作为上下文发给 API
   async function enterWorld(world: WorldOption) {
+    // 进入新世界前：把"当前世界即将被清空的对话"追加进正文归档，让「导出全部正文」能拿到所有世界。
+    // 此刻 worldName/messagesRef 仍是要离开的那一局（下方会切到新世界并清空对话）；归档失败不阻断进入。
+    try {
+      const leavingWorld = (useMisc.getState().worldName || '').trim();
+      await chatDb.appendArchive((messagesRef.current || []).map((m) => ({ role: m.role, content: m.content, world: leavingWorld })));
+    } catch (e) { console.warn('[Novel] 归档上一世界对话失败:', e); }
     setWorlds([]);
     setCardIndex(0);
 
