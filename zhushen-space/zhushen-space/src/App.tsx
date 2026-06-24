@@ -62,6 +62,7 @@ import {
   CHOICES_FANFIC_SYSTEM,
   FANFIC_RULE,
   PLOT_CHOICES_RULE,
+  MINI_THEATER_RULE,
   ENHANCE_FINALIZE_RULE,
   ENHANCE_BANTER_RULE,
   ARENA_LADDER_RULE,
@@ -233,6 +234,7 @@ interface ChatMessage {
   choices?: string[];      // 剧情选项（正文后生成的 8 个主角行动选项，点击填入输入框）
   fanficNote?: string;     // 同人搜索内容（本楼涉及的已知作品角色设定，折叠展示）
   factNote?: string;       // 事实查证（本楼涉及的现实可查证元素核实结果，折叠展示）
+  theaterHtml?: string;    // 小剧场：番外彩蛋 HTML（<xiaojuchang> 块内的内容，直接渲染在正文末尾）
 }
 
 // 首次启动自动载入内置世界书 + 各演化预设（仅当对应项为空才填，永不覆盖玩家已有数据）。
@@ -502,6 +504,21 @@ function parseFactCheck(raw: string): { note: string; anchors: string[] } | null
     return { note: inner, anchors };
   }
   return null;
+}
+
+/* 解析 <xiaojuchang> 小剧场块 → 返回内部 HTML（番外彩蛋，含 <details> + 内联 CSS，直接渲染）。
+   兼容多个并列 <xiaojuchang> 块（拼接）、被 ```html 围栏包裹、以及只给裸 <details> 不带外层标签的情况。*/
+function parseTheater(raw: string): string | null {
+  if (!raw) return null;
+  const blocks = [...raw.matchAll(/<xiaojuchang>([\s\S]*?)<\/xiaojuchang>/gi)].map((x) => x[1].trim()).filter(Boolean);
+  let html = blocks.join('\n');
+  if (!html) {
+    // 容错：AI 漏了外层标签，但给了番外用的 <details> 折叠块 → 直接收下
+    const det = [...raw.matchAll(/<details>[\s\S]*?<\/details>/gi)].map((x) => x[0]);
+    if (det.length) html = det.join('\n');
+  }
+  html = html.replace(/```[a-z]*\s*/gi, '').replace(/```/g, '').trim();   // 剥 markdown 围栏
+  return html || null;
 }
 
 const STATUS_FORMAT_RULE = `
@@ -5009,8 +5026,8 @@ ${lines}`;
   /* 选项 + 同人增强：正文生成后，共用一个 API、只调用一次，按开关产出 8 选项 / 同人设定块 */
   async function runChoicesFanficPhase(narrative: string, assistantMsgId?: number) {
     const ss = useSettings.getState();
-    const wantChoices = ss.plotChoices, wantFanfic = ss.fanficMode, wantFact = ss.factCheck;
-    if (!wantChoices && !wantFanfic && !wantFact) return;
+    const wantChoices = ss.plotChoices, wantFanfic = ss.fanficMode, wantFact = ss.factCheck, wantTheater = ss.miniTheater;
+    if (!wantChoices && !wantFanfic && !wantFact && !wantTheater) return;
     const text = (narrative || '').trim();
     if (!text) return;
 
@@ -5023,7 +5040,8 @@ ${lines}`;
     if (wantFanfic) sysParts.push(FANFIC_RULE);
     if (wantFact) sysParts.push(FACT_RULE);
     if (wantChoices) sysParts.push(PLOT_CHOICES_RULE);
-    sysParts.push(`【本次输出顺序】${wantFanfic ? '先输出 <details>同人搜索内容</details> 块（涉及已知作品角色才输出，可多个）；' : ''}${wantFact ? '再输出 <details>事实查证</details> 块（涉及现实可查证元素才输出）；' : ''}${wantChoices ? '最后输出 <choices> 块（A~H 共 8 个选项，最后一个 H 为限制级）。' : ''}除这些标签块外不要有任何其它文字。`);
+    if (wantTheater) sysParts.push(MINI_THEATER_RULE);
+    sysParts.push(`【本次输出顺序】${wantFanfic ? '先输出 <details>同人搜索内容</details> 块（涉及已知作品角色才输出，可多个）；' : ''}${wantFact ? '再输出 <details>事实查证</details> 块（涉及现实可查证元素才输出）；' : ''}${wantChoices ? '然后输出 <choices> 块（A~H 共 8 个选项，最后一个 H 为限制级）；' : ''}${wantTheater ? '最后输出 <xiaojuchang> 小剧场块（严格按「小剧场世界书」的 HTML/内联 CSS 折叠格式，与主线无关的番外彩蛋）。' : ''}除这些标签块外不要有任何其它文字。`);
 
     // 判定上下文：主角全卡(含物品) + 在场 NPC 全信息(含持有物) + 最近两回合正文，供选项/同人/事实联合判定
     const P = usePlayer.getState();
@@ -5062,7 +5080,7 @@ ${lines}`;
       const { content } = await apiChatFallback(chain, [
         { role: 'system', content: sysParts.join('\n\n') },
         { role: 'user', content: userMsg },
-      ], { timeoutMs: 90000, extra: { temperature: 0.9, max_tokens: 2600 } });
+      ], { timeoutMs: wantTheater ? 120000 : 90000, extra: { temperature: wantTheater ? 1.0 : 0.9, max_tokens: wantTheater ? 5200 : 2600 } });
 
       if (wantChoices) {
         const opts = parseChoices(content);
@@ -5084,8 +5102,12 @@ ${lines}`;
           if (parsed.anchors.length) useFact.getState().add(parsed.anchors);
         }
       }
+      if (wantTheater) {
+        const html = parseTheater(content);
+        if (html && assistantMsgId != null) setMessages((prev) => prev.map((m) => (m.id === assistantMsgId ? { ...m, theaterHtml: html } : m)));
+      }
     } catch (e) {
-      console.warn('[选项/同人/事实] 生成失败', e);
+      console.warn('[选项/同人/事实/小剧场] 生成失败', e);
     } finally {
       setChoicesRunning(false);
     }
@@ -6091,9 +6113,11 @@ ${lines}`;
     if (combatFinishingRef.current) return;
     combatFinishingRef.current = true;
     const C = useCombat.getState();
-    C.setApiBusy(true); C.setApiStatus('战斗总结…');
+    // 立即标记战斗结束：面板秒切「胜负 + 关闭按钮」，AI 总结在后台慢慢生成——不再「已打赢却卡在出手界面」。
+    C.endBattle(victor, victor === 'player' ? '战斗胜利' : victor === 'enemy' ? '战斗失败' : '战斗结束');
+    const state = useCombat.getState().battle;   // 已 ended 的快照（保留完整 log/participants/initialState 供总结与写回）
+    C.setApiBusy(true); C.setApiStatus('战斗总结生成中…（可直接关闭）');
     try {
-      const state = C.battle;
       // 组队讨伐胜利 → 房主生成战利并广播（经 relay 回显，全员统一发币+弹窗+ROLL）
       if (raidRef.current && victor === 'player' && useMp.getState().role === 'host') {
         const enc = currentEncounterRef.current;
@@ -6137,10 +6161,9 @@ ${lines}`;
           if (arenaNote) setInputValue((prev) => (prev && prev.trim() ? `${prev}\n\n${arenaNote}` : arenaNote));
         } catch (e) { console.warn('[Arena] 战斗结算失败:', e); useArena.getState().setPendingChallenge(null); }
       }
-      useCombat.getState().endBattle(victor, victor === 'player' ? '战斗胜利' : victor === 'enemy' ? '战斗失败' : '战斗结束');
+      // 结束态已在开头置好（不再重复 endBattle，避免玩家已点「关闭」后又被顶回结算面板）
     } catch (e: any) {
       console.error('[Combat] 战斗收尾失败:', e?.message ?? e);
-      useCombat.getState().endBattle(victor, '战斗结束');
     } finally {
       combatFinishingRef.current = false;
       useCombat.getState().setApiBusy(false); useCombat.getState().setApiStatus('');
@@ -7309,6 +7332,13 @@ ${lines}`;
                                   </div>
                                 );
                               })()}
+                              {/* 小剧场：番外彩蛋 HTML（与主线无关·直接渲染世界书产出的折叠块）*/}
+                              {msg.theaterHtml && (
+                                <div className="mt-2 rounded-lg border border-amber-400/25 bg-amber-400/[0.04] px-3 py-2">
+                                  <div className="text-[12px] font-mono text-amber-300/80 mb-1.5 select-none">🎭 小剧场 · 番外彩蛋</div>
+                                  <div className="zs-theater text-[13px] leading-relaxed text-slate-200" dangerouslySetInnerHTML={{ __html: msg.theaterHtml }} />
+                                </div>
+                              )}
                             </div>
                           )}
                         </div>
@@ -7352,7 +7382,7 @@ ${lines}`;
             {choicesRunning && (
               <span className="flex items-center gap-1 text-fuchsia-300/90">
                 <span className="animate-spin inline-block">◌</span>
-                🎭 选项/同人生成中…
+                🎭 选项/同人/小剧场生成中…
               </span>
             )}
             {itemPhaseRunning && (

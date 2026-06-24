@@ -362,6 +362,15 @@ body {
 .settlement-body ul { margin: 4px 0; padding-left: 18px; }
 .settlement-body li { margin: 2px 0; }
 
+/* 小剧场（番外彩蛋）：AI 用 HTML/内联 CSS 自带美化，这里只做最小兜底——
+   让 <summary> 可点、各折叠块有间距、超宽内容（图/表）不撑破气泡。 */
+.zs-theater > details { margin: 6px 0; }
+.zs-theater summary { cursor: pointer; list-style: none; }
+.zs-theater summary::-webkit-details-marker { display: none; }
+.zs-theater img { max-width: 100%; height: auto; }
+.zs-theater table { max-width: 100%; }
+.zs-theater * { max-width: 100%; box-sizing: border-box; }
+
 /* ─────────────────────────────────────────────────────────────
    弹窗字体整体放大：所有居中弹窗（.fixed.inset-0 覆盖层）内的小字号统一提升约 +1.5px，
    覆盖 任务/NPC/势力/领地/冒险团/万族/记忆/频道/私信/好友/存档/骰子/装备/背包 等全部面板。

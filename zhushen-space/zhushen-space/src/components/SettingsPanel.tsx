@@ -1452,6 +1452,8 @@ function TextApiSection() {
   const setFanficMode      = useSettings((s) => s.setFanficMode);
   const factCheck          = useSettings((s) => s.factCheck);
   const setFactCheck       = useSettings((s) => s.setFactCheck);
+  const miniTheater        = useSettings((s) => s.miniTheater);
+  const setMiniTheater     = useSettings((s) => s.setMiniTheater);
   const narrativePov       = useSettings((s) => s.narrativePov);
   const setNarrativePov    = useSettings((s) => s.setNarrativePov);
 
@@ -1512,6 +1514,13 @@ function TextApiSection() {
             <div className="text-sm text-dim mt-0.5">核实正文里的现实可查证元素（年代/真实地名/品牌价格/专业内容）→ 锁定时代与事实锚点 → 下回合注入正文保持一致、不穿帮。同样能否联网取决于你的模型。</div>
           </div>
         </div>
+        <div className="flex items-center gap-3 p-3 bg-panel border border-edge rounded-lg">
+          <Toggle checked={miniTheater} onChange={() => setMiniTheater(!miniTheater)} />
+          <div>
+            <div className="text-sm text-slate-200">小剧场（番外彩蛋）</div>
+            <div className="text-sm text-dim mt-0.5">每段正文后让 AI 读取<b>内置「小剧场世界书」</b>（已内嵌，无需在世界书里管理）→ 生成 1~3 则与主线无关的<b>番外彩蛋</b>，用 HTML/内联 CSS 美化排版，折叠展示在正文末尾。纯趣味、不影响主线与数值。</div>
+          </div>
+        </div>
         <div className="p-3 bg-panel border border-edge rounded-lg">
           <div className="text-sm text-slate-200">叙事人称</div>
           <div className="text-sm text-dim mt-0.5 mb-2">强制正文以指定人称叙述主角，最高优先（压过预设文风块与历史惯性，无需依赖预设里的人称块）。「跟随预设」=不干预，由预设/模型决定。仅作用于主角，NPC 始终第三人称；对白不受影响。</div>
@@ -1529,10 +1538,10 @@ function TextApiSection() {
         </div>
       </div>
 
-      {(plotChoices || fanficMode || factCheck) && (
+      {(plotChoices || fanficMode || factCheck || miniTheater) && (
         <div className="p-3 bg-panel border border-edge rounded-lg space-y-2">
-          <div className="text-sm text-slate-200">选项 / 同人 / 事实 · 共用 API 路由</div>
-          <div className="text-xs text-dim">三者共用同一接口、正文生成后只调用一次。留空则复用上面的「正文 API」。</div>
+          <div className="text-sm text-slate-200">选项 / 同人 / 事实 / 小剧场 · 共用 API 路由</div>
+          <div className="text-xs text-dim">四者共用同一接口、正文生成后只调用一次。留空则复用上面的「正文 API」。</div>
           <ApiRoutePicker routeKey="plot" />
         </div>
       )}

@@ -264,6 +264,8 @@ interface SettingsState {
   setFanficMode: (v: boolean) => void;
   factCheck: boolean;     // 事实增强：核实正文里的现实可查证元素→锁定时代/事实锚点→下回合注入防穿帮
   setFactCheck: (v: boolean) => void;
+  miniTheater: boolean;   // 小剧场：每段正文后让 AI 读内置「小剧场世界书」，生成番外彩蛋 HTML 折叠块附在正文末尾
+  setMiniTheater: (v: boolean) => void;
   npcAutonomyOn: boolean;   // 离场角色自治（轨道A）：每回合零 API 推进离场 NPC 的「出任务/主神空间」生活并写经历
   setNpcAutonomyOn: (v: boolean) => void;
   npcAutonomyDeath: boolean; // 离场自治·允许任务致死（陨落）；默认关，仅 npcAutonomyOn 开时生效；护好友/羁绊/长留/队友
@@ -648,6 +650,7 @@ export const useSettings = create<SettingsState>()(
       plotChoices: false,
       fanficMode: false,
       factCheck: false,
+      miniTheater: false,
       npcAutonomyOn: false,
       npcAutonomyDeath: false,
       npcAutonomyMax: 16,
@@ -711,6 +714,7 @@ export const useSettings = create<SettingsState>()(
       setNpcAutonomyEvery: (v) => set({ npcAutonomyEvery: Math.min(30, Math.max(1, Math.floor(v) || 1)) }),
       setFanficMode: (v) => set({ fanficMode: v }),
       setFactCheck: (v) => set({ factCheck: v }),
+      setMiniTheater: (v) => set({ miniTheater: v }),
       setNarrativePov: (v) => set({ narrativePov: v }),
 
       addApiEndpoint: () => set((s) => ({

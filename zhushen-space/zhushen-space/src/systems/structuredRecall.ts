@@ -153,7 +153,8 @@ function talentLine(t: Talent): string {
   return `    · ${head}${body ? ` — ${body}` : ''}`;
 }
 
-/* ── 单条物品/装备 → 全量可读行（排除 addedAt / numeric / locked 等）── */
+/* ── 单条物品/装备 → 可读行（NPC 卡用）：只注入 名称/类型/品级/数量/已装备 + 效果/标签；
+   **省去 外观/获得途径/备注/简介**（对叙事无用、占 token），与主角装备行同口径。排除 addedAt/numeric/locked 等。── */
 function itemLine(it: InventoryItem | NpcOwnedItem): string {
   const head = `「${it.name}」${it.category ? `[${it.category}${it.gradeDesc ? '·' + it.gradeDesc : ''}]` : ''}`;
   const tail: string[] = [];
@@ -161,10 +162,7 @@ function itemLine(it: InventoryItem | NpcOwnedItem): string {
   if (it.equipped) tail.push(`已装备${it.equipSlot ? ':' + it.equipSlot : ''}`);
   const body = [
     it.effect && `效果:${it.effect}`,
-    it.appearance && `外观:${it.appearance}`,
-    it.acquisition && `获得:${it.acquisition}`,
     Array.isArray(it.tags) && it.tags.length ? `标签:${it.tags.join('/')}` : '',
-    it.notes && `备注:${it.notes}`,
   ].filter(Boolean).join('；');
   return `    · ${head}${tail.length ? ` (${tail.join(' ')})` : ''}${body ? ` — ${body}` : ''}`;
 }
@@ -181,7 +179,8 @@ function playerItemLine(it: InventoryItem): string {
   return `    · ${head}${body ? ` — ${body}` : ''}`;
 }
 
-/* ── 主角物品 → 全量行（被「用户输入提到」或「当前已装备」时用）：名称/类型/品级/数量/已装备槽 + 杀敌/词缀/效果/外观/获得/标签/备注 全注入 ── */
+/* ── 主角物品 → 全量行（被「用户输入提到」或「当前已装备」时用）：名称/类型/品级/数量/已装备槽 + 杀敌/词缀/效果/标签；
+   **省去 外观/获得途径/备注/简介**（装备与非装备一致，对叙事无用、占 token）。── */
 function playerItemFullLine(it: InventoryItem): string {
   const head = `「${it.name}」${(it.category || it.gradeDesc) ? `[${[it.category, it.gradeDesc].filter(Boolean).join('·')}]` : ''}`;
   const marks: string[] = [];
@@ -191,10 +190,7 @@ function playerItemFullLine(it: InventoryItem): string {
     it.killCount && `杀敌:${it.killCount}`,
     it.affix && `词缀:${it.affix}`,
     it.effect && `效果:${it.effect}`,
-    it.appearance && `外观:${it.appearance}`,
-    it.acquisition && `获得:${it.acquisition}`,
     Array.isArray(it.tags) && it.tags.length ? `标签:${it.tags.join('/')}` : '',
-    it.notes && `备注:${it.notes}`,
   ].filter(Boolean).join('；');
   return `    · ${head}${marks.length ? ` (${marks.join(' ')})` : ''}${body ? ` — ${body}` : ''}`;
 }

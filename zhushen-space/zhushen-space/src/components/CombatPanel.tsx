@@ -261,12 +261,17 @@ export default function CombatPanel({ onPlayerAction, onUndo, canUndo, mpMode, m
         {/* 行动区 / 结算区 */}
         <div className="border-t border-slate-700/60 bg-slate-950/60 p-3">
           {ended ? (
-            <div className="flex items-center justify-between">
-              <div className={`text-sm font-semibold ${battle.victor === 'player' ? 'text-emerald-300' : 'text-rose-300'}`}>
-                {battle.victor === 'player' ? '🎉 战斗胜利' : battle.victor === 'enemy' ? '💀 战斗失败' : '战斗结束'}
-                {battle.endReason ? ` · ${battle.endReason}` : ''}
+            <div className="space-y-1.5">
+              <div className="flex items-center justify-between">
+                <div className={`text-sm font-semibold ${battle.victor === 'player' ? 'text-emerald-300' : 'text-rose-300'}`}>
+                  {battle.victor === 'player' ? '🎉 战斗胜利' : battle.victor === 'enemy' ? '💀 战斗失败' : '战斗结束'}
+                  {battle.endReason ? ` · ${battle.endReason}` : ''}
+                </div>
+                <button onClick={exitCombat} className="px-4 py-1.5 rounded-md bg-cyan-600 hover:bg-cyan-500 text-white text-sm font-medium">关闭</button>
               </div>
-              <button onClick={exitCombat} className="px-4 py-1.5 rounded-md bg-cyan-600 hover:bg-cyan-500 text-white text-sm">关闭</button>
+              {apiBusy
+                ? <div className="text-[11px] text-amber-300/90 animate-pulse">📝 {apiStatus || '战斗总结生成中…'}——生成后会写入输入框，可直接关闭、稍后再发。</div>
+                : <div className="text-[11px] text-slate-400">战斗结果已写入输入框，确认/编辑后发送即可续写正文。</div>}
             </div>
           ) : myTurn && stunned ? (
             <div className="flex items-center justify-between">
