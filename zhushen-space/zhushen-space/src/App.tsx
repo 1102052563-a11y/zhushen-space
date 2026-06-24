@@ -1073,8 +1073,8 @@ export default function App() {
   const [mobileDrawer, setMobileDrawer] = useState<'player' | 'menu' | null>(null); // 手机端：左角色栏 / 右导航 抽屉
   const [inputValue, setInputValue] = useState(() => { try { return localStorage.getItem('drpg-chat-draft') || ''; } catch { return ''; } });   // 输入草稿持久化：误触返回/刷新/崩溃也不丢已输入的行动
   const [openChoiceIds, setOpenChoiceIds] = useState<Set<number>>(new Set());   // 剧情选项：按楼层展开（附在正文末尾，点击查看；默认收起）
-  const [choiceRegenId, setChoiceRegenId] = useState<number | null>(null);      // 正在「重新生成选项」的楼层 id（按钮 loading）
-  const [choiceDir, setChoiceDir] = useState<Record<number, string>>({});       // 每楼「重新生成选项」的自定义方向提示词
+  const [choicesRevarOpen, setChoicesRevarOpen] = useState(false);             // 「重新生成 选项/同人/事实/小剧场」方向提示词弹窗
+  const [choicesDir, setChoicesDir] = useState('');                            // 上述弹窗的自定义方向提示词（可留空）
   const [worldBarOpen, setWorldBarOpen] = useState(false); // 选择世界/结算任务 按钮行（默认收起，点状态栏展开，省空间）
   const [rawResponse, setRawResponse] = useState('');
   const [showRaw, setShowRaw] = useState(false);
@@ -2863,7 +2863,19 @@ ${AFFIX_EFFECT_RULE}`;
     turnCountRef.current += 1;   // 来宾自己的回合推进（让各阶段频率门正常工作）
     try { useMisc.getState().setTurnCount(turnCountRef.current); } catch { /* 持久化累计回合数 */ }
     try { useItems.getState().setItemTurn(turnCountRef.current); } catch { /* */ }
-    const selfRule = '\n\n【联机·只演化自己】你只演化"主角"(本玩家)的角色与物品。正文里其他真人队友/NPC的获得、成长、变化都与主角无关，绝不要把别人的物品/技能/属性加到主角身上。';
+    // 来宾在「房主视角群像正文」上演化自己 → 必须用真名硬锚点：正向「你叫X，只更新X」比泛泛的负向
+    // 约束强得多，否则 AI 会把别的同伴(尤其房主角色)用的技能/拿的物品当成"主角"的收获加到本来宾身上(技能泄漏 bug)。
+    const myName = usePlayer.getState().profile.name || '主角';
+    const mpSt = useMp.getState();
+    const others = Array.from(new Set([
+      mpSt.room?.hostName,
+      ...(mpSt.cards || []).map((c) => c?.snapshot?.name),
+      ...(mpSt.seats || []).map((s) => s.name),
+    ].filter((n): n is string => !!n && n !== myName)));
+    const othersHint = others.length
+      ? `本段是房主视角的群像叙事，里面的其他同伴（如 ${others.join('、')} 等）都不是你。`
+      : '本段正文里除你之外出现的其他角色都不是你。';
+    const selfRule = `\n\n【联机·只演化你自己】你本人操控的角色叫【${myName}】，你**只更新【${myName}】这一个角色及其物品**。${othersHint}他们的技能/天赋/物品/属性/成长一律与【${myName}】无关，**绝不要**加到【${myName}】身上；只有正文明确写到【${myName}】本人获得或成长时才更新。`;
     await Promise.allSettled([
       runPlayerEvolutionPhase(narrative + selfRule),
       runItemManagementPhase(narrative + selfRule),
@@ -5038,8 +5050,43 @@ ${lines}`;
     return ghosts.length;
   }
 
-  /* 选项 + 同人增强：正文生成后，共用一个 API、只调用一次，按开关产出 8 选项 / 同人设定块 */
-  async function runChoicesFanficPhase(narrative: string, assistantMsgId?: number) {
+  /* 选项/同人/事实/小剧场 共用判定上下文：主角全卡 + 在场 NPC 全信息 + (可选)当前任务 + 最近两回合正文 */
+  function buildChoicesPhaseContext(text: string, includeQuest: boolean): string {
+    const P = usePlayer.getState();
+    const game = useGame.getState().player;
+    const b1 = useCharacters.getState().characters['B1'];
+    const playerCard = serializePlayerCard(
+      P.profile, game, b1?.skills ?? [], b1?.traits ?? [], useItems.getState().items,
+      { maxNpcs: 0, maxSkills: 99, maxItems: 99, maxSubProfs: 99 },
+      b1?.titles, b1?.subProfessions, useItems.getState().currency,
+    );
+    const npcBlocks = Object.values(useNpc.getState().npcs)
+      .filter((n) => n.onScene && !n.isDead)
+      .map((r) => {
+        const a = r.attrs;
+        const bits = [
+          `${r.name || r.id}${r.gender ? `(${r.gender})` : ''}`,
+          r.npcTag && `标签:${r.npcTag}`, r.realm && `阶位/身份:${r.realm}`,
+          r.profession && `职业:${r.profession}`, r.age && `年龄:${r.age}`,
+          a && `六维:力${a.str} 敏${a.agi} 体${a.con} 智${a.int} 魅${a.cha} 幸${a.luck}`,
+          r.personality && `性格:${r.personality}`, `好感:${r.favor}`,
+          (r.items?.length ?? 0) > 0 && `持有物:${r.items.map((it) => `${it.name}(${it.category}${it.gradeDesc ? '·' + it.gradeDesc : ''})`).join('、')}`,
+        ].filter(Boolean);
+        return '· ' + bits.join(' | ');
+      }).join('\n');
+    // 当前任务（主线/支线）→ 供「任务导向」选项 A~D 生成（仅生成选项时才取）
+    const questText = includeQuest ? serializeTasks(useMisc.getState().tasks ?? []) : '';
+    return [
+      `【主角全部信息】\n${playerCard}`,
+      `【在场角色全部信息（含持有物）】\n${npcBlocks || '（无）'}`,
+      includeQuest ? `【当前任务（主线/支线 → 据此生成"任务导向"选项 A~D）】\n${questText}` : '',
+      `【最近两回合正文】\n${buildRecentNarrative(text, 2).slice(-9000)}`,
+    ].filter(Boolean).join('\n\n');
+  }
+
+  /* 选项 + 同人增强：正文生成后，共用一个 API、只调用一次，按开关产出 8 选项 / 同人设定块。
+     direction：手动「重新生成」时玩家填的方向提示词（可空），作为最高优先的引导块注入。 */
+  async function runChoicesFanficPhase(narrative: string, assistantMsgId?: number, direction?: string) {
     const ss = useSettings.getState();
     const wantChoices = ss.plotChoices, wantFanfic = ss.fanficMode, wantFact = ss.factCheck, wantTheater = ss.miniTheater;
     if (!wantChoices && !wantFanfic && !wantFact && !wantTheater) return;
@@ -5057,6 +5104,9 @@ ${lines}`;
     if (wantChoices) sysParts.push(PLOT_CHOICES_RULE);
     if (wantTheater) sysParts.push(MINI_THEATER_RULE);
     sysParts.push(`【本次输出顺序】${wantFanfic ? '先输出 <details>同人搜索内容</details> 块（涉及已知作品角色才输出，可多个）；' : ''}${wantFact ? '再输出 <details>事实查证</details> 块（涉及现实可查证元素才输出）；' : ''}${wantChoices ? '然后输出 <choices> 块（A~H 共 8 个选项，最后一个 H 为限制级）；' : ''}${wantTheater ? '最后输出 <xiaojuchang> 小剧场块（严格按「小剧场世界书」的 HTML/内联 CSS 折叠格式，与主线无关的番外彩蛋）。' : ''}除这些标签块外不要有任何其它文字。`);
+    // 手动「重新生成」：玩家自定义方向（最高优先），并要求与上一版明显不同
+    const dir = (direction || '').trim();
+    if (dir) sysParts.push(`【本次为"重新生成"·玩家自定义方向（最高优先）】请在严格遵守上面各块的全部规则与格式（含每项不少于 200 字）的前提下，让本次产出整体贴合以下方向 / 侧重，并给出与之前明显不同的新内容、不要重复上一版：\n${dir}`);
 
     // 判定上下文：主角全卡(含物品) + 在场 NPC 全信息(含持有物) + (选项时)当前任务 + 最近两回合正文
     const userMsg = buildChoicesPhaseContext(text, wantChoices);
@@ -6847,7 +6897,7 @@ ${lines}`;
     await captureUndoPoint();   // 发送前记录回退点（=上一回合结束状态）
     // 房主：把队友本回合已提交的行动并进这一回合（无队友行动则与单人完全一致）
     const isMpHost = mp.status === 'connected' && mp.role === 'host';
-    const effectiveText = isMpHost ? buildPartyTurnText(text, mp.turn?.inputs, mp.room?.hostName || '房主') : text;
+    const effectiveText = isMpHost ? buildPartyTurnText(text, mp.turn?.inputs, usePlayer.getState().profile.name || mp.room?.hostName || '房主') : text;
 
     const userMsg: ChatMessage = { id: ++msgId.current, role: 'user', content: effectiveText };
     setMessages((prev) => [...prev, userMsg]);
@@ -7682,14 +7732,16 @@ ${lines}`;
                 { icon: '📋', label: '任务 / 世界 / 杂项', fk: 'misc', batch: true, run: revarRun(runMiscEvolutionPhase) },
                 { icon: '🧠', label: '记忆整理', run: () => runMemoryCompressionPhase() },
                 { icon: '🖼', label: '生图（肖像 + 装备）', fk: 'image', run: () => { runPortraitPhase(); runEquipImagePhase(); } },
+                { icon: '🎭', label: '选项 / 同人 / 事实 / 小剧场', fk: 'choices', direct: true, run: () => { setChoicesDir(''); setChoicesRevarOpen(true); } },
               ].map((it) => {
-                const x = it as { icon: string; label: string; run: () => void; desc?: string; all?: boolean; fk?: string; batch?: boolean };
+                const x = it as { icon: string; label: string; run: () => void; desc?: string; all?: boolean; fk?: string; batch?: boolean; direct?: boolean };
                 const prog = (floorProg && x.fk && floorProg.fk === x.fk) ? floorProg : null;
-                const busy = !prog && !!(x.fk && phaseBusy[x.fk]);
+                const busy = !prog && (x.fk === 'choices' ? choicesRunning : !!(x.fk && phaseBusy[x.fk]));
                 const failed = !prog && !busy && !!(x.fk && phaseFail[x.fk]);
                 return (
                 <button key={x.label} disabled={busy || !!prog}
                   onClick={() => {
+                    if (x.direct) { x.run(); return; }   // 自带弹窗的项（选项/同人/事实/小剧场 → 弹方向提示词框），不走确认/楼层
                     if (x.batch && x.fk) { openFloorCfg(x.fk, x.label); return; }   // 吃正文的阶段 → 弹「按楼层更新」配置框
                     setConfirmAction({ title: x.all ? '重算全部变量' : `重 ROLL「${x.label}」`, desc: x.desc || `仅重新生成「${x.label}」这一项（基于本回合正文重跑该演化）、其它变量不动。确定？`, run: () => {
                       if (x.all) { setRevarOpen(false); x.run(); return; }
@@ -7724,6 +7776,53 @@ ${lines}`;
           </div>
         </div>
       )}
+
+      {/* ── 重新生成「选项 / 同人 / 事实 / 小剧场」：方向提示词弹窗（从重算菜单 🎭 项点开；叠在菜单上方 z-130）── */}
+      {choicesRevarOpen && (() => {
+        const ss = useSettings.getState();
+        const flags: [string, boolean][] = [['选项', ss.plotChoices], ['同人', ss.fanficMode], ['事实', ss.factCheck], ['小剧场', ss.miniTheater]];
+        const enabled = flags.filter(([, v]) => v).map(([k]) => k);
+        const run = () => {
+          const latest = [...(messagesRef.current ?? [])].reverse().find((m) => m.role === 'assistant' && m.content);
+          setChoicesRevarOpen(false); setRevarOpen(false);
+          if (!latest) { setGenError('暂无正文可重算（先发一条消息再重算）'); setTimeout(() => setGenError(''), 4000); return; }
+          let dir = choicesDir.trim();
+          const prev = latest.choices ?? [];
+          if (prev.length) dir += `${dir ? '\n\n' : ''}【上一版选项，请换全新角度、不要重复以下任何一条】\n${prev.map((o, i) => `${String.fromCharCode(65 + i)}. ${o}`).join('\n')}`;
+          void runChoicesFanficPhase(latest.content as string, latest.id, dir);
+        };
+        return (
+          <div className="fixed inset-0 z-[130] bg-black/70 backdrop-blur-sm flex items-center justify-center p-4"
+            onClick={(ev) => { if (ev.target === ev.currentTarget) setChoicesRevarOpen(false); }}>
+            <div className="w-full max-w-md rounded-2xl border border-fuchsia-500/30 bg-void shadow-[0_0_50px_rgba(0,0,0,0.85)] overflow-hidden">
+              <div className="px-5 py-3 border-b border-edge bg-panel flex items-center gap-2">
+                <span className="text-fuchsia-300/80 text-lg">🎭</span>
+                <div className="text-sm font-bold text-slate-100">重新生成 选项 / 同人 / 事实 / 小剧场</div>
+              </div>
+              <div className="px-5 py-4 space-y-3 text-[13px] text-slate-300">
+                <div className="text-dim leading-relaxed">基于<b className="text-slate-200">最新一条正文</b>，对当前已开启的项重新生成一遍（覆盖本楼旧结果）。</div>
+                <div className="text-[12px] font-mono">
+                  本次将重生成：{enabled.length ? <b className="text-fuchsia-300">{enabled.join(' · ')}</b> : <span className="text-blood/90">（四项都未开启 —— 请先到「设置 → 正文生成」打开至少一项）</span>}
+                </div>
+                <div className="space-y-1">
+                  <div className="text-dim/70 font-mono text-[12px]">方向提示词（可留空）</div>
+                  <textarea value={choicesDir} onChange={(ev) => setChoicesDir(ev.target.value)} rows={3}
+                    placeholder="例：选项更激进 / 偏感情线 / 围绕逃离展开；小剧场走治愈风…（留空=自由发挥，仅要求与上一版不同）"
+                    className="w-full bg-void border border-edge rounded px-2 py-1.5 text-[13px] text-slate-200 outline-none focus:border-fuchsia-500/50 resize-y leading-relaxed" />
+                </div>
+                <div className="text-[11px] text-dim/50 leading-relaxed">将调用 1 次「选项 / 同人 / 事实 / 小剧场」API（与正文后处理同一路由），耗时取决于开启项数量；生成中底部状态栏会显示进度。</div>
+                <div className="flex justify-end gap-2 pt-1">
+                  <button onClick={() => setChoicesRevarOpen(false)}
+                    className="px-3 py-1.5 text-[13px] rounded-md border border-edge text-dim hover:text-slate-200 transition-colors">取消</button>
+                  <button onClick={run} disabled={!enabled.length || choicesRunning}
+                    className="px-3 py-1.5 text-[13px] rounded-md border border-fuchsia-500/40 bg-fuchsia-500/10 text-fuchsia-200 hover:bg-fuchsia-500/20 transition-colors disabled:opacity-40 disabled:cursor-not-allowed">
+                    {choicesRunning ? '◌ 生成中…' : '🔄 开始重新生成'}</button>
+                </div>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
 
       {/* ── 按楼层批量更新·配置弹窗（从重算菜单某项点开；叠在菜单上方 z-130）── */}
       {floorCfg && (() => {
