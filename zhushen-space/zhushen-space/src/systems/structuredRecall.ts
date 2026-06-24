@@ -181,6 +181,31 @@ function playerItemLine(it: InventoryItem): string {
   return `    · ${head}${body ? ` — ${body}` : ''}`;
 }
 
+/* ── 主角物品 → 全量行（被「用户输入提到」或「当前已装备」时用）：名称/类型/品级/数量/已装备槽 + 杀敌/词缀/效果/外观/获得/标签/备注 全注入 ── */
+function playerItemFullLine(it: InventoryItem): string {
+  const head = `「${it.name}」${(it.category || it.gradeDesc) ? `[${[it.category, it.gradeDesc].filter(Boolean).join('·')}]` : ''}`;
+  const marks: string[] = [];
+  if ((it.quantity ?? 1) > 1) marks.push(`×${it.quantity}`);
+  if (it.equipped) marks.push(`已装备${it.equipSlot ? ':' + it.equipSlot : ''}`);
+  const body = [
+    it.killCount && `杀敌:${it.killCount}`,
+    it.affix && `词缀:${it.affix}`,
+    it.effect && `效果:${it.effect}`,
+    it.appearance && `外观:${it.appearance}`,
+    it.acquisition && `获得:${it.acquisition}`,
+    Array.isArray(it.tags) && it.tags.length ? `标签:${it.tags.join('/')}` : '',
+    it.notes && `备注:${it.notes}`,
+  ].filter(Boolean).join('；');
+  return `    · ${head}${marks.length ? ` (${marks.join(' ')})` : ''}${body ? ` — ${body}` : ''}`;
+}
+
+/* ── 主角物品 → 仅名称行（精简物品栏里「其余物品」用）：名称 + 品级/数量标记，便于辨识；不含效果/词缀/外观等细节 ── */
+function nameOnlyItemLine(it: InventoryItem): string {
+  const tag = (it.category || it.gradeDesc) ? `[${[it.category, it.gradeDesc].filter(Boolean).join('·')}]` : '';
+  const qty = (it.quantity ?? 1) > 1 ? ` ×${it.quantity}` : '';
+  return `    · 「${it.name}」${tag}${qty}`;
+}
+
 /* ── 装备优先级：已装备 > 品阶高 > 数量多 ── */
 function itemScore(it: InventoryItem | NpcOwnedItem): number {
   const grade = gradeOf(numericOf(it)) || gradeToNum(it.gradeDesc);   // AI 未给 numeric.grade 时按品级文字兜底
@@ -207,6 +232,8 @@ export function serializePlayerCard(
   wallet?: CurrencyWallet,
   pick?: { skills?: string[]; items?: string[] },   // API 选取的技能名/装备名；提供则覆盖本地 pickTop（副职业不受影响，仍机械取）
   context?: string,   // 当前情境（用户输入+最近正文）：字面喊到的技能/装备强制注入（护栏，不受 API/上限约束）
+  userInput?: string,   // 仅本轮「用户输入」原文：精简物品栏模式下据此判定「提到的物品」（缺省回退 context）
+  leanItems?: boolean,  // true=叙事回忆「精简物品栏」：用户输入提到的 + 当前已装备 → 全量信息，其余整背包 → 仅名称
 ): string {
   const id = ['姓名:' + (profile.name || '主角'),
     profile.gender && `性别:${profile.gender}`,
@@ -243,8 +270,8 @@ export function serializePlayerCard(
     a && `（真实属性口径·重要：四阶起上方六维即「真实属性」，勿÷80换算；1点真实≈5点普通之效、判定享绝对优先；一~三阶为普通属性≤99）`,
     a && `衍生属性(由含加成的实战六维+已装备品级现算): 物攻${derived.patk} 物防${derived.pdef} 法攻${derived.matk} 法防${derived.mdef}`,
     a && `生物强度(前端按六维机械判定,勿改): ${bioStrengthLabel(bioInnate(a, profile.tier, profile.level), bioPower(effA))}`,
-    profile.attrPoints != null && `属性点:${profile.attrPoints}`,
-    profile.realAttrPoints != null && `真实属性点:${profile.realAttrPoints}`,
+    (profile.attrPoints != null || profile.realAttrPoints != null) &&
+      `属性点:${profile.attrPoints ?? 0} | 真实属性点:${profile.realAttrPoints ?? 0}（⚠最新余额·唯一真相，遵【属性点·唯一真相铁则】：玩家在前端面板自行加点消耗，勿复读旧剩余、勿自行增减）`,
     profile.worldSource != null && `世界之源:${profile.worldSource}`,
     wallet && `货币: 乐园币${wallet.乐园币 ?? 0} | 灵魂钱币${wallet.灵魂钱币 ?? 0} | 技能点${wallet.技能点 ?? 0} | 黄金技能点${wallet.黄金技能点 ?? 0}`,
   ].filter(Boolean).join(' | ');
@@ -265,15 +292,28 @@ export function serializePlayerCard(
   // 护栏：情境里字面喊到的技能强制并入（置顶去重，不受 maxSkills 上限约束）——治"都喊技能名了还不注入"
   for (const s of namesMentionedIn(skills, context)) if (!skillSel.includes(s)) skillSel.unshift(s);
   const topSkills = skillSel.map(skillLine);
-  // 装备(武器/防具/饰品 或 已装备)：同理 API 选取优先、本地 pickTop 兜底；材料+消耗品全部显示(名称+效果)；其它类一律不注入
-  const EQUIP_CATS = new Set<string>(['武器', '防具', '饰品']);
-  const equipPool = items.filter((it) => it.equipped || EQUIP_CATS.has(it.category));
-  let equipSel = matchByName(equipPool, pick?.items, limits.maxItems);
-  if (!equipSel.length) equipSel = pickTop(equipPool, limits.maxItems, itemScore);
-  // 护栏：情境里字面喊到的物品强制并入（材料/消耗品下方已全量注入，排除以免重复；不受 maxItems 上限约束）
-  for (const it of namesMentionedIn(items, context)) if (it.category !== '材料' && it.category !== '消耗品' && !equipSel.includes(it)) equipSel.unshift(it);
-  const equipItems = equipSel.map(playerItemLine);
-  const matConItems = items.filter((it) => it.category === '材料' || it.category === '消耗品').map(playerItemLine);
+  // 物品/装备注入——两种模式：
+  //  · 精简物品栏(leanItems，叙事回忆用)：本轮【用户输入】提到的 + 当前已装备 → 全量信息；其余整背包 → 仅名称（省 token，AI 仍知道"有这东西"）。
+  //  · 默认(plot/同人/事实判定等)：旧行为——top 装备(API/pickTop, 限 maxItems) + 全部材料/消耗品 全量；其它类不注入。
+  let equipItems: string[];
+  let matConItems: string[] = [];
+  let nameOnlyItems: string[] = [];
+  if (leanItems) {
+    const mentioned = new Set(namesMentionedIn(items, userInput ?? context));   // 仅按「用户输入」判定提到（缺省回退 context）
+    const fullSet = items.filter((it) => it.equipped || mentioned.has(it)).sort((x, y) => itemScore(y) - itemScore(x));
+    equipItems = fullSet.map(playerItemFullLine);
+    nameOnlyItems = items.filter((it) => !it.equipped && !mentioned.has(it)).map(nameOnlyItemLine);
+  } else {
+    // 装备(武器/防具/饰品 或 已装备)：API 选取优先、本地 pickTop 兜底；材料+消耗品全部显示(名称+效果)；其它类一律不注入
+    const EQUIP_CATS = new Set<string>(['武器', '防具', '饰品']);
+    const equipPool = items.filter((it) => it.equipped || EQUIP_CATS.has(it.category));
+    let equipSel = matchByName(equipPool, pick?.items, limits.maxItems);
+    if (!equipSel.length) equipSel = pickTop(equipPool, limits.maxItems, itemScore);
+    // 护栏：情境里字面喊到的物品强制并入（材料/消耗品下方已全量注入，排除以免重复；不受 maxItems 上限约束）
+    for (const it of namesMentionedIn(items, context)) if (it.category !== '材料' && it.category !== '消耗品' && !equipSel.includes(it)) equipSel.unshift(it);
+    equipItems = equipSel.map(playerItemLine);
+    matConItems = items.filter((it) => it.category === '材料' || it.category === '消耗品').map(playerItemLine);
+  }
   const talLines = talents.slice().sort((x, y) => talentScore(y) - talentScore(x)).map(talentLine);
 
   const titleLine = equippedTitleLine(titles);
@@ -281,7 +321,9 @@ export function serializePlayerCard(
   return ['# 主角 [B1]', '  ' + id, '  ' + stat,
     titleLine && '  ' + titleLine,
     detail && '  ' + detail,
-    block('技能', topSkills), block('天赋', talLines), block('装备', equipItems), block('材料/消耗品', matConItems),
+    block('技能', topSkills), block('天赋', talLines),
+    block(leanItems ? '物品·全量（已装备/本轮提到，其余见下）' : '装备', equipItems),
+    leanItems ? block('其余物品栏（仅名称）', nameOnlyItems) : block('材料/消耗品', matConItems),
     spLines.length ? block('副职业', spLines) : '',
   ].filter(Boolean).join('\n');
 }

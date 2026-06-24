@@ -57,6 +57,7 @@ import {
   PLAYER_ATTR_LOCK_RULE,
   APPEARANCE_UPDATE_RULE,
   PLAYER_STATE_EMIT_RULE,
+  ATTR_POINT_AUTHORITY_RULE,
   VITALS_SETTLEMENT_EMIT_RULE,
   CHOICES_FANFIC_SYSTEM,
   FANFIC_RULE,
@@ -148,6 +149,7 @@ import { applyMiscCommands, serializeTasks, serializeEvents, extractTurnSummarie
 import { buildNarrativeHistory, NM_COMPILE_PROMPT, NM_INGEST_PROMPT } from './systems/narrativeMemory';
 import { buildMemPool, loadAll as factVecLoadAll, ensureVectors as factVecEnsure, embedOne as factVecEmbedOne, search as factVecSearch } from './systems/factVec';
 import { serializePlayerCard, serializeNpcCard, buildNpcCandidateTitles, buildPlayerSkillCandidates, buildPlayerItemCandidates, rankNpcsLocal, serializeFactionsSection, namesMentionedIn, NM_STRUCT_SELECT_PROMPT, type RecallLimits } from './systems/structuredRecall';
+import { drainAllocNotices } from './systems/allocNotice';
 const MiscPanel = lazy(() => import('./components/MiscPanel'));
 const DicePanel = lazy(() => import('./components/DicePanel'));
 const EnhancePanel = lazy(() => import('./components/EnhancePanel'));
@@ -1443,12 +1445,20 @@ export default function App() {
     }
     // 主角状态同步：让始终运行的主正文每回合输出位置/外观（前端解析后剥除），不依赖被节流的主角演化阶段
     sysPrompt += '\n\n' + PLAYER_STATE_EMIT_RULE; sysSegments.push({ label: '前端规则 · 主角状态输出', content: PLAYER_STATE_EMIT_RULE });
+    // 属性点唯一真相：每回合注入，压住 AI 凭记忆复读"还有N点未用"、禁止其自行增减点数（前端面板加点消耗，注入余额为准）
+    sysPrompt += '\n\n' + ATTR_POINT_AUTHORITY_RULE; sysSegments.push({ label: '前端规则 · 属性点唯一真相', content: ATTR_POINT_AUTHORITY_RULE });
     // HP/EP 结算：让主正文每回合末尾输出主角+在场NPC的当前 HP/EP（前端 applyNarrativeVitals/NpcVitals 解析，HP/EP 管理阶段也以此为最终值）
     sysPrompt += '\n\n' + VITALS_SETTLEMENT_EMIT_RULE; sysSegments.push({ label: '前端规则 · HP/EP 结算输出', content: VITALS_SETTLEMENT_EMIT_RULE });
     // 任务击杀目标阶位上限：强制环≤主角阶位、贪婪环≤+1；勿降级剧情高端战力，改派阶位相称的目标
     sysPrompt += '\n\n' + QUEST_KILL_TIER_RULE; sysSegments.push({ label: '前端规则 · 击杀阶位上限', content: QUEST_KILL_TIER_RULE });
     // 任务世界结算：仅当本回合输入含【结算任务】时才注入（平时不喂，省 token、避免误触发）
     if (/【结算任务】/.test(userInput)) { sysPrompt += '\n\n' + WORLD_SETTLEMENT_RULE; sysSegments.push({ label: '前端规则 · 任务世界结算（本回合触发）', content: WORLD_SETTLEMENT_RULE }); }
+    // 主角前端加点 → 一次性事件：玩家在属性面板自行加点(前端确定性结算)，正文看不到此动作 → 注入告知，让叙事"知道"并据此用最新余额（一次性，注入后即清空）
+    const allocNotices = drainAllocNotices();
+    if (allocNotices.length) {
+      const allocBlock = '【主角属性分配·本回合事件】玩家刚在属性面板自行加点，以下为最新结算结果（点数已由前端消耗，正文据此自然带过、勿质疑、勿重发点数）：\n' + allocNotices.join('\n');
+      sysPrompt += '\n\n' + allocBlock; sysSegments.push({ label: '前端事件 · 主角属性加点（本回合一次性）', content: allocBlock });
+    }
 
     // 叙事人称：前端「叙事人称」开关 → 注入到 system 最末尾（权重最高，压过预设文风块/历史第三人称惯性）；off=不注入、沿用预设
     const povSel = useSettings.getState().narrativePov;
@@ -3755,7 +3765,7 @@ ${AFFIX_EFFECT_RULE}`;
 
   /* 结构化档案召回：主角必含 + 选中 NPC，序列化成 <在场与相关档案> system 块。
      返回 system 消息数组（空数组=不注入）。在 callApi 召回阶段 await 调用。*/
-  async function buildStructuredRecall(context: string, opts: { noLlmSelect?: boolean } = {}): Promise<{ player: { role: 'system'; content: string }[]; rest: { role: 'system'; content: string }[] }> {
+  async function buildStructuredRecall(context: string, opts: { noLlmSelect?: boolean; userInput?: string } = {}): Promise<{ player: { role: 'system'; content: string }[]; rest: { role: 'system'; content: string }[] }> {
     const cfg = useSettings.getState().narrativeMemory;
     if (cfg.structEnabled === false) return { player: [], rest: [] };   // 仅显式关闭才停；旧存档无此字段时默认开
     const limits: RecallLimits = {
@@ -3788,7 +3798,7 @@ ${AFFIX_EFFECT_RULE}`;
     // ── 主角卡（必含；API 选取的技能/装备覆盖本地 pickTop，副职业仍机械取）──
     const cards: string[] = [
       serializePlayerCard(profile, game, b1?.skills ?? [], b1?.traits ?? [], allItems, limits, b1?.titles, b1?.subProfessions, useItems.getState().currency,
-        apiPick ? { skills: apiPick.skills, items: apiPick.items } : undefined, context),
+        apiPick ? { skills: apiPick.skills, items: apiPick.items } : undefined, context, opts.userInput, true),   // leanItems=true：精简物品栏（用户输入提到/已装备→全量，其余→仅名称）
     ];
 
     // ── NPC 选择：用上面那次 API 选的 npc → 本地在场优先兜底 ──
@@ -6344,7 +6354,7 @@ ${lines}`;
         memory = lines.length ? [{ role: 'system' as const, content: `<相关记忆>\n${lines.join('\n\n')}\n</相关记忆>` }] : [];
         const recentN = historyLimit > 0 ? historyLimit : (vm.recentFullTextCount ?? 5);
         recent = (recentN > 0 ? allHistory.slice(-recentN) : []).map((m) => ({ role: m.role as 'user' | 'assistant', content: m.content }));
-        { const sr = await buildStructuredRecall(ctx, { noLlmSelect: true }); structPlayer = sr.player; structRest = sr.rest; }   // 向量模式：NPC 走本地排序，不调 LLM
+        { const sr = await buildStructuredRecall(ctx, { noLlmSelect: true, userInput: userText }); structPlayer = sr.player; structRest = sr.rest; }   // 向量模式：NPC 走本地排序，不调 LLM
         const note = ev.remaining > 0 ? `（${ev.remaining} 条待索引，去设置→向量记忆点"重建索引"）` : '';
         setNmPhaseLog(`🧠 向量召回：池 ${pool.length} 条 · 命中 ${hits.length}${(structPlayer.length || structRest.length) ? ' + 结构化档案' : ''}${note}`);
         setTimeout(() => setNmPhaseLog(''), 8000);
@@ -6383,7 +6393,7 @@ ${lines}`;
         memory = built.memory;
         recent = built.recent;
         // 结构化档案召回（主角必含 + 预测/在场 NPC）
-        { const sr = await buildStructuredRecall(structContext); structPlayer = sr.player; structRest = sr.rest; }
+        { const sr = await buildStructuredRecall(structContext, { userInput: userText }); structPlayer = sr.player; structRest = sr.rest; }
         const structNote = (structPlayer.length || structRest.length) > 0 ? ' + 结构化档案' : '';
         setNmPhaseLog(
           facts.length === 0

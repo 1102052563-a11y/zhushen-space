@@ -29,7 +29,7 @@ function remainTurns(e: StatusEffect, curTurn: number): number | null {
 }
 function durLabel(e: StatusEffect, curTurn: number): string {
   const rem = remainTurns(e, curTurn);
-  if (rem != null) return `${rem}回合`;
+  if (rem != null) return `剩${rem}回合`;
   if (e.durationDesc) return e.durationDesc;
   return '';
 }
@@ -37,7 +37,7 @@ function durLabel(e: StatusEffect, curTurn: number): string {
    否则会把小圆胶囊撑爆、文字挤成一团，改放到展开区显示。 */
 function durShort(e: StatusEffect, curTurn: number): string {
   const rem = remainTurns(e, curTurn);
-  if (rem != null) return `${rem}回合`;
+  if (rem != null) return `剩${rem}回合`;
   const d = (e.durationDesc ?? '').trim();
   return /^\d+\s*(回合|分钟|小时|天|秒|分|时)$/.test(d) ? d : '';
 }

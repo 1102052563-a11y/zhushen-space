@@ -2,6 +2,7 @@ import { describe, it, expect } from 'vitest';
 import { namesMentionedIn, serializePlayerCard } from './structuredRecall';
 import type { PlayerProfile } from '../store/playerStore';
 import type { Talent } from '../store/characterStore';
+import type { InventoryItem } from '../store/itemStore';
 
 /* 护栏：情境（用户输入+最近正文）里字面喊到的条目名 → 强制注入。
    治"都喊技能名字了还不注入进去"。仅测纯匹配逻辑（namesMentionedIn）。 */
@@ -96,5 +97,48 @@ describe('serializePlayerCard（HP/EP 满状态含加成 + 真实属性注入）
 
   it('六维实战值标注基础值（体: 80(基50)）', () => {
     expect(card).toContain('体80(基50)');
+  });
+});
+
+/* 精简物品栏（leanItems）：用户输入提到的物品 + 当前已装备 → 全量信息；其余整背包 → 仅名称。
+   治"每件物品都全量太占 token"，同时保证相关/在用物品细节不丢。 */
+describe('serializePlayerCard（精简物品栏：提到/已装备→全量，其余→仅名称）', () => {
+  const profile = { name: '云舒', attrs: { str: 50, agi: 50, con: 50, int: 50, cha: 50, luck: 50 } } as unknown as PlayerProfile;
+  const limits = { maxNpcs: 0, maxSkills: 3, maxItems: 2 };
+  const items = [
+    { name: '灭世之刃', category: '武器', gradeDesc: '史诗', equipped: true, equipSlot: '武器', effect: '攻击附带火焰', affix: '+10锋锐' },
+    { name: '玄铁矿', category: '材料', quantity: 3, effect: '上等锻造材料' },
+    { name: '回春药水', category: '消耗品', quantity: 5, effect: '恢复500点生命' },
+  ] as unknown as InventoryItem[];
+  // 用户输入只提到「玄铁矿」；leanItems=true
+  const card = serializePlayerCard(profile, { hp: 100, maxHp: 100, mp: 50, maxMp: 50 }, [], [], items, limits,
+    undefined, undefined, undefined, undefined, undefined, '我想用玄铁矿打造点东西', true);
+
+  it('已装备的武器→全量（含效果/词缀/已装备标记）', () => {
+    expect(card).toContain('灭世之刃');
+    expect(card).toContain('攻击附带火焰');
+    expect(card).toContain('+10锋锐');
+    expect(card).toContain('已装备');
+  });
+
+  it('用户输入提到的物品（玄铁矿）→全量（含效果）', () => {
+    expect(card).toContain('玄铁矿');
+    expect(card).toContain('上等锻造材料');
+  });
+
+  it('未提到且未装备的物品（回春药水）→仅名称，不含效果细节', () => {
+    expect(card).toContain('回春药水');          // 名称仍在（AI 知道背包有它）
+    expect(card).not.toContain('恢复500点生命');  // 但效果细节被省略
+  });
+
+  it('渲染「其余物品栏（仅名称）」分块', () => {
+    expect(card).toContain('其余物品栏（仅名称）');
+  });
+
+  it('不开 leanItems 时维持旧行为（材料/消耗品全量，无"仅名称"块）', () => {
+    const legacy = serializePlayerCard(profile, { hp: 100, maxHp: 100, mp: 50, maxMp: 50 }, [], [], items,
+      { maxNpcs: 0, maxSkills: 3, maxItems: 99 });
+    expect(legacy).toContain('恢复500点生命');       // 旧行为：材料/消耗品全量注入
+    expect(legacy).not.toContain('其余物品栏（仅名称）');
   });
 });

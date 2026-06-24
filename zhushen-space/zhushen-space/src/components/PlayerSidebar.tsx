@@ -18,6 +18,7 @@ import { genPortraitTags } from '../systems/imageTags';
 import Bar, { BAR_STYLES } from './Bar';
 import AttrTalentPicker from './AttrTalentPicker';
 import { milestonesCrossed } from '../systems/attrTalent';
+import { pushAllocNotice } from '../systems/allocNotice';
 
 
 /* ── 可编辑文本（点击切换为输入框）；segmented=true 时显示态按分隔符分行排版 ── */
@@ -187,7 +188,7 @@ export default function PlayerSidebar({ onClose }: { onClose?: () => void }) {
   const [attrPop, setAttrPop] = useState<keyof PlayerAttrs | null>(null);   // 点击查看属性构成
   const [derivedPop, setDerivedPop] = useState<keyof typeof derived | null>(null);
   // 属性加点（待确认 / 结算模型）：普通属性「+」消耗「属性点」(每点 +1 基础 attrs)，真实属性「+」消耗「真实属性点」(每点 +1 真实·直加 realAttrs，**不动基础**，两者独立)。
-  // 点「+/−」只暂存待加点；点「✓ 确认加点」才一次性结算：扣点、加属性，并为本次跨过的所有里程碑(20/80/120)逐个弹四选一逆天天赋。
+  // 点「+/−」只暂存待加点；点「✓ 确认加点」才一次性结算：扣点、加属性，并为本次跨过的所有里程碑(密→疏变步长·见 milestonesCrossed)逐个弹四选一逆天天赋。
   const attrPts = profile.attrPoints ?? 0;
   const realPts = profile.realAttrPoints ?? 0;
   const realAttrs = profile.realAttrs ?? {};   // 真实属性·直加分配（与基础独立）；显示真实属性 = floor(基础/80) + realAttrs
@@ -218,6 +219,7 @@ export default function PlayerSidebar({ onClose }: { onClose?: () => void }) {
     const newAttrs = { ...cur.attrs };
     const newReal: Partial<PlayerAttrs> = { ...(cur.realAttrs ?? {}) };
     const queue: { key: keyof PlayerAttrs; label: string; milestone: number }[] = [];
+    const changes: string[] = [];   // 人类可读加点明细 → 注入正文事件，让 AI 知道这次淬炼
     let useAp = 0, useRap = 0;
     for (const def of ATTR_DEFS) {
       const pd = pending[def.key]; if (!pd || (!pd.ap && !pd.rap)) continue;
@@ -226,11 +228,17 @@ export default function PlayerSidebar({ onClose }: { onClose?: () => void }) {
       const newBase = oldBase + pd.ap;            // 属性点 → +1 基础
       const newAlloc = oldAlloc + pd.rap;         // 真实属性点 → +1 真实·直加（不动基础）
       newAttrs[def.key] = newBase; newReal[def.key] = newAlloc; useAp += pd.ap; useRap += pd.rap;
+      if (pd.ap) changes.push(`${def.label} ${oldBase}→${newBase}（消耗${pd.ap}属性点）`);
+      if (pd.rap) changes.push(`真实${def.label}·直加 ${oldAlloc}→${newAlloc}（消耗${pd.rap}真实属性点）`);
       // 里程碑按「真实属性 = 基础六维 + 真实属性点直加」计算（2026-06-24 起不再 ÷80；四阶起六维即真实属性）
       for (const m of milestonesCrossed(oldBase + oldAlloc, newBase + newAlloc)) queue.push({ key: def.key, label: def.label, milestone: m });
     }
     if (!useAp && !useRap) return;
-    setProfile({ attrs: newAttrs, realAttrs: newReal, attrPoints: Math.max(0, (cur.attrPoints ?? 0) - useAp), realAttrPoints: Math.max(0, (cur.realAttrPoints ?? 0) - useRap) });
+    const remainAp = Math.max(0, (cur.attrPoints ?? 0) - useAp);
+    const remainRap = Math.max(0, (cur.realAttrPoints ?? 0) - useRap);
+    setProfile({ attrs: newAttrs, realAttrs: newReal, attrPoints: remainAp, realAttrPoints: remainRap });
+    // 一次性事件：让下一次主线叙事"知道"这次主动加点（点数已前端结算，余额为最新值）
+    pushAllocNotice(`【主角属性分配】${cur.name || '主角'}在属性面板自行加点：${changes.join('；')}。分配后余额——属性点${remainAp}、真实属性点${remainRap}。请在正文中将这次主动淬炼/强化自然带过（可简略），并以此余额为准；点数已由前端确定性结算，勿再提示"有未用点数"或重发点数。`);
     setPending({});
     if (queue.length) setPickerQueue(queue);
   };
