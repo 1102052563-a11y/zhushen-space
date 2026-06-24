@@ -7,6 +7,7 @@ import {
   TERRITORY_DEDUP_RULE,
   EVO_VERIFY_RULE,
   BUFF_AS_STATUS_RULE,
+  STATUS_COUNTDOWN_TURN_RULE,
   ITEM_FIXED_FORMAT_RULE,
   AFFIX_EFFECT_RULE,
   ITEM_GRADE_TABLE_RULE,
@@ -1860,8 +1861,9 @@ export default function App() {
         prof.profession && `职业:${prof.profession}`,
         `六维(基础·默认锁定·非正文逐字写明成长一律别改): 力${a.str} 敏${a.agi} 体${a.con} 智${a.int} 魅${a.cha} 幸${a.luck}`,
         `HP:${effectiveResource(game.hp, game.maxHp, maxHp)}/${maxHp} EP:${effectiveResource(game.mp, game.maxMp, maxEp)}/${maxEp} SAN:${game.san}/${game.maxSan}`,
+        `【⚠当前回合数】${turnCountRef.current}（「当前状态/Buff」里的"过 N 回合结束 / 还剩 N 回合"倒计时以此为锚核算；已到点却还挂着的 debuff 属于卡死的旧倒计时→纠正清除）`,
         `当前状态/Buff: ${prof.status || '一切正常'}`,
-        (prof.statusEffects?.length ?? 0) > 0 && `限时状态(引擎自动过期,勿重复加): ${prof.statusEffects.map((e) => e.name).join('、')}`,
+        (prof.statusEffects?.length ?? 0) > 0 && `限时状态(引擎按回合自动过期,勿重复加): ${prof.statusEffects.map((e) => { const st = e.startTurn ?? turnCountRef.current; const rem = e.durationTurns != null ? Math.max(0, e.durationTurns - (turnCountRef.current - st)) : null; return `${e.name}${rem != null ? `(剩${rem}回合)` : ''}`; }).join('、')}`,
         prof.location && `当前位置: ${prof.location}`,
         prof.appearance && `当前外观: ${prof.appearance}`,
         `已有技能(${b1?.skills?.length ?? 0}): ${(b1?.skills ?? []).map((s) => `「${s.name}」${s.level ?? ''}`).join('、') || '（无）'}`,
@@ -1895,7 +1897,7 @@ export default function App() {
     try {
       setItemPhaseLog('🔍 综合对账·纠正中…');
       const { content: reply } = await apiChatFallback(chain, [
-        { role: 'system', content: MERGED_AUDIT_SYSTEM + '\n' + ITEM_GRADE_TABLE_RULE },
+        { role: 'system', content: MERGED_AUDIT_SYSTEM + '\n' + ITEM_GRADE_TABLE_RULE + '\n' + STATUS_COUNTDOWN_TURN_RULE },
         { role: 'user', content: userContent },
       ]);
       console.log('[MergedAudit] 对账原始响应:', reply);
@@ -2007,8 +2009,9 @@ export default function App() {
         `六维(基础·默认锁定·非正文逐字写明成长一律别改): 力${a.str} 敏${a.agi} 体${a.con} 智${a.int} 魅${a.cha} 幸${a.luck}`,
         `真实属性口径(重要): 四阶起上方六维数值本身即「真实属性」(勿÷80折算成另一套小数字)，1点真实≈5点普通之效、判定享绝对优先级；一~三阶为「普通属性」(≤99，99=普通绝对极限)。唯有自身锻炼/强化的裸装六维计入单属性极值突破，装备/技能/天赋加成不计极值。`,
         `生命HP上限=体质×20+被动天赋/装备的上限加成=${playerMaxHp()}，蓝量EP上限=智力×15+加成=${playerMaxEp()}（前端自动换算，勿写maxHp/maxMp；只有受伤/消耗时才用 hp.B1 -=N / mp.B1 -=N 改当前值）`,
+        `【⚠当前回合数】${turnCountRef.current}（每过一回合自动+1。下方「当前状态/Buff」里任何"过 N 回合结束 / 还剩 N 回合 / 持续 N 回合 / 第 N 回合解除"的倒计时，务必以这个回合数为锚逐回合递减或比对，到点的 buff/debuff 必须清除——别原样复述同一句，详见限时状态·回合倒计时铁则）`,
         `当前状态/Buff: ${prof.status || '一切正常'}`,
-        (prof.statusEffects?.length ?? 0) > 0 && `限时状态(引擎自动过期,勿重复添加): ${prof.statusEffects.map((e) => `${e.name}${e.durationDesc ? `(${e.durationDesc})` : ''}`).join('；')}`,
+        (prof.statusEffects?.length ?? 0) > 0 && `限时状态(引擎按回合自动过期,勿重复添加): ${prof.statusEffects.map((e) => { const st = e.startTurn ?? turnCountRef.current; const rem = e.durationTurns != null ? Math.max(0, e.durationTurns - (turnCountRef.current - st)) : null; return `${e.name}${e.durationDesc ? `(${e.durationDesc})` : ''}${rem != null ? `[起于第${st}回合·剩${rem}回合]` : ''}`; }).join('；')}`,
         `当前外观: ${prof.appearance || '（未填写）'}`,
         `当前位置: ${prof.location || '（未填写）'}`,
         `当前生图提示词(列19,有则沿用/仅长期外观变化时更新): ${prof.imageTags || '（未生成,请生成英文NAI tags）'}`,
@@ -2020,7 +2023,7 @@ export default function App() {
         .replaceAll('${character_snapshot}', playerProfileSnapshot)
         .replaceAll('${player_skills}', pSkills.length ? pSkills.map((s) => `${s.id}「${s.name}」${s.level ?? ''}`).join('；') : '（无）')
         .replaceAll('${player_traits}', pTalents.length ? pTalents.map((t) => `「${t.name}」${t.category ?? ''}·${t.rarity}级`).join('；') : '（无）')
-        + '\n\n' + NARRATIVE_FIRST_RULE + '\n' + EVO_VERIFY_RULE + '\n' + BUFF_AS_STATUS_RULE + '\n' + SUBPROF_RULE + '\n' + TALENT_NO_CAP_RULE + '\n' + TITLE_DIVERSITY_RULE + '\n' + SKILL_TALENT_NOTE_RULE + '\n' + SKILL_TIER_RULE + '\n' + SKILL_TALENT_ATTR_CAP_RULE + '\n' + PLAYER_SKILL_KEEP_RULE + '\n' + SKILL_COMBAT_TAG_RULE + '\n' + TIER_RULE +'\n' + IMAGE_TAGS_RULE + '\n' + HPEP_NARRATIVE_ONLY_RULE + '\n' + WORLDSOURCE_RULE + '\n' + POINTS_NARRATIVE_RULE + '\n' + ATTR_SANITY_RULE + '\n' + ATTR_CAP_RULE + '\n' + PLAYER_ATTR_LOCK_RULE + '\n' + APPEARANCE_UPDATE_RULE + '\n' + STATUS_FORMAT_RULE + '\n' + FIRST_UPDATE_COMPLETE_RULE + '\n' + EVO_EXACT_REF_RULE + '\n' + PLAYER_COT_RULE;
+        + '\n\n' + NARRATIVE_FIRST_RULE + '\n' + EVO_VERIFY_RULE + '\n' + BUFF_AS_STATUS_RULE + '\n' + SUBPROF_RULE + '\n' + TALENT_NO_CAP_RULE + '\n' + TITLE_DIVERSITY_RULE + '\n' + SKILL_TALENT_NOTE_RULE + '\n' + SKILL_TIER_RULE + '\n' + SKILL_TALENT_ATTR_CAP_RULE + '\n' + PLAYER_SKILL_KEEP_RULE + '\n' + SKILL_COMBAT_TAG_RULE + '\n' + TIER_RULE +'\n' + IMAGE_TAGS_RULE + '\n' + HPEP_NARRATIVE_ONLY_RULE + '\n' + WORLDSOURCE_RULE + '\n' + POINTS_NARRATIVE_RULE + '\n' + ATTR_SANITY_RULE + '\n' + ATTR_CAP_RULE + '\n' + PLAYER_ATTR_LOCK_RULE + '\n' + APPEARANCE_UPDATE_RULE + '\n' + STATUS_FORMAT_RULE + '\n' + STATUS_COUNTDOWN_TURN_RULE + '\n' + FIRST_UPDATE_COMPLETE_RULE + '\n' + EVO_EXACT_REF_RULE + '\n' + PLAYER_COT_RULE;
       const userContent  = `# 本轮正文\n${trimmedNarrative}\n\n---\n请根据以上正文处理本轮主角属性与状态的变化。**先输出一个 <think>…</think> 思考块**，按系统提示里的「主角演化思维链」逐项自检；**随后**输出 <state>（及如有需要的 <upstore>）指令块，无变化时输出空块。除 <think> / <state> / <upstore> 外不要有其它文字。`;
 
       const ss2 = useSettings.getState();
@@ -2108,7 +2111,7 @@ export default function App() {
       .filter((e) => e.enabled && e.source !== 'entrySharedRules')
       .map((e) => fillVars(e.content, vars))
       .join('\n\n')
-      + '\n\n' + NARRATIVE_FIRST_RULE + '\n' + BUFF_AS_STATUS_RULE + '\n' + NPC_AGE_RULE + '\n' + TALENT_NO_CAP_RULE + '\n' + TITLE_DIVERSITY_RULE + '\n' + NPC_DEAD_EXCLUDE_RULE + '\n' + NPC_ID_RULE + '\n' + SKILL_TALENT_NOTE_RULE + '\n' + NPC_SKILL_KEEP_RULE + '\n' + SKILL_COMBAT_TAG_RULE + '\n' + NPC_REVIEW_TAG_RULE +'\n' + NPC_TEAM_AFFILIATION_RULE + '\n' + TIER_RULE + '\n' + IMAGE_TAGS_RULE + '\n' + HPEP_NARRATIVE_ONLY_RULE + '\n' + POINTS_NARRATIVE_RULE + '\n' + NPC_GEN_ATTR_RULE + '\n' + ATTR_SANITY_RULE + '\n' + ATTR_CAP_RULE + '\n' + STATUS_FORMAT_RULE + '\n' + NPC_PRIVATE_EXTRA_RULE + '\n' + NPC_TIER_LOADOUT_RULE + '\n' + SKILL_TALENT_ATTR_CAP_RULE + '\n' + FIRST_UPDATE_COMPLETE_RULE + '\n' + EVO_EXACT_REF_RULE + '\n' + NPC_COT_RULE
+      + '\n\n' + NARRATIVE_FIRST_RULE + '\n' + BUFF_AS_STATUS_RULE + '\n' + NPC_AGE_RULE + '\n' + TALENT_NO_CAP_RULE + '\n' + TITLE_DIVERSITY_RULE + '\n' + NPC_DEAD_EXCLUDE_RULE + '\n' + NPC_ID_RULE + '\n' + SKILL_TALENT_NOTE_RULE + '\n' + NPC_SKILL_KEEP_RULE + '\n' + SKILL_COMBAT_TAG_RULE + '\n' + NPC_REVIEW_TAG_RULE +'\n' + NPC_TEAM_AFFILIATION_RULE + '\n' + TIER_RULE + '\n' + IMAGE_TAGS_RULE + '\n' + HPEP_NARRATIVE_ONLY_RULE + '\n' + POINTS_NARRATIVE_RULE + '\n' + NPC_GEN_ATTR_RULE + '\n' + ATTR_SANITY_RULE + '\n' + ATTR_CAP_RULE + '\n' + STATUS_FORMAT_RULE + '\n' + STATUS_COUNTDOWN_TURN_RULE + '\n' + NPC_PRIVATE_EXTRA_RULE + '\n' + NPC_TIER_LOADOUT_RULE + '\n' + SKILL_TALENT_ATTR_CAP_RULE + '\n' + FIRST_UPDATE_COMPLETE_RULE + '\n' + EVO_EXACT_REF_RULE + '\n' + NPC_COT_RULE
       // 门控：仅当该 NPC 已有背景、却还没第一人称自述时，才追加"生成自述"规则（一次性·省 token）
       + (rec && rec.background && !rec.selfNarration ? '\n' + NPC_SELF_NARRATION_RULE : '');
   }

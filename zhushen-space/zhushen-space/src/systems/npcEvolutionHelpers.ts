@@ -101,6 +101,7 @@ export function serializeNpcSnapshot(r: NpcRecord): string {
   const skills = cdata?.skills ?? [];
   const talents = cdata?.traits ?? [];
   const attrs = r.attrs;
+  const curTurn = useMisc.getState().turnCount ?? 0;   // 当前累计回合数（注入快照，让 NPC 演化 AI 据此核算/递减 buff/debuff 倒计时）
   const unnamed = !r.name || r.name === r.id || /^[CG]\d+$/i.test(r.name);   // 姓名仍是占位ID（如 C10/G1）
   const snEqp = (r.items ?? []).filter((it) => it.equipped) as any;
   const snMaxHp = attrs ? fullMaxHp(attrs, snEqp, skills, talents) : 0;
@@ -129,8 +130,9 @@ export function serializeNpcSnapshot(r: NpcRecord): string {
     attrs && `六维: 力${attrs.str ?? '?'} 敏${attrs.agi ?? '?'} 体${attrs.con ?? '?'} 智${attrs.int ?? '?'} 魅${attrs.cha ?? '?'} 幸${attrs.luck ?? '?'}`,
     attrs && `真实属性口径: 四阶起该 NPC 六维即「真实属性」(勿÷80)，1点真实≈5点普通之效、判定享绝对优先；一~三阶为普通属性(≤99)。`,
     r.personality && `性格(列3): ${r.personality}`,
+    `【⚠当前回合数】${curTurn}（每过一回合自动+1。下方「状态(列4)」里任何"过 N 回合结束 / 还剩 N 回合 / 持续 N 回合 / 第 N 回合解除"的倒计时，务必以这个回合数为锚逐回合递减或比对，到点的 buff/debuff 必须清除——别原样复述同一句，详见限时状态·回合倒计时铁则）`,
     r.status && `状态(列4): ${r.status}`,
-    (r.statusEffects?.length ?? 0) > 0 && `限时状态(引擎自动过期,勿重复添加): ${r.statusEffects!.map((e) => `${e.name}${e.durationDesc ? `(${e.durationDesc})` : ''}`).join('；')}`,
+    (r.statusEffects?.length ?? 0) > 0 && `限时状态(引擎按回合自动过期,勿重复添加): ${r.statusEffects!.map((e) => { const st = e.startTurn ?? curTurn; const rem = e.durationTurns != null ? Math.max(0, e.durationTurns - (curTurn - st)) : null; return `${e.name}${e.durationDesc ? `(${e.durationDesc})` : ''}${rem != null ? `[起于第${st}回合·剩${rem}回合]` : ''}`; }).join('；')}`,
     r.callPlayer && `对你称呼(列7): ${r.callPlayer}`,
     r.background && `背景(列10): ${r.background}`,
     r.innerThought && `内心(列12): ${r.innerThought}`,

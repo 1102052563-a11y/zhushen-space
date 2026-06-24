@@ -201,6 +201,35 @@ const DEFAULT_STORY_TEMPLATE = `你是轮回乐园世界的 NovelAI / NAI 正文
 输出格式（不要其它内容）：
 <image><anchor>正文短片段</anchor><nsfw_rating>sfw</nsfw_rating><prompt>1girl, ...</prompt></image>`;
 
+/* GPT/自然语言图像模型(gpt-image-2 / OpenAI图片 / Gemini图片 / 自定义)专用：<prompt> 内是【中文自然语言描述】而非 NAI 标签。
+   genStoryImagesFor 检测到 storyService 非标签模型(!isTagService)时自动改用本模板。*/
+const DEFAULT_GPT_STORY_TEMPLATE = `你是《轮回乐园》世界的"gpt-image-2 正文生图提示词整理 AI"。请根据本轮正文，挑选 \${image_count} 个最有画面张力的瞬间，为每个瞬间生成一套可直接用于 gpt-image-2 的图像生成指令。
+
+输出要求：优先用自然语言中文的词语/短句，可少量加英文短句；绝不要 NovelAI 权重语法、不要 grid、不要负面词、不要 Markdown 表格、不要画师串。
+
+【生图提示词】是一段中文描述，包含：
+1. 画面主体（人物角色、性别、外观、年龄感、肤色、人数、神态、身材体态、服装、特殊特征、核心动作）；
+2. 角色详细外观（严格参照下方外观资料里的"画像锚点"；动漫/游戏同人角色必须用"作品名+角色全名+当前装扮+经典特征"，如白发蓝瞳/黑色大衣，绝不泛化；原创角色用具体特征：发色/发型/瞳色/年龄感/肤色/性别/五官面貌/身材体态/服装细节/特殊特征，自然语言描述）；
+3. 场景、时间、光影、氛围、画面构图（近景/远景/特写）；
+4. 画风统一为【动漫风动画CG元风格】。
+注意：主体是人物时，务必在描述末尾完整给出包括年龄感、肤色、身材体态在内的人物详细外观。资料有限时，可据身份/等级/年龄/肤色/性别补全年龄感、面部气质、体态、常驻服饰、配饰与身份道具。用词具体、可画、可执行，避免空泛质量词和同义重复。
+
+在场角色完整外观资料（固定参考）：
+\${onscreen_characters_full}
+
+场景信息：时间 \${current_time} | 地点 \${current_location} | 新登场角色 \${entry_decision_new_characters}
+
+当前正文：
+\${story_text}
+
+任务：固定生成 \${image_count} 个独立画面。每个 <image> 含 1 个 <anchor>、1 个 <nsfw_rating>、1 个 <prompt>。
+- <anchor>：逐字复制正文里连续出现、可 Ctrl+F 命中的短片段（8~30字，是本轮的故事关键帧）。
+- <nsfw_rating>：固定 sfw（gpt-image-2 仅安全内容）。
+- <prompt>：**一段中文自然语言描述**，开头**必须**加上「Anime style animation CG meta style, sfw」，随后按上面 1~4 写完整、可直接投喂 gpt-image-2。
+
+输出格式（不要其它内容）：
+<image><anchor>正文短片段</anchor><nsfw_rating>sfw</nsfw_rating><prompt>Anime style animation CG meta style, sfw，（随后一段完整中文自然语言画面描述：主体/性别/年龄感/肤色/外观/服装/动作/神态/场景/光影/构图）</prompt></image>`;
+
 export interface ImageGenSettings {
   portraitService: ImgService;
   storyService: ImgService;
@@ -223,6 +252,7 @@ export interface ImageGenSettings {
   // 正文配图
   autoStory: boolean; storyProgressive: boolean; storyImageCount: number; storySize: string;
   storyTemplate: string;
+  gptStoryTemplate: string;         // GPT/自然语言图像模型(gpt-image-2 等)专用正文生图模板（<prompt> 内为中文自然语言）
   storyLlmRoutes: string[];         // 复用 apiLibrary endpoint id
 }
 
@@ -243,6 +273,7 @@ interface ImageGenState extends ImageGenSettings {
   setComfy: (patch: Partial<ComfyConfig>) => void;
   resetEquipTemplate: () => void;
   resetStoryTemplate: () => void;
+  resetGptStoryTemplate: () => void;
   applyStyle: (id: string) => void;          // 切换画风：把该画风字段载入当前设置
   saveCurrentAsStyle: (name: string) => void; // 把当前设置存成新画风
   removeStyle: (id: string) => void;
