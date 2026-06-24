@@ -181,7 +181,7 @@ const DmPanel = lazy(() => import('./components/DmPanel'));
 const MultiplayerPanel = lazy(() => import('./components/MultiplayerPanel'));
 const ChatRoomPanel = lazy(() => import('./components/ChatRoomPanel'));
 const TradePanel = lazy(() => import('./components/TradePanel'));
-import { useMp } from './store/multiplayerStore';
+import { useMp, type HiddenCondition } from './store/multiplayerStore';
 import { mpClient } from './systems/mpClient';
 import { buildPlayerSnapshot, buildPartyTurnText, buildWorldSnapshot, applyWorldSnapshot, buildPartyProfiles, mpNarrativeRule, purgeMpCharacters } from './systems/mpSnapshot';
 import { onGiftResponse } from './systems/mpGift';
@@ -1230,6 +1230,9 @@ export default function App() {
           case 'rejoin_digest':   // 分头行动·汇流：房主收下归队者支线见闻 → 下回合注入主线产生联动
             if (useMp.getState().role === 'host' && m.payload.digest) pendingConvergenceRef.current.push({ name: m.payload.name || '队友', digest: m.payload.digest });
             break;
+          case 'hidden_sync':   // 隐藏结局：来宾同步房主广播的条件库（目标 + 解锁状态显示）
+            if (useMp.getState().role !== 'host') useMp.getState()._set({ hiddenConditions: (m.payload.conditions || []) as any });
+            break;
           case 'pov_final': {   // 双视角·来宾：收到对齐后的最终正文 → 替换占位 + 用大纲自我演化
             if (useMp.getState().role === 'host') break;
             if (m.payload.toSeatId !== useMp.getState().mySeatId) break;
@@ -1254,6 +1257,7 @@ export default function App() {
       onStartDungeon: (opts: any) => { if (useMp.getState().role === 'host') startRaidDungeon(opts?.difficulty || 'normal', opts?.kind || 'bakal'); },   // 房主：开启副本（巴卡尔/安图恩）
       onStartDungeonEncounter: (encId: any) => { if (useMp.getState().role === 'host') startDungeonEncounter(String(encId)); },   // 房主：开打副本某一场
       onSoloRejoin: () => { void onSoloRejoin(); },   // 分头行动·归队：本人回传支线见闻摘要给房主
+      onGenHidden: () => { void genHiddenConditions(); },   // 隐藏结局：房主编织跨玩家条件
     });
   }, []);
 
@@ -3073,6 +3077,74 @@ ${AFFIX_EFFECT_RULE}`;
     if (!list.length) return '';
     pendingConvergenceRef.current = [];
     return `【同伴归队·分头行动联动】以下同伴刚结束独自行动归队。请让他们在本回合自然登场/汇合，并让其支线见闻与所获**对主线剧情产生联动（化学反应）**，而非无视：\n${list.map((c) => `- ${c.name}：${c.digest}`).join('\n')}`;
+  }
+
+  // ── 分头行动·隐藏结局（Phase 3 跨玩家条件触发）──
+  // 全队合计持有的物品名集合（房主自己背包 + 各来宾上报卡里的装备/物品）
+  function partyItemNames(): Set<string> {
+    const norm = (s: any) => String(s || '').trim().toLowerCase();
+    const set = new Set<string>();
+    for (const it of (useItems.getState().items || [])) set.add(norm(it.name));
+    for (const c of (useMp.getState().cards || [])) {
+      const sn: any = c?.snapshot;
+      for (const e of (sn?.equipment || [])) set.add(norm(e?.name));
+      for (const it of (sn?.items || [])) set.add(norm(it?.name));
+    }
+    set.delete('');
+    return set;
+  }
+  // 房主：检查未达成的隐藏条件是否已集齐（确定性·宽松名称匹配）；新达成则标记+广播+返回解锁注入
+  function checkHiddenConditions(): string {
+    if (useMp.getState().role !== 'host') return '';
+    const conds = useMp.getState().hiddenConditions || [];
+    if (!conds.length) return '';
+    const have = partyItemNames();
+    const satisfies = (req: string) => { const r = String(req || '').trim().toLowerCase(); if (!r) return false; for (const n of have) if (n.includes(r) || r.includes(n)) return true; return false; };
+    const newly: HiddenCondition[] = [];
+    let changed = false;
+    const next = conds.map((c) => {
+      if (c.met) return c;
+      if ((c.requiredItems || []).length && (c.requiredItems || []).every(satisfies)) { changed = true; newly.push(c); return { ...c, met: true }; }
+      return c;
+    });
+    if (changed) { useMp.getState()._set({ hiddenConditions: next }); try { mpClient.relay('hidden_sync', { conditions: next }); } catch { /* */ } }
+    if (!newly.length) return '';
+    return newly.map((c) => `【隐藏条件达成·${c.title}】队伍已集齐【${(c.requiredItems || []).join('、')}】！请据此触发隐藏剧情/结局：${c.reward}。让它成为本回合的高光转折，而非一笔带过。`).join('\n');
+  }
+  // 房主：用 AI 编织 1~2 个跨玩家隐藏条件（集齐剧情道具触发）→ 全房可见当目标
+  async function genHiddenConditions() {
+    if (useMp.getState().role !== 'host') return;
+    const chain = myTextChain();
+    if (!chain[0]?.baseUrl || !chain[0]?.apiKey) { setGenError('编织隐藏结局需要房主配置「正文生成」API'); setTimeout(() => setGenError(''), 4000); return; }
+    const myName = usePlayer.getState().profile.name || '主角';
+    const cards = (useMp.getState().cards || []).map((c) => c?.snapshot).filter(Boolean) as any[];
+    const roster = [myName, ...cards.map((s) => s?.name)].filter(Boolean).join('、');
+    const haveItems = Array.from(partyItemNames()).slice(0, 30).join('、') || '（暂无）';
+    const world = useMisc.getState().worldName || '当前世界';
+    const sys = `你是「隐藏结局编织者」。为这局组队设计 1~2 个【跨玩家隐藏条件】——只有当队伍通过分头行动集齐特定「剧情道具」时才触发的隐藏剧情/结局，鼓励玩家分头去不同支线搜集稀有之物、再回援汇合。
+每个条件：
+- title：隐藏条件名（4~8字，有悬念）
+- requiredItems：触发所需的剧情道具名数组（2~3件，应是需要冒险/支线才能得到的稀有之物，可以是当前还没有、需要玩家去争取的）
+- reward：集齐后解锁的隐藏剧情/结局/合体能力（一句话，埋悬念）
+严格只输出 JSON：{"conditions":[{"title":"...","requiredItems":["...","..."],"reward":"..."}]}，不要输出别的。
+【队伍】${roster}　【当前已有关键物品】${haveItems}　【世界】${world}`;
+    try {
+      const { content } = await apiChatFallback(chain, [
+        { role: 'system', content: sys },
+        { role: 'user', content: '只输出 JSON 对象。' },
+      ], { timeoutMs: 60000 });
+      const arr = povJson(content).conditions;
+      if (!Array.isArray(arr) || !arr.length) { setGenError('隐藏结局生成失败，请重试'); setTimeout(() => setGenError(''), 4000); return; }
+      const conds: HiddenCondition[] = arr.slice(0, 3).map((c: any, i: number) => ({
+        id: `hc_${Date.now()}_${i}`,
+        title: String(c?.title || `隐藏条件${i + 1}`).slice(0, 20),
+        requiredItems: (Array.isArray(c?.requiredItems) ? c.requiredItems : []).map((x: any) => String(x || '').trim()).filter(Boolean).slice(0, 4),
+        reward: String(c?.reward || '').slice(0, 200),
+        met: false,
+      })).filter((c) => c.requiredItems.length);
+      useMp.getState()._set({ hiddenConditions: conds });
+      try { mpClient.relay('hidden_sync', { conditions: conds }); } catch { /* */ }
+    } catch (e) { console.warn('[隐藏结局] 生成失败', e); setGenError('隐藏结局生成失败'); setTimeout(() => setGenError(''), 4000); }
   }
 
   // 来宾·视角改写（P2 双视角轻量版）：把房主广播的「客观群像正文」用来宾自己的正文 API 改写成本人视角。
@@ -5352,7 +5424,7 @@ ${lines}`;
     sysParts.push(`【本次输出顺序】${wantFanfic ? '先输出 <details>同人搜索内容</details> 块（涉及已知作品角色才输出，可多个）；' : ''}${wantFact ? '再输出 <details>事实查证</details> 块（涉及现实可查证元素才输出）；' : ''}${wantChoices ? '然后输出 <choices> 块（A~H 共 8 个选项，最后一个 H 为限制级）；' : ''}${wantTheater ? '最后输出 <xiaojuchang> 小剧场块（严格按「小剧场世界书」的 HTML/内联 CSS 折叠格式，与主线无关的番外彩蛋）。' : ''}除这些标签块外不要有任何其它文字。`);
     // 手动「重新生成」：玩家自定义方向（最高优先），并要求与上一版明显不同
     const dir = (direction || '').trim();
-    if (dir) sysParts.push(`【本次为"重新生成"·玩家自定义方向（最高优先）】请在严格遵守上面各块的全部规则与格式（含每项不少于 200 字）的前提下，让本次产出整体贴合以下方向 / 侧重，并给出与之前明显不同的新内容、不要重复上一版：\n${dir}`);
+    if (dir) sysParts.push(`【本次为"重新生成"·玩家自定义方向（最高优先）】请在严格遵守上面各块的全部规则与格式（含各块各自的字数要求）的前提下，让本次产出整体贴合以下方向 / 侧重，并给出与之前明显不同的新内容、不要重复上一版：\n${dir}`);
 
     // 判定上下文：主角全卡(含物品) + 在场 NPC 全信息(含持有物) + (选项时)当前任务 + 最近两回合正文
     const userMsg = buildChoicesPhaseContext(text, wantChoices);
@@ -7145,7 +7217,9 @@ ${lines}`;
     // 房主：把队友本回合已提交的行动并进这一回合（无队友行动则与单人完全一致）
     const isMpHost = mp.status === 'connected' && mp.role === 'host';
     const convergence = isMpHost ? drainConvergence() : '';   // 归队见闻注入（只房主、每回合只取一次）
-    const withConv = (s: string) => convergence ? `${convergence}\n\n${s}` : s;
+    const unlock = isMpHost ? checkHiddenConditions() : '';   // 隐藏条件达成 → 解锁注入（确定性检查全队物品）
+    const inject = [convergence, unlock].filter(Boolean).join('\n\n');
+    const withConv = (s: string) => inject ? `${inject}\n\n${s}` : s;
 
     // 完整版双视角：房主走「主控-分支-对齐」三段式编排，替代普通单正文广播
     if (isMpHost && mp.povMode) {

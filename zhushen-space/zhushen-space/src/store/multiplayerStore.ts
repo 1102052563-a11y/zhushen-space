@@ -12,6 +12,8 @@ export interface MpSeatCard { seatId: string; name: string; snapshot: any | null
 export interface MpComment { id: string; name: string; role: string; text?: string; at: number; share?: { kind: string; data: any } }
 export interface MpTurn { turnId: number; phase: string; inputs: Record<string, { name: string; text: string; at: number }> }
 export interface MpRoom { roomId: string; name: string; hostId: string; hostName: string; maxSeats: number; status: string; mode?: string }
+// 分头行动·隐藏结局：集齐特定剧情道具（鼓励分头去支线搜集）才触发的跨玩家隐藏条件
+export interface HiddenCondition { id: string; title: string; requiredItems: string[]; reward: string; met?: boolean }
 
 // 深度接入回调槽：App.tsx 在 effect 里注册，把联机事件接进主聊天/AI 循环（Phase 1 第二步用）。
 export interface MpHandlers {
@@ -28,6 +30,7 @@ export interface MpHandlers {
   onCombatAction?: (payload: any) => void; // 房主：收到来宾的战斗出手 → 结算
   onRelay?: (m: RelayedInbound) => void;  // 通用透传(赠予/分享/副本中继)——payload 按 event 收窄，见 mpProtocol RelayPayloads
   onSoloRejoin?: () => void;   // 分头行动·归队：本人把支线见闻摘要(自己 key 概括)回传房主，注入主线产生联动
+  onGenHidden?: () => void;    // 隐藏结局：房主用 AI 编织跨玩家隐藏条件
   onTurnStarted?: (turn: MpTurn | null) => void;
   onTurnResolved?: (turn: MpTurn | null) => void;
 }
@@ -56,6 +59,7 @@ interface MpState {
   povBusy: string;            // pov 进行中的状态提示（'' = 空闲），UI 显示「主控推演中…」之类
   soloMode: boolean;          // 来宾·我自己：是否脱队单走（用自己 key 独立跑支线，不提交房主/不收主线广播）
   soloSeats: string[];        // 全房显示：当前脱队单走的座位（由 solo_toggle 广播维护）
+  hiddenConditions: HiddenCondition[];   // 隐藏结局：跨玩家条件库（房主 AI 编织，hidden_sync 广播给全房做目标显示）
   handlers: MpHandlers;
   _set: (p: Partial<MpState>) => void;
   setHandlers: (h: MpHandlers) => void;
@@ -87,6 +91,7 @@ const INIT = {
   povBusy: '',
   soloMode: false,
   soloSeats: [] as string[],
+  hiddenConditions: [] as HiddenCondition[],
 };
 
 export const useMp = create<MpState>((set) => ({

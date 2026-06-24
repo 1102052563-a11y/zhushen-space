@@ -174,6 +174,7 @@ function RoomView({ st, comment, setComment }: { st: any; comment: string; setCo
           className="text-[11px] font-mono px-2 py-0.5 rounded border border-god/40 text-god/80 hover:bg-god/10 transition-colors">复制码 {st.room?.roomId}</button>
         <div className="ml-auto flex items-center gap-2">
           {isHost && <button onClick={() => mpClient.startTurn()} className="text-[12px] px-2.5 py-1 rounded-lg bg-god/15 border border-god/40 text-god/90 hover:bg-god/25 transition-colors">开启回合</button>}
+          {isHost && <button onClick={() => useMp.getState().handlers.onGenHidden?.()} title="用 AI 编织跨玩家隐藏条件：集齐特定剧情道具（鼓励分头去支线搜集、回援汇合）触发隐藏结局。需房主配好正文 key。" className="text-[12px] px-2.5 py-1 rounded-lg border border-fuchsia-500/40 text-fuchsia-300/80 hover:bg-fuchsia-500/10 transition-colors">🔮 隐藏结局</button>}
           {st.role === 'player' && (
             <button onClick={() => useMp.getState().setGuestPovOn(!st.guestPovOn)}
               title="用你自己的正文 API 把房主正文改写成你的视角（需在「正文生成→API」配好 key；事实不变只换视角，失败自动保留原文）"
@@ -233,6 +234,25 @@ function RoomView({ st, comment, setComment }: { st: any; comment: string; setCo
           </div>
         )}
       </div>
+
+      {st.hiddenConditions?.length > 0 && (
+        <div className="shrink-0 px-5 py-3 border-b border-edge">
+          <div className="text-[12px] font-mono text-fuchsia-300/70 mb-2">🔮 隐藏结局 · 集齐剧情道具解锁（鼓励分头去支线搜集）</div>
+          <div className="space-y-1.5">
+            {st.hiddenConditions.map((c: any) => (
+              <div key={c.id} className={`text-[12px] rounded-lg border p-2 ${c.met ? 'border-fuchsia-500/50 bg-fuchsia-500/10' : 'border-edge bg-panel/50'}`}>
+                <div className="flex items-center gap-1.5">
+                  <span>{c.met ? '🔓' : '🔒'}</span>
+                  <span className="text-slate-100 font-semibold truncate">{c.title}</span>
+                  {c.met && <span className="text-[10px] font-mono px-1 rounded border border-fuchsia-500/40 text-fuchsia-300/80 shrink-0">已解锁</span>}
+                </div>
+                <div className="text-[11px] text-dim/70 mt-1">集齐：{(c.requiredItems || []).map((it: string) => `【${it}】`).join(' ')}</div>
+                <div className={`text-[11px] mt-0.5 ${c.met ? 'text-fuchsia-300/90' : 'text-dim/50'}`}>奖励：{c.met ? c.reward : '？？？（达成后揭晓）'}</div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       <ShareGift seats={st.seats} mySeatId={st.mySeatId} />
 

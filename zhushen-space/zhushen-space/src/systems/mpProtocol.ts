@@ -54,6 +54,7 @@ export interface PovDraftPayload { seatId: string; draft: string; noKey?: boolea
 export interface PovFinalPayload { toSeatId: string; text: string; outline?: string } // 房主→来宾：对齐后的最终正文(+大纲供自我演化)
 export interface SoloTogglePayload { seatId: string; solo: boolean }                 // 分头行动：某座位脱队单走/归队（广播给全房做显示）
 export interface RejoinDigestPayload { seatId: string; name: string; digest: string } // 分头行动·汇流：归队者把支线见闻摘要回传房主，注入主线正文产生联动
+export interface HiddenSyncPayload { conditions: { id: string; title: string; requiredItems: string[]; reward: string; met?: boolean }[] } // 隐藏结局：房主广播跨玩家条件库（目标显示+解锁状态）
 
 export interface RelayPayloads {
   gift_offer: GiftOfferPayload;
@@ -70,6 +71,7 @@ export interface RelayPayloads {
   pov_final: PovFinalPayload;
   solo_toggle: SoloTogglePayload;
   rejoin_digest: RejoinDigestPayload;
+  hidden_sync: HiddenSyncPayload;
 }
 export type RelayEvent = keyof RelayPayloads;
 
