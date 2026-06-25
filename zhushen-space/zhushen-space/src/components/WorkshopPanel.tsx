@@ -44,7 +44,7 @@ export default function WorkshopPanel({ onClose, creationMode = false }: { onClo
   const [refreshKey, setRefreshKey] = useState(0);
   const [search, setSearch] = useState('');
   const [sort, setSort] = useState<'recent' | 'downloads'>('downloads');
-  const [filterType, setFilterType] = useState<WorkshopKindId | 'all'>('all');
+  const [filterType, setFilterType] = useState<WorkshopKindId>(creationMode ? 'paradise' : 'skill');
   const [filterCat, setFilterCat] = useState('');
   const [installingId, setInstallingId] = useState<string | null>(null);
   const [detail, setDetail] = useState<WorkshopMeta | null>(null);   // 点开的条目（详情弹窗）
@@ -111,7 +111,7 @@ export default function WorkshopPanel({ onClose, creationMode = false }: { onClo
     finally { setDeletingId(null); }
   }
 
-  const catsOfType = filterType === 'all' ? undefined : kindOf(filterType)?.categories;
+  const catsOfType = kindOf(filterType)?.categories;
 
   useEffect(() => { setFilterCat(''); }, [filterType]);
 
@@ -119,7 +119,7 @@ export default function WorkshopPanel({ onClose, creationMode = false }: { onClo
   useEffect(() => {
     let cancelled = false;
     setLoading(true); setError('');
-    wsList({ type: filterType === 'all' ? undefined : filterType, category: filterCat || undefined, sort })
+    wsList({ type: filterType, category: filterCat || undefined, sort })
       .then((items) => { if (!cancelled) setList(items); })
       .catch((e) => { if (!cancelled) setError(e?.message ?? '加载失败'); })
       .finally(() => { if (!cancelled) setLoading(false); });
@@ -258,7 +258,6 @@ export default function WorkshopPanel({ onClose, creationMode = false }: { onClo
               </div>
               {/* 类型筛（分组） */}
               <div className="flex items-center gap-1.5 flex-wrap">
-                <FilterChip active={filterType === 'all'} onClick={() => setFilterType('all')} label="全部" />
                 {visibleKinds.map((k) => (
                   <FilterChip key={k.id} active={filterType === k.id} onClick={() => setFilterType(k.id)} label={`${k.emoji}${k.label}`} />
                 ))}
@@ -486,7 +485,7 @@ export default function WorkshopPanel({ onClose, creationMode = false }: { onClo
       {/* ── 详情弹窗（点击条目）── */}
       {detail && (
         <div className="fixed inset-0 z-[60] bg-black/75 backdrop-blur-sm flex items-center justify-center p-4" onClick={(e) => { if (e.target === e.currentTarget) setDetail(null); }}>
-          <div className={`w-full ${detail.type === 'skillTree' ? 'max-w-3xl' : 'max-w-lg'} max-h-[88vh] flex flex-col rounded-2xl border border-edge bg-void shadow-[0_0_60px_rgba(0,0,0,0.85)] overflow-hidden`}>
+          <div className={`w-full ${detail.type === 'skillTree' || detail.type === 'subProfTree' ? 'max-w-3xl' : 'max-w-lg'} max-h-[88vh] flex flex-col rounded-2xl border border-edge bg-void shadow-[0_0_60px_rgba(0,0,0,0.85)] overflow-hidden`}>
             <header className="shrink-0 flex items-center gap-2.5 px-4 py-3 border-b border-edge bg-panel">
               <span className="text-lg">{kindOf(detail.type)?.emoji ?? '❔'}</span>
               <div className="flex-1 min-w-0">
@@ -579,15 +578,18 @@ function Row({ label, val }: { label: string; val: string }) {
   );
 }
 
-/* 技能树详情：完整星图（只读 TreeCanvas）+ 流派 + 各节点技能/天赋效果 + 星座奖励 */
-function SkillTreeDetail({ payload }: { payload: any }) {
+/* 技能树 / 副职业配方树 详情：完整星图（只读 TreeCanvas）+ 流派 + 各节点技能/天赋/配方 + 星座奖励 */
+function TreeDetail({ payload, kind }: { payload: any; kind: WorkshopKindId }) {
   const tree = useMemo(() => autoLayout(payload as TreeDef), [payload]);
-  const grants: { node: string; kind: string; name: string; effect?: string; desc?: string }[] = [];
+  const grants: { node: string; kind: string; name: string; tier?: string; effect?: string; desc?: string; materials?: string; output?: string }[] = [];
   for (const n of tree.nodes) {
     if (n.grants?.skill) grants.push({ node: n.name, kind: '技能', name: n.grants.skill.name, effect: n.grants.skill.effect, desc: n.grants.skill.desc });
     if (n.grants?.trait) grants.push({ node: n.name, kind: '天赋', name: n.grants.trait.name, effect: n.grants.trait.effect, desc: n.grants.trait.desc });
+    const r = (n.grants as any)?.recipe;
+    if (r) grants.push({ node: n.name, kind: '配方', name: r.name, tier: r.tier, materials: r.materials, output: r.output, desc: r.desc });
   }
   const consts = tree.constellations ?? [];
+  const listLabel = kind === 'subProfTree' ? '配方' : '技能 / 天赋';
   return (
     <div className="space-y-3">
       <div className="text-[11px] font-mono text-dim/55">{tree.profession}{tree.title ? ` · ${tree.title}` : ''} · {tree.nodes.length} 节点 · {tree.branches.length} 流派{consts.length ? ` · ${consts.length} 星座` : ''}</div>
@@ -604,12 +606,14 @@ function SkillTreeDetail({ payload }: { payload: any }) {
       {/* 技能 / 天赋效果 */}
       {grants.length > 0 && (
         <div className="space-y-1.5">
-          <div className="text-[12px] font-semibold text-slate-300">技能 / 天赋（{grants.length}）</div>
+          <div className="text-[12px] font-semibold text-slate-300">{listLabel}（{grants.length}）</div>
           {grants.map((g, i) => (
             <div key={i} className="text-[12px] border-l-2 border-god/30 pl-2">
               <span className="text-slate-100 font-semibold">{g.name}</span>
-              <span className="text-[10px] font-mono text-dim/45 ml-1.5">{g.kind} · 节点「{g.node}」</span>
-              {(g.effect || g.desc) && <div className="text-dim/70 leading-snug whitespace-pre-wrap">{g.effect || g.desc}</div>}
+              <span className="text-[10px] font-mono text-dim/45 ml-1.5">{g.kind}{g.tier ? `·${g.tier}` : ''} · 节点「{g.node}」</span>
+              {g.materials && <div className="text-dim/55 leading-snug">材料：{g.materials}</div>}
+              {g.output && <div className="text-dim/70 leading-snug">产物：{g.output}</div>}
+              {(g.effect || (!g.output && g.desc)) && <div className="text-dim/70 leading-snug whitespace-pre-wrap">{g.effect || g.desc}</div>}
             </div>
           ))}
         </div>
@@ -633,7 +637,7 @@ function SkillTreeDetail({ payload }: { payload: any }) {
 }
 
 function DetailBody({ type, payload }: { type: WorkshopKindId; payload: any }) {
-  if (type === 'skillTree') return <SkillTreeDetail payload={payload} />;
+  if (type === 'skillTree' || type === 'subProfTree') return <TreeDetail payload={payload} kind={type} />;
   const isNpc = type === 'npc';
   const obj = (isNpc ? payload?.record : payload) ?? {};
   const character = isNpc ? payload?.character : undefined;

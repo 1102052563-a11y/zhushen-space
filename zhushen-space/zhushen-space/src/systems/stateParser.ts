@@ -218,6 +218,18 @@ function findStackTarget(list: any[], name: string, rawCategory: string): any | 
   ) ?? null;
 }
 
+/* 外观兜底：AI 没填 appearance(生图依据)时，用已有字段合成一段非空视觉描述，杜绝详情页「外观空白」。
+   AI 写了就用 AI 的（提示词已强制逐部件描写）；没写才退化成「品质·类型「名」：简介」基本款，至少给生图一个依据。*/
+function synthAppearance(item: any, name: string, category: string, grade: string): string {
+  const cur = String(item?.appearance ?? '').trim();
+  if (cur) return cur;
+  const g = String(grade ?? '').trim();
+  const c = (String(category ?? item?.subType ?? '').trim()) || '物品';
+  const base = `${g ? g + '品质·' : ''}${c}「${name}」`;
+  const intro = String(item?.intro ?? item?.desc ?? '').trim();
+  return (intro ? `${base}：${intro}` : base).slice(0, 200);
+}
+
 /* 删除原因归类（供「最近删除」展示"为什么删"）：
    - consumeItem 消耗殆尽 → 一律 used（被使用/消耗）
    - destroyItem → 按 AI 给的 reason 关键词分 used / broken，缺省 broken（损坏·丢弃·失去）
@@ -306,7 +318,7 @@ function applyOneItemCommand(cmd: ItemCommand, store: any, npcEquipDupCtx?: Map<
           effect:     item['4'] ?? item.effect ?? '',
           quantity:   parseInt(item['5'] ?? item.quantity ?? '1') || 1,
           equipped:   false,
-          appearance: item.appearance,
+          appearance: synthAppearance(item, name, String(npcRawCat), normGrade),
           acquisition: data.acquisition ?? data.reason,
           notes:      data.reason,
           tags:       Array.isArray(item.tags) ? item.tags : undefined,
@@ -335,7 +347,7 @@ function applyOneItemCommand(cmd: ItemCommand, store: any, npcEquipDupCtx?: Map<
         store.updateItem(stackTarget.id, {
           quantity: (stackTarget.quantity || 1) + qty,
           effect: stackTarget.effect || (item['4'] ?? item.effect ?? ''),
-          appearance: stackTarget.appearance || item.appearance,
+          appearance: stackTarget.appearance || synthAppearance(item, name, category, normGrade),
         });
         console.log(`[Item] 堆叠 ${name} +${qty} → 共 ${(stackTarget.quantity || 1) + qty}`);
         break;
@@ -351,7 +363,7 @@ function applyOneItemCommand(cmd: ItemCommand, store: any, npcEquipDupCtx?: Map<
         quantity: qty,
         equipped: false,
         tags: Array.isArray(item.tags) ? item.tags : [],
-        appearance: item.appearance,
+        appearance: synthAppearance(item, name, category, normGrade),
         acquisition: data.acquisition ?? data.reason,
         notes: data.reason,
         origin:      item.origin,

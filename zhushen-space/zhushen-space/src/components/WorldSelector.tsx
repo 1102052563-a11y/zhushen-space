@@ -35,8 +35,42 @@ interface Props {
 
 type Stage = 'idle' | 'config' | 'loading' | 'results' | 'error';
 
-function rollDice(): number[] {
-  return Array.from({ length: 12 }, () => Math.floor(Math.random() * 1501));
+// 点名生成：从「当前阶世界库」里随机点名 N 个不重复的世界编号（1~max）。世界数不足则全取并打乱。
+const WORLD_PICK_COUNT = 10;
+function rollPicks(max: number, n = WORLD_PICK_COUNT): number[] {
+  if (max <= 0) return [];
+  if (max <= n) {
+    const all = Array.from({ length: max }, (_, i) => i + 1);
+    for (let i = all.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [all[i], all[j]] = [all[j], all[i]]; }
+    return all;
+  }
+  const s = new Set<number>();
+  while (s.size < n) s.add(1 + Math.floor(Math.random() * max));
+  return [...s];
+}
+
+// 解析「世界选择 / 休闲」世界书条目，按文档顺序抽出世界名列表（序号即 index+1）。
+// 兼容四种格式：带引号 "id|name"、九阶 bold **id|name**、裸行 id|name、休闲 YAML id:/name:。
+export function parseWorldList(content: string): string[] {
+  const items: { name: string; pos: number }[] = [];
+  const seen = new Set<string>();
+  const add = (id: string, name: string, pos: number) => {
+    const nm = String(name).replace(/\*+/g, '').replace(/^["「\s]+|["」\s]+$/g, '').trim();
+    if (!nm) return;
+    const key = id + '|' + nm;
+    if (seen.has(key)) return;
+    seen.add(key);
+    items.push({ name: nm, pos });
+  };
+  const patterns = [
+    /"(\d+)\|([^"|]+)"/g,
+    /\*\*(\d+)\|([^*|]+)\*\*/g,
+    /(?:^|[\r\n])[ \t>*-]*(\d+)\|([^"\n\r*|]+)/g,
+    /id:\s*(\d+)\s*[\r\n]+\s*name:\s*"?([^"\n\r]+?)"?\s*(?=[\r\n]|$)/g,
+  ];
+  for (const re of patterns) { let m: RegExpExecArray | null; while ((m = re.exec(content)) !== null) add(m[1], m[2], m.index); }
+  items.sort((a, b) => a.pos - b.pos);
+  return items.map((x) => x.name);
 }
 
 function extractJson(raw: string): any[] {
@@ -78,15 +112,7 @@ export default function WorldSelector({ onRawResponse, onPromptSent, onWorlds, o
   const [stage, setStage] = useState<Stage>('idle');
   const [quickKind, setQuickKind] = useState<'pose' | 'bdsm' | null>(null);  // 展开的快捷条目类别（姿势/BDSM）
   const [rank, setRank] = useState('');
-  const [rolls, setRolls] = useState<number[]>([]);
-  const [editIdx, setEditIdx] = useState(-1);   // 正在手动编辑的 Roll 点下标（-1=无）
-  const [editVal, setEditVal] = useState('');    // 编辑中的临时字符串（允许自由输入，提交时再钳到 0–1500 整数）
-  const commitRollEdit = () => {
-    if (editIdx < 0) return;
-    const n = Math.max(0, Math.min(1500, Math.round(Number(editVal) || 0)));
-    setRolls((prev) => prev.map((x, j) => (j === editIdx ? n : x)));
-    setEditIdx(-1);
-  };
+  const [rolls, setRolls] = useState<number[]>([]);   // 点名的世界编号列表（1~worldList.length）
   const [worlds, setWorlds] = useState<WorldOption[]>([]);
   const [errorMsg, setErrorMsg] = useState('');
   const [leisure, setLeisure] = useState(false);   // 休闲世界模式：忽略阶位，按「休闲世界」世界书生成休闲/恋爱向世界
@@ -102,6 +128,36 @@ export default function WorldSelector({ onRawResponse, onPromptSent, onWorlds, o
   const bdsmTitles = useMemo(() => quickInsertTitles(findJoyBook(textWorldBooks, 'bdsm')), [textWorldBooks]);
   const quickTitles = quickKind === 'pose' ? poseTitles : quickKind === 'bdsm' ? bdsmTitles : [];
   const insertQuick = (title: string) => { onInsertText?.(title); };
+
+  // 当前阶位归一成中文数字（一/二…），供世界库定位与提示展示。输入支持「一 / 1 / 三阶」。
+  const cn = useMemo(() => {
+    const CN = ['', '一', '二', '三', '四', '五', '六', '七', '八', '九'];
+    const t = rank.trim().replace(/[阶世界\s]/g, '');
+    return /^[1-9]$/.test(t) ? CN[Number(t)] : t;
+  }, [rank]);
+
+  // 当前「点名世界库」：休闲取休闲世界书；否则按阶位键【选择N阶世界】定位该阶条目，解析成有序世界名列表（序号=index+1）。
+  const worldList = useMemo<string[]>(() => {
+    const books = worldBooks.filter((b) => b.enabled);
+    if (leisure) {
+      return books
+        .filter((b) => b.builtinKey === 'wb-leisure' || b.name === '休闲世界')
+        .flatMap((b) => b.entries.filter((e) => e.enabled))
+        .flatMap((e) => parseWorldList(e.content || ''));
+    }
+    const tierKey = cn ? `选择${cn}阶世界` : '';
+    if (!tierKey) return [];
+    return books
+      .flatMap((b) => b.entries.filter((e) => e.enabled && (e.key || []).some((k) => k.includes(tierKey))))
+      .flatMap((e) => parseWorldList(e.content || ''));
+  }, [worldBooks, leisure, cn]);
+
+  const nameOf = (v: number) => worldList[v - 1] || '';
+  const doRoll = () => { if (worldList.length > 0) setRolls(rollPicks(worldList.length)); };
+  const updatePick = (i: number, raw: string) => {
+    const n = parseInt(raw, 10);
+    setRolls((prev) => prev.map((x, idx) => (idx === i ? (Number.isFinite(n) ? Math.max(1, n) : x) : x)));
+  };
 
   useEffect(() => {
     if (stage === 'config') rankRef.current?.focus();
@@ -159,27 +215,40 @@ export default function WorldSelector({ onRawResponse, onPromptSent, onWorlds, o
     // 世界生成用内置专用提示词（含字段与字数规范），不再依赖全局 systemPrompt
     const sysContent = WORLD_GEN_PROMPT;
 
-    // 始终凑齐 12 个随机ID（玩家没手动 Roll 时自动生成）
-    const ids = rolls.length ? rolls : rollDice();
-    if (!rolls.length) setRolls(ids);
+    // 点名生成：把「点名编号」映射成世界库里的世界名清单（去重、去空）。为空则自动 Roll 一批。
+    if (worldList.length === 0) {
+      setErrorMsg('请先在上方填阶位（一 / 二 / 3…）以载入该阶世界库，再 Roll / 编辑点名世界');
+      setStage('config');
+      return;
+    }
+    let cur = rolls;
+    if (cur.length === 0) { cur = rollPicks(worldList.length); setRolls(cur); }
+    const pickedNames = [...new Set(cur.map((v) => worldList[v - 1]).filter(Boolean))];
+    if (pickedNames.length === 0) {
+      setErrorMsg(`点名编号都不在世界库范围内（应为 1~${worldList.length}）；请重新 Roll 或修改编号`);
+      setStage('config');
+      return;
+    }
 
     const rankPart = leisure
       ? '生成休闲世界（休闲 / 恋爱向的轻松日常世界，无生存压力；阶位固定一阶）'
-      : (rank.trim() ? `目标阶位：${rank.trim()}阶` : '目标阶位：未指定（按通用难度生成）');
-    const idPart = `12 个随机ID（0–1500，越高越稀有/危险）：${ids.join('、')}`;
+      : (cn ? `目标阶位：${cn}阶` : '目标阶位：未指定（按通用难度生成）');
+    const listPart =
+      `【指定世界清单】请严格为以下 ${pickedNames.length} 个世界逐一生成卡片（逐一对应、不得替换 / 增减 / 另选）：\n` +
+      pickedNames.map((n, i) => `${i + 1}. ${n}`).join('\n');
 
     const entriesText = picked.length > 0
       ? picked.map((e, i) => {
           const lamp = e.constant ? '【常驻】' : e.selective ? '【绿灯/触发】' : '';
           return `条目${i + 1}${lamp}【${e.comment || `#${e.uid}`}】\n${e.content}`;
         }).join('\n\n')
-      : '（无匹配世界书条目；请按目标阶位与同类题材合理生成）';
+      : '（无匹配世界书条目；请基于上述指定世界清单与目标阶位合理生成）';
 
     const userMessage =
-      `${rankPart}\n${idPart}\n\n` +
+      `${rankPart}\n\n${listPart}\n\n` +
       (leisure
-        ? `以下是「休闲世界」世界书条目，请据此生成 10 个休闲 / 恋爱向世界：\n\n${entriesText}`
-        : `以下是该阶位被点亮的世界书条目（绿灯/触发为主），供你筛选取材并生成 10 个世界：\n\n${entriesText}`);
+        ? `以下是「休闲世界」世界书条目（含规则 / 铁则与世界库），供取材与设定参考：\n\n${entriesText}`
+        : `以下是该阶世界书条目（含规则 / 铁则与世界库），供取材与设定参考：\n\n${entriesText}`);
 
     // 发送前记录完整提示词
     const fullPrompt =
@@ -324,43 +393,51 @@ export default function WorldSelector({ onRawResponse, onPromptSent, onWorlds, o
         </div>
 
         {leisure && (
-          <div className="text-[12px] font-mono text-emerald-300/70">🌴 休闲模式：忽略阶位，点「生成」即把「生成休闲世界」+ Roll 点发给「世界选择」接口，生成休闲 / 恋爱向世界。</div>
+          <div className="text-[12px] font-mono text-emerald-300/70">🌴 休闲模式：忽略阶位，从休闲世界库点名世界（可 🎲 Roll 或手改编号），点「生成」即生成你点名的休闲 / 恋爱向世界。</div>
         )}
 
-        {/* Roll点 */}
-        <div className="flex items-start gap-3">
-          <button
-            onClick={() => setRolls(rollDice())}
-            className="shrink-0 flex items-center gap-1.5 px-3 py-1.5 border border-amber-500/40 text-amber-400 text-sm rounded hover:bg-amber-900/20 font-mono transition-colors"
-          >
-            🎲 随机Roll点
-          </button>
-          {rolls.length > 0 ? (
-            <div className="flex-1 flex flex-wrap gap-1 items-center">
-              {rolls.map((v, i) => (
-                editIdx === i ? (
-                  <input key={i} type="number" min={0} max={1500} autoFocus
-                    value={editVal}
-                    onChange={(e) => setEditVal(e.target.value)}
-                    onBlur={commitRollEdit}
-                    onKeyDown={(e) => { if (e.key === 'Enter') commitRollEdit(); else if (e.key === 'Escape') setEditIdx(-1); }}
-                    className="w-16 text-[13px] font-mono px-1 py-0.5 rounded border border-god/60 bg-void text-slate-100 outline-none"
-                  />
-                ) : (
-                  <span key={i} onClick={() => { setEditIdx(i); setEditVal(String(v)); }} title="点击修改这个点数"
-                    className={`text-[13px] font-mono px-1.5 py-0.5 rounded border cursor-pointer hover:border-god/60 transition-colors ${
-                      v >= 1200 ? 'text-amber-300 border-amber-500/50 bg-amber-900/20' :
-                      v >= 800  ? 'text-god border-god/30 bg-god/5' :
-                      v >= 400  ? 'text-slate-300 border-edge bg-panel2' :
-                                  'text-dim border-edge/50'
-                    }`}>{v}</span>
-                )
-              ))}
-              <button onClick={() => setRolls(rollDice())} title="全部重新Roll" className="text-[12px] text-dim hover:text-god font-mono ml-1">↺</button>
-              <span className="text-[11px] text-dim/40 font-mono ml-0.5">点数字可改</span>
+        {/* 点名世界：Roll / 编辑「世界编号」，每个编号对应该阶世界库里的一个世界；改编号即点名想要的世界，下方实时显示对应世界名 */}
+        <div className="space-y-2">
+          <div className="flex items-center gap-3 flex-wrap">
+            <button
+              onClick={doRoll}
+              disabled={worldList.length === 0}
+              className="shrink-0 flex items-center gap-1.5 px-3 py-1.5 border border-amber-500/40 text-amber-400 text-sm rounded hover:bg-amber-900/20 font-mono transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
+            >
+              🎲 随机点名 {WORLD_PICK_COUNT} 个
+            </button>
+            {worldList.length > 0 ? (
+              <span className="text-[12px] font-mono text-dim/60">
+                {leisure ? '休闲' : cn ? `${cn}阶` : ''}世界库共 <span className="text-god/80">{worldList.length}</span> 个世界 · 编号 1~{worldList.length}（点编号可改，点名想要的世界）
+              </span>
+            ) : (
+              <span className="text-[12px] font-mono text-amber-300/70">先在上方填阶位（一 / 二 / 3…）{leisure ? '' : ' 或勾选 🌴 休闲'}，载入世界库后再点名</span>
+            )}
+            {rolls.length > 0 && worldList.length > 0 && (
+              <button onClick={doRoll} className="text-[12px] text-dim hover:text-god font-mono">↺ 重roll</button>
+            )}
+          </div>
+          {rolls.length > 0 && worldList.length > 0 && (
+            <div className="grid grid-cols-5 max-lg:grid-cols-2 gap-2">
+              {rolls.map((v, i) => {
+                const nm = nameOf(v);
+                return (
+                  <div key={i} className="flex flex-col gap-0.5 border border-edge rounded-lg px-2 py-1.5 bg-void/40">
+                    <div className="flex items-center gap-1">
+                      <span className="text-[10px] text-dim/40 font-mono shrink-0">{i + 1}.</span>
+                      <input
+                        type="number" min={1} max={worldList.length} value={v}
+                        onChange={(e) => updatePick(i, e.target.value)}
+                        className="w-full bg-void border-b border-god/30 px-1 py-0.5 text-[13px] text-amber-300 font-mono text-center outline-none focus:border-god"
+                      />
+                    </div>
+                    <span className={`text-[11px] font-mono leading-tight truncate ${nm ? 'text-god/80' : 'text-blood/70'}`} title={nm || '无此编号'}>
+                      {nm || '— 无此编号'}
+                    </span>
+                  </div>
+                );
+              })}
             </div>
-          ) : (
-            <span className="text-sm text-dim/50 font-mono self-center">点击可Roll 12 个点（范围 0–1500，Roll 后可手动改每个数）</span>
           )}
         </div>
 
