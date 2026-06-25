@@ -86,3 +86,46 @@ describe('createItem 确定性护栏（④货币伪物品拒建 + ③combatStat 
     expect(useItems.getState().items[0].combatStat).toBe('防御力 20~35');
   });
 });
+
+describe('transferItem 安全护栏（治"交易吞掉正文没提的另一件武器、最近删除无记录、只能回滚"）', () => {
+  const run = (s: string) => applyItemCommands(parseAllItemCommands(`<upstore>${s}</upstore>`));
+  const seedTwoWeapons = () => useItems.setState({
+    items: [
+      { id: 'I_B1_01', name: '寒铁长剑', category: '武器', gradeDesc: '蓝色', quantity: 1, effect: '', equipped: false, tags: [], addedAt: 0 },
+      { id: 'I_B1_02', name: '玄铁巨斧', category: '武器', gradeDesc: '蓝色', quantity: 1, effect: '', equipped: false, tags: [], addedAt: 0 },
+    ] as any,
+    recentlyDeleted: [],
+  });
+
+  it('★按 name 定位：AI 把 itemId 误填成另一件(B)的 id、但 name 是被交易那件(A) → 转走 A、绝不吞掉 B', () => {
+    seedTwoWeapons();
+    // 正文交易的是「寒铁长剑」(A)，AI 却把 itemId 误填成「玄铁巨斧」(B) 的 id —— 旧实现会裸按 id 删掉 B
+    run('transferItem({"from":"B1","to":"C9","itemId":"I_B1_02","name":"寒铁长剑"})');
+    const items = useItems.getState().items;
+    expect(items.find((i) => i.name === '玄铁巨斧')).toBeTruthy();  // B 必须还在（正文没提）
+    expect(items.find((i) => i.name === '寒铁长剑')).toBeFalsy();   // A 被正确转走
+  });
+
+  it('★转出整件 → 进「最近删除」可恢复（治"只能回滚"）', () => {
+    seedTwoWeapons();
+    run('transferItem({"from":"B1","itemId":"I_B1_01","name":"寒铁长剑","reason":"以物易物换走"})');
+    const bin = useItems.getState().recentlyDeleted;
+    expect(bin.find((d) => d.name === '寒铁长剑')).toBeTruthy();    // 可在「最近删除」里找回
+  });
+
+  it('★拒绝转出已锁定物品（防误删本命装备）', () => {
+    useItems.setState({ items: [
+      { id: 'I_B1_01', name: '本命剑', category: '武器', gradeDesc: '金色', quantity: 1, effect: '', equipped: false, locked: true, tags: [], addedAt: 0 },
+    ] as any, recentlyDeleted: [] });
+    run('transferItem({"from":"B1","itemId":"I_B1_01","name":"本命剑"})');
+    expect(useItems.getState().items.length).toBe(1);              // 锁定→未被转走
+  });
+
+  it('★转入玩家·来源不明 → 不削减已有物品数量（修旧 Math.min 静默丢失）', () => {
+    useItems.setState({ items: [
+      { id: 'I_B1_07', name: '止血喷雾', category: '消耗品', gradeDesc: '白色', quantity: 10, effect: '', equipped: false, tags: [], addedAt: 0 },
+    ] as any, recentlyDeleted: [] });
+    run('transferItem({"to":"B1","itemId":"I_B1_07","quantity":1})');
+    expect(useItems.getState().items[0].quantity).toBe(10);        // 旧实现会被砍成 1
+  });
+});

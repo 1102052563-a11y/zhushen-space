@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useCombat, type CombatActionKind, type Combatant, type CombatStatBlock } from '../store/combatStore';
 import { useCharacters } from '../store/characterStore';
 import { usePlayer } from '../store/playerStore';
@@ -7,6 +7,7 @@ import { useItems } from '../store/itemStore';
 import { useResource } from '../store/resourceStore';
 import { useMp } from '../store/multiplayerStore';
 import { telegraphIntent } from '../systems/enemyAI';
+import { combatIconFor } from './combatIcons';
 
 /* 模态战斗面板（仿 fanren-remake）。结算由引擎/编排器在 App 里完成；本组件只负责展示
    战况 + 收集玩家（B1）这一回合的动作，确认后回调 onPlayerAction。 */
@@ -31,10 +32,24 @@ function Card({ id, isCurrent, isTarget, onPick }: { id: string; isCurrent: bool
   // 肖像实时按 id 取（图片存 store/IndexedDB，不进战斗存档）：主角 B1 取 profile.avatar，NPC 取 npc.avatar
   const playerAvatar = usePlayer((s) => s.profile.avatar);
   const npcAvatar = useNpc((s) => s.npcs[id]?.avatar);
-  const avatar = id === 'B1' ? playerAvatar : npcAvatar;
   const c = battle.participants[id];
   const b = battle.initialState[id];
+  const curHp = c?.curHp ?? 0;
+  // 受击/治疗动效：HP 变化 → 浮动伤害数字 + 红闪（hooks 必须先于任何 return）
+  const prevHp = useRef(curHp);
+  const [pop, setPop] = useState<{ amt: number; key: number } | null>(null);
+  const [flash, setFlash] = useState(false);
+  useEffect(() => {
+    const d = prevHp.current - curHp; prevHp.current = curHp;   // >0 掉血 / <0 回血
+    if (d === 0) return;
+    const key = Date.now() + Math.random();
+    setPop({ amt: d, key });
+    const timers = [setTimeout(() => setPop((p) => (p && p.key === key ? null : p)), 950)];
+    if (d > 0) { setFlash(true); timers.push(setTimeout(() => setFlash(false), 400)); }
+    return () => timers.forEach(clearTimeout);
+  }, [curHp]);
   if (!c || !b) return null;
+  const avatar = id === 'B1' ? playerAvatar : npcAvatar;
   const dead = c.curHp <= 0 || c.left;
   const enemy = b.side === 'enemy';
   const realTop = Math.max(0, ...[b.attrs.str, b.attrs.agi, b.attrs.con, b.attrs.int, b.attrs.cha, b.attrs.luck].map((v) => Math.floor((v || 0) / 80)));  // 最高真实属性（每80普通=1真实）
@@ -43,13 +58,15 @@ function Card({ id, isCurrent, isTarget, onPick }: { id: string; isCurrent: bool
       type="button"
       disabled={!onPick}
       onClick={onPick}
-      className={`w-full text-left rounded-lg border p-2 transition
+      className={`relative w-full text-left rounded-lg border p-2 transition
         ${dead ? 'opacity-40 grayscale' : ''}
-        ${enemy ? 'border-rose-500/30 bg-rose-950/30' : 'border-cyan-500/30 bg-cyan-950/20'}
-        ${isCurrent ? 'ring-2 ring-amber-400' : ''}
+        ${enemy ? 'border-rose-500/30 bg-gradient-to-b from-rose-950/40 to-slate-900/30' : 'border-cyan-500/30 bg-gradient-to-b from-cyan-950/30 to-slate-900/20'}
+        ${isCurrent ? 'ring-2 ring-amber-400 turn-glow' : ''}
         ${isTarget ? 'ring-2 ring-rose-400' : ''}
+        ${flash ? 'hit-flash' : ''}
         ${onPick ? 'hover:brightness-125 cursor-pointer' : 'cursor-default'}`}
     >
+      {pop && <span className={`dmg-pop text-sm ${pop.amt > 0 ? 'dmg-hurt' : 'dmg-heal'}`}>{pop.amt > 0 ? `-${pop.amt}` : `+${-pop.amt}`}</span>}
       <div className="flex items-center gap-2 mb-1">
         {avatar && <img src={avatar} alt="" className="w-9 h-9 rounded object-cover flex-none" />}
         <div className="min-w-0 flex-1">
@@ -94,8 +111,9 @@ function Card({ id, isCurrent, isTarget, onPick }: { id: string; isCurrent: bool
             const stacks = m.poisonStacks ?? m.strengthStacks ?? m.dexterityStacks ?? m.thorns;
             const turns = s.durationTurns != null ? Math.max(0, s.durationTurns - (battle.round - (s.startTurn ?? battle.round))) : undefined;
             const badge = stacks != null ? `×${stacks}` : turns != null ? `${turns}回` : '';
+            const Ic = combatIconFor(s.name);
             return (
-              <span key={i} title={s.effect || s.name} className={`text-[9px] px-1 rounded border ${tone}`}>{s.emoji ?? ''}{s.name}{badge ? ` ${badge}` : ''}</span>
+              <span key={i} title={s.effect || s.name} className={`text-[9px] px-1 rounded border inline-flex items-center gap-0.5 ${tone}`}>{Ic ? <Ic className="shrink-0" /> : (s.emoji ?? '')}{s.name}{badge ? ` ${badge}` : ''}</span>
             );
           })}
         </div>
@@ -238,25 +256,31 @@ export default function CombatPanel({ onPlayerAction, onUndo, canUndo, mpMode, m
           {apiBusy && <span className="text-xs text-amber-300 animate-pulse">{apiStatus || 'AI 思考中…'}</span>}
         </div>
 
-        {/* 行动顺序条（按先攻排序，高亮当前出手者） */}
+        {/* 行动顺序条（先攻时间轴·连线 + 高亮当前出手者） */}
         {battle.active && battle.order.length > 0 && (
-          <div className="flex items-center gap-2 px-4 py-1.5 border-b border-slate-800 bg-slate-950/40 overflow-x-auto">
-            <span className="text-[10px] text-amber-300/70 shrink-0 font-mono">行动顺序</span>
-            {battle.order.map((id, i) => {
-              const c = battle.participants[id]; const b = battle.initialState[id];
-              if (!c || !b) return null;
-              const dead = c.curHp <= 0 || c.left;
-              const isCur = i === battle.turn;
-              const av = id === 'B1' ? playerAvatar : npcsMap[id]?.avatar;
-              const ring = isCur ? 'border-amber-400' : b.side === 'enemy' ? 'border-rose-500/40' : 'border-cyan-500/40';
-              return (
-                <div key={id} title={`${b.name}${isCur ? '（当前出手）' : ''}`} className={`shrink-0 ${dead ? 'opacity-30 grayscale' : ''}`}>
-                  {av
-                    ? <img src={av} alt="" className={`w-8 h-8 rounded-full object-cover border-2 ${ring}`} />
-                    : <div className={`w-8 h-8 rounded-full flex items-center justify-center text-[10px] font-bold border-2 ${ring} ${isCur ? 'text-amber-200 bg-amber-950/40' : b.side === 'enemy' ? 'text-rose-200/80 bg-rose-950/30' : 'text-cyan-200/80 bg-cyan-950/30'}`}>{(b.name || id).slice(0, 2)}</div>}
-                </div>
-              );
-            })}
+          <div className="flex items-center gap-2 px-4 py-2 border-b border-slate-800 bg-slate-950/40 overflow-x-auto">
+            <span className="text-[10px] text-amber-300/70 shrink-0 font-mono">⏱ 行动顺序</span>
+            <div className="relative flex items-center gap-3 min-w-max">
+              <div className="absolute left-2 right-2 top-[18px] h-px bg-gradient-to-r from-amber-500/25 via-slate-600/40 to-transparent pointer-events-none" />
+              {battle.order.map((id, i) => {
+                const c = battle.participants[id]; const b = battle.initialState[id];
+                if (!c || !b) return null;
+                const dead = c.curHp <= 0 || c.left;
+                const isCur = i === battle.turn;
+                const av = id === 'B1' ? playerAvatar : npcsMap[id]?.avatar;
+                const ring = isCur ? 'border-amber-400' : b.side === 'enemy' ? 'border-rose-500/50' : 'border-cyan-500/50';
+                return (
+                  <div key={id} title={`${b.name}${isCur ? '（当前出手）' : ''}`} className={`relative shrink-0 flex flex-col items-center gap-0.5 ${dead ? 'opacity-30 grayscale' : ''}`}>
+                    <div className={`rounded-full ${isCur ? 'turn-glow' : ''}`}>
+                      {av
+                        ? <img src={av} alt="" className={`w-9 h-9 rounded-full object-cover border-2 ${ring}`} />
+                        : <div className={`w-9 h-9 rounded-full flex items-center justify-center text-[10px] font-bold border-2 ${ring} ${isCur ? 'text-amber-200 bg-amber-950/50' : b.side === 'enemy' ? 'text-rose-200/80 bg-rose-950/40' : 'text-cyan-200/80 bg-cyan-950/40'}`}>{(b.name || id).slice(0, 2)}</div>}
+                    </div>
+                    <span className={`text-[8px] leading-none max-w-[3.6rem] truncate ${isCur ? 'text-amber-300 font-semibold' : 'text-slate-500'}`}>{b.name}</span>
+                  </div>
+                );
+              })}
+            </div>
           </div>
         )}
 
@@ -370,12 +394,15 @@ export default function CombatPanel({ onPlayerAction, onUndo, canUndo, mpMode, m
                 )}
               </div>
               <div className="flex flex-wrap gap-1.5">
-                {(['attack', 'skill', 'item', 'defend', 'protect', 'flee'] as CombatActionKind[]).map((a) => (
+                {(['attack', 'skill', 'item', 'defend', 'protect', 'flee'] as CombatActionKind[]).map((a) => {
+                  const Ic = combatIconFor(a);
+                  return (
                   <button key={a} onClick={() => { setAction(a); setTargets([]); }}
-                    className={`px-3 py-1 rounded-md text-sm border ${action === a ? 'bg-cyan-600 border-cyan-400 text-white' : 'border-slate-600 text-slate-300 hover:bg-slate-800'}`}>
-                    {actLabel(a)}
+                    className={`px-3 py-1 rounded-md text-sm border inline-flex items-center gap-1 ${action === a ? 'bg-cyan-600 border-cyan-400 text-white' : 'border-slate-600 text-slate-300 hover:bg-slate-800'}`}>
+                    {Ic && <Ic className="text-[15px] opacity-90" />}{actLabel(a)}
                   </button>
-                ))}
+                  );
+                })}
               </div>
               {action === 'skill' && (
                 <select value={skillId} onChange={(e) => { setSkillId(e.target.value); setTargets([]); }}

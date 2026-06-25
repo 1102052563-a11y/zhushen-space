@@ -577,18 +577,56 @@ function applyOneItemCommand(cmd: ItemCommand, store: any, npcEquipDupCtx?: Map<
     }
 
     case 'transferItem': {
-      // 如果 to 是 B1（玩家），将源角色的物品移入玩家背包
-      // 简化处理：目前只处理转入玩家的情况
-      if (data.to === 'B1') {
-        const item = findItemById(store, data.itemId);
-        if (item) {
-          const qty = data.quantity ?? 1;
-          store.updateItem(item.id, { quantity: Math.min(item.quantity, qty) });
+      const qty = data.quantity ?? 1;
+      const givenName: string | undefined = data.name ?? data['1'] ?? data.itemName;
+
+      // ── 玩家转出（交易/赠予/以物易物给出去）：等同一次"离手"，必须安全 + 可恢复 ──
+      // 旧实现三坑（导致"正文没提的武器被悄悄吞掉、最近删除里也查不到、只能回滚"）：
+      //   ① 只按 itemId 裸查 findItemById → AI 写错 id 就删错另一件（删了 B 而非 A）；
+      //   ② 走 store.consumeItem 绕过 binItem → 不进「最近删除」、玩家无法恢复；
+      //   ③ 不查 locked / equipped。
+      // 改为与 consumeItem / destroyItem 同款护栏：pickTargetItem 按名+模糊定位、拒锁定、用尽走 binItem（可恢复）。
+      if (data.from === 'B1') {
+        const item = pickTargetItem(store.items, data.itemId, givenName);
+        if (!item) { console.warn(`[Item] 转出失败：未定位到玩家物品（name=${givenName} id=${data.itemId}）——不动背包，宁可不转也不删错`); break; }
+        if (item.locked) { console.warn(`[Item] 拒绝转出已锁定物品「${item.name}」（玩家锁定·防误删）`); break; }
+        const used = (item.quantity ?? 1) - qty <= 0;          // 是否整件转走（数量清零）
+        const moveQty = used ? (item.quantity ?? 1) : qty;
+        if (used && item.equipped) { try { store.unequipItem(item.id); } catch { /* */ } console.log(`[Item] 转出前自动卸下已装备物品「${item.name}」`); }
+        // 收方是真实 NPC → 把物品真正转进其储存空间（而非凭空消失）
+        const toOwner = data.to && data.to !== 'B1' ? resolveOwner(String(data.to)) : null;
+        if (toOwner) {
+          try {
+            const npcStore = useNpc.getState();
+            if (!npcStore.npcs[toOwner]) npcStore.upsertNpc(toOwner, defaultNpcRecord(toOwner));
+            const { id: _i, equipped: _e, equipSlot: _s, locked: _l, ...rest } = item as any;
+            npcStore.addNpcItem(toOwner, { ...rest, equipped: false, quantity: moveQty });
+          } catch { /* 收方挂接失败不阻断转出 */ }
         }
-      } else if (data.from === 'B1') {
-        // 玩家转出
-        const item = findItemById(store, data.itemId);
-        if (item) store.consumeItem(item.id, data.quantity ?? 1);
+        // 整件转走 → 进「最近删除」（带原因、可恢复，治"只能回滚"）；部分转走 → 仅扣数量
+        if (used) { store.binItem(item, { kind: 'used', reason: data.reason ?? (toOwner ? `转给 ${toOwner}` : '交易 / 转给他人') }); console.log(`[Item] 转出「${item.name}」→ 最近删除（可恢复）`); }
+        else { store.consumeItem(item.id, qty); console.log(`[Item] 转出「${item.name}」x${qty}（剩 ${(item.quantity ?? 1) - qty}）`); }
+        break;
+      }
+
+      // ── 转入玩家（从某 NPC 处获得）：从来源 NPC 包取出 → 加进玩家背包；绝不去削减玩家已有物品 ──
+      // 旧实现 store.updateItem({quantity: Math.min(...)}) 会把玩家某件已有物品的数量"砍小"（潜在静默丢失），已废弃。
+      if (data.to === 'B1') {
+        const fromOwner = data.from && data.from !== 'B1' ? resolveOwner(String(data.from)) : null;
+        if (fromOwner) {
+          const npcStore = useNpc.getState();
+          const bag = npcStore.npcs[fromOwner]?.items ?? [];
+          const src = pickTargetItem(bag, data.itemId, givenName);
+          if (src) {
+            npcStore.removeNpcItem(fromOwner, src.id);
+            const { id: _i, equipped: _e, equipSlot: _s, locked: _l, ...rest } = src as any;
+            store.addItem({ ...rest, equipped: false, quantity: qty });
+            console.log(`[Item] ${fromOwner} → B1 移交「${src.name}」x${qty}`);
+            break;
+          }
+        }
+        console.warn(`[Item] transferItem→B1 未定位来源物品（from=${data.from} id=${data.itemId} name=${givenName}），已忽略（不改动现有背包；若是新获得请用 createItem）`);
+        break;
       }
       break;
     }
