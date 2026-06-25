@@ -5,7 +5,7 @@ import { useCharacters } from '../store/characterStore';
 import { useNpc } from '../store/npcStore';
 import { useItems, gradeToNum } from '../store/itemStore';
 import { useDice } from '../store/diceStore';
-import { lvFromRealm } from '../systems/derivedStats';
+import { lvFromRealm, attrCapForTier } from '../systems/derivedStats';
 import DiceRoller, { type RollOutcome } from './DiceRoller';
 import {
   resolve, buildCheckResultBlock, CRIT_MULT,
@@ -118,11 +118,11 @@ export default function DicePanel({ onClose, onInject }: { onClose: () => void; 
     if (opposed && foe) {
       enemyStrengthScore = strengthScoreFromBio(foe.bioStrength, lvFromRealm(foe.realm));
       const fchar = characters[foe.id];
-      enemy = { attrs: effectiveAttrs(foe.attrs ?? DEFAULT_ATTRS, fchar?.skills, fchar?.traits, (foe.items ?? []).filter((it) => it.equipped) as any) as DiceAttrs, attrKey: enemyAttrKey, skills: fchar?.skills, talents: fchar?.traits, equipped: equippedOf(foe.items) };
+      enemy = { attrs: effectiveAttrs(foe.attrs ?? DEFAULT_ATTRS, fchar?.skills, fchar?.traits, (foe.items ?? []).filter((it) => it.equipped) as any, attrCapForTier(foe.realm, lvFromRealm(foe.realm))) as DiceAttrs, attrKey: enemyAttrKey, skills: fchar?.skills, talents: fchar?.traits, equipped: equippedOf(foe.items) };
       if (social) favorTier = favorTierFromValue(foe.favor);
     }
     return resolve({
-      mode, attrs: effectiveAttrs(withAttrDelta(withAttrDelta(profile.attrs, playerTreeAttrBonus()), playerTeamAttrBonus()), pskills, ptalents, items.filter((it) => it.equipped)) as DiceAttrs, attrKey, difficulty,
+      mode, attrs: effectiveAttrs(withAttrDelta(withAttrDelta(profile.attrs, playerTreeAttrBonus()), playerTeamAttrBonus()), pskills, ptalents, items.filter((it) => it.equipped), attrCapForTier(profile.tier, profile.level)) as DiceAttrs, attrKey, difficulty,
       skills: pskills, talents: ptalents, equipped: pEquipped,
       favorTier, extraMod, includeLuck: settings.includeLuck, advantage,
       opposed, myStrengthScore: strengthScoreFromBio(profile.bioStrength, profile.level),

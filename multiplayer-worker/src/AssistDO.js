@@ -4,7 +4,8 @@
 // 一人一卡（按 ownerId upsert）；卡片快照后端不解析（透明存转），数值/展示全交前端。
 // 「邀请」只把排行榜计数 +1 并广播；把卡物化成本地 NPC 全在邀请者前端完成（见 systems/assistApply.ts）。
 
-const MAX_CARDS = 200;        // 助战卡上限（一人一卡；超出淘汰 bumpedAt 最旧）
+const MAX_CARDS = 200;          // 全局助战卡上限（超出淘汰 bumpedAt 最旧）
+const MAX_NPC_PER_OWNER = 30;   // 单玩家 NPC 助战卡上限（主角卡固定 1 张不计入）
 const MAX_NAME = 24;
 const MAX_AVATAR = 60000;     // 立绘缩略图上限（~45KB 的 dataURL；超出/非图则剥掉）
 const MAX_SNAPSHOT = 200000;  // 整张快照序列化上限（~200KB；剥立绘后仍超则拒绝上传）
@@ -34,6 +35,10 @@ function cleanSeed(s) {
 function cleanCategory(c) {
   const s = String(c || "").trim();
   return CATEGORIES.has(s) ? s : "全能";
+}
+// 卡类型：主角助战 / NPC 助战（两块独立排名）。缺省/非法 → 'player'。
+function cleanKind(k) {
+  return k === "npc" ? "npc" : "player";
 }
 // 快照消毒：剥超大/非法立绘；整体超限先剥图再判，仍超则拒绝（返回 null）。
 function sanitizeSnapshot(s) {
@@ -119,8 +124,15 @@ export class AssistDO {
         if (this.#tooFast(att.playerId)) { this.#sendTo(ws, { type: "rate_limited" }); break; }
         const snapshot = sanitizeSnapshot(msg.snapshot);
         if (!snapshot || !snapshot.name) { this.#sendTo(ws, { type: "error", reason: "角色卡内容无效或过大" }); break; }
+        const kind = cleanKind(msg.kind);                          // 'player' 主角助战 / 'npc' NPC 助战
+        // 主角卡一人一张(srcKey 固定空)；NPC 卡可多张，按来源 NPC 区分(srcKey=该 NPC 的本地 id)，同 srcKey 再传=更新。
+        const srcKey = kind === "npc" ? String(msg.srcKey || "").slice(0, 48) : "";
         const now = Date.now();
-        const prev = this.cards.find((c) => c.ownerId === att.playerId);   // 一人一卡：保留旧 id / 首传时间 / 助战计数
+        const prev = this.cards.find((c) => c.ownerId === att.playerId && (c.kind || "player") === kind && (c.srcKey || "") === srcKey);   // 同 owner+kind+srcKey 一卡：保留旧 id / 首传时间 / 助战计数
+        if (kind === "npc" && !prev) {                             // 新建 NPC 卡才查上限（更新不查）
+          const mine = this.cards.filter((c) => c.ownerId === att.playerId && (c.kind || "player") === "npc").length;
+          if (mine >= MAX_NPC_PER_OWNER) { this.#sendTo(ws, { type: "error", reason: `NPC 助战卡最多 ${MAX_NPC_PER_OWNER} 张，请先删除一些` }); break; }
+        }
         const card = {
           id: prev ? prev.id : crypto.randomUUID(),
           ownerId: att.playerId,
@@ -128,13 +140,15 @@ export class AssistDO {
           hue: att.hue,
           avv: att.avv || 0, ds: att.ds || "", nc: att.nc || "",   // 上传者聊天身份(头像/名牌色)
           ownerDu: att.du || 0,                                     // 上传者显示号(自定义靓号·0=用内部 uid)
+          kind,
+          srcKey,                                                  // 来源标识(NPC=本地 id；主角=空)
           category: cleanCategory(msg.category),
           snapshot,
           assists: prev ? (prev.assists || 0) : 0,                  // 更新卡不清零累计助战次数
           at: prev ? prev.at : now,
           bumpedAt: now,
         };
-        this.cards = this.cards.filter((c) => c.ownerId !== att.playerId);
+        this.cards = this.cards.filter((c) => !(c.ownerId === att.playerId && (c.kind || "player") === kind && (c.srcKey || "") === srcKey));
         this.cards.unshift(card);
         if (this.cards.length > MAX_CARDS) {
           this.cards.sort((a, b) => (b.bumpedAt || 0) - (a.bumpedAt || 0));
@@ -145,11 +159,12 @@ export class AssistDO {
         break;
       }
       case "remove_card": {
+        const cardId = String(msg.cardId || "");
         const before = this.cards.length;
-        this.cards = this.cards.filter((c) => c.ownerId !== att.playerId);
+        this.cards = this.cards.filter((c) => !(c.id === cardId && c.ownerId === att.playerId));   // 只能删自己的卡
         if (this.cards.length !== before) {
           await this.ctx.storage.put("cards", this.cards);
-          this.#broadcast({ type: "card_removed", ownerId: att.playerId });
+          this.#broadcast({ type: "card_removed", cardId });
         }
         break;
       }

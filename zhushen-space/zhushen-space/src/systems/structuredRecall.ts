@@ -3,7 +3,7 @@ import type { FactionRecord } from '../store/factionStore';
 import type { Skill, Talent, Title, SubProfession } from '../store/characterStore';
 import { gradeToNum, type InventoryItem, type CurrencyWallet } from '../store/itemStore';
 import type { PlayerProfile, PlayerAttrs } from '../store/playerStore';
-import { effectiveResource, lvFromRealm, fullMaxHp, fullMaxEp, computeDerived, realAttrMult } from './derivedStats';
+import { effectiveResource, lvFromRealm, fullMaxHp, fullMaxEp, computeDerived, realAttrMult, attrCapForTier } from './derivedStats';
 import { effectiveAttrs, withAttrDelta } from './attrBonus';
 import { playerTreeAttrBonus } from '../store/skillTreeStore';
 import { playerTeamAttrBonus, playerTeamPerkAbilities } from '../store/adventureTeamStore';
@@ -254,7 +254,7 @@ export function serializePlayerCard(
   const pMaxHp = fullMaxHp(hpBase, pEqp, skills, hpTalents, rmP);
   const pMaxEp = fullMaxEp(hpBase, pEqp, skills, hpTalents, rmP);
   // 有效六维 = 基础 + 装备/技能/天赋 + 技能树 + 团队加成（与属性面板/战斗/骰子完全一致；注入正文用实战值，并标注基础值）
-  const effA = effectiveAttrs(withAttrDelta(withAttrDelta(a, playerTreeAttrBonus('B1')), playerTeamAttrBonus()), skills, talents, pEqp);
+  const effA = effectiveAttrs(withAttrDelta(withAttrDelta(a, playerTreeAttrBonus('B1')), playerTeamAttrBonus()), skills, talents, pEqp, attrCapForTier(profile.tier, profile.level));
   // 衍生攻防（与属性面板同式：有效六维 + 等级 + 已装备品级）
   const derived = computeDerived(effA, profile.level, pEqp.map((it) => ({ category: it.category as string, grade: (it.numeric?.grade as number) ?? gradeToNum(it.gradeDesc), combatStat: it.combatStat })));
   const faP = (k: keyof PlayerAttrs) => { if (!a) return ''; return effA[k] === a[k] ? `${effA[k]}` : `${effA[k]}(基${a[k]})`; };
@@ -346,7 +346,7 @@ export function serializeNpcCard(
   ].filter(Boolean).join(' | ');
   const a = npc.attrs;
   // 有效六维 = 基础 + 装备/技能/天赋加成（与 NPC 详情面板一致；注入正文用实战值，并标注基础值）
-  const effA = a ? effectiveAttrs(a, skills, talents, (npc.items ?? []).filter((it) => it.equipped) as any) : undefined;
+  const effA = a ? effectiveAttrs(a, skills, talents, (npc.items ?? []).filter((it) => it.equipped) as any, attrCapForTier(npc.realm, lvFromRealm(npc.realm))) : undefined;
   const faN = (k: keyof PlayerAttrs) => { if (!a || !effA) return ''; return effA[k] === a[k] ? `${effA[k]}` : `${effA[k]}(基${a[k]})`; };
   const nEqp = (npc.items ?? []).filter((it) => it.equipped) as any;
   const rmN = realAttrMult(npc.realm, lvFromRealm(npc.realm));   // 四阶起 HP/EP×5

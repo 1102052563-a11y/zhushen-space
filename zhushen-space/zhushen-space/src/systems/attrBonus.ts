@@ -73,6 +73,7 @@ export function computeAttrBreakdown(
   skills: { attrBonus?: string; effect?: string }[] = [],
   talents: { attrBonus?: string; effect?: string }[] = [],
   equipped: { effect?: string; affix?: string; attrBonus?: string }[] = [],
+  cap?: number,   // 本阶「单属性极值」：给定则**基础 与「基础+全部加成」的合计都夹到该上限**——属性必须遵守阶位限制，装备/技能/天赋加成也不得超（只夹力敏体智魅，幸运另算）。只有升级(升阶)提高上限。
 ): Record<keyof PlayerAttrs, AttrBreak> {
   const b = base ?? { str: 5, agi: 5, con: 5, int: 5, cha: 5, luck: 5 };
   const sk = sumBonus(skills, ['effect']);
@@ -81,18 +82,22 @@ export function computeAttrBreakdown(
   const out = {} as Record<keyof PlayerAttrs, AttrBreak>;
   for (const k of ATTR_KEYS) {
     const base0 = b[k] ?? 0, e = eq[k] ?? 0, s = sk[k] ?? 0, t = ta[k] ?? 0;
-    out[k] = { base: base0, equip: e, skill: s, talent: t, total: base0 + e + s + t };
+    const capThis = cap != null && k !== 'luck';                      // 幸运不受阶位上限（量级独立·另有标尺）
+    const baseV = capThis ? Math.min(base0, cap!) : base0;            // 基础超阶也夹（治旧档/AI 误配的基础>上限）
+    const total = capThis ? Math.min(base0 + e + s + t, cap!) : base0 + e + s + t;   // 含全部加成的合计 ≤ 本阶上限
+    out[k] = { base: baseV, equip: e, skill: s, talent: t, total };
   }
   return out;
 }
 
-/* 有效六维（含全部加成）——喂给衍生属性/HP/EP 计算与展示 */
+/* 有效六维（含全部加成）——喂给衍生属性/HP/EP 计算与展示。cap 给定时合计夹到本阶单属性极值（遵守阶位限制）。 */
 export function effectiveAttrs(
   base: PlayerAttrs | undefined,
   skills: { attrBonus?: string; effect?: string }[] = [],
   talents: { attrBonus?: string; effect?: string }[] = [],
   equipped: { effect?: string; affix?: string; attrBonus?: string }[] = [],
+  cap?: number,
 ): PlayerAttrs {
-  const bd = computeAttrBreakdown(base, skills, talents, equipped);
+  const bd = computeAttrBreakdown(base, skills, talents, equipped, cap);
   return { str: bd.str.total, agi: bd.agi.total, con: bd.con.total, int: bd.int.total, cha: bd.cha.total, luck: bd.luck.total };
 }

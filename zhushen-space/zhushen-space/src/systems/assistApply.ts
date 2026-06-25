@@ -6,7 +6,7 @@
 import { useNpc, type NpcOwnedItem, type NpcRecord } from '../store/npcStore';
 import { useCharacters } from '../store/characterStore';
 import { useMisc } from '../store/miscStore';
-import type { AssistCard } from './assistProtocol';
+import type { AssistCard, AssistSnapshot } from './assistProtocol';
 
 function coerceGender(g?: string): '男' | '女' | '' {
   return g === '男' || g === '女' ? g : '';
@@ -107,4 +107,37 @@ export function dismissAssist(npcId: string): void {
 /** 当前世界里所有「被邀请的助战 NPC」（供面板「我的助战」列出 + 遣散）。 */
 export function listActiveAssists(): NpcRecord[] {
   return Object.values(useNpc.getState().npcs).filter((r) => !!r.assistOwnerId);
+}
+
+/** 把本玩家的一名 NPC 序列化成助战卡快照（NPC 助战上传用；materializeAssist 的逆操作）。
+ *  avatar 为原始串（dataURL/http），由 assistClient 上传前压缩。失败返回 null。 */
+export function npcToSnapshotRaw(npcId: string): AssistSnapshot | null {
+  const r = useNpc.getState().npcs[npcId];
+  if (!r || !r.name) return null;
+  const cd = useCharacters.getState().characters[npcId];
+  const a: any = r.attrs || {};
+  const hasAttrs = a && typeof a === 'object' && Object.keys(a).length > 0;
+  const tier = (r.realm || '').split('|')[0] || '';
+  const head = [tier, r.profession].filter(Boolean).join('·');
+  const stat = hasAttrs ? `力${a.str ?? '?'} 敏${a.agi ?? '?'} 体${a.con ?? '?'} 智${a.int ?? '?'} 魅${a.cha ?? '?'} 幸${a.luck ?? '?'}` : '';
+  const equipment = (r.items || []).filter((it) => it.equipped).map((it) => ({ name: it.name, slot: it.equipSlot || it.category, gradeDesc: it.gradeDesc, effect: it.effect, combatStat: it.combatStat }));
+  const items = (r.items || []).filter((it) => !it.equipped).map((it) => ({ name: it.name, category: it.category, gradeDesc: it.gradeDesc, effect: it.effect, quantity: it.quantity }));
+  return {
+    name: r.name,
+    tier,
+    profession: r.profession || '',
+    gender: r.gender || '',
+    personality: r.personality || '',
+    personalityDetail: r.innerThought || '',
+    appearance: r.appearanceDetail || r.appearance5 || '',
+    attrs: hasAttrs ? a : undefined,
+    maxHp: r.maxHp,
+    maxEp: r.maxMp,
+    line: [head, stat].filter(Boolean).join(' '),
+    skills: cd?.skills || [],
+    traits: cd?.traits || [],
+    equipment,
+    items,
+    avatar: r.avatar || '',
+  };
 }

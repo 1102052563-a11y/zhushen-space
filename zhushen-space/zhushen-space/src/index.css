@@ -481,6 +481,16 @@ body {
 /* 血量过低告警：HP ≤ 20% 时该条转红急促闪烁（由 Bar.tsx 加 .bf-danger，覆盖任何皮肤）*/
 .bf-danger { animation: barDanger .55s ease-in-out infinite !important; }
 @keyframes barDanger { 0%,100%{ background:#ef4444; box-shadow:0 0 10px #ef4444,0 0 18px rgba(239,68,68,.55); } 50%{ background:#7f1d1d; box-shadow:0 0 3px rgba(239,68,68,.5); } }
+
+/* ── 助战排行榜·排名特效（排名越高越炫；用于 AssistPanel 榜单行）──
+   #1 流光金边+脉冲金光+微放大；#2 银光；#3 铜光；前 10 淡青边；其余无。 */
+.assist-rank-1 { position:relative; border-color:transparent !important; background:linear-gradient(110deg,rgba(255,215,0,.16),rgba(255,170,0,.05),rgba(255,215,0,.16)); background-size:200% 100%; transform:scale(1.015); animation:assistShimmer 3s linear infinite, assistGlowGold 2.2s ease-in-out infinite; }
+.assist-rank-1::before { content:''; position:absolute; inset:-1px; border-radius:inherit; padding:1.5px; background:linear-gradient(110deg,#ffd700,#fff3a0,#ffae00,#ffd700); background-size:200% 100%; -webkit-mask:linear-gradient(#000 0 0) content-box,linear-gradient(#000 0 0); -webkit-mask-composite:xor; mask-composite:exclude; animation:assistShimmer 3s linear infinite; pointer-events:none; }
+.assist-rank-2 { border-color:rgba(203,213,225,.6) !important; background:linear-gradient(110deg,rgba(203,213,225,.12),transparent); box-shadow:0 0 12px rgba(203,213,225,.35); }
+.assist-rank-3 { border-color:rgba(251,146,60,.55) !important; background:linear-gradient(110deg,rgba(251,146,60,.1),transparent); box-shadow:0 0 10px rgba(251,146,60,.3); }
+.assist-rank-top { border-color:rgba(110,231,255,.35) !important; box-shadow:0 0 7px rgba(110,231,255,.18); }
+@keyframes assistShimmer { 0%{background-position:0% 50%} 100%{background-position:200% 50%} }
+@keyframes assistGlowGold { 0%,100%{ box-shadow:0 0 14px rgba(255,215,0,.4); } 50%{ box-shadow:0 0 26px rgba(255,215,0,.7); } }
 /* 减少动态：所有皮肤动画关闭；告警仍保留静态红(去掉闪烁) */
 @media (prefers-reduced-motion: reduce) { .barfill, .barfill::after { animation: none !important; } .bf-danger { background:#dc2626 !important; box-shadow:0 0 8px #ef4444 !important; } }
 

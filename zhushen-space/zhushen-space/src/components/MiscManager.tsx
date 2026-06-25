@@ -157,6 +157,7 @@ function SettingsSection() {
           <div className="flex-1 min-w-0">
             <div className="text-sm text-slate-200">预设规则</div>
             <div className="text-[13px] text-dim/60 mt-0.5 truncate">{settings.presetName || '（未命名）'} · {entries.length} 条</div>
+            <div className="text-[11px] text-god/55 mt-0.5">⟳ 每次刷新自动同步为内置最新；下方手改 / 导入仅当次会话有效</div>
           </div>
           <input ref={fileRef} type="file" accept=".json" className="hidden" onChange={handleImport} />
           <button onClick={() => fileRef.current?.click()} className="px-2.5 py-1 text-[13px] font-mono border border-god/40 text-god rounded hover:bg-god/10 transition-colors">导入 JSON</button>
@@ -172,6 +173,13 @@ function SettingsSection() {
         <div className="px-3 py-2 text-[12px] text-dim/50 leading-relaxed border-t border-edge">
           占位符运行时替换：<code className="text-god/60">{'${story_text} ${current_paradise_time} ${current_world_time} ${current_world_name} ${weather} ${current_tasks} ${world_events} ${next_available_task_id}'}</code>
         </div>
+      </div>
+
+      {/* 杂项演化专属世界书 + CoT 提示（指引去正文世界书编辑）*/}
+      <div className="rounded-lg border border-god/25 bg-god/5 px-3 py-2.5 text-[12px] text-dim/70 leading-relaxed">
+        <div className="text-god/80 font-mono mb-1">📖 杂项演化·专属世界书 + 思维链</div>
+        已内置「<span className="text-slate-300">杂项演化·任务与世界规范图鉴</span>」专属世界书（任务类型库 / 环结构 / 奖惩时限 / 世界大事 / 天气词库 / 双时间 / 总结规范），每轮杂项演化时<b className="text-slate-300">强制注入</b>——要编辑或关闭，去「设置 → 正文世界书」找这本书。<br />
+        另已加入<b className="text-slate-300">强制思维链(CoT)</b>：每轮先在 <code className="text-god/60">{'<misc_cot>'}</code> 里推演产出的合理性与原因（<b className="text-slate-300">尤其任务</b>：触发证据 / 合理性 / 类型与环 / 奖惩时限 / 结算），再落 <code className="text-god/60">{'<upstore>'}</code> 指令。两者均即时生效、无需重导预设。
       </div>
     </div>
   );

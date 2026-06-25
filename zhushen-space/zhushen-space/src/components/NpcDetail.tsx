@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect } from 'react';
 import { useNpc, type NpcRecord } from '../store/npcStore';
 import { useCharacters, RARITY_CLS, ELEMENT_CLS, SKILL_TIER_CLS, normSkillTier, type Deed } from '../store/characterStore';
-import { computeDerived, lvFromRealm, normalizeTier, tierFxClass, realmFromLevel, effectiveResource, fullMaxHp, fullMaxEp, TIERS, realAttrCapForTier, realAttrMult } from '../systems/derivedStats';
+import { computeDerived, lvFromRealm, normalizeTier, tierFxClass, realmFromLevel, effectiveResource, fullMaxHp, fullMaxEp, TIERS, realAttrCapForTier, realAttrMult, attrCapForTier } from '../systems/derivedStats';
 import { computeAttrBreakdown, effectiveAttrs, ATTR_LABEL, type AttrBreak } from '../systems/attrBonus';
 import { bioInnate, bioPower, bioStrengthLabel, BIO_TIER_NAMES, nominalTierNum } from '../systems/bioStrength';
 import { generateNpcAttrs, resolveForm, UNIT_TYPE_LABELS } from '../systems/npcAttrGen';
@@ -632,7 +632,7 @@ function BasicTab({ npc: npcProp, realm, genderCls }: { npc: NpcRecord; realm: R
   const unequipTitle = useCharacters((s) => s.unequipTitle);
   const cdataBio = useCharacters((s) => s.characters[npc.id]);
   // 生物强度：前端按六维机械判定（资质档=基础六维；战力档=含装备/技能/天赋加成），AI 不再判
-  const npcBioEff = npc.attrs ? effectiveAttrs(npc.attrs, cdataBio?.skills ?? [], cdataBio?.traits ?? [], (npc.items ?? []).filter((i) => i.equipped) as any) : undefined;
+  const npcBioEff = npc.attrs ? effectiveAttrs(npc.attrs, cdataBio?.skills ?? [], cdataBio?.traits ?? [], (npc.items ?? []).filter((i) => i.equipped) as any, attrCapForTier(npc.realm, lvFromRealm(npc.realm))) : undefined;
   const npcBioLabel = npc.attrs ? bioStrengthLabel(bioInnate(npc.attrs, npc.realm, lvFromRealm(npc.realm)), bioPower(npcBioEff, npc.realm, lvFromRealm(npc.realm))) : (npc.bioStrength ?? '');
 
   // ── 隶属冒险团：点击字段 → 强制加入该团（复用与私聊一致的 generateJoinedTeam）/ 退出当前冒险团 ──
@@ -1017,7 +1017,7 @@ function AttrTab({ npc: npcProp, realm }: { npc: NpcRecord; realm: ReturnType<ty
   const cdata = useCharacters((s) => s.characters[npc.id]);
   const equippedFull = (npc.items ?? []).filter((it) => it.equipped);
   // 属性构成：原始 + 装备/技能/天赋加成（真实加载）
-  const breakdown = computeAttrBreakdown(npc.attrs, cdata?.skills ?? [], cdata?.traits ?? [], equippedFull as any);
+  const breakdown = computeAttrBreakdown(npc.attrs, cdata?.skills ?? [], cdata?.traits ?? [], equippedFull as any, attrCapForTier(npc.realm, lvFromRealm(npc.realm)));   // 有效六维(含全部加成)夹本阶上限·遵守阶位限制
   const effAttrs = { str: breakdown.str.total, agi: breakdown.agi.total, con: breakdown.con.total, int: breakdown.int.total, cha: breakdown.cha.total, luck: breakdown.luck.total } as PlayerAttrs;
   // HP/EP 上限由(有效)体质×20 / 智力×15 自动换算
   // 最大HP/EP = 基础六维换算 + 装备/被动明确写"增加HP/EP上限"的平值 + 百分比加成；技能/天赋的属性加成不计入上限

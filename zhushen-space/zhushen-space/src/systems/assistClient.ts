@@ -5,7 +5,8 @@ import { chatAvatarVer, chatDicebearSeed } from './chatIdentity';
 import { chatNameColor } from './chatCosmetics';
 import { buildPlayerSnapshot } from './mpSnapshot';
 import { shrinkDataUrl } from './imageGen';
-import type { AssistCard, AssistInbound, AssistOutbound, AssistSnapshot } from './assistProtocol';
+import { npcToSnapshotRaw } from './assistApply';
+import type { AssistCard, AssistInbound, AssistKind, AssistOutbound, AssistSnapshot } from './assistProtocol';
 
 // 全局助战大厅 WebSocket 客户端（事件名照搬后端 AssistDO 协议）。
 // 与聊天室共用 Discord 身份：连接带 chatToken(→后端 pid=chat:uid) + 头像/名牌(avv/ds/nc)，卡片显示同一身份。
@@ -23,21 +24,30 @@ let curToken = '';
 
 function set(p: Partial<ReturnType<typeof useAssist.getState>>) { useAssist.getState()._set(p as any); }
 
-// upsert 一张卡（一人一卡：同 ownerId 替换，新卡置顶）
+// upsert 一张卡（按卡 id：后端对同 owner+kind+srcKey 复用同一 id，故按 id 替换=更新，新 id=新增）
 function upsertCard(cards: AssistCard[], card: AssistCard): AssistCard[] {
-  return [card, ...cards.filter((c) => c.ownerId !== card.ownerId)];
+  return [card, ...cards.filter((c) => c.id !== card.id)];
 }
 
-// 组装我的助战卡快照：主角面板 + 压缩立绘（data: 图压成缩略图；http 图直接引用；无图则空）
-async function buildSnapshot(): Promise<AssistSnapshot> {
-  const snap = buildPlayerSnapshot() as AssistSnapshot;
-  let avatar = '';
+// 立绘压缩：data: 图压成缩略图；http 图直接引用；无图则空
+async function shrinkAvatar(raw: string): Promise<string> {
   try {
-    const raw = usePlayer.getState().profile?.avatar || '';
-    if (raw.startsWith('data:image/')) avatar = await shrinkDataUrl(raw, 256, 0.7);
-    else if (/^https?:\/\//.test(raw)) avatar = raw;
+    if (raw.startsWith('data:image/')) return await shrinkDataUrl(raw, 256, 0.7);
+    if (/^https?:\/\//.test(raw)) return raw;
   } catch { /* 无图就不带立绘 */ }
-  return { ...snap, avatar };
+  return '';
+}
+
+// 组装某类型助战卡快照 + 压缩立绘。player=主角面板；npc=本玩家的某个 NPC。失败/无源返回 null。
+async function buildSnapshotForKind(kind: AssistKind, npcId?: string): Promise<AssistSnapshot | null> {
+  if (kind === 'npc') {
+    if (!npcId) return null;
+    const raw = npcToSnapshotRaw(npcId);
+    if (!raw) return null;
+    return { ...raw, avatar: await shrinkAvatar(raw.avatar || '') };
+  }
+  const snap = buildPlayerSnapshot() as AssistSnapshot;
+  return { ...snap, avatar: await shrinkAvatar(usePlayer.getState().profile?.avatar || '') };
 }
 
 function connect(name: string, token: string) {
@@ -77,7 +87,7 @@ function dispatch(m: AssistInbound) {
       if (m.card) set({ cards: upsertCard(st.cards, m.card) });
       break;
     case 'card_removed':
-      set({ cards: st.cards.filter((c) => c.ownerId !== m.ownerId) });
+      set({ cards: st.cards.filter((c) => c.id !== m.cardId) });
       break;
     case 'assist_bumped':
       set({ cards: st.cards.map((c) => (c.id === m.cardId ? { ...c, assists: m.assists } : c)) });
@@ -96,11 +106,16 @@ function dispatch(m: AssistInbound) {
 }
 function assertNever(_m: never): void { /* 仅用于穷尽性检查；运行时对未知 type 是 no-op */ }
 
-// 上传/更新我的助战卡（一人一卡；后端按 ownerId upsert，更新不清零助战次数）。
-async function publishCard(category: string): Promise<boolean> {
-  const snapshot = await buildSnapshot();
-  if (!snapshot.name) { set({ error: '请先创建主角再上传助战卡' }); setTimeout(() => { if (useAssist.getState().error?.includes('主角')) set({ error: null }); }, 2500); return false; }
-  return sendRaw({ type: 'publish_card', category, snapshot });
+// 上传/更新我的助战卡（同 owner 同 kind 一卡；后端 upsert，更新不清零助战次数）。
+async function publishCard(kind: AssistKind, category: string, npcId?: string): Promise<boolean> {
+  const snapshot = await buildSnapshotForKind(kind, npcId);
+  if (!snapshot || !snapshot.name) {
+    const msg = kind === 'npc' ? '请选择一个有效的 NPC' : '请先创建主角再上传助战卡';
+    set({ error: msg });
+    setTimeout(() => { if (useAssist.getState().error === msg) set({ error: null }); }, 2500);
+    return false;
+  }
+  return sendRaw({ type: 'publish_card', kind, category, snapshot, srcKey: kind === 'npc' ? (npcId || '') : '' });
 }
 
 function sendRaw(obj: AssistOutbound) {
@@ -128,7 +143,7 @@ export const assistClient = {
   connect,
   leave,
   publishCard,
-  removeCard: () => sendRaw({ type: 'remove_card' }),
+  removeCard: (cardId: string) => sendRaw({ type: 'remove_card', cardId }),
   invite: (cardId: string) => sendRaw({ type: 'invite', cardId }),
   isOpen: () => !!ws && ws.readyState === 1,
 };

@@ -7,7 +7,7 @@ import { useCharacters } from '../store/characterStore';
 import { useItems } from '../store/itemStore';
 import { useMp, type MpTurn } from '../store/multiplayerStore';
 import { effectiveAttrs, withAttrDelta } from './attrBonus';
-import { fullMaxHp, fullMaxEp, realAttrMult } from './derivedStats';
+import { fullMaxHp, fullMaxEp, realAttrMult, attrCapForTier } from './derivedStats';
 import { playerTreeAttrBonus } from '../store/skillTreeStore';
 import { playerTeamAttrBonus, playerTeamPerkAbilities } from '../store/adventureTeamStore';
 
@@ -23,7 +23,7 @@ export function buildPlayerSnapshot() {
     const equipped = (useItems.getState().items || []).filter((it: any) => it.equipped);
     // 有效六维 = 基础 + 技能树 + 团队 + 装备(含宝石) + 技能/天赋加成（与单机 buildCombatant('B1') 同口径，联机战力一致）
     const baseTT = withAttrDelta(withAttrDelta(base, playerTreeAttrBonus()), playerTeamAttrBonus());
-    const a: any = effectiveAttrs(baseTT, c.skills, c.traits, equipped as any);
+    const a: any = effectiveAttrs(baseTT, c.skills, c.traits, equipped as any, attrCapForTier(p.tier, p.level));
     const teamPerk = playerTeamPerkAbilities();
     const rmP = realAttrMult(p.tier, p.level);   // 四阶起 HP/EP×5（联机与单机一致）
     const maxHp = fullMaxHp(baseTT, equipped as any, c.skills, [...(c.traits || []), ...teamPerk], rmP);

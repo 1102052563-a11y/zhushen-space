@@ -367,9 +367,12 @@ export const useMisc = create<MiscState>()(
         settings: {
           ...DEFAULT_SETTINGS,
           ...(persisted?.settings ?? {}),
-          entries: Array.isArray(persisted?.settings?.entries) && persisted.settings.entries.length > 0
-            ? persisted.settings.entries
-            : DEFAULT_MISC_ENTRIES,
+          // 强制覆盖（仿正文世界书的 builtin 重载）：预设条目每次加载都刷成最新内置默认，
+          // 用户无需手动「恢复默认」就拿到内置更新。代价＝UI 里对预设条目的手改/导入只当次会话有效、
+          // 不跨刷新保留；要长期改预设请改 src/data/miscDefaultPreset.json 或代码注入的 *_RULE。
+          entries: DEFAULT_MISC_ENTRIES,
+          presetName: DEFAULT_PRESET_NAME,
+          presetVersion: DEFAULT_PRESET_VERSION,
         },
         miscApi: { ...current.miscApi, ...(persisted?.miscApi ?? {}) },
         miscUseSharedApi: persisted?.miscUseSharedApi ?? current.miscUseSharedApi,
