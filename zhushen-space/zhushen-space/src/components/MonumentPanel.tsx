@@ -1,10 +1,12 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useMonument, type MonumentEntry } from '../store/monumentStore';
 import { useNpc, type NpcRecord } from '../store/npcStore';
 import {
   buildMonumentSnapshot, enshrineCurrentPlayer, regenerateEulogy,
   summonMonument, dismissMonument,
 } from '../systems/monument';
+import { useMonumentCloud, pullMonumentCloud, syncMonumentCloud, initMonumentCloudSync } from '../systems/monumentCloud';
+import { discordLoggedIn, discordLogin, fetchChatIdentity, chatReady, chatName, chatDisplayUid } from '../systems/chatIdentity';
 import { EntityCard, EntityDetailModal, type EntityKind } from './EntityDetail';
 
 /* 纪念丰碑：把过往主角铭刻入碑（全量面板 + AI 生平总结 + 结语），跨存档常驻；
@@ -47,6 +49,36 @@ export default function MonumentPanel({ onClose }: { onClose: () => void }) {
   const [confirmDel, setConfirmDel] = useState<string | null>(null);
   const [flash, setFlash] = useState('');
 
+  // 云同步（与聊天室共用 Discord 身份）
+  const cloud = useMonumentCloud();
+  const [loggedIn, setLoggedIn] = useState(() => discordLoggedIn());
+  const [cloudBusy, setCloudBusy] = useState(false);
+  // 进场：已登录则自动拉取云端并入 + 启用自动上传
+  useEffect(() => {
+    (async () => {
+      if (!discordLoggedIn()) return;
+      try {
+        if (!chatReady()) await fetchChatIdentity();
+        initMonumentCloudSync();
+        await pullMonumentCloud();
+      } catch { /* 失败留在未登录态，可手动重试 */ }
+    })();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const doCloudLogin = async () => {
+    setCloudBusy(true);
+    try {
+      await discordLogin();
+      setLoggedIn(true);
+      await fetchChatIdentity();
+      initMonumentCloudSync();
+      await pullMonumentCloud();
+    } catch (e: any) { setFlash(e?.message || '登录失败'); }
+    setCloudBusy(false);
+  };
+  const doCloudSync = async () => { setCloudBusy(true); await syncMonumentCloud(); setCloudBusy(false); };
+
   const list = useMemo(() => Object.values(entries).sort((a, b) => b.enshrinedAt - a.enshrinedAt), [entries]);
   const summonedByMon = useMemo(() => {
     const m = new Map<string, NpcRecord>();
@@ -85,6 +117,23 @@ export default function MonumentPanel({ onClose }: { onClose: () => void }) {
           </button>
           <button onClick={onClose} className="text-dim/50 hover:text-blood text-lg transition-colors">✕</button>
         </header>
+
+        {/* 云同步条（与聊天室共用 Discord 身份；登录后自动拉取并入 + 变更自动上传）*/}
+        <div className="shrink-0 flex items-center gap-2 px-4 py-2 border-b border-edge bg-panel/20 text-[12px]">
+          <span className="text-god/70">☁</span>
+          {!loggedIn ? (
+            <>
+              <span className="text-dim/60">云同步丰碑 · 跨设备备份（用 Discord 验证身份）</span>
+              <button onClick={doCloudLogin} disabled={cloudBusy} className="ml-auto px-3 py-1 rounded-lg text-[12px] font-semibold bg-god/20 border border-god/40 text-god hover:bg-god/30 disabled:opacity-40 transition-colors">{cloudBusy ? '登录中…' : '用 Discord 登录'}</button>
+            </>
+          ) : (
+            <>
+              <span className="text-dim/55 font-mono shrink-0">{chatName() || '道友'}<span className="text-god/45"> #{chatDisplayUid()}</span></span>
+              <span className={`truncate ${cloud.status === 'error' ? 'text-amber-400/80' : cloud.status === 'syncing' ? 'text-god/70' : 'text-dim/45'}`}>{cloud.status === 'syncing' ? '同步中…' : (cloud.msg || (cloud.lastSync ? `已同步 ${new Date(cloud.lastSync).toLocaleTimeString()}` : '已登录'))}</span>
+              <button onClick={doCloudSync} disabled={cloudBusy} className="ml-auto shrink-0 px-3 py-1 rounded-lg text-[12px] font-semibold bg-god/15 border border-god/40 text-god hover:bg-god/25 disabled:opacity-40 transition-colors">{cloudBusy ? '同步中…' : '☁ 同步'}</button>
+            </>
+          )}
+        </div>
 
         {/* 立碑表单（铭刻当前主角预览）*/}
         {showPreview && (

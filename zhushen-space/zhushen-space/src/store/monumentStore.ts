@@ -67,6 +67,7 @@ export interface MonumentSnapshot {
 export interface MonumentEntry {
   id: string;
   enshrinedAt: number;      // 入碑时间
+  updatedAt?: number;       // 最后修改时间（云同步并入时「新者胜」判据；入碑/结语回填/编辑都刷新）
   world?: string;           // 入碑时所在世界
   turn?: number;            // 入碑时累计回合数
   snapshot: MonumentSnapshot;
@@ -79,6 +80,7 @@ interface MonumentState {
   entries: Record<string, MonumentEntry>;
   enshrine: (e: { snapshot: MonumentSnapshot; world?: string; turn?: number }) => string;  // 立碑，返回新条目 id
   updateEntry: (id: string, patch: Partial<MonumentEntry>) => void;
+  mergeEntries: (incoming: Record<string, MonumentEntry>) => void;  // 云端并入本地（union by id，updatedAt 新者胜）；只增/更，不删本地独有
   removeEntry: (id: string) => void;
   clearAll: () => void;     // 清空全碑（仅供面板手动调用——绝不挂进 clearProgress）
 }
@@ -89,16 +91,31 @@ export const useMonument = create<MonumentState>()(
       entries: {},
       enshrine: ({ snapshot, world, turn }) => {
         const id = `M${Date.now().toString(36)}${Math.floor(Math.random() * 1296).toString(36)}`;
+        const now = Date.now();
         set((s) => ({
           entries: {
             ...s.entries,
-            [id]: { id, enshrinedAt: Date.now(), world, turn, snapshot, eulogyStatus: 'pending' },
+            [id]: { id, enshrinedAt: now, updatedAt: now, world, turn, snapshot, eulogyStatus: 'pending' },
           },
         }));
         return id;
       },
       updateEntry: (id, patch) =>
-        set((s) => (s.entries[id] ? { entries: { ...s.entries, [id]: { ...s.entries[id], ...patch } } } : s)),
+        set((s) => (s.entries[id] ? { entries: { ...s.entries, [id]: { ...s.entries[id], ...patch, updatedAt: Date.now() } } } : s)),
+      mergeEntries: (incoming) =>
+        set((s) => {
+          if (!incoming || typeof incoming !== 'object') return s;
+          const next = { ...s.entries };
+          let changed = false;
+          for (const [id, e] of Object.entries(incoming)) {
+            if (!e || typeof e !== 'object' || !e.snapshot || !e.snapshot.name) continue;  // 脏数据跳过
+            const cur = next[id];
+            const inAt = Number(e.updatedAt || e.enshrinedAt || 0);
+            const curAt = cur ? Number(cur.updatedAt || cur.enshrinedAt || 0) : -1;
+            if (!cur || inAt > curAt) { next[id] = { ...e, id }; changed = true; }   // 不存在 or 云端更新 → 取云端
+          }
+          return changed ? { entries: next } : s;
+        }),
       removeEntry: (id) =>
         set((s) => {
           if (!s.entries[id]) return s;

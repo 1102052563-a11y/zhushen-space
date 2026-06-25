@@ -10,6 +10,7 @@ import { AssistDO } from "./AssistDO.js";
 import { handleGateway } from "./gateway.js";
 import { handleWorkshop } from "./workshop.js";
 import { handleCloud } from "./cloud.js";
+import { handleMonumentGet, handleMonumentPut } from "./monumentCloud.js";
 import { handleChatMe, handleChatAvatar } from "./chatId.js";
 import { handleStickerUpload, handleStickerServe, handleStickerList, handleStickerDelete } from "./chatSticker.js";
 import { verifyChatToken } from "./auth.js";
@@ -91,6 +92,13 @@ export default {
       // 云存档（Discord 登录 + R2 存档 blob + D1 索引；手动上传/下载，含图）
       if (p.startsWith("/api/cloud")) {
         return await handleCloud(request, env, ch, url);
+      }
+
+      // 纪念丰碑·云同步（个人私有 R2 blob mon/<uid>.json；与聊天室共用 Discord 身份 chatToken）
+      if (p === "/api/monument") {
+        if (request.method === "GET") return await handleMonumentGet(request, env, ch);
+        if (request.method === "POST") return await handleMonumentPut(request, env, ch);
+        return json({ error: "method not allowed" }, { status: 405 }, ch);
       }
 
       // 健康检查
