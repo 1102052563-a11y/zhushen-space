@@ -303,8 +303,8 @@ async function loadBuiltinDefaults() {
         useSettings.getState().importTextWorldBook(json, name, true, key);
       };
       // 并发取五本（而非逐本 await）：取回后连续 apply，把「正文世界书尚未就绪」的竞态窗口压到最小（修偶发没世界书）。
-      const [twMod, twNovel, twPose, twBdsm, twPower] = await Promise.all([
-        grab('modular-output.json'), grab('novel.json'), grab('pose.json'), grab('bdsm.json'), grab('power-codex.json'),
+      const [twMod, twNovel, twPose, twBdsm, twPower, twMisc] = await Promise.all([
+        grab('modular-output.json'), grab('novel.json'), grab('pose.json'), grab('bdsm.json'), grab('power-codex.json'), grab('misc-codex.json'),
       ]);
       overwriteTwb(twMod,   'ST模块化输出·铁律', 'twb-modular');
       overwriteTwb(twNovel, '轮回乐园小说',     'twb-novel');
@@ -312,6 +312,8 @@ async function loadBuiltinDefaults() {
       overwriteTwb(twBdsm,  'BDSM·调教束缚·S15',   'twb-bdsm');
       // 阶位·生物强度战力图鉴：登场判断专用参照系（buildEntryPhaseSystemPrompt 强制全量注入）；条目全为无关键词绿灯，正文默认不注入、不污染日常。
       overwriteTwb(twPower, '阶位·生物强度战力图鉴', 'twb-power');
+      // 杂项演化·任务与世界规范图鉴：杂项演化阶段专用参照系（runMiscEvolutionPhase 强制全量注入）；条目全为无关键词绿灯，正文默认不注入、不污染日常。
+      overwriteTwb(twMisc,  '杂项演化·任务与世界规范图鉴', 'twb-misc');
       // （已移除世界书自动去重：玩家手动导入的世界书一律不强制删——哪怕与内置同名/重复也保留；要去重请玩家自己在设置里删。）
     }
     // 双人成行内置已移除(2026-06-18)：不再自动加载/激活任何默认正文预设；新用户开局走最简兜底，自行去预设列表选（轮回乐园两份已内置但默认关闭）。
@@ -743,6 +745,26 @@ const MISC_SUMMARY_CADENCE_RULE = `
 - 大总结 addLargeSummary：**不是每轮都写**。是否输出严格听从下方「本轮大总结开关」：
   · 开关=否 → **禁止输出任何 addLargeSummary**（即便写了也会被系统丢弃）。
   · 开关=是 → 必须且只输出 **1 条** addLargeSummary：它是对下方【最近小总结】的更高层「阶段压缩」——归纳这一阶段的整体走向、当前处境、未决任务与后续风险，**抹去单回合细节**，与任何一条小总结都明显不同；严禁把本回合小总结原样换句话当作大总结。`;
+
+const MISC_COT_RULE = `
+【杂项演化·强制思维链(CoT)铁则（最高优先；这是本阶段唯一允许在 <upstore> 之外输出的内容）】在产出 <upstore> 指令块之前，你**必须**先输出一段 <misc_cot>…</misc_cot> 思维链，逐项推演本轮产出的"合理性与原因"，再据此落指令。系统只解析 <upstore>，<misc_cot> 块会被自动忽略——但你必须先写它、把"为什么这么记"想清楚，以杜绝套路化、失衡、与正文脱节的产出。它与【输出格式铁律】不冲突：思维链是**唯一例外**；写完思维链后，最终指令仍只写进 <upstore>，**绝不要把指令草稿留在 <misc_cot> 里当成输出**。
+
+<misc_cot> 必须按下列顺序推演（对照【杂项演化·任务与世界规范图鉴】各条；找不到正文依据/讲不出合理原因的，一律不输出）：
+0. 本轮事实：从正文抽取会影响 总结/任务/天气/世界大事/时间 的关键事实；判定当前在【枢纽】还是【任务世界】（决定能否新建任务）。
+1. 总结：本回合最关键的变化是什么（小总结要点，约120~220字）；大总结开关是否=是（=否则禁止输出大总结）。
+2. ★任务（最重要、推演最详）——对每一个"新建/推进/重排/结算"的任务动作，逐条写明原因，缺一不可：
+   · 触发证据：正文哪一句让这个任务"现在"该产生/推进/结算？（无明确证据 → 不动）
+   · 合理性：是否贴合当前世界设定/原作脉络（同人增强开时）？是否契合主角当前处境（阶位/强度/位置/身份）？难度是否符合【击杀阶位上限】（强制环≤主角阶位、贪婪环≤+1）？是否落入被禁止的"枢纽日常/框架流程"套路（适应乐园/逛街采购/进入衍生世界…一律不建）？是否与既有任务重复（同目标 → 优先推进既有，不另起）？
+   · 类型与环：从【任务类型库】挑了哪种、为何最贴切？若为主线/多回合：环路线图为何这样排——每环规模/难度如何递增、为何指向这个 finale、强制环/贪婪环如何划分？
+   · 奖惩与时限：reward 为何这样配（五选三、按环超线性、带本世界风味）？penalty 是否取自规范三类？时限 endTime−startTime 是否≥7天且贴合任务性质？
+   · 结算：要标"已完成/已失败"的，正文是否有明确达成/失败证据？多环任务达成的只是"当前环" → 应 ringAdvance 而非整条结算？
+   · 结论：本任务这一轮"动 or 不动"，动则给出最终指令草稿。
+3. 天气：本轮正文/季节/地点是否导致天气变化？据【天气词库】挑一个贴切的（没变也照抄重出一遍，始终非空）。
+4. 世界大事：是否达到"影响大范围格局"的阈值（对照【世界大事·类型库】）？达不到就一条不写；达到则地点写全路径。
+5. 双时间：worldTime/paradiseTime 该不该推进、推进幅度是否贴合正文？在枢纽则两时间一致。
+6. 自检：只输出允许的杂项指令；任务 ID 精确（T_<数字>不补零）、不可逆事实有据、总结长度合格。
+
+铁律：**宁缺毋滥**——把"为什么合理"的推演写在 <misc_cot> 里，把经得起推敲的结论落进 <upstore>；任何讲不出原因的产出都不要写。`;
 
 const FACTION_HOME_EXIT_RULE = `
 【势力随世界进出·铁则】势力是**世界绑定**的：只有 worldName 与「当前世界」一致的势力才算"当前世界(inCurrentWorld)"。
@@ -3333,6 +3355,14 @@ ${AFFIX_EFFECT_RULE}`;
       `进行中任务:${M.tasks.length}`,
     ].filter(Boolean).join('｜');
     const fanficOn = useSettings.getState().fanficMode;
+    // 杂项演化·任务与世界规范图鉴（builtinKey='twb-misc'）：杂项阶段专用参照系，强制全量注入本书所有启用条目（不看蓝/绿灯）。
+    // 整本书禁用或被删则优雅留空——可在「正文世界书」列表里编辑，改即生效。
+    const miscCodexInjection = (() => {
+      const book = useSettings.getState().textWorldBooks.find((b) => b.builtinKey === 'twb-misc');
+      if (!book || book.enabled === false) return '';
+      const body = book.entries.filter((e) => e.enabled !== false).map((e) => e.content.trim()).filter(Boolean).join('\n\n');
+      return body ? `\n\n【杂项演化·任务与世界规范图鉴（生成任务/世界大事/天气/总结前务必逐条对照）】\n${body}` : '';
+    })();
     const systemPrompt = buildMiscSystemPrompt(M.settings.entries)
       .replaceAll('${story_text}', narrative)
       .replaceAll('${user_input}', '')
@@ -3365,12 +3395,14 @@ ${AFFIX_EFFECT_RULE}`;
       + '\n\n' + QUEST_RATING_RULE
       + '\n\n' + TASK_RECONCILE_RULE
       + '\n\n' + TASK_CANON_RULE
+      + miscCodexInjection
       + `\n【进入新世界信号】：${enteredNewWorld ? '是 —— 本轮检测到进入新的任务世界，请按【主线路线图规划】检查：当前任务世界若尚无 active 主线，则把该世界自身的核心目标立成主线并规划整张环路线图' : (isHomeWorld(M.worldName) ? '否 —— 当前在轮回乐园/专属房间(枢纽·任务间歇)，按【乐园·枢纽禁止生成任务】**禁止生成任何新任务**（主线/支线/隐藏/单环全不建），更不要"熟悉环境/适应乐园/逛街采购/进入衍生世界/获取身份/回归乐园"等流程·杂事任务；只对既有任务做结算/推进，等真正进入任务世界(衍生世界)再规划' : '否（沿用既有主线，勿重复新建）')}`
       + `\n【当前世界】：${M.worldName || '轮回乐园'}`
       + `\n【同人增强】：${fanficOn ? '开 —— 若当前世界为已知虚构作品，按【同人世界·任务接地】先联网搜索原作设定，再据此规划/生成任务' : '关（不联网搜索，按正文与世界设定生成任务）'}`
       + `\n【主角当前处境（任务须与之契合）】：${playerSituation || '（未建档）'}`
       + `\n【本轮大总结开关】：${isLargeTurn ? `是（本轮是第 ${round} 轮，到达大总结周期，必须压缩近期小总结输出 1 条大总结）` : `否（本轮第 ${round} 轮，未到周期，只写小总结，禁止输出大总结）`}`
-      + `\n【最近小总结（供大总结压缩参考，仅在开关=是时使用）】：\n${recentSmall}`;
+      + `\n【最近小总结（供大总结压缩参考，仅在开关=是时使用）】：\n${recentSmall}`
+      + '\n\n' + MISC_COT_RULE;
 
     try {
       const { content: reply } = await apiChatFallback(chain, [
