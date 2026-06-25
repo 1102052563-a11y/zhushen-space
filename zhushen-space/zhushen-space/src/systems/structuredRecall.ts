@@ -289,7 +289,8 @@ export function serializePlayerCard(
     profile.personalityDetail && `性格描述:${profile.personalityDetail}`,
     profile.status && `当前状态:${profile.status}`,
     (profile.statusEffects?.length ?? 0) > 0 && `限时状态:${profile.statusEffects.map((e) => `${e.name}${e.durationDesc ? `(${e.durationDesc})` : ''}`).join('、')}`,
-    profile.appearance && `外观:${profile.appearance}`,
+    profile.baseAppearance && `基底外观(常驻长相·开局设定·最高基准·绝不漂移):${profile.baseAppearance}——身高/发色/瞳色/肤色/体型/标志特征一律以此为准；描写外观、生成生图标签(列19)与肖像时【绝不可与之矛盾】。此处写"无肌肉/精瘦"就绝不能写成肌肉发达/肌肉线条紧绷，写明的瞳色/身高也不许擅改。`,
+    profile.appearance && `外观(即时状态·动作/姿态/衣着/伤损·须与上方基底外观一致):${profile.appearance}`,
     profile.location && `位置:${profile.location}`,
     profile.background && `背景:${profile.background}`,
   ].filter(Boolean).join('\n  ');
@@ -388,8 +389,9 @@ export function serializeNpcCard(
     npc.longGoal && `长期目标:${npc.longGoal}`,
     npc.innerThought && `内心:${npc.innerThought}`,
     npc.selfNarration && `第一人称自述:${npc.selfNarration}`,
-    npc.appearance5 && `肖像:${npc.appearance5}`,
-    npc.appearanceDetail && `容貌:${npc.appearanceDetail}`,
+    npc.baseAppearance && `基底外观(常驻长相·最高基准·绝不漂移):${npc.baseAppearance}——身高/发色/瞳色/肤色/体型/标志特征以此为准；肖像/容貌/生图标签与生图【绝不可与之矛盾】(如此处写"无肌肉/精瘦"就绝不能写成肌肉发达，写明的瞳色/身高不许擅改)。`,
+    npc.appearance5 && `肖像(须与基底外观一致):${npc.appearance5}`,
+    npc.appearanceDetail && `容貌(须与基底外观一致):${npc.appearanceDetail}`,
     npc.background && `背景:${npc.background}`,
     (npc.deedLog?.length ?? 0) > 0 && `近期经历:${npc.deedLog!.slice(-3).map((d) => d.description).join('；')}`,
   ].filter(Boolean).join('\n  ');
