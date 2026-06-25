@@ -2,8 +2,8 @@ import { describe, it, expect } from 'vitest';
 import {
   computeMaxHp, computeMaxEp, effectiveResource,
   realmFromLevel, normalizeTier, trueAttr, lvFromRealm,
-  attrCapForTier, clampBaseAttrs, gearMaxHpBonus, gearMaxHpPctBonus, fullMaxHp,
-  realAttrMult, parseCombatStat, computeDerived,
+  attrCapForTier, clampBaseAttrs, gearMaxHpBonus, gearMaxHpPctBonus, fullMaxHp, fullMaxEp,
+  realAttrMult, parseCombatStat, computeDerived, ratioOf, hpPerConOf, epPerIntOf,
 } from './derivedStats';
 import type { PlayerAttrs } from '../store/playerStore';
 
@@ -21,6 +21,36 @@ describe('computeMaxHp / computeMaxEp（HP=体质×20, EP=智力×15）', () => 
     expect(computeMaxHp(undefined)).toBe(100); // 默认 con 5
     expect(computeMaxEp(undefined)).toBe(75);  // 默认 int 5
     expect(computeMaxHp(A({ con: 0 }))).toBe(0);
+  });
+});
+
+describe('自定义转化比（hpPerCon / epPerInt）', () => {
+  it('ratioOf：全空→undefined，有值→保留', () => {
+    expect(ratioOf(undefined)).toBeUndefined();
+    expect(ratioOf({})).toBeUndefined();
+    expect(ratioOf({ hpPerCon: 30 })).toEqual({ hpPerCon: 30, epPerInt: undefined });
+    expect(ratioOf({ hpPerCon: 30, epPerInt: 25 })).toEqual({ hpPerCon: 30, epPerInt: 25 });
+  });
+  it('hpPerConOf/epPerIntOf：非有限/≤0 回退默认 20/15', () => {
+    expect(hpPerConOf({ hpPerCon: 30 })).toBe(30);
+    expect(hpPerConOf({ hpPerCon: 0 })).toBe(20);
+    expect(hpPerConOf({ hpPerCon: -5 })).toBe(20);
+    expect(hpPerConOf(undefined)).toBe(20);
+    expect(epPerIntOf({ epPerInt: 25 })).toBe(25);
+    expect(epPerIntOf({ epPerInt: NaN })).toBe(15);
+    expect(epPerIntOf(undefined)).toBe(15);
+  });
+  it('computeMaxHp/EP 用自定义比（体10×30=300，智10×25=250）', () => {
+    expect(computeMaxHp(A({ con: 10 }), 1, { hpPerCon: 30 })).toBe(300);
+    expect(computeMaxEp(A({ int: 10 }), 1, { epPerInt: 25 })).toBe(250);
+  });
+  it('自定义比仍叠乘 realMult（四阶 体10×30×5=1500）', () => {
+    expect(computeMaxHp(A({ con: 10 }), 5, { hpPerCon: 30 })).toBe(1500);
+  });
+  it('fullMaxHp/EP 透传自定义比（体10×30 + 装备平值 +1000）', () => {
+    expect(fullMaxHp(A({ con: 10 }), [], [], [], 1, { hpPerCon: 30 })).toBe(300);
+    expect(fullMaxHp(A({ con: 10 }), [{ effect: '生命值上限+1000' }], [], [], 1, { hpPerCon: 30 })).toBe(1300);
+    expect(fullMaxEp(A({ int: 10 }), [], [], [], 1, { epPerInt: 25 })).toBe(250);
   });
 });
 

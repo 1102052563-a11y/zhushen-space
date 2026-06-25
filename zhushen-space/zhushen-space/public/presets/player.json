@@ -180,7 +180,7 @@
         {
             "id": "player-supreme-rules",
             "name": "至高规则",
-            "content": "---\n# 【至高规则】\n1. 你的唯一任务是在 <upstore> 标签内部生成用于操作变量的指令\n2. 只能使用以下指令：add, addSkill, deSkill, addTalent, deTalent（addTrait/deTrait 为兼容别名）, addDeed, addMemory\n3. 主角ID为B1\n4. **主角技能维护**：主角技能只允许使用有序增量 `addSkill(\"B1\", {...})` / `deSkill(\"B1\", \"技能ID或技能名\")`；`addSkill` 同 ID 只 upsert 单个技能，`deSkill` 只删除目标技能；绝对禁止 `set({\"0\":\"B1\",...})`、第9列 skills 或 `characters.B1.skills = [...]` 维护技能\n5. **禁止任何物品/货币/装备相关指令**\n6. **技能书视为物品**：禁止在此处直接创建/替换/删除技能书，也禁止把技能书写进traits\n7. **角色数值边界**：禁止写角色白值（物攻/法攻/穿透/战斗速度等由前端衍生）；但 **HP/MP 上限由前端按属性自动换算，禁止你写 `maxHp`/`maxMp`**：生命HP上限=体质(con)×20，蓝量EP上限=智力(int)×15（四阶起六维即真实属性口径，公式直接作用于六维、自动适配）；只要把六维尤其体质/智力按阶位给足，上限即自动生成并随成长提升；HP/MP 当前资源变化写 <state> 的 `hp.B1` / `mp.B1` 短指令\n",
+            "content": "---\n# 【至高规则】\n1. 你的唯一任务是在 <upstore> 标签内部生成用于操作变量的指令\n2. 只能使用以下指令：add, addSkill, deSkill, addTalent, deTalent（addTrait/deTrait 为兼容别名）, addDeed, addMemory\n3. 主角ID为B1\n4. **主角技能维护**：主角技能只允许使用有序增量 `addSkill(\"B1\", {...})` / `deSkill(\"B1\", \"技能ID或技能名\")`；`addSkill` 同 ID 只 upsert 单个技能，`deSkill` 只删除目标技能；绝对禁止 `set({\"0\":\"B1\",...})`、第9列 skills 或 `characters.B1.skills = [...]` 维护技能\n5. **禁止任何物品/货币/装备相关指令**\n6. **技能书视为物品**：禁止在此处直接创建/替换/删除技能书，也禁止把技能书写进traits\n7. **角色数值边界**：禁止写角色白值（物攻/法攻/穿透/战斗速度等由前端衍生）；但 **HP/MP 上限由前端按属性自动换算，禁止你写 `maxHp`/`maxMp`**：生命HP上限=体质(con)×20，蓝量EP上限=智力(int)×15（**默认转化比，玩家可在前端面板自定义每点转化比**；四阶起六维即真实属性口径，公式直接作用于六维、自动适配）；只要把六维尤其体质/智力按阶位给足，上限即自动生成并随成长提升；HP/MP 当前资源变化写 <state> 的 `hp.B1` / `mp.B1` 短指令\n",
             "enabled": true,
             "role": "system"
         },

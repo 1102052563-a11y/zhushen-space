@@ -6,7 +6,7 @@
    分叉房间图 / 完整 CombatPanel 复用留 M2。
 ════════════════════════════════════════════ */
 import type { PlayerAttrs } from '../store/playerStore';
-import { computeDerived, computeMaxHp, computeMaxEp } from './derivedStats';
+import { computeDerived, computeMaxHp, computeMaxEp, ratioOf } from './derivedStats';
 import {
   ABYSS_BIOMES, pickMonsters, rollLootTable, BOON_SEED_POOL, SIN_BLACK_MASK,
   BOON_PRIM_BASE, BOON_TIER_MUL, ABYSS_STARMAP,
@@ -200,6 +200,8 @@ export interface PlayerSnapshot {
   tier?: string;
   equipped: { category: string; grade: number }[];
   skills?: { name: string; effect: string }[];   // 战斗中可施放（主角读 characterStore；同伴读其 characterStore）
+  hpPerCon?: number;   // 体质→HP 自定义转化比（空=默认 20），与主角面板一致
+  epPerInt?: number;   // 智力→EP 自定义转化比（空=默认 15）
 }
 
 /* ════════ 确定性 RNG（mulberry32 + 字符串散列） ════════ */
@@ -234,8 +236,8 @@ export function corruptToFall(corruption: number): number {
 /* ════════ 主角 → 沙盒单位（快照，绝不回写） ════════ */
 export function buildPlayerUnit(snap: PlayerSnapshot): AbyssUnit {
   const d = computeDerived(snap.attrs, snap.level, snap.equipped);
-  const maxHp = Math.max(1, computeMaxHp(snap.attrs));
-  const maxEp = Math.max(0, computeMaxEp(snap.attrs));
+  const maxHp = Math.max(1, computeMaxHp(snap.attrs, 1, ratioOf(snap)));
+  const maxEp = Math.max(0, computeMaxEp(snap.attrs, 1, ratioOf(snap)));
   return {
     id: 'B1', name: snap.name || '契约者', isPlayer: true,
     attrs: { ...snap.attrs }, level: snap.level, tier: snap.tier,

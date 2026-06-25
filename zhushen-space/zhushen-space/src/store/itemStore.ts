@@ -82,7 +82,11 @@ export function gradeToNum(grade?: string): number {
 /** 评分(score) → 物品档位(1-14)。区间同 ITEM_GRADE_TABLE_RULE；非法/缺失返回 0。
  *  创世(15)为旧版神话档，不由评分自动落档（8000+ 落永恒14）。*/
 export function scoreToGradeNum(score?: number | string): number {
-  const n = typeof score === 'number' ? score : parseFloat(String(score ?? '').replace(/[^\d.]/g, ''));
+  // 只认「首个数字 token」：score 文本常带区间说明（如「28（绿色区间11~30分）」），
+  // 旧实现 replace(/[^\d.]/g) 会把所有数字拼成「281130」→ 误落永恒档。改为取第一个数字。
+  const n = typeof score === 'number'
+    ? score
+    : (() => { const m = String(score ?? '').match(/-?\d+(?:\.\d+)?/); return m ? parseFloat(m[0]) : NaN; })();
   if (!isFinite(n) || n <= 0) return 0;
   if (n <= 10) return 1;
   if (n <= 30) return 2;
@@ -114,6 +118,11 @@ function gradeNumFromOpt(grade?: number | string): number {
   const n = typeof grade === 'number' ? grade : parseInt(String(grade ?? ''), 10);
   return Number.isFinite(n) && n >= 1 && n <= 15 ? n : 0;
 }
+/** 取 gradeDesc 开头的那个档名（按「具体名在前」匹配，避免「暗金」被「金」抢、「暗紫」被「紫」抢）；找不到返回 ''。 */
+function leadingGradeName(g: string): string {
+  for (const name of TIER_ALT.split('|')) if (g.startsWith(name)) return name;
+  return '';
+}
 
 /** 把物品品级文字收敛成【单一档】（ITEM_GRADE_TABLE_RULE「一物一档」铁则的纯前端护栏）：
  *  ① 剥离误用的技能/天赋品级词（普通/精良/稀有/奥义/极境）；
@@ -138,6 +147,19 @@ export function normalizeGradeLabel(
   // 清理剥离/折叠后残留的首尾分隔符
   g = g.replace(/^[\s/／、,，·•]+|[\s/／、,，·•]+$/g, '').trim();
   if (!g) g = original; // 防清空：万一全被剥掉，回退原值
+  // ③ 单标签越级收敛（评分封顶·只降不升）：给了有效评分、而开头档名【高于】评分所属档（典型越级爆品，
+  //    如「评分100却标史诗级」）→ 按评分把开头档名降到对应档（保留后缀描述）。评分缺失、或档名≤评分档时一律不动
+  //    （不擅自抬升，避免把异常评分放大成爆品）。创世(15)是神话档、评分最高只折到永恒(14)，故评分本就极高(≥起源档)时保留创世。
+  const tgt = scoreToGradeNum(opts?.score);
+  if (tgt > 0) {
+    const lead = leadingGradeName(g);
+    const cur = lead ? gradeToNum(lead) : 0;
+    const keepGenesis = cur === 15 && tgt >= 13;
+    if (cur > tgt && !keepGenesis) {
+      const want = ITEM_GRADES[tgt - 1];
+      if (lead && want) g = want + g.slice(lead.length);
+    }
+  }
   return { grade: g, changed: g !== original };
 }
 

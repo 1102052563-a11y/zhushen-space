@@ -20,6 +20,11 @@ describe('scoreToGradeNum（评分 → 物品档位 1-14，区间同 ITEM_GRADE_
   it('容忍带文字的评分串', () => {
     expect(scoreToGradeNum('约120分')).toBe(4); // 120 → 紫色
   });
+  it('★只取首个数字 token（评分带区间说明不被拼成大数·旧 bug）', () => {
+    expect(scoreToGradeNum('28（绿色装备区间11~30分）')).toBe(2);  // 旧实现→「281130」→14；修复后取 28→绿色
+    expect(scoreToGradeNum('100（紫色 71~150）')).toBe(4);          // 100 → 紫色
+    expect(scoreToGradeNum('1001~1500')).toBe(11);                 // 范围取下界 1001 → 圣灵级
+  });
 });
 
 describe('normalizeGradeLabel（一物一档·复合品级收敛护栏）', () => {
@@ -68,6 +73,27 @@ describe('normalizeGradeLabel（一物一档·复合品级收敛护栏）', () =
     expect(normalizeGradeLabel('史诗级')).toEqual({ grade: '史诗级', changed: false });
     expect(normalizeGradeLabel('')).toEqual({ grade: '', changed: false });
     expect(normalizeGradeLabel(undefined)).toEqual({ grade: '', changed: false });
+  });
+
+  // ── 单标签越级收敛（评分封顶·只降不升） ──
+  it('★单一档名【高于】评分档 → 按评分降档（杀越级爆品）', () => {
+    expect(normalizeGradeLabel('史诗级', { score: 100 })).toEqual({ grade: '紫色', changed: true }); // 100→紫(4) < 史诗(10) → 降
+    expect(normalizeGradeLabel('暗金', { score: 50 }).grade).toBe('蓝色');                            // 50→蓝(3) < 暗金(8) → 降
+  });
+  it('★降档保留尾部描述', () => {
+    expect(normalizeGradeLabel('史诗级·晓组织信物', { score: 100 }).grade).toBe('紫色·晓组织信物');
+  });
+  it('★单一档名【低于/等于】评分档 → 不升档（不擅自抬升，防异常评分爆品）', () => {
+    expect(normalizeGradeLabel('紫色', { score: 800 })).toEqual({ grade: '紫色', changed: false });   // 800→史诗 但只降不升
+    expect(normalizeGradeLabel('蓝色', { score: 50 })).toEqual({ grade: '蓝色', changed: false });     // 50→蓝 相等
+  });
+  it('★评分缺失 → 单标签不动', () => {
+    expect(normalizeGradeLabel('史诗级', {})).toEqual({ grade: '史诗级', changed: false });
+    expect(normalizeGradeLabel('史诗级', { score: 'N/A' })).toEqual({ grade: '史诗级', changed: false });
+  });
+  it('★创世(神话档)：评分极高保留、评分低则降', () => {
+    expect(normalizeGradeLabel('创世', { score: 9000 })).toEqual({ grade: '创世', changed: false });  // 9000→永恒(14)≥起源 → 保留创世
+    expect(normalizeGradeLabel('创世', { score: 50 }).grade).toBe('蓝色');                            // 50→蓝 → 神话档误标，降
   });
 });
 

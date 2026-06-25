@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect } from 'react';
 import { useNpc, type NpcRecord } from '../store/npcStore';
 import { useCharacters, RARITY_CLS, ELEMENT_CLS, SKILL_TIER_CLS, normSkillTier, type Deed } from '../store/characterStore';
-import { computeDerived, lvFromRealm, normalizeTier, tierFxClass, realmFromLevel, effectiveResource, fullMaxHp, fullMaxEp, TIERS, realAttrCapForTier, realAttrMult, attrCapForTier } from '../systems/derivedStats';
+import { computeDerived, lvFromRealm, normalizeTier, tierFxClass, realmFromLevel, effectiveResource, fullMaxHp, fullMaxEp, TIERS, realAttrCapForTier, realAttrMult, attrCapForTier, ratioOf, hpPerConOf, epPerIntOf } from '../systems/derivedStats';
 import { computeAttrBreakdown, effectiveAttrs, ATTR_LABEL, type AttrBreak } from '../systems/attrBonus';
 import { bioInnate, bioPower, bioStrengthLabel, BIO_TIER_NAMES, nominalTierNum } from '../systems/bioStrength';
 import { generateNpcAttrs, resolveForm, UNIT_TYPE_LABELS } from '../systems/npcAttrGen';
@@ -302,6 +302,7 @@ function NpcEditForm({ npc, onDone }: { npc: NpcRecord; onDone: () => void }) {
     str: sNum(npc.attrs?.str), agi: sNum(npc.attrs?.agi), con: sNum(npc.attrs?.con),
     int: sNum(npc.attrs?.int), cha: sNum(npc.attrs?.cha), luck: sNum(npc.attrs?.luck),
     hp: sNum(npc.hp), maxHp: sNum(npc.maxHp), mp: sNum(npc.mp), maxMp: sNum(npc.maxMp),
+    hpPerCon: sNum(npc.hpPerCon), epPerInt: sNum(npc.epPerInt),
     attrPoints: sNum(npc.attrPoints),
     realAttrPoints: sNum(npc.realAttrPoints), skillPoints: sNum(npc.skillPoints),
     isDead: !!npc.isDead, inCombat: !!npc.inCombat,
@@ -340,6 +341,9 @@ function NpcEditForm({ npc, onDone }: { npc: NpcRecord; onDone: () => void }) {
       ['realAttrPoints', f.realAttrPoints], ['skillPoints', f.skillPoints]] as [keyof NpcRecord, string][]) {
       const n = optNum(v); if (n !== undefined) (patch as any)[k] = n;
     }
+    // HP/EP 转化比：始终写入（留空→undefined=回默认 20/15，允许清回默认；非空→该数值）
+    patch.hpPerCon = optNum(f.hpPerCon);
+    patch.epPerInt = optNum(f.epPerInt);
     upsertNpc(npc.id, patch);
     onDone();
   }
@@ -431,6 +435,8 @@ function NpcEditForm({ npc, onDone }: { npc: NpcRecord; onDone: () => void }) {
           <ERow label="HP 上限"><input type="number" className={EDIT_INP} value={f.maxHp} onChange={(e) => set({ maxHp: e.target.value })} placeholder="不改" /></ERow>
           <ERow label="当前 EP"><input type="number" className={EDIT_INP} value={f.mp} onChange={(e) => set({ mp: e.target.value })} placeholder="不改" /></ERow>
           <ERow label="EP 上限"><input type="number" className={EDIT_INP} value={f.maxMp} onChange={(e) => set({ maxMp: e.target.value })} placeholder="不改" /></ERow>
+          <ERow label="体质→HP比"><input type="number" min={1} step={1} className={EDIT_INP} value={f.hpPerCon} onChange={(e) => set({ hpPerCon: e.target.value })} placeholder="默认20" /></ERow>
+          <ERow label="智力→EP比"><input type="number" min={1} step={1} className={EDIT_INP} value={f.epPerInt} onChange={(e) => set({ epPerInt: e.target.value })} placeholder="默认15" /></ERow>
           <ERow label="属性点"><input type="number" className={EDIT_INP} value={f.attrPoints} onChange={(e) => set({ attrPoints: e.target.value })} placeholder="不改" /></ERow>
           <ERow label="真实属性点"><input type="number" className={EDIT_INP} value={f.realAttrPoints} onChange={(e) => set({ realAttrPoints: e.target.value })} placeholder="不改" /></ERow>
           <ERow label="技能点"><input type="number" className={EDIT_INP} value={f.skillPoints} onChange={(e) => set({ skillPoints: e.target.value })} placeholder="不改" /></ERow>
@@ -1022,8 +1028,8 @@ function AttrTab({ npc: npcProp, realm }: { npc: NpcRecord; realm: ReturnType<ty
   // HP/EP 上限由(有效)体质×20 / 智力×15 自动换算
   // 最大HP/EP = 基础六维换算 + 装备/被动明确写"增加HP/EP上限"的平值 + 百分比加成；技能/天赋的属性加成不计入上限
   const rmN = realAttrMult(npc.realm, lvFromRealm(npc.realm));   // 四阶起 HP/EP×5
-  const maxHp = fullMaxHp(npc.attrs, equippedFull as any, cdata?.skills, cdata?.traits, rmN);
-  const maxEp = fullMaxEp(npc.attrs, equippedFull as any, cdata?.skills, cdata?.traits, rmN);
+  const maxHp = fullMaxHp(npc.attrs, equippedFull as any, cdata?.skills, cdata?.traits, rmN, ratioOf(npc));
+  const maxEp = fullMaxEp(npc.attrs, equippedFull as any, cdata?.skills, cdata?.traits, rmN, ratioOf(npc));
   const hpStr = `${effectiveResource(npc.hp, npc.maxHp, maxHp)} / ${maxHp}`;
   const epStr = `${effectiveResource(npc.mp, npc.maxMp, maxEp)} / ${maxEp}`;
   const attrDefs: { key: keyof PlayerAttrs; label: string }[] = [
@@ -1123,8 +1129,8 @@ function AttrTab({ npc: npcProp, realm }: { npc: NpcRecord; realm: ReturnType<ty
     <div>
       <Section title="资源与状态">
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-          <Field label="生命 HP" value={hpStr} />
-          <Field label="蓝量 EP" value={epStr} />
+          <Field label={`生命 HP${npc.hpPerCon ? `·体×${hpPerConOf(ratioOf(npc))}` : ''}`} value={hpStr} />
+          <Field label={`蓝量 EP${npc.epPerInt ? `·智×${epPerIntOf(ratioOf(npc))}` : ''}`} value={epStr} />
           <Field label="阶位" value={realm.tier} accent />
           <Field label="等级" value={realm.lv != null ? `Lv.${realm.lv}` : ''} />
           <Field label="属性点" value={npc.attrPoints != null ? String(npc.attrPoints) : undefined} />

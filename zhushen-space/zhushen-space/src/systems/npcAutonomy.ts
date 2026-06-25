@@ -18,7 +18,7 @@ import {
   pickDeed, seedFrom, behaviorBiasFor, makeRng, pickFrom, getCorpus, hashStr,
   type DeedCtx, type DeedEvent,
 } from './autonomyCorpus';
-import { attrCapForTier } from './derivedStats';
+import { attrCapForTier, ratioOf, hpPerConOf, epPerIntOf } from './derivedStats';
 
 const MAX_TICKS_PER_TURN = 16;
 const CADENCE = 3;                          // 背景离场 NPC 分 3 组轮流
@@ -283,9 +283,10 @@ export function boundedGrowth(npc: NpcRecord, rng: () => number, opts: { levelUp
     }
     if (changed) {
       out.attrs = next;
-      // HP/EP 上限随六维重算（体×20 / 智×15）；只抬上限，不补血
-      if (next.con) out.maxHp = next.con * 20;
-      if (next.int) out.maxMp = next.int * 15;
+      // HP/EP 上限随六维重算（体×转化比 / 智×转化比，默认 20/15，尊重 NPC 自定义）；只抬上限，不补血
+      const r = ratioOf(npc);
+      if (next.con) out.maxHp = next.con * hpPerConOf(r);
+      if (next.int) out.maxMp = next.int * epPerIntOf(r);
     }
   }
   return out;
@@ -489,8 +490,9 @@ function nativeGrow(npc: NpcRecord, rng: () => number): Partial<NpcRecord> {
   if (v === next[k]) return {};
   next[k] = v;
   const out: Partial<NpcRecord> = { attrs: next };
-  if (next.con) out.maxHp = next.con * 20;   // HP 上限=体×20（只抬上限）
-  if (next.int) out.maxMp = next.int * 15;   // EP 上限=智×15
+  const r = ratioOf(npc);
+  if (next.con) out.maxHp = next.con * hpPerConOf(r);   // HP 上限=体×转化比（默认20，尊重自定义；只抬上限）
+  if (next.int) out.maxMp = next.int * epPerIntOf(r);   // EP 上限=智×转化比（默认15）
   return out;
 }
 

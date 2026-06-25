@@ -6,7 +6,7 @@ import { useCharacters } from '../store/characterStore';
 import { useSettings } from '../store/settingsStore';
 import { useSkillTree } from '../store/skillTreeStore';
 import { playerMaxHp, playerMaxEp } from './playerVitals';
-import { effectiveResource, fullMaxHp, fullMaxEp } from './derivedStats';
+import { effectiveResource, fullMaxHp, fullMaxEp, ratioOf } from './derivedStats';
 import { parseAllStateUpdates, parseAllItemCommands, applyItemCommands, isEquippable, setNpcOwnerResolver, type StateUpdate } from './stateParser';
 import { resolveEquipSlot } from './equipSlots';
 import { SKILLTREE_TUNING } from './skillTree';
@@ -176,7 +176,7 @@ function applyOneUpdate(u: StateUpdate) {
         const rec = npc.npcs[cid];
         const nc = useCharacters.getState().characters[cid];
         const eqp = (rec?.items ?? []).filter((it) => it.equipped) as any[];
-        const dmax = stat === 'hp' ? fullMaxHp(rec?.attrs, eqp, nc?.skills, nc?.traits) : fullMaxEp(rec?.attrs, eqp, nc?.skills, nc?.traits);
+        const dmax = stat === 'hp' ? fullMaxHp(rec?.attrs, eqp, nc?.skills, nc?.traits, 1, ratioOf(rec)) : fullMaxEp(rec?.attrs, eqp, nc?.skills, nc?.traits, 1, ratioOf(rec));
         const cur = effectiveResource(stat === 'hp' ? rec?.hp : rec?.mp, stat === 'hp' ? rec?.maxHp : rec?.maxMp, dmax);
         const next = toFull ? dmax : setMode ? Math.min(Math.max(0, amount), dmax) : op === '+=' ? Math.min(cur + amount, dmax) : Math.max(0, cur - amount);
         npc.upsertNpc(cid, stat === 'hp' ? { hp: next, maxHp: dmax } : { mp: next, maxMp: dmax });

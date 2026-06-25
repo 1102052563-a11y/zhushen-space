@@ -187,7 +187,7 @@
 
 **成就**（仅主角 `playerStore.achievements`）：`Achievement{id,name,desc,category,type,rarity,hidden,condition,unlockTime}`。`addAchievement("B1",{...})/deAchievement`(仅B*,NPC不建模)。UI 🏆成就→`AchievementPanel`(隐藏带🔒)。不计入叙事记忆注入。
 
-**HP/EP 上限可成长**：`maxHp/maxMp` 不固定,升级/阶位/体质成长可抬高。主角 `maxHp.B1=N`;NPC `hp.C1=当前/新上限`。**主角 HP/EP 始终按六维换算**(`computeMaxHp=体×20`/`computeMaxEp=智×15`),三处兜底：confirmCreation 开局拉满、`reconcilePlayerVitals`(仍100/50旧默认时重算)、`applyNarrativeVitals`(扫正文照抄)。
+**HP/EP 上限可成长**：`maxHp/maxMp` 不固定,升级/阶位/体质成长可抬高。主角 `maxHp.B1=N`;NPC `hp.C1=当前/新上限`。**主角 HP/EP 始终按六维换算**(`computeMaxHp=体×转化比`/`computeMaxEp=智×转化比`,**每点转化比默认20/15,主角/NPC 各自可自定义** `hpPerCon`/`epPerInt`,缺省回退默认,调用方经 `ratioOf()` 传入；主角在血条「✎自定义血条」面板改、NPC 在详情编辑里改),三处兜底：confirmCreation 开局拉满、`reconcilePlayerVitals`(仍100/50旧默认时重算)、`applyNarrativeVitals`(扫正文照抄)。
 
 ## 17. 名称模糊匹配 + 照抄铁则
 

@@ -15,6 +15,7 @@ import {
   ITEM_ACQUIRE_RULE,
   ITEM_DESTROY_GUARD_RULE,
   ITEM_COT_RULE,
+  ITEM_EVOLUTION_CODEX,
   PLAYER_COT_RULE,
   PARADISE_RULES_RULE,
   REAL_POINT_LOCK_RULE,
@@ -117,7 +118,7 @@ const CombatSetup = lazy(() => import('./components/CombatSetup'));
 import { useTerritory, buildTerritorySystemPrompt, buildingCap } from './store/territoryStore';
 import { useTeam, buildTeamSystemPrompt, memberCap as teamMemberCap } from './store/adventureTeamStore';
 import { useCosmos, buildCosmosSystemPrompt, cosmosNameEq, cleanCosmosName } from './store/cosmosStore';
-import { realmFromLevel, normalizeTier, lvFromRealm, computeMaxHp, computeMaxEp, effectiveResource, attrCapForTier, clampBaseAttrs, fullMaxHp, fullMaxEp, TIERS, realAttrMult } from './systems/derivedStats';
+import { realmFromLevel, normalizeTier, lvFromRealm, computeMaxHp, computeMaxEp, effectiveResource, attrCapForTier, clampBaseAttrs, fullMaxHp, fullMaxEp, TIERS, realAttrMult, ratioOf } from './systems/derivedStats';
 import { isHomeWorld, reconcileHomeWorld, reconcilePlayerVitals, playerMaxHp, playerMaxEp, syncPlayerVitalsMax } from './systems/playerVitals';
 import { bioInnate, tierVitalMult } from './systems/bioStrength';
 import { generateNpcAttrs, resolveForm, generateLuck } from './systems/npcAttrGen';
@@ -396,10 +397,13 @@ function buildItemPhaseSystemPrompt(entries: ItemPresetEntry[], narrative: strin
   const npcOnscreenText = npcRecords.filter((r) => r.onScene && !r.isDead).length > 0
     ? npcRecords.filter((r) => r.onScene && !r.isDead).map((r) => `[${r.id}] ${r.name} 阶位:${r.realm || '未知'}`).join('\n')
     : '（无在场NPC）';
-  // 在场 NPC 已持有的物品清单（带真实ID + 持有者）——让物品阶段勿对已存在的 NPC 物品重复 createItem
-  const npcItemsList = npcRecords.filter((r) => r.onScene && !r.isDead)
+  // 已持有的 NPC 物品清单（带真实ID + 持有者）——让物品阶段勿对已存在的 NPC 物品重复 createItem。
+  // 纳入「在场 NPC」+「随行的随从/宠物（即便离场也跟着主角走）」：否则离场随从的持有物对物品阶段隐身，
+  // 会被重复 createItem / updateItem·destroyItem 匹配不到（口径与综合对账阶段一致）。离场随行者标注「·随行(离场)」。
+  const npcItemHolders = npcRecords.filter((r) => !r.isDead && (r.onScene || r.npcTag === '随从' || r.npcTag === '宠物'));
+  const npcItemsList = npcItemHolders
     .flatMap((r) => (r.items ?? []).map((it) =>
-      `[${it.id}] ${it.name}（${it.category}${it.gradeDesc ? '·' + it.gradeDesc : ''}）×${it.quantity}${it.equipped ? '【已装备】' : ''} —— 持有者 ${r.id}(${r.name || r.id})`));
+      `[${it.id}] ${it.name}（${it.category}${it.gradeDesc ? '·' + it.gradeDesc : ''}）×${it.quantity}${it.equipped ? '【已装备】' : ''} —— 持有者 ${r.id}(${r.name || r.id})${r.onScene ? '' : '·随行(离场)'}`));
   const npcItemsText = npcItemsList.length > 0 ? npcItemsList.join('\n') : '（无在场NPC持有物）';
 
   // 玩家基本状态
@@ -676,15 +680,16 @@ const QUEST_PLANNING_RULE = `
 - **何时规划主线**：仅当主角**真正进入一个具体任务世界（衍生世界，非枢纽）**——【进入新世界信号】=是、或本轮正文明确把主角投放进了一个新任务世界，且【当前任务列表】里**没有**属于当前世界的 active 主线时——把**该任务世界自身的核心目标**（用该世界真实的地名/反派/势力，绝不用框架套话）立成一条主线，**先定好"总环数"与"终局"，环内容则渐进式规划**：
   · 用 set 新建，带 \`kind:"主线"\`、\`finale\`(终局/最后一环的 climax 目标)、\`currentRing:1\`、\`rings\`(**3~5 个环**：通常 2~3 个强制环 + 0~2 个贪婪环，见下)。**总环数与 finale 一旦定下就固定不变**。
   · **不要一上来就把所有环的内容写死——渐进式规划**：rings 按总环数建满 N 项，但只把"当前环 + 下一环"写完整，再后面的留占位：
-      ① **第1环(status="active") 与 第2环 写完整**：idx / goal / reward / penalty 全给（reward 五选三、penalty 三类，见下）。
+      ① **第1环(status="active") 与 第2环 写完整**：idx / goal / reward / penalty 全给（reward 六选三、penalty 三类，见下）。
       ② **第3环及以后只占位**：idx + status="planned" + goal 写「（待剧情展开后规划）」（最后一环可写 finale 的方向当钩子），**先不写 reward/penalty**，等推进到再补。
       ③ 之后**每推进一环，再把"新的下一环"补成完整内容**（见【任务环·自适应推进】），始终保持"当前环+下一环"写全、更后面的留占位。
   · **各环是规模/难度递增的"不同挑战"，不是一个目标的拆分步骤**——例：清剿哥布林巢穴 →(难度升)清剿大型巢穴 → 终局 牧场守卫战·硬抗海量哥布林；**绝不要写成 侦查→赶路→清剿 这类琐碎子步骤**（那会让推进很墨迹）。
   · **强制环 vs 贪婪环（结构命门，每环必标其一）**：一条主线 = 2~3 个**强制环** + 0~2 个**贪婪环(标 optional:true)**：
       - **强制环**(不写 optional)：保命底线、必经，**失败=死亡或重罚**(penalty 三类)。顺序：①入场钩子(低难度，把主角钉进本世界剧情、绑定动机) ②正式升级(硬仗，逼用本世界资源/规则、击杀中boss/夺关键物) ③高潮(最高强制难度，boss战/剧情爆点)。**打完高潮＝主线达成、可离场**(到此即完整闭环)；finale 写的就是高潮目标。
       - **贪婪环**(optional:true)：高潮之后的**可选延伸**(隐藏升级 / 顶点·隐藏boss)，难度陡增、奖励跳一大档；**失败只损失本环额外奖励、不致死、不强制抹除**，排在强制环之后。
-  · **reward 固定"五选三"**：从【①属性点 ②技能点 ③乐园币 ④一件契合当前世界风格的装备 或 技能书 ⑤潜能点（职业技能树资源，按环规模给：普通环+1~5、贪婪环更多；完成时由【潜能点】规则用 \`pp.B1 += N\` 实际发放）】里**任选 3 类**，每类给具体数值/名目（如 「属性点+3、技能点+2、乐园币+500」 或 「乐园币+500、技能点+2、潜能点+3」，或把一项换成"当前世界风格的武器/技能书"）；**奖励超线性增长——每往后一环奖励近翻倍，贪婪环更跳一大档**（默认你已吃掉前几环奖励变强）。
-  · **世界之源（独立于 reward 五选三、完成必得）**：每一环（及单环任务）完成时，除 reward 五选三外**恒定额外发放「世界之源」%**——主线强制环 +10%~18%、贪婪环 +15%~25%、支线环 +3%~7%、隐藏任务 +8%~15%（按规模在区间取；口径见正文世界书「00-铁律」第15条「世界之源·获取标准」）。**reward 字段仍只写五选三那三类、不要把世界之源塞进 reward**；世界之源在正文📜任务模块单列展示，并于回合末【🌍世界之源】行计入累计、供世界结算评级。
+  · **reward 固定"六选三"**：从【①属性点 ②技能点 ③乐园币 ④一件契合当前世界风格的装备 或 技能书 ⑤潜能点（职业技能树资源，按环规模给：普通环+1~5、贪婪环更多；完成时由【潜能点】规则用 \`pp.B1 += N\` 实际发放） ⑥一个贴合本世界题材的「世界专属宝箱」（以未开启物品发放·开启得本世界主题战利品，命名贴合本世界）】里**任选 3 类**，每类给具体数值/名目（如 「属性点+3、技能点+2、乐园币+500」 或 「乐园币+500、技能点+2、潜能点+3」，或把一项换成"当前世界风格的武器/技能书"）；**奖励超线性增长——每往后一环奖励近翻倍，贪婪环更跳一大档**（默认你已吃掉前几环奖励变强）。
+  · **灵魂钱币·四阶门槛**：六选三里的货币默认用「乐园币」；**只有当前衍生世界达【四阶】及以上，才可把某一份乐园币奖励改成/升级为「灵魂钱币(魂币)」**；四阶以下世界**严禁**任何任务奖励出现灵魂钱币（与正文世界书蓝灯铁律「灵魂钱币·任务奖励四阶门槛」一致）。
+  · **世界之源（独立于 reward 六选三、完成必得）**：每一环（及单环任务）完成时，除 reward 六选三外**恒定额外发放「世界之源」%**——主线强制环 +10%~18%、贪婪环 +15%~25%、支线环 +3%~7%、隐藏任务 +8%~15%（按规模在区间取；口径见正文世界书「00-铁律」第15条「世界之源·获取标准」）。**reward 字段仍只写六选三那三类、不要把世界之源塞进 reward**；世界之源在正文📜任务模块单列展示，并于回合末【🌍世界之源】行计入累计、供世界结算评级。
   · **penalty 按环型分**：**强制环固定三类**（按严重度递进：①扣除乐园币 ②全属性永久下降 ③强制抹除＝契约者被处决，仅用于高潮/致命失败），**不要写"被伏击/受伤/暴露行踪"等普通剧情后果**；**贪婪环 penalty 写"仅损失本环额外奖励(不死)"**。reward 不许留空。
   · **每环时限(startTime/endTime，绝对游戏时间)·最低 7 天铁则**：给每一环（及单环任务）设执行窗口时，**endTime − startTime ≥ 7 天（任务世界时间）是地板**，绝不要设几小时/几天的紧逼窗口逼玩家赶场；**上不封顶、按难度与性质评估**——普通环 7~30 天起步，需长期经营/等待/养成/季节更替/远途的长线环给数月乃至一年以上（半年、一年、数年皆可）。startTime=本环开始时的绝对游戏时间，endTime=startTime+评估出的时长；推进到下一环时新环 startTime 接续上一环结束。
   · 顶层第2列(desc)同步写当前 active 环目标，第5列写"进行中"。
@@ -692,7 +697,7 @@ const QUEST_PLANNING_RULE = `
   · 示例（一行内，双引号）：\`set({"0":"T_5","1":"哥布林讨伐","kind":"主线","2":"潜入受袭村庄、在哥布林夜袭中存活三日","5":"进行中","finale":"高潮·牧场守卫战，硬抗哥布林大军守住村庄","currentRing":1,"rings":[{"idx":1,"goal":"潜入受袭村庄、在哥布林夜袭中存活三日","status":"active","reward":"属性点+2、技能点+1、乐园币+300","penalty":"扣除乐园币300"},{"idx":2,"goal":"夺回被占的旧矿、击杀哥布林督军","status":"planned","reward":"属性点+3、乐园币+800、督军战旗(当前世界风格)","penalty":"全属性永久-2"},{"idx":3,"goal":"（高潮，待推进到再规划）","status":"planned"},{"idx":4,"goal":"（贪婪·隐藏委托，待解锁）","status":"planned","optional":true}]})\`
 - **何时不规划**：已存在当前世界的 active 主线时，**绝不重复新建主线**；主线的环推进交给【任务结算/推进】，这里不再造第二条主线。
 - 路线图是**规划而非预言**：**总环数(3~5)、各环的强制/贪婪定位、finale 定下后保持不变**，但环的具体内容渐进式补全（当前环+下一环写全、其余占位）；不要一开始就把整条线写死。每一环都是要打好几回合的"实质挑战"、规模/难度递增，不是琐碎子步骤。
-- **支线**：正文产生的其他多回合目标用 \`kind:"支线"\`（或不写 kind=默认支线）；需要分段的支线同样可带 rings，其每一环也要写全 goal/reward/penalty，reward 同样按"五选三"（属性点/技能点/乐园币/当前世界风格装备或技能书/潜能点 任选3类）给，penalty 同样从「扣除乐园币 / 全属性永久下降 / 强制抹除」三类里取；**时限同样适用上面的【每环时限·最低 7 天】**——支线的每一环、以及单环支线任务，都要设 startTime~endTime 执行窗口、且 endTime−startTime ≥ 7 天（上不封顶，按难度/需求评估，长线可数月乃至一年以上）。`;
+- **支线**：正文产生的其他多回合目标用 \`kind:"支线"\`（或不写 kind=默认支线）；需要分段的支线同样可带 rings，其每一环也要写全 goal/reward/penalty，reward 同样按"六选三"（属性点/技能点/乐园币/当前世界风格装备或技能书/潜能点/世界专属宝箱 任选3类；灵魂钱币同样仅四阶+世界可作奖励）给，penalty 同样从「扣除乐园币 / 全属性永久下降 / 强制抹除」三类里取；**时限同样适用上面的【每环时限·最低 7 天】**——支线的每一环、以及单环支线任务，都要设 startTime~endTime 执行窗口、且 endTime−startTime ≥ 7 天（上不封顶，按难度/需求评估，长线可数月乃至一年以上）。`;
 
 const QUEST_KILL_TIER_RULE = `
 【任务击杀目标·阶位上限铁则（防止给低阶主角派"正面单挑高阶强者"的送死任务）】凡任务（含主线/支线各环）要求主角**正面击杀/讨伐**的目标，其阶位按环型封顶：
@@ -703,14 +708,14 @@ const QUEST_KILL_TIER_RULE = `
 
 const TASK_RECONCILE_RULE = `
 【任务环·自适应推进铁则（带环路线图的任务专用，优先于"任务达成即整条结算"的旧理解）】对【当前任务列表】里展开了 环1/环2… 的任务，每轮据正文按下列情形维护；**单条任务每轮最多一种环操作，无明确证据则不动**：
-① 当前 active 环的目标在正文里**明确达成** → 输出 \`ringAdvance("T_x")\`（系统会把当前环标 done、下一 planned 环转 active）。**这不是结算整条任务**——多环任务达成的只是"这一环"，绝不能因为一环完成就写 \`{"5":"已完成"}\`。**推进后，若"新的下一环"还是占位（goal 含"待…规划"、或缺 reward/penalty）→ 同回合用 \`add("T_x",{"rings":[…完整新数组…]})\` 把它补全**（goal 给一个比上一环规模/难度更高的新挑战、reward 五选三、penalty 三类、指向 finale），**总环数保持不变**。
+① 当前 active 环的目标在正文里**明确达成** → 输出 \`ringAdvance("T_x")\`（系统会把当前环标 done、下一 planned 环转 active）。**这不是结算整条任务**——多环任务达成的只是"这一环"，绝不能因为一环完成就写 \`{"5":"已完成"}\`。**推进后，若"新的下一环"还是占位（goal 含"待…规划"、或缺 reward/penalty）→ 同回合用 \`add("T_x",{"rings":[…完整新数组…]})\` 把它补全**（goal 给一个比上一环规模/难度更高的新挑战、reward 六选三、penalty 三类、指向 finale），**总环数保持不变**。
 ② 主角**提前/跳跃**完成了某个 planned 环，或另辟蹊径使中间环失去意义 → 用 \`add("T_x",{"rings":[…完整新数组…],"currentRing":N})\` 重排路线图：把已被跨越的环标 "done" 或 "skipped"，把当前正在做的设 "active"，并**重规划其后的 planned 环**使其仍自洽地指向 finale。（例：主角第1环就直捣巢穴主洞，则环1/2/3 视情况标 done/skipped，currentRing 跳到对应环，必要时补一个收尾环。）
 ③ 某个 planned 环被正文**作废**（目标NPC死亡 / 路径关闭 / 前提消失）→ 用 \`add("T_x",{"rings":[…]})\` 改写该环 goal 或移除它，保持整张图自洽指向 finale。
 ④ **高潮(最后一个强制环)达成＝主线达成**：**不要自动推进进贪婪环**。若该主线有贪婪环(optional:true) → 正文应向主角呈现"见好就收(主线已达成、可离场结算) / 继续赌(接受隐藏委托、进贪婪环)"的选择(附奖励预览+难度风险警告)；**仅当正文明确主角"接受/继续"才用 ringAdvance("T_x") 进贪婪环**，主角"见好就收/离场"则 add("T_x",{"5":"已完成"}) 结算。无贪婪环则高潮达成即直接结算。
 ⑤ **贪婪环**：成功给其超额奖励(再 ringAdvance 进下一贪婪环、或结算)；**失败只损失本环额外奖励、不致死、不强制抹除**，整条任务仍按"已达成"结算 add("T_x",{"5":"已完成"})。
 ⑥ 整条任务**失败/放弃**(强制环致命失败、或主角彻底放弃) → add("T_x",{"5":"已失败"}) 或 {"5":"已放弃"}。
-⑦ **修复扁平主线（重要）**：若【当前任务列表】里当前世界的 active **主线没有 rings**（是扁平任务、没有一环一环）→ 立即用 \`add("T_x",{...})\` 给它补全 rings 路线图：把它现有目标作为第1环(status="active")、按其核心目标/finale 铺 3~5 环（强制环+贪婪环）、各环写全 goal/reward(五选三)/penalty(三类)/时限(startTime~endTime≥7天)，带 currentRing:1 与 finale。一次补好，此后正常按环推进。支线多回合且无环者同理可补。
-- **防抖护栏**：环的 idx 要稳定，**不要无故重命名/重排既有环**；只在正文给出**明确证据**时才推进/重排/改写（重排/改写/补环时，新环同样写全 goal/reward(五选三)/penalty(三类)/时限(startTime~endTime≥7天)）；绝大多数回合主线**没有**任何环指令；**总环数一旦定下保持不变（只填占位环、补全下一环，不随意增删环）**，≤5。
+⑦ **修复扁平主线（重要）**：若【当前任务列表】里当前世界的 active **主线没有 rings**（是扁平任务、没有一环一环）→ 立即用 \`add("T_x",{...})\` 给它补全 rings 路线图：把它现有目标作为第1环(status="active")、按其核心目标/finale 铺 3~5 环（强制环+贪婪环）、各环写全 goal/reward(六选三)/penalty(三类)/时限(startTime~endTime≥7天)，带 currentRing:1 与 finale。一次补好，此后正常按环推进。支线多回合且无环者同理可补。
+- **防抖护栏**：环的 idx 要稳定，**不要无故重命名/重排既有环**；只在正文给出**明确证据**时才推进/重排/改写（重排/改写/补环时，新环同样写全 goal/reward(六选三)/penalty(三类)/时限(startTime~endTime≥7天)）；绝大多数回合主线**没有**任何环指令；**总环数一旦定下保持不变（只填占位环、补全下一环，不随意增删环）**，≤5。
 - 支线的环同理可用 \`ringAdvance\` / \`add rings\` 维护，但**优先保证主线**的环准确。`;
 
 const TASK_CANON_RULE = `
@@ -765,7 +770,7 @@ const MISC_COT_RULE = `
    · 触发证据：正文哪一句让这个任务"现在"该产生/推进/结算？（无明确证据 → 不动）
    · 合理性：是否贴合当前世界设定/原作脉络（同人增强开时）？是否契合主角当前处境（阶位/强度/位置/身份）？难度是否符合【击杀阶位上限】（强制环≤主角阶位、贪婪环≤+1）？是否落入被禁止的"枢纽日常/框架流程"套路（适应乐园/逛街采购/进入衍生世界…一律不建）？是否与既有任务重复（同目标 → 优先推进既有，不另起）？
    · 类型与环：从【任务类型库】挑了哪种、为何最贴切？若为主线/多回合：环路线图为何这样排——每环规模/难度如何递增、为何指向这个 finale、强制环/贪婪环如何划分？
-   · 奖惩与时限：reward 为何这样配（五选三、按环超线性、带本世界风味）？penalty 是否取自规范三类？时限 endTime−startTime 是否≥7天且贴合任务性质？
+   · 奖惩与时限：reward 为何这样配（六选三、按环超线性、带本世界风味）？若含灵魂钱币，当前衍生世界是否≥四阶（否则违规、应改乐园币）？penalty 是否取自规范三类？时限 endTime−startTime 是否≥7天且贴合任务性质？
    · 结算：要标"已完成/已失败"的，正文是否有明确达成/失败证据？多环任务达成的只是"当前环" → 应 ringAdvance 而非整条结算？
    · 进度：本回合主角对该任务有无实质推进？有则用 1~2 句具体动作/结果写进 progress 字段（覆盖上轮）；无推进则不输出 progress（保留旧值）。
    · 结论：本任务这一轮"动 or 不动"，动则给出最终指令草稿。
@@ -1734,7 +1739,7 @@ export default function App() {
         + '**玩家给某一个队友买的/某个角色获得的装备，就只进那一个角色的包**——严禁因为"队伍/在场多人"就把同一件（或同名同款）装备复制分发给其他 NPC；正文里属于 A 的东西绝不写到 B 名下。'
         + '一件具体装备只 createItem 一次、owner 只填一个；归属拿不准时，宁可只发给最明确的那一个，也不要复制成多份分给多人。'
         + '\n' + ITEM_UPDATE_RULE + '\n' + FIRST_UPDATE_COMPLETE_RULE + '\n' + ITEM_EXACT_REF_RULE
-        + '\n' + ITEM_COT_RULE;
+        + '\n' + ITEM_COT_RULE + '\n' + ITEM_EVOLUTION_CODEX;
 
       // user 消息：正文 + 指令要求（先思维链 <think> 自检，再出指令块）
       const userContent = `# 本轮正文\n${trimmedNarrative}\n\n---\n请根据以上正文处理本轮物品与货币（乐园币、灵魂钱币）的变化。**先输出一个 <think>…</think> 思考块**，按系统提示里的「物品演化思维链」逐项自检、把跟物品/装备/货币有关的事想清楚；**随后**输出 <state> 和 <upstore> 指令块（无变化则输出空块）。除 <think> / <state> / <upstore> 外不要有任何其它文字。`;
@@ -2029,7 +2034,7 @@ export default function App() {
     try {
       setItemPhaseLog('🔍 综合对账·纠正中…');
       const { content: reply } = await apiChatFallback(chain, [
-        { role: 'system', content: MERGED_AUDIT_SYSTEM + '\n' + ITEM_GRADE_TABLE_RULE + '\n' + EQUIP_CODEX + '\n' + STATUS_COUNTDOWN_TURN_RULE },
+        { role: 'system', content: MERGED_AUDIT_SYSTEM + '\n' + ITEM_GRADE_TABLE_RULE + '\n' + EQUIP_CODEX + '\n' + STATUS_COUNTDOWN_TURN_RULE + (checkItems ? '\n' + ITEM_EVOLUTION_CODEX : '') },
         { role: 'user', content: userContent },
       ]);
       console.log('[MergedAudit] 对账原始响应:', reply);
@@ -2315,7 +2320,7 @@ export default function App() {
       if (!ok(m[1])) continue;
       const rec = npc.npcs[m[1]];
       const nc = useCharacters.getState().characters[m[1]];
-      const dmax = fullMaxHp(rec?.attrs, (rec?.items ?? []).filter((it) => it.equipped) as any[], nc?.skills, nc?.traits, realAttrMult(rec?.realm, lvFromRealm(rec?.realm)));
+      const dmax = fullMaxHp(rec?.attrs, (rec?.items ?? []).filter((it) => it.equipped) as any[], nc?.skills, nc?.traits, realAttrMult(rec?.realm, lvFromRealm(rec?.realm)), ratioOf(rec));
       const base = effectiveResource(rec?.hp, rec?.maxHp, dmax);
       const v = Number(m[3]);
       const next = m[2] === '=' ? v : m[2] === '+=' ? Math.min(base + v, dmax) : Math.max(0, base - v);
@@ -2422,7 +2427,7 @@ export default function App() {
       if (!ok(m[1])) continue;
       const rec = npc.npcs[m[1]];
       const nc = useCharacters.getState().characters[m[1]];
-      const dmax = fullMaxEp(rec?.attrs, (rec?.items ?? []).filter((it) => it.equipped) as any[], nc?.skills, nc?.traits, realAttrMult(rec?.realm, lvFromRealm(rec?.realm)));
+      const dmax = fullMaxEp(rec?.attrs, (rec?.items ?? []).filter((it) => it.equipped) as any[], nc?.skills, nc?.traits, realAttrMult(rec?.realm, lvFromRealm(rec?.realm)), ratioOf(rec));
       const base = effectiveResource(rec?.mp, rec?.maxMp, dmax);
       const v = Number(m[3]);
       const next = m[2] === '=' ? v : m[2] === '+=' ? Math.min(base + v, dmax) : Math.max(0, base - v);
@@ -5224,7 +5229,7 @@ ${lines}`;
       const cdata = useCharacters.getState().characters[r.id];
       const eqp = (r.items ?? []).filter((it) => it.equipped) as any[];
       const rmR = realAttrMult(r.realm, lvFromRealm(r.realm));
-      const dmh = fullMaxHp(r.attrs!, eqp, cdata?.skills, cdata?.traits, rmR), dme = fullMaxEp(r.attrs!, eqp, cdata?.skills, cdata?.traits, rmR);
+      const dmh = fullMaxHp(r.attrs!, eqp, cdata?.skills, cdata?.traits, rmR, ratioOf(r)), dme = fullMaxEp(r.attrs!, eqp, cdata?.skills, cdata?.traits, rmR, ratioOf(r));
       const selfName = r.name.split('|')[0].trim();
       const nameEsc = selfName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
       // 跨越词：别的角色名 + 敌怪死亡词；出现在 name→HP 之间，说明这段 HP 属于别人
@@ -5317,8 +5322,8 @@ ${lines}`;
       const a = r.attrs;
       const mult = tierVitalMult(bioInnate(a, r.realm, lvFromRealm(r.realm))?.num ?? 0);
       const rmR = realAttrMult(r.realm, lvFromRealm(r.realm));   // 四阶起六维×5（与面板/战斗一致）
-      const maxHp = Math.round(computeMaxHp(a, rmR) * mult);
-      const maxMp = Math.round(computeMaxEp(a, rmR) * mult);
+      const maxHp = Math.round(computeMaxHp(a, rmR, ratioOf(r)) * mult);
+      const maxMp = Math.round(computeMaxEp(a, rmR, ratioOf(r)) * mult);
       const hpFull = (r.hp ?? 0) >= (r.maxHp ?? 0);   // 含未设(0)→视作满，顶满到新上限
       const epFull = (r.mp ?? 0) >= (r.maxMp ?? 0);
       const hp = hpFull ? maxHp : Math.min(r.hp ?? maxHp, maxHp);

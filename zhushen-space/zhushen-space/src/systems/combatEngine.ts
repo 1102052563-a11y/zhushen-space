@@ -11,7 +11,7 @@ import {
   ATTR_KEYS, type AttrKey, type DiceAttrs, type EquipItemLite,
 } from './diceEngine';
 import {
-  computeDerived, computeMaxHp, computeMaxEp, fullMaxHp, fullMaxEp, lvFromRealm, normalizeTier, realmFromLevel, effectiveResource, realAttrMult, attrCapForTier,
+  computeDerived, computeMaxHp, computeMaxEp, fullMaxHp, fullMaxEp, lvFromRealm, normalizeTier, realmFromLevel, effectiveResource, realAttrMult, attrCapForTier, ratioOf,
 } from './derivedStats';
 import { effectiveAttrs, withAttrDelta } from './attrBonus';
 import { playSfx } from './audio';
@@ -98,7 +98,7 @@ export function buildCombatant(id: string, side: Side, override?: Partial<Combat
     const d = computeDerived(attrs, p.level, equipped as any);
     const teamPerkAbil = playerTeamPerkAbilities();   // 团队效果里显式的「生命/法力上限」文本一并计入主角 HP/EP 上限
     // 上限传**基础六维**（fullMaxHp 内部会折六维加成；传 attrs 会双算技能/天赋的体质加成）；realMult=rm 让四阶起 HP/EP×5
-    const maxHp = fullMaxHp(baseTT, equippedFull as any, b1c?.skills, [...(b1c?.traits ?? []), ...teamPerkAbil], rm), maxEp = fullMaxEp(baseTT, equippedFull as any, b1c?.skills, [...(b1c?.traits ?? []), ...teamPerkAbil], rm);
+    const maxHp = fullMaxHp(baseTT, equippedFull as any, b1c?.skills, [...(b1c?.traits ?? []), ...teamPerkAbil], rm, ratioOf(p)), maxEp = fullMaxEp(baseTT, equippedFull as any, b1c?.skills, [...(b1c?.traits ?? []), ...teamPerkAbil], rm, ratioOf(p));
     const g = useGame.getState().player;
     return {
       side, name: p.name || '主角', attrs, trueBonus: sumRealAttrs(p.realAttrs), level: p.level, tier: p.tier || realmFromLevel(p.level),
@@ -117,7 +117,7 @@ export function buildCombatant(id: string, side: Side, override?: Partial<Combat
   const equipped = equippedOf(npc?.items);
   const d = computeDerived(attrs, level, equipped as any);
   // 上限传**基础六维**（fullMaxHp 内部会折六维加成；传 attrs 会双算）；realMult=rm 让四阶起 HP/EP×5
-  const maxHp = fullMaxHp(npcBase, equippedFull as any, npcC?.skills, npcC?.traits, rm), maxEp = fullMaxEp(npcBase, equippedFull as any, npcC?.skills, npcC?.traits, rm);
+  const maxHp = fullMaxHp(npcBase, equippedFull as any, npcC?.skills, npcC?.traits, rm, ratioOf(npc)), maxEp = fullMaxEp(npcBase, equippedFull as any, npcC?.skills, npcC?.traits, rm, ratioOf(npc));
   return {
     side, name: npc?.name || id, attrs, trueBonus: sumRealAttrs(npc?.realAttrs), level, tier: normalizeTier(npc?.realm) || realmFromLevel(level),
     bioStrength: npc?.bioStrength || '', favor: npc?.favor,

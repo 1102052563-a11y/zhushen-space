@@ -61,19 +61,39 @@ export function computeDerived(attrs: PlayerAttrs | undefined, level: number, eq
 }
 
 /* ── 生命 HP / 蓝量 EP 上限换算（主角与 NPC 共用，纯前端计算，AI 不写）──
-   - 生命 HP 上限 = 体质(con) × 20
-   - 蓝量 EP 上限 = 智力(int) × 15
+   - 生命 HP 上限 = 体质(con) × 每点转化比(默认 20)
+   - 蓝量 EP 上限 = 智力(int) × 每点转化比(默认 15)
    六维按「本阶口径」存储（一~三阶=普通属性≤99；四阶起经觉醒=真实属性 150–8000，见 ATTR_CAP_BY_TIER），
-   HP=体×20 / EP=智×15 直接作用于六维，自动随阶位线性缩放。 */
+   转化比直接作用于六维，自动随阶位线性缩放。
+   **每点转化比可自定义**：主角存 PlayerProfile.hpPerCon/epPerInt、NPC 存 NpcRecord.hpPerCon/epPerInt（缺省回退 20/15），
+   各 fullMaxHp/EP 调用方用 ratioOf(profile|npc) 把它传进来；realMult(四阶起×5)仍在自定义比率之上叠乘。 */
 export const HP_PER_CON = 20;
 export const EP_PER_INT = 15;
-export function computeMaxHp(attrs?: PlayerAttrs, realMult = 1): number {
-  const con = Math.max(0, attrs?.con ?? 5);
-  return Math.round(con * HP_PER_CON * realMult);   // 四阶起真实属性 realMult=5（体×100），见 realAttrMult
+/* 「体质→HP / 智力→EP」每点转化比（自定义换皮）。字段缺省→走默认 20 / 15。 */
+export interface VitalRatio { hpPerCon?: number; epPerInt?: number }
+/* 从任意带可选 hpPerCon/epPerInt 字段的对象(主角 profile / NPC 记录)抽出转化比；两者皆空→undefined(走默认)。 */
+export function ratioOf(o?: { hpPerCon?: number; epPerInt?: number } | null): VitalRatio | undefined {
+  if (!o) return undefined;
+  if (o.hpPerCon == null && o.epPerInt == null) return undefined;
+  return { hpPerCon: o.hpPerCon ?? undefined, epPerInt: o.epPerInt ?? undefined };
 }
-export function computeMaxEp(attrs?: PlayerAttrs, realMult = 1): number {
+/* 有效「体质→HP」每点比：非有限数 / ≤0（空输入、误填 0/负）一律回退默认，杜绝把上限算成 0/NaN。 */
+export function hpPerConOf(ratio?: VitalRatio): number {
+  const v = ratio?.hpPerCon;
+  return typeof v === 'number' && isFinite(v) && v > 0 ? v : HP_PER_CON;
+}
+/* 有效「智力→EP」每点比（同上回退）。 */
+export function epPerIntOf(ratio?: VitalRatio): number {
+  const v = ratio?.epPerInt;
+  return typeof v === 'number' && isFinite(v) && v > 0 ? v : EP_PER_INT;
+}
+export function computeMaxHp(attrs?: PlayerAttrs, realMult = 1, ratio?: VitalRatio): number {
+  const con = Math.max(0, attrs?.con ?? 5);
+  return Math.round(con * hpPerConOf(ratio) * realMult);   // 四阶起真实属性 realMult=5（默认体×100），见 realAttrMult
+}
+export function computeMaxEp(attrs?: PlayerAttrs, realMult = 1, ratio?: VitalRatio): number {
   const intel = Math.max(0, attrs?.int ?? 5);
-  return Math.round(intel * EP_PER_INT * realMult);  // 四阶起 realMult=5（智×75）
+  return Math.round(intel * epPerIntOf(ratio) * realMult);  // 四阶起 realMult=5（默认智×75）
 }
 
 /* 从效果/词缀文本里解析"增加 HP/EP 最大值"的平值加成。供 最大HP/EP = 六维换算 + 此加成。
@@ -193,15 +213,15 @@ export function abilityMaxEpPctBonus(skills: AbilityLite[] = [], traits: Ability
 }
 
 /* 「基础真实上限」(不含跨资源公式) = (六维换算 + 装备/被动平值上限加成) ×(1 + 百分比加成)。 */
-function baseMaxHp(attrs?: PlayerAttrs, equipped: { effect?: string; affix?: string }[] = [], skills: AbilityLite[] = [], traits: AbilityLite[] = [], realMult = 1): number {
-  const eff = effectiveAttrs(attrs, skills as any, traits as any, equipped as any);   // 六维加成(如体质+1)折进六维，再 体质×20×真实倍率
-  const flat = computeMaxHp(eff, realMult) + gearMaxHpBonus(equipped) + abilityMaxHpBonus(skills, traits);  // 六维部分×realMult；装备/被动平值加成不×
+function baseMaxHp(attrs?: PlayerAttrs, equipped: { effect?: string; affix?: string }[] = [], skills: AbilityLite[] = [], traits: AbilityLite[] = [], realMult = 1, ratio?: VitalRatio): number {
+  const eff = effectiveAttrs(attrs, skills as any, traits as any, equipped as any);   // 六维加成(如体质+1)折进六维，再 体质×转化比×真实倍率
+  const flat = computeMaxHp(eff, realMult, ratio) + gearMaxHpBonus(equipped) + abilityMaxHpBonus(skills, traits);  // 六维部分×realMult；装备/被动平值加成不×
   const pct = gearMaxHpPctBonus(equipped) + abilityMaxHpPctBonus(skills, traits);
   return Math.round(flat * (1 + pct / 100));
 }
-function baseMaxEp(attrs?: PlayerAttrs, equipped: { effect?: string; affix?: string }[] = [], skills: AbilityLite[] = [], traits: AbilityLite[] = [], realMult = 1): number {
+function baseMaxEp(attrs?: PlayerAttrs, equipped: { effect?: string; affix?: string }[] = [], skills: AbilityLite[] = [], traits: AbilityLite[] = [], realMult = 1, ratio?: VitalRatio): number {
   const eff = effectiveAttrs(attrs, skills as any, traits as any, equipped as any);
-  const flat = computeMaxEp(eff, realMult) + gearMaxEpBonus(equipped) + abilityMaxEpBonus(skills, traits);
+  const flat = computeMaxEp(eff, realMult, ratio) + gearMaxEpBonus(equipped) + abilityMaxEpBonus(skills, traits);
   const pct = gearMaxEpPctBonus(equipped) + abilityMaxEpPctBonus(skills, traits);
   return Math.round(flat * (1 + pct / 100));
 }
@@ -238,9 +258,10 @@ export function fullMaxHp(
   skills: AbilityLite[] = [],
   traits: AbilityLite[] = [],
   realMult = 1,
+  ratio?: VitalRatio,
 ): number {
-  return baseMaxHp(attrs, equipped, skills, traits, realMult)
-    + vitalCrossBonus(crossTexts(equipped, skills, traits), 'hp', baseMaxEp(attrs, equipped, skills, traits, realMult));
+  return baseMaxHp(attrs, equipped, skills, traits, realMult, ratio)
+    + vitalCrossBonus(crossTexts(equipped, skills, traits), 'hp', baseMaxEp(attrs, equipped, skills, traits, realMult, ratio));
 }
 export function fullMaxEp(
   attrs?: PlayerAttrs,
@@ -248,9 +269,10 @@ export function fullMaxEp(
   skills: AbilityLite[] = [],
   traits: AbilityLite[] = [],
   realMult = 1,
+  ratio?: VitalRatio,
 ): number {
-  return baseMaxEp(attrs, equipped, skills, traits, realMult)
-    + vitalCrossBonus(crossTexts(equipped, skills, traits), 'ep', baseMaxHp(attrs, equipped, skills, traits, realMult));
+  return baseMaxEp(attrs, equipped, skills, traits, realMult, ratio)
+    + vitalCrossBonus(crossTexts(equipped, skills, traits), 'ep', baseMaxHp(attrs, equipped, skills, traits, realMult, ratio));
 }
 /* 「当前值」显示：
    - 从未设过(undefined) → 视为满（= 当前上限），仅用于角色刚建档、还没发生任何增减时

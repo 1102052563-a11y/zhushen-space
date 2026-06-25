@@ -7,7 +7,7 @@ import { useItems } from '../store/itemStore';
 import { playerTreeAttrBonus } from '../store/skillTreeStore';
 import { playerTeamAttrBonus, playerTeamPerkAbilities } from '../store/adventureTeamStore';
 import { withAttrDelta } from './attrBonus';
-import { computeMaxHp, computeMaxEp, fullMaxHp, fullMaxEp } from './derivedStats';
+import { computeMaxHp, computeMaxEp, fullMaxHp, fullMaxEp, ratioOf } from './derivedStats';
 
 export function isHomeWorld(name?: string): boolean {
   return /轮回乐园|专属房间|主神空间/.test(name ?? '');   // 含「主神空间」仅为兼容旧存档的家园判定，非展示文案
@@ -32,8 +32,10 @@ export function reconcilePlayerVitals(): void {
   const g = useGame.getState();
   const p = g.player;
   if (p.hp === 100 && p.maxHp === 100 && p.mp === 50 && p.maxMp === 50) {
-    const a = usePlayer.getState().profile.attrs;
-    const mh = computeMaxHp(a), me = computeMaxEp(a);
+    const prof = usePlayer.getState().profile;
+    const a = prof.attrs;
+    const r = ratioOf(prof);   // 主角自定义「体质→HP / 智力→EP」转化比（空=默认 20/15）
+    const mh = computeMaxHp(a, 1, r), me = computeMaxEp(a, 1, r);
     if (mh !== 100 || me !== 50) {
       g.setPlayerField('maxHp', mh); g.setPlayerField('hp', mh);
       g.setPlayerField('maxMp', me); g.setPlayerField('mp', me);
@@ -47,13 +49,13 @@ export function playerMaxHp(): number {
   const a = withAttrDelta(withAttrDelta(usePlayer.getState().profile.attrs, playerTreeAttrBonus()), playerTeamAttrBonus());   // 技能树 + 冒险团团队的六维加成（体质→HP，与属性面板/战斗同口径）
   const b1 = useCharacters.getState().characters['B1'];
   const eq = useItems.getState().items.filter((i) => i.equipped) as any[];
-  return fullMaxHp(a, eq, b1?.skills, [...(b1?.traits ?? []), ...playerTeamPerkAbilities()]);   // 团队效果里「生命上限+N / X%生命加成」一并计入
+  return fullMaxHp(a, eq, b1?.skills, [...(b1?.traits ?? []), ...playerTeamPerkAbilities()], 1, ratioOf(usePlayer.getState().profile));   // 团队效果里「生命上限+N / X%生命加成」一并计入；自定义体质→HP 转化比
 }
 export function playerMaxEp(): number {
   const a = withAttrDelta(withAttrDelta(usePlayer.getState().profile.attrs, playerTreeAttrBonus()), playerTeamAttrBonus());   // 技能树 + 团队的六维加成（智力→EP，与属性面板/战斗同口径）
   const b1 = useCharacters.getState().characters['B1'];
   const eq = useItems.getState().items.filter((i) => i.equipped) as any[];
-  return fullMaxEp(a, eq, b1?.skills, [...(b1?.traits ?? []), ...playerTeamPerkAbilities()]);
+  return fullMaxEp(a, eq, b1?.skills, [...(b1?.traits ?? []), ...playerTeamPerkAbilities()], 1, ratioOf(usePlayer.getState().profile));   // 自定义智力→EP 转化比
 }
 
 /* HP/EP 上限同步（忠于正文末尾结算·2026-06-18 用户最终拍板：刷新只夹到正确上限、不强行拉满）。

@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest';
-import { lenientJsonParse, pickTargetItem } from './stateParser';
+import { lenientJsonParse, pickTargetItem, parseAllItemCommands, applyItemCommands } from './stateParser';
+import { useItems } from '../store/itemStore';
 
 describe('lenientJsonParse（容忍裸键/单引号/尾逗号的 JSON）', () => {
   it('标准 JSON', () => {
@@ -52,5 +53,36 @@ describe('pickTargetItem（消耗/销毁的目标物品定位，容忍 AI 把名
 
   it('安全：纯 id 格式的幻觉 itemId、无 name → 返回 null，不会误匹配到任何中文名物品', () => {
     expect(pickTargetItem(bag, 'I_FAKE_99', undefined)).toBeNull();
+  });
+});
+
+describe('createItem 确定性护栏（④货币伪物品拒建 + ③combatStat 机读归一）', () => {
+  const run = (s: string) => applyItemCommands(parseAllItemCommands(`<upstore>${s}</upstore>`));
+
+  it('④ 货币/点数被 createItem 成物品 → 拒绝建成死条目', () => {
+    useItems.setState({ items: [] });
+    run('createItem({"name":"乐园币","category":"特殊物品","quantity":500})');
+    run('createItem({"name":"技能点","category":"特殊物品","quantity":3})');
+    run('createItem({"name":"潜能点","category":"重要物品","quantity":2})');
+    expect(useItems.getState().items.length).toBe(0);
+  });
+
+  it('④ 实物（灵魂结晶/宝箱）不受影响、照常建', () => {
+    useItems.setState({ items: [] });
+    run('createItem({"name":"灵魂结晶(中)","category":"材料","quantity":1})');
+    run('createItem({"name":"史诗级·虚空宝箱","category":"重要物品","quantity":1})');
+    expect(useItems.getState().items.length).toBe(2);
+  });
+
+  it('③ 全角数字 combatStat → 归一为半角（否则 derivedStats 读不出）', () => {
+    useItems.setState({ items: [] });
+    run('createItem({"name":"测试剑","category":"武器","combatStat":"攻击力 ８０"})');
+    expect(useItems.getState().items[0].combatStat).toBe('攻击力 80');
+  });
+
+  it('③ 全角范围/分隔符 combatStat → 归一', () => {
+    useItems.setState({ items: [] });
+    run('createItem({"name":"测试甲","category":"防具","combatStat":"防御力 ２０～３５"})');
+    expect(useItems.getState().items[0].combatStat).toBe('防御力 20~35');
   });
 });

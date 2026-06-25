@@ -257,6 +257,21 @@ export function applyItemCommands(commands: ItemCommand[]): void {
   // 是否重复生成物品交由 AI（物品管理预设的「获得即生成」规则）判断，不再机械合并同名
 }
 
+/** 校验/归一「攻防字段 combatStat」的机器可读性（确定性·无 API）：
+ *  ① 全角数字 ０-９ → 半角、全角范围/分隔符归一，让 derivedStats.parseCombatStat 读得出；
+ *  ② 装备类给了 combatStat 却不含任何半角数字（中文数字「八十」/纯文字）→ parseCombatStat 读不出、
+ *     会静默回退按品级估算（卡面写明的攻防被忽略）→ 打 warn 让 F12 可见。不擅自改写文字、不丢数据。*/
+function sanitizeCombatStat(raw: any, ctx: { name?: string; category?: string }): any {
+  if (raw == null) return raw;
+  const s = String(raw)
+    .replace(/[０-９]/g, (d) => '0123456789'['０１２３４５６７８９'.indexOf(d)])
+    .replace(/[～〜]/g, '~').replace(/／/g, '/').replace(/　/g, ' ');
+  if (s.trim() && isEquippable(ctx.category) && !/\d/.test(s)) {
+    console.warn(`[Item] combatStat 机器不可读（无阿拉伯数字，derivedStats 将回退品级估算、卡面攻防被忽略）：「${ctx.name ?? ''}」combatStat="${s}"——应写「攻击力/防御力 + 阿拉伯数字」`);
+  }
+  return s;
+}
+
 function applyOneItemCommand(cmd: ItemCommand, store: any, npcEquipDupCtx?: Map<string, string>): void {
   const { type, data } = cmd;
 
@@ -274,6 +289,13 @@ function applyOneItemCommand(cmd: ItemCommand, store: any, npcEquipDupCtx?: Map<
 
       if (!item['1'] && !item.name) break;
       const name: string = item['1'] ?? item.name ?? '未知物品';
+
+      // 货币/点数被误建成物品的拦截（确定性护栏）：乐园币/魂币/技能点/黄金技能点/潜能点/进阶点/属性点… 是数值资源，
+      // 只能走 state 货币/点数指令；createItem 成「特殊物品」会变成既不能用也不能装备的死条目 → 直接拒绝创建。
+      if (isResourcePseudoItem({ name })) {
+        console.warn(`[Item] 拒绝把货币/点数「${name}」createItem 成物品（数值资源应走 state 货币指令；已忽略此死条目）`);
+        break;
+      }
 
       // 品级收敛（一物一档·纯前端护栏）：剥技能品级词 + 折叠「紫色/史诗」复合品级，评分优先定档
       const rawGrade = item['3'] ?? item.grade ?? item.quality ?? '';
@@ -324,7 +346,7 @@ function applyOneItemCommand(cmd: ItemCommand, store: any, npcEquipDupCtx?: Map<
           tags:       Array.isArray(item.tags) ? item.tags : undefined,
           origin:      item.origin,
           subType:     item.subType ?? item.subtype,
-          combatStat:  item.combatStat ?? item.attack ?? item.defense,
+          combatStat:  sanitizeCombatStat(item.combatStat ?? item.attack ?? item.defense, { name, category: String(npcRawCat) }),
           durability:  item.durability,
           requirement: item.requirement ?? item.require,
           affix:       item.affix,
@@ -368,7 +390,7 @@ function applyOneItemCommand(cmd: ItemCommand, store: any, npcEquipDupCtx?: Map<
         notes: data.reason,
         origin:      item.origin,
         subType:     item.subType ?? item.subtype,
-        combatStat:  item.combatStat ?? item.attack ?? item.defense,
+        combatStat:  sanitizeCombatStat(item.combatStat ?? item.attack ?? item.defense, { name, category }),
         durability:  item.durability,
         requirement: item.requirement ?? item.require,
         affix:       item.affix,
@@ -529,7 +551,7 @@ function applyOneItemCommand(cmd: ItemCommand, store: any, npcEquipDupCtx?: Map<
         if (p.appearance) patch.appearance = p.appearance;
         if (p.intro) patch.intro = p.intro;
         if (p.score) patch.score = p.score;
-        if (p.combatStat) patch.combatStat = p.combatStat;
+        if (p.combatStat) patch.combatStat = sanitizeCombatStat(p.combatStat, { name: item.name, category: item.category });
         if (p.durability) patch.durability = p.durability;
         if (p.requirement) patch.requirement = p.requirement;
         if (p.subType) patch.subType = p.subType;

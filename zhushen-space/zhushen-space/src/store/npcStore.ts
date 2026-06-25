@@ -97,6 +97,8 @@ export interface NpcRecord {
   maxHp?: number;
   mp?: number;            // 蓝量 EP
   maxMp?: number;
+  hpPerCon?: number;      // 体质→HP 每点转化比（玩家在 NPC 面板手动设置；空/≤0=默认 20）。四阶起仍自动×5
+  epPerInt?: number;      // 智力→EP 每点转化比（空/≤0=默认 15）
   profession?: string;    // 职业
   arenaRank?: string;     // 竞技场排名
   brandLevel?: string;    // 烙印等级

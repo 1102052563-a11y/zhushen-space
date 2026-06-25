@@ -31,7 +31,7 @@ npm run build-vectors[-wb]       # 建小说/世界书向量库（需 $env:EMBED
 - **持久化即存档**：`drpg-*` 刷新不清；彻底重置=清 `drpg-` localStorage。图片在 IndexedDB（partialize 已排除 avatar/image，别加回）。新 store 要纳入 saveManager 快照 + clearProgress。
 - **名称匹配**：同名更新/删除用 `nameEq`；物品用 `fuzzyFindItem`。引用已有条目让 AI 照抄全名（`*_EXACT_REF_RULE`）。
 - **轮回乐园术语**：阶位/天赋(D-SSS 无上限)/技能品级(7档)/进阶点数/乐园币·魂币。改预设沿用统一映射（境界→阶位、灵根→天赋…见 `FEATURES.md §18`），勿让修仙词回流。
-- **六维纯 AI 生成**，前端只算衍生 ATK/DEF（`derivedStats.ts`）；HP/EP 上限=体×20 / 智×15。
+- **六维纯 AI 生成**，前端只算衍生 ATK/DEF（`derivedStats.ts`）；HP/EP 上限=体×N / 智×M（每点转化比默认 20/15，主角存 `profile.hpPerCon/epPerInt`、NPC 存 `npc.hpPerCon/epPerInt`，缺省回退默认；各 `fullMaxHp/EP` 调用方用 `ratioOf(profile|npc)` 传入，玩家可在主角血条面板/NPC 详情编辑里改）。
 - **存档/读档用 reload**（gameStore 无 rehydrate）；新开档防历史泄漏靠 `messagesRef.current`。
 
 ## 右侧导航（App.tsx `rightMenuItems`）

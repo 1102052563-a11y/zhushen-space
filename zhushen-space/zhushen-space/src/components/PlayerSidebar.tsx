@@ -4,7 +4,7 @@ import { useGame } from '../store/gameStore';
 import { useItems, gradeToNum } from '../store/itemStore';
 import { StatusChips, SegmentedText } from './NpcDetail';
 import StatusEffectChips from './StatusEffectChips';
-import { computeDerived, tierFxClass, realmFromLevel, effectiveResource, fullMaxHp, fullMaxEp, realAttrMult, attrCapForTier } from '../systems/derivedStats';
+import { computeDerived, tierFxClass, realmFromLevel, effectiveResource, fullMaxHp, fullMaxEp, realAttrMult, attrCapForTier, ratioOf } from '../systems/derivedStats';
 import { useCharacters } from '../store/characterStore';
 import { computeAttrBreakdown, withAttrDelta, ATTR_LABEL, type AttrBreak } from '../systems/attrBonus';
 import { playerTreeAttrBonus } from '../store/skillTreeStore';
@@ -500,8 +500,8 @@ export default function PlayerSidebar({ onClose }: { onClose?: () => void }) {
           const teamAttrsBase = withAttrDelta(withAttrDelta(profile.attrs, playerTreeAttrBonus()), playerTeamAttrBonus());   // 技能树 + 团队效果的六维加成（体/智→HP/EP）
           const teamPerkAbil = playerTeamPerkAbilities();                              // 团队效果显式「HP/EP上限」文本
           const rmP = realAttrMult(profile.tier, profile.level);   // 四阶起 HP/EP×5（与战斗/AI一致）
-          const maxHp = fullMaxHp(teamAttrsBase, equippedFull, b1?.skills, [...(b1?.traits ?? []), ...teamPerkAbil], rmP);
-          const maxEp = fullMaxEp(teamAttrsBase, equippedFull, b1?.skills, [...(b1?.traits ?? []), ...teamPerkAbil], rmP);
+          const maxHp = fullMaxHp(teamAttrsBase, equippedFull, b1?.skills, [...(b1?.traits ?? []), ...teamPerkAbil], rmP, ratioOf(profile));
+          const maxEp = fullMaxEp(teamAttrsBase, equippedFull, b1?.skills, [...(b1?.traits ?? []), ...teamPerkAbil], rmP, ratioOf(profile));
           return (
             <>
               <div onClick={() => setLabelOpen(true)} className="space-y-2 cursor-pointer" title="点击自定义血条皮肤 / 称呼">
@@ -539,6 +539,33 @@ export default function PlayerSidebar({ onClose }: { onClose?: () => void }) {
                 className="flex-1 min-w-0 bg-void border border-edge rounded px-2 py-0.5 text-[12px] text-slate-200 outline-none focus:border-god/50"
               />
             </label>
+            {/* HP/EP 转化比（每点属性换多少上限；留空=默认 体×20 / 智×15，四阶起仍自动×5）*/}
+            <div className="pt-0.5">
+              <div className="text-[10px] text-dim/50 font-mono mb-1">每点转化比（上限换算）</div>
+              <div className="grid grid-cols-2 gap-2">
+                <label className="flex items-center gap-1.5 text-[11px] font-mono">
+                  <span className="shrink-0 text-dim/60">体质→HP</span>
+                  <input
+                    type="number" min={1} step={1}
+                    value={profile.hpPerCon ?? ''}
+                    onChange={(e) => setProfile({ hpPerCon: e.target.value.trim() === '' ? undefined : Number(e.target.value) })}
+                    placeholder="20"
+                    className="w-full min-w-0 bg-void border border-edge rounded px-2 py-0.5 text-[12px] text-slate-200 outline-none focus:border-god/50"
+                  />
+                </label>
+                <label className="flex items-center gap-1.5 text-[11px] font-mono">
+                  <span className="shrink-0 text-dim/60">智力→EP</span>
+                  <input
+                    type="number" min={1} step={1}
+                    value={profile.epPerInt ?? ''}
+                    onChange={(e) => setProfile({ epPerInt: e.target.value.trim() === '' ? undefined : Number(e.target.value) })}
+                    placeholder="15"
+                    className="w-full min-w-0 bg-void border border-edge rounded px-2 py-0.5 text-[12px] text-slate-200 outline-none focus:border-god/50"
+                  />
+                </label>
+              </div>
+              <div className="text-[10px] text-dim/40 font-mono mt-1">留空=默认（体×20 / 智×15）。仅改血/蓝上限换算，四阶起仍自动×5。</div>
+            </div>
             {/* 血条皮肤切换（10 款，点格即换；每格为实时迷你预览）*/}
             <div>
               <div className="text-[10px] text-dim/50 font-mono mb-1">血条皮肤</div>

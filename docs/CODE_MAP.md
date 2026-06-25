@@ -108,7 +108,7 @@
 | 文件 | 关键导出 / 职责 |
 |---|---|
 | `stateParser.ts` | **指令解析中枢**。`lenientJsonParse`(裸键容错)、`parseAllStateUpdates`、`applyItemCommands`(物品/货币/装备，含 destroyItem 自动卸下、equip fallback、`setNpcOwnerResolver`)、`parseAllCharCommands`/`applyCharacterCommands`(技能/天赋/称号/副职业/成就/记忆)、`parseAllNpcCommands`/`applyNpcCommands`(add/de)、`parseAllFactionCommands`/`applyFactionCommands`、`applyTerritoryCommands`、`applyTeamCommands`、`isEquippable`、`CATEGORY_MAP` |
-| `derivedStats.ts` | `computeDerived`(物/法 ATK/DEF)、`computeMaxHp`(体×20)/`computeMaxEp`(智×15)、`effectiveResource`、`lvFromRealm`/`realmFromLevel`、`TIERS`/`normalizeTier`、`gear/abilityMaxHp/EpBonus` |
+| `derivedStats.ts` | `computeDerived`(物/法 ATK/DEF)、`computeMaxHp`(体×转化比,默认20)/`computeMaxEp`(智×转化比,默认15)、`VitalRatio`/`ratioOf`/`hpPerConOf`/`epPerIntOf`(主角·NPC 自定义每点转化比,缺省回退20/15)、`effectiveResource`、`lvFromRealm`/`realmFromLevel`、`TIERS`/`normalizeTier`、`gear/abilityMaxHp/EpBonus` |
 | `attrBonus.ts` | `ATTR_KEYS`/`ATTR_LABEL`、`parseAttrBonus`(从 effect 文本抽属性加成)、`effectiveAttrs`、`computeAttrBreakdown` |
 | `diceEngine.ts` | 确定性判定：`resolve`、各 `*Mod`(属性/技能/天赋/好感/装备/强度差)、`rollExpr`、`buildCheckResultBlock`、难度/强度表 |
 | `enhanceEngine.ts` | 装备强化确定性逻辑：`resolveEnhance`(摇率/爆装/降级/保底)、`enhanceCost`(品级×评分×老板)、`scoreCostMul`/`growthCoef`、`stageFromLevel`、`DEFAULT_BOSSES`/`DEFAULT_TABLES`、`enhanceFxClass`/`isEnhanceable` |
