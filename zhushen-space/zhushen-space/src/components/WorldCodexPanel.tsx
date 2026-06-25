@@ -233,12 +233,21 @@ function CodexBody({ text, type }: { text: string; type: 'text' | 'list' }) {
 export default function WorldCodexPanel({ onClose }: { onClose: () => void }) {
   const worldName = useMisc((s) => s.worldName);
   const enabled = useWorldCodex((s) => s.enabled);
-  const entry = useWorldCodex((s) => resolveCodexEntry(s.byWorld, worldName));
+  const byWorld = useWorldCodex((s) => s.byWorld);
+  const activeKey = useWorldCodex((s) => s.activeKey);
   const setIp = useWorldCodex((s) => s.setIp);
   const setSection = useWorldCodex((s) => s.setSection);
 
+  // 显示：优先当前世界的条目；解析不到（worldName 漂移/为空/换了世界）就粘住「上次生成」那条 → 关掉再打开内容不会消失。
+  // 注意 activeKey 可能是空串（当初 worldName 为空时建的），直接用 byWorld[activeKey] 取，别用 truthy 判断丢掉空串键。
+  const curEntry = resolveCodexEntry(byWorld, worldName);
+  const entry = curEntry ?? byWorld[activeKey];
+
   const home = isHomeWorld(worldName);
-  const [ip, setIpDraft] = useState(entry?.ipName || worldName || '');
+  const [ip, setIpDraft] = useState(curEntry?.ipName || (worldName || '').trim() || entry?.ipName || '');
+  // 写入键：世界名非空就用它（已有→覆盖、没有→建新）；世界名为空时退用玩家输入的作品名，再不行才落到上次生成那条。
+  // 覆盖只在深挖/重新生成时发生 —— 这正是「直到下次重新生成才覆盖」。
+  const opKey = (worldName || '').trim() || (ip || '').trim() || activeKey;
   const [loading, setLoading] = useState<Record<string, boolean>>({});
   const [err, setErr] = useState('');
   const [active, setActive] = useState<string>(CODEX_MODULES[0].key);
@@ -251,7 +260,7 @@ export default function WorldCodexPanel({ onClose }: { onClose: () => void }) {
     setErr('');
     try {
       const content = await genCodexSection(mod, ipName);
-      if (content) setSection(worldName, mod.key, content);
+      if (content) setSection(opKey, mod.key, content);
       else setErr(`「${mod.title}」未返回内容，可重试`);
     } catch (e: any) {
       setErr(`「${mod.title}」生成失败：${e?.message ?? e}`);
@@ -262,13 +271,13 @@ export default function WorldCodexPanel({ onClose }: { onClose: () => void }) {
 
   const genAll = async () => {
     const ipName = (ip || worldName).trim();
-    setIp(worldName, ipName);
+    setIp(opKey, ipName);
     await Promise.allSettled(CODEX_MODULES.map((m) => genOne(m, ipName)));
   };
 
   const regen = (mod: CodexModule) => {
     const ipName = (ip || worldName).trim();
-    setIp(worldName, ipName);
+    setIp(opKey, ipName);
     genOne(mod, ipName);
   };
 
@@ -314,7 +323,7 @@ export default function WorldCodexPanel({ onClose }: { onClose: () => void }) {
                 <input
                   value={ip}
                   onChange={(e) => setIpDraft(e.target.value)}
-                  onBlur={() => setIp(worldName, (ip || worldName).trim())}
+                  onBlur={() => setIp(opKey, (ip || worldName).trim())}
                   placeholder={worldName || '如：火影忍者 / 进击的巨人'}
                   className="flex-1 min-w-0 bg-void border border-edge rounded px-2.5 py-1.5 text-sm text-slate-200 focus:border-god/50 outline-none"
                 />

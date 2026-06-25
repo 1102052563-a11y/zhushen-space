@@ -569,6 +569,30 @@ function ItemCard({ item, onOpen }: { item: InventoryItem; onOpen: () => void })
   );
 }
 
+/* ── 可点击编辑的数字（货币/点数手动修正用：AI 有时漏发结算奖励，玩家可在此对账调整）── */
+function EditableNum({ value, onSave, className = '' }: { value: number; onSave: (v: number) => void; className?: string }) {
+  const [editing, setEditing] = useState(false);
+  const [local, setLocal] = useState(String(value));
+  if (editing) {
+    const commit = () => { onSave(Math.max(0, Math.round(Number(local) || 0))); setEditing(false); };
+    return (
+      <input autoFocus type="number" value={local}
+        onClick={(e) => e.stopPropagation()}
+        onChange={(e) => setLocal(e.target.value)}
+        onBlur={commit}
+        onKeyDown={(e) => { if (e.key === 'Enter') commit(); else if (e.key === 'Escape') setEditing(false); }}
+        className={`w-24 bg-void border border-god/50 rounded px-1.5 py-0.5 text-base font-bold font-mono text-right outline-none tabular-nums ${className}`}
+      />
+    );
+  }
+  return (
+    <button onClick={(e) => { e.stopPropagation(); setLocal(String(value)); setEditing(true); }} title="点击修改"
+      className={`text-base font-bold font-mono shrink-0 tabular-nums hover:underline decoration-dotted underline-offset-2 cursor-text ${className}`}>
+      {value.toLocaleString()}
+    </button>
+  );
+}
+
 /* ── 货币面板 ── */
 function CurrencyBar({ wallet }: { wallet: CurrencyWallet }) {
   const attrPoints = usePlayer((s) => s.profile.attrPoints ?? 0);
@@ -577,6 +601,9 @@ function CurrencyBar({ wallet }: { wallet: CurrencyWallet }) {
   const tier = usePlayer((s) => s.profile.tier);
   const treeProg = useSkillTree((s) => s.progress['B1']);
   const potPoints = Math.max(0, availablePP(treeProg, { level, tier }));   // 技能树可用潜能点（预算+兑换−已花）
+  const setCurrency = useItems((s) => s.setCurrency);
+  const setProfile = usePlayer((s) => s.setProfile);
+  const grantBonusPP = useSkillTree((s) => s.grantBonusPP);
   const [showReal, setShowReal] = useState(false);
   const [open, setOpen] = useState(() => { try { return localStorage.getItem('drpg-bp-cur-open') !== '0'; } catch { return true; } });
   const toggle = () => setOpen((v) => { const nv = !v; try { localStorage.setItem('drpg-bp-cur-open', nv ? '1' : '0'); } catch { /* */ } return nv; });
@@ -597,33 +624,31 @@ function CurrencyBar({ wallet }: { wallet: CurrencyWallet }) {
                 <div className={`text-sm font-mono font-semibold truncate ${cfg.color}`}>{type}</div>
                 <div className="text-[11px] text-dim/50 truncate">{cfg.sub}</div>
               </div>
-              <span className={`text-base font-bold font-mono shrink-0 tabular-nums ${cfg.color}`}>
-                {wallet[type].toLocaleString()}
-              </span>
+              <EditableNum value={wallet[type]} onSave={(v) => setCurrency({ [type]: v })} className={cfg.color} />
             </div>
           );
         })}
-        {/* 属性点（点击切换显示 真实属性点）*/}
-        <button onClick={() => setShowReal((v) => !v)} className="w-full flex items-center gap-2 px-3 py-2.5 hover:bg-panel2/40 transition-colors text-left">
-          <span className="text-base shrink-0">{showReal ? '💠' : '🔶'}</span>
-          <div className="flex-1 min-w-0">
-            <div className="text-sm font-mono font-semibold truncate text-amber-300">{showReal ? '真实属性点' : '属性点'}</div>
-            <div className="text-[11px] text-dim/50 truncate">点击切换{showReal ? '属性点' : '真实属性点'}</div>
-          </div>
-          <span className="text-base font-bold font-mono shrink-0 tabular-nums text-amber-300">
-            {(showReal ? realAttrPoints : attrPoints).toLocaleString()}
-          </span>
-        </button>
-        {/* 潜能点（技能树加点·确定性预算，随等级/阶位增长，−已花、+兑换）*/}
+        {/* 属性点（左侧点击切换 真实属性点；右侧数字可点改）*/}
+        <div className="w-full flex items-center gap-2 px-3 py-2.5">
+          <button onClick={() => setShowReal((v) => !v)} title="点击切换属性点 / 真实属性点"
+            className="flex items-center gap-2 flex-1 min-w-0 text-left hover:opacity-80 transition-opacity">
+            <span className="text-base shrink-0">{showReal ? '💠' : '🔶'}</span>
+            <div className="flex-1 min-w-0">
+              <div className="text-sm font-mono font-semibold truncate text-amber-300">{showReal ? '真实属性点' : '属性点'}</div>
+              <div className="text-[11px] text-dim/50 truncate">点击切换{showReal ? '属性点' : '真实属性点'}</div>
+            </div>
+          </button>
+          <EditableNum value={showReal ? realAttrPoints : attrPoints}
+            onSave={(v) => setProfile(showReal ? { realAttrPoints: v } : { attrPoints: v })} className="text-amber-300" />
+        </div>
+        {/* 潜能点（技能树加点·确定性预算；手改走 grantBonusPP 调 aiBonusPP，增加精确、下调以自然预算为底）*/}
         <div className="flex items-center gap-2 px-3 py-2.5">
           <span className="text-base shrink-0">🌟</span>
           <div className="flex-1 min-w-0">
             <div className="text-sm font-mono font-semibold truncate text-lime-300">潜能点</div>
             <div className="text-[11px] text-dim/50 truncate">技能树加点</div>
           </div>
-          <span className="text-base font-bold font-mono shrink-0 tabular-nums text-lime-300">
-            {potPoints.toLocaleString()}
-          </span>
+          <EditableNum value={potPoints} onSave={(v) => grantBonusPP('B1', v - potPoints)} className="text-lime-300" />
         </div>
       </div>}
       {/* 货币兑换：1 灵魂钱币 = 150,000 乐园币（始终显示，不随货币列表折叠）*/}

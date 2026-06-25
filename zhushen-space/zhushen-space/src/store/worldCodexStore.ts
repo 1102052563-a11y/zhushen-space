@@ -21,6 +21,7 @@ export interface WorldCodexEntry {
 interface WorldCodexState {
   enabled: boolean;
   byWorld: Record<string, WorldCodexEntry>;    // key = 世界名（miscStore.worldName）
+  activeKey: string;                           // 「上次生成」的条目键：面板据此粘住显示——只在下次深挖/重新生成时才换，关掉再打开内容不消失
 
   setEnabled: (v: boolean) => void;
   /** 确保某世界条目存在并返回（内部用） */
@@ -68,6 +69,7 @@ export const useWorldCodex = create<WorldCodexState>()(
     (set) => ({
       enabled: true,
       byWorld: {},
+      activeKey: '',
 
       setEnabled: (v) => set({ enabled: v }),
 
@@ -96,6 +98,7 @@ export const useWorldCodex = create<WorldCodexState>()(
                 sections: { ...cur.sections, [moduleKey]: { content, updatedAt: Date.now() } },
               },
             },
+            activeKey: key,   // 把「上次生成」指向这条 → 面板粘住它，覆盖只发生在这一刻
           };
         }),
 
@@ -105,10 +108,10 @@ export const useWorldCodex = create<WorldCodexState>()(
           if (!s.byWorld[key]) return s;
           const next = { ...s.byWorld };
           delete next[key];
-          return { byWorld: next };
+          return { byWorld: next, activeKey: s.activeKey === key ? '' : s.activeKey };
         }),
 
-      clearAll: () => set({ byWorld: {} }),
+      clearAll: () => set({ byWorld: {}, activeKey: '' }),
     }),
     {
       name: 'drpg-world-codex',
@@ -117,6 +120,7 @@ export const useWorldCodex = create<WorldCodexState>()(
         ...persisted,
         enabled: persisted?.enabled ?? current.enabled,
         byWorld: persisted?.byWorld ?? {},
+        activeKey: persisted?.activeKey ?? '',
       }),
     },
   ),

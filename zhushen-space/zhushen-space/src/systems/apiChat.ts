@@ -77,6 +77,11 @@ export async function fetchWithProxy(url: string, init?: RequestInit): Promise<R
    响应：流式 SSE（data:{delta}）逐块读取、累积成整段返回（背景调用要完整内容，不做增量展示）；
         接口若忽略 stream 直接回一次性 JSON 也兼容。
    chain：按优先级排好的接口列表（上=先调用），逐个尝试，失败/超时自动切下一条；全部失败抛最后一个错误。 */
+// 「停止生成全部变量」：模块级中止器。abortAllApiCalls() 一调，所有正在进行的 chat 调用（各演化阶段都走 apiChatFallback）
+// 立即被 abort，随后立刻重置控制器——故不牵连停止之后的新调用（NPC 私聊/骰子/赌坊等照常）。
+let _stopAll = new AbortController();
+export function abortAllApiCalls(): void { try { _stopAll.abort(); } catch { /* */ } _stopAll = new AbortController(); }
+
 export async function apiChatFallback(
   chain: ApiConfig[],
   messages: { role: string; content: string }[],
@@ -109,13 +114,18 @@ export async function apiChatFallback(
       if (body.temperature === undefined && api.temperature != null && isFinite(api.temperature) && api.temperature > 0) body.temperature = api.temperature;
       if (body.max_tokens === undefined && api.maxTokens != null && api.maxTokens > 0) body.max_tokens = api.maxTokens;
       const ctrl = new AbortController();
+      // 全局「停止生成」：abortAllApiCalls() 触发时连带中止本次请求
+      const stopSig = _stopAll.signal;
+      if (stopSig.aborted) ctrl.abort();
+      const onStopAll = () => ctrl.abort();
+      stopSig.addEventListener('abort', onStopAll);
       // timeoutMs 当「空闲超时」用：只要流还在持续吐数据就不中止（推理模型/慢中转的流式总时长常超过它，
       // 按总时长掐断反而拿不到任何内容）；另设绝对上限防止真卡死无限挂起。
       const idleMs = opts?.timeoutMs ?? 0;
       let idleTimer: ReturnType<typeof setTimeout> | null = null;
       const bump = () => { if (!idleMs) return; if (idleTimer) clearTimeout(idleTimer); idleTimer = setTimeout(() => ctrl.abort(), idleMs); };
       const hardTimer = idleMs ? setTimeout(() => ctrl.abort(), Math.max(idleMs * 4, 240000)) : null;
-      const cleanup = () => { if (idleTimer) clearTimeout(idleTimer); if (hardTimer) clearTimeout(hardTimer); };
+      const cleanup = () => { if (idleTimer) clearTimeout(idleTimer); if (hardTimer) clearTimeout(hardTimer); stopSig.removeEventListener('abort', onStopAll); };
       bump();   // 起始：覆盖连接 + 首字延迟
       try {
         const res = await fetchWithProxy(api.baseUrl.replace(/\/$/, '') + '/chat/completions', {

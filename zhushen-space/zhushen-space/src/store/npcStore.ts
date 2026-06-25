@@ -140,6 +140,9 @@ export interface NpcRecord {
   assistOwnerId?: string; // 来源卡上传者 id（"chat:<uid>"）；非空=这是一张被邀请的助战 NPC（供面板列出 + 遣散 + 去重）
   assistCardId?: string;  // 来源助战卡 id（去重判据）
 
+  // ── 纪念丰碑（玩家把过往主角铭刻入碑后、在新存档里「召唤」物化进来的英灵；见 systems/monument.ts）──
+  monumentId?: string;    // 来源丰碑条目 id；非空=这是一名召唤出的纪念英灵（供面板列出 + 遣散 + 去重 + 判定"已召唤"）
+
   // ── 好友（手动收藏的契约者/随从/宠物；进入好友栏后每回合参与 NPC 演化）──
   isFriend?: boolean;     // 是否在好友栏
   friendedAt?: number;    // 加为好友的时间

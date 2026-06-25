@@ -1,11 +1,12 @@
 import { useState, useRef } from 'react';
 import { useChannel, CHANNEL_DEFS, type ChannelKey, type ChannelMessage, type ChannelQuote } from '../store/channelStore';
 import { isDmableTag } from '../store/dmStore';
-import { useItems, ITEM_GRADES, gradeColorClass, gradeBadgeClass, gradeNameClass, asText, type CurrencyWallet } from '../store/itemStore';
+import { useItems, ITEM_GRADES, gradeColorClass, gradeBadgeClass, gradeNameClass, asText, type CurrencyWallet, type InventoryItem } from '../store/itemStore';
 import {
   buyFromListing, isBuyable, parseChannelPrice, normChannelCurrency,
   acceptQuote, isBarterQuote, postWantToBuy, postSellItem, type BuyResult,
 } from '../systems/channelTrade';
+import { estimateFairValue, priceVerdict, formatFairRange } from '../systems/itemPricing';
 
 /* 频道配色 */
 const CH_FALLBACK = { dot: 'bg-slate-400', chip: 'border-slate-500/40 text-slate-300' };
@@ -252,6 +253,30 @@ function MessageCard({ m, onBuy, onAcceptQuote, onCancel, onDetail, onReply, onJ
 }
 
 /* 发帖表单（求购 / 出售）*/
+/* 挂单公允价提示：据所选物品/品级机械估价，价格严重不符时给 ⚠ 警告（与频道契约者的拒绝/嘲笑反应同源 itemPricing）*/
+function PriceHint({ mode, sel, grade, qty, price, currency }: {
+  mode: 'buy' | 'sell'; sel?: InventoryItem; grade: string; qty: string; price: string; currency: keyof CurrencyWallet;
+}) {
+  const q = Math.max(1, Number(qty) || 1);
+  const fair = mode === 'sell'
+    ? (sel ? estimateFairValue({ score: sel.score, gradeDesc: sel.gradeDesc, category: sel.category, qty: q }) : null)
+    : (grade ? estimateFairValue({ gradeDesc: grade, qty: q }) : null);
+  if (!fair) return null;
+  const pv = priceVerdict(mode === 'sell' ? 'sell' : 'buy', Number(price) || 0, currency, fair);
+  const severe = pv.verdict === 'absurdHigh' || pv.verdict === 'absurdLow';
+  const warn = mode === 'sell'
+    ? '要价离谱——契约者多半当场戳破、拒绝或嘲笑还价'
+    : '预算离谱——卖家多半拒绝/调侃，劝你加价';
+  return (
+    <div className="text-[11px] font-mono leading-relaxed -mt-1">
+      <span className="text-dim/55">公允价 ≈ </span>
+      <span className="text-amber-300/80">{formatFairRange(fair)}</span>
+      {fair.strategic && <span className="text-violet-300/70"> · 战略级·宜以物换物</span>}
+      {severe && !!price && <div className="text-blood/80 mt-0.5">⚠ {warn}</div>}
+    </div>
+  );
+}
+
 function PostForm({ mode, onClose, onPosted }: { mode: 'buy' | 'sell'; onClose: () => void; onPosted: () => void }) {
   const items = useItems((s) => s.items);
   const sellable = items.filter((it) => !it.equipped);
@@ -345,6 +370,7 @@ function PostForm({ mode, onClose, onPosted }: { mode: 'buy' | 'sell'; onClose: 
               </select>
             </div>
           </div>
+          <PriceHint mode={mode} sel={sel} grade={grade} qty={qty} price={price} currency={currency} />
           <div>
             <div className="text-[11px] font-mono text-dim/50 mb-0.5">留言（可空）</div>
             <input value={note} onChange={(e) => setNote(e.target.value)} placeholder={mode === 'buy' ? '如：急用，价格好商量' : '如：诚心出，可小刀'} className={inputCls} />

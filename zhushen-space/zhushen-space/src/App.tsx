@@ -12,6 +12,7 @@ import {
   AFFIX_EFFECT_RULE,
   ITEM_GRADE_TABLE_RULE,
   EQUIP_CODEX,
+  CHANNEL_PRICE_CODEX,
   ITEM_ACQUIRE_RULE,
   ITEM_DESTROY_GUARD_RULE,
   ITEM_COT_RULE,
@@ -47,6 +48,7 @@ import {
   NPC_ID_RULE,
   NPC_SKILL_KEEP_RULE,
   PLAYER_SKILL_KEEP_RULE,
+  ITEM_GRANTED_SKILL_RULE,
   SKILL_COMBAT_TAG_RULE,
   TIER_RULE,
   SKILL_TALENT_NOTE_RULE,
@@ -88,7 +90,7 @@ import {
 import { useState, useRef, useEffect, lazy, Suspense, type PointerEvent as RPointerEvent } from 'react';
 import { useGame } from './store/gameStore';
 import { useSettings, resolveApiChain } from './store/settingsStore';
-import { apiChatFallback, fetchWithProxy } from './systems/apiChat';
+import { apiChatFallback, fetchWithProxy, abortAllApiCalls } from './systems/apiChat';
 import { parseAllStateUpdates, stripStateBlocks, parseAllItemCommands, applyItemCommands, parseAllCharCommands, applyCharacterCommands, parseAllNpcCommands, applyNpcCommands, parseAllFactionCommands, applyFactionCommands, applyTerritoryCommands, applyTeamCommands, isEquippable, lenientJsonParse } from './systems/stateParser';
 import { isRealNpc, sanitizeEntryName, stripLeakedThinking, setNpcPreferredOwners, applyStateUpdates, applyAllUpdates, stripKillBlocks, stripVitalsBlocks, stripWorldSourceBlocks, collapseRunaway } from './systems/stateApply';
 import { flattenAiText } from './systems/flattenAiText';
@@ -123,7 +125,7 @@ import { isHomeWorld, reconcileHomeWorld, reconcilePlayerVitals, playerMaxHp, pl
 import { bioInnate, tierVitalMult } from './systems/bioStrength';
 import { generateNpcAttrs, resolveForm, generateLuck } from './systems/npcAttrGen';
 import { useImageGen, effectiveEquipService } from './store/imageGenStore';
-import { generateImage, buildPortraitPrompt, buildEquipPrompt, shrinkDataUrl } from './systems/imageGen';
+import { generateImage, buildPortraitPrompt, buildEquipPrompt, shrinkDataUrl, abortAllImageGen } from './systems/imageGen';
 import { genPortraitTags, genEquipTags, isTagService, genderToTag } from './systems/imageTags';
 import { hydrateImages, initImageSync } from './systems/imageSync';
 import { loadWb, saveWb } from './systems/wbDb';
@@ -155,6 +157,7 @@ import { useCharacters, type MemoryEntry } from './store/characterStore';
 import { useMemory } from './store/memoryStore';
 import { useMisc, buildMiscSystemPrompt } from './store/miscStore';
 import { useChannel, buildChannelSystemPrompt, CHANNEL_DEFS } from './store/channelStore';
+import { estimateFairValue, priceVerdict, formatFairRange, VERDICT_LABEL } from './systems/itemPricing';
 import { applyMiscCommands, serializeTasks, serializeEvents, extractTurnSummaries } from './systems/miscParser';
 import { buildNarrativeHistory, NM_COMPILE_PROMPT, NM_INGEST_PROMPT } from './systems/narrativeMemory';
 import { buildMemPool, loadAll as factVecLoadAll, ensureVectors as factVecEnsure, embedOne as factVecEmbedOne, search as factVecSearch } from './systems/factVec';
@@ -188,6 +191,7 @@ const MultiplayerPanel = lazy(() => import('./components/MultiplayerPanel'));
 const ChatRoomPanel = lazy(() => import('./components/ChatRoomPanel'));
 const TradePanel = lazy(() => import('./components/TradePanel'));
 const AssistPanel = lazy(() => import('./components/AssistPanel'));
+const MonumentPanel = lazy(() => import('./components/MonumentPanel'));
 import { useMp, type HiddenCondition } from './store/multiplayerStore';
 import { mpClient } from './systems/mpClient';
 import { buildPlayerSnapshot, buildPartyTurnText, buildWorldSnapshot, applyWorldSnapshot, buildPartyProfiles, mpNarrativeRule, purgeMpCharacters } from './systems/mpSnapshot';
@@ -726,13 +730,14 @@ const QUEST_PLANNING_RULE = `
       - **强制环**(不写 optional)：保命底线、必经，**失败=死亡或重罚**(penalty 三类)。顺序：①入场钩子(低难度，把主角钉进本世界剧情、绑定动机) ②正式升级(硬仗，逼用本世界资源/规则、击杀中boss/夺关键物) ③高潮(最高强制难度，boss战/剧情爆点)。**打完高潮＝主线达成、可离场**(到此即完整闭环)；finale 写的就是高潮目标。
       - **贪婪环**(optional:true)：高潮之后的**可选延伸**(隐藏升级 / 顶点·隐藏boss)，难度陡增、奖励跳一大档；**失败只损失本环额外奖励、不致死、不强制抹除**，排在强制环之后。
   · **reward 固定"六选三"**：从【①属性点 ②技能点 ③乐园币 ④一件契合当前世界风格的装备 或 技能书 ⑤潜能点（职业技能树资源，按环规模给但**每环最多 +4**：普通环+1~3、贪婪环至多+4；完成时由【潜能点】规则用 \`pp.B1 += N\` 实际发放） ⑥一个贴合本世界题材的「世界专属宝箱」（以未开启物品发放·开启得本世界主题战利品，命名贴合本世界）】里**任选 3 类**，每类给具体数值/名目（如 「属性点+3、技能点+2、乐园币+500」 或 「乐园币+500、技能点+2、潜能点+3」，或把一项换成"当前世界风格的武器/技能书"）；**奖励超线性增长——每往后一环奖励近翻倍，贪婪环更跳一大档**（默认你已吃掉前几环奖励变强）。
-  · **灵魂钱币·四阶门槛**：六选三里的货币默认用「乐园币」；**只有当前衍生世界达【四阶】及以上，才可把某一份乐园币奖励改成/升级为「灵魂钱币(魂币)」**；四阶以下世界**严禁**任何任务奖励出现灵魂钱币（与正文世界书蓝灯铁律「灵魂钱币·任务奖励四阶门槛」一致）。
+  · **货币·每环基础给量（削减后·按世界阶·铁则）**：六选三里的货币奖励按当前世界阶给基础值、**别再随手大放**——**一阶~三阶发乐园币**：一阶+500 / 二阶+1500 / 三阶+4000；**四阶起改发灵魂钱币（魂币）·不再发乐园币**：四阶+1 / 五阶+3 / 六阶+6 / 七阶+12 / 八阶+25 / 九阶+50（**每环基础**·±50% 按环规模浮动；后续环超线性递增、贪婪环再跳一档，但起步以此为准）。此切换契合下条「灵魂钱币·四阶门槛」：三阶及以下绝不出灵魂钱币、四阶起货币奖励即为灵魂钱币。
+  · **灵魂钱币·四阶门槛**：**三阶及以下世界货币奖励只发乐园币、严禁灵魂钱币**；**四阶及以上世界货币奖励改发「灵魂钱币(魂币)」**（与正文世界书蓝灯铁律「灵魂钱币·任务奖励四阶门槛」一致——四阶才解锁灵魂钱币）。
   · **世界之源（独立于 reward 六选三、完成必得）**：每一环（及单环任务）完成时，除 reward 六选三外**恒定额外发放「世界之源」%**——主线强制环 +10%~18%、贪婪环 +15%~25%、支线环 +3%~7%、隐藏任务 +8%~15%（按规模在区间取；口径见正文世界书「00-铁律」第15条「世界之源·获取标准」）。**reward 字段仍只写六选三那三类、不要把世界之源塞进 reward**；世界之源在正文📜任务模块单列展示，并于回合末【🌍世界之源】行计入累计、供世界结算评级。
   · **penalty 按环型分**：**强制环固定三类**（按严重度递进：①扣除乐园币 ②全属性永久下降 ③强制抹除＝契约者被处决，仅用于高潮/致命失败），**不要写"被伏击/受伤/暴露行踪"等普通剧情后果**；**贪婪环 penalty 写"仅损失本环额外奖励(不死)"**。reward 不许留空。
   · **每环时限(startTime/endTime，绝对游戏时间)·最低 7 天铁则**：给每一环（及单环任务）设执行窗口时，**endTime − startTime ≥ 7 天（任务世界时间）是地板**，绝不要设几小时/几天的紧逼窗口逼玩家赶场；**上不封顶、按难度与性质评估**——普通环 7~30 天起步，需长期经营/等待/养成/季节更替/远途的长线环给数月乃至一年以上（半年、一年、数年皆可）。startTime=本环开始时的绝对游戏时间，endTime=startTime+评估出的时长；推进到下一环时新环 startTime 接续上一环结束。
   · 顶层第2列(desc)同步写当前 active 环目标，第5列写"进行中"。
   · 新建主线的 T_ 编号用系统提供的"下一个可用任务ID"（同新建任务规则），下面示例里的 T_5 仅为占位。
-  · 示例（一行内，双引号）：\`set({"0":"T_5","1":"哥布林讨伐","kind":"主线","2":"潜入受袭村庄、在哥布林夜袭中存活三日","5":"进行中","finale":"高潮·牧场守卫战，硬抗哥布林大军守住村庄","currentRing":1,"rings":[{"idx":1,"goal":"潜入受袭村庄、在哥布林夜袭中存活三日","status":"active","reward":"属性点+2、技能点+1、乐园币+300","penalty":"扣除乐园币300"},{"idx":2,"goal":"夺回被占的旧矿、击杀哥布林督军","status":"planned","reward":"属性点+3、乐园币+800、督军战旗(当前世界风格)","penalty":"全属性永久-2"},{"idx":3,"goal":"（高潮，待推进到再规划）","status":"planned"},{"idx":4,"goal":"（贪婪·隐藏委托，待解锁）","status":"planned","optional":true}]})\`
+  · 示例（一行内，双引号）：\`set({"0":"T_5","1":"哥布林讨伐","kind":"主线","2":"潜入受袭村庄、在哥布林夜袭中存活三日","5":"进行中","finale":"高潮·牧场守卫战，硬抗哥布林大军守住村庄","currentRing":1,"rings":[{"idx":1,"goal":"潜入受袭村庄、在哥布林夜袭中存活三日","status":"active","reward":"属性点+2、技能点+1、乐园币+500","penalty":"扣除乐园币500"},{"idx":2,"goal":"夺回被占的旧矿、击杀哥布林督军","status":"planned","reward":"属性点+3、乐园币+1500、督军战旗(当前世界风格)","penalty":"全属性永久-2"},{"idx":3,"goal":"（高潮，待推进到再规划）","status":"planned"},{"idx":4,"goal":"（贪婪·隐藏委托，待解锁）","status":"planned","optional":true}]})\`
 - **何时不规划**：已存在当前世界的 active 主线时，**绝不重复新建主线**；主线的环推进交给【任务结算/推进】，这里不再造第二条主线。
 - 路线图是**规划而非预言**：**总环数(3~5)、各环的强制/贪婪定位、finale 定下后保持不变**，但环的具体内容渐进式补全（当前环+下一环写全、其余占位）；不要一开始就把整条线写死。每一环都是要打好几回合的"实质挑战"、规模/难度递增，不是琐碎子步骤。
 - **支线**：正文产生的其他多回合目标用 \`kind:"支线"\`（或不写 kind=默认支线）；需要分段的支线同样可带 rings，其每一环也要写全 goal/reward/penalty，reward 同样按"六选三"（属性点/技能点/乐园币/当前世界风格装备或技能书/潜能点/世界专属宝箱 任选3类；灵魂钱币同样仅四阶+世界可作奖励）给，penalty 同样从「扣除乐园币 / 全属性永久下降 / 强制抹除」三类里取；**时限同样适用上面的【每环时限·最低 7 天】**——支线的每一环、以及单环支线任务，都要设 startTime~endTime 执行窗口、且 endTime−startTime ≥ 7 天（上不封顶，按难度/需求评估，长线可数月乃至一年以上）。`;
@@ -870,6 +875,7 @@ const rightMenuItems = [
   { icon: '💬', label: '聊天室' },
   { icon: '🛒', label: '交易行' },
   { icon: '🆘', label: '助战' },
+  { icon: '🪦', label: '纪念丰碑' },
   { icon: '🧠', label: '记忆' },
   { icon: '🧩', label: '创意工坊' },
   { icon: '💾', label: '存档' },
@@ -882,7 +888,7 @@ const NAV_FX: Record<string, string> = {
   '副职业': 'fx-wrench', '技能树': 'fx-tree', '称号': 'fx-medal', '成就': 'fx-trophy', '势力': 'fx-pillar',
   '领地': 'fx-castle', '冒险团': 'fx-shield', '队伍': 'fx-friends', '万族': 'fx-cosmos', '世界百科': 'fx-book', '轮回WIKI': 'fx-book', 'ROLL': 'fx-dice',
   '战斗': 'fx-clash', '乐园设施': 'fx-ferris', '深渊': 'fx-void', '回合洞察': 'fx-zoom', '任务': 'fx-quest',
-  '频道': 'fx-signal', '私信': 'fx-mail', '好友': 'fx-friends', '聊天室': 'fx-signal', '交易行': 'fx-bag', '助战': 'fx-clash', '记忆': 'fx-brain', '创意工坊': 'fx-sparkle', '存档': 'fx-save', '设置': 'fx-gear',
+  '频道': 'fx-signal', '私信': 'fx-mail', '好友': 'fx-friends', '聊天室': 'fx-signal', '交易行': 'fx-bag', '助战': 'fx-clash', '纪念丰碑': 'fx-pillar', '记忆': 'fx-brain', '创意工坊': 'fx-sparkle', '存档': 'fx-save', '设置': 'fx-gear',
 };
 
 export default function App() {
@@ -997,6 +1003,7 @@ export default function App() {
   const chatBubbleDrag = useRef({ active: false, sx: 0, sy: 0, bx: 0, by: 0, moved: false, lx: 0, ly: 0 });
   const [tradeOpen, setTradeOpen] = useState(false);  // 全局交易行
   const [assistOpen, setAssistOpen] = useState(false);  // 全局助战大厅
+  const [monumentOpen, setMonumentOpen] = useState(false);  // 纪念丰碑（跨存档英灵殿）
   const chatUnread = useChatRoom((s) => s.unread);   // 导航红点：聊天室未读
   const chatOnline = useChatRoom((s) => s.roster.length);   // 在线人数（= 当前在玩且已登录的人）
   // 已登录(有聊天身份) → 一进游戏就后台连接聊天室：「在玩存档即在线」（不必开聊天面板，新消息也进未读红点）
@@ -1194,6 +1201,7 @@ export default function App() {
   const autoSaveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const lastAutoSaveTurn = useRef(-1);   // 本回合是否已自动存过：防同回合内(生图/选项等异步改 messages 反复触发定时器)重复自动存、刷出多份🛟备份
   const abortRef = useRef<AbortController | null>(null);   // 正文生成中止控制器（停止生成用）
+  const stopAllRef = useRef(false);   // 「停止生成全部变量」：置位后各演化/生图循环 bail；新一轮生成开头复位
   const povCollectRef = useRef<{ onDraft: (p: { seatId: string; draft: string; noKey?: boolean }) => void } | null>(null);   // 双视角·房主收集来宾初稿的活跃收集器
   const povGuestMsgRef = useRef<number | null>(null);   // 双视角·来宾「推演中」占位消息 id（pov_final 来替换）
   const pendingConvergenceRef = useRef<{ name: string; digest: string }[]>([]);   // 分头行动·汇流：待注入主线的归队者支线见闻（房主侧·下回合注入后清空）
@@ -2198,7 +2206,7 @@ export default function App() {
         .replaceAll('${character_snapshot}', playerProfileSnapshot)
         .replaceAll('${player_skills}', pSkills.length ? pSkills.map((s) => `${s.id}「${s.name}」${s.level ?? ''}`).join('；') : '（无）')
         .replaceAll('${player_traits}', pTalents.length ? pTalents.map((t) => `「${t.name}」${t.category ?? ''}·${t.rarity}级`).join('；') : '（无）')
-        + '\n\n' + PARADISE_RULES_RULE + '\n\n' + NARRATIVE_FIRST_RULE + '\n' + EVO_VERIFY_RULE + '\n' + BUFF_AS_STATUS_RULE + '\n' + SUBPROF_RULE + '\n' + TALENT_NO_CAP_RULE + '\n' + TITLE_DIVERSITY_RULE + '\n' + SKILL_TALENT_NOTE_RULE + '\n' + SKILL_TIER_RULE + '\n' + SKILL_TALENT_ATTR_CAP_RULE + '\n' + PLAYER_SKILL_KEEP_RULE + '\n' + SKILL_COMBAT_TAG_RULE + '\n' + TIER_RULE +'\n' + IMAGE_TAGS_RULE + '\n' + HPEP_NARRATIVE_ONLY_RULE + '\n' + WORLDSOURCE_RULE + '\n' + POINTS_NARRATIVE_RULE + '\n' + ATTR_SANITY_RULE + '\n' + ATTR_CAP_RULE + '\n' + PLAYER_ATTR_LOCK_RULE + '\n' + APPEARANCE_UPDATE_RULE + '\n' + STATUS_FORMAT_RULE + '\n' + STATUS_COUNTDOWN_TURN_RULE + '\n' + FIRST_UPDATE_COMPLETE_RULE + '\n' + EVO_EXACT_REF_RULE + '\n' + SKILL_TALENT_GUIDE + '\n' + PLAYER_COT_RULE;
+        + '\n\n' + PARADISE_RULES_RULE + '\n\n' + NARRATIVE_FIRST_RULE + '\n' + EVO_VERIFY_RULE + '\n' + BUFF_AS_STATUS_RULE + '\n' + SUBPROF_RULE + '\n' + TALENT_NO_CAP_RULE + '\n' + TITLE_DIVERSITY_RULE + '\n' + SKILL_TALENT_NOTE_RULE + '\n' + SKILL_TIER_RULE + '\n' + SKILL_TALENT_ATTR_CAP_RULE + '\n' + PLAYER_SKILL_KEEP_RULE + '\n' + ITEM_GRANTED_SKILL_RULE + '\n' + SKILL_COMBAT_TAG_RULE + '\n' + TIER_RULE +'\n' + IMAGE_TAGS_RULE + '\n' + HPEP_NARRATIVE_ONLY_RULE + '\n' + WORLDSOURCE_RULE + '\n' + POINTS_NARRATIVE_RULE + '\n' + ATTR_SANITY_RULE + '\n' + ATTR_CAP_RULE + '\n' + PLAYER_ATTR_LOCK_RULE + '\n' + APPEARANCE_UPDATE_RULE + '\n' + STATUS_FORMAT_RULE + '\n' + STATUS_COUNTDOWN_TURN_RULE + '\n' + FIRST_UPDATE_COMPLETE_RULE + '\n' + EVO_EXACT_REF_RULE + '\n' + SKILL_TALENT_GUIDE + '\n' + PLAYER_COT_RULE;
       const userContent  = `# 本轮正文\n${trimmedNarrative}\n\n---\n请根据以上正文处理本轮主角属性与状态的变化。**先输出一个 <think>…</think> 思考块**，按系统提示里的「主角演化思维链」逐项自检；**随后**输出 <state>（及如有需要的 <upstore>）指令块，无变化时输出空块。除 <think> / <state> / <upstore> 外不要有其它文字。`;
 
       const ss2 = useSettings.getState();
@@ -2286,7 +2294,7 @@ export default function App() {
       .filter((e) => e.enabled && e.source !== 'entrySharedRules')
       .map((e) => fillVars(e.content, vars))
       .join('\n\n')
-      + '\n\n' + NARRATIVE_FIRST_RULE + '\n' + BUFF_AS_STATUS_RULE + '\n' + NPC_AGE_RULE + '\n' + TALENT_NO_CAP_RULE + '\n' + TITLE_DIVERSITY_RULE + '\n' + NPC_DEAD_EXCLUDE_RULE + '\n' + NPC_ID_RULE + '\n' + SKILL_TALENT_NOTE_RULE + '\n' + NPC_SKILL_KEEP_RULE + '\n' + SKILL_COMBAT_TAG_RULE + '\n' + NPC_REVIEW_TAG_RULE +'\n' + NPC_TEAM_AFFILIATION_RULE + '\n' + TIER_RULE + '\n' + IMAGE_TAGS_RULE + '\n' + HPEP_NARRATIVE_ONLY_RULE + '\n' + POINTS_NARRATIVE_RULE + '\n' + NPC_GEN_ATTR_RULE + '\n' + ATTR_SANITY_RULE + '\n' + ATTR_CAP_RULE + '\n' + STATUS_FORMAT_RULE + '\n' + STATUS_COUNTDOWN_TURN_RULE + '\n' + NPC_PRIVATE_EXTRA_RULE + '\n' + NPC_TIER_LOADOUT_RULE + '\n' + SKILL_TALENT_ATTR_CAP_RULE + '\n' + FIRST_UPDATE_COMPLETE_RULE + '\n' + EVO_EXACT_REF_RULE + '\n' + SKILL_TALENT_GUIDE + '\n' + NPC_COT_RULE
+      + '\n\n' + NARRATIVE_FIRST_RULE + '\n' + BUFF_AS_STATUS_RULE + '\n' + NPC_AGE_RULE + '\n' + TALENT_NO_CAP_RULE + '\n' + TITLE_DIVERSITY_RULE + '\n' + NPC_DEAD_EXCLUDE_RULE + '\n' + NPC_ID_RULE + '\n' + SKILL_TALENT_NOTE_RULE + '\n' + NPC_SKILL_KEEP_RULE + '\n' + ITEM_GRANTED_SKILL_RULE + '\n' + SKILL_COMBAT_TAG_RULE + '\n' + NPC_REVIEW_TAG_RULE +'\n' + NPC_TEAM_AFFILIATION_RULE + '\n' + TIER_RULE + '\n' + IMAGE_TAGS_RULE + '\n' + HPEP_NARRATIVE_ONLY_RULE + '\n' + POINTS_NARRATIVE_RULE + '\n' + NPC_GEN_ATTR_RULE + '\n' + ATTR_SANITY_RULE + '\n' + ATTR_CAP_RULE + '\n' + STATUS_FORMAT_RULE + '\n' + STATUS_COUNTDOWN_TURN_RULE + '\n' + NPC_PRIVATE_EXTRA_RULE + '\n' + NPC_TIER_LOADOUT_RULE + '\n' + SKILL_TALENT_ATTR_CAP_RULE + '\n' + FIRST_UPDATE_COMPLETE_RULE + '\n' + EVO_EXACT_REF_RULE + '\n' + SKILL_TALENT_GUIDE + '\n' + NPC_COT_RULE
       // 门控：仅当该 NPC 已有背景、却还没第一人称自述时，才追加"生成自述"规则（一次性·省 token）
       + (rec && rec.background && !rec.selfNarration ? '\n' + NPC_SELF_NARRATION_RULE : '');
   }
@@ -3902,6 +3910,7 @@ ${AFFIX_EFFECT_RULE}`;
     setImagePhaseLog(`肖像生成中…（0/${jobs.length}）`);
     let done = 0, ok = 0;
     for (const job of jobs) {
+      if (stopAllRef.current) break;   // 「停止生成」：不再生成后续肖像
       try {
         // 无英文标签时先用 LLM 翻译（NAI 必须英文才像），存回 imageTags 供复用
         let tags = job.imageTags;
@@ -3976,6 +3985,7 @@ ${AFFIX_EFFECT_RULE}`;
     setImagePhaseLog(`装备生图中…（0/${jobs.length}）`);
     let done = 0, ok = 0;
     for (const job of jobs) {
+      if (stopAllRef.current) break;   // 「停止生成」：不再生成后续装备图
       try {
         // NAI/ComfyUI 标签模型：把中文描述翻成英文 tags；自然语言模型用中文模板
         let prompt = '';
@@ -4980,15 +4990,23 @@ ${lines}`;
       .replaceAll('${world_time}', M.worldTime || M.paradiseTime || '')
       .replaceAll('${enabled_channels}', '交易').replaceAll('${recent_events}', '').replaceAll('${existing_messages}', '').replaceAll('${message_count}', '0')
       + '\n\n【报价生成铁则】针对玩家在交易频道挂的求购/出售帖，扮演多位**不同**契约者给出报价/出价，每条务必：① 价格贴合该物品的颜色品质定价与玩家预算（有人急出压价、有人坐地起价、有人给替代品/附赠）；② **求购帖里你是卖家**（报价把东西卖给玩家），**出售帖里你是买家**（出价收购玩家的东西）；③ 必带一句符合该契约者身份口吻的【留言】（可砍价/吹嘘/吐槽/玩梗/讲价由头）。货币用 乐园币 或 灵魂钱币。\n④ **求购帖的卖家报价：必须按固定格式给出所提供物品的完整属性**——名称/产地(origin)/品质色(gradeDesc)/类型(category+subType)/攻防(combatStat)/耐久(durability)/装备需求(requirement)/词缀(affix)/评分(score)/效果(effect)/简介(intro)/外观(appearance)，武器另加杀敌数(killCount)；**若是技能书/技能卷轴/知识卷轴/图纸/天赋碎片**，subType 写明类型、effect 明确写学会/获得什么（技能名+层阶 / 知识领域 / 可制造产品 / 天赋名+评级）；**一个都不能省略、不准偷懒**（与物品生成同标准）。\n⑤ **出售帖里你是买家**，有两种回应方式，让多位买家**混合采用**更真实：(a) **纯现金收购**——`barter` 设 false、`itemName` 留空，只给 price/currency/note；(b) **以物换物（barter）**——拿出你自己的一件物品跟玩家换：`barter` 设 true，并按固定格式给出**你这件换购物品**的完整属性（itemName/gradeDesc/category/subType/origin/combatStat/durability/requirement/affix/score/effect/intro/appearance，武器加 killCount；技能书/卷轴/图纸/天赋碎片同求购帖标准写明 subType+effect），`price` 填你**额外找补给玩家的现金**（平换则填 0）。换购物品必须是**与玩家那件不同、且贴合玩家诉求**的真实物品，属性一个都不能空。'
-      + '\n\n' + EQUIP_CODEX;   // 求购帖卖家报价/以物换路换购物品都会生成装备 → 全量注入装备世界书
+      + '\n\n' + EQUIP_CODEX   // 求购帖卖家报价/以物换路换购物品都会生成装备 → 全量注入装备世界书
+      + '\n\n' + CHANNEL_PRICE_CODEX;   // 物品价格世界书 → 报价/砍价以公允价为准，离谱定价要被戳破
+    const priceNum = (p?: string) => { const n = parseInt(String(p ?? '').replace(/[^\d]/g, ''), 10); return Number.isFinite(n) ? n : 0; };
     const postsDesc = open.map((m) => {
       const o = m.offer ?? {};
       const base = `「${o.itemName}」${o.gradeDesc ? `(${o.gradeDesc})` : ''}${o.qty && o.qty > 1 ? ` ×${o.qty}` : ''}`;
-      return m.kind === 'buy'
-        ? `${m.id} 求购：玩家想买 ${base}，预算 ${o.price || '面议'} ${o.currency || '乐园币'}；玩家留言：${o.note || '无'}`
-        : `${m.id} 出售：玩家想卖 ${base}，期望 ${o.price || '面议'} ${o.currency || '乐园币'}；玩家留言：${o.note || '无'}`;
+      const side: 'buy' | 'sell' = m.kind === 'buy' ? 'buy' : 'sell';
+      // 前端机械估价：出售帖以玩家物品的评分/品级为准，求购帖只有品级（玩家未持有该物）
+      const fair = estimateFairValue({ score: side === 'sell' ? o.score : undefined, gradeDesc: o.gradeDesc, category: o.category, qty: o.qty });
+      const pv = priceVerdict(side, priceNum(o.price), o.currency, fair);
+      const ratioTxt = pv.ratio ? `（约公允价${pv.ratio >= 1 ? pv.ratio.toFixed(1) + '倍' : Math.round(pv.ratio * 100) + '%'}）` : '';
+      const anchor = `〔系统估价：公允价≈${formatFairRange(fair)}；玩家定价判级：${VERDICT_LABEL[pv.verdict]}${ratioTxt}${fair.strategic ? '；战略级·宜以物换物' : ''}〕`;
+      return side === 'buy'
+        ? `${m.id} 求购：玩家想买 ${base}，预算 ${o.price || '面议'} ${o.currency || '乐园币'}；玩家留言：${o.note || '无'} ${anchor}`
+        : `${m.id} 出售：玩家想卖 ${base}，期望 ${o.price || '面议'} ${o.currency || '乐园币'}；玩家留言：${o.note || '无'} ${anchor}`;
     }).join('\n');
-    const user = `玩家挂出的帖子如下，请为每个帖子生成 2~4 条报价/出价：\n${postsDesc}\n\n只输出 JSON：{"quotes":[{"postId":"<帖子号如 M_5>","fromName":"昵称","fromTier":"三阶·Lv.25","fromTag":"契约者","barter":false,"itemName":"(求购帖=你提供的物品名；出售帖纯现金收购留空，以物换物则填你拿出交换的物品名)","gradeDesc":"品质色","category":"分类","subType":"类型细分","origin":"产地","combatStat":"攻防数值","durability":"耐久","requirement":"装备需求","affix":"词缀","score":"评分","effect":"效果","intro":"简介","appearance":"逐部件外观","killCount":"杀敌数(武器)","qty":1,"price":数字,"currency":"乐园币","note":"留言"}]}（求购帖的卖家报价务必填全 origin/subType/combatStat/durability/requirement/affix/score/effect/intro/appearance 等固定格式字段；出售帖：纯现金收购 barter:false 只给 price/currency/note，以物换物则 barter:true 并把换购物品按上述固定格式字段写全、price=额外找补现金/平换填0）`;
+    const user = `玩家挂出的帖子如下，请为每个帖子生成 2~4 条报价/出价：\n${postsDesc}\n\n【按估价锚点反应·务必执行】每帖末〔系统估价〕已给出该物公允价与玩家定价判级，据此回应：\n- 判级「离谱虚高」(出售要价远超公允价)→ 至少 1~2 条买家**戳破并拒绝/嘲笑/劝阻**，note 直说品级评分配不上这价，price 给贴近公允价的诚实出价，绝不照单全收。\n- 判级「严重偏离」(求购预算远低于公允价)→ 至少 1~2 条卖家**拒绝/调侃这点钱买不到、劝其加价**，price 给该档真实售价当还价，note 写明「加到 X 才有人卖」。\n- 判级「接近公允/偏高/偏低」→ 正常砍价还价，报价落在公允价区间附近。\n- 面议(玩家没填价)→ 按公允价主动给出合理报价。\n离谱定价必须有人说实话，切忌全场假装能成交；语气贴合各契约者人设(毒舌奸商/老好心前辈/看热闹/就事论事的行家)。\n\n只输出 JSON：{"quotes":[{"postId":"<帖子号如 M_5>","fromName":"昵称","fromTier":"三阶·Lv.25","fromTag":"契约者","barter":false,"itemName":"(求购帖=你提供的物品名；出售帖纯现金收购留空，以物换物则填你拿出交换的物品名)","gradeDesc":"品质色","category":"分类","subType":"类型细分","origin":"产地","combatStat":"攻防数值","durability":"耐久","requirement":"装备需求","affix":"词缀","score":"评分","effect":"效果","intro":"简介","appearance":"逐部件外观","killCount":"杀敌数(武器)","qty":1,"price":数字,"currency":"乐园币","note":"留言"}]}（求购帖的卖家报价务必填全 origin/subType/combatStat/durability/requirement/affix/score/effect/intro/appearance 等固定格式字段；出售帖：纯现金收购 barter:false 只给 price/currency/note，以物换物则 barter:true 并把换购物品按上述固定格式字段写全、price=额外找补现金/平换填0）`;
     useChannel.getState().setRefreshing(true);
     try {
       const { content } = await apiChatFallback(chain, [{ role: 'system', content: sys }, { role: 'user', content: user }]);
@@ -5435,13 +5453,17 @@ ${lines}`;
     const ARCHIVE_AFTER = 2;
     for (const r of Object.values(npc.npcs)) {
       if (r.isDead || !r.name || r.name === r.id) continue;
+      // 队友恒在场：随主角同行的队友若被（历史 bug 等）误判离场，对账时拉回在场——只有剧情明确离队 / leaveParty / 世界结束解散才真离场。
+      if (r.partyMember && !r.onScene) { npc.setScene(r.id, true, turn); continue; }
       const nameKey = r.name.split('|')[0].trim();
       if (nameKey.length < 2) continue;                       // 单字名易误命中，跳过
       const mentioned = text.includes(nameKey);
       if (mentioned) {
         if (!r.onScene) npc.setScene(r.id, true, turn);       // 离场角色重新出现→回到在场
         else npc.upsertNpc(r.id, { lastSeenTurn: turn });
-      } else if (r.onScene && !r.isBond && !r.keepForever) {
+      } else if (r.onScene && !r.isBond && !r.keepForever && !r.partyMember) {
+        // 豁免「随主角同行」的角色：羁绊/keepForever(助战)/队友——他们跟着主角走，正文不一定每回合点名，
+        // 绝不能因 N 回合没被提名就自动判离场（队友只在剧情明确离队 / leaveParty 指令 / 世界结束解散时才离场）。
         const last = r.lastSeenTurn ?? turn;
         if (turn - last >= ARCHIVE_AFTER) npc.setScene(r.id, false);   // 久未出场→自动离场
         else if (r.lastSeenTurn == null) npc.upsertNpc(r.id, { lastSeenTurn: turn });
@@ -6654,6 +6676,7 @@ ${lines}`;
   }
   function runPostNarrativePhases(narrative: string, assistantMsgId?: number) {
     setPhaseFail({});   // 新回合重跑全部演化：先清空上轮的「更新失败」标记，本轮哪个再失败由其状态日志重新标记
+    stopAllRef.current = false;   // 新回合开始：解除上次的「停止生成」（chat/生图全局中止器在 stop 时已自重置，无需再动）
     // 战斗刚结算（本回合是玩家发送的"战斗复盘"）→ HP/EP 已由战斗系统定死：本回合不从正文再抽 HP（防 AI 复盘重复扣血），改以战斗结算值为准
     const combatSettled = combatSettledRef.current;
     combatSettledRef.current = null;
@@ -6994,6 +7017,7 @@ ${lines}`;
     setGenError('');
     const ac = new AbortController();
     abortRef.current = ac;
+    stopAllRef.current = false;   // 新一轮生成：解除上次「停止生成」
 
     try {
       // 接口路由：按优先级逐个尝试，失败/非 OK 自动 fallback 到下一条；首个成功者用于（流式）读取
@@ -7161,6 +7185,16 @@ ${lines}`;
     catch (e) { console.warn('[Undo] 记录回退点失败:', e); setGenError('记录回退点失败，"回退/重新生成"暂不可用（可能浏览器存储空间已满）'); setTimeout(() => setGenError(''), 6000); }
   }
   function stopGeneration() { abortRef.current?.abort(); }
+  /* 停止生成全部变量：中止主正文 + 所有演化阶段 chat 调用 + 所有生图，并置位 stopAllRef 让批量/生图循环立即 bail */
+  function stopAllPhases() {
+    stopAllRef.current = true;
+    abortRef.current?.abort();   // 主正文（若在生成）
+    abortAllApiCalls();          // 全部演化阶段（物品/主角/NPC/势力/领地/冒险团/万族/杂项/记忆…走 apiChatFallback）
+    abortAllImageGen();          // 全部生图（肖像/装备/正文配图）
+    setFloorProg(null); setPhaseBusy({});
+    setItemPhaseRunning(false); setPlayerPhaseRunning(false); setNpcPhaseRunning(false);
+    setGenError('已停止所有变量生成'); setTimeout(() => setGenError(''), 3000);
+  }
   /* 重算单项变量：取本回合正文（无则回退到最后一条 AI 正文）；空则提示不跑 */
   function revarNarr(): string {
     return lastNarrativeRef.current || [...(messagesRef.current ?? [])].reverse().find((m) => m.role === 'assistant')?.content || '';
@@ -7188,6 +7222,7 @@ ${lines}`;
     const floors = narrativeFloors(); const T = floors.length;
     const runner = BATCH_RUNNERS[cfg.fk];
     setFloorCfg(null);
+    stopAllRef.current = false;   // 开始批量更新：解除上次「停止生成」
     if (!runner || T === 0) return;
     let start = Math.max(1, Math.min(T, Math.round(Number(floorStart) || 1)));
     let end = Math.max(1, Math.min(T, Math.round(Number(floorEnd) || T)));
@@ -7199,6 +7234,7 @@ ${lines}`;
     setPhaseFail((p) => { if (!p[cfg.fk]) return p; const n = { ...p }; delete n[cfg.fk]; return n; });
     try {
       for (let bi = 0; bi < batches.length; bi++) {
+        if (stopAllRef.current) break;   // 「停止生成」：不再发起后续批次
         const [lo, hi] = batches[bi];
         setFloorProg({ fk: cfg.fk, cur: bi + 1, total: batches.length });
         let chunk = floors.slice(lo - 1, hi).join('\n\n');
@@ -7268,6 +7304,7 @@ ${lines}`;
       label === '聊天室' ? () => setChatRoomOpen(true) :
       label === '交易行' ? () => setTradeOpen(true) :
       label === '助战' ? () => setAssistOpen(true) :
+      label === '纪念丰碑' ? () => setMonumentOpen(true) :
       label === '记忆' ? () => setSummaryPanelOpen(true) :
       label === '存档' ? () => setSaveOpen(true) :
       label === '创意工坊' ? () => setWorkshopOpen(true) :
@@ -8077,6 +8114,9 @@ ${lines}`;
                   <button onClick={() => setRevarOpen(true)}
                     className="flex items-center gap-1 px-2.5 py-1 rounded border border-edge text-dim hover:border-sky-500/40 hover:text-sky-300 transition-colors"
                     title="重算单项变量：打开菜单，单独重 ROLL 物品/主角/NPC/势力… 某一项（或全部）">♻ 重算变量</button>
+                  <button onClick={stopAllPhases}
+                    className="flex items-center gap-1 px-2.5 py-1 rounded border border-blood/40 text-blood/80 hover:border-blood hover:text-blood hover:bg-blood/10 transition-colors"
+                    title="停止正在进行的全部变量演化与生图（物品/主角/NPC/势力/领地/冒险团/万族/杂项/记忆/生图，及批量更新）；点后可再发消息/重算继续">⛔ 停止生成</button>
                   {canUndo && <span className="text-dim/35">回退/重生会撤销上一回合的全部演化</span>}
                 </>
               )}
@@ -8438,6 +8478,7 @@ ${lines}`;
       {chatRoomOpen && <ChatRoomPanel onClose={() => setChatRoomOpen(false)} />}
       {tradeOpen && <TradePanel onClose={() => setTradeOpen(false)} />}
       {assistOpen && <AssistPanel onClose={() => setAssistOpen(false)} />}
+      {monumentOpen && <MonumentPanel onClose={() => setMonumentOpen(false)} />}
       {mpIncomingGift && <GiftPrompt gift={mpIncomingGift} onClose={() => useMp.getState()._set({ incomingGift: null })} />}
       {mpRaidLoot && <RaidLootModal onClose={() => useMp.getState()._set({ raidLoot: null })} />}
       <RaidDungeonReward />

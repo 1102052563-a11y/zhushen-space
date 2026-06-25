@@ -399,7 +399,19 @@ export async function shrinkDataUrl(dataUrl: string, maxDim = 1024, quality = 0.
 }
 
 /* ───────── 统一入口 ───────── */
+// 「停止生成全部变量」：模块级图片中止器。abortAllImageGen() 一调，正在进行的生图立即 abort，随后重置。
+let _stopImg = new AbortController();
+export function abortAllImageGen(): void { try { _stopImg.abort(); } catch { /* */ } _stopImg = new AbortController(); }
+function mergeStopSignal(sig?: AbortSignal): AbortSignal {
+  const stop = _stopImg.signal;
+  if (!sig) return stop;
+  const ctrl = new AbortController();
+  for (const s of [sig, stop]) { if (s.aborted) { ctrl.abort(); return ctrl.signal; } s.addEventListener('abort', () => ctrl.abort(), { once: true }); }
+  return ctrl.signal;
+}
+
 export async function generateImage(service: ImgService, o: GenOpts): Promise<string> {
+  o = { ...o, signal: mergeStopSignal(o.signal) };   // 并入全局「停止生成」信号
   const s = useImageGen.getState();
   // 全局「生成中」提示 + 控制台日志（便于确认实际使用的提示词/画风）
   useImageBusy.getState().start(o.label || '生成图片中…', (o.prompt || '').slice(0, 180));
