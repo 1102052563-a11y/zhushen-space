@@ -2,6 +2,7 @@ import { useState, useRef, useEffect, useMemo } from 'react';
 import { useSettings, resolveApiChain } from '../store/settingsStore';
 import { apiChatFallback } from '../systems/apiChat';
 import { WORLD_GEN_PROMPT } from '../worldGenPrompt';
+import { usePlayer } from '../store/playerStore';   // 读取主角所属乐园（homeParadise），生成世界时按主角真实乐园视角
 import { findJoyBook, quickInsertTitles } from '../systems/joyWorldBook';   // 通用：按书名(姿势/BDSM)定位 + 取条目标题，复用于正文世界书
 
 export interface WorldOption {
@@ -122,6 +123,7 @@ export default function WorldSelector({ onRawResponse, onPromptSent, onWorlds, o
   const systemPrompt = useSettings((s) => s.systemPrompt);
   const worldBooks = useSettings((s) => s.worldBooks);
   const textWorldBooks = useSettings((s) => s.textWorldBooks);
+  const homeParadise = usePlayer((s) => s.profile.homeParadise);   // 主角所属乐园（开局选定，如 天启乐园 / 圣光乐园…）
 
   // 姿势 / BDSM 快捷按钮：从正文世界书里按书名定位两本，提取可插入的条目标题（参考欢愉宫包间快捷按钮）
   const poseTitles = useMemo(() => quickInsertTitles(findJoyBook(textWorldBooks, 'pose')), [textWorldBooks]);
@@ -233,6 +235,13 @@ export default function WorldSelector({ onRawResponse, onPromptSent, onWorlds, o
     const rankPart = leisure
       ? '生成休闲世界（休闲 / 恋爱向的轻松日常世界，无生存压力；阶位固定一阶）'
       : (cn ? `目标阶位：${cn}阶` : '目标阶位：未指定（按通用难度生成）');
+    // 主角所属乐园：让 AI 按主角真实乐园视角生成，而非默认轮回乐园
+    const home = (homeParadise || '').trim() || '轮回乐园';
+    const homePart =
+      `主角所属乐园：${home}（主角的阵营 / 视角，务必据此生成：` +
+      `① 主线 / 支线任务的立场、身份、奖励归属都以主角属于「${home}」为准；` +
+      `② 契约者分布中主角计入「${home}」乐园（休闲世界仅主角 1 人，以人数铁则为准）；` +
+      `③ 切勿默认把主角当成轮回乐园的人）`;
     const listPart =
       `【指定世界清单】请严格为以下 ${pickedNames.length} 个世界逐一生成卡片（逐一对应、不得替换 / 增减 / 另选）：\n` +
       pickedNames.map((n, i) => `${i + 1}. ${n}`).join('\n');
@@ -245,7 +254,7 @@ export default function WorldSelector({ onRawResponse, onPromptSent, onWorlds, o
       : '（无匹配世界书条目；请基于上述指定世界清单与目标阶位合理生成）';
 
     const userMessage =
-      `${rankPart}\n\n${listPart}\n\n` +
+      `${rankPart}\n${homePart}\n\n${listPart}\n\n` +
       (leisure
         ? `以下是「休闲世界」世界书条目（含规则 / 铁则与世界库），供取材与设定参考：\n\n${entriesText}`
         : `以下是该阶世界书条目（含规则 / 铁则与世界库），供取材与设定参考：\n\n${entriesText}`);

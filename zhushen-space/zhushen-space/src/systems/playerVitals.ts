@@ -69,9 +69,10 @@ export function playerResourceMax(def: { max?: number; maxFormula?: AttrCoef }):
   return Math.max(1, computeAttrPool(a, f, realAttrMult(prof.tier, prof.level)));
 }
 
-/* 战斗内累积（仅 B1·在战斗驱动 resolveAndNarrate 里每次出手后调一次，不碰战斗引擎）：
-   actorId=出手者；kind=动作；b1HpDelta=B1 本次 HP 变化(负=受伤)；killed=本次 B1 击杀的敌人数。
-   据每条能量条的 combat 规则增减并钳到 [0,上限]。无 combat 配置的能量条不受影响。 */
+/* 战斗内累积（仅 B1·在战斗驱动 resolveAndNarrate 里调，不碰战斗引擎）：每次出手后调一次（actorId=出手者）；
+   advanceTurn 后回合开始的 DoT/领域持续伤害也补调一次（actorId='__dot__'，只走 onHitTaken）。
+   b1HpDelta=B1 本次 HP 变化(负=受伤)；killed=本次 B1 击杀的敌人数。
+   据每条能量条的 combat 规则增减并钳到 [0,上限]；无 combat 配置的能量条不受影响。 */
 export function applyCombatResourceGains(actorId: string, kind: string, b1HpDelta: number, killed: number): void {
   const R = useResource.getState();
   if (!R.resources.some((r) => r.combat)) return;

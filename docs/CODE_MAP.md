@@ -25,6 +25,7 @@
 | 技能/天赋/称号/副职业/成就/记忆 数据 | `store/characterStore.ts`（B1+Cx 共用）；成就在 `store/playerStore.ts` |
 | 技能/天赋指令 | `systems/stateParser.ts` → `parseAllCharCommands` / `applyCharacterCommands` |
 | 职业技能树（潜能点·节点解锁·可视化编辑） | `systems/skillTree.ts`（确定性结算/校验）；`store/skillTreeStore.ts`；`components/SkillTreePanel.tsx`(玩家🌳)/`TreeCanvas.tsx`(共享SVG)/`SkillTreeManager.tsx`(编辑器)；提示词 `SKILLTREE_GEN_PROMPT` |
+| 自定义能量条（HP/EP外·剧情/技能消耗/战斗累积·仅主角） | `store/resourceStore.ts`；上限/累积 `systems/playerVitals.ts`(`playerResourceMax`/`applyCombatResourceGains`/`resetCombatResources`)+`derivedStats.ts`(`computeAttrPool` 六维公式)；指令 `res.B1.<id>` 在 `systems/stateApply.ts`；注入 `systems/structuredRecall.ts`；UI `components/PlayerSidebar.tsx`(⚡管理+🎯技能绑定)；技能消耗/门槛 `skill.numeric.resCost/resGate`+`components/CombatPanel.tsx`；战斗累积钩子 `App.tsx`→`resolveAndNarrate`(出手+DoT) |
 | 衍生属性 / HP·EP 上限 / 阶位↔等级 | `systems/derivedStats.ts` |
 | 装备槽位 | `systems/equipSlots.ts`；`components/EquipmentPanel.tsx` / `NpcEquip.tsx` |
 | 骰子判定 | `systems/diceEngine.ts`（确定性）/ `diceJudge.ts`（AI裁判）；`components/DicePanel.tsx` / `DiceManager.tsx` |

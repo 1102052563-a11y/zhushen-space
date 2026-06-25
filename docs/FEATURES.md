@@ -189,6 +189,8 @@
 
 **HP/EP 上限可成长**：`maxHp/maxMp` 不固定,升级/阶位/体质成长可抬高。主角 `maxHp.B1=N`;NPC `hp.C1=当前/新上限`。**主角 HP/EP 始终按六维换算**(`computeMaxHp`/`computeMaxEp`=Σ六维×**自定义系数表**,**默认 体×20→HP / 智×15→EP,主角/NPC 各自可自定义** `hpRatio`/`epRatio`={属性:系数}(多属性混合,如 HP=体×10+智×5),缺省回退默认,调用方经 `ratioOf()` 传入；主角在血条「✎自定义血条」的 6×2 矩阵改、NPC 在详情编辑矩阵里改),三处兜底：confirmCreation 开局拉满、`reconcilePlayerVitals`(仍100/50旧默认时重算)、`applyNarrativeVitals`(扫正文照抄)。
 
+**自定义能量条**（HP/EP 之外·仅主角·`store/resourceStore.ts`，键 `drpg-resource`）：玩家在主角血条「⚡自定义能量条」面板自建额外资源条（怒气/堕落值/灵力…），机器键 id(ASCII，供指令)+显示名。**上限**=固定值或**六维系数表**(`computeAttrPool`，复用 HP/EP 同款加权·四阶起×5)。**当前值**由正文 `res.B1.<id> +=/-=/=`(`stateApply`)驱动并钳 [0,上限]、**忠于正文不自动回**；`structuredRecall` 每回合注入「当前/上限+说明+更新指令」(`inject` 可关)；**AI 不能自创**(未定义 id 的指令忽略·名称只出不进)。**三种深度**：① 纯剧情展示；② **技能消耗/门槛**(`skill.numeric.resCost` 消耗/`resGate` 门槛需≥·玩家在🎯面板绑定·`CombatPanel` 不足/未达则禁用、施放即扣，门槛不耗)；③ **战斗内累积**(`resource.combat`={onAttack/onHitTaken/onKill/onTurn/resetEachBattle}·`applyCombatResourceGains` 在 `App.resolveAndNarrate` 观察 B1 的 HP 差/出手/击杀、回合开始 DoT/领域走 advanceTurn 后钩子·**全程不碰战斗引擎**)。随存档、新游戏清(`saveManager` 已纳入)。
+
 ## 17. 名称模糊匹配 + 照抄铁则
 
 防"简写/标点差异匹配失败":① 代码 `nameEq`(去空白/标点/大小写后相等,不做子串以免误并 `烈焰斩`vs`烈焰斩·改`)——characterStore/territoryStore/adventureTeamStore 的"同名更新/按名删除"用它;② 物品 `fuzzyFindItem`(子串含+反向含,"止血喷雾"→"次级止血喷雾"取最短),消耗/销毁经 `pickTargetItem`(name 优先于幻觉 itemId);③ 提示词照抄铁则 `ITEM_EXACT_REF_RULE`(物品阶段)/`EVO_EXACT_REF_RULE`(主角+NPC演化,删除/升级照抄快照完整名)。

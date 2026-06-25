@@ -20,7 +20,7 @@ npm run build-vectors[-wb]       # 建小说/世界书向量库（需 $env:EMBED
 > **铁则**：① 始终 `vite build` 跳过 tsc（`npm run build` 因 WorldSelector 等预存 TS 错会失败，非真 bug）。② 用本地二进制、必须在内层目录（裸 `npx vite build` 可能报 entry module 错）。③ 勿对原生命令用 `2>$null`（会把 chunk 警告当错、误报 `$?=false`）；见 `✓ built in…` 即成功。④ 改 `src/` 后必须重 build 才更新 `dist/`（前端加载 dist/，已 gitignore）。⑤ 无测试框架；用户负责 commit+push → Cloudflare 自动部署（zhushen-space.pages.dev）。
 
 ## 架构地图
-- **Store**（Zustand+persist→localStorage，key `drpg-*`）：game / settings / item / player / npc / npcEvo / faction(+Evo) / adventureTeam / territory / cosmos / character(技能·天赋·称号·副职业·记忆，B1+Cx 共用) / memory / misc / imageGen / channel / dm / turnInsight / creationTemplate / novelVec / variable。职责/action 见 `CODE_MAP.md §5`。
+- **Store**（Zustand+persist→localStorage，key `drpg-*`）：game / settings / item / player / npc / npcEvo / faction(+Evo) / adventureTeam / territory / cosmos / character(技能·天赋·称号·副职业·记忆，B1+Cx 共用) / memory / misc / imageGen / channel / dm / turnInsight / creationTemplate / novelVec / variable / resource(自定义能量条·HP/EP外·仅主角)。职责/action 见 `CODE_MAP.md §5`。
 - **非 store 持久化（IndexedDB）**：chatDb(对话增量) · saveDb+saveManager(多存档·读档靠 reload) · imageDb+imageSync(图片·partialize 排除出 localStorage) · novelVec · wbDb。
 - **AI 多阶段（App.tsx）**：`callApi`→解析 `<state>`/`<upstore>`→`runPostNarrativePhases` **并发**触发各演化阶段（物品/主角/NPC/势力/领地/冒险团/万族/杂项/生平/记忆/生图），互不阻塞；物品+主角对账合并为 `runMergedAuditPhase`。位置见 `CODE_MAP.md §2`。
 - **指令解析（systems/stateParser.ts）**：`<state>`=逐行 `key =/+= value`（含 `hp.C1`/`eq.B1`/`character.<id>.*` 等短指令）；`<upstore>`=helper（`createItem`/`addSkill`/`addFaction` 等）。所有解析走 **`lenientJsonParse`**（容忍裸键/单引号/尾逗号）。全量清单 `FEATURES.md §3`。
