@@ -578,12 +578,16 @@ function CurrencyBar({ wallet }: { wallet: CurrencyWallet }) {
   const treeProg = useSkillTree((s) => s.progress['B1']);
   const potPoints = Math.max(0, availablePP(treeProg, { level, tier }));   // 技能树可用潜能点（预算+兑换−已花）
   const [showReal, setShowReal] = useState(false);
+  const [open, setOpen] = useState(() => { try { return localStorage.getItem('drpg-bp-cur-open') !== '0'; } catch { return true; } });
+  const toggle = () => setOpen((v) => { const nv = !v; try { localStorage.setItem('drpg-bp-cur-open', nv ? '1' : '0'); } catch { /* */ } return nv; });
   return (
     <div className="border border-edge rounded-xl bg-panel overflow-hidden">
-      <div className="px-3 py-2 bg-panel2 border-b border-edge/50 text-[12px] font-mono text-dim/60">
-        货币与点数
-      </div>
-      <div className="divide-y divide-edge/30">
+      <button onClick={toggle} title={open ? '收起货币列表' : '展开货币列表'}
+        className="w-full flex items-center justify-between px-3 py-2 bg-panel2 border-b border-edge/50 text-[12px] font-mono text-dim/60 hover:text-slate-300 transition-colors">
+        <span>货币与点数</span>
+        <span className="text-[10px]">{open ? '收起 ▾' : '展开 ▸'}</span>
+      </button>
+      {open && <div className="divide-y divide-edge/30">
         {(Object.keys(CURRENCY_CFG) as (keyof CurrencyWallet)[]).map((type) => {
           const cfg = CURRENCY_CFG[type];
           return (
@@ -621,8 +625,8 @@ function CurrencyBar({ wallet }: { wallet: CurrencyWallet }) {
             {potPoints.toLocaleString()}
           </span>
         </div>
-      </div>
-      {/* 货币兑换：1 灵魂钱币 = 150,000 乐园币 */}
+      </div>}
+      {/* 货币兑换：1 灵魂钱币 = 150,000 乐园币（始终显示，不随货币列表折叠）*/}
       <CurrencyConverter wallet={wallet} />
     </div>
   );
@@ -709,6 +713,7 @@ export default function BackpackModal({
 
   const [searchQ,      setSearchQ]      = useState('');
   const [filterCat,    setFilterCat]    = useState<ItemCategory | 'all'>('all');
+  const [catOpen,      setCatOpen]      = useState(() => { try { return localStorage.getItem('drpg-bp-cat-open') !== '0'; } catch { return true; } });
   const [sortBy,       setSortBy]       = useState<SortKey>('original');
   const [detailItemId, setDetailItemId] = useState<string | null>(null);
   const [confirmClear, setConfirmClear] = useState(false);
@@ -863,7 +868,13 @@ export default function BackpackModal({
             <CurrencyBar wallet={currency} />
 
             <div className="space-y-1">
-              <div className="text-[12px] font-mono text-dim/50 uppercase tracking-widest px-1">分类筛选</div>
+              <button onClick={() => setCatOpen((v) => { const nv = !v; try { localStorage.setItem('drpg-bp-cat-open', nv ? '1' : '0'); } catch { /* */ } return nv; })}
+                title={catOpen ? '收起分类' : '展开分类'}
+                className="w-full flex items-center justify-between text-[12px] font-mono text-dim/50 uppercase tracking-widest px-1 py-0.5 hover:text-slate-300 transition-colors">
+                <span>分类筛选</span>
+                <span className="text-[10px] normal-case">{catOpen ? '收起 ▾' : '展开 ▸'}</span>
+              </button>
+              {catOpen && (<>
               <button
                 onClick={() => setFilterCat('all')}
                 className={`w-full text-left px-2.5 py-1.5 rounded-lg text-sm font-mono transition-colors flex items-center justify-between ${
@@ -889,6 +900,7 @@ export default function BackpackModal({
                   </button>
                 );
               })}
+              </>)}
             </div>
           </aside>
 
