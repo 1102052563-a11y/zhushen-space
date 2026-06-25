@@ -79,7 +79,7 @@ export interface PlayerProfile {
   statusEffects: StatusEffect[]; // 限时状态（引擎自动过期）
   appearance: string;    // 外观描写（会随剧情演化）
   baseAppearance?: string; // 基底外观（开局设定，不可变；生图始终包含——决定主角长相的最底层基准）
-  bodyType?: '人形' | '兽形' | '非人形'; // 形态：非人形(召唤物/野兽/怪物)生图绕开人形框架
+  bodyType?: '' | '人形' | '兽形' | '非人形'; // 形态：留空=自动(按外观判断)；非人形(召唤物/野兽/怪物)生图绕开人形框架
   gender?: string;       // 性别（开局设定；生图据此强制 1boy/1girl 标签，避免被外观特征误判）
   race?: string;         // 种族（开局设定，如 人类/精灵/吸血鬼…）
   raceDetail?: string;   // 种族详情（自由文本：外貌特征/天生能力/弱点/文化等，注入 AI 上下文）

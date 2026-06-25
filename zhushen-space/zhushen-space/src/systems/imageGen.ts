@@ -308,6 +308,48 @@ export function forceGenderTag(tags: string, gender?: string): string {
   return t ? `${want}, ${t}` : want;
 }
 
+/* 读取「当前已装备」的物品(服装/护甲/主武器)拼成生图可读字符串。
+   解决"外观描述每回合漏掉服装"：生图直接读装备栏真实穿戴，不再指望 AI 把衣着写进外观。
+   传入主角背包(useItems.items)或 NPC.items 即可；只取 equipped=true 的。 */
+export function equippedForPrompt(
+  items?: Array<{ name?: string; appearance?: string; category?: string; subType?: string; equipped?: boolean; equipSlot?: string }>,
+): string {
+  if (!Array.isArray(items)) return '';
+  const eq = items.filter((it) => it && it.equipped && it.name);
+  if (!eq.length) return '';
+  const isWeapon = (it: { category?: string; subType?: string; equipSlot?: string }) =>
+    /武器|weapon|剑|刀|枪|炮|弓|弩|杖|锤|斧|matchlock|gun|sword|blade|spear|bow|staff/i.test(
+      `${it.category || ''}${it.subType || ''}${it.equipSlot || ''}`,
+    );
+  const fmt = (it: { name?: string; appearance?: string }) => {
+    const ap = String(it.appearance || '').trim().replace(/\s+/g, ' ').slice(0, 36);
+    return `${it.name}${ap ? `（${ap}）` : ''}`;
+  };
+  const weapons = eq.filter(isWeapon).map(fmt);
+  const wears = eq.filter((it) => !isWeapon(it)).map(fmt);
+  const segs: string[] = [];
+  if (wears.length) segs.push(`身着：${wears.join('、')}`);
+  if (weapons.length) segs.push(`手持：${weapons.join('、')}`);
+  return segs.join('；');
+}
+
+/* 形态自动识别：召唤物/野兽/非人形 NPC 常被 AI 建档时漏标 bodyType → 默认人形 → 强套 1girl 长出四肢。
+   bodyType 留空(自动)时，按角色外观/容貌/标签里的强信号兜底判断，免得用户给每个 AI 召唤物手动切。
+   有明确拟人标记(少女/兽耳/1girl 等)则不擅自改，交回人形/手动。 */
+export function inferBodyType(text?: string): '' | '兽形' | '非人形' {
+  const t = (text || '').toLowerCase();
+  if (!t) return '';
+  // ① 明确"无人形/非人形"字样 → 直接非人形（最确定信号，AI 给召唤物写容貌常有"无人形…"）
+  if (/无人形|非人形|无人型|无人类|无四肢|无固定形态|不定形|无实体|formless|no humans|non-?human/i.test(t)) return '非人形';
+  // ② 有拟人标记（少女/兽耳娘/1girl 之类）→ 不自动改，留给"人形/手动"
+  if (/兽人|兽耳|猫娘|狐娘|龙娘|蛇娘|拟人|半兽|人形|少女|少年|女性|男性|美少女|humanoid|kemonomimi|anthro|1girl|1boy|\bgirl\b|\bboy\b|\bwoman\b|\bman\b/i.test(t)) return '';
+  // ③ 无拟人标记 + 软体/触手/集群/元素 等强信号 → 非人形
+  if (/触手|史莱姆|粘液|黏液|软体|集群|虫群|蜂群|菌|孢子|结晶体|元素体|气态|液态|球状|雾状|slime|tentacl|amorphous|swarm|ooze|eldritch|aberration|gelatinous/i.test(t)) return '非人形';
+  // ④ 无拟人标记 + 纯野兽/四足/龙蛇 → 兽形
+  if (/野兽|巨兽|魔兽|妖兽|走兽|凶兽|四足|四肢着地|龙形|蛇形|纯血龙|兽形|feral|quadruped|\bbeast\b|\bdragon\b|\bwolf\b|\bserpent\b/i.test(t)) return '兽形';
+  return '';
+}
+
 /* 由角色档案字段拼肖像提示词（MVP：自然语言+少量 tags，NAI/OpenAI 都可用；
    未来可换成重点演化生成的英文 NAI tags(col19/imageTags) 以求同角色一致）。*/
 export function buildPortraitPrompt(f: {
@@ -315,10 +357,14 @@ export function buildPortraitPrompt(f: {
   action?: string; attire?: string; location?: string; figure?: string; appearanceDetails?: string;
   baseAppearance?: string;   // 基底外观（开局设定，不可变）——始终并入提示词
   bodyType?: string;         // 形态：人形(默认)/兽形/非人形——非人形(召唤物/野兽/怪物)绕开 1girl/半身肖像 人形框架
+  equipment?: string;        // 当前装备栏实际穿戴(服装/护甲/主武器)——直接读装备栏，免得 AI 每回合把服装写漏
 }): string {
   const s = useImageGen.getState();
   const base = (f.baseAppearance ?? '').trim();   // 基底外观：所有路径都要带上
-  const humanoid = !f.bodyType || f.bodyType === '人形';
+  const equip = (f.equipment ?? '').trim();       // 已装备的衣着/武器：机械读取，比"外观描述里的服装"可靠
+  // 形态：显式设定优先；留空(自动)则按外观/容貌/标签兜底识别（修"AI 召唤物没标形态→默认人形→强套1girl长四肢"）
+  const bt = (f.bodyType || '').trim() || inferBodyType([f.race, f.baseAppearance, f.appearance, f.appearanceDetails, f.npcTag].map((x) => x || '').join(' '));
+  const humanoid = !bt || bt === '人形';
   const imageTags = humanoid ? forceGenderTag((f.imageTags ?? '').trim(), f.gender) : (f.imageTags ?? '').trim();   // 非人形不强制 1girl/1boy 性别 tag
   const tagSvc = s.portraitService === 'nai' || s.portraitService === 'comfy';
 
@@ -327,10 +373,10 @@ export function buildPortraitPrompt(f: {
     const creatureDesc = [base, f.race, f.appearance, f.appearanceDetails].map((x) => (x || '').trim()).filter(Boolean).join('，');
     if (!tagSvc) {
       // 自然语言模型(gpt-image-2/Gemini/自定义)：明确"只有一只非人生物、无人类无人脸"
-      return `请生成一张【${f.bodyType}·非人形生物】的全身概念图。画面**只有这一只生物本体**，**绝对没有任何人类、没有人形身体、没有人类面孔与五官**（这不是人、也不是拟人化角色，是一只纯粹的非人生物/怪物）。生物外观（严格据此，绝不要套成人形）：${creatureDesc || '（按设定）'}。构图：完整展示生物全貌(full body)，背景简洁只作氛围。${s.styleGuide || ''}`.trim();
+      return `请生成一张【${bt === '兽形' ? '兽形·野兽/动物' : '非人形·怪物/生物'}】的全身概念图。画面**只有这一只生物本体**，**绝对没有任何人类、没有人形身体、没有人类面孔与五官**（这不是人、也不是拟人化角色，是一只纯粹的${bt === '兽形' ? '野兽/动物' : '非人生物/怪物'}）。生物外观（严格据此，绝不要套成人形）：${creatureDesc || '（按设定）'}。构图：完整展示生物全貌(full body)，背景简洁只作氛围。${s.styleGuide || ''}`.trim();
     }
     // 标签模型(NAI/ComfyUI)：生物 tag，不加 1girl/1boy；用 no humans / monster / full body 框定
-    const subj = f.bodyType === '兽形' ? 'no humans, solo, full body, animal, creature, feral' : 'no humans, solo, full body, monster, creature, eldritch';
+    const subj = bt === '兽形' ? 'no humans, solo, full body, animal, creature, feral' : 'no humans, solo, full body, monster, creature, eldritch';
     const parts = [subj, imageTags, base, f.race, f.appearance, f.appearanceDetails].map((x) => (x || '').trim()).filter(Boolean);
     if (s.portraitPositive.trim()) parts.push(s.portraitPositive.trim());
     return parts.join(', ');
@@ -345,7 +391,9 @@ export function buildPortraitPrompt(f: {
         .replaceAll('${tier}', f.tier || '')
         .replaceAll('${appearance}', [f.race, base, f.appearance, f.profession].filter(Boolean).join('，') || '（按设定）')
         .replaceAll('${appearance_details}', [f.race, base, f.appearanceDetails || f.appearance].filter(Boolean).join('，') || '（按设定）')
-        .replaceAll('${attire}', f.attire || '（按设定）')
+        .replaceAll('${attire}', equip || f.attire || '（按设定）')   // 优先用装备栏真实穿戴
+        .replaceAll('${equipment}', equip || '（无特别装备）')
+        .replaceAll('${装备}', equip || '（无特别装备）')
         .replaceAll('${figure}', f.figure || '（按设定）')
         .replaceAll('${action}', f.action || '自然端庄的姿态')
         .replaceAll('${location}', f.location || '简洁背景')
@@ -357,13 +405,14 @@ export function buildPortraitPrompt(f: {
   if (imageTags) {
     const parts = [imageTags];
     if (base) parts.push(base);                       // 基底外观始终并入
+    if (equip) parts.push(equip);                     // 装备栏实际穿戴并入（服装/武器不再漏）
     if (s.portraitPositive.trim()) parts.push(s.portraitPositive.trim());
     return parts.join(', ');
   }
   const male = /男/.test(f.gender || '') && !/女/.test(f.gender || '');
   const female = /女/.test(f.gender || '') && !/男/.test(f.gender || '');
   const g = female ? '1girl, solo' : male ? '1boy, solo' : 'solo';
-  const parts = [g, 'upper body portrait, character art', base, f.race, f.appearance, f.age, f.profession, f.tier, f.npcTag]
+  const parts = [g, 'upper body portrait, character art', base, equip, f.race, f.appearance, f.age, f.profession, f.tier, f.npcTag]
     .map((x) => (x || '').trim()).filter(Boolean);
   if (s.portraitPositive.trim()) parts.push(s.portraitPositive.trim());
   return parts.join(', ');

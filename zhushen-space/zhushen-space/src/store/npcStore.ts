@@ -88,7 +88,7 @@ export interface NpcRecord {
   favor: number;          // 列15：-100~100
   appearance5: string;    // 列16：动作|穿着|位置|身段|样貌（每回合即时变化）
   baseAppearance?: string; // 常驻长相基准（身高/发色/瞳色/肤色/体型/标志特征·不随剧情漂移·生图始终含）
-  bodyType?: '人形' | '兽形' | '非人形'; // 形态：非人形(召唤物/野兽/怪物)生图绕开人形框架
+  bodyType?: '' | '人形' | '兽形' | '非人形'; // 形态：留空=自动(按外观判断)；非人形(召唤物/野兽/怪物)生图绕开人形框架
   motiveNow: string;      // 列27
   shortGoal: string;      // 列28
   longGoal: string;       // 列29

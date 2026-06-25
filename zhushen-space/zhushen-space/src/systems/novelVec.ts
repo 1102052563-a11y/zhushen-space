@@ -146,10 +146,11 @@ export function loadNovelIndex(): Promise<boolean> {
 export async function embedQuery(text: string): Promise<Float32Array | null> {
   const s = useNovelVec.getState().settings;
   if (!s.apiKey || !s.apiBase) throw new Error('未配置 embedding 接口（设置→向量资料库）');
+  const model = (s.model || '').trim() || 'Pro/BAAI/bge-m3';   // 模型框清空时回退默认，避免空 model 触发 400
   const res = await fetch(`${s.apiBase.replace(/\/+$/, '')}/embeddings`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${s.apiKey}` },
-    body: JSON.stringify({ model: s.model, input: text, encoding_format: 'float' }),
+    body: JSON.stringify({ model, input: text, encoding_format: 'float' }),
   });
   if (!res.ok) throw new Error(`embedding 接口 ${res.status}: ${(await res.text().catch(() => '')).slice(0, 160)}`);
   const j = await res.json();

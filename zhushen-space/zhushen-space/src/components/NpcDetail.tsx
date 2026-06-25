@@ -17,7 +17,7 @@ import { useTeam } from '../store/adventureTeamStore';
 import { generateJoinedTeam } from '../systems/adventureTeamGen';
 import StatusEffectChips from './StatusEffectChips';
 import { useImageGen, effectiveEquipService } from '../store/imageGenStore';
-import { generateImage, buildPortraitPrompt, buildEquipPrompt, shrinkDataUrl } from '../systems/imageGen';
+import { generateImage, buildPortraitPrompt, buildEquipPrompt, equippedForPrompt, shrinkDataUrl } from '../systems/imageGen';
 import { useImageViewer } from '../store/imageViewerStore';
 import { genPortraitTags, genEquipTags, isTagService } from '../systems/imageTags';
 import { PortraitPicker, PortraitLibraryModal } from './PortraitPicker';
@@ -295,7 +295,7 @@ function NpcEditForm({ npc, onDone }: { npc: NpcRecord; onDone: () => void }) {
     affiliatedTeam: npc.affiliatedTeam ?? '',
     personality: npc.personality ?? '', review: npc.review ?? '', status: npc.status ?? '',
     callPlayer: npc.callPlayer ?? '', relations: npc.relations ?? '',
-    appearance5: npc.appearance5 ?? '', appearanceDetail: npc.appearanceDetail ?? '', baseAppearance: npc.baseAppearance ?? '', bodyType: npc.bodyType ?? '人形', imageTags: npc.imageTags ?? '',
+    appearance5: npc.appearance5 ?? '', appearanceDetail: npc.appearanceDetail ?? '', baseAppearance: npc.baseAppearance ?? '', bodyType: npc.bodyType ?? '', imageTags: npc.imageTags ?? '',
     innerThought: npc.innerThought ?? '', motiveNow: npc.motiveNow ?? '',
     shortGoal: npc.shortGoal ?? '', longGoal: npc.longGoal ?? '', background: npc.background ?? '',
     favor: String(npc.favor ?? 0),
@@ -406,8 +406,9 @@ function NpcEditForm({ npc, onDone }: { npc: NpcRecord; onDone: () => void }) {
       </Section>
 
       <Section title="外观 · 肖像">
-        <ERow label="形态" hint="非人形(召唤物/野兽/怪物)生图绕开人形框架，不再强套 1girl/人脸">
+        <ERow label="形态" hint="非人形(召唤物/野兽/怪物)生图绕开人形框架，不再强套 1girl/人脸。自动=按容貌里“无人形/触手/野兽”等字样判断">
           <select className={EDIT_INP} value={f.bodyType} onChange={(e) => set({ bodyType: e.target.value as any })}>
+            <option value="">自动（按外观判断·召唤物推荐）</option>
             <option value="人形">人形</option>
             <option value="兽形">兽形（野兽/动物）</option>
             <option value="非人形">非人形（召唤物/怪物/触手）</option>
@@ -886,11 +887,12 @@ function AvatarBlock({ npc }: { npc: NpcRecord }) {
       const ap = parseAppearance5(npc.appearance5);
       const appearance = [ap.look, ap.figure, ap.outfit, npc.appearanceDetail].filter(Boolean).join('，');
       // 手动「生成」：每次按【当前外观】重新翻译生图标签(列19)，确保新图反映当下场景/外观（旧逻辑只在无标签时翻译→复用旧标签出旧图，正是头像不更新的根因）。翻译失败回退旧标签。
-      const desc = [npc.baseAppearance, `${npc.name}`, npc.gender, appearance, npc.profession, parseRealm(npc.realm).tier, npc.npcTag].filter(Boolean).join('，');
+      const equip = equippedForPrompt(npc.items);   // 读 NPC 装备栏真实穿戴，服装/武器不再靠外观描述
+      const desc = [npc.baseAppearance, `${npc.name}`, npc.gender, appearance, equip, npc.profession, parseRealm(npc.realm).tier, npc.npcTag].filter(Boolean).join('，');
       const gen = await genPortraitTags(desc);
       const tags = gen || npc.imageTags;
       if (gen && gen !== npc.imageTags) upsert(npc.id, { imageTags: gen });
-      const prompt = buildPortraitPrompt({ gender: npc.gender, age: npc.age, appearance, baseAppearance: npc.baseAppearance, bodyType: npc.bodyType, profession: npc.profession, tier: parseRealm(npc.realm).tier, npcTag: npc.npcTag, imageTags: tags,
+      const prompt = buildPortraitPrompt({ gender: npc.gender, age: npc.age, appearance, baseAppearance: npc.baseAppearance, bodyType: npc.bodyType, equipment: equip, profession: npc.profession, tier: parseRealm(npc.realm).tier, npcTag: npc.npcTag, imageTags: tags,
         action: ap.action, attire: ap.outfit, location: ap.location, figure: ap.figure, appearanceDetails: npc.appearanceDetail });
       const url = await generateImage(portraitService, { prompt, negative: portraitNegative, label: `生成 ${npc.name} 肖像` });
       upsert(npc.id, { avatar: await shrinkDataUrl(url), avatarTags: tags || '' });

@@ -97,6 +97,7 @@ import { isRealNpc, sanitizeEntryName, stripLeakedThinking, setNpcPreferredOwner
 import { flattenAiText } from './systems/flattenAiText';
 import { runPhasePipeline, type Phase } from './systems/phasePipeline';
 import { buildFanficInjection, buildFactInjection, buildCosmosInjection, buildPlayerCoreInjection, buildWorldTimeInjection, buildQuestInjection } from './systems/promptInjections';
+import { takeSkillUpNote } from './systems/skillUpgrade';
 import { applyPlayerProfileCommands, applyTimedStatusCommands, expireStatuses } from './systems/statusCommands';
 import { getNpcApi, trimNarrative, npcChatCompletion, buildNpcVars, fillVars, serializeNpcSnapshot } from './systems/npcEvolutionHelpers';
 import { combatFinalVitals, applyCombatVitals, buildCombatResultFallback, runBattleSummaryPhase } from './systems/combatHelpers';
@@ -126,7 +127,7 @@ import { isHomeWorld, reconcileHomeWorld, reconcilePlayerVitals, playerMaxHp, pl
 import { bioInnate, tierVitalMult } from './systems/bioStrength';
 import { generateNpcAttrs, resolveForm, generateLuck } from './systems/npcAttrGen';
 import { useImageGen, effectiveEquipService } from './store/imageGenStore';
-import { generateImage, buildPortraitPrompt, buildEquipPrompt, shrinkDataUrl, abortAllImageGen } from './systems/imageGen';
+import { generateImage, buildPortraitPrompt, buildEquipPrompt, equippedForPrompt, shrinkDataUrl, abortAllImageGen } from './systems/imageGen';
 import { genPortraitTags, genEquipTags, isTagService, genderToTag } from './systems/imageTags';
 import { hydrateImages, initImageSync } from './systems/imageSync';
 import { loadWb, saveWb } from './systems/wbDb';
@@ -167,6 +168,7 @@ import { drainAllocNotices } from './systems/allocNotice';
 const MiscPanel = lazy(() => import('./components/MiscPanel'));
 const DicePanel = lazy(() => import('./components/DicePanel'));
 const EnhancePanel = lazy(() => import('./components/EnhancePanel'));
+const SkillUpgradePanel = lazy(() => import('./components/SkillUpgradePanel'));
 const CasinoPanel = lazy(() => import('./components/CasinoPanel'));
 const AbyssPanel = lazy(() => import('./components/AbyssPanel'));
 import { ABYSS_BOON_GEN_RULE, ABYSS_SIN_GEN_RULE, ABYSS_AWAKEN_RULE, ABYSS_JUDGE_RULE, ABYSS_ENEMY_GEN_RULE } from './systems/abyssPrompts';
@@ -988,6 +990,7 @@ export default function App() {
   const [miscPanelOpen,    setMiscPanelOpen]    = useState(false);
   const [dicePanelOpen,    setDicePanelOpen]    = useState(false);
   const [enhancePanelOpen, setEnhancePanelOpen] = useState(false);
+  const [skillUpPanelOpen, setSkillUpPanelOpen] = useState(false);
   const [casinoOpen,       setCasinoOpen]       = useState(false);
   const [abyssOpen,        setAbyssOpen]        = useState(false);
   const [joyPanelOpen,     setJoyPanelOpen]     = useState(false);
@@ -3877,8 +3880,8 @@ ${AFFIX_EFFECT_RULE}`;
     if (pfNeedNew || pfNeedRefresh) {
       jobs.push({
         kind: 'player', id: 'B1', name: pf.name || '主角',
-        fields: { gender: pf.gender, race: pf.race, appearance: pf.appearance, baseAppearance: pf.baseAppearance, bodyType: pf.bodyType, profession: pf.profession, tier: realmFromLevel(pf.level) },
-        descForTags: [pf.gender, pf.race, pf.baseAppearance, pf.appearance, pf.profession, realmFromLevel(pf.level), pf.background].filter(Boolean).join('，'),
+        fields: { gender: pf.gender, race: pf.race, appearance: pf.appearance, baseAppearance: pf.baseAppearance, bodyType: pf.bodyType, equipment: equippedForPrompt(useItems.getState().items), profession: pf.profession, tier: realmFromLevel(pf.level) },
+        descForTags: [pf.gender, pf.race, pf.baseAppearance, pf.appearance, equippedForPrompt(useItems.getState().items), pf.profession, realmFromLevel(pf.level), pf.background].filter(Boolean).join('，'),
         imageTags: pf.imageTags,
         forceRetag: !!pf.avatar && pfLookChanged && !pfTagsChanged,   // 仅外观文字变(标签没跟着变)→ 重新翻译标签，让新图真的不同
         appSig: pfApp,
@@ -3898,9 +3901,9 @@ ${AFFIX_EFFECT_RULE}`;
       const tier = normalizeTier(head || '') || (lv != null ? realmFromLevel(lv) : '');
       jobs.push({
         kind: 'npc', id: r.id, name: r.name,
-        fields: { gender: r.gender, age: r.age, appearance, baseAppearance: r.baseAppearance, bodyType: r.bodyType, profession: r.profession, tier, npcTag: r.npcTag,
+        fields: { gender: r.gender, age: r.age, appearance, baseAppearance: r.baseAppearance, bodyType: r.bodyType, equipment: equippedForPrompt(r.items), profession: r.profession, tier, npcTag: r.npcTag,
           action: seg[0], attire: seg[1], location: seg[2], figure: seg[3], appearanceDetails: r.appearanceDetail },
-        descForTags: [r.baseAppearance, r.name, r.gender, appearance, r.profession, tier, r.npcTag].filter(Boolean).join('，'),
+        descForTags: [r.baseAppearance, r.name, r.gender, appearance, equippedForPrompt(r.items), r.profession, tier, r.npcTag].filter(Boolean).join('，'),
         imageTags: r.imageTags,
       });
     }
@@ -6892,11 +6895,14 @@ ${lines}`;
         const recentN = historyLimit > 0 ? historyLimit : (vm.recentFullTextCount ?? 5);
         recent = (recentN > 0 ? allHistory.slice(-recentN) : []).map((m) => ({ role: m.role as 'user' | 'assistant', content: m.content }));
         { const sr = await buildStructuredRecall(ctx, { noLlmSelect: true, userInput: userText }); structPlayer = sr.player; structRest = sr.rest; }   // 向量模式：NPC 走本地排序，不调 LLM
-        const note = ev.remaining > 0 ? `（${ev.remaining} 条待索引，去设置→向量记忆点"重建索引"）` : '';
+        const note = ev.remaining > 0 ? `（剩 ${ev.remaining} 条将随后续回合自动补全，无需手动；想立即全量可去设置→向量记忆点"重建索引"）` : '';
         setNmPhaseLog(`🧠 向量召回：池 ${pool.length} 条 · 命中 ${hits.length}${(structPlayer.length || structRest.length) ? ' + 结构化档案' : ''}${note}`);
         setTimeout(() => setNmPhaseLog(''), 8000);
       } catch (e) {
         console.warn('[VecMem] 向量召回失败，回退最近楼层', e);
+        const msg = e instanceof Error ? e.message : String(e);
+        setNmPhaseLog(`⚠️ 向量记忆失败：${msg}（已回退最近楼层；请检查 设置→向量记忆 的接口/密钥/模型）`);
+        setTimeout(() => setNmPhaseLog(''), 12000);
         recent = visibleHistory.map((m) => ({ role: m.role as 'user' | 'assistant', content: m.content }));
       } finally {
         setNmRecalling(false);
@@ -6949,6 +6955,7 @@ ${lines}`;
 
     const mpPartyBlock = buildPartyProfiles();   // 联机房主：同行真人队友档案(技能/天赋/职业/装备/性格/外观/种族)
     const mpRuleBlock = mpNarrativeRule();        // 联机专用正文规则（建房时房主可选启用）
+    const skillUpNote = takeSkillUpNote();        // 技能升级·一次性"点数已用掉"系统提示（注入一次即清）
     const history = [
       ...examples,
       ...(worldbook && !worldbook.post ? [{ role: worldbook.role, content: worldbook.content }] : []),   // <世界书> marker 在前历史 → 楼层前（罕见，ST 预设）
@@ -6966,6 +6973,7 @@ ${lines}`;
       ...buildFanficInjection(),                        // <同人设定·已锁定>
       ...buildFactInjection(),                          // <事实锚点·已锁定>
       ...structPlayer,                                 // <主角当前档案> 浅注入：紧贴最近正文/用户输入
+      ...(skillUpNote ? [{ role: 'system' as const, content: skillUpNote }] : []),   // 技能升级·一次性结算通知（仅告知点数已用掉）
       ...guidanceBlock,                                // <剧情指导> 本回合写作建议
       ...(worldbook && worldbook.post ? [{ role: worldbook.role, content: worldbook.content }] : []),   // <世界书+RAG> 无 marker → 楼层后（稳定前缀外·缓存友好）；marker 后历史亦此
       ...tail.map((t) => ({ role: t.role, content: t.content })),   // <后历史预设块> chatHistory marker 之后的预设块（破限/格式/规则等）→ 真实楼层之后（仿 fanren post-history）
@@ -8533,6 +8541,10 @@ ${lines}`;
                 className="w-full flex items-center gap-3 px-4 py-3 rounded-xl border border-edge text-slate-200 hover:border-god/50 hover:bg-panel2 transition-colors text-left">
                 <span className="text-lg">⚒</span><span>装备强化</span>
               </button>
+              <button onClick={() => { setFacilitiesOpen(false); setSkillUpPanelOpen(true); }}
+                className="w-full flex items-center gap-3 px-4 py-3 rounded-xl border border-edge text-slate-200 hover:border-god/50 hover:bg-panel2 transition-colors text-left">
+                <span className="text-lg">🔼</span><span>技能升级</span>
+              </button>
               {joyEnabled && (
                 <button onClick={() => { setFacilitiesOpen(false); setJoyPanelOpen(true); }}
                   className="w-full flex items-center gap-3 px-4 py-3 rounded-xl border border-pink-500/40 joy-glow font-semibold text-pink-200 hover:bg-pink-500/10 transition-colors text-left">
@@ -8569,6 +8581,8 @@ ${lines}`;
           onFinalize={runEnhanceFinalizePhase}
         />
       )}
+
+      {skillUpPanelOpen && <SkillUpgradePanel onClose={() => setSkillUpPanelOpen(false)} />}
 
       {casinoOpen && <CasinoPanel onClose={() => setCasinoOpen(false)} onGenMatch={genGladiatorMatch} onGenBattle={genGladiatorBattle} onGenRewards={genGachaRewards} onBanter={casinoBanter} onGenSoul={genSoulGamble} onGenPortraits={genGladiatorPortraits} />}
       {abyssOpen && <AbyssPanel onClose={() => setAbyssOpen(false)} onGenBoons={genAbyssBoons} onGenSin={genAbyssSin} onGenAwaken={genAbyssAwaken} onGenJudge={genAbyssJudge} onGenEnemies={genAbyssEnemies} />}

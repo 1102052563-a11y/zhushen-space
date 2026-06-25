@@ -8,6 +8,12 @@ import type { VecMemConfig } from '../store/settingsStore';
 const DB = 'drpg-factvec';
 const STORE = 'vecs';
 
+/* embedding 模型缺省：用户把模型框清空时（输入框只剩占位符 Pro/BAAI/bge-m3，但实际值是空串），
+   回退到这个默认值，避免发出空 model 触发硅基流动 400 "Model field is required"。
+   既用于 API 请求体，也用于"已嵌入"标记，保证一致（空串 与 实际用的模型 不再错位）。 */
+export const DEFAULT_EMBED_MODEL = 'Pro/BAAI/bge-m3';
+export const effectiveModel = (cfg: VecMemConfig): string => (cfg.model || '').trim() || DEFAULT_EMBED_MODEL;
+
 interface VecRow { k: string; model: string; vec: number[] }
 
 let _cache: Map<string, { vec: Float32Array; model: string }> | null = null;
@@ -62,7 +68,7 @@ export async function embedBatch(texts: string[], cfg: VecMemConfig): Promise<Fl
   const res = await fetch(cfg.apiBase.replace(/\/+$/, '') + '/embeddings', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${cfg.apiKey}` },
-    body: JSON.stringify({ model: cfg.model, input: texts, encoding_format: 'float' }),
+    body: JSON.stringify({ model: effectiveModel(cfg), input: texts, encoding_format: 'float' }),
   });
   if (!res.ok) throw new Error(`embedding 接口 ${res.status}: ${(await res.text().catch(() => '')).slice(0, 160)}`);
   const j = await res.json();
@@ -93,7 +99,8 @@ export async function ensureVectors(
 ): Promise<{ embedded: number; remaining: number; total: number }> {
   await loadAll();
   const cache = _cache!;
-  const missing = items.filter((it) => { const c = cache.get(it.key); return !c || c.model !== cfg.model; });
+  const model = effectiveModel(cfg);
+  const missing = items.filter((it) => { const c = cache.get(it.key); return !c || c.model !== model; });
   const max = opts.max && opts.max > 0 ? Math.min(opts.max, missing.length) : missing.length;
   const todo = missing.slice(0, max);
   const batch = Math.max(1, opts.batch ?? 64);
@@ -106,8 +113,8 @@ export async function ensureVectors(
       const rows: VecRow[] = [];
       for (let j = 0; j < chunk.length; j++) {
         const v = vecs[j]; if (!v || v.length === 0) continue;
-        cache.set(chunk[j].key, { vec: v, model: cfg.model });
-        rows.push({ k: chunk[j].key, model: cfg.model, vec: Array.from(v) });
+        cache.set(chunk[j].key, { vec: v, model });
+        rows.push({ k: chunk[j].key, model, vec: Array.from(v) });
       }
       await idbBulkPut(db, rows);
       done += chunk.length;

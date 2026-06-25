@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react';
+import { useRef, useState, useEffect } from 'react';
 import { useSettings, endpointToConfig, type WorldBook, type WorldBookEntry, type TextGenPreset, type STPromptEntry, type RegexScript, type ApiEndpoint } from '../store/settingsStore';
 import { apiChatFallback, fetchWithProxy, gwProxyBase } from '../systems/apiChat';
 import { READING_FONTS, readingFontStack } from '../systems/readingFonts';
@@ -31,7 +31,7 @@ import ChannelManager from './ChannelManager';
 import ImageGenManager from './ImageGenManager';
 import { useMisc } from '../store/miscStore';
 import { useNovelVec } from '../store/novelVecStore';
-import { buildMemPool, ensureVectors as factVecEnsure, vecStatus as factVecStatus, clearAllVectors as factVecClear } from '../systems/factVec';
+import { buildMemPool, ensureVectors as factVecEnsure, vecStatus as factVecStatus, clearAllVectors as factVecClear, loadAll as factVecLoadAll } from '../systems/factVec';
 
 interface SettingsPanelProps {
   onClose: () => void;
@@ -2761,6 +2761,14 @@ function VectorMemorySettings() {
   const [status, setStatus] = useState('');
   const [indexed, setIndexed] = useState<number>(() => factVecStatus().indexed);
   const [confirmClear, setConfirmClear] = useState(false);
+
+  // 刷新后内存缓存为空 → factVecStatus() 返回 -1 显示"未加载"，让人误以为向量库丢了。
+  // 实际数据一直在 IndexedDB(drpg-factvec)；进设置页就从库里加载一次，显示真实条数。
+  useEffect(() => {
+    let alive = true;
+    factVecLoadAll().then(() => { if (alive) setIndexed(factVecStatus().indexed); }).catch(() => {});
+    return () => { alive = false; };
+  }, []);
 
   const num = (label: string, key: 'topK' | 'recentFullTextCount' | 'maxItems', min: number, max: number, hint: string) => (
     <div className="space-y-1.5">
