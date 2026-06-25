@@ -66,6 +66,8 @@ export default function SkillTreeManager() {
   const [genRef, setGenRef] = useState('');
   const [genDesc, setGenDesc] = useState('');   // 主角对该职业的描述（喂给 AI 定调）
   const [genBranches, setGenBranches] = useState('4');   // 流派数量（字符串态·允许自由输入；用时再 clamp 到 2~12）
+  const [genTierGate, setGenTierGate] = useState(true);  // 生成时是否给节点加阶位限制（关=任意阶位都可点·像副职业树）
+  const [genTrunk, setGenTrunk] = useState(false);       // 主干式：先一条通用主干往上，再从主干顶端分出各流派（树状）
   const [webSearch, setWebSearch] = useState(false);
   const [genBusy, setGenBusy] = useState(false);
   const [pickIds, setPickIds] = useState<Set<string>>(new Set());   // AI 单独/批量重写：选中的已生成节点 id
@@ -188,7 +190,9 @@ export default function SkillTreeManager() {
       flash('① 生成结构骨架中…（约 10~30 秒）');
       const structMsg = [
         `职业：${prof}`,
-        `流派数量：${nBr}（必须 ${nBr} 条 branch；每条至少 5 颗中型(medium 小技能) + 2 颗大节点(major/capstone)，外加微星/星核位/无尽端点，约 15~22 节点）`,
+        genTrunk
+          ? `【主干式·树状结构】生成「通用主干 + ${nBr} 条专精流派」：\n ① 先从 core 拉一条【通用主干】branch(id="trunk"、name="通用")：一条直线 6~9 个节点、串成单链(每个节点 prereqs 指向前一个)，放该职业【不论走哪条流派都通用的基础技能】(基础攻击/资源运用/位移/感知/通用强化…)，layer 从 0 依次递增。\n ② 主干末端之后再分流：${nBr} 条【专精流派】branch，每条流派最内侧起点的 prereqs **指向主干的末端节点 id**(不是 core)，从主干顶端分出向上生长。\n ③ 每条专精流派至少 5 颗中型(medium 小技能) + 2 颗大节点(major/capstone)，外加微星/1 星核位/1 无尽端点，约 15~22 节点。\n ④ branches 数组 = 1 条 trunk + ${nBr} 条专精(共 ${nBr + 1} 条)，trunk 放第一个。`
+          : `流派数量：${nBr}（必须 ${nBr} 条 branch；每条至少 5 颗中型(medium 小技能) + 2 颗大节点(major/capstone)，外加微星/星核位/无尽端点，约 15~22 节点）`,
         ref && `参考来源/风格：${ref}`,
         desc && `主角对该职业的描述/期望：\n${desc}`,
         '只搭结构 + 技能名，不要写技能描述。只输出 JSON。',
@@ -237,14 +241,15 @@ export default function SkillTreeManager() {
         }
         return n;
       });
-      const v = validateTree({ ...raw1, nodes: mergedNodes, source: 'ai' });
+      const v = validateTree({ ...raw1, nodes: mergedNodes, source: 'ai', noTierGate: !genTierGate, layout: genTrunk ? 'trunk' : undefined });
       if (!v.ok) { setValid({ errors: v.errors, warnings: v.warnings }); flash('生成的树有误：' + v.errors[0]); return; }
       const t = autoLayout(v.tree);
       st.upsertTree(t); setEditId(t.id); setSelId(undefined); setPickIds(new Set());
       const filled = t.nodes.filter((n) => n.grants?.skill || n.grants?.trait).length;
       const missing = skillNodes.length - mergedCnt;
       const extra: string[] = [];
-      if (t.branches.length !== nBr) extra.push(`流派数 ${t.branches.length}（要求 ${nBr}）`);
+      const expectBr = genTrunk ? nBr + 1 : nBr;   // 主干式多 1 条通用主干
+      if (t.branches.length !== expectBr) extra.push(`流派数 ${t.branches.length}（要求 ${expectBr}${genTrunk ? '·含通用主干' : ''}）`);
       if (missing > 0) extra.push(`${missing}/${skillNodes.length} 个技能未详写成功（多半是详写阶段被接口截断/报错，可重新生成、或对该节点单独补）`);
       setValid({ errors: [], warnings: [...v.warnings, ...extra] });
       flash(`已生成（${t.nodes.length}节点 / ${t.branches.length}流派 / ${filled}个技能）${extra.length ? '·' + extra.join('；') : '，可继续编辑'}`);
@@ -430,6 +435,14 @@ export default function SkillTreeManager() {
         <textarea value={genDesc} onChange={(e) => setGenDesc(e.target.value)} rows={3}
           placeholder="职业描述（选填，但强烈建议填）：主角对这个职业的理解、想要的流派方向、招牌能力、气质与背景设定……写得越具体，AI 生成的星图越贴你的设想。"
           className="w-full bg-void border border-edge rounded px-2 py-1.5 text-[13px] text-slate-200 outline-none focus:border-fuchsia-500/50 resize-y leading-relaxed" />
+        <label className="flex items-center gap-1 text-[12px] text-dim/70 cursor-pointer select-none" title="勾选=越往后的节点要求越高阶位才能点（封顶七阶）；取消=任意阶位都能点，无阶位限制（像副职业树）">
+          <input type="checkbox" checked={genTierGate} onChange={(e) => setGenTierGate(e.target.checked)} className="accent-fuchsia-500" />
+          🔒 阶位限制<span className="text-[10px] text-dim/40">(越后越高·封顶七阶；取消=不限阶位)</span>
+        </label>
+        <label className="flex items-center gap-1 text-[12px] text-dim/70 cursor-pointer select-none" title="勾选=树状主干式：先一条通用主干往上学基础/通用技能，再从主干顶端分出各专精流派；取消=四周放射式（默认）">
+          <input type="checkbox" checked={genTrunk} onChange={(e) => setGenTrunk(e.target.checked)} className="accent-fuchsia-500" />
+          🌳 主干式<span className="text-[10px] text-dim/40">(先通用主干再分流派；取消=放射式)</span>
+        </label>
         <label className="flex items-center gap-1 text-[12px] text-dim/70 cursor-pointer select-none">
           <input type="checkbox" checked={webSearch} onChange={(e) => setWebSearch(e.target.checked)} className="accent-fuchsia-500" />
           🌐 联网搜索<span className="text-[10px] text-dim/40">(Google·需接口支持)</span>

@@ -3,7 +3,7 @@ import {
   computeMaxHp, computeMaxEp, effectiveResource,
   realmFromLevel, normalizeTier, trueAttr, lvFromRealm,
   attrCapForTier, clampBaseAttrs, gearMaxHpBonus, gearMaxHpPctBonus, fullMaxHp, fullMaxEp,
-  realAttrMult, parseCombatStat, computeDerived, ratioOf, hpPerConOf, epPerIntOf,
+  realAttrMult, parseCombatStat, computeDerived, ratioOf, hpCoefOf, epCoefOf, vitalFormula, computeAttrPool,
 } from './derivedStats';
 import type { PlayerAttrs } from '../store/playerStore';
 
@@ -24,33 +24,61 @@ describe('computeMaxHp / computeMaxEp（HP=体质×20, EP=智力×15）', () => 
   });
 });
 
-describe('自定义转化比（hpPerCon / epPerInt）', () => {
-  it('ratioOf：全空→undefined，有值→保留', () => {
+describe('多属性混合转化比（hpRatio / epRatio 系数表）', () => {
+  it('ratioOf：全空→undefined；map→保留(清洗后)', () => {
     expect(ratioOf(undefined)).toBeUndefined();
     expect(ratioOf({})).toBeUndefined();
-    expect(ratioOf({ hpPerCon: 30 })).toEqual({ hpPerCon: 30, epPerInt: undefined });
-    expect(ratioOf({ hpPerCon: 30, epPerInt: 25 })).toEqual({ hpPerCon: 30, epPerInt: 25 });
+    expect(ratioOf({ hpRatio: {} })).toBeUndefined();
+    expect(ratioOf({ hpRatio: { con: 10, int: 5 } })).toEqual({ hp: { con: 10, int: 5 }, ep: undefined });
+    expect(ratioOf({ epRatio: { int: 15, con: 8 } })).toEqual({ hp: undefined, ep: { int: 15, con: 8 } });
   });
-  it('hpPerConOf/epPerIntOf：非有限/≤0 回退默认 20/15', () => {
-    expect(hpPerConOf({ hpPerCon: 30 })).toBe(30);
-    expect(hpPerConOf({ hpPerCon: 0 })).toBe(20);
-    expect(hpPerConOf({ hpPerCon: -5 })).toBe(20);
-    expect(hpPerConOf(undefined)).toBe(20);
-    expect(epPerIntOf({ epPerInt: 25 })).toBe(25);
-    expect(epPerIntOf({ epPerInt: NaN })).toBe(15);
-    expect(epPerIntOf(undefined)).toBe(15);
+  it('ratioOf 清洗：≤0/非有限项剔除', () => {
+    expect(ratioOf({ hpRatio: { con: 20, int: 0, str: -3, agi: NaN } })).toEqual({ hp: { con: 20 }, ep: undefined });
   });
-  it('computeMaxHp/EP 用自定义比（体10×30=300，智10×25=250）', () => {
-    expect(computeMaxHp(A({ con: 10 }), 1, { hpPerCon: 30 })).toBe(300);
-    expect(computeMaxEp(A({ int: 10 }), 1, { epPerInt: 25 })).toBe(250);
+  it('ratioOf 兼容旧扁平字段（2×2→并入 map）', () => {
+    expect(ratioOf({ hpPerCon: 30, hpPerInt: 5, epPerInt: 25, epPerCon: 8 }))
+      .toEqual({ hp: { con: 30, int: 5 }, ep: { int: 25, con: 8 } });
   });
-  it('自定义比仍叠乘 realMult（四阶 体10×30×5=1500）', () => {
-    expect(computeMaxHp(A({ con: 10 }), 5, { hpPerCon: 30 })).toBe(1500);
+  it('hpCoefOf/epCoefOf：空→默认 体×20 / 智×15', () => {
+    expect(hpCoefOf(undefined)).toEqual({ con: 20 });
+    expect(epCoefOf(undefined)).toEqual({ int: 15 });
+    expect(hpCoefOf({ hp: { con: 10, int: 5 } })).toEqual({ con: 10, int: 5 });
   });
-  it('fullMaxHp/EP 透传自定义比（体10×30 + 装备平值 +1000）', () => {
-    expect(fullMaxHp(A({ con: 10 }), [], [], [], 1, { hpPerCon: 30 })).toBe(300);
-    expect(fullMaxHp(A({ con: 10 }), [{ effect: '生命值上限+1000' }], [], [], 1, { hpPerCon: 30 })).toBe(1300);
-    expect(fullMaxEp(A({ int: 10 }), [], [], [], 1, { epPerInt: 25 })).toBe(250);
+  it('computeMaxHp/EP：HP = 体×10 + 智×5（多属性混合）', () => {
+    const r = { hp: { con: 10, int: 5 } };
+    expect(computeMaxHp(A({ con: 10, int: 8 }), 1, r)).toBe(140);   // 体10×10=100 + 智8×5=40
+    expect(computeMaxEp(A({ int: 10 }), 1, r)).toBe(150);           // ep 未给→默认 智×15
+  });
+  it('任意属性都能进 HP/EP（力→HP、魅→EP）', () => {
+    expect(computeMaxHp(A({ str: 10, con: 0 }), 1, { hp: { str: 12 } })).toBe(120);
+    expect(computeMaxEp(A({ cha: 10 }), 1, { ep: { cha: 7 } })).toBe(70);
+  });
+  it('给了表就以表为准（不再叠默认）：epRatio={con:8} → EP = 体×8（无智×15）', () => {
+    expect(computeMaxEp(A({ con: 10, int: 100 }), 1, { ep: { con: 8 } })).toBe(80);
+  });
+  it('系数表叠乘 realMult（四阶 ×5）', () => {
+    expect(computeMaxHp(A({ con: 10, int: 10 }), 5, { hp: { con: 20, int: 5 } })).toBe(1250);  // (200+50)×5
+  });
+  it('默认（无 ratio）= 体×20 / 智×15，旧行为不变', () => {
+    expect(computeMaxHp(A({ con: 10, int: 10 }))).toBe(200);
+    expect(computeMaxEp(A({ con: 10, int: 10 }))).toBe(150);
+  });
+  it('fullMaxHp 透传系数表（体×10+智×5 + 装备平值 +1000）', () => {
+    expect(fullMaxHp(A({ con: 10, int: 8 }), [], [], [], 1, { hp: { con: 10, int: 5 } })).toBe(140);
+    expect(fullMaxHp(A({ con: 10, int: 8 }), [{ effect: '生命值上限+1000' }], [], [], 1, { hp: { con: 10, int: 5 } })).toBe(1140);
+    expect(fullMaxEp(A({ int: 10 }), [], [], [], 1, { ep: { int: 25 } })).toBe(250);
+  });
+  it('vitalFormula：渲染中文公式', () => {
+    expect(vitalFormula({ con: 10, int: 5 })).toBe('体×10+智×5');
+    expect(vitalFormula({ str: 12 })).toBe('力×12');
+    expect(vitalFormula({})).toBe('—');
+  });
+  it('computeAttrPool：通用六维加权池（供自定义能量条上限）', () => {
+    expect(computeAttrPool(A({ int: 10, con: 6 }), { int: 30, con: 5 })).toBe(330);  // 智10×30 + 体6×5
+    expect(computeAttrPool(A({ int: 10 }), { int: 30 }, 5)).toBe(1500);              // ×realMult(四阶)
+    expect(computeAttrPool(A({ int: 10 }), undefined)).toBe(0);                      // 空表→0
+    expect(computeAttrPool(A({ int: 10 }), {})).toBe(0);
+    expect(computeAttrPool(A({ luck: 8 }), { luck: 4 })).toBe(32);                   // 任意属性
   });
 });
 

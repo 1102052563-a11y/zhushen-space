@@ -132,7 +132,7 @@ function snapshotPlayer(): PlayerSnapshot {
   const equipped = useItems.getState().items
     .filter((it) => it.equipped)
     .map((it) => ({ category: it.category as string, grade: gradeToNum(it.gradeDesc) }));
-  return { name: p.name, attrs: p.attrs, level: p.level, tier: p.tier, equipped, skills: readSkills('B1'), hpPerCon: p.hpPerCon, epPerInt: p.epPerInt };
+  return { name: p.name, attrs: p.attrs, level: p.level, tier: p.tier, equipped, skills: readSkills('B1'), hpRatio: p.hpRatio, epRatio: p.epRatio };
 }
 
 /* 结算吸收：本局选过的加成卡进卡牌库（去重累计）、原罪物进图鉴（§8.6） */

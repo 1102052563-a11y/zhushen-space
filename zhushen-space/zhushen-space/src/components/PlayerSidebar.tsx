@@ -4,9 +4,11 @@ import { useGame } from '../store/gameStore';
 import { useItems, gradeToNum } from '../store/itemStore';
 import { StatusChips, SegmentedText } from './NpcDetail';
 import StatusEffectChips from './StatusEffectChips';
-import { computeDerived, tierFxClass, realmFromLevel, effectiveResource, fullMaxHp, fullMaxEp, realAttrMult, attrCapForTier, ratioOf } from '../systems/derivedStats';
+import { computeDerived, tierFxClass, realmFromLevel, effectiveResource, fullMaxHp, fullMaxEp, realAttrMult, attrCapForTier, ratioOf, ATTR_SHORT } from '../systems/derivedStats';
+import { useResource } from '../store/resourceStore';
+import { playerResourceMax } from '../systems/playerVitals';
 import { useCharacters } from '../store/characterStore';
-import { computeAttrBreakdown, withAttrDelta, ATTR_LABEL, type AttrBreak } from '../systems/attrBonus';
+import { computeAttrBreakdown, withAttrDelta, ATTR_LABEL, ATTR_KEYS, type AttrBreak } from '../systems/attrBonus';
 import { playerTreeAttrBonus } from '../store/skillTreeStore';
 import { playerTeamAttrBonus, playerTeamPerkAbilities } from '../store/adventureTeamStore';
 import { bioInnate, bioPower, bioStrengthLabel, nominalTierNum } from '../systems/bioStrength';
@@ -175,10 +177,30 @@ export default function PlayerSidebar({ onClose }: { onClose?: () => void }) {
   const [editStatus, setEditStatus] = useState(false);
   const [personaOpen, setPersonaOpen] = useState(false);   // 性格详细描述：默认收起，点击「📖详情」展开查看/编辑
   const [labelOpen, setLabelOpen] = useState(false);       // HP/EP 条自定义称呼（换皮）：默认收起，点血条下方小按钮展开
+  const [resOpen, setResOpen] = useState(false);           // 自定义能量条管理：默认收起
+  const resources = useResource((s) => s.resources);
+  const addResource = useResource((s) => s.addResource);
+  const updateResource = useResource((s) => s.updateResource);
+  const removeResource = useResource((s) => s.removeResource);
   const [showTrueAttr, setShowTrueAttr] = useState(nominalTierNum(profile.tier, profile.level) >= 4);   // 四阶起默认显示真实属性（六维即真实属性）
   const isRealTier = nominalTierNum(profile.tier, profile.level) >= 4;   // 一~三阶=普通属性阶段，没有真实属性（四阶起经觉醒才有）
   useEffect(() => { if (!isRealTier && showTrueAttr) setShowTrueAttr(false); }, [isRealTier, showTrueAttr]);   // 跌回<四阶或本就<四阶 → 强制普通属性视图
   const b1 = useCharacters((s) => s.characters['B1']);
+  const updateSkill = useCharacters((s) => s.updateSkill);
+  // 技能↔能量条绑定（写进 skill.numeric.resCost「消耗」/ resGate「门槛」；同一技能共用一条能量条）
+  const skillResId = (sk: any) => sk?.numeric?.resCost?.id ?? sk?.numeric?.resGate?.id ?? '';
+  const setSkillResId = (sk: any, resId: string) => {
+    const num = sk.numeric ?? { kind: 'skill' };
+    if (!resId) { updateSkill('B1', sk.id, { numeric: { ...num, resCost: undefined, resGate: undefined } }); return; }
+    const resCost = num.resCost ? { id: resId, amount: num.resCost.amount } : { id: resId, amount: 10 };   // 选能量条默认给个消耗10
+    const resGate = num.resGate ? { id: resId, amount: num.resGate.amount } : undefined;
+    updateSkill('B1', sk.id, { numeric: { ...num, resCost, resGate } });
+  };
+  const setSkillAmt = (sk: any, field: 'resCost' | 'resGate', amt: number) => {
+    const num = sk.numeric ?? { kind: 'skill' };
+    const id = skillResId(sk);
+    updateSkill('B1', sk.id, { numeric: { ...num, [field]: id && amt > 0 ? { id, amount: amt } : undefined } });
+  };
   const equippedFull = items.filter((it) => it.equipped);
   const equipped = equippedFull.map((it) => ({ category: it.category as string, grade: (it.numeric?.grade as number) ?? gradeToNum(it.gradeDesc), combatStat: it.combatStat }));
   // 属性构成：原始 + 技能树 + 装备/技能/天赋 的属性加成（真实加载，不只是摆设）
@@ -508,6 +530,8 @@ export default function PlayerSidebar({ onClose }: { onClose?: () => void }) {
                 <Bar value={effectiveResource(p.hp, p.maxHp, maxHp)} max={maxHp} color="bg-blood" label={profile.hpLabel || '生命 HP'} styleId={profile.barStyle} kind="hp" />
                 <Bar value={effectiveResource(p.mp, p.maxMp, maxEp)} max={maxEp} color="bg-sky-500" label={profile.epLabel || '蓝量 EP'} styleId={profile.barStyle} kind="ep" />
               </div>
+              {/* 自定义能量条（剧情资源）：当前值由正文 res.B1.<id> 驱动，上限按固定值/六维公式算 */}
+              {resources.map((r) => { const rmax = playerResourceMax(r); return <Bar key={r.id} value={Math.min(Math.max(0, r.cur ?? 0), rmax)} max={rmax} color={r.color || 'bg-emerald-500'} label={r.name} />; })}
               <div className="text-[10px] text-dim/35 font-mono text-center">HP=体质×20 · EP=智力×15（按属性自动换算）</div>
             </>
           );
@@ -539,32 +563,34 @@ export default function PlayerSidebar({ onClose }: { onClose?: () => void }) {
                 className="flex-1 min-w-0 bg-void border border-edge rounded px-2 py-0.5 text-[12px] text-slate-200 outline-none focus:border-god/50"
               />
             </label>
-            {/* HP/EP 转化比（每点属性换多少上限；留空=默认 体×20 / 智×15，四阶起仍自动×5）*/}
+            {/* 多属性转化比矩阵：每个属性都能按自定义系数同时供给 HP / EP（留空=默认 体×20→HP、智×15→EP）*/}
             <div className="pt-0.5">
-              <div className="text-[10px] text-dim/50 font-mono mb-1">每点转化比（上限换算）</div>
-              <div className="grid grid-cols-2 gap-2">
-                <label className="flex items-center gap-1.5 text-[11px] font-mono">
-                  <span className="shrink-0 text-dim/60">体质→HP</span>
-                  <input
-                    type="number" min={1} step={1}
-                    value={profile.hpPerCon ?? ''}
-                    onChange={(e) => setProfile({ hpPerCon: e.target.value.trim() === '' ? undefined : Number(e.target.value) })}
-                    placeholder="20"
-                    className="w-full min-w-0 bg-void border border-edge rounded px-2 py-0.5 text-[12px] text-slate-200 outline-none focus:border-god/50"
-                  />
-                </label>
-                <label className="flex items-center gap-1.5 text-[11px] font-mono">
-                  <span className="shrink-0 text-dim/60">智力→EP</span>
-                  <input
-                    type="number" min={1} step={1}
-                    value={profile.epPerInt ?? ''}
-                    onChange={(e) => setProfile({ epPerInt: e.target.value.trim() === '' ? undefined : Number(e.target.value) })}
-                    placeholder="15"
-                    className="w-full min-w-0 bg-void border border-edge rounded px-2 py-0.5 text-[12px] text-slate-200 outline-none focus:border-god/50"
-                  />
-                </label>
+              <div className="text-[10px] text-dim/50 font-mono mb-1">多属性转化比（每点属性→上限）</div>
+              <div className="grid grid-cols-[2.5rem_1fr_1fr] gap-x-2 gap-y-1 items-center">
+                <span className="text-[10px] text-dim/40" />
+                <span className="text-[10px] text-dim/50 font-mono text-center">→HP</span>
+                <span className="text-[10px] text-dim/50 font-mono text-center">→EP</span>
+                {ATTR_KEYS.map((k) => (
+                  <div key={k} className="contents">
+                    <span className="text-[11px] text-dim/60 font-mono">{ATTR_LABEL[k]}</span>
+                    <input
+                      type="number" min={0} step={1}
+                      value={profile.hpRatio?.[k] ?? ''}
+                      onChange={(e) => { const cur = { ...(profile.hpRatio ?? {}) }; const raw = e.target.value.trim(); if (raw === '') delete cur[k]; else cur[k] = Number(raw); setProfile({ hpRatio: Object.keys(cur).length ? cur : undefined }); }}
+                      placeholder={k === 'con' ? '20' : '0'}
+                      className="w-full min-w-0 bg-void border border-edge rounded px-1.5 py-0.5 text-[12px] text-slate-200 outline-none focus:border-god/50"
+                    />
+                    <input
+                      type="number" min={0} step={1}
+                      value={profile.epRatio?.[k] ?? ''}
+                      onChange={(e) => { const cur = { ...(profile.epRatio ?? {}) }; const raw = e.target.value.trim(); if (raw === '') delete cur[k]; else cur[k] = Number(raw); setProfile({ epRatio: Object.keys(cur).length ? cur : undefined }); }}
+                      placeholder={k === 'int' ? '15' : '0'}
+                      className="w-full min-w-0 bg-void border border-edge rounded px-1.5 py-0.5 text-[12px] text-slate-200 outline-none focus:border-god/50"
+                    />
+                  </div>
+                ))}
               </div>
-              <div className="text-[10px] text-dim/40 font-mono mt-1">留空=默认（体×20 / 智×15）。仅改血/蓝上限换算，四阶起仍自动×5。</div>
+              <div className="text-[10px] text-dim/40 font-mono mt-1">HP / EP = 各属性×系数之和。留空=默认（体×20→HP、智×15→EP，其余 0）。可混多属性，如 HP=体×10+智×5；四阶起仍自动×5。</div>
             </div>
             {/* 血条皮肤切换（10 款，点格即换；每格为实时迷你预览）*/}
             <div>
@@ -586,6 +612,95 @@ export default function PlayerSidebar({ onClose }: { onClose?: () => void }) {
                 })}
               </div>
             </div>
+          </div>
+        )}
+        {/* ⚡ 自定义能量条（HP/EP 之外的剧情资源·仅主角）：定义后渲染成条 + 注入正文供 AI 驱动 */}
+        <button
+          onClick={() => setResOpen((o) => !o)}
+          className="w-full text-[10px] text-dim/40 hover:text-god/70 font-mono text-center transition-colors"
+        >
+          {resOpen ? '收起 ▲' : `⚡ 自定义能量条${resources.length ? `（${resources.length}）` : ''}`}
+        </button>
+        {resOpen && (
+          <div className="space-y-2 pt-1">
+            {resources.length === 0 && <div className="text-[10px] text-dim/40 font-mono text-center">还没有能量条。点下方「+ 添加」新建（如 怒气值 / 堕落值 / 灵力）。</div>}
+            {resources.map((r) => {
+              const hasFormula = !!(r.maxFormula && Object.keys(r.maxFormula).length);
+              return (
+                <div key={r.id} className="border border-edge rounded p-2 space-y-1.5">
+                  <div className="flex items-center gap-1.5">
+                    <input value={r.name} onChange={(e) => updateResource(r.id, { name: e.target.value })} placeholder="名称（怒气值）" className="flex-1 min-w-0 bg-void border border-edge rounded px-1.5 py-0.5 text-[12px] text-slate-200 outline-none focus:border-god/50" />
+                    <button onClick={() => removeResource(r.id)} title="删除" className="shrink-0 text-rose-400/70 hover:text-rose-400 text-[12px] px-1">✕</button>
+                  </div>
+                  <div className="flex items-center gap-1.5 text-[10px] text-dim/55 font-mono">
+                    <span className="shrink-0">指令键</span>
+                    <input value={r.id} onChange={(e) => updateResource(r.id, { id: e.target.value })} placeholder="rage" title="AI 用 res.B1.<键> 改值，仅限英文/数字" className="w-20 bg-void border border-edge rounded px-1.5 py-0.5 text-[11px] text-slate-300 outline-none focus:border-god/50" />
+                    <span className="shrink-0 ml-auto">当前</span>
+                    <input type="number" value={r.cur ?? 0} onChange={(e) => updateResource(r.id, { cur: Number(e.target.value) || 0 })} className="w-16 bg-void border border-edge rounded px-1.5 py-0.5 text-[11px] text-slate-200 outline-none focus:border-god/50" />
+                  </div>
+                  <div className="flex items-center gap-2 text-[10px] text-dim/55 font-mono">
+                    <span className="shrink-0">上限</span>
+                    <label className="flex items-center gap-1"><input type="radio" checked={!hasFormula} onChange={() => updateResource(r.id, { maxFormula: undefined })} />固定</label>
+                    {!hasFormula && <input type="number" value={r.max ?? 100} onChange={(e) => updateResource(r.id, { max: Number(e.target.value) || 0 })} className="w-16 bg-void border border-edge rounded px-1.5 py-0.5 text-[11px] text-slate-200 outline-none focus:border-god/50" />}
+                    <label className="flex items-center gap-1"><input type="radio" checked={hasFormula} onChange={() => updateResource(r.id, { maxFormula: { int: 15 } })} />六维公式</label>
+                  </div>
+                  {hasFormula && (
+                    <div className="grid grid-cols-6 gap-1">
+                      {ATTR_KEYS.map((k) => (
+                        <label key={k} className="flex flex-col items-center text-[9px] text-dim/50 font-mono">
+                          <span>{ATTR_SHORT[k]}</span>
+                          <input type="number" min={0} value={r.maxFormula?.[k] ?? ''} onChange={(e) => { const m = { ...(r.maxFormula ?? {}) }; const raw = e.target.value.trim(); if (raw === '') delete m[k]; else m[k] = Number(raw); updateResource(r.id, { maxFormula: Object.keys(m).length ? m : { int: 15 } }); }} placeholder="0" className="w-full bg-void border border-edge rounded px-1 py-0.5 text-[11px] text-slate-200 outline-none focus:border-god/50" />
+                        </label>
+                      ))}
+                    </div>
+                  )}
+                  <div className="flex items-center gap-1 flex-wrap">
+                    {['bg-emerald-500', 'bg-rose-500', 'bg-amber-500', 'bg-violet-500', 'bg-cyan-500', 'bg-orange-500', 'bg-lime-500', 'bg-pink-500'].map((c) => (
+                      <button key={c} onClick={() => updateResource(r.id, { color: c })} className={`w-4 h-4 rounded ${c} ${(r.color || 'bg-emerald-500') === c ? 'ring-2 ring-god' : 'opacity-70 hover:opacity-100'}`} />
+                    ))}
+                  </div>
+                  <textarea value={r.desc ?? ''} onChange={(e) => updateResource(r.id, { desc: e.target.value })} rows={2} placeholder="说明（给 AI：这值代表什么、何时涨/落，例：受击或攻击+10，发动怒气技-40，满100可狂暴）" className="w-full bg-void border border-edge rounded px-1.5 py-0.5 text-[11px] text-slate-300 outline-none focus:border-god/50 resize-none" />
+                  <label className="flex items-center gap-1.5 text-[10px] text-dim/55 font-mono"><input type="checkbox" checked={r.inject !== false} onChange={(e) => updateResource(r.id, { inject: e.target.checked })} />注入正文（让 AI 知道并按剧情驱动）</label>
+                  {/* 战斗内累积：攻击/受击/击杀/每回合自动 +N（留空=战斗中不自动变，仅技能消耗/剧情驱动）*/}
+                  <div className="flex items-center gap-1 flex-wrap text-[10px] text-dim/55 font-mono pt-0.5 border-t border-edge/40">
+                    <span className="shrink-0" title="战斗内自动累积（每格留空=该事件不加）">⚔️攒</span>
+                    {([['onAttack', '攻'], ['onHitTaken', '受'], ['onKill', '杀'], ['onTurn', '回']] as const).map(([k, lbl]) => (
+                      <label key={k} className="flex items-center gap-0.5" title={k}>{lbl}
+                        <input type="number" value={r.combat?.[k] ?? ''} onChange={(e) => { const raw = e.target.value.trim(); updateResource(r.id, { combat: { ...(r.combat ?? {}), [k]: raw === '' ? undefined : Number(raw) } }); }} className="w-8 bg-void border border-edge rounded px-0.5 py-0.5 text-[11px] text-slate-200 outline-none focus:border-god/50" />
+                      </label>
+                    ))}
+                    <label className="flex items-center gap-0.5" title="每场战斗开始归零（如怒气从0攒）"><input type="checkbox" checked={!!r.combat?.resetEachBattle} onChange={(e) => updateResource(r.id, { combat: { ...(r.combat ?? {}), resetEachBattle: e.target.checked } })} />每战归零</label>
+                  </div>
+                </div>
+              );
+            })}
+            <button onClick={() => addResource()} className="w-full text-[11px] text-god/70 hover:text-god border border-dashed border-edge hover:border-god/40 rounded py-1 transition-colors">+ 添加能量条</button>
+            {/* 🎯 技能战斗消耗绑定：给主角技能挂上能量条消耗，战斗中不足则禁用、施放即扣 */}
+            {resources.length > 0 && (b1?.skills?.some((s) => !/被动/.test(s.skillType ?? '')) ?? false) && (
+              <div className="pt-1.5 mt-1 border-t border-edge/50">
+                <div className="text-[10px] text-dim/50 font-mono mb-1">🎯 技能战斗消耗（耗=施放消耗，槛=可放门槛需≥；不足/未达则该技能禁用）</div>
+                <div className="space-y-1">
+                  {b1!.skills.filter((s) => !/被动/.test(s.skillType ?? '')).map((sk) => (
+                    <div key={sk.id} className="flex items-center gap-1 text-[11px] font-mono">
+                      <span className="flex-1 min-w-0 truncate text-dim/70" title={sk.name}>{sk.name}</span>
+                      <select value={skillResId(sk)} onChange={(e) => setSkillResId(sk, e.target.value)} className="bg-void border border-edge rounded px-1 py-0.5 text-[11px] text-slate-200 outline-none focus:border-god/50 max-w-[4.5rem]">
+                        <option value="">无</option>
+                        {resources.map((r) => <option key={r.id} value={r.id}>{r.name}</option>)}
+                      </select>
+                      {skillResId(sk) && (
+                        <>
+                          <span className="text-dim/40 shrink-0" title="施放消耗">耗</span>
+                          <input type="number" min={0} value={sk.numeric?.resCost?.amount ?? ''} onChange={(e) => setSkillAmt(sk, 'resCost', Number(e.target.value) || 0)} className="w-9 bg-void border border-edge rounded px-1 py-0.5 text-[11px] text-slate-200 outline-none focus:border-god/50" />
+                          <span className="text-dim/40 shrink-0" title="可放门槛(需≥)">槛</span>
+                          <input type="number" min={0} value={sk.numeric?.resGate?.amount ?? ''} onChange={(e) => setSkillAmt(sk, 'resGate', Number(e.target.value) || 0)} className="w-9 bg-void border border-edge rounded px-1 py-0.5 text-[11px] text-slate-200 outline-none focus:border-god/50" />
+                        </>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+            <div className="text-[10px] text-dim/40 font-mono leading-relaxed">当前值由正文 AI 按「说明」用 <code>res.B1.&lt;键&gt;</code> 增减；上方可把技能绑成消耗能量条（战斗内生效）。</div>
           </div>
         )}
       </div>

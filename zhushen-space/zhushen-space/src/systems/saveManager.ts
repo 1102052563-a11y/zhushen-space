@@ -6,6 +6,7 @@ import { useGame } from '../store/gameStore';
 import { useSettings } from '../store/settingsStore';
 import { useItems } from '../store/itemStore';
 import { usePlayer, DEFAULT_PLAYER_PROFILE } from '../store/playerStore';
+import { useResource } from '../store/resourceStore';
 import { useNpc } from '../store/npcStore';
 import { useNpcChat } from '../store/npcChatStore';
 import { useNpcEvo } from '../store/npcEvoStore';
@@ -66,6 +67,7 @@ const STORES: { key: string; api: any; clear?: () => void }[] = [
   { key: 'drpg-fact',       api: useFact, clear: () => useFact.getState().clearAll() },
   { key: 'drpg-combat',     api: useCombat, clear: () => useCombat.getState().clearCombat() },
   { key: 'drpg-arena',      api: useArena, clear: () => useArena.getState().clearArena() },
+  { key: 'drpg-resource',   api: useResource, clear: () => useResource.getState().clearResources() },   // 自定义能量条（定义+当前值随存档；新游戏清空）
   { key: 'drpg-skilltree',  api: useSkillTree, clear: () => useSkillTree.setState({ progress: {} }) },
   { key: 'drpg-subproftree', api: useSubProfTree, clear: () => useSubProfTree.setState({ progress: {} }) },
   { key: 'drpg-casino',     api: useCasino, clear: () => useCasino.getState().clearCasino() },

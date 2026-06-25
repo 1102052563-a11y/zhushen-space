@@ -61,6 +61,8 @@ export interface Skill {
     targetScope?: string;
     maxTargets?: number;
     mpCostMultiplier?: number;
+    resCost?: { id: string; amount: number };   // 战斗消耗的自定义能量条（玩家在主角⚡面板绑定；id=resourceStore 键，amount=每次施放消耗）。战斗中不足则禁用、施放即扣；引用已删能量条→视为无消耗
+    resGate?: { id: string; amount: number };    // 战斗门槛：需该能量条 ≥ amount 才能施放（不消耗，纯解锁，如怒气≥80 的爆发技）；与 resCost 可并存
     combat?: CombatSpec;             // 战斗标签规格（Tag VM 读取；缺省时引擎用 inferEffectsFromSkill 关键词兜底）
     [key: string]: unknown;
   };

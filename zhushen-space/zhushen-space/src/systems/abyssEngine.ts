@@ -200,8 +200,8 @@ export interface PlayerSnapshot {
   tier?: string;
   equipped: { category: string; grade: number }[];
   skills?: { name: string; effect: string }[];   // 战斗中可施放（主角读 characterStore；同伴读其 characterStore）
-  hpPerCon?: number;   // 体质→HP 自定义转化比（空=默认 20），与主角面板一致
-  epPerInt?: number;   // 智力→EP 自定义转化比（空=默认 15）
+  hpRatio?: Partial<Record<keyof PlayerAttrs, number>>;   // HP 多属性系数表（空=默认 体×20），与主角面板一致
+  epRatio?: Partial<Record<keyof PlayerAttrs, number>>;   // EP 多属性系数表（空=默认 智×15）
 }
 
 /* ════════ 确定性 RNG（mulberry32 + 字符串散列） ════════ */

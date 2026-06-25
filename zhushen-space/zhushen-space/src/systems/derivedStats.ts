@@ -1,5 +1,5 @@
 import type { PlayerAttrs } from '../store/playerStore';
-import { effectiveAttrs } from './attrBonus';
+import { effectiveAttrs, ATTR_KEYS } from './attrBonus';
 
 /* 衍生属性（主角与 NPC 共用）：由六维 + 等级 + 已装备物品换算
    - 物理ATK：max(力,敏)主导 + 武器          - 物理DEF：体质 + 防具
@@ -61,39 +61,78 @@ export function computeDerived(attrs: PlayerAttrs | undefined, level: number, eq
 }
 
 /* ── 生命 HP / 蓝量 EP 上限换算（主角与 NPC 共用，纯前端计算，AI 不写）──
-   - 生命 HP 上限 = 体质(con) × 每点转化比(默认 20)
-   - 蓝量 EP 上限 = 智力(int) × 每点转化比(默认 15)
+   **多属性混合换算**：HP / EP 各自 = 六维的一张「自定义系数表」加权和，任何属性都能按自定义系数同时供给 HP 与 EP：
+   - 生命 HP 上限 = Σ 六维[k] × hpRatio[k]      （默认只有 体质×20，其余 0）
+   - 蓝量 EP 上限 = Σ 六维[k] × epRatio[k]      （默认只有 智力×15，其余 0）
+   例：hpRatio={con:10,int:5} → HP = 体×10 + 智×5；epRatio={con:8} → EP = 体×8（给了表就以表为准，不再叠默认）。
    六维按「本阶口径」存储（一~三阶=普通属性≤99；四阶起经觉醒=真实属性 150–8000，见 ATTR_CAP_BY_TIER），
-   转化比直接作用于六维，自动随阶位线性缩放。
-   **每点转化比可自定义**：主角存 PlayerProfile.hpPerCon/epPerInt、NPC 存 NpcRecord.hpPerCon/epPerInt（缺省回退 20/15），
-   各 fullMaxHp/EP 调用方用 ratioOf(profile|npc) 把它传进来；realMult(四阶起×5)仍在自定义比率之上叠乘。 */
+   系数直接作用于六维，自动随阶位线性缩放。
+   **系数表可自定义**：主角存 PlayerProfile、NPC 存 NpcRecord 的 hpRatio/epRatio（缺省/空表回退默认 体×20 / 智×15），
+   各 computeMaxHp/EP·fullMaxHp/EP 调用方用 ratioOf(profile|npc) 传入；realMult(四阶起×5)仍在系数之上叠乘。 */
 export const HP_PER_CON = 20;
 export const EP_PER_INT = 15;
-/* 「体质→HP / 智力→EP」每点转化比（自定义换皮）。字段缺省→走默认 20 / 15。 */
-export interface VitalRatio { hpPerCon?: number; epPerInt?: number }
-/* 从任意带可选 hpPerCon/epPerInt 字段的对象(主角 profile / NPC 记录)抽出转化比；两者皆空→undefined(走默认)。 */
-export function ratioOf(o?: { hpPerCon?: number; epPerInt?: number } | null): VitalRatio | undefined {
+export type AttrCoef = Partial<Record<keyof PlayerAttrs, number>>;   // {属性键: 每点系数}
+export const DEFAULT_HP_RATIO: AttrCoef = Object.freeze({ con: HP_PER_CON });   // 默认 HP = 体×20
+export const DEFAULT_EP_RATIO: AttrCoef = Object.freeze({ int: EP_PER_INT });   // 默认 EP = 智×15
+export const ATTR_SHORT: Record<keyof PlayerAttrs, string> = { str: '力', agi: '敏', con: '体', int: '智', cha: '魅', luck: '幸' };   // 单字短名（公式/紧凑UI）
+/* 「六维→HP/EP」自定义系数表（多属性混合换皮）。hp/ep 各是 {属性键:每点系数}；缺省/空表→回退默认。 */
+export interface VitalRatio { hp?: AttrCoef; ep?: AttrCoef }
+/* 兼容入参形状：新 map 字段 + 旧扁平字段（本会话早期的 2×2 数据，自动并入 map）。 */
+type RatioSource = {
+  hpRatio?: AttrCoef; epRatio?: AttrCoef;
+  hpPerCon?: number; epPerInt?: number; hpPerInt?: number; epPerCon?: number;   // 旧扁平字段（兼容回填）
+};
+/* 清洗一张系数表：只留有限且 >0 的项；全空→undefined。 */
+function cleanCoef(m?: AttrCoef | null): AttrCoef | undefined {
+  if (!m) return undefined;
+  const out: AttrCoef = {};
+  for (const k of ATTR_KEYS) { const v = m[k]; if (typeof v === 'number' && isFinite(v) && v > 0) out[k] = v; }
+  return Object.keys(out).length ? out : undefined;
+}
+/* 从对象(主角 profile / NPC 记录)抽出系数表；兼容旧扁平字段(hpPerCon/epPerInt/hpPerInt/epPerCon→并入 map)。两表皆空→undefined(全默认)。 */
+export function ratioOf(o?: RatioSource | null): VitalRatio | undefined {
   if (!o) return undefined;
-  if (o.hpPerCon == null && o.epPerInt == null) return undefined;
-  return { hpPerCon: o.hpPerCon ?? undefined, epPerInt: o.epPerInt ?? undefined };
+  const hp: AttrCoef = { ...(o.hpRatio ?? {}) };
+  const ep: AttrCoef = { ...(o.epRatio ?? {}) };
+  if (o.hpPerCon != null && hp.con == null) hp.con = o.hpPerCon;   // 旧 2×2 扁平字段兜底回填（仅当 map 未显式给该键）
+  if (o.hpPerInt != null && hp.int == null) hp.int = o.hpPerInt;
+  if (o.epPerInt != null && ep.int == null) ep.int = o.epPerInt;
+  if (o.epPerCon != null && ep.con == null) ep.con = o.epPerCon;
+  const hpC = cleanCoef(hp), epC = cleanCoef(ep);
+  if (!hpC && !epC) return undefined;
+  return { hp: hpC, ep: epC };
 }
-/* 有效「体质→HP」每点比：非有限数 / ≤0（空输入、误填 0/负）一律回退默认，杜绝把上限算成 0/NaN。 */
-export function hpPerConOf(ratio?: VitalRatio): number {
-  const v = ratio?.hpPerCon;
-  return typeof v === 'number' && isFinite(v) && v > 0 ? v : HP_PER_CON;
+/* 有效 HP 系数表：自定义非空→用之；否则默认 体×20。 */
+export function hpCoefOf(ratio?: VitalRatio): AttrCoef {
+  return cleanCoef(ratio?.hp) ?? DEFAULT_HP_RATIO;
 }
-/* 有效「智力→EP」每点比（同上回退）。 */
-export function epPerIntOf(ratio?: VitalRatio): number {
-  const v = ratio?.epPerInt;
-  return typeof v === 'number' && isFinite(v) && v > 0 ? v : EP_PER_INT;
+/* 有效 EP 系数表：自定义非空→用之；否则默认 智×15。 */
+export function epCoefOf(ratio?: VitalRatio): AttrCoef {
+  return cleanCoef(ratio?.ep) ?? DEFAULT_EP_RATIO;
+}
+/* 把系数表渲染成中文公式串，如「体×10+智×5」；空→「—」。 */
+export function vitalFormula(coef: AttrCoef): string {
+  const parts: string[] = [];
+  for (const k of ATTR_KEYS) { const v = coef[k]; if (typeof v === 'number' && v > 0) parts.push(`${ATTR_SHORT[k]}×${v}`); }
+  return parts.length ? parts.join('+') : '—';
+}
+/* 六维按系数表加权求和（缺省六维补 5，与旧 computeMaxHp(undefined)=100 口径一致）。 */
+function weightedAttrSum(attrs: PlayerAttrs | undefined, coef: AttrCoef): number {
+  const a: any = attrs ?? { str: 5, agi: 5, con: 5, int: 5, cha: 5, luck: 5 };
+  let sum = 0;
+  for (const k of ATTR_KEYS) sum += Math.max(0, a[k] ?? 0) * (coef[k] ?? 0);
+  return sum;
 }
 export function computeMaxHp(attrs?: PlayerAttrs, realMult = 1, ratio?: VitalRatio): number {
-  const con = Math.max(0, attrs?.con ?? 5);
-  return Math.round(con * hpPerConOf(ratio) * realMult);   // 四阶起真实属性 realMult=5（默认体×100），见 realAttrMult
+  return Math.round(weightedAttrSum(attrs, hpCoefOf(ratio)) * realMult);   // Σ 六维×HP系数；四阶 realMult=5
 }
 export function computeMaxEp(attrs?: PlayerAttrs, realMult = 1, ratio?: VitalRatio): number {
-  const intel = Math.max(0, attrs?.int ?? 5);
-  return Math.round(intel * epPerIntOf(ratio) * realMult);  // 四阶起 realMult=5（默认智×75）
+  return Math.round(weightedAttrSum(attrs, epCoefOf(ratio)) * realMult);   // Σ 六维×EP系数
+}
+/* 通用「六维×系数表」资源池上限（供自定义能量条复用 HP/EP 同一套加权和；coef 空→0）。
+   如 灵力上限 = computeAttrPool(attrs, {int:30,con:5}, realMult) = (智×30 + 体×5)×倍率。 */
+export function computeAttrPool(attrs: PlayerAttrs | undefined, coef: AttrCoef | undefined, realMult = 1): number {
+  return Math.round(weightedAttrSum(attrs, cleanCoef(coef) ?? {}) * realMult);
 }
 
 /* 从效果/词缀文本里解析"增加 HP/EP 最大值"的平值加成。供 最大HP/EP = 六维换算 + 此加成。

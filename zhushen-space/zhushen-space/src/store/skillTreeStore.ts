@@ -79,6 +79,8 @@ export interface TreeDef {
   version: number;
   recipeLabel?: string;    // 副职业树专用：配方的叫法（图纸/药方/食谱/锻造图…），仅副职业树用，技能树忽略
   category?: string;       // 副职业树专用：副职业大类（制造/医疗/生活…）
+  noTierGate?: boolean;    // 生成时选「不加阶位限制」：validateTree 不分配 tierGate（节点 tierGate 留空→gatePass 恒过），任意阶位都可点
+  layout?: 'radial' | 'trunk';   // 布局：radial=四周放射(默认)；trunk=主干式(先一条通用主干往上，再从主干顶端分出各流派)
 }
 
 export interface GrantedRef { kind: 'skill' | 'trait'; name: string }

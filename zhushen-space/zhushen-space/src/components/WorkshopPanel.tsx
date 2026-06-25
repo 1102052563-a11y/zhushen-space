@@ -485,7 +485,7 @@ export default function WorkshopPanel({ onClose, creationMode = false }: { onClo
       {/* ── 详情弹窗（点击条目）── */}
       {detail && (
         <div className="fixed inset-0 z-[60] bg-black/75 backdrop-blur-sm flex items-center justify-center p-4" onClick={(e) => { if (e.target === e.currentTarget) setDetail(null); }}>
-          <div className={`w-full ${detail.type === 'skillTree' || detail.type === 'subProfTree' ? 'max-w-3xl' : 'max-w-lg'} max-h-[88vh] flex flex-col rounded-2xl border border-edge bg-void shadow-[0_0_60px_rgba(0,0,0,0.85)] overflow-hidden`}>
+          <div className={`w-full ${detail.type === 'skillTree' || detail.type === 'subProfTree' ? 'max-w-3xl' : detail.type === 'characterCard' ? 'max-w-2xl' : 'max-w-lg'} max-h-[88vh] flex flex-col rounded-2xl border border-edge bg-void shadow-[0_0_60px_rgba(0,0,0,0.85)] overflow-hidden`}>
             <header className="shrink-0 flex items-center gap-2.5 px-4 py-3 border-b border-edge bg-panel">
               <span className="text-lg">{kindOf(detail.type)?.emoji ?? '❔'}</span>
               <div className="flex-1 min-w-0">
@@ -636,7 +636,68 @@ function TreeDetail({ payload, kind }: { payload: any; kind: WorkshopKindId }) {
   );
 }
 
+/* 角色卡详情：主角完整面板（身份/六维/装备/物品/技能/天赋/称号/副职业，全字段不简化） */
+function CardItemList({ title, items }: { title: string; items: any[] }) {
+  if (!items?.length) return null;
+  return (
+    <div className="space-y-1">
+      <div className="text-[12px] font-semibold text-slate-300">{title}（{items.length}）</div>
+      {items.map((it, i) => (
+        <div key={i} className="text-[12px] border-l-2 border-edge pl-2">
+          <span className="text-slate-100 font-semibold">{it.name}</span>
+          {it.gradeDesc && <span className="text-[10px] text-dim/45 ml-1.5">{it.gradeDesc}</span>}
+          {it.enhanceLevel ? <span className="text-[10px] text-amber-300/70 ml-1">+{it.enhanceLevel}</span> : null}
+          {(it.combatStat || it.durability) && <div className="text-dim/60">{[it.combatStat, it.durability ? `耐久${it.durability}` : ''].filter(Boolean).join(' · ')}</div>}
+          {it.effect && <div className="text-dim/70 whitespace-pre-wrap">{it.effect}</div>}
+          {it.affix && <div className="text-fuchsia-300/60">{it.affix}</div>}
+          {it.intro && <div className="text-dim/45 italic leading-snug">{it.intro}</div>}
+        </div>
+      ))}
+    </div>
+  );
+}
+function CardAbilityList({ title, arr }: { title: string; arr: any[] }) {
+  if (!arr?.length) return null;
+  return (
+    <div className="space-y-1">
+      <div className="text-[12px] font-semibold text-slate-300">{title}（{arr.length}）</div>
+      {arr.map((x, i) => (
+        <div key={i} className="text-[12px] border-l-2 border-god/30 pl-2">
+          <span className="text-slate-100 font-semibold">{x.name}</span>
+          {(x.level || x.rarity || x.tier) && <span className="text-[10px] text-dim/45 ml-1.5">{[x.level, x.rarity, x.tier].filter(Boolean).join('·')}</span>}
+          {(x.effect || x.desc) && <div className="text-dim/70 whitespace-pre-wrap">{x.effect || x.desc}</div>}
+        </div>
+      ))}
+    </div>
+  );
+}
+function CharacterCardDetail({ payload }: { payload: any }) {
+  const p = payload?.profile || {};
+  const a = p.attrs || {};
+  const items: any[] = payload?.items || [];
+  const equipped = items.filter((i) => i.equipped);
+  const inv = items.filter((i) => !i.equipped);
+  return (
+    <div className="space-y-2.5">
+      <div className="text-[11px] font-mono text-dim/55">{[p.tier, p.level ? `Lv.${p.level}` : '', p.profession].filter(Boolean).join(' · ')}{p.race ? ` · ${p.race}` : ''}{p.gender ? ` · ${p.gender}` : ''}{p.age ? ` · ${p.age}` : ''}</div>
+      {(p.personality || p.personalityDetail) && <Row label="性格" val={[p.personality, p.personalityDetail].filter(Boolean).join('；')} />}
+      {p.raceDetail && <Row label="种族详情" val={p.raceDetail} />}
+      {p.appearance && <Row label="外观" val={p.appearance} />}
+      <Row label="六维" val={`力${a.str ?? '-'} 敏${a.agi ?? '-'} 体${a.con ?? '-'} 智${a.int ?? '-'} 魅${a.cha ?? '-'} 幸${a.luck ?? '-'}`} />
+      {(payload?.maxHp != null || payload?.maxEp != null) && <Row label="HP/EP" val={`${payload?.maxHp ?? '-'} / ${payload?.maxEp ?? '-'}`} />}
+      <CardItemList title="装备" items={equipped} />
+      <CardItemList title="背包物品" items={inv} />
+      <CardAbilityList title="技能" arr={payload?.skills || []} />
+      <CardAbilityList title="天赋" arr={payload?.traits || []} />
+      <CardAbilityList title="称号" arr={payload?.titles || []} />
+      <CardAbilityList title="副职业" arr={payload?.subProfessions || []} />
+      <div className="text-[11px] font-mono text-dim/40 pt-1">安装后会在「NPC」面板生成一名包含以上全部信息的离场 NPC。</div>
+    </div>
+  );
+}
+
 function DetailBody({ type, payload }: { type: WorkshopKindId; payload: any }) {
+  if (type === 'characterCard') return <CharacterCardDetail payload={payload} />;
   if (type === 'skillTree' || type === 'subProfTree') return <TreeDetail payload={payload} kind={type} />;
   const isNpc = type === 'npc';
   const obj = (isNpc ? payload?.record : payload) ?? {};

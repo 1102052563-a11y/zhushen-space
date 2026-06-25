@@ -119,7 +119,7 @@ import { useTerritory, buildTerritorySystemPrompt, buildingCap } from './store/t
 import { useTeam, buildTeamSystemPrompt, memberCap as teamMemberCap } from './store/adventureTeamStore';
 import { useCosmos, buildCosmosSystemPrompt, cosmosNameEq, cleanCosmosName } from './store/cosmosStore';
 import { realmFromLevel, normalizeTier, lvFromRealm, computeMaxHp, computeMaxEp, effectiveResource, attrCapForTier, clampBaseAttrs, fullMaxHp, fullMaxEp, TIERS, realAttrMult, ratioOf } from './systems/derivedStats';
-import { isHomeWorld, reconcileHomeWorld, reconcilePlayerVitals, playerMaxHp, playerMaxEp, syncPlayerVitalsMax } from './systems/playerVitals';
+import { isHomeWorld, reconcileHomeWorld, reconcilePlayerVitals, playerMaxHp, playerMaxEp, syncPlayerVitalsMax, applyCombatResourceGains, resetCombatResources } from './systems/playerVitals';
 import { bioInnate, tierVitalMult } from './systems/bioStrength';
 import { generateNpcAttrs, resolveForm, generateLuck } from './systems/npcAttrGen';
 import { useImageGen, effectiveEquipService } from './store/imageGenStore';
@@ -553,6 +553,44 @@ function parseTheater(raw: string): string | null {
   return html || null;
 }
 
+/* ── 小剧场取材：轮回 wiki「人物条目」（public/lunhui-characters.json，由 vite 插件 build-lunhui-characters 生成）── */
+type LunhuiChar = { name: string; world: string; content: string };
+let _lunhuiCharsCache: LunhuiChar[] | null = null;
+async function loadLunhuiCharacters(): Promise<LunhuiChar[]> {
+  if (_lunhuiCharsCache) return _lunhuiCharsCache;
+  try {
+    const base = import.meta.env.BASE_URL || '/';
+    const r = await fetch(base + 'lunhui-characters.json');
+    if (r.ok) { const data = await r.json(); _lunhuiCharsCache = Array.isArray(data) ? data : []; return _lunhuiCharsCache; }
+  } catch { /* 取材失败 → 小剧场无档案，静默降级 */ }
+  _lunhuiCharsCache = [];
+  return _lunhuiCharsCache;
+}
+/* 随机挑 1~多位：1 位最常见，偶尔 2~4 位；多位时取自同一「世界」分组（彼此有关联）。*/
+function pickTheaterCharacters(all: LunhuiChar[]): LunhuiChar[] {
+  if (!all.length) return [];
+  const r = Math.random();
+  let count = r < 0.45 ? 1 : r < 0.8 ? 2 : r < 0.95 ? 3 : 4;
+  if (count === 1) return [all[Math.floor(Math.random() * all.length)]];
+  const byWorld = new Map<string, LunhuiChar[]>();
+  for (const c of all) { const w = c.world || '未分组'; (byWorld.get(w) ?? byWorld.set(w, []).get(w)!).push(c); }
+  const eligible = [...byWorld.values()].filter((g) => g.length >= 2);
+  if (!eligible.length) return [all[Math.floor(Math.random() * all.length)]];
+  const group = eligible[Math.floor(Math.random() * eligible.length)];
+  count = Math.min(count, group.length);
+  const pool = [...group]; const out: LunhuiChar[] = [];
+  for (let k = 0; k < count; k++) out.push(pool.splice(Math.floor(Math.random() * pool.length), 1)[0]);
+  return out;
+}
+/* 把抽到的人物档案拼成注入块（追加在 MINI_THEATER_RULE 之后的 system 段）。*/
+function buildTheaterCharBlock(picked: LunhuiChar[]): string {
+  const head = picked.length > 1
+    ? `本次抽到 ${picked.length} 位人物（同属「${picked[0].world || '同一世界'}」、彼此存在关联）——写他们之间的互动小剧场`
+    : `本次抽到 1 位人物——写他/她的个人日常小剧场`;
+  const body = picked.map((c, i) => `── 人物档案 ${i + 1}：${c.name}（所属：${c.world || '未分组'}）──\n${c.content}`).join('\n\n');
+  return `【本次小剧场·人物档案（只读取这些档案的信息，不要引入其它人物 / 设定 / 主线剧情）】\n${head}。\n\n${body}`;
+}
+
 const STATUS_FORMAT_RULE = `
 【当前状态·固定格式铁则（主角+NPC）】「当前状态/Buff」(列4 / character.<id>.status) 必须按**固定格式**输出，供前端解析成状态胶囊：
 - 每个状态写 \`状态名:Emoji(效果|激活条件|结束条件|来源)\`，**多个状态之间用中文分号 ；分隔**。
@@ -687,7 +725,7 @@ const QUEST_PLANNING_RULE = `
   · **强制环 vs 贪婪环（结构命门，每环必标其一）**：一条主线 = 2~3 个**强制环** + 0~2 个**贪婪环(标 optional:true)**：
       - **强制环**(不写 optional)：保命底线、必经，**失败=死亡或重罚**(penalty 三类)。顺序：①入场钩子(低难度，把主角钉进本世界剧情、绑定动机) ②正式升级(硬仗，逼用本世界资源/规则、击杀中boss/夺关键物) ③高潮(最高强制难度，boss战/剧情爆点)。**打完高潮＝主线达成、可离场**(到此即完整闭环)；finale 写的就是高潮目标。
       - **贪婪环**(optional:true)：高潮之后的**可选延伸**(隐藏升级 / 顶点·隐藏boss)，难度陡增、奖励跳一大档；**失败只损失本环额外奖励、不致死、不强制抹除**，排在强制环之后。
-  · **reward 固定"六选三"**：从【①属性点 ②技能点 ③乐园币 ④一件契合当前世界风格的装备 或 技能书 ⑤潜能点（职业技能树资源，按环规模给：普通环+1~5、贪婪环更多；完成时由【潜能点】规则用 \`pp.B1 += N\` 实际发放） ⑥一个贴合本世界题材的「世界专属宝箱」（以未开启物品发放·开启得本世界主题战利品，命名贴合本世界）】里**任选 3 类**，每类给具体数值/名目（如 「属性点+3、技能点+2、乐园币+500」 或 「乐园币+500、技能点+2、潜能点+3」，或把一项换成"当前世界风格的武器/技能书"）；**奖励超线性增长——每往后一环奖励近翻倍，贪婪环更跳一大档**（默认你已吃掉前几环奖励变强）。
+  · **reward 固定"六选三"**：从【①属性点 ②技能点 ③乐园币 ④一件契合当前世界风格的装备 或 技能书 ⑤潜能点（职业技能树资源，按环规模给但**每环最多 +4**：普通环+1~3、贪婪环至多+4；完成时由【潜能点】规则用 \`pp.B1 += N\` 实际发放） ⑥一个贴合本世界题材的「世界专属宝箱」（以未开启物品发放·开启得本世界主题战利品，命名贴合本世界）】里**任选 3 类**，每类给具体数值/名目（如 「属性点+3、技能点+2、乐园币+500」 或 「乐园币+500、技能点+2、潜能点+3」，或把一项换成"当前世界风格的武器/技能书"）；**奖励超线性增长——每往后一环奖励近翻倍，贪婪环更跳一大档**（默认你已吃掉前几环奖励变强）。
   · **灵魂钱币·四阶门槛**：六选三里的货币默认用「乐园币」；**只有当前衍生世界达【四阶】及以上，才可把某一份乐园币奖励改成/升级为「灵魂钱币(魂币)」**；四阶以下世界**严禁**任何任务奖励出现灵魂钱币（与正文世界书蓝灯铁律「灵魂钱币·任务奖励四阶门槛」一致）。
   · **世界之源（独立于 reward 六选三、完成必得）**：每一环（及单环任务）完成时，除 reward 六选三外**恒定额外发放「世界之源」%**——主线强制环 +10%~18%、贪婪环 +15%~25%、支线环 +3%~7%、隐藏任务 +8%~15%（按规模在区间取；口径见正文世界书「00-铁律」第15条「世界之源·获取标准」）。**reward 字段仍只写六选三那三类、不要把世界之源塞进 reward**；世界之源在正文📜任务模块单列展示，并于回合末【🌍世界之源】行计入累计、供世界结算评级。
   · **penalty 按环型分**：**强制环固定三类**（按严重度递进：①扣除乐园币 ②全属性永久下降 ③强制抹除＝契约者被处决，仅用于高潮/致命失败），**不要写"被伏击/受伤/暴露行踪"等普通剧情后果**；**贪婪环 penalty 写"仅损失本环额外奖励(不死)"**。reward 不许留空。
@@ -5491,7 +5529,11 @@ ${lines}`;
     if (wantFanfic) sysParts.push(FANFIC_RULE);
     if (wantFact) sysParts.push(FACT_RULE);
     if (wantChoices) sysParts.push(PLOT_CHOICES_RULE);
-    if (wantTheater) sysParts.push(MINI_THEATER_RULE);
+    if (wantTheater) {
+      sysParts.push(MINI_THEATER_RULE);
+      const picked = pickTheaterCharacters(await loadLunhuiCharacters());   // 从 wiki 人物条目随机抽 1~多位（多位则同世界·有关联）
+      if (picked.length) sysParts.push(buildTheaterCharBlock(picked));
+    }
     sysParts.push(`【本次输出顺序】${wantFanfic ? '先输出 <details>同人搜索内容</details> 块（涉及已知作品角色才输出，可多个）；' : ''}${wantFact ? '再输出 <details>事实查证</details> 块（涉及现实可查证元素才输出）；' : ''}${wantChoices ? '然后输出 <choices> 块（A~H 共 8 个选项，最后一个 H 为限制级）；' : ''}${wantTheater ? '最后输出 <xiaojuchang> 小剧场块（严格按「小剧场世界书」的 HTML/内联 CSS 折叠格式，与主线无关的番外彩蛋）。' : ''}除这些标签块外不要有任何其它文字。`);
     // 手动「重新生成」：玩家自定义方向（最高优先），并要求与上一版明显不同
     const dir = (direction || '').trim();
@@ -6171,6 +6213,7 @@ ${lines}`;
       endConditions: ['击败所有敌人'],
     }, C.config.manualAllyControl);
     battle.log = [{ id: newLogId(), round: 0, type: 'opening', text: '', narration: `战斗开始——对手：${enemyNames}。`, timestamp: Date.now() }];
+    resetCombatResources();   // 标了「每战归零」的自定义能量条开战清零（如怒气从 0 攒）
     C.setBattle(battle);
   }
 
@@ -6467,10 +6510,17 @@ ${lines}`;
 
 
   async function resolveAndNarrate(state: BattleState, actorId: string, kind: CombatActionKind, targetIds: string[], skillId?: string, line?: string, itemId?: string) {
+    const b1HpBefore = state.participants?.['B1']?.curHp;   // 自定义能量条·战斗累积：记 B1 出手前 HP（settleAction 克隆入参，不会被改）
     const out = settleAction({ state, actorId, kind, targetIds, skillId, itemId });
     if (out.consumedItem && actorId === 'B1') {
       try { useItems.getState().consumeItem(out.consumedItem.id, out.consumedItem.qty); } catch {}
     }
+    // 战斗内累积（仅观察 B1 的 HP 变化/出手/击杀，绝不改引擎结算）：攻击/受击/击杀/每回合攒能量条
+    try {
+      const b1HpAfter = out.state.participants?.['B1']?.curHp;
+      const killed = actorId === 'B1' ? out.defeated.filter((id) => out.state.initialState[id]?.side === 'enemy').length : 0;
+      applyCombatResourceGains(actorId, kind, (b1HpAfter ?? b1HpBefore ?? 0) - (b1HpBefore ?? 0), killed);
+    } catch {}
     // 标签 VM 结算明细即叙事来源（不再逐动作调 AI）；最终由 finishBattle 据完整战斗日志一次性润色。
     const narration = out.logLines.join(' ');
     const st = out.state;
@@ -6480,7 +6530,15 @@ ${lines}`;
       useCombat.getState().setBattle(st);
       await finishBattle(victor);
     } else {
-      useCombat.getState().setBattle(advanceTurn(st, useCombat.getState().config.manualAllyControl));
+      const b1HpPreTick = st.participants?.['B1']?.curHp;   // advanceTurn 内 tickRoundStart 会结算 DoT/领域持续伤害
+      const advanced = advanceTurn(st, useCombat.getState().config.manualAllyControl);
+      // DoT/领域 在回合开始对 B1 造成的持续伤害也算「受击」→ 补触发能量条 onHitTaken（actorId 非 B1，只走受击不走攻击/回合）
+      try {
+        const b1HpPostTick = advanced.participants?.['B1']?.curHp;
+        const dotDelta = (b1HpPostTick ?? b1HpPreTick ?? 0) - (b1HpPreTick ?? 0);
+        if (dotDelta < 0) applyCombatResourceGains('__dot__', 'dot', dotDelta, 0);
+      } catch {}
+      useCombat.getState().setBattle(advanced);
     }
   }
 

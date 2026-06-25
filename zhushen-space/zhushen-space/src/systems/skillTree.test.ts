@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { validateTree, canRankUp, treeAttrDelta } from './skillTree';
+import { validateTree, canRankUp, treeAttrDelta, autoLayout } from './skillTree';
 
 const byId = (tree: any): Record<string, any> => Object.fromEntries(tree.nodes.map((n: any) => [n.id, n]));
 
@@ -26,6 +26,16 @@ describe('validateTree · 阶位 gate 按前置链深度递进（封顶七阶）
     const m = byId(tree);
     expect(m.a.tierGate).toBe('五阶');   // 合法阶位保留
     expect(m.b.tierGate).toBe('七阶');   // 九阶 → 封顶七阶
+  });
+  it('noTierGate=true → 清空所有 tierGate·一阶可点深层(生成时关闭阶位限制)', () => {
+    const nodes: any[] = [{ id: 'core', kind: 'minor', layer: 0, branch: 'b1', prereqs: [] }];
+    for (let i = 1; i <= 8; i++) nodes.push({ id: `n${i}`, kind: 'minor', layer: i, branch: 'b1', prereqs: [i === 1 ? 'core' : `n${i - 1}`] });
+    const { tree } = validateTree({ source: 'ai', noTierGate: true, branches: [{ id: 'b1', name: 'B1' }], nodes });
+    expect(tree.noTierGate).toBe(true);
+    expect(tree.nodes.every((n) => !n.tierGate)).toBe(true);   // 全部清空
+    const prog = { ranks: { core: 1, n1: 3, n2: 3, n3: 3, n4: 3 }, spent: 0, aiBonusPP: 99 };
+    const chk = canRankUp(tree, 'n5', prog, { level: 1, tier: '一阶' });
+    expect(chk.ok, chk.reason).toBe(true);   // 一阶点深层节点不被阶位拦（给足潜能点排除 pp 干扰）
   });
 });
 
@@ -79,5 +89,30 @@ describe('canRankUp · 阶位 gate 实际拦截', () => {
   it('传承提前解锁(express) → 免阶位 gate', () => {
     // ppBase=0 后 1 级玩家潜能点为 0；本例只验「express 免阶位 gate」，故给足潜能点(aiBonusPP)以隔离 PP 预算变量。
     expect(canRankUp(mk(), 'n3', { ...prog, aiBonusPP: 5 }, { level: 1, tier: '一阶', expressBranches: new Set(['b1']) }).ok).toBe(true);
+  });
+});
+
+describe('autoLayout · 主干式(trunk) 布局', () => {
+  it('通用主干竖直居中、专精流派从主干顶端向两侧分流且更靠上', () => {
+    const { tree } = validateTree({
+      source: 'ai', layout: 'trunk',
+      branches: [{ id: 'trunk', name: '通用' }, { id: 'a', name: '甲' }, { id: 'b', name: '乙' }],
+      nodes: [
+        { id: 'core', kind: 'minor', branch: 'trunk', layer: 0, prereqs: [] },
+        { id: 't1', kind: 'minor', branch: 'trunk', layer: 1, prereqs: ['core'] },
+        { id: 't2', kind: 'minor', branch: 'trunk', layer: 2, prereqs: ['t1'] },   // 主干末端(深度2)
+        { id: 'a1', kind: 'medium', branch: 'a', layer: 3, prereqs: ['t2'], grants: { skill: { name: 'A1' } } },
+        { id: 'a2', kind: 'major', branch: 'a', layer: 4, prereqs: ['a1'], grants: { skill: { name: 'A2' } } },
+        { id: 'b1', kind: 'medium', branch: 'b', layer: 3, prereqs: ['t2'], grants: { skill: { name: 'B1' } } },
+      ],
+    });
+    expect(tree.layout).toBe('trunk');
+    const t = autoLayout(tree);
+    const m = byId(t);
+    expect(m.core.x).toBe(m.t1.x);          // 主干竖直：x 一致
+    expect(m.t1.x).toBe(m.t2.x);
+    expect(Math.sign(m.a1.x - m.t2.x)).not.toBe(Math.sign(m.b1.x - m.t2.x));   // 两条流派分列主干两侧
+    expect(m.a1.y).toBeLessThan(m.t2.y);    // 流派起点比主干末端更靠上(y 更小)
+    expect(m.a2.y).toBeLessThan(m.a1.y);    // 越深越往上
   });
 });

@@ -1,6 +1,6 @@
 import { defineConfig, type Plugin } from 'vite'
 import react from '@vitejs/plugin-react'
-import { copyFileSync, existsSync, mkdirSync, readdirSync, writeFileSync } from 'fs'
+import { copyFileSync, existsSync, mkdirSync, readdirSync, readFileSync, writeFileSync } from 'fs'
 import { execSync } from 'child_process'
 
 // 轮回WIKI：每次 vite build（含 Cloudflare）自动用 mkdocs 重建静态站到 public/wiki/。
@@ -27,6 +27,48 @@ function buildWiki(): Plugin {
     buildStart() { build() },                               // 生产构建：每次重建
     configureServer() { if (!existsSync(OUT)) build() },    // dev：仅当产物缺失时建一次（不拖慢日常启动）
   }
+}
+
+// 小剧场取材：从 lunhui-wiki 的「人物条目」生成 public/lunhui-characters.json = [{name, world, content}]。
+// 解析 mkdocs.yml 的 `人物:` 导航得到「世界分组 → 角色文件」，再读每个 人物/*.md 的全文。前端在「小剧场」阶段随机抽
+// 1~多位（多位则同世界、彼此有关联）注入正文末尾的 <xiaojuchang> 生成。源 md 已入库，产物 gitignore、每次 build 重建。
+function buildLunhuiCharacters(): Plugin {
+  const CFG = '../../lunhui-wiki/mkdocs.yml'
+  const DOCS = '../../lunhui-wiki/docs'
+  const OUT = 'public/lunhui-characters.json'
+  const gen = () => {
+    try {
+      if (!existsSync(CFG)) return
+      const lines = readFileSync(CFG, 'utf8').split(/\r?\n/)
+      let i = lines.findIndex((l) => /^\s*-\s*人物:\s*$/.test(l))
+      if (i < 0) return
+      const baseIndent = (lines[i].match(/^(\s*)/) || ['', ''])[1].length
+      let world = ''
+      const items: { name: string; world: string; file: string }[] = []
+      for (i++; i < lines.length; i++) {
+        const line = lines[i]
+        if (!line.trim()) continue
+        const indent = (line.match(/^(\s*)/) || ['', ''])[1].length
+        if (indent <= baseIndent && /^\s*-\s/.test(line)) break        // 到达下一顶层导航段
+        const charM = line.match(/^\s*-\s*(.+?):\s*(?:[^\s:]*\/)?([^\s:]+\.md)\s*$/)  // 「- 名: 人物/X.md」
+        if (charM) { items.push({ name: charM[1].trim(), world, file: charM[2].trim() }); continue }
+        const groupM = line.match(/^\s*-\s*(.+?):\s*$/)                 // 「- 世界名:」分组头（无 .md）
+        if (groupM && !/\.md\s*$/.test(line)) { world = groupM[1].trim() }
+      }
+      const out: { name: string; world: string; content: string }[] = []
+      for (const it of items) {
+        try {
+          const p = DOCS + '/人物/' + it.file
+          if (!existsSync(p)) continue
+          let content = readFileSync(p, 'utf8').trim()
+          if (content.length > 4000) content = content.slice(0, 4000)   // 单条上限，防个别超大条目
+          if (content) out.push({ name: it.name, world: it.world, content })
+        } catch { /* 单条失败跳过 */ }
+      }
+      if (out.length) { mkdirSync('public', { recursive: true }); writeFileSync(OUT, JSON.stringify(out)) }
+    } catch { /* 失败不阻断构建 */ }
+  }
+  return { name: 'build-lunhui-characters', buildStart() { gen() }, configureServer() { if (!existsSync(OUT)) gen() } }
 }
 
 // 把根目录的世界书/预设源文件同步到 public/presets/（即部署后的内置默认值）。
@@ -243,7 +285,7 @@ function syncJoyWorldBooks(): Plugin {
 const API_TARGET = process.env.VITE_API_TARGET ?? 'https://api.baimeow.icu'
 
 export default defineConfig({
-  plugins: [react(), buildWiki(), copyBuiltinPresets(), buildPortraitManifest(), buildStickerManifest(), syncEnhanceBosses(), syncJoyGirls(), syncJoyWorldBooks(), syncCasinoDealers()],
+  plugins: [react(), buildWiki(), buildLunhuiCharacters(), copyBuiltinPresets(), buildPortraitManifest(), buildStickerManifest(), syncEnhanceBosses(), syncJoyGirls(), syncJoyWorldBooks(), syncCasinoDealers()],
   build: { emptyOutDir: true },   // 始终清空 dist 再构建（防 index-*.js 历史残留堆积；从外层目录构建时 Vite 默认会跳过清空）
   server: {
     proxy: {

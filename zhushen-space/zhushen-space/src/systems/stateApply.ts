@@ -5,7 +5,8 @@ import { useItems, isResourcePseudoItem } from '../store/itemStore';
 import { useCharacters } from '../store/characterStore';
 import { useSettings } from '../store/settingsStore';
 import { useSkillTree } from '../store/skillTreeStore';
-import { playerMaxHp, playerMaxEp } from './playerVitals';
+import { playerMaxHp, playerMaxEp, playerResourceMax } from './playerVitals';
+import { useResource } from '../store/resourceStore';
 import { effectiveResource, fullMaxHp, fullMaxEp, ratioOf } from './derivedStats';
 import { parseAllStateUpdates, parseAllItemCommands, applyItemCommands, isEquippable, setNpcOwnerResolver, type StateUpdate } from './stateParser';
 import { resolveEquipSlot } from './equipSlots';
@@ -129,6 +130,28 @@ function applyOneUpdate(u: StateUpdate) {
     const current = game.player[key as PlayerNumericKey] as number;
     const next = op === '+=' ? current + value : op === '-=' ? current - value : value;
     game.setPlayerField(key as PlayerNumericKey, next);
+    return;
+  }
+
+  // ── 自定义能量条（仅主角·纯剧情资源）：res.B1.<id> 或 res.<id> op value（id 为 ASCII 机器键）──
+  // 例：res.B1.rage += 20、res.corruption = 50、res.B1.spirit -= 10；只改玩家已定义的条，AI 不能自创
+  const customRes = key.match(/^res\.(?:B1\.)?([A-Za-z][\w-]*)$/);
+  if (customRes && (typeof value === 'number' || typeof value === 'string')) {
+    const R = useResource.getState();
+    const rid = customRes[1];
+    const def = R.resources.find((r) => r.id === rid || r.name === rid);
+    if (!def) return;   // 未定义的能量条 → 忽略（只玩家定义，不自创）
+    const rmax = playerResourceMax(def);
+    let setMode = op === '=', toFull = false, amount = 0;
+    if (typeof value === 'number') amount = value;
+    else {
+      const sv = String(value);
+      if (/满|max|full|回满|复满|全满|100\s*%/i.test(sv)) { toFull = true; setMode = true; }
+      else { const n = Number(sv.split('/')[0].replace(/[^\d.-]/g, '')); if (!Number.isFinite(n)) return; amount = n; setMode = true; }
+    }
+    const cur = Math.min(Math.max(0, def.cur ?? 0), rmax);
+    const next = toFull ? rmax : setMode ? Math.min(Math.max(0, amount), rmax) : op === '+=' ? Math.min(cur + amount, rmax) : Math.max(0, cur - amount);
+    R.setCur(def.id, Math.round(next));
     return;
   }
 

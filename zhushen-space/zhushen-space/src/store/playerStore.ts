@@ -85,8 +85,8 @@ export interface PlayerProfile {
   hpLabel?: string;      // HP 条自定义称呼（换皮，如吸血鬼「血池」；空=默认「生命 HP」。仅用于渲染+喂 AI 行文措辞，hp 数值与 <state> 指令通道永不改名）
   epLabel?: string;      // EP 条自定义称呼（换皮，如「血怒」；空=默认「蓝量 EP」）
   barStyle?: string;     // 血条/蓝条皮肤 id（纯展示外观切换，见 Bar.tsx BAR_STYLES；空=经典）
-  hpPerCon?: number;     // 体质→HP 每点转化比（自定义；空/≤0=默认 20）。仅影响前端 HP 上限换算，四阶起仍自动×5；<state>/正则数值通道不变
-  epPerInt?: number;     // 智力→EP 每点转化比（自定义；空/≤0=默认 15）
+  hpRatio?: Partial<Record<keyof PlayerAttrs, number>>;  // HP 多属性系数表（自定义；{属性:每点系数}，空=默认 体×20）。HP=Σ六维×系数；四阶起仍自动×5；<state>/正则数值通道不变
+  epRatio?: Partial<Record<keyof PlayerAttrs, number>>;  // EP 多属性系数表（自定义；空=默认 智×15）。EP=Σ六维×系数
   personality?: string;  // 性格特质（简短，如 冷静、谨慎、重情义）
   personalityDetail?: string;  // 性格详细描述（自由文本，注入 AI 上下文；主角面板点击「📖详情」查看/编辑）
   location: string;      // 所处位置

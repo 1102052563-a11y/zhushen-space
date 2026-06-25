@@ -356,11 +356,13 @@ export function validateTree(raw: any): TreeValidation {
     n.prereqs = n.prereqs.filter((p) => idSet.has(p) && p !== n.id);
     if (n.prereqs.length !== before) warnings.push(`节点「${n.name}」有无效前置已清理`);
   }
-  // 阶位 gate（2026-06-23·用户要求「每个节点加阶位限制·越往后越高·封顶七阶」）：
-  //  · 已有合法阶位的节点(内置大节点 nb.tier / DIY 手设) → 保留(仅封顶七阶)。
-  //  · 空缺者 → 按「前置链深度」递进填充：深度1=一阶，每深一层+1阶，封顶七阶(TIERS[6])。
+  // 阶位 gate（2026-06-23·用户要求「每个节点加阶位限制·越往后越高·封顶七阶」；2026-06-24 加「生成时可选关闭」）：
+  //  · noTierGate(生成时勾掉「阶位限制」) → 清空所有 tierGate，任意阶位都可点（与副职业树同效果）。
+  //  · 否则按「前置链深度」递进分配：已有合法阶位保留(封顶七阶)；空缺者深度1=一阶，每深一层+1，封顶七阶(TIERS[6])。
   //  · 用前置链深度而非 layer，保证语义上「越往后(越靠依赖链末端)阶位越高」即便 layer 扁平也成立。
-  {
+  if (raw?.noTierGate) {
+    for (const n of nodes) n.tierGate = '';   // 无阶位限制：清空门槛 → gatePass 走 need<0 恒过
+  } else {
     const NODE_TIER_CAP = 6;   // 七阶 = TIERS[6]
     const byId = new Map(nodes.map((n) => [n.id, n] as const));
     const depthMemo = new Map<string, number>();
@@ -411,6 +413,8 @@ export function validateTree(raw: any): TreeValidation {
     version: Math.max(1, Math.floor(Number(raw?.version) || 1)),
     recipeLabel: raw?.recipeLabel ? String(raw.recipeLabel) : undefined,   // 副职业树专用（技能树忽略）
     category: raw?.category ? String(raw.category) : undefined,
+    noTierGate: raw?.noTierGate ? true : undefined,   // 「不加阶位限制」标志，随树保存/导出（节点 tierGate 已清空）
+    layout: raw?.layout === 'trunk' ? 'trunk' : undefined,   // 主干式布局标志，随树保存（autoLayout 据此走主干排版）
   };
   return { ok: errors.length === 0, errors, warnings, tree };
 }
@@ -427,7 +431,51 @@ export function constellationStatus(tree: TreeDef | undefined, progress: Progres
 /* ── 径向「星图」布局：中心放射，流派支=臂(按角度均分)，层=同心环，同层兄弟扇开 ──
    只给缺 x/y 的节点摆位（手动拖动的保留）。layer<=0 视为中心节点。 */
 const PAD = 110, RING_STEP = 150, BASE_R = 150, SIB_SPREAD = 0.34;
+/* 主干式布局（tree.layout==='trunk'）：通用主干竖直居中由下往上，专精流派从主干顶端分列两侧、各成一列向上生长。
+   深度用「前置链长度」算（不依赖 AI 给的 layer），保证分支起点接在主干末端之上。根在下、越深越上（像树往上长）。 */
+function autoLayoutTrunk(tree: TreeDef): TreeDef {
+  const VGAP = 96, HGAP = 88, COL_W = 380, PAD = 80;
+  const byId = new Map(tree.nodes.map((n) => [n.id, n] as const));
+  const memo = new Map<string, number>();
+  const depthOf = (id: string, stack: Set<string>): number => {
+    const m = memo.get(id); if (m != null) return m;
+    if (stack.has(id)) return 0;
+    stack.add(id);
+    const nd = byId.get(id);
+    const ps = (nd?.prereqs ?? []).filter((p) => byId.has(p) && p !== id);
+    const d = ps.length ? 1 + Math.max(...ps.map((p) => depthOf(p, stack))) : 0;
+    stack.delete(id); memo.set(id, d); return d;
+  };
+  // 主干 branch：id/name 含 trunk/主干/通用/基础 的优先，否则取第一条
+  const trunkB = tree.branches.find((b) => /trunk|主干|通用|基础/i.test(`${b.id} ${b.name}`)) || tree.branches[0];
+  const trunkId = trunkB?.id;
+  const others = tree.branches.filter((b) => b.id !== trunkId);
+  const colX = new Map<string, number>();
+  if (trunkId) colX.set(trunkId, 0);
+  others.forEach((b, i) => { const k = Math.floor(i / 2) + 1; colX.set(b.id, (i % 2 === 0 ? -1 : 1) * k * COL_W); });   // 两侧对称分列
+  const groups = new Map<string, TreeNode[]>();
+  for (const n of tree.nodes) {
+    const d = depthOf(n.id, new Set());
+    const k = `${n.branch}|${d}`;
+    const arr = groups.get(k); if (arr) arr.push(n); else groups.set(k, [n]);
+  }
+  const pos = new Map<string, { x: number; y: number }>();
+  for (const [k, arr] of groups) {
+    const cut = k.lastIndexOf('|');
+    const bid = k.slice(0, cut);
+    const d = Number(k.slice(cut + 1)) || 0;
+    const cx = colX.get(bid) ?? 0;
+    arr.forEach((n, i) => { const off = (i - (arr.length - 1) / 2) * HGAP; pos.set(n.id, { x: cx + off, y: -d * VGAP }); });   // 根在下(d=0)，越深 y 越小→越往上
+  }
+  let minX = Infinity, minY = Infinity;
+  for (const p of pos.values()) { minX = Math.min(minX, p.x); minY = Math.min(minY, p.y); }
+  if (!Number.isFinite(minX)) { minX = 0; minY = 0; }
+  const nodes = tree.nodes.map((n) => { const p = pos.get(n.id) ?? { x: 0, y: 0 }; return { ...n, x: Math.round(p.x - minX + PAD), y: Math.round(p.y - minY + PAD) }; });
+  return { ...tree, nodes };
+}
+
 export function autoLayout(tree: TreeDef): TreeDef {
+  if (tree.layout === 'trunk') return autoLayoutTrunk(tree);
   const branchOrder = tree.branches.map((b) => b.id);
   const N = Math.max(1, branchOrder.length);
   const baseAngle = (bid: string) => (Math.max(0, branchOrder.indexOf(bid)) / N) * Math.PI * 2 - Math.PI / 2; // 从正上方起，顺时针均分

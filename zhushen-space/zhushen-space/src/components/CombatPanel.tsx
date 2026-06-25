@@ -4,6 +4,7 @@ import { useCharacters } from '../store/characterStore';
 import { usePlayer } from '../store/playerStore';
 import { useNpc } from '../store/npcStore';
 import { useItems } from '../store/itemStore';
+import { useResource } from '../store/resourceStore';
 import { useMp } from '../store/multiplayerStore';
 import { telegraphIntent } from '../systems/enemyAI';
 
@@ -159,6 +160,26 @@ export default function CombatPanel({ onPlayerAction, onUndo, canUndo, mpMode, m
   const activeSkills = useMemo(() => actorSkills.filter((s) => !/被动/.test(s.skillType ?? '')), [actorSkills]);
   const selSkill = activeSkills.find((s) => s.id === skillId);
   const skillCd = (id: string) => curActor?.cooldowns?.[id] ?? 0;
+  // 技能自定义能量条消耗（仅 B1·能量条存在才生效；引用已删能量条→视为无消耗，不拦不扣）
+  const resources = useResource((s) => s.resources);
+  const setResCur = useResource((s) => s.setCur);
+  const rcOf = (s: any) => {
+    const rc = s?.numeric?.resCost;
+    if (!rc || curId !== 'B1' || !rc.id || !(rc.amount > 0)) return null;
+    const def = resources.find((r) => r.id === rc.id);
+    return def ? { id: rc.id as string, amount: rc.amount as number, name: def.name, avail: Math.max(0, def.cur ?? 0) } : null;
+  };
+  const gateOf = (s: any) => {   // 门槛：需该能量条 ≥ amount 才能放（不消耗）
+    const g = s?.numeric?.resGate;
+    if (!g || curId !== 'B1' || !g.id || !(g.amount > 0)) return null;
+    const def = resources.find((r) => r.id === g.id);
+    return def ? { id: g.id as string, amount: g.amount as number, name: def.name, avail: Math.max(0, def.cur ?? 0) } : null;
+  };
+  const resBlocked = (s: any) => {
+    const rc = rcOf(s); if (rc && rc.avail < rc.amount) return true;   // 消耗不足
+    const g = gateOf(s); if (g && g.avail < g.amount) return true;     // 门槛未达
+    return false;
+  };
   const skText = (s: any) => `${s?.skillType ?? ''}${s?.target ?? ''}${s?.effect ?? ''}${s?.name ?? ''}${(s?.tags ?? []).join('')}`;
   const isHeal = action === 'skill' && !!selSkill && /治疗|治愈|回复|恢复|疗伤|救治|加血/.test(skText(selSkill));
   const isAoe = action === 'skill' && !!selSkill && /群体|全体|范围|周围|所有|群攻|横扫|波及|溅射/.test(skText(selSkill));
@@ -181,6 +202,11 @@ export default function CombatPanel({ onPlayerAction, onUndo, canUndo, mpMode, m
     if (!myTurn || stunned) return;
     if (action === 'item' && !itemId) return;
     if (needsTarget && targets.length === 0) return;
+    if (action === 'skill') {
+      if (resBlocked(selSkill)) return;                // 消耗不足 / 门槛未达 → 拦下
+      const rc = rcOf(selSkill);
+      if (rc) setResCur(rc.id, rc.avail - rc.amount);  // 施放即扣减消耗（门槛 resGate 不消耗）
+    }
     onPlayerAction(action, needsTarget ? targets : [], action === 'skill' ? skillId : undefined, action === 'item' ? itemId : undefined);
   }
   function skip() { if (myTurn) onPlayerAction('defend', []); }
@@ -312,8 +338,8 @@ export default function CombatPanel({ onPlayerAction, onUndo, canUndo, mpMode, m
                 <select value={skillId} onChange={(e) => { setSkillId(e.target.value); setTargets([]); }}
                   className="w-full bg-slate-800 border border-slate-600 rounded px-2 py-1 text-sm text-slate-200">
                   <option value="">— 选择技能 —</option>
-                  {activeSkills.map((s) => { const cd = skillCd(s.id); return (
-                    <option key={s.id} value={s.id} disabled={cd > 0}>{s.name}{s.level ? ` · ${s.level}` : ''}{s.cost ? ` (${s.cost})` : ''}{isChargeSkill(s) ? ' 🔋蓄力' : ''}{isDomainSkillUI(s) ? ' 🌀领域' : ''}{cd > 0 ? ` ⏳冷却${cd}` : ''}</option>
+                  {activeSkills.map((s) => { const cd = skillCd(s.id); const rc = rcOf(s); const g = gateOf(s); return (
+                    <option key={s.id} value={s.id} disabled={cd > 0 || resBlocked(s)}>{s.name}{s.level ? ` · ${s.level}` : ''}{s.cost ? ` (${s.cost})` : ''}{rc ? ` ⚡${rc.name}${rc.amount}${rc.avail < rc.amount ? `·不足(${rc.avail})` : ''}` : ''}{g ? ` 🔒${g.name}≥${g.amount}${g.avail < g.amount ? `·未达(${g.avail})` : ''}` : ''}{isChargeSkill(s) ? ' 🔋蓄力' : ''}{isDomainSkillUI(s) ? ' 🌀领域' : ''}{cd > 0 ? ` ⏳冷却${cd}` : ''}</option>
                   ); })}
                 </select>
               )}
@@ -345,7 +371,7 @@ export default function CombatPanel({ onPlayerAction, onUndo, canUndo, mpMode, m
                     : action === 'item' ? '选择一件道具' : action === 'defend' ? '本回合承伤减半 · 回复 EP' : '尝试脱离战斗'}
                 </div>
                 <button onClick={confirm}
-                  disabled={(action === 'skill' && !skillId) || (action === 'item' && !itemId) || (needsTarget && targets.length === 0)}
+                  disabled={(action === 'skill' && (!skillId || resBlocked(selSkill))) || (action === 'item' && !itemId) || (needsTarget && targets.length === 0)}
                   className="px-5 py-1.5 rounded-md bg-rose-600 hover:bg-rose-500 disabled:opacity-40 disabled:cursor-not-allowed text-white text-sm font-medium">
                   出手
                 </button>

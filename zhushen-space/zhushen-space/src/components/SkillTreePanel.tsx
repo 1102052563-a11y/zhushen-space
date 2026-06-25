@@ -288,7 +288,7 @@ export default function SkillTreePanel({ onClose }: { onClose: () => void }) {
               <h2 className="text-base font-bold text-slate-100">技能树</h2>
               {tree && <span className="text-[13px] font-mono text-dim/50">已点 {stats.unlocked}/{stats.total} 节点 · {stats.ranksOwned}/{stats.ranksMax} 点</span>}
             </div>
-            <p className="text-[13px] text-dim/60 mt-0.5">每个节点可点 <span className="text-slate-300">3</span> 次(豆子)，每点花<span className="text-lime-300">潜能点</span>给属性加成；升一级得 4 潜能点。有效阶位 <span className="text-slate-300">{effTier}</span>。</p>
+            <p className="text-[13px] text-dim/60 mt-0.5">每个节点可点 <span className="text-slate-300">3</span> 次(豆子)，每点花<span className="text-lime-300">潜能点</span>给属性加成；升一级得 4 潜能点。有效阶位 <span className="text-slate-300">{effTier}</span>。{tree?.noTierGate && <span className="text-emerald-300/80"> 本树不限阶位（任意阶位可点）。</span>}</p>
             {attrDeltaText(treeDelta) && <p className="text-[12px] text-sky-300/80 mt-0.5">本树六维加成：{attrDeltaText(treeDelta)}</p>}
           </div>
           <div className="flex items-center gap-2 shrink-0">
