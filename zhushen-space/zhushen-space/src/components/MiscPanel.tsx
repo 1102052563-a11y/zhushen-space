@@ -205,6 +205,12 @@ function TaskCard({ t, main, onRemove }: { t: MiscTask; main: boolean; onRemove:
         t.desc && <div className="text-[13px] text-dim/80 leading-relaxed">{t.desc}</div>
       )}
 
+      {t.progress && (
+        <div className="text-[12px] leading-relaxed text-sky-300/75">
+          <span className="font-mono text-dim/45">📈 进度·上回合：</span>{t.progress}
+        </div>
+      )}
+
       <div className="flex flex-wrap gap-x-3 gap-y-0.5 text-[12px] font-mono text-dim/60">
         {/* 多环任务的奖惩按"每环"显示（见上方当前环 🎁 奖励），此处不再重复任务级奖惩，避免冗余；仅无环的扁平任务才显示 */}
         {!hasRings && t.reward && <span className="text-god/60">奖励：{t.reward}</span>}

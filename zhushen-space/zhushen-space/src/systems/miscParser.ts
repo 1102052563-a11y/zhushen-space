@@ -47,6 +47,9 @@ function applyQuestFields(target: Partial<MiscTask>, o: Record<string, any>): vo
   if (rings) target.rings = rings;
   if (o.currentRing != null && Number.isFinite(Number(o.currentRing))) target.currentRing = Number(o.currentRing);
   if (o.finale != null && String(o.finale).trim()) target.finale = String(o.finale).trim();
+  // 当前任务进度（仅在给了非空值时写入，缺省则保留既有，不被空值清掉）
+  if (o.progress != null && String(o.progress).trim()) target.progress = String(o.progress).trim();
+  else if (o['进度'] != null && String(o['进度']).trim()) target.progress = String(o['进度']).trim();
   if (target.rings && target.currentRing == null) {
     const active = target.rings.find((r) => r.status === 'active');
     if (active) target.currentRing = active.idx;
@@ -213,7 +216,8 @@ export function serializeTasks(tasks: MiscTask[]): string {
       `${t.id}｜[${t.kind ?? '支线'}]${t.name}｜${t.status}` +
       (prog ? `｜${prog}` : '') +
       `｜${activeGoal(t)}` +
-      (t.startTime || t.endTime ? `｜${t.startTime || '—'}~${t.endTime || '—'}` : '');
+      (t.startTime || t.endTime ? `｜${t.startTime || '—'}~${t.endTime || '—'}` : '') +
+      (t.progress ? `｜近况:${t.progress}` : '');
     if (!Array.isArray(t.rings) || !t.rings.length) return head;
     const ringsStr = t.rings
       .slice()
@@ -273,6 +277,7 @@ export function serializeQuestsForNarrative(
         const hint = nextRingHint(t);
         if (hint) lines.push(`  · 完成本环后下一环走向：${hint}`);
       }
+      if (t.progress) lines.push(`  · 上回合推进：${t.progress}`);
       if (t.finale) lines.push(`  · 终局(高潮)：${t.finale}`);
     }
   }

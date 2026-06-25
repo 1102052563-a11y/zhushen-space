@@ -40,6 +40,7 @@ export interface MiscTask {
   currentRing?: number;     // 当前 active 环的 idx（非数组下标）
   finale?: string;          // 终局目标——定义这条线的"尽头"，最后一环达成即整条完成
   rating?: string;          // 任务评分（S/A/B/C/D/E，完成/失败时由 AI 给定；显示在已结束列表 + 供世界结算参考）
+  progress?: string;        // 当前任务进度：上回合主角对该任务的实质推进（1~2句·杂项AI每轮更新·纯展示+续作连贯，不参与结算判定）
 }
 
 /* 主线判定：只有显式 kind==='主线' 才算主线，其余（含未标 kind）一律支线 */

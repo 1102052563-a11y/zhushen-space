@@ -4,6 +4,7 @@ import { apiChatFallback } from './apiChat';
 import { lenientJsonParse } from './stateParser';
 import type { Trait } from '../store/characterStore';
 import { ATTR_TALENT_GEN_RULE } from '../promptRules';
+import { attrCapForTier } from './derivedStats';
 
 /* 真实属性·加点与里程碑天赋（主角 B1 + NPC Cx 共用，纯前端确定性 + 一次 AI 生成）。
    - 普通属性加点消耗「属性点」(attrPoints)，每点 +1 基础属性(attrs)。
@@ -61,9 +62,15 @@ export async function generateAttrTalents(o: AttrTalentOpts): Promise<Omit<Trait
   const chain = resolveApiChain('player', legacy);
   if (!chain[0]?.baseUrl || !chain[0]?.apiKey) throw new Error('未配置 AI 接口（设置→主角演化→API设置 或 综合设置→正文生成）');
   const who = o.isPlayer ? `主角「${o.charName || '主角'}」` : `契约者「${o.charName || '该角色'}」`;
-  // 等级随里程碑值放大：低段(密)给 A 级强力克制被动，越高越逆天（保留"里程碑越高越离谱"梯度）
-  const grade = o.milestone >= 2000 ? 'SSS' : o.milestone >= 500 ? 'SS' : o.milestone >= 150 ? 'S' : 'A';
-  const userMsg = `【角色】${who}　阶位:${o.charTier || '—'}\n【突破属性】${o.attrLabel}\n【当前真实${o.attrLabel}】${o.trueValue}（已达里程碑 ${o.milestone}）\n\n请围绕【${o.attrLabel}】铸造 4 个逆天级天赋供其挑选，按系统要求只输出 JSON 数组（4 个天赋对象）。里程碑 ${o.milestone} ＝ ${grade} 级强度起步，务必各具一格、丰富多样。`;
+  // 档位按【阶位】定，而非按里程碑值：一~三阶=普通属性档(全 A·克制)；四阶起=真实属性档(S 起步·质变)。
+  // 这样真实属性奖励永远高普通属性整整一档，杜绝"真实属性给的天赋反而不如普通属性"的倒挂。
+  const isReal = attrCapForTier(o.charTier) >= 150;   // 四阶起六维即真实属性（单属性极值≥150）
+  const grade = !isReal ? 'A'
+    : o.milestone >= 2000 ? 'SSS' : o.milestone >= 500 ? 'SS' : 'S';
+  const klassLine = isReal
+    ? '真实属性档（四阶起·六维即真实属性·1点真实≈5点普通之效·判定绝对优先·可抗虚空压制）——必须质变/法则级，每个都要全面碾压普通属性档'
+    : '普通属性档（一~三阶·单项≤99）——强力但克制，加成一律用百分比/小数值，严禁真实属性措辞/无视防御/巨额固定值/血脉质变';
+  const userMsg = `【角色】${who}　阶位:${o.charTier || '—'}\n【档位】${klassLine}\n【突破属性】${o.attrLabel}\n【当前${o.attrLabel}】${o.trueValue}（已达里程碑 ${o.milestone}）\n【本批等级】${grade}\n\n请围绕【${o.attrLabel}】铸造 4 个**本档**天赋供其挑选，按系统要求只输出 JSON 数组（4 个天赋对象），务必各具一格、丰富多样。`;
   const { content } = await apiChatFallback(chain, [
     { role: 'system', content: ATTR_TALENT_GEN_RULE },
     { role: 'user', content: userMsg },
@@ -76,7 +83,7 @@ export async function generateAttrTalents(o: AttrTalentOpts): Promise<Omit<Trait
     effect: x.effect ? String(x.effect).trim() : '',
     rarity: String(x.rarity ?? grade).trim(),
     category: x.category ? String(x.category).trim() : '属性类',
-    source: x.source ? String(x.source).trim() : `真实${o.attrLabel}·里程碑${o.milestone}淬炼`,
+    source: x.source ? String(x.source).trim() : `${isReal ? '真实' : '普通'}属性「${o.attrLabel}」里程碑${o.milestone}淬炼`,
     level: x.level ? String(x.level).trim() : undefined,
     attrBonus: x.attrBonus ? String(x.attrBonus).trim() : undefined,
   }));
