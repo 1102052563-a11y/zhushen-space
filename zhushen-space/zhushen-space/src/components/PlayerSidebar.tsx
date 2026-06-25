@@ -183,10 +183,13 @@ export default function PlayerSidebar({ onClose }: { onClose?: () => void }) {
   const equipped = equippedFull.map((it) => ({ category: it.category as string, grade: (it.numeric?.grade as number) ?? gradeToNum(it.gradeDesc), combatStat: it.combatStat }));
   // 属性构成：原始 + 技能树 + 装备/技能/天赋 的属性加成（真实加载，不只是摆设）
   // 技能树六维折进 base（与战斗/骰子一致），资质档 bioInnate 仍用原始 profile.attrs
-  const breakdown = computeAttrBreakdown(withAttrDelta(withAttrDelta(profile.attrs, playerTreeAttrBonus()), playerTeamAttrBonus()), b1?.skills ?? [], b1?.traits ?? [], equippedFull, attrCapForTier(profile.tier, profile.level));   // 有效六维(含全部加成)夹到本阶上限·遵守阶位限制
-  const effAttrs = { str: breakdown.str.total, agi: breakdown.agi.total, con: breakdown.con.total, int: breakdown.int.total, cha: breakdown.cha.total, luck: breakdown.luck.total } as PlayerAttrs;
-  const derived = computeDerived(effAttrs, profile.level, equipped);   // 衍生属性按"有效六维"计算
-  const derivedNoEq = computeDerived(effAttrs, profile.level, []);     // 仅六维+等级部分（用于拆出装备贡献）
+  const capB = attrCapForTier(profile.tier, profile.level);
+  const breakdown = computeAttrBreakdown(withAttrDelta(withAttrDelta(profile.attrs, playerTreeAttrBonus()), playerTeamAttrBonus()), b1?.skills ?? [], b1?.traits ?? [], equippedFull, capB);   // 基础有效六维(不含真实属性点直加)·夹本阶上限·供属性栏展示
+  // 衍生/战力按「有效六维 + 真实属性点直加(realAttrs)」算，与战斗 buildCombatant 同口径（直加并入再夹本阶上限）
+  const breakdownReal = computeAttrBreakdown(withAttrDelta(withAttrDelta(withAttrDelta(profile.attrs, playerTreeAttrBonus()), playerTeamAttrBonus()), profile.realAttrs), b1?.skills ?? [], b1?.traits ?? [], equippedFull, capB);
+  const effAttrs = { str: breakdownReal.str.total, agi: breakdownReal.agi.total, con: breakdownReal.con.total, int: breakdownReal.int.total, cha: breakdownReal.cha.total, luck: breakdownReal.luck.total } as PlayerAttrs;
+  const derived = computeDerived(effAttrs, profile.level, equipped);   // 衍生属性按"有效六维(含真实属性点直加)"算（不含战斗内四阶×5）
+  const derivedNoEq = computeDerived(effAttrs, profile.level, []);     // 仅六维+等级部分（拆出装备贡献）
   const [attrPop, setAttrPop] = useState<keyof PlayerAttrs | null>(null);   // 点击查看属性构成
   const [derivedPop, setDerivedPop] = useState<keyof typeof derived | null>(null);
   // 属性加点（待确认 / 结算模型）：普通属性「+」消耗「属性点」(每点 +1 基础 attrs)，真实属性「+」消耗「真实属性点」(每点 +1 真实·直加 realAttrs，**不动基础**，两者独立)。
@@ -343,7 +346,7 @@ export default function PlayerSidebar({ onClose }: { onClose?: () => void }) {
                   <span className="text-dim/60 font-mono">{showTrueAttr ? `真实${label}` : label}</span>
                   <span className="flex items-center gap-1">
                     {showTrueAttr
-                      ? <span className="font-mono font-bold text-amber-300/90 ra-gold" title="真实属性 = 基础六维 + 真实属性点直加（四阶起六维即真实属性）">{bk.total + (realAttrs[key] ?? 0)}</span>
+                      ? <span className="font-mono font-bold text-amber-300/90 ra-gold" title="真实属性 = 基础六维(含装备/技能/天赋) + 真实属性点直加（四阶起六维即真实属性，不再÷80）">{bk.total + (realAttrs[key] ?? 0)}{(realAttrs[key] ?? 0) > 0 && <span className="ml-0.5 text-[11px] text-emerald-400/70">(+{realAttrs[key]}直加)</span>}</span>
                       : <button onClick={() => setAttrPop(attrPop === key ? null : key)} title="点击查看属性构成"
                           className="font-mono font-bold text-slate-100 hover:text-god transition-colors">
                           {bk.total}{bonus !== 0 && <span className={`ml-0.5 text-[11px] ${bonus > 0 ? 'text-emerald-400/70' : 'text-blood/70'}`}>({bonus > 0 ? '+' : ''}{bonus})</span>}
@@ -395,7 +398,7 @@ export default function PlayerSidebar({ onClose }: { onClose?: () => void }) {
 
         {/* 衍生属性（六维+等级+装备换算，随属性/装备变化） */}
         <div className="p-3 border-b border-edge">
-          <div className="text-sm text-god font-mono mb-2">⚔ 衍生属性 <span className="text-[11px] text-dim/40">六维+装备换算</span></div>
+          <div className="text-sm text-god font-mono mb-2">⚔ 衍生属性 <span className="text-[11px] text-dim/40">六维(含真实属性点)+装备换算</span></div>
           <div className="grid grid-cols-2 gap-x-3 gap-y-1.5">
             {([['patk', '物理攻击'], ['pdef', '物理防御'], ['matk', '法术攻击'], ['mdef', '法术防御']] as const).map(([k, label]) => (
               <button key={k} onClick={() => setDerivedPop(derivedPop === k ? null : k)} title="点击查看构成"
@@ -408,13 +411,15 @@ export default function PlayerSidebar({ onClose }: { onClose?: () => void }) {
           {derivedPop && (() => {
             const k = derivedPop; const total = derived[k]; const eq = total - derivedNoEq[k];
             const label = { patk: '物理攻击', pdef: '物理防御', matk: '法术攻击', mdef: '法术防御' }[k];
+            const formula = { patk: 'max(力,敏)×3 + 力 + 等级×2 + 装备', pdef: '体×3 + 等级×2 + 装备', matk: '智×3 + 等级×2 + 装备', mdef: '智×1.6 + 魅×1.4 + 等级×2 + 装备' }[k];
             return (
               <div className="mt-2 rounded-lg border border-god/30 bg-void/50 px-3 py-2 text-[12px] font-mono space-y-1">
-                <div className="flex items-center justify-between"><span className="text-god/80">{label} · 构成</span><button onClick={() => setDerivedPop(null)} className="text-dim/40 hover:text-blood">✕</button></div>
-                <div className="flex justify-between"><span className="text-dim/60">有效六维 + 等级</span><span className="text-slate-200">{derivedNoEq[k]}</span></div>
+                <div className="flex items-center justify-between"><span className="text-god/80">{label} · 公式与构成</span><button onClick={() => setDerivedPop(null)} className="text-dim/40 hover:text-blood">✕</button></div>
+                <div className="text-dim/55 text-[11px] leading-snug">公式：{formula}</div>
+                <div className="flex justify-between"><span className="text-dim/60">有效六维(含真实属性点) + 等级</span><span className="text-slate-200">{derivedNoEq[k]}</span></div>
                 {eq !== 0 && <div className="flex justify-between"><span className="text-dim/60">装备加成</span><span className="text-amber-300/80">{eq > 0 ? '+' : ''}{eq}</span></div>}
                 <div className="flex justify-between border-t border-edge/40 pt-1"><span className="text-slate-300">合计</span><span className="text-slate-100 font-bold">{total}</span></div>
-                <div className="text-dim/40 text-[11px]">六维已含装备/技能/天赋加成（见上方属性构成）</div>
+                <div className="text-dim/40 text-[11px]">已含装备/技能/天赋 + 真实属性点直加；战斗中四阶起整体 ×5（跨阶碾压·同阶相抵）。</div>
               </div>
             );
           })()}

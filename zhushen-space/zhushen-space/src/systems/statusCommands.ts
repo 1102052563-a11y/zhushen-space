@@ -137,7 +137,11 @@ export function applyPlayerProfileCommands(reply: string, narrative: string, tur
     const seenPt = new Set<string>();
     while ((m = ptRe.exec(reply))) {
       const dk = m[0].replace(/\s+/g, ''); if (seenPt.has(dk)) continue; seenPt.add(dk);   // 去重：统计+发放同一条只算一次
-      const key = m[1] as 'attrPoints' | 'realAttrPoints';
+      let key = m[1] as 'attrPoints' | 'realAttrPoints';
+      // 四阶前·真实属性点绝对封锁：主角未达四阶(本阶单属性上限<150)时，AI 若误发真实属性点，自动降级为等价的普通属性点——真实属性是四阶「属性觉醒」后才解锁的专属概念。
+      if (key === 'realAttrPoints' && attrCapForTier(usePlayer.getState().profile.tier, usePlayer.getState().profile.level) < 150) {
+        console.warn('[Player] 四阶前禁真实属性点 → 自动降级为普通 attrPoints'); key = 'attrPoints';
+      }
       const cur = (usePlayer.getState().profile as any)[key] ?? 0;
       const v = Number(m[3]);
       sp({ [key]: m[2] === '=' ? v : m[2] === '+=' ? cur + v : Math.max(0, cur - v) } as any);

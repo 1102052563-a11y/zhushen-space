@@ -17,6 +17,7 @@ import {
   ITEM_COT_RULE,
   PLAYER_COT_RULE,
   PARADISE_RULES_RULE,
+  REAL_POINT_LOCK_RULE,
   NPC_COT_RULE,
   NPC_SELF_NARRATION_RULE,
   PLOT_GUIDANCE_RULE,
@@ -1585,6 +1586,9 @@ export default function App() {
       const povRule = buildPerspectiveRule(povSel, povName);
       sysPrompt += '\n\n' + povRule; sysSegments.push({ label: '前端规则 · 叙事人称（' + povSel + '）', content: povRule });
     }
+
+    // 四阶前·真实属性绝对封锁：主角未达四阶(realAttrMult<5)时，正文严禁出现/给予真实属性·真实属性点（含技能/天赋/装备/掉落/任务）；与世界书常驻条目 + 解析器拒收三重保险。
+    { const _pp = usePlayer.getState().profile; if (realAttrMult(_pp?.tier, _pp?.level) < 5) { sysPrompt += `\n\n${REAL_POINT_LOCK_RULE}`; sysSegments.push({ label: '前端规则 · 四阶前禁真实属性', content: REAL_POINT_LOCK_RULE }); } }
 
     // 前历史 user/assistant 条目 → 少样本示例
     const examples = preRel
