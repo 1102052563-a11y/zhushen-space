@@ -16,6 +16,7 @@ import {
   ITEM_DESTROY_GUARD_RULE,
   ITEM_COT_RULE,
   PLAYER_COT_RULE,
+  PARADISE_RULES_RULE,
   NPC_COT_RULE,
   NPC_SELF_NARRATION_RULE,
   PLOT_GUIDANCE_RULE,
@@ -184,6 +185,7 @@ const DmPanel = lazy(() => import('./components/DmPanel'));
 const MultiplayerPanel = lazy(() => import('./components/MultiplayerPanel'));
 const ChatRoomPanel = lazy(() => import('./components/ChatRoomPanel'));
 const TradePanel = lazy(() => import('./components/TradePanel'));
+const AssistPanel = lazy(() => import('./components/AssistPanel'));
 import { useMp, type HiddenCondition } from './store/multiplayerStore';
 import { mpClient } from './systems/mpClient';
 import { buildPlayerSnapshot, buildPartyTurnText, buildWorldSnapshot, applyWorldSnapshot, buildPartyProfiles, mpNarrativeRule, purgeMpCharacters } from './systems/mpSnapshot';
@@ -792,6 +794,7 @@ const rightMenuItems = [
   { icon: '🌐', label: '联机' },
   { icon: '💬', label: '聊天室' },
   { icon: '🛒', label: '交易行' },
+  { icon: '🆘', label: '助战' },
   { icon: '🧠', label: '记忆' },
   { icon: '🧩', label: '创意工坊' },
   { icon: '💾', label: '存档' },
@@ -804,7 +807,7 @@ const NAV_FX: Record<string, string> = {
   '副职业': 'fx-wrench', '技能树': 'fx-tree', '称号': 'fx-medal', '成就': 'fx-trophy', '势力': 'fx-pillar',
   '领地': 'fx-castle', '冒险团': 'fx-shield', '队伍': 'fx-friends', '万族': 'fx-cosmos', '世界百科': 'fx-book', '轮回WIKI': 'fx-book', 'ROLL': 'fx-dice',
   '战斗': 'fx-clash', '乐园设施': 'fx-ferris', '深渊': 'fx-void', '回合洞察': 'fx-zoom', '任务': 'fx-quest',
-  '频道': 'fx-signal', '私信': 'fx-mail', '好友': 'fx-friends', '聊天室': 'fx-signal', '交易行': 'fx-bag', '记忆': 'fx-brain', '创意工坊': 'fx-sparkle', '存档': 'fx-save', '设置': 'fx-gear',
+  '频道': 'fx-signal', '私信': 'fx-mail', '好友': 'fx-friends', '聊天室': 'fx-signal', '交易行': 'fx-bag', '助战': 'fx-clash', '记忆': 'fx-brain', '创意工坊': 'fx-sparkle', '存档': 'fx-save', '设置': 'fx-gear',
 };
 
 export default function App() {
@@ -918,6 +921,7 @@ export default function App() {
   const chatBubbleHostRef = useRef<HTMLDivElement>(null);
   const chatBubbleDrag = useRef({ active: false, sx: 0, sy: 0, bx: 0, by: 0, moved: false, lx: 0, ly: 0 });
   const [tradeOpen, setTradeOpen] = useState(false);  // 全局交易行
+  const [assistOpen, setAssistOpen] = useState(false);  // 全局助战大厅
   const chatUnread = useChatRoom((s) => s.unread);   // 导航红点：聊天室未读
   const chatOnline = useChatRoom((s) => s.roster.length);   // 在线人数（= 当前在玩且已登录的人）
   // 已登录(有聊天身份) → 一进游戏就后台连接聊天室：「在玩存档即在线」（不必开聊天面板，新消息也进未读红点）
@@ -2116,7 +2120,7 @@ export default function App() {
         .replaceAll('${character_snapshot}', playerProfileSnapshot)
         .replaceAll('${player_skills}', pSkills.length ? pSkills.map((s) => `${s.id}「${s.name}」${s.level ?? ''}`).join('；') : '（无）')
         .replaceAll('${player_traits}', pTalents.length ? pTalents.map((t) => `「${t.name}」${t.category ?? ''}·${t.rarity}级`).join('；') : '（无）')
-        + '\n\n' + NARRATIVE_FIRST_RULE + '\n' + EVO_VERIFY_RULE + '\n' + BUFF_AS_STATUS_RULE + '\n' + SUBPROF_RULE + '\n' + TALENT_NO_CAP_RULE + '\n' + TITLE_DIVERSITY_RULE + '\n' + SKILL_TALENT_NOTE_RULE + '\n' + SKILL_TIER_RULE + '\n' + SKILL_TALENT_ATTR_CAP_RULE + '\n' + PLAYER_SKILL_KEEP_RULE + '\n' + SKILL_COMBAT_TAG_RULE + '\n' + TIER_RULE +'\n' + IMAGE_TAGS_RULE + '\n' + HPEP_NARRATIVE_ONLY_RULE + '\n' + WORLDSOURCE_RULE + '\n' + POINTS_NARRATIVE_RULE + '\n' + ATTR_SANITY_RULE + '\n' + ATTR_CAP_RULE + '\n' + PLAYER_ATTR_LOCK_RULE + '\n' + APPEARANCE_UPDATE_RULE + '\n' + STATUS_FORMAT_RULE + '\n' + STATUS_COUNTDOWN_TURN_RULE + '\n' + FIRST_UPDATE_COMPLETE_RULE + '\n' + EVO_EXACT_REF_RULE + '\n' + SKILL_TALENT_GUIDE + '\n' + PLAYER_COT_RULE;
+        + '\n\n' + PARADISE_RULES_RULE + '\n\n' + NARRATIVE_FIRST_RULE + '\n' + EVO_VERIFY_RULE + '\n' + BUFF_AS_STATUS_RULE + '\n' + SUBPROF_RULE + '\n' + TALENT_NO_CAP_RULE + '\n' + TITLE_DIVERSITY_RULE + '\n' + SKILL_TALENT_NOTE_RULE + '\n' + SKILL_TIER_RULE + '\n' + SKILL_TALENT_ATTR_CAP_RULE + '\n' + PLAYER_SKILL_KEEP_RULE + '\n' + SKILL_COMBAT_TAG_RULE + '\n' + TIER_RULE +'\n' + IMAGE_TAGS_RULE + '\n' + HPEP_NARRATIVE_ONLY_RULE + '\n' + WORLDSOURCE_RULE + '\n' + POINTS_NARRATIVE_RULE + '\n' + ATTR_SANITY_RULE + '\n' + ATTR_CAP_RULE + '\n' + PLAYER_ATTR_LOCK_RULE + '\n' + APPEARANCE_UPDATE_RULE + '\n' + STATUS_FORMAT_RULE + '\n' + STATUS_COUNTDOWN_TURN_RULE + '\n' + FIRST_UPDATE_COMPLETE_RULE + '\n' + EVO_EXACT_REF_RULE + '\n' + SKILL_TALENT_GUIDE + '\n' + PLAYER_COT_RULE;
       const userContent  = `# 本轮正文\n${trimmedNarrative}\n\n---\n请根据以上正文处理本轮主角属性与状态的变化。**先输出一个 <think>…</think> 思考块**，按系统提示里的「主角演化思维链」逐项自检；**随后**输出 <state>（及如有需要的 <upstore>）指令块，无变化时输出空块。除 <think> / <state> / <upstore> 外不要有其它文字。`;
 
       const ss2 = useSettings.getState();
@@ -7154,6 +7158,7 @@ ${lines}`;
       label === '联机' ? () => setMpPanelOpen(true) :
       label === '聊天室' ? () => setChatRoomOpen(true) :
       label === '交易行' ? () => setTradeOpen(true) :
+      label === '助战' ? () => setAssistOpen(true) :
       label === '记忆' ? () => setSummaryPanelOpen(true) :
       label === '存档' ? () => setSaveOpen(true) :
       label === '创意工坊' ? () => setWorkshopOpen(true) :
@@ -8323,6 +8328,7 @@ ${lines}`;
       {mpPanelOpen && <MultiplayerPanel onClose={() => setMpPanelOpen(false)} />}
       {chatRoomOpen && <ChatRoomPanel onClose={() => setChatRoomOpen(false)} />}
       {tradeOpen && <TradePanel onClose={() => setTradeOpen(false)} />}
+      {assistOpen && <AssistPanel onClose={() => setAssistOpen(false)} />}
       {mpIncomingGift && <GiftPrompt gift={mpIncomingGift} onClose={() => useMp.getState()._set({ incomingGift: null })} />}
       {mpRaidLoot && <RaidLootModal onClose={() => useMp.getState()._set({ raidLoot: null })} />}
       <RaidDungeonReward />

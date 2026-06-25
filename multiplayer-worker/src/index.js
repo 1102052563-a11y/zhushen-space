@@ -6,6 +6,7 @@ import { RoomDO } from "./RoomDO.js";
 import { LobbyDO } from "./LobbyDO.js";
 import { ChatDO } from "./ChatDO.js";
 import { TradeDO } from "./TradeDO.js";
+import { AssistDO } from "./AssistDO.js";
 import { handleGateway } from "./gateway.js";
 import { handleWorkshop } from "./workshop.js";
 import { handleCloud } from "./cloud.js";
@@ -14,7 +15,7 @@ import { handleStickerUpload, handleStickerServe, handleStickerList, handleStick
 import { verifyChatToken } from "./auth.js";
 
 // wrangler 需要从入口模块导出 DO 类
-export { RoomDO, LobbyDO, ChatDO, TradeDO };
+export { RoomDO, LobbyDO, ChatDO, TradeDO, AssistDO };
 
 // 房间码：去掉易混字符（0/O/1/I），6 位
 const ALPHABET = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
@@ -57,6 +58,9 @@ function chatStub(env) {
 }
 function tradeStub(env) {
   return env.TRADE.get(env.TRADE.idFromName("global"));
+}
+function assistStub(env) {
+  return env.ASSIST.get(env.ASSIST.idFromName("global"));
 }
 function roomStub(env, id) {
   return env.ROOMS.get(env.ROOMS.idFromName(id));
@@ -159,6 +163,31 @@ export default {
       }
       if (p === "/api/trade/info") {
         const r = await tradeStub(env).fetch("https://do/info");
+        return new Response(await r.text(), {
+          status: r.status,
+          headers: { ...ch, "Content-Type": "application/json" },
+        });
+      }
+
+      // 全局助战大厅（独立 AssistDO 单例；上传主角卡 + 邀请助战 + 排行榜）。
+      // 与聊天室共用 Discord 身份：验 chatToken → pid=chat:<uid>，并保留 name/avv/ds/nc 供卡片显示头像/名牌。
+      if (p === "/api/assist/ws") {
+        if (request.headers.get("Upgrade") !== "websocket") {
+          return new Response("expected websocket", { status: 426, headers: ch });
+        }
+        const payload = await verifyChatToken(env, url.searchParams.get("token"));
+        if (!payload || !payload.cuid) {
+          return new Response("需要 Discord 登录", { status: 401, headers: ch });
+        }
+        const u = new URL(request.url);
+        u.searchParams.set("pid", "chat:" + payload.cuid);
+        u.searchParams.set("name", (u.searchParams.get("name") || payload.name || "道友"));
+        u.searchParams.set("du", String(payload.du || payload.cuid));                        // 显示号(自定义靓号)权威来自令牌，卡片显示用
+        u.searchParams.delete("token");
+        return assistStub(env).fetch(new Request(u.toString(), request));
+      }
+      if (p === "/api/assist/info") {
+        const r = await assistStub(env).fetch("https://do/info");
         return new Response(await r.text(), {
           status: r.status,
           headers: { ...ch, "Content-Type": "application/json" },

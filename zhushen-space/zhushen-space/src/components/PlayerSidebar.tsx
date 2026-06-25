@@ -1,4 +1,4 @@
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { usePlayer, type PlayerAttrs } from '../store/playerStore';
 import { useGame } from '../store/gameStore';
 import { useItems, gradeToNum } from '../store/itemStore';
@@ -176,6 +176,8 @@ export default function PlayerSidebar({ onClose }: { onClose?: () => void }) {
   const [personaOpen, setPersonaOpen] = useState(false);   // 性格详细描述：默认收起，点击「📖详情」展开查看/编辑
   const [labelOpen, setLabelOpen] = useState(false);       // HP/EP 条自定义称呼（换皮）：默认收起，点血条下方小按钮展开
   const [showTrueAttr, setShowTrueAttr] = useState(nominalTierNum(profile.tier, profile.level) >= 4);   // 四阶起默认显示真实属性（六维即真实属性）
+  const isRealTier = nominalTierNum(profile.tier, profile.level) >= 4;   // 一~三阶=普通属性阶段，没有真实属性（四阶起经觉醒才有）
+  useEffect(() => { if (!isRealTier && showTrueAttr) setShowTrueAttr(false); }, [isRealTier, showTrueAttr]);   // 跌回<四阶或本就<四阶 → 强制普通属性视图
   const b1 = useCharacters((s) => s.characters['B1']);
   const equippedFull = items.filter((it) => it.equipped);
   const equipped = equippedFull.map((it) => ({ category: it.category as string, grade: (it.numeric?.grade as number) ?? gradeToNum(it.gradeDesc), combatStat: it.combatStat }));
@@ -320,11 +322,13 @@ export default function PlayerSidebar({ onClose }: { onClose?: () => void }) {
                 {(showTrueAttr ? stagedRap : stagedAp) > 0 && <span className="text-emerald-400/80"> (待确认 −{showTrueAttr ? stagedRap : stagedAp})</span>}
               </span>
             </span>
+            {isRealTier && (
             <button
               onClick={() => setShowTrueAttr((v) => !v)}
               title="四阶起六维即真实属性（不再÷80）；两个视图都可加点（普通属性用属性点，真实属性用真实属性点）"
               className="text-[11px] font-mono px-1.5 py-0.5 rounded border border-edge text-dim/60 hover:border-god/40 hover:text-god transition-colors shrink-0"
             >{showTrueAttr ? '基础属性' : '真实属性'}</button>
+            )}
           </div>
           <div className="grid grid-cols-2 gap-x-3 gap-y-1.5">
             {ATTR_DEFS.map(({ key, label }) => {

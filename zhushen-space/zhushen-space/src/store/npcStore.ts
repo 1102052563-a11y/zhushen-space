@@ -134,6 +134,10 @@ export interface NpcRecord {
   partyWorld?: string;    // 为哪个世界(worldName)入队的
   partyRole?: string;     // 队内职责（坦克/治疗/输出/侦察…）
 
+  // ── 助战（其他玩家上传、本玩家「邀请助战」物化进来的真人主角卡；见 systems/assistApply.ts）──
+  assistOwnerId?: string; // 来源卡上传者 id（"chat:<uid>"）；非空=这是一张被邀请的助战 NPC（供面板列出 + 遣散 + 去重）
+  assistCardId?: string;  // 来源助战卡 id（去重判据）
+
   // ── 好友（手动收藏的契约者/随从/宠物；进入好友栏后每回合参与 NPC 演化）──
   isFriend?: boolean;     // 是否在好友栏
   friendedAt?: number;    // 加为好友的时间

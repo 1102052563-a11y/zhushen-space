@@ -1032,6 +1032,8 @@ function AttrTab({ npc: npcProp, realm }: { npc: NpcRecord; realm: ReturnType<ty
   ];
   const hasAttrs = !!npc.attrs;
   const [showTrue, setShowTrue] = useState(nominalTierNum(npc.realm, lvFromRealm(npc.realm)) >= 4);   // 四阶起默认显示真实属性（六维即真实属性）
+  const isRealTierN = nominalTierNum(npc.realm, lvFromRealm(npc.realm)) >= 4;   // 一~三阶=普通属性阶段，无真实属性
+  useEffect(() => { if (!isRealTierN && showTrue) setShowTrue(false); }, [isRealTierN, showTrue]);   // <四阶 → 强制普通属性视图
   const upsertNpc = useNpc((s) => s.upsertNpc);
   const [rerollN, setRerollN] = useState(0);
   const [pickRealm, setPickRealm] = useState<string>(''); // 手动指定阶位(覆盖 AI 给的离谱阶位)；'' = 用当前阶位
@@ -1159,10 +1161,12 @@ function AttrTab({ npc: npcProp, realm }: { npc: NpcRecord; realm: ReturnType<ty
               <span className="text-[11px] font-mono text-amber-300/80" title={showTrue ? '真实属性点：点「+」暂存、确认后消耗（每点真实+1）' : '属性点：点「+」暂存、确认后消耗（每点基础+1）'}>
                 {showTrue ? `🔶${rapLeft}` : `🔷${apLeft}`}{(showTrue ? stagedRap : stagedAp) > 0 && <span className="text-emerald-400/80"> (−{showTrue ? stagedRap : stagedAp})</span>}
               </span>
+              {isRealTierN && (
               <button onClick={() => setShowTrue((v) => !v)} title="四阶起六维即真实属性（不再÷80）；两个视图都可加点（普通用属性点 / 真实用真实属性点）"
                 className="text-[11px] font-mono px-1.5 py-0.5 rounded border border-edge text-dim/60 hover:border-god/40 hover:text-god transition-colors">
                 {showTrue ? '基础属性' : '真实属性'}
               </button>
+              )}
             </div>
           )}
         </div>
