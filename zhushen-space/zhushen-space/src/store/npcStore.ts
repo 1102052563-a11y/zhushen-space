@@ -86,7 +86,9 @@ export interface NpcRecord {
   innerThought: string;   // 列12
   relations: string;      // 列13：B1:关系;C2:关系
   favor: number;          // 列15：-100~100
-  appearance5: string;    // 列16：动作|穿着|位置|身段|样貌
+  appearance5: string;    // 列16：动作|穿着|位置|身段|样貌（每回合即时变化）
+  baseAppearance?: string; // 常驻长相基准（身高/发色/瞳色/肤色/体型/标志特征·不随剧情漂移·生图始终含）
+  bodyType?: '人形' | '兽形' | '非人形'; // 形态：非人形(召唤物/野兽/怪物)生图绕开人形框架
   motiveNow: string;      // 列27
   shortGoal: string;      // 列28
   longGoal: string;       // 列29
@@ -181,6 +183,8 @@ const COL_TO_FIELD: Record<string, keyof NpcRecord | null> = {
   'affiliatedTeam': 'affiliatedTeam', '冒险团': 'affiliatedTeam', '隶属冒险团': 'affiliatedTeam', '所属冒险团': 'affiliatedTeam',
   'age': 'age', '年龄': 'age',
   'imageTags': 'imageTags', '画像提示': 'imageTags', '生图提示词': 'imageTags',
+  'baseAppearance': 'baseAppearance', '基底外观': 'baseAppearance', '常驻外观': 'baseAppearance', '常驻长相': 'baseAppearance',
+  'bodyType': 'bodyType', '形态': 'bodyType', '体态': 'bodyType',
 };
 
 /* 防占位名覆盖真实名：传入名是占位（空 / 等于 id / 形如 C1·G1 等编号）而该 NPC 已有真实名时，保留原真实名；
@@ -205,7 +209,7 @@ export function defaultNpcRecord(id: string): NpcRecord {
     id, name: id, gender: '', realm: '', personality: '', status: '一切正常',
     callPlayer: '', background: '', innerThought: '', relations: '',
     favor: 0, appearance5: '', motiveNow: '', shortGoal: '', longGoal: '',
-    inCombat: false, appearanceDetail: '', title: '', items: [], extra: {},
+    inCombat: false, appearanceDetail: '', baseAppearance: '', title: '', items: [], extra: {},
     onScene: true, updatedAt: Date.now(),
   };
 }

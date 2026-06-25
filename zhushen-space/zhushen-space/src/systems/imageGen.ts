@@ -314,11 +314,27 @@ export function buildPortraitPrompt(f: {
   gender?: string; race?: string; age?: string; appearance?: string; profession?: string; tier?: string; npcTag?: string; imageTags?: string;
   action?: string; attire?: string; location?: string; figure?: string; appearanceDetails?: string;
   baseAppearance?: string;   // 基底外观（开局设定，不可变）——始终并入提示词
+  bodyType?: string;         // 形态：人形(默认)/兽形/非人形——非人形(召唤物/野兽/怪物)绕开 1girl/半身肖像 人形框架
 }): string {
   const s = useImageGen.getState();
   const base = (f.baseAppearance ?? '').trim();   // 基底外观：所有路径都要带上
-  const imageTags = forceGenderTag((f.imageTags ?? '').trim(), f.gender);   // 性别标签强制与设定一致（男→1boy/女→1girl）
+  const humanoid = !f.bodyType || f.bodyType === '人形';
+  const imageTags = humanoid ? forceGenderTag((f.imageTags ?? '').trim(), f.gender) : (f.imageTags ?? '').trim();   // 非人形不强制 1girl/1boy 性别 tag
   const tagSvc = s.portraitService === 'nai' || s.portraitService === 'comfy';
+
+  // —— 非人形（召唤物/野兽/怪物）：走专用「生物」框架，绕开人形肖像（无 1girl、无半身肖像、无人脸五官）——
+  if (!humanoid) {
+    const creatureDesc = [base, f.race, f.appearance, f.appearanceDetails].map((x) => (x || '').trim()).filter(Boolean).join('，');
+    if (!tagSvc) {
+      // 自然语言模型(gpt-image-2/Gemini/自定义)：明确"只有一只非人生物、无人类无人脸"
+      return `请生成一张【${f.bodyType}·非人形生物】的全身概念图。画面**只有这一只生物本体**，**绝对没有任何人类、没有人形身体、没有人类面孔与五官**（这不是人、也不是拟人化角色，是一只纯粹的非人生物/怪物）。生物外观（严格据此，绝不要套成人形）：${creatureDesc || '（按设定）'}。构图：完整展示生物全貌(full body)，背景简洁只作氛围。${s.styleGuide || ''}`.trim();
+    }
+    // 标签模型(NAI/ComfyUI)：生物 tag，不加 1girl/1boy；用 no humans / monster / full body 框定
+    const subj = f.bodyType === '兽形' ? 'no humans, solo, full body, animal, creature, feral' : 'no humans, solo, full body, monster, creature, eldritch';
+    const parts = [subj, imageTags, base, f.race, f.appearance, f.appearanceDetails].map((x) => (x || '').trim()).filter(Boolean);
+    if (s.portraitPositive.trim()) parts.push(s.portraitPositive.trim());
+    return parts.join(', ');
+  }
   // —— 自然语言模型(OpenAI/Gemini/自定义)：填充画风模板（仿 fanren 结构化组装）——
   if (!tagSvc) {
     const t = s.portraitTemplate || '';

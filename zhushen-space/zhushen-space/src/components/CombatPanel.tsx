@@ -12,7 +12,7 @@ import { telegraphIntent } from '../systems/enemyAI';
    战况 + 收集玩家（B1）这一回合的动作，确认后回调 onPlayerAction。 */
 
 const ACTION_LABELS: Record<CombatActionKind, string> = {
-  attack: '普攻', skill: '技能', item: '道具', defend: '防御', flee: '逃跑', charge: '蓄力', cancel: '撤销',
+  attack: '普攻', skill: '技能', item: '道具', defend: '防御', protect: '保护', flee: '逃跑', charge: '蓄力', cancel: '撤销',
 };
 
 function hpPct(c: Combatant, b: CombatStatBlock) { return b.maxHp > 0 ? Math.max(0, Math.min(100, (c.curHp / b.maxHp) * 100)) : 0; }
@@ -120,6 +120,13 @@ export default function CombatPanel({ onPlayerAction, onUndo, canUndo, mpMode, m
   const playerItems = useItems((s) => s.items);
   const npcsMap = useNpc((s) => s.npcs);
   const raidDungeon = useMp((s) => s.raidDungeon);   // 副本：恐惧值团灭计时条（房主权威·relay 同步给来宾）
+  const playerAvatar = usePlayer((s) => s.profile.avatar);   // 行动顺序条头像（B1）
+  const config = useCombat((s) => s.config);
+  const setConfig = useCombat((s) => s.setConfig);
+  const speed = config.combatSpeed || 1;          // 1/2/4 倍速
+  const autoOn = !!config.autoBattle;             // 自动战斗
+  const sfxOn = config.sfxOn !== false;           // 音效开关
+  const actLabel = (a: CombatActionKind) => a === 'skill' ? (config.skillLabel || '技能') : a === 'item' ? (config.itemLabel || '道具') : ACTION_LABELS[a];   // 武功/物品 可配置命名
 
   const curId = battle.order[battle.turn];
   const curActor = curId ? battle.participants[curId] : undefined;
@@ -189,10 +196,12 @@ export default function CombatPanel({ onPlayerAction, onUndo, canUndo, mpMode, m
   const isSupport = action === 'skill' && !!selSkill && !isSelfCast && !isDomain
     && !/攻击|斩|劈|击|射|刺|炮|轰|冲|噬|咬|拳|爪/.test(skText(selSkill))
     && /强化|增幅|狂暴|战意|护体|守护|护盾|护罩|铁壁|金钟|再生|回春|不死|不屈|锁血|加持|祝福|庇护|鼓舞|激励|治疗|治愈|回复|恢复|疗|加血/.test(skText(selSkill));
-  // 目标取友方：治疗/支援技能，或「非攻击向」道具（药剂/护盾/净化等）
-  const isAllyTarget = isHeal || isSupport || (action === 'item' && !!selItem && !itemToEnemy);
+  const isProtect = action === 'protect';   // 保护：选一名友方替其挡刀
+  // 目标取友方：治疗/支援技能、保护，或「非攻击向」道具（药剂/护盾/净化等）
+  const isAllyTarget = isHeal || isSupport || isProtect || (action === 'item' && !!selItem && !itemToEnemy);
 
   const needsTarget = ((action === 'attack' || action === 'skill') && !isAoe && !isSelfCast && !isDomain)
+    || isProtect
     || (action === 'item' && !!selItem && !itemAoe);
 
   function toggleTarget(id: string) {
@@ -228,6 +237,28 @@ export default function CombatPanel({ onPlayerAction, onUndo, canUndo, mpMode, m
           </div>
           {apiBusy && <span className="text-xs text-amber-300 animate-pulse">{apiStatus || 'AI 思考中…'}</span>}
         </div>
+
+        {/* 行动顺序条（按先攻排序，高亮当前出手者） */}
+        {battle.active && battle.order.length > 0 && (
+          <div className="flex items-center gap-2 px-4 py-1.5 border-b border-slate-800 bg-slate-950/40 overflow-x-auto">
+            <span className="text-[10px] text-amber-300/70 shrink-0 font-mono">行动顺序</span>
+            {battle.order.map((id, i) => {
+              const c = battle.participants[id]; const b = battle.initialState[id];
+              if (!c || !b) return null;
+              const dead = c.curHp <= 0 || c.left;
+              const isCur = i === battle.turn;
+              const av = id === 'B1' ? playerAvatar : npcsMap[id]?.avatar;
+              const ring = isCur ? 'border-amber-400' : b.side === 'enemy' ? 'border-rose-500/40' : 'border-cyan-500/40';
+              return (
+                <div key={id} title={`${b.name}${isCur ? '（当前出手）' : ''}`} className={`shrink-0 ${dead ? 'opacity-30 grayscale' : ''}`}>
+                  {av
+                    ? <img src={av} alt="" className={`w-8 h-8 rounded-full object-cover border-2 ${ring}`} />
+                    : <div className={`w-8 h-8 rounded-full flex items-center justify-center text-[10px] font-bold border-2 ${ring} ${isCur ? 'text-amber-200 bg-amber-950/40' : b.side === 'enemy' ? 'text-rose-200/80 bg-rose-950/30' : 'text-cyan-200/80 bg-cyan-950/30'}`}>{(b.name || id).slice(0, 2)}</div>}
+                </div>
+              );
+            })}
+          </div>
+        )}
 
         {/* 组队副本：恐惧之龙王槽（团灭计时） */}
         {raidDungeon && (
@@ -286,6 +317,18 @@ export default function CombatPanel({ onPlayerAction, onUndo, canUndo, mpMode, m
 
         {/* 行动区 / 结算区 */}
         <div className="border-t border-slate-700/60 bg-slate-950/60 p-3">
+          {battle.active && (
+            <div className="flex items-center gap-1.5 mb-2 flex-wrap">
+              <button onClick={() => setConfig({ autoBattle: !autoOn })} title="自动战斗：你的回合也交给本地 AI 代打（再点关闭）"
+                className={`px-2.5 py-1 rounded text-xs border ${autoOn ? 'bg-emerald-600 border-emerald-400 text-white' : 'border-slate-600 text-slate-300 hover:bg-slate-800'}`}>{autoOn ? '⏸ 自动中' : '▶ 自动'}</button>
+              {[2, 4].map((sp) => (
+                <button key={sp} onClick={() => setConfig({ combatSpeed: speed === sp ? 1 : sp })} title="加快回合节奏（再点回 1x）"
+                  className={`px-2.5 py-1 rounded text-xs border ${speed === sp ? 'bg-cyan-600 border-cyan-400 text-white' : 'border-slate-600 text-slate-300 hover:bg-slate-800'}`}>{sp}x</button>
+              ))}
+              <button onClick={() => setConfig({ sfxOn: !sfxOn })} title="战斗音效开关"
+                className={`px-2.5 py-1 rounded text-xs border ${sfxOn ? 'bg-slate-700 border-slate-500 text-slate-200' : 'border-slate-600 text-dim/60 hover:bg-slate-800'}`}>{sfxOn ? '🔊 音效开' : '🔇 音效关'}</button>
+            </div>
+          )}
           {ended ? (
             <div className="space-y-1.5">
               <div className="flex items-center justify-between">
@@ -327,10 +370,10 @@ export default function CombatPanel({ onPlayerAction, onUndo, canUndo, mpMode, m
                 )}
               </div>
               <div className="flex flex-wrap gap-1.5">
-                {(['attack', 'skill', 'item', 'defend', 'flee'] as CombatActionKind[]).map((a) => (
+                {(['attack', 'skill', 'item', 'defend', 'protect', 'flee'] as CombatActionKind[]).map((a) => (
                   <button key={a} onClick={() => { setAction(a); setTargets([]); }}
                     className={`px-3 py-1 rounded-md text-sm border ${action === a ? 'bg-cyan-600 border-cyan-400 text-white' : 'border-slate-600 text-slate-300 hover:bg-slate-800'}`}>
-                    {ACTION_LABELS[a]}
+                    {actLabel(a)}
                   </button>
                 ))}
               </div>
@@ -367,7 +410,7 @@ export default function CombatPanel({ onPlayerAction, onUndo, canUndo, mpMode, m
                     : action === 'item' && selItem && itemAoe
                     ? `范围道具 · ${itemToEnemy ? '敌方全体' : '我方全体'}（自动命中）`
                     : needsTarget
-                    ? (targets.length ? `目标：${battle.initialState[targets[0]]?.name ?? targets[0]}` : `点上方${isAllyTarget ? '我方' : '敌方'}角色卡选目标${isAllyTarget ? '（给队友/自己加增益）' : action === 'item' ? '（投向敌人）' : ''}`)
+                    ? (targets.length ? `${isProtect ? '保护' : '目标'}：${battle.initialState[targets[0]]?.name ?? targets[0]}` : `点上方${isAllyTarget ? '我方' : '敌方'}角色卡选${isProtect ? '要保护的队友（本回合替其挡下来袭）' : isAllyTarget ? '目标（给队友/自己加增益）' : action === 'item' ? '目标（投向敌人）' : '目标'}`)
                     : action === 'item' ? '选择一件道具' : action === 'defend' ? '本回合承伤减半 · 回复 EP' : '尝试脱离战斗'}
                 </div>
                 <button onClick={confirm}

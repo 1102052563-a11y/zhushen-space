@@ -128,7 +128,7 @@ function PlayerAvatar() {
       const gen = await genPortraitTags(desc);
       const tags = gen || profile.imageTags;
       if (gen && gen !== profile.imageTags) setProfile({ imageTags: gen });
-      const prompt = buildPortraitPrompt({ gender: profile.gender, race: profile.race, appearance: profile.appearance, baseAppearance: profile.baseAppearance, profession: profile.profession, tier: realmFromLevel(profile.level), imageTags: tags });
+      const prompt = buildPortraitPrompt({ gender: profile.gender, race: profile.race, appearance: profile.appearance, baseAppearance: profile.baseAppearance, bodyType: profile.bodyType, profession: profile.profession, tier: realmFromLevel(profile.level), imageTags: tags });
       const url = await generateImage(portraitService, { prompt, negative: portraitNegative, label: '生成主角立绘' });
       setProfile({ avatar: await shrinkDataUrl(url), avatarTags: tags || '' });
     } catch (e: any) { setErr(e.message ?? '生成失败'); }
@@ -476,13 +476,24 @@ export default function PlayerSidebar({ onClose }: { onClose?: () => void }) {
           )}
         </div>
 
+        {/* 形态（人形/非人形）：非人形召唤物/野兽绕开人形生图框架 */}
+        <div className="p-3 border-b border-edge flex items-center gap-2">
+          <div className="text-sm text-dim font-mono shrink-0">形态</div>
+          <select value={profile.bodyType ?? '人形'} onChange={(e) => setProfile({ bodyType: e.target.value as any })}
+            className="flex-1 bg-void/60 border border-edge/60 rounded px-2 py-1 text-[13px] text-slate-200 focus:border-god/40 outline-none">
+            <option value="人形">人形</option>
+            <option value="兽形">兽形（野兽/动物）</option>
+            <option value="非人形">非人形（召唤物/怪物/触手）</option>
+          </select>
+        </div>
+
         {/* 基底外观（生图基准·可点击编辑）*/}
         <div className="p-3 border-b border-edge">
-          <div className="text-sm text-dim font-mono mb-1.5">基底外观 <span className="text-[11px] text-dim/40">生图始终包含·长相最底层基准</span></div>
+          <div className="text-sm text-dim font-mono mb-1.5">基底外观 <span className="text-[11px] text-dim/40">常驻长相·不随剧情漂移·生图始终包含</span></div>
           <EditText
             value={profile.baseAppearance || ''}
             onSave={(v) => setProfile({ baseAppearance: v })}
-            placeholder="点击填写基底外观（脸型 / 瞳色 / 发色发型 / 体型 / 标志特征等不变的长相基准）…"
+            placeholder="点击填写常驻长相（身高 / 脸型 / 瞳色 / 发色发型 / 肤色 / 体型 / 标志特征等不变的长相基准）…"
             multiline
             segmented
             className="text-[13px] leading-relaxed block w-full"

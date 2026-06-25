@@ -1023,6 +1023,7 @@ export default function App() {
   const combatTurn     = useCombat((s) => s.battle.turn);
   const combatRound    = useCombat((s) => s.battle.round);
   const combatApiBusy  = useCombat((s) => s.apiBusy);
+  const combatAuto     = useCombat((s) => s.config.autoBattle);   // 自动战斗开关（变化即重驱动）
   const combatHasUndo  = useCombat((s) => s.undoSnapshot !== null);
   const mpRole = useMp((s) => s.role);
   const mpStatus = useMp((s) => s.status);
@@ -1062,13 +1063,18 @@ export default function App() {
     if (raidRoundTick()) return;    // 组队讨伐：每回合机制（燃域群伤/点名重击），本轮让位给重渲染
     const victor = checkEnd(b);
     if (victor) { void finishBattle(victor); return; }
-    if (b.stage !== 'awaiting_npc') return;                      // 玩家/手控回合：等面板出手
     const cur = currentActorId(b);
     if (!cur) return;
-    if (playerControlled(cur, b.participants[cur]?.side ?? 'enemy', C.config.manualAllyControl)) return;
-    void runNpcTurn(cur);
+    const curSide = b.participants[cur]?.side ?? 'enemy';
+    const isPC = playerControlled(cur, curSide, C.config.manualAllyControl);
+    if (b.stage === 'awaiting_npc') {
+      if (isPC) return;                                          // 保险：被玩家控的不自动
+      void runNpcTurn(cur);                                       // NPC / AI 托管队友回合
+    } else if (b.stage === 'awaiting_player' && C.config.autoBattle && isPC && !cur.startsWith('MP_')) {
+      void runNpcTurn(cur);                                       // 自动战斗：本地玩家回合也由本地 AI 代打
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [combatActive, combatStage, combatTurn, combatRound, combatApiBusy]);
+  }, [combatActive, combatStage, combatTurn, combatRound, combatApiBusy, combatAuto]);
 
   // 联机·房主：战斗每步把 battle 广播给全房（来宾观战，只读渲染）
   useEffect(() => {
@@ -3871,7 +3877,7 @@ ${AFFIX_EFFECT_RULE}`;
     if (pfNeedNew || pfNeedRefresh) {
       jobs.push({
         kind: 'player', id: 'B1', name: pf.name || '主角',
-        fields: { gender: pf.gender, race: pf.race, appearance: pf.appearance, baseAppearance: pf.baseAppearance, profession: pf.profession, tier: realmFromLevel(pf.level) },
+        fields: { gender: pf.gender, race: pf.race, appearance: pf.appearance, baseAppearance: pf.baseAppearance, bodyType: pf.bodyType, profession: pf.profession, tier: realmFromLevel(pf.level) },
         descForTags: [pf.gender, pf.race, pf.baseAppearance, pf.appearance, pf.profession, realmFromLevel(pf.level), pf.background].filter(Boolean).join('，'),
         imageTags: pf.imageTags,
         forceRetag: !!pf.avatar && pfLookChanged && !pfTagsChanged,   // 仅外观文字变(标签没跟着变)→ 重新翻译标签，让新图真的不同
@@ -3892,9 +3898,9 @@ ${AFFIX_EFFECT_RULE}`;
       const tier = normalizeTier(head || '') || (lv != null ? realmFromLevel(lv) : '');
       jobs.push({
         kind: 'npc', id: r.id, name: r.name,
-        fields: { gender: r.gender, age: r.age, appearance, profession: r.profession, tier, npcTag: r.npcTag,
+        fields: { gender: r.gender, age: r.age, appearance, baseAppearance: r.baseAppearance, bodyType: r.bodyType, profession: r.profession, tier, npcTag: r.npcTag,
           action: seg[0], attire: seg[1], location: seg[2], figure: seg[3], appearanceDetails: r.appearanceDetail },
-        descForTags: [r.name, r.gender, appearance, r.profession, tier, r.npcTag].filter(Boolean).join('，'),
+        descForTags: [r.baseAppearance, r.name, r.gender, appearance, r.profession, tier, r.npcTag].filter(Boolean).join('，'),
         imageTags: r.imageTags,
       });
     }
@@ -6573,7 +6579,8 @@ ${lines}`;
     try {
       const state = useCombat.getState().battle;
       const action = pickEnemyAction(state, actorId);   // 本地启发式决策，0 API
-      await new Promise((r) => setTimeout(r, 320));      // 节奏：让每个敌方动作可见（非等待 API）
+      const sp = Math.max(1, C.config.combatSpeed || 1);   // 1/2/4 倍速：缩短回合间停顿
+      await new Promise((r) => setTimeout(r, Math.round(320 / sp)));   // 节奏：让每个动作可见（非等待 API）
       await resolveAndNarrate(state, actorId, action.kind, action.targetIds, action.skillId, action.line);
     } catch (e: any) {
       console.error('[Combat] NPC 回合失败:', e?.message ?? e);

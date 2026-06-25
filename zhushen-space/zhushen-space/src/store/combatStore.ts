@@ -13,7 +13,7 @@ import type { DiceAttrs } from '../systems/diceEngine';
 
 export type CombatStage = 'idle' | 'awaiting_player' | 'awaiting_npc' | 'resolving' | 'ended';
 export type Side = 'player' | 'enemy';
-export type CombatActionKind = 'attack' | 'skill' | 'item' | 'defend' | 'flee' | 'charge' | 'cancel';
+export type CombatActionKind = 'attack' | 'skill' | 'item' | 'defend' | 'protect' | 'flee' | 'charge' | 'cancel';
 
 /* 领域/阵法：展开后每回合对一方持续生效，直到时限到或主人倒下。阵法视作领域的一种，不单列。 */
 export interface DomainState {
@@ -68,6 +68,7 @@ export interface Combatant {
   status: StatusEffect[];               // buff/debuff（复用主角/NPC 的限时状态结构）
   cooldowns: Record<string, number>;    // skillId -> 剩余冷却回合
   defending?: boolean;                  // 本回合处于防御姿态（承伤减免）
+  guardedBy?: string;                   // 被某友方「保护」中：敌方单体攻击会改由该保护者承受（回合开始清除）
   charging?: ChargeState;               // 正在蓄力的大招（蓄满释放，被控制中断）
   left?: boolean;                       // 已撤退/逃离战场（不再排进出手顺序）
 }
@@ -122,6 +123,11 @@ export interface CombatConfig {
   turnDriverMode: 'llm' | 'local';   // NPC 回合由 AI 决策 / 本地启发式（第二层）
   manualAllyControl: boolean;        // 手动控制玩家方队友（默认 AI 托管）
   retryCount: number;                // AI 阶段解析失败重试次数
+  combatSpeed?: number;              // 战斗节奏倍速 1/2/4（缩短回合间停顿）
+  autoBattle?: boolean;             // 自动战斗：玩家回合也交给本地 AI 代打
+  sfxOn?: boolean;                   // 战斗音效开关（默认开）
+  skillLabel?: string;               // 「技能」按钮文案（默认技能；武侠世界可改武功）
+  itemLabel?: string;                // 「道具」按钮文案（默认道具；可改物品）
   activePresetId: string;
   savedPresets: CombatPreset[];
 }
@@ -136,6 +142,11 @@ export const DEFAULT_COMBAT_CONFIG: CombatConfig = {
   turnDriverMode: 'llm',
   manualAllyControl: false,
   retryCount: 2,
+  combatSpeed: 1,
+  autoBattle: false,
+  sfxOn: true,
+  skillLabel: '技能',
+  itemLabel: '道具',
   activePresetId: 'default',
   savedPresets: [{ ...DEFAULT_PRESET }],
 };

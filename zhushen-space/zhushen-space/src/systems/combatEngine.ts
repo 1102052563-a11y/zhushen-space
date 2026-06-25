@@ -24,7 +24,7 @@ import { useCharacters } from '../store/characterStore';
 import { useItems, gradeToNum } from '../store/itemStore';
 import type { Skill } from '../store/characterStore';
 import type { BattleState, CombatStatBlock, Combatant, Side, CombatActionKind, DomainState } from '../store/combatStore';
-import { newLogId } from '../store/combatStore';
+import { useCombat, newLogId } from '../store/combatStore';
 import {
   parseCombatSpec, applyDamageModifiers, strengthBonus, dexterityBonus, TAG_REGISTRY, EXECUTE_THRESHOLD,
   type CombatEffect, type CombatSpec, type CombatTag, type TargetMode,
@@ -415,6 +415,7 @@ export function settleAction(opts: {
     return { state, logLines, actorName, defeated };
   }
 
+  const sfxOn = useCombat.getState().config?.sfxOn !== false;   // 战斗音效开关（默认开）
   const abilities = fetchAbilities(opts.actorId);
   let skill: Skill | undefined;
   let targetIds = opts.targetIds;
@@ -449,6 +450,14 @@ export function settleAction(opts: {
   } else {
     // ── 非蓄力分支 ──
     if (opts.kind === 'defend') { actor.defending = true; const ep = Math.max(5, Math.round(actorBlock.maxEp * EP_REGEN_RATE * 2)); actor.curEp = Math.min(actorBlock.maxEp, actor.curEp + ep); logLines.push(`${actorName} 摆出防御姿态，本回合承受伤害减半，回复 ${ep} 点 EP。`); return { state, logLines, actorName, defeated }; }
+    if (opts.kind === 'protect') {
+      const tgt = opts.targetIds.find((id) => state.participants[id] && !state.participants[id].left && state.participants[id].curHp > 0 && state.initialState[id]?.side === actorBlock.side && id !== opts.actorId);
+      if (!tgt) { logLines.push(`${actorName} 没有可保护的队友。`); return { state, logLines, actorName, defeated }; }
+      state.participants[tgt].guardedBy = opts.actorId;
+      actor.defending = true;   // 保护者自身也进入防御姿态，替挡时少受伤
+      logLines.push(`${actorName} 挺身护住 ${state.initialState[tgt]?.name ?? tgt}，本回合替其挡下来袭。`);
+      return { state, logLines, actorName, defeated };
+    }
     if (opts.kind === 'flee') { actor.left = true; state.order = state.order.filter((id) => id !== opts.actorId); logLines.push(`${actorName} 脱离了战斗。`); return { state, logLines, actorName, defeated }; }
     if (opts.kind === 'charge' || opts.kind === 'cancel') { logLines.push(`${actorName} 当前没有可蓄力的大招。`); return { state, logLines, actorName, defeated }; }
 
@@ -648,7 +657,17 @@ export function settleAction(opts: {
     }
   }
 
-  function dealDamage(tid: string, e: CombatEffect) {
+  function dealDamage(tidIn: string, e: CombatEffect) {
+    let tid = tidIn;
+    // 保护：被守护者受攻击 → 改由保护者(仍在场·同阵营·非攻击者)承受
+    const g0 = state.participants[tidIn];
+    if (g0?.guardedBy) {
+      const prot = state.participants[g0.guardedBy]; const protB = state.initialState[g0.guardedBy];
+      if (prot && protB && !prot.left && prot.curHp > 0 && g0.guardedBy !== tidIn && g0.guardedBy !== opts.actorId && protB.side === state.initialState[tidIn]?.side) {
+        logLines.push(`${protB.name} 挺身替 ${state.initialState[tidIn]?.name ?? tidIn} 挡下攻击！`);
+        tid = g0.guardedBy;
+      }
+    }
     const tc = state.participants[tid]; const tb = state.initialState[tid];
     if (!tc || !tb) return;
     const defTier = magic ? effCombatStats(tc, tb).mdef : effCombatStats(tc, tb).pdef;
@@ -656,7 +675,7 @@ export function settleAction(opts: {
     if (e.tag === 'execute' && tc.curHp / Math.max(1, tb.maxHp) <= EXECUTE_THRESHOLD) {
       const { lost, note } = damageHp(tc, tc.curHp + 1);
       logLines.push(`${actorName} 以${label}对濒死的 ${tb.name} 发动斩杀，造成 ${lost} 点伤害${note}。`);
-      playSfx('crit');
+      if (sfxOn) playSfx('crit');
       if (tc.curHp <= 0) pushDefeated(tid);
       return;
     }
@@ -671,7 +690,7 @@ export function settleAction(opts: {
     const shieldTag = absorbed > 0 ? `（护盾抵消 ${absorbed}）` : '';
     const pierceTag = e.tag === 'pierce' ? '（穿透）' : '';
     logLines.push(`${actorName} ${label} 命中 ${tb.name}，造成 ${lost} 点伤害${note}${shieldTag}${pierceTag}。`);
-    playSfx('hit');
+    if (sfxOn) playSfx('hit');
     if (e.tag === 'lifesteal' && lost > 0) {
       const heal = Math.max(1, Math.round(lost * 0.5));
       const before = actor.curHp; actor.curHp = Math.min(actorBlock.maxHp, actor.curHp + heal);
@@ -703,6 +722,7 @@ export function advanceTurn(prev: BattleState, manualAlly = false): BattleState 
       for (const id of Object.keys(state.participants)) {
         const p = state.participants[id];
         p.defending = false;
+        p.guardedBy = undefined;
         p.curShield = 0; p.maxShield = 0;
         for (const k of Object.keys(p.cooldowns)) {
           p.cooldowns[k] = Math.max(0, p.cooldowns[k] - 1);

@@ -153,6 +153,18 @@ describe('settleAction（技能·numeric.combat 标签端到端）', () => {
   });
 });
 
+describe('保护（guard 伤害重定向）', () => {
+  it('B1 保护 C2 → 敌人打 C2 的伤害改由 B1 承受', () => {
+    const blocks = { B1: mkB('主角', 'player'), C2: mkB('队友', 'player'), E1: mkB('敌', 'enemy') };
+    const state = mkState([mkC('B1', 'player', 200), mkC('C2', 'player', 200), mkC('E1', 'enemy', 200)], blocks);
+    const g = settleAction({ state, actorId: 'B1', kind: 'protect', targetIds: ['C2'] });
+    expect(g.state.participants['C2'].guardedBy).toBe('B1');
+    const atk = settleAction({ state: g.state, actorId: 'E1', kind: 'attack', targetIds: ['C2'] });
+    expect(atk.state.participants['C2'].curHp).toBe(200);             // 队友未掉血（伤害被改道）
+    expect(atk.state.participants['B1'].curHp).toBeLessThan(200);     // 主角替挡受创
+  });
+});
+
 describe('整场战斗循环（端到端·必中确定性·0 API）', () => {
   it('主角普攻 + 敌人本地 AI 自动应战 → 收敛出胜负并产出 BATTLE_RECORD', () => {
     useCharacters.setState({ characters: {} as any });   // 无技能：双方走普攻

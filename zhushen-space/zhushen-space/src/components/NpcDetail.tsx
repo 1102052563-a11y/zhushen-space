@@ -295,7 +295,7 @@ function NpcEditForm({ npc, onDone }: { npc: NpcRecord; onDone: () => void }) {
     affiliatedTeam: npc.affiliatedTeam ?? '',
     personality: npc.personality ?? '', review: npc.review ?? '', status: npc.status ?? '',
     callPlayer: npc.callPlayer ?? '', relations: npc.relations ?? '',
-    appearance5: npc.appearance5 ?? '', appearanceDetail: npc.appearanceDetail ?? '', imageTags: npc.imageTags ?? '',
+    appearance5: npc.appearance5 ?? '', appearanceDetail: npc.appearanceDetail ?? '', baseAppearance: npc.baseAppearance ?? '', bodyType: npc.bodyType ?? '人形', imageTags: npc.imageTags ?? '',
     innerThought: npc.innerThought ?? '', motiveNow: npc.motiveNow ?? '',
     shortGoal: npc.shortGoal ?? '', longGoal: npc.longGoal ?? '', background: npc.background ?? '',
     favor: String(npc.favor ?? 0),
@@ -331,7 +331,7 @@ function NpcEditForm({ npc, onDone }: { npc: NpcRecord; onDone: () => void }) {
       affiliatedTeam: f.affiliatedTeam.trim(),
       personality: f.personality, review: f.review, status: f.status.trim() || '一切正常',
       callPlayer: f.callPlayer, relations: f.relations,
-      appearance5: f.appearance5, appearanceDetail: f.appearanceDetail, imageTags: f.imageTags,
+      appearance5: f.appearance5, appearanceDetail: f.appearanceDetail, baseAppearance: f.baseAppearance, bodyType: f.bodyType as any, imageTags: f.imageTags,
       innerThought: f.innerThought, motiveNow: f.motiveNow,
       shortGoal: f.shortGoal, longGoal: f.longGoal, background: f.background,
       isDead: f.isDead, inCombat: f.inCombat,
@@ -406,6 +406,14 @@ function NpcEditForm({ npc, onDone }: { npc: NpcRecord; onDone: () => void }) {
       </Section>
 
       <Section title="外观 · 肖像">
+        <ERow label="形态" hint="非人形(召唤物/野兽/怪物)生图绕开人形框架，不再强套 1girl/人脸">
+          <select className={EDIT_INP} value={f.bodyType} onChange={(e) => set({ bodyType: e.target.value as any })}>
+            <option value="人形">人形</option>
+            <option value="兽形">兽形（野兽/动物）</option>
+            <option value="非人形">非人形（召唤物/怪物/触手）</option>
+          </select>
+        </ERow>
+        <ERow label="基底外观（常驻长相·不随剧情漂移）" hint="身高/发色/瞳色/肤色/体型/标志特征·生图始终含"><textarea rows={2} className={EDIT_INP} value={f.baseAppearance} onChange={(e) => set({ baseAppearance: e.target.value })} /></ERow>
         <ERow label="肖像锚点（第16列）" hint="动作|穿着|位置|身段|样貌"><textarea rows={2} className={EDIT_INP} value={f.appearance5} onChange={(e) => set({ appearance5: e.target.value })} /></ERow>
         <ERow label="容貌与身姿（第34列）"><textarea rows={2} className={EDIT_INP} value={f.appearanceDetail} onChange={(e) => set({ appearanceDetail: e.target.value })} /></ERow>
         <ERow label="生图提示词（第19列）" hint="英文 NAI/Danbooru tags"><textarea rows={2} className={EDIT_INP} value={f.imageTags} onChange={(e) => set({ imageTags: e.target.value })} /></ERow>
@@ -878,11 +886,11 @@ function AvatarBlock({ npc }: { npc: NpcRecord }) {
       const ap = parseAppearance5(npc.appearance5);
       const appearance = [ap.look, ap.figure, ap.outfit, npc.appearanceDetail].filter(Boolean).join('，');
       // 手动「生成」：每次按【当前外观】重新翻译生图标签(列19)，确保新图反映当下场景/外观（旧逻辑只在无标签时翻译→复用旧标签出旧图，正是头像不更新的根因）。翻译失败回退旧标签。
-      const desc = [`${npc.name}`, npc.gender, appearance, npc.profession, parseRealm(npc.realm).tier, npc.npcTag].filter(Boolean).join('，');
+      const desc = [npc.baseAppearance, `${npc.name}`, npc.gender, appearance, npc.profession, parseRealm(npc.realm).tier, npc.npcTag].filter(Boolean).join('，');
       const gen = await genPortraitTags(desc);
       const tags = gen || npc.imageTags;
       if (gen && gen !== npc.imageTags) upsert(npc.id, { imageTags: gen });
-      const prompt = buildPortraitPrompt({ gender: npc.gender, age: npc.age, appearance, profession: npc.profession, tier: parseRealm(npc.realm).tier, npcTag: npc.npcTag, imageTags: tags,
+      const prompt = buildPortraitPrompt({ gender: npc.gender, age: npc.age, appearance, baseAppearance: npc.baseAppearance, bodyType: npc.bodyType, profession: npc.profession, tier: parseRealm(npc.realm).tier, npcTag: npc.npcTag, imageTags: tags,
         action: ap.action, attire: ap.outfit, location: ap.location, figure: ap.figure, appearanceDetails: npc.appearanceDetail });
       const url = await generateImage(portraitService, { prompt, negative: portraitNegative, label: `生成 ${npc.name} 肖像` });
       upsert(npc.id, { avatar: await shrinkDataUrl(url), avatarTags: tags || '' });
