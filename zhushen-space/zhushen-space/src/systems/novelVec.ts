@@ -1,4 +1,5 @@
 import { useNovelVec } from '../store/novelVecStore';
+import { fetchWithProxy } from './apiChat';   // 查询 embed 直连失败(CORS/SSL)自动回退服务端代理
 
 /* 向量资料库运行时（多索引）：懒加载 public/<source>/{manifest,vectors.bin,chunks.json.gz}，缓存进 IndexedDB；
    每回合把查询 embed 一次 → 在【所有已加载索引】里 cosine 检索 → 合并 topK → 返回片段供注入正文世界书。
@@ -147,7 +148,7 @@ export async function embedQuery(text: string): Promise<Float32Array | null> {
   const s = useNovelVec.getState().settings;
   if (!s.apiKey || !s.apiBase) throw new Error('未配置 embedding 接口（设置→向量资料库）');
   const model = (s.model || '').trim() || 'Pro/BAAI/bge-m3';   // 模型框清空时回退默认，避免空 model 触发 400
-  const res = await fetch(`${s.apiBase.replace(/\/+$/, '')}/embeddings`, {
+  const res = await fetchWithProxy(`${s.apiBase.replace(/\/+$/, '')}/embeddings`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${s.apiKey}` },
     body: JSON.stringify({ model, input: text, encoding_format: 'float' }),

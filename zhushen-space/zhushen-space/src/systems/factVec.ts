@@ -1,4 +1,5 @@
 import type { VecMemConfig } from '../store/settingsStore';
+import { fetchWithProxy } from './apiChat';   // 直连失败(CORS/SSL/混合内容)自动回退服务端代理，与正文/收尾调用同款
 
 /* 向量召回·长期记忆向量库（与关键词叙事记忆并行的另一套引擎，自带 embedding 端点）
    - 记忆条目(长期事实/小结/大结/世界大事)按"内容哈希"为键，随时 embed 存入 IndexedDB + 内存缓存（增量）
@@ -65,7 +66,7 @@ export async function loadAll(): Promise<void> {
 export async function embedBatch(texts: string[], cfg: VecMemConfig): Promise<Float32Array[]> {
   if (!cfg.apiBase || !cfg.apiKey) throw new Error('未配置 embedding 接口（设置→向量记忆）');
   if (texts.length === 0) return [];
-  const res = await fetch(cfg.apiBase.replace(/\/+$/, '') + '/embeddings', {
+  const res = await fetchWithProxy(cfg.apiBase.replace(/\/+$/, '') + '/embeddings', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${cfg.apiKey}` },
     body: JSON.stringify({ model: effectiveModel(cfg), input: texts, encoding_format: 'float' }),

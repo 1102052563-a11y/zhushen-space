@@ -197,6 +197,7 @@ export default function WorkshopPanel({ onClose, creationMode = false }: { onClo
   async function doUpload() {
     if (!nickname.trim()) { flash('请先在「设置」起一个工坊昵称'); setTab('settings'); return; }
     if (!pubLocalId) { flash('没有可上传的本地条目'); return; }
+    if (pubType === 'worldbook' && !form.summary.trim()) { flash('上传世界书需要先填写简介——简要介绍这本世界书是做什么的'); return; }
     setUploading(true);
     try {
       const tags = form.tags.split(/[,，]/).map((s) => s.trim()).filter(Boolean);
@@ -374,7 +375,7 @@ export default function WorkshopPanel({ onClose, creationMode = false }: { onClo
                 <Field label="版本" value={form.version} onChange={(v) => setForm((f) => ({ ...f, version: v }))} />
                 <Field label="标签（逗号分隔）" value={form.tags} onChange={(v) => setForm((f) => ({ ...f, tags: v }))} />
               </div>
-              <Field label="简介" value={form.summary} onChange={(v) => setForm((f) => ({ ...f, summary: v }))} />
+              <Field label={pubType === 'worldbook' ? '简介（世界书必填 · 简要介绍这本世界书的用途/内容）' : '简介'} value={form.summary} onChange={(v) => setForm((f) => ({ ...f, summary: v }))} />
 
               <button onClick={doUpload} disabled={!pubLocalId || uploading}
                 className="w-full mt-1 text-[13px] font-mono px-3 py-2 rounded-lg border border-god/50 text-god hover:bg-god/10 transition-colors disabled:opacity-40">
@@ -485,7 +486,7 @@ export default function WorkshopPanel({ onClose, creationMode = false }: { onClo
       {/* ── 详情弹窗（点击条目）── */}
       {detail && (
         <div className="fixed inset-0 z-[60] bg-black/75 backdrop-blur-sm flex items-center justify-center p-4" onClick={(e) => { if (e.target === e.currentTarget) setDetail(null); }}>
-          <div className={`w-full ${detail.type === 'skillTree' || detail.type === 'subProfTree' ? 'max-w-3xl' : detail.type === 'characterCard' ? 'max-w-2xl' : 'max-w-lg'} max-h-[88vh] flex flex-col rounded-2xl border border-edge bg-void shadow-[0_0_60px_rgba(0,0,0,0.85)] overflow-hidden`}>
+          <div className={`w-full ${detail.type === 'skillTree' || detail.type === 'subProfTree' ? 'max-w-3xl' : detail.type === 'characterCard' || detail.type === 'worldbook' ? 'max-w-2xl' : 'max-w-lg'} max-h-[88vh] flex flex-col rounded-2xl border border-edge bg-void shadow-[0_0_60px_rgba(0,0,0,0.85)] overflow-hidden`}>
             <header className="shrink-0 flex items-center gap-2.5 px-4 py-3 border-b border-edge bg-panel">
               <span className="text-lg">{kindOf(detail.type)?.emoji ?? '❔'}</span>
               <div className="flex-1 min-w-0">
@@ -696,7 +697,26 @@ function CharacterCardDetail({ payload }: { payload: any }) {
   );
 }
 
+/* 世界书详情：条目列表（标题 / 关键词 / 内容预览） */
+function WorldBookDetail({ payload }: { payload: any }) {
+  const entries: any[] = payload?.entries || [];
+  return (
+    <div className="space-y-2">
+      <div className="text-[11px] font-mono text-dim/55">{entries.length} 条条目{payload?.enabled === false ? ' · 安装后默认关闭' : ''}</div>
+      {entries.length === 0 && <div className="text-[12px] text-dim/40">（空世界书）</div>}
+      {entries.map((e, i) => (
+        <div key={i} className="text-[12px] border-l-2 border-cyan-600/40 pl-2">
+          <span className="text-slate-100 font-semibold">{e.comment || `条目 ${i + 1}`}</span>
+          {Array.isArray(e.key) && e.key.length > 0 && <div className="text-[10px] font-mono text-dim/50">关键词：{e.key.join('、')}</div>}
+          {e.content && <div className="text-dim/65 leading-snug whitespace-pre-wrap line-clamp-4">{e.content}</div>}
+        </div>
+      ))}
+    </div>
+  );
+}
+
 function DetailBody({ type, payload }: { type: WorkshopKindId; payload: any }) {
+  if (type === 'worldbook') return <WorldBookDetail payload={payload} />;
   if (type === 'characterCard') return <CharacterCardDetail payload={payload} />;
   if (type === 'skillTree' || type === 'subProfTree') return <TreeDetail payload={payload} kind={type} />;
   const isNpc = type === 'npc';
