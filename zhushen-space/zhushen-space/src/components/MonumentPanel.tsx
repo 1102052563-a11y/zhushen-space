@@ -177,7 +177,7 @@ export default function MonumentPanel({ onClose }: { onClose: () => void }) {
                     <button onClick={() => setDetail(e)} className="flex-1 min-w-0 text-left">
                       <div className="font-semibold text-slate-100 truncate">{s.name}</div>
                       <div className="text-[11px] font-mono text-dim/55 truncate">{s.line || [s.tier, s.profession].filter(Boolean).join('·')}</div>
-                      <div className="text-[10px] font-mono text-dim/40 truncate">入碑于 {s.world || '主神空间'}{e.turn ? ` · 第 ${e.turn} 回合` : ''}</div>
+                      <div className="text-[10px] font-mono text-dim/40 truncate">入碑于 {e.world || '主神空间'}{e.turn ? ` · 第 ${e.turn} 回合` : ''}</div>
                     </button>
                     {e.eulogyStatus === 'pending' && <span className="text-[10px] font-mono text-god/60 shrink-0 animate-pulse">✍️ 结语中</span>}
                     {e.eulogyStatus === 'error' && <button onClick={() => regenerateEulogy(e.id)} className="text-[10px] font-mono text-amber-400/80 shrink-0 hover:text-amber-300">⚠ 重试</button>}
@@ -233,7 +233,7 @@ export default function MonumentPanel({ onClose }: { onClose: () => void }) {
                 <div className="flex-1 min-w-0">
                   <div className="text-base font-bold text-slate-100 truncate">{s.name}{s.title ? <span className="text-[11px] text-god/70 ml-1.5">「{s.title}」</span> : null}</div>
                   <div className="text-[11px] font-mono text-dim/55">{s.line || [s.tier, s.profession].filter(Boolean).join('·')}</div>
-                  <div className="text-[10px] font-mono text-dim/40 mt-0.5">入碑于 {s.world || '主神空间'}{detailLive.turn ? ` · 第 ${detailLive.turn} 回合` : ''} · {new Date(detailLive.enshrinedAt).toLocaleDateString()}</div>
+                  <div className="text-[10px] font-mono text-dim/40 mt-0.5">入碑于 {detailLive.world || '主神空间'}{detailLive.turn ? ` · 第 ${detailLive.turn} 回合` : ''} · {new Date(detailLive.enshrinedAt).toLocaleDateString()}</div>
                 </div>
               </div>
 

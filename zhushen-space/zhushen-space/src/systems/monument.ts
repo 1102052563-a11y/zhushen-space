@@ -108,7 +108,7 @@ export function regenerateEulogy(id: string): void {
 // 把快照拼成人类可读档案，喂给 AI 撰写生平/结语
 function buildDossier(snap: MonumentSnapshot): string {
   const L: string[] = [];
-  const nm = (a: any[]) => (a || []).map((x: any) => x?.name || x?.title).filter(Boolean);
+  const nm = (a?: any[]) => (a || []).map((x: any) => x?.name || x?.title).filter(Boolean);
   L.push(`姓名：${snap.name}`);
   const idLine = [snap.gender, snap.tier, snap.profession, snap.identity].filter(Boolean).join(' · ');
   if (idLine) L.push(`身份：${idLine}`);

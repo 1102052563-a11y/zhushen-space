@@ -445,13 +445,9 @@ export const useCharacters = create<CharacterState>()(
           const list = char.subProfessions ?? [];
           const idx = list.findIndex((x) => sameProf(x.name, sp.name));
           const ex = idx >= 0 ? list[idx] : undefined;
-          // 纯英文/无中文名的「全新」副职业一律拒建：游戏内副职业均为规范中文名，
-          // 这类多是 AI 给已有中文副职业又写了个英文名想另起一栏 → 直接丢弃，杜绝中英重复栏。
-          if (idx < 0 && !profHasCJK(canon)) {
-            console.warn('[Char] 拒绝新建纯英文/无中文名副职业:', sp.name);
-            return s;
-          }
-          // 部分更新时保留已有字段（不被 undefined 覆盖）；新建用规范中文名，更新照抄原名
+          // 注：副职业只能由「副职业配方树」点亮而来（正文 addSubProfession 已在 stateParser 全屏蔽）。
+          // 故这里不再按 CJK 拒建——树用什么名（中文/外文/自定义）都照建，免得用户自建/AI生成的树学了配方却进不来。
+          // 部分更新时保留已有字段（不被 undefined 覆盖）；新建用规范名(canon)，更新照抄原名
           const prom = promoteTier(sp.tier || ex?.tier || '新手', sp.progress ?? ex?.progress ?? 0);
           const entry: SubProfession = {
             name: ex?.name ?? canon, tier: prom.tier, progress: prom.progress,
@@ -493,10 +489,8 @@ export const useCharacters = create<CharacterState>()(
           const list = [...(char.subProfessions ?? [])];
           let pIdx = list.findIndex((x) => sameProf(x.name, profName));
           if (pIdx < 0) {
-            const canon = canonProfName(profName);
-            // 配方挂到不存在的副职业才自动建；纯英文/无中文名一律不建（防 AI 借 addRecipe 凭空冒出英文栏）
-            if (!profHasCJK(canon)) { console.warn('[Char] addRecipe 拒绝为纯英文/无中文名副职业自动建栏:', profName); return s; }
-            list.push({ name: canon, tier: '新手', progress: 0, recipes: [], addedAt: Date.now() }); pIdx = list.length - 1;
+            // 配方挂到不存在的副职业 → 自动建（名用什么都建，不再按 CJK 拒绝；正文凭空加副职业已在 stateParser 屏蔽）
+            list.push({ name: canonProfName(profName), tier: '新手', progress: 0, recipes: [], addedAt: Date.now() }); pIdx = list.length - 1;
           }
           const recs = [...(list[pIdx].recipes ?? [])];
           const rIdx = recs.findIndex((r) => (recipe.id && r.id === recipe.id) || nameEq(r.name, recipe.name));

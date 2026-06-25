@@ -151,8 +151,22 @@ function buildForgeTree() {
   });
 }
 
-const BUILTIN_ALCHEMY: TreeDef = autoLayout(validateTree(buildAlchemyTree()).tree);
-const BUILTIN_FORGE: TreeDef = autoLayout(validateTree(buildForgeTree()).tree);
+/* 配方兜底：凡是配方档节点(medium/major/capstone)但没挂 grants.recipe 的（多见于 AI 生成时第二阶段详写失败/没对上 id），
+   一律按节点名/说明补一张最简配方——保证「学了配方就一定进副职业面板的已学配方」，不会点了没反应。 */
+function withRecipeFallback(tree: TreeDef): TreeDef {
+  let changed = false;
+  const nodes = tree.nodes.map((n) => {
+    if (n.kind !== 'minor' && !n.grants?.recipe && n.name) {
+      changed = true;
+      return { ...n, grants: { ...(n.grants ?? {}), recipe: { name: n.name, tier: undefined, materials: undefined, output: n.desc || `${n.name}（配方详情可在面板手动补全）`, desc: n.desc } } };
+    }
+    return n;
+  });
+  return changed ? { ...tree, nodes } : tree;
+}
+
+const BUILTIN_ALCHEMY: TreeDef = withRecipeFallback(autoLayout(validateTree(buildAlchemyTree()).tree));
+const BUILTIN_FORGE: TreeDef = withRecipeFallback(autoLayout(validateTree(buildForgeTree()).tree));
 const BUILTIN_TREES: TreeDef[] = [BUILTIN_ALCHEMY, BUILTIN_FORGE];
 
 /* dst 是否能经前置链到达 target（拒绝制造环的连线）*/
@@ -206,7 +220,7 @@ export const useSubProfTree = create<SubProfTreeState>()(
       trees: Object.fromEntries(BUILTIN_TREES.map((t) => [t.id, t])),
       progress: {},
 
-      upsertTree: (tree) => set((s) => ({ trees: { ...s.trees, [tree.id]: tree } })),
+      upsertTree: (tree) => set((s) => ({ trees: { ...s.trees, [tree.id]: withRecipeFallback(tree) } })),
       removeTree: (id) => set((s) => {
         const trees = { ...s.trees }; delete trees[id];
         const progress = { ...s.progress };
@@ -400,7 +414,8 @@ export const useSubProfTree = create<SubProfTreeState>()(
       // 内置树版本升级：缺失补入 / 旧版本升级（保留用户自建树与解锁进度）
       merge: (persisted, current) => {
         const p = (persisted ?? {}) as Partial<Pick<SubProfTreeState, 'trees' | 'progress'>>;
-        const trees: Record<string, TreeDef> = { ...(p.trees ?? {}) };
+        const trees: Record<string, TreeDef> = {};
+        for (const [tid, t] of Object.entries(p.trees ?? {})) trees[tid] = withRecipeFallback(t as TreeDef);   // 老存档里缺配方的旧树补兜底配方
         for (const bt of BUILTIN_TREES) {
           const old = trees[bt.id];
           if (!old || (old.version ?? 0) < bt.version) trees[bt.id] = bt;
