@@ -7,6 +7,7 @@ import { useNpc, type NpcOwnedItem, type NpcRecord } from '../store/npcStore';
 import { useCharacters } from '../store/characterStore';
 import { useMisc } from '../store/miscStore';
 import { bumpAutoSave } from './saveManager';
+import { buildNpcCardSnapshot } from './npcCard';
 import type { AssistCard, AssistSnapshot } from './assistProtocol';
 
 function coerceGender(g?: string): '男' | '女' | '' {
@@ -114,34 +115,8 @@ export function listActiveAssists(): NpcRecord[] {
 }
 
 /** 把本玩家的一名 NPC 序列化成助战卡快照（NPC 助战上传用；materializeAssist 的逆操作）。
- *  avatar 为原始串（dataURL/http），由 assistClient 上传前压缩。失败返回 null。 */
+ *  现委托 buildNpcCardSnapshot 产出**完整面板**快照（六维/技能/天赋/称号/副职业/装备/储存/经历），
+ *  让助战卡详情能显示"和平时一样的大面板"。avatar 为原始串，由 assistClient 上传前压缩。失败返回 null。 */
 export function npcToSnapshotRaw(npcId: string): AssistSnapshot | null {
-  const r = useNpc.getState().npcs[npcId];
-  if (!r || !r.name) return null;
-  const cd = useCharacters.getState().characters[npcId];
-  const a: any = r.attrs || {};
-  const hasAttrs = a && typeof a === 'object' && Object.keys(a).length > 0;
-  const tier = (r.realm || '').split('|')[0] || '';
-  const head = [tier, r.profession].filter(Boolean).join('·');
-  const stat = hasAttrs ? `力${a.str ?? '?'} 敏${a.agi ?? '?'} 体${a.con ?? '?'} 智${a.int ?? '?'} 魅${a.cha ?? '?'} 幸${a.luck ?? '?'}` : '';
-  const equipment = (r.items || []).filter((it) => it.equipped).map((it) => ({ name: it.name, slot: it.equipSlot || it.category, gradeDesc: it.gradeDesc, effect: it.effect, combatStat: it.combatStat }));
-  const items = (r.items || []).filter((it) => !it.equipped).map((it) => ({ name: it.name, category: it.category, gradeDesc: it.gradeDesc, effect: it.effect, quantity: it.quantity }));
-  return {
-    name: r.name,
-    tier,
-    profession: r.profession || '',
-    gender: r.gender || '',
-    personality: r.personality || '',
-    personalityDetail: r.innerThought || '',
-    appearance: r.appearanceDetail || r.appearance5 || '',
-    attrs: hasAttrs ? a : undefined,
-    maxHp: r.maxHp,
-    maxEp: r.maxMp,
-    line: [head, stat].filter(Boolean).join(' '),
-    skills: cd?.skills || [],
-    traits: cd?.traits || [],
-    equipment,
-    items,
-    avatar: r.avatar || '',
-  };
+  return buildNpcCardSnapshot(npcId);
 }

@@ -149,7 +149,7 @@ export default function NpcDetail({
               onClick={() => onManualUpdate(npc.id)}
               disabled={updating}
               title="按最近一次正文，用 AI 单独更新该 NPC 的档案 / 属性 / 技能（不影响其他角色）"
-              className={`inline-flex items-center gap-1 px-3 py-1.5 text-sm rounded-lg border font-mono transition-colors disabled:opacity-60 disabled:cursor-not-allowed ${
+              className={`inline-flex items-center gap-1 px-3 py-1.5 max-lg:px-2 max-lg:py-1 text-sm max-lg:text-[13px] rounded-lg border font-mono transition-colors disabled:opacity-60 disabled:cursor-not-allowed ${
                 updating ? 'border-violet-500/50 text-violet-300 bg-violet-900/15' : 'border-edge text-dim/70 hover:border-violet-500/50 hover:text-violet-300'
               }`}
             >
@@ -161,7 +161,7 @@ export default function NpcDetail({
           <button
             onClick={() => setChatOpen(true)}
             title="与该 NPC 一对一私聊（缓存对话 + 生成交互描述）"
-            className="inline-flex items-center gap-1 px-3 py-1.5 text-sm rounded-lg border font-mono transition-colors border-edge text-dim/70 hover:border-pink-500/50 hover:text-pink-300"
+            className="inline-flex items-center gap-1 px-3 py-1.5 max-lg:px-2 max-lg:py-1 text-sm max-lg:text-[13px] rounded-lg border font-mono transition-colors border-edge text-dim/70 hover:border-pink-500/50 hover:text-pink-300"
           >
             💬 对话
           </button>
@@ -170,7 +170,7 @@ export default function NpcDetail({
           <button
             onClick={() => setEditing((v) => !v)}
             title="手动编辑 / 纠正该 NPC 的面板字段"
-            className={`inline-flex px-3 py-1.5 text-sm rounded-lg border font-mono transition-colors ${
+            className={`inline-flex px-3 py-1.5 max-lg:px-2 max-lg:py-1 text-sm max-lg:text-[13px] rounded-lg border font-mono transition-colors ${
               editing ? 'border-god bg-god/15 text-god' : 'border-edge text-dim/70 hover:border-god/50 hover:text-god'
             }`}
           >
@@ -180,23 +180,20 @@ export default function NpcDetail({
           {/* 离场/上场 */}
           <button
             onClick={() => upsertNpc(npc.id, { onScene: !npc.onScene })}
-            className={`hidden sm:inline-flex px-3 py-1.5 text-sm rounded-lg border font-mono transition-colors ${
+            className={`hidden sm:inline-flex px-3 py-1.5 max-lg:px-2 max-lg:py-1 text-sm max-lg:text-[13px] rounded-lg border font-mono transition-colors ${
               npc.onScene ? 'border-edge text-dim hover:border-amber-600/50 hover:text-amber-400' : 'border-god/40 text-god hover:bg-god/10'
             }`}
           >
             {npc.onScene ? '令其离场' : '重新上场'}
           </button>
 
-          {/* 直接删除该 NPC（物理删除，连同其技能/天赋一并清除；两步确认）*/}
+          {/* 直接删除该 NPC（物理删除）→ 弹独立确认框（不在挤压的头部里就地两步确认，避免点击后按钮变宽、布局重排把「重新上场」挪到删除位致误触）*/}
           <button
-            onClick={() => { if (confirmDel) { hardRemoveNpc(npc.id); onClose(); } else setConfirmDel(true); }}
-            onMouseLeave={() => setConfirmDel(false)}
+            onClick={() => setConfirmDel(true)}
             title="彻底删除该 NPC（不可恢复）"
-            className={`inline-flex px-3 py-1.5 text-sm rounded-lg border font-mono transition-colors ${
-              confirmDel ? 'border-blood bg-blood/15 text-blood' : 'border-edge text-dim/60 hover:border-blood/50 hover:text-blood'
-            }`}
+            className="inline-flex px-3 py-1.5 max-lg:px-2 max-lg:py-1 text-sm max-lg:text-[13px] rounded-lg border font-mono transition-colors border-edge text-dim/60 hover:border-blood/50 hover:text-blood"
           >
-            {confirmDel ? '确认删除？' : '🗑 删除'}
+            🗑 删除
           </button>
 
           {/* 上一个 / 选择 / 下一个 */}
@@ -214,6 +211,19 @@ export default function NpcDetail({
 
           <button onClick={onClose} className="w-7 h-7 flex items-center justify-center rounded-lg border border-edge text-dim hover:text-blood hover:border-blood/40 transition-colors text-sm">✕</button>
         </header>
+
+        {/* 删除确认：独立浮层·居中大按钮，避免在拥挤的头部就地两步确认（点后按钮变宽重排，手机上把「重新上场」挪到删除位→误触）*/}
+        {confirmDel && (
+          <div className="fixed inset-0 z-[70] bg-black/75 backdrop-blur-sm flex items-center justify-center p-4" onClick={() => setConfirmDel(false)}>
+            <div className="w-full max-w-xs rounded-2xl border border-blood/40 bg-void p-5 space-y-4 shadow-[0_0_50px_rgba(0,0,0,0.85)]" onClick={(e) => e.stopPropagation()}>
+              <div className="text-sm text-slate-200 leading-relaxed">彻底删除「<b className="text-slate-100">{npc.name || npc.id}</b>」？将连同其技能 / 天赋一并清除，<span className="text-blood/90">不可恢复</span>。</div>
+              <div className="flex gap-2 justify-end">
+                <button onClick={() => setConfirmDel(false)} className="px-4 py-2 rounded-lg border border-edge text-dim hover:text-slate-200 text-sm font-mono transition-colors">取消</button>
+                <button onClick={() => { hardRemoveNpc(npc.id); setConfirmDel(false); onClose(); }} className="px-4 py-2 rounded-lg border border-blood text-blood bg-blood/10 hover:bg-blood/20 text-sm font-mono transition-colors">确认删除</button>
+              </div>
+            </div>
+          </div>
+        )}
 
         {chatOpen && <NpcChatPanel npc={npc} onClose={() => setChatOpen(false)} />}
 

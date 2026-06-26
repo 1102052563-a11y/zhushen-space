@@ -12,6 +12,8 @@ import {
   chatBound, setChatBound, chatReady, chatToken, chatAvatarVer, chatDicebearSeed, updateChatProfile,
 } from '../systems/chatIdentity';
 import { EntityCard, EntityDetailModal, type EntityKind } from './EntityDetail';
+import NpcCardDetail from './NpcCardDetail';
+import { buildNpcCardSnapshot } from '../systems/npcCard';
 import ChatAvatar from './ChatAvatar';
 import MessageText from './MessageText';
 import EmojiPicker from './EmojiPicker';
@@ -24,14 +26,13 @@ const EQUIP_CATS = new Set(['武器', '防具', '饰品', '法宝']);
 const SHARE_TABS: { k: EntityKind; label: string }[] = [
   { k: 'skill', label: '技能' }, { k: 'talent', label: '天赋' }, { k: 'equip', label: '装备' }, { k: 'npc', label: 'NPC' },
 ];
-// NPC 分享只带详情展示用得到的字段（剥掉头像/经历/物品等大块）
+// NPC 分享：带**完整面板**数据（六维/技能/天赋/称号/副职业/装备/储存/经历），让接收方看到和平时一样的大面板。
+// 仅剥立绘(avatar)以控制聊天广播体积——结构化数据本身不大。
 function leanNpc(n: any) {
-  return {
-    name: n.name, gender: n.gender, realm: n.realm, npcTag: n.npcTag, profession: n.profession,
-    personality: n.personality, title: n.title, bioStrength: n.bioStrength, age: n.age,
-    contractorId: n.contractorId, affiliatedTeam: n.affiliatedTeam, background: n.background,
-    appearanceDetail: n.appearanceDetail, status: n.status, review: n.review,
-  };
+  const snap = buildNpcCardSnapshot(n?.id);
+  if (!snap) return { name: n?.name || '', avatar: '' };
+  // 聊天广播进 120 条环形缓冲共一份 DO 存储，单条收敛体积：剥立绘 + 经历/储存适度封顶（仍足够"完整面板"）
+  return { ...snap, avatar: '', items: (snap.items || []).slice(0, 40), deeds: (snap.deeds || []).slice(-25) };
 }
 
 /* 全局实时聊天室面板：所有在线玩家即时收发消息，与开房/进游戏解耦。
@@ -563,7 +564,9 @@ export default function ChatRoomPanel({ onClose }: { onClose: () => void }) {
         )}
       </div>
 
-      {detail && <EntityDetailModal kind={detail.kind} data={detail.data} onClose={() => setDetail(null)} />}
+      {detail && (detail.kind === 'npc'
+        ? <NpcCardDetail data={detail.data} onClose={() => setDetail(null)} />
+        : <EntityDetailModal kind={detail.kind} data={detail.data} onClose={() => setDetail(null)} />)}
 
       {/* 绑定确认（进入后弹一次）*/}
       {bindConfirm && (

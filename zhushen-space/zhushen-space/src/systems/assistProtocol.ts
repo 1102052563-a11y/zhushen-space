@@ -23,6 +23,22 @@ export interface AssistSnapshot {
   equipment?: any[];
   items?: any[];                    // 储存空间（已剥图）
   avatar?: string;                  // 压缩后的主角立绘 dataURL（可空）
+  // ── 完整 NPC 面板字段（NPC 卡 / 分享卡用，让只读详情页能展示"和平时一样的大面板"；均可空，玩家卡多为空）──
+  realm?: string;                   // 阶位·Lv.X|身份（NPC 原始 realm）
+  identity?: string;                // 身份段（realm 的 | 之后）
+  npcTag?: string;                  // 契约者/土著/随从/宠物/召唤物
+  title?: string;                   // 称号（identity.title）
+  bioStrength?: string;             // 生物强度模板
+  age?: string;
+  contractorId?: string;
+  affiliatedTeam?: string;
+  background?: string;              // 背景/出身
+  status?: string;                  // 当前状态
+  review?: string;                  // 评价/锐评
+  realAttrs?: Record<string, number>;  // 真实属性·直加
+  titles?: any[];                   // 称号库（全部）
+  subProfessions?: any[];           // 副职业
+  deeds?: any[];                    // 经历时间线（deedLog）
 }
 
 export type AssistKind = 'player' | 'npc';   // 主角助战 / NPC 助战（两块独立排名）

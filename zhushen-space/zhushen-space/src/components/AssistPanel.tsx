@@ -5,7 +5,7 @@ import { useNpc, hasRealNpcName } from '../store/npcStore';
 import { buildPlayerSnapshot } from '../systems/mpSnapshot';
 import { ASSIST_CATEGORIES, CATEGORY_EMOJI, inferCategory } from '../systems/assistCategory';
 import { materializeAssist, dismissAssist, npcToSnapshotRaw } from '../systems/assistApply';
-import { EntityCard, EntityDetailModal, type EntityKind } from './EntityDetail';
+import NpcCardDetail from './NpcCardDetail';
 import ChatAvatar from './ChatAvatar';
 import { discordLoggedIn, discordLogin, fetchChatIdentity, chatReady, chatName, chatToken } from '../systems/chatIdentity';
 
@@ -14,8 +14,6 @@ import { discordLoggedIn, discordLogin, fetchChatIdentity, chatReady, chatName, 
    与聊天室共用 Discord 身份(chatToken·pid=chat:uid)。可随时删除自己上传的卡。 */
 
 type Kind = 'player' | 'npc';
-const EQUIP_CATS = new Set(['武器', '防具', '饰品', '法宝', '装备']);
-function itemKind(it: any): EntityKind { return EQUIP_CATS.has(String(it?.category || it?.slot || '')) ? 'equip' : 'item'; }
 function parseUid(pid?: string): number { return pid && pid.startsWith('chat:') ? (parseInt(pid.slice(5), 10) || 0) : 0; }
 function uidTag(pid?: string, du?: number): string { const n = du || parseUid(pid); return n ? '#' + n : ''; }
 function nameColor(c?: AssistCard) { return c?.nc || (typeof c?.hue === 'number' ? `hsl(${c.hue} 70% 72%)` : '#cbd5e1'); }
@@ -46,7 +44,6 @@ export default function AssistPanel({ onClose }: { onClose: () => void }) {
   const [formCat, setFormCat] = useState<string>('全能');
   const [formNpcId, setFormNpcId] = useState<string>('');
   const [detail, setDetail] = useState<AssistCard | null>(null);
-  const [sub, setSub] = useState<{ kind: EntityKind; data: any } | null>(null);
   const [invited, setInvited] = useState<Record<string, true>>({});
 
   // 进场：已登录则确保身份后连接（与聊天室同一 Discord 身份）；未登录显门禁。离场断开。
@@ -314,60 +311,33 @@ export default function AssistPanel({ onClose }: { onClose: () => void }) {
         )}
       </div>
 
-      {/* 卡片详情弹窗 */}
+      {/* 卡片详情：完整 NPC 大面板（只读，与平时 NPC 面板一致）*/}
       {detail && (
-        <div className="fixed inset-0 z-[60] bg-black/60 flex items-center justify-center p-4" onClick={(e) => { if (e.target === e.currentTarget) setDetail(null); }}>
-          <div className="w-full max-w-md max-h-[82vh] overflow-y-auto rounded-2xl border border-edge bg-void p-4 space-y-3 shadow-[0_0_50px_rgba(0,0,0,0.8)]">
-            <div className="flex items-start gap-3">
-              {detail.snapshot.avatar ? <img src={detail.snapshot.avatar} alt="" className="w-16 h-16 rounded-lg object-cover shrink-0" /> : <ChatAvatar uid={parseUid(detail.ownerId)} avv={detail.avv} ds={detail.ds} size={64} ring={detail.nc} />}
-              <div className="flex-1 min-w-0">
-                <div className="flex items-center gap-1.5"><span className="text-base font-bold text-slate-100 truncate">{detail.snapshot.name}</span><CatBadge cat={detail.category} /><span className="text-[10px] text-dim/40">{detail.kind === 'npc' ? 'NPC' : '主角'}</span></div>
-                <div className="text-[11px] font-mono text-dim/55">{detail.snapshot.line || [detail.snapshot.tier, detail.snapshot.profession].filter(Boolean).join('·')}</div>
-                <div className="text-[10px] font-mono text-dim/45 mt-0.5 flex items-center gap-1 flex-wrap">
-                  <ChatAvatar uid={parseUid(detail.ownerId)} avv={detail.avv} ds={detail.ds} size={14} />
-                  <span className="text-dim/40">上传者</span>
-                  {uidTag(detail.ownerId, detail.ownerDu) && <span className="text-god/45">{uidTag(detail.ownerId, detail.ownerDu)}</span>}
-                  <span style={{ color: nameColor(detail) }}>{detail.ownerName}</span>
-                  <span>· 🏆 {detail.assists || 0} 次助战</span>
-                </div>
-              </div>
+        <NpcCardDetail
+          data={detail.snapshot}
+          onClose={() => setDetail(null)}
+          meta={
+            <div className="text-[10px] font-mono text-dim/45 flex items-center gap-1.5 flex-wrap">
+              <CatBadge cat={detail.category} />
+              <span className="text-dim/40">{detail.kind === 'npc' ? 'NPC 卡' : '主角卡'}</span>
+              <ChatAvatar uid={parseUid(detail.ownerId)} avv={detail.avv} ds={detail.ds} size={14} />
+              <span className="text-dim/40">上传者</span>
+              {uidTag(detail.ownerId, detail.ownerDu) && <span className="text-god/45">{uidTag(detail.ownerId, detail.ownerDu)}</span>}
+              <span style={{ color: nameColor(detail) }}>{detail.ownerName}</span>
+              <span>· 🏆 {detail.assists || 0} 次助战</span>
             </div>
-            {detail.snapshot.appearance && <div className="text-[12px] text-dim/70 leading-relaxed whitespace-pre-wrap">{detail.snapshot.appearance}</div>}
-            {!!(detail.snapshot.skills?.length) && (
-              <div><div className="text-[11px] font-semibold text-god/70 mb-1">技能 ({detail.snapshot.skills.length})</div>
-                <div className="flex flex-wrap gap-1.5">{detail.snapshot.skills.map((s: any, i: number) => <button key={i} onClick={() => setSub({ kind: 'skill', data: s })} className="px-2 py-0.5 rounded-md text-[11px] bg-panel/60 border border-edge text-slate-200 hover:border-god/40">{s?.name || '技能'}</button>)}</div>
-              </div>
-            )}
-            {!!(detail.snapshot.traits?.length) && (
-              <div><div className="text-[11px] font-semibold text-god/70 mb-1">天赋 ({detail.snapshot.traits.length})</div>
-                <div className="flex flex-wrap gap-1.5">{detail.snapshot.traits.map((t: any, i: number) => <button key={i} onClick={() => setSub({ kind: 'talent', data: t })} className="px-2 py-0.5 rounded-md text-[11px] bg-panel/60 border border-edge text-slate-200 hover:border-god/40">{t?.name || '天赋'}</button>)}</div>
-              </div>
-            )}
-            {!!(detail.snapshot.equipment?.length) && (
-              <div className="space-y-1.5"><div className="text-[11px] font-semibold text-god/70">装备 ({detail.snapshot.equipment.length})</div>
-                {detail.snapshot.equipment.map((e: any, i: number) => <EntityCard key={i} kind="equip" data={e} onOpen={() => setSub({ kind: 'equip', data: e })} />)}
-              </div>
-            )}
-            {!!(detail.snapshot.items?.length) && (
-              <div className="space-y-1.5"><div className="text-[11px] font-semibold text-god/70">储存空间 ({detail.snapshot.items.length})</div>
-                {detail.snapshot.items.slice(0, 30).map((it: any, i: number) => <EntityCard key={i} kind={itemKind(it)} data={it} onOpen={() => setSub({ kind: itemKind(it), data: it })} />)}
-              </div>
-            )}
-            <div className="flex items-center gap-2 pt-1">
-              {detail.ownerId === myId ? (
-                <button onClick={() => { doDelete(detail.id); setDetail(null); }} className="flex-1 px-3 py-2 rounded-lg text-[13px] font-semibold border border-blood/40 text-blood/80 hover:bg-blood/15 transition-colors">🗑 删除我的卡</button>
-              ) : invited[detail.id] ? (
-                <span className="flex-1 text-center text-[12px] text-emerald-400/90 font-semibold py-2">✓ 已邀请 · 已加入队伍并在场</span>
-              ) : (
-                <button onClick={() => doInvite(detail)} disabled={!connected} className="flex-1 px-3 py-2 rounded-lg text-[13px] font-semibold bg-god/20 border border-god/40 text-god hover:bg-god/30 disabled:opacity-40 transition-colors">🤝 邀请助战</button>
-              )}
-              <button onClick={() => setDetail(null)} className="px-4 py-2 rounded-lg text-[13px] border border-edge text-dim/70 hover:text-slate-100 transition-colors">关闭</button>
-            </div>
-          </div>
-        </div>
+          }
+          actions={
+            detail.ownerId === myId ? (
+              <button onClick={() => { doDelete(detail.id); setDetail(null); }} className="flex-1 px-3 py-2 rounded-lg text-[13px] font-semibold border border-blood/40 text-blood/80 hover:bg-blood/15 transition-colors">🗑 删除我的卡</button>
+            ) : invited[detail.id] ? (
+              <span className="flex-1 text-center text-[12px] text-emerald-400/90 font-semibold py-2">✓ 已邀请 · 已加入队伍并在场</span>
+            ) : (
+              <button onClick={() => doInvite(detail)} disabled={!connected} className="flex-1 px-3 py-2 rounded-lg text-[13px] font-semibold bg-god/20 border border-god/40 text-god hover:bg-god/30 disabled:opacity-40 transition-colors">🤝 邀请助战</button>
+            )
+          }
+        />
       )}
-
-      {sub && <EntityDetailModal kind={sub.kind} data={sub.data} onClose={() => setSub(null)} />}
     </div>
   );
 }
