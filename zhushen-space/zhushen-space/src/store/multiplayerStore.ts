@@ -103,6 +103,7 @@ export const useMp = create<MpState>((set) => ({
   setHandlers: (h) => set({ handlers: h }),
   setMpPresetOn: (v) => set({ mpPresetOn: v }),
   setGuestPovOn: (v) => set({ guestPovOn: v }),
+  setPovMode: (v) => set({ povMode: v }),
   setSplitMode: (v) => set({ splitMode: v }),
   reset: () => set({ ...INIT }),
 }));
