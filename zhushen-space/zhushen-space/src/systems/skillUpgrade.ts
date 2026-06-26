@@ -4,7 +4,44 @@ import { usePlayer } from '../store/playerStore';
 import { apiChatFallback } from './apiChat';
 import { lenientJsonParse } from './stateParser';
 import { SKILL_LEVELUP_PROMPT } from '../promptRules';
+import { SUBPROF_MASTERY_LADDER, SUBPROF_MASTERY_PER_SKILLPOINT } from '../store/subProfTreeStore';
 import type { Skill, Trait } from '../store/characterStore';
+
+/* ── 乐园币消耗表（用户定稿：基价 ×10）。可在此调价。 ──
+   一、升等级：按品级定每级价；到达 10 整数倍那一级(跨分水岭·新增效果)用更高价。
+   二、升品级质变：按目标品级 index 定价(技能/天赋共用·都 7 档)。
+   三、副职业熟练度：按当前档位定每 +20 熟练度价。 */
+const LEVELUP_COIN: Record<string, [normal: number, watershed: number]> = {
+  普通: [1000, 5000], 精良: [3000, 15000], 稀有: [8000, 40000], 史诗: [20000, 100000],
+  传说: [50000, 250000], 奥义: [150000, 750000], 极境: [400000, 2000000],
+};
+const RARITY_UP_COIN = [0, 30000, 100000, 300000, 1000000, 3000000, 10000000];   // index 0=最低档·1~6=升到该档的价
+const MASTERY_COIN_PER_CHUNK = [4000, 12000, 30000, 80000, 0];                    // 副职业当前档 idx 0新手~4宗师(满)·每 +20 熟练度
+
+/** 升等级·乐园币总价（oldLv→oldLv+points，每级按品级定价；到达 10 整数倍那级用分水岭价）。 */
+export function levelUpCoinCost(rarity: string | undefined, oldLv: number, points: number): number {
+  const [base, ws] = LEVELUP_COIN[String(rarity ?? '').trim()] ?? LEVELUP_COIN['普通'];
+  let t = 0;
+  for (let lv = oldLv + 1; lv <= oldLv + points; lv++) t += (lv % 10 === 0) ? ws : base;
+  return t;
+}
+/** 升品级质变·乐园币总价（curIdx=当前档 index，steps=升几档；技能/天赋通用）。 */
+export function rarityUpCoinCost(curIdx: number, steps: number): number {
+  let t = 0;
+  for (let i = curIdx + 1; i <= curIdx + steps && i < RARITY_UP_COIN.length; i++) t += RARITY_UP_COIN[i];
+  return t;
+}
+function masteryTierIdx(spent: number): number {
+  let idx = 0;
+  for (let i = SUBPROF_MASTERY_LADDER.length - 1; i >= 0; i--) { if (spent >= SUBPROF_MASTERY_LADDER[i].min) { idx = i; break; } }
+  return idx;
+}
+/** 副职业熟练度·乐园币总价（curSpent=当前熟练度，chunks=投入几段·每段 +SUBPROF_MASTERY_PER_SKILLPOINT·按落入的档定价）。 */
+export function masteryCoinCost(curSpent: number, chunks: number): number {
+  let t = 0, spent = curSpent;
+  for (let c = 0; c < chunks; c++) { t += MASTERY_COIN_PER_CHUNK[masteryTierIdx(spent)] ?? 80000; spent += SUBPROF_MASTERY_PER_SKILLPOINT; }
+  return t;
+}
 
 /* ════════════════════════════════════════════
    技能升级（乐园设施·技能点 / 黄金技能点）systems/skillUpgrade.ts

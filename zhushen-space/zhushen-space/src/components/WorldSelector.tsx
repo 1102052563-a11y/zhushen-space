@@ -36,32 +36,34 @@ interface Props {
 
 type Stage = 'idle' | 'config' | 'loading' | 'results' | 'error';
 
-// 点名生成：从「当前阶世界库」里随机点名 N 个不重复的世界编号（1~max）。世界数不足则全取并打乱。
+// 点名生成：从世界库的「真实编号集合」里随机点名 N 个不重复的编号（编号 = 世界书 id，可不连续）。
 const WORLD_PICK_COUNT = 10;
-function rollPicks(max: number, n = WORLD_PICK_COUNT): number[] {
-  if (max <= 0) return [];
-  if (max <= n) {
-    const all = Array.from({ length: max }, (_, i) => i + 1);
-    for (let i = all.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [all[i], all[j]] = [all[j], all[i]]; }
-    return all;
+function rollPickIds(ids: number[], n = WORLD_PICK_COUNT): number[] {
+  if (ids.length === 0) return [];
+  const pool = [...ids];
+  const take = Math.min(n, pool.length);   // 世界数不足 n 时全取
+  for (let i = 0; i < take; i++) {         // Fisher-Yates 取前 take 个
+    const j = i + Math.floor(Math.random() * (pool.length - i));
+    [pool[i], pool[j]] = [pool[j], pool[i]];
   }
-  const s = new Set<number>();
-  while (s.size < n) s.add(1 + Math.floor(Math.random() * max));
-  return [...s];
+  return pool.slice(0, take);
 }
 
-// 解析「世界选择 / 休闲」世界书条目，按文档顺序抽出世界名列表（序号即 index+1）。
+export interface WorldLib { ids: number[]; nameById: Map<number, string>; count: number; }
+
+// 解析「世界选择 / 休闲」世界书条目 → {世界书原始编号 id → 世界名}。**编号沿用世界书 id（可不连续），与世界书逐一对应**，
+// 不再用「第几个出现」的连续序号（那会因世界库跳号导致 roll 出的编号和世界对不上）。
 // 兼容四种格式：带引号 "id|name"、九阶 bold **id|name**、裸行 id|name、休闲 YAML id:/name:。
-export function parseWorldList(content: string): string[] {
-  const items: { name: string; pos: number }[] = [];
-  const seen = new Set<string>();
-  const add = (id: string, name: string, pos: number) => {
+export function parseWorldLib(content: string): WorldLib {
+  const nameById = new Map<number, string>();
+  const ids: number[] = [];
+  const add = (idStr: string, name: string) => {
     const nm = String(name).replace(/\*+/g, '').replace(/^["「\s]+|["」\s]+$/g, '').trim();
     if (!nm) return;
-    const key = id + '|' + nm;
-    if (seen.has(key)) return;
-    seen.add(key);
-    items.push({ name: nm, pos });
+    const id = parseInt(idStr, 10);
+    if (!Number.isFinite(id) || nameById.has(id)) return;   // 同编号撞重时保留首个，保证编号唯一
+    nameById.set(id, nm);
+    ids.push(id);
   };
   const patterns = [
     /"(\d+)\|([^"|]+)"/g,
@@ -69,9 +71,9 @@ export function parseWorldList(content: string): string[] {
     /(?:^|[\r\n])[ \t>*-]*(\d+)\|([^"\n\r*|]+)/g,
     /id:\s*(\d+)\s*[\r\n]+\s*name:\s*"?([^"\n\r]+?)"?\s*(?=[\r\n]|$)/g,
   ];
-  for (const re of patterns) { let m: RegExpExecArray | null; while ((m = re.exec(content)) !== null) add(m[1], m[2], m.index); }
-  items.sort((a, b) => a.pos - b.pos);
-  return items.map((x) => x.name);
+  for (const re of patterns) { let m: RegExpExecArray | null; while ((m = re.exec(content)) !== null) add(m[1], m[2]); }
+  ids.sort((a, b) => a - b);
+  return { ids, nameById, count: ids.length };
 }
 
 function extractJson(raw: string): any[] {
@@ -113,7 +115,7 @@ export default function WorldSelector({ onRawResponse, onPromptSent, onWorlds, o
   const [stage, setStage] = useState<Stage>('idle');
   const [quickKind, setQuickKind] = useState<'pose' | 'bdsm' | null>(null);  // 展开的快捷条目类别（姿势/BDSM）
   const [rank, setRank] = useState('');
-  const [rolls, setRolls] = useState<number[]>([]);   // 点名的世界编号列表（1~worldList.length）
+  const [rolls, setRolls] = useState<number[]>([]);   // 点名的世界编号列表（= 世界书原始 id，可不连续）
   const [worlds, setWorlds] = useState<WorldOption[]>([]);
   const [errorMsg, setErrorMsg] = useState('');
   const [leisure, setLeisure] = useState(false);   // 休闲世界模式：忽略阶位，按「休闲世界」世界书生成休闲/恋爱向世界
@@ -138,24 +140,31 @@ export default function WorldSelector({ onRawResponse, onPromptSent, onWorlds, o
     return /^[1-9]$/.test(t) ? CN[Number(t)] : t;
   }, [rank]);
 
-  // 当前「点名世界库」：休闲取休闲世界书；否则按阶位键【选择N阶世界】定位该阶条目，解析成有序世界名列表（序号=index+1）。
-  const worldList = useMemo<string[]>(() => {
+  // 当前「点名世界库」：休闲取休闲世界书；否则按阶位键【选择N阶世界】定位该阶条目，解析成 {世界书原始编号 → 世界名}。
+  const worldLib = useMemo<WorldLib>(() => {
     const books = worldBooks.filter((b) => b.enabled);
+    let entries: { enabled?: boolean; key?: string[]; content?: string }[] = [];
     if (leisure) {
-      return books
+      entries = books
         .filter((b) => b.builtinKey === 'wb-leisure' || b.name === '休闲世界')
-        .flatMap((b) => b.entries.filter((e) => e.enabled))
-        .flatMap((e) => parseWorldList(e.content || ''));
+        .flatMap((b) => b.entries.filter((e) => e.enabled));
+    } else {
+      const tierKey = cn ? `选择${cn}阶世界` : '';
+      if (tierKey) entries = books.flatMap((b) => b.entries.filter((e) => e.enabled && (e.key || []).some((k) => k.includes(tierKey))));
     }
-    const tierKey = cn ? `选择${cn}阶世界` : '';
-    if (!tierKey) return [];
-    return books
-      .flatMap((b) => b.entries.filter((e) => e.enabled && (e.key || []).some((k) => k.includes(tierKey))))
-      .flatMap((e) => parseWorldList(e.content || ''));
+    // 合并该阶所有匹配条目（一般 1 本）；同编号保留首个
+    const nameById = new Map<number, string>();
+    const ids: number[] = [];
+    for (const e of entries) {
+      const lib = parseWorldLib(e.content || '');
+      for (const id of lib.ids) if (!nameById.has(id)) { nameById.set(id, lib.nameById.get(id)!); ids.push(id); }
+    }
+    ids.sort((a, b) => a - b);
+    return { ids, nameById, count: ids.length };
   }, [worldBooks, leisure, cn]);
 
-  const nameOf = (v: number) => worldList[v - 1] || '';
-  const doRoll = () => { if (worldList.length > 0) setRolls(rollPicks(worldList.length)); };
+  const nameOf = (v: number) => worldLib.nameById.get(v) || '';
+  const doRoll = () => { if (worldLib.count > 0) setRolls(rollPickIds(worldLib.ids)); };
   const updatePick = (i: number, raw: string) => {
     const n = parseInt(raw, 10);
     setRolls((prev) => prev.map((x, idx) => (idx === i ? (Number.isFinite(n) ? Math.max(1, n) : x) : x)));
@@ -218,16 +227,16 @@ export default function WorldSelector({ onRawResponse, onPromptSent, onWorlds, o
     const sysContent = WORLD_GEN_PROMPT;
 
     // 点名生成：把「点名编号」映射成世界库里的世界名清单（去重、去空）。为空则自动 Roll 一批。
-    if (worldList.length === 0) {
+    if (worldLib.count === 0) {
       setErrorMsg('请先在上方填阶位（一 / 二 / 3…）以载入该阶世界库，再 Roll / 编辑点名世界');
       setStage('config');
       return;
     }
     let cur = rolls;
-    if (cur.length === 0) { cur = rollPicks(worldList.length); setRolls(cur); }
-    const pickedNames = [...new Set(cur.map((v) => worldList[v - 1]).filter(Boolean))];
+    if (cur.length === 0) { cur = rollPickIds(worldLib.ids); setRolls(cur); }
+    const pickedNames = [...new Set(cur.map((v) => worldLib.nameById.get(v)).filter(Boolean))];
     if (pickedNames.length === 0) {
-      setErrorMsg(`点名编号都不在世界库范围内（应为 1~${worldList.length}）；请重新 Roll 或修改编号`);
+      setErrorMsg('点名编号都不在世界库里（编号需为世界书里真实存在的编号）；请重新 Roll 或修改编号');
       setStage('config');
       return;
     }
@@ -410,23 +419,23 @@ export default function WorldSelector({ onRawResponse, onPromptSent, onWorlds, o
           <div className="flex items-center gap-3 flex-wrap">
             <button
               onClick={doRoll}
-              disabled={worldList.length === 0}
+              disabled={worldLib.count === 0}
               className="shrink-0 flex items-center gap-1.5 px-3 py-1.5 border border-amber-500/40 text-amber-400 text-sm rounded hover:bg-amber-900/20 font-mono transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
             >
               🎲 随机点名 {WORLD_PICK_COUNT} 个
             </button>
-            {worldList.length > 0 ? (
+            {worldLib.count > 0 ? (
               <span className="text-[12px] font-mono text-dim/60">
-                {leisure ? '休闲' : cn ? `${cn}阶` : ''}世界库共 <span className="text-god/80">{worldList.length}</span> 个世界 · 编号 1~{worldList.length}（点编号可改，点名想要的世界）
+                {leisure ? '休闲' : cn ? `${cn}阶` : ''}世界库共 <span className="text-god/80">{worldLib.count}</span> 个世界 · 编号同世界书（不连续，点编号可改）
               </span>
             ) : (
               <span className="text-[12px] font-mono text-amber-300/70">先在上方填阶位（一 / 二 / 3…）{leisure ? '' : ' 或勾选 🌴 休闲'}，载入世界库后再点名</span>
             )}
-            {rolls.length > 0 && worldList.length > 0 && (
+            {rolls.length > 0 && worldLib.count > 0 && (
               <button onClick={doRoll} className="text-[12px] text-dim hover:text-god font-mono">↺ 重roll</button>
             )}
           </div>
-          {rolls.length > 0 && worldList.length > 0 && (
+          {rolls.length > 0 && worldLib.count > 0 && (
             <div className="grid grid-cols-5 max-lg:grid-cols-2 gap-2">
               {rolls.map((v, i) => {
                 const nm = nameOf(v);
@@ -435,7 +444,7 @@ export default function WorldSelector({ onRawResponse, onPromptSent, onWorlds, o
                     <div className="flex items-center gap-1">
                       <span className="text-[10px] text-dim/40 font-mono shrink-0">{i + 1}.</span>
                       <input
-                        type="number" min={1} max={worldList.length} value={v}
+                        type="number" min={1} value={v}
                         onChange={(e) => updatePick(i, e.target.value)}
                         className="w-full bg-void border-b border-god/30 px-1 py-0.5 text-[13px] text-amber-300 font-mono text-center outline-none focus:border-god"
                       />

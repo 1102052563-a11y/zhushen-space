@@ -12,7 +12,7 @@ import {
   chatBound, setChatBound, chatReady, chatToken, chatAvatarVer, chatDicebearSeed, updateChatProfile,
 } from '../systems/chatIdentity';
 import { EntityCard, EntityDetailModal, type EntityKind } from './EntityDetail';
-import NpcCardDetail from './NpcCardDetail';
+import NpcCardPreview from './NpcCardPreview';
 import { buildNpcCardSnapshot } from '../systems/npcCard';
 import ChatAvatar from './ChatAvatar';
 import MessageText from './MessageText';
@@ -565,7 +565,7 @@ export default function ChatRoomPanel({ onClose }: { onClose: () => void }) {
       </div>
 
       {detail && (detail.kind === 'npc'
-        ? <NpcCardDetail data={detail.data} onClose={() => setDetail(null)} />
+        ? <NpcCardPreview data={detail.data} onClose={() => setDetail(null)} />
         : <EntityDetailModal kind={detail.kind} data={detail.data} onClose={() => setDetail(null)} />)}
 
       {/* 绑定确认（进入后弹一次）*/}

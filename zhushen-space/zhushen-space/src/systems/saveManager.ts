@@ -179,7 +179,7 @@ export const UNDO_ID = 'undo-point';
    防"单一 autosave 被坏状态一次覆盖光、没有后悔药"。不含图片(图片同设备由 imageDb 现存回填)，
    故体积远小于带图 autosave，可放心多留几份；可在存档面板直接「读取」回滚或「提主角」抽回。 */
 export const AUTOSNAP_PREFIX = 'autosnap_';
-export const AUTOSNAP_KEEP = 5;
+export const AUTOSNAP_KEEP = 15;   // 滚动备份保留份数（每份不含图、很小，可放心多留；调此一处即可，UI 文案引用本常量自动同步）
 export async function autoSaveSlot(messages: any[]): Promise<void> {
   // 自动存档**不含图片**：图片同设备由 imageDb 现存回填(读档不带图则不动 imageDb)，自动档每回合带图会膨胀到几十 MB×多档→撑爆内存。
   // 跨设备/备份用「手动新建存档」(仍带图)。

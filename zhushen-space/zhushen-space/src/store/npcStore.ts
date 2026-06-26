@@ -690,19 +690,17 @@ export const useNpc = create<NpcState>()(
             const idxByKey = new Map<string, number>();
             const out: NpcOwnedItem[] = [];
             for (const it of rec.items ?? []) {
-              const key = npcStackNorm(it.name);
+              // 同主角侧 dedupeByName：装备/唯一物是独立实例，同名也可能是两件不同的 → 绝不按名合并（防悄悄吞掉 NPC 装备）。
+              // 只合并「可堆叠 + 未装备 + 未锁定」且**同名同品质**的真重复，累加数量。
+              const mergeable = stackable(it.category) && !it.equipped && !it.equipSlot && !(it as any).locked;
+              const key = mergeable ? npcStackNorm(it.name) + '|' + npcStackNorm(it.gradeDesc) : '';
               const at = key ? idxByKey.get(key) : undefined;
-              // 两件同名且都已装备在不同槽 → 合法多件，不合并
-              if (!key || at === undefined || (out[at!].equipped && it.equipped && out[at!].equipSlot !== it.equipSlot)) {
-                if (key && at === undefined) idxByKey.set(key, out.length);
+              if (!key || at === undefined) {
+                if (key) idxByKey.set(key, out.length);
                 out.push(it); continue;
               }
               const a = out[at];
-              const primary = (a.equipped || a.equipSlot) ? a : ((it.equipped || it.equipSlot) ? it : a);
-              const secondary = primary === a ? it : a;
-              // 可堆叠类累加数量，装备类取较大值（防误增）
-              const qty = stackable(a.category) ? (a.quantity || 1) + (it.quantity || 1) : Math.max(a.quantity || 1, it.quantity || 1);
-              out[at] = { ...secondary, ...primary, quantity: qty };
+              out[at] = { ...a, quantity: (a.quantity || 1) + (it.quantity || 1) };   // 同一种可堆叠物 → 累加
             }
             return out.length === (rec.items?.length ?? 0) ? rec : { ...rec, items: out, updatedAt: Date.now() };
           };

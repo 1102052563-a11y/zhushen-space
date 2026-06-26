@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import {
   listSlots, listAutoSnaps, saveSlot, loadSlot, renameSlot, deleteSlot, exportSlot, importSlot, newGame,
-  extractPlayerFromSlot, getStorageStatus, requestPersistentStorage, backupCurrentToFolder, type SlotMeta,
+  extractPlayerFromSlot, getStorageStatus, requestPersistentStorage, backupCurrentToFolder, AUTOSNAP_KEEP, type SlotMeta,
 } from '../systems/saveManager';
 import {
   isFolderBackupSupported, getFolderHandle, pickFolder, forgetFolder,
@@ -483,12 +483,12 @@ export default function SaveLoadPanel({ messages, onClose }: Props) {
             </div>
           ))}
 
-          {/* 🛟 自动备份（滚动·从主列表移到这里，避免一堆刷屏）：每回合一份、保最近 5 份，供回滚 */}
+          {/* 🛟 自动备份（滚动·从主列表移到这里，避免一堆刷屏）：每回合一份、保最近 AUTOSNAP_KEEP 份，供回滚 */}
           <div className="rounded-lg border border-edge/60 bg-panel/20">
             <button onClick={() => setSnapsOpen((v) => !v)} className="w-full flex items-center gap-2 px-3 py-2 text-[12px] font-mono text-dim hover:text-god transition-colors">
               <span className="text-god/60">🛟</span>
               <span className="font-bold text-slate-300">自动备份{snapsOpen && autoSnaps.length ? ` (${autoSnaps.length})` : ''}</span>
-              <span className="text-dim/40 max-lg:hidden">每回合自动留一份·保最近 5 份·供回滚</span>
+              <span className="text-dim/40 max-lg:hidden">每回合自动留一份·保最近 {AUTOSNAP_KEEP} 份·供回滚</span>
               <span className={`ml-auto text-god/50 transition-transform ${snapsOpen ? 'rotate-180' : ''}`}>▾</span>
             </button>
             {snapsOpen && (

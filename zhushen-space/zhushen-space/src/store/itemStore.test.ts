@@ -124,3 +124,51 @@ describe('入库防御网 + 历史迁移（store 集成）', () => {
     expect(useNpc.getState().npcs.C1.items[0].gradeDesc).toBe('白色');
   });
 });
+
+describe('dedupeByName（治"经常丢装备·就是消失·最近删除不显示"：只合并可堆叠真重复，绝不按名吞装备）', () => {
+  it('★两件同名装备(一穿一备) → 都保留、绝不合并吞掉', () => {
+    useItems.setState({ items: [
+      { id: 'W1', name: '寒铁长剑', category: '武器', gradeDesc: '蓝色', quantity: 1, effect: '', equipped: true, equipSlot: 'weapon', tags: [], addedAt: 0 },
+      { id: 'W2', name: '寒铁长剑', category: '武器', gradeDesc: '蓝色', quantity: 1, effect: '', equipped: false, tags: [], addedAt: 0 },
+    ] as any });
+    expect(useItems.getState().dedupeByName()).toBe(0);
+    expect(useItems.getState().items.length).toBe(2);
+  });
+
+  it('★两件同名装备(都未穿·两次掉落) → 都保留', () => {
+    useItems.setState({ items: [
+      { id: 'W1', name: '精钢匕首', category: '武器', gradeDesc: '绿色', quantity: 1, effect: '', equipped: false, tags: [], addedAt: 0 },
+      { id: 'W2', name: '精钢匕首', category: '武器', gradeDesc: '绿色', quantity: 1, effect: '', equipped: false, tags: [], addedAt: 0 },
+    ] as any });
+    expect(useItems.getState().dedupeByName()).toBe(0);
+    expect(useItems.getState().items.length).toBe(2);
+  });
+
+  it('同名同品质可堆叠消耗品 → 合并累加数量（真重复）', () => {
+    useItems.setState({ items: [
+      { id: 'P1', name: '止血喷雾', category: '消耗品', gradeDesc: '白色', quantity: 3, effect: '', equipped: false, tags: [], addedAt: 0 },
+      { id: 'P2', name: '止血喷雾', category: '消耗品', gradeDesc: '白色', quantity: 2, effect: '', equipped: false, tags: [], addedAt: 0 },
+    ] as any });
+    expect(useItems.getState().dedupeByName()).toBe(1);
+    expect(useItems.getState().items.length).toBe(1);
+    expect(useItems.getState().items[0].quantity).toBe(5);
+  });
+
+  it('同名不同品质消耗品 → 不合并（不同档分开）', () => {
+    useItems.setState({ items: [
+      { id: 'P1', name: '回血丹', category: '消耗品', gradeDesc: '白色', quantity: 1, effect: '', equipped: false, tags: [], addedAt: 0 },
+      { id: 'P2', name: '回血丹', category: '消耗品', gradeDesc: '蓝色', quantity: 1, effect: '', equipped: false, tags: [], addedAt: 0 },
+    ] as any });
+    expect(useItems.getState().dedupeByName()).toBe(0);
+    expect(useItems.getState().items.length).toBe(2);
+  });
+
+  it('★锁定的物品不参与合并（防误吞锁定物）', () => {
+    useItems.setState({ items: [
+      { id: 'M1', name: '材料X', category: '材料', gradeDesc: '白色', quantity: 1, effect: '', equipped: false, locked: true, tags: [], addedAt: 0 },
+      { id: 'M2', name: '材料X', category: '材料', gradeDesc: '白色', quantity: 1, effect: '', equipped: false, tags: [], addedAt: 0 },
+    ] as any });
+    expect(useItems.getState().dedupeByName()).toBe(0);
+    expect(useItems.getState().items.length).toBe(2);
+  });
+});

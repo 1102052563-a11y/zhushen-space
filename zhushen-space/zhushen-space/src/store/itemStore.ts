@@ -522,7 +522,12 @@ export const useItems = create<ItemState>()(
           const idxByKey = new Map<string, number>();
           const out: InventoryItem[] = [];
           for (const it of s.items) {
-            const key = norm(it.name);
+            // 【只合并真·重复的可堆叠物】：装备/法宝/唯一物是**独立实例**——同名也可能是两件不同的东西
+            //  （一件穿着+一件备用、两次掉落、强化过的+没强化的），按名合并会**悄悄吞掉一件装备、且不进「最近删除」**
+            //  （用户报「经常丢装备、就是消失、最近删除不显示」的根因）。故装备/已装备/已锁定一律不参与合并、原样保留；
+            //  只有「可堆叠类(消耗品/材料…) + 未装备 + 未锁定」且**同名同品质**的才视为同一种、累加数量。
+            const mergeable = !it.equipped && !it.locked && isStackableCat(it.category);
+            const key = mergeable ? norm(it.name) + '|' + norm(it.gradeDesc) : '';
             const at = key ? idxByKey.get(key) : undefined;
             if (!key || at === undefined) {
               if (key) idxByKey.set(key, out.length);
@@ -530,12 +535,7 @@ export const useItems = create<ItemState>()(
               continue;
             }
             const a = out[at];
-            // 两件同名且都已装备在不同槽 → 视为合法双持/多件，不合并
-            if (a.equipped && it.equipped && a.equipSlot !== it.equipSlot) { out.push(it); continue; }
-            // 合并：主条优先 已装备/已锁定，其次先出现者；保留主条 id/装备/锁定；数量取较大值（不累加，避免误增）
-            const primary = (a.equipped || a.locked) ? a : ((it.equipped || it.locked) ? it : a);
-            const secondary = primary === a ? it : a;
-            out[at] = { ...secondary, ...primary, quantity: Math.max(a.quantity || 1, it.quantity || 1) };
+            out[at] = { ...a, quantity: (a.quantity || 1) + (it.quantity || 1) };   // 同一种可堆叠物 → 累加（与 addItem 堆叠口径一致）
             removed++;
           }
           return removed ? { items: out } : s;

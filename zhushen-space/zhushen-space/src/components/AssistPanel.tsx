@@ -5,7 +5,7 @@ import { useNpc, hasRealNpcName } from '../store/npcStore';
 import { buildPlayerSnapshot } from '../systems/mpSnapshot';
 import { ASSIST_CATEGORIES, CATEGORY_EMOJI, inferCategory } from '../systems/assistCategory';
 import { materializeAssist, dismissAssist, npcToSnapshotRaw } from '../systems/assistApply';
-import NpcCardDetail from './NpcCardDetail';
+import NpcCardPreview from './NpcCardPreview';
 import ChatAvatar from './ChatAvatar';
 import { discordLoggedIn, discordLogin, fetchChatIdentity, chatReady, chatName, chatToken } from '../systems/chatIdentity';
 
@@ -311,30 +311,28 @@ export default function AssistPanel({ onClose }: { onClose: () => void }) {
         )}
       </div>
 
-      {/* 卡片详情：完整 NPC 大面板（只读，与平时 NPC 面板一致）*/}
+      {/* 卡片详情：完整 NPC 大面板（只读·复用平时的 NpcDetail）；上传者归属 + 邀请/删除放头部操作位 */}
       {detail && (
-        <NpcCardDetail
+        <NpcCardPreview
           data={detail.snapshot}
           onClose={() => setDetail(null)}
-          meta={
-            <div className="text-[10px] font-mono text-dim/45 flex items-center gap-1.5 flex-wrap">
+          previewActions={
+            <div className="flex items-center gap-2 flex-wrap">
               <CatBadge cat={detail.category} />
-              <span className="text-dim/40">{detail.kind === 'npc' ? 'NPC 卡' : '主角卡'}</span>
-              <ChatAvatar uid={parseUid(detail.ownerId)} avv={detail.avv} ds={detail.ds} size={14} />
-              <span className="text-dim/40">上传者</span>
-              {uidTag(detail.ownerId, detail.ownerDu) && <span className="text-god/45">{uidTag(detail.ownerId, detail.ownerDu)}</span>}
-              <span style={{ color: nameColor(detail) }}>{detail.ownerName}</span>
-              <span>· 🏆 {detail.assists || 0} 次助战</span>
+              <span className="text-[10px] font-mono text-dim/45 flex items-center gap-1">
+                <ChatAvatar uid={parseUid(detail.ownerId)} avv={detail.avv} ds={detail.ds} size={14} />
+                {uidTag(detail.ownerId, detail.ownerDu) && <span className="text-god/45">{uidTag(detail.ownerId, detail.ownerDu)}</span>}
+                <span style={{ color: nameColor(detail) }}>{detail.ownerName}</span>
+                <span>· 🏆 {detail.assists || 0}</span>
+              </span>
+              {detail.ownerId === myId ? (
+                <button onClick={() => { doDelete(detail.id); setDetail(null); }} className="px-3 py-1.5 rounded-lg text-[13px] font-semibold border border-blood/40 text-blood/80 hover:bg-blood/15 transition-colors">🗑 删除我的卡</button>
+              ) : invited[detail.id] ? (
+                <span className="text-[12px] text-emerald-400/90 font-semibold">✓ 已邀请·在场</span>
+              ) : (
+                <button onClick={() => doInvite(detail)} disabled={!connected} className="px-3 py-1.5 rounded-lg text-[13px] font-semibold bg-god/20 border border-god/40 text-god hover:bg-god/30 disabled:opacity-40 transition-colors">🤝 邀请助战</button>
+              )}
             </div>
-          }
-          actions={
-            detail.ownerId === myId ? (
-              <button onClick={() => { doDelete(detail.id); setDetail(null); }} className="flex-1 px-3 py-2 rounded-lg text-[13px] font-semibold border border-blood/40 text-blood/80 hover:bg-blood/15 transition-colors">🗑 删除我的卡</button>
-            ) : invited[detail.id] ? (
-              <span className="flex-1 text-center text-[12px] text-emerald-400/90 font-semibold py-2">✓ 已邀请 · 已加入队伍并在场</span>
-            ) : (
-              <button onClick={() => doInvite(detail)} disabled={!connected} className="flex-1 px-3 py-2 rounded-lg text-[13px] font-semibold bg-god/20 border border-god/40 text-god hover:bg-god/30 disabled:opacity-40 transition-colors">🤝 邀请助战</button>
-            )
           }
         />
       )}

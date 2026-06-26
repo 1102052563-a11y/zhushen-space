@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect, createContext, useContext, type ReactNode } from 'react';
 import { useNpc, type NpcRecord } from '../store/npcStore';
 import { useCharacters, RARITY_CLS, ELEMENT_CLS, SKILL_TIER_CLS, normSkillTier, type Deed } from '../store/characterStore';
 import { computeDerived, lvFromRealm, normalizeTier, tierFxClass, realmFromLevel, effectiveResource, fullMaxHp, fullMaxEp, TIERS, realAttrCapForTier, realAttrMult, attrCapForTier, ratioOf, hpCoefOf, epCoefOf, vitalFormula } from '../systems/derivedStats';
@@ -26,6 +26,10 @@ import { SkillEditForm, TraitEditForm } from './CharEditForms';
 /* ════════════════════════════════════════════
    单个 NPC 详情（轮回乐园适配 · 多栏目）
 ════════════════════════════════════════════ */
+
+/* 只读「卡片预览」上下文：助战卡 / 聊天室分享的 NPC 复用本面板时设为 true，
+   各子栏目据此隐藏「会改 store / 调 API / 转移物品」的控件（详情见 components/NpcCardPreview.tsx）。默认 false=正常可编辑。 */
+export const NpcPreviewContext = createContext(false);
 
 type TabKey =
   | 'basic' | 'portrait' | 'hidden' | 'custom' | 'attr' | 'bag'
@@ -75,7 +79,7 @@ function favorCls(v: number) {
 }
 
 export default function NpcDetail({
-  npc, list, onClose, onSelect, onManualUpdate, updating,
+  npc, list, onClose, onSelect, onManualUpdate, updating, preview = false, previewActions,
 }: {
   npc: NpcRecord;
   list: NpcRecord[];
@@ -83,6 +87,8 @@ export default function NpcDetail({
   onSelect: (id: string) => void;
   onManualUpdate?: (id: string) => void;
   updating?: boolean;
+  preview?: boolean;          // 只读卡片预览（助战卡 / 聊天室分享 NPC）：隐藏编辑/对话/删除/转移/生图等可变控件
+  previewActions?: ReactNode; // 预览模式下头部右侧自定义按钮（如「邀请助战」），替代默认的对话/编辑/删除
 }) {
   const [tab, setTab] = useState<TabKey>('basic');
   const [confirmDel, setConfirmDel] = useState(false);
@@ -119,6 +125,7 @@ export default function NpcDetail({
   }
 
   return (
+    <NpcPreviewContext.Provider value={preview}>
     <div className="fixed inset-0 z-[60] bg-black/80 backdrop-blur-sm flex items-stretch justify-center p-2 sm:p-4" onClick={() => { if (window.innerWidth < 1024) onClose(); }}>
       <div className="w-full max-w-5xl max-h-full flex flex-col rounded-2xl border border-edge bg-void shadow-[0_0_80px_rgba(0,0,0,0.85)] overflow-hidden" onClick={(e) => e.stopPropagation()}>
 
@@ -144,7 +151,7 @@ export default function NpcDetail({
           <div className="flex-1 max-lg:hidden" />
 
           {/* 手动更新：按最近一次正文，单独用 AI 重新演化该 NPC（档案/属性/技能/天赋）*/}
-          {onManualUpdate && (
+          {!preview && onManualUpdate && (
             <button
               onClick={() => onManualUpdate(npc.id)}
               disabled={updating}
@@ -157,6 +164,10 @@ export default function NpcDetail({
             </button>
           )}
 
+          {preview && previewActions}
+
+          {/* 预览(卡片只读)模式隐藏所有会改 store / 调 API 的操作；正常模式照常 */}
+          {!preview && (<>
           {/* 与该 NPC 私聊（独立缓存·NSFW·对白+交互描述）*/}
           <button
             onClick={() => setChatOpen(true)}
@@ -195,6 +206,7 @@ export default function NpcDetail({
           >
             🗑 删除
           </button>
+          </>)}
 
           {/* 上一个 / 选择 / 下一个 */}
           <div className="flex items-center gap-1">
@@ -270,6 +282,7 @@ export default function NpcDetail({
         </div>
       </div>
     </div>
+    </NpcPreviewContext.Provider>
   );
 }
 
@@ -875,6 +888,7 @@ function BasicTab({ npc: npcProp, realm, genderCls }: { npc: NpcRecord; realm: R
 
 /* 头像：上传/替换/移除/AI生成（dataURL 存 npcStore.avatar），与右上角在场面板共用同一字段 */
 function AvatarBlock({ npc }: { npc: NpcRecord }) {
+  const preview = useContext(NpcPreviewContext);
   const upsert = useNpc((s) => s.upsertNpc);
   const portraitService = useImageGen((s) => s.portraitService);
   const portraitNegative = useImageGen((s) => s.portraitNegative);
@@ -920,6 +934,7 @@ function AvatarBlock({ npc }: { npc: NpcRecord }) {
             ? <img src={npc.avatar} alt={npc.name} className="w-full h-full object-cover" />
             : <span className="text-4xl text-dim/25">👤</span>}
         </div>
+        {!preview && (
         <div className="flex flex-col gap-2">
           <input ref={fileRef} type="file" accept="image/*" className="hidden" onChange={handleUpload} />
           <button onClick={handleGen} disabled={gening}
@@ -942,6 +957,7 @@ function AvatarBlock({ npc }: { npc: NpcRecord }) {
           <div className="text-[11px] text-dim/40 leading-relaxed max-w-[160px]">AI 生成走「生图设置」选定的服务；也可上传自定义图。</div>
           <PortraitLibraryModal open={libOpen} onClose={() => setLibOpen(false)} onPick={(url) => upsert(npc.id, { avatar: url })} />
         </div>
+        )}
       </div>
     </div>
   );
@@ -1449,6 +1465,7 @@ function GiveItemPicker({ npcId, npcName, onClose, onGiven }: { npcId: string; n
 function NpcItemCard({ it, showSlot, ownerId, ownerGender, onFlash }: { it: NonNullable<NpcRecord['items']>[number]; showSlot?: boolean; ownerId?: string; ownerGender?: string; onFlash?: (msg: string) => void }) {
   const num = (it.numeric ?? {}) as Record<string, any>;
   const statLines: string[] = Array.isArray(num.statLines) ? num.statLines : [];
+  const preview = useContext(NpcPreviewContext);
   const updateNpcItem = useNpc((s) => s.updateNpcItem);
   const removeNpcItem = useNpc((s) => s.removeNpcItem);
   const equipNegative = useImageGen((s) => s.equipNegative);
@@ -1493,6 +1510,7 @@ function NpcItemCard({ it, showSlot, ownerId, ownerGender, onFlash }: { it: NonN
                 : <span className="text-lg text-dim/25">⚔</span>}
             </div>
             <input ref={fileRef} type="file" accept="image/*" className="hidden" onChange={handleUpload} />
+            {!preview && (
             <div className="flex gap-1">
               <button onClick={handleGen} disabled={gening} title="AI 生成装备图"
                 className="text-[9px] font-mono px-1 py-0.5 rounded border border-god/40 text-god hover:bg-god/10 disabled:opacity-40">✨</button>
@@ -1500,23 +1518,24 @@ function NpcItemCard({ it, showSlot, ownerId, ownerGender, onFlash }: { it: NonN
                 className="text-[9px] font-mono px-1 py-0.5 rounded border border-edge text-dim hover:text-god">⬆</button>
               {it.image && <button onClick={() => updateNpcItem(ownerId, it.id, { image: '' })} title="移除" className="text-[9px] font-mono px-1 py-0.5 rounded border border-edge text-dim hover:text-blood">✕</button>}
             </div>
+            )}
           </div>
         )}
         <div className="min-w-0 flex-1">
       <div className="flex items-center gap-2">
         <span className={`text-sm font-semibold truncate flex-1 ${gradeNameClass(it.gradeDesc)}`}>{it.name}</span>
         {it.quantity > 1 && <span className="text-[12px] font-mono text-dim/60">×{it.quantity}</span>}
-        {ownerId && (
+        {!preview && ownerId && (
           <button onClick={() => updateNpcItem(ownerId, it.id, { locked: !it.locked })}
             title={it.locked ? '解锁后 AI 可删除/消耗此物品' : '锁定后 AI 不会删除/消耗此物品（手动删除也隐藏）'}
             className={`shrink-0 text-[12px] font-mono px-1.5 py-0.5 rounded border transition-colors ${it.locked ? 'border-blue-500/50 text-blue-400 bg-blue-900/20' : 'border-edge text-dim/50 hover:border-blue-500/40 hover:text-blue-400'}`}>{it.locked ? '🔒' : '🔓'}</button>
         )}
-        {ownerId && !it.equipped && (
+        {!preview && ownerId && !it.equipped && (
           <button onClick={() => { const r = moveNpcItemToPlayer(ownerId, it.id); onFlash?.(r.ok ? `已取走「${it.name}」→ 我的储存空间` : (r.error ?? '转移失败')); }}
             title="把该物品转入主角（我的）储存空间"
             className="shrink-0 text-[12px] font-mono px-1.5 py-0.5 rounded border border-edge text-dim/60 hover:border-god/50 hover:text-god transition-colors">取走→我</button>
         )}
-        {ownerId && !it.equipped && !it.locked && (
+        {!preview && ownerId && !it.equipped && !it.locked && (
           <button onClick={() => removeNpcItem(ownerId, it.id)} title="删除该物品"
             className="shrink-0 text-[12px] font-mono px-1.5 py-0.5 rounded border border-edge text-dim/50 hover:border-blood/50 hover:text-blood transition-colors">删除</button>
         )}
