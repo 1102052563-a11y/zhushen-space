@@ -37,7 +37,6 @@ export default function MultiplayerPanel({ onClose }: { onClose: () => void }) {
   const [busy, setBusy] = useState(false);
   const [comment, setComment] = useState('');
   const [usePreset, setUsePreset] = useState(true);   // 建房：是否启用联机专用正文规则
-  const [usePov, setUsePov] = useState(false);   // 建房：是否启用完整版双视角（主控-分支-对齐）
   const [mode, setMode] = useState<'adventure' | 'raid'>('adventure');   // 建房模式：共同冒险 / 组队讨伐
 
   const refreshList = async () => {
@@ -51,7 +50,6 @@ export default function MultiplayerPanel({ onClose }: { onClose: () => void }) {
   const doCreate = async () => {
     const n = ensureName(); setBusy(true);
     useMp.getState().setMpPresetOn(usePreset);   // 本局联机正文规则开关
-    useMp.getState().setPovMode(usePov);   // 本局双视角模式开关
     try {
       const id = await mpClient.createRoom({ name: roomName.trim() || `${n}的${mode === 'raid' ? '讨伐战' : '秘境'}`, hostName: n, maxSeats, mode });
       mpClient.connect(id, { name: n, want: 'play' });
@@ -109,10 +107,6 @@ export default function MultiplayerPanel({ onClose }: { onClose: () => void }) {
                 <input type="checkbox" checked={usePreset} onChange={(e) => setUsePreset(e.target.checked)} className="accent-god mt-0.5" />
                 <span>使用联机专用正文规则（推荐：让 AI 准确刻画队友、不把真人当 NPC、每回合分别回应每个人）</span>
               </label>
-              <label className="flex items-start gap-2 text-[12px] text-dim/70 cursor-pointer leading-relaxed">
-                <input type="checkbox" checked={usePov} onChange={(e) => setUsePov(e.target.checked)} className="accent-god mt-0.5" />
-                <span>🎭 完整版双视角（主控-分支-对齐）：每人看到<b className="text-god/80">本人视角</b>的专属正文，由主控判定客观事实、各自渲染、再对齐冲突。每回合多次调用 AI、较慢较费；建议各玩家配好自己的正文 key（没配则由房主代渲染）。</span>
-              </label>
             </div>
 
             <div className="rounded-xl border border-edge bg-panel/50 p-3 space-y-2.5">
@@ -158,12 +152,11 @@ function RoomView({ st, comment, setComment }: { st: any; comment: string; setCo
   const submitted: string[] = st.turn?.inputs ? Object.keys(st.turn.inputs) : [];
   const hostSeated = st.seats.some((s: any) => s.playerId === st.room?.hostId);
   const sendComment = () => { const t = comment.trim(); if (!t) return; mpClient.comment(t); setComment(''); };
-  const toggleSolo = () => {   // 分头行动：脱队单走 / 归队
-    const next = !st.soloMode;
-    if (next && !confirm('脱队单走：你将用自己的「正文生成」API 独立去跑支线，与队伍分头行动。\n期间不收主线正文、你的剧情与掉落都归你；仍可在房里互传道具支援队友。\n再点「归队」回到队伍。确定脱队？')) return;
-    useMp.getState().setSoloMode(next);
+  const toggleSplit = () => {   // 分头行动：声明脱离主队独自行动 / 汇合（仍由房主统一写进同一份正文，不再各端独立生成）
+    const next = !st.splitMode;
+    if (next && !confirm('分头行动：本回合起你脱离主队、独自去做自己的事（如逛街/解密）。\n你的行动会被标记，由房主在同一份正文里把你和队友分别描写、再自然汇合——不会再各跑各的导致剧情冲突/瞬移/NPC 不同步。\n再点「汇合」回到主队。确定分头？')) return;
+    useMp.getState().setSplitMode(next);
     mpClient.relay('solo_toggle', { seatId: st.mySeatId || '', solo: next });
-    if (!next) useMp.getState().handlers.onSoloRejoin?.();   // 归队：把支线见闻摘要送回主线（化学反应）
   };
 
   return (
@@ -183,10 +176,10 @@ function RoomView({ st, comment, setComment }: { st: any; comment: string; setCo
             </button>
           )}
           {st.role === 'player' && (
-            <button onClick={toggleSolo}
-              title="脱队单走：用你自己的正文 API 独立去跑支线/主线，与队伍分头行动；期间不收主线正文，但仍可在房里互传道具支援。再点归队。"
-              className={`text-[12px] px-2.5 py-1 rounded-lg border transition-colors ${st.soloMode ? 'bg-amber-500/15 border-amber-500/40 text-amber-300/90' : 'border-edge text-dim/70 hover:text-slate-200'}`}>
-              🚶{st.soloMode ? '归队' : '脱队单走'}
+            <button onClick={toggleSplit}
+              title="分头行动：本回合起脱离主队独自行动（逛街/解密等）；你的行动由房主写进同一份正文、与队友分别描写再汇合，不再各跑各的。再点汇合回到主队。"
+              className={`text-[12px] px-2.5 py-1 rounded-lg border transition-colors ${st.splitMode ? 'bg-amber-500/15 border-amber-500/40 text-amber-300/90' : 'border-edge text-dim/70 hover:text-slate-200'}`}>
+              🚶{st.splitMode ? '汇合' : '分头行动'}
             </button>
           )}
           {isHost
@@ -195,9 +188,8 @@ function RoomView({ st, comment, setComment }: { st: any; comment: string; setCo
         </div>
       </div>
 
-      {st.povBusy && <div className="shrink-0 px-5 py-1.5 text-[12px] text-god/85 bg-god/5 border-b border-god/20 animate-pulse">{st.povBusy}（双视角模式）</div>}
 
-      {st.soloMode && <div className="shrink-0 px-5 py-1.5 text-[12px] text-amber-300/90 bg-amber-500/5 border-b border-amber-500/20">🚶 你正在脱队单走——用自己的 key 跑支线，不收主线正文；剧情与掉落都归你、可带回主线支援。点「归队」回到队伍。</div>}
+      {st.splitMode && <div className="shrink-0 px-5 py-1.5 text-[12px] text-amber-300/90 bg-amber-500/5 border-b border-amber-500/20">🚶 你正在分头行动——本回合脱离主队独自行动；你的输入会标记给房主，由房主在同一份正文里把你和队友分别写出、再自然汇合。点「汇合」回到主队。</div>}
 
       {st.room?.mode === 'raid' && <RaidView st={st} />}
 
@@ -220,8 +212,8 @@ function RoomView({ st, comment, setComment }: { st: any; comment: string; setCo
                 <span className="w-2 h-2 rounded-full bg-emerald-400/70 shrink-0" />
                 <span className="text-slate-100 truncate">{s.name}</span>
                 {isHostSeat && <span className="text-[10px] font-mono px-1 rounded border border-amber-600/40 text-amber-300/70">房主</span>}
-                {st.soloSeats?.includes(s.seatId)
-                  ? <span className="text-[10px] font-mono px-1 rounded border border-amber-500/40 text-amber-300/80">🚶单走中</span>
+                {st.splitSeats?.includes(s.seatId)
+                  ? <span className="text-[10px] font-mono px-1 rounded border border-amber-500/40 text-amber-300/80">🚶分头中</span>
                   : did && <span className="text-[10px] font-mono px-1 rounded border border-god/40 text-god/70">已提交</span>}
                 {card?.line && <span className="text-[11px] font-mono text-dim/50 truncate">{card.line}</span>}
               </div>

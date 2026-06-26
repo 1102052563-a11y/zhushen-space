@@ -7,6 +7,7 @@ import { useSettings } from '../store/settingsStore';
 import { useItems } from '../store/itemStore';
 import { usePlayer, DEFAULT_PLAYER_PROFILE } from '../store/playerStore';
 import { useResource } from '../store/resourceStore';
+import { useVariables } from '../store/variableStore';
 import { useNpc } from '../store/npcStore';
 import { useNpcChat } from '../store/npcChatStore';
 import { useNpcEvo } from '../store/npcEvoStore';
@@ -68,6 +69,7 @@ const STORES: { key: string; api: any; clear?: () => void }[] = [
   { key: 'drpg-combat',     api: useCombat, clear: () => useCombat.getState().clearCombat() },
   { key: 'drpg-arena',      api: useArena, clear: () => useArena.getState().clearArena() },
   { key: 'drpg-resource',   api: useResource, clear: () => useResource.getState().clearResources() },   // 自定义能量条（定义+当前值随存档；新游戏清空）
+  { key: 'drpg-variables',  api: useVariables, clear: () => useVariables.getState().resetAll() },   // 自定义变量（透明引用）：定义+当前值随存档；新游戏只清零值、保留定义（便于二创导入的变量过新游戏不丢）
   { key: 'drpg-skilltree',  api: useSkillTree, clear: () => useSkillTree.setState({ progress: {} }) },
   { key: 'drpg-subproftree', api: useSubProfTree, clear: () => useSubProfTree.setState({ progress: {} }) },
   { key: 'drpg-casino',     api: useCasino, clear: () => useCasino.getState().clearCasino() },
@@ -202,6 +204,18 @@ export async function autoSaveSlot(messages: any[]): Promise<void> {
   } catch (e) { logWarn('autoSaveSlot.folder', e); }
   // 主角镜像兜底(随回合更新；仅 B1 非空时写)
   try { writeB1Mirror(); } catch { /* */ }
+}
+
+/* 立即把当前实时状态刷进「⏱ 自动存档」槽——供**回合外**改动（邀请助战 / 召唤纪念英灵 / 遣散等）后调用。
+   根因：per-turn 自动存档只在「AI 回合结束(新 assistant 楼层)」后触发；而这些改动发生在回合之间，只写进了 live
+   store/localStorage，没刷新自动档。于是「刷新→继续(读自动档)」会回到改动前——表现为"助战的人刷新就不见了"。
+   轻量(不含图)、覆盖同一槽、尊重「自动存档」总开关（关了就不写，交给用户手动存档）。失败静默。 */
+export async function bumpAutoSave(): Promise<void> {
+  try {
+    if (useSettings.getState().autoSaveEnabled === false) return;
+    const msgs = await loadChat().catch(() => []);
+    await saveSlot(AUTOSAVE_ID, '⏱ 自动存档', msgs, false);
+  } catch (e) { logWarn('bumpAutoSave', e); }
 }
 
 export async function hasUndoPoint(): Promise<boolean> {

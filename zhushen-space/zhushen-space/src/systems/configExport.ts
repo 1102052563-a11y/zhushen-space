@@ -36,6 +36,7 @@ import { useCreationTemplates } from '../store/creationTemplateStore';
 import { useCombat } from '../store/combatStore';
 import { useSkillTree } from '../store/skillTreeStore';
 import { useSubProfTree } from '../store/subProfTreeStore';
+import { useVariables } from '../store/variableStore';
 
 export const CONFIG_KIND = 'zhushen-global-config';
 export const CONFIG_FORMAT_VERSION = 1;
@@ -113,6 +114,20 @@ function skillTreeExtract(s: any): any {
 // 技能树导入：合并模板库（导入项按 id 覆盖同名，保留本地其它树），不碰当前存档的解锁进度
 function skillTreeApply(cur: any, cfg: any): any {
   return { trees: { ...(cur.trees ?? {}), ...(cfg.trees ?? {}) } };
+}
+
+// 自定义变量：只导**定义/schema**（key/label/type/min/max/说明/状态栏开关），值重置成初始（防把作者中途的游戏进度带出去，守"只导配置"铁则）。
+//   让二创把「预设 + 它依赖的变量定义」打包同发；导入端正文 AI 据定义经 <state> 更新，预设 {{getvar::key}} 即可引用。
+function variablesExtract(s: any): any {
+  const initial = (v: any) => v.type === 'number' ? (v.min ?? 0) : v.type === 'boolean' ? false : '';
+  return { variables: (s.variables ?? []).map((v: any) => ({ ...v, value: initial(v) })) };
+}
+// 自定义变量导入：按 key 合并——保留当前已有变量，导入项按 key 覆盖/新增（不整体替换、不抹掉本地变量）
+function variablesApply(cur: any, cfg: any): any {
+  const byKey = new Map<string, any>();
+  for (const v of cur.variables ?? []) byKey.set(v.key, v);
+  for (const v of cfg.variables ?? []) if (v && v.key) byKey.set(v.key, v);
+  return { variables: [...byKey.values()] };
 }
 
 // 扁平全配置 store（imageGen / creationTemplate）：取所有非函数字段（这些 store 本身无运行时数据）
@@ -221,6 +236,7 @@ const SPECS: StoreSpec[] = [
   { key: 'drpg-creation-templates', label: '角色创建模板', api: useCreationTemplates as any, extract: plainExtract },
   { key: 'drpg-skilltree',          label: '技能树模板',   api: useSkillTree as any,         extract: skillTreeExtract, apply: skillTreeApply },
   { key: 'drpg-subproftree',        label: '副职业树模板', api: useSubProfTree as any,       extract: skillTreeExtract, apply: skillTreeApply },
+  { key: 'drpg-variables',          label: '自定义变量定义', api: useVariables as any,         extract: variablesExtract, apply: variablesApply },
 ];
 
 // 递归清空 API 密钥（apiKey / apiToken），用于"不含密钥"导出（可安全分享）

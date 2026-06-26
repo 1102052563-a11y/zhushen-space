@@ -3,6 +3,7 @@
    现改为「居中、放大、分组」的模块卡片启动台。各模块仍是独立子面板（预设/API/调度）。 */
 import { useState, useRef } from 'react';
 import { downloadGlobalConfig, importGlobalConfig } from '../systems/configExport';
+import VariableBridge from './VariableBridge';
 
 type Cb = (() => void) | undefined;
 
@@ -221,6 +222,7 @@ export default function VariableManager({
           })}
         </div>
 
+        <VariableBridge />
         <ConfigBackupBar />
       </div>
     </div>

@@ -15,6 +15,7 @@ import { useMonument, type MonumentEntry, type MonumentSnapshot } from '../store
 import { buildPlayerSnapshot } from './mpSnapshot';
 import { apiChatFallback } from './apiChat';
 import { shrinkDataUrl } from './imageGen';
+import { bumpAutoSave } from './saveManager';
 import { MONUMENT_EULOGY_RULE } from '../promptRules';
 
 function coerceGender(g?: string): '男' | '女' | '' {
@@ -195,6 +196,7 @@ export function summonMonument(entry: MonumentEntry): string {
   if (exist) {
     if (!exist.onScene) npc.setScene(exist.id, true);
     npc.upsertNpc(exist.id, { keepForever: true, partyMember: true, partyWorld: world });
+    void bumpAutoSave();   // 回合外改动→刷新自动档，防"刷新→继续读自动档"丢失
     return exist.id;
   }
 
@@ -266,12 +268,14 @@ export function summonMonument(entry: MonumentEntry): string {
     }));
   } catch { /* 技能写入失败不阻断召唤 */ }
 
+  void bumpAutoSave();   // 回合外改动→刷新自动档，防"刷新→继续读自动档"丢失（同助战NPC刷新就不见的根因）
   return cid;
 }
 
 /** 遣散一名召唤的纪念英灵：硬删除（连带清掉 characterStore 里的技能/天赋孤儿数据）。 */
 export function dismissMonument(npcId: string): void {
   try { useNpc.getState().hardRemoveNpc(npcId); } catch { /* */ }
+  void bumpAutoSave();   // 遣散也刷新自动档，否则刷新读旧自动档会让已遣散的又回来
 }
 
 /** 当前存档里所有「已召唤的纪念英灵」（供面板列出 + 遣散）。 */
