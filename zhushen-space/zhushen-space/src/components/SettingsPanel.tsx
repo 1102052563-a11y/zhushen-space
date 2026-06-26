@@ -1516,7 +1516,7 @@ function TextApiSection() {
           <Toggle checked={plotChoices} onChange={() => setPlotChoices(!plotChoices)} />
           <div>
             <div className="text-sm text-slate-200">剧情选项（8 选项）</div>
-            <div className="text-sm text-dim mt-0.5">每段正文后额外生成 8 个「主角视角」行动选项，点击填入输入框；八个方向各异，最后 1 个为限制级(18+)。</div>
+            <div className="text-sm text-dim mt-0.5">每段正文后额外生成 7 个「主角视角」行动选项，点击填入输入框；七个方向各异，至少 5 个会调用主角的技能/天赋/装备/物品；原著世界时还会联网搜原著剧情、让选项接入原著剧情线。</div>
           </div>
         </div>
         <div className="flex items-center gap-3 p-3 bg-panel border border-edge rounded-lg">

@@ -462,13 +462,13 @@ function buildItemPhaseSystemPrompt(entries: ItemPresetEntry[], narrative: strin
 function parseChoices(raw: string): string[] {
   const m = raw.match(/<choices>([\s\S]*?)<\/choices>/i);
   const body = m ? m[1] : raw;
-  // 逐行扫描：遇到 A~H 标记起一个选项；后续不带标记的行并入当前选项（支持 200 字的长/多行选项），
+  // 逐行扫描：遇到 A~G 标记起一个选项；后续不带标记的行并入当前选项（支持长/多行选项），
   // 遇到看似标签行（以 < 开头）则停止并入，避免把别的标签块吞进选项。
   const items: { L: string; text: string }[] = [];
   let cur: { L: string; text: string } | null = null;
   for (const rawLine of body.split(/\r?\n/)) {
     const line = rawLine.trim();
-    const lm = /^[\s>*\-—·]*([A-Ha-h])\s*[.、:：)）]\s*(.*)$/.exec(line);
+    const lm = /^[\s>*\-—·]*([A-Ga-g])\s*[.、:：)）]\s*(.*)$/.exec(line);
     if (lm) {
       cur = { L: lm[1].toUpperCase(), text: lm[2].trim() };
       items.push(cur);
@@ -482,7 +482,7 @@ function parseChoices(raw: string): string[] {
     const t = it.text.trim();
     if (t && !seen.has(it.L)) { seen.add(it.L); out.push(t); }
   }
-  return out.slice(0, 8);
+  return out.slice(0, 7);
 }
 
 /* 解析 <details> 同人搜索块 → 折叠展示文本 + 结构化条目（可多角色）*/
@@ -5347,7 +5347,9 @@ ${lines}`;
       }).join('\n');
     // 当前任务（主线/支线）→ 供「任务导向」选项 A~D 生成（仅生成选项时才取）
     const questText = includeQuest ? serializeTasks(useMisc.getState().tasks ?? []) : '';
+    const worldName = useMisc.getState().worldName || '';   // 当前世界名 → 供「原著接轨」判断是否已知原著并联网搜其剧情
     return [
+      worldName ? `【当前世界】${worldName}（若为已知原著世界，按"原著接轨"要求联网搜其剧情、让选项接入原著剧情线）` : '',
       `【主角全部信息】\n${playerCard}`,
       `【在场角色全部信息（含持有物）】\n${npcBlocks || '（无）'}`,
       includeQuest ? `【当前任务（主线/支线 → 据此生成"任务导向"选项 A~D）】\n${questText}` : '',
@@ -5355,7 +5357,7 @@ ${lines}`;
     ].filter(Boolean).join('\n\n');
   }
 
-  /* 选项 + 同人增强：正文生成后，共用一个 API、只调用一次，按开关产出 8 选项 / 同人设定块。
+  /* 选项 + 同人增强：正文生成后，共用一个 API、只调用一次，按开关产出 7 选项 / 同人设定块。
      direction：手动「重新生成」时玩家填的方向提示词（可空），作为最高优先的引导块注入。 */
   async function runChoicesFanficPhase(narrative: string, assistantMsgId?: number, direction?: string) {
     const ss = useSettings.getState();
@@ -5378,7 +5380,7 @@ ${lines}`;
       const picked = pickTheaterCharacters(await loadLunhuiCharacters());   // 从 wiki 人物条目随机抽 1~多位（多位则同世界·有关联）
       if (picked.length) sysParts.push(buildTheaterCharBlock(picked));
     }
-    sysParts.push(`【本次输出顺序】${wantFanfic ? '先输出 <details>同人搜索内容</details> 块（涉及已知作品角色才输出，可多个）；' : ''}${wantFact ? '再输出 <details>事实查证</details> 块（涉及现实可查证元素才输出）；' : ''}${wantChoices ? '然后输出 <choices> 块（A~H 共 8 个选项，最后一个 H 为限制级）；' : ''}${wantTheater ? '最后输出 <xiaojuchang> 小剧场块（严格按「小剧场世界书」的 HTML/内联 CSS 折叠格式，与主线无关的番外彩蛋）。' : ''}除这些标签块外不要有任何其它文字。`);
+    sysParts.push(`【本次输出顺序】${wantFanfic ? '先输出 <details>同人搜索内容</details> 块（涉及已知作品角色才输出，可多个）；' : ''}${wantFact ? '再输出 <details>事实查证</details> 块（涉及现实可查证元素才输出）；' : ''}${wantChoices ? '然后输出 <choices> 块（A~G 共 7 个选项）；' : ''}${wantTheater ? '最后输出 <xiaojuchang> 小剧场块（严格按「小剧场世界书」的 HTML/内联 CSS 折叠格式，与主线无关的番外彩蛋）。' : ''}除这些标签块外不要有任何其它文字。`);
     // 手动「重新生成」：玩家自定义方向（最高优先），并要求与上一版明显不同
     const dir = (direction || '').trim();
     if (dir) sysParts.push(`【本次为"重新生成"·玩家自定义方向（最高优先）】请在严格遵守上面各块的全部规则与格式（含各块各自的字数要求）的前提下，让本次产出整体贴合以下方向 / 侧重，并给出与之前明显不同的新内容、不要重复上一版：\n${dir}`);
@@ -7665,7 +7667,6 @@ ${lines}`;
                                       <div className="px-3 pb-2 grid grid-cols-1 sm:grid-cols-2 gap-2">
                                         {opts.map((opt, i) => {
                                           const letter = String.fromCharCode(65 + i);
-                                          const nsfw = i === opts.length - 1;
                                           const picked = !!inputValue.trim() && inputValue.includes(opt);   // 已叠加进输入框 → 显示 ✓
                                           return (
                                             <button key={i} title="点选叠加进输入框，再点取消（可多选，编辑后发送）"
@@ -7678,8 +7679,8 @@ ${lines}`;
                                                 const base = cur.replace(/[，,\s]+$/, '');                       // 末尾已有分隔则复用，避免叠重
                                                 return base ? `${base}，${o}` : o;                              // 叠加而非覆盖；单行输入框用「，」分隔（换行会被 input 吞掉看不见）
                                               })}
-                                              className={`text-left rounded-lg border px-3 py-2 text-sm leading-snug transition-colors ${nsfw ? 'border-rose-500/40 bg-rose-500/5 text-rose-200/90 hover:bg-rose-500/15' : 'border-edge bg-panel/40 text-slate-300 hover:border-god/40 hover:text-god'} ${picked ? 'ring-1 ring-god/50' : ''}`}>
-                                              <span className="font-mono text-[12px] text-dim/50 mr-1.5">{picked ? '✓' : letter}{nsfw ? '·18+' : ''}</span>{opt}
+                                              className={`text-left rounded-lg border px-3 py-2 text-sm leading-snug transition-colors border-edge bg-panel/40 text-slate-300 hover:border-god/40 hover:text-god ${picked ? 'ring-1 ring-god/50' : ''}`}>
+                                              <span className="font-mono text-[12px] text-dim/50 mr-1.5">{picked ? '✓' : letter}</span>{opt}
                                             </button>
                                           );
                                         })}
