@@ -124,7 +124,7 @@ import { isHomeWorld, reconcileHomeWorld, reconcilePlayerVitals, playerMaxHp, pl
 import { bioInnate, tierVitalMult } from './systems/bioStrength';
 import { generateNpcAttrs, resolveForm, generateLuck } from './systems/npcAttrGen';
 import { useImageGen, effectiveEquipService } from './store/imageGenStore';
-import { generateImage, buildPortraitPrompt, buildEquipPrompt, equippedForPrompt, shrinkDataUrl, abortAllImageGen } from './systems/imageGen';
+import { generateImage, buildPortraitPrompt, buildEquipPrompt, equippedForPrompt, inferBodyType, shrinkDataUrl, abortAllImageGen } from './systems/imageGen';
 import { genPortraitTags, genEquipTags, isTagService, genderToTag } from './systems/imageTags';
 import { hydrateImages, initImageSync } from './systems/imageSync';
 import { loadWb, saveWb } from './systems/wbDb';
@@ -3842,19 +3842,24 @@ ${AFFIX_EFFECT_RULE}`;
     };
     const p = usePlayer.getState().profile;
     const rosterLines: string[] = [];
+    // 在场角色资料 = 常驻长相(基底外观·固定锚点) + 当前状态(本轮外观) + 画像锚点(imageTags) + 形态
+    // —— 让正文配图与角色立绘长相一致（基底肖像不再漏读），非人形角色也按生物画、不被画成人。
+    const charLine = (id: string, name: string, gtag: string, base: string, now: string, tags: string, btRaw?: string) => {
+      const bt = (btRaw || '').trim() || inferBodyType([base, now, tags].join(' '));
+      const form = bt && bt !== '人形' ? `／形态：${bt}（非人形，按生物本体画，切勿画成人形/人脸）` : '';
+      return `[${id}] ${name}（${gtag}${form}）：` +
+        (base ? `常驻长相(固定)：${base}。` : '') +
+        (now ? `当前状态：${now}。` : (base ? '' : '外观见正文')) +
+        (tags ? `画像锚点：${tags}` : '');
+    };
     if (p?.name) {
-      const pa = (p.appearance || p.baseAppearance || '').trim();
-      const ptags = (p.imageTags || '').trim();
-      rosterLines.push(
-        `[B1] ${p.name}（主角／${genderLabel(p.gender)}）：${pa || '外观见正文'}` +
-        (ptags ? `。画像锚点(imageTags)：${ptags}` : ''),
-      );
+      rosterLines.push(charLine('B1', p.name, `主角／${genderLabel(p.gender)}`, (p.baseAppearance || '').trim(), (p.appearance || '').trim(), (p.imageTags || '').trim(), p.bodyType));
     }
     const onNpcs = Object.values(useNpc.getState().npcs).filter((r) => !r.isDead && r.onScene);
     for (const r of onNpcs) {
       const seg = (r.appearance5 || '').split('|');
       const ap = [seg[4], seg[3], seg[1], r.appearanceDetail].map((x) => (x || '').trim()).filter(Boolean).join('，');
-      rosterLines.push(`[${r.id}] ${r.name}（${genderLabel(r.gender)}）：${ap || '外观未知'}`);
+      rosterLines.push(charLine(r.id, r.name, genderLabel(r.gender), (r.baseAppearance || '').trim(), ap, (r.imageTags || '').trim(), r.bodyType));
     }
     const charsFull = rosterLines.length ? rosterLines.join('\n') : '（无在场角色资料）';
     const M = useMisc.getState();

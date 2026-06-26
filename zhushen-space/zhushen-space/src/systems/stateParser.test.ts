@@ -59,12 +59,29 @@ describe('pickTargetItem（消耗/销毁的目标物品定位，容忍 AI 把名
 describe('createItem 确定性护栏（④货币伪物品拒建 + ③combatStat 机读归一）', () => {
   const run = (s: string) => applyItemCommands(parseAllItemCommands(`<upstore>${s}</upstore>`));
 
-  it('④ 货币/点数被 createItem 成物品 → 拒绝建成死条目', () => {
-    useItems.setState({ items: [] });
+  const zeroWallet = { 乐园币: 0, 灵魂钱币: 0, 技能点: 0, 黄金技能点: 0 };
+
+  it('④ 货币 createItem(如开宝箱得乐园币) → 不建死条目、直接计入钱包（修"不进货币/不第一时间更新"）', () => {
+    useItems.setState({ items: [], currency: { ...zeroWallet } });
     run('createItem({"name":"乐园币","category":"特殊物品","quantity":500})');
+    run('createItem({"name":"灵魂钱币","category":"特殊物品","quantity":2})');
+    expect(useItems.getState().items.length).toBe(0);           // 不建死条目
+    expect(useItems.getState().currency.乐园币).toBe(500);       // 第一时间进钱包
+    expect(useItems.getState().currency.灵魂钱币).toBe(2);
+  });
+
+  it('④ 成长点数 createItem → 拒绝且不计入（点数只在【世界结算】发放）', () => {
+    useItems.setState({ items: [], currency: { ...zeroWallet } });
     run('createItem({"name":"技能点","category":"特殊物品","quantity":3})');
     run('createItem({"name":"潜能点","category":"重要物品","quantity":2})');
     expect(useItems.getState().items.length).toBe(0);
+    expect(useItems.getState().currency.技能点).toBe(0);         // 不被物品阶段补发
+  });
+
+  it('④ NPC owner 的货币 createItem → 不计入主角钱包', () => {
+    useItems.setState({ items: [], currency: { ...zeroWallet } });
+    run('createItem({"owner":"C1","name":"乐园币","category":"特殊物品","quantity":300})');
+    expect(useItems.getState().currency.乐园币).toBe(0);
   });
 
   it('④ 实物（灵魂结晶/宝箱）不受影响、照常建', () => {

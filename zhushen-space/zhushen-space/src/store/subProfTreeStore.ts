@@ -27,9 +27,10 @@ export interface SubProfTreeProgress {
   exchangedPP?: number;            // 累计【乐园币兑换】出的潜能点（越买越贵的递增基数）
   spent: number;                   // 已花潜能点（= Σ rank×cost，计入共享池）
   evoSeenTier?: Record<string, number>;   // 副职业名 → 演化阶段上次见到的熟练度档序（升档→质变全部配方）
+  bonusMastery?: Record<string, number>;  // 副职业名 → 技能升级面板花技能点直接喂的熟练度（独立加成·不动配方树节点·计入 subProfTreeSpent）
 }
 
-const newProgress = (): SubProfTreeProgress => ({ ranks: {}, aiBonusPP: 0, exchangedPP: 0, spent: 0 });
+const newProgress = (): SubProfTreeProgress => ({ ranks: {}, aiBonusPP: 0, exchangedPP: 0, spent: 0, bonusMastery: {} });
 
 /* 解锁配方时给的初始熟练度（学了图纸但还没多练）；越高阶起步越低 */
 const LEARN_PROGRESS: Record<string, number> = { medium: 30, major: 15, capstone: 6 };
@@ -41,6 +42,9 @@ export const SUBPROF_MASTERY_LADDER: { tier: string; min: number }[] = [
 ];
 const GROWTH_MUL = [1.0, 1.4, 1.9, 2.5, 3.2];   // 副职业熟练度越高，配方熟练度涨得越快（喂给演化阶段的 bumpRecipe 乘子）
 
+/** 技能升级面板：每 1 技能点喂给副职业的熟练度（宗师阈值=400；新手起约 20 技能点到顶，有配方树进度则更少）。 */
+export const SUBPROF_MASTERY_PER_SKILLPOINT = 20;
+
 /** 某副职业在其配方树上累计耗费的潜能点（= 副职业熟练度原始值；跨同名多棵树求和） */
 export function subProfTreeSpent(profName: string, charId = 'B1'): number {
   const s = useSubProfTree.getState();
@@ -50,6 +54,7 @@ export function subProfTreeSpent(profName: string, charId = 'B1'): number {
     if (tree.profession !== profName) continue;
     for (const n of tree.nodes) { const r = prog.ranks[n.id] ?? 0; if (r > 0) sum += r * (n.cost ?? 0); }
   }
+  sum += prog.bonusMastery?.[profName] ?? 0;   // 技能升级面板·花技能点直接喂的熟练度（不动配方树节点·见 addSubProfMastery）
   return sum;
 }
 /** 副职业熟练度档位信息：原始点数 spent、档序 idx、档名 tier、下一档阈值、配方成长倍率、本档进度% */
@@ -208,6 +213,7 @@ interface SubProfTreeState {
 
   // 进度
   grantBonusPP: (charId: string, n: number) => void;
+  addSubProfMastery: (charId: string, profName: string, amount: number) => void;   // 技能升级面板：花技能点直接加某副职业熟练度（独立加成·不动配方树·会推进 subProfMastery 档位到宗师）
   rankUpNode: (charId: string, nodeId: string) => boolean;   // 点一个点：配方节点 rank0→1 学会配方；其余（微星/配方加点）纯花潜能点（→副职业熟练度）。无 API
   applyRecipeUpgrade: (charId: string, nodeId: string, upgraded: { tier?: string; materials?: string; output?: string; desc?: string; progress?: number }) => boolean;  // 配方节点 rank≥1 再投点：用 AI 质变后的配方覆盖（同名 upsert·不重置熟练度）+ 加一点
   setEvoSeenTier: (charId: string, profName: string, idx: number) => void;   // 演化阶段记录某副职业已质变到的熟练度档（防重复触发全质变）
@@ -313,6 +319,13 @@ export const useSubProfTree = create<SubProfTreeState>()(
       grantBonusPP: (charId, n) => set((s) => {
         const p = s.progress[charId] ?? newProgress();
         return { progress: { ...s.progress, [charId]: { ...p, aiBonusPP: Math.max(0, (p.aiBonusPP ?? 0) + n) } } };
+      }),
+
+      addSubProfMastery: (charId, profName, amount) => set((s) => {
+        const p = s.progress[charId] ?? newProgress();
+        const bm = { ...(p.bonusMastery ?? {}) };
+        bm[profName] = Math.max(0, (bm[profName] ?? 0) + amount);
+        return { progress: { ...s.progress, [charId]: { ...p, bonusMastery: bm } } };
       }),
 
       rankUpNode: (charId, nodeId) => {

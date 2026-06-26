@@ -101,6 +101,27 @@ describe('serializePlayerCard（HP/EP 满状态含加成 + 真实属性注入）
   });
 });
 
+/* 外观锚点：基底外观为空时，回退用即时外观当常驻锚点注入（治"只传即时外观、外貌每回合让 AI 猜/漂移"）。 */
+describe('serializePlayerCard（外观锚点：基底外观为空回退即时外观）', () => {
+  const base = { name: '云舒', attrs: { str: 50, agi: 50, con: 50, int: 50, cha: 50, luck: 50 } };
+  const limits = { maxNpcs: 0, maxSkills: 0, maxItems: 0 };
+  const mk = (p: object) => serializePlayerCard({ ...base, ...p } as unknown as PlayerProfile, { hp: 100, maxHp: 100, mp: 50, maxMp: 50 }, [], [], [], limits);
+
+  it('基底外观为空、有即时外观 → 即时外观被当作「基底外观」常驻锚点注入', () => {
+    const card = mk({ baseAppearance: '', appearance: '身高180·黑发金瞳·精瘦无肌肉' });
+    expect(card).toContain('基底外观(常驻长相·开局设定·最高基准·绝不漂移):身高180·黑发金瞳·精瘦无肌肉');
+  });
+  it('基底外观为空时不重复输出「外观(即时状态…)」行（避免同段重复）', () => {
+    const card = mk({ baseAppearance: '', appearance: '身高180·黑发金瞳' });
+    expect(card).not.toContain('外观(即时状态');
+  });
+  it('基底外观已填、即时外观不同 → 两段都注入（基底 + 即时）', () => {
+    const card = mk({ baseAppearance: '身高180·黑发金瞳·精瘦', appearance: '满身尘土、左臂缠绷带' });
+    expect(card).toContain('基底外观(常驻长相·开局设定·最高基准·绝不漂移):身高180·黑发金瞳·精瘦');
+    expect(card).toContain('外观(即时状态·动作/姿态/衣着/伤损·须与上方基底外观一致):满身尘土、左臂缠绷带');
+  });
+});
+
 /* 精简物品栏（leanItems）：用户输入提到的物品 + 当前已装备 → 全量信息；其余整背包 → 仅名称。
    治"每件物品都全量太占 token"，同时保证相关/在用物品细节不丢。 */
 describe('serializePlayerCard（精简物品栏：提到/已装备→全量，其余→仅名称）', () => {

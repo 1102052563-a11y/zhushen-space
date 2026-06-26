@@ -290,10 +290,21 @@ function applyOneItemCommand(cmd: ItemCommand, store: any, npcEquipDupCtx?: Map<
       if (!item['1'] && !item.name) break;
       const name: string = item['1'] ?? item.name ?? '未知物品';
 
-      // 货币/点数被误建成物品的拦截（确定性护栏）：乐园币/魂币/技能点/黄金技能点/潜能点/进阶点/属性点… 是数值资源，
-      // 只能走 state 货币/点数指令；createItem 成「特殊物品」会变成既不能用也不能装备的死条目 → 直接拒绝创建。
+      // 货币/点数被 createItem 成物品的拦截（确定性护栏）：乐园币/魂币/技能点/潜能点… 是数值资源、不能当物品。
+      // 但"任务世界开宝箱得乐园币"等场景，AI 常按容器规则「用 createItem 入账内容物」直接 createItem 乐园币 →
+      // 旧逻辑要么变死条目、要么(本护栏初版)被丢弃，两种钱包都不涨（用户报"开箱得乐园币不进货币、不会第一时间更新"）。
+      // 故这里改为【转换而非丢弃】：货币(乐园币/魂币) 按 quantity 直接计入主角钱包（applyAllUpdates 同步应用→第一时间到账）；
+      // 成长点数(技能点/黄金技能点/潜能点/进阶点/属性点) 只在【世界结算】发放，物品阶段一律不补 → 仍拒绝、不计。
       if (isResourcePseudoItem({ name })) {
-        console.warn(`[Item] 拒绝把货币/点数「${name}」createItem 成物品（数值资源应走 state 货币指令；已忽略此死条目）`);
+        const isPoint = /技能点|潜能点|进阶点|属性点/.test(name);   // 含 黄金技能点 / 真实属性点
+        const amt = parseInt(String(item['5'] ?? item.quantity ?? '0').replace(/[^\d]/g, ''), 10) || 0;
+        if (!isPoint && amt > 0 && owner === 'B1') {
+          const ccy = normalizeCurrencyType(name);                  // 乐园币 / 灵魂钱币
+          store.adjustCurrency(ccy, amt);
+          console.log(`[Item] 「${name}」是货币 → 直接计入钱包 +${amt} ${ccy}（不建成物品死条目）`);
+        } else {
+          console.warn(`[Item] 拒绝把货币/点数「${name}」createItem 成物品（${isPoint ? '点数只在【世界结算】发放' : amt <= 0 ? '数量缺失/为0、无法计入' : 'NPC 货币不计入主角钱包'}；已忽略死条目）`);
+        }
         break;
       }
 
