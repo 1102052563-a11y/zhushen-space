@@ -91,6 +91,7 @@ import { useSettings, resolveApiChain } from './store/settingsStore';
 import { apiChatFallback, fetchWithProxy, abortAllApiCalls } from './systems/apiChat';
 import { parseAllStateUpdates, stripStateBlocks, parseAllItemCommands, applyItemCommands, parseAllCharCommands, applyCharacterCommands, parseAllNpcCommands, applyNpcCommands, parseAllFactionCommands, applyFactionCommands, applyTerritoryCommands, applyTeamCommands, isEquippable, lenientJsonParse } from './systems/stateParser';
 import { isRealNpc, sanitizeEntryName, stripLeakedThinking, setNpcPreferredOwners, applyStateUpdates, applyAllUpdates, stripKillBlocks, stripVitalsBlocks, stripWorldSourceBlocks, collapseRunaway } from './systems/stateApply';
+import { snapshotPlayerBag, reconcilePlayerBag } from './systems/itemWatchdog';
 import { flattenAiText } from './systems/flattenAiText';
 import { runPhasePipeline, type Phase } from './systems/phasePipeline';
 import { buildFanficInjection, buildFactInjection, buildCosmosInjection, buildPlayerCoreInjection, buildWorldTimeInjection, buildQuestInjection } from './systems/promptInjections';
@@ -1174,6 +1175,7 @@ export default function App() {
   const [started, setStarted] = useState(false);
   const [creating, setCreating] = useState(false);   // 角色创建页
   const [b1Notice, setB1Notice] = useState('');       // 主角自检兜底：自动恢复后的提示横幅
+  const [itemRecoverNotice, setItemRecoverNotice] = useState('');   // 物品守护看门狗：自动捞回静默丢失后的提示横幅
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [mobileDrawer, setMobileDrawer] = useState<'player' | 'menu' | null>(null); // 手机端：左角色栏 / 右导航 抽屉
   const [inputValue, setInputValue] = useState(() => { try { return localStorage.getItem('drpg-chat-draft') || ''; } catch { return ''; } });   // 输入草稿持久化：误触返回/刷新/崩溃也不丢已输入的行动
@@ -6562,9 +6564,16 @@ ${lines}`;
       { key: 'equipImg',  enabled: true, delayMs: 6000, run: () => runEquipImagePhase() },
       { key: 'storyImg',  enabled: assistantMsgId != null, run: () => runStoryImagePhase(narrative, assistantMsgId!) },
     ];
+    // 物品守护看门狗（Phase 1）：演化阶段开始前快照背包，settle 后对账，自动捞回"消失了却不在最近删除、又非合并"的静默丢失。
+    const bagSnapForReconcile = snapshotPlayerBag();
     const pipe = runPhasePipeline(phases);
     // 会改快照变量的阶段全部 settle 后抓「回合洞察」快照；若已被新回合取代则跳过（20s 定时器仍兜底，同回合覆盖）
     pipe.snapshotReady.then(() => {
+      // 物品守护对账：先于"被新回合取代则跳过"的判断执行，确保即便本回合已被取代，丢失的物品也已被捞回
+      try {
+        const rec = reconcilePlayerBag(bagSnapForReconcile);
+        if (rec.restored > 0) setItemRecoverNotice(`🛟 物品守护：本回合演化中有 ${rec.restored} 件物品异常消失（未进「最近删除」），已自动找回 —— ${rec.names.join('、')}`);
+      } catch (e) { console.warn('[Watchdog] 物品对账失败', e); }
       if (turnCountRef.current !== snapTurn) return;
       // 非战斗回合：以正文末尾「当前HP/EP：X/Y」为**最终权威**——演化阶段全跑完后再压回一次主角+NPC 的 HP/EP，纠正演化把血量改写导致面板与正文末尾对不上。(战斗回合以战斗结算值为准。)
       if (!combatSettled) { try { applyNarrativeVitals(narrative); applyNarrativeNpcVitals(narrative); } catch (e) { console.warn('[Vitals] settle 后压回失败', e); } }
@@ -7148,6 +7157,7 @@ ${lines}`;
   }
   /* 回退到上一回合：恢复所有演化/对话/图到发送本回合之前（整页 reload）*/
   async function rollbackTurn() {
+    if (useMp.getState().status === 'connected') { setGenError('联机房间内不能回退（会刷新页面+断开房间，队友会被还原到各自单机存档）。请先关闭/离开房间再回退。'); setTimeout(() => setGenError(''), 6000); return; }
     // 守卫：回退点为空(旧版遗留/开局所记)就不执行——否则会把聊天清成空白。同步关掉按钮。
     if (!(await undoPointHasChat())) { setCanUndo(false); setGenError('没有可回退的对话（回退点为空，避免清屏已取消）'); setTimeout(() => setGenError(''), 5000); return; }
     const ok = await loadSlot(UNDO_ID);
@@ -7155,6 +7165,7 @@ ${lines}`;
   }
   /* 重新生成本次正文：先回退到本回合之前，reload 后自动重发同一条输入（演化不会叠加）*/
   async function regenerateTurn() {
+    if (useMp.getState().status === 'connected') { setGenError('联机房间内不能重新生成（会刷新页面+断开房间，队友会被还原到各自单机存档）。请先关闭/离开房间。'); setTimeout(() => setGenError(''), 6000); return; }
     // 输入优先用本会话内存值；刷新/读档后内存丢失，则回退到对话历史里最后一条用户消息
     // （读档恢复的对话仍含它）——这样读档后也能「重新生成」上一回合。
     const input = lastUserInputRef.current || ([...(messagesRef.current ?? [])].reverse().find((m) => m.role === 'user')?.content ?? '');
@@ -7168,6 +7179,7 @@ ${lines}`;
   /* 仅重算变量（保留正文）：回退到本回合之前 → reload → 复用本回合原正文重跑「指令解析+全部演化」，不重新生成正文。
      必须先回退，否则会在已应用过的状态上二次叠加（HP/物品翻倍等）。原文(含 <state>)存 lastRawNarrativeRef，刷新会丢→须本会话内点。*/
   async function regenerateVarsOnly() {
+    if (useMp.getState().status === 'connected') { setGenError('联机房间内不能重算变量（会刷新页面+断开房间，队友会被还原到各自单机存档）。请先关闭/离开房间。'); setTimeout(() => setGenError(''), 6000); return; }
     const raw = lastRawNarrativeRef.current;
     const input = lastUserInputRef.current;
     if (!raw) { setGenError('拿不到本回合正文原文（刷新后会丢失），请改用「重新生成」'); setTimeout(() => setGenError(''), 5000); return; }
@@ -7428,6 +7440,15 @@ ${lines}`;
           <span className="shrink-0">🛟</span>
           <span className="flex-1 leading-snug">{b1Notice}</span>
           <button onClick={() => setB1Notice('')} className="shrink-0 px-2 py-0.5 border border-god/40 rounded hover:bg-god/10">知道了</button>
+        </div>
+      )}
+
+      {/* 物品守护看门狗：自动捞回静默丢失后的提示横幅（可关） */}
+      {itemRecoverNotice && (
+        <div className="shrink-0 flex items-center gap-2 px-4 py-2 bg-god/15 border-b border-god/40 text-god text-[13px] font-mono">
+          <span className="shrink-0">🛟</span>
+          <span className="flex-1 leading-snug">{itemRecoverNotice}</span>
+          <button onClick={() => setItemRecoverNotice('')} className="shrink-0 px-2 py-0.5 border border-god/40 rounded hover:bg-god/10">知道了</button>
         </div>
       )}
 
