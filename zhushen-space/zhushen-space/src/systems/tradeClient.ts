@@ -35,7 +35,9 @@ function stripItemSnapshot(it: any) {
 type EscrowEntry = { token: string; item: any; listingId: string | null; at: number };
 function loadEscrow(): Record<string, EscrowEntry> { try { return JSON.parse(localStorage.getItem(ESCROW_KEY) || '{}'); } catch { return {}; } }
 function saveEscrow(m: Record<string, EscrowEntry>) { try { localStorage.setItem(ESCROW_KEY, JSON.stringify(m)); } catch {} }
-function returnItem(item: any) { try { useItems.getState().addItem({ ...item }); } catch {} }
+// 归还：剥掉原背包 id —— 部分上架时原堆叠仍在背包，带 id 归还会命中 addItem 的「同 id 原地更新」把剩余数量覆盖丢失；
+// 去 id 后按名字回堆（可堆叠类）或新建（装备），数量正确累加。
+function returnItem(item: any) { try { const { id, ...rest } = item || {}; useItems.getState().addItem({ ...rest }); } catch {} }
 
 /** 重连/进场对账：托管里已不在看板的→归还；没确认过的→补 listingId 或超时归还。 */
 function reconcileEscrow(listings: TradeListing[]) {
@@ -224,13 +226,16 @@ function dispatch(m: TradeInbound) {
 }
 function assertNever(_m: never): void { /* 仅用于穷尽性检查；运行时对未知 type 是 no-op */ }
 
-function listItem(item: any, price: number, currency: string, note: string) {
+// qty = 上架数量（部分上架：只挂 n 件，剩余留背包）。clamp 到 1..库存。
+function listItem(item: any, qty: number, price: number, currency: string, note: string) {
   if (!item) return false;
+  const max = Math.max(1, Math.floor(Number(item.quantity) || 1));
+  const n = Math.min(max, Math.max(1, Math.floor(Number(qty) || 1)));
   const token = 't_' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
-  const snap = stripItemSnapshot(item);
+  const snap = { ...stripItemSnapshot(item), quantity: n };            // 快照只挂 n 件
   const ok = sendRaw({ type: 'list_item', item: snap, price, currency, note, clientToken: token });
   if (!ok) return false;
-  try { useItems.getState().removeItem(item.id); } catch {}            // 上架即从背包扣物
+  try { useItems.getState().consumeItem(item.id, n); } catch {}        // 上架即从背包扣 n 件（全扣→整条移除，部分→减库存）
   const mm = loadEscrow(); mm[token] = { token, item: snap, listingId: null, at: Date.now() }; saveEscrow(mm);
   setTimeout(() => {                                                    // 8s 没收到确认 → 视为失败，归还
     const m2 = loadEscrow(); const e = m2[token];

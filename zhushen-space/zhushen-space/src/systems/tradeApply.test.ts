@@ -102,6 +102,20 @@ describe('交易行 结算 + 货币托管', () => {
     expect(useItems.getState().currency.乐园币).toBe(20);          // 兜底扣 80
   });
 
+  it('部分上架：扣 n 件 + 归还按名回堆，不覆盖剩余库存', () => {
+    // 背包：可堆叠丹药 ×10。模拟 listItem 上架 3 件（consumeItem）→ 剩 7。
+    useItems.setState({ items: [{ id: 'i1', name: '渡厄丹', category: '消耗品', quantity: 10, addedAt: 0 } as any], currency: { ...ZERO } });
+    useItems.getState().consumeItem('i1', 3);
+    expect(useItems.getState().items.find((it) => it.id === 'i1')?.quantity).toBe(7);
+    // 模拟 returnItem 归还托管的 3 件：剥掉原 id → addItem 按名回堆（若带原 id 会命中「同 id 原地更新」把 7 覆盖成 3）。
+    const snap = { id: 'i1', name: '渡厄丹', category: '消耗品', quantity: 3 };
+    const { id: _omit, ...rest } = snap;
+    useItems.getState().addItem({ ...rest } as any);
+    const stacks = useItems.getState().items.filter((it) => it.name === '渡厄丹');
+    expect(stacks.length).toBe(1);          // 仍是一条堆叠，没分裂
+    expect(stacks[0].quantity).toBe(10);    // 回到 10，而非被覆盖成 3
+  });
+
   it('幂等：同一 record.id 不重复结算', () => {
     useTrade.setState({ me: { playerId: 'chat:1', name: 'A' } });
     setItemEscrow({ tk1: { token: 'tk1', item: { name: 'x' }, listingId: 'L1', at: Date.now() } });

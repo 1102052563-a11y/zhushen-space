@@ -13,6 +13,20 @@ import { discordLoggedIn, discordLogin, fetchChatIdentity, chatReady, chatName, 
 const EQUIP_CATS = new Set(['武器', '防具', '饰品', '法宝']);
 const CURRENCIES = ['乐园币', '魂币'];
 
+// 交易行分类筛选桶（无「全部」标签）：把细分物品分类归并成几个大桶，按桶过滤挂牌。
+const CAT_BUCKETS: { key: string; label: string; cats: string[] }[] = [
+  { key: '装备', label: '⚔️ 装备', cats: ['武器', '防具', '饰品', '法宝'] },
+  { key: '宝石', label: '💎 宝石', cats: ['宝石'] },
+  { key: '消耗', label: '🧪 消耗', cats: ['消耗品', '丹药', '灵药', '符箓'] },
+  { key: '材料', label: '🧱 材料', cats: ['材料', '工具', '阵具', '功法'] },
+  { key: '其他', label: '📦 其他', cats: [] },   // 兜底：上面没归到的(重要物品/特殊物品/凡物/其他物品/未知)
+];
+function bucketOf(cat?: string): string {
+  const c = String(cat || '');
+  for (const b of CAT_BUCKETS) if (b.cats.includes(c)) return b.key;
+  return '其他';
+}
+
 function itemKind(item: any): EntityKind { return EQUIP_CATS.has(String(item?.category || '')) ? 'equip' : 'item'; }
 function fmtTime(at: number) {
   const d = new Date(at);
@@ -37,11 +51,13 @@ export default function TradePanel({ onClose }: { onClose: () => void }) {
 
   const [showForm, setShowForm] = useState(false);
   const [selId, setSelId] = useState('');
+  const [qty, setQty] = useState('1');
   const [price, setPrice] = useState('');
   const [currency, setCurrency] = useState(CURRENCIES[0]);
   const [note, setNote] = useState('');
   const [detail, setDetail] = useState<{ kind: EntityKind; data: any } | null>(null);
   const [view, setView] = useState<'board' | 'history'>('board');   // 看板 / 历史成交
+  const [cat, setCat] = useState('');   // 分类筛选选中的桶（空=未选→回退首个有挂牌的桶）
 
   // 进场：已登录则确保身份后连接（与聊天室同一 Discord 身份）；未登录显门禁。离场断开。
   useEffect(() => {
@@ -72,11 +88,23 @@ export default function TradePanel({ onClose }: { onClose: () => void }) {
   const sellable = useMemo(() => (items || []).filter((it: any) => !isResourcePseudoItem(it)), [items]);
   const connected = st.status === 'connected';
   const selItem = sellable.find((it: any) => it.id === selId) || null;
+  const selMax = Math.max(1, Number(selItem?.quantity) || 1);
+
+  // 分类筛选：按桶统计挂牌数，只展示有挂牌的桶（无「全部」标签）；选中桶为空时回退到首个有挂牌的桶。
+  const bucketCounts = useMemo(() => {
+    const m: Record<string, number> = {};
+    for (const L of st.listings) { const k = bucketOf(L.item?.category); m[k] = (m[k] || 0) + 1; }
+    return m;
+  }, [st.listings]);
+  const presentBuckets = CAT_BUCKETS.filter((b) => (bucketCounts[b.key] || 0) > 0);
+  const activeCat = presentBuckets.some((b) => b.key === cat) ? cat : (presentBuckets[0]?.key || '');
+  const shownListings = useMemo(() => st.listings.filter((L) => bucketOf(L.item?.category) === activeCat), [st.listings, activeCat]);
 
   const doList = () => {
     if (!selItem || !connected) return;
-    tradeClient.listItem(selItem, Math.max(0, parseInt(price || '0', 10) || 0), currency, note.trim());
-    setSelId(''); setPrice(''); setNote(''); setShowForm(false);
+    const n = Math.min(selMax, Math.max(1, parseInt(qty || '1', 10) || 1));
+    tradeClient.listItem(selItem, n, Math.max(0, parseInt(price || '0', 10) || 0), currency, note.trim());
+    setSelId(''); setQty('1'); setPrice(''); setNote(''); setShowForm(false);
   };
 
   return (
@@ -136,13 +164,21 @@ export default function TradePanel({ onClose }: { onClose: () => void }) {
             {showForm && (
               <div className="shrink-0 border-b border-edge bg-panel/50 px-5 py-3 space-y-2">
                 <div className="text-[11px] font-mono text-amber-400/60">上架后物品移入「托管」：被接受成交 → 自动交付买家并收款；手动下架 / 满 1 天未成交 → 自动归还背包</div>
-                <select value={selId} onChange={(e) => setSelId(e.target.value)} className="w-full px-2.5 py-2 rounded-lg bg-void border border-edge text-sm text-slate-100 outline-none focus:border-god/40">
+                <select value={selId} onChange={(e) => { setSelId(e.target.value); setQty('1'); }} className="w-full px-2.5 py-2 rounded-lg bg-void border border-edge text-sm text-slate-100 outline-none focus:border-god/40">
                   <option value="">— 选择背包物品 —</option>
                   {sellable.map((it: any) => (
                     <option key={it.id} value={it.id}>{it.name}{it.quantity > 1 ? ` ×${it.quantity}` : ''}{it.gradeDesc ? ` · ${it.gradeDesc}` : ''}</option>
                   ))}
                 </select>
                 {sellable.length === 0 && <div className="text-[11px] text-dim/40">背包里没有可上架的物品。</div>}
+                {selItem && selMax > 1 && (
+                  <div className="flex items-center gap-2">
+                    <span className="text-[12px] text-dim/70 shrink-0">卖出数量</span>
+                    <input type="number" min={1} max={selMax} value={qty} onChange={(e) => setQty(e.target.value)} className="w-24 px-2.5 py-2 rounded-lg bg-void border border-edge text-sm text-slate-100 outline-none focus:border-god/40" />
+                    <span className="text-[11px] font-mono text-dim/40 shrink-0">库存 {selMax}</span>
+                    <button type="button" onClick={() => setQty(String(selMax))} className="text-[11px] text-god/70 hover:text-god transition-colors shrink-0">全部</button>
+                  </div>
+                )}
                 <div className="flex items-center gap-2">
                   <input type="number" min={0} value={price} onChange={(e) => setPrice(e.target.value)} placeholder="价格" className="flex-1 px-2.5 py-2 rounded-lg bg-void border border-edge text-sm text-slate-100 placeholder:text-dim/40 outline-none focus:border-god/40" />
                   <select value={currency} onChange={(e) => setCurrency(e.target.value)} className="px-2.5 py-2 rounded-lg bg-void border border-edge text-sm text-slate-100 outline-none focus:border-god/40">
@@ -159,12 +195,24 @@ export default function TradePanel({ onClose }: { onClose: () => void }) {
 
             {st.error && <div className="shrink-0 px-5 py-1.5 text-[11px] font-mono text-amber-400/80 border-b border-edge">{st.error}</div>}
 
+            {/* 分类筛选标签（无「全部」；只展示有挂牌的分类） */}
+            {presentBuckets.length > 0 && (
+              <div className="shrink-0 flex items-center gap-1.5 px-4 py-2 border-b border-edge/60 overflow-x-auto">
+                {presentBuckets.map((b) => (
+                  <button key={b.key} onClick={() => setCat(b.key)}
+                    className={`px-2.5 py-1 rounded-lg text-[12px] font-semibold whitespace-nowrap border transition-colors ${activeCat === b.key ? 'bg-god/20 border-god/40 text-god' : 'border-edge text-dim/60 hover:text-slate-200'}`}>
+                    {b.label} <span className="font-mono opacity-60">{bucketCounts[b.key]}</span>
+                  </button>
+                ))}
+              </div>
+            )}
+
             {/* 挂牌列表 */}
             <div className="flex-1 overflow-y-auto px-4 py-3 space-y-3">
               {st.listings.length === 0 && (
                 <div className="text-center text-dim/40 text-xs font-mono py-12">{connected ? '— 交易行还没有挂牌，点「➕ 上架物品」第一个上架 —' : '— 连接中… —'}</div>
               )}
-              {st.listings.map((L) => (
+              {shownListings.map((L) => (
                 <ListingCard key={L.id} listing={L} mePid={st.me?.playerId} connected={connected}
                   onOpenDetail={(kind, data) => setDetail({ kind, data })} />
               ))}
