@@ -4,7 +4,7 @@ import { useCharacters, type Deed } from './characterStore';
 import type { PlayerAttrs, StatusEffect } from './playerStore';
 import { normalizeTier, realmFromLevel, lvFromRealm } from '../systems/derivedStats';
 import type { SocketedGem, GemSlotKind } from './itemStore';
-import { normalizeGradeLabel } from './itemStore';
+import { normalizeGradeLabel, markAccountedRemoval } from './itemStore';
 
 /* 判断「列4状态」是否表示该角色【真的死亡】。
    只认明确的死亡状态，**排除**只是提到"死"字却没死的情况（濒死/濒临死亡/挚友身亡/恐惧死亡/假死/不死之身…），
@@ -744,6 +744,7 @@ export const useNpc = create<NpcState>()(
         set((s) => {
           const rec = s.npcs[ownerId];
           if (!rec) return s;
+          markAccountedRemoval(itemId);   // 经官方方法移除（转给玩家/赠予等）→ 登记，看门狗不误捞
           return { npcs: { ...s.npcs, [ownerId]: { ...rec, items: rec.items.filter((it) => it.id !== itemId), updatedAt: Date.now() } } };
         }),
 
@@ -774,6 +775,8 @@ export const useNpc = create<NpcState>()(
         set((s) => {
           const rec = s.npcs[ownerId];
           if (!rec) return s;
+          const target = rec.items.find((it) => it.id === itemId);
+          if (target && (target.quantity - qty) <= 0) markAccountedRemoval(itemId);   // 整件用尽 → 登记移除，看门狗不误捞
           const items = rec.items
             .map((it) => it.id === itemId ? { ...it, quantity: it.quantity - qty } : it)
             .filter((it) => it.quantity > 0);

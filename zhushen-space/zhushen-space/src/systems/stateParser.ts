@@ -529,7 +529,7 @@ function applyOneItemCommand(cmd: ItemCommand, store: any, npcEquipDupCtx?: Map<
         console.log(`[Item] NPC ${owner} 卸下 ${data.itemId}`);
         break;
       }
-      const item = findItemById(store, data.itemId) ?? findItemByName(store, data.itemId);
+      const item = pickTargetItem(store.items, data.itemId, data.name ?? data['1'] ?? data.itemName);
       if (item) {
         store.unequipItem(item.id);
         console.log(`[Item] 卸下 ${item.name}`);
@@ -538,13 +538,16 @@ function applyOneItemCommand(cmd: ItemCommand, store: any, npcEquipDupCtx?: Map<
     }
 
     case 'updateItemQuantity': {
-      const item = findItemById(store, data.itemId);
+      // 身份安全：按 name+id 解析到唯一实例（幻觉 id 不再改错隔壁那件）；解析不到就跳过、不误改
+      const item = pickTargetItem(store.items, data.itemId, data.name ?? data['1'] ?? data.itemName);
       if (item) store.updateItem(item.id, { quantity: data.newQuantity });
+      else console.warn(`[Item] updateItemQuantity 未定位到物品（name=${data.name ?? data['1']} id=${data.itemId}）——跳过，不改错别的物品`);
       break;
     }
 
     case 'updateItem': {
-      const item = findItemById(store, data.itemId);
+      // 身份安全：按 name+id 解析（此前只 findItemById 裸按 id，幻觉 id 会把属性/词缀改到错误的另一件上）
+      const item = pickTargetItem(store.items, data.itemId, data.name ?? data['1'] ?? data.itemName);
       if (item) {
         // 兼容两种写法：嵌套 updateItem({itemId, patch:{…}}) / 扁平 updateItem({itemId, name, affix:…})
         // 此前只认 data.patch，AI 写成扁平就整条被丢弃（词缀/属性变化不生效的元凶之一）
@@ -583,7 +586,7 @@ function applyOneItemCommand(cmd: ItemCommand, store: any, npcEquipDupCtx?: Map<
           if (v != null && typeof v !== 'string') patch[k] = typeof v === 'object' ? String((v as any).name ?? (v as any).text ?? (v as any).desc ?? (v as any).value ?? JSON.stringify(v)) : String(v);
         }
         if (Object.keys(patch).length) store.updateItem(item.id, patch);
-      }
+      } else console.warn(`[Item] updateItem 未定位到物品（name=${data.name ?? data['1']} id=${data.itemId}）——跳过，绝不把属性改到错误的另一件物品上`);
       break;
     }
 

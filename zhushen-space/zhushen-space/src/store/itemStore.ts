@@ -380,6 +380,19 @@ const _accountedRemovals = new Set<string>();
 export const markAccountedRemoval = (id?: string): void => { if (id) _accountedRemovals.add(id); };
 export const clearAccountedRemovals = (): void => { _accountedRemovals.clear(); };
 export const isAccountedRemoval = (id: string): boolean => _accountedRemovals.has(id);
+
+/* ── 物品演化底层重构 · Phase 4-lite「物品流水审计」──
+ * 记录每件物品的【离场事件】(销毁/消耗/转出/合并/看门狗捞回)：回合 + 操作 + 物品名 + 原因/去向。
+ * 这是对「最近删除」的补全——它只收可恢复的删除，而这里把交易转出/堆叠合并/守护捞回这些不进回收站的也记下，
+ * 让"东西到底去哪了"永远可查。内存环形缓冲(末 300 条·不进 localStorage·随诊断包导出)，纯增量、零行为改动。*/
+export interface ItemLogEvent { turn: number; op: string; name: string; detail?: string; at: number }
+const _itemLog: ItemLogEvent[] = [];
+export function logItemEvent(turn: number, op: string, name: string, detail?: string): void {
+  _itemLog.push({ turn, op, name, detail, at: Date.now() });
+  if (_itemLog.length > 300) _itemLog.splice(0, _itemLog.length - 300);
+}
+export function getItemLog(): ItemLogEvent[] { return _itemLog.slice(); }
+export function clearItemLog(): void { _itemLog.length = 0; }
 // 归一化：去标点/空格，并去掉「的/之」等填充虚词——让"劣质餐刀"与"劣质的餐刀"视为同名
 const stackNorm = (x?: string) => (x ?? '').replace(/[\s·•・\-—_,，.。、|｜【】（）()的之]/g, '').toLowerCase();
 
@@ -461,7 +474,11 @@ export const useItems = create<ItemState>()(
 
       removeItem: (id) => {
         markAccountedRemoval(id);   // 经官方方法移除（多为交易/赌坊/赠予等主动转出）→ 登记，看门狗不误捞
-        set((s) => ({ items: s.items.filter((it) => it.id !== id) }));
+        set((s) => {
+          const it = s.items.find((x) => x.id === id);
+          if (it) logItemEvent(s.itemTurn, '转出/移除', it.name, '经 removeItem（交易/赌坊/赠予等主动转出）');
+          return { items: s.items.filter((x) => x.id !== id) };
+        });
       },
 
       consumeItem: (id, quantity) =>
@@ -471,6 +488,7 @@ export const useItems = create<ItemState>()(
             const next = it.quantity - quantity;
             if (next > 0) return [{ ...it, quantity: next }];
             markAccountedRemoval(id);   // 整件用尽/卖尽 → 登记移除，看门狗不误捞
+            logItemEvent(s.itemTurn, '消耗用尽', it.name, `consumeItem ×${quantity}`);
             return [];
           }),
         })),
@@ -478,13 +496,16 @@ export const useItems = create<ItemState>()(
       // 移入「最近删除」回收站：从背包移除 + 记下删除回合与原因（解除装备态，恢复时不占槽）；表头去重保最近，封顶 100
       binItem: (item, info) => {
         markAccountedRemoval(item.id);   // 进最近删除也登记（与 binIds 双保险，防 recentlyDeleted 单回合溢出 100 时漏判）
-        set((s) => ({
-          items: s.items.filter((it) => it.id !== item.id),
-          recentlyDeleted: [
-            { ...item, equipped: false, equipSlot: undefined, deletedTurn: s.itemTurn, deleteKind: info?.kind, deleteReason: info?.reason },
-            ...s.recentlyDeleted.filter((d) => d.id !== item.id),
-          ].slice(0, 100),
-        }));
+        set((s) => {
+          logItemEvent(s.itemTurn, info?.kind === 'used' ? '消耗/使用' : '销毁/丢失', item.name, info?.reason);
+          return {
+            items: s.items.filter((it) => it.id !== item.id),
+            recentlyDeleted: [
+              { ...item, equipped: false, equipSlot: undefined, deletedTurn: s.itemTurn, deleteKind: info?.kind, deleteReason: info?.reason },
+              ...s.recentlyDeleted.filter((d) => d.id !== item.id),
+            ].slice(0, 100),
+          };
+        });
       },
 
       restoreDeleted: (id) =>
@@ -552,6 +573,7 @@ export const useItems = create<ItemState>()(
             }
             const a = out[at];
             out[at] = { ...a, quantity: (a.quantity || 1) + (it.quantity || 1) };   // 同一种可堆叠物 → 累加（与 addItem 堆叠口径一致）
+            logItemEvent(s.itemTurn, '同名合并', it.name, `并入同名同品质条目（数量累加，未丢失）`);
             removed++;
           }
           return removed ? { items: out } : s;

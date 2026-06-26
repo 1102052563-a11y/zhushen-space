@@ -1,6 +1,7 @@
 import { saveDb } from './saveDb';
 import { useCharacters } from '../store/characterStore';
 import { useSettings } from '../store/settingsStore';
+import { useItems, getItemLog } from '../store/itemStore';
 
 /* ── 一键诊断包 ───────────────────────────────────────────────────────────
    导出排查「丢东西 / 内存与存档对不上」所需的**精简信息**：纯文本、不含图片/对话，
@@ -162,6 +163,19 @@ export async function buildDiagnosticBundle(): Promise<string> {
     }
   } catch (e: any) {
     L.push(`\n## 正文预设：读取失败 — ${e?.message || e}`);
+  }
+
+  // ── 物品流水审计（回答「东西到底去哪了」）──
+  try {
+    const log = getItemLog();
+    L.push(`\n## 物品离场流水（最近 ${Math.min(log.length, 50)} 条 / 共 ${log.length}）  —— 销毁/消耗/转出/合并/守护捞回 全记录`);
+    if (log.length === 0) L.push('  （本次会话暂无物品离场事件）');
+    else for (const e of log.slice(-50)) L.push(`  [回合${e.turn}] ${e.op}：${e.name}${e.detail ? ` —— ${e.detail}` : ''}`);
+    const bin = useItems.getState().recentlyDeleted ?? [];
+    L.push(`\n## 最近删除回收站（${bin.length}，可恢复）`);
+    for (const d of bin.slice(0, 30)) L.push(`  [回合${(d as any).deletedTurn ?? '?'}] ${d.name}${(d as any).deleteReason ? ` —— ${(d as any).deleteReason}` : ''}`);
+  } catch (e: any) {
+    L.push(`\n## 物品流水：读取失败 — ${e?.message || e}`);
   }
 
   return L.join('\n');

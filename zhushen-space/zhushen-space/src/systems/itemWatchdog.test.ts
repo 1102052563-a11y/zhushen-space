@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { snapshotPlayerBag, reconcilePlayerBag } from './itemWatchdog';
 import { useItems } from '../store/itemStore';
+import { useNpc } from '../store/npcStore';
 
 const mk = (over: any) => ({ id: 'X', name: '剑', category: '武器', gradeDesc: '蓝色', quantity: 1, effect: '', equipped: false, tags: [], addedAt: 0, ...over });
 
@@ -25,8 +26,8 @@ describe('itemWatchdog 看门狗对账（Phase 1·自动捞回静默丢失）', 
 
   it('可堆叠物被合并(同名同品质仍有存活条目) → 不捞回（数量已保留）', () => {
     useItems.setState({ items: [mk({ id: 'P1', name: '药水', category: '消耗品', gradeDesc: '白色', quantity: 8 })], recentlyDeleted: [] });
-    // 快照里有 P1+P2（dedupe 前），现背包只剩 P1（数量已累加）→ P2 视为合并、不捞回
-    const snap = [...snapshotPlayerBag(), mk({ id: 'P2', name: '药水', category: '消耗品', gradeDesc: '白色', quantity: 3 })];
+    const snap = snapshotPlayerBag();
+    snap.player.push(mk({ id: 'P2', name: '药水', category: '消耗品', gradeDesc: '白色', quantity: 3 }));   // 快照含 P1+P2(dedupe 前)，现只剩 P1 → P2 视为合并、不捞回
     expect(reconcilePlayerBag(snap).restored).toBe(0);
   });
 
@@ -78,5 +79,34 @@ describe('itemWatchdog 看门狗对账（Phase 1·自动捞回静默丢失）', 
     const snap = snapshotPlayerBag();              // 应清空登记
     useItems.setState({ items: [] });              // 裸 filter 静默删它（未登记）
     expect(reconcilePlayerBag(snap).restored).toBe(1);   // 应捞回 → 证明上次对 'A' 的登记已被快照清空
+  });
+
+  // ── Phase 1b：随从/宠物背包同样纳入看门狗 ──
+  const npcItem = (over: any) => ({ id: 'NX', name: '随从剑', category: '武器', gradeDesc: '蓝色', quantity: 1, effect: '', equipped: false, ...over });
+  const setCompanion = (items: any[]) => useNpc.setState({ npcs: { C1: { id: 'C1', name: '小蛇', npcTag: '随从', isDead: false, items } } as any });
+
+  it('★随从装备静默消失 → 捞回到该随从', () => {
+    useItems.setState({ items: [], recentlyDeleted: [] });
+    setCompanion([npcItem({ id: 'N1', name: '蛇牙匕首' }), npcItem({ id: 'N2', name: '皮甲', category: '防具' })]);
+    const snap = snapshotPlayerBag();
+    setCompanion([npcItem({ id: 'N1', name: '蛇牙匕首' })]);   // N2 被某静默路径吞掉
+    expect(reconcilePlayerBag(snap).restored).toBe(1);
+    expect((useNpc.getState().npcs.C1.items as any[]).find((x) => x.id === 'N2')).toBeTruthy();
+  });
+
+  it('随从物品经 removeNpcItem 转出(已登记) → 不误捞', () => {
+    useItems.setState({ items: [], recentlyDeleted: [] });
+    setCompanion([npcItem({ id: 'N1', name: '蛇牙匕首' })]);
+    const snap = snapshotPlayerBag();
+    useNpc.getState().removeNpcItem('C1', 'N1');   // 主动转出
+    expect(reconcilePlayerBag(snap).restored).toBe(0);
+  });
+
+  it('随从已死亡 → 不恢复其遗物', () => {
+    useItems.setState({ items: [], recentlyDeleted: [] });
+    setCompanion([npcItem({ id: 'N1', name: '蛇牙匕首' })]);
+    const snap = snapshotPlayerBag();
+    useNpc.setState({ npcs: { C1: { id: 'C1', name: '小蛇', npcTag: '随从', isDead: true, items: [] } } as any });
+    expect(reconcilePlayerBag(snap).restored).toBe(0);
   });
 });
