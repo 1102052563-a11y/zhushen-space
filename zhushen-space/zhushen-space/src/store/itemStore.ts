@@ -370,6 +370,16 @@ function generateId(items: InventoryItem[]): string {
 /* 可堆叠判定：消耗品/材料等同名累加；装备类（武器/防具/饰品/特殊/法宝）不堆叠——保留各自杀敌数/耐久/词缀等单件数据 */
 const NO_STACK_CATS = new Set<string>(['武器', '防具', '饰品', '宝石', '特殊物品', '法宝']);
 export const isStackableCat = (cat?: string) => !NO_STACK_CATS.has(cat ?? '');
+
+/* ── 物品演化底层重构 · Phase 2「移除登记」──
+ * 一切**经官方 store 方法**离开背包的物品（binItem 销毁/消耗、removeItem 转出、consumeItem 整件用尽）都在此登记 id。
+ * 看门狗(itemWatchdog)对账时排除这些「已登记移除」——它只对"绕过所有 store 方法、凭空消失"的真·静默 bug 出手，
+ * 从而既**杜绝静默丢失**、又**不误捞**交易/赌坊/赠予这类玩家主动且不可恢复的正常移除（避免回收复制刷物）。
+ * 由 itemWatchdog 在每回合快照时清空、对账时读取（放 itemStore 这边，避免与 itemWatchdog 形成循环 import）。*/
+const _accountedRemovals = new Set<string>();
+export const markAccountedRemoval = (id?: string): void => { if (id) _accountedRemovals.add(id); };
+export const clearAccountedRemovals = (): void => { _accountedRemovals.clear(); };
+export const isAccountedRemoval = (id: string): boolean => _accountedRemovals.has(id);
 // 归一化：去标点/空格，并去掉「的/之」等填充虚词——让"劣质餐刀"与"劣质的餐刀"视为同名
 const stackNorm = (x?: string) => (x ?? '').replace(/[\s·•・\-—_,，.。、|｜【】（）()的之]/g, '').toLowerCase();
 
@@ -449,27 +459,33 @@ export const useItems = create<ItemState>()(
       updateItem: (id, patch) =>
         set((s) => ({ items: s.items.map((it) => it.id === id ? { ...it, ...patch } : it) })),
 
-      removeItem: (id) =>
-        set((s) => ({ items: s.items.filter((it) => it.id !== id) })),
+      removeItem: (id) => {
+        markAccountedRemoval(id);   // 经官方方法移除（多为交易/赌坊/赠予等主动转出）→ 登记，看门狗不误捞
+        set((s) => ({ items: s.items.filter((it) => it.id !== id) }));
+      },
 
       consumeItem: (id, quantity) =>
         set((s) => ({
           items: s.items.flatMap((it) => {
             if (it.id !== id) return [it];
             const next = it.quantity - quantity;
-            return next > 0 ? [{ ...it, quantity: next }] : [];
+            if (next > 0) return [{ ...it, quantity: next }];
+            markAccountedRemoval(id);   // 整件用尽/卖尽 → 登记移除，看门狗不误捞
+            return [];
           }),
         })),
 
       // 移入「最近删除」回收站：从背包移除 + 记下删除回合与原因（解除装备态，恢复时不占槽）；表头去重保最近，封顶 100
-      binItem: (item, info) =>
+      binItem: (item, info) => {
+        markAccountedRemoval(item.id);   // 进最近删除也登记（与 binIds 双保险，防 recentlyDeleted 单回合溢出 100 时漏判）
         set((s) => ({
           items: s.items.filter((it) => it.id !== item.id),
           recentlyDeleted: [
             { ...item, equipped: false, equipSlot: undefined, deletedTurn: s.itemTurn, deleteKind: info?.kind, deleteReason: info?.reason },
             ...s.recentlyDeleted.filter((d) => d.id !== item.id),
           ].slice(0, 100),
-        })),
+        }));
+      },
 
       restoreDeleted: (id) =>
         set((s) => {

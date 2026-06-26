@@ -48,7 +48,10 @@ export interface ShareRelayPayload { kind: string; data: unknown }
 export interface RaidLootPayload { lootId?: string; name?: string; currency?: number | string; items?: any[] }
 export interface RaidRollPayload { lootId: string; picks: unknown }
 export interface RaidLootResultPayload { lootId: string; results: Record<string, any> }
-// 完整版双视角（主控-分支-对齐）：房主↔来宾三段透传
+// 完整版双视角（主控-分支-对齐）：房主↔来宾三段透传（分头三段式·建房可选）
+export interface PovOutlinePayload { toSeatId: string; outline: string }          // 房主→来宾：你的专属分头支线大纲
+export interface PovDraftPayload { seatId: string; draft: string; noKey?: boolean } // 来宾→房主：本人正文初稿（noKey=没配 key，请房主代渲染）
+export interface PovFinalPayload { toSeatId: string; text: string }                 // 房主→来宾：对齐冲突后的最终正文（来宾据此自我演化）
 export interface SoloTogglePayload { seatId: string; solo: boolean }                 // 分头行动：某座位脱离主队独自行动/汇合（广播给全房做显示；行动仍由房主统一写进同一份正文）
 export interface HiddenSyncPayload { conditions: { id: string; title: string; requiredItems: string[]; reward: string; met?: boolean }[] } // 隐藏结局：房主广播跨玩家条件库（目标显示+解锁状态）
 
@@ -62,6 +65,9 @@ export interface RelayPayloads {
   raid_loot_result: RaidLootResultPayload;
   raid_dungeon: unknown;         // 副本进度（可为 null=解散），整体同步
   raid_reward: unknown;          // 通关豪华奖励，整体交 applyRaidReward 入账
+  pov_outline: PovOutlinePayload;
+  pov_draft: PovDraftPayload;
+  pov_final: PovFinalPayload;
   solo_toggle: SoloTogglePayload;
   hidden_sync: HiddenSyncPayload;
 }

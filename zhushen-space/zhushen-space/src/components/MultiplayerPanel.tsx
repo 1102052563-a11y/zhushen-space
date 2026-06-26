@@ -37,6 +37,7 @@ export default function MultiplayerPanel({ onClose }: { onClose: () => void }) {
   const [busy, setBusy] = useState(false);
   const [comment, setComment] = useState('');
   const [usePreset, setUsePreset] = useState(true);   // 建房：是否启用联机专用正文规则
+  const [usePov, setUsePov] = useState(false);   // 建房：是否启用「分头三段式」（主控-分支-对齐：每人看到自己支线的独立正文）
   const [mode, setMode] = useState<'adventure' | 'raid'>('adventure');   // 建房模式：共同冒险 / 组队讨伐
 
   const refreshList = async () => {
@@ -50,6 +51,7 @@ export default function MultiplayerPanel({ onClose }: { onClose: () => void }) {
   const doCreate = async () => {
     const n = ensureName(); setBusy(true);
     useMp.getState().setMpPresetOn(usePreset);   // 本局联机正文规则开关
+    useMp.getState().setPovMode(usePov);   // 本局「分头三段式」开关（主控-分支-对齐）
     try {
       const id = await mpClient.createRoom({ name: roomName.trim() || `${n}的${mode === 'raid' ? '讨伐战' : '秘境'}`, hostName: n, maxSeats, mode });
       mpClient.connect(id, { name: n, want: 'play' });
@@ -106,6 +108,10 @@ export default function MultiplayerPanel({ onClose }: { onClose: () => void }) {
               <label className="flex items-start gap-2 text-[12px] text-dim/70 cursor-pointer leading-relaxed">
                 <input type="checkbox" checked={usePreset} onChange={(e) => setUsePreset(e.target.checked)} className="accent-god mt-0.5" />
                 <span>使用联机专用正文规则（推荐：让 AI 准确刻画队友、不把真人当 NPC、每回合分别回应每个人）</span>
+              </label>
+              <label className="flex items-start gap-2 text-[12px] text-dim/70 cursor-pointer leading-relaxed">
+                <input type="checkbox" checked={usePov} onChange={(e) => setUsePov(e.target.checked)} className="accent-god mt-0.5" />
+                <span>🎭 分头三段式（主控-分支-对齐）：主控先出<b className="text-god/80">分头支线大纲</b>，每人用自己的正文 API+预设把自己那条支线扩写成完整正文，主控再对齐冲突。各人正文内容实质不同、字数更足；但每回合多次调 AI、较慢，建议各玩家配好自己的正文 key（没配则房主代渲染）。</span>
               </label>
             </div>
 
@@ -188,6 +194,8 @@ function RoomView({ st, comment, setComment }: { st: any; comment: string; setCo
         </div>
       </div>
 
+
+      {st.povBusy && <div className="shrink-0 px-5 py-1.5 text-[12px] text-god/85 bg-god/5 border-b border-god/20 animate-pulse">{st.povBusy}（分头三段式·房主推演中）</div>}
 
       {st.splitMode && <div className="shrink-0 px-5 py-1.5 text-[12px] text-amber-300/90 bg-amber-500/5 border-b border-amber-500/20">🚶 你正在分头行动——本回合脱离主队独自行动；你的输入会标记给房主，由房主在同一份正文里把你和队友分别写出、再自然汇合。点「汇合」回到主队。</div>}
 

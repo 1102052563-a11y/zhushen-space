@@ -56,6 +56,8 @@ interface MpState {
   guestPovOn: boolean;        // 来宾：用自己 API 把房主客观正文改写成本人视角（display-only，需自配正文 key）
   splitMode: boolean;         // 来宾·我自己：是否「分头行动」——本回合脱离主队独自行动；仍提交房主、仍收主线广播，只是行动被标记，由房主同一份正文里分别描写（不再独立生成）
   splitSeats: string[];       // 全房显示：当前分头行动的座位（由 solo_toggle 广播维护）
+  povMode: boolean;           // 房主：本局是否启用「分头三段式」（主控出分头支线大纲→各自渲染→对齐冲突·建房勾选）
+  povBusy: string;            // pov 三段式进行中的状态提示（'' = 空闲），UI 显示「主控推演中…」之类
   hiddenConditions: HiddenCondition[];   // 隐藏结局：跨玩家条件库（房主 AI 编织，hidden_sync 广播给全房做目标显示）
   handlers: MpHandlers;
   _set: (p: Partial<MpState>) => void;
@@ -63,6 +65,7 @@ interface MpState {
   setMpPresetOn: (v: boolean) => void;
   setGuestPovOn: (v: boolean) => void;
   setSplitMode: (v: boolean) => void;
+  setPovMode: (v: boolean) => void;
   reset: () => void;
 }
 
@@ -86,6 +89,7 @@ const INIT = {
   raidReward: null as any,
   splitMode: false,
   splitSeats: [] as string[],
+  povBusy: '',
   hiddenConditions: [] as HiddenCondition[],
 };
 
@@ -94,6 +98,7 @@ export const useMp = create<MpState>((set) => ({
   handlers: {},
   mpPresetOn: true,
   guestPovOn: false,
+  povMode: false,
   _set: (p) => set(p),
   setHandlers: (h) => set({ handlers: h }),
   setMpPresetOn: (v) => set({ mpPresetOn: v }),

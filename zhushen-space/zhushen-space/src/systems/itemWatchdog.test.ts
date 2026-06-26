@@ -54,4 +54,29 @@ describe('itemWatchdog 看门狗对账（Phase 1·自动捞回静默丢失）', 
     expect(r.restored).toBe(0);
     expect(useItems.getState().items.length).toBe(1);
   });
+
+  // ── Phase 2：经官方 store 方法的移除被登记，看门狗不误捞（交易/赌坊/赠予不可恢复，避免回收复制刷物）──
+  it('★store.removeItem 主动转出(交易/赠予/赌坊) → 已登记 → 对账不误捞回', () => {
+    useItems.setState({ items: [mk({ id: 'A', name: '剑' }), mk({ id: 'B', name: '盾' })], recentlyDeleted: [] });
+    const snap = snapshotPlayerBag();              // 清空登记 + 快照
+    useItems.getState().removeItem('B');           // 模拟把 B 卖了/赠予了
+    expect(reconcilePlayerBag(snap).restored).toBe(0);
+    expect(useItems.getState().items.find((x) => x.id === 'B')).toBeFalsy();   // 保持移除、未被复制回来
+  });
+
+  it('★store.consumeItem 整件用尽(卖光/用光) → 已登记 → 不误捞回', () => {
+    useItems.setState({ items: [mk({ id: 'P', name: '药', category: '消耗品', quantity: 2 })], recentlyDeleted: [] });
+    const snap = snapshotPlayerBag();
+    useItems.getState().consumeItem('P', 2);       // 整件用尽
+    expect(reconcilePlayerBag(snap).restored).toBe(0);
+  });
+
+  it('snapshot 清空登记：上一窗口登记的 id 不泄漏影响新窗口对账', () => {
+    useItems.setState({ items: [mk({ id: 'A', name: '甲' })], recentlyDeleted: [] });
+    useItems.getState().removeItem('A');           // 登记 id 'A'（上一窗口）
+    useItems.setState({ items: [mk({ id: 'A', name: '新甲' })], recentlyDeleted: [] });   // 新窗口又出现 id 'A'(不同物)
+    const snap = snapshotPlayerBag();              // 应清空登记
+    useItems.setState({ items: [] });              // 裸 filter 静默删它（未登记）
+    expect(reconcilePlayerBag(snap).restored).toBe(1);   // 应捞回 → 证明上次对 'A' 的登记已被快照清空
+  });
 });

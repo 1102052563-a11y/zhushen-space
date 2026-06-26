@@ -7,12 +7,14 @@
  * 这是「单一闸门」尚未收口前的结构性安全网：不管现在/将来有多少条移除路径漏了护栏，
  * 只要东西从墙缝溜走了，这里都能逮到并还回来。纯增量、只恢复不删除，风险最低。
  */
-import { useItems, isStackableCat, type InventoryItem } from '../store/itemStore';
+import { useItems, isStackableCat, clearAccountedRemovals, isAccountedRemoval, type InventoryItem } from '../store/itemStore';
 
 const norm = (x?: string) => (x ?? '').replace(/[\s·•・\-—_,，.。、|｜【】（）()的之]/g, '').trim().toLowerCase();
 
-/** 回合演化阶段开始前调用：快照当前主角背包（浅拷贝每条，避免被后续 set 改动）。返回快照供回合末对账。 */
+/** 回合演化阶段开始前调用：快照当前主角背包（浅拷贝每条，避免被后续 set 改动）。返回快照供回合末对账。
+ *  同时清空「已登记移除」集合，让本回合窗口内经官方 store 方法的移除（交易/赌坊/赠予/销毁）都能被对账正确排除。 */
 export function snapshotPlayerBag(): InventoryItem[] {
+  clearAccountedRemovals();
   return useItems.getState().items.map((it) => ({ ...it }));
 }
 
@@ -34,7 +36,8 @@ export function reconcilePlayerBag(snap: InventoryItem[] | null | undefined): { 
   const lost: InventoryItem[] = [];
   for (const it of snap) {
     if (curIds.has(it.id)) continue;          // 还在背包
-    if (binIds.has(it.id)) continue;          // 已正常进「最近删除」(销毁/消耗/转出)——不是静默丢失
+    if (binIds.has(it.id)) continue;          // 已正常进「最近删除」(销毁/消耗)——不是静默丢失
+    if (isAccountedRemoval(it.id)) continue;   // 经官方 store 方法登记的移除(交易/赌坊/赠予/转出)——玩家主动、不可恢复，绝不误捞
     if (mergedAway(it, I.items)) continue;     // 可堆叠物被合并——数量已保留
     lost.push(it);
   }

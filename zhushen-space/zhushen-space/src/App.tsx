@@ -83,6 +83,9 @@ import {
   SOUL_GAMBLE_RULE,
   POTENTIAL_POINT_RULE,
   WORLD_SETTLEMENT_RULE,
+  buildPovBranchRule,
+  buildPovRenderRule,
+  buildPovAlignRule,
 } from './promptRules';
 
 import { useState, useRef, useEffect, lazy, Suspense, type PointerEvent as RPointerEvent } from 'react';
@@ -1040,6 +1043,8 @@ export default function App() {
   const [hostTakeover, setHostTakeover] = useState<string[]>([]);   // 联机：房主因来宾(MP_)AFK 而临时接管的战斗角色 id
   const raidRollsRef = useRef<Record<string, Record<string, any>>>({});      // 战利 ROLL 收集（房主侧：lootId→playerId→{name,picks}）
   const appliedRewardRef = useRef<Record<string, boolean>>({});   // 副本豪华奖励去重（rewardId→已应用），防 relay 回显双发
+  const povCollectRef = useRef<{ onDraft: (p: { seatId: string; draft: string; noKey?: boolean }) => void } | null>(null);   // 分头三段式·房主收集来宾初稿的活跃收集器
+  const povGuestMsgRef = useRef<number | null>(null);   // 分头三段式·来宾「推演中」占位消息 id（pov_final 来替换）
   // 副本通关豪华奖励入账（房主本地直接调 + relay 回显也调，靠 rewardId 去重防双发）：
   // 关键——房主清掉本体后必须本地立即入账+弹窗，不能只 relay 等服务器回显（断线/单机时回显丢失会导致清本无奖励）。
   function applyRaidReward(rw: any) {
@@ -1311,6 +1316,24 @@ export default function App() {
           case 'raid_reward':
             applyRaidReward(m.payload);   // 副本通关豪华奖励：全员（含房主 relay 回显）各自把全套入账到自己 B1，并弹庆祝结算（rewardId 去重防双发）
             break;
+          case 'pov_outline': {   // 分头三段式·来宾：收到专属分头大纲 → 用自己 key+预设渲染本人完整正文回传房主
+            if (useMp.getState().role === 'host') break;
+            if (m.payload.toSeatId !== useMp.getState().mySeatId) break;
+            void runGuestPovRound(m.payload.outline);
+            break;
+          }
+          case 'pov_draft':   // 分头三段式·房主：收到来宾初稿 → 喂给活跃收集器
+            if (useMp.getState().role === 'host') povCollectRef.current?.onDraft(m.payload);
+            break;
+          case 'pov_final': {   // 分头三段式·来宾：收到对齐后的最终正文 → 替换占位 + 据此自我演化（变量读最终正文）
+            if (useMp.getState().role === 'host') break;
+            if (m.payload.toSeatId !== useMp.getState().mySeatId) break;
+            const fid = povGuestMsgRef.current;
+            if (fid != null) { setMessages((prev) => prev.map((mm) => mm.id === fid ? { ...mm, content: m.payload.text } : mm)); povGuestMsgRef.current = null; }
+            else setMessages((prev) => [...prev, { id: ++msgId.current, role: 'assistant', content: m.payload.text }]);
+            if (m.payload.text) void runGuestSelfEvolution(m.payload.text);
+            break;
+          }
           case 'solo_toggle': {   // 分头行动：维护全房「谁在分头行动」的显示列表（仅显示，行动仍由房主统一写进同一份正文）
             const sset = new Set(useMp.getState().splitSeats);
             if (m.payload.solo) sset.add(m.payload.seatId); else sset.delete(m.payload.seatId);
@@ -3002,6 +3025,142 @@ ${AFFIX_EFFECT_RULE}`;
   // ════ 联机·完整版双视角（主控-分支-对齐，建房勾选「双视角模式」启用）════
   function povJson(s: string): any { try { const m = (s || '').match(/\{[\s\S]*\}/); return lenientJsonParse(m ? m[0] : s) || {}; } catch { return {}; } }
   function myTextChain() { const ss = useSettings.getState(); return resolveApiChain('text', ss.textUseSharedApi ? ss.api : ss.textApi); }
+
+  // ── 联机·分头三段式（主控-分支-对齐）：建房勾选 mp.povMode 时启用，每人看到自己支线的独立正文 ──
+  function povWordOf(): string { const p = useSettings.getState().narrativePov; const sel = p && p !== 'off' ? p : 'second'; return sel === 'first' ? '第一人称（我）' : sel === 'third' ? '第三人称' : '第二人称（你）'; }
+  // 用本人/房主 key+预设把一段分头大纲渲染成某玩家的完整正文（无 key 返回 ''）
+  async function povRender(outline: string, name: string, others: string[]): Promise<string> {
+    const chain = myTextChain();
+    if (!chain[0]?.baseUrl || !chain[0]?.apiKey) return '';
+    try {
+      const { content } = await apiChatFallback(chain, [
+        { role: 'system', content: buildPovRenderRule(name, others, povWordOf()) },
+        { role: 'user', content: `【你本回合的行动大纲】\n${outline}` },
+      ], { timeoutMs: 120000 });
+      return (content || '').trim();
+    } catch (e) { console.warn('[分头] 渲染失败', name, e); return ''; }
+  }
+  // 主控：从各玩家本回合行动直接出「分头支线大纲」（房主 key）——治"两边正文一样"：内容实质不同而非同一事件换视角
+  async function povDeriveBranches(roster: { id: string; name: string; text: string }[]): Promise<Record<string, string>> {
+    const chain = myTextChain();
+    if (!chain[0]?.baseUrl || !chain[0]?.apiKey) return {};
+    try {
+      const { content } = await apiChatFallback(chain, [
+        { role: 'system', content: buildPovBranchRule(roster) },
+        { role: 'user', content: '只输出 JSON 对象。' },
+      ], { timeoutMs: 120000 });
+      const out = povJson(content).outlines;
+      const r: Record<string, string> = {};
+      if (out && typeof out === 'object') for (const k of Object.keys(out)) r[k] = String(out[k] ?? '');
+      return r;
+    } catch (e) { console.warn('[分头] 大纲生成失败', e); return {}; }
+  }
+  // 主控：对齐各玩家分头正文的彼此冲突（房主 key，只 Edit 不重写）
+  async function povAlign(drafts: Record<string, string>, idNames: { id: string; name: string }[]): Promise<Record<string, string>> {
+    const chain = myTextChain();
+    if (!chain[0]?.baseUrl || !chain[0]?.apiKey) return drafts;
+    try {
+      const block = idNames.map((x) => `【${x.id}（${x.name}）的正文】\n${drafts[x.id] || '（无）'}`).join('\n\n');
+      const { content } = await apiChatFallback(chain, [
+        { role: 'system', content: buildPovAlignRule(idNames) },
+        { role: 'user', content: block },
+      ], { timeoutMs: 120000 });
+      const j = povJson(content);
+      const r: Record<string, string> = {};
+      for (const x of idNames) r[x.id] = String(j[x.id] ?? drafts[x.id] ?? '');
+      return r;
+    } catch (e) { console.warn('[分头] 对齐失败，用初稿', e); return drafts; }
+  }
+  // 主控：收集来宾正文初稿（无 key/超时 → 房主代渲染兜底）
+  async function collectPovDrafts(guests: { seatId: string; name: string }[], outlines: Record<string, string>, drafts: Record<string, string>, otherNames: (self: string) => string[], timeoutMs: number): Promise<void> {
+    if (!guests.length) return;
+    const expected = new Set(guests.map((g) => g.seatId));
+    const fallbackRender = async (g: { seatId: string; name: string }) => (await povRender(outlines[g.seatId] || '', g.name, otherNames(g.name))) || outlines[g.seatId] || '';
+    await new Promise<void>((resolve) => {
+      let done = false;
+      const finish = () => { if (done) return; done = true; povCollectRef.current = null; resolve(); };
+      povCollectRef.current = {
+        onDraft: async (p) => {
+          if (!expected.has(p.seatId) || drafts[p.seatId] != null) return;
+          const g = guests.find((x) => x.seatId === p.seatId)!;
+          drafts[p.seatId] = (p.noKey || !p.draft) ? await fallbackRender(g) : p.draft;
+          if (guests.every((x) => drafts[x.seatId] != null)) finish();
+        },
+      };
+      setTimeout(async () => {   // 超时：未回传的来宾，房主用其大纲代渲染兜底
+        for (const g of guests) if (drafts[g.seatId] == null) drafts[g.seatId] = await fallbackRender(g);
+        finish();
+      }, timeoutMs);
+    });
+  }
+  // 来宾：收到专属分头大纲 → 用自己 key+预设渲染本人完整正文回传房主（无 key 则请房主代渲染）
+  async function runGuestPovRound(outline: string) {
+    const mid = ++msgId.current;
+    setMessages((prev) => [...prev, { id: mid, role: 'assistant', content: '🎬 你的分头正文推演中……' }]);
+    povGuestMsgRef.current = mid;
+    const myName = usePlayer.getState().profile.name || '主角';
+    const mp = useMp.getState();
+    const others = Array.from(new Set([mp.room?.hostName, ...(mp.cards || []).map((c) => c?.snapshot?.name), ...(mp.seats || []).map((s) => s.name)].filter((n): n is string => !!n && n !== myName)));
+    const draft = await povRender(outline, myName, others);
+    const seatId = mp.mySeatId || '';
+    if (draft) mpClient.relay('pov_draft', { seatId, draft });
+    else mpClient.relay('pov_draft', { seatId, draft: '', noKey: true });   // 无 key → 请房主代渲染
+  }
+  // 房主：本回合分头三段式编排（Stage1 出分头支线大纲→Stage2 各自渲染→Stage3 对齐→Stage4 变量·共享世界）
+  async function runPovTurn(hostText: string, partyText: string) {
+    const mp = useMp.getState();
+    const inputs = mp.turn?.inputs || {};
+    const myName = usePlayer.getState().profile.name || '主角';
+    const cardName = (seatId: string) => (mp.cards || []).find((c) => c.seatId === seatId)?.snapshot?.name;
+    const guests = Object.entries(inputs).map(([seatId, v]) => ({ seatId, name: cardName(seatId) || v.name || '队友', text: (v.text || '').trim() })).filter((g) => g.text);
+    const roster = [{ id: 'HOST', name: myName, text: hostText }, ...guests.map((g) => ({ id: g.seatId, name: g.name, text: g.text }))];
+    const allNames = roster.map((r) => r.name);
+    const otherNames = (self: string) => Array.from(new Set(allNames.filter((n) => n !== self)));
+
+    const hostMsgId = ++msgId.current;
+    setMessages((prev) => [...prev, { id: hostMsgId, role: 'assistant', content: '🎬 主控编排分头支线中……（你的正文马上呈现）' }]);
+    useMp.getState()._set({ povBusy: '🎬 主控编排分头支线…' });
+
+    // Stage1：分头支线大纲（房主 key·从各玩家行动直接出，不再先出完整客观正文 → 各人内容实质不同）
+    const outlines = await povDeriveBranches(roster);
+    if (!outlines.HOST && guests.every((g) => !outlines[g.seatId])) {
+      useMp.getState()._set({ povBusy: '' });
+      setMessages((prev) => prev.map((m) => m.id === hostMsgId ? { ...m, content: '（主控编排失败，请重试——检查房主「正文生成」API）' } : m));
+      return;
+    }
+    for (const g of guests) mpClient.relay('pov_outline', { toSeatId: g.seatId, outline: outlines[g.seatId] || partyText });   // 派发各来宾专属大纲
+
+    // Stage2：房主渲染自己 + 收集来宾初稿（含无 key 由房主代渲染）
+    useMp.getState()._set({ povBusy: '🎨 各自渲染正文…' });
+    const drafts: Record<string, string> = {};
+    const hostOutline = outlines.HOST || hostText;
+    await Promise.allSettled([
+      povRender(hostOutline, myName, otherNames(myName)).then((d) => { drafts.HOST = d || hostOutline; }),
+      collectPovDrafts(guests, outlines, drafts, otherNames, 60000),
+    ]);
+
+    // Stage3：对齐彼此客观冲突（同一 NPC 生死/共享物归属/时间先后）
+    useMp.getState()._set({ povBusy: '🧭 主控对齐冲突…' });
+    const idNames = roster.map((r) => ({ id: r.id, name: r.name }));
+    const finals = await povAlign(drafts, idNames);
+
+    // 分发各自最终正文 + 房主显示自己的
+    for (const g of guests) mpClient.relay('pov_final', { toSeatId: g.seatId, text: finals[g.seatId] || drafts[g.seatId] || outlines[g.seatId] || '（生成失败）' });
+    const hostFinal = finals.HOST || drafts.HOST || hostOutline;
+    setMessages((prev) => prev.map((m) => m.id === hostMsgId ? { ...m, content: hostFinal } : m));
+    useMp.getState()._set({ povBusy: '' });
+
+    // Stage4·变量：房主在「所有人最终正文合并稿」上跑共享世界演化(NPC/势力/任务…)+房主自己(mpHostExcludeRule 防误演化队友)；各来宾收 pov_final 后各自演化自己
+    turnCountRef.current += 1;
+    try { useMisc.getState().setTurnCount(turnCountRef.current); } catch { /* */ }
+    try { useItems.getState().setItemTurn(turnCountRef.current); } catch { /* */ }
+    const combined = idNames.map((x) => `【${x.name}】\n${finals[x.id] || drafts[x.id] || ''}`).join('\n\n');
+    runPostNarrativePhases(combined, hostMsgId);
+
+    // 广播世界态（无 narrative，来宾正文走 pov_final）+ 开新回合
+    mpClient.publishWorld({ povMode: true, turnId: mp.turn?.turnId || 0, world: buildWorldSnapshot() });
+    if (mp.seats.length > 0) mpClient.startTurn();
+  }
 
 
   // ── 分头行动·隐藏结局（Phase 3 跨玩家条件触发）──
@@ -7235,6 +7394,13 @@ ${lines}`;
     const withConv = (s: string) => inject ? `${inject}\n\n${s}` : s;
 
     const effectiveText = isMpHost ? withConv(buildPartyTurnText(text, mp.turn?.inputs, usePlayer.getState().profile.name || mp.room?.hostName || '房主')) : text;
+
+    if (isMpHost && mp.povMode) {   // 分头三段式：替代普通单正文广播（主控出分头支线大纲→各自渲染→对齐冲突→变量）
+      setMessages((prev) => [...prev, { id: ++msgId.current, role: 'user', content: effectiveText }]);
+      if (textArg == null) setInputValue('');
+      await runPovTurn(text, effectiveText);
+      return;
+    }
 
     const userMsg: ChatMessage = { id: ++msgId.current, role: 'user', content: effectiveText };
     setMessages((prev) => [...prev, userMsg]);
