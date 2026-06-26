@@ -197,20 +197,21 @@ async function readChatContent(res: Response, api: ApiConfig, onProgress?: () =>
   return parseOnceOrSse(rawAll, res.status, api);
 }
 
-/* 取一行 SSE 的 content 增量（不是 data: 行 / [DONE] / 解析失败 → 返回 ''） */
+/* 取一行流式分片的 content 增量（不是分片行 / [DONE] / 解析失败 → 返回 ''）
+   兼容两种格式：标准 SSE 的 `data: {...}`，以及「假流式」中转直接推的裸 JSON 分片行(NDJSON,无 data: 前缀) */
 function sseLineDelta(line: string): string {
   const t = line.trim();
-  if (!t.startsWith('data:')) return '';
-  const d = t.replace(/^data:\s*/, '').trim();
-  if (!d || d === '[DONE]') return '';
+  if (!t || t === '[DONE]') return '';
+  const d = t.startsWith('data:') ? t.replace(/^data:\s*/, '').trim() : t;   // 有 data: 剥掉；没有(裸 JSON 行)直接用
+  if (!d || d === '[DONE]' || (d[0] !== '{' && d[0] !== '[')) return '';      // 非 JSON 行(SSE 注释/event: 心跳等)跳过
   try { const j = JSON.parse(d); return j.choices?.[0]?.delta?.content ?? j.choices?.[0]?.message?.content ?? ''; } catch { return ''; }
 }
-/* 取一行 SSE 的 reasoning_content 增量（思考模型的思维链；content 为空时兜底用） */
+/* 取一行流式分片的 reasoning_content 增量（思考模型的思维链；content 为空时兜底用） */
 function sseLineReasoning(line: string): string {
   const t = line.trim();
-  if (!t.startsWith('data:')) return '';
-  const d = t.replace(/^data:\s*/, '').trim();
-  if (!d || d === '[DONE]') return '';
+  if (!t || t === '[DONE]') return '';
+  const d = t.startsWith('data:') ? t.replace(/^data:\s*/, '').trim() : t;
+  if (!d || d === '[DONE]' || (d[0] !== '{' && d[0] !== '[')) return '';
   try { const ch = JSON.parse(d).choices?.[0] ?? {}; return ch.delta?.reasoning_content ?? ch.delta?.reasoning ?? ch.message?.reasoning_content ?? ''; } catch { return ''; }
 }
 
@@ -247,7 +248,7 @@ function parseOnceOrSse(raw: string, status: number, api: ApiConfig): string {
   try { data = JSON.parse(raw); } catch { /* 非 JSON，下面按 SSE 文本兜底 */ }
   if (data) {
     const ch = data.choices?.[0] ?? {};
-    const content: string = ch.message?.content ?? ch.text ?? '';
+    const content: string = ch.message?.content ?? ch.delta?.content ?? ch.text ?? '';   // delta：单个分片对象被当一次性 JSON 回来时也能抠到（假流式只回一个 chunk）
     if (content && String(content).trim()) return content;
     const reasoning: string = ch.message?.reasoning_content ?? ch.delta?.reasoning_content ?? '';   // content 空 → 用思维链兜底
     if (reasoning && String(reasoning).trim()) { console.warn('[API] content 空，回退使用 reasoning_content', { status, model: api.modelId, reasoningLen: String(reasoning).length }); return reasoning; }

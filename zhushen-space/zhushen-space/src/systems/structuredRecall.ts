@@ -232,6 +232,7 @@ export function serializePlayerCard(
   context?: string,   // 当前情境（用户输入+最近正文）：字面喊到的技能/装备强制注入（护栏，不受 API/上限约束）
   userInput?: string,   // 仅本轮「用户输入」原文：精简物品栏模式下据此判定「提到的物品」（缺省回退 context）
   leanItems?: boolean,  // true=叙事回忆「精简物品栏」：用户输入提到的 + 当前已装备 → 全量信息，其余整背包 → 仅名称
+  allItems?: boolean,   // true=「全部物品栏」：所有类别（装备/材料/消耗品/法宝/杂物/任务…）全量注入（含效果），供「剧情选项」据此设计用物的行动
 ): string {
   const id = ['姓名:' + (profile.name || '主角'),
     profile.gender && `性别:${profile.gender}`,
@@ -312,6 +313,12 @@ export function serializePlayerCard(
     const fullSet = items.filter((it) => it.equipped || mentioned.has(it)).sort((x, y) => itemScore(y) - itemScore(x));
     equipItems = fullSet.map(playerItemFullLine);
     nameOnlyItems = items.filter((it) => !it.equipped && !mentioned.has(it)).map(nameOnlyItemLine);
+  } else if (allItems) {
+    // 全部物品栏：所有类别全量（含效果），不设上限——供「剧情选项」据手中物品/装备设计行动
+    const EQUIP_CATS = new Set<string>(['武器', '防具', '饰品']);
+    const sorted = items.slice().sort((x, y) => itemScore(y) - itemScore(x));
+    equipItems = sorted.filter((it) => it.equipped || EQUIP_CATS.has(it.category)).map(playerItemLine);
+    matConItems = sorted.filter((it) => !(it.equipped || EQUIP_CATS.has(it.category))).map(playerItemLine);
   } else {
     // 装备(武器/防具/饰品 或 已装备)：API 选取优先、本地 pickTop 兜底；材料+消耗品全部显示(名称+效果)；其它类一律不注入
     const EQUIP_CATS = new Set<string>(['武器', '防具', '饰品']);
@@ -332,7 +339,7 @@ export function serializePlayerCard(
     detail && '  ' + detail,
     block('技能', topSkills), block('天赋', talLines),
     block(leanItems ? '物品·全量（已装备/本轮提到，其余见下）' : '装备', equipItems),
-    leanItems ? block('其余物品栏（仅名称）', nameOnlyItems) : block('材料/消耗品', matConItems),
+    leanItems ? block('其余物品栏（仅名称）', nameOnlyItems) : block(allItems ? '其余物品栏（材料/消耗品/法宝/杂物/任务物等·全部，含效果）' : '材料/消耗品', matConItems),
     spLines.length ? block('副职业', spLines) : '',
   ].filter(Boolean).join('\n');
 }

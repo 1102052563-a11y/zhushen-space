@@ -5329,6 +5329,7 @@ ${lines}`;
       P.profile, game, b1?.skills ?? [], b1?.traits ?? [], useItems.getState().items,
       { maxNpcs: 0, maxSkills: 99, maxItems: 99, maxSubProfs: 99 },
       b1?.titles, b1?.subProfessions, useItems.getState().currency,
+      undefined, undefined, undefined, false, true,   // allItems=true：读全部物品栏（含效果），供「剧情选项」据能力/物品设计行动
     );
     const npcBlocks = Object.values(useNpc.getState().npcs)
       .filter((n) => n.onScene && !n.isDead)
