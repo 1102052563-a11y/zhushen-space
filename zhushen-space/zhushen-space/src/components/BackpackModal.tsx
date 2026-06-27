@@ -1,5 +1,5 @@
 import { useState, useRef } from 'react';
-import { useItems, ITEM_CATEGORIES, ITEM_GRADES, gradeColorClass, gradeBadgeClass, gradeNameClass, socketsOf, splitAffixEntries, isResourcePseudoItem, asText, type InventoryItem, type ItemCategory, type CurrencyWallet } from '../store/itemStore';
+import { useItems, ITEM_CATEGORIES, ITEM_GRADES, gradeColorClass, gradeBadgeClass, gradeNameClass, socketsOf, splitAffixEntries, isResourcePseudoItem, asText, getItemLog, type InventoryItem, type ItemCategory, type CurrencyWallet } from '../store/itemStore';
 import { enhanceColorClass, enhancedCombat } from '../systems/enhanceEngine';
 import { usePlayer } from '../store/playerStore';
 import { useSkillTree } from '../store/skillTreeStore';
@@ -1027,6 +1027,23 @@ export default function BackpackModal({
                   </div>
                 );
               })}
+
+              {/* 物品离场流水：转出/合并/守护捞回 等不进回收站的离场也可查（回答「东西去哪了」） */}
+              {getItemLog().length > 0 && (
+                <div className="mt-3 pt-3 border-t border-edge/50">
+                  <div className="text-[12px] font-mono text-dim/55 mb-1.5 px-0.5">📜 物品离场流水 · 末 {Math.min(getItemLog().length, 40)} 条（含转出 / 合并 / 守护捞回，未必可恢复，仅供查证去向）</div>
+                  <div className="space-y-1">
+                    {getItemLog().slice(-40).reverse().map((e, i) => (
+                      <div key={i} className="flex items-center gap-2 text-[11px] font-mono px-2 py-1 rounded bg-panel/30 border border-edge/40">
+                        <span className="shrink-0 text-dim/40">回合{e.turn}</span>
+                        <span className="shrink-0 px-1 rounded border border-edge text-dim/75">{e.op}</span>
+                        <span className="text-slate-300/90 truncate">{e.name}</span>
+                        {e.detail && <span className="text-dim/45 truncate min-w-0" title={e.detail}>· {e.detail}</span>}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
             </div>
           </div>
         </div>
