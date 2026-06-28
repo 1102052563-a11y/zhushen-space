@@ -42,7 +42,7 @@ GET  https://<你的worker域名>/api/workshop/items      → {"items":[]}（空
 
 ## 防护 / 成本
 
-- 单条 payload ≤ 256KB；同 IP（盐哈希）1 小时最多 20 条；字段长度截断。
+- 单条 payload ≤ 1MB（世界书/角色卡等较大内容也能传）；同 IP（盐哈希）1 小时最多 20 条；字段长度截断。
 - 无审核公开上传 = 有滥用面（垃圾/违规）。**管理员删除**：在 worker 设一个密钥，之后在游戏里「创意工坊 → 设置 → 管理员密钥」填同一个，即可删除任意条目（内容审核）：
   ```powershell
   npx wrangler secret put WS_ADMIN_KEY      # 按提示输入你的密钥；改完无需手动 deploy（secret 即时生效）

@@ -9,7 +9,7 @@
 // 防护：单条 payload ≤ 256KB；同 IP(哈希) 1 小时上限 20 条；字段长度截断。
 // XSS：前端用 React 渲染纯文本(默认转义)，不把 payload 当 HTML 注入，故展示侧安全。
 
-const MAX_PAYLOAD = 256 * 1024;
+const MAX_PAYLOAD = 1024 * 1024;   // 1MB：世界书/角色卡等内容较大（D1 单值上限内留足余量）
 const UPLOAD_LIMIT_PER_HOUR = 20;
 
 const SCHEMA = `
