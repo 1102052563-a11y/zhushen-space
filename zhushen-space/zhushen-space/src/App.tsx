@@ -118,6 +118,7 @@ import { useSubProfTree, subProfMastery } from './store/subProfTreeStore';
 import { useSnapshots, captureEvoSnapshot, snapState } from './store/snapshotStore';
 import { useLedger } from './systems/ledger/ledgerStore';
 import { diffEntityMap, diffItemList, diffFields, type DiffEvent } from './systems/turnDiff';
+import { useFieldHistory } from './store/fieldHistoryStore';
 import { attrsDiffer, attrChangeJustified, entityChangeJustified, pickFields, sameName, STABLE_DIMS, SKILL_GUARD_FIELDS, TRAIT_GUARD_FIELDS, ITEM_ID_FIELDS, ITEM_COMBAT_FIELDS, FACTION_GUARD_FIELDS, NPC_PROFILE_GUARD_FIELDS, PLAYER_PROFILE_GUARD_FIELDS, profileChangeJustified, revertSetWithLocks as dgRevertSetWithLocks } from './systems/driftGuard';
 import { isLockedKey, lkNpcAttr, lkNpcField, lkPlayerAttr, lkPlayerField, lkItemField, lkFactionField, lkCharSkill, lkCharTrait } from './store/lockStore';
 import { sanitizeSixAttrs, sanitizeItemNumbers } from './systems/numericGate';
@@ -2850,6 +2851,23 @@ export default function App() {
       const led = useLedger.getState();
       for (const e of evs.slice(0, 60)) led.append({ turn, source: 'turn-diff', entity: e.entity as any, op: e.op, ref: e.ref, outcome: 'applied', detail: e.detail });   // 封顶 60 条防极端回合刷爆
     } catch (e) { console.warn('[turn-diff] 记录净变化失败', e); }
+  }
+
+  /* 字段历史趋势采样：每回合给主角/NPC 六维 + NPC 阶位/等级各采样一个值（只在变化时记），供审计面板"竖看趋势"。 */
+  function sampleFieldHistory(turn: number): void {
+    try {
+      const h = useFieldHistory.getState();
+      const SIX = ['str', 'agi', 'con', 'int', 'cha', 'luck'];
+      const prof: any = usePlayer.getState().profile;
+      if (prof?.attrs) for (const k of SIX) { const v = prof.attrs[k]; if (typeof v === 'number' && Number.isFinite(v)) h.record(`player:${k}`, turn, v); }
+      for (const [id, r] of Object.entries(useNpc.getState().npcs)) {
+        const rec: any = r;
+        if (rec.isDead) continue;
+        if (rec.attrs) for (const k of SIX) { const v = rec.attrs[k]; if (typeof v === 'number' && Number.isFinite(v)) h.record(`npc:${id}:${k}`, turn, v); }
+        if (rec.realm) h.record(`npc:${id}:realm`, turn, String(rec.realm));
+        if (rec.level != null && Number.isFinite(Number(rec.level))) h.record(`npc:${id}:level`, turn, Number(rec.level));
+      }
+    } catch { /* */ }
   }
 
   function guardNpcAttrDrift(narrative: string): void {
@@ -7028,6 +7046,7 @@ ${lines}`;
       try { guardFactionDrift(narrative); } catch (e) { console.warn('[防漂] 势力对账失败', e); }   // 势力身份/实力锚点被无据翻写→退回
       try { guardPlayerDrift(narrative); } catch (e) { console.warn('[防漂] 主角档案对账失败', e); }   // 主角基底外观/职业被无据改写→退回
       try { recordTurnDiff(); } catch (e) { console.warn('[turn-diff] 记录失败', e); }   // ④账本完整记录本回合净变化（修正后最终值）→ 审计面板可见
+      try { sampleFieldHistory(turnCountRef.current); } catch (e) { console.warn('[field-history] 采样失败', e); }   // 字段历史趋势采样（六维/阶位/等级·只记变化）
       try { captureTurnSnapshot(); } catch (e) { console.warn('[Insight] settle 后抓快照失败', e); }
     });
   }

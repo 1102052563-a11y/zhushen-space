@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useLedger } from '../systems/ledger/ledgerStore';
 import { useSnapshots } from '../store/snapshotStore';
 import { rollbackEvoDomains } from '../systems/saveManager';
+import FieldTrend from './FieldTrend';
 
 /* 变量审计 + 回滚（数据库引入②）：把演化账本(drpg-ledger)露成"本回合改了什么"，
    把整份快照(drpg-evosnap)露成"一键回滚整回合"。仿数据库的表视图 + checkpoint。 */
@@ -47,6 +48,12 @@ export default function AuditRollback() {
           </div>
         )}
         {msg && <div className="text-xs text-emerald-300">{msg}</div>}
+      </section>
+
+      {/* 字段历史趋势 */}
+      <section className="border border-slate-700/50 rounded p-2 space-y-1.5">
+        <div className="text-teal-300 text-xs font-semibold">字段历史趋势（竖看一个数值的演变）</div>
+        <FieldTrend />
       </section>
 
       {/* 改动账本 */}

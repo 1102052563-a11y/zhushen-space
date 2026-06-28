@@ -34,6 +34,7 @@ import { useCasino } from '../store/casinoStore';
 import { useAbyss } from '../store/abyssStore';
 import { useLedger } from './ledger/ledgerStore';
 import { useLocks } from '../store/lockStore';
+import { useFieldHistory } from '../store/fieldHistoryStore';
 import { clearJoySessions } from '../store/joyStore';
 import { logWarn } from '../utils/log';
 import { writeB1Mirror, clearB1Mirror } from './b1Mirror';
@@ -51,6 +52,7 @@ const STORES: { key: string; api: any; clear?: () => void }[] = [
   { key: 'drpg-items',      api: useItems, clear: () => useItems.getState().clearAll() },
   { key: 'drpg-ledger',     api: useLedger, clear: () => useLedger.getState().clear() },   // 演化账本(物品闸门审计)：进度数据,新游戏清空、随存档快照
   { key: 'drpg-locks',      api: useLocks, clear: () => useLocks.getState().clearLocks() },   // 字段级锁定(Pin)：按实体id锁,随存档走、新游戏清空
+  { key: 'drpg-field-history', api: useFieldHistory, clear: () => useFieldHistory.getState().clear() },   // 字段历史趋势(六维/阶位/等级逐回合采样)：进度数据,随存档、新游戏清空
 
 
   { key: 'drpg-player-evo', api: usePlayer, clear: () => { usePlayer.getState().setProfile({ ...DEFAULT_PLAYER_PROFILE }); usePlayer.setState({ achievements: [] }); } },
