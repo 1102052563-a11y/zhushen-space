@@ -8,7 +8,7 @@ import { useSkillTree } from '../store/skillTreeStore';
 import { playerMaxHp, playerMaxEp, playerResourceMax } from './playerVitals';
 import { useResource } from '../store/resourceStore';
 import { effectiveResource, fullMaxHp, fullMaxEp, ratioOf } from './derivedStats';
-import { parseAllStateUpdates, parseAllItemCommands, applyItemCommands, isEquippable, setNpcOwnerResolver, type StateUpdate } from './stateParser';
+import { parseAllStateUpdates, parseAllItemCommands, applyItemCommands, isEquippable, setNpcOwnerResolver, type StateUpdate, type ItemEditResult, type LedgerCtx } from './stateParser';
 import { resolveEquipSlot } from './equipSlots';
 import { SKILLTREE_TUNING } from './skillTree';
 /* NPC 物品 owner 解析器：把物品阶段的"幻觉ID"重定向到真实 NPC（修复 C1/C66 分裂）*/
@@ -387,15 +387,17 @@ export function applyStateUpdates(raw: string) {
   }
 }
 
-export function applyAllUpdates(raw: string) {
+export function applyAllUpdates(raw: string, ctx?: LedgerCtx): { itemResults: ItemEditResult[] } {
   // ★ 先创建物品（<upstore> createItem），再应用 <state>（含 eq 装备短指令），
   //   否则 eq 会在物品尚未创建时执行而装备失败（物品全堆在储物袋里）。
   const itemCmds = parseAllItemCommands(raw);
+  let itemResults: ItemEditResult[] = [];
   if (itemCmds.length > 0) {
     console.log('[Item] 解析到物品指令:', itemCmds);
-    applyItemCommands(itemCmds);
+    itemResults = applyItemCommands(itemCmds, ctx);   // 经单一闸门：解析稳定 id / 去重 / 记账本 / 返回结构化结果
   }
   applyStateUpdates(raw);
+  return { itemResults };
 }
 
 /* 过渡期：进阶点数/击杀结算已移除。正文若仍输出旧 <kill> 清单，直接剥除不显示

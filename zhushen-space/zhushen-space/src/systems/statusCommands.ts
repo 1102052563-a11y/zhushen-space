@@ -51,7 +51,15 @@ export function applyPlayerProfileCommands(reply: string, narrative: string, tur
   while ((m = tierRe.exec(reply))) { sp({ tier: normalizeTier(m[1]) || realmFromLevel(usePlayer.getState().profile.level) }); n++; }
   for (const field of ['appearance', 'baseAppearance', 'location', 'bioStrength', 'homeParadise', 'preParadiseJob', 'imageTags', 'gender', 'race', 'raceDetail'] as const) {
     const re = new RegExp(`\\bcharacter\\.B\\d+\\.${field}\\s*=\\s*"([^"]*)"`, 'g');
-    while ((m = re.exec(reply))) { sp({ [field]: m[1] } as any); n++; }
+    while ((m = re.exec(reply))) {
+      // 护栏：基底外观=常驻长相基准（身高/发色/瞳色/体型/骨相），一旦已有非空值就锁定、忽略 AI 覆盖
+      //（专治"1m4 矮子被演化阶段瞎写成 2m 龙傲天"的漂移）；仅"空→有"时允许首次建锚。要改长相走玩家手动编辑。
+      if (field === 'baseAppearance' && (usePlayer.getState().profile.baseAppearance ?? '').trim()) {
+        console.warn('[Player] 基底外观已锁定，忽略 AI 覆盖:', (m[1] || '').slice(0, 40));
+        continue;
+      }
+      sp({ [field]: m[1] } as any); n++;
+    }
   }
   // 当前状态：固定格式 = 含「:Emoji(…)」结构。若新值是纯状态名、而当前已是固定格式，拒绝覆盖
   // （避免主角演化阶段用纯文本把主正文写好的"带图标+可展开详情"的状态胶囊清掉）。

@@ -1,0 +1,13 @@
+{
+  "type": "script",
+  "enabled": true,
+  "name": "数据库本体",
+  "id": "5cf2f072-5bc7-40c6-8c85-e28f11a9aea0",
+  "content": "import 'https://gcore.jsdelivr.net/gh/AlbusKen/shujuku@spv5.5.6/index.js'",
+  "info": "发公告出新版本时修改@后面的英文+数字",
+  "button": {
+    "enabled": true,
+    "buttons": []
+  },
+  "data": {}
+}

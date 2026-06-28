@@ -8,6 +8,17 @@ import { useTeam, type TeamRank } from '../store/adventureTeamStore';
 import { usePlayer } from '../store/playerStore';
 import { useSettings } from '../store/settingsStore';
 import { resolveEquipSlot } from './equipSlots';
+import { opOf, refOf, isBatchDup, newBatch, recordItem, currencyDupKey, isCurrencyApplied, type ItemOp, type ItemEditResult, type LedgerCtx } from './ledger/itemLedger';
+
+import { recordEvo, charRef, npcRef, charDigest, npcDigest, type EvoCtx, type EvoResult } from './ledger/evoLedger';
+import { parseEditItems, parseEditChars, parseEditNpcs, parseEditFactions } from './editParser';
+
+// 演化账本闸门相关件 re-export（App / stateApply 从 stateParser 统一拿，避免到处 import 子路径）
+export { buildItemFeedback, purgeItemPhaseCurrency, detectUnregisteredCurrencyGains } from './ledger/itemLedger';
+export { buildEvoFeedback, recordEvo } from './ledger/evoLedger';
+export type { ItemEditResult, LedgerCtx } from './ledger/itemLedger';
+export type { EvoResult, EvoCtx } from './ledger/evoLedger';
+export { editToTerritoryText, editToTeamText } from './editParser';   // <edit> → 领地/团 透传合成 <upstore>
 
 /* ════════════════════════════════════════════
    <state> 块 — 通用 key=value 变量更新
@@ -34,6 +45,8 @@ export function stripStateBlocks(text: string): string {
     .replace(/<state\b[^>]*>[\s\S]*$/i, '')
     .replace(/<upstore\b[^>]*>[\s\S]*?<\/upstore>/gi, '')
     .replace(/<upstore\b[^>]*>[\s\S]*$/i, '')
+    .replace(/<edit\b[^>]*>[\s\S]*?<\/edit>/gi, '')
+    .replace(/<edit\b[^>]*>[\s\S]*$/i, '')
     .replace(/<battle\b[^>]*\/>/gi, '')
     .replace(/<battle\b[^>]*>[\s\S]*?<\/battle>/gi, '')
     .replace(/<battle\b[^>]*>[\s\S]*$/i, '')
@@ -161,7 +174,7 @@ function parseUpstoreBlock(block: string): ItemCommand[] {
 }
 
 export function parseAllItemCommands(text: string): ItemCommand[] {
-  return extractUpstoreBlocks(text).flatMap(parseUpstoreBlock);
+  return [...extractUpstoreBlocks(text).flatMap(parseUpstoreBlock), ...parseEditItems(text)];   // <upstore> 与 <edit> 等效合流
 }
 
 /* ════════════════════════════════════════════
@@ -242,19 +255,163 @@ function classifyDeletion(cmd: 'consume' | 'destroy', rawReason?: unknown): { ki
   return { kind, reason: r || (kind === 'used' ? '使用后消失' : '损坏 / 丢弃 / 失去') };
 }
 
-export function applyItemCommands(commands: ItemCommand[]): void {
-  if (commands.length === 0) return;
+/* ── 物品演化底层重构 · 第0期「单一闸门」──
+ * 所有物品指令都从这里过：① 同批次精确去重 → ② 闸门预检(解析目标到稳定 id / 拦截重复创建 / 定位失败)
+ * → ③ 应用（解析到的 id 已注入指令，applyOneItemCommand 据此确定性命中，不再二次模糊匹配）→ ④ 记账本。
+ * 每条返回结构化结果(ItemEditResult)，调用方可据失败项回喂 AI 自纠(buildItemFeedback)。
+ * 旧调用方只传 commands 即可（ctx 缺省 auto），返回值可忽略——行为向后兼容。 */
+export function applyItemCommands(
+  commands: ItemCommand[],
+  ctx: LedgerCtx = { source: 'auto', turn: useItems.getState().itemTurn },
+): ItemEditResult[] {
+  const results: ItemEditResult[] = [];
+  if (commands.length === 0) return results;
   // 同一批内：装备类 name|品级 → 首个 NPC 持有者，用于拦截「同一件装备被复制发给多个 NPC」(如玩家给一个队友买套装、AI 却塞进每个人包里)
   const npcEquipDupCtx = new Map<string, string>();
+  const batch = newBatch();
   for (const cmd of commands) {
+    const op = opOf(cmd.type);
+    const ref = refOf(cmd);
     try {
-      // 每条都取最新状态：否则同一批里第2条 createItem 看不到第1条刚加的物品 → 重复生成
-      applyOneItemCommand(cmd, useItems.getState(), npcEquipDupCtx);
-    } catch (e) {
+      // ① 同批次精确重复（解析/复读把同一条逻辑指令出现两次）→ 跳过
+      if (isBatchDup(batch, cmd)) {
+        recordItem(ctx, op, ref, 'dup', '同批次重复指令');
+        results.push({ ok: true, op, ref, skipped: true, reason: 'dup' });
+        continue;
+      }
+      // ② 闸门预检
+      const pre = preflightItemEdit(cmd, op, ctx);
+      if (pre.decision === 'skip') {
+        recordItem(ctx, op, ref, 'dup', pre.detail, pre.uid);
+        results.push({ ok: true, op, ref, skipped: true, reason: 'dup', uid: pre.uid, detail: pre.detail });
+        continue;
+      }
+      if (pre.decision === 'fail') {
+        recordItem(ctx, op, ref, 'fail', pre.detail);
+        results.push({ ok: false, op, ref, reason: 'not_found', detail: pre.detail, nearest: pre.nearest });
+        continue;
+      }
+      // ③ 应用（每条都取最新状态：否则同一批里第2条 createItem 看不到第1条刚加的物品）
+      applyOneItemCommand(pre.cmd ?? cmd, useItems.getState(), npcEquipDupCtx);
+      recordItem(ctx, op, ref, 'applied', undefined, pre.uid);
+      results.push({ ok: true, op, ref, uid: pre.uid });
+    } catch (e: any) {
+      recordItem(ctx, op, ref, 'error', String(e?.message ?? e));
+      results.push({ ok: false, op, ref, reason: 'error', detail: String(e?.message ?? e) });
       console.warn('[Item] 应用指令失败:', cmd, e);
     }
   }
-  // 是否重复生成物品交由 AI（物品管理预设的「获得即生成」规则）判断，不再机械合并同名
+  return results;
+}
+
+interface Preflight { decision: 'apply' | 'skip' | 'fail'; cmd?: ItemCommand; uid?: string; detail?: string; nearest?: string; }
+
+/** 取某持有者的背包（B1=玩家，其余=对应 NPC 的持有物）。*/
+function bagOf(owner: string): any[] {
+  if (owner === 'B1') return useItems.getState().items;
+  return (useNpc.getState().npcs[owner]?.items as any[]) ?? [];
+}
+
+/** 失败反馈用：返回 bag 里"最接近"查询的一个名字（含/被含优先，否则首个），无则 undefined。*/
+function nearestItemName(bag: any[], query?: string): string | undefined {
+  const q = normName(query);
+  if (!q || !bag?.length) return undefined;
+  const hit = bag.find((it) => { const k = normName(it.name); return k && (k.includes(q) || q.includes(k)); });
+  return (hit ?? bag[0])?.name;
+}
+
+/** 近似同物判重（同名 + 同品级 + 效果/攻防吻合）→ 视为"重复创建"。三要素都吻合才判，避免误伤同名却不同的新物。*/
+function findIdenticalItem(bag: any[], name: string, grade: string, effect: string, combatStat: string): any | null {
+  const n = normName(name), g = normName(grade);
+  if (!n) return null;
+  return (bag ?? []).find((it) => {
+    if (normName(it.name) !== n) return false;
+    if (g && normName(it.gradeDesc) !== g) return false;
+    const effMatch = effect ? normName(it.effect) === normName(effect) : true;
+    const csMatch = combatStat ? normName(it.combatStat) === normName(combatStat) : true;
+    return effMatch && csMatch;
+  }) ?? null;
+}
+
+/** 闸门预检：按操作类型解析目标到稳定 id / 拦截重复创建 / 定位失败。
+ *  - apply：可应用（cmd 可能被替换成"已注入解析 id+准确名"的版本，uid=解析到的实例 id）
+ *  - skip ：重复创建，跳过（uid=已存在那件的 id）
+ *  - fail ：目标定位失败，跳过且回喂 AI（nearest=最接近项） */
+function preflightItemEdit(cmd: ItemCommand, op: ItemOp, ctx?: LedgerCtx): Preflight {
+  const d: any = cmd.data ?? {};
+  switch (op) {
+    case 'currency': {
+      // 跨阶段双计去重：同回合同 (币种|金额|原因) 已发放过 → 跳过（防正文+物品阶段把同一笔奖励发两遍）。
+      // 成长点数(技能点/潜能点…)由 applyOneItemCommand 自行拒发，这里不拦；只对真·货币去重。
+      const amount = Number(d.amount ?? 0);
+      const key = currencyDupKey(normalizeCurrencyType(d.type ?? d.grade), amount, d.reason);
+      if (key && ctx && isCurrencyApplied(ctx.turn, key)) {
+        return { decision: 'skip', uid: key, detail: '本回合已发放同款货币（防跨阶段双计）' };
+      }
+      return { decision: 'apply', uid: key ?? undefined };   // uid=key → 记进账本供后续同回合判重
+    }
+    case 'create': {
+      const item = d.item ?? d;
+      const owner = resolveOwner(d.owner ?? item.owner ?? 'B1');
+      const name = String(item['1'] ?? item.name ?? '').trim();
+      if (!name) return { decision: 'apply' };                       // 名缺失交由 applyOneItemCommand 兜底/忽略
+      if (isResourcePseudoItem({ name })) return { decision: 'apply' };  // 货币伪物品自有处理，不在此判重
+      const cat = String(item['2'] ?? item.category ?? '');
+      if (!isEquippable(cat)) return { decision: 'apply' };           // 可堆叠类靠 store 堆叠合并，不在闸门判重
+      const grade = String(item['3'] ?? item.grade ?? item.quality ?? '');
+      const dup = findIdenticalItem(
+        bagOf(owner), name, grade,
+        String(item['4'] ?? item.effect ?? ''),
+        String(item.combatStat ?? item.attack ?? item.defense ?? ''),
+      );
+      if (dup) return { decision: 'skip', uid: dup.id, detail: `已存在近似同物「${dup.name}」(${owner})，拦截重复创建` };
+      return { decision: 'apply' };
+    }
+    // 持有者相关、apply 阶段支持 NPC 的：consume/destroy/equip/unequip
+    case 'consume':
+    case 'destroy':
+    case 'equip':
+    case 'unequip': {
+      const owner = resolveOwner(d.owner ?? 'B1');
+      const givenName: string | undefined = d.name ?? d['1'] ?? d.itemName;
+      const bag = bagOf(owner);
+      const found = pickTargetItem(bag, d.itemId, givenName);
+      if (!found) {
+        return { decision: 'fail', detail: `未在${owner === 'B1' ? '背包' : owner + ' 储存'}定位到目标`, nearest: nearestItemName(bag, givenName ?? d.itemId) };
+      }
+      return { decision: 'apply', cmd: { ...cmd, data: { ...d, itemId: found.id, name: found.name } }, uid: found.id };
+    }
+    // apply 阶段仅支持主角(B1)的：updateItem/updateItemQuantity
+    case 'update':
+    case 'updateQty': {
+      const givenName: string | undefined = d.name ?? d['1'] ?? d.itemName;
+      const bag = useItems.getState().items;
+      const found = pickTargetItem(bag, d.itemId, givenName);
+      if (!found) {
+        return { decision: 'fail', detail: '背包未定位到要更新的物品', nearest: nearestItemName(bag, givenName ?? d.itemId) };
+      }
+      return { decision: 'apply', cmd: { ...cmd, data: { ...d, itemId: found.id, name: found.name } }, uid: found.id };
+    }
+    case 'transfer': {
+      const givenName: string | undefined = d.name ?? d['1'] ?? d.itemName;
+      if (d.from === 'B1') {
+        const bag = useItems.getState().items;
+        const found = pickTargetItem(bag, d.itemId, givenName);
+        if (!found) return { decision: 'fail', detail: '转出失败：背包未定位到该物品', nearest: nearestItemName(bag, givenName ?? d.itemId) };
+        return { decision: 'apply', cmd: { ...cmd, data: { ...d, itemId: found.id, name: found.name } }, uid: found.id };
+      }
+      if (d.to === 'B1' && d.from && d.from !== 'B1') {
+        const owner = resolveOwner(String(d.from));
+        const bag = bagOf(owner);
+        const found = pickTargetItem(bag, d.itemId, givenName);
+        if (!found) return { decision: 'fail', detail: `转入失败：来源 ${owner} 未定位到该物品`, nearest: nearestItemName(bag, givenName ?? d.itemId) };
+        return { decision: 'apply', cmd: { ...cmd, data: { ...d, itemId: found.id, name: found.name } }, uid: found.id };
+      }
+      return { decision: 'apply' };
+    }
+    default:
+      return { decision: 'apply' };  // currency / other：无目标可解析，直接应用（同批次去重已在上游处理）
+  }
 }
 
 /** 校验/归一「攻防字段 combatStat」的机器可读性（确定性·无 API）：
@@ -847,7 +1004,7 @@ function parseCharBlock(block: string): CharCommand[] {
 }
 
 export function parseAllCharCommands(text: string): CharCommand[] {
-  return extractUpstoreBlocks(text).flatMap(parseCharBlock);
+  return [...extractUpstoreBlocks(text).flatMap(parseCharBlock), ...parseEditChars(text)];   // <upstore> 与 <edit> 等效合流
 }
 
 /* ════════════════════════════════════════════
@@ -896,10 +1053,41 @@ function parseNpcBlock(block: string): NpcCommand[] {
 }
 
 export function parseAllNpcCommands(text: string): NpcCommand[] {
-  return extractUpstoreBlocks(text).flatMap(parseNpcBlock);
+  return [...extractUpstoreBlocks(text).flatMap(parseNpcBlock), ...parseEditNpcs(text)];   // <upstore> 与 <edit> 等效合流
 }
 
-export function applyNpcCommands(cmds: NpcCommand[]): void {
+/* 第1期闸门（NPC）：同批次精确去重 + 账本审计 + 结构化结果；身份/重定向仍由 *Raw 内层处理（零侵入）。
+ * 旧调用方只传 cmds 即可（ctx 缺省 auto），返回值可忽略——向后兼容。 */
+export function applyNpcCommands(
+  cmds: NpcCommand[],
+  ctx: EvoCtx = { source: 'auto', turn: useItems.getState().itemTurn },
+): EvoResult[] {
+  const results: EvoResult[] = [];
+  if (cmds.length === 0) return results;
+  const batch = new Set<string>();
+  for (const c of cmds) {
+    const op = c.type;
+    const ref = npcRef(c.id, c.payload);
+    try {
+      const key = npcDigest(c.type, c.id, c.payload);
+      if (batch.has(key)) {
+        recordEvo('npc', ctx, op, ref, 'dup', '同批次重复指令');
+        results.push({ ok: true, entity: 'npc', op, ref, skipped: true, reason: 'dup' });
+        continue;
+      }
+      batch.add(key);
+      applyNpcCommandsRaw([c]);   // 委托内层（含同名重定向/非法ID规范化/软删），行为不变
+      recordEvo('npc', ctx, op, ref, 'applied');
+      results.push({ ok: true, entity: 'npc', op, ref });
+    } catch (e: any) {
+      recordEvo('npc', ctx, op, ref, 'error', String(e?.message ?? e));
+      results.push({ ok: false, entity: 'npc', op, ref, reason: 'error', detail: String(e?.message ?? e) });
+    }
+  }
+  return results;
+}
+
+function applyNpcCommandsRaw(cmds: NpcCommand[]): void {
   if (cmds.length === 0) return;
   for (const c of cmds) {
     try {
@@ -958,9 +1146,40 @@ function parseFactionBlock(block: string): FactionCommand[] {
   return cmds;
 }
 export function parseAllFactionCommands(text: string): FactionCommand[] {
-  return extractUpstoreBlocks(text).flatMap(parseFactionBlock);
+  return [...extractUpstoreBlocks(text).flatMap(parseFactionBlock), ...parseEditFactions(text)];   // <upstore> 与 <edit> 等效合流
 }
-export function applyFactionCommands(cmds: FactionCommand[]): void {
+/* 第2期闸门（势力）：同批次精确去重 + 账本审计 + 结构化结果。de 为软删(移出当前世界·同 NPC)，故不做 not_found 检测。
+ * 旧调用方只传 cmds 即可（ctx 缺省 auto），返回值可忽略——向后兼容。 */
+export function applyFactionCommands(
+  cmds: FactionCommand[],
+  ctx: EvoCtx = { source: 'auto', turn: useItems.getState().itemTurn },
+): EvoResult[] {
+  const results: EvoResult[] = [];
+  if (cmds.length === 0) return results;
+  const batch = new Set<string>();
+  for (const c of cmds) {
+    const op = c.type;
+    const ref = npcRef(c.id, c.payload);   // 复用通用 id+名 引用（payload['1']/name）
+    try {
+      const key = npcDigest(c.type, c.id, c.payload);
+      if (batch.has(key)) {
+        recordEvo('faction', ctx, op, ref, 'dup', '同批次重复指令');
+        results.push({ ok: true, entity: 'faction', op, ref, skipped: true, reason: 'dup' });
+        continue;
+      }
+      batch.add(key);
+      applyFactionCommandsRaw([c]);
+      recordEvo('faction', ctx, op, ref, 'applied');
+      results.push({ ok: true, entity: 'faction', op, ref });
+    } catch (e: any) {
+      recordEvo('faction', ctx, op, ref, 'error', String(e?.message ?? e));
+      results.push({ ok: false, entity: 'faction', op, ref, reason: 'error', detail: String(e?.message ?? e) });
+    }
+  }
+  return results;
+}
+
+function applyFactionCommandsRaw(cmds: FactionCommand[]): void {
   if (cmds.length === 0) return;
   const store = useFaction.getState();
   for (const c of cmds) {
@@ -1150,7 +1369,65 @@ export function applyTeamCommands(text: string): number {
 // 注：第二参数 narrative 目前未被函数体使用——原是「全新副职业须正文有明确习得动作才建」的判据，
 // 副职业改「配方星图」后只能由树加（已屏蔽正文 addSubProfession），该判据失效；以 _ 前缀标记有意保留入参槽，
 // 调用方仍可传（被忽略），将来若要恢复正文级守卫可在此接回。
-export function applyCharacterCommands(commands: CharCommand[], _narrative?: string): void {
+/** de* 指令的目标集合大小（删除前后比对判定"是否真的删到了东西"）；非可测 de* 返回 null。*/
+function charTargetCount(charId: string, type: string): number | null {
+  const ch: any = useCharacters.getState().characters[charId];
+  switch (type) {
+    case 'deSkill':          return ch?.skills?.length ?? 0;
+    case 'deTrait':
+    case 'deTalent':         return ch?.traits?.length ?? 0;
+    case 'deTitle':          return ch?.titles?.length ?? 0;
+    case 'deSubProfession':  return ch?.subProfessions?.length ?? 0;
+    case 'deRecipe':         return (ch?.subProfessions ?? []).reduce((n: number, p: any) => n + (p.recipes?.length ?? 0), 0);
+    case 'deAchievement':    return /^B\d+$/.test(charId) ? (usePlayer.getState().achievements?.length ?? 0) : null;
+    default:                 return null;
+  }
+}
+
+/* 第1期闸门（角色）：同批次精确去重 + 账本审计 + de* 目标不存在检测 + 结构化结果。
+ * 内层逻辑(addSkill/deSkill/addTitle/副职业/配方/成就/事迹…)由 *Raw 原样承接，零侵入。
+ * 旧调用方传 (cmds[, narrative]) 即可，返回值可忽略——向后兼容。 */
+export function applyCharacterCommands(
+  commands: CharCommand[],
+  _narrative?: string,
+  ctx: EvoCtx = { source: 'auto', turn: useItems.getState().itemTurn },
+): EvoResult[] {
+  const results: EvoResult[] = [];
+  if (commands.length === 0) return results;
+  const batch = new Set<string>();
+  for (const cmd of commands) {
+    const op = cmd.type;
+    const ref = charRef(cmd.charId, cmd.payload);
+    try {
+      const key = charDigest(cmd.type, cmd.charId, cmd.payload);
+      if (batch.has(key)) {
+        recordEvo('char', ctx, op, ref, 'dup', '同批次重复指令');
+        results.push({ ok: true, entity: 'char', op, ref, skipped: true, reason: 'dup' });
+        continue;
+      }
+      batch.add(key);
+      const isDe = op.startsWith('de');
+      const before = isDe ? charTargetCount(cmd.charId, op) : null;
+      applyCharacterCommandsRaw([cmd], _narrative);   // 委托内层，行为不变
+      if (isDe && before != null) {
+        const after = charTargetCount(cmd.charId, op);
+        if (after != null && after === before) {   // 删除前后数量不变 = 没删到 = 目标不存在
+          recordEvo('char', ctx, op, ref, 'fail', '目标不存在/未移除');
+          results.push({ ok: false, entity: 'char', op, ref, reason: 'not_found' });
+          continue;
+        }
+      }
+      recordEvo('char', ctx, op, ref, 'applied');
+      results.push({ ok: true, entity: 'char', op, ref });
+    } catch (e: any) {
+      recordEvo('char', ctx, op, ref, 'error', String(e?.message ?? e));
+      results.push({ ok: false, entity: 'char', op, ref, reason: 'error', detail: String(e?.message ?? e) });
+    }
+  }
+  return results;
+}
+
+function applyCharacterCommandsRaw(commands: CharCommand[], _narrative?: string): void {
   if (commands.length === 0) return;
   const store = useCharacters.getState();
 

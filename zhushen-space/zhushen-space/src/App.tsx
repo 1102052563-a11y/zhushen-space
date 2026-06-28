@@ -5,6 +5,7 @@ import {
   TERRITORY_EFFECT_RULE,
   TERRITORY_STABILITY_RULE,
   TERRITORY_DEDUP_RULE,
+  TEAM_DEDUP_RULE,
   EVO_VERIFY_RULE,
   BUFF_AS_STATUS_RULE,
   STATUS_COUNTDOWN_TURN_RULE,
@@ -83,6 +84,9 @@ import {
   SOUL_GAMBLE_RULE,
   POTENTIAL_POINT_RULE,
   WORLD_SETTLEMENT_RULE,
+  EDIT_LANGUAGE_RULE,
+  EDIT_BY_ID_RULE,
+  EVO_REGISTER_GAINS_RULE,
   buildPovBranchRule,
   buildPovRenderRule,
   buildPovAlignRule,
@@ -92,7 +96,7 @@ import { useState, useRef, useEffect, lazy, Suspense, type PointerEvent as RPoin
 import { useGame } from './store/gameStore';
 import { useSettings, resolveApiChain } from './store/settingsStore';
 import { apiChatFallback, fetchWithProxy, abortAllApiCalls } from './systems/apiChat';
-import { parseAllStateUpdates, stripStateBlocks, parseAllItemCommands, applyItemCommands, parseAllCharCommands, applyCharacterCommands, parseAllNpcCommands, applyNpcCommands, parseAllFactionCommands, applyFactionCommands, applyTerritoryCommands, applyTeamCommands, isEquippable, lenientJsonParse } from './systems/stateParser';
+import { parseAllStateUpdates, stripStateBlocks, parseAllItemCommands, applyItemCommands, parseAllCharCommands, applyCharacterCommands, parseAllNpcCommands, applyNpcCommands, parseAllFactionCommands, applyFactionCommands, applyTerritoryCommands, applyTeamCommands, isEquippable, lenientJsonParse, buildItemFeedback, recordEvo, purgeItemPhaseCurrency, editToTerritoryText, editToTeamText, detectUnregisteredCurrencyGains } from './systems/stateParser';
 import { isRealNpc, sanitizeEntryName, stripLeakedThinking, setNpcPreferredOwners, applyStateUpdates, applyAllUpdates, stripKillBlocks, stripVitalsBlocks, stripWorldSourceBlocks, collapseRunaway } from './systems/stateApply';
 import { snapshotPlayerBag, reconcilePlayerBag } from './systems/itemWatchdog';
 import { flattenAiText } from './systems/flattenAiText';
@@ -111,6 +115,8 @@ import { generateRaidBoss, generateBakalDungeon, generateAntonDungeon, generateV
 import { generateRaidLoot, generateRaidReward } from './systems/raidLoot';
 import { useSkillTree } from './store/skillTreeStore';
 import { useSubProfTree, subProfMastery } from './store/subProfTreeStore';
+import { useSnapshots, captureEvoSnapshot, snapState } from './store/snapshotStore';
+import { attrsDiffer, attrChangeJustified, revertStableDims, changedFields, entityChangeJustified, pickFields, sameName, SKILL_GUARD_FIELDS, TRAIT_GUARD_FIELDS, ITEM_ID_FIELDS, ITEM_COMBAT_FIELDS, FACTION_GUARD_FIELDS, NPC_PROFILE_GUARD_FIELDS, PLAYER_PROFILE_GUARD_FIELDS, profileChangeJustified } from './systems/driftGuard';
 import RaidDungeonReward from './components/RaidDungeonReward';
 const RaidLootModal = lazy(() => import('./components/RaidLootModal'));
 const CombatPanel = lazy(() => import('./components/CombatPanel'));
@@ -1622,6 +1628,8 @@ export default function App() {
     }
     // 主角状态同步：让始终运行的主正文每回合输出位置/外观（前端解析后剥除），不依赖被节流的主角演化阶段
     sysPrompt += '\n\n' + PLAYER_STATE_EMIT_RULE; sysSegments.push({ label: '前端规则 · 主角状态输出', content: PLAYER_STATE_EMIT_RULE });
+    // 统一编辑语言 <edit>（第3期·A）：与 <state>/<upstore> 等效的更简洁可选写法，前端 parseAll*Commands 已合流接收
+    sysPrompt += '\n\n' + EDIT_LANGUAGE_RULE; sysSegments.push({ label: '前端规则 · 统一编辑语言 <edit>', content: EDIT_LANGUAGE_RULE });
     // 属性点唯一真相：每回合注入，压住 AI 凭记忆复读"还有N点未用"、禁止其自行增减点数（前端面板加点消耗，注入余额为准）
     sysPrompt += '\n\n' + ATTR_POINT_AUTHORITY_RULE; sysSegments.push({ label: '前端规则 · 属性点唯一真相', content: ATTR_POINT_AUTHORITY_RULE });
     // HP/EP 结算：让主正文每回合末尾输出主角+在场NPC的当前 HP/EP（前端 applyNarrativeVitals/NpcVitals 解析，HP/EP 管理阶段也以此为最终值）
@@ -1759,6 +1767,7 @@ export default function App() {
         for (const [id, its] of Object.entries(snap.npcItems)) if (npcs[id]) npcs[id] = { ...npcs[id], items: its };
         return { npcs };
       });
+      purgeItemPhaseCurrency(undoKey);   // 清掉本阶段记的货币账本事件，让重跑能重新发放（否则跨阶段去重会误抑制重发）
       rolledBack = true;
       console.log('[Item] 储存空间手动更新：已回退本回合物品演化的修改，重新演化…');
     } else {
@@ -1794,7 +1803,9 @@ export default function App() {
         + '**玩家给某一个队友买的/某个角色获得的装备，就只进那一个角色的包**——严禁因为"队伍/在场多人"就把同一件（或同名同款）装备复制分发给其他 NPC；正文里属于 A 的东西绝不写到 B 名下。'
         + '一件具体装备只 createItem 一次、owner 只填一个；归属拿不准时，宁可只发给最明确的那一个，也不要复制成多份分给多人。'
         + '\n' + ITEM_UPDATE_RULE + '\n' + FIRST_UPDATE_COMPLETE_RULE + '\n' + ITEM_EXACT_REF_RULE
-        + '\n' + ITEM_COT_RULE + '\n' + ITEM_EVOLUTION_CODEX;
+        + '\n' + ITEM_COT_RULE + '\n' + ITEM_EVOLUTION_CODEX
+        + '\n' + EDIT_LANGUAGE_RULE + '\n' + EDIT_BY_ID_RULE   // #uid 编辑台：教会本阶段用 <edit> + 强制"改已有按ID、只新建全新"，根治重复条目
+        + '\n' + EVO_REGISTER_GAINS_RULE;   // 差分对账：所得必登(防漏)、失才删(防误删)、没变就别碰(防漂移)
 
       // user 消息：正文 + 指令要求（先思维链 <think> 自检，再出指令块）
       const userContent = `# 本轮正文\n${trimmedNarrative}\n\n---\n请根据以上正文处理本轮物品与货币（乐园币、灵魂钱币）的变化。**先输出一个 <think>…</think> 思考块**，按系统提示里的「物品演化思维链」逐项自检、把跟物品/装备/货币有关的事想清楚；**随后**输出 <state> 和 <upstore> 指令块（无变化则输出空块）。除 <think> / <state> / <upstore> 外不要有任何其它文字。`;
@@ -1821,10 +1832,33 @@ export default function App() {
       if (reply) {
         // 先剥掉思维链 <think> 块（只用于自检、不参与解析），避免其中的自然语言被误判成指令
         const cleanReply = reply.replace(/<think[^>]*>[\s\S]*?<\/think>/gi, '').trim();
-        applyAllUpdates(cleanReply);
+        const { itemResults } = applyAllUpdates(cleanReply, { source: 'item-phase', turn: turnCountRef.current });
         // 同名重复物品合并（防 AI 重复 createItem）：主角背包 + 全部 NPC 储存空间
         try { const m = useItems.getState().dedupeByName(); if (m) console.log(`[Item] 合并主角同名重复物品 ${m} 件`); } catch { /* */ }
         try { useNpc.getState().dedupeNpcItems(); } catch { /* */ }
+        // 未生效的物品指令 + 漏登的货币所得 → 回喂自纠一次（仿"数据库脚本"的 SQL_ERROR_FEEDBACK）
+        const feedback = [
+          buildItemFeedback(itemResults),                                                        // 定位失败的物品指令
+          detectUnregisteredCurrencyGains(trimmedNarrative, turnCountRef.current),               // 正文获得了货币却没入账 → 让 AI 补登
+        ].filter(Boolean).join('\n\n');
+        if (feedback) {
+          console.log('[Item] 检测到未生效指令，回喂自纠：\n' + feedback);
+          setItemPhaseLog('物品阶段：修正未生效指令中…');
+          try {
+            const { content: retry } = await apiChatFallback(chain, [
+              { role: 'system', content: systemPrompt },
+              { role: 'user', content: userContent },
+              { role: 'assistant', content: reply },
+              { role: 'user', content: feedback + '\n\n只输出修正后的 <upstore>/<state> 指令块，不要任何其它文字。' },
+            ], { extra });
+            if (retry) {
+              const cleanRetry = retry.replace(/<think[^>]*>[\s\S]*?<\/think>/gi, '').trim();
+              applyAllUpdates(cleanRetry, { source: 'item-phase-retry', turn: turnCountRef.current });
+              try { useItems.getState().dedupeByName(); } catch { /* */ }
+              try { useNpc.getState().dedupeNpcItems(); } catch { /* */ }
+            }
+          } catch (e: any) { console.warn('[Item] 回喂自纠失败（忽略）:', e?.message ?? e); }
+        }
         const itemCmds = parseAllItemCommands(cleanReply);
         const stateUpds = parseAllStateUpdates(cleanReply);
         const total = itemCmds.length + stateUpds.length;
@@ -2188,6 +2222,10 @@ export default function App() {
       const b1 = useCharacters.getState().characters['B1'];
       const pSkills = b1?.skills ?? [];
       const pTalents = b1?.traits ?? [];
+      // 喂给 AI 的技能/天赋清单带上完整「效果+加成」（治"快照只给名字与品级→AI 看着像信息缺失就凭空重写天赋"）：
+      // 内容完整，AI 才知道"已经有了、别动"；万一确有升级也能照着原效果保留再叠加，而非整条重编。
+      const pSkillsLine = pSkills.length ? pSkills.map((s) => `· ${s.id}「${s.name}」${s.level ?? ''}${s.skillType ? `[${s.skillType}]` : ''}${s.rarity ? `·${s.rarity}` : ''}｜效果:${(s.effect || '（无）').trim()}${s.attrBonus ? `｜加成:${s.attrBonus}` : ''}`).join('\n') : '（无）';
+      const pTalentsLine = pTalents.length ? pTalents.map((t) => `· 「${t.name}」${t.category ?? ''}·${t.rarity}级｜效果:${(t.effect || '（无）').trim()}${t.attrBonus ? `｜加成:${t.attrBonus}` : ''}`).join('\n') : '（无）';
       const a = prof.attrs;
       const playerProfileSnapshot = [
         `姓名:${prof.name || '主角'} | 阶位:${prof.tier} Lv.${prof.level} | 世界之源:${prof.worldSource ?? 0} | 属性点:${prof.attrPoints ?? 0} | 真实属性点:${prof.realAttrPoints ?? 0}`,
@@ -2208,14 +2246,14 @@ export default function App() {
         `当前外观(即时状态·须与基底外观一致): ${prof.appearance || '（未填写）'}`,
         `当前位置: ${prof.location || '（未填写）'}`,
         `当前生图提示词(列19,有则沿用/仅长期外观变化时更新·须忠实反映上方基底外观,不得编出与之冲突的体型/瞳色/身高): ${prof.imageTags || '（未生成,请生成英文NAI tags）'}`,
-        `已有技能(${pSkills.length}): ${pSkills.length ? pSkills.map((s) => `${s.id}「${s.name}」${s.level ?? ''}`).join('；') : '（无）'}`,
-        `已有天赋(${pTalents.length}): ${pTalents.length ? pTalents.map((t) => `「${t.name}」${t.category ?? ''}·${t.rarity}级`).join('；') : '（无）'}`,
+        `已有技能(${pSkills.length})【完整档案·本轮正文没有"这一个技能明确升级/突破"就整条原样冻结、绝不重发 addSkill】:\n${pSkillsLine}`,
+        `已有天赋(${pTalents.length})【完整档案·本轮正文没有"这一个天赋明确觉醒/进阶"就整条原样冻结、绝不重发 addTalent；万一确有升级，务必把下面这条的"效果/加成"原样保留后再往上叠，绝不可重写成更短/更弱或改掉评级】:\n${pTalentsLine}`,
         (b1?.subProfessions?.length ?? 0) > 0 && `副职业(勿重复add,按需累加进度): ${b1!.subProfessions!.map((p) => `${p.name}[${p.tier} ${p.progress ?? 0}%]${p.recipes?.length ? `(${p.recipeLabel || '配方'}:${p.recipes.map((r) => r.name).join('、')})` : ''}`).join('；')}`,
       ].filter(Boolean).join('\n');
       const systemPrompt = buildPlayerSystemPrompt(enabledEntries)
         .replaceAll('${character_snapshot}', playerProfileSnapshot)
-        .replaceAll('${player_skills}', pSkills.length ? pSkills.map((s) => `${s.id}「${s.name}」${s.level ?? ''}`).join('；') : '（无）')
-        .replaceAll('${player_traits}', pTalents.length ? pTalents.map((t) => `「${t.name}」${t.category ?? ''}·${t.rarity}级`).join('；') : '（无）')
+        .replaceAll('${player_skills}', pSkillsLine)
+        .replaceAll('${player_traits}', pTalentsLine)
         + '\n\n' + PARADISE_RULES_RULE + '\n\n' + NARRATIVE_FIRST_RULE + '\n' + EVO_VERIFY_RULE + '\n' + BUFF_AS_STATUS_RULE + '\n' + SUBPROF_RULE + '\n' + TALENT_NO_CAP_RULE + '\n' + TITLE_DIVERSITY_RULE + '\n' + SKILL_TALENT_NOTE_RULE + '\n' + SKILL_TIER_RULE + '\n' + SKILL_TALENT_ATTR_CAP_RULE + '\n' + PLAYER_SKILL_KEEP_RULE + '\n' + ITEM_GRANTED_SKILL_RULE + '\n' + SKILL_STABILITY_RULE + '\n' + SKILL_COMBAT_TAG_RULE + '\n' + TIER_RULE +'\n' + IMAGE_TAGS_RULE + '\n' + HPEP_NARRATIVE_ONLY_RULE + '\n' + WORLDSOURCE_RULE + '\n' + POINTS_NARRATIVE_RULE + '\n' + ATTR_SANITY_RULE + '\n' + ATTR_CAP_RULE + '\n' + PLAYER_ATTR_LOCK_RULE + '\n' + APPEARANCE_UPDATE_RULE + '\n' + STATUS_FORMAT_RULE + '\n' + STATUS_COUNTDOWN_TURN_RULE + '\n' + FIRST_UPDATE_COMPLETE_RULE + '\n' + EVO_EXACT_REF_RULE + '\n' + SKILL_TALENT_GUIDE + '\n' + PLAYER_COT_RULE;
       const userContent  = `# 本轮正文\n${trimmedNarrative}\n\n---\n请根据以上正文处理本轮主角属性与状态的变化。**先输出一个 <think>…</think> 思考块**，按系统提示里的「主角演化思维链」逐项自检；**随后**输出 <state>（及如有需要的 <upstore>）指令块，无变化时输出空块。除 <think> / <state> / <upstore> 外不要有其它文字。`;
 
@@ -2238,7 +2276,7 @@ export default function App() {
         applyAllUpdates(cleanReply);
         applyPlayerProfileCommands(cleanReply, narrative, turnCountRef.current);   // 主角身份/属性/外观/位置变量（传正文：基础六维只在正文写明成长时才许上调）
         const charCmds  = parseAllCharCommands(cleanReply);
-        applyCharacterCommands(charCmds, trimmedNarrative);   // 传正文：全新副职业须正文有明确习得动作才建，杜绝凭空生成
+        applyCharacterCommands(charCmds, trimmedNarrative, { source: 'player-phase', turn: turnCountRef.current });   // 传正文：全新副职业须正文有明确习得动作才建，杜绝凭空生成
         const stateUpds = parseAllStateUpdates(cleanReply);
         const total = stateUpds.length + charCmds.length;
         setPlayerPhaseLog(
@@ -2737,9 +2775,9 @@ export default function App() {
     const cleanReply = reply.replace(/<think[^>]*>[\s\S]*?<\/think>/gi, '').trim();   // 剥掉思维链再解析
     // 单角色作用域：过滤掉越界指令
     const npcCmds = parseAllNpcCommands(cleanReply).filter((c) => c.id === charId);
-    applyNpcCommands(npcCmds);
+    applyNpcCommands(npcCmds, { source: 'npc-phase', turn: turnCountRef.current });
     const charCmds = parseAllCharCommands(cleanReply).filter((c) => c.charId === charId);
-    applyCharacterCommands(charCmds);
+    applyCharacterCommands(charCmds, undefined, { source: 'npc-phase', turn: turnCountRef.current });
     const shorts = applyNpcShortCommands(cleanReply, charId);
     // 第一人称自述块（门控生成）：<自述 id="C1">…</自述> → selfNarration（仅写入本目标，幂等：已有则不会再生成）
     const selfRe = /<自述\s+id\s*=\s*["']?([CG]\d+)["']?\s*>([\s\S]*?)<\/自述>/gi;
@@ -2752,6 +2790,146 @@ export default function App() {
     useNpc.getState().markEvolved(charId, turnCountRef.current);
     console.log(`[NPC] ${charId} 演化：${npcCmds.length} 档案 / ${charCmds.length} 技能天赋 / ${shorts} 短指令`);
     return npcCmds.length + charCmds.length + shorts;
+  }
+
+  /* 防漂哨：本回合演化全跑完后，拿各 NPC 六维与「回合初基线」对账——无正文理由的稳定五维改动一律退回基线
+     （治"队友前回合1500血肉盾、后回合300血脆皮"：体质被无故改写→HP上限崩）。幸运由 ensureNpcLuck 独占、不在此守。 */
+  function guardNpcAttrDrift(narrative: string): void {
+    const baseNpcs = snapState(useSnapshots.getState().latest(), 'drpg-npc')?.npcs;   // 从整份快照里取 NPC 基线
+    if (!baseNpcs) return;
+    const npcs = useNpc.getState().npcs;
+    const attrReverted: string[] = [];
+    let profReverted = 0;
+    for (const [id, snap0] of Object.entries(baseNpcs)) {
+      const snap: any = snap0;
+      const rec: any = npcs[id];
+      if (!rec || rec.isDead) continue;
+      const justified = attrChangeJustified(rec.name || id, snap.realm || '', rec.realm || '', narrative);
+      // ① 六维（→HP上限）：无据漂移 → 退回稳定五维
+      if (rec.attrs && snap?.attrs && attrsDiffer(snap.attrs, rec.attrs) && !justified) {
+        useNpc.getState().upsertNpc(id, { attrs: revertStableDims(snap.attrs, rec.attrs) as any });
+        attrReverted.push(rec.name || id);
+        try { recordEvo('npc', { source: 'drift-guard', turn: turnCountRef.current }, 'attr-revert', rec.name || id, 'fail', '六维无据漂移→退回基线'); } catch { /* */ }
+      }
+      // ② 描述/身份字段（外貌基底/性别/性格/职业）：无据改写 → 退回（治"外貌乱变""肉盾→法师"角色翻转）
+      const nm = rec.name || id;
+      const profJustified = justified || (nm.length >= 2 && narrative.includes(nm) && profileChangeJustified(narrative));
+      const pdiff = changedFields(snap, rec, NPC_PROFILE_GUARD_FIELDS);
+      if (pdiff.length && !profJustified) {
+        useNpc.getState().upsertNpc(id, pickFields(snap, pdiff));
+        profReverted++;
+        try { recordEvo('npc', { source: 'drift-guard', turn: turnCountRef.current }, 'profile-revert', nm, 'fail', `档案字段无据改写→退回(${pdiff.join(',')})`); } catch { /* */ }
+      }
+    }
+    if (attrReverted.length) {
+      try { ensureNpcVitalsCap(); } catch { /* 退回六维后重夹 HP/EP 上限 */ }
+      console.warn(`[防漂] ${attrReverted.length} 个 NPC 六维被无据改动 → 已退回基线：`, attrReverted);
+    }
+    if (profReverted) console.warn(`[防漂] ${profReverted} 个 NPC 档案字段(外貌/性格/职业等)被无据改写 → 已退回基线`);
+  }
+
+  /* 防漂哨·主角档案：基底外观(不可变)/职业 被无剧情事件地改写 → 退回基线。
+     六维由前端加点掌控、技能由 characterStore 哨兵守，故此处只守描述/身份。 */
+  function guardPlayerDrift(narrative: string): void {
+    const base = snapState(useSnapshots.getState().latest(), 'drpg-player-evo')?.profile;
+    if (!base) return;
+    const prof: any = usePlayer.getState().profile;
+    const diff = changedFields(base, prof, PLAYER_PROFILE_GUARD_FIELDS);
+    if (diff.length === 0 || profileChangeJustified(narrative)) return;
+    usePlayer.getState().setProfile(pickFields(base, diff));
+    console.warn(`[防漂] 主角档案被无据改写 → 已退回基线：${diff.join(',')}`);
+    try { recordEvo('char', { source: 'drift-guard', turn: turnCountRef.current }, 'player-revert', '主角', 'fail', `${diff.join(',')}无据漂移→退回`); } catch { /* */ }
+  }
+
+  /* 防漂哨·技能/天赋：本回合演化全跑完后，拿每个角色(B1+NPC)的技能/天赋与「回合初基线」对账——
+     已确立(基线非空)的 效果/等级/品级/加成 等字段被改写、但本轮正文没点该技能名+升级/受创类词 → 只退回漂掉的那几个字段。
+     治"一个技能5回合改3次效果""队友天赋乱变"。基线为空的字段=首次补全，放行（不与 FIRST_UPDATE_COMPLETE_RULE 打架）。 */
+  function guardCharDrift(narrative: string): void {
+    const baseChars = snapState(useSnapshots.getState().latest(), 'drpg-characters')?.characters;
+    if (!baseChars) return;
+    const store = useCharacters.getState();
+    const cur = store.characters;
+    let reverted = 0;
+    for (const [charId, baseC0] of Object.entries(baseChars)) {
+      const baseC: any = baseC0;
+      const curC: any = cur[charId];
+      if (!curC) continue;
+      // 技能：基线技能按 id（跨回合稳定）匹配当前，找不到再按名兜底
+      for (const bs of (baseC.skills ?? [])) {
+        const cs = (curC.skills ?? []).find((x: any) => x.id === bs.id) ?? (curC.skills ?? []).find((x: any) => sameName(x.name, bs.name));
+        if (!cs) continue;   // 被删/不在 → 本哨不管（删除另议）
+        const diff = changedFields(bs, cs, SKILL_GUARD_FIELDS);
+        if (diff.length === 0 || entityChangeJustified(cs.name || bs.name, narrative)) continue;
+        store.updateSkill(charId, cs.id, pickFields(bs, diff));   // 只退回漂移的字段
+        reverted++;
+        try { recordEvo('char', { source: 'drift-guard', turn: turnCountRef.current }, 'skill-revert', `${charId}:${cs.name}`, 'fail', `技能无据改写→退回(${diff.join(',')})`); } catch { /* */ }
+      }
+      // 天赋：按名匹配（updateTrait 用名）
+      for (const bt of (baseC.traits ?? [])) {
+        const ct = (curC.traits ?? []).find((x: any) => sameName(x.name, bt.name));
+        if (!ct) continue;
+        const diff = changedFields(bt, ct, TRAIT_GUARD_FIELDS);
+        if (diff.length === 0 || entityChangeJustified(ct.name || bt.name, narrative)) continue;
+        store.updateTrait(charId, ct.name, pickFields(bt, diff));
+        reverted++;
+        try { recordEvo('char', { source: 'drift-guard', turn: turnCountRef.current }, 'trait-revert', `${charId}:${ct.name}`, 'fail', `天赋无据改写→退回(${diff.join(',')})`); } catch { /* */ }
+      }
+    }
+    if (reverted) console.warn(`[防漂] ${reverted} 条技能/天赋被无据改写 → 已退回回合初基线`);
+  }
+
+  /* 防漂哨·物品：主角背包里已有物品的字段被无据改写 → 退回回合初基线。
+     身份字段(名/类/子类/产地/需求)恒守；战斗字段(效果/词缀/攻防/品级/评分/简介)仅当本回合该物**没被强化/镶嵌/改数量**时才守
+     （被这些确定性系统动过→那几项是合法结果，不退）。基线为空的字段=首次补全，放行。 */
+  /* 一份物品清单的防漂对账（主角背包 / 某 NPC 持有物共用；applyPatch 区分更新方法）。*/
+  function guardItemList(baseItems: any, curItems: any[], applyPatch: (id: string, patch: any) => void, owner: string, narrative: string): number {
+    if (!Array.isArray(baseItems) || !Array.isArray(curItems)) return 0;
+    let n = 0;
+    for (const bi of baseItems) {
+      const ci: any = curItems.find((x) => x.id === bi.id) ?? curItems.find((x) => sameName(x.name, bi.name));
+      if (!ci) continue;   // 卖/删/转出 → 物品离场由看门狗管，本哨不碰
+      // 本回合是否被确定性系统动过（强化/镶嵌/堆叠）→ 是则不守战斗字段，避免误退合法结果
+      const touched = bi.enhanceLevel !== ci.enhanceLevel || bi.maxEnhanceLevel !== ci.maxEnhanceLevel
+        || JSON.stringify(bi.gems) !== JSON.stringify(ci.gems) || (bi.quantity ?? 1) !== (ci.quantity ?? 1);
+      const fields = touched ? ITEM_ID_FIELDS : [...ITEM_ID_FIELDS, ...ITEM_COMBAT_FIELDS];
+      const diff = changedFields(bi, ci, fields);
+      if (diff.length === 0 || entityChangeJustified(ci.name || bi.name, narrative)) continue;
+      applyPatch(ci.id, pickFields(bi, diff));
+      n++;
+      try { recordEvo('item', { source: 'drift-guard', turn: turnCountRef.current }, 'item-revert', `${owner === 'B1' ? '' : owner + ':'}${ci.name || ci.id}`, 'fail', `物品无据改写→退回(${diff.join(',')})`); } catch { /* */ }
+    }
+    return n;
+  }
+  function guardItemDrift(narrative: string): void {
+    const base = useSnapshots.getState().latest();
+    let reverted = guardItemList(snapState(base, 'drpg-items')?.items, useItems.getState().items, (id, p) => useItems.getState().updateItem(id, p), 'B1', narrative);
+    const baseNpcs = snapState(base, 'drpg-npc')?.npcs ?? {};
+    const curNpcs = useNpc.getState().npcs;
+    for (const [nid, bn] of Object.entries(baseNpcs)) {
+      const cn: any = curNpcs[nid];
+      if (!cn?.items) continue;
+      reverted += guardItemList((bn as any).items, cn.items, (id, p) => useNpc.getState().updateNpcItem(nid, id, p), nid, narrative);
+    }
+    if (reverted) console.warn(`[防漂] ${reverted} 件物品被无据改写 → 已退回回合初基线`);
+  }
+
+  /* 防漂哨·势力：身份/实力锚点（类型/规模/实力/首领）被无剧情翻写 → 退回基线（大宗门不再凭空变小帮派、首领不再乱换）。*/
+  function guardFactionDrift(narrative: string): void {
+    const baseFacs = snapState(useSnapshots.getState().latest(), 'drpg-faction')?.factions;
+    if (!baseFacs) return;
+    const cur = useFaction.getState();
+    let reverted = 0;
+    for (const [fid, bf0] of Object.entries(baseFacs)) {
+      const bf: any = bf0;
+      const cf: any = cur.factions[fid];
+      if (!cf) continue;
+      const diff = changedFields(bf, cf, FACTION_GUARD_FIELDS);
+      if (diff.length === 0 || entityChangeJustified(cf.name || bf.name, narrative)) continue;
+      cur.upsertFaction(fid, pickFields(bf, diff));
+      reverted++;
+      try { recordEvo('faction', { source: 'drift-guard', turn: turnCountRef.current }, 'faction-revert', cf.name || fid, 'fail', `势力锚点无据改写→退回(${diff.join(',')})`); } catch { /* */ }
+    }
+    if (reverted) console.warn(`[防漂] ${reverted} 个势力锚点被无据改写 → 已退回回合初基线`);
   }
 
   /* 手动更新单个 NPC：绕过启用/频率/调度，直接按最近一次正文对该 NPC 跑一次演化（供 NPC 面板按钮调用）。
@@ -3459,6 +3637,7 @@ ${AFFIX_EFFECT_RULE}`;
       console.log('[Misc] 杂项演化响应:', reply);
       const applied = applyMiscCommands(reply, { allowLarge: isLargeTurn });
       console.log(`[Misc] 杂项演化应用 ${applied} 条指令（第 ${round} 轮，大总结周期：${isLargeTurn ? '是' : '否'}）`);
+      if (applied > 0) recordEvo('misc', { source: 'misc-phase', turn: turnCountRef.current }, 'apply', '杂项', 'applied', `${applied} 项`);   // 演化账本：杂项域时间线审计
       // 顶栏天气特效：AI 为奇异天气生成的纯 CSS（sanitize 后按当前天气缓存；常规天气无此块，走前端预设）
       try {
         const fxCss = sanitizeWeatherCss(extractWeatherFxCss(reply));
@@ -3548,7 +3727,8 @@ ${AFFIX_EFFECT_RULE}`;
       ]);
       console.log('[Territory] 领地演化响应:', rawReply);
       const reply = (rawReply || '').replace(/<think[^>]*>[\s\S]*?<\/think>/gi, '').trim();   // 剥掉思维链再解析
-      const applied = applyTerritoryCommands(reply);
+      const applied = applyTerritoryCommands(reply + '\n' + editToTerritoryText(reply));   // 同时认 <upstore> 与 <edit>(territory.*)
+      if (applied > 0) recordEvo('territory', { source: 'territory-phase', turn: turnCountRef.current }, 'apply', '领地', 'applied', `${applied} 项`);   // 演化账本：领地域时间线审计
       // 被动产出/货币：复用物品指令通道（transferSpiritStones 进钱包）
       const itemCmds = parseAllItemCommands(reply);
       if (itemCmds.length > 0) applyItemCommands(itemCmds);
@@ -3809,7 +3989,7 @@ ${AFFIX_EFFECT_RULE}`;
       .replaceAll('${team_snapshot}', serializeTeamSnapshot())
       .replaceAll('${onscreen_npcs}', onscreenNpcs)
       .replaceAll('${player_name}', usePlayer.getState().profile.name || '主角')
-      + '\n\n' + NARRATIVE_FIRST_RULE + '\n' + TEAM_COT_RULE;
+      + '\n\n' + NARRATIVE_FIRST_RULE + '\n' + TEAM_DEDUP_RULE + '\n' + TEAM_COT_RULE;
 
     setTeamPhaseLog('冒险团演化中…');
     try {
@@ -3819,8 +3999,9 @@ ${AFFIX_EFFECT_RULE}`;
       ]);
       console.log('[Team] 冒险团演化响应:', rawReply);
       const reply = (rawReply || '').replace(/<think[^>]*>[\s\S]*?<\/think>/gi, '').trim();   // 剥掉思维链再解析
-      const applied = applyTeamCommands(reply);
+      const applied = applyTeamCommands(reply + '\n' + editToTeamText(reply));   // 同时认 <upstore> 与 <edit>(team.*)
       console.log(`[Team] 冒险团演化应用 ${applied} 条指令`);
+      if (applied > 0) recordEvo('team', { source: 'team-phase', turn: turnCountRef.current }, 'apply', '冒险团', 'applied', `${applied} 项`);   // 演化账本：冒险团域时间线审计
       setTeamPhaseLog('✓ 冒险团演化完成');
     } catch (e: any) {
       console.error('[Team] 冒险团演化失败:', e.message ?? e);
@@ -5087,7 +5268,11 @@ ${lines}`;
     const sys = buildFactionEntryPrompt(entries) + '\n\n' + NARRATIVE_FIRST_RULE + '\n' + FACTION_DETECT_RULE + '\n' + FACTION_HOME_EXIT_RULE + '\n' + FACTION_WORLD_RULE + '\n' + FACTION_FULL_FORMAT_RULE + '\n' + FACTION_NAME_RULE;
     const facStore = useFaction.getState();
     const list = Object.values(facStore.factions);
-    const known = list.map((f) => `${f.id}(${f.name})${f.worldName ? '·所属世界:' + f.worldName : ''}${f.inCurrentWorld ? '·当前世界' : '·非当前世界'}`).join(', ') || '（无）';
+    // 已知势力清单带身份特征(类型/规模/首领/简介)，让登场判断按**特征**认出"换了名字的同一势力"，而非只比名字 → 防重复建档
+    const known = list.map((f) => {
+      const t = [f.type, f.scale, f.leader && '首领' + f.leader, (f.background || f.goal || '').replace(/\s+/g, '').slice(0, 12)].filter(Boolean).join('/');
+      return `[${f.id}]${f.name}${t ? '(' + t + ')' : ''}${f.worldName ? '·' + f.worldName : ''}${f.inCurrentWorld ? '·当前世界' : '·非当前世界'}`;
+    }).join('; ') || '（无）';
     const cNums = list.map((f) => f.id.match(/^F(\d+)$/)?.[1]).filter(Boolean).map(Number);
     const nextId = `F${cNums.length ? Math.max(...cNums) + 1 : 1}`;
     const M = useMisc.getState();
@@ -5135,7 +5320,7 @@ ${lines}`;
           const rawReply = await factionChatCompletion(sys, user);
           const reply = (rawReply || '').replace(/<think[^>]*>[\s\S]*?<\/think>/gi, '').trim();   // 剥掉思维链再解析
           if (reply) {
-            applyFactionCommands(parseAllFactionCommands(reply).filter((c) => c.id === id));
+            applyFactionCommands(parseAllFactionCommands(reply).filter((c) => c.id === id), { source: 'faction-phase', turn: turnCountRef.current });
             applyCharacterCommands(parseAllCharCommands(reply).filter((c) => c.charId === id));  // addDeed("F1",…)
             applyFactionShortCommands(reply, id);
             useFaction.getState().markEvolved(id, turnCountRef.current);
@@ -5156,7 +5341,7 @@ ${lines}`;
     const rawReply = await factionChatCompletion(sys, user);
     const reply = (rawReply || '').replace(/<think[^>]*>[\s\S]*?<\/think>/gi, '').trim();   // 剥掉思维链再解析
     if (reply) {
-      applyFactionCommands(parseAllFactionCommands(reply));
+      applyFactionCommands(parseAllFactionCommands(reply), { source: 'faction-phase', turn: turnCountRef.current });
       applyCharacterCommands(parseAllCharCommands(reply).filter((c) => /^F\d+$/.test(c.charId)));
       applyFactionShortCommands(reply);
     }
@@ -6673,6 +6858,8 @@ ${lines}`;
     combatSettledRef.current = null;
     // 轨道A：离场契约者零API自治（按 turnCount 推进；自带开关守卫；失败不影响演化阶段）
     try { runNpcAutonomy(useMisc.getState().turnCount); } catch (e) { console.warn('[轨道A] 自治模拟失败', e); }
+    // 防漂哨·回合初基线：先抓一份"演化前确认值"快照（六维/阶位，保留最近 N 份）；本回合末与之对账，灭无据漂移（1500肉盾→300脆皮）
+    try { captureEvoSnapshot(turnCountRef.current); } catch (e) { console.warn('[Snapshot] 抓取失败', e); }
     // 先从正文人物卡照抄六维（同步，先于各演化阶段，使快照与显示即刻正确）
     try { applyNarrativeAttrs(narrative); ensureNpcLuck(); ensureNpcVitalsCap(); } catch (e) { console.warn('[Attr] 六维抽取失败:', e); }
     if (combatSettled) {
@@ -6736,6 +6923,11 @@ ${lines}`;
       if (turnCountRef.current !== snapTurn) return;
       // 非战斗回合：以正文末尾「当前HP/EP：X/Y」为**最终权威**——演化阶段全跑完后再压回一次主角+NPC 的 HP/EP，纠正演化把血量改写导致面板与正文末尾对不上。(战斗回合以战斗结算值为准。)
       if (!combatSettled) { try { applyNarrativeVitals(narrative); applyNarrativeNpcVitals(narrative); } catch (e) { console.warn('[Vitals] settle 后压回失败', e); } }
+      try { guardNpcAttrDrift(narrative); } catch (e) { console.warn('[防漂] 六维对账失败', e); }   // 无据六维漂移→退回回合初基线（治1500→300）
+      try { guardCharDrift(narrative); } catch (e) { console.warn('[防漂] 技能/天赋对账失败', e); }   // 无据效果/等级改写→退回（治"5回合改3次"）
+      try { guardItemDrift(narrative); } catch (e) { console.warn('[防漂] 物品对账失败', e); }   // 已有物品被无据改写→退回（强化/镶嵌结果除外）
+      try { guardFactionDrift(narrative); } catch (e) { console.warn('[防漂] 势力对账失败', e); }   // 势力身份/实力锚点被无据翻写→退回
+      try { guardPlayerDrift(narrative); } catch (e) { console.warn('[防漂] 主角档案对账失败', e); }   // 主角基底外观/职业被无据改写→退回
       try { captureTurnSnapshot(); } catch (e) { console.warn('[Insight] settle 后抓快照失败', e); }
     });
   }

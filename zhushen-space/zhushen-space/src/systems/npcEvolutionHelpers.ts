@@ -62,7 +62,12 @@ export function buildNpcVars(narrative: string): Record<string, string> {
   const onScene  = records.filter((r) => r.onScene && !r.isDead);
   const offScene = records.filter((r) => !r.onScene && !r.isDead);
 
-  const existingIds = ['B1（玩家）', ...records.map((r) => `${r.id}(${r.name})`)].join(', ');
+  // 已建档清单（供"防重复建档"扫描）：带身份特征(阶位/性别/职业身份/简介首词)，让 AI 能按**特征**认出"换了名字的重现角色"，而非只比对姓名——这是治"同一个体被重复建档"的关键。
+  const existingIds = ['B1（玩家）', ...records.map((r) => {
+    const t = [r.realm, r.gender, r.profession || r.title, (r.background || r.personality || '').replace(/\s+/g, '').slice(0, 12)]
+      .filter(Boolean).join('/');
+    return `[${r.id}]${r.name}${t ? '(' + t + ')' : ''}`;
+  })].join('; ');
   const cNums = records.map((r) => r.id.match(/^C(\d+)$/)?.[1]).filter(Boolean).map(Number);
   const nextNpcId = `C${cNums.length > 0 ? Math.max(...cNums) + 1 : 1}`;
 

@@ -32,6 +32,7 @@ import { useSkillTree } from '../store/skillTreeStore';
 import { useSubProfTree } from '../store/subProfTreeStore';
 import { useCasino } from '../store/casinoStore';
 import { useAbyss } from '../store/abyssStore';
+import { useLedger } from './ledger/ledgerStore';
 import { clearJoySessions } from '../store/joyStore';
 import { logWarn } from '../utils/log';
 import { writeB1Mirror, clearB1Mirror } from './b1Mirror';
@@ -47,6 +48,9 @@ const STORES: { key: string; api: any; clear?: () => void }[] = [
   { key: 'zhushen-save-v1', api: useGame, clear: () => useGame.getState().hardReset() },   // gameStore(主角HP/EP/atk/def…)用自定义 writeSave 持久化到 zhushen-save-v1(非 drpg-save)——键必须真实,否则存档抓不到主角血蓝(2026-06-19 修)
   { key: 'drpg-settings',   api: useSettings },   // 配置：新游戏保留
   { key: 'drpg-items',      api: useItems, clear: () => useItems.getState().clearAll() },
+  { key: 'drpg-ledger',     api: useLedger, clear: () => useLedger.getState().clear() },   // 演化账本(物品闸门审计)：进度数据,新游戏清空、随存档快照
+
+
   { key: 'drpg-player-evo', api: usePlayer, clear: () => { usePlayer.getState().setProfile({ ...DEFAULT_PLAYER_PROFILE }); usePlayer.setState({ achievements: [] }); } },
   { key: 'drpg-npc',        api: useNpc, clear: () => useNpc.getState().clearAll() },
   { key: 'drpg-npc-chat',   api: useNpcChat, clear: () => useNpcChat.getState().clearAll() },

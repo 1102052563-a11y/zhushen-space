@@ -2,6 +2,7 @@ import { saveDb } from './saveDb';
 import { useCharacters } from '../store/characterStore';
 import { useSettings } from '../store/settingsStore';
 import { useItems, getItemLog } from '../store/itemStore';
+import { useLedger } from './ledger/ledgerStore';
 
 /* ── 一键诊断包 ───────────────────────────────────────────────────────────
    导出排查「丢东西 / 内存与存档对不上」所需的**精简信息**：纯文本、不含图片/对话，
@@ -176,6 +177,16 @@ export async function buildDiagnosticBundle(): Promise<string> {
     for (const d of bin.slice(0, 30)) L.push(`  [回合${(d as any).deletedTurn ?? '?'}] ${d.name}${(d as any).deleteReason ? ` —— ${(d as any).deleteReason}` : ''}`);
   } catch (e: any) {
     L.push(`\n## 物品流水：读取失败 — ${e?.message || e}`);
+  }
+
+  // ── 演化账本（跨域：物品/NPC/角色/势力/领地/团/杂项 的单一闸门裁决审计）──
+  try {
+    const evs = useLedger.getState().recent(80);
+    L.push(`\n## 演化账本（最近 ${evs.length} 条 / 闸门裁决）  —— 回合·写入方 | entity.op ref → 结果`);
+    if (evs.length === 0) L.push('  （暂无账本事件）');
+    else for (const e of evs) L.push(`  [回合${e.turn}·${e.source}] ${e.entity}.${e.op} ${e.ref ?? ''} → ${e.outcome}${e.detail ? `（${e.detail}）` : ''}`);
+  } catch (e: any) {
+    L.push(`\n## 演化账本：读取失败 — ${e?.message || e}`);
   }
 
   return L.join('\n');

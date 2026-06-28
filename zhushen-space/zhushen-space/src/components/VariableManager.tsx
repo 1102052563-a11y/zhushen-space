@@ -4,6 +4,7 @@
 import { useState, useRef } from 'react';
 import { downloadGlobalConfig, importGlobalConfig } from '../systems/configExport';
 import VariableBridge from './VariableBridge';
+import { useSnapshots } from '../store/snapshotStore';
 
 type Cb = (() => void) | undefined;
 
@@ -41,6 +42,27 @@ function ModuleCard({ it }: { it: ModuleItem }) {
 
 /* 配置备份 / 迁移：把所有功能的预设·世界书·正文预设·正则·API·生图·向量库·角色模板一键导出成一个 JSON，
    可在别的设备/浏览器导入整套配置。只含配置、不含游戏进度（NPC/背包/剧情等），导入也不会覆盖当前存档进度。 */
+/* 演化快照·防漂：保留回合数滑块（每回合把全部变量快照一次，演化后无据漂移自动退回基线）。*/
+function SnapshotConfigBar() {
+  const keep = useSnapshots((s) => s.keep);
+  const setKeep = useSnapshots((s) => s.setKeep);
+  const snapCount = useSnapshots((s) => s.snaps.length);
+  return (
+    <div className="mt-6 rounded-xl border border-edge/50 bg-black/20 p-4">
+      <div className="flex items-center gap-2 mb-2 flex-wrap">
+        <span className="text-sm font-semibold text-slate-200">🛡 演化快照 · 防漂</span>
+        <span className="text-[11px] text-dim/60">每回合把全部变量快照一份；演化后"无剧情依据"的六维/技能/天赋/物品/势力被改写时自动退回基线，防"肉盾变脆皮/技能5回合改3次"。</span>
+      </div>
+      <div className="flex items-center gap-3 text-sm">
+        <label className="text-dim/80 shrink-0">保留回合数</label>
+        <input type="range" min={1} max={10} value={keep} onChange={(e) => setKeep(Number(e.target.value))} className="accent-god flex-1 max-w-xs" />
+        <span className="font-mono text-god w-6 text-center">{keep}</span>
+        <span className="text-[11px] text-dim/50 ml-auto shrink-0">当前已存 {snapCount} 份</span>
+      </div>
+    </div>
+  );
+}
+
 function ConfigBackupBar() {
   const [includeKeys, setIncludeKeys] = useState(true);
   const [msg, setMsg] = useState('');
@@ -223,6 +245,7 @@ export default function VariableManager({
         </div>
 
         <VariableBridge />
+        <SnapshotConfigBar />
         <ConfigBackupBar />
       </div>
     </div>

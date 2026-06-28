@@ -291,6 +291,13 @@ function mergeKeepRich<T extends Record<string, any>>(prev: T, incoming: T): T {
   return out;
 }
 
+/* 天赋评级阶梯 D<C<B<A<S<SS<SSS（"负面"档及不可识别值返回 -1，不参与升降比较，避免误伤诅咒/负面天赋）。
+   用于"同名天赋更新只升不降"护栏：AI 重写已有条目时若把评级改低了，前端保留旧评级。技能品级用 SKILL_TIER_ORDER+normSkillTier 同理。 */
+const TALENT_RARITY_ORDER = ['D', 'C', 'B', 'A', 'S', 'SS', 'SSS'];
+function talentRarityRank(r?: string): number {
+  return TALENT_RARITY_ORDER.indexOf((r ?? '').trim().toUpperCase());
+}
+
 /* 保证一个角色的技能 id 全表唯一：空 id 或与前面重复的 id 重新分配 S_<charId>_NN。
    首次出现的 id 保留，后来的重复者改号——从根上消除"两个技能同 id"。 */
 function dedupeSkillIds(charId: string, skills: Skill[]): Skill[] {
@@ -341,7 +348,14 @@ export const useCharacters = create<CharacterState>()(
           // 不同名→新技能追加，其 id 交给 dedupe 保证唯一（即使 AI 复用了已存在 id 也会自动改号，两个技能不会再共用一个 id）。
           const byName = next.findIndex((sk) => nameEq(sk.name, skill.name));
           if (byName >= 0) {
-            next[byName] = mergeKeepRich(next[byName], { ...skill, id: next[byName].id, addedAt: Date.now() });   // 同名更新：空字段保留旧值，防极简重复 add 冲掉详情
+            const prevSk = next[byName];
+            const mergedSk = mergeKeepRich(prevSk, { ...skill, id: prevSk.id, addedAt: Date.now() });   // 同名更新：空字段保留旧值，防极简重复 add 冲掉详情
+            // 护栏：同名技能"品级只升不降"——AI 重写时若降档就保留旧品级（不识别档不参与，避免误伤）
+            const tierOrder = SKILL_TIER_ORDER as readonly string[];
+            const poSk = tierOrder.indexOf(normSkillTier(prevSk.rarity));
+            const noSk = tierOrder.indexOf(normSkillTier(mergedSk.rarity));
+            if (poSk >= 0 && noSk >= 0 && noSk < poSk) mergedSk.rarity = prevSk.rarity;
+            next[byName] = mergedSk;
           } else {
             next.push({ ...skill, addedAt: Date.now() });
           }
@@ -374,8 +388,14 @@ export const useCharacters = create<CharacterState>()(
           const existing = char.traits.findIndex((t) => nameEq(t.name, trait.name));
           const next = [...char.traits];
           const entry: Trait = { ...trait, addedAt: Date.now() };
-          if (existing >= 0) next[existing] = mergeKeepRich(next[existing], entry);   // 同名更新：空字段保留旧值
-          else next.push(entry);
+          if (existing >= 0) {
+            const prevTr = next[existing];
+            const mergedTr = mergeKeepRich(prevTr, entry);   // 同名更新：空字段保留旧值
+            // 护栏：同名天赋"评级只升不降"——AI 重写时若把评级改低了就保留旧评级（负面/不可识别档不参与，避免误伤）
+            const poTr = talentRarityRank(prevTr.rarity), noTr = talentRarityRank(mergedTr.rarity);
+            if (poTr >= 0 && noTr >= 0 && noTr < poTr) mergedTr.rarity = prevTr.rarity;
+            next[existing] = mergedTr;
+          } else next.push(entry);
           return { characters: { ...s.characters, [charId]: { ...char, traits: next } } };
         }),
 
