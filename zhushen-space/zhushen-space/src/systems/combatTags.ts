@@ -153,7 +153,7 @@ function validTarget(x: unknown): TargetMode | undefined {
 /** 旧技能（无 numeric.combat）兜底：从文本字段关键词反推标签，保证旧档不崩。 */
 export interface SkillLike {
   name?: string; desc?: string; effect?: string; damage?: string; skillType?: string;
-  tags?: string[]; cost?: string;
+  tags?: string[]; cost?: string; attrBonus?: string;
   combat?: unknown;   // AI 可直接输出顶层 combat（addSkill 透传保留）；与 numeric.combat 等价
   numeric?: { combat?: unknown;[k: string]: unknown };
 }
@@ -238,4 +238,153 @@ export function tagPromptTable(tier: 0 | 1 | 'all' = 'all'): string {
       return `- ${d.tag}（${d.label}）｜参数:${params}｜${d.desc}`;
     });
   return rows.join('\n');
+}
+
+/* ════════════════════════════════════════════
+   条件触发系统（C）—— 让技能树/AI 技能的「被动修正」与「条件触发」在前端结算。
+   · 被动修正(PassiveMod)：常驻、来自所有技能/天赋、聚合后全程生效（暴击/增伤减伤/穿透/冷却缩减/多段）。
+   · 触发器(CombatTrigger)：on 事件(命中/受击/击杀/回合开始) + 可选 cond 条件 + chance 概率 → 触发一个标签效果。
+   高度个性化的叙事效果仍不强求建模（归 AI 叙事）。
+════════════════════════════════════════════ */
+export type TriggerEvent = 'onHit' | 'onHurt' | 'onKill' | 'turnStart' | 'onDefend';
+export const TRIGGER_EVENTS: TriggerEvent[] = ['onHit', 'onHurt', 'onKill', 'turnStart', 'onDefend'];
+export type TriggerCond = 'always' | 'targetBurning' | 'targetPoisoned' | 'targetStunned' | 'targetLowHp' | 'selfLowHp' | 'selfHasShield';
+export const TRIGGER_CONDS: TriggerCond[] = ['always', 'targetBurning', 'targetPoisoned', 'targetStunned', 'targetLowHp', 'selfLowHp', 'selfHasShield'];
+
+/** 一条触发器：on 事件发生时(可选满足 cond·按 chance 概率)触发 effect（标签效果，作用对象同事件目标/自身）。 */
+export interface CombatTrigger { on: TriggerEvent; cond?: TriggerCond; chance?: number; effect: CombatEffect; note?: string }
+
+/** 被动战斗修正（常驻；来自技能/天赋，聚合后全程生效）。所有项默认 0/无。 */
+export interface PassiveMod {
+  critChance?: number;   // 暴击几率 0~1（默认 0 = 无暴击。基础必中之上偶尔暴击）
+  critMult?: number;     // 暴击伤害·加成（叠在基础 CRIT_BASE 之上，0.25=暴伤+25%）
+  dmgDealtPct?: number;  // 造成伤害 +%（0.2=+20%；负=减少）
+  dmgTakenPct?: number;  // 受到伤害 +%（负=减伤，-0.1=减伤10%）
+  pierce?: number;       // 无视目标防御档的比例 0~1
+  cdr?: number;          // 技能冷却缩减回合数
+  extraHits?: number;    // 攻击额外段数（deal 多段）
+}
+export const CRIT_BASE = 1.5;   // 暴击基础倍率（之上叠 PassiveMod.critMult）
+
+/** 校验/夹紧 AI 输出的 passive。 */
+export function normalizePassive(raw: unknown): PassiveMod | undefined {
+  if (!raw || typeof raw !== 'object') return undefined;
+  const r = raw as Record<string, unknown>; const p: PassiveMod = {};
+  const cc = toNum(r.critChance); if (cc !== undefined) p.critChance = clamp(cc, 0, 1);
+  const cm = toNum(r.critMult); if (cm !== undefined) p.critMult = clamp(cm, 0, 10);
+  const dd = toNum(r.dmgDealtPct); if (dd !== undefined) p.dmgDealtPct = clamp(dd, -0.9, 5);
+  const dt = toNum(r.dmgTakenPct); if (dt !== undefined) p.dmgTakenPct = clamp(dt, -0.9, 5);
+  const pi = toNum(r.pierce); if (pi !== undefined) p.pierce = clamp(pi, 0, 1);
+  const cd = toNum(r.cdr); if (cd !== undefined) p.cdr = clamp(Math.round(cd), 0, 9);
+  const eh = toNum(r.extraHits); if (eh !== undefined) p.extraHits = clamp(Math.round(eh), 0, 9);
+  return Object.keys(p).length ? p : undefined;
+}
+
+/** 校验 AI 输出的 triggers[]。 */
+export function normalizeTriggers(raw: unknown): CombatTrigger[] {
+  if (!Array.isArray(raw)) return [];
+  const out: CombatTrigger[] = [];
+  for (const r of raw) {
+    if (!r || typeof r !== 'object') continue;
+    const t = r as Record<string, unknown>;
+    if (!(TRIGGER_EVENTS as string[]).includes(t.on as string)) continue;
+    const eff = normalizeEffects([t.effect])[0];
+    if (!eff) continue;
+    const trig: CombatTrigger = { on: t.on as TriggerEvent, effect: eff };
+    if ((TRIGGER_CONDS as string[]).includes(t.cond as string)) trig.cond = t.cond as TriggerCond;
+    const ch = toNum(t.chance); trig.chance = ch !== undefined ? clamp(ch, 0, 1) : 1;
+    out.push(trig);
+    if (out.length >= 8) break;
+  }
+  return out;
+}
+
+/** 旧档/未标注技能·天赋：从 effect 文本解析常见被动修正（暴击/增伤减伤/穿透/冷却/多段）。 */
+export function inferPassiveFromSkill(s: SkillLike): PassiveMod | undefined {
+  const text = [s.name, s.effect, s.desc, s.attrBonus, ...(s.tags ?? [])].filter(Boolean).join(' ');
+  if (!text) return undefined;
+  const pct = (re: RegExp): number | undefined => { const m = text.match(re); return m ? clamp(Number(m[1]) / 100, 0, 5) : undefined; };
+  const p: PassiveMod = {}; let v: number | undefined;
+  if ((v = pct(/暴击(?:率|几率)\s*[+＋]?\s*(\d+(?:\.\d+)?)\s*%/)) !== undefined) p.critChance = clamp(v, 0, 1);
+  if ((v = pct(/暴击伤害\s*[+＋]?\s*(\d+(?:\.\d+)?)\s*%/)) !== undefined) p.critMult = v;
+  if ((v = pct(/(?:受到|承受)[^，。；]{0,6}伤害[^，。；]{0,3}(?:降低|减少|[-−])\s*(\d+(?:\.\d+)?)\s*%/)) !== undefined || (v = pct(/减伤\s*[+＋]?\s*(\d+(?:\.\d+)?)\s*%/)) !== undefined) p.dmgTakenPct = -Math.abs(v!);
+  if ((v = pct(/(?:造成|输出|增伤)[^，。；]{0,4}(?:伤害)?[^，。；]{0,2}[+＋]\s*(\d+(?:\.\d+)?)\s*%/)) !== undefined) p.dmgDealtPct = v;
+  if ((v = pct(/(?:穿透|破甲|无视(?:护甲|防御))\s*[+＋]?\s*(\d+(?:\.\d+)?)\s*%/)) !== undefined) p.pierce = clamp(v, 0, 1);
+  else if (/穿透|无视(?:护甲|防御)/.test(text)) p.pierce = 0.5;
+  let m: RegExpMatchArray | null;
+  if ((m = text.match(/冷却[^，。；]{0,4}(?:缩减|降低|[-−])\s*(\d+)\s*回合?/))) p.cdr = clamp(Number(m[1]), 0, 9);
+  if ((m = text.match(/(?:额外|追加|多段|连击)[^，。；]{0,4}(\d+)\s*段/))) p.extraHits = clamp(Number(m[1]), 0, 9);
+  else if (/连击|多段|二连|三连/.test(text)) p.extraHits = 1;
+  return Object.keys(p).length ? p : undefined;
+}
+
+/** 旧档/未标注技能·天赋：解析少数常见「条件触发」（击杀回血 / 命中几率挂状态 / 对燃烧·中毒目标增伤）。 */
+export function inferTriggersFromSkill(s: SkillLike): CombatTrigger[] {
+  const text = [s.name, s.effect, s.desc, ...(s.tags ?? [])].filter(Boolean).join(' ');
+  if (!text) return [];
+  const out: CombatTrigger[] = []; let m: RegExpMatchArray | null;
+  // 击杀后回血
+  if ((m = text.match(/击杀|斩杀|处决/)) && /回复|回血|生命/.test(text)) {
+    const fm = text.match(/(\d{2,5})\s*(?:点)?\s*(?:生命|血|HP)/i);
+    out.push({ on: 'onKill', chance: 1, effect: { tag: 'heal', flat: fm ? clamp(Number(fm[1]), 1, 1e6) : undefined, mult: fm ? undefined : 0.3 } });
+  }
+  // 命中时 X% 概率施加 DoT/控制
+  if ((m = text.match(/命中(?:时|后)?[^，。；]{0,8}?(\d+)\s*%[^，。；]{0,6}?(中毒|燃烧|灼烧|流血|眩晕)/))) {
+    const tag = /眩晕/.test(m[2]) ? 'stun' : /燃烧|灼烧/.test(m[2]) ? 'burn' : 'poison';
+    out.push({ on: 'onHit', chance: clamp(Number(m[1]) / 100, 0, 1), effect: tag === 'stun' ? { tag, turns: 1 } : tag === 'burn' ? { tag, flat: 8, turns: 2 } : { tag, stacks: 3 } });
+  }
+  // 对[燃烧/中毒/濒死]目标额外 +X% 伤害
+  if ((m = text.match(/对[^，。；]{0,6}?(点燃|燃烧|中毒|濒死|残血)[^，。；]{0,6}?(?:的)?(?:敌人|目标)[^，。；]{0,6}?[+＋](\d+)\s*%/))) {
+    const cond: TriggerCond = /点燃|燃烧/.test(m[1]) ? 'targetBurning' : /中毒/.test(m[1]) ? 'targetPoisoned' : 'targetLowHp';
+    out.push({ on: 'onHit', cond, chance: 1, effect: { tag: 'deal', mult: clamp(Number(m[2]) / 100, 0, 5) } });
+  }
+  return out.slice(0, 4);
+}
+
+function passiveOf(s: SkillLike): PassiveMod | undefined {
+  const raw: any = s?.numeric?.combat ?? (s as any)?.combat;
+  if (raw && typeof raw === 'object' && raw.passive) { const p = normalizePassive(raw.passive); if (p) return p; }
+  return inferPassiveFromSkill(s);
+}
+function triggersOf(s: SkillLike): CombatTrigger[] {
+  const raw: any = s?.numeric?.combat ?? (s as any)?.combat;
+  if (raw && typeof raw === 'object' && Array.isArray(raw.triggers)) { const t = normalizeTriggers(raw.triggers); if (t.length) return t; }
+  return inferTriggersFromSkill(s);
+}
+
+/** 聚合某角色全部技能+天赋的常驻被动修正（暴击/穿透/多段取强或上限，其余累加）。 */
+export function aggregatePassives(list: SkillLike[]): PassiveMod {
+  const agg: PassiveMod = {};
+  for (const s of list ?? []) {
+    const p = passiveOf(s); if (!p) continue;
+    if (p.critChance) agg.critChance = clamp((agg.critChance ?? 0) + p.critChance, 0, 1);
+    if (p.critMult) agg.critMult = (agg.critMult ?? 0) + p.critMult;
+    if (p.dmgDealtPct) agg.dmgDealtPct = (agg.dmgDealtPct ?? 0) + p.dmgDealtPct;
+    if (p.dmgTakenPct) agg.dmgTakenPct = (agg.dmgTakenPct ?? 0) + p.dmgTakenPct;
+    if (p.pierce) agg.pierce = Math.max(agg.pierce ?? 0, p.pierce);
+    if (p.cdr) agg.cdr = (agg.cdr ?? 0) + p.cdr;
+    if (p.extraHits) agg.extraHits = (agg.extraHits ?? 0) + p.extraHits;
+  }
+  return agg;
+}
+/** 聚合某角色全部技能+天赋的触发器。 */
+export function aggregateTriggers(list: SkillLike[]): CombatTrigger[] {
+  const out: CombatTrigger[] = [];
+  for (const s of list ?? []) for (const t of triggersOf(s)) out.push(t);
+  return out.slice(0, 24);
+}
+
+/** 触发/被动·提示词片段（挂进 SKILL_COMBAT_TAG_RULE，让 AI 生成技能时按枚举写条件效果）。 */
+export function triggerPromptText(): string {
+  return [
+    '【条件触发 / 被动（可选·让复杂效果在战斗里生效）】除 effects 外，技能/天赋可在 combat 里再带两项：',
+    '- "passive": 常驻被动修正(数值小数)：critChance 暴击几率0~1 / critMult 暴击伤害加成(0.25=+25%) / dmgDealtPct 增伤 / dmgTakenPct 受伤(负=减伤) / pierce 穿透防御0~1 / cdr 冷却缩减(回合) / extraHits 额外攻击段数。',
+    '- "triggers": [{ "on": 事件, "cond": 条件(可空), "chance": 概率0~1, "effect": {一个标签效果} }]',
+    `  · on ∈ ${TRIGGER_EVENTS.join(' / ')}（命中时/受击时/击杀时/回合开始/防御时）`,
+    `  · cond ∈ ${TRIGGER_CONDS.join(' / ')}（空=always；如 targetBurning=目标燃烧中、targetLowHp=目标残血、selfLowHp=自身残血）`,
+    '  · effect 用上表标签(如 {"tag":"burn","flat":10,"turns":2} / {"tag":"heal","mult":0.3} / {"tag":"deal","mult":0.5})。',
+    '  例：「命中时30%概率点燃」→ triggers:[{"on":"onHit","chance":0.3,"effect":{"tag":"burn","flat":12,"turns":2}}]；',
+    '  「击杀回血」→ [{"on":"onKill","effect":{"tag":"heal","mult":0.4}}]；「对燃烧目标增伤20%」→ [{"on":"onHit","cond":"targetBurning","effect":{"tag":"deal","mult":0.2}}]。',
+    '被动/触发是常驻档案(全程生效)，不必每次重写；高度独特、难枚举的效果照常写进 effect/desc 文案由叙事体现即可。',
+  ].join('\n');
 }

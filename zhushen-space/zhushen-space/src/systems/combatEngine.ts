@@ -27,7 +27,8 @@ import type { BattleState, CombatStatBlock, Combatant, Side, CombatActionKind, D
 import { useCombat, newLogId } from '../store/combatStore';
 import {
   parseCombatSpec, applyDamageModifiers, strengthBonus, dexterityBonus, TAG_REGISTRY, EXECUTE_THRESHOLD,
-  type CombatEffect, type CombatSpec, type CombatTag, type TargetMode,
+  aggregatePassives, aggregateTriggers, CRIT_BASE,
+  type CombatEffect, type CombatSpec, type CombatTag, type TargetMode, type PassiveMod, type TriggerEvent, type TriggerCond,
 } from './combatTags';
 
 const DEFAULT_ATTRS: DiceAttrs = { str: 5, agi: 5, con: 5, int: 5, cha: 5, luck: 5 };
@@ -53,6 +54,14 @@ function sumRealAttrs(ra?: Partial<Record<AttrKey, number>>): number {
    luck 不缩放（特殊属性）。同阶 ×5 对 ×5 抵消=平衡；跨阶四阶打三阶 = 攻×5对防×1 碾压。 */
 function scaleCombat(a: DiceAttrs, m: number): DiceAttrs {
   return m === 1 ? a : { str: a.str * m, agi: a.agi * m, con: a.con * m, int: a.int * m, cha: a.cha * m, luck: a.luck };
+}
+
+/* 确定性 PRNG（暴击/触发概率用·同一 battleId+round+turn+actor 可复现） */
+function seeded(str: string): () => number {
+  let h = 2166136261 >>> 0;
+  for (let i = 0; i < str.length; i++) { h ^= str.charCodeAt(i); h = Math.imul(h, 16777619); }
+  let s = h >>> 0;
+  return () => { s = (Math.imul(s, 1664525) + 1013904223) >>> 0; return s / 4294967296; };
 }
 
 const equippedOf = (arr: any[] | undefined): EquipItemLite[] =>
@@ -100,11 +109,13 @@ export function buildCombatant(id: string, side: Side, override?: Partial<Combat
     // 上限传**基础六维**（fullMaxHp 内部会折六维加成；传 attrs 会双算技能/天赋的体质加成）；realMult=rm 让四阶起 HP/EP×5
     const maxHp = fullMaxHp(baseTT, equippedFull as any, b1c?.skills, [...(b1c?.traits ?? []), ...teamPerkAbil], rm, ratioOf(p)), maxEp = fullMaxEp(baseTT, equippedFull as any, b1c?.skills, [...(b1c?.traits ?? []), ...teamPerkAbil], rm, ratioOf(p));
     const g = useGame.getState().player;
+    const b1kit = [...(b1c?.skills ?? []), ...(b1c?.traits ?? [])];   // 技能+天赋 → 聚合常驻被动修正/条件触发器（系统 C）
     return {
       side, name: p.name || '主角', attrs, trueBonus: sumRealAttrs(p.realAttrs), level: p.level, tier: p.tier || realmFromLevel(p.level),
       bioStrength: p.bioStrength || '', favor: undefined,
       patk: d.patk, pdef: d.pdef, matk: d.matk, mdef: d.mdef,
       maxHp, maxEp, initHp: effectiveResource(g.hp, g.maxHp, maxHp), initEp: effectiveResource(g.mp, g.maxMp, maxEp),
+      passive: aggregatePassives(b1kit), triggers: aggregateTriggers(b1kit),
     };
   }
   const npc = useNpc.getState().npcs[id];
@@ -118,12 +129,14 @@ export function buildCombatant(id: string, side: Side, override?: Partial<Combat
   const d = computeDerived(attrs, level, equipped as any);
   // 上限传**基础六维**（fullMaxHp 内部会折六维加成；传 attrs 会双算）；realMult=rm 让四阶起 HP/EP×5
   const maxHp = fullMaxHp(npcBase, equippedFull as any, npcC?.skills, npcC?.traits, rm, ratioOf(npc)), maxEp = fullMaxEp(npcBase, equippedFull as any, npcC?.skills, npcC?.traits, rm, ratioOf(npc));
+  const npcKit = [...(npcC?.skills ?? []), ...(npcC?.traits ?? [])];   // 技能+天赋 → 聚合常驻被动修正/条件触发器（系统 C）
   return {
     side, name: npc?.name || id, attrs, trueBonus: sumRealAttrs(npc?.realAttrs), level, tier: normalizeTier(npc?.realm) || realmFromLevel(level),
     bioStrength: npc?.bioStrength || '', favor: npc?.favor,
     patk: d.patk, pdef: d.pdef, matk: d.matk, mdef: d.mdef,
     maxHp, maxEp,
     initHp: effectiveResource(npc?.hp, npc?.maxHp, maxHp), initEp: effectiveResource(npc?.mp, npc?.maxMp, maxEp),
+    passive: aggregatePassives(npcKit), triggers: aggregateTriggers(npcKit),
   };
 }
 
@@ -403,6 +416,10 @@ export function settleAction(opts: {
   const defeated: string[] = [];
   if (!actor || !actorBlock) return { state, logLines, actorName, defeated };
 
+  const rng = seeded(`${state.battleId}|${state.round}|${state.turn}|${opts.actorId}`);   // 暴击/触发判定（条件触发系统 C）
+  const myPassive: PassiveMod = actorBlock.passive ?? {};                                   // 出手方常驻被动修正
+  fireTriggers('turnStart', opts.actorId);                                                   // 回合开始触发（再生/聚气等，控制下也触发）
+
   const controlled = effCombatStats(actor, actorBlock).cannotAct;
   // 蓄力中被控制 → 大招溃散
   if (actor.charging && controlled) {
@@ -444,12 +461,12 @@ export function settleAction(opts: {
     skill = abilities.skills.find((s: Skill) => s.id === ch.skillId || s.name === ch.name);
     targetIds = ch.targetIds;
     chargeMult = 1 + 0.8 * ch.turnsTotal;
-    if (skill) { const cd = parseCooldownRounds(skill); if (cd > 0) actor.cooldowns[skill.id] = cd; }
+    if (skill) { const cd = Math.max(0, parseCooldownRounds(skill) - (myPassive.cdr ?? 0)); if (cd > 0) actor.cooldowns[skill.id] = cd; }
     delete actor.charging;
     logLines.push(`${actorName} 蓄力完成，「${ch.name}」轰然释放！`);
   } else {
     // ── 非蓄力分支 ──
-    if (opts.kind === 'defend') { actor.defending = true; const ep = Math.max(5, Math.round(actorBlock.maxEp * EP_REGEN_RATE * 2)); actor.curEp = Math.min(actorBlock.maxEp, actor.curEp + ep); logLines.push(`${actorName} 摆出防御姿态，本回合承受伤害减半，回复 ${ep} 点 EP。`); return { state, logLines, actorName, defeated }; }
+    if (opts.kind === 'defend') { actor.defending = true; const ep = Math.max(5, Math.round(actorBlock.maxEp * EP_REGEN_RATE * 2)); actor.curEp = Math.min(actorBlock.maxEp, actor.curEp + ep); logLines.push(`${actorName} 摆出防御姿态，本回合承受伤害减半，回复 ${ep} 点 EP。`); fireTriggers('onDefend', opts.actorId); return { state, logLines, actorName, defeated }; }
     if (opts.kind === 'protect') {
       const tgt = opts.targetIds.find((id) => state.participants[id] && !state.participants[id].left && state.participants[id].curHp > 0 && state.initialState[id]?.side === actorBlock.side && id !== opts.actorId);
       if (!tgt) { logLines.push(`${actorName} 没有可保护的队友。`); return { state, logLines, actorName, defeated }; }
@@ -530,7 +547,7 @@ export function settleAction(opts: {
         skill = undefined;
       } else {
         if (cost > 0) actor.curEp = Math.max(0, actor.curEp - cost);
-        const cd = parseCooldownRounds(skill); if (cd > 0) actor.cooldowns[skill.id] = cd;
+        const cd = Math.max(0, parseCooldownRounds(skill) - (myPassive.cdr ?? 0)); if (cd > 0) actor.cooldowns[skill.id] = cd;
         const dspec = inferDomainSpec(skill, actorBlock.matk);
         const dom: DomainState = { id: `dom_${opts.actorId}_${Date.now()}`, ownerId: opts.actorId, ownerName: actorName, side: actorBlock.side, ...dspec };
         state.activeArrays = [...(state.activeArrays ?? []).filter((d) => d.ownerId !== opts.actorId), dom];
@@ -544,7 +561,7 @@ export function settleAction(opts: {
       const cost = sp.cost && sp.cost > 0 ? sp.cost : skillEpCost(skill);
       if (cost > 0 && actor.curEp < cost) { logLines.push(`${actorName} 法力不足（需 ${cost} EP），「${skill.name}」未能施展，改为普通攻击。`); skill = undefined; }
       else if (cost > 0) actor.curEp = Math.max(0, actor.curEp - cost);
-      if (skill) { const cd = parseCooldownRounds(skill); if (cd > 0) actor.cooldowns[skill.id] = cd; }
+      if (skill) { const cd = Math.max(0, parseCooldownRounds(skill) - (myPassive.cdr ?? 0)); if (cd > 0) actor.cooldowns[skill.id] = cd; }
     }
   }
 
@@ -586,7 +603,7 @@ export function settleAction(opts: {
     const ids = targetsFor(e, specTarget);
     switch (e.tag) {
       case 'deal': case 'pierce': case 'lifesteal': case 'execute': {
-        const times = Math.max(1, e.times ?? 1);
+        const times = Math.max(1, (e.times ?? 1) + (e.tag === 'deal' ? (myPassive.extraHits ?? 0) : 0));   // 被动多段：deal 额外段数
         for (const tid of ids) for (let n = 0; n < times; n++) {
           const tc = state.participants[tid];
           if (!tc || tc.left || tc.curHp <= 0) break;
@@ -679,18 +696,21 @@ export function settleAction(opts: {
       if (tc.curHp <= 0) pushDefeated(tid);
       return;
     }
+    const tPass: PassiveMod = tb.passive ?? {};   // 守方常驻被动（减伤等）
     const base = (e.mult ?? 0) * atkTier + (e.flat ?? 0);
     let dmg = applyDamageModifiers({ base, strengthBonus: strengthBonus(effStr(actor), atkTier), attackerWeak: hasWeak(actor), targetVulnerable: hasVuln(tc) });
-    dmg = Math.round(dmg * chargeMult * DMG_SCALE);
-    dmg = Math.max(1, dmg - Math.round(defTier * DEF_FACTOR));
+    dmg = Math.round(dmg * chargeMult * DMG_SCALE * (1 + (myPassive.dmgDealtPct ?? 0)) * (1 + (tPass.dmgTakenPct ?? 0)));   // 被动：攻方增伤 ×守方受伤(负=减伤)
+    dmg = Math.max(1, dmg - Math.round(defTier * DEF_FACTOR * (1 - (myPassive.pierce ?? 0))));   // 被动：穿透削减防御档
     if (tc.defending) dmg = Math.max(1, Math.round(dmg * DEFEND_MITIGATION));
+    let crit = false;
+    if ((myPassive.critChance ?? 0) > 0 && rng() < (myPassive.critChance ?? 0)) { crit = true; dmg = Math.max(1, Math.round(dmg * (CRIT_BASE + (myPassive.critMult ?? 0)))); }   // 被动：暴击
     let absorbed = 0;
     if (e.tag !== 'pierce' && tc.curShield > 0) { absorbed = Math.min(tc.curShield, dmg); tc.curShield -= absorbed; dmg -= absorbed; }
     const { lost, note } = damageHp(tc, dmg);
     const shieldTag = absorbed > 0 ? `（护盾抵消 ${absorbed}）` : '';
     const pierceTag = e.tag === 'pierce' ? '（穿透）' : '';
-    logLines.push(`${actorName} ${label} 命中 ${tb.name}，造成 ${lost} 点伤害${note}${shieldTag}${pierceTag}。`);
-    if (sfxOn) playSfx('hit');
+    logLines.push(`${actorName} ${label}${crit ? '·暴击' : ''} 命中 ${tb.name}，造成 ${lost} 点伤害${note}${shieldTag}${pierceTag}。`);
+    if (sfxOn) playSfx(crit ? 'crit' : 'hit');
     if (e.tag === 'lifesteal' && lost > 0) {
       const heal = Math.max(1, Math.round(lost * 0.5));
       const before = actor.curHp; actor.curHp = Math.min(actorBlock.maxHp, actor.curHp + heal);
@@ -702,6 +722,64 @@ export function settleAction(opts: {
       if (sl > 0) { logLines.push(`${tb.name} 的荆棘反弹 ${sl} 点伤害给 ${actorName}。`); if (actor.curHp <= 0) pushDefeated(opts.actorId); }
     }
     if (tc.curHp <= 0) pushDefeated(tid);
+    // 条件触发：攻方命中 / 守方受击 / 击杀（触发产出的效果不再嵌套触发，避免递归）
+    fireTriggers('onHit', opts.actorId, tid);
+    fireTriggers('onHurt', tid, opts.actorId);
+    if (tc.curHp <= 0) fireTriggers('onKill', opts.actorId, tid);
+  }
+
+  // ── 条件触发系统（C）：fireTriggers 找匹配触发器 → condMet 判条件 → applyTriggerEffect 落地效果 ──
+  function condMet(cond: TriggerCond | undefined, ownerId: string, otherId?: string): boolean {
+    if (!cond || cond === 'always') return true;
+    const o = state.participants[ownerId]; const ob = state.initialState[ownerId];
+    const t = otherId ? state.participants[otherId] : undefined; const tbb = otherId ? state.initialState[otherId] : undefined;
+    switch (cond) {
+      case 'targetBurning': return !!t?.status?.some((s) => !!s.combat?.dotPerRound);
+      case 'targetPoisoned': return !!t?.status?.some((s) => !!s.combat?.poisonStacks);
+      case 'targetStunned': return !!t?.status?.some((s) => !!s.combat?.cannotAct);
+      case 'targetLowHp': return !!t && !!tbb && t.curHp / Math.max(1, tbb.maxHp) <= 0.3;
+      case 'selfLowHp': return !!o && !!ob && o.curHp / Math.max(1, ob.maxHp) <= 0.3;
+      case 'selfHasShield': return (o?.curShield ?? 0) > 0;
+      default: return true;
+    }
+  }
+
+  function fireTriggers(event: TriggerEvent, ownerId: string, otherId?: string) {
+    const ob = state.initialState[ownerId]; const owner = state.participants[ownerId];
+    if (!ob?.triggers?.length || !owner || owner.left || owner.curHp <= 0) return;
+    for (const t of ob.triggers) {
+      if (t.on !== event || !condMet(t.cond, ownerId, otherId)) continue;
+      if ((t.chance ?? 1) < 1 && rng() >= (t.chance ?? 1)) continue;
+      applyTriggerEffect(t.effect, ownerId, otherId);
+    }
+  }
+
+  function applyTriggerEffect(e: CombatEffect, ownerId: string, otherId?: string) {
+    const ownerC = state.participants[ownerId]; const ownerB = state.initialState[ownerId];
+    if (!ownerC || !ownerB) return;
+    const toEnemy = ENEMY_TAGS.has(e.tag);
+    let tgtId = toEnemy ? otherId : ownerId;                 // 朝敌效果→事件另一方；其余→自身
+    if (toEnemy && !tgtId) tgtId = aliveIds(state, ownerB.side === 'player' ? 'enemy' : 'player')[0];
+    if (!tgtId) return;
+    const tc = state.participants[tgtId]; const tbb = state.initialState[tgtId];
+    if (!tc || !tbb || tc.left || (toEnemy && tc.curHp <= 0)) return;
+    const oAtk = effCombatStats(ownerC, ownerB).patk;
+    if (e.tag === 'deal' || e.tag === 'pierce' || e.tag === 'lifesteal' || e.tag === 'execute') {
+      const defT = effCombatStats(tc, tbb).pdef;
+      let dmg = Math.max(1, Math.round(((e.mult ?? 0) * oAtk + (e.flat ?? 0)) * DMG_SCALE) - Math.round(defT * DEF_FACTOR));
+      if (tc.defending) dmg = Math.max(1, Math.round(dmg * DEFEND_MITIGATION));
+      if (e.tag !== 'pierce' && tc.curShield > 0) { const ab = Math.min(tc.curShield, dmg); tc.curShield -= ab; dmg -= ab; }
+      const { lost } = damageHp(tc, dmg);
+      if (lost > 0) logLines.push(`  ↳ ${ownerB.name} 触发·对 ${tbb.name} 追加 ${lost} 点伤害。`);
+      if (e.tag === 'lifesteal' && lost > 0) ownerC.curHp = Math.min(ownerB.maxHp, ownerC.curHp + Math.round(lost * 0.5));
+      if (tc.curHp <= 0) pushDefeated(tgtId);
+      return;
+    }
+    if (e.tag === 'heal') { const amt = Math.max(1, Math.round(((e.mult ?? 0) * oAtk + (e.flat ?? 0)) * DMG_SCALE)); const b0 = tc.curHp; tc.curHp = Math.min(tbb.maxHp, tc.curHp + amt); if (tc.curHp > b0) logLines.push(`  ↳ ${ownerB.name} 触发·回复 ${tc.curHp - b0} 点生命。`); return; }
+    if (e.tag === 'restore') { const amt = Math.max(1, Math.round((e.flat ?? 0) || oAtk * 0.3)); tc.curEp = Math.min(tbb.maxEp, tc.curEp + amt); return; }
+    if (e.tag === 'block') { const dT = effCombatStats(tc, tbb).pdef; const amt = Math.max(1, Math.round(((e.mult ?? 0) * dT + (e.flat ?? 0)) * DMG_SCALE)); tc.curShield += amt; tc.maxShield = Math.max(tc.maxShield, tc.curShield); return; }
+    const tpl = buildStatusTpl(e.tag, e, oAtk);
+    if (tpl) { applyCombatStatus(tc, tpl, state.round, ownerId); logLines.push(`  ↳ ${ownerB.name} 触发·使 ${tbb.name} ${tpl.tone === 'buff' ? '获得' : '陷入'}【${tpl.emoji}${tpl.name}】。`); }
   }
 }
 

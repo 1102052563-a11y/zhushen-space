@@ -3,6 +3,7 @@ import { persist } from 'zustand/middleware';
 import type { ApiConfig } from './settingsStore';
 import type { StatusEffect } from './playerStore';
 import type { DiceAttrs } from '../systems/diceEngine';
+import type { PassiveMod, CombatTrigger } from '../systems/combatTags';
 
 /* ════════════════════════════════════════════
    战斗系统 store（drpg-combat）—— 仿 fanren-remake 回合制战斗，重皮成轮回乐园风格。
@@ -54,6 +55,8 @@ export interface CombatStatBlock {
   maxHp: number; maxEp: number;
   initHp?: number; initEp?: number;  // 入场时的当前 HP/EP（可带伤进场；缺省=满）
   isTransient?: boolean;  // battleData 内联生成的未建档敌人/召唤物
+  passive?: PassiveMod;        // 聚合常驻被动修正（暴击/增伤减伤/穿透/冷却/多段；buildCombatant 据技能+天赋算·系统 C）
+  triggers?: CombatTrigger[];  // 聚合条件触发器（命中/受击/击杀/回合开始/防御）
 }
 
 /* 参战者动态运行态 */

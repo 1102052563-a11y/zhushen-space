@@ -193,3 +193,61 @@ describe('整场战斗循环（端到端·必中确定性·0 API）', () => {
     expect(rec).toMatch(/敌方=\[木桩怪:KO\]/);
   });
 });
+
+describe('settleAction（被动修正·系统 C）', () => {
+  const atk = (b1Passive?: any, c1Passive?: any, c1Hp = 100) => {
+    useCharacters.setState({ characters: {} as any });
+    const B1 = { ...mkB('主角', 'player'), passive: b1Passive };
+    const C1 = { ...mkB('敌', 'enemy'), passive: c1Passive };
+    const state = mkState([mkC('B1', 'player', 100), mkC('C1', 'enemy', c1Hp)], { B1, C1 });
+    return settleAction({ state, actorId: 'B1', kind: 'attack', targetIds: ['C1'] });
+  };
+  it('增伤 dmgDealtPct +0.5：base20×2×1.5=60 −6 =54 → 100→46', () => {
+    expect(atk({ dmgDealtPct: 0.5 }).state.participants['C1'].curHp).toBe(46);
+  });
+  it('减伤 dmgTakenPct -0.5（守方被动）：20×2×0.5=20 −6 =14 → 100→86', () => {
+    expect(atk(undefined, { dmgTakenPct: -0.5 }).state.participants['C1'].curHp).toBe(86);
+  });
+  it('穿透 pierce 1.0 无视防御：40 −0 =40 → 100→60', () => {
+    expect(atk({ pierce: 1 }).state.participants['C1'].curHp).toBe(60);
+  });
+  it('暴击 critChance 1 必暴：34 ×(1.5+0.5)=68 → 100→32，日志含暴击', () => {
+    const out = atk({ critChance: 1, critMult: 0.5 });
+    expect(out.state.participants['C1'].curHp).toBe(32);
+    expect(out.logLines.join('')).toMatch(/暴击/);
+  });
+  it('多段 extraHits +1：deal 技能命中两次 = 34×2=68 → 100→32', () => {
+    useCharacters.setState({ characters: { B1: { skills: [{ id: 'S_d', name: '连斩', numeric: { combat: { cost: 0, target: 'enemy', effects: [{ tag: 'deal', mult: 1.0 }] } } }], traits: [] } } as any });
+    const B1 = { ...mkB('主角', 'player'), passive: { extraHits: 1 } };
+    const state = mkState([mkC('B1', 'player', 100), mkC('C1', 'enemy', 100)], { B1, C1: mkB('敌', 'enemy') });
+    const out = settleAction({ state, actorId: 'B1', kind: 'skill', skillId: 'S_d', targetIds: ['C1'] });
+    expect(out.state.participants['C1'].curHp).toBe(32);
+  });
+});
+
+describe('settleAction（条件触发·系统 C）', () => {
+  it('onHit 触发施加燃烧：普攻命中后敌人染上燃烧', () => {
+    useCharacters.setState({ characters: {} as any });
+    const B1 = { ...mkB('主角', 'player'), triggers: [{ on: 'onHit', chance: 1, effect: { tag: 'burn', flat: 10, turns: 2 } }] } as any;
+    const state = mkState([mkC('B1', 'player', 100), mkC('C1', 'enemy', 100)], { B1, C1: mkB('敌', 'enemy') });
+    const out = settleAction({ state, actorId: 'B1', kind: 'attack', targetIds: ['C1'] });
+    expect(out.state.participants['C1'].status.find((s) => s.name === '燃烧')).toBeTruthy();
+  });
+  it('onKill 触发自愈：击杀残血敌人后主角回血', () => {
+    useCharacters.setState({ characters: {} as any });
+    const B1 = { ...mkB('主角', 'player'), maxHp: 300, triggers: [{ on: 'onKill', chance: 1, effect: { tag: 'heal', flat: 50 } }] } as any;
+    const state = mkState([mkC('B1', 'player', 100), mkC('C1', 'enemy', 1)], { B1, C1: mkB('敌', 'enemy') });
+    const out = settleAction({ state, actorId: 'B1', kind: 'attack', targetIds: ['C1'] });
+    expect(out.state.participants['C1'].curHp).toBeLessThanOrEqual(0);
+    expect(out.state.participants['B1'].curHp).toBeGreaterThan(100);
+  });
+  it('条件 targetLowHp：仅当目标残血才追加伤害', () => {
+    useCharacters.setState({ characters: {} as any });
+    const trig = [{ on: 'onHit', cond: 'targetLowHp', chance: 1, effect: { tag: 'deal', mult: 1.0 } }];
+    const B1 = { ...mkB('主角', 'player'), triggers: trig } as any;
+    const full = settleAction({ state: mkState([mkC('B1', 'player', 100), mkC('C1', 'enemy', 100)], { B1, C1: mkB('敌', 'enemy') }), actorId: 'B1', kind: 'attack', targetIds: ['C1'] });
+    expect(full.logLines.join('')).not.toMatch(/追加/);            // 满血 → 条件不满足
+    const low = settleAction({ state: mkState([mkC('B1', 'player', 100), mkC('C1', 'enemy', 55)], { B1, C1: mkB('敌', 'enemy') }), actorId: 'B1', kind: 'attack', targetIds: ['C1'] });
+    expect(low.logLines.join('')).toMatch(/追加/);                  // 残血(≤30%) → 触发追加
+  });
+});

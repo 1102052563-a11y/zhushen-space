@@ -2,6 +2,7 @@ import { describe, it, expect } from 'vitest';
 import {
   applyDamageModifiers, strengthBonus, dexterityBonus,
   normalizeEffects, inferEffectsFromSkill, parseCombatSpec, isCombatTag, TAG_REGISTRY, ALL_TAGS,
+  normalizePassive, normalizeTriggers, inferPassiveFromSkill, inferTriggersFromSkill, aggregatePassives, aggregateTriggers, triggerPromptText,
 } from './combatTags';
 
 describe('applyDamageModifiers（§4 伤害修正链：虚弱→+力量→易伤）', () => {
@@ -93,5 +94,73 @@ describe('parseCombatSpec（有 numeric.combat 用之，否则兜底）', () => 
     const spec = parseCombatSpec({ name: '冰封', combat: { cost: 10, target: 'enemy', effects: [{ tag: 'deal', mult: 1.2 }, { tag: 'stun', turns: 1 }] } } as any);
     expect(spec.cost).toBe(10);
     expect(spec.effects.map((e) => e.tag)).toEqual(['deal', 'stun']);
+  });
+});
+
+/* ── 条件触发系统（C）数据层 ── */
+describe('normalizePassive（被动修正校验·夹紧）', () => {
+  it('合法字段保留', () => {
+    const p = normalizePassive({ critChance: 0.3, critMult: 0.5, dmgDealtPct: 0.2, dmgTakenPct: -0.25, pierce: 0.4, cdr: 2, extraHits: 1 })!;
+    expect(p.critChance).toBe(0.3); expect(p.dmgTakenPct).toBe(-0.25); expect(p.pierce).toBe(0.4); expect(p.extraHits).toBe(1); expect(p.cdr).toBe(2);
+  });
+  it('critChance 越界夹到 0~1', () => expect(normalizePassive({ critChance: 9 })!.critChance).toBe(1));
+  it('空/无有效字段 → undefined', () => { expect(normalizePassive(null)).toBeUndefined(); expect(normalizePassive({ foo: 1 })).toBeUndefined(); });
+});
+
+describe('normalizeTriggers（触发器校验）', () => {
+  it('合法触发器保留、补 chance 默认 1', () => {
+    const t = normalizeTriggers([{ on: 'onHit', chance: 0.3, effect: { tag: 'burn', flat: 10, turns: 2 } }]);
+    expect(t).toHaveLength(1); expect(t[0].on).toBe('onHit'); expect(t[0].chance).toBe(0.3); expect(t[0].effect.tag).toBe('burn');
+  });
+  it('非法 on / 非法 effect 丢弃', () => {
+    expect(normalizeTriggers([{ on: 'whenever', effect: { tag: 'deal' } }])).toHaveLength(0);
+    expect(normalizeTriggers([{ on: 'onKill', effect: { tag: 'bogus' } }])).toHaveLength(0);
+  });
+  it('cond 合法才保留', () => {
+    expect(normalizeTriggers([{ on: 'onHit', cond: 'targetBurning', effect: { tag: 'deal', mult: 0.5 } }])[0].cond).toBe('targetBurning');
+    expect(normalizeTriggers([{ on: 'onHit', cond: 'badcond', effect: { tag: 'deal', mult: 0.5 } }])[0].cond).toBeUndefined();
+  });
+});
+
+describe('inferPassiveFromSkill（旧档关键词→被动）', () => {
+  it('暴击率 +12% → critChance 0.12', () => expect(inferPassiveFromSkill({ name: '锐眼', effect: '暴击率+12%' })!.critChance).toBeCloseTo(0.12));
+  it('受到伤害降低20% → dmgTakenPct -0.2', () => expect(inferPassiveFromSkill({ name: '铁骨', effect: '受到伤害降低20%' })!.dmgTakenPct).toBeCloseTo(-0.2));
+  it('穿透30% → pierce 0.3', () => expect(inferPassiveFromSkill({ name: '破甲', effect: '穿透30%' })!.pierce).toBeCloseTo(0.3));
+  it('无关文本 → undefined', () => expect(inferPassiveFromSkill({ name: '走路', effect: '日常行走' })).toBeUndefined());
+});
+
+describe('inferTriggersFromSkill（旧档关键词→触发器）', () => {
+  it('命中30%概率燃烧 → onHit/burn', () => {
+    const t = inferTriggersFromSkill({ name: '炎附', effect: '命中时30%概率使目标燃烧' });
+    expect(t.some((x) => x.on === 'onHit' && x.effect.tag === 'burn')).toBe(true);
+  });
+  it('击杀回血 → onKill/heal', () => {
+    const t = inferTriggersFromSkill({ name: '饮血', effect: '击杀后回复300点生命' });
+    expect(t.some((x) => x.on === 'onKill' && x.effect.tag === 'heal')).toBe(true);
+  });
+});
+
+describe('aggregatePassives / aggregateTriggers（聚合全部技能+天赋）', () => {
+  it('暴击率累加、穿透取最大', () => {
+    const agg = aggregatePassives([
+      { name: 'a', combat: { passive: { critChance: 0.1, pierce: 0.2 } } } as any,
+      { name: 'b', combat: { passive: { critChance: 0.15, pierce: 0.5 } } } as any,
+    ]);
+    expect(agg.critChance).toBeCloseTo(0.25);
+    expect(agg.pierce).toBe(0.5);
+  });
+  it('聚合触发器（authored + 推断并入）', () => {
+    const t = aggregateTriggers([
+      { name: 'a', combat: { triggers: [{ on: 'onHit', effect: { tag: 'poison', stacks: 2 } }] } } as any,
+      { name: 'b', effect: '击杀后回复100生命' } as any,
+    ]);
+    expect(t.length).toBeGreaterThanOrEqual(2);
+  });
+});
+
+describe('triggerPromptText（提示词片段）', () => {
+  it('含事件枚举与字段名', () => {
+    const s = triggerPromptText();
+    expect(s).toContain('onHit'); expect(s).toContain('onKill'); expect(s).toContain('targetBurning'); expect(s).toContain('passive');
   });
 });
