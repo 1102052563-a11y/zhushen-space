@@ -9,6 +9,7 @@ import {
   listJsonFiles, readJsonFile,
 } from '../systems/folderBackup';
 import { buildDiagnosticBundle } from '../systems/diagnostics';
+import { estimateSaveImages, stripSaveImages, fmtBytes, type ImgFootprint } from '../systems/imageCleanup';
 import { exportFullNovelTxt } from '../systems/novelExport';
 import { useSettings } from '../store/settingsStore';
 import {
@@ -19,9 +20,10 @@ import {
 interface Props {
   messages: any[];     // 当前对话历史（保存时快照）
   onClose: () => void;
+  onCleanupLive?: () => void;   // 清空当前对话的正文配图（由 App 用 setMessages 实现）
 }
 
-export default function SaveLoadPanel({ messages, onClose }: Props) {
+export default function SaveLoadPanel({ messages, onClose, onCleanupLive }: Props) {
   const [slots, setSlots] = useState<SlotMeta[]>([]);
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState('');
@@ -47,6 +49,32 @@ export default function SaveLoadPanel({ messages, onClose }: Props) {
   // 存储持久化状态：未授予=best-effort，存储紧张时整批存档可能被浏览器清掉（"手动档先没→只剩自动档→全没"的根因）。让它可见。
   const [persist, setPersist] = useState<{ supported: boolean; persisted: boolean; usageMB: number | null; quotaMB: number | null } | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
+  // 🧹 清理图片 / 存档瘦身
+  const [cleanOpen, setCleanOpen] = useState(false);
+  const [footprint, setFootprint] = useState<ImgFootprint | null>(null);
+  const [cleanBusy, setCleanBusy] = useState(false);
+  const [confirmClean, setConfirmClean] = useState<'story' | 'all' | 'live' | null>(null);
+
+  async function toggleClean() {
+    const next = !cleanOpen; setCleanOpen(next);
+    if (next && !footprint) { try { setFootprint(await estimateSaveImages()); } catch { /* 估算失败不致命 */ } }
+  }
+  async function doStrip(mode: 'story' | 'all') {
+    setCleanBusy(true);
+    try {
+      const r = await stripSaveImages(mode);
+      try { setFootprint(await estimateSaveImages()); } catch { /* */ }
+      await refresh(); void getStorageStatus().then(setPersist);
+      flash(`✓ 已给 ${r.slots} 个存档瘦身，释放约 ${fmtBytes(r.freedBytes)}（关页重开后浏览器占用统计才会回落）`);
+    } catch (e: any) { flash('❌ 瘦身失败：' + (e?.message ?? e)); }
+    finally { setCleanBusy(false); setConfirmClean(null); }
+  }
+  function doStripLive() {
+    const n = messages.reduce((s: number, m: any) => s + (m.images?.length || 0), 0);
+    onCleanupLive?.();
+    flash(n ? `✓ 已清空当前对话的 ${n} 张正文配图（下次存档不再带这些图）` : '当前对话没有正文配图');
+    setConfirmClean(null);
+  }
 
   async function refresh() { setSlots(await listSlots()); }
   async function refreshSnaps() { setAutoSnaps(await listAutoSnaps()); }
@@ -295,6 +323,48 @@ export default function SaveLoadPanel({ messages, onClose }: Props) {
         {persist && persist.persisted && (
           <div className="shrink-0 px-5 max-lg:px-3 pt-2 text-[11px] font-mono text-god/55">🔒 持久化存储已开启（存档不会被浏览器随意清除）{persist.usageMB != null && ` · 已用 ${persist.usageMB}MB${persist.quotaMB != null ? ` / ${persist.quotaMB}MB` : ''}`}</div>
         )}
+
+        {/* 🧹 清理图片 / 存档瘦身：正文配图(dataURL)整张存进存档→单档可达数百 MB。直接剥掉图片缩小存档。 */}
+        <div className="shrink-0 mx-4 mt-3 rounded-lg border border-edge/60 bg-panel/40 text-[12px] font-mono">
+          <button onClick={toggleClean} className="w-full flex items-center justify-between px-3 py-2 text-left hover:bg-void/30">
+            <span className="text-god/90">🧹 清理图片 · 存档瘦身{footprint ? `（全部存档约 ${fmtBytes(footprint.storyBytes + footprint.avatarBytes)} 图片）` : ''}</span>
+            <span className="text-dim/60">{cleanOpen ? '▲' : '▼'}</span>
+          </button>
+          {cleanOpen && (
+            <div className="px-3 pb-3 pt-1 space-y-2 border-t border-edge/50">
+              <div className="text-dim/75 leading-relaxed">
+                存档变大几乎都是<b className="text-god/80">正文配图</b>占的（每段正文出的图以 dataURL 整张塞进存档）。下面直接把存档里的图片剥掉缩小体积——
+                <b className="text-blood/80">剥掉的图不可恢复</b>，但剧情文字 / 数值 / 角色档案都不受影响。
+              </div>
+              {footprint && (
+                <div className="text-dim/70 leading-relaxed">
+                  全部 {footprint.slots} 个存档里：<b className="text-god/80">{footprint.storyImgs}</b> 张正文配图（约 {fmtBytes(footprint.storyBytes)}）
+                  ＋ <b className="text-god/80">{footprint.avatarImgs}</b> 张头像/装备图（约 {fmtBytes(footprint.avatarBytes)}）。
+                </div>
+              )}
+              <div className="flex flex-wrap gap-2">
+                <button disabled={cleanBusy} onClick={() => setConfirmClean('story')}
+                  className="px-2.5 py-1 border border-god/50 text-god rounded hover:bg-god/10 disabled:opacity-40">剥离所有存档·正文配图（留头像）</button>
+                <button disabled={cleanBusy} onClick={() => setConfirmClean('all')}
+                  className="px-2.5 py-1 border border-blood/50 text-blood rounded hover:bg-blood/10 disabled:opacity-40">连头像/装备一起剥（最省）</button>
+                <button disabled={cleanBusy || !onCleanupLive} onClick={() => setConfirmClean('live')}
+                  className="px-2.5 py-1 border border-dim/40 text-dim rounded hover:bg-void/40 disabled:opacity-40">清空当前对话配图</button>
+              </div>
+              {confirmClean && (
+                <div className="rounded border border-blood/40 bg-blood/10 px-2.5 py-2 flex flex-wrap items-center gap-2">
+                  <span className="text-blood/90">
+                    {confirmClean === 'story' && '确认剥离全部存档的正文配图？（保留头像，不可恢复）'}
+                    {confirmClean === 'all' && '确认剥离全部存档的所有图片？（含头像/装备，不可恢复）'}
+                    {confirmClean === 'live' && '确认清空当前对话的正文配图？（不可恢复）'}
+                  </span>
+                  <button disabled={cleanBusy} onClick={() => (confirmClean === 'live' ? doStripLive() : doStrip(confirmClean))}
+                    className="px-2 py-0.5 border border-blood/60 text-blood rounded hover:bg-blood/20 disabled:opacity-40">{cleanBusy ? '处理中…' : '确认'}</button>
+                  <button disabled={cleanBusy} onClick={() => setConfirmClean(null)} className="px-2 py-0.5 border border-dim/40 text-dim rounded hover:bg-void/40">取消</button>
+                </div>
+              )}
+            </div>
+          )}
+        </div>
 
         {/* 自动存档开关（省内存/防大档撑爆）：自动档不含图片，手动「新建存档」才带图 */}
         <div className="shrink-0 flex flex-wrap items-center gap-x-3 gap-y-1 px-5 max-lg:px-3 py-2 border-b border-edge/60 bg-panel/40 text-[12px] font-mono text-dim">

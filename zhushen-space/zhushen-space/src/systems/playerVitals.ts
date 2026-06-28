@@ -1,4 +1,5 @@
 import { useGame } from '../store/gameStore';
+import { useNpc } from '../store/npcStore';
 import { useMisc } from '../store/miscStore';
 import { useFaction } from '../store/factionStore';
 import { usePlayer } from '../store/playerStore';
@@ -107,4 +108,24 @@ export function syncPlayerVitalsMax(): void {
   const liveHp = playerMaxHp(), liveEp = playerMaxEp();
   if (p.maxHp !== liveHp) g.setPlayerField('maxHp', liveHp);   // clampPlayer 顺带把超出新上限的 hp 夹回(只降不升)
   if (p.maxMp !== liveEp) g.setPlayerField('maxMp', liveEp);
+}
+
+/* 手动「回满 HP/EP」（主角 + 在场/常驻队友）——纯前端确定性满血满蓝。
+   设计上当前 HP/EP 忠于正文、不自动补血（auto-forcefill 被否决过）；但**玩家主动点**的回满是允许的逃生口，
+   专治"队友总是 400/4000 残疾状态、刷新也回不满"。回满到各自**当前真实上限**（主角含技能树/装备/团队；NPC 用其已算 maxHp/maxMp）。*/
+export function refillAllVitals(): { team: number } {
+  const g = useGame.getState();
+  const mh = playerMaxHp(), me = playerMaxEp();
+  g.setPlayerField('maxHp', mh); g.setPlayerField('hp', mh);
+  g.setPlayerField('maxMp', me); g.setPlayerField('mp', me);
+  const npc = useNpc.getState();
+  let team = 0;
+  for (const r of Object.values(npc.npcs)) {
+    const rec: any = r;
+    if (rec.isDead) continue;
+    if (!(rec.onScene || rec.partyMember || rec.keepForever)) continue;   // 只回满在场/常驻队友，不动满世界的路人 NPC
+    const cmh = rec.maxHp ?? 0, cmm = rec.maxMp ?? 0;
+    if (cmh > 0 || cmm > 0) { npc.upsertNpc(rec.id, { hp: cmh, mp: cmm }); team++; }
+  }
+  return { team };
 }

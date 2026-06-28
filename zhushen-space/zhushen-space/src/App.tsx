@@ -1642,6 +1642,15 @@ export default function App() {
     sysPrompt += '\n\n' + ATTR_POINT_AUTHORITY_RULE; sysSegments.push({ label: '前端规则 · 属性点唯一真相', content: ATTR_POINT_AUTHORITY_RULE });
     // HP/EP 结算：让主正文每回合末尾输出主角+在场NPC的当前 HP/EP（前端 applyNarrativeVitals/NpcVitals 解析，HP/EP 管理阶段也以此为最终值）
     sysPrompt += '\n\n' + VITALS_SETTLEMENT_EMIT_RULE; sysSegments.push({ label: '前端规则 · HP/EP 结算输出', content: VITALS_SETTLEMENT_EMIT_RULE });
+    // 在场 NPC 当前 HP/EP + 上限：把真实数值喂给主正文，让上面的 <状态结算> 能**逐个准确**列出在场队友（不靠 AI 凭记忆瞎填/漏填导致队友卡在残血），休息疗伤时也据上限回满
+    try {
+      const onSceneNpcs = Object.values(useNpc.getState().npcs).filter((r: any) => r.onScene && !r.isDead && r.name && r.name !== r.id);
+      if (onSceneNpcs.length) {
+        const lines = onSceneNpcs.map((r: any) => `${String(r.name).split('|')[0].trim()} 当前HP：${r.hp ?? r.maxHp ?? '?'}/${r.maxHp ?? '?'} 当前EP：${r.mp ?? r.maxMp ?? '?'}/${r.maxMp ?? '?'}`).join('\n');
+        const vitalsCtx = `【在场 NPC 当前 HP/EP（结算基准·必须逐个列入上面的 <状态结算>，一个都不能漏）】\n${lines}\n— 本回合谁受伤/掉蓝就在此基础上扣；若有**休息/疗伤/治疗/睡眠/返回安全区**等恢复情节，把相关角色**回满或按正文回复量**抬上去；没被波及的照原值列出。最终值写进 <状态结算>。`;
+        sysPrompt += '\n\n' + vitalsCtx; sysSegments.push({ label: '前端数据 · 在场NPC当前HP/EP', content: vitalsCtx });
+      }
+    } catch { /* */ }
     // 任务击杀目标阶位上限：强制环≤主角阶位、贪婪环≤+1；勿降级剧情高端战力，改派阶位相称的目标
     sysPrompt += '\n\n' + QUEST_KILL_TIER_RULE; sysSegments.push({ label: '前端规则 · 击杀阶位上限', content: QUEST_KILL_TIER_RULE });
     // 任务世界结算：仅当本回合输入含【结算任务】时才注入（平时不喂，省 token、避免误触发）
@@ -7904,7 +7913,7 @@ ${lines}`;
           <CharacterCreation onConfirm={confirmCreation} onCancel={() => setCreating(false)} />
         )}
         {saveOpen && (
-          <SaveLoadPanel messages={messages} onClose={() => setSaveOpen(false)} />
+          <SaveLoadPanel messages={messages} onClose={() => setSaveOpen(false)} onCleanupLive={() => setMessages((prev) => prev.map((m) => (m.images?.length ? { ...m, images: [] } : m)))} />
         )}
       </Suspense>
     );
@@ -8915,7 +8924,7 @@ ${lines}`;
 
       {/* ── 存档管理面板 ── */}
       {saveOpen && (
-        <SaveLoadPanel messages={messages} onClose={() => setSaveOpen(false)} />
+        <SaveLoadPanel messages={messages} onClose={() => setSaveOpen(false)} onCleanupLive={() => setMessages((prev) => prev.map((m) => (m.images?.length ? { ...m, images: [] } : m)))} />
       )}
 
       {/* ── 技能/天赋面板 ── */}

@@ -6,7 +6,7 @@ import { StatusChips, SegmentedText } from './NpcDetail';
 import StatusEffectChips from './StatusEffectChips';
 import { computeDerived, tierFxClass, realmFromLevel, effectiveResource, fullMaxHp, fullMaxEp, realAttrMult, attrCapForTier, ratioOf, ATTR_SHORT } from '../systems/derivedStats';
 import { useResource } from '../store/resourceStore';
-import { playerResourceMax } from '../systems/playerVitals';
+import { playerResourceMax, refillAllVitals } from '../systems/playerVitals';
 import { useCharacters } from '../store/characterStore';
 import { computeAttrBreakdown, withAttrDelta, ATTR_LABEL, ATTR_KEYS, type AttrBreak } from '../systems/attrBonus';
 import { playerTreeAttrBonus } from '../store/skillTreeStore';
@@ -178,6 +178,7 @@ export default function PlayerSidebar({ onClose }: { onClose?: () => void }) {
   const [editStatus, setEditStatus] = useState(false);
   const [personaOpen, setPersonaOpen] = useState(false);   // 性格详细描述：默认收起，点击「📖详情」展开查看/编辑
   const [labelOpen, setLabelOpen] = useState(false);       // HP/EP 条自定义称呼（换皮）：默认收起，点血条下方小按钮展开
+  const [refillMsg, setRefillMsg] = useState('');          // 一键回满 HP/EP 的瞬时反馈
   const [resOpen, setResOpen] = useState(false);           // 自定义能量条管理：默认收起
   const resources = useResource((s) => s.resources);
   const addResource = useResource((s) => s.addResource);
@@ -543,6 +544,13 @@ export default function PlayerSidebar({ onClose }: { onClose?: () => void }) {
                 <Bar value={effectiveResource(p.hp, p.maxHp, maxHp)} max={maxHp} color="bg-blood" label={profile.hpLabel || '生命 HP'} styleId={profile.barStyle} kind="hp" />
                 <Bar value={effectiveResource(p.mp, p.maxMp, maxEp)} max={maxEp} color="bg-sky-500" label={profile.epLabel || '蓝量 EP'} styleId={profile.barStyle} kind="ep" />
               </div>
+              {/* 一键回满（主角 + 在场队友）：手动逃生口——治"队友总是 400/4000 残疾、刷新也回不满"。当前 HP/EP 平时忠于正文、不自动补血，这里玩家主动点才回满。 */}
+              <button
+                onClick={(e) => { e.stopPropagation(); const r = refillAllVitals(); setRefillMsg(`已回满 · 主角${r.team ? ` + ${r.team} 名队友` : ''}`); setTimeout(() => setRefillMsg(''), 2500); }}
+                className="w-full text-[11px] py-1 rounded border border-blood/40 text-blood/80 hover:bg-blood/10 font-mono transition-colors"
+                title="把主角和在场/常驻队友的 HP/EP 一键回满到各自上限（手动，不影响正文驱动）"
+              >💧 一键回满 HP/EP（主角＋在场队友）</button>
+              {refillMsg && <div className="text-[10px] text-emerald-400/80 font-mono text-center">{refillMsg}</div>}
               {/* 自定义能量条（剧情资源）：当前值由正文 res.B1.<id> 驱动，上限按固定值/六维公式算 */}
               {resources.map((r) => { const rmax = playerResourceMax(r); return <Bar key={r.id} value={Math.min(Math.max(0, r.cur ?? 0), rmax)} max={rmax} color={r.color || 'bg-emerald-500'} label={r.name} />; })}
               <div className="text-[10px] text-dim/35 font-mono text-center">HP=体质×20 · EP=智力×15（按属性自动换算）</div>
