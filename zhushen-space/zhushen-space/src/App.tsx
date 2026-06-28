@@ -116,8 +116,11 @@ import { generateRaidLoot, generateRaidReward } from './systems/raidLoot';
 import { useSkillTree } from './store/skillTreeStore';
 import { useSubProfTree, subProfMastery } from './store/subProfTreeStore';
 import { useSnapshots, captureEvoSnapshot, snapState } from './store/snapshotStore';
+import { useLedger } from './systems/ledger/ledgerStore';
+import { diffEntityMap, diffItemList, diffFields, type DiffEvent } from './systems/turnDiff';
 import { attrsDiffer, attrChangeJustified, entityChangeJustified, pickFields, sameName, STABLE_DIMS, SKILL_GUARD_FIELDS, TRAIT_GUARD_FIELDS, ITEM_ID_FIELDS, ITEM_COMBAT_FIELDS, FACTION_GUARD_FIELDS, NPC_PROFILE_GUARD_FIELDS, PLAYER_PROFILE_GUARD_FIELDS, profileChangeJustified, revertSetWithLocks as dgRevertSetWithLocks } from './systems/driftGuard';
 import { isLockedKey, lkNpcAttr, lkNpcField, lkPlayerAttr, lkPlayerField, lkItemField, lkFactionField, lkCharSkill, lkCharTrait } from './store/lockStore';
+import { sanitizeSixAttrs, sanitizeItemNumbers } from './systems/numericGate';
 import RaidDungeonReward from './components/RaidDungeonReward';
 const RaidLootModal = lazy(() => import('./components/RaidLootModal'));
 const CombatPanel = lazy(() => import('./components/CombatPanel'));
@@ -223,6 +226,7 @@ import { useFact } from './store/factStore';
 import { settleDmDeal, normCur as dmNormCur } from './systems/dmTrade';
 const SystemShop = lazy(() => import('./components/SystemShop'));
 const SummaryPanel = lazy(() => import('./components/SummaryPanel'));
+const AuditPanel = lazy(() => import('./components/AuditPanel'));
 const SaveLoadPanel = lazy(() => import('./components/SaveLoadPanel'));
 import { PENDING_STARTED_KEY, clearProgress, autoSaveSlot, saveSlot, loadSlot, UNDO_ID, undoPointHasChat, requestPersistentStorage } from './systems/saveManager';
 import { restoreB1IfWiped } from './systems/b1Mirror';
@@ -879,6 +883,7 @@ const rightMenuItems = [
   { icon: '🎡', label: '乐园设施' },
   { icon: '🕳', label: '深渊' },
   { icon: '🔍', label: '回合洞察' },
+  { icon: '🧾', label: '审计' },
   { icon: '📋', label: '任务' },
   { icon: '📡', label: '频道' },
   { icon: '✉', label: '私信' },
@@ -899,7 +904,7 @@ const NAV_FX: Record<string, string> = {
   '装备': 'fx-sword', '储存空间': 'fx-bag', 'NPC': 'fx-card', '技能': 'fx-sparkle',
   '副职业': 'fx-wrench', '技能树': 'fx-tree', '称号': 'fx-medal', '成就': 'fx-trophy', '势力': 'fx-pillar',
   '领地': 'fx-castle', '冒险团': 'fx-shield', '队伍': 'fx-friends', '万族': 'fx-cosmos', '世界百科': 'fx-book', '轮回WIKI': 'fx-book', 'ROLL': 'fx-dice',
-  '战斗': 'fx-clash', '乐园设施': 'fx-ferris', '深渊': 'fx-void', '回合洞察': 'fx-zoom', '任务': 'fx-quest',
+  '战斗': 'fx-clash', '乐园设施': 'fx-ferris', '深渊': 'fx-void', '回合洞察': 'fx-zoom', '审计': 'fx-zoom', '任务': 'fx-quest',
   '频道': 'fx-signal', '私信': 'fx-mail', '好友': 'fx-friends', '聊天室': 'fx-signal', '交易行': 'fx-bag', '助战': 'fx-clash', '纪念丰碑': 'fx-pillar', '记忆': 'fx-brain', '创意工坊': 'fx-sparkle', '存档': 'fx-save', '设置': 'fx-gear',
 };
 
@@ -1028,6 +1033,7 @@ export default function App() {
   }, []);
   const [shopOpen, setShopOpen] = useState(false);
   const [summaryPanelOpen, setSummaryPanelOpen] = useState(false);
+  const [auditOpen, setAuditOpen] = useState(false);
   const [saveOpen,         setSaveOpen]         = useState(false);
   // ── 战斗系统：响应式驱动（NPC/敌方回合自动推进；玩家回合等战斗面板出手）──
   const combatActive   = useCombat((s) => s.battle.active);
@@ -2800,6 +2806,50 @@ export default function App() {
      🔒锁定字段无视"有无正文理由"一律退回基线；未锁字段仍只在"无据"时退。返回最终要退回基线的字段集。 */
   function revertSetWithLocks(base: any, cur: any, fields: readonly string[], justified: boolean, keyOf: (f: string) => string): string[] {
     return dgRevertSetWithLocks(base, cur, fields, justified, (f) => isLockedKey(keyOf(f)));
+  }
+
+  /* 数值校验闸门（数据库引入③）：把六维/物品数量/强化等级里的非法值（非数字/负/小数/字符串）当场夹成合法非负整数，
+     给战斗(ATK/DEF 不 NaN)与交易(数量合法)一个稳定地基。在防漂哨**之前**跑——垃圾先夹成数字，再由防漂哨按基线退回。 */
+  function sanitizeNumericGate(): void {
+    let fixes = 0;
+    try {
+      const prof: any = usePlayer.getState().profile;
+      if (prof?.attrs) { const { attrs, fixed } = sanitizeSixAttrs(prof.attrs); if (fixed.length) { usePlayer.getState().setProfile({ attrs }); fixes += fixed.length; } }
+    } catch { /* */ }
+    try {
+      for (const [id, r] of Object.entries(useNpc.getState().npcs)) {
+        const rec: any = r;
+        if (rec?.attrs) { const { attrs, fixed } = sanitizeSixAttrs(rec.attrs); if (fixed.length) { useNpc.getState().upsertNpc(id, { attrs }); fixes += fixed.length; } }
+        for (const it of (rec?.items ?? [])) { const p = sanitizeItemNumbers(it); if (p) { try { useNpc.getState().updateNpcItem(id, it.id, p); fixes++; } catch { /* */ } } }
+      }
+    } catch { /* */ }
+    try {
+      for (const it of useItems.getState().items) { const p = sanitizeItemNumbers(it); if (p) { try { useItems.getState().updateItem(it.id, p); fixes++; } catch { /* */ } } }
+    } catch { /* */ }
+    if (fixes) console.warn(`[数值校验] 修正 ${fixes} 处非法数值字段（非数字/负数/小数 → 夹成合法整数）`);
+  }
+
+  /* ④ 安全地基：把本回合「演化前(快照)→演化后(现状)」的净变化整理成事件、写进账本，让审计面板看到**完整**改动。
+     在所有防漂哨之后跑——记录的是修正后的最终净变化。**仅新增记录、不改任何写入语义**，零回归。 */
+  function recordTurnDiff(): void {
+    try {
+      const snap = useSnapshots.getState().latest();
+      if (!snap) return;
+      const turn = turnCountRef.current;
+      const evs: DiffEvent[] = [];
+      const npcBefore = snapState(snap, 'drpg-npc')?.npcs ?? {};
+      const npcAfter = useNpc.getState().npcs;
+      evs.push(...diffEntityMap(npcBefore, npcAfter, 'npc', ['name', 'realm', 'level', 'attrs', 'hp', 'ep', 'isDead']));
+      evs.push(...diffItemList(snapState(snap, 'drpg-items')?.items, useItems.getState().items));
+      for (const [nid, cn] of Object.entries(npcAfter)) {
+        const rec: any = cn;
+        evs.push(...diffItemList((npcBefore[nid] as any)?.items, rec?.items, rec?.name || nid));
+      }
+      evs.push(...diffEntityMap(snapState(snap, 'drpg-faction')?.factions, useFaction.getState().factions, 'faction', ['name', 'type', 'scale', 'powerLevel', 'leader']));
+      evs.push(...diffFields(snapState(snap, 'drpg-player-evo')?.profile, usePlayer.getState().profile, 'char', '主角', ['attrs', 'realm', 'level', 'profession', 'baseAppearance']));
+      const led = useLedger.getState();
+      for (const e of evs.slice(0, 60)) led.append({ turn, source: 'turn-diff', entity: e.entity as any, op: e.op, ref: e.ref, outcome: 'applied', detail: e.detail });   // 封顶 60 条防极端回合刷爆
+    } catch (e) { console.warn('[turn-diff] 记录净变化失败', e); }
   }
 
   function guardNpcAttrDrift(narrative: string): void {
@@ -6971,11 +7021,13 @@ ${lines}`;
       if (turnCountRef.current !== snapTurn) return;
       // 非战斗回合：以正文末尾「当前HP/EP：X/Y」为**最终权威**——演化阶段全跑完后再压回一次主角+NPC 的 HP/EP，纠正演化把血量改写导致面板与正文末尾对不上。(战斗回合以战斗结算值为准。)
       if (!combatSettled) { try { applyNarrativeVitals(narrative); applyNarrativeNpcVitals(narrative); } catch (e) { console.warn('[Vitals] settle 后压回失败', e); } }
+      try { sanitizeNumericGate(); } catch (e) { console.warn('[数值校验] 失败', e); }   // ③数值闸门：六维/数量/强化等级非法值→夹成合法整数（防 ATK/DEF NaN、交易数量垃圾），在防漂哨前跑
       try { guardNpcAttrDrift(narrative); } catch (e) { console.warn('[防漂] 六维对账失败', e); }   // 无据六维漂移→退回回合初基线（治1500→300）
       try { guardCharDrift(narrative); } catch (e) { console.warn('[防漂] 技能/天赋对账失败', e); }   // 无据效果/等级改写→退回（治"5回合改3次"）
       try { guardItemDrift(narrative); } catch (e) { console.warn('[防漂] 物品对账失败', e); }   // 已有物品被无据改写→退回（强化/镶嵌结果除外）
       try { guardFactionDrift(narrative); } catch (e) { console.warn('[防漂] 势力对账失败', e); }   // 势力身份/实力锚点被无据翻写→退回
       try { guardPlayerDrift(narrative); } catch (e) { console.warn('[防漂] 主角档案对账失败', e); }   // 主角基底外观/职业被无据改写→退回
+      try { recordTurnDiff(); } catch (e) { console.warn('[turn-diff] 记录失败', e); }   // ④账本完整记录本回合净变化（修正后最终值）→ 审计面板可见
       try { captureTurnSnapshot(); } catch (e) { console.warn('[Insight] settle 后抓快照失败', e); }
     });
   }
@@ -7550,6 +7602,7 @@ ${lines}`;
       label === '助战' ? () => setAssistOpen(true) :
       label === '纪念丰碑' ? () => setMonumentOpen(true) :
       label === '记忆' ? () => setSummaryPanelOpen(true) :
+      label === '审计' ? () => setAuditOpen(true) :
       label === '存档' ? () => setSaveOpen(true) :
       label === '创意工坊' ? () => setWorkshopOpen(true) :
       undefined;
@@ -8834,6 +8887,11 @@ ${lines}`;
       {/* ── 记忆（小总结/大总结）面板 ── */}
       {summaryPanelOpen && (
         <SummaryPanel onClose={() => setSummaryPanelOpen(false)} onManualUpdate={triggerNmIngestManually} />
+      )}
+
+      {/* ── 变量审计 / 回滚面板（数据库引入②）── */}
+      {auditOpen && (
+        <AuditPanel onClose={() => setAuditOpen(false)} />
       )}
 
       {/* ── 存档管理面板 ── */}

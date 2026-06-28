@@ -5,7 +5,6 @@ import { useState, useRef } from 'react';
 import { downloadGlobalConfig, importGlobalConfig } from '../systems/configExport';
 import VariableBridge from './VariableBridge';
 import LockManager from './LockManager';
-import AuditRollback from './AuditRollback';
 import { useSnapshots } from '../store/snapshotStore';
 
 type Cb = (() => void) | undefined;
@@ -254,13 +253,6 @@ export default function VariableManager({
             <span className="text-[11px] text-dim/60 font-normal">把调好的数值钉死，演化时 AI 改不动（点开设置）</span>
           </summary>
           <div className="mt-3"><LockManager /></div>
-        </details>
-        <details className="mt-6 rounded-xl border border-edge/50 bg-black/20 p-4">
-          <summary className="cursor-pointer select-none text-sm font-semibold text-slate-200 flex items-center gap-2">
-            🧾 变量审计 / 回滚
-            <span className="text-[11px] text-dim/60 font-normal">看本回合改了什么 · 一键回滚整回合（点开）</span>
-          </summary>
-          <div className="mt-3"><AuditRollback /></div>
         </details>
         <ConfigBackupBar />
       </div>

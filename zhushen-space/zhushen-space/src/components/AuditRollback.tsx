@@ -34,7 +34,8 @@ export default function AuditRollback() {
 
       {/* 回滚整回合 */}
       <section className="border border-slate-700/50 rounded p-2 space-y-1.5">
-        <div className="text-teal-300 text-xs font-semibold">回滚整回合（还原到某回合演化前）</div>
+        <div className="text-teal-300 text-xs font-semibold">回滚整回合（只还原变量到某回合演化前）</div>
+        <div className="text-[11px] text-slate-500 leading-snug">只把<b className="text-slate-300">变量数据</b>（NPC/背包/技能/六维/势力…）还原到那一刻——<b className="text-slate-300">正文不动、不重新生成、不重跑演化</b>，可退到最近几回合里任意一个。<br />※ 想连<b className="text-slate-400">正文一起撤</b> → 用对话框「↶回退上一回合」；想<b className="text-slate-400">保留正文、重跑一遍演化</b> → 用「重算变量」。</div>
         {snaps.length === 0 ? <div className="text-slate-500 text-xs">（暂无快照——发一条消息、跑一回合演化后才有）</div> : (
           <div className="space-y-1">
             {snaps.slice().reverse().map((sn, i) => (
