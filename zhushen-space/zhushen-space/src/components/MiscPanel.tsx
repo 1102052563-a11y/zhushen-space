@@ -148,6 +148,8 @@ function TaskCard({ t, main, onRemove }: { t: MiscTask; main: boolean; onRemove:
   const hasRings = rings.length > 0;
   const active = rings.find((r) => r.status === 'active');
   const pos = active ? active.idx : rings.filter((r) => r.status === 'done').length;
+  // 容错：旧档若曾丢环，total 取「环数 vs 最大 idx」更大者，避免显示「第3/共2环」这种矛盾计数
+  const total = rings.length ? Math.max(rings.length, ...rings.map((r) => r.idx)) : 0;
   return (
     <div className={`rounded-lg px-3 py-2 space-y-1 border ${main ? 'border-god/50 bg-god/10' : 'border-edge bg-panel/60'}`}>
       <div className="flex items-center gap-2">
@@ -169,7 +171,7 @@ function TaskCard({ t, main, onRemove }: { t: MiscTask; main: boolean; onRemove:
                 <div key={r.idx} className={`h-1.5 flex-1 rounded-full ${ringBarTone(r.status)}`} title={`环${r.idx} ${r.goal}`} />
               ))}
             </div>
-            <span className="text-[11px] font-mono text-dim/50 shrink-0">第{pos}/共{rings.length}环</span>
+            <span className="text-[11px] font-mono text-dim/50 shrink-0">第{pos}/共{total}环</span>
           </div>
           {/* 环列表：已达成/当前环逐条显示；未来(planned)环只提示"还剩N环"、不剧透 */}
           <div className="space-y-0.5">

@@ -48,6 +48,29 @@ export function isMainQuest(t: { kind?: string }): boolean {
   return t?.kind === '主线';
 }
 
+/* 合并环数组（按稳定 idx 作身份）：把 AI 增量传来的 rings 并进既有 rings —— 治"老是吃掉前面几环"。
+   ① 保留既有但本次未提及的环（尤其已 done/skipped 的前面环，绝不被整组替换吞掉）；
+   ② 同 idx 的环用传入的「已定义」字段覆盖、缺省字段保留旧值（不被 undefined 清空 reward/penalty 等）；
+   ③ 归一成唯一 active —— 以本次指定的 active 为准，更早的旧 active 落 done、更晚的落 planned。 */
+export function mergeRings(existing: QuestRing[] | undefined, incoming: QuestRing[]): QuestRing[] {
+  if (!Array.isArray(existing) || existing.length === 0) return incoming;
+  const byIdx = new Map<number, QuestRing>();
+  for (const r of existing) byIdx.set(r.idx, { ...r });
+  for (const inc of incoming) {
+    const prev = byIdx.get(inc.idx);
+    if (!prev) { byIdx.set(inc.idx, { ...inc }); continue; }
+    const merged: QuestRing = { ...prev };
+    (Object.keys(inc) as (keyof QuestRing)[]).forEach((k) => { if (inc[k] !== undefined) (merged as any)[k] = inc[k]; });
+    byIdx.set(inc.idx, merged);
+  }
+  const out = [...byIdx.values()].sort((a, b) => a.idx - b.idx);
+  const incActive = incoming.find((r) => r.status === 'active');
+  if (incActive) for (const r of out) {
+    if (r.idx !== incActive.idx && r.status === 'active') r.status = r.idx < incActive.idx ? 'done' : 'planned';
+  }
+  return out;
+}
+
 /* 已结算（完成/失败/放弃）的任务：移出"进行中"列表，留档供面板查看，不再注入提示词 */
 export interface ArchivedTask extends MiscTask {
   settledAt: number;
@@ -245,11 +268,17 @@ export const useMisc = create<MiscState>()(
         set((s) => {
           const i = s.tasks.findIndex((x) => x.id === t.id);
           const next = [...s.tasks];
-          if (i >= 0) next[i] = { ...next[i], ...t };
+          // 更新既有任务：rings 走按 idx 合并、不整组替换 → 不丢已完成的前面环
+          if (i >= 0) next[i] = Array.isArray(t.rings) ? { ...next[i], ...t, rings: mergeRings(next[i].rings, t.rings) } : { ...next[i], ...t };
           else next.push(t);
           return { tasks: next };
         }),
-      updateTask: (id, patch) => set((s) => ({ tasks: s.tasks.map((x) => (x.id === id ? { ...x, ...patch } : x)) })),
+      updateTask: (id, patch) =>
+        set((s) => ({ tasks: s.tasks.map((x) =>
+          x.id !== id ? x
+          : Array.isArray(patch.rings) ? { ...x, ...patch, rings: mergeRings(x.rings, patch.rings) }
+          : { ...x, ...patch },
+        ) })),
       removeTask: (id) => set((s) => ({ tasks: s.tasks.filter((x) => x.id !== id) })),
       settleTask: (id, status) =>
         set((s) => {

@@ -3,6 +3,7 @@ import { useLocks, lkNpcAttr, lkNpcField, lkPlayerAttr, lkPlayerField, lkItemFie
 import { useNpc } from '../store/npcStore';
 import { useItems } from '../store/itemStore';
 import { useCharacters } from '../store/characterStore';
+import { usePlayer } from '../store/playerStore';
 
 /* 字段级锁定 / Pin 管理台（数据库引入①）：勾选要钉死的字段 → 演化时 AI 改不动（被无条件退回锁定值）。 */
 
@@ -25,12 +26,12 @@ function prettyLockKey(k: string, npcs: any, items: any[]): string {
   return k;
 }
 
-function Chip({ lk, label }: { lk: string; label: string }) {
+function Chip({ lk, label, value }: { lk: string; label: string; value?: any }) {
   const locked = useLocks((s) => !!s.locks[lk]);
   const toggle = useLocks((s) => s.toggle);
   return (
     <button
-      onClick={() => toggle(lk)}
+      onClick={() => toggle(lk, value)}   // 锁定时把当前值一并存进锁 → enforceLocks 据此钉死
       className={`px-2 py-0.5 rounded text-xs border transition ${locked ? 'bg-amber-500/20 border-amber-400/60 text-amber-200' : 'bg-slate-700/40 border-slate-600/50 text-slate-300 hover:border-teal-400/50'}`}
     >
       {locked ? '🔒' : '🔓'} {label}
@@ -48,6 +49,7 @@ export default function LockManager() {
   const [npcId, setNpcId] = useState('');
   const aliveNpcs = Object.values(npcs).filter((n: any) => !n.isDead && n.name && n.name !== n.id) as any[];
   const b1Skills = (chars['B1']?.skills ?? []) as any[];
+  const profile = usePlayer((s) => s.profile) as any;
   const lockKeys = Object.keys(locks);
 
   return (
@@ -57,9 +59,9 @@ export default function LockManager() {
       {/* 主角 */}
       <section className="border border-slate-700/50 rounded p-2 space-y-1.5">
         <div className="text-teal-300 text-xs font-semibold">主角 · 六维</div>
-        <div className="flex flex-wrap gap-1.5">{DIMS.map(([k, l]) => <Chip key={k} lk={lkPlayerAttr(k)} label={l} />)}</div>
+        <div className="flex flex-wrap gap-1.5">{DIMS.map(([k, l]) => <Chip key={k} lk={lkPlayerAttr(k)} label={l} value={profile.attrs?.[k]} />)}</div>
         <div className="text-teal-300 text-xs font-semibold pt-1">主角 · 档案</div>
-        <div className="flex flex-wrap gap-1.5">{PLAYER_FIELDS.map(([k, l]) => <Chip key={k} lk={lkPlayerField(k)} label={l} />)}</div>
+        <div className="flex flex-wrap gap-1.5">{PLAYER_FIELDS.map(([k, l]) => <Chip key={k} lk={lkPlayerField(k)} label={l} value={profile[k]} />)}</div>
       </section>
 
       {/* 主角装备 */}
@@ -70,7 +72,7 @@ export default function LockManager() {
             {items.map((it: any) => (
               <div key={it.id} className="flex items-center gap-1.5 flex-wrap">
                 <span className="text-slate-300 text-xs min-w-[5rem] max-w-[8rem] truncate" title={it.name}>{it.name}</span>
-                {ITEM_FIELDS.map(([k, l]) => <Chip key={k} lk={lkItemField(it.id, k)} label={l} />)}
+                {ITEM_FIELDS.map(([k, l]) => <Chip key={k} lk={lkItemField(it.id, k)} label={l} value={it[k]} />)}
               </div>
             ))}
           </div>
@@ -85,7 +87,7 @@ export default function LockManager() {
             {b1Skills.map((sk: any) => (
               <div key={sk.id || sk.name} className="flex items-center gap-1.5 flex-wrap">
                 <span className="text-slate-300 text-xs min-w-[5rem] max-w-[8rem] truncate" title={sk.name}>{sk.name}</span>
-                {SKILL_FIELDS.map(([k, l]) => <Chip key={k} lk={lkCharSkill('B1', sk.name, k)} label={l} />)}
+                {SKILL_FIELDS.map(([k, l]) => <Chip key={k} lk={lkCharSkill('B1', sk.name, k)} label={l} value={sk[k]} />)}
               </div>
             ))}
           </div>
@@ -102,9 +104,9 @@ export default function LockManager() {
         {npcId && (
           <>
             <div className="text-slate-400 text-xs pt-1">六维</div>
-            <div className="flex flex-wrap gap-1.5">{DIMS.map(([k, l]) => <Chip key={k} lk={lkNpcAttr(npcId, k)} label={l} />)}</div>
+            <div className="flex flex-wrap gap-1.5">{DIMS.map(([k, l]) => <Chip key={k} lk={lkNpcAttr(npcId, k)} label={l} value={(npcs as any)[npcId]?.attrs?.[k]} />)}</div>
             <div className="text-slate-400 text-xs pt-1">档案</div>
-            <div className="flex flex-wrap gap-1.5">{NPC_FIELDS.map(([k, l]) => <Chip key={k} lk={lkNpcField(npcId, k)} label={l} />)}</div>
+            <div className="flex flex-wrap gap-1.5">{NPC_FIELDS.map(([k, l]) => <Chip key={k} lk={lkNpcField(npcId, k)} label={l} value={(npcs as any)[npcId]?.[k]} />)}</div>
           </>
         )}
       </section>

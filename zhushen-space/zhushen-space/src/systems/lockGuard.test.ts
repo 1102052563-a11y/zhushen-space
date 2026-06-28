@@ -52,4 +52,20 @@ describe('useLocks 锁存储', () => {
     expect(useLocks.getState().locksWithPrefix('npc:C1:').length).toBe(2);
     expect(useLocks.getState().locksWithPrefix('npc:C2:').length).toBe(1);
   });
+
+  it('★lock 存当前值 + lockedValue 取值（enforceLocks 据此钉死）', () => {
+    const k = lkNpcAttr('C1', 'con');
+    useLocks.getState().lock(k, 75);
+    expect(useLocks.getState().isLocked(k)).toBe(true);
+    expect(useLocks.getState().lockedValue(k)).toBe(75);
+    useLocks.getState().unlock(k);
+    expect(useLocks.getState().lockedValue(k)).toBeUndefined();
+  });
+
+  it('值为 0 / 空串也算有效锁定值（只有 undefined 才跳过强制）', () => {
+    useLocks.getState().lock('item:I1:field:combatStat', 0);
+    expect(useLocks.getState().lockedValue('item:I1:field:combatStat')).toBe(0);
+    useLocks.getState().lock('npc:C1:field:appearanceDetail', '');
+    expect(useLocks.getState().lockedValue('npc:C1:field:appearanceDetail')).toBe('');
+  });
 });

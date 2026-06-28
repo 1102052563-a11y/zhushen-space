@@ -196,7 +196,7 @@ function nextRingHint(t: MiscTask): string {
 /* 环进度 "第N/共M环"（无 rings 返回空）*/
 function ringProgress(t: MiscTask): string {
   if (!Array.isArray(t.rings) || !t.rings.length) return '';
-  const total = t.rings.length;
+  const total = Math.max(t.rings.length, ...t.rings.map((r) => r.idx));
   const cur = t.rings.find((r) => r.status === 'active');
   const pos = cur ? cur.idx : t.rings.filter((r) => r.status === 'done').length;
   return `第${pos}/共${total}环`;

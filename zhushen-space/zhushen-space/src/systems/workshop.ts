@@ -265,7 +265,7 @@ export const KINDS: Record<WorkshopKindId, WorkshopKindDef> = {
   },
   worldbook: {
     id: 'worldbook', label: '世界书', emoji: '📚', group: '世界书',
-    listLocal: () => useSettings.getState().worldBooks.filter((b) => !b.builtin).map((b) => ({ id: b.id, name: b.name })),
+    listLocal: () => useSettings.getState().worldBooks.map((b) => ({ id: b.id, name: b.name })),   // 含内置：内置世界书也可分享，安装时会标成非内置
     pack: (id) => { const b = useSettings.getState().worldBooks.find((x) => x.id === id); return b ? { payload: b, name: b.name } : null; },
     install: (payload) => useSettings.setState((s) => {
       const b = payload as WorldBook;

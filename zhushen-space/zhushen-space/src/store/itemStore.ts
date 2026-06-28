@@ -33,12 +33,19 @@ export type ItemGrade = typeof ITEM_GRADES[number];
 
 /** 把词缀/效果文本按【…】拆成分条，逐条展示（每条「【名】：说明」自成一行，排版更清晰）；
  *  无【】则整段当一条。前瞻 split 只在每个【前断开，说明里的「：；」不会被拆碎。
- *  String() 兜底：affix/effect 万一是非字符串(数字/对象)也不崩。供各物品面板复用。*/
-export function splitAffixEntries(text?: string): string[] {
-  const t = String(text ?? '').trim();
+ *  兼容 AI 偶尔把词缀写成**数组**或**JSON 数组串** `["条1","条2"]`：逐条拆出、剥掉 [ " , ] 引号括号噪音
+ *  （治"词缀显示成 ["…","…"] 这种怪格式"）。String() 兜底：万一是数字/对象也不崩。供各物品面板复用。*/
+export function splitAffixEntries(text?: unknown): string[] {
+  if (Array.isArray(text)) return text.map((x) => String(x ?? '').trim()).filter(Boolean);   // 本就是数组 → 直接逐条
+  let t = String(text ?? '').trim();
   if (!t) return [];
-  if (!t.includes('【')) return [t];
-  return t.split(/(?=【)/g).map((s) => s.trim()).filter(Boolean);
+  // JSON 数组串 ["a","b"] → 解析出来逐条（AI 把多条词缀打包成数组字符串时出现）
+  if (t.startsWith('[') && t.endsWith(']')) {
+    try { const arr = JSON.parse(t); if (Array.isArray(arr)) return arr.map((x) => String(x ?? '').trim()).filter(Boolean); } catch { /* 非合法 JSON → 往下按文本处理 */ }
+    t = t.replace(/^\[\s*"?|"?\s*\]$/g, '').replace(/"\s*,\s*"/g, '\n');   // 解析失败兜底：剥掉首尾 [ " ] 与条目间 "," 噪音
+  }
+  if (!t.includes('【')) return t.split('\n').map((s) => s.trim()).filter(Boolean) || [t];
+  return t.split(/(?=【)/g).map((s) => s.replace(/^["',\s]+|["',\s]+$/g, '').trim()).filter(Boolean);   // 每条再剥掉残留的引号/逗号
 }
 
 /** 安全把「本该是字符串、却被 AI 偶尔写成对象/数组」的字段转成可渲染文本，避免 React #31

@@ -120,7 +120,7 @@ import { useLedger } from './systems/ledger/ledgerStore';
 import { diffEntityMap, diffItemList, diffFields, type DiffEvent } from './systems/turnDiff';
 import { useFieldHistory } from './store/fieldHistoryStore';
 import { attrsDiffer, attrChangeJustified, entityChangeJustified, pickFields, sameName, STABLE_DIMS, SKILL_GUARD_FIELDS, TRAIT_GUARD_FIELDS, ITEM_ID_FIELDS, ITEM_COMBAT_FIELDS, FACTION_GUARD_FIELDS, NPC_PROFILE_GUARD_FIELDS, PLAYER_PROFILE_GUARD_FIELDS, profileChangeJustified, revertSetWithLocks as dgRevertSetWithLocks } from './systems/driftGuard';
-import { isLockedKey, lkNpcAttr, lkNpcField, lkPlayerAttr, lkPlayerField, lkItemField, lkFactionField, lkCharSkill, lkCharTrait } from './store/lockStore';
+import { isLockedKey, lockedValueOf, useLocks, lkNpcAttr, lkNpcField, lkPlayerAttr, lkPlayerField, lkItemField, lkFactionField, lkCharSkill, lkCharTrait } from './store/lockStore';
 import { sanitizeSixAttrs, sanitizeItemNumbers } from './systems/numericGate';
 import RaidDungeonReward from './components/RaidDungeonReward';
 const RaidLootModal = lazy(() => import('./components/RaidLootModal'));
@@ -2877,6 +2877,42 @@ export default function App() {
         if (rec.level != null && Number.isFinite(Number(rec.level))) h.record(`npc:${id}:level`, turn, Number(rec.level));
       }
     } catch { /* */ }
+  }
+
+  /* 字段锁·权威钉死（数据库引入①·真锁）：每回合在所有防漂哨之后跑——把每个"带值锁定"的字段**无条件**设回锁定值，
+     不管是主正文(applyAllUpdates 在快照之前跑、防漂哨拦不住)还是演化阶段改的。旧式无值锁仍由防漂哨退回快照兜底。 */
+  function enforceLocks(): void {
+    try {
+      const differs = (a: any, b: any) => JSON.stringify(a) !== JSON.stringify(b);
+      let n = 0;
+      for (const key of Object.keys(useLocks.getState().locks)) {
+        const v = lockedValueOf(key);
+        if (v === undefined) continue;   // 无值锁（旧档）→ 交给防漂哨退回快照
+        const p = key.split(':');
+        if (p[0] === 'player') {
+          const prof: any = usePlayer.getState().profile;
+          if (p[1] === 'attr' && differs(prof.attrs?.[p[2]], v)) { usePlayer.getState().setProfile({ attrs: { ...prof.attrs, [p[2]]: v } }); n++; }
+          else if (p[1] === 'field' && differs(prof[p[2]], v)) { usePlayer.getState().setProfile({ [p[2]]: v } as any); n++; }
+        } else if (p[0] === 'npc') {
+          const rec: any = useNpc.getState().npcs[p[1]];
+          if (!rec || rec.isDead) continue;
+          if (p[2] === 'attr' && differs(rec.attrs?.[p[3]], v)) { useNpc.getState().upsertNpc(p[1], { attrs: { ...rec.attrs, [p[3]]: v } }); n++; }
+          else if (p[2] === 'field' && differs(rec[p[3]], v)) { useNpc.getState().upsertNpc(p[1], { [p[3]]: v } as any); n++; }
+        } else if (p[0] === 'item') {
+          const it: any = useItems.getState().items.find((x) => x.id === p[1]);
+          if (it && differs(it[p[3]], v)) { useItems.getState().updateItem(p[1], { [p[3]]: v } as any); n++; }
+        } else if (p[0] === 'faction') {
+          const f: any = useFaction.getState().factions[p[1]];
+          if (f && differs(f[p[3]], v)) { useFaction.getState().upsertFaction(p[1], { [p[3]]: v } as any); n++; }
+        } else if (p[0] === 'char') {
+          const cs = useCharacters.getState().characters[p[1]];   // char:<id>:skill|trait:<name>:<field>
+          if (!cs) continue;
+          if (p[2] === 'skill') { const sk: any = (cs.skills ?? []).find((x: any) => x.name === p[3]); if (sk && differs(sk[p[4]], v)) { useCharacters.getState().updateSkill(p[1], sk.id, { [p[4]]: v } as any); n++; } }
+          else if (p[2] === 'trait') { const tr: any = (cs.traits ?? []).find((x: any) => x.name === p[3]); if (tr && differs(tr[p[4]], v)) { useCharacters.getState().updateTrait(p[1], p[3], { [p[4]]: v } as any); n++; } }
+        }
+      }
+      if (n) console.warn(`[🔒锁] 强制 ${n} 个锁定字段回到锁定值（权威·覆盖正文+演化）`);
+    } catch (e) { console.warn('[🔒锁] enforceLocks 失败', e); }
   }
 
   function guardNpcAttrDrift(narrative: string): void {
@@ -7054,6 +7090,7 @@ ${lines}`;
       try { guardItemDrift(narrative); } catch (e) { console.warn('[防漂] 物品对账失败', e); }   // 已有物品被无据改写→退回（强化/镶嵌结果除外）
       try { guardFactionDrift(narrative); } catch (e) { console.warn('[防漂] 势力对账失败', e); }   // 势力身份/实力锚点被无据翻写→退回
       try { guardPlayerDrift(narrative); } catch (e) { console.warn('[防漂] 主角档案对账失败', e); }   // 主角基底外观/职业被无据改写→退回
+      try { enforceLocks(); } catch (e) { console.warn('[🔒锁] 强制失败', e); }   // ①真锁：把带值锁定字段无条件钉回锁定值（权威·盖过主正文直接修改，治"上锁物品也被改"）
       try { recordTurnDiff(); } catch (e) { console.warn('[turn-diff] 记录失败', e); }   // ④账本完整记录本回合净变化（修正后最终值）→ 审计面板可见
       try { sampleFieldHistory(turnCountRef.current); } catch (e) { console.warn('[field-history] 采样失败', e); }   // 字段历史趋势采样（六维/阶位/等级·只记变化）
       try { captureTurnSnapshot(); } catch (e) { console.warn('[Insight] settle 后抓快照失败', e); }
