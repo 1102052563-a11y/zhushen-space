@@ -56,6 +56,15 @@ export function changedFields(base: any, next: any, fields: readonly string[]): 
   });
 }
 
+/** 字段级锁定（数据库引入①）：给一份 diff 加锁语义——
+    🔒锁定字段无视"有无正文理由"一律退回基线；未锁字段仍只在"无据"时退。返回最终要退回基线的字段名集。
+    isFieldLocked 由调用方注入（负责拼锁键 + 查锁），本模块不耦合锁存储。 */
+export function revertSetWithLocks(base: any, cur: any, fields: readonly string[], justified: boolean, isFieldLocked: (f: string) => boolean): string[] {
+  const changed = changedFields(base, cur, fields);
+  if (!justified) return changed;            // 无据：全部退（锁定字段自然在内）
+  return changed.filter(isFieldLocked);      // 有据：只退「锁定且变了」的字段
+}
+
 /** 该条目（技能/天赋）本轮变动是否"有正文理由"：正文点了其名 + 出现升级/受创类关键词。*/
 export function entityChangeJustified(name: string, narrative: string): boolean {
   const nm = (name || '').trim();

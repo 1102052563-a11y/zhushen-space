@@ -45,6 +45,12 @@ export function reconcilePlayerBag(snap: BagSnapshot | null | undefined): { rest
 
   // ── 主角背包 ──
   const I = useItems.getState();
+  // 全局存在性：物品现在还在「玩家背包」或「任意 NPC(含从者/宠物)的储存/装备栏」里（按 id 或 同名同品级）
+  //   → 不是丢失，是被移走了（转移/穿到从者身上，转移时还会换新 id）→ **绝不找回**，否则会复制出第二份（刷装备漏洞）。
+  const everywhere = [...I.items, ...Object.values(useNpc.getState().npcs).flatMap((r: any) => r.items ?? [])];
+  const allIds = new Set<string>(everywhere.map((it: any) => it.id).filter(Boolean));
+  const allKeys = new Set<string>(everywhere.map((it: any) => norm(it.name) + '|' + norm(it.gradeDesc)));
+  const existsSomewhere = (it: any) => allIds.has(it.id) || allKeys.has(norm(it.name) + '|' + norm(it.gradeDesc));
   const curIds = new Set(I.items.map((it) => it.id));
   const binIds = new Set(I.recentlyDeleted.map((d) => d.id));
   const lostP: InventoryItem[] = [];
@@ -53,6 +59,7 @@ export function reconcilePlayerBag(snap: BagSnapshot | null | undefined): { rest
     if (binIds.has(it.id)) continue;          // 已进「最近删除」(销毁/消耗)
     if (isAccountedRemoval(it.id)) continue;   // 经官方方法登记的移除(交易/赌坊/赠予)——主动、不可恢复，不误捞
     if (mergedAway(it, I.items)) continue;      // 可堆叠物被合并——数量已保留
+    if (existsSomewhere(it)) continue;          // ★ 已被移到某个 NPC/从者身上(同id或同名同品级) → 是转移不是丢失，绝不找回(防刷装备)
     lostP.push(it);
   }
   if (lostP.length) {
@@ -71,7 +78,7 @@ export function reconcilePlayerBag(snap: BagSnapshot | null | undefined): { rest
     if (!rec || rec.isDead) continue;          // NPC 已不在/已死 → 不恢复
     const npcCurIds = new Set((rec.items ?? []).map((it: any) => it.id));
     const lostN = items.filter((it) =>
-      !npcCurIds.has(it.id) && !isAccountedRemoval(it.id) && !mergedAway(it, rec.items ?? []));
+      !npcCurIds.has(it.id) && !isAccountedRemoval(it.id) && !mergedAway(it, rec.items ?? []) && !existsSomewhere(it));   // ★ 已移到玩家/别的NPC身上 → 不是丢失，不找回(防刷)
     if (!lostN.length) continue;
     useNpc.setState((s) => {
       const r2: any = s.npcs[ownerId];

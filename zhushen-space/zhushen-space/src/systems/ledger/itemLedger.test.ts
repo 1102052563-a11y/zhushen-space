@@ -1,10 +1,10 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 import { opOf, refOf, digestOf, isBatchDup, newBatch, buildItemFeedback, purgeItemPhaseCurrency, detectUnregisteredCurrencyGains, type ItemEditResult } from './itemLedger';
 import { useLedger } from './ledgerStore';
-import { applyItemCommands } from '../stateParser';
+import { applyItemCommands, type ItemCommand } from '../stateParser';
 import { useItems } from '../../store/itemStore';
 
-const cmd = (type: string, data: any) => ({ type, data, raw: '' });
+const cmd = (type: string, data: any): ItemCommand => ({ type: type as ItemCommand['type'], data, raw: '' });
 const resetBag = () =>
   useItems.setState({ items: [], currency: { 乐园币: 0, 灵魂钱币: 0, 技能点: 0, 黄金技能点: 0 }, recentlyDeleted: [], itemTurn: 0 });
 

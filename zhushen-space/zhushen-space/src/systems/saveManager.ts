@@ -33,6 +33,7 @@ import { useSubProfTree } from '../store/subProfTreeStore';
 import { useCasino } from '../store/casinoStore';
 import { useAbyss } from '../store/abyssStore';
 import { useLedger } from './ledger/ledgerStore';
+import { useLocks } from '../store/lockStore';
 import { clearJoySessions } from '../store/joyStore';
 import { logWarn } from '../utils/log';
 import { writeB1Mirror, clearB1Mirror } from './b1Mirror';
@@ -49,6 +50,7 @@ const STORES: { key: string; api: any; clear?: () => void }[] = [
   { key: 'drpg-settings',   api: useSettings },   // 配置：新游戏保留
   { key: 'drpg-items',      api: useItems, clear: () => useItems.getState().clearAll() },
   { key: 'drpg-ledger',     api: useLedger, clear: () => useLedger.getState().clear() },   // 演化账本(物品闸门审计)：进度数据,新游戏清空、随存档快照
+  { key: 'drpg-locks',      api: useLocks, clear: () => useLocks.getState().clearLocks() },   // 字段级锁定(Pin)：按实体id锁,随存档走、新游戏清空
 
 
   { key: 'drpg-player-evo', api: usePlayer, clear: () => { usePlayer.getState().setProfile({ ...DEFAULT_PLAYER_PROFILE }); usePlayer.setState({ achievements: [] }); } },
@@ -79,6 +81,29 @@ const STORES: { key: string; api: any; clear?: () => void }[] = [
   { key: 'drpg-casino',     api: useCasino, clear: () => useCasino.getState().clearCasino() },
   { key: 'drpg-abyss',      api: useAbyss, clear: () => useAbyss.getState().clearAbyss() },
 ];
+
+/* 「回滚本回合演化改动」（数据库引入②）——把**演化变量域** store 整体还原到某份快照（in-place setState，
+   无需 reload、不会被踢回 StartScreen）。只动会被演化漂移的进度域；gameStore(HP/EP·自定义持久化) 与各类
+   配置/预设 store 不动；账本**不回滚**（保留审计），并补一条 rollback 事件。返回已还原的 store key 列表。 */
+const ROLLBACK_KEYS = new Set([
+  'drpg-items', 'drpg-player-evo', 'drpg-npc', 'drpg-faction', 'drpg-territory',
+  'drpg-team', 'drpg-characters', 'drpg-misc', 'drpg-cosmos',
+]);
+export function rollbackEvoDomains(snap: { turn: number; stores: Record<string, string> }): string[] {
+  const restored: string[] = [];
+  for (const { key, api } of STORES) {
+    if (!ROLLBACK_KEYS.has(key)) continue;
+    const raw = snap.stores[key];
+    if (!raw) continue;
+    try {
+      const o = JSON.parse(raw);
+      const st = o?.state ?? o;
+      if (st && typeof st === 'object') { (api as any).setState(st); restored.push(key); }
+    } catch { /* 跳过坏档 */ }
+  }
+  try { useLedger.getState().append({ turn: snap.turn, source: 'rollback', entity: 'misc', op: 'rollback', outcome: 'applied', detail: `回滚到第 ${snap.turn} 回合演化前（${restored.length} 个变量域）` }); } catch { /* */ }
+  return restored;
+}
 
 export interface SlotPreview { turn: number; playerName: string; location: string; lastText: string }
 export interface SaveSlot {

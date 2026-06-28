@@ -238,6 +238,7 @@ interface NpcState {
   hardRemoveNpc: (id: string) => void;    // 物理删除（清理路人）
   absorbOrphans: () => number;            // 把"只有物品没有档案"的空壳并入真实NPC
   dedupeByName: () => number;             // 合并同名真实NPC（防一回合/跨回合重复建档），返回合并掉的数量
+  dedupeAliasNpcs: () => number;          // 合并"跨语言/泄漏ID前缀(如 C_Frieren)"的重复NPC到同阶位同职业的中文名NPC + 清洗畸形名前缀
   normalizeNpcIds: () => number;          // 把 AI 自创的非法 ID(如 P_Aesc)重命名成空闲 C 编号 + 迁移技能/改写人际关系引用，返回修复数
   clearAll: () => void;
   addNpcItem: (ownerId: string, item: NpcOwnedItem) => void;
@@ -613,6 +614,59 @@ export const useNpc = create<NpcState>()(
           return s;
         });
         return removed;
+      },
+
+      /* 跨语言/畸形名重复合并：AI 常把已建档角色用英文/罗马音名 + 泄漏的 C_ 前缀（如「C_Frieren」=芙莉莲、「C_Fern」）
+         再建一遍 → 中文名去重(dedupeByName)匹配不到 → 重复档。这里把"畸形名"(C_/G_ 前缀 或 纯非中文)NPC，
+         合并进**同阶位 + 同职业**的中文名 NPC（强信号=同一人）；找不到对应中文档的，至少把泄漏的 C_/G_ 前缀从名字里剥掉。 */
+      dedupeAliasNpcs: () => {
+        let merged = 0;
+        set((s) => {
+          const all = Object.values(s.npcs) as NpcRecord[];
+          const hasCJK = (x?: string) => /[一-鿿]/.test(x || '');
+          const tierOf = (r: NpcRecord) => normalizeTier(r.realm || '') || (r.realm || '').split(/[|·\s]/)[0] || '';
+          const stripIdPrefix = (n: string) => n.replace(/^[CG]_+/i, '').trim();
+          const isSusp = (x?: string) => { const n = (x || '').trim(); return !!n && (/^[CG]_/i.test(n) || !hasCJK(n)); };
+          const alive = (r: NpcRecord) => !r.isDead && !!r.name && r.name !== r.id;
+          const suspects = all.filter((r) => alive(r) && isSusp(r.name));
+          if (suspects.length === 0) return s;
+          const next = { ...s.npcs };
+          const purge: string[] = [];
+          for (const sus of suspects) {
+            if (purge.includes(sus.id)) continue;
+            const tier = tierOf(sus); const prof = (sus.profession || '').trim();
+            // 同阶位 + 同职业 + 中文名 + 活着 + 非自身 = 同一人
+            const canon = tier && prof ? all.find((r) =>
+              r.id !== sus.id && !purge.includes(r.id) && alive(r) && hasCJK(r.name) && !isSusp(r.name)
+              && tierOf(r) === tier && (r.profession || '').trim() === prof) : undefined;
+            if (canon) {
+              const keeper: any = { ...next[canon.id] };
+              const items = [...(keeper.items ?? [])];
+              for (const it of sus.items ?? []) if (!items.some((x: any) => x.id === it.id)) items.push(it);
+              keeper.items = items;
+              if (sus.onScene) keeper.onScene = true;
+              for (const f of ['realm', 'personality', 'background', 'appearanceDetail', 'title', 'profession', 'contractorId', 'affiliatedTeam', 'gender', 'attrs', 'avatar', 'imageTags'] as (keyof NpcRecord)[]) {
+                if ((keeper[f] == null || keeper[f] === '') && sus[f] != null && sus[f] !== '') keeper[f] = sus[f];
+              }
+              next[canon.id] = { ...keeper, updatedAt: Date.now() };
+              delete next[sus.id];
+              purge.push(sus.id);
+              merged++;
+              console.warn(`[NPC] 跨语言/畸形名重复合并：${sus.id}「${sus.name}」→ ${canon.id}「${canon.name}」(同${tier}·${prof})`);
+            } else {
+              // 没对应中文档：至少剥掉泄漏的 C_/G_ 前缀（"C_Frieren"→"Frieren"），让后续提示词改成中文名
+              const cleaned = stripIdPrefix(sus.name!);
+              if (cleaned && cleaned !== sus.name) { next[sus.id] = { ...next[sus.id], name: cleaned, updatedAt: Date.now() }; }
+            }
+          }
+          if (!merged && !purge.length) {
+            // 仅做了前缀清洗也要落盘
+            return next === s.npcs ? s : { npcs: next };
+          }
+          try { for (const id of purge) useCharacters.getState().removeCharacter(id); } catch { /* ignore */ }
+          return { npcs: next };
+        });
+        return merged;
       },
 
       normalizeNpcIds: () => {

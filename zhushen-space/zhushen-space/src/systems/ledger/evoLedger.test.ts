@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach } from 'vitest';
-import { evoPayloadName, charRef, npcRef, charDigest, npcDigest, buildEvoFeedback, type EvoResult } from './evoLedger';
+import { evoPayloadName, charRef, npcRef, charDigest, npcDigest, buildEvoFeedback } from './evoLedger';
 import { useLedger } from './ledgerStore';
 import { applyCharacterCommands, applyNpcCommands, applyFactionCommands } from '../stateParser';
 import { useCharacters } from '../../store/characterStore';

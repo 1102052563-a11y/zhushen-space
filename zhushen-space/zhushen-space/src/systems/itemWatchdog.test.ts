@@ -109,4 +109,17 @@ describe('itemWatchdog 看门狗对账（Phase 1·自动捞回静默丢失）', 
     useNpc.setState({ npcs: { C1: { id: 'C1', name: '小蛇', npcTag: '随从', isDead: true, items: [] } } as any });
     expect(reconcilePlayerBag(snap).restored).toBe(0);
   });
+
+  // ── 防刷装备：物品被移到从者身上(转移会换新 id)→ 全局存在性检查 → 不重复找回 ──
+  it('★物品放到从者装备栏(换了新id·同名同品)→ 不重复找回（防无限刷装备）', () => {
+    useItems.setState({ items: [mk({ id: 'A', name: '神剑', category: '武器', gradeDesc: '金色' })], recentlyDeleted: [] });
+    useNpc.setState({ npcs: {} } as any);
+    const snap = snapshotPlayerBag();   // 快照：玩家背包有神剑A，无从者
+    // 模拟"放到从者装备栏"：玩家背包移除，从者 C1 多出一把同名神剑（新 id、装备态）
+    useItems.setState({ items: [] });
+    useNpc.setState({ npcs: { C1: { id: 'C1', name: '小蛇', npcTag: '随从', isDead: false, items: [{ id: 'NEW_99', name: '神剑', category: '武器', gradeDesc: '金色', equipped: true }] } } as any });
+    const r = reconcilePlayerBag(snap);
+    expect(r.restored).toBe(0);                          // 不找回
+    expect(useItems.getState().items.length).toBe(0);    // 背包不再凭空多出第二把（无刷物）
+  });
 });

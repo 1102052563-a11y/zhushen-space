@@ -116,7 +116,8 @@ import { generateRaidLoot, generateRaidReward } from './systems/raidLoot';
 import { useSkillTree } from './store/skillTreeStore';
 import { useSubProfTree, subProfMastery } from './store/subProfTreeStore';
 import { useSnapshots, captureEvoSnapshot, snapState } from './store/snapshotStore';
-import { attrsDiffer, attrChangeJustified, revertStableDims, changedFields, entityChangeJustified, pickFields, sameName, SKILL_GUARD_FIELDS, TRAIT_GUARD_FIELDS, ITEM_ID_FIELDS, ITEM_COMBAT_FIELDS, FACTION_GUARD_FIELDS, NPC_PROFILE_GUARD_FIELDS, PLAYER_PROFILE_GUARD_FIELDS, profileChangeJustified } from './systems/driftGuard';
+import { attrsDiffer, attrChangeJustified, entityChangeJustified, pickFields, sameName, STABLE_DIMS, SKILL_GUARD_FIELDS, TRAIT_GUARD_FIELDS, ITEM_ID_FIELDS, ITEM_COMBAT_FIELDS, FACTION_GUARD_FIELDS, NPC_PROFILE_GUARD_FIELDS, PLAYER_PROFILE_GUARD_FIELDS, profileChangeJustified, revertSetWithLocks as dgRevertSetWithLocks } from './systems/driftGuard';
+import { isLockedKey, lkNpcAttr, lkNpcField, lkPlayerAttr, lkPlayerField, lkItemField, lkFactionField, lkCharSkill, lkCharTrait } from './store/lockStore';
 import RaidDungeonReward from './components/RaidDungeonReward';
 const RaidLootModal = lazy(() => import('./components/RaidLootModal'));
 const CombatPanel = lazy(() => import('./components/CombatPanel'));
@@ -2692,6 +2693,7 @@ export default function App() {
     const createdIds = applyEntryResult(result, turnCountRef.current);
     try { const f = useNpc.getState().normalizeNpcIds(); if (f) console.log(`[NPC] 规范化非法ID ${f} 个`); } catch { /* 修复历史存档里 AI 自创的非法ID(如 P_Aesc) */ }
     try { useNpc.getState().dedupeByName(); } catch { /* 合并同名重复角色（防一回合内重复建档）*/ }
+    try { useNpc.getState().dedupeAliasNpcs(); } catch { /* 合并跨语言/畸形名重复（C_Frieren=芙莉莲）+ 清洗 C_ 前缀 */ }
     refreshNpcPreferredOwners(createdIds);   // 登场判断完成后刷新物品 owner 重定向目标
     return { result, createdIds };
   }
@@ -2794,51 +2796,93 @@ export default function App() {
 
   /* 防漂哨：本回合演化全跑完后，拿各 NPC 六维与「回合初基线」对账——无正文理由的稳定五维改动一律退回基线
      （治"队友前回合1500血肉盾、后回合300血脆皮"：体质被无故改写→HP上限崩）。幸运由 ensureNpcLuck 独占、不在此守。 */
+  /* 字段级锁定（数据库引入①）：把一份字段 diff 加上锁语义——
+     🔒锁定字段无视"有无正文理由"一律退回基线；未锁字段仍只在"无据"时退。返回最终要退回基线的字段集。 */
+  function revertSetWithLocks(base: any, cur: any, fields: readonly string[], justified: boolean, keyOf: (f: string) => string): string[] {
+    return dgRevertSetWithLocks(base, cur, fields, justified, (f) => isLockedKey(keyOf(f)));
+  }
+
   function guardNpcAttrDrift(narrative: string): void {
     const baseNpcs = snapState(useSnapshots.getState().latest(), 'drpg-npc')?.npcs;   // 从整份快照里取 NPC 基线
     if (!baseNpcs) return;
     const npcs = useNpc.getState().npcs;
     const attrReverted: string[] = [];
     let profReverted = 0;
+    let clampedCount = 0;
+    let lockedAttr = 0;
     for (const [id, snap0] of Object.entries(baseNpcs)) {
       const snap: any = snap0;
       const rec: any = npcs[id];
       if (!rec || rec.isDead) continue;
       const justified = attrChangeJustified(rec.name || id, snap.realm || '', rec.realm || '', narrative);
-      // ① 六维（→HP上限）：无据漂移 → 退回稳定五维
-      if (rec.attrs && snap?.attrs && attrsDiffer(snap.attrs, rec.attrs) && !justified) {
-        useNpc.getState().upsertNpc(id, { attrs: revertStableDims(snap.attrs, rec.attrs) as any });
-        attrReverted.push(rec.name || id);
-        try { recordEvo('npc', { source: 'drift-guard', turn: turnCountRef.current }, 'attr-revert', rec.name || id, 'fail', '六维无据漂移→退回基线'); } catch { /* */ }
+      // ① 六维（→HP上限）：先把基线与现值都夹到「该阶位上限」(治"一阶却资质T7·半神"=六维超阶·与机械 clampBaseAttrs 一致、不打架)，
+      //    再对账：夹后仍有差异且无正文理由 → 退回(夹后基线)；否则只把现值夹回。🔒锁定维无视一切、钉死锁定值。
+      if (rec.attrs && snap?.attrs) {
+        const realm = rec.realm || '';
+        const baseC: any = clampBaseAttrs({ ...(snap.attrs as any) }, realm);
+        const curC: any = clampBaseAttrs({ ...(rec.attrs as any) }, realm);
+        const drifted = attrsDiffer(baseC, curC);
+        const tgt: any = (drifted && !justified) ? baseC : curC;
+        const merged: any = { ...rec.attrs };
+        let changed = false; let lockHit = false;
+        for (const k of STABLE_DIMS) {
+          const locked = isLockedKey(lkNpcAttr(id, k));
+          const want = locked ? (snap.attrs as any)[k] : tgt[k];   // 🔒锁定维→钉死锁定值(基线)，无视漂移/夹取
+          if (want !== undefined && merged[k] !== want) { merged[k] = want; changed = true; if (locked) lockHit = true; }
+        }
+        if (changed) {
+          useNpc.getState().upsertNpc(id, { attrs: merged });
+          if (lockHit) {
+            lockedAttr++;
+            try { recordEvo('npc', { source: 'field-lock', turn: turnCountRef.current }, 'attr-lock', rec.name || id, 'applied', '🔒锁定六维被改→钉回锁定值'); } catch { /* */ }
+          } else if (drifted && !justified) {
+            attrReverted.push(rec.name || id);
+            try { recordEvo('npc', { source: 'drift-guard', turn: turnCountRef.current }, 'attr-revert', rec.name || id, 'fail', '六维无据漂移→退回基线'); } catch { /* */ }
+          } else {
+            clampedCount++;
+            try { recordEvo('npc', { source: 'attr-clamp', turn: turnCountRef.current }, 'attr-clamp', rec.name || id, 'applied', '六维超阶位上限→夹回'); } catch { /* */ }
+          }
+        }
       }
-      // ② 描述/身份字段（外貌基底/性别/性格/职业）：无据改写 → 退回（治"外貌乱变""肉盾→法师"角色翻转）
+      // ② 描述/身份字段（外貌基底/性别/性格/职业）：无据改写 或 🔒锁定 → 退回（治"外貌乱变""肉盾→法师"角色翻转）
       const nm = rec.name || id;
       const profJustified = justified || (nm.length >= 2 && narrative.includes(nm) && profileChangeJustified(narrative));
-      const pdiff = changedFields(snap, rec, NPC_PROFILE_GUARD_FIELDS);
-      if (pdiff.length && !profJustified) {
-        useNpc.getState().upsertNpc(id, pickFields(snap, pdiff));
+      const pRevert = revertSetWithLocks(snap, rec, NPC_PROFILE_GUARD_FIELDS, profJustified, (f) => lkNpcField(id, f));
+      if (pRevert.length) {
+        useNpc.getState().upsertNpc(id, pickFields(snap, pRevert));
         profReverted++;
-        try { recordEvo('npc', { source: 'drift-guard', turn: turnCountRef.current }, 'profile-revert', nm, 'fail', `档案字段无据改写→退回(${pdiff.join(',')})`); } catch { /* */ }
+        try { recordEvo('npc', { source: 'drift-guard', turn: turnCountRef.current }, 'profile-revert', nm, 'fail', `档案字段无据/锁定改写→退回(${pRevert.join(',')})`); } catch { /* */ }
       }
     }
-    if (attrReverted.length) {
-      try { ensureNpcVitalsCap(); } catch { /* 退回六维后重夹 HP/EP 上限 */ }
-      console.warn(`[防漂] ${attrReverted.length} 个 NPC 六维被无据改动 → 已退回基线：`, attrReverted);
+    if (attrReverted.length || clampedCount || lockedAttr) {
+      try { ensureNpcVitalsCap(); } catch { /* 六维改动后重夹 HP/EP 上限 */ }
+      if (attrReverted.length) console.warn(`[防漂] ${attrReverted.length} 个 NPC 六维被无据改动 → 已退回基线：`, attrReverted);
+      if (clampedCount) console.warn(`[夹回] ${clampedCount} 个 NPC 六维超阶位上限 → 已夹回（治资质虚高，如"一阶却资质T7"）`);
+      if (lockedAttr) console.warn(`[🔒锁] ${lockedAttr} 个 NPC 锁定六维被改 → 已钉回锁定值`);
     }
-    if (profReverted) console.warn(`[防漂] ${profReverted} 个 NPC 档案字段(外貌/性格/职业等)被无据改写 → 已退回基线`);
+    if (profReverted) console.warn(`[防漂] ${profReverted} 个 NPC 档案字段(外貌/性格/职业等)被无据/锁定改写 → 已退回基线`);
   }
 
   /* 防漂哨·主角档案：基底外观(不可变)/职业 被无剧情事件地改写 → 退回基线。
      六维由前端加点掌控、技能由 characterStore 哨兵守，故此处只守描述/身份。 */
   function guardPlayerDrift(narrative: string): void {
-    const base = snapState(useSnapshots.getState().latest(), 'drpg-player-evo')?.profile;
+    const base: any = snapState(useSnapshots.getState().latest(), 'drpg-player-evo')?.profile;
     if (!base) return;
     const prof: any = usePlayer.getState().profile;
-    const diff = changedFields(base, prof, PLAYER_PROFILE_GUARD_FIELDS);
-    if (diff.length === 0 || profileChangeJustified(narrative)) return;
-    usePlayer.getState().setProfile(pickFields(base, diff));
-    console.warn(`[防漂] 主角档案被无据改写 → 已退回基线：${diff.join(',')}`);
-    try { recordEvo('char', { source: 'drift-guard', turn: turnCountRef.current }, 'player-revert', '主角', 'fail', `${diff.join(',')}无据漂移→退回`); } catch { /* */ }
+    const justified = profileChangeJustified(narrative);
+    // 档案字段：无据 或 🔒锁定 → 退回
+    const fRevert = revertSetWithLocks(base, prof, PLAYER_PROFILE_GUARD_FIELDS, justified, (f) => lkPlayerField(f));
+    // 主角六维：被改的🔒锁定维 → 钉回基线（六维平时由前端加点掌控、无防漂，故只在锁定时才守）
+    const ba: any = base.attrs || {}; const ca: any = prof.attrs || {};
+    const lockedAttrs: Record<string, any> = {};
+    for (const k of STABLE_DIMS) { if (isLockedKey(lkPlayerAttr(k)) && ba[k] !== undefined && ba[k] !== ca[k]) lockedAttrs[k] = ba[k]; }
+    if (fRevert.length === 0 && Object.keys(lockedAttrs).length === 0) return;
+    const patch: any = pickFields(base, fRevert);
+    if (Object.keys(lockedAttrs).length) patch.attrs = { ...ca, ...lockedAttrs };
+    usePlayer.getState().setProfile(patch);
+    const all = [...fRevert, ...Object.keys(lockedAttrs)];
+    console.warn(`[防漂/🔒] 主角档案/六维被无据或锁定改写 → 已退回基线：${all.join(',')}`);
+    try { recordEvo('char', { source: 'drift-guard', turn: turnCountRef.current }, 'player-revert', '主角', 'fail', `${all.join(',')}无据/锁定漂移→退回`); } catch { /* */ }
   }
 
   /* 防漂哨·技能/天赋：本回合演化全跑完后，拿每个角色(B1+NPC)的技能/天赋与「回合初基线」对账——
@@ -2858,21 +2902,21 @@ export default function App() {
       for (const bs of (baseC.skills ?? [])) {
         const cs = (curC.skills ?? []).find((x: any) => x.id === bs.id) ?? (curC.skills ?? []).find((x: any) => sameName(x.name, bs.name));
         if (!cs) continue;   // 被删/不在 → 本哨不管（删除另议）
-        const diff = changedFields(bs, cs, SKILL_GUARD_FIELDS);
-        if (diff.length === 0 || entityChangeJustified(cs.name || bs.name, narrative)) continue;
-        store.updateSkill(charId, cs.id, pickFields(bs, diff));   // 只退回漂移的字段
+        const revertSet = revertSetWithLocks(bs, cs, SKILL_GUARD_FIELDS, entityChangeJustified(cs.name || bs.name, narrative), (f) => lkCharSkill(charId, cs.name || bs.name, f));
+        if (revertSet.length === 0) continue;
+        store.updateSkill(charId, cs.id, pickFields(bs, revertSet));   // 退回漂移/🔒锁定的字段
         reverted++;
-        try { recordEvo('char', { source: 'drift-guard', turn: turnCountRef.current }, 'skill-revert', `${charId}:${cs.name}`, 'fail', `技能无据改写→退回(${diff.join(',')})`); } catch { /* */ }
+        try { recordEvo('char', { source: 'drift-guard', turn: turnCountRef.current }, 'skill-revert', `${charId}:${cs.name}`, 'fail', `技能无据/锁定改写→退回(${revertSet.join(',')})`); } catch { /* */ }
       }
       // 天赋：按名匹配（updateTrait 用名）
       for (const bt of (baseC.traits ?? [])) {
         const ct = (curC.traits ?? []).find((x: any) => sameName(x.name, bt.name));
         if (!ct) continue;
-        const diff = changedFields(bt, ct, TRAIT_GUARD_FIELDS);
-        if (diff.length === 0 || entityChangeJustified(ct.name || bt.name, narrative)) continue;
-        store.updateTrait(charId, ct.name, pickFields(bt, diff));
+        const revertSet = revertSetWithLocks(bt, ct, TRAIT_GUARD_FIELDS, entityChangeJustified(ct.name || bt.name, narrative), (f) => lkCharTrait(charId, ct.name || bt.name, f));
+        if (revertSet.length === 0) continue;
+        store.updateTrait(charId, ct.name, pickFields(bt, revertSet));
         reverted++;
-        try { recordEvo('char', { source: 'drift-guard', turn: turnCountRef.current }, 'trait-revert', `${charId}:${ct.name}`, 'fail', `天赋无据改写→退回(${diff.join(',')})`); } catch { /* */ }
+        try { recordEvo('char', { source: 'drift-guard', turn: turnCountRef.current }, 'trait-revert', `${charId}:${ct.name}`, 'fail', `天赋无据/锁定改写→退回(${revertSet.join(',')})`); } catch { /* */ }
       }
     }
     if (reverted) console.warn(`[防漂] ${reverted} 条技能/天赋被无据改写 → 已退回回合初基线`);
@@ -2892,11 +2936,13 @@ export default function App() {
       const touched = bi.enhanceLevel !== ci.enhanceLevel || bi.maxEnhanceLevel !== ci.maxEnhanceLevel
         || JSON.stringify(bi.gems) !== JSON.stringify(ci.gems) || (bi.quantity ?? 1) !== (ci.quantity ?? 1);
       const fields = touched ? ITEM_ID_FIELDS : [...ITEM_ID_FIELDS, ...ITEM_COMBAT_FIELDS];
-      const diff = changedFields(bi, ci, fields);
-      if (diff.length === 0 || entityChangeJustified(ci.name || bi.name, narrative)) continue;
-      applyPatch(ci.id, pickFields(bi, diff));
+      // 即便被强化/镶嵌/堆叠动过（touched），被🔒锁的战斗字段也纳入检查——用户显式钉死，强化也不许改
+      const checkFields = touched ? Array.from(new Set([...fields, ...ITEM_COMBAT_FIELDS.filter((f) => isLockedKey(lkItemField(ci.id, f)))])) : fields;
+      const revertSet = revertSetWithLocks(bi, ci, checkFields, entityChangeJustified(ci.name || bi.name, narrative), (f) => lkItemField(ci.id, f));
+      if (revertSet.length === 0) continue;
+      applyPatch(ci.id, pickFields(bi, revertSet));
       n++;
-      try { recordEvo('item', { source: 'drift-guard', turn: turnCountRef.current }, 'item-revert', `${owner === 'B1' ? '' : owner + ':'}${ci.name || ci.id}`, 'fail', `物品无据改写→退回(${diff.join(',')})`); } catch { /* */ }
+      try { recordEvo('item', { source: 'drift-guard', turn: turnCountRef.current }, 'item-revert', `${owner === 'B1' ? '' : owner + ':'}${ci.name || ci.id}`, 'fail', `物品无据/锁定改写→退回(${revertSet.join(',')})`); } catch { /* */ }
     }
     return n;
   }
@@ -2923,11 +2969,11 @@ export default function App() {
       const bf: any = bf0;
       const cf: any = cur.factions[fid];
       if (!cf) continue;
-      const diff = changedFields(bf, cf, FACTION_GUARD_FIELDS);
-      if (diff.length === 0 || entityChangeJustified(cf.name || bf.name, narrative)) continue;
-      cur.upsertFaction(fid, pickFields(bf, diff));
+      const revertSet = revertSetWithLocks(bf, cf, FACTION_GUARD_FIELDS, entityChangeJustified(cf.name || bf.name, narrative), (f) => lkFactionField(fid, f));
+      if (revertSet.length === 0) continue;
+      cur.upsertFaction(fid, pickFields(bf, revertSet));
       reverted++;
-      try { recordEvo('faction', { source: 'drift-guard', turn: turnCountRef.current }, 'faction-revert', cf.name || fid, 'fail', `势力锚点无据改写→退回(${diff.join(',')})`); } catch { /* */ }
+      try { recordEvo('faction', { source: 'drift-guard', turn: turnCountRef.current }, 'faction-revert', cf.name || fid, 'fail', `势力锚点无据/锁定改写→退回(${revertSet.join(',')})`); } catch { /* */ }
     }
     if (reverted) console.warn(`[防漂] ${reverted} 个势力锚点被无据改写 → 已退回回合初基线`);
   }
@@ -3057,6 +3103,7 @@ export default function App() {
     await runNpcFocusEvolution(narrative, createdIds);
     try { applyNarrativeAttrs(narrative); autoGenMissingAttrs(); ensureNpcLuck(); ensureNpcVitalsCap(); } catch { /* 重点演化后：先以正文卡为准覆盖，再给无卡NPC自动生成有起伏六维，最后前端独占重算幸运 */ }
     try { const merged = useNpc.getState().dedupeByName(); if (merged) console.log(`[NPC] 重点演化后合并了 ${merged} 个同名重复角色`); } catch { /* 防重复兜底 */ }
+    try { const a = useNpc.getState().dedupeAliasNpcs(); if (a) console.log(`[NPC] 重点演化后合并了 ${a} 个跨语言/畸形名重复角色`); } catch { /* 防重复兜底 */ }
     try { backfillNpcStarterKits(); } catch (e) { console.warn('[NPC] 初始家当发放失败:', e); }   // 码内保证新NPC初次出现就有固定装备+储物
   }
 
@@ -3223,9 +3270,12 @@ ${AFFIX_EFFECT_RULE}`;
     const chain = myTextChain();
     if (!chain[0]?.baseUrl || !chain[0]?.apiKey) return {};
     try {
+      const profiles = (() => { try { return buildPartyProfiles(); } catch { return ''; } })();   // 队友档案(种族/有效六维/技能/天赋/装备)——让大纲读到两人数据，别凭空编
+      const recent = (messagesRef.current ?? []).filter((m) => m.role === 'assistant' && !String(m.content || '').startsWith('🎬')).slice(-2).map((m) => String(m.content || '')).join('\n').slice(-2000);   // 最近剧情上下文(承接前文，别当老兵/新手错位)
+      const ctx = [profiles && `【队伍档案】\n${profiles}`, recent && `【最近剧情】\n${recent}`].filter(Boolean).join('\n\n');
       const { content } = await apiChatFallback(chain, [
         { role: 'system', content: buildPovBranchRule(roster) },
-        { role: 'user', content: '只输出 JSON 对象。' },
+        { role: 'user', content: ctx ? `${ctx}\n\n据上面的队伍档案与剧情，为每位玩家规划本回合分头支线，只输出 JSON 对象。` : '只输出 JSON 对象。' },
       ], { timeoutMs: 120000 });
       const out = povJson(content).outlines;
       const r: Record<string, string> = {};
@@ -3276,13 +3326,11 @@ ${AFFIX_EFFECT_RULE}`;
     const mid = ++msgId.current;
     setMessages((prev) => [...prev, { id: mid, role: 'assistant', content: '🎬 你的分头正文推演中……' }]);
     povGuestMsgRef.current = mid;
-    const myName = usePlayer.getState().profile.name || '主角';
     const mp = useMp.getState();
-    const others = Array.from(new Set([mp.room?.hostName, ...(mp.cards || []).map((c) => c?.snapshot?.name), ...(mp.seats || []).map((s) => s.name)].filter((n): n is string => !!n && n !== myName)));
-    const draft = await povRender(outline, myName, others);
+    const draft = await callApi(outline, [], { narrateOnly: true });   // 来宾用自己全预设+角色数据+世界书+上下文生成本人正文（narrateOnly：不落地，只回传房主对齐）
     const seatId = mp.mySeatId || '';
     if (draft) mpClient.relay('pov_draft', { seatId, draft });
-    else mpClient.relay('pov_draft', { seatId, draft: '', noKey: true });   // 无 key → 请房主代渲染
+    else mpClient.relay('pov_draft', { seatId, draft: '', noKey: true });   // 无 key / 生成失败 → 请房主代渲染
   }
   // 房主：本回合分头三段式编排（Stage1 出分头支线大纲→Stage2 各自渲染→Stage3 对齐→Stage4 变量·共享世界）
   async function runPovTurn(hostText: string, partyText: string) {
@@ -3313,7 +3361,7 @@ ${AFFIX_EFFECT_RULE}`;
     const drafts: Record<string, string> = {};
     const hostOutline = outlines.HOST || hostText;
     await Promise.allSettled([
-      povRender(hostOutline, myName, otherNames(myName)).then((d) => { drafts.HOST = d || hostOutline; }),
+      callApi(hostOutline, [], { narrateOnly: true }).then((d) => { drafts.HOST = d || hostOutline; }),   // 房主用自己全预设+角色数据+世界书+上下文渲染本人支线（narrateOnly：不落地）
       collectPovDrafts(guests, outlines, drafts, otherNames, 60000),
     ]);
 
@@ -6963,12 +7011,15 @@ ${lines}`;
     } finally { setGuidanceRunning(false); }
   }
 
-  async function callApi(userText: string, extraHistory: ChatMessage[] = []) {
-    // 每次用户发消息计为一回合
-    turnCountRef.current += 1;
-    try { useMisc.getState().setTurnCount(turnCountRef.current); } catch { /* 持久化「累计总回合数」：跨任务世界/刷新/读档不归零 */ }
-    try { useItems.getState().setItemTurn(turnCountRef.current); } catch { /* */ }   // 推进「最近删除」回收站回合数 + 清除满 3 回合的条目
-    lastUserInputRef.current = userText;   // 供叙事记忆·回复后写入使用
+  async function callApi(userText: string, extraHistory: ChatMessage[] = [], opts: { narrateOnly?: boolean } = {}) {
+    const narrateOnly = !!opts.narrateOnly;   // 分头三段式·Stage2：用全预设+角色数据+世界书+上下文生成正文，但只 return 不落地（不计回合/不入账<state>/不显示/不演化）→由编排去对齐再统一处理
+    // 每次用户发消息计为一回合（narrateOnly 草稿不计——回合由编排在 Stage4 / 来宾自我演化各计一次）
+    if (!narrateOnly) {
+      turnCountRef.current += 1;
+      try { useMisc.getState().setTurnCount(turnCountRef.current); } catch { /* 持久化「累计总回合数」：跨任务世界/刷新/读档不归零 */ }
+      try { useItems.getState().setItemTurn(turnCountRef.current); } catch { /* */ }   // 推进「最近删除」回收站回合数 + 清除满 3 回合的条目
+      lastUserInputRef.current = userText;   // 供叙事记忆·回复后写入使用
+    }
     expireStatuses(turnCountRef.current);                      // 回合推进：清理已过期的限时状态（主角+NPC）
     reconcileHomeWorld();                  // 回归乐园一致性兜底：时间同步 + 任务世界势力移出当前世界
     reconcilePlayerVitals();               // HP/EP 兜底：仍是 100/50 旧默认时按六维重算为满
@@ -7251,7 +7302,7 @@ ${lines}`;
       if (useStream) {
         // ── 流式读取 SSE ──
         const streamMsgId = ++msgId.current;
-        setMessages((prev) => [...prev, { id: streamMsgId, role: 'assistant', content: '' }]);
+        if (!narrateOnly) setMessages((prev) => [...prev, { id: streamMsgId, role: 'assistant', content: '' }]);
 
         const reader = res.body!.getReader();
         const decoder = new TextDecoder();
@@ -7312,14 +7363,13 @@ ${lines}`;
         const cleaned = stripLeakedThinking(accumulated);
         lastRawNarrativeRef.current = cleaned;   // 存含指令原文，供「仅重算变量」复用
         if (/<世界结算>/.test(cleaned)) playSfx('fanfare');   // 世界结算 → 号角音效
-        applyAllUpdates(cleaned);
-        try { applyPlayerProfileCommands(cleaned, '', turnCountRef.current); } catch { /* 主角位置/外观/身份：正文若直接输出 character.B1.* 也即时生效，不必等主角演化阶段 */ }
+        if (!narrateOnly) { applyAllUpdates(cleaned); try { applyPlayerProfileCommands(cleaned, '', turnCountRef.current); } catch { /* 主角位置/外观/身份：正文若直接输出 character.B1.* 也即时生效，不必等主角演化阶段 */ } }
         const settledText = stripKillBlocks(cleaned);   // 过渡期：剥除旧 <kill> 清单（不再结算进阶点）
         // 演化/解析读的正文：剥 <state>/<upstore> 等，但【保留】<状态结算> HP/EP 块（解析器与 HP/EP 管理阶段要吃它）
         const narrativeForEvoRaw = stripStateBlocks(applyRegex(settledText, preset));
         // 显示给玩家的正文：在此之上再剥掉 <状态结算>（纯数据通道，玩家看不到 HP/EP 原词，侧栏照旧用自定义血条名）
         const finalDisplayed = stripWorldSourceBlocks(stripVitalsBlocks(narrativeForEvoRaw));
-        setMessages((prev) =>
+        if (!narrateOnly) setMessages((prev) =>
           prev.map((m) => m.id === streamMsgId ? { ...m, content: finalDisplayed } : m)
         );
         setRawResponse(accumulated);
@@ -7329,7 +7379,7 @@ ${lines}`;
         const narrativeForEvo = narrativeForEvoRaw.replace(/<击杀结算>[\s\S]*?<\/击杀结算>/gi, '').trimEnd();
         lastNarrativeRef.current = narrativeForEvo;
         // 正文完成后：策略B先登场判断再并发其余阶段
-        runPostNarrativePhases(narrativeForEvo, streamMsgId);
+        if (!narrateOnly) runPostNarrativePhases(narrativeForEvo, streamMsgId);
         return finalDisplayed;
 
       } else {
@@ -7343,19 +7393,18 @@ ${lines}`;
         const cleanedReply = stripLeakedThinking(reply);   // 剥泄漏进正文的思维链块（同流式路径）
         lastRawNarrativeRef.current = cleanedReply;   // 存含指令原文，供「仅重算变量」复用
         if (/<世界结算>/.test(cleanedReply)) playSfx('fanfare');   // 世界结算 → 号角音效
-        applyAllUpdates(cleanedReply);
-        try { applyPlayerProfileCommands(cleanedReply, '', turnCountRef.current); } catch { /* 主角位置/外观/身份：正文直接输出 character.B1.* 即时生效 */ }
+        if (!narrateOnly) { applyAllUpdates(cleanedReply); try { applyPlayerProfileCommands(cleanedReply, '', turnCountRef.current); } catch { /* 主角位置/外观/身份：正文直接输出 character.B1.* 即时生效 */ } }
         const settledReply = stripKillBlocks(cleanedReply);   // 过渡期：剥除旧 <kill> 清单（不再结算进阶点）
         // 演化/解析读的正文：剥 <state>/<upstore> 等，但【保留】<状态结算> HP/EP 块（解析器与 HP/EP 管理阶段要吃它）
         const narrativeForEvoRaw = stripStateBlocks(applyRegex(settledReply, preset));
         // 显示给玩家的正文：在此之上再剥掉 <状态结算>（纯数据通道，玩家看不到 HP/EP 原词）
         const processed = stripWorldSourceBlocks(stripVitalsBlocks(narrativeForEvoRaw));
         const newMsgId = ++msgId.current;
-        setMessages((prev) => [...prev, { id: newMsgId, role: 'assistant', content: processed }]);
+        if (!narrateOnly) setMessages((prev) => [...prev, { id: newMsgId, role: 'assistant', content: processed }]);
         // 演化阶段读的正文：去 state 块外，再去掉击杀结算块（保留 <状态结算> 供 HP/EP 结算用，避免演化AI看到点数又重复发 ap）
         const narrativeForEvo = narrativeForEvoRaw.replace(/<击杀结算>[\s\S]*?<\/击杀结算>/gi, '').trimEnd();
         lastNarrativeRef.current = narrativeForEvo;
-        runPostNarrativePhases(narrativeForEvo, newMsgId);
+        if (!narrateOnly) runPostNarrativePhases(narrativeForEvo, newMsgId);
         return processed;
       }
     } catch (e: any) {
