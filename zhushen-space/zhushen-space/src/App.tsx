@@ -3440,10 +3440,12 @@ ${AFFIX_EFFECT_RULE}`;
     setMessages((prev) => [...prev, { id: mid, role: 'assistant', content: '🎬 你的分头正文推演中……' }]);
     povGuestMsgRef.current = mid;
     const mp = useMp.getState();
-    const draft = await callApi(outline, [], { narrateOnly: true });   // 来宾用自己全预设+角色数据+世界书+上下文生成本人正文（narrateOnly：不落地，只回传房主对齐）
+    let draft = '';
+    try { draft = (await callApi(outline, [], { narrateOnly: true })) || ''; }   // 来宾用自己全预设+角色数据+世界书+上下文生成本人正文（narrateOnly：不落地，只回传房主对齐）
+    catch (e) { console.warn('[分头] 来宾本人渲染失败（多半是没配「正文生成」API key）→ 请房主代渲染', e); }   // 关键：不 catch 的话 callApi 抛出(如无key)会让本函数直接挂掉、永不回传 pov_draft → 房主干等到 120s 超时
     const seatId = mp.mySeatId || '';
     if (draft) mpClient.relay('pov_draft', { seatId, draft });
-    else mpClient.relay('pov_draft', { seatId, draft: '', noKey: true });   // 无 key / 生成失败 → 请房主代渲染
+    else mpClient.relay('pov_draft', { seatId, draft: '', noKey: true });   // 无 key / 生成失败 → 立即请房主代渲染（不再让房主干等）
   }
   // 房主：本回合分头三段式编排（Stage1 出分头支线大纲→Stage2 各自渲染→Stage3 对齐→Stage4 变量·共享世界）
   async function runPovTurn(hostText: string, partyText: string) {
@@ -3475,7 +3477,7 @@ ${AFFIX_EFFECT_RULE}`;
     const hostOutline = outlines.HOST || hostText;
     await Promise.allSettled([
       callApi(hostOutline, [], { narrateOnly: true }).then((d) => { drafts.HOST = d || hostOutline; }),   // 房主用自己全预设+角色数据+世界书+上下文渲染本人支线（narrateOnly：不落地）
-      collectPovDrafts(guests, outlines, drafts, otherNames, 60000),
+      collectPovDrafts(guests, outlines, drafts, otherNames, 120000),   // 给来宾本人渲染留足时间(完整正文可能 60s+)，免得没超时就被房主轻量代渲染顶掉
     ]);
 
     // Stage3：对齐彼此客观冲突（同一 NPC 生死/共享物归属/时间先后）
