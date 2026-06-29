@@ -86,11 +86,21 @@ function SettingsSection() {
     URL.revokeObjectURL(url);
   }
 
-  const numField = (label: string, key: 'smallKeep' | 'largeKeep' | 'largeEvery') => (
+  const numField = (label: string, key: 'largeEvery') => (
     <label className="flex items-center justify-between gap-2 text-sm text-dim">
       <span>{label}</span>
       <input type="number" min={1} value={settings[key]}
         onChange={(e) => setSettings({ [key]: Math.max(1, Number(e.target.value) || 1) } as any)}
+        className="w-20 bg-void border border-edge rounded px-2 py-1 text-sm font-mono text-slate-200 outline-none focus:border-god text-right" />
+    </label>
+  );
+
+  // 记忆保留上限（0=无限）；与 numField 区别在允许 0
+  const capField = (label: string, key: 'factCap' | 'smallCap' | 'largeCap') => (
+    <label className="flex items-center justify-between gap-2 text-sm text-dim">
+      <span>{label}</span>
+      <input type="number" min={0} value={settings[key] ?? 0}
+        onChange={(e) => setSettings({ [key]: Math.max(0, Number(e.target.value) || 0) } as any)}
         className="w-20 bg-void border border-edge rounded px-2 py-1 text-sm font-mono text-slate-200 outline-none focus:border-god text-right" />
     </label>
   );
@@ -126,11 +136,17 @@ function SettingsSection() {
       </div>
 
       <div className="rounded-lg border border-edge bg-panel px-3 py-2.5 space-y-2">
-        <div className="text-sm text-dim mb-1">总结节奏与保留</div>
+        <div className="text-sm text-dim mb-1">总结节奏</div>
         {numField('大总结周期（每 N 回合产 1 条大总结）', 'largeEvery')}
-        {numField('小总结保留条数', 'smallKeep')}
-        {numField('大总结保留条数', 'largeKeep')}
         <div className="text-[12px] text-dim/50 leading-snug">小总结每回合都出（聚焦本回合）；大总结每 N 回合才出一条，对最近若干小总结做阶段压缩，二者内容不再雷同。</div>
+      </div>
+
+      <div className="rounded-lg border border-edge bg-panel px-3 py-2.5 space-y-2">
+        <div className="text-sm text-dim mb-1">记忆保留上限（0 = 无限）</div>
+        {capField('长期事实', 'factCap')}
+        {capField('小总结', 'smallCap')}
+        {capField('大总结', 'largeCap')}
+        <div className="text-[12px] text-dim/50 leading-snug">默认 0=不限。担心存档体积时填正数=只保留最近 N 条（仅影响存储与召回候选，不影响每回合注入）。小总结每回合都产、增长最快。</div>
       </div>
 
       <div className="rounded-lg border border-edge bg-panel px-3 py-2.5 space-y-2">

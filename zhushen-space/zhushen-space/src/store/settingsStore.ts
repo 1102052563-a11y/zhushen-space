@@ -765,12 +765,16 @@ export const useSettings = create<SettingsState>()(
         const api = s.nmUseSharedApi ? (s.textUseSharedApi ? s.api : s.textApi) : s.nmApi;
         if (!api.baseUrl || !api.apiKey) { set({ nmModelsError: '请先填写 API 地址和 Key' }); return; }
         set({ nmModelsLoading: true, nmModelsError: '' });
+        const ctrl = new AbortController();
+        const timer = setTimeout(() => ctrl.abort(), 15000);
         try {
-          const res = await fetch(api.baseUrl.replace(/\/$/, '') + '/models', { headers: { Authorization: `Bearer ${api.apiKey}` } });
+          const res = await fetch(api.baseUrl.replace(/\/$/, '') + '/models', { headers: { Authorization: `Bearer ${api.apiKey}` }, signal: ctrl.signal });
           if (!res.ok) throw new Error(`HTTP ${res.status}`);
           const json = await res.json();
           set({ nmAvailableModels: (json.data ?? json.models ?? []).map((m: any) => m.id ?? m.name ?? '').filter(Boolean).sort(), nmModelsLoading: false });
-        } catch (e: any) { set({ nmModelsError: e.message ?? '请求失败', nmModelsLoading: false }); }
+        } catch (e: any) {
+          set({ nmModelsError: e?.name === 'AbortError' ? '请求超时（15s）：API 地址 / 网关可能不可用，可手动填模型名直接用' : (e.message ?? '请求失败'), nmModelsLoading: false });
+        } finally { clearTimeout(timer); }
       },
 
       // ── 世界选择操作 ──
@@ -780,12 +784,18 @@ export const useSettings = create<SettingsState>()(
         const { api } = get();
         if (!api.baseUrl || !api.apiKey) { set({ modelsError: '请先填写 API 地址和 Key' }); return; }
         set({ modelsLoading: true, modelsError: '' });
+        // 超时兜底：部分反代网关 /models 会接受连接却永不响应，无 timeout 时 await 永久挂起，
+        // modelsLoading 永远停在 true → 按钮卡死「获取中…」。15s 后中止，转入 catch 复位。
+        const ctrl = new AbortController();
+        const timer = setTimeout(() => ctrl.abort(), 15000);
         try {
-          const res = await fetch(api.baseUrl.replace(/\/$/, '') + '/models', { headers: { Authorization: `Bearer ${api.apiKey}` } });
+          const res = await fetch(api.baseUrl.replace(/\/$/, '') + '/models', { headers: { Authorization: `Bearer ${api.apiKey}` }, signal: ctrl.signal });
           if (!res.ok) throw new Error(`HTTP ${res.status}`);
           const json = await res.json();
           set({ availableModels: (json.data ?? json.models ?? []).map((m: any) => m.id ?? m.name ?? '').filter(Boolean).sort(), modelsLoading: false });
-        } catch (e: any) { set({ modelsError: e.message ?? '请求失败', modelsLoading: false }); }
+        } catch (e: any) {
+          set({ modelsError: e?.name === 'AbortError' ? '请求超时（15s）：API 地址 / 网关可能不可用，可手动填模型名直接用' : (e.message ?? '请求失败'), modelsLoading: false });
+        } finally { clearTimeout(timer); }
       },
 
       setSystemPrompt: (prompt) => set({ systemPrompt: prompt }),
@@ -847,12 +857,16 @@ export const useSettings = create<SettingsState>()(
         const api = s.textUseSharedApi ? s.api : s.textApi;
         if (!api.baseUrl || !api.apiKey) { set({ textModelsError: '请先填写 API 地址和 Key' }); return; }
         set({ textModelsLoading: true, textModelsError: '' });
+        const ctrl = new AbortController();
+        const timer = setTimeout(() => ctrl.abort(), 15000);
         try {
-          const res = await fetch(api.baseUrl.replace(/\/$/, '') + '/models', { headers: { Authorization: `Bearer ${api.apiKey}` } });
+          const res = await fetch(api.baseUrl.replace(/\/$/, '') + '/models', { headers: { Authorization: `Bearer ${api.apiKey}` }, signal: ctrl.signal });
           if (!res.ok) throw new Error(`HTTP ${res.status}`);
           const json = await res.json();
           set({ textAvailableModels: (json.data ?? json.models ?? []).map((m: any) => m.id ?? m.name ?? '').filter(Boolean).sort(), textModelsLoading: false });
-        } catch (e: any) { set({ textModelsError: e.message ?? '请求失败', textModelsLoading: false }); }
+        } catch (e: any) {
+          set({ textModelsError: e?.name === 'AbortError' ? '请求超时（15s）：API 地址 / 网关可能不可用，可手动填模型名直接用' : (e.message ?? '请求失败'), textModelsLoading: false });
+        } finally { clearTimeout(timer); }
       },
 
       importTextWorldBook: (raw, fileName = '', builtin = false, builtinKey?: string) => {
@@ -1024,6 +1038,26 @@ export const useSettings = create<SettingsState>()(
         worldBooks: [],
         textWorldBooks: [],
         textPresets: [],
+        // 瞬时 UI 态绝不入库：中途刷新/中断会把 modelsLoading:true 写进 localStorage，
+        // 下次加载按钮永久卡在「获取中…」(disabled) 无法重试。
+        modelsLoading: false,
+        modelsError: '',
+        textModelsLoading: false,
+        textModelsError: '',
+        nmModelsLoading: false,
+        nmModelsError: '',
+      }),
+      // rehydrate 不经 partialize：存量用户 localStorage 里若已存了 modelsLoading:true，
+      // 必须在 merge 阶段每次加载强制复位，否则「刷新模型」按钮启动即卡死。
+      merge: (persisted: any, current: SettingsState): SettingsState => ({
+        ...current,
+        ...(persisted && typeof persisted === 'object' ? persisted : {}),
+        modelsLoading: false,
+        modelsError: '',
+        textModelsLoading: false,
+        textModelsError: '',
+        nmModelsLoading: false,
+        nmModelsError: '',
       }),
     }
   )

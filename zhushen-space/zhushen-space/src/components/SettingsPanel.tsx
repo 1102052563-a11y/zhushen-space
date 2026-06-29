@@ -1192,12 +1192,20 @@ function ApiSection() {
             {availableModels.length > 0 ? (
               <select
                 value={api.modelId}
-                onChange={(e) => setApi({ modelId: e.target.value })}
+                onChange={(e) => {
+                  // 选「手动输入」清空已拉取列表 → 退回文本框，可填列表外的任意模型名
+                  if (e.target.value === '__manual__') { useSettings.setState({ availableModels: [] }); return; }
+                  setApi({ modelId: e.target.value });
+                }}
                 className="input-base flex-1"
               >
+                {api.modelId && !availableModels.includes(api.modelId) && (
+                  <option value={api.modelId}>{api.modelId}</option>
+                )}
                 {availableModels.map((m) => (
                   <option key={m} value={m}>{m}</option>
                 ))}
+                <option value="__manual__">✏️ 手动输入其它模型…</option>
               </select>
             ) : (
               <input

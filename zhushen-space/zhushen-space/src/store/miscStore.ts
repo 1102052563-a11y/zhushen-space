@@ -160,9 +160,11 @@ export interface MiscSettings {
   entries: MiscPresetEntry[];
   presetName: string;
   presetVersion?: number;
-  smallKeep: number;
-  largeKeep: number;
   largeEvery: number;   // 大总结周期：每 N 个杂项演化回合才产出一条大总结（聚合压缩近期小总结），其余回合只出小总结
+  // 记忆保留上限（0/缺省 = 无限）：担心存档体积时设正数=只保留最近 N 条（仅影响存储/召回候选，不影响每回合注入）
+  factCap?: number;    // 长期事实上限
+  smallCap?: number;   // 小总结上限
+  largeCap?: number;   // 大总结上限
   questInjectEnabled?: boolean;  // 是否把当前任务(主线重/支线轻)注入正文上下文（默认开）
   questSideCap?: number;         // 注入正文的支线条数上限（相关性排序后封顶，默认 3）
 }
@@ -172,9 +174,10 @@ const DEFAULT_SETTINGS: MiscSettings = {
   entries: DEFAULT_MISC_ENTRIES,
   presetName: DEFAULT_PRESET_NAME,
   presetVersion: DEFAULT_PRESET_VERSION,
-  smallKeep: 8,
-  largeKeep: 6,
   largeEvery: 6,
+  factCap: 0,    // 0 = 长期事实不限数量
+  smallCap: 0,   // 0 = 小总结不限数量
+  largeCap: 0,   // 0 = 大总结不限数量
   questInjectEnabled: true,
   questSideCap: 3,
 };
@@ -336,8 +339,8 @@ export const useMisc = create<MiscState>()(
         set((s) => ({ worldEvents: s.worldEvents.map((w) => (w.id === id ? { ...w, ...patch } : w)) })),
       removeWorldEvent: (id) => set((s) => ({ worldEvents: s.worldEvents.filter((w) => w.id !== id) })),
 
-      pushSmall: (str) => set((s) => ({ smallSummaries: [...s.smallSummaries, str].slice(-s.settings.smallKeep) })),
-      pushLarge: (str) => set((s) => ({ largeSummaries: [...s.largeSummaries, str].slice(-s.settings.largeKeep) })),
+      pushSmall: (str) => set((s) => { const arr = [...s.smallSummaries, str]; const cap = s.settings.smallCap ?? 0; return { smallSummaries: cap > 0 ? arr.slice(-cap) : arr }; }),   // 默认不限；smallCap>0 时保留最近 N 条
+      pushLarge: (str) => set((s) => { const arr = [...s.largeSummaries, str]; const cap = s.settings.largeCap ?? 0; return { largeSummaries: cap > 0 ? arr.slice(-cap) : arr }; }),   // 默认不限；largeCap>0 时保留最近 N 条
       bumpSummaryRound: () => { const n = get().summaryRound + 1; set({ summaryRound: n }); return n; },
       setTurnCount: (n) => set({ turnCount: Math.max(0, Math.floor(n) || 0) }),
       addNarrativeFacts: (items) =>
@@ -346,7 +349,9 @@ export const useMisc = create<MiscState>()(
           const add = items
             .filter((it) => it.text && it.text.trim())
             .map((it) => ({ id: `F_${++max}`, title: (it.title || it.text.slice(0, 14)).trim(), text: it.text.trim(), keywords: it.keywords ?? [], addedAt: Date.now() }));
-          return { narrativeFacts: [...s.narrativeFacts, ...add].slice(-300) };
+          const arr = [...s.narrativeFacts, ...add];
+          const cap = s.settings.factCap ?? 0;   // 默认 0=不限（旧版固定 300，已取消）；factCap>0 时保留最近 N 条
+          return { narrativeFacts: cap > 0 ? arr.slice(-cap) : arr };
         }),
       removeNarrativeFact: (id) => set((s) => ({ narrativeFacts: s.narrativeFacts.filter((f) => f.id !== id) })),
       clearNarrativeFacts: () => set({ narrativeFacts: [] }),
