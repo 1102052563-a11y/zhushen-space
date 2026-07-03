@@ -34,8 +34,9 @@ function sanitizeRings(raw: any): QuestRing[] | undefined {
       goal,
       hint: r.hint != null && String(r.hint).trim() ? String(r.hint).trim() : undefined,
       status,
-      reward: r.reward != null ? String(r.reward) : undefined,
-      penalty: r.penalty != null ? String(r.penalty) : undefined,
+      // 空串奖惩视作"未提供"(=undefined)：这样 mergeRings 不会拿空值把既有奖励覆盖掉（保留原有奖励）
+      reward: r.reward != null && String(r.reward).trim() ? String(r.reward) : undefined,
+      penalty: r.penalty != null && String(r.penalty).trim() ? String(r.penalty) : undefined,
       optional: (r.optional === true || r.optional === 'true' || r.optional === 1) ? true : undefined,
       startTime: r.startTime != null ? String(r.startTime) : undefined,
       endTime: r.endTime != null ? String(r.endTime) : undefined,

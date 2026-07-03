@@ -195,9 +195,12 @@ function TaskCard({ t, main, onRemove, archived }: { t: MiscTask; main: boolean;
                 {r.status === 'done' && r.summary && (
                   <div className="pl-4 text-[11px] text-sky-300/60 leading-snug">📖 {r.summary}</div>
                 )}
-                {/* 进行中任务只显示当前环奖惩；已结束任务把每个达成环的奖励都展开（保留原有奖励） */}
-                {(r.status === 'active' || (archived && r.status === 'done')) && r.reward && (
+                {/* 奖励：当前环正常显示；已达成环也**始终保留显示**（奖励只是移到结算统一兑现，不是没了），dimmer 区分 */}
+                {r.status === 'active' && r.reward && (
                   <div className="pl-4 font-mono text-[11px] text-god/70">🎁 奖励：{r.reward}</div>
+                )}
+                {r.status === 'done' && r.reward && (
+                  <div className="pl-4 font-mono text-[11px] text-god/50">🎁 奖励（待结算兑现）：{r.reward}</div>
                 )}
                 {r.status === 'active' && r.penalty && (
                   <div className="pl-4 font-mono text-[11px] text-blood/55">⚠ 惩罚：{r.penalty}</div>

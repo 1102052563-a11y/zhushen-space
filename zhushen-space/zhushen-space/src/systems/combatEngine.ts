@@ -86,11 +86,13 @@ export function buildCombatant(id: string, side: Side, override?: Partial<Combat
     const attrs = scaleCombat(override.attrs ?? DEFAULT_ATTRS, realAttrMult(tier, level));   // 四阶起六维×5（攻防+HP/EP一并放大）
     const equipped: EquipItemLite[] = [];
     const d = computeDerived(attrs, level, equipped as any);
+    const kit = [...(useCharacters.getState().characters[id]?.skills ?? []), ...(useCharacters.getState().characters[id]?.traits ?? [])];   // 瞬时敌(竞技对手/联机来宾)若注入了技能/天赋→聚合被动/触发器
     return {
       side, name: override.name ?? id, attrs, level, tier,
       bioStrength: override.bioStrength ?? '', favor: undefined,
       patk: d.patk, pdef: d.pdef, matk: d.matk, mdef: d.mdef,
       maxHp: override.maxHp ?? computeMaxHp(attrs), maxEp: override.maxEp ?? computeMaxEp(attrs),
+      passive: aggregatePassives(kit), triggers: aggregateTriggers(kit),
       isTransient: true,
     };
   }

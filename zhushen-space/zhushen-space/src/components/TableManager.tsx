@@ -68,7 +68,14 @@ export default function TableManager() {
         >
           🎭 分阶段人设生成器
         </button>
-        <span className="text-[10px] text-dim/50">属性阈值 → 换一套人设（引擎已内置·此处免手写条件标签）</span>
+        <button
+          onClick={() => setShowNewTable(true)}
+          className="text-[11px] px-2.5 py-1 rounded-lg border border-god/40 text-god hover:bg-god/10 transition-colors"
+          title="建一张 AI 每回合自动维护的自定义表（维护规则固定·行随剧情变）"
+        >
+          ➕ 新建自定义表
+        </button>
+        <span className="text-[10px] text-dim/50">属性阈值→换人设 · 自定义表=AI 据固定维护规则维护的可变数据</span>
       </div>
 
       {/* 填表调度 */}
@@ -171,6 +178,7 @@ export default function TableManager() {
       </div>
 
       {showPersona && <StagedPersonaModal onClose={() => setShowPersona(false)} />}
+      {showNewTable && <CustomTableModal onClose={() => setShowNewTable(false)} onCreated={(u) => setUid(u)} />}
     </div>
   );
 }

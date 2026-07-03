@@ -8,7 +8,7 @@ import {
   generateSkillUpgrade, parseLevelNum, crossesWatershed, rarityIndex, bumpRarity,
   SKILL_RARITIES, TALENT_RARITIES, setSkillUpNote,
   levelUpCoinCost, rarityUpCoinCost, masteryCoinCost,
-  generateSkillFusion, type FuseSource, type FuseKind,
+  generateSkillFusion, type FuseSource, type FuseKind, type SkillFusionResult,
 } from '../systems/skillUpgrade';
 
 /* 乐园设施·技能升级面板：
@@ -22,6 +22,13 @@ type Sel = { kind: 'skill' | 'talent' | 'subprof'; key: string } | null;
 
 const fmt = (n: number) => n.toLocaleString('en-US');
 const FUSE_MAX = 4;   // 融合一次最多投入的技能/天赋数（≥2 起）
+
+/** 一次融合的快照：供「撤回」还原来源 / 「重新合成」重掷。 */
+type FuseSnapshot = {
+  sources: FuseSource[];                                    // 被消耗的原始来源（完整对象·含 addedAt）
+  customInput: string;                                      // 当时的自定义倾向
+  result: { kind: FuseKind; id?: string; name: string };   // 当前产物身份（技能用 id、天赋用 name 定位）
+};
 
 function tierForSpent(spent: number): string {
   let idx = 0;
@@ -63,6 +70,7 @@ export default function SkillUpgradePanel({ onClose }: { onClose: () => void }) 
   const [fuseBusy, setFuseBusy] = useState(false);
   const [fuseErr, setFuseErr] = useState('');
   const [fuseDone, setFuseDone] = useState<null | { kind: FuseKind; name: string; rarity?: string; level?: string; effect?: string }>(null);
+  const [lastFuse, setLastFuse] = useState<FuseSnapshot | null>(null);   // 最近一次融合（可撤回/重铸）
 
   const sp = currency['技能点'] ?? 0;
   const gp = currency['黄金技能点'] ?? 0;
@@ -111,7 +119,7 @@ export default function SkillUpgradePanel({ onClose }: { onClose: () => void }) 
 
   function pick(s: Sel) { setSel(s); setDone(null); setErr(''); setPoints(1); setCustom(''); setMode('normal'); setPay('points'); }
   function switchMode(m: Mode) { setMode(m); setPoints(1); setDone(null); setErr(''); setPay('points'); }
-  function switchTab(t: 'upgrade' | 'fuse') { setTab(t); setErr(''); setDone(null); setFuseErr(''); setFuseDone(null); }
+  function switchTab(t: 'upgrade' | 'fuse') { setTab(t); setErr(''); setDone(null); }   // 保留 fuse 结果/撤回态，切回来还能撤回/重铸
 
   // ── 融合：多选技能/天赋 → AI 熔铸成一个新条目（产物类型随机） ──
   const fuseCandidates = skills.length + traits.length;
@@ -128,32 +136,78 @@ export default function SkillUpgradePanel({ onClose }: { onClose: () => void }) 
     }).filter(Boolean) as FuseSource[];
   }
 
+  // 产物类型随机：按来源里技能占比加权（钳制 [0.25,0.75]，纯同类型也保留惊喜）
+  function rollOutKind(srcs: FuseSource[]): FuseKind {
+    const pSkill = Math.min(0.75, Math.max(0.25, srcs.filter((s) => s.kind === 'skill').length / srcs.length));
+    return Math.random() < pSkill ? 'skill' : 'talent';
+  }
+  // 写入熔铸产物 + 挂一次性正文提示 + 记录快照（供撤回/重铸）
+  function writeFused(res: SkillFusionResult, srcs: FuseSource[], customInput: string) {
+    const apply = res.apply;
+    let newId: string | undefined;
+    if (res.outKind === 'skill') { newId = `S_B1_f${Date.now().toString(36)}`; addSkill('B1', { ...(apply as any), id: newId }); }
+    else addTrait('B1', apply as any);
+    const names = srcs.map((s) => (s.entry as any).name as string);
+    const kindLabel = res.outKind === 'skill' ? '技能' : '天赋';
+    setSkillUpNote(`（系统·面板已结算：主角将 ${srcs.length} 个技能/天赋「${names.join('」「')}」投入技能熔炉，熔铸出全新${kindLabel}「${apply.name}」（${apply.rarity ?? ''}）。此为面板结算结果，正文知晓即可、无需就此展开情节。）`);
+    setLastFuse({ sources: srcs, customInput, result: { kind: res.outKind, id: newId, name: apply.name } });
+    setFuseDone({ kind: res.outKind, name: apply.name, rarity: apply.rarity, level: apply.level, effect: apply.effect });
+  }
+  // 移除一个熔铸产物（技能优先按 id，天赋按 name）
+  function removeFused(result: { kind: FuseKind; id?: string; name: string }) {
+    if (result.kind === 'skill') removeSkill('B1', result.id ?? result.name);
+    else removeTrait('B1', result.name);
+  }
+
   async function doFuse() {
     const sources = resolveFuseSources();
     if (fuseBusy || sources.length < 2) return;
     const names = sources.map((s) => (s.entry as any).name as string);
-    if (!window.confirm(`将 ${sources.length} 个技能/天赋「${names.join('」「')}」投入熔炉融合成一个全新条目？\n\n· 会调用 AI（计费）\n· 产物是技能还是天赋 **随机**\n· 会 **消耗掉** 这 ${sources.length} 个来源（不可撤销）`)) return;
-    setFuseBusy(true); setFuseErr(''); setFuseDone(null);
+    if (!window.confirm(`将 ${sources.length} 个技能/天赋「${names.join('」「')}」投入熔炉融合成一个全新条目？\n\n· 会调用 AI（计费）\n· 产物是技能还是天赋 **随机**\n· 会 **消耗掉** 这 ${sources.length} 个来源（可在结果处「撤回」还原）`)) return;
+    setFuseBusy(true); setFuseErr(''); setFuseDone(null); setLastFuse(null);
     try {
-      // 产物类型随机：按来源里技能占比加权（钳制 [0.25,0.75]，纯同类型也保留惊喜）
-      const skillCount = sources.filter((s) => s.kind === 'skill').length;
-      const pSkill = Math.min(0.75, Math.max(0.25, skillCount / sources.length));
-      const outKind: FuseKind = Math.random() < pSkill ? 'skill' : 'talent';
-      const res = await generateSkillFusion({ sources, outKind, customInput: fuseCustom });
-      // 先消耗来源，再写入新条目（防新条目与某来源同名被连带删除）
+      const res = await generateSkillFusion({ sources, outKind: rollOutKind(sources), customInput: fuseCustom });
+      // 生成成功后再消耗来源（失败则来源不丢），先消耗再写入（防新条目与某来源同名被连带删除）
       sources.forEach((s) => { if (s.kind === 'skill') removeSkill('B1', (s.entry as Skill).id); else removeTrait('B1', (s.entry as Trait).name); });
-      const apply = res.apply;
-      if (res.outKind === 'skill') addSkill('B1', { ...(apply as any), id: `S_B1_f${Date.now().toString(36)}` });
-      else addTrait('B1', apply as any);
-      const kindLabel = res.outKind === 'skill' ? '技能' : '天赋';
-      setSkillUpNote(`（系统·面板已结算：主角将 ${sources.length} 个技能/天赋「${names.join('」「')}」投入技能熔炉，熔铸出全新${kindLabel}「${apply.name}」（${apply.rarity ?? ''}）。此为面板结算结果，正文知晓即可、无需就此展开情节。）`);
+      writeFused(res, sources, fuseCustom);
       setFuseSel([]); setFuseCustom('');
-      setFuseDone({ kind: res.outKind, name: apply.name, rarity: apply.rarity, level: apply.level, effect: apply.effect });
     } catch (e: any) {
       setFuseErr(e?.message ?? '融合失败');
     } finally {
       setFuseBusy(false);
     }
+  }
+
+  // 重新合成：对结果不满意 → 保持已消耗的同一批来源，重掷类型 + 重新调 AI，替换掉当前产物
+  async function doRefuse() {
+    if (!lastFuse || fuseBusy) return;
+    const snap = lastFuse;
+    if (!window.confirm(`对当前融合产物「${snap.result.name}」不满意，重新合成一次？\n\n· 会再次调用 AI（计费）\n· 仍消耗原来那 ${snap.sources.length} 个来源、替换掉当前产物\n· 产物类型仍然 **随机**`)) return;
+    setFuseBusy(true); setFuseErr('');
+    try {
+      const res = await generateSkillFusion({ sources: snap.sources, outKind: rollOutKind(snap.sources), customInput: snap.customInput });
+      removeFused(snap.result);   // 生成成功后再移除旧产物（失败则旧产物保留、快照不变）
+      writeFused(res, snap.sources, snap.customInput);
+    } catch (e: any) {
+      setFuseErr(e?.message ?? '重新合成失败');
+    } finally {
+      setFuseBusy(false);
+    }
+  }
+
+  // 撤回：移除熔铸产物 + 还原被消耗的来源 + 清掉尚未注入正文的"已用掉"提示
+  function doUndoFuse() {
+    if (!lastFuse || fuseBusy) return;
+    const snap = lastFuse;
+    removeFused(snap.result);
+    snap.sources.forEach((s) => {
+      if (s.kind === 'skill') { const { addedAt: _a, ...rest } = s.entry as Skill; addSkill('B1', rest); }
+      else { const { addedAt: _a, ...rest } = s.entry as Trait; addTrait('B1', rest); }
+    });
+    setSkillUpNote('');   // 融合已撤回，别把"已用掉"提示漏给正文
+    setFuseSel(snap.sources.map((s) => s.kind === 'skill' ? `skill:${(s.entry as Skill).id}` : `talent:${(s.entry as Trait).name}`));
+    setFuseCustom(snap.customInput);
+    setFuseDone(null); setFuseErr(''); setLastFuse(null);
   }
 
   async function settle() {
@@ -436,10 +490,22 @@ export default function SkillUpgradePanel({ onClose }: { onClose: () => void }) 
 
                 {fuseErr && <div className="text-[11px] text-blood/90 bg-blood/10 border border-blood/30 rounded-lg p-2 leading-relaxed">{fuseErr}</div>}
                 {fuseDone && (
-                  <div className="rounded-xl border border-amber-500/50 bg-amber-500/10 p-3 space-y-1">
+                  <div className="rounded-xl border border-amber-500/50 bg-amber-500/10 p-3 space-y-2">
                     <div className="text-[12px] text-amber-300 font-semibold">✓ 熔铸出{fuseDone.kind === 'skill' ? '技能' : '天赋'}「{fuseDone.name}」{fuseDone.rarity ? ` · ${fuseDone.rarity}${fuseDone.kind === 'talent' ? '级' : ''}` : ''}{fuseDone.level ? ` ${fuseDone.level}` : ''}</div>
                     {fuseDone.effect && <div className="text-[11px] text-slate-300 leading-relaxed whitespace-pre-wrap line-clamp-6">{fuseDone.effect}</div>}
-                    <div className="text-[10px] text-dim/50">来源已消耗；新条目已加入「{fuseDone.kind === 'skill' ? '技能' : '天赋'}」列表，可在「技能」面板查看。正文将收到一条"已用掉"提示。</div>
+                    <div className="text-[10px] text-dim/50">新条目已加入「{fuseDone.kind === 'skill' ? '技能' : '天赋'}」列表，可在「技能」面板查看。不满意可<b className="text-slate-300">撤回</b>（还原来源）或<b className="text-slate-300">重新合成</b>（换一个）。</div>
+                    {lastFuse && (
+                      <div className="flex gap-2 pt-0.5">
+                        <button onClick={doUndoFuse} disabled={fuseBusy}
+                          className="flex-1 py-2 rounded-lg border border-edge text-slate-300 text-[12px] font-medium hover:border-blood/50 hover:text-blood transition-colors disabled:opacity-40 disabled:cursor-not-allowed">
+                          ↩ 撤回（还原来源）
+                        </button>
+                        <button onClick={doRefuse} disabled={fuseBusy}
+                          className="flex-1 py-2 rounded-lg border border-amber-500/50 text-amber-200 text-[12px] font-medium hover:bg-amber-500/15 transition-colors disabled:opacity-40 disabled:cursor-not-allowed">
+                          {fuseBusy ? '⏳ 重铸中…' : '🔄 重新合成'}
+                        </button>
+                      </div>
+                    )}
                   </div>
                 )}
               </>

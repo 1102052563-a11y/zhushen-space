@@ -62,7 +62,13 @@ export function mergeRings(existing: QuestRing[] | undefined, incoming: QuestRin
     const prev = byIdx.get(inc.idx);
     if (!prev) { byIdx.set(inc.idx, { ...inc }); continue; }
     const merged: QuestRing = { ...prev };
-    (Object.keys(inc) as (keyof QuestRing)[]).forEach((k) => { if (inc[k] !== undefined) (merged as any)[k] = inc[k]; });
+    // 已达成/跳过的环：冻结 goal/reward/penalty——补后续环/重排路线图时绝不覆盖或清空既有奖励（治"环一环二奖励没保留"）
+    const frozen = prev.status === 'done' || prev.status === 'skipped';
+    (Object.keys(inc) as (keyof QuestRing)[]).forEach((k) => {
+      if (inc[k] === undefined) return;
+      if (frozen && (k === 'goal' || k === 'reward' || k === 'penalty')) return;
+      (merged as any)[k] = inc[k];
+    });
     byIdx.set(inc.idx, merged);
   }
   // 环数硬上限=5：合并后若超过 5 环，保留 idx 最小的 5 个（治 AI 增量补环把总数推过 5）
