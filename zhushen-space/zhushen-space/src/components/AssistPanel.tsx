@@ -116,8 +116,8 @@ export default function AssistPanel({ onClose }: { onClose: () => void }) {
   const doDelete = (cardId: string) => { assistClient.removeCard(cardId); };
   const doInvite = (card: AssistCard) => {
     if (!connected) return;
-    materializeAssist(card);          // 本地物化成在场队友
-    assistClient.invite(card.id);     // 排行榜 +1（自邀后端不计数）
+    materializeAssist(card);          // 本地物化成在场队友（自己的卡也能召唤——就是把自己上传的主角/NPC 拉进本局队伍）
+    if (card.ownerId !== myId) assistClient.invite(card.id);   // 排行榜 +1；自己的卡不计数，仅本地召唤
     setInvited((m) => ({ ...m, [card.id]: true }));
   };
 
@@ -152,7 +152,12 @@ export default function AssistPanel({ onClose }: { onClose: () => void }) {
         <div className="flex items-center gap-2">
           <button onClick={() => setDetail(c)} className="px-2.5 py-1 rounded-lg text-[12px] border border-edge text-dim/70 hover:text-god hover:border-god/40 transition-colors">详情</button>
           {isMine ? (
-            <button onClick={() => doDelete(c.id)} className="ml-auto px-3 py-1 rounded-lg text-[12px] font-semibold border border-blood/40 text-blood/80 hover:bg-blood/15 transition-colors">🗑 删除我的卡</button>
+            <div className="ml-auto flex items-center gap-1.5">
+              {invited[c.id]
+                ? <span className="text-[12px] text-emerald-400/90 font-semibold">✓ 已召唤 · 在场</span>
+                : <button onClick={() => doInvite(c)} disabled={!connected} className="px-3 py-1 rounded-lg text-[12px] font-semibold bg-god/20 border border-god/40 text-god hover:bg-god/30 disabled:opacity-40 transition-colors">🤝 助战自己</button>}
+              <button onClick={() => doDelete(c.id)} title="删除我的卡" className="px-2.5 py-1 rounded-lg text-[12px] font-semibold border border-blood/40 text-blood/80 hover:bg-blood/15 transition-colors">🗑</button>
+            </div>
           ) : invited[c.id] ? (
             <span className="ml-auto text-[12px] text-emerald-400/90 font-semibold">✓ 已邀请 · 已在场</span>
           ) : (
@@ -326,7 +331,12 @@ export default function AssistPanel({ onClose }: { onClose: () => void }) {
                 <span>· 🏆 {detail.assists || 0}</span>
               </span>
               {detail.ownerId === myId ? (
-                <button onClick={() => { doDelete(detail.id); setDetail(null); }} className="px-3 py-1.5 rounded-lg text-[13px] font-semibold border border-blood/40 text-blood/80 hover:bg-blood/15 transition-colors">🗑 删除我的卡</button>
+                <>
+                  {invited[detail.id]
+                    ? <span className="text-[12px] text-emerald-400/90 font-semibold">✓ 已召唤·在场</span>
+                    : <button onClick={() => doInvite(detail)} disabled={!connected} className="px-3 py-1.5 rounded-lg text-[13px] font-semibold bg-god/20 border border-god/40 text-god hover:bg-god/30 disabled:opacity-40 transition-colors">🤝 助战自己</button>}
+                  <button onClick={() => { doDelete(detail.id); setDetail(null); }} className="px-3 py-1.5 rounded-lg text-[13px] font-semibold border border-blood/40 text-blood/80 hover:bg-blood/15 transition-colors">🗑 删除我的卡</button>
+                </>
               ) : invited[detail.id] ? (
                 <span className="text-[12px] text-emerald-400/90 font-semibold">✓ 已邀请·在场</span>
               ) : (

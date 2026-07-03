@@ -85,6 +85,24 @@ export function estimateFairValue(opts: {
   };
 }
 
+/** 套装：把多件物品的公允价区间求和成一条（乐园币累加，再按合计定展示币种）。*/
+export function sumFairValues(parts: FairValue[]): FairValue {
+  if (parts.length === 0) return estimateFairValue({});
+  const low = parts.reduce((s, p) => s + p.low, 0);
+  const high = parts.reduce((s, p) => s + p.high, 0);
+  const mid = Math.round((low + high) / 2);
+  const useSoul = low >= SOUL_TO_PARK;
+  const gradeNum = Math.max(1, ...parts.map((p) => p.gradeNum));
+  return {
+    gradeNum, gradeName: ITEM_GRADES[gradeNum - 1],
+    low, high, mid,
+    currency: useSoul ? '灵魂钱币' : '乐园币',
+    lowDisp: useSoul ? Math.max(1, Math.round(low / SOUL_TO_PARK)) : low,
+    highDisp: useSoul ? Math.max(1, Math.round(high / SOUL_TO_PARK)) : high,
+    strategic: parts.some((p) => p.strategic),
+  };
+}
+
 /** 把任意货币的报价折算成乐园币，便于跨币种比较。*/
 export function priceToPark(price: number, currency?: string): number {
   const isSoul = /魂|灵魂|soul/i.test(currency || '');

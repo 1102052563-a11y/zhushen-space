@@ -426,8 +426,10 @@ export const useCharacters = create<CharacterState>()(
           if (idx >= 0) next[idx] = entry; else next.push(entry);
           // 维持至多 1 个 equipped：若本次标记 equipped，则其余取消
           if (entry.equipped) next = next.map((t) => nameEq(t.name, entry.name) ? t : { ...t, equipped: false });
-          // 防称号无限堆叠（AI 易刷近义称号）：超过上限丢弃最旧的未佩戴称号，保留已佩戴 + 最近若干
-          const CAP = 6;
+          // 上限只当「防 AI 真失控刷上千个」的安全网，**不该削掉正常挣来的称号**——旧值 6 太低，
+          //   称号来源多（正文/竞技场/副本/世界结算/丰碑…），长期玩轻松超 6 → 静默丢弃最旧未佩戴的
+          //   = 用户报「称号莫名消失」的根因。放宽到 50（每条才几百字节·占用可忽略）；正文别刷近义靠提示词引导，不靠砍。
+          const CAP = 50;
           if (next.length > CAP) {
             const equipped = next.filter((t) => t.equipped);
             const rest = next.filter((t) => !t.equipped).sort((a, b) => (b.addedAt ?? 0) - (a.addedAt ?? 0)).slice(0, Math.max(0, CAP - equipped.length));

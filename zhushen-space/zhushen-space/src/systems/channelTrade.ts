@@ -1,5 +1,5 @@
-import { useItems, ITEM_CATEGORIES, splitAffixEntries, type ItemCategory, type CurrencyWallet, type InventoryItem } from '../store/itemStore';
-import { useChannel, type ChannelMessage, type ChannelQuote } from '../store/channelStore';
+import { useItems, ITEM_CATEGORIES, splitAffixEntries, gradeToNum, type ItemCategory, type CurrencyWallet, type InventoryItem } from '../store/itemStore';
+import { useChannel, type ChannelMessage, type ChannelQuote, type ChannelBundleEntry } from '../store/channelStore';
 
 /* 公共频道·交易确定性结算：点「购买」→ 代码扣货币 + 入背包 + 标记成交。AI 不参与金额。*/
 
@@ -117,6 +117,38 @@ export function postSellItem(invItem: InventoryItem, p: {
   });
 }
 
+/* 玩家发【套装出售帖】：一次打包多件（每件按 qty，通常 1 件），整套一口价 askPrice。成交时逐件扣除。*/
+export function postSellBundle(entries: { item: InventoryItem; qty: number }[], p: {
+  askPrice?: number; currency?: keyof CurrencyWallet; note?: string; gameTime?: string;
+}): string {
+  const list = entries.filter((e) => e.item);
+  const label = (e: { item: InventoryItem; qty: number }) =>
+    `${e.item.name}${e.item.gradeDesc ? `（${e.item.gradeDesc}）` : ''}${e.qty > 1 ? `×${e.qty}` : ''}`;
+  const names = list.map(label);
+  const summary = names.length <= 3 ? names.join(' + ') : `${names.slice(0, 2).join(' + ')} 等${list.length}件`;
+  const content = `【出售·套装】${summary}（共 ${list.length} 件）` +
+    `${p.askPrice ? `，整套期望 ${p.askPrice} ${p.currency ?? '乐园币'}` : '，整套价格面议'}` +
+    `${p.note ? `。${p.note}` : '。打包出，有意者出价。'}`;
+  // 代表品质取套装内最高档，用于卡片配色
+  const topGrade = list.slice().sort((a, b) => gradeToNum(b.item.gradeDesc) - gradeToNum(a.item.gradeDesc))[0]?.item.gradeDesc;
+  const bundle: ChannelBundleEntry[] = list.map((e) => ({
+    itemId: e.item.id, itemName: e.item.name, category: e.item.category, gradeDesc: e.item.gradeDesc, qty: e.qty,
+    origin: e.item.origin, subType: e.item.subType, combatStat: e.item.combatStat, durability: e.item.durability,
+    requirement: e.item.requirement, affix: e.item.affix, score: e.item.score, intro: e.item.intro,
+    appearance: e.item.appearance, effect: e.item.effect, killCount: e.item.killCount, tags: e.item.tags,
+  }));
+  return useChannel.getState().addPlayerPost({
+    channel: 'trade', kind: 'sell', authorName: '我',
+    content,
+    offer: {
+      itemName: `套装（${list.length}件）：${summary}`, category: '套装', gradeDesc: topGrade,
+      qty: list.length, price: p.askPrice ? String(p.askPrice) : '', currency: p.currency ?? '乐园币', note: p.note,
+      bundle,
+    },
+    gameTime: p.gameTime,
+  });
+}
+
 /* 该出售帖报价是否为「以物换物」：买家拿出 itemName 那件物品来换。
    判定：仅出售帖；有 itemName；且（显式 barter 标记 或 提供的物品名与玩家出售物不同名）。*/
 export function isBarterQuote(post: ChannelMessage, quote: ChannelQuote): boolean {
@@ -157,14 +189,30 @@ export function acceptQuote(post: ChannelMessage, quote: ChannelQuote): BuyResul
       ...infoFields(src),
     });
   } else if (post.kind === 'sell') {
-    // 玩家出售 → 卖给买家：扣物品、收钱
-    const itemId = post.offer?.itemId;
-    const sellQty = Math.max(1, Number(post.offer?.qty) || 1);
-    const owned = itemId ? items.items.find((it) => it.id === itemId) : undefined;
-    if (!owned) return { ok: false, error: '你已不再持有该出售物品（可能已用掉/卖掉）' };
-    if (owned.equipped) return { ok: false, error: '该物品正装备中，请先卸下再出售' };
-    if ((owned.quantity || 1) < sellQty) return { ok: false, error: `持有数量不足：需 ${sellQty}，现有 ${owned.quantity}` };
-    items.consumeItem(itemId!, sellQty);
+    // 玩家出售 → 卖给买家：扣物品(单件或套装)、收钱
+    const bundle = post.offer?.bundle;
+    let paidDesc = '';
+    if (bundle && bundle.length) {
+      // 套装：逐件先校验（有一件不满足就整单不成交），全过再一次性扣除
+      for (const b of bundle) {
+        const ownedB = b.itemId ? items.items.find((it) => it.id === b.itemId) : undefined;
+        if (!ownedB) return { ok: false, error: `套装中「${b.itemName || '某件'}」已不在背包，无法成交` };
+        if (ownedB.equipped) return { ok: false, error: `套装中「${ownedB.name}」正装备中，请先卸下再出售` };
+        const needB = Math.max(1, Number(b.qty) || 1);
+        if ((ownedB.quantity || 1) < needB) return { ok: false, error: `套装中「${ownedB.name}」数量不足：需 ${needB}，现有 ${ownedB.quantity}` };
+      }
+      for (const b of bundle) items.consumeItem(b.itemId!, Math.max(1, Number(b.qty) || 1));
+      paidDesc = `套装（${bundle.length}件）`;
+    } else {
+      const itemId = post.offer?.itemId;
+      const sellQty = Math.max(1, Number(post.offer?.qty) || 1);
+      const owned = itemId ? items.items.find((it) => it.id === itemId) : undefined;
+      if (!owned) return { ok: false, error: '你已不再持有该出售物品（可能已用掉/卖掉）' };
+      if (owned.equipped) return { ok: false, error: '该物品正装备中，请先卸下再出售' };
+      if ((owned.quantity || 1) < sellQty) return { ok: false, error: `持有数量不足：需 ${sellQty}，现有 ${owned.quantity}` };
+      items.consumeItem(itemId!, sellQty);
+      paidDesc = owned.name;
+    }
     if (barter) {
       // 以物换物：收下买家拿来交换的物品（带完整固定格式字段）；price>0 视为买家额外找补的现金
       items.addItem({
@@ -175,12 +223,12 @@ export function acceptQuote(post: ChannelMessage, quote: ChannelQuote): BuyResul
         quantity: Math.max(1, Number(quote.qty) || 1),
         equipped: false,
         tags: Array.isArray(quote.tags) ? quote.tags : ['频道交易', '以物换物'],
-        acquisition: `公共频道·以物换物，与 ${quote.fromName} 互换（付出「${owned.name}」${price > 0 ? `+对方找补 ${price} ${currency}` : '·平换'}）`,
+        acquisition: `公共频道·以物换物，与 ${quote.fromName} 互换（付出「${paidDesc}」${price > 0 ? `+对方找补 ${price} ${currency}` : '·平换'}）`,
         intro: quote.intro || quote.note,
         ...infoFields(quote),
       });
     }
-    if (price > 0) items.adjustCurrency(currency, price, `频道交易·出售 ${owned.name}`);
+    if (price > 0) items.adjustCurrency(currency, price, `频道交易·出售 ${paidDesc}`);
   } else {
     return { ok: false, error: '未知帖子类型' };
   }

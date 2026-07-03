@@ -311,8 +311,10 @@ function buildWorldviewInjection(): { role: 'system'; content: string }[] {
     const rec = useWorldRecord.getState().getActive();
     if (!rec) return [];
     const parts: string[] = [];
-    if (rec.worldview) parts.push('<本世界·世界观骨架（就近·最高优先·据此演绎本世界的剧情走向/势力/人物；剧情走向是骨架非剧本，勿替玩家决定）>\n' + formatWorldviewForInjection(rec.worldview));
-    if (rec.inheritAnchors) parts.push('<本世界·上次进度（继承·主角曾来过此世界！据此续写，勿当作首次进入、勿推翻这些既成事实）>\n' + formatInheritAnchors(rec.inheritAnchors));
+    const wvText = rec.worldviewText ?? (rec.worldview ? formatWorldviewForInjection(rec.worldview) : '');   // 手动编辑覆盖优先
+    if (wvText.trim()) parts.push('<本世界·世界观骨架（就近·最高优先·据此演绎本世界的剧情走向/势力/人物；剧情走向是骨架非剧本，勿替玩家决定）>\n' + wvText);
+    const anchorText = rec.inheritAnchorsText ?? (rec.inheritAnchors ? formatInheritAnchors(rec.inheritAnchors) : '');
+    if (anchorText.trim()) parts.push('<本世界·上次进度（继承·主角曾来过此世界！据此续写，勿当作首次进入、勿推翻这些既成事实）>\n' + anchorText);
     if (!parts.length) return [];
     return [{ role: 'system', content: parts.join('\n\n') }];
   } catch { return []; }
@@ -9461,6 +9463,7 @@ ${lines}`;
       {channelPanelOpen && (
         <ChannelPanel onClose={() => setChannelPanelOpen(false)} onRefresh={refreshChannel} onSolicit={solicitQuotes} onPost={replyToChannelPost} onOpenShop={() => setShopOpen(true)} onJoin={joinPartyFromPost} onInvite={inviteToParty}
           onDm={(m) => { if (!isDmableTag(m.authorTag)) return; openDmFor({ targetName: m.authorName, targetTier: m.authorTier, targetJob: m.authorJob, targetPersona: m.authorPersona, targetStrength: m.authorStrength, targetTag: m.authorTag, sourceContent: String(m.content) }); }}
+          onDmQuote={(q) => { if (q.fromTag && !isDmableTag(q.fromTag)) return; openDmFor({ targetName: q.fromName, targetTier: q.fromTier, targetTag: q.fromTag || '契约者', sourceContent: q.note ? String(q.note) : undefined }); }}
           onAddFriend={addFriendFromChannel} />
       )}
       {dmPanelOpen && <DmPanel onClose={() => setDmPanelOpen(false)} focusThreadId={dmFocusThread} h={dmHandlers} />}

@@ -95,6 +95,10 @@ export interface WorldRecord {
   playerTierAtGen?: string;     // 生成世界观时主角阶位/等级（调试/一致性参考）
   playerLevelAtGen?: number;
   inheritAnchors?: WorldSummary['继承要点'];   // 继承再入：上一实例的「继承要点」文字锚点（注入正文·据此续写）
+  // 玩家手动编辑覆盖（存在即取代自动格式化文本·用于注入+展示；清空=恢复自动版）：
+  worldviewText?: string;        // 世界观骨架（覆盖 formatWorldviewForInjection·影响注入）
+  inheritAnchorsText?: string;   // 继承·上次进度（覆盖 formatInheritAnchors·影响注入）
+  summaryText?: string;          // 离世总结（仅展示·覆盖 formatSummary）
   createdAt: number;
   updatedAt: number;
 }
@@ -126,6 +130,7 @@ interface WorldRecordState {
 
   setWorldview: (id: string, worldview: Worldview) => void;
   setSummary: (id: string, summary: WorldSummary) => void;
+  updateRecord: (id: string, patch: Partial<WorldRecord>) => void;   // 通用局部更新（含手动编辑覆盖字段 worldviewText/summaryText…）
   removeRecord: (id: string) => void;
 
   getById: (id: string) => WorldRecord | undefined;
@@ -215,6 +220,7 @@ export const useWorldRecord = create<WorldRecordState>()(
 
       setWorldview: (id, worldview) => set((s) => ({ records: s.records.map((r) => r.id === id ? { ...r, worldview, updatedAt: Date.now() } : r) })),
       setSummary: (id, summary) => set((s) => ({ records: s.records.map((r) => r.id === id ? { ...r, summary, updatedAt: Date.now() } : r) })),
+      updateRecord: (id, patch) => set((s) => ({ records: s.records.map((r) => r.id === id ? { ...r, ...patch, updatedAt: Date.now() } : r) })),
       removeRecord: (id) => set((s) => ({ records: s.records.filter((r) => r.id !== id), activeId: s.activeId === id ? null : s.activeId })),
 
       getById: (id) => get().records.find((r) => r.id === id),

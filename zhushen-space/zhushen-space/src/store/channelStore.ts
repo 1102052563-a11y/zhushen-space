@@ -28,12 +28,17 @@ export interface ChannelItemInfo {
   requirement?: string; affix?: string; score?: string; intro?: string;
   appearance?: string; effect?: string; killCount?: string; tags?: string[];
 }
+/* 套装出售帖里的单件（成交时据 itemId 逐件扣除，带完整固定格式字段供展示/带入）*/
+export interface ChannelBundleEntry extends ChannelItemInfo {
+  itemId?: string; itemName?: string; category?: string; gradeDesc?: string; qty?: number;
+}
 /* 交易单：NPC 出售帖（一键购买）/ 玩家求购帖（求 itemName，预算 price）/ 玩家出售帖（卖 itemId，期望 price）*/
 export interface ChannelOffer extends ChannelItemInfo {
   itemName?: string; category?: string; gradeDesc?: string;
   price?: string; currency?: string; qty?: number;
   itemId?: string;   // 玩家出售帖：所卖背包物品的真实 id（成交时据此扣除）
   note?: string;     // 玩家挂单时的留言/附言
+  bundle?: ChannelBundleEntry[];   // 套装出售帖：一次打包多件（成交时逐件扣除）；单件帖不填
 }
 /* 报价/出价：契约者对玩家求购/出售帖的回应（每条带留言）。求购→卖家报价(给物品要价)；出售→买家出价(给钱) */
 export interface ChannelQuote extends ChannelItemInfo {

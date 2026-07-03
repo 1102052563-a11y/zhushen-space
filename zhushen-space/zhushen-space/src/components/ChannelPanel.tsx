@@ -4,9 +4,9 @@ import { isDmableTag } from '../store/dmStore';
 import { useItems, ITEM_GRADES, gradeColorClass, gradeBadgeClass, gradeNameClass, asText, type CurrencyWallet, type InventoryItem } from '../store/itemStore';
 import {
   buyFromListing, isBuyable, parseChannelPrice, normChannelCurrency,
-  acceptQuote, isBarterQuote, postWantToBuy, postSellItem, type BuyResult,
+  acceptQuote, isBarterQuote, postWantToBuy, postSellItem, postSellBundle, type BuyResult,
 } from '../systems/channelTrade';
-import { estimateFairValue, priceVerdict, formatFairRange } from '../systems/itemPricing';
+import { estimateFairValue, priceVerdict, formatFairRange, sumFairValues, type FairValue } from '../systems/itemPricing';
 
 /* 频道配色 */
 const CH_FALLBACK = { dot: 'bg-slate-400', chip: 'border-slate-500/40 text-slate-300' };
@@ -94,7 +94,7 @@ function ChannelItemDetail({ p, onClose }: { p: DetailPayload; onClose: () => vo
   );
 }
 
-function MessageCard({ m, onBuy, onAcceptQuote, onCancel, onDetail, onReply, onJoin, onInviteClick, onDm, onAddFriendClick }: {
+function MessageCard({ m, onBuy, onAcceptQuote, onCancel, onDetail, onReply, onJoin, onInviteClick, onDm, onDmQuote, onAddFriendClick }: {
   m: ChannelMessage;
   onBuy: (m: ChannelMessage) => void;
   onAcceptQuote: (m: ChannelMessage, q: ChannelQuote) => void;
@@ -104,6 +104,7 @@ function MessageCard({ m, onBuy, onAcceptQuote, onCancel, onDetail, onReply, onJ
   onJoin?: (m: ChannelMessage) => void;
   onInviteClick?: (m: ChannelMessage) => void;
   onDm?: (m: ChannelMessage) => void;
+  onDmQuote?: (q: ChannelQuote) => void;
   onAddFriendClick?: (m: ChannelMessage) => void;
 }) {
   const c = CH_CLS[m.channel] ?? CH_FALLBACK;
@@ -209,6 +210,10 @@ function MessageCard({ m, onBuy, onAcceptQuote, onCancel, onDetail, onReply, onJ
                       {m.kind === 'buy' ? '买下' : (isBarter ? '换取' : '卖出')}
                     </button>
                   ) : <span className="shrink-0 text-dim/40">—</span>}
+                  {onDmQuote && (!q.fromTag || isDmableTag(q.fromTag)) && (
+                    <button onClick={() => onDmQuote(q)} title={`私信 ${q.fromName}`}
+                      className="shrink-0 px-2 py-0.5 rounded border border-cyan-500/40 text-cyan-300/80 hover:bg-cyan-900/25 transition-colors">✉ 私聊</button>
+                  )}
                 </div>
                 {q.note && <div className="text-[12px] text-dim/65 mt-0.5 italic leading-snug">「{q.note}」</div>}
               </div>
@@ -256,12 +261,16 @@ function MessageCard({ m, onBuy, onAcceptQuote, onCancel, onDetail, onReply, onJ
 
 /* 发帖表单（求购 / 出售）*/
 /* 挂单公允价提示：据所选物品/品级机械估价，价格严重不符时给 ⚠ 警告（与频道契约者的拒绝/嘲笑反应同源 itemPricing）*/
-function PriceHint({ mode, sel, grade, qty, price, currency }: {
-  mode: 'buy' | 'sell'; sel?: InventoryItem; grade: string; qty: string; price: string; currency: keyof CurrencyWallet;
+function PriceHint({ mode, sels, grade, qty, price, currency }: {
+  mode: 'buy' | 'sell'; sels?: InventoryItem[]; grade: string; qty: string; price: string; currency: keyof CurrencyWallet;
 }) {
   const q = Math.max(1, Number(qty) || 1);
-  const fair = mode === 'sell'
-    ? (sel ? estimateFairValue({ score: sel.score, gradeDesc: sel.gradeDesc, category: sel.category, qty: q }) : null)
+  const list = sels ?? [];
+  const bundle = mode === 'sell' && list.length >= 2;
+  const fair: FairValue | null = mode === 'sell'
+    ? (list.length === 0 ? null
+      : list.length === 1 ? estimateFairValue({ score: list[0].score, gradeDesc: list[0].gradeDesc, category: list[0].category, qty: q })
+      : sumFairValues(list.map((s) => estimateFairValue({ score: s.score, gradeDesc: s.gradeDesc, category: s.category, qty: 1 }))))
     : (grade ? estimateFairValue({ gradeDesc: grade, qty: q }) : null);
   if (!fair) return null;
   const pv = priceVerdict(mode === 'sell' ? 'sell' : 'buy', Number(price) || 0, currency, fair);
@@ -271,7 +280,7 @@ function PriceHint({ mode, sel, grade, qty, price, currency }: {
     : '预算离谱——卖家多半拒绝/调侃，劝你加价';
   return (
     <div className="text-[11px] font-mono leading-relaxed -mt-1">
-      <span className="text-dim/55">公允价 ≈ </span>
+      <span className="text-dim/55">{bundle ? '整套公允价 ≈ ' : '公允价 ≈ '}</span>
       <span className="text-amber-300/80">{formatFairRange(fair)}</span>
       {fair.strategic && <span className="text-violet-300/70"> · 战略级·宜以物换物</span>}
       {severe && !!price && <div className="text-blood/80 mt-0.5">⚠ {warn}</div>}
@@ -288,10 +297,13 @@ function PostForm({ mode, onClose, onPosted }: { mode: 'buy' | 'sell'; onClose: 
   const [price, setPrice] = useState('');
   const [currency, setCurrency] = useState<keyof CurrencyWallet>('乐园币');
   const [note, setNote] = useState('');
-  const [sellId, setSellId] = useState(sellable[0]?.id ?? '');
+  const [sellSel, setSellSel] = useState<Set<string>>(() => sellable[0] ? new Set([sellable[0].id]) : new Set());
 
-  const sel = sellable.find((it) => it.id === sellId);
-  const valid = mode === 'buy' ? itemName.trim().length > 0 : !!sel;
+  const selItems = sellable.filter((it) => sellSel.has(it.id));
+  const isBundle = selItems.length >= 2;   // 选≥2件 = 打包成套装
+  const sel = selItems.length === 1 ? selItems[0] : undefined;
+  const valid = mode === 'buy' ? itemName.trim().length > 0 : selItems.length >= 1;
+  const toggleSell = (id: string) => setSellSel((s) => { const n = new Set(s); if (n.has(id)) n.delete(id); else n.add(id); return n; });
 
   function submit() {
     if (!valid) return;
@@ -299,6 +311,10 @@ function PostForm({ mode, onClose, onPosted }: { mode: 'buy' | 'sell'; onClose: 
       postWantToBuy({
         itemName: itemName.trim(), gradeDesc: grade || undefined, qty: Math.max(1, Number(qty) || 1),
         budget: price ? Math.max(0, Number(price) || 0) : undefined, currency, note: note.trim() || undefined,
+      });
+    } else if (isBundle) {
+      postSellBundle(selItems.map((it) => ({ item: it, qty: 1 })), {
+        askPrice: price ? Math.max(0, Number(price) || 0) : undefined, currency, note: note.trim() || undefined,
       });
     } else if (sel) {
       postSellItem(sel, {
@@ -343,15 +359,26 @@ function PostForm({ mode, onClose, onPosted }: { mode: 'buy' | 'sell'; onClose: 
           ) : (
             <>
               <div>
-                <div className="text-[11px] font-mono text-dim/50 mb-0.5">出售物品 *（背包未装备的）</div>
+                <div className="text-[11px] font-mono text-dim/50 mb-0.5 flex items-center justify-between">
+                  <span>出售物品 *（未装备·可多选打包成套装）</span>
+                  {selItems.length > 0 && <span className="text-amber-300/70">已选 {selItems.length} 件</span>}
+                </div>
                 {sellable.length === 0
                   ? <div className="text-[12px] text-dim/40 font-mono py-1">背包里没有可出售的物品</div>
                   : (
-                    <select value={sellId} onChange={(e) => setSellId(e.target.value)} className={`${inputCls} font-mono`}>
-                      {sellable.map((it) => <option key={it.id} value={it.id}>{it.name}{it.gradeDesc ? `（${it.gradeDesc}）` : ''}{it.quantity > 1 ? ` ×${it.quantity}` : ''}</option>)}
-                    </select>
+                    <div className="max-h-40 overflow-y-auto rounded border border-edge divide-y divide-edge/40">
+                      {sellable.map((it) => (
+                        <label key={it.id} className={`flex items-center gap-2 px-2 py-1.5 cursor-pointer transition-colors ${sellSel.has(it.id) ? 'bg-amber-900/15' : 'hover:bg-panel/50'}`}>
+                          <input type="checkbox" checked={sellSel.has(it.id)} onChange={() => toggleSell(it.id)} className="accent-amber-500 shrink-0" />
+                          <span className={`text-[13px] truncate ${gradeNameClass(it.gradeDesc)}`}>{it.name}</span>
+                          {it.gradeDesc && <span className={`text-[10px] font-mono shrink-0 ${gradeBadgeClass(it.gradeDesc)}`}>{it.gradeDesc}</span>}
+                          {it.quantity > 1 && <span className="text-[10px] font-mono text-dim/45 shrink-0">×{it.quantity}</span>}
+                        </label>
+                      ))}
+                    </div>
                   )}
               </div>
+              {isBundle && <div className="text-[11px] font-mono text-amber-300/70 leading-snug">🎁 套装模式：{selItems.length} 件打包一口价出售（每件各计 1 件；可堆叠物只出 1 件）。</div>}
               {sel && sel.quantity > 1 && (
                 <div className="w-20">
                   <div className="text-[11px] font-mono text-dim/50 mb-0.5">出售数量</div>
@@ -372,7 +399,7 @@ function PostForm({ mode, onClose, onPosted }: { mode: 'buy' | 'sell'; onClose: 
               </select>
             </div>
           </div>
-          <PriceHint mode={mode} sel={sel} grade={grade} qty={qty} price={price} currency={currency} />
+          <PriceHint mode={mode} sels={selItems} grade={grade} qty={qty} price={price} currency={currency} />
           <div>
             <div className="text-[11px] font-mono text-dim/50 mb-0.5">留言（可空）</div>
             <input value={note} onChange={(e) => setNote(e.target.value)} placeholder={mode === 'buy' ? '如：急用，价格好商量' : '如：诚心出，可小刀'} className={inputCls} />
@@ -449,7 +476,7 @@ function InviteDialog({ m, onInvite, onClose, onJoined }: {
   );
 }
 
-export default function ChannelPanel({ onClose, onRefresh, onSolicit, onPost, onOpenShop, onJoin, onInvite, onDm, onAddFriend }: { onClose: () => void; onRefresh: (force?: boolean) => void; onSolicit?: () => void; onPost?: (channel: ChannelKey, content: string, replyTo?: { authorName: string; content: string }) => Promise<void>; onOpenShop?: () => void; onJoin?: (m: ChannelMessage) => void; onInvite?: (m: ChannelMessage, text: string) => Promise<{ accept: boolean; reason: string }>; onDm?: (m: ChannelMessage) => void; onAddFriend?: (m: ChannelMessage) => Promise<{ ok: boolean; msg: string }> }) {
+export default function ChannelPanel({ onClose, onRefresh, onSolicit, onPost, onOpenShop, onJoin, onInvite, onDm, onDmQuote, onAddFriend }: { onClose: () => void; onRefresh: (force?: boolean) => void; onSolicit?: () => void; onPost?: (channel: ChannelKey, content: string, replyTo?: { authorName: string; content: string }) => Promise<void>; onOpenShop?: () => void; onJoin?: (m: ChannelMessage) => void; onInvite?: (m: ChannelMessage, text: string) => Promise<{ accept: boolean; reason: string }>; onDm?: (m: ChannelMessage) => void; onDmQuote?: (q: ChannelQuote) => void; onAddFriend?: (m: ChannelMessage) => Promise<{ ok: boolean; msg: string }> }) {
   const messages   = useChannel((s) => s.messages);
   const refreshing = useChannel((s) => s.refreshing);
   const channels   = useChannel((s) => s.settings.channels);
@@ -553,7 +580,7 @@ export default function ChannelPanel({ onClose, onRefresh, onSolicit, onPost, on
               {!refreshing && <div className="mt-2 text-dim/30">点「🔄」生成帖子，或「🛒 求购 / 🏷 出售」自己挂单</div>}
             </div>
           ) : (
-            list.map((m) => <MessageCard key={m.id} m={m} onBuy={setConfirmMsg} onAcceptQuote={doAcceptQuote} onCancel={removeMessage} onDetail={setDetail} onReply={enabled && onPost && tab !== 'system' ? startReply : undefined} onJoin={enabled && onJoin ? doJoin : undefined} onInviteClick={enabled && onInvite ? setInviteTarget : undefined} onDm={enabled ? onDm : undefined} onAddFriendClick={enabled && onAddFriend ? doAddFriend : undefined} />)
+            list.map((m) => <MessageCard key={m.id} m={m} onBuy={setConfirmMsg} onAcceptQuote={doAcceptQuote} onCancel={removeMessage} onDetail={setDetail} onReply={enabled && onPost && tab !== 'system' ? startReply : undefined} onJoin={enabled && onJoin ? doJoin : undefined} onInviteClick={enabled && onInvite ? setInviteTarget : undefined} onDm={enabled ? onDm : undefined} onDmQuote={enabled ? onDmQuote : undefined} onAddFriendClick={enabled && onAddFriend ? doAddFriend : undefined} />)
           )}
         </div>
 

@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, type ReactNode } from 'react';
 import { useWorldRecord, formatWorldviewForInjection, formatInheritAnchors, type WorldRecord, type WorldSummary } from '../store/worldRecordStore';
 
 // 🗺️ 世界记录 / 世界志：主角经历过的世界。左列表 → 右详情（世界观骨架 + 离世总结）。
@@ -22,6 +22,7 @@ export default function WorldRecordPanel({ onClose, onGenSummary, summaryBusyId,
 }) {
   const records = useWorldRecord((s) => s.records);
   const removeRecord = useWorldRecord((s) => s.removeRecord);
+  const updateRecord = useWorldRecord((s) => s.updateRecord);
   const [selId, setSelId] = useState<string | null>(null);
 
   const sorted = [...records].sort((a, b) => rank(a) - rank(b) || b.updatedAt - a.updatedAt);
@@ -95,42 +96,52 @@ export default function WorldRecordPanel({ onClose, onGenSummary, summaryBusyId,
                   >删除</button>
                 </div>
 
-                {/* 世界观 */}
-                <section>
-                  <div className="flex items-center gap-2 mb-1.5">
-                    <span className="text-sm font-mono text-violet-300/80">🌐 世界观骨架 {sel.status === 'active' && <span className="text-god/70">· 正注入本世界正文</span>}</span>
-                    {onRegenWorldview && (
-                      <button
-                        onClick={() => worldviewBusyId !== sel.id && onRegenWorldview(sel.id)}
-                        disabled={worldviewBusyId === sel.id}
-                        title="用本世界卡片快照 + 当前主角阶位/等级，重新生成世界观骨架（覆盖当前）。进世界后也可补生成。"
-                        className={`ml-auto text-[11px] font-mono rounded px-2 py-0.5 border transition-colors ${worldviewBusyId === sel.id ? 'border-violet-400/30 text-violet-300/50 cursor-wait' : 'border-violet-500/40 text-violet-300 hover:bg-violet-500/10'}`}
-                      >
-                        {worldviewBusyId === sel.id ? '◌ 生成中…' : sel.worldview ? '🔄 重生成' : '🌐 生成世界观'}
-                      </button>
-                    )}
-                  </div>
-                  {sel.worldview ? (
-                    <pre className="text-[13px] text-slate-300 leading-relaxed whitespace-pre-wrap font-sans border border-violet-500/15 bg-void/40 rounded-lg p-3">{formatWorldviewForInjection(sel.worldview)}</pre>
-                  ) : (
-                    <div className="text-dim/50 font-mono text-xs">尚未生成世界观（点右上「🌐 生成世界观」，或在选择世界的卡片上生成）。</div>
-                  )}
-                </section>
+                {/* 世界观（可编辑·override 影响注入） */}
+                <EditableBlock
+                  key={`wv_${sel.id}`}
+                  border="border-violet-500/15"
+                  header={<span className="text-sm font-mono text-violet-300/80">🌐 世界观骨架 {sel.status === 'active' && <span className="text-god/70">· 正注入本世界正文</span>}</span>}
+                  headerRight={onRegenWorldview ? (
+                    <button
+                      onClick={() => worldviewBusyId !== sel.id && onRegenWorldview(sel.id)}
+                      disabled={worldviewBusyId === sel.id}
+                      title="用本世界卡片快照 + 当前主角阶位/等级，重新生成世界观骨架（覆盖当前，含你的手动编辑）。"
+                      className={`text-[11px] font-mono rounded px-2 py-0.5 border transition-colors ${worldviewBusyId === sel.id ? 'border-violet-400/30 text-violet-300/50 cursor-wait' : 'border-violet-500/40 text-violet-300 hover:bg-violet-500/10'}`}
+                    >
+                      {worldviewBusyId === sel.id ? '◌ 生成中…' : (sel.worldview || sel.worldviewText) ? '🔄 重生成' : '🌐 生成世界观'}
+                    </button>
+                  ) : undefined}
+                  text={sel.worldviewText ?? (sel.worldview ? formatWorldviewForInjection(sel.worldview) : '')}
+                  hasOverride={sel.worldviewText != null}
+                  onSave={(t) => updateRecord(sel.id, { worldviewText: t })}
+                  onReset={() => updateRecord(sel.id, { worldviewText: undefined })}
+                  emptyHint="尚未生成世界观（点右上「🌐 生成世界观」/卡片生成；也可点「✎ 编辑」手动编写）。"
+                />
 
-                {/* 继承的上次进度（同名再入·续写锚点） */}
-                {sel.inheritAnchors && (
-                  <section>
-                    <div className="text-sm font-mono text-emerald-300/80 mb-1.5">🔗 继承·上次进度（注入正文·续写）</div>
-                    <pre className="text-[13px] text-slate-300 leading-relaxed whitespace-pre-wrap font-sans border border-emerald-500/15 bg-void/40 rounded-lg p-3">{formatInheritAnchors(sel.inheritAnchors)}</pre>
-                  </section>
+                {/* 继承的上次进度（可编辑·override 影响注入） */}
+                {(sel.inheritAnchors || sel.inheritAnchorsText) && (
+                  <EditableBlock
+                    key={`ia_${sel.id}`}
+                    border="border-emerald-500/15"
+                    header={<span className="text-sm font-mono text-emerald-300/80">🔗 继承·上次进度（注入正文·续写）</span>}
+                    text={sel.inheritAnchorsText ?? (sel.inheritAnchors ? formatInheritAnchors(sel.inheritAnchors) : '')}
+                    hasOverride={sel.inheritAnchorsText != null}
+                    onSave={(t) => updateRecord(sel.id, { inheritAnchorsText: t })}
+                    onReset={() => updateRecord(sel.id, { inheritAnchorsText: undefined })}
+                  />
                 )}
 
-                {/* 离世总结 */}
-                {sel.summary && (
-                  <section>
-                    <div className="text-sm font-mono text-gold/80 mb-1.5">📜 离世总结</div>
-                    <pre className="text-[13px] text-slate-300 leading-relaxed whitespace-pre-wrap font-sans border border-gold/15 bg-void/40 rounded-lg p-3">{formatSummary(sel.summary)}</pre>
-                  </section>
+                {/* 离世总结（可编辑·仅展示） */}
+                {(sel.summary || sel.summaryText) && (
+                  <EditableBlock
+                    key={`sum_${sel.id}`}
+                    border="border-gold/15"
+                    header={<span className="text-sm font-mono text-gold/80">📜 离世总结</span>}
+                    text={sel.summaryText ?? (sel.summary ? formatSummary(sel.summary) : '')}
+                    hasOverride={sel.summaryText != null}
+                    onSave={(t) => updateRecord(sel.id, { summaryText: t })}
+                    onReset={() => updateRecord(sel.id, { summaryText: undefined })}
+                  />
                 )}
               </div>
             )}
@@ -138,6 +149,44 @@ export default function WorldRecordPanel({ onClose, onGenSummary, summaryBusyId,
         </div>
       )}
     </div>
+  );
+}
+
+// 可编辑内容块：读只读态显示格式化文本；「✎ 编辑」→ textarea 直接改（存 override 文本·影响注入+展示）；「恢复生成版」清 override。
+// 用 key={`xx_${record.id}`} 挂载 → 切换记录时自动重置编辑态与草稿。
+function EditableBlock({ text, hasOverride, onSave, onReset, border, header, headerRight, emptyHint }: {
+  text: string; hasOverride: boolean;
+  onSave: (t: string) => void; onReset: () => void;
+  border: string; header: ReactNode; headerRight?: ReactNode; emptyHint?: string;
+}) {
+  const [editing, setEditing] = useState(false);
+  const [draft, setDraft] = useState(text);
+  return (
+    <section>
+      <div className="flex items-center gap-2 mb-1.5 flex-wrap">
+        {header}
+        <div className="ml-auto flex items-center gap-1.5">
+          {headerRight}
+          {!editing ? (
+            <button onClick={() => { setDraft(text); setEditing(true); }} className="text-[11px] font-mono px-2 py-0.5 rounded border border-edge text-dim hover:text-slate-200 hover:border-god/40 transition-colors">✎ 编辑</button>
+          ) : (
+            <>
+              <button onClick={() => { onSave(draft); setEditing(false); }} className="text-[11px] font-mono px-2 py-0.5 rounded border border-god/50 text-god hover:bg-god/10 transition-colors">✓ 保存</button>
+              <button onClick={() => setEditing(false)} className="text-[11px] font-mono px-2 py-0.5 rounded border border-edge text-dim hover:text-blood transition-colors">取消</button>
+              {hasOverride && <button onClick={() => { onReset(); setEditing(false); }} title="清除手动修改，恢复为 AI 生成 / 自动格式化的版本" className="text-[11px] font-mono px-2 py-0.5 rounded border border-edge text-amber-300/70 hover:bg-amber-500/10 transition-colors">恢复生成版</button>}
+            </>
+          )}
+        </div>
+      </div>
+      {editing ? (
+        <textarea value={draft} onChange={(e) => setDraft(e.target.value)} rows={Math.min(26, Math.max(6, draft.split('\n').length + 1))}
+          className={`w-full text-[13px] text-slate-200 leading-relaxed font-sans border ${border} bg-void/60 rounded-lg p-3 outline-none focus:border-god/60 resize-y`} />
+      ) : text.trim() ? (
+        <pre className={`text-[13px] text-slate-300 leading-relaxed whitespace-pre-wrap font-sans border ${border} bg-void/40 rounded-lg p-3`}>{text}{hasOverride && <span className="block mt-2 pt-2 border-t border-edge/40 text-[10px] font-mono text-amber-300/50">✎ 已手动编辑（可「恢复生成版」还原）</span>}</pre>
+      ) : (
+        <div className="text-dim/50 font-mono text-xs">{emptyHint || '（空·点「✎ 编辑」手动编写）'}</div>
+      )}
+    </section>
   );
 }
 
