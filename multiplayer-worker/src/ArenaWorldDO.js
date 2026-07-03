@@ -112,6 +112,14 @@ export class ArenaWorldDO {
     sorted.splice(Math.max(0, oppIdx), 0, mine);
     sorted.forEach((c, i) => { c.rank = i + 1; });
   }
+  // 挑战失败：下降一名（与紧邻的下一名交换名次；已是末位则不动）。
+  #demote(card) {
+    const sorted = this.#sorted();
+    const idx = sorted.findIndex((c) => c.id === card.id);
+    if (idx < 0 || idx >= sorted.length - 1) return;
+    const below = sorted[idx + 1];
+    const t = card.rank; card.rank = below.rank; below.rank = t;
+  }
 
   async fetch(request) {
     const url = new URL(request.url);
@@ -231,6 +239,7 @@ export class ArenaWorldDO {
           this.#occupy(mine, opp);   // 占位取代
         } else {
           mine.losses = (mine.losses || 0) + 1; opp.wins = (opp.wins || 0) + 1;
+          this.#demote(mine);   // 挑战失败自动下降一名
         }
 
         const rec = {
@@ -269,7 +278,7 @@ export class ArenaWorldDO {
         const win = !!msg.win;
         const rankBefore = mine.rank;
         if (win) { mine.wins = (mine.wins || 0) + 1; opp.losses = (opp.losses || 0) + 1; this.#occupy(mine, opp); }
-        else { mine.losses = (mine.losses || 0) + 1; opp.wins = (opp.wins || 0) + 1; }
+        else { mine.losses = (mine.losses || 0) + 1; opp.wins = (opp.wins || 0) + 1; this.#demote(mine); }   // 手动挑战失败也下降一名
         this.matches.unshift({
           matchId: crypto.randomUUID(), at: Date.now(), mode: "manual",
           challenger: { id: mine.id, name: mine.snapshot.name, ownerName: mine.ownerName, ownerDu: mine.ownerDu },

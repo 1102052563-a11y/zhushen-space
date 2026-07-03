@@ -1,6 +1,6 @@
 // 世界竞技场·战斗桥接：把一张参赛卡的快照映射成赌场角斗场的 Gladiator（复用其战斗过场/描写/世界书管线），
 // 以及上传前的挑选裁剪（技能+天赋合并≤10、储存空间物品≤5）与 AI 失败时的确定性兜底战报。
-import type { Gladiator, BattleRound } from './casinoEngine';
+import type { Gladiator } from './casinoEngine';
 import type { AssistSnapshot } from './arenaWorldProtocol';
 
 const nameOf = (x: any): string => String((x && (x.name || x.title)) || '').trim();
@@ -59,30 +59,30 @@ export function trimForUpload(snap: AssistSnapshot, sel?: { keep?: Set<string>; 
   return { ...snap, skills: keptSkills, traits: keptTraits, items: keptItems };
 }
 
-/** AI 生成战报失败时的确定性兜底：几回合逐步磨血，钉死败方最终 HP=0。 */
-export function fallbackArenaBattle(fighters: [Gladiator, Gladiator], winner: 0 | 1): { rounds: BattleRound[]; summary: string } {
-  const loser: 0 | 1 = winner === 0 ? 1 : 0;
-  const hp: [number, number] = [fighters[0].hpMax, fighters[1].hpMax];
-  const rounds: BattleRound[] = [];
-  const order: (0 | 1)[] = [winner, loser, winner, loser, winner];
-  order.forEach((actor, i) => {
-    const tgt: 0 | 1 = actor === 0 ? 1 : 0;
-    const isFinal = i === order.length - 1;
-    const skill = fighters[actor].skills[i % fighters[actor].skills.length] || { name: '搏击', effect: '' };
-    const base = actor === winner ? fighters[loser].hpMax * 0.34 : fighters[winner].hpMax * 0.1;
-    let dmg = Math.max(1, Math.round(base));
-    if (isFinal) dmg = hp[tgt];   // 收尾一击带走
-    hp[tgt] = Math.max(actor === winner && isFinal ? 0 : 1, Math.round(hp[tgt] - dmg));
-    rounds.push({
-      round: i + 1,
-      actor,
-      action: skill.name,
-      desc: `${fighters[actor].name}以「${skill.name}」直取${fighters[tgt].name}，造成约 ${dmg} 点伤害。`,
-      damage: dmg,
-      hp: [hp[0], hp[1]],
-      buffs: [[], []],
-      os: [actor === winner ? '胜局在握。' : '还不能倒下……', ''],
-    });
-  });
-  return { rounds, summary: `${fighters[winner].name} 在世界竞技场笑到了最后。` };
+/** 把 AI 输出的一整段散文战报拆成"战斗场景"：优先按空行分段；无空行→按换行；仍是一整段→按句末标点粗切成 ~5 段。 */
+export function splitScenes(prose: string): string[] {
+  const clean = (prose || '').replace(/<think[\s\S]*?<\/think>/gi, '').replace(/```+/g, '').trim();
+  if (!clean) return [];
+  let parts = clean.split(/\n\s*\n+/).map((s) => s.trim()).filter(Boolean);
+  if (parts.length < 2) parts = clean.split(/\n+/).map((s) => s.trim()).filter(Boolean);
+  if (parts.length < 2) {
+    const sentences = clean.split(/(?<=[。！？…])/).map((s) => s.trim()).filter(Boolean);
+    const per = Math.max(1, Math.ceil(sentences.length / 5));
+    parts = [];
+    for (let i = 0; i < sentences.length; i += per) parts.push(sentences.slice(i, i + per).join(''));
+  }
+  return parts.slice(0, 12);
+}
+
+/** AI 生成战报失败时的确定性兜底：给一组通用战斗场景（钉死预定胜者获胜）。 */
+export function fallbackArenaBattle(fighters: [Gladiator, Gladiator], winner: 0 | 1): { scenes: string[]; summary: string } {
+  const w = fighters[winner], l = fighters[winner === 0 ? 1 : 0];
+  const scenes = [
+    `${w.name}与${l.name}在世界竞技场的擂台上相对而立，气机锁定，杀意在空气里绷成一线。`,
+    `${l.name}率先抢攻，招式如潮水般压来；${w.name}沉住气见招拆招，在攻防之间试探对手的破绽。`,
+    `战至酣处，双方倾尽所学，招式往来间擂台震颤、光华四溅，一时难分高下、险象环生。`,
+    `捕捉到${l.name}露出的一线空当，${w.name}骤然爆发，倾力一击直贯要害，局势就此逆转。`,
+    `${l.name}力竭倒地，${w.name}屹立于擂台之上——这场对决，终究是${w.name}笑到了最后。`,
+  ];
+  return { scenes, summary: `${w.name} 战胜 ${l.name}，赢得这场对决。` };
 }

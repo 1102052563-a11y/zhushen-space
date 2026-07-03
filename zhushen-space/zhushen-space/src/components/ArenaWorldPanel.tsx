@@ -7,7 +7,8 @@ import { useCombat } from '../store/combatStore';
 import { buildPlayerSnapshot } from '../systems/mpSnapshot';
 import { npcToSnapshotRaw } from '../systems/assistApply';
 import { cardToGladiator, fallbackArenaBattle, ARENA_MAX_SKILLS, ARENA_MAX_ITEMS } from '../systems/arenaWorldBattle';
-import type { Gladiator, BattleRound } from '../systems/casinoEngine';
+import type { Gladiator } from '../systems/casinoEngine';
+import type { AssistSnapshot } from '../systems/arenaWorldProtocol';
 import NpcCardPreview from './NpcCardPreview';
 import ChatAvatar from './ChatAvatar';
 import ArenaWorldBattle, { type ArenaBattlePayload } from './ArenaWorldBattle';
@@ -43,7 +44,7 @@ function OwnerTag({ c }: { c: ArenaCard }) {
 
 export default function ArenaWorldPanel({ onClose, onGenBattle, onSpar, onManualChallenge }: {
   onClose: () => void;
-  onGenBattle: (a: Gladiator, b: Gladiator, winner: 0 | 1) => Promise<{ rounds: BattleRound[]; summary: string }>;
+  onGenBattle: (challengerSnap: AssistSnapshot, opponentSnap: AssistSnapshot, winner: 0 | 1) => Promise<{ scenes: string[]; summary: string }>;
   onSpar: (card: ArenaCard) => void;   // 切磋：真实战斗系统对战，不计排名
   onManualChallenge: (opp: ArenaCard, myCardId: string) => void;   // 手动应战：真实战斗，胜负计入排名
 }) {
@@ -116,13 +117,13 @@ export default function ArenaWorldPanel({ onClose, onGenBattle, onSpar, onManual
     const fighters: [Gladiator, Gladiator] = [cardToGladiator(r.challenger.snapshot), cardToGladiator(r.opponent.snapshot)];
     const winner: 0 | 1 = r.winner === 'challenger' ? 0 : 1;
     setBattleBusy(true);
-    setBattle({ fighters, winner, rounds: [], summary: '', challengerSide: 0, rankBefore: r.rankBefore, rankAfter: r.rankAfter });
+    setBattle({ fighters, winner, scenes: [], summary: '', challengerSide: 0, rankBefore: r.rankBefore, rankAfter: r.rankAfter });
     (async () => {
-      let res: { rounds: BattleRound[]; summary: string };
-      try { res = await onGenBattle(fighters[0], fighters[1], winner); }
+      let res: { scenes: string[]; summary: string };
+      try { res = await onGenBattle(r.challenger.snapshot, r.opponent.snapshot, winner); }
       catch { res = fallbackArenaBattle(fighters, winner); }
-      if (!res || !res.rounds?.length) res = fallbackArenaBattle(fighters, winner);
-      setBattle({ fighters, winner, rounds: res.rounds, summary: res.summary, challengerSide: 0, rankBefore: r.rankBefore, rankAfter: r.rankAfter });
+      if (!res || !res.scenes?.length) res = fallbackArenaBattle(fighters, winner);
+      setBattle({ fighters, winner, scenes: res.scenes, summary: res.summary, challengerSide: 0, rankBefore: r.rankBefore, rankAfter: r.rankAfter });
       setBattleBusy(false);
     })();
     // eslint-disable-next-line react-hooks/exhaustive-deps

@@ -1,5 +1,6 @@
 import { useArenaWorld } from '../store/arenaWorldStore';
 import { usePlayer } from '../store/playerStore';
+import { useItems } from '../store/itemStore';
 import { mpWsBase } from './mpConfig';
 import { chatAvatarVer, chatDicebearSeed } from './chatIdentity';
 import { chatNameColor } from './chatCosmetics';
@@ -42,7 +43,16 @@ async function buildSnapshotForKind(kind: ArenaKind, npcId: string, sel?: { keep
     raw = { ...raw, avatar: await shrinkAvatar(raw.avatar || '') };
   } else {
     const snap = buildPlayerSnapshot() as AssistSnapshot;
-    raw = { ...snap, avatar: await shrinkAvatar(usePlayer.getState().profile?.avatar || '') };
+    // 竞技场要**完整**装备/储存空间：buildPlayerSnapshot 的 equipment 是联机精简版（只 5 字段），且 items 已含全字段——
+    // 这里直接从背包重取全字段（仅剥大图），保证上传卡里装备的词缀/评分/介绍/外观等一个不缺。
+    const allItems = (useItems.getState().items || []) as any[];
+    const stripImg = (it: any) => { const { image, ...rest } = it; return rest; };
+    raw = {
+      ...snap,
+      equipment: allItems.filter((it) => it.equipped).map(stripImg),
+      items: allItems.filter((it) => !it.equipped).map(stripImg),
+      avatar: await shrinkAvatar(usePlayer.getState().profile?.avatar || ''),
+    };
   }
   return trimForUpload(raw, sel);
 }

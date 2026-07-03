@@ -82,6 +82,7 @@ import {
   GLADIATOR_MATCH_RULE,
   GLADIATOR_BATTLE_RULE,
   ARENA_MANUAL_NARRATE_RULE,
+  ARENA_AUTO_NARRATE_RULE,
   GACHA_REWARD_RULE,
   CASINO_BANTER_RULE,
   SOUL_GAMBLE_RULE,
@@ -203,7 +204,7 @@ import { useCasino } from './store/casinoStore';
 import { computeGladiatorOdds, type Gladiator, type GladiatorEval, type BattleRound, type GladiatorMatch } from './systems/casinoEngine';
 import { type GachaReward } from './systems/casinoGacha';
 import { buildBattleWbInjection } from './systems/casinoBattleWb';
-import { fallbackArenaBattle } from './systems/arenaWorldBattle';
+import { fallbackArenaBattle, cardToGladiator, splitScenes } from './systems/arenaWorldBattle';
 import { materializeArenaFoe, discardArenaFoe } from './systems/arenaWorldApply';
 import { arenaWorldClient } from './systems/arenaWorldClient';
 import { useArenaWorld } from './store/arenaWorldStore';
@@ -6583,28 +6584,28 @@ ${lines}`;
 
   /* 命运福袋·物品奖励 AI 补全：前端已定稀有度/品级/大类，AI 一次生成全部固定格式信息（装备/材料/技能书）；
      gem/currency/advance/soulcoin 不走 AI；AI 失败则保留 rollGachaBatch 的确定性兜底物品。 */
-  // 世界竞技场·战斗过场：胜负已由服务端裁判钉死（winner），这里只据两名参赛者档案生成分回合战报+总结；
-  // 复用赌场角斗场的 GLADIATOR_BATTLE_RULE + 战斗写作指导世界书（读取赌场那本）优化战斗描写；AI 失败走确定性兜底。
-  async function genArenaWorldBattle(a: Gladiator, b: Gladiator, winner: 0 | 1): Promise<{ rounds: BattleRound[]; summary: string }> {
-    const fighters: [Gladiator, Gladiator] = [a, b];
-    const loser: 0 | 1 = winner === 0 ? 1 : 0;
-    const dossier = (g: Gladiator, i: number) => `【${i === 0 ? '一号位' : '二号位'}】${g.name}（${g.race}·${g.tier}·Lv.${g.level}·${g.profession}${g.rareProfession ? '(稀有职业)' : ''}·${g.bioStrength}·${g.style}）血量上限${g.hpMax}\n六维 力${g.attrs.str}/敏${g.attrs.agi}/体${g.attrs.con}/智${g.attrs.int}\n技能：${g.skills.map((s) => `${s.name}(${s.effect})`).join('；') || '近身搏斗'}\n天赋：${(g.talents ?? []).map((t) => `${t.name}(${t.effect})`).join('；') || '无'}\n储存空间：${g.items.map((it) => `${it.name}(${it.effect})`).join('；') || '无'}`;
-    const user = `# 两名参赛者档案\n${dossier(a, 0)}\n\n${dossier(b, 1)}\n\n# 预定胜者（必须获胜，败方最终HP归零）\n${winner === 0 ? '一号位 ' + a.name : '二号位 ' + b.name}（下标 ${winner}）`;
-    const wbCtx = [a, b].map((g) => `${g.race} ${g.profession} ${g.style} ${g.bioStrength} ${g.skills.map((s) => s.name).join(' ')} ${(g.talents ?? []).map((t) => t.name).join(' ')} ${g.items.map((it) => it.name).join(' ')}`).join(' ');
+  // 世界竞技场·自动对战：把两名参赛者【完整档案】（六维/外观/技能/天赋/装备/储存空间含效果）给 AI（读赌场战斗世界书），
+  // 输出一整段分段散文 → `splitScenes` 拆成"战斗场景"逐段揭示。胜负已由服务端裁判钉死（winner），AI 只演绎不改判；失败走确定性兜底。
+  async function genArenaWorldBattle(aSnap: AssistSnapshot, bSnap: AssistSnapshot, winner: 0 | 1): Promise<{ scenes: string[]; summary: string }> {
+    const listOf = (arr: any[] | undefined, withGrade = false) => (arr || [])
+      .map((x: any) => `${x?.name || x?.title || ''}${withGrade && x?.gradeDesc ? '[' + x.gradeDesc + ']' : ''}（${[x?.combatStat, x?.effect || x?.desc || x?.description, x?.affix].filter(Boolean).join(' ') || '—'}）`)
+      .filter((t) => t && !t.startsWith('（')).join('；') || '无';
+    const dossier = (s: AssistSnapshot, i: number) => {
+      const at: any = s.attrs || {};
+      return `【${i === 0 ? '一号位' : '二号位'}】${s.name}（${[s.race, s.tier, s.profession, s.gender].filter(Boolean).join('·')}）血量上限${s.maxHp ?? '?'}\n六维 力${at.str ?? '?'}/敏${at.agi ?? '?'}/体${at.con ?? '?'}/智${at.int ?? '?'}/魅${at.cha ?? '?'}/幸${at.luck ?? '?'}\n外观：${s.appearance || '（未描述）'}\n技能：${listOf(s.skills)}\n天赋：${listOf(s.traits)}\n装备：${listOf(s.equipment, true)}\n储存空间：${listOf(s.items)}`;
+    };
+    const wName = (winner === 0 ? aSnap : bSnap).name || (winner === 0 ? '一号位' : '二号位');
+    const user = `# 两名参赛者完整档案\n${dossier(aSnap, 0)}\n\n${dossier(bSnap, 1)}\n\n# 预定胜者（必须获胜）\n${winner === 0 ? '一号位 ' : '二号位 '}${wName}（下标 ${winner}）`;
+    const wbCtx = [aSnap, bSnap].map((s) => `${s.race || ''} ${s.profession || ''} ${(s.skills || []).map((x: any) => x?.name).join(' ')} ${(s.traits || []).map((x: any) => x?.name).join(' ')} ${(s.equipment || []).map((x: any) => x?.name).join(' ')} ${(s.items || []).map((x: any) => x?.name).join(' ')}`).join(' ');
     const wbInj = buildBattleWbInjection(useCasino.getState().battleWorldBooks, wbCtx);
-    const sys = wbInj ? `${GLADIATOR_BATTLE_RULE}\n\n${wbInj}` : GLADIATOR_BATTLE_RULE;
-    let j: any = {};
+    const sys = wbInj ? `${ARENA_AUTO_NARRATE_RULE}\n\n${wbInj}` : ARENA_AUTO_NARRATE_RULE;
+    let scenes: string[] = [];
     try {
-      const { content } = await apiChatFallback(casinoChain(), [{ role: 'system', content: sys }, { role: 'user', content: user }], { timeoutMs: 90000 });
-      j = parseEntryJson(content) || lenientJsonParse(content) || {};
-    } catch (e) { console.warn('[ArenaWorld] 战斗生成失败:', e); }
-    let rounds: BattleRound[] = Array.isArray(j?.rounds) ? j.rounds.map((r: any, i: number) => sanitizeRound(r, i)) : [];
-    if (rounds.length === 0) return fallbackArenaBattle(fighters, winner);
-    const last = rounds[rounds.length - 1];
-    last.hp[loser] = 0;
-    if (last.hp[winner] <= 0) last.hp[winner] = Math.max(1, Math.round(fighters[winner].hpMax * 0.15));
-    const summary = flattenAiText(j?.summary).slice(0, 160) || `${fighters[winner].name} 笑到了最后。`;
-    return { rounds, summary };
+      const { content } = await apiChatFallback(casinoChain(), [{ role: 'system', content: sys }, { role: 'user', content: user }], { timeoutMs: 120000 });
+      scenes = splitScenes(content);
+    } catch (e) { console.warn('[ArenaWorld] 自动战斗生成失败:', e); }
+    if (scenes.length === 0) return fallbackArenaBattle([cardToGladiator(aSnap), cardToGladiator(bSnap)], winner);
+    return { scenes, summary: `${wName} 笑到了最后。` };
   }
 
   async function genGachaRewards(rewards: GachaReward[]): Promise<GachaReward[]> {
@@ -7196,6 +7197,7 @@ ${lines}`;
         const oppName = useNpc.getState().npcs[foeId]?.name || '对手';
         void genArenaWorldManualReport(state, victor, oppName, !!rc);   // 专属战报：读赌场战斗世界书·≥500字·只显示在竞技场界面（绝不进正文）
         discardArenaFoe(foeId);
+        useCombat.getState().exitCombat();   // 关掉战斗面板（胜或负都关）→ 让位给竞技场面板的战报视图；否则败北时 CombatPanel 结束态盖住战报
       } else {
         const summary = await runBattleSummaryPhase(state, victor);
         const resultText = summary || buildCombatResultFallback(state, victor);
