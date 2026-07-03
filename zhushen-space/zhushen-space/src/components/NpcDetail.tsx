@@ -101,6 +101,8 @@ export default function NpcDetail({
   const cdata = chars[npc.id];
   const skills = cdata?.skills ?? [];
   const traits = cdata?.traits ?? [];
+  // 竞技对手（世界竞技场物化对手 / 局部竞技场对手）强制只读：玩家不得编辑/删除/取走其他玩家上传角色的物品/技能/天赋/装备。
+  const effPreview = preview || npc.npcTag === '竞技对手';
 
   const idx = list.findIndex((r) => r.id === npc.id);
   const realm = parseRealm(npc.realm);
@@ -125,7 +127,7 @@ export default function NpcDetail({
   }
 
   return (
-    <NpcPreviewContext.Provider value={preview}>
+    <NpcPreviewContext.Provider value={effPreview}>
     <div className="fixed inset-0 z-[60] bg-black/80 backdrop-blur-sm flex items-stretch justify-center p-2 sm:p-4" onClick={() => { if (window.innerWidth < 1024) onClose(); }}>
       <div className="w-full max-w-5xl max-h-full flex flex-col rounded-2xl border border-edge bg-void shadow-[0_0_80px_rgba(0,0,0,0.85)] overflow-hidden" onClick={(e) => e.stopPropagation()}>
 
@@ -151,7 +153,7 @@ export default function NpcDetail({
           <div className="flex-1 max-lg:hidden" />
 
           {/* 手动更新：按最近一次正文，单独用 AI 重新演化该 NPC（档案/属性/技能/天赋）*/}
-          {!preview && onManualUpdate && (
+          {!effPreview && onManualUpdate && (
             <button
               onClick={() => onManualUpdate(npc.id)}
               disabled={updating}
@@ -164,10 +166,10 @@ export default function NpcDetail({
             </button>
           )}
 
-          {preview && previewActions}
+          {effPreview && previewActions}
 
           {/* 预览(卡片只读)模式隐藏所有会改 store / 调 API 的操作；正常模式照常 */}
-          {!preview && (<>
+          {!effPreview && (<>
           {/* 与该 NPC 私聊（独立缓存·NSFW·对白+交互描述）*/}
           <button
             onClick={() => setChatOpen(true)}

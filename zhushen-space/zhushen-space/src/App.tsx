@@ -81,6 +81,7 @@ import {
   ARENA_REWARD_RULE,
   GLADIATOR_MATCH_RULE,
   GLADIATOR_BATTLE_RULE,
+  ARENA_MANUAL_NARRATE_RULE,
   GACHA_REWARD_RULE,
   CASINO_BANTER_RULE,
   SOUL_GAMBLE_RULE,
@@ -185,6 +186,8 @@ import { estimateFairValue, priceVerdict, formatFairRange, VERDICT_LABEL } from 
 import { applyMiscCommands, serializeTasks, serializeSettledTasks, serializeEvents, extractTurnSummaries } from './systems/miscParser';
 import { buildNarrativeHistory, NM_COMPILE_PROMPT, NM_INGEST_PROMPT } from './systems/narrativeMemory';
 import { buildMemPool, loadAll as factVecLoadAll, ensureVectors as factVecEnsure, embedOne as factVecEmbedOne, search as factVecSearch, rerank as factVecRerank } from './systems/factVec';
+import { useDbAdvance } from './store/dbAdvanceStore';   // 数据库推进管线（Stitches 规划层）
+import { findModule as dbFindModule, buildModuleMessages as dbBuildMsgs, extractTag as dbExtractTag, stripExcluded as dbStripExcluded, resolveFinalDirective as dbResolveDirective, type DbAdvanceCtx } from './systems/dbAdvancePreset';
 import { serializePlayerCard, serializeNpcCard, buildNpcCandidateTitles, buildPlayerSkillCandidates, buildPlayerItemCandidates, rankNpcsLocal, serializeFactionsSection, namesMentionedIn, NM_STRUCT_SELECT_PROMPT, type RecallLimits } from './systems/structuredRecall';
 import { drainAllocNotices } from './systems/allocNotice';
 const MiscPanel = lazy(() => import('./components/MiscPanel'));
@@ -201,6 +204,10 @@ import { computeGladiatorOdds, type Gladiator, type GladiatorEval, type BattleRo
 import { type GachaReward } from './systems/casinoGacha';
 import { buildBattleWbInjection } from './systems/casinoBattleWb';
 import { fallbackArenaBattle } from './systems/arenaWorldBattle';
+import { materializeArenaFoe, discardArenaFoe } from './systems/arenaWorldApply';
+import { arenaWorldClient } from './systems/arenaWorldClient';
+import { useArenaWorld } from './store/arenaWorldStore';
+import type { AssistSnapshot } from './systems/arenaWorldProtocol';
 const JoyPanel = lazy(() => import('./components/JoyPanel'));
 import { useJoy, hydrateJoyWorldBooks } from './store/joyStore';
 import { buildJoySystem, parseJoyReply, buildGreetPrompt } from './systems/joyGirls';
@@ -1016,6 +1023,8 @@ export default function App() {
   const [nmRecalling,        setNmRecalling]        = useState(false);  // 叙事记忆：正在进行记忆回溯
   const [nmPhaseLog,         setNmPhaseLog]         = useState('');     // 叙事记忆：回溯/整理结果提示
   const [guidanceRunning,    setGuidanceRunning]    = useState(false);  // 剧情指导：正在生成本回合剧情建议（状态栏提示）
+  const [autoAdvActive,      setAutoAdvActive]      = useState(false);  // 循环自动推进进行中（🔁 高亮/停）
+  const autoAdvRef = useRef<{ running: boolean; left: number; timer: ReturnType<typeof setTimeout> | null }>({ running: false, left: 0, timer: null });
   const [backpackOpen,     setBackpackOpen]     = useState(false);
   const [cmdkOpen,         setCmdkOpen]         = useState(false);   // 命令面板（⌘K / Ctrl+K / 顶栏🔍 快速跳转面板）
   const [revarOpen,        setRevarOpen]        = useState(false);   // 重算单项变量菜单（重 ROLL）
@@ -1064,6 +1073,8 @@ export default function App() {
   const [tradeOpen, setTradeOpen] = useState(false);  // 全局交易行
   const [assistOpen, setAssistOpen] = useState(false);  // 全局助战大厅
   const [arenaWorldOpen, setArenaWorldOpen] = useState(false);  // 世界竞技场
+  const arenaSparFoeRef = useRef<string | null>(null);  // 世界竞技场·切磋/手动挑战的临时对手 cid（战后清理）
+  const arenaRankedChallengeRef = useRef<{ myCardId: string; opponentCardId: string } | null>(null);  // 手动应战：战后回传占位结果
   const [monumentOpen, setMonumentOpen] = useState(false);  // 纪念丰碑（跨存档英灵殿）
   const chatUnread = useChatRoom((s) => s.unread);   // 导航红点：聊天室未读
   const chatOnline = useChatRoom((s) => s.roster.length);   // 在线人数（= 当前在玩且已登录的人）
@@ -1598,9 +1609,12 @@ export default function App() {
     console.log(`[正则|${stage}] 共 ${all.length} 条，过滤后执行 ${scripts.length} 条`, scripts.map((s) => ({ name: s.scriptName, find: s.findRegex, flags: s.flags, placement: s.placement, md: s.markdownOnly, prompt: s.promptOnly })));
 
     let result = text;
-    // ── 安全网：隐藏常见「思考/推理」标签块（dotAll），即便用户正则漏配或模型变体也兜底 ──
-    //   覆盖 <thinking>/<think>/<reasoning>/<reason>/<plan>/<analysis>/<scratchpad>/<cot> 配对标签
-    result = result.replace(/<(thinking|think|reasoning|reason|plan|analysis|scratchpad|cot)\b[^>]*>[\s\S]*?<\/\1>/gi, '');
+    // ── 安全网：隐藏常见「思考/推理/防拦截」标签块（dotAll），即便用户正则漏配或写成贪婪也兜底 ──
+    //   覆盖 <thinking>/<think>/<reasoning>/<reason>/<plan>/<analysis>/<scratchpad>/<cot> 思考标签，
+    //   以及预设常见的 <*_opinion>（人设动笔前思考，如 <Alu_opinion>）/<*_interception>（防拦截，如 <Anti_interception>）/<viewpoint>（防拦截填充内容）。
+    //   本网跑在用户正则之前，且用【非贪婪 + 闭合标签反向引用 \1】只删配对闭合块：① 自身绝不会误吃正文（只到最近对应闭合标签）；
+    //   ② 更关键——提前把这些块删净后，用户若把 strip 写成贪婪如 `<Alu_opinion>[\s\S]*`（一路吃到结尾=把正文吞了）也已无块可匹配 → 正文得救（用户报「正文被隐藏」的根因）。
+    result = result.replace(/<(thinking|think|reasoning|reason|plan|analysis|scratchpad|cot|[a-z_]*opinion|[a-z_]*interception|viewpoint)\b[^>]*>[\s\S]*?<\/\1>/gi, '');
     // ── 安全网：折叠失控复读（极其极其…），即便用户没配反复读正则也兜底，防最终文本仍带成千上万字重复 ──
     result = collapseRunaway(result);
     for (const s of scripts) {
@@ -1713,7 +1727,16 @@ export default function App() {
     // HP/EP 结算：让主正文每回合末尾输出主角+在场NPC的当前 HP/EP（前端 applyNarrativeVitals/NpcVitals 解析，HP/EP 管理阶段也以此为最终值）
     addRule('HP_EP结算输出', '前端规则 · HP/EP 结算输出', VITALS_SETTLEMENT_EMIT_RULE);
     // ACU 表格数据库：把填表铁则 + 当前所有表的结构与数据注入主正文，让 AI 每回合末尾输出 <tableEdit> 维护游戏状态表（applyAllUpdates 落库、stripStateBlocks 从展示剥离）
-    { const _tableFill = buildTableFillPrompt(); addRule('表格填表', '前端规则+数据 · 表格数据库填表', _tableFill); }
+    // 填表调度（设置→变量管理→填表调度）：enabled=总开关；everyN>1=每 N 回合才填一次；only=只维护指定剧情表。默认 {enabled,everyN:1,only:[]}=每回合全填(原行为)
+    {
+      const tf = useSettings.getState().tableFill ?? { enabled: true, everyN: 1, only: [] };
+      const everyN = Math.max(1, Math.floor(tf.everyN || 1));
+      const turnNo = useMisc.getState().turnCount ?? 0;
+      if (tf.enabled && (everyN <= 1 || turnNo % everyN === 0)) {
+        const _tableFill = buildTableFillPrompt(tf.only);
+        addRule('表格填表', '前端规则+数据 · 表格数据库填表', _tableFill);
+      }
+    }
     // 在场 NPC 当前 HP/EP + 上限：把真实数值喂给主正文，让上面的 <状态结算> 能**逐个准确**列出在场队友（不靠 AI 凭记忆瞎填/漏填导致队友卡在残血），休息疗伤时也据上限回满
     try {
       const onSceneNpcs = Object.values(useNpc.getState().npcs).filter((r: any) => r.onScene && !r.isDead && r.name && r.name !== r.id);
@@ -6251,6 +6274,47 @@ ${lines}`;
   /* ════════════════════════════════════════════
      赌场·角斗场：一次 API 生成两名角斗士 + 专家评估（赔率前端算）；下注后据预定胜者生成数据化分回合战斗
   ════════════════════════════════════════════ */
+  // 世界竞技场·切磋：把对手参赛卡物化成敌方临时 NPC → 真实战斗系统对战（不计分，无排名结算）。
+  function startArenaWorldSpar(snap: AssistSnapshot) {
+    if (useCombat.getState().battle.active) return;
+    if (arenaSparFoeRef.current) { discardArenaFoe(arenaSparFoeRef.current); arenaSparFoeRef.current = null; }
+    const cid = materializeArenaFoe(snap);
+    if (!cid) return;
+    arenaSparFoeRef.current = cid;
+    startCombatWithSelection({ enemyIds: [cid], allyIds: [] });
+  }
+
+  // 世界竞技场·手动应战：物化对手为敌方临时 NPC → 真实战斗系统对战；胜负在 finishBattle 回传服务端（胜=占位取代）。
+  function startArenaWorldRankedManual(snap: AssistSnapshot, myCardId: string, opponentCardId: string) {
+    if (useCombat.getState().battle.active) return;
+    if (arenaSparFoeRef.current) { discardArenaFoe(arenaSparFoeRef.current); arenaSparFoeRef.current = null; }
+    const cid = materializeArenaFoe(snap);
+    if (!cid) return;
+    arenaSparFoeRef.current = cid;
+    arenaRankedChallengeRef.current = { myCardId, opponentCardId };
+    startCombatWithSelection({ enemyIds: [cid], allyIds: [] });
+  }
+
+  // 世界竞技场·手动战报：读赌场战斗世界书 + 专属提示词，把亲手打完的结算数据演绎成≥500字战报，写入 arena store 供面板展示（不进正文）。
+  async function genArenaWorldManualReport(state: BattleState, victor: Side | null, oppName: string, ranked: boolean): Promise<void> {
+    const iWon = victor === 'player';
+    const meName = usePlayer.getState().profile.name || '我';
+    const winnerName = iWon ? meName : oppName;
+    const loserName = iWon ? oppName : meName;
+    useArenaWorld.getState()._set({ sparResult: { text: '', winnerName, loserName, iWon, ranked, loading: true } });
+    let text = '';
+    try {
+      const record = buildCombatResultFallback(state, victor) || `${winnerName} 战胜 ${loserName}`;
+      const wbInj = buildBattleWbInjection(useCasino.getState().battleWorldBooks, `${winnerName} ${loserName}`);
+      const sys = wbInj ? `${ARENA_MANUAL_NARRATE_RULE}\n\n${wbInj}` : ARENA_MANUAL_NARRATE_RULE;
+      const user = `# 世界竞技场·对战实录（战斗系统结算数据）\n${record}\n\n# 最终结果\n胜者：${winnerName}\n败者：${loserName}\n\n请据此写一段不少于 500 字的战斗描写。`;
+      const { content } = await apiChatFallback(casinoChain(), [{ role: 'system', content: sys }, { role: 'user', content: user }], { timeoutMs: 120000 });
+      text = (content || '').replace(/<think[\s\S]*?<\/think>/gi, '').replace(/```+/g, '').trim();
+    } catch (e) { console.warn('[ArenaWorld] 战报生成失败:', e); }
+    if (!text) text = `${winnerName} 与 ${loserName} 在世界竞技场展开激战，招式往来、险象环生，最终 ${winnerName} 技高一筹，赢得了这场对决。`;
+    useArenaWorld.getState()._set({ sparResult: { text, winnerName, loserName, iWon, ranked, loading: false } });
+  }
+
   function casinoChain() {
     const ss = useSettings.getState();
     const legacy = ss.textUseSharedApi ? ss.api : ss.textApi;   // 赌坊无专用路由时回退到正文/共享 API
@@ -7123,20 +7187,31 @@ ${lines}`;
         }
       }
       currentEncounterRef.current = null;
-      const summary = await runBattleSummaryPhase(state, victor);
-      const resultText = summary || buildCombatResultFallback(state, victor);
-      const settledNote = '（系统：本场战斗的 HP/EP 已结算并写入面板，续写正文请从当前面板状态出发，不要重复结算战斗伤害或再加减 HP/EP。）';
-      const full = resultText ? `${resultText}\n${settledNote}` : '';
-      // 战斗结果写进用户输入框，由玩家确认/编辑后点发送续写正文（不自动插入正文楼层）
-      if (full) setInputValue((prev) => (prev && prev.trim() ? `${prev}\n\n${full}` : full));
-      writeBackCombatVitals(state);
-      // 竞技场挑战结算（取代名次 + 前100奖励 + 击败记录 + 清理临时对手）
-      const arenaPending = useArena.getState().pendingChallenge;
-      if (arenaPending && state.initialState[arenaPending.opponentCid]) {
-        try {
-          const arenaNote = await runArenaWinSettlement(arenaPending, victor);
-          if (arenaNote) setInputValue((prev) => (prev && prev.trim() ? `${prev}\n\n${arenaNote}` : arenaNote));
-        } catch (e) { console.warn('[Arena] 战斗结算失败:', e); useArena.getState().setPendingChallenge(null); }
+      if (arenaSparFoeRef.current) {
+        // 世界竞技场·手动战斗（手动挑战/切磋）：不写正文、不改主角真实 HP/EP（纯竞技）；改为读赌场战斗世界书生成专属战报显示在竞技场面板。
+        const foeId = arenaSparFoeRef.current; arenaSparFoeRef.current = null;
+        const rc = arenaRankedChallengeRef.current; arenaRankedChallengeRef.current = null;
+        const iWon = victor === 'player';
+        if (rc) { try { arenaWorldClient.reportChallenge(rc.myCardId, rc.opponentCardId, iWon); } catch (e) { console.warn('[ArenaWorld] 手动挑战结果回传失败:', e); } }   // 手动挑战计分（切磋无 rc）
+        const oppName = useNpc.getState().npcs[foeId]?.name || '对手';
+        void genArenaWorldManualReport(state, victor, oppName, !!rc);   // 专属战报：读赌场战斗世界书·≥500字·只显示在竞技场界面（绝不进正文）
+        discardArenaFoe(foeId);
+      } else {
+        const summary = await runBattleSummaryPhase(state, victor);
+        const resultText = summary || buildCombatResultFallback(state, victor);
+        const settledNote = '（系统：本场战斗的 HP/EP 已结算并写入面板，续写正文请从当前面板状态出发，不要重复结算战斗伤害或再加减 HP/EP。）';
+        const full = resultText ? `${resultText}\n${settledNote}` : '';
+        // 战斗结果写进用户输入框，由玩家确认/编辑后点发送续写正文（不自动插入正文楼层）
+        if (full) setInputValue((prev) => (prev && prev.trim() ? `${prev}\n\n${full}` : full));
+        writeBackCombatVitals(state);
+        // 局部竞技场挑战结算（取代名次 + 前100奖励 + 击败记录 + 清理临时对手）
+        const arenaPending = useArena.getState().pendingChallenge;
+        if (arenaPending && state.initialState[arenaPending.opponentCid]) {
+          try {
+            const arenaNote = await runArenaWinSettlement(arenaPending, victor);
+            if (arenaNote) setInputValue((prev) => (prev && prev.trim() ? `${prev}\n\n${arenaNote}` : arenaNote));
+          } catch (e) { console.warn('[Arena] 战斗结算失败:', e); useArena.getState().setPendingChallenge(null); }
+        }
       }
       // 结束态已在开头置好（不再重复 endBattle，避免玩家已点「关闭」后又被顶回结算面板）
     } catch (e: any) {
@@ -7267,6 +7342,62 @@ ${lines}`;
     } finally { setGuidanceRunning(false); }
   }
 
+  /* 数据库推进管线（Stitches 格式·开启时）：正文【前】跑「召回→推进」规划层（复用 guidance 路由）——
+     召回子调用抽 <recall>、推进子调用抽 <stage>/<scene> 并存 <tabletop> 供下轮 →
+     resolve finalSystemDirective（填 $8/stage/scene/recall）返回，注入正文，**正文预设据此写散文**（预设只规划不写正文）。
+     每子调用墙钟兜底：超时/失败 → 尽力返回已有部分或 ''（绝不挡正文）。占位符/解析见 systems/dbAdvancePreset。 */
+  async function runDbAdvancePipeline(userText: string, worldInfoText: string): Promise<string> {
+    const st = useDbAdvance.getState();
+    if (!st.enabled || !st.preset) return '';
+    const gApi = textUseShared ? sharedApi : textApi;
+    const chain = resolveApiChain('guidance', gApi);
+    if (!chain[0]?.baseUrl || !chain[0]?.apiKey) { console.warn('[数据库推进] guidance/正文 API 均未配置，跳过'); return ''; }
+    const WALL_MS = 45000;
+    const callMod = (messages: { role: string; content: string }[]) => {
+      const call = apiChatFallback(chain, messages.map((m) => ({ role: m.role as 'system' | 'user' | 'assistant', content: m.content })), { timeoutMs: 30000 })
+        .then(({ content }) => stripLeakedThinking(content || '').trim())
+        .catch((e) => { console.warn('[数据库推进] 子调用失败', e); return ''; });
+      return Promise.race([call, new Promise<string>((r) => setTimeout(() => { console.warn(`[数据库推进] 超 ${WALL_MS}ms，跳过`); r(''); }, WALL_MS))]);
+    };
+    // 占位符上下文：$U 主角 / $C 卡片 / $1 背景(世界书) / $5 事件概览 / $7 前文 / $8 输入 / {{tabletop}} 上轮
+    const pf = usePlayer.getState().profile;
+    const U = [`姓名:${pf.name || '主角'}`, pf.identity && `身份:${pf.identity}`, pf.tier && `阶位:${pf.tier}`, pf.level && `等级:${pf.level}`, pf.appearance && `外观:${pf.appearance}`, pf.background && `背景:${pf.background}`].filter(Boolean).join('\n');
+    const C = [pf.name, pf.identity, pf.background].filter(Boolean).join(' · ') || '（无卡片简述）';
+    const memPool = buildMemPool(useMisc.getState(), 200, false);
+    const overview = memPool.filter((p) => p.kind === 'event' || p.kind === 'large' || p.kind === 'fact')
+      .map((p) => `[${p.kind === 'event' ? '世界大事' : p.kind === 'large' ? '阶段记忆' : '长期事实'}] ${p.body}`).join('\n') || '（暂无）';
+    const prev = (messagesRef.current ?? []).slice(-8).map((m) => `[${m.role === 'user' ? '玩家' : '正文'}] ${m.content}`).join('\n\n') || '（暂无前文）';
+    const ctx: DbAdvanceCtx = { U, C, bg: worldInfoText || '（无背景设定）', overview, prev, input: userText || '（续写）', tabletop: st.lastTabletop || '（首轮·无上轮记录）' };
+
+    setGuidanceRunning(true);
+    try {
+      // 1) 召回（可选·关则跳过省一次调用）
+      let recall = '';
+      if (st.useRecall) {
+        const recMod = dbFindModule(st.preset, '召回');
+        if (recMod) {
+          const out = await callMod(dbBuildMsgs(recMod, ctx));
+          recall = dbStripExcluded(dbExtractTag(out, 'recall') || out, st.preset.contextExcludeRules).trim();
+        }
+      }
+      // 2) 推进：产出结构化 stage/scene/tabletop
+      const advMod = dbFindModule(st.preset, '推进');
+      if (!advMod) return '';
+      const advOut = await callMod(dbBuildMsgs(advMod, { ...ctx, recall }));
+      if (!advOut) return '';
+      const clean = dbStripExcluded(advOut, st.preset.contextExcludeRules);
+      const stage = dbExtractTag(clean, 'stage');
+      const scene = dbExtractTag(clean, 'scene');
+      const tabletop = dbExtractTag(clean, 'tabletop');
+      useDbAdvance.getState().setOutputs({ stage, scene, recall, tabletop: tabletop || st.lastTabletop });   // 存下轮 {{tabletop}}
+      // 3) finalSystemDirective（$8 + stage + scene + recall）→ 注入正文
+      const directive = dbResolveDirective(st.preset, { ...ctx, stage, scene, recall });
+      if (directive) console.log(`[数据库推进] 规划完成（stage ${stage.length} / scene ${scene.length} / tabletop ${tabletop.length} 字）`);
+      return directive;
+    } catch (e) { console.warn('[数据库推进] 管线失败', e); return ''; }
+    finally { setGuidanceRunning(false); }
+  }
+
   async function callApi(userText: string, extraHistory: ChatMessage[] = [], opts: { narrateOnly?: boolean } = {}) {
     const narrateOnly = !!opts.narrateOnly;   // 分头三段式·Stage2：用全预设+角色数据+世界书+上下文生成正文，但只 return 不落地（不计回合/不入账<state>/不显示/不演化）→由编排去对齐再统一处理
     // 每次用户发消息计为一回合（narrateOnly 草稿不计——回合由编排在 Stage4 / 来宾自我演化各计一次）
@@ -7354,6 +7485,12 @@ ${lines}`;
     if (plotGuidance) {
       const g = await runPlotGuidance(userText);
       if (g) guidanceBlock = [{ role: 'system', content: `【剧情指导·本回合写作建议（仅"剧情方向"参考）】\n${g}\n\n（以上仅为剧情方向建议：把方向自然融入正文即可，勿照抄成对白/旁白/标题。⚠️正文的输出格式与一切结构模块——状态栏／时间结算／【主角资源】等世界书与预设规定的模块——一律照常严格输出，不得因本建议而省略、简化或改变格式。本建议只影响"写什么剧情"，不影响"怎么排版输出"。）` }];
+    }
+    // 数据库推进管线（Stitches·开启时）：正文前跑「召回→推进」规划层，产出 stage/scene/recall → 注入正文，正文预设据此写散文（预设只规划、不写正文）
+    let dbAdvanceBlock: { role: 'system'; content: string }[] = [];
+    if (!narrateOnly && useDbAdvance.getState().enabled && useDbAdvance.getState().preset) {
+      const d = await runDbAdvancePipeline(userText, worldInfoText);
+      if (d) dbAdvanceBlock = [{ role: 'system', content: `【数据库推进·本回合规划（导演已排好这一拍的角色行动/场景/记忆，请据此写正文；正文格式与一切结构模块照常严格输出，不因本规划而省略或改格式）】\n${d}` }];
     }
 
     // 历史：叙事记忆（关键词召回，启用时）或按 historyLimit 切片（现状）
@@ -7457,6 +7594,13 @@ ${lines}`;
       recent = visibleHistory.map((m) => ({ role: m.role as 'user' | 'assistant', content: m.content }));
     }
 
+    // 记忆去重：若 Stitches 推进管线本回合真产出了 {{recall}}（已注入 dbAdvanceBlock），就跳过 zhushen 自己的 <相关记忆> 注入，
+    //   避免「同一批历史记忆」双份进正文（recent 楼层 + 结构化档案不受影响·照留）。Stitches 召回关/失败(lastRecall 空)→不动 zhushen 召回，正常兜底。
+    if (dbAdvanceBlock.length > 0 && useDbAdvance.getState().lastRecall.trim() && memory.length) {
+      memory = [];
+      console.log('[数据库推进] 本回合已出 {{recall}} → 跳过 zhushen <相关记忆> 注入，防记忆双份');
+    }
+
     const mpPartyBlock = buildPartyProfiles();   // 联机房主：同行真人队友档案(技能/天赋/职业/装备/性格/外观/种族)
     const mpRuleBlock = mpNarrativeRule();        // 联机专用正文规则（建房时房主可选启用）
     const skillUpNote = takeSkillUpNote();        // 技能升级·一次性"点数已用掉"系统提示（注入一次即清）
@@ -7479,6 +7623,7 @@ ${lines}`;
       ...structPlayer,                                 // <主角当前档案> 浅注入：紧贴最近正文/用户输入
       ...(skillUpNote ? [{ role: 'system' as const, content: skillUpNote }] : []),   // 技能升级·一次性结算通知（仅告知点数已用掉）
       ...guidanceBlock,                                // <剧情指导> 本回合写作建议
+      ...dbAdvanceBlock,                               // <数据库推进> Stitches 规划层（stage/scene/recall）→ 正文预设据此写
       ...(worldbook && worldbook.post ? [{ role: worldbook.role, content: worldbook.content }] : []),   // <世界书+RAG> 无 marker → 楼层后（稳定前缀外·缓存友好）；marker 后历史亦此
       ...tail.map((t) => ({ role: t.role, content: t.content })),   // <后历史预设块> chatHistory marker 之后的预设块（破限/格式/规则等）→ 真实楼层之后（仿 fanren post-history）
       ...[...depthInjections, ...wbDepthInjections].sort((a, b) => b.depth - a.depth).map((inj) => ({ role: inj.role, content: inj.content })),
@@ -7890,8 +8035,44 @@ ${lines}`;
     runPostNarrativePhases(narrativeForEvo, newMsgId);
   }
 
-  async function sendMessage(textArg?: string) {
+  /** ⏩ 当前选中的推进语（无预设则回退内置 PLOT_ADVANCE_DIRECTIVE）。 */
+  function selectedAdvanceText(): string {
+    const st = useSettings.getState();
+    const t = (st.advancePresets ?? [])[st.advanceSelected ?? 0]?.text;
+    return t && t.trim() ? t : PLOT_ADVANCE_DIRECTIVE;
+  }
+  /** 停止循环自动推进（清计时器+状态）。用户手动发送 / 再点🔁 / 出错都调它。 */
+  function stopAutoAdvance() {
+    autoAdvRef.current.running = false;
+    autoAdvRef.current.left = 0;
+    if (autoAdvRef.current.timer) { clearTimeout(autoAdvRef.current.timer); autoAdvRef.current.timer = null; }
+    setAutoAdvActive(false);
+  }
+  /** 循环自动推进单步：发一拍推进语 → 等它跑完 → 若还有余量且没被中断 → 隔 delayMs 再来一步。 */
+  async function autoAdvanceStep() {
+    if (!autoAdvRef.current.running || autoAdvRef.current.left <= 0) { stopAutoAdvance(); return; }
+    autoAdvRef.current.left -= 1;
+    try { await sendMessage(selectedAdvanceText(), true); }   // fromAuto=true：不自我中断
+    catch { stopAutoAdvance(); return; }
+    if (!autoAdvRef.current.running || autoAdvRef.current.left <= 0) { stopAutoAdvance(); return; }
+    const delay = Math.max(0, useSettings.getState().autoAdvance?.delayMs ?? 1500);
+    autoAdvRef.current.timer = setTimeout(() => { void autoAdvanceStep(); }, delay);
+  }
+  /** 🔁 开/停循环自动推进（连推 maxLoops 拍·每拍间隔 delayMs）。联机内禁用；正忙则不启动。 */
+  function toggleAutoAdvance() {
+    if (autoAdvRef.current.running) { stopAutoAdvance(); return; }
+    if (useMp.getState().status === 'connected') { setGenError('联机房间内不支持循环自动推进'); setTimeout(() => setGenError(''), 4000); return; }
+    if (generating || guidanceRunning) return;
+    const cfg = useSettings.getState().autoAdvance ?? { maxLoops: 3, delayMs: 1500 };
+    autoAdvRef.current.running = true;
+    autoAdvRef.current.left = Math.max(1, Math.floor(cfg.maxLoops || 1));
+    setAutoAdvActive(true);
+    void autoAdvanceStep();
+  }
+
+  async function sendMessage(textArg?: string, fromAuto = false) {
     const text = (textArg ?? inputValue).trim();
+    if (!fromAuto) stopAutoAdvance();   // 用户手动发送即中断循环自动推进
     if (!text || generating || guidanceRunning) return;   // 剧情指导前置阶段也算「忙」，防重复发起并发调用
 
     // ── 联机分叉 ──
@@ -8875,12 +9056,20 @@ ${lines}`;
             </button>
             )}
             <button
-              onClick={() => sendMessage(PLOT_ADVANCE_DIRECTIVE)}
+              onClick={() => sendMessage(selectedAdvanceText())}
               disabled={generating || guidanceRunning}
               title="推进剧情（不用输入·顺当前局势与铺垫/伏笔/约定自然发展一拍，草稿保留）"
               className="w-7 h-7 max-lg:w-9 max-lg:h-9 flex items-center justify-center text-emerald-300 border border-emerald-400/30 rounded hover:bg-emerald-400/10 shrink-0 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
             >
               ⏩
+            </button>
+            <button
+              onClick={toggleAutoAdvance}
+              disabled={(generating || guidanceRunning) && !autoAdvActive}
+              title={autoAdvActive ? '停止循环自动推进' : '循环自动推进（自动连推数拍·在设置调次数/间隔；你一发送就停）'}
+              className={`w-7 h-7 max-lg:w-9 max-lg:h-9 flex items-center justify-center border rounded shrink-0 transition-colors ${autoAdvActive ? 'text-rose-300 border-rose-400/50 bg-rose-500/10 animate-pulse' : 'text-emerald-300/70 border-emerald-400/30 hover:bg-emerald-400/10 disabled:opacity-40 disabled:cursor-not-allowed'}`}
+            >
+              {autoAdvActive ? '⏹' : '🔁'}
             </button>
             <button
               onClick={() => sendMessage()}
@@ -9195,7 +9384,7 @@ ${lines}`;
       {chatRoomOpen && <ChatRoomPanel onClose={() => setChatRoomOpen(false)} />}
       {tradeOpen && <TradePanel onClose={() => setTradeOpen(false)} />}
       {assistOpen && <AssistPanel onClose={() => setAssistOpen(false)} />}
-      {arenaWorldOpen && <ArenaWorldPanel onClose={() => setArenaWorldOpen(false)} onGenBattle={genArenaWorldBattle} />}
+      {arenaWorldOpen && <ArenaWorldPanel onClose={() => setArenaWorldOpen(false)} onGenBattle={genArenaWorldBattle} onSpar={(card) => startArenaWorldSpar(card.snapshot)} onManualChallenge={(opp, myCardId) => startArenaWorldRankedManual(opp.snapshot, myCardId, opp.id)} />}
       {monumentOpen && <MonumentPanel onClose={() => setMonumentOpen(false)} />}
       {mpIncomingGift && <GiftPrompt gift={mpIncomingGift} onClose={() => useMp.getState()._set({ incomingGift: null })} />}
       {mpRaidLoot && <RaidLootModal onClose={() => useMp.getState()._set({ raidLoot: null })} />}

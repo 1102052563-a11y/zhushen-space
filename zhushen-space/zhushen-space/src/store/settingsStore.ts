@@ -263,6 +263,16 @@ interface SettingsState {
   setAudio: (patch: Partial<{ enabled: boolean; volume: number; ambient: boolean; ambientVolume: number }>) => void;
   allowAutoEquip: boolean;  // 是否允许 AI 自动装备主角拾取/生成的装备（关闭=仅能在装备面板手动穿戴）
   setAllowAutoEquip: (v: boolean) => void;
+  // ACU 表格数据库·填表调度：enabled=总开关（关则不再每回合注入填表规则+剧情表·AI 不维护表）；everyN=每 N 回合才填一次（1=每回合·默认）；only=只维护这些剧情表(uid: chronicle/progress/foreshadowing/pacts·空=全部)
+  tableFill: { enabled: boolean; everyN: number; only: string[] };
+  setTableFill: (patch: Partial<{ enabled: boolean; everyN: number; only: string[] }>) => void;
+  // ⏩ 推进预设（多条推进语·⏩ 用选中那条·空则回退 PLOT_ADVANCE_DIRECTIVE）+ 循环自动推进（连推 maxLoops 拍·每拍间隔 delayMs·用户手动发送即中断）
+  advancePresets: { name: string; text: string }[];
+  advanceSelected: number;
+  autoAdvance: { maxLoops: number; delayMs: number };
+  setAdvancePresets: (v: { name: string; text: string }[]) => void;
+  setAdvanceSelected: (i: number) => void;
+  setAutoAdvance: (patch: Partial<{ maxLoops: number; delayMs: number }>) => void;
   allowAutoEquipNpc: boolean;  // 是否允许自动给 NPC 穿戴装备（含初始装备与 AI 装备指令；关闭=只入 NPC 储存空间）
   setAllowAutoEquipNpc: (v: boolean) => void;
   customOpening: string;  // 自定义开场白模板（角色创建确认后自动发送；含 ${...} 占位符，空=用内置默认）
@@ -688,6 +698,10 @@ export const useSettings = create<SettingsState>()(
       showNewlineButton: true,
       weatherFx: true,
       audio: { enabled: true, volume: 0.7, ambient: true, ambientVolume: 0.4 },
+      tableFill: { enabled: true, everyN: 1, only: [] },   // 默认：每回合填全部剧情表（＝原行为·不破老档）
+      advancePresets: [],   // 空=⏩ 回退内置 PLOT_ADVANCE_DIRECTIVE；可在设置里加「激进/缝合怪」等
+      advanceSelected: 0,
+      autoAdvance: { maxLoops: 3, delayMs: 1500 },
       allowAutoEquip: true,
       allowAutoEquipNpc: true,
       customOpening: '',
@@ -748,6 +762,10 @@ export const useSettings = create<SettingsState>()(
       setShowNewlineButton: (v) => set({ showNewlineButton: v }),
       setWeatherFx: (v) => set({ weatherFx: v }),
       setAudio: (patch) => set((s) => ({ audio: { ...s.audio, ...patch } })),
+      setTableFill: (patch) => set((s) => ({ tableFill: { ...(s.tableFill ?? { enabled: true, everyN: 1, only: [] }), ...patch } })),
+      setAdvancePresets: (v) => set({ advancePresets: v }),
+      setAdvanceSelected: (i) => set({ advanceSelected: i }),
+      setAutoAdvance: (patch) => set((s) => ({ autoAdvance: { ...(s.autoAdvance ?? { maxLoops: 3, delayMs: 1500 }), ...patch } })),
       setAllowAutoEquip: (v) => set({ allowAutoEquip: v }),
       setAllowAutoEquipNpc: (v) => set({ allowAutoEquipNpc: v }),
       setCustomOpening: (s) => set({ customOpening: s }),

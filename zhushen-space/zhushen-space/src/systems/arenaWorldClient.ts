@@ -141,6 +141,7 @@ export const arenaWorldClient = {
   publishCard,
   removeCard: (cardId: string) => sendRaw({ type: 'remove_card', cardId }),
   challenge: (myCardId: string, opponentCardId: string) => sendRaw({ type: 'challenge', myCardId, opponentCardId }),
+  reportChallenge: (myCardId: string, opponentCardId: string, win: boolean) => sendRaw({ type: 'report_result', myCardId, opponentCardId, win }),
   clearResult: () => useArenaWorld.getState()._set({ lastResult: null }),
   isOpen: () => !!ws && ws.readyState === 1,
 };

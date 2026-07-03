@@ -328,12 +328,15 @@ export async function loadSlot(id: string): Promise<boolean> {
   // 一刷新/读档又关闭」的根因（2026-06-20 修）。API 字段原本已由 mergeKeepApi 保当前，这里把整个
   // settings store 统一归为全局配置，不随存档回滚（配置与具体存档解绑，全局一致）。
   const KEEP_CURRENT = new Set(['drpg-settings']);
-  for (const { key } of STORES) {
-    if (KEEP_CURRENT.has(key)) continue;   // 全局配置：保留当前，不被存档快照覆盖
-    const v = slot.data.stores[key];
-    if (typeof v === 'string') localStorage.setItem(key, mergeKeepApi(key, v));   // API 配置不随存档回滚
-    else if (CLEAR_ON_MISSING.has(key)) localStorage.removeItem(key);             // 仅较新功能缓存缺失才清（防泄漏）；核心存档一律保留当前，绝不抹
-  }
+  // ★store 快照写回 localStorage 见下方 restoreStores()——**故意放到所有 await 之后、reload 之前执行**。
+  const restoreStores = () => {
+    for (const { key } of STORES) {
+      if (KEEP_CURRENT.has(key)) continue;   // 全局配置：保留当前，不被存档快照覆盖
+      const v = slot.data.stores[key];
+      if (typeof v === 'string') localStorage.setItem(key, mergeKeepApi(key, v));   // API 配置不随存档回滚
+      else if (CLEAR_ON_MISSING.has(key)) localStorage.removeItem(key);             // 仅较新功能缓存缺失才清（防泄漏）；核心存档一律保留当前，绝不抹
+    }
+  };
   // 图片：覆盖 IndexedDB（reload 后由 hydrateImages 回填到各 store）。
   // 仅当快照带了图片才清+写；不带图片的快照（如降级保存的回退点）保留现有图片，避免回退把图全清掉。
   try { if (slot.data.images) { await clearAllImg(); await bulkPutImg(slot.data.images); } } catch (e) { logWarn('saveManager.loadSlot.images', e); }
@@ -358,6 +361,12 @@ export async function loadSlot(id: string): Promise<boolean> {
       }
     } catch (e) { logWarn('saveManager.loadSlot.undoRestore', e); }
   }
+  // ★把 store 快照写回 localStorage 放到【所有 await 之后、reload 之前】的最后一刻——否则上面那几个 await
+  //   （图片/对话/归档/回退点 的 IndexedDB 操作）期间，仍存活的 store（或此刻还在后台跑、刚发放奖励的**异步演化阶段**，
+  //   如物品/结算阶段）会把【当前·未回退】的值 persist 覆盖掉刚写回的快照，reload 后就 hydrate 成没回退的旧值——
+  //   这正是「⟳重新生成 不回退乐园币/物品数量、每 roll 一次奖励重复入账」的根因（live store 盖 localStorage）。
+  //   放最后 = 写回与 reload 之间零 async 窗口，杜绝被盖。
+  restoreStores();
   setResumeFlag(PENDING_STARTED_KEY);   // localStorage+TTL：跨 reload 稳定存活（手机/PWA 下 sessionStorage 会丢→读档弹回主界面）
   location.reload();
   return true;

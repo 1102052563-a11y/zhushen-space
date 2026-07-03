@@ -49,4 +49,5 @@ export type ArenaInbound =
 export type ArenaOutbound =
   | { type: 'publish_card'; kind: ArenaKind; snapshot: AssistSnapshot; srcKey: string }
   | { type: 'remove_card'; cardId: string }
-  | { type: 'challenge'; myCardId: string; opponentCardId: string };
+  | { type: 'challenge'; myCardId: string; opponentCardId: string }
+  | { type: 'report_result'; myCardId: string; opponentCardId: string; win: boolean };   // 手动应战·上报真实战斗胜负

@@ -5,11 +5,14 @@ import { useState, useEffect, useMemo } from 'react';
 import { useTables } from '../store/tableStore';
 import { useItems } from '../store/itemStore';
 import { useNpc } from '../store/npcStore';
+import { useSettings } from '../store/settingsStore';
 import { migrateStoresToTables } from '../systems/tableMigrate';
 import { seedWalletIfEmpty } from '../systems/ledger/walletCore';
 import { runWatchdogs, healWatchdog } from '../systems/ledger/watchdog';
+import StagedPersonaModal from './StagedPersonaModal';
 
 export default function TableManager() {
+  const [showPersona, setShowPersona] = useState(false);
   const tables = useTables((s) => s.tables);
   const insertRow = useTables((s) => s.insertRow);
   const updateCell = useTables((s) => s.updateCell);
@@ -52,6 +55,21 @@ export default function TableManager() {
           🩹 立即自愈
         </button>
       </div>
+
+      {/* 工具：分阶段人设生成器 */}
+      <div className="flex items-center gap-2">
+        <button
+          onClick={() => setShowPersona(true)}
+          className="text-[11px] px-2.5 py-1 rounded-lg border border-god/40 text-god hover:bg-god/10 transition-colors"
+          title="按属性表数值自动切换人设/语气——表单生成条件块，粘进正文预设/世界书即可"
+        >
+          🎭 分阶段人设生成器
+        </button>
+        <span className="text-[10px] text-dim/50">属性阈值 → 换一套人设（引擎已内置·此处免手写条件标签）</span>
+      </div>
+
+      {/* 填表调度 */}
+      <TableFillSchedule />
 
       {/* 表选择 */}
       <div className="flex flex-wrap gap-1.5">
@@ -147,6 +165,53 @@ export default function TableManager() {
         >
           重置全部表
         </button>
+      </div>
+
+      {showPersona && <StagedPersonaModal onClose={() => setShowPersona(false)} />}
+    </div>
+  );
+}
+
+// ── 填表调度（设置：总开关 / 每 N 回合填一次 / 只维护指定剧情表）─────────────
+const PLOT_TABLES: [string, string][] = [
+  ['chronicle', '纪要'], ['progress', '进程'], ['foreshadowing', '伏笔'], ['pacts', '约定'],
+];
+function TableFillSchedule() {
+  const tf = useSettings((s) => s.tableFill) ?? { enabled: true, everyN: 1, only: [] };
+  const setTableFill = useSettings((s) => s.setTableFill);
+  const allUids = PLOT_TABLES.map((t) => t[0]);
+  const isOn = (uid: string) => tf.only.length === 0 || tf.only.includes(uid);
+  const toggle = (uid: string) => {
+    const cur = tf.only.length === 0 ? [...allUids] : [...tf.only];
+    const next = cur.includes(uid) ? cur.filter((u) => u !== uid) : [...cur, uid];
+    setTableFill({ only: next.length === 0 || next.length === allUids.length ? [] : next });   // 全选/全不选都规约成 []＝全部
+  };
+  return (
+    <div className="rounded-lg border border-edge px-3 py-2 space-y-1.5 text-[12px]">
+      <div className="flex items-center gap-4 flex-wrap">
+        <label className="flex items-center gap-1.5 cursor-pointer">
+          <input type="checkbox" checked={tf.enabled} onChange={(e) => setTableFill({ enabled: e.target.checked })} className="accent-god" />
+          <span className="text-slate-200">🗂 启用自动填表（AI 每回合维护剧情表）</span>
+        </label>
+        <label className={`flex items-center gap-1.5 ${tf.enabled ? 'text-dim' : 'text-dim/40'}`}>
+          每
+          <input
+            type="number" min={1} disabled={!tf.enabled} value={tf.everyN}
+            onChange={(e) => setTableFill({ everyN: Math.max(1, Math.floor(Number(e.target.value) || 1)) })}
+            className="w-14 bg-panel2 border border-edge rounded px-1.5 py-0.5 text-center text-slate-200 outline-none focus:border-god/50 disabled:opacity-40"
+          />
+          回合填一次
+        </label>
+      </div>
+      <div className={`flex items-center gap-2.5 flex-wrap ${tf.enabled ? 'text-dim' : 'text-dim/40'}`}>
+        <span>只维护：</span>
+        {PLOT_TABLES.map(([uid, name]) => (
+          <label key={uid} className="flex items-center gap-1 cursor-pointer">
+            <input type="checkbox" disabled={!tf.enabled} checked={isOn(uid)} onChange={() => toggle(uid)} className="accent-god" />
+            {name}
+          </label>
+        ))}
+        <span className="text-dim/50">（全勾/全不勾＝全部；要一个都不填请关上面总开关）</span>
       </div>
     </div>
   );

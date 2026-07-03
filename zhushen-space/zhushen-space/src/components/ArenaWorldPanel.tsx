@@ -3,6 +3,7 @@ import { useArenaWorld } from '../store/arenaWorldStore';
 import type { ArenaCard } from '../store/arenaWorldStore';
 import { arenaWorldClient } from '../systems/arenaWorldClient';
 import { useNpc, hasRealNpcName } from '../store/npcStore';
+import { useCombat } from '../store/combatStore';
 import { buildPlayerSnapshot } from '../systems/mpSnapshot';
 import { npcToSnapshotRaw } from '../systems/assistApply';
 import { cardToGladiator, fallbackArenaBattle, ARENA_MAX_SKILLS, ARENA_MAX_ITEMS } from '../systems/arenaWorldBattle';
@@ -40,9 +41,11 @@ function OwnerTag({ c }: { c: ArenaCard }) {
   );
 }
 
-export default function ArenaWorldPanel({ onClose, onGenBattle }: {
+export default function ArenaWorldPanel({ onClose, onGenBattle, onSpar, onManualChallenge }: {
   onClose: () => void;
   onGenBattle: (a: Gladiator, b: Gladiator, winner: 0 | 1) => Promise<{ rounds: BattleRound[]; summary: string }>;
+  onSpar: (card: ArenaCard) => void;   // 切磋：真实战斗系统对战，不计排名
+  onManualChallenge: (opp: ArenaCard, myCardId: string) => void;   // 手动应战：真实战斗，胜负计入排名
 }) {
   const st = useArenaWorld();
   const npcs = useNpc((s) => s.npcs);
@@ -55,6 +58,8 @@ export default function ArenaWorldPanel({ onClose, onGenBattle }: {
   const [view, setView] = useState<'board' | 'mine'>('board');
   const [detail, setDetail] = useState<ArenaCard | null>(null);
   const [myFighterId, setMyFighterId] = useState('');
+  const [challengeMode, setChallengeMode] = useState<'auto' | 'manual'>('auto');
+  const combatActive = useCombat((s) => s.battle.active);
 
   const [showForm, setShowForm] = useState(false);
   const [formKind, setFormKind] = useState<Kind>('player');
@@ -156,11 +161,15 @@ export default function ArenaWorldPanel({ onClose, onGenBattle }: {
   const doDelete = (cardId: string) => arenaWorldClient.removeCard(cardId);
   const doChallenge = (opp: ArenaCard) => {
     if (!connected || !myFighter) return;
-    arenaWorldClient.challenge(myFighter.id, opp.id);
+    if (challengeMode === 'manual') onManualChallenge(opp, myFighter.id);   // 手动应战：真实战斗，胜负回传占位
+    else arenaWorldClient.challenge(myFighter.id, opp.id);                  // 自动结算：服务端裁判
   };
 
   const canUploadMore = myCards.length < 3;
   const previewSnap = (srcSnap || null) as any;
+
+  // 手动战斗/切磋进行中：面板让位给外层 CombatPanel（保持挂载→WS 存活，可回传排名结果），战斗结束自动回来
+  if (combatActive) return null;
 
   return (
     <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/60 backdrop-blur-sm p-3" onClick={onClose}>
@@ -194,6 +203,22 @@ export default function ArenaWorldPanel({ onClose, onGenBattle }: {
           <div className="flex-1 overflow-y-auto p-4">
             <ArenaWorldBattle data={battle} busy={battleBusy} onClose={() => { setBattle(null); setBattleBusy(false); }} />
           </div>
+        ) : st.sparResult ? (
+          /* ── 手动/切磋战报（AI 读赌场战斗世界书生成·≥500字·只在此显示，绝不进正文）── */
+          <div className="flex-1 overflow-y-auto p-4 space-y-3">
+            <div className={`rounded-xl border p-3 text-center ${st.sparResult.iWon ? 'border-amber-400/60 bg-amber-400/10' : 'border-edge bg-panel2/20'}`}>
+              <div className="text-base font-bold text-slate-100">{st.sparResult.winnerName} 获胜 👑</div>
+              <div className="text-[13px] text-slate-300/80 mt-0.5">{st.sparResult.iWon ? '你赢下了这场对决' : '你败下阵来'}{st.sparResult.ranked ? ' · 计入排名' : ' · 切磋不计分'}</div>
+            </div>
+            {st.sparResult.loading ? (
+              <div className="py-10 text-center text-amber-200/80 text-sm animate-pulse">✍️ 正在生成战报（读取赌场战斗世界书 · 不少于 500 字）…</div>
+            ) : (
+              <div className="rounded-xl border border-edge bg-panel2/20 p-4 text-[14px] leading-loose text-slate-200/90 whitespace-pre-wrap">{st.sparResult.text}</div>
+            )}
+            <div className="text-center">
+              <button onClick={() => useArenaWorld.getState()._set({ sparResult: null })} className="px-4 py-1.5 rounded-lg text-[13px] font-semibold bg-god/20 border border-god/40 text-god hover:bg-god/30 transition-colors">返回榜单</button>
+            </div>
+          </div>
         ) : (
           <>
             <div className="shrink-0 flex items-center gap-1.5 px-4 py-2 border-b border-edge bg-panel/40 text-[13px]">
@@ -203,9 +228,15 @@ export default function ArenaWorldPanel({ onClose, onGenBattle }: {
               {view === 'board' && myCards.length > 0 && (
                 <div className="ml-auto flex items-center gap-1.5">
                   <span className="text-dim/50">出战：</span>
-                  <select value={myFighterId} onChange={(e) => setMyFighterId(e.target.value)} className="bg-void border border-edge rounded-md px-2 py-1 text-[12px] text-slate-200 max-w-[160px]">
+                  <select value={myFighterId} onChange={(e) => setMyFighterId(e.target.value)} className="bg-void border border-edge rounded-md px-2 py-1 text-[12px] text-slate-200 max-w-[140px]">
                     {myCards.map((c) => <option key={c.id} value={c.id}>#{c.rank} {c.snapshot.name}</option>)}
                   </select>
+                  <span className="text-dim/50 ml-1">结算：</span>
+                  <div className="flex rounded-md overflow-hidden border border-edge">
+                    {(['auto', 'manual'] as const).map((m) => (
+                      <button key={m} onClick={() => setChallengeMode(m)} title={m === 'auto' ? '服务端按战力+种子自动定胜负' : '亲手用战斗系统打，胜负计入排名'} className={`px-2 py-1 text-[12px] transition-colors ${challengeMode === m ? 'bg-god/25 text-god font-semibold' : 'text-dim/60 hover:text-god'}`}>{m === 'auto' ? '⚡自动' : '🎮手动'}</button>
+                    ))}
+                  </div>
                 </div>
               )}
             </div>
@@ -240,6 +271,9 @@ export default function ArenaWorldPanel({ onClose, onGenBattle }: {
                       </button>
                       {canChallenge && (
                         <button onClick={() => doChallenge(c)} className="shrink-0 px-3 py-1.5 rounded-lg text-[13px] font-semibold border border-blood/40 text-blood/90 hover:bg-blood/15 transition-colors">⚔ 挑战</button>
+                      )}
+                      {!mine && (
+                        <button onClick={() => onSpar(c)} title="切磋·真实战斗，不计排名" className="shrink-0 px-2.5 py-1.5 rounded-lg text-[12px] font-semibold border border-god/40 text-god/80 hover:bg-god/15 transition-colors">🤺 切磋</button>
                       )}
                       {mine && <span className="shrink-0 text-[10px] font-mono text-god/60 px-2">我的</span>}
                     </div>
@@ -332,9 +366,14 @@ export default function ArenaWorldPanel({ onClose, onGenBattle }: {
                 <span className="text-[10px] font-mono text-dim/40">{detail.wins}胜{detail.losses}负</span>
                 {detail.ownerId === myId ? (
                   <button onClick={() => { doDelete(detail.id); setDetail(null); }} className="px-3 py-1.5 rounded-lg text-[12px] font-semibold border border-blood/40 text-blood/80 hover:bg-blood/15 transition-colors">🗑 删除我的卡</button>
-                ) : myFighter && detail.rank < myFighter.rank ? (
-                  <button onClick={() => { doChallenge(detail); setDetail(null); }} className="px-3 py-1.5 rounded-lg text-[12px] font-semibold border border-blood/40 text-blood/90 hover:bg-blood/15 transition-colors">⚔ 挑战</button>
-                ) : null}
+                ) : (
+                  <>
+                    {myFighter && detail.rank < myFighter.rank && (
+                      <button onClick={() => { doChallenge(detail); setDetail(null); }} className="px-3 py-1.5 rounded-lg text-[12px] font-semibold border border-blood/40 text-blood/90 hover:bg-blood/15 transition-colors">⚔ 挑战</button>
+                    )}
+                    <button onClick={() => { onSpar(detail); setDetail(null); }} className="px-3 py-1.5 rounded-lg text-[12px] font-semibold border border-god/40 text-god/80 hover:bg-god/15 transition-colors">🤺 切磋</button>
+                  </>
+                )}
               </div>
             }
           />

@@ -51,14 +51,21 @@ export function buildPlotStateSnapshot(): string {
   return parts.join('\n\n');
 }
 
-/** 构建填表提示词：TABLE_FILL_RULE + 纪要表最近 N 条 + 进程/伏笔/约定表当前数据。读 tableStore 当前态。 */
-export function buildTableFillPrompt(): string {
-  const chron = useTables.getState().getSheet(CHRONICLE_UID);
-  const chronHeaders = (chron?.content[0] ?? []).slice(1);
-  const recent = (chron?.content.slice(1) ?? []).slice(-RECENT_N);
-  const recentText = recent.length === 0
-    ? '  （暂无·本段可记第一条）'
-    : recent.map((row) => `  · ${fmtRow(chronHeaders, row) || '（空）'}`).join('\n');
-  const trackers = TRACKER_TABLES.map(([uid, name]) => dumpTracker(uid, name)).join('\n\n');
-  return `${TABLE_FILL_RULE}\n\n## 纪要表·最近记录（续写用·勿重复记同一段）\n${recentText}\n\n${trackers}`;
+/** 构建填表提示词：TABLE_FILL_RULE + 纪要表最近 N 条 + 进程/伏笔/约定表当前数据。读 tableStore 当前态。
+   only=只维护这些表(uid: chronicle/progress/foreshadowing/pacts)；undefined/空=全部（＝原行为）。 */
+export function buildTableFillPrompt(only?: string[]): string {
+  const want = (uid: string) => !only || only.length === 0 || only.includes(uid);
+  const parts: string[] = [TABLE_FILL_RULE];
+  if (want(CHRONICLE_UID)) {
+    const chron = useTables.getState().getSheet(CHRONICLE_UID);
+    const chronHeaders = (chron?.content[0] ?? []).slice(1);
+    const recent = (chron?.content.slice(1) ?? []).slice(-RECENT_N);
+    const recentText = recent.length === 0
+      ? '  （暂无·本段可记第一条）'
+      : recent.map((row) => `  · ${fmtRow(chronHeaders, row) || '（空）'}`).join('\n');
+    parts.push(`## 纪要表·最近记录（续写用·勿重复记同一段）\n${recentText}`);
+  }
+  const trackers = TRACKER_TABLES.filter(([uid]) => want(uid)).map(([uid, name]) => dumpTracker(uid, name)).join('\n\n');
+  if (trackers) parts.push(trackers);
+  return parts.join('\n\n');
 }

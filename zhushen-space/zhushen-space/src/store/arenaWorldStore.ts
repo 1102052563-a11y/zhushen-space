@@ -8,6 +8,9 @@ import type { ArenaCard, ArenaMe, ArenaChallengeResult } from '../systems/arenaW
 export type ArenaStatus = 'idle' | 'connecting' | 'connected' | 'closed' | 'error';
 export type { ArenaCard, ArenaMe };
 
+// 手动/切磋对战后的专属战报（AI 读赌场战斗世界书生成·≥500字·只显示在竞技场面板·不进正文）
+export interface ArenaSparResult { text: string; winnerName: string; loserName: string; iWon: boolean; ranked: boolean; loading: boolean }
+
 interface ArenaState {
   status: ArenaStatus;
   me: ArenaMe | null;
@@ -15,6 +18,7 @@ interface ArenaState {
   online: number;
   error: string | null;
   lastResult: ArenaChallengeResult | null;  // 最近一次挑战结果（供战斗回放，消费后清空）
+  sparResult: ArenaSparResult | null;       // 手动/切磋战报（面板展示，返回榜单时清空）
   _set: (p: Partial<ArenaState>) => void;
   reset: () => void;
 }
@@ -26,6 +30,7 @@ const INIT = {
   online: 0,
   error: null as string | null,
   lastResult: null as ArenaChallengeResult | null,
+  sparResult: null as ArenaSparResult | null,
 };
 
 export const useArenaWorld = create<ArenaState>((set): ArenaState => ({

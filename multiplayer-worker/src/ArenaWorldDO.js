@@ -103,6 +103,15 @@ export class ArenaWorldDO {
   #renumber() {
     this.#sorted().forEach((c, i) => { c.rank = i + 1; });
   }
+  // 占位取代：把挑战者从当前位抽出，插到对手位；对手及其下方（到挑战者原位）整体顺延一名。
+  #occupy(mine, opp) {
+    const sorted = this.#sorted();
+    const fromIdx = sorted.findIndex((c) => c.id === mine.id);
+    if (fromIdx >= 0) sorted.splice(fromIdx, 1);
+    const oppIdx = sorted.findIndex((c) => c.id === opp.id);
+    sorted.splice(Math.max(0, oppIdx), 0, mine);
+    sorted.forEach((c, i) => { c.rank = i + 1; });
+  }
 
   async fetch(request) {
     const url = new URL(request.url);
@@ -219,13 +228,7 @@ export class ArenaWorldDO {
         const targetRank = opp.rank;
         if (challengerWins) {
           mine.wins = (mine.wins || 0) + 1; opp.losses = (opp.losses || 0) + 1;
-          // 占位取代：把挑战者从当前位抽出，插到对手位；对手及其下方（到挑战者原位）整体顺延一名
-          const sorted = this.#sorted();
-          const fromIdx = sorted.findIndex((c) => c.id === mine.id);
-          sorted.splice(fromIdx, 1);
-          const oppIdx = sorted.findIndex((c) => c.id === opp.id);
-          sorted.splice(oppIdx, 0, mine);
-          sorted.forEach((c, i) => { c.rank = i + 1; });
+          this.#occupy(mine, opp);   // 占位取代
         } else {
           mine.losses = (mine.losses || 0) + 1; opp.wins = (opp.wins || 0) + 1;
         }
@@ -250,6 +253,32 @@ export class ArenaWorldDO {
           challenger: mine, opponent: opp,
           rankBefore, rankAfter: mine.rank,
         });
+        this.#broadcast({ type: "ladder", cards: this.#sorted() });
+        break;
+      }
+      case "report_result": {
+        // 手动应战：客户端上报真实战斗（复用战斗系统亲手打）的胜负 → 占位逻辑同 challenge。
+        // 胜负改由客户端战斗结果决定（休闲社交榜·接受轻度信任；仍校验只能挑战更高名次 + 限流防刷）。
+        if (this.#tooFast(att.playerId)) { this.#sendTo(ws, { type: "rate_limited" }); break; }
+        const mine = this.cards.find((c) => c.id === String(msg.myCardId || "") && c.ownerId === att.playerId);
+        const opp = this.cards.find((c) => c.id === String(msg.opponentCardId || ""));
+        if (!mine || !opp) { this.#sendTo(ws, { type: "error", reason: "对手或参赛角色不存在（请刷新）" }); break; }
+        if (mine.id === opp.id) { this.#sendTo(ws, { type: "error", reason: "不能和自己对战" }); break; }
+        if (opp.ownerId === att.playerId) { this.#sendTo(ws, { type: "error", reason: "不能挑战自己的角色" }); break; }
+        if (!(opp.rank < mine.rank)) { this.#sendTo(ws, { type: "error", reason: "只能挑战排名比你高的对手" }); break; }
+        const win = !!msg.win;
+        const rankBefore = mine.rank;
+        if (win) { mine.wins = (mine.wins || 0) + 1; opp.losses = (opp.losses || 0) + 1; this.#occupy(mine, opp); }
+        else { mine.losses = (mine.losses || 0) + 1; opp.wins = (opp.wins || 0) + 1; }
+        this.matches.unshift({
+          matchId: crypto.randomUUID(), at: Date.now(), mode: "manual",
+          challenger: { id: mine.id, name: mine.snapshot.name, ownerName: mine.ownerName, ownerDu: mine.ownerDu },
+          opponent: { id: opp.id, name: opp.snapshot.name, ownerName: opp.ownerName, ownerDu: opp.ownerDu },
+          winner: win ? "challenger" : "opponent", rankBefore, rankAfter: mine.rank,
+        });
+        if (this.matches.length > MAX_MATCHES) this.matches = this.matches.slice(0, MAX_MATCHES);
+        await this.ctx.storage.put("cards", this.cards);
+        await this.ctx.storage.put("matches", this.matches);
         this.#broadcast({ type: "ladder", cards: this.#sorted() });
         break;
       }

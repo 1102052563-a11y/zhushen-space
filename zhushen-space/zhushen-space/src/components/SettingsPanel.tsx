@@ -4,6 +4,8 @@ import { apiChatFallback, fetchWithProxy, gwProxyBase } from '../systems/apiChat
 import { READING_FONTS, readingFontStack } from '../systems/readingFonts';
 import { UI_THEMES } from '../systems/uiThemes';
 import { toSTPreset } from '../systems/stPresetExport';
+import { ADVANCE_PRESET_BUILTINS } from '../promptRules';
+import { useDbAdvance } from '../store/dbAdvanceStore';   // 数据库推进管线（Stitches 规划层）
 import VariableManager from './VariableManager';
 import ApiRoutePicker from './ApiRoutePicker';
 import ItemManager from './ItemManager';
@@ -2505,6 +2507,18 @@ function GeneralSettingsSection() {
   const setDisableEnterSend = useSettings((s) => s.setDisableEnterSend);
   const showNewlineButton    = useSettings((s) => s.showNewlineButton);
   const setShowNewlineButton = useSettings((s) => s.setShowNewlineButton);
+  const advancePresets       = useSettings((s) => s.advancePresets);
+  const advanceSelected      = useSettings((s) => s.advanceSelected);
+  const autoAdvance          = useSettings((s) => s.autoAdvance);
+  const setAdvancePresets    = useSettings((s) => s.setAdvancePresets);
+  const setAdvanceSelected   = useSettings((s) => s.setAdvanceSelected);
+  const setAutoAdvance       = useSettings((s) => s.setAutoAdvance);
+  // 数据库推进管线（Stitches 规划层）
+  const dbAdvEnabled     = useDbAdvance((s) => s.enabled);
+  const dbAdvUseRecall   = useDbAdvance((s) => s.useRecall);
+  const dbAdvPresetName  = useDbAdvance((s) => s.presetName);
+  const dbAdvHasPreset   = useDbAdvance((s) => !!s.preset);
+  const [dbAdvMsg, setDbAdvMsg] = useState('');
   const weatherFx            = useSettings((s) => s.weatherFx);
   const setWeatherFx         = useSettings((s) => s.setWeatherFx);
   const audio                = useSettings((s) => s.audio);
@@ -2582,6 +2596,111 @@ function GeneralSettingsSection() {
           <div>
             <div className="text-sm font-semibold text-slate-200">显示换行键</div>
             <div className="text-sm text-dim mt-1 leading-relaxed">在正文输入框旁显示「↵ 换行」按钮，点击即可在光标处插入换行。关闭后仍可用 <span className="font-mono text-god/70">Shift+Enter</span> 换行。</div>
+          </div>
+        </div>
+      </div>
+
+      {/* ⏩ 推进 / 循环自动推进 */}
+      <div className="space-y-4">
+        <div className="text-sm font-mono text-god/70 uppercase tracking-widest">⏩ 推进 / 循环自动推进</div>
+        <div className="border border-edge rounded-lg p-4 bg-panel space-y-3">
+          <div className="text-sm text-dim leading-relaxed">
+            输入框旁的 <span className="text-emerald-300">⏩</span> ＝不打字也让剧情自然推进一拍；<span className="text-emerald-300">🔁</span> ＝自动连推数拍（下面设次数/间隔，你一发送就停）。
+          </div>
+
+          {/* 推进语预设 */}
+          <div className="space-y-2">
+            <div className="flex items-center gap-2 flex-wrap">
+              <span className="text-xs font-semibold text-slate-300">推进语预设（选中的一条被 ⏩/🔁 使用）</span>
+              <button onClick={() => setAdvancePresets([...(advancePresets ?? []), { name: '新预设', text: '' }])}
+                className="text-[11px] px-2 py-0.5 rounded border border-god/40 text-god hover:bg-god/10">+ 加一条</button>
+              <button onClick={() => { setAdvancePresets(ADVANCE_PRESET_BUILTINS.map((p) => ({ ...p }))); setAdvanceSelected(0); }}
+                className="text-[11px] px-2 py-0.5 rounded border border-edge text-dim hover:text-god hover:border-god/40">↺ 载入内置</button>
+              {(!advancePresets || advancePresets.length === 0) && <span className="text-[11px] text-dim/60">（空＝用内置默认推进语）</span>}
+            </div>
+            {(advancePresets ?? []).map((p, i) => (
+              <div key={i} className="flex gap-2 items-start border border-edge rounded p-2 bg-panel2/40">
+                <input type="radio" name="advSel" checked={advanceSelected === i} onChange={() => setAdvanceSelected(i)}
+                  className="mt-2 accent-god shrink-0" title="设为 ⏩/🔁 使用的推进语" />
+                <div className="flex-1 space-y-1 min-w-0">
+                  <input value={p.name} onChange={(e) => setAdvancePresets((advancePresets ?? []).map((x, idx) => idx === i ? { ...x, name: e.target.value } : x))}
+                    placeholder="预设名" className="w-full bg-panel2 border border-edge rounded px-2 py-1 text-sm text-slate-200 outline-none focus:border-god/50" />
+                  <textarea value={p.text} onChange={(e) => setAdvancePresets((advancePresets ?? []).map((x, idx) => idx === i ? { ...x, text: e.target.value } : x))}
+                    rows={2} placeholder="推进语（作为 OOC 指令随本回合发给正文 AI）"
+                    className="w-full bg-panel2 border border-edge rounded px-2 py-1 text-sm text-slate-200 outline-none focus:border-god/50 resize-y" />
+                </div>
+                <button onClick={() => { setAdvancePresets((advancePresets ?? []).filter((_, idx) => idx !== i)); if (advanceSelected >= i && advanceSelected > 0) setAdvanceSelected(advanceSelected - 1); }}
+                  className="text-blood/70 hover:text-blood px-1 pt-1.5 shrink-0" title="删除">✕</button>
+              </div>
+            ))}
+          </div>
+
+          {/* 自动推进参数 */}
+          <div className="flex items-center gap-4 flex-wrap text-sm text-dim border-t border-edge/60 pt-3">
+            <span className="text-xs font-semibold text-slate-300">🔁 循环自动推进：</span>
+            <label className="flex items-center gap-1.5">连推
+              <input type="number" min={1} value={autoAdvance?.maxLoops ?? 3}
+                onChange={(e) => setAutoAdvance({ maxLoops: Math.max(1, Math.floor(Number(e.target.value) || 1)) })}
+                className="w-16 bg-panel2 border border-edge rounded px-1.5 py-0.5 text-center text-slate-200 outline-none focus:border-god/50" /> 拍</label>
+            <label className="flex items-center gap-1.5">每拍间隔
+              <input type="number" min={0} step={100} value={autoAdvance?.delayMs ?? 1500}
+                onChange={(e) => setAutoAdvance({ delayMs: Math.max(0, Math.floor(Number(e.target.value) || 0)) })}
+                className="w-20 bg-panel2 border border-edge rounded px-1.5 py-0.5 text-center text-slate-200 outline-none focus:border-god/50" /> ms</label>
+          </div>
+        </div>
+      </div>
+
+      {/* 🎬 数据库推进管线（Stitches 规划层） */}
+      <div className="space-y-4">
+        <div className="text-sm font-mono text-god/70 uppercase tracking-widest">🎬 数据库推进管线（导演规划层）</div>
+        <div className="border border-edge rounded-lg p-4 bg-panel space-y-3">
+          <div className="text-sm text-dim leading-relaxed">
+            导入数据库「推进预设」（如 Stitches 东方风神录）。开启后，**每回合正文前**先跑它的「召回→推进」规划：产出这一拍的角色行动/场景/跟踪表，注入你的**正文预设**去写散文——<b>预设只做规划，正文仍由你的正文预设生成</b>。（会多 1~2 次 AI 调用，走 <span className="font-mono text-god/70">guidance</span> 路由；有墙钟超时，绝不卡正文。）
+          </div>
+
+          <div className="flex items-start gap-3">
+            <Toggle checked={dbAdvEnabled} onChange={() => useDbAdvance.getState().setEnabled(!dbAdvEnabled)} />
+            <div>
+              <div className="text-sm font-semibold text-slate-200">启用数据库推进管线</div>
+              <div className="text-sm text-dim mt-1 leading-relaxed">{dbAdvHasPreset ? <>当前预设：<span className="text-god/80 font-mono">{dbAdvPresetName || '（未命名）'}</span></> : <span className="text-amber-300/80">尚未导入推进预设 —— 先「载入内置」或「导入 JSON」。</span>}</div>
+            </div>
+          </div>
+          <div className="flex items-start gap-3">
+            <Toggle checked={dbAdvUseRecall} onChange={() => useDbAdvance.getState().setUseRecall(!dbAdvUseRecall)} />
+            <div>
+              <div className="text-sm font-semibold text-slate-200">跑「召回」子调用</div>
+              <div className="text-sm text-dim mt-1 leading-relaxed">开：先让预设的「召回」模块找相关历史记忆喂给推进（更连贯，多一次调用）。关：跳过召回、只跑「推进」，省一次调用（<span className="font-mono">{'{{recall}}'}</span> 留空）。</div>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-2 flex-wrap">
+            <button
+              onClick={() => {
+                setDbAdvMsg('载入中…');
+                fetch('db-presets/stitches-mof.json').then((r) => r.json()).then((j) => {
+                  const ok = useDbAdvance.getState().importPreset(j);
+                  setDbAdvMsg(ok ? '✓ 已载入内置 Stitches（东方风神录）' : '✗ 内置预设解析失败');
+                }).catch(() => setDbAdvMsg('✗ 载入失败（缺 public/db-presets/stitches-mof.json？）'));
+                setTimeout(() => setDbAdvMsg(''), 6000);
+              }}
+              className="text-[12px] px-3 py-1.5 rounded-lg border border-god/40 text-god hover:bg-god/10 font-mono"
+            >↺ 载入内置 Stitches</button>
+            <label className="text-[12px] px-3 py-1.5 rounded-lg border border-edge text-dim hover:text-god hover:border-god/40 font-mono cursor-pointer">
+              📥 导入 JSON
+              <input type="file" accept=".json,application/json" className="hidden"
+                onChange={(e) => {
+                  const f = e.target.files?.[0]; if (!f) return;
+                  f.text().then((t) => {
+                    try { const ok = useDbAdvance.getState().importPreset(JSON.parse(t), f.name.replace(/\.json$/i, '')); setDbAdvMsg(ok ? `✓ 已导入 ${f.name}` : '✗ 该 JSON 非有效推进预设（缺 plotTasks）'); }
+                    catch { setDbAdvMsg('✗ JSON 解析失败'); }
+                    setTimeout(() => setDbAdvMsg(''), 6000);
+                  });
+                  e.target.value = '';
+                }} />
+            </label>
+            <button onClick={() => { useDbAdvance.getState().clearRuntime(); setDbAdvMsg('✓ 已清空上轮跟踪表'); setTimeout(() => setDbAdvMsg(''), 4000); }}
+              className="text-[12px] px-3 py-1.5 rounded-lg border border-edge text-dim hover:text-slate-200 font-mono">🧹 清上轮记录</button>
+            {dbAdvMsg && <span className="text-[12px] text-god/80">{dbAdvMsg}</span>}
           </div>
         </div>
       </div>
