@@ -118,6 +118,29 @@ function makeSheet(d: SheetDef): AcuSheet {
   };
 }
 
+/** 用户自定义「AI 维护表」：把 表名/列/维护规则(note)/单行 造成一张 AcuSheet。
+    · note = 固定「维护规则」——注入给填表AI 看；AI 只用 `<tableEdit>` 改**行**、改不了 note → 规则天然防篡改（正是"固定维护规则 vs 可变值"分离）。
+    · content 行 = 可变值，AI 每回合据 note 维护。uid=`custom:<slug>`、orderNo≥100 排在默认表之后。
+    · 非镜像表：`tableMigrate` 的 1c 投影只覆盖 MIRROR_TABLES，自定义表不被投影覆盖（与剧情记忆表同待遇）。 */
+export function buildCustomSheet(opts: { name: string; headers: string[]; note: string; single?: boolean; uid?: string; orderNo?: number }): AcuSheet {
+  const name = (opts.name || '自定义表').trim();
+  const cols = (opts.headers ?? []).map((h) => h.trim()).filter(Boolean);
+  const headers = cols.length ? cols : ['值'];
+  const slug = name.replace(/[^\w一-龥]+/g, '_').replace(/^_+|_+$/g, '') || 'x';
+  const uid = opts.uid || `custom:${slug}`;
+  const ddl = `CREATE TABLE ${uid.replace(/[^\w]/g, '_')} ( -- ${name}（用户自定义·AI 维护）\n  row_id INTEGER PRIMARY KEY,\n${headers.map((h, i) => `  col${i + 1} TEXT -- ${h}`).join(',\n')}\n);`;
+  return makeSheet({
+    uid, name, single: !!opts.single, headers, ddl,
+    note: (opts.note ?? '').trim() || '（用户自定义表·维护规则未填）',
+    orderNo: opts.orderNo ?? 100,
+  });
+}
+
+/** 是否用户自定义表（uid 前缀 `custom:`）。默认表一律 false。 */
+export function isCustomSheet(sheet: { uid?: string } | undefined | null): boolean {
+  return !!sheet?.uid && sheet.uid.startsWith('custom:');
+}
+
 // ── 20 张默认表（ACU 8 表模板 + zhushen 扩表/扩列）──────────────────────────
 
 const SHEET_DEFS: SheetDef[] = [

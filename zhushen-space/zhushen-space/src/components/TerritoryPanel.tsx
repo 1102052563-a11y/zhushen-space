@@ -45,19 +45,26 @@ export default function TerritoryPanel({ onClose }: { onClose: () => void }) {
     setMemberPick(''); setMemberRole(''); setAddingMember(false);
   };
 
-  // 仓库 → 背包：整摞取出到主角随身背包（背包按名+品级自动堆叠），再从领地仓库移除
+  // 仓库 → 背包：整摞取出到主角随身背包，再从领地仓库移除。
+  // 有完整快照(it.item)就原样还原全字段（词缀/强化/宝石/评分…），只换新 id、用仓库现存数量；
+  // 无快照(AI 记的材料)才回退到扁平字段。
   const moveItemToBackpack = (it: TerritoryItem) => {
-    useItems.getState().addItem({
-      name: it.name,
-      category: (it.category as ItemCategory) || '其他物品',
-      gradeDesc: it.gradeDesc || '',
-      effect: it.effect || '',
-      quantity: it.quantity,
-      equipped: false,
-      tags: [],
-      appearance: it.appearance,
-      notes: it.desc,
-    });
+    if (it.item) {
+      const { id: _id, addedAt: _at, ...rest } = it.item;
+      useItems.getState().addItem({ ...rest, quantity: it.quantity, equipped: false });
+    } else {
+      useItems.getState().addItem({
+        name: it.name,
+        category: (it.category as ItemCategory) || '其他物品',
+        gradeDesc: it.gradeDesc || '',
+        effect: it.effect || '',
+        quantity: it.quantity,
+        equipped: false,
+        tags: [],
+        appearance: it.appearance,
+        notes: it.desc,
+      });
+    }
     T.takeItem(it.id);   // 传 id → 整摞取出
   };
 

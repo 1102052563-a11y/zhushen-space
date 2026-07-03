@@ -101,7 +101,7 @@ import {
 
 import { useState, useRef, useEffect, lazy, Suspense, type PointerEvent as RPointerEvent } from 'react';
 import { useGame } from './store/gameStore';
-import { useSettings, resolveApiChain, inferViewScopes } from './store/settingsStore';
+import { useSettings, resolveApiChain, inferViewScopes, type WorldbookConflict } from './store/settingsStore';
 import { runRegexReplace } from './systems/regexEngine';
 import { apiChatFallback, fetchWithProxy, abortAllApiCalls } from './systems/apiChat';
 import { parseAllStateUpdates, stripStateBlocks, parseAllItemCommands, applyItemCommands, parseAllCharCommands, applyCharacterCommands, parseAllNpcCommands, applyNpcCommands, parseAllFactionCommands, applyFactionCommands, applyTerritoryCommands, applyTeamCommands, isEquippable, lenientJsonParse, buildItemFeedback, recordEvo, purgeItemPhaseCurrency, editToTerritoryText, editToTeamText, detectUnregisteredCurrencyGains } from './systems/stateParser';
@@ -229,6 +229,7 @@ const TradePanel = lazy(() => import('./components/TradePanel'));
 const AssistPanel = lazy(() => import('./components/AssistPanel'));
 const ArenaWorldPanel = lazy(() => import('./components/ArenaWorldPanel'));
 const MonumentPanel = lazy(() => import('./components/MonumentPanel'));
+const AccountVaultPanel = lazy(() => import('./components/AccountVaultPanel'));
 import { useMp, type HiddenCondition } from './store/multiplayerStore';
 import { mpClient } from './systems/mpClient';
 import { buildPlayerSnapshot, buildPartyTurnText, buildWorldSnapshot, applyWorldSnapshot, buildPartyProfiles, buildCardProfile, mpNarrativeRule, purgeMpCharacters } from './systems/mpSnapshot';
@@ -249,6 +250,7 @@ import { settleDmDeal, normCur as dmNormCur } from './systems/dmTrade';
 const SystemShop = lazy(() => import('./components/SystemShop'));
 const SummaryPanel = lazy(() => import('./components/SummaryPanel'));
 const WorldRecordPanel = lazy(() => import('./components/WorldRecordPanel'));
+const WorldbookMergePanel = lazy(() => import('./components/WorldbookMergePanel'));
 const AuditPanel = lazy(() => import('./components/AuditPanel'));
 const SaveLoadPanel = lazy(() => import('./components/SaveLoadPanel'));
 import { PENDING_STARTED_KEY, clearProgress, autoSaveSlot, saveSlot, loadSlot, UNDO_ID, undoPointHasChat, requestPersistentStorage } from './systems/saveManager';
@@ -366,24 +368,23 @@ async function loadBuiltinDefaults() {
     //   性爱姿势/BDSM 两本已转纯绿灯（constant 全 false）：仅关键词命中才注入，不污染日常正文；配套 WorldSelector 的🤸姿势/⛓BDSM快捷按钮按书名定位取条目标题。
     // 逐本按 builtinKey 判重：缺哪本补哪本（各自从 public 取最新）。旧的"整类非空即跳过"会在用户改/导入其中一本后，
     // 把其余未改的内置一并丢弃；改用 per-key 后，编辑某本转正持久化、未改的兄弟仍每次刷新重载。
-    // **每次启动强制覆盖成内置最新**（含玩家改过的）：按 builtinKey 先删旧再导入最新；fetch 失败则保留现有。
-    { const overwriteTwb = (json: string | null, name: string, key: string) => {
-        if (!json) return;
-        useSettings.setState((s) => ({ textWorldBooks: (s.textWorldBooks ?? []).filter((b: any) => b.builtinKey !== key) }));
-        useSettings.getState().importTextWorldBook(json, name, true, key);
-      };
+    // 内置世界书更新：不再整本删+重导，改「3方合并」——更新玩家没改的条目、保留玩家改过的、送达新内置条目、尊重删除；
+    //   「内置改了 + 玩家也改了同一条」→ 收集冲突，启动后由弹窗逐条裁决（策略B·绝不静默丢玩家改动）。
+    { const wbConflicts: WorldbookConflict[] = [];
+      const reconcile = (json: string | null, name: string, key: string) => { if (json) wbConflicts.push(...useSettings.getState().reconcileBuiltinTextWorldBook(json, name, key)); };
       // 并发取五本（而非逐本 await）：取回后连续 apply，把「正文世界书尚未就绪」的竞态窗口压到最小（修偶发没世界书）。
       const [twMod, twNovel, twPose, twBdsm, twPower, twMisc] = await Promise.all([
         grab('modular-output.json'), grab('novel.json'), grab('pose.json'), grab('bdsm.json'), grab('power-codex.json'), grab('misc-codex.json'),
       ]);
-      overwriteTwb(twMod,   'ST模块化输出·铁律', 'twb-modular');
-      overwriteTwb(twNovel, '轮回乐园小说',     'twb-novel');
-      overwriteTwb(twPose,  '性爱姿势·小鸟游六花', 'twb-pose');
-      overwriteTwb(twBdsm,  'BDSM·调教束缚·S15',   'twb-bdsm');
+      reconcile(twMod,   'ST模块化输出·铁律', 'twb-modular');
+      reconcile(twNovel, '轮回乐园小说',     'twb-novel');
+      reconcile(twPose,  '性爱姿势·小鸟游六花', 'twb-pose');
+      reconcile(twBdsm,  'BDSM·调教束缚·S15',   'twb-bdsm');
       // 阶位·生物强度战力图鉴：登场判断专用参照系（buildEntryPhaseSystemPrompt 强制全量注入）；条目全为无关键词绿灯，正文默认不注入、不污染日常。
-      overwriteTwb(twPower, '阶位·生物强度战力图鉴', 'twb-power');
+      reconcile(twPower, '阶位·生物强度战力图鉴', 'twb-power');
       // 杂项演化·任务与世界规范图鉴：杂项演化阶段专用参照系（runMiscEvolutionPhase 强制全量注入）；条目全为无关键词绿灯，正文默认不注入、不污染日常。
-      overwriteTwb(twMisc,  '杂项演化·任务与世界规范图鉴', 'twb-misc');
+      reconcile(twMisc,  '杂项演化·任务与世界规范图鉴', 'twb-misc');
+      useSettings.getState().setWorldbookConflicts(wbConflicts);   // 始终写（含空）→ 清掉上次残留冲突；有冲突则启动后弹窗裁决
       // （已移除世界书自动去重：玩家手动导入的世界书一律不强制删——哪怕与内置同名/重复也保留；要去重请玩家自己在设置里删。）
     }
     // 双人成行内置已移除(2026-06-18)：不再自动加载/激活任何默认正文预设；新用户开局走最简兜底，自行去预设列表选（轮回乐园两份已内置但默认关闭）。
@@ -945,6 +946,7 @@ const rightMenuItems = [
   { icon: '🆘', label: '助战' },
   { icon: '🏆', label: '世界竞技场' },
   { icon: '🪦', label: '纪念丰碑' },
+  { icon: '🏦', label: '账户仓库' },
   { icon: '🧠', label: '记忆' },
   { icon: '🧩', label: '创意工坊' },
   { icon: '💾', label: '存档' },
@@ -957,7 +959,7 @@ const NAV_FX: Record<string, string> = {
   '副职业': 'fx-wrench', '技能树': 'fx-tree', '称号': 'fx-medal', '成就': 'fx-trophy', '势力': 'fx-pillar',
   '领地': 'fx-castle', '冒险团': 'fx-shield', '队伍': 'fx-friends', '万族': 'fx-cosmos', '世界百科': 'fx-book', '轮回WIKI': 'fx-book', 'ROLL': 'fx-dice',
   '战斗': 'fx-clash', '乐园设施': 'fx-ferris', '深渊': 'fx-void', '回合洞察': 'fx-zoom', '审计': 'fx-zoom', '任务': 'fx-quest',
-  '频道': 'fx-signal', '私信': 'fx-mail', '好友': 'fx-friends', '聊天室': 'fx-signal', '交易行': 'fx-bag', '助战': 'fx-clash', '世界竞技场': 'fx-trophy', '纪念丰碑': 'fx-pillar', '记忆': 'fx-brain', '创意工坊': 'fx-sparkle', '存档': 'fx-save', '设置': 'fx-gear',
+  '频道': 'fx-signal', '私信': 'fx-mail', '好友': 'fx-friends', '聊天室': 'fx-signal', '交易行': 'fx-bag', '助战': 'fx-clash', '世界竞技场': 'fx-trophy', '纪念丰碑': 'fx-pillar', '账户仓库': 'fx-bag', '记忆': 'fx-brain', '创意工坊': 'fx-sparkle', '存档': 'fx-save', '设置': 'fx-gear',
 };
 
 export default function App() {
@@ -1080,6 +1082,7 @@ export default function App() {
   const arenaSparFoeRef = useRef<string | null>(null);  // 世界竞技场·切磋/手动挑战的临时对手 cid（战后清理）
   const arenaRankedChallengeRef = useRef<{ myCardId: string; opponentCardId: string } | null>(null);  // 手动应战：战后回传占位结果
   const [monumentOpen, setMonumentOpen] = useState(false);  // 纪念丰碑（跨存档英灵殿）
+  const [vaultOpen, setVaultOpen] = useState(false);         // 账户仓库（跨存档保险箱）
   const chatUnread = useChatRoom((s) => s.unread);   // 导航红点：聊天室未读
   const chatOnline = useChatRoom((s) => s.roster.length);   // 在线人数（= 当前在玩且已登录的人）
   // 已登录(有聊天身份) → 一进游戏就后台连接聊天室：「在玩存档即在线」（不必开聊天面板，新消息也进未读红点）
@@ -1279,6 +1282,7 @@ export default function App() {
   const [summaryBusyId, setSummaryBusyId] = useState<string | null>(null);   // 正在生成离世总结的世界记录 id
   const [worldviewBusyId, setWorldviewBusyId] = useState<string | null>(null);   // 正在（面板里重）生成世界观的世界记录 id
   const wrRecords = useWorldRecord((s) => s.records);   // 世界记录（响应式：卡片「已有世界观」标记等）
+  const worldbookConflicts = useSettings((s) => s.worldbookConflicts);   // 内置世界书更新的「双改」冲突 → 有则弹窗裁决
   const [prevInput, setPrevInput] = useState('');
 
   const [messages, setMessages] = useState<ChatMessage[]>([]);
@@ -1293,6 +1297,7 @@ export default function App() {
   const storyRegenBusy = useRef<Set<string>>(new Set());  // 正文配图重生成防连点（key=msgId:idx）
   const progImgRef = useRef<{ offset: number; dispatched: number }>({ offset: 0, dispatched: 0 });  // 「边写边出」：流式期间已处理到的字符 offset + 已派发出图段数（每回合重置）
   const [storyImgBusyId, setStoryImgBusyId] = useState<number | null>(null);   // 手动「为本回合生图」：正在生图的楼层 id（防并发 + 按钮态）
+  const storyImgDiagRef = useRef<string>('');                                  // 正文配图上次失败原因（供 toast 给出可操作提示，而非笼统"没生成"）
   const autoSaveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const lastAutoSaveTurn = useRef(-1);   // 本回合是否已自动存过：防同回合内(生图/选项等异步改 messages 反复触发定时器)重复自动存、刷出多份🛟备份
   const abortRef = useRef<AbortController | null>(null);   // 正文生成中止控制器（停止生成用）
@@ -4483,11 +4488,12 @@ ${AFFIX_EFFECT_RULE}`;
   ════════════════════════════════════════════ */
   // 抽取+生成正文配图（被一次性 runStoryImagePhase 与「边写边出」逐段共用）。返回成功生成张数。
   async function genStoryImagesFor(narrative: string, count: number, msgId: number): Promise<number> {
+    storyImgDiagRef.current = '';   // 重置本次失败诊断
     const ig = useImageGen.getState();
     const ss = useSettings.getState();
     const legacy = ss.textUseSharedApi ? ss.api : ss.textApi;
     const chain = resolveApiChain('image_story_llm', legacy);
-    if (!chain[0]?.baseUrl || !chain[0]?.apiKey) { console.warn('[StoryImg] 正文生图 LLM 未配置（综合设置→生图设置→正文生图→独立 LLM 路由），跳过'); return 0; }
+    if (!chain[0]?.baseUrl || !chain[0]?.apiKey) { storyImgDiagRef.current = '没配置「写图提示词的 LLM」——设置→生图设置→正文生图，给它配个能用的 LLM 路由'; console.warn('[StoryImg] 正文生图 LLM 未配置（综合设置→生图设置→正文生图→独立 LLM 路由），跳过'); return 0; }
 
     // 在场角色外观资料（含主角 B1）：性别显式映射成 1girl/1boy/futanari，避免被外观特征误判成异性
     const genderLabel = (g?: string) => {
@@ -4531,13 +4537,30 @@ ${AFFIX_EFFECT_RULE}`;
     type Msg = { role: 'system' | 'user' | 'assistant'; content: string };
 
     const get = (s: string, tag: string) => (s.match(new RegExp(`<${tag}>([\\s\\S]*?)</${tag}>`, 'i'))?.[1] ?? '').trim();
+    // 宽松解析：模型常不按 <image> 格式（漏外壳/用代码块/裸标签/Prompt: 行）——尽量把"其实给了标签"的回复救回来，别一律判"没生成"
     const parseSpecs = (reply: string) => {
-      const blocks = reply.match(/<image>[\s\S]*?<\/image>/gi) ?? [];
-      let arr = blocks.map((b) => ({ anchor: get(b, 'anchor'), nsfw: get(b, 'nsfw_rating') || 'sfw', prompt: get(b, 'prompt') })).filter((s) => s.prompt);
-      if (arr.length === 0) {   // 兜底：没用 <image> 外层包裹但给了 <prompt> 块
-        const proms = reply.match(/<prompt>[\s\S]*?<\/prompt>/gi) ?? [];
-        arr = proms.map((pp) => ({ anchor: get(pp, 'anchor'), nsfw: 'sfw', prompt: get(pp, 'prompt') })).filter((s) => s.prompt);
-      }
+      const clean = (reply || '').trim();
+      const looksTags = (t: string) => t.includes(',') && /\b(\d+\s*girls?|\d+\s*boys?|1other|multiple girls|multiple boys|solo|no humans|masterpiece|monster|creature|feral)\b/i.test(t);
+      // ① 标准 <image> 块
+      let arr = (clean.match(/<image>[\s\S]*?<\/image>/gi) ?? [])
+        .map((b) => ({ anchor: get(b, 'anchor'), nsfw: get(b, 'nsfw_rating') || 'sfw', prompt: get(b, 'prompt') })).filter((s) => s.prompt);
+      if (arr.length) return arr;
+      // ② 裸 <prompt> 块（漏了 <image> 外壳，带可选 <anchor>/<nsfw_rating>）
+      arr = (clean.match(/<prompt>[\s\S]*?<\/prompt>/gi) ?? [])
+        .map((pp) => ({ anchor: get(pp, 'anchor'), nsfw: get(pp, 'nsfw_rating') || 'sfw', prompt: get(pp, 'prompt') })).filter((s) => s.prompt);
+      if (arr.length) return arr;
+      // ③ 预设原生「(Character N )Prompt: xxx」行
+      arr = [...clean.matchAll(/(?:character\s*\d*\s*)?prompt\s*[:：]\s*([^\n<]{6,})/gi)]
+        .map((m) => ({ anchor: '', nsfw: 'sfw', prompt: m[1].trim() })).filter((s) => s.prompt);
+      if (arr.length) return arr;
+      // ④ ``` 代码块里像 danbooru tags 的
+      arr = [...clean.matchAll(/```[a-z]*\s*([\s\S]*?)```/gi)].map((m) => m[1].trim())
+        .filter(looksTags).map((p) => ({ anchor: '', nsfw: 'sfw', prompt: p }));
+      if (arr.length) return arr;
+      // ⑤ 兜底：逐行像 danbooru tags（含 1girl/solo…+逗号）→ 当 prompt（救"给了标签但完全没套格式"）
+      arr = clean.split('\n').map((l) => l.replace(/^\s*(?:[-*•]|\d+[.)、])\s+/, '').trim())   // 只剥真正的列表符(- / 1. / 1))，别把 "1girl" 的 1 剥掉
+        .filter((l) => l.length < 600 && !/[<>]/.test(l) && looksTags(l))
+        .map((p) => ({ anchor: '', nsfw: 'sfw', prompt: p }));
       return arr;
     };
     const extract = async (msgs: Msg[], label: string) => {
@@ -4569,6 +4592,9 @@ ${AFFIX_EFFECT_RULE}`;
       }
     }
     if (specs.length === 0) {
+      storyImgDiagRef.current = raw
+        ? '写图的 LLM 返回了内容但没给出可用标签（多为该模型拒绝 NSFW，或换了别的格式）→ 给「正文生图」配个不审查的独立 LLM；控制台看 [StoryImg] 原始回复'
+        : '写图的 LLM 没返回内容（接口报错/被反代拦截）→ 换个稳定 LLM 路由；控制台看 [StoryImg] 报错';
       console.warn('[StoryImg] 未解析到有效 <image> 块。最后回复前 200 字：', (raw || '（空回复）').slice(0, 200));
       return 0;
     }
@@ -4586,6 +4612,7 @@ ${AFFIX_EFFECT_RULE}`;
         ok++;
       } catch (e: any) { console.warn('[StoryImg] 生成失败:', e.message ?? e); }
     }
+    if (ok === 0) storyImgDiagRef.current = '已解析出标签、但出图失败——多为生图服务(NAI 等)报错/额度/密钥问题；控制台看 [StoryImg] 生成失败';
     return ok;
   }
 
@@ -4597,7 +4624,7 @@ ${AFFIX_EFFECT_RULE}`;
     const count = Math.max(1, Math.min(9, ig.storyImageCount || 4));
     setImagePhaseLog('正文配图·抽取画面中…');
     const ok = await genStoryImagesFor(narrative, count, msgId);
-    setImagePhaseLog(ok > 0 ? `✓ 正文配图完成（${ok}）` : '⚠ 正文配图：未生成（模型未按格式/拒绝NSFW/未配置）');
+    setImagePhaseLog(ok > 0 ? `✓ 正文配图完成（${ok}）` : '⚠ 正文配图未生成：' + (storyImgDiagRef.current || '模型未按格式/拒绝NSFW/未配置'));
     setTimeout(() => setImagePhaseLog(''), 8000);
   }
 
@@ -4633,7 +4660,7 @@ ${AFFIX_EFFECT_RULE}`;
     setImagePhaseLog('手动正文生图·抽取中…');
     try {
       const ok = await genStoryImagesFor(msg.content, count, msgId);
-      setImagePhaseLog(ok > 0 ? `✓ 已生成 ${ok} 张配图` : '⚠ 没生成（模型未按格式/拒绝NSFW/未配置生图标签 LLM）');
+      setImagePhaseLog(ok > 0 ? `✓ 已生成 ${ok} 张配图` : '⚠ 没生成：' + (storyImgDiagRef.current || '模型未按格式/拒绝NSFW/未配置生图标签 LLM'));
     } catch (e: any) { setImagePhaseLog(`⚠ 生图失败：${String(e?.message ?? e).slice(0, 40)}`); }
     finally { setStoryImgBusyId(null); setTimeout(() => setImagePhaseLog(''), 7000); }
   }
@@ -7999,6 +8026,7 @@ ${lines}`;
       label === '助战' ? () => setAssistOpen(true) :
       label === '世界竞技场' ? () => setArenaWorldOpen(true) :
       label === '纪念丰碑' ? () => setMonumentOpen(true) :
+      label === '账户仓库' ? () => setVaultOpen(true) :
       label === '记忆' ? () => setSummaryPanelOpen(true) :
       label === '审计' ? () => setAuditOpen(true) :
       label === '存档' ? () => setSaveOpen(true) :
@@ -9414,6 +9442,7 @@ ${lines}`;
       {assistOpen && <AssistPanel onClose={() => setAssistOpen(false)} />}
       {arenaWorldOpen && <ArenaWorldPanel onClose={() => setArenaWorldOpen(false)} onGenBattle={genArenaWorldBattle} onSpar={(card) => startArenaWorldSpar(card.snapshot)} onManualChallenge={(opp, myCardId) => startArenaWorldRankedManual(opp.snapshot, myCardId, opp.id)} />}
       {monumentOpen && <MonumentPanel onClose={() => setMonumentOpen(false)} />}
+      {vaultOpen && <AccountVaultPanel onClose={() => setVaultOpen(false)} />}
       {mpIncomingGift && <GiftPrompt gift={mpIncomingGift} onClose={() => useMp.getState()._set({ incomingGift: null })} />}
       {mpRaidLoot && <RaidLootModal onClose={() => useMp.getState()._set({ raidLoot: null })} />}
       <RaidDungeonReward />
@@ -9432,6 +9461,10 @@ ${lines}`;
 
       {worldRecordOpen && (
         <WorldRecordPanel onClose={() => setWorldRecordOpen(false)} onGenSummary={runWorldSummaryPhase} summaryBusyId={summaryBusyId} onRegenWorldview={regenWorldviewForRecord} worldviewBusyId={worldviewBusyId} />
+      )}
+
+      {worldbookConflicts.length > 0 && (
+        <WorldbookMergePanel />
       )}
 
       {/* ── ROLL 点 · 摇骰检定面板 ── */}

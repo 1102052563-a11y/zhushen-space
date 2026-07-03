@@ -6,6 +6,7 @@
              + 进程/伏笔/约定表的当前数据（带 0 基行号，供 AI 判 update-vs-insert）。
    设计文档：`指导/ACU星数据库-移植-设计.md` §3 + §6 Step 5 / 1c。 */
 import { useTables } from '../store/tableStore';
+import { isCustomSheet, type AcuSheet } from './acuTableSpec';
 import { TABLE_FILL_RULE } from '../promptRules';
 
 const CHRONICLE_UID = 'chronicle';   // 纪要表（编年史·只追加）
@@ -31,6 +32,18 @@ function dumpTracker(uid: string, name: string): string {
     ? '  （暂无·按需 insertRow 新增）'
     : dataRows.map((row, ri) => `  [${ri}] ${fmtRow(headers, row) || '（空）'}`).join('\n');
   return `## ${name}·当前（改已有条目用 updateRow(表, 行号, {...})·行号=[ ] 里的数字·0基）\n${body}`;
+}
+
+/** 一张用户自定义表 →「## 表名（自定义·AI 维护）+【维护规则】note +【当前数据】带行号」。
+   note 是玩家写的**固定维护规则**——只给 AI 看、AI 只改行不改 note（防篡改）；空表给新增提示。 */
+function dumpCustomTable(sheet: AcuSheet): string {
+  const headers = (sheet.content[0] ?? []).slice(1);
+  const dataRows = sheet.content.slice(1);
+  const kind = sheet.single ? '单行·只 updateRow("' + sheet.name + '", 0, {...})' : '多行·insertRow/updateRow(行号0基)/deleteRow';
+  const body = dataRows.length === 0
+    ? '  （暂无数据·按维护规则需要时 insertRow 新增）'
+    : dataRows.map((row, ri) => `  [${ri}] ${fmtRow(headers, row) || '（空）'}`).join('\n');
+  return `## ${sheet.name}（用户自定义·AI 维护·${kind}）\n【维护规则·必须遵守】${sheet.sourceData.note || '（未填）'}\n【当前数据·列：${headers.join('/')}】\n${body}`;
 }
 
 /** 剧情状态快照（供「剧情指导」导演做状态感知）：纪要表最近几条 + 进程/伏笔/约定表当前非空行。
@@ -67,5 +80,10 @@ export function buildTableFillPrompt(only?: string[]): string {
   }
   const trackers = TRACKER_TABLES.filter(([uid]) => want(uid)).map(([uid, name]) => dumpTracker(uid, name)).join('\n\n');
   if (trackers) parts.push(trackers);
+  // 用户自定义 AI 维护表（uid custom:*）：连同各自「维护规则」(note) 注入，让 AI 据规则维护其行。规则固定、AI 只改行。
+  const customSheets = useTables.getState().sortedSheets().filter(isCustomSheet);
+  if (customSheets.length) {
+    parts.push(`# 用户自定义表（各按其【维护规则】维护·行=可变值随剧情更新、维护规则固定不许改）\n${customSheets.map(dumpCustomTable).join('\n\n')}`);
+  }
   return parts.join('\n\n');
 }

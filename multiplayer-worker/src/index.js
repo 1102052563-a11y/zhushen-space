@@ -12,6 +12,7 @@ import { handleGateway } from "./gateway.js";
 import { handleWorkshop } from "./workshop.js";
 import { handleCloud } from "./cloud.js";
 import { handleMonumentGet, handleMonumentPut } from "./monumentCloud.js";
+import { handleVaultGet, handleVaultPut } from "./vaultCloud.js";
 import { handleChatMe, handleChatAvatar } from "./chatId.js";
 import { handleStickerUpload, handleStickerServe, handleStickerList, handleStickerDelete } from "./chatSticker.js";
 import { verifyChatToken } from "./auth.js";
@@ -102,6 +103,13 @@ export default {
       if (p === "/api/monument") {
         if (request.method === "GET") return await handleMonumentGet(request, env, ch);
         if (request.method === "POST") return await handleMonumentPut(request, env, ch);
+        return json({ error: "method not allowed" }, { status: 405 }, ch);
+      }
+
+      // 账户仓库·云同步（个人私有 R2 blob vault/<uid>.json；与聊天室共用 Discord 身份 chatToken）
+      if (p === "/api/vault") {
+        if (request.method === "GET") return await handleVaultGet(request, env, ch);
+        if (request.method === "POST") return await handleVaultPut(request, env, ch);
         return json({ error: "method not allowed" }, { status: 405 }, ch);
       }
 

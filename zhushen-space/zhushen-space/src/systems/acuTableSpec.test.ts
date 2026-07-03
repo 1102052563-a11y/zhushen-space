@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { buildDefaultTables, DEFAULT_SHEET_UIDS } from './acuTableSpec';
+import { buildDefaultTables, DEFAULT_SHEET_UIDS, buildCustomSheet, isCustomSheet } from './acuTableSpec';
 
 /* acuTableSpec 是「表结构单一真相」。ddl 现在是**纯文档/规格**（英文列名+类型+CHECK 约束+中文注释），
    运行时引擎走中文 headers（见 tableSqlite Step 6b 镜像），ddl 无人读。
@@ -65,5 +65,38 @@ describe('acuTableSpec 表结构守卫（单一真相·机器可校验）', () =
       const m = sheet.sourceData.ddl.match(/CREATE TABLE\s+(\w+)/);
       expect(m?.[1]).toBe(sheet.uid);
     }
+  });
+});
+
+describe('buildCustomSheet（用户自定义 AI 维护表·note=固定维护规则/行=可变值）', () => {
+  it('造出 custom: uid + note=维护规则 + 列 + 多行只表头 + orderNo≥100', () => {
+    const s = buildCustomSheet({ name: '好感度表', headers: ['对象', '好感值'], note: '0~100，友好互动+5，冲突-10，不主动清零' });
+    expect(s.uid.startsWith('custom:')).toBe(true);
+    expect(s.name).toBe('好感度表');
+    expect(s.sourceData.note).toContain('友好互动+5');
+    expect(s.content[0]).toEqual(['row_id', '对象', '好感值']);
+    expect(s.single).toBe(false);
+    expect(s.content.length).toBe(1);            // 多行表只留表头
+    expect(s.orderNo).toBeGreaterThanOrEqual(100);
+    expect(isCustomSheet(s)).toBe(true);
+  });
+
+  it('单行表 → 预置 row_id=1 空行（updateRow(0) 立即可用）', () => {
+    const s = buildCustomSheet({ name: '主角心情', headers: ['心情', '强度'], note: 'x', single: true });
+    expect(s.single).toBe(true);
+    expect(s.content.length).toBe(2);
+    expect(s.content[1][0]).toBe('1');
+  });
+
+  it('无列→兜底一列「值」；note 空→占位提示', () => {
+    const s = buildCustomSheet({ name: '', headers: [], note: '' });
+    expect(s.content[0]).toEqual(['row_id', '值']);
+    expect(s.sourceData.note).toContain('未填');
+  });
+
+  it('isCustomSheet：默认表 false、undefined false', () => {
+    const def = Object.values(buildDefaultTables())[0];
+    expect(isCustomSheet(def)).toBe(false);
+    expect(isCustomSheet(undefined)).toBe(false);
   });
 });

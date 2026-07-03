@@ -129,6 +129,17 @@ const ICO_SAVE        = 'M5 13l4 4L19 7';
 /* ════════════════════════════════════════════
    物品详情浮窗
 ════════════════════════════════════════════ */
+/** 把背包物品打包成领地/账户仓库入库参数：携带**完整快照**（剥 image 防 localStorage 膨胀），
+ *  取出时原样还原全字段（词缀/强化/宝石/评分/耐久…），杜绝「存进去再拿出来词缀等信息全没了」。 */
+export function toStashPayload(item: InventoryItem) {
+  const { image: _img, ...snap } = item;
+  return {
+    name: item.name, quantity: item.quantity, category: item.category,
+    gradeDesc: item.gradeDesc, effect: item.effect, desc: item.notes, appearance: item.appearance,
+    item: snap as InventoryItem,
+  };
+}
+
 export function ItemDetailModal({ item, onClose }: { item: InventoryItem; onClose: () => void }) {
   const consumeItem = useItems((s) => s.consumeItem);
   const removeItem  = useItems((s) => s.removeItem);
@@ -136,12 +147,9 @@ export function ItemDetailModal({ item, onClose }: { item: InventoryItem; onClos
   const updateItem  = useItems((s) => s.updateItem);
   const territoryUnlocked = useTerritory((s) => s.unlocked);
   const storeToTerritory  = useTerritory((s) => s.storeItem);
-  // 背包 → 领地仓库：整摞存入领地仓库（同名累加），再从背包移除
+  // 背包 → 领地仓库：整件存入（携带完整快照，取出无损），再从背包移除
   const depositToTerritory = () => {
-    storeToTerritory({
-      name: item.name, quantity: item.quantity, category: item.category,
-      gradeDesc: item.gradeDesc, effect: item.effect, desc: item.notes, appearance: item.appearance,
-    });
+    storeToTerritory(toStashPayload(item));
     removeItem(item.id);
     onClose();
   };
@@ -886,7 +894,7 @@ export default function BackpackModal({
     const chosen = eligibleInBag.filter((it) => selectedIds.has(it.id));
     if (chosen.length === 0) return;
     for (const it of chosen) {
-      storeToTerritory({ name: it.name, quantity: it.quantity, category: it.category, gradeDesc: it.gradeDesc, effect: it.effect, desc: it.notes, appearance: it.appearance });
+      storeToTerritory(toStashPayload(it));   // 携带完整快照，取出无损
       removeItem(it.id);
     }
     exitSelect();

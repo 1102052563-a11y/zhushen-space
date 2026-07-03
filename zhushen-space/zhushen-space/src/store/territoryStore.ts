@@ -426,29 +426,34 @@ export const useTerritory = create<TerritoryState>()(
           if (!rawNm) return s;
           const nm = stripQtyQualifier(rawNm) || rawNm;   // 入库即剥掉"(微量)"等数量级括注，name 存纯净物资名
           const key = itemKey(nm);
-          // 先精确匹配，再按"剥数量级括注"的身份键匹配（合并 "X(微量)" 与 "X"）
-          const i = s.storageItems.findIndex((x) => nameEq(x.name, nm) || (!!key && itemKey(x.name) === key));
-          if (i >= 0) {
-            const next = [...s.storageItems];
-            const addQty = it.quantity != null ? Math.round(it.quantity) : 1;
-            next[i] = {
-              ...next[i],
-              name: stripQtyQualifier(next[i].name) || next[i].name,   // 顺手清掉旧条目残留的数量级括注
-              quantity: next[i].quantity + addQty,
-              ...(it.category != null ? { category: it.category } : {}),
-              ...(it.gradeDesc != null ? { gradeDesc: it.gradeDesc } : {}),
-              ...(it.effect != null ? { effect: it.effect } : {}),
-              ...(it.desc != null ? { desc: it.desc } : {}),
-              ...(it.appearance != null ? { appearance: it.appearance } : {}),
-            };
-            return { storageItems: next };
+          // 装备等不可堆叠物 / 带完整快照的物品 → 逐件独立入库，绝不按名合并（保住各自词缀/强化/宝石等全字段）；
+          // 只有可堆叠材料才按名累加。
+          const mergeable = !it.item && isStackableCat(it.category);
+          if (mergeable) {
+            const i = s.storageItems.findIndex((x) =>
+              !x.item && isStackableCat(x.category) && (nameEq(x.name, nm) || (!!key && itemKey(x.name) === key)));
+            if (i >= 0) {
+              const next = [...s.storageItems];
+              const addQty = it.quantity != null ? Math.round(it.quantity) : 1;
+              next[i] = {
+                ...next[i],
+                name: stripQtyQualifier(next[i].name) || next[i].name,   // 顺手清掉旧条目残留的数量级括注
+                quantity: next[i].quantity + addQty,
+                ...(it.category != null ? { category: it.category } : {}),
+                ...(it.gradeDesc != null ? { gradeDesc: it.gradeDesc } : {}),
+                ...(it.effect != null ? { effect: it.effect } : {}),
+                ...(it.desc != null ? { desc: it.desc } : {}),
+                ...(it.appearance != null ? { appearance: it.appearance } : {}),
+              };
+              return { storageItems: next };
+            }
           }
           const ni: TerritoryItem = {
             id: it.id ?? `TI_${Date.now()}_${Math.floor(Math.random() * 1000)}`,
             name: nm,
             quantity: it.quantity != null ? Math.round(it.quantity) : 1,
             category: it.category, gradeDesc: it.gradeDesc, effect: it.effect,
-            desc: it.desc, appearance: it.appearance, addedAt: Date.now(),
+            desc: it.desc, appearance: it.appearance, item: it.item, addedAt: Date.now(),
           };
           return { storageItems: [...s.storageItems, ni] };
         }),
