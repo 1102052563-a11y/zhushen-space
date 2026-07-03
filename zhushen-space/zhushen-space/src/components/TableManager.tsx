@@ -9,7 +9,6 @@ import { useSettings } from '../store/settingsStore';
 import { migrateStoresToTables } from '../systems/tableMigrate';
 import { seedWalletIfEmpty } from '../systems/ledger/walletCore';
 import { runWatchdogs, healWatchdog } from '../systems/ledger/watchdog';
-import { isCustomSheet } from '../systems/acuTableSpec';
 import StagedPersonaModal from './StagedPersonaModal';
 import CustomTableModal from './CustomTableModal';
 
