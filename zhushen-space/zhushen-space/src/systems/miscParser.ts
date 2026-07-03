@@ -43,7 +43,9 @@ function sanitizeRings(raw: any): QuestRing[] | undefined {
       rating: rRating != null && String(rRating).trim() ? String(rRating).trim() : undefined,
     });
   });
-  return out.length ? out : undefined;
+  if (!out.length) return undefined;
+  // 环数硬上限=5（主线/支线一律）：AI 偶发建 6+ 环时保留 idx 最小的 5 个，多出的截断
+  return [...out].sort((a, b) => a.idx - b.idx).slice(0, 5);
 }
 /* 从任务载荷里提取多环字段，按存在与否条件写入（缺省不覆盖既有），并在给了 rings 没给 currentRing 时自动取 active 环 idx */
 function applyQuestFields(target: Partial<MiscTask>, o: Record<string, any>): void {

@@ -65,7 +65,8 @@ export function mergeRings(existing: QuestRing[] | undefined, incoming: QuestRin
     (Object.keys(inc) as (keyof QuestRing)[]).forEach((k) => { if (inc[k] !== undefined) (merged as any)[k] = inc[k]; });
     byIdx.set(inc.idx, merged);
   }
-  const out = [...byIdx.values()].sort((a, b) => a.idx - b.idx);
+  // 环数硬上限=5：合并后若超过 5 环，保留 idx 最小的 5 个（治 AI 增量补环把总数推过 5）
+  const out = [...byIdx.values()].sort((a, b) => a.idx - b.idx).slice(0, 5);
   const incActive = incoming.find((r) => r.status === 'active');
   if (incActive) for (const r of out) {
     if (r.idx !== incActive.idx && r.status === 'active') r.status = r.idx < incActive.idx ? 'done' : 'planned';

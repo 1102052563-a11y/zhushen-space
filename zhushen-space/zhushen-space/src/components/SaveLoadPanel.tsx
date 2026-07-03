@@ -46,6 +46,7 @@ export default function SaveLoadPanel({ messages, onClose, onCleanupLive }: Prop
   const [confirmCloudDel, setConfirmCloudDel] = useState<string | null>(null);
   const [snapsOpen, setSnapsOpen] = useState(false);                   // 展开「自动备份」折叠区
   const [autoSnaps, setAutoSnaps] = useState<SlotMeta[]>([]);
+  const [listErr, setListErr] = useState('');                          // 读存档列表出错（IndexedDB 抽风）→ 与"真·暂无存档"区分开，别吓人
   // 存储持久化状态：未授予=best-effort，存储紧张时整批存档可能被浏览器清掉（"手动档先没→只剩自动档→全没"的根因）。让它可见。
   const [persist, setPersist] = useState<{ supported: boolean; persisted: boolean; usageMB: number | null; quotaMB: number | null } | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
@@ -76,8 +77,16 @@ export default function SaveLoadPanel({ messages, onClose, onCleanupLive }: Prop
     setConfirmClean(null);
   }
 
-  async function refresh() { setSlots(await listSlots()); }
-  async function refreshSnaps() { setAutoSnaps(await listAutoSnaps()); }
+  async function refresh() {
+    // ⚠ 必须 try/catch：listSlots→saveDb.allMeta 若 reject（IndexedDB 一时抽风/单条坏档撑爆游标），
+    //   原来会静默不更新 slots → 一直显示「暂无存档」，被误当成"存档全没了"。这里改成把错误摆出来、且不清空已有列表。
+    try { setSlots(await listSlots()); setListErr(''); }
+    catch (e: any) { const m = String(e?.message ?? e); setListErr(m); flash('❌ 读取存档列表失败：' + m + '（多为浏览器 IndexedDB 一时读取失败，数据未必丢，先刷新页面重试）'); }
+  }
+  async function refreshSnaps() {
+    try { setAutoSnaps(await listAutoSnaps()); }
+    catch (e: any) { flash('❌ 读取自动备份失败：' + (e?.message ?? e)); }
+  }
   useEffect(() => { refresh(); void getStorageStatus().then(setPersist); }, []);
   // 申请持久化（用户手势触发，比启动时静默申请更易被浏览器授予）
   async function handleRequestPersist() {
@@ -496,7 +505,15 @@ export default function SaveLoadPanel({ messages, onClose, onCleanupLive }: Prop
         <div className="flex-1 overflow-y-auto p-4 space-y-2">
           {slots.length === 0 ? (
             <div className="py-16 text-center text-dim/40 text-sm font-mono border border-dashed border-edge rounded-xl">
-              暂无存档<div className="mt-2 text-dim/30">点右上「+ 新建存档」保存当前进度</div>
+              {listErr ? (
+                <div className="px-4 space-y-2">
+                  <div className="text-amber-400/80">⚠ 读取存档列表出错（不等于存档没了）</div>
+                  <div className="text-dim/50 leading-relaxed">多为浏览器 IndexedDB 一时读取失败。<b className="text-dim/70">先刷新页面重试</b>；若仍空，用下方「☁ 云存档 / 📁 本地文件夹 / 自动备份」恢复。当前对局本身没坏，可先点右上「+ 新建存档」另存一份。</div>
+                  <div className="text-dim/25 break-all text-[11px]">{listErr}</div>
+                </div>
+              ) : (
+                <>暂无存档<div className="mt-2 text-dim/30">点右上「+ 新建存档」保存当前进度</div></>
+              )}
             </div>
           ) : slots.map((s) => (
             <div key={s.id} className="rounded-lg border border-edge bg-panel/60 px-3 py-2.5 space-y-1.5">

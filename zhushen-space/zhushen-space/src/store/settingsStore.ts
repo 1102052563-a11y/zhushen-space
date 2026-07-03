@@ -15,6 +15,9 @@ export interface WorldBookEntry {
   position: number;    // 插入位置
   depth?: number;      // @D 深度注入（position===4 时）：插到对话历史倒数第 N 层
   role?: number;       // @D 注入身份：0=system 1=user 2=assistant
+  userEdited?: boolean;   // 玩家改过此条（仅内置书用）：内置更新时不覆盖它；若内置又改了同条→冲突询问
+  baseSig?: string;       // 首次改动时捕获的「内置原文签名」：3方合并判断内置是否又更新过此条（避免误报冲突）
+  userAdded?: boolean;    // 玩家在内置书里新增的条目：内置更新时始终保留
 }
 
 export interface WorldBook {
@@ -25,6 +28,14 @@ export interface WorldBook {
   createdAt: number;
   builtin?: boolean;   // 内置默认书：来自 public/presets，每次启动重载、不写入 localStorage（省配额）
   builtinKey?: string; // 内置书的稳定标识（不随改名/转正变化）：供 loadBuiltinDefaults 逐本判重，避免改一本丢其余内置
+  removedBuiltinUids?: number[];   // 玩家从内置书删掉的条目 uid：内置更新时不再把它加回来
+}
+
+// 内置世界书更新时，「内置改了、玩家也改了同一条」的冲突（策略B：逐条让玩家裁决）。
+export interface WorldbookConflict {
+  bookId: string; bookName: string; uid: number; comment: string;
+  freshEntry: WorldBookEntry;   // 内置最新版
+  userEntry: WorldBookEntry;    // 玩家当前版
 }
 
 export interface ApiConfig {
@@ -342,6 +353,7 @@ interface SettingsState {
   textModelsLoading: boolean;
   textModelsError: string;
   textWorldBooks: WorldBook[];
+  worldbookConflicts: WorldbookConflict[];   // 内置世界书更新遇到的「双改」冲突，待玩家逐条裁决（策略B）
   textPresets: TextGenPreset[];
   activeTextPresetId: string | null;
   activeTextPresetName?: string;   // 记住激活预设的「名字」，内置预设 id 失配时按名兜底找回
@@ -378,6 +390,9 @@ interface SettingsState {
   updateTextWorldBookEntry: (bookId: string, uid: number, patch: Partial<WorldBookEntry>) => void;
   addTextWorldBookEntry: (bookId: string) => void;
   removeTextWorldBookEntry: (bookId: string, uid: number) => void;
+  reconcileBuiltinTextWorldBook: (raw: string, name: string, key: string) => WorldbookConflict[];   // 内置更新·3方合并·返回冲突
+  setWorldbookConflicts: (list: WorldbookConflict[]) => void;
+  resolveWorldbookConflict: (bookId: string, uid: number, choice: 'fresh' | 'mine') => void;
   importTextPreset: (raw: string, fileName?: string, builtin?: boolean, activate?: boolean) => { ok: boolean; message: string };
   removeTextPreset: (id: string) => void;
   renameTextPreset: (id: string, name: string) => void;
@@ -430,6 +445,11 @@ function toStringArray(v: any): string[] {
   if (Array.isArray(v)) return v.map(String).filter(Boolean);
   if (v && typeof v === 'string') return [v];
   return [];
+}
+
+// 内置条目「内容签名」：任一实质字段变化即签名变化。用于 3 方合并判断某内置条目是否被更新过。
+export function sigOfEntry(e: WorldBookEntry): string {
+  return [e.content, (e.key || []).join(''), (e.keysecondary || []).join(''), e.comment, e.constant, e.selective, e.enabled, e.order, e.position, e.depth ?? '', e.role ?? ''].join('');
 }
 
 function parseEntry(e: any, i: number): WorldBookEntry {
@@ -749,6 +769,7 @@ export const useSettings = create<SettingsState>()(
       textModelsLoading: false,
       textModelsError: '',
       textWorldBooks: [],
+      worldbookConflicts: [],
       textPresets: [],
       activeTextPresetId: null,
       activeTextPresetName: undefined,
@@ -969,15 +990,64 @@ export const useSettings = create<SettingsState>()(
         return removed;
       },
       renameTextWorldBook: (id, name) => set((s) => ({ textWorldBooks: s.textWorldBooks.map((b) => b.id === id ? forkIfBuiltin({ ...b, name }) : b) })),
-      toggleTextWorldBookEntry: (bookId, uid) => set((s) => ({ textWorldBooks: s.textWorldBooks.map((b) => b.id !== bookId ? b : forkIfBuiltin({ ...b, entries: b.entries.map((e) => e.uid === uid ? { ...e, enabled: !e.enabled } : e) })) })),
-      updateTextWorldBookEntry: (bookId, uid, patch) => set((s) => ({ textWorldBooks: s.textWorldBooks.map((b) => b.id !== bookId ? b : forkIfBuiltin({ ...b, entries: b.entries.map((e) => e.uid === uid ? { ...e, ...patch } : e) })) })),
+      toggleTextWorldBookEntry: (bookId, uid) => set((s) => ({ textWorldBooks: s.textWorldBooks.map((b) => b.id !== bookId ? b : forkIfBuiltin({ ...b, entries: b.entries.map((e) => e.uid !== uid ? e : (b.builtinKey ? { ...e, enabled: !e.enabled, userEdited: true, baseSig: e.userEdited ? e.baseSig : sigOfEntry(e) } : { ...e, enabled: !e.enabled })) })) })),
+      updateTextWorldBookEntry: (bookId, uid, patch) => set((s) => ({ textWorldBooks: s.textWorldBooks.map((b) => b.id !== bookId ? b : forkIfBuiltin({ ...b, entries: b.entries.map((e) => e.uid !== uid ? e : (b.builtinKey ? { ...e, ...patch, userEdited: true, baseSig: e.userEdited ? e.baseSig : sigOfEntry(e) } : { ...e, ...patch })) })) })),
       addTextWorldBookEntry: (bookId) => set((s) => {
         const book = s.textWorldBooks.find((b) => b.id === bookId); if (!book) return s;
         const maxUid = book.entries.reduce((m, e) => Math.max(m, e.uid), -1);
         const maxOrder = book.entries.reduce((m, e) => Math.max(m, e.order), 99);
-        return { textWorldBooks: s.textWorldBooks.map((b) => b.id !== bookId ? b : forkIfBuiltin({ ...b, entries: [...b.entries, { uid: maxUid + 1, key: [], keysecondary: [], comment: '新条目', content: '', constant: false, selective: false, enabled: true, order: maxOrder + 1, position: 0 }] })) };
+        return { textWorldBooks: s.textWorldBooks.map((b) => b.id !== bookId ? b : forkIfBuiltin({ ...b, entries: [...b.entries, { uid: maxUid + 1, key: [], keysecondary: [], comment: '新条目', content: '', constant: false, selective: false, enabled: true, order: maxOrder + 1, position: 0, userAdded: true }] })) };
       }),
-      removeTextWorldBookEntry: (bookId, uid) => set((s) => ({ textWorldBooks: s.textWorldBooks.map((b) => b.id !== bookId ? b : forkIfBuiltin({ ...b, entries: b.entries.filter((e) => e.uid !== uid) })) })),
+      removeTextWorldBookEntry: (bookId, uid) => set((s) => ({ textWorldBooks: s.textWorldBooks.map((b) => b.id !== bookId ? b : forkIfBuiltin({ ...b, entries: b.entries.filter((e) => e.uid !== uid), removedBuiltinUids: b.builtinKey ? [...new Set([...(b.removedBuiltinUids || []), uid])] : b.removedBuiltinUids })) })),
+
+      // 内置世界书更新时的「3方合并」（替代整本删+重导）：更新玩家没改过的条目、保留玩家改过的、送达新内置条目、
+      //   尊重玩家删除；「内置改了 + 玩家也改了同一条」→ 收集为冲突返回（由 UI 逐条裁决·策略B）。
+      reconcileBuiltinTextWorldBook: (raw, name, key) => {
+        const conflicts: WorldbookConflict[] = [];
+        try {
+          const { entries: fresh } = parseWorldBook(raw, name);
+          set((s) => {
+            const existing = s.textWorldBooks.find((b) => b.builtinKey === key);
+            if (!existing) {   // 全新内置：直接整本导入
+              const book: WorldBook = { id: `twb_${Date.now()}`, name, entries: fresh.map((e) => ({ ...e })), enabled: true, createdAt: Date.now(), builtin: true, builtinKey: key };
+              return { textWorldBooks: [...s.textWorldBooks.filter((b) => b.builtinKey !== key), book] };
+            }
+            const userByUid = new Map(existing.entries.map((e) => [e.uid, e]));
+            const removed = new Set(existing.removedBuiltinUids || []);
+            const merged: WorldBookEntry[] = [];
+            for (const f of fresh) {
+              if (removed.has(f.uid)) continue;                       // 玩家删过这条内置 → 不加回
+              const u = userByUid.get(f.uid);
+              if (!u) { merged.push({ ...f }); continue; }             // 新内置条目 → 送达
+              if (!u.userEdited) { merged.push({ ...f }); continue; }   // 玩家没改过 → 用最新内置
+              if (u.baseSig && sigOfEntry(f) === u.baseSig) { merged.push(u); continue; }   // 内置没更新过它 → 静默保留玩家版
+              merged.push(u);                                         // 冲突：先保留玩家版，收集待裁决
+              conflicts.push({ bookId: existing.id, bookName: existing.name, uid: f.uid, comment: f.comment || `#${f.uid}`, freshEntry: { ...f }, userEntry: { ...u } });
+            }
+            const freshUids = new Set(fresh.map((f) => f.uid));
+            for (const u of existing.entries) {                       // 玩家新增的条目（uid 不在内置里）→ 保留
+              if (!freshUids.has(u.uid) && !merged.some((m) => m.uid === u.uid)) merged.push(u);
+            }
+            const nextBook: WorldBook = { ...existing, entries: merged };   // 保留 existing 的 name/id/启用/builtin(Key)/removedBuiltinUids
+            return { textWorldBooks: s.textWorldBooks.map((b) => b.builtinKey === key ? nextBook : b) };
+          });
+        } catch { /* parse 失败 → 保留现状 */ }
+        return conflicts;
+      },
+      setWorldbookConflicts: (list) => set({ worldbookConflicts: list }),
+      resolveWorldbookConflict: (bookId, uid, choice) => set((s) => {
+        const c = s.worldbookConflicts.find((x) => x.bookId === bookId && x.uid === uid);
+        if (!c) return s;
+        const books = s.textWorldBooks.map((b) => b.id !== bookId ? b : {
+          ...b,
+          entries: b.entries.map((e) => {
+            if (e.uid !== uid) return e;
+            if (choice === 'fresh') return { ...c.freshEntry, userEdited: false, baseSig: undefined, userAdded: e.userAdded };   // 用新版：恢复跟随内置更新
+            return { ...e, baseSig: sigOfEntry(c.freshEntry) };   // 保留我的：把 base 推进到新内置签名 → 同一更新不再重复问
+          }),
+        });
+        return { textWorldBooks: books, worldbookConflicts: s.worldbookConflicts.filter((x) => !(x.bookId === bookId && x.uid === uid)) };
+      }),
 
       importTextPreset: (raw, fileName = '', builtin = false, activate = true) => {
         try {
@@ -1106,6 +1176,7 @@ export const useSettings = create<SettingsState>()(
         ...s,
         worldBooks: [],
         textWorldBooks: [],
+        worldbookConflicts: [],
         textPresets: [],
         // 瞬时 UI 态绝不入库：中途刷新/中断会把 modelsLoading:true 写进 localStorage，
         // 下次加载按钮永久卡在「获取中…」(disabled) 无法重试。

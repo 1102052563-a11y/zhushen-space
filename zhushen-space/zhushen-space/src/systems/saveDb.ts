@@ -39,8 +39,11 @@ function allMeta<T = any>(): Promise<T[]> {
         const req = tx.objectStore(STORE).openCursor();
         req.onsuccess = () => {
           const cur = req.result;
-          if (cur) { const { data, ...meta } = cur.value as any; void data; out.push(meta as T); cur.continue(); }
-          else resolve(out);
+          if (cur) {
+            // 单条坏记录（读不出/结构异常）只跳过、继续游标——绝不让一条坏档 throw 掉整个列表(=面板显示"暂无存档"、被误当成存档全丢)。
+            try { const { data, ...meta } = cur.value as any; void data; out.push(meta as T); } catch { /* 跳过坏档 */ }
+            cur.continue();
+          } else resolve(out);
         };
         req.onerror = () => reject(req.error);
         tx.oncomplete = () => db.close();

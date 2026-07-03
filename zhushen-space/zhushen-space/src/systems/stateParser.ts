@@ -392,16 +392,17 @@ function nearestItemName(bag: any[], query?: string): string | undefined {
   return (hit ?? bag[0])?.name;
 }
 
-/** 近似同物判重（同名 + 同品级 + 效果/攻防吻合）→ 视为"重复创建"。三要素都吻合才判，避免误伤同名却不同的新物。*/
-function findIdenticalItem(bag: any[], name: string, grade: string, effect: string, combatStat: string): any | null {
+/** 装备近似同物判重（供创建闸门"拦截重复创建"）：同名(归一去装饰) + 品级宽松吻合 → 视为重复。
+    effect/combatStat 不再作硬性条件——AI 重提同一件装备时描述/效果每次都变，若要求全等会漏判成"新物"→重复生成(治"提一下就多两把·月影残心×3")。
+    装备名多为专有名词，同名即同物；品级宽松(任一空或互相包含)区分「金色 vs 金色·顶级」(同物·判重)与「金色 vs 红色」(升级·放行)。
+    本判定只用于 skip(不新建·不删物)，非破坏性、误判风险低。*/
+function findIdenticalItem(bag: any[], name: string, grade: string, _effect: string, _combatStat: string): any | null {
   const n = normName(name), g = normName(grade);
   if (!n) return null;
   return (bag ?? []).find((it) => {
     if (normName(it.name) !== n) return false;
-    if (g && normName(it.gradeDesc) !== g) return false;
-    const effMatch = effect ? normName(it.effect) === normName(effect) : true;
-    const csMatch = combatStat ? normName(it.combatStat) === normName(combatStat) : true;
-    return effMatch && csMatch;
+    const ig = normName(it.gradeDesc);
+    return !g || !ig || ig === g || ig.includes(g) || g.includes(ig);   // 品级宽松包含
   }) ?? null;
 }
 
@@ -910,7 +911,9 @@ export function pickTargetItem(items: any[], itemId?: string, name?: string): an
 
 /* 名称归一化：去空白 + 去常见标点/间隔符，跨回合"荒野行者·战术背心" vs "荒野行者战术背心"也能判为同物去重 */
 function normName(s?: string): string {
-  return (s ?? '').replace(/[\s·•・\-—_,，.。、|｜]/g, '').trim().toLowerCase();
+  // 剥空白/间隔点/标点 + 装饰括号【】〔〕「」『』（）()〈〉 + 结构助词 的之——与 itemStore.dedupeByName 的归一口径一致，
+  // 让 AI 重提时给物品名加的装饰（如「【月影残心】」vs「月影残心」）归一后相等，findIdenticalItem 才能判出重复（治"提一下就多两把")。
+  return (s ?? '').replace(/[\s·•・\-—_,，.。、|｜【】〔〕「」『』〈〉（）()的之]/g, '').trim().toLowerCase();
 }
 function findItemByName(store: any, name?: string): any | null {
   if (!name) return null;

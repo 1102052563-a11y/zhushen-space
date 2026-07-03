@@ -71,10 +71,33 @@ describe('applyItemCommands 单一闸门（物品·第0期）', () => {
     expect(res[0].reason).toBe('dup');
   });
 
-  it('同名但效果不同的装备 → 不误判重，正常各入库一件', () => {
+  it('★同名同品级的装备(即使描述/效果不同) → 判重拦截只一件（治 AI 重提同一件武器变着描述→重复生成）', () => {
     applyItemCommands([cmd('createItem', { name: '长剑', category: '武器', grade: '蓝色', effect: '锋利' })], { source: 'narrative', turn: 1 });
-    applyItemCommands([cmd('createItem', { name: '长剑', category: '武器', grade: '蓝色', effect: '迟钝' })], { source: 'item-phase', turn: 1 });
-    expect(useItems.getState().items.filter((it) => it.name === '长剑').length).toBe(2);
+    const res = applyItemCommands([cmd('createItem', { name: '长剑', category: '武器', grade: '蓝色', effect: '迟钝' })], { source: 'item-phase', turn: 1 });
+    expect(useItems.getState().items.filter((it) => it.name === '长剑').length).toBe(1);
+    expect(res[0].skipped).toBe(true);
+    expect(res[0].reason).toBe('dup');
+  });
+
+  it('★同名带装饰括号「【月影残心】」vs「月影残心」→ 归一去【】后判重，不重复生成', () => {
+    applyItemCommands([cmd('createItem', { name: '月影残心', category: '武器', grade: '金色' })], { source: 'narrative', turn: 1 });
+    const res = applyItemCommands([cmd('createItem', { name: '【月影残心】', category: '武器', grade: '金色' })], { source: 'item-phase', turn: 1 });
+    expect(useItems.getState().items.length).toBe(1);
+    expect(res[0].skipped).toBe(true);
+    expect(res[0].reason).toBe('dup');
+  });
+
+  it('★品级宽松：金色 vs 金色·顶级（AI 加后缀）→ 视为同级判重', () => {
+    applyItemCommands([cmd('createItem', { name: '月影残心', category: '武器', grade: '金色' })], { source: 'narrative', turn: 1 });
+    const res = applyItemCommands([cmd('createItem', { name: '月影残心', category: '武器', grade: '金色·顶级' })], { source: 'item-phase', turn: 1 });
+    expect(useItems.getState().items.length).toBe(1);
+    expect(res[0].skipped).toBe(true);
+  });
+
+  it('不同品级（金色 vs 红色·升级）→ 品级不吻合，放行各一件', () => {
+    applyItemCommands([cmd('createItem', { name: '月影残心', category: '武器', grade: '金色' })], { source: 'narrative', turn: 1 });
+    applyItemCommands([cmd('createItem', { name: '月影残心', category: '武器', grade: '红色' })], { source: 'item-phase', turn: 1 });
+    expect(useItems.getState().items.length).toBe(2);
   });
 
   it('★consume 不存在的物品 → 结构化失败(not_found)，不崩、不误删别的', () => {

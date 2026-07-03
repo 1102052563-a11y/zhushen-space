@@ -88,6 +88,7 @@ import {
   SOUL_GAMBLE_RULE,
   POTENTIAL_POINT_RULE,
   WORLD_SETTLEMENT_RULE,
+  WORLD_SETTLEMENT_COT_RULE,
   EDIT_LANGUAGE_RULE,
   EDIT_BY_ID_RULE,
   EVO_REGISTER_GAINS_RULE,
@@ -101,6 +102,7 @@ import {
 import { useState, useRef, useEffect, lazy, Suspense, type PointerEvent as RPointerEvent } from 'react';
 import { useGame } from './store/gameStore';
 import { useSettings, resolveApiChain, inferViewScopes } from './store/settingsStore';
+import { runRegexReplace } from './systems/regexEngine';
 import { apiChatFallback, fetchWithProxy, abortAllApiCalls } from './systems/apiChat';
 import { parseAllStateUpdates, stripStateBlocks, parseAllItemCommands, applyItemCommands, parseAllCharCommands, applyCharacterCommands, parseAllNpcCommands, applyNpcCommands, parseAllFactionCommands, applyFactionCommands, applyTerritoryCommands, applyTeamCommands, isEquippable, lenientJsonParse, buildItemFeedback, recordEvo, purgeItemPhaseCurrency, editToTerritoryText, editToTeamText, detectUnregisteredCurrencyGains } from './systems/stateParser';
 import { isRealNpc, sanitizeEntryName, stripLeakedThinking, setNpcPreferredOwners, applyStateUpdates, applyAllUpdates, stripKillBlocks, stripVitalsBlocks, stripWorldSourceBlocks, collapseRunaway } from './systems/stateApply';
@@ -780,6 +782,7 @@ const QUEST_HOME_NO_GEN_RULE = `
 const QUEST_PLANNING_RULE = `
 【主线路线图规划·铁则（就主线而言优先于预设里"保守不新建任务"的示例）】区分两类任务：**主线**=本任务世界的核心目标线，每个世界通常**只有一条 active 主线**；其余多回合目标一律**支线**（支线也可多环）。
 - **【最高铁则·主线必须分环】新建主线一律用 rings 数组建成 3~5 个环（强制环+贪婪环，见下）；严禁建成"无 rings 的扁平主线"——扁平=错误，会丢失"一环一环"的路线图与逐环奖惩。支线若多回合也尽量分环。**
+- **【环数硬上限=5·铁则】任何任务（主线/支线/隐藏）的总环数**绝不超过 5 环**（主线建 3~5 环、支线按需 1~5 环）；严禁建 6 环及以上、也不要在推进/补环时把总数堆过 5。系统对超出的会强制截断成 idx 最小的前 5 环，别指望第 6 环生效。**
 - **任务世界 vs 枢纽（先分清）**：任务世界 / 衍生世界 = 主角被投放进去的具体世界（有自己的地名、势力、反派、威胁与核心任务）；而**轮回乐园 / 主神空间 / 专属房间 / 各乐园都是枢纽（起点·任务间歇·回归地），不是任务世界**。
 - **绝不规划主线的情形（最高优先，覆盖下方"何时规划"）**：① 当前世界是上述任一**枢纽**时——不规划任何主线；② **禁止生成"框架/流程"类套路主线**——诸如"适应乐园环境 / 进入衍生世界 / 获取身份 / 执行衍生世界主线 / 结算并回归轮回乐园 / 首次世界试炼"等围绕轮回乐园机制本身的流程性任务，**毫无剧情意义，一律不生成**。
 - **何时规划主线**：仅当主角**真正进入一个具体任务世界（衍生世界，非枢纽）**——【进入新世界信号】=是、或本轮正文明确把主角投放进了一个新任务世界，且【当前任务列表】里**没有**属于当前世界的 active 主线时——把**该任务世界自身的核心目标**（用该世界真实的地名/反派/势力，绝不用框架套话）立成一条主线，**先定好"总环数"与"终局"，环内容则渐进式规划**：
@@ -1609,13 +1612,23 @@ export default function App() {
       && (stage === 'display' ? !s.promptOnly : !s.markdownOnly));
     console.log(`[正则|${stage}] 共 ${all.length} 条，过滤后执行 ${scripts.length} 条`, scripts.map((s) => ({ name: s.scriptName, find: s.findRegex, flags: s.flags, placement: s.placement, md: s.markdownOnly, prompt: s.promptOnly })));
 
+    // 宏展开器（照 ST 对替换模板跑 substituteParams）：仅当某脚本 replaceString 里含宏（{{…}} 非 {{match}} 或 ${…}）才构建一次，省开销
+    let expandMacros: ((x: string) => string) | undefined;
+    if (scripts.some((s) => /\{\{(?!match\}\})|\$\{/.test(s.replaceString || ''))) {
+      try {
+        const pName = usePlayer.getState().profile?.name || '主角';
+        const mctx = makeMacroCtx({ user: pName, char: pName, lastUserMessage: lastUserInputRef.current || '', runtimeVars: buildRuntimeVars() });
+        expandMacros = (x: string) => processMacros(x, mctx);
+      } catch { /* 宏上下文构建失败则跳过宏展开，不阻断正则 */ }
+    }
+
     let result = text;
     // ── 安全网：隐藏常见「思考/推理/防拦截」标签块（dotAll），即便用户正则漏配或写成贪婪也兜底 ──
     //   覆盖 <thinking>/<think>/<reasoning>/<reason>/<plan>/<analysis>/<scratchpad>/<cot> 思考标签，
     //   以及预设常见的 <*_opinion>（人设动笔前思考，如 <Alu_opinion>）/<*_interception>（防拦截，如 <Anti_interception>）/<viewpoint>（防拦截填充内容）。
     //   本网跑在用户正则之前，且用【非贪婪 + 闭合标签反向引用 \1】只删配对闭合块：① 自身绝不会误吃正文（只到最近对应闭合标签）；
     //   ② 更关键——提前把这些块删净后，用户若把 strip 写成贪婪如 `<Alu_opinion>[\s\S]*`（一路吃到结尾=把正文吞了）也已无块可匹配 → 正文得救（用户报「正文被隐藏」的根因）。
-    result = result.replace(/<(thinking|think|reasoning|reason|plan|analysis|scratchpad|cot|[a-z_]*opinion|[a-z_]*interception|viewpoint)\b[^>]*>[\s\S]*?<\/\1>/gi, '');
+    result = result.replace(/<(thinking|think|reasoning|reason|plan|analysis|scratchpad|settle_cot|cot|[a-z_]*opinion|[a-z_]*interception|viewpoint)\b[^>]*>[\s\S]*?<\/\1>/gi, '');
     // ── 安全网：折叠失控复读（极其极其…），即便用户没配反复读正则也兜底，防最终文本仍带成千上万字重复 ──
     result = collapseRunaway(result);
     for (const s of scripts) {
@@ -1635,13 +1648,13 @@ export default function App() {
         const flags = [...new Set(rawFlags)].filter((c) => /[gimsuy]/.test(c)).join('') || 'g';
         const re = new RegExp(pattern, flags);
         const before = result;
-        result = result.replace(re, s.replaceString);
+        result = runRegexReplace(result, re, s, expandMacros);   // ST 风格替换（$1/$0/{{match}}/$<name> + trimStrings 过滤 + 模板宏），非原生裸替换
         // 兜底重试：未命中 + 含 `.` + 缺 dotAll 时，补 s 标志再试一次
         //   （绝大多数"隐藏思考过程/多行块"漏匹配都是因为忘了 s 标志，导致 . 不跨行）
         if (result === before && /\./.test(pattern) && !flags.includes('s')) {
           try {
             const reS = new RegExp(pattern, flags + 's');
-            const retried = result.replace(reS, s.replaceString);
+            const retried = runRegexReplace(result, reS, s, expandMacros);
             if (retried !== result) {
               result = retried;
               console.log(`[正则] ✓ "${s.scriptName}" 命中（自动补 s/dotAll 标志后）`);
@@ -1752,6 +1765,8 @@ export default function App() {
     // 任务世界结算：仅当本回合输入含【结算任务】时才注入（平时不喂，省 token、避免误触发）
     if (/【结算任务】/.test(userInput)) {
       addRule('任务世界结算', '前端规则 · 任务世界结算（本回合触发）', WORLD_SETTLEMENT_RULE);
+      // 世界结算专属思维链：结算前先逼正文 API 逐项推演"任务是否真完成/评级是否公正/奖励是否忠于原文不膨胀"，<settle_cot> 由显示层安全网剥除
+      addRule('世界结算思维链', '前端规则 · 世界结算思维链（本回合触发）', WORLD_SETTLEMENT_COT_RULE);
       // 本世界已完成/已结算的任务线平时不注入（已移出进行中列表），结算 AI 因此数不到、只报一条 → 结算这一回合把它们喂进去供如实统计完成数量
       try {
         const Mm = useMisc.getState();
@@ -1768,8 +1783,19 @@ export default function App() {
         const prog = isHomeWorld(cur) ? [] : Mm.tasks.filter((t) => Array.isArray(t.rings) && t.rings.some((r) => r.status === 'done'));
         const done = [...prog, ...arch].slice(0, 40);
         if (done.length) {
-          addRule('本世界已结算任务', '前端数据 · 本世界已完成任务/环清单（结算对账）',
-            `【本世界已完成任务/已达成环清单（结算对账·据此逐环、逐任务核算完成度与评级并一次性发奖，别漏算、别虚增）】\n${serializeSettledTasks(done)}\n— 上列为主角在本结算世界内**已完成的任务线与已达成的每一环**（含每环的「主角行为总结＋评级」）。你必须**严格据此逐环、逐任务结算**：统计【完成任务数量】把它们全部计入（主线按条、支线按条），【综合评价】里逐环的评分直接采用上面各环已给的评级；别因为进行中列表只剩一条就只报一条，也别把其它世界的任务算进来。`);
+          // 系统精确统计完成条数（只数"已完成/达成/成功"、排除失败/放弃）→ 让结算面板照抄，根治 AI 漏数、只报当前进行中那一条
+          const isMain = (t: any) => t.kind === '主线';
+          const isFin = (t: any) => /完成|达成|成功/.test(t.status || '') && !/失败|放弃|作废|取消|未完成/.test(t.status || '');
+          const isBad = (t: any) => /失败|放弃|作废|取消/.test(t.status || '');
+          const mainDone = arch.filter((t) => isMain(t) && isFin(t)).length;
+          const sideDone = arch.filter((t) => !isMain(t) && isFin(t)).length;
+          const failCnt = arch.filter((t) => isBad(t)).length;
+          addRule('本世界结算统计', '前端数据 · 本世界任务完成统计（结算对账·必须照抄）',
+            `【本世界任务完成统计（系统已精确统计·结算面板的「完成任务数量」必须原样照抄下面的数字，严禁自己另数、漏数、或只报当前进行中那一条）】\n` +
+            `- 完成主线：${mainDone} 条\n- 完成支线/隐藏：${sideDone} 条\n- 失败/放弃（不计入完成数）：${failCnt} 条\n` +
+            `⇒ 结算面板【完成任务数量】这一行必须写成：「${mainDone}（主线）＋ ${sideDone}（支线）」，一字不差。\n\n` +
+            `【逐条清单（每条含各环目标·评级·主角行为总结，供逐环评价与发奖参考；勿遗漏）】\n${serializeSettledTasks(done)}\n` +
+            `— 上列为主角在本结算世界内已完成的任务线与已达成的每一环。【综合评价】逐环评分直接采用各环已给评级；发奖档位以【世界之源%】评级为准（与任务条数无关），但【完成任务数量】与逐条/逐环列举必须覆盖上面全部、绝不许只报一条。`);
         }
       } catch { /* */ }
     }

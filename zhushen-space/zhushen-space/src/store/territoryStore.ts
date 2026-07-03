@@ -2,6 +2,7 @@ import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import type { ApiConfig } from './settingsStore';
 import { useSettings } from './settingsStore';
+import { isStackableCat, type InventoryItem } from './itemStore';
 import territoryDefaultPreset from '../data/territoryDefaultPreset.json';
 
 /* ════════════════════════════════════════════
@@ -39,7 +40,10 @@ export interface TerritoryMember {
   note?: string;
 }
 
-/** 领地仓库物品（与主背包分离） */
+/** 领地仓库物品（与主背包分离）。
+ *  扁平字段（name/quantity/gradeDesc/effect…）供显示 + AI 走 storeItem 记材料用；
+ *  `item` = 从背包存入时携带的**完整物品快照**（词缀/强化/宝石/评分/耐久…），取出时原样还原，
+ *  杜绝「塞进领地再拿出来词缀等信息全没了」。快照已剥 image（防 localStorage 膨胀，取出后可重生图）。 */
 export interface TerritoryItem {
   id: string;
   name: string;
@@ -49,6 +53,7 @@ export interface TerritoryItem {
   effect?: string;
   desc?: string;
   appearance?: string;
+  item?: InventoryItem;   // 完整快照（存在即取出时全字段还原；AI 记的材料无此字段，走扁平字段）
   addedAt: number;
 }
 
@@ -86,6 +91,8 @@ function dedupeStorageList(items: TerritoryItem[]): TerritoryItem[] {
   const idx: Record<string, number> = {};
   for (const it of items ?? []) {
     const cleanName = stripQtyQualifier(it.name) || it.name;
+    // 不可堆叠物（装备/带完整快照的物品）逐件保留、绝不按名合并——避免把两件同名不同词缀的装备并成一摞丢字段
+    if (it.item || !isStackableCat(it.category)) { out.push({ ...it, name: cleanName }); continue; }
     const key = itemKey(it.name);
     if (key && idx[key] != null) {
       const t = out[idx[key]];
