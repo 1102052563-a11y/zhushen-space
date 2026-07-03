@@ -122,8 +122,8 @@ export function rollGachaBatch(count: number, pity: number): { rewards: GachaRew
 export function grantGachaReward(r: GachaReward): void {
   const I = useItems.getState();
   if (r.item) { I.addItem(r.item); return; }
-  if (r.kind === 'currency') I.adjustCurrency('乐园币', r.amount || 0);
-  else if (r.kind === 'soulcoin') I.adjustCurrency('灵魂钱币', r.amount || 0);
+  if (r.kind === 'currency') I.adjustCurrency('乐园币', r.amount || 0, '赌坊·福袋扭蛋奖励');
+  else if (r.kind === 'soulcoin') I.adjustCurrency('灵魂钱币', r.amount || 0, '赌坊·福袋扭蛋奖励');
 }
 
 export const bestRarity = (rewards: GachaReward[]): GachaRarity =>

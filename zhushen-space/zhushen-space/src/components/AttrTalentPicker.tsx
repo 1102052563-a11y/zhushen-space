@@ -89,7 +89,7 @@ export default function AttrTalentPicker({
 
   return (
     <div className="fixed inset-0 z-[95] flex items-center justify-center bg-black/80 backdrop-blur-sm p-4">
-      <div className="w-full max-w-2xl max-h-[88vh] flex flex-col rounded-2xl border border-god/30 bg-void shadow-[0_0_70px_rgba(0,0,0,0.85)] overflow-hidden">
+      <div className="w-full max-w-2xl max-h-[88dvh] flex flex-col rounded-2xl border border-god/30 bg-void shadow-[0_0_70px_rgba(0,0,0,0.85)] overflow-hidden">
         <header className="shrink-0 flex items-center gap-3 px-5 py-3 border-b border-edge bg-gradient-to-b from-panel to-void">
           <span className="text-xl">🌟</span>
           <div className="flex-1 min-w-0">

@@ -11,7 +11,7 @@ export default function GiftPrompt({ gift, onClose }: { gift: any; onClose: () =
           <span className="text-god/70 text-lg">🎁</span>
           <div className="text-base font-bold text-slate-100 flex-1"><span className="text-god/80">{fromName}</span> 想送你东西</div>
         </header>
-        <div className="px-5 py-4 space-y-2 max-h-[50vh] overflow-y-auto">
+        <div className="px-5 py-4 space-y-2 max-h-[50dvh] overflow-y-auto">
           {items.length === 0 && <div className="text-[12px] text-dim/50 text-center py-4">（空）</div>}
           {items.map((it, i) => (
             <div key={i} className="rounded-xl border border-edge bg-panel/60 p-2.5">

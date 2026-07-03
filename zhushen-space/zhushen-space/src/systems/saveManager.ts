@@ -1,4 +1,5 @@
 import { saveDb } from './saveDb';
+import { setResumeFlag } from './resumeFlag';
 import { replaceAll as replaceChat, loadAll as loadChat, loadArchive, replaceArchive, clearArchive, type ArchivedMsg } from './chatDb';
 import { bulkPutImg, clearAllImg } from './imageDb';
 import { snapshotImages } from './imageSync';
@@ -8,6 +9,10 @@ import { useItems } from '../store/itemStore';
 import { usePlayer, DEFAULT_PLAYER_PROFILE } from '../store/playerStore';
 import { useResource } from '../store/resourceStore';
 import { useVariables } from '../store/variableStore';
+import { useTables } from '../store/tableStore';
+import { walletReset } from './ledger/walletCore';   // Step 10 货币事件核心（drpg-wallet·自管 localStorage）
+import { itemCoreReset } from './ledger/itemCore';   // Step 10 物品事件核心（drpg-items-core·自管 localStorage）
+import { npcCoreReset } from './ledger/npcCore';   // Step 10 NPC 事件核心（drpg-npc-core·自管 localStorage）
 import { useNpc } from '../store/npcStore';
 import { useNpcChat } from '../store/npcChatStore';
 import { useNpcEvo } from '../store/npcEvoStore';
@@ -20,6 +25,7 @@ import { useTurnInsight } from '../store/turnInsightStore';
 import { useCharacters } from '../store/characterStore';
 import { useMemory } from '../store/memoryStore';
 import { useMisc } from '../store/miscStore';
+import { useWorldRecord } from '../store/worldRecordStore';
 import { useChannel } from '../store/channelStore';
 import { useCosmos } from '../store/cosmosStore';
 import { useWorldCodex } from '../store/worldCodexStore';
@@ -78,10 +84,19 @@ const STORES: { key: string; api: any; clear?: () => void }[] = [
   { key: 'drpg-arena',      api: useArena, clear: () => useArena.getState().clearArena() },
   { key: 'drpg-resource',   api: useResource, clear: () => useResource.getState().clearResources() },   // 自定义能量条（定义+当前值随存档；新游戏清空）
   { key: 'drpg-variables',  api: useVariables, clear: () => useVariables.getState().resetAll() },   // 自定义变量（透明引用）：定义+当前值随存档；新游戏只清零值、保留定义（便于二创导入的变量过新游戏不丢）
+  { key: 'drpg-tables',     api: useTables, clear: () => useTables.getState().resetAll() },   // ACU 表格数据库（游戏状态表·主角/背包/NPC…）：进度数据，随存档快照，新游戏重置为默认表
+  { key: 'drpg-wallet',     api: { setState: () => {} }, clear: () => walletReset() },   // Step 10 货币事件核心（事件日志·随存档；自管 localStorage·靠 reload 恢复；非 zustand 故 api 仅占位·不进 ROLLBACK_KEYS）
+  { key: 'drpg-items-core', api: { setState: () => {} }, clear: () => itemCoreReset() },   // Step 10 物品事件核心（同上·自管 localStorage·api 占位）
+  { key: 'drpg-npc-core',   api: { setState: () => {} }, clear: () => npcCoreReset() },   // Step 10 NPC 事件核心（溯源审计·同上·api 占位）
+  // 全局交易行·本机托管（tradeClient 自管 localStorage）：挂牌托管物 / 出价托管币 —— 随存档快照 + 新游戏/读档缺失即清，
+  //   杜绝"交易行的托管物/币跨存档泄漏进当前背包"。成交去重键 drpg-trade-applied 刻意**不**纳入（保持全局·防跨档重复交付）。
+  { key: 'drpg-trade-escrow',      api: { setState: () => {} }, clear: () => { try { localStorage.removeItem('drpg-trade-escrow'); } catch { /* */ } } },
+  { key: 'drpg-trade-coin-escrow', api: { setState: () => {} }, clear: () => { try { localStorage.removeItem('drpg-trade-coin-escrow'); } catch { /* */ } } },
   { key: 'drpg-skilltree',  api: useSkillTree, clear: () => useSkillTree.setState({ progress: {} }) },
   { key: 'drpg-subproftree', api: useSubProfTree, clear: () => useSubProfTree.setState({ progress: {} }) },
   { key: 'drpg-casino',     api: useCasino, clear: () => useCasino.getState().clearCasino() },
   { key: 'drpg-abyss',      api: useAbyss, clear: () => useAbyss.getState().clearAbyss() },
+  { key: 'drpg-worldrecord', api: useWorldRecord, clear: () => useWorldRecord.getState().clearAll() },   // 世界记录/世界志（世界观骨架+离世总结·随存档快照；新游戏清空）
 ];
 
 /* 「回滚本回合演化改动」（数据库引入②）——把**演化变量域** store 整体还原到某份快照（in-place setState，
@@ -307,7 +322,7 @@ export async function loadSlot(id: string): Promise<boolean> {
   // - 快照里没有 → **只清【较新功能的进度缓存】**（防上一局的 潜能点/筹码/深渊进度 等泄漏进读入的旧档）；
   //   **核心存档（主角技能/天赋/副职业·背包·NPC·主角档案·HP/EP 等）绝不因快照缺失而清空**——
   //   否则读个缺这些键的旧档/回退点就会把当前的技能天赋副职业全抹掉（"读档后技能丢失"的根因，已修）。
-  const CLEAR_ON_MISSING = new Set(['drpg-skilltree', 'drpg-subproftree', 'drpg-casino', 'drpg-abyss', 'drpg-world-codex']);
+  const CLEAR_ON_MISSING = new Set(['drpg-skilltree', 'drpg-subproftree', 'drpg-casino', 'drpg-abyss', 'drpg-world-codex', 'drpg-tables', 'drpg-wallet', 'drpg-items-core', 'drpg-npc-core', 'drpg-trade-escrow', 'drpg-trade-coin-escrow']);
   // 设备级全局配置：读档一律保留【当前】值、绝不回滚到存档快照。否则读个旧档/回退点，就会把
   // 「剧情指导」等功能开关、人称、记忆/向量配置等全冲回存档当时的旧值——这正是「开启剧情指导后
   // 一刷新/读档又关闭」的根因（2026-06-20 修）。API 字段原本已由 mergeKeepApi 保当前，这里把整个
@@ -343,7 +358,7 @@ export async function loadSlot(id: string): Promise<boolean> {
       }
     } catch (e) { logWarn('saveManager.loadSlot.undoRestore', e); }
   }
-  try { sessionStorage.setItem(PENDING_STARTED_KEY, '1'); } catch (e) { logWarn('saveManager.loadSlot.pendingFlag', e); }
+  setResumeFlag(PENDING_STARTED_KEY);   // localStorage+TTL：跨 reload 稳定存活（手机/PWA 下 sessionStorage 会丢→读档弹回主界面）
   location.reload();
   return true;
 }

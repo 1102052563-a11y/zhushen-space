@@ -161,7 +161,7 @@ function SlotPicker({ npcId, slot, bag, onClose }: { npcId: string; slot: SlotDe
   const cands = bag.filter((it) => (slot.allowedCats as string[]).includes(it.category) && !isResourcePseudoItem(it));
   return (
     <div className="fixed inset-0 z-[70] bg-black/60 backdrop-blur-sm flex items-end justify-center p-4" onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}>
-      <div className="w-full max-w-lg bg-void border border-edge rounded-2xl max-h-[60vh] overflow-hidden flex flex-col">
+      <div className="w-full max-w-lg bg-void border border-edge rounded-2xl max-h-[60dvh] overflow-hidden flex flex-col">
         <div className="flex items-center gap-2 px-4 py-3 border-b border-edge bg-panel">
           <span>{slot.icon}</span>
           <div className="flex-1"><div className="text-sm font-bold text-slate-100">装备到 {slot.label}</div></div>

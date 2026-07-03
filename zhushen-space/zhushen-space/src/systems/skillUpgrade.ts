@@ -3,7 +3,7 @@ import { useEnhance } from '../store/enhanceStore';
 import { usePlayer } from '../store/playerStore';
 import { apiChatFallback } from './apiChat';
 import { lenientJsonParse } from './stateParser';
-import { SKILL_LEVELUP_PROMPT } from '../promptRules';
+import { SKILL_LEVELUP_PROMPT, SKILL_FUSION_RULE } from '../promptRules';
 import { SUBPROF_MASTERY_LADDER, SUBPROF_MASTERY_PER_SKILLPOINT } from '../store/subProfTreeStore';
 import type { Skill, Trait } from '../store/characterStore';
 
@@ -176,4 +176,81 @@ export async function generateSkillUpgrade(o: SkillUpgradeOpts): Promise<SkillUp
   if (o.isTalent) { delete apply.combat; delete apply.skillType; delete apply.cooldown; delete apply.cost; delete apply.target; delete apply.damage; delete apply.tags; }
 
   return { apply, raw };
+}
+
+/* ════════════════════════════════════════════
+   技能 / 天赋 融合（乐园设施·技能熔炉）systems/skillUpgrade.ts
+   - 主角把 2+ 个已有 技能/天赋 投入熔炉，熔铸成 1 个全新条目；来源可技能/天赋混合。
+   - **产物类型（技能 or 天赋）由前端随机判定**（见面板 doFuse），传入 outKind；AI 只按指定类型生成内容，前端强制 schema。
+   - 复用「装备强化所」API；提示词 SKILL_FUSION_RULE（含技能/天赋世界书 + 融合铁则）。
+   - 结算：消耗来源(removeSkill/removeTrait) → 写入新条目(addSkill/addTrait) → setSkillUpNote 给正文一条一次性"已用掉"提示。
+════════════════════════════════════════════ */
+
+export type FuseKind = 'skill' | 'talent';
+export interface FuseSource { kind: FuseKind; entry: Skill | Trait; }
+
+export interface SkillFusionOpts {
+  sources: FuseSource[];   // 参与熔铸的技能/天赋（≥2）
+  outKind: FuseKind;       // 前端已随机决定的产物类型（技能/天赋）
+  customInput: string;     // 主角自定义倾向（可空）
+}
+export interface SkillFusionResult {
+  apply: Record<string, any>;  // 写回 addSkill/addTrait 的字段（不含 id/addedAt；已强制类型 schema）
+  outKind: FuseKind;
+  raw: any;
+}
+
+/** 调「装备强化所」API 把 2+ 技能/天赋熔铸成 1 个新技能或天赋（产物类型由前端随机指定，AI 只生成内容）。 */
+export async function generateSkillFusion(o: SkillFusionOpts): Promise<SkillFusionResult> {
+  const ss = useSettings.getState();
+  const E = useEnhance.getState();
+  const legacy = E.enhanceUseSharedApi ? (ss.textUseSharedApi ? ss.api : ss.textApi) : E.enhanceApi;
+  const chain = resolveApiChain('enhance', legacy);
+  if (!chain[0]?.baseUrl || !chain[0]?.apiKey) {
+    throw new Error('未配置 AI 接口（设置→变量管理→装备强化→API；或勾「复用正文生成 API」——技能融合与装备强化共用此接口）');
+  }
+
+  const prof: any = usePlayer.getState().profile ?? {};
+  const outLabel = o.outKind === 'skill' ? '技能' : '天赋';
+  const list = o.sources.map((s, i) => {
+    const e: any = s.entry;
+    return `${i + 1}. 【${s.kind === 'skill' ? '技能' : '天赋'}】${e.name}\n${JSON.stringify(e, null, 1)}`;
+  }).join('\n\n');
+
+  const userMsg = [
+    `【角色】${prof.name || '主角'}　阶位:${prof.tier || '—'}　职业:${prof.identity || '—'}　等级:Lv.${prof.level ?? '—'}`,
+    `【参与熔铸的技能/天赋（共 ${o.sources.length} 个·含完整信息）】\n${list}`,
+    `【本次熔铸产物类型】＝ **${outLabel}**（系统已随机判定，务必只产出「${outLabel}」类型的 JSON；技能与天赋可互相熔铸转化）`,
+    `【主角的自定义倾向】${o.customInput.trim() || '（未填写 —— 由你按各来源的共性主题与流派，自拟一个贴切且强力的熔铸方向）'}`,
+    `【联网检索·必做】请先调用联网搜索（Google Search / 内置检索工具）检索各来源技能/天赋及同类经典游戏·小说·神话·动漫中相近技能天赋的机制与效果设计，博采众长以丰富本次熔铸产物的机制与效果库，再消化为贴合轮回乐园的原创效果（不照搬他作专有名词/数值，也不得借此突破品级与 attrBonus 上限；接口不支持联网时凭已有知识写到最丰富）。`,
+    `请把以上 ${o.sources.length} 个来源熔铸成**一个**全新的「${outLabel}」，严格按系统要求（先联网检索充实效果库、融会贯通再质变、忠于设定不浮夸、只输出 JSON 本体）。`,
+  ].join('\n\n');
+
+  const { content } = await apiChatFallback(chain, [
+    { role: 'system', content: SKILL_FUSION_RULE },
+    { role: 'user', content: userMsg },
+  ], { timeoutMs: 150000 });
+
+  // 解析 JSON object
+  let s = String(content ?? '').replace(/```json/gi, '').replace(/```/g, '').trim();
+  const i = s.indexOf('{'), j = s.lastIndexOf('}');
+  if (i >= 0 && j > i) s = s.slice(i, j + 1);
+  const raw: any = lenientJsonParse(s);
+  if (!raw || typeof raw !== 'object' || Array.isArray(raw) || !raw.name) {
+    throw new Error('AI 返回的不是有效 JSON 对象（可重试；思考型模型/上下文过长/被安全过滤都可能）');
+  }
+
+  // 前端强制产物类型 schema：清理不属于该类型的机读字段、补默认档
+  const apply: Record<string, any> = { ...raw, name: String(raw.name).trim() };
+  delete apply.id; delete apply.addedAt;
+  if (o.outKind === 'talent') {
+    delete apply.combat; delete apply.skillType; delete apply.cooldown; delete apply.cost; delete apply.target; delete apply.damage; delete apply.tags; delete apply.numeric;
+    if (!apply.rarity) apply.rarity = 'B';
+    if (!apply.source) apply.source = `技能熔炉·${o.sources.map((x) => (x.entry as any).name).join('+')}`;
+  } else {
+    if (!apply.rarity) apply.rarity = '稀有';
+    if (!apply.level) apply.level = 'Lv.1';
+  }
+
+  return { apply, outKind: o.outKind, raw };
 }

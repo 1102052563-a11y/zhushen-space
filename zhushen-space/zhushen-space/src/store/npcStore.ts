@@ -4,6 +4,7 @@ import { useCharacters, type Deed } from './characterStore';
 import type { PlayerAttrs, StatusEffect } from './playerStore';
 import { normalizeTier, realmFromLevel, lvFromRealm } from '../systems/derivedStats';
 import type { SocketedGem, GemSlotKind } from './itemStore';
+import { npcRegister, npcNorm } from '../systems/ledger/npcCore';   // Step 10 事件核心·NPC 影子记账（溯源审计）+ facade 闸门归一名
 import { normalizeGradeLabel, markAccountedRemoval } from './itemStore';
 
 /* 判断「列4状态」是否表示该角色【真的死亡】。
@@ -236,6 +237,7 @@ interface NpcState {
   leaveParty: (id: string) => void;       // 退出临时队伍（partyMember=false，仍在场，等剧情/手动归档）
   disbandPartyForWorld: (currentWorld: string) => string[];  // 世界切换：解散非当前世界的临时队友(离队 + 离场归档)，返回被解散的 id 列表
   hardRemoveNpc: (id: string) => void;    // 物理删除（清理路人）
+  pruneGhosts: (settledPrev?: Record<string, NpcRecord>) => number;   // 结构性清除幽灵空壳（isGhostNpc 判定·一并清 characterStore 孤儿）；传 settledPrev 时只删"沉淀幽灵"(prev 也是幽灵·跨过一次状态变动仍无身份)，护建档中新角色不误删。返回删除数
   absorbOrphans: () => number;            // 把"只有物品没有档案"的空壳并入真实NPC
   dedupeByName: () => number;             // 合并同名真实NPC（防一回合/跨回合重复建档），返回合并掉的数量
   dedupeAliasNpcs: () => number;          // 合并"跨语言/泄漏ID前缀(如 C_Frieren)"的重复NPC到同阶位同职业的中文名NPC + 清洗畸形名前缀
@@ -260,12 +262,33 @@ interface NpcState {
 const NPC_NO_STACK_CATS = new Set<string>(['武器', '防具', '饰品', '特殊物品', '法宝']);
 const npcStackNorm = (x?: string) => (x ?? '').replace(/[\s·•・\-—_,，.。、|｜【】（）()的之]/g, '').toLowerCase();
 
+/* 幽灵 NPC 判定（占位名 + 零真实身份＝空壳）——**App.pruneGhostNpcs 与 NPC facade 闸门共用同一套谨慎判定**（单一来源）。
+   占位名(无名 / name===id / C11-G22 式编号) 且 无任何真实身份信号 → 空壳幽灵。带任一真实身份的占位名 NPC 视作
+   "建档中/半成品"予以**保留、绝不删**。自动生成的六维/血条/生图tag/生物强度**不算**真实身份。
+   charData 注入(characterStore.characters)以查技能/天赋——避免 store 层对 characterStore 的判定顺序硬依赖；缺省(未加载)按"无"处理。 */
+export function isGhostNpc(r: NpcRecord, charData?: Record<string, { skills?: unknown[]; traits?: unknown[] }>): boolean {
+  const placeholder = !r.name || r.name === r.id || /^[CG]\d+$/i.test(r.name);
+  if (!placeholder) return false;
+  // 阶位带「身份」段(如 一阶|警员) 算身份
+  const realmId = (r.realm ?? '').includes('|') && (r.realm as string).split('|').slice(1).join('|').replace(/[·\s]/g, '').length > 0;
+  if (realmId) return false;
+  if (r.background || r.personality || r.title || r.profession || r.innerThought || r.relations ||
+      r.motiveNow || r.shortGoal || r.longGoal || r.appearance5 || r.appearanceDetail || r.avatar) return false;
+  if ((r.favor ?? 0) !== 0) return false;
+  if ((r.items?.length ?? 0) > 0) return false;
+  if (r.partyMember || r.isFriend || r.isBond || r.keepForever || r.contractorId || r.affiliatedTeam || r.isDead) return false;
+  if (r.status && r.status !== '一切正常') return false;
+  const cd = charData?.[r.id];
+  if ((cd?.skills?.length ?? 0) > 0 || (cd?.traits?.length ?? 0) > 0) return false;
+  return true;   // 占位名 + 零真实身份（哪怕带自动生成的六维/血条）→ 空壳幽灵
+}
+
 export const useNpc = create<NpcState>()(
   persist(
     (set): NpcState => ({
       npcs: {},
 
-      upsertNpc: (id, patch) =>
+      upsertNpc: (id, patch) => {
         set((s) => {
           const prev = s.npcs[id];
           // 档案不存在 + 本次又没带真实姓名 → 不凭空建壳。散落的 hp.C22 / favor / status 等短指令命中一个
@@ -279,7 +302,9 @@ export const useNpc = create<NpcState>()(
           const merged = { ...existing, ...patch, updatedAt: Date.now() };
           if ('name' in patch) merged.name = resolveNpcName(existing.name, id, patch.name);   // 防占位名冲掉真实名（reentry）
           return { npcs: { ...s.npcs, [id]: merged } };
-        }),
+        });
+        try { const n = useNpc.getState().npcs[id]; if (n?.name && n.name !== id) npcRegister(n.name, id, 'upsert'); } catch { /* NPC 影子记账失败绝不阻断 */ }
+      },
 
       applyColumns: (id, cols) =>
         set((s) => {
@@ -331,6 +356,10 @@ export const useNpc = create<NpcState>()(
           }
 
           rec.updatedAt = Date.now();
+          // 幽灵结构性根除（#1）：新建 且 处理完这批列后仍无真名（name===id/空）→ 不建壳。
+          //   同 upsertNpc 的"无名不建壳"守卫——堵住 favor.C22 / realm.C22 等短指令对**未建档** NPC 凭空冒编号空壳（幽灵）的源头。
+          //   已存在的真名 NPC 用任意列更新照常（prev 存在→放行）；带真名列(1)的登场/建档照常（rec.name 已成真名→放行）。
+          if (!s.npcs[id] && (!rec.name || rec.name === id)) return s;
           return { npcs: { ...s.npcs, [id]: rec } };
         }),
 
@@ -414,6 +443,28 @@ export const useNpc = create<NpcState>()(
           delete next[id];
           return { npcs: next };
         });
+      },
+
+      /* 幽灵结构性根除（#1）：一次删掉所有幽灵空壳（isGhostNpc 判定·并清 characterStore 孤儿）。
+         settledPrev 传入(facade 用) → 只删"沉淀幽灵"(prev 里也是幽灵·已跨过一次状态变动仍无身份)，
+         新建/刚变幽灵宽限一次——绝不误伤本回合正在建档的新角色。不传(启动/读档用) → 删当前全部幽灵。 */
+      pruneGhosts: (settledPrev) => {
+        const charData = (() => { try { return useCharacters.getState().characters as Record<string, { skills?: unknown[]; traits?: unknown[] }>; } catch { return {}; } })();
+        let removed: string[] = [];
+        set((s) => {
+          const ghosts = Object.entries(s.npcs).filter(([id, r]) => {
+            if (!isGhostNpc(r, charData)) return false;
+            if (settledPrev) { const p = settledPrev[id]; if (!p || !isGhostNpc(p, charData)) return false; }   // 新建/刚变幽灵→宽限一次状态变动，护建档中
+            return true;
+          }).map(([id]) => id);
+          if (ghosts.length === 0) return s;
+          removed = ghosts;
+          const next = { ...s.npcs };
+          for (const id of ghosts) delete next[id];
+          return { npcs: next };
+        });
+        for (const id of removed) { try { useCharacters.getState().removeCharacter(id); } catch { /* 清 characterStore 孤儿·失败忽略 */ } }
+        return removed.length;
       },
 
       applySkeleton: (id, short) =>
@@ -890,3 +941,41 @@ export const useNpc = create<NpcState>()(
     },
   ),
 );
+
+/* ── NPC facade 闸门（Step 10·"重复建档"+"幽灵"双结构性根除）──────────────────────
+   NPC 不像物品能按 id 键天然去重（npcStore 到处用 C-id 引用·没法改按名键），故闸门做法＝subscribe 每次状态变动即校正：
+   ① 同真名"重复建档"：检测到"两个 id 同一真名" → 立即调**现成 careful `dedupeByName`** 合并（复用已验证的谨慎逻辑·装备/唯一物不误吞）。
+   ② 幽灵空壳(占位名+零真实身份)：调 `pruneGhosts(prev.npcs)` 删**沉淀幽灵**（prev 里也是幽灵·已跨过一次状态变动仍无身份）。
+      **只删沉淀幽灵、给新建幽灵宽限一次**——本回合正在建档的新角色(先建壳后补名/技能)绝不误删；配合建档时"无名不建壳"守卫
+      (upsertNpc/applyColumns 原子带名建档)，幽灵**无从跨状态存活**。不再单靠 App.pruneGhostNpcs 那条 once-per-turn 时序清理
+      （它保留为回合末兜底，判定共用 isGhostNpc）。循环护栏 `_npcCanonicalizing` + try 兜底·绝不阻断主流程。 */
+let _npcCanonicalizing = false;
+useNpc.subscribe((state, prev) => {
+  if (_npcCanonicalizing || state.npcs === prev.npcs) return;
+  try {
+    // ① 同真名重复建档检测（只读）
+    const seen = new Set<string>();
+    let dup = false;
+    for (const [id, n] of Object.entries(state.npcs ?? {})) {
+      const rec = n as { name?: string; isDead?: boolean } | null;
+      if (!rec || !rec.name || rec.name === id || rec.isDead) continue;
+      const k = npcNorm(rec.name);
+      if (seen.has(k)) { dup = true; break; }
+      seen.add(k);
+    }
+    _npcCanonicalizing = true;
+    const merged = dup ? useNpc.getState().dedupeByName() : 0;
+    const pruned = useNpc.getState().pruneGhosts(prev.npcs);   // ② 沉淀幽灵结构性清除（护建档中新角色）
+    _npcCanonicalizing = false;
+    if (merged > 0) console.warn(`[NPC facade] 同真名重复建档 → 已合并 ${merged}（重复建档无法跨状态变动存活）`);
+    if (pruned > 0) console.warn(`[NPC facade] 幽灵空壳结构性清除 ${pruned}（沉淀幽灵·无从跨状态存活）`);
+  } catch (e) { _npcCanonicalizing = false; console.warn('[NPC facade] 规范化失败（忽略）:', e); }
+});
+// 注册后立即校正一次：rehydrate（读档/刷新）已落地的重复真名 / 幽灵空壳（老存档），subscribe 尚未挂时不会捕获——补一刀
+// （对齐物品 facade 的初始规范化；无法在 merge 里调 action 因 store 未建好，故放此处）。初始态无"建档中"，幽灵全删。
+try {
+  const m0 = useNpc.getState().dedupeByName();
+  const g0 = useNpc.getState().pruneGhosts();   // 不传 settledPrev＝删当前全部幽灵（读档时的老空壳）
+  if (m0 > 0) console.warn(`[NPC facade] 初始去重合并 ${m0}（读档已有的重复建档）`);
+  if (g0 > 0) console.warn(`[NPC facade] 初始幽灵清除 ${g0}（读档已有的无名空壳）`);
+} catch { /* */ }

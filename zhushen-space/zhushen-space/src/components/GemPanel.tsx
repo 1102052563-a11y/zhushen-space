@@ -54,7 +54,7 @@ export default function GemPanel({ onClose }: { onClose: () => void }) {
   const buy = (g: GeneratedGem, idx: number) => {
     if (!isHome) return flash('⚠ 仅乐园内可购买');
     if (currency.乐园币 < g.price) return flash('乐园币不足');
-    adjustCurrency('乐园币', -g.price);
+    adjustCurrency('乐园币', -g.price, `宝石·购买 ${g.item.name}`);
     addItem(g.item);
     setShopGems((arr) => arr.filter((_, i) => i !== idx));
     flash(`已购入 ${g.item.name}`);
@@ -82,7 +82,7 @@ export default function GemPanel({ onClose }: { onClose: () => void }) {
     if (safe) {
       const cost = safeRemoveCost(gem.tier);
       if (currency.乐园币 < cost) return flash(`无损剥离需 ${cost.toLocaleString()} 乐园币`);
-      adjustCurrency('乐园币', -cost);
+      adjustCurrency('乐园币', -cost, `宝石·无损剥离 ${gem.name}`);
       updateItem(equip.id, patch);
       addItem(itemFromGem(gem));
       flash(`里德为你无损取出了 ${gem.name}`);
@@ -100,7 +100,7 @@ export default function GemPanel({ onClose }: { onClose: () => void }) {
     if (cur >= MAX_SOCKETS) return flash(`已达孔位上限 ${MAX_SOCKETS}`);
     const cost = drillCost(cur);
     if (currency.乐园币 < cost) return flash(`打孔石需 ${cost.toLocaleString()} 乐园币`);
-    adjustCurrency('乐园币', -cost);
+    adjustCurrency('乐园币', -cost, '宝石·打孔石扩孔');
     if (Math.random() < drillRate(cur)) { updateItem(equip.id, { sockets: cur + 1 }); flash(`✓ 打孔成功！+1 孔（共 ${cur + 1}）`); }
     else flash('💥 打孔失败，打孔石损耗，孔位不变');
   };
@@ -127,7 +127,7 @@ export default function GemPanel({ onClose }: { onClose: () => void }) {
     const gems = synthSlots.filter(Boolean) as InventoryItem[];
     if (gems.length !== 3) return flash('需 3 颗宝石');
     if (!gems.every((g) => g.gradeDesc === gems[0].gradeDesc)) return flash('3 颗必须同品级');
-    if (useStab) { const c = stabilizerCost(gems[0].gradeDesc); if (currency.乐园币 < c) return flash('稳定剂乐园币不足'); adjustCurrency('乐园币', -c); }
+    if (useStab) { const c = stabilizerCost(gems[0].gradeDesc); if (currency.乐园币 < c) return flash('稳定剂乐园币不足'); adjustCurrency('乐园币', -c, '宝石·合成稳定剂'); }
     const res = synthesizeGem(gems, useStab);
     gems.forEach((g) => removeItem(g.id));
     addItem(res.gem.item);
@@ -147,7 +147,7 @@ export default function GemPanel({ onClose }: { onClose: () => void }) {
   return (
     <div className="fixed inset-0 z-[70] bg-black/70 backdrop-blur-sm flex items-center justify-center p-3"
          onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}>
-      <div className="w-full max-w-4xl h-[86vh] rounded-2xl border border-edge bg-void shadow-[0_0_60px_rgba(0,0,0,0.9)] overflow-hidden flex flex-col">
+      <div className="w-full max-w-4xl h-[86dvh] rounded-2xl border border-edge bg-void shadow-[0_0_60px_rgba(0,0,0,0.9)] overflow-hidden flex flex-col">
 
         {/* 顶栏 */}
         <header className="shrink-0 flex items-center gap-3 px-4 py-3 border-b border-edge bg-panel">
@@ -218,7 +218,7 @@ export default function GemPanel({ onClose }: { onClose: () => void }) {
         {tab === 'socket' && (
           <div className="flex-1 flex flex-col lg:flex-row min-h-0">
             {/* 左：装备列表 */}
-            <div className="lg:w-2/5 shrink-0 border-b lg:border-b-0 lg:border-r border-edge overflow-y-auto onscene-scroll p-2 max-h-[28vh] lg:max-h-none">
+            <div className="lg:w-2/5 shrink-0 border-b lg:border-b-0 lg:border-r border-edge overflow-y-auto onscene-scroll p-2 max-h-[28dvh] lg:max-h-none">
               <div className="text-[11px] font-mono text-dim/50 px-2 py-1">选择装备（孔位 ●满 ○空）</div>
               {equips.length === 0 && <div className="text-center text-dim/40 text-[12px] py-8">背包无装备</div>}
               {equips.map((it) => {

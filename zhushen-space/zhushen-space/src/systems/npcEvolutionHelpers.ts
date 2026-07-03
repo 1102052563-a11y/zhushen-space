@@ -7,7 +7,7 @@ import { useMisc } from '../store/miscStore';
 import { useCharacters } from '../store/characterStore';
 import { apiChatFallback } from './apiChat';
 import { serializeEvents } from './miscParser';
-import { fullMaxHp, fullMaxEp, effectiveResource, lvFromRealm, ratioOf } from './derivedStats';
+import { fullMaxHp, fullMaxEp, effectiveResource, lvFromRealm, ratioOf, npcBaseAttrs } from './derivedStats';
 import { bioInnate } from './bioStrength';
 export function getNpcApi() {
   const npcEvoState = useNpcEvo.getState();
@@ -123,8 +123,8 @@ export function serializeNpcSnapshot(r: NpcRecord): string {
   const curTurn = useMisc.getState().turnCount ?? 0;   // 当前累计回合数（注入快照，让 NPC 演化 AI 据此核算/递减 buff/debuff 倒计时）
   const unnamed = !r.name || r.name === r.id || /^[CG]\d+$/i.test(r.name);   // 姓名仍是占位ID（如 C10/G1）
   const snEqp = (r.items ?? []).filter((it) => it.equipped) as any;
-  const snMaxHp = attrs ? fullMaxHp(attrs, snEqp, skills, talents, 1, ratioOf(r)) : 0;
-  const snMaxEp = attrs ? fullMaxEp(attrs, snEqp, skills, talents, 1, ratioOf(r)) : 0;
+  const snMaxHp = attrs ? fullMaxHp(npcBaseAttrs(r), snEqp, skills, talents, 1, ratioOf(r)) : 0;   // npcBaseAttrs=attrs+真实属性点直加(realAttrs)
+  const snMaxEp = attrs ? fullMaxEp(npcBaseAttrs(r), snEqp, skills, talents, 1, ratioOf(r)) : 0;
   const lines = [
     `角色ID: ${r.id}`,
     `姓名: ${unnamed ? `${r.id}（⚠占位ID·尚未正式命名）` : r.name}${r.gender ? ` | 性别:${r.gender}` : ''}`,

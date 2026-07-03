@@ -40,7 +40,7 @@ export default function ArenaOpponentDetail({ entry, cid, building, onChallenge,
 
   return (
     <div className="fixed inset-0 z-[66] bg-black/70 flex items-center justify-center p-3" onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}>
-      <div className="w-full max-w-lg max-h-[88vh] flex flex-col rounded-xl border border-rose-500/30 bg-slate-900 shadow-2xl overflow-hidden">
+      <div className="w-full max-w-lg max-h-[88dvh] flex flex-col rounded-xl border border-rose-500/30 bg-slate-900 shadow-2xl overflow-hidden">
         {/* 头部 */}
         <div className="flex items-center justify-between px-4 py-2.5 border-b border-slate-700/60 bg-slate-950/60">
           <span className="text-sm font-semibold text-slate-100">

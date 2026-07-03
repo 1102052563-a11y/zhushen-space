@@ -2,7 +2,7 @@ import { useGame } from '../store/gameStore';
 import { useNpc } from '../store/npcStore';
 import { useMisc } from '../store/miscStore';
 import { useFaction } from '../store/factionStore';
-import { usePlayer } from '../store/playerStore';
+import { usePlayer, type PlayerAttrs } from '../store/playerStore';
 import { useCharacters } from '../store/characterStore';
 import { useItems } from '../store/itemStore';
 import { playerTreeAttrBonus } from '../store/skillTreeStore';
@@ -25,6 +25,11 @@ export function reconcileHomeWorld(): void {
   for (const f of Object.values(F.factions)) {
     if (f.inCurrentWorld && f.worldName && !isHomeWorld(f.worldName)) F.setWorld(f.id, false);
   }
+  // ★世界之源·回归乐园必归零（确定性保障，不靠 AI 记得发 = 0）：世界之源是「当前任务世界累计」，
+  //   每个任务世界独立、绝不跨世界带入。人在轮回乐园（含专属房间/主神空间）时它恒为 0——
+  //   下个任务世界从 0 重新累计。settlement 评级在任务世界内(未回归)读值，不受影响。
+  const P = usePlayer.getState();
+  if ((P.profile.worldSource ?? 0) !== 0) { P.setProfile({ worldSource: 0 }); console.log('[世界之源] 回归乐园→归零'); }
 }
 
 /* HP/EP 兜底：主角 HP/EP 仍是旧硬编码默认(100/100 & 50/50，从未被正文改过)时，按六维(体质×20 / 智力×15)重算为满。
@@ -45,19 +50,30 @@ export function reconcilePlayerVitals(): void {
   }
 }
 
+/* 主角「HP/EP 基础六维」= 基础 attrs + 技能树 + 冒险团 + **真实属性点直加(realAttrs)**。
+   与战斗 buildCombatant(baseTT)、属性面板 breakdownReal 严格同口径：realAttrs 直加并入六维，自动进 攻防/HP/EP。
+   ⚠ 曾漏加 realAttrs → 真实属性点加到体质/智力后，属性面板与战斗都涨、唯独 HP/EP 上限不涨
+   （用户报"真实体质没计入血量计算"）。所有主角 vitals 计算都走这里，防再次漂移。 */
+function playerBaseAttrs(prof: { attrs?: PlayerAttrs; realAttrs?: Partial<PlayerAttrs> }): PlayerAttrs {
+  return withAttrDelta(withAttrDelta(withAttrDelta(prof.attrs, playerTreeAttrBonus()), playerTeamAttrBonus()), prof.realAttrs);
+}
+
 /* 主角 HP/EP 真实上限 = 体质/智力×系数 + 装备上限加成 + 被动/天赋上限加成（如「生命上限+100」被动）。
    各处统一用这两个，确保正文/面板/AI快照/短指令钳制一致。 */
 export function playerMaxHp(): number {
-  const a = withAttrDelta(withAttrDelta(usePlayer.getState().profile.attrs, playerTreeAttrBonus()), playerTeamAttrBonus());   // 技能树 + 冒险团团队的六维加成（体质→HP，与属性面板/战斗同口径）
+  const prof = usePlayer.getState().profile;
+  const a = playerBaseAttrs(prof);   // 基础六维 + 技能树 + 团队 + 真实属性点直加（体质→HP，与属性面板/战斗同口径）
   const b1 = useCharacters.getState().characters['B1'];
   const eq = useItems.getState().items.filter((i) => i.equipped) as any[];
-  return fullMaxHp(a, eq, b1?.skills, [...(b1?.traits ?? []), ...playerTeamPerkAbilities()], 1, ratioOf(usePlayer.getState().profile));   // 团队效果里「生命上限+N / X%生命加成」一并计入；自定义体质→HP 转化比
+  // ★realMult 必须 = realAttrMult(tier,level)（四阶起×5），与血条/属性面板/战斗同口径——曾误传 1，导致四阶+主角"钳制上限"偏低、把正文当前 HP/EP 钳下去（用户报"血条和状态结算对不上"）。
+  return fullMaxHp(a, eq, b1?.skills, [...(b1?.traits ?? []), ...playerTeamPerkAbilities()], realAttrMult(prof.tier, prof.level), ratioOf(prof));   // 团队效果里「生命上限+N / X%生命加成」一并计入；自定义体质→HP 转化比
 }
 export function playerMaxEp(): number {
-  const a = withAttrDelta(withAttrDelta(usePlayer.getState().profile.attrs, playerTreeAttrBonus()), playerTeamAttrBonus());   // 技能树 + 团队的六维加成（智力→EP，与属性面板/战斗同口径）
+  const prof = usePlayer.getState().profile;
+  const a = playerBaseAttrs(prof);   // 基础六维 + 技能树 + 团队 + 真实属性点直加（智力→EP，与属性面板/战斗同口径）
   const b1 = useCharacters.getState().characters['B1'];
   const eq = useItems.getState().items.filter((i) => i.equipped) as any[];
-  return fullMaxEp(a, eq, b1?.skills, [...(b1?.traits ?? []), ...playerTeamPerkAbilities()], 1, ratioOf(usePlayer.getState().profile));   // 自定义智力→EP 转化比
+  return fullMaxEp(a, eq, b1?.skills, [...(b1?.traits ?? []), ...playerTeamPerkAbilities()], realAttrMult(prof.tier, prof.level), ratioOf(prof));   // realMult 同 HP·四阶起×5；自定义智力→EP 转化比
 }
 
 /* 自定义能量条上限（仅主角）：有六维公式 maxFormula → 按公式×真实倍率(四阶起×5，与 HP/EP 同口径，作用于基础+技能树+团队六维)；
@@ -66,7 +82,7 @@ export function playerResourceMax(def: { max?: number; maxFormula?: AttrCoef }):
   const f = def.maxFormula;
   if (!f || Object.keys(f).length === 0) return Math.max(1, Math.round(def.max ?? 100));
   const prof = usePlayer.getState().profile;
-  const a = withAttrDelta(withAttrDelta(prof.attrs, playerTreeAttrBonus()), playerTeamAttrBonus());   // 六维基（含技能树/团队加成，与 HP/EP 同口径）
+  const a = playerBaseAttrs(prof);   // 六维基（含技能树/团队加成 + 真实属性点直加，与 HP/EP 同口径）
   return Math.max(1, computeAttrPool(a, f, realAttrMult(prof.tier, prof.level)));
 }
 

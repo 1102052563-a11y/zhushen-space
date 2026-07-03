@@ -24,7 +24,7 @@ export default function RaidDungeonReward() {
   ];
   return (
     <div className="fixed inset-0 z-[70] bg-black/85 flex items-center justify-center p-4">
-      <div className="w-full max-w-lg max-h-[92vh] overflow-y-auto rounded-2xl border border-amber-500/40 bg-slate-950 shadow-2xl">
+      <div className="w-full max-w-lg max-h-[92dvh] overflow-y-auto rounded-2xl border border-amber-500/40 bg-slate-950 shadow-2xl">
         <div className="text-center py-5 border-b border-amber-500/20 bg-gradient-to-b from-amber-950/30 to-transparent">
           <div className="text-amber-300/80 text-[13px]">{rw.emoji || '🐉'} {rw.themeName || '巴卡尔攻坚战'} · 通关结算{rw.difficultyLabel ? `（${rw.difficultyLabel}）` : ''}</div>
           <div className="text-6xl font-black text-amber-300 mt-1 leading-none" style={{ textShadow: '0 0 24px rgba(245,158,11,.55)' }}>{rw.rating}</div>

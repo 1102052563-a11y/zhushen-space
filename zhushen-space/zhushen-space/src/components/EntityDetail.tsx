@@ -149,7 +149,7 @@ export function EntityDetailModal({ kind, data, onClose }: { kind: EntityKind; d
 
   return (
     <div className="fixed inset-0 z-[60] bg-black/75 backdrop-blur-sm flex items-center justify-center p-4" onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}>
-      <div className="w-full max-w-md max-h-[80vh] flex flex-col rounded-2xl border bg-void shadow-[0_0_60px_rgba(0,0,0,0.85)] overflow-hidden" style={{ borderColor: `${accent}66` }}>
+      <div className="w-full max-w-md max-h-[80dvh] flex flex-col rounded-2xl border bg-void shadow-[0_0_60px_rgba(0,0,0,0.85)] overflow-hidden" style={{ borderColor: `${accent}66` }}>
         <header className="shrink-0 flex items-center gap-2.5 px-5 py-3.5 border-b border-edge" style={{ background: `linear-gradient(90deg, ${accent}1a, transparent)` }}>
           <span className="text-2xl">{entityEmoji(kind, data)}</span>
           <div className="flex-1 min-w-0">

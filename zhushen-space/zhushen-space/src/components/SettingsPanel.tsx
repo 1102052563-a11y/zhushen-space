@@ -24,6 +24,7 @@ import CasinoManager from './CasinoManager';
 import AbyssManager from './AbyssManager';
 import SkillTreeManager from './SkillTreeManager';
 import SubProfTreeManager from './SubProfTreeManager';
+import TableManager from './TableManager';
 import JoyManager from './JoyManager';
 import NovelVecManager from './NovelVecManager';
 import WorldCodexManager from './WorldCodexManager';
@@ -38,7 +39,7 @@ interface SettingsPanelProps {
   onOpenSaveLoad: () => void;   // 打开存档管理面板（导出/导入/重置游戏数据；逻辑复用 SaveLoadPanel）
 }
 
-type Page = 'home' | 'world-detail' | 'textgen-detail' | 'regex-detail' | 'general' | 'variables' | 'item-manager' | 'player-manager' | 'npc-manager' | 'entry-judge-manager' | 'faction-manager' | 'territory-manager' | 'team-manager' | 'cosmos-manager' | 'memory-manager' | 'misc-manager' | 'channel-manager' | 'novelvec-manager' | 'codex-manager' | 'dice-manager' | 'combat-manager' | 'arena-manager' | 'enhance-manager' | 'skilltree-manager' | 'subprof-manager' | 'joy-manager' | 'casino-manager' | 'abyss-manager' | 'narrative-memory' | 'vector-memory' | 'image-gen' | 'appearance';
+type Page = 'home' | 'world-detail' | 'textgen-detail' | 'regex-detail' | 'general' | 'variables' | 'table-manager' | 'item-manager' | 'player-manager' | 'npc-manager' | 'entry-judge-manager' | 'faction-manager' | 'territory-manager' | 'team-manager' | 'cosmos-manager' | 'memory-manager' | 'misc-manager' | 'channel-manager' | 'novelvec-manager' | 'codex-manager' | 'dice-manager' | 'combat-manager' | 'arena-manager' | 'enhance-manager' | 'skilltree-manager' | 'subprof-manager' | 'joy-manager' | 'casino-manager' | 'abyss-manager' | 'narrative-memory' | 'vector-memory' | 'image-gen' | 'appearance';
 type Tab = 'worldbook' | 'api' | 'prompt' | 'preset' | 'global-regex' | 'preset-regex';
 
 function DetailLayout({ title, onBack, tabs, activeTab, onTab, children }: {
@@ -50,7 +51,7 @@ function DetailLayout({ title, onBack, tabs, activeTab, onTab, children }: {
   children: React.ReactNode;
 }) {
   return (
-    <div className="h-screen flex flex-col bg-void text-slate-300">
+    <div className="h-[100dvh] flex flex-col bg-void text-slate-300">
       <header className="shrink-0 h-10 flex items-center justify-between px-4 border-b border-edge bg-panel">
         <button onClick={onBack} className="flex items-center gap-2 text-sm font-mono text-dim hover:text-slate-200 transition-colors">
           ← 系统设置
@@ -85,7 +86,7 @@ export default function SettingsPanel({ onClose, onOpenSaveLoad }: SettingsPanel
 
   if (page === 'general') {
     return (
-      <div className="h-screen flex flex-col bg-void text-slate-300">
+      <div className="h-[100dvh] flex flex-col bg-void text-slate-300">
         <header className="shrink-0 h-10 flex items-center justify-between px-4 border-b border-edge bg-panel">
           <button onClick={() => setPage('home')} className="flex items-center gap-2 text-sm font-mono text-dim hover:text-slate-200 transition-colors">
             ← 系统设置
@@ -104,7 +105,7 @@ export default function SettingsPanel({ onClose, onOpenSaveLoad }: SettingsPanel
 
   if (page === 'appearance') {
     return (
-      <div className="h-screen flex flex-col bg-void text-slate-300">
+      <div className="h-[100dvh] flex flex-col bg-void text-slate-300">
         <header className="shrink-0 h-10 flex items-center justify-between px-4 border-b border-edge bg-panel">
           <button onClick={() => setPage('home')} className="flex items-center gap-2 text-sm font-mono text-dim hover:text-slate-200 transition-colors">
             ← 系统设置
@@ -123,7 +124,7 @@ export default function SettingsPanel({ onClose, onOpenSaveLoad }: SettingsPanel
 
   if (page === 'narrative-memory') {
     return (
-      <div className="h-screen flex flex-col bg-void text-slate-300">
+      <div className="h-[100dvh] flex flex-col bg-void text-slate-300">
         <header className="shrink-0 h-10 flex items-center justify-between px-4 border-b border-edge bg-panel">
           <button onClick={() => setPage('home')} className="flex items-center gap-2 text-sm font-mono text-dim hover:text-slate-200 transition-colors">
             ← 系统设置
@@ -142,7 +143,7 @@ export default function SettingsPanel({ onClose, onOpenSaveLoad }: SettingsPanel
 
   if (page === 'vector-memory') {
     return (
-      <div className="h-screen flex flex-col bg-void text-slate-300">
+      <div className="h-[100dvh] flex flex-col bg-void text-slate-300">
         <header className="shrink-0 h-10 flex items-center justify-between px-4 border-b border-edge bg-panel">
           <button onClick={() => setPage('home')} className="flex items-center gap-2 text-sm font-mono text-dim hover:text-slate-200 transition-colors">
             ← 系统设置
@@ -161,7 +162,7 @@ export default function SettingsPanel({ onClose, onOpenSaveLoad }: SettingsPanel
 
   if (page === 'image-gen') {
     return (
-      <div className="h-screen flex flex-col bg-void text-slate-300">
+      <div className="h-[100dvh] flex flex-col bg-void text-slate-300">
         <header className="shrink-0 h-10 flex items-center justify-between px-4 border-b border-edge bg-panel">
           <button onClick={() => setPage('home')} className="flex items-center gap-2 text-sm font-mono text-dim hover:text-slate-200 transition-colors">
             ← 系统设置
@@ -180,7 +181,7 @@ export default function SettingsPanel({ onClose, onOpenSaveLoad }: SettingsPanel
 
   if (page === 'variables') {
     return (
-      <div className="h-screen flex flex-col bg-void text-slate-300">
+      <div className="h-[100dvh] flex flex-col bg-void text-slate-300">
         <header className="shrink-0 h-10 flex items-center justify-between px-4 border-b border-edge bg-panel">
           <button onClick={() => setPage('home')} className="flex items-center gap-2 text-sm font-mono text-dim hover:text-slate-200 transition-colors">
             ← 系统设置
@@ -190,6 +191,7 @@ export default function SettingsPanel({ onClose, onOpenSaveLoad }: SettingsPanel
         </header>
         <div className="flex-1 overflow-y-auto p-6 max-lg:p-3">
           <VariableManager
+            onOpenTableManager={() => setPage('table-manager')}
             onOpenItemManager={() => setPage('item-manager')}
             onOpenPlayerManager={() => setPage('player-manager')}
             onOpenNpcManager={() => setPage('npc-manager')}
@@ -220,7 +222,7 @@ export default function SettingsPanel({ onClose, onOpenSaveLoad }: SettingsPanel
 
   if (page === 'item-manager') {
     return (
-      <div className="h-screen flex flex-col bg-void text-slate-300">
+      <div className="h-[100dvh] flex flex-col bg-void text-slate-300">
         <header className="shrink-0 h-10 flex items-center justify-between px-4 border-b border-edge bg-panel">
           <button onClick={() => setPage('variables')} className="flex items-center gap-2 text-sm font-mono text-dim hover:text-slate-200 transition-colors">
             ← 变量管理
@@ -237,7 +239,7 @@ export default function SettingsPanel({ onClose, onOpenSaveLoad }: SettingsPanel
 
   if (page === 'player-manager') {
     return (
-      <div className="h-screen flex flex-col bg-void text-slate-300">
+      <div className="h-[100dvh] flex flex-col bg-void text-slate-300">
         <header className="shrink-0 h-10 flex items-center justify-between px-4 border-b border-edge bg-panel">
           <button onClick={() => setPage('variables')} className="flex items-center gap-2 text-sm font-mono text-dim hover:text-slate-200 transition-colors">
             ← 变量管理
@@ -254,7 +256,7 @@ export default function SettingsPanel({ onClose, onOpenSaveLoad }: SettingsPanel
 
   if (page === 'npc-manager') {
     return (
-      <div className="h-screen flex flex-col bg-void text-slate-300">
+      <div className="h-[100dvh] flex flex-col bg-void text-slate-300">
         <header className="shrink-0 h-10 flex items-center justify-between px-4 border-b border-edge bg-panel">
           <button onClick={() => setPage('variables')} className="flex items-center gap-2 text-sm font-mono text-dim hover:text-slate-200 transition-colors">
             ← 变量管理
@@ -271,7 +273,7 @@ export default function SettingsPanel({ onClose, onOpenSaveLoad }: SettingsPanel
 
   if (page === 'entry-judge-manager') {
     return (
-      <div className="h-screen flex flex-col bg-void text-slate-300">
+      <div className="h-[100dvh] flex flex-col bg-void text-slate-300">
         <header className="shrink-0 h-10 flex items-center justify-between px-4 border-b border-edge bg-panel">
           <button onClick={() => setPage('variables')} className="flex items-center gap-2 text-sm font-mono text-dim hover:text-slate-200 transition-colors">
             ← 变量管理
@@ -288,7 +290,7 @@ export default function SettingsPanel({ onClose, onOpenSaveLoad }: SettingsPanel
 
   if (page === 'faction-manager') {
     return (
-      <div className="h-screen flex flex-col bg-void text-slate-300">
+      <div className="h-[100dvh] flex flex-col bg-void text-slate-300">
         <header className="shrink-0 h-10 flex items-center justify-between px-4 border-b border-edge bg-panel">
           <button onClick={() => setPage('variables')} className="flex items-center gap-2 text-sm font-mono text-dim hover:text-slate-200 transition-colors">
             ← 变量管理
@@ -305,7 +307,7 @@ export default function SettingsPanel({ onClose, onOpenSaveLoad }: SettingsPanel
 
   if (page === 'territory-manager') {
     return (
-      <div className="h-screen flex flex-col bg-void text-slate-300">
+      <div className="h-[100dvh] flex flex-col bg-void text-slate-300">
         <header className="shrink-0 h-10 flex items-center justify-between px-4 border-b border-edge bg-panel">
           <button onClick={() => setPage('variables')} className="flex items-center gap-2 text-sm font-mono text-dim hover:text-slate-200 transition-colors">
             ← 变量管理
@@ -322,7 +324,7 @@ export default function SettingsPanel({ onClose, onOpenSaveLoad }: SettingsPanel
 
   if (page === 'team-manager') {
     return (
-      <div className="h-screen flex flex-col bg-void text-slate-300">
+      <div className="h-[100dvh] flex flex-col bg-void text-slate-300">
         <header className="shrink-0 h-10 flex items-center justify-between px-4 border-b border-edge bg-panel">
           <button onClick={() => setPage('variables')} className="flex items-center gap-2 text-sm font-mono text-dim hover:text-slate-200 transition-colors">
             ← 变量管理
@@ -339,7 +341,7 @@ export default function SettingsPanel({ onClose, onOpenSaveLoad }: SettingsPanel
 
   if (page === 'cosmos-manager') {
     return (
-      <div className="h-screen flex flex-col bg-void text-slate-300">
+      <div className="h-[100dvh] flex flex-col bg-void text-slate-300">
         <header className="shrink-0 h-10 flex items-center justify-between px-4 border-b border-edge bg-panel">
           <button onClick={() => setPage('variables')} className="flex items-center gap-2 text-sm font-mono text-dim hover:text-slate-200 transition-colors">
             ← 变量管理
@@ -356,7 +358,7 @@ export default function SettingsPanel({ onClose, onOpenSaveLoad }: SettingsPanel
 
   if (page === 'codex-manager') {
     return (
-      <div className="h-screen flex flex-col bg-void text-slate-300">
+      <div className="h-[100dvh] flex flex-col bg-void text-slate-300">
         <header className="shrink-0 h-10 flex items-center justify-between px-4 border-b border-edge bg-panel">
           <button onClick={() => setPage('variables')} className="flex items-center gap-2 text-sm font-mono text-dim hover:text-slate-200 transition-colors">
             ← 变量管理
@@ -373,7 +375,7 @@ export default function SettingsPanel({ onClose, onOpenSaveLoad }: SettingsPanel
 
   if (page === 'memory-manager') {
     return (
-      <div className="h-screen flex flex-col bg-void text-slate-300">
+      <div className="h-[100dvh] flex flex-col bg-void text-slate-300">
         <header className="shrink-0 h-10 flex items-center justify-between px-4 border-b border-edge bg-panel">
           <button onClick={() => setPage('variables')} className="flex items-center gap-2 text-sm font-mono text-dim hover:text-slate-200 transition-colors">
             ← 变量管理
@@ -390,7 +392,7 @@ export default function SettingsPanel({ onClose, onOpenSaveLoad }: SettingsPanel
 
   if (page === 'misc-manager') {
     return (
-      <div className="h-screen flex flex-col bg-void text-slate-300">
+      <div className="h-[100dvh] flex flex-col bg-void text-slate-300">
         <header className="shrink-0 h-10 flex items-center justify-between px-4 border-b border-edge bg-panel">
           <button onClick={() => setPage('variables')} className="flex items-center gap-2 text-sm font-mono text-dim hover:text-slate-200 transition-colors">
             ← 变量管理
@@ -407,7 +409,7 @@ export default function SettingsPanel({ onClose, onOpenSaveLoad }: SettingsPanel
 
   if (page === 'dice-manager') {
     return (
-      <div className="h-screen flex flex-col bg-void text-slate-300">
+      <div className="h-[100dvh] flex flex-col bg-void text-slate-300">
         <header className="shrink-0 h-10 flex items-center justify-between px-4 border-b border-edge bg-panel">
           <button onClick={() => setPage('variables')} className="flex items-center gap-2 text-sm font-mono text-dim hover:text-slate-200 transition-colors">
             ← 变量管理
@@ -424,7 +426,7 @@ export default function SettingsPanel({ onClose, onOpenSaveLoad }: SettingsPanel
 
   if (page === 'combat-manager') {
     return (
-      <div className="h-screen flex flex-col bg-void text-slate-300">
+      <div className="h-[100dvh] flex flex-col bg-void text-slate-300">
         <header className="shrink-0 h-10 flex items-center justify-between px-4 border-b border-edge bg-panel">
           <button onClick={() => setPage('variables')} className="flex items-center gap-2 text-sm font-mono text-dim hover:text-slate-200 transition-colors">
             ← 变量管理
@@ -441,7 +443,7 @@ export default function SettingsPanel({ onClose, onOpenSaveLoad }: SettingsPanel
 
   if (page === 'arena-manager') {
     return (
-      <div className="h-screen flex flex-col bg-void text-slate-300">
+      <div className="h-[100dvh] flex flex-col bg-void text-slate-300">
         <header className="shrink-0 h-10 flex items-center justify-between px-4 border-b border-edge bg-panel">
           <button onClick={() => setPage('variables')} className="flex items-center gap-2 text-sm font-mono text-dim hover:text-slate-200 transition-colors">
             ← 变量管理
@@ -458,7 +460,7 @@ export default function SettingsPanel({ onClose, onOpenSaveLoad }: SettingsPanel
 
   if (page === 'enhance-manager') {
     return (
-      <div className="h-screen flex flex-col bg-void text-slate-300">
+      <div className="h-[100dvh] flex flex-col bg-void text-slate-300">
         <header className="shrink-0 h-10 flex items-center justify-between px-4 border-b border-edge bg-panel">
           <button onClick={() => setPage('variables')} className="flex items-center gap-2 text-sm font-mono text-dim hover:text-slate-200 transition-colors">
             ← 变量管理
@@ -475,7 +477,7 @@ export default function SettingsPanel({ onClose, onOpenSaveLoad }: SettingsPanel
 
   if (page === 'casino-manager') {
     return (
-      <div className="h-screen flex flex-col bg-void text-slate-300">
+      <div className="h-[100dvh] flex flex-col bg-void text-slate-300">
         <header className="shrink-0 h-10 flex items-center justify-between px-4 border-b border-edge bg-panel">
           <button onClick={() => setPage('variables')} className="flex items-center gap-2 text-sm font-mono text-dim hover:text-slate-200 transition-colors">
             ← 变量管理
@@ -492,7 +494,7 @@ export default function SettingsPanel({ onClose, onOpenSaveLoad }: SettingsPanel
 
   if (page === 'abyss-manager') {
     return (
-      <div className="h-screen flex flex-col bg-void text-slate-300">
+      <div className="h-[100dvh] flex flex-col bg-void text-slate-300">
         <header className="shrink-0 h-10 flex items-center justify-between px-4 border-b border-edge bg-panel">
           <button onClick={() => setPage('variables')} className="flex items-center gap-2 text-sm font-mono text-dim hover:text-slate-200 transition-colors">
             ← 变量管理
@@ -509,7 +511,7 @@ export default function SettingsPanel({ onClose, onOpenSaveLoad }: SettingsPanel
 
   if (page === 'skilltree-manager') {
     return (
-      <div className="h-screen flex flex-col bg-void text-slate-300">
+      <div className="h-[100dvh] flex flex-col bg-void text-slate-300">
         <header className="shrink-0 h-10 flex items-center justify-between px-4 border-b border-edge bg-panel">
           <button onClick={() => setPage('variables')} className="flex items-center gap-2 text-sm font-mono text-dim hover:text-slate-200 transition-colors">
             ← 变量管理
@@ -524,9 +526,26 @@ export default function SettingsPanel({ onClose, onOpenSaveLoad }: SettingsPanel
     );
   }
 
+  if (page === 'table-manager') {
+    return (
+      <div className="h-[100dvh] flex flex-col bg-void text-slate-300">
+        <header className="shrink-0 h-10 flex items-center justify-between px-4 border-b border-edge bg-panel">
+          <button onClick={() => setPage('variables')} className="flex items-center gap-2 text-sm font-mono text-dim hover:text-slate-200 transition-colors">
+            ← 变量管理
+          </button>
+          <span className="text-sm font-mono text-dim">表格数据库</span>
+          <div className="w-20" />
+        </header>
+        <div className="flex-1 overflow-y-auto p-6 max-lg:p-3">
+          <TableManager />
+        </div>
+      </div>
+    );
+  }
+
   if (page === 'subprof-manager') {
     return (
-      <div className="h-screen flex flex-col bg-void text-slate-300">
+      <div className="h-[100dvh] flex flex-col bg-void text-slate-300">
         <header className="shrink-0 h-10 flex items-center justify-between px-4 border-b border-edge bg-panel">
           <button onClick={() => setPage('variables')} className="flex items-center gap-2 text-sm font-mono text-dim hover:text-slate-200 transition-colors">
             ← 变量管理
@@ -543,7 +562,7 @@ export default function SettingsPanel({ onClose, onOpenSaveLoad }: SettingsPanel
 
   if (page === 'joy-manager') {
     return (
-      <div className="h-screen flex flex-col bg-void text-slate-300">
+      <div className="h-[100dvh] flex flex-col bg-void text-slate-300">
         <header className="shrink-0 h-10 flex items-center justify-between px-4 border-b border-edge bg-panel">
           <button onClick={() => setPage('variables')} className="flex items-center gap-2 text-sm font-mono text-dim hover:text-slate-200 transition-colors">
             ← 变量管理
@@ -560,7 +579,7 @@ export default function SettingsPanel({ onClose, onOpenSaveLoad }: SettingsPanel
 
   if (page === 'channel-manager') {
     return (
-      <div className="h-screen flex flex-col bg-void text-slate-300">
+      <div className="h-[100dvh] flex flex-col bg-void text-slate-300">
         <header className="shrink-0 h-10 flex items-center justify-between px-4 border-b border-edge bg-panel">
           <button onClick={() => setPage('variables')} className="flex items-center gap-2 text-sm font-mono text-dim hover:text-slate-200 transition-colors">
             ← 变量管理
@@ -577,7 +596,7 @@ export default function SettingsPanel({ onClose, onOpenSaveLoad }: SettingsPanel
 
   if (page === 'novelvec-manager') {
     return (
-      <div className="h-screen flex flex-col bg-void text-slate-300">
+      <div className="h-[100dvh] flex flex-col bg-void text-slate-300">
         <header className="shrink-0 h-10 flex items-center justify-between px-4 border-b border-edge bg-panel">
           <button onClick={() => setPage('variables')} className="flex items-center gap-2 text-sm font-mono text-dim hover:text-slate-200 transition-colors">
             ← 变量管理
@@ -652,7 +671,7 @@ export default function SettingsPanel({ onClose, onOpenSaveLoad }: SettingsPanel
 
   // 设置主页
   return (
-    <div className="h-screen flex flex-col bg-void text-slate-300">
+    <div className="h-[100dvh] flex flex-col bg-void text-slate-300">
       <header className="shrink-0 h-10 flex items-center justify-between px-4 border-b border-edge bg-panel">
         <button onClick={onClose} className="flex items-center gap-2 text-sm font-mono text-dim hover:text-slate-200 transition-colors">
           ← 返回主界面
@@ -1524,7 +1543,7 @@ function TextApiSection() {
           <Toggle checked={plotChoices} onChange={() => setPlotChoices(!plotChoices)} />
           <div>
             <div className="text-sm text-slate-200">剧情选项（8 选项）</div>
-            <div className="text-sm text-dim mt-0.5">每段正文后额外生成 8 个「主角视角」行动选项，点击填入输入框；八个方向各异（H 为剧情推进/转折），至少 5 个会调用主角的技能/天赋/装备/物品；原著世界时还会联网搜原著剧情、让选项接入原著剧情线。</div>
+            <div className="text-sm text-dim mt-0.5">每段正文后额外生成 8 个「主角视角」行动选项，点击填入输入框；八个方向各异（最后 1 个 H 为限制级 18+），至少 5 个会调用主角的技能/天赋/装备/物品；原著世界时还会联网搜原著剧情、让选项接入原著剧情线。</div>
           </div>
         </div>
         <div className="flex items-center gap-3 p-3 bg-panel border border-edge rounded-lg">
@@ -2028,6 +2047,8 @@ function RegexScriptCard({ script, onToggle, onUpdate, onRemove, onMoveUp, onMov
         {script.placement.map((p) => (
           <span key={p} className="text-[12px] font-mono px-1.5 py-0.5 border border-edge text-dim rounded">{PLACEMENT_LABELS[p] ?? p}</span>
         ))}
+        {script.markdownOnly && <span className="text-[12px] font-mono px-1.5 py-0.5 border border-sky-700/50 text-sky-300 rounded" title="仅格式化显示：只改屏幕渲染，不进发给AI/演化的文本">仅显示</span>}
+        {script.promptOnly && <span className="text-[12px] font-mono px-1.5 py-0.5 border border-amber-700/50 text-amber-300 rounded" title="仅格式化提示词：只作用于发给AI的文本，不影响显示">仅AI</span>}
         <div className="flex items-center gap-1 shrink-0">
           <button onClick={onMoveUp} disabled={isFirst} className="text-[12px] px-1 text-dim hover:text-god disabled:opacity-20 transition-colors">↑</button>
           <button onClick={onMoveDown} disabled={isLast} className="text-[12px] px-1 text-dim hover:text-god disabled:opacity-20 transition-colors">↓</button>
@@ -2066,6 +2087,21 @@ function RegexScriptCard({ script, onToggle, onUpdate, onRemove, onMoveUp, onMov
                 </label>
               ))}
             </div>
+          </div>
+          {/* ST 视图作用域：美化框务必选「仅显示」，否则「对AI隐藏(删空)」类正则会把正文从屏幕删掉 */}
+          <div className="space-y-1">
+            <label className="text-[12px] font-mono text-dim">视图作用域（SillyTavern）· 二选一或都不选</label>
+            <div className="flex gap-4 flex-wrap">
+              <label className="flex items-center gap-2 cursor-pointer select-none">
+                <Toggle checked={!!script.markdownOnly} onChange={() => onUpdate({ markdownOnly: !script.markdownOnly, ...(!script.markdownOnly ? { promptOnly: false } : {}) })} small />
+                <span className="text-sm text-slate-300">仅格式化显示<span className="text-dim text-[12px] ml-1">美化框，不进AI/演化</span></span>
+              </label>
+              <label className="flex items-center gap-2 cursor-pointer select-none">
+                <Toggle checked={!!script.promptOnly} onChange={() => onUpdate({ promptOnly: !script.promptOnly, ...(!script.promptOnly ? { markdownOnly: false } : {}) })} small />
+                <span className="text-sm text-slate-300">仅格式化提示词<span className="text-dim text-[12px] ml-1">对AI隐藏，不影响显示</span></span>
+              </label>
+            </div>
+            <div className="text-[12px] text-dim">都不选 = 显示与发给AI都替换（旧行为）。<span className="text-sky-300">美化/包裹框（如 &lt;htm1fenge&gt;→&lt;div&gt;）务必选「仅格式化显示」</span>，否则配套的「对AI隐藏(删空)」正则会把正文从屏幕删空。</div>
           </div>
           <div className="flex justify-end">
             <button onClick={() => setExpanded(false)} className="px-4 py-1.5 text-sm border border-god/40 text-god rounded hover:bg-god/10 transition-colors font-mono">完成</button>
@@ -2640,7 +2676,7 @@ function ReadingOptionRow({ title, desc, opts, cur, onPick, fmt }: {
       <div className="text-sm font-mono text-god/70 uppercase tracking-widest">{title}</div>
       <div className="border border-edge rounded-lg p-4 bg-panel space-y-3">
         <div className="text-sm text-dim leading-relaxed">{desc}</div>
-        <div className="grid grid-cols-4 gap-2">
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
           {opts.map((o) => (
             <button key={o.v} onClick={() => onPick(o.v)}
               className={`px-2 py-2.5 rounded-lg border text-sm font-mono transition-colors ${
@@ -2703,7 +2739,7 @@ function AppearanceSettingsSection() {
         <div className="text-sm font-mono text-god/70 uppercase tracking-widest">护眼色调</div>
         <div className="border border-edge rounded-lg p-4 bg-panel space-y-3">
           <div className="text-sm text-dim leading-relaxed">全局柔化滤镜：把刺眼的纯白高亮压成暖白、降低「光晕」并滤蓝光，深色背景几乎不变——长时间阅读更不易疲劳。「经典」=关闭、零开销。</div>
-          <div className="grid grid-cols-3 gap-2">
+          <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
             {APPEARANCE_TINTS.map((o) => (
               <button key={o.key} onClick={() => setAppearance(o.key)}
                 className={`px-2 py-2.5 rounded-lg border text-sm font-mono transition-colors ${
@@ -2794,7 +2830,7 @@ function VectorMemorySettings() {
     setBuilding(true); setStatus('正在构建向量索引…');
     try {
       const M = useMisc.getState();
-      const pool = buildMemPool(M, cfg.maxItems ?? 1000);
+      const pool = buildMemPool(M, cfg.maxItems ?? 1000, !!cfg.factsOnly);   // factsOnly：只索引长期事实
       const r = await factVecEnsure(pool, cfg, { onProgress: (d, t) => setStatus(`嵌入中… ${d}/${t}`) });
       setIndexed(factVecStatus().indexed);
       setStatus(`完成：本次嵌入 ${r.embedded} 条，索引共 ${factVecStatus().indexed} 条（记忆池 ${pool.length} 条）`);
@@ -2871,6 +2907,60 @@ function VectorMemorySettings() {
         </div>
         {num('最近正文全文保留条数', 'recentFullTextCount', 0, 10, '召回的同时额外注入最近 X 楼正文原文。')}
         {num('索引条目上限', 'maxItems', 50, 5000, '向量索引的记忆条目上限（可远大于关键词模式的事实上限，长期记忆留更多）。')}
+
+        {/* 只召回长期事实：小结/大结/世界大事都不进池 */}
+        <div className="flex items-start justify-between gap-4 border-t border-edge pt-4">
+          <div className="flex-1">
+            <div className="text-sm font-semibold text-slate-200">只召回长期事实</div>
+            <div className="text-sm text-dim mt-1">开启后向量池<span className="text-god/70">只放长期事实</span>，小结/大结/世界大事都不进池、也不索引（召回与 rerank 精排都只针对长期事实）。切换后建议点一次「重建索引」清掉不再用的向量。</div>
+          </div>
+          <Toggle checked={!!cfg.factsOnly} onChange={() => set({ factsOnly: !cfg.factsOnly })} />
+        </div>
+
+        {/* ── rerank 精排（可选·默认关）：余弦粗召回 → 交叉编码器精排 → 取 Top-K，比纯余弦更准 ── */}
+        <div className="border-t border-edge pt-4 space-y-4">
+          <div className="flex items-start justify-between gap-4">
+            <div className="flex-1">
+              <div className="text-sm font-semibold text-slate-200">启用 rerank 精排 <span className="text-[11px] font-normal text-god/60">可选·更准</span></div>
+              <div className="text-sm text-dim mt-1">先按余弦粗召回一批候选，再用交叉编码器 rerank 精排、取最相关的 Top-K（＝上方「召回条数」）。需下方 rerank 接口；未配/失败自动回退纯余弦，绝不卡回合。</div>
+            </div>
+            <Toggle checked={!!cfg.rerankEnabled} onChange={() => set({ rerankEnabled: !cfg.rerankEnabled })} />
+          </div>
+          {cfg.rerankEnabled && (<>
+            <div className="space-y-1.5">
+              <div className="text-sm font-semibold text-slate-200">rerank 接口地址</div>
+              <input type="text" value={cfg.rerankBase ?? ''} onChange={(e) => set({ rerankBase: e.target.value })} placeholder="https://api.siliconflow.cn/v1" className="input-base w-full font-mono" />
+              <div className="text-sm text-dim/60">Cohere/Jina/SiliconFlow 兼容 <span className="font-mono">/rerank</span> 端点。</div>
+            </div>
+            <div className="space-y-1.5">
+              <div className="text-sm font-semibold text-slate-200">rerank API 密钥</div>
+              <input type="password" value={cfg.rerankKey ?? ''} onChange={(e) => set({ rerankKey: e.target.value })} placeholder="sk-..." className="input-base w-full font-mono" />
+            </div>
+            <div className="space-y-1.5">
+              <div className="text-sm font-semibold text-slate-200">rerank 模型</div>
+              <input type="text" value={cfg.rerankModel ?? ''} onChange={(e) => set({ rerankModel: e.target.value })} placeholder="BAAI/bge-reranker-v2-m3" className="input-base w-full font-mono" />
+            </div>
+            <button
+              onClick={() => set({ rerankBase: cfg.apiBase || cfg.rerankBase, rerankKey: cfg.apiKey || cfg.rerankKey })}
+              className="self-start text-[13px] font-mono text-god/75 hover:text-god border border-god/30 hover:bg-god/10 rounded px-2.5 py-1.5 transition-colors">
+              ↙ 从上方 embedding 接口复用 Key（同一硅基流动账号）
+            </button>
+            <div className="space-y-1.5">
+              <div className="text-sm font-semibold text-slate-200">候选宽度</div>
+              <input type="number" min={5} max={100} step={5} value={cfg.rerankCandidates ?? 40}
+                onChange={(e) => set({ rerankCandidates: Math.min(100, Math.max(1, parseInt(e.target.value) || 40)) })}
+                className="input-base w-full font-mono" />
+              <div className="text-sm text-dim/60">精排前先按余弦取这么多条候选喂给 rerank（越大越准越慢，常用 30~50；应 ≥ 召回条数）。</div>
+            </div>
+            <div className="space-y-1.5">
+              <div className="text-sm font-semibold text-slate-200">精排最低相关分</div>
+              <input type="number" min={0} max={1} step={0.05} value={cfg.rerankThreshold ?? 0}
+                onChange={(e) => set({ rerankThreshold: Math.min(1, Math.max(0, parseFloat(e.target.value) || 0)) })}
+                className="input-base w-full font-mono" />
+              <div className="text-sm text-dim/60">rerank 后相关分低于此值不注入（0~1，0=不筛）。</div>
+            </div>
+          </>)}
+        </div>
 
         <div className="border-t border-edge pt-4 space-y-2">
           <div className="flex items-center justify-between gap-3">

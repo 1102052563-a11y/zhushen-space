@@ -2,6 +2,25 @@ import { describe, it, expect } from 'vitest';
 import { normalizeGradeLabel, scoreToGradeNum, useItems, getItemLog, clearItemLog } from './itemStore';
 import { useNpc } from './npcStore';
 
+describe('★物品 facade 闸门（subscribe·itemStore.items 结构上不可能有重复 id）', () => {
+  it('setState 塞两条同 id → 闸门自动塌成一条', () => {
+    useItems.setState({ items: [
+      { id: 'W1', name: '寒铁剑', category: '武器', gradeDesc: '蓝色', quantity: 1, effect: '', equipped: false, tags: [], addedAt: 0 },
+      { id: 'W1', name: '寒铁剑', category: '武器', gradeDesc: '蓝色', quantity: 1, effect: '', equipped: false, tags: [], addedAt: 0 },
+    ] as any });
+    const ids = useItems.getState().items.map((it) => it.id);
+    expect(ids).toEqual(['W1']);   // 重复 id 被 facade 闸门结构性塌掉
+  });
+
+  it('正常无重复 id → 不动', () => {
+    useItems.setState({ items: [
+      { id: 'A', name: '甲', category: '武器', gradeDesc: '白色', quantity: 1, effect: '', equipped: false, tags: [], addedAt: 0 },
+      { id: 'B', name: '乙', category: '武器', gradeDesc: '白色', quantity: 1, effect: '', equipped: false, tags: [], addedAt: 0 },
+    ] as any });
+    expect(useItems.getState().items.length).toBe(2);
+  });
+});
+
 describe('scoreToGradeNum（评分 → 物品档位 1-14，区间同 ITEM_GRADE_TABLE_RULE）', () => {
   it('区间边界', () => {
     expect(scoreToGradeNum(10)).toBe(1);   // 白色上界

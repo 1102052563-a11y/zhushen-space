@@ -131,6 +131,7 @@ function ConfigBackupBar() {
 }
 
 export default function VariableManager({
+  onOpenTableManager,
   onOpenItemManager,
   onOpenPlayerManager,
   onOpenNpcManager,
@@ -154,6 +155,7 @@ export default function VariableManager({
   onOpenSkillTreeManager,
   onOpenSubProfManager,
 }: {
+  onOpenTableManager?: () => void;
   onOpenItemManager?: () => void;
   onOpenPlayerManager?: () => void;
   onOpenNpcManager?: () => void;
@@ -181,6 +183,7 @@ export default function VariableManager({
     {
       title: '演化系统',
       items: [
+        { icon: '🗃', label: '表格数据库', desc: '游戏状态表 · 查看/编辑',      color: 'cyan',    cb: onOpenTableManager },
         { icon: '🧬', label: '主角演化',   desc: '六维 · 技能 · 天赋 · 身份',  color: 'sky',     cb: onOpenPlayerManager },
         { icon: '🧑‍🤝‍🧑', label: 'NPC 演化', desc: '角色档案 · 重点演化',        color: 'violet',  cb: onOpenNpcManager },
         { icon: '🚪', label: '登场判断',   desc: 'API · 世界书 · 提示词 · 联网',  color: 'violet',  cb: onOpenEntryJudgeManager },
@@ -218,7 +221,7 @@ export default function VariableManager({
   ];
 
   return (
-    <div className="min-h-[72vh] flex flex-col items-center justify-center py-8">
+    <div className="min-h-[72dvh] flex flex-col items-center justify-center py-8">
       <div className="w-full max-w-5xl">
         {/* 标题 */}
         <div className="text-center mb-9">

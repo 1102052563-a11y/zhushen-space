@@ -68,6 +68,14 @@ export interface RegexScript {
   placement: number[];     // 0=用户输入 1=AI输出
   disabled: boolean;
   flags: string;           // 'g' | 'i' | 'gi' | 'm' 等
+  // ── ST「视图作用域」：决定这条正则作用在哪一层（照搬 SillyTavern，applyRegex 按 stage 消费）──
+  markdownOnly?: boolean;  // 仅格式化显示：只改屏幕渲染，绝不进发给AI/演化的文本（美化框专用）
+  promptOnly?: boolean;    // 仅格式化提示词/对AI隐藏：只作用于发给AI的文本，不影响显示（别让它把美化框从屏幕删空）
+  // 以下字段本项目暂不消费，仅原样保留以便无损重导出为 ST 预设
+  runOnEdit?: boolean;
+  substituteRegex?: number;
+  minDepth?: number | null;
+  maxDepth?: number | null;
 }
 
 // SillyTavern Prompt Manager 格式的单条 prompt
@@ -224,10 +232,18 @@ export interface VecMemConfig {
   apiBase: string;             // embedding 接口地址（OpenAI 兼容 /embeddings）
   apiKey: string;
   model: string;               // embedding 模型（如 bge-m3 / text-embedding-3-small）
-  topK: number;                // cosine 召回条数
+  topK: number;                // cosine 召回条数（rerank 关时=最终注入条数；开时=精排后取几条）
   threshold: number;           // 最低相似度（0~1）
   recentFullTextCount: number; // 最近正文全文保留条数
   maxItems: number;            // 索引的记忆条目上限（与事实 FIFO 解耦，可放大）
+  factsOnly?: boolean;         // 只召回长期事实：小结/大结/世界大事都不进池（默认关=全都进）
+  // ── rerank 精排（可选·默认关）：余弦粗召回一批 → 交叉编码器 rerank 精排 → 取 topK，比纯余弦更准 ──
+  rerankEnabled?: boolean;     // 启用 rerank 精排（需配下面接口）
+  rerankBase?: string;         // rerank 接口地址（Cohere/Jina/SiliconFlow 兼容 /rerank）
+  rerankKey?: string;
+  rerankModel?: string;        // rerank 模型（如 BAAI/bge-reranker-v2-m3）
+  rerankCandidates?: number;   // 精排前的余弦候选宽度（默认 40；喂给精排的料）
+  rerankThreshold?: number;    // 精排后最低相关分（0~1，默认 0=不筛）
 }
 
 export type NarrativePov = 'off' | 'first' | 'second' | 'third';  // 叙事人称：off=跟随预设（不干预）
@@ -491,10 +507,34 @@ function extractRawRegexArr(data: any): any[] {
   return [];
 }
 
+/* 自动推断正则「视图作用域」（照 SillyTavern 惯例，用户无需逐条手动调开关）：
+   ① replaceString 产出 HTML（<div>/<span>/style=…）的 = 美化框 → markdownOnly（只作用显示，别把 HTML 壳喂给AI/演化）
+   ② replaceString 删空、且 findRegex 针对的标签又被某条美化正则包成 HTML 的 = 配套「对AI隐藏」→ promptOnly（只在发给AI时删，别把框从屏幕删空）
+   仅在该条 markdownOnly/promptOnly 都未显式给定时才推断，绝不覆盖预设/用户的显式设定。 */
+function regexTagName(findRegex: string): string | null {
+  const m = findRegex.match(/<\/?\s*([a-zA-Z][\w-]*)/);
+  return m ? m[1].toLowerCase() : null;
+}
+function replaceLooksHtml(replaceString: string): boolean {
+  return /<[a-zA-Z][\w-]*[\s/>]/.test(replaceString) || /\b(?:style|class)\s*=/.test(replaceString);
+}
+export function inferViewScopes(scripts: RegexScript[]): RegexScript[] {
+  const renderedTags = new Set<string>();
+  for (const s of scripts) {
+    if (replaceLooksHtml(s.replaceString)) { const t = regexTagName(s.findRegex); if (t) renderedTags.add(t); }
+  }
+  return scripts.map((s) => {
+    if (s.markdownOnly !== undefined || s.promptOnly !== undefined) return s;    // 有显式设定：原样保留，绝不覆盖
+    if (replaceLooksHtml(s.replaceString)) return { ...s, markdownOnly: true };   // 美化框 → 仅显示
+    if (!s.replaceString.trim()) { const t = regexTagName(s.findRegex); if (t && renderedTags.has(t)) return { ...s, promptOnly: true }; }  // 配套删框 → 仅AI
+    return s;
+  });
+}
+
 // ── 正则脚本解析（兼容 ST 导出）──
 function parseRegexArr(data: any): RegexScript[] {
   const arr: any[] = extractRawRegexArr(data);
-  return arr.map((r: any) => {
+  return inferViewScopes(arr.map((r: any) => {
     const rawPlacement: number[] = Array.isArray(r.placement) ? r.placement : [2]; // 默认 ST AI输出
     // 判断是否为 ST 格式：包含 ST 专有值（≥2）则视为 ST placement 编号体系
     const isSTFormat = rawPlacement.some((p) => p >= 2);
@@ -521,8 +561,16 @@ function parseRegexArr(data: any): RegexScript[] {
       placement:     placement.length > 0 ? placement : [1],
       disabled:      Boolean(r.disabled),
       flags:         safeFlags,
+      // ST 视图作用域：只在明确布尔时保留，缺省留 undefined（= alter chat，两视图都跑，行为同旧版）
+      ...(typeof r.markdownOnly === 'boolean' ? { markdownOnly: r.markdownOnly } : {}),
+      ...(typeof r.promptOnly   === 'boolean' ? { promptOnly:   r.promptOnly   } : {}),
+      // 以下仅原样保留以便无损重导出，本项目暂不消费
+      ...(typeof r.runOnEdit === 'boolean' ? { runOnEdit: r.runOnEdit } : {}),
+      ...(typeof r.substituteRegex === 'number' ? { substituteRegex: r.substituteRegex } : {}),
+      ...(r.minDepth === null || typeof r.minDepth === 'number' ? { minDepth: r.minDepth } : {}),
+      ...(r.maxDepth === null || typeof r.maxDepth === 'number' ? { maxDepth: r.maxDepth } : {}),
     };
-  });
+  }));
 }
 
 function newRegexScript(): RegexScript {
@@ -661,7 +709,7 @@ export const useSettings = create<SettingsState>()(
       apiThrottle: { maxConcurrent: 3, minGapMs: 250 },
       phaseSched: {},
       narrativeMemory: { enabled: false, recentFullTextCount: 5, distantKeywordThreshold: 200, recallTopK: 6, recallMinScore: 1, requestTimeout: 90, llmMode: false, compileModelId: '', ingestModelId: '', structEnabled: true, structApiSelect: false, structMaxNpcs: 2, structMaxSkills: 3, structMaxItems: 2, structMaxSubProfs: 4, structMaxFactions: 4 },
-      vectorMemory: { enabled: false, apiBase: 'https://api.siliconflow.cn/v1', apiKey: '', model: 'Pro/BAAI/bge-m3', topK: 6, threshold: 0.3, recentFullTextCount: 5, maxItems: 1000 },
+      vectorMemory: { enabled: false, apiBase: 'https://api.siliconflow.cn/v1', apiKey: '', model: 'Pro/BAAI/bge-m3', topK: 6, threshold: 0.3, recentFullTextCount: 5, maxItems: 1000, factsOnly: false, rerankEnabled: false, rerankBase: 'https://api.siliconflow.cn/v1', rerankKey: '', rerankModel: 'BAAI/bge-reranker-v2-m3', rerankCandidates: 40, rerankThreshold: 0 },
       nmApi: { ...DEFAULT_API },
       nmUseSharedApi: true,
       nmAvailableModels: [],
@@ -1023,11 +1071,14 @@ export const useSettings = create<SettingsState>()(
       name: 'drpg-settings',
       // v1：为存量用户注入内置全局正则「反极其」（仅一次，按固定 id 判重；用户删/改后版本已升级，不再覆盖）。
       //     新用户走初始 state 已含该脚本，不经 migrate。
-      version: 1,
+      // v2：为存量全局正则自动补「视图作用域」默认（美化框=仅显示 / 配套删框=仅AI），免用户重导入或逐条手动调开关。
+      //     只在该条 markdownOnly/promptOnly 都未显式给定时才补（inferViewScopes 内部判重），不覆盖已有设定。
+      version: 2,
       migrate: (persisted: any, _fromVersion: number) => {
         if (persisted && typeof persisted === 'object') {
           const arr: any[] = Array.isArray(persisted.globalRegexScripts) ? persisted.globalRegexScripts : [];
-          persisted.globalRegexScripts = arr.some((r) => r?.id === BUILTIN_FANJIQI_ID) ? arr : [builtinFanjiqi(), ...arr];
+          const withFanjiqi = arr.some((r) => r?.id === BUILTIN_FANJIQI_ID) ? arr : [builtinFanjiqi(), ...arr];
+          persisted.globalRegexScripts = inferViewScopes(withFanjiqi as RegexScript[]);
         }
         return persisted;
       },

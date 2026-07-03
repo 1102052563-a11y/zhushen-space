@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { useItems, gradeNameClass, type InventoryItem } from '../store/itemStore';
+import { useItems, gradeNameClass, splitAffixEntries, type InventoryItem } from '../store/itemStore';
 import { useMisc } from '../store/miscStore';
 import { useEnhance, hydrateEnhancePortraits } from '../store/enhanceStore';
 import { CAT_ICON } from './BackpackModal';
@@ -15,13 +15,8 @@ import GemPanel from './GemPanel';
 export interface EnhanceFinalizeArgs { itemId: string; startLevel: number; newLevel: number; tendency?: string; }
 export interface FinalizeStatus { ok: boolean; changed: boolean; error?: string; }
 
-/* 把词缀/效果文本按【…】拆成分条，逐条展示（排版更清晰）；无【】则整段当一条 */
-function splitAffixEntries(text?: string): string[] {
-  const t = String(text ?? '').trim();   // String() 兜底：affix/effect 万一是非字符串(数字/对象)也不崩
-  if (!t) return [];
-  if (!t.includes('【')) return [t];
-  return t.split(/(?=【)/g).map((s) => s.trim()).filter(Boolean);
-}
+/* 词缀/效果拆条复用 itemStore 的 splitAffixEntries（吃字符串/数组/对象/JSON 串，绝不吐 [object Object]），
+   不再本地弱实现——旧本地版对对象只 String() → 频道交易物品在强化所也会显示 [object Object]。 */
 
 /* 强化所：左=看板娘立绘+切换+吐槽气泡 / 中=被强化装备+特效 / 右=操作区+本轮记录。
    仅乐园内（轮回乐园/专属房间）可强化；摇率/爆装/降级/保底全在 enhanceEngine 算，不花 API。
@@ -197,7 +192,7 @@ export default function EnhancePanel({
     if (useItems.getState().currency.乐园币 < cost) { setWarn('乐园币不足'); return; }
     setWarn('');
     setRolling(true);
-    adjustCurrency('乐园币', -cost);
+    adjustCurrency('乐园币', -cost, `装备强化·${it.name}（+${lv}→+${lv + 1}）`);
 
     const result = resolveEnhance(lv, boss, { useProtect: useProtect && risk, useAmulet, pity: useEnhance.getState().pity }, tables);
 
@@ -233,7 +228,7 @@ export default function EnhancePanel({
   return (
     <div className="fixed inset-0 z-[65] bg-black/70 backdrop-blur-sm flex items-center justify-center p-3"
          onClick={(e) => { if (e.target === e.currentTarget) handleClose(); }}>
-      <div className="relative w-full max-w-5xl h-[88vh] rounded-2xl border border-edge bg-void shadow-[0_0_60px_rgba(0,0,0,0.9)] overflow-hidden flex flex-col">
+      <div className="relative w-full max-w-5xl h-[88dvh] rounded-2xl border border-edge bg-void shadow-[0_0_60px_rgba(0,0,0,0.9)] overflow-hidden flex flex-col">
 
         {/* 顶栏 */}
         <header className="shrink-0 flex items-center gap-3 px-4 py-3 border-b border-edge bg-panel">
@@ -275,7 +270,7 @@ export default function EnhancePanel({
                   <div className={`text-base font-bold god-glow ${ok ? 'text-amber-200' : 'text-blood'}`}>{ok ? '✨ 强化完成' : '⚠ 强化收尾失败'}</div>
                   <div className="text-[13px] font-bold text-slate-100 mt-0.5">{fr.name} <span className={enhanceColorClass(fr.level)}>+{fr.level}</span></div>
                 </div>
-                <div className="p-4 space-y-3 max-h-[52vh] overflow-y-auto onscene-scroll">
+                <div className="p-4 space-y-3 max-h-[52dvh] overflow-y-auto onscene-scroll">
                   {!ok && (
                     <div className="rounded-lg border border-blood/40 bg-blood/5 px-3 py-2 text-[12.5px] text-blood/90 leading-snug">
                       收尾未生效：{fr.error}
@@ -312,7 +307,7 @@ export default function EnhancePanel({
         <div className="flex-1 flex flex-col overflow-hidden max-lg:overflow-y-auto">
 
           {/* ── 上：看板娘立绘（整宽，占上方约 58% 高，给横图立绘更多纵向空间）── */}
-          <div className="h-[58%] max-lg:h-[42vh] shrink-0 border-b border-edge bg-panel2/30 p-3 flex flex-col min-h-0">
+          <div className="h-[58%] max-lg:h-[42dvh] shrink-0 border-b border-edge bg-panel2/30 p-3 flex flex-col min-h-0">
             <div className="flex items-center justify-center gap-4 mb-2 shrink-0">
               <button onClick={() => cycleBoss(-1)} className="w-7 h-7 rounded-lg border border-edge text-dim hover:text-slate-100 hover:border-god/40 shrink-0">‹</button>
               <div className="text-center min-w-0">
@@ -349,7 +344,7 @@ export default function EnhancePanel({
           <div className="h-[42%] max-lg:h-auto flex flex-col lg:flex-row min-h-0">
 
           {/* 下左：被强化装备 + 特效 */}
-          <div className="flex-1 lg:w-1/2 shrink-0 border-b lg:border-b-0 lg:border-r border-edge flex flex-col items-center justify-center p-4 relative overflow-y-auto min-h-0 max-lg:overflow-visible max-lg:flex-none max-lg:min-h-[32vh]">
+          <div className="flex-1 lg:w-1/2 shrink-0 border-b lg:border-b-0 lg:border-r border-edge flex flex-col items-center justify-center p-4 relative overflow-y-auto min-h-0 max-lg:overflow-visible max-lg:flex-none max-lg:min-h-[32dvh]">
             {fx && (
               <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
                 <div className={`w-52 h-52 rounded-full enh-flash ${fx === 'destroy' ? 'bg-red-500/40' : fx === 'reset' ? 'bg-rose-500/30' : fx === 'crit' ? 'bg-fuchsia-400/40' : fx === 'success' || fx === 'guaranteed' ? 'bg-amber-300/40' : 'bg-slate-500/15'}`} />

@@ -111,7 +111,7 @@ export default function ArenaPanel({ onClose, onGenerateLadder, onScout, onChall
 
   return (
     <div className="fixed inset-0 z-[60] bg-black/70 backdrop-blur-sm flex items-center justify-center p-3">
-      <div className="w-full max-w-2xl max-h-[92vh] flex flex-col rounded-xl border border-cyan-500/30 bg-slate-900/95 shadow-2xl overflow-hidden">
+      <div className="w-full max-w-2xl max-h-[92dvh] flex flex-col rounded-xl border border-cyan-500/30 bg-slate-900/95 shadow-2xl overflow-hidden">
         {/* 头部 */}
         <div className="flex items-center justify-between px-4 py-2.5 border-b border-slate-700/60 bg-slate-950/60">
           <span className="text-sm font-semibold text-slate-100">🏟 竞技场</span>

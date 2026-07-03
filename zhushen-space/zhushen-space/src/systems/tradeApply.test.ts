@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach } from 'vitest';
-import { applyTrade, walletKey, escrowCoin, consumeCoin, refundCoinsForListing } from './tradeClient';
+import { applyTrade, walletKey, escrowCoin, consumeCoin, refundCoinsForListing, settleHelloHistory } from './tradeClient';
 import { useTrade } from '../store/tradeStore';
 import { useItems } from '../store/itemStore';
 import type { TradeRecord } from './tradeProtocol';
@@ -122,5 +122,38 @@ describe('交易行 结算 + 货币托管', () => {
     applyTrade(rec());
     applyTrade(rec());
     expect(useItems.getState().currency.乐园币).toBe(80);          // 只加一次
+  });
+});
+
+const getApplied = () => JSON.parse(localStorage.getItem('drpg-trade-applied') || '[]');
+
+// 跨存档残留根治：hello 重放服务器历史时，applied 空(新档/清档)→只记基线不交付；老档才补结算离线成交。
+describe('settleHelloHistory（防交易行购买跨存档残留）', () => {
+  beforeEach(() => {
+    localStorage.clear();
+    useTrade.setState({ me: { playerId: 'chat:2', name: 'B' } });   // 我是买家
+    useItems.setState({ items: [], currency: { ...ZERO } });
+  });
+
+  it('★applied 空(新档/清档)：历史成交只记基线、不把过往购买灌进背包', () => {
+    settleHelloHistory([rec()]);
+    expect(useItems.getState().items.length).toBe(0);   // 不交付 → 不跨档残留
+    expect(getApplied()).toContain('r1');               // 但标记为已见（基线）
+  });
+
+  it('老档(applied 非空)：hello 正常补结算离线期间的成交', () => {
+    localStorage.setItem('drpg-trade-applied', JSON.stringify(['old-trade']));   // 本档已交易过
+    useItems.setState({ currency: { 乐园币: 100, 灵魂钱币: 0, 技能点: 0, 黄金技能点: 0 } });
+    setCoin({ t1: coin() });                                                     // 出价时的托管
+    settleHelloHistory([rec()]);
+    expect(useItems.getState().items.some((it) => it.name === '九转还魂丹')).toBe(true);   // 交付
+  });
+
+  it('★基线后再次 hello 不重复交付（该成交已标记）', () => {
+    settleHelloHistory([rec()]);                                                 // 首次：基线
+    useItems.setState({ currency: { 乐园币: 100, 灵魂钱币: 0, 技能点: 0, 黄金技能点: 0 } });
+    setCoin({ t1: coin() });
+    settleHelloHistory([rec()]);                                                 // 再次(applied 已非空)→ r1 已 applied → 跳过
+    expect(useItems.getState().items.length).toBe(0);
   });
 });

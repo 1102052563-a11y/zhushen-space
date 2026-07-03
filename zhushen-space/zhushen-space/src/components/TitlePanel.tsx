@@ -94,7 +94,7 @@ export default function TitlePanel({ onClose }: { onClose: () => void }) {
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-4" onClick={fusing ? undefined : onClose}>
-      <div className="bg-void border border-edge rounded-2xl w-full max-w-2xl max-h-[88vh] flex flex-col shadow-[0_0_60px_rgba(0,0,0,0.8)] overflow-hidden"
+      <div className="bg-void border border-edge rounded-2xl w-full max-w-2xl max-h-[88dvh] flex flex-col shadow-[0_0_60px_rgba(0,0,0,0.8)] overflow-hidden"
         onClick={(e) => e.stopPropagation()}>
         {/* 头部 */}
         <header className="flex items-center justify-between p-4 border-b border-edge shrink-0">

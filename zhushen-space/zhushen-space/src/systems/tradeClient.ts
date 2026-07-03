@@ -147,6 +147,16 @@ export function applyTrade(rec?: TradeRecord) {
   markApplied(rec.id);
 }
 
+/** 进场/重连时处理服务器历史成交（导出供单测）。
+   ★防跨档/清档残留：本机 applied 为空（新游戏 / 彻底重置 / 首次进场，从未在本地结算过任何成交）时，
+   历史成交**只记基线、不交付**——否则会把过往（别的存档 / 清档前）买的东西、收的币追溯灌进当前背包
+   （用户报"交易行买的东西跨存档残留"）。已参与过交易的存档(applied 非空)才照常补结算离线期间的成交。
+   applied 是全局键（防跨档重复交付·刻意不随存档清）；escrow/coin 托管键已随存档，跨档不再泄漏。 */
+export function settleHelloHistory(hist: TradeRecord[]): void {
+  if (loadApplied().length === 0) { for (const r of hist) if (r?.id) markApplied(r.id); }   // 基线：标记已见、不发货
+  else (hist || []).forEach(applyTrade);   // 离线期间的成交→重连补结算（已成交的托管物/币会被消费，不误归还）
+}
+
 function connect(name: string, token: string) {
   cleanup();
   manualClose = false;
@@ -177,12 +187,13 @@ function connect(name: string, token: string) {
 function dispatch(m: TradeInbound) {
   const st = useTrade.getState();
   switch (m.type) {
-    case 'hello':
+    case 'hello': {
       set({ me: m.you || null, listings: m.listings || [], online: m.online || 0, history: m.history || [] });
-      (m.history || []).forEach(applyTrade);   // 离线期间的成交→重连补结算（先于托管对账：已成交的托管物/币会被消费，不会被误归还）
+      settleHelloHistory(m.history || []);   // 补结算离线成交（新档/清档只记基线不交付·防跨档残留）
       reconcileEscrow(m.listings || []);
       reconcileCoin(m.listings || [], m.history || []);
       break;
+    }
     case 'listing_added':
       if (m.listing) {
         set({ listings: [m.listing, ...st.listings].slice(0, TRADE_MAX_LISTINGS) });

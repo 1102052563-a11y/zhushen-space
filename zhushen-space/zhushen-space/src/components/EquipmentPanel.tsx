@@ -129,7 +129,7 @@ function SlotPicker({
       className="fixed inset-0 z-[70] bg-black/60 backdrop-blur-sm flex items-end justify-center p-4"
       onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}
     >
-      <div className="w-full max-w-lg bg-void border border-edge rounded-2xl max-h-[65vh] overflow-hidden flex flex-col shadow-[0_0_40px_rgba(0,0,0,0.8)]">
+      <div className="w-full max-w-lg bg-void border border-edge rounded-2xl max-h-[65dvh] overflow-hidden flex flex-col shadow-[0_0_40px_rgba(0,0,0,0.8)]">
         {/* 标题栏 */}
         <div className="shrink-0 flex items-center gap-3 px-4 py-3 border-b border-edge bg-panel">
           <span className="text-base">{slotDef.icon}</span>

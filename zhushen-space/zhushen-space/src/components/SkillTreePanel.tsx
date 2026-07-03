@@ -279,7 +279,7 @@ export default function SkillTreePanel({ onClose }: { onClose: () => void }) {
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-4" onClick={onClose}>
-      <div className="bg-void border border-edge rounded-2xl w-full max-w-[95vw] max-h-[94vh] flex flex-col shadow-[0_0_60px_rgba(0,0,0,0.8)] overflow-hidden"
+      <div className="bg-void border border-edge rounded-2xl w-full max-w-[95vw] max-h-[94dvh] flex flex-col shadow-[0_0_60px_rgba(0,0,0,0.8)] overflow-hidden"
         onClick={(e) => e.stopPropagation()}>
         <header className="flex items-center justify-between p-4 border-b border-edge shrink-0 gap-3">
           <div className="min-w-0">
@@ -390,7 +390,7 @@ export default function SkillTreePanel({ onClose }: { onClose: () => void }) {
 
         {/* 选中节点详情 + 解锁 */}
         {selNode && (
-          <div className="border-t border-edge p-4 shrink-0 max-h-[38vh] overflow-y-auto bg-panel2/30">
+          <div className="border-t border-edge p-4 shrink-0 max-h-[38dvh] overflow-y-auto bg-panel2/30">
             <div className="flex items-start justify-between gap-3">
               <div className="min-w-0">
                 <div className="flex items-center gap-2 flex-wrap">

@@ -27,6 +27,10 @@ class_name = "TradeDO"
 name = "ASSIST"
 class_name = "AssistDO"
 
+[[durable_objects.bindings]]
+name = "ARENAWORLD"
+class_name = "ArenaWorldDO"
+
 # SQLite 后端：免费计划可用，且是我们算过的低价档
 [[migrations]]
 tag = "v1"
@@ -43,6 +47,10 @@ new_sqlite_classes = ["TradeDO"]
 [[migrations]]
 tag = "v4"
 new_sqlite_classes = ["AssistDO"]
+
+[[migrations]]
+tag = "v5"
+new_sqlite_classes = ["ArenaWorldDO"]
 
 # 创意工坊存储（Cloudflare D1，免费额度内基本 $0）。
 # 部署前：先 `wrangler d1 create zhushen-workshop`，把它返回的 database_id 填到下面 database_id：

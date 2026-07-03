@@ -57,7 +57,7 @@ export default function NpcCardDetail({ data, onClose, meta, actions }: {
 
   return (
     <div className="fixed inset-0 z-[60] bg-black/75 backdrop-blur-sm flex items-center justify-center p-4" onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}>
-      <div className="w-full max-w-2xl h-[86vh] flex flex-col rounded-2xl border border-god/30 bg-void shadow-[0_0_60px_rgba(0,0,0,0.85)] overflow-hidden">
+      <div className="w-full max-w-2xl h-[86dvh] flex flex-col rounded-2xl border border-god/30 bg-void shadow-[0_0_60px_rgba(0,0,0,0.85)] overflow-hidden">
         {/* 头部 */}
         <header className="shrink-0 flex items-start gap-3 px-5 py-3.5 border-b border-edge bg-panel">
           {d.avatar

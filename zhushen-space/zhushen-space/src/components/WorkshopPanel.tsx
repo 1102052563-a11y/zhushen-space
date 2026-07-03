@@ -224,7 +224,7 @@ export default function WorkshopPanel({ onClose, creationMode = false }: { onClo
 
   return (
     <div className="fixed inset-0 z-50 bg-black/70 backdrop-blur-sm flex items-center justify-center p-3" onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}>
-      <div className="w-full max-w-5xl h-[90vh] flex flex-col rounded-2xl border border-edge bg-void shadow-[0_0_60px_rgba(0,0,0,0.8)] overflow-hidden">
+      <div className="w-full max-w-5xl h-[90dvh] flex flex-col rounded-2xl border border-edge bg-void shadow-[0_0_60px_rgba(0,0,0,0.8)] overflow-hidden">
         <header className="shrink-0 flex items-center gap-3 px-5 py-3 border-b border-edge bg-panel">
           <span className="text-god/70 text-xl">🧩</span>
           <div className="flex-1 min-w-0">
@@ -486,7 +486,7 @@ export default function WorkshopPanel({ onClose, creationMode = false }: { onClo
       {/* ── 详情弹窗（点击条目）── */}
       {detail && (
         <div className="fixed inset-0 z-[60] bg-black/75 backdrop-blur-sm flex items-center justify-center p-4" onClick={(e) => { if (e.target === e.currentTarget) setDetail(null); }}>
-          <div className={`w-full ${detail.type === 'skillTree' || detail.type === 'subProfTree' ? 'max-w-3xl' : detail.type === 'characterCard' || detail.type === 'worldbook' ? 'max-w-2xl' : 'max-w-lg'} max-h-[88vh] flex flex-col rounded-2xl border border-edge bg-void shadow-[0_0_60px_rgba(0,0,0,0.85)] overflow-hidden`}>
+          <div className={`w-full ${detail.type === 'skillTree' || detail.type === 'subProfTree' ? 'max-w-3xl' : detail.type === 'characterCard' || detail.type === 'worldbook' ? 'max-w-2xl' : 'max-w-lg'} max-h-[88dvh] flex flex-col rounded-2xl border border-edge bg-void shadow-[0_0_60px_rgba(0,0,0,0.85)] overflow-hidden`}>
             <header className="shrink-0 flex items-center gap-2.5 px-4 py-3 border-b border-edge bg-panel">
               <span className="text-lg">{kindOf(detail.type)?.emoji ?? '❔'}</span>
               <div className="flex-1 min-w-0">

@@ -2,6 +2,7 @@ import React from 'react'
 import ReactDOM from 'react-dom/client'
 import App from './App'
 import ErrorBoundary from './components/ErrorBoundary'
+import { setResumeFlag } from './systems/resumeFlag'
 import './index.css'
 
 ReactDOM.createRoot(document.getElementById('root')!).render(
@@ -16,10 +17,11 @@ ReactDOM.createRoot(document.getElementById('root')!).render(
 window.addEventListener('vite:preloadError', (e) => {
   e.preventDefault();
   try {
-    const last = Number(sessionStorage.getItem('zs-chunk-reload-ts') || 0);
+    // 循环守卫 + 续玩标志都用 localStorage：跨 location.reload() 稳定存活（手机/PWA 下 sessionStorage 会丢）
+    const last = Number(localStorage.getItem('zs-chunk-reload-ts') || 0);
     if (Date.now() - last > 20000) {
-      sessionStorage.setItem('zs-chunk-reload-ts', String(Date.now()));
-      sessionStorage.setItem('drpg-pending-started', '1');
+      localStorage.setItem('zs-chunk-reload-ts', String(Date.now()));
+      setResumeFlag('drpg-pending-started');
       location.reload();
     }
   } catch { /* */ }

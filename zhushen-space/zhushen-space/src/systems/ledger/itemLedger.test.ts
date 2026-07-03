@@ -181,3 +181,49 @@ describe('货币所得漏登对账', () => {
     expect(detectUnregisteredCurrencyGains('结算所得：5 灵魂钱币', 105)).toContain('灵魂钱币');
   });
 });
+
+// 品级=物品固有稀有度，只由前端强化/觉醒/宝石(确定性)改；AI 演化绝不改已有物品的品级/评分。
+// 治用户报的"同一件装备品级随受损/演化在 史诗↔绿色 乱跳、紫色稀里糊涂升史诗"。
+describe('★品级/评分锁（updateItem + createItem 重生成）', () => {
+  beforeEach(() => { resetBag(); useLedger.getState().clear(); });
+  const bag = (name: string) => useItems.getState().items.find((x) => x.name === name)!;
+
+  it('updateItem 不降品级：受损只更新耐久/杀敌，稀有度不变', () => {
+    applyItemCommands([cmd('createItem', { name: '暗影黑牙', category: '武器', grade: '史诗级', durability: '38/50' })]);
+    const g0 = bag('暗影黑牙').gradeDesc;
+    applyItemCommands([cmd('updateItem', { name: '暗影黑牙', gradeDesc: '绿色', durability: '2/45', killCount: '+1' })]);
+    const it = bag('暗影黑牙');
+    expect(it.gradeDesc).toBe(g0);          // 品级锁·不变（无论规范化成何名）
+    expect(it.gradeDesc).not.toBe('绿色');   // 确实没被降成绿色
+    expect(it.durability).toBe('2/45');     // 耐久照常更新（受损体现在这里）
+    expect(it.killCount).toBe('1');         // 杀敌照常累加
+  });
+
+  it('updateItem 也不升品级（紫→史诗随机升被挡）', () => {
+    applyItemCommands([cmd('createItem', { name: '碎星', category: '武器', grade: '紫色' })]);
+    const g0 = bag('碎星').gradeDesc;
+    applyItemCommands([cmd('updateItem', { name: '碎星', gradeDesc: '史诗级' })]);
+    expect(bag('碎星').gradeDesc).toBe(g0);
+  });
+
+  it('评分锁：已有评分不被 AI 改写', () => {
+    applyItemCommands([cmd('createItem', { name: '古剑', category: '武器', grade: '紫色', score: '142' })]);
+    const s0 = String(bag('古剑').score);
+    applyItemCommands([cmd('updateItem', { name: '古剑', score: '22（受损严重）' })]);
+    expect(String(bag('古剑').score)).toBe(s0);
+  });
+
+  it('原本缺品级的物品 → 允许 AI 补一次', () => {
+    applyItemCommands([cmd('createItem', { name: '无名残片', category: '材料' })]);
+    applyItemCommands([cmd('updateItem', { name: '无名残片', gradeDesc: '蓝色' })]);
+    expect(bag('无名残片').gradeDesc).toBeTruthy();   // 缺则补上（异常兜底）
+  });
+
+  it('addItem 原地更新同 id 同名 → 保留原品级/评分（AI 重生成不改稀有度）', () => {
+    useItems.getState().addItem({ id: 'I_TEST', name: '龙牙', category: '武器', gradeDesc: '史诗级', score: '999' } as any);
+    const g0 = bag('龙牙').gradeDesc; const s0 = String(bag('龙牙').score);
+    useItems.getState().addItem({ id: 'I_TEST', name: '龙牙', category: '武器', gradeDesc: '绿色', score: '20' } as any);
+    expect(bag('龙牙').gradeDesc).toBe(g0);
+    expect(String(bag('龙牙').score)).toBe(s0);
+  });
+});

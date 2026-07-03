@@ -3,13 +3,14 @@ import { type WorldOption } from './WorldSelector';
 
 // 可编辑的正文字段（均为字符串）。顺序即卡片正文展示顺序，与 enterWorld 拼装顺序一致。
 type SectionKey =
-  | 'desc' | 'peakPower' | 'contractorDist' | 'entryPoint'
+  | 'desc' | 'peakPower' | 'contractorDist' | 'identity' | 'entryPoint'
   | 'mainMission' | 'sideMission' | 'warning' | 'reward';
 
 const SECTIONS: { key: SectionKey; label: string; accent?: string }[] = [
   { key: 'desc',           label: '世界简介' },
   { key: 'peakPower',      label: '巅峰战力' },
   { key: 'contractorDist', label: '契约者分布' },
+  { key: 'identity',       label: '主角身份', accent: 'god' },
   { key: 'entryPoint',     label: '切入点',   accent: 'god' },
   { key: 'mainMission',    label: '主线任务', accent: 'amber' },
   { key: 'sideMission',    label: '支线任务' },
@@ -17,7 +18,7 @@ const SECTIONS: { key: SectionKey; label: string; accent?: string }[] = [
   { key: 'reward',         label: '奖励预览', accent: 'gold' },
 ];
 
-export default function WorldCardView({ worlds, index, onPrev, onNext, onJump, onSelect, onEdit, onClose }: {
+export default function WorldCardView({ worlds, index, onPrev, onNext, onJump, onSelect, onEdit, onClose, onGenWorldview, genBusy, hasWorldview }: {
   worlds: WorldOption[];
   index: number;
   onPrev: () => void;
@@ -26,6 +27,9 @@ export default function WorldCardView({ worlds, index, onPrev, onNext, onJump, o
   onSelect: (name: string, world: WorldOption) => void;
   onEdit: (index: number, patch: Partial<WorldOption>) => void;   // 编辑卡片字段：把改动提升到上层 worlds 状态，"进入此世界"即用改后的内容
   onClose: () => void;
+  onGenWorldview?: (index: number, world: WorldOption) => void;   // 🌐 为本卡生成/重生成「世界观骨架」（存进世界记录·进世界后注入正文最深处）
+  genBusy?: boolean;        // 当前卡正在生成世界观
+  hasWorldview?: boolean;   // 当前卡已有世界观记录（显示「重生成 ✓」）
 }) {
   const world = worlds[index];
   const [editing, setEditing] = useState(false);
@@ -159,6 +163,20 @@ export default function WorldCardView({ worlds, index, onPrev, onNext, onJump, o
             >
               {editing ? '✓ 完成编辑' : '✎ 编辑'}
             </button>
+            {onGenWorldview && (
+              <button
+                onClick={() => !genBusy && onGenWorldview(index, world)}
+                disabled={genBusy}
+                title="据主角当前阶位/等级 + 本卡信息，生成一份世界观骨架（剧情走向/势力/人物·性格锚点·行为特征）。进入此世界后自动注入正文最深处；可在右侧「世界记录」查看。"
+                className={`px-4 py-2.5 border text-base rounded-xl font-mono transition-colors ${
+                  genBusy ? 'border-violet-400/40 text-violet-300/60 cursor-wait'
+                  : hasWorldview ? 'border-violet-400/50 text-violet-200 bg-violet-500/10 hover:bg-violet-500/20'
+                  : 'border-violet-500/40 text-violet-300 hover:bg-violet-500/10'
+                }`}
+              >
+                {genBusy ? '◌ 生成中…' : hasWorldview ? '🌐 重生成世界观' : '🌐 生成世界观'}
+              </button>
+            )}
             <button
               onClick={() => onSelect(world.name, world)}
               className="px-12 py-2.5 border border-god/50 text-god text-base rounded-xl hover:bg-god/10 font-mono transition-colors"

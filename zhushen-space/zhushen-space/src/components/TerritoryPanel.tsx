@@ -1,5 +1,6 @@
 import { useState } from 'react';
-import { useTerritory, buildingCap, BUILDING_MAX_LEVEL, type Building } from '../store/territoryStore';
+import { useTerritory, buildingCap, BUILDING_MAX_LEVEL, type Building, type TerritoryItem } from '../store/territoryStore';
+import { useItems, type ItemCategory } from '../store/itemStore';
 import { useNpc, hasRealNpcName } from '../store/npcStore';
 import { realmFromLevel } from '../systems/derivedStats';
 import NpcDetail from './NpcDetail';
@@ -44,9 +45,25 @@ export default function TerritoryPanel({ onClose }: { onClose: () => void }) {
     setMemberPick(''); setMemberRole(''); setAddingMember(false);
   };
 
+  // 仓库 → 背包：整摞取出到主角随身背包（背包按名+品级自动堆叠），再从领地仓库移除
+  const moveItemToBackpack = (it: TerritoryItem) => {
+    useItems.getState().addItem({
+      name: it.name,
+      category: (it.category as ItemCategory) || '其他物品',
+      gradeDesc: it.gradeDesc || '',
+      effect: it.effect || '',
+      quantity: it.quantity,
+      equipped: false,
+      tags: [],
+      appearance: it.appearance,
+      notes: it.desc,
+    });
+    T.takeItem(it.id);   // 传 id → 整摞取出
+  };
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-4" onClick={onClose}>
-      <div className="bg-void border border-edge rounded-2xl w-full max-w-2xl max-h-[88vh] flex flex-col shadow-[0_0_60px_rgba(0,0,0,0.8)] overflow-hidden" onClick={(e) => e.stopPropagation()}>
+      <div className="bg-void border border-edge rounded-2xl w-full max-w-2xl max-h-[88dvh] flex flex-col shadow-[0_0_60px_rgba(0,0,0,0.8)] overflow-hidden" onClick={(e) => e.stopPropagation()}>
         <header className="flex items-center justify-between p-4 border-b border-edge shrink-0">
           <div className="flex items-center gap-2">
             <span className="text-lg">🏯</span>
@@ -239,17 +256,37 @@ export default function TerritoryPanel({ onClose }: { onClose: () => void }) {
                   })}</div>}
             </Section>
 
-            {/* 仓库 */}
-            <Section title="仓库" count={T.storageItems.length}>
+            {/* 仓库（与主角背包分离；可整摞取出到背包 / 删除 / 一键清空）*/}
+            <Section
+              title="仓库"
+              count={T.storageItems.length}
+              action={T.storageItems.length > 0 && (
+                <button
+                  onClick={() => { if (confirm(`确认清空仓库全部 ${T.storageItems.length} 种物资？此操作不可撤销（不会转入背包）。`)) T.clearStorage(); }}
+                  title="一键清空整个仓库（直接删除，不转入背包）"
+                  className="shrink-0 self-center text-[11px] font-mono text-dim/40 hover:text-blood transition-colors"
+                >一键清空</button>
+              )}
+            >
               {T.storageItems.length === 0
                 ? <Empty text="（仓库为空）" />
                 : <div className="space-y-1">{T.storageItems.map((it) => (
-                    <div key={it.id} className="flex items-center gap-2 px-2.5 py-1.5 rounded border border-edge bg-void/60">
+                    <div key={it.id} className="group flex items-center gap-2 px-2.5 py-1.5 rounded border border-edge bg-void/60">
                       <span className="flex-1 text-[13px] text-slate-200 truncate">{it.name}
                         {it.gradeDesc && <span className="text-dim/50 text-[11px] ml-1">{it.gradeDesc}</span>}
                         {it.category && <span className="text-dim/40 text-[11px] ml-1">[{it.category}]</span>}
                       </span>
                       <span className="text-[12px] font-mono text-amber-300/80 shrink-0">×{it.quantity}</span>
+                      <button
+                        onClick={() => moveItemToBackpack(it)}
+                        title="整摞取出到主角背包"
+                        className="shrink-0 opacity-0 group-hover:opacity-100 text-dim/50 hover:text-god text-[11px] font-mono transition-opacity"
+                      >→背包</button>
+                      <button
+                        onClick={() => { if (confirm(`确认从仓库删除「${it.name}」×${it.quantity}？`)) T.takeItem(it.id); }}
+                        title="从仓库删除该物资（不转入背包）"
+                        className="shrink-0 opacity-0 group-hover:opacity-100 text-dim/40 hover:text-blood text-[12px] font-mono transition-opacity"
+                      >✕</button>
                     </div>
                   ))}</div>}
             </Section>

@@ -27,7 +27,7 @@ export default function CasinoGacha({ isHome, onGenRewards }: { isHome: boolean;
     const total = cost * count;
     if (!isHome || soul < total || busy) return;
     setBusy(true);
-    adjustCurrency('灵魂钱币', -total);   // 先扣魂币
+    adjustCurrency('灵魂钱币', -total, `福袋扭蛋 ×${count}`);   // 先扣魂币
     const { rewards, pity: np } = rollGachaBatch(count, useCasino.getState().gachaPity);
     let final = rewards;
     try { final = await onGenRewards(rewards); } catch { /* AI 失败 → 保留确定性兜底物品 */ }

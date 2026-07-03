@@ -77,7 +77,7 @@ export default function CommandPalette({ open, items, onClose, onPick, unread }:
           <button onClick={onClose} aria-label="关闭命令面板" className="shrink-0 w-8 h-8 flex items-center justify-center rounded-lg border border-edge text-dim/70 hover:text-blood hover:border-blood/40 transition-colors text-base">✕</button>
         </div>
         {/* 列表 */}
-        <div ref={listRef} className="max-h-[52vh] overflow-y-auto py-1">
+        <div ref={listRef} className="max-h-[52dvh] overflow-y-auto py-1">
           {filtered.length === 0 ? (
             <div className="px-4 py-10 text-center text-sm text-dim/40">没有匹配的面板</div>
           ) : filtered.map((it, i) => {

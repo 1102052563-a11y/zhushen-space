@@ -57,7 +57,7 @@ export default function NpcChatPanel({ npc, onClose }: { npc: NpcRecord; onClose
   return (
     <div className="fixed inset-0 z-[80] bg-black/75 backdrop-blur-sm flex items-center justify-center p-3"
          onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}>
-      <div className="w-full max-w-2xl h-[90vh] rounded-2xl border border-edge bg-void shadow-[0_0_60px_rgba(0,0,0,0.9)] overflow-hidden flex flex-col">
+      <div className="w-full max-w-2xl h-[90dvh] rounded-2xl border border-edge bg-void shadow-[0_0_60px_rgba(0,0,0,0.9)] overflow-hidden flex flex-col">
 
         {/* 顶栏 */}
         <header className="shrink-0 flex items-center gap-3 px-4 py-2.5 border-b border-edge bg-panel">

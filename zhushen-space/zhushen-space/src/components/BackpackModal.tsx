@@ -1,7 +1,9 @@
 import { useState, useRef } from 'react';
 import { useItems, ITEM_CATEGORIES, ITEM_GRADES, gradeColorClass, gradeBadgeClass, gradeNameClass, socketsOf, splitAffixEntries, isResourcePseudoItem, asText, getItemLog, type InventoryItem, type ItemCategory, type CurrencyWallet } from '../store/itemStore';
 import { enhanceColorClass, enhancedCombat } from '../systems/enhanceEngine';
+import { walletLedger, type WalletTxn } from '../systems/ledger/walletCore';
 import { usePlayer } from '../store/playerStore';
+import { useTerritory } from '../store/territoryStore';
 import { useSkillTree } from '../store/skillTreeStore';
 import { availablePP } from '../systems/skillTree';
 import { useImageGen, effectiveEquipService } from '../store/imageGenStore';
@@ -132,12 +134,24 @@ export function ItemDetailModal({ item, onClose }: { item: InventoryItem; onClos
   const removeItem  = useItems((s) => s.removeItem);
   const unequipItem = useItems((s) => s.unequipItem);
   const updateItem  = useItems((s) => s.updateItem);
+  const territoryUnlocked = useTerritory((s) => s.unlocked);
+  const storeToTerritory  = useTerritory((s) => s.storeItem);
+  // 背包 → 领地仓库：整摞存入领地仓库（同名累加），再从背包移除
+  const depositToTerritory = () => {
+    storeToTerritory({
+      name: item.name, quantity: item.quantity, category: item.category,
+      gradeDesc: item.gradeDesc, effect: item.effect, desc: item.notes, appearance: item.appearance,
+    });
+    removeItem(item.id);
+    onClose();
+  };
 
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState({
-    name: item.name, gradeDesc: item.gradeDesc, effect: item.effect,
+    name: item.name, gradeDesc: item.gradeDesc, effect: asText(item.effect),
     appearance: item.appearance ?? '',
-    notes: item.notes ?? '', acquisition: item.acquisition ?? '', affix: item.affix ?? '',
+    // affix/effect 若被 AI 写成对象数组 [{name,desc}] → 拆成干净多行文本，编辑+保存即把脏数据洗成字符串（治"词缀显示成 [object Object]"）
+    notes: item.notes ?? '', acquisition: item.acquisition ?? '', affix: splitAffixEntries(item.affix).join('\n'),
   });
 
   const cfg  = CAT_CFG[item.category] ?? CAT_CFG['其他物品'];
@@ -163,7 +177,7 @@ export function ItemDetailModal({ item, onClose }: { item: InventoryItem; onClos
       className="fixed inset-0 z-[60] bg-black/60 backdrop-blur-sm flex items-center justify-center p-4"
       onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}
     >
-      <div className="w-full max-w-md rounded-2xl border border-edge bg-void shadow-[0_0_60px_rgba(0,0,0,0.9)] overflow-hidden flex flex-col max-h-[85vh]">
+      <div className="w-full max-w-md rounded-2xl border border-edge bg-void shadow-[0_0_60px_rgba(0,0,0,0.9)] overflow-hidden flex flex-col max-h-[85dvh]">
 
         {/* ── 顶部标题栏 ── */}
         <header className="shrink-0 flex items-center gap-3 px-4 py-3 border-b border-edge bg-panel">
@@ -448,6 +462,30 @@ export function ItemDetailModal({ item, onClose }: { item: InventoryItem; onClos
             <Ico d={item.locked ? ICO_LOCK_CLOSED : ICO_LOCK_OPEN} />
           </button>
 
+          {/* 放入/移出「不常用空间」（收纳·仅未装备物品；主背包列表将隐藏已收纳物品）*/}
+          {!item.equipped && (
+            <button
+              onClick={() => { updateItem(item.id, { archived: !item.archived }); onClose(); }}
+              className={`flex items-center gap-1 px-3 py-1.5 border rounded-lg text-sm font-mono transition-colors ${
+                item.archived ? 'border-amber-400/50 text-amber-300 bg-amber-400/10' : 'border-edge text-dim hover:border-amber-400/40 hover:text-amber-400'
+              }`}
+              title={item.archived ? '从不常用空间移回主背包' : '放入不常用空间：主背包列表将不再显示它，需点顶部「📦 不常用空间」才能看到'}
+            >
+              📦 {item.archived ? '移出不常用空间' : '放入不常用空间'}
+            </button>
+          )}
+
+          {/* 存入领地仓库（领地已开辟、未装备未锁定时可用；整摞转入领地仓库并从背包移除）*/}
+          {territoryUnlocked && !item.equipped && !item.locked && (
+            <button
+              onClick={depositToTerritory}
+              className="flex items-center gap-1 px-3 py-1.5 border rounded-lg text-sm font-mono transition-colors border-edge text-dim hover:border-amber-400/40 hover:text-amber-400"
+              title="把这件物品整摞存入领地仓库（从背包移出）"
+            >
+              🏯 存入领地
+            </button>
+          )}
+
           {/* 编辑/保存 */}
           <button
             onClick={editing ? saveEdit : () => setEditing(true)}
@@ -480,7 +518,8 @@ export function ItemDetailModal({ item, onClose }: { item: InventoryItem; onClos
 /* ════════════════════════════════════════════
    紧凑物品卡片（列表用）
 ════════════════════════════════════════════ */
-function ItemCard({ item, onOpen }: { item: InventoryItem; onOpen: () => void }) {
+function ItemCard({ item, onOpen, selectable = false, selected = false, onToggleSelect }:
+  { item: InventoryItem; onOpen: () => void; selectable?: boolean; selected?: boolean; onToggleSelect?: () => void }) {
   const removeItem  = useItems((s) => s.removeItem);
   const updateItem  = useItems((s) => s.updateItem);
 
@@ -489,10 +528,12 @@ function ItemCard({ item, onOpen }: { item: InventoryItem; onOpen: () => void })
 
   return (
     <div
-      className={`rounded-xl overflow-hidden border transition-all cursor-pointer hover:border-god/40 ${
-        item.equipped ? 'border-god/50 bg-god/5' : 'border-edge bg-panel'
+      className={`rounded-xl overflow-hidden border transition-all cursor-pointer ${
+        selectable && selected
+          ? 'border-god/70 bg-god/10 ring-1 ring-god/50'
+          : item.equipped ? 'border-god/50 bg-god/5 hover:border-god/40' : 'border-edge bg-panel hover:border-god/40'
       }`}
-      onClick={onOpen}
+      onClick={selectable ? onToggleSelect : onOpen}
     >
 
       {/* ── 装备状态条 ── */}
@@ -511,6 +552,11 @@ function ItemCard({ item, onOpen }: { item: InventoryItem; onOpen: () => void })
 
       {/* ── 主体（紧凑） ── */}
       <div className="flex items-center gap-2.5 px-3 py-2.5">
+        {selectable && (
+          <span className={`w-5 h-5 shrink-0 rounded border flex items-center justify-center text-[11px] font-mono ${
+            selected ? 'border-god/70 bg-god/20 text-god' : 'border-edge text-transparent'
+          }`}>✓</span>
+        )}
         {/* 图标 */}
         <div className={`w-9 h-9 rounded-lg flex items-center justify-center text-lg shrink-0
           border ${item.equipped ? 'border-god/40 bg-god/10' : 'border-edge/60 bg-panel2'}`}>
@@ -536,8 +582,8 @@ function ItemCard({ item, onOpen }: { item: InventoryItem; onOpen: () => void })
           </div>
         </div>
 
-        {/* 右侧操作按钮（阻止冒泡到卡片点击）*/}
-        <div className="flex flex-col gap-1 shrink-0" onClick={(e) => e.stopPropagation()}>
+        {/* 右侧操作按钮（阻止冒泡到卡片点击）；多选模式下隐藏，避免误点 */}
+        {!selectable && (<div className="flex flex-col gap-1 shrink-0" onClick={(e) => e.stopPropagation()}>
           <button
             onClick={() => updateItem(item.id, { locked: !item.locked })}
             className={`w-6 h-6 flex items-center justify-center rounded transition-colors ${
@@ -563,7 +609,7 @@ function ItemCard({ item, onOpen }: { item: InventoryItem; onOpen: () => void })
               <Ico d={ICO_TRASH} />
             </button>
           )}
-        </div>
+        </div>)}
       </div>
     </div>
   );
@@ -605,6 +651,7 @@ function CurrencyBar({ wallet }: { wallet: CurrencyWallet }) {
   const setProfile = usePlayer((s) => s.setProfile);
   const grantBonusPP = useSkillTree((s) => s.grantBonusPP);
   const [showReal, setShowReal] = useState(false);
+  const [ledgerOpen, setLedgerOpen] = useState(false);   // 乐园币流水弹层
   const [open, setOpen] = useState(() => { try { return localStorage.getItem('drpg-bp-cur-open') !== '0'; } catch { return true; } });
   const toggle = () => setOpen((v) => { const nv = !v; try { localStorage.setItem('drpg-bp-cur-open', nv ? '1' : '0'); } catch { /* */ } return nv; });
   return (
@@ -651,8 +698,52 @@ function CurrencyBar({ wallet }: { wallet: CurrencyWallet }) {
           <EditableNum value={potPoints} onSave={(v) => grantBonusPP('B1', v - potPoints)} className="text-lime-300" />
         </div>
       </div>}
+      {/* 货币流水：每笔增减 + 缘由（读事件溯源 walletCore 日志·乐园币 / 灵魂钱币 可切换）*/}
+      <button onClick={() => setLedgerOpen(true)} title="查看每一笔货币增减与缘由（乐园币 / 灵魂钱币）"
+        className="w-full flex items-center justify-center gap-1.5 px-3 py-2 border-t border-edge/50 bg-panel2/30 text-[12px] font-mono text-amber-300/70 hover:text-amber-200 hover:bg-amber-400/5 transition-colors">
+        📜 货币流水
+      </button>
+      {ledgerOpen && <CurrencyLedgerModal type="乐园币" onClose={() => setLedgerOpen(false)} />}
       {/* 货币兑换：1 灵魂钱币 = 150,000 乐园币（始终显示，不随货币列表折叠）*/}
       <CurrencyConverter wallet={wallet} />
+    </div>
+  );
+}
+
+/* ── 货币流水弹层（读 walletCore 事件日志·每笔增减 + 缘由 + 当时余额，最新在前；乐园币 / 灵魂钱币 可切换）── */
+function CurrencyLedgerModal({ type, onClose }: { type: string; onClose: () => void }) {
+  const [cur, setCur] = useState<'乐园币' | '灵魂钱币'>(type === '灵魂钱币' ? '灵魂钱币' : '乐园币');
+  const txns = walletLedger(cur, 300);
+  const fmt = (n: number) => n.toLocaleString();
+  const tabCls = (t: string) => `px-2 py-0.5 rounded text-[12px] font-mono transition-colors ${cur === t ? (t === '乐园币' ? 'bg-amber-400/20 text-amber-200' : 'bg-violet-400/20 text-violet-200') : 'text-dim/45 hover:text-slate-300'}`;
+  return (
+    <div className="fixed inset-0 z-[85] bg-black/70 backdrop-blur-sm flex items-center justify-center p-4" onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}>
+      <div className="w-full max-w-md max-h-[80dvh] flex flex-col rounded-xl border border-god/30 bg-panel shadow-2xl overflow-hidden">
+        <div className="flex items-center justify-between px-4 py-3 border-b border-edge bg-panel2">
+          <div className="flex items-center gap-1.5">
+            <span className="text-sm font-mono text-dim/60">📜 流水</span>
+            <button onClick={() => setCur('乐园币')} className={tabCls('乐园币')}>🪙 乐园币</button>
+            <button onClick={() => setCur('灵魂钱币')} className={tabCls('灵魂钱币')}>💎 灵魂钱币</button>
+          </div>
+          <button onClick={onClose} className="text-dim/50 hover:text-blood text-lg leading-none">✕</button>
+        </div>
+        {txns.length === 0 ? (
+          <div className="p-8 text-center text-dim/40 text-[13px] font-mono">暂无{cur}流水记录<div className="text-[11px] mt-1 text-dim/30">此后每一笔 {cur} 增减都会带缘由记在这里</div></div>
+        ) : (
+          <div className="flex-1 overflow-y-auto divide-y divide-edge/25">
+            {txns.map((t: WalletTxn) => (
+              <div key={t.seq} className="flex items-center gap-2 px-4 py-2">
+                <span className={`font-mono font-bold text-sm shrink-0 w-24 text-right ${t.delta >= 0 ? 'text-emerald-400' : 'text-blood'}`}>{t.delta >= 0 ? '+' : ''}{fmt(t.delta)}</span>
+                <div className="flex-1 min-w-0">
+                  <div className="text-[12px] text-slate-300 truncate" title={t.reason}>{t.reason}</div>
+                  <div className="text-[10px] text-dim/40 font-mono">回合 {t.turn} · 余额 {fmt(t.balance)}</div>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+        <div className="px-4 py-2 border-t border-edge/50 bg-panel2/40 text-[10px] text-dim/40 font-mono text-center">共 {txns.length} 笔（最新在前）· 来自事件溯源账本</div>
+      </div>
     </div>
   );
 }
@@ -684,7 +775,7 @@ function CurrencyConverter({ wallet }: { wallet: CurrencyWallet }) {
       <div className="grid grid-cols-2 gap-2">
         <button
           disabled={!canBuy}
-          onClick={() => { adjustCurrency('乐园币', -cost); adjustCurrency('灵魂钱币', n); }}
+          onClick={() => { adjustCurrency('乐园币', -cost, `货币兑换·买入 ${n} 灵魂钱币`); adjustCurrency('灵魂钱币', n, '货币兑换·由乐园币换入'); }}
           className={`px-2 py-1.5 rounded-lg border text-[12px] font-mono transition-colors ${canBuy ? 'border-violet-400/40 text-violet-200 hover:bg-violet-400/10' : 'border-edge/40 text-dim/25 cursor-not-allowed'}`}
           title={canBuy ? `花 ${cost.toLocaleString()} 乐园币换 ${n} 灵魂钱币` : '乐园币不足'}
         >
@@ -692,7 +783,7 @@ function CurrencyConverter({ wallet }: { wallet: CurrencyWallet }) {
         </button>
         <button
           disabled={!canSell}
-          onClick={() => { adjustCurrency('灵魂钱币', -n); adjustCurrency('乐园币', cost); }}
+          onClick={() => { adjustCurrency('灵魂钱币', -n, `货币兑换·卖出 ${n} 灵魂钱币`); adjustCurrency('乐园币', cost, '货币兑换·由灵魂钱币换出'); }}
           className={`px-2 py-1.5 rounded-lg border text-[12px] font-mono transition-colors ${canSell ? 'border-amber-400/40 text-amber-200 hover:bg-amber-400/10' : 'border-edge/40 text-dim/25 cursor-not-allowed'}`}
           title={canSell ? `${n} 灵魂钱币换 ${cost.toLocaleString()} 乐园币` : '灵魂钱币不足'}
         >
@@ -735,6 +826,9 @@ export default function BackpackModal({
   const itemTurn            = useItems((s) => s.itemTurn);
   const restoreDeleted      = useItems((s) => s.restoreDeleted);
   const clearRecentlyDeleted = useItems((s) => s.clearRecentlyDeleted);
+  const removeItem          = useItems((s) => s.removeItem);
+  const territoryUnlocked   = useTerritory((s) => s.unlocked);
+  const storeToTerritory    = useTerritory((s) => s.storeItem);
 
   const [searchQ,      setSearchQ]      = useState('');
   const [filterCat,    setFilterCat]    = useState<ItemCategory | 'all'>('all');
@@ -744,13 +838,20 @@ export default function BackpackModal({
   const [confirmClear, setConfirmClear] = useState(false);
   const [showDeleted,  setShowDeleted]  = useState(false);
   const [confirmClearDel, setConfirmClearDel] = useState(false);
+  const [showArchived, setShowArchived] = useState(false);   // 「不常用空间」：主背包 ↔ 不常用空间 切换视图
+  const [selectMode,   setSelectMode]   = useState(false);           // 批量存入领地：多选模式
+  const [selectedIds,  setSelectedIds]  = useState<Set<string>>(new Set());
 
-  const clearableCount = items.filter((it) => !it.equipped && !it.locked).length;
+  const clearableCount = items.filter((it) => !it.equipped && !it.locked && !it.archived).length;
+  const archivedCount  = items.filter((it) => it.archived && !it.equipped).length;   // 不常用空间物品数（已装备的不算·恒在主视图）
 
   const detailItem = detailItemId ? items.find((it) => it.id === detailItemId) ?? null : null;
 
-  /* 过滤 */
+  /* 过滤（含「不常用空间」视图切换：主视图排除不常用物品，不常用视图只显不常用物品；
+     已装备物品恒在主视图显示、绝不进不常用空间——防归档物品被装备后整个消失）*/
+  const inView = (it: InventoryItem) => (showArchived ? (!!it.archived && !it.equipped) : (!it.archived || it.equipped));
   const filtered = items.filter((it) => {
+    if (!inView(it)) return false;
     const q = searchQ.toLowerCase();
     const matchQ = !q
       || it.name.toLowerCase().includes(q)
@@ -771,8 +872,29 @@ export default function BackpackModal({
   const equipped = sorted.filter((it) => it.equipped);
   const inBag    = sorted.filter((it) => !it.equipped);
 
-  /* 分类统计（仅全量）*/
+  /* 批量存入领地：仅未装备未锁定可选；勾选后一次性 storeItem→领地仓库并从背包移除 */
+  const eligibleInBag = inBag.filter((it) => !it.locked);
+  const selectedCount = eligibleInBag.filter((it) => selectedIds.has(it.id)).length;
+  const toggleSelect = (id: string) => setSelectedIds((prev) => {
+    const n = new Set(prev);
+    if (n.has(id)) n.delete(id); else n.add(id);
+    return n;
+  });
+  const exitSelect = () => { setSelectMode(false); setSelectedIds(new Set()); };
+  const selectAllEligible = () => setSelectedIds(new Set(eligibleInBag.map((it) => it.id)));
+  const batchDeposit = () => {
+    const chosen = eligibleInBag.filter((it) => selectedIds.has(it.id));
+    if (chosen.length === 0) return;
+    for (const it of chosen) {
+      storeToTerritory({ name: it.name, quantity: it.quantity, category: it.category, gradeDesc: it.gradeDesc, effect: it.effect, desc: it.notes, appearance: it.appearance });
+      removeItem(it.id);
+    }
+    exitSelect();
+  };
+
+  /* 分类统计（只统计当前视图：主视图=非不常用+已装备，不常用视图=不常用未装备）*/
   const catCounts = items.reduce<Record<string, number>>((acc, it) => {
+    if (!inView(it)) return acc;
     acc[it.category] = (acc[it.category] ?? 0) + 1;
     return acc;
   }, {});
@@ -784,15 +906,17 @@ export default function BackpackModal({
       onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}
     >
       {/* 主面板 */}
-      <div className="w-full max-w-5xl h-[88vh] flex flex-col rounded-2xl border border-edge bg-void shadow-[0_0_60px_rgba(0,0,0,0.8)] overflow-hidden">
+      <div className="w-full max-w-5xl h-[88dvh] flex flex-col rounded-2xl border border-edge bg-void shadow-[0_0_60px_rgba(0,0,0,0.8)] overflow-hidden">
 
         {/* ── 顶部标题栏 ── */}
         <header className="shrink-0 flex flex-wrap items-center gap-3 max-lg:gap-2 px-5 max-lg:px-3 py-3 border-b border-edge bg-panel">
           <span className="text-god/60 text-lg shrink-0">🎒</span>
           <div className="shrink-0">
-            <div className="text-sm font-bold text-slate-100">储存空间</div>
+            <div className="text-sm font-bold text-slate-100">{showArchived ? '📦 不常用空间' : '储存空间'}</div>
             <div className="text-[12px] font-mono text-dim/60">
-              共 {items.length} 件 · 已装备 {items.filter(i => i.equipped).length} 件
+              {showArchived
+                ? `${archivedCount} 件收纳中 · 点物品可「移出不常用空间」`
+                : <>共 {items.length - archivedCount} 件 · 已装备 {items.filter(i => i.equipped).length} 件{archivedCount > 0 ? ` · 不常用 ${archivedCount}` : ''}</>}
             </div>
           </div>
 
@@ -869,6 +993,34 @@ export default function BackpackModal({
             ♻ 最近删除{recentlyDeleted.length > 0 ? ` (${recentlyDeleted.length})` : ''}
           </button>
 
+          {/* 批量存入领地：多选背包物品一次性塞进领地仓库（仅领地已开辟、主背包视图可用）*/}
+          {territoryUnlocked && !showArchived && (
+            <button
+              onClick={() => (selectMode ? exitSelect() : setSelectMode(true))}
+              title="进入多选模式，勾选多件物品一次性存入领地仓库"
+              className={`flex items-center gap-1.5 px-3 py-1.5 border rounded-lg text-sm font-mono transition-colors ${
+                selectMode ? 'border-amber-400/60 text-amber-300 bg-amber-400/10' : 'border-edge text-dim hover:border-amber-400/40 hover:text-amber-400'
+              }`}
+            >
+              {selectMode ? '✕ 退出多选' : '☑ 批量存领地'}
+            </button>
+          )}
+
+          {/* 不常用空间：主背包 ↔ 不常用空间 视图切换（收纳不常用物品，主列表隐藏它们）*/}
+          <button
+            onClick={() => { exitSelect(); setShowArchived((v) => !v); }}
+            title="不常用空间：把不常用的物品收纳进来，主背包列表就不显示它们；点此进入/返回。（纯收纳，不影响装备/数值/演化）"
+            className={`flex items-center gap-1.5 px-3 py-1.5 border rounded-lg text-sm font-mono transition-colors ${
+              showArchived
+                ? 'border-amber-400/60 text-amber-300 bg-amber-400/10'
+                : archivedCount > 0
+                  ? 'border-amber-400/50 text-amber-300/90 hover:bg-amber-500/10'
+                  : 'border-edge text-dim hover:border-amber-400/40 hover:text-amber-400'
+            }`}
+          >
+            {showArchived ? '← 返回背包' : `📦 不常用空间${archivedCount > 0 ? ` (${archivedCount})` : ''}`}
+          </button>
+
           {/* 物品阶段日志（内嵌显示）*/}
           {itemPhaseLog && !itemPhaseRunning && (
             <span className={`text-[12px] font-mono max-w-40 truncate ${
@@ -884,6 +1036,24 @@ export default function BackpackModal({
             className="text-dim hover:text-blood text-lg font-mono transition-colors ml-1"
           >✕</button>
         </header>
+
+        {/* ── 批量存入领地·操作条（多选模式）── */}
+        {selectMode && (
+          <div className="shrink-0 flex flex-wrap items-center gap-3 max-lg:gap-2 px-5 max-lg:px-3 py-2 border-b border-amber-400/30 bg-amber-400/5">
+            <span className="text-[13px] font-mono text-amber-200 shrink-0">已选 {selectedCount} 件</span>
+            <button onClick={selectAllEligible} className="text-[12px] font-mono text-dim hover:text-amber-300 transition-colors shrink-0">全选可存（{eligibleInBag.length}）</button>
+            <button onClick={() => setSelectedIds(new Set())} className="text-[12px] font-mono text-dim hover:text-slate-200 transition-colors shrink-0">清空所选</button>
+            <span className="text-[11px] font-mono text-dim/40 shrink-0">（已装备/已锁定不可选）</span>
+            <span className="flex-1" />
+            <button
+              onClick={batchDeposit}
+              disabled={selectedCount === 0}
+              title="把勾选的物品一次性存入领地仓库（从背包移出）"
+              className="flex items-center gap-1.5 px-3 py-1.5 border rounded-lg text-sm font-mono transition-colors border-amber-400/50 text-amber-300 hover:bg-amber-400/10 disabled:opacity-40 disabled:cursor-not-allowed shrink-0"
+            >🏯 存入领地 ({selectedCount})</button>
+            <button onClick={exitSelect} className="text-[12px] font-mono text-dim/60 hover:text-blood transition-colors shrink-0">取消</button>
+          </div>
+        )}
 
         {/* ── 主体：左侧边栏 + 右侧内容（手机端竖叠，整体一个滚动区，货币可正常下拉）── */}
         <div className="flex max-lg:flex-col flex-1 overflow-hidden max-lg:overflow-y-auto">
@@ -932,8 +1102,10 @@ export default function BackpackModal({
           {/* 右侧物品列表 */}
           <div className="flex-1 overflow-y-auto p-4 max-lg:p-2.5 space-y-4 max-lg:flex-none max-lg:overflow-visible">
             {filtered.length === 0 ? (
-              <div className="h-full flex items-center justify-center text-dim/30 text-sm font-mono select-none">
-                {items.length === 0 ? '背包空空如也…' : '无匹配物品'}
+              <div className="h-full flex items-center justify-center text-center text-dim/30 text-sm font-mono select-none px-6">
+                {showArchived
+                  ? '不常用空间是空的…\n在物品详情里点「📦 放入不常用空间」把不常用的物品收纳进来'.split('\n').map((s, i) => <div key={i}>{s}</div>)
+                  : items.length === 0 ? '背包空空如也…' : '无匹配物品'}
               </div>
             ) : (
               <>
@@ -949,7 +1121,12 @@ export default function BackpackModal({
                   <section className="space-y-2">
                     <GroupHeader title="背包" count={inBag.length} />
                     <div className="grid grid-cols-2 gap-2">
-                      {inBag.map((it) => <ItemCard key={it.id} item={it} onOpen={() => setDetailItemId(it.id)} />)}
+                      {inBag.map((it) => (
+                        <ItemCard key={it.id} item={it} onOpen={() => setDetailItemId(it.id)}
+                          selectable={selectMode && !it.locked}
+                          selected={selectedIds.has(it.id)}
+                          onToggleSelect={() => toggleSelect(it.id)} />
+                      ))}
                     </div>
                   </section>
                 )}
@@ -981,7 +1158,7 @@ export default function BackpackModal({
       {showDeleted && (
         <div className="fixed inset-0 z-[60] bg-black/80 backdrop-blur-sm flex items-center justify-center p-4"
           onClick={(e) => { if (e.target === e.currentTarget) setShowDeleted(false); }}>
-          <div className="w-full max-w-2xl max-h-[82vh] flex flex-col rounded-2xl border border-edge bg-void shadow-[0_0_60px_rgba(0,0,0,0.8)] overflow-hidden">
+          <div className="w-full max-w-2xl max-h-[82dvh] flex flex-col rounded-2xl border border-edge bg-void shadow-[0_0_60px_rgba(0,0,0,0.8)] overflow-hidden">
             <header className="shrink-0 flex items-center gap-3 px-5 py-3 border-b border-edge bg-panel">
               <span className="text-sky-300/80 text-lg">♻</span>
               <div className="flex-1 min-w-0">

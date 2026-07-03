@@ -49,7 +49,7 @@ export default function SystemShop({ onGenShop, onQuoteSell, onClose }: {
     let n = 0;
     [...sel].forEach((i) => {
       const it = shop[i as number]; if (!it) return;
-      adjustCurrency(normCur(it.currency), -(Number(it.price) || 0));
+      adjustCurrency(normCur(it.currency), -(Number(it.price) || 0), `系统商店·购买 ${it.name}`);
       const cat = (ITEM_CATEGORIES.includes(it.category as ItemCategory) ? it.category : '特殊物品') as ItemCategory;
       addItem({ name: it.name, category: cat, gradeDesc: it.gradeDesc ?? '', effect: it.effect ?? '', quantity: Math.max(1, Number(it.qty) || 1), equipped: false, tags: [], subType: it.subType, combatStat: it.combatStat, durability: it.durability, requirement: it.requirement, affix: it.affix, origin: it.origin ?? '系统商店', intro: it.intro, appearance: it.appearance, score: it.score, acquisition: '系统商店购买' } as any);
       n++;
@@ -72,7 +72,7 @@ export default function SystemShop({ onGenShop, onQuoteSell, onClose }: {
     const ids = [...sel].filter((id) => quotes[id as string]);
     if (ids.length === 0) { flash('请先「询价」再确认出售'); return; }
     let n = 0;
-    ids.forEach((id) => { const it = items.find((x) => x.id === id); if (!it) return; const q = quotes[id as string]; adjustCurrency((q.currency as any) || '乐园币', q.price); removeItem(it.id); n++; });
+    ids.forEach((id) => { const it = items.find((x) => x.id === id); if (!it) return; const q = quotes[id as string]; adjustCurrency((q.currency as any) || '乐园币', q.price, `系统商店·出售 ${it.name}`); removeItem(it.id); n++; });
     setSel(new Set());
     flash(`已出售 ${n} 件`);
   }
@@ -80,7 +80,7 @@ export default function SystemShop({ onGenShop, onQuoteSell, onClose }: {
   return (
     <div className="fixed inset-0 z-[60] bg-black/70 backdrop-blur-sm flex items-center justify-center p-4"
       onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}>
-      <div className="w-full max-w-xl h-[86vh] flex flex-col rounded-2xl border border-edge bg-void shadow-[0_0_60px_rgba(0,0,0,0.8)] overflow-hidden">
+      <div className="w-full max-w-xl h-[86dvh] flex flex-col rounded-2xl border border-edge bg-void shadow-[0_0_60px_rgba(0,0,0,0.8)] overflow-hidden">
         <header className="shrink-0 flex items-center gap-3 px-5 py-3 border-b border-edge bg-panel">
           <span className="text-amber-300 text-lg">🏪</span>
           <div className="flex-1 font-bold text-slate-100">系统商店</div>

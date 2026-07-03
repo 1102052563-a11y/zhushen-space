@@ -413,7 +413,7 @@ export const useSubProfTree = create<SubProfTreeState>()(
           cost += price; got++;
         }
         if (got <= 0) return 0;
-        useItems.getState().adjustCurrency('乐园币', -cost);
+        useItems.getState().adjustCurrency('乐园币', -cost, `副职业·兑换熟练点 ×${got}`);
         set((st) => {
           const p = st.progress[charId] ?? newProgress();
           return { progress: { ...st.progress, [charId]: { ...p, aiBonusPP: (p.aiBonusPP ?? 0) + got, exchangedPP: (p.exchangedPP ?? 0) + got } } };

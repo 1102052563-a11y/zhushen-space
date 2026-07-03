@@ -501,6 +501,18 @@ body {
 .assist-rank-top { border-color:rgba(110,231,255,.35) !important; box-shadow:0 0 7px rgba(110,231,255,.18); }
 @keyframes assistShimmer { 0%{background-position:0% 50%} 100%{background-position:200% 50%} }
 @keyframes assistGlowGold { 0%,100%{ box-shadow:0 0 14px rgba(255,215,0,.4); } 50%{ box-shadow:0 0 26px rgba(255,215,0,.7); } }
+
+/* ── 世界竞技场·段位特效（排名越高越足；前三：轮回主宰/乐园霸主/万族强者）── */
+.aw-rank-1 { position:relative; border-color:transparent !important; background:linear-gradient(110deg,rgba(255,215,0,.20),rgba(255,150,0,.06),rgba(255,215,0,.20)); background-size:200% 100%; transform:scale(1.02); animation:assistShimmer 2.6s linear infinite, awThrone 2.4s ease-in-out infinite; }
+.aw-rank-1::before { content:''; position:absolute; inset:-1.5px; border-radius:inherit; padding:2px; background:conic-gradient(from 0deg,#ffd700,#fff3a0,#ffae00,#ff7a00,#ffd700); -webkit-mask:linear-gradient(#000 0 0) content-box,linear-gradient(#000 0 0); -webkit-mask-composite:xor; mask-composite:exclude; animation:awSpin 4s linear infinite; pointer-events:none; }
+.aw-rank-1::after { content:''; position:absolute; inset:0; border-radius:inherit; background:radial-gradient(120% 80% at 50% 0%,rgba(255,215,0,.18),transparent 70%); pointer-events:none; }
+.aw-rank-2 { border-color:rgba(186,230,253,.6) !important; background:linear-gradient(110deg,rgba(186,230,253,.14),transparent); box-shadow:0 0 14px rgba(125,211,252,.4); animation:awGlowSilver 3s ease-in-out infinite; }
+.aw-rank-3 { border-color:rgba(251,146,60,.6) !important; background:linear-gradient(110deg,rgba(251,146,60,.12),transparent); box-shadow:0 0 12px rgba(251,146,60,.35); }
+.aw-rank-top { border-color:rgba(110,231,255,.4) !important; box-shadow:0 0 8px rgba(110,231,255,.22); }
+@keyframes awSpin { to { transform:rotate(360deg); } }
+@keyframes awThrone { 0%,100%{ box-shadow:0 0 16px rgba(255,215,0,.45); } 50%{ box-shadow:0 0 30px rgba(255,175,0,.8); } }
+@keyframes awGlowSilver { 0%,100%{ box-shadow:0 0 12px rgba(125,211,252,.35); } 50%{ box-shadow:0 0 20px rgba(125,211,252,.6); } }
+@media (prefers-reduced-motion: reduce) { .aw-rank-1, .aw-rank-1::before, .aw-rank-2 { animation:none !important; } }
 /* 减少动态：所有皮肤动画关闭；告警仍保留静态红(去掉闪烁) */
 @media (prefers-reduced-motion: reduce) { .barfill, .barfill::after { animation: none !important; } .bf-danger { background:#dc2626 !important; box-shadow:0 0 8px #ef4444 !important; } }
 

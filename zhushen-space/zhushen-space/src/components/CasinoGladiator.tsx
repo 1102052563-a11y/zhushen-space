@@ -201,7 +201,7 @@ function FighterDetail({ g, ev, odds, side, onClose }: {
 }) {
   return (
     <div className="fixed inset-0 z-[70] bg-black/70 flex items-center justify-center p-4" onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}>
-      <div className="w-full max-w-md max-h-[85vh] overflow-y-auto rounded-2xl border border-edge bg-void p-4 space-y-3">
+      <div className="w-full max-w-md max-h-[85dvh] overflow-y-auto rounded-2xl border border-edge bg-void p-4 space-y-3">
         <div className="flex items-start gap-2">
           <div className="flex-1 min-w-0">
             <div className={`text-[13px] font-mono ${SIDE_COLOR[side].split(' ')[0]}`}>{side === 0 ? '① 一号位' : '② 二号位'} · 赔率 {odds.toFixed(2)}×</div>

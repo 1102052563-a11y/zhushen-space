@@ -104,7 +104,7 @@ export default function MonumentPanel({ onClose }: { onClose: () => void }) {
 
   return (
     <div className="fixed inset-0 z-50 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4" onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}>
-      <div className="w-full max-w-2xl h-[85vh] flex flex-col rounded-2xl border border-edge bg-void shadow-[0_0_60px_rgba(0,0,0,0.8)] overflow-hidden">
+      <div className="w-full max-w-2xl h-[85dvh] flex flex-col rounded-2xl border border-edge bg-void shadow-[0_0_60px_rgba(0,0,0,0.8)] overflow-hidden">
         {/* 顶栏 */}
         <header className="shrink-0 flex items-center gap-3 px-5 py-3 border-b border-edge bg-panel">
           <span className="text-god/70 text-lg">🪦</span>
@@ -227,7 +227,7 @@ export default function MonumentPanel({ onClose }: { onClose: () => void }) {
         const a: any = s.attrs || {};
         return (
           <div className="fixed inset-0 z-[60] bg-black/60 flex items-center justify-center p-4" onClick={(e) => { if (e.target === e.currentTarget) setDetail(null); }}>
-            <div className="w-full max-w-md max-h-[84vh] overflow-y-auto rounded-2xl border border-edge bg-void p-4 space-y-3 shadow-[0_0_50px_rgba(0,0,0,0.8)]">
+            <div className="w-full max-w-md max-h-[84dvh] overflow-y-auto rounded-2xl border border-edge bg-void p-4 space-y-3 shadow-[0_0_50px_rgba(0,0,0,0.8)]">
               <div className="flex items-start gap-3">
                 <Avatar src={s.avatar} size={64} />
                 <div className="flex-1 min-w-0">

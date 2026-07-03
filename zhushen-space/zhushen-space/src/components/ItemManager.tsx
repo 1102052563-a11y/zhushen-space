@@ -247,7 +247,7 @@ function CurrencyPanel() {
                   onChange={(e) => setEdits({ ...edits, [type]: e.target.value })}
                   onBlur={() => {
                     const n = parseInt(edits[type]!) || 0;
-                    adj(type, n - wallet[type]);
+                    adj(type, n - wallet[type], '手动调整（物品管理器）');
                     setEdits((prev) => { const next = { ...prev }; delete next[type]; return next; });
                   }}
                   onKeyDown={(e) => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur(); }}
@@ -262,8 +262,8 @@ function CurrencyPanel() {
                 </button>
               )}
               <div className="flex justify-center gap-1 mt-2">
-                <button onClick={() => adj(type, -1)} className="w-6 h-6 text-sm border border-edge rounded text-dim hover:text-blood hover:border-blood/40 transition-colors">-</button>
-                <button onClick={() => adj(type,  1)} className="w-6 h-6 text-sm border border-edge rounded text-dim hover:text-god  hover:border-god/40  transition-colors">+</button>
+                <button onClick={() => adj(type, -1, '手动调整（物品管理器）')} className="w-6 h-6 text-sm border border-edge rounded text-dim hover:text-blood hover:border-blood/40 transition-colors">-</button>
+                <button onClick={() => adj(type,  1, '手动调整（物品管理器）')} className="w-6 h-6 text-sm border border-edge rounded text-dim hover:text-god  hover:border-god/40  transition-colors">+</button>
               </div>
             </div>
           );

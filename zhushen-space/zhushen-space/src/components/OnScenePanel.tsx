@@ -1,7 +1,7 @@
 import { useRef, useState } from 'react';
 import { useNpc, hasRealNpcName, type NpcRecord } from '../store/npcStore';
 import { useCharacters } from '../store/characterStore';
-import { lvFromRealm, tierFxClass, effectiveResource, fullMaxHp, fullMaxEp, ratioOf } from '../systems/derivedStats';
+import { lvFromRealm, tierFxClass, effectiveResource, fullMaxHp, fullMaxEp, ratioOf, npcBaseAttrs } from '../systems/derivedStats';
 import { useImageViewer } from '../store/imageViewerStore';
 import { PortraitPicker } from './PortraitPicker';
 
@@ -116,8 +116,8 @@ function OnSceneCard({ npc, onOpen }: { npc: NpcRecord; onOpen: () => void }) {
         {(npc.attrs != null || npc.hp != null || npc.mp != null) && (() => {
           // 最大HP/EP = 基础六维换算 + 装备"增加HP/EP上限"平值 + 百分比加成
           const eqp = (npc.items ?? []).filter((it) => it.equipped);
-          const maxHp = fullMaxHp(npc.attrs, eqp, cdata?.skills, cdata?.traits, 1, ratioOf(npc));
-          const maxEp = fullMaxEp(npc.attrs, eqp, cdata?.skills, cdata?.traits, 1, ratioOf(npc));
+          const maxHp = fullMaxHp(npcBaseAttrs(npc), eqp, cdata?.skills, cdata?.traits, 1, ratioOf(npc));   // npcBaseAttrs=attrs+真实属性点直加(realAttrs)
+          const maxEp = fullMaxEp(npcBaseAttrs(npc), eqp, cdata?.skills, cdata?.traits, 1, ratioOf(npc));
           return (
             <div className="flex items-center gap-2 text-[10px] font-mono whitespace-nowrap">
               <span className="text-rose-400/80">❤{effectiveResource(npc.hp, npc.maxHp, maxHp)}/{maxHp}</span>

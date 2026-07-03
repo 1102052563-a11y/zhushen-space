@@ -138,7 +138,7 @@ export default function NpcPanel({ onClose, onDm, onManualUpdate, manualUpdating
       className="fixed inset-0 z-50 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4"
       onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}
     >
-      <div className="w-full max-w-lg h-[88vh] flex flex-col rounded-2xl border border-edge bg-void shadow-[0_0_60px_rgba(0,0,0,0.8)] overflow-hidden">
+      <div className="w-full max-w-lg h-[88dvh] flex flex-col rounded-2xl border border-edge bg-void shadow-[0_0_60px_rgba(0,0,0,0.8)] overflow-hidden">
 
         {/* 标题栏 */}
         <header className="shrink-0 flex items-center gap-3 px-5 py-3 border-b border-edge bg-panel">

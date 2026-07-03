@@ -1,4 +1,6 @@
-import { useMisc, isMainQuest, type MiscTask, type WorldEvent, type QuestRing } from '../store/miscStore';
+import { useMisc, isMainQuest, type MiscTask, type ArchivedTask, type WorldEvent, type QuestRing } from '../store/miscStore';
+import { usePlayer } from '../store/playerStore';
+import { isHomeWorld } from './playerVitals';
 
 /* 杂项演化指令解析（不含小地图）
    只认 timeLocation.* / addSmall|LargeSummary / addWorldEvent.. / T_ 任务 / ringAdvance
@@ -25,6 +27,8 @@ function sanitizeRings(raw: any): QuestRing[] | undefined {
       : /^(done|已完成|完成|达成)$/i.test(st) ? 'done'
       : /^(skipped|跳过|已跳过)$/i.test(st) ? 'skipped'
       : 'planned';
+    const rSummary = r.summary ?? r['总结'] ?? r['行为总结'];
+    const rRating = r.rating ?? r['评级'] ?? r['评分'];
     out.push({
       idx: Number.isFinite(Number(r.idx)) ? Number(r.idx) : i + 1,
       goal,
@@ -35,6 +39,8 @@ function sanitizeRings(raw: any): QuestRing[] | undefined {
       optional: (r.optional === true || r.optional === 'true' || r.optional === 1) ? true : undefined,
       startTime: r.startTime != null ? String(r.startTime) : undefined,
       endTime: r.endTime != null ? String(r.endTime) : undefined,
+      summary: rSummary != null && String(rSummary).trim() ? String(rSummary).trim() : undefined,
+      rating: rRating != null && String(rRating).trim() ? String(rRating).trim() : undefined,
     });
   });
   return out.length ? out : undefined;
@@ -126,7 +132,15 @@ export function applyMiscCommands(reply: string, opts: { allowLarge?: boolean } 
 
     if ((m = /^timeLocation\.paradiseTime\s*=\s*"([^"]*)"$/.exec(line))) { M.setTime({ paradiseTime: m[1] }); n++; continue; }
     if ((m = /^timeLocation\.worldTime\s*=\s*"([^"]*)"$/.exec(line)))    { M.setTime({ worldTime: m[1] }); n++; continue; }
-    if ((m = /^timeLocation\.worldName\s*=\s*"([^"]*)"$/.exec(line)))    { M.setTime({ worldName: m[1] }); n++; continue; }
+    if ((m = /^timeLocation\.worldName\s*=\s*"([^"]*)"$/.exec(line)))    {
+      const prevWorld = M.worldName;   // 本次解析前的世界名（M 为快照，setTime 后仍是旧值）
+      M.setTime({ worldName: m[1] });
+      // 回到轮回乐园/枢纽（从任务世界返回）→ 重置主角「身份」，避免把上个世界的身份带进下个世界
+      if (isHomeWorld(m[1]) && !isHomeWorld(prevWorld) && usePlayer.getState().profile.identity) {
+        usePlayer.getState().setProfile({ identity: '' });
+      }
+      n++; continue;
+    }
     if ((m = /^timeLocation\.weather\s*=\s*"([^"]*)"$/.exec(line)))      { M.setWeather(m[1]); n++; continue; }
 
     if ((m = /^addWorldEvent\(\s*"([^"]*)"\s*,\s*"([^"]*)"\s*,\s*"([\s\S]*)"\s*\)$/.exec(line))) {
@@ -137,7 +151,13 @@ export function applyMiscCommands(reply: string, opts: { allowLarge?: boolean } 
     }
     if ((m = /^deleteWorldEvent\(\s*"([^"]+)"\s*\)$/.exec(line))) { M.removeWorldEvent(m[1]); n++; continue; }
 
-    if ((m = /^ringAdvance\(\s*"(T_\d+)"\s*\)$/.exec(line))) { M.advanceRing(m[1]); n++; continue; }
+    if ((m = /^ringAdvance\(\s*"(T_\d+)"\s*(?:,\s*(\{[\s\S]*\})\s*)?\)$/.exec(line))) {
+      const pl = m[2] ? safeJson(m[2]) : null;
+      const sv = pl?.summary ?? pl?.['总结'] ?? pl?.['行为总结'];
+      const rt = pl?.rating ?? pl?.['评级'] ?? pl?.['评分'];
+      M.advanceRing(m[1], pl ? { summary: sv != null ? String(sv) : undefined, rating: rt != null ? String(rt) : undefined } : undefined);
+      n++; continue;
+    }
     if ((m = /^de\(\s*"(T_\d+)"\s*\)$/.exec(line))) { M.removeTask(m[1]); n++; continue; }
     if ((m = /^set\(\s*(\{[\s\S]*\})\s*\)$/.exec(line))) {
       const o = safeJson(m[1]);
@@ -225,6 +245,31 @@ export function serializeTasks(tasks: MiscTask[]): string {
       .map((r) => `  环${r.idx}[${r.status}] ${r.goal}${r.hint ? `（提示:${r.hint}）` : ''}`)
       .join('\n');
     return head + (t.finale ? `\n  终局: ${t.finale}` : '') + '\n' + ringsStr;
+  }).join('\n');
+}
+
+/* ── 结算对账序列化：已完成任务/已达成环的清单，仅在【结算任务】那一回合注入。
+   平时已归档任务不进提示词、进行中任务的达成环也不单列，导致结算 AI 数不到"本世界已完成的任务/环" →
+   结算时喂它一份如实清单：每条任务 + 逐环「目标·评级·主角行为总结·本环奖励」，供正文 API 据此逐环、逐任务核算发奖。
+   接受 ArchivedTask（已归档）与普通 MiscTask（进行中但已达成若干环）混列。 */
+export function serializeSettledTasks(tasks: (MiscTask | ArchivedTask)[]): string {
+  if (!tasks.length) return '（无）';
+  return tasks.map((t) => {
+    const rings = Array.isArray(t.rings) ? [...t.rings].sort((a, b) => a.idx - b.idx) : [];
+    const doneCnt = rings.filter((r) => r.status === 'done').length;
+    const head = `${t.id}｜[${t.kind ?? '支线'}]${t.name}｜${t.status}` +
+      (t.rating ? `｜整体评${t.rating}` : '') +
+      (rings.length ? `｜${doneCnt}/${rings.length}环达成` : '') +
+      (t.finale ? `｜终局:${t.finale}` : '');
+    // 只列"已达成/已跳过"的环（未完成的环不进结算）
+    const settledRings = rings.filter((r) => r.status === 'done' || r.status === 'skipped');
+    if (!settledRings.length) return head;
+    const ringLines = settledRings.map((r) =>
+      `  环${r.idx}${r.rating ? `[评${r.rating}]` : ''}${r.status === 'skipped' ? '[跳过]' : ''} ${r.goal}` +
+      (r.summary ? ` — 行为:${r.summary}` : '') +
+      (r.reward ? `（本环预设奖励:${r.reward}）` : ''),
+    ).join('\n');
+    return head + '\n' + ringLines;
   }).join('\n');
 }
 

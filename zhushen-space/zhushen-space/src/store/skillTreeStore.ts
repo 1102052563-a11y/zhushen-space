@@ -640,7 +640,7 @@ export const useSkillTree = create<SkillTreeState>()(
         const cost = respecMinorPoints(tree, prog) * SKILLTREE_TUNING.respecCoinPerPoint;
         const have = useItems.getState().currency['乐园币'] || 0;
         if (cost > have) return -1;   // 乐园币不足（UI 也会拦）
-        if (cost > 0) useItems.getState().adjustCurrency('乐园币', -cost);
+        if (cost > 0) useItems.getState().adjustCurrency('乐园币', -cost, '技能树·洗点');
         // 只清非大节点的 rank；大节点保留
         const newRanks: Record<string, number> = {};
         let bigSpent = 0;
@@ -667,7 +667,7 @@ export const useSkillTree = create<SkillTreeState>()(
           cost += price; got++;
         }
         if (got <= 0) return 0;
-        useItems.getState().adjustCurrency('乐园币', -cost);
+        useItems.getState().adjustCurrency('乐园币', -cost, `技能树·兑换潜能点 ×${got}`);
         set((st) => {
           const p = st.progress[charId] ?? newProgress();
           return { progress: { ...st.progress, [charId]: { ...p, aiBonusPP: (p.aiBonusPP ?? 0) + got, exchangedPP: (p.exchangedPP ?? 0) + got } } };

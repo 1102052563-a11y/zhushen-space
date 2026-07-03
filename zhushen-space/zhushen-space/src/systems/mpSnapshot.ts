@@ -22,7 +22,7 @@ export function buildPlayerSnapshot() {
     const c: any = useCharacters.getState().characters['B1'] || {};
     const equipped = (useItems.getState().items || []).filter((it: any) => it.equipped);
     // 有效六维 = 基础 + 技能树 + 团队 + 装备(含宝石) + 技能/天赋加成（与单机 buildCombatant('B1') 同口径，联机战力一致）
-    const baseTT = withAttrDelta(withAttrDelta(base, playerTreeAttrBonus()), playerTeamAttrBonus());
+    const baseTT = withAttrDelta(withAttrDelta(withAttrDelta(base, playerTreeAttrBonus()), playerTeamAttrBonus()), p.realAttrs);   // +真实属性点直加(realAttrs)：与单机 buildCombatant('B1') 同口径（联机 HP/战力一致）
     const a: any = effectiveAttrs(baseTT, c.skills, c.traits, equipped as any, attrCapForTier(p.tier, p.level));
     const teamPerk = playerTeamPerkAbilities();
     const rmP = realAttrMult(p.tier, p.level);   // 四阶起 HP/EP×5（联机与单机一致）
@@ -54,30 +54,34 @@ export function buildPlayerSnapshot() {
 }
 
 // 房主：把在座来宾的角色档案(技能/天赋/职业/装备/性格/外观/种族)拼成块，注入房主正文，让 AI 准确刻画队友
+// 把单个玩家卡快照格式化成档案块（种族/身份/外观/性格/六维/技能/天赋/装备）——群像注入 + 房主代渲染单个来宾时复用
+export function buildCardProfile(s: any): string {
+  if (!s) return '';
+  const lines: string[] = [];
+  lines.push(`◆ ${s.name || '队友'}${s.race ? `（${s.race}）` : ''}`);
+  const id = [s.gender, s.tier, s.profession].filter(Boolean).join(' · ');
+  if (id) lines.push(`身份：${id}`);
+  if (s.raceDetail) lines.push(`种族详情：${s.raceDetail}`);
+  if (s.appearance) lines.push(`外观：${s.appearance}`);
+  const persona = [s.personality, s.personalityDetail].filter(Boolean).join('；');
+  if (persona) lines.push(`性格：${persona}`);
+  if (s.line) lines.push(`六维：${s.line}`);
+  const sk = (s.skills || []).map((x: any) => x?.name).filter(Boolean);
+  if (sk.length) lines.push(`技能：${sk.join('、')}`);
+  const tr = (s.traits || []).map((x: any) => x?.name).filter(Boolean);
+  if (tr.length) lines.push(`天赋：${tr.join('、')}`);
+  const eq = (s.equipment || []).map((x: any) => x?.name).filter(Boolean);
+  if (eq.length) lines.push(`装备：${eq.join('、')}`);
+  return lines.join('\n');
+}
+
 export function buildPartyProfiles(): string {
   try {
     const mp = useMp.getState();
     if (mp.status !== 'connected' || mp.role !== 'host') return '';
     const cards = (mp.cards || []).map((c) => c.snapshot).filter(Boolean) as any[];
     if (!cards.length) return '';
-    const blocks = cards.map((s) => {
-      const lines: string[] = [];
-      lines.push(`◆ ${s.name || '队友'}${s.race ? `（${s.race}）` : ''}`);
-      const id = [s.gender, s.tier, s.profession].filter(Boolean).join(' · ');
-      if (id) lines.push(`身份：${id}`);
-      if (s.raceDetail) lines.push(`种族详情：${s.raceDetail}`);
-      if (s.appearance) lines.push(`外观：${s.appearance}`);
-      const persona = [s.personality, s.personalityDetail].filter(Boolean).join('；');
-      if (persona) lines.push(`性格：${persona}`);
-      if (s.line) lines.push(`六维：${s.line}`);
-      const sk = (s.skills || []).map((x: any) => x?.name).filter(Boolean);
-      if (sk.length) lines.push(`技能：${sk.join('、')}`);
-      const tr = (s.traits || []).map((x: any) => x?.name).filter(Boolean);
-      if (tr.length) lines.push(`天赋：${tr.join('、')}`);
-      const eq = (s.equipment || []).map((x: any) => x?.name).filter(Boolean);
-      if (eq.length) lines.push(`装备：${eq.join('、')}`);
-      return lines.join('\n');
-    });
+    const blocks = cards.map((s) => buildCardProfile(s));
     return `【联机·同行队友档案（以下角色由真人玩家操控，请严格按其设定准确刻画其言行/能力/外观/种族，勿张冠李戴、勿替他们擅自决策）】\n${blocks.join('\n\n')}`;
   } catch {
     return '';

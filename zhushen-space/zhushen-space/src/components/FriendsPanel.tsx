@@ -75,7 +75,7 @@ export default function FriendsPanel({ onClose, onOpenNpc, onDm, turn }: { onClo
 
   return (
     <div className="fixed inset-0 z-50 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4" onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}>
-      <div className="w-full max-w-lg h-[82vh] flex flex-col rounded-2xl border border-edge bg-void shadow-[0_0_60px_rgba(0,0,0,0.8)] overflow-hidden">
+      <div className="w-full max-w-lg h-[82dvh] flex flex-col rounded-2xl border border-edge bg-void shadow-[0_0_60px_rgba(0,0,0,0.8)] overflow-hidden">
         <header className="shrink-0 flex items-center gap-3 px-5 py-3 border-b border-edge bg-panel">
           <span className="text-god/70 text-lg">👥</span>
           <div className="flex-1 min-w-0">

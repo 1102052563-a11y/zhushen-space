@@ -245,7 +245,7 @@ export default function CombatPanel({ onPlayerAction, onUndo, canUndo, mpMode, m
 
   return (
     <div className="fixed inset-0 z-[60] bg-black/70 backdrop-blur-sm flex items-center justify-center p-2 sm:p-4">
-      <div className="w-full max-w-3xl max-h-[94vh] flex flex-col rounded-xl border border-cyan-500/30 bg-slate-900/95 shadow-2xl overflow-hidden">
+      <div className="w-full max-w-3xl max-h-[94dvh] flex flex-col rounded-xl border border-cyan-500/30 bg-slate-900/95 shadow-2xl overflow-hidden">
         {/* 头部 */}
         <div className="flex items-center justify-between px-4 py-2 border-b border-slate-700/60 bg-slate-950/60">
           <div className="flex items-center gap-2">

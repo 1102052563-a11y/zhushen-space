@@ -18,7 +18,7 @@ import {
   pickDeed, seedFrom, behaviorBiasFor, makeRng, pickFrom, getCorpus, hashStr,
   type DeedCtx, type DeedEvent,
 } from './autonomyCorpus';
-import { attrCapForTier, ratioOf, computeMaxHp, computeMaxEp } from './derivedStats';
+import { attrCapForTier, ratioOf, computeMaxHp, computeMaxEp, npcBaseAttrs } from './derivedStats';
 
 const MAX_TICKS_PER_TURN = 16;
 const CADENCE = 3;                          // 背景离场 NPC 分 3 组轮流
@@ -285,8 +285,9 @@ export function boundedGrowth(npc: NpcRecord, rng: () => number, opts: { levelUp
       out.attrs = next;
       // HP/EP 上限随六维重算（多属性系数表，默认 体×20 / 智×15，尊重 NPC 自定义）；只抬上限，不补血
       const r = ratioOf(npc);
-      out.maxHp = computeMaxHp(next, 1, r);
-      out.maxMp = computeMaxEp(next, 1, r);
+      const nb = npcBaseAttrs({ attrs: next, realAttrs: npc.realAttrs });   // 进化后的基础六维 + 真实属性点直加(realAttrs)
+      out.maxHp = computeMaxHp(nb, 1, r);
+      out.maxMp = computeMaxEp(nb, 1, r);
     }
   }
   return out;
@@ -491,8 +492,9 @@ function nativeGrow(npc: NpcRecord, rng: () => number): Partial<NpcRecord> {
   next[k] = v;
   const out: Partial<NpcRecord> = { attrs: next };
   const r = ratioOf(npc);
-  out.maxHp = computeMaxHp(next, 1, r);   // HP 上限=Σ六维×系数（默认体×20，尊重自定义；只抬上限）
-  out.maxMp = computeMaxEp(next, 1, r);   // EP 上限=Σ六维×系数（默认智×15）
+  const nb = npcBaseAttrs({ attrs: next, realAttrs: npc.realAttrs });   // 进化后的基础六维 + 真实属性点直加(realAttrs)
+  out.maxHp = computeMaxHp(nb, 1, r);   // HP 上限=Σ六维×系数（默认体×20，尊重自定义；只抬上限）
+  out.maxMp = computeMaxEp(nb, 1, r);   // EP 上限=Σ六维×系数（默认智×15）
   return out;
 }
 

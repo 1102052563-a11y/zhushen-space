@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect, createContext, useContext, type ReactNode } from 'react';
 import { useNpc, type NpcRecord } from '../store/npcStore';
 import { useCharacters, RARITY_CLS, ELEMENT_CLS, SKILL_TIER_CLS, normSkillTier, type Deed } from '../store/characterStore';
-import { computeDerived, lvFromRealm, normalizeTier, tierFxClass, realmFromLevel, effectiveResource, fullMaxHp, fullMaxEp, TIERS, realAttrCapForTier, realAttrMult, attrCapForTier, ratioOf, hpCoefOf, epCoefOf, vitalFormula } from '../systems/derivedStats';
+import { computeDerived, lvFromRealm, normalizeTier, tierFxClass, realmFromLevel, effectiveResource, fullMaxHp, fullMaxEp, TIERS, realAttrCapForTier, realAttrMult, attrCapForTier, ratioOf, hpCoefOf, epCoefOf, vitalFormula, npcBaseAttrs } from '../systems/derivedStats';
 import { computeAttrBreakdown, effectiveAttrs, ATTR_LABEL, ATTR_KEYS, type AttrBreak } from '../systems/attrBonus';
 import { bioInnate, bioPower, bioStrengthLabel, BIO_TIER_NAMES, nominalTierNum } from '../systems/bioStrength';
 import { generateNpcAttrs, resolveForm, UNIT_TYPE_LABELS } from '../systems/npcAttrGen';
@@ -1086,8 +1086,8 @@ function AttrTab({ npc: npcProp, realm }: { npc: NpcRecord; realm: ReturnType<ty
   // HP/EP 上限由(有效)体质×20 / 智力×15 自动换算
   // 最大HP/EP = 基础六维换算 + 装备/被动明确写"增加HP/EP上限"的平值 + 百分比加成；技能/天赋的属性加成不计入上限
   const rmN = realAttrMult(npc.realm, lvFromRealm(npc.realm));   // 四阶起 HP/EP×5
-  const maxHp = fullMaxHp(npc.attrs, equippedFull as any, cdata?.skills, cdata?.traits, rmN, ratioOf(npc));
-  const maxEp = fullMaxEp(npc.attrs, equippedFull as any, cdata?.skills, cdata?.traits, rmN, ratioOf(npc));
+  const maxHp = fullMaxHp(npcBaseAttrs(npc), equippedFull as any, cdata?.skills, cdata?.traits, rmN, ratioOf(npc));   // npcBaseAttrs=attrs+真实属性点直加(realAttrs)
+  const maxEp = fullMaxEp(npcBaseAttrs(npc), equippedFull as any, cdata?.skills, cdata?.traits, rmN, ratioOf(npc));
   const hpStr = `${effectiveResource(npc.hp, npc.maxHp, maxHp)} / ${maxHp}`;
   const epStr = `${effectiveResource(npc.mp, npc.maxMp, maxEp)} / ${maxEp}`;
   // 转化比公式（仅在自定义时附在 HP/EP 标签上，展示双源交叉项）
@@ -1240,7 +1240,7 @@ function AttrTab({ npc: npcProp, realm }: { npc: NpcRecord; realm: ReturnType<ty
             </div>
           )}
         </div>
-        <div className="grid grid-cols-3 gap-2">
+        <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
           {attrDefs.map(({ key, label }) => {
             const bk = breakdown[key]; const bonus = bk.total - bk.base;
             const pd = pending[key] ?? { ap: 0, rap: 0 };
@@ -1416,7 +1416,7 @@ function GiveItemPicker({ npcId, npcName, onClose, onGiven }: { npcId: string; n
   return (
     <div className="fixed inset-0 z-[90] flex items-center justify-center bg-black/75 backdrop-blur-sm p-4"
       onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}>
-      <div className="w-full max-w-lg max-h-[82vh] flex flex-col rounded-2xl border border-edge bg-void shadow-[0_0_60px_rgba(0,0,0,0.85)] overflow-hidden">
+      <div className="w-full max-w-lg max-h-[82dvh] flex flex-col rounded-2xl border border-edge bg-void shadow-[0_0_60px_rgba(0,0,0,0.85)] overflow-hidden">
         <header className="shrink-0 flex items-center gap-3 px-4 py-3 border-b border-edge bg-panel">
           <span className="text-god/70 text-lg">📥</span>
           <div className="flex-1 min-w-0">

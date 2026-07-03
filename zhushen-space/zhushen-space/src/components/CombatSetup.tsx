@@ -22,7 +22,7 @@ export default function CombatSetup({ onClose, onStart }: {
 
   return (
     <div className="fixed inset-0 z-[55] bg-black/70 backdrop-blur-sm flex items-center justify-center p-3">
-      <div className="w-full max-w-lg max-h-[90vh] flex flex-col rounded-xl border border-cyan-500/30 bg-slate-900/95 shadow-2xl overflow-hidden">
+      <div className="w-full max-w-lg max-h-[90dvh] flex flex-col rounded-xl border border-cyan-500/30 bg-slate-900/95 shadow-2xl overflow-hidden">
         <div className="flex items-center justify-between px-4 py-2.5 border-b border-slate-700/60 bg-slate-950/60">
           <span className="text-sm font-semibold text-slate-100">⚔️ 发起战斗</span>
           <button onClick={onClose} className="text-slate-400 hover:text-slate-200 text-lg leading-none">✕</button>

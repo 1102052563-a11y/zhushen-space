@@ -8,6 +8,7 @@ import {
   generateSkillUpgrade, parseLevelNum, crossesWatershed, rarityIndex, bumpRarity,
   SKILL_RARITIES, TALENT_RARITIES, setSkillUpNote,
   levelUpCoinCost, rarityUpCoinCost, masteryCoinCost,
+  generateSkillFusion, type FuseSource, type FuseKind,
 } from '../systems/skillUpgrade';
 
 /* 乐园设施·技能升级面板：
@@ -20,6 +21,7 @@ type Pay = 'points' | 'coin';
 type Sel = { kind: 'skill' | 'talent' | 'subprof'; key: string } | null;
 
 const fmt = (n: number) => n.toLocaleString('en-US');
+const FUSE_MAX = 4;   // 融合一次最多投入的技能/天赋数（≥2 起）
 
 function tierForSpent(spent: number): string {
   let idx = 0;
@@ -33,6 +35,10 @@ export default function SkillUpgradePanel({ onClose }: { onClose: () => void }) 
   const chars = useCharacters((s) => s.characters);
   const updateSkill = useCharacters((s) => s.updateSkill);
   const updateTrait = useCharacters((s) => s.updateTrait);
+  const addSkill = useCharacters((s) => s.addSkill);
+  const removeSkill = useCharacters((s) => s.removeSkill);
+  const addTrait = useCharacters((s) => s.addTrait);
+  const removeTrait = useCharacters((s) => s.removeTrait);
   const addSubProfMastery = useSubProfTree((s) => s.addSubProfMastery);
   const subProgress = useSubProfTree((s) => s.progress);
 
@@ -49,6 +55,14 @@ export default function SkillUpgradePanel({ onClose }: { onClose: () => void }) 
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState('');
   const [done, setDone] = useState<null | { name: string; level?: string; rarity?: string; effect?: string }>(null);
+
+  // ── 技能/天赋融合（技能熔炉）──
+  const [tab, setTab] = useState<'upgrade' | 'fuse'>('upgrade');
+  const [fuseSel, setFuseSel] = useState<string[]>([]);   // 选中键：`skill:<id>` / `talent:<name>`
+  const [fuseCustom, setFuseCustom] = useState('');
+  const [fuseBusy, setFuseBusy] = useState(false);
+  const [fuseErr, setFuseErr] = useState('');
+  const [fuseDone, setFuseDone] = useState<null | { kind: FuseKind; name: string; rarity?: string; level?: string; effect?: string }>(null);
 
   const sp = currency['技能点'] ?? 0;
   const gp = currency['黄金技能点'] ?? 0;
@@ -97,6 +111,50 @@ export default function SkillUpgradePanel({ onClose }: { onClose: () => void }) 
 
   function pick(s: Sel) { setSel(s); setDone(null); setErr(''); setPoints(1); setCustom(''); setMode('normal'); setPay('points'); }
   function switchMode(m: Mode) { setMode(m); setPoints(1); setDone(null); setErr(''); setPay('points'); }
+  function switchTab(t: 'upgrade' | 'fuse') { setTab(t); setErr(''); setDone(null); setFuseErr(''); setFuseDone(null); }
+
+  // ── 融合：多选技能/天赋 → AI 熔铸成一个新条目（产物类型随机） ──
+  const fuseCandidates = skills.length + traits.length;
+  function toggleFuse(key: string) {
+    if (fuseBusy) return;
+    setFuseErr(''); setFuseDone(null);
+    setFuseSel((cur) => cur.includes(key) ? cur.filter((k) => k !== key) : cur.length >= FUSE_MAX ? cur : [...cur, key]);
+  }
+  function resolveFuseSources(): FuseSource[] {
+    return fuseSel.map((k) => {
+      const sep = k.indexOf(':'); const kind = k.slice(0, sep); const id = k.slice(sep + 1);
+      if (kind === 'skill') { const e = skills.find((x) => x.id === id); return e ? { kind: 'skill' as const, entry: e } : null; }
+      const e = traits.find((x) => x.name === id); return e ? { kind: 'talent' as const, entry: e } : null;
+    }).filter(Boolean) as FuseSource[];
+  }
+
+  async function doFuse() {
+    const sources = resolveFuseSources();
+    if (fuseBusy || sources.length < 2) return;
+    const names = sources.map((s) => (s.entry as any).name as string);
+    if (!window.confirm(`将 ${sources.length} 个技能/天赋「${names.join('」「')}」投入熔炉融合成一个全新条目？\n\n· 会调用 AI（计费）\n· 产物是技能还是天赋 **随机**\n· 会 **消耗掉** 这 ${sources.length} 个来源（不可撤销）`)) return;
+    setFuseBusy(true); setFuseErr(''); setFuseDone(null);
+    try {
+      // 产物类型随机：按来源里技能占比加权（钳制 [0.25,0.75]，纯同类型也保留惊喜）
+      const skillCount = sources.filter((s) => s.kind === 'skill').length;
+      const pSkill = Math.min(0.75, Math.max(0.25, skillCount / sources.length));
+      const outKind: FuseKind = Math.random() < pSkill ? 'skill' : 'talent';
+      const res = await generateSkillFusion({ sources, outKind, customInput: fuseCustom });
+      // 先消耗来源，再写入新条目（防新条目与某来源同名被连带删除）
+      sources.forEach((s) => { if (s.kind === 'skill') removeSkill('B1', (s.entry as Skill).id); else removeTrait('B1', (s.entry as Trait).name); });
+      const apply = res.apply;
+      if (res.outKind === 'skill') addSkill('B1', { ...(apply as any), id: `S_B1_f${Date.now().toString(36)}` });
+      else addTrait('B1', apply as any);
+      const kindLabel = res.outKind === 'skill' ? '技能' : '天赋';
+      setSkillUpNote(`（系统·面板已结算：主角将 ${sources.length} 个技能/天赋「${names.join('」「')}」投入技能熔炉，熔铸出全新${kindLabel}「${apply.name}」（${apply.rarity ?? ''}）。此为面板结算结果，正文知晓即可、无需就此展开情节。）`);
+      setFuseSel([]); setFuseCustom('');
+      setFuseDone({ kind: res.outKind, name: apply.name, rarity: apply.rarity, level: apply.level, effect: apply.effect });
+    } catch (e: any) {
+      setFuseErr(e?.message ?? '融合失败');
+    } finally {
+      setFuseBusy(false);
+    }
+  }
 
   async function settle() {
     if (!entry || !canSettle) return;
@@ -107,7 +165,7 @@ export default function SkillUpgradePanel({ onClose }: { onClose: () => void }) 
       if (isTalent) updateTrait('B1', entry.name, patch);
       else updateSkill('B1', (entry as Skill).id, patch);
       const costText = pay === 'coin' ? `${fmt(coinCost)} 乐园币` : `${points} ${ptName}`;
-      if (pay === 'coin') adjustCurrency('乐园币', -coinCost); else adjustCurrency(mode === 'normal' ? '技能点' : '黄金技能点', -points);
+      if (pay === 'coin') adjustCurrency('乐园币', -coinCost, `${isTalent ? '天赋' : '技能'}升级·${entry.name}`); else adjustCurrency(mode === 'normal' ? '技能点' : '黄金技能点', -points, `${isTalent ? '天赋' : '技能'}升级·${entry.name}`);
       const descChange = mode === 'normal' ? `Lv.${oldLv} → Lv.${newLv}` : `品级 ${(entry as any).rarity ?? ''} → ${newRarity}`;
       setSkillUpNote(`（系统·面板已结算：主角消耗 ${costText}，将${isTalent ? '天赋' : '技能'}「${entry.name}」升级（${descChange}）。此为面板结算结果，正文知晓即可、无需就此展开情节。）`);
       setDone({ name: entry.name, level: patch.level, rarity: patch.rarity, effect: patch.effect });
@@ -123,7 +181,7 @@ export default function SkillUpgradePanel({ onClose }: { onClose: () => void }) 
     const before = subProfMastery(subName);
     addSubProfMastery('B1', subName, subGain);
     const costText = pay === 'coin' ? `${fmt(coinCostSub)} 乐园币` : `${points} 技能点`;
-    if (pay === 'coin') adjustCurrency('乐园币', -coinCostSub); else adjustCurrency('技能点', -points);
+    if (pay === 'coin') adjustCurrency('乐园币', -coinCostSub, `副职业进修·${subName}`); else adjustCurrency('技能点', -points, `副职业进修·${subName}`);
     const after = subProfMastery(subName);
     setSkillUpNote(`（系统·面板已结算：主角消耗 ${costText} 钻研副职业「${subName}」，熟练度提升（${before.tier} → ${after.tier}）。此为面板结算结果，正文知晓即可、无需就此展开情节。）`);
     setDone({ name: subName, rarity: after.tier, effect: `熟练度档位：${after.tier}${after.tier === '宗师' ? '（已登顶）' : ''}` });
@@ -144,7 +202,7 @@ export default function SkillUpgradePanel({ onClose }: { onClose: () => void }) 
 
   return (
     <div className="fixed inset-0 z-[72] flex items-center justify-center bg-black/70 backdrop-blur-sm p-4" onClick={onClose}>
-      <div className="w-full max-w-lg max-h-[90vh] overflow-y-auto rounded-2xl border border-edge bg-void shadow-[0_0_50px_rgba(0,0,0,0.85)] p-5 space-y-4" onClick={(e) => e.stopPropagation()}>
+      <div className="w-full max-w-lg max-h-[90dvh] overflow-y-auto rounded-2xl border border-edge bg-void shadow-[0_0_50px_rgba(0,0,0,0.85)] p-5 space-y-4" onClick={(e) => e.stopPropagation()}>
         <div className="flex items-center justify-between">
           <h2 className="text-base font-bold text-slate-100 flex items-center gap-2">🔼 技能升级</h2>
           <button onClick={onClose} className="text-dim/50 hover:text-blood text-lg font-mono">✕</button>
@@ -154,11 +212,19 @@ export default function SkillUpgradePanel({ onClose }: { onClose: () => void }) 
           <span className="px-2.5 py-1 rounded-lg border border-amber-500/40 text-amber-300 bg-amber-500/10">黄金技能点 <b className="text-amber-200">{gp}</b></span>
           <span className="px-2.5 py-1 rounded-lg border border-yellow-500/40 text-yellow-300 bg-yellow-500/10">乐园币 <b className="text-yellow-200">{fmt(coin)}</b></span>
         </div>
+        {/* 顶部：升级 / 融合 切换 */}
+        <div className="flex gap-2">
+          <button onClick={() => switchTab('upgrade')} className={`flex-1 px-3 py-2 rounded-xl border text-[13px] font-semibold transition-colors ${tab === 'upgrade' ? 'border-god/70 bg-god/15 text-god' : 'border-edge text-slate-300 hover:border-god/40'}`}>🔼 升级</button>
+          <button onClick={() => switchTab('fuse')} className={`flex-1 px-3 py-2 rounded-xl border text-[13px] font-semibold transition-colors ${tab === 'fuse' ? 'border-amber-500/70 bg-amber-500/15 text-amber-200' : 'border-edge text-slate-300 hover:border-amber-500/40'}`}>🔮 融合</button>
+        </div>
+
+        {tab === 'upgrade' && (
         <div className="text-[11px] text-dim/50 leading-relaxed">
           技能点升等级、黄金技能点升品级质变、技能点提副职业熟练度至宗师；三类都可改用<b className="text-yellow-300">乐园币</b>支付（越高级越贵）。与装备强化共用 AI 接口。
         </div>
+        )}
 
-        {empty ? (
+        {tab === 'upgrade' && (empty ? (
           <div className="text-center text-dim/50 py-8 text-sm">暂无可升级的技能 / 天赋 / 副职业。</div>
         ) : (
           <>
@@ -312,6 +378,73 @@ export default function SkillUpgradePanel({ onClose }: { onClose: () => void }) 
               </div>
             )}
           </>
+        ))}
+
+        {/* ── 技能 / 天赋 融合（技能熔炉·产物类型随机） ── */}
+        {tab === 'fuse' && (
+          <div className="space-y-3">
+            <div className="text-[11px] text-dim/50 leading-relaxed">
+              选 <b className="text-god">2 个及以上</b>技能 / 天赋投入熔炉，AI 会把它们熔铸成<b className="text-god">一个全新条目</b>（基于所有来源与你的倾向）——<b className="text-amber-300">产物是技能还是天赋则随机</b>。融合会<b className="text-blood/80">消耗</b>选中的来源，不可撤销。与装备强化共用 AI 接口。
+            </div>
+            {fuseCandidates < 2 ? (
+              <div className="text-center text-dim/50 py-8 text-sm">至少需要 2 个技能 / 天赋才能融合。</div>
+            ) : (
+              <>
+                {skills.length > 0 && (
+                  <div>
+                    <div className="text-[11px] text-dim/50 mb-1">技能</div>
+                    <div className="flex flex-wrap gap-1.5">
+                      {skills.map((s) => {
+                        const key = `skill:${s.id}`; const idx = fuseSel.indexOf(key);
+                        return (
+                          <button key={s.id} onClick={() => toggleFuse(key)} className={chipCls(idx >= 0)}>
+                            {idx >= 0 && <span className="text-amber-300 font-mono mr-1">{idx + 1}.</span>}{s.name}<span className="text-dim/40 ml-1">{s.rarity ?? ''}·{s.level ?? ''}</span>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
+                {traits.length > 0 && (
+                  <div>
+                    <div className="text-[11px] text-dim/50 mb-1">天赋</div>
+                    <div className="flex flex-wrap gap-1.5">
+                      {traits.map((t) => {
+                        const key = `talent:${t.name}`; const idx = fuseSel.indexOf(key);
+                        return (
+                          <button key={t.name} onClick={() => toggleFuse(key)} className={chipCls(idx >= 0)}>
+                            {idx >= 0 && <span className="text-amber-300 font-mono mr-1">{idx + 1}.</span>}{t.name}<span className="text-dim/40 ml-1">{t.rarity ?? ''}级</span>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
+
+                <textarea value={fuseCustom} onChange={(e) => setFuseCustom(e.target.value)} rows={2}
+                  placeholder="融合倾向（想要的流派 / 效果 / 属性侧重 / 意象，可留空由 AI 自拟方向）"
+                  className="w-full rounded-xl border border-edge bg-panel2/40 px-3 py-2 text-[12px] text-slate-200 placeholder:text-dim/40 focus:border-god/50 outline-none resize-none" />
+
+                <div className="text-[12px] text-center text-slate-200 bg-panel2/40 rounded-lg py-1.5 border border-edge/60">
+                  已选 <b className="text-god">{fuseSel.length}</b> / 上限 {FUSE_MAX}　<span className="text-god">→</span>　熔铸出 <b className="text-amber-300">1 个技能或天赋（随机）</b>
+                </div>
+
+                <button onClick={doFuse} disabled={fuseSel.length < 2 || fuseBusy}
+                  className={`w-full py-2.5 rounded-xl font-semibold text-sm transition-colors ${fuseSel.length >= 2 && !fuseBusy ? 'bg-amber-500/20 border border-amber-500/60 text-amber-200 hover:bg-amber-500/30' : 'bg-panel2/30 border border-edge text-dim/40 cursor-not-allowed'}`}>
+                  {fuseBusy ? '⏳ 熔铸中…（调用 AI 生成融合产物）' : fuseSel.length >= 2 ? `🔮 融合（${fuseSel.length} 合 1）` : '🔮 融合（请选 2+）'}
+                </button>
+
+                {fuseErr && <div className="text-[11px] text-blood/90 bg-blood/10 border border-blood/30 rounded-lg p-2 leading-relaxed">{fuseErr}</div>}
+                {fuseDone && (
+                  <div className="rounded-xl border border-amber-500/50 bg-amber-500/10 p-3 space-y-1">
+                    <div className="text-[12px] text-amber-300 font-semibold">✓ 熔铸出{fuseDone.kind === 'skill' ? '技能' : '天赋'}「{fuseDone.name}」{fuseDone.rarity ? ` · ${fuseDone.rarity}${fuseDone.kind === 'talent' ? '级' : ''}` : ''}{fuseDone.level ? ` ${fuseDone.level}` : ''}</div>
+                    {fuseDone.effect && <div className="text-[11px] text-slate-300 leading-relaxed whitespace-pre-wrap line-clamp-6">{fuseDone.effect}</div>}
+                    <div className="text-[10px] text-dim/50">来源已消耗；新条目已加入「{fuseDone.kind === 'skill' ? '技能' : '天赋'}」列表，可在「技能」面板查看。正文将收到一条"已用掉"提示。</div>
+                  </div>
+                )}
+              </>
+            )}
+          </div>
         )}
       </div>
     </div>

@@ -157,7 +157,7 @@ export default function JoyPanel({
   return (
     <div className="fixed inset-0 z-[65] bg-black/75 backdrop-blur-sm flex items-center justify-center p-3"
          onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}>
-      <div className="w-full max-w-5xl h-[90vh] rounded-2xl border border-pink-500/30 bg-void shadow-[0_0_70px_rgba(244,114,182,0.18)] overflow-hidden flex flex-col">
+      <div className="w-full max-w-5xl h-[90dvh] rounded-2xl border border-pink-500/30 bg-void shadow-[0_0_70px_rgba(244,114,182,0.18)] overflow-hidden flex flex-col">
 
         {/* 顶栏 */}
         <header className="shrink-0 flex items-center gap-3 px-4 py-3 border-b border-pink-500/20 bg-gradient-to-r from-pink-950/40 via-panel to-fuchsia-950/30">
@@ -276,7 +276,7 @@ export default function JoyPanel({
         {view === 'chamber' && curGirl && (
           <div className="flex-1 flex flex-col min-h-0">
             {/* 上：立绘（完整显示·不裁剪）*/}
-            <div className="h-[50%] max-lg:h-[30vh] shrink-0 border-b border-pink-500/15 bg-gradient-to-b from-pink-950/20 to-void p-2 flex items-center justify-center min-h-0">
+            <div className="h-[50%] max-lg:h-[30dvh] shrink-0 border-b border-pink-500/15 bg-gradient-to-b from-pink-950/20 to-void p-2 flex items-center justify-center min-h-0">
               <div className="relative h-full max-h-full aspect-[1215/832] max-w-full rounded-xl border border-pink-500/20 bg-void overflow-hidden flex items-center justify-center">
                 {chamberPortrait
                   ? <img src={chamberPortrait} alt={curGirl.name} className="w-full h-full object-contain" />
@@ -360,7 +360,7 @@ export default function JoyPanel({
               </div>
 
               {/* 右：状态 */}
-              <div className="flex-1 lg:w-2/5 shrink-0 bg-panel2/30 overflow-y-auto p-3 space-y-3 min-h-0 max-lg:flex-none max-lg:max-h-[26vh]">
+              <div className="flex-1 lg:w-2/5 shrink-0 bg-panel2/30 overflow-y-auto p-3 space-y-3 min-h-0 max-lg:flex-none max-lg:max-h-[26dvh]">
                 <div className="rounded-xl border border-pink-500/20 bg-void p-3 space-y-2">
                   <div className="flex items-center gap-2">
                     <span className="text-base">{RACE_EMOJI(curGirl.race)}</span>

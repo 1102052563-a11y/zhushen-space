@@ -1,4 +1,4 @@
-import { useItems, ITEM_CATEGORIES, type ItemCategory, type CurrencyWallet, type InventoryItem } from '../store/itemStore';
+import { useItems, ITEM_CATEGORIES, splitAffixEntries, type ItemCategory, type CurrencyWallet, type InventoryItem } from '../store/itemStore';
 import { useChannel, type ChannelMessage, type ChannelQuote } from '../store/channelStore';
 
 /* 公共频道·交易确定性结算：点「购买」→ 代码扣货币 + 入背包 + 标记成交。AI 不参与金额。*/
@@ -25,7 +25,10 @@ function infoFields(o: any) {
   return {
     origin: o?.origin || undefined, subType: o?.subType || undefined,
     combatStat: o?.combatStat || undefined, durability: o?.durability || undefined,
-    requirement: o?.requirement || undefined, affix: o?.affix || undefined,
+    requirement: o?.requirement || undefined,
+    // affix 归一成干净字符串再入库：AI 常把词缀写成对象/数组(如三分 {name,effect:{...}})，裸存会让详情显示成 [object Object]，
+    // 且喂给强化/对账 AI 的 `${item.affix}` 也会变 [object Object]。splitAffixEntries 已能吃任意形态 → join 成多行文本。
+    affix: o?.affix != null && o.affix !== '' ? (splitAffixEntries(o.affix).join('\n') || undefined) : undefined,
     score: o?.score != null && o.score !== '' ? String(o.score) : undefined,
     appearance: o?.appearance || undefined,
     killCount: o?.killCount != null && o.killCount !== '' ? String(o.killCount) : undefined,
@@ -53,7 +56,7 @@ export function buyFromListing(msg: ChannelMessage): BuyResult {
 
   const qty = Math.max(1, Number(msg.offer.qty) || 1);
   // ① 扣货币（确定性，AI 不报金额）
-  items.adjustCurrency(currency, -price);
+  items.adjustCurrency(currency, -price, `频道交易·购买 ${msg.offer.itemName || '物品'}`);
   // ② 入背包（带入完整固定格式字段）
   items.addItem({
     name: msg.offer.itemName || '频道购得物品',
@@ -142,7 +145,7 @@ export function acceptQuote(post: ChannelMessage, quote: ChannelQuote): BuyResul
     if (have < price) return { ok: false, error: `${currency}不足：需 ${price}，现有 ${have}`, price, currency };
     const qty = Math.max(1, Number(quote.qty ?? post.offer?.qty) || 1);
     const src: any = { ...(post.offer ?? {}), ...quote };   // 报价覆盖求购帖（卖家提供的实际物品）
-    items.adjustCurrency(currency, -price);
+    items.adjustCurrency(currency, -price, `频道交易·求购成交（${quote.itemName || post.offer?.itemName || '物品'}）`);
     items.addItem({
       name: quote.itemName || post.offer?.itemName || '频道购得物品',
       category: normCategory(quote.category || post.offer?.category),
@@ -177,7 +180,7 @@ export function acceptQuote(post: ChannelMessage, quote: ChannelQuote): BuyResul
         ...infoFields(quote),
       });
     }
-    if (price > 0) items.adjustCurrency(currency, price);
+    if (price > 0) items.adjustCurrency(currency, price, `频道交易·出售 ${owned.name}`);
   } else {
     return { ok: false, error: '未知帖子类型' };
   }

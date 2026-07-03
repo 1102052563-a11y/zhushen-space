@@ -139,6 +139,40 @@ export function search(queryVec: Float32Array, keys: string[], topK: number, thr
   return hits.slice(0, Math.max(1, topK));
 }
 
+/* rerank 精排（可选·交叉编码器）：把余弦粗召回的候选按 (query, 文档) 相关性重排——比双编码器余弦更准。
+   走 Cohere/Jina/SiliconFlow 兼容的 /rerank 端点：{model, query, documents, top_n} → {results:[{index, relevance_score}]}。
+   candidates=粗召回命中（含正文 body）；返回精排后 {key, score}（按分降序·按 rerankThreshold 过滤·截到 topK）。
+   接口未配/失败一律抛错，由调用方兜底回退余弦（绝不卡回合）。 */
+export async function rerank(
+  query: string,
+  candidates: { key: string; body: string }[],
+  cfg: VecMemConfig,
+): Promise<{ key: string; score: number }[]> {
+  if (!cfg.rerankBase || !cfg.rerankKey) throw new Error('未配置 rerank 接口（设置→向量记忆→精排）');
+  if (candidates.length === 0) return [];
+  const topN = Math.max(1, cfg.topK ?? 6);
+  const res = await fetchWithProxy(cfg.rerankBase.replace(/\/+$/, '') + '/rerank', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${cfg.rerankKey}` },
+    body: JSON.stringify({
+      model: (cfg.rerankModel || '').trim() || 'BAAI/bge-reranker-v2-m3',
+      query: (query || '').slice(0, 4000),
+      documents: candidates.map((c) => (c.body || '').slice(0, 2000)),
+      top_n: topN,
+      return_documents: false,
+    }),
+  });
+  if (!res.ok) throw new Error(`rerank 接口 ${res.status}: ${(await res.text().catch(() => '')).slice(0, 160)}`);
+  const j = await res.json();
+  const results: any[] = j?.results ?? [];
+  const thr = cfg.rerankThreshold ?? 0;
+  return results
+    .filter((r) => typeof r?.index === 'number' && candidates[r.index] && (r.relevance_score ?? 0) >= thr)
+    .sort((a, b) => (b.relevance_score ?? 0) - (a.relevance_score ?? 0))
+    .slice(0, topN)
+    .map((r) => ({ key: candidates[r.index].key, score: r.relevance_score ?? 0 }));
+}
+
 /* 清理缓存与库里不在 keepKeys 内的孤儿向量（记忆条目被 FIFO 淘汰后）；返回删除数 */
 export async function pruneExcept(keepKeys: Set<string>): Promise<number> {
   await loadAll();
@@ -175,15 +209,18 @@ export function buildMemPool(src: {
   narrativeFacts?: { title: string; text: string; keywords: string[] }[];
   largeSummaries?: string[]; smallSummaries?: string[];
   worldEvents?: { time: string; location: string; desc: string }[];
-}, maxItems = 1000): PoolEntry[] {
+}, maxItems = 1000, factsOnly = false): PoolEntry[] {
   const out: PoolEntry[] = [];
   for (const f of src.narrativeFacts ?? []) {
     const text = `${f.title} ${f.text} ${(f.keywords ?? []).join(' ')}`.trim();
     out.push({ key: hashKey('fact|' + text), text, body: f.text, kind: 'fact' });
   }
-  for (const t of src.largeSummaries ?? []) out.push({ key: hashKey('large|' + t), text: t, body: t, kind: 'large' });
-  for (const t of src.smallSummaries ?? []) out.push({ key: hashKey('small|' + t), text: t, body: t, kind: 'small' });
-  for (const e of src.worldEvents ?? []) { const t = `${e.time}@${e.location} ${e.desc}`.trim(); out.push({ key: hashKey('event|' + t), text: t, body: t, kind: 'event' }); }
+  // factsOnly=true：只放长期事实，小结/大结/世界大事都不进池（召回与索引都只针对长期事实）
+  if (!factsOnly) {
+    for (const t of src.largeSummaries ?? []) out.push({ key: hashKey('large|' + t), text: t, body: t, kind: 'large' });
+    for (const t of src.smallSummaries ?? []) out.push({ key: hashKey('small|' + t), text: t, body: t, kind: 'small' });
+    for (const e of src.worldEvents ?? []) { const t = `${e.time}@${e.location} ${e.desc}`.trim(); out.push({ key: hashKey('event|' + t), text: t, body: t, kind: 'event' }); }
+  }
   // 超上限时保留尾部（较近期）；默认上限远大于常见池大小，一般不触发
   return out.length > maxItems ? out.slice(out.length - maxItems) : out;
 }

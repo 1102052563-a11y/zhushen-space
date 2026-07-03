@@ -131,13 +131,39 @@ export function applyPlayerProfileCommands(reply: string, narrative: string, tur
     if (typeof tags19 === 'string' && tags19.trim()) { sp({ imageTags: tags19.trim() }); n++; }
   }
   // 世界之源：character.B1.worldSource += N（正文获取）/ = 0（回归乐园归零，支持小数百分比）
-  const wsRe = /\bcharacter\.B\d+\.worldSource\s*(=|-=|\+=)\s*([\d.]+)/g;
-  while ((m = wsRe.exec(reply))) {
-    const cur = usePlayer.getState().profile.worldSource ?? 0;
-    const v = Number(m[2]);
-    const raw = m[1] === '=' ? v : m[1] === '+=' ? cur + v : Math.max(0, cur - v);
-    sp({ worldSource: Math.round(raw * 10) / 10 });   // 最多保留 1 位小数，避免 0.3000000004 浮点误差
-    n++;
+  // ★忠于正文可见值（治"正文说总计6.3%、侧栏世界之源却显示4"的对不上）：正文里明确写出的
+  //   「世界之源…累计/总计/合计 X%」是玩家亲眼所见的当前总量。世界之源由主角演化阶段读隐藏块 <世界之源>
+  //   的绝对总量落库，而它与主叙事(另一次 AI 调用)可见的"当前总计"可能因基数看法不一致而分叉——
+  //   本阶段能拿到主叙事 narrative，故非归零回合**以玩家可见的总量为准**覆盖块值/指令算出的值。
+  //   只认带"累计/总计/合计/已达/共计"关键词、且紧邻"世界之源"的百分比，避开"获得3.5%"这类单回合明细增量。
+  {
+    const dirs: { op: string; v: number }[] = [];
+    const wsRe = /\bcharacter\.B\d+\.worldSource\s*(=|-=|\+=)\s*([\d.]+)/g;
+    while ((m = wsRe.exec(reply))) dirs.push({ op: m[1], v: Number(m[2]) });
+    const homeNow = /轮回乐园|专属房间|主神空间/.test(useMisc.getState().worldName || '');   // 人在乐园
+    if (homeNow) {
+      // ★回归乐园：世界之源**必归零**（每个任务世界独立累计、绝不跨世界带入）——正文里的"总计X%"只是
+      //   已结束世界的回顾、不入账；与 reconcileHomeWorld 同口径，双保险不靠 AI 记得发 = 0。
+      if ((usePlayer.getState().profile.worldSource ?? 0) !== 0) { sp({ worldSource: 0 }); n++; }
+    } else {
+      const hasReset = dirs.some((d) => d.op === '=' && d.v === 0);   // 显式归零：最高优先，绝不被可见总量覆盖
+      let visTotal: number | null = null;
+      if (!hasReset && narrative) {
+        const mv = /世界之源[\s\S]{0,24}?(?:累计|总计|合计|已达|共计)\s*[:：]?\s*(\d+(?:\.\d+)?)\s*%/.exec(narrative);
+        if (mv) { const t = Number(mv[1]); if (Number.isFinite(t)) visTotal = t; }
+      }
+      if (visTotal != null) {
+        sp({ worldSource: Math.round(visTotal * 10) / 10 });   // 忠于玩家可见的"当前总计 X%"（含小数），侧栏与正文一致
+        n++;
+      } else {
+        for (const d of dirs) {
+          const cur = usePlayer.getState().profile.worldSource ?? 0;
+          const raw = d.op === '=' ? d.v : d.op === '+=' ? cur + d.v : Math.max(0, cur - d.v);
+          sp({ worldSource: Math.round(raw * 10) / 10 });   // 最多保留 1 位小数，避免 0.3000000004 浮点误差
+          n++;
+        }
+      }
+    }
   }
   // 属性点 / 真实属性点：**只在「世界结算」时由正文发放**（平时只"计入/统计"不入账，消耗交前端确定性系统；演化阶段输出不含 <世界结算> 故不会重复计数）
   if (/<世界结算>/.test(reply)) {

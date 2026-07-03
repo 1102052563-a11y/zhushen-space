@@ -4,11 +4,29 @@ import {
   realmFromLevel, normalizeTier, trueAttr, lvFromRealm,
   attrCapForTier, clampBaseAttrs, gearMaxHpBonus, gearMaxHpPctBonus, fullMaxHp, fullMaxEp,
   realAttrMult, parseCombatStat, computeDerived, ratioOf, hpCoefOf, epCoefOf, vitalFormula, computeAttrPool,
+  npcBaseAttrs,
 } from './derivedStats';
 import type { PlayerAttrs } from '../store/playerStore';
 
 // 六维构造器（只关心被测字段，其余给默认值）
 const A = (p: Partial<PlayerAttrs>): PlayerAttrs => ({ str: 5, agi: 5, con: 5, int: 5, cha: 5, luck: 5, ...p } as PlayerAttrs);
+
+// NPC 真实属性点直加(realAttrs) 计入 HP/EP —— 治"给 NPC 加真实体质/真实智力不涨血/蓝"（与主角同源）
+describe('npcBaseAttrs：NPC 六维并入真实属性点直加(realAttrs)', () => {
+  it('realAttrs 叠加到基础六维', () => {
+    expect(npcBaseAttrs({ attrs: A({ con: 10 }), realAttrs: { con: 5 } }).con).toBe(15);
+    expect(npcBaseAttrs({ attrs: A({ int: 8 }), realAttrs: { int: 4 } }).int).toBe(12);
+  });
+  it('真实体质 → NPC HP 上限；真实智力 → NPC EP 上限', () => {
+    expect(computeMaxHp(npcBaseAttrs({ attrs: A({ con: 10 }), realAttrs: { con: 5 } }))).toBe(300);   // (10+5)×20
+    expect(computeMaxEp(npcBaseAttrs({ attrs: A({ int: 10 }), realAttrs: { int: 4 } }))).toBe(210);   // (10+4)×15
+  });
+  it('空/缺省安全（无 realAttrs 或无 attrs 不炸、退回默认六维）', () => {
+    expect(npcBaseAttrs({ attrs: A({ con: 7 }) }).con).toBe(7);
+    expect(npcBaseAttrs(undefined).con).toBe(5);
+    expect(npcBaseAttrs({ realAttrs: { con: 3 } }).con).toBe(8);   // 无基础 attrs → 默认5 + 直加3
+  });
+});
 
 describe('computeMaxHp / computeMaxEp（HP=体质×20, EP=智力×15）', () => {
   it('按系数换算', () => {

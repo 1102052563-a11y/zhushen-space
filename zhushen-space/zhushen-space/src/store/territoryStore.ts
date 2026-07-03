@@ -54,6 +54,10 @@ export interface TerritoryItem {
 
 export const BUILDING_MAX_LEVEL = 5;
 
+/* 领地效果数量硬上限（代码护栏）：防 AI 每回合因正文一点细节就刷出一堆琐碎领地效果。
+   达上限后 upsertEffect 拒绝**新增**（同名更新仍放行），列表短而精。提示词里也告知 AI 此上限。 */
+export const TERRITORY_EFFECT_CAP = 12;
+
 /* 名称归一化匹配（去空白/标点/大小写后相等）：建筑/效果/仓库物品 的"同名→更新、按名删除"统一用它，
    容忍 AI 在不同回合给同名条目写出细微差异（多空格、加减标点）——避免重复堆叠或删不掉。 */
 function tNorm(s?: string): string {
@@ -179,7 +183,7 @@ export interface TerritorySettings {
 
 const DEFAULT_SETTINGS: TerritorySettings = {
   enabled: false,
-  frequency: 1,
+  frequency: 2,     // 默认每 2 回合演化一次（降 churn/省 token；已存档保留旧值，可在领地演化设置里改）
   entries: DEFAULT_TERRITORY_ENTRIES,
   presetName: DEFAULT_PRESET_NAME,
   presetVersion: DEFAULT_PRESET_VERSION,
@@ -227,6 +231,8 @@ interface TerritoryState {
   takeItem: (name: string, qty?: number) => void;
   /** 仓库去重自愈：同名物资合并（含 "X(微量)" 与 "X" 这类被数量级括注拆开的重复） */
   dedupeStorage: () => void;
+  /** 一键清空整个仓库（面板手动操作用） */
+  clearStorage: () => void;
   clearTerritory: () => void;
 
   /* ── 预设 / 设置 actions ── */
@@ -312,13 +318,16 @@ export const useTerritory = create<TerritoryState>()(
           const i = s.buildings.findIndex((x) => nameEq(x.name, nm));
           const lvl = b.level != null ? Math.max(1, Math.min(BUILDING_MAX_LEVEL, Math.round(b.level))) : undefined;
           if (i >= 0) {
+            const cur = s.buildings[i];
             const next = [...s.buildings];
+            // 护栏（反 churn）：已有建筑的文字字段（效果/外观/说明）默认**冻结**，只在原字段为空时回填，
+            // 不让每回合重发 addBuilding 用近义措辞反复覆盖。等级变更（升级）照常放行。
             next[i] = {
-              ...next[i],
+              ...cur,
               ...(lvl != null ? { level: lvl } : {}),
-              ...(b.effect != null ? { effect: b.effect } : {}),
-              ...(b.appearance != null ? { appearance: b.appearance } : {}),
-              ...(b.description != null ? { description: b.description } : {}),
+              ...(b.effect != null && !(cur.effect ?? '').trim() ? { effect: b.effect } : {}),
+              ...(b.appearance != null && !(cur.appearance ?? '').trim() ? { appearance: b.appearance } : {}),
+              ...(b.description != null && !(cur.description ?? '').trim() ? { description: b.description } : {}),
             };
             return { buildings: next };
           }
@@ -355,6 +364,11 @@ export const useTerritory = create<TerritoryState>()(
             const next = [...s.effects];
             next[i] = { ...next[i], desc: e.desc ?? next[i].desc, source: e.source ?? next[i].source };
             return { effects: next };
+          }
+          // 护栏（反膨胀）：达硬上限后拒绝**新增**领地效果（同名更新已在上面放行），逼 AI 合并而非堆叠
+          if (s.effects.length >= TERRITORY_EFFECT_CAP) {
+            console.warn(`[Territory] 领地效果已达上限(${TERRITORY_EFFECT_CAP})，忽略新增：${nm}`);
+            return s;
           }
           return { effects: [...s.effects, { name: nm, desc: e.desc ?? '', source: e.source }] };
         }),
@@ -443,6 +457,7 @@ export const useTerritory = create<TerritoryState>()(
           return { storageItems: next };
         }),
       dedupeStorage: () => set((s) => ({ storageItems: dedupeStorageList(s.storageItems) })),
+      clearStorage: () => set({ storageItems: [] }),
 
       clearTerritory: () =>
         set({

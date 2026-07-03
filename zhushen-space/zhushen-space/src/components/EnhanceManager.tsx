@@ -103,7 +103,7 @@ function BanterPresetModal({ boss, onClose }: { boss: BossDef; onClose: () => vo
   return (
     <div className="fixed inset-0 z-[80] bg-black/65 backdrop-blur-sm flex items-center justify-center p-4"
          onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}>
-      <div className="w-full max-w-2xl rounded-2xl border border-edge bg-void shadow-[0_0_50px_rgba(0,0,0,0.85)] flex flex-col max-h-[88vh]">
+      <div className="w-full max-w-2xl rounded-2xl border border-edge bg-void shadow-[0_0_50px_rgba(0,0,0,0.85)] flex flex-col max-h-[88dvh]">
         <header className="shrink-0 flex items-center gap-2 px-4 py-3 border-b border-edge bg-panel">
           <span className="text-base">✎</span>
           <div className="flex-1 min-w-0">

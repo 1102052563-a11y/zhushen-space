@@ -20,16 +20,16 @@ export function applySoulOutcome(kind: SoulStakeKind, win: boolean, opts: { amou
 
   if (kind === 'soulcoin') {
     const n = Math.max(0, Math.floor(opts.amount || 0));
-    if (win) { const g = Math.round(n * (soulStake('soulcoin').payoutMul - 1)); I.adjustCurrency('灵魂钱币', g); return { summary: `🎉 赢得魂币 +${g}`, delta: g }; }
-    I.adjustCurrency('灵魂钱币', -n); return { summary: `💀 魂币 −${n}，尽数没入笼中`, delta: -n };
+    if (win) { const g = Math.round(n * (soulStake('soulcoin').payoutMul - 1)); I.adjustCurrency('灵魂钱币', g, '魂赌·赢'); return { summary: `🎉 赢得魂币 +${g}`, delta: g }; }
+    I.adjustCurrency('灵魂钱币', -n, '魂赌·输'); return { summary: `💀 魂币 −${n}，尽数没入笼中`, delta: -n };
   }
   if (kind === 'item') {
-    if (win) { const g = ri(3, 6); I.adjustCurrency('灵魂钱币', g); return { summary: `🎉 保住「${opts.itemName || '本命装备'}」，另得魂币 +${g}`, delta: g }; }
+    if (win) { const g = ri(3, 6); I.adjustCurrency('灵魂钱币', g, '魂赌·保命得币'); return { summary: `🎉 保住「${opts.itemName || '本命装备'}」，另得魂币 +${g}`, delta: g }; }
     if (opts.itemId) { try { I.removeItem(opts.itemId); } catch { /* */ } }
     return { summary: `💀 「${opts.itemName || '本命装备'}」在笼火中化为灰烬`, delta: -1 };
   }
   // talent
-  if (win) { const gs = ri(6, 14); I.adjustCurrency('灵魂钱币', gs); const gk = SIX[Math.floor(Math.random() * SIX.length)]; const ga = { ...(P.profile.attrs || {} as any) }; ga[gk] = (ga[gk] || 0) + 1; P.setProfile({ attrs: ga }); return { summary: `🎉 天资淬炼：魂币 +${gs}、${SIX_CN[gk]} +1`, delta: gs }; }
+  if (win) { const gs = ri(6, 14); I.adjustCurrency('灵魂钱币', gs, '魂赌·天资淬炼'); const gk = SIX[Math.floor(Math.random() * SIX.length)]; const ga = { ...(P.profile.attrs || {} as any) }; ga[gk] = (ga[gk] || 0) + 1; P.setProfile({ attrs: ga }); return { summary: `🎉 天资淬炼：魂币 +${gs}、${SIX_CN[gk]} +1`, delta: gs }; }
   const k = SIX[Math.floor(Math.random() * SIX.length)];
   const attrs = { ...(P.profile.attrs || {} as any) };
   const dec = ri(1, 2);

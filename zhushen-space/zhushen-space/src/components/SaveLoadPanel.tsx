@@ -246,7 +246,7 @@ export default function SaveLoadPanel({ messages, onClose, onCleanupLive }: Prop
   async function handleLoad(id: string) {
     setBusy(true);
     flash('读取中…即将重载页面');
-    // loadSlot 内部会 location.reload()，对话历史经 sessionStorage 恢复
+    // loadSlot 内部会 location.reload()，对话历史经 IndexedDB(chatDb) 恢复、回到游戏靠 resumeFlag（localStorage）
     const ok = await loadSlot(id);
     if (!ok) { setBusy(false); setConfirmLoad(null); flash('❌ 存档不存在'); }
   }
@@ -270,7 +270,7 @@ export default function SaveLoadPanel({ messages, onClose, onCleanupLive }: Prop
   return (
     <div className="fixed inset-0 z-[70] bg-black/75 backdrop-blur-sm flex items-center justify-center p-4"
       onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}>
-      <div className="w-full max-w-2xl h-[88vh] flex flex-col rounded-2xl border border-edge bg-void shadow-[0_0_60px_rgba(0,0,0,0.85)] overflow-hidden">
+      <div className="w-full max-w-2xl h-[88dvh] flex flex-col rounded-2xl border border-edge bg-void shadow-[0_0_60px_rgba(0,0,0,0.85)] overflow-hidden">
 
         <header className="shrink-0 flex flex-wrap items-center gap-3 max-lg:gap-2 px-5 max-lg:px-3 py-3 border-b border-edge bg-panel">
           <span className="text-god/60 text-lg shrink-0">💾</span>
@@ -599,7 +599,7 @@ export default function SaveLoadPanel({ messages, onClose, onCleanupLive }: Prop
       {diag && (
         <div className="fixed inset-0 z-[80] bg-black/80 backdrop-blur-sm flex items-center justify-center p-4"
           onClick={(e) => { if (e.target === e.currentTarget) setDiag(''); }}>
-          <div className="w-full max-w-2xl h-[80vh] flex flex-col rounded-2xl border border-god/30 bg-void shadow-[0_0_60px_rgba(0,0,0,0.85)] overflow-hidden">
+          <div className="w-full max-w-2xl h-[80dvh] flex flex-col rounded-2xl border border-god/30 bg-void shadow-[0_0_60px_rgba(0,0,0,0.85)] overflow-hidden">
             <header className="shrink-0 flex items-center gap-2 px-5 max-lg:px-3 py-3 border-b border-edge bg-panel">
               <span className="text-god/60 text-lg shrink-0">🩺</span>
               <div className="flex-1 min-w-0">

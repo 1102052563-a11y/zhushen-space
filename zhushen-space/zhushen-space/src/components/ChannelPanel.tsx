@@ -31,12 +31,14 @@ interface DetailPayload { src: any; price?: string | number; currency?: string; 
 /* 频道物品详情（只读·固定格式全字段）*/
 function ChannelItemDetail({ p, onClose }: { p: DetailPayload; onClose: () => void }) {
   const s = p.src ?? {};
-  const F = ({ label, value, cls }: { label: string; value?: string; cls?: string }) =>
-    value ? (<div><div className="text-[11px] font-mono text-dim/40">{label}</div><div className={`text-[13px] ${cls ?? 'text-slate-300'}`}>{value}</div></div>) : null;
+  const F = ({ label, value, cls }: { label: string; value?: unknown; cls?: string }) => {
+    const t = asText(value);   // 兜底：affix/requirement 等偶被 AI 写成对象/数组(如 [{name,desc}]) → 转文本，防 React #31 整页崩
+    return t ? (<div><div className="text-[11px] font-mono text-dim/40">{label}</div><div className={`text-[13px] ${cls ?? 'text-slate-300'}`}>{t}</div></div>) : null;
+  };
   const hasStatGrid = s.origin || s.subType || s.combatStat || s.durability || s.score || s.killCount;
   return (
     <div className="fixed inset-0 z-[80] bg-black/70 backdrop-blur-sm flex items-center justify-center p-4" onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}>
-      <div className="w-full max-w-md rounded-2xl border border-edge bg-void shadow-[0_0_60px_rgba(0,0,0,0.85)] overflow-hidden flex flex-col max-h-[85vh]">
+      <div className="w-full max-w-md rounded-2xl border border-edge bg-void shadow-[0_0_60px_rgba(0,0,0,0.85)] overflow-hidden flex flex-col max-h-[85dvh]">
         <header className="shrink-0 flex items-center gap-2 px-4 py-3 border-b border-edge bg-panel">
           <span className="text-amber-300/80 text-lg">📦</span>
           <div className="flex-1 min-w-0">
@@ -69,7 +71,7 @@ function ChannelItemDetail({ p, onClose }: { p: DetailPayload; onClose: () => vo
             return (
               <div>
                 <div className="text-[11px] font-mono text-dim/40">{isLearn ? '📖 学习内容 / 用途' : '效果'}</div>
-                <div className={`text-[13px] leading-relaxed border rounded-lg p-2 ${isLearn ? 'text-sky-200/90 bg-sky-900/10 border-sky-500/25' : 'text-dim/80 bg-panel2 border-edge/40'}`}>{s.effect}</div>
+                <div className={`text-[13px] leading-relaxed border rounded-lg p-2 ${isLearn ? 'text-sky-200/90 bg-sky-900/10 border-sky-500/25' : 'text-dim/80 bg-panel2 border-edge/40'}`}>{asText(s.effect)}</div>
               </div>
             );
           })()}
@@ -501,7 +503,7 @@ export default function ChannelPanel({ onClose, onRefresh, onSolicit, onPost, on
   return (
     <div className="fixed inset-0 z-50 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4"
       onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}>
-      <div className="w-full max-w-2xl h-[88vh] flex flex-col rounded-2xl border border-edge bg-void shadow-[0_0_60px_rgba(0,0,0,0.8)] overflow-hidden">
+      <div className="w-full max-w-2xl h-[88dvh] flex flex-col rounded-2xl border border-edge bg-void shadow-[0_0_60px_rgba(0,0,0,0.8)] overflow-hidden">
 
         <header className="shrink-0 flex items-center gap-3 px-5 py-3 border-b border-edge bg-panel">
           <span className="text-god/70 text-lg">📡</span>

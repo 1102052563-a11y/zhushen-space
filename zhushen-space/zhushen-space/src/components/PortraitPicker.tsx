@@ -46,7 +46,7 @@ export function PortraitLibraryModal({ open, onClose, onPick }: {
   return createPortal(
     <div className="fixed inset-0 z-[300] bg-black/75 flex items-center justify-center p-4"
       onClick={(e) => { e.stopPropagation(); onClose(); }}>
-      <div className="bg-panel border border-edge rounded-xl w-full max-w-2xl max-h-[80vh] overflow-auto p-4"
+      <div className="bg-panel border border-edge rounded-xl w-full max-w-2xl max-h-[80dvh] overflow-auto p-4"
         onClick={(e) => e.stopPropagation()}>
         <div className="flex items-center justify-between mb-3">
           <span className="text-sm font-semibold text-slate-200">肖像图库</span>

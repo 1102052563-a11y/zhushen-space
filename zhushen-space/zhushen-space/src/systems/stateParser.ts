@@ -50,6 +50,8 @@ export function stripStateBlocks(text: string): string {
     .replace(/<battle\b[^>]*\/>/gi, '')
     .replace(/<battle\b[^>]*>[\s\S]*?<\/battle>/gi, '')
     .replace(/<battle\b[^>]*>[\s\S]*$/i, '')
+    .replace(/<tableEdit\b[^>]*>[\s\S]*?<\/tableEdit>/gi, '')   // 表格数据库·隐藏数据通道（applyAllUpdates 已在剥离前处理，展示/演化文本剥掉）
+    .replace(/<tableEdit\b[^>]*>[\s\S]*$/i, '')                 // 截断流未闭合形态
     .trimEnd();
 }
 
@@ -212,6 +214,76 @@ function isProgressionPointGrade(raw: unknown): boolean {
   return s.includes('属性点') || (s.includes('属性') && s.includes('点'))
       || s.includes('技能点')   // 含「黄金技能点」
       || s.includes('潜能');     // 潜能点
+}
+
+/* ── 奖励预告守卫（代码护栏·治「正文只是奖励预告、货币却真加了」）─────────────────
+   正文里的「🎁奖励预告 / 奖励预览」是任务奖励的**预告、未发放**；AI 却常据此发 transferCurrency 提前入账。
+   这里从含"奖励预告/预览"的行抽出货币金额，拦掉与之**金额匹配**的货币指令——结算回合(【结算任务】/世界结算)放行。
+   与提示词规则「奖励预告不算入手」双管（用户要求代码可校验，不靠纯提示词）。*/
+const REWARD_PREVIEW_LINE = /奖励\s*[预預]\s*(告|览|報|报|覽)/;
+// "真到手"语境：击杀奖励/开宝箱/猩红卡片/掉落/成交/领取… 这些是**当场真入账**，绝不能当预告拦。
+const REAL_ACQUIRE = /获得|得到|得了|到手|到账|入账|收入囊中|开出|开箱|宝箱|翻开|翻出|抽到|掉落|爆出|缴获|击杀|斩杀|杀死|讨伐|清剿|赏金|悬赏|成交|卖出|卖给|售出|兑换|领取|拿到|捡到|发放|已发|结算|卡片|卡牌|奖励到手|收入/;
+const CUR_AMT_RE = /(乐园币|魂币|灵魂钱币|灵魂币|乐园货币)\s*[+＋]?\s*(\d[\d,]*)/g;
+function scanCurrencyAmounts(line: string, into: Set<number>): void {
+  CUR_AMT_RE.lastIndex = 0;
+  let m: RegExpExecArray | null;
+  while ((m = CUR_AMT_RE.exec(line))) { const n = Number(String(m[2]).replace(/,/g, '')); if (n > 0) into.add(n); }
+}
+/** 只在"奖励预告/预览"行出现的货币金额（纯预告候选）。 */
+export function previewRewardCurrencyAmounts(raw: string): Set<number> {
+  const out = new Set<number>();
+  if (!raw) return out;
+  for (const line of raw.split(/\r?\n/)) if (REWARD_PREVIEW_LINE.test(line)) scanCurrencyAmounts(line, out);
+  return out;
+}
+/** 出现在"真到手"语境（击杀/开箱/卡片/掉落/成交/领取…·非预告行）的货币金额——这些是当场真入账，放行。 */
+export function realAcquiredCurrencyAmounts(raw: string): Set<number> {
+  const out = new Set<number>();
+  if (!raw) return out;
+  for (const line of raw.split(/\r?\n/)) {
+    if (REWARD_PREVIEW_LINE.test(line)) continue;   // 预告行不算"真到手"
+    if (REAL_ACQUIRE.test(line)) scanCurrencyAmounts(line, out);
+  }
+  return out;
+}
+const CUR_NAME_RE = /^(乐园币|魂币|灵魂钱币|灵魂币|乐园货币)/;
+/** 一条物品指令若是「给主角入账货币」，返回其金额（正数）；否则 null。覆盖全部货币向量：
+   transferCurrency / transferSpiritStones / currency 命令，以及 createItem 一个货币名（前端会折算进钱包）。 */
+function playerCurrencyGrantAmount(cmd: ItemCommand): number | null {
+  const d = (cmd.data ?? {}) as Record<string, unknown>;
+  if (cmd.type === 'transferCurrency' || cmd.type === 'transferSpiritStones') {   // 二者 opOf 归一到 'currency' op·是货币入账的唯一命令类型
+    const toB1 = d.to === 'B1' || d.from == null;   // 给主角（非支出/非转给别人）
+    const amt = Number(d.amount ?? 0);
+    return toB1 && amt > 0 ? amt : null;
+  }
+  if (cmd.type === 'createItem') {
+    const item = (d.item ?? d) as Record<string, unknown>;
+    const name = String(item.name ?? item['1'] ?? '').trim();
+    if (CUR_NAME_RE.test(name)) { const q = Number(item.quantity ?? item['4'] ?? 0); return q > 0 ? q : null; }
+  }
+  return null;
+}
+/** 从物品指令里剔除「与奖励预告金额匹配的货币入账」（非结算回合）。返回过滤后指令 + 拦截数。 */
+export function stripPreviewRewardCurrency(raw: string, cmds: ItemCommand[]): { cmds: ItemCommand[]; blocked: number } {
+  if (!Array.isArray(cmds) || cmds.length === 0) return { cmds, blocked: 0 };
+  if (/【结算任务】|世界结算|<世界结算>/.test(raw)) return { cmds, blocked: 0 };   // 结算回合正常发放奖励
+  const preview = previewRewardCurrencyAmounts(raw);
+  if (preview.size === 0) return { cmds, blocked: 0 };
+  const acquired = realAcquiredCurrencyAmounts(raw);
+  // 只拦「纯预告」金额：在预告里、但本回合并无"击杀/开箱/卡片/掉落/成交/领取…"真到手语境。
+  const blockable = new Set([...preview].filter((n) => !acquired.has(n)));
+  if (blockable.size === 0) return { cmds, blocked: 0 };
+  let blocked = 0;
+  const kept = cmds.filter((cmd) => {
+    const amt = playerCurrencyGrantAmount(cmd);
+    if (amt != null && blockable.has(amt)) {
+      blocked++;
+      console.warn(`[货币] 拦截奖励预告的提前发放：+${amt}（本回合仅"奖励预告"、无真到手·任务未结算；指令类型 ${cmd.type}。击杀/开箱/卡片等真入账不受影响）`);
+      return false;
+    }
+    return true;
+  });
+  return { cmds: kept, blocked };
 }
 
 /* 可堆叠分类：同名消耗类物品应累加数量而非生成重复条目（装备/法宝/特殊物等"唯一物"不堆叠，
@@ -457,7 +529,7 @@ function applyOneItemCommand(cmd: ItemCommand, store: any, npcEquipDupCtx?: Map<
         const amt = parseInt(String(item['5'] ?? item.quantity ?? '0').replace(/[^\d]/g, ''), 10) || 0;
         if (!isPoint && amt > 0 && owner === 'B1') {
           const ccy = normalizeCurrencyType(name);                  // 乐园币 / 灵魂钱币
-          store.adjustCurrency(ccy, amt);
+          store.adjustCurrency(ccy, amt, `正文获得·${name}`);        // 开箱/掉落等直接入账 → 进流水
           console.log(`[Item] 「${name}」是货币 → 直接计入钱包 +${amt} ${ccy}（不建成物品死条目）`);
         } else {
           console.warn(`[Item] 拒绝把货币/点数「${name}」createItem 成物品（${isPoint ? '点数只在【世界结算】发放' : amt <= 0 ? '数量缺失/为0、无法计入' : 'NPC 货币不计入主角钱包'}；已忽略死条目）`);
@@ -633,12 +705,13 @@ function applyOneItemCommand(cmd: ItemCommand, store: any, npcEquipDupCtx?: Map<
         break;
       }
       const type = normalizeCurrencyType(data.type ?? data.grade);
+      const rsn = String(data.reason ?? data.note ?? '').trim();   // AI 可在指令里带 reason → 进货币流水
       if (data.to === 'B1' || data.from === null || data.from === undefined) {
-        store.adjustCurrency(type, amount);
+        store.adjustCurrency(type, amount, rsn || '正文入账（奖励/交易/掉落）');
         console.log(`[Item] 获得 +${amount} ${type}`);
       }
       if (data.from === 'B1' || data.to === null || data.to === undefined) {
-        store.adjustCurrency(type, -amount);
+        store.adjustCurrency(type, -amount, rsn || '正文支出（消费/给予）');
         console.log(`[Item] 支出 -${amount} ${type}`);
       }
       break;
@@ -714,14 +787,21 @@ function applyOneItemCommand(cmd: ItemCommand, store: any, npcEquipDupCtx?: Map<
         // 同时接受列号('1'..'4')与具名字段；name 仅在嵌套 patch 里才当改名（扁平里的 name 是引用名，不可误当改名）
         if (nested && (p['1'] ?? p.name)) patch.name = p['1'] ?? p.name;
         if (p['2'] ?? p.category) patch.category = normalizeCategory(p['2'] ?? p.category);
-        if (p['3'] ?? p.gradeDesc ?? p.quality)
-          patch.gradeDesc = normalizeGradeLabel(p['3'] ?? p.gradeDesc ?? p.quality, { score: p.score, grade: (p.numeric as any)?.grade }).grade;
+        // ★品级/评分锁（治"同一件装备品级随受损/演化在 史诗↔绿色 乱跳"）：品级=物品固有稀有度，
+        //   只由前端强化/觉醒/宝石(确定性系统·直接 store.updateItem，不走本 AI 指令路径)改；AI 演化绝不改已有物品的品级/评分。
+        //   受损/使用只体现在 耐久度/杀敌数/攻防叙述，绝不降/升稀有度。仅当物品【原本缺品级/评分】(异常)时才许 AI 补一次。
+        const gradeIn = p['3'] ?? p.gradeDesc ?? p.quality;
+        if (gradeIn) {
+          const ng = normalizeGradeLabel(gradeIn, { score: item.score ?? p.score, grade: (p.numeric as any)?.grade }).grade;
+          if (!item.gradeDesc || !String(item.gradeDesc).trim()) patch.gradeDesc = ng;
+          else if (ng !== item.gradeDesc) console.warn(`[Item] 品级锁：忽略把「${item.name}」品级改成「${ng}」，保持固有「${item.gradeDesc}」（受损/使用不改稀有度）`);
+        }
         if (p['4'] ?? p.effect) patch.effect = p['4'] ?? p.effect;
         // ↓ 这些具名字段此前被静默丢弃——装备强化收尾刷「词缀(affix)/效果(effect)」全靠它们
         if (p.affix) patch.affix = p.affix;
         if (p.appearance) patch.appearance = p.appearance;
         if (p.intro) patch.intro = p.intro;
-        if (p.score) patch.score = p.score;
+        if (p.score && (!item.score || !String(item.score).trim())) patch.score = p.score;   // 评分随品级一起锁（评分决定品级档·改评分=变相改品级）；仅原本缺评分才补
         if (p.combatStat) patch.combatStat = sanitizeCombatStat(p.combatStat, { name: item.name, category: item.category });
         if (p.durability) patch.durability = p.durability;
         if (p.requirement) patch.requirement = p.requirement;

@@ -89,8 +89,8 @@ export function settleDmDeal(thread: DmThread, deal: DmDeal): DmSettleResult {
   }
 
   // ④ 执行转账（确定性）
-  if (deal.giveCurrency && deal.giveCurrency.amount > 0) items.adjustCurrency(normCur(deal.giveCurrency.type), -deal.giveCurrency.amount);
-  if (deal.getCurrency && deal.getCurrency.amount > 0) items.adjustCurrency(normCur(deal.getCurrency.type), deal.getCurrency.amount);
+  if (deal.giveCurrency && deal.giveCurrency.amount > 0) items.adjustCurrency(normCur(deal.giveCurrency.type), -deal.giveCurrency.amount, '私信交易·付款');
+  if (deal.getCurrency && deal.getCurrency.amount > 0) items.adjustCurrency(normCur(deal.getCurrency.type), deal.getCurrency.amount, '私信交易·收款');
   if (consume && deal.giveItem) {
     items.consumeItem(consume.id, consume.qty);
     if (npcId) addToNpcBag(npcId, deal.giveItem, '主角');

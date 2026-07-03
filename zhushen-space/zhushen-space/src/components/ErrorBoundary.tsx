@@ -1,4 +1,5 @@
 import React from 'react';
+import { setResumeFlag, clearResumeFlag } from '../systems/resumeFlag';
 
 /* 顶层错误边界：任何组件渲染时抛出的异常都被这里兜住，显示一个可恢复的提示，
    而不是让 React 卸载整棵树导致【整页黑屏】。
@@ -9,6 +10,12 @@ import React from 'react';
 
 const PENDING_STARTED = 'drpg-pending-started';   // 与 saveManager 一致：置位后 App 挂载即 setStarted(true)，重载回到游戏
 const RESUME_TS = 'zs-crash-resume-ts';
+const CHUNK_TS = 'zs-chunk-reload-ts';
+// 循环守卫时间戳（防无限刷新/崩溃循环）同样必须跨 location.reload() 存活；沿用 localStorage
+// 而非 sessionStorage（手机/PWA 下 sessionStorage 跨 reload 会丢，守卫失效可能导致刷新循环）。
+const tsGet = (k: string): number => { try { return Number(localStorage.getItem(k) || 0); } catch { return 0; } };
+const tsSet = (k: string): void => { try { localStorage.setItem(k, String(Date.now())); } catch { /* */ } };
+const tsDel = (k: string): void => { try { localStorage.removeItem(k); } catch { /* */ } };
 
 interface State { error: Error | null; loop: boolean; copied: boolean }
 
@@ -20,15 +27,13 @@ export default class ErrorBoundary extends React.Component<{ children: React.Rea
     // 静默刷新一次拿最新版（20s 内只刷一次防循环；置 PENDING_STARTED 使刷新后直接回到游戏）。
     const emsg = String((error as { message?: string })?.message || error || '');
     if (/dynamically imported module|module script failed/i.test(emsg)) {
-      try {
-        const last = Number(sessionStorage.getItem('zs-chunk-reload-ts') || 0);
-        if (Date.now() - last > 20000) {
-          sessionStorage.setItem('zs-chunk-reload-ts', String(Date.now()));
-          sessionStorage.setItem(PENDING_STARTED, '1');
-          location.reload();
-          return { error: null };   // 即将刷新，不显示错误屏
-        }
-      } catch { /* */ }
+      const last = tsGet(CHUNK_TS);
+      if (Date.now() - last > 20000) {
+        tsSet(CHUNK_TS);
+        setResumeFlag(PENDING_STARTED);
+        location.reload();
+        return { error: null };   // 即将刷新，不显示错误屏
+      }
     }
     return { error };
   }
@@ -36,17 +41,17 @@ export default class ErrorBoundary extends React.Component<{ children: React.Rea
   componentDidCatch(error: Error, info: React.ErrorInfo) {
     // 若刚「重载回游戏」就又崩（<10s）→ 常驻渲染崩溃的死循环，改走安全模式（回主界面）
     let loop = false;
-    try { const ts = Number(sessionStorage.getItem(RESUME_TS) || 0); if (ts && Date.now() - ts < 10000) loop = true; } catch { /* */ }
+    const ts = tsGet(RESUME_TS); if (ts && Date.now() - ts < 10000) loop = true;
     if (loop) this.setState({ loop: true });
     console.error('[ErrorBoundary] 渲染崩溃：', error, info?.componentStack);
   }
 
   resumeReload = () => {
-    try { sessionStorage.setItem(PENDING_STARTED, '1'); sessionStorage.setItem(RESUME_TS, String(Date.now())); } catch { /* */ }
+    setResumeFlag(PENDING_STARTED); tsSet(RESUME_TS);
     location.reload();
   };
   safeReload = () => {
-    try { sessionStorage.removeItem(PENDING_STARTED); sessionStorage.removeItem(RESUME_TS); } catch { /* */ }
+    clearResumeFlag(PENDING_STARTED); tsDel(RESUME_TS);
     location.reload();
   };
   copyErr = () => {

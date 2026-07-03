@@ -19,6 +19,7 @@ export interface WorldOption {
   peakPower: string;
   contractorDist: string;
   region: string;
+  identity: string;   // 主角初始身份（该世界切入时以何身份·契约者默认，可为浪人/卧底/伪英灵等）
   entryComment: string;
   entryContent: string;
   entryKeys: string[];
@@ -53,7 +54,10 @@ export interface WorldLib { ids: number[]; nameById: Map<number, string>; count:
 
 // 解析「世界选择 / 休闲」世界书条目 → {世界书原始编号 id → 世界名}。**编号沿用世界书 id（可不连续），与世界书逐一对应**，
 // 不再用「第几个出现」的连续序号（那会因世界库跳号导致 roll 出的编号和世界对不上）。
-// 兼容四种格式：带引号 "id|name"、九阶 bold **id|name**、裸行 id|name、休闲 YAML id:/name:。
+// 兼容五种格式：① 四~八阶主库散文式「N. **世界名** | **副标题**：描述」(最高优先·N=编号·取首个粗体为名)、
+//   ② 带引号 "id|name"、③ 九阶 bold **id|name**、④ 裸行 id|name、⑤ 休闲 YAML id:/name:。
+//   ①置首：四~八阶主世界库以此格式承载数百个世界(旧解析器认不出→roll编号对不上世界)，让规范编号(1=我欲封天…与一~三阶一致)胜出；
+//   一~三/九阶无此格式故①命中0、行为不变；同编号撞重保留首个 → 主库编号压过误编号为1的「原生世界」小表。
 export function parseWorldLib(content: string): WorldLib {
   const nameById = new Map<number, string>();
   const ids: number[] = [];
@@ -66,6 +70,7 @@ export function parseWorldLib(content: string): WorldLib {
     ids.push(id);
   };
   const patterns = [
+    /(?:^|[\r\n])[ \t]*(\d+)[.、]\s*\*\*([^*\n|]+?)\*\*\s*[|｜]/g,
     /"(\d+)\|([^"|]+)"/g,
     /\*\*(\d+)\|([^*|]+)\*\*/g,
     /(?:^|[\r\n])[ \t>*-]*(\d+)\|([^"\n\r*|]+)/g,
@@ -296,6 +301,7 @@ export default function WorldSelector({ onRawResponse, onPromptSent, onWorlds, o
         peakPower:   s(w.peakPower ?? w['世界巅峰战力']),
         contractorDist: s(w.contractorDist ?? w['契约者分布'] ?? w.contractor),
         region:      s(w.region ?? w['主要任务限定区域']),
+        identity:    s(w.identity ?? w['身份'] ?? w['主角身份']),
         entryComment: '',
         entryContent: '',
         entryKeys: [],

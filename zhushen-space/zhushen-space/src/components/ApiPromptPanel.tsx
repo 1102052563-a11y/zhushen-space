@@ -122,7 +122,7 @@ function DbgCard({ label, role, content, onCopy, tag, copied, defaultOpen }: {
         <span className="shrink-0 text-dim text-[10px] w-3 text-center">{open ? '∧' : '∨'}</span>
       </div>
       {open && (
-        <div className="border-t border-edge/40 px-2.5 py-2 max-h-[42vh] overflow-y-auto">
+        <div className="border-t border-edge/40 px-2.5 py-2 max-h-[42dvh] overflow-y-auto">
           <pre className="text-[11px] font-mono text-slate-300 whitespace-pre-wrap break-words leading-relaxed">{content || '（空）'}</pre>
         </div>
       )}

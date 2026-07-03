@@ -109,8 +109,8 @@ function carryLootToMainline(loot: AbyssLoot[]): void {
   const I = useItems.getState();
   for (const l of loot) {
     if (l.kind === 'currency') {
-      if (l.name === '乐园币') I.adjustCurrency('乐园币', l.qty ?? 0);
-      else if (l.name === '灵魂钱币') I.adjustCurrency('灵魂钱币', l.qty ?? 0);
+      if (l.name === '乐园币') I.adjustCurrency('乐园币', l.qty ?? 0, '深渊地牢·战利品带出');
+      else if (l.name === '灵魂钱币') I.adjustCurrency('灵魂钱币', l.qty ?? 0, '深渊地牢·战利品带出');
       continue;
     }
     I.addItem({
@@ -191,7 +191,7 @@ export const useAbyss = create<AbyssState>()(
         const I = useItems.getState();
         const ticket = get().config.ticketCost;
         if ((I.currency.乐园币 ?? 0) < ticket) return false;
-        I.adjustCurrency('乐园币', -ticket);
+        I.adjustCurrency('乐园币', -ticket, '深渊地牢·入场券');
         const hardcore = !!opts?.hardcore;
         const npcs = useNpc.getState().npcs;
         const allies = hardcore ? [] : (opts?.allyIds ?? []).slice(0, 3).map((id, i) => {

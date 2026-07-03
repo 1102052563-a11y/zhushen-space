@@ -25,7 +25,7 @@ export default function RaidLootModal({ onClose }: { onClose: () => void }) {
 
   return (
     <div className="fixed inset-0 z-[60] bg-black/70 backdrop-blur-sm flex items-center justify-center p-4" onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}>
-      <div className="w-full max-w-md rounded-2xl border border-edge bg-void shadow-[0_0_60px_rgba(0,0,0,0.8)] overflow-hidden flex flex-col max-h-[85vh]">
+      <div className="w-full max-w-md rounded-2xl border border-edge bg-void shadow-[0_0_60px_rgba(0,0,0,0.8)] overflow-hidden flex flex-col max-h-[85dvh]">
         <header className="shrink-0 px-5 py-3 border-b border-edge bg-panel flex items-center gap-2">
           <span className="text-amber-300/80 text-lg">🏆</span>
           <div className="flex-1 text-base font-bold text-slate-100">讨伐胜利 · 战利分配 <span className="text-[12px] font-mono text-dim/50">{lt.bossName}</span></div>

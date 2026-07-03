@@ -3,6 +3,8 @@ import { persist } from 'zustand/middleware';
 import type { ApiConfig } from './settingsStore';
 import { useSettings } from './settingsStore';
 import { normalizeEquipSlot } from '../systems/equipSlots';
+import { walletAdjust, walletSet } from '../systems/ledger/walletCore';   // Step 10 事件核心·货币影子记账
+import { itemCreate, itemConsume, commitItems } from '../systems/ledger/itemCore';   // Step 10 事件核心·物品影子记账 + facade 规范化闸门
 
 export type ItemCategory =
   // 装备类
@@ -35,13 +37,30 @@ export type ItemGrade = typeof ITEM_GRADES[number];
  *  无【】则整段当一条。前瞻 split 只在每个【前断开，说明里的「：；」不会被拆碎。
  *  兼容 AI 偶尔把词缀写成**数组**或**JSON 数组串** `["条1","条2"]`：逐条拆出、剥掉 [ " , ] 引号括号噪音
  *  （治"词缀显示成 ["…","…"] 这种怪格式"）。String() 兜底：万一是数字/对象也不崩。供各物品面板复用。*/
+/** 单条词缀 → 文本：兼容 AI 把每条词缀写成对象 `{name,desc}`（→ "【名】：说明"）/ 纯字符串 / 其它。*/
+function affixEntryToStr(x: any): string {
+  if (x == null) return '';
+  if (typeof x === 'string') return x.trim();
+  if (typeof x === 'object' && !Array.isArray(x)) {
+    // 用 asText 取字段（非裸 String）：字段值本身若又是对象——如 AI 按「词缀/效果/数值三分」写成
+    // {name, effect:{desc,value}} 或缺 name 只给 {effect:{...}}——也会被递归扁平化，绝不吐 [object Object]
+    // （频道/私信交易物品词缀显示成 [object Object] 的根因）。
+    const name = asText(x.name ?? x.title ?? x.label ?? '').trim();
+    const desc = asText(x.desc ?? x.description ?? x.text ?? x.effect ?? x.value ?? '').trim();
+    if (name && desc) return `${name}${/[:：]\s*$/.test(name) ? '' : '：'}${desc}`;
+    return name || desc || '';
+  }
+  return asText(x).trim();   // 数组等 → asText（原 String(x) 会把对象/对象数组变 [object Object]）
+}
+
 export function splitAffixEntries(text?: unknown): string[] {
-  if (Array.isArray(text)) return text.map((x) => String(x ?? '').trim()).filter(Boolean);   // 本就是数组 → 直接逐条
+  if (Array.isArray(text)) return text.map(affixEntryToStr).filter(Boolean);   // 数组(字符串或 {name,desc} 对象) → 逐条
+  if (text && typeof text === 'object') { const s = affixEntryToStr(text); return s ? [s] : []; }   // 单个对象 → 走 asText 扁平化，不再 String()→[object Object]
   let t = String(text ?? '').trim();
   if (!t) return [];
-  // JSON 数组串 ["a","b"] → 解析出来逐条（AI 把多条词缀打包成数组字符串时出现）
+  // JSON 数组串 ["a","b"] / [{...}] → 解析出来逐条（AI 把多条词缀打包成数组字符串时出现）
   if (t.startsWith('[') && t.endsWith(']')) {
-    try { const arr = JSON.parse(t); if (Array.isArray(arr)) return arr.map((x) => String(x ?? '').trim()).filter(Boolean); } catch { /* 非合法 JSON → 往下按文本处理 */ }
+    try { const arr = JSON.parse(t); if (Array.isArray(arr)) return arr.map(affixEntryToStr).filter(Boolean); } catch { /* 非合法 JSON → 往下按文本处理 */ }
     t = t.replace(/^\[\s*"?|"?\s*\]$/g, '').replace(/"\s*,\s*"/g, '\n');   // 解析失败兜底：剥掉首尾 [ " ] 与条目间 "," 噪音
   }
   if (!t.includes('【')) return t.split('\n').map((s) => s.trim()).filter(Boolean) || [t];
@@ -49,18 +68,22 @@ export function splitAffixEntries(text?: unknown): string[] {
 }
 
 /** 安全把「本该是字符串、却被 AI 偶尔写成对象/数组」的字段转成可渲染文本，避免 React #31
- *  「Objects are not valid as a React child」整页崩（典型：combatStat / damage 被写成 {atk:15}）。
- *  {atk:15,def:8} → "atk:15 def:8"；[a,b] → "a / b"；字符串/数字原样。供直接渲染这类字段的面板兜底。*/
+ *  「Objects are not valid as a React child」整页崩（典型：combatStat 被写成 {atk:15}、词缀被写成 [{name,desc}]）。
+ *  {name,desc} → "名：说明"；{atk:15,def:8} → "atk:15 def:8"；[a,b] → "a / b"；字符串/数字原样。供直接渲染这类字段的面板兜底。*/
 export function asText(v: unknown): string {
   if (v == null) return '';
   if (typeof v === 'string') return v;
   if (typeof v === 'number' || typeof v === 'boolean') return String(v);
   if (Array.isArray(v)) return v.map(asText).filter(Boolean).join(' / ');
   if (typeof v === 'object') {
+    const o = v as Record<string, unknown>;
+    const nm = o.name ?? o.title ?? o.label;   // 词缀/能力对象 {name,desc} → "名：说明"（不带机读味的 key:）
+    if (typeof nm === 'string' && nm.trim()) {
+      const ds = o.desc ?? o.description ?? o.text ?? o.effect;
+      return ds != null && String(ds).trim() ? `${nm.trim()}：${String(ds).trim()}` : nm.trim();
+    }
     try {
-      return Object.entries(v as Record<string, unknown>)
-        .map(([k, val]) => { const t = asText(val); return t ? `${k}:${t}` : ''; })
-        .filter(Boolean).join(' ');
+      return Object.entries(o).map(([k, val]) => { const t = asText(val); return t ? `${k}:${t}` : ''; }).filter(Boolean).join(' ');
     } catch { return ''; }
   }
   return String(v);
@@ -269,6 +292,7 @@ export interface InventoryItem {
   notes?: string;
   acquisition?: string;   // 获得途径
   locked?: boolean;       // 锁定后不可删除
+  archived?: boolean;     // 放入「不常用空间」：主列表隐藏，仅在不常用空间可见（纯收纳·不影响装备/数值/演化）
   // ── 固定条目模板（物品/装备生成必填，对齐生成卡格式）──
   origin?: string;        // 产地（如 黑铁纪元·废都）
   subType?: string;       // 类型细分（如 单手短刀/劈砍武器；category 是大类）
@@ -350,7 +374,7 @@ interface ItemState {
   dedupeByName: () => number;   // 合并背包内同名重复物品（防 AI 重复 createItem），返回合并掉的数量
   clearAll: () => void;
 
-  adjustCurrency: (type: keyof CurrencyWallet, delta: number) => void;
+  adjustCurrency: (type: keyof CurrencyWallet, delta: number, reason?: string) => void;   // reason=增减缘由（进货币流水·walletLedger 展示）
   setCurrency: (wallet: Partial<CurrencyWallet>) => void;
 
   setSettings: (patch: Partial<Omit<ItemPresetSettings, 'entries'>>) => void;
@@ -438,13 +462,16 @@ export const useItems = create<ItemState>()(
             const ng = normalizeGradeLabel(item.gradeDesc, { score: (item as any).score, grade: (item as any).numeric?.grade });
             if (ng.changed) item = { ...item, gradeDesc: ng.grade };
           }
+          try { itemCreate(item.name, item.gradeDesc, Number(item.quantity ?? 1) || 1); } catch { /* 物品影子记账失败绝不阻断主流程 */ }
           const wantId = (item as { id?: string }).id;
           const wantEquipped = !!(item as { equipped?: boolean }).equipped;
           // ① 指定 id 且该 id 已存在：同名→原地更新（防重复生成、保留装备/锁定）；异名→落到堆叠/新增
           if (wantId) {
             const existing = s.items.find((it) => it.id === wantId);
             if (existing && (existing.name ?? '') === (item.name ?? '')) {
-              return { items: s.items.map((it) => it.id === wantId ? { ...it, ...item, id: wantId, equipped: it.equipped, equipSlot: it.equipSlot, locked: it.locked } as InventoryItem : it) };
+              // 原地更新保留用户/固有状态：装备槽、锁定，**及品级/评分**——AI 重生成同一件绝不改稀有度（治"品级随受损/演化在 史诗↔绿色 乱跳"；
+              //   前端强化/觉醒/宝石升品级走 store.updateItem 不经此路，不受影响）。仅原本缺品级/评分才采用新值。
+              return { items: s.items.map((it) => it.id === wantId ? { ...it, ...item, id: wantId, equipped: it.equipped, equipSlot: it.equipSlot, locked: it.locked, gradeDesc: it.gradeDesc || item.gradeDesc, score: (it as any).score ?? (item as any).score } as InventoryItem : it) };
             }
             if (existing) console.warn(`[Item] id ${wantId} 已被「${existing.name}」占用，新物品「${item.name}」改用新 id 防覆盖`);
           }
@@ -483,22 +510,29 @@ export const useItems = create<ItemState>()(
         markAccountedRemoval(id);   // 经官方方法移除（多为交易/赌坊/赠予等主动转出）→ 登记，看门狗不误捞
         set((s) => {
           const it = s.items.find((x) => x.id === id);
-          if (it) logItemEvent(s.itemTurn, '转出/移除', it.name, '经 removeItem（交易/赌坊/赠予等主动转出）');
+          if (it) {
+            logItemEvent(s.itemTurn, '转出/移除', it.name, '经 removeItem（交易/赌坊/赠予等主动转出）');
+            try { itemConsume(it.name, it.gradeDesc, Number(it.quantity ?? 1) || 1); } catch { /* 物品影子记账失败绝不阻断 */ }
+          }
           return { items: s.items.filter((x) => x.id !== id) };
         });
       },
 
       consumeItem: (id, quantity) =>
-        set((s) => ({
-          items: s.items.flatMap((it) => {
-            if (it.id !== id) return [it];
-            const next = it.quantity - quantity;
-            if (next > 0) return [{ ...it, quantity: next }];
-            markAccountedRemoval(id);   // 整件用尽/卖尽 → 登记移除，看门狗不误捞
-            logItemEvent(s.itemTurn, '消耗用尽', it.name, `consumeItem ×${quantity}`);
-            return [];
-          }),
-        })),
+        set((s) => {
+          const it0 = s.items.find((x) => x.id === id);
+          if (it0) { try { itemConsume(it0.name, it0.gradeDesc, quantity); } catch { /* 物品影子记账失败绝不阻断 */ } }
+          return {
+            items: s.items.flatMap((it) => {
+              if (it.id !== id) return [it];
+              const next = it.quantity - quantity;
+              if (next > 0) return [{ ...it, quantity: next }];
+              markAccountedRemoval(id);   // 整件用尽/卖尽 → 登记移除，看门狗不误捞
+              logItemEvent(s.itemTurn, '消耗用尽', it.name, `consumeItem ×${quantity}`);
+              return [];
+            }),
+          };
+        }),
 
       // 移入「最近删除」回收站：从背包移除 + 记下删除回合与原因（解除装备态，恢复时不占槽）；表头去重保最近，封顶 100
       binItem: (item, info) => {
@@ -552,7 +586,7 @@ export const useItems = create<ItemState>()(
       clearBag: () => {
         let removed = 0;
         set((s) => {
-          const kept = s.items.filter((it) => it.equipped || it.locked);
+          const kept = s.items.filter((it) => it.equipped || it.locked || it.archived);   // 已装备/已锁定/不常用空间(収納) 都保留
           removed = s.items.length - kept.length;
           return { items: kept };
         });
@@ -590,11 +624,15 @@ export const useItems = create<ItemState>()(
 
       clearAll: () => set({ items: [], currency: { 乐园币: 0, 灵魂钱币: 0, 技能点: 0, 黄金技能点: 0 }, recentlyDeleted: [], itemTurn: 0 }),
 
-      adjustCurrency: (type, delta) =>
-        set((s) => ({ currency: { ...s.currency, [type]: Math.max(0, s.currency[type] + delta) } })),
+      adjustCurrency: (type, delta, reason) => {
+        try { walletAdjust(String(type), delta, reason ? { reason } : undefined); } catch { /* 影子记账失败绝不阻断主流程 */ }
+        set((s) => ({ currency: { ...s.currency, [type]: Math.max(0, s.currency[type] + delta) } }));
+      },
 
-      setCurrency: (wallet) =>
-        set((s) => ({ currency: { ...s.currency, ...wallet } })),
+      setCurrency: (wallet) => {
+        try { walletSet(wallet as Record<string, number>); } catch { /* 影子记账失败绝不阻断 */ }
+        set((s) => ({ currency: { ...s.currency, ...wallet } }));
+      },
 
       setSettings: (patch) =>
         set((s) => ({ settings: { ...s.settings, ...patch } })),
@@ -734,33 +772,70 @@ export const useItems = create<ItemState>()(
     {
       name: 'drpg-items',
       // 物品图(image)体积大，不写 localStorage（改存 IndexedDB）
-      partialize: (s: any) => ({ ...s, items: Array.isArray(s.items) ? s.items.map((it: any) => ({ ...it, image: undefined })) : s.items }),
+      partialize: (s: any) => ({
+        ...s,
+        items: Array.isArray(s.items) ? s.items.map((it: any) => ({ ...it, image: undefined })) : s.items,
+        // ★「最近删除」条目同样剥掉大体积 image（图在 IndexedDB·恢复时回填）+ 条目封顶——否则删掉带生图的装备会把
+        //   drpg-items 撑爆 localStorage 配额、persist 静默失败 → 这次删除没落盘，刷新后「最近删除」就空了（用户报此 bug）。
+        recentlyDeleted: Array.isArray(s.recentlyDeleted)
+          ? s.recentlyDeleted.slice(-100).map((it: any) => ({ ...it, image: undefined }))
+          : s.recentlyDeleted,
+      }),
       // 迁移：旧版用 systemPrompt: string，新版改为 entries[]
       // merge 确保旧 localStorage 数据不会因为缺 entries 字段而崩溃
-      merge: (persisted: any, current) => ({
-        ...current,
-        ...persisted,
-        settings: {
-          ...current.settings,
-          ...(persisted?.settings ?? {}),
-          entries: Array.isArray(persisted?.settings?.entries)
-            ? persisted.settings.entries
-            : current.settings.entries,
-          systemPrompt: undefined,
-        },
-        // 货币迁移：旧版 spiritStones → 新版 currency（直接用默认值，旧数据丢弃）
-        currency: { ...current.currency, ...(persisted?.currency ?? {}) },
-        // 旧版没有 itemApi 时用默认值
-        itemApi: { ...current.itemApi, ...(persisted?.itemApi ?? {}) },
-        itemUseSharedApi: persisted?.itemUseSharedApi ?? current.itemUseSharedApi,
-        // 运行时状态不持久化
-        itemAvailableModels: [],
-        itemModelsLoading: false,
-        itemModelsError: '',
-      }),
+      merge: (persisted: any, current) => {
+        const m: any = {
+          ...current,
+          ...persisted,
+          settings: {
+            ...current.settings,
+            ...(persisted?.settings ?? {}),
+            entries: Array.isArray(persisted?.settings?.entries)
+              ? persisted.settings.entries
+              : current.settings.entries,
+            systemPrompt: undefined,
+          },
+          // 货币迁移：旧版 spiritStones → 新版 currency（直接用默认值，旧数据丢弃）
+          currency: { ...current.currency, ...(persisted?.currency ?? {}) },
+          // 旧版没有 itemApi 时用默认值
+          itemApi: { ...current.itemApi, ...(persisted?.itemApi ?? {}) },
+          itemUseSharedApi: persisted?.itemUseSharedApi ?? current.itemUseSharedApi,
+          // 运行时状态不持久化
+          itemAvailableModels: [],
+          itemModelsLoading: false,
+          itemModelsError: '',
+        };
+        // 物品 facade：读档时就把持久化里已有的重复 id 塌掉（rehydrate 必经此处·比 subscribe 时序可靠）
+        try { if (Array.isArray(m.items)) m.items = commitItems(m.items, 'rehydrate').items; } catch { /* */ }
+        return m;
+      },
     }
   )
 );
+
+/* ── 物品 facade 闸门（Step 10·唯一规范化 chokepoint）──────────────────────────
+   任何 items 变化（含外部 setState/撤销·所有内部 action）都会触发此 subscribe，经 itemCore.commitItems
+   按 **id 键去重**（结构上根除"背包两条同 id 双计"）。只有真塌掉重复时才回写（避免无谓 re-render）。
+   循环护栏 `_canonicalizing` + try 兜底（绝不阻断/崩）。这就是"itemStore.items 经 itemCore 权威闸门"的物品 facade。 */
+let _canonicalizing = false;
+useItems.subscribe((state, prev) => {
+  if (_canonicalizing || state.items === prev.items) return;
+  try {
+    const { items, collapsed } = commitItems(state.items, 'facade');
+    if (collapsed > 0) {
+      _canonicalizing = true;
+      useItems.setState({ items });
+      _canonicalizing = false;
+      console.warn(`[物品facade] 规范化塌掉重复 id ×${collapsed}（背包同 id 双计已结构性根除）`);
+    }
+  } catch (e) { _canonicalizing = false; console.warn('[物品facade] 规范化失败（忽略）:', e); }
+});
+// 注册后立即规范化一次：rehydrate（读档/刷新）在 create() 内同步发生、早于上面 subscribe 挂载，
+// 故初始态里若已有重复 id（老存档）不会被 subscribe 捕获——这里补一刀兜住。
+try {
+  const { items, collapsed } = commitItems(useItems.getState().items, 'init');
+  if (collapsed > 0) { useItems.setState({ items }); console.warn(`[物品facade] 初始规范化塌掉重复 id ×${collapsed}`); }
+} catch { /* */ }
 
 /* ── 从 JSON 构建有效 system prompt（仅 enabled 条目） ── */
 export function buildItemSystemPrompt(entries: ItemPresetEntry[]): string {

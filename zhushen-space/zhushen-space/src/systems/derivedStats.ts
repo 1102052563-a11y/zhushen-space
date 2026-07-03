@@ -1,5 +1,5 @@
 import type { PlayerAttrs } from '../store/playerStore';
-import { effectiveAttrs, ATTR_KEYS } from './attrBonus';
+import { effectiveAttrs, withAttrDelta, ATTR_KEYS } from './attrBonus';
 
 /* 衍生属性（主角与 NPC 共用）：由六维 + 等级 + 已装备物品换算
    - 物理ATK：max(力,敏)主导 + 武器          - 物理DEF：体质 + 防具
@@ -313,6 +313,61 @@ export function fullMaxEp(
   return baseMaxEp(attrs, equipped, skills, traits, realMult, ratio)
     + vitalCrossBonus(crossTexts(equipped, skills, traits), 'ep', baseMaxHp(attrs, equipped, skills, traits, realMult, ratio));
 }
+/* HP/EP 上限「构成明细」（供血条点击弹层展示：基础六维换算 + 各效果逐条加成）。
+   分量与 fullMaxHp/EP 严格同口径：total 恒 === fullMaxHp/EP。
+   ① attrBase = 六维换算(含技能树/团队/装备/技能天赋的六维加成折算·×realMult)；
+   ② flatItems = 逐件装备/逐个技能天赋写明的「生命/法力上限 +N」平值；
+   ③ pctItems = 「最大HP +6%」类百分比（作用于 attrBase+平值 之上）；pctAdd = 百分比实际增加的点数；
+   ④ crossItems = 「生命 = 最大法力 X%」类跨资源加成。 */
+export interface VitalBreakItem { name: string; source: '装备' | '技能' | '天赋'; amount: number; }
+export interface VitalPctItem { name: string; source: '装备' | '技能' | '天赋'; pct: number; }
+export interface VitalBreakdown {
+  kind: 'hp' | 'ep';
+  attrBase: number; realMult: number;
+  flatItems: VitalBreakItem[]; flatTotal: number;
+  pctItems: VitalPctItem[]; pctTotal: number; pctAdd: number;
+  crossItems: VitalBreakItem[]; crossTotal: number;
+  total: number;   // === fullMaxHp/EP
+}
+type NamedGear = GearLite & { name?: string };
+type NamedAbility = AbilityLite & { name?: string };
+export function computeVitalBreakdown(
+  kind: 'hp' | 'ep',
+  attrs?: PlayerAttrs,
+  equipped: NamedGear[] = [],
+  skills: NamedAbility[] = [],
+  traits: NamedAbility[] = [],
+  realMult = 1,
+  ratio?: VitalRatio,
+): VitalBreakdown {
+  const eff = effectiveAttrs(attrs, skills as any, traits as any, equipped as any);
+  const attrBase = kind === 'hp' ? computeMaxHp(eff, realMult, ratio) : computeMaxEp(eff, realMult, ratio);
+  const gearTexts = (it: NamedGear) => pickVitalTexts([it.effect, it.affix, it.combatStat], it.attrBonus, kind);
+  const abilTexts = (a: NamedAbility) => pickVitalTexts([a.effect, a.desc], a.attrBonus, kind);
+  // ② 平值上限（逐件/逐技能）
+  const flatItems: VitalBreakItem[] = [];
+  for (const it of equipped) { const a = vitalMaxBonus(gearTexts(it), kind); if (a) flatItems.push({ name: it.name || '装备', source: '装备', amount: a }); }
+  for (const s of skills)   { const a = vitalMaxBonus(abilTexts(s), kind); if (a) flatItems.push({ name: s.name || '技能', source: '技能', amount: a }); }
+  for (const t of traits)   { const a = vitalMaxBonus(abilTexts(t), kind); if (a) flatItems.push({ name: t.name || '天赋', source: '天赋', amount: a }); }
+  const flatTotal = flatItems.reduce((s, x) => s + x.amount, 0);
+  // ③ 百分比（逐件/逐技能）
+  const pctItems: VitalPctItem[] = [];
+  for (const it of equipped) { const p = vitalMaxPctBonus(gearTexts(it), kind); if (p) pctItems.push({ name: it.name || '装备', source: '装备', pct: p }); }
+  for (const s of skills)   { const p = vitalMaxPctBonus(abilTexts(s), kind); if (p) pctItems.push({ name: s.name || '技能', source: '技能', pct: p }); }
+  for (const t of traits)   { const p = vitalMaxPctBonus(abilTexts(t), kind); if (p) pctItems.push({ name: t.name || '天赋', source: '天赋', pct: p }); }
+  const pctTotal = pctItems.reduce((s, x) => s + x.pct, 0);
+  const afterPct = Math.round((attrBase + flatTotal) * (1 + pctTotal / 100));   // === baseMaxHp/EP
+  const pctAdd = afterPct - (attrBase + flatTotal);
+  // ④ 跨资源（逐条·用另一资源的 base，与 fullMaxHp/EP 同口径）
+  const otherBase = kind === 'hp' ? baseMaxEp(attrs, equipped, skills, traits, realMult, ratio) : baseMaxHp(attrs, equipped, skills, traits, realMult, ratio);
+  const crossItems: VitalBreakItem[] = [];
+  for (const it of equipped) { const c = vitalCrossBonus([it.effect, it.affix, it.combatStat, it.attrBonus], kind, otherBase); if (c) crossItems.push({ name: it.name || '装备', source: '装备', amount: c }); }
+  for (const s of skills)   { const c = vitalCrossBonus([s.effect, s.desc, s.attrBonus], kind, otherBase); if (c) crossItems.push({ name: s.name || '技能', source: '技能', amount: c }); }
+  for (const t of traits)   { const c = vitalCrossBonus([t.effect, t.desc, t.attrBonus], kind, otherBase); if (c) crossItems.push({ name: t.name || '天赋', source: '天赋', amount: c }); }
+  const crossTotal = crossItems.reduce((s, x) => s + x.amount, 0);
+  return { kind, attrBase, realMult, flatItems, flatTotal, pctItems, pctTotal, pctAdd, crossItems, crossTotal, total: afterPct + crossTotal };
+}
+
 /* 「当前值」显示：
    - 从未设过(undefined) → 视为满（= 当前上限），仅用于角色刚建档、还没发生任何增减时
    - 已有具体当前值 → **原样保留**，只夹到 [0, 上限] 内
@@ -423,6 +478,15 @@ export function realAttrCapForTier(tier?: string, level?: number): number {
 /* 真实属性·战斗/HP 倍率（2026-06-24·5:1强制）：四阶起「六维即真实属性」、1真实=5普通之效，
    故 HP/EP 池(体×20/智×15)与战斗攻防/伤害(computeDerived/strengthBonus)按此倍率放大；一~三阶普通属性=1。
    传入 computeMaxHp/EP、fullMaxHp/EP 的 realMult 参数，或在战斗块里缩放参战六维。 */
+/* NPC「HP/EP/衍生 基础六维」= 基础 attrs + 真实属性点直加(realAttrs)。与战斗 buildNpc(npcBase) 严格同口径
+   （realAttrs 直加并入六维→自动进 攻防/HP/EP）。NPC 无技能树/团队加成（主角专属）；装备/技能/天赋的六维加成
+   由 fullMaxHp/EP 内部 effectiveAttrs 折算、不在此。
+   ⚠ 多处 NPC 的 fullMaxHp/computeMaxHp 曾只传 npc.attrs 漏 realAttrs → 给 NPC 加真实属性点不涨血/蓝
+   （与主角 realAttrs 漏算同源，见 playerBaseAttrs）。所有 NPC vitals 计算都走这里，防漂移。 */
+export function npcBaseAttrs(npc?: { attrs?: PlayerAttrs; realAttrs?: Partial<PlayerAttrs> }): PlayerAttrs {
+  return withAttrDelta(npc?.attrs, npc?.realAttrs);
+}
+
 export const REAL_ATTR_MULT = 5;
 export function realAttrMult(tier?: string, level?: number): number {
   const idx = TIERS.indexOf((normalizeTier(tier) || (level != null ? realmFromLevel(level) : '')) as typeof TIERS[number]);

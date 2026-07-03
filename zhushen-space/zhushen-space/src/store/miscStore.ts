@@ -22,6 +22,8 @@ export interface QuestRing {
   optional?: boolean; // 贪婪环(可选)：高潮之后的延伸；失败仅损失本环额外奖励、不致死。强制环不设此项
   startTime?: string; // 本环执行窗口（绝对游戏时间）
   endTime?: string;
+  summary?: string;   // 本环达成时·主角这一环的关键行为/结果总结（1~2句，杂项AI在 ringAdvance 时给）；面板展示 + 结算逐环评价用
+  rating?: string;    // 本环评级 S/A/B/C/D/E（达成时由杂项AI给）；面板展示 + 结算逐环参考
 }
 
 export interface MiscTask {
@@ -74,6 +76,7 @@ export function mergeRings(existing: QuestRing[] | undefined, incoming: QuestRin
 /* 已结算（完成/失败/放弃）的任务：移出"进行中"列表，留档供面板查看，不再注入提示词 */
 export interface ArchivedTask extends MiscTask {
   settledAt: number;
+  worldName?: string;   // 结算入档时主角所处世界；供【结算任务】按世界筛出"本世界已完成任务"喂给结算 AI 对账
 }
 
 export interface WorldEvent {
@@ -209,7 +212,7 @@ interface MiscState {
   updateTask: (id: string, patch: Partial<MiscTask>) => void;
   removeTask: (id: string) => void;
   settleTask: (id: string, status: string) => void;   // 结算：移出进行中→归档
-  advanceRing: (id: string) => void;   // 推进：当前 active 环→done，下一 planned 环→active，同步顶层快照
+  advanceRing: (id: string, done?: { summary?: string; rating?: string }) => void;   // 推进：当前 active 环→done（并记下该环行为总结/评级）、下一 planned 环→active，同步顶层快照
   clearArchivedTasks: () => void;
   nextTaskId: () => string;
   addWorldEvent: (e: Omit<WorldEvent, 'id'>) => void;
@@ -287,19 +290,24 @@ export const useMisc = create<MiscState>()(
         set((s) => {
           const t = s.tasks.find((x) => x.id === id);
           if (!t) return s;   // 进行中列表里没有 → 不结算（防误删/重复）
-          const archived: ArchivedTask = { ...t, status: status || t.status || '已完成', settledAt: Date.now() };
+          const archived: ArchivedTask = { ...t, status: status || t.status || '已完成', settledAt: Date.now(), worldName: s.worldName || undefined };
           return {
             tasks: s.tasks.filter((x) => x.id !== id),
             archivedTasks: [archived, ...s.archivedTasks.filter((x) => x.id !== id)].slice(0, 40),
           };
         }),
-      advanceRing: (id) =>
+      advanceRing: (id, done) =>
         set((s) => ({
           tasks: s.tasks.map((t) => {
             if (t.id !== id || !Array.isArray(t.rings) || t.rings.length === 0) return t;
             const rings = t.rings.map((r) => ({ ...r }));
             const cur = rings.find((r) => r.status === 'active');
-            if (cur) cur.status = 'done';
+            if (cur) {
+              cur.status = 'done';
+              // 记下主角这一环的行为总结与评级（供面板逐环展示 + 结算逐环评价；缺省不覆盖既有）
+              if (done?.summary && String(done.summary).trim()) cur.summary = String(done.summary).trim();
+              if (done?.rating && String(done.rating).trim()) cur.rating = String(done.rating).trim();
+            }
             // 晋升下一个 planned 环（按 idx 最小者）为 active
             const next = rings
               .filter((r) => r.status === 'planned')

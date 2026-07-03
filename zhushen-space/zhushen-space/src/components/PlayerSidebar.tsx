@@ -4,7 +4,7 @@ import { useGame } from '../store/gameStore';
 import { useItems, gradeToNum } from '../store/itemStore';
 import { StatusChips, SegmentedText } from './NpcDetail';
 import StatusEffectChips from './StatusEffectChips';
-import { computeDerived, tierFxClass, realmFromLevel, effectiveResource, fullMaxHp, fullMaxEp, realAttrMult, attrCapForTier, ratioOf, ATTR_SHORT } from '../systems/derivedStats';
+import { computeDerived, tierFxClass, realmFromLevel, effectiveResource, fullMaxHp, fullMaxEp, realAttrMult, attrCapForTier, ratioOf, ATTR_SHORT, computeVitalBreakdown } from '../systems/derivedStats';
 import { useResource } from '../store/resourceStore';
 import { playerResourceMax, refillAllVitals } from '../systems/playerVitals';
 import { useCharacters } from '../store/characterStore';
@@ -215,6 +215,7 @@ export default function PlayerSidebar({ onClose }: { onClose?: () => void }) {
   const derived = computeDerived(effAttrs, profile.level, equipped);   // 衍生属性按"有效六维(含真实属性点直加)"算（不含战斗内四阶×5）
   const derivedNoEq = computeDerived(effAttrs, profile.level, []);     // 仅六维+等级部分（拆出装备贡献）
   const [attrPop, setAttrPop] = useState<keyof PlayerAttrs | null>(null);   // 点击查看属性构成
+  const [vitalPop, setVitalPop] = useState<'hp' | 'ep' | null>(null);        // 点击血条查看 HP/EP 上限构成
   const [derivedPop, setDerivedPop] = useState<keyof typeof derived | null>(null);
   // 属性加点（待确认 / 结算模型）：普通属性「+」消耗「属性点」(每点 +1 基础 attrs)，真实属性「+」消耗「真实属性点」(每点 +1 真实·直加 realAttrs，**不动基础**，两者独立)。
   // 点「+/−」只暂存待加点；点「✓ 确认加点」才一次性结算：扣点、加属性，并为本次跨过的所有里程碑(密→疏变步长·见 milestonesCrossed)逐个弹四选一逆天天赋。
@@ -301,7 +302,8 @@ export default function PlayerSidebar({ onClose }: { onClose?: () => void }) {
         </div>
       </div>
 
-      <div className="flex-1 overflow-y-auto">
+      {/* 手机端：不独立滚动、按内容自然撑高 → 整个侧栏(aside)一起上下滑；桌面端(lg+)：本区独立滚动、底部 HP/EP 固定 */}
+      <div className="flex-none overflow-visible lg:flex-1 lg:overflow-y-auto lg:min-h-0">
         {/* 身份信息 */}
         <div className="p-3 border-b border-edge space-y-1.5">
           <div className="text-sm text-god font-mono mb-1.5">❖ 身份</div>
@@ -533,17 +535,45 @@ export default function PlayerSidebar({ onClose }: { onClose?: () => void }) {
       <div className="shrink-0 border-t border-edge p-3 space-y-2">
         {(() => {
           // 最大HP/EP = (基础六维 + 技能树 + 团队的六维加成) 换算 + 装备/被动里明确写"增加HP/EP上限"的平值 + 百分比加成(如被动"10%生命加成")；与上方属性面板同口径，技能树加的体质/智力同步抬高 HP/EP 上限
-          const teamAttrsBase = withAttrDelta(withAttrDelta(profile.attrs, playerTreeAttrBonus()), playerTeamAttrBonus());   // 技能树 + 团队效果的六维加成（体/智→HP/EP）
+          const teamAttrsBase = withAttrDelta(withAttrDelta(withAttrDelta(profile.attrs, playerTreeAttrBonus()), playerTeamAttrBonus()), profile.realAttrs);   // 技能树 + 团队 + 真实属性点直加(realAttrs) 的六维加成（体/智→HP/EP，与战斗/属性面板同口径）
           const teamPerkAbil = playerTeamPerkAbilities();                              // 团队效果显式「HP/EP上限」文本
           const rmP = realAttrMult(profile.tier, profile.level);   // 四阶起 HP/EP×5（与战斗/AI一致）
           const maxHp = fullMaxHp(teamAttrsBase, equippedFull, b1?.skills, [...(b1?.traits ?? []), ...teamPerkAbil], rmP, ratioOf(profile));
           const maxEp = fullMaxEp(teamAttrsBase, equippedFull, b1?.skills, [...(b1?.traits ?? []), ...teamPerkAbil], rmP, ratioOf(profile));
           return (
             <>
-              <div onClick={() => setLabelOpen(true)} className="space-y-2 cursor-pointer" title="点击自定义血条皮肤 / 称呼">
-                <Bar value={effectiveResource(p.hp, p.maxHp, maxHp)} max={maxHp} color="bg-blood" label={profile.hpLabel || '生命 HP'} styleId={profile.barStyle} kind="hp" />
-                <Bar value={effectiveResource(p.mp, p.maxMp, maxEp)} max={maxEp} color="bg-sky-500" label={profile.epLabel || '蓝量 EP'} styleId={profile.barStyle} kind="ep" />
+              <div className="space-y-2">
+                <div onClick={() => setVitalPop(vitalPop === 'hp' ? null : 'hp')} className="cursor-pointer" title="点击查看 HP 上限构成（基础六维 + 各效果加成）">
+                  <Bar value={effectiveResource(p.hp, p.maxHp, maxHp)} max={maxHp} color="bg-blood" label={profile.hpLabel || '生命 HP'} styleId={profile.barStyle} kind="hp" />
+                </div>
+                <div onClick={() => setVitalPop(vitalPop === 'ep' ? null : 'ep')} className="cursor-pointer" title="点击查看 EP 上限构成（基础六维 + 各效果加成）">
+                  <Bar value={effectiveResource(p.mp, p.maxMp, maxEp)} max={maxEp} color="bg-sky-500" label={profile.epLabel || '蓝量 EP'} styleId={profile.barStyle} kind="ep" />
+                </div>
               </div>
+              {/* HP/EP 上限构成弹层：基础六维换算 + 各效果(装备/技能/天赋)平值+百分比+跨资源加成，合计=真实上限 */}
+              {vitalPop && (() => {
+                const bd = computeVitalBreakdown(vitalPop, teamAttrsBase, equippedFull, b1?.skills ?? [], [...(b1?.traits ?? []), ...teamPerkAbil], rmP, ratioOf(profile));
+                const label = vitalPop === 'hp' ? (profile.hpLabel || '生命 HP') : (profile.epLabel || '蓝量 EP');
+                const color = vitalPop === 'hp' ? 'text-blood' : 'text-sky-400';
+                const has = bd.flatItems.length || bd.pctItems.length || bd.crossItems.length;
+                const nm = (src: string, name: string) => (<span className="truncate mr-2"><span className="text-dim/35">{src}·</span>{name}</span>);
+                return (
+                  <div className="rounded-lg border border-god/30 bg-void/50 px-3 py-2 text-[12px] font-mono space-y-1">
+                    <div className="flex items-center justify-between">
+                      <span className={`${color}/90`}>{label} · 上限构成</span>
+                      <button onClick={() => setVitalPop(null)} className="text-dim/40 hover:text-blood">✕</button>
+                    </div>
+                    <div className="flex justify-between"><span className="text-dim/60">六维换算{bd.realMult > 1 && <span className="text-amber-300/70"> ×{bd.realMult} 真实倍率</span>}</span><span className="text-slate-200">{bd.attrBase}</span></div>
+                    {bd.flatItems.map((x, i) => <div key={`f${i}`} className="flex justify-between">{nm(x.source, x.name)}<span className="text-amber-300/80 shrink-0">上限 +{x.amount}</span></div>)}
+                    {bd.pctItems.map((x, i) => <div key={`p${i}`} className="flex justify-between">{nm(x.source, x.name)}<span className="text-emerald-300/80 shrink-0">+{x.pct}%</span></div>)}
+                    {bd.pctTotal !== 0 && <div className="flex justify-between"><span className="text-dim/45">└ 百分比合计 +{bd.pctTotal}%（作用于六维+平值）</span><span className="text-emerald-300/80">+{bd.pctAdd}</span></div>}
+                    {bd.crossItems.map((x, i) => <div key={`c${i}`} className="flex justify-between">{nm(x.source, `${x.name} 跨资源`)}<span className="text-fuchsia-300/80 shrink-0">+{x.amount}</span></div>)}
+                    <div className="flex justify-between border-t border-edge/40 pt-1"><span className="text-slate-300">合计上限</span><span className={`${color} font-bold`}>{bd.total}</span></div>
+                    {!has && <div className="text-dim/40 text-[11px]">暂无装备/技能/天赋的上限加成；上限全部来自六维换算</div>}
+                    <div className="text-dim/35 text-[10px] leading-snug">六维换算＝Σ(六维×转化比){bd.realMult > 1 ? '×真实倍率' : ''}；平值/百分比来自装备词缀与技能天赋被动。</div>
+                  </div>
+                );
+              })()}
               {/* 一键回满（主角 + 在场队友）：手动逃生口——治"队友总是 400/4000 残疾、刷新也回不满"。当前 HP/EP 平时忠于正文、不自动补血，这里玩家主动点才回满。 */}
               <button
                 onClick={(e) => { e.stopPropagation(); const r = refillAllVitals(); setRefillMsg(`已回满 · 主角${r.team ? ` + ${r.team} 名队友` : ''}`); setTimeout(() => setRefillMsg(''), 2500); }}
@@ -616,7 +646,7 @@ export default function PlayerSidebar({ onClose }: { onClose?: () => void }) {
             {/* 血条皮肤切换（10 款，点格即换；每格为实时迷你预览）*/}
             <div>
               <div className="text-[10px] text-dim/50 font-mono mb-1">血条皮肤</div>
-              <div className="grid grid-cols-2 gap-1.5 max-h-[46vh] overflow-y-auto pr-0.5">
+              <div className="grid grid-cols-2 gap-1.5 lg:max-h-[46dvh] lg:overflow-y-auto pr-0.5">
                 {BAR_STYLES.map((s) => {
                   const sel = (profile.barStyle || 'classic') === s.id;
                   return (
@@ -643,7 +673,8 @@ export default function PlayerSidebar({ onClose }: { onClose?: () => void }) {
           {resOpen ? '收起 ▲' : `⚡ 自定义能量条${resources.length ? `（${resources.length}）` : ''}`}
         </button>
         {resOpen && (
-          <div className="space-y-2 pt-1">
+          // 桌面端(lg+)：限高 + 独立滚动条，避免撑破底部固定区；手机端：不限高，跟随整个侧栏一起上下滑（无嵌套双滚动）。
+          <div className="space-y-2 pt-1 lg:max-h-[46dvh] lg:overflow-y-auto lg:overscroll-contain pr-1">
             {resources.length === 0 && <div className="text-[10px] text-dim/40 font-mono text-center">还没有能量条。点下方「+ 添加」新建（如 怒气值 / 堕落值 / 灵力）。</div>}
             {resources.map((r) => {
               const hasFormula = !!(r.maxFormula && Object.keys(r.maxFormula).length);

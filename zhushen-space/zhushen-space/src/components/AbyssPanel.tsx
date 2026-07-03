@@ -161,7 +161,7 @@ export default function AbyssPanel({ onClose, onGenBoons, onGenSin, onGenAwaken,
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-2" onClick={onClose}>
-      <div className="w-full max-w-2xl max-h-[92vh] overflow-y-auto rounded-xl border border-violet-700/40 bg-[#0d0a14] shadow-2xl" onClick={(e) => e.stopPropagation()}>
+      <div className="w-full max-w-2xl max-h-[92dvh] overflow-y-auto rounded-xl border border-violet-700/40 bg-[#0d0a14] shadow-2xl" onClick={(e) => e.stopPropagation()}>
         {/* 头部 */}
         <div className="sticky top-0 z-10 flex items-center justify-between px-4 py-3 border-b border-violet-800/40 bg-[#0d0a14]/95 backdrop-blur">
           <div className="flex items-center gap-2">

@@ -27,7 +27,7 @@ export default function MiscPanel({ onClose }: { onClose: () => void }) {
   return (
     <div className="fixed inset-0 z-50 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4"
       onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}>
-      <div className="w-full max-w-2xl h-[88vh] flex flex-col rounded-2xl border border-edge bg-void shadow-[0_0_60px_rgba(0,0,0,0.8)] overflow-hidden">
+      <div className="w-full max-w-2xl h-[88dvh] flex flex-col rounded-2xl border border-edge bg-void shadow-[0_0_60px_rgba(0,0,0,0.8)] overflow-hidden">
 
         <header className="shrink-0 flex items-center gap-3 px-5 py-3 border-b border-edge bg-panel">
           <span className="text-god/60 text-lg">📋</span>
@@ -85,17 +85,12 @@ export default function MiscPanel({ onClose }: { onClose: () => void }) {
                     <span className="flex-1" />
                     <button onClick={clearArchivedTasks} className="text-[11px] font-mono text-dim/40 hover:text-blood">清空</button>
                   </div>
-                  {archivedTasks.map((t) => {
-                    const failed = /失败|放弃|作废|取消/.test(t.status);
-                    return (
-                      <div key={t.id} className="rounded-lg border border-edge/50 bg-panel/30 px-3 py-1.5 mb-1 flex items-center gap-2 opacity-70">
-                        <span className="text-[11px] font-mono text-dim/40">{t.id}</span>
-                        <span className="text-[13px] text-dim/70 line-through flex-1 truncate">{t.name || '（未命名任务）'}</span>
-                        {t.rating && <span className={`text-[11px] font-mono px-1 rounded ${failed ? 'bg-blood/15 text-blood/70' : 'bg-amber-500/15 text-amber-300/80'}`}>评{t.rating}</span>}
-                        <span className={`text-[11px] font-mono ${failed ? 'text-blood/70' : 'text-emerald-400/70'}`}>{t.status}</span>
-                      </div>
-                    );
-                  })}
+                  {/* 已结束任务不再折叠成一行：复用完整任务卡（archived 模式），保留原有环数/进度条/每环奖励，只是整体淡化 */}
+                  <div className="space-y-1">
+                    {archivedTasks.map((t) => (
+                      <TaskCard key={t.id} t={t} main={isMainQuest(t)} archived />
+                    ))}
+                  </div>
                 </div>
               )}
             </>
@@ -142,24 +137,35 @@ function ringMark(s: QuestRing['status']): string {
   return s === 'done' ? '✓' : s === 'active' ? '▶' : s === 'skipped' ? '⤼' : '·';
 }
 
-/* 任务卡片：主线置顶高亮 + 环进度条/环列表/终局；无 rings 时退回扁平显示 */
-function TaskCard({ t, main, onRemove }: { t: MiscTask; main: boolean; onRemove: () => void }) {
+/* 任务卡片：主线置顶高亮 + 环进度条/环列表/终局；无 rings 时退回扁平显示。
+   archived=已结束任务：整体淡化 + 头部显示评分/结束状态 + 展开每个达成环的奖励（不再折叠成一行），不显示进行中才有的贪婪抉择/未解锁环提示。 */
+function TaskCard({ t, main, onRemove, archived }: { t: MiscTask; main: boolean; onRemove?: () => void; archived?: boolean }) {
   const rings = Array.isArray(t.rings) ? [...t.rings].sort((a, b) => a.idx - b.idx) : [];
   const hasRings = rings.length > 0;
   const active = rings.find((r) => r.status === 'active');
   const pos = active ? active.idx : rings.filter((r) => r.status === 'done').length;
   // 容错：旧档若曾丢环，total 取「环数 vs 最大 idx」更大者，避免显示「第3/共2环」这种矛盾计数
   const total = rings.length ? Math.max(rings.length, ...rings.map((r) => r.idx)) : 0;
+  const failed = /失败|放弃|作废|取消/.test(t.status);
   return (
-    <div className={`rounded-lg px-3 py-2 space-y-1 border ${main ? 'border-god/50 bg-god/10' : 'border-edge bg-panel/60'}`}>
+    <div className={`rounded-lg px-3 py-2 space-y-1 border ${archived ? 'border-edge/50 bg-panel/30 opacity-80' : main ? 'border-god/50 bg-god/10' : 'border-edge bg-panel/60'}`}>
       <div className="flex items-center gap-2">
         <span className={`text-[10px] font-mono px-1.5 py-0.5 rounded shrink-0 ${main ? 'bg-god/20 text-god border border-god/40' : 'bg-edge/40 text-dim/55'}`}>
           {main ? '主线' : '支线'}
         </span>
         <span className="text-[12px] font-mono text-dim/45 shrink-0">{t.id}</span>
-        <span className={`text-sm font-semibold flex-1 truncate ${main ? 'text-god' : 'text-slate-100'}`}>{t.name || '（未命名任务）'}</span>
-        <span className="text-[12px] font-mono text-amber-400/80 shrink-0">{t.status}</span>
-        <button onClick={onRemove} className="text-[12px] font-mono text-blood/50 hover:text-blood shrink-0">删</button>
+        <span className={`text-sm font-semibold flex-1 truncate ${archived ? (failed ? 'text-blood/70' : 'text-dim/80') : main ? 'text-god' : 'text-slate-100'}`}>{t.name || '（未命名任务）'}</span>
+        {archived ? (
+          <>
+            {t.rating && <span className={`text-[11px] font-mono px-1 rounded shrink-0 ${failed ? 'bg-blood/15 text-blood/70' : 'bg-amber-500/15 text-amber-300/80'}`}>评{t.rating}</span>}
+            <span className={`text-[12px] font-mono shrink-0 ${failed ? 'text-blood/70' : 'text-emerald-400/70'}`}>{t.status}</span>
+          </>
+        ) : (
+          <>
+            <span className="text-[12px] font-mono text-amber-400/80 shrink-0">{t.status}</span>
+            {onRemove && <button onClick={onRemove} className="text-[12px] font-mono text-blood/50 hover:text-blood shrink-0">删</button>}
+          </>
+        )}
       </div>
 
       {hasRings ? (
@@ -181,8 +187,16 @@ function TaskCard({ t, main, onRemove }: { t: MiscTask; main: boolean; onRemove:
                 {r.status === 'active' && (
                   <span className={`ml-1 text-[10px] font-mono px-1 rounded border ${r.optional ? 'border-amber-500/40 text-amber-400/80' : 'border-blood/40 text-blood/70'}`}>{r.optional ? '贪婪·可选' : '强制'}</span>
                 )}
-                {/* 奖励与惩罚都只显示「当前进行中」那一环 */}
-                {r.status === 'active' && r.reward && (
+                {/* 达成环·评级徽标 */}
+                {r.status === 'done' && r.rating && (
+                  <span className="ml-1 text-[10px] font-mono px-1 rounded bg-amber-500/15 text-amber-300/80">评{r.rating}</span>
+                )}
+                {/* 达成环·主角这一环的行为总结（结算逐环评价依据） */}
+                {r.status === 'done' && r.summary && (
+                  <div className="pl-4 text-[11px] text-sky-300/60 leading-snug">📖 {r.summary}</div>
+                )}
+                {/* 进行中任务只显示当前环奖惩；已结束任务把每个达成环的奖励都展开（保留原有奖励） */}
+                {(r.status === 'active' || (archived && r.status === 'done')) && r.reward && (
                   <div className="pl-4 font-mono text-[11px] text-god/70">🎁 奖励：{r.reward}</div>
                 )}
                 {r.status === 'active' && r.penalty && (
@@ -190,11 +204,11 @@ function TaskCard({ t, main, onRemove }: { t: MiscTask; main: boolean; onRemove:
                 )}
               </div>
             ))}
-            {rings.filter((r) => r.status === 'planned').length > 0 && (
+            {!archived && rings.filter((r) => r.status === 'planned').length > 0 && (
               <div className="text-[11px] font-mono text-dim/40">🔒 还剩 {rings.filter((r) => r.status === 'planned').length} 环（随剧情解锁）</div>
             )}
           </div>
-          {(() => {
+          {!archived && (() => {
             const greedy = rings.filter((r) => r.optional);
             const forcedAllDone = rings.some((r) => !r.optional) && rings.filter((r) => !r.optional).every((r) => r.status === 'done' || r.status === 'skipped');
             return forcedAllDone && greedy.some((r) => r.status === 'planned') && !greedy.some((r) => r.status === 'active')
@@ -207,7 +221,7 @@ function TaskCard({ t, main, onRemove }: { t: MiscTask; main: boolean; onRemove:
         t.desc && <div className="text-[13px] text-dim/80 leading-relaxed">{t.desc}</div>
       )}
 
-      {t.progress && (
+      {!archived && t.progress && (
         <div className="text-[12px] leading-relaxed text-sky-300/75">
           <span className="font-mono text-dim/45">📈 进度·上回合：</span>{t.progress}
         </div>
@@ -216,7 +230,7 @@ function TaskCard({ t, main, onRemove }: { t: MiscTask; main: boolean; onRemove:
       <div className="flex flex-wrap gap-x-3 gap-y-0.5 text-[12px] font-mono text-dim/60">
         {/* 多环任务的奖惩按"每环"显示（见上方当前环 🎁 奖励），此处不再重复任务级奖惩，避免冗余；仅无环的扁平任务才显示 */}
         {!hasRings && t.reward && <span className="text-god/60">奖励：{t.reward}</span>}
-        {!hasRings && t.penalty && <span className="text-blood/60">失败：{t.penalty}</span>}
+        {!hasRings && t.penalty && <span className="text-blood/60">{archived ? '惩罚' : '失败'}：{t.penalty}</span>}
         {(t.startTime || t.endTime) && <span>⏳ {t.startTime || '—'} ~ {t.endTime || '—'}</span>}
       </div>
     </div>

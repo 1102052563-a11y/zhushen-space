@@ -7,8 +7,14 @@ import { useSettings } from '../store/settingsStore';
 import { useSkillTree } from '../store/skillTreeStore';
 import { playerMaxHp, playerMaxEp, playerResourceMax } from './playerVitals';
 import { useResource } from '../store/resourceStore';
-import { effectiveResource, fullMaxHp, fullMaxEp, ratioOf } from './derivedStats';
-import { parseAllStateUpdates, parseAllItemCommands, applyItemCommands, isEquippable, setNpcOwnerResolver, type StateUpdate, type ItemEditResult, type LedgerCtx } from './stateParser';
+import { effectiveResource, fullMaxHp, fullMaxEp, ratioOf, npcBaseAttrs } from './derivedStats';
+import { parseAllStateUpdates, parseAllItemCommands, applyItemCommands, stripPreviewRewardCurrency, isEquippable, setNpcOwnerResolver, type StateUpdate, type ItemEditResult, type LedgerCtx } from './stateParser';
+import { applyTableEdits } from './tableEditParser';   // ACU 表格数据库：<tableEdit> → tableStore
+import { projectStoresToTables } from './tableMigrate';   // 1c：镜像表每回合从 store 投影（漂移从构造上消除）
+import { seedWalletIfEmpty } from './ledger/walletCore';   // Step 10 货币事件核心
+import { seedItemsIfEmpty } from './ledger/itemCore';   // Step 10 物品事件核心
+import { seedNpcsIfEmpty } from './ledger/npcCore';   // Step 10 NPC 事件核心
+import { watchdogViolations } from './ledger/watchdog';   // Step 10 状态对账看门狗（货币/物品/NPC）
 import { resolveEquipSlot } from './equipSlots';
 import { SKILLTREE_TUNING } from './skillTree';
 /* NPC 物品 owner 解析器：把物品阶段的"幻觉ID"重定向到真实 NPC（修复 C1/C66 分裂）*/
@@ -199,7 +205,7 @@ function applyOneUpdate(u: StateUpdate) {
         const rec = npc.npcs[cid];
         const nc = useCharacters.getState().characters[cid];
         const eqp = (rec?.items ?? []).filter((it) => it.equipped) as any[];
-        const dmax = stat === 'hp' ? fullMaxHp(rec?.attrs, eqp, nc?.skills, nc?.traits, 1, ratioOf(rec)) : fullMaxEp(rec?.attrs, eqp, nc?.skills, nc?.traits, 1, ratioOf(rec));
+        const dmax = stat === 'hp' ? fullMaxHp(npcBaseAttrs(rec), eqp, nc?.skills, nc?.traits, 1, ratioOf(rec)) : fullMaxEp(npcBaseAttrs(rec), eqp, nc?.skills, nc?.traits, 1, ratioOf(rec));   // npcBaseAttrs=attrs+真实属性点直加(realAttrs)
         const cur = effectiveResource(stat === 'hp' ? rec?.hp : rec?.mp, stat === 'hp' ? rec?.maxHp : rec?.maxMp, dmax);
         const next = toFull ? dmax : setMode ? Math.min(Math.max(0, amount), dmax) : op === '+=' ? Math.min(cur + amount, dmax) : Math.max(0, cur - amount);
         npc.upsertNpc(cid, stat === 'hp' ? { hp: next, maxHp: dmax } : { mp: next, maxMp: dmax });
@@ -219,13 +225,14 @@ function applyOneUpdate(u: StateUpdate) {
   }
 
   // 货币：currency.乐园币 += 500 / currency.灵魂钱币 -= 10 / currency.技能点 += 5 / currency.黄金技能点 += 1
+  const ccRsn = op === '+=' ? '正文入账' : op === '-=' ? '正文支出' : '正文设定';   // <state> 货币简写的流水缘由（AI 未细分时的兜底）
   const ccMatch = key.match(/^currency\.(乐园币|灵魂钱币|技能点|黄金技能点)$/);
   if (ccMatch && typeof value === 'number') {
     const type = ccMatch[1] as '乐园币' | '灵魂钱币' | '技能点' | '黄金技能点';
     const itemStore = useItems.getState();
     const cur = itemStore.currency[type];
     const next = op === '+=' ? cur + value : op === '-=' ? cur - value : value;
-    itemStore.adjustCurrency(type, next - cur);
+    itemStore.adjustCurrency(type, next - cur, ccRsn);
     return;
   }
   // 简写：直接用货币名作为 key（乐园币 += 100 / 技能点 += 5 / 黄金技能点 += 1）
@@ -234,7 +241,7 @@ function applyOneUpdate(u: StateUpdate) {
     const itemStore = useItems.getState();
     const cur = itemStore.currency[ck];
     const next = op === '+=' ? cur + value : op === '-=' ? cur - value : value;
-    itemStore.adjustCurrency(ck, next - cur);
+    itemStore.adjustCurrency(ck, next - cur, ccRsn);
     return;
   }
 
@@ -346,6 +353,35 @@ function applyOneUpdate(u: StateUpdate) {
   }
 }
 
+/* 结算·货币完全忠于【最终清算】面板「获得货币: N 乐园币/灵魂钱币」（玩家亲眼所见的唯一授予）：
+   结算这一笔货币授予就是面板那一条，<state> 里所有 乐园币/灵魂钱币 的 += 都被**收敛成唯一一条 `面板币种 += 面板额`**，
+   一次修好三种 AI 出错：① 金额不符（面板 7000、指令 4000）② **币种写错**（面板 灵魂钱币、指令却 乐园币 += → 钱进错币种）
+   ③ 重复/双发（统计+发放各写一遍、或两种币各发一次）。仅结算回合(atSettlement)调用。
+   注：结算 <state> 规范只有一条货币行（见 WORLD_SETTLEMENT_RULE），故收敛安全；实物奖励走 <upstore> createItem 不受影响。 */
+export function reconcileSettlementCurrency(raw: string, updates: StateUpdate[]): StateUpdate[] {
+  const gm = /获得货币\s*\*{0,2}\s*[:：]\s*\*{0,2}\s*([\d,]+)\s*\*{0,2}\s*(乐园币|灵魂钱币|魂币)/.exec(raw);
+  if (!gm) return updates;
+  const panelAmt = Number(gm[1].replace(/,/g, ''));
+  const panelType = gm[2] === '魂币' ? '灵魂钱币' : gm[2];
+  if (!Number.isFinite(panelAmt) || panelAmt <= 0) return updates;
+  const curType = (k: unknown) => (typeof k === 'string' ? (k.startsWith('currency.') ? k.slice(9) : k) : '');   // 'currency.乐园币' → '乐园币'
+  const isCurAward = (u: StateUpdate) => (curType(u.key) === '乐园币' || curType(u.key) === '灵魂钱币') && u.op === '+=' && typeof u.value === 'number';
+  let placed = false;
+  const out: StateUpdate[] = [];
+  for (const u of updates) {
+    if (isCurAward(u)) {
+      const before = `${curType(u.key)} += ${u.value}`;
+      if (placed) { console.warn(`[结算·货币忠于面板] 丢弃多余货币指令 ${before}（面板唯一授予 ${panelType} ${panelAmt}）`); continue; }   // 去重/去双发
+      placed = true;
+      if (curType(u.key) !== panelType || u.value !== panelAmt) console.warn(`[结算·货币忠于面板] ${before} → ${panelType} += ${panelAmt}（以面板「获得货币」为准·纠正币种/金额）`);
+      out.push({ ...u, key: panelType, value: panelAmt, raw: `${panelType} += ${panelAmt}` });   // 收敛成面板币种+面板额
+      continue;
+    }
+    out.push(u);
+  }
+  return out;
+}
+
 export function applyStateUpdates(raw: string) {
   // ★ 点数（潜能点/技能点/黄金技能点/属性点）**只在「世界结算」时由正文一次性发放**：
   //   平时正文只"计入/统计"不入账（防提前发），消耗交由前端确定性系统处理（防按正文"消耗"乱扣），
@@ -374,13 +410,14 @@ export function applyStateUpdates(raw: string) {
         const I = useItems.getState();
         const cur = I.currency[type] ?? 0;
         const next = sm[2] === '+=' ? cur + n : sm[2] === '-=' ? cur - n : n;
-        I.adjustCurrency(type, next - cur);
+        I.adjustCurrency(type, next - cur, '世界结算发放');
         console.log(`[${type}] ${sm[2]} ${n} → ${next}`);
       } catch { /* */ }
     }
   }
-  const updates = parseAllStateUpdates(raw);
+  let updates = parseAllStateUpdates(raw);
   if (updates.length === 0) return;
+  if (atSettlement) updates = reconcileSettlementCurrency(raw, updates);   // 结算·货币忠于【最终清算】面板 + 同类去重防双入账
   console.log('[State] 解析到变量更新:', updates);
   for (const u of updates) {
     try { applyOneUpdate(u); } catch (e) { console.warn('[State] 应用更新失败:', u, e); }
@@ -390,13 +427,37 @@ export function applyStateUpdates(raw: string) {
 export function applyAllUpdates(raw: string, ctx?: LedgerCtx): { itemResults: ItemEditResult[] } {
   // ★ 先创建物品（<upstore> createItem），再应用 <state>（含 eq 装备短指令），
   //   否则 eq 会在物品尚未创建时执行而装备失败（物品全堆在储物袋里）。
-  const itemCmds = parseAllItemCommands(raw);
+  const parsedItemCmds = parseAllItemCommands(raw);
+  // 奖励预告守卫：正文只是"🎁奖励预告"时，拦掉与预告金额匹配的货币提前入账（非结算回合）——治"预告≠到账却真加钱"。
+  const { cmds: itemCmds, blocked: previewBlocked } = stripPreviewRewardCurrency(raw, parsedItemCmds);
+  if (previewBlocked > 0) console.warn(`[货币] 奖励预告守卫：本回合拦截 ${previewBlocked} 笔预告货币提前发放`);
   let itemResults: ItemEditResult[] = [];
   if (itemCmds.length > 0) {
     console.log('[Item] 解析到物品指令:', itemCmds);
     itemResults = applyItemCommands(itemCmds, ctx);   // 经单一闸门：解析稳定 id / 去重 / 记账本 / 返回结构化结果
   }
   applyStateUpdates(raw);
+  // ACU 表格数据库：认正文里的 <tableEdit> 块 → 写 tableStore（与 <state>/<upstore> 并存）。
+  // 只有真含 <tableEdit> 的回复（主正文/填表阶段）才动手；其余阶段回复走到这里是 no-op。
+  // 单一提交闸门 + 幂等留作后续硬化（设计文档 §4B），当前每条回复应用一次（同物品阶段）。
+  try {
+    const te = applyTableEdits(raw);
+    if (te.applied > 0 || te.failed > 0) {
+      console.log(`[Table] 填表：应用 ${te.applied} 条，失败 ${te.failed}`, te.modifiedUids);
+      if (te.errors.length) console.warn('[Table] 填表告警:', te.errors);
+    }
+  } catch (e) { console.warn('[Table] 填表应用失败（忽略）:', e); }
+  // 1c 投影：store 已在上面(item/state)更新完 → 把 13 张镜像表从 store 重新派生（纪要表=编年史不动）。
+  //   单一写入方=store，AI 若用 <tableEdit> 填了镜像表也在此被覆盖 → 表↔store 漂移从构造上不可能发生。
+  try { projectStoresToTables(); } catch (e) { console.warn('[Table] 镜像表投影失败（忽略）:', e); }
+  // Step 10 状态对账看门狗：每次应用后按不变量核对 货币/物品/NPC 当前态，corruption/漂移当场告警
+  //   （幽灵NPC/重复id双计/装备槽冲突/货币漂移）——不是几周后才发现。纯只读，绝不阻断主流程。
+  try {
+    seedWalletIfEmpty(useItems.getState().currency as unknown as Record<string, number>);   // 货币影子对齐
+    seedItemsIfEmpty((useItems.getState() as { items?: unknown[] }).items ?? []);   // 物品影子对齐
+    seedNpcsIfEmpty((useNpc.getState() as { npcs?: Record<string, unknown> }).npcs ?? {});   // NPC 影子对齐
+    for (const r of watchdogViolations()) console.warn(`[看门狗] ⚠ ${r.domain}：`, r.violations);
+  } catch { /* 看门狗绝不阻断主流程 */ }
   return { itemResults };
 }
 
