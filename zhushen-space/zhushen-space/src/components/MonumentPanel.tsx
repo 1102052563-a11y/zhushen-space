@@ -1,8 +1,8 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useMonument, type MonumentEntry } from '../store/monumentStore';
-import { useNpc, type NpcRecord } from '../store/npcStore';
+import { useNpc, hasRealNpcName, type NpcRecord } from '../store/npcStore';
 import {
-  buildMonumentSnapshot, enshrineCurrentPlayer, regenerateEulogy,
+  buildMonumentSnapshot, buildNpcMonumentSnapshot, enshrineCurrentPlayer, enshrineNpc, regenerateEulogy,
   summonMonument, dismissMonument,
 } from '../systems/monument';
 import { useMonumentCloud, pullMonumentCloud, syncMonumentCloud, initMonumentCloudSync } from '../systems/monumentCloud';
@@ -48,6 +48,8 @@ export default function MonumentPanel({ onClose }: { onClose: () => void }) {
   const [sub, setSub] = useState<{ kind: EntityKind; data: any } | null>(null);
   const [confirmDel, setConfirmDel] = useState<string | null>(null);
   const [flash, setFlash] = useState('');
+  const [enshrineMode, setEnshrineMode] = useState<'player' | 'npc'>('player');  // 立碑来源：主角 / NPC
+  const [enshrineNpcId, setEnshrineNpcId] = useState('');
 
   // 云同步（与聊天室共用 Discord 身份）
   const cloud = useMonumentCloud();
@@ -86,7 +88,15 @@ export default function MonumentPanel({ onClose }: { onClose: () => void }) {
     return m;
   }, [npcs]);
   const summoned = useMemo(() => Object.values(npcs).filter((r) => !!r.monumentId), [npcs]);
-  const preview = showPreview ? buildMonumentSnapshot() : null;
+  const eligibleNpcs = useMemo(() => Object.values(npcs).filter((r) => hasRealNpcName(r)), [npcs]);   // 可入碑的 NPC（有名字，含离场/已陨落——丰碑本就为悼念）
+  const preview = !showPreview ? null
+    : enshrineMode === 'npc'
+      ? (enshrineNpcId ? buildNpcMonumentSnapshot(enshrineNpcId) : null)
+      : buildMonumentSnapshot();
+  // NPC 模式默认选中第一个
+  useEffect(() => {
+    if (showPreview && enshrineMode === 'npc' && !enshrineNpcId && eligibleNpcs[0]) setEnshrineNpcId(eligibleNpcs[0].id);
+  }, [showPreview, enshrineMode, enshrineNpcId, eligibleNpcs]);
   // 实时反映 detail 条目的最新状态（结语生成完成后刷新）
   const detailLive = detail ? entries[detail.id] || detail : null;
 
@@ -95,8 +105,8 @@ export default function MonumentPanel({ onClose }: { onClose: () => void }) {
   const doEnshrine = async () => {
     setBusy(true);
     try {
-      const id = await enshrineCurrentPlayer();
-      if (!id) toast('未检测到主角——请先创建/进入你的角色');
+      const id = enshrineMode === 'npc' ? await enshrineNpc(enshrineNpcId) : await enshrineCurrentPlayer();
+      if (!id) toast(enshrineMode === 'npc' ? '请选择一个有效 NPC' : '未检测到主角——请先创建/进入你的角色');
       else { toast('已铭刻入碑 · 正在撰写生平结语…'); setShowPreview(false); }
     } catch { toast('入碑失败'); }
     setBusy(false);
@@ -113,7 +123,7 @@ export default function MonumentPanel({ onClose }: { onClose: () => void }) {
             <div className="text-[11px] font-mono text-dim/60">{list.length} 位英灵入碑 · 跨存档常驻 · 可召唤入队</div>
           </div>
           <button onClick={() => setShowPreview((v) => !v)} className="px-3 py-1.5 rounded-lg text-[13px] font-semibold bg-god/20 border border-god/40 text-god hover:bg-god/30 transition-colors">
-            {showPreview ? '收起' : '🗿 立碑铭刻当前主角'}
+            {showPreview ? '收起' : '🗿 立碑铭刻'}
           </button>
           <button onClick={onClose} className="text-dim/50 hover:text-blood text-lg transition-colors">✕</button>
         </header>
@@ -135,17 +145,30 @@ export default function MonumentPanel({ onClose }: { onClose: () => void }) {
           )}
         </div>
 
-        {/* 立碑表单（铭刻当前主角预览）*/}
+        {/* 立碑表单（主角 / NPC 皆可，全量面板 + AI 生平结语）*/}
         {showPreview && (
           <div className="shrink-0 px-4 py-3 border-b border-edge bg-panel/30 space-y-2.5">
+            {/* 来源切换：主角 / NPC */}
+            <div className="flex items-center gap-1.5">
+              {([['player', '🗿 主角'], ['npc', '📇 NPC']] as const).map(([v, label]) => (
+                <button key={v} onClick={() => setEnshrineMode(v)} className={`px-3 py-1 rounded-lg text-[12px] transition-colors ${enshrineMode === v ? 'bg-god/20 border border-god/40 text-god font-semibold' : 'border border-edge text-dim/70 hover:text-god'}`}>{label}</button>
+              ))}
+              {enshrineMode === 'npc' && (
+                eligibleNpcs.length === 0
+                  ? <span className="text-[11px] text-amber-400/80 ml-1">暂无可入碑的 NPC（先结识有名字的角色）</span>
+                  : <select value={enshrineNpcId} onChange={(e) => setEnshrineNpcId(e.target.value)} className="flex-1 min-w-0 bg-void border border-edge rounded-lg px-2 py-1 text-[12px] text-slate-100 outline-none focus:border-god/50">
+                      {eligibleNpcs.map((r) => <option key={r.id} value={r.id}>{r.name}{r.realm ? `·${r.realm.split('|')[0]}` : ''}{r.isDead ? '（已陨落）' : ''}</option>)}
+                    </select>
+              )}
+            </div>
             {!preview?.name ? (
-              <div className="text-[12px] text-amber-400/80">未检测到主角——请先创建/进入你的角色，再铭刻入碑。</div>
+              <div className="text-[12px] text-amber-400/80">{enshrineMode === 'npc' ? '请选择一个 NPC。' : '未检测到主角——请先创建/进入你的角色，再铭刻入碑。'}</div>
             ) : (
               <>
-                <div className="text-[12px] text-dim/70 leading-relaxed">将把 <span className="text-slate-100 font-semibold">{preview.name}</span><span className="text-dim/50"> · {preview.line || ''}</span> 的**完整面板**铭刻入碑（含称号/成就/副职业/装备/储存/财富/经历），并由 AI（与主角演化共用接口）撰写其生平总结与结语。</div>
+                <div className="text-[12px] text-dim/70 leading-relaxed">将把 <span className="text-slate-100 font-semibold">{preview.name}</span><span className="text-dim/50"> · {preview.line || ''}</span> 的**完整面板**铭刻入碑（六维/装备/储存/技能/天赋/称号/副职业/经历等，<span className="text-god/80">全部信息不丢</span>），并由 AI（与主角演化共用接口）撰写其生平总结与结语。</div>
                 <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] font-mono text-dim/60">
                   <span>技能 {preview.skills?.length || 0}</span><span>天赋 {preview.traits?.length || 0}</span>
-                  <span>称号 {preview.titles?.length || 0}</span><span>成就 {preview.achievements?.length || 0}</span>
+                  <span>称号 {preview.titles?.length || 0}</span>{enshrineMode === 'player' && <span>成就 {preview.achievements?.length || 0}</span>}
                   <span>副职 {preview.subProfessions?.length || 0}</span><span>装备 {preview.equipment?.length || 0}</span>
                   <span>储存 {preview.items?.length || 0}</span><span>经历 {preview.deedLog?.length || 0}</span>
                 </div>
@@ -237,13 +260,14 @@ export default function MonumentPanel({ onClose }: { onClose: () => void }) {
                 </div>
               </div>
 
-              {/* 身份字段 */}
+              {/* 身份字段（主角 + NPC 通吃；空的自动隐藏）*/}
               <div className="grid grid-cols-2 gap-x-3 gap-y-1 text-[11px]">
-                {([['等级', s.level ? 'Lv.' + s.level : ''], ['种族', s.race], ['所属乐园', s.homeParadise], ['入园前', s.preParadiseJob], ['身份', s.identity], ['烙印', s.brandLevel], ['生物强度', s.bioStrength], ['竞技场', s.arenaRank]] as const)
+                {([['标签', s.npcTag], ['等级', s.level ? 'Lv.' + s.level : ''], ['种族', s.race], ['年龄', s.age], ['所属乐园', s.homeParadise], ['入园前', s.preParadiseJob], ['身份', s.identity], ['隶属', s.affiliatedTeam], ['烙印', s.brandLevel], ['生物强度', s.bioStrength], ['竞技场', s.arenaRank], ['当前状态', s.status && s.status !== '一切正常' ? s.status : '']] as const)
                   .filter(([, v]) => v).map(([k, v]) => (
                     <div key={k} className="flex gap-1.5"><span className="text-dim/45 shrink-0">{k}</span><span className="text-slate-200 truncate">{v}</span></div>
                   ))}
               </div>
+              {s.review ? <div className="text-[12px] text-dim/60 leading-relaxed italic border-l-2 border-god/25 pl-2">{s.review}</div> : null}
 
               {/* 六维 */}
               {Object.keys(a).length > 0 && (

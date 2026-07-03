@@ -16,6 +16,8 @@ import { buildPlayerSnapshot } from './mpSnapshot';
 import { apiChatFallback } from './apiChat';
 import { shrinkDataUrl } from './imageGen';
 import { bumpAutoSave } from './saveManager';
+import { effectiveAttrs } from './attrBonus';
+import { attrCapForTier, lvFromRealm } from './derivedStats';
 import { MONUMENT_EULOGY_RULE } from '../promptRules';
 
 function coerceGender(g?: string): '男' | '女' | '' {
@@ -56,6 +58,7 @@ export function buildMonumentSnapshot(): MonumentSnapshot {
   }));
   return {
     ...base,
+    origin: 'player',
     level: p.level,
     title: (c.titles || []).find((t: any) => t.equipped)?.name || p.title || '',
     identity: p.identity || '',
@@ -100,6 +103,76 @@ export async function enshrineCurrentPlayer(): Promise<string | null> {
   return id;
 }
 
+/** 采集一名 NPC 的**完整面板**快照入碑（"所有信息·不省略"）。有效六维口径同 NpcDetail，装备/储存/技能/天赋/称号/副职业/经历/身份字段全带。 */
+export function buildNpcMonumentSnapshot(npcId: string): MonumentSnapshot | null {
+  const r: any = useNpc.getState().npcs[npcId];
+  if (!r || !r.name) return null;
+  const cd: any = useCharacters.getState().characters[npcId] || {};
+  const base: any = r.attrs || {};
+  const hasAttrs = base && typeof base === 'object' && Object.keys(base).length > 0;
+  const tier = (r.realm || '').split('|')[0] || '';
+  const identity = (r.realm || '').split('|').slice(1).join('|').trim();
+  const equippedItems = (r.items || []).filter((it: any) => it.equipped);
+  // 有效六维 = 基础 + 技能/天赋 + 装备（与 NpcDetail 同口径）；召唤时装备不 equipped，避免二次叠加
+  const eff: any = hasAttrs
+    ? effectiveAttrs(base, cd.skills || [], cd.traits || [], equippedItems as any, attrCapForTier(r.realm, lvFromRealm(r.realm)))
+    : undefined;
+  const strip = (it: any) => { const { image, ...rest } = it || {}; return rest; };
+  const stat = eff ? `力${eff.str ?? '?'} 敏${eff.agi ?? '?'} 体${eff.con ?? '?'} 智${eff.int ?? '?'} 魅${eff.cha ?? '?'} 幸${eff.luck ?? '?'}` : '';
+  const head = [tier, r.profession].filter(Boolean).join('·');
+  return {
+    origin: 'npc',
+    name: r.name,
+    gender: coerceGender(r.gender),
+    tier,
+    realm: r.realm || '',
+    identity,
+    profession: r.profession || '',
+    npcTag: r.npcTag || '',
+    title: r.title || '',
+    bioStrength: r.bioStrength || '',
+    age: r.age || '',
+    contractorId: r.contractorId || '',
+    affiliatedTeam: r.affiliatedTeam || '',
+    arenaRank: r.arenaRank || '',
+    brandLevel: r.brandLevel || '',
+    status: r.status || '',
+    review: r.review || '',
+    personality: r.personality || '',
+    personalityDetail: r.innerThought || '',
+    appearance: r.appearanceDetail || r.appearance5 || '',
+    attrs: eff || (hasAttrs ? { ...base } : undefined),
+    baseAttrs: hasAttrs ? { ...base } : undefined,
+    realAttrs: r.realAttrs && Object.keys(r.realAttrs).length ? { ...r.realAttrs } : undefined,
+    maxHp: r.maxHp,
+    maxEp: r.maxMp,
+    hpRatio: r.hpRatio,
+    epRatio: r.epRatio,
+    line: [head, stat].filter(Boolean).join(' '),
+    skills: cd.skills || [],
+    traits: cd.traits || [],
+    titles: cd.titles || [],
+    subProfessions: cd.subProfessions || [],
+    equipment: equippedItems.map(strip),
+    items: (r.items || []).filter((it: any) => !it.equipped).map(strip),
+    background: r.background || '',
+    deedLog: (r.deedLog || []) as any[],
+    avatar: r.avatar || '',
+  };
+}
+
+/** 把一名 NPC 铭刻入碑：建条目（立即落盘）→ 后台生成生平总结 + 结语回填。返回新条目 id（无此 NPC 返回 null）。 */
+export async function enshrineNpc(npcId: string): Promise<string | null> {
+  const snap = buildNpcMonumentSnapshot(npcId);
+  if (!snap || !snap.name) return null;
+  snap.avatar = await shrinkAvatar((useNpc.getState().npcs[npcId] as any)?.avatar || '');
+  const world = (useMisc.getState() as any).worldName || '';
+  const turn = (useMisc.getState() as any).turnCount || 0;
+  const id = useMonument.getState().enshrine({ snapshot: snap, world, turn });
+  generateEulogy(id).catch(() => useMonument.getState().updateEntry(id, { eulogyStatus: 'error' }));
+  return id;
+}
+
 /** 重新生成某条目的生平总结 + 结语（接口未配/失败后重试用）。 */
 export function regenerateEulogy(id: string): void {
   useMonument.getState().updateEntry(id, { eulogyStatus: 'pending' });
@@ -120,6 +193,11 @@ function buildDossier(snap: MonumentSnapshot): string {
   if (snap.brandLevel) L.push(`烙印等级：${snap.brandLevel}`);
   if (snap.bioStrength) L.push(`生物强度：${snap.bioStrength}`);
   if (snap.title) L.push(`当前称号：${snap.title}`);
+  if (snap.npcTag) L.push(`标签：${snap.npcTag}`);
+  if (snap.age) L.push(`年龄：${snap.age}`);
+  if (snap.affiliatedTeam) L.push(`隶属：${snap.affiliatedTeam}`);
+  if (snap.status && snap.status !== '一切正常') L.push(`当前状态：${snap.status}`);
+  if (snap.review) L.push(`旁人评价：${snap.review}`);
   if (snap.line) L.push(`六维：${snap.line}`);
   const persona = [snap.personality, snap.personalityDetail].filter(Boolean).join('；');
   if (persona) L.push(`性格：${persona}`);
@@ -235,13 +313,22 @@ export function summonMonument(entry: MonumentEntry): string {
     mp: snap.maxEp, maxMp: snap.maxEp,
     hpRatio: snap.hpRatio,
     epRatio: snap.epRatio,
+    realAttrs: (snap.realAttrs as any) || undefined,   // NPC 入碑保留真实属性直加
     avatar: snap.avatar || undefined,
-    npcTag: '契约者',
+    npcTag: snap.npcTag || '契约者',   // NPC 入碑保留原标签（土著/随从/宠物…）；主角入碑=契约者
+    // NPC 专属身份字段一并还原，避免召唤丢信息
+    personality: snap.personality || undefined,
+    innerThought: snap.personalityDetail || undefined,
+    age: snap.age || undefined,
+    affiliatedTeam: snap.affiliatedTeam || undefined,
+    contractorId: snap.contractorId || undefined,
+    arenaRank: snap.arenaRank || undefined,
+    status: snap.status && snap.status !== '一切正常' ? snap.status : undefined,
     keepForever: true,                 // 强制在场：reconcileScenePresence/pruneGhostNpcs 都会跳过长期保留角色
     partyMember: true,
     partyWorld: world,
     monumentId: entry.id,
-    review: `自纪念丰碑召唤的英灵·${snap.name}${snap.tier ? `（${snap.tier}）` : ''}。`,
+    review: snap.review || `自纪念丰碑召唤的英灵·${snap.name}${snap.tier ? `（${snap.tier}）` : ''}。`,
   };
 
   // 3) 物品：装备 + 储存空间（装备不 equipped，避免有效六维二次叠加）

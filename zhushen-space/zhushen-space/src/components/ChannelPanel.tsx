@@ -176,6 +176,19 @@ function MessageCard({ m, onBuy, onAcceptQuote, onCancel, onDetail, onReply, onJ
               <span className="text-god/40">🔍</span>
             </div>
           )}
+          {m.offer?.bundle && m.offer.bundle.length > 0 && (
+            <div className="rounded border border-amber-500/15 bg-void/40 px-2 py-1 text-[11px] font-mono leading-relaxed">
+              <span className="text-amber-300/70">套装内容（{m.offer.bundle.length} 件）：</span>
+              {m.offer.bundle.map((b, i) => (
+                <span key={i}>
+                  {i > 0 && <span className="text-dim/40">、</span>}
+                  <span className={gradeNameClass(b.gradeDesc)}>{b.itemName}</span>
+                  {b.gradeDesc && <span className={`ml-0.5 ${gradeBadgeClass(b.gradeDesc)}`}>{b.gradeDesc}</span>}
+                  {b.qty != null && b.qty > 1 && <span className="text-dim/45">×{b.qty}</span>}
+                </span>
+              ))}
+            </div>
+          )}
           {quotes.length === 0 && !m.fulfilled && (
             <div className="text-[12px] font-mono text-dim/40 px-2 py-1 rounded border border-dashed border-edge">
               等待契约者报价中…（点右上角刷新或稍候，会有人回应）

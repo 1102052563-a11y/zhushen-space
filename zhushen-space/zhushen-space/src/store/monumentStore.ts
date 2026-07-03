@@ -62,6 +62,15 @@ export interface MonumentSnapshot {
   background?: string;      // 主角背景/出身
   deedLog?: any[];          // 经历时间线（生平总结的素材）
   avatar?: string;          // 立绘（已压缩 dataURL / http；可空）
+  // ── NPC 入碑专属（origin==='npc' 时填；主角入碑多为空）——确保 NPC 全部信息不丢 ──
+  origin?: 'player' | 'npc';  // 来源：主角 / NPC（缺省按主角）
+  realm?: string;           // NPC 原始 realm（阶位·Lv.X|身份）
+  npcTag?: string;          // 契约者/土著/随从/宠物/召唤物
+  age?: string;             // 年龄
+  affiliatedTeam?: string;  // 隶属冒险团
+  status?: string;          // 当前状态
+  review?: string;          // 评价/锐评
+  realAttrs?: Record<string, number>;  // 真实属性·直加
 }
 
 export interface MonumentEntry {

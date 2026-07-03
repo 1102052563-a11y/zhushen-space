@@ -186,7 +186,7 @@ import { useCharacters, type MemoryEntry } from './store/characterStore';
 import { useMemory } from './store/memoryStore';
 import { useMisc, buildMiscSystemPrompt } from './store/miscStore';
 import { useChannel, buildChannelSystemPrompt, CHANNEL_DEFS } from './store/channelStore';
-import { estimateFairValue, priceVerdict, formatFairRange, VERDICT_LABEL } from './systems/itemPricing';
+import { estimateFairValue, priceVerdict, formatFairRange, sumFairValues, VERDICT_LABEL } from './systems/itemPricing';
 import { applyMiscCommands, serializeTasks, serializeSettledTasks, serializeEvents, extractTurnSummaries } from './systems/miscParser';
 import { buildNarrativeHistory, NM_COMPILE_PROMPT, NM_INGEST_PROMPT } from './systems/narrativeMemory';
 import { buildMemPool, loadAll as factVecLoadAll, ensureVectors as factVecEnsure, embedOne as factVecEmbedOne, search as factVecSearch, rerank as factVecRerank } from './systems/factVec';
@@ -306,10 +306,30 @@ function scrubAbyss(text: string): string {
 }
 
 // 当前所在世界的「世界观骨架」→ 注入正文最深处（紧贴生成·指导 AI 演绎本世界剧情/势力/人物）。无 active 记录或无世界观则空。
+// 主角当前所在世界的「世界志」文本（世界观骨架 + 继承进度·手动编辑优先）；仅当确在某任务世界(非主神空间)且该世界有记录时返回，离开(回主神空间/换世界)即空。
+function activeWorldLoreText(): string {
+  try {
+    const rec = useWorldRecord.getState().getActive();
+    if (!rec || isHomeWorld(useMisc.getState().worldName || '')) return '';   // 无当前世界记录 / 已回主神空间 → 不注入
+    const parts: string[] = [];
+    const wv = rec.worldviewText ?? (rec.worldview ? formatWorldviewForInjection(rec.worldview) : '');
+    if (wv.trim()) parts.push(wv);
+    const ia = rec.inheritAnchorsText ?? (rec.inheritAnchors ? formatInheritAnchors(rec.inheritAnchors) : '');
+    if (ia.trim()) parts.push('【上次进度·继承】\n' + ia);
+    return parts.join('\n\n');
+  } catch { return ''; }
+}
+// 登场判断 / NPC 演化专用：带「强度上限约束」头的世界志注入块（主角在世界内才有，离开即空）——治「NPC 强度超出世界巅峰战力」。
+function worldLoreEvoInjection(): string {
+  const t = activeWorldLoreText();
+  if (!t) return '';
+  return `\n\n【本世界·世界志（主角当前所在世界·最高约束·仅在此世界内生效）】以下是主角当前所在世界的既定设定。**在本世界登场 / 演化的任何人物，其阶位·等级·生物强度都不得超过本世界「巅峰战力」，并须与下方势力 / 关键人物的强度档相称**——世界巅峰若仅五~七阶，就绝不冒出八阶 / 巅峰至强的路人；人物立场·所属势力·剧情走向亦据此保持一致。\n${t}`;
+}
+
 function buildWorldviewInjection(): { role: 'system'; content: string }[] {
   try {
     const rec = useWorldRecord.getState().getActive();
-    if (!rec) return [];
+    if (!rec || isHomeWorld(useMisc.getState().worldName || '')) return [];
     const parts: string[] = [];
     const wvText = rec.worldviewText ?? (rec.worldview ? formatWorldviewForInjection(rec.worldview) : '');   // 手动编辑覆盖优先
     if (wvText.trim()) parts.push('<本世界·世界观骨架（就近·最高优先·据此演绎本世界的剧情走向/势力/人物；剧情走向是骨架非剧本，勿替玩家决定）>\n' + wvText);
@@ -769,7 +789,7 @@ const TITLE_DIVERSITY_RULE = `
 - **不为转瞬的情绪/场景造称号**：如「受惊的XX」「慌乱的XX」这类是**当前状态**（走状态/Buff），不是称号，别 addTitle。
 - **不堆同主题近义变体**：已有「解析天才」就别再加「粉色天才」「绝顶解析者」这种换汤不换药的同义称号；同一侧面只留最贴切的一个——要升级就 addTitle 同名更新、或 deTitle 旧的再加新的，**不要平行堆叠近义称号**。
 - 新称号尽量与已有称号**覆盖不同维度**（战斗实力 / 身份地位 / 重大成就 / 性格外号 / 职业专长 / 名声口碑 等各取其一）。
-- 有合适契机就给，可以每隔几回合新增；称号库放宽到**通常 2~6 个**，不必刻意压到一两个。`;
+- 有合适契机就给，可以每隔几回合新增。**称号是角色一路挣来的名号墙、会不断累积、多多益善、不设小上限**——别为"凑个数"刻意删旧称号(尤其竞技场/副本/世界结算/丰碑等**赢来的**称号一律保留)；只要不是上面第2条那种近义重复，挣来的名号都留着，不必压到两三个。`;
 
 const TALENT_NO_CAP_RULE = `
 【天赋数量解除上限·覆盖旧规则】**本规则优先级高于任何预设里"每角色最多3个天赋/天赋不可超过3个"之类的限制**——天赋数量**不设上限**，同类型也不再强制唯一。仍遵守：只有正文出现明确"觉醒/获得/融合/传承"等证据时才用 addTalent 新增；同名天赋只更新不重复添加；无证据不要凭空堆叠。技能同理不卡死数量。`;
@@ -2539,7 +2559,7 @@ export default function App() {
       .filter((e) => e.enabled && e.source !== 'entrySharedRules')
       .map((e) => fillVars(e.content, vars))
       .join('\n\n')
-      + '\n\n' + NARRATIVE_FIRST_RULE + '\n' + BUFF_AS_STATUS_RULE + '\n' + NPC_AGE_RULE + '\n' + TALENT_NO_CAP_RULE + '\n' + TITLE_DIVERSITY_RULE + '\n' + NPC_DEAD_EXCLUDE_RULE + '\n' + NPC_ID_RULE + '\n' + SKILL_TALENT_NOTE_RULE + '\n' + NPC_SKILL_KEEP_RULE + '\n' + ITEM_GRANTED_SKILL_RULE + '\n' + SKILL_STABILITY_RULE + '\n' + SKILL_COMBAT_TAG_RULE + '\n' + NPC_REVIEW_TAG_RULE +'\n' + NPC_TEAM_AFFILIATION_RULE + '\n' + TIER_RULE + '\n' + IMAGE_TAGS_RULE + '\n' + HPEP_NARRATIVE_ONLY_RULE + '\n' + POINTS_NARRATIVE_RULE + '\n' + NPC_GEN_ATTR_RULE + '\n' + ATTR_SANITY_RULE + '\n' + ATTR_CAP_RULE + '\n' + STATUS_FORMAT_RULE + '\n' + STATUS_COUNTDOWN_TURN_RULE + '\n' + NPC_PRIVATE_EXTRA_RULE + '\n' + NPC_TIER_LOADOUT_RULE + '\n' + SKILL_TALENT_ATTR_CAP_RULE + '\n' + FIRST_UPDATE_COMPLETE_RULE + '\n' + EVO_EXACT_REF_RULE + '\n' + SKILL_TALENT_GUIDE + '\n' + NPC_COT_RULE
+      + '\n\n' + NARRATIVE_FIRST_RULE + '\n' + BUFF_AS_STATUS_RULE + '\n' + NPC_AGE_RULE + '\n' + TALENT_NO_CAP_RULE + '\n' + TITLE_DIVERSITY_RULE + '\n' + NPC_DEAD_EXCLUDE_RULE + '\n' + NPC_ID_RULE + '\n' + SKILL_TALENT_NOTE_RULE + '\n' + NPC_SKILL_KEEP_RULE + '\n' + ITEM_GRANTED_SKILL_RULE + '\n' + SKILL_STABILITY_RULE + '\n' + SKILL_COMBAT_TAG_RULE + '\n' + NPC_REVIEW_TAG_RULE +'\n' + NPC_TEAM_AFFILIATION_RULE + '\n' + TIER_RULE + '\n' + IMAGE_TAGS_RULE + '\n' + HPEP_NARRATIVE_ONLY_RULE + '\n' + POINTS_NARRATIVE_RULE + '\n' + NPC_GEN_ATTR_RULE + '\n' + ATTR_SANITY_RULE + '\n' + ATTR_CAP_RULE + '\n' + STATUS_FORMAT_RULE + '\n' + STATUS_COUNTDOWN_TURN_RULE + '\n' + NPC_PRIVATE_EXTRA_RULE + '\n' + NPC_TIER_LOADOUT_RULE + '\n' + SKILL_TALENT_ATTR_CAP_RULE + '\n' + FIRST_UPDATE_COMPLETE_RULE + '\n' + EVO_EXACT_REF_RULE + '\n' + SKILL_TALENT_GUIDE + '\n' + NPC_COT_RULE + worldLoreEvoInjection()
       // 门控：仅当该 NPC 已有背景、却还没第一人称自述时，才追加"生成自述"规则（一次性·省 token）
       + (rec && rec.background && !rec.selfNarration ? '\n' + NPC_SELF_NARRATION_RULE : '');
   }
@@ -2562,7 +2582,7 @@ export default function App() {
       .filter((e) => e.enabled)   // entries 来自独立的「登场判断」预设(entryJudge)，整本都是登场判断条目
       .map((e) => fillVars(e.content, vars))
       .join('\n\n')
-      + '\n\n' + NARRATIVE_FIRST_RULE + '\n' + EVO_VERIFY_RULE + '\n' + NPC_DEAD_EXCLUDE_RULE + '\n' + NPC_ID_RULE + '\n' + TIER_RULE + '\n' + SKILL_TIER_RULE + '\n' + NPC_GEN_ATTR_RULE + '\n' + NPC_TEAM_AFFILIATION_RULE + '\n' + NPC_ENTRY_BIO_RULE + '\n' + ENTRY_NAME_CN_RULE + '\n' + ENTRY_DEDUP_RULE + codexInjection + '\n' + SKILL_TALENT_GUIDE + '\n' + ENTRY_COT_RULE;
+      + '\n\n' + NARRATIVE_FIRST_RULE + '\n' + EVO_VERIFY_RULE + '\n' + NPC_DEAD_EXCLUDE_RULE + '\n' + NPC_ID_RULE + '\n' + TIER_RULE + '\n' + SKILL_TIER_RULE + '\n' + NPC_GEN_ATTR_RULE + '\n' + NPC_TEAM_AFFILIATION_RULE + '\n' + NPC_ENTRY_BIO_RULE + '\n' + ENTRY_NAME_CN_RULE + '\n' + ENTRY_DEDUP_RULE + codexInjection + worldLoreEvoInjection() + '\n' + SKILL_TALENT_GUIDE + '\n' + ENTRY_COT_RULE;
   }
 
   /* 解析 NPC <state> 短指令（favor/title/realm/hp），可按 charId 过滤 */
@@ -5533,10 +5553,16 @@ ${lines}`;
     const priceNum = (p?: string) => { const n = parseInt(String(p ?? '').replace(/[^\d]/g, ''), 10); return Number.isFinite(n) ? n : 0; };
     const postsDesc = open.map((m) => {
       const o = m.offer ?? {};
-      const base = `「${o.itemName}」${o.gradeDesc ? `(${o.gradeDesc})` : ''}${o.qty && o.qty > 1 ? ` ×${o.qty}` : ''}`;
+      const bundle = o.bundle;
+      const bundleTxt = bundle && bundle.length
+        ? `（套装${bundle.length}件：${bundle.map((b) => `${b.itemName}${b.gradeDesc ? `(${b.gradeDesc})` : ''}`).join('、')}·整套打包）`
+        : '';
+      const base = `「${o.itemName}」${o.gradeDesc ? `(${o.gradeDesc})` : ''}${o.qty && o.qty > 1 ? ` ×${o.qty}` : ''}${bundleTxt}`;
       const side: 'buy' | 'sell' = m.kind === 'buy' ? 'buy' : 'sell';
-      // 前端机械估价：出售帖以玩家物品的评分/品级为准，求购帖只有品级（玩家未持有该物）
-      const fair = estimateFairValue({ score: side === 'sell' ? o.score : undefined, gradeDesc: o.gradeDesc, category: o.category, qty: o.qty });
+      // 前端机械估价：出售帖以玩家物品评分/品级为准（套装=各件公允价求和）；求购帖只有品级（玩家未持有该物）
+      const fair = bundle && bundle.length
+        ? sumFairValues(bundle.map((b) => estimateFairValue({ score: b.score, gradeDesc: b.gradeDesc, category: b.category, qty: b.qty })))
+        : estimateFairValue({ score: side === 'sell' ? o.score : undefined, gradeDesc: o.gradeDesc, category: o.category, qty: o.qty });
       const pv = priceVerdict(side, priceNum(o.price), o.currency, fair);
       const ratioTxt = pv.ratio ? `（约公允价${pv.ratio >= 1 ? pv.ratio.toFixed(1) + '倍' : Math.round(pv.ratio * 100) + '%'}）` : '';
       const anchor = `〔系统估价：公允价≈${formatFairRange(fair)}；玩家定价判级：${VERDICT_LABEL[pv.verdict]}${ratioTxt}${fair.strategic ? '；战略级·宜以物换物' : ''}〕`;

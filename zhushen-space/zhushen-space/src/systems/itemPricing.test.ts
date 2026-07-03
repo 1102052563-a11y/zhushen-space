@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import {
   estimateFairValue, priceVerdict, priceToPark, resolveGradeNum,
-  formatFairRange, SOUL_TO_PARK,
+  formatFairRange, sumFairValues, SOUL_TO_PARK,
 } from './itemPricing';
 
 describe('resolveGradeNum（评分优先、品级兜底）', () => {
@@ -96,5 +96,21 @@ describe('formatFairRange', () => {
   it('展示币种与千分位', () => {
     expect(formatFairRange(estimateFairValue({ gradeDesc: '蓝色' }))).toBe('3,500–6,000 乐园币');
     expect(formatFairRange(estimateFairValue({ gradeDesc: '金色' }))).toBe('2–6 灵魂钱币');
+  });
+});
+
+describe('sumFairValues（套装求和）', () => {
+  it('两件蓝色 → 公允价区间相加', () => {
+    const sum = sumFairValues([estimateFairValue({ gradeDesc: '蓝色' }), estimateFairValue({ gradeDesc: '蓝色' })]);
+    expect([sum.low, sum.high]).toEqual([7000, 12000]);
+    expect(sum.currency).toBe('乐园币');
+  });
+  it('含高档 → 合计够大用魂币展示、strategic 传染', () => {
+    const sum = sumFairValues([estimateFairValue({ gradeDesc: '金色' }), estimateFairValue({ gradeDesc: '起源' })]);
+    expect(sum.currency).toBe('灵魂钱币');
+    expect(sum.strategic).toBe(true);   // 起源为战略级
+  });
+  it('空数组兜底不崩', () => {
+    expect(sumFairValues([]).low).toBeGreaterThan(0);
   });
 });
