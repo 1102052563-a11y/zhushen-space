@@ -5,6 +5,9 @@ import { CAT_CFG, CAT_ICON, ItemDetailModal } from './BackpackModal';
 import { useImageViewer } from '../store/imageViewerStore';
 import { SLOT_DEFS, type SlotDef } from '../systems/equipSlots';
 import { enhanceFxClass } from '../systems/enhanceEngine';
+import { unmetRequirements } from '../systems/attrBonus';
+import { getPlayerEffectiveAttrs } from '../systems/playerAttrs';
+import type { PlayerAttrs } from '../store/playerStore';
 
 /* 槽位定义已移到 systems/equipSlots.ts（避免组件循环依赖）；此处再导出以兼容原有引用 */
 export { SLOT_DEFS };
@@ -117,10 +120,11 @@ function SlotGroup({
 
 /** 背包选择器（底部弹出） */
 function SlotPicker({
-  slotDef, candidates, onSelect, onClose,
+  slotDef, candidates, effAttrs, onSelect, onClose,
 }: {
   slotDef: SlotDef;
   candidates: InventoryItem[];
+  effAttrs: PlayerAttrs;
   onSelect: (id: string) => void;
   onClose: () => void;
 }) {
@@ -147,11 +151,16 @@ function SlotPicker({
           ) : (
             candidates.map((it) => {
               const cfg = CAT_CFG[it.category] ?? CAT_CFG['其他物品'];
+              // 装备需求门槛：主角有效六维未达 requirement → 该件不可穿戴（置灰 + 标红原因，点击无效）
+              const unmet = unmetRequirements(it.requirement, effAttrs);
+              const locked = unmet.length > 0;
               return (
                 <button
                   key={it.id}
-                  onClick={() => onSelect(it.id)}
-                  className="w-full text-left flex items-center gap-3 p-3 rounded-xl border border-edge hover:border-god/40 bg-panel hover:bg-god/5 transition-colors"
+                  onClick={() => { if (!locked) onSelect(it.id); }}
+                  disabled={locked}
+                  title={locked ? `属性不足，无法穿戴：${unmet.map((u) => `${u.label} ${u.need}（现${u.have}）`).join('、')}` : undefined}
+                  className={`w-full text-left flex items-center gap-3 p-3 rounded-xl border transition-colors ${locked ? 'border-edge/40 bg-panel/40 opacity-60 cursor-not-allowed' : 'border-edge hover:border-god/40 bg-panel hover:bg-god/5'}`}
                 >
                   <span className="text-xl shrink-0">{CAT_ICON[it.category] ?? '◇'}</span>
                   <div className="flex-1 min-w-0">
@@ -162,8 +171,13 @@ function SlotPicker({
                         <span className={`text-[12px] font-mono truncate ${gradeBadgeClass(it.gradeDesc)}`}>{it.gradeDesc}</span>
                       )}
                     </div>
+                    {locked && (
+                      <div className="text-[11px] font-mono text-blood/80 mt-1 leading-tight">
+                        ⚠ 属性不足：{unmet.map((u) => `${u.label} ${u.need}（现${u.have}）`).join('、')}
+                      </div>
+                    )}
                   </div>
-                  <span className="text-[12px] font-mono text-god/50 shrink-0 border border-god/30 px-2 py-1 rounded">装备</span>
+                  <span className={`text-[12px] font-mono shrink-0 border px-2 py-1 rounded ${locked ? 'text-dim/40 border-edge/40' : 'text-god/50 border-god/30'}`}>{locked ? '不可穿戴' : '装备'}</span>
                 </button>
               );
             })
@@ -184,6 +198,8 @@ export default function EquipmentPanel(_props: {
   const equipItem = useItems((s) => s.equipItem);
   const allowAutoEquip = useSettings((s) => s.allowAutoEquip);
   const setAllowAutoEquip = useSettings((s) => s.setAllowAutoEquip);
+  // 主角有效六维（装备需求门槛校验用）：items 变化即重算；随手取 getState 保证读到最新技能/天赋/技能树/团队加成
+  const effAttrs = useMemo(() => getPlayerEffectiveAttrs(), [items]);
 
   // slotKey → InventoryItem 映射（已装备物品）
   const equippedMap = useMemo(() => {
@@ -238,7 +254,13 @@ export default function EquipmentPanel(_props: {
         <SlotPicker
           slotDef={pickingSlotDef}
           candidates={candidates}
-          onSelect={(id) => { equipItem(id, pickingSlotDef.key); setPickingSlotDef(null); }}
+          effAttrs={effAttrs}
+          onSelect={(id) => {
+            const it = candidates.find((c) => c.id === id);
+            if (it && unmetRequirements(it.requirement, effAttrs).length) return;   // 属性不足 → 拒绝穿戴（防御性双保险）
+            equipItem(id, pickingSlotDef.key);
+            setPickingSlotDef(null);
+          }}
           onClose={() => setPickingSlotDef(null)}
         />
       )}

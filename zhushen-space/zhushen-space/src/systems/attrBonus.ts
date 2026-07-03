@@ -90,6 +90,43 @@ export function computeAttrBreakdown(
   return out;
 }
 
+/* 从「装备需求(requirement)」文本解析出各六维的**门槛值**（不是加成，故取每项的最大值、不累加）：
+   识别 "力量 5点" / "智力50" / "50点力量" / "力量10可发挥威力" / "力量20、敏捷15" 等；"无"/空 → {}。
+   只解析六维；等级/阶位等其它门槛不在此列（如需再扩展）。 */
+export function parseAttrRequirement(text?: string): AttrDelta {
+  const out: AttrDelta = {};
+  if (!text) return out;
+  const t = String(text);
+  for (const key of ATTR_KEYS) {
+    let need = 0;
+    for (const a of ATTR_ALIASES[key]) {
+      const esc = a.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      let m: RegExpExecArray | null;
+      const re1 = new RegExp(`${esc}\\s*[:：]?\\s*(\\d+)(?!\\s*[%％])`, 'gi');  // 名在前：力量 50
+      while ((m = re1.exec(t)) !== null) need = Math.max(need, Number(m[1]));
+      const re2 = new RegExp(`(\\d+)\\s*点?\\s*${esc}`, 'gi');                    // 数在前：50点力量
+      while ((m = re2.exec(t)) !== null) need = Math.max(need, Number(m[1]));
+    }
+    if (need > 0) out[key] = need;
+  }
+  return out;
+}
+
+/* 对照持有者六维，返回**未达标**的装备需求项（空数组＝满足全部需求，可穿戴）。attrs 传有效六维。 */
+export function unmetRequirements(
+  reqText: string | undefined,
+  attrs: PlayerAttrs | undefined,
+): { key: keyof PlayerAttrs; label: string; need: number; have: number }[] {
+  const need = parseAttrRequirement(reqText);
+  const a = attrs ?? { str: 5, agi: 5, con: 5, int: 5, cha: 5, luck: 5 };
+  const out: { key: keyof PlayerAttrs; label: string; need: number; have: number }[] = [];
+  for (const key of ATTR_KEYS) {
+    const n = need[key];
+    if (n && (a[key] ?? 0) < n) out.push({ key, label: ATTR_LABEL[key], need: n, have: a[key] ?? 0 });
+  }
+  return out;
+}
+
 /* 有效六维（含全部加成）——喂给衍生属性/HP/EP 计算与展示。cap 给定时合计夹到本阶单属性极值（遵守阶位限制）。 */
 export function effectiveAttrs(
   base: PlayerAttrs | undefined,
