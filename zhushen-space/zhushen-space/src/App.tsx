@@ -144,6 +144,7 @@ import { readingFontStack, LXGW_WENKAI_CSS } from './systems/readingFonts';
 import { applyUiTheme } from './systems/uiThemes';
 const CombatSetup = lazy(() => import('./components/CombatSetup'));
 import { useTerritory, buildTerritorySystemPrompt, buildingCap } from './store/territoryStore';
+import { useAccountVault } from './store/accountVaultStore';
 import { useTeam, buildTeamSystemPrompt, memberCap as teamMemberCap } from './store/adventureTeamStore';
 import { useCosmos, buildCosmosSystemPrompt, cosmosNameEq, cleanCosmosName } from './store/cosmosStore';
 import { realmFromLevel, normalizeTier, lvFromRealm, computeMaxHp, computeMaxEp, effectiveResource, attrCapForTier, clampBaseAttrs, fullMaxHp, fullMaxEp, TIERS, realAttrMult, ratioOf, npcBaseAttrs } from './systems/derivedStats';
@@ -207,7 +208,7 @@ import { computeGladiatorOdds, type Gladiator, type GladiatorEval, type BattleRo
 import { type GachaReward } from './systems/casinoGacha';
 import { buildBattleWbInjection } from './systems/casinoBattleWb';
 import { fallbackArenaBattle, cardToGladiator, splitScenes } from './systems/arenaWorldBattle';
-import { materializeArenaFoe, discardArenaFoe } from './systems/arenaWorldApply';
+import { materializeArenaFoe, discardArenaFoe, arenaFoeCombatOverride } from './systems/arenaWorldApply';
 import { arenaWorldClient } from './systems/arenaWorldClient';
 import { useArenaWorld } from './store/arenaWorldStore';
 import type { AssistSnapshot } from './systems/arenaWorldProtocol';
@@ -515,6 +516,28 @@ function buildItemPhaseSystemPrompt(entries: ItemPresetEntry[], narrative: strin
       return content;
     })
     .join('\n\n');
+}
+
+/* 已收纳物品（领地仓库 + 账户仓库）注入规则：告诉物品演化/对账阶段——这些物品是玩家**主动收纳**的、
+   不在背包属正常、绝非丢失，别因近几回合正文提过就 createItem 补回背包。
+   根治「上回合塞进领地/账户仓库、这回合又被物品阶段当"到手却缺失"补回背包」。空则返回 ''。 */
+function stowedItemsRule(cap = 60): string {
+  const out: string[] = [];
+  try {
+    for (const it of useTerritory.getState().storageItems ?? [])
+      out.push(`${it.name}${it.gradeDesc ? '·' + it.gradeDesc : ''}${(it.quantity ?? 1) > 1 ? '×' + it.quantity : ''}（领地仓库）`);
+  } catch { /* */ }
+  try {
+    for (const e of Object.values(useAccountVault.getState().entries ?? {})) {
+      const it: any = (e as any).item;
+      if (it?.name) out.push(`${it.name}${it.gradeDesc ? '·' + it.gradeDesc : ''}${((e as any).quantity ?? 1) > 1 ? '×' + (e as any).quantity : ''}（账户仓库）`);
+    }
+  } catch { /* */ }
+  if (out.length === 0) return '';
+  const list = out.slice(0, cap).join('\n') + (out.length > cap ? `\n…（另有 ${out.length - cap} 件已收纳，同理不补回背包）` : '');
+  return '\n【已收纳·勿补回背包·铁则（防"存进仓库又被补回来"）】以下物品玩家已**主动存入领地仓库/账户仓库**（这是背包之外的独立存储）——它们**不在背包属正常、绝非丢失**：\n'
+    + list
+    + '\n即便最近几回合正文写到主角获得/持有过它们，只要**本回合正文没有再次明确新入手**，就**绝不 createItem 把它们补回背包**（它们只是被收起来了、不是丢了）。把它们当作 player_items 之外的合法存在，别当"该有却缺失"去补。';
 }
 
 /* ════════════════════════════════════════════
@@ -1975,7 +1998,8 @@ export default function App() {
         + '\n' + ITEM_UPDATE_RULE + '\n' + FIRST_UPDATE_COMPLETE_RULE + '\n' + ITEM_EXACT_REF_RULE
         + '\n' + ITEM_COT_RULE + '\n' + ITEM_EVOLUTION_CODEX
         + '\n' + EDIT_LANGUAGE_RULE + '\n' + EDIT_BY_ID_RULE   // #uid 编辑台：教会本阶段用 <edit> + 强制"改已有按ID、只新建全新"，根治重复条目
-        + '\n' + EVO_REGISTER_GAINS_RULE;   // 差分对账：所得必登(防漏)、失才删(防误删)、没变就别碰(防漂移)
+        + '\n' + EVO_REGISTER_GAINS_RULE   // 差分对账：所得必登(防漏)、失才删(防误删)、没变就别碰(防漂移)
+        + stowedItemsRule();   // 已收纳(领地仓库/账户仓库)清单+勿补回背包铁则：根治"存进仓库又被补回背包"
 
       // user 消息：正文 + 指令要求（先思维链 <think> 自检，再出指令块）
       const userContent = `# 本轮正文\n${trimmedNarrative}\n\n---\n请根据以上正文处理本轮物品与货币（乐园币、灵魂钱币）的变化。**先输出一个 <think>…</think> 思考块**，按系统提示里的「物品演化思维链」逐项自检、把跟物品/装备/货币有关的事想清楚；**随后**输出 <state> 和 <upstore> 指令块（无变化则输出空块）。除 <think> / <state> / <upstore> 外不要有任何其它文字。`;
@@ -2287,7 +2311,8 @@ export default function App() {
       .replaceAll('${story_text}', twoTurnNarr)
       .replaceAll('${player_panel}', panel)
       .replaceAll('${player_items}', playerItems)
-      .replaceAll('${pet_items}', petItems);
+      .replaceAll('${pet_items}', petItems)
+      + (checkItems ? stowedItemsRule() : '');   // 告知对账器：已收纳物不在背包属正常、别当缺失去纠
 
     setItemAuditRunning(true);
     try {
@@ -6330,24 +6355,25 @@ ${lines}`;
      赌场·角斗场：一次 API 生成两名角斗士 + 专家评估（赔率前端算）；下注后据预定胜者生成数据化分回合战斗
   ════════════════════════════════════════════ */
   // 世界竞技场·切磋：把对手参赛卡物化成敌方临时 NPC → 真实战斗系统对战（不计分，无排名结算）。
-  function startArenaWorldSpar(snap: AssistSnapshot) {
+  // 主角卡走瞬时 override 直吃有效六维/HP/EP（忠于卡面属性/衍生属性）；NPC 卡卡里是基础六维→常规 NPC 路径自然正确。
+  function startArenaWorldSpar(snap: AssistSnapshot, kind: 'player' | 'npc') {
     if (useCombat.getState().battle.active) return;
     if (arenaSparFoeRef.current) { discardArenaFoe(arenaSparFoeRef.current); arenaSparFoeRef.current = null; }
     const cid = materializeArenaFoe(snap);
     if (!cid) return;
     arenaSparFoeRef.current = cid;
-    startCombatWithSelection({ enemyIds: [cid], allyIds: [] });
+    startCombatWithSelection({ enemyIds: [cid], allyIds: [] }, kind === 'player' ? { [cid]: arenaFoeCombatOverride(snap) } : undefined);
   }
 
   // 世界竞技场·手动应战：物化对手为敌方临时 NPC → 真实战斗系统对战；胜负在 finishBattle 回传服务端（胜=占位取代）。
-  function startArenaWorldRankedManual(snap: AssistSnapshot, myCardId: string, opponentCardId: string) {
+  function startArenaWorldRankedManual(snap: AssistSnapshot, myCardId: string, opponentCardId: string, kind: 'player' | 'npc') {
     if (useCombat.getState().battle.active) return;
     if (arenaSparFoeRef.current) { discardArenaFoe(arenaSparFoeRef.current); arenaSparFoeRef.current = null; }
     const cid = materializeArenaFoe(snap);
     if (!cid) return;
     arenaSparFoeRef.current = cid;
     arenaRankedChallengeRef.current = { myCardId, opponentCardId };
-    startCombatWithSelection({ enemyIds: [cid], allyIds: [] });
+    startCombatWithSelection({ enemyIds: [cid], allyIds: [] }, kind === 'player' ? { [cid]: arenaFoeCombatOverride(snap) } : undefined);
   }
 
   // 世界竞技场·手动战报：读赌场战斗世界书 + 专属提示词，把亲手打完的结算数据演绎成≥500字战报，写入 arena store 供面板展示（不进正文）。
@@ -9442,7 +9468,7 @@ ${lines}`;
       {chatRoomOpen && <ChatRoomPanel onClose={() => setChatRoomOpen(false)} />}
       {tradeOpen && <TradePanel onClose={() => setTradeOpen(false)} />}
       {assistOpen && <AssistPanel onClose={() => setAssistOpen(false)} />}
-      {arenaWorldOpen && <ArenaWorldPanel onClose={() => setArenaWorldOpen(false)} onGenBattle={genArenaWorldBattle} onSpar={(card) => startArenaWorldSpar(card.snapshot)} onManualChallenge={(opp, myCardId) => startArenaWorldRankedManual(opp.snapshot, myCardId, opp.id)} />}
+      {arenaWorldOpen && <ArenaWorldPanel onClose={() => setArenaWorldOpen(false)} onGenBattle={genArenaWorldBattle} onSpar={(card) => startArenaWorldSpar(card.snapshot, card.kind)} onManualChallenge={(opp, myCardId) => startArenaWorldRankedManual(opp.snapshot, myCardId, opp.id, opp.kind)} />}
       {monumentOpen && <MonumentPanel onClose={() => setMonumentOpen(false)} />}
       {vaultOpen && <AccountVaultPanel onClose={() => setVaultOpen(false)} />}
       {mpIncomingGift && <GiftPrompt gift={mpIncomingGift} onClose={() => useMp.getState()._set({ incomingGift: null })} />}
