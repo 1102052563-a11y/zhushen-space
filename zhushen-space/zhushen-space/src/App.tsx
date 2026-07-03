@@ -6796,12 +6796,13 @@ ${lines}`;
   }
 
   // ① 外置手动开战：从「在场 NPC 选择」直接建战（不读正文、不调 AI）
-  function startCombatWithSelection(picks: { enemyIds: string[]; allyIds: string[] }) {
+  function startCombatWithSelection(picks: { enemyIds: string[]; allyIds: string[] }, transientEnemies?: Record<string, any>) {
     const C = useCombat.getState();
     if (C.battle.active || picks.enemyIds.length === 0) return;
     const blocks: Record<string, CombatStatBlock> = { B1: buildCombatant('B1', 'player') };
     for (const id of picks.allyIds) if (id !== 'B1' && !blocks[id]) blocks[id] = buildCombatant(id, 'player');
-    for (const id of picks.enemyIds) if (!blocks[id]) blocks[id] = buildCombatant(id, 'enemy');
+    // transientEnemies[id] 给定 → 用瞬时路径直接吃传入六维/HP/EP（世界竞技场主角卡：卡里存的就是有效六维，不再二次套 effectiveAttrs+夹阶）
+    for (const id of picks.enemyIds) if (!blocks[id]) blocks[id] = buildCombatant(id, 'enemy', transientEnemies?.[id] ? { isTransient: true, ...transientEnemies[id] } : undefined);
     // 联机：在座来宾各自加成玩家方战斗角色（用其上报的角色卡六维，瞬时 combatant，由该来宾远程出手）
     { const mp = useMp.getState();
       if (mp.status === 'connected' && mp.role === 'host') {

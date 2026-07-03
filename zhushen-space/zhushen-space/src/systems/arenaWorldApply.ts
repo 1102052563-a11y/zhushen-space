@@ -4,10 +4,18 @@
 import { useNpc, type NpcOwnedItem, type NpcRecord } from '../store/npcStore';
 import { useCharacters } from '../store/characterStore';
 import { useMisc } from '../store/miscStore';
+import { normalizeTier, TIERS } from './derivedStats';
 import type { AssistSnapshot } from './arenaWorldProtocol';
 
 function coerceGender(g?: string): '男' | '女' | '' {
   return g === '男' || g === '女' ? g : '';
+}
+// 卡里没带 Lv 时按阶位推一个代表等级（阶位第 n 阶 → Lv (n-1)*10+5），供 lvFromRealm/衍生属性用。
+function guessLevel(snap: AssistSnapshot): number {
+  const m = /Lv\.?\s*(\d+)/i.exec(snap.realm || '');
+  if (m) return Number(m[1]);
+  const ti = TIERS.indexOf(normalizeTier(snap.tier) as typeof TIERS[number]);
+  return ti >= 0 ? ti * 10 + 5 : 1;
 }
 // 卡里的装备/物品 → NPC 持有物（装备一律 equipped:false，展示用，不与有效六维二次叠加）。
 function toOwnedItem(raw: any, cid: string, idx: number, isEquip: boolean): NpcOwnedItem {
@@ -40,6 +48,8 @@ export function materializeArenaFoe(snap: AssistSnapshot): string {
     gender: coerceGender(snap.gender),
     appearanceDetail: snap.appearance || '',
     background,
+    // 保住等级：createPartyMember 建的 realm 无 Lv → lvFromRealm=1 会拉低衍生属性；用卡里 realm(NPC 卡带 Lv)或按阶位推代表等级
+    realm: (snap.realm && /Lv/i.test(snap.realm)) ? snap.realm : `${normalizeTier(snap.tier) || snap.tier || '一阶'}·Lv.${guessLevel(snap)}|竞技对手`,
     attrs: {
       str: Number(a.str) || 5, agi: Number(a.agi) || 5, con: Number(a.con) || 5,
       int: Number(a.int) || 5, cha: Number(a.cha) || 5, luck: Number(a.luck) || 5,
@@ -73,4 +83,23 @@ export function materializeArenaFoe(snap: AssistSnapshot): string {
 export function discardArenaFoe(cid: string): void {
   if (!cid) return;
   try { useCharacters.getState().removeCharacter(cid); useNpc.getState().hardRemoveNpc(cid); } catch { /* */ }
+}
+
+/** 主角卡的瞬时战斗 override——直接用卡里的**有效六维 + maxHp/EP**（主角快照存的就是有效六维），
+ *  经 buildCombatant 瞬时路径只做四阶×5、不再二次套 effectiveAttrs+夹阶（治"战斗不读属性/衍生属性"）。
+ *  技能/天赋仍由 characterStore[cid] 供敌方 AI 施放+被动聚合，故对战既忠于卡面数值又能放技能。 */
+export function arenaFoeCombatOverride(snap: AssistSnapshot): { name: string; tier: string; level: number; maxHp?: number; maxEp?: number; bioStrength: string; attrs: Record<string, number> } {
+  const a: any = snap.attrs || {};
+  return {
+    name: snap.name,
+    tier: snap.tier || '',
+    level: guessLevel(snap),
+    maxHp: typeof snap.maxHp === 'number' ? snap.maxHp : undefined,
+    maxEp: typeof snap.maxEp === 'number' ? snap.maxEp : undefined,
+    bioStrength: snap.bioStrength || '',
+    attrs: {
+      str: Number(a.str) || 5, agi: Number(a.agi) || 5, con: Number(a.con) || 5,
+      int: Number(a.int) || 5, cha: Number(a.cha) || 5, luck: Number(a.luck) || 5,
+    },
+  };
 }
