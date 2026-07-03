@@ -59,7 +59,8 @@ export default function AccountVaultPanel({ onClose }: { onClose: () => void }) 
   const doCloudSync = async () => { setCloudBusy(true); await syncVaultCloud(); setCloudBusy(false); };
 
   const list = useMemo(() => Object.values(entries).sort((a, b) => b.storedAt - a.storedAt), [entries]);
-  const depositable = useMemo(() => items.filter((it) => !it.equipped && !it.locked), [items]);
+  // 可存入=未装备的一切（含**锁定物**：仓库是安全存放不是删除，锁定的贵重道具/特殊物品正该存进来）。已装备的需先卸下。
+  const depositable = useMemo(() => items.filter((it) => !it.equipped), [items]);
 
   const toast = (m: string) => { setFlash(m); setTimeout(() => setFlash((c) => (c === m ? '' : c)), 2200); };
 
@@ -185,7 +186,8 @@ export default function AccountVaultPanel({ onClose }: { onClose: () => void }) 
                       <EntityCard kind={itemKind(it)} data={it} onOpen={() => setSub({ kind: itemKind(it), data: it })} />
                     </div>
                   </div>
-                  <div className="flex items-center">
+                  <div className="flex items-center gap-2">
+                    {it.locked && <span className="text-[11px] font-mono text-blue-400/80 shrink-0" title="已锁定物品——仓库是安全存放，可正常存入并原样取回">🔒 锁定·可存</span>}
                     <button onClick={() => depositItem(it)} className="ml-auto px-3 py-1 rounded-lg text-[12px] font-semibold bg-amber-400/15 border border-amber-400/40 text-amber-300 hover:bg-amber-400/25 transition-colors">🏦 存入</button>
                   </div>
                 </div>

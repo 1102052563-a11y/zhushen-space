@@ -484,7 +484,7 @@ export function ItemDetailModal({ item, onClose }: { item: InventoryItem; onClos
           )}
 
           {/* 存入领地仓库（领地已开辟、未装备未锁定时可用；整摞转入领地仓库并从背包移除）*/}
-          {territoryUnlocked && !item.equipped && !item.locked && (
+          {territoryUnlocked && !item.equipped && (
             <button
               onClick={depositToTerritory}
               className="flex items-center gap-1 px-3 py-1.5 border rounded-lg text-sm font-mono transition-colors border-edge text-dim hover:border-amber-400/40 hover:text-amber-400"
@@ -881,7 +881,7 @@ export default function BackpackModal({
   const inBag    = sorted.filter((it) => !it.equipped);
 
   /* 批量存入领地：仅未装备未锁定可选；勾选后一次性 storeItem→领地仓库并从背包移除 */
-  const eligibleInBag = inBag.filter((it) => !it.locked);
+  const eligibleInBag = inBag;   // 未装备的一切（含锁定物：仓库是安全存放不是删除，锁定的贵重物也该能存）
   const selectedCount = eligibleInBag.filter((it) => selectedIds.has(it.id)).length;
   const toggleSelect = (id: string) => setSelectedIds((prev) => {
     const n = new Set(prev);
@@ -1051,7 +1051,7 @@ export default function BackpackModal({
             <span className="text-[13px] font-mono text-amber-200 shrink-0">已选 {selectedCount} 件</span>
             <button onClick={selectAllEligible} className="text-[12px] font-mono text-dim hover:text-amber-300 transition-colors shrink-0">全选可存（{eligibleInBag.length}）</button>
             <button onClick={() => setSelectedIds(new Set())} className="text-[12px] font-mono text-dim hover:text-slate-200 transition-colors shrink-0">清空所选</button>
-            <span className="text-[11px] font-mono text-dim/40 shrink-0">（已装备/已锁定不可选）</span>
+            <span className="text-[11px] font-mono text-dim/40 shrink-0">（已装备的需先卸下；锁定物可存）</span>
             <span className="flex-1" />
             <button
               onClick={batchDeposit}
@@ -1131,7 +1131,7 @@ export default function BackpackModal({
                     <div className="grid grid-cols-2 gap-2">
                       {inBag.map((it) => (
                         <ItemCard key={it.id} item={it} onOpen={() => setDetailItemId(it.id)}
-                          selectable={selectMode && !it.locked}
+                          selectable={selectMode}
                           selected={selectedIds.has(it.id)}
                           onToggleSelect={() => toggleSelect(it.id)} />
                       ))}
