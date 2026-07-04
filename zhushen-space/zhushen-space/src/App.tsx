@@ -1620,7 +1620,11 @@ export default function App() {
       // 图片：从 IndexedDB 回填 avatar/image 到各 store（localStorage 已不存图），再开启自动镜像
       try { await hydrateImages(); } catch { /* */ }
       initImageSync();
-      const loaded = await chatDb.loadAll();
+      // ★try/catch 必须：chatDb.loadAll() 若抛（IndexedDB 一时读失败）而不兜，整个挂载 IIFE 会中途 reject，
+      //   **续玩标志(PENDING_REGEN/REVAR)的消费在下方 await 之后就跑不到、没被清掉** → 残留标志会被下次 reload
+      //   （比如「回退上一回合」）误当成"待重发/待重算"触发 → 回退变成又发一遍上回合输入（用户报此 bug 的根因之一）。
+      let loaded: any[] = [];
+      try { loaded = await chatDb.loadAll(); } catch (e) { console.warn('[Chat] 加载对话失败（不阻断挂载）:', e); }
       if (loaded.length) {
         setMessages(loaded as any);
         msgId.current = loaded.reduce((mx, x) => Math.max(mx, x.id ?? 0), 0);
@@ -8258,6 +8262,11 @@ ${lines}`;
   /* 回退到上一回合：恢复所有演化/对话/图到发送本回合之前（整页 reload）*/
   async function rollbackTurn() {
     if (useMp.getState().status === 'connected') { setGenError('联机房间内不能回退（会刷新页面+断开房间，队友会被还原到各自单机存档）。请先关闭/离开房间再回退。'); setTimeout(() => setGenError(''), 6000); return; }
+    // ★纯回退=干净读回退点、绝不重发/重算。先清掉可能残留的「重新生成/重算变量」意图标志——
+    //   否则若上次 regen/revar 的标志没被消费干净（mount 消费在一串 await 之后，中途抛错就没清），
+    //   本次回退 reload 后会被 mount 当成"待重发/待重算"误触发 → 回退变成"又把上回合输入发一遍"（用户报此 bug）。
+    clearResumeFlag(PENDING_REGEN_KEY);
+    clearResumeFlag(PENDING_REVAR_KEY);
     // 守卫：回退点为空(旧版遗留/开局所记)就不执行——否则会把聊天清成空白。同步关掉按钮。
     if (!(await undoPointHasChat())) { setCanUndo(false); setGenError('没有可回退的对话（回退点为空，避免清屏已取消）'); setTimeout(() => setGenError(''), 5000); return; }
     const ok = await loadSlot(UNDO_ID);
