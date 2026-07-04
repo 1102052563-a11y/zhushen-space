@@ -1822,14 +1822,10 @@ export default function App() {
       try {
         const Mm = useMisc.getState();
         const cur = Mm.worldName || '';
-        // 已归档(完成/失败)的本世界任务：结算时 worldName 通常仍是任务世界。乐园/专属房间的管理任务不算世界完成数；旧档未标 worldName 时按"当前世界"兜底
-        let arch = Mm.archivedTasks.filter((x) => {
-          const w = x.worldName || cur;
-          if (isHomeWorld(w)) return false;
-          return x.worldName ? x.worldName === cur : true;
-        });
-        // 兜底：若已切回乐园导致上面筛空，则取所有非乐园的已结算任务
-        if (!arch.length) arch = Mm.archivedTasks.filter((x) => !isHomeWorld(x.worldName || ''));
+        // 只结算"上次世界结算 / 进入本世界以来"完成的任务（settledAt 晚于边界戳）=本世界的，
+        // 杜绝把之前已结算世界的任务(settledAt 更早)再算一遍（治"把之前的世界也结算进来了"）。乐园/专属房间的管理任务也排除。
+        const since = Mm.lastWorldSettleAt || 0;
+        const arch = Mm.archivedTasks.filter((x) => x.settledAt > since && !isHomeWorld(x.worldName || cur));
         // 进行中但已达成若干环的任务（主线结算时常仍"进行中"却已完成多环）：把其达成环也纳入逐环结算
         const prog = isHomeWorld(cur) ? [] : Mm.tasks.filter((t) => Array.isArray(t.rings) && t.rings.some((r) => r.status === 'done'));
         const done = [...prog, ...arch].slice(0, 40);
@@ -3933,6 +3929,8 @@ ${AFFIX_EFFECT_RULE}`;
       prevWorldNameRef.current !== '' && !!M.worldName && M.worldName !== prevWorldNameRef.current
       && !isHomeWorld(M.worldName);   // 只在进入"任务世界"才触发主线规划；轮回乐园/专属房间/各乐园(枢纽)不规划主线
     prevWorldNameRef.current = M.worldName || prevWorldNameRef.current;
+    // 进入新任务世界 → 打一个结算边界戳：此后完成的任务才算"本世界"，杜绝下次结算把上个世界的旧任务再算进来
+    if (enteredNewWorld) { try { useMisc.getState().markWorldSettled(); } catch { /* */ } }
     // 主角处境快照（供任务接地"结合主角处境"）+ 同人增强开关（控制是否联网搜原作设定）
     const _pp = usePlayer.getState().profile;
     const playerSituation = [
@@ -7893,7 +7891,7 @@ ${lines}`;
         // 流结束后：先剥掉泄漏进正文的思维链块（中转把 <think> 拍平进 content / 末尾 </think> 预填充被回显），再解析/渲染
         const cleaned = stripLeakedThinking(accumulated);
         lastRawNarrativeRef.current = cleaned;   // 存含指令原文，供「仅重算变量」复用
-        if (/<世界结算>/.test(cleaned)) playSfx('fanfare');   // 世界结算 → 号角音效
+        if (/<世界结算>/.test(cleaned)) { playSfx('fanfare'); try { useMisc.getState().markWorldSettled(); } catch { /* 结算完成→推进结算边界戳，下个世界不再重复结算本世界任务 */ } }   // 世界结算 → 号角音效
         if (!narrateOnly) { applyAllUpdates(cleaned); try { applyPlayerProfileCommands(cleaned, '', turnCountRef.current); } catch { /* 主角位置/外观/身份：正文若直接输出 character.B1.* 也即时生效，不必等主角演化阶段 */ } }
         const settledText = stripKillBlocks(cleaned);   // 过渡期：剥除旧 <kill> 清单（不再结算进阶点）
         // 演化/解析读的正文（prompt 视图：跳过 markdownOnly 美化壳、应用 promptOnly「对AI隐藏」）；再剥 <state>/<upstore>，保留 <状态结算> HP/EP 块
@@ -7923,7 +7921,7 @@ ${lines}`;
         if (!reply) throw new Error('模型未返回内容');
         const cleanedReply = stripLeakedThinking(reply);   // 剥泄漏进正文的思维链块（同流式路径）
         lastRawNarrativeRef.current = cleanedReply;   // 存含指令原文，供「仅重算变量」复用
-        if (/<世界结算>/.test(cleanedReply)) playSfx('fanfare');   // 世界结算 → 号角音效
+        if (/<世界结算>/.test(cleanedReply)) { playSfx('fanfare'); try { useMisc.getState().markWorldSettled(); } catch { /* 结算完成→推进结算边界戳，下个世界不再重复结算本世界任务 */ } }   // 世界结算 → 号角音效
         if (!narrateOnly) { applyAllUpdates(cleanedReply); try { applyPlayerProfileCommands(cleanedReply, '', turnCountRef.current); } catch { /* 主角位置/外观/身份：正文直接输出 character.B1.* 即时生效 */ } }
         const settledReply = stripKillBlocks(cleanedReply);   // 过渡期：剥除旧 <kill> 清单（不再结算进阶点）
         // 演化/解析读的正文（prompt 视图：跳过 markdownOnly 美化壳、应用 promptOnly「对AI隐藏」）；再剥 <state>/<upstore>，保留 <状态结算> HP/EP 块

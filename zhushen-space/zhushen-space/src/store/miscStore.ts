@@ -195,6 +195,7 @@ const DEFAULT_SETTINGS: MiscSettings = {
 interface MiscState {
   tasks: MiscTask[];
   archivedTasks: ArchivedTask[];   // 已结算任务（完成/失败/放弃），移出进行中列表
+  lastWorldSettleAt: number;       // 上次「世界结算/进入新任务世界」的时间戳；只结算 settledAt 晚于它的任务=本世界的，杜绝把之前世界重复结算
   worldEvents: WorldEvent[];
   smallSummaries: string[];
   largeSummaries: string[];
@@ -221,6 +222,7 @@ interface MiscState {
   settleTask: (id: string, status: string) => void;   // 结算：移出进行中→归档
   advanceRing: (id: string, done?: { summary?: string; rating?: string }) => void;   // 推进：当前 active 环→done（并记下该环行为总结/评级）、下一 planned 环→active，同步顶层快照
   clearArchivedTasks: () => void;
+  markWorldSettled: () => void;    // 打一个"世界结算/进世界"边界戳（=现在）；此后完成的任务才计入下次结算
   nextTaskId: () => string;
   addWorldEvent: (e: Omit<WorldEvent, 'id'>) => void;
   updateWorldEvent: (id: string, patch: Partial<Omit<WorldEvent, 'id'>>) => void;
@@ -254,6 +256,7 @@ export const useMisc = create<MiscState>()(
     (set, get) => ({
       tasks: [],
       archivedTasks: [],
+      lastWorldSettleAt: 0,
       worldEvents: [],
       smallSummaries: [],
       largeSummaries: [],
@@ -337,6 +340,7 @@ export const useMisc = create<MiscState>()(
           }),
         })),
       clearArchivedTasks: () => set({ archivedTasks: [] }),
+      markWorldSettled: () => set({ lastWorldSettleAt: Date.now() }),
       nextTaskId: () => {
         // 进行中 + 已归档的编号都算"已占用"，避免复用完成任务的编号
         const all = [...get().tasks, ...get().archivedTasks];
@@ -377,7 +381,7 @@ export const useMisc = create<MiscState>()(
         worldTime: patch.worldTime ?? s.worldTime,
         worldName: patch.worldName ?? s.worldName,
       })),
-      clearMisc: () => set({ tasks: [], archivedTasks: [], worldEvents: [], smallSummaries: [], largeSummaries: [], summaryRound: 0, turnCount: 0 }),
+      clearMisc: () => set({ tasks: [], archivedTasks: [], lastWorldSettleAt: 0, worldEvents: [], smallSummaries: [], largeSummaries: [], summaryRound: 0, turnCount: 0 }),
 
       setSettings: (patch) => set((s) => ({ settings: { ...s.settings, ...patch } })),
       setPresetEntries: (entries, name, version) =>

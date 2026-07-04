@@ -63,6 +63,7 @@ export default function SkillTreePanel({ onClose }: { onClose: () => void }) {
   const [upgradingId, setUpgradingId] = useState<string | undefined>(undefined);
   const [upMsg, setUpMsg] = useState('');
   const [confirmUpId, setConfirmUpId] = useState<string | undefined>(undefined);   // 升级二次确认（防误点烧 token）
+  const [upReq, setUpReq] = useState('');   // 本次强化的手动提示词（选填·最高优先·如「精简成一条特效」）
   const [hlConst, setHlConst] = useState<string | undefined>(undefined);   // 高亮中的星座 id
   const [awakeningId, setAwakeningId] = useState<string | undefined>(undefined);   // 觉醒中的星座
   const [embeddingId, setEmbeddingId] = useState<string | undefined>(undefined);   // 炼核中的 socket
@@ -177,14 +178,15 @@ export default function SkillTreePanel({ onClose }: { onClose: () => void }) {
   const socketActive = selNode?.socket ? (selNode.prereqs ?? []).every((p) => nodeRank(prog, p) >= 1) : false;
 
   // AI 升级当前技能/天赋（rank2/3）：输入当前信息 → 大幅强化版（联网搜索+特性，失败回退无搜索）
-  const aiUpgrade = async (grant: NodeGrants): Promise<NodeGrants | null> => {
+  const aiUpgrade = async (grant: NodeGrants, extraReq?: string): Promise<NodeGrants | null> => {
     const ss = useSettings.getState();
     const legacy = ss.textUseSharedApi ? ss.api : ss.textApi;
     const chain = resolveApiChain('skilltree', legacy);
     if (!chain[0]?.baseUrl || !chain[0]?.apiKey) throw new Error('未配置 AI 接口（设置→综合设置/正文生成）');
     const isSkill = !!grant.skill;
     const cur: any = grant.skill ?? grant.trait;
-    const userMsg = `当前${isSkill ? '技能' : '天赋'}（升级前·完整信息）：\n${JSON.stringify(cur)}\n\n请把它大幅升级一档（数值大幅提升 + 新增 1~2 个新效果），按系统要求只输出升级后的 JSON。`;
+    const reqLine = extraReq ? `\n\n【本次强化的额外要求（最高优先，务必严格遵守，覆盖默认）】：${extraReq}` : '';
+    const userMsg = `当前${isSkill ? '技能' : '天赋'}（升级前·完整信息）：\n${JSON.stringify(cur)}\n\n请按【升级铁则】稳健强化它一档：**以打磨现有主特效 + 数值提升为主、保持精简、默认不新增效果、品级与阶位相称**，只输出升级后的 JSON。${reqLine}`;
     const once = (extra?: Record<string, unknown>) => apiChatFallback(chain, [
       { role: 'system', content: SKILL_UPGRADE_PROMPT }, { role: 'user', content: userMsg },
     ], { timeoutMs: 150000, extra });
@@ -204,7 +206,7 @@ export default function SkillTreePanel({ onClose }: { onClose: () => void }) {
     if (selIsUpgrade) {
       setUpgradingId(selNode.id); setUpMsg('技能正在升级中…');
       try {
-        const upd = await aiUpgrade(selGrant);
+        const upd = await aiUpgrade(selGrant, upReq.trim() || undefined);
         if (upd && useSkillTree.getState().applyNodeUpgrade('B1', selNode.id, upd)) setUpMsg('✓ 升级完成！技能栏已同步');
         else setUpMsg('升级失败（未返回有效内容）');
       } catch (e: any) { setUpMsg('升级失败：' + (e?.message || String(e))); }
@@ -468,16 +470,24 @@ export default function SkillTreePanel({ onClose }: { onClose: () => void }) {
                 )}
               </div>
             )}
+            {/* 本次强化的手动提示词（选填·最高优先）——治「重复强化 AI 滥强/堆特效」*/}
+            {selIsUpgrade && upgradingId !== selNode.id && (
+              <div className="mt-2">
+                <textarea rows={2} value={upReq} onChange={(e) => setUpReq(e.target.value)}
+                  placeholder="本次强化要求（选填·最高优先）：如「精简成一条特效」「只提数值，别加新效果」「偏向控制/防御」…留空＝默认稳健强化（不堆特效、品级与阶位相称）"
+                  className="w-full bg-void border border-edge rounded px-2 py-1 text-[12px] text-slate-200 outline-none focus:border-fuchsia-500/50 resize-y leading-snug" />
+              </div>
+            )}
             {/* 升级二次确认：将调用 AI（计费）*/}
             {confirmUpId === selNode.id && selIsUpgrade && upgradingId !== selNode.id && (
               <div className="flex items-center gap-2 mt-2 flex-wrap">
-                <span className="text-[12px] text-fuchsia-300">确认升级此{selGrant.skill ? '技能' : '天赋'}？将调用 AI（计费）大幅强化。</span>
+                <span className="text-[12px] text-fuchsia-300">确认升级此{selGrant.skill ? '技能' : '天赋'}？将调用 AI（计费）稳健强化{upReq.trim() ? '·按你的要求' : ''}。</span>
                 <button onClick={doRankUp} className="px-3 py-1 rounded border border-fuchsia-500/60 text-fuchsia-200 bg-fuchsia-500/15 hover:bg-fuchsia-500/25 text-[12px] font-mono">确认升级（调用 AI）</button>
                 <button onClick={() => setConfirmUpId(undefined)} className="px-2 py-1 rounded border border-edge text-dim text-[12px] font-mono">取消</button>
               </div>
             )}
             {selIsUpgrade && upgradingId !== selNode.id && confirmUpId !== selNode.id && !upMsg && (
-              <p className="text-[12px] text-fuchsia-300/70 mt-1.5">↑ 再投一点将调用 AI 大幅升级此{selGrant.skill ? '技能' : '天赋'}（数值跃升 + 新增效果），技能栏同步更新。</p>
+              <p className="text-[12px] text-fuchsia-300/70 mt-1.5">↑ 再投一点将调用 AI 稳健升级此{selGrant.skill ? '技能' : '天赋'}（默认精简·不堆特效；可在上方框写本次要求），技能栏同步更新。</p>
             )}
             {upgradingId === selNode.id && <p className="text-[12px] text-fuchsia-300 mt-1.5 animate-pulse">⚙ 技能正在升级中…（联网检索 + 据特性强化，约 10~40 秒）</p>}
             {upMsg && upgradingId !== selNode.id && <p className="text-[12px] text-fuchsia-300 mt-1.5">{upMsg}</p>}
