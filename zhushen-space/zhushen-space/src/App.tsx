@@ -2765,11 +2765,17 @@ export default function App() {
       const body = book.entries.filter((e) => e.enabled !== false).map((e) => e.content.trim()).filter(Boolean).join('\n\n');
       return body ? `\n\n【阶位·生物强度战力图鉴（登场判断参照系·定阶位/等级/生物强度档前务必逐条对照）】\n${body}` : '';
     })();
+    // 阶位·战力表现图鉴（来自正文世界书 twb-novel·常驻蓝灯条目）：登场判断每次强制读取，据破坏力/战力表现定阶位+等级。
+    const tierPowerInjection = (() => {
+      const book = useSettings.getState().textWorldBooks.find((b) => b.builtinKey === 'twb-novel');
+      const e = book?.entries.find((x) => x.enabled !== false && (x.comment || '').includes('阶位·战力表现图鉴'));
+      return e?.content?.trim() ? `\n\n${e.content.trim()}` : '';
+    })();
     return entries
       .filter((e) => e.enabled)   // entries 来自独立的「登场判断」预设(entryJudge)，整本都是登场判断条目
       .map((e) => fillVars(e.content, vars))
       .join('\n\n')
-      + '\n\n' + NARRATIVE_FIRST_RULE + '\n' + EVO_VERIFY_RULE + '\n' + NPC_DEAD_EXCLUDE_RULE + '\n' + NPC_ID_RULE + '\n' + TIER_RULE + '\n' + SKILL_TIER_RULE + '\n' + NPC_GEN_ATTR_RULE + '\n' + NPC_TEAM_AFFILIATION_RULE + '\n' + NPC_ENTRY_BIO_RULE + '\n' + ENTRY_NAME_CN_RULE + '\n' + ENTRY_DEDUP_RULE + codexInjection + worldLoreEvoInjection() + '\n' + SKILL_TALENT_GUIDE + '\n' + ENTRY_COT_RULE;
+      + '\n\n' + NARRATIVE_FIRST_RULE + '\n' + EVO_VERIFY_RULE + '\n' + NPC_DEAD_EXCLUDE_RULE + '\n' + NPC_ID_RULE + '\n' + TIER_RULE + '\n' + SKILL_TIER_RULE + '\n' + NPC_GEN_ATTR_RULE + '\n' + NPC_TEAM_AFFILIATION_RULE + '\n' + NPC_ENTRY_BIO_RULE + '\n' + ENTRY_NAME_CN_RULE + '\n' + ENTRY_DEDUP_RULE + codexInjection + tierPowerInjection + worldLoreEvoInjection() + '\n' + SKILL_TALENT_GUIDE + '\n' + ENTRY_COT_RULE;
   }
 
   /* 解析 NPC <state> 短指令（favor/title/realm/hp），可按 charId 过滤 */
