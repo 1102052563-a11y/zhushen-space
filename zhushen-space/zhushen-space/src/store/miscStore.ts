@@ -285,16 +285,32 @@ export const useMisc = create<MiscState>()(
           const i = s.tasks.findIndex((x) => x.id === t.id);
           const next = [...s.tasks];
           // 更新既有任务：rings 走按 idx 合并、不整组替换 → 不丢已完成的前面环
-          if (i >= 0) next[i] = Array.isArray(t.rings) ? { ...next[i], ...t, rings: mergeRings(next[i].rings, t.rings) } : { ...next[i], ...t };
-          else next.push(t);
+          if (i >= 0) { next[i] = Array.isArray(t.rings) ? { ...next[i], ...t, rings: mergeRings(next[i].rings, t.rings) } : { ...next[i], ...t }; return { tasks: next }; }
+          // 新建任务·铁则「一个世界只有一条主线」：本世界已有主线（进行中 或 本世界已完成/已归档的）时，新主线强制降级为支线，杜绝一个世界冒出第二条主线。
+          // 用边界戳把"本世界"框住：进行中主线看 addedAt、已归档主线看 settledAt 是否晚于 lastWorldSettleAt（=进入本世界之后），避免上个世界残留的旧主线误伤新世界建主线。
+          const boundary = s.lastWorldSettleAt || 0;
+          // boundary=0（尚未打过世界边界戳，多为旧存档）时不降级，避免把新世界的第一条主线误伤成支线；边界一旦建立（进世界/结算）即生效
+          const worldHasMain = boundary > 0 && (s.tasks.some((x) => isMainQuest(x) && (x.addedAt || 0) > boundary)
+            || s.archivedTasks.some((x) => isMainQuest(x) && x.settledAt > boundary));
+          const nt = (isMainQuest(t) && worldHasMain) ? { ...t, kind: '支线' as const } : t;
+          next.push(nt);
           return { tasks: next };
         }),
       updateTask: (id, patch) =>
-        set((s) => ({ tasks: s.tasks.map((x) =>
-          x.id !== id ? x
-          : Array.isArray(patch.rings) ? { ...x, ...patch, rings: mergeRings(x.rings, patch.rings) }
-          : { ...x, ...patch },
-        ) })),
+        set((s) => {
+          // 一个世界一条主线：想把某任务升为主线、但本世界已另有主线（进行中或本世界已归档）→ 不允许提升，去掉 kind 提升
+          const boundary = s.lastWorldSettleAt || 0;
+          let p = patch;
+          if (patch.kind === '主线' && boundary > 0
+            && (s.tasks.some((x) => x.id !== id && isMainQuest(x) && (x.addedAt || 0) > boundary) || s.archivedTasks.some((x) => isMainQuest(x) && x.settledAt > boundary))) {
+            p = { ...patch }; delete p.kind;
+          }
+          return { tasks: s.tasks.map((x) =>
+            x.id !== id ? x
+            : Array.isArray(p.rings) ? { ...x, ...p, rings: mergeRings(x.rings, p.rings) }
+            : { ...x, ...p },
+          ) };
+        }),
       removeTask: (id) => set((s) => ({ tasks: s.tasks.filter((x) => x.id !== id) })),
       settleTask: (id, status) =>
         set((s) => {
@@ -376,11 +392,18 @@ export const useMisc = create<MiscState>()(
       clearNarrativeFacts: () => set({ narrativeFacts: [] }),
       setWeather: (w) => set({ weather: w }),
       setWeatherFx: (key, css) => set({ weatherFxKey: key, weatherFxCss: css }),
-      setTime: (patch) => set((s) => ({
-        paradiseTime: patch.paradiseTime ?? s.paradiseTime,
-        worldTime: patch.worldTime ?? s.worldTime,
-        worldName: patch.worldName ?? s.worldName,
-      })),
+      setTime: (patch) => set((s) => {
+        // 世界名切到一个新的"非乐园"任务世界 → 立刻打结算边界戳（比 App 的 enteredNewWorld 更早、同回合生效）：
+        // 此后完成的任务才算"本世界"，既用于结算范围，也用于"一个世界一条主线"判定，避免用旧世界残留主线/世界之源。
+        const changedToNew = patch.worldName != null && patch.worldName !== s.worldName
+          && !/轮回乐园|专属房间|主神空间/.test(patch.worldName);
+        return {
+          paradiseTime: patch.paradiseTime ?? s.paradiseTime,
+          worldTime: patch.worldTime ?? s.worldTime,
+          worldName: patch.worldName ?? s.worldName,
+          ...(changedToNew ? { lastWorldSettleAt: Date.now() } : {}),
+        };
+      }),
       clearMisc: () => set({ tasks: [], archivedTasks: [], lastWorldSettleAt: 0, worldEvents: [], smallSummaries: [], largeSummaries: [], summaryRound: 0, turnCount: 0 }),
 
       setSettings: (patch) => set((s) => ({ settings: { ...s.settings, ...patch } })),

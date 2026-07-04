@@ -880,6 +880,7 @@ const QUEST_PLANNING_RULE = `
   · 新建主线的 T_ 编号用系统提供的"下一个可用任务ID"（同新建任务规则），下面示例里的 T_5 仅为占位。
   · 示例（一行内，双引号）：\`set({"0":"T_5","1":"哥布林讨伐","kind":"主线","2":"潜入受袭村庄、在哥布林夜袭中存活三日","5":"进行中","finale":"高潮·牧场守卫战，硬抗哥布林大军守住村庄","currentRing":1,"rings":[{"idx":1,"goal":"潜入受袭村庄、在哥布林夜袭中存活三日","status":"active","reward":"属性点+2、技能点+1、乐园币+500","penalty":"扣除乐园币500"},{"idx":2,"goal":"夺回被占的旧矿、击杀哥布林督军","status":"planned","reward":"属性点+3、乐园币+1500、督军战旗(当前世界风格)","penalty":"全属性永久-2"},{"idx":3,"goal":"（高潮，待推进到再规划）","status":"planned"},{"idx":4,"goal":"（贪婪·隐藏委托，待解锁）","status":"planned","optional":true}]})\`
 - **何时不规划**：已存在当前世界的 active 主线时，**绝不重复新建主线**；主线的环推进交给【任务结算/推进】，这里不再造第二条主线。
+- **【一个世界一条主线·铁则·最高优先】每个任务世界从头到尾有且仅有一条主线（≤5环），标准配置就是"一世界一主线"。本世界的主线只要**存在过**——不管是进行中、还是**已经完成/已归档**——就**绝对不许再建第二条主线**（哪怕正文剧情继续、开启新篇章、换了城区/势力/阶段，也一律用支线承接，绝不另起主线）。前端已强制：本世界已有主线时新建的"主线"会被自动降级为支线。**主线（其 finale/最后一个强制环）一完成＝本世界核心目标达成＝该结算离场了**：此时应引导玩家输入【结算任务】结算，**绝不能用"发第二条主线"把玩家继续拖在本世界**（那会导致前一条主线的世界之源/奖励作废、无法结算）。后续想延伸剧情就走支线或贪婪环。
 - 路线图是**规划而非预言**：**总环数(3~5)、各环的强制/贪婪定位、finale 定下后保持不变**，但环的具体内容渐进式补全（当前环+下一环写全、其余占位）；不要一开始就把整条线写死。每一环都是要打好几回合的"实质挑战"、规模/难度递增，不是琐碎子步骤。
 - **支线**：正文产生的其他多回合目标用 \`kind:"支线"\`（或不写 kind=默认支线）；需要分段的支线同样可带 rings，其每一环也要写全 goal/reward/penalty，reward 同样按"六选三"（属性点/技能点/乐园币/当前世界风格装备或技能书/潜能点/世界专属宝箱 任选3类；灵魂钱币同样仅四阶+世界可作奖励）给，penalty 同样从「扣除乐园币 / 全属性永久下降 / 强制抹除」三类里取；**时限同样适用上面的【每环时限·最低 7 天】**——支线的每一环、以及单环支线任务，都要设 startTime~endTime 执行窗口、且 endTime−startTime ≥ 7 天（上不封顶，按难度/需求评估，长线可数月乃至一年以上）。`;
 
@@ -1873,7 +1874,25 @@ export default function App() {
             `- 完成主线：${mainDone} 条\n- 完成支线/隐藏：${sideDone} 条\n- 失败/放弃（不计入完成数）：${failCnt} 条\n` +
             `⇒ 结算面板【完成任务数量】这一行必须写成：「${mainDone}（主线）＋ ${sideDone}（支线）」，一字不差。\n\n` +
             `【逐条清单（每条含各环目标·评级·主角行为总结，供逐环评价与发奖参考；勿遗漏）】\n${serializeSettledTasks(done)}\n` +
-            `— 上列为主角在本结算世界内已完成的任务线与已达成的每一环。【综合评价】逐环评分直接采用各环已给评级；发奖档位以【世界之源%】评级为准（与任务条数无关），但【完成任务数量】与逐条/逐环列举必须覆盖上面全部、绝不许只报一条。`);
+            `— 上列为主角在本结算世界内已完成的任务线与已达成的每一环。【综合评价】逐环评分直接采用各环已给评级；【完成任务数量】与逐条/逐环列举必须覆盖上面全部、绝不许只报一条。综合评级与发奖档位见下方【综合评级·系统建议】。`);
+          // ── 综合评级建议：不只看世界之源%，把各环评分也算进去（世界之源档 ×0.5 + 各环平均评分 ×0.5）──
+          const GP: Record<string, number> = { E: 0, D: 1, C: 2, B: 3, A: 4, S: 5, SS: 6, SSS: 7 };
+          const GL = ['E', 'D', 'C', 'B', 'A', 'S', 'SS', 'SSS'];
+          const ws = usePlayer.getState().profile.worldSource || 0;
+          const wsPts = ws <= 0 ? 0 : ws < 30 ? 1 : ws < 55 ? 2 : ws < 80 ? 3 : ws < 100 ? 4 : ws < 120 ? 5 : ws < 145 ? 6 : 7;
+          const ringPts = done.flatMap((t) => (Array.isArray(t.rings) ? t.rings : [])
+            .filter((r) => (r.status === 'done' || r.status === 'skipped') && r.rating)
+            .map((r) => GP[String(r.rating).toUpperCase().trim()]))
+            .filter((p): p is number => typeof p === 'number');
+          const avgRing = ringPts.length ? ringPts.reduce((a, b) => a + b, 0) / ringPts.length : wsPts;
+          // 环评分主导：各环平均评分权重 0.75、世界之源 0.25
+          const finalPts = Math.max(0, Math.min(7, Math.round(wsPts * 0.25 + avgRing * 0.75)));
+          addRule('本世界综合评级建议', '前端数据 · 综合评级建议（环均分×0.75 + 世界之源×0.25·环评分主导）',
+            `【本世界综合评级·系统建议（结算面板【综合评价】以此为准）】\n` +
+            `- 各已达成环平均评分（主导·占七成半）→ ${GL[Math.round(avgRing)] || '—'}（共 ${ringPts.length} 环计入）\n` +
+            `- 世界之源 ${ws}%（辅助·占两成半）→ 档位 ${GL[wsPts]}\n` +
+            `- **综合评级 = 各环平均评分×0.75 ＋ 世界之源档位×0.25·四舍五入 = 【${GL[finalPts]}】**（以各环评分为主导）\n` +
+            `⇒ 结算的【综合评价】与奖励乘数**采用此建议评级 ${GL[finalPts]}**：任务结算**不只看世界之源%，每一环的评分同样计入**——各环打得漂亮(S/A)就把综合评级往上拉，别只因世界之源低就压到 D。除非有明确剧情理由，最多微调 ±1 档并写明原因。`);
         }
       } catch { /* */ }
     }
@@ -8263,7 +8282,15 @@ ${lines}`;
     if (useMp.getState().status === 'connected') { setGenError('联机房间内不能重算变量（会刷新页面+断开房间，队友会被还原到各自单机存档）。请先关闭/离开房间。'); setTimeout(() => setGenError(''), 6000); return; }
     const raw = lastRawNarrativeRef.current;
     const input = lastUserInputRef.current;
-    if (!raw) { setGenError('拿不到本回合正文原文（刷新后会丢失），请改用「重新生成」'); setTimeout(() => setGenError(''), 5000); return; }
+    if (!raw) {
+      // 原文(含<state>)只在内存·刷新/回退/读档后必丢 → 重算变量本就无法工作。**且要区分**：
+      //   有回退点(canUndo)→引导用「重新生成」；无回退点(如刚回滚了自动备份·autosnap 不带回退点)→「重新生成」也是灰的，
+      //   别再瞎指——直说状态已恢复、直接往下玩即可（这也是用户「回滚自动备份后是不是坏了」的答案：没坏，只是这仨重roll工具需要"本会话刚生成的原文/回退点"，回滚快照里没有）。
+      setGenError(canUndo
+        ? '拿不到本回合正文原文（刷新后已丢失）——请改用「⟳ 重新生成」。'
+        : '本回合原文与回退点都随刷新/回退丢失了，「重算/重生/回退」本回合都用不了。当前状态已正确恢复——直接输入下一步行动继续即可（或读一个更早的存档从那里重玩）。');
+      setTimeout(() => setGenError(''), canUndo ? 5000 : 9000); return;
+    }
     setResumeFlag(PENDING_REVAR_KEY, JSON.stringify({ input, narrative: raw }));
     const ok = await loadSlot(UNDO_ID);
     if (!ok) { clearResumeFlag(PENDING_REVAR_KEY); setGenError('没有回退点，无法重算变量'); setTimeout(() => setGenError(''), 5000); }

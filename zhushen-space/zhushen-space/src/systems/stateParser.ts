@@ -395,9 +395,9 @@ function nearestItemName(bag: any[], query?: string): string | undefined {
   return (hit ?? bag[0])?.name;
 }
 
-/** 装备近似同物判重（供创建闸门"拦截重复创建"）：同名(归一去装饰) + 品级宽松吻合 → 视为重复。
-    effect/combatStat 不再作硬性条件——AI 重提同一件装备时描述/效果每次都变，若要求全等会漏判成"新物"→重复生成(治"提一下就多两把·月影残心×3")。
-    装备名多为专有名词，同名即同物；品级宽松(任一空或互相包含)区分「金色 vs 金色·顶级」(同物·判重)与「金色 vs 红色」(升级·放行)。
+/** 非堆叠唯一物近似同物判重（供创建闸门"拦截重复创建"·装备/法宝/重要物品/宝箱/任务物品等）：同名(归一去装饰) + 品级宽松吻合 → 视为重复。
+    effect/combatStat 不再作硬性条件——AI 重提同一件物品时描述/效果每次都变，若要求全等会漏判成"新物"→重复生成(治"提一下就多两把·月影残心×3"、"重要物品跨阶段各建一次重复两把")。
+    名多为专有名词，同名即同物；品级宽松(任一空或互相包含)区分「金色 vs 金色·顶级」(同物·判重)与「金色 vs 红色」(升级·放行)。
     本判定只用于 skip(不新建·不删物)，非破坏性、误判风险低。*/
 function findIdenticalItem(bag: any[], name: string, grade: string, _effect: string, _combatStat: string): any | null {
   const n = normName(name), g = normName(grade);
@@ -433,7 +433,9 @@ function preflightItemEdit(cmd: ItemCommand, op: ItemOp, ctx?: LedgerCtx): Prefl
       if (!name) return { decision: 'apply' };                       // 名缺失交由 applyOneItemCommand 兜底/忽略
       if (isResourcePseudoItem({ name })) return { decision: 'apply' };  // 货币伪物品自有处理，不在此判重
       const cat = String(item['2'] ?? item.category ?? '');
-      if (!isEquippable(cat)) return { decision: 'apply' };           // 可堆叠类靠 store 堆叠合并，不在闸门判重
+      // 只放行「可堆叠类」（消耗品/材料…靠 store 堆叠累加数量去重）；其余**唯一物**——装备/法宝**以及重要物品/宝箱/任务物品**——一律走判重闸门。
+      // 修「重要物品/宝箱跨阶段(正文 upstore + 物品演化阶段)各建一次→重复两把」：旧代码 `!isEquippable` 把非装备的唯一物也漏放行了，与注释本意(仅放行可堆叠)不符。
+      if (isStackableCat(cat)) return { decision: 'apply' };
       const grade = String(item['3'] ?? item.grade ?? item.quality ?? '');
       const dup = findIdenticalItem(
         bagOf(owner), name, grade,

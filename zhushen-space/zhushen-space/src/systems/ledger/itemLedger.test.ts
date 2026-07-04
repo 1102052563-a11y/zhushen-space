@@ -100,6 +100,20 @@ describe('applyItemCommands 单一闸门（物品·第0期）', () => {
     expect(useItems.getState().items.length).toBe(2);
   });
 
+  it('★重要物品/宝箱跨阶段各建一次（正文 upstore + 物品演化阶段）→ 判重只一件（治「变量出两个相同物品」·非装备唯一物也判重）', () => {
+    applyItemCommands([cmd('createItem', { name: '精良级·蜂巢生化物源铁匣', category: '重要物品', quantity: 1, desc: '战利品' })], { source: 'narrative', turn: 1 });
+    const res = applyItemCommands([cmd('createItem', { name: '精良级·蜂巢生化物源铁匣', category: '重要物品', quantity: 1, desc: '结算奖励' })], { source: 'item-phase', turn: 1 });
+    expect(useItems.getState().items.filter((it) => it.name === '精良级·蜂巢生化物源铁匣').length).toBe(1);
+    expect(res[0].skipped).toBe(true);
+    expect(res[0].reason).toBe('dup');
+  });
+
+  it('消耗品(可堆叠)同名跨阶段 → 仍走 store 堆叠·不生成重复行', () => {
+    applyItemCommands([cmd('createItem', { name: '生化补给箱', category: '消耗品', quantity: 1 })], { source: 'narrative', turn: 1 });
+    applyItemCommands([cmd('createItem', { name: '生化补给箱', category: '消耗品', quantity: 1 })], { source: 'item-phase', turn: 1 });
+    expect(useItems.getState().items.filter((it) => it.name === '生化补给箱').length).toBe(1);   // 一行·数量累加，不是两行
+  });
+
   it('★consume 不存在的物品 → 结构化失败(not_found)，不崩、不误删别的', () => {
     applyItemCommands([cmd('createItem', { name: '某药', category: '消耗品', quantity: 2 })]);
     const res = applyItemCommands([cmd('consumeItem', { name: '不存在的药', quantity: 1 })]);
