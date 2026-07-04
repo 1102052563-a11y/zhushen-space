@@ -4,8 +4,8 @@
    **纯只读·绝不改状态**（看门狗只报警、不动手；修复交给对应闸门/人工）。对应 [[item-evolution-architecture-redesign]] 的"对账看门狗"。 */
 import { useItems } from '../../store/itemStore';
 import { useNpc } from '../../store/npcStore';
-import { walletDiagnostics } from './walletCore';
-import { itemDiagnostics } from './itemCore';
+import { walletDiagnostics, reconcileWallet, walletSeed } from './walletCore';
+import { itemDiagnostics, reconcileItems, itemSeed, itemsToSigMap } from './itemCore';
 import { npcDiagnostics } from './npcCore';
 
 export interface WatchReport { domain: string; violations: string[]; }
@@ -56,14 +56,28 @@ export function watchdogViolations(): WatchReport[] {
   return runWatchdogs().filter((r) => r.violations.length > 0);
 }
 
-export interface HealReport { itemDeduped: number; npcDeduped: number; npcAliasMerged: number; healed: boolean; }
+export interface HealReport { itemDeduped: number; npcDeduped: number; npcAliasMerged: number; driftRealigned: number; healed: boolean; }
 /** 自愈：调**现成、已验证**的修复函数，把 corruption 就地修掉（不新造逻辑，只集中+可见+兜底）。
    幽灵 NPC 由 App.pruneGhostNpcs 每回合已管，此处补齐 dedup 系列（同名物品/NPC/别名/储存空间）。返回修了多少。 */
 export function healWatchdog(): HealReport {
-  let itemDeduped = 0, npcDeduped = 0, npcAliasMerged = 0;
+  let itemDeduped = 0, npcDeduped = 0, npcAliasMerged = 0, driftRealigned = 0;
   try { itemDeduped = useItems.getState().dedupeByName() || 0; } catch { /* */ }
   try { npcDeduped = useNpc.getState().dedupeByName() || 0; } catch { /* */ }
   try { npcAliasMerged = useNpc.getState().dedupeAliasNpcs() || 0; } catch { /* */ }
   try { useNpc.getState().dedupeNpcItems(); } catch { /* */ }
-  return { itemDeduped, npcDeduped, npcAliasMerged, healed: itemDeduped > 0 || npcDeduped > 0 || npcAliasMerged > 0 };
+  // ★把影子账本(itemCore/walletCore)按 store 真相**重新对齐**，清掉「数量漂移 / 货币漂移」——
+  //   旧版 heal 只做 dedup、根本没碰漂移，所以那些漂移条目「按几次自愈也不消、刷屏」(用户报此)。
+  //   itemStore 是权威(1c)，影子只是对账镜；漂移=镜脏了，按真相**重播种**即对齐(seed 事件整体替换基线)，
+  //   **绝不改背包/钱包本身**（只把镜子擦干净）。仅当确有漂移时才播种，避免往事件日志塞无谓 seed。
+  try {
+    const items = (useItems.getState() as { items?: any[] }).items ?? [];
+    const drift = reconcileItems(items);
+    if (drift.length > 0) { itemSeed(itemsToSigMap(items)); driftRealigned += drift.length; }
+  } catch { /* */ }
+  try {
+    const cur = useItems.getState().currency as unknown as Record<string, number>;
+    const wdrift = reconcileWallet(cur);
+    if (wdrift.length > 0) { walletSeed(cur); driftRealigned += wdrift.length; }
+  } catch { /* */ }
+  return { itemDeduped, npcDeduped, npcAliasMerged, driftRealigned, healed: itemDeduped > 0 || npcDeduped > 0 || npcAliasMerged > 0 || driftRealigned > 0 };
 }

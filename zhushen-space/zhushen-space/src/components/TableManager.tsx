@@ -21,13 +21,14 @@ export default function TableManager() {
   const deleteRow = useTables((s) => s.deleteRow);
   const resetAll = useTables((s) => s.resetAll);
   const [msg, setMsg] = useState('');
+  const [healTick, setHealTick] = useState(0);   // 自愈后强制重跑看门狗：影子账本(itemCore/walletCore)不是 React 依赖，重播种不改 items/currency → 不 bump 就一直显示旧漂移
 
   // Step 10 状态对账·看门狗（可见化）：订阅货币/物品/NPC，任一变化即重算，漂移/幽灵/双计/装备槽冲突当场显
   const currency = useItems((s) => s.currency);
   const items = useItems((s) => s.items);
   const npcs = useNpc((s) => s.npcs);
   useEffect(() => { seedWalletIfEmpty(currency as unknown as Record<string, number>); }, []);   // 货币影子对齐
-  const watch = useMemo(() => runWatchdogs(), [currency, items, npcs]);
+  const watch = useMemo(() => runWatchdogs(), [currency, items, npcs, healTick]);
   const watchBad = watch.filter((r) => r.violations.length > 0);
 
   const sheets = Object.values(tables).sort((a, b) => a.orderNo - b.orderNo);
@@ -48,11 +49,18 @@ export default function TableManager() {
         <button
           onClick={() => {
             const h = healWatchdog();
-            setMsg(h.healed ? `🩹 已自愈：物品去重 ${h.itemDeduped} · NPC 去重 ${h.npcDeduped} · 别名合并 ${h.npcAliasMerged}` : '🩹 无需自愈（未发现可修复的重复）');
+            setHealTick((t) => t + 1);   // 重跑看门狗，让自愈后的一致态立刻反映到面板（否则漂移条目会一直挂着看似没修）
+            const parts = [
+              h.driftRealigned > 0 && `漂移对齐 ${h.driftRealigned}`,
+              h.itemDeduped > 0 && `物品去重 ${h.itemDeduped}`,
+              h.npcDeduped > 0 && `NPC 去重 ${h.npcDeduped}`,
+              h.npcAliasMerged > 0 && `别名合并 ${h.npcAliasMerged}`,
+            ].filter(Boolean);
+            setMsg(h.healed ? `🩹 已自愈：${parts.join(' · ')}` : '🩹 无需自愈（当前已一致）');
             setTimeout(() => setMsg(''), 6000);
           }}
           className="shrink-0 px-2 py-0.5 rounded border border-god/40 text-god hover:bg-god/10 transition-colors"
-          title="立即调用现成去重修复（同名物品/NPC/别名/储存空间），把重复项就地合并"
+          title="立即把「数量/货币漂移」按背包·钱包真相重新对齐 + 就地合并同名物品/NPC/别名/储存空间的重复项"
         >
           🩹 立即自愈
         </button>

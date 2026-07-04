@@ -1774,12 +1774,12 @@ export default function App() {
     let worldbook: { role: 'system' | 'user' | 'assistant'; content: string; post: boolean } | null = null;
     if (ctx) {
       if (wbMarker) {
-        worldbook = { role: wbRole, content: '[世界书信息]\n' + ctx, post: wbPost };
+        worldbook = { role: wbRole, content: '<世界书信息>\n' + ctx + '\n</世界书信息>', post: wbPost };
         sysSegments.push({ label: '世界书 → ' + wbMarker.identifier + ' marker（' + wbRole + (wbPost ? ' · 后历史' : ' · 前历史') + '）', content: ctx });
       } else {
         // 缓存优化：世界书（含向量 RAG 每回合都变）不进 system 顶部——否则 system 每回合不一样、前缀缓存全失效；
         //   改作独立 system 消息放到聊天记录之后（稳定前缀之外、贴近生成）。system 保持稳定 → DeepSeek 等前缀缓存能命中。
-        worldbook = { role: 'system', content: '[世界书信息]\n' + ctx, post: true };
+        worldbook = { role: 'system', content: '<世界书信息>\n' + ctx + '\n</世界书信息>', post: true };
         sysSegments.push({ label: '前端 · 世界书信息（独立消息 · 楼层后 · 稳定前缀外·利于缓存）', content: ctx });
       }
     }
@@ -7562,7 +7562,7 @@ ${lines}`;
           (!!homeBare && (e.comment || '').endsWith(homeBare + '乐园'))   // 所属乐园档案条目：常驻注入
         )
       ));
-    // 分流：position===4 的条目 → ⚡深度注入（贴近对话末尾＝高优先级）；其余 → [世界书信息] 塞 system 顶（按 order 升序排）
+    // 分流：position===4 的条目 → ⚡深度注入（贴近对话末尾＝高优先级）；其余 → <世界书信息> 塞 system 顶（按 order 升序排）
     const wbNormal = wbEntries.filter((e) => e.position !== 4).slice().sort((a, b) => ((a.order ?? 100) - (b.order ?? 100)));
     const wbDepthInjections = wbEntries
       .filter((e) => e.position === 4)
@@ -7595,13 +7595,13 @@ ${lines}`;
     let guidanceBlock: { role: 'system'; content: string }[] = [];
     if (plotGuidance) {
       const g = await runPlotGuidance(userText);
-      if (g) guidanceBlock = [{ role: 'system', content: `【剧情指导·本回合写作建议（仅"剧情方向"参考）】\n${g}\n\n（以上仅为剧情方向建议：把方向自然融入正文即可，勿照抄成对白/旁白/标题。⚠️正文的输出格式与一切结构模块——状态栏／时间结算／【主角资源】等世界书与预设规定的模块——一律照常严格输出，不得因本建议而省略、简化或改变格式。本建议只影响"写什么剧情"，不影响"怎么排版输出"。）` }];
+      if (g) guidanceBlock = [{ role: 'system', content: `<剧情指导>\n（本回合写作建议·仅"剧情方向"参考）\n${g}\n\n（以上仅为剧情方向建议：把方向自然融入正文即可，勿照抄成对白/旁白/标题。⚠️正文的输出格式与一切结构模块——状态栏／时间结算／【主角资源】等世界书与预设规定的模块——一律照常严格输出，不得因本建议而省略、简化或改变格式。本建议只影响"写什么剧情"，不影响"怎么排版输出"。）\n</剧情指导>` }];
     }
     // 数据库推进管线（Stitches·开启时）：正文前跑「召回→推进」规划层，产出 stage/scene/recall → 注入正文，正文预设据此写散文（预设只规划、不写正文）
     let dbAdvanceBlock: { role: 'system'; content: string }[] = [];
     if (!narrateOnly && useDbAdvance.getState().enabled && useDbAdvance.getState().preset) {
       const d = await runDbAdvancePipeline(userText, worldInfoText);
-      if (d) dbAdvanceBlock = [{ role: 'system', content: `【数据库推进·本回合规划（导演已排好这一拍的角色行动/场景/记忆，请据此写正文；正文格式与一切结构模块照常严格输出，不因本规划而省略或改格式）】\n${d}` }];
+      if (d) dbAdvanceBlock = [{ role: 'system', content: `<数据库推进>\n（本回合规划·导演已排好这一拍的角色行动/场景/记忆，请据此写正文；正文格式与一切结构模块照常严格输出，不因本规划而省略或改格式）\n${d}\n</数据库推进>` }];
     }
 
     // 历史：叙事记忆（关键词召回，启用时）或按 historyLimit 切片（现状）

@@ -2,10 +2,12 @@ import { describe, it, expect, beforeEach } from 'vitest';
 import { runWatchdogs, watchdogViolations, healWatchdog } from './watchdog';
 import { useItems } from '../../store/itemStore';
 import { useNpc } from '../../store/npcStore';
-import { walletReset } from './walletCore';
+import { walletReset, walletSeed } from './walletCore';
+import { itemCoreReset, itemSeed, itemSig, reconcileItems } from './itemCore';
 
 beforeEach(() => {
   walletReset();
+  itemCoreReset();
   useItems.setState({ currency: {}, items: [] } as any);
   useNpc.setState({ npcs: {} } as any);
 });
@@ -75,6 +77,26 @@ describe('看门狗·自愈 healWatchdog（调现成 dedup，不新造逻辑）'
     expect(useItems.getState().items[0].quantity).toBe(5);   // 3+2 累加
     // 自愈后同一不变量再查应已消解（无重复 id 之类）
     expect(runWatchdogs().find((x) => x.domain === '物品')!.violations).toEqual([]);
+  });
+
+  it('★数量漂移 → 自愈按背包真相重播种影子账本、漂移清零（旧版 heal 不碰漂移=用户报"按了没用"）', () => {
+    // 背包只有 1 把剑；影子核心被搞成 3（模拟绕过闸门/静默消失导致的漂移）
+    useItems.setState({ items: [{ id: 'i1', name: '剑', gradeDesc: '白色', quantity: 1 }] } as any);
+    itemSeed({ [itemSig('剑', '白色')]: 3 });
+    expect(reconcileItems(useItems.getState().items).length).toBeGreaterThan(0);   // 有漂移
+    const r = healWatchdog();
+    expect(r.driftRealigned).toBeGreaterThan(0);
+    expect(r.healed).toBe(true);
+    expect(reconcileItems(useItems.getState().items)).toEqual([]);   // 自愈后核心==背包·漂移清零
+  });
+
+  it('★货币漂移 → 自愈按钱包真相重播种、清零', () => {
+    useItems.setState({ currency: { 乐园币: 100 } } as any);
+    walletSeed({ 乐园币: 999 });   // 影子核心与钱包不一致
+    expect(runWatchdogs().find((x) => x.domain === '货币')!.violations.some((v) => /漂移/.test(v))).toBe(true);
+    const r = healWatchdog();
+    expect(r.driftRealigned).toBeGreaterThan(0);
+    expect(runWatchdogs().find((x) => x.domain === '货币')!.violations.some((v) => /漂移/.test(v))).toBe(false);
   });
 
   it('同名重复真实 NPC 已被 facade 闸门即时合并（heal 的 NPC 去重此后是 belt·无重复可去）', () => {
