@@ -1494,7 +1494,7 @@ export default function App() {
             const fid = povGuestMsgRef.current;
             if (fid != null) { setMessages((prev) => prev.map((mm) => mm.id === fid ? { ...mm, content: m.payload.text } : mm)); povGuestMsgRef.current = null; }
             else setMessages((prev) => [...prev, { id: ++msgId.current, role: 'assistant', content: m.payload.text }]);
-            if (m.payload.text) void runGuestSelfEvolution(m.payload.text);
+            if (m.payload.evoText || m.payload.text) void runGuestSelfEvolution(m.payload.evoText || m.payload.text);   // 只按本人支线(evoText)演化，别把队友分头见闻算进自己
             break;
           }
           case 'solo_toggle': {   // 分头行动：维护全房「谁在分头行动」的显示列表（仅显示，行动仍由房主统一写进同一份正文）
@@ -3756,17 +3756,23 @@ ${AFFIX_EFFECT_RULE}`;
   async function povAlign(drafts: Record<string, string>, idNames: { id: string; name: string }[]): Promise<Record<string, string>> {
     const chain = myTextChain();
     if (!chain[0]?.baseUrl || !chain[0]?.apiKey) return drafts;
-    try {
-      const block = idNames.map((x) => `【${x.id}（${x.name}）的正文】\n${drafts[x.id] || '（无）'}`).join('\n\n');
-      const { content } = await apiChatFallback(chain, [
-        { role: 'system', content: buildPovAlignRule(idNames) },
-        { role: 'user', content: block },
-      ], { timeoutMs: 120000 });
-      const j = povJson(content);
-      const r: Record<string, string> = {};
-      for (const x of idNames) r[x.id] = String(j[x.id] ?? drafts[x.id] ?? '');
-      return r;
-    } catch (e) { console.warn('[分头] 对齐失败，用初稿', e); return drafts; }
+    if (idNames.length <= 1) return drafts;   // 只有一人无需对齐
+    const out: Record<string, string> = {};
+    // 逐份对齐·纯文本输出：把长正文塞进 JSON 极易解析失败→退回原稿（=之前"对齐没生效、只多个换行"的根因）。改成一人一次调用、只回该份纯文本
+    await Promise.allSettled(idNames.map(async (x) => {
+      const self = drafts[x.id] || '';
+      if (!self.trim()) { out[x.id] = self; return; }
+      const othersBlock = idNames.filter((y) => y.id !== x.id).map((y) => `【${y.name} 本回合的正文（仅供参照事实，勿改勿输出）】\n${drafts[y.id] || '（无）'}`).join('\n\n');
+      try {
+        const { content } = await apiChatFallback(chain, [
+          { role: 'system', content: buildPovAlignRule(x.name) },
+          { role: 'user', content: `【需要你校对的正文（${x.name} 本人这一份）】\n${self}\n\n${othersBlock}\n\n直接输出校对后的【${x.name}】这一份完整正文（纯文本，不要 JSON、不要任何说明、不要输出别人的那份）。` },
+        ], { timeoutMs: 120000 });
+        const fixed = (content || '').trim();
+        out[x.id] = fixed.length > self.length * 0.4 ? fixed : self;   // 结果过短(疑似拒答/报错)→保底用初稿
+      } catch (e) { console.warn('[分头] 对齐失败，用初稿', x.name, e); out[x.id] = self; }
+    }));
+    return out;
   }
   // 主控：收集来宾正文初稿（无 key/超时 → 房主代渲染兜底）
   async function collectPovDrafts(guests: { seatId: string; name: string }[], outlines: Record<string, string>, drafts: Record<string, string>, otherNames: (self: string) => string[], timeoutMs: number): Promise<void> {
@@ -3807,7 +3813,7 @@ ${AFFIX_EFFECT_RULE}`;
     else mpClient.relay('pov_draft', { seatId, draft: '', noKey: true });   // 无 key / 生成失败 → 立即请房主代渲染（不再让房主干等）
   }
   // 房主：本回合分头三段式编排（Stage1 出分头支线大纲→Stage2 各自渲染→Stage3 对齐→Stage4 变量·共享世界）
-  async function runPovTurn(hostText: string, partyText: string) {
+  async function runPovTurn(hostText: string) {
     const mp = useMp.getState();
     const inputs = mp.turn?.inputs || {};
     const myName = usePlayer.getState().profile.name || '主角';
@@ -3828,7 +3834,7 @@ ${AFFIX_EFFECT_RULE}`;
       setMessages((prev) => prev.map((m) => m.id === hostMsgId ? { ...m, content: '（主控编排失败，请重试——检查房主「正文生成」API）' } : m));
       return;
     }
-    for (const g of guests) mpClient.relay('pov_outline', { toSeatId: g.seatId, outline: outlines[g.seatId] || partyText });   // 派发各来宾专属大纲
+    for (const g of guests) mpClient.relay('pov_outline', { toSeatId: g.seatId, outline: outlines[g.seatId] || `你（${g.name}）本回合的行动：${g.text}` });   // 派发各来宾专属大纲（缺大纲时只给他自己的行动，别塞全队行动→免得他也写全部支线）
 
     // Stage2：房主渲染自己 + 收集来宾初稿（含无 key 由房主代渲染）
     useMp.getState()._set({ povBusy: '🎨 各自渲染正文…' });
@@ -3844,9 +3850,16 @@ ${AFFIX_EFFECT_RULE}`;
     const idNames = roster.map((r) => ({ id: r.id, name: r.name }));
     const finals = await povAlign(drafts, idNames);
 
-    // 分发各自最终正文 + 房主显示自己的
-    for (const g of guests) mpClient.relay('pov_final', { toSeatId: g.seatId, text: finals[g.seatId] || drafts[g.seatId] || outlines[g.seatId] || '（生成失败）' });
-    const hostFinal = finals.HOST || drafts.HOST || hostOutline;
+    // 组装每人的显示正文：自己那条(自己文风) + 「其他队友·本回合分头见闻」(其他人已对齐的支线)——每人既有自己主线、又看得到另一边在干嘛
+    // evoText 只带自己那一条：自我演化只按本人经历结算，别把队友的行动/收获算到自己头上
+    const finalOf = (id: string) => finals[id] || drafts[id] || outlines[id] || '';
+    const viewFor = (selfId: string) => {
+      const mine = finalOf(selfId);
+      const others = idNames.filter((y) => y.id !== selfId).map((y) => { const t = finalOf(y.id); return t ? `◆ ${y.name}\n${t}` : ''; }).filter(Boolean).join('\n\n');
+      return others ? `${mine}\n\n──────────\n【其他队友·本回合分头见闻】\n\n${others}` : mine;
+    };
+    for (const g of guests) mpClient.relay('pov_final', { toSeatId: g.seatId, text: viewFor(g.seatId) || '（生成失败）', evoText: finalOf(g.seatId) });
+    const hostFinal = viewFor('HOST') || hostOutline;
     setMessages((prev) => prev.map((m) => m.id === hostMsgId ? { ...m, content: hostFinal } : m));
     useMp.getState()._set({ povBusy: '' });
 
@@ -7881,7 +7894,10 @@ ${lines}`;
     }
 
     const mpPartyBlock = buildPartyProfiles();   // 联机房主：同行真人队友档案(技能/天赋/职业/装备/性格/外观/种族)
-    const mpRuleBlock = mpNarrativeRule();        // 联机专用正文规则（建房时房主可选启用）
+    // 分头三段式渲染(narrateOnly)：只写本人这一支，压过"分别回应每个人"的多人规则——否则每人都写全全部支线→彼此版本冲突
+    const mpRuleBlock = narrateOnly
+      ? '【分头三段式·只写你自己这一支（最高优先，压过多人正文规则）】本回合请**只写【你操控的主角本人】这一条支线的完整正文**：聚焦你自己的所见、所历、所感，写满字数。**绝对不要**代写、附上、或另起段落去写其他队友的独立支线（例如「【分头行动·XX的独行支线】」那种段落）——他们各自会用自己的 AI 生成自己那份。提到其他队友时只写"你这一侧此刻能看到/知道的"，不要替他们叙述其独处时发生了什么，更不要擅自决定你俩是否汇合（严格以你收到的行动大纲为准）。'
+      : mpNarrativeRule();        // 联机专用正文规则（建房时房主可选启用）
     const skillUpNote = takeSkillUpNote();        // 技能升级·一次性"点数已用掉"系统提示（注入一次即清）
     const history = [
       ...examples,
@@ -8392,7 +8408,7 @@ ${lines}`;
     if (isMpHost && mp.povMode) {   // 分头三段式：替代普通单正文广播（主控出分头支线大纲→各自渲染→对齐冲突→变量）
       setMessages((prev) => [...prev, { id: ++msgId.current, role: 'user', content: effectiveText }]);
       if (textArg == null) setInputValue('');
-      await runPovTurn(text, effectiveText);
+      await runPovTurn(text);
       return;
     }
 

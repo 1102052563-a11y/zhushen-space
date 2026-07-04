@@ -161,13 +161,13 @@ export function ccListLocal(type: WorkshopKindId): LocalEntry[] {
 export function ccPack(type: WorkshopKindId, id: string): PackResult | null {
   if (type === 'paradise') { const p = cc().paradises.find((x) => x.id === id); return p ? { payload: { name: p.name, desc: p.desc }, name: p.name } : null; }
   if (type === 'race') { const r = cc().races.find((x) => x.id === id); return r ? { payload: { name: r.name, detail: r.detail }, name: r.name } : null; }
-  if (type === 'talent') { const t = cc().talents.find((x) => x.id === id); return t ? { payload: { name: t.name, effect: t.effect }, name: t.name } : null; }
+  if (type === 'talent') { const t = cc().talents.find((x) => x.id === id); return t ? { payload: { name: t.name, effect: t.effect, desc: t.desc, rarity: t.rarity, category: t.category, level: t.level, source: t.source, attrBonus: t.attrBonus }, name: t.name } : null; }   // 打包全字段：简描/评级/类型/等级/来源/属性加成一并上传，勿只发 name+effect
   return null;
 }
 export function ccInstall(type: WorkshopKindId, payload: any): void {
   if (type === 'paradise') cc().addParadise({ name: payload.name, desc: payload.desc });
   else if (type === 'race') cc().addRace({ name: payload.name, detail: payload.detail ?? payload.raceDetail });
-  else if (type === 'talent') cc().addTalent({ name: payload.name, effect: payload.effect ?? payload.desc });
+  else if (type === 'talent') cc().addTalent({ name: payload.name, effect: payload.effect, desc: payload.desc, rarity: payload.rarity, category: payload.category, level: payload.level, source: payload.source, attrBonus: payload.attrBonus });   // 还原全字段（旧档只有 name+effect 时其余为空，兼容）
 }
 
 export const KINDS: Record<WorkshopKindId, WorkshopKindDef> = {

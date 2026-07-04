@@ -51,7 +51,7 @@ export interface RaidLootResultPayload { lootId: string; results: Record<string,
 // 完整版双视角（主控-分支-对齐）：房主↔来宾三段透传（分头三段式·建房可选）
 export interface PovOutlinePayload { toSeatId: string; outline: string }          // 房主→来宾：你的专属分头支线大纲
 export interface PovDraftPayload { seatId: string; draft: string; noKey?: boolean } // 来宾→房主：本人正文初稿（noKey=没配 key，请房主代渲染）
-export interface PovFinalPayload { toSeatId: string; text: string }                 // 房主→来宾：对齐冲突后的最终正文（来宾据此自我演化）
+export interface PovFinalPayload { toSeatId: string; text: string; evoText?: string }  // 房主→来宾：text=显示正文(本人支线+其他队友分头见闻)；evoText=仅本人支线(据此自我演化，别把队友经历算自己头上)
 export interface SoloTogglePayload { seatId: string; solo: boolean }                 // 分头行动：某座位脱离主队独自行动/汇合（广播给全房做显示；行动仍由房主统一写进同一份正文）
 export interface HiddenSyncPayload { conditions: { id: string; title: string; requiredItems: string[]; reward: string; met?: boolean }[] } // 隐藏结局：房主广播跨玩家条件库（目标显示+解锁状态）
 

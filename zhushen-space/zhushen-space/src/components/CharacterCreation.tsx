@@ -349,7 +349,7 @@ export default function CharacterCreation({ onConfirm, onCancel }: { onConfirm: 
             <div className="flex flex-wrap gap-2">
               {customTalents.map((t) => (
                 <span key={t.id} className={`inline-flex items-center rounded-lg border text-sm transition-colors ${talentName === t.name ? 'border-god/60 bg-god/10 text-god' : 'border-edge text-dim hover:border-god/30'}`}>
-                  <button onClick={() => { setTalentName(t.name); setTalentEffect(t.effect ?? ''); }} title={t.effect || ''} className="pl-3 pr-1.5 py-1.5">🧬{t.name}</button>
+                  <button onClick={() => { setTalentName(t.name); setTalentEffect(t.effect ?? ''); setTalentDesc(t.desc ?? ''); setTalentRarity(t.rarity || 'C'); setTalentCategory(t.category || '特殊异能类'); setTalentLevel(t.level ?? ''); setTalentSource(t.source || '开局自带'); setTalentAttrBonus(t.attrBonus ?? ''); }} title={t.effect || ''} className="pl-3 pr-1.5 py-1.5">🧬{t.name}</button>
                   <button onClick={() => removeCustomTalent(t.id)} title="删除" className="pr-2 text-dim/40 hover:text-blood">×</button>
                 </span>
               ))}
@@ -372,7 +372,7 @@ export default function CharacterCreation({ onConfirm, onCancel }: { onConfirm: 
           </div>
         )}
         {talentName.trim() && (
-          <button onClick={() => addCustomTalent({ name: talentName.trim(), effect: talentEffect.trim() })} title="把当前天赋（名称+效果）存入自定义库（之后可上传分享/复用）"
+          <button onClick={() => addCustomTalent({ name: talentName.trim(), effect: talentEffect.trim(), desc: talentDesc.trim(), rarity: talentRarity.trim(), category: talentCategory.trim(), level: talentLevel.trim(), source: talentSource.trim(), attrBonus: talentAttrBonus.trim() })} title="把当前天赋（全部固定格式字段）存入自定义库（之后可上传分享/复用）"
             className="px-2.5 py-1.5 text-[12px] font-mono border border-god/40 text-god rounded hover:bg-god/10 transition-colors">＋存为自定义天赋</button>
         )}
       </Section>
