@@ -275,7 +275,7 @@ export const useCraft = create<CraftState>()(
         }
       },
 
-      clearCraft: () => set((s) => ({ session: freshSession(), discovered: {} })),   // 新游戏：清会话+已发现配方，保留配置/世界书/API
+      clearCraft: () => set(() => ({ session: freshSession(), discovered: {} })),   // 新游戏：清会话+已发现配方，保留配置/世界书/API
     }),
     {
       name: 'drpg-craft',
