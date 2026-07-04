@@ -60,19 +60,20 @@ export function mergeRings(existing: QuestRing[] | undefined, incoming: QuestRin
   for (const r of existing) byIdx.set(r.idx, { ...r });
   for (const inc of incoming) {
     const prev = byIdx.get(inc.idx);
-    if (!prev) { byIdx.set(inc.idx, { ...inc }); continue; }
+    if (!prev) continue;   // 路线图已锁定：不新增环（总环数冻结在创建时），忽略新 idx 的环
     const merged: QuestRing = { ...prev };
-    // 已达成/跳过的环：冻结 goal/reward/penalty——补后续环/重排路线图时绝不覆盖或清空既有奖励（治"环一环二奖励没保留"）
-    const frozen = prev.status === 'done' || prev.status === 'skipped';
+    // 路线图锁定铁则：环内容（goal/reward/penalty/hint/optional/时限）一经"定实"即冻结，之后 AI 只能推进 status、补 summary/rating——
+    // 治"任务内容老是被 AI 重规划、缩水、跳环"。仅"占位环"（goal 空 / 形如"（待…规划/解锁）"）允许被填实（旧档渐进式的过渡）。
+    const prevGoal = String(prev.goal || '').trim();
+    const isPlaceholder = !prevGoal || /待[^，。]{0,10}(规划|解锁|推进|展开)/.test(prevGoal) || prevGoal.startsWith('（待');
     (Object.keys(inc) as (keyof QuestRing)[]).forEach((k) => {
       if (inc[k] === undefined) return;
-      if (frozen && (k === 'goal' || k === 'reward' || k === 'penalty')) return;
-      (merged as any)[k] = inc[k];
+      if (k === 'status' || k === 'summary' || k === 'rating' || k === 'idx') { (merged as any)[k] = inc[k]; return; }
+      if (isPlaceholder) (merged as any)[k] = inc[k];   // 占位环才允许改内容；已定实的环内容冻结
     });
     byIdx.set(inc.idx, merged);
   }
-  // 环数硬上限=5：合并后若超过 5 环，保留 idx 最小的 5 个（治 AI 增量补环把总数推过 5）
-  const out = [...byIdx.values()].sort((a, b) => a.idx - b.idx).slice(0, 5);
+  const out = [...byIdx.values()].sort((a, b) => a.idx - b.idx);
   const incActive = incoming.find((r) => r.status === 'active');
   if (incActive) for (const r of out) {
     if (r.idx !== incActive.idx && r.status === 'active') r.status = r.idx < incActive.idx ? 'done' : 'planned';

@@ -45,8 +45,8 @@ function sanitizeRings(raw: any): QuestRing[] | undefined {
     });
   });
   if (!out.length) return undefined;
-  // 环数硬上限=5（主线/支线一律）：AI 偶发建 6+ 环时保留 idx 最小的 5 个，多出的截断
-  return [...out].sort((a, b) => a.idx - b.idx).slice(0, 5);
+  // 环数上限=12（创建时一次规划死整条路线图，容纳史诗级长线）：AI 建更多时保留 idx 最小的 12 个
+  return [...out].sort((a, b) => a.idx - b.idx).slice(0, 12);
 }
 /* 从任务载荷里提取多环字段，按存在与否条件写入（缺省不覆盖既有），并在给了 rings 没给 currentRing 时自动取 active 环 idx */
 function applyQuestFields(target: Partial<MiscTask>, o: Record<string, any>): void {
