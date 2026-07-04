@@ -14,6 +14,7 @@ import { opOf, refOf, isBatchDup, newBatch, recordItem, currencyDupKey, isCurren
 
 import { recordEvo, charRef, npcRef, charDigest, npcDigest, type EvoCtx, type EvoResult } from './ledger/evoLedger';
 import { parseEditItems, parseEditChars, parseEditNpcs, parseEditFactions } from './editParser';
+import { shouldBlockItemGrantedSkill } from './itemGrantedSkill';
 
 // 演化账本闸门相关件 re-export（App / stateApply 从 stateParser 统一拿，避免到处 import 子路径）
 export { buildItemFeedback, purgeItemPhaseCurrency, detectUnregisteredCurrencyGains } from './ledger/itemLedger';
@@ -1525,10 +1526,17 @@ function applyCharacterCommandsRaw(commands: CharCommand[], _narrative?: string)
 
       if (type === 'addSkill') {
         const d: any = payload;
+        const skName = d['1'] ?? d.name ?? '未知技能';
+        // 护栏：主角"物品附带技能"别漏进技能栏——装备/法宝 effect 里写的「附带【X】」随物品走，
+        // AI 常误当角色学会 X。技能名若来自某件已装备物品的附带文本、且正文没写"内化成自身本领"，则不收录。
+        if (charId === 'B1' && shouldBlockItemGrantedSkill(skName, _narrative)) {
+          console.warn(`[Char] 拦截"物品附带技能"漏进技能栏：${skName}（来自已装备物品的附带能力·随物品走，未收录为主角本人技能。若确已内化成自身本领，请在正文写明或手动添加）`);
+          continue;
+        }
         // NPC 技能是否新增/更新交由 AI（演化预设）判断，不再机械拦截
         store.addSkill(charId, {
           id:            d['0'] ?? d.id ?? `S_${charId}_${Date.now()}`,
-          name:          d['1'] ?? d.name ?? '未知技能',
+          name:          skName,
           level:         d['2'] ?? d.level ?? '',
           cooldown:      d['3'] ?? d.cooldown,
           desc:          d['4'] ?? d.desc ?? d.description ?? '',

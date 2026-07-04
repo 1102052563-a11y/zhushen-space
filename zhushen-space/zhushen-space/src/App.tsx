@@ -31,6 +31,7 @@ import {
   ENTRY_DEDUP_RULE,
   FACTION_COT_RULE,
   TERRITORY_COT_RULE,
+  TERRITORY_WAREHOUSE_RULE,
   TEAM_COT_RULE,
   ITEM_EXACT_REF_RULE,
   ITEM_UPDATE_RULE,
@@ -566,6 +567,28 @@ function stowedItemsRule(cap = 60): string {
   return '\n【已收纳·勿补回背包·铁则（防"存进仓库又被补回来"）】以下物品玩家已**主动存入领地仓库/账户仓库**（这是背包之外的独立存储）——它们**不在背包属正常、绝非丢失**：\n'
     + list
     + '\n即便最近几回合正文写到主角获得/持有过它们，只要**本回合正文没有再次明确新入手**，就**绝不 createItem 把它们补回背包**（它们只是被收起来了、不是丢了）。把它们当作 player_items 之外的合法存在，别当"该有却缺失"去补。';
+}
+
+/* 领地仓库·白板重复清理（确定性护栏·每回合开头跑）：删掉"白板（只有名字、无品级/效果/简介/外观/分类等实质内容）
+   且与主角背包同名"的仓库条目——这类几乎必是领地演化阶段误把主角获得的战利品镜像进仓库的空壳。
+   正当的领地产出（带分类/品级/效果）有内容不会被误删；玩家手动存入的带完整快照(it.item)也一概不碰。返回清理件数。 */
+function pruneBlankTerritoryDupes(): number {
+  const T = useTerritory.getState();
+  const store = T.storageItems ?? [];
+  if (store.length === 0) return 0;
+  const norm = (s?: string) => (s ?? '').replace(/[\s·•・\-—_,，.。、|｜【】（）()的之]/g, '').trim().toLowerCase();
+  const bagNames = new Set(useItems.getState().items.map((it) => norm(it.name)));
+  const isBlank = (it: any) =>
+    !it.item                                 // 玩家存入的完整快照 → 不算白板，绝不动
+    && !(it.gradeDesc ?? '').trim()
+    && !(it.effect ?? '').trim()
+    && !(it.desc ?? '').trim()
+    && !(it.appearance ?? '').trim()
+    && !(it.category ?? '').trim();
+  const blanks = store.filter((it) => isBlank(it) && bagNames.has(norm(it.name)));
+  for (const it of blanks) T.takeItem(it.id);
+  if (blanks.length > 0) console.warn(`[Territory] 清理白板重复仓库条目 ${blanks.length} 件（与背包同名·无实质内容）：`, blanks.map((b) => b.name));
+  return blanks.length;
 }
 
 /* ════════════════════════════════════════════
@@ -4190,12 +4213,20 @@ ${AFFIX_EFFECT_RULE}`;
       : '（无在场 NPC，addMember 只能用已建档的 C-id）';
     const playerName = usePlayer.getState().profile.name || '主角';
 
+    // 主角背包清单：喂给领地阶段，明确"这些在主角背包里、别 storeItem 搬进领地仓库"（防"背包一个领地一个 + 领地白板"）
+    const bag = useItems.getState().items;
+    const bagText = bag.length > 0
+      ? bag.slice(0, 80).map((it) => `${it.name}${it.gradeDesc ? '·' + it.gradeDesc : ''}`).join('、') + (bag.length > 80 ? ` …等 ${bag.length} 件` : '')
+      : '（空）';
+
     const systemPrompt = buildTerritorySystemPrompt(T.settings.entries)
       .replaceAll('${story_text}', narrative)
       .replaceAll('${territory_snapshot}', serializeTerritorySnapshot())
       .replaceAll('${onscreen_npcs}', onscreenNpcs)
       .replaceAll('${player_name}', playerName)
-      + '\n\n' + NARRATIVE_FIRST_RULE + '\n' + TERRITORY_EFFECT_RULE + '\n' + TERRITORY_STABILITY_RULE + '\n' + TERRITORY_DEDUP_RULE + '\n' + TERRITORY_COT_RULE;
+      + '\n\n' + NARRATIVE_FIRST_RULE + '\n' + TERRITORY_EFFECT_RULE + '\n' + TERRITORY_STABILITY_RULE + '\n' + TERRITORY_DEDUP_RULE + '\n' + TERRITORY_WAREHOUSE_RULE
+      + '\n【主角背包物品（这些是主角随身的·绝不 storeItem 进领地仓库）】\n' + bagText
+      + '\n' + TERRITORY_COT_RULE;
 
     setTerritoryPhaseLog('领地演化中…');
     try {
@@ -7470,6 +7501,8 @@ ${lines}`;
     try { pruneGhostNpcs(); } catch (e) { console.warn('[NPC] 空壳清理失败:', e); }
     // Step 10 看门狗·自愈：回合末集中调现成 dedup 修复（同名物品/NPC/别名/储存空间），把 corruption 就地修掉并可见化
     try { const _h = healWatchdog(); if (_h.healed) console.log('[看门狗] 🩹 自愈：', _h); } catch (e) { console.warn('[看门狗] 自愈失败:', e); }
+    // 领地仓库·白板重复清理：删掉"白板(只有名字·无品级/效果/简介/分类)且与背包同名"的仓库条目（领地演化误把主角战利品镜像进仓库的空壳）
+    try { const _b = pruneBlankTerritoryDupes(); if (_b > 0) setTerritoryPhaseLog(`🧹 已清理 ${_b} 件领地白板重复条目`); } catch (e) { console.warn('[Territory] 白板清理失败:', e); }
     // 先用当前已有 NPC 设一份重定向目标（登场判断完成后会再刷新）
     refreshNpcPreferredOwners();
     // 各演化阶段调度（综合设置→演化调度）：every=每N回合一次，read=读取最近N回合正文
