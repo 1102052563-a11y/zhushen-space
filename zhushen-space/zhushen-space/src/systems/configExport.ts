@@ -29,6 +29,7 @@ import { useChannel } from '../store/channelStore';
 import { useMemory } from '../store/memoryStore';
 import { useDice } from '../store/diceStore';
 import { useEnhance } from '../store/enhanceStore';
+import { useCraft } from '../store/craftStore';
 import { useJoy } from '../store/joyStore';
 import { useImageGen } from '../store/imageGenStore';
 import { useNovelVec } from '../store/novelVecStore';
@@ -230,6 +231,7 @@ const SPECS: StoreSpec[] = [
   { key: 'drpg-dice',               label: 'ROLL 点设置',  api: useDice as any,              extract: evoExtract },
   { key: 'drpg-combat',             label: '战斗系统',     api: useCombat as any,            extract: combatExtract },
   { key: 'drpg-enhance',            label: '装备强化',     api: useEnhance as any,           extract: enhanceExtract },
+  { key: 'drpg-craft',              label: '合成工坊',     api: useCraft as any,             extract: craftExtract },
   { key: 'drpg-joy',                label: '欢愉宫',       api: useJoy as any,               extract: joyExtract, apply: joyApply },
   { key: 'drpg-image-gen',          label: '生图设置',     api: useImageGen as any,          extract: plainExtract, apply: imageGenApply },
   { key: 'drpg-novelvec',           label: '向量资料库',   api: useNovelVec as any,          extract: evoExtract },
@@ -238,6 +240,16 @@ const SPECS: StoreSpec[] = [
   { key: 'drpg-subproftree',        label: '副职业树模板', api: useSubProfTree as any,       extract: skillTreeExtract, apply: skillTreeApply },
   { key: 'drpg-variables',          label: '自定义变量定义', api: useVariables as any,         extract: variablesExtract, apply: variablesApply },
 ];
+
+// 合成工坊：导出配置 + 合成图鉴(非内置) + API（不含 session/已发现配方那些进度数据）
+function craftExtract(s: any): any {
+  return {
+    config: s.config,
+    worldBooks: (s.worldBooks ?? []).filter((b: any) => !b.builtin),
+    craftApi: s.craftApi,
+    craftUseSharedApi: s.craftUseSharedApi,
+  };
+}
 
 // 递归清空 API 密钥（apiKey / apiToken），用于"不含密钥"导出（可安全分享）
 function stripKeys(obj: any): any {

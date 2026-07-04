@@ -97,6 +97,7 @@ import {
   buildPovAlignRule,
   WORLDVIEW_GEN_PROMPT,
   WORLD_SUMMARY_PROMPT,
+  CRAFT_RULE,
 } from './promptRules';
 
 import { useState, useRef, useEffect, lazy, Suspense, type PointerEvent as RPointerEvent } from 'react';
@@ -168,7 +169,7 @@ const AdventureTeamPanel = lazy(() => import('./components/AdventureTeamPanel'))
 import ImageViewer from './components/ImageViewer';
 import { useImageViewer } from './store/imageViewerStore';
 import ImageBusyToast from './components/ImageBusyToast';
-import { useItems, extractItemPresetFromJson } from './store/itemStore';
+import { useItems, extractItemPresetFromJson, ITEM_CATEGORIES } from './store/itemStore';
 import type { ItemPresetEntry } from './store/itemStore';
 import { useComposer } from './store/composerStore';
 import { usePlayer, buildPlayerSystemPrompt, extractPlayerPresetFromJson } from './store/playerStore';
@@ -221,6 +222,11 @@ import { useArena } from './store/arenaStore';
 import { ladderBadge, rewardTierFor, REWARD_BANDS, streakBonusMul, pickInt as arenaPickInt, effectiveTier as arenaEffectiveTier, type ArenaDef as ArenaDefType, type LadderEntry as ArenaLadderEntry } from './systems/arena';
 import { useEnhance } from './store/enhanceStore';
 import { PITY_THRESHOLD, stageFromLevel, growthCoef } from './systems/enhanceEngine';
+import { useCraft, ensureCraftWbDefaults, type CraftProduct } from './store/craftStore';
+import { craftMode, craftOutputSlots } from './systems/craftEngine';
+import { buildCraftWbInjection } from './systems/craftWorldBook';
+import { generateGem } from './systems/gemEngine';
+const CraftPanel = lazy(() => import('./components/CraftPanel'));
 const ChannelPanel = lazy(() => import('./components/ChannelPanel'));
 import type { DmHandlers } from './components/DmPanel';
 const DmPanel = lazy(() => import('./components/DmPanel'));
@@ -966,6 +972,7 @@ const rightMenuItems = [
   { icon: '✨', label: '技能' },
   { icon: '🛠', label: '副职业' },
   { icon: '🌳', label: '技能树' },
+  { icon: '🧰', label: '合成' },
   { icon: '🎖', label: '称号' },
   { icon: '🏆', label: '成就' },
   { icon: '🏛', label: '势力' },
@@ -1002,7 +1009,7 @@ const rightMenuItems = [
 /* 右侧导航·每个图标的独特 hover 特效类（定义见 index.css 的 .fx-*）*/
 const NAV_FX: Record<string, string> = {
   '装备': 'fx-sword', '储存空间': 'fx-bag', 'NPC': 'fx-card', '技能': 'fx-sparkle',
-  '副职业': 'fx-wrench', '技能树': 'fx-tree', '称号': 'fx-medal', '成就': 'fx-trophy', '势力': 'fx-pillar',
+  '副职业': 'fx-wrench', '技能树': 'fx-tree', '合成': 'fx-wrench', '称号': 'fx-medal', '成就': 'fx-trophy', '势力': 'fx-pillar',
   '领地': 'fx-castle', '冒险团': 'fx-shield', '队伍': 'fx-friends', '万族': 'fx-cosmos', '世界百科': 'fx-book', '轮回WIKI': 'fx-book', 'ROLL': 'fx-dice',
   '战斗': 'fx-clash', '乐园设施': 'fx-ferris', '深渊': 'fx-void', '回合洞察': 'fx-zoom', '审计': 'fx-zoom', '任务': 'fx-quest',
   '频道': 'fx-signal', '私信': 'fx-mail', '好友': 'fx-friends', '聊天室': 'fx-signal', '交易行': 'fx-bag', '助战': 'fx-clash', '世界竞技场': 'fx-trophy', '纪念丰碑': 'fx-pillar', '账户仓库': 'fx-bag', '记忆': 'fx-brain', '创意工坊': 'fx-sparkle', '存档': 'fx-save', '设置': 'fx-gear',
@@ -1107,6 +1114,7 @@ export default function App() {
   const [worldRecordOpen,  setWorldRecordOpen]  = useState(false);
   const [dicePanelOpen,    setDicePanelOpen]    = useState(false);
   const [enhancePanelOpen, setEnhancePanelOpen] = useState(false);
+  const [craftPanelOpen, setCraftPanelOpen] = useState(false);
   const [skillUpPanelOpen, setSkillUpPanelOpen] = useState(false);
   const [casinoOpen,       setCasinoOpen]       = useState(false);
   const [abyssOpen,        setAbyssOpen]        = useState(false);
@@ -2159,6 +2167,112 @@ export default function App() {
     } finally {
       setTimeout(() => setItemPhaseLog(''), 6000);
     }
+  }
+
+  /* ─── 合成工坊：产物生成（一次 API；前端已锁 category+gradeDesc+词缀预算，AI 只在护栏内填风味）───
+     产物落进 session.pending（预览，未入库）；确认才 confirmCraft 消耗投料+入库 → 撤销/重新生成零副作用。 */
+  async function runCraftPhase(): Promise<void> {
+    const C = useCraft.getState();
+    const sess = C.session;
+    const mode = craftMode(sess.modeId);
+    if (!sess.quality) { C.setError('未掷定合成品质，请重新点「合成」'); return; }
+    // 炼晶：确定性走 gemEngine 生成真·可镶嵌宝石（不需 API、不吃倾向；产物带 gemSlot/gemAttr 可镶嵌）
+    if (mode.id === 'crystal') {
+      const gem = generateGem(sess.quality.ceilingName).item;
+      C.setPending([{
+        name: gem.name, category: '宝石', gradeDesc: gem.gradeDesc, subType: gem.subType,
+        gemSlot: gem.gemSlot, gemAttr: gem.gemAttr, effect: gem.effect, score: gem.score,
+        intro: gem.intro, appearance: gem.appearance,
+      }]);
+      return;
+    }
+    const ss = useSettings.getState();
+    const legacy = C.craftUseSharedApi ? (ss.textUseSharedApi ? ss.api : ss.textApi) : C.craftApi;
+    const chain = resolveApiChain('craft', legacy);
+    if (!chain[0]?.baseUrl || !chain[0]?.apiKey) { C.setError('合成 AI 接口未配置：设置→变量管理→合成工坊→API，或勾「复用正文生成 API」'); return; }
+
+    ensureCraftWbDefaults();
+    const q = sess.quality;
+    const slots = craftOutputSlots(mode, q);
+    const inputsText = sess.inputs.map((x, i) => `${i + 1}. ${x.name} ×${x.qty}｜品级 ${x.gradeDesc || '—'}｜类别 ${x.category || '—'}${x.subType ? '/' + x.subType : ''}`).join('\n');
+    const slotsText = slots.map((s, i) => `槽${i + 1}：category=${s.category || `（由你判定：${mode.outHint}）`}｜gradeDesc上限=${s.gradeDesc}（不得越级）｜${s.note}`).join('\n');
+    const wbCtx = [mode.wbSeed, sess.inputs.map((x) => `${x.name} ${x.category || ''}`).join(' '), sess.tendency].join(' ');
+    const wbInj = buildCraftWbInjection(C.worldBooks, wbCtx);
+
+    const system = CRAFT_RULE + (wbInj ? '\n\n' + wbInj : '');
+    const user = [
+      `【合成门类】${mode.icon} ${mode.name}——${mode.blurb}`,
+      `【本门类工艺要点】${mode.cotFocus}`,
+      `【投入材料】\n${inputsText}`,
+      `【玩家倾向提示】${sess.tendency || '（未填，由你按材料判定方向）'}`,
+      `【合成品质档（系统已掷定，据此定档、不得突破）】${q.label}——${q.note}`,
+      `【产出槽】\n${slotsText}`,
+      `【词缀预算】每件装备类产物最多 ${q.affixBudget} 条词缀${q.affixBudget === 0 ? '（本次为失败/消耗品，可不写词缀）' : ''}`,
+      ``,
+      `请先在 <合成推演> 里按六步推演（≥200字），再紧接着输出长度为 ${slots.length} 的 JSON 数组（slot 从 1 起一一对应）。`,
+    ].join('\n');
+
+    C.setGenerating();
+    try {
+      const { content } = await apiChatFallback(chain, [
+        { role: 'system', content: system },
+        { role: 'user', content: user },
+      ], { timeoutMs: 120000 });
+      const body = (content || '').replace(/<合成推演>[\s\S]*?<\/合成推演>/g, ' ');   // 剥掉思维链，只留 JSON 数组
+      const arr = parseArenaArray(body);
+      if (!Array.isArray(arr) || !arr.length) { C.setError('AI 未返回有效产物（F12 看原始回复）。可点「重新生成」重试。'); return; }
+      const EQUIP = ['武器', '防具', '饰品'];
+      const products: CraftProduct[] = slots.map((slot, n) => {
+        const j = arr.find((x: any) => parseInt(String(x?.slot), 10) === n + 1) || arr[n] || {};
+        // 锁类别：槽指定则强制；槽为空(锻造/融合)则取 AI 的合法类别、否则回退特殊物品
+        let cat = slot.category || flattenAiText(j.category).trim();
+        if (!ITEM_CATEGORIES.includes(cat as any)) cat = slot.category || '特殊物品';
+        const isEquip = EQUIP.includes(cat);
+        return {
+          name: flattenAiText(j.name).slice(0, 40) || `${mode.name}产物`,
+          category: cat,
+          gradeDesc: slot.gradeDesc,   // 品级锁死（前端已按成功度定档，不得越级）
+          subType: flattenAiText(j.subType).slice(0, 30) || undefined,
+          combatStat: isEquip ? (flattenAiText(j.combatStat).slice(0, 50) || undefined) : undefined,
+          attrBonus: flattenAiText(j.attrBonus).slice(0, 120) || undefined,
+          score: flattenAiText(j.score).slice(0, 60) || undefined,
+          affix: isEquip ? (flattenAiText(j.affix).slice(0, 200) || undefined) : undefined,
+          effect: flattenAiText(j.effect).slice(0, 400) || undefined,
+          intro: flattenAiText(j.intro).slice(0, 200) || undefined,
+          appearance: flattenAiText(j.appearance).slice(0, 300) || undefined,
+          killCount: cat === '武器' ? '0' : undefined,
+        };
+      });
+      C.setPending(products);
+    } catch (e: any) {
+      C.setError((e?.message ?? '接口调用失败').slice(0, 100));
+    }
+  }
+
+  /* 合成工坊：确认入库（消耗投料 + 产物入库 + 记配方；未确认前不动任何东西）*/
+  function confirmCraft(): void {
+    const C = useCraft.getState();
+    const sess = C.session;
+    if (!sess.pending || !sess.pending.length) return;
+    const items = useItems.getState();
+    if (sess.cost > 0) items.adjustCurrency('乐园币', -sess.cost, '合成手工费');
+    for (const inp of sess.inputs) {
+      const st = useItems.getState();
+      if (st.items.find((x) => x.id === inp.itemId)?.equipped) st.unequipItem(inp.itemId);   // 已装备的投料（铭刻/分解常用）先卸下再消耗
+      st.consumeItem(inp.itemId, inp.qty);
+    }
+    for (const p of sess.pending) {
+      const effect = [p.effect, p.attrBonus].filter(Boolean).join('；') || '';   // 六维/上限数值折进 effect，供 effectiveAttrs 读取（同 gacha）
+      items.addItem({
+        name: p.name, category: p.category as any, gradeDesc: p.gradeDesc,
+        subType: p.subType, combatStat: p.combatStat, score: p.score,
+        affix: p.affix, effect, intro: p.intro, appearance: p.appearance, killCount: p.killCount,
+        gemSlot: p.gemSlot as any, gemAttr: p.gemAttr,   // 炼晶产物带镶嵌部位/属性
+        quantity: 1, equipped: false, tags: ['合成工坊'], acquisition: `合成工坊·${craftMode(sess.modeId).name}`,
+      });
+    }
+    C.recordDiscovered(sess.pending.map((p) => p.name));
+    C.endSession();
   }
 
   /* ─── 装备强化·老板吐槽（点立绘触发；读会话实况，返回符合性格的一两句话，纯氛围不改状态）─── */
@@ -8056,6 +8170,7 @@ ${lines}`;
       label === '成就' ? () => setAchievePanelOpen(true) :
       label === '副职业' ? () => setSubProfOpen(true) :
       label === '技能树' ? () => setSkillTreeOpen(true) :
+      label === '合成' ? () => setCraftPanelOpen(true) :
       label === '势力' ? () => setFactionPanelOpen(true) :
       label === '领地' ? () => setTerritoryPanelOpen(true) :
       label === '冒险团' ? () => setTeamPanelOpen(true) :
@@ -9594,6 +9709,8 @@ ${lines}`;
       )}
 
       {skillUpPanelOpen && <SkillUpgradePanel onClose={() => setSkillUpPanelOpen(false)} />}
+
+      {craftPanelOpen && <CraftPanel onClose={() => setCraftPanelOpen(false)} onGenerate={runCraftPhase} onConfirm={confirmCraft} />}
 
       {casinoOpen && <CasinoPanel onClose={() => setCasinoOpen(false)} onGenMatch={genGladiatorMatch} onGenBattle={genGladiatorBattle} onGenRewards={genGachaRewards} onBanter={casinoBanter} onGenSoul={genSoulGamble} onGenPortraits={genGladiatorPortraits} />}
       {abyssOpen && <AbyssPanel onClose={() => setAbyssOpen(false)} onGenBoons={genAbyssBoons} onGenSin={genAbyssSin} onGenAwaken={genAbyssAwaken} onGenJudge={genAbyssJudge} onGenEnemies={genAbyssEnemies} />}

@@ -154,6 +154,7 @@ export default function VariableManager({
   onOpenWorldCodexManager,
   onOpenSkillTreeManager,
   onOpenSubProfManager,
+  onOpenCraftManager,
 }: {
   onOpenTableManager?: () => void;
   onOpenItemManager?: () => void;
@@ -173,6 +174,7 @@ export default function VariableManager({
   onOpenCasinoManager?: () => void;
   onOpenAbyssManager?: () => void;
   onOpenJoyManager?: () => void;
+  onOpenCraftManager?: () => void;
   onOpenChannelManager?: () => void;
   onOpenNovelVecManager?: () => void;
   onOpenWorldCodexManager?: () => void;
@@ -215,6 +217,7 @@ export default function VariableManager({
         { icon: '🕳', label: '深渊地牢',   desc: 'API · 门票 · 进度 · 重置',     color: 'violet',  cb: onOpenAbyssManager },
         { icon: '🌳', label: '技能树',     desc: '职业树 · 节点编辑 · 模板',    color: 'emerald', cb: onOpenSkillTreeManager },
         { icon: '🛠', label: '副职业设置', desc: '配方星图 · AI 生成 · 独立API',  color: 'teal',    cb: onOpenSubProfManager },
+        { icon: '🧰', label: '合成工坊',   desc: '门类 · 投料 · 倾向 · 合成图鉴',  color: 'teal',    cb: onOpenCraftManager },
         { icon: '💗', label: '欢愉宫',     desc: '看板娘 · 情欲值 · 四阶段',    color: 'pink',    cb: onOpenJoyManager },
       ],
     },

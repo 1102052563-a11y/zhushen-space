@@ -23,6 +23,7 @@ import CombatManager from './CombatManager';
 import ArenaManager from './ArenaManager';
 import EnhanceManager from './EnhanceManager';
 import CasinoManager from './CasinoManager';
+import CraftManager from './CraftManager';
 import AbyssManager from './AbyssManager';
 import SkillTreeManager from './SkillTreeManager';
 import SubProfTreeManager from './SubProfTreeManager';
@@ -212,6 +213,7 @@ export default function SettingsPanel({ onClose, onOpenSaveLoad }: SettingsPanel
             onOpenAbyssManager={() => setPage('abyss-manager')}
             onOpenSkillTreeManager={() => setPage('skilltree-manager')}
             onOpenSubProfManager={() => setPage('subprof-manager')}
+            onOpenCraftManager={() => setPage('craft-manager')}
             onOpenJoyManager={() => setPage('joy-manager')}
             onOpenChannelManager={() => setPage('channel-manager')}
             onOpenNovelVecManager={() => setPage('novelvec-manager')}
@@ -489,6 +491,23 @@ export default function SettingsPanel({ onClose, onOpenSaveLoad }: SettingsPanel
         </header>
         <div className="flex-1 overflow-y-auto p-6 max-lg:p-3">
           <CasinoManager />
+        </div>
+      </div>
+    );
+  }
+
+  if (page === 'craft-manager') {
+    return (
+      <div className="h-[100dvh] flex flex-col bg-void text-slate-300">
+        <header className="shrink-0 h-10 flex items-center justify-between px-4 border-b border-edge bg-panel">
+          <button onClick={() => setPage('variables')} className="flex items-center gap-2 text-sm font-mono text-dim hover:text-slate-200 transition-colors">
+            ← 变量管理
+          </button>
+          <span className="text-sm font-mono text-dim">合成工坊</span>
+          <div className="w-20" />
+        </header>
+        <div className="flex-1 overflow-y-auto p-6 max-lg:p-3">
+          <CraftManager />
         </div>
       </div>
     );

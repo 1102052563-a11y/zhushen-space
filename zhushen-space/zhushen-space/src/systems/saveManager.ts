@@ -38,6 +38,7 @@ import { useSkillTree } from '../store/skillTreeStore';
 import { useSubProfTree } from '../store/subProfTreeStore';
 import { useCasino } from '../store/casinoStore';
 import { useAbyss } from '../store/abyssStore';
+import { useCraft } from '../store/craftStore';
 import { useLedger } from './ledger/ledgerStore';
 import { useLocks } from '../store/lockStore';
 import { useFieldHistory } from '../store/fieldHistoryStore';
@@ -95,6 +96,7 @@ const STORES: { key: string; api: any; clear?: () => void }[] = [
   { key: 'drpg-skilltree',  api: useSkillTree, clear: () => useSkillTree.setState({ progress: {} }) },
   { key: 'drpg-subproftree', api: useSubProfTree, clear: () => useSubProfTree.setState({ progress: {} }) },
   { key: 'drpg-casino',     api: useCasino, clear: () => useCasino.getState().clearCasino() },
+  { key: 'drpg-craft',      api: useCraft, clear: () => useCraft.getState().clearCraft() },   // 合成工坊：配置/图鉴/API 保留，会话+已发现配方随新游戏清空
   { key: 'drpg-abyss',      api: useAbyss, clear: () => useAbyss.getState().clearAbyss() },
   { key: 'drpg-worldrecord', api: useWorldRecord, clear: () => useWorldRecord.getState().clearAll() },   // 世界记录/世界志（世界观骨架+离世总结·随存档快照；新游戏清空）
 ];
