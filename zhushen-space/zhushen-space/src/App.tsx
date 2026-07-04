@@ -1036,6 +1036,26 @@ const NAV_FX: Record<string, string> = {
   '频道': 'fx-signal', '私信': 'fx-mail', '好友': 'fx-friends', '聊天室': 'fx-signal', '交易行': 'fx-bag', '助战': 'fx-clash', '世界竞技场': 'fx-trophy', '纪念丰碑': 'fx-pillar', '账户仓库': 'fx-bag', '记忆': 'fx-brain', '创意工坊': 'fx-sparkle', '存档': 'fx-save', '设置': 'fx-gear',
 };
 
+/* 炼晶：把玩家倾向解析成 gemEngine 的 want（指定宝石属性/镶嵌部位；无匹配则返回 undefined 走随机）。
+   attr 必须是 gemEngine 里存在的属性名（对不上就 graceful fallback 到 slot / 随机）。 */
+function craftGemWant(tendency: string): { attr?: string; slot?: string } | undefined {
+  const t = tendency || '';
+  let slot: string | undefined;
+  if (/武器|兵器|刀|剑|枪|弓|杖/.test(t)) slot = '武器';
+  else if (/防具|护甲|盔甲|铠|盾/.test(t)) slot = '防具';
+  else if (/饰品|首饰|戒指|项链|护符|吊坠/.test(t)) slot = '饰品';
+  const ATTR: [RegExp, string][] = [
+    [/暴击伤害|爆伤/, '暴击伤害'], [/暴击|会心/, '暴击率'], [/力量/, '力量'], [/敏捷|速度|迅/, '敏捷'],
+    [/体质|坚韧/, '体质'], [/智力|法术/, '智力'], [/魅力/, '魅力'], [/幸运/, '幸运'], [/生命|血/, '生命'], [/法力/, '法力'],
+    [/火|焰|炎/, '烈焰附魔'], [/冰|霜|寒/, '霜寒附魔'], [/雷|电/, '惊雷附魔'], [/吸血|嗜血/, '生命吸取'],
+    [/穿透|破甲/, '护甲穿透'], [/真伤|真实伤害/, '真实伤害'], [/移速|移动/, '移动速度'], [/招财|财|钱/, '招财'],
+    [/寻宝|稀有|掉落/, '魔法寻宝'], [/采矿|采掘|挖矿/, '采掘'],
+  ];
+  let attr: string | undefined;
+  for (const [re, a] of ATTR) if (re.test(t)) { attr = a; break; }
+  return slot || attr ? { attr, slot } : undefined;
+}
+
 export default function App() {
   const hasSave = useGame((s) => s.player.cleared.length > 0 || s.player.points > 0);
 
@@ -2221,7 +2241,7 @@ export default function App() {
     if (!sess.quality) { C.setError('未掷定合成品质，请重新点「合成」'); return; }
     // 炼晶：确定性走 gemEngine 生成真·可镶嵌宝石（不需 API、不吃倾向；产物带 gemSlot/gemAttr 可镶嵌）
     if (mode.id === 'crystal') {
-      const gem = generateGem(sess.quality.ceilingName).item;
+      const gem = generateGem(sess.quality.ceilingName, Math.random, craftGemWant(sess.tendency) as any).item;   // 倾向可指定属性/部位
       C.setPending([{
         name: gem.name, category: '宝石', gradeDesc: gem.gradeDesc, subType: gem.subType,
         gemSlot: gem.gemSlot, gemAttr: gem.gemAttr, effect: gem.effect, score: gem.score,
@@ -2250,6 +2270,7 @@ export default function App() {
       `【玩家倾向提示】${sess.tendency || '（未填，由你按材料判定方向）'}`,
       `【合成品质档（系统已掷定，据此定档、不得突破）】${q.label}——${q.note}`,
       `【产出槽】\n${slotsText}`,
+      mode.id === 'tame' ? '【特别说明·本次产物是一只宠物生灵，不是道具】把 JSON 各字段当一只可随行的活物来填：name=宠物名、subType=种族、intro=性情性格、appearance=外观、effect/affix=天赋与能力、combatStat=可选战力概述；gradeDesc=这只宠物的品阶。' : '',
       `【词缀预算】每件装备类产物最多 ${q.affixBudget} 条词缀${q.affixBudget === 0 ? '（本次为失败/消耗品，可不写词缀）' : ''}`,
       ``,
       `请先在 <合成推演> 里按六步推演（≥200字），再紧接着输出长度为 ${slots.length} 的 JSON 数组（slot 从 1 起一一对应）。`,
@@ -2304,7 +2325,20 @@ export default function App() {
       if (st.items.find((x) => x.id === inp.itemId)?.equipped) st.unequipItem(inp.itemId);   // 已装备的投料（铭刻/分解常用）先卸下再消耗
       st.consumeItem(inp.itemId, inp.qty);
     }
+    const isTame = craftMode(sess.modeId).id === 'tame';
+    const petGrade = sess.quality?.ceilingGrade ?? 4;   // 宠物品阶(1-15) → 反推六维档位
     for (const p of sess.pending) {
+      if (isTame) {
+        // 御兽：产物直接收服成一只宠物 NPC（在场+入队+好友），并按品阶 roll 一套六维（凶兽形态·跳过凡人档）
+        const petTierNum = Math.max(1, Math.min(14, Math.round(petGrade * 0.9)));
+        const bioT = Math.max(0, Math.min(9, Math.round((petGrade - 1) * 9 / 14)));
+        const attrs = generateNpcAttrs({ type: '凶兽魔兽', job: p.subType || '凶兽', form: p.subType, level: petTierNum * 10 - 5, bioTier: `T${bioT}`, seed: p.name, force: true });
+        useNpc.getState().createPet({
+          name: p.name, species: p.subType, persona: p.intro, appearance: p.appearance,
+          ability: [p.effect, p.affix].filter(Boolean).join('；'), attrs, strength: `T${bioT}`,
+        });
+        continue;
+      }
       const effect = [p.effect, p.attrBonus].filter(Boolean).join('；') || '';   // 六维/上限数值折进 effect，供 effectiveAttrs 读取（同 gacha）
       items.addItem({
         name: p.name, category: p.category as any, gradeDesc: p.gradeDesc,

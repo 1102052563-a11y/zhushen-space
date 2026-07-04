@@ -94,11 +94,11 @@ export const CRAFT_MODES: CraftMode[] = [
     wbSeed: '炼器 机关 傀儡 造物 核心 能源 齿轮 召唤',
   },
   {
-    id: 'tame', icon: '🐣', name: '御兽契灵', blurb: '材料 + 精魂 → 随从·契灵凭证',
+    id: 'tame', icon: '🐣', name: '御兽契灵', blurb: '材料 + 精魂 → 宠物随从（直接收服）',
     inputHint: '精魂 / 兽核 / 血脉 / 契约媒介 / 灵材',
-    prefCats: ['材料', '特殊物品'], outCategory: '特殊物品', outHint: '契灵凭证 / 随从契约（凭此可召出一名随从或宠物）',
+    prefCats: ['材料', '特殊物品'], outCategory: '特殊物品', outHint: '一只宠物生灵（收服后在场随行·入队·可成长，不是道具）',
     minInputs: 1,
-    cotFocus: '精魂与媒介能否结契、血脉是否稳定、契灵的形态由投入之物合理推导。',
+    cotFocus: '精魂与媒介能否孕育出一只生灵、血脉与形态是否稳定；宠物的种族·性情·天赋由投入之物合理推导。',
     wbSeed: '御兽 契灵 精魂 随从 宠物 契约 血脉',
   },
   {

@@ -175,7 +175,7 @@ export default function CraftPanel({ onClose, onGenerate, onConfirm }: Props) {
                   ))}
                 </div>
                 <div className="p-3 border-t border-edge space-y-2 shrink-0">
-                  {mode.id === 'crystal' && <div className="text-[11px] text-amber-300/70">💎 炼晶为确定性生成，产出真·可镶嵌宝石（不走 AI / 倾向）</div>}
+                  {mode.id === 'crystal' && <div className="text-[11px] text-amber-300/70">💎 炼晶为确定性生成，产出真·可镶嵌宝石（不走 AI；倾向可指定属性/部位，如「暴击」「防具」「采矿」）</div>}
                   <textarea value={session.tendency} onChange={(e) => useCraft.getState().setTendency(e.target.value)}
                     placeholder="倾向提示（可选）：攻击向 / 辅助向 / 冰属性 / 隐匿 / 采集…只导方向、不改档次"
                     rows={2} className="w-full bg-panel2 border border-edge rounded px-2 py-1.5 text-[12px] text-slate-200 outline-none focus:border-god/40 resize-none" />
@@ -203,7 +203,7 @@ export default function CraftPanel({ onClose, onGenerate, onConfirm }: Props) {
           <div className="px-4 py-3 border-t border-edge bg-panel flex items-center gap-2 shrink-0">
             {preview && (
               <button onClick={doConfirm} disabled={busy}
-                className="flex-1 py-2 rounded-lg border border-emerald-500/50 bg-emerald-500/10 text-emerald-300 font-semibold text-[13px] hover:bg-emerald-500/20 disabled:opacity-40 transition-colors">✅ 确认入库</button>
+                className="flex-1 py-2 rounded-lg border border-emerald-500/50 bg-emerald-500/10 text-emerald-300 font-semibold text-[13px] hover:bg-emerald-500/20 disabled:opacity-40 transition-colors">{mode.id === 'tame' ? '✅ 收服宠物' : '✅ 确认入库'}</button>
             )}
             <button onClick={() => doGenerate(true)} disabled={busy}
               className="flex-1 py-2 rounded-lg border border-god/40 text-god/90 text-[13px] hover:bg-god/10 disabled:opacity-40 transition-colors">🔄 重新生成</button>

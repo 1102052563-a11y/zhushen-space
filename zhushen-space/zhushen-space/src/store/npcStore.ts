@@ -233,6 +233,7 @@ interface NpcState {
   removeNpc: (id: string) => void;        // 软删除（onScene=false 归档）
   createPartyMember: (info: { name: string; tier?: string; job?: string; persona?: string; strength?: string; role?: string; world?: string }) => string;  // 从频道发帖人建临时队友 NPC，返回 C-id
   createArchivedContractor: (info: { name: string; tier?: string; job?: string; persona?: string; strength?: string; tag?: string }) => string;  // 建一个离场契约者档案（私信/交易/好友用），返回 C-id
+  createPet: (info: { name: string; species?: string; persona?: string; appearance?: string; ability?: string; tier?: string; strength?: string; attrs?: PlayerAttrs }) => string;  // 御兽合成：建一只宠物随从 NPC（在场+入队+好友，unitType=凶兽魔兽，可带六维），返回 C-id
   setFriend: (id: string, on: boolean) => void;   // 加入/移出好友栏
   leaveParty: (id: string) => void;       // 退出临时队伍（partyMember=false，仍在场，等剧情/手动归档）
   disbandPartyForWorld: (currentWorld: string) => string[];  // 世界切换：解散非当前世界的临时队友(离队 + 离场归档)，返回被解散的 id 列表
@@ -408,6 +409,34 @@ export const useNpc = create<NpcState>()(
             bioStrength: info.strength || '',
             npcTag: info.tag || '契约者',
             onScene: false,
+            updatedAt: Date.now(),
+          };
+          return { npcs: { ...s.npcs, [newId]: rec } };
+        });
+        return newId;
+      },
+      createPet: (info) => {
+        let newId = '';
+        set((s) => {
+          const used = new Set(Object.keys(s.npcs));
+          let n = 1; while (used.has(`C${n}`)) n++;
+          newId = `C${n}`;
+          const desc = [info.persona, info.ability && `天赋能力：${info.ability}`, info.appearance && `外观：${info.appearance}`].filter(Boolean).join('\n');
+          const rec: NpcRecord = {
+            ...defaultNpcRecord(newId),
+            name: ((info.name || '契灵').trim().slice(0, 24)) || '契灵',
+            realm: info.tier ? `${info.tier}|宠物` : '',
+            profession: info.species || '契灵',
+            personality: desc,
+            bioStrength: info.strength || '',
+            ...(info.attrs ? { attrs: info.attrs } : {}),
+            unitType: '凶兽魔兽',
+            npcTag: '宠物',
+            onScene: true,
+            partyMember: true,
+            partyRole: '宠物',
+            isFriend: true,
+            friendedAt: Date.now(),
             updatedAt: Date.now(),
           };
           return { npcs: { ...s.npcs, [newId]: rec } };

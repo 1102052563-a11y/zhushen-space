@@ -151,9 +151,9 @@ function buildGem(grade: string, def: GemDef, rng: Rng): GeneratedGem {
   };
 }
 
-/** 生成一颗指定品级的随机宝石（数值在此烘焙，之后镶嵌只套用）*/
-export function generateGem(grade: string, rng: Rng = Math.random): GeneratedGem {
-  return buildGem(grade, pickDef(grade, rng), rng);
+/** 生成一颗指定品级的宝石（数值在此烘焙，之后镶嵌只套用）；want 可指定属性/部位（无匹配则走随机）*/
+export function generateGem(grade: string, rng: Rng = Math.random, want?: { attr?: string; slot?: GemSlotKind }): GeneratedGem {
+  return buildGem(grade, pickDef(grade, rng, want), rng);
 }
 
 /** 刷新一批商店宝石（同品级、效果各异）*/
