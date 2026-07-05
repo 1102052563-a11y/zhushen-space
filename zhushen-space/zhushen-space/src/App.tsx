@@ -3024,8 +3024,13 @@ export default function App() {
           console.warn(`[NPC] 丢弃无真实姓名的新角色（id=${e.id}, name=${nameKey || '∅'}${skel ? ' · 有骨架但无名' : ''}）`);
           continue;
         }
-        // 纯英文/罗马音名无法机翻 → 不丢角色（它是真实角色），仅告警提示 AI 按 ENTRY_NAME_CN_RULE 重命名
-        if (!/[一-鿿]/.test(nameKey)) console.warn(`[NPC] 新角色「${nameKey}」为纯英文/罗马音名（应中文·ENTRY_NAME_CN_RULE）；暂保留，待 AI 重命名`);
+        // 纯英文/罗马音名新角色 → 一律不建档（治「同一角色·中文名+罗马音名各建一个」，如 猗窝座 + Akaza 重复两条）：
+        //   新角色本就必须中文名(ENTRY_NAME_CN_RULE)；纯拉丁名要么违规、要么是**已有中文角色的罗马音重提**——机器无法跨语言映射到那条中文档案，
+        //   下面的同名复用又是按中文名匹配（Akaza≠猗窝座 命中不了）。故此处直接丢弃，等 AI 下轮按规则用中文名登场再建（届时中文名会命中同名复用、并入已有档案）。
+        if (nameKey && !/[一-鿿]/.test(nameKey)) {
+          console.warn(`[NPC] 丢弃纯英文/罗马音名新角色「${nameKey}」（违反 ENTRY_NAME_CN_RULE·防「中文名+罗马音各建一条」跨语言重复；等 AI 用中文名再登场）`);
+          continue;
+        }
         // 已存在/本批已建同名真实角色 → 复用其ID当作"重新登场"，不再新建（防重复）
         const dupId = nameKey ? nameToId.get(nameKey) : undefined;
         if (dupId && npc.npcs[dupId]) {

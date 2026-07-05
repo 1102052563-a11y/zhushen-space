@@ -716,9 +716,17 @@ export const useNpc = create<NpcState>()(
             if (purge.includes(sus.id)) continue;
             const tier = tierOf(sus); const prof = (sus.profession || '').trim();
             // 同阶位 + 同职业 + 中文名 + 活着 + 非自身 = 同一人
-            const canon = tier && prof ? all.find((r) =>
+            let canon = tier && prof ? all.find((r) =>
               r.id !== sus.id && !purge.includes(r.id) && alive(r) && hasCJK(r.name) && !isSusp(r.name)
               && tierOf(r) === tier && (r.profession || '').trim() === prof) : undefined;
+            // 兜底（治「全新 Lv.1 空壳罗马音档」如「Akaza」之于已建档的「猗窝座」——新登场角色被生成两次）：
+            //   嫌疑档身份基本为空(无阶位/无职业/无头衔·就是刚 type:new 出来的空壳) 且没能按 阶位+职业 匹配到正档时，
+            //   若当前**在场的中文名正档恰好唯一**(不含自身)，判为它的错名重复、合并进去；在场中文正档有多个(歧义)则保守不动。
+            if (!canon && !tier && !prof && !(sus.title || '').trim()) {
+              const cjkOnScene = all.filter((r) =>
+                r.id !== sus.id && !purge.includes(r.id) && alive(r) && hasCJK(r.name) && !isSusp(r.name) && r.onScene);
+              if (cjkOnScene.length === 1) canon = cjkOnScene[0];
+            }
             if (canon) {
               const keeper: any = { ...next[canon.id] };
               const items = [...(keeper.items ?? [])];

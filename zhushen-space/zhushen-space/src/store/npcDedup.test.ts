@@ -43,6 +43,35 @@ describe('dedupeAliasNpcs 跨语言/畸形名重复合并', () => {
     expect(useNpc.getState().dedupeAliasNpcs()).toBe(0);   // 无职业匹配 → 不合并，只剥前缀（本例无前缀）
     expect(useNpc.getState().npcs.C2).toBeDefined();
   });
+
+  it('★全新空壳罗马音档(Akaza·无阶位/职业/头衔) + 在场中文正档唯一 → 合并进正档（治"新登场生成两次"）', () => {
+    set({
+      C1: { id: 'C1', name: '猗窝座', realm: '五阶', profession: '', title: '上弦之叁', isDead: false, onScene: true, items: [] },
+      C2: { id: 'C2', name: 'Akaza', realm: '', profession: '', title: '', isDead: false, onScene: true, items: [] },
+    });
+    expect(useNpc.getState().dedupeAliasNpcs()).toBe(1);
+    expect(useNpc.getState().npcs.C2).toBeUndefined();   // 空壳重复档被合并删除
+    expect(useNpc.getState().npcs.C1).toBeDefined();
+  });
+
+  it('在场中文正档有多个(歧义) → 空壳罗马音档保守不合并', () => {
+    set({
+      C1: { id: 'C1', name: '猗窝座', realm: '五阶', isDead: false, onScene: true, items: [] },
+      C2: { id: 'C2', name: '童磨', realm: '五阶', isDead: false, onScene: true, items: [] },
+      C3: { id: 'C3', name: 'Akaza', realm: '', isDead: false, onScene: true, items: [] },
+    });
+    expect(useNpc.getState().dedupeAliasNpcs()).toBe(0);   // 2 个在场中文正档 → 歧义 → 不敢乱并
+    expect(useNpc.getState().npcs.C3).toBeDefined();
+  });
+
+  it('空壳罗马音档但中文正档不在场 → 不合并（缺在场唯一信号·避免误并离场角色）', () => {
+    set({
+      C1: { id: 'C1', name: '猗窝座', realm: '五阶', isDead: false, onScene: false, items: [] },
+      C2: { id: 'C2', name: 'Akaza', realm: '', isDead: false, onScene: true, items: [] },
+    });
+    expect(useNpc.getState().dedupeAliasNpcs()).toBe(0);   // 正档不在场 → 兜底不触发
+    expect(useNpc.getState().npcs.C2).toBeDefined();
+  });
 });
 
 describe('★NPC facade 闸门（同真名重复建档·subscribe 即时合并·不结构性可行故复用 dedupeByName）', () => {
