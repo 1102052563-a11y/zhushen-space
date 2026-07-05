@@ -140,6 +140,18 @@ export function toStashPayload(item: InventoryItem) {
   };
 }
 
+/* 详情弹窗字段包装。**必须定义在组件外**：若放在 ItemDetailModal 内，每次 setDraft（每敲一个键）重渲染都会
+   生成一个新的 Field 组件类型，React 认成不同组件 → 卸载重挂它下面的 <textarea/input> → 输入法拼音组合被打断
+   （用户报"改装备效果/词缀时打一个拼音就被断了、只能别处打好复制"）。提到模块级后类型稳定、不再重挂。 */
+function Field({ label, children }: { label: string; children: React.ReactNode }) {
+  return (
+    <div className="space-y-1">
+      <div className="text-[12px] font-mono text-dim/40 uppercase tracking-wide">{label}</div>
+      <div>{children}</div>
+    </div>
+  );
+}
+
 export function ItemDetailModal({ item, onClose }: { item: InventoryItem; onClose: () => void }) {
   const consumeItem = useItems((s) => s.consumeItem);
   const removeItem  = useItems((s) => s.removeItem);
@@ -156,7 +168,9 @@ export function ItemDetailModal({ item, onClose }: { item: InventoryItem; onClos
 
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState({
-    name: item.name, gradeDesc: item.gradeDesc, effect: asText(item.effect),
+    name: item.name, gradeDesc: item.gradeDesc,
+    category: item.category, subType: item.subType ?? '',   // 可改物品类别(决定装备槽)+类型细分——治 AI 演化把饰品乱改成武器/特殊物品
+    effect: asText(item.effect),
     appearance: item.appearance ?? '',
     // affix/effect 若被 AI 写成对象数组 [{name,desc}] → 拆成干净多行文本，编辑+保存即把脏数据洗成字符串（治"词缀显示成 [object Object]"）
     notes: item.notes ?? '', acquisition: item.acquisition ?? '', affix: splitAffixEntries(item.affix).join('\n'),
@@ -168,17 +182,18 @@ export function ItemDetailModal({ item, onClose }: { item: InventoryItem; onClos
   const canConsume = (['消耗品','丹药','符箓','灵药'] as string[]).includes(item.category);
 
   const saveEdit = () => {
-    updateItem(item.id, { name: draft.name, gradeDesc: draft.gradeDesc,
-      effect: draft.effect, appearance: draft.appearance, notes: draft.notes, acquisition: draft.acquisition, affix: draft.affix });
+    const catChanged = draft.category !== item.category;
+    const patch: Partial<InventoryItem> = {
+      name: draft.name, gradeDesc: draft.gradeDesc,
+      category: draft.category as ItemCategory, subType: draft.subType.trim() || undefined,
+      effect: draft.effect, appearance: draft.appearance, notes: draft.notes, acquisition: draft.acquisition, affix: draft.affix,
+    };
+    // 改了类别且此刻装备中 → 一并卸下：否则出现"饰品改成武器仍卡在武器槽 / 改成消耗品却还显示装备中"这类槽位错乱
+    //   （用户报"饰品变成武器还在武器栏上面"）。改回正确类别后到装备面板重新穿戴即可。
+    if (catChanged && item.equipped) { patch.equipped = false; patch.equipSlot = undefined; }
+    updateItem(item.id, patch);
     setEditing(false);
   };
-
-  const Field = ({ label, children }: { label: string; children: React.ReactNode }) => (
-    <div className="space-y-1">
-      <div className="text-[12px] font-mono text-dim/40 uppercase tracking-wide">{label}</div>
-      <div>{children}</div>
-    </div>
-  );
 
   return (
     <div
@@ -203,7 +218,18 @@ export function ItemDetailModal({ item, onClose }: { item: InventoryItem; onClos
               <div className={`text-sm font-bold truncate ${gradeNameClass(item.gradeDesc)}`}>{item.name}</div>
             )}
             <div className="flex items-center gap-1.5 flex-wrap mt-0.5">
-              <span className={`text-[12px] font-mono px-1.5 py-0.5 rounded border ${cfg.cls}`}>{item.category}</span>
+              {editing ? (
+                <select
+                  value={draft.category}
+                  onChange={(e) => setDraft((d) => ({ ...d, category: e.target.value as ItemCategory }))}
+                  title="改物品类别：决定它算武器/防具/饰品…以及能装到哪个槽（治 AI 演化把饰品乱改成武器）"
+                  className="text-[12px] font-mono px-1 py-0.5 rounded border border-god/50 bg-void text-slate-200 focus:outline-none focus:border-god/70"
+                >
+                  {ITEM_CATEGORIES.map((c) => <option key={c} value={c}>{c}</option>)}
+                </select>
+              ) : (
+                <span className={`text-[12px] font-mono px-1.5 py-0.5 rounded border ${cfg.cls}`}>{item.category}</span>
+              )}
               {item.equipped && (
                 <span className="text-[12px] font-mono px-1.5 py-0.5 rounded border border-god/40 text-god bg-god/10">装备中</span>
               )}
@@ -253,10 +279,12 @@ export function ItemDetailModal({ item, onClose }: { item: InventoryItem; onClos
           </div>
 
           {/* 固定模板属性（产地/类型/战斗数值/耐久/评分）*/}
-          {(item.origin || item.subType || item.combatStat || item.durability || item.score || item.killCount) && (
+          {(editing || item.origin || item.subType || item.combatStat || item.durability || item.score || item.killCount) && (
             <div className="grid grid-cols-2 gap-3 bg-panel2 rounded-xl p-3 border border-edge/40">
               {item.origin && (<div><div className="text-[12px] font-mono text-dim/40">产地</div><div className="text-[13px] text-dim/80">{item.origin}</div></div>)}
-              {item.subType && (<div><div className="text-[12px] font-mono text-dim/40">类型</div><div className="text-[13px] text-dim/80">{item.subType}</div></div>)}
+              {(item.subType || editing) && (<div><div className="text-[12px] font-mono text-dim/40">类型（细分）</div>{editing
+                ? <input value={draft.subType} onChange={(e) => setDraft((d) => ({ ...d, subType: e.target.value }))} placeholder="如 长刀 / 戒指 / 护符" className="w-full bg-void border border-god/40 rounded px-1.5 py-0.5 text-[13px] text-slate-200 focus:outline-none focus:border-god/60" />
+                : <div className="text-[13px] text-dim/80">{item.subType}</div>}</div>)}
               {item.combatStat && (() => {
                 const ec = enhancedCombat(item.combatStat, item.enhanceLevel ?? 0);
                 const cls = enhanceColorClass(item.enhanceLevel ?? 0);

@@ -130,3 +130,12 @@ export function buildNarrativeHistory(
     : [];
   return { memory, recent };
 }
+
+/** 从 <相关记忆> 块内容里剔除【近期记忆】召回行，保留【长期事实 / 世界大事 / 阶段记忆】等持久沉淀记忆；
+ *  全被剔光则返回 null。供「数据库推进(Stitches)」记忆去重：Stitches 自由体 {{recall}} 接管"近期相关历史"，
+ *  但用户手工/LLM 沉淀的长期事实不该被它顶掉（原实现整块清空会连长期事实一起吞）。与本文件块格式同源，勿各写各的。 */
+export function dropRecentFromRecall(content: string): string | null {
+  const inner = content.replace(/^<相关记忆>\n?/, '').replace(/\n?<\/相关记忆>$/, '');
+  const kept = inner.split('\n\n').filter((ln) => !ln.trimStart().startsWith('[近期记忆]'));
+  return kept.length ? `<相关记忆>\n${kept.join('\n\n')}\n</相关记忆>` : null;
+}

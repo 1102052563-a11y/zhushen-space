@@ -22,6 +22,7 @@ import {
   PARADISE_RULES_RULE,
   REAL_POINT_LOCK_RULE,
   ABYSS_LOCK_RULE,
+  NATIVE_UNAWARE_RULE,
   NPC_COT_RULE,
   NPC_SELF_NARRATION_RULE,
   PLOT_GUIDANCE_RULE,
@@ -190,7 +191,7 @@ import { useMisc, buildMiscSystemPrompt } from './store/miscStore';
 import { useChannel, buildChannelSystemPrompt, CHANNEL_DEFS } from './store/channelStore';
 import { estimateFairValue, priceVerdict, formatFairRange, sumFairValues, VERDICT_LABEL } from './systems/itemPricing';
 import { applyMiscCommands, serializeTasks, serializeSettledTasks, serializeEvents, extractTurnSummaries } from './systems/miscParser';
-import { buildNarrativeHistory, NM_COMPILE_PROMPT, NM_INGEST_PROMPT } from './systems/narrativeMemory';
+import { buildNarrativeHistory, dropRecentFromRecall, NM_COMPILE_PROMPT, NM_INGEST_PROMPT } from './systems/narrativeMemory';
 import { buildMemPool, loadAll as factVecLoadAll, ensureVectors as factVecEnsure, embedOne as factVecEmbedOne, search as factVecSearch, rerank as factVecRerank } from './systems/factVec';
 import { useDbAdvance } from './store/dbAdvanceStore';   // 数据库推进管线（Stitches 规划层）
 import { findModule as dbFindModule, buildModuleMessages as dbBuildMsgs, extractTag as dbExtractTag, stripExcluded as dbStripExcluded, resolveFinalDirective as dbResolveDirective, type DbAdvanceCtx } from './systems/dbAdvancePreset';
@@ -1942,6 +1943,9 @@ export default function App() {
 
     // 五阶前·「深渊」词封印：主角未达五阶时注入禁令（与 applyRegex 兜底 scrub 双保险）；五阶后自动解除。
     { if (isAbyssLocked(usePlayer.getState().profile)) { addRule('五阶前禁深渊', '前端规则 · 五阶前禁「深渊」词', ABYSS_LOCK_RULE); } }
+
+    // 任务世界·土著不知契约者身份（沉浸·防全知OOC）：仅在任务世界(非轮回乐园/乐园枢纽/专属房间)注入，杜绝土著无端识破主角是契约者/外来者。
+    { if (!isHomeWorld(useMisc.getState().worldName || '')) { addRule('土著不知契约者', '前端规则 · 任务世界土著不识破契约者身份', NATIVE_UNAWARE_RULE); } }
 
     // 前历史 user/assistant 条目 → 少样本示例
     const examples = preRel
@@ -7931,11 +7935,14 @@ ${lines}`;
       recent = visibleHistory.map((m) => ({ role: m.role as 'user' | 'assistant', content: m.content }));
     }
 
-    // 记忆去重：若 Stitches 推进管线本回合真产出了 {{recall}}（已注入 dbAdvanceBlock），就跳过 zhushen 自己的 <相关记忆> 注入，
-    //   避免「同一批历史记忆」双份进正文（recent 楼层 + 结构化档案不受影响·照留）。Stitches 召回关/失败(lastRecall 空)→不动 zhushen 召回，正常兜底。
+    // 记忆去重：若 Stitches 推进管线本回合真产出了 {{recall}}（已注入 dbAdvanceBlock），就把 zhushen 自己的 <相关记忆> 里
+    //   **与之/与最近楼层重复的【近期记忆】召回**剔掉——但**持久沉淀记忆（长期事实 / 世界大事 / 阶段记忆）照留**。
+    //   原实现整块 `memory=[]` 一并吞掉了长期事实：Stitches 是自由体召回、不保真，用户手工/LLM 沉淀的长期事实不该被它顶掉
+    //   （用户报「开了数据库推进+召回，正文就不注入长期事实」的根因）。Stitches 召回关/失败(lastRecall 空)→不动 zhushen 召回。
     if (dbAdvanceBlock.length > 0 && useDbAdvance.getState().lastRecall.trim() && memory.length) {
-      memory = [];
-      console.log('[数据库推进] 本回合已出 {{recall}} → 跳过 zhushen <相关记忆> 注入，防记忆双份');
+      memory = memory.map((m) => { const c = dropRecentFromRecall(m.content); return c ? { role: 'system' as const, content: c } : null; })
+        .filter((m): m is { role: 'system'; content: string } => !!m);
+      console.log('[数据库推进] 本回合已出 {{recall}} → 相关记忆去重：仅剔除【近期记忆】召回，长期事实/世界大事/阶段记忆照留（防吞掉沉淀记忆）');
     }
 
     const mpPartyBlock = buildPartyProfiles();   // 联机房主：同行真人队友档案(技能/天赋/职业/装备/性格/外观/种族)

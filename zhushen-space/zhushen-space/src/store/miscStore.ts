@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
+import { lzStorage, lzLocalStorage } from '../systems/compressedStorage';   // 长期事实数千条→drpg-misc 裸JSON撑爆localStorage配额；压缩存
 import type { ApiConfig } from './settingsStore';
 import { useSettings } from './settingsStore';
 import miscDefaultPreset from '../data/miscDefaultPreset.json';
@@ -439,6 +440,7 @@ export const useMisc = create<MiscState>()(
     }),
     {
       name: 'drpg-misc',
+      storage: lzStorage(),   // ★压缩存：长期事实可累积数千条，裸 JSON 会把 localStorage 整域配额顶满（改API/存记忆/读档回退全报 quota）
       merge: (persisted: any, current) => ({
         ...current,
         ...persisted,
@@ -461,3 +463,10 @@ export const useMisc = create<MiscState>()(
     },
   ),
 );
+
+// 一次性迁移：把旧的**未压缩** drpg-misc 就地压缩，立刻腾出 localStorage 配额——否则要等下一次 misc 变动才转压缩，
+//   期间用户若先去改 API 仍会报 quota。模块加载即跑（persist 已 hydrate 完；幂等：已压缩值前缀是 LZ、下面 startsWith('{') 会跳过）。
+try {
+  const rawMisc = localStorage.getItem('drpg-misc');
+  if (rawMisc && rawMisc.startsWith('{')) lzLocalStorage.setItem('drpg-misc', rawMisc);
+} catch { /* */ }

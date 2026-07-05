@@ -1,5 +1,6 @@
 import { saveDb } from './saveDb';
 import { setResumeFlag } from './resumeFlag';
+import { decompressMaybe, compressWithMark, isCompressed } from './compressedStorage';   // drpg-misc 压缩存：mergeKeepApi 需解压再合并
 import { replaceAll as replaceChat, loadAll as loadChat, loadArchive, replaceArchive, clearArchive, type ArchivedMsg } from './chatDb';
 import { bulkPutImg, clearAllImg } from './imageDb';
 import { snapshotImages } from './imageSync';
@@ -304,12 +305,16 @@ export const PENDING_STARTED_KEY = 'drpg-pending-started';
    做法：每个 store 的持久化 JSON，state 里命中的键用「当前值」覆盖存档值。*/
 function mergeKeepApi(key: string, savedJson: string): string {
   try {
-    const cur = localStorage.getItem(key);
-    if (!cur) return savedJson;
-    const sv = JSON.parse(savedJson), cv = JSON.parse(cur);
+    // 兼容压缩存的 store（如 drpg-misc·lzStorage）：存/取都可能是 LZ 压缩串，先解成明文 JSON 再合并，
+    //   合并后按**存档值原本的格式**回写（压缩存回压缩）——否则解析失败会走 catch 原样返回、丢掉"保当前 API"的意义（miscApi 被读档回滚）。
+    const curPlain = decompressMaybe(localStorage.getItem(key));
+    const savedPlain = decompressMaybe(savedJson);
+    if (!curPlain || savedPlain == null) return savedJson;
+    const sv = JSON.parse(savedPlain), cv = JSON.parse(curPlain);
     if (sv && cv && sv.state && cv.state) {
       for (const k of Object.keys(cv.state)) if (/api/i.test(k) || k === 'settings') sv.state[k] = cv.state[k];
-      return JSON.stringify(sv);
+      const merged = JSON.stringify(sv);
+      return isCompressed(savedJson) ? compressWithMark(merged) : merged;
     }
   } catch (e) { logWarn('saveManager.mergeKeepApi', e); }
   return savedJson;

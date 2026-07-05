@@ -144,6 +144,20 @@ describe('入库防御网 + 历史迁移（store 集成）', () => {
   });
 });
 
+describe('addItem 原地更新（AI 重生成同一件·同 id 同名）保留固有状态', () => {
+  it('★类别不被 AI 改：饰品被重生成成武器 → 仍是饰品、装备/槽位/品级都保留（治"饰品莫名变武器还卡武器槽"）', () => {
+    useItems.setState({ items: [
+      { id: 'R1', name: '星辰戒指', category: '饰品', gradeDesc: '蓝色', quantity: 1, effect: '', equipped: true, equipSlot: 'accessory', tags: [], addedAt: 0 },
+    ] as any });
+    useItems.getState().addItem({ id: 'R1', name: '星辰戒指', category: '武器', gradeDesc: '紫色', quantity: 1 } as any);
+    const it = useItems.getState().items.find((x) => x.id === 'R1')!;
+    expect(it.category).toBe('饰品');        // AI 想改成武器 → 被挡
+    expect(it.equipped).toBe(true);
+    expect(it.equipSlot).toBe('accessory');
+    expect(it.gradeDesc).toBe('蓝色');        // 品级也不被改（既有护栏）
+  });
+});
+
 describe('dedupeByName（治"经常丢装备·就是消失·最近删除不显示"：只合并可堆叠真重复，绝不按名吞装备）', () => {
   it('★两件同名装备(一穿一备) → 都保留、绝不合并吞掉', () => {
     useItems.setState({ items: [

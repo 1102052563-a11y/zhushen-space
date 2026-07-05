@@ -469,9 +469,10 @@ export const useItems = create<ItemState>()(
           if (wantId) {
             const existing = s.items.find((it) => it.id === wantId);
             if (existing && (existing.name ?? '') === (item.name ?? '')) {
-              // 原地更新保留用户/固有状态：装备槽、锁定，**及品级/评分**——AI 重生成同一件绝不改稀有度（治"品级随受损/演化在 史诗↔绿色 乱跳"；
-              //   前端强化/觉醒/宝石升品级走 store.updateItem 不经此路，不受影响）。仅原本缺品级/评分才采用新值。
-              return { items: s.items.map((it) => it.id === wantId ? { ...it, ...item, id: wantId, equipped: it.equipped, equipSlot: it.equipSlot, locked: it.locked, gradeDesc: it.gradeDesc || item.gradeDesc, score: (it as any).score ?? (item as any).score } as InventoryItem : it) };
+              // 原地更新保留用户/固有状态：装备槽、锁定，**及品级/评分/类别**——AI 重生成同一件绝不改稀有度、
+              //   **也不改类别**（治用户报"演化把饰品莫名改成武器/特殊物品、还卡在武器槽"；类别决定装备槽，一乱改就槽位错乱）。
+              //   前端强化/觉醒/宝石、以及玩家在物品编辑里手动改类别走 store.updateItem 不经此路，不受影响。仅原本缺的才采用新值。
+              return { items: s.items.map((it) => it.id === wantId ? { ...it, ...item, id: wantId, equipped: it.equipped, equipSlot: it.equipSlot, locked: it.locked, category: it.category || item.category, gradeDesc: it.gradeDesc || item.gradeDesc, score: (it as any).score ?? (item as any).score } as InventoryItem : it) };
             }
             if (existing) console.warn(`[Item] id ${wantId} 已被「${existing.name}」占用，新物品「${item.name}」改用新 id 防覆盖`);
           }
