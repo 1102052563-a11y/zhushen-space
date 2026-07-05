@@ -42,6 +42,7 @@ import { useCraft } from '../store/craftStore';
 import { useLedger } from './ledger/ledgerStore';
 import { useLocks } from '../store/lockStore';
 import { useFieldHistory } from '../store/fieldHistoryStore';
+import { useLoadout } from '../store/loadoutStore';
 import { clearJoySessions } from '../store/joyStore';
 import { logWarn } from '../utils/log';
 import { writeB1Mirror, clearB1Mirror } from './b1Mirror';
@@ -99,6 +100,7 @@ const STORES: { key: string; api: any; clear?: () => void }[] = [
   { key: 'drpg-craft',      api: useCraft, clear: () => useCraft.getState().clearCraft() },   // 合成工坊：配置/图鉴/API 保留，会话+已发现配方随新游戏清空
   { key: 'drpg-abyss',      api: useAbyss, clear: () => useAbyss.getState().clearAbyss() },
   { key: 'drpg-worldrecord', api: useWorldRecord, clear: () => useWorldRecord.getState().clearAll() },   // 世界记录/世界志（世界观骨架+离世总结·随存档快照；新游戏清空）
+  { key: 'drpg-loadout',    api: useLoadout, clear: () => useLoadout.getState().clearBench() },   // 体系/流派：clear 只清替补席+激活态；模板 builds[] 像技能树定义一样跨新游戏保留（照 drpg-skilltree 口径）
 ];
 
 /* 「回滚本回合演化改动」（数据库引入②）——把**演化变量域** store 整体还原到某份快照（in-place setState，
@@ -106,7 +108,7 @@ const STORES: { key: string; api: any; clear?: () => void }[] = [
    配置/预设 store 不动；账本**不回滚**（保留审计），并补一条 rollback 事件。返回已还原的 store key 列表。 */
 const ROLLBACK_KEYS = new Set([
   'drpg-items', 'drpg-player-evo', 'drpg-npc', 'drpg-faction', 'drpg-territory',
-  'drpg-team', 'drpg-characters', 'drpg-misc', 'drpg-cosmos',
+  'drpg-team', 'drpg-characters', 'drpg-misc', 'drpg-cosmos', 'drpg-loadout',   // loadout 必须跟 drpg-characters 一起回滚，否则「出战∪替补」不变量错位
 ]);
 export function rollbackEvoDomains(snap: { turn: number; stores: Record<string, string> }): string[] {
   const restored: string[] = [];

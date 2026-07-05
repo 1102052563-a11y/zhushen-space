@@ -20,6 +20,7 @@ import { buildPlayerSnapshot } from './mpSnapshot';
 import { useSettings, type WorldBook } from '../store/settingsStore';
 import { useSkillTree, type TreeDef } from '../store/skillTreeStore';
 import { useSubProfTree } from '../store/subProfTreeStore';
+import { useLoadout } from '../store/loadoutStore';
 import { useCreationTemplates, type CreationTemplateData } from '../store/creationTemplateStore';
 import { useCreationContent } from '../store/creationContentStore';
 import { useWorkshop } from '../store/workshopStore';
@@ -34,7 +35,7 @@ const ITEM_CATS = ['消耗品', '材料', '工具', '重要物品', '特殊物�
 export type WorkshopKindId =
   | 'skill' | 'talent' | 'title' | 'subProfession'
   | 'equipment' | 'gem' | 'item' | 'npc' | 'characterCard'
-  | 'skillTree' | 'subProfTree' | 'creationTemplate' | 'worldbook'
+  | 'skillTree' | 'subProfTree' | 'creationTemplate' | 'worldbook' | 'loadout'
   | 'paradise' | 'race';   // 角色创建相关（乐园/种族）
 
 // 角色创建模式下走「自定义内容库」的类型（乐园/种族/天赋）
@@ -262,6 +263,12 @@ export const KINDS: Record<WorkshopKindId, WorkshopKindDef> = {
     listLocal: () => useCreationTemplates.getState().templates.map((t) => ({ id: t.id, name: t.name })),
     pack: (id) => { const t = useCreationTemplates.getState().templates.find((x) => x.id === id); return t ? { payload: { name: t.name, data: t.data }, name: t.name } : null; },
     install: (payload) => { const p = payload as { name: string; data: CreationTemplateData }; useCreationTemplates.getState().addTemplate(p.name, p.data); },
+  },
+  loadout: {
+    id: 'loadout', label: '体系/流派', emoji: '🎴', group: '模板',
+    listLocal: () => useLoadout.getState().builds.map((b) => ({ id: b.id, name: b.name })),
+    pack: (id) => { const b = useLoadout.getState().builds.find((x) => x.id === id); return b ? { payload: { name: b.name, desc: b.desc, skills: b.skills ?? [], traits: b.traits ?? [] }, name: b.name } : null; },
+    install: (payload) => { useLoadout.getState().addBuild({ ...(payload ?? {}), id: undefined }); },   // 只入库，回「🎴 体系/流派」面板点「应用」才生效
   },
   worldbook: {
     id: 'worldbook', label: '世界书', emoji: '📚', group: '世界书',

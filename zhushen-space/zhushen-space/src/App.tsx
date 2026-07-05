@@ -278,6 +278,7 @@ const TitlePanel = lazy(() => import('./components/TitlePanel'));
 const AchievementPanel = lazy(() => import('./components/AchievementPanel'));
 const SubProfessionPanel = lazy(() => import('./components/SubProfessionPanel'));
 const SkillTreePanel = lazy(() => import('./components/SkillTreePanel'));
+const LoadoutPanel = lazy(() => import('./components/LoadoutPanel'));
 const NpcPanel = lazy(() => import('./components/NpcPanel'));
 const NpcDetail = lazy(() => import('./components/NpcDetail'));
 import OnScenePanel from './components/OnScenePanel';
@@ -993,6 +994,7 @@ const rightMenuItems = [
   { icon: '✨', label: '技能' },
   { icon: '🛠', label: '副职业' },
   { icon: '🌳', label: '技能树' },
+  { icon: '🎴', label: '体系' },
   { icon: '🧰', label: '合成' },
   { icon: '🎖', label: '称号' },
   { icon: '🏆', label: '成就' },
@@ -1030,7 +1032,7 @@ const rightMenuItems = [
 /* 右侧导航·每个图标的独特 hover 特效类（定义见 index.css 的 .fx-*）*/
 const NAV_FX: Record<string, string> = {
   '装备': 'fx-sword', '储存空间': 'fx-bag', 'NPC': 'fx-card', '技能': 'fx-sparkle',
-  '副职业': 'fx-wrench', '技能树': 'fx-tree', '合成': 'fx-wrench', '称号': 'fx-medal', '成就': 'fx-trophy', '势力': 'fx-pillar',
+  '副职业': 'fx-wrench', '技能树': 'fx-tree', '体系': 'fx-tree', '合成': 'fx-wrench', '称号': 'fx-medal', '成就': 'fx-trophy', '势力': 'fx-pillar',
   '领地': 'fx-castle', '冒险团': 'fx-shield', '队伍': 'fx-friends', '万族': 'fx-cosmos', '世界百科': 'fx-book', '轮回WIKI': 'fx-book', 'ROLL': 'fx-dice',
   '战斗': 'fx-clash', '乐园设施': 'fx-ferris', '深渊': 'fx-void', '回合洞察': 'fx-zoom', '审计': 'fx-zoom', '任务': 'fx-quest',
   '频道': 'fx-signal', '私信': 'fx-mail', '好友': 'fx-friends', '聊天室': 'fx-signal', '交易行': 'fx-bag', '助战': 'fx-clash', '世界竞技场': 'fx-trophy', '纪念丰碑': 'fx-pillar', '账户仓库': 'fx-bag', '记忆': 'fx-brain', '创意工坊': 'fx-sparkle', '存档': 'fx-save', '设置': 'fx-gear',
@@ -1150,6 +1152,7 @@ export default function App() {
   const [achievePanelOpen, setAchievePanelOpen] = useState(false);
   const [subProfOpen,      setSubProfOpen]      = useState(false);
   const [skillTreeOpen,    setSkillTreeOpen]    = useState(false);
+  const [loadoutOpen,      setLoadoutOpen]      = useState(false);
   const [npcPanelOpen,     setNpcPanelOpen]     = useState(false);
   const [miscPanelOpen,    setMiscPanelOpen]    = useState(false);
   const [worldRecordOpen,  setWorldRecordOpen]  = useState(false);
@@ -8279,6 +8282,7 @@ ${lines}`;
       label === '成就' ? () => setAchievePanelOpen(true) :
       label === '副职业' ? () => setSubProfOpen(true) :
       label === '技能树' ? () => setSkillTreeOpen(true) :
+      label === '体系' ? () => setLoadoutOpen(true) :
       label === '合成' ? () => setCraftPanelOpen(true) :
       label === '势力' ? () => setFactionPanelOpen(true) :
       label === '领地' ? () => setTerritoryPanelOpen(true) :
@@ -9865,6 +9869,7 @@ ${lines}`;
       {achievePanelOpen && <AchievementPanel onClose={() => setAchievePanelOpen(false)} />}
       {subProfOpen && <SubProfessionPanel onClose={() => setSubProfOpen(false)} />}
       {skillTreeOpen && <SkillTreePanel onClose={() => { setSkillTreeOpen(false); try { syncPlayerVitalsMax(); } catch { /* */ } }} />}
+      {loadoutOpen && <LoadoutPanel onClose={() => setLoadoutOpen(false)} />}
       {factionPanelOpen && <FactionPanel onClose={() => setFactionPanelOpen(false)} />}
       {territoryPanelOpen && <TerritoryPanel onClose={() => setTerritoryPanelOpen(false)} />}
       {teamPanelOpen && <AdventureTeamPanel onClose={() => setTeamPanelOpen(false)} />}
