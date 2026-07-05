@@ -45,6 +45,7 @@ import { useLocks } from '../store/lockStore';
 import { useFieldHistory } from '../store/fieldHistoryStore';
 import { useLoadout } from '../store/loadoutStore';
 import { clearJoySessions } from '../store/joyStore';
+import { useDbAdvance } from '../store/dbAdvanceStore';   // 数据库推进桌面态现已持久化 → 新游戏须显式清运行态
 import { logWarn } from '../utils/log';
 import { writeB1Mirror, clearB1Mirror } from './b1Mirror';
 import { isFolderBackupSupported, folderAutoEnabled, checkPermission as fbCheckPermission, writeFile as fbWriteFile, FOLDER_AUTOSAVE_FILE } from './folderBackup';
@@ -591,6 +592,7 @@ export async function clearProgress(): Promise<void> {
   }
   // 不入存档快照 / 走 IndexedDB 的额外清理：
   try { clearJoySessions(); } catch (e) { logWarn('clearProgress:joy', e); }      // 欢愉宫情欲值/私密/聊天（独立 store，不入快照；保留名册/预设/API）
+  try { useDbAdvance.getState().clearRuntime(); } catch (e) { logWarn('clearProgress:dbadvance', e); }   // 数据库推进桌面态现已持久化：新游戏须清运行态（保留预设/开关），否则新档带着上一局的表
   try { await clearAllImg(); } catch (e) { logWarn('clearProgress:images', e); }  // IndexedDB 头像/装备图
   // 注：不在此清向量库（drpg-factvec）——它是全局内容寻址缓存，清了会误伤其它存档的向量索引；
   // 残留向量不会污染任何档（召回只在当前档事实池内 cosine）。想回收空间用设置→向量记忆的「清空向量库」按钮。
