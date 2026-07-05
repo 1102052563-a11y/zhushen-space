@@ -315,6 +315,20 @@ function mergeKeepApi(key: string, savedJson: string): string {
   return savedJson;
 }
 
+/* 给定某份 autosnap 的 id，取**上一份**(时间戳更早一份) autosnap 的完整槽——它=上一回合结束态，
+   读某份 autosnap 后拿它当回退点，即可「回退上一回合 / 重新生成」本回合。复用已有滚动快照·零额外体积。
+   已是最旧一份 / 找不到 → null（无更早状态可回退）。 */
+async function prevAutosnapSlot(curId: string): Promise<SaveSlot | null> {
+  try {
+    const keys = ((await saveDb.keys()) as IDBValidKey[])
+      .filter((k): k is string => typeof k === 'string' && k.startsWith(AUTOSNAP_PREFIX))
+      .sort();   // 键=autosnap_<13位时间戳>·等长→字符串序即时间序（升序：旧→新）
+    const idx = keys.indexOf(curId);
+    if (idx <= 0) return null;   // 没找到 或 已是最旧一份 → 无更早快照
+    return (await saveDb.get<SaveSlot>(keys[idx - 1])) ?? null;
+  } catch { return null; }
+}
+
 /* 读取存档：把快照写回 localStorage，对话历史写回 IndexedDB（chatDb），整页 reload。
    reload 让 zustand persist 各 store 与 gameStore（模块初始化时读 localStorage）一并恢复；
    对话历史由 App 挂载时从 chatDb 读回。这是混合持久化下最稳的方案。*/
@@ -358,10 +372,19 @@ export async function loadSlot(id: string): Promise<boolean> {
   if (id !== UNDO_ID) {
     try {
       if (slot.data.undo && slot.data.undo.messages && slot.data.undo.messages.length > 0) {
-        const u = slot.data.undo;   // 仅还原**有真实对话**的回退点；空的不还原（删掉旧回退点）以防回退后清屏
+        const u = slot.data.undo;   // 手动档/⏱自动存档：随身嵌了回退点 → 直接还原（仅有真实对话的·空的不还原防回退清屏）
         await saveDb.put({ ...slot, id: UNDO_ID, name: '↩ 回退点', data: { stores: u.stores, messages: u.messages } });
+      } else if (id.startsWith(AUTOSNAP_PREFIX)) {
+        // 🛟自动备份(autosnap)按设计不嵌回退点(省体积)；读某份 autosnap 时，用**上一份 autosnap**(=上一回合结束态)当回退点，
+        //   → 读自动备份后也能「回退上一回合 / 重新生成」本回合（用户报"读档了就不能回退"的根因）。最旧一份无更早快照 → 删回退点。
+        const prev = await prevAutosnapSlot(id);
+        if (prev?.data?.messages && prev.data.messages.length > 0) {
+          await saveDb.put({ ...prev, id: UNDO_ID, name: '↩ 回退点' });
+        } else {
+          await saveDb.del(UNDO_ID);
+        }
       } else {
-        await saveDb.del(UNDO_ID);
+        await saveDb.del(UNDO_ID);   // 无嵌入回退点的其它档（旧档等）→ 删旧回退点，防回退乱跳到别的时间线
       }
     } catch (e) { logWarn('saveManager.loadSlot.undoRestore', e); }
   }
