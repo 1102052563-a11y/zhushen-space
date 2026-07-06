@@ -2,6 +2,7 @@ import React from 'react'
 import ReactDOM from 'react-dom/client'
 import App from './App'
 import ErrorBoundary from './components/ErrorBoundary'
+import DomI18n from './i18n/DomI18n'
 import { setResumeFlag } from './systems/resumeFlag'
 import './index.css'
 
@@ -10,6 +11,8 @@ ReactDOM.createRoot(document.getElementById('root')!).render(
     <ErrorBoundary>
       <App />
     </ErrorBoundary>
+    {/* 运行时翻译层：只译界面 chrome（繁體 OpenCC / 英文人工词库），不动 AI 正文；简体时零开销 */}
+    <DomI18n />
   </React.StrictMode>,
 )
 

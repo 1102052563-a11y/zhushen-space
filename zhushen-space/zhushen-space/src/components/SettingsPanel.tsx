@@ -2844,10 +2844,38 @@ function AppearanceSettingsSection() {
   const setUiVignette = useSettings((s) => s.setUiVignette);
   const uiTheme    = useSettings((s) => s.uiTheme);
   const setUiTheme = useSettings((s) => s.setUiTheme);
+  const language    = useSettings((s) => s.language);
+  const setLanguage = useSettings((s) => s.setLanguage);
   const ff = reading.fontFamily || 'default';
   return (
     <div className="space-y-8">
       <SectionTitle title="界面外观美化" desc="主题配色 / 护眼色调 / 暗角 / 正文字体与排版，实时生效（不改变存档、也不发送给 AI）。" />
+
+      {/* 界面语言：简体（源码原样）/ 繁體（OpenCC 运行时转换·台湾正体）/ English（人工词库·核心界面）。
+          只译界面 chrome，AI 生成的剧情正文始终保持原语言、不受影响。 */}
+      <div className="space-y-3">
+        <div className="text-sm font-mono text-god/70 uppercase tracking-widest">界面语言</div>
+        <div className="border border-edge rounded-lg p-4 bg-panel space-y-3">
+          <div className="text-sm text-dim leading-relaxed">
+            切换界面显示语言。<b className="text-slate-300">繁體中文</b>自动转换全部界面（台湾正体·惯用词）；<b className="text-slate-300">English</b> 覆盖核心界面，未翻译处暂显中文，后续补齐。AI 生成的剧情正文不受影响，始终保持原语言。
+          </div>
+          {/* data-no-i18n：语言名恒以本语言原文呈现（标准语言选择器惯例），不被翻译层改写 */}
+          <div className="grid grid-cols-3 gap-2" data-no-i18n>
+            {[
+              { key: 'zh-Hans', label: '简体中文', desc: '源码原样' },
+              { key: 'zh-Hant', label: '繁體中文', desc: '台灣正體' },
+              { key: 'en',      label: 'English',  desc: 'Core UI' },
+            ].map((o) => (
+              <button key={o.key} onClick={() => setLanguage(o.key as 'zh-Hans' | 'zh-Hant' | 'en')}
+                className={`px-2 py-2.5 rounded-lg border text-sm font-mono transition-colors ${
+                  language === o.key ? 'border-god/60 bg-god/15 text-god' : 'border-edge bg-void/40 text-dim hover:border-god/30 hover:text-slate-300'}`}>
+                <div className="font-semibold">{o.label}</div>
+                <div className="text-[11px] opacity-60 mt-0.5">{o.desc}</div>
+              </button>
+            ))}
+          </div>
+        </div>
+      </div>
 
       {/* 主题配色：整体界面色 + 文字色，多套开源配色（Solarized / Gruvbox / Nord / Dracula / Tokyo Night）*/}
       <div className="space-y-3">

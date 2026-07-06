@@ -259,6 +259,9 @@ export interface VecMemConfig {
 
 export type NarrativePov = 'off' | 'first' | 'second' | 'third';  // 叙事人称：off=跟随预设（不干预）
 
+// 界面语言（仅影响 UI chrome，AI 正文不变）：zh-Hans=简体(源码原样) / zh-Hant=繁體(OpenCC 运行时转换) / en=英文(人工词库)
+export type UiLang = 'zh-Hans' | 'zh-Hant' | 'en';
+
 interface SettingsState {
   // 综合设置
   historyLimit: number;   // 0 = 不限制；> 0 = 仅显示/发送最近 N 条消息
@@ -313,6 +316,8 @@ interface SettingsState {
   setNpcAutonomyEvery: (v: number) => void;
   narrativePov: NarrativePov;   // 叙事人称：off=跟随预设（不注入）；first/second/third=强制注入到正文 system 末尾（权重最高）
   setNarrativePov: (v: NarrativePov) => void;
+  language: UiLang;   // 界面语言（运行时翻译层读取；只译界面 chrome，不动 AI 正文/.narrative-content）
+  setLanguage: (v: UiLang) => void;
   apiLibrary: ApiEndpoint[];   // 中心 API 接口库（综合设置维护，各功能快捷选填）
   apiRoutes: Record<string, string[]>;  // 各功能的接口路由：featureKey → 有序 endpoint id 列表（上=优先，失败 fallback）
   apiThrottle: { maxConcurrent: number; minGapMs: number };  // 全局请求节流：最大并发 + 最小间隔（缓解 429）
@@ -738,6 +743,7 @@ export const useSettings = create<SettingsState>()(
       npcAutonomyMax: 16,
       npcAutonomyEvery: 1,
       narrativePov: 'off',
+      language: 'zh-Hans',   // 默认简体（源码原样，零开销）；切繁體/英文才启用运行时翻译层
       apiLibrary: [],
       apiRoutes: {},
       apiThrottle: { maxConcurrent: 3, minGapMs: 250 },
@@ -803,6 +809,7 @@ export const useSettings = create<SettingsState>()(
       setFactCheck: (v) => set({ factCheck: v }),
       setMiniTheater: (v) => set({ miniTheater: v }),
       setNarrativePov: (v) => set({ narrativePov: v }),
+      setLanguage: (v) => set({ language: v }),
 
       addApiEndpoint: () => set((s) => ({
         apiLibrary: [...s.apiLibrary, {
