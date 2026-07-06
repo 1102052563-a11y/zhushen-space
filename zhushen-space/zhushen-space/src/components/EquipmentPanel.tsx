@@ -5,9 +5,7 @@ import { CAT_CFG, CAT_ICON, ItemDetailModal } from './BackpackModal';
 import { useImageViewer } from '../store/imageViewerStore';
 import { SLOT_DEFS, type SlotDef } from '../systems/equipSlots';
 import { enhanceFxClass } from '../systems/enhanceEngine';
-import { unmetRequirements } from '../systems/attrBonus';
-import { getPlayerEffectiveAttrs } from '../systems/playerAttrs';
-import type { PlayerAttrs } from '../store/playerStore';
+import { playerUnmetRequirements } from '../systems/playerAttrs';
 
 /* 槽位定义已移到 systems/equipSlots.ts（避免组件循环依赖）；此处再导出以兼容原有引用 */
 export { SLOT_DEFS };
@@ -120,11 +118,10 @@ function SlotGroup({
 
 /** 背包选择器（底部弹出） */
 function SlotPicker({
-  slotDef, candidates, effAttrs, onSelect, onClose,
+  slotDef, candidates, onSelect, onClose,
 }: {
   slotDef: SlotDef;
   candidates: InventoryItem[];
-  effAttrs: PlayerAttrs;
   onSelect: (id: string) => void;
   onClose: () => void;
 }) {
@@ -151,8 +148,8 @@ function SlotPicker({
           ) : (
             candidates.map((it) => {
               const cfg = CAT_CFG[it.category] ?? CAT_CFG['其他物品'];
-              // 装备需求门槛：主角有效六维未达 requirement → 该件不可穿戴（置灰 + 标红原因，点击无效）
-              const unmet = unmetRequirements(it.requirement, effAttrs);
+              // 装备需求门槛：主角有效六维(含真实属性；四阶起真实属性玩家自动满足普通需求)未达 requirement → 该件不可穿戴（置灰 + 标红原因，点击无效）
+              const unmet = playerUnmetRequirements(it.requirement);
               const locked = unmet.length > 0;
               return (
                 <button
@@ -198,8 +195,6 @@ export default function EquipmentPanel(_props: {
   const equipItem = useItems((s) => s.equipItem);
   const allowAutoEquip = useSettings((s) => s.allowAutoEquip);
   const setAllowAutoEquip = useSettings((s) => s.setAllowAutoEquip);
-  // 主角有效六维（装备需求门槛校验用）：items 变化即重算；随手取 getState 保证读到最新技能/天赋/技能树/团队加成
-  const effAttrs = useMemo(() => getPlayerEffectiveAttrs(), [items]);
 
   // slotKey → InventoryItem 映射（已装备物品）
   const equippedMap = useMemo(() => {
@@ -254,10 +249,9 @@ export default function EquipmentPanel(_props: {
         <SlotPicker
           slotDef={pickingSlotDef}
           candidates={candidates}
-          effAttrs={effAttrs}
           onSelect={(id) => {
             const it = candidates.find((c) => c.id === id);
-            if (it && unmetRequirements(it.requirement, effAttrs).length) return;   // 属性不足 → 拒绝穿戴（防御性双保险）
+            if (it && playerUnmetRequirements(it.requirement).length) return;   // 属性不足 → 拒绝穿戴（防御性双保险）
             equipItem(id, pickingSlotDef.key);
             setPickingSlotDef(null);
           }}

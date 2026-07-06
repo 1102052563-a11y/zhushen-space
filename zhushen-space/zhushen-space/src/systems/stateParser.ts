@@ -8,8 +8,7 @@ import { useTeam, type TeamRank } from '../store/adventureTeamStore';
 import { usePlayer } from '../store/playerStore';
 import { useSettings } from '../store/settingsStore';
 import { resolveEquipSlot } from './equipSlots';
-import { unmetRequirements } from './attrBonus';
-import { getPlayerEffectiveAttrs } from './playerAttrs';
+import { playerUnmetRequirements } from './playerAttrs';
 import { opOf, refOf, isBatchDup, newBatch, recordItem, currencyDupKey, isCurrencyApplied, type ItemOp, type ItemEditResult, type LedgerCtx } from './ledger/itemLedger';
 
 import { recordEvo, charRef, npcRef, charDigest, npcDigest, type EvoCtx, type EvoResult } from './ledger/evoLedger';
@@ -749,9 +748,9 @@ function applyOneItemCommand(cmd: ItemCommand, store: any, npcEquipDupCtx?: Map<
       if (item) {
         // ★ 只有装备类可上装备栏：拒绝把 重要物品/消耗品/材料 等装上去
         if (!isEquippable(item.category) || isResourcePseudoItem(item)) { console.warn(`[Item] 拒绝装备「${item.name}」：${isResourcePseudoItem(item) ? '货币/点数类资源，不可装备' : item.category + ' 非装备类'}`); break; }
-        // ★ 装备需求门槛：主角有效六维未达 requirement → 拒绝穿戴（与装备面板同规则；物品留背包）
-        const unmet = unmetRequirements(item.requirement, getPlayerEffectiveAttrs());
-        if (unmet.length) { console.warn(`[Item] 拒绝装备「${item.name}」：属性未达需求 ${unmet.map((u) => `${u.label}${u.need}(现${u.have})`).join('、')}`); break; }
+        // ★ 装备需求门槛：主角有效六维(含真实属性；四阶真实玩家自动满足普通需求)未达 requirement → 拒绝穿戴（与装备面板同规则；物品留背包）
+        const unmet = playerUnmetRequirements(item.requirement);
+        if (unmet.length) { console.warn(`[Item] 拒绝装备「${item.name}」：属性未达需求 ${unmet.map((u) => `${u.real ? '真实' : ''}${u.label}${u.need}(现${u.have})`).join('、')}`); break; }
         // 按分类校验槽位：AI 槽位与分类不符（如武器→饰品槽）时自动改到正确槽
         const slot = resolveEquipSlot(item, store.items, buildSlotString(data));
         store.equipItem(item.id, slot);

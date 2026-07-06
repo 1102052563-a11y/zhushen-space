@@ -90,39 +90,45 @@ export function computeAttrBreakdown(
   return out;
 }
 
-/* 从「装备需求(requirement)」文本解析出各六维的**门槛值**（不是加成，故取每项的最大值、不累加）：
-   识别 "力量 5点" / "智力50" / "50点力量" / "力量10可发挥威力" / "力量20、敏捷15" 等；"无"/空 → {}。
-   只解析六维；等级/阶位等其它门槛不在此列（如需再扩展）。 */
-export function parseAttrRequirement(text?: string): AttrDelta {
-  const out: AttrDelta = {};
-  if (!text) return out;
+/* 从「装备需求(requirement)」文本解析出各六维的**门槛值**（不是加成，故取每项最大值、不累加），
+   并按尺度分两桶：
+   - real（真实尺度）：需求名前带「真实」标记，如「真实力量300」「真实·魅力150」——所有玩家都按真实属性逐值比较。
+   - normal（普通尺度）：不带「真实」的普通写法，如「力量50」「魅力300」——只卡一~三阶普通属性玩家；
+     四阶起（真实属性阶段）主角视为已超越普通维度，自动满足（见 unmetRequirements 的 isRealTier）。
+   识别 "力量 5点" / "智力50" / "50点力量" / "力量10可发挥威力" / "力量20、敏捷15" 等；"无"/空 → 两桶皆空。 */
+export function parseAttrRequirement(text?: string): { normal: AttrDelta; real: AttrDelta } {
+  const normal: AttrDelta = {}, real: AttrDelta = {};
+  if (!text) return { normal, real };
   const t = String(text);
   for (const key of ATTR_KEYS) {
-    let need = 0;
     for (const a of ATTR_ALIASES[key]) {
       const esc = a.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
       let m: RegExpExecArray | null;
-      const re1 = new RegExp(`${esc}\\s*[:：]?\\s*(\\d+)(?!\\s*[%％])`, 'gi');  // 名在前：力量 50
-      while ((m = re1.exec(t)) !== null) need = Math.max(need, Number(m[1]));
-      const re2 = new RegExp(`(\\d+)\\s*点?\\s*${esc}`, 'gi');                    // 数在前：50点力量
-      while ((m = re2.exec(t)) !== null) need = Math.max(need, Number(m[1]));
+      const re1 = new RegExp(`(真实)?\\s*[·・]?\\s*${esc}\\s*[:：]?\\s*(\\d+)(?!\\s*[%％])`, 'gi');  // 名在前：(真实)力量 50
+      while ((m = re1.exec(t)) !== null) { const b = m[1] ? real : normal; b[key] = Math.max(b[key] ?? 0, Number(m[2])); }
+      const re2 = new RegExp(`(\\d+)\\s*点?\\s*(真实)?\\s*${esc}`, 'gi');                            // 数在前：50点(真实)力量
+      while ((m = re2.exec(t)) !== null) { const b = m[2] ? real : normal; b[key] = Math.max(b[key] ?? 0, Number(m[1])); }
     }
-    if (need > 0) out[key] = need;
   }
-  return out;
+  return { normal, real };
 }
 
-/* 对照持有者六维，返回**未达标**的装备需求项（空数组＝满足全部需求，可穿戴）。attrs 传有效六维。 */
+/* 对照持有者六维，返回**未达标**的装备需求项（空数组＝满足全部需求，可穿戴）。attrs 传有效六维(含真实属性点直加)。
+   isRealTier=四阶起真实属性阶段：真实尺度需求(real)对所有人逐值比较；普通尺度需求(normal)只卡普通阶段玩家，
+   真实属性玩家(isRealTier=true)自动满足普通需求（真实属性已超越普通维度）。 */
 export function unmetRequirements(
   reqText: string | undefined,
   attrs: PlayerAttrs | undefined,
-): { key: keyof PlayerAttrs; label: string; need: number; have: number }[] {
-  const need = parseAttrRequirement(reqText);
+  isRealTier = false,
+): { key: keyof PlayerAttrs; label: string; need: number; have: number; real: boolean }[] {
+  const { normal, real } = parseAttrRequirement(reqText);
   const a = attrs ?? { str: 5, agi: 5, con: 5, int: 5, cha: 5, luck: 5 };
-  const out: { key: keyof PlayerAttrs; label: string; need: number; have: number }[] = [];
+  const out: { key: keyof PlayerAttrs; label: string; need: number; have: number; real: boolean }[] = [];
   for (const key of ATTR_KEYS) {
-    const n = need[key];
-    if (n && (a[key] ?? 0) < n) out.push({ key, label: ATTR_LABEL[key], need: n, have: a[key] ?? 0 });
+    const rn = real[key];   // 真实尺度：人人逐值比
+    if (rn && (a[key] ?? 0) < rn) out.push({ key, label: ATTR_LABEL[key], need: rn, have: a[key] ?? 0, real: true });
+    const nn = normal[key]; // 普通尺度：真实属性玩家自动满足；普通玩家逐值比
+    if (nn && !isRealTier && (a[key] ?? 0) < nn) out.push({ key, label: ATTR_LABEL[key], need: nn, have: a[key] ?? 0, real: false });
   }
   return out;
 }
