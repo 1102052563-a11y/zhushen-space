@@ -175,7 +175,7 @@ const AdventureTeamPanel = lazy(() => import('./components/AdventureTeamPanel'))
 import ImageViewer from './components/ImageViewer';
 import { useImageViewer } from './store/imageViewerStore';
 import ImageBusyToast from './components/ImageBusyToast';
-import { useItems, extractItemPresetFromJson, ITEM_CATEGORIES } from './store/itemStore';
+import { useItems, extractItemPresetFromJson, ITEM_CATEGORIES, formatItemLine } from './store/itemStore';
 import type { ItemPresetEntry } from './store/itemStore';
 import { useComposer } from './store/composerStore';
 import { usePlayer, buildPlayerSystemPrompt, extractPlayerPresetFromJson } from './store/playerStore';
@@ -473,13 +473,9 @@ function buildItemPhaseSystemPrompt(entries: ItemPresetEntry[], narrative: strin
   const { items, currency } = useItems.getState();
   const { player } = useGame.getState();
 
-  // 背包清单
+  // 背包清单（含词缀/攻防/评分/强化/杀敌/耐久/镶嵌/锁定 等逻辑关键字段——让 AI 看现状全貌，updateItem 才能保留旧词缀+对账评分）
   const inventoryText = items.length > 0
-    ? items.map((it) =>
-        `[${it.id}] ${it.name}（${it.category}${it.gradeDesc ? '·' + it.gradeDesc : ''}）×${it.quantity}` +
-        (it.equipped ? `【已装备:${it.equipSlot ?? ''}】` : '') +
-        (it.effect ? `  ${it.effect}` : '')
-      ).join('\n')
+    ? items.map((it) => formatItemLine(it)).join('\n')
     : '（背包为空）';
 
   // 装备槽
@@ -509,7 +505,7 @@ function buildItemPhaseSystemPrompt(entries: ItemPresetEntry[], narrative: strin
   const npcItemHolders = npcRecords.filter((r) => !r.isDead && (r.onScene || r.npcTag === '随从' || r.npcTag === '宠物'));
   const npcItemsList = npcItemHolders
     .flatMap((r) => (r.items ?? []).map((it) =>
-      `[${it.id}] ${it.name}（${it.category}${it.gradeDesc ? '·' + it.gradeDesc : ''}）×${it.quantity}${it.equipped ? '【已装备】' : ''} —— 持有者 ${r.id}(${r.name || r.id})${r.onScene ? '' : '·随行(离场)'}`));
+      `${formatItemLine(it)} —— 持有者 ${r.id}(${r.name || r.id})${r.onScene ? '' : '·随行(离场)'}`));
   const npcItemsText = npcItemsList.length > 0 ? npcItemsList.join('\n') : '（无在场NPC持有物）';
 
   // 玩家基本状态
@@ -2559,11 +2555,11 @@ export default function App() {
     if (checkItems) {
       const items = useItems.getState().items;
       playerItems = items.length > 0
-        ? items.map((it) => `[${it.id}] ${it.name}（${it.category}${it.gradeDesc ? '·' + it.gradeDesc : ''}）×${it.quantity}` + (it.equipped ? `【已装备:${it.equipSlot ?? ''}】` : '') + (it.effect ? `  ${it.effect}` : '')).join('\n')
+        ? items.map((it) => formatItemLine(it)).join('\n')   // 含词缀/攻防/评分/强化等全字段——对账才能核对评分↔品级、保留旧词缀
         : '（背包为空）';
       const petRecs = Object.values(useNpc.getState().npcs).filter((r) => !r.isDead && (r.npcTag === '随从' || r.npcTag === '宠物'));
       const petLines = petRecs.flatMap((r) => (r.items ?? []).map((it) =>
-        `[${it.id}] ${it.name}（${it.category}${it.gradeDesc ? '·' + it.gradeDesc : ''}）×${it.quantity}` + (it.equipped ? '【已装备】' : '') + ` —— 持有者 ${r.id}(${r.name || r.id}·${r.npcTag})`));
+        `${formatItemLine(it)} —— 持有者 ${r.id}(${r.name || r.id}·${r.npcTag})`));
       petItems = petLines.length > 0 ? petLines.join('\n') : '（无随从/宠物持有物）';
       // 都没东西可查、又不查主角面板 → 省一次调用
       if (!checkPlayer && items.length === 0 && petLines.length === 0) return;

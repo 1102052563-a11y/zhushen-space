@@ -427,6 +427,28 @@ export function logItemEvent(turn: number, op: string, name: string, detail?: st
 }
 export function getItemLog(): ItemLogEvent[] { return _itemLog.slice(); }
 export function clearItemLog(): void { _itemLog.length = 0; }
+
+/** 把一件物品格式化成【含逻辑关键字段】的注入行——供物品演化/对账阶段让 AI 看到**现状全貌**
+ *  (词缀/攻防/评分/强化等级/杀敌/耐久/需求/镶嵌/锁定)，而不只是"名称·品级·效果"摘要，
+ *  否则 updateItem 无法"看着旧词缀保留+新增"、对账无法核对评分↔品级。外观/简介等纯 flavor 略去省 token。 */
+export function formatItemLine(it: any): string {
+  let head = `[${it.id}] ${it.name}（${it.category}${it.gradeDesc ? '·' + it.gradeDesc : ''}）×${it.quantity ?? 1}`;
+  if (it.equipped) head += `【已装备${it.equipSlot ? ':' + it.equipSlot : ''}】`;
+  const enh = Number(it.enhanceLevel) || 0;
+  if (enh > 0) head += ` +${enh}`;
+  if (it.locked) head += ' 🔒锁定';
+  const d: string[] = [];
+  if (it.combatStat) d.push(`攻防:${asText(it.combatStat)}`);
+  if (it.affix) d.push(`词缀:${asText(it.affix)}`);
+  if (it.score) d.push(`评分:${asText(it.score)}`);
+  if (it.killCount) d.push(`杀敌:${asText(it.killCount)}`);
+  if (it.durability) d.push(`耐久:${asText(it.durability)}`);
+  if (it.requirement) d.push(`需求:${asText(it.requirement)}`);
+  const gemN = Array.isArray(it.gems) ? it.gems.length : 0;
+  if (gemN > 0) d.push(`镶嵌:${gemN}颗`);
+  if (it.effect) d.push(`效果:${asText(it.effect)}`);
+  return head + (d.length ? '  ' + d.join(' | ') : '');
+}
 // 归一化：去标点/空格，并去掉「的/之」等填充虚词——让"劣质餐刀"与"劣质的餐刀"视为同名
 const stackNorm = (x?: string) => (x ?? '').replace(/[\s·•・\-—_,，.。、|｜【】（）()的之]/g, '').toLowerCase();
 
