@@ -8887,7 +8887,15 @@ ${lines}`;
     // 故旧世界几楼后自然滚出上下文，不串味；导出小说时整条 messages 跨全部世界，天然完整。
     setMessages((prev) => [...prev, systemMsg]);
     await captureUndoPoint();   // 记录进入世界前的回退点 → 让「进入世界」的首条正文也能重新生成/回退
-    await callApi(contextText, []);   // extraHistory=[] → callApi 内部回退用 messagesRef.current（按 historyLimit 截断）
+    const worldNarrative = await callApi(contextText, []);   // extraHistory=[] → callApi 内部回退用 messagesRef.current（按 historyLimit 截断）
+    // 联机·房主进世界 = 共享回合：把入场正文 + 世界态广播给全房（含 povMode——进世界是大家一起进的共享事件，不走分头三段式，跟结算一样）。否则来宾那边没正文、世界也不同步。
+    const mpNow = useMp.getState();
+    if (mpNow.status === 'connected' && mpNow.role === 'host' && worldNarrative) {
+      try {
+        mpClient.publishWorld({ narrative: worldNarrative, turnUser: contextText, turnId: mpNow.turn?.turnId || 0, world: buildWorldSnapshot() });
+        if (mpNow.seats.length > 0) mpClient.startTurn();
+      } catch (e) { console.warn('[MP] 进世界广播失败', e); }
+    }
   }
 
   if (settingsOpen) {
