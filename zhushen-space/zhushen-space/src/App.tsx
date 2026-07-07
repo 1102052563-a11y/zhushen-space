@@ -24,6 +24,7 @@ import {
   ABYSS_LOCK_RULE,
   NATIVE_UNAWARE_RULE,
   ANTI_OMNISCIENCE_RULE,
+  COMBAT_SKILL_NUMERIC_RULE,
   NPC_COT_RULE,
   NPC_SELF_NARRATION_RULE,
   PLOT_GUIDANCE_RULE,
@@ -72,6 +73,7 @@ import {
   APPEARANCE_UPDATE_RULE,
   PLAYER_STATE_EMIT_RULE,
   ATTR_POINT_AUTHORITY_RULE,
+  FRONTEND_ENHANCE_NO_NARRATE_RULE,
   VITALS_SETTLEMENT_EMIT_RULE,
   CHOICES_FANFIC_SYSTEM,
   FANFIC_RULE,
@@ -1883,6 +1885,8 @@ export default function App() {
     addRule('编辑语言', '前端规则 · 统一编辑语言 <edit>', EDIT_LANGUAGE_RULE);
     // 属性点唯一真相：每回合注入，压住 AI 凭记忆复读"还有N点未用"、禁止其自行增减点数（前端面板加点消耗，注入余额为准）
     addRule('属性点真相', '前端规则 · 属性点唯一真相', ATTR_POINT_AUTHORITY_RULE);
+    // 强化设施不叙述：属性加点/技能升级/装备强化都在前端面板做，正文禁写"前往属性/技能/装备强化大厅（中心）"桥段（用户要求）
+    addRule('强化设施不叙述', '前端规则 · 强化操作全在前端·正文不写前往强化中心', FRONTEND_ENHANCE_NO_NARRATE_RULE);
     // HP/EP 结算：让主正文每回合末尾输出主角+在场NPC的当前 HP/EP（前端 applyNarrativeVitals/NpcVitals 解析，HP/EP 管理阶段也以此为最终值）
     addRule('HP_EP结算输出', '前端规则 · HP/EP 结算输出', VITALS_SETTLEMENT_EMIT_RULE);
     // ACU 表格数据库：把填表铁则 + 当前所有表的结构与数据注入主正文，让 AI 每回合末尾输出 <tableEdit> 维护游戏状态表（applyAllUpdates 落库、stripStateBlocks 从展示剥离）
@@ -1979,6 +1983,9 @@ export default function App() {
 
     // 任务世界·土著不知契约者身份（沉浸·防全知OOC）：仅在任务世界(非轮回乐园/乐园枢纽/专属房间)注入，杜绝土著无端识破主角是契约者/外来者。
     { if (!isHomeWorld(useMisc.getState().worldName || '')) { addRule('土著不知契约者', '前端规则 · 任务世界土著不识破契约者身份', NATIVE_UNAWARE_RULE); } }
+
+    // 战斗·技能运用 + 数值合理性：每回合注入（规则内自限定"仅涉及战斗/对抗/施展能力/数值变动时生效"）——强调主角/NPC 真的用档案里的技能+效果兑现、且进 <state> 的数值与战力相称。
+    addRule('战斗技能与数值', '前端规则 · 战斗·技能运用+数值合理性', COMBAT_SKILL_NUMERIC_RULE);
 
     // 前历史 user/assistant 条目 → 少样本示例
     const examples = preRel
