@@ -9247,6 +9247,7 @@ ${lines}`;
             >
               <span className="text-god/60">📋</span>
               <span>本回合状态命令 · {turnCountRef.current} 回合</span>
+              {!worldBarOpen && <span className="text-god/45 font-normal">· 点击展开：选择世界 / 结算任务</span>}
               <span className={`text-god/50 transition-transform ${worldBarOpen ? 'rotate-180' : ''}`}>▾</span>
             </button>
             {guidanceRunning && (

@@ -579,7 +579,7 @@ export default function SkillTreeManager() {
                     <input type="number" min={0} className={inputCls} value={selNode.cost} onChange={(e) => patchNode({ cost: Math.max(0, Number(e.target.value) || 0) })} /></label>
                   <label className="block space-y-0.5"><span className={labelCls}>累计点数门槛(spentGate)</span>
                     <input type="number" min={0} className={inputCls} value={selNode.spentGate ?? ''} placeholder="0=无" onChange={(e) => { const v = Math.max(0, Math.floor(Number(e.target.value) || 0)); patchNode({ spentGate: v || undefined }); }} /></label>
-                  <label className="block space-y-0.5 col-span-2"><span className={labelCls}>阶位 gate（已停用·阶位限制已移除，不再生效）</span>
+                  <label className="block space-y-0.5 col-span-2"><span className={labelCls}>阶位 gate（手动设该节点所需阶位；留「不限」则生成时按深度自动分配·封顶七阶。生成勾「不加阶位限制」的树则整树不看这里）</span>
                     <select className={inputCls} value={selNode.tierGate} onChange={(e) => patchNode({ tierGate: e.target.value })}>
                       <option value="">不限</option>
                       {TIERS.map((t) => <option key={t} value={t}>{t}</option>)}
