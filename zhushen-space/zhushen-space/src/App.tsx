@@ -8625,6 +8625,31 @@ ${lines}`;
   }
 
   /* 角色创建确认：清空旧进度 → 写入主角演化变量 → 发送开场白（全新存档） */
+  /* 开局携带物品：玩家提示词 →「物品演化 API」生成固定格式物品数组（创建页预览·确认开局入库）。抛错由创建页 UI 兜。 */
+  async function genCreationItems(prompt: string, ctx: CreationData): Promise<any[]> {
+    const p = (prompt || '').trim(); if (!p) return [];
+    const ss = useSettings.getState(); const it = useItems.getState();
+    const chain = resolveApiChain('item', it.itemUseSharedApi ? (ss.textUseSharedApi ? ss.api : ss.textApi) : it.itemApi);
+    if (!chain[0]?.baseUrl || !chain[0]?.apiKey) throw new Error('物品演化 API 未配置（设置→变量管理→物品演化→API，或综合设置→API 接口库选物品路由）');
+    const bg = `【开局主角背景（让物品贴合身份/世界·开局合理不越阶）】所属乐园:${ctx.paradise}｜难度:${ctx.difficulty}(${ctx.points}点)｜姓名:${ctx.name}｜性别:${ctx.gender}｜种族:${ctx.race}${ctx.raceDetail ? `(${ctx.raceDetail})` : ''}｜年龄:${ctx.age || '?'}｜背景:${ctx.prevProfession || '普通人'}｜性格:${ctx.personality || '—'}${ctx.talentName ? `｜天赋:${ctx.talentName}` : ''}`;
+    const sys = `你是"轮回乐园·开局携带物品"生成器。据【玩家想要的物品】+【主角开局背景】生成一组**贴合身份、开局合理（不越阶·多为白/绿/蓝低阶）**的携带物品。\n只输出 JSON 数组（无其它文字、不要 markdown 代码块）：[{name,category,subType,gradeDesc,combatStat,durability,requirement,affix,score,effect,intro,appearance,killCount}]。数量按玩家需求，未明确则 2~5 件、别塞满。\n${ITEM_FIXED_FORMAT_RULE}\n${AFFIX_EFFECT_RULE}`;
+    const user = `${bg}\n\n【玩家想要的携带物品】\n${p}\n\n生成开局携带物品 JSON 数组（合理·贴合·别越阶）。`;
+    const { content } = await apiChatFallback(chain, [{ role: 'system', content: sys }, { role: 'user', content: user }], { timeoutMs: 120000 });
+    return parseArenaArray(content).filter((x: any) => x && x.name).slice(0, 12);
+  }
+
+  /* 开局随行人物：玩家提示词 →「NPC 演化 API」生成随从 NPC 数组（创建页预览·确认开局在场入队）。抛错由创建页 UI 兜。 */
+  async function genCreationCompanions(prompt: string, ctx: CreationData): Promise<any[]> {
+    const p = (prompt || '').trim(); if (!p) return [];
+    const chain = resolveApiChain('npc', getNpcApi());
+    if (!chain[0]?.baseUrl || !chain[0]?.apiKey) throw new Error('NPC 演化 API 未配置（设置→变量管理→NPC演化→API，或综合设置→API 接口库选 NPC 路由）');
+    const bg = `【开局主角背景（随行人物与主角相识/相伴·强度与主角开局相称、别离谱超标）】所属乐园:${ctx.paradise}｜难度:${ctx.difficulty}｜姓名:${ctx.name}｜性别:${ctx.gender}｜种族:${ctx.race}｜年龄:${ctx.age || '?'}｜背景:${ctx.prevProfession || '普通人'}｜性格:${ctx.personality || '—'}`;
+    const sys = `你是"轮回乐园·开局随行人物"生成器。据【玩家想要的随行人物】+【主角开局背景】生成一组**开局就跟随主角的随从**（与主角相识、强度与主角开局相称、别离谱超标）。\n每人给字段：name(姓名)、gender(性别)、realm(阶位|职业·如"一阶|剑客"·开局多为一~二阶)、profession(身份/职业)、age(年龄)、personality(性格)、background(背景来历+与主角的关系)、appearance(逐部件外观)、strength(生物强度档 T0~T9)、selfNarration(一句第一人称自述)。\n**不要手写六维数值**（前端按 阶位×生物强度 机械生成）。只输出 JSON 数组（无其它文字、不要 markdown 代码块）：[{name,gender,realm,profession,age,personality,background,appearance,strength,selfNarration}]。数量按玩家需求，未明确则 1~2 人、最多 4 人。`;
+    const user = `${bg}\n\n【玩家想要的随行人物】\n${p}\n\n生成开局随行随从 JSON 数组（与主角相识·强度相称）。`;
+    const { content } = await apiChatFallback(chain, [{ role: 'system', content: sys }, { role: 'user', content: user }], { timeoutMs: 120000 });
+    return parseArenaArray(content).filter((x: any) => x && x.name).slice(0, 4);
+  }
+
   async function confirmCreation(d: CreationData) {
     await clearProgress();   // 开始游戏=全新存档：先清空之前的玩家/NPC/物品/角色/杂项/对话
     msgId.current = 0;
@@ -8661,6 +8686,34 @@ ${lines}`;
         source: d.talentSource?.trim() || '开局自带',
         attrBonus: d.talentAttrBonus?.trim() || undefined,
       });
+    }
+    // 开局携带物品（创建页已按玩家提示词经「物品演化 API」生成）→ 入库
+    if (Array.isArray(d.startItems) && d.startItems.length) {
+      const items = useItems.getState();
+      for (const raw of d.startItems) {
+        if (!raw?.name) continue;
+        items.addItem({
+          name: String(raw.name).slice(0, 40), category: (raw.category || '其他物品') as any, gradeDesc: raw.gradeDesc || raw.grade || '白色',
+          subType: raw.subType, combatStat: raw.combatStat ?? raw.attack ?? raw.defense, durability: raw.durability,
+          requirement: raw.requirement, affix: raw.affix, score: raw.score != null ? String(raw.score) : undefined,
+          effect: raw.effect || '', intro: raw.intro, appearance: raw.appearance,
+          killCount: raw.killCount != null ? String(raw.killCount) : undefined,
+          quantity: Math.max(1, Number(raw.quantity) || 1), equipped: false, tags: ['开局携带'], acquisition: '开局携带',
+        } as any);
+      }
+    }
+    // 开局随行人物（创建页已按玩家提示词经「NPC 演化 API」生成）→ 建档为在场随从（入队+好友+长期保留），再机械补六维/幸运/HP·EP
+    if (Array.isArray(d.companions) && d.companions.length) {
+      const npc = useNpc.getState();
+      for (const c of d.companions) {
+        if (!c?.name) continue;
+        npc.createCompanion({
+          name: c.name, tag: c.tag || c.npcTag || '随从', realm: c.realm, profession: c.profession,
+          gender: c.gender, age: c.age != null ? String(c.age) : undefined, personality: c.personality,
+          background: c.background, appearance: c.appearance, strength: c.strength || c.bioStrength, selfNarration: c.selfNarration,
+        });
+      }
+      try { autoGenMissingAttrs(); ensureNpcLuck(); ensureNpcVitalsCap(); } catch { /* 随从六维/幸运/血蓝上限机械补全（无卡即生成有起伏六维）；失败不阻断开局 */ }
     }
     setCreating(false);
     setStarted(true);
@@ -8911,7 +8964,7 @@ ${lines}`;
           onSettings={() => setSettingsOpen(true)}
         />
         {creating && (
-          <CharacterCreation onConfirm={confirmCreation} onCancel={() => setCreating(false)} />
+          <CharacterCreation onConfirm={confirmCreation} onCancel={() => setCreating(false)} onGenItems={genCreationItems} onGenCompanions={genCreationCompanions} />
         )}
         {saveOpen && (
           <SaveLoadPanel messages={messages} onClose={() => setSaveOpen(false)} onCleanupLive={() => setMessages((prev) => prev.map((m) => (m.images?.length ? { ...m, images: [] } : m)))} />

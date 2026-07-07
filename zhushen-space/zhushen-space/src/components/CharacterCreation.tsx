@@ -32,6 +32,10 @@ export interface CreationData {
   talentAttrBonus?: string;  // 属性加成（如 力量+10、智力+15%）
   talentDesc?: string;       // 简描（flavor/点评）
   contractId: string;
+  startItemsPrompt?: string;   // 开局携带物品·生成提示词
+  startItems?: any[];          // 已生成的携带物品（确认开局入库）
+  companionsPrompt?: string;   // 开局随行人物·生成提示词
+  companions?: any[];          // 已生成的随行随从（确认开局在场入队）
 }
 
 const DIFFICULTIES: { key: string; points: number; desc: string }[] = [
@@ -54,7 +58,12 @@ const ATTRS: { key: keyof CreationData['attrs']; label: string }[] = [
 ];
 const ATTR_MAX = 10;
 
-export default function CharacterCreation({ onConfirm, onCancel }: { onConfirm: (d: CreationData) => void; onCancel: () => void }) {
+export default function CharacterCreation({ onConfirm, onCancel, onGenItems, onGenCompanions }: {
+  onConfirm: (d: CreationData) => void;
+  onCancel: () => void;
+  onGenItems?: (prompt: string, ctx: CreationData) => Promise<any[]>;        // 携带物品·走物品演化 API 生成
+  onGenCompanions?: (prompt: string, ctx: CreationData) => Promise<any[]>;   // 随行人物·走 NPC 演化 API 生成
+}) {
   const [phase, setPhase] = useState<'form' | 'confirm'>('form');
   const [difficulty, setDifficulty] = useState('普通');
   const [paradise, setParadise] = useState('轮回乐园');
@@ -80,6 +89,14 @@ export default function CharacterCreation({ onConfirm, onCancel }: { onConfirm: 
   const [talentAttrBonus, setTalentAttrBonus] = useState('');
   const [talentDesc, setTalentDesc] = useState('');
   const [contractId, setContractId] = useState('');
+  // 开局携带物品 / 随行人物（提示词 + 生成结果预览；生成走物品演化 / NPC演化 API）
+  const [startItemsPrompt, setStartItemsPrompt] = useState('');
+  const [startItems, setStartItems] = useState<any[]>([]);
+  const [companionsPrompt, setCompanionsPrompt] = useState('');
+  const [companions, setCompanions] = useState<any[]>([]);
+  const [genItemsBusy, setGenItemsBusy] = useState(false);
+  const [genCompBusy, setGenCompBusy] = useState(false);
+  const [genMsg, setGenMsg] = useState('');   // 生成状态/错误提示
   // 模板
   const templates = useCreationTemplates((s) => s.templates);
   const addTemplate = useCreationTemplates((s) => s.addTemplate);
@@ -99,7 +116,7 @@ export default function CharacterCreation({ onConfirm, onCancel }: { onConfirm: 
   const removeCustomTalent = useCreationContent((s) => s.removeTalent);
 
   function currentData(): CreationTemplateData {
-    return { difficulty, paradise, paradiseCustom, name, gender, genderCustom, race, raceCustom, raceDetail, age, personality, personalityDetail, prevProfession, appearance, attrs: { ...attrs }, talentName, talentEffect, talentRarity, talentCategory, talentLevel, talentSource, talentAttrBonus, talentDesc, contractId };
+    return { difficulty, paradise, paradiseCustom, name, gender, genderCustom, race, raceCustom, raceDetail, age, personality, personalityDetail, prevProfession, appearance, attrs: { ...attrs }, talentName, talentEffect, talentRarity, talentCategory, talentLevel, talentSource, talentAttrBonus, talentDesc, contractId, startItemsPrompt, startItems, companionsPrompt, companions };
   }
   function loadTemplate(d: CreationTemplateData) {
     setDifficulty(d.difficulty); setParadise(d.paradise); setParadiseCustom(d.paradiseCustom ?? '');
@@ -111,6 +128,8 @@ export default function CharacterCreation({ onConfirm, onCancel }: { onConfirm: 
     setTalentName(d.talentName ?? ''); setTalentEffect(d.talentEffect ?? '');
     setTalentRarity(d.talentRarity ?? 'C'); setTalentCategory(d.talentCategory ?? '特殊异能类'); setTalentLevel(d.talentLevel ?? ''); setTalentSource(d.talentSource ?? '开局自带'); setTalentAttrBonus(d.talentAttrBonus ?? ''); setTalentDesc(d.talentDesc ?? '');
     setContractId(d.contractId ?? '');
+    setStartItemsPrompt(d.startItemsPrompt ?? ''); setStartItems(Array.isArray(d.startItems) ? d.startItems : []);
+    setCompanionsPrompt(d.companionsPrompt ?? ''); setCompanions(Array.isArray(d.companions) ? d.companions : []);
     setTplMode('none');
   }
 
@@ -135,7 +154,27 @@ export default function CharacterCreation({ onConfirm, onCancel }: { onConfirm: 
     prevProfession: prevProfession.trim(), appearance: appearance.trim(), attrs, talentName: talentName.trim(), talentEffect: talentEffect.trim(),
     talentRarity: talentRarity.trim(), talentCategory: talentCategory.trim(), talentLevel: talentLevel.trim(), talentSource: talentSource.trim(), talentAttrBonus: talentAttrBonus.trim(), talentDesc: talentDesc.trim(),
     contractId: contractId.trim(),
+    startItemsPrompt: startItemsPrompt.trim(), startItems, companionsPrompt: companionsPrompt.trim(), companions,
   };
+
+  async function doGenItems() {
+    if (!onGenItems || genItemsBusy) return;
+    const p = startItemsPrompt.trim();
+    if (!p) { setGenMsg('请先填写「携带物品」的提示词'); return; }
+    setGenItemsBusy(true); setGenMsg('🎒 正在按物品演化 API 生成携带物品…');
+    try { const arr = await onGenItems(p, data); setStartItems(arr); setGenMsg(arr.length ? `✓ 已生成 ${arr.length} 件携带物品（可重新生成/逐件删除）` : '未生成到物品，调整提示词后重试'); }
+    catch (e: any) { setGenMsg('❌ 携带物品生成失败：' + (e?.message ?? e)); }
+    finally { setGenItemsBusy(false); }
+  }
+  async function doGenCompanions() {
+    if (!onGenCompanions || genCompBusy) return;
+    const p = companionsPrompt.trim();
+    if (!p) { setGenMsg('请先填写「随行人物」的提示词'); return; }
+    setGenCompBusy(true); setGenMsg('🧑‍🤝‍🧑 正在按 NPC 演化 API 生成随行人物…');
+    try { const arr = await onGenCompanions(p, data); setCompanions(arr); setGenMsg(arr.length ? `✓ 已生成 ${arr.length} 名随行人物（开局在场·可重新生成/逐个删除）` : '未生成到人物，调整提示词后重试'); }
+    catch (e: any) { setGenMsg('❌ 随行人物生成失败：' + (e?.message ?? e)); }
+    finally { setGenCompBusy(false); }
+  }
 
   /* ── 确认表 ── */
   if (phase === 'confirm') {
@@ -154,6 +193,8 @@ export default function CharacterCreation({ onConfirm, onCancel }: { onConfirm: 
       ['契约者ID', contractId.trim() || '（随机分配）'],
       ['六维属性', ATTRS.map((a) => `${a.label}${attrs[a.key]}`).join(' / ') + `（已用 ${used}/${totalPoints}）`],
       ['天赋', formatCreationTalent(data) || '（无）'],
+      ['携带物品', startItems.length ? startItems.map((it) => (typeof it?.name === 'string' ? it.name : '物品')).join('、') : '（无）'],
+      ['随行人物', companions.length ? companions.map((c) => (typeof c?.name === 'string' ? c.name : '随从')).join('、') : '（无）'],
     ];
     return (
       <Shell title="最终确认" subtitle="请核对你的开局设定，确认后将写入档案并开始故事">
@@ -376,6 +417,68 @@ export default function CharacterCreation({ onConfirm, onCancel }: { onConfirm: 
             className="px-2.5 py-1.5 text-[12px] font-mono border border-god/40 text-god rounded hover:bg-god/10 transition-colors">＋存为自定义天赋</button>
         )}
       </Section>
+
+      <Section n={6} title="开局携带物品（可选 · 物品演化 API 生成）">
+        <Labeled label="携带物品 · 提示词（想开局带什么，写清数量/品质/类型即可）">
+          <textarea value={startItemsPrompt} onChange={(e) => setStartItemsPrompt(e.target.value)} rows={2}
+            placeholder="如：一把家传的生锈铁剑、三瓶止血药、一枚刻着家徽的银戒指…（留空则不携带）" className={inputCls + ' resize-y'} />
+        </Labeled>
+        <div className="flex items-center gap-2 flex-wrap">
+          <button onClick={doGenItems} disabled={genItemsBusy || !onGenItems || !startItemsPrompt.trim()}
+            className="px-3 py-1.5 text-[13px] font-mono border border-god/40 text-god rounded hover:bg-god/10 disabled:opacity-40 transition-colors">
+            {genItemsBusy ? '⏳ 生成中…' : (startItems.length ? '🔄 重新生成' : '🎒 生成携带物品')}</button>
+          {startItems.length > 0 && <button onClick={() => setStartItems([])} className="px-2.5 py-1.5 text-[12px] font-mono border border-edge text-dim rounded hover:border-blood/40 hover:text-blood">清空</button>}
+          <span className="text-[11px] text-dim/40 font-mono">走「物品演化」API · 确认开局即入背包</span>
+        </div>
+        {startItems.length > 0 && (
+          <div className="space-y-1.5 mt-1">
+            {startItems.map((it, i) => (
+              <div key={i} className="flex items-start gap-2 rounded-lg border border-edge/50 bg-void/40 px-2.5 py-1.5">
+                <div className="flex-1 min-w-0">
+                  <div className="text-[13px] text-slate-200">📦 {typeof it?.name === 'string' ? it.name : '物品'}
+                    {typeof it?.gradeDesc === 'string' && it.gradeDesc && <span className="text-[11px] text-dim/50 ml-1.5">{it.gradeDesc}</span>}
+                    {typeof it?.category === 'string' && it.category && <span className="text-[11px] text-dim/40 ml-1.5">{it.category}{typeof it?.subType === 'string' && it.subType ? '·' + it.subType : ''}</span>}</div>
+                  {typeof it?.combatStat === 'string' && it.combatStat && <div className="text-[11.5px] text-amber-300/70 font-mono leading-snug">{it.combatStat}</div>}
+                  {typeof it?.effect === 'string' && it.effect && <div className="text-[11.5px] text-dim/55 leading-snug break-all">{it.effect.slice(0, 90)}</div>}
+                </div>
+                <button onClick={() => setStartItems((a) => a.filter((_, j) => j !== i))} title="删除" className="shrink-0 text-dim/40 hover:text-blood text-sm">×</button>
+              </div>
+            ))}
+          </div>
+        )}
+      </Section>
+
+      <Section n={7} title="开局随行人物（可选 · NPC 演化 API 生成 · 开局在场随从）">
+        <Labeled label="随行人物 · 提示词（想要什么样的同伴，写清身份/性格/强度）">
+          <textarea value={companionsPrompt} onChange={(e) => setCompanionsPrompt(e.target.value)} rows={2}
+            placeholder="如：一个沉默寡言的护卫剑客，一阶、忠诚；一个古灵精怪的少女法师，二阶、话痨…（留空则无随从）" className={inputCls + ' resize-y'} />
+        </Labeled>
+        <div className="flex items-center gap-2 flex-wrap">
+          <button onClick={doGenCompanions} disabled={genCompBusy || !onGenCompanions || !companionsPrompt.trim()}
+            className="px-3 py-1.5 text-[13px] font-mono border border-god/40 text-god rounded hover:bg-god/10 disabled:opacity-40 transition-colors">
+            {genCompBusy ? '⏳ 生成中…' : (companions.length ? '🔄 重新生成' : '🧑‍🤝‍🧑 生成随行人物')}</button>
+          {companions.length > 0 && <button onClick={() => setCompanions([])} className="px-2.5 py-1.5 text-[12px] font-mono border border-edge text-dim rounded hover:border-blood/40 hover:text-blood">清空</button>}
+          <span className="text-[11px] text-dim/40 font-mono">走「NPC演化」API · 确认开局即在场入队</span>
+        </div>
+        {companions.length > 0 && (
+          <div className="space-y-1.5 mt-1">
+            {companions.map((c, i) => (
+              <div key={i} className="flex items-start gap-2 rounded-lg border border-edge/50 bg-void/40 px-2.5 py-1.5">
+                <div className="flex-1 min-w-0">
+                  <div className="text-[13px] text-slate-200">🧑 {typeof c?.name === 'string' ? c.name : '随从'}
+                    {typeof c?.realm === 'string' && c.realm && <span className="text-[11px] text-god/60 ml-1.5">{c.realm}</span>}
+                    {typeof c?.gender === 'string' && c.gender && <span className="text-[11px] text-dim/40 ml-1.5">{c.gender}</span>}</div>
+                  {typeof c?.personality === 'string' && c.personality && <div className="text-[11.5px] text-dim/60 leading-snug">{c.personality.slice(0, 60)}</div>}
+                  {typeof c?.background === 'string' && c.background && <div className="text-[11.5px] text-dim/45 leading-snug break-all">{c.background.slice(0, 100)}</div>}
+                </div>
+                <button onClick={() => setCompanions((a) => a.filter((_, j) => j !== i))} title="删除" className="shrink-0 text-dim/40 hover:text-blood text-sm">×</button>
+              </div>
+            ))}
+          </div>
+        )}
+      </Section>
+
+      {genMsg && <div className="text-[12px] font-mono text-god/75 px-1 leading-snug">{genMsg}</div>}
 
       <div className="flex gap-3 pt-1">
         <button onClick={onCancel} className="flex-1 py-2.5 rounded-lg border border-edge text-dim hover:text-slate-200 transition-colors text-sm">取消</button>

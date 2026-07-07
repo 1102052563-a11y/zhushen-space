@@ -235,6 +235,7 @@ interface NpcState {
   createPartyMember: (info: { name: string; tier?: string; job?: string; persona?: string; strength?: string; role?: string; world?: string }) => string;  // 从频道发帖人建临时队友 NPC，返回 C-id
   createArchivedContractor: (info: { name: string; tier?: string; job?: string; persona?: string; strength?: string; tag?: string }) => string;  // 建一个离场契约者档案（私信/交易/好友用），返回 C-id
   createPet: (info: { name: string; species?: string; persona?: string; appearance?: string; ability?: string; tier?: string; strength?: string; attrs?: PlayerAttrs }) => string;  // 御兽合成：建一只宠物随从 NPC（在场+入队+好友，unitType=凶兽魔兽，可带六维），返回 C-id
+  createCompanion: (info: { name: string; tag?: string; realm?: string; profession?: string; gender?: string; age?: string; personality?: string; background?: string; appearance?: string; strength?: string; selfNarration?: string; attrs?: PlayerAttrs }) => string;  // 开局随行人物：建一个在场+入队+好友+长期保留(isBond)的随从 NPC，返回 C-id
   setFriend: (id: string, on: boolean) => void;   // 加入/移出好友栏
   leaveParty: (id: string) => void;       // 退出临时队伍（partyMember=false，仍在场，等剧情/手动归档）
   disbandPartyForWorld: (currentWorld: string) => string[];  // 世界切换：解散非当前世界的临时队友(离队 + 离场归档)，返回被解散的 id 列表
@@ -410,6 +411,35 @@ export const useNpc = create<NpcState>()(
             bioStrength: info.strength || '',
             npcTag: info.tag || '契约者',
             onScene: false,
+            updatedAt: Date.now(),
+          };
+          return { npcs: { ...s.npcs, [newId]: rec } };
+        });
+        return newId;
+      },
+      createCompanion: (info) => {
+        let newId = '';
+        set((s) => {
+          const used = new Set(Object.keys(s.npcs));
+          let n = 1; while (used.has(`C${n}`)) n++;
+          newId = `C${n}`;
+          const app = (info.appearance || '').trim();
+          const rec: NpcRecord = {
+            ...defaultNpcRecord(newId),
+            name: ((info.name || '随从').trim().slice(0, 24)) || '随从',
+            gender: info.gender === '男' ? '男' : info.gender === '女' ? '女' : '',
+            title: '',
+            realm: info.realm || '',
+            profession: info.profession || '',
+            age: info.age || '',
+            personality: info.personality || '',
+            background: info.background || '',
+            appearance5: app, baseAppearance: app,
+            bioStrength: info.strength || '',
+            selfNarration: info.selfNarration || '',
+            npcTag: info.tag || '随从',
+            attrs: info.attrs,
+            onScene: true, partyMember: true, keepForever: true, isBond: true, isFriend: true,   // 开局随行：在场+入队+好友(参与演化)+长期保留(不进清理名单)
             updatedAt: Date.now(),
           };
           return { npcs: { ...s.npcs, [newId]: rec } };
