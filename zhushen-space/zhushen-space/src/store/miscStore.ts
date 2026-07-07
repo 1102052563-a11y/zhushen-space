@@ -210,6 +210,7 @@ interface MiscState {
   paradiseTime: string;
   worldTime: string;
   worldName: string;
+  worldTier: string;   // 本世界难度/阶位——进入该世界时即锁定，全程不随主角升级变化（治"难度动态漂移"）
 
   settings: MiscSettings;
   miscApi: ApiConfig;
@@ -239,6 +240,7 @@ interface MiscState {
   setWeather: (w: string) => void;
   setWeatherFx: (key: string, css: string) => void;
   setTime: (patch: { paradiseTime?: string; worldTime?: string; worldName?: string }) => void;
+  setWorldTier: (tier: string) => void;   // 进入新世界时锁定本世界难度/阶位
   clearMisc: () => void;
 
   setSettings: (patch: Partial<Omit<MiscSettings, 'entries'>>) => void;
@@ -271,6 +273,7 @@ export const useMisc = create<MiscState>()(
       paradiseTime: '',
       worldTime: '',
       worldName: '',
+      worldTier: '',
 
       settings: { ...DEFAULT_SETTINGS },
       miscApi: {
@@ -403,10 +406,12 @@ export const useMisc = create<MiscState>()(
           paradiseTime: patch.paradiseTime ?? s.paradiseTime,
           worldTime: patch.worldTime ?? s.worldTime,
           worldName: patch.worldName ?? s.worldName,
-          ...(changedToNew ? { lastWorldSettleAt: Date.now() } : {}),
+          // 切到新任务世界：清空旧世界难度戳（由 App 的 enteredNewWorld 钩子按进入时主角阶位重新锁定）
+          ...(changedToNew ? { lastWorldSettleAt: Date.now(), worldTier: '' } : {}),
         };
       }),
-      clearMisc: () => set({ tasks: [], archivedTasks: [], lastWorldSettleAt: 0, worldEvents: [], smallSummaries: [], largeSummaries: [], summaryRound: 0, turnCount: 0 }),
+      setWorldTier: (tier) => set({ worldTier: tier || '' }),
+      clearMisc: () => set({ tasks: [], archivedTasks: [], lastWorldSettleAt: 0, worldTier: '', worldEvents: [], smallSummaries: [], largeSummaries: [], summaryRound: 0, turnCount: 0 }),
 
       setSettings: (patch) => set((s) => ({ settings: { ...s.settings, ...patch } })),
       setPresetEntries: (entries, name, version) =>

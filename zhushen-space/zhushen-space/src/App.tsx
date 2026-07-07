@@ -23,6 +23,7 @@ import {
   REAL_POINT_LOCK_RULE,
   ABYSS_LOCK_RULE,
   NATIVE_UNAWARE_RULE,
+  ANTI_OMNISCIENCE_RULE,
   NPC_COT_RULE,
   NPC_SELF_NARRATION_RULE,
   PLOT_GUIDANCE_RULE,
@@ -893,9 +894,9 @@ const QUEST_PLANNING_RULE = `
 - **支线**：正文产生的其他多回合目标用 \`kind:"支线"\`（或不写 kind=默认支线）；需要分段的支线同样可带 rings，其每一环也要写全 goal/reward/penalty，reward 同样按"六选三"（属性点/技能点/乐园币/当前世界风格装备或技能书/潜能点/世界专属宝箱 任选3类；灵魂钱币同样仅四阶+世界可作奖励）给，penalty 同样从「扣除乐园币 / 全属性永久下降 / 强制抹除」三类里取；**时限同样适用上面的【每环时限·最低 7 天】**——支线的每一环、以及单环支线任务，都要设 startTime~endTime 执行窗口、且 endTime−startTime ≥ 7 天（上不封顶，按难度/需求评估，长线可数月乃至一年以上）。`;
 
 const QUEST_KILL_TIER_RULE = `
-【任务击杀目标·阶位上限铁则（防止给低阶主角派"正面单挑高阶强者"的送死任务）】凡任务（含主线/支线各环）要求主角**正面击杀/讨伐**的目标，其阶位按环型封顶：
-- **强制环 / 任何必经的击杀目标（含高潮 boss）**：阶位 **≤ 主角当前阶位**（主角一阶 → 目标最高一阶）。主线推进必须打赢，绝不能逼主角越阶硬撼；难度靠**精英化 / 数量 / 机制 / 环境**做，不靠拔高阶位。
-- **贪婪环（optional:true 的可选拔高）**：阶位 **≤ 主角当前阶位 +1**（主角一阶 → 最高二阶），作为高风险高回报的越阶挑战。
+【任务击杀目标·阶位上限铁则（防止给低阶主角派"正面单挑高阶强者"的送死任务）】凡任务（含主线/支线各环）要求主角**正面击杀/讨伐**的目标，其阶位按环型封顶——**这里的"阶位"基准用【本世界难度·已锁定】那个阶位（进世界时即固定），不是主角当前实时阶位；主角在世界内升级变强也不抬高目标阶位**：
+- **强制环 / 任何必经的击杀目标（含高潮 boss）**：阶位 **≤ 本世界锁定难度阶位**（锁定一阶 → 目标最高一阶）。主线推进必须打赢，绝不能逼主角越阶硬撼；难度靠**精英化 / 数量 / 机制 / 环境**做，不靠拔高阶位。
+- **贪婪环（optional:true 的可选拔高）**：阶位 **≤ 本世界锁定难度阶位 +1**（锁定一阶 → 最高二阶），作为高风险高回报的越阶挑战。
 - **不得为凑上限而把剧情里本就强大的角色降级**：高阶 boss / 枭雄 / 原作强者维持其应有阶位与设定。正确做法是**给主角换一个与其阶位相称的击杀目标**——打高阶强者的下属 / 爪牙 / 外围、或迂回 / 非正面目标；高阶强者此刻只作背景威胁、旁观者、或暂时无法正面硬撼的存在，待主角成长后再正面对决。
 - 例（主角一阶）：第一个任务**别**写"正面干掉二阶精英魔物"；应是"清剿一阶异化幼体""赶在二阶魔物现身前完成目标并撤离"这类一阶打得过的目标。`;
 
@@ -1911,6 +1912,7 @@ export default function App() {
       addRule('任务世界结算', '前端规则 · 任务世界结算（本回合触发）', WORLD_SETTLEMENT_RULE);
       // 世界结算专属思维链：结算前先逼正文 API 逐项推演"任务是否真完成/评级是否公正/奖励是否忠于原文不膨胀"，<settle_cot> 由显示层安全网剥除
       addRule('世界结算思维链', '前端规则 · 世界结算思维链（本回合触发）', WORLD_SETTLEMENT_COT_RULE);
+      { const _wt = useMisc.getState().worldTier; if (_wt) addRule('本世界锁定难度', '前端数据 · 本世界锁定难度（进世界即定）', `【本世界难度·已锁定】：${_wt}（进入本世界时即固定的难度/阶位）。结算面板【世界难度】一栏必须填这个锁定难度，奖励档位与难度评估也一律按它来，**不要**按主角结算时的实时阶位另算——主角在世界内变强也不改变本世界的锁定难度。`); }
       // 本世界已完成/已结算的任务线平时不注入（已移出进行中列表），结算 AI 因此数不到、只报一条 → 结算这一回合把它们喂进去供如实统计完成数量
       try {
         const Mm = useMisc.getState();
@@ -2789,7 +2791,7 @@ export default function App() {
       .filter((e) => e.enabled && e.source !== 'entrySharedRules')
       .map((e) => fillVars(e.content, vars))
       .join('\n\n')
-      + '\n\n' + NARRATIVE_FIRST_RULE + '\n' + BUFF_AS_STATUS_RULE + '\n' + NPC_AGE_RULE + '\n' + TALENT_NO_CAP_RULE + '\n' + TITLE_DIVERSITY_RULE + '\n' + NPC_DEAD_EXCLUDE_RULE + '\n' + NPC_ID_RULE + '\n' + SKILL_TALENT_NOTE_RULE + '\n' + NPC_SKILL_KEEP_RULE + '\n' + ITEM_GRANTED_SKILL_RULE + '\n' + SKILL_STABILITY_RULE + '\n' + SKILL_COMBAT_TAG_RULE + '\n' + NPC_REVIEW_TAG_RULE +'\n' + NPC_TEAM_AFFILIATION_RULE + '\n' + TIER_RULE + '\n' + IMAGE_TAGS_RULE + '\n' + HPEP_NARRATIVE_ONLY_RULE + '\n' + POINTS_NARRATIVE_RULE + '\n' + NPC_GEN_ATTR_RULE + '\n' + ATTR_SANITY_RULE + '\n' + ATTR_CAP_RULE + '\n' + STATUS_FORMAT_RULE + '\n' + STATUS_COUNTDOWN_TURN_RULE + '\n' + NPC_PRIVATE_EXTRA_RULE + '\n' + NPC_TIER_LOADOUT_RULE + '\n' + SKILL_TALENT_ATTR_CAP_RULE + '\n' + FIRST_UPDATE_COMPLETE_RULE + '\n' + EVO_EXACT_REF_RULE + '\n' + SKILL_TALENT_GUIDE + '\n' + NPC_COT_RULE + worldLoreEvoInjection()
+      + '\n\n' + NARRATIVE_FIRST_RULE + '\n' + BUFF_AS_STATUS_RULE + '\n' + NPC_AGE_RULE + '\n' + TALENT_NO_CAP_RULE + '\n' + TITLE_DIVERSITY_RULE + '\n' + NPC_DEAD_EXCLUDE_RULE + '\n' + NPC_ID_RULE + '\n' + SKILL_TALENT_NOTE_RULE + '\n' + NPC_SKILL_KEEP_RULE + '\n' + ITEM_GRANTED_SKILL_RULE + '\n' + SKILL_STABILITY_RULE + '\n' + SKILL_COMBAT_TAG_RULE + '\n' + NPC_REVIEW_TAG_RULE +'\n' + NPC_TEAM_AFFILIATION_RULE + '\n' + TIER_RULE + '\n' + IMAGE_TAGS_RULE + '\n' + HPEP_NARRATIVE_ONLY_RULE + '\n' + POINTS_NARRATIVE_RULE + '\n' + NPC_GEN_ATTR_RULE + '\n' + ATTR_SANITY_RULE + '\n' + ATTR_CAP_RULE + '\n' + STATUS_FORMAT_RULE + '\n' + STATUS_COUNTDOWN_TURN_RULE + '\n' + NPC_PRIVATE_EXTRA_RULE + '\n' + NPC_TIER_LOADOUT_RULE + '\n' + SKILL_TALENT_ATTR_CAP_RULE + '\n' + FIRST_UPDATE_COMPLETE_RULE + '\n' + EVO_EXACT_REF_RULE + '\n' + SKILL_TALENT_GUIDE + '\n' + NPC_COT_RULE + '\n' + ANTI_OMNISCIENCE_RULE + worldLoreEvoInjection()
       // 门控：仅当该 NPC 已有背景、却还没第一人称自述时，才追加"生成自述"规则（一次性·省 token）
       + (rec && rec.background && !rec.selfNarration ? '\n' + NPC_SELF_NARRATION_RULE : '');
   }
@@ -2818,7 +2820,7 @@ export default function App() {
       .filter((e) => e.enabled)   // entries 来自独立的「登场判断」预设(entryJudge)，整本都是登场判断条目
       .map((e) => fillVars(e.content, vars))
       .join('\n\n')
-      + '\n\n' + NARRATIVE_FIRST_RULE + '\n' + EVO_VERIFY_RULE + '\n' + NPC_DEAD_EXCLUDE_RULE + '\n' + NPC_ID_RULE + '\n' + TIER_RULE + '\n' + SKILL_TIER_RULE + '\n' + NPC_GEN_ATTR_RULE + '\n' + NPC_TEAM_AFFILIATION_RULE + '\n' + NPC_ENTRY_BIO_RULE + '\n' + ENTRY_NAME_CN_RULE + '\n' + ENTRY_DEDUP_RULE + codexInjection + tierPowerInjection + worldLoreEvoInjection() + '\n' + SKILL_TALENT_GUIDE + '\n' + ENTRY_COT_RULE;
+      + '\n\n' + NARRATIVE_FIRST_RULE + '\n' + EVO_VERIFY_RULE + '\n' + NPC_DEAD_EXCLUDE_RULE + '\n' + NPC_ID_RULE + '\n' + TIER_RULE + '\n' + SKILL_TIER_RULE + '\n' + NPC_GEN_ATTR_RULE + '\n' + NPC_TEAM_AFFILIATION_RULE + '\n' + NPC_ENTRY_BIO_RULE + '\n' + ENTRY_NAME_CN_RULE + '\n' + ENTRY_DEDUP_RULE + codexInjection + tierPowerInjection + worldLoreEvoInjection() + '\n' + SKILL_TALENT_GUIDE + '\n' + ANTI_OMNISCIENCE_RULE + '\n' + ENTRY_COT_RULE;
   }
 
   /* 解析 NPC <state> 短指令（favor/title/realm/hp），可按 charId 过滤 */
@@ -4189,6 +4191,9 @@ ${AFFIX_EFFECT_RULE}`;
     prevWorldNameRef.current = M.worldName || prevWorldNameRef.current;
     // 进入新任务世界 → 打一个结算边界戳：此后完成的任务才算"本世界"，杜绝下次结算把上个世界的旧任务再算进来
     if (enteredNewWorld) { try { useMisc.getState().markWorldSettled(); } catch { /* */ } }
+    // 锁定本世界难度：身处任务世界(非乐园)且尚未锁定时，按当前主角阶位锁定（进世界即定、全程不再随主角升级漂移）。
+    // 新入世界时 setTime 已清空 worldTier→此处按进入时阶位锁定；旧档/已在世界中的存档也会在本演化回合补锁一次。
+    if (!isHomeWorld(M.worldName || '') && !useMisc.getState().worldTier) { try { const t = usePlayer.getState().profile.tier || ''; if (t) useMisc.getState().setWorldTier(t); } catch { /* */ } }
     // 主角处境快照（供任务接地"结合主角处境"）+ 同人增强开关（控制是否联网搜原作设定）
     const _pp = usePlayer.getState().profile;
     const playerSituation = [
@@ -4246,6 +4251,7 @@ ${AFFIX_EFFECT_RULE}`;
       + miscCodexInjection
       + `\n【进入新世界信号】：${enteredNewWorld ? '是 —— 本轮检测到进入新的任务世界，请按【主线路线图规划】检查：当前任务世界若尚无 active 主线，则把该世界自身的核心目标立成主线并规划整张环路线图' : (isHomeWorld(M.worldName) ? '否 —— 当前在轮回乐园/专属房间(枢纽·任务间歇)，按【乐园·枢纽禁止生成任务】**禁止生成任何新任务**（主线/支线/隐藏/单环全不建），更不要"熟悉环境/适应乐园/逛街采购/进入衍生世界/获取身份/回归乐园"等流程·杂事任务；只对既有任务做结算/推进，等真正进入任务世界(衍生世界)再规划' : '否（沿用既有主线，勿重复新建）')}`
       + `\n【当前世界】：${M.worldName || '轮回乐园'}`
+      + `\n【本世界难度·已锁定（进入本世界即固定·全程不随主角升级/变强而变）】：${M.worldTier || _pp.tier || '（进入时主角阶位）'} —— 本世界一切**敌人强度 / 任务与环的难度 / 击杀目标阶位上限 / 掉落与奖励档位 / 结算难度**一律按这个**锁定难度**来定，**绝不因主角在本世界内升级、变强、拿到新装备而水涨船高**。【击杀阶位上限】里的"主角阶位"一律改用此锁定难度阶位判定。`
       + `\n【同人增强】：${fanficOn ? '开 —— 若当前世界为已知虚构作品，按【同人世界·任务接地】先联网搜索原作设定，再据此规划/生成任务' : '关（不联网搜索，按正文与世界设定生成任务）'}`
       + `\n【主角当前处境（任务须与之契合）】：${playerSituation || '（未建档）'}`
       + `\n【本轮大总结开关】：${isLargeTurn ? `是（本轮是第 ${round} 轮，到达大总结周期，必须压缩近期小总结输出 1 条大总结）` : `否（本轮第 ${round} 轮，未到周期，只写小总结，禁止输出大总结）`}`

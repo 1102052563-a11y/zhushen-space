@@ -10,6 +10,7 @@ import { playerResourceMax, refillAllVitals } from '../systems/playerVitals';
 import { useCharacters } from '../store/characterStore';
 import { computeAttrBreakdown, withAttrDelta, ATTR_LABEL, ATTR_KEYS, type AttrBreak } from '../systems/attrBonus';
 import { activeGemSets, gemSetEquipEntry } from '../systems/gemSets';
+import { useGemSets } from '../store/gemSetStore';
 import { playerTreeAttrBonus } from '../store/skillTreeStore';
 import { playerTeamAttrBonus, playerTeamPerkAbilities } from '../store/adventureTeamStore';
 import { bioInnate, bioPower, bioStrengthLabel, nominalTierNum } from '../systems/bioStrength';
@@ -210,8 +211,9 @@ export default function PlayerSidebar({ onClose }: { onClose?: () => void }) {
   // 技能树六维折进 base（与战斗/骰子一致），资质档 bioInnate 仍用原始 profile.attrs
   const capB = attrCapForTier(profile.tier, profile.level);
   // 宝石套装六维加成 → 合成"装备条目"并入"装备"来源列（与战斗 buildCombatant 同口径）；同时供套装面板展示
-  const gemSets = activeGemSets(equippedFull);
-  const setEntry = gemSetEquipEntry(equippedFull);
+  const gemSetDefs = useGemSets((s) => s.sets);
+  const gemSets = activeGemSets(equippedFull, gemSetDefs);
+  const setEntry = gemSetEquipEntry(equippedFull, gemSetDefs);
   const equipForAttr = setEntry ? [...equippedFull, setEntry as any] : equippedFull;
   const breakdown = computeAttrBreakdown(withAttrDelta(withAttrDelta(profile.attrs, playerTreeAttrBonus()), playerTeamAttrBonus()), b1?.skills ?? [], b1?.traits ?? [], equipForAttr, capB);   // 基础有效六维(不含真实属性点直加)·夹本阶上限·供属性栏展示
   // 衍生/战力按「有效六维 + 真实属性点直加(realAttrs)」算，与战斗 buildCombatant 同口径（直加并入再夹本阶上限）

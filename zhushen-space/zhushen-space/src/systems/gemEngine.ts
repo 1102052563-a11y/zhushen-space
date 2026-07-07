@@ -1,5 +1,8 @@
 import { gradeToNum, ITEM_GRADES, type GemSlotKind, type SocketedGem, type InventoryItem } from '../store/itemStore';
-import { setForGem, gemSetName } from './gemSets';
+import { setForGem, gemSetName, looseJson } from './gemSets';
+import { useGemSets } from '../store/gemSetStore';
+
+export const GEM_SLOTS: GemSlotKind[] = ['通用', '武器', '防具', '饰品'];
 
 /* ════════════════════════════════════════════
    宝石生成引擎（gemEngine）
@@ -132,7 +135,9 @@ function buildGem(grade: string, def: GemDef, rng: Rng): GeneratedGem {
   const noun = pick(rng, high ? HIGH_NOUNS : LOW_NOUNS);
   const slotLabel = def.slot === '通用' ? '任意装备' : `仅${def.slot}`;
   const tierLabel = cat === '战斗' ? (high ? '高阶战斗属性' : '基础面板加成') : `${cat}类`;
-  const setKey = setForGem(def.attr, cat);   // 归入唯一套装（集齐激活套装加成）
+  const sets = useGemSets.getState().sets;                 // 按玩家当前套装定义归属（非写死）
+  const setKey = setForGem(def.attr, sets);                // 归入某套装（集齐激活套装加成）；无匹配则不归套
+  const setLabel = gemSetName(setKey, sets);
   return {
     item: {
       name: `${grade}·${def.flavor}${noun}`,
@@ -140,13 +145,13 @@ function buildGem(grade: string, def: GemDef, rng: Rng): GeneratedGem {
       gradeDesc: grade,
       gemSlot: def.slot,
       gemAttr: def.attr,
-      gemSet: setKey,
+      gemSet: setKey || undefined,
       effect: stat,
       quantity: 1,
       equipped: false,
-      tags: ['宝石', high ? '高阶' : '基础', `${cat}类`, `套装·${gemSetName(setKey)}`],
+      tags: ['宝石', high ? '高阶' : '基础', `${cat}类`, ...(setLabel ? [`套装·${setLabel}`] : [])],
       subType: high ? '高阶宝石' : '基础宝石',
-      intro: `${cat}类宝石 · ${slotLabel}镶嵌 · ${def.attr} · 套装【${gemSetName(setKey)}】`,
+      intro: `${cat}类宝石 · ${slotLabel}镶嵌 · ${def.attr}${setLabel ? ` · 套装【${setLabel}】` : ''}`,
       acquisition: '宝石商店',
       score: `${grade}（${tierLabel}）`,
     },
@@ -208,19 +213,21 @@ export function gemFromItem(item: InventoryItem): SocketedGem {
     attr: item.gemAttr ?? item.name,
     statText: item.effect ?? '',
     high: isHighGem(item.gradeDesc),
-    set: item.gemSet || setForGem(item.gemAttr),   // 旧宝石无 gemSet 则按属性回填，套装统计不漏
+    set: item.gemSet || setForGem(item.gemAttr, useGemSets.getState().sets) || undefined,   // 旧宝石无 gemSet 则按当前套装定义回填
   };
 }
 
 /** 把已镶嵌宝石快照还原成可放回背包的宝石物品（无损剥离用）*/
 export function itemFromGem(g: SocketedGem): Omit<InventoryItem, 'id' | 'addedAt'> {
-  const setKey = g.set || setForGem(g.attr);
+  const sets = useGemSets.getState().sets;
+  const setKey = g.set || setForGem(g.attr, sets);
+  const setLabel = gemSetName(setKey, sets);
   return {
     name: g.name, category: '宝石', gradeDesc: g.tier,
-    gemSlot: g.slot, gemAttr: g.attr, gemSet: setKey, effect: g.statText,
-    quantity: 1, equipped: false, tags: ['宝石', g.high ? '高阶' : '基础', `套装·${gemSetName(setKey)}`],
+    gemSlot: g.slot, gemAttr: g.attr, gemSet: setKey || undefined, effect: g.statText,
+    quantity: 1, equipped: false, tags: ['宝石', g.high ? '高阶' : '基础', ...(setLabel ? [`套装·${setLabel}`] : [])],
     subType: g.high ? '高阶宝石' : '基础宝石',
-    intro: `${g.high ? '高阶' : '基础'}宝石 · ${g.slot === '通用' ? '任意装备' : '仅' + g.slot}镶嵌 · ${g.attr} · 套装【${gemSetName(setKey)}】`,
+    intro: `${g.high ? '高阶' : '基础'}宝石 · ${g.slot === '通用' ? '任意装备' : '仅' + g.slot}镶嵌 · ${g.attr}${setLabel ? ` · 套装【${setLabel}】` : ''}`,
     acquisition: '无损剥离',
     score: `${g.tier}（${g.high ? '高阶战斗属性' : '基础面板加成'}）`,
   };
@@ -258,4 +265,75 @@ export function drillCost(currentSockets: number): number {
 /** 打孔成功率（孔位越多越难，最低 25%）*/
 export function drillRate(currentSockets: number): number {
   return Math.max(0.25, 0.9 - currentSockets * 0.12);
+}
+
+/* ───── 自定义宝石（玩家手动打造 / AI 按提示词生成）───── */
+
+export interface CustomGemFields {
+  name?: string;
+  grade: string;
+  slot: GemSlotKind;
+  attr: string;        // 归属关键词（决定归入哪个套装 · setForGem）
+  effect: string;      // 加成文本（六维/暴击等 token → 生效；其余风味）
+  setKey?: string;     // 显式指定归属套装（留空按 attr 匹配 members）
+}
+
+/** 用玩家/AI 给的字段确定性打造一颗宝石物品（保证带 gemAttr + gemSet + effect，套装必能识别、加成必生效）。 */
+export function makeCustomGem(fields: CustomGemFields): Omit<InventoryItem, 'id' | 'addedAt'> {
+  const grade = ITEM_GRADES.includes(fields.grade as any) ? fields.grade : '紫色';
+  const slot: GemSlotKind = GEM_SLOTS.includes(fields.slot) ? fields.slot : '通用';
+  const attr = String(fields.attr ?? '').trim() || '自定义';
+  const effect = String(fields.effect ?? '').trim();
+  const high = isHighGem(grade);
+  const sets = useGemSets.getState().sets;
+  const setKey = (fields.setKey && sets.some((s) => s.key === fields.setKey)) ? fields.setKey : setForGem(attr, sets);
+  const setLabel = gemSetName(setKey, sets);
+  const noun = high ? '魂晶' : '宝石';
+  const name = String(fields.name ?? '').trim() || `${grade}·${attr}${noun}`;
+  const slotLabel = slot === '通用' ? '任意装备' : `仅${slot}`;
+  return {
+    name, category: '宝石', gradeDesc: grade,
+    gemSlot: slot, gemAttr: attr, gemSet: setKey || undefined,
+    effect, quantity: 1, equipped: false,
+    tags: ['宝石', high ? '高阶' : '基础', '自定义', ...(setLabel ? [`套装·${setLabel}`] : [])],
+    subType: high ? '高阶宝石' : '基础宝石',
+    intro: `自定义宝石 · ${slotLabel}镶嵌 · ${attr}${setLabel ? ` · 套装【${setLabel}】` : ''}`,
+    acquisition: '自定义',
+    score: `${grade}（自定义）`,
+  };
+}
+
+/** AI 按提示词生成宝石的系统提示词。 */
+export const GEM_GEN_PROMPT = [
+  '你是「轮回乐园」宝石工匠。请按玩家要求设计**宝石**，只输出 JSON 数组（1~N 颗，无解说、无 markdown 代码块）。每颗字段：',
+  '- name：宝石名（可留空，自动命名）',
+  '- slot：镶嵌部位，「武器/防具/饰品/通用」之一',
+  '- attr：归属关键词（决定归入哪个套装；从属性池选或自拟一个短词）',
+  '- effect：加成文本。**务必用可识别 token 才真正生效**：六维 力量+N/敏捷+N/体质+N/智力+N/魅力+N/幸运+N；战斗 暴击率+N% / 暴击伤害+N% / 穿透N% / 减伤N% / 造成伤害+N% / 冷却缩减N回合 / 额外N段；其余当风味。',
+  '- grade：品级名（可留空用默认）：白色/绿色/蓝色/紫色/暗紫色/淡金/金色/暗金/传说级/史诗级/圣灵级/不朽级/起源/永恒/创世',
+  '【属性池（attr 取材）】：力量/敏捷/体质/智力/魅力/幸运/基础攻击/基础防御/生命/法力/武器锋利度/无视防御/护甲穿透/真实伤害/灵魂伤害/生命吸取/暴击率/暴击伤害/烈焰附魔/霜寒附魔/惊雷附魔/伤害减免/格挡/荆棘反伤/真实防御/坚韧抗控/急速/会心一击/移动速度/招财/魔法寻宝/历练/全抗性/冷却缩减/采掘/采集/垂钓/匠艺/交涉/御兽。',
+  '【数值参考·勿膨胀】：基础档六维≤15、暴击率≤10%；高阶档 破甲/穿透≤30%、暴伤≤40%、造成伤害≤25%。',
+  '示例：[{"name":"赤蛟之瞳","slot":"武器","attr":"暴击率","effect":"暴击率+12%，暴击伤害+20%","grade":"史诗级"}]',
+].join('\n');
+
+/** 解析 AI 输出为若干宝石物品（gradeFallback = 玩家选的品级；确保带 gemAttr/gemSet/effect）。 */
+export function parseGeneratedGems(text: string, gradeFallback = '紫色'): Omit<InventoryItem, 'id' | 'addedAt'>[] {
+  const j = looseJson(text);
+  if (!j) return [];
+  const arr = Array.isArray(j) ? j : [j];
+  const out: Omit<InventoryItem, 'id' | 'addedAt'>[] = [];
+  for (const raw of arr) {
+    if (!raw || typeof raw !== 'object') continue;
+    const r = raw as Record<string, unknown>;
+    const attr = String(r.attr ?? r.gemAttr ?? '').trim();
+    const effect = String(r.effect ?? r.stat ?? '').trim();
+    if (!attr && !effect) continue;
+    const slotRaw = String(r.slot ?? r.gemSlot ?? '通用').trim();
+    const slot = (GEM_SLOTS as string[]).includes(slotRaw) ? (slotRaw as GemSlotKind) : '通用';
+    const gradeCand = String(r.grade ?? r.gradeDesc ?? '').trim();
+    const grade = ITEM_GRADES.includes(gradeCand as any) ? gradeCand : gradeFallback;
+    out.push(makeCustomGem({ name: String(r.name ?? ''), grade, slot, attr: attr || '自定义', effect, setKey: String(r.setKey ?? '') || undefined }));
+    if (out.length >= 8) break;
+  }
+  return out;
 }
