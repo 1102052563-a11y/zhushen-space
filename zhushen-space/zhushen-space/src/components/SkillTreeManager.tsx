@@ -50,6 +50,7 @@ function extractJson(text: string): string {
 
 export default function SkillTreeManager() {
   const trees = useSkillTree((s) => s.trees);
+  const activeId = useSkillTree((s) => s.progress['B1']?.activeTreeId);   // 主角当前生效的技能树 id（订阅→切换即刷新徽标）
   const st = useSkillTree.getState();
   const treeList = Object.values(trees);
 
@@ -245,6 +246,7 @@ export default function SkillTreeManager() {
       if (!v.ok) { setValid({ errors: v.errors, warnings: v.warnings }); flash('生成的树有误：' + v.errors[0]); return; }
       const t = autoLayout(v.tree);
       st.upsertTree(t); setEditId(t.id); setSelId(undefined); setPickIds(new Set());
+      st.setActiveTree('B1', t.id);   // 生成即设为主角当前生效技能树（治「生成完游戏里没变」）
       const filled = t.nodes.filter((n) => n.grants?.skill || n.grants?.trait).length;
       const missing = skillNodes.length - mergedCnt;
       const extra: string[] = [];
@@ -252,7 +254,7 @@ export default function SkillTreeManager() {
       if (t.branches.length !== expectBr) extra.push(`流派数 ${t.branches.length}（要求 ${expectBr}${genTrunk ? '·含通用主干' : ''}）`);
       if (missing > 0) extra.push(`${missing}/${skillNodes.length} 个技能未详写成功（多半是详写阶段被接口截断/报错，可重新生成、或对该节点单独补）`);
       setValid({ errors: [], warnings: [...v.warnings, ...extra] });
-      flash(`已生成（${t.nodes.length}节点 / ${t.branches.length}流派 / ${filled}个技能）${extra.length ? '·' + extra.join('；') : '，可继续编辑'}`);
+      flash(`已生成并设为当前生效树（${t.nodes.length}节点 / ${t.branches.length}流派 / ${filled}个技能）${extra.length ? '·' + extra.join('；') : '，可继续编辑'}`);
     } catch (e: any) {
       flash('生成失败：' + (e?.message || String(e)));
     } finally { setGenBusy(false); }
@@ -400,8 +402,11 @@ export default function SkillTreeManager() {
         <select value={editId ?? ''} onChange={(e) => { setEditId(e.target.value); setSelId(undefined); setPickIds(new Set()); setNodeReq(''); }}
           className="bg-panel2 border border-edge rounded px-2 py-1 text-[13px] text-slate-200 outline-none focus:border-god/50">
           {!treeList.length && <option value="">（无树，点新建）</option>}
-          {treeList.map((t) => <option key={t.id} value={t.id}>{t.title || t.profession}{t.source === 'builtin' ? '（内置）' : ''}</option>)}
+          {treeList.map((t) => <option key={t.id} value={t.id}>{t.title || t.profession}{t.source === 'builtin' ? '（内置）' : ''}{t.id === activeId ? ' ✓生效中' : ''}</option>)}
         </select>
+        {/* 树名（标题）就近可改——不用再翻到底部「树信息」*/}
+        {tree && <input value={tree.title ?? ''} onChange={(e) => st.updateTreeMeta(tree.id, { title: e.target.value })} placeholder="技能树名字（标题）"
+          className="w-44 bg-panel2 border border-edge rounded px-2 py-1 text-[13px] text-slate-200 outline-none focus:border-god/50" title="给这棵技能树改名（标题）；下方「树信息」还可改职业名" />}
         <button onClick={newTree} className={btnCls}>＋ 新建</button>
         <button onClick={() => fileRef.current?.click()} className={btnCls}>⭳ 导入</button>
         <button onClick={exportTree} disabled={!tree} className={btnCls}>⭱ 导出</button>
@@ -409,7 +414,9 @@ export default function SkillTreeManager() {
         <input ref={fileRef} type="file" accept=".json,.tree.json" className="hidden" onChange={importTree} />
         <div className="ml-auto flex items-center gap-2">
           <button onClick={doValidate} disabled={!tree} className={btnCls}>✓ 校验</button>
-          <button onClick={setActive} disabled={!tree} className="px-3 py-1 rounded border border-lime-500/50 text-lime-300 bg-lime-500/10 hover:bg-lime-500/20 text-[12px] font-mono">设为主角当前树</button>
+          {tree && editId === activeId
+            ? <span className="px-3 py-1 rounded border border-lime-500/40 text-lime-300/90 bg-lime-500/10 text-[12px] font-mono">✓ 游戏中生效</span>
+            : <button onClick={setActive} disabled={!tree} className="px-3 py-1 rounded border border-amber-400/70 text-amber-200 bg-amber-500/15 hover:bg-amber-500/25 text-[12px] font-mono animate-pulse" title="当前编辑的这棵还没在游戏里生效——点此让主角改用这棵">⚠ 设为当前树（点了才生效）</button>}
         </div>
       </div>
 

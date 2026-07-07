@@ -30,6 +30,7 @@ import {
   PLOT_GUIDANCE_RULE,
   PLOT_ADVANCE_DIRECTIVE,
   ENTRY_COT_RULE,
+  CANON_STRENGTH_NO_SCALE_RULE,
   ENTRY_NAME_CN_RULE,
   ENTRY_DEDUP_RULE,
   FACTION_COT_RULE,
@@ -1884,6 +1885,8 @@ export default function App() {
     addRule('属性点真相', '前端规则 · 属性点唯一真相', ATTR_POINT_AUTHORITY_RULE);
     // 强化设施不叙述：属性加点/技能升级/装备强化都在前端面板做，正文禁写"前往属性/技能/装备强化大厅（中心）"桥段（用户要求）
     addRule('强化设施不叙述', '前端规则 · 强化操作全在前端·正文不写前往强化中心', FRONTEND_ENHANCE_NO_NARRATE_RULE);
+    // 实力忠于设定：剧情人物按原著/世界阶定强度，主角变强只表现为碾压、不把弱角色拔高来匹配（用户要求）
+    addRule('实力忠于设定不拔高', '前端规则 · 实力忠于设定·不随主角水涨船高', CANON_STRENGTH_NO_SCALE_RULE);
     // HP/EP 结算：让主正文每回合末尾输出主角+在场NPC的当前 HP/EP（前端 applyNarrativeVitals/NpcVitals 解析，HP/EP 管理阶段也以此为最终值）
     addRule('HP_EP结算输出', '前端规则 · HP/EP 结算输出', VITALS_SETTLEMENT_EMIT_RULE);
     // ACU 表格数据库：把填表铁则 + 当前所有表的结构与数据注入主正文，让 AI 每回合末尾输出 <tableEdit> 维护游戏状态表（applyAllUpdates 落库、stripStateBlocks 从展示剥离）
@@ -2824,7 +2827,7 @@ export default function App() {
       .filter((e) => e.enabled)   // entries 来自独立的「登场判断」预设(entryJudge)，整本都是登场判断条目
       .map((e) => fillVars(e.content, vars))
       .join('\n\n')
-      + '\n\n' + NARRATIVE_FIRST_RULE + '\n' + EVO_VERIFY_RULE + '\n' + NPC_DEAD_EXCLUDE_RULE + '\n' + NPC_ID_RULE + '\n' + TIER_RULE + '\n' + SKILL_TIER_RULE + '\n' + NPC_GEN_ATTR_RULE + '\n' + NPC_TEAM_AFFILIATION_RULE + '\n' + NPC_ENTRY_BIO_RULE + '\n' + ENTRY_NAME_CN_RULE + '\n' + ENTRY_DEDUP_RULE + codexInjection + tierPowerInjection + worldLoreEvoInjection() + '\n' + SKILL_TALENT_GUIDE + '\n' + ANTI_OMNISCIENCE_RULE + '\n' + ENTRY_COT_RULE;
+      + '\n\n' + NARRATIVE_FIRST_RULE + '\n' + EVO_VERIFY_RULE + '\n' + NPC_DEAD_EXCLUDE_RULE + '\n' + NPC_ID_RULE + '\n' + TIER_RULE + '\n' + SKILL_TIER_RULE + '\n' + NPC_GEN_ATTR_RULE + '\n' + NPC_TEAM_AFFILIATION_RULE + '\n' + NPC_ENTRY_BIO_RULE + '\n' + ENTRY_NAME_CN_RULE + '\n' + ENTRY_DEDUP_RULE + codexInjection + tierPowerInjection + worldLoreEvoInjection() + '\n' + SKILL_TALENT_GUIDE + '\n' + ANTI_OMNISCIENCE_RULE + '\n' + CANON_STRENGTH_NO_SCALE_RULE + '\n' + ENTRY_COT_RULE;
   }
 
   /* 解析 NPC <state> 短指令（favor/title/realm/hp），可按 charId 过滤 */
