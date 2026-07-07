@@ -269,15 +269,15 @@ export default function GemPanel({ onClose }: { onClose: () => void }) {
               <label className="flex items-center gap-1.5 cursor-pointer">
                 <input type="checkbox" checked={dropSettings.gemDropEnabled !== false}
                   onChange={(e) => setEnhanceSettings({ gemDropEnabled: e.target.checked })} />
-                <span className="text-slate-200">⚔️ 正文击杀掉落宝石</span>
+                <span className="text-slate-200">⚔️ 击杀强敌掉落宝石</span>
               </label>
-              <span className="text-dim/45">单次击杀掉率</span>
+              <span className="text-dim/45">击杀强敌掉率</span>
               <input type="number" min={0} max={100} step={1}
                 value={Math.round((dropSettings.gemDropRate ?? 0.16) * 100)}
                 onChange={(e) => setEnhanceSettings({ gemDropRate: Math.max(0, Math.min(1, (Number(e.target.value) || 0) / 100)) })}
                 className="input-base !w-16 !py-1 !px-2 text-[12px] text-center" />
               <span className="text-dim/45">%</span>
-              <span className="text-[11px] font-mono text-dim/35 ml-auto">品级随主角阶位 · 强敌掉率×3</span>
+              <span className="text-[11px] font-mono text-dim/35 ml-auto">仅击杀高阶/强敌触发 · 每回合至多1颗 · boss掉率×1.8</span>
             </div>
 
             <div className="flex-1 overflow-y-auto onscene-scroll p-3 grid grid-cols-1 sm:grid-cols-2 gap-2.5 content-start">

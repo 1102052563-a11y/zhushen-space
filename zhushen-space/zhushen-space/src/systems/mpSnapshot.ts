@@ -66,12 +66,13 @@ export function buildCardProfile(s: any): string {
   const persona = [s.personality, s.personalityDetail].filter(Boolean).join('；');
   if (persona) lines.push(`性格：${persona}`);
   if (s.line) lines.push(`六维：${s.line}`);
-  const sk = (s.skills || []).map((x: any) => x?.name).filter(Boolean);
-  if (sk.length) lines.push(`技能：${sk.join('、')}`);
-  const tr = (s.traits || []).map((x: any) => x?.name).filter(Boolean);
-  if (tr.length) lines.push(`天赋：${tr.join('、')}`);
-  const eq = (s.equipment || []).map((x: any) => x?.name).filter(Boolean);
-  if (eq.length) lines.push(`装备：${eq.join('、')}`);
+  const fx = (v: any) => { const e = String(v || '').replace(/\s+/g, ' ').trim(); return e ? `（${e.slice(0, 70)}）` : ''; };   // 具体效果(截断)——房主代渲染/结算时靠它知道队友技能装备的实际作用，别只有名字
+  const sk = (s.skills || []).map((x: any) => x?.name ? `${x.name}${x.grade ? `[${x.grade}]` : ''}${fx(x.effect || x.desc)}` : '').filter(Boolean);
+  if (sk.length) lines.push(`技能：${sk.join('；')}`);
+  const tr = (s.traits || []).map((x: any) => x?.name ? `${x.name}${fx(x.effect || x.desc)}` : '').filter(Boolean);
+  if (tr.length) lines.push(`天赋：${tr.join('；')}`);
+  const eq = (s.equipment || []).map((x: any) => x?.name ? `${x.name}${x.gradeDesc ? `[${x.gradeDesc}]` : ''}${fx([x.effect, x.combatStat].filter(Boolean).join(' '))}` : '').filter(Boolean);
+  if (eq.length) lines.push(`装备：${eq.join('；')}`);
   return lines.join('\n');
 }
 

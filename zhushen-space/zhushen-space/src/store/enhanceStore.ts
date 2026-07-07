@@ -43,8 +43,8 @@ export interface EnhanceSettings {
   tables: EnhanceTables;
   selectedBossId: string;
   bossesVersion: number;   // 内置老板默认值版本：变更后旧存档的内置老板自动刷新成最新默认（保留立绘/自建老板）
-  gemDropEnabled?: boolean; // 正文击杀 → 结算掉落宝石（缺省=开）
-  gemDropRate?: number;     // 单次击杀基础掉率 0~1（缺省 0.16）
+  gemDropEnabled?: boolean; // 正文击杀强敌 → 结算掉落宝石（缺省=开）
+  gemDropRate?: number;     // 击杀强敌后的掉率 0~1（缺省 0.4；仅高阶/强敌触发·每回合至多 1 颗）
 }
 
 const DEFAULT_SETTINGS: EnhanceSettings = {
@@ -54,7 +54,7 @@ const DEFAULT_SETTINGS: EnhanceSettings = {
   selectedBossId: DEFAULT_BOSSES[0].id,
   bossesVersion: 3,
   gemDropEnabled: true,
-  gemDropRate: 0.16,
+  gemDropRate: 0.4,
 };
 
 function newSession(itemId: string, itemName: string, startLevel: number, startMax: number): EnhanceSession {

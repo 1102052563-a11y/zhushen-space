@@ -988,6 +988,7 @@ const FACTION_HOME_EXIT_RULE = `
 
 /* 频道发帖人信息铁则（代码注入频道生成 + 发言回复）：每条帖子/回复都给发帖人补 性格/职业/生物强度，供后续生成临时队友 NPC */
 const CHANNEL_AUTHOR_INFO_RULE = `
+【禁止冒用主角·铁则】你生成的所有帖子/回复都必须来自**其他契约者**；**作者名(author)绝不能等于主角本人的名字，也不得用「主角」「我」当发帖人**。主角只由玩家本人操作发言，你不得替主角发帖或回复（否则整条会被系统丢弃）。
 【发帖人信息·铁则】每条帖子/回复都要给发帖契约者补上这三项（作为该项的**同级 JSON 字段**，不要写进 content）：
 - "persona"：性格，简短（如 狂热好战 / 谨慎多疑 / 吊儿郎当 / 沉默寡言 / 唯利是图 / 重情重义 / 高冷毒舌）。
 - "job"：职业——**务必多样、有新意，别老用法师/牧师/战士这种古早设定**。多用网游 / 网络小说式职业，含隐藏职业·进阶职业·特殊血脉，例：毁灭术士、龙之子、噬魂者、时空裁决官、契约骑士、暗影行者、神机操纵者、瘟疫使徒、星陨炮手、傀儡师、血祭司、深渊代行者、符文铸造师、亡语者、机械先知、星语者……（贴合发帖人所在世界；同人世界用其原作职业设定）。
@@ -1081,15 +1082,15 @@ function rollAndApplyGemDrops(rawNarrative: string): string {
     const p = usePlayer.getState().profile;
     const drops = rollGemDrops(rawNarrative, {
       tier: p?.tier, level: p?.level,
-      config: { enabled: true, rate: st.gemDropRate ?? 0.16, maxPerTurn: 3 },
+      config: { enabled: true, rate: st.gemDropRate ?? 0.4, maxPerTurn: 1 },   // 仅击杀强敌可能掉·每回合至多 1 颗
     });
     if (!drops.length) return '';
     const I = useItems.getState();
     for (const d of drops) I.addItem(d as any);
     const names = drops.map((d) => d.name).join('、');
-    pushSceneNotice(`【场外·掉落】击败敌人后，从战利品中拾得宝石：${names}（已入背包，可到💎镶嵌所镶嵌；集齐同套装宝石激活套装加成）`);
+    pushSceneNotice(`【场外·掉落】击败强敌后，从其身上拾得宝石：${names}（已入背包，可到💎镶嵌所镶嵌；集齐同套装宝石激活套装加成）`);
     try { playSfx('coin'); } catch { /* 缺音效静默 */ }
-    return `\n\n> 💎 **战利品** · 击杀掉落：${drops.map((d) => `**${d.name}**`).join('、')}（已入背包）`;
+    return `\n\n> 💎 **战利品** · 击杀强敌掉落：${drops.map((d) => `**${d.name}**`).join('、')}（已入背包）`;
   } catch (e) { console.warn('[GemDrop] 掉落处理失败', e); return ''; }
 }
 
@@ -5285,8 +5286,11 @@ ${AFFIX_EFFECT_RULE}`;
       ]);
       const j = parseEntryJson(reply);
       const arr = Array.isArray(j?.messages) ? j.messages : [];
+      // 护栏：AI 偶尔会冒用主角名义发帖（主角名在提示词里作上下文）——凡作者=主角名/主角/我 的一律丢弃，主角只由本人操作发言
+      const chPlayerName = (prof.name || '主角').split('|')[0].trim();
+      const isPlayerAuthor = (n: any) => { const s = String(n ?? '').split('|')[0].trim(); return !!s && (s === chPlayerName || s === '主角' || s === '我'); };
       const items = arr
-        .filter((x: any) => x && x.content && enabledKeys.has(x.channel))
+        .filter((x: any) => x && x.content && enabledKeys.has(x.channel) && !isPlayerAuthor(x.author ?? x.authorName))
         .map((x: any) => ({
           channel: x.channel,
           authorName: String(x.author ?? x.authorName ?? '某契约者').split('|')[0].trim(),
@@ -5379,8 +5383,10 @@ ${replyTo.authorName} 之前说：「${String(replyTo.content).slice(0, 200)}」
         ], { timeoutMs: 60000 });
         const j = parseEntryJson(reply);
         const arr = Array.isArray(j?.replies) ? j.replies : (Array.isArray(j?.messages) ? j.messages : []);
+        const pn = (playerName || '主角').split('|')[0].trim();
+        const notPlayer = (n: any) => { const s = String(n ?? '').split('|')[0].trim(); return !(s && (s === pn || s === '主角' || s === '我')); };   // 丢弃 AI 冒用主角名义的回复
         replies = arr
-          .filter((x: any) => x && x.content)
+          .filter((x: any) => x && x.content && notPlayer(x.author ?? x.authorName))
           .map((x: any) => ({ authorName: String(x.author ?? x.authorName ?? '某契约者').split('|')[0].trim(), authorTier: x.tier ?? x.authorTier, authorJob: x.job ?? x.authorJob, authorPersona: x.persona ?? x.authorPersona, authorStrength: x.strength ?? x.authorStrength, content: String(x.content) }));
         // 回复某人时兜底：保证第一条确实是被回复者本人（模型偶尔不遵守）
         if (replyTo && replies.length) replies[0].authorName = replyTo.authorName;
@@ -5855,7 +5861,9 @@ ${lines}`;
       const j = parseEntryJson(content);
       const arr = Array.isArray(j?.quotes) ? j.quotes : [];
       const byPost: Record<string, any[]> = {};
-      for (const q of arr) { const pid = String(q?.postId ?? ''); if (pid && q?.price != null) (byPost[pid] ??= []).push(q); }
+      const qPlayerName = (prof.name || '主角').split('|')[0].trim();
+      const qIsPlayer = (n: any) => { const s = String(n ?? '').split('|')[0].trim(); return !!s && (s === qPlayerName || s === '主角' || s === '我'); };   // 报价方不能是主角本人
+      for (const q of arr) { const pid = String(q?.postId ?? ''); if (pid && q?.price != null && !qIsPlayer(q.fromName)) (byPost[pid] ??= []).push(q); }
       let total = 0;
       const live = useChannel.getState().messages;
       for (const [pid, qs] of Object.entries(byPost)) {
@@ -8525,7 +8533,10 @@ ${lines}`;
 
     const effectiveText = isMpHost ? withConv(buildPartyTurnText(text, mp.turn?.inputs, usePlayer.getState().profile.name || mp.room?.hostName || '房主')) : text;
 
-    if (isMpHost && mp.povMode) {   // 分头三段式：替代普通单正文广播（主控出分头支线大纲→各自渲染→对齐冲突→变量）
+    // 结算任务 = 共享「系统结算回合」：靠正文输出 <世界结算> 才发技能点/属性点，而分头三段式渲染是纯 prose·不出系统指令·大纲里也不含「【结算任务】」关键词(→WORLD_SETTLEMENT_RULE 不注入)→奖励整个漏发。
+    // 这类共享回合绕过三段式，走下面普通房主单正文流程（带结算规则、正常发奖、并广播给全房）。
+    const isSystemSharedTurn = /【结算任务】/.test(effectiveText);
+    if (isMpHost && mp.povMode && !isSystemSharedTurn) {   // 分头三段式：替代普通单正文广播（主控出分头支线大纲→各自渲染→对齐冲突→变量）
       setMessages((prev) => [...prev, { id: ++msgId.current, role: 'user', content: effectiveText }]);
       if (textArg == null) setInputValue('');
       await runPovTurn(text);
