@@ -2756,14 +2756,14 @@ export default function App() {
   }
 
   /* ─── 主角演化独立阶段（自动，含启用和频率检查）─── */
-  async function runPlayerEvolutionPhase(narrative: string) {
+  async function runPlayerEvolutionPhase(narrative: string, force = false) {
     const { settings } = usePlayer.getState();
     if (!settings.enabled) {
       console.log('[Player] 主角演化阶段未启用');
       return;
     }
     const freq = settings.frequency || 1;
-    if (turnCountRef.current % freq !== 0) {
+    if (!force && turnCountRef.current % freq !== 0) {   // force=手动「按楼层更新/重ROLL」→ 无视频率，强制跑
       console.log(`[Player] 回合 ${turnCountRef.current} 不触发（每 ${freq} 回合一次）`);
       return;
     }
@@ -3767,7 +3767,7 @@ ${AFFIX_EFFECT_RULE}`;
   }
 
   /* ─── NPC 演化独立阶段（自动，按策略分支 + 频率检查）─── */
-  async function runNpcEvolutionPhase(narrative: string) {
+  async function runNpcEvolutionPhase(narrative: string, force = false) {
     const { settings } = useNpcEvo.getState();
     if (!settings.enabled) { console.log('[NPC] NPC 演化阶段未启用'); return; }
 
@@ -3785,7 +3785,7 @@ ${AFFIX_EFFECT_RULE}`;
       await runNpcPipelineB(narrative);
     } else {
       const freq = settings.frequency || 1;
-      if (turnCountRef.current % freq !== 0) {
+      if (!force && turnCountRef.current % freq !== 0) {   // force=手动「按楼层更新/重ROLL」→ 无视频率，强制跑
         console.log(`[NPC] 回合 ${turnCountRef.current} 不触发（每 ${freq} 回合一次）`);
         return;
       }
@@ -4325,10 +4325,10 @@ ${AFFIX_EFFECT_RULE}`;
     return lines.join('\n');
   }
 
-  async function runTerritoryEvolutionPhase(narrative: string) {
+  async function runTerritoryEvolutionPhase(narrative: string, force = false) {
     const T = useTerritory.getState();
     if (!T.settings.enabled) return;
-    if (turnCountRef.current % (T.settings.frequency || 1) !== 0) return;
+    if (!force && turnCountRef.current % (T.settings.frequency || 1) !== 0) return;
     const ss = useSettings.getState();
     const legacyApi = T.territoryUseSharedApi
       ? (ss.textUseSharedApi ? ss.api : ss.textApi)
@@ -4482,10 +4482,10 @@ ${AFFIX_EFFECT_RULE}`;
   /* 注入正文的 <万族态势> 块（独立于叙事记忆开关；轮回乐园 + 当前动荡 + 相关 + 不相关采样）*/
   /* 同人增强·下回合注入：把已锁定的虚构角色设定拼成 system 块注入正文，保持口癖/能力一致、防 OOC */
 
-  async function runCosmosEvolutionPhase(narrative: string) {
+  async function runCosmosEvolutionPhase(narrative: string, force = false) {
     const C = useCosmos.getState();
     if (!C.settings.enabled) return;
-    if (turnCountRef.current % (C.settings.frequency || 3) !== 0) return;
+    if (!force && turnCountRef.current % (C.settings.frequency || 3) !== 0) return;
     // 首次运行：按种子模式播种（canon 自动，random/blank 交给 CosmosManager 手动）
     if (!C.seeded && C.settings.seedMode === 'canon') { C.seedFromCanon(); }
     const seededC = useCosmos.getState();
@@ -4614,10 +4614,10 @@ ${AFFIX_EFFECT_RULE}`;
     ].join('\n');
   }
 
-  async function runTeamEvolutionPhase(narrative: string) {
+  async function runTeamEvolutionPhase(narrative: string, force = false) {
     const T = useTeam.getState();
     if (!T.settings.enabled) return;
-    if (turnCountRef.current % (T.settings.frequency || 1) !== 0) return;
+    if (!force && turnCountRef.current % (T.settings.frequency || 1) !== 0) return;
     const ss = useSettings.getState();
     const legacyApi = T.teamUseSharedApi ? (ss.textUseSharedApi ? ss.api : ss.textApi) : T.teamApi;
     const chain = resolveApiChain('team', legacyApi);
@@ -6028,7 +6028,7 @@ ${lines}`;
       applyFactionShortCommands(reply);
     }
   }
-  async function runFactionEvolutionPhase(narrative: string) {
+  async function runFactionEvolutionPhase(narrative: string, force = false) {
     const { settings } = useFactionEvo.getState();
     if (!settings.enabled) return;
     // 用接口路由链判断（中心 API 接口库选了势力路由也算已配置），而不是只看势力自己的单配置
@@ -6037,7 +6037,7 @@ ${lines}`;
     setFactionPhaseLog('势力演化中…');
     try {
       if (settings.strategy === 'B') { await runFactionWorldJudgment(narrative); await runFactionFocusEvolution(narrative); }
-      else { if (turnCountRef.current % (settings.frequency || 1) === 0) await runFactionStrategyA(narrative); }
+      else { if (force || turnCountRef.current % (settings.frequency || 1) === 0) await runFactionStrategyA(narrative); }
       setFactionPhaseLog('✓ 势力演化完成');
     } catch (e: any) { setFactionPhaseLog(`⚠ 势力更新失败：${(e.message ?? '').slice(0, 50)}`); }
     finally { setTimeout(() => setFactionPhaseLog(''), 8000); }
@@ -8290,7 +8290,7 @@ ${lines}`;
   }
   // 「按楼层批量更新」：把某变量的演化在指定「正文楼层」范围内分批重跑（每 N 层一批，逐批顺序调用其演化）。
   // 仅支持吃正文的 8 个阶段（item 走 core；其余 run*EvolutionPhase）；记忆/生图不吃正文不在此列。
-  const BATCH_RUNNERS: Record<string, (n: string) => Promise<void> | void> = {
+  const BATCH_RUNNERS: Record<string, (n: string, force?: boolean) => Promise<void> | void> = {
     item: runItemManagementPhaseCore, player: runPlayerEvolutionPhase, npc: runNpcEvolutionPhase,
     faction: runFactionEvolutionPhase, territory: runTerritoryEvolutionPhase, team: runTeamEvolutionPhase,
     cosmos: runCosmosEvolutionPhase, misc: runMiscEvolutionPhase,
@@ -8325,7 +8325,7 @@ ${lines}`;
         setFloorProg({ fk: cfg.fk, cur: bi + 1, total: batches.length });
         let chunk = floors.slice(lo - 1, hi).join('\n\n');
         if (extra) chunk += `\n\n【本次手动更新·玩家额外要求（请在更新该变量时优先遵循）】：${extra}`;
-        if (chunk.trim()) { try { await runner(chunk); } catch (e) { console.warn('[按楼层更新] 批次失败', e); } }
+        if (chunk.trim()) { try { await runner(chunk, true); } catch (e) { console.warn('[按楼层更新] 批次失败', e); } }
       }
     } finally { setFloorProg(null); }
   }
