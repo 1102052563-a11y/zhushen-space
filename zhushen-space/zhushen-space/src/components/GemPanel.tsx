@@ -8,6 +8,8 @@ import {
   applyGemsToEffect, drillCost, drillRate, synthesizeGem, stabilizerCost,
   type GeneratedGem, type SynthResult,
 } from '../systems/gemEngine';
+import { activeGemSets, gemSetName, setForGem } from '../systems/gemSets';
+import { useEnhance } from '../store/enhanceStore';
 import { CAT_ICON } from './BackpackModal';
 
 /* 宝石商店 + 镶嵌所（从强化所打开）。
@@ -34,6 +36,8 @@ export default function GemPanel({ onClose }: { onClose: () => void }) {
   const removeItem     = useItems((s) => s.removeItem);
   const updateItem     = useItems((s) => s.updateItem);
   const adjustCurrency = useItems((s) => s.adjustCurrency);
+  const dropSettings   = useEnhance((s) => s.settings);
+  const setEnhanceSettings = useEnhance((s) => s.setSettings);
   const isHome = true;   // 区域限制已取消：宝石交易/镶嵌在任何世界均可进行
 
   const [tab, setTab]           = useState<'shop' | 'socket' | 'synth'>('shop');
@@ -48,6 +52,7 @@ export default function GemPanel({ onClose }: { onClose: () => void }) {
 
   const equips  = items.filter((it) => EQUIP_CATS.includes(it.category));
   const bagGems = items.filter((it) => it.category === '宝石');
+  const activeSets = activeGemSets(items.filter((it) => it.equipped));   // 已装备装备上激活的套装（跨装备统计）
   const sel = selId ? items.find((it) => it.id === selId) ?? null : null;
   useEffect(() => { if ((!selId || !equips.some((e) => e.id === selId)) && equips[0]) setSelId(equips[0].id); }, [equips, selId]);
 
@@ -170,6 +175,24 @@ export default function GemPanel({ onClose }: { onClose: () => void }) {
           <TabBtn k="synth" label="🔥 宝石合成" />
         </div>
 
+        {/* 当前套装：已装备装备上集齐的同套装宝石激活阶梯加成（跨装备统计·实时） */}
+        {activeSets.length > 0 && (
+          <div className="shrink-0 px-4 py-2 border-b border-edge bg-god/5 flex flex-wrap gap-x-3 gap-y-1.5">
+            <span className="text-[11px] font-mono text-god/70 self-center">✨ 已激活套装</span>
+            {activeSets.map((s) => (
+              <span key={s.key} className="inline-flex items-center gap-1 text-[11.5px]"
+                title={s.tiers.map((t) => `${t.active ? '✓' : '○'}${t.need}件 · ${t.bonus}`).join('\n')}>
+                <span>{s.emoji}</span>
+                <span className="font-bold text-god/90">{s.name}</span>
+                <span className="font-mono text-amber-300/80">×{s.count}</span>
+                <span className="font-mono text-emerald-300/80">
+                  {s.tiers.filter((t) => t.active).map((t) => `${t.need}件`).join('/') || '—'}
+                </span>
+              </span>
+            ))}
+          </div>
+        )}
+
         {/* ───── 商店 ───── */}
         {tab === 'shop' && (
           <div className="flex-1 flex flex-col min-h-0">
@@ -181,6 +204,21 @@ export default function GemPanel({ onClose }: { onClose: () => void }) {
               <button onClick={() => setShopGems(generateGemShop(shopGrade, 8))}
                 className="px-3 py-1.5 rounded-lg border border-god/40 text-god text-[13px] font-bold hover:bg-god/10">🔄 刷新货架</button>
               <span className="text-[11px] font-mono text-dim/40 ml-auto">{gradeToNum(shopGrade) >= 9 ? '高阶宝石：质变战斗属性' : '基础宝石：面板加成'}</span>
+            </div>
+            {/* 击杀掉落设置：正文里击败敌人，结算时按掉率掉落对应阶位宝石 */}
+            <div className="shrink-0 flex flex-wrap items-center gap-2 px-4 py-2 border-b border-edge text-[12px]">
+              <label className="flex items-center gap-1.5 cursor-pointer">
+                <input type="checkbox" checked={dropSettings.gemDropEnabled !== false}
+                  onChange={(e) => setEnhanceSettings({ gemDropEnabled: e.target.checked })} />
+                <span className="text-slate-200">⚔️ 正文击杀掉落宝石</span>
+              </label>
+              <span className="text-dim/45">单次击杀掉率</span>
+              <input type="number" min={0} max={100} step={1}
+                value={Math.round((dropSettings.gemDropRate ?? 0.16) * 100)}
+                onChange={(e) => setEnhanceSettings({ gemDropRate: Math.max(0, Math.min(1, (Number(e.target.value) || 0) / 100)) })}
+                className="input-base !w-16 !py-1 !px-2 text-[12px] text-center" />
+              <span className="text-dim/45">%</span>
+              <span className="text-[11px] font-mono text-dim/35 ml-auto">品级随主角阶位 · 强敌掉率×3</span>
             </div>
 
             <div className="flex-1 overflow-y-auto onscene-scroll p-3 grid grid-cols-1 sm:grid-cols-2 gap-2.5 content-start">
@@ -197,6 +235,7 @@ export default function GemPanel({ onClose }: { onClose: () => void }) {
                     <div className="flex items-center gap-2 text-[11px] font-mono">
                       <span className={gradeBadgeClass(it.gradeDesc)}>{it.gradeDesc}</span>
                       <span className="text-dim/45">{it.gemSlot === '通用' ? '任意装备' : `仅${it.gemSlot}`}</span>
+                      <span className="text-god/60">套·{gemSetName(it.gemSet ?? setForGem(it.gemAttr))}</span>
                     </div>
                     <div className={`text-[12.5px] leading-snug flex-1 ${high ? 'text-amber-200/90' : 'text-slate-200/90'}`}>{it.effect}</div>
                     <div className="flex items-center justify-between mt-0.5">
@@ -302,7 +341,7 @@ export default function GemPanel({ onClose }: { onClose: () => void }) {
                               <span className={`text-[12.5px] font-bold truncate ${gradeNameClass(gem.gradeDesc)}`}>{gem.name}</span>
                             </div>
                             <div className={`text-[11.5px] leading-snug mt-0.5 ${high ? 'text-amber-200/85' : 'text-slate-200/80'}`}>{gem.effect}</div>
-                            <div className="text-[10.5px] font-mono text-dim/45 mt-0.5">{gem.gemSlot === '通用' ? '任意装备' : `仅${gem.gemSlot}`}{!fits ? ' · ✗部位不符' : ''}</div>
+                            <div className="text-[10.5px] font-mono text-dim/45 mt-0.5">{gem.gemSlot === '通用' ? '任意装备' : `仅${gem.gemSlot}`} · <span className="text-god/55">套·{gemSetName(gem.gemSet ?? setForGem(gem.gemAttr))}</span>{!fits ? ' · ✗部位不符' : ''}</div>
                           </button>
                         );
                       })}

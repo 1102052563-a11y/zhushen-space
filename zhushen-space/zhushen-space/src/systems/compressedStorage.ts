@@ -46,3 +46,25 @@ export const lzLocalStorage: StateStorage = {
 
 /** 供 zustand persist 的 `storage` 用：createJSONStorage 包一层 JSON 序列化。 */
 export const lzStorage = () => createJSONStorage(() => lzLocalStorage);
+
+/** 一次性迁移：把列出的 key 里**旧·未压缩**的值就地重写成压缩值——**立即**释放配额，不用等各 store 下次状态变更才压。
+    对 zustand persist 值(`{state}`) 与事件核心快照都通用（只按 LZ 前缀判压、compressWithMark 与内部格式无关）。
+    ⚠只在有旧值且更小时才写（覆盖同一 key 为更小值即便配额已满也能成功），静默容错，绝不因它中断启动。 */
+export function migrateCompressLegacy(keys: string[]): void {
+  for (const k of keys) {
+    try {
+      const raw = localStorage.getItem(k);
+      if (raw && !isCompressed(raw) && raw.length > 2) {
+        const packed = compressWithMark(raw);
+        if (packed.length < raw.length) localStorage.setItem(k, packed);   // 只在确实变小时替换
+      }
+    } catch { /* 配额/异常都别中断启动 */ }
+  }
+}
+
+/** 仍存 localStorage 的压缩 store 的 key（migrateCompressLegacy 用；新增压缩 store 记得加进来）。
+    注：事件核心 npc-core/items-core/wallet 已搬 IndexedDB（阶段1），其旧 localStorage 值由 preloadEventCores 迁移，故不在此列。 */
+export const COMPRESSED_KEYS = [
+  'drpg-misc', 'drpg-turn-insight',
+  'drpg-npc', 'drpg-faction', 'drpg-characters', 'drpg-fanfic', 'drpg-ledger', 'drpg-tables', 'drpg-channel',
+];

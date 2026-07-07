@@ -10,6 +10,7 @@ import {
 } from '../systems/folderBackup';
 import { buildDiagnosticBundle } from '../systems/diagnostics';
 import { estimateSaveImages, stripSaveImages, fmtBytes, type ImgFootprint } from '../systems/imageCleanup';
+import { pruneOrphanImages } from '../systems/imageSync';   // 清理图片库(drpg-images)里已删角色/物品的孤儿图——回收持久化存储
 import { exportFullNovelTxt } from '../systems/novelExport';
 import { useSettings } from '../store/settingsStore';
 import {
@@ -54,7 +55,7 @@ export default function SaveLoadPanel({ messages, onClose, onCleanupLive }: Prop
   const [cleanOpen, setCleanOpen] = useState(false);
   const [footprint, setFootprint] = useState<ImgFootprint | null>(null);
   const [cleanBusy, setCleanBusy] = useState(false);
-  const [confirmClean, setConfirmClean] = useState<'story' | 'all' | 'live' | null>(null);
+  const [confirmClean, setConfirmClean] = useState<'story' | 'all' | 'live' | 'orphan' | null>(null);
 
   async function toggleClean() {
     const next = !cleanOpen; setCleanOpen(next);
@@ -75,6 +76,18 @@ export default function SaveLoadPanel({ messages, onClose, onCleanupLive }: Prop
     onCleanupLive?.();
     flash(n ? `✓ 已清空当前对话的 ${n} 张正文配图（下次存档不再带这些图）` : '当前对话没有正文配图');
     setConfirmClean(null);
+  }
+  // 清理孤儿图片：删掉图片库里已删/合并 NPC、已消耗物品残留的头像图（长档"配图清完仍占几个 GB"的主因），保留现存角色的图
+  async function doPruneOrphans() {
+    setCleanBusy(true);
+    try {
+      const r = await pruneOrphanImages();
+      void getStorageStatus().then(setPersist);
+      flash(r.removed > 0
+        ? `✓ 已清理 ${r.removed} 张孤儿图片，释放约 ${fmtBytes(r.freed)}（保留 ${r.kept} 张现存角色的图；IndexedDB 删除后浏览器占用统计要关页重开才回落）`
+        : `没有孤儿图片可清（图片库 ${r.kept} 张都属于现存角色/物品）`);
+    } catch (e: any) { flash('❌ 清理失败：' + (e?.message ?? e)); }
+    finally { setCleanBusy(false); setConfirmClean(null); }
   }
 
   async function refresh() {
@@ -358,6 +371,12 @@ export default function SaveLoadPanel({ messages, onClose, onCleanupLive }: Prop
                   className="px-2.5 py-1 border border-blood/50 text-blood rounded hover:bg-blood/10 disabled:opacity-40">连头像/装备一起剥（最省）</button>
                 <button disabled={cleanBusy || !onCleanupLive} onClick={() => setConfirmClean('live')}
                   className="px-2.5 py-1 border border-dim/40 text-dim rounded hover:bg-void/40 disabled:opacity-40">清空当前对话配图</button>
+                <button disabled={cleanBusy} onClick={() => setConfirmClean('orphan')}
+                  className="px-2.5 py-1 border border-god/50 text-god rounded hover:bg-god/10 disabled:opacity-40">清理孤儿图片（回收持久化存储）</button>
+              </div>
+              <div className="text-dim/60 leading-relaxed">
+                「<b className="text-god/70">清理孤儿图片</b>」清的是<b className="text-god/70">图片库</b>（独立 IndexedDB，与存档不同）里
+                <b className="text-god/70">已删/合并掉的 NPC、已消耗物品</b>残留的头像图——这是"配图都清了、持久化存储仍占几个 GB"的主因，只删孤儿、不动现存角色的图。
               </div>
               {confirmClean && (
                 <div className="rounded border border-blood/40 bg-blood/10 px-2.5 py-2 flex flex-wrap items-center gap-2">
@@ -365,8 +384,9 @@ export default function SaveLoadPanel({ messages, onClose, onCleanupLive }: Prop
                     {confirmClean === 'story' && '确认剥离全部存档的正文配图？（保留头像，不可恢复）'}
                     {confirmClean === 'all' && '确认剥离全部存档的所有图片？（含头像/装备，不可恢复）'}
                     {confirmClean === 'live' && '确认清空当前对话的正文配图？（不可恢复）'}
+                    {confirmClean === 'orphan' && '确认清理图片库里的孤儿图？（只删已消失角色/物品的残留图，保留现存角色，不可恢复）'}
                   </span>
-                  <button disabled={cleanBusy} onClick={() => (confirmClean === 'live' ? doStripLive() : doStrip(confirmClean))}
+                  <button disabled={cleanBusy} onClick={() => { if (confirmClean === 'live') doStripLive(); else if (confirmClean === 'orphan') void doPruneOrphans(); else if (confirmClean) void doStrip(confirmClean); }}
                     className="px-2 py-0.5 border border-blood/60 text-blood rounded hover:bg-blood/20 disabled:opacity-40">{cleanBusy ? '处理中…' : '确认'}</button>
                   <button disabled={cleanBusy} onClick={() => setConfirmClean(null)} className="px-2 py-0.5 border border-dim/40 text-dim rounded hover:bg-void/40">取消</button>
                 </div>

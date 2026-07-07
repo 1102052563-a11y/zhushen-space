@@ -354,6 +354,7 @@ interface SettingsState {
   skipNarrativeThinking: boolean;   // 正文末尾预填充 </think>，让思考模型跳过原生思维链直接出正文（提速·省 token）
   plotGuidance: boolean;            // 剧情指导：正文生成前先跑一次"剧情优化建议"调用 → 像叙事回忆一样注入主正文（仅一次正文生成·受指导）
   guidancePrompt: string;           // 剧情指导自定义提示词（留空=用内置 PLOT_GUIDANCE_RULE）
+  preludePrompt: string;            // 玩家常驻「前置提示词」：每回合注入正文最深处(紧贴输入前)，玩家可编辑；留空=不注入
   textAvailableModels: string[];
   textModelsLoading: boolean;
   textModelsError: string;
@@ -385,6 +386,7 @@ interface SettingsState {
   setSkipNarrativeThinking: (v: boolean) => void;
   setPlotGuidance: (v: boolean) => void;
   setGuidancePrompt: (v: string) => void;
+  setPreludePrompt: (v: string) => void;
   fetchTextModels: () => Promise<void>;
   importTextWorldBook: (raw: string, fileName?: string, builtin?: boolean, builtinKey?: string) => { ok: boolean; message: string };
   toggleTextWorldBook: (id: string) => void;
@@ -771,6 +773,7 @@ export const useSettings = create<SettingsState>()(
       skipNarrativeThinking: false,
       plotGuidance: false,
       guidancePrompt: '',
+      preludePrompt: '',
       textAvailableModels: [],
       textModelsLoading: false,
       textModelsError: '',
@@ -945,6 +948,7 @@ export const useSettings = create<SettingsState>()(
       setSkipNarrativeThinking: (v) => set({ skipNarrativeThinking: v }),
       setPlotGuidance: (v) => set({ plotGuidance: v }),
       setGuidancePrompt: (v) => set({ guidancePrompt: v }),
+      setPreludePrompt: (v) => set({ preludePrompt: v }),
 
       fetchTextModels: async () => {
         const s = get();

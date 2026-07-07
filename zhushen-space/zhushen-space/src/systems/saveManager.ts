@@ -12,8 +12,10 @@ import { useResource } from '../store/resourceStore';
 import { useVariables } from '../store/variableStore';
 import { useTables } from '../store/tableStore';
 import { walletReset } from './ledger/walletCore';   // Step 10 货币事件核心（drpg-wallet·自管 localStorage）
-import { itemCoreReset } from './ledger/itemCore';   // Step 10 物品事件核心（drpg-items-core·自管 localStorage）
-import { npcCoreReset } from './ledger/npcCore';   // Step 10 NPC 事件核心（drpg-npc-core·自管 localStorage）
+import { itemCoreReset } from './ledger/itemCore';   // Step 10 物品事件核心（drpg-items-core·现搬 IndexedDB）
+import { npcCoreReset } from './ledger/npcCore';   // Step 10 NPC 事件核心（drpg-npc-core·现搬 IndexedDB）
+import { flagCoresReseed } from './ledger/preloadCores';   // 阶段1：读档/新游戏 reload 前标记事件核心重播
+import { resetEventCoresIdb } from './ledger/coreKv';       // 阶段1：清空事件核心 IDB（clearProgress 用·awaitable）
 import { useNpc } from '../store/npcStore';
 import { useNpcChat } from '../store/npcChatStore';
 import { useNpcEvo } from '../store/npcEvoStore';
@@ -89,9 +91,11 @@ const STORES: { key: string; api: any; clear?: () => void }[] = [
   { key: 'drpg-resource',   api: useResource, clear: () => useResource.getState().clearResources() },   // 自定义能量条（定义+当前值随存档；新游戏清空）
   { key: 'drpg-variables',  api: useVariables, clear: () => useVariables.getState().resetAll() },   // 自定义变量（透明引用）：定义+当前值随存档；新游戏只清零值、保留定义（便于二创导入的变量过新游戏不丢）
   { key: 'drpg-tables',     api: useTables, clear: () => useTables.getState().resetAll() },   // ACU 表格数据库（游戏状态表·主角/背包/NPC…）：进度数据，随存档快照，新游戏重置为默认表
-  { key: 'drpg-wallet',     api: { setState: () => {} }, clear: () => walletReset() },   // Step 10 货币事件核心（事件日志·随存档；自管 localStorage·靠 reload 恢复；非 zustand 故 api 仅占位·不进 ROLLBACK_KEYS）
-  { key: 'drpg-items-core', api: { setState: () => {} }, clear: () => itemCoreReset() },   // Step 10 物品事件核心（同上·自管 localStorage·api 占位）
-  { key: 'drpg-npc-core',   api: { setState: () => {} }, clear: () => npcCoreReset() },   // Step 10 NPC 事件核心（溯源审计·同上·api 占位）
+  // 三事件核心（阶段1 已搬 IndexedDB drpg-core-kv·不再占 localStorage）：snapshotStores 读 localStorage 为空即跳过（不随存档快照），
+  //   读档/新游戏经 flagCoresReseed→preloadEventCores 清 IDB 后从现场 store 重播影子基线；此处仅保留 clear 供 clearProgress 复位。
+  { key: 'drpg-wallet',     api: { setState: () => {} }, clear: () => walletReset() },   // Step 10 货币事件核心（IndexedDB·非 zustand 故 api 占位·不进 ROLLBACK_KEYS）
+  { key: 'drpg-items-core', api: { setState: () => {} }, clear: () => itemCoreReset() },   // Step 10 物品事件核心（IndexedDB·api 占位）
+  { key: 'drpg-npc-core',   api: { setState: () => {} }, clear: () => npcCoreReset() },   // Step 10 NPC 事件核心（溯源审计·IndexedDB·api 占位）
   // 全局交易行·本机托管（tradeClient 自管 localStorage）：挂牌托管物 / 出价托管币 —— 随存档快照 + 新游戏/读档缺失即清，
   //   杜绝"交易行的托管物/币跨存档泄漏进当前背包"。成交去重键 drpg-trade-applied 刻意**不**纳入（保持全局·防跨档重复交付）。
   { key: 'drpg-trade-escrow',      api: { setState: () => {} }, clear: () => { try { localStorage.removeItem('drpg-trade-escrow'); } catch { /* */ } } },
@@ -400,6 +404,7 @@ export async function loadSlot(id: string): Promise<boolean> {
   //   这正是「⟳重新生成 不回退乐园币/物品数量、每 roll 一次奖励重复入账」的根因（live store 盖 localStorage）。
   //   放最后 = 写回与 reload 之间零 async 窗口，杜绝被盖。
   restoreStores();
+  flagCoresReseed();   // 阶段1：reload 后清空事件核心 IDB、从恢复后的 store 重播影子基线（避读档/回退后旧核心 vs 新 store 假漂移·race-free）
   setResumeFlag(PENDING_STARTED_KEY);   // localStorage+TTL：跨 reload 稳定存活（手机/PWA 下 sessionStorage 会丢→读档弹回主界面）
   location.reload();
   return true;
@@ -414,7 +419,7 @@ export async function extractPlayerFromSlot(
   id: string,
 ): Promise<{ counts: { skills: number; traits: number; subProfessions: number; titles: number }; added: string[]; treeApplied: boolean } | null> {
   const slot = await saveDb.get<SaveSlot>(id);
-  const raw = slot?.data?.stores?.['drpg-characters'];
+  const raw = decompressMaybe(slot?.data?.stores?.['drpg-characters']);   // drpg-characters 现为 lz 压缩存
   if (!raw) return null;
   let savedB1: any = null;
   try { savedB1 = JSON.parse(raw)?.state?.characters?.B1; } catch { return null; }
@@ -594,6 +599,7 @@ export async function clearProgress(): Promise<void> {
   try { clearJoySessions(); } catch (e) { logWarn('clearProgress:joy', e); }      // 欢愉宫情欲值/私密/聊天（独立 store，不入快照；保留名册/预设/API）
   try { useDbAdvance.getState().clearRuntime(); } catch (e) { logWarn('clearProgress:dbadvance', e); }   // 数据库推进桌面态现已持久化：新游戏须清运行态（保留预设/开关），否则新档带着上一局的表
   try { await clearAllImg(); } catch (e) { logWarn('clearProgress:images', e); }  // IndexedDB 头像/装备图
+  try { await resetEventCoresIdb(); } catch (e) { logWarn('clearProgress:cores', e); }   // 阶段1：清空事件核心 IDB（NPC/物品/货币影子账本·搬去 IndexedDB 后）
   // 注：不在此清向量库（drpg-factvec）——它是全局内容寻址缓存，清了会误伤其它存档的向量索引；
   // 残留向量不会污染任何档（召回只在当前档事实池内 cosine）。想回收空间用设置→向量记忆的「清空向量库」按钮。
   await replaceChat([]);           // 对话历史
@@ -613,6 +619,7 @@ export async function clearProgress(): Promise<void> {
 
 export async function newGame(): Promise<void> {
   await clearProgress();
+  flagCoresReseed();   // 阶段1：即便上面 coreKvDel 未落定，reload 后 preloadEventCores 也会再清一次事件核心
   // reload 后回到 StartScreen（不写 PENDING_STARTED），玩家点「开始游戏」进入空白局
   location.reload();
 }

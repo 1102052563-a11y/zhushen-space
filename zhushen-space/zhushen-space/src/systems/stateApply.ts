@@ -232,7 +232,7 @@ function applyOneUpdate(u: StateUpdate) {
     const itemStore = useItems.getState();
     const cur = itemStore.currency[type];
     const next = op === '+=' ? cur + value : op === '-=' ? cur - value : value;
-    itemStore.adjustCurrency(type, next - cur, ccRsn);
+    itemStore.adjustCurrency(type, next - cur, ccRsn, true);   // silent：正文<state>驱动，AI 自知，不生成场外通报
     return;
   }
   // 简写：直接用货币名作为 key（乐园币 += 100 / 技能点 += 5 / 黄金技能点 += 1）
@@ -241,7 +241,7 @@ function applyOneUpdate(u: StateUpdate) {
     const itemStore = useItems.getState();
     const cur = itemStore.currency[ck];
     const next = op === '+=' ? cur + value : op === '-=' ? cur - value : value;
-    itemStore.adjustCurrency(ck, next - cur, ccRsn);
+    itemStore.adjustCurrency(ck, next - cur, ccRsn, true);   // silent：正文<state>驱动，不生成场外通报
     return;
   }
 
@@ -410,7 +410,7 @@ export function applyStateUpdates(raw: string) {
         const I = useItems.getState();
         const cur = I.currency[type] ?? 0;
         const next = sm[2] === '+=' ? cur + n : sm[2] === '-=' ? cur - n : n;
-        I.adjustCurrency(type, next - cur, '世界结算发放');
+        I.adjustCurrency(type, next - cur, '世界结算发放', true);   // silent：世界结算(正文驱动)，AI 自知，不生成场外通报
         console.log(`[${type}] ${sm[2]} ${n} → ${next}`);
       } catch { /* */ }
     }

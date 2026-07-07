@@ -4,6 +4,7 @@ import type { ApiConfig } from './settingsStore';
 import { useSettings } from './settingsStore';
 import { normalizeEquipSlot } from '../systems/equipSlots';
 import { walletAdjust, walletSet } from '../systems/ledger/walletCore';   // Step 10 事件核心·货币影子记账
+import { noteCurrencyChange } from '../systems/allocNotice';   // 场外货币变动 → 正文一次性通报（防"花到5000正文却记10000"OOC）
 import { itemCreate, itemConsume, commitItems } from '../systems/ledger/itemCore';   // Step 10 事件核心·物品影子记账 + facade 规范化闸门
 
 export type ItemCategory =
@@ -276,6 +277,7 @@ export interface SocketedGem {
   attr: string;      // 属性类型（力量/锋利度/破甲/灵魂伤害…）
   statText: string;  // 加成文本：低阶面板"力量+8" / 高阶"无视12%防御"——并入装备属性计算与展示
   high: boolean;     // 高阶宝石（传说级+，提供高阶战斗属性；展示更华丽）
+  set?: string;      // 所属套装 key（gemSets.GEM_SETS）——跨已装备装备集齐同套装宝石激活套装加成
 }
 
 export interface InventoryItem {
@@ -313,6 +315,7 @@ export interface InventoryItem {
   // ── 宝石物品专属（category==='宝石' 时）──
   gemSlot?: GemSlotKind;  // 该宝石可镶嵌的部位
   gemAttr?: string;       // 该宝石的属性类型
+  gemSet?: string;        // 该宝石所属套装 key（gemSets.GEM_SETS）——集齐同套装宝石激活套装加成
   image?: string;         // 物品图片（上传的自定义图片 dataURL / 未来生图位）
   numeric?: Record<string, unknown>;  // 原始数值结构（rarityTier/grade/statLines…）；多由 NPC 物品转入时带过来，保留以便round-trip
   addedAt: number;
@@ -374,7 +377,7 @@ interface ItemState {
   dedupeByName: () => number;   // 合并背包内同名重复物品（防 AI 重复 createItem），返回合并掉的数量
   clearAll: () => void;
 
-  adjustCurrency: (type: keyof CurrencyWallet, delta: number, reason?: string) => void;   // reason=增减缘由（进货币流水·walletLedger 展示）
+  adjustCurrency: (type: keyof CurrencyWallet, delta: number, reason?: string, silent?: boolean) => void;   // reason=增减缘由（进货币流水·walletLedger 展示）；silent=true 时不生成场外通报（正文<state>/世界结算驱动·AI 自知）
   setCurrency: (wallet: Partial<CurrencyWallet>) => void;
 
   setSettings: (patch: Partial<Omit<ItemPresetSettings, 'entries'>>) => void;
@@ -625,9 +628,11 @@ export const useItems = create<ItemState>()(
 
       clearAll: () => set({ items: [], currency: { 乐园币: 0, 灵魂钱币: 0, 技能点: 0, 黄金技能点: 0 }, recentlyDeleted: [], itemTurn: 0 }),
 
-      adjustCurrency: (type, delta, reason) => {
+      adjustCurrency: (type, delta, reason, silent) => {
         try { walletAdjust(String(type), delta, reason ? { reason } : undefined); } catch { /* 影子记账失败绝不阻断主流程 */ }
         set((s) => ({ currency: { ...s.currency, [type]: Math.max(0, s.currency[type] + delta) } }));
+        // 场外货币变动 → 一次性通报（下回合正文的 <前置须知> 播报当前余额，防 OOC）；正文<state>/世界结算传 silent 跳过（AI 自知）
+        if (!silent) { try { noteCurrencyChange(String(type), delta, reason); } catch { /* 通报失败绝不阻断 */ } }
       },
 
       setCurrency: (wallet) => {

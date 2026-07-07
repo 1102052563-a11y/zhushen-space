@@ -367,6 +367,40 @@ export function aggregatePassives(list: SkillLike[]): PassiveMod {
   }
   return agg;
 }
+
+/** 合并两组被动修正（暴击/暴伤/增减伤/冷却/多段取和·穿透取最大·全程夹合法区间）。 */
+export function mergePassive(a?: PassiveMod, b?: PassiveMod): PassiveMod {
+  const p: PassiveMod = { ...(a ?? {}) };
+  if (!b) return p;
+  if (b.critChance) p.critChance = clamp((p.critChance ?? 0) + b.critChance, 0, 1);
+  if (b.critMult) p.critMult = clamp((p.critMult ?? 0) + b.critMult, 0, 10);
+  if (b.dmgDealtPct) p.dmgDealtPct = clamp((p.dmgDealtPct ?? 0) + b.dmgDealtPct, -0.9, 5);
+  if (b.dmgTakenPct) p.dmgTakenPct = clamp((p.dmgTakenPct ?? 0) + b.dmgTakenPct, -0.9, 5);
+  if (b.pierce) p.pierce = clamp(Math.max(p.pierce ?? 0, b.pierce), 0, 1);
+  if (b.cdr) p.cdr = clamp((p.cdr ?? 0) + b.cdr, 0, 9);
+  if (b.extraHits) p.extraHits = clamp((p.extraHits ?? 0) + b.extraHits, 0, 9);
+  return p;
+}
+
+/** 从**已装备装备**的词缀/效果/攻防文本解析常驻战斗被动（含镶嵌宝石写进 effect 的【镶嵌加成】）。
+ *  技能/天赋走 aggregatePassives；装备与宝石的高阶战斗属性（暴击/暴伤/破甲穿透无视防御/减伤）此前从不参与
+ *  标签战斗结算 → "宝石效果不生效" 的根因。此函数把它们抽成 PassiveMod，与技能被动合并后即机械生效。
+ *  只认能映射进标签 VM 的四类（暴击率/暴击伤害/穿透/减伤）；元素附魔·真伤等定值加成仍为叙述类，供正文/AI 读取。 */
+export function equipmentPassive(items: { effect?: string; affix?: string; combatStat?: string }[]): PassiveMod {
+  const text = (items ?? [])
+    .map((it) => [it.effect, it.affix, it.combatStat].filter(Boolean).join(' '))
+    .join(' ');
+  if (!text.trim()) return {};
+  const sumPct = (re: RegExp): number => { let m: RegExpExecArray | null, s = 0; const r = new RegExp(re.source, 'gi'); while ((m = r.exec(text)) !== null) s += Number(m[1]) / 100; return s; };
+  const maxPct = (re: RegExp): number => { let m: RegExpExecArray | null, s = 0; const r = new RegExp(re.source, 'gi'); while ((m = r.exec(text)) !== null) s = Math.max(s, Number(m[1]) / 100); return s; };
+  const p: PassiveMod = {};
+  const cc = sumPct(/暴击(?:率|几率)\s*[+＋]?\s*(\d+(?:\.\d+)?)\s*%/);            if (cc) p.critChance = clamp(cc, 0, 1);
+  const cm = sumPct(/暴击伤害\s*[+＋]?\s*(\d+(?:\.\d+)?)\s*%/);                    if (cm) p.critMult = clamp(cm, 0, 10);
+  const pi = maxPct(/(?:无视|穿透|破甲)[^%\d]{0,4}?(\d+(?:\.\d+)?)\s*%/);          if (pi) p.pierce = clamp(pi, 0, 1);
+  const dr = sumPct(/(?:伤害减免|减免伤害|受到?伤害[^%\d]{0,4}?减[免少]|减伤)\s*(\d+(?:\.\d+)?)\s*%/); if (dr) p.dmgTakenPct = -clamp(dr, 0, 0.9);
+  return p;
+}
+
 /** 聚合某角色全部技能+天赋的触发器。 */
 export function aggregateTriggers(list: SkillLike[]): CombatTrigger[] {
   const out: CombatTrigger[] = [];

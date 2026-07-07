@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
+import { lzStorage } from '../systems/compressedStorage';   // lz 压缩：NPC 档案占 localStorage 大头
 import { useCharacters, type Deed } from './characterStore';
 import type { PlayerAttrs, StatusEffect } from './playerStore';
 import { normalizeTier, realmFromLevel, lvFromRealm } from '../systems/derivedStats';
@@ -958,6 +959,7 @@ export const useNpc = create<NpcState>()(
     }),
     {
       name: 'drpg-npc',
+      storage: lzStorage(),   // lz 压缩：数十 NPC 档案 400KB+
       // NPC 头像(avatar)与持有物图(items[].image)体积大，不写 localStorage（改存 IndexedDB）
       partialize: (s: any) => ({
         ...s,

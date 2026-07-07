@@ -9,6 +9,7 @@
    设计文档：`指导/ACU星数据库-移植-设计.md` §6 Step 2。 */
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
+import { lzStorage } from '../systems/compressedStorage';   // lz 压缩：ACU 表数据库
 import { buildDefaultTables, type AcuSheet, type AcuTableData } from '../systems/acuTableSpec';
 
 /** 一行数据解析成 { 列名: 值, row_id }。 */
@@ -242,6 +243,7 @@ export const useTables = create<TableState>()(
     {
       name: 'drpg-tables',
       version: 8,
+      storage: lzStorage(),   // lz 压缩
       /* 结构演进（…v5→v6 加 NPC明细表 + 重要角色表补标量；v6→v7 重要角色表加真实六维列·六维改回基础值；
          v7→v8 加 3 张剧情记忆表：进程/伏笔/约定表·AI 维护·非镜像）。
          `evolveTables` 幂等：以最新 buildDefaultTables() 为准，按**列名**把旧行重映射进新表头 →

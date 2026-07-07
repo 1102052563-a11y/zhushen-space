@@ -5,6 +5,8 @@
    下一期翻成 walletCore 权威（itemStore.currency 变投影）。持久化 drpg-wallet（随存档由 saveManager 快照）。 */
 import { createEventCore, type PendingEvent, type CommitResult } from './eventCore';
 import { useMisc } from '../../store/miscStore';
+import { compressWithMark, decompressMaybe } from '../compressedStorage';   // lz 压缩：与物品/NPC 核心同源
+import { coreKvGet, coreKvPut, coreKvDel } from './coreKv';   // 阶段1：持久化搬去 IndexedDB（不再占 localStorage）
 
 export type WalletBalances = Record<string, number>;
 interface WalletState { balances: WalletBalances; }
@@ -36,10 +38,17 @@ const core = createEventCore<WalletState, WalletOp, WalletPayload>({
 });
 
 let _hydrated = false;
-function persist() { try { localStorage.setItem(KEY, JSON.stringify(core.snapshot())); } catch { /* */ } }
-function hydrate() {
-  if (_hydrated) return; _hydrated = true;
-  try { const raw = localStorage.getItem(KEY); if (raw) core.restore(JSON.parse(raw)); } catch { /* */ }
+function persist() { void coreKvPut(KEY, compressWithMark(JSON.stringify(core.snapshot()))); }   // IDB 异步落库（fire-and-forget）
+function hydrate() { /* no-op：核心载入已由 preloadWalletCore 在启动时完成（IDB 异步·无法同步 hydrate）；保留仅为兼容旧调用点 */ }
+/** 启动时从 IndexedDB 载入（+一次性迁旧 localStorage 值进 IDB 并清掉·释放配额）。App.tsx 启动 await。 */
+export async function preloadWalletCore(): Promise<void> {
+  if (_hydrated) return; _hydrated = true;   // 幂等：启动只从 IDB 载一次
+  try {
+    let raw = await coreKvGet(KEY);
+    if (raw == null) { const legacy = decompressMaybe(localStorage.getItem(KEY)); if (legacy) { raw = compressWithMark(legacy); await coreKvPut(KEY, raw); } }
+    try { localStorage.removeItem(KEY); } catch { /* */ }
+    if (raw) { const plain = decompressMaybe(raw); if (plain) core.restore(JSON.parse(plain)); }
+  } catch { /* 载入失败→核心空·seedWalletIfEmpty 会从现场重播基线 */ }
 }
 const curTurn = () => { try { return (useMisc.getState() as any).turnCount ?? 0; } catch { return 0; } };
 
@@ -91,14 +100,15 @@ export function walletLedger(type = '乐园币', limit = 300): WalletTxn[] {
   }
   return txns.slice(-limit).reverse();   // 最新在前
 }
-export function walletReset(): void { core.reset(); _hydrated = true; persist(); }
+export function walletReset(): void { core.reset(); void coreKvDel(KEY); try { localStorage.removeItem(KEY); } catch { /* */ } }
 export function walletSnapshot() { hydrate(); return core.snapshot(); }
-export function walletRestore(s: Parameters<typeof core.restore>[0]): void { core.restore(s); _hydrated = true; }
+export function walletRestore(s: Parameters<typeof core.restore>[0]): void { core.restore(s); }
 
 /** 核对事件核心 vs itemStore.currency（live），返回漂移项——抓"绕过货币闸门 / 双计"。 */
 export function reconcileWallet(live: WalletBalances): { key: string; core: number; live: number }[] {
   hydrate();
   const b = core.getState().balances;
+  if (Object.keys(b).length === 0) return [];   // 核心未播种（新档/读档重播前）→ 无基线可对，跳过防误报（照 reconcileItems 口径；seedWalletIfEmpty 每回合会补）
   const drift: { key: string; core: number; live: number }[] = [];
   for (const k of new Set([...Object.keys(b), ...Object.keys(live ?? {})])) {
     const cv = b[k] ?? 0, lv = (live ?? {})[k] ?? 0;

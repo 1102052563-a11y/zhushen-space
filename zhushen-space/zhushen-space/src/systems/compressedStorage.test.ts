@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { compressWithMark, decompressMaybe, isCompressed, lzLocalStorage } from './compressedStorage';
+import { compressWithMark, decompressMaybe, isCompressed, lzLocalStorage, migrateCompressLegacy } from './compressedStorage';
 
 describe('compressedStorage · drpg-misc 压缩存（治长期事实撑爆 localStorage 配额）', () => {
   it('compress → decompress 往返一致（含大量中文事实）', () => {
@@ -30,5 +30,32 @@ describe('compressedStorage · drpg-misc 压缩存（治长期事实撑爆 local
     localStorage.setItem('drpg-misc-legacy', '{"a":1}');   // 直接写未压缩
     expect(lzLocalStorage.getItem('drpg-misc-legacy')).toBe('{"a":1}');
     localStorage.removeItem('drpg-misc-legacy');
+  });
+
+  describe('migrateCompressLegacy（启动即把旧·未压缩大值就地压缩·立即释放配额）', () => {
+    it('未压缩的大值 → 就地重写为压缩（且解压还原一致）', () => {
+      const big = JSON.stringify({ state: { npcs: Array.from({ length: 500 }, (_, i) => ({ id: `C${i}`, name: `契约者${i}`, bio: '在轮回历第若干回合与主角结盟，历经数个任务世界。' })) } });
+      localStorage.setItem('drpg-npc', big);
+      expect(isCompressed(localStorage.getItem('drpg-npc'))).toBe(false);
+      migrateCompressLegacy(['drpg-npc']);
+      const now = localStorage.getItem('drpg-npc');
+      expect(isCompressed(now)).toBe(true);          // 已就地压缩
+      expect(decompressMaybe(now)).toBe(big);         // 无损
+      localStorage.removeItem('drpg-npc');
+    });
+
+    it('已压缩的值 → 原样不动（幂等·不重复压）', () => {
+      const packed = compressWithMark('{"state":{"x":1}}');
+      localStorage.setItem('drpg-faction', packed);
+      migrateCompressLegacy(['drpg-faction']);
+      expect(localStorage.getItem('drpg-faction')).toBe(packed);   // 未变
+      localStorage.removeItem('drpg-faction');
+    });
+
+    it('缺失的 key → 静默跳过（不抛、不建空键）', () => {
+      localStorage.removeItem('drpg-nope');
+      expect(() => migrateCompressLegacy(['drpg-nope'])).not.toThrow();
+      expect(localStorage.getItem('drpg-nope')).toBeNull();
+    });
   });
 });

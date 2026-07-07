@@ -81,6 +81,29 @@ export async function hydrateImages(): Promise<void> {
   syncNow();
 }
 
+/** 现存实体的图片 key 全集（**只要实体存在就算 live**，不管这次 store 有没有回填到 avatar 字段）。
+    孤儿判定/清理都用它：比 collect()(仅含"当前有图的") 更保守，绝不误删"NPC 还在、只是这次没回填到头像"的角色的图。
+    key 规则须与 imageSync.collect / imageDb 一致：player / npc:<id> / item:<id> / npcitem:<owner>:<itemId>。 */
+export function liveEntityImageKeys(): Set<string> {
+  const s = new Set<string>(['player']);   // 主角恒存在
+  for (const r of Object.values(useNpc.getState().npcs)) {
+    if (!r?.id) continue;
+    s.add('npc:' + r.id);
+    for (const it of r.items ?? []) if ((it as any)?.id) s.add('npcitem:' + r.id + ':' + (it as any).id);
+  }
+  for (const it of useItems.getState().items) if (it?.id) s.add('item:' + it.id);
+  return s;
+}
+
+/** 清理孤儿图片：删掉 IndexedDB(drpg-images) 里已不属于任何现存 主角/NPC/物品 的残留图。
+    根因：dead/合并掉的 NPC、消耗掉的物品，其头像/图在 syncNow 的跨会话追踪里漏删，长档(上千回合)累积成 GB 级占用。
+    ⚠防呆：当前既无 NPC 也无物品（store 未加载完 / 新档重置中）→ 直接跳过，绝不在"看起来空"时清库。 */
+export async function pruneOrphanImages(): Promise<{ removed: number; freed: number; kept: number }> {
+  const npcs = useNpc.getState().npcs, items = useItems.getState().items;
+  if (Object.keys(npcs).length === 0 && items.length === 0) return { removed: 0, freed: 0, kept: 0 };   // 未就绪 → 别误删（宁可不清）
+  return imageDb.pruneImagesExcept(liveEntityImageKeys());
+}
+
 /** 订阅各 store 变化，自动镜像图片到 IndexedDB（防抖）*/
 export function initImageSync(): void {
   usePlayer.subscribe(scheduleSync);

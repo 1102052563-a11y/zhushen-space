@@ -9,6 +9,7 @@ import { useResource } from '../store/resourceStore';
 import { playerResourceMax, refillAllVitals } from '../systems/playerVitals';
 import { useCharacters } from '../store/characterStore';
 import { computeAttrBreakdown, withAttrDelta, ATTR_LABEL, ATTR_KEYS, type AttrBreak } from '../systems/attrBonus';
+import { activeGemSets, gemSetEquipEntry } from '../systems/gemSets';
 import { playerTreeAttrBonus } from '../store/skillTreeStore';
 import { playerTeamAttrBonus, playerTeamPerkAbilities } from '../store/adventureTeamStore';
 import { bioInnate, bioPower, bioStrengthLabel, nominalTierNum } from '../systems/bioStrength';
@@ -208,9 +209,13 @@ export default function PlayerSidebar({ onClose }: { onClose?: () => void }) {
   // 属性构成：原始 + 技能树 + 装备/技能/天赋 的属性加成（真实加载，不只是摆设）
   // 技能树六维折进 base（与战斗/骰子一致），资质档 bioInnate 仍用原始 profile.attrs
   const capB = attrCapForTier(profile.tier, profile.level);
-  const breakdown = computeAttrBreakdown(withAttrDelta(withAttrDelta(profile.attrs, playerTreeAttrBonus()), playerTeamAttrBonus()), b1?.skills ?? [], b1?.traits ?? [], equippedFull, capB);   // 基础有效六维(不含真实属性点直加)·夹本阶上限·供属性栏展示
+  // 宝石套装六维加成 → 合成"装备条目"并入"装备"来源列（与战斗 buildCombatant 同口径）；同时供套装面板展示
+  const gemSets = activeGemSets(equippedFull);
+  const setEntry = gemSetEquipEntry(equippedFull);
+  const equipForAttr = setEntry ? [...equippedFull, setEntry as any] : equippedFull;
+  const breakdown = computeAttrBreakdown(withAttrDelta(withAttrDelta(profile.attrs, playerTreeAttrBonus()), playerTeamAttrBonus()), b1?.skills ?? [], b1?.traits ?? [], equipForAttr, capB);   // 基础有效六维(不含真实属性点直加)·夹本阶上限·供属性栏展示
   // 衍生/战力按「有效六维 + 真实属性点直加(realAttrs)」算，与战斗 buildCombatant 同口径（直加并入再夹本阶上限）
-  const breakdownReal = computeAttrBreakdown(withAttrDelta(withAttrDelta(withAttrDelta(profile.attrs, playerTreeAttrBonus()), playerTeamAttrBonus()), profile.realAttrs), b1?.skills ?? [], b1?.traits ?? [], equippedFull, capB);
+  const breakdownReal = computeAttrBreakdown(withAttrDelta(withAttrDelta(withAttrDelta(profile.attrs, playerTreeAttrBonus()), playerTeamAttrBonus()), profile.realAttrs), b1?.skills ?? [], b1?.traits ?? [], equipForAttr, capB);
   const effAttrs = { str: breakdownReal.str.total, agi: breakdownReal.agi.total, con: breakdownReal.con.total, int: breakdownReal.int.total, cha: breakdownReal.cha.total, luck: breakdownReal.luck.total } as PlayerAttrs;
   const derived = computeDerived(effAttrs, profile.level, equipped);   // 衍生属性按"有效六维(含真实属性点直加)"算（不含战斗内四阶×5）
   const derivedNoEq = computeDerived(effAttrs, profile.level, []);     // 仅六维+等级部分（拆出装备贡献）
@@ -392,6 +397,28 @@ export default function PlayerSidebar({ onClose }: { onClose?: () => void }) {
               );
             })}
           </div>
+          {/* 宝石套装：集齐已装备装备上的同套装宝石激活阶梯加成（六维已并入上方"装备"来源列，战斗被动进战斗结算） */}
+          {gemSets.length > 0 && (
+            <div className="mt-2 space-y-1">
+              {gemSets.map((s) => (
+                <div key={s.key} className="rounded-lg border border-god/25 bg-god/5 px-2 py-1">
+                  <div className="flex items-center gap-1.5 text-[12px]">
+                    <span>{s.emoji}</span>
+                    <span className="font-bold text-god/90">{s.name}</span>
+                    <span className="font-mono text-[11px] text-amber-300/80">×{s.count}</span>
+                  </div>
+                  <div className="mt-0.5 flex flex-wrap gap-x-2 gap-y-0.5">
+                    {s.tiers.map((t) => (
+                      <span key={t.need} className={`text-[10.5px] font-mono ${t.active ? 'text-emerald-300/90' : 'text-dim/35'}`}
+                        title={t.active ? '已激活' : `再镶嵌 ${t.need - s.count} 件同套装宝石激活`}>
+                        {t.active ? '✓' : '○'}{t.need}件·{t.bonus}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
           {/* 加点确认条：暂存待加点后出现，确认才结算（扣点+加属性+里程碑四选一） */}
           {(stagedAp > 0 || stagedRap > 0) && (
             <div className="mt-2 flex items-center gap-1.5 rounded-lg border border-god/40 bg-god/5 px-2 py-1.5">

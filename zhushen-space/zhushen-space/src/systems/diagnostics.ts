@@ -1,4 +1,7 @@
 import { saveDb } from './saveDb';
+import { decompressMaybe } from './compressedStorage';   // drpg-characters 现为 lz 压缩存，读原始 localStorage 需先解压
+import { imageDbStats } from './imageDb';                 // 图片库(drpg-images)体积/孤儿统计——查"清完存档图仍占 GB"
+import { liveEntityImageKeys } from './imageSync';        // 现存实体的图片 key 全集（判孤儿基线·实体存在即 live）
 import { useCharacters } from '../store/characterStore';
 import { useSettings } from '../store/settingsStore';
 import { useItems, getItemLog } from '../store/itemStore';
@@ -85,10 +88,28 @@ export async function buildDiagnosticBundle(): Promise<string> {
     }
   } catch (e: any) { L.push(`\n## 存储持久化：检测失败 — ${e?.message || e}`); }
 
+  // ── 图片库(drpg-images)明细 ── 直接回答「配图都清了，持久化存储为什么还占几个 GB」──
+  //    存档瘦身只剥"存档里"的图；图片库是独立 IndexedDB，攒的是各 NPC/物品/主角的头像与图。
+  //    已删/合并掉的 NPC、消耗掉的物品会残留"孤儿图"，长档(上千回合)累积到 GB 级——这里点名它。
+  try {
+    const st = await imageDbStats(liveEntityImageKeys());
+    const mb = (b: number) => (b / 1048576).toFixed(0);
+    const pref = Object.entries(st.byPrefix).sort((a, b) => b[1] - a[1]).map(([p, n]) => `${p}×${n}`).join('、') || '无';
+    L.push('\n## 图片库（drpg-images，独立于存档的 IndexedDB）');
+    L.push(`  共 ${st.count} 张，约 ${mb(st.estBytes)} MB（估算·按类：${pref}）`);
+    if (st.orphan > 0) {
+      L.push(`  ⚠ 其中 ${st.orphan} 张 = **孤儿图**（已删/合并的 NPC、已消耗的物品残留），约 ${mb(st.estOrphanBytes)} MB`);
+      L.push('  → 这正是「配图清完了持久化存储仍占几个 GB」的主因。存档面板「🧹 清理图片」→「清理孤儿图片」一键回收（不动现存角色的图）。');
+      L.push('  （IndexedDB 删除后，浏览器「已用空间」统计要关页重开才回落，属正常。）');
+    } else {
+      L.push('  ✓ 无孤儿图（图片库已干净）。若持久化存储仍偏大，多为存档本身体积（见下方存档槽）+ 浏览器未即时回收已删空间。');
+    }
+  } catch (e: any) { L.push(`\n## 图片库：统计失败 — ${e?.message || e}`); }
+
   // ── 主角：内存 vs 本地存储 ──
   L.push('\n## 主角角色  （内存 = 界面现在看到的；本地 = 刷新/读档后会加载的）');
   const memChars = (() => { try { return useCharacters.getState().characters || {}; } catch { return {}; } })();
-  const lsChars = charsFromRaw(localStorage.getItem('drpg-characters'));
+  const lsChars = charsFromRaw(decompressMaybe(localStorage.getItem('drpg-characters')));
   const ids = Array.from(new Set([...Object.keys(memChars), ...Object.keys(lsChars)])).sort();
   if (ids.length === 0) {
     L.push('  ⚠ characterStore 为空（内存和本地都没有任何角色）');
@@ -112,7 +133,7 @@ export async function buildDiagnosticBundle(): Promise<string> {
     L.push(`\n## 存档槽（${slots.length} 个，按时间倒序）`);
     if (slots.length === 0) L.push('  （无存档）');
     for (const s of slots) {
-      const b1 = charsFromRaw(s.data?.stores?.['drpg-characters'])['B1'];
+      const b1 = charsFromRaw(decompressMaybe(s.data?.stores?.['drpg-characters']))['B1'];
       const sizeMB = (JSON.stringify(s).length / 1024 / 1024).toFixed(2);
       const imgN = s.data?.images ? Object.keys(s.data.images).length : 0;
       L.push(`  ${s.id}`);

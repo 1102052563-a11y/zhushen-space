@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
+import { lzStorage } from '../systems/compressedStorage';   // lz 压缩
 import type { Deed } from './characterStore';
 
 /* 判断「状态」是否表示该势力【真的覆灭/解散】。
@@ -167,6 +168,7 @@ export const useFaction = create<FactionState>()(
     }),
     {
       name: 'drpg-faction',
+      storage: lzStorage(),   // lz 压缩
       // 一次性纠偏：历史上因状态文案含"覆灭/解散"被误标 isDestroyed 的势力，若状态并非真覆灭则恢复。
       merge: (persisted: any, current: any) => ({
         ...current,

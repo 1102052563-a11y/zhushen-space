@@ -11,6 +11,7 @@
  */
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
+import { lzStorage } from '../compressedStorage';   // lz 压缩：演化审计日志随回合增长
 
 export type LedgerEntity = 'item' | 'npc' | 'char' | 'faction' | 'territory' | 'team' | 'misc';
 export type LedgerOutcome = 'applied' | 'dup' | 'fail' | 'error';
@@ -60,6 +61,6 @@ export const useLedger = create<LedgerState>()(
       purge: (fn) => set((s) => ({ events: s.events.filter((e) => !fn(e)) })),
       clear: () => set({ events: [], seq: 0 }),
     }),
-    { name: 'drpg-ledger' },
+    { name: 'drpg-ledger', storage: lzStorage() },
   ),
 );

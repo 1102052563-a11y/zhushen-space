@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
+import { lzStorage } from '../systems/compressedStorage';   // lz 压缩
 
 /* 同人增强：已锁定的虚构作品角色设定（按角色名累积，逐回合更新，注入下回合正文保持一致）*/
 export interface FanficEntry {
@@ -52,6 +53,6 @@ export const useFanfic = create<FanficState>()(
         }),
       clearAll: () => set({ entries: {} }),
     }),
-    { name: 'drpg-fanfic' },
+    { name: 'drpg-fanfic', storage: lzStorage() },
   ),
 );

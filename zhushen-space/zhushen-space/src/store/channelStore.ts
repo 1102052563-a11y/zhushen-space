@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
+import { lzStorage } from '../systems/compressedStorage';   // lz 压缩
 import type { ApiConfig } from './settingsStore';
 import { useSettings } from './settingsStore';
 import channelDefaultPreset from '../data/channelDefaultPreset.json';   // v4: 公共频道改用 ${home_paradise} 占位（按主角所属乐园渲染）
@@ -301,6 +302,7 @@ export const useChannel = create<ChannelState>()(
     }),
     {
       name: 'drpg-channel',
+      storage: lzStorage(),   // lz 压缩
       merge: (persisted: any, current) => {
         const ps = persisted?.settings ?? {};
         const pv = ps.presetVersion;

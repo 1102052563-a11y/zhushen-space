@@ -11,6 +11,7 @@ import {
 } from '../systems/enhanceEngine';
 import { loadBossManifest, pickStagePortrait, type BossManifest } from '../systems/enhanceBosses';
 import GemPanel from './GemPanel';
+import { pushSceneNotice } from '../systems/allocNotice';   // 场外强化结果 → 正文前置须知（按真实等级，勿凭货币"尝试等级"误判）
 
 export interface EnhanceFinalizeArgs { itemId: string; startLevel: number; newLevel: number; tendency?: string; }
 export interface FinalizeStatus { ok: boolean; changed: boolean; error?: string; }
@@ -208,6 +209,12 @@ export default function EnhancePanel({
       });   // 词缀/效果由 AI 收尾按高水位生成；攻防/评分/外观随当前等级（降级即降）
     }
     applyAttempt(result, cost, useProtect && risk, useAmulet);
+    // 场外通报：强化「实际结果」（成功/失败/降级/炸裂）→ 让正文按真实等级知晓，勿凭货币里的"尝试等级"误判
+    try {
+      const outTxt = OUTCOME_TEXT[result.outcome] ?? String(result.outcome);
+      const stateTxt = result.outcome === 'destroy' ? '装备已炸裂损毁' : `现为 +${result.toLevel}`;
+      pushSceneNotice(`【场外·强化】玩家在强化所对「${it.name}」强化（+${lv}→尝试 +${lv + 1}）：${outTxt}，${stateTxt}。该装备当前强化状态以此为准，勿重复播报或另行结算。`);
+    } catch { /* 通报失败不阻断 */ }
 
     setFx(result.outcome);
     clearTimeout(fxTimer.current);

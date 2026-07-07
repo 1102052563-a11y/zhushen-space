@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
+import { lzStorage } from '../systems/compressedStorage';   // lz 压缩
 import type { CombatSpec } from '../systems/combatTags';
 
 /* ════════════════════════════════════════════
@@ -662,6 +663,7 @@ export const useCharacters = create<CharacterState>()(
     }),
     {
       name: 'drpg-characters',
+      storage: lzStorage(),   // lz 压缩
       merge: (persisted: any, current) => ({
         ...current,
         ...persisted,

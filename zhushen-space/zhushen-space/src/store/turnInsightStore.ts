@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
+import { lzStorage } from '../systems/compressedStorage';   // lz 压缩：每快照~59KB×14 挡=800KB+
 
 /* 回合洞察：每回合结束抓一份精简快照，用于"本轮相对上一轮变了什么"的对比。 */
 
@@ -49,6 +50,6 @@ export const useTurnInsight = create<TurnInsightState>()(
         }),
       clear: () => set({ snapshots: [] }),
     }),
-    { name: 'drpg-turn-insight' }
+    { name: 'drpg-turn-insight', storage: lzStorage() }
   )
 );

@@ -113,6 +113,7 @@ import { buildTableFillPrompt, buildPlotStateSnapshot } from './systems/tablePro
 import { resolveTableTemplates } from './systems/tableTemplate';   // ACU 表格数据库：读路径 native 模板（<if cell/seed>/计算标签）
 import { ensureSqliteMirror, needsSqlite } from './systems/tableSqlite';   // ACU 表格数据库：读路径 6b sql.js 镜像（{[db]}/{[sql]}）
 import { healWatchdog } from './systems/ledger/watchdog';   // Step 10 看门狗·自愈（回合末集中跑现成 dedup 修复）
+import { preloadEventCores } from './systems/ledger/preloadCores';   // 阶段1：事件核心从 IndexedDB 载入（启动 await）
 import { snapshotPlayerBag, reconcilePlayerBag } from './systems/itemWatchdog';
 import { flattenAiText } from './systems/flattenAiText';
 import { runPhasePipeline, type Phase } from './systems/phasePipeline';
@@ -196,7 +197,8 @@ import { buildMemPool, loadAll as factVecLoadAll, ensureVectors as factVecEnsure
 import { useDbAdvance } from './store/dbAdvanceStore';   // 数据库推进管线（Stitches 规划层）
 import { findModule as dbFindModule, buildModuleMessages as dbBuildMsgs, extractTag as dbExtractTag, stripExcluded as dbStripExcluded, resolveFinalDirective as dbResolveDirective, type DbAdvanceCtx } from './systems/dbAdvancePreset';
 import { serializePlayerCard, serializeNpcCard, buildNpcCandidateTitles, buildPlayerSkillCandidates, buildPlayerItemCandidates, rankNpcsLocal, serializeFactionsSection, namesMentionedIn, NM_STRUCT_SELECT_PROMPT, type RecallLimits } from './systems/structuredRecall';
-import { drainAllocNotices } from './systems/allocNotice';
+import { drainSceneNotices, pushSceneNotice } from './systems/allocNotice';   // 场外操作通报（加点/合成/强化/货币…）→ 正文前置须知
+import { rollGemDrops } from './systems/gemDrop';   // 正文击杀 → 结算掉落宝石（前端确定性）
 const MiscPanel = lazy(() => import('./components/MiscPanel'));
 const DicePanel = lazy(() => import('./components/DicePanel'));
 const EnhancePanel = lazy(() => import('./components/EnhancePanel'));
@@ -870,11 +872,11 @@ const QUEST_PLANNING_RULE = `
 - **任务世界 vs 枢纽（先分清）**：任务世界 / 衍生世界 = 主角被投放进去的具体世界（有自己的地名、势力、反派、威胁与核心任务）；而**轮回乐园 / 主神空间 / 专属房间 / 各乐园都是枢纽（起点·任务间歇·回归地），不是任务世界**。
 - **绝不规划主线的情形（最高优先，覆盖下方"何时规划"）**：① 当前世界是上述任一**枢纽**时——不规划任何主线；② **禁止生成"框架/流程"类套路主线**——诸如"适应乐园环境 / 进入衍生世界 / 获取身份 / 执行衍生世界主线 / 结算并回归轮回乐园 / 首次世界试炼"等围绕轮回乐园机制本身的流程性任务，**毫无剧情意义，一律不生成**。
 - **何时规划主线**：仅当主角**真正进入一个具体任务世界（衍生世界，非枢纽）**——【进入新世界信号】=是、或本轮正文明确把主角投放进了一个新任务世界，且【当前任务列表】里**没有**属于当前世界的 active 主线时——把**该任务世界自身的核心目标**（用该世界真实的地名/反派/势力，绝不用框架套话）立成一条主线，**一次把整条路线图（总环数＋终局＋每一环的目标/奖惩）规划死、之后不再改**：
-  · 用 set 新建，带 \`kind:"主线"\`、\`finale\`(终局/最后一环的 climax 目标)、\`currentRing:1\`、\`rings\`(**3~12 个环**：强制环 + 0~2 个贪婪环，见下)。**总环数、finale、各环内容一旦定下就固定不变、锁死**。
+  · 用 set 新建，带 \`kind:"主线"\`、\`finale\`(终局/最后一环的 climax 目标)、\`currentRing:1\`、\`rings\`(**主线一般 6~10 个环、长线到 12**——别只建 3~5 环的短主线，主线要够长够主角在本世界经历一整段；多数为强制环 + 1~3 个贪婪环，见下)。**总环数、finale、各环内容一旦定下就固定不变、锁死**。
   · **一次把全部环写完整（不留占位）**：rings 建满 N 项，**每一环都给全** idx / goal / status / reward(六选三) / penalty(三类)——第1环 status="active"，其余 status="planned"。**不要再留「（待剧情展开后规划）」这类占位**：整条线一次想清楚、一次写死；后面的环即便暂时写得概略些也要给出**实际目标**（而非占位词），创建后一律不再改动其内容。
   · **各环是规模/难度递增的"不同挑战"，不是一个目标的拆分步骤**——例：清剿哥布林巢穴 →(难度升)清剿大型巢穴 → 终局 牧场守卫战·硬抗海量哥布林；**绝不要写成 侦查→赶路→清剿 这类琐碎子步骤**（那会让推进很墨迹）。
-  · **强制环 vs 贪婪环（结构命门，每环必标其一）**：一条主线 = 2~3 个**强制环** + 0~2 个**贪婪环(标 optional:true)**：
-      - **强制环**(不写 optional)：保命底线、必经，**失败=死亡或重罚**(penalty 三类)。顺序：①入场钩子(低难度，把主角钉进本世界剧情、绑定动机) ②正式升级(硬仗，逼用本世界资源/规则、击杀中boss/夺关键物) ③高潮(最高强制难度，boss战/剧情爆点)。**打完高潮＝主线达成、可离场**(到此即完整闭环)；finale 写的就是高潮目标。
+  · **强制环 vs 贪婪环（结构命门，每环必标其一）**：一条主线 = **4~8 个强制环** + 1~3 个**贪婪环(标 optional:true)**——主线要够长、让主角在本世界经营/成长一整段，别 2~3 环就速通离场：
+      - **强制环**(不写 optional)：保命底线、必经，**失败=死亡或重罚**(penalty 三类)。**多段递进、把主线拉够长**：①入场钩子(低难度，把主角钉进本世界剧情、绑定动机) ②立足站稳(结识势力、拿据点/身份) ③中段升级(硬仗，逼用本世界资源/规则、击杀中boss/夺关键物) ④转折危机(局势恶化、代价、抉择——可按世界体量铺成好几环) ⑤高潮(最高强制难度，boss战/剧情爆点)。**中段"升级/转折"别压成一两环**，按世界体量铺开。**打完高潮＝主线达成、可离场**；finale 写的就是高潮目标。
       - **贪婪环**(optional:true)：高潮之后的**可选延伸**(隐藏升级 / 顶点·隐藏boss)，难度陡增、奖励跳一大档；**失败只损失本环额外奖励、不致死、不强制抹除**，排在强制环之后。
   · **reward 固定"六选三"**：从【①属性点 ②技能点 ③乐园币 ④一件契合当前世界风格的装备 或 技能书 ⑤潜能点（职业技能树资源，按环规模给但**每环最多 +4**：普通环+1~3、贪婪环至多+4；完成时由【潜能点】规则用 \`pp.B1 += N\` 实际发放） ⑥一个贴合本世界题材的「世界专属宝箱」（以未开启物品发放·开启得本世界主题战利品，命名贴合本世界）】里**任选 3 类**，每类给具体数值/名目（如 「属性点+3、技能点+2、乐园币+500」 或 「乐园币+500、技能点+2、潜能点+3」，或把一项换成"当前世界风格的武器/技能书"）；**奖励超线性增长——每往后一环奖励近翻倍，贪婪环更跳一大档**（默认你已吃掉前几环奖励变强）。
   · **货币·每环基础给量（削减后·按世界阶·铁则）**：六选三里的货币奖励按当前世界阶给基础值、**别再随手大放**——**一阶~三阶发乐园币**：一阶+500 / 二阶+1500 / 三阶+4000；**四阶起改发灵魂钱币（魂币）·不再发乐园币**：四阶+1 / 五阶+3 / 六阶+6 / 七阶+12 / 八阶+25 / 九阶+50（**每环基础**·±50% 按环规模浮动；后续环超线性递增、贪婪环再跳一档，但起步以此为准）。此切换契合下条「灵魂钱币·四阶门槛」：三阶及以下绝不出灵魂钱币、四阶起货币奖励即为灵魂钱币。
@@ -884,10 +886,10 @@ const QUEST_PLANNING_RULE = `
   · **每环时限(startTime/endTime，绝对游戏时间)·最低 7 天铁则**：给每一环（及单环任务）设执行窗口时，**endTime − startTime ≥ 7 天（任务世界时间）是地板**，绝不要设几小时/几天的紧逼窗口逼玩家赶场；**上不封顶、按难度与性质评估**——普通环 7~30 天起步，需长期经营/等待/养成/季节更替/远途的长线环给数月乃至一年以上（半年、一年、数年皆可）。startTime=本环开始时的绝对游戏时间，endTime=startTime+评估出的时长；推进到下一环时新环 startTime 接续上一环结束。
   · 顶层第2列(desc)同步写当前 active 环目标，第5列写"进行中"。
   · 新建主线的 T_ 编号用系统提供的"下一个可用任务ID"（同新建任务规则），下面示例里的 T_5 仅为占位。
-  · 示例（一行内，双引号）：\`set({"0":"T_5","1":"哥布林讨伐","kind":"主线","2":"潜入受袭村庄、在哥布林夜袭中存活三日","5":"进行中","finale":"高潮·牧场守卫战，硬抗哥布林大军守住村庄","currentRing":1,"rings":[{"idx":1,"goal":"潜入受袭村庄、在哥布林夜袭中存活三日","status":"active","reward":"属性点+2、技能点+1、乐园币+500","penalty":"扣除乐园币500"},{"idx":2,"goal":"夺回被占的旧矿、击杀哥布林督军","status":"planned","reward":"属性点+3、乐园币+1500、督军战旗(当前世界风格)","penalty":"全属性永久-2"},{"idx":3,"goal":"（高潮，待推进到再规划）","status":"planned"},{"idx":4,"goal":"（贪婪·隐藏委托，待解锁）","status":"planned","optional":true}]})\`
+  · 示例（一行内，双引号·一次写满全部环不留占位·6 环起）：\`set({"0":"T_5","1":"哥布林讨伐","kind":"主线","2":"潜入受袭村庄、在哥布林夜袭中存活三日","5":"进行中","finale":"高潮·牧场守卫战，硬抗哥布林大军守住村庄","currentRing":1,"rings":[{"idx":1,"goal":"潜入受袭村庄、在哥布林夜袭中存活三日","status":"active","reward":"属性点+2、技能点+1、乐园币+500","penalty":"扣除乐园币500"},{"idx":2,"goal":"结识幸存村民与佣兵团、拿下据点站稳脚跟","status":"planned","reward":"属性点+2、乐园币+800、技能点+1","penalty":"扣除乐园币800"},{"idx":3,"goal":"夺回被占的旧矿、击杀哥布林督军","status":"planned","reward":"属性点+3、乐园币+1500、督军战旗(当前世界风格)","penalty":"全属性永久-2"},{"idx":4,"goal":"识破哥布林背后的黑暗萨满、挫败其召唤仪式","status":"planned","reward":"属性点+4、技能点+2、乐园币+3000","penalty":"全属性永久-3"},{"idx":5,"goal":"高潮·牧场守卫战，硬抗哥布林大军守住村庄","status":"planned","reward":"属性点+6、乐园币+6000、世界专属宝箱「牧场血誓匣」","penalty":"强制抹除"},{"idx":6,"goal":"贪婪·追剿溃逃的哥布林王庭、捣毁其巢穴核心","status":"planned","optional":true,"reward":"属性点+8、乐园币+12000、世界专属宝箱「王庭秘藏」","penalty":"仅损失本环额外奖励"}]})\`
 - **何时不规划**：已存在当前世界的 active 主线时，**绝不重复新建主线**；主线的环推进交给【任务结算/推进】，这里不再造第二条主线。
-- **【一个世界一条主线·铁则·最高优先】每个任务世界从头到尾有且仅有一条主线（≤5环），标准配置就是"一世界一主线"。本世界的主线只要**存在过**——不管是进行中、还是**已经完成/已归档**——就**绝对不许再建第二条主线**（哪怕正文剧情继续、开启新篇章、换了城区/势力/阶段，也一律用支线承接，绝不另起主线）。前端已强制：本世界已有主线时新建的"主线"会被自动降级为支线。**主线（其 finale/最后一个强制环）一完成＝本世界核心目标达成＝该结算离场了**：此时应引导玩家输入【结算任务】结算，**绝不能用"发第二条主线"把玩家继续拖在本世界**（那会导致前一条主线的世界之源/奖励作废、无法结算）。后续想延伸剧情就走支线或贪婪环。
-- 路线图是**规划而非预言**：**总环数(3~5)、各环的强制/贪婪定位、finale 定下后保持不变**，但环的具体内容渐进式补全（当前环+下一环写全、其余占位）；不要一开始就把整条线写死。每一环都是要打好几回合的"实质挑战"、规模/难度递增，不是琐碎子步骤。
+- **【一个世界一条主线·铁则·最高优先】每个任务世界从头到尾有且仅有一条主线（一般 6~10 环、≤12环），标准配置就是"一世界一主线（长线）"。本世界的主线只要**存在过**——不管是进行中、还是**已经完成/已归档**——就**绝对不许再建第二条主线**（哪怕正文剧情继续、开启新篇章、换了城区/势力/阶段，也一律用支线承接，绝不另起主线）。前端已强制：本世界已有主线时新建的"主线"会被自动降级为支线。**主线（其 finale/最后一个强制环）一完成＝本世界核心目标达成＝该结算离场了**：此时应引导玩家输入【结算任务】结算，**绝不能用"发第二条主线"把玩家继续拖在本世界**（那会导致前一条主线的世界之源/奖励作废、无法结算）。后续想延伸剧情就走支线或贪婪环。
+- 路线图**创建即锁定**：**总环数(6~12)、各环的强制/贪婪定位、finale、各环内容一次定死后保持不变**（见上"一次写完整、不留占位"）。**每一环都是要打好几回合的"实质挑战"、规模/难度递增，不是琐碎子步骤**；主线整体要够长、够主角在本世界经历一段完整的成长与剧情，别几回合就通关走人。
 - **支线**：正文产生的其他多回合目标用 \`kind:"支线"\`（或不写 kind=默认支线）；需要分段的支线同样可带 rings，其每一环也要写全 goal/reward/penalty，reward 同样按"六选三"（属性点/技能点/乐园币/当前世界风格装备或技能书/潜能点/世界专属宝箱 任选3类；灵魂钱币同样仅四阶+世界可作奖励）给，penalty 同样从「扣除乐园币 / 全属性永久下降 / 强制抹除」三类里取；**时限同样适用上面的【每环时限·最低 7 天】**——支线的每一环、以及单环支线任务，都要设 startTime~endTime 执行窗口、且 endTime−startTime ≥ 7 天（上不封顶，按难度/需求评估，长线可数月乃至一年以上）。`;
 
 const QUEST_KILL_TIER_RULE = `
@@ -1067,6 +1069,27 @@ function craftGemWant(tendency: string): { attr?: string; slot?: string } | unde
   return slot || attr ? { attr, slot } : undefined;
 }
 
+/** 正文击杀 → 结算掉落宝石：掷落 → 入背包 + 场外通报（供 AI 一致性），返回追加到展示正文末尾的战利品行（无掉落=''）。
+ *  前端确定性、掉率与开关读 enhanceStore 设置；品级随主角阶位/等级缩放（见 systems/gemDrop）。 */
+function rollAndApplyGemDrops(rawNarrative: string): string {
+  try {
+    const st = useEnhance.getState().settings;
+    if (st.gemDropEnabled === false) return '';
+    const p = usePlayer.getState().profile;
+    const drops = rollGemDrops(rawNarrative, {
+      tier: p?.tier, level: p?.level,
+      config: { enabled: true, rate: st.gemDropRate ?? 0.16, maxPerTurn: 3 },
+    });
+    if (!drops.length) return '';
+    const I = useItems.getState();
+    for (const d of drops) I.addItem(d as any);
+    const names = drops.map((d) => d.name).join('、');
+    pushSceneNotice(`【场外·掉落】击败敌人后，从战利品中拾得宝石：${names}（已入背包，可到💎镶嵌所镶嵌；集齐同套装宝石激活套装加成）`);
+    try { playSfx('coin'); } catch { /* 缺音效静默 */ }
+    return `\n\n> 💎 **战利品** · 击杀掉落：${drops.map((d) => `**${d.name}**`).join('、')}（已入背包）`;
+  } catch (e) { console.warn('[GemDrop] 掉落处理失败', e); return ''; }
+}
+
 export default function App() {
   const hasSave = useGame((s) => s.player.cleared.length > 0 || s.player.points > 0);
 
@@ -1088,6 +1111,7 @@ export default function App() {
   const skipNarrativeThinking = useSettings((s) => s.skipNarrativeThinking);
   const plotGuidance         = useSettings((s) => s.plotGuidance);
   const guidancePrompt       = useSettings((s) => s.guidancePrompt);
+  const preludePrompt        = useSettings((s) => s.preludePrompt);   // 玩家常驻「前置提示词」（输入框上方可编辑，每回合注入正文最深处）
   const globalRegexScripts   = useSettings((s) => s.globalRegexScripts);
 
   // 物品管理 + 主角演化：回合计数 + 阶段状态 + 最近正文缓存
@@ -1374,6 +1398,7 @@ export default function App() {
   const [choicesRevarOpen, setChoicesRevarOpen] = useState(false);             // 「重新生成 选项/同人/事实/小剧场」方向提示词弹窗
   const [choicesDir, setChoicesDir] = useState('');                            // 上述弹窗的自定义方向提示词（可留空）
   const [worldBarOpen, setWorldBarOpen] = useState(false); // 选择世界/结算任务 按钮行（默认收起，点状态栏展开，省空间）
+  const [preludeOpen, setPreludeOpen] = useState(false);   // 「前置提示词」编辑栏展开/收起（输入框上方，默认收起省空间）
   const [rawResponse, setRawResponse] = useState('');
   const [showRaw, setShowRaw] = useState(false);
   const [promptSent, setPromptSent] = useState('');
@@ -1646,6 +1671,9 @@ export default function App() {
       } catch { /* */ }
       // 申请持久化存储：防浏览器在存储紧张时整源淘汰 IndexedDB（"手动存档过段时间消失、只剩自动档"的根因）
       void requestPersistentStorage();
+      // 事件核心（NPC/物品/货币影子账本）：从 IndexedDB 载入（阶段1 搬离 localStorage·根除长档顶爆 5MB）；
+      //   刚读档/新游戏（带 reseed 标志）则清空 IDB、留待本回合从现场 store 重播——放在图片回填之前先就绪。
+      try { await preloadEventCores(); } catch { /* */ }
       // 图片：从 IndexedDB 回填 avatar/image 到各 store（localStorage 已不存图），再开启自动镜像
       try { await hydrateImages(); } catch { /* */ }
       initImageSync();
@@ -1931,12 +1959,7 @@ export default function App() {
     }
     // 装备世界书·生成总纲：本回合涉及装备/掉落/打造等时全量注入（让正文 createItem 的品级/评分/数值/词缀合理且机器可读；其余装备生成阶段恒注入）
     if (/装备|武器|防具|饰品|法宝|宝石|掉落|战利品|宝箱|开箱|打造|锻造|锻冶|合成|缴获|搜刮|结算任务/.test(userInput)) { addRule('装备生成总纲', '装备世界书 · 生成总纲（本回合触发）', EQUIP_CODEX); }
-    // 主角前端加点 → 一次性事件：玩家在属性面板自行加点(前端确定性结算)，正文看不到此动作 → 注入告知，让叙事"知道"并据此用最新余额（一次性，注入后即清空）
-    const allocNotices = drainAllocNotices();
-    if (allocNotices.length) {
-      const allocBlock = '【主角属性分配·本回合事件】玩家刚在属性面板自行加点，以下为最新结算结果（点数已由前端消耗，正文据此自然带过、勿质疑、勿重发点数）：\n' + allocNotices.join('\n');
-      addRule('主角属性加点', '前端事件 · 主角属性加点（本回合一次性）', allocBlock);
-    }
+    // 主角前端加点 / 合成 / 强化 / 场外花费等「场外操作」通报改由「前置须知」块统一注入正文最深处（见下方 preludeBlock，走 drainSceneNotices 一次性消费）。
 
     // 叙事人称：前端「叙事人称」开关 → 注入到 system 最末尾（权重最高，压过预设文风块/历史第三人称惯性）；off=不注入、沿用预设
     const povSel = useSettings.getState().narrativePov;
@@ -2364,6 +2387,11 @@ export default function App() {
       });
     }
     C.recordDiscovered(sess.pending.map((p) => p.name));
+    // 场外通报：本次合成产物 → 让正文知晓（防"合成了X正文却不知"）；手工费另有货币通报
+    try {
+      const names = sess.pending.map((p) => p.name).filter(Boolean).join('、');
+      if (names) pushSceneNotice(`【场外·合成】玩家在合成工坊（${craftMode(sess.modeId).name}）合成/炼制出：${names}。${isTame ? '已收服为随从宠物。' : '已入库。'}正文据此知晓即可，勿重复发放。`);
+    } catch { /* 通报失败不阻断 */ }
     C.endSession();
   }
 
@@ -7843,6 +7871,20 @@ ${lines}`;
       if (d) dbAdvanceBlock = [{ role: 'system', content: `<数据库推进>\n（本回合规划·导演已排好这一拍的角色行动/场景/记忆，请据此写正文；正文格式与一切结构模块照常严格输出，不因本规划而省略或改格式）\n${d}\n</数据库推进>` }];
     }
 
+    // 前置须知（注入正文最深处·紧贴输入前·一次性）：① 玩家常驻「前置提示词」(设置里可编辑) ② 本回合「场外操作」通报
+    //   （手动加点/合成/强化/花费货币…由前端确定性结算，正文看不到 → 注入告知，防"花到5000正文却记10000"OOC）。
+    //   仅真实发送(非 narrateOnly 草稿)时消费场外通报；两者皆空则整块不注入。
+    let preludeBlock: { role: 'system'; content: string }[] = [];
+    if (!narrateOnly) {
+      const preludeTxt = (useSettings.getState().preludePrompt || '').trim();
+      const sceneNotices = drainSceneNotices(useItems.getState().currency as unknown as Record<string, number>);
+      const parts: string[] = [];
+      if (preludeTxt) parts.push(`【玩家常驻前置提示词】\n${preludeTxt}`);
+      if (sceneNotices.length) parts.push(`【本回合·场外操作（均已由前端确定性结算完成）】\n${sceneNotices.join('\n')}`);
+      if (parts.length) preludeBlock = [{ role: 'system' as const, content:
+        `<前置须知>\n（最高优先·深度最深的前置须知。其中「场外操作」均已由前端确定性结算完成——你只需**知晓并让后续正文与之保持一致**：货币/物品/点数的最新数值一律以此为准；**切勿据此另行生成奖励/结算、勿质疑、勿重复播报**。「玩家常驻前置提示词」请始终遵循。）\n${parts.join('\n\n')}\n</前置须知>` }];
+    }
+
     // 历史：叙事记忆（关键词召回，启用时）或按 historyLimit 切片（现状）
     let memory: { role: 'system'; content: string }[] = [];
     let structPlayer: { role: 'system'; content: string }[] = [];   // <主角当前档案> 浅注入(贴近用户输入,更难被忽略)
@@ -7984,6 +8026,7 @@ ${lines}`;
       ...tail.map((t) => ({ role: t.role, content: t.content })),   // <后历史预设块> chatHistory marker 之后的预设块（破限/格式/规则等）→ 真实楼层之后（仿 fanren post-history）
       ...[...depthInjections, ...wbDepthInjections].sort((a, b) => b.depth - a.depth).map((inj) => ({ role: inj.role, content: inj.content })),
       ...buildWorldviewInjection(),                     // <本世界·世界观骨架> 当前所在世界的世界志 → 就近注入（正文最深处）
+      ...preludeBlock,                                  // <前置须知> 玩家常驻前置提示词 + 本回合场外操作通报 → 最深处·紧贴输入前（深度最深·权重最高）
       { role: 'user' as const, content: userText },
       ...(effectivePrefill ? [{ role: 'assistant' as const, content: effectivePrefill }] : []),   // 末尾预填充（prefill 块 / 跳过思维链）
     ];
@@ -8141,10 +8184,11 @@ ${lines}`;
         if (/<世界结算>/.test(cleaned)) { playSfx('fanfare'); try { useMisc.getState().markWorldSettled(); } catch { /* 结算完成→推进结算边界戳，下个世界不再重复结算本世界任务 */ } }   // 世界结算 → 号角音效
         if (!narrateOnly) { applyAllUpdates(cleaned); try { applyPlayerProfileCommands(cleaned, '', turnCountRef.current); } catch { /* 主角位置/外观/身份：正文若直接输出 character.B1.* 也即时生效，不必等主角演化阶段 */ } }
         const settledText = stripKillBlocks(cleaned);   // 过渡期：剥除旧 <kill> 清单（不再结算进阶点）
+        const gemLootLine = !narrateOnly ? rollAndApplyGemDrops(cleaned) : '';   // 正文击杀 → 结算掉落宝石（读含 <击杀结算> 的原始正文）
         // 演化/解析读的正文（prompt 视图：跳过 markdownOnly 美化壳、应用 promptOnly「对AI隐藏」）；再剥 <state>/<upstore>，保留 <状态结算> HP/EP 块
         const narrativeForEvoRaw = stripStateBlocks(applyRegex(settledText, preset, 'prompt'));
         // 显示给玩家的正文（display 视图：独立跑一遍——应用 markdownOnly 美化、跳过 promptOnly，否则美化框连同正文被删空）；再剥 <状态结算>（纯数据通道，侧栏用自定义血条名）
-        const finalDisplayed = stripWorldSourceBlocks(stripVitalsBlocks(stripStateBlocks(applyRegex(settledText, preset, 'display'))));
+        const finalDisplayed = stripWorldSourceBlocks(stripVitalsBlocks(stripStateBlocks(applyRegex(settledText, preset, 'display')))) + gemLootLine;
         if (!narrateOnly) setMessages((prev) =>
           prev.map((m) => m.id === streamMsgId ? { ...m, content: finalDisplayed } : m)
         );
@@ -8171,10 +8215,11 @@ ${lines}`;
         if (/<世界结算>/.test(cleanedReply)) { playSfx('fanfare'); try { useMisc.getState().markWorldSettled(); } catch { /* 结算完成→推进结算边界戳，下个世界不再重复结算本世界任务 */ } }   // 世界结算 → 号角音效
         if (!narrateOnly) { applyAllUpdates(cleanedReply); try { applyPlayerProfileCommands(cleanedReply, '', turnCountRef.current); } catch { /* 主角位置/外观/身份：正文直接输出 character.B1.* 即时生效 */ } }
         const settledReply = stripKillBlocks(cleanedReply);   // 过渡期：剥除旧 <kill> 清单（不再结算进阶点）
+        const gemLootLine = !narrateOnly ? rollAndApplyGemDrops(cleanedReply) : '';   // 正文击杀 → 结算掉落宝石（读含 <击杀结算> 的原始正文）
         // 演化/解析读的正文（prompt 视图：跳过 markdownOnly 美化壳、应用 promptOnly「对AI隐藏」）；再剥 <state>/<upstore>，保留 <状态结算> HP/EP 块
         const narrativeForEvoRaw = stripStateBlocks(applyRegex(settledReply, preset, 'prompt'));
         // 显示给玩家的正文（display 视图：独立跑一遍——应用 markdownOnly 美化、跳过 promptOnly，否则美化框连同正文被删空）；再剥 <状态结算>
-        const processed = stripWorldSourceBlocks(stripVitalsBlocks(stripStateBlocks(applyRegex(settledReply, preset, 'display'))));
+        const processed = stripWorldSourceBlocks(stripVitalsBlocks(stripStateBlocks(applyRegex(settledReply, preset, 'display')))) + gemLootLine;
         const newMsgId = ++msgId.current;
         if (!narrateOnly) setMessages((prev) => [...prev, { id: newMsgId, role: 'assistant', content: processed }]);
         // 演化阶段读的正文：去 state 块外，再去掉击杀结算块（保留 <状态结算> 供 HP/EP 结算用，避免演化AI看到点数又重复发 ap）
@@ -9384,6 +9429,33 @@ ${lines}`;
               )}
             </div>
           )}
+
+          {/* 前置提示词（输入框上方·常驻·可编辑）：每回合随发送注入正文最深处（紧贴输入前·权重最高）；默认收起省空间 */}
+          <div className="shrink-0 border-t border-edge/60 bg-panel/50 px-3 pt-1">
+            <button
+              onClick={() => setPreludeOpen((o) => !o)}
+              className="flex items-center gap-1.5 text-[12px] font-mono text-dim/70 hover:text-god transition-colors py-0.5"
+              title="常驻前置提示词：每回合都会随发送注入正文最深处（紧贴你的输入前、权重最高）。玩家场外操作（加点/合成/强化/花费货币…）也会在其下自动追加通报，避免正文 OOC。"
+            >
+              <span className={`transition-transform text-[10px] ${preludeOpen ? 'rotate-90' : ''}`}>▶</span>
+              📌 前置提示词
+              {preludePrompt.trim()
+                ? <span className="text-god/70">· 已启用（{preludePrompt.trim().length} 字）</span>
+                : <span className="text-dim/40">· 空（点此编辑）</span>}
+            </button>
+            {preludeOpen && (
+              <div className="pb-1.5 pt-0.5 space-y-1">
+                <textarea
+                  value={preludePrompt}
+                  onChange={(e) => useSettings.getState().setPreludePrompt(e.target.value)}
+                  rows={2}
+                  placeholder="常驻前置提示词：每回合随发送注入正文最深处（紧贴输入前·权重最高）。如：请始终以第二人称写；本局强调心理描写…（留空则不注入）"
+                  className="w-full bg-void border border-edge rounded px-2 py-1 text-[13px] text-amber-200/85 focus:outline-none focus:border-god/50 resize-y leading-relaxed"
+                />
+                <div className="text-[11px] text-dim/40 font-mono leading-snug">💡 每回合都发·深度最深；你的场外操作（加点/合成/强化/花费货币…）会在其下自动追加「本回合场外」通报，正文据此保持一致、不重复结算。</div>
+              </div>
+            )}
+          </div>
 
           {/* 输入框 */}
           <div className="shrink-0 border-t border-edge bg-panel flex items-center gap-2 px-3 py-2">

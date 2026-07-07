@@ -1,4 +1,5 @@
 import { gradeToNum, ITEM_GRADES, type GemSlotKind, type SocketedGem, type InventoryItem } from '../store/itemStore';
+import { setForGem, gemSetName } from './gemSets';
 
 /* ════════════════════════════════════════════
    宝石生成引擎（gemEngine）
@@ -131,6 +132,7 @@ function buildGem(grade: string, def: GemDef, rng: Rng): GeneratedGem {
   const noun = pick(rng, high ? HIGH_NOUNS : LOW_NOUNS);
   const slotLabel = def.slot === '通用' ? '任意装备' : `仅${def.slot}`;
   const tierLabel = cat === '战斗' ? (high ? '高阶战斗属性' : '基础面板加成') : `${cat}类`;
+  const setKey = setForGem(def.attr, cat);   // 归入唯一套装（集齐激活套装加成）
   return {
     item: {
       name: `${grade}·${def.flavor}${noun}`,
@@ -138,12 +140,13 @@ function buildGem(grade: string, def: GemDef, rng: Rng): GeneratedGem {
       gradeDesc: grade,
       gemSlot: def.slot,
       gemAttr: def.attr,
+      gemSet: setKey,
       effect: stat,
       quantity: 1,
       equipped: false,
-      tags: ['宝石', high ? '高阶' : '基础', `${cat}类`],
+      tags: ['宝石', high ? '高阶' : '基础', `${cat}类`, `套装·${gemSetName(setKey)}`],
       subType: high ? '高阶宝石' : '基础宝石',
-      intro: `${cat}类宝石 · ${slotLabel}镶嵌 · ${def.attr}`,
+      intro: `${cat}类宝石 · ${slotLabel}镶嵌 · ${def.attr} · 套装【${gemSetName(setKey)}】`,
       acquisition: '宝石商店',
       score: `${grade}（${tierLabel}）`,
     },
@@ -205,17 +208,19 @@ export function gemFromItem(item: InventoryItem): SocketedGem {
     attr: item.gemAttr ?? item.name,
     statText: item.effect ?? '',
     high: isHighGem(item.gradeDesc),
+    set: item.gemSet || setForGem(item.gemAttr),   // 旧宝石无 gemSet 则按属性回填，套装统计不漏
   };
 }
 
 /** 把已镶嵌宝石快照还原成可放回背包的宝石物品（无损剥离用）*/
 export function itemFromGem(g: SocketedGem): Omit<InventoryItem, 'id' | 'addedAt'> {
+  const setKey = g.set || setForGem(g.attr);
   return {
     name: g.name, category: '宝石', gradeDesc: g.tier,
-    gemSlot: g.slot, gemAttr: g.attr, effect: g.statText,
-    quantity: 1, equipped: false, tags: ['宝石', g.high ? '高阶' : '基础'],
+    gemSlot: g.slot, gemAttr: g.attr, gemSet: setKey, effect: g.statText,
+    quantity: 1, equipped: false, tags: ['宝石', g.high ? '高阶' : '基础', `套装·${gemSetName(setKey)}`],
     subType: g.high ? '高阶宝石' : '基础宝石',
-    intro: `${g.high ? '高阶' : '基础'}宝石 · ${g.slot === '通用' ? '任意装备' : '仅' + g.slot}镶嵌 · ${g.attr}`,
+    intro: `${g.high ? '高阶' : '基础'}宝石 · ${g.slot === '通用' ? '任意装备' : '仅' + g.slot}镶嵌 · ${g.attr} · 套装【${gemSetName(setKey)}】`,
     acquisition: '无损剥离',
     score: `${g.tier}（${g.high ? '高阶战斗属性' : '基础面板加成'}）`,
   };

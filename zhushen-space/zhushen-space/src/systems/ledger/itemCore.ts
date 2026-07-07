@@ -7,6 +7,8 @@
    下一期可翻权威（itemStore.items 变投影）。持久化 drpg-items-core（随存档由 saveManager 快照）。 */
 import { createEventCore, type PendingEvent, type CommitResult } from './eventCore';
 import { useMisc } from '../../store/miscStore';
+import { compressWithMark, decompressMaybe } from '../compressedStorage';   // lz 压缩：数量核心+塌缩审计
+import { coreKvGet, coreKvPut, coreKvDel } from './coreKv';   // 阶段1：持久化搬去 IndexedDB（不再占 localStorage）
 
 export type ItemQ = Record<string, number>;   // 签名 → 总数量
 interface ItemCoreState { q: ItemQ; }
@@ -49,15 +51,23 @@ let _hydrated = false;
 /** dup-id 塌缩审计（facade 闸门抓到"背包里两条同 id"时记一笔·封顶 200·持久化）。 */
 interface CollapseRec { id: string; kept: string; dropped: string; source: string; turn: number; }
 let _collapseLog: CollapseRec[] = [];
-function persist() { try { localStorage.setItem(KEY, JSON.stringify({ core: core.snapshot(), collapse: _collapseLog })); } catch { /* */ } }
-function hydrate() {
-  if (_hydrated) return; _hydrated = true;
+function persist() { void coreKvPut(KEY, compressWithMark(JSON.stringify({ core: core.snapshot(), collapse: _collapseLog }))); }   // IDB 异步落库（fire-and-forget）
+function hydrate() { /* no-op：核心载入已由 preloadItemCore 在启动时完成（IDB 异步·无法同步 hydrate）；保留仅为兼容旧调用点 */ }
+/** 从一份快照串（{core,collapse} 或旧裸 snapshot）恢复核心+塌缩日志。 */
+function restoreFrom(plain: string): void {
+  const o = JSON.parse(plain);
+  if (o && o.core) { core.restore(o.core); _collapseLog = Array.isArray(o.collapse) ? o.collapse : []; }   // 新格式 {core,collapse}
+  else core.restore(o);   // 兼容旧格式（裸 core snapshot）
+}
+/** 启动时从 IndexedDB 载入（+一次性迁旧 localStorage 值进 IDB 并清掉·释放配额）。App.tsx 启动 await。 */
+export async function preloadItemCore(): Promise<void> {
+  if (_hydrated) return; _hydrated = true;   // 幂等：启动只从 IDB 载一次
   try {
-    const raw = localStorage.getItem(KEY); if (!raw) return;
-    const o = JSON.parse(raw);
-    if (o && o.core) { core.restore(o.core); _collapseLog = Array.isArray(o.collapse) ? o.collapse : []; }   // 新格式 {core,collapse}
-    else core.restore(o);   // 兼容旧格式（裸 core snapshot）
-  } catch { /* */ }
+    let raw = await coreKvGet(KEY);
+    if (raw == null) { const legacy = decompressMaybe(localStorage.getItem(KEY)); if (legacy) { raw = compressWithMark(legacy); await coreKvPut(KEY, raw); } }
+    try { localStorage.removeItem(KEY); } catch { /* */ }
+    if (raw) { const plain = decompressMaybe(raw); if (plain) restoreFrom(plain); }
+  } catch { /* 载入失败→核心空·seedItemsIfEmpty 会从现场 store 重播基线 */ }
 }
 const curTurn = () => { try { return (useMisc.getState() as any).turnCount ?? 0; } catch { return 0; } };
 
@@ -83,7 +93,7 @@ export function itemSeed(sigs: ItemQ, meta?: { turn?: number; source?: string })
 export function itemCoreQ(): ItemQ { hydrate(); return core.getState().q; }
 export function itemCoreWatchdog(): string[] { hydrate(); return core.watchdog(); }
 export function itemCoreLog() { hydrate(); return core.log(); }
-export function itemCoreReset(): void { core.reset(); _collapseLog = []; _hydrated = true; persist(); }
+export function itemCoreReset(): void { core.reset(); _collapseLog = []; void coreKvDel(KEY); try { localStorage.removeItem(KEY); } catch { /* */ } }
 
 /** ── 物品 facade 闸门（唯一规范化 chokepoint）──
    把一份 items 数组按 **id 键去重**（同 id 只留首条·结构上根除"重复 id 双计"），返回规范数组 + 塌缩条数。
@@ -110,7 +120,7 @@ export function commitItems(arr: any[], source = 'commit'): { items: any[]; coll
 /** dup-id 塌缩审计日志（供 TableManager / 诊断查"背包重复 id 是哪个源造的"）。 */
 export function itemCollapseLog(): CollapseRec[] { hydrate(); return _collapseLog; }
 export function itemCoreSnapshot() { hydrate(); return core.snapshot(); }
-export function itemCoreRestore(s: Parameters<typeof core.restore>[0]): void { core.restore(s); _hydrated = true; }
+export function itemCoreRestore(s: Parameters<typeof core.restore>[0]): void { core.restore(s); }
 
 /** 把 itemStore.items 折成 签名→总数量。 */
 export function itemsToSigMap(items: any[]): ItemQ {
