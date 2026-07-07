@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { useTrade, type TradeListing } from '../store/tradeStore';
 import { tradeClient } from '../systems/tradeClient';
 import { useItems, isResourcePseudoItem } from '../store/itemStore';
+import { useNpc } from '../store/npcStore';
 import { EntityCard, EntityDetailModal, type EntityKind } from './EntityDetail';
 import ChatAvatar from './ChatAvatar';
 import { discordLoggedIn, discordLogin, fetchChatIdentity, chatReady, chatName, chatToken } from '../systems/chatIdentity';
@@ -19,15 +20,20 @@ const CAT_BUCKETS: { key: string; label: string; cats: string[] }[] = [
   { key: '宝石', label: '💎 宝石', cats: ['宝石'] },
   { key: '消耗', label: '🧪 消耗', cats: ['消耗品', '丹药', '灵药', '符箓'] },
   { key: '材料', label: '🧱 材料', cats: ['材料', '工具', '阵具', '功法'] },
+  { key: '随从', label: '🐾 随从', cats: [] },   // 随从/宠物/召唤物 专桶，按 item._entity==='npc' 判定
   { key: '其他', label: '📦 其他', cats: [] },   // 兜底：上面没归到的(重要物品/特殊物品/凡物/其他物品/未知)
 ];
-function bucketOf(cat?: string): string {
-  const c = String(cat || '');
-  for (const b of CAT_BUCKETS) if (b.cats.includes(c)) return b.key;
+function bucketOf(item: any): string {
+  if (item?._entity === 'npc') return '随从';
+  const c = String(item?.category || '');
+  for (const b of CAT_BUCKETS) if (b.cats.length && b.cats.includes(c)) return b.key;
   return '其他';
 }
 
-function itemKind(item: any): EntityKind { return EQUIP_CATS.has(String(item?.category || '')) ? 'equip' : 'item'; }
+function itemKind(item: any): EntityKind {
+  if (item?._entity === 'npc') return 'npc';
+  return EQUIP_CATS.has(String(item?.category || '')) ? 'equip' : 'item';
+}
 function fmtTime(at: number) {
   const d = new Date(at);
   return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
@@ -50,7 +56,9 @@ export default function TradePanel({ onClose }: { onClose: () => void }) {
   const [gateErr, setGateErr] = useState('');
 
   const [showForm, setShowForm] = useState(false);
+  const [listMode, setListMode] = useState<'item' | 'npc'>('item');   // 上架类型：物品 / 随从·宠物
   const [selId, setSelId] = useState('');
+  const [selNpcId, setSelNpcId] = useState('');
   const [qty, setQty] = useState('1');
   const [price, setPrice] = useState('');
   const [currency, setCurrency] = useState(CURRENCIES[0]);
@@ -90,21 +98,34 @@ export default function TradePanel({ onClose }: { onClose: () => void }) {
   const selItem = sellable.find((it: any) => it.id === selId) || null;
   const selMax = Math.max(1, Number(selItem?.quantity) || 1);
 
+  // 可上架的随从/宠物/召唤物：己方拥有（排除助战借来的 assistOwnerId）、未死亡。
+  const npcs = useNpc((s) => s.npcs);
+  const tradablePets = useMemo(() => Object.values(npcs).filter((r: any) =>
+    ['随从', '宠物', '召唤物'].includes(r.npcTag) && !r.isDead && !r.assistOwnerId && r.name), [npcs]);
+  const selNpc = tradablePets.find((r: any) => r.id === selNpcId) || null;
+
   // 分类筛选：按桶统计挂牌数，只展示有挂牌的桶（无「全部」标签）；选中桶为空时回退到首个有挂牌的桶。
   const bucketCounts = useMemo(() => {
     const m: Record<string, number> = {};
-    for (const L of st.listings) { const k = bucketOf(L.item?.category); m[k] = (m[k] || 0) + 1; }
+    for (const L of st.listings) { const k = bucketOf(L.item); m[k] = (m[k] || 0) + 1; }
     return m;
   }, [st.listings]);
   const presentBuckets = CAT_BUCKETS.filter((b) => (bucketCounts[b.key] || 0) > 0);
   const activeCat = presentBuckets.some((b) => b.key === cat) ? cat : (presentBuckets[0]?.key || '');
-  const shownListings = useMemo(() => st.listings.filter((L) => bucketOf(L.item?.category) === activeCat), [st.listings, activeCat]);
+  const shownListings = useMemo(() => st.listings.filter((L) => bucketOf(L.item) === activeCat), [st.listings, activeCat]);
 
   const doList = () => {
-    if (!selItem || !connected) return;
-    const n = Math.min(selMax, Math.max(1, parseInt(qty || '1', 10) || 1));
-    tradeClient.listItem(selItem, n, Math.max(0, parseInt(price || '0', 10) || 0), currency, note.trim());
-    setSelId(''); setQty('1'); setPrice(''); setNote(''); setShowForm(false);
+    if (!connected) return;
+    const p = Math.max(0, parseInt(price || '0', 10) || 0);
+    if (listMode === 'npc') {
+      if (!selNpc) return;
+      tradeClient.listNpc(selNpc.id, p, currency, note.trim());
+    } else {
+      if (!selItem) return;
+      const n = Math.min(selMax, Math.max(1, parseInt(qty || '1', 10) || 1));
+      tradeClient.listItem(selItem, n, p, currency, note.trim());
+    }
+    setSelId(''); setSelNpcId(''); setQty('1'); setPrice(''); setNote(''); setShowForm(false);
   };
 
   return (
@@ -163,21 +184,43 @@ export default function TradePanel({ onClose }: { onClose: () => void }) {
             {/* 上架表单 */}
             {showForm && (
               <div className="shrink-0 border-b border-edge bg-panel/50 px-5 py-3 space-y-2">
-                <div className="text-[11px] font-mono text-amber-400/60">上架后物品移入「托管」：被接受成交 → 自动交付买家并收款；手动下架 / 满 1 天未成交 → 自动归还背包</div>
-                <select value={selId} onChange={(e) => { setSelId(e.target.value); setQty('1'); }} className="w-full px-2.5 py-2 rounded-lg bg-void border border-edge text-sm text-slate-100 outline-none focus:border-god/40">
-                  <option value="">— 选择背包物品 —</option>
-                  {sellable.map((it: any) => (
-                    <option key={it.id} value={it.id}>{it.name}{it.quantity > 1 ? ` ×${it.quantity}` : ''}{it.gradeDesc ? ` · ${it.gradeDesc}` : ''}</option>
+                <div className="text-[11px] font-mono text-amber-400/60">上架即移入「托管」：成交 → 自动交付买家并收款；手动下架 / 满 1 天未成交 → 自动归还（随从/宠物归还花名册）</div>
+                {/* 上架类型切换：物品 / 随从·宠物·召唤物 */}
+                <div className="flex items-center gap-1.5">
+                  {([['item', '📦 物品'], ['npc', '🐾 随从']] as const).map(([m, lab]) => (
+                    <button key={m} type="button" onClick={() => setListMode(m)}
+                      className={`px-3 py-1 rounded-lg text-[12px] font-semibold border transition-colors ${listMode === m ? 'bg-god/20 border-god/40 text-god' : 'border-edge text-dim/60 hover:text-slate-200'}`}>{lab}</button>
                   ))}
-                </select>
-                {sellable.length === 0 && <div className="text-[11px] text-dim/40">背包里没有可上架的物品。</div>}
-                {selItem && selMax > 1 && (
-                  <div className="flex items-center gap-2">
-                    <span className="text-[12px] text-dim/70 shrink-0">卖出数量</span>
-                    <input type="number" min={1} max={selMax} value={qty} onChange={(e) => setQty(e.target.value)} className="w-24 px-2.5 py-2 rounded-lg bg-void border border-edge text-sm text-slate-100 outline-none focus:border-god/40" />
-                    <span className="text-[11px] font-mono text-dim/40 shrink-0">库存 {selMax}</span>
-                    <button type="button" onClick={() => setQty(String(selMax))} className="text-[11px] text-god/70 hover:text-god transition-colors shrink-0">全部</button>
-                  </div>
+                </div>
+                {listMode === 'item' ? (
+                  <>
+                    <select value={selId} onChange={(e) => { setSelId(e.target.value); setQty('1'); }} className="w-full px-2.5 py-2 rounded-lg bg-void border border-edge text-sm text-slate-100 outline-none focus:border-god/40">
+                      <option value="">— 选择背包物品 —</option>
+                      {sellable.map((it: any) => (
+                        <option key={it.id} value={it.id}>{it.name}{it.quantity > 1 ? ` ×${it.quantity}` : ''}{it.gradeDesc ? ` · ${it.gradeDesc}` : ''}</option>
+                      ))}
+                    </select>
+                    {sellable.length === 0 && <div className="text-[11px] text-dim/40">背包里没有可上架的物品。</div>}
+                    {selItem && selMax > 1 && (
+                      <div className="flex items-center gap-2">
+                        <span className="text-[12px] text-dim/70 shrink-0">卖出数量</span>
+                        <input type="number" min={1} max={selMax} value={qty} onChange={(e) => setQty(e.target.value)} className="w-24 px-2.5 py-2 rounded-lg bg-void border border-edge text-sm text-slate-100 outline-none focus:border-god/40" />
+                        <span className="text-[11px] font-mono text-dim/40 shrink-0">库存 {selMax}</span>
+                        <button type="button" onClick={() => setQty(String(selMax))} className="text-[11px] text-god/70 hover:text-god transition-colors shrink-0">全部</button>
+                      </div>
+                    )}
+                  </>
+                ) : (
+                  <>
+                    <select value={selNpcId} onChange={(e) => setSelNpcId(e.target.value)} className="w-full px-2.5 py-2 rounded-lg bg-void border border-edge text-sm text-slate-100 outline-none focus:border-god/40">
+                      <option value="">— 选择随从 / 宠物 / 召唤物 —</option>
+                      {tradablePets.map((r: any) => (
+                        <option key={r.id} value={r.id}>{r.name} · {(r.realm || '').split('|')[0] || r.npcTag}{r.npcTag ? ` · ${r.npcTag}` : ''}</option>
+                      ))}
+                    </select>
+                    {tradablePets.length === 0 && <div className="text-[11px] text-dim/40">你名下没有可交易的随从 / 宠物 / 召唤物。</div>}
+                    <div className="text-[10px] font-mono text-dim/40">整只出售：上架即从花名册移出（含六维 / 技能 / 装备快照）；未成交或下架自动归还。</div>
+                  </>
                 )}
                 <div className="flex items-center gap-2">
                   <input type="number" min={0} value={price} onChange={(e) => setPrice(e.target.value)} placeholder="价格" className="flex-1 px-2.5 py-2 rounded-lg bg-void border border-edge text-sm text-slate-100 placeholder:text-dim/40 outline-none focus:border-god/40" />
@@ -188,7 +231,7 @@ export default function TradePanel({ onClose }: { onClose: () => void }) {
                 <textarea value={note} onChange={(e) => setNote(e.target.value.slice(0, 300))} rows={2} placeholder="简介 / 说明（可选，最多 300 字）" className="w-full resize-none rounded-lg bg-void border border-edge px-2.5 py-2 text-sm text-slate-100 placeholder:text-dim/40 outline-none focus:border-god/40" />
                 <div className="flex items-center justify-between">
                   <span className="text-[10px] font-mono text-dim/40">{note.length}/300</span>
-                  <button onClick={doList} disabled={!selItem || !connected} className="px-4 py-2 rounded-lg text-sm font-semibold bg-god/20 border border-god/40 text-god hover:bg-god/30 disabled:opacity-40 disabled:cursor-not-allowed transition-colors">上架</button>
+                  <button onClick={doList} disabled={(listMode === 'item' ? !selItem : !selNpc) || !connected} className="px-4 py-2 rounded-lg text-sm font-semibold bg-god/20 border border-god/40 text-god hover:bg-god/30 disabled:opacity-40 disabled:cursor-not-allowed transition-colors">上架</button>
                 </div>
               </div>
             )}

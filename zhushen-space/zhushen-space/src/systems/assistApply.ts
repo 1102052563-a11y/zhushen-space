@@ -103,6 +103,58 @@ export function materializeAssist(card: AssistCard): string {
   return cid;
 }
 
+/** 把一张 NPC 快照物化成**本玩家永久拥有的随从/宠物/召唤物**（交易行买入 / 上架未成交归还共用）。
+ *  与 materializeAssist 不同：不打 assistCardId/partyWorld（不是借来的临时助战），而是真·己方同伴，长期保留。
+ *  返回新建的 C-id（失败空串）。npcToSnapshotRaw 的"物化"侧。 */
+export function materializeTradedNpc(snap: AssistSnapshot | null | undefined): string {
+  if (!snap || !snap.name) return '';
+  const npc = useNpc.getState();
+  const a: any = snap.attrs || {};
+  const hasAttrs = a && typeof a === 'object' && Object.keys(a).length > 0;
+  const tag = (['宠物', '召唤物', '随从'].includes(String(snap.npcTag)) ? String(snap.npcTag) : '宠物');
+  // 建宠物骨架（拿 C-id，自带 unitType=凶兽魔兽/onScene/partyMember/isFriend），再灌完整面板。
+  const cid = npc.createPet({
+    name: snap.name,
+    species: snap.profession || '',
+    persona: snap.personality || '',
+    appearance: snap.appearance || '',
+    tier: snap.tier || '',
+    strength: snap.bioStrength || '',
+    attrs: hasAttrs ? {
+      str: Number(a.str) || 5, agi: Number(a.agi) || 5, con: Number(a.con) || 5,
+      int: Number(a.int) || 5, cha: Number(a.cha) || 5, luck: Number(a.luck) || 5,
+    } as any : undefined,
+  });
+  const items: NpcOwnedItem[] = [];
+  (snap.equipment || []).forEach((e: any, i: number) => items.push(toOwnedItem(e, cid, i, true)));
+  (snap.items || []).forEach((it: any, i: number) => items.push(toOwnedItem(it, cid, 100 + i, false)));
+  npc.upsertNpc(cid, {
+    npcTag: tag as any,
+    realm: snap.realm || (snap.tier ? `${snap.tier}|${tag}` : ''),
+    gender: coerceGender(snap.gender),
+    appearanceDetail: snap.appearance || '',
+    title: snap.title || '',
+    age: snap.age || '',
+    background: snap.background || '',
+    bioStrength: snap.bioStrength || '',
+    hp: snap.maxHp, maxHp: snap.maxHp, mp: snap.maxEp, maxMp: snap.maxEp,
+    avatar: snap.avatar || undefined,
+    review: snap.review || '',
+    ...(snap.realAttrs && Object.keys(snap.realAttrs).length ? { realAttrs: { ...(snap.realAttrs as any) } } : {}),
+    ...(items.length ? { items } : {}),
+  });
+  try {
+    useCharacters.setState((s) => ({
+      characters: {
+        ...s.characters,
+        [cid]: { id: cid, skills: (snap.skills || []) as any, traits: (snap.traits || []) as any, titles: (snap.titles || []) as any, subProfessions: (snap.subProfessions || []) as any },
+      },
+    }));
+  } catch { /* 技能写入失败不阻断物化 */ }
+  void bumpAutoSave();
+  return cid;
+}
+
 /** 遣散一名助战 NPC：硬删除（连带清掉 characterStore 里的技能/天赋孤儿数据）。 */
 export function dismissAssist(npcId: string): void {
   try { useNpc.getState().hardRemoveNpc(npcId); } catch { /* */ }

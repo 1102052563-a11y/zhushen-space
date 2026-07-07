@@ -1,5 +1,7 @@
 import { useTrade, TRADE_MAX_LISTINGS, type TradeListing } from '../store/tradeStore';
 import { useItems } from '../store/itemStore';
+import { useNpc } from '../store/npcStore';
+import { materializeTradedNpc, npcToSnapshotRaw } from './assistApply';
 import { mpWsBase } from './mpConfig';
 import { chatAvatarVer, chatDicebearSeed } from './chatIdentity';
 import { chatNameColor } from './chatCosmetics';
@@ -35,9 +37,15 @@ function stripItemSnapshot(it: any) {
 type EscrowEntry = { token: string; item: any; listingId: string | null; at: number };
 function loadEscrow(): Record<string, EscrowEntry> { try { return JSON.parse(localStorage.getItem(ESCROW_KEY) || '{}'); } catch { return {}; } }
 function saveEscrow(m: Record<string, EscrowEntry>) { try { localStorage.setItem(ESCROW_KEY, JSON.stringify(m)); } catch {} }
-// 归还：剥掉原背包 id —— 部分上架时原堆叠仍在背包，带 id 归还会命中 addItem 的「同 id 原地更新」把剩余数量覆盖丢失；
-// 去 id 后按名字回堆（可堆叠类）或新建（装备），数量正确累加。
-function returnItem(item: any) { try { const { id, ...rest } = item || {}; useItems.getState().addItem({ ...rest }); } catch {} }
+// 归还：随从/宠物快照 → 物化回己方花名册；普通物品 → 剥掉原背包 id 再入库
+// （部分上架时原堆叠仍在背包，带 id 归还会命中 addItem「同 id 原地更新」把剩余数量覆盖丢失；去 id 后按名回堆/装备新建）。
+function returnItem(item: any) {
+  try {
+    if (item && item._entity === 'npc') { materializeTradedNpc(item); return; }
+    const { id, ...rest } = item || {};
+    useItems.getState().addItem({ ...rest });
+  } catch { /* */ }
+}
 
 /** 重连/进场对账：托管里已不在看板的→归还；没确认过的→补 listingId 或超时归还。 */
 function reconcileEscrow(listings: TradeListing[]) {
@@ -138,7 +146,8 @@ export function applyTrade(rec?: TradeRecord) {
     if (e) { delete mm[e.token]; saveEscrow(mm); }
     if (key) { try { useItems.getState().adjustCurrency(key, rec.price); } catch { /* */ } }   // 收币
   } else {
-    try { useItems.getState().addItem({ ...rec.item, id: undefined }); } catch { /* */ }       // 买家得物（新 id / 同名堆叠）
+    if (rec.item && (rec.item as any)._entity === 'npc') { try { materializeTradedNpc(rec.item as any); } catch { /* */ } }   // 买家得随从/宠物/召唤物（物化进花名册）
+    else { try { useItems.getState().addItem({ ...rec.item, id: undefined }); } catch { /* */ } }                            // 买家得物（新 id / 同名堆叠）
     // 付款已在出价时托管扣除：成交 → 消费该托管(不再扣)；找不到托管才兜底现扣(理论不该走到)
     if (!consumeCoin(rec.offerId, rec.listingId, rec.price) && key) {
       try { useItems.getState().adjustCurrency(key, -rec.price); } catch { /* */ }
@@ -255,6 +264,26 @@ function listItem(item: any, qty: number, price: number, currency: string, note:
   return true;
 }
 
+// 上架一名随从/宠物/召唤物：完整面板快照(打 _entity:'npc' 标记) → 从本地花名册移除入托管。
+// 成交 → 买家 materializeTradedNpc 物化；未成交(下架/过期/8s未确认) → returnItem 物化回己方。托管结构与物品共用。
+function listNpc(npcId: string, price: number, currency: string, note: string): boolean {
+  const raw = npcToSnapshotRaw(npcId);
+  if (!raw || !raw.name) return false;
+  const token = 'n_' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
+  const snap: any = { ...raw, _entity: 'npc' };
+  // 大 base64 立绘不塞进公开看板（hello 会把全部挂牌广播给每个人）——短链接/图库 URL 保留，超大内联图丢弃（买家可自行重生成）。
+  if (typeof snap.avatar === 'string' && snap.avatar.length > 4000) snap.avatar = '';
+  const ok = sendRaw({ type: 'list_item', item: snap, price, currency, note, clientToken: token });
+  if (!ok) return false;
+  try { useNpc.getState().hardRemoveNpc(npcId); } catch { /* */ }       // 上架即从花名册移除（快照已托管，未成交时物化归还）
+  const mm = loadEscrow(); mm[token] = { token, item: snap, listingId: null, at: Date.now() }; saveEscrow(mm);
+  setTimeout(() => {
+    const m2 = loadEscrow(); const e = m2[token];
+    if (e && !e.listingId) { returnItem(e.item); delete m2[token]; saveEscrow(m2); }
+  }, 8000);
+  return true;
+}
+
 // 出价：先扣款入货币托管（余额不足直接拒），再发还价；发送失败/8s 未确认则退币。
 function makeOffer(listingId: string, price: number, message: string, currency: string): boolean {
   const token = 'o_' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
@@ -314,6 +343,7 @@ export const tradeClient = {
   connect,
   leave,
   listItem,
+  listNpc,
   makeOffer,
   buyListing,
   closeListing: (listingId: string) => sendRaw({ type: 'close_listing', listingId }),

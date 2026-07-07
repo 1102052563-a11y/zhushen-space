@@ -2,6 +2,7 @@ import { describe, it, expect, beforeEach } from 'vitest';
 import { applyTrade, walletKey, escrowCoin, consumeCoin, refundCoinsForListing, settleHelloHistory } from './tradeClient';
 import { useTrade } from '../store/tradeStore';
 import { useItems } from '../store/itemStore';
+import { useNpc } from '../store/npcStore';
 import type { TradeRecord } from './tradeProtocol';
 
 // 交易行「成交自动转移 + 出价即托管货币」结算单测：
@@ -114,6 +115,21 @@ describe('交易行 结算 + 货币托管', () => {
     const stacks = useItems.getState().items.filter((it) => it.name === '渡厄丹');
     expect(stacks.length).toBe(1);          // 仍是一条堆叠，没分裂
     expect(stacks[0].quantity).toBe(10);    // 回到 10，而非被覆盖成 3
+  });
+
+  it('随从/宠物成交：买家收到 _entity:npc 记录 → 物化进花名册（不走 addItem）', () => {
+    useTrade.setState({ me: { playerId: 'chat:2', name: 'B' } });
+    useNpc.setState({ npcs: {} });   // 清空花名册
+    applyTrade(rec({
+      id: 'rNpc', offerId: '', price: 0,
+      item: {
+        _entity: 'npc', name: '玄冰貂', npcTag: '宠物', tier: '三阶', realm: '三阶|宠物', profession: '灵兽',
+        attrs: { str: 30, agi: 40, con: 25, int: 20, cha: 15, luck: 10 }, maxHp: 500, maxEp: 200, skills: [{ name: '冰咬' }],
+      },
+    }));
+    const pets = Object.values(useNpc.getState().npcs) as any[];
+    expect(pets.some((r) => r.name === '玄冰貂' && ['宠物', '召唤物', '随从'].includes(r.npcTag || ''))).toBe(true);
+    expect(useItems.getState().items.length).toBe(0);   // NPC 不落背包
   });
 
   it('幂等：同一 record.id 不重复结算', () => {
