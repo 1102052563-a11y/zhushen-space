@@ -319,10 +319,12 @@ body {
 /* 巅峰至强 烈焰 */
 .tier-fx-6 { background-image: linear-gradient(90deg,#fdba74,#fb923c,#f87171,#fb923c); filter: drop-shadow(0 0 12px rgba(249,115,22,1)); }
 .tier-fx-6::before { content:''; position:absolute; inset:-68% -30%; border-radius:50%; z-index:-1; background: radial-gradient(circle, rgba(251,146,60,.62), rgba(239,68,68,.3) 45%, transparent 72%); }
-/* 无上之境 神性彩虹 + 多重光环 + 旋环 */
-.tier-fx-7 { background-image: linear-gradient(90deg,#f87171,#fbbf24,#34d399,#22d3ee,#a78bfa,#f472b6,#f87171); background-size:320% auto; filter: drop-shadow(0 0 7px rgba(255,255,255,.95)) drop-shadow(0 0 16px rgba(167,139,250,.85)); }
-.tier-fx-7::before { content:''; position:absolute; inset:-85% -40%; border-radius:50%; z-index:-1; opacity:.6; background: conic-gradient(from 0deg, rgba(248,113,113,.5),rgba(251,191,36,.5),rgba(52,211,153,.5),rgba(34,211,238,.5),rgba(167,139,250,.5),rgba(244,114,182,.5),rgba(248,113,113,.5)); }
-.tier-fx-7::after  { content:''; position:absolute; inset:-55% -28%; border-radius:50%; z-index:-1; background: radial-gradient(circle, rgba(255,255,255,.55), transparent 64%); }
+/* 无上之境 神性金光（发散金芒 + 柔和金晕·收敛不土气；金色而非大团彩虹） */
+.tier-fx-7 { background-image: linear-gradient(90deg,#fef3c7,#fbbf24,#fffbeb,#f59e0b,#fde68a,#fef3c7); background-size:260% auto; filter: drop-shadow(0 0 6px rgba(253,230,138,.95)) drop-shadow(0 0 13px rgba(245,158,11,.72)); }
+/* 发散金芒：细金光条呈放射星芒状（配 enhSpin 缓旋＝发散感），收小不再罩住半屏 */
+.tier-fx-7::before { content:''; position:absolute; inset:-60% -30%; border-radius:50%; z-index:-1; opacity:.72; background: conic-gradient(from 0deg, transparent 0 6%, rgba(253,230,138,.55) 9%, transparent 13% 31%, rgba(255,251,235,.5) 34%, transparent 38% 56%, rgba(251,191,36,.5) 59%, transparent 63% 81%, rgba(253,230,138,.5) 84%, transparent 88%); }
+/* 柔和金晕（暖金径向·替掉刺眼大白光） */
+.tier-fx-7::after  { content:''; position:absolute; inset:-42% -22%; border-radius:50%; z-index:-1; background: radial-gradient(circle, rgba(253,230,138,.5), rgba(245,158,11,.22) 44%, transparent 72%); }
 @media (prefers-reduced-motion: no-preference) {
   .tier-fx-3 { animation: enhShimmer 2.6s linear infinite, enhBreath 2.2s ease-in-out infinite; }
   .tier-fx-4 { animation: enhShimmer 2.3s linear infinite, enhBreath 2s   ease-in-out infinite; }
@@ -332,7 +334,7 @@ body {
   .tier-fx-4::before { animation: enhHalo 1.8s ease-in-out infinite; }
   .tier-fx-5::before { animation: enhHalo 1.4s ease-in-out infinite; }
   .tier-fx-6::before { animation: enhHalo 1s   ease-in-out infinite; }
-  .tier-fx-7::before { animation: enhSpin 2.6s linear infinite; }
+  .tier-fx-7::before { animation: enhSpin 6s linear infinite; }   /* 金芒缓旋＝发散感（原 2.6s 太快显躁） */
   .tier-fx-7::after  { animation: enhHalo 1s   ease-in-out infinite; }
 }
 

@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { validateTree, canRankUp, treeAttrDelta, autoLayout } from './skillTree';
+import { validateTree, canRankUp, treeAttrDelta, autoLayout, growthSummary } from './skillTree';
 
 const byId = (tree: any): Record<string, any> => Object.fromEntries(tree.nodes.map((n: any) => [n.id, n]));
 
@@ -89,6 +89,29 @@ describe('canRankUp · 阶位 gate 实际拦截', () => {
   it('传承提前解锁(express) → 免阶位 gate', () => {
     // ppBase=0 后 1 级玩家潜能点为 0；本例只验「express 免阶位 gate」，故给足潜能点(aiBonusPP)以隔离 PP 预算变量。
     expect(canRankUp(mk(), 'n3', { ...prog, aiBonusPP: 5 }, { level: 1, tier: '一阶', expressBranches: new Set(['b1']) }).ok).toBe(true);
+  });
+});
+
+describe('growthSummary · 成长方向摘要（喂正文剧情呼应）', () => {
+  const mk = () => validateTree({
+    source: 'ai', noTierGate: true,
+    branches: [{ id: 'a', name: '甲' }, { id: 'b', name: '乙' }],
+    nodes: [
+      { id: 'core', kind: 'minor', branch: 'a', layer: 0, prereqs: [] },
+      { id: 'a1', kind: 'minor', branch: 'a', layer: 1, prereqs: ['core'] },
+      { id: 'aBig', kind: 'major', branch: 'a', layer: 2, prereqs: ['a1'], grants: { skill: { name: '甲之秘' } } },
+      { id: 'bBig', kind: 'major', branch: 'b', layer: 1, prereqs: ['core'], grants: { skill: { name: '乙之秘' } } },
+      { id: 'aBig2', kind: 'major', branch: 'a', layer: 3, prereqs: ['aBig'], grants: { skill: { name: '甲之极' } } },
+    ],
+  }).tree;
+  it('投入方向 + 解锁边缘招牌；未达前置的不列；无树→空', () => {
+    const s = growthSummary(mk(), { ranks: { core: 1, a1: 1 } }, { level: 1, tier: '一阶' });
+    expect(s).toContain('甲');        // 投入偏重「甲」
+    expect(s).toContain('甲之秘');    // a1 已解锁 → aBig 处解锁边缘
+    expect(s).toContain('乙之秘');    // core 已解锁 → bBig 处解锁边缘
+    expect(s).not.toContain('甲之极'); // aBig 未解锁 → aBig2 不算边缘
+    expect(growthSummary(undefined, { ranks: {} }, { level: 1 })).toBe('');
+    expect(growthSummary(mk(), { ranks: {} }, { level: 1, tier: '一阶' })).toBe(''); // 0 进度·核心无招牌→空
   });
 });
 

@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach } from 'vitest';
-import { pushSceneNotice, noteCurrencyChange, drainSceneNotices } from './allocNotice';
+import { pushSceneNotice, noteCurrencyChange, drainSceneNotices, pushGrowthNotice, drainGrowthNotices } from './allocNotice';
 
 /* 场外操作通报：加点/合成/强化/花费货币等前端确定性操作 → 注入正文<前置须知>，防"花到5000正文却记10000"OOC。 */
 describe('sceneNotice · 场外操作通报', () => {
@@ -37,5 +37,19 @@ describe('sceneNotice · 场外操作通报', () => {
     expect(out[0]).toBe('【场外·加点】体质+5');
     expect(out.some((l) => l.includes('乐园币 -300'))).toBe(true);
     expect(drainSceneNotices({ 乐园币: 700 })).toEqual([]);   // 货币缓冲亦一次性
+  });
+});
+
+/* 星图习得「需入戏交代」通报：与"仅知晓"的场外操作分开的缓冲，供正文叙述主角如何获得技能。 */
+describe('growthNotice · 星图习得·需入戏交代', () => {
+  beforeEach(() => { drainGrowthNotices(); });
+  it('push→drain 一次性消费；去重；与场外通报互不干扰', () => {
+    pushGrowthNotice('主角点亮「青钢影」，习得技能「青钢影」');
+    pushGrowthNotice('主角点亮「青钢影」，习得技能「青钢影」');   // 重复→去重
+    pushGrowthNotice('   ');   // 空白忽略
+    pushSceneNotice('【场外·加点】体质+5');   // 场外通报走另一缓冲
+    expect(drainGrowthNotices()).toEqual(['主角点亮「青钢影」，习得技能「青钢影」']);
+    expect(drainGrowthNotices()).toEqual([]);   // 再 drain 已空
+    expect(drainSceneNotices()).toEqual(['【场外·加点】体质+5']);   // 场外缓冲不受影响
   });
 });

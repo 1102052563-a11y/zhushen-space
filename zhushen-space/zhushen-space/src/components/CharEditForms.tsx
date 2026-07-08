@@ -79,7 +79,7 @@ export function SkillEditForm({ charId, skill, onClose, onSubmit }: { charId?: s
   );
 }
 
-// trait 省略 + onSubmit 提供 = 「新建天赋」模式（技能树节点 grants 复用）：回调字段，不写 store。
+// trait 省略 = 「新增天赋」模式：有 onSubmit 则回调字段（技能树节点 grants 复用，不写 store）；否则 addTrait 追加到 characterStore（NPC/主角面板手动新增）。
 export function TraitEditForm({ charId, trait, onClose, onSubmit }: { charId?: string; trait?: Trait; onClose: () => void; onSubmit?: (fields: Omit<Trait, 'addedAt'>) => void }) {
   const [d, setD] = useState({
     name: trait?.name ?? '', rarity: trait?.rarity ?? '', category: trait?.category ?? '', level: trait?.level ?? '',
@@ -88,13 +88,15 @@ export function TraitEditForm({ charId, trait, onClose, onSubmit }: { charId?: s
   });
   const set = (k: keyof typeof d) => (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => setD((p) => ({ ...p, [k]: e.target.value }));
   const save = () => {
+    const name = d.name.trim();
+    if (!trait && !onSubmit && !name) return;   // 新增模式必须先填名字
     const fields = {
-      name: d.name.trim() || trait?.name || '未命名天赋', rarity: d.rarity || trait?.rarity || 'C', category: d.category, level: d.level,
+      name: name || trait?.name || '未命名天赋', rarity: d.rarity || trait?.rarity || 'C', category: d.category, level: d.level,
       source: d.source, attrBonus: d.attrBonus, desc: d.desc, effect: d.effect, note: d.note,
     };
     if (onSubmit) { onSubmit(fields as Omit<Trait, 'addedAt'>); onClose(); return; }
-    if (!trait) { onClose(); return; }
-    useCharacters.getState().updateTrait(charId!, trait.name, fields);
+    if (trait) useCharacters.getState().updateTrait(charId!, trait.name, fields);
+    else useCharacters.getState().addTrait(charId!, fields);   // 追加新天赋（同名 store 自动去重更新）
     onClose();
   };
   return (

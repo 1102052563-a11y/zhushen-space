@@ -863,6 +863,7 @@ export default function BackpackModal({
   const restoreDeleted      = useItems((s) => s.restoreDeleted);
   const clearRecentlyDeleted = useItems((s) => s.clearRecentlyDeleted);
   const removeItem          = useItems((s) => s.removeItem);
+  const binItems            = useItems((s) => s.binItems);
   const territoryUnlocked   = useTerritory((s) => s.unlocked);
   const storeToTerritory    = useTerritory((s) => s.storeItem);
 
@@ -875,8 +876,9 @@ export default function BackpackModal({
   const [showDeleted,  setShowDeleted]  = useState(false);
   const [confirmClearDel, setConfirmClearDel] = useState(false);
   const [showArchived, setShowArchived] = useState(false);   // 「不常用空间」：主背包 ↔ 不常用空间 切换视图
-  const [selectMode,   setSelectMode]   = useState(false);           // 批量存入领地：多选模式
+  const [selectMode,   setSelectMode]   = useState(false);           // 多选模式（批量存入领地 / 批量删除共用）
   const [selectedIds,  setSelectedIds]  = useState<Set<string>>(new Set());
+  const [confirmBatchDel, setConfirmBatchDel] = useState(false);     // 批量删除二次确认
 
   const clearableCount = items.filter((it) => !it.equipped && !it.locked && !it.archived).length;
   const archivedCount  = items.filter((it) => it.archived && !it.equipped).length;   // 不常用空间物品数（已装备的不算·恒在主视图）
@@ -916,7 +918,7 @@ export default function BackpackModal({
     if (n.has(id)) n.delete(id); else n.add(id);
     return n;
   });
-  const exitSelect = () => { setSelectMode(false); setSelectedIds(new Set()); };
+  const exitSelect = () => { setSelectMode(false); setSelectedIds(new Set()); setConfirmBatchDel(false); };
   const selectAllEligible = () => setSelectedIds(new Set(eligibleInBag.map((it) => it.id)));
   const batchDeposit = () => {
     const chosen = eligibleInBag.filter((it) => selectedIds.has(it.id));
@@ -925,6 +927,13 @@ export default function BackpackModal({
       storeToTerritory(toStashPayload(it));   // 携带完整快照，取出无损
       removeItem(it.id);
     }
+    exitSelect();
+  };
+  /* 批量删除：勾选的物品里，跳过锁定物（保护贵重物），一次性移入「最近删除」回收站（3 回合内可恢复）*/
+  const deletableSelected = eligibleInBag.filter((it) => selectedIds.has(it.id) && !it.locked);
+  const batchDelete = () => {
+    if (deletableSelected.length === 0) return;
+    binItems(deletableSelected, { reason: '储存空间·批量删除' });
     exitSelect();
   };
 
@@ -1029,16 +1038,16 @@ export default function BackpackModal({
             ♻ 最近删除{recentlyDeleted.length > 0 ? ` (${recentlyDeleted.length})` : ''}
           </button>
 
-          {/* 批量存入领地：多选背包物品一次性塞进领地仓库（仅领地已开辟、主背包视图可用）*/}
-          {territoryUnlocked && !showArchived && (
+          {/* 多选模式：勾选多件物品一次性【批量删除】或【存入领地】（删除无需领地；主背包视图可用）*/}
+          {!showArchived && (
             <button
               onClick={() => (selectMode ? exitSelect() : setSelectMode(true))}
-              title="进入多选模式，勾选多件物品一次性存入领地仓库"
+              title="进入多选模式，勾选多件物品一次性批量删除，或存入领地仓库"
               className={`flex items-center gap-1.5 px-3 py-1.5 border rounded-lg text-sm font-mono transition-colors ${
                 selectMode ? 'border-amber-400/60 text-amber-300 bg-amber-400/10' : 'border-edge text-dim hover:border-amber-400/40 hover:text-amber-400'
               }`}
             >
-              {selectMode ? '✕ 退出多选' : '☑ 批量存领地'}
+              {selectMode ? '✕ 退出多选' : '☑ 批量'}
             </button>
           )}
 
@@ -1073,20 +1082,33 @@ export default function BackpackModal({
           >✕</button>
         </header>
 
-        {/* ── 批量存入领地·操作条（多选模式）── */}
+        {/* ── 多选·操作条（批量删除 / 批量存入领地）── */}
         {selectMode && (
           <div className="shrink-0 flex flex-wrap items-center gap-3 max-lg:gap-2 px-5 max-lg:px-3 py-2 border-b border-amber-400/30 bg-amber-400/5">
             <span className="text-[13px] font-mono text-amber-200 shrink-0">已选 {selectedCount} 件</span>
-            <button onClick={selectAllEligible} className="text-[12px] font-mono text-dim hover:text-amber-300 transition-colors shrink-0">全选可存（{eligibleInBag.length}）</button>
-            <button onClick={() => setSelectedIds(new Set())} className="text-[12px] font-mono text-dim hover:text-slate-200 transition-colors shrink-0">清空所选</button>
-            <span className="text-[11px] font-mono text-dim/40 shrink-0">（已装备的需先卸下；锁定物可存）</span>
+            <button onClick={selectAllEligible} className="text-[12px] font-mono text-dim hover:text-amber-300 transition-colors shrink-0">全选（{eligibleInBag.length}）</button>
+            <button onClick={() => { setSelectedIds(new Set()); setConfirmBatchDel(false); }} className="text-[12px] font-mono text-dim hover:text-slate-200 transition-colors shrink-0">清空所选</button>
+            <span className="text-[11px] font-mono text-dim/40 shrink-0">（已装备的需先卸下；🔒锁定物不会被删除）</span>
             <span className="flex-1" />
+            {/* 批量删除：跳过锁定物，移入「最近删除」回收站（3 回合内可恢复）*/}
             <button
-              onClick={batchDeposit}
-              disabled={selectedCount === 0}
-              title="把勾选的物品一次性存入领地仓库（从背包移出）"
-              className="flex items-center gap-1.5 px-3 py-1.5 border rounded-lg text-sm font-mono transition-colors border-amber-400/50 text-amber-300 hover:bg-amber-400/10 disabled:opacity-40 disabled:cursor-not-allowed shrink-0"
-            >🏯 存入领地 ({selectedCount})</button>
+              onClick={() => { if (!confirmBatchDel) { setConfirmBatchDel(true); return; } batchDelete(); }}
+              onBlur={() => setConfirmBatchDel(false)}
+              disabled={deletableSelected.length === 0}
+              title="把勾选的物品（🔒锁定物除外）批量删除，移入「最近删除」回收站，3 回合内可恢复"
+              className={`flex items-center gap-1.5 px-3 py-1.5 border rounded-lg text-sm font-mono transition-colors disabled:opacity-40 disabled:cursor-not-allowed shrink-0 ${
+                confirmBatchDel ? 'border-blood/60 text-blood bg-blood/10' : 'border-edge text-dim hover:border-blood/40 hover:text-blood'
+              }`}
+            >{confirmBatchDel ? `确认删除 ${deletableSelected.length} 件？` : `🗑 删除选中 (${deletableSelected.length})`}</button>
+            {/* 存入领地：仅领地已开辟可用（锁定物也可存）*/}
+            {territoryUnlocked && (
+              <button
+                onClick={batchDeposit}
+                disabled={selectedCount === 0}
+                title="把勾选的物品一次性存入领地仓库（从背包移出）"
+                className="flex items-center gap-1.5 px-3 py-1.5 border rounded-lg text-sm font-mono transition-colors border-amber-400/50 text-amber-300 hover:bg-amber-400/10 disabled:opacity-40 disabled:cursor-not-allowed shrink-0"
+              >🏯 存入领地 ({selectedCount})</button>
+            )}
             <button onClick={exitSelect} className="text-[12px] font-mono text-dim/60 hover:text-blood transition-colors shrink-0">取消</button>
           </div>
         )}

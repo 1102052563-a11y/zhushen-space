@@ -7,6 +7,14 @@
 
 let pending: string[] = [];   // 已格式化的整句通报（加点 / 合成 / 强化物品事件…）
 const coin: Record<string, { net: number; reasons: Set<string> }> = {};   // 货币按币种聚合（防赌坊逐笔刷屏）
+let growthPending: string[] = [];   // 「需入戏交代」的成长事件（星图习得技能/天赋、精进升级…）——与"仅知晓"的场外操作不同：正文应用一小段叙述交代主角如何习得，让职业成长与剧情连上
+
+/** 记一条「需入戏交代」的成长通报（技能树点亮技能/天赋、精进升级…）→ 正文应叙述主角如何获得，非仅知晓。去重。 */
+export function pushGrowthNotice(note: string): void { const t = (note ?? '').trim(); if (t && !growthPending.includes(t)) growthPending.push(t); }
+/** 取出并清空本回合成长通报。 */
+export function drainGrowthNotices(): string[] { const out = [...growthPending]; growthPending = []; return out; }
+/** 仅查看不清空（调试/测试用）。 */
+export function peekGrowthNotices(): string[] { return growthPending.slice(); }
 
 /** 记一条场外操作通报（整句·人类可读）。 */
 export function pushSceneNotice(note: string): void {

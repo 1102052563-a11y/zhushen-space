@@ -17,11 +17,14 @@ type Tab = 'browse' | 'upload' | 'mine' | 'installed' | 'settings';
 
 function fmtDate(ts?: number): string { try { return ts ? new Date(ts).toLocaleDateString() : ''; } catch { return ''; } }
 
-export default function WorkshopPanel({ onClose, creationMode = false }: { onClose: () => void; creationMode?: boolean }) {
-  // 创建模式：只显「乐园/种族/天赋」，安装/上传走自定义内容库；普通模式：全部(去掉 creationOnly)
-  const visibleKinds = creationMode ? KIND_LIST.filter((k) => CREATION_TYPES.includes(k.id)) : KIND_LIST.filter((k) => !k.creationOnly);
+export default function WorkshopPanel({ onClose, creationMode = false, initialTab, initialType }: { onClose: () => void; creationMode?: boolean; initialTab?: Tab; initialType?: WorkshopKindId }) {
+  // 创建模式：显「乐园/种族/天赋」+「🎭 角色创建模板」——前三类走自定义内容库；角色创建模板走普通 store 路径(useCreationTemplates)，整份创建设定(乐园/属性/天赋/物品/随从…)一起上传。普通模式：全部(去掉 creationOnly)。
+  const CREATION_MODE_KINDS: WorkshopKindId[] = [...CREATION_TYPES, 'creationTemplate'];
+  const visibleKinds = creationMode ? KIND_LIST.filter((k) => CREATION_MODE_KINDS.includes(k.id)) : KIND_LIST.filter((k) => !k.creationOnly);
   const groupsPresent = [...new Set(visibleKinds.map((k) => k.group))];
-  const localEntriesOf = (t: WorkshopKindId) => (creationMode ? ccListLocal(t) : (kindOf(t)?.listLocal() ?? []));
+  // 仅「乐园/种族/天赋」走自定义内容库；「角色创建模板」即便在创建模式也走普通 store（listLocal/pack/install）——uploadLocal/installFromBackend 自身已按 CREATION_TYPES 兜底，故此处只需分流「列表来源」。
+  const usesCcLib = (t: WorkshopKindId) => creationMode && CREATION_TYPES.includes(t);
+  const localEntriesOf = (t: WorkshopKindId) => (usesCcLib(t) ? ccListLocal(t) : (kindOf(t)?.listLocal() ?? []));
 
   const installs = useWorkshop((s) => s.installs);
   const forgetInstall = useWorkshop((s) => s.forgetInstall);
@@ -33,7 +36,7 @@ export default function WorkshopPanel({ onClose, creationMode = false }: { onClo
   const adminKey = useWorkshop((s) => s.adminKey);
   const setAdminKey = useWorkshop((s) => s.setAdminKey);
 
-  const [tab, setTab] = useState<Tab>('browse');
+  const [tab, setTab] = useState<Tab>(initialTab ?? 'browse');
   const [toast, setToast] = useState('');
   const flash = (m: string) => { setToast(m); window.setTimeout(() => setToast(''), 3500); };
 
@@ -44,7 +47,7 @@ export default function WorkshopPanel({ onClose, creationMode = false }: { onClo
   const [refreshKey, setRefreshKey] = useState(0);
   const [search, setSearch] = useState('');
   const [sort, setSort] = useState<'recent' | 'downloads'>('downloads');
-  const [filterType, setFilterType] = useState<WorkshopKindId>(creationMode ? 'paradise' : 'skill');
+  const [filterType, setFilterType] = useState<WorkshopKindId>(initialType ?? (creationMode ? 'paradise' : 'skill'));
   const [filterCat, setFilterCat] = useState('');
   const [installingId, setInstallingId] = useState<string | null>(null);
   const [detail, setDetail] = useState<WorkshopMeta | null>(null);   // 点开的条目（详情弹窗）
@@ -59,7 +62,7 @@ export default function WorkshopPanel({ onClose, creationMode = false }: { onClo
   const [deletingId, setDeletingId] = useState<string | null>(null);
 
   // 上传
-  const [pubType, setPubType] = useState<WorkshopKindId>(creationMode ? 'paradise' : 'skill');
+  const [pubType, setPubType] = useState<WorkshopKindId>(initialType ?? (creationMode ? 'paradise' : 'skill'));
   const [pubLocalId, setPubLocalId] = useState('');
   const [form, setForm] = useState({ name: '', author: '', version: '1.0.0', summary: '', tags: '' });
   const [uploading, setUploading] = useState(false);

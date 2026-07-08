@@ -39,7 +39,7 @@ function nextRank(rank: TeamRank): TeamRank | null {
 }
 
 export interface TeamMember { id?: string; name?: string; tier?: string; role?: string; note?: string }   // id=关联 NPC 的 C-id（建档则可跳详情）；未建档的团队成员只填 name/tier；主角自建团时 B1=团长不单列，加入他人团时 B1 作为普通成员单列
-export interface TeamPerk { name: string; desc: string; source?: string }   // 团队效果/权限
+export interface TeamPerk { name: string; desc: string; source?: string; locked?: boolean }   // 团队效果/权限；locked=玩家锁定，一键/批量清除时豁免
 
 /** 加入他人冒险团：负责冒险团的 API 全量生成后的团队信息（主角不为领导人）。*/
 export interface JoinTeamPayload {
@@ -138,6 +138,9 @@ interface TeamState {
   removeMember: (id: string) => void;
   upsertPerk: (p: TeamPerk) => void;
   removePerk: (name: string) => void;
+  removePerks: (names: string[]) => void;              // 批量清除：按名删除（锁定的豁免）
+  clearPerks: () => void;                              // 一键清除全部（锁定的豁免）
+  togglePerkLock: (name: string) => void;              // 切换锁定：锁定后不会被清除
   appendDeed: (d: Deed) => void;
   clearTeam: () => void;
 
@@ -273,6 +276,11 @@ export const useTeam = create<TeamState>()(
           return { perks: [...s.perks, { name: nm, desc: p.desc ?? '', source: p.source }] };
         }),
       removePerk: (name) => set((s) => ({ perks: s.perks.filter((x) => !nameEq(x.name, name)) })),
+      // 批量清除：删掉传入名单里的效果，但**锁定的一律豁免**（防误删）
+      removePerks: (names) => set((s) => ({ perks: s.perks.filter((x) => x.locked || !names.some((n) => nameEq(x.name, n))) })),
+      // 一键清除：只保留锁定的
+      clearPerks: () => set((s) => ({ perks: s.perks.filter((x) => x.locked) })),
+      togglePerkLock: (name) => set((s) => ({ perks: s.perks.map((x) => nameEq(x.name, name) ? { ...x, locked: !x.locked } : x) })),
       appendDeed: (d) => set((s) => ({ deeds: [...s.deeds, { ...d, addedAt: d.addedAt ?? Date.now() }].slice(-50) })),
 
       clearTeam: () => set({ established: false, disbanded: false, name: '', rank: 'E', teamExp: 0, activity: 50, members: [], perks: [], deeds: [], assessment: { pending: false, targetRank: '', status: 'none' }, leaderId: '', leaderName: '' }),

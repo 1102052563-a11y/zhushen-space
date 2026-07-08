@@ -5,7 +5,7 @@ import { gradeToNum, type InventoryItem, type CurrencyWallet } from '../store/it
 import type { PlayerProfile, PlayerAttrs } from '../store/playerStore';
 import { effectiveResource, lvFromRealm, fullMaxHp, fullMaxEp, computeDerived, realAttrMult, attrCapForTier, ratioOf, hpCoefOf, epCoefOf, vitalFormula, npcBaseAttrs } from './derivedStats';
 import { effectiveAttrs, withAttrDelta } from './attrBonus';
-import { playerTreeAttrBonus } from '../store/skillTreeStore';
+import { playerTreeAttrBonus, playerGrowthSummary } from '../store/skillTreeStore';
 import { playerTeamAttrBonus, playerTeamPerkAbilities } from '../store/adventureTeamStore';
 import { bioInnate, bioPower, bioStrengthLabel } from './bioStrength';
 import { useResource } from '../store/resourceStore';
@@ -270,6 +270,7 @@ export function serializePlayerCard(
     `【自定义能量条·剧情资源】以下为玩家自设的额外资源条，请结合剧情按各自语义增减：用 <state> 写 \`res.B1.<key> += N\` / \`-= N\` / \`= N\` 改其当前值（**只改这些已存在的条**，勿写上限、勿改名、勿自创新条；上限由前端算）`,
     ...injectRes.map((r) => { const rmax = playerResourceMax(r); return `· ${r.name}(key=${r.id}): ${Math.min(Math.max(0, r.cur ?? 0), rmax)}/${rmax}${r.desc ? `｜含义/涨落：${r.desc}` : ''}`; }),
   ] : [];
+  const growth = playerGrowthSummary('B1', profile.level, profile.tier);   // 技能树成长方向摘要（供剧情呼应）
   const stat = [
     `HP:${effectiveResource(game.hp, game.maxHp, pMaxHp)}/${pMaxHp}（满状态上限=${pMaxHp}，已含${pHpForm}（四阶起真实属性×5）及天赋/装备/技能/技能树/团队全部加成，前端实算；回满/满血即回到 ${pMaxHp}，勿按基础六维自行重算、勿沿用历史旧上限${profile.hpLabel ? `；正文叙述称「${profile.hpLabel}」，状态行/指令仍写 HP` : ''}）`,
     `EP:${effectiveResource(game.mp, game.maxMp, pMaxEp)}/${pMaxEp}（满状态上限=${pMaxEp}，已含${pEpForm}（四阶起×5）及天赋/装备/技能/技能树/团队全部加成，前端实算；回满即回到 ${pMaxEp}，勿自行重算、勿沿用历史旧上限${profile.epLabel ? `；正文叙述称「${profile.epLabel}」，状态行/指令仍写 EP` : ''}）`,
@@ -283,6 +284,7 @@ export function serializePlayerCard(
       `属性点:${profile.attrPoints ?? 0} | 真实属性点:${profile.realAttrPoints ?? 0}（⚠最新余额·唯一真相，遵【属性点·唯一真相铁则】：玩家在前端面板自行加点消耗，勿复读旧剩余、勿自行增减）`,
     profile.worldSource != null && `世界之源:${profile.worldSource}`,
     wallet && `货币: 乐园币${wallet.乐园币 ?? 0} | 灵魂钱币${wallet.灵魂钱币 ?? 0} | 技能点${wallet.技能点 ?? 0} | 黄金技能点${wallet.黄金技能点 ?? 0}`,
+    growth && `【技能树·成长方向】${growth}（★主角的职业与已习得的招牌技能/天赋是其**战斗风格与身份的核心**：叙述战斗、行动、与人交锋时应自然体现、保持一致，别让他打得像没有这些能力，**跨世界、跨层数也别忘了他这条职业成长线**；可呼应他朝上述方向的钻研/顿悟/瓶颈/临门一脚，让成长有铺垫。但"即将能学"的那几项**不得替玩家解锁、不得当作已掌握**，真正习得以玩家在技能树点亮为准）`,
   ].filter(Boolean).join(' | ');
   // 外观锚点：基底外观(常驻·开局设定)=长相唯一真相；**为空时回退用即时外观当锚点**，
   // 确保身高/体型/发色/瞳色等常驻特征每回合都注入、不让 AI 凭空猜（治"只传即时外观→外貌每回合漂移、偏离人设"）。
@@ -303,8 +305,9 @@ export function serializePlayerCard(
   // 技能：开了 API 选取(pick.skills)→按 API 选的名字注入；否则本地 pickTop(品阶/新近) 兜底（API 给的名都没匹配上也回退本地，避免空）
   let skillSel = matchByName(skills, pick?.skills, limits.maxSkills);
   if (!skillSel.length) skillSel = pickTop(skills, limits.maxSkills, skillScore);
-  // 护栏：情境里字面喊到的技能强制并入（置顶去重，不受 maxSkills 上限约束）——治"都喊技能名了还不注入"
-  for (const s of namesMentionedIn(skills, context)) if (!skillSel.includes(s)) skillSel.unshift(s);
+  // 护栏：**仅按【用户输入】**字面喊到的技能强制并入（置顶去重，不受 maxSkills 上限约束）——治"玩家都喊技能名了还不注入"。
+  // ⚠只扫 userInput、不扫整段正文：正文一提到一堆技能名就会全绕过 maxSkills → 注入"一大堆"违背上限设定（与物品护栏同口径·见下方 leanItems）。
+  for (const s of namesMentionedIn(skills, userInput ?? context)) if (!skillSel.includes(s)) skillSel.unshift(s);
   const topSkills = skillSel.map(skillLine);
   // 物品/装备注入——两种模式：
   //  · 精简物品栏(leanItems，叙事回忆用)：本轮【用户输入】提到的 + 当前已装备 → 全量信息；其余整背包 → 仅名称（省 token，AI 仍知道"有这东西"）。

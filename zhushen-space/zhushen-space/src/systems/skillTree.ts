@@ -202,6 +202,32 @@ export function treeAttrDelta(tree: TreeDef | undefined, progress: ProgressLike 
   return out;
 }
 
+/* 「成长方向」摘要（喂正文·让剧情呼应主角在技能树上的钻研倾向）：
+   ① 已投入偏重的流派(按已点 rank 求和) ② 处于「解锁边缘」的招牌大节点(未点·带技能/天赋·直接前置已解锁·阶位达标)。
+   只给方向 + 临门招牌名，不含整棵树结构；表示"正在靠近/钻研"，不代表玩家已拥有。 */
+export function growthSummary(tree: TreeDef | undefined, progress: ProgressLike | undefined, ctx: TreeCtx): string {
+  if (!tree || !tree.nodes?.length) return '';
+  const branchName = (id: string) => tree.branches.find((b) => b.id === id)?.name || id;
+  const bp = new Map<string, number>();
+  for (const n of tree.nodes) { const r = nodeRank(progress, n.id); if (r > 0 && n.branch) bp.set(n.branch, (bp.get(n.branch) ?? 0) + r); }
+  const topBranches = [...bp.entries()].sort((a, b) => b[1] - a[1]).slice(0, 2).map(([id]) => branchName(id));
+  const frontier: string[] = [];
+  for (const n of tree.nodes) {
+    if (nodeRank(progress, n.id) > 0 || n.sink || n.socket) continue;
+    const g = n.grants?.skill?.name || n.grants?.trait?.name;              // 只看带技能/天赋的招牌大节点
+    if (!g) continue;
+    if (!(n.prereqs ?? []).every((p) => isUnlocked(progress, p))) continue; // 直接前置都已解锁 → 临门一步
+    if (!gatePass(n, ctx)) continue;                                        // 阶位够(noTierGate 树恒过)
+    if (!frontier.includes(String(g))) frontier.push(String(g));
+    if (frontier.length >= 5) break;
+  }
+  if (!topBranches.length && !frontier.length) return '';
+  const treeName = tree.title || tree.profession;
+  const dir = topBranches.length ? `已偏重「${topBranches.join('」「')}」方向` : '刚起步、方向未定';
+  const next = frontier.length ? `；正处解锁边缘、即将能习得：${frontier.join('、')}` : '';
+  return `修习「${treeName}」，${dir}${next}。`;
+}
+
 /* 大节点 = 解锁技能/天赋/配方的节点（中星/主星）。洗点不动它们。*/
 export function isBigNode(node: TreeNode | undefined): boolean {
   return !!(node && (node.grants?.skill || node.grants?.trait || node.grants?.recipe));

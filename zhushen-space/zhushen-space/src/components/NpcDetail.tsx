@@ -275,8 +275,8 @@ export default function NpcDetail({
           {tab === 'attr'     && <AttrTab npc={npc} realm={realm} />}
           {tab === 'bag'      && <ItemsTab items={bag} empty="储存空间空空如也" ownerId={npc.id} ownerName={npc.name} ownerGender={npc.gender} onClear={() => clearNpcBag(npc.id)} />}
           {tab === 'equip'    && <NpcEquip npc={npc} />}
-          {tab === 'skill'    && <SkillTab skills={skills} charId={npc.id} />}
-          {tab === 'trait'    && <TraitTab traits={traits} charId={npc.id} />}
+          {tab === 'skill'    && <SkillTab skills={skills} charId={npc.id} readOnly={effPreview} />}
+          {tab === 'trait'    && <TraitTab traits={traits} charId={npc.id} readOnly={effPreview} />}
           {tab === 'relation' && <RelationTab npc={npc} list={list} onSelect={onSelect} />}
           {tab === 'history'  && <HistoryTab npc={npc} />}
           </>
@@ -1586,7 +1586,7 @@ function NpcItemCard({ it, showSlot, ownerId, ownerGender, onFlash }: { it: NonN
 }
 
 /* ────────── 技能（点击展开完整信息） ────────── */
-function NpcSkillCard({ sk, charId }: { sk: ReturnType<typeof useCharacters.getState>['characters'][string]['skills'][number]; charId: string }) {
+function NpcSkillCard({ sk, charId, readOnly }: { sk: ReturnType<typeof useCharacters.getState>['characters'][string]['skills'][number]; charId: string; readOnly?: boolean }) {
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState(false);
   const removeSkill = useCharacters((s) => s.removeSkill);
@@ -1632,12 +1632,14 @@ function NpcSkillCard({ sk, charId }: { sk: ReturnType<typeof useCharacters.getS
           </div>
           <div className="flex items-center justify-between">
             <span className="text-[11px] font-mono text-dim/30">{sk.id}</span>
+            {!readOnly && (
             <div className="flex items-center gap-3">
               <button onClick={(e) => { e.stopPropagation(); setEditing((v) => !v); }}
                 className="text-[12px] font-mono text-god/60 hover:text-god transition-colors">{editing ? '取消编辑' : '✎ 编辑'}</button>
               <button onClick={(e) => { e.stopPropagation(); removeSkill(charId, sk.id); }}
                 className="text-[12px] font-mono text-blood/60 hover:text-blood transition-colors">删除</button>
             </div>
+            )}
           </div>
         </div>
       )}
@@ -1645,17 +1647,28 @@ function NpcSkillCard({ sk, charId }: { sk: ReturnType<typeof useCharacters.getS
     </div>
   );
 }
-function SkillTab({ skills, charId }: { skills: ReturnType<typeof useCharacters.getState>['characters'][string]['skills']; charId: string }) {
-  if (!skills || skills.length === 0) return <Empty text="暂无技能" />;
+function SkillTab({ skills, charId, readOnly }: { skills: ReturnType<typeof useCharacters.getState>['characters'][string]['skills']; charId: string; readOnly?: boolean }) {
+  const [adding, setAdding] = useState(false);
   return (
-    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 items-start">
-      {skills.map((sk, i) => <NpcSkillCard key={`${sk.id}-${i}`} sk={sk} charId={charId} />)}
+    <div className="space-y-2">
+      {!readOnly && (adding
+        ? <div className="rounded-lg border border-god/40 bg-panel/60 px-3 py-2">
+            <div className="text-[13px] font-semibold text-god/80">＋ 新增技能（手动填写）</div>
+            <SkillEditForm charId={charId} onClose={() => setAdding(false)} />
+          </div>
+        : <button onClick={() => setAdding(true)}
+            className="w-full py-1.5 rounded-lg border border-dashed border-god/40 text-god/70 hover:text-god hover:border-god/60 hover:bg-god/5 text-[13px] font-mono transition-colors">＋ 新增技能</button>)}
+      {(!skills || skills.length === 0)
+        ? <Empty text="暂无技能" />
+        : <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 items-start">
+            {skills.map((sk, i) => <NpcSkillCard key={`${sk.id}-${i}`} sk={sk} charId={charId} readOnly={readOnly} />)}
+          </div>}
     </div>
   );
 }
 
 /* ────────── 天赋（评级 D→SSS，点击展开完整信息） ────────── */
-function NpcTalentCard({ t, charId }: { t: ReturnType<typeof useCharacters.getState>['characters'][string]['traits'][number]; charId: string }) {
+function NpcTalentCard({ t, charId, readOnly }: { t: ReturnType<typeof useCharacters.getState>['characters'][string]['traits'][number]; charId: string; readOnly?: boolean }) {
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState(false);
   const removeTrait = useCharacters((s) => s.removeTrait);
@@ -1682,23 +1695,36 @@ function NpcTalentCard({ t, charId }: { t: ReturnType<typeof useCharacters.getSt
             {num.intensity && <span>强度 {num.intensity}</span>}
             {num.rarity && <span>tier {num.rarity}</span>}
           </div>
+          {!readOnly && (
           <div className="flex items-center justify-end gap-3 pt-0.5">
             <button onClick={(e) => { e.stopPropagation(); setEditing((v) => !v); }}
               className="text-[12px] font-mono text-god/70 hover:text-god transition-colors">{editing ? '取消编辑' : '✎ 编辑'}</button>
             <button onClick={(e) => { e.stopPropagation(); removeTrait(charId, t.name); }}
               className="text-[12px] font-mono text-blood/70 hover:text-blood transition-colors">删除</button>
           </div>
+          )}
         </div>
       )}
       {editing && <TraitEditForm charId={charId} trait={t} onClose={() => setEditing(false)} />}
     </div>
   );
 }
-function TraitTab({ traits, charId }: { traits: ReturnType<typeof useCharacters.getState>['characters'][string]['traits']; charId: string }) {
-  if (!traits || traits.length === 0) return <Empty text="暂无天赋" />;
+function TraitTab({ traits, charId, readOnly }: { traits: ReturnType<typeof useCharacters.getState>['characters'][string]['traits']; charId: string; readOnly?: boolean }) {
+  const [adding, setAdding] = useState(false);
   return (
-    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 items-start">
-      {traits.map((t, i) => <NpcTalentCard key={`${t.name}-${i}`} t={t} charId={charId} />)}
+    <div className="space-y-2">
+      {!readOnly && (adding
+        ? <div className="rounded-lg border border-god/40 bg-panel/60 px-3 py-2">
+            <div className="text-[13px] font-semibold text-god/80">＋ 新增天赋（手动填写）</div>
+            <TraitEditForm charId={charId} onClose={() => setAdding(false)} />
+          </div>
+        : <button onClick={() => setAdding(true)}
+            className="w-full py-1.5 rounded-lg border border-dashed border-god/40 text-god/70 hover:text-god hover:border-god/60 hover:bg-god/5 text-[13px] font-mono transition-colors">＋ 新增天赋</button>)}
+      {(!traits || traits.length === 0)
+        ? <Empty text="暂无天赋" />
+        : <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 items-start">
+            {traits.map((t, i) => <NpcTalentCard key={`${t.name}-${i}`} t={t} charId={charId} readOnly={readOnly} />)}
+          </div>}
     </div>
   );
 }

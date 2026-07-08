@@ -105,6 +105,7 @@ export default function CharacterCreation({ onConfirm, onCancel, onGenItems, onG
   const [tplName, setTplName] = useState('');
   // 创意工坊·自定义内容库（乐园/种族/天赋）
   const [workshopOpen, setWorkshopOpen] = useState(false);
+  const [workshopUploadTpl, setWorkshopUploadTpl] = useState(false);   // true=开工坊后直接落到「上传·🎭 角色创建模板」页
   const customParadises = useCreationContent((s) => s.paradises);
   const customRaces = useCreationContent((s) => s.races);
   const customTalents = useCreationContent((s) => s.talents);
@@ -220,12 +221,20 @@ export default function CharacterCreation({ onConfirm, onCancel, onGenItems, onG
       {/* 模板栏 */}
       <div className="border border-edge rounded-xl p-3 bg-panel/40 space-y-2">
         <div className="flex items-center gap-2">
-          <span className="text-[11px] font-mono text-dim/60 flex-1">📁 模板：把当前设定存起来复用，或导入已存模板</span>
+          <span className="text-[11px] font-mono text-dim/60 flex-1">📁 模板：把当前设定（乐园/难度/属性/天赋/开局物品/随行人物…全部）存起来复用、上传分享，或导入已存模板</span>
           <button onClick={() => { setTplName(name || ''); setTplMode(tplMode === 'save' ? 'none' : 'save'); }}
             className="px-2.5 py-1 text-[12px] font-mono border border-god/40 text-god rounded hover:bg-god/10 transition-colors">💾 存为模板</button>
           <button onClick={() => setTplMode(tplMode === 'import' ? 'none' : 'import')}
             className="px-2.5 py-1 text-[12px] font-mono border border-edge text-dim rounded hover:border-god/40 hover:text-god transition-colors">📥 导入模板{templates.length > 0 ? `（${templates.length}）` : ''}</button>
-          <button onClick={() => setWorkshopOpen(true)}
+          <button
+            onClick={() => {
+              // 上传整份人物模板到工坊：需先有已保存的模板；没有就先弹「存为模板」引导保存当前设定，再来上传
+              if (templates.length === 0) { setTplName(name || ''); setTplMode('save'); return; }
+              setWorkshopUploadTpl(true); setWorkshopOpen(true);
+            }}
+            title="把已保存的『角色创建模板』整份上传到创意工坊分享（含乐园/难度/属性/天赋/开局物品/随行人物等全部设定）。若还没保存，会先让你『存为模板』。"
+            className="px-2.5 py-1 text-[12px] font-mono border border-amber-400/40 text-amber-300 rounded hover:bg-amber-400/10 transition-colors">⬆ 上传模板</button>
+          <button onClick={() => { setWorkshopUploadTpl(false); setWorkshopOpen(true); }}
             className="px-2.5 py-1 text-[12px] font-mono border border-god/40 text-god rounded hover:bg-god/10 transition-colors">🧩 创意工坊</button>
         </div>
         {tplMode === 'save' && (
@@ -492,7 +501,9 @@ export default function CharacterCreation({ onConfirm, onCancel, onGenItems, onG
 
       {workshopOpen && (
         <Suspense fallback={null}>
-          <WorkshopPanel creationMode onClose={() => setWorkshopOpen(false)} />
+          <WorkshopPanel creationMode onClose={() => setWorkshopOpen(false)}
+            initialTab={workshopUploadTpl ? 'upload' : undefined}
+            initialType={workshopUploadTpl ? 'creationTemplate' : undefined} />
         </Suspense>
       )}
     </Shell>

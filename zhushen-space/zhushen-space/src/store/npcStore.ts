@@ -552,6 +552,10 @@ export const useNpc = create<NpcState>()(
           if (short['extraSy'] != null) rec.extra = { ...rec.extra, 额外寿元: g('extraSy') };
           if (short['apAge'] != null)   rec.extra = { ...rec.extra, 外貌年龄: g('apAge') };
           if (g('yrr')) rec.extra = { ...rec.extra, 驻颜理由: g('yrr') };
+          // 兜底：AI 塞进**未知缩写键**（如乱写的"裤"里塞了 HP/基底外观）的内容不静默丢弃——存进 extra，
+          //   至少在「表格数据库/NPC详情」可见、NPC 演化阶段也能据此补正（治"登场给的字段被整段丢了"）。
+          const KNOWN_SKEL = new Set(['n', 'r', 'p', 't', 'lg', 'bg', 'act', 'bs', 'ty', 'extraSy', 'apAge', 'yrr']);
+          for (const k of Object.keys(short)) { if (!KNOWN_SKEL.has(k)) { const v = g(k); if (v) rec.extra = { ...rec.extra, [k]: v }; } }
           rec.onScene = true;
           rec.updatedAt = Date.now();
           return { npcs: { ...s.npcs, [id]: rec } };

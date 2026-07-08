@@ -9,9 +9,10 @@ import {
   canRankUp, nodeRank, validateTree, autoLayout, defaultCost,
   DEFAULT_BRANCH_COLORS, SKILLTREE_TUNING, treeAttrDelta, constellationStatus,
   isBigNode, respecMinorPoints, coinPerPP,
-  expressBranchIds, ownedNameSet, nodeCostFor,
+  expressBranchIds, ownedNameSet, nodeCostFor, growthSummary,
 } from '../systems/skillTree';
 import { registerTreePool } from '../systems/treePool';
+import { pushGrowthNotice } from '../systems/allocNotice';   // 星图习得/精进 → 正文入戏交代（治"不知道怎么获得技能·各玩各的"）
 
 /* 主角(或某角色)当前技能树的六维总加成（普通等值；普通节点普通点、sink 真实点 ×80）。
    供 combat/dice/bio/属性面板把它折进有效属性 base，使所有判定生效。 */
@@ -20,6 +21,17 @@ export function playerTreeAttrBonus(charId = 'B1'): AttrDelta {
   const p = s.progress[charId];
   const tree = p?.activeTreeId ? s.trees[p.activeTreeId] : undefined;
   return treeAttrDelta(tree, p);
+}
+
+/* 主角技能树「成长方向」摘要（喂正文让剧情呼应；需 level/tier 判阶位 gate）。无树/无进度 → ''。 */
+export function playerGrowthSummary(charId = 'B1', level = 1, tier?: string): string {
+  const s = useSkillTree.getState();
+  const prog = s.progress[charId];
+  const tree = prog?.activeTreeId ? s.trees[prog.activeTreeId] : undefined;
+  if (!tree) return '';
+  const ch = useCharacters.getState().characters['B1'];
+  const expressBranches = expressBranchIds(tree, ownedNameSet(ch?.skills, ch?.traits));
+  return growthSummary(tree, prog, { level, tier, expressBranches, charId });
 }
 
 /* ════════════════════════════════════════════════════════════════════════════
@@ -444,15 +456,20 @@ export const useSkillTree = create<SkillTreeState>()(
         // 仅 rank 0→1 时灌一次 grants（技能/天赋）；属性走 treeAttrDelta，不再合成天赋
         const refs: GrantedRef[] = [...prog.grantedRefs];
         if (wasRank === 0) {
+          const treeNm = tree.title || tree.profession;
           if (node.grants?.skill) {
             const name = node.grants.skill.name || node.name;
+            const sk: any = node.grants.skill;
             useCharacters.getState().addSkill('B1', { id: '', ...(node.grants.skill as any), name });
             refs.push({ kind: 'skill', name });
+            pushGrowthNotice(`主角在职业星图「${treeNm}」上点亮「${node.name}」，习得技能「${name}」${sk.rarity ? `（${sk.rarity}）` : ''}${sk.skillType ? `·${sk.skillType}` : ''}。`);
           }
           if (node.grants?.trait) {
             const name = node.grants.trait.name || node.name;
+            const tr: any = node.grants.trait;
             useCharacters.getState().addTrait('B1', { ...(node.grants.trait as any), name });
             refs.push({ kind: 'trait', name });
+            pushGrowthNotice(`主角在职业星图「${treeNm}」上点亮「${node.name}」，觉醒天赋「${name}」${tr.rarity ? `（${tr.rarity}）` : ''}。`);
           }
         }
 
@@ -488,10 +505,12 @@ export const useSkillTree = create<SkillTreeState>()(
         if (upd.skill?.name) {
           useCharacters.getState().addSkill('B1', { id: '', ...(upd.skill as any) });   // 同名 upsert→更新技能栏
           if (!refs.some((r) => r.kind === 'skill' && r.name === upd.skill!.name)) refs.push({ kind: 'skill', name: upd.skill.name });
+          pushGrowthNotice(`主角精进了技能「${upd.skill.name}」——在职业星图上钻研更深，威力更强的版本。`);
         }
         if (upd.trait?.name) {
           useCharacters.getState().addTrait('B1', { ...(upd.trait as any) });
           if (!refs.some((r) => r.kind === 'trait' && r.name === upd.trait!.name)) refs.push({ kind: 'trait', name: upd.trait.name });
+          pushGrowthNotice(`主角精进了天赋「${upd.trait.name}」——星图钻研更深，觉醒更强的版本。`);
         }
         set((st) => {
           const cur = st.progress[charId] ?? newProgress();

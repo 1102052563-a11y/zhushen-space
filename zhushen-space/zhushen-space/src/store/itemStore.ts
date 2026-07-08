@@ -367,6 +367,7 @@ interface ItemState {
   removeItem: (id: string) => void;
   consumeItem: (id: string, quantity: number) => void;
   binItem: (item: InventoryItem, info?: { kind?: 'used' | 'broken'; reason?: string }) => void;   // 把物品移入「最近删除」回收站并从背包移除（供 AI 销毁 / 消耗到 0 时调用）；info=删除原因
+  binItems: (items: InventoryItem[], info?: { kind?: 'used' | 'broken'; reason?: string }) => void;   // 批量移入回收站（玩家在背包里批量删除·一次 set 避免逐件刷 100 次持久化）
   restoreDeleted: (id: string) => void;          // 从「最近删除」恢复回背包
   clearRecentlyDeleted: () => void;              // 清空「最近删除」
   setItemTurn: (turn: number) => void;           // 更新回合数 + 清除已进入回收站满 3 回合的物品
@@ -571,6 +572,23 @@ export const useItems = create<ItemState>()(
               { ...item, equipped: false, equipSlot: undefined, deletedTurn: s.itemTurn, deleteKind: info?.kind, deleteReason: info?.reason },
               ...s.recentlyDeleted.filter((d) => d.id !== item.id),
             ].slice(0, 100),
+          };
+        });
+      },
+
+      // 批量移入回收站：玩家在储存空间勾选多件后一次性删除（锁定/装备件由调用方先剔除）。
+      // 一次 set 完成，避免逐件调 binItem 触发 N 次持久化写入（100+ 件时明显卡顿）。
+      binItems: (items, info) => {
+        const list = (items ?? []).filter(Boolean);
+        if (list.length === 0) return;
+        for (const it of list) markAccountedRemoval(it.id);
+        set((s) => {
+          for (const it of list) logItemEvent(s.itemTurn, info?.kind === 'used' ? '消耗/使用' : '销毁/丢失', it.name, info?.reason);
+          const ids = new Set(list.map((it) => it.id));
+          const binned = list.map((it) => ({ ...it, equipped: false, equipSlot: undefined, deletedTurn: s.itemTurn, deleteKind: info?.kind, deleteReason: info?.reason }));
+          return {
+            items: s.items.filter((it) => !ids.has(it.id)),
+            recentlyDeleted: [...binned, ...s.recentlyDeleted.filter((d) => !ids.has(d.id))].slice(0, 100),
           };
         });
       },

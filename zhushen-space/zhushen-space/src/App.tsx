@@ -201,7 +201,7 @@ import { buildMemPool, loadAll as factVecLoadAll, ensureVectors as factVecEnsure
 import { useDbAdvance } from './store/dbAdvanceStore';   // 数据库推进管线（Stitches 规划层）
 import { findModule as dbFindModule, buildModuleMessages as dbBuildMsgs, extractTag as dbExtractTag, stripExcluded as dbStripExcluded, resolveFinalDirective as dbResolveDirective, type DbAdvanceCtx } from './systems/dbAdvancePreset';
 import { serializePlayerCard, serializeNpcCard, buildNpcCandidateTitles, buildPlayerSkillCandidates, buildPlayerItemCandidates, rankNpcsLocal, serializeFactionsSection, namesMentionedIn, NM_STRUCT_SELECT_PROMPT, type RecallLimits } from './systems/structuredRecall';
-import { drainSceneNotices, pushSceneNotice } from './systems/allocNotice';   // 场外操作通报（加点/合成/强化/货币…）→ 正文前置须知
+import { drainSceneNotices, pushSceneNotice, drainGrowthNotices } from './systems/allocNotice';   // 场外操作通报（加点/合成/强化/货币…）→ 正文前置须知；星图习得→需入戏交代块
 import { rollGemDrops } from './systems/gemDrop';   // 正文击杀 → 结算掉落宝石（前端确定性）
 const MiscPanel = lazy(() => import('./components/MiscPanel'));
 const DicePanel = lazy(() => import('./components/DicePanel'));
@@ -339,6 +339,13 @@ function worldLoreEvoInjection(): string {
   const t = activeWorldLoreText();
   if (!t) return '';
   return `\n\n【本世界·世界志（主角当前所在世界·最高约束·仅在此世界内生效）】以下是主角当前所在世界的既定设定。**在本世界登场 / 演化的任何人物，其阶位·等级·生物强度都不得超过本世界「巅峰战力」，并须与下方势力 / 关键人物的强度档相称**——世界巅峰若仅五~七阶，就绝不冒出八阶 / 巅峰至强的路人；人物立场·所属势力·剧情走向亦据此保持一致。\n${t}`;
+}
+// 任务/杂项演化专用：当前世界若在「世界记录」里已有世界观骨架 → 注入它，让主线路线图与世界志的【主线阶段】【任务预埋】对齐（治"任务系统和世界记录不联动"）。
+// 世界记录里没有当前世界(activeWorldLoreText 返回空) → 返回空，任务系统照常自主规划、不强行联动。
+function worldLoreTaskInjection(): string {
+  const t = activeWorldLoreText();
+  if (!t) return '';   // 世界记录里没有当前世界 → 不联动
+  return `\n\n【本世界·世界志联动（当前世界在「世界记录」里已有世界观骨架·最高优先·本世界任务须与之一致）】规划/推进本世界任务时**必须对齐下面的世界志**：\n- **主线路线图顺着世界志【剧情走向·主线阶段】的骨架铺**（各环对应或平行于这些阶段·递进推进），别另起一套与世界观无关的主线；finale 对齐世界志的高潮/可能结局。\n- 世界志若有【任务预埋】→ **优先据此立任务**（名称/类型/评级线索照它来）。\n- 任务里的**反派/势力/关键人物/地名一律用世界志里的真实设定与命名**；难度/敌人强度与世界志【阶位】及各势力·人物【强度档】相称（并受上面【本世界难度·已锁定】约束）。\n- 世界志是骨架非剧本：据此定大方向，细节仍按正文与既有任务推进，勿替玩家决定结局。\n${t}`;
 }
 
 function buildWorldviewInjection(): { role: 'system'; content: string }[] {
@@ -914,11 +921,12 @@ const TASK_RECONCILE_RULE = `
 
 const TASK_CANON_RULE = `
 【同人世界·任务接地铁则（让任务贴合原作主线脉络，而非套通用模板）】当【当前世界】是**已知虚构作品**（动漫/游戏/小说/影视等同人世界）、且【同人增强】=开时，生成或规划任务（尤其主线路线图）前先做"接地"：
-1. **主动联网搜索**该作品的：核心主线脉络与阶段走向、主要冲突与反派、关键势力/组织、重要地点与威胁、重大事件与时间线（该作品有大量公开资料，优先采用准确、最新信息）；可一并参考已锁定的 <同人设定>。
-2. 用搜索到的**真实设定**设计任务的名称/描述/环目标/finale，使主线**沿着或平行于原作主线脉络推进**——反派/势力/地点/威胁都用原作真名与设定，不要套"讨伐巢穴/护送商队"之类通用模板，不要张冠李戴或编造不符的设定；原作未涉及处基于已知信息合理推演。
+0. **先锚定"具体时间线 / 事件 / 篇章"（最重要·治"张冠李戴、乱拉不相干反派"）**：主角进入的是该作品的**哪个时期 / 哪场大事件 / 哪条故事线**？——据【当前世界】名、【本世界·世界志】（蓝本/基调/主线阶段）、以及正文里明确的时间背景判定（如「DC·黑暗之夜：狂笑之蝠事件期」）。**任务必须锚定这个具体事件/时期，只用该事件当下的核心冲突与反派**；**绝不能因为某反派在整个作品里更出名/更强，就跨时间线把他硬塞进来当任务目标**。★铁例：主角进的是 DC「狂笑之蝠（黑暗之夜/黑暗金属）」事件期，核心威胁就是**狂笑之蝠与黑暗多元宇宙**，**绝不能莫名其妙派主角去打达克赛德**（达克赛德根本不是这场事件的反派、与当前时间线不符）。同理：柯南某具体案件期别直接派去打组织终局、火影晓组织期别直接派打辉夜——一律按主角**所处的那个时段/事件**来定反派与冲突。
+1. **主动联网搜索**该作品**该时期/该事件**的：核心主线脉络与阶段走向、**当下的**主要冲突与反派、关键势力/组织、重要地点与威胁、事件时间线（优先采用准确、最新信息）；可一并参考已锁定的 <同人设定> 与【本世界·世界志】。
+2. 用搜索到的**真实设定**设计任务的名称/描述/环目标/finale，使主线**沿着或平行于该事件/该时期的主线脉络推进**——反派/势力/地点/威胁都用**该时期**原作真名与设定，不要套"讨伐巢穴/护送商队"之类通用模板，**不要张冠李戴、不要跨时间线拉一个不相干的强敌来当反派**、不要编造不符的设定；原作该处未涉及则基于已知信息合理推演。
 3. **结合主角当前处境**（见下方【主角当前处境】：阶位/强度/位置/所属乐园/身份/已有任务）来定任务的切入点、难度与节奏：别给与主角实力/位置脱节的目标——主角强则切入原作更核心的冲突，弱则从外围/前哨/情报起步。
 4. 不以百科形式罗列、不引用来源；把原作设定自然融进任务名/描述/环目标。
-- 非同人（原创/现实）世界、或【同人增强】=关：无需联网，按正文与世界设定生成即可。`;
+- 非同人（原创/现实）世界、或【同人增强】=关：无需联网，按正文与世界设定生成即可——**但上面第 0 条"锚定具体时间线/事件、别乱拉不相干反派"的精神仍然适用**：即便不联网、只凭你自己的印象，也要按主角**当前所处的那个时期/事件**（据世界名/世界志/正文判断）来定反派与冲突，绝不因为某反派更出名/更强就跨时间线塞进来（如狂笑之蝠事件期绝不派去打达克赛德）。`;
 
 const TASK_PROGRESS_RULE = `
 【任务·当前进度（progress 字段）·每轮维护铁则】每条进行中任务都带一个 progress 字段，记录【上回合主角对该任务做了什么实质推进】，**1~2 句话、具体到动作/结果**（而非空泛的"在推进中"）。每轮杂项演化时：
@@ -3737,7 +3745,15 @@ ${AFFIX_EFFECT_RULE}`;
     try {
       const trimmed = trimNarrative(narrative);
       const systemPrompt = buildNpcPhaseSystemPrompt(settings.entries, trimmed); // 无 charId → 在场列表
-      const userContent  = `# 本轮正文\n${trimmed}\n\n---\n**先输出一个 <think>…</think> 思考块**，按系统提示里的「NPC 演化思维链」逐项自检；**随后**为正文中出现/相关的 NPC 输出 <state> 与 <upstore> 指令（无变化时输出空标签）。禁止输出正文；除 <think> / <state> / <upstore> 外不要有其它文字。`;
+      // 注入在场 NPC 的【完整现有档案】——策略A 原本只发正文+在场C编号、不发 NPC 现有变量，导致演化只能凭正文重建、
+      //   无法查漏补缺/修正/去重（用户报"NPC变量重roll不发送npc完整变量"、C编号混淆）。这里把每个在场 NPC 的完整快照发给它。
+      const snapNpcs = Object.values(useNpc.getState().npcs).filter((r) => r.onScene && !r.isDead && r.name && r.name !== r.id);
+      const snapBlock = snapNpcs.length
+        ? `# 当前在场 NPC 的完整现有档案（据此**查漏补缺 / 修正错误 / 去重 / 别搞混 C 编号**；只更新真有变化的字段，其余原样保留·勿凭空重建）\n`
+          + `⚠**骨架补全铁则**：登场判断通常只建"骨架"（姓名/阶位/性格/背景/外观/生物强度）。下面档案里凡**缺 技能 / 天赋 / 生图提示词(19) / 基底外观 / 私密信息 / 目标 等核心字段**的 NPC，本轮一律**视同首次建档、按其「阶位×生物强度档」一次性全量补全**这些缺失字段（技能/天赋的数量与品级照【档位强制表】配齐）；已完整的 NPC 只按正文增量更新、别重复堆叠。\n`
+          + `${snapNpcs.map(serializeNpcSnapshot).join('\n\n')}\n\n`
+        : '';
+      const userContent  = `${snapBlock}# 本轮正文\n${trimmed}\n\n---\n**先输出一个 <think>…</think> 思考块**，按系统提示里的「NPC 演化思维链」逐项自检；**随后**为正文中出现/相关的 NPC 输出 <state> 与 <upstore> 指令（无变化时输出空标签）。禁止输出正文；除 <think> / <state> / <upstore> 外不要有其它文字。`;
       const reply = await npcChatCompletion(systemPrompt, userContent);
       console.log('[NPC] 原始响应:', reply);
       if (reply) {
@@ -4256,6 +4272,7 @@ ${AFFIX_EFFECT_RULE}`;
       + '\n\n' + TASK_PROGRESS_RULE
       + '\n\n' + TASK_CANON_RULE
       + miscCodexInjection
+      + worldLoreTaskInjection()
       + `\n【进入新世界信号】：${enteredNewWorld ? '是 —— 本轮检测到进入新的任务世界，请按【主线路线图规划】检查：当前任务世界若尚无 active 主线，则把该世界自身的核心目标立成主线并规划整张环路线图' : (isHomeWorld(M.worldName) ? '否 —— 当前在轮回乐园/专属房间(枢纽·任务间歇)，按【乐园·枢纽禁止生成任务】**禁止生成任何新任务**（主线/支线/隐藏/单环全不建），更不要"熟悉环境/适应乐园/逛街采购/进入衍生世界/获取身份/回归乐园"等流程·杂事任务；只对既有任务做结算/推进，等真正进入任务世界(衍生世界)再规划' : '否（沿用既有主线，勿重复新建）')}`
       + `\n【当前世界】：${M.worldName || '轮回乐园'}`
       + `\n【本世界难度·已锁定（进入本世界即固定·全程不随主角升级/变强而变）】：${M.worldTier || _pp.tier || '（进入时主角阶位）'} —— 本世界一切**敌人强度 / 任务与环的难度 / 击杀目标阶位上限 / 掉落与奖励档位 / 结算难度**一律按这个**锁定难度**来定，**绝不因主角在本世界内升级、变强、拿到新装备而水涨船高**。【击杀阶位上限】里的"主角阶位"一律改用此锁定难度阶位判定。`
@@ -5122,8 +5139,10 @@ ${AFFIX_EFFECT_RULE}`;
         chosen = apiPick.npcs.map((id) => byId.get(id)).filter((r): r is import('./store/npcStore').NpcRecord => !!r && !r.isDead).slice(0, limits.maxNpcs);
       }
       if (chosen.length === 0) chosen = rankNpcsLocal(npcs, limits.maxNpcs);  // 兜底（API 关闭/失败/无配置）
-      // 护栏：情境里字面点名的 NPC 强制并入（绕过 API 漏选 / maxNpcs 上限；已死的仍排除）——与主角技能护栏同源
-      for (const r of namesMentionedIn(npcs, context)) if (!r.isDead && !chosen.includes(r)) chosen.unshift(r);
+      // 护栏：**仅按【用户输入】**字面点名的 NPC 强制并入（绕过 API 漏选 / maxNpcs 上限；已死的仍排除）。
+      // ⚠只扫 userInput、不扫整段正文：正文一场戏提到一堆 NPC 就会全绕过 maxNpcs → 每个还全量注入 = "一大堆"、违背上限设定。
+      //   正文里在场的相关 NPC 已由上面 rankNpcsLocal(在场优先) 限量选入，不靠这条兜底。
+      for (const r of namesMentionedIn(npcs, opts.userInput ?? context)) if (!r.isDead && !chosen.includes(r)) chosen.unshift(r);
       for (const r of chosen) {
         const cd = chars[r.id];
         cards.push(serializeNpcCard(r, cd?.skills ?? [], cd?.traits ?? [], cd?.titles));  // NPC 全量，无上限（副职业仅主角）
@@ -6351,7 +6370,18 @@ ${lines}`;
     return ghosts.length;
   }
 
-  /* 选项/同人/事实/小剧场 共用判定上下文：主角全卡 + 在场 NPC 全信息 + (可选)当前任务 + 最近两回合正文 */
+  /* 取正文结尾 ~max 字作为「续写锚点 / 唯一生成起点」：末 max 字即真实结尾（选项须从此处接续，绝不回退到更早段落）。
+     若截断处切进句子中段，向后顺移到最近的句末标点/换行，让锚点从一个干净的句子开头起（最多让掉 40%，保证仍留住足够结尾）。*/
+  function narrativeTail(s: string, max = 300): string {
+    const t = (s || '').replace(/\s+$/, '').trim();
+    if (t.length <= max) return t;
+    let slice = t.slice(-max);
+    const m = slice.match(/[。！？…”」』）.!?\n]/);   // 切片里第一个句末/换行边界
+    if (m && m.index != null && m.index < max * 0.4) slice = slice.slice(m.index + 1).trim();
+    return slice;
+  }
+
+  /* 选项/同人/事实/小剧场 共用判定上下文：主角全卡 + 在场 NPC 全信息 + (可选)当前任务 + 最近五回合正文(背景) + 正文结束锚点(唯一起点) */
   function buildChoicesPhaseContext(text: string, includeQuest: boolean): string {
     const P = usePlayer.getState();
     const game = useGame.getState().player;
@@ -6392,7 +6422,9 @@ ${lines}`;
       `【主角全部信息】\n${playerCard}`,
       `【在场角色全部信息（含持有物）】\n${npcBlocks || '（无）'}`,
       includeQuest ? `【当前任务（主线/支线 → 据此生成"任务导向"选项 A~D）】\n${questText}` : '',
-      `【最近五回合正文（据此把握主角当下处境、心态与言行基调，让选项与之连贯、别凭空转性）】\n${buildRecentNarrative(text, 5).slice(-16000)}`,
+      // 五回合正文降格为「仅作背景」，紧跟其后再压上「正文结束锚点」——治用户报的「选项常回退到前文、不接正文最后内容」。
+      `【最近五回合正文·仅作背景（用来把握主角处境/心态/关系基调；⚠不要从这里挑选起点、不要续写这里已经翻篇的场景）】\n${buildRecentNarrative(text, 5).slice(-16000)}`,
+      `【⚑ 正文结束处 · 选项的唯一生成起点（最高优先，放在最后=最近记忆）】\n以下是本回合正文的结尾原文。8 个选项必须**紧接这一刻**、作为主角在此处的下一步反应 / 行动来设计；严禁回退到上面背景里更早、已经过去的情节，严禁续写已经收尾的场景：\n"""\n…${narrativeTail(text, 300)}\n"""`,
     ].filter(Boolean).join('\n\n');
   }
 
@@ -7905,6 +7937,14 @@ ${lines}`;
         `<前置须知>\n（最高优先·深度最深的前置须知。其中「场外操作」均已由前端确定性结算完成——你只需**知晓并让后续正文与之保持一致**：货币/物品/点数的最新数值一律以此为准；**切勿据此另行生成奖励/结算、勿质疑、勿重复播报**。「玩家常驻前置提示词」请始终遵循。）\n${parts.join('\n\n')}\n</前置须知>` }];
     }
 
+    // 星图习得（★需入戏交代·与"仅知晓"的场外操作不同）：玩家刚在技能树点亮的技能/天赋 → 让正文用一小段叙述交代主角"如何"习得，治"职业和正文没关联·各玩各的·不知道怎么获得技能"
+    let growthBlock: { role: 'system'; content: string }[] = [];
+    if (!narrateOnly) {
+      const gn = drainGrowthNotices();
+      if (gn.length) growthBlock = [{ role: 'system' as const, content:
+        `<本回合成长·需入戏交代>\n（玩家刚在职业星图上点亮了下列节点、已由前端确定性发放到技能/天赋栏。请在本回合正文里用一小段【自然、简短】的叙述交代主角是**如何习得/觉醒**这些能力的——顿悟、苦修有成、传承共鸣、危机中突破、名师点拨皆可，贴合当前情境与主角处境；让"变强"有来处、有画面，与职业身份呼应。**别逐条罗列、别报数值、别喧宾夺主**，几笔带过、重在把职业成长和剧情连起来。）\n${gn.join('\n')}\n</本回合成长·需入戏交代>` }];
+    }
+
     // 历史：叙事记忆（关键词召回，启用时）或按 historyLimit 切片（现状）
     let memory: { role: 'system'; content: string }[] = [];
     let structPlayer: { role: 'system'; content: string }[] = [];   // <主角当前档案> 浅注入(贴近用户输入,更难被忽略)
@@ -8047,6 +8087,7 @@ ${lines}`;
       ...[...depthInjections, ...wbDepthInjections].sort((a, b) => b.depth - a.depth).map((inj) => ({ role: inj.role, content: inj.content })),
       ...buildWorldviewInjection(),                     // <本世界·世界观骨架> 当前所在世界的世界志 → 就近注入（正文最深处）
       ...preludeBlock,                                  // <前置须知> 玩家常驻前置提示词 + 本回合场外操作通报 → 最深处·紧贴输入前（深度最深·权重最高）
+      ...growthBlock,                                    // <本回合成长·需入戏交代> 玩家刚点亮的星图技能/天赋 → 正文叙述主角如何习得（治职业与正文脱节）
       { role: 'user' as const, content: userText },
       ...(effectivePrefill ? [{ role: 'assistant' as const, content: effectivePrefill }] : []),   // 末尾预填充（prefill 块 / 跳过思维链）
     ];

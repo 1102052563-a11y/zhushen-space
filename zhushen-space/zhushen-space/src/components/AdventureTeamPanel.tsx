@@ -29,6 +29,15 @@ export default function AdventureTeamPanel({ onClose }: { onClose: () => void })
   const npcs = useNpc((s) => s.npcs);
   const [npcDetailId, setNpcDetailId] = useState<string | null>(null);
   const [confirmLeave, setConfirmLeave] = useState(false);   // 退出冒险团二次确认
+  const [perkSel, setPerkSel] = useState(false);             // 团队效果·批量清除选择模式
+  const [perkSelSet, setPerkSelSet] = useState<Set<string>>(new Set());   // 已勾选待清除的效果名
+  const [confirmClearPerks, setConfirmClearPerks] = useState(false);      // 一键清除二次确认
+
+  const togglePerkSel = (name: string) =>
+    setPerkSelSet((prev) => { const n = new Set(prev); n.has(name) ? n.delete(name) : n.add(name); return n; });
+  const exitPerkSel = () => { setPerkSel(false); setPerkSelSet(new Set()); };
+  const selectAllUnlockedPerks = () => setPerkSelSet(new Set(T.perks.filter((p) => !p.locked).map((p) => p.name)));
+  const clearSelectedPerks = () => { T.removePerks([...perkSelSet]); exitPerkSel(); };
 
   const cap = memberCap(T.rank);
   const a = T.assessment;
@@ -126,17 +135,42 @@ export default function AdventureTeamPanel({ onClose }: { onClose: () => void })
             </Section>
 
             {/* 团队效果/权限 */}
-            <Section title="团队效果 / 权限" count={T.perks.length}>
+            <Section title="团队效果 / 权限" count={T.perks.length} action={T.perks.length === 0 ? null : (
+              perkSel ? (<>
+                <button onClick={selectAllUnlockedPerks} className="px-2 py-0.5 rounded border border-edge text-dim/70 text-[11px] font-mono hover:text-slate-200 transition-colors">全选</button>
+                <button onClick={clearSelectedPerks} disabled={perkSelSet.size === 0} className="px-2 py-0.5 rounded border border-blood/50 bg-blood/15 text-blood text-[11px] font-mono hover:bg-blood/25 disabled:opacity-40 disabled:hover:bg-blood/15 transition-colors">清除选中({perkSelSet.size})</button>
+                <button onClick={exitPerkSel} className="px-2 py-0.5 rounded border border-edge text-dim/70 text-[11px] font-mono hover:text-slate-200 transition-colors">取消</button>
+              </>) : confirmClearPerks ? (<>
+                <span className="text-[11px] text-blood/80 font-mono">清除全部未锁定？</span>
+                <button onClick={() => { T.clearPerks(); setConfirmClearPerks(false); }} className="px-2 py-0.5 rounded border border-blood/50 bg-blood/15 text-blood text-[11px] font-mono hover:bg-blood/25 transition-colors">确认</button>
+                <button onClick={() => setConfirmClearPerks(false)} className="px-2 py-0.5 rounded border border-edge text-dim/70 text-[11px] font-mono hover:text-slate-200 transition-colors">取消</button>
+              </>) : (<>
+                <button onClick={() => setPerkSel(true)} className="px-2 py-0.5 rounded border border-edge text-dim/70 text-[11px] font-mono hover:text-slate-200 transition-colors">批量清除</button>
+                <button onClick={() => setConfirmClearPerks(true)} className="px-2 py-0.5 rounded border border-blood/40 text-blood/80 text-[11px] font-mono hover:bg-blood/15 transition-colors">一键清除</button>
+              </>)
+            )}>
               {T.perks.length === 0 ? <Empty text="（暂无团队效果）" /> : (
-                <div className="space-y-1.5">{T.perks.map((p) => (
-                  <div key={p.name} className="rounded border border-edge bg-void/60 px-2.5 py-1.5">
-                    <div className="flex items-baseline gap-2">
-                      <span className="text-[13px] text-cyan-300 font-mono">{p.name}</span>
-                      {p.source && <span className="text-[11px] text-dim/40 font-mono">来自 {p.source}</span>}
+                <div className="space-y-1.5">{T.perks.map((p) => {
+                  const sel = perkSelSet.has(p.name);
+                  return (
+                  <div key={p.name} className={`rounded border px-2.5 py-1.5 flex items-start gap-2 ${p.locked ? 'border-amber-500/40 bg-amber-900/10' : 'border-edge bg-void/60'} ${sel ? 'ring-1 ring-blood/50' : ''}`}>
+                    {perkSel && (
+                      <input type="checkbox" checked={sel} disabled={p.locked} onChange={() => togglePerkSel(p.name)}
+                        title={p.locked ? '已锁定，不会被清除' : ''}
+                        className="mt-1 accent-blood disabled:opacity-30 disabled:cursor-not-allowed shrink-0" />
+                    )}
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-baseline gap-2">
+                        <span className="text-[13px] text-cyan-300 font-mono">{p.name}</span>
+                        {p.source && <span className="text-[11px] text-dim/40 font-mono">来自 {p.source}</span>}
+                      </div>
+                      {p.desc && <div className="text-[12px] text-dim/80 mt-0.5">{p.desc}</div>}
                     </div>
-                    {p.desc && <div className="text-[12px] text-dim/80 mt-0.5">{p.desc}</div>}
+                    <button onClick={() => T.togglePerkLock(p.name)}
+                      title={p.locked ? '已锁定（清除时豁免）·点击解锁' : '锁定（清除时豁免）'}
+                      className={`shrink-0 text-[13px] leading-none px-1 py-0.5 rounded transition-colors ${p.locked ? 'text-amber-300 hover:text-amber-200' : 'text-dim/30 hover:text-dim/70'}`}>{p.locked ? '🔒' : '🔓'}</button>
                   </div>
-                ))}</div>
+                );})}</div>
               )}
             </Section>
 
@@ -164,12 +198,13 @@ export default function AdventureTeamPanel({ onClose }: { onClose: () => void })
   );
 }
 
-function Section({ title, count, children }: { title: string; count: number | string; children: React.ReactNode }) {
+function Section({ title, count, children, action }: { title: string; count: number | string; children: React.ReactNode; action?: React.ReactNode }) {
   return (
     <section className="space-y-2">
       <div className="flex items-baseline gap-2">
         <span className="text-xs font-mono text-dim/70">{title}</span>
         <span className="text-[11px] font-mono text-dim/40">{count}</span>
+        {action && <div className="ml-auto flex items-center gap-1.5">{action}</div>}
       </div>
       {children}
     </section>
