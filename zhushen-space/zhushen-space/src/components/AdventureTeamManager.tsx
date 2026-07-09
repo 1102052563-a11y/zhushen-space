@@ -104,56 +104,9 @@ function SettingsSection() {
 }
 
 function ApiSection() {
-  const api = useSettings((s) => s.api);
-  const textApi = useSettings((s) => s.textApi);
-  const textUseSharedApi = useSettings((s) => s.textUseSharedApi);
-  const tApi = useTeam((s) => s.teamApi);
-  const useShared = useTeam((s) => s.teamUseSharedApi);
-  const models = useTeam((s) => s.teamAvailableModels);
-  const loading = useTeam((s) => s.teamModelsLoading);
-  const error = useTeam((s) => s.teamModelsError);
-  const setApi = useTeam((s) => s.setTeamApi);
-  const setUseShared = useTeam((s) => s.setTeamUseSharedApi);
-  const fetchModels = useTeam((s) => s.fetchTeamModels);
-  const effective = useShared ? (textUseSharedApi ? api : textApi) : tApi;
-
   return (
     <div className="space-y-6 max-w-xl">
-      <div className="flex items-center gap-3 p-3 bg-panel border border-edge rounded-lg">
-        <Toggle checked={useShared} onChange={() => setUseShared(!useShared)} />
-        <div>
-          <div className="text-sm text-slate-200">与正文生成共用 API</div>
-          <div className="text-sm text-dim mt-0.5">开启复用正文/世界选择 API；关闭则为冒险团演化单独配置</div>
-        </div>
-      </div>
       <ApiRoutePicker routeKey="team" />
-      {!useShared && (
-        <div className="space-y-4">
-          <Field label="API 地址"><input type="text" value={tApi.baseUrl} onChange={(e) => setApi({ baseUrl: e.target.value })} placeholder="https://api.openai.com/v1" className="input-base" /></Field>
-          <Field label="API Key"><input type="password" value={tApi.apiKey} onChange={(e) => setApi({ apiKey: e.target.value })} placeholder="sk-..." className="input-base font-mono" /></Field>
-          <Field label="模型">
-            <div className="flex gap-2">
-              {models.length > 0 ? (
-                <select value={tApi.modelId} onChange={(e) => setApi({ modelId: e.target.value })} className="input-base flex-1">{models.map((mm) => <option key={mm} value={mm}>{mm}</option>)}</select>
-              ) : (
-                <input type="text" value={tApi.modelId} onChange={(e) => setApi({ modelId: e.target.value })} placeholder="gpt-4o" className="input-base flex-1 font-mono" />
-              )}
-              <button onClick={fetchModels} disabled={loading} className="shrink-0 px-3 py-2 border border-god/40 text-god text-sm rounded hover:bg-god/10 disabled:opacity-40 font-mono transition-colors">{loading ? '获取中…' : '刷新模型'}</button>
-            </div>
-            {error && <div className="text-sm text-blood mt-1 font-mono">{error}</div>}
-          </Field>
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-            <Field label={`温度 (${tApi.temperature})`}><input type="range" min={0} max={2} step={0.05} value={tApi.temperature} onChange={(e) => setApi({ temperature: parseFloat(e.target.value) })} className="w-full accent-god mt-1" /></Field>
-            <Field label={`Top-P (${tApi.topP})`}><input type="range" min={0} max={1} step={0.05} value={tApi.topP} onChange={(e) => setApi({ topP: parseFloat(e.target.value) })} className="w-full accent-god mt-1" /></Field>
-            <Field label="Max Tokens"><input type="number" value={tApi.maxTokens} onChange={(e) => setApi({ maxTokens: parseInt(e.target.value) || 512 })} min={128} max={32768} step={128} className="input-base" /></Field>
-          </div>
-        </div>
-      )}
-      <div className="border border-edge rounded-lg p-3 bg-panel text-sm font-mono text-dim space-y-1">
-        <div><span className="text-god/60">URL ·</span> {effective.baseUrl || '—'}</div>
-        <div><span className="text-god/60">MODEL ·</span> {effective.modelId || '—'}</div>
-        <div><span className="text-god/60">TEMP ·</span> {effective.temperature} &nbsp;<span className="text-god/60">MAX ·</span> {effective.maxTokens}</div>
-      </div>
     </div>
   );
 }

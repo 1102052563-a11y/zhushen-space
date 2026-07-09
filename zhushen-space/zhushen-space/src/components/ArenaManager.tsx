@@ -34,13 +34,9 @@ export default function ArenaManager() {
 
       {/* API（集成路由） */}
       <div className={card}>
-        <label className="flex items-center gap-2 text-sm mb-2">
-          <input type="checkbox" checked={useShared} onChange={(e) => setUseShared(e.target.checked)} />
-          <span>共用主模型 API</span>
-        </label>
-        {!useShared && <ApiRoutePicker routeKey="arena" />}
+        <ApiRoutePicker routeKey="arena" />
         <div className="mt-2 text-[11px] text-dim">
-          不共用时，从「综合设置 → API 接口库」勾选接口走<b className="text-god/70">集成路由</b>（多选按优先级轮流、失败自动 fallback）。
+          从「综合设置 → API 接口库」勾选接口走<b className="text-god/70">集成路由</b>（多选按优先级轮流、失败自动 fallback）。留空则回退正文 API。
         </div>
       </div>
     </div>

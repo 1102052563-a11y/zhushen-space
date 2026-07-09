@@ -28,6 +28,8 @@ import {
   NPC_COT_RULE,
   NPC_SELF_NARRATION_RULE,
   PLOT_GUIDANCE_RULE,
+  OUTLINE_GEN_RULE,
+  OUTLINE_FOLLOW_RULE,
   PLOT_ADVANCE_DIRECTIVE,
   ENTRY_COT_RULE,
   CANON_STRENGTH_NO_SCALE_RULE,
@@ -146,6 +148,20 @@ import { isLockedKey, lockedValueOf, useLocks, lkNpcAttr, lkNpcField, lkPlayerAt
 import { sanitizeSixAttrs, sanitizeItemNumbers } from './systems/numericGate';
 import RaidDungeonReward from './components/RaidDungeonReward';
 const RaidLootModal = lazy(() => import('./components/RaidLootModal'));
+const OutlineModal = lazy(() => import('./components/OutlineModal'));
+/** 细纲：剥掉编剧的 <剧情推演> 合理性思维链块（只作提升细纲质量的思考草稿，不进弹窗、不注入正文）。
+   未闭合/未用该标签时原样返回（兜底：宁可让玩家看到也不误删细纲）。 */
+function stripOutlineThinking(s: string): string {
+  return s.replace(/<剧情推演>[\s\S]*?<\/剧情推演>\s*/gi, '').replace(/^\s+/, '');
+}
+/** 细纲·流式弹窗展示：推演进行中（<剧情推演> 已开未闭）先显示空（弹窗转圈），闭合后只流式显示其后的细纲正文；
+   没用推演标签则原样流式。避免玩家把编剧的思考草稿误当成细纲。 */
+function outlineStreamDisplay(raw: string): string {
+  const close = raw.match(/<\/剧情推演>/i);
+  if (close) return raw.slice((close.index ?? 0) + close[0].length).replace(/^\s+/, '');
+  if (/<剧情推演>/i.test(raw)) return '';
+  return raw;
+}
 const CombatPanel = lazy(() => import('./components/CombatPanel'));
 import WeatherFx from './components/WeatherFx';
 import CommandPalette from './components/CommandPalette';
@@ -206,7 +222,8 @@ import { serializePlayerCard, serializeNpcCard, buildNpcCandidateTitles, buildPl
 import { drainSceneNotices, pushSceneNotice, drainGrowthNotices } from './systems/allocNotice';   // 场外操作通报（加点/合成/强化/货币…）→ 正文前置须知；星图习得→需入戏交代块
 import { rollGemDrops } from './systems/gemDrop';   // 正文击杀 → 结算掉落宝石（前端确定性）
 const MiscPanel = lazy(() => import('./components/MiscPanel'));
-const DicePanel = lazy(() => import('./components/DicePanel'));
+import DiceCard from './components/DiceCard';
+import { runAutoDice, type DiceCardData } from './systems/autoDice';   // 自动检定：发送即判定 → 隐藏喂API + 骰子卡
 const EnhancePanel = lazy(() => import('./components/EnhancePanel'));
 const SkillUpgradePanel = lazy(() => import('./components/SkillUpgradePanel'));
 const CasinoPanel = lazy(() => import('./components/CasinoPanel'));
@@ -307,6 +324,7 @@ interface ChatMessage {
   largeSummary?: string;   // 该楼层大总结
   images?: StoryImage[];   // 正文配图（按 anchor 插入楼层正文）
   choices?: string[];      // 剧情选项（正文后生成的 8 个主角行动选项，点击填入输入框）
+  dice?: DiceCardData;     // 自动检定结果（挂在用户楼层，渲染气泡下方的骰子卡；`<检定结果>` 只喂API不入本字段）
   fanficNote?: string;     // 同人搜索内容（本楼涉及的已知作品角色设定，折叠展示）
   factNote?: string;       // 事实查证（本楼涉及的现实可查证元素核实结果，折叠展示）
   theaterHtml?: string;    // 小剧场：番外彩蛋 HTML（<xiaojuchang> 块内的内容，直接渲染在正文末尾）
@@ -1036,7 +1054,6 @@ const rightMenuItems = [
   { icon: '📖', label: '世界百科' },
   { icon: '📚', label: '轮回WIKI' },
   { icon: '🗺', label: '世界记录' },
-  { icon: '🎲', label: 'ROLL' },
   { icon: '⚔️', label: '战斗' },
   { icon: '🎡', label: '乐园设施' },
   { icon: '🕳', label: '深渊' },
@@ -1441,6 +1458,11 @@ export default function App() {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [generating, setGenerating] = useState(false);
   const [genError, setGenError] = useState('');
+  // 细纲弹窗：正文前先生成本回合细纲 → 玩家编辑 → 确认后注入正文。open=true 期间 sendMessage 门控（防重复发起）。
+  const [outlineModal, setOutlineModal] = useState<{ open: boolean; loading: boolean; text: string }>({ open: false, loading: false, text: '' });
+  const outlineResolveRef = useRef<((v: string | null) => void) | null>(null);  // Promise 桥：确认(编辑后文本)/取消(null) 由弹窗按钮 resolve
+  const outlineInputRef = useRef<string>('');   // 本回合玩家输入(含检定块，=apiText)（供「重新生成细纲」复用）
+  const outlineHistRef = useRef<ChatMessage[]>([]);   // 本回合发送前抓拍历史（供「重新生成细纲」复用·杜绝当前行动重复）
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const chatScrollRef = useRef<HTMLDivElement>(null);      // 对话滚动容器
   const stickBottomRef = useRef(true);                     // 是否吸附底部（用户上滑查看时置 false，流式生成不再强拉到底）
@@ -1741,7 +1763,7 @@ export default function App() {
         // 等「补种」把 textPresets 填好再重发：loadBuiltinDefaults 要先 fetch 一堆大文件才填 textPresets，常超 400ms；
         //   若此刻就发会在空库瞬间发出→预设没注入(722)。轮询有了即发，最多 ~10s 兜底（真没预设也照发，不卡死）。
         // 等内置补种「全部」就绪（含正文世界书，非仅 textPresets）再重发——否则 reroll reload 后赶在世界书加载完前发出 → 偶发没世界书/722。
-        { void builtinsReady.then(() => sendMessage(regen)); }
+        { void builtinsReady.then(() => sendMessage(regen, false, { skipOutline: true })); }   // 重新生成：跳过细纲弹窗，直接重出正文
       }
     })();
   }, []);
@@ -7854,8 +7876,10 @@ ${lines}`;
     finally { setGuidanceRunning(false); }
   }
 
-  async function callApi(userText: string, extraHistory: ChatMessage[] = [], opts: { narrateOnly?: boolean } = {}) {
-    const narrateOnly = !!opts.narrateOnly;   // 分头三段式·Stage2：用全预设+角色数据+世界书+上下文生成正文，但只 return 不落地（不计回合/不入账<state>/不显示/不演化）→由编排去对齐再统一处理
+  async function callApi(userText: string, extraHistory: ChatMessage[] = [], opts: { narrateOnly?: boolean; task?: 'outline'; outline?: string; onDelta?: (t: string) => void } = {}) {
+    const isOutline = opts.task === 'outline';   // 细纲生成：复用正文全上下文注入，但只发 OUTLINE_GEN_RULE（不带正文预设的写正文/排版指令·A2）→产出细纲文本、流式喂 onDelta、只 return 不落地
+    const narrateOnly = !!opts.narrateOnly || isOutline;   // 细纲继承 narrateOnly 的全部副作用屏蔽（不计回合/不消费前置须知/不解析<state>/不显示气泡/不演化）
+    // 分头三段式·Stage2：用全预设+角色数据+世界书+上下文生成正文，但只 return 不落地（不计回合/不入账<state>/不显示/不演化）→由编排去对齐再统一处理
     // 每次用户发消息计为一回合（narrateOnly 草稿不计——回合由编排在 Stage4 / 来宾自我演化各计一次）
     if (!narrateOnly) {
       turnCountRef.current += 1;
@@ -7870,9 +7894,15 @@ ${lines}`;
     reconcilePartyLifecycle();             // 临时队伍：非当前世界的队友自动解散（离场归档；有冒险团则弹转正）
 
     const api = textUseShared ? sharedApi : textApi;
-    const apiChain = resolveApiChain('text', api);   // 接口路由：多选轮流 + 失败 fallback
+    const _ssApi = useSettings.getState();
+    const outlineApiCfg = _ssApi.outlineUseSharedApi ? (_ssApi.textUseSharedApi ? _ssApi.api : _ssApi.textApi) : _ssApi.outlineApi;
+    const apiChain = isOutline
+      ? resolveApiChain('outline', outlineApiCfg)   // 细纲：独立 API（未配 'outline' 路由/独立 key 则回退正文/共享 API）
+      : resolveApiChain('text', api);   // 接口路由：多选轮流 + 失败 fallback
     if (!apiChain[0]?.baseUrl || !apiChain[0]?.apiKey) {
-      setGenError('请先在设置→正文生成→API配置中填写 API 地址和 Key（或在综合设置→API 接口库添加后于此选择路由）');
+      setGenError(isOutline
+        ? '细纲生成需要 API：请在设置→正文生成→细纲·配置里挂接口路由，或让它复用正文 API（当前正文 API 也未配置）'
+        : '请先在设置→正文生成→API配置中填写 API 地址和 Key（或在综合设置→API 接口库添加后于此选择路由）');
       return;
     }
 
@@ -7938,7 +7968,7 @@ ${lines}`;
     const effectivePrefill = skipNarrativeThinking ? ('</think>\n' + (prefill ?? '')).trimEnd() : prefill;
     // 剧情指导（开启时）：正文生成【前】先跑一次，产出剧情优化建议 → 像叙事回忆一样注入主正文，由主正文据此写（仅一次正文生成）
     let guidanceBlock: { role: 'system'; content: string }[] = [];
-    if (plotGuidance) {
+    if (plotGuidance && !isOutline) {
       const g = await runPlotGuidance(userText);
       if (g) guidanceBlock = [{ role: 'system', content: `<剧情指导>\n（本回合写作建议·仅"剧情方向"参考）\n${g}\n\n（以上仅为剧情方向建议：把方向自然融入正文即可，勿照抄成对白/旁白/标题。⚠️正文的输出格式与一切结构模块——状态栏／时间结算／【主角资源】等世界书与预设规定的模块——一律照常严格输出，不得因本建议而省略、简化或改变格式。本建议只影响"写什么剧情"，不影响"怎么排版输出"。）\n</剧情指导>` }];
     }
@@ -7947,6 +7977,12 @@ ${lines}`;
     if (!narrateOnly && useDbAdvance.getState().enabled && useDbAdvance.getState().preset) {
       const d = await runDbAdvancePipeline(userText, worldInfoText);
       if (d) dbAdvanceBlock = [{ role: 'system', content: `<数据库推进>\n（本回合规划·导演已排好这一拍的角色行动/场景/记忆，请据此写正文；正文格式与一切结构模块照常严格输出，不因本规划而省略或改格式）\n${d}\n</数据库推进>` }];
+    }
+
+    // 本回合细纲（玩家已确认·细纲功能）：作为「最高优先·必须遵循」的正文骨架深注入。仅真实正文调用时注入（细纲生成自身/分头草稿不注入）。
+    let outlineBlock: { role: 'system'; content: string }[] = [];
+    if (!narrateOnly && !isOutline && opts.outline && opts.outline.trim()) {
+      outlineBlock = [{ role: 'system' as const, content: `${OUTLINE_FOLLOW_RULE}\n\n<本回合细纲>\n${opts.outline.trim()}\n</本回合细纲>` }];
     }
 
     // 前置须知（注入正文最深处·紧贴输入前·一次性）：① 玩家常驻「前置提示词」(设置里可编辑) ② 本回合「场外操作」通报
@@ -8114,11 +8150,42 @@ ${lines}`;
       ...buildWorldviewInjection(),                     // <本世界·世界观骨架> 当前所在世界的世界志 → 就近注入（正文最深处）
       ...preludeBlock,                                  // <前置须知> 玩家常驻前置提示词 + 本回合场外操作通报 → 最深处·紧贴输入前（深度最深·权重最高）
       ...growthBlock,                                    // <本回合成长·需入戏交代> 玩家刚点亮的星图技能/天赋 → 正文叙述主角如何习得（治职业与正文脱节）
+      ...outlineBlock,                                   // <本回合细纲> 玩家确认的施工蓝图 → 最深处·最高优先，正文严格遵循（细纲功能）
       { role: 'user' as const, content: userText },
       ...(effectivePrefill ? [{ role: 'assistant' as const, content: effectivePrefill }] : []),   // 末尾预填充（prefill 块 / 跳过思维链）
     ];
 
-    // stream 以预设为准，统一一个变量
+    // ── 细纲生成（A2·信息一致/任务替换）：复用上面算好的全部上下文信息块，但**丢掉正文预设的写正文/排版指令**，
+    //    system 只发 OUTLINE_GEN_RULE（+ 世界书信息）；history 保留记忆/档案/世界书深注入/时空任务等纯信息块，去掉少样本/后历史/prefill/剧情指导等「怎么写正文」的东西。
+    //    产出「本回合细纲」文本、流式喂 opts.onDelta，只 return 不落地。字数目标读 settings.outlineWordTarget。
+    let sysForSend = sysPrompt;
+    let histForSend = history;
+    if (isOutline) {
+      const wt = _ssApi.outlineWordTarget || 0;
+      const wtLine = wt > 0 ? `约 ${wt} 字（可上下浮动约 10%）` : '贴合本回合体量自行把握（一般 1500~2500 字，重头戏可更长）';
+      const outlineSys = (_ssApi.outlinePrompt?.trim() || OUTLINE_GEN_RULE).replace('{{wordTarget}}', wtLine)
+        + (worldInfoText ? `\n\n<世界书信息>\n${worldInfoText}\n</世界书信息>` : '');
+      const outlineDepth = [...depthInjections, ...wbDepthInjections].sort((a, b) => b.depth - a.depth).map((inj) => ({ role: inj.role, content: inj.content }));
+      const outlineHistory = [
+        ...recent,                                       // 最近原文楼层
+        ...memory,                                       // <过往记忆>
+        ...structRest,                                   // <在场与相关档案> NPC/势力/领地
+        ...buildPlayerCoreInjection(),                   // <主角核心>
+        ...buildWorldTimeInjection(),                    // <当前时空>
+        ...buildQuestInjection(),                         // <当前任务>
+        ...buildCosmosInjection(),                       // <万族态势>
+        ...buildFanficInjection(),                        // <同人设定·已锁定>
+        ...buildFactInjection(),                          // <事实锚点·已锁定>
+        ...structPlayer,                                 // <主角当前档案>
+        ...outlineDepth,                                 // 世界书/预设 position=4 深度注入（纯信息）
+        ...buildWorldviewInjection(),                     // <本世界·世界观骨架>
+        { role: 'user' as const, content: userText },
+      ];
+      sysForSend = outlineSys;
+      histForSend = outlineHistory as typeof history;
+    }
+
+    // stream 以预设为准，统一一个变量（细纲复用正文的流式开关）
     const useStream = preset?.stream ?? textStream;
 
     setPromptSent(`=== SYSTEM ===\n${sysPrompt}\n\n=== HISTORY ===\n${history.map((m) => `[${m.role}] ${m.content}`).join('\n')}`);
@@ -8147,7 +8214,7 @@ ${lines}`;
     ];
     setDebugParts(narrParts);
     // 主正文也登记进全局 API 日志（带结构化 parts + 待补响应），让开发者面板与各演化阶段统一分选项卡浏览
-    narrLogId = apiDebugLog.push('📖 正文', [{ role: 'system', content: sysPrompt }, ...history], narrParts);
+    narrLogId = apiDebugLog.push(isOutline ? '📝 细纲' : '📖 正文', [{ role: 'system', content: sysForSend }, ...histForSend], narrParts);
     // 记录本回合实际注入正文的「记忆/档案」块，供「查看注入记忆」核对
     {
       const vmOn = vm.enabled && !!vm.apiBase && !!vm.apiKey;   // 向量召回是否在生效
@@ -8181,7 +8248,7 @@ ${lines}`;
         if (!ep.baseUrl || !ep.apiKey) continue;
         const reqBody: Record<string, unknown> = {
           model:       ep.modelId,
-          messages:    [{ role: 'system', content: sysPrompt }, ...history],
+          messages:    [{ role: 'system', content: sysForSend }, ...histForSend],
           temperature: preset?.temperature ?? ep.temperature,
           max_tokens:  preset?.max_tokens  ?? Math.max(ep.maxTokens || 0, 60000),   // 按用户要求保持 60000（若遇变慢/network error，多为大提示词+60000 撑爆上下文，可调小）
           top_p:       preset?.top_p       ?? ep.topP,
@@ -8242,10 +8309,11 @@ ${lines}`;
                   // 折叠后它不再膨胀（解析/渲染都有界）；卡死的复读循环本就不会再吐 <state>，折叠不影响后续状态解析。
                   if (accumulated.length > 64 && /(.{1,8}?)\1{7,}$/s.test(accumulated.slice(-128)))
                     accumulated = collapseRunaway(accumulated);
-                  setMessages((prev) =>
+                  if (isOutline) opts.onDelta?.(accumulated);   // 细纲：流式喂进弹窗（无正文气泡）
+                  else setMessages((prev) =>
                     prev.map((m) => m.id === streamMsgId ? { ...m, content: accumulated } : m)
                   );
-                  maybeDispatchProgressiveImages(accumulated, streamMsgId);   // 「边写边出」：每写完一段就给那段配图
+                  if (!isOutline) maybeDispatchProgressiveImages(accumulated, streamMsgId);   // 「边写边出」：每写完一段就给那段配图（细纲不配图）
                 }
               } catch { /* 忽略解析失败的行 */ }
             }
@@ -8267,6 +8335,7 @@ ${lines}`;
         }
         // 流结束后：先剥掉泄漏进正文的思维链块（中转把 <think> 拍平进 content / 末尾 </think> 预填充被回显），再解析/渲染
         const cleaned = stripLeakedThinking(accumulated);
+        if (isOutline) { apiDebugLog.finish(narrLogId, accumulated, true); return stripOutlineThinking(cleaned); }   // 细纲：剥<剧情推演>思维链后回传（不落地/不解析<state>/不演化/不动 ref）
         lastRawNarrativeRef.current = cleaned;   // 存含指令原文，供「仅重算变量」复用
         if (/<世界结算>/.test(cleaned)) { playSfx('fanfare'); try { useMisc.getState().markWorldSettled(); } catch { /* 结算完成→推进结算边界戳，下个世界不再重复结算本世界任务 */ } }   // 世界结算 → 号角音效
         if (!narrateOnly) { applyAllUpdates(cleaned); try { applyPlayerProfileCommands(cleaned, '', turnCountRef.current); } catch { /* 主角位置/外观/身份：正文若直接输出 character.B1.* 也即时生效，不必等主角演化阶段 */ } }
@@ -8298,6 +8367,7 @@ ${lines}`;
         const reply: string = data.choices?.[0]?.message?.content ?? data.choices?.[0]?.text ?? '';
         if (!reply) throw new Error('模型未返回内容');
         const cleanedReply = stripLeakedThinking(reply);   // 剥泄漏进正文的思维链块（同流式路径）
+        if (isOutline) return stripOutlineThinking(cleanedReply);   // 细纲：剥<剧情推演>思维链后回传（不落地/不解析<state>/不演化/不动 ref）
         lastRawNarrativeRef.current = cleanedReply;   // 存含指令原文，供「仅重算变量」复用
         if (/<世界结算>/.test(cleanedReply)) { playSfx('fanfare'); try { useMisc.getState().markWorldSettled(); } catch { /* 结算完成→推进结算边界戳，下个世界不再重复结算本世界任务 */ } }   // 世界结算 → 号角音效
         if (!narrateOnly) { applyAllUpdates(cleanedReply); try { applyPlayerProfileCommands(cleanedReply, '', turnCountRef.current); } catch { /* 主角位置/外观/身份：正文直接输出 character.B1.* 即时生效 */ } }
@@ -8574,10 +8644,10 @@ ${lines}`;
     void autoAdvanceStep();
   }
 
-  async function sendMessage(textArg?: string, fromAuto = false) {
+  async function sendMessage(textArg?: string, fromAuto = false, sendOpts: { skipOutline?: boolean } = {}) {
     const text = (textArg ?? inputValue).trim();
     if (!fromAuto) stopAutoAdvance();   // 用户手动发送即中断循环自动推进
-    if (!text || generating || guidanceRunning) return;   // 剧情指导前置阶段也算「忙」，防重复发起并发调用
+    if (!text || generating || guidanceRunning || outlineModal.open) return;   // 剧情指导前置阶段/细纲弹窗开着也算「忙」，防重复发起并发调用
 
     // ── 联机分叉 ──
     const mp = useMp.getState();
@@ -8609,10 +8679,54 @@ ${lines}`;
       return;
     }
 
-    const userMsg: ChatMessage = { id: ++msgId.current, role: 'user', content: effectiveText };
+    const histSnapshot = [...messagesRef.current];   // 发送前抓拍历史（仅含已结算的过往楼层，不含本回合）——供自动检定 AI 等待期后传给 callApi
+    const userMsgId = ++msgId.current;
+    const userMsg: ChatMessage = { id: userMsgId, role: 'user', content: effectiveText };
     setMessages((prev) => [...prev, userMsg]);
     if (textArg == null) setInputValue('');
-    const narrative = await callApi(effectiveText);
+    // 自动检定（骰子面板开「自动检定」时·仅单人）：hybrid＝关键词命中才 roll，judgeMode=ai 再 AI 精修。
+    //   结果对读者隐藏——`<检定结果>` 块只随本回合喂给正文 API（不入楼层 content，不污染历史），另在该用户气泡下弹一张骰子卡。
+    let apiText = effectiveText;
+    let autoFired = false;
+    if (mp.status !== 'connected') {
+      try {
+        const auto = await runAutoDice(text);
+        if (auto) {
+          apiText = `${effectiveText}\n${auto.block}`;
+          autoFired = true;
+          setMessages((prev) => prev.map((m) => m.id === userMsgId ? { ...m, dice: auto.card } : m));
+        }
+      } catch (e) { console.warn('[AutoDice] 自动检定失败，跳过本回合判定', e); }
+    }
+    // AI 裁判的网络等待期间 React 可能已重绘、messagesRef 被刷新为「含本回合」→ 显式传抓拍历史，杜绝当前行动在提示词里重复出现。
+    const extraHist = autoFired && histSnapshot.length > 0 ? histSnapshot : [];
+
+    // ── 细纲功能：正文前先生成本回合细纲 → 弹窗给玩家编辑 → 确认后作为「必须遵循」注入正文。
+    //    仅单机（联机不管）、非自动推进、非重新生成时触发。弹窗的长等待会打破 messagesRef 惰性镜像，
+    //    故细纲生成 + 正文都显式传发送前抓拍历史 histSnapshot（杜绝当前行动在历史里重复）。
+    const outlineOn = useSettings.getState().outlineEnabled && !fromAuto && !sendOpts.skipOutline && mp.status !== 'connected';
+    if (outlineOn) {
+      outlineInputRef.current = apiText;
+      outlineHistRef.current = histSnapshot;
+      setOutlineModal({ open: true, loading: true, text: '' });
+      let draft = '';
+      try { draft = (await callApi(apiText, histSnapshot, { task: 'outline', onDelta: (t) => setOutlineModal((m) => m.open ? { ...m, text: outlineStreamDisplay(t) } : m) })) || ''; }
+      catch (e) { console.warn('[细纲] 生成失败', e); }
+      setOutlineModal((m) => m.open ? { ...m, loading: false, text: draft || m.text } : m);
+      // Promise 桥：等玩家「确认并生成正文」(编辑后文本) 或「取消」(null)
+      const edited = await new Promise<string | null>((res) => { outlineResolveRef.current = res; });
+      outlineResolveRef.current = null;
+      setOutlineModal({ open: false, loading: false, text: '' });
+      if (edited == null) {   // 取消：撤回用户气泡（连同检定卡）、还原输入框，本回合作废
+        setMessages((prev) => prev.filter((m) => m.id !== userMsgId));
+        if (textArg == null) setInputValue(text);
+        return;
+      }
+      await callApi(apiText, histSnapshot, { outline: edited });   // 正文：注入玩家确认的细纲，其余上下文与正文一致
+      return;   // 单机（联机不管），无需广播
+    }
+
+    const narrative = await callApi(apiText, extraHist);
 
     // 房主：把算好的正文广播给全房，并开启下一回合（清空本回合已用的队友行动）
     if (isMpHost && narrative) {
@@ -8885,12 +8999,19 @@ ${lines}`;
       const ch: any = useCharacters.getState().characters['B1'] ?? {};
       const st = useSkillTree.getState();
       const prog: any = (st.progress as any)?.['B1'];
-      const tree: any = prog?.activeTreeId ? (st.trees as any)?.[prog.activeTreeId] : undefined;
+      // 只读【玩家自设】的技能树，不读一开始的内置默认树（剑士/灭法…）：当前生效树是玩家自设(source!=='builtin')就用它；
+      // 否则挑一棵玩家自设、投入点数最多的树；都没有则不写职业树行（改由下方"已掌握技能/天赋"体现流派）。
+      const investedOf = (t: any) => (t?.nodes ?? []).reduce((n: number, nd: any) => n + (prog?.ranks?.[nd?.id] ?? 0), 0);
+      let tree: any = prog?.activeTreeId ? (st.trees as any)?.[prog.activeTreeId] : undefined;
+      if (!tree || tree.source === 'builtin') {
+        const own = Object.values((st.trees as any) ?? {}).filter((t: any) => t?.source && t.source !== 'builtin');
+        tree = own.sort((a: any, b: any) => investedOf(b) - investedOf(a))[0];
+      }
       const sp = useSubProfTree.getState();
       const parts: string[] = [];
-      if (tree) {
+      if (tree && tree.source !== 'builtin') {
         const branches = Array.isArray(tree.branches) ? tree.branches.map((b: any) => b?.name).filter(Boolean).join('、') : '';
-        parts.push(`【主职业·技能树】${tree.title || tree.name || '未命名树'}${branches ? `（流派：${branches}）` : ''}｜已投入潜能点 ${prog?.spent ?? 0}`);
+        parts.push(`【主职业·技能树】${tree.title || tree.name || '未命名树'}${branches ? `（流派：${branches}）` : ''}｜已投入潜能点 ${investedOf(tree) || (prog?.spent ?? 0)}`);
       }
       const skills = (ch.skills ?? []).map((s: any) => `${s.name}${s.rarity ? `(${s.rarity})` : ''}${s.level ? `·${s.level}` : ''}`).filter(Boolean);
       if (skills.length) parts.push(`【已掌握技能（${skills.length}）】${skills.slice(0, 24).join('、')}`);
@@ -8900,7 +9021,8 @@ ${lines}`;
       if (subs.length) parts.push(`【副职业】${subs.join('、')}`);
       const recipes = (ch.subProfessions ?? []).flatMap((s: any) => Array.isArray(s.recipes) ? s.recipes.map((r: any) => r?.name).filter(Boolean) : []);
       if (recipes.length) parts.push(`【已解锁配方（${recipes.length}）】${recipes.slice(0, 20).join('、')}`);
-      const subTrees = [...new Set(Object.values((sp.trees as any) ?? {}).map((t: any) => t?.profession).filter(Boolean))] as string[];
+      // 副职业树同理：只列玩家自设的（不列内置炼金术/锻造默认树）
+      const subTrees = [...new Set(Object.values((sp.trees as any) ?? {}).filter((t: any) => t?.source && t.source !== 'builtin').map((t: any) => t?.profession).filter(Boolean))] as string[];
       if (subTrees.length && !subs.length) parts.push(`【副职业树】${subTrees.join('、')}`);
       return parts.join('\n') || '（主角暂无职业树 / 技能 / 副职业数据——请据主角当前定位设计贴身但通用的职业机遇）';
     } catch { return '（读取职业档案失败，请据主角当前定位设计职业机遇）'; }
@@ -9283,8 +9405,11 @@ ${lines}`;
                       {visibleMsgs.map((msg) => (
                         <div key={msg.id} className={msg.role === 'user' ? 'flex justify-end' : ''}>
                           {msg.role === 'user' ? (
-                            <div className="max-w-sm px-4 py-2 rounded-xl bg-god/10 border border-god/20 text-sm text-god/90 font-mono"
-                              dangerouslySetInnerHTML={{ __html: userToHtml(msg.content) }} />
+                            <div className="flex flex-col items-end">
+                              <div className="max-w-sm px-4 py-2 rounded-xl bg-god/10 border border-god/20 text-sm text-god/90 font-mono"
+                                dangerouslySetInnerHTML={{ __html: userToHtml(msg.content) }} />
+                              {msg.dice && <DiceCard data={msg.dice} />}
+                            </div>
                           ) : editingMsgId === msg.id ? (
                             <div className="space-y-2">
                               <textarea
@@ -10065,6 +10190,23 @@ ${lines}`;
       {vaultOpen && <AccountVaultPanel onClose={() => setVaultOpen(false)} />}
       {mpIncomingGift && <GiftPrompt gift={mpIncomingGift} onClose={() => useMp.getState()._set({ incomingGift: null })} />}
       {mpRaidLoot && <RaidLootModal onClose={() => useMp.getState()._set({ raidLoot: null })} />}
+      {outlineModal.open && (
+        <OutlineModal
+          open={outlineModal.open}
+          loading={outlineModal.loading}
+          text={outlineModal.text}
+          wordTarget={useSettings.getState().outlineWordTarget || undefined}
+          onConfirm={(v) => outlineResolveRef.current?.(v)}
+          onCancel={() => outlineResolveRef.current?.(null)}
+          onRegenerate={async () => {
+            setOutlineModal((m) => ({ ...m, loading: true, text: '' }));
+            let d = '';
+            try { d = (await callApi(outlineInputRef.current, outlineHistRef.current, { task: 'outline', onDelta: (t) => setOutlineModal((m) => m.open ? { ...m, text: outlineStreamDisplay(t) } : m) })) || ''; }
+            catch (e) { console.warn('[细纲] 重新生成失败', e); }
+            setOutlineModal((m) => m.open ? { ...m, loading: false, text: d || m.text } : m);
+          }}
+        />
+      )}
       <RaidDungeonReward />
       {friendsPanelOpen && <FriendsPanel onClose={() => setFriendsPanelOpen(false)} turn={turnCountRef.current}
         onOpenNpc={(cid) => { setFriendsPanelOpen(false); setOnSceneDetailId(cid); }}

@@ -423,127 +423,16 @@ function PresetSettings() {
 
 /* ── API 设置 ── */
 function PlayerApiSection() {
-
-  const playerApi          = usePlayer((s) => s.playerApi);
-  const playerUseSharedApi = usePlayer((s) => s.playerUseSharedApi);
-  const availableModels    = usePlayer((s) => s.playerAvailableModels);
-  const modelsLoading      = usePlayer((s) => s.playerModelsLoading);
-  const modelsError        = usePlayer((s) => s.playerModelsError);
-  const setPlayerApi       = usePlayer((s) => s.setPlayerApi);
-  const setPlayerUseShared = usePlayer((s) => s.setPlayerUseSharedApi);
-  const fetchModels        = usePlayer((s) => s.fetchPlayerModels);
-
-
   return (
     <div className="space-y-6">
       <div className="border-b border-edge pb-3">
         <h2 className="text-base font-bold text-slate-100">主角演化 API</h2>
         <p className="text-sm text-dim mt-0.5">
-          用于主角演化阶段的独立语言模型接口，可复用正文生成的接口配置
+          用于主角演化阶段的语言模型接口——从下方接口路由勾选（在「综合设置 → API 接口库」新增 / 编辑接口）
         </p>
       </div>
 
-      {/* 共用开关 */}
-      <div className="flex items-center gap-3 p-3 bg-panel border border-edge rounded-lg">
-        <Toggle checked={playerUseSharedApi} onChange={() => setPlayerUseShared(!playerUseSharedApi)} />
-        <div>
-          <div className="text-sm text-slate-200">与正文生成共用 API</div>
-          <div className="text-sm text-dim mt-0.5">
-            开启时直接复用正文生成的 API 地址、Key 和模型（含其共用设置）
-          </div>
-        </div>
-      </div>
-
       <ApiRoutePicker routeKey="player" />
-      {/* 独立 API 字段 */}
-      {!playerUseSharedApi && (
-        <div className="space-y-4">
-          <div className="space-y-1.5">
-            <label className="text-sm text-dim font-mono">API 地址</label>
-            <input
-              type="text"
-              value={playerApi.baseUrl}
-              onChange={(e) => setPlayerApi({ baseUrl: e.target.value })}
-              placeholder="https://api.openai.com/v1"
-              className="w-full bg-panel border border-edge rounded-lg px-3 py-2 text-sm text-slate-200 outline-none focus:border-god"
-            />
-          </div>
-
-          <div className="space-y-1.5">
-            <label className="text-sm text-dim font-mono">API Key</label>
-            <input
-              type="password"
-              value={playerApi.apiKey}
-              onChange={(e) => setPlayerApi({ apiKey: e.target.value })}
-              placeholder="sk-..."
-              className="w-full bg-panel border border-edge rounded-lg px-3 py-2 text-sm text-slate-200 font-mono outline-none focus:border-god"
-            />
-          </div>
-
-          <div className="space-y-1.5">
-            <label className="text-sm text-dim font-mono">模型</label>
-            <div className="flex gap-2">
-              {availableModels.length > 0 ? (
-                <select
-                  value={playerApi.modelId}
-                  onChange={(e) => setPlayerApi({ modelId: e.target.value })}
-                  className="flex-1 bg-panel border border-edge rounded-lg px-3 py-2 text-sm text-slate-200 outline-none focus:border-god"
-                >
-                  {availableModels.map((m) => <option key={m} value={m}>{m}</option>)}
-                </select>
-              ) : (
-                <input
-                  type="text"
-                  value={playerApi.modelId}
-                  onChange={(e) => setPlayerApi({ modelId: e.target.value })}
-                  placeholder="gpt-4o"
-                  className="flex-1 bg-panel border border-edge rounded-lg px-3 py-2 text-sm text-slate-200 font-mono outline-none focus:border-god"
-                />
-              )}
-              <button
-                onClick={fetchModels}
-                disabled={modelsLoading}
-                className="shrink-0 px-3 py-2 border border-god/40 text-god text-sm rounded-lg hover:bg-god/10 disabled:opacity-40 font-mono transition-colors"
-              >
-                {modelsLoading ? '获取中…' : '刷新模型'}
-              </button>
-            </div>
-            {modelsError && <div className="text-sm text-blood font-mono mt-1">{modelsError}</div>}
-          </div>
-
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-            <div className="space-y-1.5">
-              <label className="text-sm text-dim font-mono">温度 ({playerApi.temperature})</label>
-              <input
-                type="range" min={0} max={2} step={0.05}
-                value={playerApi.temperature}
-                onChange={(e) => setPlayerApi({ temperature: parseFloat(e.target.value) })}
-                className="w-full accent-god mt-1"
-              />
-            </div>
-            <div className="space-y-1.5">
-              <label className="text-sm text-dim font-mono">Top-P ({playerApi.topP})</label>
-              <input
-                type="range" min={0} max={1} step={0.05}
-                value={playerApi.topP}
-                onChange={(e) => setPlayerApi({ topP: parseFloat(e.target.value) })}
-                className="w-full accent-god mt-1"
-              />
-            </div>
-            <div className="space-y-1.5">
-              <label className="text-sm text-dim font-mono">Max Tokens</label>
-              <input
-                type="number"
-                value={playerApi.maxTokens}
-                onChange={(e) => setPlayerApi({ maxTokens: parseInt(e.target.value) || 512 })}
-                min={128} max={16384} step={128}
-                className="w-full bg-panel border border-edge rounded-lg px-3 py-2 text-sm text-slate-200 font-mono outline-none focus:border-god"
-              />
-            </div>
-          </div>
-        </div>
-      )}
-
     </div>
   );
 }

@@ -737,127 +737,14 @@ function PresetSettings() {
    API 设置
 ════════════════════════════════════════════ */
 function ItemApiSection() {
-
-  // 物品管理独立 API
-  const itemApi            = useItems((s) => s.itemApi);
-  const itemUseSharedApi   = useItems((s) => s.itemUseSharedApi);
-  const availableModels    = useItems((s) => s.itemAvailableModels);
-  const modelsLoading      = useItems((s) => s.itemModelsLoading);
-  const modelsError        = useItems((s) => s.itemModelsError);
-  const setItemApi         = useItems((s) => s.setItemApi);
-  const setItemUseSharedApi= useItems((s) => s.setItemUseSharedApi);
-  const fetchModels        = useItems((s) => s.fetchItemModels);
-
-
   return (
     <div className="space-y-6">
       <div className="border-b border-edge pb-3">
         <h2 className="text-base font-bold text-slate-100">物品管理 API</h2>
-        <p className="text-sm text-dim mt-0.5">用于物品管理阶段的独立语言模型接口，可复用正文生成的接口配置</p>
-      </div>
-
-      {/* 共用开关 */}
-      <div className="flex items-center gap-3 p-3 bg-panel border border-edge rounded-lg">
-        <Toggle checked={itemUseSharedApi} onChange={() => setItemUseSharedApi(!itemUseSharedApi)} />
-        <div>
-          <div className="text-sm text-slate-200">与正文生成共用 API</div>
-          <div className="text-sm text-dim mt-0.5">开启时直接复用正文生成的 API 地址、Key 和模型（含其共用设置）</div>
-        </div>
+        <p className="text-sm text-dim mt-0.5">用于物品管理阶段的语言模型接口——从下方接口路由勾选（在「综合设置 → API 接口库」新增 / 编辑接口）</p>
       </div>
 
       <ApiRoutePicker routeKey="item" />
-      {/* 独立 API 字段 */}
-      {!itemUseSharedApi && (
-        <div className="space-y-4">
-          {/* API 地址 */}
-          <div className="space-y-1.5">
-            <label className="text-sm text-dim font-mono">API 地址</label>
-            <input
-              type="text"
-              value={itemApi.baseUrl}
-              onChange={(e) => setItemApi({ baseUrl: e.target.value })}
-              placeholder="https://api.openai.com/v1"
-              className="w-full bg-panel border border-edge rounded-lg px-3 py-2 text-sm text-slate-200 outline-none focus:border-god"
-            />
-          </div>
-
-          {/* API Key */}
-          <div className="space-y-1.5">
-            <label className="text-sm text-dim font-mono">API Key</label>
-            <input
-              type="password"
-              value={itemApi.apiKey}
-              onChange={(e) => setItemApi({ apiKey: e.target.value })}
-              placeholder="sk-..."
-              className="w-full bg-panel border border-edge rounded-lg px-3 py-2 text-sm text-slate-200 font-mono outline-none focus:border-god"
-            />
-          </div>
-
-          {/* 模型 */}
-          <div className="space-y-1.5">
-            <label className="text-sm text-dim font-mono">模型</label>
-            <div className="flex gap-2">
-              {availableModels.length > 0 ? (
-                <select
-                  value={itemApi.modelId}
-                  onChange={(e) => setItemApi({ modelId: e.target.value })}
-                  className="flex-1 bg-panel border border-edge rounded-lg px-3 py-2 text-sm text-slate-200 outline-none focus:border-god"
-                >
-                  {availableModels.map((m) => <option key={m} value={m}>{m}</option>)}
-                </select>
-              ) : (
-                <input
-                  type="text"
-                  value={itemApi.modelId}
-                  onChange={(e) => setItemApi({ modelId: e.target.value })}
-                  placeholder="gpt-4o"
-                  className="flex-1 bg-panel border border-edge rounded-lg px-3 py-2 text-sm text-slate-200 font-mono outline-none focus:border-god"
-                />
-              )}
-              <button
-                onClick={fetchModels}
-                disabled={modelsLoading}
-                className="shrink-0 px-3 py-2 border border-god/40 text-god text-sm rounded-lg hover:bg-god/10 disabled:opacity-40 font-mono transition-colors"
-              >
-                {modelsLoading ? '获取中…' : '刷新模型'}
-              </button>
-            </div>
-            {modelsError && <div className="text-sm text-blood font-mono mt-1">{modelsError}</div>}
-          </div>
-
-          {/* 参数滑块 */}
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-            <div className="space-y-1.5">
-              <label className="text-sm text-dim font-mono">温度 ({itemApi.temperature})</label>
-              <input
-                type="range" min={0} max={2} step={0.05}
-                value={itemApi.temperature}
-                onChange={(e) => setItemApi({ temperature: parseFloat(e.target.value) })}
-                className="w-full accent-god mt-1"
-              />
-            </div>
-            <div className="space-y-1.5">
-              <label className="text-sm text-dim font-mono">Top-P ({itemApi.topP})</label>
-              <input
-                type="range" min={0} max={1} step={0.05}
-                value={itemApi.topP}
-                onChange={(e) => setItemApi({ topP: parseFloat(e.target.value) })}
-                className="w-full accent-god mt-1"
-              />
-            </div>
-            <div className="space-y-1.5">
-              <label className="text-sm text-dim font-mono">Max Tokens</label>
-              <input
-                type="number"
-                value={itemApi.maxTokens}
-                onChange={(e) => setItemApi({ maxTokens: parseInt(e.target.value) || 512 })}
-                min={128} max={16384} step={128}
-                className="w-full bg-panel border border-edge rounded-lg px-3 py-2 text-sm text-slate-200 font-mono outline-none focus:border-god"
-              />
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 }

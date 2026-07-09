@@ -37,8 +37,9 @@ export interface DiceCheckRecord {
 
 export interface DiceSettings {
   enabled: boolean;
+  autoMode: boolean;          // 自动检定：发送消息即判定（关键词命中才 roll，结果只喂正文API+弹骰子卡）；关=走手动骰子面板
   mode: DiceMode;             // 'd20'（默认）/ 'd100'
-  judgeMode: 'frontend' | 'ai';  // 判定方式：frontend=纯前端确定性 / ai=骰子锚定+AI裁判（失败回退前端）
+  judgeMode: 'frontend' | 'ai' | 'ai-full';  // frontend=纯前端确定性 / ai=骰子锚定+AI裁判(前端算数值·AI只裁定) / ai-full=AI全包(数值+成败全交AI·仿插件·放弃确定性·失败回退前端)
   animMs: number;            // 摇骰动画时长（常驻，不做跳过开关）
   includeLuck: boolean;      // 幸运修正是否计入
   /** 难度基础率/DC 覆盖（留空用引擎默认 DIFFICULTY_BASE） */
@@ -49,6 +50,7 @@ export interface DiceSettings {
 
 const DEFAULT_SETTINGS: DiceSettings = {
   enabled: true,
+  autoMode: false,
   mode: 'd20',
   judgeMode: 'frontend',
   animMs: 760,

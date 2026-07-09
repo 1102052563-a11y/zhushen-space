@@ -139,32 +139,7 @@ export default function FactionManager() {
 
       {tab === 'api' && (
         <div className="border border-edge rounded-lg p-4 bg-panel space-y-3">
-          <div className="flex items-center gap-3">
-            <Toggle checked={useShared} onChange={() => setUseShared(!useShared)} />
-            <div><div className="text-sm text-slate-200">与正文生成共用 API</div><div className="text-xs text-dim mt-0.5">关闭则为势力演化单独配置</div></div>
-          </div>
           <ApiRoutePicker routeKey="faction" />
-          {!useShared && (
-            <div className="space-y-2">
-              <input value={factionApi.baseUrl} onChange={(e) => setFactionApi({ baseUrl: e.target.value })} placeholder="API 地址 /v1" className="w-full bg-void border border-edge rounded px-2 py-1 text-sm font-mono text-slate-200 outline-none focus:border-god" />
-              <input value={factionApi.apiKey} onChange={(e) => setFactionApi({ apiKey: e.target.value })} placeholder="API Key" type="password" className="w-full bg-void border border-edge rounded px-2 py-1 text-sm font-mono text-slate-200 outline-none focus:border-god" />
-              <div className="flex gap-2">
-                {models.length > 0 ? (
-                  <select value={factionApi.modelId} onChange={(e) => setFactionApi({ modelId: e.target.value })}
-                    className="flex-1 bg-void border border-edge rounded px-2 py-1 text-sm text-slate-200 outline-none focus:border-god">
-                    {!models.includes(factionApi.modelId) && factionApi.modelId && <option value={factionApi.modelId}>{factionApi.modelId}（当前）</option>}
-                    {models.map((m) => <option key={m} value={m}>{m}</option>)}
-                  </select>
-                ) : (
-                  <input value={factionApi.modelId} onChange={(e) => setFactionApi({ modelId: e.target.value })} placeholder="模型 ID（如 gpt-4o）" className="flex-1 bg-void border border-edge rounded px-2 py-1 text-sm font-mono text-slate-200 outline-none focus:border-god" />
-                )}
-                <button onClick={fetchModels} disabled={modelsLoading} className="shrink-0 px-3 py-1 text-sm font-mono border border-god/40 text-god rounded hover:bg-god/10 disabled:opacity-40">{modelsLoading ? '获取中…' : '刷新模型'}</button>
-              </div>
-              {modelsErr && <div className="text-xs text-blood/70">{modelsErr}</div>}
-              {models.length > 0 && <div className="text-[11px] text-dim/50 font-mono">已拉取 {models.length} 个模型</div>}
-            </div>
-          )}
-          {useShared && <div className="text-xs text-dim/60 font-mono">当前共用：{textApi.modelId || '（未配置正文 API）'}</div>}
         </div>
       )}
     </div>

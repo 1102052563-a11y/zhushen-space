@@ -1194,118 +1194,11 @@ function EntryEditor({ entry, onChange, onClose }: {
 
 /* ─── API 配置 ─── */
 function ApiSection() {
-  const api = useSettings((s) => s.api);
-  const setApi = useSettings((s) => s.setApi);
-  const availableModels = useSettings((s) => s.availableModels);
-  const modelsLoading = useSettings((s) => s.modelsLoading);
-  const modelsError = useSettings((s) => s.modelsError);
-  const fetchModels = useSettings((s) => s.fetchModels);
-
   return (
     <div className="space-y-6 max-w-xl">
-      <SectionTitle title="API 配置" desc="配置用于世界运行的语言模型接口" />
+      <SectionTitle title="API 配置" desc="从下方「接口路由」勾选「API 接口库」里的接口，按优先级轮流调用（失败自动切下一条）；接口在「综合设置 → API 接口库」里新增 / 编辑" />
 
       <ApiRoutePicker routeKey="world" />
-      <div className="space-y-4">
-        <Field label="API 地址">
-          <input
-            type="text"
-            value={api.baseUrl}
-            onChange={(e) => setApi({ baseUrl: e.target.value })}
-            placeholder="https://api.openai.com/v1"
-            className="input-base"
-          />
-        </Field>
-
-        <Field label="API Key">
-          <input
-            type="password"
-            value={api.apiKey}
-            onChange={(e) => setApi({ apiKey: e.target.value })}
-            placeholder="sk-..."
-            className="input-base font-mono"
-          />
-        </Field>
-
-        <Field label="模型">
-          <div className="flex gap-2">
-            {availableModels.length > 0 ? (
-              <select
-                value={api.modelId}
-                onChange={(e) => {
-                  // 选「手动输入」清空已拉取列表 → 退回文本框，可填列表外的任意模型名
-                  if (e.target.value === '__manual__') { useSettings.setState({ availableModels: [] }); return; }
-                  setApi({ modelId: e.target.value });
-                }}
-                className="input-base flex-1"
-              >
-                {api.modelId && !availableModels.includes(api.modelId) && (
-                  <option value={api.modelId}>{api.modelId}</option>
-                )}
-                {availableModels.map((m) => (
-                  <option key={m} value={m}>{m}</option>
-                ))}
-                <option value="__manual__">✏️ 手动输入其它模型…</option>
-              </select>
-            ) : (
-              <input
-                type="text"
-                value={api.modelId}
-                onChange={(e) => setApi({ modelId: e.target.value })}
-                placeholder="gpt-4o"
-                className="input-base flex-1 font-mono"
-              />
-            )}
-            <button
-              onClick={fetchModels}
-              disabled={modelsLoading}
-              className="shrink-0 px-3 py-2 border border-god/40 text-god text-sm rounded hover:bg-god/10 disabled:opacity-40 font-mono transition-colors"
-            >
-              {modelsLoading ? '获取中…' : '刷新模型'}
-            </button>
-          </div>
-          {modelsError && (
-            <div className="text-sm text-blood mt-1 font-mono">{modelsError}</div>
-          )}
-        </Field>
-
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-          <Field label={`温度 (${api.temperature})`}>
-            <input
-              type="range"
-              min={0} max={2} step={0.05}
-              value={api.temperature}
-              onChange={(e) => setApi({ temperature: parseFloat(e.target.value) })}
-              className="w-full accent-god mt-1"
-            />
-          </Field>
-          <Field label={`Top-P (${api.topP})`}>
-            <input
-              type="range"
-              min={0} max={1} step={0.05}
-              value={api.topP}
-              onChange={(e) => setApi({ topP: parseFloat(e.target.value) })}
-              className="w-full accent-god mt-1"
-            />
-          </Field>
-          <Field label="Max Tokens">
-            <input
-              type="number"
-              value={api.maxTokens}
-              onChange={(e) => setApi({ maxTokens: parseInt(e.target.value) || 512 })}
-              min={128} max={16384} step={128}
-              className="input-base"
-            />
-          </Field>
-        </div>
-      </div>
-
-      {/* 测试连接预览 */}
-      <div className="border border-edge rounded-lg p-3 bg-panel text-sm font-mono text-dim space-y-1">
-        <div><span className="text-god/60">URL ·</span> {api.baseUrl || '—'}</div>
-        <div><span className="text-god/60">MODEL ·</span> {api.modelId || '—'}</div>
-        <div><span className="text-god/60">TEMP ·</span> {api.temperature} &nbsp; <span className="text-god/60">TOP-P ·</span> {api.topP} &nbsp; <span className="text-god/60">MAX ·</span> {api.maxTokens}</div>
-      </div>
     </div>
   );
 }
@@ -1512,6 +1405,12 @@ function TextApiSection() {
   const setSkipNarrativeThinking = useSettings((s) => s.setSkipNarrativeThinking);
   const setPlotGuidance    = useSettings((s) => s.setPlotGuidance);
   const setGuidancePrompt  = useSettings((s) => s.setGuidancePrompt);
+  const outlineEnabled     = useSettings((s) => s.outlineEnabled);
+  const outlinePrompt      = useSettings((s) => s.outlinePrompt);
+  const outlineWordTarget  = useSettings((s) => s.outlineWordTarget);
+  const setOutlineEnabled  = useSettings((s) => s.setOutlineEnabled);
+  const setOutlinePrompt   = useSettings((s) => s.setOutlinePrompt);
+  const setOutlineWordTarget = useSettings((s) => s.setOutlineWordTarget);
   const fetchTextModels    = useSettings((s) => s.fetchTextModels);
   const plotChoices        = useSettings((s) => s.plotChoices);
   const setPlotChoices     = useSettings((s) => s.setPlotChoices);
@@ -1530,15 +1429,8 @@ function TextApiSection() {
     <div className="space-y-6 max-w-xl">
       <SectionTitle title="正文 API 配置" desc="用于正文生成请求的语言模型接口" />
 
-      {/* 共用开关 + 流式开关 */}
+      {/* 生成相关开关 */}
       <div className="space-y-2">
-        <div className="flex items-center gap-3 p-3 bg-panel border border-edge rounded-lg">
-          <Toggle checked={textUseSharedApi} onChange={() => setTextUseSharedApi(!textUseSharedApi)} />
-          <div>
-            <div className="text-sm text-slate-200">与世界选择共用 API</div>
-            <div className="text-sm text-dim mt-0.5">开启时直接复用世界选择的 API 地址、Key 和模型</div>
-          </div>
-        </div>
         <div className="flex items-center gap-3 p-3 bg-panel border border-edge rounded-lg">
           <Toggle checked={textStream} onChange={() => setTextStream(!textStream)} />
           <div>
@@ -1554,10 +1446,17 @@ function TextApiSection() {
           </div>
         </div>
         <div className="flex items-center gap-3 p-3 bg-panel border border-edge rounded-lg">
-          <Toggle checked={plotGuidance} onChange={() => setPlotGuidance(!plotGuidance)} />
+          <Toggle checked={plotGuidance} onChange={() => { const v = !plotGuidance; setPlotGuidance(v); if (v) { setOutlineEnabled(false); useDbAdvance.getState().setEnabled(false); } }} />
           <div>
-            <div className="text-sm text-slate-200">剧情指导（实验 · 先出建议再写正文）</div>
+            <div className="text-sm text-slate-200">剧情指导（实验 · 先出建议再写正文）<span className="text-xs text-amber-400/80 ml-1">· 与「数据库推进 / 细纲」三选一</span></div>
             <div className="text-sm text-dim mt-0.5">开启后：正文生成<b>前</b>先<b>单独跑一遍「剧情指导」</b>——据「最近 5 楼 + 你这步输入 + 当前任务/场景」产出本回合的<b>剧情优化建议</b>（要点式、不写正文），再像<b>叙事回忆</b>那样注入正文，由正文据此写。<b className="text-amber-400/90">每回合 +1 次调用</b>（可在下方挂独立 guidance 路由/便宜模型）。提示词允许它<b>联网搜原作剧情</b>让切入更合理。失败/超时自动跳过、正文照常生成。默认关。</div>
+          </div>
+        </div>
+        <div className="flex items-center gap-3 p-3 bg-panel border border-edge rounded-lg">
+          <Toggle checked={outlineEnabled} onChange={() => { const v = !outlineEnabled; setOutlineEnabled(v); if (v) { setPlotGuidance(false); useDbAdvance.getState().setEnabled(false); } }} />
+          <div>
+            <div className="text-sm text-slate-200">细纲（先出细纲 · 编辑后再写正文）<span className="text-xs text-amber-400/80 ml-1">· 与「剧情指导 / 数据库推进」三选一</span></div>
+            <div className="text-sm text-dim mt-0.5">开启后：你每次发送，正文生成<b>前</b>先<b>单独跑一遍「细纲师」</b>——用<b>与正文完全一致的上下文</b>（世界书/记忆/角色档案/最近正文/你这步输入）产出<b>本回合细纲</b>（核心事件/情绪/情节点序列/钩子…），弹窗给你<b>编辑</b>；点「确认并生成正文」后，正文会被要求<b>严格遵循这份细纲</b>来写。<b className="text-amber-400/90">每回合 +1 次调用</b>（可在下方挂独立接口）。<b>重新生成</b>正文时不再弹细纲。默认关。</div>
           </div>
         </div>
         <div className="flex items-center gap-3 p-3 bg-panel border border-edge rounded-lg">
@@ -1636,49 +1535,39 @@ function TextApiSection() {
         </div>
       )}
 
-      <ApiRoutePicker routeKey="text" />
-      {!textUseSharedApi && (
-        <div className="space-y-4">
-          <Field label="API 地址">
-            <input type="text" value={textApi.baseUrl} onChange={(e) => setTextApi({ baseUrl: e.target.value })} placeholder="https://api.openai.com/v1" className="input-base" />
-          </Field>
-          <Field label="API Key">
-            <input type="password" value={textApi.apiKey} onChange={(e) => setTextApi({ apiKey: e.target.value })} placeholder="sk-..." className="input-base font-mono" />
-          </Field>
-          <Field label="模型">
-            <div className="flex gap-2">
-              {textAvailableModels.length > 0 ? (
-                <select value={textApi.modelId} onChange={(e) => setTextApi({ modelId: e.target.value })} className="input-base flex-1">
-                  {textAvailableModels.map((m) => <option key={m} value={m}>{m}</option>)}
-                </select>
-              ) : (
-                <input type="text" value={textApi.modelId} onChange={(e) => setTextApi({ modelId: e.target.value })} placeholder="gpt-4o" className="input-base flex-1 font-mono" />
-              )}
-              <button onClick={fetchTextModels} disabled={textModelsLoading} className="shrink-0 px-3 py-2 border border-god/40 text-god text-sm rounded hover:bg-god/10 disabled:opacity-40 font-mono transition-colors">
-                {textModelsLoading ? '获取中…' : '刷新模型'}
-              </button>
-            </div>
-            {textModelsError && <div className="text-sm text-blood mt-1 font-mono">{textModelsError}</div>}
-          </Field>
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-            <Field label={`温度 (${textApi.temperature})`}>
-              <input type="range" min={0} max={2} step={0.05} value={textApi.temperature} onChange={(e) => setTextApi({ temperature: parseFloat(e.target.value) })} className="w-full accent-god mt-1" />
-            </Field>
-            <Field label={`Top-P (${textApi.topP})`}>
-              <input type="range" min={0} max={1} step={0.05} value={textApi.topP} onChange={(e) => setTextApi({ topP: parseFloat(e.target.value) })} className="w-full accent-god mt-1" />
-            </Field>
-            <Field label="Max Tokens">
-              <input type="number" value={textApi.maxTokens} onChange={(e) => setTextApi({ maxTokens: parseInt(e.target.value) || 512 })} min={128} max={16384} step={128} className="input-base" />
-            </Field>
+      {outlineEnabled && (
+        <div className="p-3 bg-panel border border-violet-700/40 rounded-lg space-y-3">
+          <div className="text-sm text-slate-200">细纲 · 配置</div>
+          <div className="text-xs text-dim">正文<b>前</b>先用<b>与正文一致的上下文</b>跑一遍「职业编剧」，产出本回合细纲弹窗给你编辑；确认后正文严格遵循。内置提示词把 AI 设为<b>资深网文编剧</b>：先做一遍<b>专注剧情合理性</b>的 <code className="text-violet-300">&lt;剧情推演&gt;</code> 思维链（推演不进弹窗、只用来把细纲做扎实），再产出结构化细纲。世界书/记忆/角色档案与正文那遍一致（<b>不带正文预设</b>的写正文/排版指令，产出更干净）。</div>
+          <div className="space-y-1.5 pt-1 border-t border-violet-700/20">
+            <div className="text-sm text-violet-200">📝 细纲 · 接口路由（独立）</div>
+            <div className="text-xs text-dim">跑细纲用的模型。建议挂一条<b>能联网搜索（Google）</b>的模型——提示词会让编剧搜原作剧情/设定/时间线来校准合理性；<b>留空则复用上面的正文 API</b>。</div>
+            <ApiRoutePicker routeKey="outline" />
+          </div>
+          <div className="space-y-1.5 pt-1 border-t border-violet-700/20">
+            <div className="text-sm text-slate-200">字数目标</div>
+            <div className="text-xs text-dim">写进细纲的「字数目标」，并要求正文贴合。<b>0 = 不限定</b>，由 AI 按本回合体量把握。</div>
+            <input
+              type="number" min={0} step={100} value={outlineWordTarget}
+              onChange={(e) => setOutlineWordTarget(Number(e.target.value) || 0)}
+              className="w-32 px-3 py-1.5 bg-black/30 border border-edge rounded-md text-sm text-slate-200 focus:border-violet-600/50 focus:outline-none"
+            />
+          </div>
+          <div className="space-y-1.5 pt-1 border-t border-violet-700/20">
+            <div className="text-sm text-slate-200">细纲提示词（自定义）</div>
+            <div className="text-xs text-dim">留空 = 用内置默认（对齐「核心事件 / 情绪 / 情节点序列 / 钩子」的固定结构）。想改细纲结构 / 口吻就写这里；<b>{'{{wordTarget}}'}</b> 占位会替换成上面的字数目标。</div>
+            <textarea
+              value={outlinePrompt}
+              onChange={(e) => setOutlinePrompt(e.target.value)}
+              rows={4}
+              placeholder="（留空用内置默认细纲提示词）"
+              className="w-full px-3 py-2 bg-black/30 border border-edge rounded-md text-sm text-slate-200 placeholder:text-dim/40 font-mono resize-y focus:border-violet-600/50 focus:outline-none"
+            />
           </div>
         </div>
       )}
 
-      <div className="border border-edge rounded-lg p-3 bg-panel text-sm font-mono text-dim space-y-1">
-        <div><span className="text-god/60">URL ·</span> {effective.baseUrl || '—'}</div>
-        <div><span className="text-god/60">MODEL ·</span> {effective.modelId || '—'}</div>
-        <div><span className="text-god/60">TEMP ·</span> {effective.temperature} &nbsp;<span className="text-god/60">TOP-P ·</span> {effective.topP} &nbsp;<span className="text-god/60">MAX ·</span> {effective.maxTokens}</div>
-      </div>
+      <ApiRoutePicker routeKey="text" />
     </div>
   );
 }
@@ -2678,9 +2567,9 @@ function GeneralSettingsSection() {
           </div>
 
           <div className="flex items-start gap-3">
-            <Toggle checked={dbAdvEnabled} onChange={() => useDbAdvance.getState().setEnabled(!dbAdvEnabled)} />
+            <Toggle checked={dbAdvEnabled} onChange={() => { const v = !dbAdvEnabled; useDbAdvance.getState().setEnabled(v); if (v) { useSettings.getState().setPlotGuidance(false); useSettings.getState().setOutlineEnabled(false); } }} />
             <div>
-              <div className="text-sm font-semibold text-slate-200">启用数据库推进管线</div>
+              <div className="text-sm font-semibold text-slate-200">启用数据库推进管线<span className="text-xs text-amber-400/80 ml-1">· 与「剧情指导 / 细纲」三选一</span></div>
               <div className="text-sm text-dim mt-1 leading-relaxed">{dbAdvHasPreset ? <>当前预设：<span className="text-god/80 font-mono">{dbAdvPresetName || '（未命名）'}</span></> : <span className="text-amber-300/80">尚未导入推进预设 —— 先「载入内置」或「导入 JSON」。</span>}</div>
             </div>
           </div>
@@ -3297,40 +3186,7 @@ function NarrativeMemorySettings() {
             <Toggle checked={cfg.llmMode} onChange={() => set({ llmMode: !cfg.llmMode })} />
           </div>
 
-          <div className="flex items-center gap-3 p-3 bg-void/40 border border-edge rounded-lg">
-            <Toggle checked={nmUseShared} onChange={() => setNmUseShared(!nmUseShared)} />
-            <div>
-              <div className="text-sm text-slate-200">与正文生成共用 API</div>
-              <div className="text-sm text-dim mt-0.5">关闭则为叙事记忆单独配置接口</div>
-            </div>
-          </div>
-
           <ApiRoutePicker routeKey="nm" className="mb-2" />
-          {!nmUseShared && (
-            <div className="space-y-3">
-              <Field label="API 地址">
-                <input type="text" value={nmApi.baseUrl} onChange={(e) => setNmApi({ baseUrl: e.target.value })} placeholder="https://api.openai.com/v1" className="input-base" />
-              </Field>
-              <Field label="API Key">
-                <input type="password" value={nmApi.apiKey} onChange={(e) => setNmApi({ apiKey: e.target.value })} placeholder="sk-..." className="input-base font-mono" />
-              </Field>
-              <Field label="默认模型">
-                <div className="flex gap-2">
-                  {nmModels.length > 0 ? (
-                    <select value={nmApi.modelId} onChange={(e) => setNmApi({ modelId: e.target.value })} className="input-base flex-1">
-                      {nmModels.map((m) => <option key={m} value={m}>{m}</option>)}
-                    </select>
-                  ) : (
-                    <input type="text" value={nmApi.modelId} onChange={(e) => setNmApi({ modelId: e.target.value })} placeholder="gpt-4o-mini" className="input-base flex-1 font-mono" />
-                  )}
-                  <button onClick={fetchNmModels} disabled={nmLoading} className="shrink-0 px-3 py-2 border border-god/40 text-god text-sm rounded hover:bg-god/10 disabled:opacity-40 font-mono transition-colors">
-                    {nmLoading ? '获取中…' : '刷新模型'}
-                  </button>
-                </div>
-                {nmError && <div className="text-sm text-blood mt-1 font-mono">{nmError}</div>}
-              </Field>
-            </div>
-          )}
 
           {/* 两步分别选模型 */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">

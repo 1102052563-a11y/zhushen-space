@@ -384,25 +384,9 @@ export default function JoyManager() {
       <div className="space-y-2.5 rounded-xl border border-pink-500/20 bg-panel p-3">
         <div className="flex items-center justify-between">
           <span className="text-sm font-semibold text-slate-200">欢愉宫 AI 接口</span>
-          <label className="flex items-center gap-2 text-[12px] text-dim/70 cursor-pointer">
-            <input type="checkbox" checked={useShared} onChange={(e) => setShared(e.target.checked)} className="accent-pink-500" />
-            复用正文生成 API
-          </label>
         </div>
         <ApiRoutePicker routeKey="joy" />
         <p className="text-[11px] font-mono text-dim/50">↑ 选「API 接口库」里的接口（多选·按优先级轮流·失败自动切下一条）。留空则用下方兜底配置。建议选一个尺度宽松的模型。</p>
-        {!useShared && (
-          <div className="space-y-2">
-            <input value={joyApi.baseUrl} onChange={(e) => setApi({ baseUrl: e.target.value })} placeholder="API 地址 (baseUrl)" className={`${inputCls} w-full font-mono`} />
-            <input value={joyApi.apiKey} onChange={(e) => setApi({ apiKey: e.target.value })} placeholder="API Key" type="password" className={`${inputCls} w-full font-mono`} />
-            <div className="flex items-center gap-2">
-              <input value={joyApi.modelId} onChange={(e) => setApi({ modelId: e.target.value })} placeholder="模型 ID" className={`${inputCls} flex-1 font-mono`} list="joy-models" />
-              <datalist id="joy-models">{models.map((m) => <option key={m} value={m} />)}</datalist>
-              <button onClick={() => fetchModels()} disabled={modelsLoading} className="text-[12px] font-mono py-1 px-2.5 rounded-lg border border-edge text-dim hover:text-slate-100 shrink-0">{modelsLoading ? '…' : '拉取模型'}</button>
-            </div>
-            {modelsError && <div className="text-[12px] text-blood/70 font-mono">{modelsError}</div>}
-          </div>
-        )}
         <div className="text-[11px] font-mono text-dim/40 leading-snug">用于包间对话与看板娘迎宾。每轮对话独立调用，不影响正文生成。</div>
       </div>
 

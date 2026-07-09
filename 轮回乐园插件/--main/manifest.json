@@ -1,0 +1,10 @@
+{
+  "display_name": "剧情指导 StoryGuide",
+  "loading_order": 35,
+  "js": "index.js",
+  "css": "style.css",
+  "author": "your-name",
+  "version": "0.10.0",
+  "homePage": "https://github.com/your-name/Extension-StoryGuide",
+  "auto_update": true
+}

@@ -128,6 +128,111 @@ export function buildJudgeBlock(opts: {
 }
 
 /* ════════════════════════════════════════════
+   AI 全包模式（方案2·仿「轮回乐园插件」StoryGuide 的 ROLL 决策）：
+   把「要不要检定 + 全部数值修正 + 成败」都交给 AI 估算——前端只掷一颗诚实骰点(RNG 不作弊)传给 AI，
+   修正/难度线/成败全由 AI 从面板自行推算。放弃代码确定性（数值不再可复现），换 AI 对情境的自由裁量。
+   与前端 `resolve()` 的确定性引擎并行；judgeMode='ai-full' 时启用，AI 失败回退前端确定性。
+════════════════════════════════════════════ */
+const AI_FULL_SYSTEM = `你是轮回乐园 TRPG 的【全权裁判】。给你【玩家行动】+【角色面板】+【本次骰点】，由你**自行**判断是否需要检定，并**自行估算全部数值修正**后裁定结果。只输出 JSON，不要任何额外文字或 markdown。
+
+【第一步·判断是否需要检定 needRoll】
+- needRoll=false：日常/闲聊/情感表达/心理活动、必定成功或毫无难度的行为。
+- needRoll=true：战斗/攻防、说服/欺骗/威吓、有风险或难度的动作（撬锁/攀爬/潜行）、知识或感知检定。
+
+【第二步·若 needRoll=true，你自行完成全部计算】
+1. 从【角色面板】判断本次最相关的属性（力量/敏捷/体质/智力/魅力/幸运其一）与相关技能/天赋/装备/状态。
+2. **自行估算修正合计**：能力越强、品级越高加值越大（D~SSS 递增，如百分骰尺度约 D+3…SSS+27、d20 尺度约 D+1…SSS+6）；属性扬长避短（远超同侪给正、孱弱给负）；负面天赋/不利状态扣分；堆数量无意义，只取最相关的几项。
+3. **确定成功线**（相对该角色的难度）：d20 目标 DC 约 简单10/普通13/困难16/极难20/几乎不可能25；d100 成功率 P 约 简单85/普通65/困难45/极难25/几乎不可能10（可按角色强弱与情境±微调）。
+4. **对照骰点裁定**：本次骰点由系统给出、不可更改，以它为准绳，不得无视它强行让玩家成功；必须保留判失败/大失败的可能。
+   - d100：骰点≤P 成功、>P 失败；≤5 必大成功、≥96 必大失败。
+   - d20：（骰点+修正）≥DC 成功；自然20 必大成功、自然1 必大失败；超出 DC≥10 视为碾压成功。
+5. level 只能取：大成功 / 碾压成功 / 困难成功 / 成功 / 失败 / 大失败。后果须符合成败：大成功给额外收益，大失败给反噬。
+
+【只输出此 JSON】
+- 无需检定：{"needRoll": false}
+- 需检定：{"needRoll": true, "attr": "判定属性(如 敏捷)", "level": "成功", "success": true, "reasoning": "≤60字中文裁定依据", "consequences": ["简短后果1","简短后果2"], "calc": "修正与成功线的简短算式(如 敏捷+潜行技能≈+7，骰点42≤成功率65 → 成功)"}`;
+
+export interface AiFullInput {
+  mode: DiceMode;
+  actorName: string;
+  action: string;
+  difficulty?: Difficulty;
+  playerSheet: string;
+  roll: number;              // 前端已掷好的骰点（d20:1-20 / d100:1-100）
+}
+export interface AiFullOutcome {
+  needRoll: boolean;
+  attr?: string;             // AI 选定的判定属性（中文标签，展示用）
+  level: OutcomeLevel;
+  success: boolean;
+  reasoning: string;
+  consequences: string[];
+  calc?: string;             // AI 的数值推演摘要（展示在骰子卡上）
+  usedAI: boolean;           // false = 调用/解析失败（调用方应回退前端确定性）
+  error?: string;
+}
+
+const AI_FULL_MISS: AiFullOutcome = { needRoll: false, level: '成功', success: false, reasoning: '', consequences: [], usedAI: false };
+
+/** AI 全包：一次调用同时判 needRoll + 估全部数值 + 裁成败。失败/解析失败 → usedAI:false（调用方回退前端）。 */
+export async function aiFullRoll(inp: AiFullInput): Promise<AiFullOutcome> {
+  try {
+    const d = useDice.getState();
+    const ss = useSettings.getState();
+    const legacy = d.diceUseSharedApi ? (ss.textUseSharedApi ? ss.api : ss.textApi) : d.diceApi;
+    const chain = resolveApiChain('dice', legacy);
+    const anchor = inp.mode === 'd20' ? `d20=${inp.roll}（范围1-20）` : `d100=${inp.roll}（范围1-100）`;
+    const user = [
+      `玩家行动：${inp.action.trim() || '（未填，凭面板与情境裁定）'}`,
+      `骰子模式：${inp.mode}`,
+      `本次骰点：${anchor}（不可更改，以此为准绳）`,
+      inp.difficulty ? `建议难度：${inp.difficulty}` : '',
+      `【角色面板】\n${inp.playerSheet}`,
+      '请自行判断是否需要检定并估算全部数值，只输出 JSON。',
+    ].filter(Boolean).join('\n');
+    const { content } = await apiChatFallback(
+      chain,
+      [{ role: 'system', content: AI_FULL_SYSTEM }, { role: 'user', content: user }],
+      { timeoutMs: 45000, extra: { temperature: 0.5 } },
+    );
+    const obj = extractJson(content);
+    if (!obj || typeof obj !== 'object') return { ...AI_FULL_MISS, error: '解析失败' };
+    if (obj.needRoll === false) return { needRoll: false, level: '成功', success: false, reasoning: '', consequences: [], usedAI: true };
+    let level = String(obj.level || '').trim() as OutcomeLevel;
+    if (!LEVELS.includes(level)) level = '成功';
+    const success = typeof obj.success === 'boolean' ? obj.success : level !== '失败' && level !== '大失败';
+    const consequences = Array.isArray(obj.consequences)
+      ? obj.consequences.map((x: any) => String(x)).filter(Boolean)
+      : obj.consequences ? [String(obj.consequences)] : [];
+    return {
+      needRoll: true, attr: obj.attr ? String(obj.attr).slice(0, 12) : undefined,
+      level, success, reasoning: String(obj.reasoning || '').slice(0, 200), consequences,
+      calc: obj.calc ? String(obj.calc).slice(0, 120) : undefined, usedAI: true,
+    };
+  } catch (e: any) {
+    return { ...AI_FULL_MISS, error: e?.message ?? '请求失败' };
+  }
+}
+
+/** 把 AI 全包裁定拼成注入主提示词的 `<检定结果>` 块 */
+export function buildAiFullBlock(opts: {
+  actorName: string; attr: string; difficulty?: Difficulty; mode: DiceMode;
+  roll: number; level: OutcomeLevel; reasoning: string; consequences: string[];
+}): string {
+  const { actorName, attr, difficulty, mode, roll, level, reasoning, consequences } = opts;
+  const head = `${actorName}（${attr}）${difficulty ? ` 难度=${difficulty}` : ''}`;
+  const anchor = mode === 'd20' ? `d20:${roll}` : `d100:${roll}`;
+  const lines = [
+    `<检定结果> ${head} → ${level}（AI 全权裁定·骰点 ${anchor}）`,
+    reasoning ? `裁定：${reasoning}` : '',
+    consequences.length ? `后果：${consequences.join('；')}` : '',
+    `</检定结果>`,
+    `（以上为系统判定结果，请让本回合剧情严格服从该成败、等级与后果，不要推翻。）`,
+  ].filter(Boolean);
+  return lines.join('\n');
+}
+
+/* ════════════════════════════════════════════
    ✨AI建议：读行动+角色面板，建议该用哪个属性/难度/相关技能（仅填表，不掷骰）
 ════════════════════════════════════════════ */
 const SUGGEST_SYSTEM = `你是检定参数助手。根据角色行动 + 面板，判断这次检定最该用哪个六维属性、相对难度，并指出相关技能（若有）。只输出 JSON，不要多余文字。

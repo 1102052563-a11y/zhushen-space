@@ -162,34 +162,8 @@ export default function EntryJudgeManager() {
       </Section>
 
       {/* ── API·集成路由 ── */}
-      <Section title="API · 集成路由" desc="登场判断走独立路由键 npcEntry。建议从『API 库』选一个更强的模型（如 Opus / Gemini）专跑登场判断，判阶位/强度更准。路由留空时回退到下方自配 / 共用接口。">
+      <Section title="API · 集成路由" desc="登场判断走独立路由键 npcEntry。建议从『API 库』选一个更强的模型（如 Opus / Gemini）专跑登场判断，判阶位/强度更准。">
         <ApiRoutePicker routeKey="npcEntry" />
-        <div className="flex items-center gap-3 p-3 bg-panel border border-edge rounded-lg">
-          <Toggle checked={useSharedApi} onChange={() => setUseSharedApi(!useSharedApi)} />
-          <div className="text-sm text-slate-200">回退时与正文生成共用 API</div>
-        </div>
-        {!useSharedApi && (
-          <div className="space-y-3">
-            <div className="space-y-1.5">
-              <label className="text-sm text-dim font-mono">API 地址</label>
-              <input type="text" value={api.baseUrl} onChange={(e) => setApi({ baseUrl: e.target.value })}
-                placeholder="https://api.openai.com/v1"
-                className="w-full bg-panel border border-edge rounded-lg px-3 py-2 text-sm text-slate-200 outline-none focus:border-god" />
-            </div>
-            <div className="space-y-1.5">
-              <label className="text-sm text-dim font-mono">API Key</label>
-              <input type="password" value={api.apiKey} onChange={(e) => setApi({ apiKey: e.target.value })}
-                placeholder="sk-..."
-                className="w-full bg-panel border border-edge rounded-lg px-3 py-2 text-sm text-slate-200 font-mono outline-none focus:border-god" />
-            </div>
-            <div className="space-y-1.5">
-              <label className="text-sm text-dim font-mono">模型 ID</label>
-              <input type="text" value={api.modelId} onChange={(e) => setApi({ modelId: e.target.value })}
-                placeholder="gemini-2.0-flash"
-                className="w-full bg-panel border border-edge rounded-lg px-3 py-2 text-sm text-slate-200 font-mono outline-none focus:border-god" />
-            </div>
-          </div>
-        )}
       </Section>
 
       {/* ── 战力图鉴世界书 ── */}

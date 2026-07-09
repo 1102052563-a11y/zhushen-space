@@ -83,9 +83,15 @@ export default function DiceManager() {
 
       {tab === 'check' && (
         <div className="space-y-1">
-          <Row label="判定方式" hint={settings.judgeMode === 'ai' ? '骰子锚定 + AI 裁判（失败自动回退前端）' : '纯前端确定性计算，零调用'}>
+          <Row label="🎯 自动检定（发送即判定）" hint={settings.autoMode ? '发送消息时自动判断是否需要 ROLL：关键词命中才掷骰，结果只喂正文AI（读者不可见）+ 气泡下弹骰子卡；判定方式沿用下方设置' : '关闭：仅在手动打开骰子面板、点摇骰后注入'}>
+            <Toggle checked={settings.autoMode} onChange={() => setSettings({ autoMode: !settings.autoMode })} />
+          </Row>
+          <Row label="判定方式" hint={
+            settings.judgeMode === 'ai-full' ? 'AI 全包：数值+成败全交 AI 估算（仿插件·放弃代码确定性·失败回退前端）'
+              : settings.judgeMode === 'ai' ? '骰子锚定 + AI 裁判（前端算数值·AI 只裁定·失败回退前端）'
+                : '纯前端确定性计算，零调用'}>
             <Seg value={settings.judgeMode} onChange={(v) => setSettings({ judgeMode: v })}
-              options={[{ v: 'frontend', label: '前端确定性' }, { v: 'ai', label: 'AI 裁判' }]} />
+              options={[{ v: 'frontend', label: '前端确定性' }, { v: 'ai', label: 'AI 裁判' }, { v: 'ai-full', label: 'AI 全包' }]} />
           </Row>
           <Row label="骰子模式" hint={settings.mode === 'd20' ? '1d20 + 修正 ≥ DC' : '1d100 ≤ 成功率'}>
             <Seg value={settings.mode} onChange={(v) => setSettings({ mode: v })}
@@ -158,53 +164,7 @@ export default function DiceManager() {
       {tab === 'api' && (
         <div className="space-y-3">
           <ApiRoutePicker routeKey="dice" />
-          <p className="text-[12px] font-mono text-dim/50">↑ 直接选用「API 接口库」里集中管理的接口（多选·按优先级轮流调用，失败自动切下一条）。留空则用下方兜底配置。仅 AI 裁判用，前端确定性判定不耗 API。</p>
-          <Row label="兜底 API 来源" hint="路由留空时使用">
-            <Seg value={diceUseShared ? 'shared' : 'own'} onChange={(v) => setDiceUseShared(v === 'shared')}
-              options={[{ v: 'shared', label: '共用主 API' }, { v: 'own', label: '独立配置' }]} />
-          </Row>
-
-          {diceUseShared ? (
-            <div className="text-[13px] font-mono text-dim/60 border border-edge rounded-lg p-3 bg-panel/40">
-              当前共用：{sharedApi.baseUrl || '（未配置主 API）'}　模型 {sharedApi.modelId || '—'}
-              <div className="text-dim/40 mt-1">也可在「综合设置 → API 接口库」给 featureKey <span className="text-god/70">dice</span> 配多接口轮流+fallback。</div>
-            </div>
-          ) : (
-            <div className="space-y-2 border border-edge rounded-lg p-3 bg-panel/40">
-              <Field label="接口地址 baseUrl">
-                <input value={diceApi.baseUrl} onChange={(e) => setDiceApi({ baseUrl: e.target.value })} placeholder="https://api.openai.com/v1" className={inputCls} />
-              </Field>
-              <Field label="API Key">
-                <input value={diceApi.apiKey} onChange={(e) => setDiceApi({ apiKey: e.target.value })} type="password" placeholder="sk-…" className={inputCls} />
-              </Field>
-              <Field label="模型 modelId">
-                <div className="flex gap-2">
-                  <input value={diceApi.modelId} onChange={(e) => setDiceApi({ modelId: e.target.value })} placeholder="gpt-4o-mini" className={inputCls} />
-                  <button onClick={() => void fetchModels()} disabled={modelsLoading}
-                    className="shrink-0 px-3 text-sm border border-god/40 text-god rounded-lg hover:bg-god/10 disabled:opacity-40 transition-colors font-mono">
-                    {modelsLoading ? '…' : '拉取'}
-                  </button>
-                </div>
-              </Field>
-              {modelsError && <div className="text-[12px] text-blood font-mono">{modelsError}</div>}
-              {models.length > 0 && (
-                <select onChange={(e) => e.target.value && setDiceApi({ modelId: e.target.value })} value=""
-                  className={inputCls}>
-                  <option value="">— 从已拉取的 {models.length} 个模型选择 —</option>
-                  {models.map((m) => <option key={m} value={m} className="bg-void">{m}</option>)}
-                </select>
-              )}
-              <div className="grid grid-cols-2 gap-2">
-                <Field label="温度">
-                  <input type="number" step={0.1} value={diceApi.temperature} onChange={(e) => setDiceApi({ temperature: Number(e.target.value) })} className={inputCls} />
-                </Field>
-                <Field label="最大 tokens">
-                  <input type="number" value={diceApi.maxTokens} onChange={(e) => setDiceApi({ maxTokens: Number(e.target.value) })} className={inputCls} />
-                </Field>
-              </div>
-              <p className="text-[12px] font-mono text-dim/50">建议挂便宜快的小模型即可；判定只需短 JSON 输出。</p>
-            </div>
-          )}
+          <p className="text-[12px] font-mono text-dim/50">↑ 直接选用「API 接口库」里集中管理的接口（多选·按优先级轮流调用，失败自动切下一条）。留空则回退正文 API。仅 AI 裁判用，前端确定性判定不耗 API。</p>
         </div>
       )}
     </div>

@@ -262,10 +262,6 @@ export default function EnhanceManager() {
       <div className="space-y-2.5 rounded-xl border border-edge bg-panel p-3">
         <div className="flex items-center justify-between">
           <span className="text-sm font-semibold text-slate-200">吐槽 / 收尾 API</span>
-          <label className="flex items-center gap-2 text-[12px] text-dim/70 cursor-pointer">
-            <input type="checkbox" checked={useShared} onChange={(e) => setShared(e.target.checked)} className="accent-god" />
-            复用正文生成 API
-          </label>
         </div>
         <ApiRoutePicker routeKey="enhance" />
         <p className="text-[11px] font-mono text-dim/50">↑ 选用「API 接口库」里集中管理的接口（多选·按优先级轮流调用·失败自动切下一条）。留空则用下方兜底配置。</p>
@@ -274,20 +270,8 @@ export default function EnhanceManager() {
           <span className="text-god/90 font-bold">{effModel}</span>
           {effHost && <span className="text-dim/40"> @ {effHost}</span>}
           {effChain.length > 1 && <span className="text-dim/40"> (+{effChain.length - 1} 条备用)</span>}
-          <span className="block text-dim/35 mt-0.5">优先级：接口库路由 ＞ {useShared ? '正文 API' : '下方手填'}（路由选了就以路由为准，手填框会被忽略）</span>
+          <span className="block text-dim/35 mt-0.5">优先级：接口库路由 ＞ 正文 API 兜底（路由选了就以路由为准）</span>
         </div>
-        {!useShared && (
-          <div className="space-y-2">
-            <input value={enhanceApi.baseUrl} onChange={(e) => setApi({ baseUrl: e.target.value })} placeholder="API 地址 (baseUrl)" className={`${inputCls} w-full font-mono`} />
-            <input value={enhanceApi.apiKey} onChange={(e) => setApi({ apiKey: e.target.value })} placeholder="API Key" type="password" className={`${inputCls} w-full font-mono`} />
-            <div className="flex items-center gap-2">
-              <input value={enhanceApi.modelId} onChange={(e) => setApi({ modelId: e.target.value })} placeholder="模型 ID" className={`${inputCls} flex-1 font-mono`} list="enhance-models" />
-              <datalist id="enhance-models">{models.map((m) => <option key={m} value={m} />)}</datalist>
-              <button onClick={() => fetchModels()} disabled={modelsLoading} className="text-[12px] font-mono py-1 px-2.5 rounded-lg border border-edge text-dim hover:text-slate-100 shrink-0">{modelsLoading ? '…' : '拉取模型'}</button>
-            </div>
-            {modelsError && <div className="text-[12px] text-blood/70 font-mono">{modelsError}</div>}
-          </div>
-        )}
         <div className="text-[11px] font-mono text-dim/40 leading-snug">
           用于「点立绘吐槽」和「停止强化后刷新装备词缀」。
         </div>

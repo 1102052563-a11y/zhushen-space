@@ -103,74 +103,9 @@ function SettingsSection() {
    API 设置（可共用正文 API，或独立配置）
 ════════════════════════════════════════════ */
 function ApiSection() {
-  const api               = useSettings((s) => s.api);
-  const textApi           = useSettings((s) => s.textApi);
-  const textUseSharedApi  = useSettings((s) => s.textUseSharedApi);
-
-  const memoryApi          = useMemory((s) => s.memoryApi);
-  const useShared          = useMemory((s) => s.memoryUseSharedApi);
-  const models             = useMemory((s) => s.memoryAvailableModels);
-  const loading            = useMemory((s) => s.memoryModelsLoading);
-  const error              = useMemory((s) => s.memoryModelsError);
-  const setMemoryApi       = useMemory((s) => s.setMemoryApi);
-  const setUseShared       = useMemory((s) => s.setMemoryUseSharedApi);
-  const fetchModels        = useMemory((s) => s.fetchMemoryModels);
-
-  const effective = useShared ? (textUseSharedApi ? api : textApi) : memoryApi;
-
   return (
     <div className="space-y-6 max-w-xl">
-      <div className="flex items-center gap-3 p-3 bg-panel border border-edge rounded-lg">
-        <Toggle checked={useShared} onChange={() => setUseShared(!useShared)} />
-        <div>
-          <div className="text-sm text-slate-200">与正文生成共用 API</div>
-          <div className="text-sm text-dim mt-0.5">开启时复用正文/世界选择的 API；关闭则为生平压缩单独配置</div>
-        </div>
-      </div>
-
       <ApiRoutePicker routeKey="memory" />
-      {!useShared && (
-        <div className="space-y-4">
-          <Field label="API 地址">
-            <input type="text" value={memoryApi.baseUrl} onChange={(e) => setMemoryApi({ baseUrl: e.target.value })} placeholder="https://api.openai.com/v1" className="input-base" />
-          </Field>
-          <Field label="API Key">
-            <input type="password" value={memoryApi.apiKey} onChange={(e) => setMemoryApi({ apiKey: e.target.value })} placeholder="sk-..." className="input-base font-mono" />
-          </Field>
-          <Field label="模型">
-            <div className="flex gap-2">
-              {models.length > 0 ? (
-                <select value={memoryApi.modelId} onChange={(e) => setMemoryApi({ modelId: e.target.value })} className="input-base flex-1">
-                  {models.map((m) => <option key={m} value={m}>{m}</option>)}
-                </select>
-              ) : (
-                <input type="text" value={memoryApi.modelId} onChange={(e) => setMemoryApi({ modelId: e.target.value })} placeholder="gpt-4o" className="input-base flex-1 font-mono" />
-              )}
-              <button onClick={fetchModels} disabled={loading} className="shrink-0 px-3 py-2 border border-god/40 text-god text-sm rounded hover:bg-god/10 disabled:opacity-40 font-mono transition-colors">
-                {loading ? '获取中…' : '刷新模型'}
-              </button>
-            </div>
-            {error && <div className="text-sm text-blood mt-1 font-mono">{error}</div>}
-          </Field>
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-            <Field label={`温度 (${memoryApi.temperature})`}>
-              <input type="range" min={0} max={2} step={0.05} value={memoryApi.temperature} onChange={(e) => setMemoryApi({ temperature: parseFloat(e.target.value) })} className="w-full accent-god mt-1" />
-            </Field>
-            <Field label={`Top-P (${memoryApi.topP})`}>
-              <input type="range" min={0} max={1} step={0.05} value={memoryApi.topP} onChange={(e) => setMemoryApi({ topP: parseFloat(e.target.value) })} className="w-full accent-god mt-1" />
-            </Field>
-            <Field label="Max Tokens">
-              <input type="number" value={memoryApi.maxTokens} onChange={(e) => setMemoryApi({ maxTokens: parseInt(e.target.value) || 512 })} min={128} max={32768} step={128} className="input-base" />
-            </Field>
-          </div>
-        </div>
-      )}
-
-      <div className="border border-edge rounded-lg p-3 bg-panel text-sm font-mono text-dim space-y-1">
-        <div><span className="text-god/60">URL ·</span> {effective.baseUrl || '—'}</div>
-        <div><span className="text-god/60">MODEL ·</span> {effective.modelId || '—'}</div>
-        <div><span className="text-god/60">TEMP ·</span> {effective.temperature} &nbsp;<span className="text-god/60">MAX ·</span> {effective.maxTokens}</div>
-      </div>
     </div>
   );
 }
