@@ -1389,9 +1389,6 @@ function TextWorldSection() {
    正文生成 — API 配置
 ════════════════════════════════════════════ */
 function TextApiSection() {
-  const api                = useSettings((s) => s.api);
-  const textApi            = useSettings((s) => s.textApi);
-  const textUseSharedApi   = useSettings((s) => s.textUseSharedApi);
   const textStream         = useSettings((s) => s.textStream);
   const skipNarrativeThinking = useSettings((s) => s.skipNarrativeThinking);
   const plotGuidance       = useSettings((s) => s.plotGuidance);
@@ -1416,8 +1413,6 @@ function TextApiSection() {
   const setMiniTheater     = useSettings((s) => s.setMiniTheater);
   const narrativePov       = useSettings((s) => s.narrativePov);
   const setNarrativePov    = useSettings((s) => s.setNarrativePov);
-
-  const effective = textUseSharedApi ? api : textApi;
 
   return (
     <div className="space-y-6 max-w-xl">
@@ -3045,11 +3040,6 @@ function NarrativeMemorySettings() {
   const nmApi = useSettings((s) => s.nmApi);
   const nmUseShared = useSettings((s) => s.nmUseSharedApi);
   const nmModels = useSettings((s) => s.nmAvailableModels);
-  const nmLoading = useSettings((s) => s.nmModelsLoading);
-  const nmError = useSettings((s) => s.nmModelsError);
-  const setNmApi = useSettings((s) => s.setNmApi);
-  const setNmUseShared = useSettings((s) => s.setNmUseSharedApi);
-  const fetchNmModels = useSettings((s) => s.fetchNmModels);
   const effApi = nmUseShared ? (textUseShared ? api0 : textApi) : nmApi;
   const modelOpts = nmModels.length > 0 ? nmModels : [effApi.modelId].filter(Boolean);
 
