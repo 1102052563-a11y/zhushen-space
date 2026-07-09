@@ -12,7 +12,7 @@ const ALIAS: Record<string, string> = {
   '技能树': 'jinengshu jns skilltree tree', '称号': 'chenghao ch title', '成就': 'chengjiu cj achievement',
   '势力': 'shili sl faction', '领地': 'lingdi ld territory base', '冒险团': 'maoxiantuan mxt team',
   '队伍': 'duiwu dw party', '万族': 'wanzu wz cosmos race', '世界百科': 'shijiebaike sjbk codex wiki',
-  'ROLL': 'roll dice touzi 骰子 panding', '战斗': 'zhandou zd combat fight', '乐园设施': 'leyuansheshi lyss facility shop casino',
+  '战斗': 'zhandou zd combat fight', '乐园设施': 'leyuansheshi lyss facility shop casino',
   '深渊': 'shenyuan sy abyss dungeon', '回合洞察': 'huihedongcha hhdc insight', '任务': 'renwu rw quest task',
   '频道': 'pindao pd channel', '私信': 'sixin sx dm message', '好友': 'haoyou hy friend',
   '联机': 'lianji lj multiplayer online coop', '聊天室': 'liaotianshi lts chat chatroom', '交易行': 'jiaoyihang jyh trade market',

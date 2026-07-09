@@ -9,7 +9,7 @@ import { ATTR_KEYS, ATTR_LABELS, DIFFICULTIES } from './diceEngine';
    AI 裁判（方案1：骰子锚定 + AI 裁判，失败回退前端确定性结果）
    - 前端先掷骰算出 fe(ResolveResult)，把掷点/成功率/DC 当锚点 + 兜底
    - 把锚点 + 角色/对手面板 + 行动发给判定 AI（独立 dice API），AI 按 rubric 裁定成败/等级/后果
-   - 只读裁判、纯文本面板序列化由 DicePanel 提供；本文件负责拼提示词、调用、解析、兜底
+   - 只读裁判、纯文本面板序列化由 autoDice 提供；本文件负责拼提示词、调用、解析、兜底
 ════════════════════════════════════════════ */
 
 export interface JudgeInput {

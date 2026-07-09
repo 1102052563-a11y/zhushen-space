@@ -1080,7 +1080,7 @@ const rightMenuItems = [
 const NAV_FX: Record<string, string> = {
   '装备': 'fx-sword', '储存空间': 'fx-bag', 'NPC': 'fx-card', '技能': 'fx-sparkle',
   '副职业': 'fx-wrench', '技能树': 'fx-tree', '体系': 'fx-tree', '合成': 'fx-wrench', '称号': 'fx-medal', '成就': 'fx-trophy', '势力': 'fx-pillar',
-  '领地': 'fx-castle', '冒险团': 'fx-shield', '队伍': 'fx-friends', '万族': 'fx-cosmos', '世界百科': 'fx-book', '轮回WIKI': 'fx-book', 'ROLL': 'fx-dice',
+  '领地': 'fx-castle', '冒险团': 'fx-shield', '队伍': 'fx-friends', '万族': 'fx-cosmos', '世界百科': 'fx-book', '轮回WIKI': 'fx-book',
   '战斗': 'fx-clash', '乐园设施': 'fx-ferris', '深渊': 'fx-void', '回合洞察': 'fx-zoom', '审计': 'fx-zoom', '任务': 'fx-quest',
   '频道': 'fx-signal', '私信': 'fx-mail', '好友': 'fx-friends', '聊天室': 'fx-signal', '交易行': 'fx-bag', '助战': 'fx-clash', '世界竞技场': 'fx-trophy', '纪念丰碑': 'fx-pillar', '账户仓库': 'fx-bag', '记忆': 'fx-brain', '创意工坊': 'fx-sparkle', '存档': 'fx-save', '设置': 'fx-gear',
 };
@@ -1225,7 +1225,6 @@ export default function App() {
   const [npcPanelOpen,     setNpcPanelOpen]     = useState(false);
   const [miscPanelOpen,    setMiscPanelOpen]    = useState(false);
   const [worldRecordOpen,  setWorldRecordOpen]  = useState(false);
-  const [dicePanelOpen,    setDicePanelOpen]    = useState(false);
   const [enhancePanelOpen, setEnhancePanelOpen] = useState(false);
   const [craftPanelOpen, setCraftPanelOpen] = useState(false);
   const [skillUpPanelOpen, setSkillUpPanelOpen] = useState(false);
@@ -8515,7 +8514,6 @@ ${lines}`;
       label === '轮回WIKI' ? () => setWikiOpen(true) :
       label === '世界记录' ? () => setWorldRecordOpen(true) :
       label === '回合洞察' ? () => setInsightOpen(true) :
-      label === 'ROLL' ? () => setDicePanelOpen(true) :
       label === '战斗' ? () => { if (mpGuest) { setGenError('联机中：战斗由房主发起'); setTimeout(() => setGenError(''), 4000); return; } setCombatSetupOpen(true); } :
       label === '乐园设施' ? () => setFacilitiesOpen(true) :
       label === '深渊' ? () => setAbyssOpen(true) :
@@ -10227,11 +10225,6 @@ ${lines}`;
 
       {worldbookConflicts.length > 0 && (
         <WorldbookMergePanel />
-      )}
-
-      {/* ── ROLL 点 · 摇骰检定面板 ── */}
-      {dicePanelOpen && (
-        <DicePanel onClose={() => setDicePanelOpen(false)} onInject={(t) => { setDicePanelOpen(false); setInputValue((prev) => (prev && prev.trim() ? `${prev}\n${t}` : t)); }} />
       )}
 
       {/* ── 战斗系统 · 发起战斗（选在场 NPC）+ 回合制战斗面板 ── */}

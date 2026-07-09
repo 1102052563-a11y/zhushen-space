@@ -20,7 +20,7 @@ import { detectAutoAction, detectDifficulty } from './autoDiceDetect';
    - 判定链路：① 关键词门（cheap gate·detectAutoAction）命中才 roll → ② 前端确定性 resolve（复用 diceEngine，
      与手动面板 computeFe 同口径）→ ③ judgeMode='ai' 时再 aiJudge 精修（失败自动回退前端结果）。
    - 结果 = 一段 `<检定结果>` 块（对读者隐藏·只随本回合喂正文 API）+ 一张 DiceCardData（气泡下弹骰子卡）。
-   - 仅主角、仅非对抗（对抗需锁定具体对手，自动模式暂不做）；对抗/自选属性走手动 DicePanel。
+   - 仅主角、仅非对抗（对抗需锁定具体对手，自动模式暂不做）。手动骰子面板已移除，检定统一走自动模式。
    设计沿用 `摇骰子判定-集成指导.md` + 参考「轮回乐园插件」的发送即注入 ROLL 机制。
 ════════════════════════════════════════════ */
 
