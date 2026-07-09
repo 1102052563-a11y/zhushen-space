@@ -17,6 +17,7 @@ const GROUP_META: Record<SlotDef['group'], { title: string; cols: number }> = {
   armor:     { title: '防具',   cols: 4 },
   accessory: { title: '饰品',   cols: 3 },
   treasure:  { title: '特殊装备', cols: 5 },
+  vehicle:   { title: '载具',   cols: 1 },
 };
 
 /* ════════════════════════════════════════════
@@ -234,7 +235,7 @@ export default function EquipmentPanel(_props: {
       </div>
 
       {/* 固定槽位分组：武器 / 防具(头部·外衣·内衬·下装·鞋子·手部·手臂·肩部·腰带) / 饰品 / 特殊装备 */}
-      {(['weapon', 'armor', 'accessory', 'treasure'] as const).map((g) => (
+      {(['weapon', 'armor', 'accessory', 'treasure', 'vehicle'] as const).map((g) => (
         <SlotGroup
           key={g}
           groupKey={g}

@@ -12,6 +12,7 @@ const GROUPS: { key: SlotDef['group']; title: string; cols: number }[] = [
   { key: 'armor',     title: '防具',   cols: 4 },
   { key: 'accessory', title: '饰品',   cols: 3 },
   { key: 'treasure',  title: '特殊装备', cols: 5 },
+  { key: 'vehicle',   title: '载具',   cols: 1 },
 ];
 
 /* AI 的槽位名 → 规范槽位 key */
@@ -41,10 +42,12 @@ function normalizeSlot(raw: string, category: string): string | null {
   }
   if (grp === 'accessory') { const n = parseInt(part); return n >= 1 && n <= 6 ? `accessory:#${n}` : 'accessory:#1'; }
   if (grp === 'treasure')  { const n = parseInt(part); return n >= 1 && n <= 5 ? `treasure:#${n}` : 'treasure:#1'; }
+  if (grp === 'vehicle' || ['mount', 'ride', 'mech', 'steed', '坐骑', '载具'].includes(part)) return 'vehicle:#1';
   // 没有规范槽位前缀 → 按分类兜底
   if (category === '武器') return 'weapon:main';
   if (category === '防具') return 'armor:upper';
   if (category === '饰品') return 'accessory:#1';
+  if (category === '载具') return 'vehicle:#1';
   if (['特殊物品', '法宝', '工具', '其他物品'].includes(category)) return 'treasure:#1';
   return null;
 }

@@ -48,7 +48,8 @@ import {
   SUBPROF_RULE,
   SUBPROF_EVO_PROMPT,
   NPC_AGE_RULE,
-  NPC_GEN_ATTR_RULE,
+  ATTR_POWER_CODEX,
+  NPC_ATTR_GEN_RULE,
   NPC_ENTRY_BIO_RULE,
   NPC_REVIEW_TAG_RULE,
   NPC_TEAM_AFFILIATION_RULE,
@@ -175,7 +176,7 @@ import { useTeam, buildTeamSystemPrompt, memberCap as teamMemberCap } from './st
 import { useCosmos, buildCosmosSystemPrompt, cosmosNameEq, cleanCosmosName } from './store/cosmosStore';
 import { realmFromLevel, normalizeTier, lvFromRealm, computeMaxHp, computeMaxEp, effectiveResource, attrCapForTier, clampBaseAttrs, fullMaxHp, fullMaxEp, TIERS, realAttrMult, ratioOf, npcBaseAttrs } from './systems/derivedStats';
 import { isHomeWorld, reconcileHomeWorld, reconcilePlayerVitals, playerMaxHp, playerMaxEp, syncPlayerVitalsMax, applyCombatResourceGains, resetCombatResources } from './systems/playerVitals';
-import { bioInnate, tierVitalMult } from './systems/bioStrength';
+import { bioInnate, tierVitalMult, peakCapForTier, clampToTierWindow, nominalTierNum } from './systems/bioStrength';
 import { generateNpcAttrs, resolveForm, generateLuck } from './systems/npcAttrGen';
 import { useImageGen, effectiveEquipService } from './store/imageGenStore';
 import { generateImage, buildPortraitPrompt, buildEquipPrompt, equippedForPrompt, inferBodyType, shrinkDataUrl, abortAllImageGen } from './systems/imageGen';
@@ -2038,6 +2039,9 @@ export default function App() {
     // 战斗·技能运用 + 数值合理性：每回合注入（规则内自限定"仅涉及战斗/对抗/施展能力/数值变动时生效"）——强调主角/NPC 真的用档案里的技能+效果兑现、且进 <state> 的数值与战力相称。
     addRule('战斗技能与数值', '前端规则 · 战斗·技能运用+数值合理性', COMBAT_SKILL_NUMERIC_RULE);
 
+    // 属性·战力量化表：正文侧常驻校准（单属性↔阶位↔战力表现↔生物强度档↔职业偏向）——让正文的战力/破坏描写与面板六维数量级一致、NPC 强弱不漂（与 NPC 演化侧同一张表）。
+    addRule('属性战力量化表', '前端规则 · 属性↔战力↔生物强度档 校准基准', ATTR_POWER_CODEX);
+
     // 前历史 user/assistant 条目 → 少样本示例
     const examples = preRel
       .filter((e) => !e.marker && e.role !== 'system' && !e.system_prompt && e.content && e.identifier !== 'prefill')
@@ -2849,7 +2853,7 @@ export default function App() {
       .filter((e) => e.enabled && e.source !== 'entrySharedRules')
       .map((e) => fillVars(e.content, vars))
       .join('\n\n')
-      + '\n\n' + NARRATIVE_FIRST_RULE + '\n' + BUFF_AS_STATUS_RULE + '\n' + NPC_AGE_RULE + '\n' + TALENT_NO_CAP_RULE + '\n' + TITLE_DIVERSITY_RULE + '\n' + NPC_DEAD_EXCLUDE_RULE + '\n' + NPC_ID_RULE + '\n' + SKILL_TALENT_NOTE_RULE + '\n' + NPC_SKILL_KEEP_RULE + '\n' + ITEM_GRANTED_SKILL_RULE + '\n' + SKILL_STABILITY_RULE + '\n' + SKILL_COMBAT_TAG_RULE + '\n' + NPC_REVIEW_TAG_RULE +'\n' + NPC_TEAM_AFFILIATION_RULE + '\n' + TIER_RULE + '\n' + IMAGE_TAGS_RULE + '\n' + HPEP_NARRATIVE_ONLY_RULE + '\n' + POINTS_NARRATIVE_RULE + '\n' + NPC_GEN_ATTR_RULE + '\n' + ATTR_SANITY_RULE + '\n' + ATTR_CAP_RULE + '\n' + STATUS_FORMAT_RULE + '\n' + STATUS_COUNTDOWN_TURN_RULE + '\n' + NPC_PRIVATE_EXTRA_RULE + '\n' + NPC_TIER_LOADOUT_RULE + '\n' + SKILL_TALENT_ATTR_CAP_RULE + '\n' + FIRST_UPDATE_COMPLETE_RULE + '\n' + EVO_EXACT_REF_RULE + '\n' + SKILL_TALENT_GUIDE + '\n' + NPC_COT_RULE + '\n' + ANTI_OMNISCIENCE_RULE + worldLoreEvoInjection()
+      + '\n\n' + NARRATIVE_FIRST_RULE + '\n' + BUFF_AS_STATUS_RULE + '\n' + NPC_AGE_RULE + '\n' + TALENT_NO_CAP_RULE + '\n' + TITLE_DIVERSITY_RULE + '\n' + NPC_DEAD_EXCLUDE_RULE + '\n' + NPC_ID_RULE + '\n' + SKILL_TALENT_NOTE_RULE + '\n' + NPC_SKILL_KEEP_RULE + '\n' + ITEM_GRANTED_SKILL_RULE + '\n' + SKILL_STABILITY_RULE + '\n' + SKILL_COMBAT_TAG_RULE + '\n' + NPC_REVIEW_TAG_RULE +'\n' + NPC_TEAM_AFFILIATION_RULE + '\n' + TIER_RULE + '\n' + IMAGE_TAGS_RULE + '\n' + HPEP_NARRATIVE_ONLY_RULE + '\n' + POINTS_NARRATIVE_RULE + '\n' + ATTR_POWER_CODEX + '\n' + NPC_ATTR_GEN_RULE + '\n' + ATTR_SANITY_RULE + '\n' + ATTR_CAP_RULE + '\n' + STATUS_FORMAT_RULE + '\n' + STATUS_COUNTDOWN_TURN_RULE + '\n' + NPC_PRIVATE_EXTRA_RULE + '\n' + NPC_TIER_LOADOUT_RULE + '\n' + SKILL_TALENT_ATTR_CAP_RULE + '\n' + FIRST_UPDATE_COMPLETE_RULE + '\n' + EVO_EXACT_REF_RULE + '\n' + SKILL_TALENT_GUIDE + '\n' + NPC_COT_RULE + '\n' + ANTI_OMNISCIENCE_RULE + worldLoreEvoInjection()
       // 门控：仅当该 NPC 已有背景、却还没第一人称自述时，才追加"生成自述"规则（一次性·省 token）
       + (rec && rec.background && !rec.selfNarration ? '\n' + NPC_SELF_NARRATION_RULE : '');
   }
@@ -2878,7 +2882,7 @@ export default function App() {
       .filter((e) => e.enabled)   // entries 来自独立的「登场判断」预设(entryJudge)，整本都是登场判断条目
       .map((e) => fillVars(e.content, vars))
       .join('\n\n')
-      + '\n\n' + NARRATIVE_FIRST_RULE + '\n' + EVO_VERIFY_RULE + '\n' + NPC_DEAD_EXCLUDE_RULE + '\n' + NPC_ID_RULE + '\n' + TIER_RULE + '\n' + SKILL_TIER_RULE + '\n' + NPC_GEN_ATTR_RULE + '\n' + NPC_TEAM_AFFILIATION_RULE + '\n' + NPC_ENTRY_BIO_RULE + '\n' + ENTRY_NAME_CN_RULE + '\n' + ENTRY_DEDUP_RULE + codexInjection + tierPowerInjection + worldLoreEvoInjection() + '\n' + SKILL_TALENT_GUIDE + '\n' + ANTI_OMNISCIENCE_RULE + '\n' + CANON_STRENGTH_NO_SCALE_RULE + '\n' + ENTRY_COT_RULE;
+      + '\n\n' + NARRATIVE_FIRST_RULE + '\n' + EVO_VERIFY_RULE + '\n' + NPC_DEAD_EXCLUDE_RULE + '\n' + NPC_ID_RULE + '\n' + TIER_RULE + '\n' + SKILL_TIER_RULE + '\n' + NPC_TEAM_AFFILIATION_RULE + '\n' + NPC_ENTRY_BIO_RULE + '\n' + ENTRY_NAME_CN_RULE + '\n' + ENTRY_DEDUP_RULE + codexInjection + tierPowerInjection + worldLoreEvoInjection() + '\n' + SKILL_TALENT_GUIDE + '\n' + ANTI_OMNISCIENCE_RULE + '\n' + CANON_STRENGTH_NO_SCALE_RULE + '\n' + ENTRY_COT_RULE;
   }
 
   /* 解析 NPC <state> 短指令（favor/title/realm/hp），可按 charId 过滤 */
@@ -3011,7 +3015,14 @@ export default function App() {
       const base = live?.attrs ?? { str: 5, agi: 5, con: 5, int: 5, cha: 5, luck: 5 };
       const cur = (base as unknown as Record<string, number>)[key] ?? 5;
       const next = op === '=' ? v : op === '+=' ? cur + v : cur - v;
-      const cap = attrCapForTier(live?.realm);   // 基础属性夹到本阶上限（装备/技能/天赋加成另算，不受限）
+      // 双护栏：① 本阶单属性上限 ② 生物强度档窗口峰值（AI 给的六维不得越出登场判断所定 bs 档·守"不接受纯提示词"铁律）。
+      const tierCap = attrCapForTier(live?.realm);
+      const bsM = /T\s*(\d+)/i.exec(live?.bioStrength ?? '');
+      let cap = tierCap;
+      if (bsM) {
+        const tn = nominalTierNum(live?.realm, lvFromRealm(live?.realm));
+        cap = Math.min(tierCap, peakCapForTier(clampToTierWindow(Number(bsM[1]), tn), tn));   // bs 档峰值封顶（装备/技能/天赋加成另算，不受限）
+      }
       npc.upsertNpc(m[1], { attrs: { ...base, [key]: Math.min(cap, Math.max(0, next)) } });
       n++;
     }

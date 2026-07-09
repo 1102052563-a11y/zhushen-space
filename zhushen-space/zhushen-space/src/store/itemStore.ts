@@ -9,7 +9,7 @@ import { itemCreate, itemConsume, commitItems } from '../systems/ledger/itemCore
 
 export type ItemCategory =
   // 装备类
-  | '武器' | '防具' | '饰品' | '宝石'
+  | '武器' | '防具' | '饰品' | '宝石' | '载具'
   // 消耗品/材料
   | '消耗品' | '材料' | '工具'
   // 特殊类
@@ -20,7 +20,7 @@ export type ItemCategory =
 export const ITEM_CATEGORIES: ItemCategory[] = [
   // 轮回乐园主分类（UI 只提供这些；旧版修仙分类 功法/法宝/丹药/符箓/灵药/阵具 仍保留在
   // ItemCategory 类型里以兼容老存档的既有物品，但不再作为可选项展示/生成）
-  '武器', '防具', '饰品', '宝石',
+  '武器', '防具', '饰品', '宝石', '载具',
   '消耗品', '材料', '工具',
   '重要物品', '特殊物品', '凡物', '其他物品',
 ];

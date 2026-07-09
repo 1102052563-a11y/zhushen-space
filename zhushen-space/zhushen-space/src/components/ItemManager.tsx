@@ -6,6 +6,7 @@ import ApiRoutePicker from './ApiRoutePicker';
 const CAT_CFG: Record<ItemCategory, { cls: string; dot: string }> = {
   '武器':   { cls: 'bg-red-900/40 text-red-400 border-red-700/40',       dot: 'bg-red-400' },
   '防具':   { cls: 'bg-sky-900/40 text-sky-400 border-sky-700/40',       dot: 'bg-sky-400' },
+  '载具':   { cls: 'bg-indigo-900/40 text-indigo-400 border-indigo-700/40', dot: 'bg-indigo-400' },
   '饰品':   { cls: 'bg-violet-900/40 text-violet-400 border-violet-700/40', dot: 'bg-violet-400' },
   '功法':   { cls: 'bg-amber-900/40 text-amber-400 border-amber-700/40', dot: 'bg-amber-400' },
   '法宝':   { cls: 'bg-yellow-900/40 text-yellow-400 border-yellow-700/40', dot: 'bg-yellow-400' },

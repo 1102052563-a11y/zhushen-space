@@ -8,7 +8,7 @@ export interface SlotDef {
   key: string;       // 对应 item.equipSlot
   label: string;
   icon: string;
-  group: 'weapon' | 'armor' | 'accessory' | 'treasure';
+  group: 'weapon' | 'armor' | 'accessory' | 'treasure' | 'vehicle';
   allowedCats: ItemCategory[];  // 可装入的物品分类
 }
 
@@ -44,6 +44,8 @@ export const SLOT_DEFS: SlotDef[] = [
     group: 'treasure' as const,
     allowedCats: ['特殊物品', '法宝', '其他物品', '工具'] as ItemCategory[],
   })),
+  // ── 载具 1槽（坐骑 / 机甲 / 龙 / 飞舟等）──
+  { key: 'vehicle:#1', label: '载具', icon: '🐎', group: 'vehicle', allowedCats: ['载具', '特殊物品', '其他物品', '法宝'] },
 ];
 
 /* 把任意槽位串规范化成合法槽位 key（武器/防具7部位/饰品/特殊装备），
@@ -77,6 +79,7 @@ export function normalizeEquipSlot(raw?: string, category?: string): string {
     }
     if (grp === 'accessory') { const n = parseInt(part, 10); return `accessory:#${n >= 1 && n <= 6 ? n : 1}`; }
     if (grp === 'treasure') { const n = parseInt(part, 10); return `treasure:#${n >= 1 && n <= 5 ? n : 1}`; }
+    if (grp === 'vehicle' || ['mount', 'ride', 'steed', 'mech', 'mecha', '坐骑', '载具'].includes(part)) return 'vehicle:#1';   // 载具位（单槽）
     if (grp === 'technique') return (cat === '特殊物品' || cat === '法宝') ? 'treasure:#1' : 'armor:upper'; // 技能槽已移除
     if (SLOT_DEFS.some((d) => d.key === raw)) return raw as string;   // 已是合法 key
   }
@@ -84,6 +87,7 @@ export function normalizeEquipSlot(raw?: string, category?: string): string {
   if (cat === '武器') return 'weapon:main';
   if (cat === '防具') return 'armor:upper';
   if (cat === '饰品') return 'accessory:#1';
+  if (cat === '载具') return 'vehicle:#1';
   if (['特殊物品', '法宝', '工具', '其他物品'].includes(cat)) return 'treasure:#1';
   return raw && SLOT_DEFS.some((d) => d.key === raw) ? raw : 'treasure:#1';
 }
@@ -105,7 +109,7 @@ function inferArmorSlot(name: string): string | null {
 
 /* 自然主组：一个分类默认优先落入的槽位组 */
 const NATURAL_GROUP: Partial<Record<string, SlotDef['group']>> = {
-  '武器': 'weapon', '饰品': 'accessory',
+  '武器': 'weapon', '饰品': 'accessory', '载具': 'vehicle',
   '法宝': 'treasure', '特殊物品': 'treasure', '其他物品': 'treasure', '工具': 'treasure',
 };
 

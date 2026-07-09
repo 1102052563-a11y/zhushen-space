@@ -79,6 +79,7 @@ export const CAT_CFG: Record<ItemCategory, { cls: string; dot: string; light: st
   // 装备类
   '武器':    { cls: 'bg-red-900/40 text-red-400 border-red-700/40',             dot: 'bg-red-400',     light: 'text-red-400' },
   '防具':    { cls: 'bg-sky-900/40 text-sky-400 border-sky-700/40',             dot: 'bg-sky-400',     light: 'text-sky-400' },
+  '载具':    { cls: 'bg-indigo-900/40 text-indigo-400 border-indigo-700/40',   dot: 'bg-indigo-400',  light: 'text-indigo-400' },
   '饰品':    { cls: 'bg-violet-900/40 text-violet-400 border-violet-700/40',    dot: 'bg-violet-400',  light: 'text-violet-400' },
   '宝石':    { cls: 'bg-rose-900/40 text-rose-400 border-rose-700/40',          dot: 'bg-rose-400',    light: 'text-rose-400' },
   // 轮回乐园主分类

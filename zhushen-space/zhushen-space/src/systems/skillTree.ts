@@ -441,6 +441,7 @@ export function validateTree(raw: any): TreeValidation {
     category: raw?.category ? String(raw.category) : undefined,
     noTierGate: raw?.noTierGate ? true : undefined,   // 「不加阶位限制」标志，随树保存/导出（节点 tierGate 已清空）
     layout: raw?.layout === 'trunk' ? 'trunk' : undefined,   // 主干式布局标志，随树保存（autoLayout 据此走主干排版）
+    userEdited: raw?.userEdited ? true : undefined,   // 玩家改过标志：随树透传（节点重写/导入内置树时不丢·内置树 re-seed 据此不覆盖）
   };
   return { ok: errors.length === 0, errors, warnings, tree };
 }

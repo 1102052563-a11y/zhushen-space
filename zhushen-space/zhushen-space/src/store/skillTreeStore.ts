@@ -93,6 +93,7 @@ export interface TreeDef {
   category?: string;       // 副职业树专用：副职业大类（制造/医疗/生活…）
   noTierGate?: boolean;    // 生成时选「不加阶位限制」：validateTree 不分配 tierGate（节点 tierGate 留空→gatePass 恒过），任意阶位都可点
   layout?: 'radial' | 'trunk';   // 布局：radial=四周放射(默认)；trunk=主干式(先一条通用主干往上，再从主干顶端分出各流派)
+  userEdited?: boolean;    // 玩家改过这棵树（改名/改节点…）→ 内置树版本升级时的 re-seed 不再覆盖它（保住玩家对内置树的编辑，治"改完没保存/被还原"）
 }
 
 export interface GrantedRef { kind: 'skill' | 'trait'; name: string }
@@ -343,7 +344,7 @@ export const useSkillTree = create<SkillTreeState>()(
             prereqs: node.prereqs ?? [], kind, grants: node.grants ?? {}, desc: node.desc, x: node.x, y: node.y,
           };
           added = true;
-          return { trees: { ...s.trees, [treeId]: { ...t, nodes: [...t.nodes, nn] } } };
+          return { trees: { ...s.trees, [treeId]: { ...t, nodes: [...t.nodes, nn], userEdited: true } } };
         });
         return added ? id : undefined;
       },
@@ -351,20 +352,20 @@ export const useSkillTree = create<SkillTreeState>()(
       updateNode: (treeId, nodeId, patch) => set((s) => {
         const t = s.trees[treeId]; if (!t) return s;
         const nodes = t.nodes.map((n) => n.id === nodeId ? { ...n, ...patch, id: n.id } : n);
-        return { trees: { ...s.trees, [treeId]: { ...t, nodes } } };
+        return { trees: { ...s.trees, [treeId]: { ...t, nodes, userEdited: true } } };
       }),
 
       moveNode: (treeId, nodeId, x, y) => set((s) => {
         const t = s.trees[treeId]; if (!t) return s;
         const nodes = t.nodes.map((n) => n.id === nodeId ? { ...n, x, y } : n);
-        return { trees: { ...s.trees, [treeId]: { ...t, nodes } } };
+        return { trees: { ...s.trees, [treeId]: { ...t, nodes, userEdited: true } } };
       }),
 
       removeNode: (treeId, nodeId) => set((s) => {
         const t = s.trees[treeId]; if (!t) return s;
         const nodes = t.nodes.filter((n) => n.id !== nodeId)
           .map((n) => n.prereqs.includes(nodeId) ? { ...n, prereqs: n.prereqs.filter((p) => p !== nodeId) } : n);
-        return { trees: { ...s.trees, [treeId]: { ...t, nodes } } };
+        return { trees: { ...s.trees, [treeId]: { ...t, nodes, userEdited: true } } };
       }),
 
       addEdge: (treeId, srcId, dstId) => {
@@ -376,7 +377,7 @@ export const useSkillTree = create<SkillTreeState>()(
           if (reaches(t.nodes, srcId, dstId)) return s;          // src 已依赖 dst → 连线会成环，拒绝
           const nodes = t.nodes.map((n) => n.id === dstId ? { ...n, prereqs: [...n.prereqs, srcId] } : n);
           ok = true;
-          return { trees: { ...s.trees, [treeId]: { ...t, nodes } } };
+          return { trees: { ...s.trees, [treeId]: { ...t, nodes, userEdited: true } } };
         });
         return ok;
       },
@@ -384,20 +385,20 @@ export const useSkillTree = create<SkillTreeState>()(
       removeEdge: (treeId, srcId, dstId) => set((s) => {
         const t = s.trees[treeId]; if (!t) return s;
         const nodes = t.nodes.map((n) => n.id === dstId ? { ...n, prereqs: n.prereqs.filter((p) => p !== srcId) } : n);
-        return { trees: { ...s.trees, [treeId]: { ...t, nodes } } };
+        return { trees: { ...s.trees, [treeId]: { ...t, nodes, userEdited: true } } };
       }),
 
       addBranch: (treeId, name) => set((s) => {
         const t = s.trees[treeId]; if (!t) return s;
         const id = `br_${Date.now().toString(36)}`;
         const color = DEFAULT_BRANCH_COLORS[t.branches.length % DEFAULT_BRANCH_COLORS.length];
-        return { trees: { ...s.trees, [treeId]: { ...t, branches: [...t.branches, { id, name: name || `流派${t.branches.length + 1}`, color }] } } };
+        return { trees: { ...s.trees, [treeId]: { ...t, branches: [...t.branches, { id, name: name || `流派${t.branches.length + 1}`, color }], userEdited: true } } };
       }),
 
       updateBranch: (treeId, branchId, patch) => set((s) => {
         const t = s.trees[treeId]; if (!t) return s;
         const branches = t.branches.map((b) => b.id === branchId ? { ...b, ...patch, id: b.id } : b);
-        return { trees: { ...s.trees, [treeId]: { ...t, branches } } };
+        return { trees: { ...s.trees, [treeId]: { ...t, branches, userEdited: true } } };
       }),
 
       removeBranch: (treeId, branchId) => set((s) => {
@@ -405,33 +406,33 @@ export const useSkillTree = create<SkillTreeState>()(
         const branches = t.branches.filter((b) => b.id !== branchId);
         const fallback = branches[0]?.id ?? '';
         const nodes = t.nodes.map((n) => n.branch === branchId ? { ...n, branch: fallback } : n);
-        return { trees: { ...s.trees, [treeId]: { ...t, branches, nodes } } };
+        return { trees: { ...s.trees, [treeId]: { ...t, branches, nodes, userEdited: true } } };
       }),
 
       updateTreeMeta: (treeId, patch) => set((s) => {
         const t = s.trees[treeId]; if (!t) return s;
-        return { trees: { ...s.trees, [treeId]: { ...t, ...patch } } };
+        return { trees: { ...s.trees, [treeId]: { ...t, ...patch, userEdited: true } } };
       }),
 
       relayout: (treeId) => set((s) => {
         const t = s.trees[treeId]; if (!t) return s;
         // 清掉坐标再 autoLayout，强制重排
         const cleared = { ...t, nodes: t.nodes.map((n) => ({ ...n, x: undefined, y: undefined })) };
-        return { trees: { ...s.trees, [treeId]: autoLayout(cleared) } };
+        return { trees: { ...s.trees, [treeId]: { ...autoLayout(cleared), userEdited: true } } };
       }),
 
       addConstellation: (treeId, c) => set((s) => {
         const t = s.trees[treeId]; if (!t) return s;
-        return { trees: { ...s.trees, [treeId]: { ...t, constellations: [...(t.constellations ?? []), c] } } };
+        return { trees: { ...s.trees, [treeId]: { ...t, constellations: [...(t.constellations ?? []), c], userEdited: true } } };
       }),
       removeConstellation: (treeId, cstId) => set((s) => {
         const t = s.trees[treeId]; if (!t) return s;
-        return { trees: { ...s.trees, [treeId]: { ...t, constellations: (t.constellations ?? []).filter((c) => c.id !== cstId) } } };
+        return { trees: { ...s.trees, [treeId]: { ...t, constellations: (t.constellations ?? []).filter((c) => c.id !== cstId), userEdited: true } } };
       }),
       updateConstellation: (treeId, cstId, patch) => set((s) => {
         const t = s.trees[treeId]; if (!t) return s;
         const constellations = (t.constellations ?? []).map((c) => c.id === cstId ? { ...c, ...patch, id: c.id } : c);
-        return { trees: { ...s.trees, [treeId]: { ...t, constellations } } };
+        return { trees: { ...s.trees, [treeId]: { ...t, constellations, userEdited: true } } };
       }),
 
       grantBonusPP: (charId, n) => set((s) => {
@@ -704,7 +705,7 @@ export const useSkillTree = create<SkillTreeState>()(
         const trees: Record<string, TreeDef> = { ...(p.trees ?? {}) };
         for (const bt of BUILTIN_TREES) {   // 缺失则补入、旧版本则升级（保留用户自建树与解锁进度）
           const old = trees[bt.id];
-          if (!old || (old.version ?? 0) < bt.version) trees[bt.id] = bt;
+          if (!old || (!old.userEdited && (old.version ?? 0) < bt.version)) trees[bt.id] = bt;   // 玩家改过的内置树(userEdited)不被版本升级覆盖 → 保住编辑
         }
         // 进度迁移：旧档 progress.* 用 unlockedNodeIds[]，新模型用 ranks{}；把旧解锁记为 rank 1
         const progress: Record<string, CharTreeProgress> = {};
