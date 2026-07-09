@@ -1,6 +1,5 @@
 import { useRef, useState } from 'react';
 import { useTerritory, extractTerritoryPresetFromJson, type TerritoryPresetEntry } from '../store/territoryStore';
-import { useSettings } from '../store/settingsStore';
 import ApiRoutePicker from './ApiRoutePicker';
 
 function Toggle({ checked, onChange }: { checked: boolean; onChange: () => void }) {
@@ -9,9 +8,6 @@ function Toggle({ checked, onChange }: { checked: boolean; onChange: () => void 
       <div className="w-3 h-3 rounded-full bg-white mx-1 transition-all" style={{ transform: checked ? 'translateX(16px)' : 'none' }} />
     </button>
   );
-}
-function Field({ label, children }: { label: string; children: React.ReactNode }) {
-  return <div className="space-y-1.5"><label className="text-sm text-dim font-mono">{label}</label>{children}</div>;
 }
 
 /* ── 单条预设规则行（开关 + 编辑）── */

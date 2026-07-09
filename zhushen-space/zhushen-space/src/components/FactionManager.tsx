@@ -1,6 +1,5 @@
 import { useRef, useState } from 'react';
 import { useFactionEvo, extractFactionPresetFromJson } from '../store/factionEvoStore';
-import { useSettings } from '../store/settingsStore';
 import ApiRoutePicker from './ApiRoutePicker';
 
 function Toggle({ checked, onChange }: { checked: boolean; onChange: () => void }) {
@@ -29,15 +28,6 @@ export default function FactionManager() {
   const setPresetEntries = useFactionEvo((s) => s.setPresetEntries);
   const togglePresetEntry = useFactionEvo((s) => s.togglePresetEntry);
   const clearPreset = useFactionEvo((s) => s.clearPreset);
-  const factionApi = useFactionEvo((s) => s.factionApi);
-  const useShared = useFactionEvo((s) => s.factionUseSharedApi);
-  const setFactionApi = useFactionEvo((s) => s.setFactionApi);
-  const setUseShared = useFactionEvo((s) => s.setFactionUseSharedApi);
-  const models = useFactionEvo((s) => s.factionAvailableModels);
-  const fetchModels = useFactionEvo((s) => s.fetchFactionModels);
-  const modelsErr = useFactionEvo((s) => s.factionModelsError);
-  const modelsLoading = useFactionEvo((s) => s.factionModelsLoading);
-  const textApi = useSettings((s) => s.textUseSharedApi ? s.api : s.textApi);
   const [tab, setTab] = useState<Tab>('preset');
   const [msg, setMsg] = useState('');
   const fileRef = useRef<HTMLInputElement>(null);

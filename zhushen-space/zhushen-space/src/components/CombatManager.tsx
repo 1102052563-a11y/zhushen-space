@@ -18,8 +18,6 @@ export default function CombatManager() {
   const addPreset = useCombat((s) => s.addPreset);
   const updatePreset = useCombat((s) => s.updatePreset);
   const deletePreset = useCombat((s) => s.deletePreset);
-  const useShared = useCombat((s) => s.combatUseSharedApi);
-  const setUseShared = useCombat((s) => s.setCombatUseSharedApi);
   const setBattle = useCombat((s) => s.setBattle);
   const battleActive = useCombat((s) => s.battle.active);
 

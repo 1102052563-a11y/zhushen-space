@@ -1,6 +1,5 @@
 import { useState } from 'react';
 import { useMemory } from '../store/memoryStore';
-import { useSettings } from '../store/settingsStore';
 import ApiRoutePicker from './ApiRoutePicker';
 
 /* ── 开关 ── */
@@ -17,14 +16,6 @@ function Toggle({ checked, onChange }: { checked: boolean; onChange: () => void 
   );
 }
 
-function Field({ label, children }: { label: string; children: React.ReactNode }) {
-  return (
-    <div className="space-y-1.5">
-      <label className="text-sm text-dim font-mono">{label}</label>
-      {children}
-    </div>
-  );
-}
 
 /* ════════════════════════════════════════════
    设置（开关 / 范围 / 阈值 / 提示词）

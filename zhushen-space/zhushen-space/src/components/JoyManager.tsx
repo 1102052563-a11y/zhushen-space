@@ -328,15 +328,6 @@ export default function JoyManager() {
   const upsertGirl = useJoy((s) => s.upsertGirl);
   const resetGirls = useJoy((s) => s.resetGirls);
 
-  const joyApi = useJoy((s) => s.joyApi);
-  const useShared = useJoy((s) => s.joyUseSharedApi);
-  const setApi = useJoy((s) => s.setJoyApi);
-  const setShared = useJoy((s) => s.setJoyUseSharedApi);
-  const models = useJoy((s) => s.joyAvailableModels);
-  const modelsLoading = useJoy((s) => s.joyModelsLoading);
-  const modelsError = useJoy((s) => s.joyModelsError);
-  const fetchModels = useJoy((s) => s.fetchJoyModels);
-
   const [editId, setEditId] = useState<string | null>(null);
 
   useEffect(() => { hydrateJoyPortraits(); }, []);

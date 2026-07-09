@@ -1396,11 +1396,6 @@ function TextApiSection() {
   const skipNarrativeThinking = useSettings((s) => s.skipNarrativeThinking);
   const plotGuidance       = useSettings((s) => s.plotGuidance);
   const guidancePrompt     = useSettings((s) => s.guidancePrompt);
-  const textAvailableModels= useSettings((s) => s.textAvailableModels);
-  const textModelsLoading  = useSettings((s) => s.textModelsLoading);
-  const textModelsError    = useSettings((s) => s.textModelsError);
-  const setTextApi         = useSettings((s) => s.setTextApi);
-  const setTextUseSharedApi= useSettings((s) => s.setTextUseSharedApi);
   const setTextStream      = useSettings((s) => s.setTextStream);
   const setSkipNarrativeThinking = useSettings((s) => s.setSkipNarrativeThinking);
   const setPlotGuidance    = useSettings((s) => s.setPlotGuidance);
@@ -1411,7 +1406,6 @@ function TextApiSection() {
   const setOutlineEnabled  = useSettings((s) => s.setOutlineEnabled);
   const setOutlinePrompt   = useSettings((s) => s.setOutlinePrompt);
   const setOutlineWordTarget = useSettings((s) => s.setOutlineWordTarget);
-  const fetchTextModels    = useSettings((s) => s.fetchTextModels);
   const plotChoices        = useSettings((s) => s.plotChoices);
   const setPlotChoices     = useSettings((s) => s.setPlotChoices);
   const fanficMode         = useSettings((s) => s.fanficMode);

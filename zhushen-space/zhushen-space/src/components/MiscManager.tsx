@@ -1,6 +1,5 @@
 import { useRef, useState } from 'react';
 import { useMisc, extractMiscPresetFromJson, type MiscPresetEntry } from '../store/miscStore';
-import { useSettings } from '../store/settingsStore';
 import ApiRoutePicker from './ApiRoutePicker';
 
 function Toggle({ checked, onChange }: { checked: boolean; onChange: () => void }) {

@@ -145,12 +145,6 @@ export default function EnhanceManager() {
 
   const enhanceApi = useEnhance((s) => s.enhanceApi);
   const useShared  = useEnhance((s) => s.enhanceUseSharedApi);
-  const setApi     = useEnhance((s) => s.setEnhanceApi);
-  const setShared  = useEnhance((s) => s.setEnhanceUseSharedApi);
-  const models     = useEnhance((s) => s.enhanceAvailableModels);
-  const modelsLoading = useEnhance((s) => s.enhanceModelsLoading);
-  const modelsError = useEnhance((s) => s.enhanceModelsError);
-  const fetchModels = useEnhance((s) => s.fetchEnhanceModels);
 
   // 读数：吐槽/收尾**实际**会调用的接口（与 App 里收尾/吐槽 resolveApiChain('enhance', …) 完全一致）。
   // 订阅 apiRoutes/apiLibrary，路由选择器一改就刷新——让你不用翻后台就能看到真正生效的模型。

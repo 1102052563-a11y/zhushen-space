@@ -66,13 +66,9 @@ export default function EntryJudgeManager() {
   const requestTimeout = useEntryJudge((s) => s.requestTimeout);
   const presetName     = useEntryJudge((s) => s.presetName);
   const entries        = useEntryJudge((s) => s.entries);
-  const api            = useEntryJudge((s) => s.api);
-  const useSharedApi   = useEntryJudge((s) => s.useSharedApi);
   const setEnabled     = useEntryJudge((s) => s.setEnabled);
   const setWebSearch   = useEntryJudge((s) => s.setWebSearch);
   const setRequestTimeout = useEntryJudge((s) => s.setRequestTimeout);
-  const setApi         = useEntryJudge((s) => s.setApi);
-  const setUseSharedApi = useEntryJudge((s) => s.setUseSharedApi);
   const toggleEntry    = useEntryJudge((s) => s.toggleEntry);
   const updateEntry    = useEntryJudge((s) => s.updateEntry);
   const importPreset   = useEntryJudge((s) => s.importPreset);

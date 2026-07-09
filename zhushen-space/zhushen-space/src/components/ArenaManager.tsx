@@ -7,8 +7,6 @@ import ApiRoutePicker from './ApiRoutePicker';
 export default function ArenaManager() {
   const config = useArena((s) => s.config);
   const setConfig = useArena((s) => s.setConfig);
-  const useShared = useArena((s) => s.arenaUseSharedApi);
-  const setUseShared = useArena((s) => s.setArenaUseSharedApi);
   const ladders = useArena((s) => s.ladders);
   const defeated = useArena((s) => s.defeated);
 

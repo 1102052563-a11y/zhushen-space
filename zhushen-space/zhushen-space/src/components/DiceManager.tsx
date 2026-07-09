@@ -1,6 +1,5 @@
 import { useState } from 'react';
 import { useDice } from '../store/diceStore';
-import { useSettings } from '../store/settingsStore';
 import { DIFFICULTIES, DIFFICULTY_BASE, DEFAULT_TUNING } from '../systems/diceEngine';
 import ApiRoutePicker from './ApiRoutePicker';
 
@@ -53,15 +52,6 @@ export default function DiceManager() {
   const settings = useDice((s) => s.settings);
   const setSettings = useDice((s) => s.setSettings);
   const setDiffOverride = useDice((s) => s.setDiffOverride);
-  const diceApi = useDice((s) => s.diceApi);
-  const diceUseShared = useDice((s) => s.diceUseSharedApi);
-  const setDiceApi = useDice((s) => s.setDiceApi);
-  const setDiceUseShared = useDice((s) => s.setDiceUseSharedApi);
-  const models = useDice((s) => s.diceAvailableModels);
-  const modelsLoading = useDice((s) => s.diceModelsLoading);
-  const modelsError = useDice((s) => s.diceModelsError);
-  const fetchModels = useDice((s) => s.fetchDiceModels);
-  const sharedApi = useSettings((s) => (s.textUseSharedApi ? s.api : s.textApi));
 
   const [tab, setTab] = useState<'check' | 'api'>('check');
 
@@ -171,12 +161,3 @@ export default function DiceManager() {
   );
 }
 
-const inputCls = 'w-full bg-panel border border-edge rounded-lg px-3 py-2 text-sm text-slate-200 font-mono outline-none focus:border-god/50';
-function Field({ label, children }: { label: string; children: React.ReactNode }) {
-  return (
-    <label className="block space-y-1">
-      <span className="block text-[12px] font-mono text-dim/60">{label}</span>
-      {children}
-    </label>
-  );
-}
