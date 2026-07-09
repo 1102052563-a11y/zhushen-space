@@ -18,7 +18,7 @@ const SECTIONS: { key: SectionKey; label: string; accent?: string }[] = [
   { key: 'reward',         label: '奖励预览', accent: 'gold' },
 ];
 
-export default function WorldCardView({ worlds, index, onPrev, onNext, onJump, onSelect, onEdit, onClose, onGenWorldview, genBusy, hasWorldview }: {
+export default function WorldCardView({ worlds, index, onPrev, onNext, onJump, onSelect, onEdit, onClose, onGenWorldview, genBusy, hasWorldview, onGenProfQuests, profBusy, profQuests, onEnterWithProf, onProfQuestsChange }: {
   worlds: WorldOption[];
   index: number;
   onPrev: () => void;
@@ -30,9 +30,15 @@ export default function WorldCardView({ worlds, index, onPrev, onNext, onJump, o
   onGenWorldview?: (index: number, world: WorldOption) => void;   // 🌐 为本卡生成/重生成「世界观骨架」（存进世界记录·进世界后注入正文最深处）
   genBusy?: boolean;        // 当前卡正在生成世界观
   hasWorldview?: boolean;   // 当前卡已有世界观记录（显示「重生成 ✓」）
+  onGenProfQuests?: (index: number, world: WorldOption) => void;   // 🎯 为本卡生成「职业专属任务+奖励」（读技能树/副职业树）
+  profBusy?: boolean;       // 当前卡正在生成职业任务
+  profQuests?: string;      // 当前卡已生成的职业任务内容（展示在卡片下方）
+  onEnterWithProf?: (index: number, world: WorldOption) => void;   // 🚪 带入这些职业任务并进入此世界
+  onProfQuestsChange?: (index: number, world: WorldOption, text: string) => void;   // ✎ 手动编辑职业任务文本（写回上层 profQuests 状态·带入时即用改后内容）
 }) {
   const world = worlds[index];
   const [editing, setEditing] = useState(false);
+  const [profEditing, setProfEditing] = useState(false);   // 职业任务区的编辑开关
 
   return (
     <div className="absolute inset-0 flex flex-col items-center justify-center bg-void/90 backdrop-blur-sm px-6">
@@ -151,10 +157,40 @@ export default function WorldCardView({ worlds, index, onPrev, onNext, onJump, o
                 onChange={(v) => onEdit(index, { [s.key]: v } as Partial<WorldOption>)}
               />
             ))}
+            {profQuests !== undefined && (
+              <div className="px-8 py-3 bg-amber-500/[0.05]">
+                <div className="flex items-center gap-2 mb-1.5">
+                  <span className="flex-1 text-sm font-mono text-amber-300/80">🎯 职业专属任务（据你的技能树 / 副职业生成 · 完成后经正文即时发放奖励，不计世界结算）</span>
+                  {onProfQuestsChange && (
+                    <button
+                      onClick={() => setProfEditing((v) => !v)}
+                      className={`text-[12px] font-mono px-2 py-0.5 rounded border transition-colors ${profEditing ? 'border-amber-400/60 text-amber-200 bg-amber-500/10' : 'border-edge text-dim hover:border-amber-400/40 hover:text-amber-300'}`}
+                    >{profEditing ? '✓ 完成' : '✎ 编辑'}</button>
+                  )}
+                </div>
+                {profEditing && onProfQuestsChange ? (
+                  <textarea
+                    value={profQuests}
+                    onChange={(e) => onProfQuestsChange(index, world, e.target.value)}
+                    rows={Math.min(18, Math.max(4, (profQuests || '').split('\n').length + 1))}
+                    placeholder="手动填写 / 修改本世界的职业任务与奖励…（每条：任务名 / 目标 / 难度 / 奖励）"
+                    className="w-full bg-void border border-amber-400/30 rounded px-2 py-1.5 text-[15px] text-slate-200 leading-relaxed outline-none focus:border-amber-400/60 resize-y placeholder:text-dim/40"
+                  />
+                ) : (
+                  <p className="text-[15px] text-slate-200 leading-relaxed whitespace-pre-wrap">{profQuests || <span className="text-dim/50">（空·点「✎ 编辑」可手动填写，或用上方「🎯 生成职业任务」）</span>}</p>
+                )}
+                {onEnterWithProf && (profQuests || '').trim() && (
+                  <button
+                    onClick={() => onEnterWithProf(index, world)}
+                    className="mt-3 px-5 py-2 border border-amber-400/50 text-amber-200 bg-amber-500/10 rounded-lg hover:bg-amber-500/20 text-sm font-mono transition-colors"
+                  >🚪 带入并进入此世界（把职业任务一起带进去）</button>
+                )}
+              </div>
+            )}
           </div>
 
           {/* ── 底部按钮 ── */}
-          <div className="px-8 py-3 border-t border-edge flex items-center justify-center gap-3 shrink-0">
+          <div className="px-8 py-3 border-t border-edge flex flex-wrap items-center justify-center gap-3 shrink-0">
             <button
               onClick={() => setEditing((v) => !v)}
               className={`px-4 py-2.5 border text-base rounded-xl font-mono transition-colors ${
@@ -175,6 +211,20 @@ export default function WorldCardView({ worlds, index, onPrev, onNext, onJump, o
                 }`}
               >
                 {genBusy ? '◌ 生成中…' : hasWorldview ? '🌐 重生成世界观' : '🌐 生成世界观'}
+              </button>
+            )}
+            {onGenProfQuests && (
+              <button
+                onClick={() => !profBusy && onGenProfQuests(index, world)}
+                disabled={profBusy}
+                title="读取主角的职业技能树 + 副职业树，为本世界生成贴合你流派的额外「职业任务 + 奖励」（与世界选择同一条 API）。生成后展示在卡片下方，可「带入并进入」；奖励在完成后经正文 + 演化即时发放，不计入世界结算。"
+                className={`px-4 py-2.5 border text-base rounded-xl font-mono transition-colors ${
+                  profBusy ? 'border-amber-400/40 text-amber-300/60 cursor-wait'
+                  : profQuests ? 'border-amber-400/50 text-amber-200 bg-amber-500/10 hover:bg-amber-500/20'
+                  : 'border-amber-500/40 text-amber-300 hover:bg-amber-500/10'
+                }`}
+              >
+                {profBusy ? '◌ 生成中…' : profQuests ? '🎯 重生成职业任务' : '🎯 生成职业任务'}
               </button>
             )}
             <button

@@ -76,6 +76,7 @@ import {
   ATTR_POINT_AUTHORITY_RULE,
   FRONTEND_ENHANCE_NO_NARRATE_RULE,
   VITALS_SETTLEMENT_EMIT_RULE,
+  PLAYER_MORTALITY_RULE,
   CHOICES_FANFIC_SYSTEM,
   FANFIC_RULE,
   PLOT_CHOICES_RULE,
@@ -278,6 +279,7 @@ import CharacterCreation, { type CreationData, formatCreationTalent } from './co
 const SettingsPanel = lazy(() => import('./components/SettingsPanel'));
 import WorldSelector, { type WorldOption } from './components/WorldSelector';
 import WorldCardView from './components/WorldCardView';
+import { PROFESSION_QUEST_PROMPT } from './worldGenPrompt';   // 职业任务生成（世界卡按钮·读技能树/副职业树）
 const BackpackModal = lazy(() => import('./components/BackpackModal'));
 const EquipmentPanel = lazy(() => import('./components/EquipmentPanel'));
 const CharacterPanel = lazy(() => import('./components/CharacterPanel'));
@@ -1417,6 +1419,8 @@ export default function App() {
   const [showDevPrompt, setShowDevPrompt] = useState(false);
   const [debugParts, setDebugParts] = useState<PromptPart[]>([]);
   const [worlds, setWorlds] = useState<WorldOption[]>([]);
+  const [profQuests, setProfQuests] = useState<Record<string, string>>({});   // 世界卡「职业任务」生成内容（按世界名存）
+  const [profBusy, setProfBusy] = useState<number | null>(null);              // 正在生成职业任务的卡片 index
   const [cardIndex, setCardIndex] = useState(0);
   const [prevWorlds, setPrevWorlds] = useState<WorldOption[]>([]);
   const [genWorldviewBusy, setGenWorldviewBusy] = useState<number | null>(null);   // 正在生成世界观的卡片下标
@@ -1897,6 +1901,8 @@ export default function App() {
     addRule('实力忠于设定不拔高', '前端规则 · 实力忠于设定·不随主角水涨船高', CANON_STRENGTH_NO_SCALE_RULE);
     // HP/EP 结算：让主正文每回合末尾输出主角+在场NPC的当前 HP/EP（前端 applyNarrativeVitals/NpcVitals 解析，HP/EP 管理阶段也以此为最终值）
     addRule('HP_EP结算输出', '前端规则 · HP/EP 结算输出', VITALS_SETTLEMENT_EMIT_RULE);
+    // 主角会死·非不死之身：治"不战斗没掉血判定→顶着1滴血无限存活/被锁血不死"，用户要求主角能死
+    addRule('主角会死亡', '前端规则 · 主角会死·非不死之身', PLAYER_MORTALITY_RULE);
     // ACU 表格数据库：把填表铁则 + 当前所有表的结构与数据注入主正文，让 AI 每回合末尾输出 <tableEdit> 维护游戏状态表（applyAllUpdates 落库、stripStateBlocks 从展示剥离）
     // 填表调度（设置→变量管理→填表调度）：enabled=总开关；everyN>1=每 N 回合才填一次；only=只维护指定剧情表。默认 {enabled,everyN:1,only:[]}=每回合全填(原行为)
     {
@@ -1937,19 +1943,21 @@ export default function App() {
         const prog = isHomeWorld(cur) ? [] : Mm.tasks.filter((t) => Array.isArray(t.rings) && t.rings.some((r) => r.status === 'done'));
         const done = [...prog, ...arch].slice(0, 40);
         if (done.length) {
-          // 系统精确统计完成条数（只数"已完成/达成/成功"、排除失败/放弃）→ 让结算面板照抄，根治 AI 漏数、只报当前进行中那一条
+          // 系统精确统计完成条数（"已完成/达成/成功" + 进行中但强制环已全达成=见好就收，也算完成）→ 让结算面板照抄，根治 AI 漏数/只报 0
           const isMain = (t: any) => t.kind === '主线';
           const isFin = (t: any) => /完成|达成|成功/.test(t.status || '') && !/失败|放弃|作废|取消|未完成/.test(t.status || '');
           const isBad = (t: any) => /失败|放弃|作废|取消/.test(t.status || '');
-          const mainDone = arch.filter((t) => isMain(t) && isFin(t)).length;
-          const sideDone = arch.filter((t) => !isMain(t) && isFin(t)).length;
+          // 进行中任务"实际已达成"：所有**强制环**(非贪婪 optional)都已 done/skipped —— 玩家见好就收结算时主线/任务就算完成，绝不能报 0
+          const forcedDone = (t: any) => { const rs = Array.isArray(t.rings) ? t.rings : []; const f = rs.filter((r: any) => !r.optional); return f.length > 0 && f.every((r: any) => r.status === 'done' || r.status === 'skipped'); };
+          const mainDone = arch.filter((t) => isMain(t) && isFin(t)).length + prog.filter((t) => isMain(t) && forcedDone(t)).length;
+          const sideDone = arch.filter((t) => !isMain(t) && isFin(t)).length + prog.filter((t) => !isMain(t) && forcedDone(t)).length;
           const failCnt = arch.filter((t) => isBad(t)).length;
           addRule('本世界结算统计', '前端数据 · 本世界任务完成统计（结算对账·必须照抄）',
             `【本世界任务完成统计（系统已精确统计·结算面板的「完成任务数量」必须原样照抄下面的数字，严禁自己另数、漏数、或只报当前进行中那一条）】\n` +
             `- 完成主线：${mainDone} 条\n- 完成支线/隐藏：${sideDone} 条\n- 失败/放弃（不计入完成数）：${failCnt} 条\n` +
             `⇒ 结算面板【完成任务数量】这一行必须写成：「${mainDone}（主线）＋ ${sideDone}（支线）」，一字不差。\n\n` +
             `【逐条清单（每条含各环目标·评级·主角行为总结，供逐环评价与发奖参考；勿遗漏）】\n${serializeSettledTasks(done)}\n` +
-            `— 上列为主角在本结算世界内已完成的任务线与已达成的每一环。【综合评价】逐环评分直接采用各环已给评级；【完成任务数量】与逐条/逐环列举必须覆盖上面全部、绝不许只报一条。综合评级与发奖档位见下方【综合评级·系统建议】。`);
+            `— 上列为主角在本结算世界内已完成/已达成的任务线与每一环（**含"进行中但强制环已全部达成、玩家见好就收就地结算"的主线/任务——这类一律算已完成、已计入上面的完成条数，绝不能因为它状态还写"进行中"就报成 0**）。【综合评价】逐环评分直接采用各环已给评级；【完成任务数量】照抄上面统计、逐条/逐环列举须覆盖全部。综合评级与发奖档位见下方【综合评级·系统建议】。`);
           // ── 综合评级建议：不只看世界之源%，把各环评分也算进去（世界之源档 ×0.5 + 各环平均评分 ×0.5）──
           const GP: Record<string, number> = { E: 0, D: 1, C: 2, B: 3, A: 4, S: 5, SS: 6, SSS: 7 };
           const GL = ['E', 'D', 'C', 'B', 'A', 'S', 'SS', 'SSS'];
@@ -1960,13 +1968,17 @@ export default function App() {
             .map((r) => GP[String(r.rating).toUpperCase().trim()]))
             .filter((p): p is number => typeof p === 'number');
           const avgRing = ringPts.length ? ringPts.reduce((a, b) => a + b, 0) / ringPts.length : wsPts;
-          // 环评分主导：各环平均评分权重 0.75、世界之源 0.25
-          const finalPts = Math.max(0, Math.min(7, Math.round(wsPts * 0.25 + avgRing * 0.75)));
+          // 完成贪婪环额外加成：贪婪(optional)环是高风险高回报的可选拔高，打通它综合评级就该往上顶——每完成一个 done 的贪婪环 +0.5 档，最多 +2
+          const greedyDoneN = done.reduce((n: number, t: any) => n + (Array.isArray(t.rings) ? t.rings.filter((r: any) => r.optional && r.status === 'done').length : 0), 0);
+          const greedyBonus = Math.min(2, greedyDoneN * 0.5);
+          // 环评分主导：各环平均评分×0.75 + 世界之源×0.25，再叠加贪婪环完成加成
+          const finalPts = Math.max(0, Math.min(7, Math.round(wsPts * 0.25 + avgRing * 0.75 + greedyBonus)));
           addRule('本世界综合评级建议', '前端数据 · 综合评级建议（环均分×0.75 + 世界之源×0.25·环评分主导）',
             `【本世界综合评级·系统建议（结算面板【综合评价】以此为准）】\n` +
-            `- 各已达成环平均评分（主导·占七成半）→ ${GL[Math.round(avgRing)] || '—'}（共 ${ringPts.length} 环计入）\n` +
+            `- 各已达成环平均评分（主导·占七成半）→ ${GL[Math.round(avgRing)] || '—'}（共 ${ringPts.length} 环计入·含已完成的贪婪环）\n` +
             `- 世界之源 ${ws}%（辅助·占两成半）→ 档位 ${GL[wsPts]}\n` +
-            `- **综合评级 = 各环平均评分×0.75 ＋ 世界之源档位×0.25·四舍五入 = 【${GL[finalPts]}】**（以各环评分为主导）\n` +
+            `- 贪婪环完成加成：**+${greedyBonus} 档**（本世界打通 ${greedyDoneN} 个贪婪环·高风险高回报，打通即拔评级）\n` +
+            `- **综合评级 = 各环平均评分×0.75 ＋ 世界之源档位×0.25 ＋ 贪婪加成·四舍五入 = 【${GL[finalPts]}】**（以各环评分为主导）\n` +
             `⇒ 结算的【综合评价】与奖励乘数**采用此建议评级 ${GL[finalPts]}**：任务结算**不只看世界之源%，每一环的评分同样计入**——各环打得漂亮(S/A)就把综合评级往上拉，别只因世界之源低就压到 D。除非有明确剧情理由，最多微调 ±1 档并写明原因。`);
         }
       } catch { /* */ }
@@ -8838,6 +8850,62 @@ ${lines}`;
     } finally { setGenWorldviewBusy(null); }
   }
 
+  // 🎯 职业任务生成：读主角技能树 + 副职业树 → 为某张世界卡生成贴合其流派的额外职业任务与奖励（与世界选择共用 'world' api）。
+  function buildPlayerClassBrief(): string {
+    try {
+      const ch: any = useCharacters.getState().characters['B1'] ?? {};
+      const st = useSkillTree.getState();
+      const prog: any = (st.progress as any)?.['B1'];
+      const tree: any = prog?.activeTreeId ? (st.trees as any)?.[prog.activeTreeId] : undefined;
+      const sp = useSubProfTree.getState();
+      const parts: string[] = [];
+      if (tree) {
+        const branches = Array.isArray(tree.branches) ? tree.branches.map((b: any) => b?.name).filter(Boolean).join('、') : '';
+        parts.push(`【主职业·技能树】${tree.title || tree.name || '未命名树'}${branches ? `（流派：${branches}）` : ''}｜已投入潜能点 ${prog?.spent ?? 0}`);
+      }
+      const skills = (ch.skills ?? []).map((s: any) => `${s.name}${s.rarity ? `(${s.rarity})` : ''}${s.level ? `·${s.level}` : ''}`).filter(Boolean);
+      if (skills.length) parts.push(`【已掌握技能（${skills.length}）】${skills.slice(0, 24).join('、')}`);
+      const traits = (ch.traits ?? []).map((t: any) => `${t.name}${t.rarity ? `(${t.rarity}级)` : ''}`).filter(Boolean);
+      if (traits.length) parts.push(`【天赋（${traits.length}）】${traits.slice(0, 20).join('、')}`);
+      const subs = (ch.subProfessions ?? []).map((s: any) => `${s.name}${s.tier ? `（${s.tier}）` : ''}`).filter(Boolean);
+      if (subs.length) parts.push(`【副职业】${subs.join('、')}`);
+      const recipes = (ch.subProfessions ?? []).flatMap((s: any) => Array.isArray(s.recipes) ? s.recipes.map((r: any) => r?.name).filter(Boolean) : []);
+      if (recipes.length) parts.push(`【已解锁配方（${recipes.length}）】${recipes.slice(0, 20).join('、')}`);
+      const subTrees = [...new Set(Object.values((sp.trees as any) ?? {}).map((t: any) => t?.profession).filter(Boolean))] as string[];
+      if (subTrees.length && !subs.length) parts.push(`【副职业树】${subTrees.join('、')}`);
+      return parts.join('\n') || '（主角暂无职业树 / 技能 / 副职业数据——请据主角当前定位设计贴身但通用的职业机遇）';
+    } catch { return '（读取职业档案失败，请据主角当前定位设计职业机遇）'; }
+  }
+  async function generateProfessionQuests(index: number, world: WorldOption) {
+    const chain = resolveApiChain('world', useSettings.getState().api).filter((a) => a.baseUrl && a.apiKey);
+    if (chain.length === 0) { alert('请先配置 API（与世界选择同一条 world 接口），再生成职业任务'); return; }
+    setProfBusy(index);
+    try {
+      const card = [
+        `【世界名】${world.name}${world.tier ? `（阶位 ${world.tier}）` : ''}`,
+        world.worldType ? `【类型】${world.worldType}` : '',
+        world.dangerLevel ? `【难度】${world.dangerLevel}` : '',
+        world.peakPower ? `【巅峰战力】${world.peakPower}` : '',
+        world.desc ? `【简介】${world.desc}` : '',
+        world.region ? `【任务区域】${world.region}` : '',
+        world.mainMission ? `【主线】${world.mainMission}` : '',
+        world.sideMission ? `【支线】${world.sideMission}` : '',
+        world.identity ? `【主角身份】${world.identity}` : '',
+      ].filter(Boolean).join('\n');
+      const userMsg = `【目标世界卡】\n${card}\n\n【主角的职业树 / 副职业档案】\n${buildPlayerClassBrief()}\n\n请据以上，为主角在【${world.name}】设计 2~4 条贴合其职业流派 / 副职业的专属任务与奖励（奖励忠于设定、与阶位 / 世界阶相称、绝不虚高）。`;
+      const { content } = await apiChatFallback(chain, [
+        { role: 'system', content: PROFESSION_QUEST_PROMPT },
+        { role: 'user', content: userMsg },
+      ], { timeoutMs: 180000 });
+      setRawResponse(content || '');
+      setProfQuests((p) => ({ ...p, [world.name]: (content || '').trim() || '（AI 未返回内容，可重试）' }));
+    } catch (e: any) {
+      alert('职业任务生成失败：' + (e?.message ?? String(e)));
+    } finally {
+      setProfBusy(null);
+    }
+  }
+
   // 🌐 P1.5·进世界后补 / 重生成：世界记录面板里对某条记录重生成世界观（用其卡片快照 + 当前主角阶位/等级）。
   async function regenWorldviewForRecord(recordId: string) {
     const rec = useWorldRecord.getState().getById(recordId);
@@ -8914,7 +8982,7 @@ ${lines}`;
     }
   }
 
-  async function enterWorld(world: WorldOption) {
+  async function enterWorld(world: WorldOption, opts?: { profQuests?: string }) {
     setWorlds([]);
     setCardIndex(0);
     // 离开上个世界：若上一个 active 世界还没总结、且要进的是不同世界 → 询问玩家是否生成离世总结（可拒绝）。
@@ -8939,6 +9007,8 @@ ${lines}`;
     if (world.warning)     lines.push(`\n警告：\n${world.warning}`);
     if (world.reward)      lines.push(`\n奖励预览：${world.reward}`);
     if (world.region)      lines.push(`\n任务区域：${world.region}`);
+    const _pq = (opts?.profQuests ?? '').trim();
+    if (_pq) lines.push(`\n【职业专属任务（据主角职业树/副职业生成·完成即经正文与演化即时发放奖励·不计入世界结算）】\n${_pq}`);
 
     const contextText = lines.join('\n');
     // 进入任务世界：立即把「当前世界」设为该世界名、清空世界时间（底部状态栏即时反映当前世界，
@@ -9152,6 +9222,11 @@ ${lines}`;
                 onGenWorldview={generateWorldview}
                 genBusy={genWorldviewBusy === cardIndex}
                 hasWorldview={wrRecords.some((r) => !!r.worldview && normWorldName(r.name) === normWorldName(worlds[cardIndex]?.name || ''))}
+                onGenProfQuests={generateProfessionQuests}
+                profBusy={profBusy === cardIndex}
+                profQuests={profQuests[worlds[cardIndex]?.name || '']}
+                onEnterWithProf={(_, world) => { setPrevWorlds(worlds); enterWorld(world, { profQuests: profQuests[world.name] }); }}
+                onProfQuestsChange={(_, world, text) => setProfQuests((p) => ({ ...p, [world.name]: text }))}
                 onSelect={(_, world) => {
                   setPrevWorlds(worlds);
                   enterWorld(world);
