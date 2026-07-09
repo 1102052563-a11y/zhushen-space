@@ -118,6 +118,7 @@ export async function runAutoDice(text: string): Promise<AutoDiceOut | null> {
   if (!t) return null;
   if (/<检定结果>/.test(t)) return null;                              // 玩家已手动注入过 → 不重复
   if (/【结算任务】|【进入世界|【结束世界|【回归乐园】/.test(t)) return null;  // 系统回合跳过
+  if (/【战斗结果】|已结算并写入面板/.test(t)) return null;            // 右侧⚔️战斗系统已结算的战报复盘（战斗内已骰过）→ 不再二次投骰
   const hit = detectAutoAction(t);
   if (!hit) return null;                                             // 关键词门：日常/闲聊/情感 → 不 roll
 
