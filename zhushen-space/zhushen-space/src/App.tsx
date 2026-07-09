@@ -958,6 +958,13 @@ const MISC_WEATHER_RULE = `
 - 随剧情/时间/地点变化即时更新；本回合没明显变化也**照抄当前天气重新输出一遍**（始终保持非空）。
 - 仅写自然/环境天气（含异象）；室内场景可写当前室内氛围或"室内·<外面天气>"。`;
 
+const CONTRACTOR_EVOLUTION_RULE = `
+【本世界·其他契约者人口·时间演化铁则（让任务世界不是"单机"，随时间活起来）】本世界除主角外还有**其他契约者**（被各乐园投放进本世界执行任务的存在）；其数量与分布**随世界时间推移而变化**。用指令一行维护人口数：\`contractors(数量)\` 或 \`contractors(数量, "分布/本轮变动一句话")\`。
+- **进入新世界时初始化（【进入新世界信号】=是那回合必给）**：据【本世界·世界志】的"契约者分布"设定给初值；世界志没写则按世界体量/难度合理估——小世界几人、中等十几人、大世界数十人；note 写清大致分布（聚集地/势力/有无强者/榜单）。
+- **随时间演化（核心·别让它一动不动）**：**世界时间每推进一段（数天~数周）就该有增减**——有人任务失败/PvP 陨落、有人达成目标结算离场（减少），偶有新契约者被投放进来（增加）；据本轮正文与流逝的世界时间**合理增减**（别无根据暴涨暴跌）。把本轮变动写进 note（如"上周旧矿争夺战两名契约者身亡，现存 N 人"）。
+- **与正文呼应**：人口不是空数字——人多时正文可安排遇到/听闻其他契约者（交易、结盟、火并、情报、榜单、悬赏），人骤减时透出肃杀与危险；主角亲手击杀/救助其他契约者、或听闻某契约者动向时，据此调数量并写进 note。
+- 主角**回归乐园/离开本世界**则本数据作废（前端已随切世界清零），乐园/枢纽内不必维护。`;
+
 const MISC_SUMMARY_CADENCE_RULE = `
 【总结分工铁则（最高优先，覆盖预设里"每轮都给大总结"的旧要求）】小总结与大总结**职责不同、节奏不同，绝不能内容雷同**：
 - 小总结 addSmallSummary：**每轮必给**，只聚焦【本回合】发生的关键变化（关键人物 / 地点·时间 / 事件经过 / 结果 / 下一步），具体精炼，不要复述更早回合。
@@ -1926,6 +1933,8 @@ export default function App() {
     } catch { /* */ }
     // 任务击杀目标阶位上限：强制环≤主角阶位、贪婪环≤+1；勿降级剧情高端战力，改派阶位相称的目标
     addRule('击杀阶位上限', '前端规则 · 击杀阶位上限', QUEST_KILL_TIER_RULE);
+    // 其他契约者人口：让正文知道本世界不是"单机"，可自然安排遇见/听闻其他契约者
+    { const _c = useMisc.getState().contractors; if (_c?.count && !isHomeWorld(useMisc.getState().worldName || '')) addRule('其他契约者人口', '前端数据 · 本世界其他契约者', `【本世界·其他契约者】本世界现存约 **${_c.count} 名**其他契约者${_c.note ? `（${_c.note}）` : ''}，各自在本世界执行任务。**本世界不是单机**——可自然安排主角遇见/听闻他们：交易、结盟、火并、情报交换、榜单/悬赏、目睹某契约者陨落或撤离等，让世界有"人气"与竞争感；数量多则更热闹、骤减则更肃杀。别喧宾夺主、别每回合硬塞，顺剧情自然带出即可。`); }
     // 任务世界结算：仅当本回合输入含【结算任务】时才注入（平时不喂，省 token、避免误触发）
     if (/【结算任务】/.test(userInput)) {
       addRule('任务世界结算', '前端规则 · 任务世界结算（本回合触发）', WORLD_SETTLEMENT_RULE);
@@ -4276,6 +4285,7 @@ ${AFFIX_EFFECT_RULE}`;
       + '\n\n' + MISC_SUMMARY_CADENCE_RULE
       + '\n\n' + WEATHER_FX_GEN_RULE
       + '\n\n' + MISC_WEATHER_RULE
+      + '\n\n' + CONTRACTOR_EVOLUTION_RULE
       + '\n\n' + TASK_OUTCOME_RULE
       + '\n\n' + TASK_SOURCE_RULE
       + '\n\n' + POTENTIAL_POINT_RULE
@@ -4292,6 +4302,7 @@ ${AFFIX_EFFECT_RULE}`;
       + `\n【当前世界】：${M.worldName || '轮回乐园'}`
       + `\n【本世界难度·已锁定（进入本世界即固定·全程不随主角升级/变强而变）】：${M.worldTier || _pp.tier || '（进入时主角阶位）'} —— 本世界一切**敌人强度 / 任务与环的难度 / 击杀目标阶位上限 / 掉落与奖励档位 / 结算难度**一律按这个**锁定难度**来定，**绝不因主角在本世界内升级、变强、拿到新装备而水涨船高**。【击杀阶位上限】里的"主角阶位"一律改用此锁定难度阶位判定。`
       + `\n【同人增强】：${fanficOn ? '开 —— 若当前世界为已知虚构作品，按【同人世界·任务接地】先联网搜索原作设定，再据此规划/生成任务' : '关（不联网搜索，按正文与世界设定生成任务）'}`
+      + `\n【本世界·其他契约者人口（据此按【契约者人口·时间演化】维护 contractors(...)）】：${isHomeWorld(M.worldName || '') ? '（当前在乐园/枢纽·不维护）' : (M.contractors?.count ? `现存约 ${M.contractors.count} 人${M.contractors.note ? `·${M.contractors.note}` : ''} —— 据本轮流逝的世界时间与正文合理增减(陨落/离场/新来)并更新` : '（尚未初始化 —— 若本轮进入/已在任务世界，请按世界志契约者分布或世界体量给出初值 contractors(N,"分布")）')}`
       + `\n【主角当前处境（任务须与之契合）】：${playerSituation || '（未建档）'}`
       + `\n【本轮大总结开关】：${isLargeTurn ? `是（本轮是第 ${round} 轮，到达大总结周期，必须压缩近期小总结输出 1 条大总结）` : `否（本轮第 ${round} 轮，未到周期，只写小总结，禁止输出大总结）`}`
       + `\n【最近小总结（供大总结压缩参考，仅在开关=是时使用）】：\n${recentSmall}`
@@ -8814,7 +8825,22 @@ ${lines}`;
       world.warning && `警告：\n${world.warning}`,
       world.reward && `奖励预览：${world.reward}`,
     ].filter(Boolean).join('\n');
-    const userMsg = `${playerBlock}\n\n${cardBlock}\n\n请据以上为【${world.name}】生成世界观骨架 JSON（只输出 JSON）。`;
+    // 续作续写：本世界若有历史记录（上次的世界观骨架 + 离开时的进度锚点），作为续作参照喂进去——别当全新世界从头另造。
+    const _nn = normWorldName(world.name);
+    const _priors = useWorldRecord.getState().records
+      .filter((r) => r.status === 'left' && normWorldName(r.name) === _nn && (r.worldview || r.summary));
+    let _priorBlock = '';
+    if (_priors.length > 0) {
+      const _last = _priors[_priors.length - 1];   // 最近一次离开的记录
+      const _pv = _last.worldviewText ?? (_last.worldview ? formatWorldviewForInjection(_last.worldview) : '');
+      const _anchors = _last.summary?.['继承要点'];
+      const _pa = _anchors ? formatInheritAnchors(_anchors) : '';
+      const _seg: string[] = ['【上一次在本世界的记录（★续作·主角不是第一次来·据此延续，别当全新世界从头另造）】'];
+      if (_pv) _seg.push('· 上次世界观骨架：\n' + _pv);
+      if (_pa) _seg.push('· 上次离开时的进度锚点：\n' + _pa);
+      if (_seg.length > 1) _priorBlock = _seg.join('\n');
+    }
+    const userMsg = `${playerBlock}\n\n${cardBlock}${_priorBlock ? '\n\n' + _priorBlock : ''}\n\n请据以上为【${world.name}】生成世界观骨架 JSON${_priorBlock ? '（这是续作——延续上次记录里的世界局势、关键人物、遗留后果与主角在此世界的影响 / 名声，别推翻另起；主角带着上次的印记再临本世界）' : ''}（只输出 JSON）。`;
     try {
       const { content } = await apiChatFallback(chain, [
         { role: 'system', content: WORLDVIEW_GEN_PROMPT },
@@ -9003,6 +9029,7 @@ ${lines}`;
     if (world.dangerLevel) lines.push(`难度：${world.dangerLevel}`);
     if (world.desc)        lines.push(`\n世界简介：\n${world.desc}`);
     if (world.peakPower)   lines.push(`\n巅峰战力：${world.peakPower}`);
+    if (world.contractorDist) lines.push(`\n契约者分布（本世界还有哪些契约者 / 重要人物——据此让相应角色适时登场、参与剧情，别让世界空无一人；玩家在卡片里补的人物一并当真登场）：\n${world.contractorDist}`);
     if (world.entryPoint)  lines.push(`\n切入点：\n${world.entryPoint}`);
     if (world.identity)    lines.push(`\n主角身份：${world.identity}`);
     if (world.mainMission) lines.push(`\n主线任务：\n${world.mainMission}`);

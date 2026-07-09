@@ -145,6 +145,8 @@ export function applyMiscCommands(reply: string, opts: { allowLarge?: boolean } 
       n++; continue;
     }
     if ((m = /^timeLocation\.weather\s*=\s*"([^"]*)"$/.exec(line)))      { M.setWeather(m[1]); n++; continue; }
+    // 本世界其他契约者人口：contractors(数量) 或 contractors(数量, "分布/变动说明")
+    if ((m = /^contractors\(\s*(\d+)\s*(?:,\s*"([\s\S]*?)"\s*)?\)$/.exec(line))) { M.setContractors(Number(m[1]), m[2] != null ? unquote(m[2]) : undefined); n++; continue; }
 
     if ((m = /^addWorldEvent\(\s*"([^"]*)"\s*,\s*"([^"]*)"\s*,\s*"([\s\S]*)"\s*\)$/.exec(line))) {
       M.addWorldEvent({ time: m[1], location: withWorld(m[2]), desc: unquote(m[3]) }); n++; continue;

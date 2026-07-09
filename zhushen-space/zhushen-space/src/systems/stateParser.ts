@@ -1530,7 +1530,13 @@ function applyCharacterCommandsRaw(commands: CharCommand[], _narrative?: string)
 
       if (type === 'addSkill') {
         const d: any = payload;
-        const skName = d['1'] ?? d.name ?? '未知技能';
+        // AI 没给技能名时，从 desc/effect 首句提炼一个像样的名字（治"未知技能"占位·信息不全）；实在提不出用「无名绝学」
+        let skName: string = d['1'] ?? d.name;
+        if (!skName) {
+          const src = String(d['4'] ?? d.desc ?? d.description ?? d['6'] ?? d.effect ?? '').trim();
+          const first = (src.split(/[、，。；：,.;!?！？\n]/)[0] ?? '').trim();
+          skName = (first && first.length <= 12) ? first : '无名绝学';
+        }
         // 护栏：主角"物品附带技能"别漏进技能栏——装备/法宝 effect 里写的「附带【X】」随物品走，
         // AI 常误当角色学会 X。技能名若来自某件已装备物品的附带文本、且正文没写"内化成自身本领"，则不收录。
         if (charId === 'B1' && shouldBlockItemGrantedSkill(skName, _narrative)) {

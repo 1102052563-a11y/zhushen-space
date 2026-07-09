@@ -133,7 +133,7 @@ function mulberry32(a: number): () => number {
   };
 }
 
-function pick<T>(rng: () => number, arr: T[]): T {
+function pick<T>(rng: () => number, arr: readonly T[]): T {
   return arr[Math.floor(rng() * arr.length)];
 }
 
@@ -141,7 +141,7 @@ function pick<T>(rng: () => number, arr: T[]): T {
 export function makeRng(seed: number): () => number {
   return mulberry32(seed >>> 0);
 }
-export function pickFrom<T>(rng: () => number, arr: T[]): T {
+export function pickFrom<T>(rng: () => number, arr: readonly T[]): T {
   return pick(rng, arr);
 }
 

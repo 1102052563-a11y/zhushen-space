@@ -201,8 +201,43 @@ function genTalentName(npc: NpcRecord, rng: () => number): string {
 }
 
 const EQUIP_GRADES = ['精良', '稀有', '史诗', '传说'];
-const SKILL_RARITY = ['人', '玄', '地'];
-const TALENT_RARITY = ['C', 'B', 'A'];
+const SKILL_RARITY = ['普通', '精良', '稀有', '史诗', '传说', '奥义', '极境'];   // 技能品级(与全局同尺·治旧「人/玄/地」被UI显示成"普通")
+const TALENT_RARITY = ['D', 'C', 'B', 'A', 'S', 'SS', 'SSS'];                    // 天赋品级 D~SSS
+
+/* ── 离场历练技能「战斗原型」：确定性合成像样的完整技能（效果/简介/字段），无 API。治"效果=依招式发挥、信息不全"占位垃圾 ── */
+type Arch = 'assassin' | 'caster' | 'melee' | 'tank' | 'control' | 'support' | 'summon' | 'ranged';
+const ARCH_KW: ReadonlyArray<readonly [Arch, readonly string[]]> = [
+  ['assassin', ['刺客', '刀客', '潜杀', '暗杀', '影', '死神', '夜行', '毒', '刺']],
+  ['caster', ['法师', '术士', '元素', '时空', '幻', '咒', '符', '魔导', '灵能', '祭司', '巫']],
+  ['tank', ['守护', '重甲', '盾', '铁卫', '壁', '骑士']],
+  ['control', ['蛊', '缚', '禁', '审判', '控', '傀儡', '结界']],
+  ['support', ['医', '牧', '治疗', '灵植', '辅助', '祝福', '祭']],
+  ['summon', ['召唤', '驭', '御兽', '龙骑', '武魂', '亡灵', '尸', '傀']],
+  ['ranged', ['弓', '射', '枪手', '铳', '狙', '箭', '炮']],
+];
+function archOf(npc: NpcRecord): Arch {
+  const p = (npc.profession ?? '') + (npc.unitType ?? '');
+  for (const [a, kws] of ARCH_KW) if (kws.some((w) => p.includes(w))) return a;
+  return 'melee';
+}
+const ARCH_FX: Record<Arch, { verb: string; target: string; dtype: string; riders: readonly string[] }> = {
+  assassin: { verb: '自死角欺身、直取要害', target: '单体', dtype: '物理', riders: ['命中要害则暴击并致其流血', '对残血目标伤害显著提升', '得手后瞬身脱离、隐去身形'] },
+  caster: { verb: '引动法则、于阵前凝术轰落', target: '范围', dtype: '法术', riders: ['并灼烧/冰封波及之敌', '施法后短暂强化下一道法术', '击中时削其法术抗性'] },
+  melee: { verb: '沉腰发力、全力劈斩当面之敌', target: '前方', dtype: '物理', riders: ['末段附加破甲与短暂击退', '连击时最后一击伤害翻涨', '格挡后可立即反击'] },
+  tank: { verb: '举盾前压、以身撞阵', target: '前方', dtype: '物理', riders: ['期间大幅减伤并嘲讽近敌', '格挡成功反震伤害', '为己方竖起一道护盾'] },
+  control: { verb: '布下术法/毒瘴锁敌', target: '范围', dtype: '异常', riders: ['命中使其定身/沉默数息', '持续侵蚀其生命与神智', '削其行动力与命中'] },
+  support: { verb: '运转生机、祝祷加护', target: '己方', dtype: '增益', riders: ['为友军回复生命并解一异常', '短时增幅友军攻防', '为重伤者罩上不灭薄盾'] },
+  summon: { verb: '催动契约、唤出战宠助战', target: '召唤', dtype: '召唤', riders: ['召物存续期间代主受伤、协同攻击', '可牺牲召物换取一次爆发', '召物越多则本体越强'] },
+  ranged: { verb: '拉满劲弩、凝形远袭', target: '单体', dtype: '物理', riders: ['距离越远伤害越高', '贯穿一线之敌', '命中叠加「标记」、易伤加深'] },
+};
+const POWER_MAG = ['轻微', '尚可', '可观', '沉重', '骇人', '毁灭性', '法则层面', '近乎无解'];   // idx=clamp(战力,0..7)
+function magOf(npc: NpcRecord): string { return POWER_MAG[Math.min(POWER_MAG.length - 1, Math.max(0, powerOf(npc)))]; }
+/** 按战力档定品级（弱 NPC→普通/低阶，强 NPC→高阶；±1 抖动） */
+function rarityByPower(rng: () => number, npc: NpcRecord, scale: readonly string[]): string {
+  const base = Math.min(scale.length - 1, Math.floor(powerOf(npc) / 2));
+  const j = base + (rng() < 0.3 ? 1 : 0) - (rng() < 0.3 ? 1 : 0);
+  return scale[Math.min(scale.length - 1, Math.max(0, j))];
+}
 
 /** 真获得：按职业造一件可写进 NPC 储物栏的装备 */
 function makeEquipItem(npc: NpcRecord, rng: () => number, turn: number): NpcOwnedItem {
@@ -234,17 +269,28 @@ function makeNativeGood(npc: NpcRecord, rng: () => number, turn: number): NpcOwn
 }
 /** 真获得：按职业造一门可写进 NPC 技能栏的技能 */
 function makeSkill(npc: NpcRecord, rng: () => number, turn: number): Omit<Skill, 'addedAt'> {
+  const a = ARCH_FX[archOf(npc)];
+  const mag = magOf(npc);
+  const name = genSkill(npc, rng);
   return {
-    id: `S_${npc.id}_a${turn}`, name: genSkill(npc, rng), level: '初窥·Lv.1', desc: '离场历练中习得',
-    effect: '依招式发挥', rarity: pickFrom(rng, SKILL_RARITY), skillType: '主动',
-  };
+    id: `S_${npc.id}_a${turn}`, name, level: '初窥·Lv.1', skillType: '主动',
+    rarity: rarityByPower(rng, npc, SKILL_RARITY),
+    target: a.target, cost: '少量气力/法力', cooldown: '短', damage: `${mag}·${a.dtype}`,
+    effect: `${a.verb}，对${a.target}造成${mag}的${a.dtype}伤害；${pickFrom(rng, a.riders)}。`,
+    desc: `${npc.profession || '历练者'}于离场历练中打磨成型的${a.dtype}招式。`,
+    tags: [a.dtype, '离场历练'],
+  } as Omit<Skill, 'addedAt'>;
 }
 /** 真获得：按职业造一项可写进 NPC 天赋栏的天赋 */
 function makeTalent(npc: NpcRecord, rng: () => number): Omit<Talent, 'addedAt'> {
+  const a = ARCH_FX[archOf(npc)];
+  const passive = a.dtype === '增益' ? '常驻增幅己身机能' : `令其${a.dtype}路数化为本能`;
   return {
-    name: genTalentName(npc, rng), desc: '离场历练中觉醒', effect: '据天赋发挥',
-    rarity: pickFrom(rng, TALENT_RARITY), source: '历练顿悟', category: '特殊异能类',
-  };
+    name: genTalentName(npc, rng),
+    rarity: rarityByPower(rng, npc, TALENT_RARITY), source: '离场历练·顿悟', category: '特殊异能类',
+    effect: `被动：${passive}——${pickFrom(rng, a.riders)}（威力档：${magOf(npc)}）。`,
+    desc: `历练中觉醒的天赋，与其${npc.profession || '战斗'}路数相合。`,
+  } as Omit<Talent, 'addedAt'>;
 }
 
 export function homeParadise(id: string): string {

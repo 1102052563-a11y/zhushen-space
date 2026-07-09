@@ -14,6 +14,7 @@ export default function MiscPanel({ onClose }: { onClose: () => void }) {
   const worldTime = useMisc((s) => s.worldTime);
   const worldName = useMisc((s) => s.worldName);
   const weather = useMisc((s) => s.weather);
+  const contractors = useMisc((s) => s.contractors) ?? { count: 0, note: '' };
   const [tab, setTab] = useState<Tab>('tasks');
 
   const mainTasks = tasks.filter((t) => isMainQuest(t));   // 主线置顶高亮
@@ -53,6 +54,15 @@ export default function MiscPanel({ onClose }: { onClose: () => void }) {
             <div className="text-sm text-sky-300 font-mono mt-0.5 truncate">{weather || '—'}</div>
           </div>
         </div>
+
+        {/* 本世界·其他契约者人口（随世界时间演化·让世界不是单机） */}
+        {(contractors.count ?? 0) > 0 && (
+          <div className="shrink-0 flex items-center gap-2 px-4 py-1.5 border-b border-edge bg-panel/50 text-[12px]">
+            <span className="font-mono text-dim/50 shrink-0">🧭 本世界契约者</span>
+            <span className="font-mono text-amber-300/90 shrink-0">{contractors.count} 人</span>
+            {contractors.note && <span className="text-dim/70 truncate">· {contractors.note}</span>}
+          </div>
+        )}
 
         <div className="shrink-0 flex gap-1 px-4 py-2 border-b border-edge bg-panel">
           {tabs.map((t) => (

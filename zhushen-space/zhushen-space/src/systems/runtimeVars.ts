@@ -61,6 +61,9 @@ export function runtimeVarCatalog(): RuntimeVarRow[] {
   core('世界.乐园时间', m.paradiseTime, '主神空间时间');
   core('世界.世界时间', m.worldTime, '任务世界时间');
   core('世界.天气', m.weather, '当前天气');
+  core('世界.难度', m.worldTier, '本世界锁定难度/阶位');
+  core('世界.契约者数量', m.contractors?.count, '本世界其他契约者人数（随时间演化）');
+  core('世界.契约者分布', m.contractors?.note, '本世界其他契约者分布/变动说明');
   core('世界.回合数', m.turnCount, '本存档累计总回合');
 
   // 自定义变量（作者定义、AI 经 <state> 更新）
