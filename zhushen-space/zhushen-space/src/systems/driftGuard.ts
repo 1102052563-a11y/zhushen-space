@@ -72,6 +72,21 @@ export function entityChangeJustified(name: string, narrative: string): boolean 
   return ENTITY_CHANGE_KW.test(narrative);
 }
 
+/* 物品变动的正文关键词（比技能更贴物品：强化/开锋/淬炼/铭刻/词缀/镶嵌/受损/断裂/腐蚀/净化…）。*/
+const ITEM_CHANGE_KW = /强化|开锋|淬[炼火]|重铸|回炉|锻造|改造|镶嵌|附魔|铭[刻文]|符文|词缀|纹路|觉醒|进化|升级|进阶|升阶|注入|灌注|开光|认主|吞噬|成长|蜕变|升华|变强|增幅|受损|磨损|开裂|裂[口纹缝痕]|崩[口裂]|腐蚀|熔[毁化]|烧[毁焦]|断裂|折断|破损|损[坏毁]|报废|污染|诅咒|净化|解除|失去|剥落|黯淡|锈蚀|削弱|削减/;
+
+/** 物品本轮变动是否"有正文理由"——比 entityChangeJustified 严：要求物品变动关键词出现在**物品名附近**(±win 字)，
+    不能靠"提一句物品名 + 正文别处随便有个突破/受创"就放行整条物品被重写。
+    治"正文买的东西隔一回合被物品演化/对账重新描述、名字或效果就变了"——被携带/别在腰间/顺手拔出等**单纯提及**不算改动理由。*/
+export function itemChangeJustified(name: string, narrative: string, win = 30): boolean {
+  const nm = (name || '').trim();
+  if (!narrative || nm.length < 2) return false;
+  for (let idx = narrative.indexOf(nm); idx >= 0; idx = narrative.indexOf(nm, idx + nm.length)) {
+    if (ITEM_CHANGE_KW.test(narrative.slice(Math.max(0, idx - win), idx + nm.length + win))) return true;
+  }
+  return false;
+}
+
 /** 取 base 里指定字段，组成一个回退用的 patch。*/
 export function pickFields(base: any, fields: readonly string[] | string[]): Record<string, any> {
   const out: Record<string, any> = {};

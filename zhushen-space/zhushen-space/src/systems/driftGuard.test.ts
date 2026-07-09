@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { attrsDiffer, attrChangeJustified, revertStableDims, changedFields, entityChangeJustified, pickFields, sameName, SKILL_GUARD_FIELDS, ITEM_ID_FIELDS, ITEM_COMBAT_FIELDS, NPC_PROFILE_GUARD_FIELDS, profileChangeJustified } from './driftGuard';
+import { attrsDiffer, attrChangeJustified, revertStableDims, changedFields, entityChangeJustified, itemChangeJustified, pickFields, sameName, SKILL_GUARD_FIELDS, ITEM_ID_FIELDS, ITEM_COMBAT_FIELDS, NPC_PROFILE_GUARD_FIELDS, profileChangeJustified } from './driftGuard';
 
 const A = (o: Record<string, number> = {}) => ({ str: 10, agi: 10, con: 50, int: 10, cha: 10, luck: 5, ...o });
 
@@ -65,6 +65,15 @@ describe('driftGuard 物品字段防漂', () => {
   it('身份字段被改 → 算漂移（物品不该自己变类/改名）', () => {
     expect(changedFields(it0(), it0({ category: '防具' }), ITEM_ID_FIELDS)).toContain('category');
     expect(changedFields(it0(), it0({ name: '神剑' }), ITEM_ID_FIELDS)).toContain('name');
+  });
+
+  it('itemChangeJustified：物品名【附近】有变动词才放行——单纯提及/携带不算（治"买的东西隔回合被重描述")', () => {
+    expect(itemChangeJustified('星陨匕首', '他把星陨匕首拔出，剑身崩出一道裂口')).toBe(true);        // 名附近"裂口"
+    expect(itemChangeJustified('星陨匕首', '星陨匕首经过淬炼后寒气更盛')).toBe(true);               // 名附近"淬炼"
+    expect(itemChangeJustified('星陨匕首', '他把星陨匕首别在腰间，转身冲进战场厮杀')).toBe(false);   // 仅携带，无物品变动词
+    expect(itemChangeJustified('星陨匕首', '远处一名修士突破了，星陨匕首静静躺在包里')).toBe(false); // 别处的"突破"不算物品变动
+    expect(itemChangeJustified('星陨匕首', '')).toBe(false);                                        // 无正文
+    expect(itemChangeJustified('刀', '他挥刀')).toBe(false);                                        // 名太短(<2)不判
   });
 });
 

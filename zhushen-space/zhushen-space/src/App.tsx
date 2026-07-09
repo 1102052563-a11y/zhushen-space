@@ -39,6 +39,7 @@ import {
   TEAM_COT_RULE,
   ITEM_EXACT_REF_RULE,
   ITEM_UPDATE_RULE,
+  ITEM_STABLE_ON_MENTION_RULE,
   MERGED_AUDIT_SYSTEM,
   MERGED_AUDIT_PROMPT,
   EVO_EXACT_REF_RULE,
@@ -140,7 +141,7 @@ import { useSnapshots, captureEvoSnapshot, snapState } from './store/snapshotSto
 import { useLedger } from './systems/ledger/ledgerStore';
 import { diffEntityMap, diffItemList, diffFields, type DiffEvent } from './systems/turnDiff';
 import { useFieldHistory } from './store/fieldHistoryStore';
-import { attrsDiffer, attrChangeJustified, entityChangeJustified, pickFields, sameName, STABLE_DIMS, SKILL_GUARD_FIELDS, TRAIT_GUARD_FIELDS, ITEM_ID_FIELDS, ITEM_COMBAT_FIELDS, FACTION_GUARD_FIELDS, NPC_PROFILE_GUARD_FIELDS, PLAYER_PROFILE_GUARD_FIELDS, profileChangeJustified, revertSetWithLocks as dgRevertSetWithLocks } from './systems/driftGuard';
+import { attrsDiffer, attrChangeJustified, entityChangeJustified, itemChangeJustified, pickFields, sameName, STABLE_DIMS, SKILL_GUARD_FIELDS, TRAIT_GUARD_FIELDS, ITEM_ID_FIELDS, ITEM_COMBAT_FIELDS, FACTION_GUARD_FIELDS, NPC_PROFILE_GUARD_FIELDS, PLAYER_PROFILE_GUARD_FIELDS, profileChangeJustified, revertSetWithLocks as dgRevertSetWithLocks } from './systems/driftGuard';
 import { isLockedKey, lockedValueOf, useLocks, lkNpcAttr, lkNpcField, lkPlayerAttr, lkPlayerField, lkItemField, lkFactionField, lkCharSkill, lkCharTrait } from './store/lockStore';
 import { sanitizeSixAttrs, sanitizeItemNumbers } from './systems/numericGate';
 import RaidDungeonReward from './components/RaidDungeonReward';
@@ -2151,7 +2152,7 @@ export default function App() {
         + '\n【物品归属·唯一持有者铁则（防串包）】每件物品**只属于一个持有者**：createItem 的 owner 必须是该物品**真正拥有者**的确切编号（玩家=B1；某 NPC=其真实 C 编号，见「NPC 角色注册表」），不要用名字或编错的 ID。'
         + '**玩家给某一个队友买的/某个角色获得的装备，就只进那一个角色的包**——严禁因为"队伍/在场多人"就把同一件（或同名同款）装备复制分发给其他 NPC；正文里属于 A 的东西绝不写到 B 名下。'
         + '一件具体装备只 createItem 一次、owner 只填一个；归属拿不准时，宁可只发给最明确的那一个，也不要复制成多份分给多人。'
-        + '\n' + ITEM_UPDATE_RULE + '\n' + FIRST_UPDATE_COMPLETE_RULE + '\n' + ITEM_EXACT_REF_RULE
+        + '\n' + ITEM_UPDATE_RULE + '\n' + ITEM_STABLE_ON_MENTION_RULE + '\n' + FIRST_UPDATE_COMPLETE_RULE + '\n' + ITEM_EXACT_REF_RULE
         + '\n' + ITEM_COT_RULE + '\n' + ITEM_EVOLUTION_CODEX
         + '\n' + EDIT_LANGUAGE_RULE + '\n' + EDIT_BY_ID_RULE   // #uid 编辑台：教会本阶段用 <edit> + 强制"改已有按ID、只新建全新"，根治重复条目
         + '\n' + EVO_REGISTER_GAINS_RULE   // 差分对账：所得必登(防漏)、失才删(防误删)、没变就别碰(防漂移)
@@ -2599,7 +2600,7 @@ export default function App() {
     try {
       setItemPhaseLog('🔍 综合对账·纠正中…');
       const { content: reply } = await apiChatFallback(chain, [
-        { role: 'system', content: MERGED_AUDIT_SYSTEM + '\n' + ITEM_GRADE_TABLE_RULE + '\n' + EQUIP_CODEX + '\n' + STATUS_COUNTDOWN_TURN_RULE + (checkItems ? '\n' + ITEM_EVOLUTION_CODEX : '') },
+        { role: 'system', content: MERGED_AUDIT_SYSTEM + '\n' + ITEM_GRADE_TABLE_RULE + '\n' + EQUIP_CODEX + '\n' + STATUS_COUNTDOWN_TURN_RULE + (checkItems ? '\n' + ITEM_EVOLUTION_CODEX + '\n' + ITEM_STABLE_ON_MENTION_RULE : '') },
         { role: 'user', content: userContent },
       ]);
       console.log('[MergedAudit] 对账原始响应:', reply);
@@ -3521,7 +3522,9 @@ export default function App() {
       const fields = touched ? ITEM_ID_FIELDS : [...ITEM_ID_FIELDS, ...ITEM_COMBAT_FIELDS];
       // 即便被强化/镶嵌/堆叠动过（touched），被🔒锁的战斗字段也纳入检查——用户显式钉死，强化也不许改
       const checkFields = touched ? Array.from(new Set([...fields, ...ITEM_COMBAT_FIELDS.filter((f) => isLockedKey(lkItemField(ci.id, f)))])) : fields;
-      const revertSet = revertSetWithLocks(bi, ci, checkFields, entityChangeJustified(ci.name || bi.name, narrative), (f) => lkItemField(ci.id, f));
+      const revertSet = revertSetWithLocks(bi, ci, checkFields, itemChangeJustified(ci.name || bi.name, narrative), (f) => lkItemField(ci.id, f));
+      // 名称=硬锚点：物品一旦入库，name 绝不该被演化/对账改写（改名≈重造漂移·治"正文买的东西隔一回合名字就变了"）——name 一变就无条件退回基线名，不看 justified
+      if (bi.name && ci.name !== bi.name && !revertSet.includes('name')) revertSet.push('name');
       if (revertSet.length === 0) continue;
       applyPatch(ci.id, pickFields(bi, revertSet));
       n++;
