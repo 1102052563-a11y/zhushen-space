@@ -513,7 +513,7 @@ function applyOneItemCommand(cmd: ItemCommand, store: any, npcEquipDupCtx?: Map<
     case 'createItem': {
       const item = data.item ?? data;
       // 防御：AI 偶把对象塞进本该是字符串的字段（如 effect:{name,effect}），渲染时会触发 React 整页崩。强制字符串化可显示字段。
-      for (const k of ['1', '2', '4', 'name', 'gradeDesc', 'quality', 'effect', 'appearance', 'acquisition', 'notes', 'origin', 'subType', 'combatStat', 'attack', 'defense', 'durability', 'requirement', 'affix', 'score', 'intro', 'killCount', 'category']) {
+      for (const k of ['1', '2', '4', 'name', 'gradeDesc', 'quality', 'effect', 'appearance', 'acquisition', 'notes', 'origin', 'subType', 'combatStat', 'attack', 'defense', 'durability', 'requirement', 'affix', 'activeEffect', 'score', 'intro', 'killCount', 'category']) {
         const v = (item as any)[k];
         if (v != null && typeof v !== 'string' && typeof v !== 'number') {
           (item as any)[k] = typeof v === 'object' ? String((v as any).name ?? (v as any).text ?? (v as any).desc ?? (v as any).value ?? JSON.stringify(v)) : String(v);
@@ -595,6 +595,7 @@ function applyOneItemCommand(cmd: ItemCommand, store: any, npcEquipDupCtx?: Map<
           durability:  item.durability,
           requirement: item.requirement ?? item.require,
           affix:       item.affix,
+          activeEffect: item.activeEffect ?? item.active ?? item['主动效果'],
           score:       item.score != null ? String(item.score) : undefined,
           intro:       item.intro ?? item.desc,
           killCount:   item.killCount != null ? String(item.killCount) : (item.kills != null ? String(item.kills) : undefined),
@@ -639,6 +640,7 @@ function applyOneItemCommand(cmd: ItemCommand, store: any, npcEquipDupCtx?: Map<
         durability:  item.durability,
         requirement: item.requirement ?? item.require,
         affix:       item.affix,
+        activeEffect: item.activeEffect ?? item.active ?? item['主动效果'],
         score:       item.score != null ? String(item.score) : undefined,
         intro:       item.intro ?? item.desc,
         killCount:   item.killCount != null ? String(item.killCount) : (item.kills != null ? String(item.kills) : undefined),
@@ -807,6 +809,7 @@ function applyOneItemCommand(cmd: ItemCommand, store: any, npcEquipDupCtx?: Map<
         if (p['4'] ?? p.effect) patch.effect = p['4'] ?? p.effect;
         // ↓ 这些具名字段此前被静默丢弃——装备强化收尾刷「词缀(affix)/效果(effect)」全靠它们
         if (p.affix) patch.affix = p.affix;
+        if (p.activeEffect ?? p.active ?? p['主动效果']) patch.activeEffect = p.activeEffect ?? p.active ?? p['主动效果'];
         if (p.appearance) patch.appearance = p.appearance;
         if (p.intro) patch.intro = p.intro;
         if (p.score && (!item.score || !String(item.score).trim())) patch.score = p.score;   // 评分随品级一起锁（评分决定品级档·改评分=变相改品级）；仅原本缺评分才补

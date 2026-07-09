@@ -9,6 +9,7 @@ import { useResource } from '../store/resourceStore';
 import { playerResourceMax, refillAllVitals } from '../systems/playerVitals';
 import { useCharacters } from '../store/characterStore';
 import { computeAttrBreakdown, withAttrDelta, ATTR_LABEL, ATTR_KEYS, type AttrBreak } from '../systems/attrBonus';
+import { playerStatusAttrDelta } from '../systems/statusAttrs';
 import { activeGemSets, gemSetEquipEntry } from '../systems/gemSets';
 import { useGemSets } from '../store/gemSetStore';
 import { playerTreeAttrBonus } from '../store/skillTreeStore';
@@ -215,9 +216,10 @@ export default function PlayerSidebar({ onClose }: { onClose?: () => void }) {
   const gemSets = activeGemSets(equippedFull, gemSetDefs);
   const setEntry = gemSetEquipEntry(equippedFull, gemSetDefs);
   const equipForAttr = setEntry ? [...equippedFull, setEntry as any] : equippedFull;
-  const breakdown = computeAttrBreakdown(withAttrDelta(withAttrDelta(profile.attrs, playerTreeAttrBonus()), playerTeamAttrBonus()), b1?.skills ?? [], b1?.traits ?? [], equipForAttr, capB);   // 基础有效六维(不含真实属性点直加)·夹本阶上限·供属性栏展示
+  const statusDelta = playerStatusAttrDelta();   // 限时状态(发动/服药类临时增益)的六维加成——与常驻/真实分开，到期由 expireStatuses 自动撤销
+  const breakdown = computeAttrBreakdown(withAttrDelta(withAttrDelta(withAttrDelta(profile.attrs, playerTreeAttrBonus()), playerTeamAttrBonus()), statusDelta), b1?.skills ?? [], b1?.traits ?? [], equipForAttr, capB);   // 基础有效六维(不含真实属性点直加·含限时状态)·夹本阶上限·供属性栏展示
   // 衍生/战力按「有效六维 + 真实属性点直加(realAttrs)」算，与战斗 buildCombatant 同口径（直加并入再夹本阶上限）
-  const breakdownReal = computeAttrBreakdown(withAttrDelta(withAttrDelta(withAttrDelta(profile.attrs, playerTreeAttrBonus()), playerTeamAttrBonus()), profile.realAttrs), b1?.skills ?? [], b1?.traits ?? [], equipForAttr, capB);
+  const breakdownReal = computeAttrBreakdown(withAttrDelta(withAttrDelta(withAttrDelta(withAttrDelta(profile.attrs, playerTreeAttrBonus()), playerTeamAttrBonus()), profile.realAttrs), statusDelta), b1?.skills ?? [], b1?.traits ?? [], equipForAttr, capB);
   const effAttrs = { str: breakdownReal.str.total, agi: breakdownReal.agi.total, con: breakdownReal.con.total, int: breakdownReal.int.total, cha: breakdownReal.cha.total, luck: breakdownReal.luck.total } as PlayerAttrs;
   const derived = computeDerived(effAttrs, profile.level, equipped);   // 衍生属性按"有效六维(含真实属性点直加)"算（不含战斗内四阶×5）
   const derivedNoEq = computeDerived(effAttrs, profile.level, []);     // 仅六维+等级部分（拆出装备贡献）
@@ -564,7 +566,7 @@ export default function PlayerSidebar({ onClose }: { onClose?: () => void }) {
       <div className="shrink-0 border-t border-edge p-3 space-y-2">
         {(() => {
           // 最大HP/EP = (基础六维 + 技能树 + 团队的六维加成) 换算 + 装备/被动里明确写"增加HP/EP上限"的平值 + 百分比加成(如被动"10%生命加成")；与上方属性面板同口径，技能树加的体质/智力同步抬高 HP/EP 上限
-          const teamAttrsBase = withAttrDelta(withAttrDelta(withAttrDelta(profile.attrs, playerTreeAttrBonus()), playerTeamAttrBonus()), profile.realAttrs);   // 技能树 + 团队 + 真实属性点直加(realAttrs) 的六维加成（体/智→HP/EP，与战斗/属性面板同口径）
+          const teamAttrsBase = withAttrDelta(withAttrDelta(withAttrDelta(withAttrDelta(profile.attrs, playerTreeAttrBonus()), playerTeamAttrBonus()), profile.realAttrs), statusDelta);   // 技能树 + 团队 + 真实属性点直加(realAttrs) + 限时状态 的六维加成（体/智→HP/EP，与战斗/属性面板同口径）
           const teamPerkAbil = playerTeamPerkAbilities();                              // 团队效果显式「HP/EP上限」文本
           const rmP = realAttrMult(profile.tier, profile.level);   // 四阶起 HP/EP×5（与战斗/AI一致）
           const maxHp = fullMaxHp(teamAttrsBase, equippedFull, b1?.skills, [...(b1?.traits ?? []), ...teamPerkAbil], rmP, ratioOf(profile));

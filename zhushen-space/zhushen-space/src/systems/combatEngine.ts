@@ -14,6 +14,7 @@ import {
   computeDerived, computeMaxHp, computeMaxEp, fullMaxHp, fullMaxEp, lvFromRealm, normalizeTier, realmFromLevel, effectiveResource, realAttrMult, attrCapForTier, ratioOf,
 } from './derivedStats';
 import { effectiveAttrs, withAttrDelta } from './attrBonus';
+import { playerStatusAttrDelta } from './statusAttrs';
 import { playSfx } from './audio';
 import { playerTreeAttrBonus } from '../store/skillTreeStore';
 import { playerTeamAttrBonus, playerTeamPerkAbilities } from '../store/adventureTeamStore';
@@ -104,7 +105,7 @@ export function buildCombatant(id: string, side: Side, override?: Partial<Combat
     const b1c = useCharacters.getState().characters['B1'];
     // 主角有效六维 = 基础 + 技能树 + 团队效果 + 装备(含宝石) + 技能/天赋的六维加成（与属性面板/正文注入一致）。
     // 基础六维 + 技能树 + 团队 + **真实属性点直加(realAttrs)**——直加并入基础六维，自动进攻防/HP/EP，并随四阶×5、受本阶极值封顶。
-    const baseTT = withAttrDelta(withAttrDelta(withAttrDelta(p.attrs ?? DEFAULT_ATTRS, playerTreeAttrBonus()), playerTeamAttrBonus()), p.realAttrs);
+    const baseTT = withAttrDelta(withAttrDelta(withAttrDelta(withAttrDelta(p.attrs ?? DEFAULT_ATTRS, playerTreeAttrBonus()), playerTeamAttrBonus()), p.realAttrs), playerStatusAttrDelta());
     const rm = realAttrMult(p.tier, p.level);   // 四阶起六维×5（攻防/伤害/HP/EP 一并放大）
     const gsets = useGemSets.getState().sets;
     const setEntry = gemSetEquipEntry(equippedFull, gsets);   // 宝石套装六维加成 → 合成"装备条目"并入有效六维

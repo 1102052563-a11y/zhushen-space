@@ -50,13 +50,31 @@ export function parseAttrBonus(text?: string): AttrDelta {
 
 export interface AttrBreak { base: number; equip: number; skill: number; talent: number; total: number; }
 
-/* 取一组对象里"属性加成文本"（技能/天赋用 attrBonus，缺失才退回 effect；装备无 attrBonus 字段，用 effect+affix）并累加 */
-function sumBonus(items: any[], fields: string[]): AttrDelta {
+/* 「需发动 / 触发 / 限时状态」触发词：某段文本含这些词 → 视为**条件效果**（非常驻被动），其中的六维加成不计入常驻装备加成。
+   治用户报的"吸血鬼煎药·使用后 60 分钟状态才给的 体质+15/敏捷+10/魅力-12 被常驻加进了状态栏"。 */
+const CONDITIONAL_TRIGGER_RE = /使用后|使用时|服用|发动|激活|开启|施放|释放|引导|蓄力|触发|命中(时|后)|击中(时|后)|受击|受到[^，。；\n]{0,10}(伤害|攻击|致命|重创)|进入[^，。；\n]{0,10}状态|状态[:：]|「[^」]{1,14}」状态|期间|持续\s*\d+\s*(秒|分钟|小时|回合|天)|冷却|CD|每日[^，。；\n]{0,8}(注满|重置|刷新|重构)/i;
+
+/* 剔除装备文本里「需发动 / 限时 / 触发」的条件段落，只留常驻被动段落——供装备**常驻**六维加成解析。
+   按 换行 / 【条目】 边界切段（保持每条词缀/条目完整）：某段含触发词 → 该段整段的六维加成都不计入常驻
+   （条件加成的"+15"常与"使用后…状态"处在同一条词缀里、只是分号隔开，故必须按条目整段判、不能按分句判）。 */
+export function stripConditionalAttrSegments(text?: string): string {
+  if (!text) return '';
+  const segs = String(text).split(/\n+|(?=【)/).map((s) => s.trim()).filter(Boolean);
+  return segs.filter((s) => !CONDITIONAL_TRIGGER_RE.test(s)).join('\n');
+}
+
+/* 取一组对象里"属性加成文本"（技能/天赋用 attrBonus，缺失才退回 effect；装备无 attrBonus 字段，用 effect+affix）并累加。
+   gateConditional=true（仅装备）：① 整件被标记 condBonus（玩家手动"六维加成需发动"）→ 跳过；② 逐段剔除"需发动/触发/限时"的条件加成。 */
+function sumBonus(items: any[], fields: string[], gateConditional = false): AttrDelta {
   const d: AttrDelta = {};
   for (const it of items ?? []) {
+    // 玩家显式标记「此装备六维加成需发动·不常驻」→ 整件跳过，一点都不计入常驻六维
+    if (gateConditional && it?.condBonus) continue;
     // 优先 attrBonus；为空再退回其它字段，避免同一加成在 attrBonus 与 effect 里被重复计两次
     const primary = (it?.attrBonus ?? '').toString().trim();
-    const texts = primary ? [primary] : fields.map((f) => it?.[f]).filter(Boolean);
+    let texts = primary ? [primary] : fields.map((f) => it?.[f]).filter(Boolean);
+    // 装备：先把"需发动/触发/限时状态"的条件段落剔掉，只按常驻被动算——防条件加成被当永久加成塞进状态栏
+    if (gateConditional) texts = texts.map((t) => stripConditionalAttrSegments(String(t))).filter(Boolean);
     // 注：镶嵌宝石的加成已由 gemEngine.applyGemsToEffect 写进装备 effect（effect 已在上面被读取），
     // 故此处不再单独读 gems，避免与 effect 里的【镶嵌加成】双重计数。
     for (const t of texts) {
@@ -72,13 +90,13 @@ export function computeAttrBreakdown(
   base: PlayerAttrs | undefined,
   skills: { attrBonus?: string; effect?: string }[] = [],
   talents: { attrBonus?: string; effect?: string }[] = [],
-  equipped: { effect?: string; affix?: string; attrBonus?: string }[] = [],
+  equipped: { effect?: string; affix?: string; attrBonus?: string; combatStat?: string; condBonus?: boolean }[] = [],
   cap?: number,   // 本阶「单属性极值」：给定则**基础 与「基础+全部加成」的合计都夹到该上限**——属性必须遵守阶位限制，装备/技能/天赋加成也不得超（只夹力敏体智魅，幸运另算）。只有升级(升阶)提高上限。
 ): Record<keyof PlayerAttrs, AttrBreak> {
   const b = base ?? { str: 5, agi: 5, con: 5, int: 5, cha: 5, luck: 5 };
   const sk = sumBonus(skills, ['effect']);
   const ta = sumBonus(talents, ['effect']);
-  const eq = sumBonus(equipped, ['effect', 'affix', 'combatStat']);   // 也读 combatStat：AI 常把「智力+11」等六维加成塞进攻防字段，否则不生效
+  const eq = sumBonus(equipped, ['effect', 'affix', 'combatStat'], true);   // 也读 combatStat：AI 常把「智力+11」等六维加成塞进攻防字段，否则不生效；gate=true：剔除"需发动/触发/限时状态"的条件加成 + 尊重 condBonus 手动标记
   const out = {} as Record<keyof PlayerAttrs, AttrBreak>;
   for (const k of ATTR_KEYS) {
     const base0 = b[k] ?? 0, e = eq[k] ?? 0, s = sk[k] ?? 0, t = ta[k] ?? 0;
@@ -138,7 +156,7 @@ export function effectiveAttrs(
   base: PlayerAttrs | undefined,
   skills: { attrBonus?: string; effect?: string }[] = [],
   talents: { attrBonus?: string; effect?: string }[] = [],
-  equipped: { effect?: string; affix?: string; attrBonus?: string }[] = [],
+  equipped: { effect?: string; affix?: string; attrBonus?: string; combatStat?: string; condBonus?: boolean }[] = [],
   cap?: number,
 ): PlayerAttrs {
   const bd = computeAttrBreakdown(base, skills, talents, equipped, cap);

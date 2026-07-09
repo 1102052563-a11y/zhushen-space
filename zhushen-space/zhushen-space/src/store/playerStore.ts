@@ -51,6 +51,7 @@ export interface StatusEffect {
   startGameMin?: number | null; // 施加时的游戏时间（分钟，引擎填，可空）
   expireAtMin?: number | null;  // 游戏时间到期点（分钟，引擎算，可空）
   combat?: CombatStatusMod;     // 战斗内数值修正（仅战斗系统读写）
+  attrs?: Partial<PlayerAttrs>; // 限时六维加成（发动/服药类临时增益）：存续期间折进有效六维、到期由 expireStatuses 自动撤销；不写进基础 attrs 故不受防膨胀守卫/永久化影响
   addedAt: number;
 }
 

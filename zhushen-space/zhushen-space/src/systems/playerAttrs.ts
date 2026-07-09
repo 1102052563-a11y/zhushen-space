@@ -5,6 +5,7 @@ import { useItems } from '../store/itemStore';
 import { playerTreeAttrBonus } from '../store/skillTreeStore';
 import { playerTeamAttrBonus } from '../store/adventureTeamStore';
 import { effectiveAttrs, withAttrDelta, unmetRequirements } from './attrBonus';
+import { playerStatusAttrDelta } from './statusAttrs';
 import { nominalTierNum } from './bioStrength';
 
 /* 主角「有效六维」实时读取（与主角侧栏/战斗/骰子同口径）：
@@ -16,7 +17,7 @@ export function getPlayerEffectiveAttrs(): PlayerAttrs {
   const equipped = useItems.getState().items.filter((it) => it.equipped);
   // 基础六维 + 技能树 + 团队 + **真实属性点直加(realAttrs)**（与 combatEngine.buildCombatant / PlayerSidebar 同口径；
   // 漏掉 realAttrs 会导致"识别不到真实属性"——四阶起真实属性点直加不计入需求校验）
-  const base = withAttrDelta(withAttrDelta(withAttrDelta(profile.attrs, playerTreeAttrBonus()), playerTeamAttrBonus()), profile.realAttrs);
+  const base = withAttrDelta(withAttrDelta(withAttrDelta(withAttrDelta(profile.attrs, playerTreeAttrBonus()), playerTeamAttrBonus()), profile.realAttrs), playerStatusAttrDelta());
   return effectiveAttrs(base, b1?.skills ?? [], b1?.traits ?? [], equipped);
 }
 

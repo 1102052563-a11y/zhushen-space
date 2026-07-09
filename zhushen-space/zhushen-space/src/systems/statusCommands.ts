@@ -7,6 +7,20 @@ import { useItems } from '../store/itemStore';
 import { normalizeTier, realmFromLevel, attrCapForTier } from './derivedStats';
 import { ATTR_GROWTH_RE } from './stateApply';
 import { parseGameMinutes, parseDurationMinutes, parseDurationTurns } from './gameClock';
+import { parseAttrBonus, ATTR_KEYS } from './attrBonus';
+import type { PlayerAttrs } from '../store/playerStore';
+
+/* 限时状态的六维加成解析：显式 attrs 对象优先（{con:15,agi:10}），其次 attrBonus/attr 字符串走 parseAttrBonus（"体质+15、敏捷+10"）。
+   仅取明确给出的六维，不从 effect 文本瞎猜——存续期间折进有效六维、到期自动撤销。 */
+function parseStatusAttrs(d: any): Partial<PlayerAttrs> | undefined {
+  const out: Record<string, number> = {};
+  if (d?.attrs && typeof d.attrs === 'object') {
+    for (const k of ATTR_KEYS) { const v = Number((d.attrs as any)[k]); if (v) out[k] = (out[k] ?? 0) + v; }
+  }
+  const str = [d?.attrBonus, d?.attr].filter((x) => typeof x === 'string').join('、');
+  if (str) { const p = parseAttrBonus(str); for (const k of ATTR_KEYS) if (p[k]) out[k] = (out[k] ?? 0) + p[k]!; }
+  return Object.keys(out).length ? (out as Partial<PlayerAttrs>) : undefined;
+}
 
 // 限时状态常量（仅下面两个 applier 用，随之从 App 移入）
 const CC_STATUS_RE = /昏迷|眩晕|晕眩|麻痹|麻痺|定身|冰冻|冻结|石化|沉默|击晕|僵直|瘫痪|震慑|束缚|禁锢|缴械|致盲|恐惧|魅惑|催眠|休克|窒息|击飞|倒地|失神|眩/;
@@ -231,6 +245,7 @@ export function applyTimedStatusCommands(reply: string, turn: number, onlyId?: s
       durationDesc: durDesc || undefined,
       startGameMin: nowGameMin,
       expireAtMin: (durMin != null && nowGameMin != null) ? nowGameMin + durMin : null,
+      attrs: parseStatusAttrs(d),   // 限时六维加成（发动/服药类）→ 存续期间折进有效六维、到期自动撤销
       addedAt: Date.now(),
     };
     if (/^B\d+$/.test(cid)) usePlayer.getState().addStatusEffect(eff);

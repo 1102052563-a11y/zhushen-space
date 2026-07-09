@@ -1,6 +1,7 @@
 import { useState, useRef } from 'react';
 import { useItems, ITEM_CATEGORIES, ITEM_GRADES, gradeColorClass, gradeBadgeClass, gradeNameClass, socketsOf, splitAffixEntries, isResourcePseudoItem, asText, getItemLog, type InventoryItem, type ItemCategory, type CurrencyWallet } from '../store/itemStore';
 import { enhanceColorClass, enhancedCombat } from '../systems/enhanceEngine';
+import { applyItemActiveBuff } from '../systems/statusAttrs';
 import { walletLedger, type WalletTxn } from '../systems/ledger/walletCore';
 import { usePlayer } from '../store/playerStore';
 import { useTerritory } from '../store/territoryStore';
@@ -174,6 +175,7 @@ export function ItemDetailModal({ item, onClose }: { item: InventoryItem; onClos
     appearance: item.appearance ?? '',
     // affix/effect 若被 AI 写成对象数组 [{name,desc}] → 拆成干净多行文本，编辑+保存即把脏数据洗成字符串（治"词缀显示成 [object Object]"）
     notes: item.notes ?? '', acquisition: item.acquisition ?? '', affix: splitAffixEntries(item.affix).join('\n'),
+    activeEffect: asText(item.activeEffect),
   });
 
   const cfg  = CAT_CFG[item.category] ?? CAT_CFG['其他物品'];
@@ -187,6 +189,7 @@ export function ItemDetailModal({ item, onClose }: { item: InventoryItem; onClos
       name: draft.name, gradeDesc: draft.gradeDesc,
       category: draft.category as ItemCategory, subType: draft.subType.trim() || undefined,
       effect: draft.effect, appearance: draft.appearance, notes: draft.notes, acquisition: draft.acquisition, affix: draft.affix,
+      activeEffect: draft.activeEffect.trim() || undefined,
     };
     // 改了类别且此刻装备中 → 一并卸下：否则出现"饰品改成武器仍卡在武器槽 / 改成消耗品却还显示装备中"这类槽位错乱
     //   （用户报"饰品变成武器还在武器栏上面"）。改回正确类别后到装备面板重新穿戴即可。
@@ -354,6 +357,27 @@ export function ItemDetailModal({ item, onClose }: { item: InventoryItem; onClos
             </Field>
           )}
 
+          {/* 主动效果（需发动/使用才生效·天然不计入常驻六维）*/}
+          {(item.activeEffect || editing) && (
+            <Field label="⚡ 主动效果（需发动 · 不常驻）">
+              <div className="bg-amber-400/5 border border-amber-400/25 rounded-lg p-3">
+                {editing ? (
+                  <textarea
+                    value={draft.activeEffect}
+                    onChange={(e) => setDraft((d) => ({ ...d, activeEffect: e.target.value }))}
+                    rows={3}
+                    placeholder="要使用 / 发动才临时生效的效果（如：发动后 60 分钟攻击附带 20% 吸血、临时体质+15…）。写在这里的加成不会常驻算进属性，发动时交由正文结算。"
+                    className="w-full bg-void border border-amber-400/30 rounded px-2 py-1 text-[13px] text-amber-100/90 focus:outline-none focus:border-amber-400/60 resize-none"
+                  />
+                ) : (
+                  <div className="space-y-1">
+                    {splitAffixEntries(item.activeEffect).map((a, i) => <div key={i} className="text-[13px] leading-snug text-amber-100/85 border-l-2 border-amber-400/40 pl-2">{a}</div>)}
+                  </div>
+                )}
+              </div>
+            </Field>
+          )}
+
           {/* 装备需求 */}
           {item.requirement && (
             <Field label="装备需求">
@@ -377,6 +401,31 @@ export function ItemDetailModal({ item, onClose }: { item: InventoryItem; onClos
                   {splitAffixEntries(item.affix).map((a, i) => <div key={i} className="text-[13px] leading-snug text-amber-200/85 border-l-2 border-amber-400/25 pl-2">{a}</div>)}
                 </div>
               )}
+            </Field>
+          )}
+
+          {/* 六维加成生效方式：常驻 / 需发动。治"要发动才加的属性被常驻算进状态栏"——勾选后此装备词缀/效果里的六维加成不计入常驻有效属性 */}
+          {canEquip && (
+            <Field label="六维加成生效方式">
+              <button
+                onClick={() => updateItem(item.id, { condBonus: !item.condBonus })}
+                title="切换：此装备的六维加成是常驻，还是需要使用/发动才临时生效"
+                className={`w-full flex items-start gap-2.5 rounded-lg border p-2.5 text-left transition-colors ${
+                  item.condBonus ? 'border-amber-400/50 bg-amber-400/5' : 'border-edge/50 bg-panel2 hover:border-god/30'
+                }`}
+              >
+                <span className={`shrink-0 mt-0.5 w-9 h-5 rounded-full border relative transition-colors ${item.condBonus ? 'bg-amber-500/30 border-amber-400/50' : 'bg-void border-edge'}`}>
+                  <span className={`absolute top-0.5 w-3.5 h-3.5 rounded-full transition-all ${item.condBonus ? 'left-[18px] bg-amber-300' : 'left-0.5 bg-dim/60'}`} />
+                </span>
+                <span className="min-w-0">
+                  <span className={`block text-[12.5px] font-mono ${item.condBonus ? 'text-amber-200' : 'text-slate-300'}`}>{item.condBonus ? '需发动 · 不计入常驻属性' : '常驻加成（默认）'}</span>
+                  <span className="block text-[11px] text-dim/55 leading-snug mt-0.5">
+                    {item.condBonus
+                      ? '此装备词缀/效果里的六维加成不会永久加进你的属性——适用于要使用/发动技能才临时生效的装备。'
+                      : '点此改为"需发动"：适用于要服药/发动才临时加成的装备。系统也会自动跳过"使用后/触发/限时状态"类加成。'}
+                  </span>
+                </span>
+              </button>
             </Field>
           )}
 
@@ -485,6 +534,19 @@ export function ItemDetailModal({ item, onClose }: { item: InventoryItem; onClos
               // 不在背包里直接装备：请到「⚔ 装备」面板先选槽位再穿戴
               <span className="px-3 py-1.5 text-[12px] font-mono text-dim/40 border border-dashed border-edge rounded-lg">到「⚔ 装备」面板穿戴</span>
             )
+          )}
+
+          {/* 发动主动效果：前端即时登记为「限时状态」（六维立刻生效、到点自动撤销），同时填输入框让 AI 叙述 */}
+          {item.activeEffect && !editing && (
+            <button
+              onClick={() => {
+                applyItemActiveBuff(item);   // 立刻建限时状态 → 六维即时跳、到点由 expireStatuses 自动回落
+                useComposer.getState().fill(`发动【${item.name}】的主动效果：${asText(item.activeEffect)}\n（已登记为限时状态、六维已即时生效，请在正文叙述发动过程与效果，勿再发 addStatus 重复加成）`);
+                onClose();
+              }}
+              title="发动此装备的主动效果：立即登记为限时状态（六维即时生效、到点自动撤销），并把发动描述填入输入框交 AI 叙述"
+              className="px-3 py-1.5 border border-amber-400/50 text-amber-300 hover:bg-amber-400/10 rounded-lg text-sm font-mono transition-colors"
+            >⚡ 发动</button>
           )}
 
           <div className="flex-1"/>

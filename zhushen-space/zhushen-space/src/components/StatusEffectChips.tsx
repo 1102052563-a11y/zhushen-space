@@ -1,6 +1,13 @@
 import { useState } from 'react';
 import type { StatusEffect } from '../store/playerStore';
 import { useMisc } from '../store/miscStore';
+import { ATTR_KEYS, ATTR_LABEL } from '../systems/attrBonus';
+
+/* 限时状态的六维加成 → "体质+15 敏捷+10" 展示文本（正=增益、负=减益）。*/
+function fmtStatusAttrs(attrs?: Record<string, number>): string {
+  if (!attrs) return '';
+  return ATTR_KEYS.map((k) => { const v = attrs[k]; return v ? `${ATTR_LABEL[k]}${v > 0 ? '+' : ''}${v}` : ''; }).filter(Boolean).join(' ');
+}
 
 /* 限时状态胶囊：展示 buff/debuff + 时效，点击展开效果/来源，✕ 手动移除。
    引擎会按回合/游戏时间自动过期，这里只负责展示与手动清除。 */
@@ -87,6 +94,7 @@ export default function StatusEffectChips({ effects, onRemove }: { effects: Stat
             {expanded && (
               <div className="mt-1 ml-1 text-[11px] text-dim/80 leading-relaxed border-l-2 border-edge pl-2 max-w-[16rem]">
                 {e.type && <div className="text-dim/55">类型·{e.type}</div>}
+                {e.attrs && fmtStatusAttrs(e.attrs) && <div className="text-emerald-300/85">六维·{fmtStatusAttrs(e.attrs)}<span className="text-dim/45">（限时·到点自动撤销）</span></div>}
                 {e.effect && <div>效果·{e.effect}</div>}
                 {e.desc && <div className="text-dim/70">描述·{e.desc}</div>}
                 {e.source && <div className="text-dim/55">来源·{e.source}</div>}

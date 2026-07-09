@@ -8,6 +8,7 @@ import { useItems } from '../store/itemStore';
 import { playerTreeAttrBonus } from '../store/skillTreeStore';
 import { playerTeamAttrBonus, playerTeamPerkAbilities } from '../store/adventureTeamStore';
 import { withAttrDelta } from './attrBonus';
+import { playerStatusAttrDelta } from './statusAttrs';
 import { computeMaxHp, computeMaxEp, fullMaxHp, fullMaxEp, ratioOf, computeAttrPool, realAttrMult, type AttrCoef } from './derivedStats';
 import { useResource } from '../store/resourceStore';
 
@@ -55,7 +56,7 @@ export function reconcilePlayerVitals(): void {
    ⚠ 曾漏加 realAttrs → 真实属性点加到体质/智力后，属性面板与战斗都涨、唯独 HP/EP 上限不涨
    （用户报"真实体质没计入血量计算"）。所有主角 vitals 计算都走这里，防再次漂移。 */
 function playerBaseAttrs(prof: { attrs?: PlayerAttrs; realAttrs?: Partial<PlayerAttrs> }): PlayerAttrs {
-  return withAttrDelta(withAttrDelta(withAttrDelta(prof.attrs, playerTreeAttrBonus()), playerTeamAttrBonus()), prof.realAttrs);
+  return withAttrDelta(withAttrDelta(withAttrDelta(withAttrDelta(prof.attrs, playerTreeAttrBonus()), playerTeamAttrBonus()), prof.realAttrs), playerStatusAttrDelta());
 }
 
 /* 主角 HP/EP 真实上限 = 体质/智力×系数 + 装备上限加成 + 被动/天赋上限加成（如「生命上限+100」被动）。

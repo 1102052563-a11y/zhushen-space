@@ -15,6 +15,7 @@ import {
 } from '../systems/diceEngine';
 import { aiJudge, aiSuggest, buildJudgeBlock, type JudgeOutcome } from '../systems/diceJudge';
 import { effectiveAttrs, withAttrDelta } from '../systems/attrBonus';
+import { playerStatusAttrDelta } from '../systems/statusAttrs';
 import { playerTreeAttrBonus } from '../store/skillTreeStore';
 import { playerTeamAttrBonus } from '../store/adventureTeamStore';
 
@@ -122,7 +123,7 @@ export default function DicePanel({ onClose, onInject }: { onClose: () => void; 
       if (social) favorTier = favorTierFromValue(foe.favor);
     }
     return resolve({
-      mode, attrs: effectiveAttrs(withAttrDelta(withAttrDelta(profile.attrs, playerTreeAttrBonus()), playerTeamAttrBonus()), pskills, ptalents, items.filter((it) => it.equipped), attrCapForTier(profile.tier, profile.level)) as DiceAttrs, attrKey, difficulty,
+      mode, attrs: effectiveAttrs(withAttrDelta(withAttrDelta(withAttrDelta(profile.attrs, playerTreeAttrBonus()), playerTeamAttrBonus()), playerStatusAttrDelta()), pskills, ptalents, items.filter((it) => it.equipped), attrCapForTier(profile.tier, profile.level)) as DiceAttrs, attrKey, difficulty,
       skills: pskills, talents: ptalents, equipped: pEquipped,
       favorTier, extraMod, includeLuck: settings.includeLuck, advantage,
       opposed, myStrengthScore: strengthScoreFromBio(profile.bioStrength, profile.level),
