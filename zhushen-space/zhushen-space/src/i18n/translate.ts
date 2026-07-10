@@ -49,7 +49,8 @@ function dictTranslate(raw: string, exact: Record<string, string>, rules: [RegEx
     const out = parts.map((seg, i) => {
       if (i % 2 === 1) return seg;                 // 奇数位=分隔符，原样
       const key = seg.trim();
-      const h = key ? exact[key] : undefined;
+      if (!key || !CJK_RE.test(key)) return seg;   // 非中文段（数字/Lv.1/英文缩写）原样保留
+      const h = exact[key];
       if (h === undefined) { allHit = false; return seg; }
       return h;
     });

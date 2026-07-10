@@ -60,7 +60,7 @@ interface ChestState {
   endSession: () => void;         // 关面板/确认后：整会话清空
 }
 
-export const useChest = create<ChestState>((set, get) => ({
+export const useChest = create<ChestState>((set) => ({
   session: freshSession(),
 
   selectChest: (chest) =>

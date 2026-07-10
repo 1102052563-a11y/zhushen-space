@@ -44,6 +44,7 @@ interface GuildState {
   applicants: { pid: string; name: string; at: number }[];
   base: any;
   chain: { count: number; lastAt: number; best: number } | null;
+  meta: { manifesto?: string; recruiting?: boolean } | null;   // 家族设置面板预填（my 摘要不含这些）
 
   setMy: (s: GuildSummary | null) => void;
   _set: (p: Partial<GuildState>) => void;
@@ -63,6 +64,7 @@ const LIVE_INIT = {
   applicants: [] as { pid: string; name: string; at: number }[],
   base: null as any,
   chain: null as { count: number; lastAt: number; best: number } | null,
+  meta: null as { manifesto?: string; recruiting?: boolean } | null,
 };
 
 export const useGuild = create<GuildState>()(

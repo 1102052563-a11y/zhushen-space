@@ -364,6 +364,63 @@ export const EN_EXACT: Record<string, string> = {
   '性爱姿势': 'Sex Positions', '性经验': 'Sexual Experience', '敏感部位': 'Sensitive Spots', '性观念': 'Sexual Views',
   '表性癖': 'Outer Kink', '里性癖': 'Inner Kink', '性器状态': 'Genital State', '开发玩法': 'Training', '解锁服装': 'Unlock Outfit',
   '独特技巧': 'Special Skills',
+
+  // ══════════ 续批 2（词频次高·职业/战斗/面板/状态）══════════
+  // 职业 / 种族 / 定位
+  '术士': 'Warlock', '法师': 'Mage', '刺客': 'Assassin', '战士': 'Warrior', '骑士': 'Knight',
+  '祭司': 'Priest', '德鲁伊': 'Druid', '刀客': 'Blademaster', '铁卫': 'Iron Guard', '勇士': 'Valiant',
+  '辅助': 'Support', '坦克': 'Tank', '全能': 'All-Round', '重装': 'Heavy', '盾': 'Shield', '弓': 'Bow',
+  '医': 'Healer', '精灵': 'Elf', '兽人': 'Orc', '玩家': 'Player', '土著': 'Native', '中性': 'Neutral',
+  '御兽': 'Beast Master', '狂暴': 'Berserk',
+  // 制作 / 生活技能
+  '炼丹': 'Pill Refining', '附魔': 'Enchant', '铭文': 'Inscription', '制造': 'Crafting', '采掘': 'Mining', '词符': 'Rune',
+  // 战斗数值 / 判定
+  '护甲': 'Armor', '防': 'DEF', '幸': 'LUK', '暴击伤害': 'Crit DMG', '暴击率': 'Crit Rate',
+  '护甲穿透': 'Armor Pen', '真实伤害': 'True Damage', '移动速度': 'Move Speed', '范围': 'Range',
+  '物理': 'Physical', '格斗': 'Melee', '格挡': 'Block', '主动效果': 'Active Effect', '觉醒': 'Awakening',
+  '碾压成功': 'Crushing Success', '极难成功': 'Extreme Success', '困难成功': 'Hard Success',
+  // 品级颜色补
+  '金': 'Gold', '紫': 'Purple', '白': 'White', '蓝': 'Blue', '绿': 'Green', '金色': 'Gold',
+  '红色': 'Red', '史诗级': 'Epic', '传说级': 'Legendary',
+  // NPC 详情
+  '装备加成': 'Equip Bonus', '合计': 'Total', '需求': 'Requirement', '身份信息': 'Identity', '私密信息': 'Private Info',
+  '基本信息': 'Basic Info', '非人形': 'Non-humanoid', '佩戴中': 'Equipped', '佩戴': 'Equip', '称号库': 'Title Library',
+  '内心想法': 'Inner Thoughts', '当前动机': 'Motivation', '信任': 'Trust', '尊重': 'Respect', '情欲': 'Lust',
+  '位置': 'Position', '对方': 'Them', '未设置': 'Not Set', '临时队友': 'Temp Ally',
+  // 背包 / 装备
+  '装备中': 'Equipped', '装备槽': 'Equip Slot', '杀敌数量': 'Kills', '解锁': 'Unlock', '乐园币不足': 'Not enough Paradise Coin',
+  '装备条目': 'Equipment', '六维公式': 'Attribute Formula',
+  // 赌场
+  '下注': 'Bet', '筹码': 'Chips', '魂筹': 'Soul Chips', '爆牌': 'Bust', '大': 'Big', '小': 'Small',
+  // 社交 / 交易
+  '回复': 'Reply', '货币': 'Currency', '系统商店': 'System Shop', '招募': 'Recruit', '情报': 'Intel',
+  '索取': 'Request', '以物换物': 'Barter', '面议': 'Negotiable', '平换': 'Even Trade', '移出好友栏': 'Remove Friend',
+  '长老': 'Elder', '副会长': 'Vice Leader',
+  // 面板 / 设置
+  '剧情优化建议': 'Plot Suggestions', 'API 配置': 'API Config', '系统提示词': 'System Prompt', '全局正则': 'Global Regex',
+  '标准': 'Standard', '战斗系统': 'Combat System', '深渊地牢': 'Abyss Dungeon', '向量资料库': 'Vector Library',
+  '生平压缩': 'Bio Compress', '尺寸': 'Size', '接口地址': 'API URL', '肖像生成': 'Portrait Gen', '正文生图': 'Scene Image',
+  '装备生图': 'Equip Image', '物品管理': 'Item Manager', '物品名称': 'Item Name', '仅启用': 'Enabled Only',
+  '更新频率': 'Update Rate', '预设文件': 'Preset File', '每回合': 'Per Turn', '调参': 'Tuning', '新增': 'Add',
+  // 创建 / 世界卡
+  '技巧类': 'Skill Type', '种族详情': 'Race Details', '未填': 'Not Filled', '世界名称': 'World Name',
+  '世界简介': 'World Intro', '切入点': 'Entry Point', '主角身份': 'MC Identity', '奖励预览': 'Reward Preview', '配方名': 'Recipe Name',
+  // 锁定 / 数值
+  '档案': 'Profile', '外貌': 'Appearance', '数值': 'Stats', '规模': 'Scale', '实力': 'Power', '质量': 'Quality',
+  // 体系 / 出战
+  '上场': 'Deploy', '收进替补席': 'Bench', '永久删除': 'Delete', '未命名体系': 'Unnamed Loadout',
+  // 世界 / 记忆 / 时间
+  '世界时间': 'World Time', '轮回历时间': 'Samsara Calendar', '进度': 'Progress', '世界争夺战': 'World War',
+  '试炼世界': 'Trial World', '本世界': 'This World', '战斗结束': 'Battle Over', '阶段记忆': 'Phase Memory',
+  '近期记忆': 'Recent Memory', '召回': 'Recall', '推进': 'Advance', '腐蚀': 'Corruption', '休闲世界': 'Casual World',
+  '事实': 'Fact', '事实查证': 'Fact Check', '技能升级': 'Skill Upgrade', '赌场': 'Casino',
+  // 动作 / 状态补
+  '不改': 'Keep', '消耗': 'Cost', '删': 'Del', '保留': 'Keep', '故土': 'Homeland', '稳固': 'Stable',
+  '一号位': 'Slot 1', '二号位': 'Slot 2', '随机分配中': 'Randomizing…', '挑战': 'Challenge', '旁观': 'Spectate',
+  '重试': 'Retry', '加载失败': 'Load Failed', '导入失败': 'Import Failed', '遣散': 'Disband', '下架': 'Delist',
+  '版本': 'Version', '类别': 'Category', '档位': 'Tier', '无变化': 'No Change', '已覆灭': 'Destroyed',
+  '学会': 'Learn', '强化': 'Enhance', '伏笔': 'Foreshadowing', '未知物品': 'Unknown Item',
+  '开箱': 'Open', '招财': 'Fortune', '最新': 'Latest', '满': 'Full', '队': 'Team',
 };
 
 /* 插值 / 带数字规则（锚定，安全）。命中即用 core.replace(re, to)。 */
