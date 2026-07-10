@@ -35,6 +35,7 @@ interface GuildState {
   status: GuildMpStatus;
   me: GuildMe | null;
   online: number;
+  exp: number;                  // 家族当前总 exp（进度条用·live）
   error: string | null;
   roster: GuildMember[];
   chest: any[];
@@ -52,6 +53,7 @@ const LIVE_INIT = {
   status: 'idle' as GuildMpStatus,
   me: null as GuildMe | null,
   online: 0,
+  exp: 0,
   error: null as string | null,
   roster: [] as GuildMember[],
   chest: [] as any[],

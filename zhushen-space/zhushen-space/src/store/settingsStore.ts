@@ -259,8 +259,8 @@ export interface VecMemConfig {
 
 export type NarrativePov = 'off' | 'first' | 'second' | 'third';  // 叙事人称：off=跟随预设（不干预）
 
-// 界面语言（仅影响 UI chrome，AI 正文不变）：zh-Hans=简体(源码原样) / zh-Hant=繁體(OpenCC 运行时转换) / en=英文(人工词库)
-export type UiLang = 'zh-Hans' | 'zh-Hant' | 'en';
+// 界面语言（仅影响 UI chrome，AI 正文不变）：zh-Hans=简体(源码原样) / zh-Hant=繁體(OpenCC 运行时转换) / en=英文(人工词库) / vi=越南语(人工本地化词库)
+export type UiLang = 'zh-Hans' | 'zh-Hant' | 'en' | 'vi';
 
 interface SettingsState {
   // 综合设置

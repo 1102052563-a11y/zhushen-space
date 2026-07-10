@@ -131,7 +131,7 @@ import { preloadEventCores } from './systems/ledger/preloadCores';   // 阶段1�
 import { snapshotPlayerBag, reconcilePlayerBag } from './systems/itemWatchdog';
 import { flattenAiText } from './systems/flattenAiText';
 import { runPhasePipeline, type Phase } from './systems/phasePipeline';
-import { buildFanficInjection, buildFactInjection, buildCosmosInjection, buildPlayerCoreInjection, buildWorldTimeInjection, buildQuestInjection } from './systems/promptInjections';
+import { buildFanficInjection, buildFactInjection, buildCosmosInjection, buildPlayerCoreInjection, buildWorldTimeInjection, buildQuestInjection, buildGuildInjection } from './systems/promptInjections';
 import { takeSkillUpNote } from './systems/skillUpgrade';
 import { applyPlayerProfileCommands, applyTimedStatusCommands, expireStatuses } from './systems/statusCommands';
 import { getNpcApi, trimNarrative, npcChatCompletion, buildNpcVars, fillVars, serializeNpcSnapshot } from './systems/npcEvolutionHelpers';
@@ -262,7 +262,10 @@ import { buildCraftWbInjection } from './systems/craftWorldBook';
 import { generateGem } from './systems/gemEngine';
 const CraftPanel = lazy(() => import('./components/CraftPanel'));
 const ProducePanel = lazy(() => import('./components/ProducePanel'));
+const GuildPanel = lazy(() => import('./components/GuildPanel'));
 import { useShop } from './store/shopStore';
+import { useGuild } from './store/guildStore';
+import { guildClient } from './systems/guildClient';
 const ChannelPanel = lazy(() => import('./components/ChannelPanel'));
 import type { DmHandlers } from './components/DmPanel';
 const DmPanel = lazy(() => import('./components/DmPanel'));
@@ -1076,6 +1079,7 @@ const rightMenuItems = [
   { icon: '💬', label: '聊天室' },
   { icon: '🛒', label: '交易行' },
   { icon: '🏪', label: '产业' },
+  { icon: '🏰', label: '家族' },
   { icon: '🆘', label: '助战' },
   { icon: '🏆', label: '世界竞技场' },
   { icon: '🪦', label: '纪念丰碑' },
@@ -1092,7 +1096,7 @@ const NAV_FX: Record<string, string> = {
   '副职业': 'fx-wrench', '技能树': 'fx-tree', '体系': 'fx-tree', '合成': 'fx-wrench', '称号': 'fx-medal', '成就': 'fx-trophy', '势力': 'fx-pillar',
   '领地': 'fx-castle', '冒险团': 'fx-shield', '队伍': 'fx-friends', '万族': 'fx-cosmos', '世界百科': 'fx-book', '轮回WIKI': 'fx-book',
   '战斗': 'fx-clash', '乐园设施': 'fx-ferris', '深渊': 'fx-void', '回合洞察': 'fx-zoom', '审计': 'fx-zoom', '任务': 'fx-quest',
-  '频道': 'fx-signal', '私信': 'fx-mail', '好友': 'fx-friends', '聊天室': 'fx-signal', '交易行': 'fx-bag', '产业': 'fx-bag', '助战': 'fx-clash', '世界竞技场': 'fx-trophy', '纪念丰碑': 'fx-pillar', '账户仓库': 'fx-bag', '记忆': 'fx-brain', '创意工坊': 'fx-sparkle', '存档': 'fx-save', '设置': 'fx-gear',
+  '频道': 'fx-signal', '私信': 'fx-mail', '好友': 'fx-friends', '聊天室': 'fx-signal', '交易行': 'fx-bag', '产业': 'fx-bag', '家族': 'fx-castle', '助战': 'fx-clash', '世界竞技场': 'fx-trophy', '纪念丰碑': 'fx-pillar', '账户仓库': 'fx-bag', '记忆': 'fx-brain', '创意工坊': 'fx-sparkle', '存档': 'fx-save', '设置': 'fx-gear',
 };
 
 /* 炼晶：把玩家倾向解析成 gemEngine 的 want（指定宝石属性/镶嵌部位；无匹配则返回 undefined 走随机）。
@@ -1129,6 +1133,7 @@ function rollAndApplyGemDrops(rawNarrative: string): string {
     if (!drops.length) return '';
     const I = useItems.getState();
     for (const d of drops) I.addItem(d as any);
+    try { if (useGuild.getState().my) guildClient.contributeRest(drops.length * 60, 'kill'); } catch { /* 击杀强敌→家族贡献(异步·非阻塞) */ }
     const names = drops.map((d) => d.name).join('、');
     pushSceneNotice(`【场外·掉落】击败强敌后，从其身上拾得宝石：${names}（已入背包，可到💎镶嵌所镶嵌；集齐同套装宝石激活套装加成）`);
     try { playSfx('coin'); } catch { /* 缺音效静默 */ }
@@ -1238,6 +1243,7 @@ export default function App() {
   const [enhancePanelOpen, setEnhancePanelOpen] = useState(false);
   const [craftPanelOpen, setCraftPanelOpen] = useState(false);
   const [producePanelOpen, setProducePanelOpen] = useState(false);
+  const [guildPanelOpen, setGuildPanelOpen] = useState(false);
   const [skillUpPanelOpen, setSkillUpPanelOpen] = useState(false);
   const [casinoOpen,       setCasinoOpen]       = useState(false);
   const [abyssOpen,        setAbyssOpen]        = useState(false);
@@ -8265,6 +8271,7 @@ ${lines}`;
       ...buildWorldTimeInjection(),                     // <当前时空>
       ...buildQuestInjection(),                          // <当前任务>
       ...buildCosmosInjection(),                        // <万族态势>
+      ...buildGuildInjection(),                         // <所属家族> 玩家家族身份 + 增益（社交身份·跨世界）
       ...buildFanficInjection(),                        // <同人设定·已锁定>
       ...buildFactInjection(),                          // <事实锚点·已锁定>
       ...structPlayer,                                 // <主角当前档案> 浅注入：紧贴最近正文/用户输入
@@ -8638,6 +8645,7 @@ ${lines}`;
       label === '体系' ? () => setLoadoutOpen(true) :
       label === '合成' ? () => setCraftPanelOpen(true) :
       label === '产业' ? () => setProducePanelOpen(true) :
+      label === '家族' ? () => setGuildPanelOpen(true) :
       label === '势力' ? () => setFactionPanelOpen(true) :
       label === '领地' ? () => setTerritoryPanelOpen(true) :
       label === '冒险团' ? () => setTeamPanelOpen(true) :
@@ -10429,6 +10437,7 @@ ${lines}`;
 
       {craftPanelOpen && <CraftPanel onClose={() => setCraftPanelOpen(false)} onGenerate={runCraftPhase} onConfirm={confirmCraft} />}
       {producePanelOpen && <ProducePanel onClose={() => setProducePanelOpen(false)} onJoySend={onJoySend} onGenerateGoods={genShopGoods} onBuyCompanion={buyShopCompanion} />}
+      {guildPanelOpen && <GuildPanel onClose={() => setGuildPanelOpen(false)} />}
 
       {casinoOpen && <CasinoPanel onClose={() => setCasinoOpen(false)} onGenMatch={genGladiatorMatch} onGenBattle={genGladiatorBattle} onGenRewards={genGachaRewards} onBanter={casinoBanter} onGenSoul={genSoulGamble} onGenPortraits={genGladiatorPortraits} />}
       {abyssOpen && <AbyssPanel onClose={() => setAbyssOpen(false)} onGenBoons={genAbyssBoons} onGenSin={genAbyssSin} onGenAwaken={genAbyssAwaken} onGenJudge={genAbyssJudge} onGenEnemies={genAbyssEnemies} />}

@@ -8,6 +8,8 @@ import { ChatDO } from "./ChatDO.js";
 import { TradeDO } from "./TradeDO.js";
 import { AssistDO } from "./AssistDO.js";
 import { ShopDO } from "./ShopDO.js";
+import { GuildDO } from "./GuildDO.js";
+import { GuildListDO } from "./GuildListDO.js";
 import { ArenaWorldDO } from "./ArenaWorldDO.js";
 import { handleGateway } from "./gateway.js";
 import { handleWorkshop } from "./workshop.js";
@@ -19,7 +21,7 @@ import { handleStickerUpload, handleStickerServe, handleStickerList, handleStick
 import { verifyChatToken } from "./auth.js";
 
 // wrangler 需要从入口模块导出 DO 类
-export { RoomDO, LobbyDO, ChatDO, TradeDO, AssistDO, ArenaWorldDO, ShopDO };
+export { RoomDO, LobbyDO, ChatDO, TradeDO, AssistDO, ArenaWorldDO, ShopDO, GuildDO, GuildListDO };
 
 // 房间码：去掉易混字符（0/O/1/I），6 位
 const ALPHABET = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
@@ -68,6 +70,9 @@ function assistStub(env) {
 }
 function shopStub(env) {
   return env.SHOP.get(env.SHOP.idFromName("global"));
+}
+function guildListStub(env) {
+  return env.GUILDLIST.get(env.GUILDLIST.idFromName("global"));
 }
 function arenaWorldStub(env) {
   return env.ARENAWORLD.get(env.ARENAWORLD.idFromName("global"));
@@ -241,6 +246,42 @@ export default {
           status: r.status,
           headers: { ...ch, "Content-Type": "application/json" },
         });
+      }
+
+      // 家族系统：GuildListDO 单例（注册表·浏览/搜索/创建/申请）+ GuildDO 每家族（成员操作·按 guildId 路由）。
+      // 与聊天室共用 Discord 身份：验 chatToken → pid=chat:<uid>。
+      if (p === "/api/guild-list/ws") {
+        if (request.headers.get("Upgrade") !== "websocket") return new Response("expected websocket", { status: 426, headers: ch });
+        const payload = await verifyChatToken(env, url.searchParams.get("token"));
+        if (!payload || !payload.cuid) return new Response("需要 Discord 登录", { status: 401, headers: ch });
+        const u = new URL(request.url);
+        u.searchParams.set("pid", "chat:" + payload.cuid);
+        u.searchParams.set("name", (u.searchParams.get("name") || payload.name || "道友"));
+        u.searchParams.set("du", String(payload.du || payload.cuid));
+        u.searchParams.delete("token");
+        return guildListStub(env).fetch(new Request(u.toString(), request));
+      }
+      if (p === "/api/guild/ws") {
+        if (request.headers.get("Upgrade") !== "websocket") return new Response("expected websocket", { status: 426, headers: ch });
+        const payload = await verifyChatToken(env, url.searchParams.get("token"));
+        if (!payload || !payload.cuid) return new Response("需要 Discord 登录", { status: 401, headers: ch });
+        const guildId = url.searchParams.get("guildId") || "";
+        if (!guildId) return new Response("missing guildId", { status: 400, headers: ch });
+        const u = new URL(request.url);
+        u.searchParams.set("pid", "chat:" + payload.cuid);
+        u.searchParams.set("name", (u.searchParams.get("name") || payload.name || "道友"));
+        u.searchParams.delete("token");
+        return env.GUILD.get(env.GUILD.idFromName(guildId)).fetch(new Request(u.toString(), request));
+      }
+      // gameplay 自动贡献（REST·免持久 WS）：验 token → GuildDO(guildId)/contribute。
+      if (p === "/api/guild/contribute" && request.method === "POST") {
+        const payload = await verifyChatToken(env, url.searchParams.get("token"));
+        if (!payload || !payload.cuid) return new Response("需要 Discord 登录", { status: 401, headers: ch });
+        const guildId = url.searchParams.get("guildId") || "";
+        if (!guildId) return new Response("missing guildId", { status: 400, headers: ch });
+        const body = await request.json().catch(() => ({}));
+        const r = await env.GUILD.get(env.GUILD.idFromName(guildId)).fetch("https://do/contribute", { method: "POST", body: JSON.stringify({ pid: "chat:" + payload.cuid, amount: body.amount, kind: body.kind }) });
+        return new Response(await r.text(), { status: r.status, headers: { ...ch, "Content-Type": "application/json" } });
       }
 
       // 全局世界竞技场（独立 ArenaWorldDO 单例；上传参赛卡 + 占位排名榜 + 服务端裁判挑战）。

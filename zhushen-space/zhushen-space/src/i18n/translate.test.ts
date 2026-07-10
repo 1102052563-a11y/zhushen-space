@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { translateToEn, convert, hasCJK } from './translate';
+import { translateToEn, translateToVi, convert, hasCJK } from './translate';
 
 describe('i18n · hasCJK', () => {
   it('识别中日韩表意文字', () => {
@@ -33,9 +33,29 @@ describe('i18n · translateToEn', () => {
   });
 });
 
+describe('i18n · translateToVi', () => {
+  it('界面控件用现代越南语', () => {
+    expect(translateToVi('保存')).toBe('Lưu');
+    expect(translateToVi('设置')).toBe('Cài Đặt');
+    expect(translateToVi('搜索')).toBe('Tìm kiếm');
+  });
+  it('题材术语用汉越词', () => {
+    expect(translateToVi('战力')).toBe('Lực Chiến');
+    expect(translateToVi('万族')).toBe('Vạn Tộc');
+    expect(translateToVi('好感度')).toBe('Độ Hảo Cảm');
+  });
+  it('插值规则与回退', () => {
+    expect(translateToVi('等级 5')).toBe('Cấp 5');
+    expect(translateToVi('尚未收录的界面文字')).toBe('尚未收录的界面文字');
+  });
+});
+
 describe('i18n · convert 语言分派', () => {
   it('en 走英文词库', () => {
     expect(convert('保存', 'en', null)).toBe('Save');
+  });
+  it('vi 走越南语词库', () => {
+    expect(convert('设置', 'vi', null)).toBe('Cài Đặt');
   });
   it('zh-Hant 委托给传入的转换函数', () => {
     const fakeTw = (s: string) => s.replace(/设置/g, '設定');

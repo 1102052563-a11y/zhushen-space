@@ -2748,16 +2748,17 @@ function AppearanceSettingsSection() {
         <div className="text-sm font-mono text-god/70 uppercase tracking-widest">界面语言</div>
         <div className="border border-edge rounded-lg p-4 bg-panel space-y-3">
           <div className="text-sm text-dim leading-relaxed">
-            切换界面显示语言。<b className="text-slate-300">繁體中文</b>自动转换全部界面（台湾正体·惯用词）；<b className="text-slate-300">English</b> 覆盖核心界面，未翻译处暂显中文，后续补齐。AI 生成的剧情正文不受影响，始终保持原语言。
+            切换界面显示语言。<b className="text-slate-300">繁體中文</b>自动转换全部界面（台湾正体·惯用词）；<b className="text-slate-300">English</b> / <b className="text-slate-300">Tiếng Việt</b> 为人工本地化、覆盖核心界面，未翻译处暂显中文，后续补齐。AI 生成的剧情正文不受影响，始终保持原语言。
           </div>
           {/* data-no-i18n：语言名恒以本语言原文呈现（标准语言选择器惯例），不被翻译层改写 */}
-          <div className="grid grid-cols-3 gap-2" data-no-i18n>
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2" data-no-i18n>
             {[
-              { key: 'zh-Hans', label: '简体中文', desc: '源码原样' },
-              { key: 'zh-Hant', label: '繁體中文', desc: '台灣正體' },
-              { key: 'en',      label: 'English',  desc: 'Core UI' },
+              { key: 'zh-Hans', label: '简体中文',   desc: '源码原样' },
+              { key: 'zh-Hant', label: '繁體中文',   desc: '台灣正體' },
+              { key: 'en',      label: 'English',    desc: 'Core UI' },
+              { key: 'vi',      label: 'Tiếng Việt', desc: 'Bản địa hoá' },
             ].map((o) => (
-              <button key={o.key} onClick={() => setLanguage(o.key as 'zh-Hans' | 'zh-Hant' | 'en')}
+              <button key={o.key} onClick={() => setLanguage(o.key as 'zh-Hans' | 'zh-Hant' | 'en' | 'vi')}
                 className={`px-2 py-2.5 rounded-lg border text-sm font-mono transition-colors ${
                   language === o.key ? 'border-god/60 bg-god/15 text-god' : 'border-edge bg-void/40 text-dim hover:border-god/30 hover:text-slate-300'}`}>
                 <div className="font-semibold">{o.label}</div>

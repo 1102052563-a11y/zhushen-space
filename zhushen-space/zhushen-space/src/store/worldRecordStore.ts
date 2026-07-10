@@ -27,6 +27,7 @@ export interface WorldviewCharacter {
   初始态度?: string;    // 对主角的初始态度
   强度档?: string;      // 与主角阶位相称（T0~T9 / 阶位）
   剧情权重?: string;    // 高/中/低 · Boss…
+  现状?: string;        // ⭐动态·世界志演化维护：当前状态（存活/重伤/臣服/离场/态度反转…）。死亡是硬事实、走 WorldRecord.deceased 单向棘轮，不靠这里。
 }
 export interface WorldviewPlot {
   开局情境?: string;
