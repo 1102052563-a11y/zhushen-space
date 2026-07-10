@@ -170,10 +170,19 @@ export function serializeNpcSnapshot(r: NpcRecord): string {
     r.appearance5 && `肖像(列16·即时状态,须与基底外观一致): ${r.appearance5}`,
     `生图提示词(列19,有则沿用/仅长期外观变化时更新·须忠实反映上方基底外观,不得编出与之冲突的体型/瞳色/身高): ${r.imageTags || '（未生成,请生成英文NAI tags）'}`,
     r.motiveNow && `当前动机(列27): ${r.motiveNow}`,
+    r.shortGoal && `短期目标(列28·沿用·仅正文推进/达成/受挫才更新，勿每轮重拟): ${r.shortGoal}`,
+    r.longGoal && `长期目标(列29·沿用·仅正文出现重大转折才更新，勿每轮重拟): ${r.longGoal}`,
     r.appearanceDetail && `容貌(列34·须与基底外观一致): ${r.appearanceDetail}`,
     // ── 已有技能/天赋：让 AI 看到现状，避免每轮重建累积 ──
     `已有技能(${skills.length}): ${skills.length ? skills.map((s) => `${s.id}「${s.name}」${s.level ?? ''}`).join('；') : '（无）'}`,
     `已有天赋(${talents.length}): ${talents.length ? talents.map((t) => `「${t.name}」${t.category ?? ''}·${t.rarity}级`).join('；') : '（无）'}`,
+    // ── 性相关/私密列·当前累积档：注入让 NPC 演化"增量累积"而非每轮重造→处女初始态（治用户报"自动补膜、性经验消失"）──
+    (() => {
+      const ex = (r.extra ?? {}) as Record<string, unknown>;
+      const PRIV: [string, string][] = [['8', '性经验'], ['17', '表性癖'], ['18', '里性癖'], ['20', '敏感部位'], ['21', '性器状态'], ['22', '情欲值'], ['23', '快感值'], ['24', '性观念'], ['淫纹', '淫纹'], ['解锁服装', '解锁服装'], ['独特技巧', '独特技巧'], ['性爱姿势', '性爱姿势'], ['开发玩法', '开发玩法']];
+      const got = PRIV.map(([k, label]) => { const v = ex[k] ?? ex[label]; const s = v == null ? '' : String(v).trim(); return s ? `${label}=${s}` : ''; }).filter(Boolean);
+      return got.length ? `私密/性相关列·当前累积档〔**只增不重置·破膜/性器开发状态不可逆·各部位经验次数只增·解锁服装/开发玩法/性爱姿势去重累加**；本轮正文无明确性情节就原样沿用、连这些字段都别输出，**绝不要把它们重写回"未曾经历/未开发/0次/花瓣紧闭/未见开拓"等处女初始态**——那是清空玩家累积的进度〕:\n${got.join('\n')}` : '';
+    })(),
   ].filter(Boolean);
   return `【该角色已由登场判断建档，本阶段只做"补全 + 增量更新"，不要重造】${unnamed ? `
 - ⚠**例外·必须命名（最高优先）**：该角色当前姓名(列1)仍是占位ID「${r.id}」，从未正式命名。请**本回合务必**结合正文与其已知档案（身份/阶位/背景/种族/外观），把**列1(姓名)**更新成一个**符合世界观的中文名**——这是唯一允许改动姓名的情形，**必须**输出对应指令，不得以"无变化"略过。` : ''}
