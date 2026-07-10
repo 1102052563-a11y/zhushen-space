@@ -322,6 +322,8 @@ interface SettingsState {
   setAutoTranslateOnline: (v: boolean) => void;
   autoTranslateEngine: 'ai' | 'free';   // 机翻引擎：ai=玩家自己的LLM(耗额度·最地道) / free=MyMemory免费机翻(不耗额度)
   setAutoTranslateEngine: (v: 'ai' | 'free') => void;
+  autoTranslateManual: boolean;   // 机翻手动触发：开=不自动跑机翻(只留词库+繁體转换)、靠悬浮「译」按钮点触；关=自动补全
+  setAutoTranslateManual: (v: boolean) => void;
   apiLibrary: ApiEndpoint[];   // 中心 API 接口库（综合设置维护，各功能快捷选填）
   apiRoutes: Record<string, string[]>;  // 各功能的接口路由：featureKey → 有序 endpoint id 列表（上=优先，失败 fallback）
   apiThrottle: { maxConcurrent: number; minGapMs: number };  // 全局请求节流：最大并发 + 最小间隔（缓解 429）
@@ -765,6 +767,7 @@ export const useSettings = create<SettingsState>()(
       language: 'zh-Hans',   // 默认简体（源码原样，零开销）；切繁體/英文才启用运行时翻译层
       autoTranslateOnline: true,   // 默认开：非简体语言下，跨玩家在线内容自动机翻（简体用户 needsAutoTranslate 基本不触发）
       autoTranslateEngine: 'ai',   // 默认 AI（最地道）；可切「免费机翻」不耗额度
+      autoTranslateManual: true,   // 默认手动点击触发（避免自动机翻持续耗额度）
       apiLibrary: [],
       apiRoutes: {},
       apiThrottle: { maxConcurrent: 3, minGapMs: 250 },
@@ -840,6 +843,7 @@ export const useSettings = create<SettingsState>()(
       setLanguage: (v) => set({ language: v }),
       setAutoTranslateOnline: (v) => set({ autoTranslateOnline: v }),
       setAutoTranslateEngine: (v) => set({ autoTranslateEngine: v }),
+      setAutoTranslateManual: (v) => set({ autoTranslateManual: v }),
 
       addApiEndpoint: () => set((s) => ({
         apiLibrary: [...s.apiLibrary, {

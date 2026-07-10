@@ -500,6 +500,18 @@ export const EN_EXACT: Record<string, string> = {
   '角色卡': 'Character Card', '技能树模板': 'Skill Tree Template', '副职业技能树': 'Subprofession Tree', '角色创建模板': 'Creation Template', '流派': 'Style',
   '同人世界原著情报': 'Fanfic Canon Info', '剧情先知': 'Plot Foresight', '联网考据': 'Online Research',
   '社区共享': 'Community Sharing', '浏览下载': 'Browse & Download',
+
+  // ── 自动翻译设置 UI + 接口路由 chrome ──
+  '自动机翻补全（界面 + 在线内容）': 'Auto machine-translate (UI + online)',
+  'AI 翻译': 'AI Translation', '免费机翻': 'Free MT',
+  '最地道 · 耗 API 额度': 'Most natural · uses API quota', '不耗额度 · MyMemory': 'No quota · MyMemory',
+  '翻译专用接口（从「综合设置 → API 接口库」里选一条；留空=复用正文/世界 API）：': 'Dedicated translation endpoint (pick one from Settings → API Library; blank = reuse the narrative/world API):',
+  '⚡ 接口路由（多选·按优先级轮流调用，上面的先调用，失败自动切下一条）': '⚡ API routing (multi-select · called in priority order — top first, auto-failover to the next)',
+  '接口库为空 —— 在「综合设置 → API 接口库」添加后，可在此勾选多条接口轮流调用。': 'API library is empty — add endpoints in Settings → API Library, then select them here for rotation.',
+  '未选接口 —— 当前用下方「单独配置 / 共用 API」。从下拉添加可启用多接口轮流。': 'No endpoint selected — using the "separate / shared API" below. Add from the dropdown to enable rotation.',
+  '+ 添加接口到路由…': '+ Add endpoint to route…',
+  '手动点击触发机翻（省额度）': 'Manual translate (saves quota)',
+  '开：机翻不自动跑，右下角出现「🌐 译」按钮、点一下才翻当前页（词库 + 繁體转换仍自动）；关：打开面板即自动补全。': 'On: machine translation stays off by default — a 🌐 button appears at bottom-right; click it to translate the current page (dictionary + Traditional conversion still run automatically). Off: auto-fills when a panel opens.',
 };
 
 /* 插值 / 带数字规则（锚定，安全）。命中即用 core.replace(re, to)。 */

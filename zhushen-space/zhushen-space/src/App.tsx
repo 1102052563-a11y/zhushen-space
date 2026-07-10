@@ -308,7 +308,6 @@ import { restoreB1IfWiped } from './systems/b1Mirror';
 import * as chatDb from './systems/chatDb';
 import PlayerSidebar from './components/PlayerSidebar';
 import StartScreen from './components/StartScreen';
-import DiscordAnnounceBar from './components/DiscordAnnounceBar';
 import CharacterCreation, { type CreationData, formatCreationTalent } from './components/CharacterCreation';
 const SettingsPanel = lazy(() => import('./components/SettingsPanel'));
 import WorldSelector, { type WorldOption } from './components/WorldSelector';
@@ -9587,9 +9586,6 @@ ${lines}`;
           >🔍</button>
         </div>
       </header>
-
-      {/* 📢 常驻公告栏（游戏内主界面 · 官方 Discord · 中英双语）*/}
-      <DiscordAnnounceBar inline />
 
       {/* ── 主体3栏 ── */}
       <div className="flex flex-1 overflow-hidden">

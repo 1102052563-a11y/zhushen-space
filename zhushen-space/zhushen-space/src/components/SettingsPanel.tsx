@@ -2741,6 +2741,8 @@ function AppearanceSettingsSection() {
   const setAutoTranslateOnline = useSettings((s) => s.setAutoTranslateOnline);
   const autoTranslateEngine    = useSettings((s) => s.autoTranslateEngine);
   const setAutoTranslateEngine = useSettings((s) => s.setAutoTranslateEngine);
+  const autoTranslateManual    = useSettings((s) => s.autoTranslateManual);
+  const setAutoTranslateManual = useSettings((s) => s.setAutoTranslateManual);
   const ff = reading.fontFamily || 'default';
   return (
     <div className="space-y-8">
@@ -2790,6 +2792,23 @@ function AppearanceSettingsSection() {
                   <div className="text-[11px] opacity-60 mt-0.5">{o.desc}</div>
                 </button>
               ))}
+            </div>
+          )}
+          {/* 手动触发：机翻不自动跑，靠右下角悬浮「🌐 译」按钮点触，省额度 */}
+          {autoTranslateOnline && (
+            <label className="flex items-start gap-2.5 pl-6 cursor-pointer select-none">
+              <input type="checkbox" checked={autoTranslateManual} onChange={(e) => setAutoTranslateManual(e.target.checked)} className="accent-god w-4 h-4 mt-0.5" />
+              <span>
+                <span className="text-sm text-slate-300">手动点击触发机翻（省额度）</span>
+                <span className="block text-[12px] text-dim/60 leading-relaxed">开：机翻不自动跑，右下角出现「🌐 译」按钮、点一下才翻当前页（词库 + 繁體转换仍自动）；关：打开面板即自动补全。</span>
+              </span>
+            </label>
+          )}
+          {/* AI 翻译专用接口路由：不填=复用正文/世界 API；填了就用这条独立接口做机翻，跟游戏正文互不抢额度 */}
+          {autoTranslateOnline && autoTranslateEngine === 'ai' && (
+            <div className="pl-6 space-y-1">
+              <div className="text-[11px] text-dim/50 leading-relaxed">翻译专用接口（从「综合设置 → API 接口库」里选一条；留空=复用正文/世界 API）：</div>
+              <ApiRoutePicker routeKey="autotranslate" />
             </div>
           )}
         </div>

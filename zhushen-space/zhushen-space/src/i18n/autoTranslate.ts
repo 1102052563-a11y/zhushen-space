@@ -111,25 +111,26 @@ async function mapLimit<T>(arr: T[], limit: number, fn: (x: T, i: number) => Pro
   });
   await Promise.all(workers);
 }
-async function freeTranslate(texts: string[], target: UiLang): Promise<string[]> {
+async function freeTranslate(texts: string[], target: UiLang): Promise<(string | null)[]> {
   const tgt = MM_TGT[target];
-  const out = [...texts];
+  const out: (string | null)[] = texts.map(() => null);   // null=失败/限流：调用方不缓存·下次重试
   await mapLimit(texts, 5, async (t, i) => {
     const src = MM_SRC[detectLang(t)];
-    if (!src || !tgt || src === tgt) return;
+    if (!src || !tgt || src === tgt) { out[i] = t; return; }
     try {
-      const url = `https://api.mymemory.translated.net/get?q=${encodeURIComponent(t)}&langpair=${src}|${tgt}`;
+      // de= 提供一个邮箱把匿名日限从~1000词提到~50000词，缓解大量内容时的限流
+      const url = `https://api.mymemory.translated.net/get?q=${encodeURIComponent(t)}&langpair=${src}|${tgt}&de=zhushen.app@gmail.com`;
       const res = await fetch(url);
       const j = await res.json();
       const tr = j?.responseData?.translatedText;
-      // 命中且非配额警告/无效才采用；否则保留原文
-      if (typeof tr === 'string' && tr.trim() && !/MYMEMORY WARNING|INVALID|QUERY LENGTH LIMIT/i.test(tr)) out[i] = tr;
-    } catch { /* 网络/CORS 失败 → 保留原文 */ }
+      if (typeof tr === 'string' && tr.trim() && !/MYMEMORY WARNING|INVALID|QUERY LENGTH|LIMIT|IS AN INVALID/i.test(tr)) out[i] = tr;
+      // 否则留 null（限流/失败）→ 不缓存、下次重试
+    } catch { /* 网络/CORS 失败 → null，下次重试 */ }
   });
   return out;
 }
 
-async function llmTranslate(texts: string[], target: UiLang): Promise<string[]> {
+async function llmTranslate(texts: string[], target: UiLang): Promise<(string | null)[]> {
   const s = useSettings.getState();
   const legacy = s.textUseSharedApi ? s.api : s.textApi;
   const chain = resolveApiChain('autotranslate', legacy);
@@ -139,7 +140,7 @@ async function llmTranslate(texts: string[], target: UiLang): Promise<string[]> 
     { timeoutMs: 45000, label: '在线内容机翻', extra: { temperature: 0.3 } },
   );
   const parsed = robustParseArray(content, texts.length);
-  return parsed ?? texts;   // 解析失败 → 回退原文（不崩、不卡）
+  return parsed ?? texts.map(() => null);   // 解析失败 → 全 null（不缓存·下次重试）
 }
 
 async function flush() {
@@ -165,13 +166,17 @@ async function flush() {
     const engine = useSettings.getState().autoTranslateEngine;   // 'ai'=LLM(耗额度·最地道) / 'free'=MyMemory(免费)
     for (let i = 0; i < apiTexts.length; i += 40) {
       const slice = apiTexts.slice(i, i + 40);
-      let out: string[];
+      let out: (string | null)[];
       try {
         out = engine === 'free' ? await freeTranslate(slice, target) : await llmTranslate(slice, target);
       } catch {
-        try { out = await freeTranslate(slice, target); } catch { out = slice; }   // AI 失败(如未配 API)→退免费；再失败→原文
+        try { out = await freeTranslate(slice, target); } catch { out = slice.map(() => null); }   // AI 失败(如未配 API)→退免费；再失败→null
       }
-      slice.forEach((t, j) => { const v = out[j] ?? t; cache.set(ck(t, target), v); texts.get(t)!.forEach((r) => r(v)); });
+      slice.forEach((t, j) => {
+        const v = out[j];
+        if (v != null) cache.set(ck(t, target), v);       // ⭐仅成功才缓存；失败(null)不缓存→下次访问重试（治"限流后永久留中文"）
+        texts.get(t)!.forEach((r) => r(v != null ? v : t));
+      });
     }
     saveCacheSoon();
   }

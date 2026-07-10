@@ -500,6 +500,18 @@ export const VI_EXACT: Record<string, string> = {
   '角色卡': 'Thẻ Nhân Vật', '技能树模板': 'Mẫu Cây Kỹ Năng', '副职业技能树': 'Cây Nghề Phụ', '角色创建模板': 'Mẫu Tạo Nhân Vật', '流派': 'Lưu Phái',
   '同人世界原著情报': 'Thông Tin Nguyên Tác', '剧情先知': 'Tiên Tri Cốt Truyện', '联网考据': 'Khảo Cứu Trực Tuyến',
   '社区共享': 'Chia Sẻ Cộng Đồng', '浏览下载': 'Duyệt & Tải',
+
+  // ── 自动翻译设置 UI + 接口路由 chrome ──
+  '自动机翻补全（界面 + 在线内容）': 'Tự động dịch máy (giao diện + online)',
+  'AI 翻译': 'Dịch AI', '免费机翻': 'Dịch miễn phí',
+  '最地道 · 耗 API 额度': 'Tự nhiên nhất · tốn quota API', '不耗额度 · MyMemory': 'Không tốn quota · MyMemory',
+  '翻译专用接口（从「综合设置 → API 接口库」里选一条；留空=复用正文/世界 API）：': 'Endpoint dịch riêng (chọn một từ Cài đặt → Thư viện API; để trống = dùng chung API nội dung/thế giới):',
+  '⚡ 接口路由（多选·按优先级轮流调用，上面的先调用，失败自动切下一条）': '⚡ Định tuyến API (chọn nhiều · gọi theo ưu tiên — trên trước, tự chuyển cái kế khi lỗi)',
+  '接口库为空 —— 在「综合设置 → API 接口库」添加后，可在此勾选多条接口轮流调用。': 'Thư viện API trống — thêm endpoint ở Cài đặt → Thư viện API, rồi chọn ở đây để luân phiên.',
+  '未选接口 —— 当前用下方「单独配置 / 共用 API」。从下拉添加可启用多接口轮流。': 'Chưa chọn endpoint — đang dùng "API riêng / chung" bên dưới. Thêm từ menu để bật luân phiên.',
+  '+ 添加接口到路由…': '+ Thêm endpoint vào route…',
+  '手动点击触发机翻（省额度）': 'Dịch thủ công (tiết kiệm quota)',
+  '开：机翻不自动跑，右下角出现「🌐 译」按钮、点一下才翻当前页（词库 + 繁體转换仍自动）；关：打开面板即自动补全。': 'Bật: dịch máy không tự chạy — nút 🌐 hiện ở góc dưới phải, bấm để dịch trang hiện tại (từ điển + chuyển Phồn thể vẫn tự động). Tắt: tự điền khi mở panel.',
 };
 
 /* 插值 / 带数字规则（锚定，安全）。 */
