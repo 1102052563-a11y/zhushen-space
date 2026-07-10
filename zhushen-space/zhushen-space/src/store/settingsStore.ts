@@ -356,7 +356,8 @@ interface SettingsState {
   guidancePrompt: string;           // 剧情指导自定义提示词（留空=用内置 PLOT_GUIDANCE_RULE）
   // 细纲：正文生成前先跑一次「细纲师」（信息注入与正文一致·独立API·A2：不带正文预设只发 OUTLINE_GEN_RULE）→ 弹窗给玩家编辑 → 确认后作为「必须遵循」深注入正文。与剧情指导/数据库推进三选一互斥（UI 侧强制）。
   outlineEnabled: boolean;
-  outlinePrompt: string;            // 细纲生成自定义提示词（留空=用内置 OUTLINE_GEN_RULE）
+  outlinePrompt: string;            // 细纲生成自定义提示词·**完全覆盖**（留空=用内置 OUTLINE_GEN_RULE；填了则整段替换掉内置的人设/COT/格式）
+  outlineBias: string;              // 细纲「创作偏好/倾向」·**追加**（追加在内置提示词后·只改"写什么/往哪偏/侧重什么"·不动内置格式/层级/字段）
   outlineWordTarget: number;        // 细纲/正文的字数目标（0=不限定，由 AI 按体量把握）
   outlineApi: ApiConfig;            // 细纲独立 API（outlineUseSharedApi=false 时用；否则复用正文/共享 API，或配 'outline' 路由）
   outlineUseSharedApi: boolean;
@@ -394,6 +395,7 @@ interface SettingsState {
   setGuidancePrompt: (v: string) => void;
   setOutlineEnabled: (v: boolean) => void;
   setOutlinePrompt: (v: string) => void;
+  setOutlineBias: (v: string) => void;
   setOutlineWordTarget: (v: number) => void;
   setOutlineApi: (patch: Partial<ApiConfig>) => void;
   setOutlineUseSharedApi: (v: boolean) => void;
@@ -786,6 +788,7 @@ export const useSettings = create<SettingsState>()(
       guidancePrompt: '',
       outlineEnabled: false,
       outlinePrompt: '',
+      outlineBias: '',
       outlineWordTarget: 0,
       outlineApi: { ...DEFAULT_API },
       outlineUseSharedApi: true,
@@ -966,6 +969,7 @@ export const useSettings = create<SettingsState>()(
       setGuidancePrompt: (v) => set({ guidancePrompt: v }),
       setOutlineEnabled: (v) => set({ outlineEnabled: v }),
       setOutlinePrompt: (v) => set({ outlinePrompt: v }),
+      setOutlineBias: (v) => set({ outlineBias: v }),
       setOutlineWordTarget: (v) => set({ outlineWordTarget: Math.max(0, Math.round(v || 0)) }),
       setOutlineApi: (patch) => set((s) => ({ outlineApi: { ...s.outlineApi, ...patch } })),
       setOutlineUseSharedApi: (v) => set({ outlineUseSharedApi: v }),

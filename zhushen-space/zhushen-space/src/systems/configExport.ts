@@ -174,6 +174,7 @@ function settingsExtract(s: any): any {
     guidancePrompt: s.guidancePrompt,
     outlineEnabled: s.outlineEnabled,
     outlinePrompt: s.outlinePrompt,
+    outlineBias: s.outlineBias,
     outlineWordTarget: s.outlineWordTarget,
     outlineApi: s.outlineApi,
     outlineUseSharedApi: s.outlineUseSharedApi,

@@ -8290,7 +8290,10 @@ ${lines}`;
     if (isOutline) {
       const wt = _ssApi.outlineWordTarget || 0;
       const wtLine = wt > 0 ? `约 ${wt} 字（可上下浮动约 10%）` : '贴合本回合体量自行把握（一般 1500~2500 字，重头戏可更长）';
-      const outlineSys = (_ssApi.outlinePrompt?.trim() || OUTLINE_GEN_RULE).replace('{{wordTarget}}', wtLine)
+      const outlineBase = (_ssApi.outlinePrompt?.trim() || OUTLINE_GEN_RULE).replace('{{wordTarget}}', wtLine);
+      const outlineBiasTxt = (_ssApi.outlineBias || '').trim();   // 「创作偏好/倾向」·追加在内置提示词后·只改内容侧重不动格式
+      const outlineSys = outlineBase
+        + (outlineBiasTxt ? `\n\n【本作者的创作偏好 / 细纲倾向（务必遵循——但**只影响"这一拍写什么、往哪偏、侧重什么、什么调性"**；绝不改变上面规定的输出格式/层级/字段/结构）】\n${outlineBiasTxt}` : '')
         + (worldInfoText ? `\n\n<世界书信息>\n${worldInfoText}\n</世界书信息>` : '');
       const outlineDepth = [...depthInjections, ...wbDepthInjections].sort((a, b) => b.depth - a.depth).map((inj) => ({ role: inj.role, content: inj.content }));
       const outlineHistory = [

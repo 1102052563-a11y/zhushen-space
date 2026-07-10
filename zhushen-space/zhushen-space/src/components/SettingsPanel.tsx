@@ -1399,9 +1399,11 @@ function TextApiSection() {
   const setGuidancePrompt  = useSettings((s) => s.setGuidancePrompt);
   const outlineEnabled     = useSettings((s) => s.outlineEnabled);
   const outlinePrompt      = useSettings((s) => s.outlinePrompt);
+  const outlineBias        = useSettings((s) => s.outlineBias);
   const outlineWordTarget  = useSettings((s) => s.outlineWordTarget);
   const setOutlineEnabled  = useSettings((s) => s.setOutlineEnabled);
   const setOutlinePrompt   = useSettings((s) => s.setOutlinePrompt);
+  const setOutlineBias     = useSettings((s) => s.setOutlineBias);
   const setOutlineWordTarget = useSettings((s) => s.setOutlineWordTarget);
   const plotChoices        = useSettings((s) => s.plotChoices);
   const setPlotChoices     = useSettings((s) => s.setPlotChoices);
@@ -1543,13 +1545,24 @@ function TextApiSection() {
             />
           </div>
           <div className="space-y-1.5 pt-1 border-t border-violet-700/20">
-            <div className="text-sm text-slate-200">细纲提示词（自定义）</div>
-            <div className="text-xs text-dim">留空 = 用内置默认（对齐「核心事件 / 情绪 / 情节点序列 / 钩子」的固定结构）。想改细纲结构 / 口吻就写这里；<b>{'{{wordTarget}}'}</b> 占位会替换成上面的字数目标。</div>
+            <div className="text-sm text-emerald-200">🎯 细纲偏好 / 倾向（追加 · 保持格式）</div>
+            <div className="text-xs text-dim">在<b>不改变内置格式 / 结构</b>的前提下，指定这一拍的<b>创作倾向</b>——例如"整体调性阴郁压抑""多给感情线笔墨""战斗细写、日常快带过""偏慢热""每回合埋个小伏笔""主角克制隐忍"。它会<b>追加</b>在内置编剧提示词之后，只影响"写什么、往哪偏、什么调性"，<b>不动</b>核心事件 / 情节点序列 / 钩子那套结构。<b className="text-emerald-300/90">想调偏向、优先用这里。</b></div>
+            <textarea
+              value={outlineBias}
+              onChange={(e) => setOutlineBias(e.target.value)}
+              rows={3}
+              placeholder="例：整体调性偏阴郁；多给主角与 XX 的关系线笔墨；战斗细写、日常快带过；每回合埋一个小伏笔…"
+              className="w-full px-3 py-2 bg-black/30 border border-edge rounded-md text-sm text-slate-200 placeholder:text-dim/40 resize-y focus:border-emerald-600/50 focus:outline-none"
+            />
+          </div>
+          <div className="space-y-1.5 pt-1 border-t border-violet-700/20">
+            <div className="text-sm text-slate-200">细纲提示词 · <b className="text-amber-400/90">完全覆盖</b>（高级）</div>
+            <div className="text-xs text-dim">留空 = 用内置默认（职业编剧人设 + 剧情推演 COT + 对齐示例的固定结构）。<b>一旦填写就整段替换内置提示词</b>——人设 / COT / 输出格式全以你写的为准（只想微调倾向请用上面的「偏好」，别写这里）。<b>{'{{wordTarget}}'}</b> 占位会替换成字数目标。</div>
             <textarea
               value={outlinePrompt}
               onChange={(e) => setOutlinePrompt(e.target.value)}
               rows={4}
-              placeholder="（留空用内置默认细纲提示词）"
+              placeholder="（留空用内置默认细纲提示词；填了=整段覆盖内置人设 / COT / 格式）"
               className="w-full px-3 py-2 bg-black/30 border border-edge rounded-md text-sm text-slate-200 placeholder:text-dim/40 font-mono resize-y focus:border-violet-600/50 focus:outline-none"
             />
           </div>
