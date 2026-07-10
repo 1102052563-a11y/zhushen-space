@@ -177,7 +177,7 @@ async function flush() {
   }
 }
 
-function enqueue(text: string, target: UiLang): Promise<string> {
+export function enqueue(text: string, target: UiLang): Promise<string> {
   return new Promise((resolve) => {
     queue.push({ text, target, resolve });
     if (!flushTimer) flushTimer = setTimeout(flush, 80);   // 攒 80ms 合批

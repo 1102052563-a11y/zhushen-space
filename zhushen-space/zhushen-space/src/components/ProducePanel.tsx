@@ -397,7 +397,6 @@ function ShopEditorModal({ shopId, onClose, onGenerateGoods }: {
 }) {
   const shop = useShop((s) => s.shops.find((x) => x.id === shopId));
   const patchShop = useShop((s) => s.patchShop);
-  const setShopSign = useShop((s) => s.setShopSign);
   const upsertGood = useShop((s) => s.upsertGood);
   const upsertShopGirl = useShop((s) => s.upsertShopGirl);
   const [tendency, setTendency] = useState('');
@@ -428,17 +427,14 @@ function ShopEditorModal({ shopId, onClose, onGenerateGoods }: {
 
         <div className="p-4 flex-1 overflow-y-auto space-y-4">
           {/* 店铺门面 */}
-          <div className="flex max-lg:flex-col gap-3">
-            <ImgUpload emoji={meta.emoji} src={shop.sign}
-              onPick={(d) => setShopSign(shopId, d)} onClear={() => setShopSign(shopId, undefined)} />
-            <div className="flex-1 min-w-0 space-y-2">
+          <MultiImgUpload shopId={shopId} shop={shop} emoji={meta.emoji} />
+          <div className="space-y-2">
               <Field label="店名"><input value={shop.name} onChange={(e) => patchShop(shopId, { name: e.target.value })} className={`${inputCls} w-full font-semibold`} /></Field>
               <Field label="招牌语（一句话 · 逛店时展示）"><input value={shop.tagline ?? ''} onChange={(e) => patchShop(shopId, { tagline: e.target.value })} className={`${inputCls} w-full`} placeholder="如：童叟无欺，奇物尽有" /></Field>
               <div className="grid grid-cols-2 gap-2">
                 <Field label="结算货币"><input value={shop.currency} onChange={(e) => patchShop(shopId, { currency: e.target.value })} className={`${inputCls} w-full`} placeholder="乐园币 / 魂币" /></Field>
                 <Field label="所属世界 / 乐园（空 = 通用）"><input value={shop.world ?? ''} onChange={(e) => patchShop(shopId, { world: e.target.value.trim() || undefined })} className={`${inputCls} w-full`} /></Field>
               </div>
-            </div>
           </div>
           <Field label="店铺简介（多行 · 逛店展示 + AI 生成货品参考此定位）">
             <textarea value={shop.intro ?? ''} onChange={(e) => patchShop(shopId, { intro: e.target.value })} rows={2} className={`${taCls} resize-none`} placeholder="如：坐落黑市深处的老字号，专营来路不明的异界奇物，童叟无欺（大概）。" />
@@ -554,7 +550,7 @@ function ShopVisitModal({ shopId, onClose, onBuyCompanion }: { shopId: string; o
       <div className="w-full max-w-2xl h-[86dvh] flex flex-col rounded-2xl border border-cyan-500/30 bg-void shadow-[0_0_50px_rgba(0,0,0,0.85)] overflow-hidden">
         <header className="shrink-0 flex items-center gap-3 px-4 py-3 border-b border-cyan-500/20 bg-panel">
           <div className="w-12 h-12 rounded-lg border border-edge bg-void overflow-hidden flex items-center justify-center shrink-0">
-            {shop.sign ? <img src={shop.sign} alt="" className="w-full h-full object-cover" /> : <span className="text-2xl opacity-30">🏪</span>}
+            {(shop.signs?.length || shop.sign) ? <SignShow imgs={shop.signs} cover={shop.sign} /> : <span className="text-2xl opacity-30">🏪</span>}
           </div>
           <div className="flex-1 min-w-0">
             <div className="text-sm font-bold text-cyan-100 truncate">{shop.name || '商店'}</div>
@@ -667,7 +663,7 @@ function SmithyVisitModal({ shopId, onClose }: { shopId: string; onClose: () => 
       <div className="w-full max-w-2xl h-[86dvh] flex flex-col rounded-2xl border border-amber-500/30 bg-void shadow-[0_0_50px_rgba(0,0,0,0.85)] overflow-hidden">
         <header className="shrink-0 flex items-center gap-3 px-4 py-3 border-b border-amber-500/20 bg-panel">
           <div className="w-12 h-12 rounded-lg border border-edge bg-void overflow-hidden flex items-center justify-center shrink-0">
-            {shop.sign ? <img src={shop.sign} alt="" className="w-full h-full object-cover" /> : <span className="text-2xl opacity-30">⚒️</span>}
+            {(shop.signs?.length || shop.sign) ? <SignShow imgs={shop.signs} cover={shop.sign} /> : <span className="text-2xl opacity-30">⚒️</span>}
           </div>
           <div className="flex-1 min-w-0">
             <div className="text-sm font-bold text-amber-100 truncate">{shop.name || '铁匠铺'}</div>
@@ -781,7 +777,7 @@ function BrothelVisitModal({ shopId, onClose, onJoySend }: {
       <div className="w-full max-w-2xl h-[88dvh] flex flex-col rounded-2xl border border-pink-500/30 bg-void shadow-[0_0_50px_rgba(0,0,0,0.85)] overflow-hidden">
         <header className="shrink-0 flex items-center gap-3 px-4 py-3 border-b border-pink-500/20 bg-panel">
           <div className="w-11 h-11 rounded-lg border border-edge bg-void overflow-hidden flex items-center justify-center shrink-0">
-            {shop.sign ? <img src={shop.sign} alt="" className="w-full h-full object-cover" /> : <span className="text-2xl opacity-30">💗</span>}
+            {(shop.signs?.length || shop.sign) ? <SignShow imgs={shop.signs} cover={shop.sign} /> : <span className="text-2xl opacity-30">💗</span>}
           </div>
           <div className="flex-1 min-w-0">
             <div className="text-sm font-bold text-pink-100 truncate">{shop.name || '娼馆'}</div>
@@ -866,7 +862,7 @@ function ShopCard({ shopId, onEdit, onVisit, onPublish }: { shopId: string; onEd
   return (
     <div className="rounded-xl border border-edge bg-panel overflow-hidden flex flex-col">
       <div className="h-28 bg-void flex items-center justify-center overflow-hidden">
-        {shop.sign ? <img src={shop.sign} alt="" className="w-full h-full object-cover" /> : <span className="text-5xl opacity-25">{meta.emoji}</span>}
+        {(shop.signs?.length || shop.sign) ? <SignShow imgs={shop.signs} cover={shop.sign} /> : <span className="text-5xl opacity-25">{meta.emoji}</span>}
       </div>
       <div className="p-3 flex-1 flex flex-col gap-1.5">
         <div className="flex items-center gap-1.5">
@@ -897,7 +893,7 @@ function MarketShopCard({ shop, mine, onEnter, onUnpublish }: { shop: PublishedS
   return (
     <div className="rounded-xl border border-edge bg-panel overflow-hidden flex flex-col">
       <div className="h-28 bg-void flex items-center justify-center overflow-hidden">
-        {snap.sign ? <img src={snap.sign} alt="" className="w-full h-full object-cover" /> : <span className="text-5xl opacity-25">{meta.emoji}</span>}
+        {(snap.signs?.length || snap.sign) ? <SignShow imgs={snap.signs} cover={snap.sign} /> : <span className="text-5xl opacity-25">{meta.emoji}</span>}
       </div>
       <div className="p-3 flex-1 flex flex-col gap-1.5">
         <div className="flex items-center gap-1.5"><span className="text-sm">{meta.emoji}</span><span className="text-sm font-bold text-slate-100 truncate flex-1">{shop.name}</span></div>

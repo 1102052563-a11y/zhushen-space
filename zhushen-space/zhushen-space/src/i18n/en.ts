@@ -478,6 +478,18 @@ export const EN_EXACT: Record<string, string> = {
   '异常': 'Error', '回滚': 'Roll Back', '竞技奖励': 'Arena Reward', '不死': 'Undying', '虚弱': 'Weak',
   '本命装备': 'Signature Gear', '霓虹': 'Neon', '黄金': 'Gold', '聚能': 'Charge', '品阶显示规则': 'Grade Rules',
   '物价和金融系统': 'Economy System', '原著接轨': 'Canon Sync', '小成': 'Minor Success', '大成': 'Great Success',
+
+  // ── 补漏：设置菜单描述 + 主界面标签 + 排版词 ──
+  '自定义 AI 可读写的游戏变量，配置 <state> 更新系统': 'Custom AI-readable/writable game variables; configure the <state> system',
+  '关键词召回长期剧情记忆，按相关性注入正文（无需向量）': 'Keyword recall of long-term plot memory, injected by relevance (no vectors)',
+  '语义向量召回长期记忆（更快·需 embedding 接口）；开启后接管召回': 'Semantic vector recall of long-term memory (faster · needs an embedding API); takes over recall when on',
+  'NAI/OpenAI/Gemini/ComfyUI 多服务 · 肖像/装备/正文配图': 'NAI/OpenAI/Gemini/ComfyUI · portrait / equipment / scene art',
+  '暗角': 'Vignette', '字号': 'Font Size', '行距': 'Line Spacing', '字间距': 'Letter Spacing',
+  '前置提示词': 'Prelude Prompt', '点击编辑': 'Click to edit', '本回合状态命令': 'Turn Status Command',
+  '点击展开': 'Click to expand', '所处位置': 'Location', '自定义血条': 'Custom HP Bar', '自定义能量条': 'Custom Energy Bar',
+  '主角+在场队友': 'MC + present allies', '一键清 HP/EP（主角+在场队友）': 'Clear HP/EP (MC + present allies)',
+  '选择世界': 'Select World', '结算任务': 'Settle Quest',
+  '在此输入你的行动…（Shift+Enter 或点 ↵ 换行）': 'Type your action here… (Shift+Enter, or tap ↵ for a newline)',
 };
 
 /* 插值 / 带数字规则（锚定，安全）。命中即用 core.replace(re, to)。 */

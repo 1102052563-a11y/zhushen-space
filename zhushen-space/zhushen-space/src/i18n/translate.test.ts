@@ -59,6 +59,10 @@ describe('i18n · 首尾装饰剥离（图标/符号前缀）', () => {
   it('剥离中文括号', () => {
     expect(translateToVi('（推荐）')).toBe('（Khuyên Dùng）');
   });
+  it('整串带尾部标点/斜杠也能精确命中（不被装饰剥离漏掉）', () => {
+    expect(translateToVi('一键清 HP/EP（主角+在场队友）')).toBe('Xóa HP/EP (NVC + đồng đội có mặt)');
+    expect(translateToEn('结算任务')).toBe('Settle Quest');
+  });
 });
 
 describe('i18n · 分隔符复合标签', () => {

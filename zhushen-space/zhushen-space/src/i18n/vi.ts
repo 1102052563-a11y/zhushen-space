@@ -478,6 +478,18 @@ export const VI_EXACT: Record<string, string> = {
   '异常': 'Bất Thường', '回滚': 'Hoàn Tác', '竞技奖励': 'Thưởng Đấu Trường', '不死': 'Bất Tử', '虚弱': 'Suy Nhược',
   '本命装备': 'Trang Bị Bản Mệnh', '霓虹': 'Neon', '黄金': 'Vàng', '聚能': 'Tụ Năng', '品阶显示规则': 'Quy Tắc Phẩm Cấp',
   '物价和金融系统': 'Hệ Thống Giá & Tài Chính', '原著接轨': 'Khớp Nguyên Tác', '小成': 'Tiểu Thành', '大成': 'Đại Thành',
+
+  // ── 补漏：设置菜单描述 + 主界面标签 + 排版词 ──
+  '自定义 AI 可读写的游戏变量，配置 <state> 更新系统': 'Biến game AI đọc/ghi được, cấu hình hệ thống cập nhật <state>',
+  '关键词召回长期剧情记忆，按相关性注入正文（无需向量）': 'Gợi nhớ cốt truyện dài hạn bằng từ khóa, chèn theo độ liên quan (không cần vector)',
+  '语义向量召回长期记忆（更快·需 embedding 接口）；开启后接管召回': 'Gợi nhớ dài hạn bằng vector ngữ nghĩa (nhanh hơn · cần API embedding); bật thì tiếp quản gợi nhớ',
+  'NAI/OpenAI/Gemini/ComfyUI 多服务 · 肖像/装备/正文配图': 'Đa dịch vụ NAI/OpenAI/Gemini/ComfyUI · ảnh chân dung / trang bị / nội dung',
+  '暗角': 'Làm Tối Viền', '字号': 'Cỡ Chữ', '行距': 'Giãn Dòng', '字间距': 'Giãn Chữ',
+  '前置提示词': 'Prompt Mở Đầu', '点击编辑': 'Bấm để sửa', '本回合状态命令': 'Lệnh Trạng Thái Lượt',
+  '点击展开': 'Bấm để mở rộng', '所处位置': 'Vị Trí', '自定义血条': 'Thanh Máu Tùy Chỉnh', '自定义能量条': 'Thanh Năng Lượng Tùy Chỉnh',
+  '主角+在场队友': 'NVC + đồng đội có mặt', '一键清 HP/EP（主角+在场队友）': 'Xóa HP/EP (NVC + đồng đội có mặt)',
+  '选择世界': 'Chọn Thế Giới', '结算任务': 'Kết Toán Nhiệm Vụ',
+  '在此输入你的行动…（Shift+Enter 或点 ↵ 换行）': 'Nhập hành động của bạn… (Shift+Enter hoặc bấm ↵ để xuống dòng)',
 };
 
 /* 插值 / 带数字规则（锚定，安全）。 */

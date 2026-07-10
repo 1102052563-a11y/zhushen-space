@@ -27,6 +27,13 @@ function splitCore(raw: string): [string, string, string] {
 
 /** 通用「精确词库 + 插值正则」翻译：精确命中优先，其次锚定正则规则；未命中回退原文（保持中文）。 */
 function dictTranslate(raw: string, exact: Record<string, string>, rules: [RegExp, string][]): string {
+  // ① 整串（仅去首尾空白）精确匹配——优先，容纳带标点/括号/斜杠的完整句子键（如「…（点击编辑）」）
+  const wl = raw.match(/^\s*/)![0];
+  const wt = raw.match(/\s*$/)![0];
+  const full = raw.slice(wl.length, raw.length - wt.length);
+  if (full) { const fh = exact[full]; if (fh !== undefined) return wl + fh + wt; }
+
+  // ② 去首尾「装饰」（emoji/图标/标点）后再精确匹配（治图标前缀标签）
   const [lead, core, trail] = splitCore(raw);
   if (!core) return raw;
 

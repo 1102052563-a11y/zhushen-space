@@ -70,7 +70,7 @@ const goodKey  = (id: string) => `shop-good:${id}`;
 const girlKey  = (id: string) => `shop-girl:${id}`;
 const smithKey = (id: string) => `shop-smith:${id}`;
 
-const MAX_SIGNS = 8;   // 单店立绘上限（防 IndexedDB 单值过大）
+export const MAX_GALLERY = 100;   // 单个图集上限（店招 / 货品 / 娼妇 / 铁匠通用·防 IndexedDB 单值过大）
 
 /** 解析 IndexedDB 里的店招值：新格式 = JSON 数组字符串；旧格式 = 单张 dataURL → 包成 [url]。 */
 function parseSigns(raw: unknown): string[] {
@@ -179,7 +179,7 @@ export const useShop = create<ShopState>()(
         }),
 
       setShopSigns: (id, urls) => {
-        const arr = (urls ?? []).filter(Boolean).slice(0, MAX_SIGNS);
+        const arr = (urls ?? []).filter(Boolean).slice(0, MAX_GALLERY);
         if (arr.length) putImg(signKey(id), JSON.stringify(arr)); else delImg(signKey(id));
         set((s) => ({ shops: replaceShop(s.shops, id, (x) => ({ ...x, signs: arr, sign: arr[0] })) }));
       },
