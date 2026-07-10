@@ -16,6 +16,7 @@ import NpcCardPreview from './NpcCardPreview';
 import { buildNpcCardSnapshot } from '../systems/npcCard';
 import ChatAvatar from './ChatAvatar';
 import MessageText from './MessageText';
+import { AutoMessageText } from './AutoText';
 import EmojiPicker from './EmojiPicker';
 import StickerPicker from './StickerPicker';
 import { stickerSrc, loadStickerPacks, type StickerRef } from '../systems/chatStickers';
@@ -484,7 +485,7 @@ export default function ChatRoomPanel({ onClose }: { onClose: () => void }) {
                         <span className="font-mono text-[11px] text-dim/35 mr-1.5">{fmtTime(m.at)}</span>
                         {uidTag && <span className="font-mono text-[10px] text-god/45 mr-1">{uidTag}</span>}
                         <span className="font-semibold mr-1.5" style={{ color: nc }}>{m.name}{isMe ? ' (你)' : ''}</span>
-                        <span className={`text-slate-200 ${bubbleCls(bubble)}`}><MessageText text={m.text || ''} /></span>
+                        <span className={`text-slate-200 ${bubbleCls(bubble)}`}><AutoMessageText text={m.text} /></span>
                         {reactionsRow(m)}
                       </div>
                     </div>

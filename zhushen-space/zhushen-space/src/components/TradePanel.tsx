@@ -4,6 +4,7 @@ import { tradeClient } from '../systems/tradeClient';
 import { useItems, isResourcePseudoItem } from '../store/itemStore';
 import { useNpc } from '../store/npcStore';
 import { EntityCard, EntityDetailModal, type EntityKind } from './EntityDetail';
+import { AutoText } from './AutoText';
 import ChatAvatar from './ChatAvatar';
 import { discordLoggedIn, discordLogin, fetchChatIdentity, chatReady, chatName, chatToken } from '../systems/chatIdentity';
 
@@ -290,7 +291,7 @@ function ListingCard({ listing, mePid, connected, onOpenDetail }: {
 
   return (
     <div className="rounded-xl border border-edge bg-panel/40 p-3 space-y-2">
-      <EntityCard kind={itemKind(listing.item)} data={listing.item} onOpen={() => onOpenDetail(itemKind(listing.item), listing.item)} />
+      <EntityCard kind={itemKind(listing.item)} data={listing.item} onOpen={() => onOpenDetail(itemKind(listing.item), listing.item)} mt />
 
       <div className="flex items-center gap-2 flex-wrap text-[12px]">
         <span className="font-mono font-bold text-amber-300">{listing.price} {listing.currency}</span>
@@ -302,7 +303,7 @@ function ListingCard({ listing, mePid, connected, onOpenDetail }: {
         <span className="ml-auto text-[10px] font-mono text-dim/35">{fmtTime(listing.at)}</span>
       </div>
 
-      {listing.note && <div className="text-[12px] text-dim/70 leading-relaxed whitespace-pre-wrap break-words">{listing.note}</div>}
+      {listing.note && <div className="text-[12px] text-dim/70 leading-relaxed whitespace-pre-wrap break-words"><AutoText text={listing.note} /></div>}
 
       {/* 还价（全部公开可见·带头像）*/}
       {listing.offers?.length > 0 && (

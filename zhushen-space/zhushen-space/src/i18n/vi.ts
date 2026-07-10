@@ -77,6 +77,7 @@ export const VI_EXACT: Record<string, string> = {
   '经典': 'Cổ Điển',
   '界面语言': 'Ngôn Ngữ',
   '语言': 'Ngôn Ngữ',
+  '在线内容自动翻译': 'Tự động dịch nội dung online',
 
   // ─────────── 通用控件 / 动作 ───────────
   '保存': 'Lưu',

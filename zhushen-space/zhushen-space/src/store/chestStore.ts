@@ -3,12 +3,12 @@ import { rollChestPlan, type ChestLootPlan } from '../systems/chestEngine';
 import type { InventoryItem } from './itemStore';
 
 /* ════════════════════════════════════════════
-   开箱 store（瞬时会话，不持久化）
-   - 一次开箱的会话：选中的宝箱 / 掷定的产出计划(plan) / AI 产物预览(pending) / 阶段(phase)。
-   - 复用「装备强化所」的 API（App.runChestOpenPhase 内 resolveApiChain('enhance')），本 store 不存任何 API 配置。
-   - 关键：pending 只是"预览"，确认前不入库、不消耗宝箱 → 天然支持"重新生成/撤销"零副作用。
-   - 掷 plan 在"开启"时锁定一次；重新生成只重掷 AI 风味（同一批品级），撤销回列表后再开才重掷 plan。
-     （对齐 craftStore 的 session 范式，但无配置/无持久化。）
+   开箱 store（瞬时会话·不持久化）— 批量版
+   - 选箱阶段：selection = { chestId: 要开的数量 }（每种数量 ≤ 该宝箱堆叠数）。
+   - 开启阶段：把 selection 展开成 jobs——**每"一只"宝箱＝一个 job，各自掷 plan、各自独立调一次 AI**，
+     所以批量里每只开出的物品互不相同（用户要求）。
+   - loot 只是预览，确认前不入库、不消耗宝箱；确认才逐 job 入库 + 按 chestId 汇总消耗 → 撤销/重新生成零副作用。
+   - 复用「装备强化所」API（App.runChestOpenPhase 内 resolveApiChain('enhance')），本 store 不存任何 API 配置。
 ════════════════════════════════════════════ */
 
 /** AI 开出的一件产物（未入库，确认后由 App 转成 addItem）*/
@@ -30,60 +30,101 @@ export interface ChestProduct {
   killCount?: string;
 }
 
-export type ChestPhase = 'idle' | 'generating' | 'preview' | 'error';
-
-export interface ChestSession {
+export type ChestJobStatus = 'pending' | 'done' | 'error';
+/** 一只宝箱的开启作业（批量里每只一个·各自 plan+各自 loot）*/
+export interface ChestJob {
+  jobId: string;
   chestId: string;
   chestName: string;
-  tendency: string;               // 开启者倾向提示（可空）
-  plan: ChestLootPlan | null;     // 开启时掷定、锁住（重新生成沿用）
-  pending: ChestProduct[] | null; // AI 产物预览（未入库）
-  phase: ChestPhase;
+  gradeDesc: string;
+  plan: ChestLootPlan;
+  loot: ChestProduct[] | null;
+  status: ChestJobStatus;
   error?: string;
 }
 
+export type ChestPhase = 'select' | 'generating' | 'preview';
+
+export interface ChestSession {
+  selection: Record<string, number>;   // chestId → 本次要开启的数量
+  tendency: string;                     // 开启者倾向提示（整批共用·可空）
+  jobs: ChestJob[];                     // 展开后的逐只作业（每只一个 job）
+  phase: ChestPhase;
+  error?: string;                       // 批量级错误（如未配 API）
+}
+
+/** 单次批量开箱上限（防 API 轰炸 / 预览过长）。*/
+export const CHEST_BATCH_MAX = 10;
+
 function freshSession(): ChestSession {
-  return { chestId: '', chestName: '', tendency: '', plan: null, pending: null, phase: 'idle' };
+  return { selection: {}, tendency: '', jobs: [], phase: 'select' };
 }
 
 interface ChestState {
   session: ChestSession;
 
-  /** 选中一个宝箱（回到待开启态，清掉上一次的 plan/预览）*/
-  selectChest: (chest: InventoryItem) => void;
-  clearChest: () => void;         // 返回宝箱列表
+  setSelectQty: (chestId: string, qty: number, maxQty: number) => void;
+  clearSelection: () => void;
   setTendency: (t: string) => void;
 
-  /** 掷产出计划 + 进入 generating；成功返回 {ok:true,plan}，宝箱不存在返回失败。随后由 App 调 runChestOpenPhase。*/
-  startOpen: (chest: InventoryItem) => { ok: boolean; why?: string };
-  setGenerating: () => void;
-  setPending: (products: ChestProduct[]) => void;
+  /** 展开 selection → jobs（每只掷一次 plan）+ 进入 generating。chests=当前背包快照（取名/品级/掷 plan）。 */
+  startBatch: (chests: InventoryItem[]) => { ok: boolean; why?: string };
+  setJobLoot: (jobId: string, loot: ChestProduct[]) => void;
+  setJobError: (jobId: string, msg: string) => void;
+  toPreview: () => void;
   setError: (msg: string) => void;
-  resetResult: () => void;        // 重新生成前：清 pending（plan 保留，供重新生成沿用同批品级）
-  endSession: () => void;         // 关面板/确认后：整会话清空
+  resetResults: () => void;     // 重新生成：清所有 job loot（plan 保留·同批品级）→ generating
+  backToSelect: () => void;     // 放弃预览：清 jobs 回选箱台（保留 selection/tendency·未消耗任何东西）
+  endSession: () => void;       // 关面板/确认后：整会话清空
 }
 
-export const useChest = create<ChestState>((set) => ({
+export const useChest = create<ChestState>((set, get) => ({
   session: freshSession(),
 
-  selectChest: (chest) =>
-    set({ session: { ...freshSession(), chestId: chest.id, chestName: chest.name } }),
+  setSelectQty: (chestId, qty, maxQty) =>
+    set((s) => {
+      const n = Math.max(0, Math.min(Math.floor(qty) || 0, Math.max(1, Math.floor(maxQty) || 1)));
+      const selection = { ...s.session.selection };
+      if (n <= 0) delete selection[chestId]; else selection[chestId] = n;
+      return { session: { ...s.session, selection } };
+    }),
 
-  clearChest: () => set({ session: freshSession() }),
-
+  clearSelection: () => set((s) => ({ session: { ...s.session, selection: {} } })),
   setTendency: (t) => set((s) => ({ session: { ...s.session, tendency: t } })),
 
-  startOpen: (chest) => {
-    if (!chest) return { ok: false, why: '宝箱不在储存空间了' };
-    const plan = rollChestPlan(chest);
-    set((s) => ({ session: { ...s.session, chestId: chest.id, chestName: chest.name, plan, pending: null, phase: 'generating', error: undefined } }));
+  startBatch: (chests) => {
+    const sel = get().session.selection;
+    const total = Object.values(sel).reduce((a, b) => a + b, 0);
+    if (total <= 0) return { ok: false, why: '请先勾选要开启的宝箱' };
+    if (total > CHEST_BATCH_MAX) return { ok: false, why: `一次最多开启 ${CHEST_BATCH_MAX} 只宝箱（当前 ${total} 只）` };
+    const jobs: ChestJob[] = [];
+    const stamp = Date.now();
+    for (const [chestId, count] of Object.entries(sel)) {
+      const chest = chests.find((x) => x.id === chestId);
+      if (!chest) continue;
+      const n = Math.min(count, Math.max(1, Math.floor(chest.quantity) || 1));
+      for (let i = 0; i < n; i++) {
+        jobs.push({
+          jobId: `${chestId}#${i}#${stamp}${Math.random().toString(36).slice(2, 6)}`,
+          chestId, chestName: chest.name, gradeDesc: chest.gradeDesc,
+          plan: rollChestPlan(chest), loot: null, status: 'pending',
+        });
+      }
+    }
+    if (!jobs.length) return { ok: false, why: '所选宝箱已不在储存空间' };
+    set((s) => ({ session: { ...s.session, jobs, phase: 'generating', error: undefined } }));
     return { ok: true };
   },
 
-  setGenerating: () => set((s) => ({ session: { ...s.session, phase: 'generating', error: undefined } })),
-  setPending: (products) => set((s) => ({ session: { ...s.session, pending: products, phase: 'preview', error: undefined } })),
-  setError: (msg) => set((s) => ({ session: { ...s.session, phase: 'error', error: msg } })),
-  resetResult: () => set((s) => ({ session: { ...s.session, pending: null, phase: 'generating', error: undefined } })),
+  setJobLoot: (jobId, loot) =>
+    set((s) => ({ session: { ...s.session, jobs: s.session.jobs.map((j) => (j.jobId === jobId ? { ...j, loot, status: 'done', error: undefined } : j)) } })),
+  setJobError: (jobId, msg) =>
+    set((s) => ({ session: { ...s.session, jobs: s.session.jobs.map((j) => (j.jobId === jobId ? { ...j, status: 'error', error: msg } : j)) } })),
+
+  toPreview: () => set((s) => ({ session: { ...s.session, phase: 'preview' } })),
+  setError: (msg) => set((s) => ({ session: { ...s.session, error: msg, phase: s.session.phase === 'generating' ? 'select' : s.session.phase } })),
+  resetResults: () => set((s) => ({ session: { ...s.session, phase: 'generating', error: undefined, jobs: s.session.jobs.map((j) => ({ ...j, loot: null, status: 'pending', error: undefined })) } })),
+  backToSelect: () => set((s) => ({ session: { ...s.session, jobs: [], phase: 'select', error: undefined } })),
 
   endSession: () => set({ session: freshSession() }),
 }));

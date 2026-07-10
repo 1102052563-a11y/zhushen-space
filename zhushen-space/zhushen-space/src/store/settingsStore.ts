@@ -318,6 +318,8 @@ interface SettingsState {
   setNarrativePov: (v: NarrativePov) => void;
   language: UiLang;   // 界面语言（运行时翻译层读取；只译界面 chrome，不动 AI 正文/.narrative-content）
   setLanguage: (v: UiLang) => void;
+  autoTranslateOnline: boolean;   // 在线内容（交易行/聊天室/助战…跨玩家 UGC）自动机翻成当前语言（用玩家自己的 AI 接口·缓存）
+  setAutoTranslateOnline: (v: boolean) => void;
   apiLibrary: ApiEndpoint[];   // 中心 API 接口库（综合设置维护，各功能快捷选填）
   apiRoutes: Record<string, string[]>;  // 各功能的接口路由：featureKey → 有序 endpoint id 列表（上=优先，失败 fallback）
   apiThrottle: { maxConcurrent: number; minGapMs: number };  // 全局请求节流：最大并发 + 最小间隔（缓解 429）
@@ -759,6 +761,7 @@ export const useSettings = create<SettingsState>()(
       npcAutonomyEvery: 1,
       narrativePov: 'off',
       language: 'zh-Hans',   // 默认简体（源码原样，零开销）；切繁體/英文才启用运行时翻译层
+      autoTranslateOnline: true,   // 默认开：非简体语言下，跨玩家在线内容自动机翻（简体用户 needsAutoTranslate 基本不触发）
       apiLibrary: [],
       apiRoutes: {},
       apiThrottle: { maxConcurrent: 3, minGapMs: 250 },
@@ -832,6 +835,7 @@ export const useSettings = create<SettingsState>()(
       setMiniTheater: (v) => set({ miniTheater: v }),
       setNarrativePov: (v) => set({ narrativePov: v }),
       setLanguage: (v) => set({ language: v }),
+      setAutoTranslateOnline: (v) => set({ autoTranslateOnline: v }),
 
       addApiEndpoint: () => set((s) => ({
         apiLibrary: [...s.apiLibrary, {

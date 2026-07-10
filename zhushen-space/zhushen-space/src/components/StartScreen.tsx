@@ -15,6 +15,9 @@ interface StartScreenProps {
 const COVER_W = 1672;
 const COVER_H = 941;
 
+// 常驻公告栏：官方 Discord 频道邀请（中英双语）
+const DISCORD_INVITE = 'https://discord.gg/S2KUuk6Qq';
+
 export default function StartScreen({ onStart, onContinue, onSettings }: StartScreenProps) {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
 
@@ -98,6 +101,9 @@ export default function StartScreen({ onStart, onContinue, onSettings }: StartSc
   return (
     <div className="h-screen w-screen bg-black grid place-items-center max-lg:flex max-lg:flex-col overflow-hidden select-none">
       <style>{CSS_ANIM}</style>
+
+      {/* 📢 常驻公告栏（固定顶部 · 官方 Discord 频道 · 中英双语）*/}
+      <AnnouncementBar />
       <div className="zs-cover relative overflow-hidden">
         {/* 背景：缓慢呼吸位移 */}
         <img
@@ -230,6 +236,30 @@ function CoverButton({
           group-active:scale-[0.99]"
       />
     </button>
+  );
+}
+
+/* 常驻公告栏：固定在屏幕顶部、覆盖于封面之上，整条即 Discord 邀请链接（新标签打开）。
+   中英双语并列，窄屏自动换行；配色沿用封面蓝 + Discord blurple。 */
+function AnnouncementBar() {
+  return (
+    <a
+      href={DISCORD_INVITE}
+      target="_blank"
+      rel="noopener noreferrer"
+      title="加入官方 Discord 频道 / Join our official Discord"
+      className="group fixed top-0 inset-x-0 z-40 flex flex-wrap items-center justify-center gap-x-2 gap-y-0.5
+        px-4 py-1.5 bg-black/70 backdrop-blur-sm border-b border-[#5865F2]/50
+        text-[12px] max-lg:text-[11px] font-mono text-slate-200 hover:bg-[#5865F2]/25 transition-colors"
+    >
+      <span className="text-sm leading-none">📢</span>
+      <span className="text-[#9db0ff] group-hover:text-white transition-colors">
+        官方 Discord 频道 · Official Discord Channel
+      </span>
+      <span className="text-[#9db0ff] group-hover:text-white underline decoration-dotted underline-offset-2 transition-colors break-all">
+        {DISCORD_INVITE}
+      </span>
+    </a>
   );
 }
 

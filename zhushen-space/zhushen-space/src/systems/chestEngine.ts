@@ -12,26 +12,34 @@ import { gradeToNum, gradeName } from './craftEngine';
 ════════════════════════════════════════════ */
 
 /* ── 一、宝箱识别（储存空间里哪些物品算"可开的宝箱"）── */
-// 名称/子类型/标签命中这些词即认作宝箱（AI 剧情掉落的宝箱多是这类命名）。
-const CHEST_WORDS = [
-  '宝箱', '宝盒', '宝匣', '宝袋', '百宝', '藏宝', '财宝箱',
-  '箱子', '礼盒', '礼包', '大礼包', '盲盒', '福袋', '锦囊', '囊袋',
-  '战利品箱', '补给箱', '奖励箱', '秘宝', '遗宝', '宝库钥', 'loot',
-  '箱', '匣',   // 兜底：多数宝箱名以「…箱/…匣」结尾
-];
-// 这些大类是"实打实的装备/道具"，绝不当宝箱开（避免把武器「破魔之匣」这类误判）。
-const CHEST_EXCLUDE_CATS = new Set<string>(['武器', '防具', '饰品', '宝石', '载具']);
-// 名称里含这些词说明它是件"具体装备/法器"而非容器，排除掉（治「储物戒/百宝囊是件法宝」等边界）。
-const NOT_CHEST_HINT = ['戒指', '手镯', '项链', '护符'];
+/** 物品演化给"可开启战利品箱"打的专属标签——isChest 的首选、最权威依据。
+ *  ITEM_FIXED_FORMAT_RULE 已要求 AI 生成宝箱类物品时把它加进 tags、并设 subType=宝箱。*/
+export const CHEST_TAG = '宝箱';
 
-/** 判断一件背包物品是否是"可开启的宝箱"（默认过滤用；面板另有「显示全部」兜底，可强开任意物）。*/
+// 名称强匹配词（多字词·不含裸「箱/匣」，以免把 弹匣/残档匣/工具箱 之类误判为宝箱）——供未打标签的旧宝箱/AI 漏标时兜底。
+const CHEST_NAME_WORDS = [
+  '宝箱', '宝盒', '宝匣', '百宝箱', '百宝盒', '藏宝箱', '藏宝盒', '财宝箱', '聚宝盆',
+  '战利品箱', '补给箱', '奖励箱', '奖励包', '礼盒', '礼包', '大礼包', '盲盒', '福袋', '锦囊', '宝袋',
+  '遗宝箱', '秘宝箱', '宝箱钥', 'lootbox',
+];
+// 明显不是"可开启战利品箱"的盛装容器/物件——即使名字带箱/匣/包/袋也绝不算宝箱（治 弹匣/残档匣/工具箱 误判）。
+const NOT_CHEST_WORDS = ['弹匣', '弹夹', '工具箱', '工具包', '储物', '背包', '行李', '箱笼', '信箱', '邮箱', '冰箱', '书箱', '药箱', '针剂', '烟盒', '饭盒'];
+// 这些大类是"实打实的装备"，绝不当宝箱开。
+const CHEST_EXCLUDE_CATS = new Set<string>(['武器', '防具', '饰品', '宝石', '载具']);
+
+/** 判断一件背包物品是否是"可开启的宝箱"。
+ *  首选：物品演化打的专属标签 CHEST_TAG（或 subType=宝箱）——最权威、绕过一切名称启发式；
+ *  兜底：名称强匹配（旧存档里未打标签的宝箱 / AI 漏标时），并排除装备大类与明显非宝箱容器（弹匣/工具箱…）。
+ *  面板另有「显示全部」兜底，可强开任意物。*/
 export function isChest(it?: InventoryItem | null): boolean {
   if (!it) return false;
   if (it.equipped) return false;
+  if ((it.tags ?? []).includes(CHEST_TAG)) return true;            // 首选：专属标签
+  if (String(it.subType ?? '') === CHEST_TAG) return true;        // 首选：subType=宝箱
   if (CHEST_EXCLUDE_CATS.has(String(it.category ?? ''))) return false;
-  const hay = `${it.name ?? ''} ${it.subType ?? ''} ${(it.tags ?? []).join(' ')}`;
-  if (NOT_CHEST_HINT.some((w) => (it.name ?? '').includes(w))) return false;
-  return CHEST_WORDS.some((w) => hay.includes(w));
+  const name = String(it.name ?? '');
+  if (NOT_CHEST_WORDS.some((w) => name.includes(w))) return false;   // 弹匣/工具箱… 一律排除
+  return CHEST_NAME_WORDS.some((w) => name.includes(w));            // 兜底：名称强匹配
 }
 
 /* ── 二、宝箱品级 → 本次可开出的最高档（"不同等级宝箱最高能开出的物品"）──

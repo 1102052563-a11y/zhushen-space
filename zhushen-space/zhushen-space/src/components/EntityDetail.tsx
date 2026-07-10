@@ -1,4 +1,5 @@
 import { asText } from '../store/itemStore';
+import { useAutoText } from '../i18n/autoTranslate';
 
 /* 共享只读展示：技能/天赋/装备(物品) 的紧凑卡片 + 完整信息弹窗。
    供「聊天室分享卡」与「交易行挂牌物品」共用。data 为剥过大图的快照（纯数据，不连 store）。 */
@@ -117,9 +118,14 @@ function GradeChip({ kind, data }: { kind: EntityKind; data: any }) {
 }
 
 /** 紧凑可点卡片：emoji + 名称 + 档位 + 一行摘要。点击→onOpen。 */
-export function EntityCard({ kind, data, onOpen }: { kind: EntityKind; data: any; onOpen: () => void }) {
-  const name = String(data?.name || '（无名）');
-  const summary = summaryOf(kind, data);
+export function EntityCard({ kind, data, onOpen, mt }: { kind: EntityKind; data: any; onOpen: () => void; mt?: boolean }) {
+  const rawName = String(data?.name || '（无名）');
+  const rawSummary = summaryOf(kind, data);
+  // mt=true（在线跨玩家内容）：名称/简介按当前语言机翻；本地内容不传 mt、零开销。
+  const nameMt = useAutoText(mt ? rawName : undefined);
+  const summaryMt = useAutoText(mt ? rawSummary : undefined);
+  const name = mt ? nameMt : rawName;
+  const summary = mt ? summaryMt : rawSummary;
   const accent = accentColor(kind, data);
   return (
     <button

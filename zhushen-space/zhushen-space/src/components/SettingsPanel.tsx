@@ -2737,6 +2737,8 @@ function AppearanceSettingsSection() {
   const setUiTheme = useSettings((s) => s.setUiTheme);
   const language    = useSettings((s) => s.language);
   const setLanguage = useSettings((s) => s.setLanguage);
+  const autoTranslateOnline    = useSettings((s) => s.autoTranslateOnline);
+  const setAutoTranslateOnline = useSettings((s) => s.setAutoTranslateOnline);
   const ff = reading.fontFamily || 'default';
   return (
     <div className="space-y-8">
@@ -2766,6 +2768,14 @@ function AppearanceSettingsSection() {
               </button>
             ))}
           </div>
+          {/* 在线内容自动机翻：交易行/聊天室等跨玩家 UGC 用玩家自己的 AI 接口译成当前语言（缓存·简体基本不触发） */}
+          <label className="flex items-start gap-2.5 pt-1 cursor-pointer select-none">
+            <input type="checkbox" checked={autoTranslateOnline} onChange={(e) => setAutoTranslateOnline(e.target.checked)} className="accent-god w-4 h-4 mt-0.5" />
+            <span>
+              <span className="text-sm text-slate-300">在线内容自动翻译</span>
+              <span className="block text-[12px] text-dim/60 leading-relaxed">交易行 / 聊天室 / 助战等跨玩家内容自动机翻成当前语言（用你配置的 AI 接口 · 结果永久缓存 · 中文→繁體走本地转换不耗额度）</span>
+            </span>
+          </label>
         </div>
       </div>
 

@@ -77,6 +77,7 @@ export const EN_EXACT: Record<string, string> = {
   '经典': 'Classic',
   '界面语言': 'Language',
   '语言': 'Language',
+  '在线内容自动翻译': 'Auto-translate online content',
 
   // ─────────── 通用控件 / 动作 ───────────
   '保存': 'Save',
