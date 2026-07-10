@@ -253,6 +253,117 @@ export const VI_EXACT: Record<string, string> = {
   '继续冒险': 'Tiếp Tục',
   '读取存档': 'Tải Bản Lưu',
   '新的轮回': 'Luân Hồi Mới',
+  '新游戏': 'Trò Chơi Mới',
+  '导出小说': 'Xuất Truyện',
+  '诊断包': 'Gói Chẩn Đoán',
+  '存档瘦身': 'Giảm Dung Lượng',
+  '清理图片': 'Dọn Ảnh',
+  '本地文件夹': 'Thư Mục Cục Bộ',
+  '防清除': 'Chống Xóa',
+  '推荐': 'Khuyên Dùng',
+  '上一局存档': 'Lưu Ván Trước',
+  '覆盖': 'Ghi Đè',
+  '改名': 'Đổi Tên',
+  '提主角': 'Trích NVC',
+  '自动备份': 'Sao Lưu Tự Động',
+
+  // ─────────── 阶位 Tier ───────────
+  '一阶': 'Bậc 1', '二阶': 'Bậc 2', '三阶': 'Bậc 3', '四阶': 'Bậc 4', '五阶': 'Bậc 5',
+  '六阶': 'Bậc 6', '七阶': 'Bậc 7', '八阶': 'Bậc 8', '九阶': 'Bậc 9', '十阶': 'Bậc 10',
+  '十一阶': 'Bậc 11', '十二阶': 'Bậc 12', '十三阶': 'Bậc 13', '十四阶': 'Bậc 14', '阶位未知': 'Bậc không rõ',
+
+  // ─────────── 品级 / 稀有度 / 颜色阶梯 ───────────
+  '凡物': 'Phàm Vật', '普通': 'Thường', '精良': 'Tinh Xảo', '稀有': 'Hiếm', '史诗': 'Sử Thi',
+  '传说': 'Truyền Thuyết', '极道': 'Cực Đạo', '起源': 'Khởi Nguyên', '永恒': 'Vĩnh Hằng', '不朽': 'Bất Hủ',
+  '创世': 'Sáng Thế', '圣灵': 'Thánh Linh',
+  '白色': 'Trắng', '绿色': 'Lục', '蓝色': 'Lam', '紫色': 'Tím', '橙色': 'Cam',
+  '淡金': 'Vàng Nhạt', '暗金': 'Kim Sẫm', '暗紫': 'Tím Sẫm', '暗紫色': 'Tím Sẫm',
+
+  // ─────────── 物品类别 ───────────
+  '物品': 'Vật Phẩm', '武器': 'Vũ Khí', '防具': 'Phòng Cụ', '饰品': 'Trang Sức', '材料': 'Nguyên Liệu',
+  '消耗品': 'Vật Tiêu Hao', '特殊物品': 'Vật Phẩm Đặc Biệt', '其他物品': 'Vật Phẩm Khác', '重要物品': 'Vật Phẩm Quan Trọng',
+  '宝石': 'Đá Quý', '法宝': 'Pháp Bảo', '工具': 'Công Cụ', '载具': 'Phương Tiện', '符箓': 'Phù Lục',
+  '功法': 'Công Pháp', '丹药': 'Đan Dược', '灵药': 'Linh Dược', '阵具': 'Trận Cụ', '技能书': 'Sách Kỹ Năng',
+  '配方': 'Công Thức', '商品': 'Hàng Hóa', '产物': 'Sản Vật', '装备需求': 'Yêu Cầu Trang Bị', '耐久度': 'Độ Bền',
+  '获得途径': 'Nguồn Gốc', '产地': 'Xuất Xứ', '灵魂钱币': 'Xu Hồn',
+
+  // ─────────── 战斗 ───────────
+  '攻击': 'Tấn Công', '防御': 'Phòng Thủ', '伤害': 'Sát Thương', '治疗': 'Hồi Máu', '护盾': 'Khiên',
+  '群体': 'Diện Rộng', '单体': 'Đơn Thể', '群攻': 'Đánh Diện Rộng', '自身': 'Bản Thân', '目标': 'Mục Tiêu',
+  '领域': 'Lĩnh Vực', '增益': 'Tăng Ích', '减益': 'Giảm Ích', '蓄力': 'Tích Lực', '控制': 'Khống Chế',
+  '召唤': 'Triệu Hồi', '守护': 'Thủ Hộ', '吸血': 'Hút Máu', '破防': 'Phá Giáp', '冷却': 'Hồi Chiêu',
+  '层数': 'Số Tầng', '持续时长': 'Thời Lượng', '持续回合': 'Số Lượt', '被动': 'Bị Động', '主动': 'Chủ Động',
+  '我方': 'Phe Ta', '敌方': 'Phe Địch', '道具': 'Đạo Cụ', '回合数': 'Số Lượt',
+  '中毒': 'Trúng Độc', '灼烧': 'Thiêu Đốt', '出血': 'Chảy Máu', '麻痹': 'Tê Liệt', '眩晕': 'Choáng',
+  '冻结': 'Đóng Băng', '亡灵': 'Vong Linh', '大成功': 'Đại Thành Công', '大失败': 'Đại Thất Bại',
+  '物理攻击': 'Vật Công', '物理防御': 'Vật Thủ', '法术攻击': 'Phép Công', '法术防御': 'Phép Thủ',
+
+  // ─────────── 技能 / 副职业熟练度 ───────────
+  '新手': 'Tân Thủ', '入门': 'Nhập Môn', '熟练': 'Thành Thạo', '专家': 'Chuyên Gia', '精通': 'Tinh Thông',
+  '大师': 'Đại Sư', '宗师': 'Tông Sư', '奥义': 'Áo Nghĩa', '极境': 'Cực Cảnh', '通用': 'Chung',
+  '技能点': 'Điểm Kỹ Năng', '黄金技能点': 'Điểm KN Vàng', '潜能点': 'Điểm Tiềm Năng', '属性点': 'Điểm Thuộc Tính',
+  '属性加成': 'Cộng Thuộc Tính', '真实属性': 'Thuộc Tính Thật', '真实属性点': 'Điểm Thuộc Tính Thật',
+  '基础属性': 'Thuộc Tính Gốc', '衍生属性': 'Thuộc Tính Dẫn Xuất',
+  '锻造': 'Rèn Đúc', '炼金术': 'Luyện Kim', '制药': 'Chế Dược', '制符': 'Chế Phù', '烹饪': 'Nấu Ăn',
+  '驯兽': 'Thuần Thú', '阵法': 'Trận Pháp', '功能': 'Chức Năng', '生活': 'Sinh Hoạt',
+
+  // ─────────── 角色 / 关系 ───────────
+  '契约者': 'Khế Ước Giả', '某契约者': 'Một Khế Ước Giả', '契约者ID': 'ID Khế Ước Giả', '道友': 'Đạo Hữu',
+  '随从': 'Tùy Tùng', '宠物': 'Thú Cưng', '召唤物': 'Vật Triệu Hồi', '队友': 'Đồng Đội', '对手': 'Đối Thủ',
+  '竞技对手': 'Đối Thủ Đấu Trường', '房主': 'Chủ Phòng', '成员': 'Thành Viên', '首领': 'Thủ Lĩnh', '盟友': 'Đồng Minh', '宿敌': 'Tử Địch',
+  '普通人': 'Người Thường', '人类': 'Nhân Loại', '人形': 'Hình Người', '兽形': 'Hình Thú',
+  '无名': 'Vô Danh', '未命名': 'Chưa Đặt Tên', '身份': 'Thân Phận', '背景': 'Bối Cảnh',
+  '隶属': 'Trực Thuộc', '隶属冒险团': 'Đội Phiêu Lưu', '经历': 'Trải Nghiệm', '经历时间线': 'Dòng Thời Gian',
+  '竞技场排名': 'Hạng Đấu Trường',
+
+  // ─────────── 属性缩写 / 出身 ───────────
+  '力': 'Lực', '体': 'Thể', '智': 'Trí', '魅': 'Mị', '敏': 'Nhanh', '法力': 'Pháp Lực',
+  '外观': 'Ngoại Hình', '外观描写': 'Mô Tả Ngoại Hình', '基底外观': 'Ngoại Hình Gốc', '形态': 'Hình Thái',
+  '所属乐园': 'Lạc Viên Trực Thuộc', '生物强度': 'Cường Độ Sinh Vật', '世界之源': 'Nguồn Thế Giới',
+
+  // ─────────── 状态 ───────────
+  '请求失败': 'Yêu cầu thất bại', '生成中': 'Đang tạo', '生成失败': 'Tạo thất bại', '一切正常': 'Mọi thứ ổn',
+  '未设定': 'Chưa đặt', '暂无': 'Chưa có', '空': 'Trống', '进行中': 'Đang diễn ra', '已完成': 'Hoàn thành',
+  '已死亡': 'Đã chết', '离场': 'Vắng mặt', '在场': 'Có mặt', '已装备': 'Đã trang bị', '已启用': 'Đã bật',
+  '当前状态': 'Trạng Thái Hiện Tại', '回合': 'Lượt',
+  '未登录': 'Chưa đăng nhập', '登录失败': 'Đăng nhập thất bại', '上传失败': 'Tải lên thất bại', '操作失败': 'Thao tác thất bại',
+  '连接错误': 'Lỗi kết nối', '连接中': 'Đang kết nối', '已断开': 'Đã ngắt', '未连接': 'Chưa kết nối',
+  '更新': 'Cập nhật', '更新中': 'Đang cập nhật', '清除': 'Xóa sạch', '锁定': 'Khóa', '未知错误': 'Lỗi không rõ',
+  '未进入': 'Chưa vào', '已成交': 'Đã bán', '内容': 'Nội dung', '标题': 'Tiêu đề', '创建': 'Tạo',
+  '说明': 'Hướng dẫn', '其他': 'Khác', '世界书': 'Sách Thế Giới',
+
+  // ─────────── 世界 / 任务 ───────────
+  '主线': 'Cốt Truyện', '支线': 'Nhánh Phụ', '主线任务': 'Nhiệm Vụ Chính', '支线任务': 'Nhiệm Vụ Phụ', '世界大事': 'Sự Kiện Thế Giới',
+  '当前世界': 'Thế Giới Hiện Tại', '长期事实': 'Sự Thật Dài Hạn', '正文': 'Nội Dung Chính', '战斗场景': 'Cảnh Chiến Đấu',
+  '乐园': 'Lạc Viên', '轮回乐园': 'Lạc Viên Luân Hồi', '主神空间': 'Không Gian Chủ Thần', '家族': 'Gia Tộc', '产业': 'Sản Nghiệp',
+
+  // ─────────── 面板 / 演化 ───────────
+  'API 设置': 'Cài Đặt API', '演化设置': 'Cài Đặt Tiến Hóa', '预设设置': 'Cài Đặt Preset', '预设正则': 'Regex Preset',
+  '主角演化': 'Tiến Hóa NVC', 'NPC 演化': 'Tiến Hóa NPC', '势力演化': 'Tiến Hóa Thế Lực', '领地演化': 'Tiến Hóa Lãnh Địa',
+  '冒险团演化': 'Tiến Hóa Đội', '万族演化': 'Tiến Hóa Vạn Tộc', '杂项演化': 'Tiến Hóa Khác', '登场判断': 'Xét Xuất Hiện',
+  '装备强化': 'Cường Hóa', '合成工坊': 'Xưởng Chế Tạo', '公共频道': 'Kênh Công Cộng', '命运福袋': 'Túi May Mắn',
+  '导入 JSON': 'Nhập JSON',
+
+  // ─────────── 创建 / 编辑 / 通用 ───────────
+  '主角姓名': 'Tên NVC', '主角背景': 'Bối Cảnh NVC', '天赋名称': 'Tên Thiên Phú', '简描': 'Mô Tả Ngắn',
+  '简单': 'Dễ', '困难': 'Khó', '能量类': 'Loại Năng Lượng', '特殊异能类': 'Dị Năng Đặc Biệt', '负面': 'Tiêu Cực',
+  '来源': 'Nguồn', '各层效果': 'Hiệu Ứng Mỗi Tầng', '资源': 'Tài Nguyên', '核心': 'Cốt Lõi', '元素': 'Nguyên Tố',
+  '高阶': 'Cao Cấp', '模型': 'Mô Hình', '模板': 'Mẫu', '内置': 'Tích Hợp', '新条目': 'Mục Mới',
+  '新节点': 'Nút Mới', '角色': 'Nhân Vật', '评价': 'Đánh Giá', '评分': 'Điểm', '评级': 'Xếp Hạng',
+  '锐评': 'Nhận Xét', '表情': 'Biểu Cảm', '贴纸': 'Nhãn Dán', '条目名称': 'Tên Mục',
+
+  // ─────────── 提示 / 文案 ───────────
+  '点击查看大图': 'Bấm để xem ảnh lớn', '点击查看物品详情': 'Bấm xem chi tiết', '点击重命名': 'Bấm để đổi tên',
+  '搜索条目名称或内容': 'Tìm tên hoặc nội dung', '无匹配条目': 'Không có kết quả', '无匹配物品': 'Không có kết quả',
+  '图片请小于 3MB': 'Ảnh phải nhỏ hơn 3MB', '上传图片': 'Tải Ảnh Lên', 'AI 生成': 'AI Tạo',
+  '请先填写 API 地址和 Key': 'Vui lòng nhập địa chỉ API và Key trước', '操作太快了，稍等一下': 'Quá nhanh — vui lòng đợi chút',
+  '未识别到有效条目，请确认文件格式': 'Không nhận ra mục hợp lệ; kiểm tra định dạng file',
+
+  // ─────────── NPC 亲密（成人向）───────────
+  '情欲值': 'Dục Vọng', '快感值': 'Khoái Cảm', '沉沦': 'Sa Đọa', '淫纹': 'Dâm Văn', '烙印等级': 'Cấp Ấn Ký',
+  '性爱姿势': 'Tư Thế', '性经验': 'Kinh Nghiệm Tình Dục', '敏感部位': 'Điểm Nhạy Cảm', '性观念': 'Quan Niệm Tình Dục',
+  '表性癖': 'Sở Thích Ngoài', '里性癖': 'Sở Thích Ẩn', '性器状态': 'Trạng Thái', '开发玩法': 'Khai Phá', '解锁服装': 'Mở Khóa Trang Phục',
+  '独特技巧': 'Kỹ Xảo Riêng',
 };
 
 /* 插值 / 带数字规则（锚定，安全）。 */

@@ -12,17 +12,22 @@ export function hasCJK(s: string): boolean {
   return CJK_RE.test(s);
 }
 
-/** 拆出首尾空白，返回 [lead, core, trail]。 */
-function splitWs(raw: string): [string, string, string] {
-  const lead = raw.match(/^\s*/)![0];
-  const trail = raw.match(/\s*$/)![0];
-  const core = raw.slice(lead.length, raw.length - trail.length);
+/** 拆出首尾「装饰」（空白 / emoji 图标 / 箭头符号 / 标点），返回 [lead, core, trail]。
+   core 以字母·数字·汉字开头结尾，便于命中词库：「✎ 编辑」→core「编辑」、「（推荐）」→core「推荐」、「← 系统设置」→core「系统设置」。
+   翻译后再把 lead/trail 原样拼回，图标/符号不丢。 */
+const LEAD_DECOR = /^[^\p{L}\p{N}]+/u;
+const TRAIL_DECOR = /[^\p{L}\p{N}]+$/u;
+function splitCore(raw: string): [string, string, string] {
+  const lead = raw.match(LEAD_DECOR)?.[0] ?? '';
+  const rest = raw.slice(lead.length);
+  const trail = rest.match(TRAIL_DECOR)?.[0] ?? '';
+  const core = trail ? rest.slice(0, rest.length - trail.length) : rest;
   return [lead, core, trail];
 }
 
 /** 通用「精确词库 + 插值正则」翻译：精确命中优先，其次锚定正则规则；未命中回退原文（保持中文）。 */
 function dictTranslate(raw: string, exact: Record<string, string>, rules: [RegExp, string][]): string {
-  const [lead, core, trail] = splitWs(raw);
+  const [lead, core, trail] = splitCore(raw);
   if (!core) return raw;
 
   const hit = exact[core];

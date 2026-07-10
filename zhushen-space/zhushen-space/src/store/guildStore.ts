@@ -43,6 +43,7 @@ interface GuildState {
   chronicle: ChronicleEntry[];
   applicants: { pid: string; name: string; at: number }[];
   base: any;
+  chain: { count: number; lastAt: number; best: number } | null;
 
   setMy: (s: GuildSummary | null) => void;
   _set: (p: Partial<GuildState>) => void;
@@ -61,6 +62,7 @@ const LIVE_INIT = {
   chronicle: [] as ChronicleEntry[],
   applicants: [] as { pid: string; name: string; at: number }[],
   base: null as any,
+  chain: null as { count: number; lastAt: number; best: number } | null,
 };
 
 export const useGuild = create<GuildState>()(

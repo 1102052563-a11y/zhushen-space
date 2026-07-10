@@ -253,6 +253,117 @@ export const EN_EXACT: Record<string, string> = {
   '继续冒险': 'Continue',
   '读取存档': 'Load Save',
   '新的轮回': 'New Cycle',
+  '新游戏': 'New Game',
+  '导出小说': 'Export Novel',
+  '诊断包': 'Diagnostics',
+  '存档瘦身': 'Slim Save',
+  '清理图片': 'Clean Images',
+  '本地文件夹': 'Local Folder',
+  '防清除': 'Persistent',
+  '推荐': 'Recommended',
+  '上一局存档': 'Previous Save',
+  '覆盖': 'Overwrite',
+  '改名': 'Rename',
+  '提主角': 'Extract MC',
+  '自动备份': 'Auto Backup',
+
+  // ─────────── 阶位 Tier ───────────
+  '一阶': 'Tier 1', '二阶': 'Tier 2', '三阶': 'Tier 3', '四阶': 'Tier 4', '五阶': 'Tier 5',
+  '六阶': 'Tier 6', '七阶': 'Tier 7', '八阶': 'Tier 8', '九阶': 'Tier 9', '十阶': 'Tier 10',
+  '十一阶': 'Tier 11', '十二阶': 'Tier 12', '十三阶': 'Tier 13', '十四阶': 'Tier 14', '阶位未知': 'Unknown Tier',
+
+  // ─────────── 品级 / 稀有度 / 颜色阶梯 ───────────
+  '凡物': 'Mundane', '普通': 'Common', '精良': 'Fine', '稀有': 'Rare', '史诗': 'Epic',
+  '传说': 'Legendary', '极道': 'Supreme', '起源': 'Origin', '永恒': 'Eternal', '不朽': 'Immortal',
+  '创世': 'Genesis', '圣灵': 'Divine',
+  '白色': 'White', '绿色': 'Green', '蓝色': 'Blue', '紫色': 'Purple', '橙色': 'Orange',
+  '淡金': 'Pale Gold', '暗金': 'Dark Gold', '暗紫': 'Dark Purple', '暗紫色': 'Dark Purple',
+
+  // ─────────── 物品类别 ───────────
+  '物品': 'Item', '武器': 'Weapon', '防具': 'Armor', '饰品': 'Accessory', '材料': 'Material',
+  '消耗品': 'Consumable', '特殊物品': 'Special Item', '其他物品': 'Other', '重要物品': 'Key Item',
+  '宝石': 'Gem', '法宝': 'Artifact', '工具': 'Tool', '载具': 'Vehicle', '符箓': 'Talisman',
+  '功法': 'Technique', '丹药': 'Pill', '灵药': 'Elixir', '阵具': 'Formation Item', '技能书': 'Skill Book',
+  '配方': 'Recipe', '商品': 'Goods', '产物': 'Product', '装备需求': 'Requirements', '耐久度': 'Durability',
+  '获得途径': 'Source', '产地': 'Origin', '灵魂钱币': 'Soul Coin',
+
+  // ─────────── 战斗 ───────────
+  '攻击': 'Attack', '防御': 'Defense', '伤害': 'Damage', '治疗': 'Heal', '护盾': 'Shield',
+  '群体': 'AoE', '单体': 'Single', '群攻': 'AoE Attack', '自身': 'Self', '目标': 'Target',
+  '领域': 'Domain', '增益': 'Buff', '减益': 'Debuff', '蓄力': 'Charge', '控制': 'Control',
+  '召唤': 'Summon', '守护': 'Guard', '吸血': 'Lifesteal', '破防': 'Armor Break', '冷却': 'Cooldown',
+  '层数': 'Stacks', '持续时长': 'Duration', '持续回合': 'Duration', '被动': 'Passive', '主动': 'Active',
+  '我方': 'Ally', '敌方': 'Enemy', '道具': 'Item', '回合数': 'Turns',
+  '中毒': 'Poison', '灼烧': 'Burn', '出血': 'Bleed', '麻痹': 'Paralyze', '眩晕': 'Stun',
+  '冻结': 'Freeze', '亡灵': 'Undead', '大成功': 'Critical Success', '大失败': 'Critical Failure',
+  '物理攻击': 'Physical ATK', '物理防御': 'Physical DEF', '法术攻击': 'Magic ATK', '法术防御': 'Magic DEF',
+
+  // ─────────── 技能 / 副职业熟练度 ───────────
+  '新手': 'Novice', '入门': 'Beginner', '熟练': 'Proficient', '专家': 'Expert', '精通': 'Mastery',
+  '大师': 'Master', '宗师': 'Grandmaster', '奥义': 'Ultimate', '极境': 'Pinnacle', '通用': 'General',
+  '技能点': 'Skill Points', '黄金技能点': 'Gold Skill Point', '潜能点': 'Potential', '属性点': 'Attribute Points',
+  '属性加成': 'Attribute Bonus', '真实属性': 'True Attributes', '真实属性点': 'True Attribute Points',
+  '基础属性': 'Base Attributes', '衍生属性': 'Derived Attributes',
+  '锻造': 'Smithing', '炼金术': 'Alchemy', '制药': 'Pharmacy', '制符': 'Talisman Craft', '烹饪': 'Cooking',
+  '驯兽': 'Beast Taming', '阵法': 'Formations', '功能': 'Utility', '生活': 'Life',
+
+  // ─────────── 角色 / 关系 ───────────
+  '契约者': 'Contractor', '某契约者': 'A Contractor', '契约者ID': 'Contractor ID', '道友': 'Fellow Daoist',
+  '随从': 'Companion', '宠物': 'Pet', '召唤物': 'Summon', '队友': 'Teammate', '对手': 'Opponent',
+  '竞技对手': 'Arena Rival', '房主': 'Host', '成员': 'Member', '首领': 'Boss', '盟友': 'Ally', '宿敌': 'Nemesis',
+  '普通人': 'Ordinary Person', '人类': 'Human', '人形': 'Humanoid', '兽形': 'Beast Form',
+  '无名': 'Nameless', '未命名': 'Unnamed', '身份': 'Identity', '背景': 'Background',
+  '隶属': 'Affiliation', '隶属冒险团': 'Adventure Party', '经历': 'History', '经历时间线': 'Timeline',
+  '竞技场排名': 'Arena Rank',
+
+  // ─────────── 属性缩写 / 出身 ───────────
+  '力': 'STR', '体': 'CON', '智': 'INT', '魅': 'CHA', '敏': 'AGI', '法力': 'Mana',
+  '外观': 'Appearance', '外观描写': 'Appearance', '基底外观': 'Base Look', '形态': 'Form',
+  '所属乐园': 'Home Paradise', '生物强度': 'Bio Power', '世界之源': 'World Origin',
+
+  // ─────────── 状态 ───────────
+  '请求失败': 'Request Failed', '生成中': 'Generating', '生成失败': 'Generation Failed', '一切正常': 'All Good',
+  '未设定': 'Not Set', '暂无': 'None', '空': 'Empty', '进行中': 'In Progress', '已完成': 'Completed',
+  '已死亡': 'Deceased', '离场': 'Away', '在场': 'Present', '已装备': 'Equipped', '已启用': 'Enabled',
+  '当前状态': 'Status', '回合': 'Turn',
+  '未登录': 'Not Logged In', '登录失败': 'Login Failed', '上传失败': 'Upload Failed', '操作失败': 'Operation Failed',
+  '连接错误': 'Connection Error', '连接中': 'Connecting', '已断开': 'Disconnected', '未连接': 'Not Connected',
+  '更新': 'Update', '更新中': 'Updating', '清除': 'Clear', '锁定': 'Locked', '未知错误': 'Unknown Error',
+  '未进入': 'Not Entered', '已成交': 'Sold', '内容': 'Content', '标题': 'Title', '创建': 'Create',
+  '说明': 'Notes', '其他': 'Other', '世界书': 'Lorebook',
+
+  // ─────────── 世界 / 任务 ───────────
+  '主线': 'Main', '支线': 'Side', '主线任务': 'Main Quest', '支线任务': 'Side Quest', '世界大事': 'World Event',
+  '当前世界': 'Current World', '长期事实': 'Long-term Facts', '正文': 'Narrative', '战斗场景': 'Battle Scene',
+  '乐园': 'Paradise', '轮回乐园': 'Samsara Paradise', '主神空间': "God's Space", '家族': 'Clan', '产业': 'Business',
+
+  // ─────────── 面板 / 演化 ───────────
+  'API 设置': 'API Settings', '演化设置': 'Evolution Settings', '预设设置': 'Preset Settings', '预设正则': 'Preset Regex',
+  '主角演化': 'Protagonist Evo', 'NPC 演化': 'NPC Evo', '势力演化': 'Faction Evo', '领地演化': 'Territory Evo',
+  '冒险团演化': 'Party Evo', '万族演化': 'Cosmos Evo', '杂项演化': 'Misc Evo', '登场判断': 'Entry Check',
+  '装备强化': 'Enhance', '合成工坊': 'Crafting', '公共频道': 'Public Channel', '命运福袋': 'Fortune Bag',
+  '导入 JSON': 'Import JSON',
+
+  // ─────────── 创建 / 编辑 / 通用 ───────────
+  '主角姓名': 'Protagonist Name', '主角背景': 'Background', '天赋名称': 'Talent Name', '简描': 'Brief',
+  '简单': 'Easy', '困难': 'Hard', '能量类': 'Energy', '特殊异能类': 'Special Ability', '负面': 'Negative',
+  '来源': 'Source', '各层效果': 'Per-stack Effect', '资源': 'Resources', '核心': 'Core', '元素': 'Element',
+  '高阶': 'Advanced', '模型': 'Model', '模板': 'Template', '内置': 'Built-in', '新条目': 'New Entry',
+  '新节点': 'New Node', '角色': 'Character', '评价': 'Review', '评分': 'Rating', '评级': 'Rating',
+  '锐评': 'Hot Take', '表情': 'Emoji', '贴纸': 'Sticker', '条目名称': 'Entry Name',
+
+  // ─────────── 提示 / 文案 ───────────
+  '点击查看大图': 'Click to enlarge', '点击查看物品详情': 'Click for details', '点击重命名': 'Click to rename',
+  '搜索条目名称或内容': 'Search name or content', '无匹配条目': 'No matches', '无匹配物品': 'No matches',
+  '图片请小于 3MB': 'Image must be under 3MB', '上传图片': 'Upload Image', 'AI 生成': 'AI Generate',
+  '请先填写 API 地址和 Key': 'Please enter the API URL and Key first', '操作太快了，稍等一下': 'Too fast — please wait a moment',
+  '未识别到有效条目，请确认文件格式': 'No valid entries found; check the file format',
+
+  // ─────────── NPC 亲密（成人向）───────────
+  '情欲值': 'Lust', '快感值': 'Pleasure', '沉沦': 'Corruption', '淫纹': 'Lewd Crest', '烙印等级': 'Brand Level',
+  '性爱姿势': 'Sex Positions', '性经验': 'Sexual Experience', '敏感部位': 'Sensitive Spots', '性观念': 'Sexual Views',
+  '表性癖': 'Outer Kink', '里性癖': 'Inner Kink', '性器状态': 'Genital State', '开发玩法': 'Training', '解锁服装': 'Unlock Outfit',
+  '独特技巧': 'Special Skills',
 };
 
 /* 插值 / 带数字规则（锚定，安全）。命中即用 core.replace(re, to)。 */
@@ -264,6 +375,9 @@ export const EN_RULES: [RegExp, string][] = [
   [/^共\s*(\d+)\s*条$/, '$1 items'],
   [/^共\s*(\d+)\s*个$/, '$1 total'],
   [/^剩余\s*(\d+)$/, '$1 left'],
+  [/^回合\s*(\d+)$/, 'Turn $1'],
+  [/^剩\s*(\d+)\s*回合$/, '$1 turns left'],
+  [/^(\d+)\s*回合$/, '$1 turns'],
   [/^(\d+)\s*个$/, '$1'],
   [/^(\d+)\s*条$/, '$1'],
 ];

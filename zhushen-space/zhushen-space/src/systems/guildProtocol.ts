@@ -14,7 +14,7 @@ export interface GuildMember {
 }
 
 export interface WeeklyGoal { key: string; label: string; target: number; cur: number; reward: string; }
-export interface WeeklyTasks { weekId: string; goals: WeeklyGoal[]; claimed: string[]; }
+export interface WeeklyTasks { weekId: string; goals: WeeklyGoal[]; claimed: string[]; rewardCoin?: number; }
 
 export interface ChronicleEntry { at: number; text: string; kind?: string; }
 
@@ -29,6 +29,7 @@ export interface GuildFull {
   chest: any[];                 // 家族金库（带完整物品快照）
   weekTasks?: WeeklyTasks;
   chronicle: ChronicleEntry[];
+  chain?: { count: number; lastAt: number; best: number };   // 家族连击（Torn 式·击杀累计冲里程碑）
   baseSnapshot?: any;           // 家族据点 = 领地快照
 }
 
@@ -50,6 +51,8 @@ export type GuildInbound =
   | { type: 'contrib_bumped'; pid: string; contribTotal: number; contribWeek: number; exp: number }
   | { type: 'level_up'; level: number; perks: GuildPerk[] }
   | { type: 'task_progress'; weekTasks: WeeklyTasks }
+  | { type: 'task_reward'; amount: number; currency: string }   // 领取周任务奖励 → 客户端本地入账
+  | { type: 'chain_bumped'; chain: { count: number; lastAt: number; best: number } }
   | { type: 'chest_changed'; chest: any[] }
   | { type: 'chronicle_added'; entry: ChronicleEntry }
   | { type: 'applicant_added'; applicant: { pid: string; name: string; at: number } }

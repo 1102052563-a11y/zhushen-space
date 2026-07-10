@@ -1,6 +1,8 @@
 import { useGuild, type GuildSummary } from '../store/guildStore';
 import { mpWsBase } from './mpConfig';
 import { chatAvatarVer, chatDicebearSeed, chatToken } from './chatIdentity';
+import { useItems } from '../store/itemStore';
+import { pushSceneNotice } from './allocNotice';
 import { chatNameColor } from './chatCosmetics';
 import type { GuildFull, GuildInbound, GuildListInbound, GuildCard } from './guildProtocol';
 
@@ -72,7 +74,7 @@ function openGuild(guildId: string, name: string, token: string) {
 function setFromFull(g: GuildFull) {
   const myPid = useGuild.getState().me?.playerId;
   const myMember = g.members.find((m) => m.pid === myPid);
-  set({ roster: g.members || [], chest: g.chest || [], weekTasks: g.weekTasks || null, chronicle: g.chronicle || [], applicants: g.applicants || [], base: g.baseSnapshot || null, exp: g.exp || 0 });
+  set({ roster: g.members || [], chest: g.chest || [], weekTasks: g.weekTasks || null, chronicle: g.chronicle || [], applicants: g.applicants || [], base: g.baseSnapshot || null, exp: g.exp || 0, chain: g.chain || null });
   const my = useGuild.getState().my;
   if (my && my.id === g.id) useGuild.getState().setMy({ ...my, name: g.name, tag: g.tag, emblem: g.emblem, level: g.level, perks: g.perks || [], role: myMember ? myMember.rank : my.role });
 }
@@ -91,6 +93,8 @@ function dispatchGuild(m: GuildInbound) {
     case 'contrib_bumped': set({ exp: m.exp, roster: st.roster.map((x) => (x.pid === m.pid ? { ...x, contribTotal: m.contribTotal, contribWeek: m.contribWeek } : x)) }); break;
     case 'level_up': { const my = st.my; if (my) useGuild.getState().setMy({ ...my, level: m.level, perks: m.perks || [] }); break; }
     case 'task_progress': set({ weekTasks: m.weekTasks }); break;
+    case 'task_reward': { try { const amt = Math.max(0, Math.round(m.amount || 0)); if (amt) { useItems.getState().adjustCurrency('乐园币', amt, '家族·周任务奖励'); pushSceneNotice(`【场外·家族】领取家族周任务奖励 +${amt} 乐园币`); } } catch { /* */ } break; }
+    case 'chain_bumped': set({ chain: m.chain }); break;
     case 'chest_changed': set({ chest: m.chest || [] }); break;
     case 'chronicle_added': set({ chronicle: [m.entry, ...st.chronicle].slice(0, 100) }); break;
     case 'applicant_added': set({ applicants: [...st.applicants, m.applicant] }); break;
@@ -120,6 +124,7 @@ export const guildClient = {
   kick: (pid: string) => gSend({ type: 'kick', pid }),
   leave: () => gSend({ type: 'leave' }),
   disband: () => gSend({ type: 'disband' }),
+  claimTask: () => gSend({ type: 'claim_task' }),
   contributeRest,
   isGuildOpen: () => !!gWs && gWs.readyState === 1,
 };

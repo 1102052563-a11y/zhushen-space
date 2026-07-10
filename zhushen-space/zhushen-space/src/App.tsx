@@ -13,6 +13,7 @@ import {
   AFFIX_EFFECT_RULE,
   ITEM_GRADE_TABLE_RULE,
   EQUIP_CODEX,
+  CHEST_OPEN_RULE,
   CHANNEL_PRICE_CODEX,
   ITEM_ACQUIRE_RULE,
   ITEM_DESTROY_GUARD_RULE,
@@ -260,7 +261,9 @@ import { useCraft, ensureCraftWbDefaults, type CraftProduct } from './store/craf
 import { craftMode, craftOutputSlots } from './systems/craftEngine';
 import { buildCraftWbInjection } from './systems/craftWorldBook';
 import { generateGem } from './systems/gemEngine';
+import { useChest } from './store/chestStore';
 const CraftPanel = lazy(() => import('./components/CraftPanel'));
+const ChestPanel = lazy(() => import('./components/ChestPanel'));
 const ProducePanel = lazy(() => import('./components/ProducePanel'));
 const GuildPanel = lazy(() => import('./components/GuildPanel'));
 import { useShop } from './store/shopStore';
@@ -1056,6 +1059,7 @@ const rightMenuItems = [
   { icon: '🌳', label: '技能树' },
   { icon: '🎴', label: '体系' },
   { icon: '🧰', label: '合成' },
+  { icon: '🎁', label: '开箱' },
   { icon: '🎖', label: '称号' },
   { icon: '🏆', label: '成就' },
   { icon: '🏛', label: '势力' },
@@ -1093,7 +1097,7 @@ const rightMenuItems = [
 /* 右侧导航·每个图标的独特 hover 特效类（定义见 index.css 的 .fx-*）*/
 const NAV_FX: Record<string, string> = {
   '装备': 'fx-sword', '储存空间': 'fx-bag', 'NPC': 'fx-card', '技能': 'fx-sparkle',
-  '副职业': 'fx-wrench', '技能树': 'fx-tree', '体系': 'fx-tree', '合成': 'fx-wrench', '称号': 'fx-medal', '成就': 'fx-trophy', '势力': 'fx-pillar',
+  '副职业': 'fx-wrench', '技能树': 'fx-tree', '体系': 'fx-tree', '合成': 'fx-wrench', '开箱': 'fx-bag', '称号': 'fx-medal', '成就': 'fx-trophy', '势力': 'fx-pillar',
   '领地': 'fx-castle', '冒险团': 'fx-shield', '队伍': 'fx-friends', '万族': 'fx-cosmos', '世界百科': 'fx-book', '轮回WIKI': 'fx-book',
   '战斗': 'fx-clash', '乐园设施': 'fx-ferris', '深渊': 'fx-void', '回合洞察': 'fx-zoom', '审计': 'fx-zoom', '任务': 'fx-quest',
   '频道': 'fx-signal', '私信': 'fx-mail', '好友': 'fx-friends', '聊天室': 'fx-signal', '交易行': 'fx-bag', '产业': 'fx-bag', '家族': 'fx-castle', '助战': 'fx-clash', '世界竞技场': 'fx-trophy', '纪念丰碑': 'fx-pillar', '账户仓库': 'fx-bag', '记忆': 'fx-brain', '创意工坊': 'fx-sparkle', '存档': 'fx-save', '设置': 'fx-gear',
@@ -1242,6 +1246,7 @@ export default function App() {
   const [worldRecordOpen,  setWorldRecordOpen]  = useState(false);
   const [enhancePanelOpen, setEnhancePanelOpen] = useState(false);
   const [craftPanelOpen, setCraftPanelOpen] = useState(false);
+  const [chestPanelOpen, setChestPanelOpen] = useState(false);
   const [producePanelOpen, setProducePanelOpen] = useState(false);
   const [guildPanelOpen, setGuildPanelOpen] = useState(false);
   const [skillUpPanelOpen, setSkillUpPanelOpen] = useState(false);
@@ -2475,6 +2480,103 @@ export default function App() {
     try {
       const names = sess.pending.map((p) => p.name).filter(Boolean).join('、');
       if (names) pushSceneNotice(`【场外·合成】玩家在合成工坊（${craftMode(sess.modeId).name}）合成/炼制出：${names}。${isTame ? '已收服为随从宠物。' : '已入库。'}正文据此知晓即可，勿重复发放。`);
+    } catch { /* 通报失败不阻断 */ }
+    C.endSession();
+  }
+
+  /* ─── 开箱：读宝箱全部信息 + 物品世界书 + 正文世界书品级体系 → 装备强化 API 按合理性思维链开出与宝箱品级相称之物 ───
+     前端已按宝箱品级掷定 plan（逐槽品级上限，不越级）；产物落进 session.pending（预览，未入库、未消耗宝箱）；
+     确认才 confirmChestOpen 入库 + 消耗 1 只宝箱 → 撤销/重新生成零副作用。开箱 API 复用「装备强化所」接口。 */
+  async function runChestOpenPhase(): Promise<void> {
+    const C = useChest.getState();
+    const sess = C.session;
+    if (!sess.plan || !sess.chestId) { C.setError('未选择宝箱，请重新点「开启」'); return; }
+    const chest = useItems.getState().items.find((x) => x.id === sess.chestId);
+    if (!chest) { C.setError('这只宝箱已不在储存空间了'); return; }
+    const ss = useSettings.getState();
+    const E = useEnhance.getState();
+    const legacy = E.enhanceUseSharedApi ? (ss.textUseSharedApi ? ss.api : ss.textApi) : E.enhanceApi;
+    const chain = resolveApiChain('enhance', legacy);
+    if (!chain[0]?.baseUrl || !chain[0]?.apiKey) { C.setError('未配置 AI 接口（设置→变量管理→装备强化→API，或勾「复用正文生成 API」——开箱与装备强化共用此接口）'); return; }
+
+    const plan = sess.plan;
+    const prof: any = usePlayer.getState().profile ?? {};
+    const chestInfo = JSON.stringify({
+      名称: chest.name, 品级: chest.gradeDesc, 类型: chest.category, 类型细分: chest.subType,
+      来历: chest.acquisition, 产地: chest.origin, 简介: chest.intro, 外观: chest.appearance,
+      效果: chest.effect, 标签: chest.tags,
+    }, null, 1);
+    const slotsText = plan.slots.map((s, i) =>
+      `槽${i + 1}：建议类别=${s.category}（可按宝箱主题调成更贴切的合法类别）｜品级上限=${s.gradeDesc}（**不得越级**，可略低）｜${s.note}`).join('\n');
+
+    const system = CHEST_OPEN_RULE + '\n' + ITEM_FIXED_FORMAT_RULE + '\n' + EQUIP_CODEX;
+    const user = [
+      `【开启者】${prof.name || '主角'}　阶位:${prof.tier || '—'}　职业:${prof.identity || '—'}　等级:Lv.${prof.level ?? '—'}`,
+      `【本次开启的宝箱·完整信息】\n${chestInfo}`,
+      `【本箱品级 → 产出上限】宝箱品级＝${plan.capName}（序号 ${plan.capGrade}/15）——**本箱可开出的最高品级就是 ${plan.capName}**，所有产物一律不得高于此档（这是"不同等级宝箱最高能开出的物品"的硬上限）。`,
+      `【产出槽（系统已按宝箱品级逐槽定档，不得越级）·共 ${plan.slots.length} 件】\n${slotsText}`,
+      `【开启者倾向提示】${sess.tendency.trim() || '（未填 —— 由你按这只宝箱的品级、来历与主题判定开出什么）'}`,
+      `请先在 <开箱推演> 里按六步推演（≥150 字，判断开出之物是否配得上这只宝箱、是否越级、是否契合主题），再紧接着输出长度为 ${plan.slots.length} 的 JSON 数组（slot 从 1 起一一对应）。`,
+    ].join('\n\n');
+
+    C.setGenerating();
+    try {
+      const { content } = await apiChatFallback(chain, [
+        { role: 'system', content: system },
+        { role: 'user', content: user },
+      ], { timeoutMs: 120000 });
+      const body = (content || '').replace(/<开箱推演>[\s\S]*?<\/开箱推演>/g, ' ');   // 剥掉思维链，只留 JSON 数组
+      const arr = parseArenaArray(body);
+      if (!Array.isArray(arr) || !arr.length) { C.setError('AI 未返回有效产物（F12 看原始回复）。可点「重新生成」重试。'); return; }
+      const EQUIP = ['武器', '防具', '饰品'];
+      const products = plan.slots.map((slot, n) => {
+        const j = arr.find((x: any) => parseInt(String(x?.slot), 10) === n + 1) || arr[n] || {};
+        let cat = flattenAiText(j.category).trim();
+        if (!ITEM_CATEGORIES.includes(cat as any)) cat = String(slot.category);   // AI 给的类别非法 → 回退建议类别
+        const isEquip = EQUIP.includes(cat);
+        return {
+          name: flattenAiText(j.name).slice(0, 40) || `${slot.gradeDesc}·宝物`,
+          category: cat,
+          gradeDesc: slot.gradeDesc,   // 品级锁死（前端已按宝箱品级定档，不得越级）
+          subType: flattenAiText(j.subType).slice(0, 30) || undefined,
+          combatStat: isEquip ? (flattenAiText(j.combatStat).slice(0, 50) || undefined) : undefined,
+          attrBonus: flattenAiText(j.attrBonus).slice(0, 120) || undefined,
+          score: flattenAiText(j.score).slice(0, 60) || undefined,
+          affix: isEquip ? (flattenAiText(j.affix).slice(0, 200) || undefined) : undefined,
+          effect: flattenAiText(j.effect).slice(0, 400) || undefined,
+          intro: flattenAiText(j.intro).slice(0, 200) || undefined,
+          appearance: flattenAiText(j.appearance).slice(0, 300) || undefined,
+          killCount: cat === '武器' ? '0' : undefined,
+        };
+      });
+      C.setPending(products);
+    } catch (e: any) {
+      C.setError((e?.message ?? '接口调用失败').slice(0, 100));
+    }
+  }
+
+  /* 开箱：确认入库（产物入库 + 消耗 1 只宝箱 + 场外通报；未确认前不动任何东西）*/
+  function confirmChestOpen(): void {
+    const C = useChest.getState();
+    const sess = C.session;
+    if (!sess.pending || !sess.pending.length || !sess.chestId) return;
+    const items = useItems.getState();
+    const chest = items.items.find((x) => x.id === sess.chestId);
+    if (!chest) { C.setError('这只宝箱已不在储存空间了'); return; }
+    for (const p of sess.pending) {
+      const effect = [p.effect, p.attrBonus].filter(Boolean).join('；') || '';   // 六维/上限数值折进 effect，供 effectiveAttrs 读取（同合成/福袋）
+      items.addItem({
+        name: p.name, category: p.category as any, gradeDesc: p.gradeDesc,
+        subType: p.subType, combatStat: p.combatStat, score: p.score,
+        affix: p.affix, effect, intro: p.intro, appearance: p.appearance, killCount: p.killCount,
+        quantity: 1, equipped: false, tags: ['开箱'], acquisition: `开箱·${chest.name}`,
+      });
+    }
+    items.consumeItem(sess.chestId, 1);   // 消耗 1 只宝箱
+    // 场外通报：本次开出的产物 → 让正文知晓（防"开了箱正文不知"），同时说明宝箱已消耗
+    try {
+      const names = sess.pending.map((p) => p.name).filter(Boolean).join('、');
+      if (names) pushSceneNotice(`【场外·开箱】玩家开启了「${chest.name}」，开出：${names}（已入储存空间，该宝箱已消耗 1 只）。正文据此知晓即可，勿重复发放。`);
     } catch { /* 通报失败不阻断 */ }
     C.endSession();
   }
@@ -8644,6 +8746,7 @@ ${lines}`;
       label === '技能树' ? () => setSkillTreeOpen(true) :
       label === '体系' ? () => setLoadoutOpen(true) :
       label === '合成' ? () => setCraftPanelOpen(true) :
+      label === '开箱' ? () => setChestPanelOpen(true) :
       label === '产业' ? () => setProducePanelOpen(true) :
       label === '家族' ? () => setGuildPanelOpen(true) :
       label === '势力' ? () => setFactionPanelOpen(true) :
@@ -10436,6 +10539,7 @@ ${lines}`;
       {skillUpPanelOpen && <SkillUpgradePanel onClose={() => setSkillUpPanelOpen(false)} />}
 
       {craftPanelOpen && <CraftPanel onClose={() => setCraftPanelOpen(false)} onGenerate={runCraftPhase} onConfirm={confirmCraft} />}
+      {chestPanelOpen && <ChestPanel onClose={() => { setChestPanelOpen(false); useChest.getState().endSession(); }} onOpen={runChestOpenPhase} onConfirm={confirmChestOpen} />}
       {producePanelOpen && <ProducePanel onClose={() => setProducePanelOpen(false)} onJoySend={onJoySend} onGenerateGoods={genShopGoods} onBuyCompanion={buyShopCompanion} />}
       {guildPanelOpen && <GuildPanel onClose={() => setGuildPanelOpen(false)} />}
 
