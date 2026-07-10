@@ -2774,8 +2774,8 @@ function AppearanceSettingsSection() {
           <label className="flex items-start gap-2.5 pt-1 cursor-pointer select-none">
             <input type="checkbox" checked={autoTranslateOnline} onChange={(e) => setAutoTranslateOnline(e.target.checked)} className="accent-god w-4 h-4 mt-0.5" />
             <span>
-              <span className="text-sm text-slate-300">在线内容自动翻译</span>
-              <span className="block text-[12px] text-dim/60 leading-relaxed">交易行 / 聊天室 / 助战等跨玩家内容自动译成当前语言（结果永久缓存 · 中文→繁體走本地转换不耗额度）</span>
+              <span className="text-sm text-slate-300">自动机翻补全（界面 + 在线内容）</span>
+              <span className="block text-[12px] text-dim/60 leading-relaxed">词库没收录的界面文字、以及交易行/聊天室等跨玩家内容，自动机翻成当前语言（英/越生效 · 结果永久缓存 · 中文→繁體走本地转换不耗额度）</span>
             </span>
           </label>
           {autoTranslateOnline && (

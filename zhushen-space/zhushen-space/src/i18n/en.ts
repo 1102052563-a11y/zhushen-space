@@ -490,6 +490,16 @@ export const EN_EXACT: Record<string, string> = {
   '主角+在场队友': 'MC + present allies', '一键清 HP/EP（主角+在场队友）': 'Clear HP/EP (MC + present allies)',
   '选择世界': 'Select World', '结算任务': 'Settle Quest',
   '在此输入你的行动…（Shift+Enter 或点 ↵ 换行）': 'Type your action here… (Shift+Enter, or tap ↵ for a newline)',
+
+  // ── 补漏2：称号/临时队伍/工坊/世界百科 面板 chrome ──
+  '当前佩戴': 'Currently Worn', '未佩戴': 'Not Worn',
+  '暂无称号。称号会在剧情中获得（由叙事自动写入）。': 'No titles yet. Titles are earned through the story (written automatically).',
+  '临时队伍': 'Temporary Party', '还没有临时队友': 'No temporary allies yet',
+  '主角是队长': 'MC is the leader', '随队行动': 'moves with the party',
+  '浏览': 'Browse', '已上传': 'Uploaded', '已安装': 'Installed', '安装': 'Install', '作者': 'Author', '搜索名称': 'Search name',
+  '角色卡': 'Character Card', '技能树模板': 'Skill Tree Template', '副职业技能树': 'Subprofession Tree', '角色创建模板': 'Creation Template', '流派': 'Style',
+  '同人世界原著情报': 'Fanfic Canon Info', '剧情先知': 'Plot Foresight', '联网考据': 'Online Research',
+  '社区共享': 'Community Sharing', '浏览下载': 'Browse & Download',
 };
 
 /* 插值 / 带数字规则（锚定，安全）。命中即用 core.replace(re, to)。 */

@@ -490,6 +490,16 @@ export const VI_EXACT: Record<string, string> = {
   '主角+在场队友': 'NVC + đồng đội có mặt', '一键清 HP/EP（主角+在场队友）': 'Xóa HP/EP (NVC + đồng đội có mặt)',
   '选择世界': 'Chọn Thế Giới', '结算任务': 'Kết Toán Nhiệm Vụ',
   '在此输入你的行动…（Shift+Enter 或点 ↵ 换行）': 'Nhập hành động của bạn… (Shift+Enter hoặc bấm ↵ để xuống dòng)',
+
+  // ── 补漏2：称号/临时队伍/工坊/世界百科 面板 chrome ──
+  '当前佩戴': 'Đang Đeo', '未佩戴': 'Chưa Đeo',
+  '暂无称号。称号会在剧情中获得（由叙事自动写入）。': 'Chưa có danh hiệu. Danh hiệu nhận được qua cốt truyện (tự động ghi vào).',
+  '临时队伍': 'Đội Tạm Thời', '还没有临时队友': 'Chưa có đồng đội tạm',
+  '主角是队长': 'NVC là đội trưởng', '随队行动': 'đi cùng đội',
+  '浏览': 'Duyệt', '已上传': 'Đã Tải Lên', '已安装': 'Đã Cài', '安装': 'Cài Đặt', '作者': 'Tác Giả', '搜索名称': 'Tìm tên',
+  '角色卡': 'Thẻ Nhân Vật', '技能树模板': 'Mẫu Cây Kỹ Năng', '副职业技能树': 'Cây Nghề Phụ', '角色创建模板': 'Mẫu Tạo Nhân Vật', '流派': 'Lưu Phái',
+  '同人世界原著情报': 'Thông Tin Nguyên Tác', '剧情先知': 'Tiên Tri Cốt Truyện', '联网考据': 'Khảo Cứu Trực Tuyến',
+  '社区共享': 'Chia Sẻ Cộng Đồng', '浏览下载': 'Duyệt & Tải',
 };
 
 /* 插值 / 带数字规则（锚定，安全）。 */

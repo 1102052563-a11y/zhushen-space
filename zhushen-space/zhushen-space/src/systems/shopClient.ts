@@ -37,12 +37,16 @@ async function thumb(raw?: string): Promise<string> {
 
 // 组装上传快照：全部立绘缩略（店招 / 商品图 / 娼妇立绘 / 铁匠立绘），其余文本/payload 原样透传。
 async function buildSnapshot(shop: ShopEntity): Promise<any> {
-  const rawSigns = (shop.signs && shop.signs.length ? shop.signs : (shop.sign ? [shop.sign] : [])).slice(0, 6);   // 立绘图集缩略（封顶 6 张·限 DO 载荷）
-  const signs = (await Promise.all(rawSigns.map(thumb))).filter(Boolean);
+  // 立绘图集缩略上传·各类封顶张数限 DO 载荷（本地可存至 MAX_GALLERY，联机只带前若干张预览）
+  const gallery = async (arr: string[] | undefined, cover: string | undefined, cap: number) => {
+    const raw = (arr && arr.length ? arr : (cover ? [cover] : [])).slice(0, cap);
+    return (await Promise.all(raw.map(thumb))).filter(Boolean);
+  };
+  const signs = await gallery(shop.signs, shop.sign, 12);
   const sign = signs[0] || '';   // 封面（兼容旧客户端只读 sign）
-  const goods = await Promise.all((shop.goods ?? []).map(async (g) => ({ ...g, image: await thumb(g.image) })));
-  const girls = await Promise.all((shop.girls ?? []).map(async (g) => ({ ...g, portrait: await thumb(g.portrait) })));
-  const smith = shop.smith ? { ...shop.smith, boss: { ...shop.smith.boss, portrait: await thumb(shop.smith.boss.portrait) } } : undefined;
+  const goods = await Promise.all((shop.goods ?? []).map(async (g) => { const images = await gallery(g.images, g.image, 4); return { ...g, image: images[0] || '', images }; }));
+  const girls = await Promise.all((shop.girls ?? []).map(async (g) => { const images = await gallery(g.images, g.portrait, 6); return { ...g, portrait: images[0] || '', images }; }));
+  const smith = shop.smith ? await (async () => { const portraits = await gallery(shop.smith!.portraits, shop.smith!.boss.portrait, 6); return { ...shop.smith!, portraits, boss: { ...shop.smith!.boss, portrait: portraits[0] || '' } }; })() : undefined;
   return {
     type: shop.type, name: shop.name, intro: shop.intro, tagline: shop.tagline, ownerPersona: shop.ownerPersona,
     currency: shop.currency, world: shop.world, sign, signs, goods, girls, smith,

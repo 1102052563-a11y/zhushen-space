@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import {
-  useShop, hydrateShopImages, SHOP_TYPE_META,
+  useShop, hydrateShopImages, SHOP_TYPE_META, MAX_GALLERY,
   type ShopType, type ShopGood, type ShopSmith, type ShopEntity,
 } from '../store/shopStore';
 import { useJoy, type JoyGirl } from '../store/joyStore';
@@ -34,46 +34,20 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
 }
 
 /** 通用立绘上传（FileReader → shrinkDataUrl → onPick；大图由各 store 存 IndexedDB）。 */
-function ImgUpload({ src, emoji, onPick, onClear, h = 'h-32' }: {
-  src?: string; emoji: string; onPick: (d: string) => void; onClear: () => void; h?: string;
+/* 通用·多图立绘上传（可多张·第一张为封面·展示时自动轮播）。店招/货品/娼妇/铁匠共用；父组件传 onAdd/onRemoveAt 接各自 store 图集动作。 */
+function MultiImgUpload({ imgs, onAdd, onRemoveAt, emoji, max = MAX_GALLERY }: {
+  imgs: string[]; onAdd: (d: string) => void; onRemoveAt: (i: number) => void; emoji: string; max?: number;
 }) {
   const ref = useRef<HTMLInputElement>(null);
-  const onFile = (f: File | null) => {
-    if (!f) return;
-    const reader = new FileReader();
-    reader.onload = async () => {
-      try { onPick(await shrinkDataUrl(String(reader.result), 1280, 0.85)); }
-      catch { onPick(String(reader.result)); }
-    };
-    reader.readAsDataURL(f);
-  };
-  return (
-    <div className="w-24 shrink-0 flex flex-col gap-1.5">
-      <div className={`w-24 ${h} rounded-lg border border-edge bg-void overflow-hidden flex items-center justify-center`}>
-        {src ? <img src={src} alt="" className="w-full h-full object-cover" /> : <span className="text-4xl text-cyan-300/25">{emoji}</span>}
-      </div>
-      <input ref={ref} type="file" accept="image/*" className="hidden" onChange={(e) => onFile(e.target.files?.[0] ?? null)} />
-      <button onClick={() => ref.current?.click()} className="text-[11px] font-mono py-1 rounded border border-edge text-dim hover:text-cyan-100 hover:border-cyan-400/40">上传立绘</button>
-      {src && <button onClick={onClear} className="text-[11px] font-mono py-0.5 rounded text-blood/60 hover:text-blood">清除</button>}
-    </div>
-  );
-}
-
-/* 店招·多图上传（可多张·第一张为封面·逛店自动轮播）。立绘存 IndexedDB（addShopSign/removeShopSign）。 */
-function MultiImgUpload({ shopId, shop, emoji }: { shopId: string; shop: ShopEntity; emoji: string }) {
-  const addShopSign = useShop((s) => s.addShopSign);
-  const removeShopSign = useShop((s) => s.removeShopSign);
-  const ref = useRef<HTMLInputElement>(null);
-  const imgs = shop.signs ?? (shop.sign ? [shop.sign] : []);
-  const imgsCount = () => (useShop.getState().shops.find((x) => x.id === shopId)?.signs?.length ?? 0);
   const onFiles = async (files: FileList | null) => {
     if (!files) return;
+    let n = imgs.length;
     for (const f of Array.from(files)) {
-      if (imgsCount() >= 8) break;
+      if (n >= max) break;
       const url = await new Promise<string>((res) => { const r = new FileReader(); r.onload = () => res(String(r.result)); r.onerror = () => res(''); r.readAsDataURL(f); });
       if (!url) continue;
       let out = url; try { out = await shrinkDataUrl(url, 1280, 0.85); } catch { /* 原图兜底 */ }
-      addShopSign(shopId, out);
+      onAdd(out); n++;
     }
     if (ref.current) ref.current.value = '';
   };
@@ -83,11 +57,11 @@ function MultiImgUpload({ shopId, shop, emoji }: { shopId: string; shop: ShopEnt
         {imgs.map((src, i) => (
           <div key={i} className="relative w-20 h-24 rounded-lg border border-edge bg-void overflow-hidden">
             <img src={src} alt="" className="w-full h-full object-cover" />
-            <button onClick={() => removeShopSign(shopId, i)} className="absolute top-0.5 right-0.5 w-5 h-5 rounded-full bg-black/70 text-blood/90 hover:text-blood text-[11px] flex items-center justify-center" title="删除这张">✕</button>
+            <button onClick={() => onRemoveAt(i)} className="absolute top-0.5 right-0.5 w-5 h-5 rounded-full bg-black/70 text-blood/90 hover:text-blood text-[11px] flex items-center justify-center" title="删除这张">✕</button>
             {i === 0 && <span className="absolute bottom-0 inset-x-0 text-center text-[9px] font-mono bg-black/60 text-cyan-200/80">封面</span>}
           </div>
         ))}
-        {imgs.length < 8 && (
+        {imgs.length < max && (
           <button onClick={() => ref.current?.click()} className="w-20 h-24 rounded-lg border border-dashed border-edge text-dim/50 hover:text-cyan-100 hover:border-cyan-400/40 flex flex-col items-center justify-center gap-1">
             <span className="text-2xl">{imgs.length ? '＋' : emoji}</span>
             <span className="text-[10px] font-mono">上传立绘</span>
@@ -95,7 +69,7 @@ function MultiImgUpload({ shopId, shop, emoji }: { shopId: string; shop: ShopEnt
         )}
       </div>
       <input ref={ref} type="file" accept="image/*" multiple className="hidden" onChange={(e) => onFiles(e.target.files)} />
-      <div className="text-[10px] font-mono text-dim/40">可上传多张（≤8）· 逛店 / 商城时自动轮播 · 第一张为封面</div>
+      <div className="text-[10px] font-mono text-dim/40">可上传多张（≤{max}）· 展示时自动轮播 · 第一张为封面</div>
     </div>
   );
 }
@@ -219,14 +193,15 @@ function GoodEditModal({ shopId, good, onClose }: { shopId: string; good: ShopGo
 function GoodRow({ shopId, good }: { shopId: string; good: ShopGood }) {
   const upsertGood = useShop((s) => s.upsertGood);
   const removeGood = useShop((s) => s.removeGood);
-  const setGoodImage = useShop((s) => s.setGoodImage);
+  const addGoodImage = useShop((s) => s.addGoodImage);
+  const removeGoodImage = useShop((s) => s.removeGoodImage);
   const [editFull, setEditFull] = useState(false);
   const patch = (p: Partial<ShopGood>) => upsertGood(shopId, { ...good, ...p });
 
   return (
     <div className="rounded-xl border border-edge bg-panel p-3 flex max-lg:flex-col gap-3">
-      <ImgUpload emoji={good.kind === 'npc' ? '🧑' : '📦'} h="h-24" src={good.image}
-        onPick={(d) => setGoodImage(shopId, good.id, d)} onClear={() => setGoodImage(shopId, good.id, undefined)} />
+      <MultiImgUpload emoji={good.kind === 'npc' ? '🧑' : '📦'} imgs={good.images ?? (good.image ? [good.image] : [])}
+        onAdd={(d) => addGoodImage(shopId, good.id, d)} onRemoveAt={(i) => removeGoodImage(shopId, good.id, i)} />
       <div className="flex-1 min-w-0 space-y-2">
         <div className="flex items-center gap-2">
           <input value={good.name} onChange={(e) => patch({ name: e.target.value })} placeholder={good.kind === 'npc' ? '随从名' : '商品名'} className={`${inputCls} flex-1 font-semibold min-w-0`} />
@@ -315,14 +290,15 @@ function GirlPresetModal({ shopId, girl, onClose }: { shopId: string; girl: JoyG
 function GirlRow({ shopId, girl }: { shopId: string; girl: JoyGirl }) {
   const upsertShopGirl = useShop((s) => s.upsertShopGirl);
   const removeShopGirl = useShop((s) => s.removeShopGirl);
-  const setPortrait = useShop((s) => s.setShopGirlPortrait);
+  const addGirlImage = useShop((s) => s.addShopGirlImage);
+  const removeGirlImage = useShop((s) => s.removeShopGirlImage);
   const [editing, setEditing] = useState(false);
   const patch = (p: Partial<JoyGirl>) => upsertShopGirl(shopId, { ...girl, ...p });
 
   return (
     <div className="rounded-xl border border-pink-500/20 bg-panel p-3 flex max-lg:flex-col gap-3">
-      <ImgUpload emoji="💋" src={girl.portrait}
-        onPick={(d) => setPortrait(shopId, girl.id, d)} onClear={() => setPortrait(shopId, girl.id, undefined)} />
+      <MultiImgUpload emoji="💋" imgs={girl.images ?? (girl.portrait ? [girl.portrait] : [])}
+        onAdd={(d) => addGirlImage(shopId, girl.id, d)} onRemoveAt={(i) => removeGirlImage(shopId, girl.id, i)} />
       <div className="flex-1 min-w-0 space-y-2">
         <div className="flex items-center gap-2">
           <input value={girl.name} onChange={(e) => patch({ name: e.target.value })} placeholder="芳名" className={`${inputCls} flex-1 font-semibold min-w-0`} />
@@ -355,7 +331,8 @@ function NumField({ label, hint, value, step, min, max, onChange }: {
 
 function SmithEditor({ shopId, smith }: { shopId: string; smith: ShopSmith }) {
   const setShopSmith = useShop((s) => s.setShopSmith);
-  const setPortrait = useShop((s) => s.setShopSmithPortrait);
+  const addSmithImage = useShop((s) => s.addShopSmithImage);
+  const removeSmithImage = useShop((s) => s.removeShopSmithImage);
   const boss = smith.boss;
   const patchBoss = (p: Partial<typeof boss>) => setShopSmith(shopId, { ...smith, boss: { ...boss, ...p } });
   const patchSmith = (p: Partial<ShopSmith>) => setShopSmith(shopId, { ...smith, ...p });
@@ -363,8 +340,8 @@ function SmithEditor({ shopId, smith }: { shopId: string; smith: ShopSmith }) {
   return (
     <div className="rounded-xl border border-amber-500/20 bg-panel p-3 space-y-3">
       <div className="flex max-lg:flex-col gap-3">
-        <ImgUpload emoji="⚒️" src={boss.portrait}
-          onPick={(d) => setPortrait(shopId, d)} onClear={() => setPortrait(shopId, undefined)} />
+        <MultiImgUpload emoji="⚒️" imgs={smith.portraits ?? (boss.portrait ? [boss.portrait] : [])}
+          onAdd={(d) => addSmithImage(shopId, d)} onRemoveAt={(i) => removeSmithImage(shopId, i)} />
         <div className="flex-1 min-w-0 space-y-2">
           <div className="flex items-center gap-2">
             <input value={boss.name} onChange={(e) => patchBoss({ name: e.target.value })} placeholder="铁匠芳名" className={`${inputCls} flex-1 font-semibold min-w-0`} />
@@ -397,6 +374,8 @@ function ShopEditorModal({ shopId, onClose, onGenerateGoods }: {
 }) {
   const shop = useShop((s) => s.shops.find((x) => x.id === shopId));
   const patchShop = useShop((s) => s.patchShop);
+  const addShopSign = useShop((s) => s.addShopSign);
+  const removeShopSign = useShop((s) => s.removeShopSign);
   const upsertGood = useShop((s) => s.upsertGood);
   const upsertShopGirl = useShop((s) => s.upsertShopGirl);
   const [tendency, setTendency] = useState('');
@@ -427,7 +406,8 @@ function ShopEditorModal({ shopId, onClose, onGenerateGoods }: {
 
         <div className="p-4 flex-1 overflow-y-auto space-y-4">
           {/* 店铺门面 */}
-          <MultiImgUpload shopId={shopId} shop={shop} emoji={meta.emoji} />
+          <MultiImgUpload imgs={shop.signs ?? (shop.sign ? [shop.sign] : [])} emoji={meta.emoji}
+            onAdd={(d) => addShopSign(shopId, d)} onRemoveAt={(i) => removeShopSign(shopId, i)} />
           <div className="space-y-2">
               <Field label="店名"><input value={shop.name} onChange={(e) => patchShop(shopId, { name: e.target.value })} className={`${inputCls} w-full font-semibold`} /></Field>
               <Field label="招牌语（一句话 · 逛店时展示）"><input value={shop.tagline ?? ''} onChange={(e) => patchShop(shopId, { tagline: e.target.value })} className={`${inputCls} w-full`} placeholder="如：童叟无欺，奇物尽有" /></Field>
@@ -571,7 +551,7 @@ function ShopVisitModal({ shopId, onClose, onBuyCompanion }: { shopId: string; o
                   return (
                     <div key={g.id} className="flex items-center gap-3 px-2.5 py-2 rounded-lg border border-edge bg-panel/50">
                       <div className="w-14 h-14 rounded border border-edge bg-void overflow-hidden flex items-center justify-center shrink-0">
-                        {g.image ? <img src={g.image} alt="" className="w-full h-full object-cover" /> : <span className="text-xl opacity-25">📦</span>}
+                        {(g.images?.length || g.image) ? <SignShow imgs={g.images} cover={g.image} /> : <span className="text-xl opacity-25">📦</span>}
                       </div>
                       <div className="flex-1 min-w-0">
                         <div className="text-sm font-semibold text-slate-100 truncate">{g.name || '（未命名商品）'}{g.aiGen && <span className="ml-1.5 text-[10px] font-mono text-cyan-300/60">AI</span>}</div>
@@ -678,7 +658,7 @@ function SmithyVisitModal({ shopId, onClose }: { shopId: string; onClose: () => 
           <div className="lg:w-52 shrink-0 space-y-2">
             <div className="rounded-xl border border-amber-500/20 bg-panel p-3 flex gap-3">
               <div className="w-16 h-20 rounded-lg border border-edge bg-void overflow-hidden flex items-center justify-center shrink-0">
-                {boss.portrait ? <img src={boss.portrait} alt="" className="w-full h-full object-cover" /> : <span className="text-2xl opacity-30">⚒️</span>}
+                {(shop.smith.portraits?.length || boss.portrait) ? <SignShow imgs={shop.smith.portraits} cover={boss.portrait} /> : <span className="text-2xl opacity-30">⚒️</span>}
               </div>
               <div className="min-w-0">
                 <div className="text-sm font-bold text-amber-100 truncate">{boss.name || '铁匠'}</div>
@@ -795,7 +775,7 @@ function BrothelVisitModal({ shopId, onClose, onJoySend }: {
                   {girls.map((g) => (
                     <button key={g.id} onClick={() => setCurId(g.id)} className="rounded-xl border border-pink-500/20 bg-panel overflow-hidden text-left hover:border-pink-400/40 transition-colors">
                       <div className="h-40 bg-void flex items-center justify-center overflow-hidden">
-                        {g.portrait ? <img src={g.portrait} alt="" className="w-full h-full object-cover" /> : <span className="text-4xl opacity-25">💋</span>}
+                        {(g.images?.length || g.portrait) ? <SignShow imgs={g.images} cover={g.portrait} /> : <span className="text-4xl opacity-25">💋</span>}
                       </div>
                       <div className="p-2">
                         <div className="text-sm font-semibold text-pink-100 truncate">{g.name || '（未命名）'}{g.title ? <span className="ml-1 text-[10px] text-pink-300/60">{g.title}</span> : null}</div>
@@ -809,7 +789,7 @@ function BrothelVisitModal({ shopId, onClose, onJoySend }: {
           <div className="flex-1 flex flex-col min-h-0">
             <div className="shrink-0 flex gap-3 p-3 border-b border-pink-500/10">
               <div className="w-20 h-28 rounded-lg border border-edge bg-void overflow-hidden flex items-center justify-center shrink-0">
-                {cur.portrait ? <img src={cur.portrait} alt="" className="w-full h-full object-cover" /> : <span className="text-3xl opacity-30">💋</span>}
+                {(cur.images?.length || cur.portrait) ? <SignShow imgs={cur.images} cover={cur.portrait} /> : <span className="text-3xl opacity-30">💋</span>}
               </div>
               <div className="flex-1 min-w-0 flex flex-col justify-center gap-1.5">
                 <div className="text-sm font-bold text-pink-100">{cur.name}{cur.title ? <span className="ml-1.5 text-[11px] text-pink-300/60">{cur.title}</span> : null}</div>

@@ -47,7 +47,8 @@ export interface JoyGirl {
   chatPreset?: string;                // 陪侍对话/演绎预设（独立可编辑）
   stageDesc?: Record<string, string>; // 四阶段（语言+身体）递进，键 '1'..'4'，按情欲值注入
   portraitFolder?: string;            // 分阶段立绘文件夹（欢愉宫图片/<此名>/阶段1..4/）
-  portrait?: string;                  // 单张立绘 dataURL（无文件夹时回退；运行时字段，存 IndexedDB）
+  portrait?: string;                  // 单张立绘 dataURL（无文件夹时回退；运行时字段，存 IndexedDB）· 产业娼妇 = images[0] 封面
+  images?: string[];                  // 立绘图集（运行时·产业娼妇多图轮播用·不进 joyStore 持久化）
   initPrivacy?: Record<string, string>; // 初始私密字段
   shopId?: string;                    // 属于哪家「玩家产业·娼馆」（有则从欢愉宫隐藏，只在产业店面内展示；onJoySend 靠它同步进来拿人设）
 }
@@ -362,7 +363,7 @@ export const useJoy = create<JoyState>()(
       name: 'drpg-joy',
       // 持久化：配置(去立绘大图) + sessions 进度（账号级）+ API；瞬时模型态/currentGirlId 不存
       partialize: (s: any) => ({
-        settings: { ...s.settings, girls: (s.settings?.girls ?? []).map((g: any) => ({ ...g, portrait: undefined })) },
+        settings: { ...s.settings, girls: (s.settings?.girls ?? []).map((g: any) => ({ ...g, portrait: undefined, images: undefined })) },
         sessions: s.sessions,
         joyApi: s.joyApi,
         joyUseSharedApi: s.joyUseSharedApi,

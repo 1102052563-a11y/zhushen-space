@@ -32,7 +32,8 @@ export interface ShopGood {
   name: string;
   price: number;
   desc?: string;
-  image?: string;        // 单张立绘 dataURL（运行时，存 shop-good:<id>）
+  image?: string;        // 货品立绘·封面 = images[0]（运行时·派生·兼容旧单图读取点）
+  images?: string[];     // 货品立绘图集（运行时·可多张·逛店自动轮播·JSON 数组存 shop-good:<id>）
   stock?: number;        // 库存；缺省 / <0 = 无限
   payload?: any;         // 可选真实物品结构（买入进背包；AI 生成货品填此）
   aiGen?: boolean;       // 是否 AI 生成
@@ -40,7 +41,8 @@ export interface ShopGood {
 
 /** 铁匠铺配置：复用 enhanceEngine 的 BossDef（铁匠人设/立绘/参数），价表用默认 + 可调倍率。 */
 export interface ShopSmith {
-  boss: BossDef;         // 铁匠：name/persona/banterPreset/portrait/costMul/rateAdd/displayLie/critJump
+  boss: BossDef;         // 铁匠：name/persona/banterPreset/portrait(=portraits[0] 封面)/costMul/rateAdd/displayLie/critJump
+  portraits?: string[];  // 铁匠立绘图集（运行时·可多张·进铺自动轮播·JSON 数组存 shop-smith:<shopId>）
   feeMul?: number;       // 店主附加费用倍率（叠在 boss.costMul 之上，默认 1）
 }
 
@@ -97,23 +99,32 @@ interface ShopState {
   removeShop: (id: string) => void;
   setShopSign: (id: string, dataUrl: string | undefined) => void;   // 兼容：设为单张封面（清空则删图集）
   setShopSigns: (id: string, urls: string[]) => void;               // 整组覆盖立绘图集
-  addShopSign: (id: string, dataUrl: string) => void;               // 追加一张（≤ MAX_SIGNS）
+  addShopSign: (id: string, dataUrl: string) => void;               // 追加一张（≤ MAX_GALLERY）
   removeShopSign: (id: string, index: number) => void;              // 删第 index 张
 
   // 商店货架
   upsertGood: (shopId: string, good: ShopGood) => string;
   removeGood: (shopId: string, goodId: string) => void;
-  setGoodImage: (shopId: string, goodId: string, dataUrl: string | undefined) => void;
+  setGoodImage: (shopId: string, goodId: string, dataUrl: string | undefined) => void;   // 兼容：单张封面
+  setGoodImages: (shopId: string, goodId: string, urls: string[]) => void;
+  addGoodImage: (shopId: string, goodId: string, dataUrl: string) => void;
+  removeGoodImage: (shopId: string, goodId: string, index: number) => void;
   addGoods: (shopId: string, goods: ShopGood[]) => void;   // AI 批量生成入货架
 
   // 娼馆（复用 JoyGirl）
   upsertShopGirl: (shopId: string, girl: JoyGirl) => string;
   removeShopGirl: (shopId: string, girlId: string) => void;
-  setShopGirlPortrait: (shopId: string, girlId: string, dataUrl: string | undefined) => void;
+  setShopGirlPortrait: (shopId: string, girlId: string, dataUrl: string | undefined) => void;   // 兼容：单张封面
+  setShopGirlImages: (shopId: string, girlId: string, urls: string[]) => void;
+  addShopGirlImage: (shopId: string, girlId: string, dataUrl: string) => void;
+  removeShopGirlImage: (shopId: string, girlId: string, index: number) => void;
 
   // 铁匠铺
   setShopSmith: (shopId: string, smith: ShopSmith) => void;
-  setShopSmithPortrait: (shopId: string, dataUrl: string | undefined) => void;
+  setShopSmithPortrait: (shopId: string, dataUrl: string | undefined) => void;   // 兼容：单张封面
+  setShopSmithImages: (shopId: string, urls: string[]) => void;
+  addShopSmithImage: (shopId: string, dataUrl: string) => void;
+  removeShopSmithImage: (shopId: string, index: number) => void;
 
   // 经营进度
   earn: (shopId: string, amount: number) => void;
@@ -215,9 +226,22 @@ export const useShop = create<ShopState>()(
         set((s) => ({ shops: replaceShop(s.shops, shopId, (x) => ({ ...x, goods: (x.goods ?? []).filter((g) => g.id !== goodId) })) }));
       },
 
-      setGoodImage: (shopId, goodId, dataUrl) => {
-        if (dataUrl) putImg(goodKey(goodId), dataUrl); else delImg(goodKey(goodId));
-        set((s) => ({ shops: replaceShop(s.shops, shopId, (x) => ({ ...x, goods: (x.goods ?? []).map((g) => (g.id === goodId ? { ...g, image: dataUrl } : g)) })) }));
+      setGoodImages: (shopId, goodId, urls) => {
+        const arr = (urls ?? []).filter(Boolean).slice(0, MAX_GALLERY);
+        if (arr.length) putImg(goodKey(goodId), JSON.stringify(arr)); else delImg(goodKey(goodId));
+        set((s) => ({ shops: replaceShop(s.shops, shopId, (x) => ({ ...x, goods: (x.goods ?? []).map((g) => (g.id === goodId ? { ...g, images: arr, image: arr[0] } : g)) })) }));
+      },
+      setGoodImage: (shopId, goodId, dataUrl) => get().setGoodImages(shopId, goodId, dataUrl ? [dataUrl] : []),
+      addGoodImage: (shopId, goodId, dataUrl) => {
+        if (!dataUrl) return;
+        const g = get().shops.find((x) => x.id === shopId)?.goods?.find((x) => x.id === goodId);
+        const cur = g?.images ?? (g?.image ? [g.image] : []);
+        get().setGoodImages(shopId, goodId, [...cur, dataUrl]);
+      },
+      removeGoodImage: (shopId, goodId, index) => {
+        const g = get().shops.find((x) => x.id === shopId)?.goods?.find((x) => x.id === goodId);
+        const cur = g?.images ?? (g?.image ? [g.image] : []);
+        get().setGoodImages(shopId, goodId, cur.filter((_, i) => i !== index));
       },
 
       addGoods: (shopId, goods) =>
@@ -247,21 +271,47 @@ export const useShop = create<ShopState>()(
         set((s) => ({ shops: replaceShop(s.shops, shopId, (x) => ({ ...x, girls: (x.girls ?? []).filter((g) => g.id !== girlId) })) }));
       },
 
-      setShopGirlPortrait: (shopId, girlId, dataUrl) => {
-        if (dataUrl) putImg(girlKey(girlId), dataUrl); else delImg(girlKey(girlId));
-        set((s) => ({ shops: replaceShop(s.shops, shopId, (x) => ({ ...x, girls: (x.girls ?? []).map((g) => (g.id === girlId ? { ...g, portrait: dataUrl } : g)) })) }));
+      setShopGirlImages: (shopId, girlId, urls) => {
+        const arr = (urls ?? []).filter(Boolean).slice(0, MAX_GALLERY);
+        if (arr.length) putImg(girlKey(girlId), JSON.stringify(arr)); else delImg(girlKey(girlId));
+        set((s) => ({ shops: replaceShop(s.shops, shopId, (x) => ({ ...x, girls: (x.girls ?? []).map((g) => (g.id === girlId ? { ...g, images: arr, portrait: arr[0] } : g)) })) }));
+      },
+      setShopGirlPortrait: (shopId, girlId, dataUrl) => get().setShopGirlImages(shopId, girlId, dataUrl ? [dataUrl] : []),
+      addShopGirlImage: (shopId, girlId, dataUrl) => {
+        if (!dataUrl) return;
+        const g = get().shops.find((x) => x.id === shopId)?.girls?.find((x) => x.id === girlId);
+        const cur = g?.images ?? (g?.portrait ? [g.portrait] : []);
+        get().setShopGirlImages(shopId, girlId, [...cur, dataUrl]);
+      },
+      removeShopGirlImage: (shopId, girlId, index) => {
+        const g = get().shops.find((x) => x.id === shopId)?.girls?.find((x) => x.id === girlId);
+        const cur = g?.images ?? (g?.portrait ? [g.portrait] : []);
+        get().setShopGirlImages(shopId, girlId, cur.filter((_, i) => i !== index));
       },
 
       // ── 铁匠铺 ──
       setShopSmith: (shopId, smith) =>
         set((s) => ({ shops: replaceShop(s.shops, shopId, (x) => ({ ...x, smith })) })),
 
-      setShopSmithPortrait: (shopId, dataUrl) => {
-        if (dataUrl) putImg(smithKey(shopId), dataUrl); else delImg(smithKey(shopId));
+      setShopSmithImages: (shopId, urls) => {
+        const arr = (urls ?? []).filter(Boolean).slice(0, MAX_GALLERY);
+        if (arr.length) putImg(smithKey(shopId), JSON.stringify(arr)); else delImg(smithKey(shopId));
         set((s) => ({
           shops: replaceShop(s.shops, shopId, (x) =>
-            x.smith ? { ...x, smith: { ...x.smith, boss: { ...x.smith.boss, portrait: dataUrl } } } : x),
+            x.smith ? { ...x, smith: { ...x.smith, portraits: arr, boss: { ...x.smith.boss, portrait: arr[0] } } } : x),
         }));
+      },
+      setShopSmithPortrait: (shopId, dataUrl) => get().setShopSmithImages(shopId, dataUrl ? [dataUrl] : []),
+      addShopSmithImage: (shopId, dataUrl) => {
+        if (!dataUrl) return;
+        const sm = get().shops.find((x) => x.id === shopId)?.smith;
+        const cur = sm?.portraits ?? (sm?.boss.portrait ? [sm.boss.portrait] : []);
+        get().setShopSmithImages(shopId, [...cur, dataUrl]);
+      },
+      removeShopSmithImage: (shopId, index) => {
+        const sm = get().shops.find((x) => x.id === shopId)?.smith;
+        const cur = sm?.portraits ?? (sm?.boss.portrait ? [sm.boss.portrait] : []);
+        get().setShopSmithImages(shopId, cur.filter((_, i) => i !== index));
       },
 
       // ── 经营进度 ──
@@ -287,9 +337,9 @@ export const useShop = create<ShopState>()(
           ...sh,
           sign: undefined,
           signs: undefined,
-          goods: (sh.goods ?? []).map((g) => ({ ...g, image: undefined })),
-          girls: (sh.girls ?? []).map((g) => ({ ...g, portrait: undefined })),
-          smith: sh.smith ? { ...sh.smith, boss: { ...sh.smith.boss, portrait: undefined } } : undefined,
+          goods: (sh.goods ?? []).map((g) => ({ ...g, image: undefined, images: undefined })),
+          girls: (sh.girls ?? []).map((g) => ({ ...g, portrait: undefined, images: undefined })),
+          smith: sh.smith ? { ...sh.smith, portraits: undefined, boss: { ...sh.smith.boss, portrait: undefined } } : undefined,
         })),
         earnings: s.earnings ?? {},
         visits: s.visits ?? {},
@@ -310,7 +360,6 @@ export async function hydrateShopImages(): Promise<void> {
   try {
     const all = await getAllImg();
     if (!all || !Object.keys(all).length) return;
-    const val = (k: string): string | undefined => (typeof all[k] === 'string' ? (all[k] as string) : undefined);
     useShop.setState((s) => ({
       shops: s.shops.map((sh) => {
         const signs = parseSigns(all[signKey(sh.id)]);
@@ -318,9 +367,9 @@ export async function hydrateShopImages(): Promise<void> {
         ...sh,
         signs: signs.length ? signs : sh.signs,
         sign: signs[0] ?? sh.sign,
-        goods: (sh.goods ?? []).map((g) => ({ ...g, image: val(goodKey(g.id)) ?? g.image })),
-        girls: (sh.girls ?? []).map((g) => ({ ...g, portrait: val(girlKey(g.id)) ?? g.portrait })),
-        smith: sh.smith ? { ...sh.smith, boss: { ...sh.smith.boss, portrait: val(smithKey(sh.id)) ?? sh.smith.boss.portrait } } : sh.smith,
+        goods: (sh.goods ?? []).map((g) => { const im = parseSigns(all[goodKey(g.id)]); return { ...g, images: im.length ? im : g.images, image: im[0] ?? g.image }; }),
+        girls: (sh.girls ?? []).map((g) => { const im = parseSigns(all[girlKey(g.id)]); return { ...g, images: im.length ? im : g.images, portrait: im[0] ?? g.portrait }; }),
+        smith: sh.smith ? (() => { const im = parseSigns(all[smithKey(sh.id)]); return { ...sh.smith!, portraits: im.length ? im : sh.smith!.portraits, boss: { ...sh.smith!.boss, portrait: im[0] ?? sh.smith!.boss.portrait } }; })() : sh.smith,
         };
       }),
     }));
