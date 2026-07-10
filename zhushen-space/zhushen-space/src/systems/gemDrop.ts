@@ -17,7 +17,7 @@ export interface GemDropConfig {
   rate: number;        // 击杀强敌后的掉率 0~1
   maxPerTurn: number;  // 单回合最多掉几颗（默认 1·防"爆一堆"）
 }
-export const GEM_DROP_DEFAULT: GemDropConfig = { enabled: true, rate: 0.4, maxPerTurn: 1 };
+export const GEM_DROP_DEFAULT: GemDropConfig = { enabled: true, rate: 0.2, maxPerTurn: 1 };
 
 type Rng = () => number;
 

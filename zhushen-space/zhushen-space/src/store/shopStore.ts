@@ -56,6 +56,7 @@ export interface ShopEntity {
   sign?: string;         // 店招立绘·封面 = signs[0]（运行时·派生·保留供旧单图读取点/联机封面兼容）
   signs?: string[];      // 店招立绘图集（运行时·可多张·逛店自动轮播·JSON 数组存 shop-sign:<id>）
   currency: string;      // '乐园币' | '魂币'（自由填）
+  entryFee?: number;     // 进店门票（按 currency 结算·0/缺省=免费·主要给娼馆·进他人店时扣付）
   world?: string;        // 所属世界 / 乐园（空 = 通用）
   createdAt: number;
   published?: boolean;   // 已上传到商城（联机）
@@ -81,6 +82,17 @@ function parseSigns(raw: unknown): string[] {
   return [raw];   // 旧：单张 dataURL
 }
 
+/** 营收归一为「货币→额」映射，兼容旧版扁平数值（旧值默认按乐园币）。收益只以 乐园币/灵魂钱币 两种钱币计。 */
+export function shopEarnMap(raw: unknown): Record<string, number> {
+  if (typeof raw === 'number') return raw > 0 ? { 乐园币: Math.round(raw) } : {};
+  if (raw && typeof raw === 'object') {
+    const o: Record<string, number> = {};
+    for (const k of Object.keys(raw as any)) { const n = Math.round(Number((raw as any)[k]) || 0); if (n > 0) o[k] = n; }
+    return o;
+  }
+  return {};
+}
+
 let _seq = Date.now();
 
 /** 铁匠铺默认铁匠（明面率=实际率、无套路，玩家再自行编辑人设/参数）。 */
@@ -90,7 +102,7 @@ function newSmithBoss(shopId: string): BossDef {
 
 interface ShopState {
   shops: ShopEntity[];
-  earnings: Record<string, number>;   // shopId → 累计营收（收件箱·经营进度）
+  earnings: Record<string, Record<string, number>>;   // shopId → { 货币 → 累计营收 }（乐园币/灵魂钱币 分别记账·收件箱·经营进度）
   visits: Record<string, number>;     // shopId → 客流计数
 
   createShop: (type: ShopType, name?: string) => string;
@@ -127,8 +139,8 @@ interface ShopState {
   removeShopSmithImage: (shopId: string, index: number) => void;
 
   // 经营进度
-  earn: (shopId: string, amount: number) => void;
-  collectEarnings: (shopId: string) => number;   // 取走收益并清零，返回取走额
+  earn: (shopId: string, amount: number, currency: string) => void;   // 按货币计入营收（乐园币/灵魂钱币）
+  collectEarnings: (shopId: string) => Record<string, number>;   // 取走全部收益并清零，返回 { 货币 → 取走额 }
   bumpVisit: (shopId: string) => void;
   clearShopRun: () => void;                       // 新游戏：清经营进度，保留店铺定义
 }
@@ -315,13 +327,20 @@ export const useShop = create<ShopState>()(
       },
 
       // ── 经营进度 ──
-      earn: (shopId, amount) =>
-        set((s) => ({ earnings: { ...s.earnings, [shopId]: (s.earnings[shopId] ?? 0) + Math.max(0, Math.round(amount)) } })),
+      earn: (shopId, amount, currency) => {
+        const amt = Math.max(0, Math.round(amount)); if (!amt) return;
+        const cur = currency || '乐园币';
+        set((s) => {
+          const m = shopEarnMap(s.earnings[shopId]);
+          m[cur] = (m[cur] || 0) + amt;
+          return { earnings: { ...s.earnings, [shopId]: m } };
+        });
+      },
 
       collectEarnings: (shopId) => {
-        const cur = get().earnings[shopId] ?? 0;
-        if (cur > 0) set((s) => ({ earnings: { ...s.earnings, [shopId]: 0 } }));
-        return cur;
+        const m = shopEarnMap(get().earnings[shopId]);
+        if (Object.keys(m).length) set((s) => ({ earnings: { ...s.earnings, [shopId]: {} } }));
+        return m;
       },
 
       bumpVisit: (shopId) =>

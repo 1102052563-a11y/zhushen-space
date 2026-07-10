@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import {
-  useShop, hydrateShopImages, SHOP_TYPE_META, MAX_GALLERY,
+  useShop, hydrateShopImages, SHOP_TYPE_META, MAX_GALLERY, shopEarnMap,
   type ShopType, type ShopGood, type ShopSmith, type ShopEntity,
 } from '../store/shopStore';
 import { useJoy, type JoyGirl } from '../store/joyStore';
@@ -412,7 +412,10 @@ function ShopEditorModal({ shopId, onClose, onGenerateGoods }: {
               <Field label="店名"><input value={shop.name} onChange={(e) => patchShop(shopId, { name: e.target.value })} className={`${inputCls} w-full font-semibold`} /></Field>
               <Field label="招牌语（一句话 · 逛店时展示）"><input value={shop.tagline ?? ''} onChange={(e) => patchShop(shopId, { tagline: e.target.value })} className={`${inputCls} w-full`} placeholder="如：童叟无欺，奇物尽有" /></Field>
               <div className="grid grid-cols-2 gap-2">
-                <Field label="结算货币"><input value={shop.currency} onChange={(e) => patchShop(shopId, { currency: e.target.value })} className={`${inputCls} w-full`} placeholder="乐园币 / 魂币" /></Field>
+                <Field label="结算货币"><select value={normCur(shop.currency)} onChange={(e) => patchShop(shopId, { currency: e.target.value })} className={`${inputCls} w-full`}>
+                  <option value="乐园币">🪙 乐园币</option>
+                  <option value="灵魂钱币">💎 灵魂钱币</option>
+                </select></Field>
                 <Field label="所属世界 / 乐园（空 = 通用）"><input value={shop.world ?? ''} onChange={(e) => patchShop(shopId, { world: e.target.value.trim() || undefined })} className={`${inputCls} w-full`} /></Field>
               </div>
           </div>
@@ -448,6 +451,11 @@ function ShopEditorModal({ shopId, onClose, onGenerateGoods }: {
 
           {shop.type === 'brothel' && (
             <div className="space-y-3">
+              <Field label={`进馆门票（${shop.currency || '乐园币'} · 0 = 免费 · 客人踏入他人娼馆时扣付，计入营收）`}>
+                <input type="number" min={0} value={shop.entryFee ?? 0}
+                  onChange={(e) => patchShop(shopId, { entryFee: Math.max(0, Math.round(Number(e.target.value) || 0)) || undefined })}
+                  className={`${inputCls} w-40`} placeholder="0" />
+              </Field>
               <div className="flex items-center gap-2">
                 <div className="text-[13px] font-bold text-pink-100">花名册（{(shop.girls ?? []).length}）</div>
                 <div className="flex-1" />
@@ -520,7 +528,8 @@ function ShopVisitModal({ shopId, onClose, onBuyCompanion }: { shopId: string; o
       pushSceneNotice(`【场外·产业】在「${shop.name}」花 ${price} ${curLabel} 购得「${good.name || '商品'}」（已入背包）`);
     }
     if (typeof good.stock === 'number' && good.stock > 0) upsertGood(shopId, { ...good, stock: good.stock - 1 });
-    earn(shopId, price);
+    if (shop.remote) { if (shop.marketId) shopClient.reportEarn(shop.marketId, price, cur); }   // 逛他人店买货 → 记进店主云端营收
+    else earn(shopId, price, cur);                                                              // 自家店 → 本地自营收
     flash(good.kind === 'npc' ? `已招募「${good.name || '随从'}」` : `已购得「${good.name || '商品'}」`);
   };
 
@@ -612,7 +621,8 @@ function SmithyVisitModal({ shopId, onClose }: { shopId: string; onClose: () => 
     if (level >= MAX_ENHANCE) { flash('已达强化上限 +' + MAX_ENHANCE); return; }
     if ((currency[cur] ?? 0) < cost) { flash(`${curLabel}不足（需 ${cost}）`); return; }
     adjustCurrency(cur, -cost, `产业·${shop.name}·强化 ${sel.name}`);
-    earn(shopId, cost);
+    if (shop.remote) { if (shop.marketId) shopClient.reportEarn(shop.marketId, cost, cur); }   // 在他人铁匠铺强化 → 记进店主云端营收
+    else earn(shopId, cost, cur);
     const r = resolveEnhance(level, boss, { useProtect: false, useAmulet: false, pity });
     setPity(r.pityAfter);
     if (r.destroyed) {
@@ -731,6 +741,18 @@ function BrothelVisitModal({ shopId, onClose, onJoySend }: {
     const J = useJoy.getState();
     for (const girl of g.girls ?? []) J.upsertGirl({ ...girl, portrait: undefined, shopId });
     bumpVisit(shopId);
+    // 门票：进他人娼馆按门票扣付（自家免费·client-authoritative·代入感）；囊中不足则老鸨免票放行。
+    const fee = Math.max(0, Math.round(g.entryFee ?? 0));
+    if (g.remote && fee > 0) {
+      const cur = normCur(g.currency);
+      if ((useItems.getState().currency[cur] ?? 0) >= fee) {
+        useItems.getState().adjustCurrency(cur, -fee, `产业·${g.name}·门票`);
+        if (g.marketId) shopClient.reportEarn(g.marketId, fee, cur);   // 门票 → 记进店主云端营收
+        pushSceneNotice(`【场外·产业】踏入「${g.name || '娼馆'}」，付门票 ${fee} ${g.currency || '乐园币'}`);
+      } else {
+        pushSceneNotice(`【场外·产业】「${g.name || '娼馆'}」门票 ${fee} ${g.currency || '乐园币'}，囊中羞涩——老鸨今日免了你的票`);
+      }
+    }
   }, [shopId, bumpVisit]);
 
   const girls = shop?.girls ?? [];
@@ -761,7 +783,7 @@ function BrothelVisitModal({ shopId, onClose, onJoySend }: {
           </div>
           <div className="flex-1 min-w-0">
             <div className="text-sm font-bold text-pink-100 truncate">{shop.name || '娼馆'}</div>
-            <div className="text-[11px] font-mono text-pink-300/50 truncate">{cur ? `陪侍中 · ${cur.name}` : (shop.tagline || '选一位入包间')}</div>
+            <div className="text-[11px] font-mono text-pink-300/50 truncate">{cur ? `陪侍中 · ${cur.name}` : ((shop.entryFee ? `🎫 门票 ${shop.entryFee} ${shop.currency || '乐园币'} · ` : '') + (shop.tagline || '选一位入包间'))}</div>
           </div>
           {cur && <button onClick={() => setCurId(null)} className="text-[12px] font-mono text-pink-200/70 hover:text-pink-100 border border-pink-500/30 rounded px-2 py-0.5 shrink-0">← 换人</button>}
           <button onClick={onClose} className="text-dim/50 hover:text-blood text-lg shrink-0">✕</button>
@@ -831,13 +853,24 @@ function BrothelVisitModal({ shopId, onClose, onJoySend }: {
 /* ══════════ 店铺卡（列表项）══════════ */
 function ShopCard({ shopId, onEdit, onVisit, onPublish }: { shopId: string; onEdit: () => void; onVisit: () => void; onPublish: () => void }) {
   const shop = useShop((s) => s.shops.find((x) => x.id === shopId));
-  const earnings = useShop((s) => s.earnings[shopId] ?? 0);
+  const earningsRaw = useShop((s) => s.earnings[shopId]);
   const visits = useShop((s) => s.visits[shopId] ?? 0);
   const removeShop = useShop((s) => s.removeShop);
+  const collectEarnings = useShop((s) => s.collectEarnings);
+  const adjustCurrency = useItems((s) => s.adjustCurrency);
   if (!shop) return null;
   const meta = SHOP_TYPE_META[shop.type];
   const count = shop.type === 'store' ? (shop.goods ?? []).length : shop.type === 'brothel' ? (shop.girls ?? []).length : 1;
   const countLabel = shop.type === 'store' ? '件商品' : shop.type === 'brothel' ? '位娼妇' : '位铁匠';
+  const earnEntries = Object.entries(shopEarnMap(earningsRaw)).filter(([, n]) => n > 0);
+  const collect = () => {
+    const got = collectEarnings(shopId);
+    const parts: string[] = [];
+    for (const [c, n] of Object.entries(got)) {
+      if (n > 0) { adjustCurrency(normCur(c), n, `产业·${shop.name || meta.label}·营收提取`); parts.push(`${n} ${c}`); }
+    }
+    if (parts.length) pushSceneNotice(`【场外·产业】从「${shop.name || meta.label}」提取营收 ${parts.join(' / ')}（已入储存空间）`);
+  };
 
   return (
     <div className="rounded-xl border border-edge bg-panel overflow-hidden flex flex-col">
@@ -851,7 +884,10 @@ function ShopCard({ shopId, onEdit, onVisit, onPublish }: { shopId: string; onEd
         </div>
         {shop.tagline && <div className="text-[11px] text-dim/70 truncate">{shop.tagline}</div>}
         <div className="text-[11px] font-mono text-dim/55">{meta.label} · {count} {countLabel}{shop.world ? ` · ${shop.world}` : ''}</div>
-        <div className="text-[11px] font-mono text-cyan-300/60">客流 {visits} · 待收 {earnings} {shop.currency}</div>
+        <div className="flex items-center gap-1.5 text-[11px] font-mono text-cyan-300/60">
+          <span>客流 {visits} · 待收 {earnEntries.length ? earnEntries.map(([c, n]) => `${n} ${c}`).join(' / ') : '0'}</span>
+          {earnEntries.length > 0 && <button onClick={collect} className="ml-auto px-2 py-0.5 rounded-md border border-amber-400/50 text-amber-200 bg-amber-500/15 hover:bg-amber-500/25" title="把营收提进储存空间（钱包）">💰 提取</button>}
+        </div>
         <div className="flex items-center gap-1.5 pt-1 mt-auto">
           <button onClick={onVisit} className={`${btnPrimary} flex-1`}>{shop.type === 'smithy' ? '进铺强化' : shop.type === 'brothel' ? '进馆' : '进店'}</button>
           <button onClick={onEdit} className={btnGhost}>编辑</button>
@@ -879,9 +915,9 @@ function MarketShopCard({ shop, mine, onEnter, onUnpublish }: { shop: PublishedS
         <div className="flex items-center gap-1.5"><span className="text-sm">{meta.emoji}</span><span className="text-sm font-bold text-slate-100 truncate flex-1">{shop.name}</span></div>
         {snap.tagline && <div className="text-[11px] text-dim/70 truncate">{snap.tagline}</div>}
         <div className="text-[11px] font-mono text-dim/55">{meta.label} · {count} {unit} · 店主 {shop.ownerName || '道友'}</div>
-        <div className="text-[11px] font-mono text-cyan-300/60">🔥 光顾 {shop.visits}{mine ? ' · 我的店' : ''}</div>
+        <div className="text-[11px] font-mono text-cyan-300/60">🔥 光顾 {shop.visits}{mine ? ' · 我的店' : ''}{shop.type === 'brothel' && snap.entryFee > 0 ? ` · 🎫 门票 ${snap.entryFee} ${snap.currency || '乐园币'}` : ''}</div>
         <div className="flex items-center gap-2 pt-1 mt-auto">
-          <button onClick={onEnter} className={`${btnPrimary} flex-1`}>进店</button>
+          <button onClick={onEnter} className={`${btnPrimary} flex-1`}>{shop.type === 'brothel' ? '进馆' : shop.type === 'smithy' ? '进铺' : '进店'}</button>
           {mine && <button onClick={onUnpublish} className="text-blood/60 hover:text-blood text-[12px] font-mono px-2 shrink-0" title="下架">下架</button>}
         </div>
       </div>
@@ -908,6 +944,7 @@ export default function ProducePanel({ onClose, onGenerateGoods, onJoySend, onBu
   const mpOnline = useShopMarket((s) => s.online);
   const mpMe = useShopMarket((s) => s.me);
   const mpError = useShopMarket((s) => s.error);
+  const mpRevenue = useShopMarket((s) => s.revenue);
   const flash = (t: string) => { setToast(t); setTimeout(() => setToast(''), 2500); };
 
   useEffect(() => { hydrateShopImages(); }, []);
@@ -963,6 +1000,17 @@ export default function ProducePanel({ onClose, onGenerateGoods, onJoySend, onBu
               <button key={t} onClick={() => create(t)} className={btnGhost}>{SHOP_TYPE_META[t].emoji} {SHOP_TYPE_META[t].label}</button>
             ))}
           </div>
+          {(() => {
+            const rev = Object.entries(mpRevenue).filter(([, n]) => n > 0);
+            if (!rev.length) return null;
+            return (
+              <div className="shrink-0 flex items-center gap-2 px-4 py-2 border-b border-amber-500/25 bg-amber-500/10 flex-wrap">
+                <span className="text-[12px] font-mono text-amber-100">☁️ 云端营收（他人光顾我店）待领：{rev.map(([c, n]) => `${n} ${c}`).join(' / ')}</span>
+                <div className="flex-1" />
+                <button onClick={() => shopClient.collectRevenue()} className={btnPrimary}>领取入储存空间</button>
+              </div>
+            );
+          })()}
           <div className="flex-1 overflow-y-auto p-4">
             {mineShops.length === 0
               ? <div className="text-center text-dim/50 text-sm py-16">还没有产业。点上方「新开」开你的第一家店 —— 商店卖货、娼馆陪侍、铁匠铺强化。开好后点卡片上的 ⬆ 可上传到商城供他人光顾。</div>

@@ -44,7 +44,8 @@ export interface EnhanceSettings {
   selectedBossId: string;
   bossesVersion: number;   // 内置老板默认值版本：变更后旧存档的内置老板自动刷新成最新默认（保留立绘/自建老板）
   gemDropEnabled?: boolean; // 正文击杀强敌 → 结算掉落宝石（缺省=开）
-  gemDropRate?: number;     // 击杀强敌后的掉率 0~1（缺省 0.4；仅高阶/强敌触发·每回合至多 1 颗）
+  gemDropRate?: number;     // 击杀强敌后的掉率 0~1（缺省 0.2；仅高阶/强敌触发·每回合至多 1 颗）
+  gemDropVersion?: number;  // 掉落默认值版本：变更后旧存档强制刷新成最新默认掉率（避免旧持久化值卡住调参）
 }
 
 const DEFAULT_SETTINGS: EnhanceSettings = {
@@ -54,7 +55,8 @@ const DEFAULT_SETTINGS: EnhanceSettings = {
   selectedBossId: DEFAULT_BOSSES[0].id,
   bossesVersion: 3,
   gemDropEnabled: true,
-  gemDropRate: 0.4,
+  gemDropRate: 0.2,
+  gemDropVersion: 2,
 };
 
 function newSession(itemId: string, itemName: string, startLevel: number, startMax: number): EnhanceSession {
@@ -207,6 +209,11 @@ export const useEnhance = create<EnhanceState>()(
           settings: {
             ...DEFAULT_SETTINGS,
             ...(persisted?.settings ?? {}),
+            // 掉落默认值版本迁移：版本不一致（含旧存档无此字段）→ 强制刷新成最新默认掉率/开关，避免旧持久化值卡住"调低"；版本一致则保留玩家在面板改过的值
+            ...(persisted?.settings?.gemDropVersion === DEFAULT_SETTINGS.gemDropVersion
+              ? {}
+              : { gemDropEnabled: DEFAULT_SETTINGS.gemDropEnabled, gemDropRate: DEFAULT_SETTINGS.gemDropRate }),
+            gemDropVersion: DEFAULT_SETTINGS.gemDropVersion,
             bosses: (() => {
               let arr: any[] = Array.isArray(pb) && pb.length ? pb : DEFAULT_BOSSES.map((b) => ({ ...b }));
               // 老板默认值版本迁移：版本变更时，按 id 把内置老板的 名字/性格/预设/参数 刷新成最新默认（保留用户立绘 portrait 与自建老板）；版本一致后不再覆盖（护住 UI 自定义）

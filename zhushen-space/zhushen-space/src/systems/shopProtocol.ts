@@ -24,10 +24,12 @@ export interface PublishedShop {
 
 // ── 服务端 → 客户端 ──（心跳 "pong" 裸字符串在 JSON.parse 前吃掉，不属本联合）
 export type ShopInbound =
-  | { type: 'hello'; you?: ShopMe; shops: PublishedShop[]; online: number }
+  | { type: 'hello'; you?: ShopMe; shops: PublishedShop[]; online: number; revenue?: Record<string, number> }   // revenue=我的云端待领营收 { 货币→额 }
   | { type: 'shop_added'; shop: PublishedShop }
   | { type: 'shop_removed'; shopId: string }
   | { type: 'shop_visited'; shopId: string; visits: number }
+  | { type: 'revenue'; pending: Record<string, number> }               // 我的云端待领营收更新（他人光顾我店时实时推）
+  | { type: 'revenue_collected'; amounts: Record<string, number> }      // 领取回执 → 客户端 adjustCurrency 入钱包
   | { type: 'rate_limited' }
   | { type: 'error'; reason?: string; error?: string };
 
@@ -35,4 +37,6 @@ export type ShopInbound =
 export type ShopOutbound =
   | { type: 'publish_shop'; srcId: string; shopType: ShopKind; name: string; snapshot: any }   // srcId=本地店铺 id（同 owner+srcId 一店·upsert）
   | { type: 'remove_shop'; shopId: string }
-  | { type: 'visit'; shopId: string };
+  | { type: 'visit'; shopId: string }
+  | { type: 'earn'; shopId: string; amount: number; currency: string }   // 在他人店消费后上报 → 记进店主云端营收
+  | { type: 'collect_revenue' };                                         // 领取我的云端待领营收

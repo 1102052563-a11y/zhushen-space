@@ -1,9 +1,11 @@
 import { useShopMarket } from '../store/shopMarketStore';
 import type { ShopEntity } from '../store/shopStore';
+import { useItems } from '../store/itemStore';
 import { mpWsBase } from './mpConfig';
 import { chatAvatarVer, chatDicebearSeed } from './chatIdentity';
 import { chatNameColor } from './chatCosmetics';
 import { shrinkDataUrl } from './imageGen';
+import { pushSceneNotice } from './allocNotice';
 import type { PublishedShop, ShopInbound, ShopOutbound } from './shopProtocol';
 
 // 玩家产业·商城 WebSocket 客户端（事件名照搬后端 ShopDO 协议）。
@@ -49,7 +51,7 @@ async function buildSnapshot(shop: ShopEntity): Promise<any> {
   const smith = shop.smith ? await (async () => { const portraits = await gallery(shop.smith!.portraits, shop.smith!.boss.portrait, 6); return { ...shop.smith!, portraits, boss: { ...shop.smith!.boss, portrait: portraits[0] || '' } }; })() : undefined;
   return {
     type: shop.type, name: shop.name, intro: shop.intro, tagline: shop.tagline, ownerPersona: shop.ownerPersona,
-    currency: shop.currency, world: shop.world, sign, signs, goods, girls, smith,
+    currency: shop.currency, entryFee: shop.entryFee, world: shop.world, sign, signs, goods, girls, smith,
   };
 }
 
@@ -84,8 +86,21 @@ function dispatch(m: ShopInbound) {
   const st = useShopMarket.getState();
   switch (m.type) {
     case 'hello':
-      set({ me: m.you || null, shops: m.shops || [], online: m.online || 0 });
+      set({ me: m.you || null, shops: m.shops || [], online: m.online || 0, revenue: m.revenue || {} });
       break;
+    case 'revenue':
+      set({ revenue: m.pending || {} });
+      break;
+    case 'revenue_collected': {
+      const amts = m.amounts || {};
+      const parts: string[] = [];
+      for (const c of Object.keys(amts)) {
+        const n = Math.round(Number(amts[c]) || 0);
+        if (n > 0 && (c === '乐园币' || c === '灵魂钱币')) { useItems.getState().adjustCurrency(c, n, '产业·云端营收领取'); parts.push(`${n} ${c}`); }
+      }
+      if (parts.length) pushSceneNotice(`【场外·产业】领取云端营收 ${parts.join(' / ')}（他人光顾我店·已入储存空间）`);
+      break;
+    }
     case 'shop_added':
       if (m.shop) set({ shops: upsertShop(st.shops, m.shop) });
       break;
@@ -147,5 +162,7 @@ export const shopClient = {
   publishShop,
   removeShop: (shopId: string) => sendRaw({ type: 'remove_shop', shopId }),
   visit: (shopId: string) => sendRaw({ type: 'visit', shopId }),
+  reportEarn: (shopId: string, amount: number, currency: string) => sendRaw({ type: 'earn', shopId, amount, currency }),   // 在他人店消费 → 记进店主云端营收
+  collectRevenue: () => sendRaw({ type: 'collect_revenue' }),
   isOpen: () => !!ws && ws.readyState === 1,
 };

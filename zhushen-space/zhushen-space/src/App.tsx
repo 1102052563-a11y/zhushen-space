@@ -1134,7 +1134,7 @@ function rollAndApplyGemDrops(rawNarrative: string): string {
     const p = usePlayer.getState().profile;
     const drops = rollGemDrops(rawNarrative, {
       tier: p?.tier, level: p?.level,
-      config: { enabled: true, rate: st.gemDropRate ?? 0.4, maxPerTurn: 1 },   // 仅击杀强敌可能掉·每回合至多 1 颗
+      config: { enabled: true, rate: st.gemDropRate ?? 0.2, maxPerTurn: 1 },   // 仅击杀强敌可能掉·每回合至多 1 颗
     });
     if (!drops.length) return '';
     const I = useItems.getState();

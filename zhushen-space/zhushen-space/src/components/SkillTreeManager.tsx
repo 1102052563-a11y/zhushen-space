@@ -1,5 +1,6 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { useSkillTree, type NodeGrants } from '../store/skillTreeStore';
+import { useCharacters } from '../store/characterStore';   // 读主角技能/天赋栏 → 挂到节点
 import { validateTree, autoLayout, defaultCost, attrDeltaText, treeBounds } from '../systems/skillTree';
 import { TIERS } from '../systems/derivedStats';
 import { ATTR_KEYS, ATTR_LABEL } from '../systems/attrBonus';
@@ -16,6 +17,9 @@ import TreeCanvas from './TreeCanvas';
 const inputCls = 'w-full bg-void border border-edge rounded px-2 py-1 text-[13px] text-slate-200 outline-none focus:border-god/50';
 const labelCls = 'text-[11px] font-mono text-dim/50';
 const btnCls = 'px-2.5 py-1 rounded border border-edge text-[12px] font-mono text-dim hover:text-slate-200 hover:border-god/40 transition-colors';
+
+/* 从主角技能/天赋栏拷一条挂到节点：去掉实例字段(id/addedAt)，只留模板字段 */
+function stripInstance(o: any): any { if (!o || typeof o !== 'object') return o; const { id, addedAt, ...rest } = o; return rest; }
 
 function download(name: string, data: string) {
   const blob = new Blob([data], { type: 'application/json' });
@@ -51,6 +55,8 @@ function extractJson(text: string): string {
 export default function SkillTreeManager() {
   const trees = useSkillTree((s) => s.trees);
   const activeId = useSkillTree((s) => s.progress['B1']?.activeTreeId);   // 主角当前生效的技能树 id（订阅→切换即刷新徽标）
+  const b1Skills = useCharacters((s) => s.characters['B1']?.skills ?? []);   // 主角技能栏（供节点「从主角技能选」）
+  const b1Traits = useCharacters((s) => s.characters['B1']?.traits ?? []);   // 主角天赋栏
   const st = useSkillTree.getState();
   const treeList = Object.values(trees);
 
@@ -610,6 +616,15 @@ export default function SkillTreeManager() {
                     <button onClick={() => setGrantForm(grantForm === 'skill' ? null : 'skill')} className="text-god hover:underline">{selNode.grants.skill ? '编辑' : '添加'}</button>
                     {selNode.grants.skill && <button onClick={() => setGrant({ skill: undefined })} className="text-dim/40 hover:text-blood">清除</button>}
                   </div>
+                  {/* 从主角技能栏挑一个已有技能挂上（拷贝作模板，可再「编辑」改） */}
+                  {b1Skills.length > 0 && (
+                    <select value="" onChange={(e) => { const s = b1Skills[Number(e.target.value)]; if (s) { setGrant({ skill: stripInstance(s) }); setGrantForm(null); } }}
+                      title="把主角技能栏里已有的技能挂到本节点（会拷一份作模板，可再点「编辑」修改）"
+                      className="w-full bg-void border border-edge rounded px-2 py-1 text-[12px] text-slate-200 outline-none focus:border-god/50">
+                      <option value="">＋ 从主角技能栏选…（{b1Skills.length}）</option>
+                      {b1Skills.map((s: any, i: number) => <option key={i} value={i}>{s.name}{s.rarity ? `·${s.rarity}` : ''}{s.level ? `·${s.level}` : ''}</option>)}
+                    </select>
+                  )}
                   {/* 技能详情内联预览（不必点编辑就能看到 AI 写的完整效果）*/}
                   {selNode.grants.skill && grantForm !== 'skill' && (
                     <div className="text-[11px] bg-void/50 rounded px-2 py-1 space-y-0.5 -mt-1">
@@ -635,6 +650,15 @@ export default function SkillTreeManager() {
                     <button onClick={() => setGrantForm(grantForm === 'trait' ? null : 'trait')} className="text-god hover:underline">{selNode.grants.trait ? '编辑' : '添加'}</button>
                     {selNode.grants.trait && <button onClick={() => setGrant({ trait: undefined })} className="text-dim/40 hover:text-blood">清除</button>}
                   </div>
+                  {/* 从主角天赋栏挑一个已有天赋挂上 */}
+                  {b1Traits.length > 0 && (
+                    <select value="" onChange={(e) => { const t = b1Traits[Number(e.target.value)]; if (t) { setGrant({ trait: stripInstance(t) }); setGrantForm(null); } }}
+                      title="把主角天赋栏里已有的天赋挂到本节点（会拷一份作模板，可再点「编辑」修改）"
+                      className="w-full bg-void border border-edge rounded px-2 py-1 text-[12px] text-slate-200 outline-none focus:border-god/50">
+                      <option value="">＋ 从主角天赋栏选…（{b1Traits.length}）</option>
+                      {b1Traits.map((t: any, i: number) => <option key={i} value={i}>{t.name}{t.rarity ? `·${t.rarity}级` : ''}</option>)}
+                    </select>
+                  )}
                   {selNode.grants.trait && grantForm !== 'trait' && (selNode.grants.trait.effect || selNode.grants.trait.rarity) && (
                     <div className="text-[11px] bg-void/50 rounded px-2 py-1 space-y-0.5 -mt-1">
                       {selNode.grants.trait.rarity && <span className="text-amber-300/70">{String(selNode.grants.trait.rarity)}级</span>}

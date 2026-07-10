@@ -72,6 +72,7 @@ export class ShopDO {
     if (!this._loaded) {
       this._loaded = (async () => {
         this.shops = (await this.ctx.storage.get("shops")) || [];
+        this.revenue = (await this.ctx.storage.get("revenue")) || {};   // { ownerPid → { 货币 → 待领营收 } } 跨端收益账本
       })();
     }
     return this._loaded;
@@ -108,7 +109,7 @@ export class ShopDO {
     this.ctx.acceptWebSocket(server, [playerId]);
     server.serializeAttachment({ playerId, name, hue, avv, ds, nc, du, joinedAt: Date.now() });
 
-    this.#sendTo(server, { type: "hello", you: { playerId, name, hue }, shops: this.shops, online: this.#online() });
+    this.#sendTo(server, { type: "hello", you: { playerId, name, hue }, shops: this.shops, online: this.#online(), revenue: this.revenue[playerId] || {} });
 
     return new Response(null, { status: 101, webSocket: client });
   }
@@ -176,6 +177,34 @@ export class ShopDO {
         shop.visits = (shop.visits || 0) + 1;
         await this.ctx.storage.put("shops", this.shops);
         this.#broadcast({ type: "shop_visited", shopId: shop.id, visits: shop.visits });
+        break;
+      }
+      case "earn": {
+        // 跨端收益：光顾者在他人店消费(买货/强化/门票)后上报，钱记进店主的云端待领账（自己逛自己店不记，本地已计）。
+        const shop = this.shops.find((c) => c.id === String(msg.shopId || ""));
+        if (!shop) break;
+        if (shop.ownerId === att.playerId) break;
+        const cur = msg.currency === "灵魂钱币" ? "灵魂钱币" : msg.currency === "乐园币" ? "乐园币" : null;
+        if (!cur) break;
+        let amt = Math.floor(Number(msg.amount) || 0);
+        if (!(amt > 0)) break;
+        if (amt > 100000000) amt = 100000000;                 // 单次上报封顶（防离谱注入）
+        const bag = this.revenue[shop.ownerId] || (this.revenue[shop.ownerId] = {});
+        bag[cur] = Math.min((bag[cur] || 0) + amt, 1e12);      // 累计封顶防溢出
+        await this.ctx.storage.put("revenue", this.revenue);
+        for (const w of this.ctx.getWebSockets()) {            // 店主在线则实时推待领
+          const a = w.deserializeAttachment();
+          if (a && a.playerId === shop.ownerId) this.#sendTo(w, { type: "revenue", pending: this.revenue[shop.ownerId] || {} });
+        }
+        break;
+      }
+      case "collect_revenue": {
+        // 店主领取云端待领营收 → 清账 + 回执金额（客户端据此 adjustCurrency 入钱包/储存空间）。
+        const amounts = this.revenue[att.playerId] || {};
+        const has = Object.keys(amounts).some((k) => (amounts[k] || 0) > 0);
+        if (has) { delete this.revenue[att.playerId]; await this.ctx.storage.put("revenue", this.revenue); }
+        this.#sendTo(ws, { type: "revenue_collected", amounts: has ? amounts : {} });
+        this.#sendTo(ws, { type: "revenue", pending: {} });
         break;
       }
     }

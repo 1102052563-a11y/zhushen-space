@@ -14,6 +14,7 @@ interface ShopMarketState {
   shops: PublishedShop[];
   online: number;
   error: string | null;
+  revenue: Record<string, number>;   // 我的云端待领营收 { 货币 → 额 }（他人光顾我上传的店累计）
   _set: (p: Partial<ShopMarketState>) => void;
   reset: () => void;
 }
@@ -24,6 +25,7 @@ const INIT = {
   shops: [] as PublishedShop[],
   online: 0,
   error: null as string | null,
+  revenue: {} as Record<string, number>,
 };
 
 export const useShopMarket = create<ShopMarketState>((set): ShopMarketState => ({
