@@ -17,7 +17,10 @@ export interface ChestProduct {
   category: string;
   gradeDesc: string;      // 品级锁死（= 该槽 plan.slots[i].gradeDesc）
   subType?: string;
+  origin?: string;        // 产地/来历出处（物品演化固定格式字段·不遗漏）
   combatStat?: string;
+  durability?: string;    // 耐久度（装备类）
+  requirement?: string;   // 装备需求（装备类·六维门槛）
   attrBonus?: string;
   score?: string;
   affix?: string;

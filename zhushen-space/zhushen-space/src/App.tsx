@@ -227,7 +227,7 @@ import { buildMemPool, loadAll as factVecLoadAll, ensureVectors as factVecEnsure
 import { useDbAdvance } from './store/dbAdvanceStore';   // 数据库推进管线（Stitches 规划层）
 import { findModule as dbFindModule, buildModuleMessages as dbBuildMsgs, extractTag as dbExtractTag, stripExcluded as dbStripExcluded, resolveFinalDirective as dbResolveDirective, type DbAdvanceCtx } from './systems/dbAdvancePreset';
 import { serializePlayerCard, serializeNpcCard, buildNpcCandidateTitles, buildPlayerSkillCandidates, buildPlayerItemCandidates, rankNpcsLocal, serializeFactionsSection, namesMentionedIn, NM_STRUCT_SELECT_PROMPT, type RecallLimits } from './systems/structuredRecall';
-import { drainSceneNotices, pushSceneNotice, drainGrowthNotices } from './systems/allocNotice';   // 场外操作通报（加点/合成/强化/货币…）→ 正文前置须知；星图习得→需入戏交代块
+import { drainSceneNotices, pushSceneNotice, drainGrowthNotices, pushGrowthNotice } from './systems/allocNotice';   // 场外操作通报（加点/合成/强化/货币…）→ 正文前置须知；星图习得/开箱→需入戏交代块
 import { rollGemDrops } from './systems/gemDrop';   // 正文击杀 → 结算掉落宝石（前端确定性）
 const MiscPanel = lazy(() => import('./components/MiscPanel'));
 import DiceCard from './components/DiceCard';
@@ -2539,7 +2539,10 @@ export default function App() {
           category: cat,
           gradeDesc: slot.gradeDesc,   // 品级锁死（前端已按宝箱品级定档，不得越级）
           subType: flattenAiText(j.subType).slice(0, 30) || undefined,
+          origin: flattenAiText(j.origin).slice(0, 40) || undefined,                                   // 产地/来历（物品演化固定字段·不遗漏）
           combatStat: isEquip ? (flattenAiText(j.combatStat).slice(0, 50) || undefined) : undefined,
+          durability: isEquip ? (flattenAiText(j.durability).slice(0, 30) || undefined) : undefined,   // 耐久度（装备类）
+          requirement: isEquip ? (flattenAiText(j.requirement).slice(0, 60) || undefined) : undefined, // 装备需求（装备类·六维门槛）
           attrBonus: flattenAiText(j.attrBonus).slice(0, 120) || undefined,
           score: flattenAiText(j.score).slice(0, 60) || undefined,
           affix: isEquip ? (flattenAiText(j.affix).slice(0, 200) || undefined) : undefined,
@@ -2567,16 +2570,18 @@ export default function App() {
       const effect = [p.effect, p.attrBonus].filter(Boolean).join('；') || '';   // 六维/上限数值折进 effect，供 effectiveAttrs 读取（同合成/福袋）
       items.addItem({
         name: p.name, category: p.category as any, gradeDesc: p.gradeDesc,
-        subType: p.subType, combatStat: p.combatStat, score: p.score,
+        subType: p.subType, origin: p.origin, combatStat: p.combatStat,
+        durability: p.durability, requirement: p.requirement, score: p.score,
         affix: p.affix, effect, intro: p.intro, appearance: p.appearance, killCount: p.killCount,
         quantity: 1, equipped: false, tags: ['开箱'], acquisition: `开箱·${chest.name}`,
       });
     }
     items.consumeItem(sess.chestId, 1);   // 消耗 1 只宝箱
-    // 场外通报：本次开出的产物 → 让正文知晓（防"开了箱正文不知"），同时说明宝箱已消耗
+    // 入戏交代（注入正文最深处·<本回合成长·需入戏交代> 块）：让正文把"主角开箱取物"这一行为演进剧情、写出画面，
+    //   而非仅数值知晓（治"面板开箱与正文脱节·各玩各的"）；数值已由前端结算，故附"勿重复发放/勿改数值"守卫。
     try {
       const names = sess.pending.map((p) => p.name).filter(Boolean).join('、');
-      if (names) pushSceneNotice(`【场外·开箱】玩家开启了「${chest.name}」，开出：${names}（已入储存空间，该宝箱已消耗 1 只）。正文据此知晓即可，勿重复发放。`);
+      if (names) pushGrowthNotice(`主角开启了「${chest.name}」，从中取得：${names}（已入储存空间、数值已由前端结算，勿重复发放、勿改数值）。请用一小段叙述交代主角开箱、取出这些之物的过程与见到珍宝的那一瞬。`);
     } catch { /* 通报失败不阻断 */ }
     C.endSession();
   }
@@ -8239,7 +8244,7 @@ ${lines}`;
     if (!narrateOnly) {
       const gn = drainGrowthNotices();
       if (gn.length) growthBlock = [{ role: 'system' as const, content:
-        `<本回合成长·需入戏交代>\n（玩家刚在职业星图上点亮了下列节点、已由前端确定性发放到技能/天赋栏。请在本回合正文里用一小段【自然、简短】的叙述交代主角是**如何习得/觉醒**这些能力的——顿悟、苦修有成、传承共鸣、危机中突破、名师点拨皆可，贴合当前情境与主角处境；让"变强"有来处、有画面，与职业身份呼应。**别逐条罗列、别报数值、别喧宾夺主**，几笔带过、重在把职业成长和剧情连起来。）\n${gn.join('\n')}\n</本回合成长·需入戏交代>` }];
+        `<本回合成长·需入戏交代>\n（下列是玩家刚通过面板完成、已由前端确定性发放/入库的【成长或获取】事件。请在本回合正文里用一小段【自然、简短】的叙述把它们交代进剧情：技能/天赋类写主角是**如何习得/觉醒**的——顿悟、苦修有成、传承共鸣、危机中突破、名师点拨皆可；**开箱/获得物品类写主角开启宝箱、取出此物的过程与见到珍宝的那一瞬**。贴合当前情境与主角处境，让"变强/获得"有来处、有画面，与主角身份呼应。**别逐条罗列、别报数值、别喧宾夺主、勿重复发放**，几笔带过、重在把面板操作和剧情连起来。）\n${gn.join('\n')}\n</本回合成长·需入戏交代>` }];
     }
 
     // 历史：叙事记忆（关键词召回，启用时）或按 historyLimit 切片（现状）

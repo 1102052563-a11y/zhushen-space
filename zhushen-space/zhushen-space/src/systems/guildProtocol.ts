@@ -30,13 +30,16 @@ export interface GuildFull {
   weekTasks?: WeeklyTasks;
   chronicle: ChronicleEntry[];
   chain?: { count: number; lastAt: number; best: number };   // 家族连击（Torn 式·击杀累计冲里程碑）
-  baseSnapshot?: any;           // 家族据点 = 领地快照
+  hallOfFame?: { name: string; contribTotal: number; rank?: string; at: number; reason?: string }[];   // 家族丰碑（创立者 + 离场英灵·跨存档铭记）
+  wars?: { wins: number; losses: number };   // 家族战·战绩
+  base?: { buildings: Record<string, number> };   // 家族据点建筑（大殿/金库/演武场/望楼 → 等级·成员集资建）
+  baseSnapshot?: any;           // (旧·未用)
 }
 
 /** 公开家族卡（GuildListDO 注册表列表·搜索/申请用）。 */
 export interface GuildCard {
   id: string; name: string; tag: string; emblem?: string; manifesto?: string;
-  level: number; members: number; recruiting?: boolean; ownerName?: string; weeklyContrib?: number; at: number; bumpedAt: number;
+  level: number; members: number; recruiting?: boolean; ownerName?: string; weeklyContrib?: number; power?: number; at: number; bumpedAt: number;
 }
 
 export interface GuildMe { playerId: string; name: string }
@@ -73,6 +76,8 @@ export type GuildOutbound =
   | { type: 'edit'; patch: { name?: string; tag?: string; emblem?: string; manifesto?: string; recruiting?: boolean } }
   | { type: 'claim_task' }
   | { type: 'leave' }
+  | { type: 'build_base'; building: string }   // 家族据点：出资升级某建筑（乐园币客户端本地扣·server 记等级）
+  | { type: 'war_result'; win: boolean; opponentName: string; myScore: number; theirScore: number }   // 家族战·确定性对决结果上报（server 记战绩+胜奖·每日限次）
   | { type: 'disband' };
 
 // ── GuildListDO（注册表·单例·仿 LobbyDO/AssistDO）──

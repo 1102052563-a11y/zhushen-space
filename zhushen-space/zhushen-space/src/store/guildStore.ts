@@ -45,6 +45,7 @@ interface GuildState {
   base: any;
   chain: { count: number; lastAt: number; best: number } | null;
   meta: { manifesto?: string; recruiting?: boolean } | null;   // 家族设置面板预填（my 摘要不含这些）
+  hallOfFame: { name: string; contribTotal: number; rank?: string; at: number; reason?: string }[];   // 家族丰碑
 
   setMy: (s: GuildSummary | null) => void;
   _set: (p: Partial<GuildState>) => void;
@@ -65,6 +66,7 @@ const LIVE_INIT = {
   base: null as any,
   chain: null as { count: number; lastAt: number; best: number } | null,
   meta: null as { manifesto?: string; recruiting?: boolean } | null,
+  hallOfFame: [] as { name: string; contribTotal: number; rank?: string; at: number; reason?: string }[],
 };
 
 export const useGuild = create<GuildState>()(

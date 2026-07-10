@@ -245,6 +245,8 @@ export const VI_EXACT: Record<string, string> = {
   '本地存档': 'Lưu Cục Bộ',
   '重新开始': 'Bắt Đầu Lại',
   '返回游戏': 'Về Game',
+  '返回主界面': 'Về Màn Hình Chính',
+  '返回主菜单': 'Về Menu Chính',
 
   // ─────────── 开始界面（StartScreen）───────────
   '开始游戏': 'Bắt Đầu',
@@ -364,6 +366,117 @@ export const VI_EXACT: Record<string, string> = {
   '性爱姿势': 'Tư Thế', '性经验': 'Kinh Nghiệm Tình Dục', '敏感部位': 'Điểm Nhạy Cảm', '性观念': 'Quan Niệm Tình Dục',
   '表性癖': 'Sở Thích Ngoài', '里性癖': 'Sở Thích Ẩn', '性器状态': 'Trạng Thái', '开发玩法': 'Khai Phá', '解锁服装': 'Mở Khóa Trang Phục',
   '独特技巧': 'Kỹ Xảo Riêng',
+
+  // ══════════ 续批 2（词频次高·职业/战斗/面板/状态）══════════
+  // 职业 / 种族 / 定位
+  '术士': 'Thuật Sĩ', '法师': 'Pháp Sư', '刺客': 'Thích Khách', '战士': 'Chiến Sĩ', '骑士': 'Kỵ Sĩ',
+  '祭司': 'Tế Ti', '德鲁伊': 'Druid', '刀客': 'Đao Khách', '铁卫': 'Thiết Vệ', '勇士': 'Dũng Sĩ',
+  '辅助': 'Hỗ Trợ', '坦克': 'Đỡ Đòn', '全能': 'Toàn Năng', '重装': 'Trọng Giáp', '盾': 'Khiên', '弓': 'Cung',
+  '医': 'Y Sĩ', '精灵': 'Tinh Linh', '兽人': 'Thú Nhân', '玩家': 'Người Chơi', '土著': 'Thổ Dân', '中性': 'Trung Tính',
+  '御兽': 'Ngự Thú', '狂暴': 'Cuồng Bạo',
+  // 制作 / 生活技能
+  '炼丹': 'Luyện Đan', '附魔': 'Phụ Ma', '铭文': 'Minh Văn', '制造': 'Chế Tạo', '采掘': 'Khai Thác', '词符': 'Phù',
+  // 战斗数值 / 判定
+  '护甲': 'Giáp', '防': 'Thủ', '幸': 'May', '暴击伤害': 'ST Bạo Kích', '暴击率': 'Tỷ Lệ Bạo Kích',
+  '护甲穿透': 'Xuyên Giáp', '真实伤害': 'ST Chuẩn', '移动速度': 'Tốc Độ', '范围': 'Phạm Vi',
+  '物理': 'Vật Lý', '格斗': 'Cận Chiến', '格挡': 'Đỡ', '主动效果': 'Hiệu Ứng Chủ Động', '觉醒': 'Thức Tỉnh',
+  '碾压成功': 'Thắng Áp Đảo', '极难成功': 'Thắng Cực Khó', '困难成功': 'Thắng Khó',
+  // 品级颜色补
+  '金': 'Kim', '紫': 'Tím', '白': 'Trắng', '蓝': 'Lam', '绿': 'Lục', '金色': 'Vàng Kim',
+  '红色': 'Đỏ', '史诗级': 'Bậc Sử Thi', '传说级': 'Bậc Truyền Thuyết',
+  // NPC 详情
+  '装备加成': 'Cộng Trang Bị', '合计': 'Tổng', '需求': 'Yêu Cầu', '身份信息': 'Thông Tin Thân Phận', '私密信息': 'Thông Tin Riêng',
+  '基本信息': 'Thông Tin Cơ Bản', '非人形': 'Phi Hình Người', '佩戴中': 'Đang Đeo', '佩戴': 'Đeo', '称号库': 'Kho Danh Hiệu',
+  '内心想法': 'Suy Nghĩ', '当前动机': 'Động Cơ', '信任': 'Tin Tưởng', '尊重': 'Tôn Trọng', '情欲': 'Dục Vọng',
+  '位置': 'Vị Trí', '对方': 'Đối Phương', '未设置': 'Chưa Đặt', '临时队友': 'Đồng Đội Tạm',
+  // 背包 / 装备
+  '装备中': 'Đang Trang Bị', '装备槽': 'Ô Trang Bị', '杀敌数量': 'Số Diệt', '解锁': 'Mở Khóa', '乐园币不足': 'Không đủ Xu Lạc Viên',
+  '装备条目': 'Mục Trang Bị', '六维公式': 'Công Thức Thuộc Tính',
+  // 赌场
+  '下注': 'Đặt Cược', '筹码': 'Phỉnh', '魂筹': 'Phỉnh Hồn', '爆牌': 'Quắc', '大': 'Lớn', '小': 'Nhỏ',
+  // 社交 / 交易
+  '回复': 'Trả Lời', '货币': 'Tiền Tệ', '系统商店': 'Cửa Hàng Hệ Thống', '招募': 'Tuyển Mộ', '情报': 'Tin Tức',
+  '索取': 'Xin', '以物换物': 'Đổi Đồ', '面议': 'Thương Lượng', '平换': 'Đổi Ngang', '移出好友栏': 'Xóa Kết Bạn',
+  '长老': 'Trưởng Lão', '副会长': 'Phó Hội Trưởng',
+  // 面板 / 设置
+  '剧情优化建议': 'Gợi Ý Cốt Truyện', 'API 配置': 'Cấu Hình API', '系统提示词': 'Prompt Hệ Thống', '全局正则': 'Regex Toàn Cục',
+  '标准': 'Tiêu Chuẩn', '战斗系统': 'Hệ Chiến Đấu', '深渊地牢': 'Ngục Vực Thẳm', '向量资料库': 'Kho Vector',
+  '生平压缩': 'Nén Tiểu Sử', '尺寸': 'Kích Thước', '接口地址': 'Địa Chỉ API', '肖像生成': 'Tạo Chân Dung', '正文生图': 'Ảnh Nội Dung',
+  '装备生图': 'Ảnh Trang Bị', '物品管理': 'Quản Lý Vật Phẩm', '物品名称': 'Tên Vật Phẩm', '仅启用': 'Chỉ Bật',
+  '更新频率': 'Tần Suất', '预设文件': 'File Preset', '每回合': 'Mỗi Lượt', '调参': 'Tinh Chỉnh', '新增': 'Thêm',
+  // 创建 / 世界卡
+  '技巧类': 'Loại Kỹ Xảo', '种族详情': 'Chi Tiết Chủng Tộc', '未填': 'Chưa Điền', '世界名称': 'Tên Thế Giới',
+  '世界简介': 'Giới Thiệu Thế Giới', '切入点': 'Điểm Vào', '主角身份': 'Thân Phận NVC', '奖励预览': 'Xem Trước Thưởng', '配方名': 'Tên Công Thức',
+  // 锁定 / 数值
+  '档案': 'Hồ Sơ', '外貌': 'Ngoại Hình', '数值': 'Chỉ Số', '规模': 'Quy Mô', '实力': 'Thực Lực', '质量': 'Chất Lượng',
+  // 体系 / 出战
+  '上场': 'Ra Trận', '收进替补席': 'Đưa Vào Dự Bị', '永久删除': 'Xóa Vĩnh Viễn', '未命名体系': 'Bộ Chưa Đặt Tên',
+  // 世界 / 记忆 / 时间
+  '世界时间': 'Thời Gian Thế Giới', '轮回历时间': 'Lịch Luân Hồi', '进度': 'Tiến Độ', '世界争夺战': 'Chiến Giành Thế Giới',
+  '试炼世界': 'Thế Giới Thử Thách', '本世界': 'Thế Giới Này', '战斗结束': 'Kết Thúc Trận', '阶段记忆': 'Ký Ức Giai Đoạn',
+  '近期记忆': 'Ký Ức Gần', '召回': 'Truy Hồi', '推进': 'Đẩy Tiến', '腐蚀': 'Ăn Mòn', '休闲世界': 'Thế Giới Giải Trí',
+  '事实': 'Sự Thật', '事实查证': 'Kiểm Chứng', '技能升级': 'Nâng Cấp KN', '赌场': 'Sòng Bạc',
+  // 动作 / 状态补
+  '不改': 'Giữ Nguyên', '消耗': 'Tiêu Hao', '删': 'Xóa', '保留': 'Giữ Lại', '故土': 'Cố Thổ', '稳固': 'Vững',
+  '一号位': 'Vị Trí 1', '二号位': 'Vị Trí 2', '随机分配中': 'Đang Phân Ngẫu Nhiên', '挑战': 'Thách Đấu', '旁观': 'Xem',
+  '重试': 'Thử Lại', '加载失败': 'Tải Thất Bại', '导入失败': 'Nhập Thất Bại', '遣散': 'Giải Tán', '下架': 'Gỡ Bán',
+  '版本': 'Phiên Bản', '类别': 'Loại', '档位': 'Bậc', '无变化': 'Không Đổi', '已覆灭': 'Đã Diệt Vong',
+  '学会': 'Học', '强化': 'Cường Hóa', '伏笔': 'Phục Bút', '未知物品': 'Vật Phẩm Lạ',
+  '开箱': 'Mở Rương', '招财': 'Chiêu Tài', '最新': 'Mới Nhất', '满': 'Đầy', '队': 'Đội',
+
+  // ══════════ 续批 3（面板专属·词频 2~4）══════════
+  // 深渊地牢 / roguelike
+  '无尽深渊': 'Vực Thẳm Vô Tận', '堕落结晶': 'Kết Tinh Sa Đọa', '通关': 'Vượt Ải', '最深层': 'Tầng Sâu Nhất',
+  '觉醒充能': 'Sạc Thức Tỉnh', '解锁险地': 'Mở Khu Nguy Hiểm', '星图节点': 'Nút Tinh Đồ', '卡牌库': 'Kho Thẻ',
+  '原罪图鉴': 'Đồ Giám Nguyên Tội', '已解锁': 'Đã Mở Khóa', '通关结算': 'Kết Toán Vượt Ải', '原罪': 'Nguyên Tội', '觉醒中': 'Đang Thức Tỉnh',
+  '武道': 'Võ Đạo', '加成': 'Cộng Thêm', '质变': 'Đột Biến',
+  // 背包 / 货币
+  '手动更新': 'Cập Nhật Thủ Công', '最近删除': 'Vừa Xóa', '恢复回背包': 'Trả Về Túi', '替换图片': 'Thay Ảnh',
+  '通用货币': 'Tiền Chung', '稀有货币': 'Tiền Hiếm', '背包空空如也': 'Túi trống trơn', '背包为空': 'Túi Trống',
+  '开局携带': 'Mang Theo Đầu Game', '部位护甲': 'Giáp Bộ Phận', '核心护甲': 'Giáp Lõi',
+  // 赌场
+  '开袋中': 'Đang Mở', '全押': 'Tất Tay', '运': 'May', '赢': 'Thắng', '输': 'Thua', '全选': 'Chọn Tất Cả',
+  // 战力档 / 战斗
+  '绝强': 'Tuyệt Cường', '巅峰绝强': 'Đỉnh Tuyệt Cường', '至强': 'Chí Cường', '巅峰至强': 'Đỉnh Chí Cường',
+  '无上之境': 'Cảnh Vô Thượng', '战斗胜利': 'Chiến Thắng', '战斗失败': 'Chiến Bại', '荆棘': 'Gai', '再生': 'Tái Sinh',
+  '获得': 'Nhận Được', '壁垒': 'Bức Tường', '近身搏斗': 'Cận Chiến', '攻击提升': 'Tăng Tấn Công',
+  // 判定 / 技能检定
+  '交涉': 'Đàm Phán', '魅惑': 'Mê Hoặc', '嘲讽': 'Khiêu Khích', '潜行': 'Ẩn Nấp', '几乎不可能': 'Gần Như Bất Khả',
+  '极难': 'Cực Khó', '嗜血': 'Khát Máu', '解析失败': 'Phân Tích Lỗi',
+  // 宝石
+  '宝石商店': 'Cửa Hàng Đá', '宝石合成': 'Ghép Đá', '高阶宝石': 'Đá Cao Cấp', '基础宝石': 'Đá Cơ Bản',
+  // 职业 / 种族补
+  '游侠': 'Du Hiệp', '杀手': 'Sát Thủ', '傀儡师': 'Nghệ Nhân Rối', '通灵': 'Chiêu Hồn', '邪术': 'Tà Thuật',
+  '魔导': 'Ma Đạo', '炮手': 'Xạ Thủ', '武者': 'Võ Giả', '狂战': 'Cuồng Chiến', '暗杀': 'Ám Sát',
+  '死神': 'Tử Thần', '灵植': 'Linh Thực', '怨灵': 'Oán Linh', '嗜杀': 'Khát Sát', '稀有职业': 'Nghề Hiếm',
+  '龙族': 'Long Tộc', '不死族': 'Bất Tử Tộc', '机械体': 'Cơ Giới', '凶兽': 'Hung Thú', '噩梦': 'Ác Mộng',
+  // NPC / 角色
+  '芳名': 'Tên', '看板娘': 'Tiếp Viên', '杂物': 'Đồ Linh Tinh', '对主角态度': 'Thái Độ Với NVC', '四轴': '4 Trục', '化名': 'Bí Danh',
+  '伪装境界': 'Cảnh Giới Giả', '外貌年龄': 'Tuổi Bề Ngoài', '昵称': 'Biệt Danh', '六维属性': 'Thuộc Tính',
+  '当前值': 'Giá Trị Hiện Tại', '无名空壳': 'Vỏ Rỗng', '背景经历': 'Bối Cảnh', '性别未知': 'Giới Tính Không Rõ',
+  '未建档': 'Chưa Lập Hồ Sơ', '主角阶位': 'Bậc NVC', '归属NPC': 'NPC Sở Hữu', '团长': 'Đội Trưởng',
+  '团队成员': 'Thành Viên Đội', '团队大事记': 'Nhật Ký Đội',
+  // 面板动作 / 状态
+  '删除我的卡': 'Xóa Thẻ Của Tôi', '只显示已启用条目': 'Chỉ Hiện Mục Bật', 'AI重写': 'AI Viết Lại', '可继续编辑': 'Có Thể Sửa',
+  '已用掉': 'Đã Dùng', '点击看详情': 'Bấm Xem Chi Tiết', '未设模型': 'Chưa Đặt Model', '空世界书': 'Sách Trống',
+  '读取文件失败': 'Đọc File Lỗi', '上传立绘': 'Tải Tranh Lên', '分阶段': 'Theo Giai Đoạn', '点击查看完整信息': 'Bấm Xem Đầy Đủ',
+  '每回合最多演化数': 'Tiến Hóa Tối Đa/Lượt', '过长': 'Quá Dài', '增加HP/EP上限': 'Tăng Trần HP/EP', '贪婪': 'Tham Lam',
+  '核心游戏态': 'Trạng Thái Lõi', '管理员删除': 'Admin Xóa', '总结': 'Tổng Kết', '扩张': 'Mở Rộng', '解散': 'Giải Tán',
+  '身份定义': 'Định Nghĩa Thân Phận', '未命名预设': 'Preset Chưa Tên', '进阶路线': 'Lộ Trình Tiến Cấp', '强者争霸战': 'Chiến Tranh Cường Giả',
+  '频道交易': 'Giao Dịch Kênh', '知道了': 'Đã Hiểu', '停止生成': 'Dừng', '回退上一回合': 'Lùi Lượt Trước', '角色面板': 'Bảng Nhân Vật',
+  '命令面板': 'Bảng Lệnh', '清空对话': 'Xóa Hội Thoại', '未分组': 'Chưa Nhóm', '已失败': 'Đã Thất Bại', '已放弃': 'Đã Bỏ',
+  '已结束': 'Đã Kết Thúc', '六选三': 'Chọn 3/6', '已达成': 'Đã Đạt', '单机': 'Ngoại Tuyến', '持续': 'Liên Tục',
+  '叙事人称': 'Ngôi Kể', '白色宝箱': 'Rương Trắng', '已有清单': 'Danh Sách Sẵn', '数据库脚本': 'Script CSDL',
+  '当前实际等级': 'Cấp Thực Tế', '已结算基线': 'Mốc Kết Toán', '未填写': 'Chưa Điền', '真的死亡': 'Chết Thật',
+  '最久未演化': 'Lâu Chưa Tiến Hóa', '初始': 'Khởi Đầu', '第三人称': 'Ngôi Thứ Ba', '暂无小总结': 'Chưa Có Tóm Tắt',
+  '任务世界': 'Thế Giới Nhiệm Vụ', '未启用小地图': 'Tắt Minimap', '主角所属母园': 'Lạc Viên Mẹ NVC', '已解散': 'Đã Giải Tán',
+  '预设': 'Preset', '相关': 'Liên Quan', '已组队': 'Đã Lập Đội', '转正': 'Chuyển Chính', '转正进冒险团': 'Vào Đội Chính Thức',
+  '重建索引': 'Dựng Lại Chỉ Mục', '结构化档案': 'Hồ Sơ Cấu Trúc', '失控复读': 'Lặp Mất Kiểm Soát', '未觉醒': 'Chưa Thức Tỉnh',
+  '正文配图': 'Ảnh Minh Họa', '生图中': 'Đang Tạo Ảnh', '同步中': 'Đang Đồng Bộ', '名次': 'Thứ Hạng', '跳过': 'Bỏ Qua', '切磋': 'Giao Đấu',
+  '助战自己': 'Tự Trợ Chiến', '邀请助战': 'Mời Trợ Chiến', '保存修改': 'Lưu Thay Đổi', '一键回滚整回合': 'Hoàn Tác Cả Lượt',
+  '异常': 'Bất Thường', '回滚': 'Hoàn Tác', '竞技奖励': 'Thưởng Đấu Trường', '不死': 'Bất Tử', '虚弱': 'Suy Nhược',
+  '本命装备': 'Trang Bị Bản Mệnh', '霓虹': 'Neon', '黄金': 'Vàng', '聚能': 'Tụ Năng', '品阶显示规则': 'Quy Tắc Phẩm Cấp',
+  '物价和金融系统': 'Hệ Thống Giá & Tài Chính', '原著接轨': 'Khớp Nguyên Tác', '小成': 'Tiểu Thành', '大成': 'Đại Thành',
 };
 
 /* 插值 / 带数字规则（锚定，安全）。 */

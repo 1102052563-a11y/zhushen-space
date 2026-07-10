@@ -8,6 +8,11 @@ const MAX_CHRONICLE = 100;
 const MIN_INTERVAL = 800;
 const CHAIN_WINDOW = 12 * 3600 * 1000;      // 断链窗口（12h 内无新击杀 → 连击归零）
 const CHAIN_MILESTONES = [10, 50, 200, 1000, 5000];
+const HOF_THRESHOLD = 5000;                 // 家族丰碑门槛：离场成员贡献≥此值才铭刻
+const MAX_HOF = 50;
+const MAX_BUILDING = 10;
+const BASE_COST = { hall: 2000, treasury: 1500, arena: 2500, watchtower: 1500 };   // 升到 L+1 花费 = 此值×(L+1)·乐园币客户端本地扣
+const BUILDING_CN = { hall: "大殿", treasury: "金库", arena: "演武场", watchtower: "望楼" };
 
 // 等级 exp 阈值（index = level；level1=0）
 const LEVEL_EXP = [0, 0, 5000, 15000, 35000, 70000, 130000, 230000, 400000, 650000, 1000000];
@@ -98,6 +103,8 @@ export class GuildDO {
         ownerId: b.ownerId, createdAt: now, level: 1, exp: 0, perks: [],
         members: [{ pid: b.ownerId, name: b.ownerName || "会长", rank: "leader", contribTotal: 0, contribWeek: 0, joinedAt: now, lastActive: now, du: id.du || 0, avv: id.avv || 0, ds: id.ds || "", nc: id.nc || "" }],
         applicants: [], chest: [], chronicle: [{ at: now, text: `家族「${clean(b.name, 24, "无名家族")}」成立`, kind: "found" }],
+        hallOfFame: [{ name: b.ownerName || "会长", contribTotal: 0, rank: "leader", at: now, reason: "found" }],
+        base: { buildings: { hall: 0, treasury: 0, arena: 0, watchtower: 0 } },
       };
       await this.#save();
       return json({ ok: true, summary: this.#summaryFor(b.ownerId), card: this.#card() });
@@ -107,7 +114,7 @@ export class GuildDO {
       if (!this.g) return json({ ok: false, reason: "家族不存在" });
       const b = await request.json().catch(() => ({}));
       if (this.g.members.some((m) => m.pid === b.pid)) return json({ ok: true, summary: this.#summaryFor(b.pid), card: this.#card() });
-      if (this.g.members.length >= MAX_MEMBERS) return json({ ok: false, reason: "家族已满员" });
+      if (this.g.members.length >= this.#memberCap()) return json({ ok: false, reason: "家族已满员" });
       if (this.g.recruiting === false) return json({ ok: false, reason: "该家族暂不招募" });
       const now = Date.now(); const id = b.identity || {};
       const member = { pid: b.pid, name: clean(b.name, 24, "新成员"), rank: "member", contribTotal: 0, contribWeek: 0, joinedAt: now, lastActive: now, du: id.du || 0, avv: id.avv || 0, ds: id.ds || "", nc: id.nc || "" };
@@ -189,7 +196,7 @@ export class GuildDO {
         break;
       }
       case "deposit": {
-        if (this.g.chest.length >= MAX_CHEST) { this.#sendTo(ws, { type: "error", reason: "金库已满" }); break; }
+        if (this.g.chest.length >= this.#chestCap()) { this.#sendTo(ws, { type: "error", reason: "金库已满（升级金库建筑扩容）" }); break; }
         const item = msg.item; if (!item || typeof item !== "object") break;
         this.g.chest.unshift({ ...item, _by: me.name, _at: Date.now() });
         await this.#save(); this.#broadcast({ type: "chest_changed", chest: this.g.chest });
@@ -220,13 +227,50 @@ export class GuildDO {
       case "kick": {
         if (!isOfficer) break; const pid = String(msg.pid || ""); const t = this.g.members.find((m) => m.pid === pid);
         if (!t || t.rank === "leader" || pid === att.playerId) break;
+        this.#recordHof(t, "kicked");
         this.g.members = this.g.members.filter((m) => m.pid !== pid);
         this.#addChronicle(`${t.name} 离开了家族`, "leave"); await this.#save();
         this.#broadcast({ type: "member_left", pid }); this.#kickSocket(pid, "kicked"); this.#pushCard();
         break;
       }
+      case "war_result": {
+        if (this.#tooFast(att.playerId)) { this.#sendTo(ws, { type: "rate_limited" }); break; }
+        if (!this.g.wars) this.g.wars = { wins: 0, losses: 0, dayBucket: 0, dayCount: 0 };
+        const today = Math.floor(Date.now() / 86400000);
+        if (this.g.wars.dayBucket !== today) { this.g.wars.dayBucket = today; this.g.wars.dayCount = 0; }
+        if ((this.g.wars.dayCount || 0) >= 5) { this.#sendTo(ws, { type: "error", reason: "今日家族战次数已用完（每日 5 次）" }); break; }
+        this.g.wars.dayCount = (this.g.wars.dayCount || 0) + 1;
+        const opp = String(msg.opponentName || "对手").slice(0, 24);
+        if (msg.win) {
+          this.g.wars.wins = (this.g.wars.wins || 0) + 1;
+          const bonus = 300 + this.g.level * 100;
+          this.g.exp += bonus; const before = this.g.level; this.g.level = levelForExp(this.g.exp); this.g.perks = perksForLevel(this.g.level);
+          this.#addChronicle(`家族战 · 胜「${opp}」(+${bonus} 家族贡献)`, "war");
+          if (this.g.level > before) this.#broadcast({ type: "level_up", level: this.g.level, perks: this.g.perks });
+        } else {
+          this.g.wars.losses = (this.g.wars.losses || 0) + 1;
+          this.#addChronicle(`家族战 · 负于「${opp}」`, "war");
+        }
+        await this.#save();
+        this.#broadcast({ type: "guild_synced", guild: this.g });
+        break;
+      }
+      case "build_base": {
+        if (this.#tooFast(att.playerId)) { this.#sendTo(ws, { type: "rate_limited" }); break; }
+        const bld = String(msg.building || "");
+        if (!this.g.base) this.g.base = { buildings: { hall: 0, treasury: 0, arena: 0, watchtower: 0 } };
+        const cur = this.g.base.buildings[bld];
+        if (cur == null) break;
+        if (cur >= MAX_BUILDING) { this.#sendTo(ws, { type: "error", reason: "该建筑已满级" }); break; }
+        this.g.base.buildings[bld] = cur + 1;
+        this.#addChronicle(`${me.name} 出资将「${BUILDING_CN[bld] || bld}」升至 Lv.${cur + 1}`, "base");
+        await this.#save();
+        this.#broadcast({ type: "guild_synced", guild: this.g });
+        break;
+      }
       case "leave": {
         if (isLeader) { this.#sendTo(ws, { type: "error", reason: "会长需先传位或解散家族" }); break; }
+        this.#recordHof(me, "left");
         this.g.members = this.g.members.filter((m) => m.pid !== att.playerId);
         this.#addChronicle(`${me.name} 离开了家族`, "leave"); await this.#save();
         this.#broadcast({ type: "member_left", pid: att.playerId });
@@ -250,15 +294,25 @@ export class GuildDO {
     const m = this.g.members.find((x) => x.pid === pid);
     return { id: this.g.id, name: this.g.name, tag: this.g.tag, emblem: this.g.emblem, role: m ? m.rank : "member", level: this.g.level, perks: this.g.perks, joinedAt: m ? m.joinedAt : Date.now() };
   }
+  #memberCap() { return MAX_MEMBERS + ((this.g.base && this.g.base.buildings && this.g.base.buildings.hall) || 0) * 5; }      // 大殿每级 +5 成员上限
+  #chestCap() { return MAX_CHEST + ((this.g.base && this.g.base.buildings && this.g.base.buildings.treasury) || 0) * 20; }   // 金库每级 +20 容量
   #card() {
     const leader = this.g.members.find((m) => m.rank === "leader") || {};
     const weeklyContrib = this.g.members.reduce((s, m) => s + (m.contribWeek || 0), 0);   // 家族战·周榜排名依据
-    return { id: this.g.id, name: this.g.name, tag: this.g.tag, emblem: this.g.emblem, manifesto: this.g.manifesto, level: this.g.level, members: this.g.members.length, recruiting: this.g.recruiting, ownerName: leader.name || "会长", weeklyContrib, at: this.g.createdAt, bumpedAt: Date.now() };
+    const power = this.g.level * 500 + Math.floor(this.g.members.reduce((s, m) => s + (m.contribTotal || 0), 0) / 5) + this.g.members.length * 100;   // 家族战力（等级+总贡献+人数）
+    return { id: this.g.id, name: this.g.name, tag: this.g.tag, emblem: this.g.emblem, manifesto: this.g.manifesto, level: this.g.level, members: this.g.members.length, recruiting: this.g.recruiting, ownerName: leader.name || "会长", weeklyContrib, power, at: this.g.createdAt, bumpedAt: Date.now() };
   }
   #addChronicle(text, kind) {
     this.g.chronicle.unshift({ at: Date.now(), text, kind });
     if (this.g.chronicle.length > MAX_CHRONICLE) this.g.chronicle = this.g.chronicle.slice(0, MAX_CHRONICLE);
     this.#broadcast({ type: "chronicle_added", entry: this.g.chronicle[0] });
+  }
+  // 家族丰碑：贡献达标的离场成员（或创立者）铭刻进名人堂（跨存档保留·上限 MAX_HOF）。
+  #recordHof(m, reason) {
+    if (!this.g.hallOfFame) this.g.hallOfFame = [];
+    if (reason !== "found" && (m.contribTotal || 0) < HOF_THRESHOLD) return;
+    this.g.hallOfFame.unshift({ name: m.name, contribTotal: m.contribTotal || 0, rank: m.rank, at: Date.now(), reason });
+    if (this.g.hallOfFame.length > MAX_HOF) this.g.hallOfFame = this.g.hallOfFame.slice(0, MAX_HOF);
   }
   async #pushCard() { try { await this.env.GUILDLIST.get(this.env.GUILDLIST.idFromName("global")).fetch("https://do/card", { method: "POST", body: JSON.stringify(this.#card()) }); } catch {} }
   // 贡献时限流回推卡（60s 一次·让家族战周榜 weeklyContrib 大致跟得上·又不刷爆 GuildListDO）。

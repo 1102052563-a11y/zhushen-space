@@ -179,16 +179,107 @@ function WeekTaskSection() {
   );
 }
 
+const BASE_COST_C: Record<string, number> = { hall: 2000, treasury: 1500, arena: 2500, watchtower: 1500 };
+const MAX_BUILDING_C = 10;
+const BASE_META: { key: string; label: string; emoji: string; effect: string }[] = [
+  { key: 'hall', label: '大殿', emoji: '🏛', effect: '每级 +5 成员上限' },
+  { key: 'treasury', label: '金库', emoji: '🏦', effect: '每级 +20 金库容量' },
+  { key: 'arena', label: '演武场', emoji: '⚔️', effect: '家族战气势（后续加成）' },
+  { key: 'watchtower', label: '望楼', emoji: '🗼', effect: '家族情报 / 热度（后续加成）' },
+];
+function BaseSection() {
+  const base = useGuild((s) => s.base);
+  const my = useGuild((s) => s.my)!;
+  const currency = useItems((s) => s.currency);
+  const adjustCurrency = useItems((s) => s.adjustCurrency);
+  const buildings: Record<string, number> = (base && base.buildings) || {};
+  const upgrade = (key: string) => {
+    const lv = buildings[key] || 0;
+    if (lv >= MAX_BUILDING_C) return;
+    const cost = (BASE_COST_C[key] || 2000) * (lv + 1);
+    if ((currency.乐园币 ?? 0) < cost) return;
+    adjustCurrency('乐园币', -cost, `家族·${my.name}·据点·${key}`);
+    guildClient.buildBase(key);
+  };
+  return (
+    <div className="space-y-1.5">
+      <div className="text-[13px] font-bold text-slate-100">🏯 家族据点</div>
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-2">
+        {BASE_META.map((b) => {
+          const lv = buildings[b.key] || 0;
+          const cost = (BASE_COST_C[b.key] || 2000) * (lv + 1);
+          const max = lv >= MAX_BUILDING_C;
+          const poor = (currency.乐园币 ?? 0) < cost;
+          return (
+            <div key={b.key} className="rounded-xl border border-edge bg-panel p-2.5 flex items-center gap-2">
+              <span className="text-xl shrink-0">{b.emoji}</span>
+              <div className="flex-1 min-w-0">
+                <div className="text-sm font-semibold text-slate-100">{b.label} <span className="text-amber-300/70 font-mono text-[11px]">Lv.{lv}</span></div>
+                <div className="text-[11px] text-dim/55 truncate">{b.effect}</div>
+              </div>
+              <button onClick={() => upgrade(b.key)} disabled={max || poor}
+                className={`text-[11px] font-mono py-1 px-2 rounded-lg border shrink-0 ${(max || poor) ? 'border-edge text-dim/40' : 'border-amber-400/50 text-amber-100 bg-amber-500/15 hover:bg-amber-500/25'}`}>
+                {max ? '满级' : `升级 ${cost}`}
+              </button>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+function GuildSettingsModal({ onClose }: { onClose: () => void }) {
+  const my = useGuild((s) => s.my)!;
+  const meta = useGuild((s) => s.meta);
+  const [name, setName] = useState(my.name);
+  const [tag, setTag] = useState(my.tag);
+  const [emblem, setEmblem] = useState(my.emblem || '🏰');
+  const [manifesto, setManifesto] = useState(meta?.manifesto || '');
+  const [recruiting, setRecruiting] = useState(meta?.recruiting !== false);
+  const save = () => {
+    guildClient.edit({ name: name.trim() || my.name, tag: tag.trim() || my.tag, emblem: emblem.trim(), manifesto: manifesto.trim(), recruiting });
+    onClose();
+  };
+  return (
+    <div className="fixed inset-0 z-[85] bg-black/70 backdrop-blur-sm flex items-center justify-center p-4" onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}>
+      <div className="w-full max-w-md rounded-2xl border border-amber-500/30 bg-void shadow-[0_0_50px_rgba(0,0,0,0.85)] flex flex-col">
+        <header className="shrink-0 flex items-center gap-2 px-4 py-3 border-b border-amber-500/20 bg-panel">
+          <span className="text-base">⚙</span>
+          <div className="flex-1 text-sm font-bold text-amber-100">家族设置</div>
+          <button onClick={onClose} className="text-dim/50 hover:text-blood text-lg">✕</button>
+        </header>
+        <div className="p-4 space-y-3">
+          <div className="grid grid-cols-2 gap-2">
+            <label className="flex flex-col gap-1"><span className="text-[11px] font-mono text-dim/55">家族名</span><input value={name} onChange={(e) => setName(e.target.value)} className={`${inputCls} w-full`} /></label>
+            <label className="flex flex-col gap-1"><span className="text-[11px] font-mono text-dim/55">标签</span><input value={tag} onChange={(e) => setTag(e.target.value)} className={`${inputCls} w-full`} /></label>
+          </div>
+          <label className="flex flex-col gap-1"><span className="text-[11px] font-mono text-dim/55">徽记(emoji)</span><input value={emblem} onChange={(e) => setEmblem(e.target.value)} className={`${inputCls} w-24`} /></label>
+          <label className="flex flex-col gap-1"><span className="text-[11px] font-mono text-dim/55">家族宣言</span><textarea value={manifesto} onChange={(e) => setManifesto(e.target.value)} rows={2} className="w-full bg-void border border-edge rounded-lg px-3 py-2 text-[13px] text-slate-200 resize-y focus:outline-none focus:border-amber-400/40" /></label>
+          <label className="flex items-center gap-2 text-[13px] text-slate-200 cursor-pointer"><input type="checkbox" checked={recruiting} onChange={(e) => setRecruiting(e.target.checked)} className="accent-amber-500" />开放招募（关闭后广场里显"不招募"）</label>
+        </div>
+        <footer className="shrink-0 flex items-center gap-2 px-4 py-3 border-t border-amber-500/20 bg-panel">
+          <div className="flex-1" />
+          <button onClick={onClose} className={btnGhost}>取消</button>
+          <button onClick={save} className={btnPrimary}>保存</button>
+        </footer>
+      </div>
+    </div>
+  );
+}
+
 function MyGuildView({ cards }: { cards: GuildCard[] }) {
   const my = useGuild((s) => s.my)!;
   const exp = useGuild((s) => s.exp);
   const online = useGuild((s) => s.online);
   const roster = useGuild((s) => s.roster);
   const chronicle = useGuild((s) => s.chronicle);
+  const hallOfFame = useGuild((s) => s.hallOfFame);
   const currency = useItems((s) => s.currency);
   const adjustCurrency = useItems((s) => s.adjustCurrency);
   const [donate, setDonate] = useState(500);
   const [rankView, setRankView] = useState<'total' | 'week'>('total');
+  const [settingsOpen, setSettingsOpen] = useState(false);
   const myPid = useGuild((s) => s.me?.playerId);
 
   const cur = LEVEL_EXP[my.level] ?? 0;
@@ -212,6 +303,7 @@ function MyGuildView({ cards }: { cards: GuildCard[] }) {
             <div className="text-base font-bold text-amber-100 truncate">{my.name} <span className="text-[12px] text-amber-300/70">[{my.tag}]</span></div>
             <div className="text-[11px] font-mono text-dim/55">我的军衔：{RANK_LABEL[my.role]} · 在线 {online} 人</div>
           </div>
+          {my.role === 'leader' && <button onClick={() => setSettingsOpen(true)} className="text-lg text-dim/50 hover:text-amber-200 shrink-0" title="家族设置">⚙</button>}
         </div>
         <div className="mt-3">
           <div className="flex items-center justify-between text-[11px] font-mono mb-1">
@@ -277,12 +369,31 @@ function MyGuildView({ cards }: { cards: GuildCard[] }) {
         <ChestSection />
       </div>
 
+      {/* 家族据点 */}
+      <BaseSection />
+
       {/* 编年史 */}
       {chronicle.length > 0 && (
         <div className="space-y-1.5">
           <div className="text-[13px] font-bold text-slate-100">📜 家族编年史</div>
           <div className="rounded-xl border border-edge bg-panel/50 p-2 space-y-1 max-h-40 overflow-y-auto">
             {chronicle.slice(0, 20).map((e, i) => <div key={i} className="text-[11px] font-mono text-dim/70">· {e.text}</div>)}
+          </div>
+        </div>
+      )}
+
+      {/* 家族丰碑 · 名人堂（创立者 + 离场英灵铭记） */}
+      {hallOfFame.length > 0 && (
+        <div className="space-y-1.5">
+          <div className="text-[13px] font-bold text-slate-100">🪦 家族丰碑</div>
+          <div className="rounded-xl border border-amber-500/15 bg-panel/50 p-2 space-y-1 max-h-40 overflow-y-auto">
+            {hallOfFame.map((h, i) => (
+              <div key={i} className="flex items-center gap-2 text-[11px] font-mono">
+                <span>{h.reason === 'found' ? '👑' : '🕯'}</span>
+                <span className="text-slate-200 truncate flex-1">{h.name}</span>
+                <span className="text-dim/50 shrink-0">{h.reason === 'found' ? '创立者' : `${h.reason === 'kicked' ? '除名' : '退隐'} · 贡献 ${h.contribTotal}`}</span>
+              </div>
+            ))}
           </div>
         </div>
       )}
@@ -294,6 +405,8 @@ function MyGuildView({ cards }: { cards: GuildCard[] }) {
           ? <button onClick={() => { if (confirm('解散家族？此操作不可撤销，所有成员将退出。')) guildClient.disband(); }} className="text-[12px] font-mono py-1.5 px-3 rounded-lg border border-blood/40 text-blood/80 hover:bg-blood/10">解散家族</button>
           : <button onClick={() => { if (confirm('退出当前家族？')) guildClient.leave(); }} className={btnGhost}>退出家族</button>}
       </div>
+
+      {settingsOpen && <GuildSettingsModal onClose={() => setSettingsOpen(false)} />}
     </div>
   );
 }

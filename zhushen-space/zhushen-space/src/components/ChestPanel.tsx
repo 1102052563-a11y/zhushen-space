@@ -159,6 +159,13 @@ export default function ChestPanel({ onClose, onOpen, onConfirm }: Props) {
                         {p.score && <span className="text-[11px] text-dim/45">评分 {p.score}</span>}
                       </div>
                       {p.combatStat && <div className="mt-1 text-[12px] text-amber-200/80">{p.combatStat}{p.attrBonus ? ' · ' + p.attrBonus : ''}</div>}
+                      {(p.origin || p.durability || p.requirement) && (
+                        <div className="mt-0.5 text-[11px] text-dim/55 flex flex-wrap gap-x-2.5 gap-y-0.5">
+                          {p.origin && <span>产地：{p.origin}</span>}
+                          {p.durability && <span>耐久：{p.durability}</span>}
+                          {p.requirement && <span>需求：{p.requirement}</span>}
+                        </div>
+                      )}
                       {p.affix && splitAffixEntries(p.affix).map((a, k) => <div key={k} className="mt-0.5 text-[12px] text-sky-200/80 border-l-2 border-sky-500/30 pl-2">缀·{a}</div>)}
                       {p.effect && splitAffixEntries(p.effect).map((e, k) => <div key={k} className="mt-0.5 text-[12px] text-emerald-200/70 border-l-2 border-emerald-500/25 pl-2">效·{e}</div>)}
                       {p.intro && <div className="mt-1 text-[11px] text-dim/60">{p.intro}</div>}

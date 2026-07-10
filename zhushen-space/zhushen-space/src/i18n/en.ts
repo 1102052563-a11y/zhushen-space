@@ -245,6 +245,8 @@ export const EN_EXACT: Record<string, string> = {
   '本地存档': 'Local Save',
   '重新开始': 'Restart',
   '返回游戏': 'Back to Game',
+  '返回主界面': 'Back to Main',
+  '返回主菜单': 'Back to Main Menu',
 
   // ─────────── 开始界面（StartScreen）───────────
   '开始游戏': 'Start Game',
@@ -421,6 +423,60 @@ export const EN_EXACT: Record<string, string> = {
   '版本': 'Version', '类别': 'Category', '档位': 'Tier', '无变化': 'No Change', '已覆灭': 'Destroyed',
   '学会': 'Learn', '强化': 'Enhance', '伏笔': 'Foreshadowing', '未知物品': 'Unknown Item',
   '开箱': 'Open', '招财': 'Fortune', '最新': 'Latest', '满': 'Full', '队': 'Team',
+
+  // ══════════ 续批 3（面板专属·词频 2~4）══════════
+  // 深渊地牢 / roguelike
+  '无尽深渊': 'Endless Abyss', '堕落结晶': 'Corruption Crystal', '通关': 'Clear', '最深层': 'Deepest',
+  '觉醒充能': 'Awaken Charge', '解锁险地': 'Unlock Zone', '星图节点': 'Star Node', '卡牌库': 'Card Library',
+  '原罪图鉴': 'Sin Codex', '已解锁': 'Unlocked', '通关结算': 'Clear Reward', '原罪': 'Sin', '觉醒中': 'Awakening…',
+  '武道': 'Martial Way', '加成': 'Bonus', '质变': 'Breakthrough',
+  // 背包 / 货币
+  '手动更新': 'Manual Update', '最近删除': 'Recently Deleted', '恢复回背包': 'Return to Bag', '替换图片': 'Replace Image',
+  '通用货币': 'Common Currency', '稀有货币': 'Rare Currency', '背包空空如也': 'Backpack is empty', '背包为空': 'Empty',
+  '开局携带': 'Starting Items', '部位护甲': 'Piece Armor', '核心护甲': 'Core Armor',
+  // 赌场
+  '开袋中': 'Opening…', '全押': 'All In', '运': 'LUK', '赢': 'Win', '输': 'Lose', '全选': 'Select All',
+  // 战力档 / 战斗
+  '绝强': 'Peerless', '巅峰绝强': 'Apex Peerless', '至强': 'Supreme Power', '巅峰至强': 'Apex Supreme',
+  '无上之境': 'Transcendent', '战斗胜利': 'Victory', '战斗失败': 'Defeat', '荆棘': 'Thorns', '再生': 'Regen',
+  '获得': 'Gain', '壁垒': 'Barrier', '近身搏斗': 'Melee', '攻击提升': 'ATK Up',
+  // 判定 / 技能检定
+  '交涉': 'Negotiate', '魅惑': 'Charm', '嘲讽': 'Taunt', '潜行': 'Stealth', '几乎不可能': 'Nearly Impossible',
+  '极难': 'Extreme', '嗜血': 'Bloodthirst', '解析失败': 'Parse Failed',
+  // 宝石
+  '宝石商店': 'Gem Shop', '宝石合成': 'Gem Fusion', '高阶宝石': 'Advanced Gem', '基础宝石': 'Basic Gem',
+  // 职业 / 种族补
+  '游侠': 'Ranger', '杀手': 'Killer', '傀儡师': 'Puppeteer', '通灵': 'Necromancer', '邪术': 'Dark Arts',
+  '魔导': 'Magus', '炮手': 'Gunner', '武者': 'Martial Artist', '狂战': 'Berserker', '暗杀': 'Assassinate',
+  '死神': 'Reaper', '灵植': 'Spirit Plant', '怨灵': 'Wraith', '嗜杀': 'Bloodthirsty', '稀有职业': 'Rare Class',
+  '龙族': 'Dragonkin', '不死族': 'Undead', '机械体': 'Mechanoid', '凶兽': 'Beast', '噩梦': 'Nightmare',
+  // NPC / 角色
+  '芳名': 'Name', '看板娘': 'Hostess', '杂物': 'Misc', '对主角态度': 'Attitude', '四轴': '4-Axis', '化名': 'Alias',
+  '伪装境界': 'Disguised Realm', '外貌年龄': 'Apparent Age', '昵称': 'Nickname', '六维属性': 'Attributes',
+  '当前值': 'Current', '无名空壳': 'Empty Shell', '背景经历': 'Background', '性别未知': 'Gender Unknown',
+  '未建档': 'No Profile', '主角阶位': 'MC Tier', '归属NPC': 'Owner NPC', '团长': 'Team Leader',
+  '团队成员': 'Team Members', '团队大事记': 'Team Log',
+  // 面板动作 / 状态
+  '删除我的卡': 'Delete My Card', '只显示已启用条目': 'Enabled Only', 'AI重写': 'AI Rewrite', '可继续编辑': 'Editable',
+  '已用掉': 'Used', '点击看详情': 'Click for details', '未设模型': 'No Model', '空世界书': 'Empty Lorebook',
+  '读取文件失败': 'File Read Failed', '上传立绘': 'Upload Art', '分阶段': 'Staged', '点击查看完整信息': 'Click for full info',
+  '每回合最多演化数': 'Max evolutions per turn', '过长': 'Too Long', '增加HP/EP上限': 'Raise HP/EP Max', '贪婪': 'Greed',
+  '核心游戏态': 'Core Game State', '管理员删除': 'Admin Delete', '总结': 'Summary', '扩张': 'Expand', '解散': 'Disband',
+  '身份定义': 'Identity', '未命名预设': 'Unnamed Preset', '进阶路线': 'Advance Path', '强者争霸战': 'Champion War',
+  '频道交易': 'Channel Trade', '知道了': 'Got it', '停止生成': 'Stop', '回退上一回合': 'Undo Turn', '角色面板': 'Character Panel',
+  '命令面板': 'Command Palette', '清空对话': 'Clear Chat', '未分组': 'Ungrouped', '已失败': 'Failed', '已放弃': 'Abandoned',
+  '已结束': 'Ended', '六选三': 'Pick 3 of 6', '已达成': 'Achieved', '单机': 'Offline', '持续': 'Ongoing',
+  '叙事人称': 'Narrative POV', '白色宝箱': 'White Chest', '已有清单': 'Existing List', '数据库脚本': 'DB Script',
+  '当前实际等级': 'Actual Level', '已结算基线': 'Settled Baseline', '未填写': 'Not Filled', '真的死亡': 'Truly Dead',
+  '最久未演化': 'Longest Idle', '初始': 'Initial', '第三人称': 'Third Person', '暂无小总结': 'No summary yet',
+  '任务世界': 'Mission World', '未启用小地图': 'Minimap Off', '主角所属母园': 'MC Home Paradise', '已解散': 'Disbanded',
+  '预设': 'Preset', '相关': 'Related', '已组队': 'In Party', '转正': 'Promote', '转正进冒险团': 'Join Party',
+  '重建索引': 'Rebuild Index', '结构化档案': 'Structured Profile', '失控复读': 'Runaway Repeat', '未觉醒': 'Unawakened',
+  '正文配图': 'Scene Art', '生图中': 'Generating…', '同步中': 'Syncing…', '名次': 'Rank', '跳过': 'Skip', '切磋': 'Spar',
+  '助战自己': 'Assist Self', '邀请助战': 'Invite Assist', '保存修改': 'Save Changes', '一键回滚整回合': 'Roll Back Turn',
+  '异常': 'Error', '回滚': 'Roll Back', '竞技奖励': 'Arena Reward', '不死': 'Undying', '虚弱': 'Weak',
+  '本命装备': 'Signature Gear', '霓虹': 'Neon', '黄金': 'Gold', '聚能': 'Charge', '品阶显示规则': 'Grade Rules',
+  '物价和金融系统': 'Economy System', '原著接轨': 'Canon Sync', '小成': 'Minor Success', '大成': 'Great Success',
 };
 
 /* 插值 / 带数字规则（锚定，安全）。命中即用 core.replace(re, to)。 */

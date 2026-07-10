@@ -74,7 +74,7 @@ function openGuild(guildId: string, name: string, token: string) {
 function setFromFull(g: GuildFull) {
   const myPid = useGuild.getState().me?.playerId;
   const myMember = g.members.find((m) => m.pid === myPid);
-  set({ roster: g.members || [], chest: g.chest || [], weekTasks: g.weekTasks || null, chronicle: g.chronicle || [], applicants: g.applicants || [], base: g.baseSnapshot || null, exp: g.exp || 0, chain: g.chain || null, meta: { manifesto: g.manifesto, recruiting: g.recruiting } });
+  set({ roster: g.members || [], chest: g.chest || [], weekTasks: g.weekTasks || null, chronicle: g.chronicle || [], applicants: g.applicants || [], base: g.base || null, exp: g.exp || 0, chain: g.chain || null, meta: { manifesto: g.manifesto, recruiting: g.recruiting }, hallOfFame: g.hallOfFame || [] });
   const my = useGuild.getState().my;
   if (my && my.id === g.id) useGuild.getState().setMy({ ...my, name: g.name, tag: g.tag, emblem: g.emblem, level: g.level, perks: g.perks || [], role: myMember ? myMember.rank : my.role });
 }
@@ -125,6 +125,7 @@ export const guildClient = {
   leave: () => gSend({ type: 'leave' }),
   disband: () => gSend({ type: 'disband' }),
   claimTask: () => gSend({ type: 'claim_task' }),
+  buildBase: (building: string) => gSend({ type: 'build_base', building }),
   contributeRest,
   isGuildOpen: () => !!gWs && gWs.readyState === 1,
 };
