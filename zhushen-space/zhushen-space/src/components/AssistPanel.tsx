@@ -320,6 +320,7 @@ export default function AssistPanel({ onClose }: { onClose: () => void }) {
       {detail && (
         <NpcCardPreview
           data={detail.snapshot}
+          mt
           onClose={() => setDetail(null)}
           previewActions={
             <div className="flex items-center gap-2 flex-wrap">

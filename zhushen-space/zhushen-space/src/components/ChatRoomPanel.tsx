@@ -15,7 +15,6 @@ import { EntityCard, EntityDetailModal, type EntityKind } from './EntityDetail';
 import NpcCardPreview from './NpcCardPreview';
 import { buildNpcCardSnapshot } from '../systems/npcCard';
 import ChatAvatar from './ChatAvatar';
-import MessageText from './MessageText';
 import { AutoMessageText } from './AutoText';
 import EmojiPicker from './EmojiPicker';
 import StickerPicker from './StickerPicker';
@@ -473,7 +472,7 @@ export default function ChatRoomPanel({ onClose }: { onClose: () => void }) {
                         {uidTag && <span className="font-mono text-[10px] text-god/45 mr-1">{uidTag}</span>}
                         <span className="font-semibold" style={{ color: nc }}>{m.name}{isMe ? ' (你)' : ''}</span>
                         <span className="text-dim/50"> 分享了{m.share.kind === 'skill' ? '技能' : m.share.kind === 'talent' ? '天赋' : m.share.kind === 'npc' ? 'NPC' : '装备'}</span>
-                        <div className="mt-1"><EntityCard kind={m.share.kind as EntityKind} data={m.share.data} onOpen={() => setDetail({ kind: m.share!.kind as EntityKind, data: m.share!.data })} /></div>
+                        <div className="mt-1"><EntityCard kind={m.share.kind as EntityKind} data={m.share.data} onOpen={() => setDetail({ kind: m.share!.kind as EntityKind, data: m.share!.data })} mt /></div>
                         {reactionsRow(m)}
                       </div>
                     </div>
@@ -566,8 +565,8 @@ export default function ChatRoomPanel({ onClose }: { onClose: () => void }) {
       </div>
 
       {detail && (detail.kind === 'npc'
-        ? <NpcCardPreview data={detail.data} onClose={() => setDetail(null)} />
-        : <EntityDetailModal kind={detail.kind} data={detail.data} onClose={() => setDetail(null)} />)}
+        ? <NpcCardPreview data={detail.data} onClose={() => setDetail(null)} mt />
+        : <EntityDetailModal kind={detail.kind} data={detail.data} onClose={() => setDetail(null)} mt />)}
 
       {/* 绑定确认（进入后弹一次）*/}
       {bindConfirm && (

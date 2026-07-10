@@ -261,7 +261,7 @@ import { useCraft, ensureCraftWbDefaults, type CraftProduct } from './store/craf
 import { craftMode, craftOutputSlots } from './systems/craftEngine';
 import { buildCraftWbInjection } from './systems/craftWorldBook';
 import { generateGem } from './systems/gemEngine';
-import { useChest } from './store/chestStore';
+import { useChest, type ChestJob } from './store/chestStore';
 const CraftPanel = lazy(() => import('./components/CraftPanel'));
 const ChestPanel = lazy(() => import('./components/ChestPanel'));
 const ProducePanel = lazy(() => import('./components/ProducePanel'));
@@ -2484,104 +2484,117 @@ export default function App() {
     C.endSession();
   }
 
-  /* ─── 开箱：读宝箱全部信息 + 物品世界书 + 正文世界书品级体系 → 装备强化 API 按合理性思维链开出与宝箱品级相称之物 ───
-     前端已按宝箱品级掷定 plan（逐槽品级上限，不越级）；产物落进 session.pending（预览，未入库、未消耗宝箱）；
-     确认才 confirmChestOpen 入库 + 消耗 1 只宝箱 → 撤销/重新生成零副作用。开箱 API 复用「装备强化所」接口。 */
+  /* ─── 开箱（批量）：为选中的每一只宝箱【独立调一次】装备强化 API，按合理性思维链读该宝箱全部信息 + 物品世界书 +
+     正文世界书品级体系，开出与其品级相称之物——故批量里每只开出的物品互不相同（用户要求）。
+     前端已按各宝箱品级掷定各自 plan（逐槽品级上限·不越级）；产物落进各 job.loot（预览·未入库·未消耗宝箱）；
+     确认才 confirmChestOpen 逐 job 入库 + 按 chestId 汇总消耗 → 撤销/重新生成零副作用。开箱 API 复用「装备强化所」接口。 */
   async function runChestOpenPhase(): Promise<void> {
     const C = useChest.getState();
-    const sess = C.session;
-    if (!sess.plan || !sess.chestId) { C.setError('未选择宝箱，请重新点「开启」'); return; }
-    const chest = useItems.getState().items.find((x) => x.id === sess.chestId);
-    if (!chest) { C.setError('这只宝箱已不在储存空间了'); return; }
+    const todo = C.session.jobs.filter((j) => j.status === 'pending' || j.status === 'error');   // 待生成 / 失败重试的作业
+    if (!todo.length) { C.toPreview(); return; }
     const ss = useSettings.getState();
     const E = useEnhance.getState();
     const legacy = E.enhanceUseSharedApi ? (ss.textUseSharedApi ? ss.api : ss.textApi) : E.enhanceApi;
     const chain = resolveApiChain('enhance', legacy);
     if (!chain[0]?.baseUrl || !chain[0]?.apiKey) { C.setError('未配置 AI 接口（设置→变量管理→装备强化→API，或勾「复用正文生成 API」——开箱与装备强化共用此接口）'); return; }
-
-    const plan = sess.plan;
     const prof: any = usePlayer.getState().profile ?? {};
-    const chestInfo = JSON.stringify({
-      名称: chest.name, 品级: chest.gradeDesc, 类型: chest.category, 类型细分: chest.subType,
-      来历: chest.acquisition, 产地: chest.origin, 简介: chest.intro, 外观: chest.appearance,
-      效果: chest.effect, 标签: chest.tags,
-    }, null, 1);
-    const slotsText = plan.slots.map((s, i) =>
-      `槽${i + 1}：建议类别=${s.category}（可按宝箱主题调成更贴切的合法类别）｜品级上限=${s.gradeDesc}（**不得越级**，可略低）｜${s.note}`).join('\n');
+    const tendency = C.session.tendency.trim();
+    const EQUIP = ['武器', '防具', '饰品'];
 
-    const system = CHEST_OPEN_RULE + '\n' + ITEM_FIXED_FORMAT_RULE + '\n' + EQUIP_CODEX;
-    const user = [
-      `【开启者】${prof.name || '主角'}　阶位:${prof.tier || '—'}　职业:${prof.identity || '—'}　等级:Lv.${prof.level ?? '—'}`,
-      `【本次开启的宝箱·完整信息】\n${chestInfo}`,
-      `【本箱品级 → 产出上限】宝箱品级＝${plan.capName}（序号 ${plan.capGrade}/15）——**本箱可开出的最高品级就是 ${plan.capName}**，所有产物一律不得高于此档（这是"不同等级宝箱最高能开出的物品"的硬上限）。`,
-      `【产出槽（系统已按宝箱品级逐槽定档，不得越级）·共 ${plan.slots.length} 件】\n${slotsText}`,
-      `【开启者倾向提示】${sess.tendency.trim() || '（未填 —— 由你按这只宝箱的品级、来历与主题判定开出什么）'}`,
-      `请先在 <开箱推演> 里按六步推演（≥150 字，判断开出之物是否配得上这只宝箱、是否越级、是否契合主题），再紧接着输出长度为 ${plan.slots.length} 的 JSON 数组（slot 从 1 起一一对应）。`,
-    ].join('\n\n');
+    // 单只宝箱：独立调一次 AI，产物写回该 job（各 job 各自 plan → 物品互不相同）
+    const openOne = async (job: ChestJob): Promise<void> => {
+      try {
+        const chest = useItems.getState().items.find((x) => x.id === job.chestId);
+        const plan = job.plan;
+        const chestInfo = JSON.stringify({
+          名称: job.chestName, 品级: job.gradeDesc, 类型: chest?.category, 类型细分: chest?.subType,
+          来历: chest?.acquisition, 产地: chest?.origin, 简介: chest?.intro, 外观: chest?.appearance,
+          效果: chest?.effect, 标签: chest?.tags,
+        }, null, 1);
+        const slotsText = plan.slots.map((s, i) =>
+          `槽${i + 1}：建议类别=${s.category}（可按宝箱主题调成更贴切的合法类别）｜品级上限=${s.gradeDesc}（**不得越级**，可略低）｜${s.note}`).join('\n');
+        const system = CHEST_OPEN_RULE + '\n' + ITEM_FIXED_FORMAT_RULE + '\n' + EQUIP_CODEX;
+        const user = [
+          `【开启者】${prof.name || '主角'}　阶位:${prof.tier || '—'}　职业:${prof.identity || '—'}　等级:Lv.${prof.level ?? '—'}`,
+          `【本次开启的宝箱·完整信息】\n${chestInfo}`,
+          `【本箱品级 → 产出上限】宝箱品级＝${plan.capName}（序号 ${plan.capGrade}/15）——**本箱可开出的最高品级就是 ${plan.capName}**，所有产物一律不得高于此档（这是"不同等级宝箱最高能开出的物品"的硬上限）。`,
+          `【产出槽（系统已按宝箱品级逐槽定档，不得越级）·共 ${plan.slots.length} 件】\n${slotsText}`,
+          `【开启者倾向提示】${tendency || '（未填 —— 由你按这只宝箱的品级、来历与主题判定开出什么）'}`,
+          `请先在 <开箱推演> 里按六步推演（≥150 字，判断开出之物是否配得上这只宝箱、是否越级、是否契合主题），再紧接着输出长度为 ${plan.slots.length} 的 JSON 数组（slot 从 1 起一一对应）。`,
+        ].join('\n\n');
+        const { content } = await apiChatFallback(chain, [
+          { role: 'system', content: system },
+          { role: 'user', content: user },
+        ], { timeoutMs: 120000 });
+        const body = (content || '').replace(/<开箱推演>[\s\S]*?<\/开箱推演>/g, ' ');   // 剥掉思维链，只留 JSON 数组
+        const arr = parseArenaArray(body);
+        if (!Array.isArray(arr) || !arr.length) { useChest.getState().setJobError(job.jobId, 'AI 未返回有效产物（可重试）'); return; }
+        const products = plan.slots.map((slot, n) => {
+          const j = arr.find((x: any) => parseInt(String(x?.slot), 10) === n + 1) || arr[n] || {};
+          let cat = flattenAiText(j.category).trim();
+          if (!ITEM_CATEGORIES.includes(cat as any)) cat = String(slot.category);   // AI 给的类别非法 → 回退建议类别
+          const isEquip = EQUIP.includes(cat);
+          return {
+            name: flattenAiText(j.name).slice(0, 40) || `${slot.gradeDesc}·宝物`,
+            category: cat,
+            gradeDesc: slot.gradeDesc,   // 品级锁死（前端已按宝箱品级定档，不得越级）
+            subType: flattenAiText(j.subType).slice(0, 30) || undefined,
+            origin: flattenAiText(j.origin).slice(0, 40) || undefined,                                   // 产地/来历（物品演化固定字段·不遗漏）
+            combatStat: isEquip ? (flattenAiText(j.combatStat).slice(0, 50) || undefined) : undefined,
+            durability: isEquip ? (flattenAiText(j.durability).slice(0, 30) || undefined) : undefined,   // 耐久度（装备类）
+            requirement: isEquip ? (flattenAiText(j.requirement).slice(0, 60) || undefined) : undefined, // 装备需求（装备类·六维门槛）
+            attrBonus: flattenAiText(j.attrBonus).slice(0, 120) || undefined,
+            score: flattenAiText(j.score).slice(0, 60) || undefined,
+            affix: isEquip ? (flattenAiText(j.affix).slice(0, 200) || undefined) : undefined,
+            effect: flattenAiText(j.effect).slice(0, 400) || undefined,
+            intro: flattenAiText(j.intro).slice(0, 200) || undefined,
+            appearance: flattenAiText(j.appearance).slice(0, 300) || undefined,
+            killCount: cat === '武器' ? '0' : undefined,
+          };
+        });
+        useChest.getState().setJobLoot(job.jobId, products);
+      } catch (e: any) {
+        useChest.getState().setJobError(job.jobId, (e?.message ?? '接口调用失败').slice(0, 80));
+      }
+    };
 
-    C.setGenerating();
-    try {
-      const { content } = await apiChatFallback(chain, [
-        { role: 'system', content: system },
-        { role: 'user', content: user },
-      ], { timeoutMs: 120000 });
-      const body = (content || '').replace(/<开箱推演>[\s\S]*?<\/开箱推演>/g, ' ');   // 剥掉思维链，只留 JSON 数组
-      const arr = parseArenaArray(body);
-      if (!Array.isArray(arr) || !arr.length) { C.setError('AI 未返回有效产物（F12 看原始回复）。可点「重新生成」重试。'); return; }
-      const EQUIP = ['武器', '防具', '饰品'];
-      const products = plan.slots.map((slot, n) => {
-        const j = arr.find((x: any) => parseInt(String(x?.slot), 10) === n + 1) || arr[n] || {};
-        let cat = flattenAiText(j.category).trim();
-        if (!ITEM_CATEGORIES.includes(cat as any)) cat = String(slot.category);   // AI 给的类别非法 → 回退建议类别
-        const isEquip = EQUIP.includes(cat);
-        return {
-          name: flattenAiText(j.name).slice(0, 40) || `${slot.gradeDesc}·宝物`,
-          category: cat,
-          gradeDesc: slot.gradeDesc,   // 品级锁死（前端已按宝箱品级定档，不得越级）
-          subType: flattenAiText(j.subType).slice(0, 30) || undefined,
-          origin: flattenAiText(j.origin).slice(0, 40) || undefined,                                   // 产地/来历（物品演化固定字段·不遗漏）
-          combatStat: isEquip ? (flattenAiText(j.combatStat).slice(0, 50) || undefined) : undefined,
-          durability: isEquip ? (flattenAiText(j.durability).slice(0, 30) || undefined) : undefined,   // 耐久度（装备类）
-          requirement: isEquip ? (flattenAiText(j.requirement).slice(0, 60) || undefined) : undefined, // 装备需求（装备类·六维门槛）
-          attrBonus: flattenAiText(j.attrBonus).slice(0, 120) || undefined,
-          score: flattenAiText(j.score).slice(0, 60) || undefined,
-          affix: isEquip ? (flattenAiText(j.affix).slice(0, 200) || undefined) : undefined,
-          effect: flattenAiText(j.effect).slice(0, 400) || undefined,
-          intro: flattenAiText(j.intro).slice(0, 200) || undefined,
-          appearance: flattenAiText(j.appearance).slice(0, 300) || undefined,
-          killCount: cat === '武器' ? '0' : undefined,
-        };
-      });
-      C.setPending(products);
-    } catch (e: any) {
-      C.setError((e?.message ?? '接口调用失败').slice(0, 100));
-    }
+    // 并发池（最多 4 只同时开·防 API 轰炸），全部结束后进入预览
+    const queue = [...todo];
+    const CONC = 4;
+    await Promise.all(Array.from({ length: Math.min(CONC, queue.length) }, async () => {
+      while (queue.length) { const job = queue.shift(); if (job) await openOne(job); }
+    }));
+    useChest.getState().toPreview();
   }
 
-  /* 开箱：确认入库（产物入库 + 消耗 1 只宝箱 + 场外通报；未确认前不动任何东西）*/
+  /* 开箱：确认入库（逐 job 产物入库 + 按 chestId 汇总消耗宝箱 + 入戏交代；未确认前不动任何东西）*/
   function confirmChestOpen(): void {
     const C = useChest.getState();
-    const sess = C.session;
-    if (!sess.pending || !sess.pending.length || !sess.chestId) return;
+    const done = C.session.jobs.filter((j) => j.status === 'done' && j.loot && j.loot.length);
+    if (!done.length) { C.endSession(); return; }
     const items = useItems.getState();
-    const chest = items.items.find((x) => x.id === sess.chestId);
-    if (!chest) { C.setError('这只宝箱已不在储存空间了'); return; }
-    for (const p of sess.pending) {
-      const effect = [p.effect, p.attrBonus].filter(Boolean).join('；') || '';   // 六维/上限数值折进 effect，供 effectiveAttrs 读取（同合成/福袋）
-      items.addItem({
-        name: p.name, category: p.category as any, gradeDesc: p.gradeDesc,
-        subType: p.subType, origin: p.origin, combatStat: p.combatStat,
-        durability: p.durability, requirement: p.requirement, score: p.score,
-        affix: p.affix, effect, intro: p.intro, appearance: p.appearance, killCount: p.killCount,
-        quantity: 1, equipped: false, tags: ['开箱'], acquisition: `开箱·${chest.name}`,
-      });
+    const consume: Record<string, number> = {};   // chestId → 成功开启只数
+    const openedNames: string[] = [];
+    for (const job of done) {
+      if (!items.items.find((x) => x.id === job.chestId)) continue;   // 宝箱已不在则跳过（不入库不消耗）
+      for (const p of job.loot!) {
+        const effect = [p.effect, p.attrBonus].filter(Boolean).join('；') || '';   // 六维/上限数值折进 effect，供 effectiveAttrs 读取（同合成/福袋）
+        items.addItem({
+          name: p.name, category: p.category as any, gradeDesc: p.gradeDesc,
+          subType: p.subType, origin: p.origin, combatStat: p.combatStat,
+          durability: p.durability, requirement: p.requirement, score: p.score,
+          affix: p.affix, effect, intro: p.intro, appearance: p.appearance, killCount: p.killCount,
+          quantity: 1, equipped: false, tags: ['开箱'], acquisition: `开箱·${job.chestName}`,
+        });
+        openedNames.push(p.name);
+      }
+      consume[job.chestId] = (consume[job.chestId] || 0) + 1;
     }
-    items.consumeItem(sess.chestId, 1);   // 消耗 1 只宝箱
-    // 入戏交代（注入正文最深处·<本回合成长·需入戏交代> 块）：让正文把"主角开箱取物"这一行为演进剧情、写出画面，
-    //   而非仅数值知晓（治"面板开箱与正文脱节·各玩各的"）；数值已由前端结算，故附"勿重复发放/勿改数值"守卫。
+    for (const [chestId, n] of Object.entries(consume)) items.consumeItem(chestId, n);   // 按 chestId 汇总消耗（成功一只消耗一只）
+    // 入戏交代（注入正文最深处·<本回合成长·需入戏交代> 块）：让正文演出主角开箱取物的画面，而非仅数值知晓；数值已定，附"勿重复发放/勿改数值"守卫。
     try {
-      const names = sess.pending.map((p) => p.name).filter(Boolean).join('、');
-      if (names) pushGrowthNotice(`主角开启了「${chest.name}」，从中取得：${names}（已入储存空间、数值已由前端结算，勿重复发放、勿改数值）。请用一小段叙述交代主角开箱、取出这些之物的过程与见到珍宝的那一瞬。`);
+      const nm = openedNames.filter(Boolean).join('、');
+      if (nm) pushGrowthNotice(`主角一口气开启了 ${done.length} 只宝箱，从中取得：${nm}（已入储存空间、数值已由前端结算，勿重复发放、勿改数值）。请用一小段叙述交代主角开箱、取出这些之物的过程与见到珍宝的那一瞬。`);
     } catch { /* 通报失败不阻断 */ }
     C.endSession();
   }
@@ -6030,6 +6043,22 @@ ${replyTo.authorName} 之前说：「${String(replyTo.content).slice(0, 200)}」
   };
 
   /* 系统商店·补货：AI 生成 20 件商品（价偏高），供「系统商店」购买 */
+  /* 家族据点·AI 生成建筑：据玩家提示词(非正文)生成一批据点建筑(纯风味·不给数值)，addBuildings 入据点。 */
+  async function genGuildBuildings(prompt: string) {
+    const chain = resolveApiChain('channel', getChannelApi());
+    if (!chain[0]?.baseUrl || !chain[0]?.apiKey) { pushSceneNotice('【家族】生成据点建筑失败：请先配置频道 / 综合设置 API'); return; }
+    const sys = `你是「家族据点」建筑设计师。据玩家提示词，为一个契约者家族的据点设计 3~6 座建筑（纯风味 / 氛围·**不给任何数值加成**）。
+【玩家提示词】${prompt || '（自由发挥·契约者家族据点风格）'}
+只输出 JSON（无多余文字 / markdown）：{"buildings":[{"name"(建筑名·≤12字),"desc"(外观/功能描述),"effect"(象征意义/给家族的氛围·非数值)}]}。`;
+    try {
+      const { content } = await apiChatFallback(chain, [{ role: 'system', content: sys }, { role: 'user', content: '只输出 JSON {"buildings":[…]}。' }], { timeoutMs: 90000 });
+      const j: any = parseEntryJson(content) || {};
+      const list = (Array.isArray(j.buildings) ? j.buildings : []).filter((b: any) => b?.name).slice(0, 8);
+      if (list.length) guildClient.addBuildings(list);
+      else pushSceneNotice('【家族】AI 没生成有效建筑，换个提示词。');
+    } catch (e: any) { pushSceneNotice(`【家族】生成据点建筑失败：${e?.message ?? '请求异常'}`); }
+  }
+
   /* 玩家产业·AI 生成货品：据店铺定位 + 玩家倾向，生成【物品】(完整物品固定格式·不省略) 与【随从】(NPC 固定模板)，写入货架。 */
   async function genShopGoods(shopId: string, tendency: string) {
     const shop = useShop.getState().shops.find((x) => x.id === shopId);
@@ -10546,7 +10575,7 @@ ${lines}`;
       {craftPanelOpen && <CraftPanel onClose={() => setCraftPanelOpen(false)} onGenerate={runCraftPhase} onConfirm={confirmCraft} />}
       {chestPanelOpen && <ChestPanel onClose={() => { setChestPanelOpen(false); useChest.getState().endSession(); }} onOpen={runChestOpenPhase} onConfirm={confirmChestOpen} />}
       {producePanelOpen && <ProducePanel onClose={() => setProducePanelOpen(false)} onJoySend={onJoySend} onGenerateGoods={genShopGoods} onBuyCompanion={buyShopCompanion} />}
-      {guildPanelOpen && <GuildPanel onClose={() => setGuildPanelOpen(false)} />}
+      {guildPanelOpen && <GuildPanel onClose={() => setGuildPanelOpen(false)} onGenerateBuildings={genGuildBuildings} />}
 
       {casinoOpen && <CasinoPanel onClose={() => setCasinoOpen(false)} onGenMatch={genGladiatorMatch} onGenBattle={genGladiatorBattle} onGenRewards={genGachaRewards} onBanter={casinoBanter} onGenSoul={genSoulGamble} onGenPortraits={genGladiatorPortraits} />}
       {abyssOpen && <AbyssPanel onClose={() => setAbyssOpen(false)} onGenBoons={genAbyssBoons} onGenSin={genAbyssSin} onGenAwaken={genAbyssAwaken} onGenJudge={genAbyssJudge} onGenEnemies={genAbyssEnemies} />}

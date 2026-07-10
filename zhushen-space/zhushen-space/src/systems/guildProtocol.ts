@@ -32,7 +32,7 @@ export interface GuildFull {
   chain?: { count: number; lastAt: number; best: number };   // 家族连击（Torn 式·击杀累计冲里程碑）
   hallOfFame?: { name: string; contribTotal: number; rank?: string; at: number; reason?: string }[];   // 家族丰碑（创立者 + 离场英灵·跨存档铭记）
   wars?: { wins: number; losses: number };   // 家族战·战绩
-  base?: { buildings: Record<string, number> };   // 家族据点建筑（大殿/金库/演武场/望楼 → 等级·成员集资建）
+  base?: { buildings: { id: string; name: string; desc?: string; effect?: string; level: number; aiGen?: boolean }[] };   // 家族据点·自定义建筑（成员手写/AI 提示词生成·集资升级·非正文生成）
   baseSnapshot?: any;           // (旧·未用)
 }
 
@@ -76,7 +76,11 @@ export type GuildOutbound =
   | { type: 'edit'; patch: { name?: string; tag?: string; emblem?: string; manifesto?: string; recruiting?: boolean } }
   | { type: 'claim_task' }
   | { type: 'leave' }
-  | { type: 'build_base'; building: string }   // 家族据点：出资升级某建筑（乐园币客户端本地扣·server 记等级）
+  | { type: 'add_building'; building: { name?: string; desc?: string; effect?: string; aiGen?: boolean } }   // 家族据点：手写加建筑（会长/长老）
+  | { type: 'add_buildings'; buildings: { name?: string; desc?: string; effect?: string }[] }                // 家族据点：AI 生成批量入据点
+  | { type: 'edit_building'; id: string; patch: { name?: string; desc?: string; effect?: string } }
+  | { type: 'remove_building'; id: string }
+  | { type: 'upgrade_building'; id: string }   // 任何成员出资建设一级（乐园币客户端本地扣）
   | { type: 'war_result'; win: boolean; opponentName: string; myScore: number; theirScore: number }   // 家族战·确定性对决结果上报（server 记战绩+胜奖·每日限次）
   | { type: 'disband' };
 

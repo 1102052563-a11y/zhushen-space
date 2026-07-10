@@ -2,6 +2,7 @@ import { useEffect, useMemo, type ReactNode } from 'react';
 import NpcDetail from './NpcDetail';
 import { useNpc, type NpcRecord } from '../store/npcStore';
 import { useCharacters } from '../store/characterStore';
+import { useAutoText } from '../i18n/autoTranslate';
 
 /* 把一份「自包含 NPC 快照」（助战卡 / 聊天室分享 / systems/npcCard.ts buildNpcCardSnapshot）
    渲染成**和平时一模一样的 NpcDetail 大面板**，只读：
@@ -60,10 +61,23 @@ function snapshotToRecord(d: any): NpcRecord {
   } as NpcRecord;
 }
 
-export default function NpcCardPreview({ data, onClose, previewActions }: {
-  data: any; onClose: () => void; previewActions?: ReactNode;
+export default function NpcCardPreview({ data, onClose, previewActions, mt }: {
+  data: any; onClose: () => void; previewActions?: ReactNode; mt?: boolean;
 }) {
-  const rec = useMemo(() => snapshotToRecord(data || {}), [data]);
+  // mt=true（在线跨玩家 NPC 卡）：把主要文字字段按当前语言机翻，再拼成 NpcDetail 用的记录（字段数固定·符合 hooks 规则）。
+  const d = data || {};
+  const tName = useAutoText(mt ? d.name : undefined);
+  const tBackground = useAutoText(mt ? d.background : undefined);
+  const tPersonality = useAutoText(mt ? d.personality : undefined);
+  const tInner = useAutoText(mt ? (d.personalityDetail || d.innerThought) : undefined);
+  const tAppearance = useAutoText(mt ? (d.appearance || d.appearanceDetail) : undefined);
+  const tReview = useAutoText(mt ? d.review : undefined);
+  const tStatus = useAutoText(mt ? d.status : undefined);
+  const tTitle = useAutoText(mt ? d.title : undefined);
+  const tData = mt
+    ? { ...d, name: tName || d.name, background: tBackground, personality: tPersonality, personalityDetail: tInner, innerThought: tInner, appearance: tAppearance, appearanceDetail: tAppearance, review: tReview, status: tStatus, title: tTitle }
+    : d;
+  const rec = useMemo(() => snapshotToRecord(tData), [tData]);
   useEffect(() => {
     useCharacters.setState((s) => ({
       characters: {

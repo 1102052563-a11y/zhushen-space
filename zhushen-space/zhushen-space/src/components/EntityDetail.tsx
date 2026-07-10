@@ -147,9 +147,22 @@ export function EntityCard({ kind, data, onOpen, mt }: { kind: EntityKind; data:
   );
 }
 
-/** 完整信息弹窗（只读）。z-[60] 高于各面板(z-50)。 */
-export function EntityDetailModal({ kind, data, onClose }: { kind: EntityKind; data: any; onClose: () => void }) {
-  const name = String(data?.name || '（无名）');
+/** 弹窗内一行「字段值」——单独组件以便 mt 时逐行调用 useAutoText（符合 hooks 规则）。label 是界面词、由 DomI18n 处理。 */
+function DetailRow({ label, value, mt }: { label: string; value: string; mt?: boolean }) {
+  const v = useAutoText(mt ? value : undefined);
+  return (
+    <div className="grid grid-cols-[4.5rem_1fr] gap-2 items-start">
+      <div className="text-[11px] font-mono text-dim/50 pt-0.5">{label}</div>
+      <div className="text-[13px] text-slate-200 leading-relaxed break-words whitespace-pre-wrap">{mt ? v : value}</div>
+    </div>
+  );
+}
+
+/** 完整信息弹窗（只读）。z-[60] 高于各面板(z-50)。mt=true（在线跨玩家内容）时名称/字段值按当前语言机翻。 */
+export function EntityDetailModal({ kind, data, onClose, mt }: { kind: EntityKind; data: any; onClose: () => void; mt?: boolean }) {
+  const rawName = String(data?.name || '（无名）');
+  const nameMt = useAutoText(mt ? rawName : undefined);
+  const name = mt ? nameMt : rawName;
   const accent = accentColor(kind, data);
   const rows = FIELDS[kind].map(([label, key]) => [label, fieldText(data, key)] as [string, string]).filter(([, v]) => v);
 
@@ -169,12 +182,7 @@ export function EntityDetailModal({ kind, data, onClose }: { kind: EntityKind; d
         </header>
         <div className="flex-1 overflow-y-auto px-5 py-4 space-y-2.5">
           {rows.length === 0 && <div className="text-center text-dim/40 text-xs font-mono py-6">— 无更多信息 —</div>}
-          {rows.map(([label, value]) => (
-            <div key={label} className="grid grid-cols-[4.5rem_1fr] gap-2 items-start">
-              <div className="text-[11px] font-mono text-dim/50 pt-0.5">{label}</div>
-              <div className="text-[13px] text-slate-200 leading-relaxed break-words whitespace-pre-wrap">{value}</div>
-            </div>
-          ))}
+          {rows.map(([label, value]) => <DetailRow key={label} label={label} value={value} mt={mt} />)}
         </div>
       </div>
     </div>

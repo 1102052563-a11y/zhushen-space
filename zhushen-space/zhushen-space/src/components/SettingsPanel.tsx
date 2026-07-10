@@ -2739,6 +2739,8 @@ function AppearanceSettingsSection() {
   const setLanguage = useSettings((s) => s.setLanguage);
   const autoTranslateOnline    = useSettings((s) => s.autoTranslateOnline);
   const setAutoTranslateOnline = useSettings((s) => s.setAutoTranslateOnline);
+  const autoTranslateEngine    = useSettings((s) => s.autoTranslateEngine);
+  const setAutoTranslateEngine = useSettings((s) => s.setAutoTranslateEngine);
   const ff = reading.fontFamily || 'default';
   return (
     <div className="space-y-8">
@@ -2773,9 +2775,23 @@ function AppearanceSettingsSection() {
             <input type="checkbox" checked={autoTranslateOnline} onChange={(e) => setAutoTranslateOnline(e.target.checked)} className="accent-god w-4 h-4 mt-0.5" />
             <span>
               <span className="text-sm text-slate-300">在线内容自动翻译</span>
-              <span className="block text-[12px] text-dim/60 leading-relaxed">交易行 / 聊天室 / 助战等跨玩家内容自动机翻成当前语言（用你配置的 AI 接口 · 结果永久缓存 · 中文→繁體走本地转换不耗额度）</span>
+              <span className="block text-[12px] text-dim/60 leading-relaxed">交易行 / 聊天室 / 助战等跨玩家内容自动译成当前语言（结果永久缓存 · 中文→繁體走本地转换不耗额度）</span>
             </span>
           </label>
+          {autoTranslateOnline && (
+            <div className="grid grid-cols-2 gap-2 pl-6">
+              {[
+                { key: 'ai',   label: 'AI 翻译',  desc: '最地道 · 耗 API 额度' },
+                { key: 'free', label: '免费机翻', desc: '不耗额度 · MyMemory' },
+              ].map((o) => (
+                <button key={o.key} onClick={() => setAutoTranslateEngine(o.key as 'ai' | 'free')}
+                  className={`px-2 py-2 rounded-lg border text-sm font-mono transition-colors ${autoTranslateEngine === o.key ? 'border-god/60 bg-god/15 text-god' : 'border-edge bg-void/40 text-dim hover:border-god/30 hover:text-slate-300'}`}>
+                  <div className="font-semibold">{o.label}</div>
+                  <div className="text-[11px] opacity-60 mt-0.5">{o.desc}</div>
+                </button>
+              ))}
+            </div>
+          )}
         </div>
       </div>
 

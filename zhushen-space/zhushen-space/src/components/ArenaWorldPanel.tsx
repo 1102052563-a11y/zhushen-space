@@ -359,6 +359,7 @@ export default function ArenaWorldPanel({ onClose, onGenBattle, onSpar, onManual
         {detail && (
           <NpcCardPreview
             data={detail.snapshot}
+            mt
             onClose={() => setDetail(null)}
             previewActions={
               <div className="flex items-center gap-2 flex-wrap">

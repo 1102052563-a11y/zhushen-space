@@ -7,7 +7,7 @@ import { useCharacters } from '../store/characterStore';
 import { useItems } from '../store/itemStore';
 import { playerTreeAttrBonus } from '../store/skillTreeStore';
 import { playerTeamAttrBonus, playerTeamPerkAbilities } from '../store/adventureTeamStore';
-import { withAttrDelta } from './attrBonus';
+import { withAttrDelta, effectiveAttrs } from './attrBonus';
 import { playerStatusAttrDelta } from './statusAttrs';
 import { computeMaxHp, computeMaxEp, fullMaxHp, fullMaxEp, ratioOf, computeAttrPool, realAttrMult, type AttrCoef } from './derivedStats';
 import { useResource } from '../store/resourceStore';
@@ -75,6 +75,19 @@ export function playerMaxEp(): number {
   const b1 = useCharacters.getState().characters['B1'];
   const eq = useItems.getState().items.filter((i) => i.equipped) as any[];
   return fullMaxEp(a, eq, b1?.skills, [...(b1?.traits ?? []), ...playerTeamPerkAbilities()], realAttrMult(prof.tier, prof.level), ratioOf(prof));   // realMult 同 HP·四阶起×5；自定义智力→EP 转化比
+}
+
+/** 主角「有效幸运」= 基础六维 + 技能树 + 团队 + 真实属性点，再折入已装备装备/宝石的幸运加成。
+ *  与属性面板/战斗同口径（effectiveAttrs），供开箱幸运加成等按单一来源读取。 */
+export function playerEffectiveAttrs(): PlayerAttrs {
+  const prof = usePlayer.getState().profile;
+  const a = playerBaseAttrs(prof);
+  const b1 = useCharacters.getState().characters['B1'];
+  const eq = useItems.getState().items.filter((i) => i.equipped) as any[];
+  return effectiveAttrs(a, b1?.skills, b1?.traits, eq);
+}
+export function playerLuck(): number {
+  return Math.max(0, Math.floor(Number(playerEffectiveAttrs().luck) || 0));
 }
 
 /* 自定义能量条上限（仅主角）：有六维公式 maxFormula → 按公式×真实倍率(四阶起×5，与 HP/EP 同口径，作用于基础+技能树+团队六维)；

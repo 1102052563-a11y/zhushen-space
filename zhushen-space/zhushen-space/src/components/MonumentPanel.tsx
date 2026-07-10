@@ -307,12 +307,12 @@ export default function MonumentPanel({ onClose }: { onClose: () => void }) {
 
               {!!(s.equipment?.length) && (
                 <div className="space-y-1.5"><div className="text-[11px] font-semibold text-god/70">装备（{s.equipment.length}）</div>
-                  {s.equipment.map((it: any, i: number) => <EntityCard key={i} kind="equip" data={it} onOpen={() => setSub({ kind: 'equip', data: it })} />)}
+                  {s.equipment.map((it: any, i: number) => <EntityCard key={i} kind="equip" data={it} onOpen={() => setSub({ kind: 'equip', data: it })} mt />)}
                 </div>
               )}
               {!!(s.items?.length) && (
                 <div className="space-y-1.5"><div className="text-[11px] font-semibold text-god/70">储存空间（{s.items.length}）</div>
-                  {s.items.slice(0, 40).map((it: any, i: number) => <EntityCard key={i} kind={itemKind(it)} data={it} onOpen={() => setSub({ kind: itemKind(it), data: it })} />)}
+                  {s.items.slice(0, 40).map((it: any, i: number) => <EntityCard key={i} kind={itemKind(it)} data={it} onOpen={() => setSub({ kind: itemKind(it), data: it })} mt />)}
                 </div>
               )}
 
@@ -355,7 +355,7 @@ export default function MonumentPanel({ onClose }: { onClose: () => void }) {
         );
       })()}
 
-      {sub && <EntityDetailModal kind={sub.kind} data={sub.data} onClose={() => setSub(null)} />}
+      {sub && <EntityDetailModal kind={sub.kind} data={sub.data} onClose={() => setSub(null)} mt />}
     </div>
   );
 }

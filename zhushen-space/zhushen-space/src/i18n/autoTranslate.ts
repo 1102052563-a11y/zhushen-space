@@ -101,6 +101,34 @@ type Pending = { text: string; target: UiLang; resolve: (v: string) => void }[];
 let queue: Pending = [];
 let flushTimer: ReturnType<typeof setTimeout> | null = null;
 
+// ── 免费机翻引擎（MyMemory·无需 key·浏览器 CORS 友好·不耗玩家 API 额度）──
+const MM_TGT: Record<UiLang, string> = { 'zh-Hans': 'zh-CN', 'zh-Hant': 'zh-TW', en: 'en', vi: 'vi' };
+const MM_SRC: Record<Src, string> = { zh: 'zh-CN', en: 'en', vi: 'vi', other: '' };
+async function mapLimit<T>(arr: T[], limit: number, fn: (x: T, i: number) => Promise<void>): Promise<void> {
+  let i = 0;
+  const workers = Array.from({ length: Math.min(limit, arr.length) }, async () => {
+    while (i < arr.length) { const k = i++; await fn(arr[k], k); }
+  });
+  await Promise.all(workers);
+}
+async function freeTranslate(texts: string[], target: UiLang): Promise<string[]> {
+  const tgt = MM_TGT[target];
+  const out = [...texts];
+  await mapLimit(texts, 5, async (t, i) => {
+    const src = MM_SRC[detectLang(t)];
+    if (!src || !tgt || src === tgt) return;
+    try {
+      const url = `https://api.mymemory.translated.net/get?q=${encodeURIComponent(t)}&langpair=${src}|${tgt}`;
+      const res = await fetch(url);
+      const j = await res.json();
+      const tr = j?.responseData?.translatedText;
+      // 命中且非配额警告/无效才采用；否则保留原文
+      if (typeof tr === 'string' && tr.trim() && !/MYMEMORY WARNING|INVALID|QUERY LENGTH LIMIT/i.test(tr)) out[i] = tr;
+    } catch { /* 网络/CORS 失败 → 保留原文 */ }
+  });
+  return out;
+}
+
 async function llmTranslate(texts: string[], target: UiLang): Promise<string[]> {
   const s = useSettings.getState();
   const legacy = s.textUseSharedApi ? s.api : s.textApi;
@@ -125,21 +153,25 @@ async function flush() {
     arr.push(p.resolve);
   }
   for (const [target, texts] of byTarget) {
-    // 繁體 + 中文源 → OpenCC（免调用）
-    const zhToHant: string[] = [], llmTexts: string[] = [];
-    for (const t of texts.keys()) (target === 'zh-Hant' && detectLang(t) === 'zh' ? zhToHant : llmTexts).push(t);
+    // 繁體 + 中文源 → OpenCC（免调用·两种引擎都走这条）
+    const zhToHant: string[] = [], apiTexts: string[] = [];
+    for (const t of texts.keys()) (target === 'zh-Hant' && detectLang(t) === 'zh' ? zhToHant : apiTexts).push(t);
     if (zhToHant.length) {
       try {
         const conv = twConverterSync() ?? await getTwConverter();
         for (const t of zhToHant) { const out = conv(t); cache.set(ck(t, target), out); texts.get(t)!.forEach((r) => r(out)); }
       } catch { for (const t of zhToHant) texts.get(t)!.forEach((r) => r(t)); }
     }
-    for (let i = 0; i < llmTexts.length; i += 40) {
-      const slice = llmTexts.slice(i, i + 40);
+    const engine = useSettings.getState().autoTranslateEngine;   // 'ai'=LLM(耗额度·最地道) / 'free'=MyMemory(免费)
+    for (let i = 0; i < apiTexts.length; i += 40) {
+      const slice = apiTexts.slice(i, i + 40);
+      let out: string[];
       try {
-        const out = await llmTranslate(slice, target);
-        slice.forEach((t, j) => { const v = out[j] ?? t; cache.set(ck(t, target), v); texts.get(t)!.forEach((r) => r(v)); });
-      } catch { slice.forEach((t) => texts.get(t)!.forEach((r) => r(t))); }
+        out = engine === 'free' ? await freeTranslate(slice, target) : await llmTranslate(slice, target);
+      } catch {
+        try { out = await freeTranslate(slice, target); } catch { out = slice; }   // AI 失败(如未配 API)→退免费；再失败→原文
+      }
+      slice.forEach((t, j) => { const v = out[j] ?? t; cache.set(ck(t, target), v); texts.get(t)!.forEach((r) => r(v)); });
     }
     saveCacheSoon();
   }

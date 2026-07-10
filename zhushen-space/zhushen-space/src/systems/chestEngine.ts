@@ -90,8 +90,41 @@ export interface ChestLootPlan {
   chestGrade: number;   // 宝箱自身品级序号
   capGrade: number;     // 本次可开出的最高品级序号（= chestGrade）
   capName: string;      // 最高品级名
-  count: number;        // 开出几件
+  count: number;        // 开出几件（含幸运额外件）
   slots: ChestSlot[];
+  luck: number;         // 开启者幸运值（本次计入）
+  luckBonus: number;    // 幸运加成系数 0~1（见 luckBonus 标准表）
+  luckExtra: number;    // 幸运带来的额外产物件数
+}
+
+/* ── 幸运（六维·幸运）→ 开箱加成·标准表 ──
+   「多少幸运多少加成」权威映射：分档给一个 0~1 的加成系数 B（幸运越高越接近 1，封顶 1）。
+   六维幸运的量级随阶位差异极大（新人个位数、十四阶极值可达数千），故用分档而非线性，天然处理全区间。
+   加成 B 只在【本箱品级上限之内】发力——绝不让幸运把产物开到超过宝箱品级（"最高可开"是硬上限）：
+     ① 主奖顶到品级上限的概率 = 50% + 50%·B（B=1 时必顶档）；
+     ② 附带产物的"降档量"按 B 往回收（幸运越高越贴近上限）；
+     ③ 额外产物（气运加身·贴近上限的惊喜件）0~2 件，概率随 B 提升。 */
+const LUCK_BONUS_TABLE: Array<[min: number, bonus: number]> = [
+  [3000, 1.00],   // 气运满溢
+  [1500, 0.88],
+  [800, 0.75],
+  [400, 0.60],
+  [200, 0.45],
+  [100, 0.30],
+  [50, 0.20],
+  [20, 0.10],
+  [0, 0.00],      // 幸运<20：无加成
+];
+/** 幸运值 → 开箱加成系数 B（0~1）。见 LUCK_BONUS_TABLE 标准表。*/
+export function luckBonus(luck?: number): number {
+  const v = Math.max(0, Math.floor(Number(luck) || 0));
+  for (const [min, bonus] of LUCK_BONUS_TABLE) if (v >= min) return bonus;
+  return 0;
+}
+/** 幸运加成档位标签（UI 用）。*/
+export function luckTierLabel(luck?: number): string {
+  const b = luckBonus(luck);
+  return b <= 0 ? '无' : b < 0.3 ? '微' : b < 0.6 ? '中' : b < 0.88 ? '高' : '极';
 }
 
 function randInt(a: number, b: number): number { return a + Math.floor(Math.random() * (b - a + 1)); }
@@ -138,20 +171,31 @@ function pickWeighted(pool: CatWeight[]): ItemCategory {
  * - 第 1 件是"主奖"：品级 = cap 或 cap-1；其余是"附带"：品级 = cap-1..cap-3（下探至白色）。
  * - 每件的建议类别按主题加权抽取（AI 可微调为更贴切的合法类别）。
  */
-export function rollChestPlan(chest: InventoryItem): ChestLootPlan {
+export function rollChestPlan(chest: InventoryItem, luck = 0): ChestLootPlan {
   const chestGrade = chestGradeNum(chest);
   const cap = Math.max(1, Math.min(ITEM_GRADES.length, chestGrade));
-  const count = rollCount(cap);
+  const B = luckBonus(luck);                 // 幸运加成系数 0~1
+  const baseCount = rollCount(cap);
+  const luckExtra = (Math.random() < B ? 1 : 0) + (Math.random() < B * 0.4 ? 1 : 0);   // 幸运额外件 0~2
+  const count = baseCount + luckExtra;
   const pool = themedPool(chest);
   const slots: ChestSlot[] = Array.from({ length: count }, (_, i) => {
-    const g = i === 0
-      ? Math.max(1, cap - randInt(0, 1))      // 主奖：贴着上限
-      : Math.max(1, cap - randInt(1, 3));     // 附带：略低于上限
+    let g: number;
+    if (i === 0) {
+      g = (Math.random() < 0.5 + 0.5 * B) ? cap : Math.max(1, cap - 1);   // 主奖：幸运越高越可能顶到品级上限
+    } else if (i >= baseCount) {
+      g = Math.max(1, cap - randInt(1, 2));                                // 幸运额外件：贴近上限的惊喜
+    } else {
+      const reduce = (Math.random() < B ? 1 : 0) + (Math.random() < B * 0.5 ? 1 : 0);   // 幸运把降档量往回收
+      g = Math.max(1, Math.min(cap, cap - Math.max(0, randInt(1, 3) - reduce)));         // 附带：略低于上限，幸运越高越贴近
+    }
     const cat = pickWeighted(pool);
-    return { category: cat, gradeDesc: gradeName(g), gradeNum: g, note: i === 0 ? '本箱主奖（贴近品级上限）' : '附带产物（略低于上限）' };
+    const note = i === 0 ? '本箱主奖（贴近品级上限）' : i >= baseCount ? '幸运额外产物（气运加身）' : '附带产物（略低于上限）';
+    return { category: cat, gradeDesc: gradeName(g), gradeNum: g, note };
   });
   return {
     chestId: chest.id, chestName: chest.name, chestGrade,
     capGrade: cap, capName: gradeName(cap), count, slots,
+    luck: Math.max(0, Math.floor(Number(luck) || 0)), luckBonus: B, luckExtra,
   };
 }

@@ -224,52 +224,86 @@ function WarSection({ cards, my }: { cards: GuildCard[]; my: GuildSummary }) {
   );
 }
 
-const BASE_COST_C: Record<string, number> = { hall: 2000, treasury: 1500, arena: 2500, watchtower: 1500 };
-const MAX_BUILDING_C = 10;
-const BASE_META: { key: string; label: string; emoji: string; effect: string }[] = [
-  { key: 'hall', label: '大殿', emoji: '🏛', effect: '每级 +5 成员上限' },
-  { key: 'treasury', label: '金库', emoji: '🏦', effect: '每级 +20 金库容量' },
-  { key: 'arena', label: '演武场', emoji: '⚔️', effect: '家族战气势（后续加成）' },
-  { key: 'watchtower', label: '望楼', emoji: '🗼', effect: '家族情报 / 热度（后续加成）' },
-];
-function BaseSection() {
+const MAX_BUILDING_LV_C = 10;
+function buildingCost(level: number) { return level * 1000; }   // 建设到下一级花费·乐园币（成员集资）
+
+function BuildingEditModal({ b, onClose }: { b: any; onClose: () => void }) {
+  const [name, setName] = useState(b.name || '');
+  const [desc, setDesc] = useState(b.desc || '');
+  const [effect, setEffect] = useState(b.effect || '');
+  const save = () => { guildClient.editBuilding(b.id, { name: name.trim() || b.name, desc: desc.trim(), effect: effect.trim() }); onClose(); };
+  const ta = 'w-full bg-void border border-edge rounded-lg px-3 py-2 text-[13px] text-slate-200 resize-y focus:outline-none focus:border-amber-400/40';
+  return (
+    <div className="fixed inset-0 z-[85] bg-black/70 backdrop-blur-sm flex items-center justify-center p-4" onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}>
+      <div className="w-full max-w-md rounded-2xl border border-amber-500/30 bg-void shadow-[0_0_50px_rgba(0,0,0,0.85)] flex flex-col">
+        <header className="shrink-0 flex items-center gap-2 px-4 py-3 border-b border-amber-500/20 bg-panel">
+          <span className="text-base">🏛</span><div className="flex-1 text-sm font-bold text-amber-100">据点建筑</div>
+          <button onClick={onClose} className="text-dim/50 hover:text-blood text-lg">✕</button>
+        </header>
+        <div className="p-4 space-y-3">
+          <label className="flex flex-col gap-1"><span className="text-[11px] font-mono text-dim/55">名称</span><input value={name} onChange={(e) => setName(e.target.value)} className={`${inputCls} w-full`} /></label>
+          <label className="flex flex-col gap-1"><span className="text-[11px] font-mono text-dim/55">描述（外观 / 功能）</span><textarea value={desc} onChange={(e) => setDesc(e.target.value)} rows={2} className={ta} /></label>
+          <label className="flex flex-col gap-1"><span className="text-[11px] font-mono text-dim/55">效果 / 象征（纯风味·非数值）</span><textarea value={effect} onChange={(e) => setEffect(e.target.value)} rows={2} className={ta} /></label>
+        </div>
+        <footer className="shrink-0 flex items-center gap-2 px-4 py-3 border-t border-amber-500/20 bg-panel"><div className="flex-1" /><button onClick={onClose} className={btnGhost}>取消</button><button onClick={save} className={btnPrimary}>保存</button></footer>
+      </div>
+    </div>
+  );
+}
+
+function BaseSection({ onGenerateBuildings, canManage }: { onGenerateBuildings?: (p: string) => void | Promise<void>; canManage: boolean }) {
   const base = useGuild((s) => s.base);
   const my = useGuild((s) => s.my)!;
   const currency = useItems((s) => s.currency);
   const adjustCurrency = useItems((s) => s.adjustCurrency);
-  const buildings: Record<string, number> = (base && base.buildings) || {};
-  const upgrade = (key: string) => {
-    const lv = buildings[key] || 0;
-    if (lv >= MAX_BUILDING_C) return;
-    const cost = (BASE_COST_C[key] || 2000) * (lv + 1);
+  const [tendency, setTendency] = useState('');
+  const [genBusy, setGenBusy] = useState(false);
+  const [editId, setEditId] = useState<string | null>(null);
+  const buildings: any[] = (base && Array.isArray(base.buildings)) ? base.buildings : [];
+  const upgrade = (b: any) => {
+    const lv = b.level || 1;
+    if (lv >= MAX_BUILDING_LV_C) return;
+    const cost = buildingCost(lv);
     if ((currency.乐园币 ?? 0) < cost) return;
-    adjustCurrency('乐园币', -cost, `家族·${my.name}·据点·${key}`);
-    guildClient.buildBase(key);
+    adjustCurrency('乐园币', -cost, `家族·${my.name}·据点·${b.name}`);
+    guildClient.upgradeBuilding(b.id);
   };
+  const gen = async () => { if (!onGenerateBuildings || genBusy) return; setGenBusy(true); try { await onGenerateBuildings(tendency.trim()); } finally { setGenBusy(false); } };
+  const editing = editId ? buildings.find((x) => x.id === editId) : null;
   return (
-    <div className="space-y-1.5">
-      <div className="text-[13px] font-bold text-slate-100">🏯 家族据点</div>
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-2">
-        {BASE_META.map((b) => {
-          const lv = buildings[b.key] || 0;
-          const cost = (BASE_COST_C[b.key] || 2000) * (lv + 1);
-          const max = lv >= MAX_BUILDING_C;
-          const poor = (currency.乐园币 ?? 0) < cost;
-          return (
-            <div key={b.key} className="rounded-xl border border-edge bg-panel p-2.5 flex items-center gap-2">
-              <span className="text-xl shrink-0">{b.emoji}</span>
-              <div className="flex-1 min-w-0">
-                <div className="text-sm font-semibold text-slate-100">{b.label} <span className="text-amber-300/70 font-mono text-[11px]">Lv.{lv}</span></div>
-                <div className="text-[11px] text-dim/55 truncate">{b.effect}</div>
-              </div>
-              <button onClick={() => upgrade(b.key)} disabled={max || poor}
-                className={`text-[11px] font-mono py-1 px-2 rounded-lg border shrink-0 ${(max || poor) ? 'border-edge text-dim/40' : 'border-amber-400/50 text-amber-100 bg-amber-500/15 hover:bg-amber-500/25'}`}>
-                {max ? '满级' : `升级 ${cost}`}
-              </button>
-            </div>
-          );
-        })}
+    <div className="space-y-2">
+      <div className="flex items-center gap-2">
+        <div className="text-[13px] font-bold text-slate-100">🏯 家族据点</div>
+        <div className="flex-1" />
+        {canManage && <button onClick={() => guildClient.addBuilding({ name: '新建筑' })} className={btnGhost}>＋ 添加</button>}
       </div>
+      {canManage && (
+        <div className="flex gap-2">
+          <input value={tendency} onChange={(e) => setTendency(e.target.value)} placeholder="✨AI 生成建筑：如「主神空间悬浮要塞·冷兵器演武场」" className={`${inputCls} flex-1`} />
+          <button onClick={gen} disabled={!onGenerateBuildings || genBusy} className={`${btnPrimary} ${(!onGenerateBuildings || genBusy) ? 'opacity-40' : ''}`}>{genBusy ? '生成中…' : '生成'}</button>
+        </div>
+      )}
+      {buildings.length === 0
+        ? <div className="text-[11px] text-dim/45 px-1">还没有建筑。{canManage ? '「添加」手写，或用 AI 生成据点蓝图。' : '等会长 / 长老规划据点。'}</div>
+        : buildings.map((b) => {
+            const lv = b.level || 1;
+            const cost = buildingCost(lv);
+            const max = lv >= MAX_BUILDING_LV_C;
+            const poor = (currency.乐园币 ?? 0) < cost;
+            return (
+              <div key={b.id} className="rounded-xl border border-edge bg-panel p-2.5 space-y-1">
+                <div className="flex items-center gap-2">
+                  <span className="text-sm font-semibold text-slate-100 truncate flex-1">🏛 {b.name} <span className="text-amber-300/70 font-mono text-[11px]">Lv.{lv}</span>{b.aiGen && <span className="ml-1 text-[10px] text-cyan-300/60">AI</span>}</span>
+                  {canManage && <button onClick={() => setEditId(b.id)} className="text-[12px] font-mono text-dim/60 hover:text-cyan-100 shrink-0" title="编辑">✎</button>}
+                  {canManage && <button onClick={() => { if (confirm(`拆除「${b.name}」？`)) guildClient.removeBuilding(b.id); }} className="text-blood/50 hover:text-blood text-sm shrink-0" title="拆除">✕</button>}
+                  <button onClick={() => upgrade(b)} disabled={max || poor} className={`text-[11px] font-mono py-1 px-2 rounded-lg border shrink-0 ${(max || poor) ? 'border-edge text-dim/40' : 'border-amber-400/50 text-amber-100 bg-amber-500/15 hover:bg-amber-500/25'}`}>{max ? '满级' : `建设 ${cost}`}</button>
+                </div>
+                {b.desc && <div className="text-[11px] text-dim/60">{b.desc}</div>}
+                {b.effect && <div className="text-[11px] text-emerald-300/60">✦ {b.effect}</div>}
+              </div>
+            );
+          })}
+      {editing && <BuildingEditModal b={editing} onClose={() => setEditId(null)} />}
     </div>
   );
 }
@@ -313,7 +347,7 @@ function GuildSettingsModal({ onClose }: { onClose: () => void }) {
   );
 }
 
-function MyGuildView({ cards }: { cards: GuildCard[] }) {
+function MyGuildView({ cards, onGenerateBuildings }: { cards: GuildCard[]; onGenerateBuildings?: (p: string) => void | Promise<void> }) {
   const my = useGuild((s) => s.my)!;
   const exp = useGuild((s) => s.exp);
   const online = useGuild((s) => s.online);
@@ -418,7 +452,7 @@ function MyGuildView({ cards }: { cards: GuildCard[] }) {
       </div>
 
       {/* 家族据点 */}
-      <BaseSection />
+      <BaseSection onGenerateBuildings={onGenerateBuildings} canManage={my.role !== 'member'} />
 
       {/* 编年史 */}
       {chronicle.length > 0 && (
@@ -474,7 +508,7 @@ function claimDailyStipend() {
   } catch { /* 非阻塞 */ }
 }
 
-export default function GuildPanel({ onClose }: { onClose: () => void }) {
+export default function GuildPanel({ onClose, onGenerateBuildings }: { onClose: () => void; onGenerateBuildings?: (p: string) => void | Promise<void> }) {
   const my = useGuild((s) => s.my);
   const status = useGuild((s) => s.status);
   const error = useGuild((s) => s.error);
@@ -506,7 +540,7 @@ export default function GuildPanel({ onClose }: { onClose: () => void }) {
         {gated
           ? <div className="text-center text-dim/50 text-sm py-16">家族需先登录 Discord（聊天室 / 联机身份）。</div>
           : my
-            ? <MyGuildView cards={cards} />
+            ? <MyGuildView cards={cards} onGenerateBuildings={onGenerateBuildings} />
             : <div className="space-y-4">
                 <CreateGuildForm />
                 <div className="text-[12px] font-mono text-dim/55">{status === 'connected' ? `🏆 家族总榜（${cards.length} 个家族·按等级排名）` : status === 'connecting' ? '连接中…' : ''}</div>

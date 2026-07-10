@@ -166,7 +166,7 @@ export default function TradePanel({ onClose }: { onClose: () => void }) {
             )}
             {st.history.map((r) => (
               <div key={r.id} className="rounded-xl border border-edge bg-panel/30 p-3 space-y-1.5">
-                <EntityCard kind={itemKind(r.item)} data={r.item} onOpen={() => setDetail({ kind: itemKind(r.item), data: r.item })} />
+                <EntityCard kind={itemKind(r.item)} data={r.item} onOpen={() => setDetail({ kind: itemKind(r.item), data: r.item })} mt />
                 <div className="flex items-center gap-1.5 flex-wrap text-[12px]">
                   <span className="font-mono font-bold text-amber-300">{r.price} {r.currency}</span>
                   <span className="text-dim/40">·</span>
@@ -265,7 +265,7 @@ export default function TradePanel({ onClose }: { onClose: () => void }) {
         )}
       </div>
 
-      {detail && <EntityDetailModal kind={detail.kind} data={detail.data} onClose={() => setDetail(null)} />}
+      {detail && <EntityDetailModal kind={detail.kind} data={detail.data} onClose={() => setDetail(null)} mt />}
     </div>
   );
 }

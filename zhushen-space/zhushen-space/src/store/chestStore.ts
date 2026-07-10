@@ -67,8 +67,8 @@ interface ChestState {
   clearSelection: () => void;
   setTendency: (t: string) => void;
 
-  /** 展开 selection → jobs（每只掷一次 plan）+ 进入 generating。chests=当前背包快照（取名/品级/掷 plan）。 */
-  startBatch: (chests: InventoryItem[]) => { ok: boolean; why?: string };
+  /** 展开 selection → jobs（每只掷一次 plan·计入开启者幸运）+ 进入 generating。chests=当前背包快照，luck=开启者有效幸运。 */
+  startBatch: (chests: InventoryItem[], luck?: number) => { ok: boolean; why?: string };
   setJobLoot: (jobId: string, loot: ChestProduct[]) => void;
   setJobError: (jobId: string, msg: string) => void;
   toPreview: () => void;
@@ -92,7 +92,7 @@ export const useChest = create<ChestState>((set, get) => ({
   clearSelection: () => set((s) => ({ session: { ...s.session, selection: {} } })),
   setTendency: (t) => set((s) => ({ session: { ...s.session, tendency: t } })),
 
-  startBatch: (chests) => {
+  startBatch: (chests, luck = 0) => {
     const sel = get().session.selection;
     const total = Object.values(sel).reduce((a, b) => a + b, 0);
     if (total <= 0) return { ok: false, why: '请先勾选要开启的宝箱' };
@@ -107,7 +107,7 @@ export const useChest = create<ChestState>((set, get) => ({
         jobs.push({
           jobId: `${chestId}#${i}#${stamp}${Math.random().toString(36).slice(2, 6)}`,
           chestId, chestName: chest.name, gradeDesc: chest.gradeDesc,
-          plan: rollChestPlan(chest), loot: null, status: 'pending',
+          plan: rollChestPlan(chest, luck), loot: null, status: 'pending',
         });
       }
     }
