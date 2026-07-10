@@ -47,7 +47,7 @@ export default function JoyPanel({
   const setDesire     = useJoy((s) => s.setDesire);
   const worldBooks    = useJoy((s) => s.worldBooks);
 
-  const girls = settings.girls;
+  const girls = settings.girls.filter((g) => !g.shopId);   // 隐藏「玩家产业·娼馆」同步进来的娼妇，欢愉宫只显自家名册
   const madams = girls.filter((g) => g.isMadam);
   const madamPool = madams.length ? madams : girls;
   const madam = madamPool.find((g) => g.id === settings.selectedMadamId) ?? madamPool[0];

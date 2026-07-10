@@ -268,6 +268,7 @@ ${SIX_ATTR_ONLY_RULE}
 ③ **主动效果 activeEffect = "需发动 / 使用才临时生效"的效果**（要主角主动使用道具 / 施放 / 触发才生效的一切：限时增益、临时六维变化、触发型技能、服药后的状态）→ **一律写进独立字段 activeEffect，绝不混进 effect / affix / attrBonus / combatStat**。
    ▸ **要发动才加 / 减的六维或数值（如"使用后 60 分钟：体质+15、攻击附带 20% 吸血"）必须放这里**，不许写进 attrBonus / affix——否则会被当"常驻加成"永久算进主角属性栏（错误）。**常驻属性只归 attrBonus；发动才有的临时属性归 activeEffect。**
    ▸ activeEffect 里可含数字（那是"发动后的临时数值"，前端不常驻计入）；发动 / 触发条件、持续时间、冷却都写清。装备**永久常驻**的能力仍归词缀 affix。
+   ▸ **变身 / 限时增益 / 主动状态类，务必另用独立字段 activeDuration 写明确切时长（如 "10回合" / "1小时" / "3天"）**：玩家点「⚡发动」时前端据此精确计时、到点自动回落六维；只写在 activeEffect 文本里易被漏读而回落成默认 3 回合，故有明确时长就填 activeDuration。
 一句话：**常驻的：有数字→combatStat / attrBonus，有名字的能力→词缀，说不清数字但确有特质→效果；要发动 / 使用才临时生效的（尤其临时属性变化）→主动效果 activeEffect。四块各归各位、绝不重叠。**`;
 
 export const ITEM_FIXED_FORMAT_RULE = `

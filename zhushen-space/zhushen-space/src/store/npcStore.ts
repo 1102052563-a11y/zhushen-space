@@ -56,6 +56,7 @@ export interface NpcOwnedItem {
   requirement?: string;   // 装备需求
   affix?: string;         // 词缀
   activeEffect?: string;  // 主动效果（需发动/使用才生效·不计入常驻六维）——与 InventoryItem 对齐
+  activeDuration?: string; // 主动效果持续时长（如"10回合"/"1小时"）——与 InventoryItem 对齐
   score?: string;         // 评分
   intro?: string;         // 简介
   killCount?: string;     // 杀敌数量（仅武器类）

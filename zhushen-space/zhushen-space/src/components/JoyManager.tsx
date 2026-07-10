@@ -16,7 +16,7 @@ function GirlCard({ girl, onEditPreset }: { girl: JoyGirl; onEditPreset: () => v
   const upsertGirl = useJoy((s) => s.upsertGirl);
   const removeGirl = useJoy((s) => s.removeGirl);
   const setGirlPortrait = useJoy((s) => s.setGirlPortrait);
-  const girlCount = useJoy((s) => s.settings.girls.length);
+  const girlCount = useJoy((s) => s.settings.girls.filter((g) => !g.shopId).length);
   const fileRef = useRef<HTMLInputElement>(null);
 
   const patch = (p: Partial<JoyGirl>) => upsertGirl({ ...girl, ...p });
@@ -360,14 +360,14 @@ export default function JoyManager() {
 
       <div className="space-y-2">
         <div className="flex items-center justify-between">
-          <span className="text-sm font-semibold text-slate-200">美女 / 看板娘（{settings.girls.length}）</span>
+          <span className="text-sm font-semibold text-slate-200">美女 / 看板娘（{settings.girls.filter((g) => !g.shopId).length}）</span>
           <div className="flex items-center gap-2">
             <button onClick={addGirl} className="text-[12px] font-mono py-1 px-2.5 rounded-lg border border-pink-400/40 text-pink-200 hover:bg-pink-500/10">+ 新增</button>
             <button onClick={() => { if (confirm('恢复为 4 位内置看板娘？自定义的美女将被移除（情欲值/聊天进度不动）。')) resetGirls(); }}
               className="text-[12px] font-mono py-1 px-2.5 rounded-lg border border-edge text-dim hover:text-slate-100">恢复默认</button>
           </div>
         </div>
-        {settings.girls.map((g) => <GirlCard key={g.id} girl={g} onEditPreset={() => setEditId(g.id)} />)}
+        {settings.girls.filter((g) => !g.shopId).map((g) => <GirlCard key={g.id} girl={g} onEditPreset={() => setEditId(g.id)} />)}
       </div>
 
       <JoyWorldBookSection />

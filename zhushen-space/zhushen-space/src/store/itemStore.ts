@@ -303,6 +303,7 @@ export interface InventoryItem {
   requirement?: string;   // 装备需求（如 力量10可发挥最大威力…）—— 装备类
   affix?: string;         // 词缀（如 [撕裂] …）—— 装备类
   activeEffect?: string;  // 主动效果（需发动/使用才生效的效果·如临时状态/触发技能/限时增益）：单独成栏，**天然不计入常驻六维**（sumBonus 不读此字段）；玩家可在物品详情「⚡ 发动」把它填进输入框交 AI 结算
+  activeDuration?: string; // 主动效果持续时长（如"10回合"/"1小时"/"3天"）：变身/限时增益类专用·**优先于 activeEffect 文本里的时长**，供 applyItemActiveBuff 精确定时（缺省才回退解析文本→默认3回合）
   condBonus?: boolean;    // 「六维加成需发动·不计入常驻」：勾选后此装备词缀/效果里的六维加成不再永久加进有效属性（用于要使用/发动才临时生效的装备，如需服药触发状态的加成）；缺省=常驻
   score?: string;         // 评分（含品质区间说明，如 28（绿色装备区间11~30分…））
   intro?: string;         // 简介（flavor 文本）

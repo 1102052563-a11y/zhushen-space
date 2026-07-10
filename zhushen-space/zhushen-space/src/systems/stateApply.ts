@@ -424,13 +424,19 @@ export function applyStateUpdates(raw: string) {
   }
 }
 
-export function applyAllUpdates(raw: string, ctx?: LedgerCtx): { itemResults: ItemEditResult[] } {
+export function applyAllUpdates(raw: string, ctx?: LedgerCtx, opts?: { deferItemCreate?: boolean }): { itemResults: ItemEditResult[] } {
   // ★ 先创建物品（<upstore> createItem），再应用 <state>（含 eq 装备短指令），
   //   否则 eq 会在物品尚未创建时执行而装备失败（物品全堆在储物袋里）。
   const parsedItemCmds = parseAllItemCommands(raw);
   // 奖励预告守卫：正文只是"🎁奖励预告"时，拦掉与预告金额匹配的货币提前入账（非结算回合）——治"预告≠到账却真加钱"。
-  const { cmds: itemCmds, blocked: previewBlocked } = stripPreviewRewardCurrency(raw, parsedItemCmds);
+  const { cmds: itemCmdsAll, blocked: previewBlocked } = stripPreviewRewardCurrency(raw, parsedItemCmds);
   if (previewBlocked > 0) console.warn(`[货币] 奖励预告守卫：本回合拦截 ${previewBlocked} 笔预告货币提前发放`);
+  // 物品阶段独占建物品：主正文在「本回合物品阶段会跑」时传 deferItemCreate=true，跳过正文自带的 createItem，
+  //   交由带护栏（思维链/背包快照/判重闸门/货币守卫/回喂纠错）的物品阶段统一建一次——根治
+  //   "正文 <upstore> + 物品阶段各建一次 → 同一件物两条(描述还不一样、判重按名字漏网)"。消耗/更新/穿脱/转移等其余物品指令仍即时生效。
+  const itemCmds = opts?.deferItemCreate ? itemCmdsAll.filter((c) => c.type !== 'createItem') : itemCmdsAll;
+  if (opts?.deferItemCreate && itemCmds.length !== itemCmdsAll.length)
+    console.log(`[Item] 主正文延后 ${itemCmdsAll.length - itemCmds.length} 条 createItem → 交物品阶段独占建（去重）`);
   let itemResults: ItemEditResult[] = [];
   if (itemCmds.length > 0) {
     console.log('[Item] 解析到物品指令:', itemCmds);

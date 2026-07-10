@@ -262,6 +262,7 @@ import { buildCraftWbInjection } from './systems/craftWorldBook';
 import { generateGem } from './systems/gemEngine';
 const CraftPanel = lazy(() => import('./components/CraftPanel'));
 const ProducePanel = lazy(() => import('./components/ProducePanel'));
+import { useShop } from './store/shopStore';
 const ChannelPanel = lazy(() => import('./components/ChannelPanel'));
 import type { DmHandlers } from './components/DmPanel';
 const DmPanel = lazy(() => import('./components/DmPanel'));
@@ -2689,6 +2690,13 @@ export default function App() {
   }
 
   /* ─── 物品管理独立阶段（自动，含启用和频率检查）─── */
+  /* 物品阶段本回合是否会真正触发（启用 + 命中频率）——主正文据此决定「延后自带的 createItem，交物品阶段独占建物品」，
+     杜绝"正文 <upstore> + 物品阶段各建一次 → 同物两条(描述还不一样)"的重复。物品阶段没开/本回合不触发时返回 false，正文照旧即时建、不丢物。*/
+  function itemPhaseWillRunThisTurn(): boolean {
+    const s = useItems.getState().settings;
+    return !!s.enabled && turnCountRef.current % (s.frequency || 1) === 0;
+  }
+
   async function runItemManagementPhase(narrative: string) {
     const { settings } = useItems.getState();
 
@@ -5909,6 +5917,56 @@ ${replyTo.authorName} 之前说：「${String(replyTo.content).slice(0, 200)}」
   };
 
   /* 系统商店·补货：AI 生成 20 件商品（价偏高），供「系统商店」购买 */
+  /* 玩家产业·AI 生成货品：据店铺定位 + 玩家倾向，生成【物品】(完整物品固定格式·不省略) 与【随从】(NPC 固定模板)，写入货架。 */
+  async function genShopGoods(shopId: string, tendency: string) {
+    const shop = useShop.getState().shops.find((x) => x.id === shopId);
+    if (!shop) return;
+    const chain = resolveApiChain('channel', getChannelApi());
+    if (!chain[0]?.baseUrl || !chain[0]?.apiKey) { pushSceneNotice('【产业】生成货品失败：请先配置频道 / 综合设置的 API'); return; }
+    const prof = usePlayer.getState().profile;
+    const M = useMisc.getState();
+    const sys = `你是「玩家产业·${shop.name}」的进货生成器。据店铺定位与玩家倾向，生成一批**上架货品**，可含【物品】与【随从】两类，比例按店铺定位与倾向自行判断（纯卖货的店只出 items；佣兵/宠物/人口买卖类可出 companions）。
+【店铺】名称:${shop.name}｜简介:${shop.intro || shop.tagline || '—'}｜掌柜:${shop.ownerPersona || '—'}｜所在世界:${shop.world || '轮回乐园'}｜结算货币:${shop.currency}
+【强度锚】贴合主角阶位 ${prof.tier || '一阶'}·Lv.${prof.level} 与世界「${M.worldName || '轮回乐园'}」的强度区间；给合理价格(纯数字·以 ${shop.currency} 计)。
+【玩家倾向】${tendency || '（未指定，按店铺定位自由发挥）'}
+
+**只输出 JSON**（无多余文字/markdown）：{"items":[…],"companions":[…]}，两类合计约 6~12 件。
+- items：每件严格按【物品固定格式】给**全部字段、一个都不能省略**：{name, category(武器/防具/饰品/消耗品/材料/工具/技能书/特殊物品等), subType, gradeDesc(下表15档色名恰好一个), combatStat(装备机器可读如"攻击力 80"/"防御力 8-12"·非装备留空), durability, requirement, affix, score, effect, intro, appearance(逐部件·必填), origin, killCount(仅武器), quantity(默认1), price(数字)}。
+- companions：每人严格按【随从固定模板】给字段（**不要写六维数值**，前端按 阶位×生物强度 机械补）：{name, gender, realm("一阶|剑客"·阶位|职业), profession, age, personality, background(来历+可与主角的关系), appearance(逐部件), strength(生物强度档 T0~T9), selfNarration(一句第一人称自述), price(数字)}。
+
+${ITEM_FIXED_FORMAT_RULE}
+${ITEM_GRADE_TABLE_RULE}
+${EQUIP_CODEX}`;
+    try {
+      const { content } = await apiChatFallback(chain, [{ role: 'system', content: sys }, { role: 'user', content: '只输出 JSON {"items":[…],"companions":[…]}。' }], { timeoutMs: 120000 });
+      const j: any = parseEntryJson(content) || {};
+      const goods: any[] = [];
+      for (const it of (Array.isArray(j.items) ? j.items : []).slice(0, 20)) {
+        if (!it?.name) continue;
+        goods.push({ id: '', kind: 'item', category: String(it.category || '商品').slice(0, 12), name: String(it.name).slice(0, 40), price: Math.max(0, Math.round(Number(it.price) || 0)), desc: String(it.effect || it.intro || '').slice(0, 200), aiGen: true, payload: it });
+      }
+      for (const c of (Array.isArray(j.companions) ? j.companions : []).slice(0, 12)) {
+        if (!c?.name) continue;
+        goods.push({ id: '', kind: 'npc', category: '随从', name: String(c.name).slice(0, 40), price: Math.max(0, Math.round(Number(c.price) || 0)), desc: String(c.selfNarration || c.profession || c.realm || '').slice(0, 200), aiGen: true, payload: c });
+      }
+      if (goods.length) useShop.getState().addGoods(shopId, goods);
+      else pushSceneNotice('【产业】AI 未生成有效货品，换个倾向再试。');
+    } catch (e: any) { pushSceneNotice(`【产业】生成货品失败：${e?.message ?? '请求异常'}`); }
+  }
+
+  /* 玩家产业·购买随从：把货架的随从货品(NPC 固定模板)建档为在场随从，并机械补六维/幸运/血蓝上限。 */
+  function buyShopCompanion(info: any): void {
+    if (!info?.name) return;
+    try {
+      useNpc.getState().createCompanion({
+        name: String(info.name), tag: info.tag || '随从', realm: info.realm, profession: info.profession,
+        gender: info.gender, age: info.age != null ? String(info.age) : undefined, personality: info.personality,
+        background: info.background, appearance: info.appearance, strength: info.strength || info.bioStrength, selfNarration: info.selfNarration,
+      });
+      autoGenMissingAttrs(); ensureNpcLuck(); ensureNpcVitalsCap();
+    } catch (e) { console.warn('[Shop] 随从建档失败', e); }
+  }
+
   async function genShopItems() {
     const chain = resolveApiChain('channel', getChannelApi());
     if (!chain[0]?.baseUrl || !chain[0]?.apiKey) { console.warn('[Shop] 频道 API 未配置'); return []; }
@@ -8407,7 +8465,7 @@ ${lines}`;
         if (isOutline) { apiDebugLog.finish(narrLogId, accumulated, true); return stripOutlineThinking(cleaned); }   // 细纲：剥<剧情推演>思维链后回传（不落地/不解析<state>/不演化/不动 ref）
         lastRawNarrativeRef.current = cleaned;   // 存含指令原文，供「仅重算变量」复用
         if (/<世界结算>/.test(cleaned)) { playSfx('fanfare'); try { useMisc.getState().markWorldSettled(); } catch { /* 结算完成→推进结算边界戳，下个世界不再重复结算本世界任务 */ } }   // 世界结算 → 号角音效
-        if (!narrateOnly) { applyAllUpdates(cleaned); try { applyPlayerProfileCommands(cleaned, '', turnCountRef.current); } catch { /* 主角位置/外观/身份：正文若直接输出 character.B1.* 也即时生效，不必等主角演化阶段 */ } }
+        if (!narrateOnly) { applyAllUpdates(cleaned, undefined, { deferItemCreate: itemPhaseWillRunThisTurn() }); try { applyPlayerProfileCommands(cleaned, '', turnCountRef.current); } catch { /* 主角位置/外观/身份：正文若直接输出 character.B1.* 也即时生效，不必等主角演化阶段 */ } }
         const settledText = stripKillBlocks(cleaned);   // 过渡期：剥除旧 <kill> 清单（不再结算进阶点）
         const gemLootLine = !narrateOnly ? rollAndApplyGemDrops(cleaned) : '';   // 正文击杀 → 结算掉落宝石（读含 <击杀结算> 的原始正文）
         // 演化/解析读的正文（prompt 视图：跳过 markdownOnly 美化壳、应用 promptOnly「对AI隐藏」）；再剥 <state>/<upstore>，保留 <状态结算> HP/EP 块
@@ -8439,7 +8497,7 @@ ${lines}`;
         if (isOutline) return stripOutlineThinking(cleanedReply);   // 细纲：剥<剧情推演>思维链后回传（不落地/不解析<state>/不演化/不动 ref）
         lastRawNarrativeRef.current = cleanedReply;   // 存含指令原文，供「仅重算变量」复用
         if (/<世界结算>/.test(cleanedReply)) { playSfx('fanfare'); try { useMisc.getState().markWorldSettled(); } catch { /* 结算完成→推进结算边界戳，下个世界不再重复结算本世界任务 */ } }   // 世界结算 → 号角音效
-        if (!narrateOnly) { applyAllUpdates(cleanedReply); try { applyPlayerProfileCommands(cleanedReply, '', turnCountRef.current); } catch { /* 主角位置/外观/身份：正文直接输出 character.B1.* 即时生效 */ } }
+        if (!narrateOnly) { applyAllUpdates(cleanedReply, undefined, { deferItemCreate: itemPhaseWillRunThisTurn() }); try { applyPlayerProfileCommands(cleanedReply, '', turnCountRef.current); } catch { /* 主角位置/外观/身份：正文直接输出 character.B1.* 即时生效 */ } }
         const settledReply = stripKillBlocks(cleanedReply);   // 过渡期：剥除旧 <kill> 清单（不再结算进阶点）
         const gemLootLine = !narrateOnly ? rollAndApplyGemDrops(cleanedReply) : '';   // 正文击杀 → 结算掉落宝石（读含 <击杀结算> 的原始正文）
         // 演化/解析读的正文（prompt 视图：跳过 markdownOnly 美化壳、应用 promptOnly「对AI隐藏」）；再剥 <state>/<upstore>，保留 <状态结算> HP/EP 块
@@ -8664,7 +8722,7 @@ ${lines}`;
     if (userInput) setMessages((prev) => [...prev, { id: ++msgId.current, role: 'user', content: userInput }]);
     const cleaned = stripLeakedThinking(rawNarrative);
     lastRawNarrativeRef.current = cleaned;
-    applyAllUpdates(cleaned);
+    applyAllUpdates(cleaned, undefined, { deferItemCreate: itemPhaseWillRunThisTurn() });
     try { applyPlayerProfileCommands(cleaned, '', turnCountRef.current); } catch { /* */ }
     const settled = stripKillBlocks(cleaned);
     const _ssEvo = useSettings.getState();   // 同上：实时读 store，免 stale 闭包导致演化也拿不到预设
@@ -10367,7 +10425,7 @@ ${lines}`;
       {skillUpPanelOpen && <SkillUpgradePanel onClose={() => setSkillUpPanelOpen(false)} />}
 
       {craftPanelOpen && <CraftPanel onClose={() => setCraftPanelOpen(false)} onGenerate={runCraftPhase} onConfirm={confirmCraft} />}
-      {producePanelOpen && <ProducePanel onClose={() => setProducePanelOpen(false)} />}
+      {producePanelOpen && <ProducePanel onClose={() => setProducePanelOpen(false)} onJoySend={onJoySend} onGenerateGoods={genShopGoods} onBuyCompanion={buyShopCompanion} />}
 
       {casinoOpen && <CasinoPanel onClose={() => setCasinoOpen(false)} onGenMatch={genGladiatorMatch} onGenBattle={genGladiatorBattle} onGenRewards={genGachaRewards} onBanter={casinoBanter} onGenSoul={genSoulGamble} onGenPortraits={genGladiatorPortraits} />}
       {abyssOpen && <AbyssPanel onClose={() => setAbyssOpen(false)} onGenBoons={genAbyssBoons} onGenSin={genAbyssSin} onGenAwaken={genAbyssAwaken} onGenJudge={genAbyssJudge} onGenEnemies={genAbyssEnemies} />}

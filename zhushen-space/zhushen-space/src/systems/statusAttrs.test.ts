@@ -44,4 +44,17 @@ describe('statusAttrs · 限时状态六维', () => {
     applyItemActiveBuff({ name: 'x', activeEffect: '力量+5' });
     expect(usePlayer.getState().profile.statusEffects[0].durationTurns).toBe(3);
   });
+
+  it('applyItemActiveBuff：显式 activeDuration 覆盖默认/文本（治"变身写10回合却只生效3回合"）', () => {
+    applyItemActiveBuff({ name: '魔神变身符', activeEffect: '变身为魔神形态：力量+50', activeDuration: '10回合' });
+    const e = usePlayer.getState().profile.statusEffects[0];
+    expect(e.durationTurns).toBe(10);
+    expect(e.durationDesc).toBe('10回合');
+    expect(e.attrs).toEqual({ str: 50 });
+  });
+
+  it('applyItemActiveBuff：activeDuration 优先于 activeEffect 文本里的回合数', () => {
+    applyItemActiveBuff({ name: 'x', activeEffect: '持续3回合：体质+8', activeDuration: '12回合' });
+    expect(usePlayer.getState().profile.statusEffects[0].durationTurns).toBe(12);
+  });
 });

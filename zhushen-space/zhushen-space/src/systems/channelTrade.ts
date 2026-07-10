@@ -1,5 +1,6 @@
 import { useItems, ITEM_CATEGORIES, splitAffixEntries, gradeToNum, type ItemCategory, type CurrencyWallet, type InventoryItem } from '../store/itemStore';
 import { useChannel, type ChannelMessage, type ChannelQuote, type ChannelBundleEntry } from '../store/channelStore';
+import { pushSceneNotice } from './allocNotice';   // 场外操作通报：频道交易(卖/买/换)→ 正文前置须知，治"频道把东西卖了正文却不知道"OOC
 
 /* 公共频道·交易确定性结算：点「购买」→ 代码扣货币 + 入背包 + 标记成交。AI 不参与金额。*/
 
@@ -72,6 +73,8 @@ export function buyFromListing(msg: ChannelMessage): BuyResult {
   });
   // ③ 标记成交
   useChannel.getState().markTraded(msg.id);
+  // ④ 场外通报 → 正文前置须知：让正文知晓这笔频道购买（否则正文不知道主角多了这件东西，且物品演化会把它当"来路不明"乱改）
+  pushSceneNotice(`【场外·频道交易】你在契约者广场向「${msg.authorName}」买下【${msg.offer.itemName || '物品'}】${qty > 1 ? `×${qty}` : ''}，付 ${price} ${currency}（已入背包）。正文据此知晓即可，勿重复发放/扣款，也**勿改写这件物品的名称与效果**。`);
   return { ok: true, price, currency };
 }
 
@@ -188,6 +191,7 @@ export function acceptQuote(post: ChannelMessage, quote: ChannelQuote): BuyResul
       intro: src.intro || quote.note || post.content,
       ...infoFields(src),
     });
+    pushSceneNotice(`【场外·频道交易】你在契约者广场求购成交，向「${quote.fromName}」买下【${quote.itemName || post.offer?.itemName || '物品'}】${qty > 1 ? `×${qty}` : ''}，付 ${price} ${currency}（已入背包）。正文据此知晓即可，勿重复发放/扣款，也**勿改写这件物品的名称与效果**。`);
   } else if (post.kind === 'sell') {
     // 玩家出售 → 卖给买家：扣物品(单件或套装)、收钱
     const bundle = post.offer?.bundle;
@@ -228,6 +232,10 @@ export function acceptQuote(post: ChannelMessage, quote: ChannelQuote): BuyResul
         ...infoFields(quote),
       });
     }
+    // 场外通报 → 正文前置须知：让正文知晓主角已把东西卖/换出去（治"频道把物品卖了、正文却不知道还当它在身上"OOC）
+    pushSceneNotice(barter
+      ? `【场外·频道交易】你在契约者广场以物换物：交出【${paidDesc}】，换得【${(quote.itemName || '换购物品').trim()}】${price > 0 ? `，对方另找补 ${price} ${currency}` : '（平换）'}（背包已相应增减）。正文据此知晓，**勿把已交出的物品再写回背包**、勿重复结算。`
+      : `【场外·频道交易】你在契约者广场卖出【${paidDesc}】${price > 0 ? `，得 ${price} ${currency}` : ''}（已出背包）。正文据此知晓，**勿把已卖出的物品再写回背包**、勿重复结算。`);
     if (price > 0) items.adjustCurrency(currency, price, `频道交易·出售 ${paidDesc}`);
   } else {
     return { ok: false, error: '未知帖子类型' };

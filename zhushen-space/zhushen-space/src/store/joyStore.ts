@@ -49,6 +49,7 @@ export interface JoyGirl {
   portraitFolder?: string;            // 分阶段立绘文件夹（欢愉宫图片/<此名>/阶段1..4/）
   portrait?: string;                  // 单张立绘 dataURL（无文件夹时回退；运行时字段，存 IndexedDB）
   initPrivacy?: Record<string, string>; // 初始私密字段
+  shopId?: string;                    // 属于哪家「玩家产业·娼馆」（有则从欢愉宫隐藏，只在产业店面内展示；onJoySend 靠它同步进来拿人设）
 }
 
 /** 单美女运行会话（进度，账号级全局持久化，不随存档槽切换——同强化 pity 思路）。*/

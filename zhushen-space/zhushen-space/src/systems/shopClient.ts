@@ -1,0 +1,145 @@
+import { useShopMarket } from '../store/shopMarketStore';
+import type { ShopEntity } from '../store/shopStore';
+import { mpWsBase } from './mpConfig';
+import { chatAvatarVer, chatDicebearSeed } from './chatIdentity';
+import { chatNameColor } from './chatCosmetics';
+import { shrinkDataUrl } from './imageGen';
+import type { PublishedShop, ShopInbound, ShopOutbound } from './shopProtocol';
+
+// 玩家产业·商城 WebSocket 客户端（事件名照搬后端 ShopDO 协议）。
+// 与聊天室共用 Discord 身份：连接带 chatToken(→后端 pid=chat:uid) + 头像/名牌(avv/ds/nc)，店卡显示同一身份。
+// 心跳发字符串 "ping"。打开「逛商城」Tab 时 connect，关闭时 leave。断线自动重连（主动离开除外）。
+// 范式同 systems/assistClient.ts，但对象是店铺快照——上传店 / 下架 / 光顾计数；买货物化在光顾者前端完成，不走后端结算。
+
+const RATE_MSG = '操作太快了，稍等一下';
+
+let ws: WebSocket | null = null;
+let hbTimer: any = null;
+let reconnectTimer: any = null;
+let manualClose = false;
+let curName = '道友';
+let curToken = '';
+
+function set(p: Partial<ReturnType<typeof useShopMarket.getState>>) { useShopMarket.getState()._set(p as any); }
+
+function upsertShop(shops: PublishedShop[], shop: PublishedShop): PublishedShop[] {
+  return [shop, ...shops.filter((c) => c.id !== shop.id)];
+}
+
+// 立绘缩略：data: 图压成缩略图；http 图直接引用；无图则空。
+async function thumb(raw?: string): Promise<string> {
+  try {
+    if (raw && raw.startsWith('data:image/')) return await shrinkDataUrl(raw, 256, 0.7);
+    if (raw && /^https?:\/\//.test(raw)) return raw;
+  } catch { /* 无图就不带立绘 */ }
+  return '';
+}
+
+// 组装上传快照：全部立绘缩略（店招 / 商品图 / 娼妇立绘 / 铁匠立绘），其余文本/payload 原样透传。
+async function buildSnapshot(shop: ShopEntity): Promise<any> {
+  const sign = await thumb(shop.sign);
+  const goods = await Promise.all((shop.goods ?? []).map(async (g) => ({ ...g, image: await thumb(g.image) })));
+  const girls = await Promise.all((shop.girls ?? []).map(async (g) => ({ ...g, portrait: await thumb(g.portrait) })));
+  const smith = shop.smith ? { ...shop.smith, boss: { ...shop.smith.boss, portrait: await thumb(shop.smith.boss.portrait) } } : undefined;
+  return {
+    type: shop.type, name: shop.name, intro: shop.intro, tagline: shop.tagline, ownerPersona: shop.ownerPersona,
+    currency: shop.currency, world: shop.world, sign, goods, girls, smith,
+  };
+}
+
+function connect(name: string, token: string) {
+  cleanup();
+  manualClose = false;
+  curName = (name || '').trim() || '道友';
+  if (token) curToken = token;
+  set({ status: 'connecting', error: null });
+  const url = `${mpWsBase()}/api/shop/ws`
+    + `?token=${encodeURIComponent(curToken)}`
+    + `&name=${encodeURIComponent(curName)}`
+    + `&avv=${chatAvatarVer()}`
+    + `&ds=${encodeURIComponent(chatDicebearSeed())}`
+    + `&nc=${encodeURIComponent(chatNameColor())}`;
+  ws = new WebSocket(url);
+  ws.onopen = () => { set({ status: 'connected', error: null }); startHb(); };
+  ws.onmessage = (ev) => {
+    if (ev.data === 'pong') return;
+    let m: any; try { m = JSON.parse(ev.data); } catch { return; }
+    dispatch(m);
+  };
+  ws.onclose = () => {
+    stopHb();
+    if (manualClose) { set({ status: 'closed' }); }
+    else { set({ status: 'connecting' }); scheduleReconnect(); }
+  };
+  ws.onerror = () => { set({ error: '连接错误' }); };
+}
+
+function dispatch(m: ShopInbound) {
+  const st = useShopMarket.getState();
+  switch (m.type) {
+    case 'hello':
+      set({ me: m.you || null, shops: m.shops || [], online: m.online || 0 });
+      break;
+    case 'shop_added':
+      if (m.shop) set({ shops: upsertShop(st.shops, m.shop) });
+      break;
+    case 'shop_removed':
+      set({ shops: st.shops.filter((c) => c.id !== m.shopId) });
+      break;
+    case 'shop_visited':
+      set({ shops: st.shops.map((c) => (c.id === m.shopId ? { ...c, visits: m.visits } : c)) });
+      break;
+    case 'rate_limited':
+      set({ error: RATE_MSG });
+      setTimeout(() => { if (useShopMarket.getState().error === RATE_MSG) set({ error: null }); }, 1500);
+      break;
+    case 'error':
+      set({ error: m.reason || m.error || '操作失败' });
+      setTimeout(() => { const e = useShopMarket.getState().error; if (e === (m.reason || m.error || '操作失败')) set({ error: null }); }, 2500);
+      break;
+    default:
+      assertNever(m);
+  }
+}
+function assertNever(_m: never): void { /* 穷尽性检查；运行时对未知 type 是 no-op */ }
+
+// 上传/更新我的一家店（同 owner+srcId 一店；后端 upsert，更新不清零光顾计数）。
+async function publishShop(shop: ShopEntity): Promise<boolean> {
+  if (!shop?.name) {
+    set({ error: '店铺无效' });
+    setTimeout(() => { if (useShopMarket.getState().error === '店铺无效') set({ error: null }); }, 2000);
+    return false;
+  }
+  const snapshot = await buildSnapshot(shop);
+  return sendRaw({ type: 'publish_shop', srcId: shop.id, shopType: shop.type, name: shop.name, snapshot });
+}
+
+function sendRaw(obj: ShopOutbound) {
+  if (ws && ws.readyState === 1) { ws.send(JSON.stringify(obj)); return true; }
+  return false;
+}
+function startHb() { stopHb(); hbTimer = setInterval(() => { try { ws?.send('ping'); } catch {} }, 25000); }
+function stopHb() { if (hbTimer) { clearInterval(hbTimer); hbTimer = null; } }
+function scheduleReconnect() {
+  if (reconnectTimer || manualClose) return;
+  reconnectTimer = setTimeout(() => { reconnectTimer = null; if (!manualClose) connect(curName, curToken); }, 2000);
+}
+function cleanup() {
+  stopHb();
+  if (reconnectTimer) { clearTimeout(reconnectTimer); reconnectTimer = null; }
+  if (ws) { try { ws.onclose = null; ws.close(); } catch {} ws = null; }
+}
+function leave() {
+  manualClose = true;
+  cleanup();
+  useShopMarket.getState().reset();
+}
+
+export const shopClient = {
+  connect,
+  leave,
+  publishShop,
+  removeShop: (shopId: string) => sendRaw({ type: 'remove_shop', shopId }),
+  visit: (shopId: string) => sendRaw({ type: 'visit', shopId }),
+  isOpen: () => !!ws && ws.readyState === 1,
+};

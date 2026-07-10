@@ -27,6 +27,7 @@ export const SHOP_TYPE_META: Record<ShopType, { label: string; emoji: string; bl
 /** 一件商品（商店货架）。image 为运行时字段（大图存 IndexedDB）。 */
 export interface ShopGood {
   id: string;
+  kind?: 'item' | 'npc';  // 货物类型：物品(buy→addItem 入背包) / 随从(buy→createCompanion 建档入队)；缺省=item
   category: string;      // 自定义分类：商品 / 随从 / 装备 / 材料 / 消耗品…
   name: string;
   price: number;
@@ -48,12 +49,16 @@ export interface ShopEntity {
   type: ShopType;
   name: string;
   tagline?: string;      // 招牌语（一句话）
+  intro?: string;        // 店铺简介（多行·逛店/上传展示；AI 生成货品也参考此定位）
   ownerPersona?: string; // 掌柜 / 老板性格（进店叙事注入）
   sign?: string;         // 店招立绘 dataURL（运行时，存 shop-sign:<id>）
   currency: string;      // '乐园币' | '魂币'（自由填）
   world?: string;        // 所属世界 / 乐园（空 = 通用）
   createdAt: number;
   published?: boolean;   // 已上传到商城（联机）
+  remote?: boolean;      // 逛商城时物化进来的「别人的店」（运行时·不持久化·从"我的产业"隐藏·visit modal 直接复用）
+  ownerName?: string;    // 远程店主名（remote 时展示）
+  marketId?: string;     // 远程店在 ShopDO 里的 id（visit / 下架用）
   goods?: ShopGood[];    // store
   girls?: JoyGirl[];     // brothel（复用 JoyGirl）
   smith?: ShopSmith;     // smithy
@@ -252,7 +257,7 @@ export const useShop = create<ShopState>()(
       name: 'drpg-shop',
       // 持久化：店铺定义（剥立绘大图）+ 经营进度；立绘由 hydrateShopImages 从 IndexedDB 回填。
       partialize: (s: any) => ({
-        shops: (s.shops ?? []).map((sh: ShopEntity) => ({
+        shops: (s.shops ?? []).filter((sh: ShopEntity) => !sh.remote).map((sh: ShopEntity) => ({
           ...sh,
           sign: undefined,
           goods: (sh.goods ?? []).map((g) => ({ ...g, image: undefined })),

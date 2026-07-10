@@ -177,6 +177,7 @@ export function ItemDetailModal({ item, onClose }: { item: InventoryItem; onClos
     // affix/effect 若被 AI 写成对象数组 [{name,desc}] → 拆成干净多行文本，编辑+保存即把脏数据洗成字符串（治"词缀显示成 [object Object]"）
     notes: item.notes ?? '', acquisition: item.acquisition ?? '', affix: splitAffixEntries(item.affix).join('\n'),
     activeEffect: asText(item.activeEffect),
+    activeDuration: item.activeDuration ?? '',
   });
 
   const cfg  = CAT_CFG[item.category] ?? CAT_CFG['其他物品'];
@@ -191,6 +192,7 @@ export function ItemDetailModal({ item, onClose }: { item: InventoryItem; onClos
       category: draft.category as ItemCategory, subType: draft.subType.trim() || undefined,
       effect: draft.effect, appearance: draft.appearance, notes: draft.notes, acquisition: draft.acquisition, affix: draft.affix,
       activeEffect: draft.activeEffect.trim() || undefined,
+      activeDuration: draft.activeDuration.trim() || undefined,
     };
     // 改了类别且此刻装备中 → 一并卸下：否则出现"饰品改成武器仍卡在武器槽 / 改成消耗品却还显示装备中"这类槽位错乱
     //   （用户报"饰品变成武器还在武器栏上面"）。改回正确类别后到装备面板重新穿戴即可。
@@ -361,7 +363,7 @@ export function ItemDetailModal({ item, onClose }: { item: InventoryItem; onClos
           {/* 主动效果（需发动/使用才生效·天然不计入常驻六维）*/}
           {(item.activeEffect || editing) && (
             <Field label="⚡ 主动效果（需发动 · 不常驻）">
-              <div className="bg-amber-400/5 border border-amber-400/25 rounded-lg p-3">
+              <div className="bg-amber-400/5 border border-amber-400/25 rounded-lg p-3 space-y-2">
                 {editing ? (
                   <textarea
                     value={draft.activeEffect}
@@ -375,6 +377,20 @@ export function ItemDetailModal({ item, onClose }: { item: InventoryItem; onClos
                     {splitAffixEntries(item.activeEffect).map((a, i) => <div key={i} className="text-[13px] leading-snug text-amber-100/85 border-l-2 border-amber-400/40 pl-2">{a}</div>)}
                   </div>
                 )}
+                {/* 持续时长：变身/限时增益专用——⚡发动时按此精确定时（优先于上面文本里的时长；缺省默认3回合）。兼容"10回合"与"1小时/3天" */}
+                {editing ? (
+                  <div className="flex items-center gap-2">
+                    <span className="shrink-0 text-[12px] text-amber-300/70 font-mono">⏳ 持续时长</span>
+                    <input
+                      value={draft.activeDuration}
+                      onChange={(e) => setDraft((d) => ({ ...d, activeDuration: e.target.value }))}
+                      placeholder="如 10回合 / 1小时 / 3天（留空默认3回合）"
+                      className="flex-1 min-w-0 bg-void border border-amber-400/30 rounded px-2 py-1 text-[13px] text-amber-100/90 focus:outline-none focus:border-amber-400/60"
+                    />
+                  </div>
+                ) : item.activeDuration ? (
+                  <div className="text-[12px] text-amber-300/75 font-mono">⏳ 持续 {item.activeDuration} · 发动后到点自动回落</div>
+                ) : null}
               </div>
             </Field>
           )}
@@ -542,7 +558,7 @@ export function ItemDetailModal({ item, onClose }: { item: InventoryItem; onClos
             <button
               onClick={() => {
                 applyItemActiveBuff(item);   // 立刻建限时状态 → 六维即时跳、到点由 expireStatuses 自动回落
-                useComposer.getState().fill(`发动【${item.name}】的主动效果：${asText(item.activeEffect)}\n（已登记为限时状态、六维已即时生效，请在正文叙述发动过程与效果，勿再发 addStatus 重复加成）`);
+                useComposer.getState().fill(`发动【${item.name}】的主动效果：${asText(item.activeEffect)}${item.activeDuration ? `\n（持续时长：${item.activeDuration}——请按此时长叙述，勿改成其它回合数）` : ''}\n（已登记为限时状态、六维已即时生效，请在正文叙述发动过程与效果，勿再发 addStatus 重复加成）`);
                 onClose();
               }}
               title="发动此装备的主动效果：立即登记为限时状态（六维即时生效、到点自动撤销），并把发动描述填入输入框交 AI 叙述"
