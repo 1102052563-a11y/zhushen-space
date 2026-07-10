@@ -50,6 +50,27 @@ describe('i18n · translateToVi', () => {
   });
 });
 
+describe('i18n · 首尾装饰剥离（图标/符号前缀）', () => {
+  it('剥离 emoji/箭头前缀后命中，再拼回装饰', () => {
+    expect(translateToEn('📖 新游戏')).toBe('📖 New Game');
+    expect(translateToEn('← 系统设置')).toBe('← System Settings');
+    expect(translateToVi('✎ 编辑')).toBe('✎ Chỉnh sửa');
+  });
+  it('剥离中文括号', () => {
+    expect(translateToVi('（推荐）')).toBe('（Khuyên Dùng）');
+  });
+});
+
+describe('i18n · 分隔符复合标签', () => {
+  it('每段都命中才整体替换（保留分隔符）', () => {
+    expect(translateToVi('清理图片 · 存档瘦身')).toBe('Dọn Ảnh · Giảm Dung Lượng');
+    expect(translateToEn('攻击/防御')).toBe('Attack/Defense');
+  });
+  it('有一段未命中则整体回退中文', () => {
+    expect(translateToEn('攻击/某个没有的词条')).toBe('攻击/某个没有的词条');
+  });
+});
+
 describe('i18n · convert 语言分派', () => {
   it('en 走英文词库', () => {
     expect(convert('保存', 'en', null)).toBe('Save');

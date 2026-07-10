@@ -40,6 +40,21 @@ function dictTranslate(raw: string, exact: Record<string, string>, rules: [RegEx
       return lead + core.replace(re, to) + trail;
     }
   }
+
+  // 分隔符复合标签（「清理图片 · 存档瘦身」「攻击/防御」）：拆成段，仅当每段都命中词库才整体替换，
+  // 避免半中半外的尴尬输出。保留原分隔符（含两侧空格）。
+  const parts = core.split(/(\s*[·/|、]\s*)/);
+  if (parts.length >= 3) {
+    let allHit = true;
+    const out = parts.map((seg, i) => {
+      if (i % 2 === 1) return seg;                 // 奇数位=分隔符，原样
+      const key = seg.trim();
+      const h = key ? exact[key] : undefined;
+      if (h === undefined) { allHit = false; return seg; }
+      return h;
+    });
+    if (allHit) return lead + out.join('') + trail;
+  }
   return raw;
 }
 

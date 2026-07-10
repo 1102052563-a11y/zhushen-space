@@ -36,7 +36,7 @@ export interface GuildFull {
 /** 公开家族卡（GuildListDO 注册表列表·搜索/申请用）。 */
 export interface GuildCard {
   id: string; name: string; tag: string; emblem?: string; manifesto?: string;
-  level: number; members: number; recruiting?: boolean; ownerName?: string; at: number; bumpedAt: number;
+  level: number; members: number; recruiting?: boolean; ownerName?: string; weeklyContrib?: number; at: number; bumpedAt: number;
 }
 
 export interface GuildMe { playerId: string; name: string }

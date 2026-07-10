@@ -130,6 +130,7 @@ export class GuildDO {
       const before = this.g.level; this.g.exp += amt; this.g.level = levelForExp(this.g.exp); this.g.perks = perksForLevel(this.g.level);
       this.#advanceTasks(amt);
       if (b.kind === "kill") this.#bumpChain();
+      this.#pushCardThrottled();
       await this.#save();
       this.#broadcast({ type: "contrib_bumped", pid: m.pid, contribTotal: m.contribTotal, contribWeek: m.contribWeek, exp: this.g.exp });
       if (this.g.level > before) { this.#addChronicle(`家族升到 Lv.${this.g.level}`, "levelup"); this.#broadcast({ type: "level_up", level: this.g.level, perks: this.g.perks }); this.#pushCard(); }
@@ -171,6 +172,7 @@ export class GuildDO {
         const before = this.g.level;
         this.g.exp += amt; this.g.level = levelForExp(this.g.exp); this.g.perks = perksForLevel(this.g.level);
         this.#advanceTasks(amt);
+        this.#pushCardThrottled();
         await this.#save();
         this.#broadcast({ type: "contrib_bumped", pid: me.pid, contribTotal: me.contribTotal, contribWeek: me.contribWeek, exp: this.g.exp });
         if (this.g.level > before) { this.#addChronicle(`家族升到 Lv.${this.g.level}`, "levelup"); this.#broadcast({ type: "level_up", level: this.g.level, perks: this.g.perks }); this.#pushCard(); }
@@ -250,7 +252,8 @@ export class GuildDO {
   }
   #card() {
     const leader = this.g.members.find((m) => m.rank === "leader") || {};
-    return { id: this.g.id, name: this.g.name, tag: this.g.tag, emblem: this.g.emblem, manifesto: this.g.manifesto, level: this.g.level, members: this.g.members.length, recruiting: this.g.recruiting, ownerName: leader.name || "会长", at: this.g.createdAt, bumpedAt: Date.now() };
+    const weeklyContrib = this.g.members.reduce((s, m) => s + (m.contribWeek || 0), 0);   // 家族战·周榜排名依据
+    return { id: this.g.id, name: this.g.name, tag: this.g.tag, emblem: this.g.emblem, manifesto: this.g.manifesto, level: this.g.level, members: this.g.members.length, recruiting: this.g.recruiting, ownerName: leader.name || "会长", weeklyContrib, at: this.g.createdAt, bumpedAt: Date.now() };
   }
   #addChronicle(text, kind) {
     this.g.chronicle.unshift({ at: Date.now(), text, kind });
@@ -258,6 +261,8 @@ export class GuildDO {
     this.#broadcast({ type: "chronicle_added", entry: this.g.chronicle[0] });
   }
   async #pushCard() { try { await this.env.GUILDLIST.get(this.env.GUILDLIST.idFromName("global")).fetch("https://do/card", { method: "POST", body: JSON.stringify(this.#card()) }); } catch {} }
+  // 贡献时限流回推卡（60s 一次·让家族战周榜 weeklyContrib 大致跟得上·又不刷爆 GuildListDO）。
+  #pushCardThrottled() { const now = Date.now(); if (now - (this._cardAt || 0) > 60000) { this._cardAt = now; this.#pushCard(); } }
   #kickSocket(pid, reason) {
     for (const ws of this.ctx.getWebSockets()) { const a = ws.deserializeAttachment(); if (a && a.playerId === pid) { try { ws.send(JSON.stringify({ type: "kicked", reason })); ws.close(); } catch {} } }
   }

@@ -40,12 +40,15 @@ function CreateGuildForm() {
 
 function GuildBrowser({ cards, busyId }: { cards: GuildCard[]; busyId: string | null }) {
   const [q, setQ] = useState('');
+  const [sortBy, setSortBy] = useState<'level' | 'week'>('level');
   const filtered = q.trim() ? cards.filter((c) => (c.name || '').includes(q.trim()) || (c.tag || '').includes(q.trim())) : cards;
-  const ranked = [...filtered].sort((a, b) => (b.level - a.level) || (b.members - a.members));   // 家族总榜：等级→人数
+  const ranked = [...filtered].sort((a, b) => sortBy === 'week' ? (b.weeklyContrib || 0) - (a.weeklyContrib || 0) : (b.level - a.level) || (b.members - a.members));   // 总榜=等级→人数 / 周战榜=本周贡献
   return (
     <div className="space-y-2">
       <div className="flex items-center gap-2">
         <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="搜索家族名 / 标签" className={`${inputCls} flex-1`} />
+        <button onClick={() => setSortBy('level')} className={`text-[11px] font-mono px-2 py-0.5 rounded border ${sortBy === 'level' ? 'border-amber-400/50 text-amber-100 bg-amber-500/15' : 'border-edge text-dim'}`}>总榜</button>
+        <button onClick={() => setSortBy('week')} className={`text-[11px] font-mono px-2 py-0.5 rounded border ${sortBy === 'week' ? 'border-amber-400/50 text-amber-100 bg-amber-500/15' : 'border-edge text-dim'}`}>周战榜</button>
         <button onClick={() => guildClient.refresh()} className={btnGhost}>🔄</button>
       </div>
       {ranked.length === 0
@@ -56,7 +59,7 @@ function GuildBrowser({ cards, busyId }: { cards: GuildCard[]; busyId: string | 
                 <div className="text-2xl shrink-0">{c.emblem || '🏰'}</div>
                 <div className="flex-1 min-w-0">
                   <div className="text-sm font-bold text-slate-100 truncate"><span className="text-[11px] font-mono text-amber-300/60">#{i + 1}</span> {c.name} <span className="text-[11px] text-amber-300/70">[{c.tag}]</span></div>
-                  <div className="text-[11px] font-mono text-dim/55">Lv.{c.level} · {c.members} 人 · 会长 {c.ownerName || '道友'}</div>
+                  <div className="text-[11px] font-mono text-dim/55">Lv.{c.level} · {c.members} 人 · 本周 {c.weeklyContrib || 0} · 会长 {c.ownerName || '道友'}</div>
                   {c.manifesto && <div className="text-[11px] text-dim/60 truncate">{c.manifesto}</div>}
                 </div>
                 <button onClick={() => guildClient.apply(c.id)} disabled={busyId === c.id || c.recruiting === false}
@@ -176,7 +179,7 @@ function WeekTaskSection() {
   );
 }
 
-function MyGuildView() {
+function MyGuildView({ cards }: { cards: GuildCard[] }) {
   const my = useGuild((s) => s.my)!;
   const exp = useGuild((s) => s.exp);
   const online = useGuild((s) => s.online);
@@ -253,6 +256,21 @@ function MyGuildView() {
         {[...roster].sort((a, b) => (rankView === 'week' ? b.contribWeek - a.contribWeek : b.contribTotal - a.contribTotal)).map((m) => <RosterRow key={m.pid} m={m} myRole={my.role} myPid={myPid} weekly={rankView === 'week'} />)}
       </div>
 
+      {/* 家族战 · 本周贡献榜（各家族本周贡献 PK） */}
+      {cards.length > 1 && (
+        <div className="space-y-1.5">
+          <div className="text-[13px] font-bold text-slate-100">⚔️ 家族战 · 本周榜</div>
+          {[...cards].sort((a, b) => (b.weeklyContrib || 0) - (a.weeklyContrib || 0)).slice(0, 6).map((c, i) => (
+            <div key={c.id} className={`flex items-center gap-2 px-2.5 py-1 rounded-lg border ${c.id === my.id ? 'border-amber-400/40 bg-amber-500/10' : 'border-edge bg-panel/50'}`}>
+              <span className="text-[11px] font-mono text-amber-300/60 w-6 shrink-0">#{i + 1}</span>
+              <span className="text-base shrink-0">{c.emblem || '🏰'}</span>
+              <span className="text-sm text-slate-100 truncate flex-1">{c.name}{c.id === my.id && <span className="ml-1 text-[10px] text-amber-300/70">我族</span>}</span>
+              <span className="text-[11px] font-mono text-orange-300/70 shrink-0">本周 {c.weeklyContrib || 0}</span>
+            </div>
+          ))}
+        </div>
+      )}
+
       {/* 金库 */}
       <div className="space-y-1.5">
         <div className="text-[13px] font-bold text-slate-100">🏦 家族金库</div>
@@ -327,7 +345,7 @@ export default function GuildPanel({ onClose }: { onClose: () => void }) {
         {gated
           ? <div className="text-center text-dim/50 text-sm py-16">家族需先登录 Discord（聊天室 / 联机身份）。</div>
           : my
-            ? <MyGuildView />
+            ? <MyGuildView cards={cards} />
             : <div className="space-y-4">
                 <CreateGuildForm />
                 <div className="text-[12px] font-mono text-dim/55">{status === 'connected' ? `🏆 家族总榜（${cards.length} 个家族·按等级排名）` : status === 'connecting' ? '连接中…' : ''}</div>
