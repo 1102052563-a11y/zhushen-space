@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { useGuild } from '../store/guildStore';
+import { useGuild, type GuildSummary } from '../store/guildStore';
 import { guildClient } from '../systems/guildClient';
 import { pushSceneNotice } from '../systems/allocNotice';
 import { chatReady, chatName, chatToken } from '../systems/chatIdentity';
@@ -179,6 +179,51 @@ function WeekTaskSection() {
   );
 }
 
+/* 家族战·确定性对决：种子=我族id+对手id+当日 → 同对手同日结果固定（防 reroll）。战力对决 + ±30% 种子扰动。 */
+function mulberry32(a: number) { return () => { a |= 0; a = (a + 0x6d2b79f5) | 0; let t = Math.imul(a ^ (a >>> 15), 1 | a); t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t; return ((t ^ (t >>> 14)) >>> 0) / 4294967296; }; }
+function strHash(s: string) { let h = 0; for (let i = 0; i < s.length; i++) h = (Math.imul(h, 31) + s.charCodeAt(i)) | 0; return h >>> 0; }
+
+function WarSection({ cards, my }: { cards: GuildCard[]; my: GuildSummary }) {
+  const wars = useGuild((s) => s.wars);
+  const [result, setResult] = useState('');
+  const myPower = cards.find((c) => c.id === my.id)?.power || my.level * 500;
+  const opponents = cards.filter((c) => c.id !== my.id);
+  const declareWar = (opp: GuildCard) => {
+    const theirPower = opp.power || opp.level * 500;
+    const day = Math.floor(Date.now() / 86400000);
+    const rng = mulberry32(strHash(my.id + opp.id + day));
+    const myRoll = myPower * (0.7 + rng() * 0.6);
+    const theirRoll = theirPower * (0.7 + rng() * 0.6);
+    const win = myRoll >= theirRoll;
+    const myScore = Math.round(myRoll), theirScore = Math.round(theirRoll);
+    guildClient.reportWar(win, opp.name, myScore, theirScore);
+    setResult(`${win ? '⚔️ 大胜' : '💢 战败'}「${opp.name}」 · 我族 ${myScore} vs ${theirScore}${win ? '（家族贡献 +）' : ''}`);
+  };
+  return (
+    <div className="space-y-1.5">
+      <div className="flex items-center gap-2">
+        <div className="text-[13px] font-bold text-slate-100">⚔️ 家族战</div>
+        <span className="text-[11px] font-mono text-orange-300/70">战力 {myPower}</span>
+        {wars && <span className="text-[11px] font-mono text-dim/55">· {wars.wins}胜 {wars.losses}负</span>}
+      </div>
+      {result && <div className="text-[12px] font-mono text-amber-200/80 px-1">{result}</div>}
+      {opponents.length === 0
+        ? <div className="text-[11px] text-dim/45 px-1">暂无其他家族可宣战。</div>
+        : <div className="space-y-1">
+            {[...opponents].sort((a, b) => (b.power || 0) - (a.power || 0)).slice(0, 6).map((c) => (
+              <div key={c.id} className="flex items-center gap-2 px-2.5 py-1 rounded-lg border border-edge bg-panel/50">
+                <span className="text-base shrink-0">{c.emblem || '🏰'}</span>
+                <span className="text-sm text-slate-100 truncate flex-1">{c.name}</span>
+                <span className="text-[11px] font-mono text-orange-300/60 shrink-0">战力 {c.power || 0}</span>
+                <button onClick={() => declareWar(c)} className="text-[11px] font-mono py-1 px-2.5 rounded-lg border border-blood/40 text-blood/80 hover:bg-blood/10 shrink-0">宣战</button>
+              </div>
+            ))}
+          </div>}
+      <div className="text-[10px] font-mono text-dim/40 px-1">每日至多 5 次 · 按战力确定性对决（同对手同日不可 reroll）</div>
+    </div>
+  );
+}
+
 const BASE_COST_C: Record<string, number> = { hall: 2000, treasury: 1500, arena: 2500, watchtower: 1500 };
 const MAX_BUILDING_C = 10;
 const BASE_META: { key: string; label: string; emoji: string; effect: string }[] = [
@@ -347,6 +392,9 @@ function MyGuildView({ cards }: { cards: GuildCard[] }) {
         </div>
         {[...roster].sort((a, b) => (rankView === 'week' ? b.contribWeek - a.contribWeek : b.contribTotal - a.contribTotal)).map((m) => <RosterRow key={m.pid} m={m} myRole={my.role} myPid={myPid} weekly={rankView === 'week'} />)}
       </div>
+
+      {/* 家族战 · 宣战对决 */}
+      <WarSection cards={cards} my={my} />
 
       {/* 家族战 · 本周贡献榜（各家族本周贡献 PK） */}
       {cards.length > 1 && (
