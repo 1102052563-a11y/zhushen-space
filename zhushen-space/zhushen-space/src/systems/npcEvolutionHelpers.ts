@@ -9,6 +9,7 @@ import { apiChatFallback } from './apiChat';
 import { serializeEvents } from './miscParser';
 import { fullMaxHp, fullMaxEp, effectiveResource, lvFromRealm, ratioOf, npcBaseAttrs } from './derivedStats';
 import { bioInnate } from './bioStrength';
+import { dispositionLine } from './dispositionGuard';
 export function getNpcApi() {
   const npcEvoState = useNpcEvo.getState();
   const ss = useSettings.getState();
@@ -74,7 +75,9 @@ export function buildNpcVars(narrative: string): Record<string, string> {
   const onscreenText = onScene.length > 0
     ? onScene.map((r) =>
         `[${r.id}] ${r.name}${r.gender ? '·' + r.gender : ''} 阶位:${r.realm || '未知'} 状态:${r.status} 好感:${r.favor}`
+        + ` 对主角:${dispositionLine(r)}`
         + (r.personality ? ` 性格:${r.personality}` : '')
+        + (r.principles ? ` 原则:${r.principles.replace(/\s+/g, ' ').slice(0, 40)}` : '')
         + (r.appearance5 ? ` 外观:${r.appearance5.split('|')[0] ?? ''}` : '')
       ).join('\n')
     : '（本轮暂无在场NPC）';
@@ -160,6 +163,9 @@ export function serializeNpcSnapshot(r: NpcRecord): string {
     r.selfNarration && `第一人称自述(已生成·沿用·勿重写·勿再输出<自述>块): ${r.selfNarration}`,
     r.relations && `关系(列13): ${r.relations}`,
     `好感(列15): ${r.favor}`,
+    r.principles && `原则底线(独立于主角·据此演绎立场·勿为讨好主角OOC软化): ${r.principles}`,
+    r.sampleLines && `范例台词/口癖(语气基准·据此说话): ${r.sampleLines}`,
+    `对主角态度·四轴(当前值·阶段·严格按阶段演绎不跳级；沉沦=只增难减棘轮): ${dispositionLine(r)}`,
     `基底外观(常驻长相·最高基准·绝不漂移): ${r.baseAppearance || '（未设定——请据其稳定特征建立，今后保持不变）'}。身高/发色/瞳色/肤色/体型/标志特征一律以此为准；下面的 肖像(列16)/生图提示词(列19)/容貌(列34) 以及生图都【绝不可与之矛盾】——此处写"无肌肉/精瘦"就绝不能描述成肌肉发达/肌肉线条紧绷，写明的瞳色/身高不许擅改。只有正文明确发生【改身高/染发/换瞳/肢体改造/异变/整容】才更新基底外观。`,
     r.appearance5 && `肖像(列16·即时状态,须与基底外观一致): ${r.appearance5}`,
     `生图提示词(列19,有则沿用/仅长期外观变化时更新·须忠实反映上方基底外观,不得编出与之冲突的体型/瞳色/身高): ${r.imageTags || '（未生成,请生成英文NAI tags）'}`,

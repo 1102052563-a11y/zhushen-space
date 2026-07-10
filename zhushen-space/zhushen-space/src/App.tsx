@@ -26,6 +26,11 @@ import {
   ANTI_OMNISCIENCE_RULE,
   COMBAT_SKILL_NUMERIC_RULE,
   NPC_COT_RULE,
+  NPC_INDEPENDENCE_RULE,
+  NPC_PRINCIPLES_RULE,
+  NPC_SAMPLE_LINES_RULE,
+  DISPOSITION_STAGE_RULE,
+  DISPOSITION_DELTA_RULE,
   NPC_SELF_NARRATION_RULE,
   PLOT_GUIDANCE_RULE,
   OUTLINE_GEN_RULE,
@@ -207,7 +212,8 @@ import { useFactionEvo, buildFactionSystemPrompt, buildFactionEntryPrompt, extra
 const FactionPanel = lazy(() => import('./components/FactionPanel'));
 import { useTurnInsight } from './store/turnInsightStore';
 const TurnInsightPanel = lazy(() => import('./components/TurnInsightPanel'));
-import { useNpc, looksDead, isGhostNpc } from './store/npcStore';
+import { useNpc, looksDead, isGhostNpc, DISPOSITION_COLS } from './store/npcStore';
+import { clampDispositionDelta, DISP_DEFAULT, dispositionLine, type DispAxis } from './systems/dispositionGuard';
 import PartyPromoteDialog from './components/PartyPromoteDialog';
 import { useCharacters, type MemoryEntry } from './store/characterStore';
 import { useMemory } from './store/memoryStore';
@@ -255,6 +261,7 @@ import { craftMode, craftOutputSlots } from './systems/craftEngine';
 import { buildCraftWbInjection } from './systems/craftWorldBook';
 import { generateGem } from './systems/gemEngine';
 const CraftPanel = lazy(() => import('./components/CraftPanel'));
+const ProducePanel = lazy(() => import('./components/ProducePanel'));
 const ChannelPanel = lazy(() => import('./components/ChannelPanel'));
 import type { DmHandlers } from './components/DmPanel';
 const DmPanel = lazy(() => import('./components/DmPanel'));
@@ -1067,6 +1074,7 @@ const rightMenuItems = [
   { icon: '🌐', label: '联机' },
   { icon: '💬', label: '聊天室' },
   { icon: '🛒', label: '交易行' },
+  { icon: '🏪', label: '产业' },
   { icon: '🆘', label: '助战' },
   { icon: '🏆', label: '世界竞技场' },
   { icon: '🪦', label: '纪念丰碑' },
@@ -1083,7 +1091,7 @@ const NAV_FX: Record<string, string> = {
   '副职业': 'fx-wrench', '技能树': 'fx-tree', '体系': 'fx-tree', '合成': 'fx-wrench', '称号': 'fx-medal', '成就': 'fx-trophy', '势力': 'fx-pillar',
   '领地': 'fx-castle', '冒险团': 'fx-shield', '队伍': 'fx-friends', '万族': 'fx-cosmos', '世界百科': 'fx-book', '轮回WIKI': 'fx-book',
   '战斗': 'fx-clash', '乐园设施': 'fx-ferris', '深渊': 'fx-void', '回合洞察': 'fx-zoom', '审计': 'fx-zoom', '任务': 'fx-quest',
-  '频道': 'fx-signal', '私信': 'fx-mail', '好友': 'fx-friends', '聊天室': 'fx-signal', '交易行': 'fx-bag', '助战': 'fx-clash', '世界竞技场': 'fx-trophy', '纪念丰碑': 'fx-pillar', '账户仓库': 'fx-bag', '记忆': 'fx-brain', '创意工坊': 'fx-sparkle', '存档': 'fx-save', '设置': 'fx-gear',
+  '频道': 'fx-signal', '私信': 'fx-mail', '好友': 'fx-friends', '聊天室': 'fx-signal', '交易行': 'fx-bag', '产业': 'fx-bag', '助战': 'fx-clash', '世界竞技场': 'fx-trophy', '纪念丰碑': 'fx-pillar', '账户仓库': 'fx-bag', '记忆': 'fx-brain', '创意工坊': 'fx-sparkle', '存档': 'fx-save', '设置': 'fx-gear',
 };
 
 /* 炼晶：把玩家倾向解析成 gemEngine 的 want（指定宝石属性/镶嵌部位；无匹配则返回 undefined 走随机）。
@@ -1228,6 +1236,7 @@ export default function App() {
   const [worldRecordOpen,  setWorldRecordOpen]  = useState(false);
   const [enhancePanelOpen, setEnhancePanelOpen] = useState(false);
   const [craftPanelOpen, setCraftPanelOpen] = useState(false);
+  const [producePanelOpen, setProducePanelOpen] = useState(false);
   const [skillUpPanelOpen, setSkillUpPanelOpen] = useState(false);
   const [casinoOpen,       setCasinoOpen]       = useState(false);
   const [abyssOpen,        setAbyssOpen]        = useState(false);
@@ -1929,6 +1938,10 @@ export default function App() {
     addRule('强化设施不叙述', '前端规则 · 强化操作全在前端·正文不写前往强化中心', FRONTEND_ENHANCE_NO_NARRATE_RULE);
     // 实力忠于设定：剧情人物按原著/世界阶定强度，主角变强只表现为碾压、不把弱角色拔高来匹配（用户要求）
     addRule('实力忠于设定不拔高', '前端规则 · 实力忠于设定·不随主角水涨船高', CANON_STRENGTH_NO_SCALE_RULE);
+    // 配角有独立人格·不围着主角转（反谄媚/治同质化）——CANON_STRENGTH 的人格版
+    addRule('配角独立人格反谄媚', '前端规则 · 配角有独立人格·不围着主角转', NPC_INDEPENDENCE_RULE);
+    // 对主角态度四轴（信任/尊重/情欲/沉沦）·渐进不跳级（治性爱速堕/关系速升/一撩就沦陷）
+    addRule('对主角态度四轴渐进', '前端规则 · 对主角态度四轴·渐进不跳级', DISPOSITION_STAGE_RULE);
     // HP/EP 结算：让主正文每回合末尾输出主角+在场NPC的当前 HP/EP（前端 applyNarrativeVitals/NpcVitals 解析，HP/EP 管理阶段也以此为最终值）
     addRule('HP_EP结算输出', '前端规则 · HP/EP 结算输出', VITALS_SETTLEMENT_EMIT_RULE);
     // 主角会死·非不死之身：治"不战斗没掉血判定→顶着1滴血无限存活/被锁血不死"，用户要求主角能死
@@ -2853,9 +2866,12 @@ export default function App() {
       .filter((e) => e.enabled && e.source !== 'entrySharedRules')
       .map((e) => fillVars(e.content, vars))
       .join('\n\n')
-      + '\n\n' + NARRATIVE_FIRST_RULE + '\n' + BUFF_AS_STATUS_RULE + '\n' + NPC_AGE_RULE + '\n' + TALENT_NO_CAP_RULE + '\n' + TITLE_DIVERSITY_RULE + '\n' + NPC_DEAD_EXCLUDE_RULE + '\n' + NPC_ID_RULE + '\n' + SKILL_TALENT_NOTE_RULE + '\n' + NPC_SKILL_KEEP_RULE + '\n' + ITEM_GRANTED_SKILL_RULE + '\n' + SKILL_STABILITY_RULE + '\n' + SKILL_COMBAT_TAG_RULE + '\n' + NPC_REVIEW_TAG_RULE +'\n' + NPC_TEAM_AFFILIATION_RULE + '\n' + TIER_RULE + '\n' + IMAGE_TAGS_RULE + '\n' + HPEP_NARRATIVE_ONLY_RULE + '\n' + POINTS_NARRATIVE_RULE + '\n' + ATTR_POWER_CODEX + '\n' + NPC_ATTR_GEN_RULE + '\n' + ATTR_SANITY_RULE + '\n' + ATTR_CAP_RULE + '\n' + STATUS_FORMAT_RULE + '\n' + STATUS_COUNTDOWN_TURN_RULE + '\n' + NPC_PRIVATE_EXTRA_RULE + '\n' + NPC_TIER_LOADOUT_RULE + '\n' + SKILL_TALENT_ATTR_CAP_RULE + '\n' + FIRST_UPDATE_COMPLETE_RULE + '\n' + EVO_EXACT_REF_RULE + '\n' + SKILL_TALENT_GUIDE + '\n' + NPC_COT_RULE + '\n' + ANTI_OMNISCIENCE_RULE + worldLoreEvoInjection()
+      + '\n\n' + NARRATIVE_FIRST_RULE + '\n' + BUFF_AS_STATUS_RULE + '\n' + NPC_AGE_RULE + '\n' + TALENT_NO_CAP_RULE + '\n' + TITLE_DIVERSITY_RULE + '\n' + NPC_DEAD_EXCLUDE_RULE + '\n' + NPC_ID_RULE + '\n' + SKILL_TALENT_NOTE_RULE + '\n' + NPC_SKILL_KEEP_RULE + '\n' + ITEM_GRANTED_SKILL_RULE + '\n' + SKILL_STABILITY_RULE + '\n' + SKILL_COMBAT_TAG_RULE + '\n' + NPC_REVIEW_TAG_RULE +'\n' + NPC_TEAM_AFFILIATION_RULE + '\n' + TIER_RULE + '\n' + IMAGE_TAGS_RULE + '\n' + HPEP_NARRATIVE_ONLY_RULE + '\n' + POINTS_NARRATIVE_RULE + '\n' + ATTR_POWER_CODEX + '\n' + NPC_ATTR_GEN_RULE + '\n' + ATTR_SANITY_RULE + '\n' + ATTR_CAP_RULE + '\n' + STATUS_FORMAT_RULE + '\n' + STATUS_COUNTDOWN_TURN_RULE + '\n' + NPC_PRIVATE_EXTRA_RULE + '\n' + NPC_TIER_LOADOUT_RULE + '\n' + SKILL_TALENT_ATTR_CAP_RULE + '\n' + FIRST_UPDATE_COMPLETE_RULE + '\n' + EVO_EXACT_REF_RULE + '\n' + SKILL_TALENT_GUIDE + '\n' + NPC_COT_RULE + '\n' + ANTI_OMNISCIENCE_RULE + '\n' + NPC_INDEPENDENCE_RULE + '\n' + DISPOSITION_STAGE_RULE + '\n' + DISPOSITION_DELTA_RULE + worldLoreEvoInjection()
       // 门控：仅当该 NPC 已有背景、却还没第一人称自述时，才追加"生成自述"规则（一次性·省 token）
-      + (rec && rec.background && !rec.selfNarration ? '\n' + NPC_SELF_NARRATION_RULE : '');
+      + (rec && rec.background && !rec.selfNarration ? '\n' + NPC_SELF_NARRATION_RULE : '')
+      // 门控：已有背景但缺 原则底线 / 范例台词 → 本轮一并生成（反谄媚·治同质化的锚点，一次性·省 token）
+      + (rec && rec.background && !rec.principles ? '\n' + NPC_PRINCIPLES_RULE : '')
+      + (rec && rec.background && !rec.sampleLines ? '\n' + NPC_SAMPLE_LINES_RULE : '');
   }
 
   /* 登场判断 system prompt（只取 entrySharedRules 条目） */
@@ -2886,7 +2902,7 @@ export default function App() {
   }
 
   /* 解析 NPC <state> 短指令（favor/title/realm/hp），可按 charId 过滤 */
-  function applyNpcShortCommands(reply: string, onlyId?: string): number {
+  function applyNpcShortCommands(reply: string, onlyId?: string, narrative?: string): number {
     const npc = useNpc.getState();
     let n = 0;
     const ok = (id: string) => !onlyId || id === onlyId;
@@ -2894,6 +2910,29 @@ export default function App() {
 
     const favorRe = /\bcharacter\.(C\d+)\.stats\.favor\s*=\s*(-?\d+)/g;
     while ((m = favorRe.exec(reply))) { if (ok(m[1])) { npc.applyColumns(m[1], { '15': Number(m[2]) }); n++; } }
+
+    // 四轴 disposition 增量（走 dispositionGuard 限速 + 沉沦棘轮）：character.C1.disp.信任 += N / -= N / = N（中/英轴名皆可）
+    {
+      const dispRe = /\bcharacter\.(C\d+)\.disp\.(信任|尊重|情欲|沉沦|trust|respect|lust|corruption)\s*(\+=|-=|=)\s*(-?\d+)/g;
+      const want: Record<string, number> = {};   // key=`${id}|${axis}`；先汇总每轴净增量(相对当前值)，最后按护栏夹逼一次
+      while ((m = dispRe.exec(reply))) {
+        const id = m[1]; if (!ok(id)) continue;
+        const axis = DISPOSITION_COLS[m[2]] as DispAxis | undefined;
+        const rec0 = npc.npcs[id];
+        if (!axis || !rec0) continue;             // 未建档不凭空建(防幽灵)
+        const v = Number(m[4]); if (!Number.isFinite(v)) continue;
+        const cur = (rec0[axis] as number | undefined) ?? DISP_DEFAULT[axis];
+        const net = m[3] === '=' ? (v - cur) : m[3] === '-=' ? -v : v;
+        const key = `${id}|${axis}`;
+        want[key] = (want[key] ?? 0) + net;
+      }
+      const narr = narrative ?? reply;            // 就近强事件判定用真正的正文；缺省回退 reply
+      for (const [key, net] of Object.entries(want)) {
+        const [id, axis] = key.split('|') as [string, DispAxis];
+        const capped = clampDispositionDelta(axis, net, npc.npcs[id]?.name || id, narr);
+        if (capped !== 0) { const patch: any = {}; patch[`${axis}Delta`] = capped; npc.applyDisposition(id, patch); n++; }
+      }
+    }
 
     const titleRe = /\bcharacter\.(C\d+)\.identity\.title\s*=\s*"([^"]*)"/g;
     while ((m = titleRe.exec(reply))) { if (ok(m[1])) { npc.upsertNpc(m[1], { title: m[2] }); n++; } }
@@ -3293,7 +3332,15 @@ export default function App() {
     const systemPrompt = buildNpcPhaseSystemPrompt(settings.entries, trimmed, charId, createdIds);
     const recForSelf = useNpc.getState().npcs[charId];
     const needSelf = !!(recForSelf && recForSelf.background && !recForSelf.selfNarration);   // 门控：已有背景但还没自述 → 本轮一并生成
-    const userContent = `# 本轮正文\n${trimmed}\n\n---\n**先输出一个 <think>…</think> 思考块**，按系统提示里的「NPC 演化思维链」对角色 ${charId} 逐项自检；**随后**只为角色 ${charId} 输出 <state> 与 <upstore> 指令（无变化输出空标签）${needSelf ? `，并按系统提示为该角色生成一个 <自述 id="${charId}"> 第一人称自述块` : ''}。禁止输出其他角色的指令、禁止输出正文；除 <think> / <state> / <upstore>${needSelf ? ' / <自述>' : ''} 外不要有其它文字。`;
+    const needPrinciples = !!(recForSelf && recForSelf.background && !recForSelf.principles); // 门控：缺原则底线 → 一并生成
+    const needSample = !!(recForSelf && recForSelf.background && !recForSelf.sampleLines);    // 门控：缺范例台词 → 一并生成
+    const extraGen: string[] = [];
+    if (needSelf) extraGen.push(`<自述 id="${charId}">`);
+    if (needPrinciples) extraGen.push(`<原则底线 id="${charId}">`);
+    if (needSample) extraGen.push(`<范例台词 id="${charId}">`);
+    const genInstr = extraGen.length ? `，并按系统提示为该角色生成 ${extraGen.join('、')} 块` : '';
+    const allowTags = ['<think>', '<state>', '<upstore>', ...(needSelf ? ['<自述>'] : []), ...(needPrinciples ? ['<原则底线>'] : []), ...(needSample ? ['<范例台词>'] : [])].join(' / ');
+    const userContent = `# 本轮正文\n${trimmed}\n\n---\n**先输出一个 <think>…</think> 思考块**，按系统提示里的「NPC 演化思维链」对角色 ${charId} 逐项自检；**随后**只为角色 ${charId} 输出 <state> 与 <upstore> 指令（无变化输出空标签）${genInstr}。禁止输出其他角色的指令、禁止输出正文；除 ${allowTags} 外不要有其它文字。`;
     // 失败重试：单条请求失败/超时后额外重试 retryCount 次
     const retries = Math.max(0, settings.scheduling.retryCount ?? 0);
     let reply = '';
@@ -3308,7 +3355,7 @@ export default function App() {
     applyNpcCommands(npcCmds, { source: 'npc-phase', turn: turnCountRef.current });
     const charCmds = parseAllCharCommands(cleanReply).filter((c) => c.charId === charId);
     applyCharacterCommands(charCmds, undefined, { source: 'npc-phase', turn: turnCountRef.current });
-    const shorts = applyNpcShortCommands(cleanReply, charId);
+    const shorts = applyNpcShortCommands(cleanReply, charId, narrative);
     // 第一人称自述块（门控生成）：<自述 id="C1">…</自述> → selfNarration（仅写入本目标，幂等：已有则不会再生成）
     const selfRe = /<自述\s+id\s*=\s*["']?([CG]\d+)["']?\s*>([\s\S]*?)<\/自述>/gi;
     for (let sm = selfRe.exec(cleanReply); sm; sm = selfRe.exec(cleanReply)) {
@@ -3316,6 +3363,15 @@ export default function App() {
         useNpc.getState().upsertNpc(charId, { selfNarration: sm[2].trim() });
         console.log(`[NPC] ${charId} 第一人称自述已生成（${sm[2].trim().length} 字）`);
       }
+    }
+    // 原则底线 / 范例台词 块（门控生成·仅本目标·幂等）：<原则底线 id> → principles / <范例台词 id> → sampleLines
+    const prinRe = /<原则底线\s+id\s*=\s*["']?([CG]\d+)["']?\s*>([\s\S]*?)<\/原则底线>/gi;
+    for (let pm = prinRe.exec(cleanReply); pm; pm = prinRe.exec(cleanReply)) {
+      if (pm[1] === charId && pm[2].trim()) { useNpc.getState().upsertNpc(charId, { principles: pm[2].trim() }); console.log(`[NPC] ${charId} 原则底线已生成`); }
+    }
+    const sampRe = /<范例台词\s+id\s*=\s*["']?([CG]\d+)["']?\s*>([\s\S]*?)<\/范例台词>/gi;
+    for (let qm = sampRe.exec(cleanReply); qm; qm = sampRe.exec(cleanReply)) {
+      if (qm[1] === charId && qm[2].trim()) { useNpc.getState().upsertNpc(charId, { sampleLines: qm[2].trim() }); console.log(`[NPC] ${charId} 范例台词已生成`); }
     }
     useNpc.getState().markEvolved(charId, turnCountRef.current);
     console.log(`[NPC] ${charId} 演化：${npcCmds.length} 档案 / ${charCmds.length} 技能天赋 / ${shorts} 短指令`);
@@ -3816,7 +3872,7 @@ ${AFFIX_EFFECT_RULE}`;
         const cleanReply = reply.replace(/<think[^>]*>[\s\S]*?<\/think>/gi, '').trim();   // 剥掉思维链再解析
         const npcCmds  = parseAllNpcCommands(cleanReply); applyNpcCommands(npcCmds);
         const charCmds = parseAllCharCommands(cleanReply); applyCharacterCommands(charCmds);
-        const shorts   = applyNpcShortCommands(cleanReply);
+        const shorts   = applyNpcShortCommands(cleanReply, undefined, narrative);
         try { useNpc.getState().dedupeByName(); } catch { /* 防同名重复建档 */ }
         try { backfillNpcStarterKits(); } catch { /* 初始家当 */ }
         try { applyNarrativeAttrs(narrative); autoGenMissingAttrs(); ensureNpcLuck(); ensureNpcVitalsCap(); } catch { /* 卡六维优先，无卡则自动生成有起伏六维，最后前端独占重算幸运 */ }
@@ -6460,6 +6516,9 @@ ${lines}`;
           r.profession && `职业:${r.profession}`, r.age && `年龄:${r.age}`,
           a && `六维:力${a.str} 敏${a.agi} 体${a.con} 智${a.int} 魅${a.cha} 幸${a.luck}`,
           r.personality && `性格:${r.personality}`, `好感:${r.favor}`,
+          r.principles && `原则底线:${r.principles}`,
+          r.sampleLines && `范例台词/口癖:${r.sampleLines}`,
+          `对主角态度:${dispositionLine(r)}`,
           (r.items?.length ?? 0) > 0 && `持有物:${r.items.map((it) => `${it.name}(${it.category}${it.gradeDesc ? '·' + it.gradeDesc : ''})`).join('、')}`,
         ].filter(Boolean);
         return '· ' + bits.join(' | ');
@@ -8517,6 +8576,7 @@ ${lines}`;
       label === '技能树' ? () => setSkillTreeOpen(true) :
       label === '体系' ? () => setLoadoutOpen(true) :
       label === '合成' ? () => setCraftPanelOpen(true) :
+      label === '产业' ? () => setProducePanelOpen(true) :
       label === '势力' ? () => setFactionPanelOpen(true) :
       label === '领地' ? () => setTerritoryPanelOpen(true) :
       label === '冒险团' ? () => setTeamPanelOpen(true) :
@@ -10307,6 +10367,7 @@ ${lines}`;
       {skillUpPanelOpen && <SkillUpgradePanel onClose={() => setSkillUpPanelOpen(false)} />}
 
       {craftPanelOpen && <CraftPanel onClose={() => setCraftPanelOpen(false)} onGenerate={runCraftPhase} onConfirm={confirmCraft} />}
+      {producePanelOpen && <ProducePanel onClose={() => setProducePanelOpen(false)} />}
 
       {casinoOpen && <CasinoPanel onClose={() => setCasinoOpen(false)} onGenMatch={genGladiatorMatch} onGenBattle={genGladiatorBattle} onGenRewards={genGachaRewards} onBanter={casinoBanter} onGenSoul={genSoulGamble} onGenPortraits={genGladiatorPortraits} />}
       {abyssOpen && <AbyssPanel onClose={() => setAbyssOpen(false)} onGenBoons={genAbyssBoons} onGenSin={genAbyssSin} onGenAwaken={genAbyssAwaken} onGenJudge={genAbyssJudge} onGenEnemies={genAbyssEnemies} />}

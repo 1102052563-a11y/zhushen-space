@@ -118,6 +118,14 @@ export interface NpcRecord {
   age?: string;           // 年龄（正文有则照抄，没有则按设定生成；可写"约25岁/青年"等）
   review?: string;        // 诙谐评价（玩家视角的吐槽/锐评，幽默风格）
   selfNarration?: string; // 第一人称自述（NPC演化门控生成一次：作私聊/正文/演化的"自我认知"锚点，防 AI 凭刻板印象脑补人设）
+  // ── 性格丰满化 / 反谄媚（治"NPC都围着主角转、无原则、性爱速堕"）──
+  sampleLines?: string;   // 范例台词/口癖（2-3句·锁语气治同质化；NPC演化门控生成一次，之后冻结防漂）
+  principles?: string;    // 原则底线（独立于主角的立场红线/绝不做的事·反谄媚锚点；建档生成，冻结防漂）
+  // 四轴对主角态度(disposition)·各 0-100；每回合增量走 applyDisposition + dispositionGuard 限速，禁跳级
+  trust?: number;         // 信任（默认10·可回落）
+  respect?: number;       // 尊重（默认10·可回落）
+  lust?: number;          // 情欲：对主角的即时性欲火（默认0·即时可回落）
+  corruption?: number;    // 沉沦：为主角弃守原则/越界的累计（默认0·棘轮·只增难减）
   npcTag?: string;        // 标签（限定：契约者/土著/随从/宠物/召唤物）
   avatar?: string;        // 人物头像（上传的自定义图片 dataURL / 未来生图地址；在场面板与肖像栏展示）
   avatarTags?: string;    // 生成当前头像所用的 imageTags（用于"外观变化时刷新肖像"判断是否需要重绘）
@@ -165,6 +173,14 @@ export interface NpcRecord {
   updatedAt: number;
 }
 
+/** 四轴对主角态度列名（中/英）→ 字段。建档/校准的绝对赋值走 applyColumns(clamp 0-100)；每回合增量走 applyDisposition + dispositionGuard 限速。*/
+export const DISPOSITION_COLS: Record<string, 'trust' | 'respect' | 'lust' | 'corruption'> = {
+  trust: 'trust', 信任: 'trust',
+  respect: 'respect', 尊重: 'respect',
+  lust: 'lust', 情欲: 'lust',
+  corruption: 'corruption', 沉沦: 'corruption',
+};
+
 /* 列号 → 字段名（null = 需要特殊处理） */
 const COL_TO_FIELD: Record<string, keyof NpcRecord | null> = {
   '2':  'realm',
@@ -182,6 +198,8 @@ const COL_TO_FIELD: Record<string, keyof NpcRecord | null> = {
   '34': 'appearanceDetail',
   // 命名键（add("C1",{...}) 直接用字段名/中文别名）
   'review': 'review', '评价': 'review',
+  'principles': 'principles', '原则底线': 'principles', '原则': 'principles', '底线': 'principles',
+  'sampleLines': 'sampleLines', '范例台词': 'sampleLines', '口癖': 'sampleLines', '台词范例': 'sampleLines',
   'npcTag': 'npcTag', '标签': 'npcTag', 'tag': 'npcTag',
   'affiliatedTeam': 'affiliatedTeam', '冒险团': 'affiliatedTeam', '隶属冒险团': 'affiliatedTeam', '所属冒险团': 'affiliatedTeam',
   'age': 'age', '年龄': 'age',
@@ -212,6 +230,7 @@ export function defaultNpcRecord(id: string): NpcRecord {
     id, name: id, gender: '', realm: '', personality: '', status: '一切正常',
     callPlayer: '', background: '', innerThought: '', relations: '',
     favor: 0, appearance5: '', motiveNow: '', shortGoal: '', longGoal: '',
+    trust: 10, respect: 10, lust: 0, corruption: 0,
     inCombat: false, appearanceDetail: '', baseAppearance: '', title: '', items: [], extra: {},
     onScene: true, updatedAt: Date.now(),
   };
@@ -221,10 +240,19 @@ export function defaultNpcRecord(id: string): NpcRecord {
  *  因为全部短指令(character.C\d+ / hp.C\d+ …)只匹配 C\d+/[CG]\d+，非法 ID 的更新会被静默丢弃。 */
 export const isNpcId = (id: string): boolean => /^[CG]\d+$/.test(id);
 
+/** 四轴态度增量/绝对赋值补丁。**限速/棘轮由调用方(dispositionGuard)先算好**再传入；本 store 只做 clamp 0-100。*/
+export interface DispositionPatch {
+  trustDelta?: number; trustSet?: number;
+  respectDelta?: number; respectSet?: number;
+  lustDelta?: number; lustSet?: number;
+  corruptionDelta?: number; corruptionSet?: number;
+}
+
 interface NpcState {
   npcs: Record<string, NpcRecord>;
   upsertNpc: (id: string, patch: Partial<NpcRecord>) => void;
   applyColumns: (id: string, cols: Record<string, unknown>) => void;
+  applyDisposition: (id: string, patch: DispositionPatch) => void;  // 四轴 clamp 0-100（限速已由 dispositionGuard 先算好）
   applySkeleton: (id: string, short: Record<string, unknown>) => void; // 登场骨架 npc.<id>={n,r,p,…}
   setScene: (id: string, onScene: boolean, turn?: number) => void;     // 登场=true / 退场=false
   setSchedule: (id: string, patch: { freqMode?: 'turn' | 'date'; freqInterval?: number }) => void;
@@ -334,6 +362,14 @@ export const useNpc = create<NpcState>()(
               if (Number.isFinite(n)) rec.favor = n;
               continue;
             }
+            // 四轴 disposition（信任/尊重/情欲/沉沦）：建档/校准的绝对赋值(clamp 0-100)；
+            // 每回合增量另走 applyDisposition + dispositionGuard 限速，不经此处。
+            const dispField = DISPOSITION_COLS[col];
+            if (dispField) {
+              const n = Number(rawVal);
+              if (Number.isFinite(n)) (rec as any)[dispField] = Math.max(0, Math.min(100, Math.round(n)));
+              continue;
+            }
             // 列31：inCombat（bool）
             if (col === '31') {
               rec.inCombat = rawVal === true || rawVal === 'true' || rawVal === 1;
@@ -364,6 +400,28 @@ export const useNpc = create<NpcState>()(
           //   同 upsertNpc 的"无名不建壳"守卫——堵住 favor.C22 / realm.C22 等短指令对**未建档** NPC 凭空冒编号空壳（幽灵）的源头。
           //   已存在的真名 NPC 用任意列更新照常（prev 存在→放行）；带真名列(1)的登场/建档照常（rec.name 已成真名→放行）。
           if (!s.npcs[id] && (!rec.name || rec.name === id)) return s;
+          return { npcs: { ...s.npcs, [id]: rec } };
+        }),
+
+      // 四轴对主角态度增量/绝对赋值（clamp 0-100）。限速/棘轮由 dispositionGuard 先算好最终 delta 再调本 action。
+      applyDisposition: (id, patch) =>
+        set((s) => {
+          const prev = s.npcs[id];
+          const rec = { ...(prev ?? defaultNpcRecord(id)) };
+          const clamp = (v: number) => Math.max(0, Math.min(100, Math.round(v)));
+          const step = (cur: number, delta?: number, setv?: number) => {
+            let v = cur;
+            if (typeof setv === 'number') v = setv;
+            if (typeof delta === 'number') v += delta;
+            return clamp(v);
+          };
+          rec.trust = step(rec.trust ?? 10, patch.trustDelta, patch.trustSet);
+          rec.respect = step(rec.respect ?? 10, patch.respectDelta, patch.respectSet);
+          rec.lust = step(rec.lust ?? 0, patch.lustDelta, patch.lustSet);
+          rec.corruption = step(rec.corruption ?? 0, patch.corruptionDelta, patch.corruptionSet);
+          rec.updatedAt = Date.now();
+          // 无名不建壳守卫（同 applyColumns）：对未建档 NPC 的态度指令不凭空冒空壳
+          if (!prev && (!rec.name || rec.name === id)) return s;
           return { npcs: { ...s.npcs, [id]: rec } };
         }),
 

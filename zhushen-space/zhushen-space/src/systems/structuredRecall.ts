@@ -8,6 +8,7 @@ import { effectiveAttrs, withAttrDelta } from './attrBonus';
 import { playerTreeAttrBonus, playerGrowthSummary } from '../store/skillTreeStore';
 import { playerTeamAttrBonus, playerTeamPerkAbilities } from '../store/adventureTeamStore';
 import { bioInnate, bioPower, bioStrengthLabel } from './bioStrength';
+import { dispositionLine } from './dispositionGuard';
 import { useResource } from '../store/resourceStore';
 import { playerResourceMax } from './playerVitals';
 
@@ -391,11 +392,14 @@ export function serializeNpcCard(
     nDerived && `衍生属性(六维+装备现算): 物攻${nDerived.patk} 物防${nDerived.pdef} 法攻${nDerived.matk} 法防${nDerived.mdef}`,
     a && `生物强度(前端按六维机械判定,勿改): ${bioStrengthLabel(bioInnate(a, npc.realm, lvFromRealm(npc.realm)), bioPower(effA))}`,
     `好感:${npc.favor}`,
+    `对主角态度·四轴(严格按当前阶段演绎·不跳级；沉沦=只增难减棘轮):${dispositionLine(npc)}`,
   ].filter(Boolean).join(' | ');
   // 基底外观为空 → 回退用容貌/肖像当常驻锚点，确保身高/体型等每回合注入（与主角同口径）
   const npcBaseLook = (npc.baseAppearance || npc.appearanceDetail || npc.appearance5 || '').trim();
   const detail = [
     npc.personality && `性格:${npc.personality}`,
+    npc.principles && `原则底线(独立于主角·据此守住立场·勿为讨好主角OOC软化):${npc.principles}`,
+    npc.sampleLines && `范例台词/口癖(语气基准·据此说话·别与他人同一腔调):${npc.sampleLines}`,
     npc.status && `当前状态:${npc.status}`,
     (npc.statusEffects?.length ?? 0) > 0 && `限时状态:${npc.statusEffects!.map((e) => `${e.name}${e.durationDesc ? `(${e.durationDesc})` : ''}`).join('、')}`,
     npc.callPlayer && `对主角称呼:${npc.callPlayer}`,

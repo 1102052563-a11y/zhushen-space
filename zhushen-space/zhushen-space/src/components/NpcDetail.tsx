@@ -1,5 +1,6 @@
 import { useState, useRef, useEffect, createContext, useContext, type ReactNode } from 'react';
 import { useNpc, type NpcRecord } from '../store/npcStore';
+import { stageOf, type DispAxis } from '../systems/dispositionGuard';
 import { useCharacters, RARITY_CLS, ELEMENT_CLS, SKILL_TIER_CLS, normSkillTier, type Deed } from '../store/characterStore';
 import { computeDerived, lvFromRealm, normalizeTier, tierFxClass, realmFromLevel, effectiveResource, fullMaxHp, fullMaxEp, TIERS, realAttrCapForTier, realAttrMult, attrCapForTier, ratioOf, hpCoefOf, epCoefOf, vitalFormula, npcBaseAttrs } from '../systems/derivedStats';
 import { computeAttrBreakdown, effectiveAttrs, ATTR_LABEL, ATTR_KEYS, type AttrBreak } from '../systems/attrBonus';
@@ -324,6 +325,8 @@ function NpcEditForm({ npc, onDone }: { npc: NpcRecord; onDone: () => void }) {
     innerThought: npc.innerThought ?? '', motiveNow: npc.motiveNow ?? '',
     shortGoal: npc.shortGoal ?? '', longGoal: npc.longGoal ?? '', background: npc.background ?? '',
     favor: String(npc.favor ?? 0),
+    trust: String(npc.trust ?? 10), respect: String(npc.respect ?? 10), lust: String(npc.lust ?? 0), corruption: String(npc.corruption ?? 0),
+    principles: npc.principles ?? '', sampleLines: npc.sampleLines ?? '',
     str: sNum(npc.attrs?.str), agi: sNum(npc.attrs?.agi), con: sNum(npc.attrs?.con),
     int: sNum(npc.attrs?.int), cha: sNum(npc.attrs?.cha), luck: sNum(npc.attrs?.luck),
     hp: sNum(npc.hp), maxHp: sNum(npc.maxHp), mp: sNum(npc.mp), maxMp: sNum(npc.maxMp),
@@ -363,6 +366,13 @@ function NpcEditForm({ npc, onDone }: { npc: NpcRecord; onDone: () => void }) {
     };
     const fav = Number(f.favor);
     if (Number.isFinite(fav)) patch.favor = Math.max(-100, Math.min(100, Math.round(fav)));
+    // 四轴对主角态度：手动编辑=玩家权威，直接 clamp 0-100 写入（不经 dispositionGuard 限速，那是给 AI 每回合增量用的）
+    for (const ax of ['trust', 'respect', 'lust', 'corruption'] as const) {
+      const n = Number((f as any)[ax]);
+      if (Number.isFinite(n)) (patch as any)[ax] = Math.max(0, Math.min(100, Math.round(n)));
+    }
+    patch.principles = f.principles.trim();
+    patch.sampleLines = f.sampleLines.trim();
     // 六维：任一非空才写入（避免给本无六维的 NPC 凭空写 0）
     if (ATTR_EDIT.some(({ key }) => (f as any)[key] !== '')) {
       const base: PlayerAttrs = { ...(npc.attrs ?? { str: 0, agi: 0, con: 0, int: 0, cha: 0, luck: 0 }) };
@@ -470,6 +480,19 @@ function NpcEditForm({ npc, onDone }: { npc: NpcRecord; onDone: () => void }) {
         <ERow label={`好感度（-100 ~ 100）：当前 ${Number(f.favor) || 0}`}>
           <input type="range" min={-100} max={100} step={1} value={Number(f.favor) || 0} onChange={(e) => set({ favor: e.target.value })} className="w-full accent-god" />
         </ERow>
+      </Section>
+
+      <Section title="对主角态度 · 四轴" hint="信任/尊重/情欲(即时可回落)/沉沦(棘轮·只增难减)；正文按当前阶段演绎、不跳级">
+        <ERow label="原则底线（独立于主角·反谄媚锚点）"><textarea rows={2} className={EDIT_INP} value={f.principles} onChange={(e) => set({ principles: e.target.value })} placeholder="TA 绝不会做的事 / 立场红线（独立于主角）" /></ERow>
+        <ERow label="范例台词 / 口癖（锁语气·治同质化）"><textarea rows={2} className={EDIT_INP} value={f.sampleLines} onChange={(e) => set({ sampleLines: e.target.value })} placeholder="2~3 句代表台词 + 口癖" /></ERow>
+        {([['trust', '信任'], ['respect', '尊重'], ['lust', '情欲'], ['corruption', '沉沦']] as const).map(([ax, zh]) => {
+          const v = Number((f as any)[ax]) || 0;
+          return (
+            <ERow key={ax} label={`${zh}（0 ~ 100）：当前 ${v} · ${stageOf(ax, v).label}`}>
+              <input type="range" min={0} max={100} step={1} value={v} onChange={(e) => set({ [ax]: e.target.value } as any)} className="w-full accent-god" />
+            </ERow>
+          );
+        })}
       </Section>
 
       <Section title="资源 · 点数" hint="留空 = 保持不变">
@@ -1334,6 +1357,32 @@ function AttrTab({ npc: npcProp, realm }: { npc: NpcRecord; realm: ReturnType<ty
           </div>
         </div>
       </Section>
+
+      <Section title="对主角态度 · 四轴" hint="信任/尊重/情欲(即时)/沉沦(棘轮)·正文按当前阶段演绎、不跳级">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-2 text-[13px]">
+          {([['trust', '信任'], ['respect', '尊重'], ['lust', '情欲'], ['corruption', '沉沦']] as const).map(([ax, zh]) => {
+            const v = ((npc as any)[ax] ?? (ax === 'trust' || ax === 'respect' ? 10 : 0)) as number;
+            const st = stageOf(ax as DispAxis, v);
+            return (
+              <div key={ax} className="flex items-center gap-2">
+                <span className="text-slate-400 w-8 shrink-0">{zh}</span>
+                <div className="flex-1 relative h-2 bg-void/60 rounded-full overflow-hidden">
+                  <div className={`absolute inset-y-0 left-0 rounded-full ${ax === 'corruption' ? 'bg-fuchsia-500/70' : 'bg-god/60'}`} style={{ width: `${v}%` }} />
+                </div>
+                <span className="text-slate-200 font-mono w-7 text-right shrink-0">{v}</span>
+                <span className="text-god/80 w-12 shrink-0">{st.label}</span>
+              </div>
+            );
+          })}
+        </div>
+      </Section>
+
+      {(npc.principles || npc.sampleLines) && (
+        <Section title="人设锚点" hint="原则底线 / 范例台词 · 治谄媚·同质化">
+          {npc.principles && <div className="mb-2"><div className="text-[11px] text-slate-400 mb-0.5">原则底线（独立于主角）</div><SegmentedText text={npc.principles} fallback="—" /></div>}
+          {npc.sampleLines && <div><div className="text-[11px] text-slate-400 mb-0.5">范例台词 / 口癖</div><SegmentedText text={npc.sampleLines} fallback="—" /></div>}
+        </Section>
+      )}
 
       {/* 属性里程碑·四选一逆天天赋（NPC，玩家替其选）：一次确认可能跨多个里程碑 → 逐个出列 */}
       {pickerQueue[0] && (
