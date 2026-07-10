@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react';
 import { useChest, CHEST_BATCH_MAX, type ChestProduct } from '../store/chestStore';
 import { useItems, gradeColorClass, splitAffixEntries } from '../store/itemStore';
-import { isChest, chestGradeNum, luckBonus, luckTierLabel } from '../systems/chestEngine';
+import { isChest, chestGradeNum, luckBonus, luckTierLabel, chestCategoryLock } from '../systems/chestEngine';
 import { gradeName } from '../systems/craftEngine';
 import { playerLuck } from '../systems/playerVitals';
 
@@ -139,6 +139,7 @@ export default function ChestPanel({ onClose, onOpen, onConfirm }: Props) {
                 <div className="space-y-1.5">
                   {chests.map((it) => {
                     const cap = chestGradeNum(it);
+                    const lock = chestCategoryLock(it);
                     const stackQty = Math.max(1, Math.floor(it.quantity) || 1);
                     const count = selection[it.id] || 0;
                     return (
@@ -151,6 +152,7 @@ export default function ChestPanel({ onClose, onOpen, onConfirm }: Props) {
                               <span className={gradeColorClass(it.gradeDesc)}>{it.gradeDesc || '未标品级'}</span>
                               <span>·</span>
                               <span>最高可开：<span className={gradeColorClass(gradeName(cap))}>{gradeName(cap)}</span></span>
+                              {lock && <><span>·</span><span className="text-god/70">内含：{lock.join('/')}</span></>}
                             </div>
                           </div>
                         </button>

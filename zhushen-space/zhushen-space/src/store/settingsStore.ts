@@ -360,6 +360,7 @@ interface SettingsState {
   skipNarrativeThinking: boolean;   // 正文末尾预填充 </think>，让思考模型跳过原生思维链直接出正文（提速·省 token）
   plotGuidance: boolean;            // 剧情指导：正文生成前先跑一次"剧情优化建议"调用 → 像叙事回忆一样注入主正文（仅一次正文生成·受指导）
   guidancePrompt: string;           // 剧情指导自定义提示词（留空=用内置 PLOT_GUIDANCE_RULE）
+  choicesPrompt: string;            // 剧情选项自定义提示词·**完全覆盖**（留空=用内置 PLOT_CHOICES_RULE；填了则整段替换掉内置的选项规则）
   // 细纲：正文生成前先跑一次「细纲师」（信息注入与正文一致·独立API·A2：不带正文预设只发 OUTLINE_GEN_RULE）→ 弹窗给玩家编辑 → 确认后作为「必须遵循」深注入正文。与剧情指导/数据库推进三选一互斥（UI 侧强制）。
   outlineEnabled: boolean;
   outlinePrompt: string;            // 细纲生成自定义提示词·**完全覆盖**（留空=用内置 OUTLINE_GEN_RULE；填了则整段替换掉内置的人设/COT/格式）
@@ -399,6 +400,7 @@ interface SettingsState {
   setSkipNarrativeThinking: (v: boolean) => void;
   setPlotGuidance: (v: boolean) => void;
   setGuidancePrompt: (v: string) => void;
+  setChoicesPrompt: (v: string) => void;
   setOutlineEnabled: (v: boolean) => void;
   setOutlinePrompt: (v: string) => void;
   setOutlineBias: (v: string) => void;
@@ -795,6 +797,7 @@ export const useSettings = create<SettingsState>()(
       skipNarrativeThinking: false,
       plotGuidance: false,
       guidancePrompt: '',
+      choicesPrompt: '',
       outlineEnabled: false,
       outlinePrompt: '',
       outlineBias: '',
@@ -979,6 +982,7 @@ export const useSettings = create<SettingsState>()(
       setSkipNarrativeThinking: (v) => set({ skipNarrativeThinking: v }),
       setPlotGuidance: (v) => set({ plotGuidance: v }),
       setGuidancePrompt: (v) => set({ guidancePrompt: v }),
+      setChoicesPrompt: (v) => set({ choicesPrompt: v }),
       setOutlineEnabled: (v) => set({ outlineEnabled: v }),
       setOutlinePrompt: (v) => set({ outlinePrompt: v }),
       setOutlineBias: (v) => set({ outlineBias: v }),

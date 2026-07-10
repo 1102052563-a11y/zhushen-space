@@ -300,7 +300,14 @@ export const useMisc = create<MiscState>()(
           // boundary=0（尚未打过世界边界戳，多为旧存档）时不降级，避免把新世界的第一条主线误伤成支线；边界一旦建立（进世界/结算）即生效
           const worldHasMain = boundary > 0 && (s.tasks.some((x) => isMainQuest(x) && (x.addedAt || 0) > boundary)
             || s.archivedTasks.some((x) => isMainQuest(x) && x.settledAt > boundary));
-          const nt = (isMainQuest(t) && worldHasMain) ? { ...t, kind: '支线' as const } : t;
+          let nt = (isMainQuest(t) && worldHasMain) ? { ...t, kind: '支线' as const } : t;
+          // 新建·铁则「全新任务的环只能：第1环 active、其余一律 planned」——杜绝 AI 刚建任务就把好几环标成 done/达成（治"刚登记就说打完了"的胡乱推进）。
+          // 仅对"进行中"的全新任务重置；一次性给出的已完成/已失败任务(随后 settleTask 归档)不动。
+          if (Array.isArray(nt.rings) && nt.rings.length && !/完成|达成|成功|失败|放弃|作废|取消/.test(nt.status || '')) {
+            const sorted = [...nt.rings].sort((a, b) => a.idx - b.idx);
+            const fixed = sorted.map((r, idx) => ({ ...r, status: (idx === 0 ? 'active' : 'planned') as QuestRing['status'] }));
+            nt = { ...nt, rings: fixed, currentRing: fixed[0]?.idx ?? 1 };
+          }
           next.push(nt);
           return { tasks: next };
         }),

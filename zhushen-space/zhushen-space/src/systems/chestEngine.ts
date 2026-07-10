@@ -79,10 +79,11 @@ export function chestGradeNum(it?: InventoryItem | null): number {
 
 /* ── 三、开箱产出计划（喂给 AI 的"开几件、逐件品级上限、建议类别"）── */
 export interface ChestSlot {
-  category: ItemCategory | string;   // 建议类别（AI 可按宝箱主题微调为更贴切的合法类别）
+  category: ItemCategory | string;   // 类别（locked=true 时锁死·AI 不得改；否则为建议·AI 可微调为更贴切的合法类别）
   gradeDesc: string;                 // 该件产物的品级（已锁死，AI 不得越级）
   gradeNum: number;
   note: string;                      // 该槽说明（主奖/附带）
+  locked: boolean;                   // 类别是否锁定（宝箱明示内含品类时为 true，AI/前端都不得改类别）
 }
 export interface ChestLootPlan {
   chestId: string;
@@ -145,7 +146,7 @@ const BASE_POOL: CatWeight[] = [
   ['武器', 3], ['防具', 3], ['饰品', 2], ['材料', 3], ['消耗品', 3], ['宝石', 2], ['工具', 1], ['特殊物品', 1],
 ];
 function themedPool(chest: InventoryItem): CatWeight[] {
-  const s = `${chest.name ?? ''} ${chest.subType ?? ''} ${(chest.tags ?? []).join(' ')} ${chest.intro ?? ''}`;
+  const s = `${chest.name ?? ''} ${chest.subType ?? ''} ${(chest.tags ?? []).join(' ')} ${chest.intro ?? ''} ${chest.effect ?? ''}`;
   const pool = BASE_POOL.map(([c, w]) => [c, w] as CatWeight);
   const boost = (cat: ItemCategory, mul: number) => { const e = pool.find((p) => p[0] === cat); if (e) e[1] = Math.round(e[1] * mul); };
   if (/(武器|兵器|军械|刀|剑|枪|弓)/.test(s)) boost('武器', 3);
@@ -165,11 +166,36 @@ function pickWeighted(pool: CatWeight[]): ItemCategory {
   return pool[0][0];
 }
 
+/* ── 宝箱"声明的内含品类"锁定 ──
+   若宝箱的【名称/子类型/标签】或【简介/效果】里明示了它只装某类物品，返回锁定的类别集合，开箱只出这些类别；
+   否则返回 null（泛宝箱·走混合池·AI 可微调）。治"消耗品补给箱却开出装备"——身份(名称)优先于简介 flavor 判定。
+   例：「消耗品补给箱」「军械箱」「材料宝箱」→ 锁定对应品类；「藏宝箱/百宝箱/福袋」无明示 → null。 */
+const CAT_DECL: Array<[RegExp, ItemCategory[]]> = [
+  [/消耗品|药剂|丹药|药箱|口粮|食盒|急救|恢复剂/, ['消耗品']],
+  [/补给|物资|军需/, ['消耗品', '材料']],
+  [/材料箱|材料包|材料宝箱|矿[箱包]|锻材|原料|工料/, ['材料']],
+  [/军械|兵器|武器/, ['武器']],
+  [/护甲|铠甲|防具/, ['防具']],
+  [/首饰|饰品|珠宝/, ['饰品']],
+  [/宝石|晶石|灵晶/, ['宝石']],
+  [/工具箱|器械|装置箱/, ['工具']],
+  [/载具|战车|坐骑/, ['载具']],
+  [/装备|军备|披挂/, ['武器', '防具', '饰品']],
+];
+export function chestCategoryLock(it?: InventoryItem | null): ItemCategory[] | null {
+  if (!it) return null;
+  const idHay = `${it.name ?? ''} ${it.subType ?? ''} ${(it.tags ?? []).join(' ')}`;
+  for (const [re, cats] of CAT_DECL) if (re.test(idHay)) return cats;   // 结构化身份（名称/子类型/标签）优先
+  const descHay = `${it.intro ?? ''} ${it.effect ?? ''}`;
+  for (const [re, cats] of CAT_DECL) if (re.test(descHay)) return cats;   // 再看简介/效果里的明示
+  return null;
+}
+
 /**
  * 开箱掷计划（开启时掷一次、锁进 session；确认前不动任何东西）。
  * - capGrade = 宝箱自身品级：本箱产物一律 ≤ 此档，绝不越级。
  * - 第 1 件是"主奖"：品级 = cap 或 cap-1；其余是"附带"：品级 = cap-1..cap-3（下探至白色）。
- * - 每件的建议类别按主题加权抽取（AI 可微调为更贴切的合法类别）。
+ * - 类别：若宝箱明示内含品类（chestCategoryLock）→ 锁定只出该类（locked=true）；否则按主题加权抽取（AI 可微调）。
  */
 export function rollChestPlan(chest: InventoryItem, luck = 0): ChestLootPlan {
   const chestGrade = chestGradeNum(chest);
@@ -178,7 +204,10 @@ export function rollChestPlan(chest: InventoryItem, luck = 0): ChestLootPlan {
   const baseCount = rollCount(cap);
   const luckExtra = (Math.random() < B ? 1 : 0) + (Math.random() < B * 0.4 ? 1 : 0);   // 幸运额外件 0~2
   const count = baseCount + luckExtra;
-  const pool = themedPool(chest);
+  const lockSet = chestCategoryLock(chest);   // 宝箱声明的内含品类（治"消耗品箱却开出装备"）
+  const pool: CatWeight[] = lockSet
+    ? lockSet.map((c, i) => [c, Math.max(1, 3 - i)] as CatWeight)   // 锁定集合：靠前的类别权重更高
+    : themedPool(chest);
   const slots: ChestSlot[] = Array.from({ length: count }, (_, i) => {
     let g: number;
     if (i === 0) {
@@ -191,7 +220,7 @@ export function rollChestPlan(chest: InventoryItem, luck = 0): ChestLootPlan {
     }
     const cat = pickWeighted(pool);
     const note = i === 0 ? '本箱主奖（贴近品级上限）' : i >= baseCount ? '幸运额外产物（气运加身）' : '附带产物（略低于上限）';
-    return { category: cat, gradeDesc: gradeName(g), gradeNum: g, note };
+    return { category: cat, gradeDesc: gradeName(g), gradeNum: g, note, locked: !!lockSet };
   });
   return {
     chestId: chest.id, chestName: chest.name, chestGrade,

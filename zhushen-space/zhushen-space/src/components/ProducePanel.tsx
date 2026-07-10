@@ -35,8 +35,8 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
 
 /** 通用立绘上传（FileReader → shrinkDataUrl → onPick；大图由各 store 存 IndexedDB）。 */
 /* 通用·多图立绘上传（可多张·第一张为封面·展示时自动轮播）。店招/货品/娼妇/铁匠共用；父组件传 onAdd/onRemoveAt 接各自 store 图集动作。 */
-function MultiImgUpload({ imgs, onAdd, onRemoveAt, emoji, max = MAX_GALLERY }: {
-  imgs: string[]; onAdd: (d: string) => void; onRemoveAt: (i: number) => void; emoji: string; max?: number;
+function MultiImgUpload({ imgs, onAdd, onRemoveAt, emoji, max = MAX_GALLERY, className }: {
+  imgs: string[]; onAdd: (d: string) => void; onRemoveAt: (i: number) => void; emoji: string; max?: number; className?: string;
 }) {
   const ref = useRef<HTMLInputElement>(null);
   const onFiles = async (files: FileList | null) => {
@@ -52,7 +52,7 @@ function MultiImgUpload({ imgs, onAdd, onRemoveAt, emoji, max = MAX_GALLERY }: {
     if (ref.current) ref.current.value = '';
   };
   return (
-    <div className="w-full space-y-1.5">
+    <div className={`${className ?? 'w-full'} space-y-1.5`}>
       <div className="flex flex-wrap gap-1.5">
         {imgs.map((src, i) => (
           <div key={i} className="relative w-20 h-24 rounded-lg border border-edge bg-void overflow-hidden">
@@ -200,7 +200,7 @@ function GoodRow({ shopId, good }: { shopId: string; good: ShopGood }) {
 
   return (
     <div className="rounded-xl border border-edge bg-panel p-3 flex max-lg:flex-col gap-3">
-      <MultiImgUpload emoji={good.kind === 'npc' ? '🧑' : '📦'} imgs={good.images ?? (good.image ? [good.image] : [])}
+      <MultiImgUpload className="shrink-0 max-lg:w-full lg:w-44" emoji={good.kind === 'npc' ? '🧑' : '📦'} imgs={good.images ?? (good.image ? [good.image] : [])}
         onAdd={(d) => addGoodImage(shopId, good.id, d)} onRemoveAt={(i) => removeGoodImage(shopId, good.id, i)} />
       <div className="flex-1 min-w-0 space-y-2">
         <div className="flex items-center gap-2">
@@ -297,7 +297,7 @@ function GirlRow({ shopId, girl }: { shopId: string; girl: JoyGirl }) {
 
   return (
     <div className="rounded-xl border border-pink-500/20 bg-panel p-3 flex max-lg:flex-col gap-3">
-      <MultiImgUpload emoji="💋" imgs={girl.images ?? (girl.portrait ? [girl.portrait] : [])}
+      <MultiImgUpload className="shrink-0 max-lg:w-full lg:w-44" emoji="💋" imgs={girl.images ?? (girl.portrait ? [girl.portrait] : [])}
         onAdd={(d) => addGirlImage(shopId, girl.id, d)} onRemoveAt={(i) => removeGirlImage(shopId, girl.id, i)} />
       <div className="flex-1 min-w-0 space-y-2">
         <div className="flex items-center gap-2">
@@ -340,7 +340,7 @@ function SmithEditor({ shopId, smith }: { shopId: string; smith: ShopSmith }) {
   return (
     <div className="rounded-xl border border-amber-500/20 bg-panel p-3 space-y-3">
       <div className="flex max-lg:flex-col gap-3">
-        <MultiImgUpload emoji="⚒️" imgs={smith.portraits ?? (boss.portrait ? [boss.portrait] : [])}
+        <MultiImgUpload className="shrink-0 max-lg:w-full lg:w-44" emoji="⚒️" imgs={smith.portraits ?? (boss.portrait ? [boss.portrait] : [])}
           onAdd={(d) => addSmithImage(shopId, d)} onRemoveAt={(i) => removeSmithImage(shopId, i)} />
         <div className="flex-1 min-w-0 space-y-2">
           <div className="flex items-center gap-2">

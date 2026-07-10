@@ -83,6 +83,7 @@ function copyBuiltinPresets(): Plugin {
     ['../../世界书/世界选择.json', 'worldgen.json'],
     // 正文文本预设
     ['../../正文预设/双人成行 V5.2 —春和景明(5.29） (1).json', 'textpreset.json'],
+    ['../../正文预设/轮回乐园 Alu v2.0.json', 'zhushen-alu.json'],   // 内嵌「轮回乐园 Alu v2.0」为内置正文预设（默认不激活，玩家自选）
     // 演化预设
     ['../../演化预设/主角演化.json', 'player.json'],
     ['../../演化预设/物品管理.json', 'item.json'],

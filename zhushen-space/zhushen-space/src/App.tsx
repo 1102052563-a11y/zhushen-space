@@ -475,6 +475,7 @@ async function loadBuiltinDefaults() {
       if (!has('轮回乐园·Claude')) { const c = await grab('zhushen-claude.json'); if (c) useSettings.getState().importTextPreset(c, '轮回乐园·Claude', true, false); }
       if (!has('轮回乐园·Gemini')) { const g = await grab('zhushen-gemini.json'); if (g) useSettings.getState().importTextPreset(g, '轮回乐园·Gemini', true, false); }
       if (!has('轮回乐园·DeepSeek')) { const d = await grab('zhushen-deepseek.json'); if (d) useSettings.getState().importTextPreset(d, '轮回乐园·DeepSeek', true, false); }
+      if (!has('轮回乐园 Alu v2.0')) { const alu = await grab('zhushen-alu.json'); if (alu) useSettings.getState().importTextPreset(alu, '轮回乐园 Alu v2.0', true, false); }
       if (!has('双人成行 V7.1—长风渡')) { const sc = await grab('shuangren-changfeng.json'); if (sc) useSettings.getState().importTextPreset(sc, '双人成行 V7.1—长风渡', true, false); }
     }
     // 自动去重（仅清内置补种自身的重复，绝不碰玩家的预设）：玩家导入/编辑/激活固化过的(非 builtin)一律保留；
@@ -917,6 +918,7 @@ const QUEST_PLANNING_RULE = `
 - **何时规划主线**：仅当主角**真正进入一个具体任务世界（衍生世界，非枢纽）**——【进入新世界信号】=是、或本轮正文明确把主角投放进了一个新任务世界，且【当前任务列表】里**没有**属于当前世界的 active 主线时——把**该任务世界自身的核心目标**（用该世界真实的地名/反派/势力，绝不用框架套话）立成一条主线，**一次把整条路线图（总环数＋终局＋每一环的目标/奖惩）规划死、之后不再改**：
   · 用 set 新建，带 \`kind:"主线"\`、\`finale\`(终局/最后一环的 climax 目标)、\`currentRing:1\`、\`rings\`(**主线一般 6~10 个环、长线到 12**——别只建 3~5 环的短主线，主线要够长够主角在本世界经历一整段；多数为强制环 + 1~3 个贪婪环，见下)。**总环数、finale、各环内容一旦定下就固定不变、锁死**。
   · **一次把全部环写完整（不留占位）**：rings 建满 N 项，**每一环都给全** idx / goal / status / reward(六选三) / penalty(三类)——第1环 status="active"，其余 status="planned"。**不要再留「（待剧情展开后规划）」这类占位**：整条线一次想清楚、一次写死；后面的环即便暂时写得概略些也要给出**实际目标**（而非占位词），创建后一律不再改动其内容。
+  · **【创建时绝不标已完成·铁则·最高优先】新建任务的环，除第1环 active 外其余一律 planned，\`currentRing\`=1**：**绝不能在创建这一刻把任何环 status 写成 done/已完成/达成/成功**——哪怕第1环是"登记/报到/入场"这种低门槛，主角没在正文里真做过就是 active(未完成)而非 done。环**只能靠后续正文明确写出主角达成该环目标时、用 ringAdvance 一环一环推进**，绝不允许"刚建好就好几环已完成"。（前端已强制把新建任务重置成"第1环 active、其余 planned"，写错也会被纠正——但你本就该写对。）
   · **各环是规模/难度递增的"不同挑战"，不是一个目标的拆分步骤**——例：清剿哥布林巢穴 →(难度升)清剿大型巢穴 → 终局 牧场守卫战·硬抗海量哥布林；**绝不要写成 侦查→赶路→清剿 这类琐碎子步骤**（那会让推进很墨迹）。
   · **强制环 vs 贪婪环（结构命门，每环必标其一）**：一条主线 = **4~8 个强制环** + 1~3 个**贪婪环(标 optional:true)**——主线要够长、让主角在本世界经营/成长一整段，别 2~3 环就速通离场：
       - **强制环**(不写 optional)：保命底线、必经，**失败=死亡或重罚**(penalty 三类)。**多段递进、把主线拉够长**：①入场钩子(低难度，把主角钉进本世界剧情、绑定动机) ②立足站稳(结识势力、拿据点/身份) ③中段升级(硬仗，逼用本世界资源/规则、击杀中boss/夺关键物) ④转折危机(局势恶化、代价、抉择——可按世界体量铺成好几环) ⑤高潮(最高强制难度，boss战/剧情爆点)。**中段"升级/转折"别压成一两环**，按世界体量铺开。**打完高潮＝主线达成、可离场**；finale 写的就是高潮目标。
@@ -2512,12 +2514,19 @@ export default function App() {
           效果: chest?.effect, 标签: chest?.tags,
         }, null, 1);
         const slotsText = plan.slots.map((s, i) =>
-          `槽${i + 1}：建议类别=${s.category}（可按宝箱主题调成更贴切的合法类别）｜品级上限=${s.gradeDesc}（**不得越级**，可略低）｜${s.note}`).join('\n');
+          (s.locked
+            ? `槽${i + 1}：**类别锁定=${s.category}（本宝箱明示只装此类·绝不可改成其它类别）**`
+            : `槽${i + 1}：建议类别=${s.category}（可按宝箱主题调成更贴切的合法类别）`)
+          + `｜品级上限=${s.gradeDesc}（**不得越级**，可略低）｜${s.note}`).join('\n');
+        const declaredCats = [...new Set(plan.slots.filter((s) => s.locked).map((s) => s.category))];   // 宝箱声明的内含品类
         const system = CHEST_OPEN_RULE + '\n' + ITEM_FIXED_FORMAT_RULE + '\n' + EQUIP_CODEX;
         const user = [
           `【开启者】${prof.name || '主角'}　阶位:${prof.tier || '—'}　职业:${prof.identity || '—'}　等级:Lv.${prof.level ?? '—'}`,
           `【本次开启的宝箱·完整信息】\n${chestInfo}`,
           `【本箱品级 → 产出上限】宝箱品级＝${plan.capName}（序号 ${plan.capGrade}/15）——**本箱可开出的最高品级就是 ${plan.capName}**，所有产物一律不得高于此档（这是"不同等级宝箱最高能开出的物品"的硬上限）。`,
+          declaredCats.length
+            ? `【本宝箱声明的内含品类·铁则】通读宝箱信息后可知本箱明示只装：${declaredCats.join('、')}。**所有开出之物必须属于上述品类，绝不可开出不符品类之物**（例如"消耗品补给箱"绝不开出武器/防具/饰品等装备）。下方各产出槽的"类别锁定"即据此而来，必须照锁定类别生成。`
+            : '',
           plan.luckBonus > 0
             ? `【开启者气运】幸运 ${plan.luck}（开箱加成 +${Math.round(plan.luckBonus * 100)}%${plan.luckExtra > 0 ? `·气运额外多开 ${plan.luckExtra} 件` : ''}）——系统已把这份气运折入本次产出的件数与品级档位（产物更贴近品级上限）。你只需按下方【产出槽】给定的品级如实填物，**不必也不要再据幸运额外拔高品级或越过上限**；叙述/命名上可略体现"气运加身、开出之物格外称心"。`
             : '',
@@ -2535,7 +2544,7 @@ export default function App() {
         const products = plan.slots.map((slot, n) => {
           const j = arr.find((x: any) => parseInt(String(x?.slot), 10) === n + 1) || arr[n] || {};
           let cat = flattenAiText(j.category).trim();
-          if (!ITEM_CATEGORIES.includes(cat as any)) cat = String(slot.category);   // AI 给的类别非法 → 回退建议类别
+          if (slot.locked || !ITEM_CATEGORIES.includes(cat as any)) cat = String(slot.category);   // 类别锁定 或 AI 类别非法 → 强制用槽锁定/建议类别
           const isEquip = EQUIP.includes(cat);
           return {
             name: flattenAiText(j.name).slice(0, 40) || `${slot.gradeDesc}·宝物`,
@@ -6765,7 +6774,7 @@ ${lines}`;
     const sysParts = [CHOICES_FANFIC_SYSTEM];
     if (wantFanfic) sysParts.push(FANFIC_RULE);
     if (wantFact) sysParts.push(FACT_RULE);
-    if (wantChoices) sysParts.push(PLOT_CHOICES_RULE);
+    if (wantChoices) sysParts.push(ss.choicesPrompt?.trim() || PLOT_CHOICES_RULE);   // 玩家在设置里自定义了就整段替换，否则用内置
     if (wantTheater) {
       sysParts.push(MINI_THEATER_RULE);
       const picked = pickTheaterCharacters(await loadLunhuiCharacters());   // 从 wiki 人物条目随机抽 1~多位（多位则同世界·有关联）

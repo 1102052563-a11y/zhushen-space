@@ -4,7 +4,7 @@ import { apiChatFallback, fetchWithProxy, gwProxyBase } from '../systems/apiChat
 import { READING_FONTS, readingFontStack } from '../systems/readingFonts';
 import { UI_THEMES } from '../systems/uiThemes';
 import { toSTPreset } from '../systems/stPresetExport';
-import { ADVANCE_PRESET_BUILTINS } from '../promptRules';
+import { ADVANCE_PRESET_BUILTINS, PLOT_CHOICES_RULE } from '../promptRules';
 import { useDbAdvance } from '../store/dbAdvanceStore';   // 数据库推进管线（Stitches 规划层）
 import VariableManager from './VariableManager';
 import ApiRoutePicker from './ApiRoutePicker';
@@ -1413,6 +1413,8 @@ function TextApiSection() {
   const setFactCheck       = useSettings((s) => s.setFactCheck);
   const miniTheater        = useSettings((s) => s.miniTheater);
   const setMiniTheater     = useSettings((s) => s.setMiniTheater);
+  const choicesPrompt      = useSettings((s) => s.choicesPrompt);
+  const setChoicesPrompt   = useSettings((s) => s.setChoicesPrompt);
   const narrativePov       = useSettings((s) => s.narrativePov);
   const setNarrativePov    = useSettings((s) => s.setNarrativePov);
 
@@ -1500,6 +1502,39 @@ function TextApiSection() {
           <div className="text-sm text-slate-200">选项 / 同人 / 事实 / 小剧场 · 共用 API 路由</div>
           <div className="text-xs text-dim">四者共用同一接口、正文生成后只调用一次。留空则复用上面的「正文 API」。</div>
           <ApiRoutePicker routeKey="plot" />
+        </div>
+      )}
+
+      {plotChoices && (
+        <div className="p-3 bg-panel border border-fuchsia-700/40 rounded-lg space-y-2">
+          <div className="flex items-center justify-between gap-2">
+            <div className="text-sm text-slate-200">🎭 剧情选项提示词（自定义 · 完全覆盖）</div>
+            <div className="flex items-center gap-2 shrink-0">
+              <button
+                onClick={() => setChoicesPrompt(PLOT_CHOICES_RULE)}
+                className="text-[11px] font-mono px-2 py-1 rounded-md border border-fuchsia-600/40 text-fuchsia-200/90 hover:bg-fuchsia-600/15 transition-colors">
+                载入内置默认
+              </button>
+              {choicesPrompt.trim() && (
+                <button
+                  onClick={() => setChoicesPrompt('')}
+                  className="text-[11px] font-mono px-2 py-1 rounded-md border border-edge text-dim hover:text-slate-200 transition-colors">
+                  清空/恢复默认
+                </button>
+              )}
+            </div>
+          </div>
+          <div className="text-xs text-dim">
+            <b>留空 = 用内置默认规则</b>（人设一致性 / 能力运用 / 原著接轨 / 8 选项分工 / H 为 18+ 等）。想自己改选项的口味、数量口径、方向分工、NSFW 尺度就写在这里——<b>填了则整段替换掉内置规则</b>。点「载入内置默认」可先把内置规则填进来再改。
+            <br /><span className="text-fuchsia-300/70">注意：自定义时请保留结尾输出 <code>&lt;choices&gt;</code> 块、A~H 逐行的格式，否则前端解析不到选项。</span>
+          </div>
+          <textarea
+            value={choicesPrompt}
+            onChange={(e) => setChoicesPrompt(e.target.value)}
+            rows={8}
+            placeholder="（留空 = 用内置默认剧情选项提示词；点上方「载入内置默认」可载入后再改）"
+            className="w-full px-3 py-2 bg-black/30 border border-edge rounded-md text-sm text-slate-200 placeholder:text-dim/40 font-mono resize-y focus:border-fuchsia-600/50 focus:outline-none"
+          />
         </div>
       )}
 

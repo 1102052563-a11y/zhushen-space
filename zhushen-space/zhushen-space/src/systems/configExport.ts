@@ -172,6 +172,7 @@ function settingsExtract(s: any): any {
     skipNarrativeThinking: s.skipNarrativeThinking,
     plotGuidance: s.plotGuidance,
     guidancePrompt: s.guidancePrompt,
+    choicesPrompt: s.choicesPrompt,
     outlineEnabled: s.outlineEnabled,
     outlinePrompt: s.outlinePrompt,
     outlineBias: s.outlineBias,

@@ -41,7 +41,7 @@ export default function WorldCardView({ worlds, index, onPrev, onNext, onJump, o
   const [profEditing, setProfEditing] = useState(false);   // 职业任务区的编辑开关
 
   return (
-    <div className="absolute inset-0 flex flex-col items-center justify-center bg-void/90 backdrop-blur-sm px-6">
+    <div className="absolute inset-0 flex flex-col items-center justify-center bg-void/90 backdrop-blur-sm px-6 max-lg:px-2 py-3">
       {/* 关闭 */}
       <button
         onClick={onClose}
@@ -57,7 +57,7 @@ export default function WorldCardView({ worlds, index, onPrev, onNext, onJump, o
       </div>
 
       {/* 卡片 + 左右箭头 */}
-      <div className="flex items-stretch gap-4 w-full max-w-4xl" style={{ maxHeight: 'calc(100vh - 170px)' }}>
+      <div className="flex items-stretch gap-4 max-lg:gap-1.5 w-full max-w-4xl min-h-0 max-h-[calc(100%-2.75rem)]">
         {/* 左箭头 */}
         <button
           onClick={onPrev}
@@ -190,10 +190,10 @@ export default function WorldCardView({ worlds, index, onPrev, onNext, onJump, o
           </div>
 
           {/* ── 底部按钮 ── */}
-          <div className="px-8 py-3 border-t border-edge flex flex-wrap items-center justify-center gap-3 shrink-0">
+          <div className="px-8 max-lg:px-3 py-3 max-lg:py-2.5 border-t border-edge flex flex-wrap items-center justify-center gap-3 max-lg:gap-2 shrink-0">
             <button
               onClick={() => setEditing((v) => !v)}
-              className={`px-4 py-2.5 border text-base rounded-xl font-mono transition-colors ${
+              className={`px-4 py-2.5 max-lg:px-3 max-lg:py-2 border text-base max-lg:text-[13px] rounded-xl font-mono transition-colors ${
                 editing ? 'border-god/60 text-god bg-god/15' : 'border-edge text-dim hover:border-god/40 hover:text-god'
               }`}
             >
@@ -204,7 +204,7 @@ export default function WorldCardView({ worlds, index, onPrev, onNext, onJump, o
                 onClick={() => !genBusy && onGenWorldview(index, world)}
                 disabled={genBusy}
                 title="据主角当前阶位/等级 + 本卡信息，生成一份世界观骨架（剧情走向/势力/人物·性格锚点·行为特征）。进入此世界后自动注入正文最深处；可在右侧「世界记录」查看。"
-                className={`px-4 py-2.5 border text-base rounded-xl font-mono transition-colors ${
+                className={`px-4 py-2.5 max-lg:px-3 max-lg:py-2 border text-base max-lg:text-[13px] rounded-xl font-mono transition-colors ${
                   genBusy ? 'border-violet-400/40 text-violet-300/60 cursor-wait'
                   : hasWorldview ? 'border-violet-400/50 text-violet-200 bg-violet-500/10 hover:bg-violet-500/20'
                   : 'border-violet-500/40 text-violet-300 hover:bg-violet-500/10'
@@ -218,7 +218,7 @@ export default function WorldCardView({ worlds, index, onPrev, onNext, onJump, o
                 onClick={() => !profBusy && onGenProfQuests(index, world)}
                 disabled={profBusy}
                 title="读取主角的职业技能树 + 副职业树，为本世界生成贴合你流派的额外「职业任务 + 奖励」（与世界选择同一条 API）。生成后展示在卡片下方，可「带入并进入」；奖励在完成后经正文 + 演化即时发放，不计入世界结算。"
-                className={`px-4 py-2.5 border text-base rounded-xl font-mono transition-colors ${
+                className={`px-4 py-2.5 max-lg:px-3 max-lg:py-2 border text-base max-lg:text-[13px] rounded-xl font-mono transition-colors ${
                   profBusy ? 'border-amber-400/40 text-amber-300/60 cursor-wait'
                   : profQuests ? 'border-amber-400/50 text-amber-200 bg-amber-500/10 hover:bg-amber-500/20'
                   : 'border-amber-500/40 text-amber-300 hover:bg-amber-500/10'
@@ -229,7 +229,7 @@ export default function WorldCardView({ worlds, index, onPrev, onNext, onJump, o
             )}
             <button
               onClick={() => onSelect(world.name, world)}
-              className="px-12 py-2.5 border border-god/50 text-god text-base rounded-xl hover:bg-god/10 font-mono transition-colors"
+              className="px-12 max-lg:px-6 py-2.5 max-lg:py-2 border border-god/50 text-god text-base max-lg:text-sm rounded-xl hover:bg-god/10 font-mono transition-colors max-lg:w-full max-lg:mt-0.5"
             >
               进入此世界
             </button>
