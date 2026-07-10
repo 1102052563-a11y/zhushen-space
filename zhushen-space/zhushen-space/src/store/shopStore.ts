@@ -51,7 +51,8 @@ export interface ShopEntity {
   tagline?: string;      // 招牌语（一句话）
   intro?: string;        // 店铺简介（多行·逛店/上传展示；AI 生成货品也参考此定位）
   ownerPersona?: string; // 掌柜 / 老板性格（进店叙事注入）
-  sign?: string;         // 店招立绘 dataURL（运行时，存 shop-sign:<id>）
+  sign?: string;         // 店招立绘·封面 = signs[0]（运行时·派生·保留供旧单图读取点/联机封面兼容）
+  signs?: string[];      // 店招立绘图集（运行时·可多张·逛店自动轮播·JSON 数组存 shop-sign:<id>）
   currency: string;      // '乐园币' | '魂币'（自由填）
   world?: string;        // 所属世界 / 乐园（空 = 通用）
   createdAt: number;
@@ -69,6 +70,15 @@ const goodKey  = (id: string) => `shop-good:${id}`;
 const girlKey  = (id: string) => `shop-girl:${id}`;
 const smithKey = (id: string) => `shop-smith:${id}`;
 
+const MAX_SIGNS = 8;   // 单店立绘上限（防 IndexedDB 单值过大）
+
+/** 解析 IndexedDB 里的店招值：新格式 = JSON 数组字符串；旧格式 = 单张 dataURL → 包成 [url]。 */
+function parseSigns(raw: unknown): string[] {
+  if (typeof raw !== 'string' || !raw) return [];
+  if (raw[0] === '[') { try { const a = JSON.parse(raw); return Array.isArray(a) ? a.filter((x) => typeof x === 'string' && x) : []; } catch { return []; } }
+  return [raw];   // 旧：单张 dataURL
+}
+
 let _seq = Date.now();
 
 /** 铁匠铺默认铁匠（明面率=实际率、无套路，玩家再自行编辑人设/参数）。 */
@@ -85,7 +95,10 @@ interface ShopState {
   upsertShop: (shop: ShopEntity) => void;
   patchShop: (id: string, patch: Partial<ShopEntity>) => void;
   removeShop: (id: string) => void;
-  setShopSign: (id: string, dataUrl: string | undefined) => void;
+  setShopSign: (id: string, dataUrl: string | undefined) => void;   // 兼容：设为单张封面（清空则删图集）
+  setShopSigns: (id: string, urls: string[]) => void;               // 整组覆盖立绘图集
+  addShopSign: (id: string, dataUrl: string) => void;               // 追加一张（≤ MAX_SIGNS）
+  removeShopSign: (id: string, index: number) => void;              // 删第 index 张
 
   // 商店货架
   upsertGood: (shopId: string, good: ShopGood) => string;
@@ -165,9 +178,22 @@ export const useShop = create<ShopState>()(
           return { shops: s.shops.filter((x) => x.id !== id), earnings, visits };
         }),
 
-      setShopSign: (id, dataUrl) => {
-        if (dataUrl) putImg(signKey(id), dataUrl); else delImg(signKey(id));
-        set((s) => ({ shops: replaceShop(s.shops, id, (x) => ({ ...x, sign: dataUrl })) }));
+      setShopSigns: (id, urls) => {
+        const arr = (urls ?? []).filter(Boolean).slice(0, MAX_SIGNS);
+        if (arr.length) putImg(signKey(id), JSON.stringify(arr)); else delImg(signKey(id));
+        set((s) => ({ shops: replaceShop(s.shops, id, (x) => ({ ...x, signs: arr, sign: arr[0] })) }));
+      },
+      setShopSign: (id, dataUrl) => get().setShopSigns(id, dataUrl ? [dataUrl] : []),
+      addShopSign: (id, dataUrl) => {
+        if (!dataUrl) return;
+        const [, sh] = locate(get().shops, id);
+        const cur = sh?.signs ?? (sh?.sign ? [sh.sign] : []);
+        get().setShopSigns(id, [...cur, dataUrl]);
+      },
+      removeShopSign: (id, index) => {
+        const [, sh] = locate(get().shops, id);
+        const cur = sh?.signs ?? (sh?.sign ? [sh.sign] : []);
+        get().setShopSigns(id, cur.filter((_, i) => i !== index));
       },
 
       // ── 商店货架 ──
@@ -260,6 +286,7 @@ export const useShop = create<ShopState>()(
         shops: (s.shops ?? []).filter((sh: ShopEntity) => !sh.remote).map((sh: ShopEntity) => ({
           ...sh,
           sign: undefined,
+          signs: undefined,
           goods: (sh.goods ?? []).map((g) => ({ ...g, image: undefined })),
           girls: (sh.girls ?? []).map((g) => ({ ...g, portrait: undefined })),
           smith: sh.smith ? { ...sh.smith, boss: { ...sh.smith.boss, portrait: undefined } } : undefined,
@@ -285,13 +312,17 @@ export async function hydrateShopImages(): Promise<void> {
     if (!all || !Object.keys(all).length) return;
     const val = (k: string): string | undefined => (typeof all[k] === 'string' ? (all[k] as string) : undefined);
     useShop.setState((s) => ({
-      shops: s.shops.map((sh) => ({
+      shops: s.shops.map((sh) => {
+        const signs = parseSigns(all[signKey(sh.id)]);
+        return {
         ...sh,
-        sign: val(signKey(sh.id)) ?? sh.sign,
+        signs: signs.length ? signs : sh.signs,
+        sign: signs[0] ?? sh.sign,
         goods: (sh.goods ?? []).map((g) => ({ ...g, image: val(goodKey(g.id)) ?? g.image })),
         girls: (sh.girls ?? []).map((g) => ({ ...g, portrait: val(girlKey(g.id)) ?? g.portrait })),
         smith: sh.smith ? { ...sh.smith, boss: { ...sh.smith.boss, portrait: val(smithKey(sh.id)) ?? sh.smith.boss.portrait } } : sh.smith,
-      })),
+        };
+      }),
     }));
   } catch { /* ignore */ }
 }

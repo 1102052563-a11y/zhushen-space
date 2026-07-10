@@ -37,13 +37,15 @@ async function thumb(raw?: string): Promise<string> {
 
 // 组装上传快照：全部立绘缩略（店招 / 商品图 / 娼妇立绘 / 铁匠立绘），其余文本/payload 原样透传。
 async function buildSnapshot(shop: ShopEntity): Promise<any> {
-  const sign = await thumb(shop.sign);
+  const rawSigns = (shop.signs && shop.signs.length ? shop.signs : (shop.sign ? [shop.sign] : [])).slice(0, 6);   // 立绘图集缩略（封顶 6 张·限 DO 载荷）
+  const signs = (await Promise.all(rawSigns.map(thumb))).filter(Boolean);
+  const sign = signs[0] || '';   // 封面（兼容旧客户端只读 sign）
   const goods = await Promise.all((shop.goods ?? []).map(async (g) => ({ ...g, image: await thumb(g.image) })));
   const girls = await Promise.all((shop.girls ?? []).map(async (g) => ({ ...g, portrait: await thumb(g.portrait) })));
   const smith = shop.smith ? { ...shop.smith, boss: { ...shop.smith.boss, portrait: await thumb(shop.smith.boss.portrait) } } : undefined;
   return {
     type: shop.type, name: shop.name, intro: shop.intro, tagline: shop.tagline, ownerPersona: shop.ownerPersona,
-    currency: shop.currency, world: shop.world, sign, goods, girls, smith,
+    currency: shop.currency, world: shop.world, sign, signs, goods, girls, smith,
   };
 }
 

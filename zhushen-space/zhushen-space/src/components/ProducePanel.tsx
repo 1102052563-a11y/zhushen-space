@@ -59,6 +59,70 @@ function ImgUpload({ src, emoji, onPick, onClear, h = 'h-32' }: {
   );
 }
 
+/* 店招·多图上传（可多张·第一张为封面·逛店自动轮播）。立绘存 IndexedDB（addShopSign/removeShopSign）。 */
+function MultiImgUpload({ shopId, shop, emoji }: { shopId: string; shop: ShopEntity; emoji: string }) {
+  const addShopSign = useShop((s) => s.addShopSign);
+  const removeShopSign = useShop((s) => s.removeShopSign);
+  const ref = useRef<HTMLInputElement>(null);
+  const imgs = shop.signs ?? (shop.sign ? [shop.sign] : []);
+  const imgsCount = () => (useShop.getState().shops.find((x) => x.id === shopId)?.signs?.length ?? 0);
+  const onFiles = async (files: FileList | null) => {
+    if (!files) return;
+    for (const f of Array.from(files)) {
+      if (imgsCount() >= 8) break;
+      const url = await new Promise<string>((res) => { const r = new FileReader(); r.onload = () => res(String(r.result)); r.onerror = () => res(''); r.readAsDataURL(f); });
+      if (!url) continue;
+      let out = url; try { out = await shrinkDataUrl(url, 1280, 0.85); } catch { /* 原图兜底 */ }
+      addShopSign(shopId, out);
+    }
+    if (ref.current) ref.current.value = '';
+  };
+  return (
+    <div className="w-full space-y-1.5">
+      <div className="flex flex-wrap gap-1.5">
+        {imgs.map((src, i) => (
+          <div key={i} className="relative w-20 h-24 rounded-lg border border-edge bg-void overflow-hidden">
+            <img src={src} alt="" className="w-full h-full object-cover" />
+            <button onClick={() => removeShopSign(shopId, i)} className="absolute top-0.5 right-0.5 w-5 h-5 rounded-full bg-black/70 text-blood/90 hover:text-blood text-[11px] flex items-center justify-center" title="删除这张">✕</button>
+            {i === 0 && <span className="absolute bottom-0 inset-x-0 text-center text-[9px] font-mono bg-black/60 text-cyan-200/80">封面</span>}
+          </div>
+        ))}
+        {imgs.length < 8 && (
+          <button onClick={() => ref.current?.click()} className="w-20 h-24 rounded-lg border border-dashed border-edge text-dim/50 hover:text-cyan-100 hover:border-cyan-400/40 flex flex-col items-center justify-center gap-1">
+            <span className="text-2xl">{imgs.length ? '＋' : emoji}</span>
+            <span className="text-[10px] font-mono">上传立绘</span>
+          </button>
+        )}
+      </div>
+      <input ref={ref} type="file" accept="image/*" multiple className="hidden" onChange={(e) => onFiles(e.target.files)} />
+      <div className="text-[10px] font-mono text-dim/40">可上传多张（≤8）· 逛店 / 商城时自动轮播 · 第一张为封面</div>
+    </div>
+  );
+}
+
+/* 店招展示：多张时定时淡入轮播，单张 / 无图退化为静态。imgs 优先，cover 兜底（远程店 snapshot 亦复用）。 */
+function SignShow({ imgs, cover, imgClass = 'object-cover', interval = 3000 }: {
+  imgs?: string[]; cover?: string; imgClass?: string; interval?: number;
+}) {
+  const list = (imgs && imgs.length ? imgs : (cover ? [cover] : []));
+  const [i, setI] = useState(0);
+  useEffect(() => {
+    if (list.length <= 1) return;
+    const t = setInterval(() => setI((p) => (p + 1) % list.length), interval);
+    return () => clearInterval(t);
+  }, [list.length, interval]);
+  if (!list.length) return null;
+  if (list.length === 1) return <img src={list[0]} alt="" className={`w-full h-full ${imgClass}`} />;
+  const idx = i % list.length;
+  return (
+    <div className="relative w-full h-full">
+      {list.map((src, k) => (
+        <img key={k} src={src} alt="" className={`absolute inset-0 w-full h-full ${imgClass} transition-opacity duration-700 ${k === idx ? 'opacity-100' : 'opacity-0'}`} />
+      ))}
+    </div>
+  );
+}
+
 /* 完整字段编辑器：照物品 / 随从固定模板逐字段编辑（AI 生成的 payload 也在此改）。 */
 const GOOD_ITEM_FIELDS: { key: string; label: string; area?: boolean }[] = [
   { key: 'subType', label: '类型细分 subType' },

@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useGuild, type GuildSummary } from '../store/guildStore';
+import { AutoText } from './AutoText';
 import { guildClient } from '../systems/guildClient';
 import { pushSceneNotice } from '../systems/allocNotice';
 import { chatReady, chatName, chatToken } from '../systems/chatIdentity';
@@ -459,7 +460,7 @@ function MyGuildView({ cards, onGenerateBuildings }: { cards: GuildCard[]; onGen
         <div className="space-y-1.5">
           <div className="text-[13px] font-bold text-slate-100">📜 家族编年史</div>
           <div className="rounded-xl border border-edge bg-panel/50 p-2 space-y-1 max-h-40 overflow-y-auto">
-            {chronicle.slice(0, 20).map((e, i) => <div key={i} className="text-[11px] font-mono text-dim/70">· {e.text}</div>)}
+            {chronicle.slice(0, 20).map((e, i) => <div key={i} className="text-[11px] font-mono text-dim/70">· <AutoText text={e.text} /></div>)}
           </div>
         </div>
       )}

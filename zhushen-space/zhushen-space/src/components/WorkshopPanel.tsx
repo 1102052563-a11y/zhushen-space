@@ -1,5 +1,6 @@
 import { useState, useEffect, useMemo } from 'react';
 import { useWorkshop } from '../store/workshopStore';
+import { AutoText } from './AutoText';
 import TreeCanvas from './TreeCanvas';
 import { autoLayout } from '../systems/skillTree';
 import type { TreeDef } from '../store/skillTreeStore';
@@ -299,11 +300,11 @@ export default function WorkshopPanel({ onClose, creationMode = false, initialTa
                           <span className="text-lg shrink-0 mt-0.5">{kind?.emoji ?? '❔'}</span>
                           <div className="flex-1 min-w-0">
                             <div className="flex items-center gap-2 flex-wrap">
-                              <span className="text-[14px] font-semibold text-slate-100">{m.name}</span>
+                              <span className="text-[14px] font-semibold text-slate-100"><AutoText text={m.name} /></span>
                               <span className="text-[10px] font-mono px-1 py-0.5 rounded border border-edge text-dim/50">{kind?.label ?? m.type}{m.category ? `·${m.category}` : ''}</span>
                               {m.version && <span className="text-[10px] font-mono text-dim/40">v{m.version}</span>}
                             </div>
-                            {m.summary && <div className="text-[12px] text-dim/70 mt-1 leading-snug line-clamp-3">{m.summary}</div>}
+                            {m.summary && <div className="text-[12px] text-dim/70 mt-1 leading-snug line-clamp-3"><AutoText text={m.summary} /></div>}
                             <div className="flex items-center gap-2 text-[10px] font-mono text-dim/45 mt-1 flex-wrap">
                               <span className="text-god/60">⬇ {m.downloads ?? 0}</span>
                               {m.author && <span>by {m.author}</span>}
@@ -628,8 +629,8 @@ function TreeDetail({ payload, kind }: { payload: any; kind: WorkshopKindId }) {
           <div className="text-[12px] font-semibold text-slate-300">星座成型奖励（{consts.length}）</div>
           {consts.map((c) => (
             <div key={c.id} className="text-[12px] border-l-2 border-amber-500/40 pl-2">
-              <span className="text-amber-300/90 font-semibold">✦ {c.name}</span>
-              {c.desc && <div className="text-dim/60 leading-snug">{c.desc}</div>}
+              <span className="text-amber-300/90 font-semibold">✦ <AutoText text={c.name} /></span>
+              {c.desc && <div className="text-dim/60 leading-snug"><AutoText text={c.desc} /></div>}
               {c.reward?.skill && <div className="text-dim/70 leading-snug">奖励技能「{c.reward.skill.name}」{c.reward.skill.effect ? '：' + c.reward.skill.effect : ''}</div>}
               {c.reward?.trait && <div className="text-dim/70 leading-snug">奖励天赋「{c.reward.trait.name}」{c.reward.trait.effect ? '：' + c.reward.trait.effect : ''}</div>}
             </div>
@@ -648,13 +649,13 @@ function CardItemList({ title, items }: { title: string; items: any[] }) {
       <div className="text-[12px] font-semibold text-slate-300">{title}（{items.length}）</div>
       {items.map((it, i) => (
         <div key={i} className="text-[12px] border-l-2 border-edge pl-2">
-          <span className="text-slate-100 font-semibold">{it.name}</span>
+          <span className="text-slate-100 font-semibold"><AutoText text={it.name} /></span>
           {it.gradeDesc && <span className="text-[10px] text-dim/45 ml-1.5">{it.gradeDesc}</span>}
           {it.enhanceLevel ? <span className="text-[10px] text-amber-300/70 ml-1">+{it.enhanceLevel}</span> : null}
           {(it.combatStat || it.durability) && <div className="text-dim/60">{[it.combatStat, it.durability ? `耐久${it.durability}` : ''].filter(Boolean).join(' · ')}</div>}
           {it.effect && <div className="text-dim/70 whitespace-pre-wrap">{it.effect}</div>}
           {it.affix && <div className="text-fuchsia-300/60">{it.affix}</div>}
-          {it.intro && <div className="text-dim/45 italic leading-snug">{it.intro}</div>}
+          {it.intro && <div className="text-dim/45 italic leading-snug"><AutoText text={it.intro} /></div>}
         </div>
       ))}
     </div>

@@ -1,6 +1,7 @@
 import { useState, useRef } from 'react';
 import { useChannel, CHANNEL_DEFS, type ChannelKey, type ChannelMessage, type ChannelQuote } from '../store/channelStore';
 import { isDmableTag } from '../store/dmStore';
+import { AutoText } from './AutoText';
 import { useItems, ITEM_GRADES, gradeColorClass, gradeBadgeClass, gradeNameClass, asText, type CurrencyWallet, type InventoryItem } from '../store/itemStore';
 import {
   buyFromListing, isBuyable, parseChannelPrice, normChannelCurrency,
@@ -140,7 +141,7 @@ function MessageCard({ m, onBuy, onAcceptQuote, onCancel, onDetail, onReply, onJ
       </div>
       {isMine && m.replyToName && <div className="text-[11px] font-mono text-god/50 mb-0.5">↩ 回复 @{m.replyToName}</div>}
       {m.authorPersona && !isMine && <div className="text-[11px] font-mono text-dim/40 mb-0.5">性格·{m.authorPersona}</div>}
-      <div className="text-[14px] text-slate-300 leading-relaxed">{m.content}</div>
+      <div className="text-[14px] text-slate-300 leading-relaxed"><AutoText text={m.content} /></div>
 
       {/* NPC 出售帖：点击看详情（固定格式全字段）+ 一键购买 */}
       {!isMine && m.offer && (m.offer.itemName || m.offer.price) && (

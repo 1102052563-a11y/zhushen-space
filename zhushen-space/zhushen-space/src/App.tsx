@@ -308,6 +308,7 @@ import { restoreB1IfWiped } from './systems/b1Mirror';
 import * as chatDb from './systems/chatDb';
 import PlayerSidebar from './components/PlayerSidebar';
 import StartScreen from './components/StartScreen';
+import DiscordAnnounceBar from './components/DiscordAnnounceBar';
 import CharacterCreation, { type CreationData, formatCreationTalent } from './components/CharacterCreation';
 const SettingsPanel = lazy(() => import('./components/SettingsPanel'));
 import WorldSelector, { type WorldOption } from './components/WorldSelector';
@@ -2518,10 +2519,13 @@ export default function App() {
           `【开启者】${prof.name || '主角'}　阶位:${prof.tier || '—'}　职业:${prof.identity || '—'}　等级:Lv.${prof.level ?? '—'}`,
           `【本次开启的宝箱·完整信息】\n${chestInfo}`,
           `【本箱品级 → 产出上限】宝箱品级＝${plan.capName}（序号 ${plan.capGrade}/15）——**本箱可开出的最高品级就是 ${plan.capName}**，所有产物一律不得高于此档（这是"不同等级宝箱最高能开出的物品"的硬上限）。`,
+          plan.luckBonus > 0
+            ? `【开启者气运】幸运 ${plan.luck}（开箱加成 +${Math.round(plan.luckBonus * 100)}%${plan.luckExtra > 0 ? `·气运额外多开 ${plan.luckExtra} 件` : ''}）——系统已把这份气运折入本次产出的件数与品级档位（产物更贴近品级上限）。你只需按下方【产出槽】给定的品级如实填物，**不必也不要再据幸运额外拔高品级或越过上限**；叙述/命名上可略体现"气运加身、开出之物格外称心"。`
+            : '',
           `【产出槽（系统已按宝箱品级逐槽定档，不得越级）·共 ${plan.slots.length} 件】\n${slotsText}`,
           `【开启者倾向提示】${tendency || '（未填 —— 由你按这只宝箱的品级、来历与主题判定开出什么）'}`,
           `请先在 <开箱推演> 里按六步推演（≥150 字，判断开出之物是否配得上这只宝箱、是否越级、是否契合主题），再紧接着输出长度为 ${plan.slots.length} 的 JSON 数组（slot 从 1 起一一对应）。`,
-        ].join('\n\n');
+        ].filter(Boolean).join('\n\n');
         const { content } = await apiChatFallback(chain, [
           { role: 'system', content: system },
           { role: 'user', content: user },
@@ -9583,6 +9587,9 @@ ${lines}`;
           >🔍</button>
         </div>
       </header>
+
+      {/* 📢 常驻公告栏（游戏内主界面 · 官方 Discord · 中英双语）*/}
+      <DiscordAnnounceBar inline />
 
       {/* ── 主体3栏 ── */}
       <div className="flex flex-1 overflow-hidden">
