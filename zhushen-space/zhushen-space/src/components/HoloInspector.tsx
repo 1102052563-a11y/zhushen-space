@@ -3,6 +3,7 @@ import HoloCard from './HoloCard';
 import { type HoloFoil } from '../systems/holoFoils';
 import { useImageGen } from '../store/imageGenStore';
 import { getDepthMap, getCachedDepth } from '../systems/depthMap';
+import { useSettings } from '../store/settingsStore';
 
 interface Props {
   open: boolean;
@@ -21,6 +22,7 @@ interface Props {
 export default function HoloInspector({ open, onClose, img, name, badge, grade, tier, foil, power, rows }: Props) {
   const [vw, setVw] = useState(() => (typeof window !== 'undefined' ? window.innerWidth : 375));
   const holoParallax = useImageGen((s) => s.holoParallax);
+  const fxOn = useSettings((s) => s.holoCardFx);
   const [depthSrc, setDepthSrc] = useState<string | undefined>(undefined);
   const [flat, setFlat] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -46,6 +48,17 @@ export default function HoloInspector({ open, onClose, img, name, badge, grade, 
   }, [open, onClose]);
 
   if (!open) return null;
+  // 特效总开关关闭：普通大图灯箱（无全息卡/旋转/2.5D）
+  if (!fxOn) {
+    return (
+      <div onClick={onClose} style={{ position: 'fixed', inset: 0, zIndex: 9999, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(0,0,0,.9)', padding: 20 }}>
+        {img
+          ? <img src={img} alt={name ?? ''} onClick={(e) => e.stopPropagation()} style={{ maxWidth: '92vw', maxHeight: '88vh', objectFit: 'contain', borderRadius: 8 }} />
+          : <div style={{ color: '#888', fontSize: 14 }}>无图</div>}
+        <button onClick={onClose} aria-label="关闭" style={{ position: 'fixed', top: 16, right: 16, width: 38, height: 38, borderRadius: 9, fontSize: 18, color: '#ddd', background: 'rgba(20,20,20,.8)', border: '0.5px solid #555', cursor: 'pointer' }}>✕</button>
+      </div>
+    );
+  }
   const cardW = Math.min(330, vw - 48);
   const use2p5d = !!depthSrc && !flat;
 

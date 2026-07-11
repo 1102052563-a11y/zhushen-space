@@ -4,6 +4,7 @@ import {
   GRAIN_URI, GLIT_URI, shineCss, cardBg, frameSvg, artClass,
 } from '../systems/holoFoils';
 import DepthParallax, { type DepthParallaxHandle } from './DepthParallax';
+import { useSettings } from '../store/settingsStore';
 
 export interface HoloCardProps {
   img?: string;             // 立绘（铺满整卡；缺省显示占位）
@@ -33,6 +34,7 @@ export default function HoloCard({
   const foil: HoloFoil = foilProp ?? (grade ? foilForGrade(grade) : tier ? foilForTier(tier) : foilForGrade('白色'));
   const w = width, h = height ?? Math.round(width * 7 / 5);
   const uid = useId().replace(/[^a-z0-9]/gi, '');
+  const fxOn = useSettings((s) => s.holoCardFx);
   const cardRef = useRef<HTMLDivElement>(null);
   const shineRef = useRef<HTMLDivElement>(null);
   const glitRef = useRef<HTMLDivElement>(null);
@@ -46,7 +48,7 @@ export default function HoloCard({
 
   useEffect(() => {
     const card = cardRef.current;
-    if (!card || mode === 'static') return;
+    if (!card || mode === 'static' || !fxOn) return;
     const sh = shineRef.current, gl = glitRef.current, ga = glareRef.current, sp = specRef.current;
     const applyHolo = (lx: number, ly: number, mag: number) => {
       pxRef.current?.setOffset((lx - 50) / 50, (ly - 50) / 50);
@@ -103,7 +105,19 @@ export default function HoloCard({
     card.addEventListener('pointermove', move);
     window.addEventListener('pointerup', up);
     return () => { cancelAnimationFrame(raf); card.removeEventListener('pointerdown', down); card.removeEventListener('pointermove', move); window.removeEventListener('pointerup', up); };
-  }, [mode, foil, autoSweep, baseShineOp]);
+  }, [mode, foil, autoSweep, baseShineOp, fxOn]);
+
+  // 特效总开关关闭：退回普通图片（无箔纸/卡框/旋转）
+  if (!fxOn) {
+    return (
+      <div ref={cardRef} className={className} onClick={onClick}
+        style={{ position: 'relative', width: w, height: h, borderRadius: 12, overflow: 'hidden', border: '1px solid rgba(255,255,255,.12)', background: '#0b0b12', cursor: onClick ? 'zoom-in' : undefined, ...style }}>
+        {img
+          ? <img src={img} alt={name ?? ''} draggable={false} style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover' }} />
+          : <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: Math.round(w * 0.3), opacity: 0.16 }}>👤</div>}
+      </div>
+    );
+  }
 
   const layer: CSSProperties = { position: 'absolute', inset: 0, pointerEvents: 'none' };
   const chipStyle: CSSProperties = { fontFamily: 'var(--font-mono, monospace)', fontSize: Math.max(9, Math.round(w * 0.05)), fontWeight: 500, padding: '1px 8px', borderRadius: 6, background: 'rgba(10,6,14,.72)', color: foil.a1, border: `0.5px solid ${foil.a2}`, alignSelf: 'flex-start', whiteSpace: 'nowrap' };

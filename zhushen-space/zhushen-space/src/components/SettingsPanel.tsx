@@ -8,6 +8,7 @@ import { ADVANCE_PRESET_BUILTINS, PLOT_CHOICES_RULE } from '../promptRules';
 import { useDbAdvance } from '../store/dbAdvanceStore';   // 数据库推进管线（Stitches 规划层）
 import VariableManager from './VariableManager';
 import ApiRoutePicker from './ApiRoutePicker';
+import { exportGlossary, parseGlossaryImport } from '../i18n/glossaryIO';
 import ItemManager from './ItemManager';
 import PlayerManager from './PlayerManager';
 import NpcManager from './NpcManager';
@@ -1396,6 +1397,8 @@ function TextApiSection() {
   const setTextStream      = useSettings((s) => s.setTextStream);
   const setSkipNarrativeThinking = useSettings((s) => s.setSkipNarrativeThinking);
   const setPlotGuidance    = useSettings((s) => s.setPlotGuidance);
+  const planningReview     = useSettings((s) => s.planningReview);
+  const setPlanningReview  = useSettings((s) => s.setPlanningReview);
   const setGuidancePrompt  = useSettings((s) => s.setGuidancePrompt);
   const outlineEnabled     = useSettings((s) => s.outlineEnabled);
   const outlinePrompt      = useSettings((s) => s.outlinePrompt);
@@ -1450,6 +1453,13 @@ function TextApiSection() {
           <div>
             <div className="text-sm text-slate-200">细纲（先出细纲 · 编辑后再写正文）<span className="text-xs text-amber-400/80 ml-1">· 与「剧情指导 / 数据库推进」三选一</span></div>
             <div className="text-sm text-dim mt-0.5">开启后：你每次发送，正文生成<b>前</b>先<b>单独跑一遍「细纲师」</b>——用<b>与正文完全一致的上下文</b>（世界书/记忆/角色档案/最近正文/你这步输入）产出<b>本回合细纲</b>（核心事件/情绪/情节点序列/钩子…），弹窗给你<b>编辑</b>；点「确认并生成正文」后，正文会被要求<b>严格遵循这份细纲</b>来写。<b className="text-amber-400/90">每回合 +1 次调用</b>（可在下方挂独立接口）。<b>重新生成</b>正文时不再弹细纲。默认关。</div>
+          </div>
+        </div>
+        <div className="flex items-center gap-3 p-3 bg-panel border border-edge rounded-lg">
+          <Toggle checked={planningReview} onChange={() => setPlanningReview(!planningReview)} />
+          <div>
+            <div className="text-sm text-slate-200">正文前审核（剧情指导 / 数据库推进）</div>
+            <div className="text-sm text-dim mt-0.5">开启后：<b>剧情指导</b>或<b>数据库推进</b>的产出会先<b>弹窗</b>给你——可<b>编辑</b>或<b>重新生成</b>，确认后才写正文（清空文本框＝本回合不注入该规划，取消＝作废本回合）。像「细纲」那样把这两个也变成可审核；<b>只对剧情指导 / 数据库推进生效</b>（细纲本就有弹窗）。重新生成正文时不弹。默认关。</div>
           </div>
         </div>
         <div className="flex items-center gap-3 p-3 bg-panel border border-edge rounded-lg">
@@ -2768,6 +2778,8 @@ function AppearanceSettingsSection() {
   const setAppearance = useSettings((s) => s.setAppearance);
   const uiVignette    = useSettings((s) => s.uiVignette);
   const setUiVignette = useSettings((s) => s.setUiVignette);
+  const holoCardFx    = useSettings((s) => s.holoCardFx);
+  const setHoloCardFx = useSettings((s) => s.setHoloCardFx);
   const uiTheme    = useSettings((s) => s.uiTheme);
   const setUiTheme = useSettings((s) => s.setUiTheme);
   const language    = useSettings((s) => s.language);
@@ -2778,6 +2790,7 @@ function AppearanceSettingsSection() {
   const setAutoTranslateEngine = useSettings((s) => s.setAutoTranslateEngine);
   const autoTranslateManual    = useSettings((s) => s.autoTranslateManual);
   const setAutoTranslateManual = useSettings((s) => s.setAutoTranslateManual);
+  const setUserGlossary        = useSettings((s) => s.setUserGlossary);
   const ff = reading.fontFamily || 'default';
   return (
     <div className="space-y-8">
@@ -2846,6 +2859,34 @@ function AppearanceSettingsSection() {
               <ApiRoutePicker routeKey="autotranslate" />
             </div>
           )}
+          {/* 翻译映射表 导出/导入：导出「全站界面中文→当前语言」表（已译预填、未译留空）→ 线下编辑优化 → 导入覆盖（你的译文优先） */}
+          {(language === 'en' || language === 'vi') && (
+            <div className="pl-6 space-y-1.5">
+              <div className="text-[11px] text-dim/50 leading-relaxed">翻译映射表：导出「中文 → {language === 'en' ? 'English' : 'Tiếng Việt'}」表(已译预填/未译留空)，线下编辑后导入,你的译文优先于内置词库与机翻。</div>
+              <div className="flex flex-wrap items-center gap-2">
+                <button
+                  onClick={async () => { try { const n = await exportGlossary(language); window.alert(`已导出 ${n} 条翻译表（zhushen-translation-${language}.json）。编辑后从「导入」传回。`); } catch (e: any) { window.alert('导出失败：' + (e?.message || e)); } }}
+                  className="px-3 py-1.5 rounded-lg border border-edge text-[12px] font-mono text-slate-300 hover:border-god/40 hover:text-god transition-colors">⬇ 导出翻译表</button>
+                <label className="px-3 py-1.5 rounded-lg border border-edge text-[12px] font-mono text-slate-300 hover:border-god/40 hover:text-god transition-colors cursor-pointer">
+                  ⬆ 导入翻译表
+                  <input type="file" accept=".json,application/json" className="hidden" onChange={(e) => {
+                    const f = e.target.files?.[0]; e.currentTarget.value = ''; if (!f) return;
+                    const rd = new FileReader();
+                    rd.onload = () => {
+                      try {
+                        const map = parseGlossaryImport(String(rd.result));
+                        if (!Object.keys(map).length) { window.alert('没解析到有效条目（需 {中文:译文} 对象或 [[中文,译文]] 数组，空译文会跳过）。'); return; }
+                        setUserGlossary(language, map);
+                        window.alert(`已导入 ${Object.keys(map).length} 条译文，即将刷新生效。`);
+                        setTimeout(() => location.reload(), 300);
+                      } catch (err: any) { window.alert('导入失败：' + (err?.message || err)); }
+                    };
+                    rd.readAsText(f);
+                  }} />
+                </label>
+              </div>
+            </div>
+          )}
         </div>
       </div>
 
@@ -2892,6 +2933,11 @@ function AppearanceSettingsSection() {
             <input type="checkbox" checked={uiVignette} onChange={(e) => setUiVignette(e.target.checked)} className="accent-god w-4 h-4" />
             <span className="text-sm text-slate-300">背景暗角</span>
             <span className="text-[12px] text-dim/60">四周轻微压暗、聚焦中央正文（纯视觉氛围）</span>
+          </label>
+          <label className="flex items-center gap-2.5 cursor-pointer select-none">
+            <input type="checkbox" checked={holoCardFx} onChange={(e) => setHoloCardFx(e.target.checked)} className="accent-god w-4 h-4" />
+            <span className="text-sm text-slate-300">全息卡片特效</span>
+            <span className="text-[12px] text-dim/60">立绘 / 物品 / 装备放大检视显示全息卡（箔纸 · 旋转 · 2.5D）；关=普通图片</span>
           </label>
         </div>
       </div>

@@ -42,6 +42,7 @@ export default function DiceCard({ data }: { data: DiceCardData }) {
             <span className="text-sm font-bold">🎲 {data.level}</span>
             <span className="text-[11px] font-mono opacity-70">{mult}</span>
             {data.usedAI && <span className="text-[10px] font-mono px-1 rounded bg-void/50 text-dim/70">AI 裁定</span>}
+            {data.rerolls ? <span className="text-[10px] font-mono px-1 rounded bg-void/50 text-dim/70">重掷×{data.rerolls}</span> : null}
           </div>
           <div className="text-[11px] font-mono text-dim/70 mt-0.5 truncate">
             {data.actorName}（{data.attrLabel}）· {calc}

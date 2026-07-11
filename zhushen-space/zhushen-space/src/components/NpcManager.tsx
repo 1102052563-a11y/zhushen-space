@@ -205,6 +205,7 @@ function NpcRoster() {
   const records = Object.values(useNpc((s) => s.npcs));
   const removeNpc = useNpc((s) => s.removeNpc);
   const hardRemoveNpc = useNpc((s) => s.hardRemoveNpc);
+  const upsertNpc = useNpc((s) => s.upsertNpc);
   const absorbOrphans = useNpc((s) => s.absorbOrphans);
   const clearAll  = useNpc((s) => s.clearAll);
   const [confirmClear, setConfirmClear] = useState(false);
@@ -275,9 +276,10 @@ function NpcRoster() {
       {offScene.length > 0 && (
         <div className="space-y-2">
           <div className="text-[12px] font-mono text-dim/40 uppercase tracking-widest">离场 B 区 ({offScene.length})</div>
+          <div className="text-[11px] font-mono text-dim/30">归档≠删除：这些角色已离场保留在档，随时可「↑上场」拉回；「删除」才是彻底清除、不可恢复。</div>
           <div className="divide-y divide-edge/30 border border-edge rounded-xl overflow-hidden bg-panel opacity-60">
             {offScene.map((npc) => (
-              <NpcRow key={npc.id} npc={npc} onRemove={() => hardRemoveNpc(npc.id)} />
+              <NpcRow key={npc.id} npc={npc} onRemove={() => hardRemoveNpc(npc.id)} onRestore={() => upsertNpc(npc.id, { onScene: true })} danger />
             ))}
           </div>
         </div>
@@ -286,8 +288,9 @@ function NpcRoster() {
   );
 }
 
-function NpcRow({ npc, onRemove }: { npc: import('../store/npcStore').NpcRecord; onRemove: () => void }) {
+function NpcRow({ npc, onRemove, onRestore, danger }: { npc: import('../store/npcStore').NpcRecord; onRemove: () => void; onRestore?: () => void; danger?: boolean }) {
   const [open, setOpen] = useState(false);
+  const [confirmDel, setConfirmDel] = useState(false);   // danger=物理删除时两步确认，防误触把归档角色永久清掉
 
   return (
     <div className="px-3 py-2">
@@ -308,8 +311,17 @@ function NpcRow({ npc, onRemove }: { npc: import('../store/npcStore').NpcRecord;
         <button onClick={() => setOpen(!open)} className="text-[12px] font-mono text-dim/50 hover:text-god transition-colors">
           {open ? '收起' : '详情'}
         </button>
-        <button onClick={onRemove} className="text-[12px] font-mono text-dim/30 hover:text-blood transition-colors">
-          {npc.onScene ? '离场' : '✕'}
+        {onRestore && (
+          <button onClick={onRestore} title="拉回·重新上场（归档角色不会丢，随时可召回）"
+            className="text-[12px] font-mono text-dim/50 hover:text-god transition-colors">↑ 上场</button>
+        )}
+        <button
+          onClick={() => { if (danger && !confirmDel) { setConfirmDel(true); return; } setConfirmDel(false); onRemove(); }}
+          onBlur={() => setConfirmDel(false)}
+          title={danger ? '彻底删除该 NPC（不可恢复）' : '令其离场·归档（可在 B 区拉回）'}
+          className={`text-[12px] font-mono transition-colors ${confirmDel ? 'text-blood' : 'text-dim/30 hover:text-blood'}`}
+        >
+          {npc.onScene ? '离场' : confirmDel ? '确认删除' : '删除'}
         </button>
       </div>
       {open && (

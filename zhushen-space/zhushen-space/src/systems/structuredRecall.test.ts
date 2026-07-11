@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { namesMentionedIn, serializePlayerCard, serializeNpcCard } from './structuredRecall';
+import { namesMentionedIn, serializePlayerCard, serializeNpcCard, pickOffsceneRescue } from './structuredRecall';
 import type { PlayerProfile } from '../store/playerStore';
 import type { Talent } from '../store/characterStore';
 import type { InventoryItem } from '../store/itemStore';
@@ -213,5 +213,43 @@ describe('serializeNpcCard（NPC 装备/物品裁掉 外观/获得/备注）', (
     expect(card).not.toContain('剑身覆霜纹');    // 外观裁掉
     expect(card).not.toContain('铁匠铺购入');    // 获得途径裁掉
     expect(card).not.toContain('需定期保养');    // 备注裁掉
+  });
+});
+
+/* 归档≠删除·防"离场就失忆"：离场但被正文点名的 NPC 带记忆有界救回结构化召回。
+   治"归档任务BOSS后 AI 忘了他、同世界前后文对不上"。 */
+describe('pickOffsceneRescue（离场角色被正文点名→带记忆救回·有界）', () => {
+  const mk = (id: string, name: string, onScene: boolean, lastSeenTurn = 0, isDead = false) =>
+    ({ id, name, onScene, isDead, lastSeenTurn, favor: 0 } as unknown as NpcRecord);
+
+  it('离场 NPC 被正文点名 → 救回', () => {
+    expect(pickOffsceneRescue([mk('C1', '龙王', false, 5)], '龙王的身影再次浮现', []).map((r) => r.id))
+      .toEqual(['C1']);
+  });
+
+  it('在场 NPC 不走这条（由 rankNpcsLocal 覆盖）→ 不救回', () => {
+    expect(pickOffsceneRescue([mk('C1', '龙王', true, 5)], '龙王就在眼前', [])).toEqual([]);
+  });
+
+  it('已在 exclude（已被选中）→ 不重复并入', () => {
+    const r = mk('C1', '龙王', false, 5);
+    expect(pickOffsceneRescue([r], '龙王', [r])).toEqual([]);
+  });
+
+  it('已死的离场角色 → 不救回', () => {
+    expect(pickOffsceneRescue([mk('C1', '龙王', false, 5, true)], '龙王的尸骸尚在', [])).toEqual([]);
+  });
+
+  it('未被点名 → 空', () => {
+    expect(pickOffsceneRescue([mk('C1', '龙王', false, 5)], '一片祥和，无人现身', [])).toEqual([]);
+  });
+
+  it('超过上限 → 限量 3，最近在场者(lastSeenTurn 大)优先，最久没露面的被挤掉', () => {
+    const npcs = [
+      mk('C1', '青牛', false, 1), mk('C2', '白鹿', false, 9),
+      mk('C3', '赤蛇', false, 5), mk('C4', '玄龟', false, 7),
+    ];
+    expect(pickOffsceneRescue(npcs, '青牛白鹿赤蛇玄龟齐聚一堂', [], 3).map((r) => r.id))
+      .toEqual(['C2', 'C4', 'C3']);
   });
 });

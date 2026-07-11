@@ -76,12 +76,21 @@ export default function DiceManager() {
           <Row label="🎯 自动检定（发送即判定）" hint={settings.autoMode ? '发送消息时自动判断是否需要 ROLL：关键词命中才掷骰，结果只喂正文AI（读者不可见）+ 气泡下弹骰子卡；判定方式沿用下方设置' : '关闭：仅在手动打开骰子面板、点摇骰后注入'}>
             <Toggle checked={settings.autoMode} onChange={() => setSettings({ autoMode: !settings.autoMode })} />
           </Row>
+          <Row label="检定审核窗（正文前弹窗确认）" hint={settings.diceReview ? '自动检定出结果后先弹窗：可反复重掷 / 直接编辑要注入的检定块，确认才写正文；取消=作废本回合，清空文本框=本回合不检定' : '关闭：掷完直接注入正文（不弹窗）'}>
+            <Toggle checked={settings.diceReview} onChange={() => setSettings({ diceReview: !settings.diceReview })} />
+          </Row>
           <Row label="判定方式" hint={
             settings.judgeMode === 'ai-full' ? 'AI 全包：数值+成败全交 AI 估算（仿插件·放弃代码确定性·失败回退前端）'
               : settings.judgeMode === 'ai' ? '骰子锚定 + AI 裁判（前端算数值·AI 只裁定·失败回退前端）'
                 : '纯前端确定性计算，零调用'}>
             <Seg value={settings.judgeMode} onChange={(v) => setSettings({ judgeMode: v })}
               options={[{ v: 'frontend', label: '前端确定性' }, { v: 'ai', label: 'AI 裁判' }, { v: 'ai-full', label: 'AI 全包' }]} />
+          </Row>
+          <Row label="失败自动重掷" hint={settings.rerollOnFail > 0
+            ? `自动检定失败后最多再掷 ${settings.rerollOnFail} 次，一成功即停、全失败取最好一次（仍可能失败，只降低倒霉概率）。AI 全包模式改为「掷 ${settings.rerollOnFail + 1} 颗取最有利」免多次调 API`
+            : '关闭：失败即失败，不重掷'}>
+            <Seg value={String(settings.rerollOnFail)} onChange={(v) => setSettings({ rerollOnFail: Number(v) })}
+              options={[{ v: '0', label: '关' }, { v: '1', label: '1 次' }, { v: '2', label: '2 次' }]} />
           </Row>
           <Row label="骰子模式" hint={settings.mode === 'd20' ? '1d20 + 修正 ≥ DC' : '1d100 ≤ 成功率'}>
             <Seg value={settings.mode} onChange={(v) => setSettings({ mode: v })}

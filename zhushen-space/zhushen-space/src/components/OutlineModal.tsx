@@ -7,15 +7,18 @@ import { useState, useEffect, useRef } from 'react';
    模块级组件（勿内联进父组件），避免受控 textarea 每键重挂导致输入法拼音断字。*/
 export interface OutlineModalProps {
   open: boolean;
-  loading: boolean;      // 细纲生成中（流式未结束）
-  text: string;          // 当前细纲文本（流式期间随增长；由父组件驱动）
+  loading: boolean;      // 生成中（流式未结束）
+  text: string;          // 当前文本（流式期间随增长；由父组件驱动）
   wordTarget?: number;   // 字数目标（0=不限定）
   onConfirm: (text: string) => void;
   onCancel: () => void;
   onRegenerate: () => void;
+  title?: string;        // 标题（复用于剧情指导/数据库推进审核窗；缺省=细纲）
+  subtitle?: string;     // 副标题说明（缺省=细纲说明）
+  allowEmpty?: boolean;  // 允许空文本确认（剧情指导/数据库推进：清空=本回合不注入该规划）
 }
 
-export default function OutlineModal({ open, loading, text, wordTarget, onConfirm, onCancel, onRegenerate }: OutlineModalProps) {
+export default function OutlineModal({ open, loading, text, wordTarget, onConfirm, onCancel, onRegenerate, title, subtitle, allowEmpty }: OutlineModalProps) {
   const [draft, setDraft] = useState('');
   const taRef = useRef<HTMLTextAreaElement>(null);
 
@@ -43,10 +46,10 @@ export default function OutlineModal({ open, loading, text, wordTarget, onConfir
         {/* 头 */}
         <div className="flex items-center justify-between px-4 py-3 border-b border-edge">
           <div>
-            <div className="text-base font-semibold text-slate-100">📝 本回合细纲</div>
+            <div className="text-base font-semibold text-slate-100">{title ?? '📝 本回合细纲'}</div>
             <div className="text-xs text-dim mt-0.5">
-              先规划这一拍怎么写，编辑满意后再生成正文。正文会被要求严格遵循此细纲。
-              {wordTarget ? ` · 字数目标 ≈ ${wordTarget} 字` : ''}
+              {subtitle ?? '先规划这一拍怎么写，编辑满意后再生成正文。正文会被要求严格遵循此细纲。'}
+              {subtitle ? '' : (wordTarget ? ` · 字数目标 ≈ ${wordTarget} 字` : '')}
             </div>
           </div>
           <button onClick={onCancel} className="text-dim hover:text-slate-200 text-xl leading-none px-2" title="取消（Esc）">×</button>
@@ -57,7 +60,7 @@ export default function OutlineModal({ open, loading, text, wordTarget, onConfir
           {loading && !draft ? (
             <div className="flex-1 flex flex-col items-center justify-center gap-3 text-dim">
               <div className="w-6 h-6 border-2 border-violet-500/40 border-t-violet-400 rounded-full animate-spin" />
-              <div className="text-sm">细纲生成中……</div>
+              <div className="text-sm">生成中……</div>
             </div>
           ) : (
             <textarea
@@ -66,7 +69,7 @@ export default function OutlineModal({ open, loading, text, wordTarget, onConfir
               onChange={(e) => setDraft(e.target.value)}
               readOnly={loading}
               spellCheck={false}
-              placeholder="（细纲将在这里生成，可自由编辑）"
+              placeholder="（内容将在这里生成，可自由编辑）"
               className="flex-1 min-h-[40vh] w-full px-3 py-2 bg-black/30 border border-edge rounded-md text-sm text-slate-200 placeholder:text-dim/40 font-mono leading-relaxed resize-none focus:border-violet-600/50 focus:outline-none"
             />
           )}
@@ -89,7 +92,7 @@ export default function OutlineModal({ open, loading, text, wordTarget, onConfir
           >🔄 重新生成</button>
           <button
             onClick={() => onConfirm(draft)}
-            disabled={loading || empty}
+            disabled={loading || (empty && !allowEmpty)}
             className="px-4 py-1.5 rounded-md text-sm font-semibold bg-violet-700/80 text-white hover:bg-violet-600 transition disabled:opacity-40 disabled:cursor-not-allowed"
           >✅ 确认并生成正文</button>
         </div>

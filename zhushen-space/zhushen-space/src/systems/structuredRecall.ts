@@ -469,6 +469,20 @@ export function rankNpcsLocal(npcs: NpcRecord[], max: number): NpcRecord[] {
   );
 }
 
+/* ── 归档≠删除·防「离场就失忆」──
+   被【最近正文】字面点到名的【离场】NPC（尤其被玩家归档的任务BOSS/关键角色），按「最近在场优先」取前 cap 个救回结构化召回，
+   带着他的性格/关系/动机/近期经历回到 AI 上下文——否则一归档，AI 就当他不存在、同一世界前后文对不上（用户明确报此坑）。
+   **边界**：只补【离场】(在场的由 rankNpcsLocal 覆盖)、硬上限 cap(默认3·防一场群戏把离场配角全塞进来重演"一大堆")、
+   exclude=已选中的(避免与 userInput 护栏重复)。参见 rankNpcsLocal 对在场 NPC 的 +100000 压制——正是它让离场角色拿不到名额。 */
+export function pickOffsceneRescue(npcs: NpcRecord[], context: string | undefined, exclude: NpcRecord[] = [], cap = 3): NpcRecord[] {
+  if (cap <= 0) return [];
+  const ex = new Set(exclude);
+  return namesMentionedIn(npcs, context)
+    .filter((r) => !r.isDead && !r.onScene && !ex.has(r))
+    .sort((a, b) => (b.lastSeenTurn ?? 0) - (a.lastSeenTurn ?? 0))
+    .slice(0, cap);
+}
+
 /* ── LLM 选取：按当前情境挑出最该注入正文的结构化条目（相关 NPC + 主角相关技能/装备）── */
 export const NM_STRUCT_SELECT_PROMPT = `你是轮回乐园的「场景调度预测器」。根据【当前情境（用户这一轮的输入 + 最近正文）】，挑出**下一回合最该注入正文的结构化条目**——既包括相关 NPC，也包括主角此刻**最该用到 / 最相关的技能与装备**，以便保持设定 / 数值一致。
 要求：

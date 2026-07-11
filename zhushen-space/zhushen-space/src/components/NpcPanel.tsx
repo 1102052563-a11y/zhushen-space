@@ -25,7 +25,7 @@ function FavorBar({ value }: { value: number }) {
 }
 
 /* ── NPC 卡片（点击打开完整档案）── */
-function NpcCard({ npc, onOpen, onDm, onToggleFriend, onManualUpdate, updating }: { npc: NpcRecord; onOpen: () => void; onDm?: (r: NpcRecord) => void; onToggleFriend?: (id: string, on: boolean) => void; onManualUpdate?: (id: string) => void; updating?: boolean }) {
+function NpcCard({ npc, onOpen, onDm, onToggleFriend, onManualUpdate, onRestore, updating }: { npc: NpcRecord; onOpen: () => void; onDm?: (r: NpcRecord) => void; onToggleFriend?: (id: string, on: boolean) => void; onManualUpdate?: (id: string) => void; onRestore?: (id: string) => void; updating?: boolean }) {
   const genderCls = npc.gender === '女' ? 'text-rose-400' : npc.gender === '男' ? 'text-sky-400' : 'text-dim/40';
   const itemCount = npc.items?.length ?? 0;
   const canDm = !!onDm && !npc.isDead && isDmableTag(npc.npcTag);
@@ -71,6 +71,10 @@ function NpcCard({ npc, onOpen, onDm, onToggleFriend, onManualUpdate, updating }
           </div>
         </div>
         <div className="shrink-0 flex flex-col items-end gap-1 text-[11px] font-mono text-dim/40">
+          {!npc.onScene && onRestore && (
+            <button onClick={(e) => { e.stopPropagation(); onRestore(npc.id); }} title="重新上场（归档保留在档，随时召回，非删除）"
+              className="px-1.5 py-0.5 rounded border border-god/40 text-god/80 hover:bg-god/10 transition-colors">↑ 上场</button>
+          )}
           {itemCount > 0 && <span>🎒{itemCount}</span>}
           {canDm && (
             <button onClick={(e) => { e.stopPropagation(); onDm!(npc); }} title={`私信 ${npc.name || npc.id}`}
@@ -100,6 +104,8 @@ export default function NpcPanel({ onClose, onDm, onManualUpdate, manualUpdating
   const npcs      = useNpc((s) => s.npcs);
   const clearAll  = useNpc((s) => s.clearAll);
   const setFriend = useNpc((s) => s.setFriend);
+  const upsertNpc = useNpc((s) => s.upsertNpc);
+  const restoreNpc = (id: string) => upsertNpc(id, { onScene: true });   // 归档角色重新上场（B 区拉回，非删除）
 
   // 死亡角色不出现在档案列表（仍保留在 store 里，仅不展示）。
   // 只认 isDead 标记（与在场浮窗/其余各处一致）——不再在展示层重跑 looksDead，
@@ -228,7 +234,7 @@ export default function NpcPanel({ onClose, onDm, onManualUpdate, manualUpdating
               </span>
             </div>
           ) : (
-            displayed.map((npc) => <NpcCard key={npc.id} npc={npc} onOpen={() => setSelectedId(npc.id)} onDm={onDm} onToggleFriend={setFriend} onManualUpdate={onManualUpdate} updating={manualUpdatingId === npc.id} />)
+            displayed.map((npc) => <NpcCard key={npc.id} npc={npc} onOpen={() => setSelectedId(npc.id)} onDm={onDm} onToggleFriend={setFriend} onManualUpdate={onManualUpdate} onRestore={restoreNpc} updating={manualUpdatingId === npc.id} />)
           )}
         </div>
       </div>

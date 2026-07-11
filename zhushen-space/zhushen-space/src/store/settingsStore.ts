@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
+import { setUserDict } from '../i18n/userDict';
 
 // position: 0=角色前 1=角色后 2=作者注释上 3=作者注释下 4=主提示前 5=主提示后
 export interface WorldBookEntry {
@@ -298,6 +299,8 @@ interface SettingsState {
   setAppearance: (v: 'classic' | 'eyecare' | 'warm') => void;
   uiVignette: boolean;  // 背景暗角氛围：四周轻微压暗、聚焦中央正文（纯视觉·pointer-events:none）
   setUiVignette: (v: boolean) => void;
+  holoCardFx: boolean;  // 全息卡片特效总开关：on=立绘/物品/装备显示全息卡（默认）；off=普通图片（回退原样）
+  setHoloCardFx: (v: boolean) => void;
   plotChoices: boolean;   // 剧情选项：每段正文生成后，额外生成 8 个主角行动选项（最后 1 个限制级）
   setPlotChoices: (v: boolean) => void;
   fanficMode: boolean;    // 同人增强：识别已知作品角色→输出/锁定设定→下回合注入正文防 OOC
@@ -324,6 +327,9 @@ interface SettingsState {
   setAutoTranslateEngine: (v: 'ai' | 'free') => void;
   autoTranslateManual: boolean;   // 机翻手动触发：开=不自动跑机翻(只留词库+繁體转换)、靠悬浮「译」按钮点触；关=自动补全
   setAutoTranslateManual: (v: boolean) => void;
+  userGlossary: Partial<Record<UiLang, Record<string, string>>>;   // 用户导入的翻译覆盖表（运行时优先于内置 en.ts/vi.ts）
+  glossaryVersion: number;   // 导入后 +1，供 DomI18n 重新套用整页
+  setUserGlossary: (lang: UiLang, map: Record<string, string>) => void;
   apiLibrary: ApiEndpoint[];   // 中心 API 接口库（综合设置维护，各功能快捷选填）
   apiRoutes: Record<string, string[]>;  // 各功能的接口路由：featureKey → 有序 endpoint id 列表（上=优先，失败 fallback）
   apiThrottle: { maxConcurrent: number; minGapMs: number };  // 全局请求节流：最大并发 + 最小间隔（缓解 429）
@@ -359,6 +365,7 @@ interface SettingsState {
   textStream: boolean;
   skipNarrativeThinking: boolean;   // 正文末尾预填充 </think>，让思考模型跳过原生思维链直接出正文（提速·省 token）
   plotGuidance: boolean;            // 剧情指导：正文生成前先跑一次"剧情优化建议"调用 → 像叙事回忆一样注入主正文（仅一次正文生成·受指导）
+  planningReview: boolean;          // 正文前审核窗：剧情指导/数据库推进的产出先弹窗给玩家编辑确认，再写正文（细纲本就有弹窗）
   guidancePrompt: string;           // 剧情指导自定义提示词（留空=用内置 PLOT_GUIDANCE_RULE）
   choicesPrompt: string;            // 剧情选项自定义提示词·**完全覆盖**（留空=用内置 PLOT_CHOICES_RULE；填了则整段替换掉内置的选项规则）
   // 细纲：正文生成前先跑一次「细纲师」（信息注入与正文一致·独立API·A2：不带正文预设只发 OUTLINE_GEN_RULE）→ 弹窗给玩家编辑 → 确认后作为「必须遵循」深注入正文。与剧情指导/数据库推进三选一互斥（UI 侧强制）。
@@ -399,6 +406,7 @@ interface SettingsState {
   setTextStream: (v: boolean) => void;
   setSkipNarrativeThinking: (v: boolean) => void;
   setPlotGuidance: (v: boolean) => void;
+  setPlanningReview: (v: boolean) => void;
   setGuidancePrompt: (v: string) => void;
   setChoicesPrompt: (v: string) => void;
   setOutlineEnabled: (v: boolean) => void;
@@ -757,6 +765,7 @@ export const useSettings = create<SettingsState>()(
       uiTheme: 'default',
       appearance: 'classic',
       uiVignette: false,
+      holoCardFx: true,
       plotChoices: false,
       fanficMode: false,
       factCheck: false,
@@ -770,6 +779,8 @@ export const useSettings = create<SettingsState>()(
       autoTranslateOnline: true,   // 默认开：非简体语言下，跨玩家在线内容自动机翻（简体用户 needsAutoTranslate 基本不触发）
       autoTranslateEngine: 'ai',   // 默认 AI（最地道）；可切「免费机翻」不耗额度
       autoTranslateManual: true,   // 默认手动点击触发（避免自动机翻持续耗额度）
+      userGlossary: {},
+      glossaryVersion: 0,
       apiLibrary: [],
       apiRoutes: {},
       apiThrottle: { maxConcurrent: 3, minGapMs: 250 },
@@ -796,6 +807,7 @@ export const useSettings = create<SettingsState>()(
       textStream: true,
       skipNarrativeThinking: false,
       plotGuidance: false,
+      planningReview: false,
       guidancePrompt: '',
       choicesPrompt: '',
       outlineEnabled: false,
@@ -834,6 +846,7 @@ export const useSettings = create<SettingsState>()(
       setUiTheme: (v) => set({ uiTheme: v }),
       setAppearance: (v) => set({ appearance: v }),
       setUiVignette: (v) => set({ uiVignette: v }),
+      setHoloCardFx: (v) => set({ holoCardFx: v }),
       setPlotChoices: (v) => set({ plotChoices: v }),
       setNpcAutonomyOn: (v) => set({ npcAutonomyOn: v }),
       setNpcAutonomyDeath: (v) => set({ npcAutonomyDeath: v }),
@@ -847,6 +860,11 @@ export const useSettings = create<SettingsState>()(
       setAutoTranslateOnline: (v) => set({ autoTranslateOnline: v }),
       setAutoTranslateEngine: (v) => set({ autoTranslateEngine: v }),
       setAutoTranslateManual: (v) => set({ autoTranslateManual: v }),
+      setUserGlossary: (lang, map) => set((s) => {
+        const ug = { ...s.userGlossary, [lang]: map };
+        setUserDict(ug as Record<string, Record<string, string>>);   // 同步进运行时镜像，translate 立即生效
+        return { userGlossary: ug, glossaryVersion: s.glossaryVersion + 1 };
+      }),
 
       addApiEndpoint: () => set((s) => ({
         apiLibrary: [...s.apiLibrary, {
@@ -981,6 +999,7 @@ export const useSettings = create<SettingsState>()(
       setTextStream: (v) => set({ textStream: v }),
       setSkipNarrativeThinking: (v) => set({ skipNarrativeThinking: v }),
       setPlotGuidance: (v) => set({ plotGuidance: v }),
+      setPlanningReview: (v) => set({ planningReview: v }),
       setGuidancePrompt: (v) => set({ guidancePrompt: v }),
       setChoicesPrompt: (v) => set({ choicesPrompt: v }),
       setOutlineEnabled: (v) => set({ outlineEnabled: v }),
@@ -1254,3 +1273,6 @@ export const useSettings = create<SettingsState>()(
     }
   )
 );
+
+// 启动即把持久化的用户翻译覆盖表灌进运行时镜像（i18n/userDict）——translate.ts 读取，优先于内置词库。
+setUserDict((useSettings.getState().userGlossary || {}) as Record<string, Record<string, string>>);

@@ -41,6 +41,7 @@ export interface DiceCardData {
   reasoning?: string;    // AI 裁定依据（≤60字）
   consequences?: string[];
   calcNote?: string;     // AI 全包模式：AI 的数值推演摘要（有则替代 d20/d100 算式行）
+  rerolls?: number;      // 有限重掷：本次因失败额外掷了几次（0/undefined=没重掷）
 }
 
 export interface AutoDiceOut {
@@ -106,9 +107,16 @@ function computeAutoFe(attrKey: AttrKey, difficulty: Difficulty): ResolveResult 
   });
 }
 
+/** 是否开启检定审核窗（自动检定出结果后先弹窗给玩家重掷/编辑，确认才进正文） */
+export const isDiceReviewOn = (): boolean => !!useDice.getState().settings.diceReview;
+
+/** 结果好坏排序（好→坏），用于「有限重掷·取最好一次」 */
+const LEVEL_ORDER: OutcomeLevel[] = ['大成功', '碾压成功', '极难成功', '困难成功', '成功', '失败', '大失败'];
+const levelRank = (lv: OutcomeLevel): number => { const i = LEVEL_ORDER.indexOf(lv); return i < 0 ? 99 : i; };
+
 /**
  * 自动检定主流程。返回 null = 本回合不判定（未开启 / 未命中关键词 / 系统回合 / 已手动注入）。
- * 命中则：掷骰（+可选 AI 精修）→ 记历史 → 返回 { block, card }。
+ * 命中则：掷骰（+可选 AI 精修 / 失败有限重掷）→ 记历史 → 返回 { block, card }。
  */
 export async function runAutoDice(text: string): Promise<AutoDiceOut | null> {
   const dice = useDice.getState();
@@ -125,11 +133,14 @@ export async function runAutoDice(text: string): Promise<AutoDiceOut | null> {
   const difficulty = detectDifficulty(t);
   const profile = usePlayer.getState().profile;
   const actorName = profile.name || '主角';
+  const rerollMax = Math.max(0, Math.min(5, Math.floor(s.rerollOnFail || 0)));   // 有限重掷上限（失败自动重掷·一成功即停；UI 0/1/2）
 
   // ── AI 全包模式：一次调用同时判 needRoll + 估全部数值 + 裁成败（前端只掷诚实骰点，其余全交 AI；放弃确定性）。
   //   AI 调用/解析失败 → out.usedAI=false，落到下方前端确定性路径兜底。 ──
   if (s.judgeMode === 'ai-full') {
-    const roll = rollDie(s.mode === 'd20' ? 20 : 100);
+    // 有限重掷·ai-full：为免逐次调 API，掷 1+N 颗骰点取最有利（d20取高/d100取低）再交单次 AI 裁定（优势式，非逐次重判）。
+    const pool = Array.from({ length: 1 + rerollMax }, () => rollDie(s.mode === 'd20' ? 20 : 100));
+    const roll = s.mode === 'd20' ? Math.max(...pool) : Math.min(...pool);
     const out = await aiFullRoll({ mode: s.mode, actorName, action: t, difficulty, playerSheet: buildPlayerSheet(), roll });
     if (out.usedAI) {
       if (!out.needRoll) return null;                    // AI 判无需检定 → 不注入
@@ -150,6 +161,7 @@ export async function runAutoDice(text: string): Promise<AutoDiceOut | null> {
         usedAI: true, reasoning: out.reasoning || undefined,
         consequences: out.consequences.length ? out.consequences : undefined,
         calcNote: out.calc || (s.mode === 'd20' ? `d20:${roll}` : `d100:${roll}`),
+        rerolls: rerollMax || undefined,
       };
       return { block: blk, card: c };
     }
@@ -157,7 +169,14 @@ export async function runAutoDice(text: string): Promise<AutoDiceOut | null> {
   }
 
   const attrLabel = ATTR_LABELS[hit.attrKey];
-  const fe = computeAutoFe(hit.attrKey, difficulty);
+  let fe = computeAutoFe(hit.attrKey, difficulty);
+  // 有限重掷：失败且开了重掷 → 再掷，一成功即停；全失败则保留最好的一次（连大失败反噬也一并降低）。前端确定性，零 API 成本。
+  let rerolls = 0;
+  while (!fe.success && rerolls < rerollMax) {
+    rerolls++;
+    const next = computeAutoFe(hit.attrKey, difficulty);
+    if (levelRank(next.level) < levelRank(fe.level)) fe = next;
+  }
 
   let level: OutcomeLevel = fe.level;
   let success = fe.success;
@@ -191,7 +210,7 @@ export async function runAutoDice(text: string): Promise<AutoDiceOut | null> {
   const card: DiceCardData = {
     actorName, action: t, attrLabel, mode: fe.mode, chosen: fe.chosen,
     modsTotal: fe.mods.total, dc: fe.dc, P: fe.P, level, success, multiplier,
-    usedAI, reasoning, consequences,
+    usedAI, reasoning, consequences, rerolls: rerolls || undefined,
   };
   return { block, card };
 }

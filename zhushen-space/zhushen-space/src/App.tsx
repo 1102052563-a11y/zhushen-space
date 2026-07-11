@@ -25,6 +25,7 @@ import {
   ABYSS_LOCK_RULE,
   NATIVE_UNAWARE_RULE,
   ANTI_OMNISCIENCE_RULE,
+  NATIVE_LIFE_LOCAL_RULE,
   COMBAT_SKILL_NUMERIC_RULE,
   NPC_COT_RULE,
   NPC_INDEPENDENCE_RULE,
@@ -231,12 +232,13 @@ import { buildNarrativeHistory, dropRecentFromRecall, NM_COMPILE_PROMPT, NM_INGE
 import { buildMemPool, loadAll as factVecLoadAll, ensureVectors as factVecEnsure, embedOne as factVecEmbedOne, search as factVecSearch, rerank as factVecRerank } from './systems/factVec';
 import { useDbAdvance } from './store/dbAdvanceStore';   // 数据库推进管线（Stitches 规划层）
 import { findModule as dbFindModule, buildModuleMessages as dbBuildMsgs, extractTag as dbExtractTag, stripExcluded as dbStripExcluded, resolveFinalDirective as dbResolveDirective, type DbAdvanceCtx } from './systems/dbAdvancePreset';
-import { serializePlayerCard, serializeNpcCard, buildNpcCandidateTitles, buildPlayerSkillCandidates, buildPlayerItemCandidates, rankNpcsLocal, serializeFactionsSection, namesMentionedIn, NM_STRUCT_SELECT_PROMPT, type RecallLimits } from './systems/structuredRecall';
+import { serializePlayerCard, serializeNpcCard, buildNpcCandidateTitles, buildPlayerSkillCandidates, buildPlayerItemCandidates, rankNpcsLocal, pickOffsceneRescue, serializeFactionsSection, namesMentionedIn, NM_STRUCT_SELECT_PROMPT, type RecallLimits } from './systems/structuredRecall';
 import { drainSceneNotices, pushSceneNotice, drainGrowthNotices, pushGrowthNotice, pushFacilityGranted, drainFacilityGranted } from './systems/allocNotice';   // 场外操作通报→正文前置须知；星图习得/开箱→入戏交代块；设施发放物→物品阶段勿再建
 import { rollGemDrops } from './systems/gemDrop';   // 正文击杀 → 结算掉落宝石（前端确定性）
 const MiscPanel = lazy(() => import('./components/MiscPanel'));
 import DiceCard from './components/DiceCard';
-import { runAutoDice, type DiceCardData } from './systems/autoDice';   // 自动检定：发送即判定 → 隐藏喂API + 骰子卡
+const DiceReviewModal = lazy(() => import('./components/DiceReviewModal'));   // 检定审核窗（自动检定后弹窗·重掷/编辑）
+import { runAutoDice, isDiceReviewOn, type DiceCardData, type AutoDiceOut } from './systems/autoDice';   // 自动检定：发送即判定 → 隐藏喂API + 骰子卡 + 审核窗
 const EnhancePanel = lazy(() => import('./components/EnhancePanel'));
 const SkillUpgradePanel = lazy(() => import('./components/SkillUpgradePanel'));
 const CasinoPanel = lazy(() => import('./components/CasinoPanel'));
@@ -1498,6 +1500,14 @@ export default function App() {
   const outlineResolveRef = useRef<((v: string | null) => void) | null>(null);  // Promise 桥：确认(编辑后文本)/取消(null) 由弹窗按钮 resolve
   const outlineInputRef = useRef<string>('');   // 本回合玩家输入(含检定块，=apiText)（供「重新生成细纲」复用）
   const outlineHistRef = useRef<ChatMessage[]>([]);   // 本回合发送前抓拍历史（供「重新生成细纲」复用·杜绝当前行动重复）
+  // 检定审核窗：自动检定出结果后弹窗（可重掷/编辑检定块）→ 确认才进正文。Promise 桥：确认(结果)/取消(null)。
+  const [diceReviewModal, setDiceReviewModal] = useState<{ result: AutoDiceOut; text: string } | null>(null);
+  const diceReviewResolveRef = useRef<((v: AutoDiceOut | null) => void) | null>(null);
+  // 正文前审核窗（剧情指导 / 数据库推进·planningReview 开时·复用 OutlineModal）。Promise 桥：确认(文本·可空)/取消(null)。
+  const [planModal, setPlanModal] = useState<{ open: boolean; loading: boolean; text: string; mode: 'guidance' | 'dbAdvance'; title: string } | null>(null);
+  const planResolveRef = useRef<((v: string | null) => void) | null>(null);
+  const planInputRef = useRef<string>('');
+  const planHistRef = useRef<ChatMessage[]>([]);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const chatScrollRef = useRef<HTMLDivElement>(null);      // 对话滚动容器
   const stickBottomRef = useRef(true);                     // 是否吸附底部（用户上滑查看时置 false，流式生成不再强拉到底）
@@ -3036,7 +3046,7 @@ export default function App() {
       .filter((e) => e.enabled && e.source !== 'entrySharedRules')
       .map((e) => fillVars(e.content, vars))
       .join('\n\n')
-      + '\n\n' + NARRATIVE_FIRST_RULE + '\n' + BUFF_AS_STATUS_RULE + '\n' + NPC_AGE_RULE + '\n' + TALENT_NO_CAP_RULE + '\n' + TITLE_DIVERSITY_RULE + '\n' + NPC_DEAD_EXCLUDE_RULE + '\n' + NPC_ID_RULE + '\n' + SKILL_TALENT_NOTE_RULE + '\n' + NPC_SKILL_KEEP_RULE + '\n' + ITEM_GRANTED_SKILL_RULE + '\n' + SKILL_STABILITY_RULE + '\n' + SKILL_COMBAT_TAG_RULE + '\n' + NPC_REVIEW_TAG_RULE +'\n' + NPC_TEAM_AFFILIATION_RULE + '\n' + TIER_RULE + '\n' + IMAGE_TAGS_RULE + '\n' + HPEP_NARRATIVE_ONLY_RULE + '\n' + POINTS_NARRATIVE_RULE + '\n' + ATTR_POWER_CODEX + '\n' + NPC_ATTR_GEN_RULE + '\n' + ATTR_SANITY_RULE + '\n' + ATTR_CAP_RULE + '\n' + STATUS_FORMAT_RULE + '\n' + STATUS_COUNTDOWN_TURN_RULE + '\n' + NPC_PRIVATE_EXTRA_RULE + '\n' + NPC_TIER_LOADOUT_RULE + '\n' + SKILL_TALENT_ATTR_CAP_RULE + '\n' + FIRST_UPDATE_COMPLETE_RULE + '\n' + EVO_EXACT_REF_RULE + '\n' + SKILL_TALENT_GUIDE + '\n' + NPC_COT_RULE + '\n' + ANTI_OMNISCIENCE_RULE + '\n' + NPC_INDEPENDENCE_RULE + '\n' + DISPOSITION_STAGE_RULE + '\n' + DISPOSITION_DELTA_RULE + worldLoreEvoInjection()
+      + '\n\n' + NARRATIVE_FIRST_RULE + '\n' + BUFF_AS_STATUS_RULE + '\n' + NPC_AGE_RULE + '\n' + TALENT_NO_CAP_RULE + '\n' + TITLE_DIVERSITY_RULE + '\n' + NPC_DEAD_EXCLUDE_RULE + '\n' + NPC_ID_RULE + '\n' + SKILL_TALENT_NOTE_RULE + '\n' + NPC_SKILL_KEEP_RULE + '\n' + ITEM_GRANTED_SKILL_RULE + '\n' + SKILL_STABILITY_RULE + '\n' + SKILL_COMBAT_TAG_RULE + '\n' + NPC_REVIEW_TAG_RULE +'\n' + NPC_TEAM_AFFILIATION_RULE + '\n' + TIER_RULE + '\n' + IMAGE_TAGS_RULE + '\n' + HPEP_NARRATIVE_ONLY_RULE + '\n' + POINTS_NARRATIVE_RULE + '\n' + ATTR_POWER_CODEX + '\n' + NPC_ATTR_GEN_RULE + '\n' + ATTR_SANITY_RULE + '\n' + ATTR_CAP_RULE + '\n' + STATUS_FORMAT_RULE + '\n' + STATUS_COUNTDOWN_TURN_RULE + '\n' + NPC_PRIVATE_EXTRA_RULE + '\n' + NPC_TIER_LOADOUT_RULE + '\n' + SKILL_TALENT_ATTR_CAP_RULE + '\n' + FIRST_UPDATE_COMPLETE_RULE + '\n' + EVO_EXACT_REF_RULE + '\n' + SKILL_TALENT_GUIDE + '\n' + NPC_COT_RULE + '\n' + ANTI_OMNISCIENCE_RULE + '\n' + NATIVE_LIFE_LOCAL_RULE + '\n' + NPC_INDEPENDENCE_RULE + '\n' + DISPOSITION_STAGE_RULE + '\n' + DISPOSITION_DELTA_RULE + worldLoreEvoInjection()
       // 门控：仅当该 NPC 已有背景、却还没第一人称自述时，才追加"生成自述"规则（一次性·省 token）
       + (rec && rec.background && !rec.selfNarration ? '\n' + NPC_SELF_NARRATION_RULE : '')
       // 门控：已有背景但缺 原则底线 / 范例台词 → 本轮一并生成（反谄媚·治同质化的锚点，一次性·省 token）
@@ -3068,7 +3078,7 @@ export default function App() {
       .filter((e) => e.enabled)   // entries 来自独立的「登场判断」预设(entryJudge)，整本都是登场判断条目
       .map((e) => fillVars(e.content, vars))
       .join('\n\n')
-      + '\n\n' + NARRATIVE_FIRST_RULE + '\n' + EVO_VERIFY_RULE + '\n' + NPC_DEAD_EXCLUDE_RULE + '\n' + NPC_ID_RULE + '\n' + TIER_RULE + '\n' + SKILL_TIER_RULE + '\n' + NPC_TEAM_AFFILIATION_RULE + '\n' + NPC_ENTRY_BIO_RULE + '\n' + ENTRY_NAME_CN_RULE + '\n' + ENTRY_DEDUP_RULE + codexInjection + tierPowerInjection + worldLoreEvoInjection() + '\n' + SKILL_TALENT_GUIDE + '\n' + ANTI_OMNISCIENCE_RULE + '\n' + CANON_STRENGTH_NO_SCALE_RULE + '\n' + ENTRY_COT_RULE;
+      + '\n\n' + NARRATIVE_FIRST_RULE + '\n' + EVO_VERIFY_RULE + '\n' + NPC_DEAD_EXCLUDE_RULE + '\n' + NPC_ID_RULE + '\n' + TIER_RULE + '\n' + SKILL_TIER_RULE + '\n' + NPC_TEAM_AFFILIATION_RULE + '\n' + NPC_ENTRY_BIO_RULE + '\n' + ENTRY_NAME_CN_RULE + '\n' + ENTRY_DEDUP_RULE + codexInjection + tierPowerInjection + worldLoreEvoInjection() + '\n' + SKILL_TALENT_GUIDE + '\n' + ANTI_OMNISCIENCE_RULE + '\n' + NATIVE_LIFE_LOCAL_RULE + '\n' + CANON_STRENGTH_NO_SCALE_RULE + '\n' + ENTRY_COT_RULE;
   }
 
   /* 解析 NPC <state> 短指令（favor/title/realm/hp），可按 charId 过滤 */
@@ -3378,6 +3388,9 @@ export default function App() {
         if (skel) npc.applySkeleton(id, skel.short);
         else npc.upsertNpc(id, { name: storeName || id, onScene: true });
         npc.setScene(id, true, turn);
+        // 世界默认标签（登场判断不产 npcTag）：新 NPC 若还没标签，按当前世界定档——**任务世界=土著(默认)**、乐园/枢纽=契约者。
+        // 治"任务世界原住民没标土著 → 轨道A自治把他当契约者、凭空花乐园币逛主神空间/任务世界寻宝"(用户报)。AI 后续可用 character.<id>.npcTag 覆盖(如罕见的外来契约者)。
+        if (!npc.npcs[id]?.npcTag) npc.upsertNpc(id, { npcTag: isHomeWorld(useMisc.getState().worldName || '') ? '契约者' : '土著' });
         createdIds.add(id);
       } else {
         // reentry / 已存在
@@ -3398,6 +3411,8 @@ export default function App() {
         }
         npc.setScene(rid, true, turn);
         if (e.name) npc.upsertNpc(rid, { name: e.name });
+        // 补标签（旧档 / 早期无 npcTag 的 NPC 重新登场时纠正）：只在缺标签时按当前世界补，绝不覆盖已有标签——任务世界=土著、乐园/枢纽=契约者
+        if (!npc.npcs[rid]?.npcTag) npc.upsertNpc(rid, { npcTag: isHomeWorld(useMisc.getState().worldName || '') ? '契约者' : '土著' });
         const loc = /loc\.[CG]\d+\s*=\s*([^\n]+)/.exec(e.stateCommands ?? '');
         if (loc) npc.upsertNpc(rid, { extra: { ...(npc.npcs[rid]?.extra ?? {}), 位置: loc[1].trim() } });
       }
@@ -5433,6 +5448,10 @@ ${AFFIX_EFFECT_RULE}`;
       // ⚠只扫 userInput、不扫整段正文：正文一场戏提到一堆 NPC 就会全绕过 maxNpcs → 每个还全量注入 = "一大堆"、违背上限设定。
       //   正文里在场的相关 NPC 已由上面 rankNpcsLocal(在场优先) 限量选入，不靠这条兜底。
       for (const r of namesMentionedIn(npcs, opts.userInput ?? context)) if (!r.isDead && !chosen.includes(r)) chosen.unshift(r);
+      // 归档≠删除·防「离场就失忆」：离场但被【最近正文】点到名的 NPC（尤其被玩家归档的任务BOSS/关键角色），
+      // 必须带着记忆(经历/关系/动机)回到召回——否则一归档 AI 就当他不存在、同一世界前后文对不上（用户明确报此坑）。
+      // 与上面 userInput 护栏互补：pickOffsceneRescue **只补【离场】NPC**（在场的已由 rankNpcsLocal 覆盖）、限量 3、最近在场者优先。
+      for (const r of pickOffsceneRescue(npcs, context, chosen, 3)) chosen.unshift(r);
       for (const r of chosen) {
         const cd = chars[r.id];
         cards.push(serializeNpcCard(r, cd?.skills ?? [], cd?.traits ?? [], cd?.titles));  // NPC 全量，无上限（副职业仅主角）
@@ -8196,9 +8215,30 @@ ${lines}`;
     finally { setGuidanceRunning(false); }
   }
 
-  async function callApi(userText: string, extraHistory: ChatMessage[] = [], opts: { narrateOnly?: boolean; task?: 'outline'; outline?: string; onDelta?: (t: string) => void } = {}) {
+  /* 正文前审核窗（剧情指导 / 数据库推进）：先生成规划 → 弹窗（复用 OutlineModal）给玩家编辑 →
+     返回确认文本（可空字符串＝本回合不注入该规划）或 null（取消·作废本回合）。数据库推进走 callApi(task:'dbAdvance') 复用世界书信息。 */
+  async function runPlanReview(mode: 'guidance' | 'dbAdvance', input: string, hist: ChatMessage[]): Promise<string | null> {
+    planInputRef.current = input;
+    planHistRef.current = hist;
+    const title = mode === 'guidance' ? '💡 本回合剧情指导' : '🎬 本回合数据库推进';
+    setPlanModal({ open: true, loading: true, text: '', mode, title });
+    let draft = '';
+    try {
+      draft = mode === 'guidance'
+        ? await runPlotGuidance(input)
+        : (await callApi(input, hist, { task: 'dbAdvance' })) || '';
+    } catch (e) { console.warn('[正文前审核] 生成失败', e); }
+    setPlanModal((m) => (m && m.open) ? { ...m, loading: false, text: draft } : m);
+    const edited = await new Promise<string | null>((res) => { planResolveRef.current = res; });
+    planResolveRef.current = null;
+    setPlanModal(null);
+    return edited;
+  }
+
+  async function callApi(userText: string, extraHistory: ChatMessage[] = [], opts: { narrateOnly?: boolean; task?: 'outline' | 'dbAdvance'; outline?: string; guidance?: string; dbAdvance?: string; onDelta?: (t: string) => void } = {}) {
     const isOutline = opts.task === 'outline';   // 细纲生成：复用正文全上下文注入，但只发 OUTLINE_GEN_RULE（不带正文预设的写正文/排版指令·A2）→产出细纲文本、流式喂 onDelta、只 return 不落地
-    const narrateOnly = !!opts.narrateOnly || isOutline;   // 细纲继承 narrateOnly 的全部副作用屏蔽（不计回合/不消费前置须知/不解析<state>/不显示气泡/不演化）
+    const isDbAdvance = opts.task === 'dbAdvance';   // 数据库推进·预生成（审核窗）：复用 worldInfoText 跑推进管线、只 return 不落地
+    const narrateOnly = !!opts.narrateOnly || isOutline || isDbAdvance;   // 细纲/推进预生成继承 narrateOnly 的全部副作用屏蔽（不计回合/不消费前置须知/不解析<state>/不显示气泡/不演化）
     // 分头三段式·Stage2：用全预设+角色数据+世界书+上下文生成正文，但只 return 不落地（不计回合/不入账<state>/不显示/不演化）→由编排去对齐再统一处理
     // 每次用户发消息计为一回合（narrateOnly 草稿不计——回合由编排在 Stage4 / 来宾自我演化各计一次）
     if (!narrateOnly) {
@@ -8276,6 +8316,7 @@ ${lines}`;
         hits.map((h) => `〔${h.source}·${h.chap || h.vol || ''}〕${h.text}`).join('\n\n');
     } catch (e) { console.warn('[NovelVec] 检索失败', e); }
     const worldInfoText = [wbKeywordText, novelVecText].filter(Boolean).join('\n\n');
+    if (isDbAdvance) return await runDbAdvancePipeline(userText, worldInfoText);   // 数据库推进·预生成（审核窗）：拿到世界书信息即跑管线返回，不继续走正文
 
     // ACU 表格数据库·读路径 6b：预设/世界书若用到 {[db]}/{[sql]}/<if db|sql> 才懒加载 sql.js 建只读镜像（真懒加载·不用则永不拉 wasm）
     try {
@@ -8289,13 +8330,13 @@ ${lines}`;
     // 剧情指导（开启时）：正文生成【前】先跑一次，产出剧情优化建议 → 像叙事回忆一样注入主正文，由主正文据此写（仅一次正文生成）
     let guidanceBlock: { role: 'system'; content: string }[] = [];
     if (plotGuidance && !isOutline) {
-      const g = await runPlotGuidance(userText);
+      const g = opts.guidance !== undefined ? opts.guidance : await runPlotGuidance(userText);   // 审核窗已确认则用玩家编辑版，否则现生成
       if (g) guidanceBlock = [{ role: 'system', content: `<剧情指导>\n（本回合写作建议·仅"剧情方向"参考）\n${g}\n\n（以上仅为剧情方向建议：把方向自然融入正文即可，勿照抄成对白/旁白/标题。⚠️正文的输出格式与一切结构模块——状态栏／时间结算／【主角资源】等世界书与预设规定的模块——一律照常严格输出，不得因本建议而省略、简化或改变格式。本建议只影响"写什么剧情"，不影响"怎么排版输出"。）\n</剧情指导>` }];
     }
     // 数据库推进管线（Stitches·开启时）：正文前跑「召回→推进」规划层，产出 stage/scene/recall → 注入正文，正文预设据此写散文（预设只规划、不写正文）
     let dbAdvanceBlock: { role: 'system'; content: string }[] = [];
     if (!narrateOnly && useDbAdvance.getState().enabled && useDbAdvance.getState().preset) {
-      const d = await runDbAdvancePipeline(userText, worldInfoText);
+      const d = opts.dbAdvance !== undefined ? opts.dbAdvance : await runDbAdvancePipeline(userText, worldInfoText);   // 审核窗已确认则用玩家编辑版，否则现生成
       if (d) dbAdvanceBlock = [{ role: 'system', content: `<数据库推进>\n（本回合规划·导演已排好这一拍的角色行动/场景/记忆，请据此写正文；正文格式与一切结构模块照常严格输出，不因本规划而省略或改格式）\n${d}\n</数据库推进>` }];
     }
 
@@ -8975,7 +9016,7 @@ ${lines}`;
   async function sendMessage(textArg?: string, fromAuto = false, sendOpts: { skipOutline?: boolean } = {}) {
     const text = (textArg ?? inputValue).trim();
     if (!fromAuto) stopAutoAdvance();   // 用户手动发送即中断循环自动推进
-    if (!text || generating || guidanceRunning || outlineModal.open) return;   // 剧情指导前置阶段/细纲弹窗开着也算「忙」，防重复发起并发调用
+    if (!text || generating || guidanceRunning || outlineModal.open || planModal?.open || !!diceReviewModal) return;   // 剧情指导前置阶段/细纲·检定·规划审核弹窗开着也算「忙」，防重复发起并发调用
 
     // ── 联机分叉 ──
     const mp = useMp.getState();
@@ -9020,9 +9061,27 @@ ${lines}`;
       try {
         const auto = await runAutoDice(text);
         if (auto) {
-          apiText = `${effectiveText}\n${auto.block}`;
           autoFired = true;
-          setMessages((prev) => prev.map((m) => m.id === userMsgId ? { ...m, dice: auto.card } : m));
+          let finalBlock = auto.block;
+          let finalCard: DiceCardData | null = auto.card;
+          if (isDiceReviewOn()) {   // 审核窗：弹窗给玩家重掷/编辑 → 确认(结果)/取消(作废本回合)
+            const decided = await new Promise<AutoDiceOut | null>((res) => {
+              diceReviewResolveRef.current = res;
+              setDiceReviewModal({ result: auto, text });
+            });
+            diceReviewResolveRef.current = null;
+            setDiceReviewModal(null);
+            if (decided === null) {   // 取消 → 作废本回合（撤回用户气泡 + 还原输入框）
+              setMessages((prev) => prev.filter((m) => m.id !== userMsgId));
+              if (textArg == null) setInputValue(text);
+              return;
+            }
+            finalBlock = decided.block; finalCard = decided.card;
+          }
+          if (finalBlock.trim()) {   // 清空检定块（审核时删掉）= 本回合不注入检定
+            apiText = `${effectiveText}\n${finalBlock.trim()}`;
+            setMessages((prev) => prev.map((m) => m.id === userMsgId ? { ...m, dice: finalCard! } : m));
+          }
         }
       } catch (e) { console.warn('[AutoDice] 自动检定失败，跳过本回合判定', e); }
     }
@@ -9052,6 +9111,22 @@ ${lines}`;
       }
       await callApi(apiText, histSnapshot, { outline: edited });   // 正文：注入玩家确认的细纲，其余上下文与正文一致
       return;   // 单机（联机不管），无需广播
+    }
+
+    // ── 剧情指导 / 数据库推进·审核窗（planningReview 开·仅单机·三选一互斥于细纲）：正文前弹窗给玩家编辑确认 → 再注入正文。
+    if (useSettings.getState().planningReview && !fromAuto && mp.status !== 'connected') {
+      const dbOn = useDbAdvance.getState().enabled && !!useDbAdvance.getState().preset;
+      const mode: 'guidance' | 'dbAdvance' | null = dbOn ? 'dbAdvance' : useSettings.getState().plotGuidance ? 'guidance' : null;
+      if (mode) {
+        const edited = await runPlanReview(mode, apiText, histSnapshot);
+        if (edited === null) {   // 取消 → 作废本回合（撤回用户气泡 + 还原输入框）
+          setMessages((prev) => prev.filter((m) => m.id !== userMsgId));
+          if (textArg == null) setInputValue(text);
+          return;
+        }
+        await callApi(apiText, histSnapshot, mode === 'guidance' ? { guidance: edited } : { dbAdvance: edited });   // 正文：注入玩家确认的规划（空=不注入），其余上下文与正文一致
+        return;
+      }
     }
 
     const narrative = await callApi(apiText, extraHist);
@@ -9723,8 +9798,10 @@ ${lines}`;
                 {(() => {
                   // 按 id（=追加顺序·递增；读档时 msgId 已置 max+1）稳定升序展示，纠正偶发的楼层乱序——
                   // 治「上一轮输入跑到上一楼正文下面」：用户气泡追加、流式占位追加、快速连发/并发等竞态偶尔让数组乱序时，展示层强制回到时间顺序（id 顺序恒为聊天真实先后）。
-                  const windowMsgs = historyLimit > 0 ? messages.slice(-historyLimit) : messages;
-                  const visibleMsgs = [...windowMsgs].sort((a, b) => (a.id ?? 0) - (b.id ?? 0));
+                  // ⚠必须「先整体按 id 排序、再截最近 N 条」：旧写法 slice(-N) 先按**数组位置**截——若此刻数组恰好乱序(流式占位比用户气泡先落数组)，会截错集合(该显示的楼层被挤出窗口/漏显)，
+                  //   再对截出来的子集排序也补不回被截掉的那条。排序在截断之前，才能保证窗口恒为"最新的 N 条、且顺序正确"。
+                  const sortedAll = [...messages].sort((a, b) => (a.id ?? 0) - (b.id ?? 0));
+                  const visibleMsgs = historyLimit > 0 ? sortedAll.slice(-historyLimit) : sortedAll;
                   const hiddenCount = messages.length - visibleMsgs.length;
                   return (
                     <>
@@ -10538,6 +10615,37 @@ ${lines}`;
       {vaultOpen && <AccountVaultPanel onClose={() => setVaultOpen(false)} />}
       {mpIncomingGift && <GiftPrompt gift={mpIncomingGift} onClose={() => useMp.getState()._set({ incomingGift: null })} />}
       {mpRaidLoot && <RaidLootModal onClose={() => useMp.getState()._set({ raidLoot: null })} />}
+      {diceReviewModal && (
+        <DiceReviewModal
+          initial={diceReviewModal.result}
+          onReroll={() => runAutoDice(diceReviewModal.text)}
+          onConfirm={(r) => diceReviewResolveRef.current?.(r)}
+          onCancel={() => diceReviewResolveRef.current?.(null)}
+        />
+      )}
+      {planModal?.open && (
+        <OutlineModal
+          open={planModal.open}
+          loading={planModal.loading}
+          text={planModal.text}
+          title={planModal.title}
+          subtitle="先审核这一拍的规划，编辑满意后再生成正文（清空则本回合不注入该规划）。"
+          allowEmpty
+          onConfirm={(v) => planResolveRef.current?.(v)}
+          onCancel={() => planResolveRef.current?.(null)}
+          onRegenerate={async () => {
+            const mode = planModal.mode;
+            setPlanModal((m) => m ? { ...m, loading: true, text: '' } : m);
+            let d = '';
+            try {
+              d = mode === 'guidance'
+                ? await runPlotGuidance(planInputRef.current)
+                : (await callApi(planInputRef.current, planHistRef.current, { task: 'dbAdvance' })) || '';
+            } catch (e) { console.warn('[正文前审核] 重新生成失败', e); }
+            setPlanModal((m) => (m && m.open) ? { ...m, loading: false, text: d } : m);
+          }}
+        />
+      )}
       {outlineModal.open && (
         <OutlineModal
           open={outlineModal.open}
