@@ -223,7 +223,10 @@ export function toHtmlWithImages(text: string, images?: StoryImage[]): string {
   });
   let html = toHtml(work);
   (images ?? []).forEach((img, i) => {
-    const tag = `<img src="${img.url}" alt="${escapeHtml(img.nsfw || '')}" data-img-idx="${i}" title="单击看大图 · 双击重新生成" class="story-illust" style="display:block;max-width:100%;border-radius:10px;margin:10px auto;border:1px solid rgba(255,255,255,0.08);cursor:zoom-in" loading="lazy" />`;
+    const tag = `<span class="story-illust-wrap" style="position:relative;display:block;width:fit-content;max-width:100%;margin:10px auto">`
+      + `<img src="${img.url}" alt="${escapeHtml(img.nsfw || '')}" data-img-idx="${i}" title="单击看大图 · 双击或点右上🔄 重新生成" class="story-illust" style="display:block;max-width:100%;border-radius:10px;border:1px solid rgba(255,255,255,0.08);cursor:zoom-in" loading="lazy" />`
+      + `<button type="button" class="illust-regen" data-img-idx="${i}" title="重新生成这张配图" aria-label="重新生成配图" style="position:absolute;top:6px;right:6px;width:32px;height:32px;display:flex;align-items:center;justify-content:center;border-radius:8px;border:1px solid rgba(255,255,255,0.18);background:rgba(0,0,0,0.55);color:#e2e8f0;font-size:16px;line-height:1;cursor:pointer">🔄</button>`
+      + `</span>`;
     html = html.split(tokens[i]).join(tag);
   });
   diceCards.forEach((card, i) => { html = html.split(`@@ZSDICE${i}@@`).join(card); });

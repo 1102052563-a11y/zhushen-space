@@ -9757,7 +9757,10 @@ ${lines}`;
                                 className="text-slate-300 narrative-content"
                                 style={{ fontSize: `${reading.fontSize}px`, letterSpacing: `${reading.letterSpacing}px`, fontFamily: readingFontStack(reading.fontFamily), '--narr-lh': String(reading.lineHeight) } as any}
                                 onClick={(e) => {
-                                  const el = (e.target as HTMLElement).closest('.story-illust') as HTMLElement | null;
+                                  const t = e.target as HTMLElement;
+                                  const regen = t.closest('.illust-regen') as HTMLElement | null;
+                                  if (regen) { e.preventDefault(); void regenerateStoryImage(msg.id, Number(regen.dataset.imgIdx)); return; }   // 点右上🔄重新生成（手机不用双击）
+                                  const el = t.closest('.story-illust') as HTMLElement | null;
                                   if (!el) return;
                                   const idx = Number(el.dataset.imgIdx);
                                   if (illustClickTimer.current) { clearTimeout(illustClickTimer.current); illustClickTimer.current = null; }
