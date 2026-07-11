@@ -3,7 +3,7 @@ import { useMisc, isMainQuest, type MiscTask, type QuestRing } from '../store/mi
 
 type Tab = 'tasks' | 'events';
 
-export default function MiscPanel({ onClose }: { onClose: () => void }) {
+export default function MiscPanel({ onClose, onGenerate }: { onClose: () => void; onGenerate?: (tendency: string) => Promise<{ ok: boolean; msg: string }> }) {
   const tasks = useMisc((s) => s.tasks);
   const archivedTasks = useMisc((s) => s.archivedTasks);
   const events = useMisc((s) => s.worldEvents);
@@ -18,6 +18,7 @@ export default function MiscPanel({ onClose }: { onClose: () => void }) {
   const contractors = useMisc((s) => s.contractors) ?? { count: 0, note: '' };
   const [tab, setTab] = useState<Tab>('tasks');
   const [editing, setEditing] = useState<MiscTask | null>(null);
+  const [genOpen, setGenOpen] = useState(false);
 
   const mainTasks = tasks.filter((t) => isMainQuest(t));   // 主线置顶高亮
   const sideTasks = tasks.filter((t) => !isMainQuest(t));  // 支线分组
@@ -66,13 +67,20 @@ export default function MiscPanel({ onClose }: { onClose: () => void }) {
           </div>
         )}
 
-        <div className="shrink-0 flex gap-1 px-4 py-2 border-b border-edge bg-panel">
+        <div className="shrink-0 flex items-center gap-1 px-4 py-2 border-b border-edge bg-panel">
           {tabs.map((t) => (
             <button key={t.key} onClick={() => setTab(t.key)}
               className={`px-3 py-1 rounded text-sm font-mono border transition-colors ${tab === t.key ? 'border-god/50 text-god bg-god/10' : 'border-edge text-dim hover:text-slate-200'}`}>
               {t.label}{t.n > 0 ? ` (${t.n})` : ''}
             </button>
           ))}
+          <span className="flex-1" />
+          {tab === 'tasks' && onGenerate && (
+            <button onClick={() => setGenOpen(true)} title="按你的倾向手动重新生成本世界主线（覆盖原有）"
+              className="px-2.5 py-1 rounded text-[12px] font-mono border border-god/40 text-god/90 bg-god/10 hover:bg-god/20 transition-colors">
+              🎲 手动生成主线
+            </button>
+          )}
         </div>
 
         <div className="flex-1 overflow-y-auto p-4 space-y-2">
@@ -129,6 +137,9 @@ export default function MiscPanel({ onClose }: { onClose: () => void }) {
             onSave={(patch) => { editTask(editing.id, patch); setEditing(null); }}
             onClose={() => setEditing(null)}
           />
+        )}
+        {genOpen && onGenerate && (
+          <GenerateTaskModal onGenerate={onGenerate} onClose={() => setGenOpen(false)} />
         )}
       </div>
     </div>
@@ -365,6 +376,63 @@ function TaskEditModal({ task, onSave, onClose }: { task: MiscTask; onSave: (pat
           <span className="text-[11px] font-mono text-dim/40 flex-1 leading-tight">保存后即时生效·以你改的为准（不受 AI 路线图锁定）</span>
           <button onClick={onClose} className="text-[12px] font-mono px-3 py-1 rounded border border-edge text-dim hover:text-slate-200">取消</button>
           <button onClick={save} className="text-[12px] font-mono px-3 py-1 rounded border border-god/50 text-god bg-god/10 hover:bg-god/20">保存</button>
+        </footer>
+      </div>
+    </div>
+  );
+}
+
+/* ── 手动生成主线弹窗（按玩家倾向重规划本世界主线·覆盖原有）── */
+function GenerateTaskModal({ onGenerate, onClose }: { onGenerate: (tendency: string) => Promise<{ ok: boolean; msg: string }>; onClose: () => void }) {
+  const [tendency, setTendency] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [result, setResult] = useState<{ ok: boolean; msg: string } | null>(null);
+  const presets = ['不想战斗·偏潜入/智取', '偏经营/发展/建设', '偏解谜/调查/情报', '偏社交/攻略/结盟', '短平快·尽快通关', '硬核战斗·高强度'];
+
+  const run = async () => {
+    if (busy) return;
+    setBusy(true); setResult(null);
+    try { setResult(await onGenerate(tendency)); }
+    catch (e: any) { setResult({ ok: false, msg: '生成出错：' + (e?.message || String(e)) }); }
+    finally { setBusy(false); }
+  };
+
+  return (
+    <div className="fixed inset-0 z-[60] bg-black/75 backdrop-blur-sm flex items-center justify-center p-4"
+      onClick={(e) => { if (e.target === e.currentTarget && !busy) onClose(); }}>
+      <div className="w-full max-w-md flex flex-col rounded-2xl border border-god/40 bg-void shadow-[0_0_60px_rgba(0,0,0,0.85)] overflow-hidden">
+        <header className="shrink-0 flex items-center gap-2 px-4 py-2.5 border-b border-edge bg-panel">
+          <span className="text-sm font-bold text-god">🎲 手动生成主线</span>
+          <span className="flex-1" />
+          <button onClick={() => !busy && onClose()} className="text-dim/50 hover:text-blood text-lg">✕</button>
+        </header>
+        <div className="p-4 space-y-3">
+          <div className="text-[12px] text-dim/70 leading-relaxed">按你的<span className="text-god/80">任务倾向</span>为当前世界重规划一条主线并<span className="text-amber-300/80">覆盖原有主线</span>；不填就按世界核心目标常规生成。</div>
+          <textarea className={EDIT_INPUT + ' resize-none'} rows={3} value={tendency} disabled={busy}
+            onChange={(e) => setTendency(e.target.value)}
+            placeholder="例：不想打打杀杀，偏潜入与智取；或 偏经营发展；或 沿原作主线深入…" />
+          <div className="flex flex-wrap gap-1.5">
+            {presets.map((p) => (
+              <button key={p} disabled={busy} onClick={() => setTendency(p)}
+                className="text-[11px] font-mono px-1.5 py-0.5 rounded border border-edge text-dim/70 hover:text-god hover:border-god/40 disabled:opacity-40">{p}</button>
+            ))}
+          </div>
+          {result && (
+            <div className={`text-[12px] rounded px-2 py-1.5 border ${result.ok ? 'border-emerald-500/30 bg-emerald-500/10 text-emerald-300/90' : 'border-blood/30 bg-blood/10 text-blood/80'}`}>
+              {result.ok ? '✅ ' : '⚠ '}{result.msg}
+            </div>
+          )}
+        </div>
+        <footer className="shrink-0 flex items-center gap-2 px-4 py-2.5 border-t border-edge bg-panel">
+          <span className="text-[11px] font-mono text-dim/40 flex-1 leading-tight">生成会调用任务 API，稍等片刻</span>
+          {result?.ok ? (
+            <button onClick={onClose} className="text-[12px] font-mono px-3 py-1 rounded border border-god/50 text-god bg-god/10">完成</button>
+          ) : (
+            <>
+              <button onClick={() => !busy && onClose()} disabled={busy} className="text-[12px] font-mono px-3 py-1 rounded border border-edge text-dim hover:text-slate-200 disabled:opacity-40">取消</button>
+              <button onClick={run} disabled={busy} className="text-[12px] font-mono px-3 py-1 rounded border border-god/50 text-god bg-god/10 hover:bg-god/20 disabled:opacity-50">{busy ? '生成中…' : '生成'}</button>
+            </>
+          )}
         </footer>
       </div>
     </div>

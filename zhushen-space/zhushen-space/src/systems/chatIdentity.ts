@@ -1,7 +1,7 @@
 // 聊天室身份：Discord 登录(复用云存档同一套) → 用云会话令牌换「顺序专属 UID + chatToken」。
 // chatToken 存 localStorage，连 WS 时带上；后端验签后把 pid 设为 chat:<uid>。
 import { mpBase } from './mpConfig';
-import { cloudToken, cloudLoggedIn, cloudLogin, cloudUser, cloudLogout } from './cloudSave';
+import { cloudToken, cloudLoggedIn, cloudLogin, cloudUser, cloudLogout, localLogin } from './cloudSave';
 
 const CHAT_TOKEN_KEY = 'drpg-chat-token';
 const CHAT_UID_KEY = 'drpg-chat-uid';
@@ -30,14 +30,14 @@ export function clearChatIdentity(): void {
   try { [CHAT_TOKEN_KEY, CHAT_UID_KEY, CHAT_NAME_KEY, CHAT_AVV_KEY, CHAT_DS_KEY, CHAT_DUID_KEY, CHAT_BOUND_KEY].forEach((k) => localStorage.removeItem(k)); } catch { /* */ }
 }
 
-// 复用云存档的 Discord 登录态/动作
-export { cloudLoggedIn as discordLoggedIn, cloudLogin as discordLogin, cloudUser as discordUser };
+// 复用云存档的登录态/动作（Discord + 免 Discord 的本地登录，两者写同一套令牌键）
+export { cloudLoggedIn as discordLoggedIn, cloudLogin as discordLogin, cloudUser as discordUser, localLogin };
 export function fullLogout(): void { cloudLogout(); clearChatIdentity(); }
 
 /** 用云会话令牌换/更新聊天身份（顺序 UID + chatToken + 头像版本）。
  *  name=起名/改名（受 2 天冷却，被拒时返回 nameLocked 但仍发身份）；avatar=上传新头像(dataURL)。 */
 export async function fetchChatIdentity(name?: string, avatar?: string, extra?: { dicebearSeed?: string; avatarMode?: string; customUid?: number }): Promise<ChatIdentity> {
-  if (!cloudToken()) throw new Error('请先用 Discord 登录');
+  if (!cloudToken()) throw new Error('请先登录（Discord 或本地登录）');
   const payload: any = { name: (name || '').trim(), avatar: avatar || '' };
   if (extra?.dicebearSeed !== undefined) payload.dicebearSeed = extra.dicebearSeed;
   if (extra?.avatarMode) payload.avatarMode = extra.avatarMode;

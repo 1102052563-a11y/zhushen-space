@@ -4490,6 +4490,47 @@ ${AFFIX_EFFECT_RULE}`;
     }
   }
 
+  /* 玩家在任务面板手动生成主线：按【玩家任务倾向】重新规划本世界主线并覆盖原有主线（不手动则照旧由杂项演化自动规划）。 */
+  async function manualGenTask(tendency: string): Promise<{ ok: boolean; msg: string }> {
+    const M = useMisc.getState();
+    if (isHomeWorld(M.worldName || '')) return { ok: false, msg: '当前在轮回乐园/枢纽——请先进入一个衍生世界，再手动生成主线。' };
+    const ss = useSettings.getState();
+    const legacyApi = M.miscUseSharedApi ? (ss.textUseSharedApi ? ss.api : ss.textApi) : M.miscApi;
+    const chain = resolveApiChain('misc', legacyApi);
+    if (!chain[0]?.baseUrl || !chain[0]?.apiKey) return { ok: false, msg: '杂项/任务 API 未配置，无法生成。' };
+    const _pp = usePlayer.getState().profile;
+    const fanficOn = ss.fanficMode;
+    const situation = [_pp.name, _pp.tier && `${_pp.tier}·Lv${_pp.level ?? 1}`, _pp.identity && `身份:${_pp.identity}`, _pp.location && `位置:${_pp.location}`].filter(Boolean).join('｜');
+    const wTier = M.worldTier || _pp.tier || '';
+    const newId = M.nextTaskId();
+    const sys = [
+      '你是轮回乐园任务系统的「主线路线图规划师」。据下述规则、当前世界与【玩家任务倾向】，为当前任务世界生成【一条主线任务】的建表命令。',
+      QUEST_PLANNING_RULE, TASK_CANON_RULE, QUEST_KILL_TIER_RULE,
+      `【当前世界】：${M.worldName}`,
+      wTier ? `【本世界难度·锁定】：${wTier}（敌人/难度/击杀目标阶位上限按此，不随主角升级变化）` : '',
+      `【主角当前处境】：${situation || '（未建档）'}`,
+      `【同人增强】：${fanficOn ? '开——若为已知作品，先按【同人世界·任务接地】锚定主角所处的具体时间线/事件的真实反派与冲突，别乱拉不相干强敌' : '关'}`,
+      `【输出铁则·最高优先】只输出**一条** \`set({...})\` 命令、且放进 <upstore>…</upstore> 内：任务 id 用 "${newId}"、\`kind:"主线"\`、带 \`finale\`、\`currentRing:1\`、\`rings\` 一次写满全部环（6~12 环·第1环 \`status:"active"\` 其余 \`"planned"\`·各环给全 goal/reward(六选三)/penalty(三类)），**绝不把任何环标 done/达成**。除 <upstore> 块外不要任何解释、正文或多余文字。`,
+    ].filter(Boolean).join('\n\n');
+    const user = `【玩家任务倾向】：${tendency.trim() || '（无特别倾向，按世界核心目标常规生成）'}\n\n请**紧贴该倾向**为当前世界【${M.worldName}】生成一条主线：若倾向是"不想战斗/偏潜入/偏经营/偏解谜/偏社交"等，就把主线目标与各环设计成对应风格、尽量少正面硬战（但仍要有张力与阶段递进）；只输出 <upstore> 里那一条 set(...)。`;
+    let reply = '';
+    try {
+      const r = await apiChatFallback(chain, [{ role: 'system', content: sys }, { role: 'user', content: user }], { timeoutMs: 120000 });
+      reply = (r.content || '').replace(/<think[^>]*>[\s\S]*?<\/think>/gi, '');
+    } catch (e: any) { return { ok: false, msg: '生成失败：' + (e?.message || String(e)) }; }
+    if (!/set\(\s*\{[\s\S]*\}\s*\)/.test(reply)) return { ok: false, msg: 'AI 没返回有效的任务命令，请重试或换个说法。' };
+    const createdId = /["']0["']\s*:\s*["'](T_\d+)["']/.exec(reply)?.[1] || newId;
+    // 先建新任务（解析失败就不动原有主线，避免误删）
+    const n = applyMiscCommands(reply, { allowLarge: false });
+    if (n <= 0) return { ok: false, msg: '任务命令解析失败，请重试。' };
+    // 覆盖：移除本世界原有 active 主线（新建那条除外·据边界戳框住"本世界"），再把新任务强制为主线（绕过"一世界一主线"降级）
+    const boundary = M.lastWorldSettleAt || 0;
+    const oldMains = useMisc.getState().tasks.filter((t) => t.id !== createdId && isMainQuest(t) && (boundary <= 0 || (t.addedAt || 0) > boundary));
+    for (const t of oldMains) useMisc.getState().removeTask(t.id);
+    try { useMisc.getState().editTask(createdId, { kind: '主线' }); } catch { /* 确保覆盖后是主线 */ }
+    return { ok: true, msg: `已按你的倾向生成新主线${oldMains.length ? `，替换了原有 ${oldMains.length} 条主线` : ''}。` };
+  }
+
   /* ════════════════════════════════════════════
      杂项演化阶段（分段总结 / 双时间 / 天气 / 世界大事 / 任务）
   ════════════════════════════════════════════ */
@@ -10722,7 +10763,7 @@ ${lines}`;
       {promoteCandidates.length > 0 && <PartyPromoteDialog ids={promoteCandidates} onClose={() => setPromoteCandidates([])} />}
       {shopOpen && <SystemShop onGenShop={genShopItems} onQuoteSell={genSellQuotes} onClose={() => setShopOpen(false)} />}
       {miscPanelOpen && (
-        <MiscPanel onClose={() => setMiscPanelOpen(false)} />
+        <MiscPanel onClose={() => setMiscPanelOpen(false)} onGenerate={manualGenTask} />
       )}
 
       {worldRecordOpen && (

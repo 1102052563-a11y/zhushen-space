@@ -8,7 +8,7 @@ import { useCharacters } from '../store/characterStore';
 import { useNpc, hasRealNpcName } from '../store/npcStore';
 import { fileToScaledDataUrl } from '../store/raidImageStore';
 import {
-  discordLoggedIn, discordLogin, fetchChatIdentity, fullLogout, chatUid, chatDisplayUid, chatName,
+  discordLoggedIn, discordLogin, localLogin, fetchChatIdentity, fullLogout, chatUid, chatDisplayUid, chatName,
   chatBound, setChatBound, chatReady, chatToken, chatAvatarVer, chatDicebearSeed, updateChatProfile,
 } from '../systems/chatIdentity';
 import { EntityCard, EntityDetailModal, type EntityKind } from './EntityDetail';
@@ -186,6 +186,16 @@ export default function ChatRoomPanel({ onClose }: { onClose: () => void }) {
     } catch (e: any) { setGateErr(e?.message || '登录失败'); }
     setBusy(false);
   };
+  // 免 Discord 的本地登录（受限网络）：换取会话后照常拉专属 UID，流程与 Discord 登录一致
+  const doLocalLogin = async () => {
+    setBusy(true); setGateErr('');
+    try {
+      await localLogin(name);
+      setLoggedIn(true);
+      try { const id = await fetchChatIdentity(); setUid(id.uid); setDispUid(id.displayUid ?? id.uid); setCustomUidInput(String(id.displayUid ?? id.uid)); if (!name.trim() || name === '道友') setName(id.name || name); } catch { /* */ }
+    } catch (e: any) { setGateErr(e?.message || '本地登录失败'); }
+    setBusy(false);
+  };
   const doEnter = async () => {
     const n = (name || '').trim() || '道友';
     setBusy(true); setGateErr('');
@@ -324,8 +334,10 @@ export default function ChatRoomPanel({ onClose }: { onClose: () => void }) {
               <>
                 <div className="text-5xl">💬</div>
                 <div className="text-base font-bold text-slate-100">进入聊天室</div>
-                <div className="text-[12px] text-dim/60 max-w-xs leading-relaxed">需要 Discord 登录以获取你的<span className="text-god">专属编号</span>（从 #1 开始，同一 Discord 账号永久不变）。</div>
+                <div className="text-[12px] text-dim/60 max-w-xs leading-relaxed">需要登录以获取你的<span className="text-god">专属编号</span>（从 #1 开始，同一账号永久不变）。</div>
                 <button onClick={doLogin} disabled={busy} className="px-5 py-2.5 rounded-lg text-sm font-semibold bg-god/20 border border-god/40 text-god hover:bg-god/30 disabled:opacity-50 transition-colors">{busy ? '登录中…' : '用 Discord 登录'}</button>
+                <button onClick={doLocalLogin} disabled={busy} className="px-4 py-2 rounded-lg text-[13px] font-semibold bg-slate-500/10 border border-edge text-slate-300 hover:bg-slate-500/20 disabled:opacity-50 transition-colors">{busy ? '登录中…' : '本地登录（免 Discord）'}</button>
+                <div className="text-[11px] text-dim/45 max-w-xs leading-relaxed">连不上 Discord？用本地身份码进入，功能一致。身份码请到<span className="text-dim/70">「存档」页</span>备份——丢失即丢号。</div>
                 {gateErr && <div className="text-[11px] text-amber-400/80 max-w-xs leading-relaxed">{gateErr}</div>}
               </>
             ) : (

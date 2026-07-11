@@ -15,6 +15,7 @@ import { exportFullNovelTxt } from '../systems/novelExport';
 import { useSettings } from '../store/settingsStore';
 import {
   cloudUser, cloudLoggedIn, cloudLogin, cloudLogout, cloudListSaves, cloudUpload, cloudDownload, cloudDelete,
+  localLogin, localAccountId, setLocalAccountId, loginKind,
   type CloudUser, type CloudSaveMeta,
 } from '../systems/cloudSave';
 
@@ -44,6 +45,7 @@ export default function SaveLoadPanel({ messages, onClose, onCleanupLive }: Prop
   const [cloudOpen, setCloudOpen] = useState(false);                   // 展开云存档区
   const [cloudSaves, setCloudSaves] = useState<CloudSaveMeta[]>([]);
   const [cloudBusy, setCloudBusy] = useState(false);
+  const [idImport, setIdImport] = useState('');                        // 导入身份码输入框
   const [confirmCloudDel, setConfirmCloudDel] = useState<string | null>(null);
   const [snapsOpen, setSnapsOpen] = useState(false);                   // 展开「自动备份」折叠区
   const [autoSnaps, setAutoSnaps] = useState<SlotMeta[]>([]);
@@ -202,6 +204,23 @@ export default function SaveLoadPanel({ messages, onClose, onCleanupLive }: Prop
     finally { setCloudBusy(false); }
   }
   function handleCloudLogout() { cloudLogout(); setCUser(null); setCloudSaves([]); flash('已登出云存档'); }
+  // 免 Discord 的本地登录（受限网络）：身份码换会话，写同一套令牌键 → 云存档/聊天/交易等全部照旧
+  async function handleLocalLogin() {
+    setCloudBusy(true);
+    try { const u = await localLogin(cUser?.name); setCUser(u); await refreshCloud(); flash(`✓ 已本地登录：${u.name}`); }
+    catch (e: any) { flash('❌ ' + (e?.message ?? e)); }
+    finally { setCloudBusy(false); }
+  }
+  async function handleImportId() {
+    if (!setLocalAccountId(idImport)) { flash('❌ 身份码格式不对（16~200 位，仅字母数字与 _:.~-）'); return; }
+    setIdImport('');
+    await handleLocalLogin();
+  }
+  async function handleCopyId() {
+    const id = localAccountId();
+    try { await navigator.clipboard.writeText(id); flash('✓ 身份码已复制，请妥善保存（=你的账号密码）'); }
+    catch { flash('复制失败，请手动记下身份码：' + id); }
+  }
   async function handleCloudUpload(s: SlotMeta) {
     if (!cloudLoggedIn()) { flash('请先登录云存档'); setCloudOpen(true); return; }
     setCloudBusy(true);
@@ -427,7 +446,16 @@ export default function SaveLoadPanel({ messages, onClose, onCleanupLive }: Prop
                 <div className="flex items-center gap-2 flex-wrap text-[12px] font-mono text-dim">
                   <button onClick={handleCloudLogin} disabled={cloudBusy}
                     className="px-3 py-1 rounded border border-[#5865F2]/60 text-[#aab4ff] bg-[#5865F2]/10 hover:bg-[#5865F2]/20 disabled:opacity-50 transition-colors">🎮 用 Discord 登录</button>
+                  <button onClick={handleLocalLogin} disabled={cloudBusy}
+                    className="px-3 py-1 rounded border border-edge text-slate-300 bg-slate-500/10 hover:bg-slate-500/20 disabled:opacity-50 transition-colors">📴 本地登录（免 Discord）</button>
                   <span className="text-dim/40">登录后可把存档(含图)同步到云端，换设备/重装都能拉回</span>
+                  <div className="basis-full flex items-center gap-2 flex-wrap pt-1 text-[11px]">
+                    <span className="text-dim/40">连不上 Discord 就用本地登录；已有旧身份码可导入：</span>
+                    <input value={idImport} onChange={(e) => setIdImport(e.target.value)} placeholder="粘贴身份码"
+                      className="px-2 py-0.5 bg-black/30 border border-edge rounded text-slate-200 w-52 focus:border-god/40 outline-none" />
+                    <button onClick={handleImportId} disabled={cloudBusy || !idImport.trim()}
+                      className="px-2 py-0.5 border border-edge rounded hover:text-god disabled:opacity-40">导入并登录</button>
+                  </div>
                 </div>
               ) : (
                 <>
@@ -437,6 +465,12 @@ export default function SaveLoadPanel({ messages, onClose, onCleanupLive }: Prop
                     <button onClick={handleCloudLogout} className="px-2 py-0.5 border border-edge text-dim rounded hover:text-blood">登出</button>
                     <span className="text-dim/40 max-lg:basis-full">本地存档点「☁️上传」推到云端；下方为你的云端存档</span>
                   </div>
+                  {loginKind() === 'local' && (
+                    <div className="flex items-center gap-2 flex-wrap text-[11px] font-mono">
+                      <span className="text-amber-400/70">⚠ 本地身份码 = 你的账号密码，换设备/重装前务必备份，否则无法找回：</span>
+                      <button onClick={handleCopyId} className="px-2 py-0.5 border border-god/30 text-god/80 rounded hover:bg-god/10">复制身份码</button>
+                    </div>
+                  )}
                   {cloudSaves.length === 0 ? (
                     <div className="text-[12px] font-mono text-dim/40 py-1">云端暂无存档——在下方本地存档上点「☁️上传」</div>
                   ) : cloudSaves.map((cs) => (
