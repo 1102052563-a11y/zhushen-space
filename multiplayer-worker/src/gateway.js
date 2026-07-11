@@ -77,6 +77,10 @@ export async function handleGateway(request, env, cors) {
   if (p.endsWith('/api/gw/proxy')) {
     return await proxyGeneric(request, cors);
   }
+  // Edge-TTS：免 key 的微软 Edge 神经语音（浏览器直连被 CORS/GEC 挡 → 服务端 websocket 合成，返回 MP3）
+  if (p.endsWith('/api/gw/edgetts/speech')) {
+    return await edgeTtsSpeech(request, cors);
+  }
   if (request.method === 'GET' && p.endsWith('/models')) {
     if (p.includes('/aistudio/')) return await aiStudioModels(request, cors);   // 动态拉 Google 全量
     return json(staticModels(), {}, cors);                                       // Vertex：精选清单
@@ -356,6 +360,137 @@ function openaiOnce(text, model) {
     id: 'chatcmpl-' + Date.now(), object: 'chat.completion', model,
     choices: [{ index: 0, message: { role: 'assistant', content: text }, finish_reason: 'stop' }],
   };
+}
+
+/* ─────────────── Edge-TTS：微软 Edge 免 key 神经语音（服务端 websocket 合成 → MP3）───────────────
+   协议移植自 DIYgod/cloudflare-edge-tts（MIT）：GEC 安全令牌 + wss 握手 + SSML + 二进制帧拼接。
+   前端 EdgeTtsEngine POST {text, voice, rate} 到这里，拿回 audio/mpeg 流。免 key、20+ 中文神经音色。 */
+const EDGE_TOKEN = '6A5AA1D4EAFF4E9FB37E23D68491D6F4';
+const EDGE_BASE = 'speech.platform.bing.com/consumer/speech/synthesize/readaloud';
+const EDGE_SYNTH_URL = `https://${EDGE_BASE}/edge/v1`;
+const EDGE_CHROMIUM = '143.0.3650.75';
+const EDGE_GEC_VER = `1-${EDGE_CHROMIUM}`;
+const EDGE_UA = `Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/${EDGE_CHROMIUM.split('.')[0]}.0.0.0 Safari/537.36 Edg/${EDGE_CHROMIUM.split('.')[0]}.0.0.0`;
+
+export async function edgeSecMsGec() {
+  let ticks = Date.now() / 1000 + 11644473600;   // Windows 纪元
+  ticks -= ticks % 300;                            // 5 分钟窗口
+  ticks *= 1e9 / 100;                              // → 100ns 单位
+  const payload = `${ticks.toFixed(0)}${EDGE_TOKEN}`;
+  const digest = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(payload));
+  return Array.from(new Uint8Array(digest)).map((b) => b.toString(16).padStart(2, '0')).join('').toUpperCase();
+}
+function edgeConnId() { return crypto.randomUUID().replace(/-/g, ''); }
+function edgeMuid() { const b = new Uint8Array(16); crypto.getRandomValues(b); return Array.from(b).map((x) => x.toString(16).padStart(2, '0')).join('').toUpperCase(); }
+function edgeTimestamp() { return new Date().toISOString().replace(/[-:.]/g, '').slice(0, -1); }
+function edgeEscapeXml(t) { return t.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&apos;'); }
+function edgeStripBadXml(t) { return t.replace(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F-\x9F]/g, ' '); }
+// 短名 zh-CN-XiaoxiaoNeural → 微软长名；已是长名/异常则原样
+export function edgeNormalizeVoice(voice) {
+  const m = /^([a-z]{2,})-([A-Z]{2,})-(.+Neural)$/.exec((voice || '').trim());
+  if (!m) return (voice || '').trim();
+  let [, lang, region, name] = m;
+  if (name.includes('-')) { const [suf, ...rest] = name.split('-'); region += `-${suf}`; name = rest.join('-'); }
+  return `Microsoft Server Speech Text to Speech Voice (${lang}-${region}, ${name})`;
+}
+function edgeConfigMsg() {
+  return `X-Timestamp:${edgeTimestamp()}\r\nContent-Type:application/json; charset=utf-8\r\nPath:speech.config\r\n\r\n` +
+    '{"context":{"synthesis":{"audio":{"metadataoptions":{"sentenceBoundaryEnabled":"false","wordBoundaryEnabled":"true"},"outputFormat":"audio-24khz-48kbitrate-mono-mp3"}}}}\r\n';
+}
+function edgeSsmlMsg(requestId, voice, text, rate) {
+  const pct = Math.round(((rate ?? 1) - 1) * 100);
+  const rateStr = (pct >= 0 ? '+' : '') + pct + '%';
+  const ssml = "<speak version='1.0' xmlns='http://www.w3.org/2001/10/synthesis' xml:lang='en-US'>" +
+    `<voice name='${voice}'><prosody pitch='+0Hz' rate='${rateStr}' volume='+0%'>${edgeEscapeXml(edgeStripBadXml(text))}</prosody></voice></speak>`;
+  return `X-RequestId:${requestId}\r\nContent-Type:application/ssml+xml\r\nX-Timestamp:${edgeTimestamp()}Z\r\nPath:ssml\r\n\r\n` + ssml;
+}
+function edgeParseTextHeaders(msg) {
+  const sep = msg.indexOf('\r\n\r\n');
+  const head = sep >= 0 ? msg.slice(0, sep) : msg;
+  const h = {};
+  for (const line of head.split('\r\n')) { const i = line.indexOf(':'); if (i > 0) h[line.slice(0, i)] = line.slice(i + 1).trim(); }
+  return h;
+}
+function edgeParseBinaryFrame(data) {
+  if (data.length < 2) throw new Error('binary frame missing header length');
+  const headerLen = (data[0] << 8) | data[1];
+  if (data.length < 2 + headerLen) throw new Error('binary frame truncated');
+  const headText = new TextDecoder().decode(data.slice(2, 2 + headerLen));
+  const h = {};
+  for (const line of headText.split('\r\n')) { const i = line.indexOf(':'); if (i > 0) h[line.slice(0, i)] = line.slice(i + 1).trim(); }
+  return { headers: h, body: data.slice(2 + headerLen) };
+}
+async function edgeToU8(data) {
+  if (data instanceof Uint8Array) return data;
+  if (data instanceof ArrayBuffer) return new Uint8Array(data);
+  if (typeof Blob !== 'undefined' && data instanceof Blob) return new Uint8Array(await data.arrayBuffer());
+  return null;
+}
+function edgeAudioStream(socket, text, voice, requestId, rate) {
+  let ctrl = null, got = false, settled = false;
+  const cleanup = () => { socket.removeEventListener('message', onMsg); socket.removeEventListener('close', onClose); socket.removeEventListener('error', onErr); };
+  const fail = (e) => { if (settled) return; settled = true; cleanup(); ctrl && ctrl.error(e instanceof Error ? e : new Error(String(e))); };
+  const done = () => { if (settled) return; settled = true; cleanup(); ctrl && ctrl.close(); };
+  const onMsg = async (event) => {
+    if (settled) return;
+    const data = event.data;
+    if (typeof data === 'string') {
+      const path = edgeParseTextHeaders(data).Path;
+      if (path === 'turn.end') { try { socket.close(); } catch { done(); } return; }
+      return;   // response / turn.start / audio.metadata 忽略
+    }
+    const u8 = await edgeToU8(data);
+    if (!u8) return fail(new Error('unsupported ws message type'));
+    try {
+      const { headers, body } = edgeParseBinaryFrame(u8);
+      if (headers.Path !== 'audio') return;
+      if (headers['Content-Type'] !== 'audio/mpeg') { if (body.length === 0) return; return; }
+      got = true; ctrl && ctrl.enqueue(body);
+    } catch (e) { fail(e); }
+  };
+  const onClose = () => { if (!got) fail(new Error('no audio received')); else done(); };
+  const onErr = (e) => fail(e);
+  return new ReadableStream({
+    start(controller) {
+      ctrl = controller;
+      socket.addEventListener('message', onMsg);
+      socket.addEventListener('close', onClose);
+      socket.addEventListener('error', onErr);
+      socket.accept();
+      socket.send(edgeConfigMsg());
+      socket.send(edgeSsmlMsg(requestId, voice, text, rate));
+    },
+    cancel() { cleanup(); settled = true; try { socket.close(1000, 'cancelled'); } catch { /* ignore */ } },
+  });
+}
+async function edgeCreateAudioStream(text, voice, rate) {
+  const gec = await edgeSecMsGec();
+  const connId = edgeConnId();
+  const url = new URL(EDGE_SYNTH_URL);
+  url.searchParams.set('TrustedClientToken', EDGE_TOKEN);
+  url.searchParams.set('Sec-MS-GEC', gec);
+  url.searchParams.set('Sec-MS-GEC-Version', EDGE_GEC_VER);
+  url.searchParams.set('ConnectionId', connId);
+  const res = await fetch(url.toString(), {
+    headers: { 'User-Agent': EDGE_UA, 'Accept-Language': 'en-US,en;q=0.9', Pragma: 'no-cache', 'Cache-Control': 'no-cache', 'Sec-WebSocket-Version': '13', Upgrade: 'websocket', Cookie: `muid=${edgeMuid()};` },
+  });
+  if (res.status !== 101 || !res.webSocket) throw new Error(`ws upgrade failed status ${res.status}`);
+  return edgeAudioStream(res.webSocket, text, edgeNormalizeVoice(voice), edgeConnId(), rate);
+}
+async function edgeTtsSpeech(request, cors) {
+  if (request.method !== 'POST') return json({ error: { message: 'POST only' } }, { status: 405 }, cors);
+  let body = {};
+  try { body = await request.json(); } catch { return json({ error: { message: 'invalid json' } }, { status: 400 }, cors); }
+  const text = String(body.text || '').trim();
+  if (!text) return json({ error: { message: 'text is required' } }, { status: 400 }, cors);
+  const voice = typeof body.voice === 'string' && body.voice.trim() ? body.voice.trim() : 'zh-CN-XiaoxiaoNeural';
+  const rate = typeof body.rate === 'number' ? body.rate : 1;
+  try {
+    const stream = await edgeCreateAudioStream(text, voice, rate);
+    return new Response(stream, { status: 200, headers: { ...cors, 'Content-Type': 'audio/mpeg', 'Cache-Control': 'no-cache' } });
+  } catch (e) {
+    return json({ error: { message: 'edge-tts 合成失败：' + String((e && e.message) || e) } }, { status: 502 }, cors);
+  }
 }
 
 /* ─────────────── 小工具 ─────────────── */

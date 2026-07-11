@@ -8,6 +8,7 @@ export default function MiscPanel({ onClose }: { onClose: () => void }) {
   const archivedTasks = useMisc((s) => s.archivedTasks);
   const events = useMisc((s) => s.worldEvents);
   const removeTask = useMisc((s) => s.removeTask);
+  const editTask = useMisc((s) => s.editTask);
   const clearArchivedTasks = useMisc((s) => s.clearArchivedTasks);
   const removeEvent = useMisc((s) => s.removeWorldEvent);
   const paradiseTime = useMisc((s) => s.paradiseTime);
@@ -16,6 +17,7 @@ export default function MiscPanel({ onClose }: { onClose: () => void }) {
   const weather = useMisc((s) => s.weather);
   const contractors = useMisc((s) => s.contractors) ?? { count: 0, note: '' };
   const [tab, setTab] = useState<Tab>('tasks');
+  const [editing, setEditing] = useState<MiscTask | null>(null);
 
   const mainTasks = tasks.filter((t) => isMainQuest(t));   // 主线置顶高亮
   const sideTasks = tasks.filter((t) => !isMainQuest(t));  // 支线分组
@@ -79,13 +81,13 @@ export default function MiscPanel({ onClose }: { onClose: () => void }) {
             <>
               {tasks.length === 0 && <div className="text-[12px] font-mono text-dim/40 text-center py-3">暂无进行中任务</div>}
               {mainTasks.map((t) => (
-                <TaskCard key={t.id} t={t} main onRemove={() => removeTask(t.id)} />
+                <TaskCard key={t.id} t={t} main onRemove={() => removeTask(t.id)} onEdit={() => setEditing(t)} />
               ))}
               {mainTasks.length > 0 && sideTasks.length > 0 && (
                 <div className="text-[11px] font-mono text-dim/40 px-1 pt-1">支线</div>
               )}
               {sideTasks.map((t) => (
-                <TaskCard key={t.id} t={t} main={false} onRemove={() => removeTask(t.id)} />
+                <TaskCard key={t.id} t={t} main={false} onRemove={() => removeTask(t.id)} onEdit={() => setEditing(t)} />
               ))}
 
               {archivedTasks.length > 0 && (
@@ -121,6 +123,13 @@ export default function MiscPanel({ onClose }: { onClose: () => void }) {
             ))
           )}
         </div>
+        {editing && (
+          <TaskEditModal
+            task={editing}
+            onSave={(patch) => { editTask(editing.id, patch); setEditing(null); }}
+            onClose={() => setEditing(null)}
+          />
+        )}
       </div>
     </div>
   );
@@ -149,7 +158,7 @@ function ringMark(s: QuestRing['status']): string {
 
 /* 任务卡片：主线置顶高亮 + 环进度条/环列表/终局；无 rings 时退回扁平显示。
    archived=已结束任务：整体淡化 + 头部显示评分/结束状态 + 展开每个达成环的奖励（不再折叠成一行），不显示进行中才有的贪婪抉择/未解锁环提示。 */
-function TaskCard({ t, main, onRemove, archived }: { t: MiscTask; main: boolean; onRemove?: () => void; archived?: boolean }) {
+function TaskCard({ t, main, onRemove, onEdit, archived }: { t: MiscTask; main: boolean; onRemove?: () => void; onEdit?: () => void; archived?: boolean }) {
   const rings = Array.isArray(t.rings) ? [...t.rings].sort((a, b) => a.idx - b.idx) : [];
   const hasRings = rings.length > 0;
   const active = rings.find((r) => r.status === 'active');
@@ -173,6 +182,7 @@ function TaskCard({ t, main, onRemove, archived }: { t: MiscTask; main: boolean;
         ) : (
           <>
             <span className="text-[12px] font-mono text-amber-400/80 shrink-0">{t.status}</span>
+            {onEdit && <button onClick={onEdit} title="编辑任务" className="text-[12px] font-mono text-dim/50 hover:text-god shrink-0">✏️</button>}
             {onRemove && <button onClick={onRemove} className="text-[12px] font-mono text-blood/50 hover:text-blood shrink-0">删</button>}
           </>
         )}
@@ -245,6 +255,117 @@ function TaskCard({ t, main, onRemove, archived }: { t: MiscTask; main: boolean;
         {!hasRings && t.reward && <span className="text-god/60">奖励：{t.reward}</span>}
         {!hasRings && t.penalty && <span className="text-blood/60">{archived ? '惩罚' : '失败'}：{t.penalty}</span>}
         {(t.startTime || t.endTime) && <span>⏳ {t.startTime || '—'} ~ {t.endTime || '—'}</span>}
+      </div>
+    </div>
+  );
+}
+
+/* ── 任务手动编辑弹窗（模块级组件·内部用原生受控输入，避免拼音输入被打断）── */
+const RING_STATUSES: QuestRing['status'][] = ['planned', 'active', 'done', 'skipped'];
+const RING_STATUS_LABEL: Record<QuestRing['status'], string> = { planned: '未解锁', active: '进行中', done: '已达成', skipped: '已跳过' };
+const EDIT_INPUT = 'w-full bg-void border border-edge rounded px-2 py-1 text-[13px] text-slate-200 focus:border-god/50 outline-none';
+
+function TaskEditModal({ task, onSave, onClose }: { task: MiscTask; onSave: (patch: Partial<MiscTask>) => void; onClose: () => void }) {
+  const [name, setName] = useState(task.name || '');
+  const [kind, setKind] = useState<'主线' | '支线'>(isMainQuest(task) ? '主线' : '支线');
+  const [status, setStatus] = useState(task.status || '进行中');
+  const [desc, setDesc] = useState(task.desc || '');
+  const [finale, setFinale] = useState(task.finale || '');
+  const [progress, setProgress] = useState(task.progress || '');
+  const [rating, setRating] = useState(task.rating || '');
+  const [reward, setReward] = useState(task.reward || '');
+  const [penalty, setPenalty] = useState(task.penalty || '');
+  const [rings, setRings] = useState<QuestRing[]>(Array.isArray(task.rings) ? task.rings.map((r) => ({ ...r })) : []);
+
+  const upd = (i: number, p: Partial<QuestRing>) => setRings((rs) => rs.map((r, idx) => (idx === i ? { ...r, ...p } : r)));
+  const addRing = () => setRings((rs) => [...rs, { idx: (rs.length ? Math.max(...rs.map((r) => r.idx)) : 0) + 1, goal: '', status: 'planned' }]);
+  const delRing = (i: number) => setRings((rs) => rs.filter((_, idx) => idx !== i));
+
+  const save = () => {
+    const sorted = [...rings].sort((a, b) => a.idx - b.idx);
+    const active = sorted.find((r) => r.status === 'active');
+    onSave({
+      name: name.trim(), kind, status: status.trim() || '进行中', desc, finale: finale.trim(), progress: progress.trim(),
+      rating: rating.trim(), reward, penalty, rings: sorted, currentRing: active ? active.idx : (sorted[0]?.idx ?? 1),
+    });
+  };
+
+  return (
+    <div className="fixed inset-0 z-[60] bg-black/75 backdrop-blur-sm flex items-center justify-center p-4"
+      onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}>
+      <div className="w-full max-w-lg max-h-[86dvh] flex flex-col rounded-2xl border border-god/40 bg-void shadow-[0_0_60px_rgba(0,0,0,0.85)] overflow-hidden">
+        <header className="shrink-0 flex items-center gap-2 px-4 py-2.5 border-b border-edge bg-panel">
+          <span className="text-sm font-bold text-god">✏️ 编辑任务 <span className="font-mono text-dim/50">{task.id}</span></span>
+          <span className="flex-1" />
+          <button onClick={onClose} className="text-dim/50 hover:text-blood text-lg">✕</button>
+        </header>
+        <div className="flex-1 overflow-y-auto p-4 space-y-3">
+          <div className="grid grid-cols-[3.2rem_1fr] gap-x-3 gap-y-2 items-center text-[12px]">
+            <label className="text-dim/60 font-mono">名称</label>
+            <input className={EDIT_INPUT} value={name} onChange={(e) => setName(e.target.value)} />
+            <label className="text-dim/60 font-mono">类型</label>
+            <div className="flex gap-2">
+              {(['主线', '支线'] as const).map((k) => (
+                <button key={k} onClick={() => setKind(k)} className={`px-2 py-0.5 rounded text-[12px] font-mono border ${kind === k ? 'border-god/50 text-god bg-god/10' : 'border-edge text-dim'}`}>{k}</button>
+              ))}
+            </div>
+            <label className="text-dim/60 font-mono">状态</label>
+            <input className={EDIT_INPUT} value={status} onChange={(e) => setStatus(e.target.value)} placeholder="进行中 / 已完成 / 已失败 / 已放弃" />
+            <label className="text-dim/60 font-mono">评级</label>
+            <input className={EDIT_INPUT} value={rating} onChange={(e) => setRating(e.target.value)} placeholder="S / A / B / C / D / E（可空）" />
+            <label className="text-dim/60 font-mono">终局</label>
+            <input className={EDIT_INPUT} value={finale} onChange={(e) => setFinale(e.target.value)} placeholder="高潮/最后一环目标（可空）" />
+            <label className="text-dim/60 font-mono">进度</label>
+            <input className={EDIT_INPUT} value={progress} onChange={(e) => setProgress(e.target.value)} placeholder="上回合进度（可空）" />
+          </div>
+
+          <div className="pt-1">
+            <div className="flex items-center gap-2 mb-1.5">
+              <span className="text-[12px] font-mono text-dim/60">任务环（{rings.length}）</span>
+              <span className="flex-1" />
+              <button onClick={addRing} className="text-[11px] font-mono px-1.5 py-0.5 rounded border border-edge text-dim hover:text-god hover:border-god/40">＋ 加环</button>
+            </div>
+            {rings.length === 0 && <div className="text-[11px] font-mono text-dim/40 mb-1">无环（扁平任务）。奖励/惩罚见下方。</div>}
+            <div className="space-y-2">
+              {rings.map((r, i) => (
+                <div key={i} className="rounded-lg border border-edge bg-panel/40 p-2 space-y-1.5">
+                  <div className="flex items-center gap-1.5">
+                    <span className="text-[11px] font-mono text-dim/50 shrink-0">环</span>
+                    <input type="number" className="w-12 bg-void border border-edge rounded px-1 py-0.5 text-[12px] text-slate-200 outline-none" value={r.idx} onChange={(e) => upd(i, { idx: Number(e.target.value) || r.idx })} />
+                    <select className="bg-void border border-edge rounded px-1 py-0.5 text-[12px] text-slate-200 outline-none" value={r.status} onChange={(e) => upd(i, { status: e.target.value as QuestRing['status'] })}>
+                      {RING_STATUSES.map((s) => <option key={s} value={s}>{RING_STATUS_LABEL[s]}</option>)}
+                    </select>
+                    <label className="flex items-center gap-1 text-[11px] font-mono text-dim/60"><input type="checkbox" checked={!!r.optional} onChange={(e) => upd(i, { optional: e.target.checked || undefined })} />贪婪</label>
+                    <span className="flex-1" />
+                    <button onClick={() => delRing(i)} className="text-[11px] font-mono text-blood/50 hover:text-blood shrink-0">删环</button>
+                  </div>
+                  <textarea className={EDIT_INPUT + ' resize-none'} rows={2} value={r.goal} onChange={(e) => upd(i, { goal: e.target.value })} placeholder="环目标" />
+                  <input className={EDIT_INPUT} value={r.reward || ''} onChange={(e) => upd(i, { reward: e.target.value || undefined })} placeholder="本环奖励（可空）" />
+                  <input className={EDIT_INPUT} value={r.penalty || ''} onChange={(e) => upd(i, { penalty: e.target.value || undefined })} placeholder="本环惩罚（可空）" />
+                  {(r.status === 'done' || r.status === 'skipped') && (
+                    <input className={EDIT_INPUT} value={r.summary || ''} onChange={(e) => upd(i, { summary: e.target.value || undefined })} placeholder="达成·主角行为总结（可空）" />
+                  )}
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {rings.length === 0 && (
+            <div className="grid grid-cols-[3.2rem_1fr] gap-x-3 gap-y-2 items-center text-[12px]">
+              <label className="text-dim/60 font-mono">奖励</label>
+              <input className={EDIT_INPUT} value={reward} onChange={(e) => setReward(e.target.value)} />
+              <label className="text-dim/60 font-mono">失败</label>
+              <input className={EDIT_INPUT} value={penalty} onChange={(e) => setPenalty(e.target.value)} />
+              <label className="text-dim/60 font-mono">描述</label>
+              <textarea className={EDIT_INPUT + ' resize-none'} rows={2} value={desc} onChange={(e) => setDesc(e.target.value)} />
+            </div>
+          )}
+        </div>
+        <footer className="shrink-0 flex items-center gap-2 px-4 py-2.5 border-t border-edge bg-panel">
+          <span className="text-[11px] font-mono text-dim/40 flex-1 leading-tight">保存后即时生效·以你改的为准（不受 AI 路线图锁定）</span>
+          <button onClick={onClose} className="text-[12px] font-mono px-3 py-1 rounded border border-edge text-dim hover:text-slate-200">取消</button>
+          <button onClick={save} className="text-[12px] font-mono px-3 py-1 rounded border border-god/50 text-god bg-god/10 hover:bg-god/20">保存</button>
+        </footer>
       </div>
     </div>
   );

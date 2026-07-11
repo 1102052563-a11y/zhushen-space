@@ -138,6 +138,8 @@ import { applyPlayerProfileCommands, applyTimedStatusCommands, expireStatuses } 
 import { getNpcApi, trimNarrative, npcChatCompletion, buildNpcVars, fillVars, serializeNpcSnapshot } from './systems/npcEvolutionHelpers';
 import { reconcileNewNpcNames } from './systems/npcNameGuard';
 import { reconcileNewFactions } from './systems/factionNameGuard';
+import { speakText, stopTts, useTtsSpeaking, ttsSupported } from './systems/tts';
+import { useTts } from './store/ttsStore';
 import { combatFinalVitals, applyCombatVitals, buildCombatResultFallback, runBattleSummaryPhase } from './systems/combatHelpers';
 import { pickEnemyAction } from './systems/enemyAI';
 import { parseWeather, isLightSky, extractWeatherFxCss, sanitizeWeatherCss } from './systems/weatherFx';
@@ -1510,6 +1512,8 @@ export default function App() {
   const abortRef = useRef<AbortController | null>(null);   // 正文生成中止控制器（停止生成用）
   const stopAllRef = useRef(false);   // 「停止生成全部变量」：置位后各演化/生图循环 bail；新一轮生成开头复位
   const [canUndo, setCanUndo] = useState(false);           // 是否有可回退的上一回合
+  const ttsSpeaking = useTtsSpeaking();                    // TTS 朗读中？（控制 🔊/⏹ 图标切换）
+  const ttsEngine = useTts((s) => s.engine);               // 当前语音引擎（本地 Web Speech / Edge 云端）
   const [confirmAction, setConfirmAction] = useState<null | { title: string; desc: string; run: () => void }>(null); // 回退/重新生成的确认弹窗
   const [editingMsgId, setEditingMsgId] = useState<number | null>(null);   // 正在编辑的正文楼层 id
   const [editDraft, setEditDraft] = useState('');                          // 编辑中的正文草稿
@@ -10098,6 +10102,17 @@ ${lines}`;
                   <button onClick={() => setRevarOpen(true)}
                     className="flex items-center gap-1 px-2.5 py-1 max-lg:px-3 max-lg:py-2 max-lg:text-[13px] rounded border border-edge text-dim hover:border-sky-500/40 hover:text-sky-300 transition-colors"
                     title="重算单项变量：打开菜单，单独重 ROLL 物品/主角/NPC/势力… 某一项（或全部）">♻ 重算变量</button>
+                  {ttsSupported() && <button onClick={() => {
+                      if (ttsSpeaking) { stopTts(); return; }
+                      const msgs = messagesRef.current || [];
+                      const last = [...msgs].reverse().find((m) => m.role === 'assistant' && !String(m.content || '').startsWith('🎬'));
+                      if (last?.content) speakText(String(last.content));
+                    }}
+                    className="flex items-center gap-1 px-2.5 py-1 max-lg:px-3 max-lg:py-2 max-lg:text-[13px] rounded border border-edge text-dim hover:border-god/40 hover:text-god transition-colors"
+                    title="朗读本回合正文（旁白/台词分离·每 NPC 不同声音·再点停止）">{ttsSpeaking ? '⏹ 停止朗读' : '🔊 朗读'}</button>}
+                  {ttsSupported() && <button onClick={() => useTts.getState().set({ engine: ttsEngine === 'edge' ? 'webspeech' : 'edge' })}
+                    className="flex items-center gap-1 px-2 py-1 max-lg:px-2.5 max-lg:py-2 max-lg:text-[13px] rounded border border-edge text-dim/60 hover:border-god/40 hover:text-god transition-colors"
+                    title={ttsEngine === 'edge' ? '语音引擎：Edge 云端神经语音（20+ 中文音色·质量好·需网关部署）。点击切回本地' : '语音引擎：本地 Web Speech（离线免费·质量一般）。点击切到 Edge 云端（更好听·需 worker 部署）'}>{ttsEngine === 'edge' ? '☁️Edge' : '🔈本地'}</button>}
                   <button onClick={stopAllPhases}
                     className="flex items-center gap-1 px-2.5 py-1 max-lg:px-3 max-lg:py-2 max-lg:text-[13px] rounded border border-blood/40 text-blood/80 hover:border-blood hover:text-blood hover:bg-blood/10 transition-colors"
                     title="停止正在进行的全部变量演化与生图（物品/主角/NPC/势力/领地/冒险团/万族/杂项/记忆/生图，及批量更新）；点后可再发消息/重算继续">⛔ 停止生成</button>

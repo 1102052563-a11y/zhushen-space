@@ -222,6 +222,7 @@ interface MiscState {
 
   upsertTask: (t: MiscTask) => void;
   updateTask: (id: string, patch: Partial<MiscTask>) => void;
+  editTask: (id: string, patch: Partial<MiscTask>) => void;   // 玩家手动编辑：直接覆盖字段/整组 rings，绕过 AI 的路线图锁定与合并
   removeTask: (id: string) => void;
   settleTask: (id: string, status: string) => void;   // 结算：移出进行中→归档
   advanceRing: (id: string, done?: { summary?: string; rating?: string }) => void;   // 推进：当前 active 环→done（并记下该环行为总结/评级）、下一 planned 环→active，同步顶层快照
@@ -326,6 +327,9 @@ export const useMisc = create<MiscState>()(
             : { ...x, ...p },
           ) };
         }),
+      // 玩家手动编辑：直接覆盖（rings 整组替换、不走 mergeRings 锁定，也不走"一世界一主线"降级）——玩家改的以玩家为准
+      editTask: (id, patch) =>
+        set((s) => ({ tasks: s.tasks.map((x) => (x.id === id ? { ...x, ...patch } : x)) })),
       removeTask: (id) => set((s) => ({ tasks: s.tasks.filter((x) => x.id !== id) })),
       settleTask: (id, status) =>
         set((s) => {
