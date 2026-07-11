@@ -1,5 +1,6 @@
-import { useEffect, useLayoutEffect, useRef, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useSubProfTree, isRecipeNode, subProfMastery } from '../store/subProfTreeStore';
+import { usePinchPanZoom } from '../systems/usePinchPanZoom';
 import { usePlayer } from '../store/playerStore';
 import { useItems } from '../store/itemStore';
 import { useCharacters, type SubProfession, type Recipe } from '../store/characterStore';
@@ -62,17 +63,11 @@ export default function SubProfessionPanel({ onClose }: { onClose: () => void })
 
   const [view, setView] = useState<'tree' | 'recipes'>('tree');
   const [selId, setSelId] = useState<string | undefined>(undefined);
-  const [zoom, setZoom] = useState(1);
+  const { scrollRef, zoom, grabbing, bind, zoomBy, reset } = usePinchPanZoom();   // 画布平移+缩放（桌面滚轮/拖动 · 手机双指捏合/单指拖）
   const [, force] = useState(0);
   const [msg, setMsg] = useState('');
   const [qualiaBusy, setQualiaBusy] = useState<string | undefined>(undefined);   // 正在质变的节点 id
   const [confirmQid, setConfirmQid] = useState<string | undefined>(undefined);
-
-  const scrollRef = useRef<HTMLDivElement>(null);
-  const panRef = useRef<{ cx: number; cy: number; sl: number; st: number } | null>(null);
-  const zoomRef = useRef(zoom); zoomRef.current = zoom;
-  const zoomAnchor = useRef<{ sl: number; st: number; cx: number; cy: number; f: number } | null>(null);
-  const [grabbing, setGrabbing] = useState(false);
 
   const treeList = Object.values(trees);
   const activeId = prog?.activeTreeId;
@@ -84,44 +79,6 @@ export default function SubProfessionPanel({ onClose }: { onClose: () => void })
     const match = treeList.find((t) => subProfs.some((sp) => sp.name === t.profession));
     setActiveTree('B1', (match ?? treeList[0]).id);
   }, [activeId, treeList.length]);   // eslint-disable-line react-hooks/exhaustive-deps
-
-  useEffect(() => {
-    const el = scrollRef.current; if (!el) return;
-    const onWheel = (e: WheelEvent) => {
-      e.preventDefault();
-      const z = zoomRef.current;
-      const nz = Math.min(3, Math.max(0.5, +(z * (e.deltaY < 0 ? 1.12 : 1 / 1.12)).toFixed(3)));
-      if (nz === z) return;
-      const rect = el.getBoundingClientRect();
-      zoomAnchor.current = { sl: el.scrollLeft, st: el.scrollTop, cx: e.clientX - rect.left, cy: e.clientY - rect.top, f: nz / z };
-      zoomRef.current = nz; setZoom(nz);
-    };
-    el.addEventListener('wheel', onWheel, { passive: false });
-    return () => el.removeEventListener('wheel', onWheel);
-  }, [view]);
-  useLayoutEffect(() => {
-    const el = scrollRef.current, a = zoomAnchor.current;
-    if (!el || !a) return;
-    el.scrollLeft = (a.sl + a.cx) * a.f - a.cx; el.scrollTop = (a.st + a.cy) * a.f - a.cy; zoomAnchor.current = null;
-  }, [zoom]);
-
-  const onCanvasPointerDown = (e: React.PointerEvent) => {
-    if ((e.target as Element)?.closest?.('[data-node]')) return;
-    const el = scrollRef.current; if (!el) return;
-    panRef.current = { cx: e.clientX, cy: e.clientY, sl: el.scrollLeft, st: el.scrollTop };
-    setGrabbing(true);
-    try { el.setPointerCapture(e.pointerId); } catch { /* 合成事件忽略 */ }
-  };
-  const onCanvasPointerMove = (e: React.PointerEvent) => {
-    const p = panRef.current, el = scrollRef.current;
-    if (!p || !el) return;
-    el.scrollLeft = p.sl - (e.clientX - p.cx); el.scrollTop = p.st - (e.clientY - p.cy);
-  };
-  const endPan = (e: React.PointerEvent) => {
-    if (!panRef.current) return;
-    panRef.current = null; setGrabbing(false);
-    try { scrollRef.current?.releasePointerCapture(e.pointerId); } catch { /* 已释放 */ }
-  };
 
   const ctx = { level: profile.level, tier: profile.tier, charId: 'B1', ignoreTierGate: true };   // 副职业树取消阶位限制
   const ranks = prog?.ranks ?? {};
@@ -232,9 +189,9 @@ export default function SubProfessionPanel({ onClose }: { onClose: () => void })
             {tree && (
               <div className="ml-auto flex flex-wrap items-center gap-3 max-lg:ml-0 max-lg:w-full max-lg:justify-end">
                 <div className="flex items-center gap-1">
-                  <button onClick={() => setZoom((z) => Math.max(0.5, +(z - 0.2).toFixed(2)))} className="w-7 h-7 rounded border border-edge text-dim hover:text-slate-200 font-mono">－</button>
-                  <button onClick={() => setZoom(1)} className="px-2 h-7 rounded border border-edge text-[11px] font-mono text-dim hover:text-slate-200">{Math.round(zoom * 100)}%</button>
-                  <button onClick={() => setZoom((z) => Math.min(3, +(z + 0.2).toFixed(2)))} className="w-7 h-7 rounded border border-edge text-dim hover:text-slate-200 font-mono">＋</button>
+                  <button onClick={() => zoomBy(-0.2)} aria-label="缩小" className="w-7 h-7 max-lg:w-9 max-lg:h-9 rounded border border-edge text-dim hover:text-slate-200 font-mono">－</button>
+                  <button onClick={reset} className="px-2 h-7 max-lg:h-9 rounded border border-edge text-[11px] font-mono text-dim hover:text-slate-200" title="重置缩放（手机可双指捏合缩放）">{Math.round(zoom * 100)}%</button>
+                  <button onClick={() => zoomBy(0.2)} aria-label="放大" className="w-7 h-7 max-lg:w-9 max-lg:h-9 rounded border border-edge text-dim hover:text-slate-200 font-mono">＋</button>
                 </div>
                 <button onClick={() => doExchange(1)} disabled={exAffordable < 1} title={`兑换下一点 = ${exPrice.toLocaleString()} 乐园币`}
                   className="text-[12px] font-mono text-amber-300/90 hover:text-amber-200 border border-amber-600/40 rounded px-2 py-1 disabled:opacity-40">
@@ -248,9 +205,8 @@ export default function SubProfessionPanel({ onClose }: { onClose: () => void })
         {view === 'tree' ? (
           <>
             <div ref={scrollRef}
-              className={`flex-1 overflow-auto p-3 ${tree ? (grabbing ? 'cursor-grabbing' : 'cursor-grab') : ''}`}
-              onPointerDown={tree ? onCanvasPointerDown : undefined} onPointerMove={tree ? onCanvasPointerMove : undefined}
-              onPointerUp={endPan} onPointerLeave={endPan} onPointerCancel={endPan}>
+              className={`flex-1 overflow-auto p-3 touch-none ${tree ? (grabbing ? 'cursor-grabbing' : 'cursor-grab') : ''}`}
+              {...(tree ? bind : {})}>
               {!tree && <div className="text-center text-dim/40 text-sm py-16">还没有副职业树。到「设置 → 变量管理 → 副职业设置」里创建或 AI 生成一套，或从内置炼金术/锻造开始。</div>}
               {tree && <TreeCanvas tree={tree} ranks={ranks} availableIds={availableIds} mode="play" selectedId={selId} onNodeClick={setSelId} zoom={zoom} heightVh={76} />}
             </div>

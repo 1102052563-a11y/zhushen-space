@@ -128,6 +128,31 @@ export function buildResponseFormat(schema: JsonSchema, name = 'result', strict 
   return { type: 'json_schema' as const, json_schema: { name, strict, schema } };
 }
 
+// ── provider 粗判（本项目 ApiConfig 无显式 provider 字段）→ 选原生结构化输出写法 ──
+export type Provider = 'gemini' | 'openai' | 'deepseek' | 'anthropic' | 'unknown';
+export function detectProvider(model = '', baseUrl = ''): Provider {
+  const s = `${model} ${baseUrl}`.toLowerCase();
+  if (/gemini|generativelanguage|aistudio|vertex|makersuite/.test(s)) return 'gemini';
+  if (/deepseek/.test(s)) return 'deepseek';
+  if (/claude|anthropic/.test(s)) return 'anthropic';
+  if (/gpt-|openai|chatgpt|\bo[134]\b/.test(s)) return 'openai';
+  return 'unknown';
+}
+
+// ── 「硬约束层」请求字段：按 provider 发各自原生的结构化输出写法。──
+// 软路径(schema 进提示词 + 抽取 + 校验 + 重试)永远另外都在，故此层拿不到约束时也不影响正确性。
+//  - gemini/openai/unknown → OpenAI 风 json_schema（Google 官方 OpenAI 兼容端 + 本项目自有网关 Vertex 都吃；未知端无害，吃不下就靠软路径）
+//  - deepseek → 只有 JSON 模式(不吃 json_schema)，发 json_object 保证合法 JSON，schema 形状靠提示词
+//  - anthropic → 原生要走 tool use(不同端点/回包难抠)，经 OpenAI 兼容 /chat/completions 发 tools 有风险 → 只走软路径；
+//    真硬约束需专门的 Anthropic 网关路由(未建)
+export function structuredExtra(provider: Provider, schema: JsonSchema, name = 'result', strict = true): Record<string, unknown> {
+  switch (provider) {
+    case 'deepseek': return { response_format: { type: 'json_object' } };
+    case 'anthropic': return {};
+    default: return { response_format: buildResponseFormat(schema, name, strict) };
+  }
+}
+
 // ── 提示词兜底：把 schema 也写进对话，网关即便吞了 response_format 模型也倾向输出合法 JSON ──
 function withSchemaInstruction(messages: ChatMsg[], schema: JsonSchema): ChatMsg[] {
   const note =
@@ -148,6 +173,7 @@ export interface ObjectOpts {
   timeoutMs?: number;      // 传给 apiChatFallback 的空闲超时，默认 60s
   label?: string;          // 调试日志标签
   reinforcePrompt?: boolean; // 是否附带提示词兜底，默认 true
+  provider?: Provider;     // 覆盖自动 provider 判定（决定硬约束层写法）
   extra?: Record<string, unknown>; // 额外请求体字段（temperature 等）
 }
 
@@ -160,7 +186,8 @@ export async function apiChatObject<T = unknown>(
   opts: ObjectOpts = {},
 ): Promise<T> {
   const retries = opts.retries ?? 1;
-  const responseFormat = buildResponseFormat(schema, opts.name ?? 'result', opts.strict ?? true);
+  const provider = opts.provider ?? detectProvider(chain[0]?.modelId, chain[0]?.baseUrl);
+  const hardExtra = structuredExtra(provider, schema, opts.name ?? 'result', opts.strict ?? true);
   let msgs = opts.reinforcePrompt === false ? [...messages] : withSchemaInstruction(messages, schema);
   let lastErr = '未知错误';
 
@@ -168,7 +195,7 @@ export async function apiChatObject<T = unknown>(
     const { content } = await apiChatFallback(chain, msgs, {
       timeoutMs: opts.timeoutMs ?? 60000,
       label: opts.label ?? 'apiChatObject',
-      extra: { response_format: responseFormat, ...(opts.extra ?? {}) },
+      extra: { ...hardExtra, ...(opts.extra ?? {}) },
     });
     const r = coerceToObject<T>(content, schema);
     if (r.ok) return r.value;

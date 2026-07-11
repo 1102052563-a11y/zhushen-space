@@ -110,7 +110,9 @@ export default function HoloCard({
         position: 'relative', width: w, height: h, borderRadius: 16, overflow: 'hidden',
         transformStyle: 'preserve-3d', background: cardBg(foil), border: `2px solid ${foil.a2}`,
         boxShadow: foil.rich >= 3 ? `0 10px 24px rgba(0,0,0,.5), 0 0 16px ${foil.accent}55` : '0 10px 20px rgba(0,0,0,.45)',
-        transition: 'transform .3s ease-out', cursor: onClick ? 'zoom-in' : undefined, ...style,
+        transition: 'transform .3s ease-out', cursor: onClick ? 'zoom-in' : mode === 'drag' ? 'grab' : undefined,
+        touchAction: mode === 'drag' ? 'none' : undefined,   // 拖动旋转模式禁用触屏手势，否则手机上浏览器抢走手势只能转一点点
+        ...style,
       }}>
       {img
         ? <img src={img} alt={name ?? ''} draggable={false} style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover' }} />
@@ -139,7 +141,7 @@ export default function HoloCard({
               {badge && <span style={chipStyle}>{badge}</span>}
             </div>
             {power && (
-              <span style={{ display: 'inline-flex', alignItems: 'baseline', gap: 3, fontFamily: 'var(--font-mono, monospace)', fontSize: Math.max(11, Math.round(w * 0.058)), fontWeight: 700, color: foil.a1, background: 'rgba(10,6,14,.8)', border: `1px solid ${foil.a2}`, borderRadius: 7, padding: '2px 7px', maxWidth: '58%', overflow: 'hidden', whiteSpace: 'nowrap', textOverflow: 'ellipsis' }}>
+              <span style={{ display: 'inline-flex', alignItems: 'baseline', gap: 3, flexShrink: 0, fontFamily: 'var(--font-mono, monospace)', fontSize: Math.max(11, Math.round(w * 0.058)), fontWeight: 700, color: foil.a1, background: 'rgba(10,6,14,.8)', border: `1px solid ${foil.a2}`, borderRadius: 7, padding: '2px 7px', whiteSpace: 'nowrap' }}>
                 {power.label && <span style={{ fontSize: '0.72em', fontWeight: 500, opacity: 0.85 }}>{power.label}</span>}{power.value}
               </span>
             )}

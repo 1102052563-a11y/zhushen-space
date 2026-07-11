@@ -4,6 +4,8 @@ import {
   validateAgainstSchema,
   coerceToObject,
   buildResponseFormat,
+  detectProvider,
+  structuredExtra,
   type JsonSchema,
 } from './apiObject';
 
@@ -117,5 +119,36 @@ describe('apiObject · buildResponseFormat 请求体形状', () => {
     expect(rf.json_schema.name).toBe('decision');
     expect(rf.json_schema.strict).toBe(true);
     expect(rf.json_schema.schema).toBe(schema);
+  });
+});
+
+describe('apiObject · detectProvider 粗判', () => {
+  it('按 model 判', () => {
+    expect(detectProvider('gemini-3-flash-preview')).toBe('gemini');
+    expect(detectProvider('deepseek-chat')).toBe('deepseek');
+    expect(detectProvider('claude-sonnet-5')).toBe('anthropic');
+    expect(detectProvider('gpt-4o')).toBe('openai');
+    expect(detectProvider('some-random-model')).toBe('unknown');
+  });
+  it('按 baseUrl 判（model 不明时）', () => {
+    expect(detectProvider('', 'https://generativelanguage.googleapis.com/v1beta/openai')).toBe('gemini');
+    expect(detectProvider('', 'https://api.deepseek.com/v1')).toBe('deepseek');
+    expect(detectProvider('', 'https://api.anthropic.com')).toBe('anthropic');
+  });
+});
+
+describe('apiObject · structuredExtra 各 provider 硬约束写法', () => {
+  const schema: JsonSchema = { type: 'object', properties: { x: { type: 'boolean' } }, required: ['x'] };
+  it('gemini/openai/unknown → json_schema', () => {
+    for (const p of ['gemini', 'openai', 'unknown'] as const) {
+      const e = structuredExtra(p, schema) as any;
+      expect(e.response_format.type).toBe('json_schema');
+    }
+  });
+  it('deepseek → json_object（不吃 json_schema）', () => {
+    expect((structuredExtra('deepseek', schema) as any).response_format).toEqual({ type: 'json_object' });
+  });
+  it('anthropic → 空（只走软路径，不塞可能报错的 tools）', () => {
+    expect(structuredExtra('anthropic', schema)).toEqual({});
   });
 });

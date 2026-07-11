@@ -260,6 +260,15 @@ function openaiToGemini(body) {
   if (body.top_p != null) generationConfig.topP = body.top_p;
   if (body.max_tokens != null) generationConfig.maxOutputTokens = Math.min(body.max_tokens, 65536);
 
+  // 结构化输出：把 OpenAI `response_format` 翻成 Gemini 原生 responseSchema（token 级硬约束——解码层保证 JSON 合法 + enum 不越界）。
+  // 客户端 apiObject.ts 发的 { type:'json_schema', json_schema:{ schema } } 到这里被转成 Gemini Schema 方言。
+  const rf = body.response_format;
+  if (rf && (rf.type === 'json_schema' || rf.type === 'json_object')) {
+    generationConfig.responseMimeType = 'application/json';
+    const sch = rf.type === 'json_schema' ? (rf.json_schema && rf.json_schema.schema) : null;
+    if (sch) { const g = jsonSchemaToGemini(sch); if (g) generationConfig.responseSchema = g; }
+  }
+
   const out = { contents, generationConfig };
   if (sysText) out.systemInstruction = { role: 'user', parts: [{ text: sysText }] };
   // RPG 含成人/暴力叙事 → 关掉安全拦截，避免正文被 Vertex 拦空
@@ -267,6 +276,35 @@ function openaiToGemini(body) {
     'HARM_CATEGORY_HARASSMENT', 'HARM_CATEGORY_HATE_SPEECH',
     'HARM_CATEGORY_SEXUALLY_EXPLICIT', 'HARM_CATEGORY_DANGEROUS_CONTENT',
   ].map((category) => ({ category, threshold: 'BLOCK_NONE' }));
+  return out;
+}
+
+/** JSON Schema（客户端 apiObject.ts 的子集）→ Gemini Schema 方言（大写类型 + propertyOrdering，剥 Gemini 不吃的 additionalProperties/$schema/strict）。
+ *  const → 单值 enum；对象保留字段顺序做 propertyOrdering（Gemini 输出更稳定）。递归。 */
+export function jsonSchemaToGemini(s) {
+  if (!s || typeof s !== 'object') return null;
+  const t = String(s.type || '').toLowerCase();
+  const TYPE = { string: 'STRING', number: 'NUMBER', integer: 'INTEGER', boolean: 'BOOLEAN', array: 'ARRAY', object: 'OBJECT' };
+  const out = {};
+  if (TYPE[t]) out.type = TYPE[t];
+  if (s.description) out.description = String(s.description);
+  if (Array.isArray(s.enum)) out.enum = s.enum.map(String);
+  if (s.const != null) out.enum = [String(s.const)];                        // Gemini 无 const → 单值 enum
+  if (t === 'string' && s.format) out.format = s.format;
+  if ((t === 'number' || t === 'integer')) { if (s.minimum != null) out.minimum = s.minimum; if (s.maximum != null) out.maximum = s.maximum; }
+  if (t === 'array') {
+    out.items = jsonSchemaToGemini(s.items) || { type: 'STRING' };
+    if (s.minItems != null) out.minItems = s.minItems;
+    if (s.maxItems != null) out.maxItems = s.maxItems;
+  }
+  if (t === 'object' && s.properties && typeof s.properties === 'object') {
+    out.properties = {};
+    const keys = Object.keys(s.properties);
+    for (const k of keys) { const c = jsonSchemaToGemini(s.properties[k]); if (c) out.properties[k] = c; }
+    const req = Array.isArray(s.required) ? s.required.filter((k) => k in out.properties) : [];
+    if (req.length) out.required = req;
+    if (keys.length) out.propertyOrdering = keys;                           // 决定 Gemini 输出字段顺序
+  }
   return out;
 }
 

@@ -1,5 +1,6 @@
-import { useEffect, useLayoutEffect, useRef, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useSkillTree, nodeEffectiveGrant, type NodeGrants } from '../store/skillTreeStore';
+import { usePinchPanZoom } from '../systems/usePinchPanZoom';
 import { usePlayer } from '../store/playerStore';
 import { useItems } from '../store/itemStore';
 import { useSettings, resolveApiChain } from '../store/settingsStore';
@@ -58,7 +59,7 @@ export default function SkillTreePanel({ onClose }: { onClose: () => void }) {
   const profile = usePlayer((s) => s.profile);
   const parkCoin = useItems((s) => s.currency['乐园币'] ?? 0);
   const [selId, setSelId] = useState<string | undefined>(undefined);
-  const [zoom, setZoom] = useState(1);
+  const { scrollRef, zoom, grabbing, bind, zoomBy, reset } = usePinchPanZoom();   // 画布平移+缩放（桌面滚轮/拖动 · 手机双指捏合/单指拖）
   const [, force] = useState(0);   // 兑换后强制刷新
   const [upgradingId, setUpgradingId] = useState<string | undefined>(undefined);
   const [upMsg, setUpMsg] = useState('');
@@ -68,13 +69,6 @@ export default function SkillTreePanel({ onClose }: { onClose: () => void }) {
   const [awakeningId, setAwakeningId] = useState<string | undefined>(undefined);   // 觉醒中的星座
   const [embeddingId, setEmbeddingId] = useState<string | undefined>(undefined);   // 炼核中的 socket
   const [socketPick, setSocketPick] = useState(false);   // 星核镶嵌的背包选物弹层
-
-  // 画布平移/缩放：拖动空白处平移（滚动容器），滚轮以光标为锚缩放
-  const scrollRef = useRef<HTMLDivElement>(null);
-  const panRef = useRef<{ cx: number; cy: number; sl: number; st: number } | null>(null);
-  const zoomRef = useRef(zoom);   zoomRef.current = zoom;
-  const zoomAnchor = useRef<{ sl: number; st: number; cx: number; cy: number; f: number } | null>(null);
-  const [grabbing, setGrabbing] = useState(false);
 
   const treeList = Object.values(trees);
   const activeId = prog?.activeTreeId;
@@ -87,56 +81,6 @@ export default function SkillTreePanel({ onClose }: { onClose: () => void }) {
     const match = treeList.find((t) => t.profession && profile.profession && t.profession === profile.profession);
     setActiveTree('B1', (match ?? treeList[0]).id);
   }, [activeId, treeList.length]);   // eslint-disable-line react-hooks/exhaustive-deps
-
-  // 滚轮缩放（以光标为锚，非被动监听以便 preventDefault 阻止页面滚动）
-  useEffect(() => {
-    const el = scrollRef.current;
-    if (!el) return;
-    const onWheel = (e: WheelEvent) => {
-      e.preventDefault();
-      const z = zoomRef.current;
-      const nz = Math.min(3, Math.max(0.5, +(z * (e.deltaY < 0 ? 1.12 : 1 / 1.12)).toFixed(3)));
-      if (nz === z) return;
-      const rect = el.getBoundingClientRect();
-      // 记录缩放前的滚动+光标位，待 DOM 重排后在 layout effect 里校正滚动，保持光标下内容点不动
-      zoomAnchor.current = { sl: el.scrollLeft, st: el.scrollTop, cx: e.clientX - rect.left, cy: e.clientY - rect.top, f: nz / z };
-      zoomRef.current = nz;
-      setZoom(nz);
-    };
-    el.addEventListener('wheel', onWheel, { passive: false });
-    return () => el.removeEventListener('wheel', onWheel);
-  }, []);
-
-  // 缩放后校正滚动位（DOM 已按新 zoom 重排）
-  useLayoutEffect(() => {
-    const el = scrollRef.current, a = zoomAnchor.current;
-    if (!el || !a) return;
-    el.scrollLeft = (a.sl + a.cx) * a.f - a.cx;
-    el.scrollTop = (a.st + a.cy) * a.f - a.cy;
-    zoomAnchor.current = null;
-  }, [zoom]);
-
-  // 拖动空白处平移（点到节点则交给节点选中，不平移）
-  const onCanvasPointerDown = (e: React.PointerEvent) => {
-    if ((e.target as Element)?.closest?.('[data-node]')) return;
-    const el = scrollRef.current;
-    if (!el) return;
-    panRef.current = { cx: e.clientX, cy: e.clientY, sl: el.scrollLeft, st: el.scrollTop };
-    setGrabbing(true);
-    try { el.setPointerCapture(e.pointerId); } catch { /* 合成事件忽略 */ }
-  };
-  const onCanvasPointerMove = (e: React.PointerEvent) => {
-    const p = panRef.current, el = scrollRef.current;
-    if (!p || !el) return;
-    el.scrollLeft = p.sl - (e.clientX - p.cx);
-    el.scrollTop = p.st - (e.clientY - p.cy);
-  };
-  const endPan = (e: React.PointerEvent) => {
-    if (!panRef.current) return;
-    panRef.current = null;
-    setGrabbing(false);
-    try { scrollRef.current?.releasePointerCapture(e.pointerId); } catch { /* 已释放 */ }
-  };
 
   // 传承·提前解锁：主角已通过其它途径拥有某路终极技能/天赋 → 该路提前解锁、每节点 1 潜能点
   const b1 = useCharacters((s) => s.characters['B1']);
@@ -324,9 +268,9 @@ export default function SkillTreePanel({ onClose }: { onClose: () => void }) {
                 ))}
               </div>
               <div className="flex items-center gap-1">
-                <button onClick={() => setZoom((z) => Math.max(0.5, +(z - 0.2).toFixed(2)))} className="w-7 h-7 rounded border border-edge text-dim hover:text-slate-200 font-mono">－</button>
-                <button onClick={() => setZoom(1)} className="px-2 h-7 rounded border border-edge text-[11px] font-mono text-dim hover:text-slate-200" title="重置缩放">{Math.round(zoom * 100)}%</button>
-                <button onClick={() => setZoom((z) => Math.min(3, +(z + 0.2).toFixed(2)))} className="w-7 h-7 rounded border border-edge text-dim hover:text-slate-200 font-mono">＋</button>
+                <button onClick={() => zoomBy(-0.2)} aria-label="缩小" className="w-7 h-7 max-lg:w-9 max-lg:h-9 rounded border border-edge text-dim hover:text-slate-200 font-mono">－</button>
+                <button onClick={reset} className="px-2 h-7 max-lg:h-9 rounded border border-edge text-[11px] font-mono text-dim hover:text-slate-200" title="重置缩放（手机可双指捏合缩放）">{Math.round(zoom * 100)}%</button>
+                <button onClick={() => zoomBy(0.2)} aria-label="放大" className="w-7 h-7 max-lg:w-9 max-lg:h-9 rounded border border-edge text-dim hover:text-slate-200 font-mono">＋</button>
               </div>
               <button onClick={() => doExchange(1)} disabled={exAffordable < 1}
                 title={`兑换下一点 = ${exPrice.toLocaleString()} 乐园币（越买越贵：阶位基础价 ×1.25^已兑${exBought}）`}
@@ -366,12 +310,8 @@ export default function SkillTreePanel({ onClose }: { onClose: () => void }) {
 
         <div
           ref={scrollRef}
-          className={`flex-1 overflow-auto p-3 ${tree ? (grabbing ? 'cursor-grabbing' : 'cursor-grab') : ''}`}
-          onPointerDown={tree ? onCanvasPointerDown : undefined}
-          onPointerMove={tree ? onCanvasPointerMove : undefined}
-          onPointerUp={endPan}
-          onPointerLeave={endPan}
-          onPointerCancel={endPan}
+          className={`flex-1 overflow-auto p-3 touch-none ${tree ? (grabbing ? 'cursor-grabbing' : 'cursor-grab') : ''}`}
+          {...(tree ? bind : {})}
         >
           {!tree && <div className="text-center text-dim/40 text-sm py-16">还没有职业树。到「设置 → 变量管理 → 技能树」里创建或导入一套职业模板。</div>}
           {tree && (
