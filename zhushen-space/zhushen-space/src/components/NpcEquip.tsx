@@ -6,6 +6,7 @@ import { useSettings } from '../store/settingsStore';
 import { SLOT_DEFS, type SlotDef } from './EquipmentPanel';
 import { CAT_CFG, CAT_ICON } from './BackpackModal';
 import { useImageViewer } from '../store/imageViewerStore';
+import { useHoloViewer } from '../store/holoViewerStore';
 
 const GROUPS: { key: SlotDef['group']; title: string; cols: number }[] = [
   { key: 'weapon',    title: '武器',   cols: 4 },
@@ -70,7 +71,7 @@ function SlotCell({ slot, item, onClick }: { slot: SlotDef; item?: NpcOwnedItem;
       {enh > 0 && <span className={`absolute top-0.5 right-1 text-[12px] font-bold leading-none z-10 ${enhanceFxClass(enh)}`}>+{enh}</span>}
       {item.image
         ? <img src={item.image} alt={item.name}
-            onClick={(e) => { e.stopPropagation(); useImageViewer.getState().open(item.image!, item.name); }}
+            onClick={(e) => { e.stopPropagation(); useHoloViewer.getState().showItem(item); }}
             title="点击查看大图"
             className="w-12 h-12 object-cover rounded-md cursor-zoom-in" />
         : <span className="text-xl">{CAT_ICON[item.category] ?? '◇'}</span>}

@@ -3,6 +3,7 @@ import { useNpc, hasRealNpcName, type NpcRecord } from '../store/npcStore';
 import { useCharacters } from '../store/characterStore';
 import { lvFromRealm, tierFxClass, effectiveResource, fullMaxHp, fullMaxEp, ratioOf, npcBaseAttrs } from '../systems/derivedStats';
 import { useImageViewer } from '../store/imageViewerStore';
+import { useHoloViewer } from '../store/holoViewerStore';
 import { PortraitPicker } from './PortraitPicker';
 
 /* 右上角「在场人物」浮窗：
@@ -85,7 +86,7 @@ function OnSceneCard({ npc, onOpen }: { npc: NpcRecord; onOpen: () => void }) {
       <div className="relative shrink-0 w-[68px] h-full rounded-md overflow-hidden border border-edge/60 bg-void/60">
         {npc.avatar ? (
           <img src={npc.avatar} alt={npc.name}
-            onClick={(e) => { e.stopPropagation(); useImageViewer.getState().open(npc.avatar!, npc.name); }}
+            onClick={(e) => { e.stopPropagation(); useHoloViewer.getState().showNpc(npc); }}
             title="点击查看大图"
             className="w-full h-full object-cover cursor-zoom-in" />
         ) : (

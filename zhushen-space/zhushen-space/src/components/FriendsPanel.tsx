@@ -2,6 +2,7 @@ import { useNpc, type NpcRecord } from '../store/npcStore';
 import { useNpcEvo } from '../store/npcEvoStore';
 import { lvFromRealm, tierFxClass } from '../systems/derivedStats';
 import { useImageViewer } from '../store/imageViewerStore';
+import { useHoloViewer } from '../store/holoViewerStore';
 
 /* 好友栏：手动收藏的契约者/随从/宠物。
    - 点击某人 → 跳转 NPC 详情面板
@@ -27,7 +28,7 @@ function FriendCard({ npc, turn, onOpen, onRemove, onDm }: { npc: NpcRecord; tur
       <div className="relative shrink-0 w-12 h-12 rounded-lg overflow-hidden border border-edge/60 bg-void/60">
         {npc.avatar ? (
           <img src={npc.avatar} alt={npc.name}
-            onClick={(e) => { e.stopPropagation(); useImageViewer.getState().open(npc.avatar!, npc.name); }}
+            onClick={(e) => { e.stopPropagation(); useHoloViewer.getState().showNpc(npc); }}
             title="点击查看大图" className="w-full h-full object-cover cursor-zoom-in" />
         ) : (
           <div className="w-full h-full flex items-center justify-center text-xl text-dim/25">👤</div>

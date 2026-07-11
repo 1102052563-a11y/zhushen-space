@@ -2,6 +2,7 @@ import { useNpc, type NpcRecord } from '../store/npcStore';
 import { isDmableTag } from '../store/dmStore';
 import { lvFromRealm, tierFxClass } from '../systems/derivedStats';
 import { useImageViewer } from '../store/imageViewerStore';
+import { useHoloViewer } from '../store/holoViewerStore';
 
 /* 临时队伍：本世界临时组队的同伴（主角是队长），与「冒险团」不同——世界结束即自动解散。
    - 来源：📡 公共频道·组队帖「＋加入」/「邀请入队」，或剧情中招募
@@ -20,7 +21,7 @@ function PartyCard({ npc, onOpen, onLeave, onKick, onDm }: { npc: NpcRecord; onO
       <div className="relative shrink-0 w-12 h-12 rounded-lg overflow-hidden border border-edge/60 bg-void/60">
         {npc.avatar ? (
           <img src={npc.avatar} alt={npc.name}
-            onClick={(e) => { e.stopPropagation(); useImageViewer.getState().open(npc.avatar!, npc.name); }}
+            onClick={(e) => { e.stopPropagation(); useHoloViewer.getState().showNpc(npc); }}
             title="点击查看大图" className="w-full h-full object-cover cursor-zoom-in" />
         ) : (
           <div className="w-full h-full flex items-center justify-center text-xl text-dim/25">🧑</div>

@@ -3,6 +3,7 @@ import { useItems, gradeBadgeClass, gradeNameClass, isResourcePseudoItem, type I
 import { useSettings } from '../store/settingsStore';
 import { CAT_CFG, CAT_ICON, ItemDetailModal } from './BackpackModal';
 import { useImageViewer } from '../store/imageViewerStore';
+import { useHoloViewer } from '../store/holoViewerStore';
 import { SLOT_DEFS, type SlotDef } from '../systems/equipSlots';
 import { enhanceFxClass } from '../systems/enhanceEngine';
 import { playerUnmetRequirements } from '../systems/playerAttrs';
@@ -64,7 +65,7 @@ function SlotCard({
       )}
       {item.image
         ? <img src={item.image} alt={item.name}
-            onClick={(e) => { e.stopPropagation(); useImageViewer.getState().open(item.image!, item.name); }}
+            onClick={(e) => { e.stopPropagation(); useHoloViewer.getState().showItem(item); }}
             title="点击查看大图"
             className="w-12 h-12 object-cover rounded-md cursor-zoom-in" />
         : <span className="text-xl">{CAT_ICON[item.category] ?? '◇'}</span>}

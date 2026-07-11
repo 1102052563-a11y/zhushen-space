@@ -199,6 +199,7 @@ const WorldCodexPanel = lazy(() => import('./components/WorldCodexPanel'));
 const WikiPanel = lazy(() => import('./components/WikiPanel'));
 const AdventureTeamPanel = lazy(() => import('./components/AdventureTeamPanel'));
 import ImageViewer from './components/ImageViewer';
+import HoloViewer from './components/HoloViewer';
 import { useImageViewer } from './store/imageViewerStore';
 import ImageBusyToast from './components/ImageBusyToast';
 import { useItems, extractItemPresetFromJson, ITEM_CATEGORIES, formatItemLine } from './store/itemStore';
@@ -10636,6 +10637,7 @@ ${lines}`;
       {worldCodexOpen && <WorldCodexPanel onClose={() => setWorldCodexOpen(false)} />}
       {wikiOpen && <WikiPanel onClose={() => setWikiOpen(false)} />}
       <ImageViewer />
+      <HoloViewer />
       <ImageBusyToast />
       {showVer && <VersionToast version={APP_VERSION} note={VERSION_NOTE} onClose={() => setShowVer(false)} />}
       {/* 回退 / 重新生成 确认弹窗（破坏性操作，先确认）*/}

@@ -22,6 +22,7 @@ import StatusEffectChips from './StatusEffectChips';
 import { useImageGen, effectiveEquipService } from '../store/imageGenStore';
 import { generateImage, buildPortraitPrompt, buildEquipPrompt, equippedForPrompt, shrinkDataUrl } from '../systems/imageGen';
 import { useImageViewer } from '../store/imageViewerStore';
+import { useHoloViewer } from '../store/holoViewerStore';
 import { genPortraitTags, genEquipTags, isTagService } from '../systems/imageTags';
 import { PortraitPicker, PortraitLibraryModal } from './PortraitPicker';
 import { SkillEditForm, TraitEditForm } from './CharEditForms';
@@ -1561,7 +1562,7 @@ function NpcItemCard({ it, showSlot, ownerId, ownerGender, onFlash }: { it: NonN
       <div className="flex items-start gap-2">
         {ownerId && (
           <div className="shrink-0 flex flex-col items-center gap-1">
-            <div onClick={() => it.image && useImageViewer.getState().open(it.image, it.name)}
+            <div onClick={() => it.image && useHoloViewer.getState().showItem(it)}
               title={it.image ? '点击查看大图' : ''}
               className={`w-14 h-14 rounded overflow-hidden border border-edge/60 bg-void/60 flex items-center justify-center ${it.image ? 'cursor-zoom-in hover:border-god/40' : ''}`}>
               {gening ? <span className="text-[8px] font-mono text-god/70 animate-pulse">生成中</span>

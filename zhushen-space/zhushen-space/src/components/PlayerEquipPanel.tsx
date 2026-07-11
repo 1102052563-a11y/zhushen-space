@@ -2,6 +2,7 @@ import { useRef, useState } from 'react';
 import { useItems, gradeBadgeClass, gradeNameClass, asText, type InventoryItem } from '../store/itemStore';
 import { ItemDetailModal, CAT_ICON } from './BackpackModal';
 import { useImageViewer } from '../store/imageViewerStore';
+import { useHoloViewer } from '../store/holoViewerStore';
 
 /* 叙事区左上角「主角装备」浮窗，与右上角「在场人物」左右对称：
    - 每件已装备物品一张卡（图片位 + 基础信息），点击开 ItemDetailModal（可卸下/编辑/删除）
@@ -70,7 +71,7 @@ function EquipCard({ item, onOpen }: { item: InventoryItem; onOpen: () => void }
       <div className="relative shrink-0 w-12 h-full rounded-md overflow-hidden border border-edge/60 bg-void/60">
         {item.image
           ? <img src={item.image} alt={item.name}
-              onClick={(e) => { e.stopPropagation(); useImageViewer.getState().open(item.image!, item.name); }}
+              onClick={(e) => { e.stopPropagation(); useHoloViewer.getState().showItem(item); }}
               title="点击查看大图"
               className="w-full h-full object-cover cursor-zoom-in" />
           : <div className="w-full h-full flex items-center justify-center text-xl text-dim/30">{CAT_ICON[item.category] ?? '⚔'}</div>}
