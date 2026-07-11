@@ -25,6 +25,8 @@ import { useHoloViewer } from '../store/holoViewerStore';
 import { genPortraitTags, genEquipTags, isTagService } from '../systems/imageTags';
 import { PortraitPicker, PortraitLibraryModal } from './PortraitPicker';
 import { SkillEditForm, TraitEditForm } from './CharEditForms';
+import NpcVoicePicker from './NpcVoicePicker';
+import { ttsSupported } from '../systems/tts';
 
 /* ════════════════════════════════════════════
    单个 NPC 详情（轮回乐园适配 · 多栏目）
@@ -712,6 +714,7 @@ export function DeedTimeline({
 /* ────────── 基本信息 ────────── */
 function BasicTab({ npc: npcProp, realm, genderCls }: { npc: NpcRecord; realm: ReturnType<typeof parseRealm>; genderCls: string }) {
   const npc = useNpc((s) => s.npcs[npcProp.id]) ?? npcProp;   // 订阅实时记录：机械生成后生物强度档即时刷新
+  const preview = useContext(NpcPreviewContext);              // 只读卡片预览：隐藏改设置的控件
   const ap = parseAppearance5(npc.appearance5);
   const ex = npc.extra ?? {};
   const titles = useCharacters((s) => s.characters[npc.id]?.titles ?? []);
@@ -777,6 +780,13 @@ function BasicTab({ npc: npcProp, realm, genderCls }: { npc: NpcRecord; realm: R
           <Field label="生物强度" value={npcBioLabel} accent={!!npcBioLabel} />
         </div>
       </Section>
+
+      {!preview && ttsSupported() && npc.name && npc.name !== npc.id && (
+        <Section title="🔊 语音">
+          <div className="text-[12px] text-dim/50 mb-1.5">这个 NPC 的台词朗读用哪个音色（默认按性别自动分配）。引擎 / 语速在正文操作行的 ⚙ 里调。</div>
+          <NpcVoicePicker name={npc.name} />
+        </Section>
+      )}
 
       {titles.length > 0 && (
         <Section title="称号库" hint="最多佩戴 1 个；仅佩戴者注入叙事记忆">

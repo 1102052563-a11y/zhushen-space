@@ -56,6 +56,20 @@ export default function TtsSettings({ onClose }: { onClose: () => void }) {
           </div>
         </div>
 
+        {/* 主角音色 */}
+        <div className="mb-4">
+          <div className="text-[13px] text-dim mb-1.5">主角音色 <span className="text-dim/50">（主角台词用·未设按性别自动）</span></div>
+          <div className="flex gap-2 items-center">
+            <select value={tts.playerVoice} onChange={(e) => tts.set({ playerVoice: e.target.value })}
+              className="flex-1 rounded border border-edge bg-black/30 text-slate-200 text-[13px] px-2 py-1.5">
+              <option value="">自动（按性别）</option>
+              {voices.map((v) => <option key={v.id} value={v.id}>{v.label}</option>)}
+            </select>
+            <button onClick={() => void speakLine(SAMPLE, tts.playerVoice || undefined)}
+              className="px-2.5 py-1.5 rounded border border-edge text-dim hover:text-god text-[13px] shrink-0">试听</button>
+          </div>
+        </div>
+
         {/* 每 NPC 音色 */}
         <div>
           <div className="text-[13px] text-dim mb-1.5">每个 NPC 音色 <span className="text-dim/50">（默认按性别自动分配·在场 · 优先）</span></div>

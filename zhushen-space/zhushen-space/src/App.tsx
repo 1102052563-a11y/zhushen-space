@@ -138,7 +138,7 @@ import { applyPlayerProfileCommands, applyTimedStatusCommands, expireStatuses } 
 import { getNpcApi, trimNarrative, npcChatCompletion, buildNpcVars, fillVars, serializeNpcSnapshot } from './systems/npcEvolutionHelpers';
 import { reconcileNewNpcNames } from './systems/npcNameGuard';
 import { reconcileNewFactions } from './systems/factionNameGuard';
-import { speakText, stopTts, speakLine, resolveNpcVoice, useTtsSpeaking, ttsSupported } from './systems/tts';
+import { speakText, stopTts, speakLine, resolveSpeakerVoice, useTtsSpeaking, ttsSupported } from './systems/tts';
 import { useTts } from './store/ttsStore';
 import TtsSettings from './components/TtsSettings';
 import { combatFinalVitals, applyCombatVitals, buildCombatResultFallback, runBattleSummaryPhase } from './systems/combatHelpers';
@@ -1517,7 +1517,7 @@ export default function App() {
   const ttsEngine = useTts((s) => s.engine);               // 当前语音引擎（本地 Web Speech / Edge 云端）
   // 正文行内小喇叭：speakable 时给每句对话注入可点朗读图标（npcNames 供说话人归属→用其音色）
   const ttsDlgOpts = ttsSupported()
-    ? { speakable: true, npcNames: Object.values(useNpc.getState().npcs).filter((r) => r.name && r.name !== r.id && !r.isDead).map((r) => r.name) }
+    ? { speakable: true, npcNames: [...Object.values(useNpc.getState().npcs).filter((r) => r.name && r.name !== r.id && !r.isDead).map((r) => r.name), usePlayer.getState().profile?.name].filter(Boolean) as string[] }
     : undefined;
   const [ttsSettingsOpen, setTtsSettingsOpen] = useState(false);   // 语音朗读设置弹窗
   const [confirmAction, setConfirmAction] = useState<null | { title: string; desc: string; run: () => void }>(null); // 回退/重新生成的确认弹窗
@@ -9780,7 +9780,7 @@ ${lines}`;
                                 onClick={(e) => {
                                   const t = e.target as HTMLElement;
                                   const play = t.closest('.dialogue-play') as HTMLElement | null;   // 行内对话小喇叭 → 用说话人音色朗读该句
-                                  if (play) { e.preventDefault(); const line = play.dataset.line || ''; const spk = play.dataset.speaker || ''; if (line) void speakLine(line, spk ? resolveNpcVoice(spk) : undefined); return; }
+                                  if (play) { e.preventDefault(); const line = play.dataset.line || ''; const spk = play.dataset.speaker || ''; if (line) void speakLine(line, spk ? resolveSpeakerVoice(spk) : undefined); return; }
                                   const regen = t.closest('.illust-regen') as HTMLElement | null;
                                   if (regen) { e.preventDefault(); void regenerateStoryImage(msg.id, Number(regen.dataset.imgIdx)); return; }   // 点右上🔄重新生成（手机不用双击）
                                   const el = t.closest('.story-illust') as HTMLElement | null;

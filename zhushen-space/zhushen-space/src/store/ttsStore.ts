@@ -13,6 +13,7 @@ interface TtsState {
   autoPlayLatest: boolean;  // 新回合正文自动朗读（V2）
   dialogueSplit: boolean;   // 旁白/台词分离：旁白一个音色、每个 NPC 台词各自音色
   narratorVoice: string;    // 旁白音色 voiceURI（'' = 系统默认）
+  playerVoice: string;      // 主角台词音色（'' = 按性别自动）
   npcVoices: Record<string, string>;   // NPC 名 → voiceURI 手动指定（未设则按性别自动分配）
   set: (patch: Partial<TtsState>) => void;
   setNpcVoice: (name: string, voiceURI: string) => void;
@@ -28,6 +29,7 @@ export const useTts = create<TtsState>()(
       autoPlayLatest: false,
       dialogueSplit: true,
       narratorVoice: '',
+      playerVoice: '',
       npcVoices: {},
       set: (patch) => set(patch),
       setNpcVoice: (name, voiceURI) => set((st) => ({ npcVoices: { ...st.npcVoices, [name]: voiceURI } })),

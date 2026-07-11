@@ -8,6 +8,7 @@
 import { useSyncExternalStore } from 'react';
 import { useTts } from '../store/ttsStore';
 import { useNpc } from '../store/npcStore';
+import { usePlayer } from '../store/playerStore';
 import { gwProxyBase } from './apiChat';
 
 export interface TtsVoice { id: string; label: string; lang: string; gender?: 'male' | 'female' }
@@ -121,16 +122,40 @@ function npcGender(name: string): 'male' | 'female' | undefined {
   return undefined;
 }
 
-/** 台词说话人 → voiceURI：手动指定优先；否则按 NPC 性别从中文音色池确定性挑（同名恒定同音色）。 */
+function pickFromPool(seed: string, gender: 'male' | 'female' | undefined): string {
+  const pool = zhVoicePool();
+  if (!pool.length) return '';
+  const sub = gender ? pool.filter((v) => voiceGender(v) === gender) : [];
+  const use = sub.length ? sub : pool;
+  return use[hashStr(seed) % use.length].id;
+}
+
+/** NPC 说话人 → voiceURI：手动指定优先；否则按 NPC 性别从中文音色池确定性挑（同名恒定同音色）。 */
 export function resolveNpcVoice(name: string): string {
   const st = useTts.getState();
   if (st.npcVoices[name]) return st.npcVoices[name];
-  const pool = zhVoicePool();
-  if (!pool.length) return '';
-  const g = npcGender(name);
-  const sub = g ? pool.filter((v) => voiceGender(v) === g) : [];
-  const use = sub.length ? sub : pool;
-  return use[hashStr(name) % use.length].id;
+  return pickFromPool(name, npcGender(name));
+}
+
+function playerGender(): 'male' | 'female' | undefined {
+  try {
+    const g = String((usePlayer.getState().profile as { gender?: string } | undefined)?.gender || '');
+    if (/男|male/i.test(g)) return 'male';
+    if (/女|female/i.test(g)) return 'female';
+  } catch { /* ignore */ }
+  return undefined;
+}
+
+/** 任意说话人（NPC 或 主角）→ voiceURI：主角走 playerVoice（未设按性别自动），其余走 NPC 逻辑。 */
+export function resolveSpeakerVoice(name: string): string {
+  try {
+    const pname = usePlayer.getState().profile?.name;
+    if (pname && name === pname) {
+      const st = useTts.getState();
+      return st.playerVoice || pickFromPool(name, playerGender());
+    }
+  } catch { /* ignore */ }
+  return resolveNpcVoice(name);
 }
 
 // ── 引擎支持判定 ──
@@ -161,46 +186,71 @@ const webSpeechEngine: TtsEngine = {
   stop() { if (webSpeechOk()) window.speechSynthesis.cancel(); },
   voices() {
     if (!webSpeechOk()) return [];
-    return window.speechSynthesis.getVoices().map((v) => ({ id: v.voiceURI, label: `${v.name} (${v.lang})`, lang: v.lang }));
+    const all = window.speechSynthesis.getVoices();
+    const zh = all.filter((v) => /^zh|cmn/i.test(v.lang));
+    const base = zh.length ? zh : all;
+    const local = base.filter((v) => v.localService);
+    const use = local.length ? local : base;   // 有本地音色就只用本地：Web Speech 云端音色(localService=false)常静默失败，治"试听不了"
+    return use.map((v) => ({ id: v.voiceURI, label: v.name, lang: v.lang }));
   },
 };
 
 // ── Edge-TTS 引擎（经网关·微软神经语音·免 key·20+ 中文音色·质量好·需 worker 部署）──
+// ⚠ 仅列**实测网关能出声**的音色（2026-07-11 逐个探针验证）——微软已下架大量 zh 音色(晓涵/晓梦/晓睿/晓辰/晓墨/云枫…返回0字节)，
+// 别凭静态清单加，加前先打 /api/gw/edgetts/speech 验一遍非空音频。
 const EDGE_ZH_VOICES: TtsVoice[] = [
-  { id: 'zh-CN-XiaoxiaoNeural', label: '晓晓 Xiaoxiao（温柔女声）', lang: 'zh-CN', gender: 'female' },
-  { id: 'zh-CN-XiaoyiNeural', label: '晓伊 Xiaoyi（活泼女声）', lang: 'zh-CN', gender: 'female' },
-  { id: 'zh-CN-XiaomengNeural', label: '晓梦 Xiaomeng（女声）', lang: 'zh-CN', gender: 'female' },
-  { id: 'zh-CN-XiaohanNeural', label: '晓涵 Xiaohan（温暖女声）', lang: 'zh-CN', gender: 'female' },
-  { id: 'zh-CN-XiaoruiNeural', label: '晓睿 Xiaorui（成熟女声）', lang: 'zh-CN', gender: 'female' },
-  { id: 'zh-CN-YunxiNeural', label: '云希 Yunxi（阳光男声）', lang: 'zh-CN', gender: 'male' },
-  { id: 'zh-CN-YunyangNeural', label: '云扬 Yunyang（专业男声）', lang: 'zh-CN', gender: 'male' },
-  { id: 'zh-CN-YunjianNeural', label: '云健 Yunjian（浑厚男声）', lang: 'zh-CN', gender: 'male' },
-  { id: 'zh-CN-YunxiaNeural', label: '云夏 Yunxia（少年音）', lang: 'zh-CN', gender: 'male' },
-  { id: 'zh-HK-HiuMaanNeural', label: '曉曼（粤语女声）', lang: 'zh-HK', gender: 'female' },
-  { id: 'zh-TW-HsiaoChenNeural', label: '曉臻（台湾女声）', lang: 'zh-TW', gender: 'female' },
+  { id: 'zh-CN-XiaoxiaoNeural', label: '晓晓（温柔女声）', lang: 'zh-CN', gender: 'female' },
+  { id: 'zh-CN-XiaoyiNeural', label: '晓伊（活泼女声）', lang: 'zh-CN', gender: 'female' },
+  { id: 'zh-CN-liaoning-XiaobeiNeural', label: '晓北（东北话·女声）', lang: 'zh-CN', gender: 'female' },
+  { id: 'zh-CN-shaanxi-XiaoniNeural', label: '晓妮（陕西话·女声）', lang: 'zh-CN', gender: 'female' },
+  { id: 'zh-HK-HiuMaanNeural', label: '曉曼（粤语·女声）', lang: 'zh-HK', gender: 'female' },
+  { id: 'zh-TW-HsiaoChenNeural', label: '曉臻（台湾·女声）', lang: 'zh-TW', gender: 'female' },
+  { id: 'zh-CN-YunxiNeural', label: '云希（阳光男声）', lang: 'zh-CN', gender: 'male' },
+  { id: 'zh-CN-YunyangNeural', label: '云扬（专业男声）', lang: 'zh-CN', gender: 'male' },
+  { id: 'zh-CN-YunjianNeural', label: '云健（浑厚男声）', lang: 'zh-CN', gender: 'male' },
+  { id: 'zh-CN-YunxiaNeural', label: '云夏（少年音·男）', lang: 'zh-CN', gender: 'male' },
 ];
 function edgeEndpoint(): string { return gwProxyBase().replace(/\/api\/gw\/proxy$/, '/api/gw/edgetts/speech'); }
 
-let _edgeAudio: HTMLAudioElement | null = null;
+// ── 音频解锁（治浏览器自动播放策略）──
+// 浏览器要求 play() 在用户手势内；edge 的 `await fetch` 之后手势已过期 → `new Audio().play()` 被拦(NotAllowedError)。
+// 解法：改用 AudioContext，在点击的【同步前缀】里 resume() 一次(见 speakText/speakLine 开头的 unlockAudio)，
+// AudioContext 一旦被手势 resume 便整会话保持 running，之后解码播放 MP3 不再需要新手势。
+let _actx: AudioContext | null = null;
+function audioCtx(): AudioContext | null {
+  if (typeof window === 'undefined') return null;
+  const AC = window.AudioContext || (window as unknown as { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
+  if (!AC) return null;
+  if (!_actx) _actx = new AC();
+  return _actx;
+}
+/** 必须在用户手势(点击)的同步路径里调一次以解锁音频；speakText/speakLine 开头已调。 */
+export function unlockAudio(): void { try { const c = audioCtx(); if (c && c.state === 'suspended') void c.resume(); } catch { /* */ } }
+
+let _edgeSrc: AudioBufferSourceNode | null = null;
 const edgeTtsEngine: TtsEngine = {
   async speak(text, opts) {
+    const ctx = audioCtx();
+    if (!ctx) return;
     try {
       const res = await fetch(edgeEndpoint(), {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ text, voice: opts.voiceURI || 'zh-CN-XiaoxiaoNeural', rate: opts.rate ?? 1 }),
       });
       if (!res.ok) { console.warn('[TTS] edge-tts 失败', res.status); return; }
-      const url = URL.createObjectURL(await res.blob());
+      const audioBuf = await ctx.decodeAudioData(await res.arrayBuffer());
+      if (ctx.state === 'suspended') { try { await ctx.resume(); } catch { /* */ } }
       await new Promise<void>((resolve) => {
-        const a = new Audio(url);
-        _edgeAudio = a;
-        const end = () => { URL.revokeObjectURL(url); resolve(); };
-        a.onended = end; a.onerror = end;
-        a.play().catch(end);
+        const src = ctx.createBufferSource();
+        src.buffer = audioBuf;
+        src.connect(ctx.destination);
+        _edgeSrc = src;
+        src.onended = () => resolve();
+        try { src.start(); } catch { resolve(); }
       });
     } catch (e) { console.warn('[TTS] edge-tts 异常', e); }
   },
-  stop() { if (_edgeAudio) { try { _edgeAudio.pause(); } catch { /* */ } _edgeAudio = null; } },
+  stop() { if (_edgeSrc) { try { _edgeSrc.stop(); } catch { /* */ } _edgeSrc = null; } },
   voices() { return EDGE_ZH_VOICES; },
 };
 
@@ -218,6 +268,7 @@ export function subscribeTts(cb: () => void): () => void { _subs.add(cb); return
 
 /** 朗读一段原始正文：清洗 → 切句 → 逐句经当前引擎播；再次调用会打断上一段。 */
 export async function speakText(raw: string): Promise<void> {
+  unlockAudio();                                 // 必须在点击的同步前缀里解锁音频（治自动播放拦截）
   const myToken = ++_token;                      // 作废任何在跑的循环
   const engine = getEngine();
   engine.stop();
@@ -228,9 +279,12 @@ export async function speakText(raw: string): Promise<void> {
   const units: { text: string; voiceURI: string }[] = [];
   if (st.dialogueSplit) {
     let knownNames: string[] = [];
-    try { knownNames = Object.values(useNpc.getState().npcs).filter((r: { name?: string; id: string }) => r.name && r.name !== r.id).map((r) => r.name as string); } catch { /* ignore */ }
+    try {
+      knownNames = Object.values(useNpc.getState().npcs).filter((r: { name?: string; id: string }) => r.name && r.name !== r.id).map((r) => r.name as string);
+      const pname = usePlayer.getState().profile?.name; if (pname) knownNames.push(pname);   // 主角台词也归属→用主角音色
+    } catch { /* ignore */ }
     for (const seg of parseSegments(clean, knownNames)) {
-      const voice = seg.kind === 'dialogue' && seg.speaker ? resolveNpcVoice(seg.speaker) : (st.narratorVoice || '');
+      const voice = seg.kind === 'dialogue' && seg.speaker ? resolveSpeakerVoice(seg.speaker) : (st.narratorVoice || '');
       for (const c of chunkSentences(seg.text)) units.push({ text: c, voiceURI: voice });
     }
   } else {
@@ -258,6 +312,7 @@ export function stopTts(): void {
 
 /** 朗读单独一句（供正文行内小喇叭点击用）：指定 voiceURI 则用它，否则用旁白音色。会打断当前朗读。 */
 export async function speakLine(raw: string, voiceURI?: string): Promise<void> {
+  unlockAudio();                                 // 点击同步前缀里解锁音频（治自动播放拦截）
   const myToken = ++_token;
   const engine = getEngine();
   engine.stop();
