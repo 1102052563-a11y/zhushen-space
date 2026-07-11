@@ -11,6 +11,24 @@ function escapeHtml(s: string): string {
   return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 }
 
+// ── 对话行内小喇叭（可点朗读该句）：说话人归属 + 图标 HTML（纯函数·归属逻辑与 tts.ts 一致，独立写以免拖 store 依赖）──
+const TTS_VERB = '说|道|问|答|喊|叫|吼|笑|冷笑|轻声|低语|开口|沉声|喝|骂|叹|念|应|回答|嘟囔|嘀咕|喃喃|嘲讽|反问|补充|解释|吩咐|命令';
+export function ttsAttribSpeaker(lead: string, names: string[]): string | undefined {
+  if (!lead || !names.length) return undefined;
+  const tail = lead.slice(-40);
+  for (const n of names) {
+    const esc = n.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    if (new RegExp(esc + `[^，。！？、\\s]{0,6}(${TTS_VERB}|[：:])`).test(tail)) return n;
+  }
+  let best: string | undefined, bi = -1;
+  for (const n of names) { const i = tail.lastIndexOf(n); if (i > bi) { bi = i; best = n; } }
+  return best;
+}
+function dialogueIconHtml(line: string, speaker: string): string {
+  const attr = (s: string) => escapeHtml(s).replace(/"/g, '&quot;');
+  return `<span class="dialogue-play" role="button" tabindex="0" data-line="${attr(line)}" data-speaker="${attr(speaker)}" title="朗读这句" aria-label="朗读这句" style="cursor:pointer;font-size:0.78em;opacity:0.5;margin:0 0.12em;vertical-align:0.08em;user-select:none">🔊</span>`;
+}
+
 // 模块块标题（无 > 前缀时的兜底识别）。模块化输出规范见 ST_WI_Modular_Output：
 // 时间结算/动作日志/击杀结算/成长结算/判定块/战斗块/信息卡/登场/离场/装备替换/任务推进/目标/提示/主角资源/敌方信息/环境效果…
 const SETTLE_HEADER_RE = /^\s*\*{0,2}\s*【[^】]*(结算|日志|战报|战斗|掉落|奖励|登场|离场|信息卡|资源|敌方|环境效果|判定|目标|提示|任务|成长|装备替换|获得|获取|入手|拾取|战利品|开启|物品|宝箱|商店|交易|购买)[^】]*】/;
@@ -190,7 +208,7 @@ export function userToHtml(text: string): string {
 
 /* 正文配图：在 anchor 命中处插入 <img>，无命中则追加到末尾。
    先在原文锚点后插入安全占位符（不含 HTML 特殊字符，能穿过 escapeHtml/wrap），再替换为图片标签。*/
-export function toHtmlWithImages(text: string, images?: StoryImage[]): string {
+export function toHtmlWithImages(text: string, images?: StoryImage[], opts?: { speakable?: boolean; npcNames?: string[] }): string {
   // 检定结果块 → 占位符（能穿过 escape/wrap，最后替换成骰子卡）
   const diceCards: string[] = [];
   let work = text.replace(DICE_BLOCK_RE, (_m, inner) => {
@@ -221,6 +239,19 @@ export function toHtmlWithImages(text: string, images?: StoryImage[]): string {
     if (at >= 0) work = work.slice(0, at) + `\n${token}\n` + work.slice(at);
     else work += `\n${token}\n`;
   });
+  // 对话小喇叭占位符（speakable 时注入·复用占位符法穿过 escape）：每句「…」/“…”/『…』末尾插一个可点朗读的小喇叭
+  const dlgIcons: string[] = [];
+  if (opts?.speakable) {
+    const names = opts.npcNames || [];
+    work = work.replace(/「[^「」<>]{1,400}」|“[^“”<>]{1,400}”|『[^『』<>]{1,400}』/g, (m: string, offset: number, whole: string) => {
+      const inner = m.slice(1, -1).trim();
+      if (!inner) return m;
+      const spk = ttsAttribSpeaker(whole.slice(Math.max(0, offset - 120), offset), names) || '';
+      const tok = `@@ZSDLG${dlgIcons.length}@@`;
+      dlgIcons.push(dialogueIconHtml(inner, spk));
+      return m + tok;
+    });
+  }
   let html = toHtml(work);
   (images ?? []).forEach((img, i) => {
     const tag = `<span class="story-illust-wrap" style="position:relative;display:block;width:fit-content;max-width:100%;margin:10px auto">`
@@ -232,5 +263,6 @@ export function toHtmlWithImages(text: string, images?: StoryImage[]): string {
   diceCards.forEach((card, i) => { html = html.split(`@@ZSDICE${i}@@`).join(card); });
   killCards.forEach((card, i) => { html = html.split(`@@ZSKILL${i}@@`).join(card); });
   settleCards.forEach((card, i) => { html = html.split(`@@ZSSETTLE${i}@@`).join(card); });
+  dlgIcons.forEach((h, i) => { html = html.split(`@@ZSDLG${i}@@`).join(h); });
   return html;
 }

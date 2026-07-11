@@ -138,8 +138,9 @@ import { applyPlayerProfileCommands, applyTimedStatusCommands, expireStatuses } 
 import { getNpcApi, trimNarrative, npcChatCompletion, buildNpcVars, fillVars, serializeNpcSnapshot } from './systems/npcEvolutionHelpers';
 import { reconcileNewNpcNames } from './systems/npcNameGuard';
 import { reconcileNewFactions } from './systems/factionNameGuard';
-import { speakText, stopTts, useTtsSpeaking, ttsSupported } from './systems/tts';
+import { speakText, stopTts, speakLine, resolveNpcVoice, useTtsSpeaking, ttsSupported } from './systems/tts';
 import { useTts } from './store/ttsStore';
+import TtsSettings from './components/TtsSettings';
 import { combatFinalVitals, applyCombatVitals, buildCombatResultFallback, runBattleSummaryPhase } from './systems/combatHelpers';
 import { pickEnemyAction } from './systems/enemyAI';
 import { parseWeather, isLightSky, extractWeatherFxCss, sanitizeWeatherCss } from './systems/weatherFx';
@@ -1514,6 +1515,11 @@ export default function App() {
   const [canUndo, setCanUndo] = useState(false);           // 是否有可回退的上一回合
   const ttsSpeaking = useTtsSpeaking();                    // TTS 朗读中？（控制 🔊/⏹ 图标切换）
   const ttsEngine = useTts((s) => s.engine);               // 当前语音引擎（本地 Web Speech / Edge 云端）
+  // 正文行内小喇叭：speakable 时给每句对话注入可点朗读图标（npcNames 供说话人归属→用其音色）
+  const ttsDlgOpts = ttsSupported()
+    ? { speakable: true, npcNames: Object.values(useNpc.getState().npcs).filter((r) => r.name && r.name !== r.id && !r.isDead).map((r) => r.name) }
+    : undefined;
+  const [ttsSettingsOpen, setTtsSettingsOpen] = useState(false);   // 语音朗读设置弹窗
   const [confirmAction, setConfirmAction] = useState<null | { title: string; desc: string; run: () => void }>(null); // 回退/重新生成的确认弹窗
   const [editingMsgId, setEditingMsgId] = useState<number | null>(null);   // 正在编辑的正文楼层 id
   const [editDraft, setEditDraft] = useState('');                          // 编辑中的正文草稿
@@ -9715,7 +9721,10 @@ ${lines}`;
                   </div>
                 )}
                 {(() => {
-                  const visibleMsgs = historyLimit > 0 ? messages.slice(-historyLimit) : messages;
+                  // 按 id（=追加顺序·递增；读档时 msgId 已置 max+1）稳定升序展示，纠正偶发的楼层乱序——
+                  // 治「上一轮输入跑到上一楼正文下面」：用户气泡追加、流式占位追加、快速连发/并发等竞态偶尔让数组乱序时，展示层强制回到时间顺序（id 顺序恒为聊天真实先后）。
+                  const windowMsgs = historyLimit > 0 ? messages.slice(-historyLimit) : messages;
+                  const visibleMsgs = [...windowMsgs].sort((a, b) => (a.id ?? 0) - (b.id ?? 0));
                   const hiddenCount = messages.length - visibleMsgs.length;
                   return (
                     <>
@@ -9770,6 +9779,8 @@ ${lines}`;
                                 style={{ fontSize: `${reading.fontSize}px`, letterSpacing: `${reading.letterSpacing}px`, fontFamily: readingFontStack(reading.fontFamily), '--narr-lh': String(reading.lineHeight) } as any}
                                 onClick={(e) => {
                                   const t = e.target as HTMLElement;
+                                  const play = t.closest('.dialogue-play') as HTMLElement | null;   // 行内对话小喇叭 → 用说话人音色朗读该句
+                                  if (play) { e.preventDefault(); const line = play.dataset.line || ''; const spk = play.dataset.speaker || ''; if (line) void speakLine(line, spk ? resolveNpcVoice(spk) : undefined); return; }
                                   const regen = t.closest('.illust-regen') as HTMLElement | null;
                                   if (regen) { e.preventDefault(); void regenerateStoryImage(msg.id, Number(regen.dataset.imgIdx)); return; }   // 点右上🔄重新生成（手机不用双击）
                                   const el = t.closest('.story-illust') as HTMLElement | null;
@@ -9788,7 +9799,7 @@ ${lines}`;
                                   if (illustClickTimer.current) { clearTimeout(illustClickTimer.current); illustClickTimer.current = null; }   // 取消单击开灯箱
                                   void regenerateStoryImage(msg.id, Number(el.dataset.imgIdx));
                                 }}
-                                dangerouslySetInnerHTML={{ __html: toHtmlWithImages(msg.content, msg.images) }}
+                                dangerouslySetInnerHTML={{ __html: toHtmlWithImages(msg.content, msg.images, ttsDlgOpts) }}
                               />
                               {/* 手动正文生图：重新为本回合配图（不重 roll 正文，救"没出图/失败"的错）*/}
                               <div className="mt-1">
@@ -10113,6 +10124,9 @@ ${lines}`;
                   {ttsSupported() && <button onClick={() => useTts.getState().set({ engine: ttsEngine === 'edge' ? 'webspeech' : 'edge' })}
                     className="flex items-center gap-1 px-2 py-1 max-lg:px-2.5 max-lg:py-2 max-lg:text-[13px] rounded border border-edge text-dim/60 hover:border-god/40 hover:text-god transition-colors"
                     title={ttsEngine === 'edge' ? '语音引擎：Edge 云端神经语音（20+ 中文音色·质量好·需网关部署）。点击切回本地' : '语音引擎：本地 Web Speech（离线免费·质量一般）。点击切到 Edge 云端（更好听·需 worker 部署）'}>{ttsEngine === 'edge' ? '☁️Edge' : '🔈本地'}</button>}
+                  {ttsSupported() && <button onClick={() => setTtsSettingsOpen(true)}
+                    className="flex items-center gap-1 px-2 py-1 max-lg:px-2.5 max-lg:py-2 max-lg:text-[13px] rounded border border-edge text-dim/60 hover:border-god/40 hover:text-god transition-colors"
+                    title="语音设置：引擎 / 语速 / 旁白音色 / 每个 NPC 音色">⚙</button>}
                   <button onClick={stopAllPhases}
                     className="flex items-center gap-1 px-2.5 py-1 max-lg:px-3 max-lg:py-2 max-lg:text-[13px] rounded border border-blood/40 text-blood/80 hover:border-blood hover:text-blood hover:bg-blood/10 transition-colors"
                     title="停止正在进行的全部变量演化与生图（物品/主角/NPC/势力/领地/冒险团/万族/杂项/记忆/生图，及批量更新）；点后可再发消息/重算继续">⛔ 停止生成</button>
@@ -10252,6 +10266,7 @@ ${lines}`;
       />
 
       {/* ── 重算单项变量菜单（重 ROLL，样式同命令面板）：选一项 → 确认 → 仅重跑该演化 ── */}
+      {ttsSettingsOpen && <TtsSettings onClose={() => setTtsSettingsOpen(false)} />}
       {revarOpen && (
         <div className="fixed inset-0 z-[120] bg-black/70 backdrop-blur-sm flex items-start justify-center p-4 pt-[12vh] max-lg:pt-[8vh]"
           onClick={(e) => { if (e.target === e.currentTarget) setRevarOpen(false); }}>

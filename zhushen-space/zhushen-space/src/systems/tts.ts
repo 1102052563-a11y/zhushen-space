@@ -256,6 +256,27 @@ export function stopTts(): void {
   if (_speaking) { _speaking = false; notify(); }
 }
 
+/** 朗读单独一句（供正文行内小喇叭点击用）：指定 voiceURI 则用它，否则用旁白音色。会打断当前朗读。 */
+export async function speakLine(raw: string, voiceURI?: string): Promise<void> {
+  const myToken = ++_token;
+  const engine = getEngine();
+  engine.stop();
+  const chunks = chunkSentences(cleanForTts(raw));
+  if (!chunks.length) { if (_speaking) { _speaking = false; notify(); } return; }
+  _speaking = true; notify();
+  const st = useTts.getState();
+  const voice = voiceURI ?? st.narratorVoice ?? '';
+  try {
+    for (const c of chunks) {
+      if (myToken !== _token) return;
+      await engine.speak(c, { rate: st.rate, voiceURI: voice });
+      if (myToken !== _token) return;
+    }
+  } finally {
+    if (myToken === _token) { _speaking = false; notify(); }
+  }
+}
+
 export function ttsVoices(): TtsVoice[] { return getEngine().voices(); }
 
 // ── React 绑定：朗读状态订阅（button 图标据此切换 🔊/⏹）──
