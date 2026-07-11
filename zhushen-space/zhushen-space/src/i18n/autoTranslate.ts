@@ -137,7 +137,7 @@ async function llmTranslate(texts: string[], target: UiLang): Promise<(string | 
   const { content } = await apiChatFallback(
     chain,
     [{ role: 'system', content: buildPrompt(target) }, { role: 'user', content: JSON.stringify(texts) }],
-    { timeoutMs: 45000, label: '在线内容机翻', extra: { temperature: 0.3 } },
+    { timeoutMs: 45000, label: '在线内容机翻', extra: { temperature: 0.3 }, rawLang: true },
   );
   const parsed = robustParseArray(content, texts.length);
   return parsed ?? texts.map(() => null);   // 解析失败 → 全 null（不缓存·下次重试）

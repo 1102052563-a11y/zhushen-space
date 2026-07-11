@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect, memo } from 'react';
 import { usePlayer, type PlayerAttrs } from '../store/playerStore';
 import { useSkillTree } from '../store/skillTreeStore';   // 生效技能树的职业 → 主角职业留空时填上（以技能树为准）
 import { useGame } from '../store/gameStore';
@@ -182,7 +182,7 @@ const ATTR_DEFS: { key: keyof PlayerAttrs; label: string }[] = [
   { key: 'luck', label: '幸运' },
 ];
 
-export default function PlayerSidebar({ onClose }: { onClose?: () => void }) {
+function PlayerSidebar({ onClose }: { onClose?: () => void }) {
   const profile = usePlayer((s) => s.profile);
   const setProfile = usePlayer((s) => s.setProfile);
   const setAttr = usePlayer((s) => s.setAttr);
@@ -823,3 +823,8 @@ export default function PlayerSidebar({ onClose }: { onClose?: () => void }) {
     </>
   );
 }
+
+// React.memo：主角侧栏不接收会变的 props（App 里 <PlayerSidebar/> 不传参），包一层 memo 后
+//   「打字触发的整 App 重渲染」不再连带重渲染侧栏 + 其中的全息卡（每键重挂指针监听/重绘箔纸层 = 卡顿源之一）；
+//   侧栏自身的 store 订阅（usePlayer/useGame/useItems…）变化仍会照常触发它自己的重渲染，数据不会滞后。
+export default memo(PlayerSidebar);

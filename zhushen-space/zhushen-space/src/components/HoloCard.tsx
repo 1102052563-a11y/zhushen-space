@@ -1,4 +1,4 @@
-import { useRef, useId, useEffect, type CSSProperties } from 'react';
+import { useRef, useId, useEffect, useMemo, type CSSProperties } from 'react';
 import {
   type HoloFoil, foilForGrade, foilForTier,
   GRAIN_URI, GLIT_URI, shineCss, cardBg, frameSvg, artClass,
@@ -31,7 +31,9 @@ export default function HoloCard({
   img, name, badge, grade, tier, foil: foilProp, depthSrc,
   width = 220, height, nameSize, showName = true, power, rows, mode = 'hover', onClick, className, style,
 }: HoloCardProps) {
-  const foil: HoloFoil = foilProp ?? (grade ? foilForGrade(grade) : tier ? foilForTier(tier) : foilForGrade('白色'));
+  // useMemo 稳定 foil 引用：foilForGrade/Tier 每次都 new 一个对象，若不缓存，下方 useEffect 的依赖 [foil] 每次渲染都变
+  //   → 每次打字(App 重渲染带动本卡重渲染)都拆掉再挂上指针监听/重启 rAF 摇摆动画，是卡顿源之一。
+  const foil: HoloFoil = useMemo(() => foilProp ?? (grade ? foilForGrade(grade) : tier ? foilForTier(tier) : foilForGrade('白色')), [foilProp, grade, tier]);
   const w = width, h = height ?? Math.round(width * 7 / 5);
   const uid = useId().replace(/[^a-z0-9]/gi, '');
   const fxOn = useSettings((s) => s.holoCardFx);

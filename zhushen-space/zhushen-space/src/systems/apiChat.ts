@@ -5,6 +5,25 @@ import { apiDebugLog, autoApiLabel } from './apiDebugLog';
 import { processMacros, makeMacroCtx } from './stMacros';
 import { usePlayer } from '../store/playerStore';
 
+/* 界面语言=越南语/英文时，给「内容演化」类 AI 调用追加一条指令：**自由文本值**用该语言输出，
+   但指令语法/字段名/JSON 结构/数字、以及系统按中文匹配的枚举词(类别/品级/阶位/属性名)一律保留中文——翻了会解析出错。
+   正文/生图/翻译/记忆/名称对账等须保持原样的调用，传 opts.rawLang=true 跳过。 */
+function outputLangDirective(): string {
+  let lang = 'zh-Hans';
+  try {
+    const s = useSettings.getState();
+    if (!s.evolveOutputLang) return '';   // 开关关 → 不注入（演化仍出中文，靠显示层机翻）
+    lang = s.language;
+  } catch { return ''; }
+  const name = lang === 'vi' ? 'Tiếng Việt（越南语）' : lang === 'en' ? 'English（英文）' : '';
+  if (!name) return '';
+  return `\n\n【输出语言＝${name}】你生成的一切**自由文本值**（物品/技能/天赋/NPC/势力/领地等的名称、描述、简介、对白、称呼、旁白、评语、理由等自然语言）一律用 ${name} 书写。`
+    + `但以下**必须保留中文原样、绝不翻译**：`
+    + `① 指令语法与标签（<state>、<upstore>、createItem、addSkill、addFaction、hp.C1、eq.B1、character.<id>.* 等）、字段名/键名、JSON 结构、占位符、数字、代码；`
+    + `② 系统**枚举词**——物品类别(武器/防具/饰品/法宝/材料/消耗品/丹药/符箓…)、品级/稀有度(凡物/普通/精良/稀有/史诗/传说/极道…)、阶位(一阶~十四阶)、六维属性名(体质/力量/敏捷/智力/感知/精神)、状态词——系统按中文匹配，翻译会导致解析/上色/定阶出错，务必保留中文原词。`
+    + `一句话：**只把面向玩家阅读的自由文本换成 ${name}，结构/字段/枚举/数字全部照旧中文。**`;
+}
+
 // 默认云端网关；可被「本地网关地址」覆盖（localStorage drpg-gateway-url），用于走你本地 worker（你家 IP，仿 SillyTavern 本地后端）
 const GW_DEPLOYED = 'https://zhushen-multiplayer.1102052563.workers.dev/api/gw/proxy';
 /** 当前生效的网关代理地址：填了「本地网关地址」就用本地 worker（你家 IP），否则用云端 */
@@ -85,7 +104,7 @@ export function abortAllApiCalls(): void { try { _stopAll.abort(); } catch { /* 
 export async function apiChatFallback(
   chain: ApiConfig[],
   messages: { role: string; content: string }[],
-  opts?: { timeoutMs?: number; extra?: Record<string, unknown>; onDelta?: (accumulated: string) => void; label?: string },
+  opts?: { timeoutMs?: number; extra?: Record<string, unknown>; onDelta?: (accumulated: string) => void; label?: string; rawLang?: boolean },
 ): Promise<{ content: string; api: ApiConfig }> {
   const usable = (chain ?? []).filter((a) => a && a.baseUrl && a.apiKey);
   if (usable.length === 0) throw new Error('无可用 API 接口（请在功能 API 设置选择接口库接口，或填写单独配置）');
@@ -99,6 +118,11 @@ export async function apiChatFallback(
       const mc = makeMacroCtx({ user: pname, char: pname, lastUserMessage: lastUser });
       procMessages = messages.map((m) => ({ role: m.role, content: processMacros(m.content || '', mc, false) }));
     } catch { procMessages = messages; }
+  }
+  // 界面语言=越南语/英文 且非 rawLang 调用 → 追加「自由文本值用该语言输出」指令（内容演化多语言；正文/生图/翻译/记忆/对账等传 rawLang 跳过）
+  if (!opts?.rawLang) {
+    const dir = outputLangDirective();
+    if (dir) procMessages = [...procMessages, { role: 'system', content: dir }];
   }
   // 开发者调试日志：登记本次调用的输入消息（宏求值后＝实际发送），返回后补 finish（见下）
   const _logId = apiDebugLog.push(opts?.label || autoApiLabel(procMessages), procMessages);

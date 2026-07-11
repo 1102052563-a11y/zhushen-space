@@ -2791,6 +2791,8 @@ function AppearanceSettingsSection() {
   const autoTranslateManual    = useSettings((s) => s.autoTranslateManual);
   const setAutoTranslateManual = useSettings((s) => s.setAutoTranslateManual);
   const setUserGlossary        = useSettings((s) => s.setUserGlossary);
+  const evolveOutputLang       = useSettings((s) => s.evolveOutputLang);
+  const setEvolveOutputLang    = useSettings((s) => s.setEvolveOutputLang);
   const ff = reading.fontFamily || 'default';
   return (
     <div className="space-y-8">
@@ -2820,6 +2822,16 @@ function AppearanceSettingsSection() {
               </button>
             ))}
           </div>
+          {/* 演化内容直接用当前语言生成：在各演化提示词注入「输出语言」指令 */}
+          {(language === 'en' || language === 'vi') && (
+            <label className="flex items-start gap-2.5 pt-1 cursor-pointer select-none">
+              <input type="checkbox" checked={evolveOutputLang} onChange={(e) => setEvolveOutputLang(e.target.checked)} className="accent-god w-4 h-4 mt-0.5" />
+              <span>
+                <span className="text-sm text-slate-300">演化内容用当前语言生成</span>
+                <span className="block text-[12px] text-dim/60 leading-relaxed">开：向各演化阶段注入指令，让 AI 直接用{language === 'en' ? '英文' : '越南语'}生成物品/NPC/势力等内容（名称+描述），省机翻。⚠代价：AI 剧情正文仍是中文，生成的{language === 'en' ? '英文' : '越南语'}名称会和正文里的中文名对不上、偶发重复条目；在意剧情-数据一致就关掉、改用「显示层机翻」。</span>
+              </span>
+            </label>
+          )}
           {/* 在线内容自动机翻：交易行/聊天室等跨玩家 UGC 用玩家自己的 AI 接口译成当前语言（缓存·简体基本不触发） */}
           <label className="flex items-start gap-2.5 pt-1 cursor-pointer select-none">
             <input type="checkbox" checked={autoTranslateOnline} onChange={(e) => setAutoTranslateOnline(e.target.checked)} className="accent-god w-4 h-4 mt-0.5" />

@@ -511,6 +511,7 @@ export const EN_EXACT: Record<string, string> = {
   '未选接口 —— 当前用下方「单独配置 / 共用 API」。从下拉添加可启用多接口轮流。': 'No endpoint selected — using the "separate / shared API" below. Add from the dropdown to enable rotation.',
   '+ 添加接口到路由…': '+ Add endpoint to route…',
   '手动点击触发机翻（省额度）': 'Manual translate (saves quota)',
+  '演化内容用当前语言生成': 'Generate evolution content in this language',
   '开：机翻不自动跑，右下角出现「🌐 译」按钮、点一下才翻当前页（词库 + 繁體转换仍自动）；关：打开面板即自动补全。': 'On: machine translation stays off by default — a 🌐 button appears at bottom-right; click it to translate the current page (dictionary + Traditional conversion still run automatically). Off: auto-fills when a panel opens.',
 };
 

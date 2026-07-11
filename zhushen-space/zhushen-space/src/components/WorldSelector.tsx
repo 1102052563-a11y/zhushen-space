@@ -124,6 +124,7 @@ export default function WorldSelector({ onRawResponse, onPromptSent, onWorlds, o
   const [worlds, setWorlds] = useState<WorldOption[]>([]);
   const [errorMsg, setErrorMsg] = useState('');
   const [leisure, setLeisure] = useState(false);   // 休闲世界模式：忽略阶位，按「休闲世界」世界书生成休闲/恋爱向世界
+  const [customWorld, setCustomWorld] = useState('');   // 自定义手动输入想生成的世界（可与 Roll 的一起批量生成，或单独生成一张；多个用逗号/换行分隔）
   const rankRef = useRef<HTMLInputElement>(null);
 
   const api = useSettings((s) => s.api);
@@ -215,7 +216,7 @@ export default function WorldSelector({ onRawResponse, onPromptSent, onWorlds, o
       );
   }
 
-  async function generate() {
+  async function generate(mode: 'batch' | 'customOnly' = 'batch') {
     setStage('loading');
     setErrorMsg('');
 
@@ -231,19 +232,34 @@ export default function WorldSelector({ onRawResponse, onPromptSent, onWorlds, o
     // 世界生成用内置专用提示词（含字段与字数规范），不再依赖全局 systemPrompt
     const sysContent = WORLD_GEN_PROMPT;
 
-    // 点名生成：把「点名编号」映射成世界库里的世界名清单（去重、去空）。为空则自动 Roll 一批。
-    if (worldLib.count === 0) {
-      setErrorMsg('请先在上方填阶位（一 / 二 / 3…）以载入该阶世界库，再 Roll / 编辑点名世界');
-      setStage('config');
-      return;
-    }
-    let cur = rolls;
-    if (cur.length === 0) { cur = rollPickIds(worldLib.ids); setRolls(cur); }
-    const pickedNames = [...new Set(cur.map((v) => worldLib.nameById.get(v)).filter(Boolean))];
-    if (pickedNames.length === 0) {
-      setErrorMsg('点名编号都不在世界库里（编号需为世界书里真实存在的编号）；请重新 Roll 或修改编号');
-      setStage('config');
-      return;
+    // 自定义世界：手动输入的世界名（多个用逗号/换行分隔），去空去重
+    const customNames = [...new Set(customWorld.split(/[,，\n]+/).map((s) => s.trim()).filter(Boolean))];
+
+    // 点名生成：把「点名编号」映射成世界库里的世界名清单（去重、去空）。
+    //   customOnly＝只生成自定义世界（跳过世界库/Roll 要求）；batch＝Roll 点名的 + 自定义世界一起生成。
+    let pickedNames: string[];
+    if (mode === 'customOnly') {
+      if (customNames.length === 0) {
+        setErrorMsg('请先在「✨ 自定义世界」框里填想生成的世界名（如：火影忍者世界 / 克苏鲁神话…）');
+        setStage('config');
+        return;
+      }
+      pickedNames = customNames;
+    } else {
+      if (worldLib.count === 0 && customNames.length === 0) {
+        setErrorMsg('请先在上方填阶位（一 / 二 / 3…）载入世界库并 Roll，或在「✨ 自定义世界」框填想生成的世界名');
+        setStage('config');
+        return;
+      }
+      let cur = rolls;
+      if (cur.length === 0 && worldLib.count > 0) { cur = rollPickIds(worldLib.ids); setRolls(cur); }
+      const rolledNames = [...new Set(cur.map((v) => worldLib.nameById.get(v)).filter(Boolean))];
+      pickedNames = [...new Set([...rolledNames, ...customNames])];   // Roll 的世界 + 自定义世界一起
+      if (pickedNames.length === 0) {
+        setErrorMsg('点名编号都不在世界库里；请重新 Roll、修改编号，或在「✨ 自定义世界」框填世界名');
+        setStage('config');
+        return;
+      }
     }
 
     const rankPart = leisure
@@ -258,7 +274,7 @@ export default function WorldSelector({ onRawResponse, onPromptSent, onWorlds, o
       `③ 切勿默认把主角当成轮回乐园的人）`;
     const listPart =
       `【指定世界清单】请严格为以下 ${pickedNames.length} 个世界逐一生成卡片（逐一对应、不得替换 / 增减 / 另选）：\n` +
-      pickedNames.map((n, i) => `${i + 1}. ${n}`).join('\n');
+      pickedNames.map((n, i) => `${i + 1}. ${n}${customNames.includes(n) ? '（★玩家自定义指定·忠于该世界/作品的真实设定生成，可不在下方世界书清单内）' : ''}`).join('\n');
 
     const entriesText = picked.length > 0
       ? picked.map((e, i) => {
@@ -322,6 +338,7 @@ export default function WorldSelector({ onRawResponse, onPromptSent, onWorlds, o
     setWorlds([]);
     setErrorMsg('');
     setLeisure(false);
+    setCustomWorld('');
   }
 
   /* ── idle ── */
@@ -407,7 +424,8 @@ export default function WorldSelector({ onRawResponse, onPromptSent, onWorlds, o
           </button>
           <div className="ml-auto flex items-center gap-2">
             <button
-              onClick={generate}
+              onClick={() => generate('batch')}
+              title="生成上方 Roll 点名的世界；若下方「✨ 自定义世界」框有填，也一并生成"
               className="px-4 py-1.5 text-sm border border-god/50 text-god rounded hover:bg-god/10 font-mono transition-colors"
             >
               生成
@@ -463,6 +481,27 @@ export default function WorldSelector({ onRawResponse, onPromptSent, onWorlds, o
               })}
             </div>
           )}
+
+          {/* 自定义世界：手动输入想生成的世界名——「✨ 单独生成」只出这几张；也可留着与上方 Roll 的一起点「生成」批量出 */}
+          <div className="flex items-center gap-2 flex-wrap border-t border-edge/50 pt-2">
+            <span className="text-[12px] font-mono text-god/70 shrink-0">✨ 自定义世界</span>
+            <input
+              value={customWorld}
+              onChange={(e) => setCustomWorld(e.target.value)}
+              onKeyDown={(e) => { if (e.key === 'Enter' && customWorld.trim()) generate('customOnly'); }}
+              placeholder="手动输入想生成的世界（如：火影忍者世界 / 克苏鲁神话…多个用逗号隔开）"
+              className="flex-1 min-w-[180px] bg-void border-b border-god/30 px-2 py-1 text-[13px] text-slate-200 placeholder:text-dim/50 font-mono outline-none focus:border-god"
+            />
+            <button
+              onClick={() => generate('customOnly')}
+              disabled={!customWorld.trim()}
+              title="只为你手动输入的自定义世界生成卡片（不含上方 Roll 的世界·可不填阶位/不 Roll）"
+              className="shrink-0 px-3 py-1.5 border border-god/50 text-god text-[13px] rounded hover:bg-god/10 font-mono transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
+            >
+              ✨ 单独生成
+            </button>
+          </div>
+          <div className="text-[11px] font-mono text-dim/45">填了自定义世界：点上方「生成」＝和 Roll 的一起出；点「✨ 单独生成」＝只出自定义这几张。</div>
         </div>
 
       </div>

@@ -1,4 +1,4 @@
-import { type StoryImage, userToHtml, toHtmlWithImages } from './systems/narrativeHtml';
+import { type StoryImage, userToHtml, toHtmlWithImagesCached } from './systems/narrativeHtml';
 import {
   buildPerspectiveRule,
   NARRATIVE_FIRST_RULE,
@@ -118,7 +118,7 @@ import {
   CRAFT_RULE,
 } from './promptRules';
 
-import { useState, useRef, useEffect, lazy, Suspense, type PointerEvent as RPointerEvent } from 'react';
+import { useState, useRef, useEffect, useMemo, lazy, Suspense, type PointerEvent as RPointerEvent } from 'react';
 import { useGame } from './store/gameStore';
 import { useSettings, resolveApiChain, inferViewScopes, type WorldbookConflict } from './store/settingsStore';
 import { runRegexReplace } from './systems/regexEngine';
@@ -1472,6 +1472,7 @@ export default function App() {
   const [choicesDir, setChoicesDir] = useState('');                            // 上述弹窗的自定义方向提示词（可留空）
   const [worldBarOpen, setWorldBarOpen] = useState(false); // 选择世界/结算任务 按钮行（默认收起，点状态栏展开，省空间）
   const [preludeOpen, setPreludeOpen] = useState(false);   // 「前置提示词」编辑栏展开/收起（输入框上方，默认收起省空间）
+  const [opsOpen, setOpsOpen] = useState(false);           // 手机：本回合操作按钮行（重生/回退/重算/朗读/停止）默认折叠省屏，桌面恒显
   const [rawResponse, setRawResponse] = useState('');
   const [showRaw, setShowRaw] = useState(false);
   const [promptSent, setPromptSent] = useState('');
@@ -1493,6 +1494,8 @@ export default function App() {
   const [prevInput, setPrevInput] = useState('');
 
   const [messages, setMessages] = useState<ChatMessage[]>([]);
+  // 展示层稳定升序：只在 messages 变化时重排，避免每次打字(setInputValue 触发整 App 重渲染)都对全量历史重排一遍(长档卡顿)。
+  const sortedMessages = useMemo(() => [...messages].sort((a, b) => (a.id ?? 0) - (b.id ?? 0)), [messages]);
   const [generating, setGenerating] = useState(false);
   const [genError, setGenError] = useState('');
   // 细纲弹窗：正文前先生成本回合细纲 → 玩家编辑 → 确认后注入正文。open=true 期间 sendMessage 门控（防重复发起）。
@@ -5212,7 +5215,7 @@ ${AFFIX_EFFECT_RULE}`;
       return arr;
     };
     const extract = async (msgs: Msg[], label: string) => {
-      try { const r = await apiChatFallback(chain, msgs); return { specs: parseSpecs(r.content), raw: r.content }; }
+      try { const r = await apiChatFallback(chain, msgs, { rawLang: true }); return { specs: parseSpecs(r.content), raw: r.content }; }   // 生图提示词=英文标签，勿套输出语言指令
       catch (e: any) { console.error(`[StoryImg] 抽取失败(${label}):`, e.message ?? e); return { specs: [] as ReturnType<typeof parseSpecs>, raw: '' }; }
     };
 
@@ -5354,7 +5357,7 @@ ${AFFIX_EFFECT_RULE}`;
     const { content } = await apiChatFallback(
       chain,
       [{ role: 'system', content: systemPrompt }, { role: 'user', content: userContent }],
-      { timeoutMs: Math.max(30, cfg.requestTimeout || 90) * 1000, extra: modelId ? { model: modelId } : undefined },
+      { timeoutMs: Math.max(30, cfg.requestTimeout || 90) * 1000, extra: modelId ? { model: modelId } : undefined, rawLang: true },   // 叙事记忆关键词/事实须中文以对齐中文正文与召回匹配
     );
     return content;
   }
@@ -8147,7 +8150,7 @@ ${lines}`;
       // 用空建议照常生成正文。修「开了剧情指导后正文一直转、生成不出来」（apiChatFallback 的
       // timeoutMs 是空闲超时·绝对上限达 4~6 分钟，会把正文挡死这么久）。
       const WALL_MS = 35000;
-      const call = apiChatFallback(chain, [{ role: 'system', content: sys }, { role: 'user', content: user }], { timeoutMs: 20000 })
+      const call = apiChatFallback(chain, [{ role: 'system', content: sys }, { role: 'user', content: user }], { timeoutMs: 20000, rawLang: true })   // 剧情指导喂给中文正文，保持中文
         .then(({ content }) => stripLeakedThinking(content || '').trim())
         .catch((e) => { console.warn('[剧情指导] 调用失败，本回合跳过：', e); return ''; });
       const g = await Promise.race([
@@ -8171,7 +8174,7 @@ ${lines}`;
     if (!chain[0]?.baseUrl || !chain[0]?.apiKey) { console.warn('[数据库推进] guidance/正文 API 均未配置，跳过'); return ''; }
     const WALL_MS = 45000;
     const callMod = (messages: { role: string; content: string }[]) => {
-      const call = apiChatFallback(chain, messages.map((m) => ({ role: m.role as 'system' | 'user' | 'assistant', content: m.content })), { timeoutMs: 30000 })
+      const call = apiChatFallback(chain, messages.map((m) => ({ role: m.role as 'system' | 'user' | 'assistant', content: m.content })), { timeoutMs: 30000, rawLang: true })   // 推进规划喂给中文正文，保持中文
         .then(({ content }) => stripLeakedThinking(content || '').trim())
         .catch((e) => { console.warn('[数据库推进] 子调用失败', e); return ''; });
       return Promise.race([call, new Promise<string>((r) => setTimeout(() => { console.warn(`[数据库推进] 超 ${WALL_MS}ms，跳过`); r(''); }, WALL_MS))]);
@@ -9800,7 +9803,7 @@ ${lines}`;
                   // 治「上一轮输入跑到上一楼正文下面」：用户气泡追加、流式占位追加、快速连发/并发等竞态偶尔让数组乱序时，展示层强制回到时间顺序（id 顺序恒为聊天真实先后）。
                   // ⚠必须「先整体按 id 排序、再截最近 N 条」：旧写法 slice(-N) 先按**数组位置**截——若此刻数组恰好乱序(流式占位比用户气泡先落数组)，会截错集合(该显示的楼层被挤出窗口/漏显)，
                   //   再对截出来的子集排序也补不回被截掉的那条。排序在截断之前，才能保证窗口恒为"最新的 N 条、且顺序正确"。
-                  const sortedAll = [...messages].sort((a, b) => (a.id ?? 0) - (b.id ?? 0));
+                  const sortedAll = sortedMessages;   // 见上：已 useMemo 缓存排序，打字时不再全量重排
                   const visibleMsgs = historyLimit > 0 ? sortedAll.slice(-historyLimit) : sortedAll;
                   const hiddenCount = messages.length - visibleMsgs.length;
                   return (
@@ -9813,11 +9816,43 @@ ${lines}`;
                       {visibleMsgs.map((msg) => (
                         <div key={msg.id} className={msg.role === 'user' ? 'flex justify-end' : ''}>
                           {msg.role === 'user' ? (
-                            <div className="flex flex-col items-end">
-                              <div className="max-w-sm px-4 py-2 rounded-xl bg-god/10 border border-god/20 text-sm text-god/90 font-mono"
-                                dangerouslySetInnerHTML={{ __html: userToHtml(msg.content) }} />
-                              {msg.dice && <DiceCard data={msg.dice} />}
-                            </div>
+                            editingMsgId === msg.id ? (
+                              <div className="w-full max-w-sm space-y-2">
+                                <textarea
+                                  value={editDraft}
+                                  onChange={(e) => setEditDraft(e.target.value)}
+                                  rows={Math.min(20, Math.max(3, editDraft.split('\n').length + 1))}
+                                  autoFocus
+                                  className="w-full bg-void border border-god/40 rounded-lg px-3 py-2 text-sm text-god/90 font-mono leading-relaxed outline-none focus:border-god/70 resize-y"
+                                />
+                                <div className="flex items-center justify-end gap-2 flex-wrap">
+                                  <span className="text-[11px] text-dim/40 font-mono mr-auto">仅改本楼文本（供后续正文参考）·想按新内容重写正文改完点「⟳ 重新生成」</span>
+                                  <button
+                                    onClick={() => { setMessages((prev) => prev.map((m) => m.id === msg.id ? { ...m, content: editDraft } : m)); setEditingMsgId(null); }}
+                                    className="px-3 py-1 rounded border border-god/40 text-god bg-god/10 hover:bg-god/20 text-[13px] font-mono transition-colors"
+                                  >✓ 保存</button>
+                                  <button
+                                    onClick={() => setEditingMsgId(null)}
+                                    className="px-3 py-1 rounded border border-edge text-dim hover:text-slate-300 text-[13px] font-mono transition-colors"
+                                  >取消</button>
+                                </div>
+                              </div>
+                            ) : (
+                              <div className="group flex items-start justify-end gap-1.5">
+                                <button
+                                  onClick={() => { setEditDraft(msg.content); setEditingMsgId(msg.id); }}
+                                  title="编辑这条你发送的内容（只改本楼文本，不会重新发送/触发演化；想按新内容重写正文，改完点「⟳ 重新生成」）"
+                                  className="mt-1 shrink-0 opacity-0 group-hover:opacity-100 focus:opacity-100 max-lg:opacity-60 transition-opacity w-7 h-7 flex items-center justify-center rounded-md border border-edge bg-void/85 text-dim/60 hover:text-god hover:border-god/40"
+                                >
+                                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round"><path d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg>
+                                </button>
+                                <div className="flex flex-col items-end min-w-0">
+                                  <div className="max-w-sm px-4 py-2 rounded-xl bg-god/10 border border-god/20 text-sm text-god/90 font-mono"
+                                    dangerouslySetInnerHTML={{ __html: userToHtml(msg.content) }} />
+                                  {msg.dice && <DiceCard data={msg.dice} />}
+                                </div>
+                              </div>
+                            )
                           ) : editingMsgId === msg.id ? (
                             <div className="space-y-2">
                               <textarea
@@ -9876,7 +9911,7 @@ ${lines}`;
                                   if (illustClickTimer.current) { clearTimeout(illustClickTimer.current); illustClickTimer.current = null; }   // 取消单击开灯箱
                                   void regenerateStoryImage(msg.id, Number(el.dataset.imgIdx));
                                 }}
-                                dangerouslySetInnerHTML={{ __html: toHtmlWithImages(msg.content, msg.images, ttsDlgOpts) }}
+                                dangerouslySetInnerHTML={{ __html: toHtmlWithImagesCached(msg.id, msg.content, msg.images, ttsDlgOpts) }}
                               />
                               {/* 手动正文生图：重新为本回合配图（不重 roll 正文，救"没出图/失败"的错）*/}
                               <div className="mt-1">
@@ -9984,7 +10019,7 @@ ${lines}`;
             >
               <span className="text-god/60">📋</span>
               <span>本回合状态命令 · {turnCountRef.current} 回合</span>
-              {!worldBarOpen && <span className="text-god/45 font-normal">· 点击展开：选择世界 / 结算任务</span>}
+              {!worldBarOpen && <span className="text-god/45 font-normal max-lg:hidden">· 点击展开：选择世界 / 结算任务</span>}
               <span className={`text-god/50 transition-transform ${worldBarOpen ? 'rotate-180' : ''}`}>▾</span>
             </button>
             {guidanceRunning && (
@@ -10097,7 +10132,7 @@ ${lines}`;
               {debugParts.length > 0 && (
                 <button
                   onClick={() => setShowDevPrompt(true)}
-                  className="px-2 py-0.5 border rounded transition-colors font-mono text-[10px] border-god/30 text-god/80 hover:border-god/50 hover:text-god"
+                  className="px-2 py-0.5 border rounded transition-colors font-mono text-[10px] border-god/30 text-god/80 hover:border-god/50 hover:text-god max-lg:hidden"
                   title="查看本回合实际发给模型的提示词 + 注入块（调试用）"
                 >🛠 开发者</button>
               )}
@@ -10114,7 +10149,7 @@ ${lines}`;
               {promptSent && (
                 <button
                   onClick={() => { setShowPrompt((v) => !v); setShowRaw(false); setShowInjected(false); }}
-                  className={`px-2 py-0.5 border rounded transition-colors font-mono text-[10px] ${
+                  className={`px-2 py-0.5 border rounded transition-colors font-mono text-[10px] max-lg:hidden ${
                     showPrompt ? 'border-sky-400/40 text-sky-400 bg-sky-900/10' : 'border-edge text-dim hover:border-sky-400/40 hover:text-sky-400'
                   }`}
                 >
@@ -10124,7 +10159,7 @@ ${lines}`;
               {rawResponse && (
                 <button
                   onClick={() => { setShowRaw((v) => !v); setShowPrompt(false); }}
-                  className={`px-2 py-0.5 border rounded transition-colors font-mono text-[10px] ${
+                  className={`px-2 py-0.5 border rounded transition-colors font-mono text-[10px] max-lg:hidden ${
                     showRaw ? 'border-god/40 text-god bg-god/5' : 'border-edge text-dim hover:border-god/40 hover:text-god'
                   }`}
                 >
@@ -10175,6 +10210,12 @@ ${lines}`;
                 <span className="flex items-center gap-1.5 text-indigo-300/90"><span className="animate-spin inline-block">◌</span>💡 正在生成剧情指导…（最多 ~35 秒，完成后自动开始正文）</span>
               ) : (
                 <>
+                  <button onClick={() => setOpsOpen((o) => !o)}
+                    className="lg:hidden flex items-center gap-1 px-2.5 py-1.5 rounded border border-edge text-dim/80 text-[13px]"
+                    title="展开/收起本回合操作（重新生成 / 回退 / 重算变量 / 朗读 / 停止）">
+                    ⚙ 本回合操作 <span className={`text-[10px] transition-transform ${opsOpen ? 'rotate-180' : ''}`}>▾</span>
+                  </button>
+                  <div className={`${opsOpen ? 'flex' : 'hidden'} lg:flex flex-wrap items-center gap-2 max-lg:gap-2.5 max-lg:w-full max-lg:mt-1`}>
                   <button onClick={() => setConfirmAction({
                       title: '重新生成本回合',
                       desc: '将撤销本回合（含正文与所有演化：NPC / 物品 / 势力 / 领地 / 冒险团 / 杂项 / 记忆等），并用同一条输入重新生成。操作会刷新页面，确定继续？',

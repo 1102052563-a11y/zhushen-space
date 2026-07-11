@@ -208,6 +208,21 @@ export function userToHtml(text: string): string {
 
 /* 正文配图：在 anchor 命中处插入 <img>，无命中则追加到末尾。
    先在原文锚点后插入安全占位符（不含 HTML 特殊字符，能穿过 escapeHtml/wrap），再替换为图片标签。*/
+// —— 渲染层记忆化（性能）——
+// toHtmlWithImages 是纯函数（仅依赖 text/images/opts），但主聊天每次打字都会触发整个 App 重渲染，
+// 对每个可见楼层重跑一遍这套正则替换/建卡；长档 + 高历史楼层数下，这就是「打字要等几秒才出字」的主因。
+// 按楼层 id + 内容签名缓存产出：内容没变（打字等无关重渲染）→ 直接返回上次 HTML，彻底跳过重算。
+const _htmlCache = new Map<number, { sig: string; html: string }>();
+export function toHtmlWithImagesCached(id: number, text: string, images?: StoryImage[], opts?: { speakable?: boolean; npcNames?: string[] }): string {
+  const sig = `${text}${JSON.stringify(images ?? [])}${opts?.speakable ? '1' : '0'}${(opts?.npcNames ?? []).join(',')}`;
+  const hit = _htmlCache.get(id);
+  if (hit && hit.sig === sig) { _htmlCache.delete(id); _htmlCache.set(id, hit); return hit.html; }   // LRU：命中挪到末尾
+  const html = toHtmlWithImages(text, images, opts);
+  _htmlCache.delete(id); _htmlCache.set(id, { sig, html });
+  if (_htmlCache.size > 240) { const k = _htmlCache.keys().next().value; if (k !== undefined) _htmlCache.delete(k); }   // 只留最近 ~240 楼，防无界增长
+  return html;
+}
+
 export function toHtmlWithImages(text: string, images?: StoryImage[], opts?: { speakable?: boolean; npcNames?: string[] }): string {
   // 检定结果块 → 占位符（能穿过 escape/wrap，最后替换成骰子卡）
   const diceCards: string[] = [];

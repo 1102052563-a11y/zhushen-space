@@ -327,6 +327,8 @@ interface SettingsState {
   setAutoTranslateEngine: (v: 'ai' | 'free') => void;
   autoTranslateManual: boolean;   // 机翻手动触发：开=不自动跑机翻(只留词库+繁體转换)、靠悬浮「译」按钮点触；关=自动补全
   setAutoTranslateManual: (v: boolean) => void;
+  evolveOutputLang: boolean;   // 演化内容直接用当前语言生成(注入各演化提示词)：越/英界面下让 AI 输出越/英内容·非简体才生效
+  setEvolveOutputLang: (v: boolean) => void;
   userGlossary: Partial<Record<UiLang, Record<string, string>>>;   // 用户导入的翻译覆盖表（运行时优先于内置 en.ts/vi.ts）
   glossaryVersion: number;   // 导入后 +1，供 DomI18n 重新套用整页
   setUserGlossary: (lang: UiLang, map: Record<string, string>) => void;
@@ -779,6 +781,7 @@ export const useSettings = create<SettingsState>()(
       autoTranslateOnline: true,   // 默认开：非简体语言下，跨玩家在线内容自动机翻（简体用户 needsAutoTranslate 基本不触发）
       autoTranslateEngine: 'ai',   // 默认 AI（最地道）；可切「免费机翻」不耗额度
       autoTranslateManual: true,   // 默认手动点击触发（避免自动机翻持续耗额度）
+      evolveOutputLang: true,      // 默认开：越/英界面下演化内容直接用该语言生成（用户明确要求；有名称与中文正文对不齐的取舍，可关）
       userGlossary: {},
       glossaryVersion: 0,
       apiLibrary: [],
@@ -860,6 +863,7 @@ export const useSettings = create<SettingsState>()(
       setAutoTranslateOnline: (v) => set({ autoTranslateOnline: v }),
       setAutoTranslateEngine: (v) => set({ autoTranslateEngine: v }),
       setAutoTranslateManual: (v) => set({ autoTranslateManual: v }),
+      setEvolveOutputLang: (v) => set({ evolveOutputLang: v }),
       setUserGlossary: (lang, map) => set((s) => {
         const ug = { ...s.userGlossary, [lang]: map };
         setUserDict(ug as Record<string, Record<string, string>>);   // 同步进运行时镜像，translate 立即生效
