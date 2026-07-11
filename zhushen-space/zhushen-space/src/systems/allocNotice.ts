@@ -16,6 +16,20 @@ export function drainGrowthNotices(): string[] { const out = [...growthPending];
 /** 仅查看不清空（调试/测试用）。 */
 export function peekGrowthNotices(): string[] { return growthPending.slice(); }
 
+/* 本回合已由「设施」（开箱/合成/福袋…）**确定性发放、且已入背包**的物品名。
+   背景：开箱等设施把产物直接 addItem 入库，并（可选）让正文入戏交代"主角取出了这些之物"。
+   但物品演化阶段会读正文、把"获得的物品"再 createItem 一遍 → 同一件变两条（尤其正文把名字写漂了、dedupeByName 漏合并）。
+   方案：设施发放时登记这些名字；callApi 每回合把它们取进 ref，物品阶段据此**绝不 createItem 这些名字**（提示词 + 代码闸门双保险）。*/
+let facilityGranted: string[] = [];
+/** 登记本回合由设施确定性发放、已入库的物品名（物品阶段勿再建）。去重。 */
+export function pushFacilityGranted(names: string[]): void {
+  for (const n of names) { const t = (n ?? '').trim(); if (t && !facilityGranted.includes(t)) facilityGranted.push(t); }
+}
+/** 取出并清空本回合设施发放名单（callApi 开头调一次，存进 ref 供本回合各阶段读）。 */
+export function drainFacilityGranted(): string[] { const out = [...facilityGranted]; facilityGranted = []; return out; }
+/** 仅查看不清空。 */
+export function peekFacilityGranted(): string[] { return facilityGranted.slice(); }
+
 /** 记一条场外操作通报（整句·人类可读）。 */
 export function pushSceneNotice(note: string): void {
   const t = (note ?? '').trim();

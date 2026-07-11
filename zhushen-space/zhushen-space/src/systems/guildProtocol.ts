@@ -1,10 +1,10 @@
-// 家族系统·线协议（client ⇄ GuildDO 每家族一实例 / GuildListDO 注册表单例）—— 前端侧单一事实来源（范式同 shopProtocol）。
-// 见 指导/家族系统-设计.md。**异步家族**：贡献/等级/金库/周任务/家族战全累计式，不要求成员同时在线。
+// 公会系统·线协议（client ⇄ GuildDO 每公会一实例 / GuildListDO 注册表单例）—— 前端侧单一事实来源（范式同 shopProtocol）。
+// 见 指导/家族系统-设计.md。**异步公会**：贡献/等级/仓库/周任务/公会战全累计式，不要求成员同时在线。
 // 改协议时同步比对 multiplayer-worker/src/GuildDO.js / GuildListDO.js。
 
 export type GuildRank = 'leader' | 'viceLeader' | 'elder' | 'member';
 
-export interface GuildPerk { key: string; label: string; value: number; }   // 已解锁家族增益（如 {key:'expBoost',value:0.05}）
+export interface GuildPerk { key: string; label: string; value: number; }   // 已解锁公会增益（如 {key:'expBoost',value:0.05}）
 
 export interface GuildMember {
   pid: string; name: string; rank: GuildRank;
@@ -18,7 +18,7 @@ export interface WeeklyTasks { weekId: string; goals: WeeklyGoal[]; claimed: str
 
 export interface ChronicleEntry { at: number; text: string; kind?: string; }
 
-/** 家族全量（GuildDO → 客户端）。 */
+/** 公会全量（GuildDO → 客户端）。 */
 export interface GuildFull {
   id: string; name: string; tag: string; emblem?: string; manifesto?: string; recruiting?: boolean;
   ownerId: string; createdAt: number;
@@ -26,17 +26,17 @@ export interface GuildFull {
   perks: GuildPerk[];
   members: GuildMember[];
   applicants: { pid: string; name: string; at: number }[];
-  chest: any[];                 // 家族金库（带完整物品快照）
+  chest: any[];                 // 公会仓库（带完整物品快照）
   weekTasks?: WeeklyTasks;
   chronicle: ChronicleEntry[];
-  chain?: { count: number; lastAt: number; best: number };   // 家族连击（Torn 式·击杀累计冲里程碑）
-  hallOfFame?: { name: string; contribTotal: number; rank?: string; at: number; reason?: string }[];   // 家族丰碑（创立者 + 离场英灵·跨存档铭记）
-  wars?: { wins: number; losses: number };   // 家族战·战绩
-  base?: { buildings: { id: string; name: string; desc?: string; effect?: string; level: number; aiGen?: boolean }[] };   // 家族据点·自定义建筑（成员手写/AI 提示词生成·集资升级·非正文生成）
+  chain?: { count: number; lastAt: number; best: number };   // 公会连击（Torn 式·击杀累计冲里程碑）
+  hallOfFame?: { name: string; contribTotal: number; rank?: string; at: number; reason?: string }[];   // 公会丰碑（创立者 + 离场英灵·跨存档铭记）
+  wars?: { wins: number; losses: number };   // 公会战·战绩
+  base?: { buildings: { id: string; name: string; desc?: string; effect?: string; level: number; aiGen?: boolean }[] };   // 公会据点·自定义建筑（成员手写/AI 提示词生成·集资升级·非正文生成）
   baseSnapshot?: any;           // (旧·未用)
 }
 
-/** 公开家族卡（GuildListDO 注册表列表·搜索/申请用）。 */
+/** 公开公会卡（GuildListDO 注册表列表·搜索/申请用）。 */
 export interface GuildCard {
   id: string; name: string; tag: string; emblem?: string; manifesto?: string;
   level: number; members: number; recruiting?: boolean; ownerName?: string; weeklyContrib?: number; power?: number; at: number; bumpedAt: number;
@@ -59,7 +59,7 @@ export type GuildInbound =
   | { type: 'chest_changed'; chest: any[] }
   | { type: 'chronicle_added'; entry: ChronicleEntry }
   | { type: 'applicant_added'; applicant: { pid: string; name: string; at: number } }
-  | { type: 'kicked'; reason?: string }                 // 我被踢 / 家族解散
+  | { type: 'kicked'; reason?: string }                 // 我被踢 / 公会解散
   | { type: 'rate_limited' }
   | { type: 'error'; reason?: string; error?: string };
 
@@ -76,12 +76,12 @@ export type GuildOutbound =
   | { type: 'edit'; patch: { name?: string; tag?: string; emblem?: string; manifesto?: string; recruiting?: boolean } }
   | { type: 'claim_task' }
   | { type: 'leave' }
-  | { type: 'add_building'; building: { name?: string; desc?: string; effect?: string; aiGen?: boolean } }   // 家族据点：手写加建筑（会长/长老）
-  | { type: 'add_buildings'; buildings: { name?: string; desc?: string; effect?: string }[] }                // 家族据点：AI 生成批量入据点
+  | { type: 'add_building'; building: { name?: string; desc?: string; effect?: string; aiGen?: boolean } }   // 公会据点：手写加建筑（会长/长老）
+  | { type: 'add_buildings'; buildings: { name?: string; desc?: string; effect?: string }[] }                // 公会据点：AI 生成批量入据点
   | { type: 'edit_building'; id: string; patch: { name?: string; desc?: string; effect?: string } }
   | { type: 'remove_building'; id: string }
   | { type: 'upgrade_building'; id: string }   // 任何成员出资建设一级（乐园币客户端本地扣）
-  | { type: 'war_result'; win: boolean; opponentName: string; myScore: number; theirScore: number }   // 家族战·确定性对决结果上报（server 记战绩+胜奖·每日限次）
+  | { type: 'war_result'; win: boolean; opponentName: string; myScore: number; theirScore: number }   // 公会战·确定性对决结果上报（server 记战绩+胜奖·每日限次）
   | { type: 'disband' };
 
 // ── GuildListDO（注册表·单例·仿 LobbyDO/AssistDO）──

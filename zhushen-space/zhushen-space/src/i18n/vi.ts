@@ -338,7 +338,7 @@ export const VI_EXACT: Record<string, string> = {
   // ─────────── 世界 / 任务 ───────────
   '主线': 'Cốt Truyện', '支线': 'Nhánh Phụ', '主线任务': 'Nhiệm Vụ Chính', '支线任务': 'Nhiệm Vụ Phụ', '世界大事': 'Sự Kiện Thế Giới',
   '当前世界': 'Thế Giới Hiện Tại', '长期事实': 'Sự Thật Dài Hạn', '正文': 'Nội Dung Chính', '战斗场景': 'Cảnh Chiến Đấu',
-  '乐园': 'Lạc Viên', '轮回乐园': 'Lạc Viên Luân Hồi', '主神空间': 'Không Gian Chủ Thần', '家族': 'Gia Tộc', '产业': 'Sản Nghiệp',
+  '乐园': 'Lạc Viên', '轮回乐园': 'Lạc Viên Luân Hồi', '主神空间': 'Không Gian Chủ Thần', '家族': 'Gia Tộc', '公会': 'Công Hội', '公会仓库': 'Kho Công Hội', '产业': 'Sản Nghiệp',
 
   // ─────────── 面板 / 演化 ───────────
   'API 设置': 'Cài Đặt API', '演化设置': 'Cài Đặt Tiến Hóa', '预设设置': 'Cài Đặt Preset', '预设正则': 'Regex Preset',

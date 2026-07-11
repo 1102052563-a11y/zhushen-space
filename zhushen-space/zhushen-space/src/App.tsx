@@ -227,7 +227,7 @@ import { buildMemPool, loadAll as factVecLoadAll, ensureVectors as factVecEnsure
 import { useDbAdvance } from './store/dbAdvanceStore';   // 数据库推进管线（Stitches 规划层）
 import { findModule as dbFindModule, buildModuleMessages as dbBuildMsgs, extractTag as dbExtractTag, stripExcluded as dbStripExcluded, resolveFinalDirective as dbResolveDirective, type DbAdvanceCtx } from './systems/dbAdvancePreset';
 import { serializePlayerCard, serializeNpcCard, buildNpcCandidateTitles, buildPlayerSkillCandidates, buildPlayerItemCandidates, rankNpcsLocal, serializeFactionsSection, namesMentionedIn, NM_STRUCT_SELECT_PROMPT, type RecallLimits } from './systems/structuredRecall';
-import { drainSceneNotices, pushSceneNotice, drainGrowthNotices, pushGrowthNotice } from './systems/allocNotice';   // 场外操作通报（加点/合成/强化/货币…）→ 正文前置须知；星图习得/开箱→需入戏交代块
+import { drainSceneNotices, pushSceneNotice, drainGrowthNotices, pushGrowthNotice, pushFacilityGranted, drainFacilityGranted } from './systems/allocNotice';   // 场外操作通报→正文前置须知；星图习得/开箱→入戏交代块；设施发放物→物品阶段勿再建
 import { rollGemDrops } from './systems/gemDrop';   // 正文击杀 → 结算掉落宝石（前端确定性）
 const MiscPanel = lazy(() => import('./components/MiscPanel'));
 import DiceCard from './components/DiceCard';
@@ -1085,7 +1085,7 @@ const rightMenuItems = [
   { icon: '💬', label: '聊天室' },
   { icon: '🛒', label: '交易行' },
   { icon: '🏪', label: '产业' },
-  { icon: '🏰', label: '家族' },
+  { icon: '🏰', label: '公会' },
   { icon: '🆘', label: '助战' },
   { icon: '🏆', label: '世界竞技场' },
   { icon: '🪦', label: '纪念丰碑' },
@@ -1102,7 +1102,7 @@ const NAV_FX: Record<string, string> = {
   '副职业': 'fx-wrench', '技能树': 'fx-tree', '体系': 'fx-tree', '合成': 'fx-wrench', '开箱': 'fx-bag', '称号': 'fx-medal', '成就': 'fx-trophy', '势力': 'fx-pillar',
   '领地': 'fx-castle', '冒险团': 'fx-shield', '队伍': 'fx-friends', '万族': 'fx-cosmos', '世界百科': 'fx-book', '轮回WIKI': 'fx-book',
   '战斗': 'fx-clash', '乐园设施': 'fx-ferris', '深渊': 'fx-void', '回合洞察': 'fx-zoom', '审计': 'fx-zoom', '任务': 'fx-quest',
-  '频道': 'fx-signal', '私信': 'fx-mail', '好友': 'fx-friends', '聊天室': 'fx-signal', '交易行': 'fx-bag', '产业': 'fx-bag', '家族': 'fx-castle', '助战': 'fx-clash', '世界竞技场': 'fx-trophy', '纪念丰碑': 'fx-pillar', '账户仓库': 'fx-bag', '记忆': 'fx-brain', '创意工坊': 'fx-sparkle', '存档': 'fx-save', '设置': 'fx-gear',
+  '频道': 'fx-signal', '私信': 'fx-mail', '好友': 'fx-friends', '聊天室': 'fx-signal', '交易行': 'fx-bag', '产业': 'fx-bag', '公会': 'fx-castle', '助战': 'fx-clash', '世界竞技场': 'fx-trophy', '纪念丰碑': 'fx-pillar', '账户仓库': 'fx-bag', '记忆': 'fx-brain', '创意工坊': 'fx-sparkle', '存档': 'fx-save', '设置': 'fx-gear',
 };
 
 /* 炼晶：把玩家倾向解析成 gemEngine 的 want（指定宝石属性/镶嵌部位；无匹配则返回 undefined 走随机）。
@@ -1139,7 +1139,7 @@ function rollAndApplyGemDrops(rawNarrative: string): string {
     if (!drops.length) return '';
     const I = useItems.getState();
     for (const d of drops) I.addItem(d as any);
-    try { if (useGuild.getState().my) guildClient.contributeRest(drops.length * 60, 'kill'); } catch { /* 击杀强敌→家族贡献(异步·非阻塞) */ }
+    try { if (useGuild.getState().my) guildClient.contributeRest(drops.length * 60, 'kill'); } catch { /* 击杀强敌→公会贡献(异步·非阻塞) */ }
     const names = drops.map((d) => d.name).join('、');
     pushSceneNotice(`【场外·掉落】击败强敌后，从其身上拾得宝石：${names}（已入背包，可到💎镶嵌所镶嵌；集齐同套装宝石激活套装加成）`);
     try { playSfx('coin'); } catch { /* 缺音效静默 */ }
@@ -1179,6 +1179,7 @@ export default function App() {
   // 物品演化「本回合快照」：每回合首次跑物品演化前，按当回合正文 key 存一份物品状态(主角背包+货币+各NPC持有物)的引用快照；
   // 同一回合再次触发(储存空间「手动更新」=重跑)时，先回退到这份快照(撤销本回合物品演化的修改)，再重新演化一次，避免在已改过的状态上叠加(重复/错乱)。
   const itemPhaseUndoRef     = useRef<{ key: number; items: any[]; currency: any; npcItems: Record<string, any[]> } | null>(null);
+  const facilityGrantedRef   = useRef<string[]>([]);   // 本回合由设施(开箱/合成)确定性发放、已入库的物品名 → 物品阶段勿再 createItem（callApi 开头从 allocNotice 取进）
   const prevWorldNameRef     = useRef('');   // 上一次杂项演化时的世界名，检测"进入新世界"→触发主线路线图规划
   const [itemPhaseRunning,   setItemPhaseRunning]   = useState(false);
   const [itemPhaseLog,       setItemPhaseLog]       = useState('');
@@ -2135,6 +2136,7 @@ export default function App() {
   async function runItemManagementPhaseCore(narrative: string) {
     const itemState = useItems.getState();
     const { settings } = itemState;
+    const facilityGranted = facilityGrantedRef.current ?? [];   // 本回合设施(开箱/合成)已确定性发放并入库之物 → 物品阶段勿再 createItem（防"开完箱正文又生成一批"）
 
     // 检查：API 配置
     const ss = useSettings.getState();
@@ -2217,7 +2219,10 @@ export default function App() {
         + '\n' + ITEM_COT_RULE + '\n' + ITEM_EVOLUTION_CODEX
         + '\n' + EDIT_LANGUAGE_RULE + '\n' + EDIT_BY_ID_RULE   // #uid 编辑台：教会本阶段用 <edit> + 强制"改已有按ID、只新建全新"，根治重复条目
         + '\n' + EVO_REGISTER_GAINS_RULE   // 差分对账：所得必登(防漏)、失才删(防误删)、没变就别碰(防漂移)
-        + stowedItemsRule();   // 已收纳(领地仓库/账户仓库)清单+勿补回背包铁则：根治"存进仓库又被补回背包"
+        + stowedItemsRule()   // 已收纳(领地仓库/账户仓库)清单+勿补回背包铁则：根治"存进仓库又被补回背包"
+        + (facilityGranted.length
+          ? `\n【设施已发放物·绝不重复建档（最高铁则）】本回合以下物品**已由系统设施（开箱/合成等）确定性发放，并已在上面的背包清单里**：${facilityGranted.join('、')}。即使本轮正文描述主角开启宝箱／取出／获得了它们，那说的就是这几件——它们**已经在背包里了**，**绝对不要对它们 createItem**（否则同一件会变成两条重复条目！）。正文提到这些名字（或其略写／别称）时，一律当作背包里已有的那一条，需要时最多 updateItem，**绝不新建**。`
+          : '');
 
       // user 消息：正文 + 指令要求（先思维链 <think> 自检，再出指令块）
       const userContent = `# 本轮正文\n${trimmedNarrative}\n\n---\n请根据以上正文处理本轮物品与货币（乐园币、灵魂钱币）的变化。**先输出一个 <think>…</think> 思考块**，按系统提示里的「物品演化思维链」逐项自检、把跟物品/装备/货币有关的事想清楚；**随后**输出 <state> 和 <upstore> 指令块（无变化则输出空块）。除 <think> / <state> / <upstore> 外不要有任何其它文字。`;
@@ -2244,7 +2249,7 @@ export default function App() {
       if (reply) {
         // 先剥掉思维链 <think> 块（只用于自检、不参与解析），避免其中的自然语言被误判成指令
         const cleanReply = reply.replace(/<think[^>]*>[\s\S]*?<\/think>/gi, '').trim();
-        const { itemResults } = applyAllUpdates(cleanReply, { source: 'item-phase', turn: turnCountRef.current });
+        const { itemResults } = applyAllUpdates(cleanReply, { source: 'item-phase', turn: turnCountRef.current }, { suppressCreateNames: facilityGranted });
         // 同名重复物品合并（防 AI 重复 createItem）：主角背包 + 全部 NPC 储存空间
         try { const m = useItems.getState().dedupeByName(); if (m) console.log(`[Item] 合并主角同名重复物品 ${m} 件`); } catch { /* */ }
         try { useNpc.getState().dedupeNpcItems(); } catch { /* */ }
@@ -2265,7 +2270,7 @@ export default function App() {
             ], { extra });
             if (retry) {
               const cleanRetry = retry.replace(/<think[^>]*>[\s\S]*?<\/think>/gi, '').trim();
-              applyAllUpdates(cleanRetry, { source: 'item-phase-retry', turn: turnCountRef.current });
+              applyAllUpdates(cleanRetry, { source: 'item-phase-retry', turn: turnCountRef.current }, { suppressCreateNames: facilityGranted });
               try { useItems.getState().dedupeByName(); } catch { /* */ }
               try { useNpc.getState().dedupeNpcItems(); } catch { /* */ }
             }
@@ -2478,6 +2483,7 @@ export default function App() {
       });
     }
     C.recordDiscovered(sess.pending.map((p) => p.name));
+    if (!isTame) pushFacilityGranted(sess.pending.map((p) => p.name));   // 合成产物已入库 → 物品阶段勿再 createItem（同开箱·防重复建档）
     // 场外通报：本次合成产物 → 让正文知晓（防"合成了X正文却不知"）；手工费另有货币通报
     try {
       const names = sess.pending.map((p) => p.name).filter(Boolean).join('、');
@@ -2603,6 +2609,7 @@ export default function App() {
       consume[job.chestId] = (consume[job.chestId] || 0) + 1;
     }
     for (const [chestId, n] of Object.entries(consume)) items.consumeItem(chestId, n);   // 按 chestId 汇总消耗（成功一只消耗一只）
+    pushFacilityGranted(openedNames);   // 登记本回合已入库的开箱产物 → 物品阶段绝不可再 createItem（根治"开完箱正文又生成一批"）
     // 入戏交代（注入正文最深处·<本回合成长·需入戏交代> 块）：让正文演出主角开箱取物的画面，而非仅数值知晓；数值已定，附"勿重复发放/勿改数值"守卫。
     try {
       const nm = openedNames.filter(Boolean).join('、');
@@ -6055,20 +6062,20 @@ ${replyTo.authorName} 之前说：「${String(replyTo.content).slice(0, 200)}」
   };
 
   /* 系统商店·补货：AI 生成 20 件商品（价偏高），供「系统商店」购买 */
-  /* 家族据点·AI 生成建筑：据玩家提示词(非正文)生成一批据点建筑(纯风味·不给数值)，addBuildings 入据点。 */
+  /* 公会据点·AI 生成建筑：据玩家提示词(非正文)生成一批据点建筑(纯风味·不给数值)，addBuildings 入据点。 */
   async function genGuildBuildings(prompt: string) {
     const chain = resolveApiChain('channel', getChannelApi());
-    if (!chain[0]?.baseUrl || !chain[0]?.apiKey) { pushSceneNotice('【家族】生成据点建筑失败：请先配置频道 / 综合设置 API'); return; }
-    const sys = `你是「家族据点」建筑设计师。据玩家提示词，为一个契约者家族的据点设计 3~6 座建筑（纯风味 / 氛围·**不给任何数值加成**）。
-【玩家提示词】${prompt || '（自由发挥·契约者家族据点风格）'}
-只输出 JSON（无多余文字 / markdown）：{"buildings":[{"name"(建筑名·≤12字),"desc"(外观/功能描述),"effect"(象征意义/给家族的氛围·非数值)}]}。`;
+    if (!chain[0]?.baseUrl || !chain[0]?.apiKey) { pushSceneNotice('【公会】生成据点建筑失败：请先配置频道 / 综合设置 API'); return; }
+    const sys = `你是「公会据点」建筑设计师。据玩家提示词，为一个契约者公会的据点设计 3~6 座建筑（纯风味 / 氛围·**不给任何数值加成**）。
+【玩家提示词】${prompt || '（自由发挥·契约者公会据点风格）'}
+只输出 JSON（无多余文字 / markdown）：{"buildings":[{"name"(建筑名·≤12字),"desc"(外观/功能描述),"effect"(象征意义/给公会的氛围·非数值)}]}。`;
     try {
       const { content } = await apiChatFallback(chain, [{ role: 'system', content: sys }, { role: 'user', content: '只输出 JSON {"buildings":[…]}。' }], { timeoutMs: 90000 });
       const j: any = parseEntryJson(content) || {};
       const list = (Array.isArray(j.buildings) ? j.buildings : []).filter((b: any) => b?.name).slice(0, 8);
       if (list.length) guildClient.addBuildings(list);
-      else pushSceneNotice('【家族】AI 没生成有效建筑，换个提示词。');
-    } catch (e: any) { pushSceneNotice(`【家族】生成据点建筑失败：${e?.message ?? '请求异常'}`); }
+      else pushSceneNotice('【公会】AI 没生成有效建筑，换个提示词。');
+    } catch (e: any) { pushSceneNotice(`【公会】生成据点建筑失败：${e?.message ?? '请求异常'}`); }
   }
 
   /* 玩家产业·AI 生成货品：据店铺定位 + 玩家倾向，生成【物品】(完整物品固定格式·不省略) 与【随从】(NPC 固定模板)，写入货架。 */
@@ -8283,6 +8290,7 @@ ${lines}`;
     // 星图习得（★需入戏交代·与"仅知晓"的场外操作不同）：玩家刚在技能树点亮的技能/天赋 → 让正文用一小段叙述交代主角"如何"习得，治"职业和正文没关联·各玩各的·不知道怎么获得技能"
     let growthBlock: { role: 'system'; content: string }[] = [];
     if (!narrateOnly) {
+      facilityGrantedRef.current = drainFacilityGranted();   // 本回合设施(开箱/合成)确定性发放并入库之物 → 供物品阶段抑制重复 createItem（防"开箱后正文又生成一批"）
       const gn = drainGrowthNotices();
       if (gn.length) growthBlock = [{ role: 'system' as const, content:
         `<本回合成长·需入戏交代>\n（下列是玩家刚通过面板完成、已由前端确定性发放/入库的【成长或获取】事件。请在本回合正文里用一小段【自然、简短】的叙述把它们交代进剧情：技能/天赋类写主角是**如何习得/觉醒**的——顿悟、苦修有成、传承共鸣、危机中突破、名师点拨皆可；**开箱/获得物品类写主角开启宝箱、取出此物的过程与见到珍宝的那一瞬**。贴合当前情境与主角处境，让"变强/获得"有来处、有画面，与主角身份呼应。**别逐条罗列、别报数值、别喧宾夺主、勿重复发放**，几笔带过、重在把面板操作和剧情连起来。）\n${gn.join('\n')}\n</本回合成长·需入戏交代>` }];
@@ -8419,7 +8427,7 @@ ${lines}`;
       ...buildWorldTimeInjection(),                     // <当前时空>
       ...buildQuestInjection(),                          // <当前任务>
       ...buildCosmosInjection(),                        // <万族态势>
-      ...buildGuildInjection(),                         // <所属家族> 玩家家族身份 + 增益（社交身份·跨世界）
+      ...buildGuildInjection(),                         // <所属公会> 玩家公会身份 + 增益（社交身份·跨世界）
       ...buildFanficInjection(),                        // <同人设定·已锁定>
       ...buildFactInjection(),                          // <事实锚点·已锁定>
       ...structPlayer,                                 // <主角当前档案> 浅注入：紧贴最近正文/用户输入
@@ -8794,7 +8802,7 @@ ${lines}`;
       label === '合成' ? () => setCraftPanelOpen(true) :
       label === '开箱' ? () => setChestPanelOpen(true) :
       label === '产业' ? () => setProducePanelOpen(true) :
-      label === '家族' ? () => setGuildPanelOpen(true) :
+      label === '公会' ? () => setGuildPanelOpen(true) :
       label === '势力' ? () => setFactionPanelOpen(true) :
       label === '领地' ? () => setTerritoryPanelOpen(true) :
       label === '冒险团' ? () => setTeamPanelOpen(true) :

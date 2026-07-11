@@ -1,4 +1,4 @@
-@import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600;700&family=Noto+Sans+SC:wght@400;500;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600;700&family=Noto+Sans+SC:wght@400;500;700&family=Ma+Shan+Zheng&family=ZCOOL+XiaoWei&family=ZCOOL+KuaiLe&display=swap');
 
 @tailwind base;
 @tailwind components;
@@ -32,6 +32,21 @@
 .hit-flash { animation: hitFlash .4s ease-out; }
 @keyframes turnGlow { 0%,100% { box-shadow: 0 0 0 1px rgba(251,191,36,.5), 0 0 8px rgba(251,191,36,.25); } 50% { box-shadow: 0 0 0 2px rgba(251,191,36,.9), 0 0 16px rgba(251,191,36,.5); } }
 .turn-glow { animation: turnGlow 1.6s ease-in-out infinite; }
+
+/* ── 全息卡（HoloCard / HoloInspector）：名字艺术字 + 箔纸流光 ── */
+.artname { font-family: 'Ma Shan Zheng', 'MSVistaHei', cursive; line-height: 1; letter-spacing: 2px; font-weight: 400; -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent; white-space: nowrap; }
+.an-silver  { background-image: linear-gradient(180deg,#ffffff,#cbd5e1 50%,#8792a3); -webkit-text-stroke:.6px #5b6472; filter: drop-shadow(0 1px 3px rgba(0,0,0,.6)); }
+.an-jade    { background-image: linear-gradient(180deg,#eafff5,#34d399 52%,#0f766e); -webkit-text-stroke:.6px #0b5e4a; filter: drop-shadow(0 1px 3px rgba(0,0,0,.6)); }
+.an-teal    { background-image: linear-gradient(180deg,#e6fffb,#2dd4bf 52%,#115e59); -webkit-text-stroke:.6px #0c4f49; filter: drop-shadow(0 0 5px rgba(45,212,191,.4)) drop-shadow(0 1px 2px rgba(0,0,0,.5)); }
+.an-ice     { background-image: linear-gradient(180deg,#f2fbff,#38bdf8 55%,#0b6fa5); -webkit-text-stroke:.6px #0a3d5c; filter: drop-shadow(0 0 6px rgba(90,200,255,.45)) drop-shadow(0 1px 2px rgba(0,0,0,.5)); }
+.an-indigo  { background-image: linear-gradient(180deg,#e8ecff,#818cf8 52%,#3730a3); -webkit-text-stroke:.6px #262178; filter: drop-shadow(0 0 6px rgba(129,140,248,.45)) drop-shadow(0 1px 2px rgba(0,0,0,.55)); }
+.an-violet  { background-image: linear-gradient(180deg,#f3e6ff,#b06cff 54%,#5a1d9a); -webkit-text-stroke:.6px #3d1470; filter: drop-shadow(0 0 6px rgba(176,108,255,.45)) drop-shadow(0 1px 2px rgba(0,0,0,.55)); }
+.an-fuchsia { background-image: linear-gradient(180deg,#ffe6fb,#e879f9 52%,#86198f); -webkit-text-stroke:.6px #5f1266; filter: drop-shadow(0 0 6px rgba(232,121,249,.45)) drop-shadow(0 1px 2px rgba(0,0,0,.55)); }
+.an-gold    { background-image: linear-gradient(180deg,#fff7d6,#f7d15a 48%,#a9781f); -webkit-text-stroke:.6px #6e4d16; filter: drop-shadow(0 2px 3px rgba(0,0,0,.7)); }
+.an-crimson { background-image: linear-gradient(180deg,#ffe3a6,#e11d2e 56%,#7a0512); -webkit-text-stroke:.6px #f4d78a; filter: drop-shadow(0 2px 3px rgba(0,0,0,.75)); }
+.an-rainbow { background-image: linear-gradient(92deg,#f87171,#fbbf24,#34d399,#60a5fa,#a78bfa,#f472b6,#f87171); background-size:200% auto; -webkit-text-stroke:.6px #7a5216; filter: drop-shadow(0 0 6px rgba(255,215,120,.5)) drop-shadow(0 2px 3px rgba(0,0,0,.7)); animation: anRainbow 6s linear infinite; }
+@keyframes anRainbow { to { background-position: 200% center; } }
+@keyframes holoSweep { 0% { background-position: 0% 50%; } 100% { background-position: 200% 50%; } }
 
 :root {
   color-scheme: dark;

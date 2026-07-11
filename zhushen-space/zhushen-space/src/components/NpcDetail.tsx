@@ -14,6 +14,8 @@ import AttrTalentPicker from './AttrTalentPicker';
 import { CAT_ICON } from './BackpackModal';
 import NpcEquip from './NpcEquip';
 import NpcChatPanel from './NpcChatPanel';
+import HoloCard from './HoloCard';
+import HoloInspector from './HoloInspector';
 import { useTeam } from '../store/adventureTeamStore';
 import { generateJoinedTeam } from '../systems/adventureTeamGen';
 import StatusEffectChips from './StatusEffectChips';
@@ -921,6 +923,7 @@ function AvatarBlock({ npc }: { npc: NpcRecord }) {
   const [gening, setGening] = useState(false);
   const [err, setErr] = useState('');
   const [libOpen, setLibOpen] = useState(false);
+  const [inspectOpen, setInspectOpen] = useState(false);
   function handleUpload(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
     e.target.value = '';
@@ -951,14 +954,16 @@ function AvatarBlock({ npc }: { npc: NpcRecord }) {
   return (
     <div className="space-y-3">
       <div className="flex items-center gap-4">
-        <div onClick={() => npc.avatar ? useImageViewer.getState().open(npc.avatar, npc.name) : setLibOpen(true)}
-          title={npc.avatar ? '点击查看大图' : '点击从图库选头像'}
-          className={`shrink-0 w-28 h-28 rounded-lg overflow-hidden border border-edge/60 bg-void/60 flex items-center justify-center ${npc.avatar ? 'cursor-zoom-in hover:border-god/40' : 'cursor-pointer hover:border-god/40'}`}>
-          {gening ? <span className="text-[11px] font-mono text-god/70 animate-pulse">生成中…</span>
-            : npc.avatar
-            ? <img src={npc.avatar} alt={npc.name} className="w-full h-full object-cover" />
-            : <span className="text-4xl text-dim/25">👤</span>}
-        </div>
+        {npc.avatar
+          ? <div className="shrink-0" title="点击放大检视">
+              <HoloCard img={npc.avatar} name={npc.name} badge={parseRealm(npc.realm).tier || undefined}
+                tier={npc.realm} width={140} mode="hover" onClick={() => setInspectOpen(true)} />
+            </div>
+          : <div onClick={() => setLibOpen(true)} title="点击从图库选头像"
+              className="shrink-0 w-28 h-28 rounded-lg overflow-hidden border border-edge/60 bg-void/60 flex items-center justify-center cursor-pointer hover:border-god/40">
+              {gening ? <span className="text-[11px] font-mono text-god/70 animate-pulse">生成中…</span>
+                : <span className="text-4xl text-dim/25">👤</span>}
+            </div>}
         {!preview && (
         <div className="flex flex-col gap-2">
           <input ref={fileRef} type="file" accept="image/*" className="hidden" onChange={handleUpload} />
@@ -984,6 +989,7 @@ function AvatarBlock({ npc }: { npc: NpcRecord }) {
         </div>
         )}
       </div>
+      <HoloInspector open={inspectOpen} onClose={() => setInspectOpen(false)} img={npc.avatar} name={npc.name} badge={parseRealm(npc.realm).tier || undefined} tier={npc.realm} />
     </div>
   );
 }

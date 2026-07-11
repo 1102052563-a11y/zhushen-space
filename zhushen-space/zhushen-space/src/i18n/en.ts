@@ -338,7 +338,7 @@ export const EN_EXACT: Record<string, string> = {
   // ─────────── 世界 / 任务 ───────────
   '主线': 'Main', '支线': 'Side', '主线任务': 'Main Quest', '支线任务': 'Side Quest', '世界大事': 'World Event',
   '当前世界': 'Current World', '长期事实': 'Long-term Facts', '正文': 'Narrative', '战斗场景': 'Battle Scene',
-  '乐园': 'Paradise', '轮回乐园': 'Samsara Paradise', '主神空间': "God's Space", '家族': 'Clan', '产业': 'Business',
+  '乐园': 'Paradise', '轮回乐园': 'Samsara Paradise', '主神空间': "God's Space", '家族': 'Clan', '公会': 'Guild', '公会仓库': 'Guild Warehouse', '产业': 'Business',
 
   // ─────────── 面板 / 演化 ───────────
   'API 设置': 'API Settings', '演化设置': 'Evolution Settings', '预设设置': 'Preset Settings', '预设正则': 'Preset Regex',

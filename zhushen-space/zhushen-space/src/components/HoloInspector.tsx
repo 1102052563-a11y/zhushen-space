@@ -1,0 +1,41 @@
+import { useEffect } from 'react';
+import HoloCard from './HoloCard';
+import { type HoloFoil } from '../systems/holoFoils';
+
+interface Props {
+  open: boolean;
+  onClose: () => void;
+  img?: string;
+  name?: string;
+  badge?: string;
+  grade?: string;
+  tier?: string;
+  foil?: HoloFoil;
+}
+
+/** 点击放大检视：全屏暗底弹层 + 大号全息卡（拖动旋转）。 */
+export default function HoloInspector({ open, onClose, img, name, badge, grade, tier, foil }: Props) {
+  useEffect(() => {
+    if (!open) return;
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [open, onClose]);
+  if (!open) return null;
+  return (
+    <div onClick={onClose}
+      style={{
+        position: 'fixed', inset: 0, zIndex: 9999, display: 'flex', flexDirection: 'column',
+        alignItems: 'center', justifyContent: 'center', gap: 16,
+        background: 'radial-gradient(120% 90% at 50% 28%, rgba(20,6,14,.92) 0%, rgba(10,4,12,.95) 55%, rgba(2,1,4,.97) 100%)',
+        backdropFilter: 'blur(3px)',
+      }}>
+      <div onClick={(e) => e.stopPropagation()}>
+        <HoloCard img={img} name={name} badge={badge} grade={grade} tier={tier} foil={foil} width={330} mode="drag" />
+      </div>
+      <p style={{ margin: 0, fontSize: 13, color: '#c99a8f' }}>按住拖动旋转检视 · 松手回正 · Esc 关闭</p>
+      <button onClick={onClose} aria-label="关闭检视"
+        style={{ position: 'fixed', top: 16, right: 16, width: 38, height: 38, borderRadius: 9, fontSize: 18, color: '#f4d78a', background: 'rgba(26,5,8,.8)', border: '0.5px solid #6a3a12', cursor: 'pointer' }}>✕</button>
+    </div>
+  );
+}

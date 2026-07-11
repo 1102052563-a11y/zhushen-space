@@ -424,7 +424,7 @@ export function applyStateUpdates(raw: string) {
   }
 }
 
-export function applyAllUpdates(raw: string, ctx?: LedgerCtx, opts?: { deferItemCreate?: boolean }): { itemResults: ItemEditResult[] } {
+export function applyAllUpdates(raw: string, ctx?: LedgerCtx, opts?: { deferItemCreate?: boolean; suppressCreateNames?: string[] }): { itemResults: ItemEditResult[] } {
   // ★ 先创建物品（<upstore> createItem），再应用 <state>（含 eq 装备短指令），
   //   否则 eq 会在物品尚未创建时执行而装备失败（物品全堆在储物袋里）。
   const parsedItemCmds = parseAllItemCommands(raw);
@@ -434,9 +434,28 @@ export function applyAllUpdates(raw: string, ctx?: LedgerCtx, opts?: { deferItem
   // 物品阶段独占建物品：主正文在「本回合物品阶段会跑」时传 deferItemCreate=true，跳过正文自带的 createItem，
   //   交由带护栏（思维链/背包快照/判重闸门/货币守卫/回喂纠错）的物品阶段统一建一次——根治
   //   "正文 <upstore> + 物品阶段各建一次 → 同一件物两条(描述还不一样、判重按名字漏网)"。消耗/更新/穿脱/转移等其余物品指令仍即时生效。
-  const itemCmds = opts?.deferItemCreate ? itemCmdsAll.filter((c) => c.type !== 'createItem') : itemCmdsAll;
+  let itemCmds = opts?.deferItemCreate ? itemCmdsAll.filter((c) => c.type !== 'createItem') : itemCmdsAll;
   if (opts?.deferItemCreate && itemCmds.length !== itemCmdsAll.length)
     console.log(`[Item] 主正文延后 ${itemCmdsAll.length - itemCmds.length} 条 createItem → 交物品阶段独占建（去重）`);
+  // 设施已发放物：本回合由开箱/合成等确定性发放、已在背包中的物品——**绝不可再 createItem**（防重复建档；
+  // 容忍正文把名字写漂：归一化后双向包含匹配，"暗金·裂空战刃"≈"裂空战刃"也拦下，补 dedupeByName 按精确名漏合并的洞）。
+  if (opts?.suppressCreateNames?.length) {
+    const norm = (s: string) => String(s ?? '').replace(/[\s·・,，。.、"'「」【】\[\]()（）+＋]/g, '').toLowerCase();
+    const banned = opts.suppressCreateNames.map(norm).filter((b) => b.length >= 2);   // 太短的名字不做包含匹配，防误杀
+    if (banned.length) {
+      const before = itemCmds.length;
+      itemCmds = itemCmds.filter((c) => {
+        if (c.type !== 'createItem') return true;
+        const d: any = c.data ?? {};
+        const nm = norm(String((d.item ?? d).name ?? (d.item ?? d)['1'] ?? ''));
+        if (nm.length < 2) return true;
+        const hit = banned.some((b) => nm === b || nm.includes(b) || b.includes(nm));
+        if (hit) console.log(`[Item] 抑制重复 createItem「${String((d.item ?? d).name ?? '')}」——本回合已由设施(开箱/合成)确定性发放并入库`);
+        return !hit;
+      });
+      if (itemCmds.length !== before) console.log(`[Item] 设施已发放物：拦下 ${before - itemCmds.length} 条重复 createItem`);
+    }
+  }
   let itemResults: ItemEditResult[] = [];
   if (itemCmds.length > 0) {
     console.log('[Item] 解析到物品指令:', itemCmds);

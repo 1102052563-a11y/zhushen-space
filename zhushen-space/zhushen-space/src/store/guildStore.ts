@@ -5,9 +5,9 @@ import type {
 } from '../systems/guildProtocol';
 
 /* ════════════════════════════════════════════
-   家族 store（drpg-guild）—— **账号级·跨存档**（同 joyStore/monument 口径·不进 saveManager 快照）。
-   - my：唯一持久化字段 = 家族摘要（id/名/徽记/我的军衔/等级/已解锁 perks）。
-       供单机侧**离线也能**应用家族增益 buff（guildPerkValue）+ 注入正文（buildGuildInjection）。
+   公会 store（drpg-guild）—— **账号级·跨存档**（同 joyStore/monument 口径·不进 saveManager 快照）。
+   - my：唯一持久化字段 = 公会摘要（id/名/徽记/我的军衔/等级/已解锁 perks）。
+       供单机侧**离线也能**应用公会增益 buff（guildPerkValue）+ 注入正文（buildGuildInjection）。
    - live 态（roster/chest/weekTasks/chronicle/applicants/base/status/online）由 systems/guildClient.ts
        在连 GuildDO 收到 WS 事件时填；断开即 resetLive，不持久化。
    - 见 指导/家族系统-设计.md。
@@ -16,7 +16,7 @@ import type {
 export type { GuildRank };
 export type GuildMpStatus = 'idle' | 'connecting' | 'connected' | 'closed' | 'error';
 
-/** 家族摘要（持久化）。 */
+/** 公会摘要（持久化）。 */
 export interface GuildSummary {
   id: string;
   name: string;
@@ -35,7 +35,7 @@ interface GuildState {
   status: GuildMpStatus;
   me: GuildMe | null;
   online: number;
-  exp: number;                  // 家族当前总 exp（进度条用·live）
+  exp: number;                  // 公会当前总 exp（进度条用·live）
   error: string | null;
   roster: GuildMember[];
   chest: any[];
@@ -44,9 +44,9 @@ interface GuildState {
   applicants: { pid: string; name: string; at: number }[];
   base: any;
   chain: { count: number; lastAt: number; best: number } | null;
-  meta: { manifesto?: string; recruiting?: boolean } | null;   // 家族设置面板预填（my 摘要不含这些）
-  hallOfFame: { name: string; contribTotal: number; rank?: string; at: number; reason?: string }[];   // 家族丰碑
-  wars: { wins: number; losses: number } | null;   // 家族战·战绩
+  meta: { manifesto?: string; recruiting?: boolean } | null;   // 公会设置面板预填（my 摘要不含这些）
+  hallOfFame: { name: string; contribTotal: number; rank?: string; at: number; reason?: string }[];   // 公会丰碑
+  wars: { wins: number; losses: number } | null;   // 公会战·战绩
 
   setMy: (s: GuildSummary | null) => void;
   _set: (p: Partial<GuildState>) => void;
@@ -82,13 +82,13 @@ export const useGuild = create<GuildState>()(
     }),
     {
       name: 'drpg-guild',
-      partialize: (s: any) => ({ my: s.my }),   // 只持久化家族摘要（跨存档·账号级）
+      partialize: (s: any) => ({ my: s.my }),   // 只持久化公会摘要（跨存档·账号级）
       merge: (persisted: any, current) => ({ ...current, my: persisted?.my ?? null }),
     },
   ),
 );
 
-/** 取某个已解锁家族增益的数值（没有则 0）。供结算/正文注入按 key 读，如 guildPerkValue('expBoost')。 */
+/** 取某个已解锁公会增益的数值（没有则 0）。供结算/正文注入按 key 读，如 guildPerkValue('expBoost')。 */
 export function guildPerkValue(key: string): number {
   const my = useGuild.getState().my;
   if (!my || !Array.isArray(my.perks)) return 0;

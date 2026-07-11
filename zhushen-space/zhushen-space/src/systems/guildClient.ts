@@ -6,10 +6,10 @@ import { pushSceneNotice } from './allocNotice';
 import { chatNameColor } from './chatCosmetics';
 import type { GuildFull, GuildInbound, GuildListInbound, GuildCard } from './guildProtocol';
 
-// 家族 WebSocket 客户端（事件名照搬 GuildListDO / GuildDO 协议）。范式同 shopClient/assistClient，但**双连接**：
+// 公会 WebSocket 客户端（事件名照搬 GuildListDO / GuildDO 协议）。范式同 shopClient/assistClient，但**双连接**：
 //  - listWs → GuildListDO：浏览/搜索/创建/申请（未入会时的发现层）。
-//  - gWs    → GuildDO(guildId)：我的家族 live 态 + 成员操作。
-// 与聊天室共用 Discord 身份（chatToken→pid=chat:uid）。GuildPanel 挂载时 openList()（+我有家族则 openGuild(my.id)），卸载 leaveAll()。
+//  - gWs    → GuildDO(guildId)：我的公会 live 态 + 成员操作。
+// 与聊天室共用 Discord 身份（chatToken→pid=chat:uid）。GuildPanel 挂载时 openList()（+我有公会则 openGuild(my.id)），卸载 leaveAll()。
 
 const RATE = '操作太快了，稍等一下';
 function set(p: Partial<ReturnType<typeof useGuild.getState>>) { useGuild.getState()._set(p as any); }
@@ -19,7 +19,7 @@ let curName = '道友', curToken = '';
 function idParams() { return `&avv=${chatAvatarVer()}&ds=${encodeURIComponent(chatDicebearSeed())}&nc=${encodeURIComponent(chatNameColor())}`; }
 function mpHttpBase() { return mpWsBase().replace(/^wss:/, 'https:').replace(/^ws:/, 'http:'); }
 
-/** gameplay 自动贡献（REST·免持久 WS·非阻塞）：我有家族才发；升级则刷新 my 的 level/perks。 */
+/** gameplay 自动贡献（REST·免持久 WS·非阻塞）：我有公会才发；升级则刷新 my 的 level/perks。 */
 async function contributeRest(amount: number, kind: string): Promise<void> {
   const my = useGuild.getState().my; if (!my) return;
   const token = chatToken(); if (!token) return;
@@ -59,7 +59,7 @@ function dispatchList(m: GuildListInbound) {
 function cleanupList() { if (listHb) { clearInterval(listHb); listHb = null; } if (listRe) { clearTimeout(listRe); listRe = null; } if (listWs) { try { listWs.onclose = null; listWs.close(); } catch {} listWs = null; } }
 function listSend(o: any) { if (listWs && listWs.readyState === 1) { listWs.send(JSON.stringify(o)); return true; } return false; }
 
-/* ───────── GuildDO 连接（我的家族）───────── */
+/* ───────── GuildDO 连接（我的公会）───────── */
 let gWs: WebSocket | null = null; let gHb: any = null; let gRe: any = null; let gManual = false; let gId = '';
 function openGuild(guildId: string, name: string, token: string) {
   if (!guildId) return;
@@ -93,12 +93,12 @@ function dispatchGuild(m: GuildInbound) {
     case 'contrib_bumped': set({ exp: m.exp, roster: st.roster.map((x) => (x.pid === m.pid ? { ...x, contribTotal: m.contribTotal, contribWeek: m.contribWeek } : x)) }); break;
     case 'level_up': { const my = st.my; if (my) useGuild.getState().setMy({ ...my, level: m.level, perks: m.perks || [] }); break; }
     case 'task_progress': set({ weekTasks: m.weekTasks }); break;
-    case 'task_reward': { try { const amt = Math.max(0, Math.round(m.amount || 0)); if (amt) { useItems.getState().adjustCurrency('乐园币', amt, '家族·周任务奖励'); pushSceneNotice(`【场外·家族】领取家族周任务奖励 +${amt} 乐园币`); } } catch { /* */ } break; }
+    case 'task_reward': { try { const amt = Math.max(0, Math.round(m.amount || 0)); if (amt) { useItems.getState().adjustCurrency('乐园币', amt, '公会·周任务奖励'); pushSceneNotice(`【场外·公会】领取公会周任务奖励 +${amt} 乐园币`); } } catch { /* */ } break; }
     case 'chain_bumped': set({ chain: m.chain }); break;
     case 'chest_changed': set({ chest: m.chest || [] }); break;
     case 'chronicle_added': set({ chronicle: [m.entry, ...st.chronicle].slice(0, 100) }); break;
     case 'applicant_added': set({ applicants: [...st.applicants, m.applicant] }); break;
-    case 'kicked': useGuild.getState().setMy(null); leaveGuild(); useGuild.getState().resetLive(); flashErr(m.reason === 'disband' ? '家族已解散' : m.reason === 'kicked' ? '你已被移出家族' : '你已退出家族'); break;
+    case 'kicked': useGuild.getState().setMy(null); leaveGuild(); useGuild.getState().resetLive(); flashErr(m.reason === 'disband' ? '公会已解散' : m.reason === 'kicked' ? '你已被移出公会' : '你已退出公会'); break;
     case 'rate_limited': flashErr(RATE, 1500); break;
     case 'error': flashErr(m.reason || m.error || '操作失败'); break;
   }
@@ -115,7 +115,7 @@ export const guildClient = {
   search: (q: string) => listSend({ type: 'search', q }),
   create: (name: string, tag: string, emblem?: string, manifesto?: string) => listSend({ type: 'create_guild', name, tag, emblem, manifesto }),
   apply: (guildId: string) => listSend({ type: 'apply', guildId }),
-  // 家族操作（走 gWs）
+  // 公会操作（走 gWs）
   contribute: (kind: string, amount: number, detail?: string) => gSend({ type: 'contribute', kind, amount, detail }),
   deposit: (item: any) => gSend({ type: 'deposit', item }),
   withdraw: (index: number) => gSend({ type: 'withdraw', index }),

@@ -105,22 +105,22 @@ export function buildPlayerCoreInjection(): { role: 'system'; content: string }[
   }];
 }
 
-/* <所属家族> 注入正文：主角隶属的玩家家族（契约者战队）身份 + 已解锁家族增益 → 叙事体现归属/靠山/家族声望士气。
-   这是跨存档·账号级的**社交身份**，非当前任务世界的势力，勿混淆。无家族则不注入。（家族系统见 指导/家族系统-设计.md） */
+/* <所属公会> 注入正文：主角隶属的玩家公会（契约者战队）身份 + 已解锁公会增益 → 叙事体现归属/靠山/公会声望士气。
+   这是跨存档·账号级的**社交身份**，非当前任务世界的势力，勿混淆。无公会则不注入。（公会系统见 指导/家族系统-设计.md） */
 export function buildGuildInjection(): { role: 'system'; content: string }[] {
   const g = useGuild.getState().my;
   if (!g) return [];
   const RANK: Record<string, string> = { leader: '会长', viceLeader: '副会长', elder: '长老', member: '成员' };
   const perks = (g.perks || []).map((p) => p.label).join('、');
   const bits = [
-    `家族:${g.name}${g.emblem ? ' ' + g.emblem : ''}${g.tag ? ` [${g.tag}]` : ''}`,
+    `公会:${g.name}${g.emblem ? ' ' + g.emblem : ''}${g.tag ? ` [${g.tag}]` : ''}`,
     `我的军衔:${RANK[g.role] || g.role}`,
-    `家族等级:Lv.${g.level}`,
-    perks && `家族庇荫/增益(可化作靠山与士气):${perks}`,
+    `公会等级:Lv.${g.level}`,
+    perks && `公会庇荫/增益(可化作靠山与士气):${perks}`,
   ].filter(Boolean);
   return [{
     role: 'system' as const,
-    content: `<所属家族>（主角隶属下列玩家家族/契约者战队——叙事可自然体现其归属感、靠山、家族声望与士气；相熟 NPC/契约者可据此提及。这是跨世界的社交身份，**非当前任务世界的势力**，勿混淆）\n${bits.join(' | ')}\n</所属家族>`,
+    content: `<所属公会>（主角隶属下列玩家公会/契约者战队——叙事可自然体现其归属感、靠山、公会声望与士气；相熟 NPC/契约者可据此提及。这是跨世界的社交身份，**非当前任务世界的势力**，勿混淆）\n${bits.join(' | ')}\n</所属公会>`,
   }];
 }
 
