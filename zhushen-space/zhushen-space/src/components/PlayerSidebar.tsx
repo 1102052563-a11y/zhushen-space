@@ -1,5 +1,6 @@
 import { useState, useRef, useEffect } from 'react';
 import { usePlayer, type PlayerAttrs } from '../store/playerStore';
+import { useSkillTree } from '../store/skillTreeStore';   // 生效技能树的职业 → 主角职业留空时填上（以技能树为准）
 import { useGame } from '../store/gameStore';
 import { useItems, gradeToNum } from '../store/itemStore';
 import { StatusChips, SegmentedText } from './NpcDetail';
@@ -202,6 +203,12 @@ export default function PlayerSidebar({ onClose }: { onClose?: () => void }) {
   useEffect(() => { if (!isRealTier && showTrueAttr) setShowTrueAttr(false); }, [isRealTier, showTrueAttr]);   // 跌回<四阶或本就<四阶 → 强制普通属性视图
   const b1 = useCharacters((s) => s.characters['B1']);
   const updateSkill = useCharacters((s) => s.updateSkill);
+  // 以技能树的职业为准：主角职业【留空】时，用当前生效技能树的职业名填上（技能树侧改名/切换生效树会主动覆盖同步；此处仅兜底空缺，不抢已填写的）
+  const activeTreeProf = useSkillTree((s) => { const pr = s.progress['B1']; const t = pr?.activeTreeId ? s.trees[pr.activeTreeId] : undefined; return t?.profession; });
+  useEffect(() => {
+    const prof = (activeTreeProf ?? '').trim();
+    if (prof && !(profile.profession ?? '').trim()) setProfile({ profession: prof });
+  }, [activeTreeProf, profile.profession]);   // eslint-disable-line react-hooks/exhaustive-deps
   // 技能↔能量条绑定（写进 skill.numeric.resCost「消耗」/ resGate「门槛」；同一技能共用一条能量条）
   const skillResId = (sk: any) => sk?.numeric?.resCost?.id ?? sk?.numeric?.resGate?.id ?? '';
   const setSkillResId = (sk: any, resId: string) => {
