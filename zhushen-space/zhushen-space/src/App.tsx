@@ -136,6 +136,7 @@ import { buildFanficInjection, buildFactInjection, buildCosmosInjection, buildPl
 import { takeSkillUpNote } from './systems/skillUpgrade';
 import { applyPlayerProfileCommands, applyTimedStatusCommands, expireStatuses } from './systems/statusCommands';
 import { getNpcApi, trimNarrative, npcChatCompletion, buildNpcVars, fillVars, serializeNpcSnapshot } from './systems/npcEvolutionHelpers';
+import { reconcileNewNpcNames } from './systems/npcNameGuard';
 import { combatFinalVitals, applyCombatVitals, buildCombatResultFallback, runBattleSummaryPhase } from './systems/combatHelpers';
 import { pickEnemyAction } from './systems/enemyAI';
 import { parseWeather, isLightSky, extractWeatherFxCss, sanitizeWeatherCss } from './systems/weatherFx';
@@ -4019,6 +4020,7 @@ ${AFFIX_EFFECT_RULE}`;
       // 注入在场 NPC 的【完整现有档案】——策略A 原本只发正文+在场C编号、不发 NPC 现有变量，导致演化只能凭正文重建、
       //   无法查漏补缺/修正/去重（用户报"NPC变量重roll不发送npc完整变量"、C编号混淆）。这里把每个在场 NPC 的完整快照发给它。
       const snapNpcs = Object.values(useNpc.getState().npcs).filter((r) => r.onScene && !r.isDead && r.name && r.name !== r.id);
+      const beforeNpcIds = new Set(Object.keys(useNpc.getState().npcs));   // 演化前已存在的 NPC id（名字守卫据此识别本回合新建的）
       const snapBlock = snapNpcs.length
         ? `# 当前在场 NPC 的完整现有档案（据此**查漏补缺 / 修正错误 / 去重 / 别搞混 C 编号**；只更新真有变化的字段，其余原样保留·勿凭空重建）\n`
           + `⚠**骨架补全铁则**：登场判断通常只建"骨架"（姓名/阶位/性格/背景/外观/生物强度）。下面档案里凡**缺 技能 / 天赋 / 生图提示词(19) / 基底外观 / 私密信息 / 目标 等核心字段**的 NPC，本轮一律**视同首次建档、按其「阶位×生物强度档」一次性全量补全**这些缺失字段（技能/天赋的数量与品级照【档位强制表】配齐）；已完整的 NPC 只按正文增量更新、别重复堆叠。\n`
@@ -4035,6 +4037,11 @@ ${AFFIX_EFFECT_RULE}`;
         try { useNpc.getState().dedupeByName(); } catch { /* 防同名重复建档 */ }
         try { backfillNpcStarterKits(); } catch { /* 初始家当 */ }
         try { applyNarrativeAttrs(narrative); autoGenMissingAttrs(); ensureNpcLuck(); ensureNpcVitalsCap(); } catch { /* 卡六维优先，无卡则自动生成有起伏六维，最后前端独占重算幸运 */ }
+        // 名字守卫（约束生成试点·Waidrin 动态 enum）：本回合新冒出的 NPC 裁决是否某现有在场 NPC 的别名/错名，是则改名并入（复用 dedupeByName）
+        try {
+          const merged = await reconcileNewNpcNames(resolveApiChain('npc', getNpcApi()), beforeNpcIds, snapNpcs.map((r) => r.name), trimmed.slice(-800));
+          if (merged) console.log(`[NPC名字守卫] 本回合并入 ${merged} 个别名/ghost`);
+        } catch (e) { console.warn('[NPC名字守卫] 跳过', e); }
         const total = npcCmds.length + charCmds.length + shorts;
         setNpcPhaseLog(total > 0
           ? `✓ NPC 演化完成：${npcCmds.length} 条档案更新，${charCmds.length} 条技能/天赋指令`

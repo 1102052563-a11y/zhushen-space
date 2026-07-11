@@ -2,7 +2,6 @@ import { useState, useMemo } from 'react';
 import { useItems, gradeBadgeClass, gradeNameClass, isResourcePseudoItem, type InventoryItem } from '../store/itemStore';
 import { useSettings } from '../store/settingsStore';
 import { CAT_CFG, CAT_ICON, ItemDetailModal } from './BackpackModal';
-import { useImageViewer } from '../store/imageViewerStore';
 import { useHoloViewer } from '../store/holoViewerStore';
 import { SLOT_DEFS, type SlotDef } from '../systems/equipSlots';
 import { enhanceFxClass } from '../systems/enhanceEngine';

@@ -1,7 +1,6 @@
 import { useRef, useState } from 'react';
 import { useItems, gradeBadgeClass, gradeNameClass, asText, type InventoryItem } from '../store/itemStore';
 import { ItemDetailModal, CAT_ICON } from './BackpackModal';
-import { useImageViewer } from '../store/imageViewerStore';
 import { useHoloViewer } from '../store/holoViewerStore';
 
 /* 叙事区左上角「主角装备」浮窗，与右上角「在场人物」左右对称：

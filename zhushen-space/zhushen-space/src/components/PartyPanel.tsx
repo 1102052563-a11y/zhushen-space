@@ -1,7 +1,6 @@
 import { useNpc, type NpcRecord } from '../store/npcStore';
 import { isDmableTag } from '../store/dmStore';
 import { lvFromRealm, tierFxClass } from '../systems/derivedStats';
-import { useImageViewer } from '../store/imageViewerStore';
 import { useHoloViewer } from '../store/holoViewerStore';
 
 /* 临时队伍：本世界临时组队的同伴（主角是队长），与「冒险团」不同——世界结束即自动解散。

@@ -1,7 +1,6 @@
 import { useNpc, type NpcRecord } from '../store/npcStore';
 import { useNpcEvo } from '../store/npcEvoStore';
 import { lvFromRealm, tierFxClass } from '../systems/derivedStats';
-import { useImageViewer } from '../store/imageViewerStore';
 import { useHoloViewer } from '../store/holoViewerStore';
 
 /* 好友栏：手动收藏的契约者/随从/宠物。

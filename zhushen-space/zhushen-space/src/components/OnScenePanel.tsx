@@ -2,7 +2,6 @@ import { useRef, useState } from 'react';
 import { useNpc, hasRealNpcName, type NpcRecord } from '../store/npcStore';
 import { useCharacters } from '../store/characterStore';
 import { lvFromRealm, tierFxClass, effectiveResource, fullMaxHp, fullMaxEp, ratioOf, npcBaseAttrs } from '../systems/derivedStats';
-import { useImageViewer } from '../store/imageViewerStore';
 import { useHoloViewer } from '../store/holoViewerStore';
 import { PortraitPicker } from './PortraitPicker';
 

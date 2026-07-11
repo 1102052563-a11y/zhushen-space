@@ -21,7 +21,6 @@ import { generateJoinedTeam } from '../systems/adventureTeamGen';
 import StatusEffectChips from './StatusEffectChips';
 import { useImageGen, effectiveEquipService } from '../store/imageGenStore';
 import { generateImage, buildPortraitPrompt, buildEquipPrompt, equippedForPrompt, shrinkDataUrl } from '../systems/imageGen';
-import { useImageViewer } from '../store/imageViewerStore';
 import { useHoloViewer } from '../store/holoViewerStore';
 import { genPortraitTags, genEquipTags, isTagService } from '../systems/imageTags';
 import { PortraitPicker, PortraitLibraryModal } from './PortraitPicker';
