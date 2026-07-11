@@ -9,15 +9,18 @@ import { useSkillTree } from '../store/skillTreeStore';
 import { availablePP } from '../systems/skillTree';
 import { useImageGen, effectiveEquipService } from '../store/imageGenStore';
 import { generateImage, buildEquipPrompt, shrinkDataUrl } from '../systems/imageGen';
-import { useImageViewer } from '../store/imageViewerStore';
 import { useComposer } from '../store/composerStore';
 import { genEquipTags, isTagService } from '../systems/imageTags';
+import { parseAttrBonus, ATTR_KEYS, ATTR_LABEL } from '../systems/attrBonus';
+import HoloCard from './HoloCard';
+import HoloInspector from './HoloInspector';
 
 /* 物品图片：上传/替换/移除/AI生成（dataURL 存 InventoryItem.image）*/
 function ItemImageBlock({ item, onUpdate }: { item: InventoryItem; onUpdate: (patch: Partial<InventoryItem>) => void }) {
   const fileRef = useRef<HTMLInputElement>(null);
   const [gening, setGening] = useState(false);
   const [err, setErr] = useState('');
+  const [inspectOpen, setInspectOpen] = useState(false);
   function handleUpload(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
     e.target.value = '';
@@ -44,16 +47,20 @@ function ItemImageBlock({ item, onUpdate }: { item: InventoryItem; onUpdate: (pa
     } catch (e: any) { setErr(e.message ?? '生成失败'); }
     finally { setGening(false); }
   }
+  const affixText = splitAffixEntries((item as any).affix).join(' ');
+  const bonusText = [asText(item.effect), affixText].filter(Boolean).join(' ');
+  const bDelta = parseAttrBonus(bonusText);
+  const bonusRows = ATTR_KEYS.filter((k) => bDelta[k]).map((k) => ({ label: ATTR_LABEL[k], value: (bDelta[k]! > 0 ? '+' : '') + bDelta[k] }));
   return (
     <div className="flex items-center gap-3">
-      <div onClick={() => item.image && useImageViewer.getState().open(item.image, item.name)}
-        title={item.image ? '点击查看大图' : ''}
-        className={`shrink-0 w-24 h-24 rounded-lg overflow-hidden border border-edge/60 bg-void/60 flex items-center justify-center ${item.image ? 'cursor-zoom-in hover:border-god/40' : ''}`}>
-        {gening ? <span className="text-[11px] font-mono text-god/70 animate-pulse">生成中…</span>
-          : item.image
-          ? <img src={item.image} alt={item.name} className="w-full h-full object-cover" />
-          : <span className="text-3xl text-dim/25">{CAT_ICON[item.category] ?? '◆'}</span>}
-      </div>
+      {item.image
+        ? <div className="shrink-0" title="点击放大检视">
+            <HoloCard img={item.image} name={item.name} grade={item.gradeDesc} badge={item.gradeDesc || undefined} rows={bonusRows} width={120} mode="hover" onClick={() => setInspectOpen(true)} />
+          </div>
+        : <div className="shrink-0 w-24 h-24 rounded-lg overflow-hidden border border-edge/60 bg-void/60 flex items-center justify-center">
+            {gening ? <span className="text-[11px] font-mono text-god/70 animate-pulse">生成中…</span>
+              : <span className="text-3xl text-dim/25">{CAT_ICON[item.category] ?? '◆'}</span>}
+          </div>}
       <div className="flex flex-col gap-2">
         <input ref={fileRef} type="file" accept="image/*" className="hidden" onChange={handleUpload} />
         <button onClick={handleGen} disabled={gening}
@@ -70,6 +77,7 @@ function ItemImageBlock({ item, onUpdate }: { item: InventoryItem; onUpdate: (pa
         )}
         {err && <div className="text-[11px] text-blood font-mono max-w-[240px] leading-snug whitespace-pre-line">{err}</div>}
       </div>
+      <HoloInspector open={inspectOpen} onClose={() => setInspectOpen(false)} img={item.image} name={item.name} grade={item.gradeDesc} badge={item.gradeDesc || undefined} rows={bonusRows} />
     </div>
   );
 }

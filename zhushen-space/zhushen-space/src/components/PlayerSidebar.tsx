@@ -19,7 +19,6 @@ import HoloCard from './HoloCard';
 import HoloInspector from './HoloInspector';
 import { useImageGen } from '../store/imageGenStore';
 import { generateImage, buildPortraitPrompt, equippedForPrompt, shrinkDataUrl } from '../systems/imageGen';
-import { useImageViewer } from '../store/imageViewerStore';
 import { PortraitPicker, PortraitLibraryModal } from './PortraitPicker';
 import { genPortraitTags } from '../systems/imageTags';
 import Bar, { BAR_STYLES } from './Bar';
