@@ -951,13 +951,15 @@ function AvatarBlock({ npc }: { npc: NpcRecord }) {
     } catch (e: any) { setErr(e.message ?? '生成失败'); }
     finally { setGening(false); }
   }
+  const attrRows = npc.attrs ? ATTR_KEYS.map((k) => ({ label: ATTR_LABEL[k], value: String((npc.attrs as any)[k] ?? '—') })) : [];
+  const bioPower = npc.bioStrength ? { label: '强度', value: npc.bioStrength } : undefined;
   return (
     <div className="space-y-3">
       <div className="flex items-center gap-4">
         {npc.avatar
           ? <div className="shrink-0" title="点击放大检视">
               <HoloCard img={npc.avatar} name={npc.name} badge={parseRealm(npc.realm).tier || undefined}
-                tier={npc.realm} width={140} mode="hover" onClick={() => setInspectOpen(true)} />
+                tier={npc.realm} width={140} mode="hover" power={bioPower} rows={attrRows} onClick={() => setInspectOpen(true)} />
             </div>
           : <div onClick={() => setLibOpen(true)} title="点击从图库选头像"
               className="shrink-0 w-28 h-28 rounded-lg overflow-hidden border border-edge/60 bg-void/60 flex items-center justify-center cursor-pointer hover:border-god/40">
@@ -989,7 +991,7 @@ function AvatarBlock({ npc }: { npc: NpcRecord }) {
         </div>
         )}
       </div>
-      <HoloInspector open={inspectOpen} onClose={() => setInspectOpen(false)} img={npc.avatar} name={npc.name} badge={parseRealm(npc.realm).tier || undefined} tier={npc.realm} />
+      <HoloInspector open={inspectOpen} onClose={() => setInspectOpen(false)} img={npc.avatar} name={npc.name} badge={parseRealm(npc.realm).tier || undefined} tier={npc.realm} power={bioPower} rows={attrRows} />
     </div>
   );
 }

@@ -15,6 +15,8 @@ export interface HoloCardProps {
   height?: number;
   nameSize?: number;
   showName?: boolean;       // 默认 true
+  power?: { label?: string; value: string };   // 顶部右侧「HP 位」徽标（人物=生物强度）
+  rows?: { label: string; value: string }[];    // 底部信息面板（人物=六维 / 物品=加成）；空则不显示
   mode?: 'hover' | 'drag' | 'static';  // hover=悬停倾斜 / drag=拖动旋转 / static=不动
   onClick?: () => void;
   className?: string;
@@ -24,7 +26,7 @@ export interface HoloCardProps {
 /** 全息卡：立绘铺满 + 箔纸/磨砂/反光 + 金雕卡框 + 艺术字名。箔纸由 grade/tier/foil 决定。 */
 export default function HoloCard({
   img, name, badge, grade, tier, foil: foilProp,
-  width = 220, height, nameSize, showName = true, mode = 'hover', onClick, className, style,
+  width = 220, height, nameSize, showName = true, power, rows, mode = 'hover', onClick, className, style,
 }: HoloCardProps) {
   const foil: HoloFoil = foilProp ?? (grade ? foilForGrade(grade) : tier ? foilForTier(tier) : foilForGrade('白色'));
   const w = width, h = height ?? Math.round(width * 7 / 5);
@@ -99,6 +101,8 @@ export default function HoloCard({
   }, [mode, foil, autoSweep, baseShineOp]);
 
   const layer: CSSProperties = { position: 'absolute', inset: 0, pointerEvents: 'none' };
+  const chipStyle: CSSProperties = { fontFamily: 'var(--font-mono, monospace)', fontSize: Math.max(9, Math.round(w * 0.05)), fontWeight: 500, padding: '1px 8px', borderRadius: 6, background: 'rgba(10,6,14,.72)', color: foil.a1, border: `0.5px solid ${foil.a2}`, alignSelf: 'flex-start', whiteSpace: 'nowrap' };
+  const tcg = !!(power || (rows && rows.length));
   return (
     <div ref={cardRef} className={className}
       onClick={onClick}
@@ -117,13 +121,40 @@ export default function HoloCard({
       <div style={layer} dangerouslySetInnerHTML={{ __html: frameSvg(foil, uid) }} />
       <div ref={glareRef} style={{ ...layer, mixBlendMode: 'overlay' }} />
       <div ref={specRef} style={{ ...layer, mixBlendMode: 'screen', backgroundImage: 'linear-gradient(102deg,transparent 36%,rgba(255,248,228,.24) 48%,rgba(255,248,228,.05) 53%,transparent 70%)', backgroundSize: '250% 250%', opacity: 0.4 }} />
-      {showName && name && (
+      {!tcg && showName && name && (
         <>
           <div style={{ position: 'absolute', left: 0, right: 0, bottom: 0, height: '42%', pointerEvents: 'none', background: 'linear-gradient(transparent, rgba(6,8,16,.72))' }} />
           <div style={{ position: 'absolute', left: 6, right: 6, bottom: badge ? 16 : 9, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 3, pointerEvents: 'none' }}>
             <div className={`artname ${artClass(foil)}`} style={{ fontSize: nameSize ?? Math.max(15, Math.round(w * 0.17)), maxWidth: '100%', overflow: 'hidden' }}>{name}</div>
-            {badge && <span style={{ fontFamily: 'var(--font-mono, monospace)', fontSize: Math.max(9, Math.round(w * 0.05)), fontWeight: 500, padding: '1px 8px', borderRadius: 6, background: 'rgba(10,6,14,.72)', color: foil.a1, border: `0.5px solid ${foil.a2}` }}>{badge}</span>}
+            {badge && <span style={{ ...chipStyle, alignSelf: 'center' }}>{badge}</span>}
           </div>
+        </>
+      )}
+      {tcg && (
+        <>
+          <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: '22%', pointerEvents: 'none', background: 'linear-gradient(rgba(6,8,16,.74), transparent)' }} />
+          <div style={{ position: 'absolute', top: 6, left: 8, right: 8, display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 6, pointerEvents: 'none' }}>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 2, minWidth: 0 }}>
+              {name && <div className={`artname ${artClass(foil)}`} style={{ fontSize: nameSize ?? Math.max(14, Math.round(w * 0.125)), maxWidth: '100%', overflow: 'hidden' }}>{name}</div>}
+              {badge && <span style={chipStyle}>{badge}</span>}
+            </div>
+            {power && (
+              <span style={{ display: 'inline-flex', alignItems: 'baseline', gap: 3, fontFamily: 'var(--font-mono, monospace)', fontSize: Math.max(11, Math.round(w * 0.058)), fontWeight: 700, color: foil.a1, background: 'rgba(10,6,14,.8)', border: `1px solid ${foil.a2}`, borderRadius: 7, padding: '2px 7px', maxWidth: '58%', overflow: 'hidden', whiteSpace: 'nowrap', textOverflow: 'ellipsis' }}>
+                {power.label && <span style={{ fontSize: '0.72em', fontWeight: 500, opacity: 0.85 }}>{power.label}</span>}{power.value}
+              </span>
+            )}
+          </div>
+          {rows && rows.length > 0 && w >= 220 && (
+            <div style={{ position: 'absolute', left: 8, right: 8, bottom: 8, pointerEvents: 'none' }}>
+              <div style={{ background: 'rgba(8,8,14,.64)', border: `1px solid ${foil.a2}`, borderRadius: 10, padding: '7px 8px', display: 'flex', flexWrap: 'wrap', gap: '5px 6px' }}>
+                {rows.map((r, i) => (
+                  <span key={i} style={{ fontSize: 12, fontFamily: 'var(--font-mono, monospace)', color: '#e9e3d5', background: 'rgba(255,255,255,.06)', borderRadius: 5, padding: '2px 7px' }}>
+                    <span style={{ color: foil.a1, marginRight: 4 }}>{r.label}</span>{r.value}
+                  </span>
+                ))}
+              </div>
+            </div>
+          )}
         </>
       )}
     </div>

@@ -11,10 +11,12 @@ interface Props {
   grade?: string;
   tier?: string;
   foil?: HoloFoil;
+  power?: { label?: string; value: string };
+  rows?: { label: string; value: string }[];
 }
 
 /** 点击放大检视：全屏暗底弹层 + 大号全息卡（拖动旋转）。 */
-export default function HoloInspector({ open, onClose, img, name, badge, grade, tier, foil }: Props) {
+export default function HoloInspector({ open, onClose, img, name, badge, grade, tier, foil, power, rows }: Props) {
   useEffect(() => {
     if (!open) return;
     const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); };
@@ -31,7 +33,7 @@ export default function HoloInspector({ open, onClose, img, name, badge, grade, 
         backdropFilter: 'blur(3px)',
       }}>
       <div onClick={(e) => e.stopPropagation()}>
-        <HoloCard img={img} name={name} badge={badge} grade={grade} tier={tier} foil={foil} width={330} mode="drag" />
+        <HoloCard img={img} name={name} badge={badge} grade={grade} tier={tier} foil={foil} power={power} rows={rows} width={330} mode="drag" />
       </div>
       <p style={{ margin: 0, fontSize: 13, color: '#c99a8f' }}>按住拖动旋转检视 · 松手回正 · Esc 关闭</p>
       <button onClick={onClose} aria-label="关闭检视"
