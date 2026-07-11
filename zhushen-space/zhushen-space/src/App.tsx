@@ -1104,6 +1104,7 @@ const rightMenuItems = [
   { icon: '🧠', label: '记忆' },
   { icon: '🧩', label: '创意工坊' },
   { icon: '💾', label: '存档' },
+  { icon: '🔊', label: '语音' },
   { icon: '⚙', label: '设置' },
 ];
 
@@ -1514,7 +1515,6 @@ export default function App() {
   const stopAllRef = useRef(false);   // 「停止生成全部变量」：置位后各演化/生图循环 bail；新一轮生成开头复位
   const [canUndo, setCanUndo] = useState(false);           // 是否有可回退的上一回合
   const ttsSpeaking = useTtsSpeaking();                    // TTS 朗读中？（控制 🔊/⏹ 图标切换）
-  const ttsEngine = useTts((s) => s.engine);               // 当前语音引擎（本地 Web Speech / Edge 云端）
   // 正文行内小喇叭：speakable 时给每句对话注入可点朗读图标（npcNames 供说话人归属→用其音色）
   const ttsDlgOpts = ttsSupported()
     ? { speakable: true, npcNames: [...Object.values(useNpc.getState().npcs).filter((r) => r.name && r.name !== r.id && !r.isDead).map((r) => r.name), usePlayer.getState().profile?.name].filter(Boolean) as string[] }
@@ -8824,6 +8824,7 @@ ${lines}`;
   function runNavAction(label: string) {
     const open =
       label === '设置' ? () => setSettingsOpen(true) :
+      label === '语音' ? () => setTtsSettingsOpen(true) :
       label === '储存空间' ? () => setBackpackOpen(true) :
       label === '装备' ? () => setEquipOpen(true) :
       label === '技能' ? () => setCharPanelOpen(true) :
@@ -10121,12 +10122,9 @@ ${lines}`;
                     }}
                     className="flex items-center gap-1 px-2.5 py-1 max-lg:px-3 max-lg:py-2 max-lg:text-[13px] rounded border border-edge text-dim hover:border-god/40 hover:text-god transition-colors"
                     title="朗读本回合正文（旁白/台词分离·每 NPC 不同声音·再点停止）">{ttsSpeaking ? '⏹ 停止朗读' : '🔊 朗读'}</button>}
-                  {ttsSupported() && <button onClick={() => useTts.getState().set({ engine: ttsEngine === 'webspeech' ? 'cloud' : 'webspeech' })}
-                    className="flex items-center gap-1 px-2 py-1 max-lg:px-2.5 max-lg:py-2 max-lg:text-[13px] rounded border border-edge text-dim/60 hover:border-god/40 hover:text-god transition-colors"
-                    title={ttsEngine !== 'webspeech' ? '语音引擎：云 TTS（Edge/OpenAI/Azure/Google·在 ⚙ 里选后端）。点击切回本地' : '语音引擎：本地 Web Speech（离线免费）。点击切到云 TTS（更好听·⚙ 里选后端）'}>{ttsEngine !== 'webspeech' ? '☁️云' : '🔈本地'}</button>}
                   {ttsSupported() && <button onClick={() => setTtsSettingsOpen(true)}
                     className="flex items-center gap-1 px-2 py-1 max-lg:px-2.5 max-lg:py-2 max-lg:text-[13px] rounded border border-edge text-dim/60 hover:border-god/40 hover:text-god transition-colors"
-                    title="语音设置：引擎 / 语速 / 旁白音色 / 每个 NPC 音色">⚙</button>}
+                    title="语音设置（引擎/后端/语速/音色）——也在右侧导航「🔊 语音」">⚙</button>}
                   <button onClick={stopAllPhases}
                     className="flex items-center gap-1 px-2.5 py-1 max-lg:px-3 max-lg:py-2 max-lg:text-[13px] rounded border border-blood/40 text-blood/80 hover:border-blood hover:text-blood hover:bg-blood/10 transition-colors"
                     title="停止正在进行的全部变量演化与生图（物品/主角/NPC/势力/领地/冒险团/万族/杂项/记忆/生图，及批量更新）；点后可再发消息/重算继续">⛔ 停止生成</button>
