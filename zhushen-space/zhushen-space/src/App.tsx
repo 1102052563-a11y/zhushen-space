@@ -137,6 +137,7 @@ import { takeSkillUpNote } from './systems/skillUpgrade';
 import { applyPlayerProfileCommands, applyTimedStatusCommands, expireStatuses } from './systems/statusCommands';
 import { getNpcApi, trimNarrative, npcChatCompletion, buildNpcVars, fillVars, serializeNpcSnapshot } from './systems/npcEvolutionHelpers';
 import { reconcileNewNpcNames } from './systems/npcNameGuard';
+import { reconcileNewFactions } from './systems/factionNameGuard';
 import { combatFinalVitals, applyCombatVitals, buildCombatResultFallback, runBattleSummaryPhase } from './systems/combatHelpers';
 import { pickEnemyAction } from './systems/enemyAI';
 import { parseWeather, isLightSky, extractWeatherFxCss, sanitizeWeatherCss } from './systems/weatherFx';
@@ -6384,6 +6385,7 @@ ${lines}`;
     if (!sysBase) return;
     const sys = sysBase + '\n\n' + FACTION_DETECT_RULE + '\n' + FACTION_FULL_FORMAT_RULE + '\n' + FACTION_NAME_RULE + '\n' + FACTION_COT_RULE;
     const list = Object.values(useFaction.getState().factions);
+    const beforeFactionIds = new Set(list.map((f) => f.id));   // 演化前已存在的势力 id（名字守卫据此识别本回合新建的）
     const known = list.map((f) => `${f.id}(${f.name})${f.inCurrentWorld ? '·当前世界' : '·非'}`).join(', ') || '（无）';
     const user = `# 本轮正文\n${trimNarrative(narrative)}\n已知势力: ${known}\n**先输出一个 <think>…</think> 思考块**，按「势力演化思维链」逐项自检；**随后**把本轮正文里**出现/提到/遭遇的每一个势力都处理（宁多勿漏）**：新势力 addFaction() 建档、已变化的势力 faction.* 增量更新、覆灭的 deFaction()。无任何相关势力才输出空。`;
     const rawReply = await factionChatCompletion(sys, user);
@@ -6392,6 +6394,12 @@ ${lines}`;
       applyFactionCommands(parseAllFactionCommands(reply), { source: 'faction-phase', turn: turnCountRef.current });
       applyCharacterCommands(parseAllCharCommands(reply).filter((c) => /^F\d+$/.test(c.charId)));
       applyFactionShortCommands(reply);
+      // 名字守卫（约束生成·动态 enum）：本回合新冒出的势力裁决是否某现有势力的别名/错名，是则并入现有档
+      try {
+        const known2 = list.filter((f) => f.name && f.name !== f.id && !/^F\d+$/i.test(f.name)).map((f) => f.name);
+        const merged = await reconcileNewFactions(resolveApiChain('faction', getFactionApi()), beforeFactionIds, known2, trimNarrative(narrative).slice(-800));
+        if (merged) console.log(`[势力名字守卫] 本回合并入 ${merged} 个别名/ghost`);
+      } catch (e) { console.warn('[势力名字守卫] 跳过', e); }
     }
   }
   async function runFactionEvolutionPhase(narrative: string, force = false) {
