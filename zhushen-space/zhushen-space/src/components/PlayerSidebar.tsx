@@ -15,6 +15,8 @@ import { useGemSets } from '../store/gemSetStore';
 import { playerTreeAttrBonus } from '../store/skillTreeStore';
 import { playerTeamAttrBonus, playerTeamPerkAbilities } from '../store/adventureTeamStore';
 import { bioInnate, bioPower, bioStrengthLabel, nominalTierNum } from '../systems/bioStrength';
+import HoloCard from './HoloCard';
+import HoloInspector from './HoloInspector';
 import { useImageGen } from '../store/imageGenStore';
 import { generateImage, buildPortraitPrompt, equippedForPrompt, shrinkDataUrl } from '../systems/imageGen';
 import { useImageViewer } from '../store/imageViewerStore';
@@ -114,6 +116,7 @@ function PlayerAvatar() {
   const [gening, setGening] = useState(false);
   const [err, setErr] = useState('');
   const [libOpen, setLibOpen] = useState(false);
+  const [inspectOpen, setInspectOpen] = useState(false);
   function handleUpload(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0]; e.target.value = '';
     if (!file) return;
@@ -138,15 +141,22 @@ function PlayerAvatar() {
     } catch (e: any) { setErr(e.message ?? '生成失败'); }
     finally { setGening(false); }
   }
+  const pTier = realmFromLevel(profile.level);
+  const attrRows = profile.attrs ? ATTR_KEYS.map((k) => ({ label: ATTR_LABEL[k], value: String((profile.attrs as any)[k] ?? '—') })) : [];
+  const pbio = profile.attrs ? bioStrengthLabel(bioInnate(profile.attrs, profile.tier, profile.level), bioPower(profile.attrs, profile.tier, profile.level)) : '';
+  const bioPowerBadge = pbio ? { label: '强度', value: pbio } : undefined;
   return (
     <div className="w-full flex flex-col items-center gap-1.5">
-      <button onClick={() => profile.avatar ? useImageViewer.getState().open(profile.avatar, '主角立绘') : setLibOpen(true)}
-        title={profile.avatar ? '点击查看大图' : '点击从图库选立绘'}
-        className={`w-32 h-32 rounded-xl overflow-hidden border border-edge/60 bg-void/60 flex items-center justify-center hover:border-god/40 transition-colors ${profile.avatar ? 'cursor-zoom-in' : ''}`}>
-        {gening ? <span className="text-[11px] font-mono text-god/70 animate-pulse">生成中…</span>
-          : profile.avatar ? <img src={profile.avatar} alt="立绘" className="w-full h-full object-cover" />
-          : <span className="text-5xl text-dim/25">👤</span>}
-      </button>
+      {profile.avatar
+        ? <div title="点击放大检视">
+            <HoloCard img={profile.avatar} name={profile.name || '主角'} badge={pTier || undefined}
+              tier={pTier} width={132} mode="hover" power={bioPowerBadge} rows={attrRows} onClick={() => setInspectOpen(true)} />
+          </div>
+        : <button onClick={() => setLibOpen(true)} title="点击从图库选立绘"
+            className="w-32 h-32 rounded-xl overflow-hidden border border-edge/60 bg-void/60 flex items-center justify-center hover:border-god/40 transition-colors cursor-pointer">
+            {gening ? <span className="text-[11px] font-mono text-god/70 animate-pulse">生成中…</span>
+              : <span className="text-5xl text-dim/25">👤</span>}
+          </button>}
       <input ref={fileRef} type="file" accept="image/*" className="hidden" onChange={handleUpload} />
       <PortraitLibraryModal open={libOpen} onClose={() => setLibOpen(false)} onPick={(url) => setProfile({ avatar: url })} />
       <div className="flex gap-1.5">
@@ -158,6 +168,7 @@ function PlayerAvatar() {
         {profile.avatar && <button onClick={() => setProfile({ avatar: '' })} className="text-[11px] font-mono px-2 py-0.5 rounded border border-edge text-dim/50 hover:text-blood transition-colors">移除</button>}
       </div>
       {err && <div className="text-[10px] text-blood font-mono max-w-[220px] leading-snug whitespace-pre-line text-center">{err}</div>}
+      <HoloInspector open={inspectOpen} onClose={() => setInspectOpen(false)} img={profile.avatar} name={profile.name || '主角'} badge={pTier || undefined} tier={pTier} power={bioPowerBadge} rows={attrRows} />
     </div>
   );
 }
