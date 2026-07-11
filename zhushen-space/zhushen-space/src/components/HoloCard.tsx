@@ -144,7 +144,7 @@ export default function HoloCard({
               </span>
             )}
           </div>
-          {rows && rows.length > 0 && w >= 220 && (
+          {rows && rows.length > 0 && w >= 158 && (
             <div style={{ position: 'absolute', left: 8, right: 8, bottom: 8, pointerEvents: 'none' }}>
               <div style={{ background: 'rgba(8,8,14,.64)', border: `1px solid ${foil.a2}`, borderRadius: 10, padding: '7px 8px', display: 'flex', flexWrap: 'wrap', gap: '5px 6px' }}>
                 {rows.map((r, i) => (

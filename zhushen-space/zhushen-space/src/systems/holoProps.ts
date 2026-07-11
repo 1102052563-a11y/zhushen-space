@@ -21,7 +21,9 @@ export function holoItemProps(item: any): HoloViewProps {
   const affixText = splitAffixEntries(item?.affix).join(' ');
   const d = parseAttrBonus([asText(item?.effect), affixText].filter(Boolean).join(' '));
   const rows = ATTR_KEYS.filter((k) => d[k]).map((k) => ({ label: ATTR_LABEL[k], value: (d[k]! > 0 ? '+' : '') + d[k] }));
-  return { img: item?.image, name: item?.name, grade: item?.gradeDesc, badge: item?.gradeDesc || undefined, rows };
+  const scoreNum = (String(item?.score ?? '').match(/\d+/) || [])[0];
+  const power = scoreNum ? { label: '评分', value: scoreNum } : undefined;
+  return { img: item?.image, name: item?.name, grade: item?.gradeDesc, badge: item?.gradeDesc || undefined, rows, power };
 }
 
 /** NPC → 全息卡 props：阶位出箔纸色，六维入面板，生物强度入顶部徽标。 */

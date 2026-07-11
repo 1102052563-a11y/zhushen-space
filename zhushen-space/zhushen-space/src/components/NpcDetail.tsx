@@ -960,7 +960,7 @@ function AvatarBlock({ npc }: { npc: NpcRecord }) {
         {npc.avatar
           ? <div className="shrink-0" title="点击放大检视">
               <HoloCard img={npc.avatar} name={npc.name} badge={parseRealm(npc.realm).tier || undefined}
-                tier={npc.realm} width={140} mode="hover" power={bioPower} rows={attrRows} onClick={() => setInspectOpen(true)} />
+                tier={npc.realm} width={168} mode="hover" power={bioPower} rows={attrRows} onClick={() => setInspectOpen(true)} />
             </div>
           : <div onClick={() => setLibOpen(true)} title="点击从图库选头像"
               className="shrink-0 w-28 h-28 rounded-lg overflow-hidden border border-edge/60 bg-void/60 flex items-center justify-center cursor-pointer hover:border-god/40">

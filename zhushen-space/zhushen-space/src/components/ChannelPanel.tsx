@@ -8,6 +8,7 @@ import {
   acceptQuote, isBarterQuote, postWantToBuy, postSellItem, postSellBundle, type BuyResult,
 } from '../systems/channelTrade';
 import { estimateFairValue, priceVerdict, formatFairRange, sumFairValues, type FairValue } from '../systems/itemPricing';
+import { pushSceneNotice } from '../systems/allocNotice';
 
 /* 频道配色 */
 const CH_FALLBACK = { dot: 'bg-slate-400', chip: 'border-slate-500/40 text-slate-300' };
@@ -321,20 +322,24 @@ function PostForm({ mode, onClose, onPosted }: { mode: 'buy' | 'sell'; onClose: 
 
   function submit() {
     if (!valid) return;
+    const priceTxt = price ? `，${mode === 'buy' ? '预算' : '期望'} ${price} ${currency}` : '（面议）';
     if (mode === 'buy') {
       postWantToBuy({
         itemName: itemName.trim(), gradeDesc: grade || undefined, qty: Math.max(1, Number(qty) || 1),
         budget: price ? Math.max(0, Number(price) || 0) : undefined, currency, note: note.trim() || undefined,
       });
+      pushSceneNotice(`【场外·公共频道】主角在交易频道挂出【求购】${itemName.trim()}${grade ? `（${grade}）` : ''}${priceTxt}`);
     } else if (isBundle) {
       postSellBundle(selItems.map((it) => ({ item: it, qty: 1 })), {
         askPrice: price ? Math.max(0, Number(price) || 0) : undefined, currency, note: note.trim() || undefined,
       });
+      pushSceneNotice(`【场外·公共频道】主角在交易频道挂出【出售·套装】${selItems.map((it) => it.name).join('、')}（共 ${selItems.length} 件）${price ? `，整套 ${price} ${currency}` : '（面议）'}`);
     } else if (sel) {
       postSellItem(sel, {
         qty: Math.max(1, Math.min(Number(qty) || 1, sel.quantity || 1)),
         askPrice: price ? Math.max(0, Number(price) || 0) : undefined, currency, note: note.trim() || undefined,
       });
+      pushSceneNotice(`【场外·公共频道】主角在交易频道挂出【出售】${sel.name}${sel.gradeDesc ? `（${sel.gradeDesc}）` : ''}${priceTxt}`);
     }
     onPosted();
     onClose();

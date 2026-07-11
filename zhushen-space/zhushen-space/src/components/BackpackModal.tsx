@@ -51,11 +51,13 @@ function ItemImageBlock({ item, onUpdate }: { item: InventoryItem; onUpdate: (pa
   const bonusText = [asText(item.effect), affixText].filter(Boolean).join(' ');
   const bDelta = parseAttrBonus(bonusText);
   const bonusRows = ATTR_KEYS.filter((k) => bDelta[k]).map((k) => ({ label: ATTR_LABEL[k], value: (bDelta[k]! > 0 ? '+' : '') + bDelta[k] }));
+  const scoreNum = (String((item as any).score ?? '').match(/\d+/) || [])[0];
+  const scorePower = scoreNum ? { label: '评分', value: scoreNum } : undefined;
   return (
     <div className="flex items-center gap-3">
       {item.image
         ? <div className="shrink-0" title="点击放大检视">
-            <HoloCard img={item.image} name={item.name} grade={item.gradeDesc} badge={item.gradeDesc || undefined} rows={bonusRows} width={120} mode="hover" onClick={() => setInspectOpen(true)} />
+            <HoloCard img={item.image} name={item.name} grade={item.gradeDesc} badge={item.gradeDesc || undefined} rows={bonusRows} power={scorePower} width={176} mode="hover" onClick={() => setInspectOpen(true)} />
           </div>
         : <div className="shrink-0 w-24 h-24 rounded-lg overflow-hidden border border-edge/60 bg-void/60 flex items-center justify-center">
             {gening ? <span className="text-[11px] font-mono text-god/70 animate-pulse">生成中…</span>
@@ -77,7 +79,7 @@ function ItemImageBlock({ item, onUpdate }: { item: InventoryItem; onUpdate: (pa
         )}
         {err && <div className="text-[11px] text-blood font-mono max-w-[240px] leading-snug whitespace-pre-line">{err}</div>}
       </div>
-      <HoloInspector open={inspectOpen} onClose={() => setInspectOpen(false)} img={item.image} name={item.name} grade={item.gradeDesc} badge={item.gradeDesc || undefined} rows={bonusRows} />
+      <HoloInspector open={inspectOpen} onClose={() => setInspectOpen(false)} img={item.image} name={item.name} grade={item.gradeDesc} badge={item.gradeDesc || undefined} rows={bonusRows} power={scorePower} />
     </div>
   );
 }

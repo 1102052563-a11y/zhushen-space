@@ -327,10 +327,17 @@ export const useSkillTree = create<SkillTreeState>()(
         return { trees, progress };
       }),
 
-      setActiveTree: (charId, treeId) => set((s) => {
-        const p = s.progress[charId] ?? newProgress();
-        return { progress: { ...s.progress, [charId]: { ...p, activeTreeId: treeId } } };
-      }),
+      setActiveTree: (charId, treeId) => {
+        set((s) => {
+          const p = s.progress[charId] ?? newProgress();
+          return { progress: { ...s.progress, [charId]: { ...p, activeTreeId: treeId } } };
+        });
+        // 以技能树的职业为准：把生效树的职业名同步到主角状态面板的职业（仅 B1·树有职业名时）
+        if (charId === 'B1') {
+          const prof = get().trees[treeId]?.profession?.trim();
+          if (prof) usePlayer.getState().setProfile({ profession: prof });
+        }
+      },
 
       addNode: (treeId, node) => {
         const id = `N_${Date.now().toString(36)}${Math.floor(Math.random() * 1000)}`;
@@ -409,10 +416,17 @@ export const useSkillTree = create<SkillTreeState>()(
         return { trees: { ...s.trees, [treeId]: { ...t, branches, nodes, userEdited: true } } };
       }),
 
-      updateTreeMeta: (treeId, patch) => set((s) => {
-        const t = s.trees[treeId]; if (!t) return s;
-        return { trees: { ...s.trees, [treeId]: { ...t, ...patch, userEdited: true } } };
-      }),
+      updateTreeMeta: (treeId, patch) => {
+        set((s) => {
+          const t = s.trees[treeId]; if (!t) return s;
+          return { trees: { ...s.trees, [treeId]: { ...t, ...patch, userEdited: true } } };
+        });
+        // 改的是主角当前生效树的职业名 → 同步到主角状态面板职业（以技能树为准）
+        if (patch.profession != null && get().progress['B1']?.activeTreeId === treeId) {
+          const prof = String(patch.profession).trim();
+          if (prof) usePlayer.getState().setProfile({ profession: prof });
+        }
+      },
 
       relayout: (treeId) => set((s) => {
         const t = s.trees[treeId]; if (!t) return s;
