@@ -10061,12 +10061,12 @@ ${lines}`;
 
           {/* 操作行：停止生成 / 重新生成 / 回退上一回合 */}
           {started && messages.length > 0 && (
-            <div className="shrink-0 border-t border-edge bg-panel/60 flex flex-wrap items-center gap-2 px-3 py-1 text-[12px] font-mono">
+            <div className="shrink-0 border-t border-edge bg-panel/60 flex flex-wrap items-center gap-2 max-lg:gap-2.5 px-3 py-1 max-lg:py-2 text-[12px] font-mono">
               {generating ? (
                 <>
                   <span className="flex items-center gap-1.5 text-god/85"><span className="animate-spin inline-block text-god">◌</span>正在进行剧情生成</span>
                   <button onClick={stopGeneration}
-                    className="flex items-center gap-1 px-2.5 py-1 rounded border border-blood/40 text-blood hover:bg-blood/10 transition-colors">■ 停止生成</button>
+                    className="flex items-center gap-1 px-2.5 py-1 max-lg:px-3 max-lg:py-2 max-lg:text-[13px] rounded border border-blood/40 text-blood hover:bg-blood/10 transition-colors">■ 停止生成</button>
                 </>
               ) : guidanceRunning ? (
                 <span className="flex items-center gap-1.5 text-indigo-300/90"><span className="animate-spin inline-block">◌</span>💡 正在生成剧情指导…（最多 ~35 秒，完成后自动开始正文）</span>
@@ -10076,19 +10076,19 @@ ${lines}`;
                       title: '重新生成本回合',
                       desc: '将撤销本回合（含正文与所有演化：NPC / 物品 / 势力 / 领地 / 冒险团 / 杂项 / 记忆等），并用同一条输入重新生成。操作会刷新页面，确定继续？',
                       run: regenerateTurn })} disabled={!canUndo}
-                    className="flex items-center gap-1 px-2.5 py-1 rounded border border-edge text-dim hover:border-god/40 hover:text-god disabled:opacity-35 disabled:cursor-not-allowed transition-colors"
+                    className="flex items-center gap-1 px-2.5 py-1 max-lg:px-3 max-lg:py-2 max-lg:text-[13px] rounded border border-edge text-dim hover:border-god/40 hover:text-god disabled:opacity-35 disabled:cursor-not-allowed transition-colors"
                     title="撤销本回合（含所有演化）并用同一条输入重新生成">⟳ 重新生成</button>
                   <button onClick={() => setConfirmAction({
                       title: '回退上一回合',
                       desc: '将撤销本回合的正文与所有演化（NPC / 物品 / 势力 / 领地 / 冒险团 / 杂项 / 记忆等），恢复到上一回合结束时的状态。操作会刷新页面，确定继续？',
                       run: rollbackTurn })} disabled={!canUndo}
-                    className="flex items-center gap-1 px-2.5 py-1 rounded border border-edge text-dim hover:border-amber-500/40 hover:text-amber-300 disabled:opacity-35 disabled:cursor-not-allowed transition-colors"
+                    className="flex items-center gap-1 px-2.5 py-1 max-lg:px-3 max-lg:py-2 max-lg:text-[13px] rounded border border-edge text-dim hover:border-amber-500/40 hover:text-amber-300 disabled:opacity-35 disabled:cursor-not-allowed transition-colors"
                     title="回退到上一回合结束时的状态（撤销本回合的正文+所有演化）">↩ 回退上一回合</button>
                   <button onClick={() => setRevarOpen(true)}
-                    className="flex items-center gap-1 px-2.5 py-1 rounded border border-edge text-dim hover:border-sky-500/40 hover:text-sky-300 transition-colors"
+                    className="flex items-center gap-1 px-2.5 py-1 max-lg:px-3 max-lg:py-2 max-lg:text-[13px] rounded border border-edge text-dim hover:border-sky-500/40 hover:text-sky-300 transition-colors"
                     title="重算单项变量：打开菜单，单独重 ROLL 物品/主角/NPC/势力… 某一项（或全部）">♻ 重算变量</button>
                   <button onClick={stopAllPhases}
-                    className="flex items-center gap-1 px-2.5 py-1 rounded border border-blood/40 text-blood/80 hover:border-blood hover:text-blood hover:bg-blood/10 transition-colors"
+                    className="flex items-center gap-1 px-2.5 py-1 max-lg:px-3 max-lg:py-2 max-lg:text-[13px] rounded border border-blood/40 text-blood/80 hover:border-blood hover:text-blood hover:bg-blood/10 transition-colors"
                     title="停止正在进行的全部变量演化与生图（物品/主角/NPC/势力/领地/冒险团/万族/杂项/记忆/生图，及批量更新）；点后可再发消息/重算继续">⛔ 停止生成</button>
                   {canUndo && <span className="text-dim/35">回退/重生会撤销上一回合的全部演化</span>}
                 </>

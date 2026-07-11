@@ -38,7 +38,7 @@ export default function HoloCard({
   const specRef = useRef<HTMLDivElement>(null);
 
   const shine = shineCss(foil);
-  const baseShineOp = 0.3 + foil.rich * 0.05;
+  const baseShineOp = 0.2 + foil.rich * 0.03;
   const autoSweep = foil.rich >= 2 && foil.pattern !== 'burst';
 
   useEffect(() => {
@@ -46,16 +46,16 @@ export default function HoloCard({
     if (!card || mode === 'static') return;
     const sh = shineRef.current, gl = glitRef.current, ga = glareRef.current, sp = specRef.current;
     const applyHolo = (lx: number, ly: number, mag: number) => {
-      if (sh) { sh.style.animation = 'none'; sh.style.backgroundPosition = `${lx}% ${ly}%`; sh.style.opacity = String(baseShineOp + mag * 0.4); }
-      if (gl) { gl.style.transform = `translate(${(lx - 50) * 0.4}px,${(ly - 50) * 0.4}px)`; gl.style.opacity = String(0.28 + mag * 0.5); }
-      if (ga) ga.style.background = `radial-gradient(circle at ${lx}% ${ly}%, rgba(255,250,235,.8), rgba(255,255,255,0) 46%)`;
-      if (sp) { sp.style.backgroundPosition = `${100 - lx}% ${100 - ly}%`; sp.style.opacity = String(0.3 + mag * 0.4); }
+      if (sh) { sh.style.animation = 'none'; sh.style.backgroundPosition = `${lx}% ${ly}%`; sh.style.opacity = String(baseShineOp + mag * 0.32); }
+      if (gl) { gl.style.transform = `translate(${(lx - 50) * 0.4}px,${(ly - 50) * 0.4}px)`; gl.style.opacity = String(0.14 + mag * 0.4); }
+      if (ga) ga.style.background = `radial-gradient(circle at ${lx}% ${ly}%, rgba(255,250,235,.5), rgba(255,255,255,0) 46%)`;
+      if (sp) { sp.style.backgroundPosition = `${100 - lx}% ${100 - ly}%`; sp.style.opacity = String(0.16 + mag * 0.28); }
     };
     const reset = () => {
       if (sh) { sh.style.backgroundPosition = ''; sh.style.opacity = String(baseShineOp); sh.style.animation = autoSweep ? `holoSweep ${(4.4 - foil.rich * 0.5)}s linear infinite` : 'none'; }
-      if (gl) { gl.style.transform = ''; gl.style.opacity = '0.3'; }
+      if (gl) { gl.style.transform = ''; gl.style.opacity = '0.14'; }
       if (ga) ga.style.background = 'none';
-      if (sp) { sp.style.backgroundPosition = ''; sp.style.opacity = '0.4'; }
+      if (sp) { sp.style.backgroundPosition = ''; sp.style.opacity = '0.16'; }
     };
 
     if (mode === 'hover') {
@@ -115,12 +115,12 @@ export default function HoloCard({
       {img
         ? <img src={img} alt={name ?? ''} draggable={false} style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover' }} />
         : <div style={{ ...layer, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: Math.round(w * 0.3), opacity: 0.16 }}>👤</div>}
-      <div style={{ ...layer, backgroundImage: GRAIN_URI, backgroundSize: 'cover', mixBlendMode: 'soft-light', opacity: 0.4 }} />
-      <div ref={shineRef} style={{ ...layer, mixBlendMode: 'color-dodge', backgroundImage: shine.backgroundImage, backgroundSize: shine.backgroundSize, filter: 'brightness(.82) contrast(1.5) saturate(1.3)', opacity: baseShineOp, animation: autoSweep ? `holoSweep ${(4.4 - foil.rich * 0.5)}s linear infinite` : undefined }} />
-      <div ref={glitRef} style={{ position: 'absolute', inset: '-14%', width: '128%', height: '128%', pointerEvents: 'none', backgroundImage: GLIT_URI, backgroundSize: 'cover', mixBlendMode: 'color-dodge', opacity: 0.3 }} />
+      <div style={{ ...layer, backgroundImage: GRAIN_URI, backgroundSize: 'cover', mixBlendMode: 'soft-light', opacity: 0.16 }} />
+      <div ref={shineRef} style={{ ...layer, mixBlendMode: 'overlay', backgroundImage: shine.backgroundImage, backgroundSize: shine.backgroundSize, filter: 'contrast(1.1) saturate(1.35)', opacity: baseShineOp, animation: autoSweep ? `holoSweep ${(4.4 - foil.rich * 0.5)}s linear infinite` : undefined }} />
+      <div ref={glitRef} style={{ position: 'absolute', inset: '-14%', width: '128%', height: '128%', pointerEvents: 'none', backgroundImage: GLIT_URI, backgroundSize: 'cover', mixBlendMode: 'color-dodge', opacity: 0.14 }} />
       <div style={layer} dangerouslySetInnerHTML={{ __html: frameSvg(foil, uid) }} />
       <div ref={glareRef} style={{ ...layer, mixBlendMode: 'overlay' }} />
-      <div ref={specRef} style={{ ...layer, mixBlendMode: 'screen', backgroundImage: 'linear-gradient(102deg,transparent 36%,rgba(255,248,228,.24) 48%,rgba(255,248,228,.05) 53%,transparent 70%)', backgroundSize: '250% 250%', opacity: 0.4 }} />
+      <div ref={specRef} style={{ ...layer, mixBlendMode: 'soft-light', backgroundImage: 'linear-gradient(102deg,transparent 38%,rgba(255,250,235,.5) 48%,rgba(255,250,235,.08) 53%,transparent 68%)', backgroundSize: '250% 250%', opacity: 0.16 }} />
       {!tcg && showName && name && (
         <>
           <div style={{ position: 'absolute', left: 0, right: 0, bottom: 0, height: '42%', pointerEvents: 'none', background: 'linear-gradient(transparent, rgba(6,8,16,.72))' }} />
@@ -132,10 +132,10 @@ export default function HoloCard({
       )}
       {tcg && (
         <>
-          <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: '22%', pointerEvents: 'none', background: 'linear-gradient(rgba(6,8,16,.74), transparent)' }} />
+          <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: '32%', pointerEvents: 'none', background: 'linear-gradient(rgba(3,5,11,.92), rgba(3,5,11,.4) 52%, transparent)' }} />
           <div style={{ position: 'absolute', top: 6, left: 8, right: 8, display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 6, pointerEvents: 'none' }}>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 2, minWidth: 0 }}>
-              {name && <div className={`artname ${artClass(foil)}`} style={{ fontSize: nameSize ?? Math.max(14, Math.round(w * 0.125)), maxWidth: '100%', overflow: 'hidden' }}>{name}</div>}
+              {name && <div className={`artname ${artClass(foil)}`} style={{ fontSize: nameSize ?? Math.max(13, Math.round(w * 0.1)), maxWidth: '100%', overflow: 'hidden', textOverflow: 'ellipsis' }}>{name}</div>}
               {badge && <span style={chipStyle}>{badge}</span>}
             </div>
             {power && (

@@ -495,13 +495,13 @@ export default function WorldSelector({ onRawResponse, onPromptSent, onWorlds, o
 
   /* ── results ── */
   return (
-    <div className="shrink-0 border-t border-god/20 bg-panel px-4 py-2 flex items-center gap-3 text-sm font-mono">
+    <div className="shrink-0 border-t border-god/20 bg-panel px-4 max-lg:px-3 py-2 max-lg:py-2.5 flex items-center gap-3 max-lg:gap-2 flex-wrap text-sm font-mono">
       <span className="text-god/80">🌍 已生成 {worlds.length} 个世界，请在上方选择</span>
       {rolls.length > 0 && (
         <span className="text-amber-400/60">🎲 {rolls.slice(0, 4).join(' · ')}…</span>
       )}
-      <button onClick={() => setStage('config')} className="ml-auto text-dim hover:text-god border border-edge px-2 py-0.5 rounded hover:border-god/40 transition-colors">重新生成</button>
-      <button onClick={reset} className="text-dim hover:text-blood font-mono">✕</button>
+      <button onClick={() => setStage('config')} className="ml-auto max-lg:ml-0 text-dim hover:text-god border border-edge px-2 py-0.5 max-lg:px-3 max-lg:py-1.5 rounded hover:border-god/40 transition-colors">重新生成</button>
+      <button onClick={reset} title="收起世界选择" className="shrink-0 text-dim hover:text-blood font-mono border border-edge rounded w-6 h-6 max-lg:w-8 max-lg:h-8 flex items-center justify-center hover:border-blood/40 transition-colors">✕</button>
     </div>
   );
 }
