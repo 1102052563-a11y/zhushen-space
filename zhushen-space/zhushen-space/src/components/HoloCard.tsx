@@ -3,9 +3,11 @@ import {
   type HoloFoil, foilForGrade, foilForTier,
   GRAIN_URI, GLIT_URI, shineCss, cardBg, frameSvg, artClass,
 } from '../systems/holoFoils';
+import DepthParallax, { type DepthParallaxHandle } from './DepthParallax';
 
 export interface HoloCardProps {
   img?: string;             // 立绘（铺满整卡；缺省显示占位）
+  depthSrc?: string;        // 深度图：有则该图层用 2.5D 深度视差(WebGL)替代平面 img
   name?: string;            // 名字 → 艺术字
   badge?: string;           // 角标（阶位/品级文字）
   grade?: string;           // 物品品级（item.gradeDesc）→ 解析箔纸
@@ -25,7 +27,7 @@ export interface HoloCardProps {
 
 /** 全息卡：立绘铺满 + 箔纸/磨砂/反光 + 金雕卡框 + 艺术字名。箔纸由 grade/tier/foil 决定。 */
 export default function HoloCard({
-  img, name, badge, grade, tier, foil: foilProp,
+  img, name, badge, grade, tier, foil: foilProp, depthSrc,
   width = 220, height, nameSize, showName = true, power, rows, mode = 'hover', onClick, className, style,
 }: HoloCardProps) {
   const foil: HoloFoil = foilProp ?? (grade ? foilForGrade(grade) : tier ? foilForTier(tier) : foilForGrade('白色'));
@@ -36,6 +38,7 @@ export default function HoloCard({
   const glitRef = useRef<HTMLDivElement>(null);
   const glareRef = useRef<HTMLDivElement>(null);
   const specRef = useRef<HTMLDivElement>(null);
+  const pxRef = useRef<DepthParallaxHandle>(null);
 
   const shine = shineCss(foil);
   const baseShineOp = 0.2 + foil.rich * 0.03;
@@ -46,12 +49,14 @@ export default function HoloCard({
     if (!card || mode === 'static') return;
     const sh = shineRef.current, gl = glitRef.current, ga = glareRef.current, sp = specRef.current;
     const applyHolo = (lx: number, ly: number, mag: number) => {
+      pxRef.current?.setOffset((lx - 50) / 50, (ly - 50) / 50);
       if (sh) { sh.style.animation = 'none'; sh.style.backgroundPosition = `${lx}% ${ly}%`; sh.style.opacity = String(baseShineOp + mag * 0.32); }
       if (gl) { gl.style.transform = `translate(${(lx - 50) * 0.4}px,${(ly - 50) * 0.4}px)`; gl.style.opacity = String(0.14 + mag * 0.4); }
       if (ga) ga.style.background = `radial-gradient(circle at ${lx}% ${ly}%, rgba(255,250,235,.5), rgba(255,255,255,0) 46%)`;
       if (sp) { sp.style.backgroundPosition = `${100 - lx}% ${100 - ly}%`; sp.style.opacity = String(0.16 + mag * 0.28); }
     };
     const reset = () => {
+      pxRef.current?.setOffset(0, 0);
       if (sh) { sh.style.backgroundPosition = ''; sh.style.opacity = String(baseShineOp); sh.style.animation = autoSweep ? `holoSweep ${(4.4 - foil.rich * 0.5)}s linear infinite` : 'none'; }
       if (gl) { gl.style.transform = ''; gl.style.opacity = '0.14'; }
       if (ga) ga.style.background = 'none';
@@ -114,7 +119,9 @@ export default function HoloCard({
         touchAction: mode === 'drag' ? 'none' : undefined,   // 拖动旋转模式禁用触屏手势，否则手机上浏览器抢走手势只能转一点点
         ...style,
       }}>
-      {img
+      {img && depthSrc
+        ? <DepthParallax ref={pxRef} color={img} depth={depthSrc} width={w} height={h} />
+        : img
         ? <img src={img} alt={name ?? ''} draggable={false} style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover' }} />
         : <div style={{ ...layer, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: Math.round(w * 0.3), opacity: 0.16 }}>👤</div>}
       <div style={{ ...layer, backgroundImage: GRAIN_URI, backgroundSize: 'cover', mixBlendMode: 'soft-light', opacity: 0.16 }} />

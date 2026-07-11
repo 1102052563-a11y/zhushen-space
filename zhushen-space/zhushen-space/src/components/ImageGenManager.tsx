@@ -46,12 +46,54 @@ function OpenAIImgFields({ cfg, set }: { cfg: OpenAIImgConfig; set: (p: Partial<
   );
 }
 
+/* 深度端点连通测试 */
+function DepthTestButton() {
+  const { depthUrl, depthKey } = useImageGen();
+  const [st, setSt] = useState('');
+  async function test() {
+    if (!depthUrl) { setSt('请先填端点地址'); return; }
+    setSt('测试中…');
+    try {
+      const tiny = 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=';
+      const res = await fetch(depthUrl, { method: 'POST', headers: { 'Content-Type': 'application/json', ...(depthKey ? { Authorization: `Bearer ${depthKey}` } : {}) }, body: JSON.stringify({ image: tiny }) });
+      setSt(res.ok ? `✓ 连通（HTTP ${res.status}）` : `✗ HTTP ${res.status}`);
+    } catch (e: any) { setSt('✗ ' + (e?.message || '连接失败（跨域/地址错？）')); }
+  }
+  return <div className="flex items-center gap-2"><button type="button" onClick={test} className="px-3 py-1 text-[12px] font-mono border border-god/50 text-god rounded hover:bg-god/10 transition-colors">🔌 测试端点</button>{st && <span className="text-[12px] font-mono text-dim/70">{st}</span>}</div>;
+}
+
 /* ── 子页1：生图API配置 ── */
 function ApiConfigPage() {
   const s = useImageGen();
   const [svc, setSvc] = useState<ImgService>('nai');
   return (
     <div className="space-y-4 max-w-2xl">
+      <div className="rounded-lg border border-edge bg-panel p-3 space-y-2">
+        <div className="text-sm text-god font-mono">全息卡 · 2.5D 深度视差</div>
+        <Row title="启用 2.5D 深度视差" desc="放大检视时显示「2.5D 化」按钮，手动把立绘/物品/装备按深度做视差旋转（人物·装备通用）。关=纯平面全息卡。" checked={s.holoParallax} onChange={() => s.setSettings({ holoParallax: !s.holoParallax })} />
+        {s.holoParallax && (
+          <>
+            <Field label="深度图来源" hint="本地=浏览器内 Depth Anything（零部署，首次约 30MB 模型自动下载并缓存，WebGPU/WASM）；网关=你自建的深度端点。">
+              <select value={s.depthProvider} onChange={(e) => s.setSettings({ depthProvider: e.target.value as 'local' | 'gateway' })} className={inputCls}>
+                <option value="local">本地模型（浏览器内 · 零部署 · 推荐）</option>
+                <option value="gateway">网关端点（自建服务）</option>
+              </select>
+            </Field>
+            {s.depthProvider === 'local' && (
+              <div className="text-[12px] text-dim/50 leading-relaxed">生图 API 只负责出图。到 NPC / 物品详情点头像或图片放大，检视弹层里点「✨ 2.5D 化」，即在浏览器本地生成深度图（一图一次·自动缓存），之后拖动旋转就是立体的。首次需联网下载模型。</div>
+            )}
+            {s.depthProvider === 'gateway' && (
+              <>
+                <Field label="深度图端点（图入 → 深度图出）" hint="POST {image: base64}，返回深度图（image/* 或 JSON 的 depth/image/url 字段）。">
+                  <input value={s.depthUrl} onChange={(e) => s.setSettings({ depthUrl: e.target.value })} placeholder="https://你的深度服务/depth" className={inputCls} />
+                </Field>
+                <Field label="端点密钥（可空 · Bearer）"><input type="password" value={s.depthKey} onChange={(e) => s.setSettings({ depthKey: e.target.value })} placeholder="留空=无鉴权" className={inputCls} /></Field>
+                <DepthTestButton />
+              </>
+            )}
+          </>
+        )}
+      </div>
       <div className="rounded-lg border border-edge bg-panel p-3 space-y-2">
         <div className="text-sm text-god font-mono">用途 → 服务商</div>
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">

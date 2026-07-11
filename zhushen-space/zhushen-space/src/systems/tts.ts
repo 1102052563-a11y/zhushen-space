@@ -6,7 +6,7 @@
 // 播放序列用 generation token 防竞态（新朗读/停止会作废上一段的循环）。
 
 import { useSyncExternalStore } from 'react';
-import { useTts } from '../store/ttsStore';
+import { useTts, type CloudProvider } from '../store/ttsStore';
 import { useNpc } from '../store/npcStore';
 import { usePlayer } from '../store/playerStore';
 import { gwProxyBase } from './apiChat';
@@ -210,7 +210,57 @@ const EDGE_ZH_VOICES: TtsVoice[] = [
   { id: 'zh-CN-YunjianNeural', label: '云健（浑厚男声）', lang: 'zh-CN', gender: 'male' },
   { id: 'zh-CN-YunxiaNeural', label: '云夏（少年音·男）', lang: 'zh-CN', gender: 'male' },
 ];
-function edgeEndpoint(): string { return gwProxyBase().replace(/\/api\/gw\/proxy$/, '/api/gw/edgetts/speech'); }
+// ── 云 TTS 各 provider 音色清单。Azure/Google 名多，无 key 无法逐个探针验证（报错就换一个）；OpenAI 是官方 6 音色，自建后端音色不同的话按需扩。──
+const AZURE_ZH_VOICES: TtsVoice[] = [
+  { id: 'zh-CN-XiaoxiaoNeural', label: '晓晓（温柔女）', lang: 'zh-CN', gender: 'female' },
+  { id: 'zh-CN-XiaoyiNeural', label: '晓伊（活泼女）', lang: 'zh-CN', gender: 'female' },
+  { id: 'zh-CN-XiaochenNeural', label: '晓辰（女）', lang: 'zh-CN', gender: 'female' },
+  { id: 'zh-CN-XiaohanNeural', label: '晓涵（温暖女）', lang: 'zh-CN', gender: 'female' },
+  { id: 'zh-CN-XiaomengNeural', label: '晓梦（女）', lang: 'zh-CN', gender: 'female' },
+  { id: 'zh-CN-XiaomoNeural', label: '晓墨（女）', lang: 'zh-CN', gender: 'female' },
+  { id: 'zh-CN-XiaoqiuNeural', label: '晓秋（女）', lang: 'zh-CN', gender: 'female' },
+  { id: 'zh-CN-XiaoruiNeural', label: '晓睿（成熟女）', lang: 'zh-CN', gender: 'female' },
+  { id: 'zh-CN-XiaoxuanNeural', label: '晓萱（中性）', lang: 'zh-CN', gender: 'female' },
+  { id: 'zh-CN-XiaoyanNeural', label: '晓颜（女）', lang: 'zh-CN', gender: 'female' },
+  { id: 'zh-CN-XiaozhenNeural', label: '晓甄（女）', lang: 'zh-CN', gender: 'female' },
+  { id: 'zh-CN-YunxiNeural', label: '云希（阳光男）', lang: 'zh-CN', gender: 'male' },
+  { id: 'zh-CN-YunyangNeural', label: '云扬（专业男）', lang: 'zh-CN', gender: 'male' },
+  { id: 'zh-CN-YunjianNeural', label: '云健（浑厚男）', lang: 'zh-CN', gender: 'male' },
+  { id: 'zh-CN-YunxiaNeural', label: '云夏（少年）', lang: 'zh-CN', gender: 'male' },
+  { id: 'zh-CN-YunfengNeural', label: '云枫（男）', lang: 'zh-CN', gender: 'male' },
+  { id: 'zh-CN-YunhaoNeural', label: '云皓（男）', lang: 'zh-CN', gender: 'male' },
+  { id: 'zh-CN-YunzeNeural', label: '云泽（成熟男）', lang: 'zh-CN', gender: 'male' },
+];
+const GOOGLE_ZH_VOICES: TtsVoice[] = [
+  { id: 'cmn-CN-Wavenet-A', label: '普通话 Wavenet-A（女）', lang: 'cmn-CN', gender: 'female' },
+  { id: 'cmn-CN-Wavenet-B', label: '普通话 Wavenet-B（男）', lang: 'cmn-CN', gender: 'male' },
+  { id: 'cmn-CN-Wavenet-C', label: '普通话 Wavenet-C（男）', lang: 'cmn-CN', gender: 'male' },
+  { id: 'cmn-CN-Wavenet-D', label: '普通话 Wavenet-D（女）', lang: 'cmn-CN', gender: 'female' },
+  { id: 'cmn-CN-Standard-A', label: '普通话 Standard-A（女）', lang: 'cmn-CN', gender: 'female' },
+  { id: 'cmn-CN-Standard-B', label: '普通话 Standard-B（男）', lang: 'cmn-CN', gender: 'male' },
+  { id: 'cmn-CN-Standard-C', label: '普通话 Standard-C（男）', lang: 'cmn-CN', gender: 'male' },
+  { id: 'cmn-CN-Standard-D', label: '普通话 Standard-D（女）', lang: 'cmn-CN', gender: 'female' },
+  { id: 'cmn-TW-Wavenet-A', label: '台湾 Wavenet-A（女）', lang: 'cmn-TW', gender: 'female' },
+  { id: 'cmn-TW-Wavenet-B', label: '台湾 Wavenet-B（男）', lang: 'cmn-TW', gender: 'male' },
+  { id: 'cmn-TW-Wavenet-C', label: '台湾 Wavenet-C（男）', lang: 'cmn-TW', gender: 'male' },
+];
+const OPENAI_VOICES: TtsVoice[] = [
+  { id: 'alloy', label: 'alloy（中性）', lang: '', gender: 'female' },
+  { id: 'echo', label: 'echo（男）', lang: '', gender: 'male' },
+  { id: 'fable', label: 'fable（英音）', lang: '' },
+  { id: 'onyx', label: 'onyx（低沉男）', lang: '', gender: 'male' },
+  { id: 'nova', label: 'nova（女）', lang: '', gender: 'female' },
+  { id: 'shimmer', label: 'shimmer（女）', lang: '', gender: 'female' },
+];
+function cloudVoices(p: CloudProvider): TtsVoice[] {
+  switch (p) {
+    case 'azure': return AZURE_ZH_VOICES;
+    case 'google': return GOOGLE_ZH_VOICES;
+    case 'openai': return OPENAI_VOICES;
+    default: return EDGE_ZH_VOICES;
+  }
+}
+function unifiedTtsEndpoint(): string { return gwProxyBase().replace(/\/api\/gw\/proxy$/, '/api/gw/tts/speech'); }
 
 // ── 音频解锁（治浏览器自动播放策略）──
 // 浏览器要求 play() 在用户手势内；edge 的 `await fetch` 之后手势已过期 → `new Audio().play()` 被拦(NotAllowedError)。
@@ -227,35 +277,46 @@ function audioCtx(): AudioContext | null {
 /** 必须在用户手势(点击)的同步路径里调一次以解锁音频；speakText/speakLine 开头已调。 */
 export function unlockAudio(): void { try { const c = audioCtx(); if (c && c.state === 'suspended') void c.resume(); } catch { /* */ } }
 
-let _edgeSrc: AudioBufferSourceNode | null = null;
-const edgeTtsEngine: TtsEngine = {
+// ── 云 TTS 引擎（经网关统一入口 → 按 cloudProvider 翻译成 edge/openai/azure/google，一律回 MP3）──
+let _cloudSrc: AudioBufferSourceNode | null = null;
+const cloudTtsEngine: TtsEngine = {
   async speak(text, opts) {
     const ctx = audioCtx();
     if (!ctx) return;
+    const st = useTts.getState();
+    const body: Record<string, unknown> = {
+      provider: st.cloudProvider,
+      input: text,
+      voice: opts.voiceURI || (st.cloudProvider === 'edge' ? 'zh-CN-XiaoxiaoNeural' : ''),
+      rate: opts.rate ?? 1,
+    };
+    if (st.cloudProvider === 'openai') { body.baseUrl = st.openaiBaseUrl; body.apiKey = st.openaiKey; body.model = st.openaiModel || 'tts-1'; }
+    else if (st.cloudProvider === 'azure') { body.apiKey = st.azureKey; body.region = st.azureRegion; }
+    else if (st.cloudProvider === 'google') { body.apiKey = st.googleKey; }
     try {
-      const res = await fetch(edgeEndpoint(), {
+      const res = await fetch(unifiedTtsEndpoint(), {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ text, voice: opts.voiceURI || 'zh-CN-XiaoxiaoNeural', rate: opts.rate ?? 1 }),
+        body: JSON.stringify(body),
       });
-      if (!res.ok) { console.warn('[TTS] edge-tts 失败', res.status); return; }
+      if (!res.ok) { console.warn('[TTS] 云 TTS 失败', st.cloudProvider, res.status, await res.text().catch(() => '')); return; }
       const audioBuf = await ctx.decodeAudioData(await res.arrayBuffer());
       if (ctx.state === 'suspended') { try { await ctx.resume(); } catch { /* */ } }
       await new Promise<void>((resolve) => {
         const src = ctx.createBufferSource();
         src.buffer = audioBuf;
         src.connect(ctx.destination);
-        _edgeSrc = src;
+        _cloudSrc = src;
         src.onended = () => resolve();
         try { src.start(); } catch { resolve(); }
       });
-    } catch (e) { console.warn('[TTS] edge-tts 异常', e); }
+    } catch (e) { console.warn('[TTS] 云 TTS 异常', e); }
   },
-  stop() { if (_edgeSrc) { try { _edgeSrc.stop(); } catch { /* */ } _edgeSrc = null; } },
-  voices() { return EDGE_ZH_VOICES; },
+  stop() { if (_cloudSrc) { try { _cloudSrc.stop(); } catch { /* */ } _cloudSrc = null; } },
+  voices() { return cloudVoices(useTts.getState().cloudProvider); },
 };
 
-// 引擎选择：按 ttsStore.engine 分支（webspeech 本地 / edge 网关）
-function getEngine(): TtsEngine { return useTts.getState().engine === 'edge' ? edgeTtsEngine : webSpeechEngine; }
+// 引擎选择：本地 Web Speech / 云 TTS（engine !== 'webspeech' 即云；兼容旧持久化值 'edge'）
+function getEngine(): TtsEngine { return useTts.getState().engine === 'webspeech' ? webSpeechEngine : cloudTtsEngine; }
 
 // ── 队列管理器（引擎无关）──
 let _speaking = false;

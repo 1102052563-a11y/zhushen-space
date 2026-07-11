@@ -81,6 +81,10 @@ export async function handleGateway(request, env, cors) {
   if (p.endsWith('/api/gw/edgetts/speech')) {
     return await edgeTtsSpeech(request, cors);
   }
+  // 统一云 TTS：前端只发一种格式，网关按 provider 翻译成 edge/openai/azure/google，一律回 audio/mpeg
+  if (p.endsWith('/api/gw/tts/speech')) {
+    return await unifiedTts(request, cors);
+  }
   if (request.method === 'GET' && p.endsWith('/models')) {
     if (p.includes('/aistudio/')) return await aiStudioModels(request, cors);   // 动态拉 Google 全量
     return json(staticModels(), {}, cors);                                       // Vertex：精选清单
@@ -490,6 +494,74 @@ async function edgeTtsSpeech(request, cors) {
     return new Response(stream, { status: 200, headers: { ...cors, 'Content-Type': 'audio/mpeg', 'Cache-Control': 'no-cache' } });
   } catch (e) {
     return json({ error: { message: 'edge-tts 合成失败：' + String((e && e.message) || e) } }, { status: 502 }, cors);
+  }
+}
+
+/* ─────────────── 统一云 TTS 路由：一种入口 → 按 provider 翻译成各家格式，一律回 audio/mpeg ───────────────
+   前端 POST { provider, input, voice, rate, baseUrl?, apiKey?, region?, model? }。
+   provider: edge(免key·复用上面) / openai(任意 /v1/audio/speech) / azure(官方·key) / google(Cloud TTS·key)。 */
+async function unifiedTts(request, cors) {
+  if (request.method !== 'POST') return json({ error: { message: 'POST only' } }, { status: 405 }, cors);
+  let b = {};
+  try { b = await request.json(); } catch { return json({ error: { message: 'invalid json' } }, { status: 400 }, cors); }
+  const provider = String(b.provider || 'edge');
+  const text = String(b.input || b.text || '').trim();
+  if (!text) return json({ error: { message: 'input 必填' } }, { status: 400 }, cors);
+  const voice = String(b.voice || '');
+  const rate = typeof b.rate === 'number' ? b.rate : 1;
+  const audioHeaders = { ...cors, 'Content-Type': 'audio/mpeg', 'Cache-Control': 'no-cache' };
+  try {
+    if (provider === 'edge') {
+      const stream = await edgeCreateAudioStream(text, voice || 'zh-CN-XiaoxiaoNeural', rate);
+      return new Response(stream, { status: 200, headers: audioHeaders });
+    }
+    if (provider === 'openai') {
+      const base = String(b.baseUrl || '').replace(/\/+$/, '');
+      if (!base) return json({ error: { message: 'openai: baseUrl 必填（如 https://api.openai.com/v1）' } }, { status: 400 }, cors);
+      const url = /\/audio\/speech$/.test(base) ? base : base + '/audio/speech';
+      const r = await fetch(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${b.apiKey || ''}` },
+        body: JSON.stringify({ model: b.model || 'tts-1', input: text, voice: voice || 'alloy', speed: Math.max(0.25, Math.min(4, rate)), response_format: 'mp3' }),
+      });
+      if (!r.ok) return json({ error: { message: `openai TTS HTTP ${r.status}: ${(await r.text()).replace(/\s+/g, ' ').slice(0, 200)}` } }, { status: r.status }, cors);
+      return new Response(r.body, { status: 200, headers: { ...audioHeaders, 'Content-Type': r.headers.get('content-type') || 'audio/mpeg' } });
+    }
+    if (provider === 'azure') {
+      const region = String(b.region || '').trim(), key = String(b.apiKey || '').trim();
+      if (!region || !key) return json({ error: { message: 'azure: region + apiKey 必填' } }, { status: 400 }, cors);
+      const pct = Math.round((rate - 1) * 100), rateStr = (pct >= 0 ? '+' : '') + pct + '%';
+      const v = voice || 'zh-CN-XiaoxiaoNeural';
+      const ssml = `<speak version='1.0' xmlns='http://www.w3.org/2001/10/synthesis' xml:lang='zh-CN'><voice name='${v}'><prosody rate='${rateStr}'>${edgeEscapeXml(edgeStripBadXml(text))}</prosody></voice></speak>`;
+      const r = await fetch(`https://${region}.tts.speech.microsoft.com/cognitiveservices/v1`, {
+        method: 'POST',
+        headers: { 'Ocp-Apim-Subscription-Key': key, 'Content-Type': 'application/ssml+xml', 'X-Microsoft-OutputFormat': 'audio-24khz-48kbitrate-mono-mp3', 'User-Agent': 'zhushen-tts' },
+        body: ssml,
+      });
+      if (!r.ok) return json({ error: { message: `azure TTS HTTP ${r.status}: ${(await r.text()).replace(/\s+/g, ' ').slice(0, 200)}` } }, { status: r.status }, cors);
+      return new Response(r.body, { status: 200, headers: audioHeaders });
+    }
+    if (provider === 'google') {
+      const key = String(b.apiKey || '').trim();
+      if (!key) return json({ error: { message: 'google: apiKey 必填' } }, { status: 400 }, cors);
+      const name = voice || 'cmn-CN-Wavenet-A';
+      const langCode = name.split('-').slice(0, 2).join('-');
+      const r = await fetch(`https://texttospeech.googleapis.com/v1/text:synthesize?key=${encodeURIComponent(key)}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ input: { text }, voice: { languageCode: langCode, name }, audioConfig: { audioEncoding: 'MP3', speakingRate: Math.max(0.25, Math.min(4, rate)) } }),
+      });
+      if (!r.ok) return json({ error: { message: `google TTS HTTP ${r.status}: ${(await r.text()).replace(/\s+/g, ' ').slice(0, 200)}` } }, { status: r.status }, cors);
+      const data = await r.json();
+      if (!data.audioContent) return json({ error: { message: 'google TTS 无 audioContent' } }, { status: 502 }, cors);
+      const bin = atob(data.audioContent);
+      const bytes = new Uint8Array(bin.length);
+      for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+      return new Response(bytes, { status: 200, headers: audioHeaders });
+    }
+    return json({ error: { message: 'unknown provider: ' + provider } }, { status: 400 }, cors);
+  } catch (e) {
+    return json({ error: { message: `${provider} TTS 失败：${String((e && e.message) || e)}` } }, { status: 502 }, cors);
   }
 }
 

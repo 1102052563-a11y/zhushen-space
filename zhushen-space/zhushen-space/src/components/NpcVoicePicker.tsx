@@ -14,7 +14,7 @@ export default function NpcVoicePicker({ name }: { name: string }) {
     <div className="flex flex-wrap items-center gap-2">
       <select value={cur} onChange={(e) => useTts.getState().setNpcVoice(name, e.target.value)}
         className="flex-1 min-w-[180px] rounded border border-edge bg-black/30 text-slate-200 text-[13px] px-2 py-1.5">
-        <option value="">自动（按性别 · {engine === 'edge' ? 'Edge 云端' : '本地'}）</option>
+        <option value="">自动（按性别 · {engine !== 'webspeech' ? '云' : '本地'}）</option>
         {voices.map((v) => <option key={v.id} value={v.id}>{v.label}</option>)}
       </select>
       <button onClick={() => void speakLine('你好，这是语音试听。', cur || resolveNpcVoice(name) || undefined)}

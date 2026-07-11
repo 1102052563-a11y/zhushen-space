@@ -10121,9 +10121,9 @@ ${lines}`;
                     }}
                     className="flex items-center gap-1 px-2.5 py-1 max-lg:px-3 max-lg:py-2 max-lg:text-[13px] rounded border border-edge text-dim hover:border-god/40 hover:text-god transition-colors"
                     title="朗读本回合正文（旁白/台词分离·每 NPC 不同声音·再点停止）">{ttsSpeaking ? '⏹ 停止朗读' : '🔊 朗读'}</button>}
-                  {ttsSupported() && <button onClick={() => useTts.getState().set({ engine: ttsEngine === 'edge' ? 'webspeech' : 'edge' })}
+                  {ttsSupported() && <button onClick={() => useTts.getState().set({ engine: ttsEngine === 'webspeech' ? 'cloud' : 'webspeech' })}
                     className="flex items-center gap-1 px-2 py-1 max-lg:px-2.5 max-lg:py-2 max-lg:text-[13px] rounded border border-edge text-dim/60 hover:border-god/40 hover:text-god transition-colors"
-                    title={ttsEngine === 'edge' ? '语音引擎：Edge 云端神经语音（20+ 中文音色·质量好·需网关部署）。点击切回本地' : '语音引擎：本地 Web Speech（离线免费·质量一般）。点击切到 Edge 云端（更好听·需 worker 部署）'}>{ttsEngine === 'edge' ? '☁️Edge' : '🔈本地'}</button>}
+                    title={ttsEngine !== 'webspeech' ? '语音引擎：云 TTS（Edge/OpenAI/Azure/Google·在 ⚙ 里选后端）。点击切回本地' : '语音引擎：本地 Web Speech（离线免费）。点击切到云 TTS（更好听·⚙ 里选后端）'}>{ttsEngine !== 'webspeech' ? '☁️云' : '🔈本地'}</button>}
                   {ttsSupported() && <button onClick={() => setTtsSettingsOpen(true)}
                     className="flex items-center gap-1 px-2 py-1 max-lg:px-2.5 max-lg:py-2 max-lg:text-[13px] rounded border border-edge text-dim/60 hover:border-god/40 hover:text-god transition-colors"
                     title="语音设置：引擎 / 语速 / 旁白音色 / 每个 NPC 音色">⚙</button>}

@@ -254,6 +254,11 @@ export interface ImageGenSettings {
   storyTemplate: string;
   gptStoryTemplate: string;         // GPT/自然语言图像模型(gpt-image-2 等)专用正文生图模板（<prompt> 内为中文自然语言）
   storyLlmRoutes: string[];         // 复用 apiLibrary endpoint id
+  // 全息卡 2.5D 深度视差（放大检视时手动「2.5D 化」，把立绘/物品图按深度做视差）
+  holoParallax: boolean;            // 玩家总开关：off=纯平面全息卡（不显 2.5D 按钮）；on=允许手动 2.5D 化
+  depthProvider: 'local' | 'gateway'; // 深度图来源：local=浏览器内 Depth Anything（零部署，默认）/ gateway=自建端点
+  depthUrl: string;                 // gateway 端点（图入 → 深度图出；POST {image:base64} → 深度图）
+  depthKey: string;                 // gateway 密钥（Bearer，可空）
 }
 
 interface ImageGenState extends ImageGenSettings {
@@ -294,6 +299,7 @@ export const useImageGen = create<ImageGenState>()(
       autoEquipPlayer: false, autoEquipNpc: false, equipTemplate: DEFAULT_EQUIP_TEMPLATE, equipNegative: DEFAULT_EQUIP_NEG,
       activeStyleId: 'nai-anime',
       autoStory: false, storyProgressive: false, storyImageCount: 4, storySize: 'inherit', storyTemplate: DEFAULT_STORY_TEMPLATE, gptStoryTemplate: DEFAULT_GPT_STORY_TEMPLATE, storyLlmRoutes: [],
+      holoParallax: true, depthProvider: 'local', depthUrl: '', depthKey: '',
       styles: DEFAULT_STYLES.map((s) => ({ ...s })),
 
       nai: {
