@@ -80,7 +80,15 @@ function ApiConfigPage() {
               </select>
             </Field>
             {s.depthProvider === 'local' && (
-              <div className="text-[12px] text-dim/50 leading-relaxed">生图 API 只负责出图。到 NPC / 物品详情点头像或图片放大，检视弹层里点「✨ 2.5D 化」，即在浏览器本地生成深度图（一图一次·自动缓存），之后拖动旋转就是立体的。首次需联网下载模型。</div>
+              <>
+                <Field label="模型下载镜像（可空）" hint="国内访问 HuggingFace 慢/失败时填镜像；填好后重开检视弹层再点「2.5D 化」重试。空=官方 huggingface.co。">
+                  <div className="flex gap-1">
+                    <input value={s.depthHfMirror} onChange={(e) => s.setSettings({ depthHfMirror: e.target.value })} placeholder="留空=huggingface.co" className={inputCls + ' flex-1'} />
+                    <button type="button" onClick={() => s.setSettings({ depthHfMirror: 'https://hf-mirror.com' })} title="填入 hf-mirror.com" className="shrink-0 px-2 text-[12px] font-mono text-dim hover:text-god border border-edge rounded transition-colors">hf-mirror</button>
+                  </div>
+                </Field>
+                <div className="text-[12px] text-dim/50 leading-relaxed">生图 API 只负责出图。到 NPC / 物品详情点头像或图片放大，检视弹层里点「✨ 2.5D 化」，即在浏览器本地生成深度图（一图一次·自动缓存）。首次需联网下载 ~30MB 模型。</div>
+              </>
             )}
             {s.depthProvider === 'gateway' && (
               <>

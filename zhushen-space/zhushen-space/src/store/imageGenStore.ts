@@ -259,6 +259,7 @@ export interface ImageGenSettings {
   depthProvider: 'local' | 'gateway'; // 深度图来源：local=浏览器内 Depth Anything（零部署，默认）/ gateway=自建端点
   depthUrl: string;                 // gateway 端点（图入 → 深度图出；POST {image:base64} → 深度图）
   depthKey: string;                 // gateway 密钥（Bearer，可空）
+  depthHfMirror: string;            // local 模型下载镜像（国内访问 HuggingFace 慢/失败时填 https://hf-mirror.com；空=官方 HF）
 }
 
 interface ImageGenState extends ImageGenSettings {
@@ -299,7 +300,7 @@ export const useImageGen = create<ImageGenState>()(
       autoEquipPlayer: false, autoEquipNpc: false, equipTemplate: DEFAULT_EQUIP_TEMPLATE, equipNegative: DEFAULT_EQUIP_NEG,
       activeStyleId: 'nai-anime',
       autoStory: false, storyProgressive: false, storyImageCount: 4, storySize: 'inherit', storyTemplate: DEFAULT_STORY_TEMPLATE, gptStoryTemplate: DEFAULT_GPT_STORY_TEMPLATE, storyLlmRoutes: [],
-      holoParallax: true, depthProvider: 'local', depthUrl: '', depthKey: '',
+      holoParallax: true, depthProvider: 'local', depthUrl: '', depthKey: '', depthHfMirror: '',
       styles: DEFAULT_STYLES.map((s) => ({ ...s })),
 
       nai: {

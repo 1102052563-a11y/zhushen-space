@@ -139,7 +139,6 @@ import { getNpcApi, trimNarrative, npcChatCompletion, buildNpcVars, fillVars, se
 import { reconcileNewNpcNames } from './systems/npcNameGuard';
 import { reconcileNewFactions } from './systems/factionNameGuard';
 import { speakText, stopTts, speakLine, resolveSpeakerVoice, useTtsSpeaking, ttsSupported } from './systems/tts';
-import { useTts } from './store/ttsStore';
 import TtsSettings from './components/TtsSettings';
 import { combatFinalVitals, applyCombatVitals, buildCombatResultFallback, runBattleSummaryPhase } from './systems/combatHelpers';
 import { pickEnemyAction } from './systems/enemyAI';

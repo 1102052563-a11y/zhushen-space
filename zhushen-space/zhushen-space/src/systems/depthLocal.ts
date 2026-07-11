@@ -4,6 +4,8 @@
  * 只有玩家手动点「2.5D 化」时才触发，不进主包、不影响生图。
  */
 
+import { useImageGen } from '../store/imageGenStore';
+
 // 库与模型（如需换版本/模型改这里；latest 3.x）
 const TF_CDN = 'https://cdn.jsdelivr.net/npm/@huggingface/transformers@3.5.2';
 const DEPTH_MODEL = 'onnx-community/depth-anything-v2-small';
@@ -17,15 +19,33 @@ async function getPipe(onProgress?: DepthProgress): Promise<any> {
   pipeP = (async () => {
     onProgress?.({ stage: '加载库' });
     const TF: any = await import(/* @vite-ignore */ TF_CDN);
-    try { TF.env.allowLocalModels = false; } catch { /* */ }
-    const device = (typeof navigator !== 'undefined' && (navigator as any).gpu) ? 'webgpu' : 'wasm';
+    try {
+      TF.env.allowLocalModels = false;
+      const mirror = useImageGen.getState().depthHfMirror;
+      if (mirror) TF.env.remoteHost = mirror.replace(/\/+$/, '');   // 国内镜像，如 https://hf-mirror.com
+    } catch { /* */ }
     const progress_callback = (p: any) => {
       if (!onProgress) return;
       if (p?.status === 'progress') onProgress({ stage: '下载模型', pct: Math.round(p.progress ?? 0), file: p.file });
       else if (p?.status === 'ready') onProgress({ stage: '就绪' });
       else onProgress({ stage: p?.status || '加载中', file: p?.file });
     };
-    return TF.pipeline('depth-estimation', DEPTH_MODEL, { device, progress_callback });
+    // ⚠ navigator.gpu 存在 ≠ 能拿到 GPU adapter（用户报错 "Failed to get GPU adapter"）。真去 requestAdapter 才算数。
+    let device: 'webgpu' | 'wasm' = 'wasm';
+    try {
+      const gpu: any = (typeof navigator !== 'undefined') ? (navigator as any).gpu : null;
+      if (gpu && (await gpu.requestAdapter())) device = 'webgpu';
+    } catch { device = 'wasm'; }
+    onProgress?.({ stage: device === 'webgpu' ? '初始化(GPU)' : '初始化(CPU/WASM)' });
+    try {
+      return await TF.pipeline('depth-estimation', DEPTH_MODEL, { device, progress_callback });
+    } catch (e) {
+      if (device === 'webgpu') {          // GPU 后端仍失败 → 退回 WASM(CPU)，几乎任何设备都能跑
+        onProgress?.({ stage: '切 WASM 重试' });
+        return await TF.pipeline('depth-estimation', DEPTH_MODEL, { device: 'wasm', progress_callback });
+      }
+      throw e;
+    }
   })().catch((e) => { pipeP = null; throw e; });   // 失败重置，允许重试
   return pipeP;
 }
@@ -55,6 +75,7 @@ export async function localDepth(imgSrc: string, onProgress?: DepthProgress): Pr
     return rawToDataUrl(depth);
   } catch (e) {
     console.warn('[depthLocal] 失败', e);
+    onProgress?.({ stage: '错误：' + String((e as any)?.message || e).slice(0, 140) });
     return null;
   }
 }

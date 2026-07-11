@@ -52,9 +52,14 @@ export default function HoloInspector({ open, onClose, img, name, badge, grade, 
   async function make2p5d() {
     if (!img || busy) return;
     setBusy(true); setProg('准备…');
-    const d = await getDepthMap(img, (info) => setProg(info.pct != null ? `${info.stage} ${info.pct}%` : info.stage));
-    setBusy(false); setProg('');
-    if (d) { setDepthSrc(d); setFlat(false); } else setProg('生成失败（首次需联网下载模型；或改用网关端点）');
+    let errMsg = '';
+    const d = await getDepthMap(img, (info) => {
+      if (info.stage && info.stage.indexOf('错误') === 0) errMsg = info.stage;
+      setProg(info.pct != null ? `${info.stage} ${info.pct}%` : info.stage);
+    });
+    setBusy(false);
+    if (d) { setDepthSrc(d); setFlat(false); setProg(''); }
+    else setProg(errMsg || '生成失败（模型下载失败？国内在 设置→生图 填 hf-mirror，或改用网关端点）');
   }
 
   const btnBase: React.CSSProperties = { fontSize: 13, fontWeight: 500, padding: '6px 14px', borderRadius: 9, cursor: 'pointer' };
