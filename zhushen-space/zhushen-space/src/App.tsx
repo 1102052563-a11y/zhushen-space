@@ -122,7 +122,7 @@ import { useState, useRef, useEffect, useMemo, lazy, Suspense, type PointerEvent
 import { useGame } from './store/gameStore';
 import { useSettings, resolveApiChain, inferViewScopes, type WorldbookConflict } from './store/settingsStore';
 import { runRegexReplace } from './systems/regexEngine';
-import { apiChatFallback, fetchWithProxy, abortAllApiCalls } from './systems/apiChat';
+import { apiChatFallback, fetchWithProxy, abortAllApiCalls, narrativeLangDirective } from './systems/apiChat';
 import { parseAllStateUpdates, stripStateBlocks, parseAllItemCommands, applyItemCommands, parseAllCharCommands, applyCharacterCommands, parseAllNpcCommands, applyNpcCommands, parseAllFactionCommands, applyFactionCommands, applyTerritoryCommands, applyTeamCommands, isEquippable, lenientJsonParse, buildItemFeedback, recordEvo, purgeItemPhaseCurrency, editToTerritoryText, editToTeamText, detectUnregisteredCurrencyGains } from './systems/stateParser';
 import { isRealNpc, sanitizeEntryName, stripLeakedThinking, setNpcPreferredOwners, applyStateUpdates, applyAllUpdates, stripKillBlocks, stripVitalsBlocks, stripWorldSourceBlocks, collapseRunaway } from './systems/stateApply';
 import { buildTableFillPrompt, buildPlotStateSnapshot } from './systems/tablePrompt';   // ACU 表格数据库：填表提示词 + 剧情状态快照（喂剧情指导）
@@ -8349,6 +8349,11 @@ ${lines}`;
       outlineBlock = [{ role: 'system' as const, content: `${OUTLINE_FOLLOW_RULE}\n\n<本回合细纲>\n${opts.outline.trim()}\n</本回合细纲>` }];
     }
 
+    // 正文输出语言：仅当界面=越南语且「演化内容用当前语言生成」开关开时，注入「正文散文/对白/名称用越南语，
+    //   结构/字段/枚举/模块标题/数字保持中文」指令（深注入·紧贴输入前·高优先）。中文/英文一律返回 '' → 不注入，正文保持原样，不影响其他语言正常使用。
+    const _langDir = narrativeLangDirective();
+    const langDirBlock: { role: 'system'; content: string }[] = _langDir ? [{ role: 'system' as const, content: _langDir }] : [];
+
     // 前置须知（注入正文最深处·紧贴输入前·一次性）：① 玩家常驻「前置提示词」(设置里可编辑) ② 本回合「场外操作」通报
     //   （手动加点/合成/强化/花费货币…由前端确定性结算，正文看不到 → 注入告知，防"花到5000正文却记10000"OOC）。
     //   仅真实发送(非 narrateOnly 草稿)时消费场外通报；两者皆空则整块不注入。
@@ -8517,6 +8522,7 @@ ${lines}`;
       ...preludeBlock,                                  // <前置须知> 玩家常驻前置提示词 + 本回合场外操作通报 → 最深处·紧贴输入前（深度最深·权重最高）
       ...growthBlock,                                    // <本回合成长·需入戏交代> 玩家刚点亮的星图技能/天赋 → 正文叙述主角如何习得（治职业与正文脱节）
       ...outlineBlock,                                   // <本回合细纲> 玩家确认的施工蓝图 → 最深处·最高优先，正文严格遵循（细纲功能）
+      ...langDirBlock,                                   // 【输出语言＝越南语】仅界面=越南语+开关开时注入（正文散文/名称用越南语·结构枚举保持中文）；其他语言此块为空
       { role: 'user' as const, content: userText },
       ...(effectivePrefill ? [{ role: 'assistant' as const, content: effectivePrefill }] : []),   // 末尾预填充（prefill 块 / 跳过思维链）
     ];
@@ -10245,7 +10251,8 @@ ${lines}`;
                   <button onClick={stopAllPhases}
                     className="flex items-center gap-1 px-2.5 py-1 max-lg:px-3 max-lg:py-2 max-lg:text-[13px] rounded border border-blood/40 text-blood/80 hover:border-blood hover:text-blood hover:bg-blood/10 transition-colors"
                     title="停止正在进行的全部变量演化与生图（物品/主角/NPC/势力/领地/冒险团/万族/杂项/记忆/生图，及批量更新）；点后可再发消息/重算继续">⛔ 停止生成</button>
-                  {canUndo && <span className="text-dim/35">回退/重生会撤销上一回合的全部演化</span>}
+                  {canUndo && <span className="text-dim/35 max-lg:hidden">回退/重生会撤销上一回合的全部演化</span>}
+                  </div>
                 </>
               )}
             </div>
@@ -10278,12 +10285,12 @@ ${lines}`;
             )}
           </div>
 
-          {/* 输入框 */}
-          <div className="shrink-0 border-t border-edge bg-panel flex items-center gap-2 px-3 py-2">
+          {/* 输入框（手机：正文输入独占一行·按钮换到下一行，省得输入框被挤成三行） */}
+          <div className="shrink-0 border-t border-edge bg-panel flex items-center gap-2 px-3 py-2 max-lg:flex-wrap">
             <button
               onClick={() => setMessages([])}
               title="清空对话"
-              className="w-7 h-7 max-lg:w-9 max-lg:h-9 flex items-center justify-center text-blood bg-blood/10 border border-blood/30 rounded text-sm hover:bg-blood/20 shrink-0"
+              className="w-7 h-7 max-lg:w-9 max-lg:h-9 max-lg:order-2 flex items-center justify-center text-blood bg-blood/10 border border-blood/30 rounded text-sm hover:bg-blood/20 shrink-0"
             >
               ↺
             </button>
@@ -10295,7 +10302,7 @@ ${lines}`;
               onInput={(e) => { const t = e.currentTarget; t.style.height = 'auto'; t.style.height = Math.min(t.scrollHeight, 128) + 'px'; }}
               onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { if (disableEnterSend) return; e.preventDefault(); sendMessage(); } }}
               placeholder={disableEnterSend ? '在此输入你的行动…（回车发送已禁用，点 ▶ 发送）' : (showNewlineButton ? '在此输入你的行动…（Shift+Enter 或点 ↵ 换行）' : '在此输入你的行动…（Shift+Enter 换行）')}
-              className="flex-1 bg-transparent text-sm max-lg:text-base text-slate-200 placeholder:text-dim outline-none resize-none max-h-32 overflow-y-auto leading-relaxed py-1"
+              className="flex-1 max-lg:basis-full max-lg:order-1 bg-transparent text-sm max-lg:text-base text-slate-200 placeholder:text-dim outline-none resize-none max-h-32 overflow-y-auto leading-relaxed py-1"
             />
             {showNewlineButton && (
             <button
@@ -10315,7 +10322,7 @@ ${lines}`;
                 }, 0);
               }}
               title="插入换行（Shift+Enter 同效）"
-              className="w-7 h-7 max-lg:w-9 max-lg:h-9 flex items-center justify-center text-dim border border-edge rounded text-sm hover:bg-panel2 hover:text-slate-200 shrink-0 transition-colors"
+              className="w-7 h-7 max-lg:w-9 max-lg:h-9 max-lg:order-2 flex items-center justify-center text-dim border border-edge rounded text-sm hover:bg-panel2 hover:text-slate-200 shrink-0 transition-colors"
             >
               ↵
             </button>
@@ -10324,7 +10331,7 @@ ${lines}`;
               onClick={() => sendMessage(selectedAdvanceText())}
               disabled={generating || guidanceRunning}
               title="推进剧情（不用输入·顺当前局势与铺垫/伏笔/约定自然发展一拍，草稿保留）"
-              className="w-7 h-7 max-lg:w-9 max-lg:h-9 flex items-center justify-center text-emerald-300 border border-emerald-400/30 rounded hover:bg-emerald-400/10 shrink-0 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+              className="w-7 h-7 max-lg:w-9 max-lg:h-9 max-lg:order-2 flex items-center justify-center text-emerald-300 border border-emerald-400/30 rounded hover:bg-emerald-400/10 shrink-0 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
             >
               ⏩
             </button>
@@ -10332,14 +10339,14 @@ ${lines}`;
               onClick={toggleAutoAdvance}
               disabled={(generating || guidanceRunning) && !autoAdvActive}
               title={autoAdvActive ? '停止循环自动推进' : '循环自动推进（自动连推数拍·在设置调次数/间隔；你一发送就停）'}
-              className={`w-7 h-7 max-lg:w-9 max-lg:h-9 flex items-center justify-center border rounded shrink-0 transition-colors ${autoAdvActive ? 'text-rose-300 border-rose-400/50 bg-rose-500/10 animate-pulse' : 'text-emerald-300/70 border-emerald-400/30 hover:bg-emerald-400/10 disabled:opacity-40 disabled:cursor-not-allowed'}`}
+              className={`w-7 h-7 max-lg:w-9 max-lg:h-9 max-lg:order-2 flex items-center justify-center border rounded shrink-0 transition-colors ${autoAdvActive ? 'text-rose-300 border-rose-400/50 bg-rose-500/10 animate-pulse' : 'text-emerald-300/70 border-emerald-400/30 hover:bg-emerald-400/10 disabled:opacity-40 disabled:cursor-not-allowed'}`}
             >
               {autoAdvActive ? '⏹' : '🔁'}
             </button>
             <button
               onClick={() => sendMessage()}
               disabled={generating || !inputValue.trim()}
-              className="w-7 h-7 max-lg:w-9 max-lg:h-9 flex items-center justify-center text-god border border-god/30 rounded hover:bg-god/10 shrink-0 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+              className="w-7 h-7 max-lg:w-9 max-lg:h-9 max-lg:order-2 max-lg:ml-auto flex items-center justify-center text-god border border-god/30 rounded hover:bg-god/10 shrink-0 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
             >
               {generating ? <span className="animate-spin text-xs">◌</span> : '▶'}
             </button>

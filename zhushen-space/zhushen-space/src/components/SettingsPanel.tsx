@@ -2827,8 +2827,8 @@ function AppearanceSettingsSection() {
             <label className="flex items-start gap-2.5 pt-1 cursor-pointer select-none">
               <input type="checkbox" checked={evolveOutputLang} onChange={(e) => setEvolveOutputLang(e.target.checked)} className="accent-god w-4 h-4 mt-0.5" />
               <span>
-                <span className="text-sm text-slate-300">演化内容用当前语言生成</span>
-                <span className="block text-[12px] text-dim/60 leading-relaxed">开：向各演化阶段注入指令，让 AI 直接用{language === 'en' ? '英文' : '越南语'}生成物品/NPC/势力等内容（名称+描述），省机翻。⚠代价：AI 剧情正文仍是中文，生成的{language === 'en' ? '英文' : '越南语'}名称会和正文里的中文名对不上、偶发重复条目；在意剧情-数据一致就关掉、改用「显示层机翻」。</span>
+                <span className="text-sm text-slate-300">内容用当前语言生成{language === 'vi' ? '（正文＋演化）' : '（演化）'}</span>
+                <span className="block text-[12px] text-dim/60 leading-relaxed">开：让 AI 直接用{language === 'en' ? '英文' : '越南语'}生成演化内容（物品/NPC/势力等名称＋描述），省机翻。{language === 'vi' ? '越南语下还会让正文 API 一起输出越南语 → 正文与数据名称对齐、无脱节。' : '英文下仅演化用英文、正文仍中文 → 名称可能对不上、偶发重复条目；在意剧情-数据一致就关掉、改用「显示层机翻」。'}结构/字段/枚举/数字始终保持中文以防解析出错。</span>
               </span>
             </label>
           )}

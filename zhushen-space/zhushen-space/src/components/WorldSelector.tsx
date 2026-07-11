@@ -253,7 +253,7 @@ export default function WorldSelector({ onRawResponse, onPromptSent, onWorlds, o
       }
       let cur = rolls;
       if (cur.length === 0 && worldLib.count > 0) { cur = rollPickIds(worldLib.ids); setRolls(cur); }
-      const rolledNames = [...new Set(cur.map((v) => worldLib.nameById.get(v)).filter(Boolean))];
+      const rolledNames = [...new Set(cur.map((v) => worldLib.nameById.get(v)).filter((n): n is string => !!n))];
       pickedNames = [...new Set([...rolledNames, ...customNames])];   // Roll 的世界 + 自定义世界一起
       if (pickedNames.length === 0) {
         setErrorMsg('点名编号都不在世界库里；请重新 Roll、修改编号，或在「✨ 自定义世界」框填世界名');

@@ -24,6 +24,26 @@ function outputLangDirective(): string {
     + `一句话：**只把面向玩家阅读的自由文本换成 ${name}，结构/字段/枚举/数字全部照旧中文。**`;
 }
 
+/* 正文专用「输出语言」指令：**仅当界面语言=越南语且「演化内容用当前语言生成」开关开**时生效——
+   让正文 API 的散文/对白/名称用越南语，但结构/字段/枚举/模块标题/数字保持中文（否则 <state> 解析出错）。
+   正文 callApi 不走 apiChatFallback，故单独导出、由 App 注入。
+   ⚠ 只越南语返回指令；中文/英文一律返回 ''（正文保持原样，绝不影响其他语言正常使用）。
+   与 evolveOutputLang 同开关 → 正文与演化两侧同时切越南语，名称天然对齐，不会出现「正文赤霄剑 / 数据 Kiếm Xích Tiêu」脱节。 */
+export function narrativeLangDirective(): string {
+  try {
+    const s = useSettings.getState();
+    if (!s.evolveOutputLang) return '';        // 总开关关 → 正文与演化都保持中文（靠显示层机翻）
+    if (s.language !== 'vi') return '';         // 仅越南语；中文/英文正文保持中文原样，不影响正常使用
+  } catch { return ''; }
+  const name = 'Tiếng Việt（越南语）';
+  return `【输出语言＝${name}·仅本回合正文】本回合正文的一切**自然语言文字**（叙述、对白、心理、旁白、场景与动作描写，以及文中出现的人物/物品/技能/地点等名称与其描述）一律用 ${name} 书写。`
+    + `但以下**必须保留中文原样、绝不翻译**（翻了前端会解析/结算出错）：`
+    + `① 结构化指令与标签——<state>、<upstore>、createItem/addSkill/addFaction 等 helper、hp.C1/eq.B1/character.<id>.* 等短指令、字段名/键名、JSON、占位符、数字、代码；`
+    + `② 系统**枚举词**——物品类别(武器/防具/饰品/法宝/材料/消耗品/丹药/符箓…)、品级/稀有度(凡物/普通/精良/稀有/史诗/传说/极道…)、阶位(一阶~十四阶)、六维属性名(体质/力量/敏捷/智力/感知/精神)、状态词；`
+    + `③ 各结构模块的**固定标题与字段名**（状态栏、<状态结算>、【主角资源】等世界书/预设规定的模块名与字段名）保持中文，只把其中面向玩家的自由文本值换成 ${name}。`
+    + `一句话：**给玩家读的散文与名称 → ${name}；喂给程序解析的结构/字段/枚举/数字/模块标题 → 照旧中文。**`;
+}
+
 // 默认云端网关；可被「本地网关地址」覆盖（localStorage drpg-gateway-url），用于走你本地 worker（你家 IP，仿 SillyTavern 本地后端）
 const GW_DEPLOYED = 'https://zhushen-multiplayer.1102052563.workers.dev/api/gw/proxy';
 /** 当前生效的网关代理地址：填了「本地网关地址」就用本地 worker（你家 IP），否则用云端 */
