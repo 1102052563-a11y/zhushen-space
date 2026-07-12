@@ -21,6 +21,8 @@ import StickerPicker from './StickerPicker';
 import { stickerSrc, loadStickerPacks, type StickerRef } from '../systems/chatStickers';
 import { DICEBEAR_STYLES, parseDicebear } from '../systems/dicebearAvatar';
 import { chatNameColor, setChatNameColor, chatBubble, setChatBubble, NAME_COLORS, BUBBLE_SKINS, bubbleCls } from '../systems/chatCosmetics';
+import { presenceStats, type PresenceStats } from '../systems/presence';   // 当前在玩人数(按IP·含未登录) + 累计在线时长
+import { PlaytimeBoard } from './PlaytimePanel';   // 🏆 游玩时长榜·并入聊天室 view
 
 const EQUIP_CATS = new Set(['武器', '防具', '饰品', '法宝']);
 const SHARE_TABS: { k: EntityKind; label: string }[] = [
@@ -50,8 +52,26 @@ function StatusDot({ status }: { status: string }) {
   return <span className={`inline-block w-2 h-2 rounded-full ${c}`} />;
 }
 
+/** 累计在线时长的紧凑格式（天/时/分）。 */
+function fmtShort(sec: number): string {
+  const s = Math.max(0, Math.floor(sec));
+  const d = Math.floor(s / 86400), h = Math.floor((s % 86400) / 3600), m = Math.floor((s % 3600) / 60);
+  if (d > 0) return `${d}天${h}时`;
+  if (h > 0) return `${h}时${m}分`;
+  return `${m}分`;
+}
+
 export default function ChatRoomPanel({ onClose }: { onClose: () => void }) {
   const st = useChatRoom();
+  // 当前在玩人数 + 累计在线时长：进面板即轮询（每 30s·只读·不登记自己·登记由 App 的在玩心跳负责）
+  const [pres, setPres] = useState<PresenceStats | null>(null);
+  useEffect(() => {
+    let alive = true;
+    const load = () => { void presenceStats().then((p) => { if (alive && p) setPres(p); }); };
+    load();
+    const t = setInterval(load, 30_000);
+    return () => { alive = false; clearInterval(t); };
+  }, []);
 
   // ── 门禁（Discord 登录 + 起名 + UID）──
   const entered = st.entered;   // 会话级：是否已进入(连过)——由 chatClient/后台连接驱动
@@ -66,7 +86,7 @@ export default function ChatRoomPanel({ onClose }: { onClose: () => void }) {
   const bindAskedRef = useRef(false);                       // 本会话只问一次
 
   // ── 个人设置（头像/改名）──
-  const [view, setView] = useState<'chat' | 'settings'>('chat');
+  const [view, setView] = useState<'chat' | 'settings' | 'playtime'>('chat');
   const [profBusy, setProfBusy] = useState(false);
   const [profMsg, setProfMsg] = useState('');
   const fileRef = useRef<HTMLInputElement>(null);
@@ -316,19 +336,35 @@ export default function ChatRoomPanel({ onClose }: { onClose: () => void }) {
           <span className="text-god/70 text-lg">💬</span>
           <div className="flex-1 min-w-0">
             <div className="text-base font-bold text-slate-100">聊天室 · 实时 {entered && uid > 0 && <span className="text-[12px] font-mono text-god/60">#{dispUid || uid}</span>}</div>
-            <div className="text-[11px] font-mono text-dim/60 flex items-center gap-1.5">
+            <div className="text-[11px] font-mono text-dim/60 flex items-center gap-1.5 flex-wrap">
               <StatusDot status={entered ? st.status : 'idle'} />
               <span>{!entered ? '未进入' : connected ? `${st.roster.length} 人在线` : st.status === 'connecting' ? '连接中…' : st.status === 'closed' ? '已断开' : '未连接'}</span>
+              {pres && (
+                <>
+                  <span className="text-dim/25">·</span>
+                  <span className="text-emerald-300/80" title="当前在玩人数：按 IP 去重的当前在玩者，含没登录 Discord 的人（约每分钟刷新）">🟢 {pres.online} 在玩</span>
+                  <span className="text-dim/25">·</span>
+                  <span className="text-god/70" title="全服累计在线时长（所有登录者的游玩时长之和）">⏱ 累计在线 {fmtShort(pres.total)}</span>
+                </>
+              )}
             </div>
           </div>
+          <button onClick={() => setView((v) => (v === 'playtime' ? 'chat' : 'playtime'))} title="游玩时长 · 排行榜（全服）" className={`text-[13px] px-2 py-1 rounded border border-edge transition-colors ${view === 'playtime' ? 'text-god border-god/40' : 'text-dim/60 hover:text-slate-200'}`}>🏆</button>
           {entered && <button onClick={() => setView((v) => (v === 'settings' ? 'chat' : 'settings'))} title="个人设置" className={`text-[13px] px-2 py-1 rounded border border-edge transition-colors ${view === 'settings' ? 'text-god border-god/40' : 'text-dim/60 hover:text-slate-200'}`}>⚙</button>}
           {entered && view === 'chat' && <button onClick={() => setShowRoster((v) => !v)} className="hidden sm:inline-block text-dim/60 hover:text-slate-200 text-[11px] font-mono px-2 py-1 rounded border border-edge transition-colors">{showRoster ? '隐藏在线' : '在线名单'}</button>}
           {entered && <button onClick={doExit} title="断开连接并停止自动进入（保留 Discord 登录）" className="text-dim/50 hover:text-blood text-[11px] font-mono px-2 py-1 rounded border border-edge transition-colors">退出</button>}
           <button onClick={onClose} className="text-dim/50 hover:text-blood text-lg transition-colors">✕</button>
         </header>
 
-        {/* ── 门禁页 ── */}
-        {!entered ? (
+        {/* 🏆 时长榜（并入聊天室·公开榜·进不进聊天室都能看）→ 门禁 / 聊天 / 设置 */}
+        {view === 'playtime' ? (
+          <div className="flex-1 flex flex-col overflow-hidden">
+            <div className="shrink-0 px-4 py-2 border-b border-edge/60">
+              <button onClick={() => setView('chat')} className="text-[12px] text-god/70 hover:text-god font-mono">← 返回聊天</button>
+            </div>
+            <PlaytimeBoard />
+          </div>
+        ) : !entered ? (
           <div className="flex-1 flex flex-col items-center justify-center gap-4 px-8 text-center">
             {!loggedIn ? (
               <>

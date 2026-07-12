@@ -249,24 +249,44 @@ function PlayerSidebar({ onClose }: { onClose?: () => void }) {
   const realPts = profile.realAttrPoints ?? 0;
   const realAttrs = profile.realAttrs ?? {};   // 真实属性·直加分配（与基础独立）；显示真实属性 = floor(基础/80) + realAttrs
   const [pending, setPending] = useState<Record<string, { ap: number; rap: number }>>({});  // 各属性暂存的 属性点/真实属性点
+  const [step, setStep] = useState<number>(1);   // 批量加点步长：每次「+」暂存几点（1/10/100/Infinity=全部）
   const [pickerQueue, setPickerQueue] = useState<{ key: keyof PlayerAttrs; label: string; milestone: number }[]>([]);
   const stagedAp = Object.values(pending).reduce((s, v) => s + (v.ap || 0), 0);
   const stagedRap = Object.values(pending).reduce((s, v) => s + (v.rap || 0), 0);
   const apLeft = attrPts - stagedAp, rapLeft = realPts - stagedRap;
-  const stage = (key: keyof PlayerAttrs) => setPending((p) => {
-    if (key === 'luck') return p;   // 幸运禁止加点（前端机械生成）
+  // 批量加点：一次暂存 n 点（n=Infinity 表示"把剩余点全投入该属性"）。updater 内按最新 pending 算剩余，避免同一渲染内连点超额（attrPts/realPts 在确认前不变）。
+  const stageN = (key: keyof PlayerAttrs, n: number) => setPending((p) => {
+    if (key === 'luck' || n <= 0) return p;   // 幸运禁止加点（前端机械生成）
     const cur = p[key] ?? { ap: 0, rap: 0 };
-    // 在 updater 内部按最新 pending 算剩余，避免同一渲染内连点超额暂存（attrPts/realPts 在确认前不变）
     const usedAp = Object.values(p).reduce((s, v) => s + (v.ap || 0), 0);
     const usedRap = Object.values(p).reduce((s, v) => s + (v.rap || 0), 0);
-    if (showTrueAttr) return realPts - usedRap <= 0 ? p : { ...p, [key]: { ...cur, rap: cur.rap + 1 } };
-    return attrPts - usedAp <= 0 ? p : { ...p, [key]: { ...cur, ap: cur.ap + 1 } };
+    const add = Math.min(n, showTrueAttr ? realPts - usedRap : attrPts - usedAp);
+    if (add <= 0) return p;
+    return showTrueAttr ? { ...p, [key]: { ...cur, rap: cur.rap + add } } : { ...p, [key]: { ...cur, ap: cur.ap + add } };
   });
-  const unstage = (key: keyof PlayerAttrs) => setPending((p) => {
+  const unstageN = (key: keyof PlayerAttrs, n: number) => setPending((p) => {
     const cur = p[key]; if (!cur) return p;
-    const next = showTrueAttr ? { ...cur, rap: Math.max(0, cur.rap - 1) } : { ...cur, ap: Math.max(0, cur.ap - 1) };
+    const next = showTrueAttr ? { ...cur, rap: Math.max(0, cur.rap - n) } : { ...cur, ap: Math.max(0, cur.ap - n) };
     const np = { ...p, [key]: next };
     if (next.ap === 0 && next.rap === 0) delete np[key];
+    return np;
+  });
+  // 均分剩余：把当前视图下所有剩余点尽量平均分到 5 个可加属性（余数从前往后各 +1）。
+  const stageEven = () => setPending((p) => {
+    const keys = ATTR_DEFS.filter((d) => d.key !== 'luck').map((d) => d.key);
+    const usedAp = Object.values(p).reduce((s, v) => s + (v.ap || 0), 0);
+    const usedRap = Object.values(p).reduce((s, v) => s + (v.rap || 0), 0);
+    const avail = showTrueAttr ? realPts - usedRap : attrPts - usedAp;
+    if (avail <= 0 || keys.length === 0) return p;
+    const per = Math.floor(avail / keys.length);
+    let rem = avail - per * keys.length;
+    const np = { ...p };
+    for (const k of keys) {
+      const add = per + (rem-- > 0 ? 1 : 0);
+      if (add <= 0) continue;
+      const cur = np[k] ?? { ap: 0, rap: 0 };
+      np[k] = showTrueAttr ? { ...cur, rap: cur.rap + add } : { ...cur, ap: cur.ap + add };
+    }
     return np;
   });
   const cancelAlloc = () => setPending({});
@@ -385,6 +405,20 @@ function PlayerSidebar({ onClose }: { onClose?: () => void }) {
             >{showTrueAttr ? '基础属性' : '真实属性'}</button>
             )}
           </div>
+          {/* 批量加点：选步长（每次「+」暂存几点）+ 均分剩余——治"一点点点太慢"。全部=一键把剩余点全投入某属性 */}
+          {(showTrueAttr ? realPts : attrPts) > 0 && (
+            <div className="flex items-center gap-1 mb-1.5 text-[11px] font-mono flex-wrap">
+              <span className="text-dim/50">每次+</span>
+              {([1, 10, 100, Infinity] as number[]).map((s) => (
+                <button key={s} onClick={() => setStep(s)}
+                  className={`px-1.5 py-0.5 rounded border transition-colors ${step === s ? 'border-god/60 text-god bg-god/10' : 'border-edge text-dim/50 hover:text-god hover:border-god/30'}`}>
+                  {s === Infinity ? '全部' : s}
+                </button>
+              ))}
+              <button onClick={stageEven} title="把当前剩余点尽量平均分到 5 个可加属性"
+                className="px-1.5 py-0.5 rounded border border-edge text-dim/60 hover:text-god hover:border-god/30 transition-colors">⚖ 均分剩余</button>
+            </div>
+          )}
           <div className="grid grid-cols-2 gap-x-3 gap-y-1.5">
             {ATTR_DEFS.map(({ key, label }) => {
               const bk = breakdown[key];
@@ -404,13 +438,13 @@ function PlayerSidebar({ onClose }: { onClose?: () => void }) {
                           {bk.total}{bonus !== 0 && <span className={`ml-0.5 text-[11px] ${bonus > 0 ? 'text-emerald-400/70' : 'text-blood/70'}`}>({bonus > 0 ? '+' : ''}{bonus})</span>}
                         </button>}
                     {allocatable && pendCount > 0 && <span className="text-[11px] font-mono text-emerald-400/90" title="待确认的加点">+{pendCount}</span>}
-                    {allocatable && pendCount > 0 && <button onClick={() => unstage(key)} title="撤销一点待加点"
+                    {allocatable && pendCount > 0 && <button onClick={() => unstageN(key, step)} title={`撤销 ${step === Infinity ? '全部' : step} 待加点`}
                       className="w-4 h-4 flex items-center justify-center rounded border border-edge text-dim/60 hover:text-blood hover:border-blood/40 text-[12px] font-bold leading-none">−</button>}
                     {allocatable
-                      ? <button onClick={() => stage(key)} disabled={!canStage}
-                          title={showTrueAttr
-                            ? (canStage ? `暂存 1 真实属性点：真实${label} +1（真实属性直加，不动基础）` : '真实属性点不足')
-                            : (canStage ? `暂存 1 属性点：${label} +1` : '属性点不足')}
+                      ? <button onClick={() => stageN(key, step)} disabled={!canStage}
+                          title={!canStage ? (showTrueAttr ? '真实属性点不足' : '属性点不足')
+                            : step === Infinity ? `把剩余${showTrueAttr ? '真实属性点' : '属性点'}全投入${showTrueAttr ? '真实' : ''}${label}`
+                            : `暂存 ${step} ${showTrueAttr ? `真实属性点：真实${label}` : `属性点：${label}`} +${step}`}
                           className="w-5 h-5 flex items-center justify-center rounded border text-[14px] font-bold leading-none transition-colors border-god/40 text-god hover:bg-god/15 disabled:opacity-25 disabled:cursor-not-allowed">+</button>
                       : <span title="幸运由前端机械生成，不可手动加点" className="text-[12px] text-dim/30 leading-none px-1">🔒</span>}
                   </span>

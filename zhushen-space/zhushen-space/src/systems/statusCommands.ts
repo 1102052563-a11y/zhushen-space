@@ -9,6 +9,7 @@ import { ATTR_GROWTH_RE } from './stateApply';
 import { parseGameMinutes, parseDurationMinutes, parseDurationTurns } from './gameClock';
 import { parseAttrBonus, ATTR_KEYS } from './attrBonus';
 import { computeCompanionAwards, COMPANION_SETTLE_RATIO } from './companionSettlement';   // 随从·队友世界结算同步发点
+import { getSettlementWhitelist, clearSettlementWhitelist } from './settlementSelection';   // 玩家弹窗勾选的随从白名单
 import { pushSceneNotice } from './allocNotice';
 import type { PlayerAttrs } from '../store/playerStore';
 
@@ -205,7 +206,7 @@ export function applyPlayerProfileCommands(reply: string, narrative: string, tur
       const pAttr = sumPt(/\bcharacter\.B\d+\.attrPoints\s*\+=\s*(\d+)/g);
       const pReal = sumPt(/\bcharacter\.B\d+\.realAttrPoints\s*\+=\s*(\d+)/g);
       let pSkill = 0; { const re = /(黄金技能点|技能点)\s*\+=\s*(\d+)/g; let mm: RegExpExecArray | null; const seen = new Set<string>(); while ((mm = re.exec(reply))) { if (mm[1] !== '技能点') continue; const k = mm[0].replace(/\s+/g, ''); if (seen.has(k)) continue; seen.add(k); pSkill += Number(mm[2]) || 0; } }
-      const awards = computeCompanionAwards({ attrPoints: pAttr, realAttrPoints: pReal, skillPoints: pSkill }, Object.values(useNpc.getState().npcs));
+      const awards = computeCompanionAwards({ attrPoints: pAttr, realAttrPoints: pReal, skillPoints: pSkill }, Object.values(useNpc.getState().npcs), { whitelist: getSettlementWhitelist() });
       if (awards.length) {
         const NP = useNpc.getState();
         for (const a of awards) {
@@ -220,6 +221,7 @@ export function applyPlayerProfileCommands(reply: string, narrative: string, tur
         try { pushSceneNotice(`【场外·随从结算】本次世界结算，随行的 ${awards.map((a) => a.name).join('、')} 已按主角结算档位同步获得属性点/技能点（前端已入账、记入各自档案）。后续正文与之保持一致即可，勿据此再另行发放/结算。`); } catch { /* */ }
       }
     } catch (e) { console.warn('[世界结算·随从] 结算失败', e); }
+    clearSettlementWhitelist();   // consume-once：本次结算用掉玩家的随从勾选，下次结算回到自动判定
   }
   applyTimedStatusCommands(reply, turn);   // 主角限时状态 addStatus/deStatus
   return n;

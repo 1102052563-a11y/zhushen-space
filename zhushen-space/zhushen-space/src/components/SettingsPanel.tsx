@@ -2870,8 +2870,8 @@ function AppearanceSettingsSection() {
             <label className="flex items-start gap-2.5 pl-6 cursor-pointer select-none">
               <input type="checkbox" checked={autoTranslateManual} onChange={(e) => setAutoTranslateManual(e.target.checked)} className="accent-god w-4 h-4 mt-0.5" />
               <span>
-                <span className="text-sm text-slate-300">手动点击触发机翻（省额度）</span>
-                <span className="block text-[12px] text-dim/60 leading-relaxed">开：机翻不自动跑，右下角出现「🌐 译」按钮、点一下才翻当前页（词库 + 繁體转换仍自动）；关：打开面板即自动补全。</span>
+                <span className="text-sm text-slate-300">仅 AI 翻译手动触发（省额度）</span>
+                <span className="block text-[12px] text-dim/60 leading-relaxed">开：只有 <b>AI 引擎</b>不自动跑（省 API 额度）；<b>免费机翻(MyMemory)仍自动补全</b>、零额度——所以界面基本全自动译好。想要更地道的 AI 译文时点右下角「🌐」。关：所选引擎（含 AI）全自动跑。</span>
               </span>
             </label>
           )}
@@ -3206,7 +3206,7 @@ function NarrativeMemorySettings() {
   const effApi = nmUseShared ? (textUseShared ? api0 : textApi) : nmApi;
   const modelOpts = nmModels.length > 0 ? nmModels : [effApi.modelId].filter(Boolean);
 
-  const num = (label: string, key: 'recentFullTextCount' | 'distantKeywordThreshold' | 'recallTopK' | 'recallMinScore' | 'requestTimeout' | 'structMaxNpcs' | 'structMaxSkills' | 'structMaxItems' | 'structMaxSubProfs' | 'structMaxFactions',
+  const num = (label: string, key: 'recentFullTextCount' | 'distantKeywordThreshold' | 'recallTopK' | 'recallMinScore' | 'requestTimeout' | 'structMaxNpcs' | 'structMaxSkills' | 'structMaxItems' | 'structMaxNpcSkills' | 'structMaxNpcItems' | 'structMaxSubProfs' | 'structMaxFactions',
                min: number, max: number, hint: string) => (
     <div className="space-y-1.5">
       <div className="text-sm font-semibold text-slate-200">{label}</div>

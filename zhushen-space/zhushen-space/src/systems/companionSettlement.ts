@@ -39,7 +39,7 @@ export const COMPANION_SETTLE_RATIO = 0.5;
 /** 单次结算最多同步这么多随从，防病态大队伍拖慢/无限。 */
 export const MAX_SETTLE_COMPANIONS = 24;
 
-/** 该 NPC 本次是否参与随从结算：未死亡、有真名，且为主角的随行者——
+/** 该 NPC 本次是否**自动**参与随从结算（玩家没手选时的默认判据）：未死亡、有真名，且为主角的随行者——
  *  羁绊(isBond)或临时队友(partyMember)恒计入；否则须「在场」且标签为 随从/宠物/召唤/眷属/伙伴。
  *  纯路人契约者、土著不计（他们不随主角结算世界之源）。 */
 export function isSettlingCompanion(n: CompanionLike): boolean {
@@ -47,6 +47,25 @@ export function isSettlingCompanion(n: CompanionLike): boolean {
   if (!n.name || n.name === n.id) return false;            // 无真名的占位/幻觉档不发
   if (n.isBond || n.partyMember) return true;              // 核心随从 / 当前队友：恒结算
   return !!n.onScene && /随从|宠物|召唤|眷属|伙伴/.test(n.npcTag || '');
+}
+
+/** 结算弹窗「候选随从」判据：比 isSettlingCompanion 宽——**不要求在场**（让玩家能手选離场的旧随从）。
+ *  未死+有真名+(羁绊||临时队友||随从/宠物/召唤/眷属/伙伴标签)。契约者路人/土著仍不入选。 */
+export function isCandidateCompanion(n: CompanionLike): boolean {
+  if (!n || n.isDead) return false;
+  if (!n.name || n.name === n.id) return false;
+  return !!(n.isBond || n.partyMember || /随从|宠物|召唤|眷属|伙伴/.test(n.npcTag || ''));
+}
+
+/** 本次真正参与结算的随从集合·单一来源（发点 + 结算卡点名共用，杜绝两处判据分叉）：
+ *  · whitelist 为数组 → 玩家在弹窗里**显式勾选**的那批（只排除死者/无名，忽略在场/标签限制，玩家说了算）；空数组=玩家选了「一个都不发」。
+ *  · whitelist 为 null/undefined → 未手选 → 回退 isSettlingCompanion 自动判定。 */
+export function selectSettlingCompanions(npcs: CompanionLike[], whitelist?: string[] | null): CompanionLike[] {
+  if (Array.isArray(whitelist)) {
+    const s = new Set(whitelist);
+    return npcs.filter((c) => s.has(c.id) && !c?.isDead && !!c?.name && c.name !== c.id);
+  }
+  return npcs.filter(isSettlingCompanion);
 }
 
 /** 某阶位是否「四阶及以上」（六维即真实属性 → 发真实属性点）。取不到阶位按普通(false)。 */
@@ -59,7 +78,7 @@ function isTrueAttrTier(realm?: string): boolean {
 export function computeCompanionAwards(
   player: PlayerSettlementAward,
   npcs: CompanionLike[],
-  opts?: { ratio?: number },
+  opts?: { ratio?: number; whitelist?: string[] | null },
 ): CompanionAward[] {
   const ratio = opts?.ratio ?? COMPANION_SETTLE_RATIO;
   // 主角本次「属性点池」= 普通 + 真实（主角只会拿其一，合计即为其档位对应的属性点数）
@@ -69,9 +88,8 @@ export function computeCompanionAwards(
   const awardSkill = Math.floor(skillTotal * ratio);
   if (awardAttr <= 0 && awardSkill <= 0) return [];          // 主角这次几乎没拿点数 → 随从也不发（E/D 微通关）
   const out: CompanionAward[] = [];
-  for (const c of npcs) {
+  for (const c of selectSettlingCompanions(npcs, opts?.whitelist)) {   // 玩家手选优先，否则自动判定
     if (out.length >= MAX_SETTLE_COMPANIONS) break;
-    if (!isSettlingCompanion(c)) continue;
     const real = isTrueAttrTier(c.realm);                    // 随从按**自己的**阶位决定发真实还是普通属性点
     out.push({
       id: c.id,

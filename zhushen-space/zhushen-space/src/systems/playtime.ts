@@ -30,13 +30,14 @@ export async function playtimeMe(): Promise<PlaytimeMe | null> {
   } catch { return null; }
 }
 
-/** 排行榜 top N（公开·无需登录）。 */
-export async function playtimeTop(limit = 50): Promise<{ items: PlaytimeTopEntry[]; players: number }> {
+/** 排行榜 top N（公开·无需登录）。total=全服累计在线时长(秒·所有登录者之和)。 */
+export async function playtimeTop(limit = 50): Promise<{ items: PlaytimeTopEntry[]; players: number; total: number }> {
   try {
     const res = await fetch(`${mpBase()}/api/playtime/top?limit=${limit}`);
-    if (!res.ok) return { items: [], players: 0 };
-    return await res.json();
-  } catch { return { items: [], players: 0 }; }
+    if (!res.ok) return { items: [], players: 0, total: 0 };
+    const d = await res.json();
+    return { items: d.items || [], players: d.players || 0, total: d.total || 0 };
+  } catch { return { items: [], players: 0, total: 0 }; }
 }
 
 /* ── 心跳累计器：只统计"页面可见 + 已登录"的活跃时长，每 BEAT_MS 上报一次 ── */

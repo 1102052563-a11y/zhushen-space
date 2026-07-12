@@ -97,8 +97,9 @@ function robustParseArray(raw: string, n: number): string[] | null {
 }
 
 // ── 批处理队列：一屏内多个 useAutoText 合并成一次(每次≤40条)调用 ──
-type Pending = { text: string; target: UiLang; resolve: (v: string) => void }[];
-let queue: Pending = [];
+// 每条带自己的引擎('ai'/'free')：手动模式下 DOM 层用 'free' 自动补全(零额度)、'ai' 留给🌐点触。
+type PendingItem = { text: string; target: UiLang; engine: 'ai' | 'free'; resolve: (v: string) => void };
+let queue: PendingItem[] = [];
 let flushTimer: ReturnType<typeof setTimeout> | null = null;
 
 // ── 免费机翻引擎（MyMemory·无需 key·浏览器 CORS 友好·不耗玩家 API 额度）──
@@ -146,45 +147,54 @@ async function llmTranslate(texts: string[], target: UiLang): Promise<(string | 
 async function flush() {
   flushTimer = null;
   const batch = queue; queue = [];
-  // 按目标语言分组；同一批内去重
-  const byTarget = new Map<UiLang, Map<string, ((v: string) => void)[]>>();
+  // 繁體 + 中文源 → OpenCC（免调用·与引擎无关）先单独处理
+  const hant = batch.filter((p) => p.target === 'zh-Hant' && detectLang(p.text) === 'zh');
+  if (hant.length) {
+    try {
+      const conv = twConverterSync() ?? await getTwConverter();
+      const memo = new Map<string, string>();
+      for (const h of hant) {
+        let out = memo.get(h.text);
+        if (out == null) { out = conv(h.text); memo.set(h.text, out); cache.set(ck(h.text, 'zh-Hant'), out); }
+        h.resolve(out);
+      }
+    } catch { for (const h of hant) h.resolve(h.text); }
+  }
+  // 其余按「目标语言 + 引擎」分组；组内按文本去重（同文一次调用·多处回填）
+  const groups = new Map<string, { target: UiLang; engine: 'ai' | 'free'; texts: Map<string, ((v: string) => void)[]> }>();
   for (const p of batch) {
-    let m = byTarget.get(p.target); if (!m) { m = new Map(); byTarget.set(p.target, m); }
-    let arr = m.get(p.text); if (!arr) { arr = []; m.set(p.text, arr); }
+    if (p.target === 'zh-Hant' && detectLang(p.text) === 'zh') continue;   // 已由 OpenCC 处理
+    const key = p.target + ' ' + p.engine;
+    let g = groups.get(key);
+    if (!g) { g = { target: p.target, engine: p.engine, texts: new Map() }; groups.set(key, g); }
+    let arr = g.texts.get(p.text); if (!arr) { arr = []; g.texts.set(p.text, arr); }
     arr.push(p.resolve);
   }
-  for (const [target, texts] of byTarget) {
-    // 繁體 + 中文源 → OpenCC（免调用·两种引擎都走这条）
-    const zhToHant: string[] = [], apiTexts: string[] = [];
-    for (const t of texts.keys()) (target === 'zh-Hant' && detectLang(t) === 'zh' ? zhToHant : apiTexts).push(t);
-    if (zhToHant.length) {
-      try {
-        const conv = twConverterSync() ?? await getTwConverter();
-        for (const t of zhToHant) { const out = conv(t); cache.set(ck(t, target), out); texts.get(t)!.forEach((r) => r(out)); }
-      } catch { for (const t of zhToHant) texts.get(t)!.forEach((r) => r(t)); }
-    }
-    const engine = useSettings.getState().autoTranslateEngine;   // 'ai'=LLM(耗额度·最地道) / 'free'=MyMemory(免费)
+  let cached = false;
+  for (const g of groups.values()) {
+    const apiTexts = [...g.texts.keys()];
     for (let i = 0; i < apiTexts.length; i += 40) {
       const slice = apiTexts.slice(i, i + 40);
       let out: (string | null)[];
       try {
-        out = engine === 'free' ? await freeTranslate(slice, target) : await llmTranslate(slice, target);
+        out = g.engine === 'free' ? await freeTranslate(slice, g.target) : await llmTranslate(slice, g.target);
       } catch {
-        try { out = await freeTranslate(slice, target); } catch { out = slice.map(() => null); }   // AI 失败(如未配 API)→退免费；再失败→null
+        try { out = await freeTranslate(slice, g.target); } catch { out = slice.map(() => null); }   // AI 失败(如未配 API)→退免费；再失败→null
       }
       slice.forEach((t, j) => {
         const v = out[j];
-        if (v != null) cache.set(ck(t, target), v);       // ⭐仅成功才缓存；失败(null)不缓存→下次访问重试（治"限流后永久留中文"）
-        texts.get(t)!.forEach((r) => r(v != null ? v : t));
+        if (v != null) { cache.set(ck(t, g.target), v); cached = true; }   // ⭐仅成功才缓存；失败(null)不缓存→下次访问重试（治"限流后永久留中文"）
+        g.texts.get(t)!.forEach((r) => r(v != null ? v : t));
       });
     }
-    saveCacheSoon();
   }
+  if (cached || hant.length) saveCacheSoon();
 }
 
-export function enqueue(text: string, target: UiLang): Promise<string> {
+export function enqueue(text: string, target: UiLang, engine?: 'ai' | 'free'): Promise<string> {
+  const eng = engine ?? ((useSettings.getState().autoTranslateEngine as 'ai' | 'free') || 'ai');
   return new Promise((resolve) => {
-    queue.push({ text, target, resolve });
+    queue.push({ text, target, engine: eng, resolve });
     if (!flushTimer) flushTimer = setTimeout(flush, 80);   // 攒 80ms 合批
   });
 }

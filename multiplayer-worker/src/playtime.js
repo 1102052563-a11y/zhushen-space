@@ -15,6 +15,11 @@ CREATE TABLE IF NOT EXISTS playtime (
   updated_at INTEGER NOT NULL
 );
 CREATE INDEX IF NOT EXISTS idx_playtime_seconds ON playtime(seconds DESC);
+CREATE TABLE IF NOT EXISTS presence (
+  iphash TEXT PRIMARY KEY,
+  seen INTEGER NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_presence_seen ON presence(seen DESC);
 `;
 
 let schemaReady = false;
@@ -30,6 +35,23 @@ function json(obj, init = {}, headers = {}) {
 
 const MAX_BEAT = 300;   // 单次心跳最多累加 5 分钟（防一次塞大数）；正常客户端每 60s 上报
 const MAX_NAME = 40;
+const ONLINE_MS = 3 * 60 * 1000;    // 近 3 分钟内有心跳 = 当前在玩（客户端每 60s 报一次）
+const PRUNE_MS  = 30 * 60 * 1000;   // 超 30 分钟的在线记录清掉（防 presence 表无限长）
+
+// 客户端 IP 哈希（**不存原始 IP**·仅作"当前在玩者"去重键·隐私友好）。取 Cloudflare 真实来源 IP。
+async function ipHash(request, env) {
+  const ip = request.headers.get("CF-Connecting-IP") || (request.headers.get("X-Forwarded-For") || "").split(",")[0].trim();
+  if (!ip) return "";
+  const data = new TextEncoder().encode((env.PRESENCE_SALT || "zhushen") + "|" + ip);
+  const buf = await crypto.subtle.digest("SHA-256", data);
+  return [...new Uint8Array(buf)].map((b) => b.toString(16).padStart(2, "0")).join("").slice(0, 32);
+}
+// { online: 当前在玩人数(按IP去重·近 ONLINE_MS·含没登录 Discord 的), total: 累计在线时长总秒数(所有登录者 playtime 之和) }
+async function presenceStats(db, now) {
+  const on = await db.prepare("SELECT COUNT(*) AS n FROM presence WHERE seen > ?").bind(now - ONLINE_MS).first();
+  const tot = await db.prepare("SELECT COALESCE(SUM(seconds), 0) AS s FROM playtime").first();
+  return { online: on?.n || 0, total: tot?.s || 0 };
+}
 
 export async function handlePlaytime(request, env, ch, url) {
   const db = env.DB;
@@ -43,7 +65,23 @@ export async function handlePlaytime(request, env, ch, url) {
     const limit = Math.max(1, Math.min(100, parseInt(url.searchParams.get("limit") || "50", 10) || 50));
     const rows = await db.prepare("SELECT uid, name, seconds FROM playtime ORDER BY seconds DESC, updated_at ASC LIMIT ?").bind(limit).all();
     const cnt = await db.prepare("SELECT COUNT(*) AS n FROM playtime").first();
-    return cj({ items: (rows?.results || []).map((r) => ({ uid: r.uid, name: r.name || "道友", seconds: r.seconds || 0 })), players: cnt?.n || 0 });
+    const tot = await db.prepare("SELECT COALESCE(SUM(seconds), 0) AS s FROM playtime").first();
+    return cj({ items: (rows?.results || []).map((r) => ({ uid: r.uid, name: r.name || "道友", seconds: r.seconds || 0 })), players: cnt?.n || 0, total: tot?.s || 0 });
+  }
+
+  // ── 当前在玩人数 / 累计在线时长（公开·无需登录·按 IP 去重计"当前在玩者"，含没登录 Discord 的人）──
+  //   POST presence = 上报"我在玩"心跳（每 60s）；GET online = 只读展示（聊天室轮询）。都回 { online, total }。
+  if (p === "/api/playtime/presence" && request.method === "POST") {
+    const now = Date.now();
+    const iph = await ipHash(request, env);
+    if (iph) {
+      await db.prepare("INSERT INTO presence (iphash, seen) VALUES (?, ?) ON CONFLICT(iphash) DO UPDATE SET seen = excluded.seen").bind(iph, now).run();
+      await db.prepare("DELETE FROM presence WHERE seen < ?").bind(now - PRUNE_MS).run();   // 顺手清过期
+    }
+    return cj(await presenceStats(db, now));
+  }
+  if (p === "/api/playtime/online" && request.method === "GET") {
+    return cj(await presenceStats(db, Date.now()));
   }
 
   // ── 以下需 Discord 登录（chatToken）──

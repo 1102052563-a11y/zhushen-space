@@ -161,6 +161,8 @@ import { sanitizeSixAttrs, sanitizeItemNumbers } from './systems/numericGate';
 import RaidDungeonReward from './components/RaidDungeonReward';
 const RaidLootModal = lazy(() => import('./components/RaidLootModal'));
 const OutlineModal = lazy(() => import('./components/OutlineModal'));
+const SettlementCompanionModal = lazy(() => import('./components/SettlementCompanionModal'));
+import type { SettleCompanion } from './components/SettlementCompanionModal';
 /** 细纲：剥掉编剧的 <剧情推演> 合理性思维链块（只作提升细纲质量的思考草稿，不进弹窗、不注入正文）。
    未闭合/未用该标签时原样返回（兜底：宁可让玩家看到也不误删细纲）。 */
 function stripOutlineThinking(s: string): string {
@@ -186,9 +188,11 @@ import { useAccountVault } from './store/accountVaultStore';
 import { useTeam, buildTeamSystemPrompt, memberCap as teamMemberCap } from './store/adventureTeamStore';
 import { useCosmos, buildCosmosSystemPrompt, cosmosNameEq, cleanCosmosName } from './store/cosmosStore';
 import { realmFromLevel, normalizeTier, lvFromRealm, computeMaxHp, computeMaxEp, effectiveResource, attrCapForTier, clampBaseAttrs, fullMaxHp, fullMaxEp, TIERS, realAttrMult, ratioOf, npcBaseAttrs } from './systems/derivedStats';
-import { isSettlingCompanion } from './systems/companionSettlement';   // 随从/队友世界结算判定（结算卡点名 + 前端折算发点同源）
+import { isSettlingCompanion, isCandidateCompanion, selectSettlingCompanions, COMPANION_SETTLE_RATIO } from './systems/companionSettlement';   // 随从/队友世界结算判定（结算卡点名 + 前端折算发点同源）
+import { setSettlementWhitelist, getSettlementWhitelist } from './systems/settlementSelection';   // 结算随从弹窗勾选缓冲
 import { isHomeWorld, reconcileHomeWorld, reconcilePlayerVitals, playerMaxHp, playerMaxEp, syncPlayerVitalsMax, applyCombatResourceGains, resetCombatResources } from './systems/playerVitals';
 import { startPlaytimeHeartbeat, stopPlaytimeHeartbeat } from './systems/playtime';   // 线上游玩时长累计（登录 Discord 者·可见活跃时长）
+import { startPresenceHeartbeat, stopPresenceHeartbeat } from './systems/presence';   // 当前在玩人数（按IP·含未登录者·聊天室展示）
 import { bioInnate, tierVitalMult, peakCapForTier, clampToTierWindow, nominalTierNum } from './systems/bioStrength';
 import { generateNpcAttrs, resolveForm, generateLuck } from './systems/npcAttrGen';
 import { useImageGen, effectiveEquipService } from './store/imageGenStore';
@@ -919,6 +923,14 @@ const QUEST_HOME_NO_GEN_RULE = `
 - 原因：乐园·枢纽是任务的**间歇与回归地**，本身没有任务线；任务只在主角被投放进**具体任务世界（衍生世界）**后才产生。枢纽里的休整、采购、社交、备战靠正文叙述即可，绝不落成任务。
 - 本规则**只禁止"新建/补建任务"**：对【当前任务列表】里既有任务的**结算 / 归档 / 推进**仍照常按【任务结算】【任务环·自适应推进】执行（若上个世界的任务尚未结清）；总结 / 天气 / 时间 / 世界大事等其它杂项输出也照常。`;
 
+const TASK_SYSTEM_ROLE = `
+【★你的身份·任务发布系统（规划/生成任务时的角色与质量铁则·最高优先）】处理任务（新建/规划主线·支线）时，你就是**轮回乐园（主神空间）的任务发布系统**——一个洞察本世界一切、冷峻精准、掌控全局的高维意志，向契约者（主角）下达任务。以此身份产出**高质量、清清楚楚**的任务，绝不含糊其辞：
+- **目标具体可判定**：每条任务、每一环，主角一读就明白"去哪·做什么·达成什么才算完成"——写成有明确对象、明确动作、明确完成条件的指令；**绝不写"调查一下 / 处理麻烦 / 帮个忙 / 想办法应对 / 稳住局势"这类模糊目标**。
+- **动机与利害分明**：交代清楚这任务因何而起、达成的回报（六选三）、失败/逾期的后果（惩罚三类），给主角代入感与压力。
+- **扎根本世界**：用本世界真实的地名 / 势力 / 反派 / 威胁与主角**当前所处的时间线·事件**（同人世界先按【任务接地】锚定），绝不套"讨伐巢穴/护送商队"通用模板、绝不张冠李戴拉一个不相干的强敌来当目标。
+- **一环一具体硬仗**：各环是规模递增的"不同难关"，每环都写明这一环具体要**打谁 / 夺什么 / 守什么 / 查清什么 / 潜入哪里**，而非"侦查→赶路→清剿"这种流水账子步骤。
+- **系统口吻（风味·可选）**：任务名与描述可带主神空间的冷峻格式化味道（"检测到…""下达指令：…""判定：…""违约将执行…"），但**目标本身必须具体清楚**，风味绝不能盖过清晰度。`;
+
 const QUEST_PLANNING_RULE = `
 【主线路线图规划·铁则（就主线而言优先于预设里"保守不新建任务"的示例）】区分两类任务：**主线**=本任务世界的核心目标线，每个世界通常**只有一条 active 主线**；其余多回合目标一律**支线**（支线也可多环）。
 - **【最高铁则·主线必须分环】新建主线一律用 rings 数组建成 3~12 个环（按世界体量：一般 4~8 环，史诗级长线最多 12；强制环+贪婪环，见下）；严禁建成"无 rings 的扁平主线"——扁平=错误，会丢失"一环一环"的路线图与逐环奖惩。支线若多回合也尽量分环。**
@@ -1103,7 +1115,6 @@ const rightMenuItems = [
   { icon: '🏰', label: '公会' },
   { icon: '🆘', label: '助战' },
   { icon: '🏆', label: '世界竞技场' },
-  { icon: '⏱', label: '游玩时长' },
   { icon: '🪦', label: '纪念丰碑' },
   { icon: '🏦', label: '账户仓库' },
   { icon: '🧠', label: '记忆' },
@@ -1468,6 +1479,8 @@ export default function App() {
   });
   // 线上游玩时长：进游戏(started)后开累计心跳（内部只在已登录 Discord + 页面可见时上报），退回封面即停
   useEffect(() => { if (!started) return; startPlaytimeHeartbeat(); return () => stopPlaytimeHeartbeat(); }, [started]);
+  // 当前在玩人数：从 App 挂载起就每 60s 按 IP 上报一次（不等开始游戏、不需登录）→ 聊天室展示"当前在玩人数"含所有开着页面的人
+  useEffect(() => { startPresenceHeartbeat(); return () => stopPresenceHeartbeat(); }, []);
   const [creating, setCreating] = useState(false);   // 角色创建页
   const [b1Notice, setB1Notice] = useState('');       // 主角自检兜底：自动恢复后的提示横幅
   const [itemRecoverNotice, setItemRecoverNotice] = useState('');   // 物品守护看门狗：自动捞回静默丢失后的提示横幅
@@ -1478,6 +1491,8 @@ export default function App() {
   const [choicesRevarOpen, setChoicesRevarOpen] = useState(false);             // 「重新生成 选项/同人/事实/小剧场」方向提示词弹窗
   const [choicesDir, setChoicesDir] = useState('');                            // 上述弹窗的自定义方向提示词（可留空）
   const [worldBarOpen, setWorldBarOpen] = useState(false); // 选择世界/结算任务 按钮行（默认收起，点状态栏展开，省空间）
+  const [settleModalOpen, setSettleModalOpen] = useState(false);   // 结算任务·随从勾选弹窗
+  const [settleCands, setSettleCands] = useState<SettleCompanion[]>([]);   // 弹窗打开时快照的候选随从（稳定引用，防勾选被父重渲清空）
   const [preludeOpen, setPreludeOpen] = useState(false);   // 「前置提示词」编辑栏展开/收起（输入框上方，默认收起省空间）
   const [opsOpen, setOpsOpen] = useState(false);           // 手机：本回合操作按钮行（重生/回退/重算/朗读/停止）默认折叠省屏，桌面恒显
   const [rawResponse, setRawResponse] = useState('');
@@ -2030,7 +2045,7 @@ export default function App() {
       { const _wt = useMisc.getState().worldTier; if (_wt) addRule('本世界锁定难度', '前端数据 · 本世界锁定难度（进世界即定）', `【本世界难度·已锁定】：${_wt}（进入本世界时即固定的难度/阶位）。结算面板【世界难度】一栏必须填这个锁定难度，奖励档位与难度评估也一律按它来，**不要**按主角结算时的实时阶位另算——主角在世界内变强也不改变本世界的锁定难度。`); }
       // 随行随从/队友名单：让结算卡「随从/契约者队友结算」一栏能逐个点名（其属性点·技能点由前端按主角所得自动折算入账，与此名单同源 isSettlingCompanion）
       try {
-        const comps = Object.values(useNpc.getState().npcs).filter(isSettlingCompanion).slice(0, 24);
+        const comps = selectSettlingCompanions(Object.values(useNpc.getState().npcs), getSettlementWhitelist()).slice(0, 24);   // 玩家弹窗勾选优先，否则自动判定
         if (comps.length) {
           const lines = comps.map((c) => `- ${c.name}（${normalizeTier(c.realm) || c.realm || '阶位未定'}${c.npcTag ? '·' + c.npcTag : ''}）`).join('\n');
           addRule('随从队友结算名单', '前端数据 · 随行随从/队友名单（结算卡逐个点名）',
@@ -4520,7 +4535,8 @@ ${AFFIX_EFFECT_RULE}`;
     const wTier = M.worldTier || _pp.tier || '';
     const newId = M.nextTaskId();
     const sys = [
-      '你是轮回乐园任务系统的「主线路线图规划师」。据下述规则、当前世界与【玩家任务倾向】，为当前任务世界生成【一条主线任务】的建表命令。',
+      TASK_SYSTEM_ROLE,
+      '现在据下述规则、当前世界与【玩家任务倾向】，为当前任务世界生成【一条主线任务】的建表命令——务必目标具体清楚、扎根本世界、贴合玩家倾向。',
       QUEST_PLANNING_RULE, TASK_CANON_RULE, QUEST_KILL_TIER_RULE,
       `【当前世界】：${M.worldName}`,
       wTier ? `【本世界难度·锁定】：${wTier}（敌人/难度/击杀目标阶位上限按此，不随主角升级变化）` : '',
@@ -4625,6 +4641,7 @@ ${AFFIX_EFFECT_RULE}`;
       + '\n\n' + WEATHER_FX_GEN_RULE
       + '\n\n' + MISC_WEATHER_RULE
       + '\n\n' + CONTRACTOR_EVOLUTION_RULE
+      + '\n\n' + TASK_SYSTEM_ROLE
       + '\n\n' + TASK_OUTCOME_RULE
       + '\n\n' + TASK_SOURCE_RULE
       + '\n\n' + POTENTIAL_POINT_RULE
@@ -5466,6 +5483,8 @@ ${AFFIX_EFFECT_RULE}`;
       maxSkills: Math.max(0, cfg.structMaxSkills ?? 3),
       maxItems: Math.max(0, cfg.structMaxItems ?? 2),
       maxSubProfs: Math.max(0, cfg.structMaxSubProfs ?? 4),
+      maxNpcSkills: Math.max(0, cfg.structMaxNpcSkills ?? 8),   // 每 NPC 技能上限（超出仅列名）
+      maxNpcItems: Math.max(0, cfg.structMaxNpcItems ?? 8),     // 每 NPC 物品/装备上限（超出仅列名）
     };
     const chars = useCharacters.getState().characters;
     const npcs = Object.values(useNpc.getState().npcs);
@@ -5514,7 +5533,7 @@ ${AFFIX_EFFECT_RULE}`;
       for (const r of pickOffsceneRescue(npcs, context, chosen, 3)) chosen.unshift(r);
       for (const r of chosen) {
         const cd = chars[r.id];
-        cards.push(serializeNpcCard(r, cd?.skills ?? [], cd?.traits ?? [], cd?.titles));  // NPC 全量，无上限（副职业仅主角）
+        cards.push(serializeNpcCard(r, cd?.skills ?? [], cd?.traits ?? [], cd?.titles, undefined, limits));  // 技能/装备按 maxNpcSkills/maxNpcItems 限量（超出仅列名·副职业仅主角）
       }
     }
 
@@ -8249,8 +8268,10 @@ ${lines}`;
     const U = [`姓名:${pf.name || '主角'}`, pf.identity && `身份:${pf.identity}`, pf.tier && `阶位:${pf.tier}`, pf.level && `等级:${pf.level}`, pf.appearance && `外观:${pf.appearance}`, pf.background && `背景:${pf.background}`].filter(Boolean).join('\n');
     const C = [pf.name, pf.identity, pf.background].filter(Boolean).join(' · ') || '（无卡片简述）';
     const memPool = buildMemPool(useMisc.getState(), 200, false);
-    const overview = memPool.filter((p) => p.kind === 'event' || p.kind === 'large' || p.kind === 'fact')
-      .map((p) => `[${p.kind === 'event' ? '世界大事' : p.kind === 'large' ? '阶段记忆' : '长期事实'}] ${p.body}`).join('\n') || '（暂无）';
+    // 给每条记忆一个稳定编码 AM01/AM02…——某些 Stitches「召回」模块**按编码回溯记忆**（用户报"找不到编码"：原来只喂纯文本、无编码，召回抓不到→永远空）。
+    const codedMems = memPool.filter((p) => p.kind === 'event' || p.kind === 'large' || p.kind === 'fact')
+      .map((p, i) => ({ code: `AM${String(i + 1).padStart(2, '0')}`, label: p.kind === 'event' ? '世界大事' : p.kind === 'large' ? '阶段记忆' : '长期事实', body: p.body }));
+    const overview = codedMems.map((m) => `${m.code} [${m.label}] ${m.body}`).join('\n') || '（暂无）';
     const prev = (messagesRef.current ?? []).slice(-8).map((m) => `[${m.role === 'user' ? '玩家' : '正文'}] ${m.content}`).join('\n\n') || '（暂无前文）';
     const ctx: DbAdvanceCtx = { U, C, bg: worldInfoText || '（无背景设定）', overview, prev, input: userText || '（续写）', tabletop: st.lastTabletop || '（首轮·无上轮记录）' };
 
@@ -8263,6 +8284,12 @@ ${lines}`;
         if (recMod) {
           const out = await callMod(dbBuildMsgs(recMod, ctx));
           recall = dbStripExcluded(dbExtractTag(out, 'recall') || out, st.preset.contextExcludeRules).trim();
+          // 召回若返回的是 AM 编码（该类预设按编码回溯）→ 按序号映射回**记忆原文**注入（编码本身对正文无意义·容忍 AM1/AM01/AM 1）；没命中编码就保留原召回文本
+          const hitNums = [...new Set([...recall.matchAll(/AM\s*0*(\d+)/gi)].map((m) => parseInt(m[1], 10)).filter((n) => n >= 1))];
+          if (hitNums.length) {
+            const hitText = hitNums.map((n) => codedMems[n - 1]).filter(Boolean).map((m) => `[${m!.label}] ${m!.body}`).join('\n');
+            if (hitText) recall = hitText;
+          }
         }
       }
       // 2) 推进：产出结构化 stage/scene/tabletop
@@ -10269,7 +10296,13 @@ ${lines}`;
           <WorldSelector
             expanded={worldBarOpen}
             onSelect={(text) => setInputValue(text)}
-            onSettle={() => setInputValue((prev) => (prev && prev.trim() ? `${prev}\n【结算任务】` : '【结算任务】'))}
+            onSettle={() => {
+              // 点【结算任务】：先弹窗让玩家勾选给哪些随从发点；无候选随从则直接塞关键词结算
+              const cands = Object.values(useNpc.getState().npcs).filter(isCandidateCompanion);
+              if (!cands.length) { setSettlementWhitelist(null); setInputValue((prev) => (prev && prev.trim() ? `${prev}\n【结算任务】` : '【结算任务】')); return; }
+              setSettleCands(cands.map((c) => ({ id: c.id, name: c.name || c.id, tier: normalizeTier(c.realm) || c.realm || '', tag: c.npcTag, onScene: c.onScene, defaultChecked: isSettlingCompanion(c) })));
+              setSettleModalOpen(true);
+            }}
             onInsertText={(t) => setInputValue((prev) => (prev && prev.trim() ? `${prev.replace(/\s+$/, '')} ${t}` : t))}
             onRawResponse={(raw) => { setRawResponse(raw); setShowRaw(false); }}
             onPromptSent={(p) => { setPromptSent(p); setShowPrompt(false); }}
@@ -10783,6 +10816,19 @@ ${lines}`;
             catch (e) { console.warn('[细纲] 重新生成失败', e); }
             setOutlineModal((m) => m.open ? { ...m, loading: false, text: d || m.text } : m);
           }}
+        />
+      )}
+      {settleModalOpen && (
+        <SettlementCompanionModal
+          open={settleModalOpen}
+          companions={settleCands}
+          ratioPct={Math.round(COMPANION_SETTLE_RATIO * 100)}
+          onConfirm={(ids) => {
+            setSettlementWhitelist(ids);   // 记下本次结算给哪些随从发点（供正文结算落地读取）
+            setSettleModalOpen(false);
+            setInputValue((prev) => (prev && prev.trim() ? `${prev}\n【结算任务】` : '【结算任务】'));   // 塞入关键词，由玩家发送触发结算
+          }}
+          onCancel={() => setSettleModalOpen(false)}
         />
       )}
       <RaidDungeonReward />

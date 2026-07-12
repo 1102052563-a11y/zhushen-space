@@ -34,6 +34,8 @@ export interface RecallLimits {
   maxSkills: number;    // 仅主角技能上限
   maxItems: number;     // 仅主角装备上限
   maxSubProfs?: number; // 主角副职业上限
+  maxNpcSkills?: number;  // 每个 NPC 注入的技能上限（0/缺省=全量，旧行为）——治"NPC 几十个技能满装备撑爆上下文·AI 流口水"
+  maxNpcItems?: number;   // 每个 NPC 注入的物品/装备上限（0/缺省=全量）
 }
 
 /* 当前世界势力召回块（限量）——注入全量信息（含所处世界/地盘/资源/成员/资产/背景） */
@@ -352,13 +354,24 @@ export function serializePlayerCard(
   ].filter(Boolean).join('\n');
 }
 
-/* ── 单个 NPC 档案卡（被选中即全量信息：所有技能/天赋/装备，无上限；排除调度/UI/内部字段）── */
+/* 取前 cap 条全量 + 其余仅列名称（cap<=0 或未超上限 → 全量）。用于 NPC 技能/物品/天赋限量：
+   重要项照给全效果，长尾折成一行"其余 N 个(仅名称)"——AI 仍知其存在但不吃 token。 */
+function topWithRest<T>(sorted: T[], cap: number, full: (x: T) => string, nameOf: (x: T) => string, noun: string): string[] {
+  if (cap <= 0 || sorted.length <= cap) return sorted.map(full);
+  const top = sorted.slice(0, cap).map(full);
+  const rest = sorted.slice(cap);
+  top.push(`    · 其余 ${rest.length} 个${noun}(仅名称，效果从略): ${rest.map(nameOf).join('、')}`);
+  return top;
+}
+
+/* ── 单个 NPC 档案卡（被选中即注入；技能/装备默认全量，设了 maxNpcSkills/maxNpcItems 则取前 N + 长尾仅名称；排除调度/UI/内部字段）── */
 export function serializeNpcCard(
   npc: NpcRecord,
   skills: Skill[],
   talents: Talent[],
   titles?: Title[],
   subProfs?: SubProfession[],
+  limits?: RecallLimits,
 ): string {
   const flags = [npc.isDead && '已死亡', npc.onScene ? '在场' : '离场'].filter(Boolean).join('·');
   const id = ['姓名:' + (npc.name || '（未命名）'),
@@ -416,10 +429,16 @@ export function serializeNpcCard(
     (npc.deedLog?.length ?? 0) > 0 && `近期经历:${npc.deedLog!.slice(-3).map((d) => d.description).join('；')}`,
   ].filter(Boolean).join('\n  ');
 
-  // 被选中的 NPC 给全量信息（仅排序，不截断）
-  const skillLines = skills.slice().sort((a, b) => skillScore(b) - skillScore(a)).map(skillLine);
-  const itemLines = (npc.items ?? []).slice().sort((a, b) => itemScore(b) - itemScore(a)).map(itemLine);
-  const talLines = talents.slice().sort((x, y) => talentScore(y) - talentScore(x)).map(talentLine);
+  // 被选中的 NPC：按重要度排序。默认全量（旧行为）；若设了每-NPC 上限则「取前 N 全量 + 其余仅列名称」，
+  // 治"NPC 几十个技能满装备"每回合整包注入撑爆上下文（AI 流口水）——重要技能/装备照给全效果，长尾只留名。
+  const capSk = limits?.maxNpcSkills && limits.maxNpcSkills > 0 ? limits.maxNpcSkills : 0;
+  const capIt = limits?.maxNpcItems && limits.maxNpcItems > 0 ? limits.maxNpcItems : 0;
+  const skSorted = skills.slice().sort((a, b) => skillScore(b) - skillScore(a));
+  const itSorted = (npc.items ?? []).slice().sort((a, b) => itemScore(b) - itemScore(a));
+  const taSorted = talents.slice().sort((x, y) => talentScore(y) - talentScore(x));
+  const skillLines = topWithRest(skSorted, capSk, skillLine, (s) => `「${s.name}」${s.level ? `[${s.level}]` : ''}`, '技能');
+  const itemLines = topWithRest(itSorted, capIt, itemLine, (it) => `「${it.name}」`, '物品');
+  const talLines = topWithRest(taSorted, capSk, talentLine, (t) => `「${t.name}」`, '天赋');   // 天赋复用技能上限
 
   const titleLine = equippedTitleLine(titles);
   const spLines = subProfLines(subProfs);

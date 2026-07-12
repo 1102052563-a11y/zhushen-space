@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { computeCompanionAwards, isSettlingCompanion, COMPANION_SETTLE_RATIO, MAX_SETTLE_COMPANIONS, type CompanionLike } from './companionSettlement';
+import { computeCompanionAwards, isSettlingCompanion, isCandidateCompanion, selectSettlingCompanions, COMPANION_SETTLE_RATIO, MAX_SETTLE_COMPANIONS, type CompanionLike } from './companionSettlement';
 
 const c = (over: Partial<CompanionLike> & { id: string }): CompanionLike => ({ name: over.id, onScene: true, ...over });
 
@@ -79,5 +79,54 @@ describe('computeCompanionAwards（按主角结算折算发点）', () => {
     const many = Array.from({ length: MAX_SETTLE_COMPANIONS + 6 }, (_, i) => c({ id: `C${i + 1}`, name: `随从${i + 1}`, isBond: true }));
     const out = computeCompanionAwards({ attrPoints: 20, realAttrPoints: 0, skillPoints: 20 }, many);
     expect(out).toHaveLength(MAX_SETTLE_COMPANIONS);
+  });
+});
+
+describe('isCandidateCompanion（弹窗候选·不要求在场）', () => {
+  it('離场的随从/宠物标签也是候选（弹窗可手选）', () => {
+    expect(isCandidateCompanion(c({ id: 'C5', name: '旧随从', npcTag: '随从', onScene: false }))).toBe(true);   // 与 isSettlingCompanion 不同：候选不要求在场
+    expect(isSettlingCompanion(c({ id: 'C5', name: '旧随从', npcTag: '随从', onScene: false }))).toBe(false);
+  });
+  it('土著/路人契约者/死者/无名 仍不入候选', () => {
+    expect(isCandidateCompanion(c({ id: 'C6', name: '村民', npcTag: '土著' }))).toBe(false);
+    expect(isCandidateCompanion(c({ id: 'C7', name: '过客', npcTag: '契约者' }))).toBe(false);
+    expect(isCandidateCompanion(c({ id: 'C8', name: '亡者', isBond: true, isDead: true }))).toBe(false);
+  });
+});
+
+describe('selectSettlingCompanions（白名单优先·单一来源）', () => {
+  const roster: CompanionLike[] = [
+    c({ id: 'C1', name: '小翠', isBond: true, onScene: true }),
+    c({ id: 'C2', name: '旧随从', npcTag: '随从', onScene: false }),   // 自动判定：不发（離场）
+    c({ id: 'C3', name: '村民', npcTag: '土著', onScene: true }),      // 永不发
+  ];
+  it('whitelist=null → 回退 isSettlingCompanion（只 C1）', () => {
+    expect(selectSettlingCompanions(roster, null).map((x) => x.id)).toEqual(['C1']);
+  });
+  it('★whitelist 显式勾选 → 玩家说了算（含離场 C2，但死者/无名/土著若没被勾也不进）', () => {
+    expect(selectSettlingCompanions(roster, ['C1', 'C2']).map((x) => x.id)).toEqual(['C1', 'C2']);   // C2 離场也发（玩家勾了）
+  });
+  it('whitelist=[] → 一个都不发', () => {
+    expect(selectSettlingCompanions(roster, [])).toEqual([]);
+  });
+  it('白名单里的死者/无名仍被剔除（防脏 id）', () => {
+    const r2: CompanionLike[] = [c({ id: 'C8', name: '亡者', isDead: true }), c({ id: 'C9', name: 'C9' })];
+    expect(selectSettlingCompanions(r2, ['C8', 'C9'])).toEqual([]);
+  });
+});
+
+describe('computeCompanionAwards + whitelist', () => {
+  const roster: CompanionLike[] = [
+    c({ id: 'C1', name: '小翠', realm: '三阶', isBond: true, onScene: true }),
+    c({ id: 'C2', name: '旧随从', realm: '五阶', npcTag: '随从', onScene: false }),
+  ];
+  it('★玩家勾选離场随从 → 也发点（覆盖自动判定的在场要求）', () => {
+    const out = computeCompanionAwards({ attrPoints: 10, realAttrPoints: 0, skillPoints: 8 }, roster, { whitelist: ['C2'] });
+    expect(out.map((x) => x.id)).toEqual(['C2']);
+    expect(out[0].realAttrPoints).toBe(5);   // 五阶 → 真实属性点；floor(10*0.5)
+    expect(out[0].skillPoints).toBe(4);
+  });
+  it('whitelist=[] → 空（玩家选了不发随从）', () => {
+    expect(computeCompanionAwards({ attrPoints: 10, realAttrPoints: 0, skillPoints: 8 }, roster, { whitelist: [] })).toEqual([]);
   });
 });

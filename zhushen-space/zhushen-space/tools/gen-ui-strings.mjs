@@ -40,7 +40,7 @@ function add(raw) {
 
 for (const file of files) {
   const t = fs.readFileSync(file, 'utf8');
-  for (const m of t.matchAll(/>([^<>{}\n]{1,40})</g)) add(m[1]);                    // JSX 文本
+  for (const m of t.matchAll(/[>}]([^<>{}\n]{1,40})(?=[<{])/g)) add(m[1]);           // JSX 文本（含 >文本{expr} 与 {expr}文本< 之间的片段，如「🎁 开启宝箱{…}」「…{n} 只)」）
   for (const m of t.matchAll(/(?:title|label|desc|placeholder|aria-label|alt|header|text|tip|tooltip|confirmText|cancelText|emptyText|name)\s*=\s*["']([^"'\n]{1,40})["']/g)) add(m[1]);   // 属性标签
   for (const m of t.matchAll(/["']([^"'\n]{1,30})["']/g)) add(m[1]);                // 短字符串字面量
 }
