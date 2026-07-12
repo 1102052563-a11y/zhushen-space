@@ -8214,6 +8214,20 @@ ${lines}`;
     });
   }
 
+  /* 剧情指导·产出护栏：判断「剧情指导」是否跑偏成了正文（而非要点建议）。命中正文硬结构标记（【正文】/时间结算/
+     任务世界绝对时刻/状态栏/【主角资源】/<state> 等——这些只该出现在正文预设规定的输出里），或整体过长即判定跑偏。
+     纪律下沉代码：不管用户把 guidancePrompt 自定义成了什么，都用这道防线拦「剧情指导替正文把活干了」。 */
+  const guidanceLooksLikeNarrative = (t: string): boolean => {
+    const s = (t || '').trim();
+    if (!s) return false;
+    const markers = ['【正文】', '时间结算', '任务世界绝对时刻', '任务期限', '【主角资源', '状态栏', '<state', '<upstore', '状态结算'];
+    const hit = markers.filter((m) => s.includes(m)).length;
+    if (hit >= 2) return true;                     // 命中≥2个正文结构标记＝几乎肯定是正文
+    if (hit >= 1 && s.length > 1200) return true;  // 含结构标记且成篇
+    if (s.length > 2200) return true;              // 超长（要点建议 3~7 条一句话远不到）＝跑偏成长文
+    return false;
+  };
+
   /* 剧情指导：正文生成【前】先跑一次，据「最近5楼 + 玩家这步 + 当前任务/场景」产出剧情优化建议（提示词允许联网搜原作剧情让切入更合理）。
      建议像叙事回忆一样注入主正文，由主正文据此写。失败/无配置 → 返回 ''（不注入，正文照常生成）。可挂独立 guidance 路由。 */
   async function runPlotGuidance(userText: string): Promise<string> {
@@ -8227,7 +8241,7 @@ ${lines}`;
     // 剧情状态快照（数据库 4 张剧情记忆表：纪要最近/进程/伏笔/约定）——让导演状态感知：回收伏笔、兑现约定、推进进程，而非空转
     const plotState = buildPlotStateSnapshot();
     const sys = (guidancePrompt && guidancePrompt.trim()) ? guidancePrompt : PLOT_GUIDANCE_RULE;
-    const user = `【最近正文（最多5楼）】\n${recent5 || '（暂无）'}\n\n【玩家这一步】\n${userText || '（无显式输入，续写）'}\n\n【当前任务 / 场景】\n${questScene || '（暂无）'}${plotState ? `\n\n【剧情状态·数据库（进程/伏笔/约定/纪要）】\n${plotState}` : ''}\n\n请据上面，给出本回合的【剧情优化建议】（要点式，不写正文）。`;
+    const user = `【最近正文（最多5楼·仅供你了解剧情进展的只读参考，切勿续写它、切勿仿写它的格式与结构模块）】\n${recent5 || '（暂无）'}\n\n【玩家这一步】\n${userText || '（无显式输入，续写）'}\n\n【当前任务 / 场景】\n${questScene || '（暂无）'}${plotState ? `\n\n【剧情状态·数据库（进程/伏笔/约定/纪要）】\n${plotState}` : ''}\n\n请据上面，给出本回合的【剧情优化建议】：3~7 条要点式方向建议即可。⛔ 只给"写什么剧情"的方向，绝不要产出正文本身——不写散文/对白/标题/时间结算/状态栏/【主角资源】等任何正文内容。`;
     setGuidanceRunning(true);   // 状态栏「💡 剧情提示生成中…」
     try {
       // 剧情指导只是正文前的「锦上添花」前置建议，绝不能挡住正文生成：用墙钟硬超时兜底——
@@ -8327,9 +8341,14 @@ ${lines}`;
     setPlanModal({ open: true, loading: true, text: '', mode, title });
     let draft = '';
     try {
-      draft = mode === 'guidance'
-        ? await runPlotGuidance(input)
-        : (await callApi(input, hist, { task: 'dbAdvance' })) || '';
+      if (mode === 'guidance') {
+        const g = await runPlotGuidance(input);
+        draft = guidanceLooksLikeNarrative(g)   // 跑偏成正文→不把整篇正文塞进弹窗，改放引导语（用户可清空跳过或改写）
+          ? '（⚠️ 剧情指导疑似生成了「正文」而不是「要点建议」，已拦下、没直接塞进来。\n多半是 设置→正文生成→剧情指导 的「自定义提示词」里填了正文预设/写作指令——留空即用内置的“只给要点、不写正文”规则。\n你可以：清空本框直接跳过本回合指导，或在这里手写几条方向建议再确认。）'
+          : g;
+      } else {
+        draft = (await callApi(input, hist, { task: 'dbAdvance' })) || '';
+      }
     } catch (e) { console.warn('[正文前审核] 生成失败', e); }
     setPlanModal((m) => (m && m.open) ? { ...m, loading: false, text: draft } : m);
     const edited = await new Promise<string | null>((res) => { planResolveRef.current = res; });
@@ -8433,7 +8452,11 @@ ${lines}`;
     // 剧情指导（开启时）：正文生成【前】先跑一次，产出剧情优化建议 → 像叙事回忆一样注入主正文，由主正文据此写（仅一次正文生成）
     let guidanceBlock: { role: 'system'; content: string }[] = [];
     if (plotGuidance && !isOutline) {
-      const g = opts.guidance !== undefined ? opts.guidance : await runPlotGuidance(userText);   // 审核窗已确认则用玩家编辑版，否则现生成
+      let g = opts.guidance !== undefined ? opts.guidance : await runPlotGuidance(userText);   // 审核窗已确认则用玩家编辑版，否则现生成
+      if (opts.guidance === undefined && guidanceLooksLikeNarrative(g)) {   // 现生成的指导跑偏成正文→丢弃不注入（防"正文里再嵌一篇正文"串味）；玩家审核过的编辑版不拦
+        console.warn('[剧情指导] 产出疑似正文而非建议，已丢弃本回合注入（请检查 设置→正文生成→剧情指导 的自定义提示词是否误填了正文预设）');
+        g = '';
+      }
       if (g) guidanceBlock = [{ role: 'system', content: `<剧情指导>\n（本回合写作建议·仅"剧情方向"参考）\n${g}\n\n（以上仅为剧情方向建议：把方向自然融入正文即可，勿照抄成对白/旁白/标题。⚠️正文的输出格式与一切结构模块——状态栏／时间结算／【主角资源】等世界书与预设规定的模块——一律照常严格输出，不得因本建议而省略、简化或改变格式。本建议只影响"写什么剧情"，不影响"怎么排版输出"。）\n</剧情指导>` }];
     }
     // 数据库推进管线（Stitches·开启时）：正文前跑「召回→推进」规划层，产出 stage/scene/recall → 注入正文，正文预设据此写散文（预设只规划、不写正文）
