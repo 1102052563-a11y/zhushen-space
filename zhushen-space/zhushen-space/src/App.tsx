@@ -8255,12 +8255,19 @@ ${lines}`;
       const clean = dbStripExcluded(advOut, st.preset.contextExcludeRules);
       const stage = dbExtractTag(clean, 'stage');
       const scene = dbExtractTag(clean, 'scene');
-      const tabletop = dbExtractTag(clean, 'tabletop');
+      // 「桌面推演/跟踪」层：按预设声明的 extractInjectTags 抽（不再写死·默认 tabletop 兼容旧预设）——它带各角色的行动/神态/台词/beat 详细排演
+      const injTags = (advMod.extractInjectTags || 'tabletop').split(',').map((s) => s.trim()).filter(Boolean);
+      const tabletop = (injTags.length ? injTags : ['tabletop']).map((t) => dbExtractTag(clean, t)).filter(Boolean).join('\n\n');
       useDbAdvance.getState().setOutputs({ stage, scene, recall, tabletop: tabletop || st.lastTabletop });   // 存下轮 {{tabletop}}
-      // 3) finalSystemDirective（$8 + stage + scene + recall）→ 注入正文
+      // 3) 注入正文 = finalSystemDirective(stage/scene/recall) + ① 本回合桌面推演(角色行动/台词·原来只存下轮没喂正文→"台词都不一样") + ② 兜底
       const directive = dbResolveDirective(st.preset, { ...ctx, stage, scene, recall });
-      if (directive) console.log(`[数据库推进] 规划完成（stage ${stage.length} / scene ${scene.length} / tabletop ${tabletop.length} 字）`);
-      return directive;
+      const anyTag = !!(stage.trim() || scene.trim() || tabletop.trim());
+      const blocks = [directive];
+      if (tabletop.trim()) blocks.push(`【本回合角色推演·请据此写各角色的行动、神态与台词，尽量沿用这里排好的台词与节拍(beat)】\n${tabletop.trim()}`);
+      if (!anyTag && clean.trim()) blocks.push(`【本回合推进规划·请据此写正文】\n${clean.trim()}`);   // 标签一个没命中(预设标签对不上/AI没按标签吐)→整段兜底注入
+      const finalDirective = blocks.filter((b) => b && b.trim()).join('\n\n').trim();
+      if (finalDirective) console.log(`[数据库推进] 规划完成（stage ${stage.length} / scene ${scene.length} / tabletop ${tabletop.length} 字${anyTag ? '' : ' · 标签未命中→整段兜底注入'}）`);
+      return finalDirective;
     } catch (e) { console.warn('[数据库推进] 管线失败', e); return ''; }
     finally { setGuidanceRunning(false); }
   }

@@ -10,6 +10,8 @@ import { openDb, kvGet, kvPut, chunkGet, chunksBulk } from './novelVecDb';
 
 const SOURCES = ['novel-vectors', 'worldbook-vectors'];          // 内置候选索引目录，存在哪个加载哪个
 const SRC_LABEL: Record<string, string> = { 'novel-vectors': '原著', 'worldbook-vectors': '世界书' };
+/* 供 UI 列出内置源做单独开关（目录名 + 显示名）；实际是否加载仍看 public/ 是否部署 */
+export const BUILTIN_SOURCES: { name: string; label: string }[] = SOURCES.map((n) => ({ name: n, label: SRC_LABEL[n] ?? n }));
 
 interface LoadedIndex {
   name: string;          // IDB/网络里的键前缀：内置=目录名，玩家=meta.id
@@ -148,9 +150,13 @@ async function loadUsers(): Promise<LoadedIndex[]> {
 export async function loadNovelIndex(): Promise<boolean> {
   await loadBuiltin();
   const users = await loadUsers();
-  _indexes = [..._builtin, ...users];
+  // 玩家在向量库面板单独关掉的内置源（如轮回乐园原著）→ 加载了也不参与检索注入
+  const disabled = useNovelVec.getState().settings.builtinDisabled ?? [];
+  const activeBuiltin = disabled.length ? _builtin.filter((x) => !disabled.includes(x.name)) : _builtin;
+  _indexes = [...activeBuiltin, ...users];
   _ready = _indexes.length > 0;
-  if (!_ready && !_builtinError) _builtinError = '还没有任何向量库：内置未部署 public/novel-vectors/，也没有自建索引（下方「建库」可自建）';
+  // 内置真缺失(未部署)才提示；被用户单独关掉不算错(静默)
+  if (!_ready && !_builtinError && _builtin.length === 0) _builtinError = '还没有任何向量库：内置未部署 public/novel-vectors/，也没有自建索引（下方「建库」可自建）';
   else if (_ready) _builtinError = _builtin.length ? _builtinError : '';   // 有自建源时清掉"内置缺失"噪音
   return _ready;
 }

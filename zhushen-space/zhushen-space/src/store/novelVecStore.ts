@@ -15,6 +15,7 @@ export interface NovelVecSettings {
   topK: number;        // 每回合最多注入几段
   threshold: number;   // cosine 阈值（归一化向量，0~1），低于此不注入
   maxChars: number;    // 注入总字数上限
+  builtinDisabled?: string[];  // 被单独关掉的内置源目录名（'novel-vectors'=轮回乐园原著 / 'worldbook-vectors'=世界书）；缺省=全部启用。只关内置、不动总开关与自建库
 }
 
 export type UserIndexOrigin = 'local' | 'cloud' | 'community';   // 来源：本地自建 / 从私有云拉回 / 从社区下载
@@ -48,6 +49,7 @@ interface NovelVecState {
   updateUserIndex: (id: string, patch: Partial<UserIndexMeta>) => void;
   removeUserIndex: (id: string) => void;
   setUserIndexEnabled: (id: string, enabled: boolean) => void;
+  setBuiltinEnabled: (source: string, enabled: boolean) => void;   // 单独开关某个内置源
 }
 
 export const useNovelVec = create<NovelVecState>()(
@@ -61,6 +63,7 @@ export const useNovelVec = create<NovelVecState>()(
         topK: 5,
         threshold: 0.35,
         maxChars: 2500,
+        builtinDisabled: [],
       },
       userIndexes: [],
       setSettings: (patch) => set((s) => ({ settings: { ...s.settings, ...patch } })),
@@ -75,6 +78,11 @@ export const useNovelVec = create<NovelVecState>()(
       setUserIndexEnabled: (id, enabled) => set((s) => ({
         userIndexes: s.userIndexes.map((x) => (x.id === id ? { ...x, enabled } : x)),
       })),
+      setBuiltinEnabled: (source, enabled) => set((s) => {
+        const cur = s.settings.builtinDisabled ?? [];
+        const next = enabled ? cur.filter((x) => x !== source) : (cur.includes(source) ? cur : [...cur, source]);
+        return { settings: { ...s.settings, builtinDisabled: next } };
+      }),
     }),
     { name: 'drpg-novelvec' },
   ),

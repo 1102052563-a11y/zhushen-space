@@ -1,6 +1,6 @@
 import { useRef, useState, type ChangeEvent } from 'react';
 import { useNovelVec, type UserIndexMeta, type UserIndexKind } from '../store/novelVecStore';
-import { loadNovelIndex, novelVecStatus, retrieveNovel, refreshNovelIndex, invalidateUserIndex, type NovelHit } from '../systems/novelVec';
+import { loadNovelIndex, novelVecStatus, retrieveNovel, refreshNovelIndex, invalidateUserIndex, BUILTIN_SOURCES, type NovelHit } from '../systems/novelVec';
 import { buildUserIndex, chunkText } from '../systems/novelVecBuild';
 import { exportUserIndexToFile, importUserIndexFromFile } from '../systems/novelVecShare';
 import { deleteIndex } from '../systems/novelVecDb';
@@ -19,6 +19,7 @@ export default function NovelVecManager() {
   const userIndexes = useNovelVec((s) => s.userIndexes);
   const removeUserIndex = useNovelVec((s) => s.removeUserIndex);
   const setUserIndexEnabled = useNovelVec((s) => s.setUserIndexEnabled);
+  const setBuiltinEnabled = useNovelVec((s) => s.setBuiltinEnabled);
 
   const [status, setStatus] = useState(novelVecStatus());
   const [loadingIdx, setLoadingIdx] = useState(false);
@@ -275,6 +276,25 @@ export default function NovelVecManager() {
           <button onClick={() => importFileRef.current?.click()} className={btnCls}>📥 从 .zsvec 文件导入</button>
           <span className="text-[12px] text-dim/40 ml-2">别人导出的向量库文件</span>
         </div>
+      </div>
+
+      {/* 📀 内置向量库（预建·可单独关） */}
+      <div className="space-y-2 p-4 bg-panel border border-edge rounded-xl">
+        <div className="text-sm font-mono text-god/70 uppercase tracking-widest">📀 内置向量库（预建）</div>
+        <div className="text-[12px] text-dim/50 leading-relaxed">预建的《轮回乐园》原著/世界书向量。不想让它参与检索注入就<b>取消勾选</b>——只关它、不影响你的自建库，也不用动上面的「启用向量资料库」总开关。</div>
+        {BUILTIN_SOURCES.map((b) => {
+          const on = !(settings.builtinDisabled ?? []).includes(b.name);
+          const label = b.name === 'novel-vectors' ? '《轮回乐园》原著' : b.name === 'worldbook-vectors' ? '内置世界书' : b.label;
+          return (
+            <label key={b.name} className="flex items-center gap-2 text-[13px] rounded border border-edge/60 bg-void/40 p-2.5 cursor-pointer">
+              <input type="checkbox" checked={on}
+                onChange={(e) => { setBuiltinEnabled(b.name, e.target.checked); refreshNovelIndex().then(setStatus); }}
+                className="accent-god w-3.5 h-3.5" title="是否参与正文检索注入" />
+              <span className="text-slate-200 font-medium flex-1">{label}</span>
+              <span className={`font-mono text-[11px] ${on ? 'text-emerald-300/70' : 'text-dim/40'}`}>{on ? '注入中' : '已关闭'}</span>
+            </label>
+          );
+        })}
       </div>
 
       {/* 📚 我的向量库 */}
