@@ -6,7 +6,7 @@ import fs from 'fs';
 import path from 'path';
 
 // 扫 components + App + store（UI 枚举）。systems/ 多是提示词/逻辑，交给运行时 SEEN 捕获真渲染的，避免大量提示词噪声。
-const ROOTS = ['src/components', 'src/store', 'src/App.tsx'];
+const ROOTS = ['src/components', 'src/store', 'src/App.tsx', 'src/systems/equipSlots.ts'];   // + 枚举标签源(装备槽等·纯数据文件)
 const SKIP_FILE = /promptRules|worldCodexModules|abyssPrompts|joyWorldBook|casinoBattleWb|\.test\.|\.d\.ts$|vite-env/;
 
 const files = [];
@@ -25,7 +25,7 @@ const set = new Set();
 function add(raw) {
   const s = (raw || '').trim();
   if (!s || !CJK.test(s)) return;
-  if (s.length > 30) return;                          // 只要标签/短句
+  if (s.length > 120) return;                         // 标签/短句 + 面板整段说明文案（长描述也收，交给词库整串翻）
   if (NOISE.test(s)) return;
   if (/^[，。、；：,.\/|·—-]/.test(s)) return;          // 标点/分隔开头=代码或正文碎片
   if (/^\d/.test(s)) return;                          // 数字开头=数值/公式/概率碎片
@@ -40,8 +40,8 @@ function add(raw) {
 
 for (const file of files) {
   const t = fs.readFileSync(file, 'utf8');
-  for (const m of t.matchAll(/[>}]([^<>{}\n]{1,40})(?=[<{])/g)) add(m[1]);           // JSX 文本（含 >文本{expr} 与 {expr}文本< 之间的片段，如「🎁 开启宝箱{…}」「…{n} 只)」）
-  for (const m of t.matchAll(/(?:title|label|desc|placeholder|aria-label|alt|header|text|tip|tooltip|confirmText|cancelText|emptyText|name)\s*=\s*["']([^"'\n]{1,40})["']/g)) add(m[1]);   // 属性标签
+  for (const m of t.matchAll(/[>}]([^<>{}\n]{1,120})(?=[<{])/g)) add(m[1]);           // JSX 文本（含 >文本{expr} 与 {expr}文本< 之间的片段，如「🎁 开启宝箱{…}」「…{n} 只)」；含面板整段说明）
+  for (const m of t.matchAll(/(?:title|label|desc|placeholder|aria-label|alt|header|text|tip|tooltip|confirmText|cancelText|emptyText|name)\s*[:=]\s*["']([^"'\n]{1,120})["']/g)) add(m[1]);   // 属性标签(JSX label= 与对象字面量 label: 都收，抓装备槽等枚举 + 长 placeholder 说明)
   for (const m of t.matchAll(/["']([^"'\n]{1,30})["']/g)) add(m[1]);                // 短字符串字面量
 }
 

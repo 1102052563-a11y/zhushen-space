@@ -48,6 +48,12 @@ describe('i18n · translateToVi', () => {
     expect(translateToVi('等级 5')).toBe('Cấp 5');
     expect(translateToVi('尚未收录的界面文字')).toBe('尚未收录的界面文字');
   });
+  it('装备槽编号规则（副武器/饰品/特殊 N）', () => {
+    expect(translateToVi('副武器1')).toBe('Vũ Khí Phụ 1');
+    expect(translateToVi('饰品 3')).toBe('Trang Sức 3');
+    expect(translateToVi('特殊 2')).toBe('Đặc Biệt 2');
+    expect(translateToVi('主武器')).toBe('Vũ Khí Chính');
+  });
 });
 
 describe('i18n · 首尾装饰剥离（图标/符号前缀）', () => {
@@ -70,7 +76,10 @@ describe('i18n · 首尾装饰剥离（图标/符号前缀）', () => {
 
 describe('i18n · 分隔符复合标签', () => {
   it('每段都命中才整体替换（保留分隔符）', () => {
-    expect(translateToVi('清理图片 · 存档瘦身')).toBe('Dọn Ảnh · Giảm Dung Lượng');
+    // 复合标签整体译出、分隔符原样（无论走整串词条还是分段拆译；具体译词随校订表变，故只断言可观察结果）
+    const r = translateToVi('清理图片 · 存档瘦身');
+    expect(r).not.toMatch(/[㐀-鿿]/);   // 全部译出，无残留中文
+    expect(r).toContain(' · ');          // 分隔符保留
     expect(translateToEn('攻击/防御')).toBe('Attack/Defense');
   });
   it('有一段未命中则整体回退中文', () => {

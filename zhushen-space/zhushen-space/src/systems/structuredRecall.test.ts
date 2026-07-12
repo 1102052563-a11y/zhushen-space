@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { namesMentionedIn, serializePlayerCard, serializeNpcCard, pickOffsceneRescue } from './structuredRecall';
 import type { PlayerProfile } from '../store/playerStore';
-import type { Talent } from '../store/characterStore';
+import type { Talent, Skill } from '../store/characterStore';
 import type { InventoryItem } from '../store/itemStore';
 import type { NpcRecord } from '../store/npcStore';
 
@@ -213,6 +213,27 @@ describe('serializeNpcCard（NPC 装备/物品裁掉 外观/获得/备注）', (
     expect(card).not.toContain('剑身覆霜纹');    // 外观裁掉
     expect(card).not.toContain('铁匠铺购入');    // 获得途径裁掉
     expect(card).not.toContain('需定期保养');    // 备注裁掉
+  });
+});
+
+/* 每-NPC 技能上限：设了 maxNpcSkills 则取前 N 全量 + 其余仅列名称（治"NPC 几十个技能满装备撑爆上下文·AI 流口水"）。*/
+describe('serializeNpcCard（每-NPC 技能上限：前 N 全量 + 长尾仅名称）', () => {
+  const mkSkill = (name: string, effect: string) => ({ name, effect, rarity: 'A' }) as unknown as Skill;
+  const skills = ['技能甲', '技能乙', '技能丙', '技能丁', '技能戊'].map((n, i) => mkSkill(n, `效果串${i}`));
+  const npc = { id: 'C1', name: '苏晓', onScene: true, favor: 0 } as unknown as NpcRecord;
+
+  it('无上限（缺省）→ 全部技能带效果（旧行为不变）', () => {
+    const card = serializeNpcCard(npc, skills, []);
+    for (let i = 0; i < 5; i++) expect(card).toContain(`效果串${i}`);
+  });
+
+  it('maxNpcSkills=2 → 恰 2 条带全效果，其余 3 条只列名称', () => {
+    const card = serializeNpcCard(npc, skills, [], undefined, undefined,
+      { maxNpcs: 2, maxSkills: 3, maxItems: 2, maxNpcSkills: 2 });
+    const effShown = [0, 1, 2, 3, 4].filter((i) => card.includes(`效果串${i}`)).length;
+    expect(effShown).toBe(2);                        // 只有前 2 条给全效果
+    expect(card).toContain('其余 3 个技能(仅名称');   // 长尾折叠提示
+    for (const n of ['技能甲', '技能乙', '技能丙', '技能丁', '技能戊']) expect(card).toContain(n);  // 5 个名字都在
   });
 });
 

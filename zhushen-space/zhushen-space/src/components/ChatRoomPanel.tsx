@@ -60,6 +60,22 @@ function fmtShort(sec: number): string {
   if (h > 0) return `${h}时${m}分`;
   return `${m}分`;
 }
+/** 2 位国家码 → 旗帜 emoji（区域指示符）。非法/未知 → 🌐。 */
+function countryFlag(code: string): string {
+  const cc = (code || '').toUpperCase();
+  if (!/^[A-Z]{2}$/.test(cc)) return '🌐';
+  return String.fromCodePoint(...[...cc].map((c) => 0x1f1e6 + c.charCodeAt(0) - 65));
+}
+const CN_NAME: Record<string, string> = {
+  CN: '中国', JP: '日本', US: '美国', HK: '香港', TW: '台湾', KR: '韩国', SG: '新加坡', MO: '澳门',
+  GB: '英国', DE: '德国', FR: '法国', CA: '加拿大', AU: '澳大利亚', RU: '俄罗斯', NL: '荷兰',
+  MY: '马来西亚', TH: '泰国', VN: '越南', ID: '印尼', PH: '菲律宾', IN: '印度', BR: '巴西',
+};
+/** 2 位国家码 → 中文名（缺省回退码本身；空/XX → 未知）。 */
+function countryName(code: string): string {
+  const cc = (code || '').toUpperCase();
+  return CN_NAME[cc] || (cc && cc !== 'XX' ? cc : '未知');
+}
 
 export default function ChatRoomPanel({ onClose }: { onClose: () => void }) {
   const st = useChatRoom();
@@ -338,7 +354,7 @@ export default function ChatRoomPanel({ onClose }: { onClose: () => void }) {
             <div className="text-base font-bold text-slate-100">聊天室 · 实时 {entered && uid > 0 && <span className="text-[12px] font-mono text-god/60">#{dispUid || uid}</span>}</div>
             <div className="text-[11px] font-mono text-dim/60 flex items-center gap-1.5 flex-wrap">
               <StatusDot status={entered ? st.status : 'idle'} />
-              <span>{!entered ? '未进入' : connected ? `${st.roster.length} 人在线` : st.status === 'connecting' ? '连接中…' : st.status === 'closed' ? '已断开' : '未连接'}</span>
+              <span title="当前在「聊天室」里的人（进了聊天室的连接数）——与右边「在玩」不是一回事，两者都不是累计总数（累计看 🏆 时长榜）">{!entered ? '未进入' : connected ? `${st.roster.length} 在聊天室` : st.status === 'connecting' ? '连接中…' : st.status === 'closed' ? '已断开' : '未连接'}</span>
               {pres && (
                 <>
                   <span className="text-dim/25">·</span>
@@ -348,6 +364,15 @@ export default function ChatRoomPanel({ onClose }: { onClose: () => void }) {
                 </>
               )}
             </div>
+            {pres?.byCountry && pres.byCountry.length > 0 && (
+              <div className="text-[10px] font-mono text-dim/50 flex items-center gap-x-2 gap-y-0.5 flex-wrap mt-0.5">
+                <span className="text-dim/35">在玩分布</span>
+                {pres.byCountry.slice(0, 6).map((c) => (
+                  <span key={c.country} title={`${countryName(c.country)}：${c.n} 人`}>{countryFlag(c.country)} {countryName(c.country)} {c.n}</span>
+                ))}
+                {pres.byCountry.length > 6 && <span className="text-dim/35">+{pres.byCountry.length - 6} 地区</span>}
+              </div>
+            )}
           </div>
           <button onClick={() => setView((v) => (v === 'playtime' ? 'chat' : 'playtime'))} title="游玩时长 · 排行榜（全服）" className={`text-[13px] px-2 py-1 rounded border border-edge transition-colors ${view === 'playtime' ? 'text-god border-god/40' : 'text-dim/60 hover:text-slate-200'}`}>🏆</button>
           {entered && <button onClick={() => setView((v) => (v === 'settings' ? 'chat' : 'settings'))} title="个人设置" className={`text-[13px] px-2 py-1 rounded border border-edge transition-colors ${view === 'settings' ? 'text-god border-god/40' : 'text-dim/60 hover:text-slate-200'}`}>⚙</button>}

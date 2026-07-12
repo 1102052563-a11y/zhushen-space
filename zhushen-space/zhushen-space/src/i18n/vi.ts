@@ -5613,7 +5613,6 @@ export const VI_EXACT: Record<string, string> = {
   "正在开启宝箱": "Đang Mở Rương Báu",
   "各不相同": "Đều Khác Nhau",
   "越级": "Vượt Cấp",
-  // ─────────── FIXED 补充（新增）───────────
   "按楼层更新": "Cập Nhật Theo Tầng",
   "按相邻回合整理": "Sắp Xếp Theo Lượt Liền Kề",
   "百分比合计": "Tổng Tỷ Lệ Phần Trăm",
@@ -5976,11 +5975,35 @@ export const VI_EXACT: Record<string, string> = {
   "HP 多属性系数表（自定义": "Bảng Hệ Số Đa Thuộc Tính HP (Tùy Chỉnh",
   "MB / 配额": "MB / Hạn Mức",
   "vs 荷官": "vs Dealer",
+  // ─────────── FIXED 补充（新增）───────────
+  "主武器": "Vũ Khí Chính",
+  "副武器": "Vũ Khí Phụ",
+  "头部": "Đầu",
+  "外衣": "Áo Ngoài",
+  "内衬": "Áo Lót",
+  "下装": "Hạ Trang",
+  "鞋子": "Giày",
+  "手部": "Bàn Tay",
+  "手臂": "Cánh Tay",
+  "肩部": "Vai",
+  "腰带": "Thắt Lưng",
+  "传送目标地点": "Địa Điểm Đích Đến",
+  "难度等级": "Cấp Độ Khó",
+  "传送倒计时": "Đếm Ngược Dịch Chuyển",
+  "试炼任务": "Nhiệm Vụ Thử Luyện",
+  "衍生世界": "Thế Giới Phái Sinh",
+  "准备时间": "Thời Gian Chuẩn Bị",
+  "契约者初始试炼强化难度": "Độ Khó Thử Luyện Ban Đầu Của Khế Ước Giả",
+  "即将进行首次": "Sắp Tiến Hành Lần Đầu",
+  "准备时间已结束": "Thời Gian Chuẩn Bị Đã Kết Thúc",
 
 };
 
 /* 插值 / 带数字规则（锚定，安全）。 */
 export const VI_RULES: [RegExp, string][] = [
+  [/^副武器\s*(\d+)$/, 'Vũ Khí Phụ $1'],
+  [/^饰品\s*(\d+)$/, 'Trang Sức $1'],
+  [/^特殊\s*(\d+)$/, 'Đặc Biệt $1'],
   [/^等级\s*(\d+)$/, 'Cấp $1'],
   [/^Lv\.?\s*(\d+)$/, 'Lv $1'],
   [/^第\s*(\d+)\s*页$/, 'Trang $1'],

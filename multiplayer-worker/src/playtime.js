@@ -17,7 +17,8 @@ CREATE TABLE IF NOT EXISTS playtime (
 CREATE INDEX IF NOT EXISTS idx_playtime_seconds ON playtime(seconds DESC);
 CREATE TABLE IF NOT EXISTS presence (
   iphash TEXT PRIMARY KEY,
-  seen INTEGER NOT NULL
+  seen INTEGER NOT NULL,
+  country TEXT
 );
 CREATE INDEX IF NOT EXISTS idx_presence_seen ON presence(seen DESC);
 `;
@@ -26,6 +27,8 @@ let schemaReady = false;
 async function ensureSchema(db) {
   if (schemaReady) return;
   await db.exec(SCHEMA.replace(/\n\s*/g, ' ').trim());
+  // 老库 presence 表可能没 country 列（本功能后加的）→ 补列（列已存在则忽略）
+  try { await db.exec("ALTER TABLE presence ADD COLUMN country TEXT"); } catch { /* 列已存在 */ }
   schemaReady = true;
 }
 
@@ -48,9 +51,13 @@ async function ipHash(request, env) {
 }
 // { online: 当前在玩人数(按IP去重·近 ONLINE_MS·含没登录 Discord 的), total: 累计在线时长总秒数(所有登录者 playtime 之和) }
 async function presenceStats(db, now) {
-  const on = await db.prepare("SELECT COUNT(*) AS n FROM presence WHERE seen > ?").bind(now - ONLINE_MS).first();
+  const cut = now - ONLINE_MS;
+  const on = await db.prepare("SELECT COUNT(*) AS n FROM presence WHERE seen > ?").bind(cut).first();
   const tot = await db.prepare("SELECT COALESCE(SUM(seconds), 0) AS s FROM playtime").first();
-  return { online: on?.n || 0, total: tot?.s || 0 };
+  // 按国家/地区分布（Cloudflare 边缘按 IP 免费判定的 2 位国家码）：[{country:'JP', n:1}, …]
+  const geo = await db.prepare("SELECT country, COUNT(*) AS n FROM presence WHERE seen > ? GROUP BY country ORDER BY n DESC").bind(cut).all();
+  const byCountry = (geo?.results || []).map((r) => ({ country: r.country || "XX", n: r.n || 0 }));
+  return { online: on?.n || 0, total: tot?.s || 0, byCountry };
 }
 
 export async function handlePlaytime(request, env, ch, url) {
@@ -74,8 +81,9 @@ export async function handlePlaytime(request, env, ch, url) {
   if (p === "/api/playtime/presence" && request.method === "POST") {
     const now = Date.now();
     const iph = await ipHash(request, env);
+    const country = (request.cf && request.cf.country) || "";   // Cloudflare 按边缘判定的国家码（JP/CN/US…；本地 wrangler dev 可能为空）
     if (iph) {
-      await db.prepare("INSERT INTO presence (iphash, seen) VALUES (?, ?) ON CONFLICT(iphash) DO UPDATE SET seen = excluded.seen").bind(iph, now).run();
+      await db.prepare("INSERT INTO presence (iphash, seen, country) VALUES (?, ?, ?) ON CONFLICT(iphash) DO UPDATE SET seen = excluded.seen, country = excluded.country").bind(iph, now, country).run();
       await db.prepare("DELETE FROM presence WHERE seen < ?").bind(now - PRUNE_MS).run();   // 顺手清过期
     }
     return cj(await presenceStats(db, now));

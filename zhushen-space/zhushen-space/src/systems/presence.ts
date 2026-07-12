@@ -3,7 +3,11 @@
 // "累计在线时长" = 全服所有登录者的游玩时长之和（来自 playtime 表·见 systems/playtime.ts）。
 import { mpBase } from './mpConfig';
 
-export interface PresenceStats { online: number; total: number }   // online=当前在玩人数, total=累计在线秒数
+export interface PresenceStats {
+  online: number;   // 当前在玩人数（按 IP 去重·近 3 分钟）
+  total: number;    // 累计在线秒数（全服 playtime 之和）
+  byCountry?: { country: string; n: number }[];   // 按国家/地区分布（Cloudflare 边缘按 IP 判定的 2 位国家码）
+}
 
 /** 上报"我在玩"心跳（无需登录·按 IP 去重），返回当前统计。 */
 export async function presenceBeat(): Promise<PresenceStats | null> {
