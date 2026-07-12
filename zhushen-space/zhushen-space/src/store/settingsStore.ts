@@ -234,6 +234,7 @@ export interface NarrativeMemConfig {
   structMaxSkills: number;         // 主角注入的技能数量上限
   structMaxItems: number;          // 主角注入的装备数量上限（材料/消耗品全显示、其它不注入）
   structMaxNpcSkills: number;      // 每个 NPC 注入的技能上限（0=全量）——治"NPC 几十个技能满装备撑爆上下文"；超出的仅列名称
+  structMaxNpcTalents: number;     // 每个 NPC 注入的天赋上限（0=全量）；超出的仅列名称
   structMaxNpcItems: number;       // 每个 NPC 注入的物品/装备上限（0=全量）；超出的仅列名称
   structMaxSubProfs: number;       // 主角注入的副职业数量上限
   structMaxFactions: number;       // 注入的当前世界势力数量上限
@@ -790,7 +791,7 @@ export const useSettings = create<SettingsState>()(
       apiRoutes: {},
       apiThrottle: { maxConcurrent: 3, minGapMs: 250 },
       phaseSched: {},
-      narrativeMemory: { enabled: false, recentFullTextCount: 5, distantKeywordThreshold: 200, recallTopK: 6, recallMinScore: 1, requestTimeout: 90, llmMode: false, compileModelId: '', ingestModelId: '', structEnabled: true, structApiSelect: false, structMaxNpcs: 2, structMaxSkills: 3, structMaxItems: 2, structMaxNpcSkills: 8, structMaxNpcItems: 8, structMaxSubProfs: 4, structMaxFactions: 4 },
+      narrativeMemory: { enabled: false, recentFullTextCount: 5, distantKeywordThreshold: 200, recallTopK: 6, recallMinScore: 1, requestTimeout: 90, llmMode: false, compileModelId: '', ingestModelId: '', structEnabled: true, structApiSelect: false, structMaxNpcs: 2, structMaxSkills: 3, structMaxItems: 2, structMaxNpcSkills: 8, structMaxNpcTalents: 8, structMaxNpcItems: 8, structMaxSubProfs: 4, structMaxFactions: 4 },
       vectorMemory: { enabled: false, apiBase: 'https://api.siliconflow.cn/v1', apiKey: '', model: 'Pro/BAAI/bge-m3', topK: 6, threshold: 0.3, recentFullTextCount: 5, maxItems: 1000, factsOnly: false, rerankEnabled: false, rerankBase: 'https://api.siliconflow.cn/v1', rerankKey: '', rerankModel: 'BAAI/bge-reranker-v2-m3', rerankCandidates: 40, rerankThreshold: 0 },
       nmApi: { ...DEFAULT_API },
       nmUseSharedApi: true,

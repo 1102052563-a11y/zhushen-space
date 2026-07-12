@@ -35,6 +35,7 @@ export interface RecallLimits {
   maxItems: number;     // 仅主角装备上限
   maxSubProfs?: number; // 主角副职业上限
   maxNpcSkills?: number;  // 每个 NPC 注入的技能上限（0/缺省=全量，旧行为）——治"NPC 几十个技能满装备撑爆上下文·AI 流口水"
+  maxNpcTalents?: number; // 每个 NPC 注入的天赋上限（0/缺省=全量）
   maxNpcItems?: number;   // 每个 NPC 注入的物品/装备上限（0/缺省=全量）
 }
 
@@ -433,12 +434,13 @@ export function serializeNpcCard(
   // 治"NPC 几十个技能满装备"每回合整包注入撑爆上下文（AI 流口水）——重要技能/装备照给全效果，长尾只留名。
   const capSk = limits?.maxNpcSkills && limits.maxNpcSkills > 0 ? limits.maxNpcSkills : 0;
   const capIt = limits?.maxNpcItems && limits.maxNpcItems > 0 ? limits.maxNpcItems : 0;
+  const capTa = limits?.maxNpcTalents && limits.maxNpcTalents > 0 ? limits.maxNpcTalents : 0;
   const skSorted = skills.slice().sort((a, b) => skillScore(b) - skillScore(a));
   const itSorted = (npc.items ?? []).slice().sort((a, b) => itemScore(b) - itemScore(a));
   const taSorted = talents.slice().sort((x, y) => talentScore(y) - talentScore(x));
   const skillLines = topWithRest(skSorted, capSk, skillLine, (s) => `「${s.name}」${s.level ? `[${s.level}]` : ''}`, '技能');
   const itemLines = topWithRest(itSorted, capIt, itemLine, (it) => `「${it.name}」`, '物品');
-  const talLines = topWithRest(taSorted, capSk, talentLine, (t) => `「${t.name}」`, '天赋');   // 天赋复用技能上限
+  const talLines = topWithRest(taSorted, capTa, talentLine, (t) => `「${t.name}」`, '天赋');   // 每 NPC 天赋独立上限（0/缺省=全量）
 
   const titleLine = equippedTitleLine(titles);
   const spLines = subProfLines(subProfs);

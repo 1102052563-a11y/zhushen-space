@@ -5484,6 +5484,7 @@ ${AFFIX_EFFECT_RULE}`;
       maxItems: Math.max(0, cfg.structMaxItems ?? 2),
       maxSubProfs: Math.max(0, cfg.structMaxSubProfs ?? 4),
       maxNpcSkills: Math.max(0, cfg.structMaxNpcSkills ?? 8),   // 每 NPC 技能上限（超出仅列名）
+      maxNpcTalents: Math.max(0, cfg.structMaxNpcTalents ?? 8), // 每 NPC 天赋上限（超出仅列名）
       maxNpcItems: Math.max(0, cfg.structMaxNpcItems ?? 8),     // 每 NPC 物品/装备上限（超出仅列名）
     };
     const chars = useCharacters.getState().characters;

@@ -3206,11 +3206,11 @@ function NarrativeMemorySettings() {
   const effApi = nmUseShared ? (textUseShared ? api0 : textApi) : nmApi;
   const modelOpts = nmModels.length > 0 ? nmModels : [effApi.modelId].filter(Boolean);
 
-  const num = (label: string, key: 'recentFullTextCount' | 'distantKeywordThreshold' | 'recallTopK' | 'recallMinScore' | 'requestTimeout' | 'structMaxNpcs' | 'structMaxSkills' | 'structMaxItems' | 'structMaxNpcSkills' | 'structMaxNpcItems' | 'structMaxSubProfs' | 'structMaxFactions',
-               min: number, max: number, hint: string) => (
+  const num = (label: string, key: 'recentFullTextCount' | 'distantKeywordThreshold' | 'recallTopK' | 'recallMinScore' | 'requestTimeout' | 'structMaxNpcs' | 'structMaxSkills' | 'structMaxItems' | 'structMaxNpcSkills' | 'structMaxNpcTalents' | 'structMaxNpcItems' | 'structMaxSubProfs' | 'structMaxFactions',
+               min: number, max: number, hint: string, def?: number) => (
     <div className="space-y-1.5">
       <div className="text-sm font-semibold text-slate-200">{label}</div>
-      <input type="number" min={min} max={max} value={(cfg as any)[key] ?? min}
+      <input type="number" min={min} max={max} value={(cfg as any)[key] ?? def ?? min}
         onChange={(e) => set({ [key]: Math.min(max, Math.max(min, parseInt(e.target.value) || 0)) } as any)}
         className="input-base w-full font-mono" />
       <div className="text-sm text-dim/60 leading-relaxed">合法范围：{min} - {max}。{hint}</div>
@@ -3303,6 +3303,7 @@ function NarrativeMemorySettings() {
           {num('主角技能数量上限', 'structMaxSkills', 0, 12, '仅限主角：注入的技能条数（按品阶/新近优先）。默认 3。')}
           {num('主角装备数量上限', 'structMaxItems', 0, 12, '仅限主角：注入的装备条数（已装备优先，再按品阶）。材料/消耗品全部显示(名称+效果)、其它物品不注入。默认 2。')}
           {num('每个 NPC 技能上限', 'structMaxNpcSkills', 0, 30, '每个被选中 NPC 注入的技能条数（按品阶/新近优先）；超出的只列名称、不带效果说明。默认 8。设 0 = 全量（旧行为；NPC 几十个技能满装备时会撑爆上下文、AI 流口水）。')}
+          {num('每个 NPC 天赋上限', 'structMaxNpcTalents', 0, 30, '每个被选中 NPC 注入的天赋条数（按品阶/新近优先）；超出的只列名称。默认 8。设 0 = 全量。之前天赋是跟着「技能上限」走的，现在可单独控制。', 8)}
           {num('每个 NPC 装备/物品上限', 'structMaxNpcItems', 0, 30, '每个被选中 NPC 注入的物品条数（已装备/高品优先）；超出的只列名称。默认 8。设 0 = 全量。')}
           {num('主角副职业数量上限', 'structMaxSubProfs', 0, 12, '仅限主角：注入的副职业条数（含其配方名）。默认 4。')}
           {num('当前世界势力数量上限', 'structMaxFactions', 0, 12, '注入的当前世界势力条数（按对主角态度强弱+近况排序）。默认 4。')}
@@ -3311,7 +3312,7 @@ function NarrativeMemorySettings() {
             {!recallOn
               ? '● 需先启用叙事记忆 或 向量记忆'
               : (cfg.structEnabled ?? true)
-                ? `● 当前：主角(技能≤${cfg.structMaxSkills ?? 3}/装备≤${cfg.structMaxItems ?? 2}) + 最多 ${cfg.structMaxNpcs ?? 2} 个NPC(技能≤${(cfg.structMaxNpcSkills ?? 8) || '全量'}/装备≤${(cfg.structMaxNpcItems ?? 8) || '全量'})　条目选取:${cfg.structApiSelect ? 'API判定NPC+技能+装备(+1调用)' : '本地排序'}${vmEnabled && !cfg.enabled ? '　[向量记忆模式]' : ''}`
+                ? `● 当前：主角(技能≤${cfg.structMaxSkills ?? 3}/装备≤${cfg.structMaxItems ?? 2}) + 最多 ${cfg.structMaxNpcs ?? 2} 个NPC(技能≤${(cfg.structMaxNpcSkills ?? 8) || '全量'}/天赋≤${(cfg.structMaxNpcTalents ?? 8) || '全量'}/装备≤${(cfg.structMaxNpcItems ?? 8) || '全量'})　条目选取:${cfg.structApiSelect ? 'API判定NPC+技能+装备(+1调用)' : '本地排序'}${vmEnabled && !cfg.enabled ? '　[向量记忆模式]' : ''}`
                 : '● 未启用结构化档案召回'}
           </div>
         </div>
