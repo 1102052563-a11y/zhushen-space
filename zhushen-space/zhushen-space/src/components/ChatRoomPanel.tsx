@@ -70,6 +70,11 @@ const CN_NAME: Record<string, string> = {
   CN: '中国', JP: '日本', US: '美国', HK: '香港', TW: '台湾', KR: '韩国', SG: '新加坡', MO: '澳门',
   GB: '英国', DE: '德国', FR: '法国', CA: '加拿大', AU: '澳大利亚', RU: '俄罗斯', NL: '荷兰',
   MY: '马来西亚', TH: '泰国', VN: '越南', ID: '印尼', PH: '菲律宾', IN: '印度', BR: '巴西',
+  IT: '意大利', ES: '西班牙', PT: '葡萄牙', PL: '波兰', SE: '瑞典', NO: '挪威', FI: '芬兰', DK: '丹麦',
+  CH: '瑞士', AT: '奥地利', BE: '比利时', IE: '爱尔兰', NZ: '新西兰', MX: '墨西哥', AR: '阿根廷',
+  TR: '土耳其', SA: '沙特', AE: '阿联酋', IL: '以色列', UA: '乌克兰', KZ: '哈萨克', MN: '蒙古',
+  PK: '巴基斯坦', BD: '孟加拉', LK: '斯里兰卡', MM: '缅甸', KH: '柬埔寨', LA: '老挝', NP: '尼泊尔',
+  ZA: '南非', CZ: '捷克', HU: '匈牙利', RO: '罗马尼亚', GR: '希腊',
 };
 /** 2 位国家码 → 中文名（缺省回退码本身；空/XX → 未知）。 */
 function countryName(code: string): string {
@@ -347,42 +352,45 @@ export default function ChatRoomPanel({ onClose }: { onClose: () => void }) {
   return (
     <div className="fixed inset-0 z-50 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4" onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}>
       <div className="w-full max-w-3xl h-[88dvh] flex flex-col rounded-2xl border border-edge bg-void shadow-[0_0_60px_rgba(0,0,0,0.8)] overflow-hidden">
-        {/* 顶栏 */}
-        <header className="shrink-0 flex items-center gap-3 px-5 py-3 border-b border-edge bg-panel">
-          <span className="text-god/70 text-lg">💬</span>
-          <div className="flex-1 min-w-0">
-            <div className="text-base font-bold text-slate-100">聊天室 · 实时 {entered && uid > 0 && <span className="text-[12px] font-mono text-god/60">#{dispUid || uid}</span>}</div>
-            <div className="text-[11px] font-mono text-dim/60 flex items-center gap-1.5 flex-wrap">
-              <StatusDot status={entered ? st.status : 'idle'} />
-              <span title="当前在「聊天室」里的人（进了聊天室的连接数）——与右边「在玩」不是一回事，两者都不是累计总数（累计看 🏆 时长榜）">{!entered ? '未进入' : connected ? `${st.roster.length} 在聊天室` : st.status === 'connecting' ? '连接中…' : st.status === 'closed' ? '已断开' : '未连接'}</span>
-              {pres && (
-                <>
-                  <span className="text-dim/25">·</span>
-                  <span className="text-emerald-300/80" title="当前在玩人数：按 IP 去重的当前在玩者，含没登录 Discord 的人（约每分钟刷新）">🟢 {pres.online} 在玩</span>
-                  <span className="text-dim/25">·</span>
-                  <span className="text-god/70" title="全服累计在线时长（所有登录者的游玩时长之和）">⏱ 累计在线 {fmtShort(pres.total)}</span>
-                </>
-              )}
-            </div>
-            {pres?.byCountry && pres.byCountry.length > 0 && (
-              <div className="flex items-center gap-1.5 flex-wrap mt-1">
-                <span className="text-[10px] font-mono text-dim/40 shrink-0">🌍 在玩分布</span>
-                {pres.byCountry.map((c) => (
-                  <span key={c.country} title={`${countryName(c.country)}：${c.n} 人在玩`}
-                    className="inline-flex items-center gap-1 pl-1.5 pr-1 py-0.5 rounded-full border border-god/20 bg-god/[0.06] text-[10.5px] font-mono leading-none">
-                    <span className="text-[11px]">{countryFlag(c.country)}</span>
-                    <span className="text-slate-300/85">{countryName(c.country)}</span>
-                    <span className="min-w-[15px] text-center rounded-full bg-emerald-400/15 text-emerald-300/90 font-bold px-1 py-px">{c.n}</span>
-                  </span>
-                ))}
-              </div>
+        {/* 顶栏：手机端把「统计/在玩分布」从被按钮挤窄的标题列里拆出来、各占整行横向 wrap，避免被挤成一长条竖列 */}
+        <header className="shrink-0 flex flex-col gap-1.5 px-4 py-2.5 sm:px-5 sm:py-3 border-b border-edge bg-panel">
+          {/* 第 1 行：图标 · 标题 · 操作按钮 */}
+          <div className="flex items-center gap-2 sm:gap-3">
+            <span className="text-god/70 text-lg shrink-0">💬</span>
+            <div className="flex-1 min-w-0 text-base font-bold text-slate-100 truncate">聊天室 · 实时 {entered && uid > 0 && <span className="text-[12px] font-mono text-god/60">#{dispUid || uid}</span>}</div>
+            <button onClick={() => setView((v) => (v === 'playtime' ? 'chat' : 'playtime'))} title="游玩时长 · 排行榜（全服）" className={`shrink-0 text-[13px] px-2 py-1 rounded border border-edge transition-colors ${view === 'playtime' ? 'text-god border-god/40' : 'text-dim/60 hover:text-slate-200'}`}>🏆</button>
+            {entered && <button onClick={() => setView((v) => (v === 'settings' ? 'chat' : 'settings'))} title="个人设置" className={`shrink-0 text-[13px] px-2 py-1 rounded border border-edge transition-colors ${view === 'settings' ? 'text-god border-god/40' : 'text-dim/60 hover:text-slate-200'}`}>⚙</button>}
+            {entered && view === 'chat' && <button onClick={() => setShowRoster((v) => !v)} className="hidden sm:inline-block shrink-0 text-dim/60 hover:text-slate-200 text-[11px] font-mono px-2 py-1 rounded border border-edge transition-colors">{showRoster ? '隐藏在线' : '在线名单'}</button>}
+            {entered && <button onClick={doExit} title="断开连接并停止自动进入（保留 Discord 登录）" className="shrink-0 text-dim/50 hover:text-blood text-[11px] font-mono px-2 py-1 rounded border border-edge transition-colors">退出</button>}
+            <button onClick={onClose} className="shrink-0 text-dim/50 hover:text-blood text-lg transition-colors">✕</button>
+          </div>
+          {/* 第 2 行：在聊天室 · 在玩 · 累计在线（整行横向 wrap） */}
+          <div className="text-[11px] font-mono text-dim/60 flex items-center gap-x-2 gap-y-0.5 flex-wrap">
+            <StatusDot status={entered ? st.status : 'idle'} />
+            <span title="当前在「聊天室」里的人（进了聊天室的连接数）——与「在玩」不是一回事，两者都不是累计总数（累计看 🏆 时长榜）">{!entered ? '未进入' : connected ? `${st.roster.length} 在聊天室` : st.status === 'connecting' ? '连接中…' : st.status === 'closed' ? '已断开' : '未连接'}</span>
+            {pres && (
+              <>
+                <span className="text-dim/25">·</span>
+                <span className="text-emerald-300/80" title="当前在玩人数：按 IP 去重的当前在玩者，含没登录 Discord 的人（约每分钟刷新）">🟢 {pres.online} 在玩</span>
+                <span className="text-dim/25">·</span>
+                <span className="text-god/70" title="全服累计在线时长（所有登录者的游玩时长之和）">⏱ 累计在线 {fmtShort(pres.total)}</span>
+              </>
             )}
           </div>
-          <button onClick={() => setView((v) => (v === 'playtime' ? 'chat' : 'playtime'))} title="游玩时长 · 排行榜（全服）" className={`text-[13px] px-2 py-1 rounded border border-edge transition-colors ${view === 'playtime' ? 'text-god border-god/40' : 'text-dim/60 hover:text-slate-200'}`}>🏆</button>
-          {entered && <button onClick={() => setView((v) => (v === 'settings' ? 'chat' : 'settings'))} title="个人设置" className={`text-[13px] px-2 py-1 rounded border border-edge transition-colors ${view === 'settings' ? 'text-god border-god/40' : 'text-dim/60 hover:text-slate-200'}`}>⚙</button>}
-          {entered && view === 'chat' && <button onClick={() => setShowRoster((v) => !v)} className="hidden sm:inline-block text-dim/60 hover:text-slate-200 text-[11px] font-mono px-2 py-1 rounded border border-edge transition-colors">{showRoster ? '隐藏在线' : '在线名单'}</button>}
-          {entered && <button onClick={doExit} title="断开连接并停止自动进入（保留 Discord 登录）" className="text-dim/50 hover:text-blood text-[11px] font-mono px-2 py-1 rounded border border-edge transition-colors">退出</button>}
-          <button onClick={onClose} className="text-dim/50 hover:text-blood text-lg transition-colors">✕</button>
+          {/* 第 3 行：在玩分布（整行横向 wrap 成小圆牌） */}
+          {pres?.byCountry && pres.byCountry.length > 0 && (
+            <div className="flex items-center gap-x-1.5 gap-y-1 flex-wrap">
+              <span className="text-[10px] font-mono text-dim/40 shrink-0">🌍 在玩分布</span>
+              {pres.byCountry.map((c) => (
+                <span key={c.country} title={`${countryName(c.country)}：${c.n} 人在玩`}
+                  className="inline-flex items-center gap-1 pl-1.5 pr-1 py-0.5 rounded-full border border-god/20 bg-god/[0.06] text-[10.5px] font-mono leading-none">
+                  <span className="text-[11px]">{countryFlag(c.country)}</span>
+                  <span className="text-slate-300/85">{countryName(c.country)}</span>
+                  <span className="min-w-[15px] text-center rounded-full bg-emerald-400/15 text-emerald-300/90 font-bold px-1 py-px">{c.n}</span>
+                </span>
+              ))}
+            </div>
+          )}
         </header>
 
         {/* 🏆 时长榜（并入聊天室·公开榜·进不进聊天室都能看）→ 门禁 / 聊天 / 设置 */}
