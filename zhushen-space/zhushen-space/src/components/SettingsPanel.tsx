@@ -2610,7 +2610,7 @@ function GeneralSettingsSection() {
         <div className="text-sm font-mono text-god/70 uppercase tracking-widest">🎬 数据库推进管线（导演规划层）</div>
         <div className="border border-edge rounded-lg p-4 bg-panel space-y-3">
           <div className="text-sm text-dim leading-relaxed">
-            导入数据库「推进预设」（如 Stitches 东方风神录）。开启后，**每回合正文前**先跑它的「召回→推进」规划：产出这一拍的角色行动/场景/跟踪表，注入你的**正文预设**去写散文——<b>预设只做规划，正文仍由你的正文预设生成</b>。（会多 1~2 次 AI 调用，走 <span className="font-mono text-god/70">guidance</span> 路由；有墙钟超时，绝不卡正文。）
+            导入数据库「推进预设」（如 Stitches 东方风神录）。开启后，**每回合正文前**先跑它的「召回→推进」规划：产出这一拍的角色行动/场景/跟踪表，注入你的**正文预设**去写散文——<b>预设只做规划，正文仍由你的正文预设生成</b>。（会多 1~2 次 AI 调用，走下方<b>独立「数据库推进」接口路由</b>；未单独指定则回退正文 API；有墙钟超时，绝不卡正文。）
           </div>
 
           <div className="flex items-start gap-3">
@@ -2656,6 +2656,12 @@ function GeneralSettingsSection() {
             <button onClick={() => { useDbAdvance.getState().clearRuntime(); setDbAdvMsg('✓ 已清空上轮跟踪表'); setTimeout(() => setDbAdvMsg(''), 4000); }}
               className="text-[12px] px-3 py-1.5 rounded-lg border border-edge text-dim hover:text-slate-200 font-mono">🧹 清上轮记录</button>
             {dbAdvMsg && <span className="text-[12px] text-god/80">{dbAdvMsg}</span>}
+          </div>
+
+          {/* 独立接口路由：数据库推进的「召回/推进」子调用单独指定接口；留空则回退正文 API（不再蹭剧情指导的 guidance 路由） */}
+          <div className="pt-2 space-y-1.5 border-t border-edge/60">
+            <div className="text-[12px] font-mono text-god/70">🎬 数据库推进 · 接口路由</div>
+            <ApiRoutePicker routeKey="dbadvance" />
           </div>
         </div>
       </div>

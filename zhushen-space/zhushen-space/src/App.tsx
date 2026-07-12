@@ -8217,8 +8217,8 @@ ${lines}`;
     const st = useDbAdvance.getState();
     if (!st.enabled || !st.preset) return '';
     const gApi = textUseShared ? sharedApi : textApi;
-    const chain = resolveApiChain('guidance', gApi);
-    if (!chain[0]?.baseUrl || !chain[0]?.apiKey) { console.warn('[数据库推进] guidance/正文 API 均未配置，跳过'); return ''; }
+    const chain = resolveApiChain('dbadvance', gApi);   // 独立「数据库推进」接口路由；未配则回退正文 API（不再蹭 guidance 路由）
+    if (!chain[0]?.baseUrl || !chain[0]?.apiKey) { console.warn('[数据库推进] dbadvance/正文 API 均未配置，跳过'); return ''; }
     const WALL_MS = 45000;
     const callMod = (messages: { role: string; content: string }[]) => {
       const call = apiChatFallback(chain, messages.map((m) => ({ role: m.role as 'system' | 'user' | 'assistant', content: m.content })), { timeoutMs: 30000, rawLang: true })   // 推进规划喂给中文正文，保持中文

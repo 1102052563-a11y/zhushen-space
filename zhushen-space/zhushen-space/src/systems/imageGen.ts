@@ -62,6 +62,22 @@ async function safeFetch(url: string, init: RequestInit): Promise<Response> {
   }
 }
 
+/* 把失败响应(res.ok=false)转成人话：接口地址/CORS 代理/防火墙这一层挡下时，body 往往是
+   Cloudflare 等「拦截页/挑战页」(整段 HTML)——直接塞进报错会刷屏且毫无信息量（用户只会看到一堆
+   <!DOCTYPE html> / no-js ie6 oldie）。识别出 HTML/挑战页就给可操作提示；否则回落到原始 body
+   片段（那才是真·接口的 JSON 报错，如额度/模型名错误）。 */
+async function httpFailMsg(res: Response, label: string): Promise<string> {
+  let body = '';
+  try { body = (await res.text()).trim(); } catch { /* ignore */ }
+  const head = body.slice(0, 300).toLowerCase();
+  const isHtml = head.startsWith('<!doctype') || head.startsWith('<html') || head.includes('<html');
+  const isCf = head.includes('cloudflare') || head.includes('cf-ray') || head.includes('attention required') || head.includes('just a moment') || head.includes('no-js ie6 oldie');
+  if (isHtml || isCf) {
+    return `${label} (${res.status})：请求被${isCf ? ' Cloudflare ' : '网关/防火墙'}挡下，返回的是一张网页拦截页（不是图片）——说明请求还没到真正的生图接口。多半是：① 生图 API「接口地址」填错/填成了网页地址；② 「CORS 代理」地址写错或没部署；③ Key 无效；④ 该服务拦截了浏览器直连或你所在的地区。请到「生图API配置」逐项检查。`;
+  }
+  return `${label} (${res.status}): ${body.slice(0, 160)}`;
+}
+
 /* ───────── NAI 全局串行限速门 ───────── */
 /* NAI 同时/过快请求会失败（429/超时）。所有 NAI 请求排队串行，且相邻请求至少间隔 queueGapSec 秒。*/
 let naiChain: Promise<unknown> = Promise.resolve();
@@ -200,7 +216,7 @@ async function genNai(cfg: NaiConfig, o: GenOpts): Promise<string> {
       body: JSON.stringify({ input: positive, model: cfg.model || 'nai-diffusion-4-5-full', action: 'generate', parameters: params }),
       signal,
     });
-    if (!res.ok) throw new Error(`NAI 生图失败 (${res.status}): ${(await res.text()).slice(0, 160)}`);
+    if (!res.ok) throw new Error(await httpFailMsg(res, 'NAI 生图失败'));
     let buf: ArrayBuffer;
     try {
       buf = await res.arrayBuffer();
@@ -226,7 +242,7 @@ async function genOpenAI(cfg: OpenAIImgConfig, o: GenOpts): Promise<string> {
       method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${key}` },
       body: JSON.stringify(body), signal,
     });
-    if (!res.ok) throw new Error(`图片生成失败 (${res.status}): ${(await res.text()).slice(0, 160)}`);
+    if (!res.ok) throw new Error(await httpFailMsg(res, '图片生成失败'));
     const data = await res.json();
     const item = data.data?.[0] ?? {};
     if (item.b64_json) return `data:image/png;base64,${item.b64_json}`;
@@ -261,7 +277,7 @@ async function genComfy(cfg: ComfyConfig, o: GenOpts): Promise<string> {
   try { wf = injectWorkflow(cfg, o); } catch { throw new Error('ComfyUI 工作流 JSON 解析失败，请检查格式'); }
   const clientId = 'zhushen_' + Math.random().toString(36).slice(2);
   const sub = await safeFetch(`${base}/prompt`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ prompt: wf, client_id: clientId }), signal: o.signal ?? null });
-  if (!sub.ok) throw new Error(`ComfyUI 提交失败 (${sub.status}): ${(await sub.text()).slice(0, 160)}`);
+  if (!sub.ok) throw new Error(await httpFailMsg(sub, 'ComfyUI 提交失败'));
   const promptId = (await sub.json()).prompt_id;
   if (!promptId) throw new Error('ComfyUI 未返回 prompt_id');
   const interval = Math.min(10000, Math.max(250, cfg.pollIntervalMs || 1200));
