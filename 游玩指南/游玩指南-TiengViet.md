@@ -17,6 +17,7 @@
    - 2.4 [Không kết nối được? Cổng proxy và cổng một chạm](#24-không-kết-nối-được-cổng-proxy-và-cổng-một-chạm)
    - 2.5 [**Cách thiết lập Định Tuyến API (Interface Routing)**](#25-cách-thiết-lập-định-tuyến-api-interface-routing)
    - 2.6 [Mỗi tính năng đều có thể gắn giao diện riêng](#26-mỗi-tính-năng-đều-có-thể-gắn-giao-diện-riêng)
+   - 2.7 [**Nên dùng model nào cho mỗi tính năng**](#27-nên-dùng-model-nào-cho-mỗi-tính-năng-vừa-tiết-kiệm-vừa-hiệu-quả)
 3. [Bước hai: Tạo nhân vật, vào game](#3-bước-hai-tạo-nhân-vật-vào-game)
 4. [Bước ba: Cách chơi một lượt (vòng lặp cốt lõi)](#4-bước-ba-cách-chơi-một-lượt-vòng-lặp-cốt-lõi)
 
@@ -165,6 +166,29 @@ Trò chơi này tách việc gọi AI thành rất nhiều **tính năng độc 
 - **Sinh ảnh nội dung chính (image_story_llm)** —— quyết định đoạn nào trong nội dung chính sẽ có ảnh minh họa.
 
 > 💡 Cách chơi tiết kiệm điển hình: **Nội dung chính** gắn model mạnh cỡ Claude / GPT-4; các tiến hóa **Vật phẩm / NPC / Linh tinh** đều gắn model rẻ như `gemini-flash` / `deepseek`. Vừa đảm bảo chất lượng câu chuyện, vừa không phải xót token.
+
+### 2.7 Nên dùng model nào cho mỗi tính năng (vừa tiết kiệm vừa hiệu quả)
+
+Các tính năng khác nhau đòi hỏi model rất khác nhau: viết truyện cần model văn phong mạnh nhất, còn cập nhật dữ liệu thì dùng model rẻ và nhanh là đủ. **Nguyên tắc cốt lõi: dùng thép tốt vào lưỡi dao — văn phong dựa vào model mạnh, ghi sổ dựa vào model rẻ.** Dưới đây là một gợi ý phối hợp ổn định (tên model chỉ là ví dụ, dùng model cùng cấp mà bạn có là được):
+
+| Tính năng | Cấp độ đề xuất | Ví dụ | Vì sao phối như vậy |
+|---|---|---|---|
+| **Tạo Nội Dung Chính (text)** | 🔥 Mạnh nhất | Claude Sonnet / Opus、GPT-4o、`gemini-2.5-pro`、DeepSeek | Cảm giác đắm chìm và văn phong đều dựa vào nó, đáng để đầu tư nhất |
+| **Chọn Thế Giới (world)** | 💪 Mạnh (cấp Pro) | **`gemini-2.5-pro`** | Tạo thiết lập thế giới quan lượng lớn, cần chặt chẽ nhất quán, cấp Pro ổn hơn, ít khi vỡ thiết lập |
+| **Các loại tiến hóa** (Vật phẩm / Nhân vật chính / NPC / Thế Lực / Lãnh Địa / Đội Phiêu Lưu / Vạn Tộc / Linh tinh) | ⚡ Nhanh & rẻ (cấp Flash) | **`gemini-2.5-flash`**、DeepSeek | Chỉ là "cập nhật dữ liệu theo nội dung chính", không cần văn phong, Flash **vừa nhanh vừa tiết kiệm token**, hoàn toàn đủ dùng |
+| **Ký Ức / Ký Ức Tự Sự (memory / nm)** | ⚡ Cấp Flash | `gemini-2.5-flash` | Trích xuất, nén sự thật dài hạn, trọng logic không trọng văn chương |
+| **Kênh / Tin Nhắn Riêng (channel)** | ⚡ Cấp Flash | `gemini-2.5-flash` | Một đống Khế Ước Giả ảo tán gẫu và báo giá, lượng lớn, cần nhanh |
+| **Đề Cương / Chỉ Dẫn Cốt Truyện / Thúc Đẩy CSDL** | 💪 Trung ~ mạnh | `gemini-2.5-pro` hoặc cùng model với nội dung chính | Ảnh hưởng trực tiếp đến chất lượng và hướng đi của nội dung chính, đừng gắn model quá yếu |
+| **Sinh ảnh nội dung (image_story_llm)** | ⚡ Cấp Flash | `gemini-2.5-flash` | Chỉ phán đoán "đoạn nào nên chèn ảnh", rất nhẹ |
+
+**Cấu hình thế nào?** Chính là dùng "Định Tuyến API" đã nói ở **2.5 / 2.6**:
+1. Trong Thư Viện API, tạo riêng một giao diện cho model mạnh và một cho model Flash.
+2. Vào Định Tuyến API của "Tạo Nội Dung Chính" → gắn model mạnh; vào "Chọn Thế Giới" → gắn `gemini-2.5-pro`; vào Định Tuyến API của từng tính năng "tiến hóa" (Vật phẩm/NPC/Thế Lực…) → gắn Flash.
+3. Bản lười: chỉ gắn model mạnh cho "Tạo Nội Dung Chính", còn lại để trống hết — chúng sẽ tự động dùng lại model nội dung chính, vẫn chơi được, chỉ là không tiết kiệm bằng.
+
+> 💡 **Một câu**: **Tiến hóa dùng Flash (nhanh + rẻ), Chọn Thế Giới dùng 2.5 Pro (ổn), Nội dung chính dùng model mạnh nhất mà bạn kham nổi (đẹp).**
+>
+> ⚠️ Lưu ý: chỗ này nói về **model ngôn ngữ** dùng để "viết chữ / cập nhật dữ liệu". Phần thực sự **vẽ hình** của "🖼 Sinh Ảnh" dùng một bộ dịch vụ vẽ hình khác (NAI / OpenAI / Gemini vẽ hình / ComfyUI), chọn riêng trong cài đặt sinh ảnh, không liên quan đến bảng này.
 
 ---
 

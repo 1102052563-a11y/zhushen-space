@@ -41,6 +41,7 @@ function add(raw) {
 for (const file of files) {
   const t = fs.readFileSync(file, 'utf8');
   for (const m of t.matchAll(/[>}]([^<>{}\n]{1,120})(?=[<{])/g)) add(m[1]);           // JSX 文本（含 >文本{expr} 与 {expr}文本< 之间的片段，如「🎁 开启宝箱{…}」「…{n} 只)」；含面板整段说明）
+  for (const m of t.matchAll(/^[ \t]+(?![/*])([^\s<>{}][^<>{}\n]{0,119}?)(?=\s*[<{]|\s*$)/gm)) add(m[1]);   // 多行 JSX 文本：标签在上一行、文本自成一行缩进（如 button 里独占一行的「开始战斗」「普通升级」）；非注释行·add() 再滤代码
   for (const m of t.matchAll(/(?:title|label|desc|placeholder|aria-label|alt|header|text|tip|tooltip|confirmText|cancelText|emptyText|name)\s*[:=]\s*["']([^"'\n]{1,120})["']/g)) add(m[1]);   // 属性标签(JSX label= 与对象字面量 label: 都收，抓装备槽等枚举 + 长 placeholder 说明)
   for (const m of t.matchAll(/["']([^"'\n]{1,30})["']/g)) add(m[1]);                // 短字符串字面量
 }

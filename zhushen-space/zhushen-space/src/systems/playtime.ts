@@ -70,3 +70,5 @@ export function stopPlaytimeHeartbeat(): void {
   if (typeof document !== 'undefined') document.removeEventListener('visibilitychange', onVis);
   visSince = 0; accumMs = 0;
 }
+/** 心跳是否在跑（=已开始游戏·登录者才真上报）。供面板决定"我的时长要不要逐秒往上跳"——只在真会累计时才跳，避免漂移。 */
+export function isPlaytimeActive(): boolean { return hbTimer != null; }

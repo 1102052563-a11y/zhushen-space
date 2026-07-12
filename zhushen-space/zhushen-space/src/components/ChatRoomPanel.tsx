@@ -365,12 +365,16 @@ export default function ChatRoomPanel({ onClose }: { onClose: () => void }) {
               )}
             </div>
             {pres?.byCountry && pres.byCountry.length > 0 && (
-              <div className="text-[10px] font-mono text-dim/50 flex items-center gap-x-2 gap-y-0.5 flex-wrap mt-0.5">
-                <span className="text-dim/35">在玩分布</span>
-                {pres.byCountry.slice(0, 6).map((c) => (
-                  <span key={c.country} title={`${countryName(c.country)}：${c.n} 人`}>{countryFlag(c.country)} {countryName(c.country)} {c.n}</span>
+              <div className="flex items-center gap-1.5 flex-wrap mt-1">
+                <span className="text-[10px] font-mono text-dim/40 shrink-0">🌍 在玩分布</span>
+                {pres.byCountry.map((c) => (
+                  <span key={c.country} title={`${countryName(c.country)}：${c.n} 人在玩`}
+                    className="inline-flex items-center gap-1 pl-1.5 pr-1 py-0.5 rounded-full border border-god/20 bg-god/[0.06] text-[10.5px] font-mono leading-none">
+                    <span className="text-[11px]">{countryFlag(c.country)}</span>
+                    <span className="text-slate-300/85">{countryName(c.country)}</span>
+                    <span className="min-w-[15px] text-center rounded-full bg-emerald-400/15 text-emerald-300/90 font-bold px-1 py-px">{c.n}</span>
+                  </span>
                 ))}
-                {pres.byCountry.length > 6 && <span className="text-dim/35">+{pres.byCountry.length - 6} 地区</span>}
               </div>
             )}
           </div>

@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { chatReady, chatUid, chatName } from '../systems/chatIdentity';
-import { playtimeMe, playtimeTop, type PlaytimeMe, type PlaytimeTopEntry } from '../systems/playtime';
+import { playtimeMe, playtimeTop, isPlaytimeActive, type PlaytimeMe, type PlaytimeTopEntry } from '../systems/playtime';
 
 /* 游玩时长 · 排行榜：凡登录者自动累计"活跃游玩"时长，看自己时长+名次 + 全服排行榜 + 全服累计在线时长。
    PlaytimeBoard = 纯内容（供聊天室「🏆 时长榜」view 内嵌复用）；PlaytimePanel = 独立 modal 外壳（⌘K 等直接打开时用）。 */
@@ -12,6 +12,15 @@ function fmtDur(sec: number): string {
   if (m > 0) return `${m} 分钟`;
   return `${s} 秒`;
 }
+/** 带秒的时长（我的时长卡逐秒跳用·让它看着"实时"往上走）。 */
+function fmtDurSec(sec: number): string {
+  const s = Math.max(0, Math.floor(sec));
+  const d = Math.floor(s / 86400), h = Math.floor((s % 86400) / 3600), m = Math.floor((s % 3600) / 60), ss = s % 60;
+  if (d > 0) return `${d} 天 ${h} 时 ${m} 分 ${ss} 秒`;
+  if (h > 0) return `${h} 时 ${m} 分 ${ss} 秒`;
+  if (m > 0) return `${m} 分 ${ss} 秒`;
+  return `${ss} 秒`;
+}
 const RANK_MEDAL = ['🥇', '🥈', '🥉'];
 
 /** 游玩时长内容（我的时长卡 + 全服排行榜 + 累计在线时长）——不含 modal 外壳，填满父容器。 */
@@ -19,18 +28,25 @@ export function PlaytimeBoard() {
   const [me, setMe] = useState<PlaytimeMe | null>(null);
   const [board, setBoard] = useState<{ items: PlaytimeTopEntry[]; players: number; total: number }>({ items: [], players: 0, total: 0 });
   const [loading, setLoading] = useState(true);
+  const [liveSecs, setLiveSecs] = useState<number | null>(null);   // 我的时长·本地逐秒跳（可见+在玩时 +1/秒·拉取时向上对齐·只增不减）
   const myUid = chatUid();
   const logged = chatReady();
 
   useEffect(() => {
     let cancelled = false;
-    (async () => {
-      setLoading(true);
+    const load = async () => {
       const [m, b] = await Promise.all([playtimeMe(), playtimeTop(100)]);
       if (cancelled) return;
       setMe(m); setBoard(b); setLoading(false);
-    })();
-    return () => { cancelled = true; };
+      if (m) setLiveSecs((v) => Math.max(v ?? 0, m.seconds));   // 服务器值向上对齐（心跳每 60s 进账），绝不回跳
+    };
+    void load();
+    const poll = setInterval(load, 20_000);   // 打开着时每 20s 自动刷新（时长/榜单/累计不再"开一次就冻住"）
+    const tick = setInterval(() => {          // 我的时长逐秒跳：仅登录 + 页面可见 + 心跳在跑（=真在累计）时才 +1，避免不在玩也乱跳漂移
+      if ((typeof document === 'undefined' || document.visibilityState === 'visible') && chatReady() && isPlaytimeActive())
+        setLiveSecs((v) => (v == null ? v : v + 1));
+    }, 1000);
+    return () => { cancelled = true; clearInterval(poll); clearInterval(tick); };
   }, []);
 
   return (
@@ -39,7 +55,7 @@ export function PlaytimeBoard() {
       {logged ? (
         <div className="rounded-xl border border-god/30 bg-god/5 p-4 text-center space-y-1">
           <div className="text-[12px] font-mono text-dim/60">你（{chatName() || '道友'}）已游玩</div>
-          <div className="text-2xl font-bold text-god">{me ? fmtDur(me.seconds) : '…'}</div>
+          <div className="text-2xl font-bold text-god">{me ? fmtDurSec(liveSecs ?? me.seconds) : '…'}</div>
           {me && (
             <div className="text-[13px] font-mono text-slate-300">
               排名 <span className="text-amber-300 font-bold">第 {me.rank}</span> / 共 {me.players} 人
