@@ -89,7 +89,7 @@ async function gen(sys: string, desc: string): Promise<string> {
     const { content } = await apiChatFallback(
       chain(),
       [{ role: 'system', content: sys }, { role: 'user', content: desc.slice(0, 1500) }],
-      { timeoutMs: 60000 },
+      { timeoutMs: 60000, rawLang: true },   // 输出=英文 danbooru/NAI 标签，勿套「输出越南语」指令（否则标签被译坏、NAI 出图不对）
     );
     const out = clean(content);
     console.log(`[ImageTags] 输入: ${desc.slice(0, 120)}\n→ 生成标签: ${out}`);
