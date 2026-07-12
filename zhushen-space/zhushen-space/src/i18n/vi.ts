@@ -38,6 +38,7 @@ export const VI_EXACT: Record<string, string> = {
   '交易行': 'Sàn Giao Dịch',
   '助战': 'Trợ Chiến',
   '世界竞技场': 'Đấu Trường Thế Giới',
+  '游玩时长': 'Thời Gian Chơi',
   '纪念丰碑': 'Bia Tưởng Niệm',
   '账户仓库': 'Kho Tài Khoản',
   '记忆': 'Ký Ức',

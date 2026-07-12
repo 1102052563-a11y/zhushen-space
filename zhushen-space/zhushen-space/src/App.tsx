@@ -187,6 +187,7 @@ import { useTeam, buildTeamSystemPrompt, memberCap as teamMemberCap } from './st
 import { useCosmos, buildCosmosSystemPrompt, cosmosNameEq, cleanCosmosName } from './store/cosmosStore';
 import { realmFromLevel, normalizeTier, lvFromRealm, computeMaxHp, computeMaxEp, effectiveResource, attrCapForTier, clampBaseAttrs, fullMaxHp, fullMaxEp, TIERS, realAttrMult, ratioOf, npcBaseAttrs } from './systems/derivedStats';
 import { isHomeWorld, reconcileHomeWorld, reconcilePlayerVitals, playerMaxHp, playerMaxEp, syncPlayerVitalsMax, applyCombatResourceGains, resetCombatResources } from './systems/playerVitals';
+import { startPlaytimeHeartbeat, stopPlaytimeHeartbeat } from './systems/playtime';   // 线上游玩时长累计（登录 Discord 者·可见活跃时长）
 import { bioInnate, tierVitalMult, peakCapForTier, clampToTierWindow, nominalTierNum } from './systems/bioStrength';
 import { generateNpcAttrs, resolveForm, generateLuck } from './systems/npcAttrGen';
 import { useImageGen, effectiveEquipService } from './store/imageGenStore';
@@ -224,7 +225,7 @@ import { clampDispositionDelta, DISP_DEFAULT, dispositionLine, type DispAxis } f
 import PartyPromoteDialog from './components/PartyPromoteDialog';
 import { useCharacters, type MemoryEntry } from './store/characterStore';
 import { useMemory } from './store/memoryStore';
-import { useMisc, buildMiscSystemPrompt } from './store/miscStore';
+import { useMisc, buildMiscSystemPrompt, isMainQuest } from './store/miscStore';
 import { useChannel, buildChannelSystemPrompt, CHANNEL_DEFS } from './store/channelStore';
 import { estimateFairValue, priceVerdict, formatFairRange, sumFairValues, VERDICT_LABEL } from './systems/itemPricing';
 import { applyMiscCommands, serializeTasks, serializeSettledTasks, serializeEvents, extractTurnSummaries } from './systems/miscParser';
@@ -284,6 +285,7 @@ const ChatRoomPanel = lazy(() => import('./components/ChatRoomPanel'));
 const TradePanel = lazy(() => import('./components/TradePanel'));
 const AssistPanel = lazy(() => import('./components/AssistPanel'));
 const ArenaWorldPanel = lazy(() => import('./components/ArenaWorldPanel'));
+const PlaytimePanel = lazy(() => import('./components/PlaytimePanel'));
 const MonumentPanel = lazy(() => import('./components/MonumentPanel'));
 const AccountVaultPanel = lazy(() => import('./components/AccountVaultPanel'));
 import { useMp, type HiddenCondition } from './store/multiplayerStore';
@@ -1100,6 +1102,7 @@ const rightMenuItems = [
   { icon: '🏰', label: '公会' },
   { icon: '🆘', label: '助战' },
   { icon: '🏆', label: '世界竞技场' },
+  { icon: '⏱', label: '游玩时长' },
   { icon: '🪦', label: '纪念丰碑' },
   { icon: '🏦', label: '账户仓库' },
   { icon: '🧠', label: '记忆' },
@@ -1115,7 +1118,7 @@ const NAV_FX: Record<string, string> = {
   '副职业': 'fx-wrench', '技能树': 'fx-tree', '体系': 'fx-tree', '合成': 'fx-wrench', '开箱': 'fx-bag', '称号': 'fx-medal', '成就': 'fx-trophy', '势力': 'fx-pillar',
   '领地': 'fx-castle', '冒险团': 'fx-shield', '队伍': 'fx-friends', '万族': 'fx-cosmos', '世界百科': 'fx-book', '轮回WIKI': 'fx-book',
   '战斗': 'fx-clash', '乐园设施': 'fx-ferris', '深渊': 'fx-void', '回合洞察': 'fx-zoom', '审计': 'fx-zoom', '任务': 'fx-quest',
-  '频道': 'fx-signal', '私信': 'fx-mail', '好友': 'fx-friends', '聊天室': 'fx-signal', '交易行': 'fx-bag', '产业': 'fx-bag', '公会': 'fx-castle', '助战': 'fx-clash', '世界竞技场': 'fx-trophy', '纪念丰碑': 'fx-pillar', '账户仓库': 'fx-bag', '记忆': 'fx-brain', '创意工坊': 'fx-sparkle', '存档': 'fx-save', '设置': 'fx-gear',
+  '频道': 'fx-signal', '私信': 'fx-mail', '好友': 'fx-friends', '聊天室': 'fx-signal', '交易行': 'fx-bag', '产业': 'fx-bag', '公会': 'fx-castle', '助战': 'fx-clash', '世界竞技场': 'fx-trophy', '游玩时长': 'fx-trophy', '纪念丰碑': 'fx-pillar', '账户仓库': 'fx-bag', '记忆': 'fx-brain', '创意工坊': 'fx-sparkle', '存档': 'fx-save', '设置': 'fx-gear',
 };
 
 /* 炼晶：把玩家倾向解析成 gemEngine 的 want（指定宝石属性/镶嵌部位；无匹配则返回 undefined 走随机）。
@@ -1283,6 +1286,7 @@ export default function App() {
   const [tradeOpen, setTradeOpen] = useState(false);  // 全局交易行
   const [assistOpen, setAssistOpen] = useState(false);  // 全局助战大厅
   const [arenaWorldOpen, setArenaWorldOpen] = useState(false);  // 世界竞技场
+  const [playtimeOpen, setPlaytimeOpen] = useState(false);  // 游玩时长·排行榜
   const arenaSparFoeRef = useRef<string | null>(null);  // 世界竞技场·切磋/手动挑战的临时对手 cid（战后清理）
   const arenaRankedChallengeRef = useRef<{ myCardId: string; opponentCardId: string } | null>(null);  // 手动应战：战后回传占位结果
   const [monumentOpen, setMonumentOpen] = useState(false);  // 纪念丰碑（跨存档英灵殿）
@@ -1461,6 +1465,8 @@ export default function App() {
   const [started, setStarted] = useState(() => {
     try { return !!(getResumeFlag(PENDING_STARTED_KEY) || getResumeFlag(PENDING_REGEN_KEY) || getResumeFlag(PENDING_REVAR_KEY)); } catch { return false; }
   });
+  // 线上游玩时长：进游戏(started)后开累计心跳（内部只在已登录 Discord + 页面可见时上报），退回封面即停
+  useEffect(() => { if (!started) return; startPlaytimeHeartbeat(); return () => stopPlaytimeHeartbeat(); }, [started]);
   const [creating, setCreating] = useState(false);   // 角色创建页
   const [b1Notice, setB1Notice] = useState('');       // 主角自检兜底：自动恢复后的提示横幅
   const [itemRecoverNotice, setItemRecoverNotice] = useState('');   // 物品守护看门狗：自动捞回静默丢失后的提示横幅
@@ -8949,6 +8955,7 @@ ${lines}`;
       label === '交易行' ? () => setTradeOpen(true) :
       label === '助战' ? () => setAssistOpen(true) :
       label === '世界竞技场' ? () => setArenaWorldOpen(true) :
+      label === '游玩时长' ? () => setPlaytimeOpen(true) :
       label === '纪念丰碑' ? () => setMonumentOpen(true) :
       label === '账户仓库' ? () => setVaultOpen(true) :
       label === '记忆' ? () => setSummaryPanelOpen(true) :
@@ -10700,6 +10707,7 @@ ${lines}`;
       {tradeOpen && <TradePanel onClose={() => setTradeOpen(false)} />}
       {assistOpen && <AssistPanel onClose={() => setAssistOpen(false)} />}
       {arenaWorldOpen && <ArenaWorldPanel onClose={() => setArenaWorldOpen(false)} onGenBattle={genArenaWorldBattle} onSpar={(card) => startArenaWorldSpar(card.snapshot, card.kind)} onManualChallenge={(opp, myCardId) => startArenaWorldRankedManual(opp.snapshot, myCardId, opp.id, opp.kind)} />}
+      {playtimeOpen && <PlaytimePanel onClose={() => setPlaytimeOpen(false)} />}
       {monumentOpen && <MonumentPanel onClose={() => setMonumentOpen(false)} />}
       {vaultOpen && <AccountVaultPanel onClose={() => setVaultOpen(false)} />}
       {mpIncomingGift && <GiftPrompt gift={mpIncomingGift} onClose={() => useMp.getState()._set({ incomingGift: null })} />}

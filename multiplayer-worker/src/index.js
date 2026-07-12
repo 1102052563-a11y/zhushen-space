@@ -13,9 +13,11 @@ import { GuildListDO } from "./GuildListDO.js";
 import { ArenaWorldDO } from "./ArenaWorldDO.js";
 import { handleGateway } from "./gateway.js";
 import { handleWorkshop } from "./workshop.js";
+import { handlePlaytime } from "./playtime.js";
 import { handleCloud } from "./cloud.js";
 import { handleMonumentGet, handleMonumentPut } from "./monumentCloud.js";
 import { handleVaultGet, handleVaultPut } from "./vaultCloud.js";
+import { handleVector } from "./vectorCloud.js";
 import { handleChatMe, handleChatAvatar } from "./chatId.js";
 import { handleStickerUpload, handleStickerServe, handleStickerList, handleStickerDelete } from "./chatSticker.js";
 import { verifyChatToken } from "./auth.js";
@@ -103,6 +105,11 @@ export default {
         return await handleWorkshop(request, env, ch, url);
       }
 
+      // 游玩时长记录 + 排行榜（凡 Discord 登录者累计活跃游玩时长；存 D1·共用 workshop 库）
+      if (p.startsWith("/api/playtime")) {
+        return await handlePlaytime(request, env, ch, url);
+      }
+
       // 云存档（Discord 登录 + R2 存档 blob + D1 索引；手动上传/下载，含图）
       if (p.startsWith("/api/cloud")) {
         return await handleCloud(request, env, ch, url);
@@ -120,6 +127,11 @@ export default {
         if (request.method === "GET") return await handleVaultGet(request, env, ch);
         if (request.method === "POST") return await handleVaultPut(request, env, ch);
         return json({ error: "method not allowed" }, { status: 405 }, ch);
+      }
+
+      // 向量库·云端（玩家自建 embedding 索引：私有跨设备同步 + 公开社区库；R2 大 blob + D1 元数据）
+      if (p.startsWith("/api/vector")) {
+        return await handleVector(request, env, ch, url);
       }
 
       // 健康检查

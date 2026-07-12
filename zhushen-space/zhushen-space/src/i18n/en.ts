@@ -38,6 +38,7 @@ export const EN_EXACT: Record<string, string> = {
   '交易行': 'Trade Hall',
   '助战': 'Assist',
   '世界竞技场': 'World Arena',
+  '游玩时长': 'Playtime',
   '纪念丰碑': 'Monument',
   '账户仓库': 'Account Vault',
   '记忆': 'Memory',

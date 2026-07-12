@@ -82,6 +82,29 @@ export function mergeRings(existing: QuestRing[] | undefined, incoming: QuestRin
   return out;
 }
 
+/* 阶位字符串 → 数字（一阶=1…九阶=9；"1阶"也认）；无法解析返回 0 */
+function tierToNum(tier: string): number {
+  const cn: Record<string, number> = { 一: 1, 二: 2, 三: 3, 四: 4, 五: 5, 六: 6, 七: 7, 八: 8, 九: 9, 十: 10 };
+  const m = /([一二三四五六七八九十]|\d+)\s*阶/.exec(tier || '');
+  if (!m) return 0;
+  return cn[m[1]] ?? (Number(m[1]) || 0);
+}
+/* 四阶门槛铁律：三阶及以下世界的任务奖励里剔除"灵魂钱币/魂币"段（治"一阶世界给灵魂钱币"）；四阶+ 或阶位未知则原样不动 */
+function enforceTierReward(reward: string | undefined, tier: string): string | undefined {
+  if (!reward) return reward;
+  const n = tierToNum(tier);
+  if (n < 1 || n >= 4) return reward;   // 未知(0)或四阶及以上：不动
+  const segs = String(reward).split(/[、，,·]/).map((x) => x.trim()).filter(Boolean);
+  const kept = segs.filter((x) => !/灵魂钱币|魂币/.test(x));
+  return (kept.length ? kept.join('、') : '乐园币+500');
+}
+/* 给一条任务的各环奖励+任务级奖励套用四阶门槛（据当前世界阶位）——AI/手动生成落库前都过一遍 */
+function scrubTaskTierCurrency<T extends { reward?: string; rings?: QuestRing[] }>(t: T, tier: string): T {
+  if (tierToNum(tier) >= 4 || tierToNum(tier) < 1) return t;
+  const rings = Array.isArray(t.rings) ? t.rings.map((r) => ({ ...r, reward: enforceTierReward(r.reward, tier) })) : t.rings;
+  return { ...t, reward: enforceTierReward(t.reward, tier), rings };
+}
+
 /* 已结算（完成/失败/放弃）的任务：移出"进行中"列表，留档供面板查看，不再注入提示词 */
 export interface ArchivedTask extends MiscTask {
   settledAt: number;
@@ -294,7 +317,7 @@ export const useMisc = create<MiscState>()(
           const i = s.tasks.findIndex((x) => x.id === t.id);
           const next = [...s.tasks];
           // 更新既有任务：rings 走按 idx 合并、不整组替换 → 不丢已完成的前面环
-          if (i >= 0) { next[i] = Array.isArray(t.rings) ? { ...next[i], ...t, rings: mergeRings(next[i].rings, t.rings) } : { ...next[i], ...t }; return { tasks: next }; }
+          if (i >= 0) { next[i] = scrubTaskTierCurrency(Array.isArray(t.rings) ? { ...next[i], ...t, rings: mergeRings(next[i].rings, t.rings) } : { ...next[i], ...t }, s.worldTier || ''); return { tasks: next }; }
           // 新建任务·铁则「一个世界只有一条主线」：本世界已有主线（进行中 或 本世界已完成/已归档的）时，新主线强制降级为支线，杜绝一个世界冒出第二条主线。
           // 用边界戳把"本世界"框住：进行中主线看 addedAt、已归档主线看 settledAt 是否晚于 lastWorldSettleAt（=进入本世界之后），避免上个世界残留的旧主线误伤新世界建主线。
           const boundary = s.lastWorldSettleAt || 0;
@@ -309,7 +332,7 @@ export const useMisc = create<MiscState>()(
             const fixed = sorted.map((r, idx) => ({ ...r, status: (idx === 0 ? 'active' : 'planned') as QuestRing['status'] }));
             nt = { ...nt, rings: fixed, currentRing: fixed[0]?.idx ?? 1 };
           }
-          next.push(nt);
+          next.push(scrubTaskTierCurrency(nt, s.worldTier || ''));
           return { tasks: next };
         }),
       updateTask: (id, patch) =>
@@ -323,8 +346,7 @@ export const useMisc = create<MiscState>()(
           }
           return { tasks: s.tasks.map((x) =>
             x.id !== id ? x
-            : Array.isArray(p.rings) ? { ...x, ...p, rings: mergeRings(x.rings, p.rings) }
-            : { ...x, ...p },
+            : scrubTaskTierCurrency(Array.isArray(p.rings) ? { ...x, ...p, rings: mergeRings(x.rings, p.rings) } : { ...x, ...p }, s.worldTier || ''),
           ) };
         }),
       // 玩家手动编辑：直接覆盖（rings 整组替换、不走 mergeRings 锁定，也不走"一世界一主线"降级）——玩家改的以玩家为准

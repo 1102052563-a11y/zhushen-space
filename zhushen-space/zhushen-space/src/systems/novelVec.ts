@@ -1,65 +1,50 @@
-import { useNovelVec } from '../store/novelVecStore';
+import { useNovelVec, type UserIndexMeta } from '../store/novelVecStore';
 import { fetchWithProxy } from './apiChat';   // 查询 embed 直连失败(CORS/SSL)自动回退服务端代理
+import { openDb, kvGet, kvPut, chunkGet, chunksBulk } from './novelVecDb';
 
-/* 向量资料库运行时（多索引）：懒加载 public/<source>/{manifest,vectors.bin,chunks.json.gz}，缓存进 IndexedDB；
-   每回合把查询 embed 一次 → 在【所有已加载索引】里 cosine 检索 → 合并 topK → 返回片段供注入正文世界书。
-   向量为单位归一化后 int8 量化(×127)；查询向量也归一化，cosine = (q·int8)/127。
-   两个源（小说 novel-vectors + 世界书 worldbook-vectors）必须用同一 embedding 模型(维度一致)。 */
+/* 向量资料库运行时（多索引 + 多模型）：
+   - 内置源：懒加载 public/<source>/{manifest,vectors.bin,chunks.json.gz}，缓存进 IndexedDB。
+   - 玩家自建源：从 IndexedDB(drpg-novelvec) 直接读回（建库时已写入），按 store.userIndexes 登记表懒加载。
+   每回合把查询按【模型分组】各 embed 一次 → 在同模型(同维)索引里 cosine 检索 → 合并 topK → 注入正文世界书。
+   向量为单位归一化后 int8 量化(×127)；查询向量也归一化，cosine = (q·int8)/127。 */
 
-const DB = 'drpg-novelvec';
-const SOURCES = ['novel-vectors', 'worldbook-vectors'];          // 候选索引目录，存在哪个加载哪个
+const SOURCES = ['novel-vectors', 'worldbook-vectors'];          // 内置候选索引目录，存在哪个加载哪个
 const SRC_LABEL: Record<string, string> = { 'novel-vectors': '原著', 'worldbook-vectors': '世界书' };
 
-interface LoadedIndex { name: string; vectors: Int8Array; count: number; dim: number; builtAt: string }
-interface ChunkRow { k: string; t: string; v: string; c: string }
+interface LoadedIndex {
+  name: string;          // IDB/网络里的键前缀：内置=目录名，玩家=meta.id
+  label: string;         // 显示名
+  vectors: Int8Array;
+  count: number;
+  dim: number;
+  model: string;         // 建库模型（检索按模型分组）
+  apiBase: string;       // 建库接口（''=用 settings.apiBase）
+  origin: 'builtin' | 'user';
+  builtAt: string;
+}
 export interface NovelHit { text: string; vol: string; chap: string; score: number; source: string }
 
-let _indexes: LoadedIndex[] = [];
+let _builtin: LoadedIndex[] = [];
+let _builtinReady = false;
+let _builtinLoading: Promise<void> | null = null;
+let _builtinError = '';
+const _userCache = new Map<string, LoadedIndex>();   // 玩家索引按 id 缓存（跨回合复用，不重复读 IDB）
+let _indexes: LoadedIndex[] = [];                    // 当前生效（内置 + 已启用玩家源）
 let _ready = false;
-let _loading: Promise<boolean> | null = null;
-let _loadError = '';
 
 export function novelVecStatus() {
   return {
     ready: _ready,
     count: _indexes.reduce((n, x) => n + x.count, 0),
     dim: _indexes[0]?.dim ?? 0,
-    error: _loadError,
-    loading: !!_loading,
-    sources: _indexes.map((x) => ({ name: SRC_LABEL[x.name] ?? x.name, count: x.count })),
+    error: _builtinError,
+    loading: !!_builtinLoading,
+    sources: _indexes.map((x) => ({ name: x.label, count: x.count, origin: x.origin, model: x.model })),
   };
-}
-
-/* ── IndexedDB（v2：kv 存 manifest:<name>/vectors:<name>；chunks 键 <name>#<id>）── */
-function open(): Promise<IDBDatabase> {
-  return new Promise((resolve, reject) => {
-    const rq = indexedDB.open(DB, 2);
-    rq.onupgradeneeded = () => {
-      const db = rq.result;
-      for (const s of ['kv', 'chunks']) if (db.objectStoreNames.contains(s)) db.deleteObjectStore(s);
-      db.createObjectStore('kv');
-      db.createObjectStore('chunks', { keyPath: 'k' });
-    };
-    rq.onsuccess = () => resolve(rq.result);
-    rq.onerror = () => reject(rq.error);
-  });
-}
-function kvGet<T>(db: IDBDatabase, key: string): Promise<T | undefined> {
-  return new Promise((res) => { const r = db.transaction('kv', 'readonly').objectStore('kv').get(key); r.onsuccess = () => res(r.result as T); r.onerror = () => res(undefined); });
-}
-function kvPut(db: IDBDatabase, key: string, val: any): Promise<void> {
-  return new Promise((res) => { const tx = db.transaction('kv', 'readwrite'); tx.objectStore('kv').put(val, key); tx.oncomplete = () => res(); tx.onerror = () => res(); });
-}
-function chunkGet(db: IDBDatabase, key: string): Promise<ChunkRow | undefined> {
-  return new Promise((res) => { const r = db.transaction('chunks', 'readonly').objectStore('chunks').get(key); r.onsuccess = () => res(r.result as ChunkRow); r.onerror = () => res(undefined); });
-}
-function chunksBulk(db: IDBDatabase, rows: ChunkRow[]): Promise<void> {
-  return new Promise((res) => { const tx = db.transaction('chunks', 'readwrite'); const st = tx.objectStore('chunks'); for (const r of rows) st.put(r); tx.oncomplete = () => res(); tx.onerror = () => res(); });
 }
 
 async function gunzipJson(buf: ArrayBuffer): Promise<any> {
   const bytes = new Uint8Array(buf);
-  // gzip 魔数 1f 8b？很多服务器(含 Vite dev)会按 .gz 透明解压并发 Content-Encoding，浏览器拿到已是明文 JSON → 直接 parse；仍是 gzip 字节才手动解压
   const isGzip = bytes.length >= 2 && bytes[0] === 0x1f && bytes[1] === 0x8b;
   if (!isGzip) return JSON.parse(new TextDecoder().decode(buf));
   if (typeof (globalThis as any).DecompressionStream === 'function') {
@@ -70,8 +55,8 @@ async function gunzipJson(buf: ArrayBuffer): Promise<any> {
   throw new Error('当前浏览器不支持 DecompressionStream（请用较新版 Chrome/Edge）');
 }
 
-/* 加载单个源；该源没建/不存在 → 返回 null（跳过，不报错） */
-async function loadOne(db: IDBDatabase, base: string, name: string): Promise<LoadedIndex | null> {
+/* ── 加载单个内置源（网络 → 首次缓存进 IDB）；没建/不存在 → null（跳过）── */
+async function loadBuiltinOne(db: IDBDatabase, base: string, name: string): Promise<LoadedIndex | null> {
   const grab = async (file: string): Promise<Response | null> => {
     let r: Response;
     try { r = await fetch(`${base}${name}/${file}`, { cache: 'no-cache' }); } catch { return null; }
@@ -79,7 +64,7 @@ async function loadOne(db: IDBDatabase, base: string, name: string): Promise<Loa
   };
   const mres = await grab('manifest.json');
   if (!mres) return null;
-  let manifest: any; try { manifest = await mres.json(); } catch { return null; }   // 返回HTML(SPA兜底)等 → 当作没建
+  let manifest: any; try { manifest = await mres.json(); } catch { return null; }
   if (!manifest || typeof manifest.count !== 'number' || typeof manifest.dim !== 'number') return null;
 
   const cachedMeta: any = await kvGet(db, `manifest:${name}`);
@@ -88,7 +73,6 @@ async function loadOne(db: IDBDatabase, base: string, name: string): Promise<Loa
   if (cachedVec && cachedMeta?.builtAt === manifest.builtAt && cachedVec.byteLength === manifest.count * manifest.dim) {
     vectors = new Int8Array(cachedVec);
   } else {
-    // vectors.bin 可能被切成多片（Cloudflare 单文件 25 MiB 限制）：manifest.parts>0 时逐片取回拼接
     const nparts = Number((manifest as any).parts) || 0;
     let vbuf: ArrayBuffer;
     if (nparts > 0) {
@@ -112,94 +96,148 @@ async function loadOne(db: IDBDatabase, base: string, name: string): Promise<Loa
     await kvPut(db, `vectors:${name}`, vbuf);
     await kvPut(db, `manifest:${name}`, manifest);
   }
-  return { name, vectors, count: manifest.count, dim: manifest.dim, builtAt: manifest.builtAt };
+  return { name, label: SRC_LABEL[name] ?? name, vectors, count: manifest.count, dim: manifest.dim, model: String(manifest.model ?? ''), apiBase: '', origin: 'builtin', builtAt: manifest.builtAt };
 }
 
-export function loadNovelIndex(): Promise<boolean> {
-  if (_ready) return Promise.resolve(true);
-  if (_loading) return _loading;
-  _loading = (async () => {
+/* ── 加载单个玩家自建源（纯 IDB，建库时已写入）── */
+async function loadUserOne(db: IDBDatabase, meta: UserIndexMeta): Promise<LoadedIndex | null> {
+  const vec = await kvGet<ArrayBuffer>(db, `vectors:${meta.id}`);
+  if (!vec || vec.byteLength !== meta.count * meta.dim) return null;   // 血本没了/损坏 → 跳过
+  return { name: meta.id, label: meta.name, vectors: new Int8Array(vec), count: meta.count, dim: meta.dim, model: meta.model, apiBase: meta.apiBase, origin: 'user', builtAt: meta.builtAt };
+}
+
+async function loadBuiltin(): Promise<void> {
+  if (_builtinReady) return;
+  if (_builtinLoading) return _builtinLoading;
+  _builtinLoading = (async () => {
     const base = (import.meta as any).env?.BASE_URL || '/';
     try {
-      const db = await open();
+      const db = await openDb();
       const loaded: LoadedIndex[] = [];
       const errs: string[] = [];
       for (const name of SOURCES) {
-        try { const idx = await loadOne(db, base, name); if (idx) loaded.push(idx); }
+        try { const idx = await loadBuiltinOne(db, base, name); if (idx) loaded.push(idx); }
         catch (e: any) { errs.push(`${SRC_LABEL[name] ?? name}: ${e?.message ?? '失败'}`); }
       }
-      if (loaded.length === 0) {
-        _loadError = errs.length ? errs.join('；') : '索引还没建：未找到 public/novel-vectors/（先在终端 npm run build-vectors 建库并部署）';
-        return false;
-      }
-      const dim0 = loaded[0].dim;
-      if (loaded.some((x) => x.dim !== dim0)) { _loadError = `两个索引维度不一致（${loaded.map((x) => x.dim).join(' vs ')}）——必须用同一 embedding 模型建库`; return false; }
-      _indexes = loaded; _ready = true;
-      _loadError = errs.length ? `（部分源未加载：${errs.join('；')}）` : '';
-      return true;
-    } catch (e: any) { _loadError = e?.message ?? '加载失败'; console.warn('[NovelVec] 索引加载失败', e); return false; }
-    finally { _loading = null; }
+      _builtin = loaded;
+      _builtinError = errs.length ? `（部分内置源未加载：${errs.join('；')}）` : '';
+      _builtinReady = true;
+    } catch (e: any) { _builtinError = e?.message ?? '加载失败'; console.warn('[NovelVec] 内置索引加载失败', e); }
+    finally { _builtinLoading = null; }
   })();
-  return _loading;
+  return _builtinLoading;
 }
 
-/* 查询 embed（归一化）；维度按已加载索引校验 */
-export async function embedQuery(text: string): Promise<Float32Array | null> {
+/* 按登记表(仅启用)重建生效玩家源列表；缓存命中不重读 IDB */
+async function loadUsers(): Promise<LoadedIndex[]> {
+  const metas = useNovelVec.getState().userIndexes.filter((m) => m.enabled);
+  const db = await openDb();
+  const out: LoadedIndex[] = [];
+  for (const m of metas) {
+    let idx = _userCache.get(m.id);
+    if (!idx || idx.builtAt !== m.builtAt || idx.count !== m.count) {
+      const loaded = await loadUserOne(db, m);
+      if (loaded) { _userCache.set(m.id, loaded); idx = loaded; } else { _userCache.delete(m.id); idx = undefined; }
+    }
+    if (idx) { idx.label = m.name; idx.model = m.model; idx.apiBase = m.apiBase; out.push(idx); }
+  }
+  return out;
+}
+
+/* 加载/刷新全部索引（内置一次 + 玩家源每次按登记表对账）。有任一源就绪即返回 true。 */
+export async function loadNovelIndex(): Promise<boolean> {
+  await loadBuiltin();
+  const users = await loadUsers();
+  _indexes = [..._builtin, ...users];
+  _ready = _indexes.length > 0;
+  if (!_ready && !_builtinError) _builtinError = '还没有任何向量库：内置未部署 public/novel-vectors/，也没有自建索引（下方「建库」可自建）';
+  else if (_ready) _builtinError = _builtin.length ? _builtinError : '';   // 有自建源时清掉"内置缺失"噪音
+  return _ready;
+}
+
+/* 建库/删除/导入后调用：让指定 id（或全部）下次检索重新对账 */
+export function invalidateUserIndex(id?: string): void {
+  if (id) _userCache.delete(id); else _userCache.clear();
+}
+export async function refreshNovelIndex(): Promise<ReturnType<typeof novelVecStatus>> {
+  await loadNovelIndex();
+  return novelVecStatus();
+}
+
+/* 用指定模型/接口把查询 embed 并归一化（settings.apiKey；apiBase 缺省用 settings.apiBase） */
+async function embedQueryWith(text: string, model: string, apiBase: string): Promise<Float32Array | null> {
   const s = useNovelVec.getState().settings;
-  if (!s.apiKey || !s.apiBase) throw new Error('未配置 embedding 接口（设置→向量资料库）');
-  const model = (s.model || '').trim() || 'Pro/BAAI/bge-m3';   // 模型框清空时回退默认，避免空 model 触发 400
-  const res = await fetchWithProxy(`${s.apiBase.replace(/\/+$/, '')}/embeddings`, {
+  const base = (apiBase || s.apiBase || '').replace(/\/+$/, '');
+  const mdl = (model || s.model || '').trim() || 'Pro/BAAI/bge-m3';
+  if (!s.apiKey || !base) throw new Error('未配置 embedding 接口（设置→向量资料库）');
+  const res = await fetchWithProxy(`${base}/embeddings`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${s.apiKey}` },
-    body: JSON.stringify({ model, input: text, encoding_format: 'float' }),
+    body: JSON.stringify({ model: mdl, input: text, encoding_format: 'float' }),
   });
   if (!res.ok) throw new Error(`embedding 接口 ${res.status}: ${(await res.text().catch(() => '')).slice(0, 160)}`);
   const j = await res.json();
   const v: number[] = j?.data?.[0]?.embedding;
   if (!Array.isArray(v)) return null;
-  const dim = _indexes[0]?.dim ?? v.length;
-  if (v.length !== dim) throw new Error(`维度不符：库是 ${dim} 维，接口返回 ${v.length} 维（查询模型须与建库模型一致）`);
   let n = 0; for (const x of v) n += x * x; n = Math.sqrt(n) || 1;
   const out = new Float32Array(v.length); for (let i = 0; i < v.length; i++) out[i] = v[i] / n;
   return out;
 }
 
-/* 在所有已加载索引里 cosine 检索，合并取全局 topK */
-export function searchAll(q: Float32Array, topK: number, threshold: number): { name: string; id: number; score: number }[] {
+/* 在给定的一组同维索引里 cosine 检索 */
+function searchIn(q: Float32Array, group: LoadedIndex[], topK: number, threshold: number): { name: string; label: string; id: number; score: number }[] {
   const inv = 1 / 127;
-  const hits: { name: string; id: number; score: number }[] = [];
-  for (const idx of _indexes) {
-    const { vectors, dim, count, name } = idx;
+  const hits: { name: string; label: string; id: number; score: number }[] = [];
+  for (const idx of group) {
+    if (idx.dim !== q.length) continue;   // 维度不符（模型对不上）→ 跳过
+    const { vectors, dim, count, name, label } = idx;
     for (let i = 0; i < count; i++) {
       let dot = 0; const off = i * dim;
       for (let k = 0; k < dim; k++) dot += q[k] * vectors[off + k];
       const cos = dot * inv;
-      if (cos >= threshold) hits.push({ name, id: i, score: cos });
+      if (cos >= threshold) hits.push({ name, label, id: i, score: cos });
     }
   }
   hits.sort((a, b) => b.score - a.score);
-  return hits.slice(0, Math.max(1, topK));
+  return hits.slice(0, Math.max(1, topK) * 3);   // 每组多留些，跨组合并后再截断
 }
 
-/* 一站式：查询文本 → 命中片段（跨两个源、受 maxChars 限量）*/
+/* 一站式：查询文本 → 命中片段（跨全部启用索引、按模型分组各 embed 一次、受 topK/maxChars 限量）*/
 export async function retrieveNovel(queryText: string): Promise<NovelHit[]> {
   const s = useNovelVec.getState().settings;
   if (!s.enabled) return [];
   if (!(await loadNovelIndex())) return [];
-  let q: Float32Array | null;
-  try { q = await embedQuery((queryText || '').slice(0, 1500)); } catch (e) { console.warn('[NovelVec] 查询 embed 失败', e); return []; }
-  if (!q) return [];
-  const ids = searchAll(q, s.topK ?? 5, s.threshold ?? 0.35);
-  if (ids.length === 0) return [];
-  const db = await open();
+  if (_indexes.length === 0) return [];
+
+  // 按 模型@接口 分组（同组同维，一次 embed 覆盖全组）
+  const groups = new Map<string, LoadedIndex[]>();
+  for (const idx of _indexes) {
+    const key = `${idx.model || s.model}\n${idx.apiBase || s.apiBase}`;
+    const arr = groups.get(key); if (arr) arr.push(idx); else groups.set(key, [idx]);
+  }
+  const q = (queryText || '').slice(0, 1500);
+  const merged: { name: string; label: string; id: number; score: number }[] = [];
+  for (const [key, idxs] of groups) {
+    const [model, apiBase] = key.split('\n');
+    let qv: Float32Array | null;
+    try { qv = await embedQueryWith(q, model, apiBase); }
+    catch (e) { console.warn(`[NovelVec] 组 ${model} 查询 embed 失败`, e); continue; }
+    if (!qv) continue;
+    merged.push(...searchIn(qv, idxs, s.topK ?? 5, s.threshold ?? 0.35));
+  }
+  if (merged.length === 0) return [];
+  merged.sort((a, b) => b.score - a.score);
+  const top = merged.slice(0, Math.max(1, s.topK ?? 5));
+
+  const db = await openDb();
   const out: NovelHit[] = [];
   let chars = 0; const cap = s.maxChars ?? 2500;
-  for (const h of ids) {
+  for (const h of top) {
     const row = await chunkGet(db, `${h.name}#${h.id}`);
     if (!row) continue;
     if (chars && chars + row.t.length > cap) break;
     chars += row.t.length;
-    out.push({ text: row.t, vol: row.v, chap: row.c, score: h.score, source: SRC_LABEL[h.name] ?? h.name });
+    out.push({ text: row.t, vol: row.v, chap: row.c, score: h.score, source: h.label });
   }
   return out;
 }

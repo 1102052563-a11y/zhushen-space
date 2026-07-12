@@ -17,6 +17,7 @@ const ALIAS: Record<string, string> = {
   '频道': 'pindao pd channel', '私信': 'sixin sx dm message', '好友': 'haoyou hy friend',
   '联机': 'lianji lj multiplayer online coop', '聊天室': 'liaotianshi lts chat chatroom', '交易行': 'jiaoyihang jyh trade market',
   '记忆': 'jiyi jy memory summary', '创意工坊': 'chuangyigongfang cygf workshop', '存档': 'cundang cd save archive load',
+  '游玩时长': 'youwanshichang ywsc playtime shichang paihang leaderboard rank hours',
   '设置': 'shezhi sz setting config',
 };
 

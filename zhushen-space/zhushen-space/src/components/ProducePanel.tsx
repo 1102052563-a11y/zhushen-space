@@ -124,6 +124,60 @@ const GOOD_NPC_FIELDS: { key: string; label: string; area?: boolean }[] = [
   { key: 'selfNarration', label: '自述 selfNarration', area: true },
 ];
 
+/** 安全把货品字段值转展示字符串（词缀/效果可能是对象/数组·避免 [object Object]·忠 affix-effect 铁则）。 */
+function fieldText(v: any): string {
+  if (v == null) return '';
+  if (typeof v === 'string' || typeof v === 'number') return String(v);
+  if (Array.isArray(v)) return v.map(fieldText).filter(Boolean).join('；');
+  if (typeof v === 'object') return Object.entries(v).map(([k, val]) => { const t = fieldText(val); return t ? `${k} ${t}` : k; }).filter(Boolean).join('；');
+  return String(v);
+}
+
+/** 货品详情（只读·展示全部面板信息）：复用 GOOD_ITEM_FIELDS/GOOD_NPC_FIELDS 逐字段渲染 payload（+good 自身兜底）。 */
+function GoodDetailModal({ good, currencyLabel, onBuy, onClose }: { good: ShopGood; currencyLabel: string; onBuy?: () => void; onClose: () => void }) {
+  const p: any = good.payload && typeof good.payload === 'object' ? good.payload : {};
+  const isNpc = good.kind === 'npc';
+  const fields = isNpc ? GOOD_NPC_FIELDS : GOOD_ITEM_FIELDS;
+  const rows = fields.map((f) => ({ label: f.label.split(' ')[0], value: fieldText(p[f.key] ?? (good as any)[f.key]) })).filter((r) => r.value);
+  const hasImg = !!(good.images?.length || good.image);
+  const sold = good.stock === 0;
+  return (
+    <div className="fixed inset-0 z-[86] bg-black/75 backdrop-blur-sm flex items-center justify-center p-4" onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}>
+      <div className="w-full max-w-md max-h-[88dvh] flex flex-col rounded-2xl border border-cyan-500/30 bg-void shadow-[0_0_50px_rgba(0,0,0,0.85)] overflow-hidden">
+        <header className="shrink-0 flex items-center gap-2 px-4 py-3 border-b border-cyan-500/20 bg-panel">
+          <span className="text-lg">{isNpc ? '🧑' : '📦'}</span>
+          <div className="flex-1 min-w-0">
+            <div className="text-sm font-bold text-cyan-100 truncate">{good.name || '（未命名商品）'}{good.aiGen && <span className="ml-1.5 text-[10px] font-mono text-cyan-300/60">AI</span>}</div>
+            <div className="text-[11px] font-mono text-cyan-300/50 truncate">{good.category || '商品'} · {good.price} {currencyLabel} · {typeof good.stock === 'number' && good.stock >= 0 ? `库存 ${good.stock}` : '库存 ∞'}</div>
+          </div>
+          <button onClick={onClose} className="text-dim/50 hover:text-blood text-lg shrink-0">✕</button>
+        </header>
+        <div className="p-4 flex-1 overflow-y-auto space-y-3">
+          {hasImg && <div className="w-full h-52 rounded-xl border border-edge bg-void overflow-hidden flex items-center justify-center"><SignShow imgs={good.images} cover={good.image} imgClass="object-contain" /></div>}
+          {good.desc && <div className="text-[13px] text-slate-200 leading-relaxed whitespace-pre-wrap">{good.desc}</div>}
+          {rows.length === 0 && !good.desc
+            ? <div className="text-center text-dim/45 text-[12px] py-4">这件商品没有更多详情。</div>
+            : <div className="space-y-1.5">
+                {rows.map((r) => (
+                  <div key={r.label} className="flex gap-2 text-[12px]">
+                    <span className="font-mono text-dim/55 shrink-0 min-w-[64px]">{r.label}</span>
+                    <span className="text-slate-200 whitespace-pre-wrap flex-1 min-w-0">{r.value}</span>
+                  </div>
+                ))}
+              </div>}
+        </div>
+        {onBuy && (
+          <footer className="shrink-0 flex items-center gap-2 px-4 py-3 border-t border-cyan-500/20 bg-panel">
+            <span className="text-sm font-bold font-mono text-amber-300">{good.price} {currencyLabel}</span>
+            <div className="flex-1" />
+            <button onClick={() => { onBuy(); onClose(); }} disabled={sold} className={`text-[13px] font-mono py-1.5 px-4 rounded-lg border ${sold ? 'border-edge text-dim/40 cursor-not-allowed' : 'border-emerald-500/50 text-emerald-300 hover:bg-emerald-900/25'}`}>{sold ? '售罄' : (isNpc ? '招募' : '购买')}</button>
+          </footer>
+        )}
+      </div>
+    </div>
+  );
+}
+
 function GoodEditModal({ shopId, good, onClose }: { shopId: string; good: ShopGood; onClose: () => void }) {
   const upsertGood = useShop((s) => s.upsertGood);
   const [kind, setKind] = useState<'item' | 'npc'>(good.kind === 'npc' ? 'npc' : 'item');
@@ -492,6 +546,7 @@ function ShopVisitModal({ shopId, onClose, onBuyCompanion }: { shopId: string; o
   const adjustCurrency = useItems((s) => s.adjustCurrency);
   const addItem = useItems((s) => s.addItem);
   const [toast, setToast] = useState('');
+  const [detailGood, setDetailGood] = useState<ShopGood | null>(null);
   const flash = (t: string) => { setToast(t); setTimeout(() => setToast(''), 3000); };
 
   useEffect(() => { bumpVisit(shopId); }, [shopId, bumpVisit]);
@@ -559,14 +614,16 @@ function ShopVisitModal({ shopId, onClose, onBuyCompanion }: { shopId: string; o
                   const sold = g.stock === 0;
                   return (
                     <div key={g.id} className="flex items-center gap-3 px-2.5 py-2 rounded-lg border border-edge bg-panel/50">
-                      <div className="w-14 h-14 rounded border border-edge bg-void overflow-hidden flex items-center justify-center shrink-0">
-                        {(g.images?.length || g.image) ? <SignShow imgs={g.images} cover={g.image} /> : <span className="text-xl opacity-25">📦</span>}
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <div className="text-sm font-semibold text-slate-100 truncate">{g.name || '（未命名商品）'}{g.aiGen && <span className="ml-1.5 text-[10px] font-mono text-cyan-300/60">AI</span>}</div>
-                        {g.desc && <div className="text-[12px] text-dim/60 truncate">{g.desc}</div>}
-                        <div className="text-[11px] font-mono text-dim/45">{typeof g.stock === 'number' && g.stock >= 0 ? `库存 ${g.stock}` : '库存 ∞'}</div>
-                      </div>
+                      <button onClick={() => setDetailGood(g)} className="flex items-center gap-3 flex-1 min-w-0 text-left group" title="查看全部详情">
+                        <div className="w-14 h-14 rounded border border-edge bg-void overflow-hidden flex items-center justify-center shrink-0">
+                          {(g.images?.length || g.image) ? <SignShow imgs={g.images} cover={g.image} /> : <span className="text-xl opacity-25">📦</span>}
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <div className="text-sm font-semibold text-slate-100 truncate group-hover:text-cyan-100">{g.name || '（未命名商品）'}{g.aiGen && <span className="ml-1.5 text-[10px] font-mono text-cyan-300/60">AI</span>}</div>
+                          {g.desc && <div className="text-[12px] text-dim/60 truncate">{g.desc}</div>}
+                          <div className="text-[11px] font-mono text-dim/45">{typeof g.stock === 'number' && g.stock >= 0 ? `库存 ${g.stock}` : '库存 ∞'} · <span className="text-cyan-300/50">点击看详情</span></div>
+                        </div>
+                      </button>
                       <div className="shrink-0 flex flex-col items-end gap-1">
                         <span className="text-sm font-bold font-mono text-amber-300">{g.price} {curLabel}</span>
                         <button onClick={() => buy(g)} disabled={sold}
@@ -583,6 +640,7 @@ function ShopVisitModal({ shopId, onClose, onBuyCompanion }: { shopId: string; o
 
         {toast && <div className="shrink-0 px-4 py-2 text-[13px] font-mono border-t border-cyan-500/30 text-cyan-200/80 bg-cyan-500/5">{toast}</div>}
       </div>
+      {detailGood && <GoodDetailModal good={detailGood} currencyLabel={curLabel} onBuy={() => buy(detailGood)} onClose={() => setDetailGood(null)} />}
     </div>
   );
 }
