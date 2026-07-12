@@ -35,7 +35,9 @@ export default function DiceReviewModal({
           <span className="text-[11px] font-mono text-dim/50">重掷 / 编辑后再写正文</span>
         </div>
 
-        <DiceCard data={cur.card} />
+        <div className="space-y-1">
+          {cur.cards.map((c, i) => <DiceCard key={i} data={c} />)}
+        </div>
 
         <div>
           <div className="text-[12px] font-mono text-dim/60 mb-1">注入正文的检定块（可直接编辑；清空则本回合不注入检定）</div>
@@ -62,7 +64,7 @@ export default function DiceReviewModal({
             取消（作废本回合）
           </button>
           <button
-            onClick={() => onConfirm({ block: block.trim(), card: cur.card })}
+            onClick={() => onConfirm({ block: block.trim(), cards: cur.cards })}
             disabled={rolling}
             className="px-4 py-1.5 rounded-lg border border-god/50 text-god bg-god/15 hover:bg-god/25 text-sm font-mono transition-colors disabled:opacity-50">
             ✓ 确认并写正文

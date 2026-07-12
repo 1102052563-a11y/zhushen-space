@@ -8,6 +8,7 @@ import { ADVANCE_PRESET_BUILTINS, PLOT_CHOICES_RULE } from '../promptRules';
 import { useDbAdvance } from '../store/dbAdvanceStore';   // 数据库推进管线（Stitches 规划层）
 import VariableManager from './VariableManager';
 import ApiRoutePicker from './ApiRoutePicker';
+import ApiSlotAudit from './ApiSlotAudit';
 import { exportGlossary, parseGlossaryImport } from '../i18n/glossaryIO';
 import ItemManager from './ItemManager';
 import PlayerManager from './PlayerManager';
@@ -2385,6 +2386,7 @@ function ApiLibrarySection() {
         </div>
       )}
       <div className="text-[12px] text-dim/40 font-mono px-1">在各功能的「API 设置」页选「⚡ 接口库快捷填入」即可一键套用此处接口，无需重复填写。</div>
+      <ApiSlotAudit />
     </div>
   );
 }

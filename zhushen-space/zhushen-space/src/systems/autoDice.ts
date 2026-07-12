@@ -11,16 +11,17 @@ import {
   resolve, buildCheckResultBlock, CRIT_MULT, ATTR_KEYS, ATTR_LABELS, strengthScoreFromBio, rollDie,
   type AttrKey, type Difficulty, type OutcomeLevel, type DiceMode, type ResolveResult, type DiceAttrs, type EquipItemLite,
 } from './diceEngine';
-import { aiJudge, buildJudgeBlock, aiFullRoll, buildAiFullBlock } from './diceJudge';
-import { detectAutoAction, detectDifficulty } from './autoDiceDetect';
+import { aiClassifyJudge, type JudgedBehavior } from './diceJudge';
+import { detectAutoActions, detectDifficulty } from './autoDiceDetect';
 
 /* ════════════════════════════════════════════
-   自动检定（发送即判定）—— hybrid：关键词门 + 可选 AI 精修
-   - 玩家开启「自动检定」后，正常发送消息即触发；无需再开骰子面板手动摇。
-   - 判定链路：① 关键词门（cheap gate·detectAutoAction）命中才 roll → ② 前端确定性 resolve（复用 diceEngine，
-     与手动面板 computeFe 同口径）→ ③ judgeMode='ai' 时再 aiJudge 精修（失败自动回退前端结果）。
-   - 结果 = 一段 `<检定结果>` 块（对读者隐藏·只随本回合喂正文 API）+ 一张 DiceCardData（气泡下弹骰子卡）。
-   - 仅主角、仅非对抗（对抗需锁定具体对手，自动模式暂不做）。手动骰子面板已移除，检定统一走自动模式。
+   自动检定（发送即判定）—— hybrid：关键词门 + 按行为类型判属性 + 可多行为多摇
+   - 玩家开启「自动检定」后，正常发送消息即触发。
+   - 关键词门（detectAutoActions·多命中）决定「要不要 roll」（命中才继续；AI 模式也靠它省调用）。
+   - 属性判定：frontend 模式按关键词直接定属性（可多类→多摇·最多2）；ai/ai-full 模式一次调用 aiClassifyJudge
+     让 AI 挑对口属性并裁定（治「赠送礼物被当力量」等关键词误判 + 多行为分别摇），失败回退前端确定性多摇。
+   - 结果 = 多段 `<检定结果>` 块（对读者隐藏·只喂正文 API）+ 多张 DiceCardData（气泡下弹）。
+   - 仅主角、仅非对抗。手动骰子面板已移除，检定统一走自动模式。
    设计沿用 `摇骰子判定-集成指导.md` + 参考「轮回乐园插件」的发送即注入 ROLL 机制。
 ════════════════════════════════════════════ */
 
@@ -40,13 +41,13 @@ export interface DiceCardData {
   usedAI: boolean;       // 是否 AI 裁定（否=纯前端确定性）
   reasoning?: string;    // AI 裁定依据（≤60字）
   consequences?: string[];
-  calcNote?: string;     // AI 全包模式：AI 的数值推演摘要（有则替代 d20/d100 算式行）
-  rerolls?: number;      // 有限重掷：本次因失败额外掷了几次（0/undefined=没重掷）
+  calcNote?: string;     // AI 模式：AI 的数值推演摘要（有则替代 d20/d100 算式行）
+  rerolls?: number;      // 有限重掷：本次因失败额外掷了几次（0/undefined=没重掷；仅 frontend）
 }
 
 export interface AutoDiceOut {
-  block: string;         // 注入正文 API 的 `<检定结果>` 文本（读者不可见）
-  card: DiceCardData;    // 渲染骰子卡
+  block: string;           // 注入正文 API 的 `<检定结果>` 文本（读者不可见·可含多段）
+  cards: DiceCardData[];   // 渲染骰子卡（一段行动可多类行为 → 多张卡·最多2）
 }
 
 /* ── 面板序列化（供 AI 裁判读；六维用有效值·含装备加成，技能/天赋/装备附效果描述，让 AI 判定能吃到「具体干什么」） ── */
@@ -114,9 +115,23 @@ export const isDiceReviewOn = (): boolean => !!useDice.getState().settings.diceR
 const LEVEL_ORDER: OutcomeLevel[] = ['大成功', '碾压成功', '极难成功', '困难成功', '成功', '失败', '大失败'];
 const levelRank = (lv: OutcomeLevel): number => { const i = LEVEL_ORDER.indexOf(lv); return i < 0 ? 99 : i; };
 
+/** 把 AI 分类裁判的单个行为拼成 `<检定结果>` 块（多行为各一段·末尾总服从提示由调用方统一追加一条） */
+function buildBehaviorBlock(actorName: string, b: JudgedBehavior, mode: DiceMode): string {
+  const head = `${actorName}（${b.attr}）${b.difficulty ? ` 难度=${b.difficulty}` : ''}`;
+  const anchor = mode === 'd20' ? `d20:${b.roll}` : `d100:${b.roll}`;
+  return [
+    `<检定结果> ${head} → ${b.level}（AI 裁定·骰点 ${anchor}）`,
+    b.reasoning ? `裁定：${b.reasoning}` : '',
+    b.consequences?.length ? `后果：${b.consequences.join('；')}` : '',
+    `</检定结果>`,
+  ].filter(Boolean).join('\n');
+}
+
+const FOLLOW_LINE = '（以上为系统判定结果，请让本回合剧情严格服从各项成败、等级与后果，不要推翻。）';
+
 /**
- * 自动检定主流程。返回 null = 本回合不判定（未开启 / 未命中关键词 / 系统回合 / 已手动注入）。
- * 命中则：掷骰（+可选 AI 精修 / 失败有限重掷）→ 记历史 → 返回 { block, card }。
+ * 自动检定主流程。返回 null = 本回合不判定（未开启 / 未命中关键词 / 系统回合 / 已手动注入 / AI 判无需检定）。
+ * 命中则：按行为类型判属性（可多类→多摇·最多2）→ 记历史 → 返回 { block, cards }。
  */
 export async function runAutoDice(text: string): Promise<AutoDiceOut | null> {
   const dice = useDice.getState();
@@ -127,90 +142,73 @@ export async function runAutoDice(text: string): Promise<AutoDiceOut | null> {
   if (/<检定结果>/.test(t)) return null;                              // 玩家已手动注入过 → 不重复
   if (/【结算任务】|【进入世界|【结束世界|【回归乐园】/.test(t)) return null;  // 系统回合跳过
   if (/【战斗结果】|已结算并写入面板/.test(t)) return null;            // 右侧⚔️战斗系统已结算的战报复盘（战斗内已骰过）→ 不再二次投骰
-  const hit = detectAutoAction(t);
-  if (!hit) return null;                                             // 关键词门：日常/闲聊/情感 → 不 roll
+  const hits = detectAutoActions(t).slice(0, 2);                     // 关键词门（多命中·最多2类）：没命中=日常/闲聊 → 不 roll
+  if (!hits.length) return null;
 
   const difficulty = detectDifficulty(t);
   const profile = usePlayer.getState().profile;
   const actorName = profile.name || '主角';
-  const rerollMax = Math.max(0, Math.min(5, Math.floor(s.rerollOnFail || 0)));   // 有限重掷上限（失败自动重掷·一成功即停；UI 0/1/2）
+  const rerollMax = Math.max(0, Math.min(5, Math.floor(s.rerollOnFail || 0)));   // 有限重掷上限（仅 frontend 路径）
+  const isD20 = s.mode === 'd20';
 
-  // ── AI 全包模式：一次调用同时判 needRoll + 估全部数值 + 裁成败（前端只掷诚实骰点，其余全交 AI；放弃确定性）。
-  //   AI 调用/解析失败 → out.usedAI=false，落到下方前端确定性路径兜底。 ──
-  if (s.judgeMode === 'ai-full') {
-    // 有限重掷·ai-full：为免逐次调 API，掷 1+N 颗骰点取最有利（d20取高/d100取低）再交单次 AI 裁定（优势式，非逐次重判）。
-    const pool = Array.from({ length: 1 + rerollMax }, () => rollDie(s.mode === 'd20' ? 20 : 100));
-    const roll = s.mode === 'd20' ? Math.max(...pool) : Math.min(...pool);
-    const out = await aiFullRoll({ mode: s.mode, actorName, action: t, difficulty, playerSheet: buildPlayerSheet(), roll });
+  const cards: DiceCardData[] = [];
+  const blocks: string[] = [];
+
+  // ── AI 模式（ai / ai-full）：一次调用识别最多 2 个行为、各挑对口属性并裁定（治关键词误判属性 + 多行为分别摇）。
+  //    失败 → 落到下方前端确定性多摇兜底。 ──
+  if (s.judgeMode === 'ai' || s.judgeMode === 'ai-full') {
+    const rolls = [rollDie(isD20 ? 20 : 100), rollDie(isD20 ? 20 : 100)];   // 预掷 2 颗诚实骰点，按行为顺序取用
+    const out = await aiClassifyJudge({ mode: s.mode, actorName, action: t, difficulty, playerSheet: buildPlayerSheet(), rolls });
     if (out.usedAI) {
-      if (!out.needRoll) return null;                    // AI 判无需检定 → 不注入
-      const lv = out.level;
-      const mult = CRIT_MULT[lv] ?? 1;
-      const aLabel = out.attr || ATTR_LABELS[hit.attrKey];
-      const blk = buildAiFullBlock({ actorName, attr: aLabel, difficulty, mode: s.mode, roll, level: lv, reasoning: out.reasoning, consequences: out.consequences });
-      try {
-        useDice.getState().addHistory({
-          actorName, actionText: t, attrLabel: aLabel, difficulty, opposed: false,
-          mode: s.mode, dice: [roll], chosen: roll, total: roll, dc: 0, P: 0,
-          level: lv, success: out.success, multiplier: mult, backlash: lv === '大失败',
+      if (!out.behaviors.length) return null;                        // AI 判无需检定 → 不注入
+      for (const b of out.behaviors) {
+        const mult = CRIT_MULT[b.level] ?? 1;
+        blocks.push(buildBehaviorBlock(actorName, b, s.mode));
+        try {
+          useDice.getState().addHistory({
+            actorName, actionText: t, attrLabel: b.attr, difficulty, opposed: false,
+            mode: s.mode, dice: [b.roll], chosen: b.roll, total: b.roll, dc: 0, P: 0,
+            level: b.level, success: b.success, multiplier: mult, backlash: b.level === '大失败',
+          });
+        } catch { /* 历史记录失败不影响判定 */ }
+        cards.push({
+          actorName, action: t, attrLabel: b.attr, mode: s.mode, chosen: b.roll,
+          modsTotal: 0, dc: 0, P: 0, level: b.level, success: b.success, multiplier: mult,
+          usedAI: true, reasoning: b.reasoning, consequences: b.consequences?.length ? b.consequences : undefined,
+          calcNote: b.calc || (isD20 ? `d20:${b.roll}` : `d100:${b.roll}`),
         });
-      } catch { /* 历史记录失败不影响判定 */ }
-      const c: DiceCardData = {
-        actorName, action: t, attrLabel: aLabel, mode: s.mode, chosen: roll,
-        modsTotal: 0, dc: 0, P: 0, level: lv, success: out.success, multiplier: mult,
-        usedAI: true, reasoning: out.reasoning || undefined,
-        consequences: out.consequences.length ? out.consequences : undefined,
-        calcNote: out.calc || (s.mode === 'd20' ? `d20:${roll}` : `d100:${roll}`),
-        rerolls: rerollMax || undefined,
-      };
-      return { block: blk, card: c };
+      }
+      return { block: blocks.join('\n\n') + '\n' + FOLLOW_LINE, cards };
     }
-    // AI 失败 → 继续走前端确定性兜底
+    // AI 失败 → 前端确定性兜底（下面）
   }
 
-  const attrLabel = ATTR_LABELS[hit.attrKey];
-  let fe = computeAutoFe(hit.attrKey, difficulty);
-  // 有限重掷：失败且开了重掷 → 再掷，一成功即停；全失败则保留最好的一次（连大失败反噬也一并降低）。前端确定性，零 API 成本。
-  let rerolls = 0;
-  while (!fe.success && rerolls < rerollMax) {
-    rerolls++;
-    const next = computeAutoFe(hit.attrKey, difficulty);
-    if (levelRank(next.level) < levelRank(fe.level)) fe = next;
-  }
-
-  let level: OutcomeLevel = fe.level;
-  let success = fe.success;
-  let usedAI = false;
-  let reasoning: string | undefined;
-  let consequences: string[] | undefined;
-  let block: string;
-
-  if (s.judgeMode === 'ai') {
-    const out = await aiJudge({
-      mode: fe.mode, actorName, action: t, attrLabel,
-      difficulty, opposed: false, playerSheet: buildPlayerSheet(), fe,
+  // ── 前端确定性（frontend 模式 / AI 失败兜底）：关键词命中的每类属性各摇一次（最多 2）。 ──
+  for (const hit of hits) {
+    const attrLabel = ATTR_LABELS[hit.attrKey];
+    let fe = computeAutoFe(hit.attrKey, difficulty);
+    // 有限重掷：失败且开了重掷 → 再掷，一成功即停；全失败保留最好一次。纯前端、零 API。
+    let rerolls = 0;
+    while (!fe.success && rerolls < rerollMax) {
+      rerolls++;
+      const next = computeAutoFe(hit.attrKey, difficulty);
+      if (levelRank(next.level) < levelRank(fe.level)) fe = next;
+    }
+    const mult = CRIT_MULT[fe.level] ?? 1;
+    blocks.push(buildCheckResultBlock({ actorName, actionText: t, attrLabel, difficulty, opposed: false, res: fe }));
+    try {
+      useDice.getState().addHistory({
+        actorName, actionText: t, attrLabel, difficulty, opposed: false,
+        mode: fe.mode, dice: fe.dice, chosen: fe.chosen, total: fe.total, dc: fe.dc, P: fe.P,
+        level: fe.level, success: fe.success, multiplier: mult, backlash: fe.level === '大失败',
+      });
+    } catch { /* 历史记录失败不影响判定 */ }
+    cards.push({
+      actorName, action: t, attrLabel, mode: fe.mode, chosen: fe.chosen,
+      modsTotal: fe.mods.total, dc: fe.dc, P: fe.P, level: fe.level, success: fe.success, multiplier: mult,
+      usedAI: false, rerolls: rerolls || undefined,
     });
-    level = out.level; success = out.success; usedAI = out.usedAI;
-    reasoning = out.reasoning || undefined;
-    consequences = out.consequences.length ? out.consequences : undefined;
-    block = buildJudgeBlock({ actorName, attrLabel, difficulty, opposed: false, fe, out });
-  } else {
-    block = buildCheckResultBlock({ actorName, actionText: t, attrLabel, difficulty, opposed: false, res: fe });
   }
-
-  const multiplier = CRIT_MULT[level] ?? 1;
-  try {
-    useDice.getState().addHistory({
-      actorName, actionText: t, attrLabel, difficulty, opposed: false,
-      mode: fe.mode, dice: fe.dice, chosen: fe.chosen, total: fe.total, dc: fe.dc, P: fe.P,
-      level, success, multiplier, backlash: level === '大失败',
-    });
-  } catch { /* 历史记录失败不影响判定 */ }
-
-  const card: DiceCardData = {
-    actorName, action: t, attrLabel, mode: fe.mode, chosen: fe.chosen,
-    modsTotal: fe.mods.total, dc: fe.dc, P: fe.P, level, success, multiplier,
-    usedAI, reasoning, consequences, rerolls: rerolls || undefined,
-  };
-  return { block, card };
+  // buildCheckResultBlock 各自带服从提示，直接拼接即可（多段稍冗余但无害）。
+  return cards.length ? { block: blocks.join('\n\n'), cards } : null;
 }

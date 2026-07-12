@@ -348,7 +348,7 @@ interface ChatMessage {
   largeSummary?: string;   // 该楼层大总结
   images?: StoryImage[];   // 正文配图（按 anchor 插入楼层正文）
   choices?: string[];      // 剧情选项（正文后生成的 8 个主角行动选项，点击填入输入框）
-  dice?: DiceCardData;     // 自动检定结果（挂在用户楼层，渲染气泡下方的骰子卡；`<检定结果>` 只喂API不入本字段）
+  dice?: DiceCardData[];   // 自动检定结果（挂在用户楼层，渲染气泡下方的骰子卡·可多张；`<检定结果>` 只喂API不入本字段）
   fanficNote?: string;     // 同人搜索内容（本楼涉及的已知作品角色设定，折叠展示）
   factNote?: string;       // 事实查证（本楼涉及的现实可查证元素核实结果，折叠展示）
   theaterHtml?: string;    // 小剧场：番外彩蛋 HTML（<xiaojuchang> 块内的内容，直接渲染在正文末尾）
@@ -9120,7 +9120,7 @@ ${lines}`;
         if (auto) {
           autoFired = true;
           let finalBlock = auto.block;
-          let finalCard: DiceCardData | null = auto.card;
+          let finalCards: DiceCardData[] = auto.cards;
           if (isDiceReviewOn()) {   // 审核窗：弹窗给玩家重掷/编辑 → 确认(结果)/取消(作废本回合)
             const decided = await new Promise<AutoDiceOut | null>((res) => {
               diceReviewResolveRef.current = res;
@@ -9133,11 +9133,11 @@ ${lines}`;
               if (textArg == null) setInputValue(text);
               return;
             }
-            finalBlock = decided.block; finalCard = decided.card;
+            finalBlock = decided.block; finalCards = decided.cards;
           }
           if (finalBlock.trim()) {   // 清空检定块（审核时删掉）= 本回合不注入检定
             apiText = `${effectiveText}\n${finalBlock.trim()}`;
-            setMessages((prev) => prev.map((m) => m.id === userMsgId ? { ...m, dice: finalCard! } : m));
+            setMessages((prev) => prev.map((m) => m.id === userMsgId ? { ...m, dice: finalCards } : m));
           }
         }
       } catch (e) { console.warn('[AutoDice] 自动检定失败，跳过本回合判定', e); }
@@ -9903,7 +9903,7 @@ ${lines}`;
                                 <div className="flex flex-col items-end min-w-0">
                                   <div className="max-w-sm px-4 py-2 rounded-xl bg-god/10 border border-god/20 text-sm text-god/90 font-mono"
                                     dangerouslySetInnerHTML={{ __html: userToHtml(msg.content) }} />
-                                  {msg.dice && <DiceCard data={msg.dice} />}
+                                  {msg.dice && msg.dice.map((d, i) => <DiceCard key={i} data={d} />)}
                                 </div>
                               </div>
                             )

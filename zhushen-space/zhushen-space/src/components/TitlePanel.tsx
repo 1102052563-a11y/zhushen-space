@@ -2,9 +2,11 @@ import { useState } from 'react';
 import { useCharacters, RARITY_CLS, type Title } from '../store/characterStore';
 import { useSettings, resolveApiChain } from '../store/settingsStore';
 import { usePlayer } from '../store/playerStore';
+import { useMisc } from '../store/miscStore';
 import { apiChatFallback } from '../systems/apiChat';
 import { lenientJsonParse } from '../systems/stateParser';
-import { TITLE_FUSION_RULE } from '../promptRules';
+import { TITLE_FUSION_RULE, TITLE_GEN_RULE } from '../promptRules';
+import { buildPlayerGenContext } from '../systems/playerGenContext';
 
 /* 称号库（主角 B1）：展示已获得称号，最多佩戴 1 个；
    仅佩戴的称号会被叙事记忆结构化召回注入正文。
@@ -46,6 +48,32 @@ async function fuseTitles(sources: Title[]): Promise<Omit<Title, 'addedAt'> | nu
   };
 }
 
+/* 调 AI 据主角当前处境「凭空」生成一枚贴切的新称号（走主角演化路由，回退正文/共享 API）。
+   与合成不同：不消耗任何来源，纯据主角档案（身份/阶位/六维/所在世界/经历）授予。 */
+async function genTitle(existing: Title[]): Promise<Omit<Title, 'addedAt'> | null> {
+  const ss = useSettings.getState();
+  const ps = usePlayer.getState();
+  const legacy = ps.playerUseSharedApi ? (ss.textUseSharedApi ? ss.api : ss.textApi) : ps.playerApi;
+  const chain = resolveApiChain('player', legacy);
+  if (!chain[0]?.baseUrl || !chain[0]?.apiKey) throw new Error('未配置 AI 接口（设置→主角演化→API设置 或 综合设置→正文生成）');
+  const dupes = existing.map((t) => t.name).join('、') || '（无）';
+  const userMsg = `【主角档案】\n${buildPlayerGenContext()}\n\n【已有称号（勿重复或近义）】\n${dupes}\n\n请据主角档案生成**一枚**贴切的新称号，只输出 JSON。`;
+  const { content } = await apiChatFallback(chain, [
+    { role: 'system', content: TITLE_GEN_RULE },
+    { role: 'user', content: userMsg },
+  ], { timeoutMs: 120000 });
+  const raw: any = lenientJsonParse(extractJson(content ?? ''));
+  if (!raw || typeof raw !== 'object' || !raw.name) return null;
+  return {
+    name: String(raw.name).trim(),
+    rarity: String(raw.rarity ?? 'C').trim(),
+    effect: raw.effect ? String(raw.effect).trim() : undefined,
+    desc: raw.desc ? String(raw.desc).trim() : undefined,
+    source: raw.source ? String(raw.source).trim() : '手动生成',
+    obtainedTime: raw.obtainedTime ? String(raw.obtainedTime).trim() : (useMisc.getState().worldTime || undefined),
+  };
+}
+
 export default function TitlePanel({ onClose }: { onClose: () => void }) {
   const titles = useCharacters((s) => s.characters['B1']?.titles ?? []);
   const equipTitle = useCharacters((s) => s.equipTitle);
@@ -56,7 +84,8 @@ export default function TitlePanel({ onClose }: { onClose: () => void }) {
   const [fuseMode, setFuseMode] = useState(false);
   const [sel, setSel] = useState<string[]>([]);      // 已选称号名（最多 3）
   const [fusing, setFusing] = useState(false);
-  const [fuseMsg, setFuseMsg] = useState('');
+  const [gening, setGening] = useState(false);       // 手动生成中
+  const [fuseMsg, setFuseMsg] = useState('');        // 合成/生成 共用状态条
 
   const equipped = titles.find((t) => t.equipped);
   const sorted = [...titles].sort((a, b) => (b.equipped ? 1 : 0) - (a.equipped ? 1 : 0) || (b.addedAt ?? 0) - (a.addedAt ?? 0));
@@ -92,8 +121,27 @@ export default function TitlePanel({ onClose }: { onClose: () => void }) {
     }
   };
 
+  const doGen = async () => {
+    if (gening || fusing) return;
+    if (!window.confirm('调用 AI 据主角当前身份/阶位/事迹「生成」一枚贴切的新称号？（计费）')) return;
+    setGening(true);
+    setFuseMsg('正在为主角生成称号…');
+    try {
+      const next = await genTitle(titles);
+      if (!next) { setFuseMsg('生成失败：AI 未返回有效称号，请重试'); return; }
+      if (titles.some((t) => t.name === next.name)) { setFuseMsg(`生成的「${next.name}」与已有称号重名，已跳过；可再点一次生成`); return; }
+      addTitle('B1', next);
+      setFuseMsg(`✓ 已生成新称号「${next.name}」(${next.rarity})`);
+      setTimeout(() => setFuseMsg(''), 6000);
+    } catch (e: any) {
+      setFuseMsg('生成失败：' + (e?.message || String(e)));
+    } finally {
+      setGening(false);
+    }
+  };
+
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-4" onClick={fusing ? undefined : onClose}>
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-4" onClick={(fusing || gening) ? undefined : onClose}>
       <div className="bg-void border border-edge rounded-2xl w-full max-w-2xl max-h-[88dvh] flex flex-col shadow-[0_0_60px_rgba(0,0,0,0.8)] overflow-hidden"
         onClick={(e) => e.stopPropagation()}>
         {/* 头部 */}
@@ -113,16 +161,27 @@ export default function TitlePanel({ onClose }: { onClose: () => void }) {
           <div className="flex items-center gap-2 shrink-0">
             {fuseMode
               ? <button onClick={exitFuse} disabled={fusing} className="text-[12px] font-mono px-2 py-1 rounded border border-edge text-dim hover:text-blood hover:border-blood/50 transition-colors disabled:opacity-40">取消合成</button>
-              : <button
-                  onClick={() => {
-                    if (titles.length < 2) { setFuseMsg('至少需要 2 个称号才能合成（二合一 / 三合一）'); setTimeout(() => setFuseMsg(''), 3500); return; }
-                    setFuseMode(true); setFuseMsg('');
-                  }}
-                  title={titles.length < 2 ? '至少需要 2 个称号才能合成' : '选 2~3 个称号熔铸成一个更强的新称号'}
-                  className={`text-[12px] font-mono px-2 py-1 rounded border transition-colors ${titles.length < 2 ? 'border-edge text-dim/40 hover:text-dim/70' : 'border-god/40 text-god hover:bg-god/10'}`}>
-                  🔮 合成
-                </button>}
-            <button onClick={onClose} disabled={fusing} className="text-dim/50 hover:text-blood text-lg font-mono disabled:opacity-40">✕</button>
+              : <>
+                  <button
+                    onClick={doGen}
+                    disabled={gening}
+                    title="据主角当前身份/阶位/事迹，AI 生成一枚贴切的新称号"
+                    className="text-[12px] font-mono px-2 py-1 rounded border border-god/40 text-god hover:bg-god/10 transition-colors disabled:opacity-40">
+                    {gening ? '生成中…' : '✨ 生成'}
+                  </button>
+                  <button
+                    onClick={() => {
+                      if (gening) return;
+                      if (titles.length < 2) { setFuseMsg('至少需要 2 个称号才能合成（二合一 / 三合一）'); setTimeout(() => setFuseMsg(''), 3500); return; }
+                      setFuseMode(true); setFuseMsg('');
+                    }}
+                    disabled={gening}
+                    title={titles.length < 2 ? '至少需要 2 个称号才能合成' : '选 2~3 个称号熔铸成一个更强的新称号'}
+                    className={`text-[12px] font-mono px-2 py-1 rounded border transition-colors disabled:opacity-40 ${titles.length < 2 ? 'border-edge text-dim/40 hover:text-dim/70' : 'border-god/40 text-god hover:bg-god/10'}`}>
+                    🔮 合成
+                  </button>
+                </>}
+            <button onClick={onClose} disabled={fusing || gening} className="text-dim/50 hover:text-blood text-lg font-mono disabled:opacity-40">✕</button>
           </div>
         </header>
 
@@ -142,7 +201,7 @@ export default function TitlePanel({ onClose }: { onClose: () => void }) {
         {/* 合成结果/状态条 */}
         {fuseMsg && (
           <div className={`px-4 py-2 border-b border-edge/60 text-[13px] font-mono shrink-0 ${fuseMsg.startsWith('✓') ? 'text-emerald-300 bg-emerald-900/10' : fuseMsg.includes('失败') ? 'text-blood bg-blood/5' : 'text-god bg-god/5'}`}>
-            {fusing && <span className="inline-block animate-spin mr-1.5">⟳</span>}{fuseMsg}
+            {(fusing || gening) && <span className="inline-block animate-spin mr-1.5">⟳</span>}{fuseMsg}
           </div>
         )}
 
