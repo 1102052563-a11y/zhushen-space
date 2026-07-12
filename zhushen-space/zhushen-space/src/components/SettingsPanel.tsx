@@ -9,6 +9,7 @@ import { useDbAdvance } from '../store/dbAdvanceStore';   // 数据库推进管�
 import VariableManager from './VariableManager';
 import ApiRoutePicker from './ApiRoutePicker';
 import ApiSlotAudit from './ApiSlotAudit';
+import DbAdvanceInspector from './DbAdvanceInspector';
 import { exportGlossary, parseGlossaryImport } from '../i18n/glossaryIO';
 import ItemManager from './ItemManager';
 import PlayerManager from './PlayerManager';
@@ -2665,6 +2666,8 @@ function GeneralSettingsSection() {
             <div className="text-[12px] font-mono text-god/70">🎬 数据库推进 · 接口路由</div>
             <ApiRoutePicker routeKey="dbadvance" />
           </div>
+
+          <DbAdvanceInspector />
         </div>
       </div>
 

@@ -142,28 +142,19 @@ const NARR_STRUCT_EN: Record<string, string> = {
   已完成: 'Done', 进行中: 'Active', 未完成: 'Pending',
   分钟: 'min', 小时: 'h', 天: 'd', 秒: 's', 分: 'min', 时: 'h', 年: 'y', 月: 'mo', 日: 'd', 周: 'w',
 };
-const NARR_KEYS_VI = Object.keys(NARR_STRUCT_VI).sort((a, b) => b.length - a.length);
-const NARR_KEYS_EN = Object.keys(NARR_STRUCT_EN).sort((a, b) => b.length - a.length);
 const CJK_RUN = /[㐀-鿿豈-﫿]+/g;
 
-/** 把一段文本里的中文「结构化标签串」本地化：逐个 CJK 连续串处理——先查专用结构表(整串·再贪婪最长前缀)、
-    再退通用界面词库、都不中则保留中文；非中文(数字/越南语/标点)原样。仅 en/vi 生效。 */
+/** 把一段文本里的中文「结构化标签串」本地化：逐个 CJK 连续串——先查专用结构表(整串)、再退通用界面词库、
+    都不中则保留中文；非中文(数字/越南语/标点)原样。仅 en/vi 生效。
+    ⚠ 只做**整串**匹配、不做串内切分——避免把「今天」这类正文词按单字单位表误拆成「今ngày」。
+    结构块的拼接标题(时间结算块/判定块/状态栏…)已作为整串键收录，故无需串内贪婪。 */
 export function translateNarrativeLabels(text: string, lang: ConvertLang): string {
   if (lang !== 'en' && lang !== 'vi') return text;
   const map = lang === 'en' ? NARR_STRUCT_EN : NARR_STRUCT_VI;
-  const keys = lang === 'en' ? NARR_KEYS_EN : NARR_KEYS_VI;
   const dict = lang === 'en' ? translateToEn : translateToVi;
   return text.replace(CJK_RUN, (run) => {
-    if (map[run]) return map[run];                       // ① 整串命中结构表（含单位·消歧）
+    if (map[run]) return map[run];         // ① 整串命中结构表（含单位·消歧）
     const d = dict(run);
-    if (d !== run) return d;                             // ② 通用词库整串命中
-    // ③ 贪婪最长前缀拆分（治「时间结算块」这类拼接串：时间结算+块）
-    let out = '', i = 0, any = false;
-    while (i < run.length) {
-      let k = '';
-      for (const cand of keys) { if (run.startsWith(cand, i)) { k = cand; break; } }
-      if (k) { out += map[k]; i += k.length; any = true; } else { out += run[i]; i++; }
-    }
-    return any ? out : run;
+    return d !== run ? d : run;            // ② 通用词库整串命中，否则保留中文
   });
 }

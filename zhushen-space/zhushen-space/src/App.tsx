@@ -186,6 +186,7 @@ import { useAccountVault } from './store/accountVaultStore';
 import { useTeam, buildTeamSystemPrompt, memberCap as teamMemberCap } from './store/adventureTeamStore';
 import { useCosmos, buildCosmosSystemPrompt, cosmosNameEq, cleanCosmosName } from './store/cosmosStore';
 import { realmFromLevel, normalizeTier, lvFromRealm, computeMaxHp, computeMaxEp, effectiveResource, attrCapForTier, clampBaseAttrs, fullMaxHp, fullMaxEp, TIERS, realAttrMult, ratioOf, npcBaseAttrs } from './systems/derivedStats';
+import { isSettlingCompanion } from './systems/companionSettlement';   // 随从/队友世界结算判定（结算卡点名 + 前端折算发点同源）
 import { isHomeWorld, reconcileHomeWorld, reconcilePlayerVitals, playerMaxHp, playerMaxEp, syncPlayerVitalsMax, applyCombatResourceGains, resetCombatResources } from './systems/playerVitals';
 import { startPlaytimeHeartbeat, stopPlaytimeHeartbeat } from './systems/playtime';   // 线上游玩时长累计（登录 Discord 者·可见活跃时长）
 import { bioInnate, tierVitalMult, peakCapForTier, clampToTierWindow, nominalTierNum } from './systems/bioStrength';
@@ -2027,6 +2028,15 @@ export default function App() {
       // 世界结算专属思维链：结算前先逼正文 API 逐项推演"任务是否真完成/评级是否公正/奖励是否忠于原文不膨胀"，<settle_cot> 由显示层安全网剥除
       addRule('世界结算思维链', '前端规则 · 世界结算思维链（本回合触发）', WORLD_SETTLEMENT_COT_RULE);
       { const _wt = useMisc.getState().worldTier; if (_wt) addRule('本世界锁定难度', '前端数据 · 本世界锁定难度（进世界即定）', `【本世界难度·已锁定】：${_wt}（进入本世界时即固定的难度/阶位）。结算面板【世界难度】一栏必须填这个锁定难度，奖励档位与难度评估也一律按它来，**不要**按主角结算时的实时阶位另算——主角在世界内变强也不改变本世界的锁定难度。`); }
+      // 随行随从/队友名单：让结算卡「随从/契约者队友结算」一栏能逐个点名（其属性点·技能点由前端按主角所得自动折算入账，与此名单同源 isSettlingCompanion）
+      try {
+        const comps = Object.values(useNpc.getState().npcs).filter(isSettlingCompanion).slice(0, 24);
+        if (comps.length) {
+          const lines = comps.map((c) => `- ${c.name}（${normalizeTier(c.realm) || c.realm || '阶位未定'}${c.npcTag ? '·' + c.npcTag : ''}）`).join('\n');
+          addRule('随从队友结算名单', '前端数据 · 随行随从/队友名单（结算卡逐个点名）',
+            `【本世界随行的随从/契约者队友（结算卡「随从/契约者队友结算」一栏须逐个点名、各给一段定性结算）】\n${lines}\n— 这些随从/队友的**属性点·技能点由系统按主角结算档位自动折算入账**（约主角一半、已记入各自档案）；你只需在结算卡里定性交代其成长，**不要写具体点数、不要写 character.C*.* 之类发点指令**（会重复发放）。`);
+        }
+      } catch { /* */ }
       // 本世界已完成/已结算的任务线平时不注入（已移出进行中列表），结算 AI 因此数不到、只报一条 → 结算这一回合把它们喂进去供如实统计完成数量
       try {
         const Mm = useMisc.getState();
@@ -7635,6 +7645,8 @@ ${lines}`;
     }, C.config.manualAllyControl);
     battle.log = [{ id: newLogId(), round: 0, type: 'opening', text: '', narration: `战斗开始——对手：${enemyNames}。`, timestamp: Date.now() }];
     resetCombatResources();   // 标了「每战归零」的自定义能量条开战清零（如怒气从 0 攒）
+    combatDrivingRef.current = false; combatFinishingRef.current = false;   // 开新战前清上一场残留的驱动/收尾标记：防上一场总结接口卡住→旧标记冻结这一场（打不动/收不了尾）
+    C.setApiBusy(false); C.setApiStatus('');
     C.setBattle(battle);
   }
 
@@ -7693,6 +7705,8 @@ ${lines}`;
     raidRef.current = { boss, phase: 0, toughness: Math.round(boss.maxHp * 0.22), bossHpMark: boss.maxHp };
     applyRaidAffixes(battle.initialState['BOSS'], battle.participants['BOSS'], boss.affixes);
     battle.log = [{ id: newLogId(), round: 0, type: 'opening', text: '', narration: boss.intro, timestamp: Date.now() }];
+    combatDrivingRef.current = false; combatFinishingRef.current = false;   // 开新战前清上一场残留的驱动/收尾标记（同 startCombatWithSelection，防总结接口卡住冻结新战）
+    C.setApiBusy(false); C.setApiStatus('');
     C.setBattle(battle);
   }
 
@@ -8015,7 +8029,11 @@ ${lines}`;
     combatSettledRef.current = v;   // 标记本场战斗 HP/EP 已结算 → 下一回合防双扣
   }
   async function finishBattle(victor: Side | null) {
-    if (combatFinishingRef.current) return;
+    // 幂等守卫以「战斗态」为准，而非 combatFinishingRef：该 ref 只在本函数里置位、只在 finally 里清零，
+    // 若上一场的 AI 战斗总结请求卡住（接口 hang，await 永不返回），finally 永不执行 → ref 残留 true →
+    // 之后每一场无论打赢还是逃跑，一进 finishBattle 就被旧 ref 挡回，导致战斗永远收不了尾（用户复现的卡死）。
+    // endBattle 是全项目唯一把 stage 置 'ended' 的地方，且同步执行，用它判重入既能防重复收尾、又能自愈。
+    if (useCombat.getState().battle.stage === 'ended') return;
     combatFinishingRef.current = true;
     const C = useCombat.getState();
     // 立即标记战斗结束：面板秒切「胜负 + 关闭按钮」，AI 总结在后台慢慢生成——不再「已打赢却卡在出手界面」。

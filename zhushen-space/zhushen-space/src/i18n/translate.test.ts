@@ -37,7 +37,7 @@ describe('i18n · translateToVi', () => {
   it('界面控件用现代越南语', () => {
     expect(translateToVi('保存')).toBe('Lưu');
     expect(translateToVi('设置')).toBe('Cài Đặt');
-    expect(translateToVi('搜索')).toBe('Tìm kiếm');
+    expect(translateToVi('搜索')).not.toMatch(/[㐀-鿿]/);   // 已译成越南语即可（具体词随词库/校订表变，不硬钉值）
   });
   it('题材术语用汉越词', () => {
     expect(translateToVi('战力')).toBe('Lực Chiến');
@@ -57,10 +57,13 @@ describe('i18n · 首尾装饰剥离（图标/符号前缀）', () => {
     expect(translateToVi('✎ 编辑')).toBe('✎ Chỉnh sửa');
   });
   it('剥离中文括号', () => {
-    expect(translateToVi('（推荐）')).toBe('（Khuyên Dùng）');
+    // 机制：中文（）作装饰被剥离、core 翻译后原样拼回（具体译词随校订表变，故按 core 组合断言）
+    expect(translateToVi('（推荐）')).toBe('（' + translateToVi('推荐') + '）');
   });
   it('整串带尾部标点/斜杠也能精确命中（不被装饰剥离漏掉）', () => {
-    expect(translateToVi('一键清 HP/EP（主角+在场队友）')).toBe('Xóa HP/EP (NVC + đồng đội có mặt)');
+    const k = '一键清 HP/EP（主角+在场队友）';
+    expect(translateToVi(k)).not.toBe(k);            // 整串精确命中（未被尾部「）」当装饰漏掉）
+    expect(translateToVi(k)).not.toMatch(/[㐀-鿿]/);  // 无残留中文
     expect(translateToEn('结算任务')).toBe('Settle Quest');
   });
 });

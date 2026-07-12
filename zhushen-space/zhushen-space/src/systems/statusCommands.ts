@@ -8,6 +8,8 @@ import { normalizeTier, realmFromLevel, attrCapForTier } from './derivedStats';
 import { ATTR_GROWTH_RE } from './stateApply';
 import { parseGameMinutes, parseDurationMinutes, parseDurationTurns } from './gameClock';
 import { parseAttrBonus, ATTR_KEYS } from './attrBonus';
+import { computeCompanionAwards, COMPANION_SETTLE_RATIO } from './companionSettlement';   // 随从·队友世界结算同步发点
+import { pushSceneNotice } from './allocNotice';
 import type { PlayerAttrs } from '../store/playerStore';
 
 /* 限时状态的六维加成解析：显式 attrs 对象优先（{con:15,agi:10}），其次 attrBonus/attr 字符串走 parseAttrBonus（"体质+15、敏捷+10"）。
@@ -195,6 +197,29 @@ export function applyPlayerProfileCommands(reply: string, narrative: string, tur
       sp({ [key]: m[2] === '=' ? v : m[2] === '+=' ? cur + v : Math.max(0, cur - v) } as any);
       n++;
     }
+    // ── 随从·队友同步结算：主角本次结算发点的同回合，在场随从/羁绊/临时队友按主角同项折算（默认×0.5）一并获得
+    //    属性点/技能点（四阶+随从发真实属性点、三阶及下发普通属性点）。前端确定性发放——读主角本次 += 的点数，
+    //    不依赖 AI 逐个写 character.C*.*（易漏人/写错ID/凭空膨胀）；随从加点消耗仍走 NpcDetail 面板。──
+    try {
+      const sumPt = (re: RegExp) => { let s = 0, mm: RegExpExecArray | null; const seen = new Set<string>(); while ((mm = re.exec(reply))) { const k = mm[0].replace(/\s+/g, ''); if (seen.has(k)) continue; seen.add(k); s += Number(mm[1]) || 0; } return s; };
+      const pAttr = sumPt(/\bcharacter\.B\d+\.attrPoints\s*\+=\s*(\d+)/g);
+      const pReal = sumPt(/\bcharacter\.B\d+\.realAttrPoints\s*\+=\s*(\d+)/g);
+      let pSkill = 0; { const re = /(黄金技能点|技能点)\s*\+=\s*(\d+)/g; let mm: RegExpExecArray | null; const seen = new Set<string>(); while ((mm = re.exec(reply))) { if (mm[1] !== '技能点') continue; const k = mm[0].replace(/\s+/g, ''); if (seen.has(k)) continue; seen.add(k); pSkill += Number(mm[2]) || 0; } }
+      const awards = computeCompanionAwards({ attrPoints: pAttr, realAttrPoints: pReal, skillPoints: pSkill }, Object.values(useNpc.getState().npcs));
+      if (awards.length) {
+        const NP = useNpc.getState();
+        for (const a of awards) {
+          const rec = NP.npcs[a.id]; if (!rec) continue;
+          const patch: { attrPoints?: number; realAttrPoints?: number; skillPoints?: number } = {};
+          if (a.attrPoints) patch.attrPoints = (rec.attrPoints ?? 0) + a.attrPoints;
+          if (a.realAttrPoints) patch.realAttrPoints = (rec.realAttrPoints ?? 0) + a.realAttrPoints;
+          if (a.skillPoints) patch.skillPoints = (rec.skillPoints ?? 0) + a.skillPoints;
+          NP.upsertNpc(a.id, patch); n++;
+        }
+        console.log(`[世界结算·随从] ${awards.length} 名随从同步结算（主角 属性点${pAttr + pReal}/技能点${pSkill} ×${COMPANION_SETTLE_RATIO}）:`, awards.map((a) => `${a.name}+${a.attrPoints + a.realAttrPoints}属/+${a.skillPoints}技`).join('，'));
+        try { pushSceneNotice(`【场外·随从结算】本次世界结算，随行的 ${awards.map((a) => a.name).join('、')} 已按主角结算档位同步获得属性点/技能点（前端已入账、记入各自档案）。后续正文与之保持一致即可，勿据此再另行发放/结算。`); } catch { /* */ }
+      }
+    } catch (e) { console.warn('[世界结算·随从] 结算失败', e); }
   }
   applyTimedStatusCommands(reply, turn);   // 主角限时状态 addStatus/deStatus
   return n;

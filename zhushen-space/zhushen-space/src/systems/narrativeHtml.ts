@@ -4,6 +4,8 @@
    - userToHtml：用户消息（转义 + 把 <检定结果> 块替换成骰子卡）
    - toHtmlWithImages：正文（占位符法插入配图 + 各结算卡）
    仅 userToHtml / toHtmlWithImages / StoryImage 对外导出，其余为内部 helper。 */
+import { useSettings } from '../store/settingsStore';
+import { translateNarrativeLabels } from '../i18n/translate';
 
 export interface StoryImage { anchor: string; url: string; prompt: string; nsfw: string; ts: number }
 
@@ -57,11 +59,14 @@ function renderSettleBlock(title: string, body: string[]): string {
     return out;
   };
   const lines = merged.flatMap(splitClauses);
+  // 结算块「结构化标签」本地化：en/vi 界面下把块标题/字段/单位的中文换成当前语言（正文散文不受影响·仅这些模板标签）
+  const _lang = (() => { try { return useSettings.getState().language; } catch { return 'zh-Hans'; } })();
+  const L = (_lang === 'en' || _lang === 'vi') ? (s: string) => translateNarrativeLabels(s, _lang) : (s: string) => s;
   const head = realTitle
-    ? `<div class="text-[13px] font-bold text-amber-300 mb-1 tracking-wider">${escapeHtml(realTitle)}</div>`
+    ? `<div class="text-[13px] font-bold text-amber-300 mb-1 tracking-wider">${escapeHtml(L(realTitle))}</div>`
     : '';
   const bodyHtml = lines.length
-    ? lines.map((l) => `<div>${escapeHtml(l)}</div>`).join('')
+    ? lines.map((l) => `<div>${escapeHtml(L(l))}</div>`).join('')
     : '';
   return '<div class="my-2 rounded-lg border border-amber-700/40 bg-amber-900/20 px-3 py-2">' + head +
     `<div class="text-[15px] text-slate-200/90 leading-relaxed space-y-0.5">${bodyHtml}</div>` +
