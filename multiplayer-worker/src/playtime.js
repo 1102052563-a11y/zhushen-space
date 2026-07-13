@@ -43,7 +43,9 @@ const PRUNE_MS  = 30 * 60 * 1000;   // 超 30 分钟的在线记录清掉（防 
 
 // 客户端 IP 哈希（**不存原始 IP**·仅作"当前在玩者"去重键·隐私友好）。取 Cloudflare 真实来源 IP。
 async function ipHash(request, env) {
-  const ip = request.headers.get("CF-Connecting-IP") || (request.headers.get("X-Forwarded-For") || "").split(",")[0].trim();
+  // X-Client-Ip = 同源 Pages Function 透传的「用户真实 IP」：大陆裸连走同源 /presence 心跳时，直连 workers.dev 那跳被限、
+  // 改由 Pages 边缘代发到 worker——若这里仍读 CF-Connecting-IP，会是 Pages 边缘的同一个 IP，把所有转发用户去重成 1 人。故优先用透传值。
+  const ip = request.headers.get("X-Client-Ip") || request.headers.get("CF-Connecting-IP") || (request.headers.get("X-Forwarded-For") || "").split(",")[0].trim();
   if (!ip) return "";
   const data = new TextEncoder().encode((env.PRESENCE_SALT || "zhushen") + "|" + ip);
   const buf = await crypto.subtle.digest("SHA-256", data);
@@ -81,7 +83,7 @@ export async function handlePlaytime(request, env, ch, url) {
   if (p === "/api/playtime/presence" && request.method === "POST") {
     const now = Date.now();
     const iph = await ipHash(request, env);
-    const country = (request.cf && request.cf.country) || "";   // Cloudflare 按边缘判定的国家码（JP/CN/US…；本地 wrangler dev 可能为空）
+    const country = request.headers.get("X-Client-Country") || (request.cf && request.cf.country) || "";   // 优先用同源 Pages Function 透传的用户真实国家（大陆裸连走同源时）；直连时用 Cloudflare 边缘判定（JP/CN/US…；本地 wrangler dev 可能为空）
     if (iph) {
       await db.prepare("INSERT INTO presence (iphash, seen, country) VALUES (?, ?, ?) ON CONFLICT(iphash) DO UPDATE SET seen = excluded.seen, country = excluded.country").bind(iph, now, country).run();
       await db.prepare("DELETE FROM presence WHERE seen < ?").bind(now - PRUNE_MS).run();   // 顺手清过期
