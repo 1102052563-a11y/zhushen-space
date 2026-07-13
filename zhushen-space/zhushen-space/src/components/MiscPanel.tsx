@@ -1,7 +1,9 @@
 import { useState } from 'react';
 import { useMisc, isMainQuest, type MiscTask, type QuestRing } from '../store/miscStore';
+import { usePlayer } from '../store/playerStore';
+import { useCharacters } from '../store/characterStore';
 
-type Tab = 'tasks' | 'events';
+type Tab = 'tasks' | 'events' | 'skills';
 
 export default function MiscPanel({ onClose, onGenerate }: { onClose: () => void; onGenerate?: (tendency: string) => Promise<{ ok: boolean; msg: string }> }) {
   const tasks = useMisc((s) => s.tasks);
@@ -16,6 +18,11 @@ export default function MiscPanel({ onClose, onGenerate }: { onClose: () => void
   const worldName = useMisc((s) => s.worldName);
   const weather = useMisc((s) => s.weather);
   const contractors = useMisc((s) => s.contractors) ?? { count: 0, note: '' };
+  const profession = usePlayer((s) => s.profile.profession);
+  const b1 = useCharacters((s) => s.characters['B1']);
+  const skills = b1?.skills ?? [];
+  const traits = b1?.traits ?? [];
+  const subprofs = b1?.subProfessions ?? [];
   const [tab, setTab] = useState<Tab>('tasks');
   const [editing, setEditing] = useState<MiscTask | null>(null);
   const [genOpen, setGenOpen] = useState(false);
@@ -26,6 +33,7 @@ export default function MiscPanel({ onClose, onGenerate }: { onClose: () => void
   const tabs: { key: Tab; label: string; n: number }[] = [
     { key: 'tasks', label: '任务', n: tasks.length },
     { key: 'events', label: '世界大事', n: events.length },
+    { key: 'skills', label: '职业技能', n: skills.length },
   ];
 
   return (
@@ -130,6 +138,72 @@ export default function MiscPanel({ onClose, onGenerate }: { onClose: () => void
               </div>
             ))
           )}
+
+          {tab === 'skills' && (
+            <div className="space-y-3">
+              <div className="flex items-center gap-2 text-[12px] flex-wrap">
+                <span className="font-mono text-dim/50">职业</span>
+                <span className="text-god/85 font-semibold">{profession || '（未设定）'}</span>
+                <span className="flex-1" />
+                <span className="font-mono text-[11px] text-dim/40">任务生成已参考它·让职业专长有用武之地</span>
+              </div>
+              <div>
+                <div className="text-[11px] font-mono text-dim/50 mb-1">技能（{skills.length}）</div>
+                {skills.length === 0 ? <div className="text-[11px] text-dim/40">暂无技能</div> : (
+                  <div className="space-y-1">
+                    {skills.map((s) => {
+                      const nm = String(s.name || '').split('|')[0].trim();
+                      return (
+                        <div key={s.id} className="rounded border border-edge bg-panel/40 px-2 py-1.5">
+                          <div className="flex items-center gap-1.5 flex-wrap">
+                            <span className="text-[13px] text-slate-200 font-semibold">{nm || '（未命名）'}</span>
+                            {s.skillType && <span className="text-[10px] font-mono px-1 rounded bg-edge/40 text-dim/60">{s.skillType}</span>}
+                            {s.rarity && <span className="text-[10px] font-mono px-1 rounded bg-amber-500/10 text-amber-300/70">{s.rarity}</span>}
+                            {s.level && <span className="text-[10px] font-mono text-dim/50">{s.level}</span>}
+                          </div>
+                          {(s.effect || s.desc) && <div className="text-[11px] text-dim/70 leading-snug mt-0.5">{s.effect || s.desc}</div>}
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+              {traits.length > 0 && (
+                <div>
+                  <div className="text-[11px] font-mono text-dim/50 mb-1">天赋（{traits.length}）</div>
+                  <div className="space-y-1">
+                    {traits.map((t) => {
+                      const nm = String(t.name || '').split('|')[0].trim();
+                      return (
+                        <div key={nm || (t as any).id} className="rounded border border-edge bg-panel/40 px-2 py-1.5">
+                          <div className="flex items-center gap-1.5 flex-wrap">
+                            <span className="text-[13px] text-emerald-300/85 font-semibold">{nm || '（未命名）'}</span>
+                            {(t as any).rarity && <span className="text-[10px] font-mono px-1 rounded bg-amber-500/10 text-amber-300/70">{(t as any).rarity}</span>}
+                          </div>
+                          {(t as any).effect && <div className="text-[11px] text-dim/70 leading-snug mt-0.5">{(t as any).effect}</div>}
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+              {subprofs.length > 0 && (
+                <div>
+                  <div className="text-[11px] font-mono text-dim/50 mb-1">副职业（{subprofs.length}）</div>
+                  <div className="flex flex-wrap gap-1.5">
+                    {subprofs.map((sp) => (
+                      <span key={String(sp.name)} className="text-[11px] font-mono px-1.5 py-0.5 rounded border border-edge text-sky-300/70">
+                        {String(sp.name || '').split('|')[0].trim()}{(sp as any).tier ? `·${(sp as any).tier}` : ''}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              )}
+              {skills.length === 0 && traits.length === 0 && subprofs.length === 0 && !profession && (
+                <Empty text="暂无职业/技能数据（在角色创建或技能面板里设定）" />
+              )}
+            </div>
+          )}
         </div>
         {editing && (
           <TaskEditModal
@@ -180,8 +254,8 @@ function TaskCard({ t, main, onRemove, onEdit, archived }: { t: MiscTask; main: 
   return (
     <div className={`rounded-lg px-3 py-2 space-y-1 border ${archived ? 'border-edge/50 bg-panel/30 opacity-80' : main ? 'border-god/50 bg-god/10' : 'border-edge bg-panel/60'}`}>
       <div className="flex items-center gap-2">
-        <span className={`text-[10px] font-mono px-1.5 py-0.5 rounded shrink-0 ${main ? 'bg-god/20 text-god border border-god/40' : 'bg-edge/40 text-dim/55'}`}>
-          {main ? '主线' : '支线'}
+        <span className={`text-[10px] font-mono px-1.5 py-0.5 rounded shrink-0 ${t.prof ? 'bg-sky-500/15 text-sky-300/80 border border-sky-500/30' : main ? 'bg-god/20 text-god border border-god/40' : 'bg-edge/40 text-dim/55'}`}>
+          {t.prof ? '职业' : main ? '主线' : '支线'}
         </span>
         <span className="text-[12px] font-mono text-dim/45 shrink-0">{t.id}</span>
         <span className={`text-sm font-semibold flex-1 truncate ${archived ? (failed ? 'text-blood/70' : 'text-dim/80') : main ? 'text-god' : 'text-slate-100'}`}>{t.name || '（未命名任务）'}</span>

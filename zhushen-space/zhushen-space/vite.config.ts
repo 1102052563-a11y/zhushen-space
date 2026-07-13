@@ -1,6 +1,6 @@
 import { defineConfig, type Plugin } from 'vite'
 import react from '@vitejs/plugin-react'
-import { copyFileSync, existsSync, mkdirSync, readdirSync, readFileSync, writeFileSync } from 'fs'
+import { copyFileSync, existsSync, mkdirSync, readdirSync, readFileSync, statSync, writeFileSync } from 'fs'
 import { execSync } from 'child_process'
 
 // 轮回WIKI：每次 vite build（含 Cloudflare）自动用 mkdocs 重建静态站到 public/wiki/。
@@ -150,6 +150,27 @@ function buildStickerManifest(): Plugin {
   return { name: 'build-sticker-manifest', buildStart() { gen() }, configureServer() { gen() } }
 }
 
+// 背景音乐（文件夹直投）：扫描 public/audio/bgm/ 自动生成 manifest.json = [{ file, name }]：
+//   - 你把 mp3/ogg/m4a/… 丢进 public/audio/bgm/，build（含 Cloudflare）与 dev 启动时自动重写清单，无需手写。
+//   - name = 文件名(去扩展名)，作为迷你播放器显示的曲名。多首=播放列表；空=前端不显示播放器。
+//   - **素材版权由放置者自负**（站点公开部署）。
+function buildBgmManifest(): Plugin {
+  const DIR = 'public/audio/bgm'
+  const AUD = /\.(mp3|ogg|m4a|aac|flac|opus|wav)$/i
+  const gen = () => {
+    try {
+      if (!existsSync(DIR)) return
+      const out: { file: string; name: string; bytes: number }[] = []
+      for (const f of readdirSync(DIR)) {
+        if (AUD.test(f)) { let bytes = 0; try { bytes = statSync(DIR + '/' + f).size } catch { /* */ } out.push({ file: f, name: f.replace(AUD, ''), bytes }) }
+      }
+      out.sort((a, b) => a.name.localeCompare(b.name, 'zh'))
+      writeFileSync(DIR + '/manifest.json', JSON.stringify(out, null, 2))
+    } catch { /* 失败不阻断构建 */ }
+  }
+  return { name: 'build-bgm-manifest', buildStart() { gen() }, configureServer() { gen() } }
+}
+
 // 强化老板分阶段立绘：把仓库根 图片/<老板>/阶段N/*.png 同步进 public/enhance-bosses/，
 // 并生成 manifest.json = { "<老板>": { "1":[urls], "2":[...], "3":[...], "4":[...] } }。
 // 你只要把图丢进 图片/凯莉/阶段1..4/，build（含 Cloudflare）与 dev 启动时自动同步+重写清单。
@@ -286,7 +307,7 @@ function syncJoyWorldBooks(): Plugin {
 const API_TARGET = process.env.VITE_API_TARGET ?? 'https://api.baimeow.icu'
 
 export default defineConfig({
-  plugins: [react(), buildWiki(), buildLunhuiCharacters(), copyBuiltinPresets(), buildPortraitManifest(), buildStickerManifest(), syncEnhanceBosses(), syncJoyGirls(), syncJoyWorldBooks(), syncCasinoDealers()],
+  plugins: [react(), buildWiki(), buildLunhuiCharacters(), copyBuiltinPresets(), buildPortraitManifest(), buildStickerManifest(), buildBgmManifest(), syncEnhanceBosses(), syncJoyGirls(), syncJoyWorldBooks(), syncCasinoDealers()],
   build: { emptyOutDir: true },   // 始终清空 dist 再构建（防 index-*.js 历史残留堆积；从外层目录构建时 Vite 默认会跳过清空）
   server: {
     proxy: {

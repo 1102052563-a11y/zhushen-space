@@ -179,6 +179,7 @@ function outlineStreamDisplay(raw: string): string {
 const CombatPanel = lazy(() => import('./components/CombatPanel'));
 import WeatherFx from './components/WeatherFx';
 import CommandPalette from './components/CommandPalette';
+import BgmPlayer from './components/BgmPlayer';
 import { setAudioSettings, playSfx, setAmbient } from './systems/audio';
 import { readingFontStack, LXGW_WENKAI_CSS } from './systems/readingFonts';
 import { applyUiTheme } from './systems/uiThemes';
@@ -909,7 +910,8 @@ const TASK_SOURCE_RULE = `
 - **任务 ＝ 被"发布/委托/下达"的目标**：由乐园 / 主神空间 / 任务发布方 / 剧情NPC / 世界机制**向主角正式指派**、带明确目标（+可能的奖惩/期限）的委托或使命。**只有这种才 set 新任务**；任务名与目标写**那个被指派的目标本身**（如"刺杀X""夺取Y""守住Z"），不写主角打算用的手段。
 - **主角自己说的"打算怎么做 / 用什么手段 / 下一步先去哪 / 临场怎么应对"＝行动，绝不是任务、绝不新建成任务**：主角声明的执行手段、准备步骤、路线选择、临场打算（如"我先去弄把枪""我去踩点""我找线人打听""我先撤""我去买装备"），是**执行某条已有任务的过程**，一律**不 set 新任务、也绝不用它顶替/覆盖那条真任务**。
 - **铁例（务必照此判）**：乐园委托主角「刺杀目标X」＝任务A（应建任务，目标＝刺杀X）；主角回「我先去黑市弄把枪」＝行动B——**任务始终只有"刺杀X"这一条**；"弄把枪"**既不新建成任务、也不能把"刺杀X"改写成"弄把枪"**，它只用来更新「刺杀X」这条任务的 progress（如 \`add("T_x",{"progress":"正前往黑市筹措武器"})\`）。
-- **判据一句话**：目标是**别人派给主角的** → 任务；是**主角自己声明要做的** → 行动，不建任务。拿不准就**不建**（宁缺毋滥）；主角的行动若在推进某条已有任务，只更新那条的 progress，绝不另起新任务。`;
+- **判据一句话**：目标是**别人派给主角的** → 任务；是**主角自己声明要做的** → 行动，不建任务。拿不准就**不建**（宁缺毋滥）；主角的行动若在推进某条已有任务，只更新那条的 progress，绝不另起新任务。
+- **【职业任务·只更新不新建·铁则】任务列表里带 \`[职业]\` 标记的，是玩家从「世界卡·生成职业任务」按钮生成的职业专属任务**：你**绝不能新建 \`[职业]\` 任务**（它只由玩家那个按钮产生）、也**不要给它套多环路线图**；只据正文**更新它的 progress**，正文明确达成时就 \`add("T_x",{"5":"已完成","rating":"…"})\` 结算（其奖励即时发放、不计入世界结算）。`;
 
 const QUEST_RATING_RULE = `
 【任务评分（完成/失败时给定）】当某任务被标记为已完成/已达成/失败/放弃（status 进入结算态）时，在该任务的 updateTask 载荷里**额外给一个 rating 字段**，按完成质量评级（S/A/B/C/D/E；失败给 E，判断不了给 C）：
@@ -929,6 +931,7 @@ const TASK_SYSTEM_ROLE = `
 - **动机与利害分明**：交代清楚这任务因何而起、达成的回报（六选三）、失败/逾期的后果（惩罚三类），给主角代入感与压力。
 - **扎根本世界**：用本世界真实的地名 / 势力 / 反派 / 威胁与主角**当前所处的时间线·事件**（同人世界先按【任务接地】锚定），绝不套"讨伐巢穴/护送商队"通用模板、绝不张冠李戴拉一个不相干的强敌来当目标。
 - **一环一具体硬仗**：各环是规模递增的"不同难关"，每环都写明这一环具体要**打谁 / 夺什么 / 守什么 / 查清什么 / 潜入哪里**，而非"侦查→赶路→清剿"这种流水账子步骤。
+- **贴合主角职业·让专长有用武之地（据【主角职业与专长】）**：任务的切入点与手段要**发挥主角的职业/技能所长**——战斗职业→硬仗/讨伐；潜行·刺客→渗透/暗杀/情报窃取；法师·学者→解谜/仪式/研究/破阵；工匠·经营→建设/制造/资源经营；社交·操纵→博弈/攻略/结盟/离间。**别不看职业千篇一律都塞正面战斗**；若主角明显不擅战斗（如经营/辅助向），主线更要给出非战斗的达成路径。
 - **系统口吻（风味·可选）**：任务名与描述可带主神空间的冷峻格式化味道（"检测到…""下达指令：…""判定：…""违约将执行…"），但**目标本身必须具体清楚**，风味绝不能盖过清晰度。`;
 
 const QUEST_PLANNING_RULE = `
@@ -1424,7 +1427,8 @@ export default function App() {
   // ── 游戏音效（懒加载 Howler·缺音频文件静默）──
   const audioCfg = useSettings((s) => s.audio);
   const prevChatUnread = useRef<number | null>(null);
-  useEffect(() => { setAudioSettings(audioCfg); }, [audioCfg]);   // 设置 → 音效引擎
+  useEffect(() => { setAudioSettings(audioCfg); }, [audioCfg]);   // 设置 → 音效引擎（含 BGM 起停）
+  // 背景音乐不再随任意手势自动起播：改由迷你播放器的「开启/播放」按钮显式触发（含流量确认 + 解锁自动播放），避免未经确认就下载。
   // 外观美化：把护眼色调 / 暗角写到 <html> 属性，由 index.css 的固定滤镜层响应（全局生效、不影响布局与点击）
   useEffect(() => { document.documentElement.setAttribute('data-appearance', appearanceMode || 'classic'); }, [appearanceMode]);
   useEffect(() => { document.documentElement.setAttribute('data-vignette', uiVignette ? '1' : '0'); }, [uiVignette]);
@@ -1504,7 +1508,8 @@ export default function App() {
   const [showDevPrompt, setShowDevPrompt] = useState(false);
   const [debugParts, setDebugParts] = useState<PromptPart[]>([]);
   const [worlds, setWorlds] = useState<WorldOption[]>([]);
-  const [profQuests, setProfQuests] = useState<Record<string, string>>({});   // 世界卡「职业任务」生成内容（按世界名存）
+  const [profQuests, setProfQuests] = useState<Record<string, string>>({});   // 世界卡「职业任务」生成内容·展示文本（按世界名存）
+  const [profQuestData, setProfQuestData] = useState<Record<string, { name: string; desc?: string; reward?: string }[]>>({});   // 解析出的结构化职业任务（进世界落到面板）
   const [profBusy, setProfBusy] = useState<number | null>(null);              // 正在生成职业任务的卡片 index
   const [cardIndex, setCardIndex] = useState(0);
   const [prevWorlds, setPrevWorlds] = useState<WorldOption[]>([]);
@@ -4532,6 +4537,14 @@ ${AFFIX_EFFECT_RULE}`;
     const _pp = usePlayer.getState().profile;
     const fanficOn = ss.fanficMode;
     const situation = [_pp.name, _pp.tier && `${_pp.tier}·Lv${_pp.level ?? 1}`, _pp.identity && `身份:${_pp.identity}`, _pp.location && `位置:${_pp.location}`].filter(Boolean).join('｜');
+    const _b1g = useCharacters.getState().characters['B1'];
+    const _skG = _b1g?.skills ?? [];
+    const professionInfo = [
+      _pp.profession && `职业:${_pp.profession}`,
+      _skG.length && `技能:${_skG.slice(0, 10).map((s) => `${String(s.name || '').split('|')[0].trim()}${s.skillType ? `(${s.skillType})` : ''}`).filter(Boolean).join('、')}`,
+      (_b1g?.traits?.length ?? 0) > 0 && `天赋:${(_b1g!.traits).slice(0, 6).map((t) => String(t.name || '').split('|')[0].trim()).filter(Boolean).join('、')}`,
+      (_b1g?.subProfessions?.length ?? 0) > 0 && `副职业:${(_b1g!.subProfessions!).slice(0, 6).map((sp) => String(sp.name || '').split('|')[0].trim()).filter(Boolean).join('、')}`,
+    ].filter(Boolean).join('｜');
     const wTier = M.worldTier || _pp.tier || '';
     const newId = M.nextTaskId();
     const sys = [
@@ -4541,6 +4554,7 @@ ${AFFIX_EFFECT_RULE}`;
       `【当前世界】：${M.worldName}`,
       wTier ? `【本世界难度·锁定】：${wTier}（敌人/难度/击杀目标阶位上限按此，不随主角升级变化）` : '',
       `【主角当前处境】：${situation || '（未建档）'}`,
+      `【主角职业与专长（据此让职业所长有用武之地·别不看职业千篇一律塞战斗）】：${professionInfo || '（未建职业/技能）'}`,
       `【同人增强】：${fanficOn ? '开——若为已知作品，先按【同人世界·任务接地】锚定主角所处的具体时间线/事件的真实反派与冲突，别乱拉不相干强敌' : '关'}`,
       `【输出铁则·最高优先】只输出**一条** \`set({...})\` 命令、且放进 <upstore>…</upstore> 内：任务 id 用 "${newId}"、\`kind:"主线"\`、带 \`finale\`、\`currentRing:1\`、\`rings\` 一次写满全部环（6~12 环·第1环 \`status:"active"\` 其余 \`"planned"\`·各环给全 goal/reward(六选三)/penalty(三类)），**绝不把任何环标 done/达成**。除 <upstore> 块外不要任何解释、正文或多余文字。`,
     ].filter(Boolean).join('\n\n');
@@ -4607,6 +4621,15 @@ ${AFFIX_EFFECT_RULE}`;
       _pp.location && `位置:${_pp.location}`,
       `进行中任务:${M.tasks.length}`,
     ].filter(Boolean).join('｜');
+    // 主角职业与专长（供任务贴合职业设计切入点/手段·别千篇一律战斗）
+    const _b1c = useCharacters.getState().characters['B1'];
+    const _skillsB1 = _b1c?.skills ?? [];
+    const professionInfo = [
+      _pp.profession && `职业:${_pp.profession}`,
+      _skillsB1.length && `技能:${_skillsB1.slice(0, 10).map((s) => `${String(s.name || '').split('|')[0].trim()}${s.skillType ? `(${s.skillType})` : ''}`).filter(Boolean).join('、')}${_skillsB1.length > 10 ? `…共${_skillsB1.length}个` : ''}`,
+      (_b1c?.traits?.length ?? 0) > 0 && `天赋:${(_b1c!.traits).slice(0, 6).map((t) => String(t.name || '').split('|')[0].trim()).filter(Boolean).join('、')}`,
+      (_b1c?.subProfessions?.length ?? 0) > 0 && `副职业:${(_b1c!.subProfessions!).slice(0, 6).map((sp) => String(sp.name || '').split('|')[0].trim()).filter(Boolean).join('、')}`,
+    ].filter(Boolean).join('｜');
     const fanficOn = useSettings.getState().fanficMode;
     // 杂项演化·任务与世界规范图鉴（builtinKey='twb-misc'）：杂项阶段专用参照系，强制全量注入本书所有启用条目（不看蓝/绿灯）。
     // 整本书禁用或被删则优雅留空——可在「正文世界书」列表里编辑，改即生效。
@@ -4660,6 +4683,7 @@ ${AFFIX_EFFECT_RULE}`;
       + `\n【同人增强】：${fanficOn ? '开 —— 若当前世界为已知虚构作品，按【同人世界·任务接地】先联网搜索原作设定，再据此规划/生成任务' : '关（不联网搜索，按正文与世界设定生成任务）'}`
       + `\n【本世界·其他契约者人口（据此按【契约者人口·时间演化】维护 contractors(...)）】：${isHomeWorld(M.worldName || '') ? '（当前在乐园/枢纽·不维护）' : (M.contractors?.count ? `现存约 ${M.contractors.count} 人${M.contractors.note ? `·${M.contractors.note}` : ''} —— 据本轮流逝的世界时间与正文合理增减(陨落/离场/新来)并更新` : '（尚未初始化 —— 若本轮进入/已在任务世界，请按世界志契约者分布或世界体量给出初值 contractors(N,"分布")）')}`
       + `\n【主角当前处境（任务须与之契合）】：${playerSituation || '（未建档）'}`
+      + `\n【主角职业与专长（任务据此发挥职业所长·别不看职业千篇一律塞战斗）】：${professionInfo || '（未建职业/技能——按世界与处境常规生成）'}`
       + `\n【本轮大总结开关】：${isLargeTurn ? `是（本轮是第 ${round} 轮，到达大总结周期，必须压缩近期小总结输出 1 条大总结）` : `否（本轮第 ${round} 轮，未到周期，只写小总结，禁止输出大总结）`}`
       + `\n【最近小总结（供大总结压缩参考，仅在开关=是时使用）】：\n${recentSmall}`
       + '\n\n' + MISC_COT_RULE;
@@ -9585,7 +9609,17 @@ ${lines}`;
         { role: 'user', content: userMsg },
       ], { timeoutMs: 180000 });
       setRawResponse(content || '');
-      setProfQuests((p) => ({ ...p, [world.name]: (content || '').trim() || '（AI 未返回内容，可重试）' }));
+      const raw = content || '';
+      // 解析 <职业任务>JSON</职业任务> → 结构化职业任务（进世界落面板）；展示文本剥掉该块
+      let display = raw.trim();
+      let parsed: { name: string; desc?: string; reward?: string }[] = [];
+      const pm = /<职业任务>\s*([\s\S]*?)\s*<\/职业任务>/.exec(raw);
+      if (pm) {
+        display = raw.replace(pm[0], '').trim();
+        try { const arr = JSON.parse(pm[1]); if (Array.isArray(arr)) parsed = arr.filter((x: any) => x && x.name).map((x: any) => ({ name: String(x.name), desc: String(x.desc || ''), reward: String(x.reward || '') })); } catch { /* 解析失败则只留文本 */ }
+      }
+      setProfQuests((p) => ({ ...p, [world.name]: display || '（AI 未返回内容，可重试）' }));
+      setProfQuestData((p) => ({ ...p, [world.name]: parsed }));
     } catch (e: any) {
       alert('职业任务生成失败：' + (e?.message ?? String(e)));
     } finally {
@@ -9669,7 +9703,7 @@ ${lines}`;
     }
   }
 
-  async function enterWorld(world: WorldOption, opts?: { profQuests?: string }) {
+  async function enterWorld(world: WorldOption, opts?: { profQuests?: string; profTasks?: { name: string; desc?: string; reward?: string }[] }) {
     setWorlds([]);
     setCardIndex(0);
     // 离开上个世界：若上一个 active 世界还没总结、且要进的是不同世界 → 询问玩家是否生成离世总结（可拒绝）。
@@ -9702,6 +9736,8 @@ ${lines}`;
     // 进入任务世界：立即把「当前世界」设为该世界名、清空世界时间（底部状态栏即时反映当前世界，
     // 之后由杂项演化按正文细化 worldTime；worldName 始终跟随正文/所在世界，不写死轮回乐园）
     try { useMisc.getState().setTime({ worldName: world.name || '', worldTime: '' }); } catch { /* */ }
+    // 职业任务落面板：把「世界卡·生成职业任务」的结构化产出建成 prof 任务（进世界即可见·可推进·杂项演化只更新不重建）
+    try { if (opts?.profTasks?.length) useMisc.getState().addProfQuests(opts.profTasks); } catch { /* */ }
     // 世界记录：进入世界 → 激活匹配记录（其世界观注入正文最深处）。同名再入且上次有总结 → 询问「继承 / 重置」（玩家自选·可拒绝=重置）。
     try {
       const WR = useWorldRecord.getState();
@@ -9768,6 +9804,7 @@ ${lines}`;
         {saveOpen && (
           <SaveLoadPanel messages={messages} onClose={() => setSaveOpen(false)} onCleanupLive={() => setMessages((prev) => prev.map((m) => (m.images?.length ? { ...m, images: [] } : m)))} />
         )}
+        <BgmPlayer />{/* 封面也放背景音乐（首个用户手势后起播；无曲目/关音乐时自身不渲染）*/}
       </Suspense>
     );
   }
@@ -9913,7 +9950,7 @@ ${lines}`;
                 onGenProfQuests={generateProfessionQuests}
                 profBusy={profBusy === cardIndex}
                 profQuests={profQuests[worlds[cardIndex]?.name || '']}
-                onEnterWithProf={(_, world) => { setPrevWorlds(worlds); enterWorld(world, { profQuests: profQuests[world.name] }); }}
+                onEnterWithProf={(_, world) => { setPrevWorlds(worlds); enterWorld(world, { profQuests: profQuests[world.name], profTasks: profQuestData[world.name] }); }}
                 onProfQuestsChange={(_, world, text) => setProfQuests((p) => ({ ...p, [world.name]: text }))}
                 onSelect={(_, world) => {
                   setPrevWorlds(worlds);
@@ -10507,6 +10544,9 @@ ${lines}`;
           </nav>
         </aside>
       </div>
+
+      {/* ── 背景音乐迷你播放器（左下角浮动；无曲目/关音乐时自身不渲染）── */}
+      <BgmPlayer />
 
       {/* ── 命令面板（⌘K/Ctrl+K/顶栏🔍 → 模糊搜索快速跳转面板）── */}
       <CommandPalette

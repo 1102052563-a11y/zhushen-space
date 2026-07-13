@@ -238,7 +238,7 @@ export function serializeTasks(tasks: MiscTask[]): string {
   return tasks.map((t) => {
     const prog = ringProgress(t);
     const head =
-      `${t.id}｜[${t.kind ?? '支线'}]${t.name}｜${t.status}` +
+      `${t.id}｜[${t.prof ? '职业' : t.kind ?? '支线'}]${t.name}｜${t.status}` +
       (prog ? `｜${prog}` : '') +
       `｜${activeGoal(t)}` +
       (t.startTime || t.endTime ? `｜${t.startTime || '—'}~${t.endTime || '—'}` : '') +

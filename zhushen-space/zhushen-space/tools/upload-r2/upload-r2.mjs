@@ -9,7 +9,7 @@
  *   enhance-bosses/<角色>/阶段N/xxx.png + enhance-bosses/manifest.json
  *   joy-girls/<美女>/阶段N/xxx.png      + joy-girls/manifest.json
  */
-import { readFile, readdir } from 'node:fs/promises';
+import { readFile, readdir, stat } from 'node:fs/promises';
 import { existsSync } from 'node:fs';
 import { dirname, join, extname } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -81,6 +81,38 @@ for (const { src, prefix } of SETS) {
   manifests.push({ prefix, manifest });
 }
 
+// ①.5 BGM：把音乐上传到 R2 的 audio/bgm/ 前缀 + 生成前端要的 [{file,name,bytes}] 清单（同源 Function /audio/bgm/* 取用）
+const AUD = /\.(mp3|ogg|m4a|aac|flac|opus|wav)$/i;
+const AUD_CT = { '.mp3': 'audio/mpeg', '.ogg': 'audio/ogg', '.m4a': 'audio/mp4', '.aac': 'audio/aac', '.flac': 'audio/flac', '.opus': 'audio/opus', '.wav': 'audio/wav' };
+const audCtype = (f) => AUD_CT[extname(f).toLowerCase()] || 'application/octet-stream';
+const BGM_PREFIX = 'audio/bgm';
+// 试水：只上《赛博朋克2077》一套；要全上改成 join(HERE, '../../../../BGM')（会递归所有子文件夹）
+const BGM_SRC = join(HERE, '../../../../BGM/游戏bgm/2077');
+
+let bgmManifest = null;
+if (existsSync(BGM_SRC)) {
+  bgmManifest = [];
+  const walk = async (dir, rel) => {
+    for (const e of await readdir(dir, { withFileTypes: true })) {
+      if (e.name.startsWith('.')) continue;
+      const relPath = rel ? `${rel}/${e.name}` : e.name;
+      if (e.isDirectory()) { await walk(join(dir, e.name), relPath); continue; }
+      if (!AUD.test(e.name)) continue;
+      const full = join(dir, e.name);
+      let bytes = 0; try { bytes = (await stat(full)).size; } catch { /* */ }
+      tasks.push({ key: `${BGM_PREFIX}/${relPath}`, file: full, ct: audCtype(e.name) });
+      const nm = e.name.replace(AUD, '');
+      bgmManifest.push({ file: relPath, name: rel ? `${rel.split('/').pop()} · ${nm}` : nm, bytes });
+    }
+  };
+  await walk(BGM_SRC, '');
+  bgmManifest.sort((a, b) => a.file.localeCompare(b.file, 'zh'));
+  const mb = (bgmManifest.reduce((s, t) => s + t.bytes, 0) / 1048576).toFixed(0);
+  console.log(`· BGM：扫描到 ${bgmManifest.length} 首 / 约 ${mb}MB（→ ${BGM_PREFIX}/）`);
+} else {
+  console.log(`· 跳过 BGM（源不存在）：${BGM_SRC}`);
+}
+
 // ② 并发上传图片（默认跳过已存在）
 console.log(`共 ${tasks.length} 张待处理（并发 ${CONCURRENCY}${FORCE ? '，--force 全量重传' : '，跳过已存在'}）…`);
 let up = 0, skip = 0, fail = 0, processed = 0;
@@ -99,5 +131,9 @@ await pool(tasks, CONCURRENCY, async (t) => {
 for (const { prefix, manifest } of manifests) {
   await put(`${prefix}/manifest.json`, JSON.stringify(manifest, null, 2), 'application/json');
   console.log(`  ✓ ${prefix}/manifest.json（${Object.keys(manifest).length} 个角色）`);
+}
+if (bgmManifest) {   // BGM 清单（数组格式，前端 /audio/bgm/manifest.json 直接用）
+  await put(`${BGM_PREFIX}/manifest.json`, JSON.stringify(bgmManifest, null, 2), 'application/json');
+  console.log(`  ✓ ${BGM_PREFIX}/manifest.json（${bgmManifest.length} 首）`);
 }
 console.log(`\n完成：上传 ${up}、跳过 ${skip}、失败 ${fail}，桶「${cfg.bucket}」。`);

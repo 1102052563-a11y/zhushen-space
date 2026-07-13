@@ -2690,7 +2690,7 @@ function GeneralSettingsSection() {
           <Toggle checked={audio.enabled} onChange={() => setAudio({ enabled: !audio.enabled })} />
           <div className="flex-1 min-w-0">
             <div className="text-sm font-semibold text-slate-200">游戏音效</div>
-            <div className="text-sm text-dim mt-1 leading-relaxed">开启后：掷骰 / 战斗命中·暴击·格挡 / 世界结算 / 升级 / 赌坊 / 聊天室新消息 等播放音效；并随天气放环境音（雨·雷·雪·风·雾）。音频文件放在 <span className="font-mono text-god/70">public/audio/</span> 下，<span className="text-dim/60">缺文件不报错、自动跳过</span>；引擎懒加载（Howler），不进主包。</div>
+            <div className="text-sm text-dim mt-1 leading-relaxed">开启后：掷骰 / 战斗命中·暴击·格挡 / 世界结算 / 升级 / 赌坊 / 聊天室新消息 等播放音效；随天气放环境音（雨·雷·雪·风·雾）；并循环播放 <span className="font-mono text-god/70">public/audio/bgm/</span> 里的背景音乐。音频文件放在 <span className="font-mono text-god/70">public/audio/</span> 下，<span className="text-dim/60">缺文件不报错、自动跳过</span>；引擎懒加载（Howler），不进主包。</div>
             {audio.enabled && (
               <div className="mt-3 space-y-3">
                 <div className="flex items-center gap-3">
@@ -2704,6 +2704,21 @@ function GeneralSettingsSection() {
                   <input type="range" min={0} max={100} step={1} value={Math.round(audio.ambientVolume * 100)} disabled={!audio.ambient} onChange={(e) => setAudio({ ambientVolume: (parseInt(e.target.value) || 0) / 100 })} className="flex-1 disabled:opacity-40" />
                   <span className="text-[12px] font-mono text-god/80 w-10 text-right">{Math.round(audio.ambientVolume * 100)}%</span>
                 </div>
+                <div className="flex items-center gap-3">
+                  <Toggle checked={audio.music} onChange={() => setAudio({ music: !audio.music })} />
+                  <span className="text-[12px] text-dim/70 w-14 shrink-0">背景音乐</span>
+                  <input type="range" min={0} max={100} step={1} value={Math.round(audio.musicVolume * 100)} disabled={!audio.music} onChange={(e) => setAudio({ musicVolume: (parseInt(e.target.value) || 0) / 100 })} className="flex-1 disabled:opacity-40" />
+                  <span className="text-[12px] font-mono text-god/80 w-10 text-right">{Math.round(audio.musicVolume * 100)}%</span>
+                </div>
+                {audio.music && (
+                  <div className="flex items-center gap-2 pl-[52px]">
+                    <label className="flex items-center gap-2 cursor-pointer text-[12px] text-dim/70">
+                      <input type="checkbox" checked={audio.musicShuffle} onChange={(e) => setAudio({ musicShuffle: e.target.checked })} className="accent-god" />
+                      随机播放
+                    </label>
+                    <span className="text-[11px] text-dim/50">· 把音乐文件丢进 <span className="font-mono text-god/60">public/audio/bgm/</span>（多首自动组成播放列表，左下角出现迷你播放器）</span>
+                  </div>
+                )}
               </div>
             )}
           </div>

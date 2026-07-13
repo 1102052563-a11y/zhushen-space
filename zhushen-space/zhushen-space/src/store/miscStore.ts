@@ -44,6 +44,7 @@ export interface MiscTask {
   finale?: string;          // 终局目标——定义这条线的"尽头"，最后一环达成即整条完成
   rating?: string;          // 任务评分（S/A/B/C/D/E，完成/失败时由 AI 给定；显示在已结束列表 + 供世界结算参考）
   progress?: string;        // 当前任务进度：上回合主角对该任务的实质推进（1~2句·杂项AI每轮更新·纯展示+续作连贯，不参与结算判定）
+  prof?: boolean;           // 职业任务：仅由「世界卡·生成职业任务」按钮生成、进世界时落到面板；杂项演化只更新进度/结算，绝不新建职业任务
 }
 
 /* 主线判定：只有显式 kind==='主线' 才算主线，其余（含未标 kind）一律支线 */
@@ -246,6 +247,7 @@ interface MiscState {
   upsertTask: (t: MiscTask) => void;
   updateTask: (id: string, patch: Partial<MiscTask>) => void;
   editTask: (id: string, patch: Partial<MiscTask>) => void;   // 玩家手动编辑：直接覆盖字段/整组 rings，绕过 AI 的路线图锁定与合并
+  addProfQuests: (items: { name: string; desc?: string; reward?: string }[]) => void;   // 进世界时把「世界卡·生成职业任务」的产出落成 prof 任务到面板
   removeTask: (id: string) => void;
   settleTask: (id: string, status: string) => void;   // 结算：移出进行中→归档
   advanceRing: (id: string, done?: { summary?: string; rating?: string }) => void;   // 推进：当前 active 环→done（并记下该环行为总结/评级）、下一 planned 环→active，同步顶层快照
@@ -352,6 +354,20 @@ export const useMisc = create<MiscState>()(
       // 玩家手动编辑：直接覆盖（rings 整组替换、不走 mergeRings 锁定，也不走"一世界一主线"降级）——玩家改的以玩家为准
       editTask: (id, patch) =>
         set((s) => ({ tasks: s.tasks.map((x) => (x.id === id ? { ...x, ...patch } : x)) })),
+      addProfQuests: (items) =>
+        set((s) => {
+          if (!Array.isArray(items) || !items.length) return s;
+          // 分配不与现有(含归档)撞号的新 id
+          const nums = [...s.tasks, ...s.archivedTasks].map((t) => Number(/^T_(\d+)$/.exec(t.id)?.[1])).filter((x) => Number.isFinite(x));
+          let n = nums.length ? Math.max(...nums) : 0;
+          const now = Date.now();
+          const add = items.filter((it) => it && String(it.name || '').trim()).map((it) => ({
+            id: `T_${++n}`, name: String(it.name).trim(), desc: String(it.desc || '').trim(),
+            reward: String(it.reward || '').trim(), penalty: '', status: '进行中',
+            startTime: '', endTime: '', addedAt: now, kind: '支线' as const, prof: true,
+          }));
+          return add.length ? { tasks: [...s.tasks, ...add] } : s;
+        }),
       removeTask: (id) => set((s) => ({ tasks: s.tasks.filter((x) => x.id !== id) })),
       settleTask: (id, status) =>
         set((s) => {
