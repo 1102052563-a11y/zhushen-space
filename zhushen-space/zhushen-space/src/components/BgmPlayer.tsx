@@ -13,7 +13,7 @@ export default function BgmPlayer() {
   const snap = useSyncExternalStore(subscribeBgm, getBgmSnapshot, getBgmSnapshot);
   const audio = useSettings((s) => s.audio);
   const setAudio = useSettings((s) => s.setAudio);
-  const [collapsed, setCollapsed] = useState(false);
+  const [collapsed, setCollapsed] = useState(true);   // 开局默认缩成 🎵 图标（轻点展开控制条），避免占地方/误触
   const [themeOpen, setThemeOpen] = useState(false);
   const cats = useMemo(() => getBgmCategories(), [snap.count]);
 
