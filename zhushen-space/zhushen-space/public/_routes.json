@@ -1,0 +1,12 @@
+{
+  "version": 1,
+  "include": [
+    "/bgm/*",
+    "/enhance-bosses/*",
+    "/joy-girls/*",
+    "/proxy/*",
+    "/presence",
+    "/presence-online"
+  ],
+  "exclude": []
+}
