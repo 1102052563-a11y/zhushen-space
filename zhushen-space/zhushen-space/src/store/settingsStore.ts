@@ -277,8 +277,8 @@ interface SettingsState {
   setShowNewlineButton: (v: boolean) => void;
   weatherFx: boolean;  // 顶栏天气/天启特效（动态天空背景+粒子动画）总开关；关闭后顶栏维持原暗色、零开销
   setWeatherFx: (v: boolean) => void;
-  audio: { enabled: boolean; volume: number; ambient: boolean; ambientVolume: number; music: boolean; musicVolume: number; musicShuffle: boolean; musicConsent: '' | 'granted'; musicCategory: string };   // 游戏音效（开关/总音量0~1/环境音开关+音量/背景音乐开关+音量+随机播放/音乐流量确认/当前主题：''=全部）
-  setAudio: (patch: Partial<{ enabled: boolean; volume: number; ambient: boolean; ambientVolume: number; music: boolean; musicVolume: number; musicShuffle: boolean; musicConsent: '' | 'granted'; musicCategory: string }>) => void;
+  audio: { enabled: boolean; volume: number; ambient: boolean; ambientVolume: number; music: boolean; musicVolume: number; musicShuffle: boolean; musicConsent: '' | 'granted'; musicCategory: string; musicPos: { x: number; y: number } | null };   // 游戏音效（…/当前主题/迷你播放器悬浮位置：null=默认左下角，拖动后记忆）
+  setAudio: (patch: Partial<{ enabled: boolean; volume: number; ambient: boolean; ambientVolume: number; music: boolean; musicVolume: number; musicShuffle: boolean; musicConsent: '' | 'granted'; musicCategory: string; musicPos: { x: number; y: number } | null }>) => void;
   allowAutoEquip: boolean;  // 是否允许 AI 自动装备主角拾取/生成的装备（关闭=仅能在装备面板手动穿戴）
   setAllowAutoEquip: (v: boolean) => void;
   // ACU 表格数据库·填表调度：enabled=总开关（关则不再每回合注入填表规则+剧情表·AI 不维护表）；everyN=每 N 回合才填一次（1=每回合·默认）；only=只维护这些剧情表(uid: chronicle/progress/foreshadowing/pacts·空=全部)
@@ -758,7 +758,7 @@ export const useSettings = create<SettingsState>()(
       disableEnterSend: false,
       showNewlineButton: true,
       weatherFx: true,
-      audio: { enabled: true, volume: 0.7, ambient: true, ambientVolume: 0.4, music: true, musicVolume: 0.5, musicShuffle: false, musicConsent: '', musicCategory: '' },
+      audio: { enabled: true, volume: 0.7, ambient: true, ambientVolume: 0.4, music: true, musicVolume: 0.5, musicShuffle: false, musicConsent: '', musicCategory: '', musicPos: null },
       tableFill: { enabled: true, everyN: 1, only: [] },   // 默认：每回合填全部剧情表（＝原行为·不破老档）
       advancePresets: [],   // 空=⏩ 回退内置 PLOT_ADVANCE_DIRECTIVE；可在设置里加「激进/缝合怪」等
       advanceSelected: 0,

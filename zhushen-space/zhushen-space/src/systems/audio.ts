@@ -172,6 +172,7 @@ function buildBgmOrder(): void {
   const cur = bgmIdx >= 0 && bgmIdx < bgmOrder.length ? bgmOrder[bgmIdx] : -1;   // 当前曲目在 playlist 里的下标
   const cat = settings.musicCategory;   // ''=全部主题；否则只收该主题
   bgmOrder = bgmPlaylist.map((_, i) => i).filter((i) => !cat || (bgmPlaylist[i].category || '') === cat);
+  if (cat && bgmOrder.length === 0) bgmOrder = bgmPlaylist.map((_, i) => i);   // 选中主题在当前清单不存在（换库/残留）→回退全部，防卡死不播
   if (settings.musicShuffle) {
     for (let i = bgmOrder.length - 1; i > 0; i--) {
       const j = Math.floor(Math.random() * (i + 1));

@@ -1364,6 +1364,7 @@ export default function App() {
   const [hostTakeover, setHostTakeover] = useState<string[]>([]);   // 联机：房主因来宾(MP_)AFK 而临时接管的战斗角色 id
   const raidRollsRef = useRef<Record<string, Record<string, any>>>({});      // 战利 ROLL 收集（房主侧：lootId→playerId→{name,picks}）
   const appliedRewardRef = useRef<Record<string, boolean>>({});   // 副本豪华奖励去重（rewardId→已应用），防 relay 回显双发
+  const pendingHostSendRef = useRef<string | null>(null);   // 房主·全员就绪门：队友没交全时把房主本回合行动排队，等全交后自动发送（防房主先发漏掉队友行动）
   const povCollectRef = useRef<{ onDraft: (p: { seatId: string; draft: string; noKey?: boolean }) => void } | null>(null);   // 分头三段式·房主收集来宾初稿的活跃收集器
   const povGuestMsgRef = useRef<number | null>(null);   // 分头三段式·来宾「推演中」占位消息 id（pov_final 来替换）
   // 副本通关豪华奖励入账（房主本地直接调 + relay 回显也调，靠 rewardId 去重防双发）：
@@ -1577,6 +1578,21 @@ export default function App() {
   const abortRef = useRef<AbortController | null>(null);   // 正文生成中止控制器（停止生成用）
   const stopAllRef = useRef(false);   // 「停止生成全部变量」：置位后各演化/生图循环 bail；新一轮生成开头复位
   const [canUndo, setCanUndo] = useState(false);           // 是否有可回退的上一回合
+  const [waitingSubmit, setWaitingSubmit] = useState('');  // 房主·全员就绪门：等待队友提交的提示文案（''=不在等待）
+  const mpTurnInputs = useMp((s) => s.turn?.inputs);        // 订阅本回合队友提交进度，供「全员就绪门」自动发送
+  useEffect(() => {   // 房主·全员就绪门：队友提交进度变化时，若房主有排队的行动且全员已交 → 自动拼一起发送
+    if (pendingHostSendRef.current == null) return;
+    const mp = useMp.getState();
+    if (mp.status !== 'connected' || mp.role !== 'host') return;
+    const seatedGuests = (mp.seats || []).filter((s) => s.playerId && s.playerId !== mp.room?.hostId);
+    if (seatedGuests.length > 0 && seatedGuests.every((s) => (mp.turn?.inputs || {})[s.seatId])) {
+      const pending = pendingHostSendRef.current;
+      pendingHostSendRef.current = null;
+      setWaitingSubmit('');
+      void sendMessage(pending || undefined);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [mpTurnInputs]);
   const ttsSpeaking = useTtsSpeaking();                    // TTS 朗读中？（控制 🔊/⏹ 图标切换）
   // 正文行内小喇叭：speakable 时给每句对话注入可点朗读图标（npcNames 供说话人归属→用其音色）
   const ttsDlgOpts = ttsSupported()
@@ -9196,7 +9212,7 @@ ${lines}`;
     void autoAdvanceStep();
   }
 
-  async function sendMessage(textArg?: string, fromAuto = false, sendOpts: { skipOutline?: boolean } = {}) {
+  async function sendMessage(textArg?: string, fromAuto = false, sendOpts: { skipOutline?: boolean; forceMpSend?: boolean } = {}) {
     const text = (textArg ?? inputValue).trim();
     if (!fromAuto) stopAutoAdvance();   // 用户手动发送即中断循环自动推进
     if (!text || generating || guidanceRunning || outlineModal.open || planModal?.open || !!diceReviewModal) return;   // 剧情指导前置阶段/细纲·检定·规划审核弹窗开着也算「忙」，防重复发起并发调用
@@ -9212,6 +9228,21 @@ ${lines}`;
       setMessages((prev) => [...prev, { id: ++msgId.current, role: 'user', content: mp.splitMode ? `🚶（分头行动）${text}` : text }]);
       if (textArg == null) setInputValue('');
       return;
+    }
+
+    // 房主·全员就绪门：房间里所有在座队友都提交了行动，房主再拼一起发（避免房主先发把队友行动漏掉）。
+    // 没交全 → 把房主行动排队 + 提示，等最后一个队友提交时由上面的 useEffect 自动一起发送；也可点提示条「直接发送」强发。
+    if (mp.status === 'connected' && mp.role === 'host') {
+      const seatedGuests = (mp.seats || []).filter((s) => s.playerId && s.playerId !== mp.room?.hostId);
+      const waitingFor = seatedGuests.filter((s) => !(mp.turn?.inputs || {})[s.seatId]);
+      if (waitingFor.length > 0 && !sendOpts.forceMpSend) {
+        pendingHostSendRef.current = text;
+        setWaitingSubmit(`⏳ 已就绪，等 ${waitingFor.length} 位队友提交行动后自动一起发送：${waitingFor.map((s) => s.name || s.seatId).join('、')}`);
+        if (textArg == null) setInputValue('');
+        return;
+      }
+      pendingHostSendRef.current = null;   // 全员已就绪：清队列，正常往下发
+      setWaitingSubmit('');
     }
 
     await captureUndoPoint();   // 发送前记录回退点（=上一回合结束状态）
@@ -10197,6 +10228,15 @@ ${lines}`;
                 {genError && (
                   <div className="text-xs text-blood font-mono px-3 py-2 border border-blood/30 rounded-lg bg-blood/5">
                     ⚠ {genError}
+                  </div>
+                )}
+                {waitingSubmit && (
+                  <div className="text-xs font-mono px-3 py-2 border border-god/30 rounded-lg bg-god/5 flex items-center gap-2 flex-wrap">
+                    <span className="text-god/90 flex-1 min-w-0">{waitingSubmit}</span>
+                    <button onClick={() => { const p = pendingHostSendRef.current; pendingHostSendRef.current = null; setWaitingSubmit(''); void sendMessage(p || undefined, false, { forceMpSend: true }); }}
+                      className="shrink-0 px-2 py-0.5 rounded border border-god/40 text-god/90 hover:bg-god/15 transition-colors">直接发送</button>
+                    <button onClick={() => { pendingHostSendRef.current = null; setWaitingSubmit(''); }}
+                      className="shrink-0 px-2 py-0.5 rounded border border-edge text-dim/70 hover:text-slate-200 transition-colors">取消</button>
                   </div>
                 )}
                 <div ref={messagesEndRef} />

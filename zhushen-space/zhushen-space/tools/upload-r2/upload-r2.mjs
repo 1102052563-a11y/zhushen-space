@@ -86,9 +86,9 @@ const AUD = /\.(mp3|ogg|m4a|aac|flac|opus|wav)$/i;
 const AUD_CT = { '.mp3': 'audio/mpeg', '.ogg': 'audio/ogg', '.m4a': 'audio/mp4', '.aac': 'audio/aac', '.flac': 'audio/flac', '.opus': 'audio/opus', '.wav': 'audio/wav' };
 const audCtype = (f) => AUD_CT[extname(f).toLowerCase()] || 'application/octet-stream';
 const BGM_PREFIX = 'audio/bgm';
-// 扫 游戏bgm/ 下各游戏文件夹 → 每个游戏成一个主题（2077/上古卷轴5/女神异闻录5/巫师三/星露谷）。
-// 想只上一套：改成 '../../../../BGM/游戏bgm/2077'；想连 jpop 一起：改成 '../../../../BGM'。
-const BGM_SRC = join(HERE, '../../../../BGM/游戏bgm');
+// 扫整个 BGM/ → 主题 = 歌曲所在的那层文件夹（citypop/jpop/rick and morty/各游戏/EVA 各子专辑…共约 21 个主题·4.9GB）。
+// 想缩范围：指到某个子文件夹，如 '../../../../BGM/游戏bgm'（仅 14 个游戏）或 '../../../../BGM/游戏bgm/2077'（单主题）。
+const BGM_SRC = join(HERE, '../../../../BGM');
 
 let bgmManifest = null;
 if (existsSync(BGM_SRC)) {
