@@ -22,7 +22,7 @@ const AMBIENT: Record<string, string> = {
 };
 const EXTS = ['mp3', 'wav', 'ogg'];   // 加载优先级：用户 mp3 > 自带 wav 占位 > ogg
 
-let settings = { enabled: true, volume: 0.7, ambient: true, ambientVolume: 0.4, music: true, musicVolume: 0.5, musicShuffle: false, musicConsent: '' };   // musicConsent: ''=未确认（先不下载）/ 'granted'=用户同意消耗流量后才加载播放
+let settings = { enabled: true, volume: 0.7, ambient: true, ambientVolume: 0.4, music: true, musicVolume: 0.5, musicShuffle: false, musicConsent: '', musicCategory: '' };   // musicConsent: ''=未确认(先不下载)/'granted'=同意流量后才加载；musicCategory: ''=全部(可配合随机)/主题名=只放该主题
 const loaded = new Map<string, Promise<HowlT | null>>();   // <file>|<file>#loop → 首个能加载的 Howl（null=全缺）
 let ambient: HowlT | null = null;
 let ambientKey = '';
@@ -57,13 +57,18 @@ function load(m: HowlerMod, file: string, loop: boolean): Promise<HowlT | null> 
 
 /** App 推入设置（开关/音量/环境音/背景音乐）。总开关关→静音并停环境音+暂停 BGM。 */
 export function setAudioSettings(s: Partial<typeof settings>): void {
-  const prevShuffle = settings.musicShuffle;
+  const prevShuffle = settings.musicShuffle, prevCategory = settings.musicCategory;
   settings = { ...settings, ...s };
   if (mod) mod.Howler.volume(settings.enabled ? clamp(settings.volume) : 0);   // 主音量总线（同时压 SFX/环境/BGM）
   if (!settings.enabled || !settings.ambient) stopAmbient();
   else if (ambient) { try { ambient.volume(clamp(settings.ambientVolume)); } catch { /* */ } }
   if (bgm) { try { bgm.volume(clamp(settings.musicVolume)); } catch { /* */ } }   // 背景音乐相对音量（受主音量再乘）
-  if (settings.musicShuffle !== prevShuffle) buildBgmOrder();
+  if (settings.musicCategory !== prevCategory) {   // 切主题：重建曲目池，从该主题第一首起播
+    bgmMissStreak = 0; bgmIdx = -1; buildBgmOrder();
+    if (bgmShouldPlay()) bgmPlayAt(0);
+  } else if (settings.musicShuffle !== prevShuffle) {
+    buildBgmOrder();
+  }
   ensureBgmPlaylist().then(reconcileBgm);   // 加载清单（幂等）后按新设置起停 BGM
 }
 
@@ -107,7 +112,7 @@ export function stopAmbient(): void {
    - 与环境音是两条独立轨（各自 Howl），主音量总线（Howler.volume）同时压二者。
    - 自动播放受浏览器策略限制：必须首个用户手势后 unlockBgm() 才真正起播（App 接线）。
    - 迷你播放器经 subscribeBgm/getBgmSnapshot 订阅当前曲名/播放态（useSyncExternalStore 用）。 */
-type BgmTrack = { file: string; name: string; bytes?: number };
+type BgmTrack = { file: string; name: string; bytes?: number; category?: string };
 let bgmPlaylist: BgmTrack[] = [];
 let bgmOrder: number[] = [];        // 播放顺序（bgmPlaylist 的下标序列，随机时打乱）
 let bgmIdx = -1;                    // 当前曲目在 bgmOrder 里的位置（-1＝还没起播）
@@ -132,6 +137,12 @@ function bgmEmit(patch: Partial<typeof bgmSnap>): void {
 export function subscribeBgm(fn: () => void): () => void { bgmSubs.add(fn); return () => { bgmSubs.delete(fn); }; }
 /** 当前 BGM 快照（迷你播放器读；引用稳定，未变则同一对象）。 */
 export function getBgmSnapshot(): typeof bgmSnap { return bgmSnap; }
+/** 可选主题列表（按清单 category 去重 + 每主题曲目数，按名排序）；空数组=曲目无分类。 */
+export function getBgmCategories(): { name: string; count: number }[] {
+  const map = new Map<string, number>();
+  for (const t of bgmPlaylist) { const c = t.category || ''; if (c) map.set(c, (map.get(c) || 0) + 1); }
+  return [...map.entries()].map(([name, count]) => ({ name, count })).sort((a, b) => a.name.localeCompare(b.name, 'zh'));
+}
 
 const safePlaying = (h: HowlT): boolean => { try { return h.playing(); } catch { return false; } };
 // 播放门控：总开关+音乐开关+**用户已确认流量消耗**+首手势解锁+未暂停+有曲目。未 granted → 一个字节都不下载。
@@ -156,10 +167,11 @@ function ensureBgmPlaylist(): Promise<void> {
   return bgmPlPromise;
 }
 
-/** 重建播放顺序（随机时 Fisher–Yates 打乱），并尽量保留当前正在放的曲目位置。 */
+/** 重建播放顺序：按当前主题(musicCategory)过滤曲目池，随机时 Fisher–Yates 打乱，尽量保留当前曲目位置。 */
 function buildBgmOrder(): void {
   const cur = bgmIdx >= 0 && bgmIdx < bgmOrder.length ? bgmOrder[bgmIdx] : -1;   // 当前曲目在 playlist 里的下标
-  bgmOrder = bgmPlaylist.map((_, i) => i);
+  const cat = settings.musicCategory;   // ''=全部主题；否则只收该主题
+  bgmOrder = bgmPlaylist.map((_, i) => i).filter((i) => !cat || (bgmPlaylist[i].category || '') === cat);
   if (settings.musicShuffle) {
     for (let i = bgmOrder.length - 1; i > 0; i--) {
       const j = Math.floor(Math.random() * (i + 1));

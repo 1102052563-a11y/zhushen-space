@@ -160,11 +160,20 @@ function buildBgmManifest(): Plugin {
   const gen = () => {
     try {
       if (!existsSync(DIR)) return
-      const out: { file: string; name: string; bytes: number }[] = []
-      for (const f of readdirSync(DIR)) {
-        if (AUD.test(f)) { let bytes = 0; try { bytes = statSync(DIR + '/' + f).size } catch { /* */ } out.push({ file: f, name: f.replace(AUD, ''), bytes }) }
+      const out: { file: string; name: string; category: string; bytes: number }[] = []
+      const walk = (absDir: string, rel: string) => {
+        const category = absDir.split(/[\\/]/).pop() || ''   // 主题 = 所在文件夹名（子文件夹丢音乐即成一个主题）
+        for (const e of readdirSync(absDir, { withFileTypes: true })) {
+          if (e.name.startsWith('.')) continue
+          const relPath = rel ? rel + '/' + e.name : e.name
+          if (e.isDirectory()) { walk(absDir + '/' + e.name, relPath); continue }
+          if (!AUD.test(e.name)) continue
+          let bytes = 0; try { bytes = statSync(absDir + '/' + e.name).size } catch { /* */ }
+          out.push({ file: relPath, name: e.name.replace(AUD, ''), category, bytes })
+        }
       }
-      out.sort((a, b) => a.name.localeCompare(b.name, 'zh'))
+      walk(DIR, '')
+      out.sort((a, b) => (a.category + '/' + a.file).localeCompare(b.category + '/' + b.file, 'zh'))
       writeFileSync(DIR + '/manifest.json', JSON.stringify(out, null, 2))
     } catch { /* 失败不阻断构建 */ }
   }

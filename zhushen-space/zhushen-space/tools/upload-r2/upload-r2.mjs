@@ -11,7 +11,7 @@
  */
 import { readFile, readdir, stat } from 'node:fs/promises';
 import { existsSync } from 'node:fs';
-import { dirname, join, extname } from 'node:path';
+import { dirname, join, extname, basename } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { S3Client, PutObjectCommand, HeadObjectCommand } from '@aws-sdk/client-s3';
 
@@ -93,6 +93,7 @@ let bgmManifest = null;
 if (existsSync(BGM_SRC)) {
   bgmManifest = [];
   const walk = async (dir, rel) => {
+    const category = basename(dir);   // 主题 = 文件所在文件夹名（2077 / 巫师三 / jpop …）
     for (const e of await readdir(dir, { withFileTypes: true })) {
       if (e.name.startsWith('.')) continue;
       const relPath = rel ? `${rel}/${e.name}` : e.name;
@@ -101,8 +102,7 @@ if (existsSync(BGM_SRC)) {
       const full = join(dir, e.name);
       let bytes = 0; try { bytes = (await stat(full)).size; } catch { /* */ }
       tasks.push({ key: `${BGM_PREFIX}/${relPath}`, file: full, ct: audCtype(e.name) });
-      const nm = e.name.replace(AUD, '');
-      bgmManifest.push({ file: relPath, name: rel ? `${rel.split('/').pop()} · ${nm}` : nm, bytes });
+      bgmManifest.push({ file: relPath, name: e.name.replace(AUD, ''), category, bytes });
     }
   };
   await walk(BGM_SRC, '');

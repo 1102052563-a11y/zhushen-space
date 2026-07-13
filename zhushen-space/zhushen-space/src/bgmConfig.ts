@@ -11,7 +11,7 @@
  *   此时那个站点需自带 manifest.json + 音乐文件，且给 manifest.json 回 CORS 头
  *   （Access-Control-Allow-Origin: *；音频用 <audio> 跨源播放不需要 CORS）。
  */
-export const BGM_SOURCE = '';
+export const BGM_SOURCE: string = '';   // 标注 string（非字面量 ''），否则 TS 把下面三元真值分支判成 never
 
 /** 规范化后的 BGM 基址：空→同源 /audio/bgm；否则去掉结尾斜杠的外部地址。 */
 export const bgmBase = (): string => (BGM_SOURCE ? BGM_SOURCE.replace(/\/+$/, '') : '/audio/bgm');
