@@ -38,6 +38,7 @@ import { useCombat } from '../store/combatStore';
 import { useSkillTree } from '../store/skillTreeStore';
 import { useSubProfTree } from '../store/subProfTreeStore';
 import { useVariables } from '../store/variableStore';
+import { usePromptOverride } from '../store/promptOverrideStore';   // 预设中心：主提示词覆盖
 
 export const CONFIG_KIND = 'zhushen-global-config';
 export const CONFIG_FORMAT_VERSION = 1;
@@ -246,6 +247,7 @@ const SPECS: StoreSpec[] = [
   { key: 'drpg-skilltree',          label: '技能树模板',   api: useSkillTree as any,         extract: skillTreeExtract, apply: skillTreeApply },
   { key: 'drpg-subproftree',        label: '副职业树模板', api: useSubProfTree as any,       extract: skillTreeExtract, apply: skillTreeApply },
   { key: 'drpg-variables',          label: '自定义变量定义', api: useVariables as any,         extract: variablesExtract, apply: variablesApply },
+  { key: 'drpg-prompt-override',    label: '主提示词覆盖',   api: usePromptOverride as any,    extract: plainExtract },
 ];
 
 // 合成工坊：导出配置 + 合成图鉴(非内置) + API（不含 session/已发现配方那些进度数据）

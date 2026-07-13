@@ -4,6 +4,7 @@ import { enhanceColorClass, enhancedCombat } from '../systems/enhanceEngine';
 import { applyItemActiveBuff } from '../systems/statusAttrs';
 import { walletLedger, type WalletTxn } from '../systems/ledger/walletCore';
 import { usePlayer } from '../store/playerStore';
+import { useMisc } from '../store/miscStore';   // 当地货币（世界级·世界限定）
 import { useTerritory } from '../store/territoryStore';
 import { useSkillTree } from '../store/skillTreeStore';
 import { availablePP } from '../systems/skillTree';
@@ -773,6 +774,8 @@ function CurrencyBar({ wallet }: { wallet: CurrencyWallet }) {
   const treeProg = useSkillTree((s) => s.progress['B1']);
   const potPoints = Math.max(0, availablePP(treeProg, { level, tier }));   // 技能树可用潜能点（预算+兑换−已花）
   const setCurrency = useItems((s) => s.setCurrency);
+  const localCurrencyName = useMisc((s) => s.localCurrencyName);   // 当地货币（世界级·世界限定·离世归零）
+  const localCurrency = useMisc((s) => s.localCurrency);
   const setProfile = usePlayer((s) => s.setProfile);
   const grantBonusPP = useSkillTree((s) => s.grantBonusPP);
   const [showReal, setShowReal] = useState(false);
@@ -800,6 +803,17 @@ function CurrencyBar({ wallet }: { wallet: CurrencyWallet }) {
             </div>
           );
         })}
+        {/* 当地货币（任务世界本地货币·世界限定·离世归零）：仅当本世界设定了货币名时显示，余额存 miscStore（非 CurrencyWallet） */}
+        {localCurrencyName && (
+          <div className="flex items-center gap-2 px-3 py-2.5">
+            <span className="text-base shrink-0">💴</span>
+            <div className="flex-1 min-w-0">
+              <div className="text-sm font-mono font-semibold truncate text-sky-300">当地货币 · {localCurrencyName}</div>
+              <div className="text-[11px] text-dim/50 truncate">本世界限定 · 带不出（离世归零）</div>
+            </div>
+            <EditableNum value={localCurrency} onSave={(v) => useMisc.getState().setLocalCurrency(v)} className="text-sky-300" />
+          </div>
+        )}
         {/* 属性点（左侧点击切换 真实属性点；右侧数字可点改）*/}
         <div className="w-full flex items-center gap-2 px-3 py-2.5">
           <button onClick={() => setShowReal((v) => !v)} title="点击切换属性点 / 真实属性点"

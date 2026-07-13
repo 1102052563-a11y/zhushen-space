@@ -19,6 +19,7 @@ import { bumpAutoSave } from './saveManager';
 import { effectiveAttrs } from './attrBonus';
 import { attrCapForTier, lvFromRealm } from './derivedStats';
 import { MONUMENT_EULOGY_RULE } from '../promptRules';
+import { getPrompt } from '../store/promptOverrideStore';   // 预设中心：主提示词 override
 
 function coerceGender(g?: string): '男' | '女' | '' {
   return g === '男' || g === '女' ? g : '';
@@ -250,7 +251,7 @@ async function generateEulogy(id: string): Promise<void> {
   const dossier = buildDossier(entry.snapshot);
   try {
     const { content } = await apiChatFallback(chain, [
-      { role: 'system', content: MONUMENT_EULOGY_RULE },
+      { role: 'system', content: getPrompt('MONUMENT_EULOGY_RULE', MONUMENT_EULOGY_RULE) },
       { role: 'user', content: `【契约者档案】\n${dossier}\n\n请基于以上档案，按【输出格式】撰写其生平总结与结语。` },
     ], { label: '纪念丰碑·生平结语' });
     const { summary, eulogy } = parseEulogy(content);

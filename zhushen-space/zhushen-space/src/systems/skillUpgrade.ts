@@ -4,6 +4,7 @@ import { usePlayer } from '../store/playerStore';
 import { apiChatFallback } from './apiChat';
 import { lenientJsonParse } from './stateParser';
 import { SKILL_LEVELUP_PROMPT, SKILL_FUSION_RULE } from '../promptRules';
+import { getPrompt } from '../store/promptOverrideStore';   // 预设中心：主提示词 override
 import { SUBPROF_MASTERY_LADDER, SUBPROF_MASTERY_PER_SKILLPOINT } from '../store/subProfTreeStore';
 import type { Skill, Trait } from '../store/characterStore';
 
@@ -150,7 +151,7 @@ export async function generateSkillUpgrade(o: SkillUpgradeOpts): Promise<SkillUp
   ].join('\n\n');
 
   const { content } = await apiChatFallback(chain, [
-    { role: 'system', content: SKILL_LEVELUP_PROMPT },
+    { role: 'system', content: getPrompt('SKILL_LEVELUP_PROMPT', SKILL_LEVELUP_PROMPT) },
     { role: 'user', content: userMsg },
   ], { timeoutMs: 150000 });
 
@@ -227,7 +228,7 @@ export async function generateSkillFusion(o: SkillFusionOpts): Promise<SkillFusi
   ].join('\n\n');
 
   const { content } = await apiChatFallback(chain, [
-    { role: 'system', content: SKILL_FUSION_RULE },
+    { role: 'system', content: getPrompt('SKILL_FUSION_RULE', SKILL_FUSION_RULE) },
     { role: 'user', content: userMsg },
   ], { timeoutMs: 150000 });
 

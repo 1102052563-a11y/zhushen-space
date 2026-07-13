@@ -5,6 +5,7 @@ import { useNpcChat } from '../store/npcChatStore';
 import { useChannel } from '../store/channelStore';
 import type { NpcRecord } from '../store/npcStore';
 import { NSFW_WRITING_RULE, NPC_CHAT_RULE, NPC_TEAM_JOIN_CHAT_RULE } from '../promptRules';
+import { getPrompt } from '../store/promptOverrideStore';   // 预设中心：主提示词 override
 
 /* NPC 私聊：拼人设(含 NSFW 写作指导) → 调 API（一次产出 对白 + 交互描述）→ 解析 → 写缓存。
    API 已并入「公共频道」：与私信一致走 resolveApiChain('channel', 频道接口兜底)；交互描述会随历史一并注入回 API 保证上下文连续。 */
@@ -80,9 +81,9 @@ function playerBrief(): string {
 export function buildNpcChatSystem(npc: NpcRecord): string {
   const hasTeam = !!(npc.affiliatedTeam && npc.affiliatedTeam.trim() && !/^无$|独行/.test(npc.affiliatedTeam.trim()));
   return [
-    NSFW_WRITING_RULE,
-    NPC_CHAT_RULE,
-    ...(hasTeam ? [NPC_TEAM_JOIN_CHAT_RULE] : []),
+    getPrompt('NSFW_WRITING_RULE', NSFW_WRITING_RULE),
+    getPrompt('NPC_CHAT_RULE', NPC_CHAT_RULE),
+    ...(hasTeam ? [getPrompt('NPC_TEAM_JOIN_CHAT_RULE', NPC_TEAM_JOIN_CHAT_RULE)] : []),
     `【你要扮演的 NPC 档案】\n${serializeNpcPersona(npc)}`,
     `【对面的主角(玩家)】${playerBrief()}。这是你与主角私下独处的对话，与正文主线分开；请只产出 <对白> 与 <交互> 两块${hasTeam ? '（同意接纳主角进团时可额外附 <加入冒险团> 信号块）' : ''}。`,
   ].join('\n\n');

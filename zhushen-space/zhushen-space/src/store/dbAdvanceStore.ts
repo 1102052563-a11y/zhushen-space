@@ -24,6 +24,7 @@ interface DbAdvanceState {
   setOutputs: (o: { tabletop?: string; stage?: string; scene?: string; recall?: string }) => void;
   clearRuntime: () => void;         // 清上轮产出（新剧情线/手动重置用；保留预设+配置）
   clearPreset: () => void;
+  setPreset: (preset: DbAdvancePreset) => void;   // 预设编辑器保存·直接写回解析后的预设（缝破限/改模块提示词用）
 }
 
 export const useDbAdvance = create<DbAdvanceState>()(
@@ -48,6 +49,7 @@ export const useDbAdvance = create<DbAdvanceState>()(
       })),
       clearRuntime: () => set({ lastTabletop: '', lastStage: '', lastScene: '', lastRecall: '' }),
       clearPreset: () => set({ preset: null, presetName: '' }),
+      setPreset: (preset) => set({ preset, presetName: preset.name || '（已编辑）' }),
     }),
     {
       name: 'drpg-dbadvance',

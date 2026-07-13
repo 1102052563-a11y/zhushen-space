@@ -45,6 +45,7 @@ export interface MiscTask {
   rating?: string;          // 任务评分（S/A/B/C/D/E，完成/失败时由 AI 给定；显示在已结束列表 + 供世界结算参考）
   progress?: string;        // 当前任务进度：上回合主角对该任务的实质推进（1~2句·杂项AI每轮更新·纯展示+续作连贯，不参与结算判定）
   prof?: boolean;           // 职业任务：仅由「世界卡·生成职业任务」按钮生成、进世界时落到面板；杂项演化只更新进度/结算，绝不新建职业任务
+  locked?: boolean;         // 玩家锁定：任务链(名称/终局/环目标/奖惩/环数)全冻结，AI 只能推进环状态/补总结评级/更新 progress，绝不改动结构
 }
 
 /* 主线判定：只有显式 kind==='主线' 才算主线，其余（含未标 kind）一律支线 */
@@ -104,6 +105,28 @@ function scrubTaskTierCurrency<T extends { reward?: string; rings?: QuestRing[] 
   if (tierToNum(tier) >= 4 || tierToNum(tier) < 1) return t;
   const rings = Array.isArray(t.rings) ? t.rings.map((r) => ({ ...r, reward: enforceTierReward(r.reward, tier) })) : t.rings;
   return { ...t, reward: enforceTierReward(t.reward, tier), rings };
+}
+
+/* 锁定任务·AI 更新过滤：任务链(名称/终局/环目标/奖惩/环数/结构)全冻结，只放行 整条status/rating(结算) + progress + 各环的 status/summary/rating(推进与记录)。 */
+function applyLockedPatch(x: MiscTask, patch: Partial<MiscTask>): MiscTask {
+  const out: MiscTask = { ...x };
+  if (patch.status !== undefined) out.status = patch.status;       // 允许整条完成/失败结算
+  if (patch.progress !== undefined) out.progress = patch.progress; // 进度更新
+  if (patch.rating !== undefined) out.rating = patch.rating;       // 整体评级(完成时)
+  if (Array.isArray(patch.rings) && Array.isArray(x.rings)) {
+    out.rings = x.rings.map((r) => {
+      const inc = patch.rings!.find((ir) => ir.idx === r.idx);
+      if (!inc) return r;
+      const nr = { ...r };
+      if (inc.status !== undefined) nr.status = inc.status;   // 只放行推进(状态)
+      if (inc.summary !== undefined) nr.summary = inc.summary;
+      if (inc.rating !== undefined) nr.rating = inc.rating;
+      return nr;   // goal/reward/penalty/optional/hint/时限 一律冻结
+    });
+    const active = out.rings.find((r) => r.status === 'active');
+    if (active) out.currentRing = active.idx;
+  }
+  return out;
 }
 
 /* 已结算（完成/失败/放弃）的任务：移出"进行中"列表，留档供面板查看，不再注入提示词 */
@@ -236,6 +259,8 @@ interface MiscState {
   worldName: string;
   worldTier: string;   // 本世界难度/阶位——进入该世界时即锁定，全程不随主角升级变化（治"难度动态漂移"）
   contractors: { count: number; note: string };   // 本世界"其他契约者"人口：进世界按世界观设定初值，随世界时间演化（陨落/离场/新来），让世界不是单机
+  localCurrencyName: string;   // 本世界【当地货币】名称（贝利/戒尼/美元/骨币…）——世界限定、带不出；空=在乐园/枢纽或本世界未设定。土著报酬走它、不发乐园币/魂币
+  localCurrency: number;       // 本世界【当地货币】余额——离开/切换任务世界即归零（与 worldTier/contractors 同批重置）
 
   settings: MiscSettings;
   miscApi: ApiConfig;
@@ -248,6 +273,7 @@ interface MiscState {
   updateTask: (id: string, patch: Partial<MiscTask>) => void;
   editTask: (id: string, patch: Partial<MiscTask>) => void;   // 玩家手动编辑：直接覆盖字段/整组 rings，绕过 AI 的路线图锁定与合并
   addProfQuests: (items: { name: string; desc?: string; reward?: string }[]) => void;   // 进世界时把「世界卡·生成职业任务」的产出落成 prof 任务到面板
+  toggleTaskLock: (id: string) => void;   // 玩家锁定/解锁任务链（锁定后 AI 只更新进度、不改结构）
   removeTask: (id: string) => void;
   settleTask: (id: string, status: string) => void;   // 结算：移出进行中→归档
   advanceRing: (id: string, done?: { summary?: string; rating?: string }) => void;   // 推进：当前 active 环→done（并记下该环行为总结/评级）、下一 planned 环→active，同步顶层快照
@@ -269,6 +295,9 @@ interface MiscState {
   setTime: (patch: { paradiseTime?: string; worldTime?: string; worldName?: string }) => void;
   setWorldTier: (tier: string) => void;   // 进入新世界时锁定本世界难度/阶位
   setContractors: (count: number, note?: string) => void;   // 更新本世界其他契约者人口（数量/分布）
+  setLocalCurrencyName: (name: string) => void;   // 进入新任务世界时设定本世界当地货币名称（贝利/戒尼…）
+  adjustLocalCurrency: (delta: number) => void;   // 当地货币加减（≥0 保护）——土著发报酬/本地买卖
+  setLocalCurrency: (n: number) => void;          // 当地货币设定/校准
   clearMisc: () => void;
 
   setSettings: (patch: Partial<Omit<MiscSettings, 'entries'>>) => void;
@@ -303,6 +332,8 @@ export const useMisc = create<MiscState>()(
       worldName: '',
       worldTier: '',
       contractors: { count: 0, note: '' },
+      localCurrencyName: '',
+      localCurrency: 0,
 
       settings: { ...DEFAULT_SETTINGS },
       miscApi: {
@@ -319,7 +350,7 @@ export const useMisc = create<MiscState>()(
           const i = s.tasks.findIndex((x) => x.id === t.id);
           const next = [...s.tasks];
           // 更新既有任务：rings 走按 idx 合并、不整组替换 → 不丢已完成的前面环
-          if (i >= 0) { next[i] = scrubTaskTierCurrency(Array.isArray(t.rings) ? { ...next[i], ...t, rings: mergeRings(next[i].rings, t.rings) } : { ...next[i], ...t }, s.worldTier || ''); return { tasks: next }; }
+          if (i >= 0) { next[i] = next[i].locked ? applyLockedPatch(next[i], t) : scrubTaskTierCurrency(Array.isArray(t.rings) ? { ...next[i], ...t, rings: mergeRings(next[i].rings, t.rings) } : { ...next[i], ...t }, s.worldTier || ''); return { tasks: next }; }
           // 新建任务·铁则「一个世界只有一条主线」：本世界已有主线（进行中 或 本世界已完成/已归档的）时，新主线强制降级为支线，杜绝一个世界冒出第二条主线。
           // 用边界戳把"本世界"框住：进行中主线看 addedAt、已归档主线看 settledAt 是否晚于 lastWorldSettleAt（=进入本世界之后），避免上个世界残留的旧主线误伤新世界建主线。
           const boundary = s.lastWorldSettleAt || 0;
@@ -348,12 +379,15 @@ export const useMisc = create<MiscState>()(
           }
           return { tasks: s.tasks.map((x) =>
             x.id !== id ? x
+            : x.locked ? applyLockedPatch(x, p)   // 锁定任务：只放行进度/状态，任务链冻结
             : scrubTaskTierCurrency(Array.isArray(p.rings) ? { ...x, ...p, rings: mergeRings(x.rings, p.rings) } : { ...x, ...p }, s.worldTier || ''),
           ) };
         }),
-      // 玩家手动编辑：直接覆盖（rings 整组替换、不走 mergeRings 锁定，也不走"一世界一主线"降级）——玩家改的以玩家为准
+      // 玩家手动编辑：直接覆盖（rings 整组替换、不走 mergeRings 锁定/不走一世界一主线降级/不受 locked 限制）——玩家改的以玩家为准
       editTask: (id, patch) =>
         set((s) => ({ tasks: s.tasks.map((x) => (x.id === id ? { ...x, ...patch } : x)) })),
+      toggleTaskLock: (id) =>
+        set((s) => ({ tasks: s.tasks.map((x) => (x.id === id ? { ...x, locked: !x.locked } : x)) })),
       addProfQuests: (items) =>
         set((s) => {
           if (!Array.isArray(items) || !items.length) return s;
@@ -450,16 +484,18 @@ export const useMisc = create<MiscState>()(
       setWeather: (w) => set({ weather: w }),
       setWeatherFx: (key, css) => set({ weatherFxKey: key, weatherFxCss: css }),
       setTime: (patch) => set((s) => {
-        // 世界名切到一个新的"非乐园"任务世界 → 立刻打结算边界戳（比 App 的 enteredNewWorld 更早、同回合生效）：
-        // 此后完成的任务才算"本世界"，既用于结算范围，也用于"一个世界一条主线"判定，避免用旧世界残留主线/世界之源。
-        const changedToNew = patch.worldName != null && patch.worldName !== s.worldName
-          && !/轮回乐园|专属房间|主神空间/.test(patch.worldName);
+        // 真·进入新任务世界 → 打结算边界戳（比 App 的 enteredNewWorld 更早、同回合生效）：此后完成的任务才算"本世界"。
+        // ⚠只在"从乐园/枢纽(或空态) 切到 任务世界"时才算进新世界；**任务世界内部子地点漂移（甲铁城→甲铁城·金刚郭）不重置边界**——
+        // 否则会把边界推到已完成主线之后，导致结算漏掉已完成主线（用户实测："结算不识别已完成主线"）。
+        const newIsWorld = patch.worldName != null && patch.worldName !== s.worldName && !/轮回乐园|专属房间|主神空间/.test(patch.worldName);
+        const oldIsHubOrEmpty = !s.worldName || /轮回乐园|专属房间|主神空间/.test(s.worldName);
+        const changedToNew = newIsWorld && oldIsHubOrEmpty;
         return {
           paradiseTime: patch.paradiseTime ?? s.paradiseTime,
           worldTime: patch.worldTime ?? s.worldTime,
           worldName: patch.worldName ?? s.worldName,
           // 切到新任务世界：清空旧世界难度戳（由 App 的 enteredNewWorld 钩子按进入时主角阶位重新锁定）+ 清空旧世界契约者人口（进新世界由杂项演化按世界观重设）
-          ...(changedToNew ? { lastWorldSettleAt: Date.now(), worldTier: '', contractors: { count: 0, note: '' } } : {}),
+          ...(changedToNew ? { lastWorldSettleAt: Date.now(), worldTier: '', contractors: { count: 0, note: '' }, localCurrencyName: '', localCurrency: 0 } : {}),
         };
       }),
       setWorldTier: (tier) => set({ worldTier: tier || '' }),
@@ -467,7 +503,10 @@ export const useMisc = create<MiscState>()(
         count: Number.isFinite(count) ? Math.max(0, Math.round(count)) : s.contractors.count,
         note: note != null && String(note).trim() ? String(note).trim() : s.contractors.note,
       } })),
-      clearMisc: () => set({ tasks: [], archivedTasks: [], lastWorldSettleAt: 0, worldTier: '', contractors: { count: 0, note: '' }, worldEvents: [], smallSummaries: [], largeSummaries: [], summaryRound: 0, turnCount: 0 }),
+      setLocalCurrencyName: (name) => set({ localCurrencyName: (name ?? '').trim().slice(0, 16) }),
+      adjustLocalCurrency: (delta) => set((s) => ({ localCurrency: Math.max(0, s.localCurrency + (Number(delta) || 0)) })),
+      setLocalCurrency: (n) => set({ localCurrency: Math.max(0, Number(n) || 0) }),
+      clearMisc: () => set({ tasks: [], archivedTasks: [], lastWorldSettleAt: 0, worldTier: '', contractors: { count: 0, note: '' }, localCurrencyName: '', localCurrency: 0, worldEvents: [], smallSummaries: [], largeSummaries: [], summaryRound: 0, turnCount: 0 }),
 
       setSettings: (patch) => set((s) => ({ settings: { ...s.settings, ...patch } })),
       setPresetEntries: (entries, name, version) =>

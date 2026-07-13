@@ -6,6 +6,8 @@ import { UI_THEMES } from '../systems/uiThemes';
 import { toSTPreset } from '../systems/stPresetExport';
 import { ADVANCE_PRESET_BUILTINS, PLOT_CHOICES_RULE } from '../promptRules';
 import { useDbAdvance } from '../store/dbAdvanceStore';   // 数据库推进管线（Stitches 规划层）
+import PromptCenterPanel from './PromptCenterPanel';   // 预设中心：各功能主提示词编辑页
+import DbAdvancePresetEditor from './DbAdvancePresetEditor';   // 数据库推进预设编辑器（缝破限/改模块提示词）
 import VariableManager from './VariableManager';
 import ApiRoutePicker from './ApiRoutePicker';
 import ApiSlotAudit from './ApiSlotAudit';
@@ -45,7 +47,7 @@ interface SettingsPanelProps {
   onOpenSaveLoad: () => void;   // 打开存档管理面板（导出/导入/重置游戏数据；逻辑复用 SaveLoadPanel）
 }
 
-type Page = 'home' | 'world-detail' | 'textgen-detail' | 'regex-detail' | 'general' | 'variables' | 'table-manager' | 'item-manager' | 'player-manager' | 'npc-manager' | 'entry-judge-manager' | 'faction-manager' | 'territory-manager' | 'team-manager' | 'cosmos-manager' | 'memory-manager' | 'misc-manager' | 'channel-manager' | 'novelvec-manager' | 'codex-manager' | 'dice-manager' | 'combat-manager' | 'arena-manager' | 'enhance-manager' | 'skilltree-manager' | 'subprof-manager' | 'joy-manager' | 'casino-manager' | 'abyss-manager' | 'craft-manager' | 'narrative-memory' | 'vector-memory' | 'image-gen' | 'appearance';
+type Page = 'home' | 'world-detail' | 'textgen-detail' | 'regex-detail' | 'general' | 'variables' | 'table-manager' | 'item-manager' | 'player-manager' | 'npc-manager' | 'entry-judge-manager' | 'faction-manager' | 'territory-manager' | 'team-manager' | 'cosmos-manager' | 'memory-manager' | 'misc-manager' | 'channel-manager' | 'novelvec-manager' | 'codex-manager' | 'dice-manager' | 'combat-manager' | 'arena-manager' | 'enhance-manager' | 'skilltree-manager' | 'subprof-manager' | 'joy-manager' | 'casino-manager' | 'abyss-manager' | 'craft-manager' | 'narrative-memory' | 'vector-memory' | 'image-gen' | 'appearance' | 'prompt-center';
 type Tab = 'worldbook' | 'api' | 'prompt' | 'preset' | 'global-regex' | 'preset-regex';
 
 function DetailLayout({ title, onBack, tabs, activeTab, onTab, children }: {
@@ -89,6 +91,8 @@ function DetailLayout({ title, onBack, tabs, activeTab, onTab, children }: {
 export default function SettingsPanel({ onClose, onOpenSaveLoad }: SettingsPanelProps) {
   const [page, setPage] = useState<Page>('home');
   const [tab, setTab] = useState<Tab>('worldbook');
+
+  if (page === 'prompt-center') { return <PromptCenterPanel onClose={() => setPage('home')} />; }
 
   if (page === 'general') {
     return (
@@ -708,6 +712,7 @@ export default function SettingsPanel({ onClose, onOpenSaveLoad }: SettingsPanel
           <SettingsMenuItem icon="⚙️" title="综合设置"  desc="历史楼层限制、全局显示与行为偏好"  onClick={() => setPage('general')} />
           <SettingsMenuItem icon="🌍" title="世界选择"  desc="配置 API、提示词与世界书"        onClick={() => { setPage('world-detail');  setTab('worldbook'); }} />
           <SettingsMenuItem icon="📖" title="正文生成"  desc="配置正文 API、世界书与生成预设"  onClick={() => { setPage('textgen-detail'); setTab('worldbook'); }} />
+          <SettingsMenuItem icon="🎛️" title="预设中心"  desc="各功能主提示词一站编辑 · 恢复默认 / 导入 / 导出" onClick={() => setPage('prompt-center')} />
           <SettingsMenuItem icon="🔤" title="正则"      desc="全局正则与预设绑定正则脚本"      onClick={() => { setPage('regex-detail');  setTab('global-regex'); }} />
           <SettingsMenuItem icon="📈" title="变量管理"  desc="自定义 AI 可读写的游戏变量，配置 &lt;state&gt; 更新系统" onClick={() => setPage('variables')} />
           <SettingsMenuItem icon="🧠" title="叙事记忆"  desc="关键词召回长期剧情记忆，按相关性注入正文（无需向量）" onClick={() => setPage('narrative-memory')} />
@@ -2477,6 +2482,7 @@ function GeneralSettingsSection() {
   const dbAdvPresetName  = useDbAdvance((s) => s.presetName);
   const dbAdvHasPreset   = useDbAdvance((s) => !!s.preset);
   const [dbAdvMsg, setDbAdvMsg] = useState('');
+  const [dbEditorOpen, setDbEditorOpen] = useState(false);   // 数据库推进预设编辑器
   const weatherFx            = useSettings((s) => s.weatherFx);
   const setWeatherFx         = useSettings((s) => s.setWeatherFx);
   const audio                = useSettings((s) => s.audio);
@@ -2656,10 +2662,14 @@ function GeneralSettingsSection() {
                   e.target.value = '';
                 }} />
             </label>
+            <button onClick={() => setDbEditorOpen(true)} disabled={!dbAdvHasPreset}
+              title={dbAdvHasPreset ? '在应用内改预设模块的提示词——给召回/推进缝破限，治 AI 拒答→空回' : '先载入/导入预设'}
+              className="text-[12px] px-3 py-1.5 rounded-lg border border-god/40 text-god hover:bg-god/10 font-mono disabled:opacity-40">✏️ 编辑预设 · 缝破限</button>
             <button onClick={() => { useDbAdvance.getState().clearRuntime(); setDbAdvMsg('✓ 已清空上轮跟踪表'); setTimeout(() => setDbAdvMsg(''), 4000); }}
               className="text-[12px] px-3 py-1.5 rounded-lg border border-edge text-dim hover:text-slate-200 font-mono">🧹 清上轮记录</button>
             {dbAdvMsg && <span className="text-[12px] text-god/80">{dbAdvMsg}</span>}
           </div>
+          {dbEditorOpen && <DbAdvancePresetEditor onClose={() => setDbEditorOpen(false)} />}
 
           {/* 独立接口路由：数据库推进的「召回/推进」子调用单独指定接口；留空则回退正文 API（不再蹭剧情指导的 guidance 路由） */}
           <div className="pt-2 space-y-1.5 border-t border-edge/60">

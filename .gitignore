@@ -9,9 +9,9 @@ node_modules/
 dist/
 # 肖像图库清单：由 vite 插件按 public/portraits/ 子文件夹自动生成，不必入库
 zhushen-space/zhushen-space/public/portraits/manifest.json
-# 背景音乐：线上走 R2（functions/audio/bgm 从桶提供），本目录不入库——否则构建的空 manifest.json 会作静态资源把 Function 挡住；
-# 本地 dev 可往此目录丢音乐文件测试（vite 插件生成 manifest），不影响线上
-zhushen-space/zhushen-space/public/audio/bgm/
+# 背景音乐：线上走 R2（functions/bgm 从桶提供），本目录不入库——否则构建的空 manifest.json 会作静态资源把 Function 挡住；
+# 本地 dev 可往此目录丢音乐文件测试（vite 插件生成 manifest），不影响线上。⚠用 public/bgm 不用 public/audio/bgm（/audio/* 会被静态化）
+zhushen-space/zhushen-space/public/bgm/
 # 轮回WIKI 构建产物：由 vite 插件 build-wiki 每次 build 时用 mkdocs 自动重建（Cloudflare 同理），不入库；只提交 lunhui-wiki/docs/*.md 源
 zhushen-space/zhushen-space/public/wiki/
 

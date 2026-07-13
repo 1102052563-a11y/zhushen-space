@@ -26,6 +26,7 @@ import {
   NATIVE_UNAWARE_RULE,
   ANTI_OMNISCIENCE_RULE,
   NATIVE_LIFE_LOCAL_RULE,
+  LOCAL_CURRENCY_RULE,
   COMBAT_SKILL_NUMERIC_RULE,
   NPC_COT_RULE,
   NPC_INDEPENDENCE_RULE,
@@ -240,7 +241,8 @@ import { buildMemPool, loadAll as factVecLoadAll, ensureVectors as factVecEnsure
 import { useDbAdvance } from './store/dbAdvanceStore';   // 数据库推进管线（Stitches 规划层）
 import { findModule as dbFindModule, buildModuleMessages as dbBuildMsgs, extractTag as dbExtractTag, stripExcluded as dbStripExcluded, resolveFinalDirective as dbResolveDirective, type DbAdvanceCtx } from './systems/dbAdvancePreset';
 import { serializePlayerCard, serializeNpcCard, buildNpcCandidateTitles, buildPlayerSkillCandidates, buildPlayerItemCandidates, rankNpcsLocal, pickOffsceneRescue, serializeFactionsSection, namesMentionedIn, NM_STRUCT_SELECT_PROMPT, type RecallLimits } from './systems/structuredRecall';
-import { drainSceneNotices, pushSceneNotice, drainGrowthNotices, pushGrowthNotice, pushFacilityGranted, drainFacilityGranted } from './systems/allocNotice';   // 场外操作通报→正文前置须知；星图习得/开箱→入戏交代块；设施发放物→物品阶段勿再建
+import { drainSceneNotices, pushSceneNotice, drainGrowthNotices, pushGrowthNotice, pushFacilityGranted, drainFacilityGranted } from './systems/allocNotice';
+import { getPrompt } from './store/promptOverrideStore';   // 预设中心：主提示词 override（有玩家自定义用之，否则回退内置默认常量）   // 场外操作通报→正文前置须知；星图习得/开箱→入戏交代块；设施发放物→物品阶段勿再建
 import { rollGemDrops } from './systems/gemDrop';   // 正文击杀 → 结算掉落宝石（前端确定性）
 const MiscPanel = lazy(() => import('./components/MiscPanel'));
 import DiceCard from './components/DiceCard';
@@ -889,7 +891,8 @@ const TALENT_NO_CAP_RULE = `
 /* 是否身处轮回乐园（任务间歇·回归态）——worldName 指向家园 */
 
 const MISC_HOME_TIME_RULE = `
-【回归乐园·时间一致】当主角身处轮回乐园/专属房间（任务间歇或已回归）时，**世界时间(worldTime / current_world_time) 必须与轮回历(paradiseTime) 完全一致**，并把 worldName 设为「轮回乐园」或「轮回乐园·专属房间」。绝不要把上一个任务世界的时间（如 1943 年）继续留在世界时间里。`;
+【回归乐园·时间一致】当主角身处轮回乐园/专属房间（任务间歇或已回归）时，**世界时间(worldTime / current_world_time) 必须与轮回历(paradiseTime) 完全一致**，并把 worldName 设为「轮回乐园」或「轮回乐园·专属房间」。绝不要把上一个任务世界的时间（如 1943 年）继续留在世界时间里。
+【世界名·全程稳定·铁则（治"主线完成后又冒新任务/结算不识别已完成主线"）】\`timeLocation.worldName\` 只写**这个任务世界本身的名字**、从进入到结算**全程保持一字不变**（如"甲铁城的卡巴内瑞"、"海贼王·马林梵多"）。**绝不要把子地点/区域/场景写进 worldName**——主角在世界里移动到新城区/据点/副本（如 甲铁城→金刚郭、马林梵多→顶上战场）时，worldName **照旧不动**，具体位置写进【世界大事】的地点或正文即可。系统靠 worldName 判定"是否进入了新世界"，worldName 一漂移就会被误判成进新世界、乱规划新主线、还会把已完成主线漏出结算。仅当主角**真正被投放进另一个完全不同的衍生世界**时，worldName 才换。`;
 
 const WORLD_EVENT_LOCATION_RULE = `
 【世界大事·地点写"全路径"（含所处世界）】addWorldEvent / updateWorldEvent 的「地点」字段一律写成**从所处世界开始的完整层级路径**：所处世界 → 大区域/城市 → 建筑/场所 → 具体位置，层级用空格或「·」分隔。
@@ -911,7 +914,8 @@ const TASK_SOURCE_RULE = `
 - **主角自己说的"打算怎么做 / 用什么手段 / 下一步先去哪 / 临场怎么应对"＝行动，绝不是任务、绝不新建成任务**：主角声明的执行手段、准备步骤、路线选择、临场打算（如"我先去弄把枪""我去踩点""我找线人打听""我先撤""我去买装备"），是**执行某条已有任务的过程**，一律**不 set 新任务、也绝不用它顶替/覆盖那条真任务**。
 - **铁例（务必照此判）**：乐园委托主角「刺杀目标X」＝任务A（应建任务，目标＝刺杀X）；主角回「我先去黑市弄把枪」＝行动B——**任务始终只有"刺杀X"这一条**；"弄把枪"**既不新建成任务、也不能把"刺杀X"改写成"弄把枪"**，它只用来更新「刺杀X」这条任务的 progress（如 \`add("T_x",{"progress":"正前往黑市筹措武器"})\`）。
 - **判据一句话**：目标是**别人派给主角的** → 任务；是**主角自己声明要做的** → 行动，不建任务。拿不准就**不建**（宁缺毋滥）；主角的行动若在推进某条已有任务，只更新那条的 progress，绝不另起新任务。
-- **【职业任务·只更新不新建·铁则】任务列表里带 \`[职业]\` 标记的，是玩家从「世界卡·生成职业任务」按钮生成的职业专属任务**：你**绝不能新建 \`[职业]\` 任务**（它只由玩家那个按钮产生）、也**不要给它套多环路线图**；只据正文**更新它的 progress**，正文明确达成时就 \`add("T_x",{"5":"已完成","rating":"…"})\` 结算（其奖励即时发放、不计入世界结算）。`;
+- **【职业任务·只更新不新建·铁则】任务列表里带 \`[职业]\` 标记的，是玩家从「世界卡·生成职业任务」按钮生成的职业专属任务**：你**绝不能新建 \`[职业]\` 任务**（它只由玩家那个按钮产生）、也**不要给它套多环路线图**；只据正文**更新它的 progress**，正文明确达成时就 \`add("T_x",{"5":"已完成","rating":"…"})\` 结算（其奖励即时发放、不计入世界结算）。
+- **【锁定任务·只推进不改结构·铁则】任务名带 🔒 的是玩家手动锁定的任务链**：其**名称/终局/环目标/奖惩/环数一律冻结、绝不改动**——你只能 \`ringAdvance\` 推进环状态、补该环 summary/rating、更新 \`progress\`、或整条达成时结算；**别去重排/改写/增删它的环或改奖惩**（前端已强制冻结，你改了也会被忽略，白费 token）。`;
 
 const QUEST_RATING_RULE = `
 【任务评分（完成/失败时给定）】当某任务被标记为已完成/已达成/失败/放弃（status 进入结算态）时，在该任务的 updateTask 载荷里**额外给一个 rating 字段**，按完成质量评级（S/A/B/C/D/E；失败给 E，判断不了给 C）：
@@ -2014,8 +2018,9 @@ export default function App() {
     if (!sysBlocks.length) sysSegments.push({ label: '⚠ 预设无启用的 system 块（仅用最简默认）', content: sysPrompt });
     // 前端每回合注入的规则/数据块，统一用 XML 标签包住头尾（tag=中文语义标签，同代码库 <状态结算>/<世界结算> 风格），
     // 让 AI 清晰识别每段边界；sysSegments（开发者面板）存包好的内容，保证"面板看到的＝实际发出去的"。预设块/世界书不套（底座/独立消息，非注入）。
-    const addRule = (tag: string, label: string, content: string) => {
-      const wrapped = `<${tag}>\n${content}\n</${tag}>`;
+    const addRule = (tag: string, label: string, content: string, key?: string) => {
+      const c = key ? getPrompt(key, content) : content;   // 预设中心：传 key 时可被玩家 override（否则用内置 content）
+      const wrapped = `<${tag}>\n${c}\n</${tag}>`;
       sysPrompt += '\n\n' + wrapped;
       sysSegments.push({ label, content: wrapped });
     };
@@ -2051,9 +2056,9 @@ export default function App() {
     // 实力忠于设定：剧情人物按原著/世界阶定强度，主角变强只表现为碾压、不把弱角色拔高来匹配（用户要求）
     addRule('实力忠于设定不拔高', '前端规则 · 实力忠于设定·不随主角水涨船高', CANON_STRENGTH_NO_SCALE_RULE);
     // 配角有独立人格·不围着主角转（反谄媚/治同质化）——CANON_STRENGTH 的人格版
-    addRule('配角独立人格反谄媚', '前端规则 · 配角有独立人格·不围着主角转', NPC_INDEPENDENCE_RULE);
+    addRule('配角独立人格反谄媚', '前端规则 · 配角有独立人格·不围着主角转', NPC_INDEPENDENCE_RULE, 'NPC_INDEPENDENCE_RULE');
     // 对主角态度四轴（信任/尊重/情欲/沉沦）·渐进不跳级（治性爱速堕/关系速升/一撩就沦陷）
-    addRule('对主角态度四轴渐进', '前端规则 · 对主角态度四轴·渐进不跳级', DISPOSITION_STAGE_RULE);
+    addRule('对主角态度四轴渐进', '前端规则 · 对主角态度四轴·渐进不跳级', DISPOSITION_STAGE_RULE, 'DISPOSITION_STAGE_RULE');
     // HP/EP 结算：让主正文每回合末尾输出主角+在场NPC的当前 HP/EP（前端 applyNarrativeVitals/NpcVitals 解析，HP/EP 管理阶段也以此为最终值）
     addRule('HP_EP结算输出', '前端规则 · HP/EP 结算输出', VITALS_SETTLEMENT_EMIT_RULE);
     // 主角会死·非不死之身：治"不战斗没掉血判定→顶着1滴血无限存活/被锁血不死"，用户要求主角能死
@@ -2084,9 +2089,9 @@ export default function App() {
     { const _c = useMisc.getState().contractors; if (_c?.count && !isHomeWorld(useMisc.getState().worldName || '')) addRule('其他契约者人口', '前端数据 · 本世界其他契约者', `【本世界·其他契约者】本世界现存约 **${_c.count} 名**其他契约者${_c.note ? `（${_c.note}）` : ''}，各自在本世界执行任务。**本世界不是单机**——可自然安排主角遇见/听闻他们：交易、结盟、火并、情报交换、榜单/悬赏、目睹某契约者陨落或撤离等，让世界有"人气"与竞争感；数量多则更热闹、骤减则更肃杀。别喧宾夺主、别每回合硬塞，顺剧情自然带出即可。`); }
     // 任务世界结算：仅当本回合输入含【结算任务】时才注入（平时不喂，省 token、避免误触发）
     if (/【结算任务】/.test(userInput)) {
-      addRule('任务世界结算', '前端规则 · 任务世界结算（本回合触发）', WORLD_SETTLEMENT_RULE);
+      addRule('任务世界结算', '前端规则 · 任务世界结算（本回合触发）', WORLD_SETTLEMENT_RULE, 'WORLD_SETTLEMENT_RULE');
       // 世界结算专属思维链：结算前先逼正文 API 逐项推演"任务是否真完成/评级是否公正/奖励是否忠于原文不膨胀"，<settle_cot> 由显示层安全网剥除
-      addRule('世界结算思维链', '前端规则 · 世界结算思维链（本回合触发）', WORLD_SETTLEMENT_COT_RULE);
+      addRule('世界结算思维链', '前端规则 · 世界结算思维链（本回合触发）', WORLD_SETTLEMENT_COT_RULE, 'WORLD_SETTLEMENT_COT_RULE');
       { const _wt = useMisc.getState().worldTier; if (_wt) addRule('本世界锁定难度', '前端数据 · 本世界锁定难度（进世界即定）', `【本世界难度·已锁定】：${_wt}（进入本世界时即固定的难度/阶位）。结算面板【世界难度】一栏必须填这个锁定难度，奖励档位与难度评估也一律按它来，**不要**按主角结算时的实时阶位另算——主角在世界内变强也不改变本世界的锁定难度。`); }
       // 随行随从/队友名单：让结算卡「随从/契约者队友结算」一栏能逐个点名（其属性点·技能点由前端按主角所得自动折算入账，与此名单同源 isSettlingCompanion）
       try {
@@ -2104,7 +2109,16 @@ export default function App() {
         // 只结算"上次世界结算 / 进入本世界以来"完成的任务（settledAt 晚于边界戳）=本世界的，
         // 杜绝把之前已结算世界的任务(settledAt 更早)再算一遍（治"把之前的世界也结算进来了"）。乐园/专属房间的管理任务也排除。
         const since = Mm.lastWorldSettleAt || 0;
-        const arch = Mm.archivedTasks.filter((x) => x.settledAt > since && !isHomeWorld(x.worldName || cur));
+        // 同世界判定（容忍子地点漂移把 worldName 写成"甲铁城·金刚郭"这种）：互相包含、或首段(·/空格前)相同
+        const rootMatch = (a?: string, b?: string) => {
+          const x = String(a || '').trim(), y = String(b || '').trim();
+          if (!x || !y) return false;
+          if (x.includes(y) || y.includes(x)) return true;
+          const rx = x.split(/[·\s/、]/)[0], ry = y.split(/[·\s/、]/)[0];
+          return rx.length >= 2 && rx === ry;
+        };
+        // 本世界已归档任务：settledAt 晚于边界戳(常规) 或 worldName 与当前世界同根(治"边界因子地点漂移被重置、把已完成主线漏掉·结算不识别")；乐园/枢纽任务排除
+        const arch = Mm.archivedTasks.filter((x) => !isHomeWorld(x.worldName || cur) && (x.settledAt > since || rootMatch(x.worldName, cur)));
         // 进行中但已达成若干环的任务（主线结算时常仍"进行中"却已完成多环）：把其达成环也纳入逐环结算
         const prog = isHomeWorld(cur) ? [] : Mm.tasks.filter((t) => Array.isArray(t.rings) && t.rings.some((r) => r.status === 'done'));
         const done = [...prog, ...arch].slice(0, 40);
@@ -2150,7 +2164,7 @@ export default function App() {
       } catch { /* */ }
     }
     // 装备世界书·生成总纲：本回合涉及装备/掉落/打造等时全量注入（让正文 createItem 的品级/评分/数值/词缀合理且机器可读；其余装备生成阶段恒注入）
-    if (/装备|武器|防具|饰品|法宝|宝石|掉落|战利品|宝箱|开箱|打造|锻造|锻冶|合成|缴获|搜刮|结算任务/.test(userInput)) { addRule('装备生成总纲', '装备世界书 · 生成总纲（本回合触发）', EQUIP_CODEX); }
+    if (/装备|武器|防具|饰品|法宝|宝石|掉落|战利品|宝箱|开箱|打造|锻造|锻冶|合成|缴获|搜刮|结算任务/.test(userInput)) { addRule('装备生成总纲', '装备世界书 · 生成总纲（本回合触发）', EQUIP_CODEX, 'EQUIP_CODEX'); }
     // 主角前端加点 / 合成 / 强化 / 场外花费等「场外操作」通报改由「前置须知」块统一注入正文最深处（见下方 preludeBlock，走 drainSceneNotices 一次性消费）。
 
     // 叙事人称：前端「叙事人称」开关 → 注入到 system 最末尾（权重最高，压过预设文风块/历史第三人称惯性）；off=不注入、沿用预设
@@ -2170,11 +2184,14 @@ export default function App() {
     // 任务世界·土著不知契约者身份（沉浸·防全知OOC）：仅在任务世界(非轮回乐园/乐园枢纽/专属房间)注入，杜绝土著无端识破主角是契约者/外来者。
     { if (!isHomeWorld(useMisc.getState().worldName || '')) { addRule('土著不知契约者', '前端规则 · 任务世界土著不识破契约者身份', NATIVE_UNAWARE_RULE); } }
 
+    // 任务世界·本地报酬用当地货币（治"土著给主角发乐园币/乐园资源当报酬"）：仅任务世界注入，让正文写土著付钱/悬赏/交易时用本地当地货币、别掏乐园币。
+    { if (!isHomeWorld(useMisc.getState().worldName || '')) { addRule('当地货币报酬', '前端规则 · 任务世界本地报酬走当地货币', LOCAL_CURRENCY_RULE); } }
+
     // 战斗·技能运用 + 数值合理性：每回合注入（规则内自限定"仅涉及战斗/对抗/施展能力/数值变动时生效"）——强调主角/NPC 真的用档案里的技能+效果兑现、且进 <state> 的数值与战力相称。
     addRule('战斗技能与数值', '前端规则 · 战斗·技能运用+数值合理性', COMBAT_SKILL_NUMERIC_RULE);
 
     // 属性·战力量化表：正文侧常驻校准（单属性↔阶位↔战力表现↔生物强度档↔职业偏向）——让正文的战力/破坏描写与面板六维数量级一致、NPC 强弱不漂（与 NPC 演化侧同一张表）。
-    addRule('属性战力量化表', '前端规则 · 属性↔战力↔生物强度档 校准基准', ATTR_POWER_CODEX);
+    addRule('属性战力量化表', '前端规则 · 属性↔战力↔生物强度档 校准基准', ATTR_POWER_CODEX, 'ATTR_POWER_CODEX');
 
     // 前历史 user/assistant 条目 → 少样本示例
     const examples = preRel
@@ -2310,7 +2327,7 @@ export default function App() {
       const systemPrompt = (usingFallback
         ? ITEM_FALLBACK_PROMPT
         : buildItemPhaseSystemPrompt(enabledEntries, ''))   // 不在 system 里放正文
-        + '\n\n' + NARRATIVE_FIRST_RULE + '\n' + ITEM_FIXED_FORMAT_RULE + '\n' + ITEM_GRADE_TABLE_RULE + '\n' + EQUIP_CODEX
+        + '\n\n' + NARRATIVE_FIRST_RULE + '\n' + ITEM_FIXED_FORMAT_RULE + '\n' + ITEM_GRADE_TABLE_RULE + '\n' + getPrompt('EQUIP_CODEX', EQUIP_CODEX)
         + '\n【穿戴装备处理·换装≠销毁】① **替换/换装**：穿上新装备时只需对**新装备** equipItem（引擎会自动把同槽位的旧装备卸回储存空间）——被换下来的旧装备**只是脱下放回储存空间、并没有消失，绝对不要对它 destroyItem 或 consumeItem**（这是最常见的误删，务必避免）。② 只有正文**明确**把某件装备"丢弃/扔掉/卖掉/损毁/被夺走/送人"时，才对那件 destroyItem（引擎会自动先卸下再销毁）。③ 不要无故销毁正在穿的装备；已装备物品一律不要 consumeItem。'
         + '\n【destroy/consume 必带物品名+原因】destroyItem/consumeItem **必须带 "name" 字段=物品全名**（与背包清单一致），itemId 用清单里的真实 ID；引擎优先按 name 匹配。**严禁臆造 itemId**——若不确定 ID，只写 name。**还必须带 "reason" 字段**＝一句话说明它为何消失，并据正文如实区分「被使用/消耗」(喝下、吃掉、开启、激活、引爆、投掷…) 还是「损坏/丢弃/失去」(碎裂、熔毁、报废、丢弃、卖掉、送人、被夺走…)——这句会原样显示在「最近删除」里给玩家看。例：destroyItem({"name":"白色宝箱","reason":"开启后化作光点消失"})；destroyItem({"name":"精钢长剑","reason":"被酸液彻底腐蚀熔毁"})；consumeItem({"name":"残旧的止血绷带","quantity":1,"reason":"包扎伤口用掉"})。'
         + '\n' + ITEM_ACQUIRE_RULE
@@ -2322,7 +2339,7 @@ export default function App() {
         + '**玩家给某一个队友买的/某个角色获得的装备，就只进那一个角色的包**——严禁因为"队伍/在场多人"就把同一件（或同名同款）装备复制分发给其他 NPC；正文里属于 A 的东西绝不写到 B 名下。'
         + '一件具体装备只 createItem 一次、owner 只填一个；归属拿不准时，宁可只发给最明确的那一个，也不要复制成多份分给多人。'
         + '\n' + ITEM_UPDATE_RULE + '\n' + ITEM_STABLE_ON_MENTION_RULE + '\n' + FIRST_UPDATE_COMPLETE_RULE + '\n' + ITEM_EXACT_REF_RULE
-        + '\n' + ITEM_COT_RULE + '\n' + ITEM_EVOLUTION_CODEX
+        + '\n' + getPrompt('ITEM_COT_RULE', ITEM_COT_RULE) + '\n' + getPrompt('ITEM_EVOLUTION_CODEX', ITEM_EVOLUTION_CODEX)
         + '\n' + EDIT_LANGUAGE_RULE + '\n' + EDIT_BY_ID_RULE   // #uid 编辑台：教会本阶段用 <edit> + 强制"改已有按ID、只新建全新"，根治重复条目
         + '\n' + EVO_REGISTER_GAINS_RULE   // 差分对账：所得必登(防漏)、失才删(防误删)、没变就别碰(防漂移)
         + stowedItemsRule()   // 已收纳(领地仓库/账户仓库)清单+勿补回背包铁则：根治"存进仓库又被补回背包"
@@ -2444,7 +2461,7 @@ export default function App() {
 
     setItemPhaseLog(`✨ 强化收尾：刷新「${it.name}」+${args.newLevel}…`);
     try {
-      const system = ENHANCE_FINALIZE_RULE + '\n' + ITEM_EXACT_REF_RULE + '\n' + EQUIP_CODEX;
+      const system = ENHANCE_FINALIZE_RULE + '\n' + ITEM_EXACT_REF_RULE + '\n' + getPrompt('EQUIP_CODEX', EQUIP_CODEX);
       const user = `# 待刷新的强化装备\n${card}\n\n请按【装备强化·收尾刷新铁则】，输出这件装备强化到 +${args.newLevel} 后的 <upstore> updateItem 指令`
         + `（${addAffix > 0 ? `档数 N=${addAffix}：**先**把已有每条词缀威力按 ${addAffix} 档上调变强，**再**新增 ${addAffix} 条各不相同的全新词缀（每条「【名】：触发+作用+持续」自带说明、**禁止只写词缀名**，**且贴合装备主用途、绝不只给伤害类**）；effect 是**非数值的特殊性质描述**(对持有者的定性影响/特质，数值归 combatStat、**不写数值/不出现词缀名/不复述词缀**)；保留 effect 里的【镶嵌加成】不动` : '本次未跨过 3 级整数倍，可不动词缀/效果（攻防/评分/外观/简介已由系统处理）'}）。只输出这一条 updateItem，只改 affix 和 effect。`;
       console.log('[Enhance] 收尾·发起 API 调用 →', chain[0]?.modelId, chain[0]?.baseUrl);
@@ -2502,7 +2519,7 @@ export default function App() {
     const wbCtx = [mode.wbSeed, sess.inputs.map((x) => `${x.name} ${x.category || ''}`).join(' '), sess.tendency].join(' ');
     const wbInj = buildCraftWbInjection(C.worldBooks, wbCtx);
 
-    const system = CRAFT_RULE + (wbInj ? '\n\n' + wbInj : '');
+    const system = getPrompt('CRAFT_RULE', CRAFT_RULE) + (wbInj ? '\n\n' + wbInj : '');
     const user = [
       `【合成门类】${mode.icon} ${mode.name}——${mode.blurb}`,
       `【本门类工艺要点】${mode.cotFocus}`,
@@ -2631,7 +2648,7 @@ export default function App() {
             : `槽${i + 1}：建议类别=${s.category}（可按宝箱主题调成更贴切的合法类别）`)
           + `｜品级上限=${s.gradeDesc}（**不得越级**，可略低）｜${s.note}`).join('\n');
         const declaredCats = [...new Set(plan.slots.filter((s) => s.locked).map((s) => s.category))];   // 宝箱声明的内含品类
-        const system = CHEST_OPEN_RULE + '\n' + ITEM_FIXED_FORMAT_RULE + '\n' + EQUIP_CODEX;
+        const system = getPrompt('CHEST_OPEN_RULE', CHEST_OPEN_RULE) + '\n' + ITEM_FIXED_FORMAT_RULE + '\n' + getPrompt('EQUIP_CODEX', EQUIP_CODEX);
         const user = [
           `【开启者】${prof.name || '主角'}　阶位:${prof.tier || '—'}　职业:${prof.identity || '—'}　等级:Lv.${prof.level ?? '—'}`,
           `【本次开启的宝箱·完整信息】\n${chestInfo}`,
@@ -2899,7 +2916,7 @@ export default function App() {
     try {
       setItemPhaseLog('🔍 综合对账·纠正中…');
       const { content: reply } = await apiChatFallback(chain, [
-        { role: 'system', content: MERGED_AUDIT_SYSTEM + '\n' + ITEM_GRADE_TABLE_RULE + '\n' + EQUIP_CODEX + '\n' + STATUS_COUNTDOWN_TURN_RULE + (checkItems ? '\n' + ITEM_EVOLUTION_CODEX + '\n' + ITEM_STABLE_ON_MENTION_RULE : '') },
+        { role: 'system', content: MERGED_AUDIT_SYSTEM + '\n' + ITEM_GRADE_TABLE_RULE + '\n' + getPrompt('EQUIP_CODEX', EQUIP_CODEX) + '\n' + STATUS_COUNTDOWN_TURN_RULE + (checkItems ? '\n' + getPrompt('ITEM_EVOLUTION_CODEX', ITEM_EVOLUTION_CODEX) + '\n' + ITEM_STABLE_ON_MENTION_RULE : '') },
         { role: 'user', content: userContent },
       ]);
       console.log('[MergedAudit] 对账原始响应:', reply);
@@ -3037,7 +3054,7 @@ export default function App() {
         .replaceAll('${character_snapshot}', playerProfileSnapshot)
         .replaceAll('${player_skills}', pSkillsLine)
         .replaceAll('${player_traits}', pTalentsLine)
-        + '\n\n' + PARADISE_RULES_RULE + '\n\n' + NARRATIVE_FIRST_RULE + '\n' + EVO_VERIFY_RULE + '\n' + BUFF_AS_STATUS_RULE + '\n' + SUBPROF_RULE + '\n' + TALENT_NO_CAP_RULE + '\n' + TITLE_DIVERSITY_RULE + '\n' + SKILL_TALENT_NOTE_RULE + '\n' + SKILL_TIER_RULE + '\n' + SKILL_TALENT_ATTR_CAP_RULE + '\n' + PLAYER_SKILL_KEEP_RULE + '\n' + ITEM_GRANTED_SKILL_RULE + '\n' + SKILL_STABILITY_RULE + '\n' + SKILL_COMBAT_TAG_RULE + '\n' + TIER_RULE +'\n' + IMAGE_TAGS_RULE + '\n' + HPEP_NARRATIVE_ONLY_RULE + '\n' + WORLDSOURCE_RULE + '\n' + POINTS_NARRATIVE_RULE + '\n' + ATTR_SANITY_RULE + '\n' + ATTR_CAP_RULE + '\n' + PLAYER_ATTR_LOCK_RULE + '\n' + APPEARANCE_UPDATE_RULE + '\n' + STATUS_FORMAT_RULE + '\n' + STATUS_COUNTDOWN_TURN_RULE + '\n' + FIRST_UPDATE_COMPLETE_RULE + '\n' + EVO_EXACT_REF_RULE + '\n' + SKILL_TALENT_GUIDE + '\n' + PLAYER_COT_RULE;
+        + '\n\n' + getPrompt('PARADISE_RULES_RULE', PARADISE_RULES_RULE) + '\n\n' + NARRATIVE_FIRST_RULE + '\n' + EVO_VERIFY_RULE + '\n' + BUFF_AS_STATUS_RULE + '\n' + SUBPROF_RULE + '\n' + TALENT_NO_CAP_RULE + '\n' + TITLE_DIVERSITY_RULE + '\n' + SKILL_TALENT_NOTE_RULE + '\n' + SKILL_TIER_RULE + '\n' + SKILL_TALENT_ATTR_CAP_RULE + '\n' + PLAYER_SKILL_KEEP_RULE + '\n' + ITEM_GRANTED_SKILL_RULE + '\n' + SKILL_STABILITY_RULE + '\n' + SKILL_COMBAT_TAG_RULE + '\n' + TIER_RULE +'\n' + IMAGE_TAGS_RULE + '\n' + HPEP_NARRATIVE_ONLY_RULE + '\n' + WORLDSOURCE_RULE + '\n' + POINTS_NARRATIVE_RULE + '\n' + ATTR_SANITY_RULE + '\n' + ATTR_CAP_RULE + '\n' + PLAYER_ATTR_LOCK_RULE + '\n' + APPEARANCE_UPDATE_RULE + '\n' + STATUS_FORMAT_RULE + '\n' + STATUS_COUNTDOWN_TURN_RULE + '\n' + FIRST_UPDATE_COMPLETE_RULE + '\n' + EVO_EXACT_REF_RULE + '\n' + SKILL_TALENT_GUIDE + '\n' + getPrompt('PLAYER_COT_RULE', PLAYER_COT_RULE);
       const userContent  = `# 本轮正文\n${trimmedNarrative}\n\n---\n请根据以上正文处理本轮主角属性与状态的变化。**先输出一个 <think>…</think> 思考块**，按系统提示里的「主角演化思维链」逐项自检；**随后**输出 <state>（及如有需要的 <upstore>）指令块，无变化时输出空块。除 <think> / <state> / <upstore> 外不要有其它文字。`;
 
       const ss2 = useSettings.getState();
@@ -3125,7 +3142,7 @@ export default function App() {
       .filter((e) => e.enabled && e.source !== 'entrySharedRules')
       .map((e) => fillVars(e.content, vars))
       .join('\n\n')
-      + '\n\n' + NARRATIVE_FIRST_RULE + '\n' + BUFF_AS_STATUS_RULE + '\n' + NPC_AGE_RULE + '\n' + TALENT_NO_CAP_RULE + '\n' + TITLE_DIVERSITY_RULE + '\n' + NPC_DEAD_EXCLUDE_RULE + '\n' + NPC_ID_RULE + '\n' + SKILL_TALENT_NOTE_RULE + '\n' + NPC_SKILL_KEEP_RULE + '\n' + ITEM_GRANTED_SKILL_RULE + '\n' + SKILL_STABILITY_RULE + '\n' + SKILL_COMBAT_TAG_RULE + '\n' + NPC_REVIEW_TAG_RULE +'\n' + NPC_TEAM_AFFILIATION_RULE + '\n' + TIER_RULE + '\n' + IMAGE_TAGS_RULE + '\n' + HPEP_NARRATIVE_ONLY_RULE + '\n' + POINTS_NARRATIVE_RULE + '\n' + ATTR_POWER_CODEX + '\n' + NPC_ATTR_GEN_RULE + '\n' + ATTR_SANITY_RULE + '\n' + ATTR_CAP_RULE + '\n' + STATUS_FORMAT_RULE + '\n' + STATUS_COUNTDOWN_TURN_RULE + '\n' + NPC_PRIVATE_EXTRA_RULE + '\n' + NPC_TIER_LOADOUT_RULE + '\n' + SKILL_TALENT_ATTR_CAP_RULE + '\n' + FIRST_UPDATE_COMPLETE_RULE + '\n' + EVO_EXACT_REF_RULE + '\n' + SKILL_TALENT_GUIDE + '\n' + NPC_COT_RULE + '\n' + ANTI_OMNISCIENCE_RULE + '\n' + NATIVE_LIFE_LOCAL_RULE + '\n' + NPC_INDEPENDENCE_RULE + '\n' + DISPOSITION_STAGE_RULE + '\n' + DISPOSITION_DELTA_RULE + worldLoreEvoInjection()
+      + '\n\n' + NARRATIVE_FIRST_RULE + '\n' + BUFF_AS_STATUS_RULE + '\n' + NPC_AGE_RULE + '\n' + TALENT_NO_CAP_RULE + '\n' + TITLE_DIVERSITY_RULE + '\n' + NPC_DEAD_EXCLUDE_RULE + '\n' + NPC_ID_RULE + '\n' + SKILL_TALENT_NOTE_RULE + '\n' + NPC_SKILL_KEEP_RULE + '\n' + ITEM_GRANTED_SKILL_RULE + '\n' + SKILL_STABILITY_RULE + '\n' + SKILL_COMBAT_TAG_RULE + '\n' + NPC_REVIEW_TAG_RULE +'\n' + NPC_TEAM_AFFILIATION_RULE + '\n' + TIER_RULE + '\n' + IMAGE_TAGS_RULE + '\n' + HPEP_NARRATIVE_ONLY_RULE + '\n' + POINTS_NARRATIVE_RULE + '\n' + getPrompt('ATTR_POWER_CODEX', ATTR_POWER_CODEX) + '\n' + NPC_ATTR_GEN_RULE + '\n' + ATTR_SANITY_RULE + '\n' + ATTR_CAP_RULE + '\n' + STATUS_FORMAT_RULE + '\n' + STATUS_COUNTDOWN_TURN_RULE + '\n' + NPC_PRIVATE_EXTRA_RULE + '\n' + NPC_TIER_LOADOUT_RULE + '\n' + SKILL_TALENT_ATTR_CAP_RULE + '\n' + FIRST_UPDATE_COMPLETE_RULE + '\n' + EVO_EXACT_REF_RULE + '\n' + SKILL_TALENT_GUIDE + '\n' + getPrompt('NPC_COT_RULE', NPC_COT_RULE) + '\n' + ANTI_OMNISCIENCE_RULE + '\n' + NATIVE_LIFE_LOCAL_RULE + '\n' + getPrompt('NPC_INDEPENDENCE_RULE', NPC_INDEPENDENCE_RULE) + '\n' + getPrompt('DISPOSITION_STAGE_RULE', DISPOSITION_STAGE_RULE) + '\n' + DISPOSITION_DELTA_RULE + worldLoreEvoInjection()
       // 门控：仅当该 NPC 已有背景、却还没第一人称自述时，才追加"生成自述"规则（一次性·省 token）
       + (rec && rec.background && !rec.selfNarration ? '\n' + NPC_SELF_NARRATION_RULE : '')
       // 门控：已有背景但缺 原则底线 / 范例台词 → 本轮一并生成（反谄媚·治同质化的锚点，一次性·省 token）
@@ -3157,7 +3174,7 @@ export default function App() {
       .filter((e) => e.enabled)   // entries 来自独立的「登场判断」预设(entryJudge)，整本都是登场判断条目
       .map((e) => fillVars(e.content, vars))
       .join('\n\n')
-      + '\n\n' + NARRATIVE_FIRST_RULE + '\n' + EVO_VERIFY_RULE + '\n' + NPC_DEAD_EXCLUDE_RULE + '\n' + NPC_ID_RULE + '\n' + TIER_RULE + '\n' + SKILL_TIER_RULE + '\n' + NPC_TEAM_AFFILIATION_RULE + '\n' + NPC_ENTRY_BIO_RULE + '\n' + ENTRY_NAME_CN_RULE + '\n' + ENTRY_DEDUP_RULE + codexInjection + tierPowerInjection + worldLoreEvoInjection() + '\n' + SKILL_TALENT_GUIDE + '\n' + ANTI_OMNISCIENCE_RULE + '\n' + NATIVE_LIFE_LOCAL_RULE + '\n' + CANON_STRENGTH_NO_SCALE_RULE + '\n' + ENTRY_COT_RULE;
+      + '\n\n' + NARRATIVE_FIRST_RULE + '\n' + EVO_VERIFY_RULE + '\n' + NPC_DEAD_EXCLUDE_RULE + '\n' + NPC_ID_RULE + '\n' + TIER_RULE + '\n' + SKILL_TIER_RULE + '\n' + NPC_TEAM_AFFILIATION_RULE + '\n' + NPC_ENTRY_BIO_RULE + '\n' + ENTRY_NAME_CN_RULE + '\n' + ENTRY_DEDUP_RULE + codexInjection + tierPowerInjection + worldLoreEvoInjection() + '\n' + SKILL_TALENT_GUIDE + '\n' + ANTI_OMNISCIENCE_RULE + '\n' + NATIVE_LIFE_LOCAL_RULE + '\n' + CANON_STRENGTH_NO_SCALE_RULE + '\n' + getPrompt('ENTRY_COT_RULE', ENTRY_COT_RULE);
   }
 
   /* 解析 NPC <state> 短指令（favor/title/realm/hp），可按 charId 过滤 */
@@ -4644,7 +4661,9 @@ ${AFFIX_EFFECT_RULE}`;
     // 首次（prev 为空）只设基线不触发，避免读档/刷新后误判（reload 会重置此 ref）。
     const enteredNewWorld =
       prevWorldNameRef.current !== '' && !!M.worldName && M.worldName !== prevWorldNameRef.current
-      && !isHomeWorld(M.worldName);   // 只在进入"任务世界"才触发主线规划；轮回乐园/专属房间/各乐园(枢纽)不规划主线
+      && !isHomeWorld(M.worldName)                     // 进入的是任务世界（非乐园/枢纽）
+      && isHomeWorld(prevWorldNameRef.current);        // ⚠且上一刻在乐园/枢纽——只有"从乐园进任务世界"才算进新世界；
+                                                       // 任务世界内部子地点漂移(甲铁城→甲铁城·金刚郭)不算，杜绝漂移误触发"乱规划新主线+重置边界"→治"主线完成后又冒新任务、结算不识别已完成主线"
     prevWorldNameRef.current = M.worldName || prevWorldNameRef.current;
     // 进入新任务世界 → 打一个结算边界戳：此后完成的任务才算"本世界"，杜绝下次结算把上个世界的旧任务再算进来
     if (enteredNewWorld) { try { useMisc.getState().markWorldSettled(); } catch { /* */ } }
@@ -4826,7 +4845,7 @@ ${AFFIX_EFFECT_RULE}`;
       .replaceAll('${player_name}', playerName)
       + '\n\n' + NARRATIVE_FIRST_RULE + '\n' + TERRITORY_EFFECT_RULE + '\n' + TERRITORY_STABILITY_RULE + '\n' + TERRITORY_DEDUP_RULE + '\n' + TERRITORY_WAREHOUSE_RULE
       + '\n【主角背包物品（这些是主角随身的·绝不 storeItem 进领地仓库）】\n' + bagText
-      + '\n' + TERRITORY_COT_RULE;
+      + '\n' + getPrompt('TERRITORY_COT_RULE', TERRITORY_COT_RULE);
 
     setTerritoryPhaseLog('领地演化中…');
     try {
@@ -5098,7 +5117,7 @@ ${AFFIX_EFFECT_RULE}`;
       .replaceAll('${team_snapshot}', serializeTeamSnapshot())
       .replaceAll('${onscreen_npcs}', onscreenNpcs)
       .replaceAll('${player_name}', usePlayer.getState().profile.name || '主角')
-      + '\n\n' + NARRATIVE_FIRST_RULE + '\n' + TEAM_DEDUP_RULE + '\n' + TEAM_COT_RULE;
+      + '\n\n' + NARRATIVE_FIRST_RULE + '\n' + TEAM_DEDUP_RULE + '\n' + getPrompt('TEAM_COT_RULE', TEAM_COT_RULE);
 
     setTeamPhaseLog('冒险团演化中…');
     try {
@@ -5506,7 +5525,7 @@ ${AFFIX_EFFECT_RULE}`;
     const chain = resolveApiChain('nm', getNmApi());   // 优先用接口路由；路由为空才回退到单独配置的 nmApi
     if (!chain[0]?.baseUrl || !chain[0]?.apiKey) return [];
     const cfg = useSettings.getState().narrativeMemory;
-    const sys = NM_COMPILE_PROMPT.replaceAll('${context}', context).replaceAll('${candidates}', candidateTitles || '（无）');
+    const sys = getPrompt('NM_COMPILE_PROMPT', NM_COMPILE_PROMPT).replaceAll('${context}', context).replaceAll('${candidates}', candidateTitles || '（无）');
     try {
       const reply = await nmChatCompletion(sys, '请只输出 JSON 对象。', cfg.compileModelId || undefined);
       const j = parseEntryJson(reply);
@@ -5523,7 +5542,7 @@ ${AFFIX_EFFECT_RULE}`;
     const chain = resolveApiChain('nm', getNmApi());   // 优先用接口路由；路由为空才回退到单独配置的 nmApi
     if (!chain[0]?.baseUrl || !chain[0]?.apiKey) return empty;
     const cfg = useSettings.getState().narrativeMemory;
-    const sys = NM_STRUCT_SELECT_PROMPT
+    const sys = getPrompt('NM_STRUCT_SELECT_PROMPT', NM_STRUCT_SELECT_PROMPT)
       .replaceAll('${context}', context)
       .replaceAll('${candidates}', npcCandidates || '（无）')
       .replaceAll('${skill_candidates}', skillCandidates || '（无）')
@@ -5679,7 +5698,7 @@ ${AFFIX_EFFECT_RULE}`;
     setNmPhaseLog('🧠 记忆整理中…');
     const M = useMisc.getState();
     const existing = M.narrativeFacts.slice(-30).map((f) => f.title).join('、') || '（无）';
-    const sys = NM_INGEST_PROMPT
+    const sys = getPrompt('NM_INGEST_PROMPT', NM_INGEST_PROMPT)
       .replaceAll('${user_input}', userText || '')
       .replaceAll('${story_text}', narrative)   // 记忆抽取发送全部正文
       .replaceAll('${existing_titles}', existing);
@@ -5749,7 +5768,7 @@ ${AFFIX_EFFECT_RULE}`;
       .replaceAll('${message_count}', String(C.settings.genCount))
       + '\n\n【交易出售帖·固定格式铁则】交易频道里 kind="sell" 的出售帖，其 offer 必须按**物品固定格式给全所有属性**，供玩家查看与购买带入：offer={"itemName","category","subType","gradeDesc"(品质色),"origin"(产地),"combatStat"(攻防数值),"durability"(耐久),"requirement"(装备需求),"affix"(词缀),"score"(评分),"effect"(效果),"intro"(简介),"appearance"(逐部件外观),"killCount"(武器杀敌数),"qty","price","currency"}。装备类必给攻防/耐久/装备需求/词缀；消耗品必给效果；**技能书/技能卷轴/知识卷轴/图纸配方/天赋碎片类**必给 subType(类型，如「技能卷轴」「技能书」「知识卷轴」「图纸」「天赋碎片」) + effect(**明确写清学会/获得什么**——技能名及层阶(入门/精通/大师/宗师/极道)、或知识领域、或可制造产品、或天赋名及评级 D~SSS)；**外观一律必填、不准省略或偷懒**（与物品生成同标准）。'
       + '\n\n' + CHANNEL_AUTHOR_INFO_RULE
-      + '\n\n' + EQUIP_CODEX;   // 交易频道 sell 帖会生成装备 → 全量注入装备世界书，品级/数值/词缀按体系来
+      + '\n\n' + getPrompt('EQUIP_CODEX', EQUIP_CODEX);   // 交易频道 sell 帖会生成装备 → 全量注入装备世界书，品级/数值/词缀按体系来
 
     useChannel.getState().setRefreshing(true);
     try {
@@ -5871,6 +5890,13 @@ ${replyTo.authorName} 之前说：「${String(replyTo.content).slice(0, 200)}」
     for (const r of replies) {
       await new Promise((res) => setTimeout(res, 450 + Math.random() * 700));
       useChannel.getState().addOneSpeakReply(channel as any, r, postId);
+    }
+    // 场外行为通报·收到的回复：把契约者/土著对主角发言的公开回应也注入正文「前置须知」，让正文 AI 知道广场上别人怎么回主角的
+    // （一次性·仅知晓，与上方发言通报配套；带简短发言引用、自成一体，即便玩家没等回复生成完就发正文，那条发言通报也不受影响）。
+    if (replies.length) {
+      const head = `【场外·公共频道·回应】主角刚在【${chDef?.label ?? channel}】的公开发言「${content.trim().slice(0, 60)}」，收到 ${replies.length} 条公开回复：`;
+      const body = replies.slice(0, 8).map((r) => `· ${r.authorName}${r.authorTier ? '·' + r.authorTier : ''}：「${String(r.content).trim().slice(0, 100)}」`).join('\n');
+      pushSceneNotice(head + '\n' + body + (replies.length > 8 ? `\n· …等共 ${replies.length} 条` : ''));
     }
   }
 
@@ -6287,7 +6313,7 @@ ${replyTo.authorName} 之前说：「${String(replyTo.content).slice(0, 200)}」
 
 ${ITEM_FIXED_FORMAT_RULE}
 ${ITEM_GRADE_TABLE_RULE}
-${EQUIP_CODEX}`;
+${getPrompt('EQUIP_CODEX', EQUIP_CODEX)}`;
     try {
       const { content } = await apiChatFallback(chain, [{ role: 'system', content: sys }, { role: 'user', content: '只输出 JSON {"items":[…],"companions":[…]}。' }], { timeoutMs: 120000 });
       const j: any = parseEntryJson(content) || {};
@@ -6327,7 +6353,7 @@ ${EQUIP_CODEX}`;
 - 贴合当前世界(${M.worldName || '轮回乐园'})与主角阶位(${prof.tier || '一阶'}·Lv.${prof.level})的强度区间；**价格一般偏高**（系统商店溢价，约市场价 1.2~1.8 倍）。
 - 每件按物品固定格式给全字段。**只输出 JSON**：{"items":[{"name","category"(武器/防具/饰品/消耗品/材料/工具/特殊物品/重要物品等),"subType","gradeDesc"(品质色由低到高:白/绿/蓝/紫/暗紫/淡金/金/暗金/传说级/史诗级/圣灵级/不朽级/起源级/永恒级/创世,按强度选合适档),"price"(数字),"currency"("乐园币"或"魂币"),"effect","combatStat"(装备攻防机器可读如"法术攻击力 60-135"/"防御力 8-12"),"durability","requirement","affix","origin","intro","appearance","qty"(默认1)}]}，共 10 件，不要任何多余文字或 markdown。
 
-${EQUIP_CODEX}`;
+${getPrompt('EQUIP_CODEX', EQUIP_CODEX)}`;
     try {
       const { content } = await apiChatFallback(chain, [{ role: 'system', content: sys }, { role: 'user', content: '只输出 JSON {"items":[…10件…]}。' }], { timeoutMs: 90000 });
       const j = parseEntryJson(content);
@@ -6373,7 +6399,7 @@ ${lines}`;
       .replaceAll('${world_time}', M.worldTime || M.paradiseTime || '')
       .replaceAll('${enabled_channels}', '交易').replaceAll('${recent_events}', '').replaceAll('${existing_messages}', '').replaceAll('${message_count}', '0')
       + '\n\n【报价生成铁则】针对玩家在交易频道挂的求购/出售帖，扮演多位**不同**契约者给出报价/出价，每条务必：① 价格贴合该物品的颜色品质定价与玩家预算（有人急出压价、有人坐地起价、有人给替代品/附赠）；② **求购帖里你是卖家**（报价把东西卖给玩家），**出售帖里你是买家**（出价收购玩家的东西）；③ 必带一句符合该契约者身份口吻的【留言】（可砍价/吹嘘/吐槽/玩梗/讲价由头）。货币用 乐园币 或 灵魂钱币。\n④ **求购帖的卖家报价：必须按固定格式给出所提供物品的完整属性**——名称/产地(origin)/品质色(gradeDesc)/类型(category+subType)/攻防(combatStat)/耐久(durability)/装备需求(requirement)/词缀(affix)/评分(score)/效果(effect)/简介(intro)/外观(appearance)，武器另加杀敌数(killCount)；**若是技能书/技能卷轴/知识卷轴/图纸/天赋碎片**，subType 写明类型、effect 明确写学会/获得什么（技能名+层阶 / 知识领域 / 可制造产品 / 天赋名+评级）；**一个都不能省略、不准偷懒**（与物品生成同标准）。\n⑤ **出售帖里你是买家**，有两种回应方式，让多位买家**混合采用**更真实：(a) **纯现金收购**——`barter` 设 false、`itemName` 留空，只给 price/currency/note；(b) **以物换物（barter）**——拿出你自己的一件物品跟玩家换：`barter` 设 true，并按固定格式给出**你这件换购物品**的完整属性（itemName/gradeDesc/category/subType/origin/combatStat/durability/requirement/affix/score/effect/intro/appearance，武器加 killCount；技能书/卷轴/图纸/天赋碎片同求购帖标准写明 subType+effect），`price` 填你**额外找补给玩家的现金**（平换则填 0）。换购物品必须是**与玩家那件不同、且贴合玩家诉求**的真实物品，属性一个都不能空。'
-      + '\n\n' + EQUIP_CODEX   // 求购帖卖家报价/以物换路换购物品都会生成装备 → 全量注入装备世界书
+      + '\n\n' + getPrompt('EQUIP_CODEX', EQUIP_CODEX)   // 求购帖卖家报价/以物换路换购物品都会生成装备 → 全量注入装备世界书
       + '\n\n' + CHANNEL_PRICE_CODEX;   // 物品价格世界书 → 报价/砍价以公允价为准，离谱定价要被戳破
     const priceNum = (p?: string) => { const n = parseInt(String(p ?? '').replace(/[^\d]/g, ''), 10); return Number.isFinite(n) ? n : 0; };
     const postsDesc = open.map((m) => {
@@ -6525,7 +6551,7 @@ ${lines}`;
     const focus = computeFactionFocus();
     if (focus.length === 0) return;
     const { entries, scheduling } = useFactionEvo.getState().settings;
-    const sysBase = buildFactionSystemPrompt(entries) + '\n\n' + NARRATIVE_FIRST_RULE + '\n' + FACTION_WORLD_RULE + '\n' + FIRST_UPDATE_COMPLETE_RULE + '\n' + FACTION_FULL_FORMAT_RULE + '\n' + FACTION_NAME_RULE + '\n' + FACTION_COT_RULE;
+    const sysBase = buildFactionSystemPrompt(entries) + '\n\n' + NARRATIVE_FIRST_RULE + '\n' + FACTION_WORLD_RULE + '\n' + FIRST_UPDATE_COMPLETE_RULE + '\n' + FACTION_FULL_FORMAT_RULE + '\n' + FACTION_NAME_RULE + '\n' + getPrompt('FACTION_COT_RULE', FACTION_COT_RULE);
     const trimmed = trimNarrative(narrative);
     const conc = Math.max(1, scheduling.concurrency || 2);
     for (let i = 0; i < focus.length; i += conc) {
@@ -6557,7 +6583,7 @@ ${lines}`;
     const { entries } = useFactionEvo.getState().settings;
     const sysBase = entries.filter((e) => e.enabled).map((e) => e.content).join('\n\n');
     if (!sysBase) return;
-    const sys = sysBase + '\n\n' + FACTION_DETECT_RULE + '\n' + FACTION_FULL_FORMAT_RULE + '\n' + FACTION_NAME_RULE + '\n' + FACTION_COT_RULE;
+    const sys = sysBase + '\n\n' + FACTION_DETECT_RULE + '\n' + FACTION_FULL_FORMAT_RULE + '\n' + FACTION_NAME_RULE + '\n' + getPrompt('FACTION_COT_RULE', FACTION_COT_RULE);
     const list = Object.values(useFaction.getState().factions);
     const beforeFactionIds = new Set(list.map((f) => f.id));   // 演化前已存在的势力 id（名字守卫据此识别本回合新建的）
     const known = list.map((f) => `${f.id}(${f.name})${f.inCurrentWorld ? '·当前世界' : '·非'}`).join(', ') || '（无）';
@@ -6975,12 +7001,12 @@ ${lines}`;
     const chain = resolveApiChain('plot', legacy);
     if (!chain[0]?.baseUrl || !chain[0]?.apiKey) return;
 
-    const sysParts = [CHOICES_FANFIC_SYSTEM];
-    if (wantFanfic) sysParts.push(FANFIC_RULE);
+    const sysParts = [getPrompt('CHOICES_FANFIC_SYSTEM', CHOICES_FANFIC_SYSTEM)];
+    if (wantFanfic) sysParts.push(getPrompt('FANFIC_RULE', FANFIC_RULE));
     if (wantFact) sysParts.push(FACT_RULE);
     if (wantChoices) sysParts.push(ss.choicesPrompt?.trim() || PLOT_CHOICES_RULE);   // 玩家在设置里自定义了就整段替换，否则用内置
     if (wantTheater) {
-      sysParts.push(MINI_THEATER_RULE);
+      sysParts.push(getPrompt('MINI_THEATER_RULE', MINI_THEATER_RULE));
       const picked = pickTheaterCharacters(await loadLunhuiCharacters());   // 从 wiki 人物条目随机抽 1~多位（多位则同世界·有关联）
       if (picked.length) sysParts.push(buildTheaterCharBlock(picked));
     }
@@ -7176,7 +7202,7 @@ ${lines}`;
     const user = `# 对手信息\n名号：${entry.name}\n阶位：${entry.tier}\n职业：${entry.job || '—'}\n生物强度：${entry.strength || '—'}\n竞技场名次：第${entry.rank}名（${def.name}）\n\n# 主角阶位\n${arenaEffectiveTier(prof.tier, prof.level)}（主角名次 #${useArena.getState().ladders[def.id]?.playerRank ?? '—'}）`;
     let j: any = {};
     try {
-      const { content } = await apiChatFallback(arenaChain(), [{ role: 'system', content: ARENA_OPPONENT_RULE + '\n' + EQUIP_CODEX }, { role: 'user', content: user }], { timeoutMs: 75000 });
+      const { content } = await apiChatFallback(arenaChain(), [{ role: 'system', content: getPrompt('ARENA_OPPONENT_RULE', ARENA_OPPONENT_RULE) + '\n' + getPrompt('EQUIP_CODEX', EQUIP_CODEX) }, { role: 'user', content: user }], { timeoutMs: 75000 });
       j = parseEntryJson(content) || lenientJsonParse(content) || {};
     } catch (e) { console.warn('[Arena] 对手建档失败:', e); }
     const a = (v: any, d = 30) => Math.max(1, Math.min(99, parseInt(String(v), 10) || d));
@@ -7295,7 +7321,7 @@ ${lines}`;
     const kit = `职业：${prof.profession || '（无）'}\n技能：${skillNames.join('、') || '（无）'}\n天赋：${traitNames.join('、') || '（无）'}\n副职业：${subProfNames.join('、') || '（无）'}`;
     const user = `# 当前阶段\n险地#${ctx.biome} · 第 ${ctx.floor} 层 · 堕落 Lv${ctx.fallLevel}\n# 主角 kit（据此出 1-2 张契合卡）\n${kit}\n# 已选卡组（流派:卡名）\n${ctx.deck.map((d) => `${d.school}:${d.name}`).join('、') || '（空）'}\n# 偏向流派（堕落星图，优先多给这些）\n${ctx.affinity.join('、') || '（无）'}\n# 需要张数\n${ctx.want}\n# PRIMS（效果只能从此选）\n${BOON_PRIM_LIST.join(', ')}\n# SCHOOLS\n${BOON_SCHOOLS.join(', ')}`;
     try {
-      const { content } = await apiChatFallback(abyssChain('abyss'), [{ role: 'system', content: ABYSS_BOON_GEN_RULE }, { role: 'user', content: user }], { timeoutMs: 60000 });
+      const { content } = await apiChatFallback(abyssChain('abyss'), [{ role: 'system', content: getPrompt('ABYSS_BOON_GEN_RULE', ABYSS_BOON_GEN_RULE) }, { role: 'user', content: user }], { timeoutMs: 60000 });
       const m = content.match(/\[[\s\S]*\]/);
       const arr = m ? lenientJsonParse(m[0]) : null;
       return materializeBoons(arr, ctx.depth);
@@ -7305,7 +7331,7 @@ ${lines}`;
     const skeleton = { quality: template.quality, type: `${template.category}/${template.sub}`, biome: '黑渊', stats: template.stats, active: template.active, passive: template.passive, curse: template.curse };
     const user = `# 机械骨架（只配文，严禁改数值/改效果）\n${JSON.stringify(skeleton)}`;
     try {
-      const { content } = await apiChatFallback(abyssChain('abyss'), [{ role: 'system', content: ABYSS_SIN_GEN_RULE + '\n' + EQUIP_CODEX }, { role: 'user', content: user }], { timeoutMs: 60000 });
+      const { content } = await apiChatFallback(abyssChain('abyss'), [{ role: 'system', content: getPrompt('ABYSS_SIN_GEN_RULE', ABYSS_SIN_GEN_RULE) + '\n' + getPrompt('EQUIP_CODEX', EQUIP_CODEX) }, { role: 'user', content: user }], { timeoutMs: 60000 });
       const m = content.match(/\{[\s\S]*\}/);
       const obj = m ? lenientJsonParse(m[0]) : null;
       return obj && typeof obj === 'object' ? obj as SinFlavor : null;
@@ -7315,7 +7341,7 @@ ${lines}`;
     const ctx = { item: { name: item.name, type: item.category + (item.subType ? '/' + item.subType : ''), 已有词缀: item.affix || '（无）' }, awakenLv: (item.awakenLv ?? 0) + 1 };
     const user = `# 装备/原罪物（只配文+加1条新词缀，严禁改已有数值）\n${JSON.stringify(ctx.item)}\n# 觉醒后阶数\n${ctx.awakenLv}\n# PRIMS（新效果只能从此选）\n${BOON_PRIM_LIST.join(', ')}`;
     try {
-      const { content } = await apiChatFallback(abyssChain('abyss'), [{ role: 'system', content: ABYSS_AWAKEN_RULE }, { role: 'user', content: user }], { timeoutMs: 60000 });
+      const { content } = await apiChatFallback(abyssChain('abyss'), [{ role: 'system', content: getPrompt('ABYSS_AWAKEN_RULE', ABYSS_AWAKEN_RULE) }, { role: 'user', content: user }], { timeoutMs: 60000 });
       const m = content.match(/\{[\s\S]*\}/);
       const obj = m ? lenientJsonParse(m[0]) : null;
       return obj && typeof obj === 'object' ? obj as AwakenFlavor : null;
@@ -7324,7 +7350,7 @@ ${lines}`;
   async function genAbyssJudge(options: { id: string; label: string }[]): Promise<JudgeFlavor | null> {
     const user = `# 选项倾向（同序同数配文）\n${JSON.stringify({ options })}`;
     try {
-      const { content } = await apiChatFallback(abyssChain('abyss'), [{ role: 'system', content: ABYSS_JUDGE_RULE }, { role: 'user', content: user }], { timeoutMs: 60000 });
+      const { content } = await apiChatFallback(abyssChain('abyss'), [{ role: 'system', content: getPrompt('ABYSS_JUDGE_RULE', ABYSS_JUDGE_RULE) }, { role: 'user', content: user }], { timeoutMs: 60000 });
       const m = content.match(/\{[\s\S]*\}/);
       const obj = m ? lenientJsonParse(m[0]) : null;
       return obj && typeof obj === 'object' ? obj as JudgeFlavor : null;
@@ -7333,7 +7359,7 @@ ${lines}`;
   async function genAbyssEnemies(ctx: { biome: number; biomeName: string; kind: 'elite' | 'boss'; depth: number; floor: number; seed: string }): Promise<AbyssEnemyUnit[] | null> {
     const user = `# 险地\n${ctx.biomeName}（#${ctx.biome}）· 全局第 ${ctx.depth} 层 · 本险地第 ${ctx.floor} 层\n# 强度档\n${ctx.kind === 'boss' ? '区主（强，1 只，可带 count 杂兵）' : '精英（1-2 只）'}`;
     try {
-      const { content } = await apiChatFallback(abyssChain('abyss'), [{ role: 'system', content: ABYSS_ENEMY_GEN_RULE }, { role: 'user', content: user }], { timeoutMs: 60000 });
+      const { content } = await apiChatFallback(abyssChain('abyss'), [{ role: 'system', content: getPrompt('ABYSS_ENEMY_GEN_RULE', ABYSS_ENEMY_GEN_RULE) }, { role: 'user', content: user }], { timeoutMs: 60000 });
       const m = content.match(/\[[\s\S]*\]/);
       const arr = m ? lenientJsonParse(m[0]) : null;
       return panelToEnemies(arr, ctx.depth, ctx.seed);
@@ -7430,7 +7456,7 @@ ${lines}`;
     const user = `# 可用种族池\n${racePool}\n\n# 对战阶位（两名角斗士的 tier 都必须等于此阶位；阶位越高技能/天赋/物品越多越离谱）\n${battleTier}${customRace}`;
     let j: any = {};
     try {
-      const { content } = await apiChatFallback(casinoChain(), [{ role: 'system', content: GLADIATOR_MATCH_RULE + '\n' + EQUIP_CODEX }, { role: 'user', content: user }], { timeoutMs: 75000 });
+      const { content } = await apiChatFallback(casinoChain(), [{ role: 'system', content: getPrompt('GLADIATOR_MATCH_RULE', GLADIATOR_MATCH_RULE) + '\n' + getPrompt('EQUIP_CODEX', EQUIP_CODEX) }, { role: 'user', content: user }], { timeoutMs: 75000 });
       j = parseEntryJson(content) || lenientJsonParse(content) || {};
     } catch (e) { console.warn('[Casino] 角斗士生成失败:', e); }
     let fs = Array.isArray(j?.fighters) ? j.fighters : [];
@@ -7574,7 +7600,7 @@ ${lines}`;
       slots.map(({ r }, n) => `${n + 1}. slot=${n + 1} 类型=${typeLabel(r.kind)}${r.kind === 'equip' ? ` 大类=${r.item?.category ?? '武器'}` : ''} 品级=${r.grade}`).join('\n');
     let arr: any[] = [];
     try {
-      const { content } = await apiChatFallback(casinoChain(), [{ role: 'system', content: GACHA_REWARD_RULE + '\n' + EQUIP_CODEX }, { role: 'user', content: user }], { timeoutMs: 75000 });
+      const { content } = await apiChatFallback(casinoChain(), [{ role: 'system', content: getPrompt('GACHA_REWARD_RULE', GACHA_REWARD_RULE) + '\n' + getPrompt('EQUIP_CODEX', EQUIP_CODEX) }, { role: 'user', content: user }], { timeoutMs: 75000 });
       arr = parseArenaArray(content);
     } catch (e) { console.warn('[Casino] 福袋奖励生成失败:', e); }
     if (!arr.length) return rewards;   // 兜底：用确定性模板物品
@@ -7636,7 +7662,7 @@ ${lines}`;
     const user = `# 奖励档位\n${band.label}（名次 #${rank}）\n允许品级：${band.grades}\n物品件数：${band.itemCount[0]}~${band.itemCount[1]} 件\n是否附唯一称号：${band.giveTitle ? '是' : '否'}\n说明：${band.note}\n\n# 主角阶位\n${arenaEffectiveTier(prof.tier, prof.level)}\n竞技场：${pending.arenaName}`;
     let j: any = {};
     try {
-      const { content } = await apiChatFallback(arenaChain(), [{ role: 'system', content: ARENA_REWARD_RULE + '\n' + EQUIP_CODEX }, { role: 'user', content: user }], { timeoutMs: 60000 });
+      const { content } = await apiChatFallback(arenaChain(), [{ role: 'system', content: getPrompt('ARENA_REWARD_RULE', ARENA_REWARD_RULE) + '\n' + getPrompt('EQUIP_CODEX', EQUIP_CODEX) }, { role: 'user', content: user }], { timeoutMs: 60000 });
       j = parseEntryJson(content) || lenientJsonParse(content) || {};
     } catch (e) { console.warn('[Arena] 奖励生成失败:', e); }
     const items = useItems.getState();
@@ -8327,16 +8353,19 @@ ${lines}`;
     } finally { setGuidanceRunning(false); }
   }
 
-  /* 数据库推进管线（Stitches 格式·开启时）：正文【前】跑「召回→推进」规划层（复用 guidance 路由）——
+  /* 数据库推进管线（Stitches 格式·开启时）：正文【前】跑「召回→推进」规划层（走独立 dbadvance 路由·未配回退正文API）——
      召回子调用抽 <recall>、推进子调用抽 <stage>/<scene> 并存 <tabletop> 供下轮 →
      resolve finalSystemDirective（填 $8/stage/scene/recall）返回，注入正文，**正文预设据此写散文**（预设只规划不写正文）。
      每子调用墙钟兜底：超时/失败 → 尽力返回已有部分或 ''（绝不挡正文）。占位符/解析见 systems/dbAdvancePreset。 */
   async function runDbAdvancePipeline(userText: string, worldInfoText: string): Promise<string> {
     const st = useDbAdvance.getState();
-    if (!st.enabled || !st.preset) return '';
+    if (!st.enabled || !st.preset) {
+      if (st.enabled && !st.preset) console.warn('[数据库推进] 已启用但预设未加载(preset=null) → 空回；请到设置重新「载入内置 Stitches」或「导入 JSON」');
+      return '';
+    }
     const gApi = textUseShared ? sharedApi : textApi;
     const chain = resolveApiChain('dbadvance', gApi);   // 独立「数据库推进」接口路由；未配则回退正文 API（不再蹭 guidance 路由）
-    if (!chain[0]?.baseUrl || !chain[0]?.apiKey) { console.warn('[数据库推进] dbadvance/正文 API 均未配置，跳过'); return ''; }
+    if (!chain[0]?.baseUrl || !chain[0]?.apiKey) { console.warn('[数据库推进] dbadvance 路由与正文 API 均未配置 → 空回。请在 设置→数据库推进管线→接口路由 指一条接口，或配好正文 API'); return ''; }
     const WALL_MS = 45000;
     const callMod = (messages: { role: string; content: string }[]) => {
       const call = apiChatFallback(chain, messages.map((m) => ({ role: m.role as 'system' | 'user' | 'assistant', content: m.content })), { timeoutMs: 30000, rawLang: true })   // 推进规划喂给中文正文，保持中文
@@ -8374,10 +8403,16 @@ ${lines}`;
         }
       }
       // 2) 推进：产出结构化 stage/scene/tabletop
-      const advMod = dbFindModule(st.preset, '推进');
-      if (!advMod) return '';
+      let advMod = dbFindModule(st.preset, '推进');
+      if (!advMod) {
+        // 容错：预设的推进模块没恰好叫"推进"（如"剧情推进"/"推进模块"/英文命名）→ 取名字含关键词的，再兜底取最后一个 plotTask（按 order 升序·末尾即推进步；排除召回）
+        const tasks = st.preset.plotTasks ?? [];
+        advMod = tasks.find((t) => /推进|advance|progress|storyteller|叙事/i.test(t.name)) || tasks.filter((t) => t.name !== '召回').slice(-1)[0] || tasks.slice(-1)[0];
+        if (advMod) console.warn(`[数据库推进] 未找到名为"推进"的模块，容错回退到 "${advMod.name}"（该预设模块:${tasks.map((t) => t.name).join(' / ') || '无'}）`);
+      }
+      if (!advMod) { console.warn(`[数据库推进] 预设里没有可用的推进模块 → 空回。plotTasks:${(st.preset.plotTasks ?? []).map((t) => t.name).join(' / ') || '（空）'}——请确认导入的是有效 Stitches 推进预设(含 plotTasks)`); return ''; }
       const advOut = await callMod(dbBuildMsgs(advMod, { ...ctx, recall }));
-      if (!advOut) return '';
+      if (!advOut) { console.warn(`[数据库推进] 推进子调用返回空 → 空回。若上面有"子调用失败/超 45s 跳过"日志＝接口原因(接口=${chain[0]?.baseUrl} 模型=${chain[0]?.modelId})；否则是 AI 没吐内容/被 contextExclude 剥空`); return ''; }
       const clean = dbStripExcluded(advOut, st.preset.contextExcludeRules);
       const stage = dbExtractTag(clean, 'stage');
       const scene = dbExtractTag(clean, 'scene');
@@ -8393,6 +8428,7 @@ ${lines}`;
       if (!anyTag && clean.trim()) blocks.push(`【本回合推进规划·请据此写正文】\n${clean.trim()}`);   // 标签一个没命中(预设标签对不上/AI没按标签吐)→整段兜底注入
       const finalDirective = blocks.filter((b) => b && b.trim()).join('\n\n').trim();
       if (finalDirective) console.log(`[数据库推进] 规划完成（stage ${stage.length} / scene ${scene.length} / tabletop ${tabletop.length} 字${anyTag ? '' : ' · 标签未命中→整段兜底注入'}）`);
+      else console.warn(`[数据库推进] 推进有返回但抽取后为空 → 空回（clean ${clean.length}字·stage/scene/tabletop 全空）；多半 contextExcludeRules 把内容剥没了，或预设 finalSystemDirective 与标签对不上`);
       return finalDirective;
     } catch (e) { console.warn('[数据库推进] 管线失败', e); return ''; }
     finally { setGuidanceRunning(false); }
@@ -9575,7 +9611,7 @@ ${lines}`;
     const userMsg = `${playerBlock}\n\n${cardBlock}${_priorBlock ? '\n\n' + _priorBlock : ''}\n\n请据以上为【${world.name}】生成世界观骨架 JSON${_priorBlock ? '（这是续作——延续上次记录里的世界局势、关键人物、遗留后果与主角在此世界的影响 / 名声，别推翻另起；主角带着上次的印记再临本世界）' : ''}（只输出 JSON）。`;
     try {
       const { content } = await apiChatFallback(chain, [
-        { role: 'system', content: WORLDVIEW_GEN_PROMPT },
+        { role: 'system', content: getPrompt('WORLDVIEW_GEN_PROMPT', WORLDVIEW_GEN_PROMPT) },
         { role: 'user', content: userMsg },
       ], { timeoutMs: 180000 });
       setRawResponse(content || '');   // 便于「查看返回」排查
@@ -9663,7 +9699,7 @@ ${lines}`;
       ].filter(Boolean).join('\n');
       const userMsg = `【目标世界卡】\n${card}\n\n【主角的职业树 / 副职业档案】\n${buildPlayerClassBrief()}\n\n请据以上，为主角在【${world.name}】设计 2~4 条贴合其职业流派 / 副职业的专属任务与奖励（奖励忠于设定、与阶位 / 世界阶相称、绝不虚高）。`;
       const { content } = await apiChatFallback(chain, [
-        { role: 'system', content: PROFESSION_QUEST_PROMPT },
+        { role: 'system', content: getPrompt('PROFESSION_QUEST_PROMPT', PROFESSION_QUEST_PROMPT) },
         { role: 'user', content: userMsg },
       ], { timeoutMs: 180000 });
       setRawResponse(content || '');
@@ -9744,7 +9780,7 @@ ${lines}`;
     setSummaryBusyId(recordId);
     try {
       const { content } = await apiChatFallback(chain, [
-        { role: 'system', content: WORLD_SUMMARY_PROMPT },
+        { role: 'system', content: getPrompt('WORLD_SUMMARY_PROMPT', WORLD_SUMMARY_PROMPT) },
         { role: 'user', content: userMsg },
       ], { timeoutMs: 180000 });
       setRawResponse(content || '');
@@ -10362,11 +10398,11 @@ ${lines}`;
                 ↺ 撤销选择
               </button>
             )}
-            <div className="ml-auto flex items-center gap-2">
+            <div className="ml-auto flex flex-wrap items-center gap-2 max-lg:justify-end">
               {debugParts.length > 0 && (
                 <button
                   onClick={() => setShowDevPrompt(true)}
-                  className="px-2 py-0.5 border rounded transition-colors font-mono text-[10px] border-god/30 text-god/80 hover:border-god/50 hover:text-god max-lg:hidden"
+                  className="px-2 py-0.5 border rounded transition-colors font-mono text-[10px] border-god/30 text-god/80 hover:border-god/50 hover:text-god"
                   title="查看本回合实际发给模型的提示词 + 注入块（调试用）"
                 >🛠 开发者</button>
               )}
@@ -10383,7 +10419,7 @@ ${lines}`;
               {promptSent && (
                 <button
                   onClick={() => { setShowPrompt((v) => !v); setShowRaw(false); setShowInjected(false); }}
-                  className={`px-2 py-0.5 border rounded transition-colors font-mono text-[10px] max-lg:hidden ${
+                  className={`px-2 py-0.5 border rounded transition-colors font-mono text-[10px] ${
                     showPrompt ? 'border-sky-400/40 text-sky-400 bg-sky-900/10' : 'border-edge text-dim hover:border-sky-400/40 hover:text-sky-400'
                   }`}
                 >
@@ -10393,7 +10429,7 @@ ${lines}`;
               {rawResponse && (
                 <button
                   onClick={() => { setShowRaw((v) => !v); setShowPrompt(false); }}
-                  className={`px-2 py-0.5 border rounded transition-colors font-mono text-[10px] max-lg:hidden ${
+                  className={`px-2 py-0.5 border rounded transition-colors font-mono text-[10px] ${
                     showRaw ? 'border-god/40 text-god bg-god/5' : 'border-edge text-dim hover:border-god/40 hover:text-god'
                   }`}
                 >

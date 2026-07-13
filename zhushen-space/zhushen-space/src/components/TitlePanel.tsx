@@ -6,6 +6,7 @@ import { useMisc } from '../store/miscStore';
 import { apiChatFallback } from '../systems/apiChat';
 import { lenientJsonParse } from '../systems/stateParser';
 import { TITLE_FUSION_RULE, TITLE_GEN_RULE } from '../promptRules';
+import { getPrompt } from '../store/promptOverrideStore';   // 预设中心：主提示词 override
 import { buildPlayerGenContext } from '../systems/playerGenContext';
 
 /* 称号库（主角 B1）：展示已获得称号，最多佩戴 1 个；
@@ -31,7 +32,7 @@ async function fuseTitles(sources: Title[]): Promise<Omit<Title, 'addedAt'> | nu
   ).join('\n');
   const userMsg = `【参与合成的称号（共 ${sources.length} 个）】\n${list}\n\n请把以上 ${sources.length} 个称号熔铸成**一个**全新的、更强大的称号，按系统要求只输出 JSON。`;
   const { content } = await apiChatFallback(chain, [
-    { role: 'system', content: TITLE_FUSION_RULE },
+    { role: 'system', content: getPrompt('TITLE_FUSION_RULE', TITLE_FUSION_RULE) },
     { role: 'user', content: userMsg },
   ], { timeoutMs: 120000 });
   const raw: any = lenientJsonParse(extractJson(content ?? ''));
@@ -59,7 +60,7 @@ async function genTitle(existing: Title[]): Promise<Omit<Title, 'addedAt'> | nul
   const dupes = existing.map((t) => t.name).join('、') || '（无）';
   const userMsg = `【主角档案】\n${buildPlayerGenContext()}\n\n【已有称号（勿重复或近义）】\n${dupes}\n\n请据主角档案生成**一枚**贴切的新称号，只输出 JSON。`;
   const { content } = await apiChatFallback(chain, [
-    { role: 'system', content: TITLE_GEN_RULE },
+    { role: 'system', content: getPrompt('TITLE_GEN_RULE', TITLE_GEN_RULE) },
     { role: 'user', content: userMsg },
   ], { timeoutMs: 120000 });
   const raw: any = lenientJsonParse(extractJson(content ?? ''));

@@ -6,6 +6,7 @@ import { useMisc } from '../store/miscStore';
 import { apiChatFallback } from '../systems/apiChat';
 import { lenientJsonParse } from '../systems/stateParser';
 import { ACHIEVEMENT_GEN_RULE } from '../promptRules';
+import { getPrompt } from '../store/promptOverrideStore';   // 预设中心：主提示词 override
 import { buildPlayerGenContext } from '../systems/playerGenContext';
 
 const CATEGORIES = ['全部', '战斗', '探索', '任务', '生存', '隐藏', '其他'];
@@ -29,7 +30,7 @@ async function genAchievement(existing: Achievement[]): Promise<Omit<Achievement
   const dupes = existing.map((a) => a.name).join('、') || '（无）';
   const userMsg = `【主角档案】\n${buildPlayerGenContext()}\n\n【已解锁成就（勿重复或近义）】\n${dupes}\n\n请据主角档案解锁**一条**贴切的新成就，只输出 JSON。`;
   const { content } = await apiChatFallback(chain, [
-    { role: 'system', content: ACHIEVEMENT_GEN_RULE },
+    { role: 'system', content: getPrompt('ACHIEVEMENT_GEN_RULE', ACHIEVEMENT_GEN_RULE) },
     { role: 'user', content: userMsg },
   ], { timeoutMs: 120000 });
   const raw: any = lenientJsonParse(extractJson(content ?? ''));

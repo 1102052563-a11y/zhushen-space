@@ -1,5 +1,6 @@
 import { JOY_PRIVATE_COLS, type JoyGirl, type JoySession } from '../store/joyStore';
 import { JOY_SYSTEM_RULE, JOY_OUTPUT_RULE, JOY_PRIVATE_FIELDS_RULE, NSFW_WRITING_RULE } from '../promptRules';
+import { getPrompt } from '../store/promptOverrideStore';   // 预设中心：主提示词 override
 
 /* 欢愉宫美女分阶段立绘清单（public/joy-girls/manifest.json，由 vite 插件 syncJoyGirls 生成）。
    结构：{ "<美女文件夹>": { "1":[相对路径...], "2":[...], "3":[...], "4":[...] } }
@@ -85,9 +86,9 @@ export function buildJoySystem(girl: JoyGirl, session: JoySession | undefined): 
     stageDesc ? stageDesc : '（本阶段无专属描述，按情欲值高低自行把握收放）',
     appellation ? `【她对客人的称谓】此刻她称客人为「${appellation}」。请在正文里如此称呼。` : '',
     `【她当前的私密状态】\n${privacySnapshot(session?.privacy ?? {})}`,
-    JOY_SYSTEM_RULE,
-    JOY_OUTPUT_RULE,
-    JOY_PRIVATE_FIELDS_RULE,
+    getPrompt('JOY_SYSTEM_RULE', JOY_SYSTEM_RULE),
+    getPrompt('JOY_OUTPUT_RULE', JOY_OUTPUT_RULE),
+    getPrompt('JOY_PRIVATE_FIELDS_RULE', JOY_PRIVATE_FIELDS_RULE),
   ].filter(Boolean).join('\n\n');
 }
 

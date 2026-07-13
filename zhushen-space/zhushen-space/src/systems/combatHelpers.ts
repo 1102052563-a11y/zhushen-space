@@ -8,6 +8,7 @@ import { playerMaxHp, playerMaxEp } from './playerVitals';
 import type { BattleState, Side } from '../store/combatStore';
 import { apiChatFallback } from './apiChat';
 import { COMBAT_NARRATE_RULE } from '../promptRules';
+import { getPrompt } from '../store/promptOverrideStore';   // 预设中心：主提示词 override
 import { buildBattleRecord } from './battleRecord';
 import { COMBAT_WRITING_GUIDE_RULE } from './combatWritingGuide';   // 内嵌·据《战斗写作指导》世界书
 
@@ -56,7 +57,7 @@ export function buildCombatResultFallback(state: BattleState, victor: Side | nul
 export async function runBattleSummaryPhase(state: BattleState, victor: Side | null): Promise<string> {
   try {
     // 战斗叙事提示词 = 自定义预设(可空) + 叙事铁则 + 内嵌《战斗写作指导》(思维链/物理具现化/镜头感/力量标尺)
-    const sys = (combatPreset().summaryPrompt?.trim() || '') + '\n\n' + COMBAT_NARRATE_RULE + '\n\n' + COMBAT_WRITING_GUIDE_RULE;
+    const sys = (combatPreset().summaryPrompt?.trim() || '') + '\n\n' + getPrompt('COMBAT_NARRATE_RULE', COMBAT_NARRATE_RULE) + '\n\n' + getPrompt('COMBAT_WRITING_GUIDE_RULE', COMBAT_WRITING_GUIDE_RULE);
     const record = buildBattleRecord(state, victor);
     const { content } = await apiChatFallback(combatChain(), [{ role: 'system', content: sys }, { role: 'user', content: record }]);
     // 先剥掉 <think_battle> 内部推演（连内容），再去残留标签

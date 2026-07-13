@@ -110,7 +110,8 @@ export default function SystemShop({ onGenShop, onQuoteSell, onClose }: {
                       <span className="text-[11px] text-dim/50">{it.category}{it.subType ? `·${it.subType}` : ''}</span>
                       {it.qty && it.qty > 1 && <span className="text-[11px] text-dim/50">×{it.qty}</span>}
                     </div>
-                    {(it.effect || it.combatStat) && <div className="text-[12px] text-dim/60 truncate">{it.combatStat ? `[${it.combatStat}] ` : ''}{it.effect}</div>}
+                    {(it.effect || it.combatStat) && <div className="text-[12px] text-dim/60 leading-snug break-words">{it.combatStat ? `[${it.combatStat}] ` : ''}{it.effect}</div>}
+                    {(it.affix || it.requirement) && <div className="text-[11px] text-dim/45 leading-snug break-words mt-0.5">{it.affix ? `词缀:${it.affix}　` : ''}{it.requirement ? `需求:${it.requirement}` : ''}</div>}
                   </div>
                   <span className="shrink-0 text-sm font-bold font-mono text-amber-300">{it.price} {normCur(it.currency)}</span>
                 </label>

@@ -7,6 +7,7 @@ import { useSettings } from '../store/settingsStore';
 import { useSkillTree } from '../store/skillTreeStore';
 import { playerMaxHp, playerMaxEp, playerResourceMax } from './playerVitals';
 import { useResource } from '../store/resourceStore';
+import { useMisc } from '../store/miscStore';   // 当地货币（世界级·世界限定·离世归零）
 import { effectiveResource, fullMaxHp, fullMaxEp, ratioOf, npcBaseAttrs } from './derivedStats';
 import { parseAllStateUpdates, parseAllItemCommands, applyItemCommands, stripPreviewRewardCurrency, isEquippable, setNpcOwnerResolver, type StateUpdate, type ItemEditResult, type LedgerCtx } from './stateParser';
 import { applyTableEdits } from './tableEditParser';   // ACU 表格数据库：<tableEdit> → tableStore
@@ -415,6 +416,22 @@ export function applyStateUpdates(raw: string) {
       } catch { /* */ }
     }
   }
+  // 当地货币（任务世界本地货币·世界限定·离世归零）：土著报酬 / 本地买卖走它，别发乐园币/魂币。
+  //   ⚠走独立正则扫 raw（parseLine 的 key 正则是 ASCII \w、匹配不到中文币名，与乐园币同坑）；名称+余额存 miscStore。
+  //   `当地货币名 = 贝利`/`本地货币名 = 戒尼` 设定本世界货币名；`当地货币 += N`/`-= N`/`= N` 加减/校准余额。
+  try {
+    const M = useMisc.getState();
+    const nameM = raw.match(/(?:当地货币名称|当地货币名|本地货币名称|本地货币名)\s*[:=]\s*([^\n，,。;；、（()）]{1,16})/);
+    if (nameM && nameM[1].trim()) M.setLocalCurrencyName(nameM[1].trim());
+    const amtRe = /(?:当地货币|本地货币)\s*([-+]?=)\s*(-?\d[\d,]*)/g;
+    let am: RegExpExecArray | null; const seenAmt = new Set<string>();
+    while ((am = amtRe.exec(raw))) {
+      const k = am[0].replace(/\s+/g, ''); if (seenAmt.has(k)) continue; seenAmt.add(k);   // 去重：同一条「统计+入账」写两遍只算一次
+      const n = Number(am[2].replace(/,/g, ''));
+      if (!Number.isFinite(n)) continue;
+      if (am[1] === '=') M.setLocalCurrency(n); else M.adjustLocalCurrency(am[1] === '-=' ? -n : n);
+    }
+  } catch { /* 当地货币解析失败不阻断其余 state 应用 */ }
   let updates = parseAllStateUpdates(raw);
   if (updates.length === 0) return;
   if (atSettlement) updates = reconcileSettlementCurrency(raw, updates);   // 结算·货币忠于【最终清算】面板 + 同类去重防双入账

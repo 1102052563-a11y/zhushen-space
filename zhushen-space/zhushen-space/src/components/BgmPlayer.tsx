@@ -7,7 +7,7 @@
      抓手独立于按钮 → 播放/切歌/选主题等点击零干扰。收起态的 🎵 可直接按住拖动、轻点展开。 */
 import { useRef, useState, useSyncExternalStore, useMemo, type PointerEvent as ReactPointerEvent, type ReactNode, type CSSProperties } from 'react';
 import { useSettings } from '../store/settingsStore';
-import { subscribeBgm, getBgmSnapshot, getBgmCategories, unlockBgm, bgmToggle, bgmNext, bgmPrev } from '../systems/audio';
+import { subscribeBgm, getBgmSnapshot, getBgmCategories, getBgmTracks, bgmPlayCategory, bgmPlayTrack, unlockBgm, bgmToggle, bgmNext, bgmPrev } from '../systems/audio';
 
 export default function BgmPlayer() {
   const snap = useSyncExternalStore(subscribeBgm, getBgmSnapshot, getBgmSnapshot);
@@ -15,7 +15,9 @@ export default function BgmPlayer() {
   const setAudio = useSettings((s) => s.setAudio);
   const [collapsed, setCollapsed] = useState(true);   // 开局默认缩成 🎵 图标（轻点展开控制条），避免占地方/误触
   const [themeOpen, setThemeOpen] = useState(false);
+  const [browseCat, setBrowseCat] = useState<string | null>(null);   // 二级菜单：null=看主题列表；主题名=看该主题歌单
   const cats = useMemo(() => getBgmCategories(), [snap.count]);
+  const songs = useMemo(() => (browseCat != null ? getBgmTracks(browseCat) : []), [browseCat, snap.count]);
 
   const containerRef = useRef<HTMLDivElement>(null);
   const [pos, setPos] = useState<{ x: number; y: number } | null>(() => audio.musicPos ?? null);
@@ -28,11 +30,10 @@ export default function BgmPlayer() {
   const sizeHint = snap.totalMB > 0 ? `${snap.count} 首 · 约 ${snap.totalMB}MB` : `${snap.count} 首`;
   const enable = () => { unlockBgm(); setAudio({ musicConsent: 'granted' }); };
   const curCat = cats.some((c) => c.name === audio.musicCategory) ? audio.musicCategory : '';   // 残留/失效主题名→当作全部随机
-  const pickTheme = (cat: string) => {
-    setThemeOpen(false);
-    if (cat === '') setAudio({ musicCategory: '', musicShuffle: true });
-    else setAudio({ musicCategory: cat });
-  };
+  const openThemeMenu = () => { setBrowseCat(null); setThemeOpen((v) => !v); };            // 主题按钮：开/关下拉，回到主题列表
+  const pickAll = () => { setThemeOpen(false); setAudio({ musicCategory: '', musicShuffle: true }); bgmPlayCategory(''); };   // 全部随机
+  const playWholeTheme = (cat: string) => { setThemeOpen(false); setAudio({ musicCategory: cat }); bgmPlayCategory(cat); };  // 随机放整个主题
+  const playSong = (file: string, cat: string) => { setThemeOpen(false); setAudio({ musicCategory: cat }); bgmPlayTrack(file); };  // 放该主题里指定一首
 
   // ── 拖动（仅从抓手 / 收起态图标发起；不触碰其它按钮）──
   const startDrag = (e: ReactPointerEvent, onTap?: () => void) => {
@@ -103,14 +104,33 @@ export default function BgmPlayer() {
     );
   } else {
     const dropdown = themeOpen && cats.length > 0 && (
-      <div className={`${dropdownBelow ? 'mt-1 order-last' : 'mb-1'} max-h-[42vh] overflow-y-auto rounded-2xl border border-god/25 bg-void/95 backdrop-blur shadow-[0_0_30px_rgba(0,0,0,0.6)] py-1 min-w-[9.5rem]`}>
-        <button onClick={() => pickTheme('')} className={`w-full text-left px-3 py-1.5 text-[12px] hover:bg-god/10 ${!curCat ? 'text-god font-medium' : 'text-dim/80'}`}>🔀 全部随机</button>
-        <div className="h-px bg-edge/60 my-1" />
-        {cats.map((c) => (
-          <button key={c.name} onClick={() => pickTheme(c.name)} className={`w-full text-left px-3 py-1.5 text-[12px] hover:bg-god/10 flex items-center justify-between gap-3 ${curCat === c.name ? 'text-god font-medium' : 'text-dim/80'}`}>
-            <span className="truncate">{c.name}</span><span className="text-dim/45 text-[10px] shrink-0">{c.count}</span>
-          </button>
-        ))}
+      <div className={`${dropdownBelow ? 'mt-1 order-last' : 'mb-1'} max-h-[46vh] overflow-y-auto rounded-2xl border border-god/25 bg-void/95 backdrop-blur shadow-[0_0_30px_rgba(0,0,0,0.6)] py-1 min-w-[11rem] max-w-[76vw]`}>
+        {browseCat == null ? (   // 一级：主题列表
+          <>
+            <button onClick={pickAll} className={`w-full text-left px-3 py-1.5 text-[12px] hover:bg-god/10 ${!curCat ? 'text-god font-medium' : 'text-dim/80'}`}>🔀 全部随机</button>
+            <div className="h-px bg-edge/60 my-1" />
+            {cats.map((c) => (
+              <button key={c.name} onClick={() => setBrowseCat(c.name)} title={`查看「${c.name}」的歌曲`} className={`w-full text-left px-3 py-1.5 text-[12px] hover:bg-god/10 flex items-center justify-between gap-3 ${curCat === c.name ? 'text-god font-medium' : 'text-dim/80'}`}>
+                <span className="truncate">{c.name}</span><span className="text-dim/45 text-[10px] shrink-0">{c.count} ›</span>
+              </button>
+            ))}
+          </>
+        ) : (   // 二级：某主题的歌单
+          <>
+            <button onClick={() => setBrowseCat(null)} className="w-full text-left px-3 py-1.5 text-[12px] text-dim/70 hover:bg-god/10">‹ 返回主题</button>
+            <button onClick={() => playWholeTheme(browseCat)} className="w-full text-left px-3 py-1.5 text-[12px] text-god/90 font-medium hover:bg-god/10 truncate">🔀 随机放「{browseCat}」</button>
+            <div className="h-px bg-edge/60 my-1" />
+            {songs.map((t) => {
+              const isCur = curCat === browseCat && snap.name === t.name;
+              return (
+                <button key={t.file} onClick={() => playSong(t.file, browseCat)} className={`w-full text-left px-3 py-1.5 text-[12px] hover:bg-god/10 flex items-center gap-2 ${isCur ? 'text-god font-medium' : 'text-dim/80'}`}>
+                  <span className="text-[9px] shrink-0 w-2">{isCur ? '▶' : ''}</span>
+                  <span className="truncate">{t.name}</span>
+                </button>
+              );
+            })}
+          </>
+        )}
       </div>
     );
     inner = (
@@ -119,7 +139,7 @@ export default function BgmPlayer() {
         <div className="flex items-center gap-1 rounded-full border border-god/25 bg-void/90 backdrop-blur pl-0.5 pr-2 py-1 shadow-lg max-w-[86vw]">
           {grip}
           {cats.length > 0 && (
-            <button onClick={() => setThemeOpen((v) => !v)} title="选择主题" className="flex items-center gap-1 shrink-0 px-2 h-7 rounded-full text-[11px] text-god/85 hover:bg-god/10 max-w-[7rem]">
+            <button onClick={openThemeMenu} title="选择主题 / 歌曲" className="flex items-center gap-1 shrink-0 px-2 h-7 rounded-full text-[11px] text-god/85 hover:bg-god/10 max-w-[7rem]">
               <span className="truncate">{curCat || '🔀 全部随机'}</span><span className="text-[9px] opacity-70">▾</span>
             </button>
           )}

@@ -11,6 +11,7 @@ export default function MiscPanel({ onClose, onGenerate }: { onClose: () => void
   const events = useMisc((s) => s.worldEvents);
   const removeTask = useMisc((s) => s.removeTask);
   const editTask = useMisc((s) => s.editTask);
+  const toggleTaskLock = useMisc((s) => s.toggleTaskLock);
   const clearArchivedTasks = useMisc((s) => s.clearArchivedTasks);
   const removeEvent = useMisc((s) => s.removeWorldEvent);
   const paradiseTime = useMisc((s) => s.paradiseTime);
@@ -97,13 +98,13 @@ export default function MiscPanel({ onClose, onGenerate }: { onClose: () => void
             <>
               {tasks.length === 0 && <div className="text-[12px] font-mono text-dim/40 text-center py-3">暂无进行中任务</div>}
               {mainTasks.map((t) => (
-                <TaskCard key={t.id} t={t} main onRemove={() => removeTask(t.id)} onEdit={() => setEditing(t)} />
+                <TaskCard key={t.id} t={t} main onRemove={() => removeTask(t.id)} onEdit={() => setEditing(t)} onToggleLock={() => toggleTaskLock(t.id)} />
               ))}
               {mainTasks.length > 0 && sideTasks.length > 0 && (
                 <div className="text-[11px] font-mono text-dim/40 px-1 pt-1">支线</div>
               )}
               {sideTasks.map((t) => (
-                <TaskCard key={t.id} t={t} main={false} onRemove={() => removeTask(t.id)} onEdit={() => setEditing(t)} />
+                <TaskCard key={t.id} t={t} main={false} onRemove={() => removeTask(t.id)} onEdit={() => setEditing(t)} onToggleLock={() => toggleTaskLock(t.id)} />
               ))}
 
               {archivedTasks.length > 0 && (
@@ -243,7 +244,7 @@ function ringMark(s: QuestRing['status']): string {
 
 /* 任务卡片：主线置顶高亮 + 环进度条/环列表/终局；无 rings 时退回扁平显示。
    archived=已结束任务：整体淡化 + 头部显示评分/结束状态 + 展开每个达成环的奖励（不再折叠成一行），不显示进行中才有的贪婪抉择/未解锁环提示。 */
-function TaskCard({ t, main, onRemove, onEdit, archived }: { t: MiscTask; main: boolean; onRemove?: () => void; onEdit?: () => void; archived?: boolean }) {
+function TaskCard({ t, main, onRemove, onEdit, onToggleLock, archived }: { t: MiscTask; main: boolean; onRemove?: () => void; onEdit?: () => void; onToggleLock?: () => void; archived?: boolean }) {
   const rings = Array.isArray(t.rings) ? [...t.rings].sort((a, b) => a.idx - b.idx) : [];
   const hasRings = rings.length > 0;
   const active = rings.find((r) => r.status === 'active');
@@ -267,6 +268,7 @@ function TaskCard({ t, main, onRemove, onEdit, archived }: { t: MiscTask; main: 
         ) : (
           <>
             <span className="text-[12px] font-mono text-amber-400/80 shrink-0">{t.status}</span>
+            {onToggleLock && <button onClick={onToggleLock} title={t.locked ? '已锁定·点击解锁（AI 只更新进度、不改任务链）' : '锁定任务链（AI 只更新进度、不改结构）'} className={`text-[12px] font-mono shrink-0 ${t.locked ? 'text-amber-300/90' : 'text-dim/40 hover:text-amber-300/70'}`}>{t.locked ? '🔒' : '🔓'}</button>}
             {onEdit && <button onClick={onEdit} title="编辑任务" className="text-[12px] font-mono text-dim/50 hover:text-god shrink-0">✏️</button>}
             {onRemove && <button onClick={onRemove} className="text-[12px] font-mono text-blood/50 hover:text-blood shrink-0">删</button>}
           </>

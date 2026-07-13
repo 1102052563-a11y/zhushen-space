@@ -57,13 +57,14 @@ function load(m: HowlerMod, file: string, loop: boolean): Promise<HowlT | null> 
 
 /** App 推入设置（开关/音量/环境音/背景音乐）。总开关关→静音并停环境音+暂停 BGM。 */
 export function setAudioSettings(s: Partial<typeof settings>): void {
-  const prevShuffle = settings.musicShuffle, prevCategory = settings.musicCategory;
+  const prevShuffle = settings.musicShuffle;
   settings = { ...settings, ...s };
   if (mod) mod.Howler.volume(settings.enabled ? clamp(settings.volume) : 0);   // 主音量总线（同时压 SFX/环境/BGM）
   if (!settings.enabled || !settings.ambient) stopAmbient();
   else if (ambient) { try { ambient.volume(clamp(settings.ambientVolume)); } catch { /* */ } }
   if (bgm) { try { bgm.volume(clamp(settings.musicVolume)); } catch { /* */ } }   // 背景音乐相对音量（受主音量再乘）
-  if (settings.musicCategory !== prevCategory) {   // 切主题：重建曲目池，从该主题第一首起播
+  if (settings.musicCategory !== bgmActiveCat) {   // 经设置直接改主题（非播放器显式播放）：同步引擎主题、重建、从首曲起播
+    bgmActiveCat = settings.musicCategory;
     bgmMissStreak = 0; bgmIdx = -1; buildBgmOrder();
     if (bgmShouldPlay()) bgmPlayAt(0);
   } else if (settings.musicShuffle !== prevShuffle) {
@@ -114,6 +115,7 @@ export function stopAmbient(): void {
    - 迷你播放器经 subscribeBgm/getBgmSnapshot 订阅当前曲名/播放态（useSyncExternalStore 用）。 */
 type BgmTrack = { file: string; name: string; bytes?: number; category?: string };
 let bgmPlaylist: BgmTrack[] = [];
+let bgmActiveCat = '';             // 引擎当前主题（真相源；从 settings.musicCategory 同步，也可被 bgmPlayCategory/Track 直接设，避免选歌与自动播首曲打架）
 let bgmOrder: number[] = [];        // 播放顺序（bgmPlaylist 的下标序列，随机时打乱）
 let bgmIdx = -1;                    // 当前曲目在 bgmOrder 里的位置（-1＝还没起播）
 let bgm: HowlT | null = null;      // 当前在放的 Howl
@@ -143,6 +145,25 @@ export function getBgmCategories(): { name: string; count: number }[] {
   for (const t of bgmPlaylist) { const c = t.category || ''; if (c) map.set(c, (map.get(c) || 0) + 1); }
   return [...map.entries()].map(([name, count]) => ({ name, count })).sort((a, b) => a.name.localeCompare(b.name, 'zh'));
 }
+/** 某主题下的曲目（file+name，清单原顺序）；供迷你播放器歌单二级菜单用。 */
+export function getBgmTracks(cat: string): { file: string; name: string }[] {
+  return bgmPlaylist.filter((t) => (t.category || '') === cat).map((t) => ({ file: t.file, name: t.name }));
+}
+/** 播放整个主题（cat=''＝全部）：设为当前主题、重建曲目池、从第一首起播。 */
+export function bgmPlayCategory(cat: string): void {
+  bgmUnlocked = true; bgmPaused = false; bgmMissStreak = 0;
+  bgmActiveCat = cat; bgmIdx = -1; buildBgmOrder();
+  if (bgmPlaylist.length) bgmPlayAt(0);
+}
+/** 直接播放指定某首（file）：切到该曲所属主题的曲目池，定位到该曲起播（上下首在此主题内）。 */
+export function bgmPlayTrack(file: string): void {
+  const t = bgmPlaylist.find((x) => x.file === file);
+  if (!t) return;
+  bgmUnlocked = true; bgmPaused = false; bgmMissStreak = 0;
+  bgmActiveCat = t.category || ''; bgmIdx = -1; buildBgmOrder();
+  const pos = bgmOrder.findIndex((i) => bgmPlaylist[i].file === file);
+  bgmPlayAt(pos >= 0 ? pos : 0);
+}
 
 const safePlaying = (h: HowlT): boolean => { try { return h.playing(); } catch { return false; } };
 // 播放门控：总开关+音乐开关+**用户已确认流量消耗**+首手势解锁+未暂停+有曲目。未 granted → 一个字节都不下载。
@@ -170,7 +191,7 @@ function ensureBgmPlaylist(): Promise<void> {
 /** 重建播放顺序：按当前主题(musicCategory)过滤曲目池，随机时 Fisher–Yates 打乱，尽量保留当前曲目位置。 */
 function buildBgmOrder(): void {
   const cur = bgmIdx >= 0 && bgmIdx < bgmOrder.length ? bgmOrder[bgmIdx] : -1;   // 当前曲目在 playlist 里的下标
-  const cat = settings.musicCategory;   // ''=全部主题；否则只收该主题
+  const cat = bgmActiveCat;   // ''=全部主题；否则只收该主题
   bgmOrder = bgmPlaylist.map((_, i) => i).filter((i) => !cat || (bgmPlaylist[i].category || '') === cat);
   if (cat && bgmOrder.length === 0) bgmOrder = bgmPlaylist.map((_, i) => i);   // 选中主题在当前清单不存在（换库/残留）→回退全部，防卡死不播
   if (settings.musicShuffle) {
@@ -210,8 +231,8 @@ function bgmPlayAt(orderIdx: number): void {
   ensureMod()
     .then((m) => getTrackHowl(m, track))
     .then((h) => {
-      if (!h) {   // 加载失败：清单与实际文件不符时跳过，最多试一轮就停
-        if (bgmPlaylist.length > 1 && bgmMissStreak < bgmOrder.length) { bgmMissStreak++; bgmAdvance(+1); }
+      if (!h) {   // 加载失败：跳下一首找能放的；⚠但最多连试 5 首就停（后端挂了/清单与文件不符时，绝不扫全曲库狂发请求）
+        if (bgmPlaylist.length > 1 && bgmMissStreak < 5) { bgmMissStreak++; bgmAdvance(+1); }
         else { bgmMissStreak = 0; bgmEmit({ playing: false }); }
         return;
       }

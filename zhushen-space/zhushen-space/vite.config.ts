@@ -150,12 +150,13 @@ function buildStickerManifest(): Plugin {
   return { name: 'build-sticker-manifest', buildStart() { gen() }, configureServer() { gen() } }
 }
 
-// 背景音乐（文件夹直投）：扫描 public/audio/bgm/ 自动生成 manifest.json = [{ file, name }]：
-//   - 你把 mp3/ogg/m4a/… 丢进 public/audio/bgm/，build（含 Cloudflare）与 dev 启动时自动重写清单，无需手写。
+// 背景音乐（文件夹直投）：扫描 public/bgm/ 自动生成 manifest.json = [{ file, name, category, bytes }]（本地 dev 用；线上走 R2）：
+//   - 你把 mp3/ogg/m4a/… 丢进 public/bgm/，build（含 Cloudflare）与 dev 启动时自动重写清单，无需手写。
+//   - ⚠必须是 public/bgm（不是 public/audio/bgm）：/audio/ 下有音效静态文件，Pages 会把 /audio/* 静态化、绕过 BGM 的 Function。
 //   - name = 文件名(去扩展名)，作为迷你播放器显示的曲名。多首=播放列表；空=前端不显示播放器。
 //   - **素材版权由放置者自负**（站点公开部署）。
 function buildBgmManifest(): Plugin {
-  const DIR = 'public/audio/bgm'
+  const DIR = 'public/bgm'
   const AUD = /\.(mp3|ogg|m4a|aac|flac|opus|wav)$/i
   const gen = () => {
     try {

@@ -62,20 +62,34 @@ async function safeFetch(url: string, init: RequestInit): Promise<Response> {
   }
 }
 
-/* 把失败响应(res.ok=false)转成人话：接口地址/CORS 代理/防火墙这一层挡下时，body 往往是
-   Cloudflare 等「拦截页/挑战页」(整段 HTML)——直接塞进报错会刷屏且毫无信息量（用户只会看到一堆
-   <!DOCTYPE html> / no-js ie6 oldie）。识别出 HTML/挑战页就给可操作提示；否则回落到原始 body
-   片段（那才是真·接口的 JSON 报错，如额度/模型名错误）。 */
+/* 判断响应体是不是 HTML/挑战页（拦截页、404 网页、代理错误页等——哪怕 HTTP 200 也可能是）。 */
+function bodyIsHtml(bodyHead: string): { html: boolean; cf: boolean } {
+  const h = bodyHead.slice(0, 300).toLowerCase();
+  const html = h.startsWith('<!doctype') || h.startsWith('<html') || h.includes('<html');
+  const cf = h.includes('cloudflare') || h.includes('cf-ray') || h.includes('attention required') || h.includes('just a moment') || h.includes('no-js ie6 oldie');
+  return { html, cf };
+}
+function htmlBlockMsg(label: string, status: number, cf: boolean): string {
+  return `${label} (HTTP ${status})：接口返回的是一张网页（不是图片/JSON）——${cf ? '被 Cloudflare 挡下' : '多半是代理/网关/地址那层拦下的'}。请到「生图API配置」逐项检查：① 接口地址是否填错/填成了网页地址；② CORS 代理是否写对/已部署；③ Key 是否有效；④ 该服务是否拦截了浏览器直连或你所在地区。`;
+}
+
+/* 把失败响应(res.ok=false)转成人话：HTML/挑战页给可操作提示；否则回落到原始 body 片段（真·接口 JSON 报错，如额度/模型名错误）。 */
 async function httpFailMsg(res: Response, label: string): Promise<string> {
   let body = '';
   try { body = (await res.text()).trim(); } catch { /* ignore */ }
-  const head = body.slice(0, 300).toLowerCase();
-  const isHtml = head.startsWith('<!doctype') || head.startsWith('<html') || head.includes('<html');
-  const isCf = head.includes('cloudflare') || head.includes('cf-ray') || head.includes('attention required') || head.includes('just a moment') || head.includes('no-js ie6 oldie');
-  if (isHtml || isCf) {
-    return `${label} (${res.status})：请求被${isCf ? ' Cloudflare ' : '网关/防火墙'}挡下，返回的是一张网页拦截页（不是图片）——说明请求还没到真正的生图接口。多半是：① 生图 API「接口地址」填错/填成了网页地址；② 「CORS 代理」地址写错或没部署；③ Key 无效；④ 该服务拦截了浏览器直连或你所在的地区。请到「生图API配置」逐项检查。`;
-  }
+  const { html, cf } = bodyIsHtml(body);
+  if (html || cf) return htmlBlockMsg(label, res.status, cf);
   return `${label} (${res.status}): ${body.slice(0, 160)}`;
+}
+
+/* 读响应体为 JSON：若是 HTML/拦截页（哪怕 HTTP 200·代理/网关返回网页）就抛人话错误——
+   不再让 res.json() 甩出 "Unexpected token '<', \"<!doctype\"... is not valid JSON"。 */
+async function readImgJson(res: Response, label: string): Promise<any> {
+  const body = (await res.text()).trim();
+  const { html, cf } = bodyIsHtml(body);
+  if (html || cf) throw new Error(htmlBlockMsg(label, res.status, cf));
+  try { return JSON.parse(body); }
+  catch { throw new Error(`${label} (HTTP ${res.status})：接口返回的不是合法 JSON：${body.slice(0, 160) || '(空响应)'}`); }
 }
 
 /* ───────── NAI 全局串行限速门 ───────── */
@@ -243,7 +257,7 @@ async function genOpenAI(cfg: OpenAIImgConfig, o: GenOpts): Promise<string> {
       body: JSON.stringify(body), signal,
     });
     if (!res.ok) throw new Error(await httpFailMsg(res, '图片生成失败'));
-    const data = await res.json();
+    const data = await readImgJson(res, '图片生成失败');
     const item = data.data?.[0] ?? {};
     if (item.b64_json) return `data:image/png;base64,${item.b64_json}`;
     if (item.url) {
@@ -278,7 +292,7 @@ async function genComfy(cfg: ComfyConfig, o: GenOpts): Promise<string> {
   const clientId = 'zhushen_' + Math.random().toString(36).slice(2);
   const sub = await safeFetch(`${base}/prompt`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ prompt: wf, client_id: clientId }), signal: o.signal ?? null });
   if (!sub.ok) throw new Error(await httpFailMsg(sub, 'ComfyUI 提交失败'));
-  const promptId = (await sub.json()).prompt_id;
+  const promptId = (await readImgJson(sub, 'ComfyUI 提交失败')).prompt_id;
   if (!promptId) throw new Error('ComfyUI 未返回 prompt_id');
   const interval = Math.min(10000, Math.max(250, cfg.pollIntervalMs || 1200));
   const deadline = cfg.timeoutSec > 0 ? Date.now() + cfg.timeoutSec * 1000 : Infinity;
@@ -287,7 +301,7 @@ async function genComfy(cfg: ComfyConfig, o: GenOpts): Promise<string> {
     await new Promise((r) => setTimeout(r, interval));
     const h = await fetch(`${base}/history/${encodeURIComponent(promptId)}`, { signal: o.signal ?? null });
     if (!h.ok) continue;
-    const hist = await h.json();
+    const hist = await readImgJson(h, 'ComfyUI 查询失败');
     const entry = hist[promptId];
     const outputs = entry?.outputs ?? {};
     for (const node of Object.values(outputs) as any[]) {
