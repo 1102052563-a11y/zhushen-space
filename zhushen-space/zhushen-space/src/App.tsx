@@ -4471,6 +4471,7 @@ ${AFFIX_EFFECT_RULE}`;
       runPlayerEvolutionPhase(narrative + selfRule),
       runItemManagementPhase(narrative + selfRule),
     ]);
+    try { await runNarrativeIngestPhase(lastUserInputRef.current || '', narrative); } catch { /* */ }   // 来宾也抽取叙事记忆·长期事实(向量/关键词召回都靠它)：否则断线回单机后没记忆、AI 瞎编
     try { await runMemoryCompressionPhase(true); } catch { /* */ }   // 只压自己 B*
   }
 
@@ -9205,6 +9206,7 @@ ${lines}`;
     // 来宾：不调 AI，提交行动给房主 + 本地回显，等房主广播正文（恒提交·恒收广播 = 单一房主权威正文）
     // 分头行动：splitMode 时给提交文本加标记，房主在同一份正文里把你写成「脱离主队独自行动」（不再各端独立生成，杜绝剧情冲突/瞬移/NPC 不同步）
     if (mp.status === 'connected' && mp.role === 'player') {
+      lastUserInputRef.current = text;   // 存来宾本回合行动：供收到 pov_final 后的叙事记忆抽取(runNarrativeIngestPhase)当上下文
       const submitText = mp.splitMode ? `【分头行动·脱离主队独自行动】${text}` : text;
       mpClient.submitInput(submitText, buildPlayerSnapshot());
       setMessages((prev) => [...prev, { id: ++msgId.current, role: 'user', content: mp.splitMode ? `🚶（分头行动）${text}` : text }]);

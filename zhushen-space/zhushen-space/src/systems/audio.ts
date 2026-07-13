@@ -219,8 +219,8 @@ function bgmPlayAt(orderIdx: number): void {
       bgm = h;
       bgmEmit({ name: track.name, hasTracks: true });
       if (bgmShouldPlay()) {
-        const vol = clamp(settings.musicVolume);
-        try { h.seek(0); h.volume(0); h.play(); h.fade(0, vol, 600); } catch { /* */ }
+        // 直接设目标音量再播（html5 音频上 Howler.fade 不可靠——淡入常停在 0 导致换歌静音，须动音量条才响）
+        try { h.seek(0); h.volume(clamp(settings.musicVolume)); h.play(); } catch { /* */ }
         bgmEmit({ playing: true });
       }
     })

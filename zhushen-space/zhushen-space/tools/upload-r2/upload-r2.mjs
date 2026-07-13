@@ -86,8 +86,9 @@ const AUD = /\.(mp3|ogg|m4a|aac|flac|opus|wav)$/i;
 const AUD_CT = { '.mp3': 'audio/mpeg', '.ogg': 'audio/ogg', '.m4a': 'audio/mp4', '.aac': 'audio/aac', '.flac': 'audio/flac', '.opus': 'audio/opus', '.wav': 'audio/wav' };
 const audCtype = (f) => AUD_CT[extname(f).toLowerCase()] || 'application/octet-stream';
 const BGM_PREFIX = 'audio/bgm';
-// 试水：只上《赛博朋克2077》一套；要全上改成 join(HERE, '../../../../BGM')（会递归所有子文件夹）
-const BGM_SRC = join(HERE, '../../../../BGM/游戏bgm/2077');
+// 扫 游戏bgm/ 下各游戏文件夹 → 每个游戏成一个主题（2077/上古卷轴5/女神异闻录5/巫师三/星露谷）。
+// 想只上一套：改成 '../../../../BGM/游戏bgm/2077'；想连 jpop 一起：改成 '../../../../BGM'。
+const BGM_SRC = join(HERE, '../../../../BGM/游戏bgm');
 
 let bgmManifest = null;
 if (existsSync(BGM_SRC)) {
