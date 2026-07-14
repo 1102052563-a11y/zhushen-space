@@ -63,6 +63,11 @@ export default function PromptCenterPanel({ onClose }: { onClose: () => void }) 
               <textarea value={draft} onChange={(e) => setDraft(e.target.value)} rows={18}
                 className="w-full px-3 py-2 bg-black/40 border border-edge rounded-md text-[13px] text-slate-200 font-mono resize-y focus:border-god/50 focus:outline-none leading-relaxed"
                 placeholder={editing.def ? '（在此编辑以覆盖内置默认；清空并保存=恢复默认）' : '（留空=不注入）'} />
+              <div className="text-[11px] text-dim/50 leading-relaxed bg-black/20 border border-edge/40 rounded-md px-2.5 py-1.5">
+                💡 <b className="text-dim/70">支持变量标签</b>（内置默认与你的自定义都支持 · 发送时实时替换 · 未定义的变量原样保留）：
+                <span className="text-god/70 font-mono">{' {{user}} {{char}} {{getvar::名}} ${自定义变量} {{roll 1d100}} {{random::A::B}}'}</span>
+                {' '}等；变量取自「设置 → 变量管理」的核心态 + 自定义变量（和正文预设同一套宏）。
+              </div>
               <div className="flex flex-wrap items-center gap-2">
                 <button onClick={doSave} className="text-[13px] px-3 py-1.5 rounded bg-god/15 border border-god/40 text-god hover:bg-god/25 transition-colors">💾 保存</button>
                 {editing.def && <button onClick={() => setDraft(editing.def)} className="text-[13px] px-3 py-1.5 rounded border border-edge text-dim/70 hover:text-slate-200 transition-colors">载入默认全文</button>}

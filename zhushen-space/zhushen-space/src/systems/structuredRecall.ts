@@ -264,10 +264,11 @@ export function serializePlayerCard(
   const pMaxHp = fullMaxHp(hpBase, pEqp, skills, hpTalents, rmP, pRatio);
   const pMaxEp = fullMaxEp(hpBase, pEqp, skills, hpTalents, rmP, pRatio);
   // 有效六维 = 基础 + 装备/技能/天赋 + 技能树 + 团队加成（与属性面板/战斗/骰子完全一致；注入正文用实战值，并标注基础值）
-  const effA = effectiveAttrs(withAttrDelta(withAttrDelta(a, playerTreeAttrBonus('B1')), playerTeamAttrBonus()), skills, talents, pEqp, attrCapForTier(profile.tier, profile.level));
+  const effA = effectiveAttrs(hpBase, skills, talents, pEqp, attrCapForTier(profile.tier, profile.level));   // 用 hpBase（已含真实属性点直加 realAttrs + 技能树 + 团队）→ 注入六维=面板「真实属性」+装备/技能/天赋，不再漏 realAttrs
   // 衍生攻防（与属性面板同式：有效六维 + 等级 + 已装备品级）
   const derived = computeDerived(effA, profile.level, pEqp.map((it) => ({ category: it.category as string, grade: (it.numeric?.grade as number) ?? gradeToNum(it.gradeDesc), combatStat: it.combatStat })));
-  const faP = (k: keyof PlayerAttrs) => { if (!a) return ''; return effA[k] === a[k] ? `${effA[k]}` : `${effA[k]}(基${a[k]})`; };
+  const aReal = withAttrDelta(a, profile.realAttrs);   // 真实属性 = 基础六维 + 真实属性点直加(realAttrs)；四阶起面板即此
+  const faP = (k: keyof PlayerAttrs) => { if (!a) return ''; return effA[k] === aReal[k] ? `${effA[k]}` : `${effA[k]}(基${aReal[k]})`; };
   // 自定义能量条（玩家自设·纯剧情资源）：注入当前值/上限 + 一行更新规则，让 AI 按语义驱动
   const injectRes = useResource.getState().resources.filter((r) => r.inject !== false);
   const resLines = injectRes.length ? [
@@ -388,8 +389,9 @@ export function serializeNpcCard(
   ].filter(Boolean).join(' | ');
   const a = npc.attrs;
   // 有效六维 = 基础 + 装备/技能/天赋加成（与 NPC 详情面板一致；注入正文用实战值，并标注基础值）
-  const effA = a ? effectiveAttrs(a, skills, talents, (npc.items ?? []).filter((it) => it.equipped) as any, attrCapForTier(npc.realm, lvFromRealm(npc.realm))) : undefined;
-  const faN = (k: keyof PlayerAttrs) => { if (!a || !effA) return ''; return effA[k] === a[k] ? `${effA[k]}` : `${effA[k]}(基${a[k]})`; };
+  const effA = a ? effectiveAttrs(npcBaseAttrs(npc), skills, talents, (npc.items ?? []).filter((it) => it.equipped) as any, attrCapForTier(npc.realm, lvFromRealm(npc.realm))) : undefined;   // npcBaseAttrs=attrs+真实属性点直加(realAttrs)：注入六维不再漏真实属性
+  const aRealN = a ? npcBaseAttrs(npc) : undefined;   // NPC 真实属性 = attrs + realAttrs 直加
+  const faN = (k: keyof PlayerAttrs) => { if (!a || !effA || !aRealN) return ''; return effA[k] === aRealN[k] ? `${effA[k]}` : `${effA[k]}(基${aRealN[k]})`; };
   const nEqp = (npc.items ?? []).filter((it) => it.equipped) as any;
   const rmN = realAttrMult(npc.realm, lvFromRealm(npc.realm));   // 四阶起 HP/EP×5
   const nRatio = ratioOf(npc);   // NPC 自定义转化比（多属性系数表；空=默认 体×20 / 智×15）

@@ -49,7 +49,7 @@ function rollDice(n: number, sides: number, rng: () => number): string {
   return String(sum);
 }
 
-export function processMacros(text: string, ctx: MacroCtx, stripLeftover = true): string {
+export function processMacros(text: string, ctx: MacroCtx, stripLeftover = true, keepUnknown = false): string {
   if (!text || (!text.includes('{{') && !text.includes('${') && !text.includes('<user>'))) return text;
   let n = text.replace(RE_COMMENT, '');
   n = n.replace(RE_SETVAR, (_m, name, sep, val) => {
@@ -66,7 +66,7 @@ export function processMacros(text: string, ctx: MacroCtx, stripLeftover = true)
     ctx.vars.set(a, (ctx.vars.get(a) ?? '') + String(val ?? ''));
     return '';
   });
-  n = n.replace(RE_GETVAR, (_m, name) => ctx.vars.get(String(name).trim()) ?? '');
+  n = n.replace(RE_GETVAR, (_m, name) => { const v = ctx.vars.get(String(name).trim()); return v !== undefined ? v : (keepUnknown ? _m : ''); });
   const randPick = (body: string) => {
     let parts = body.split('::').map((s) => s.trim()).filter(Boolean);
     if (parts.length < 2) parts = body.split(',').map((s) => s.trim()).filter(Boolean);
@@ -75,7 +75,7 @@ export function processMacros(text: string, ctx: MacroCtx, stripLeftover = true)
   n = n.replace(RE_RANDOM, (_m, body) => randPick(String(body)));
   n = n.replace(RE_PICK, (_m, body) => randPick(String(body)));
   n = n.replace(RE_ROLL, (_m, a, b) => rollDice(parseInt(a, 10), parseInt(b, 10), ctx.random));
-  n = n.replace(RE_DOLLAR, (_m, name) => ctx.vars.get(String(name).trim()) ?? '');
+  n = n.replace(RE_DOLLAR, (_m, name) => { const v = ctx.vars.get(String(name).trim()); return v !== undefined ? v : (keepUnknown ? _m : ''); });
   n = n.replace(RE_LASTUSER, () => ctx.vars.get('lastUserMessage') ?? '');
   n = n.replace(RE_NEWLINE, () => '\n');
   n = n.replace(RE_TRIM, '');

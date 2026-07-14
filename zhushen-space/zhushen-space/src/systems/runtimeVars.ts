@@ -13,6 +13,7 @@ import { useGame } from '../store/gameStore';
 import { useItems } from '../store/itemStore';
 import { useMisc } from '../store/miscStore';
 import { useVariables } from '../store/variableStore';
+import { useCharacters } from '../store/characterStore';   // 主角(B1) 技能/天赋列表 → 名称清单变量
 
 export interface RuntimeVarRow {
   name: string;     // 引用名：{{getvar::name}} / ${name}
@@ -43,6 +44,21 @@ export function runtimeVarCatalog(): RuntimeVarRow[] {
   core('主角.阶位', p?.tier, '主角阶位');
   core('主角.称号', p?.title, '当前称号');
   core('主角.身份', p?.identity, '主角身份');
+  core('主角.职业', p?.profession, '主角职业（法系/物理/辅助…影响装备与职业任务生成）');
+  core('主角.所属乐园', p?.homeParadise, '主角所属乐园');
+  core('主角.性别', p?.gender, '主角性别');
+  core('主角.外观', p?.appearance, '主角外观描写（会随剧情演化）');
+  core('主角.生物强度', p?.bioStrength, '生物强度模板 T0~T9（如"T3·勇士"）——生成/战力定档用');
+  core('主角.种族', p?.race, '主角种族（人类/精灵/吸血鬼…）');
+  core('主角.背景', p?.preParadiseJob, '主角入园前背景/职业');
+  core('主角.性格', p?.personality, '主角性格特质（简短）');
+  core('主角.当前状态', p?.status, '主角当前长期状态/Buff（自由文本）');
+  core('主角.竞技场排名', p?.arenaRank, '竞技场排名');
+  core('主角.烙印等级', p?.brandLevel, '契约者烙印等级');
+  // 技能/天赋是列表 → 拼成名称清单串（完整含效果的档案由 <主角当前档案> 注入，这里只给名·供独立调用/预设列名用）
+  { const cd = useCharacters.getState().characters['B1'];
+    core('主角.技能清单', (cd?.skills ?? []).map((s) => s.name).filter(Boolean).join('、'), '主角当前技能名·顿号分隔（仅名称）');
+    core('主角.天赋清单', (cd?.traits ?? []).map((t) => t.name).filter(Boolean).join('、'), '主角当前天赋名·顿号分隔（仅名称）'); }
   core('主角.位置', p?.location, '当前所处位置');
   core('主角.世界之源', p?.worldSource, '当前任务世界累计世界之源');
   core('主角.属性点', p?.attrPoints, '可用属性点余额');

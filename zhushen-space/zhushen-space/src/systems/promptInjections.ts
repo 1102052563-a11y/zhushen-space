@@ -146,7 +146,7 @@ export function buildWorldTimeInjection(): { role: 'system'; content: string }[]
 
 /* <当前任务> 注入正文：主线(重·当前目标+下一步+终局，作叙事节奏锚点) + 相关支线(轻·限量)。
    解决"主线没存在感、要手动口胡才回归"——把任务面板回流进正文生成上下文。 */
-export function buildQuestInjection(): { role: 'system'; content: string }[] {
+export function buildQuestInjection(deferToPlan = false): { role: 'system'; content: string }[] {
   const M = useMisc.getState();
   if (M.settings.questInjectEnabled === false) return [];
   const tasks = M.tasks ?? [];
@@ -163,6 +163,20 @@ export function buildQuestInjection(): { role: 'system'; content: string }[] {
     sceneText: `${loc} ${onScene}`.trim(),
   });
   if (!body) return [];
+  // 本回合有【剧情指导 / 细纲 / 数据库推进】等前置规划时 deferToPlan=true：任务线降级为「背景参考」，把"是否推进主线"的决定权交给那份规划——
+  // 治"三个推进 / 提示词写了『不要管主线』被主线强约束盖过"（原措辞的唯一例外只认玩家输入、无视前置规划）。
+  if (deferToPlan) {
+    return [{
+      role: 'system' as const,
+      content:
+        `<当前任务>（主角任务线 = 预先规划好的剧情大方向·**本回合仅作背景参考**；勿在正文里罗列或写"环/任务/进度"等系统词）\n${body}\n` +
+        `【本回合以"前置规划"为准·不强制推进主线】\n` +
+        `- 本回合另有【剧情指导 / 细纲 / 数据库推进】等前置规划——**一律以那份规划为准**：它顺着主线就推进主线，它说暂缓 / 转向 / 让主角休整或自由发展 / 写支线或日常，就照它写，**别硬把剧情拉回主线当前环**。\n` +
+        `- 任务线在这里只是让你知道"大方向在哪"，不是本回合必须达成的硬指标；主线不会因此丢失，下回合没有前置规划时自会照常推进。\n` +
+        `- 玩家本轮输入明确转向时同样以玩家为准。\n` +
+        `</当前任务>`,
+    }];
+  }
   return [{
     role: 'system' as const,
     content:
