@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { useNpc, hasRealNpcName, type NpcRecord } from '../store/npcStore';
+import { isPetLike } from '../systems/petEvolution';   // 宠物/召唤物分流：默认档案排除宠物，petMode 只看宠物
 import { isDmableTag } from '../store/dmStore';
 import { normalizeTier, tierFxClass } from '../systems/derivedStats';
 import NpcDetail from './NpcDetail';
@@ -100,7 +101,7 @@ function NpcCard({ npc, onOpen, onDm, onToggleFriend, onManualUpdate, onRestore,
 /* ════════════════════════════════════════════
    主弹窗
 ════════════════════════════════════════════ */
-export default function NpcPanel({ onClose, onDm, onManualUpdate, manualUpdatingId, onCultivate }: { onClose: () => void; onDm?: (r: NpcRecord) => void; onManualUpdate?: (id: string) => void; manualUpdatingId?: string | null; onCultivate?: (r: NpcRecord) => void }) {
+export default function NpcPanel({ onClose, onDm, onManualUpdate, manualUpdatingId, onCultivate, petMode }: { onClose: () => void; onDm?: (r: NpcRecord) => void; onManualUpdate?: (id: string) => void; manualUpdatingId?: string | null; onCultivate?: (r: NpcRecord) => void; petMode?: boolean }) {
   const npcs      = useNpc((s) => s.npcs);
   const clearAll  = useNpc((s) => s.clearAll);
   const setFriend = useNpc((s) => s.setFriend);
@@ -113,7 +114,8 @@ export default function NpcPanel({ onClose, onDm, onManualUpdate, manualUpdating
   const isDeadNpc = (r: NpcRecord) => !!r.isDead;
   // 无名编号空壳(C11/C22…)不进档案列表——它们要么会被自动清理，要么待补名后才以真名出现。
   // （仍想手动处理可去「设置→变量管理→NPC演化」的管理面板，那里不过滤。）
-  const records  = Object.values(npcs).filter((r) => !isDeadNpc(r) && hasRealNpcName(r)).sort((a, b) => b.updatedAt - a.updatedAt);
+  // petMode=宠物/召唤物专属花名册；否则 NPC 档案排除宠物/召唤物（它们有独立的 🐾 面板·严格区分）。
+  const records  = Object.values(npcs).filter((r) => !isDeadNpc(r) && hasRealNpcName(r) && (petMode ? isPetLike(r) : !isPetLike(r))).sort((a, b) => b.updatedAt - a.updatedAt);
   const onScene  = records.filter((r) => r.onScene);
   const offScene = records.filter((r) => !r.onScene);
 
@@ -125,7 +127,7 @@ export default function NpcPanel({ onClose, onDm, onManualUpdate, manualUpdating
 
   const selected = selectedId ? npcs[selectedId] : null;
 
-  const TAGS = ['契约者', '土著', '随从', '宠物', '召唤物'];
+  const TAGS = petMode ? ['宠物', '召唤物'] : ['契约者', '土著', '随从'];
 
   const displayed = (tab === 'on' ? onScene : offScene).filter((r) => {
     if (tagFilter && r.npcTag !== tagFilter) return false;
@@ -148,9 +150,9 @@ export default function NpcPanel({ onClose, onDm, onManualUpdate, manualUpdating
 
         {/* 标题栏 */}
         <header className="shrink-0 flex items-center gap-3 px-5 py-3 border-b border-edge bg-panel">
-          <span className="text-god/60 text-lg">📇</span>
+          <span className="text-god/60 text-lg">{petMode ? '🐾' : '📇'}</span>
           <div>
-            <div className="text-sm font-bold text-slate-100">NPC 档案</div>
+            <div className="text-sm font-bold text-slate-100">{petMode ? '宠物 / 召唤物' : 'NPC 档案'}</div>
             <div className="text-[12px] font-mono text-dim/60">
               在场 {onScene.length} · 离场 {offScene.length}
             </div>

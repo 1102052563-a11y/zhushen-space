@@ -18,6 +18,7 @@ import {
   JOY_SYSTEM_RULE, JOY_OUTPUT_RULE, JOY_PRIVATE_FIELDS_RULE,
   CHEST_OPEN_RULE, ARENA_OPPONENT_RULE, ARENA_REWARD_RULE, GLADIATOR_MATCH_RULE, GACHA_REWARD_RULE,
   CRAFT_RULE, WORLDVIEW_GEN_PROMPT, WORLD_SUMMARY_PROMPT,
+  CHAOS_RECORD_PROMPT, CHAOS_WORLD_GEN_PROMPT,
 } from '../promptRules';
 import { COMBAT_WRITING_GUIDE_RULE } from './combatWritingGuide';
 import { ABYSS_BOON_GEN_RULE, ABYSS_SIN_GEN_RULE, ABYSS_AWAKEN_RULE, ABYSS_JUDGE_RULE, ABYSS_ENEMY_GEN_RULE } from './abyssPrompts';
@@ -78,6 +79,8 @@ export const PROMPT_REGISTRY: PromptEntry[] = [
   // ── 世界结算（第三批·addRule 门控注入）──
   { key: 'WORLD_SETTLEMENT_RULE', label: '世界结算 · 总纲', group: '世界结算', kind: 'override', def: WORLD_SETTLEMENT_RULE, desc: '结算总纲 / 报酬 / 评级（【结算任务】触发）' },
   { key: 'WORLD_SETTLEMENT_COT_RULE', label: '世界结算 · 思维链', group: '世界结算', kind: 'override', def: WORLD_SETTLEMENT_COT_RULE, desc: '结算前逐项推演是否公正 / 忠于原文' },
+  { key: 'CHAOS_RECORD_PROMPT', label: '混沌世界 · 影响记录', group: '世界结算', kind: 'override', def: CHAOS_RECORD_PROMPT, desc: '离世时生成「对世界的影响 + 剧情偏移点」的 COT（含联网核对原著）' },
+  { key: 'CHAOS_WORLD_GEN_PROMPT', label: '混沌世界 · 世界卡生成', group: '世界结算', kind: 'override', def: CHAOS_WORLD_GEN_PROMPT, desc: '据多个世界的前人记录生成「被前人影响过」的世界卡 COT' },
   // ── NPC 演化 · 人格与校准（正文常驻 + 演化两处一致 override）──
   { key: 'ATTR_POWER_CODEX', label: '属性 · 战力量化表', group: '演化阶段', kind: 'override', def: ATTR_POWER_CODEX, desc: '单属性↔阶位↔战力↔生物强度档 校准基准' },
   { key: 'NPC_INDEPENDENCE_RULE', label: 'NPC · 独立人格反谄媚', group: '演化阶段', kind: 'override', def: NPC_INDEPENDENCE_RULE, desc: '配角有独立人格 · 不围着主角转' },

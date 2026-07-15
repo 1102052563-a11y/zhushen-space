@@ -23,6 +23,8 @@ export interface WorldOption {
   entryComment: string;
   entryContent: string;
   entryKeys: string[];
+  priorLegacy?: string;   // 混沌世界卡专属：前人遗产（前任契约者留下的遗物/组织/传说/烂摊子）。普通世界卡无此字段。
+  plotDrift?: string;     // 混沌世界卡专属：剧情偏移（相对原著，这个世界已被前人改写成什么样）。普通世界卡无此字段。
 }
 
 interface Props {

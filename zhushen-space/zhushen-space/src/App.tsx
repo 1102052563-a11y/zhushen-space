@@ -119,6 +119,8 @@ import {
   buildPovAlignRule,
   WORLDVIEW_GEN_PROMPT,
   WORLD_SUMMARY_PROMPT,
+  CHAOS_RECORD_PROMPT,
+  CHAOS_WORLD_GEN_PROMPT,
   CRAFT_RULE,
 } from './promptRules';
 
@@ -223,6 +225,8 @@ import type { ItemPresetEntry } from './store/itemStore';
 import { useComposer } from './store/composerStore';
 import { usePlayer, buildPlayerSystemPrompt, extractPlayerPresetFromJson } from './store/playerStore';
 import { useWorldRecord, formatWorldviewForInjection, formatInheritAnchors, normWorldName, type Worldview, type WorldSummary } from './store/worldRecordStore';
+import { useChaosWorld } from './store/chaosWorldStore';
+import { computeOffset, canonWorldName, chaosUpload, chaosFeed, type ChaosRecordDraft, type ChaosOffsetNode } from './systems/chaosWorld';
 import { useNpcEvo, extractNpcPresetFromJson } from './store/npcEvoStore';
 import { usePetEvo } from './store/petEvoStore';
 import { isPetLike } from './systems/petEvolution';
@@ -322,6 +326,8 @@ import { settleDmDeal, normCur as dmNormCur } from './systems/dmTrade';
 const SystemShop = lazy(() => import('./components/SystemShop'));
 const SummaryPanel = lazy(() => import('./components/SummaryPanel'));
 const WorldRecordPanel = lazy(() => import('./components/WorldRecordPanel'));
+const ChaosWorldPanel = lazy(() => import('./components/ChaosWorldPanel'));
+const ChaosUploadModal = lazy(() => import('./components/ChaosUploadModal'));
 const WorldbookMergePanel = lazy(() => import('./components/WorldbookMergePanel'));
 const AuditPanel = lazy(() => import('./components/AuditPanel'));
 const SaveLoadPanel = lazy(() => import('./components/SaveLoadPanel'));
@@ -1151,6 +1157,7 @@ const rightMenuItems = [
   { icon: '⚔', label: '装备' },
   { icon: '🎒', label: '储存空间' },
   { icon: '📇', label: 'NPC' },
+  { icon: '🐾', label: '宠物/召唤物' },
   { icon: '✨', label: '技能' },
   { icon: '🛠', label: '副职业' },
   { icon: '🌳', label: '技能树' },
@@ -1167,6 +1174,7 @@ const rightMenuItems = [
   { icon: '📖', label: '世界百科' },
   { icon: '📚', label: '轮回WIKI' },
   { icon: '🗺', label: '世界记录' },
+  { icon: '☄️', label: '混沌世界' },
   { icon: '⚔️', label: '战斗' },
   { icon: '🎡', label: '乐园设施' },
   { icon: '🕳', label: '深渊' },
@@ -1196,7 +1204,7 @@ const rightMenuItems = [
 const NAV_FX: Record<string, string> = {
   '装备': 'fx-sword', '储存空间': 'fx-bag', 'NPC': 'fx-card', '技能': 'fx-sparkle',
   '副职业': 'fx-wrench', '技能树': 'fx-tree', '体系': 'fx-tree', '合成': 'fx-wrench', '开箱': 'fx-bag', '称号': 'fx-medal', '成就': 'fx-trophy', '势力': 'fx-pillar',
-  '领地': 'fx-castle', '冒险团': 'fx-shield', '队伍': 'fx-friends', '万族': 'fx-cosmos', '世界百科': 'fx-book', '轮回WIKI': 'fx-book',
+  '领地': 'fx-castle', '冒险团': 'fx-shield', '队伍': 'fx-friends', '万族': 'fx-cosmos', '世界百科': 'fx-book', '轮回WIKI': 'fx-book', '混沌世界': 'fx-void',
   '战斗': 'fx-clash', '乐园设施': 'fx-ferris', '深渊': 'fx-void', '回合洞察': 'fx-zoom', '审计': 'fx-zoom', '任务': 'fx-quest',
   '频道': 'fx-signal', '私信': 'fx-mail', '好友': 'fx-friends', '聊天室': 'fx-signal', '交易行': 'fx-bag', '产业': 'fx-bag', '公会': 'fx-castle', '助战': 'fx-clash', '世界竞技场': 'fx-trophy', '游玩时长': 'fx-trophy', '纪念丰碑': 'fx-pillar', '账户仓库': 'fx-bag', '记忆': 'fx-brain', '创意工坊': 'fx-sparkle', '存档': 'fx-save', '设置': 'fx-gear',
 };
@@ -1350,8 +1358,12 @@ export default function App() {
   const [skillTreeOpen,    setSkillTreeOpen]    = useState(false);
   const [loadoutOpen,      setLoadoutOpen]      = useState(false);
   const [npcPanelOpen,     setNpcPanelOpen]     = useState(false);
+  const [petRosterOpen,    setPetRosterOpen]    = useState(false);   // 🐾 宠物/召唤物花名册（复用 NpcPanel petMode）
   const [miscPanelOpen,    setMiscPanelOpen]    = useState(false);
   const [worldRecordOpen,  setWorldRecordOpen]  = useState(false);
+  const [chaosWorldOpen,   setChaosWorldOpen]   = useState(false);   // 混沌世界面板
+  const [chaosPending,     setChaosPending]     = useState<ChaosRecordDraft | null>(null);   // 离世生成的混沌记录·待 opt-in 上传（非空则弹上传确认窗）
+  const [chaosCardBusy,    setChaosCardBusy]    = useState(false);   // 正在据勾选世界生成混沌世界卡
   const [enhancePanelOpen, setEnhancePanelOpen] = useState(false);
   const [craftPanelOpen, setCraftPanelOpen] = useState(false);
   const [chestPanelOpen, setChestPanelOpen] = useState(false);
@@ -9395,11 +9407,13 @@ ${lines}`;
       label === '世界百科' ? () => setWorldCodexOpen(true) :
       label === '轮回WIKI' ? () => setWikiOpen(true) :
       label === '世界记录' ? () => setWorldRecordOpen(true) :
+      label === '混沌世界' ? () => setChaosWorldOpen(true) :
       label === '回合洞察' ? () => setInsightOpen(true) :
       label === '战斗' ? () => { if (mpGuest) { setGenError('联机中：战斗由房主发起'); setTimeout(() => setGenError(''), 4000); return; } setCombatSetupOpen(true); } :
       label === '乐园设施' ? () => setFacilitiesOpen(true) :
       label === '深渊' ? () => setAbyssOpen(true) :
       label === 'NPC'  ? () => setNpcPanelOpen(true) :
+      label === '宠物/召唤物' ? () => setPetRosterOpen(true) :
       label === '任务' ? () => setMiscPanelOpen(true) :
       label === '频道' ? () => setChannelPanelOpen(true) :
       label === '私信' ? () => { setDmFocusThread(undefined); setDmPanelOpen(true); } :
@@ -10090,12 +10104,132 @@ ${lines}`;
       const summary = lenientJsonParse(jsonText) as WorldSummary;
       if (!summary || typeof summary !== 'object') throw new Error('返回的不是有效总结 JSON（可点「查看返回」排查）');
       useWorldRecord.getState().setSummary(recordId, summary);
+      // ☄️ 混沌世界：离世总结后，若开启则额外生成一段「对世界的影响 + 剧情偏移度」（opt-in 上传）。复用刚切好的 narrative + summary，后台跑不阻塞。
+      if (useChaosWorld.getState().enabled) void runChaosRecordPhase(rec, narrative, summary);
       return true;
     } catch (e: any) {
       alert('离世总结生成失败：' + (e?.message ?? String(e)));
       return false;
     } finally {
       setSummaryBusyId(null);
+    }
+  }
+
+  // ☄️ 混沌记录：离世时额外生成「主角对这个世界做了什么 / 造成了什么影响 / 原有剧情偏移到何种程度」。
+  //   偏移度不由 AI 直接给分——AI 只逐个列偏移点 + 严重度(有正文证据)，前端按严重度归一到 0-100。生成后弹 opt-in 上传窗。
+  async function runChaosRecordPhase(rec: { id: string; name: string; tier?: string }, narrative: string, summary: WorldSummary | null) {
+    try {
+      const chain = resolveApiChain('world', useSettings.getState().api).filter((a) => a.baseUrl && a.apiKey);
+      if (chain.length === 0) return;   // 没配 API 静默跳过（离世总结那步已提示过）
+      const sm = (summary || {}) as any;
+      const summaryBrief = [
+        sm.世界线偏转 && `世界线偏转：${sm.世界线偏转}`,
+        Array.isArray(sm.经历概述) && sm.经历概述.length ? `经历概述：\n${sm.经历概述.map((x: any) => `· ${x}`).join('\n')}` : '',
+        Array.isArray(sm.关键事件) && sm.关键事件.length ? `关键事件：\n${sm.关键事件.map((e: any) => `· ${e?.事件 || ''}｜${e?.结果 || ''}｜${e?.影响 || ''}`).join('\n')}` : '',
+        Array.isArray(sm.人物结局) && sm.人物结局.length ? `人物结局：\n${sm.人物结局.map((p: any) => `· ${p?.名称 || ''}：${p?.结局 || ''}`).join('\n')}` : '',
+      ].filter(Boolean).join('\n');
+      const userMsg = [
+        `【世界】${rec.name}${rec.tier ? `（${rec.tier}）` : ''}`,
+        summaryBrief ? `【离世总结（既成事实·可直接采信）】\n${summaryBrief}` : '',
+        `【本世界正文经历（主要依据·主角的所作所为都在这里）】\n${narrative || '（无正文记录）'}`,
+        `请据以上，先核对【${rec.name}】原著/同人的既定剧情，再判断主角对这个世界造成了什么影响、原有剧情被偏移到何种程度，输出混沌记录 JSON（只输出 JSON）。`,
+      ].filter(Boolean).join('\n\n');
+
+      const useWeb = useChaosWorld.getState().webSearch;
+      const sys = { role: 'system' as const, content: getPrompt('CHAOS_RECORD_PROMPT', CHAOS_RECORD_PROMPT) };
+      const usr = { role: 'user' as const, content: userMsg };
+      let content = '';
+      try {
+        content = (await apiChatFallback(chain, [sys, usr], { timeoutMs: 180000, label: 'chaosRecord', extra: useWeb ? { tools: [{ google_search: {} }] } : undefined })).content;
+      } catch (e) {
+        if (!useWeb) throw e;
+        content = (await apiChatFallback(chain, [sys, usr], { timeoutMs: 180000, label: 'chaosRecord-nows' })).content;   // 联网检索不被该接口支持 → 退回不检索重试
+      }
+      setRawResponse(content || '');
+      const jsonText = content.replace(/<thinking>[\s\S]*?<\/thinking>/gi, '').match(/\{[\s\S]*\}/)?.[0] ?? content;
+      const parsed = lenientJsonParse(jsonText) as any;
+      if (!parsed || typeof parsed !== 'object' || !parsed.影响概述) return;
+      const nodes: ChaosOffsetNode[] = Array.isArray(parsed.偏移点)
+        ? parsed.偏移点.map((n: any) => ({ 原著节点: String(n?.原著节点 ?? ''), 主角改动: String(n?.主角改动 ?? ''), 严重度: Math.max(0, Math.min(3, Math.round(Number(n?.严重度) || 0))) }))
+        : [];
+      const { offset, band } = computeOffset(nodes);
+      const draft: ChaosRecordDraft = {
+        world: canonWorldName(String(parsed.世界名 || rec.name)),
+        worldRaw: String(parsed.世界名 || rec.name),
+        title: String(parsed.标题 || '').slice(0, 60) || `${rec.name}·契约者足迹`,
+        body: String(parsed.影响概述 || ''),
+        offset, band, nodes,
+        hooks: Array.isArray(parsed.留给后人的钩子) ? parsed.留给后人的钩子.map((x: any) => String(x)).slice(0, 12) : [],
+        tier: rec.tier || '',
+        worldRecordId: rec.id,
+      };
+      setChaosPending(draft);   // 弹 opt-in 上传确认窗
+    } catch (e) {
+      console.warn('[混沌记录] 生成失败', e);
+    }
+  }
+
+  // ☄️ 混沌世界卡：据玩家勾选的多个世界，拉取云端影响记录 + 额外提示词 → 生成一张「被前人影响过」的世界卡（与世界选择同一条 'world' 路由）。
+  //   落地到 WorldCardView（可编辑、可「进入此世界」注入正文），与普通世界卡一致；额外含 priorLegacy/plotDrift 两栏。
+  async function generateChaosWorld(worldKeys: string[], extraPrompt: string) {
+    if (!worldKeys.length) return;
+    setChaosCardBusy(true);
+    try {
+      const chain = resolveApiChain('world', useSettings.getState().api).filter((a) => a.baseUrl && a.apiKey);
+      if (chain.length === 0) { alert('请先配置 API（世界选择的接口路由或全局 API），再生成混沌世界卡'); return; }
+      let records: Awaited<ReturnType<typeof chaosFeed>> = [];
+      try { records = await chaosFeed(worldKeys, 8); } catch (e: any) { alert('拉取混沌记录失败：' + (e?.message ?? String(e))); return; }
+      if (records.length === 0) { alert('所选世界暂无可用记录（可能后端未部署或该世界还没人上传）'); return; }
+
+      // 按世界聚合前人记录，拼成 prior 影响块
+      const byWorld = new Map<string, typeof records>();
+      for (const r of records) { const arr = byWorld.get(r.world) || []; arr.push(r); byWorld.set(r.world, arr); }
+      const priorBlock = [...byWorld.entries()].map(([w, rs]) => {
+        const items = rs.map((r) => {
+          const nodes = (r.meta?.nodes || []).map((n) => `　- [严重度${n.严重度}] ${n.原著节点} → ${n.主角改动}`).join('\n');
+          const hooks = (r.meta?.hooks || []).map((h) => `　- ${h}`).join('\n');
+          return [`· 契约者「${r.uploaderName}」（偏移度 ${r.offset}·${r.band || ''}）：${r.title || ''}`, r.body, nodes && `　偏移点：\n${nodes}`, hooks && `　留下的钩子：\n${hooks}`].filter(Boolean).join('\n');
+        }).join('\n\n');
+        return `【世界：${w}｜${rs.length} 条前人记录】\n${items}`;
+      }).join('\n\n');
+
+      const prof = usePlayer.getState().profile;
+      const tier = prof.tier || realmFromLevel(prof.level ?? 1);
+      const playerBlock = ['【主角档案（世界强度/剧情烈度与之相称）】', `阶位：${tier}　等级：Lv.${prof.level ?? 1}`, prof.homeParadise && `所属乐园：${prof.homeParadise}`, prof.profession && `职业：${prof.profession}`].filter(Boolean).join('\n');
+      const userMsg = [
+        playerBlock,
+        `【被选中的世界 + 前任契约者留下的影响记录（据此让世界被他们改写、让主角撞见他们的遗产与后果）】\n${priorBlock}`,
+        extraPrompt.trim() ? `【契约者的额外要求】\n${extraPrompt.trim()}` : '',
+        `请编织出这些影响叠加后、这个世界「如今」的样子，生成一张混沌世界卡 JSON（只输出 JSON）。核心叙事字段每项不少于 300 字。`,
+      ].filter(Boolean).join('\n\n');
+
+      const useWeb = useChaosWorld.getState().webSearch;
+      const sys = { role: 'system' as const, content: getPrompt('CHAOS_WORLD_GEN_PROMPT', CHAOS_WORLD_GEN_PROMPT) };
+      const usr = { role: 'user' as const, content: userMsg };
+      let content = '';
+      try {
+        content = (await apiChatFallback(chain, [sys, usr], { timeoutMs: 240000, label: 'chaosWorldCard', extra: useWeb ? { tools: [{ google_search: {} }] } : undefined })).content;
+      } catch (e) {
+        if (!useWeb) throw e;
+        content = (await apiChatFallback(chain, [sys, usr], { timeoutMs: 240000, label: 'chaosWorldCard-nows' })).content;
+      }
+      setRawResponse(content || '');
+      const jsonText = content.replace(/<thinking>[\s\S]*?<\/thinking>/gi, '').match(/\{[\s\S]*\}/)?.[0] ?? content;
+      const c = lenientJsonParse(jsonText) as any;
+      if (!c || typeof c !== 'object' || !c.name) { alert('混沌世界卡生成失败：返回的不是有效 JSON（可点「查看返回」排查）'); return; }
+      const card: WorldOption = {
+        name: String(c.name || '混沌世界'), tier: String(c.tier || tier), worldType: String(c.worldType || '混沌'),
+        desc: String(c.desc || ''), dangerLevel: String(c.dangerLevel || ''), entryPoint: String(c.entryPoint || ''),
+        mainMission: String(c.mainMission || ''), sideMission: String(c.sideMission || ''), warning: String(c.warning || ''),
+        reward: String(c.reward || ''), peakPower: String(c.peakPower || ''), contractorDist: String(c.contractorDist || ''),
+        region: String(c.region || ''), identity: String(c.identity || ''),
+        priorLegacy: String(c.priorLegacy || ''), plotDrift: String(c.plotDrift || ''),
+        entryComment: '', entryContent: '', entryKeys: [],
+      };
+      setWorlds([card]); setCardIndex(0);
+      setChaosWorldOpen(false);   // 关面板 → 露出 WorldCardView
+    } finally {
+      setChaosCardBusy(false);
     }
   }
 
@@ -10118,6 +10252,8 @@ ${lines}`;
     if (world.desc)        lines.push(`\n世界简介：\n${world.desc}`);
     if (world.peakPower)   lines.push(`\n巅峰战力：${world.peakPower}`);
     if (world.contractorDist) lines.push(`\n契约者分布（本世界还有哪些契约者 / 重要人物——据此让相应角色适时登场、参与剧情，别让世界空无一人；玩家在卡片里补的人物一并当真登场）：\n${world.contractorDist}`);
+    if (world.plotDrift)   lines.push(`\n剧情偏移（★本世界已被前任契约者改写·相对原著已偏移成如下现状，据此展开·别回退成原著初始态）：\n${world.plotDrift}`);
+    if (world.priorLegacy) lines.push(`\n前人遗产（★主角会遇到前任契约者留下的遗物 / 组织 / 传说 / 改变的人物 / 烂摊子——让这些在正文里真实出现）：\n${world.priorLegacy}`);
     if (world.entryPoint)  lines.push(`\n切入点：\n${world.entryPoint}`);
     if (world.identity)    lines.push(`\n主角身份：${world.identity}`);
     if (world.mainMission) lines.push(`\n主线任务：\n${world.mainMission}`);
@@ -11236,6 +11372,16 @@ ${lines}`;
           onDm={(r) => { setNpcPanelOpen(false); openDmFor({ targetId: r.id, targetName: r.name || r.id, targetTier: (r.realm || '').split(/[·|]/)[0] || undefined, targetJob: r.profession, targetPersona: r.personality, targetStrength: r.bioStrength, targetTag: r.npcTag }); }}
         />
       )}
+      {petRosterOpen && (
+        <NpcPanel
+          petMode
+          onClose={() => setPetRosterOpen(false)}
+          onManualUpdate={triggerNpcUpdateManually}
+          manualUpdatingId={npcManualUpdatingId}
+          onCultivate={openCultivateFor}
+          onDm={(r) => { setPetRosterOpen(false); openDmFor({ targetId: r.id, targetName: r.name || r.id, targetTier: (r.realm || '').split(/[·|]/)[0] || undefined, targetJob: r.profession, targetPersona: r.personality, targetStrength: r.bioStrength, targetTag: r.npcTag }); }}
+        />
+      )}
       {cultivatePet && (
         <PetCultivateModal
           open={!!cultivatePet}
@@ -11397,6 +11543,12 @@ ${lines}`;
 
       {worldRecordOpen && (
         <WorldRecordPanel onClose={() => setWorldRecordOpen(false)} onGenSummary={runWorldSummaryPhase} summaryBusyId={summaryBusyId} onRegenWorldview={regenWorldviewForRecord} worldviewBusyId={worldviewBusyId} />
+      )}
+      {chaosWorldOpen && (
+        <ChaosWorldPanel onClose={() => setChaosWorldOpen(false)} onGenerate={(ws, p) => generateChaosWorld(ws, p)} generating={chaosCardBusy} />
+      )}
+      {chaosPending && (
+        <ChaosUploadModal draft={chaosPending} onUpload={async (d) => { await chaosUpload(d); }} onClose={() => setChaosPending(null)} />
       )}
 
       {worldbookConflicts.length > 0 && (

@@ -3,13 +3,16 @@ import { type WorldOption } from './WorldSelector';
 
 // 可编辑的正文字段（均为字符串）。顺序即卡片正文展示顺序，与 enterWorld 拼装顺序一致。
 type SectionKey =
-  | 'desc' | 'peakPower' | 'contractorDist' | 'identity' | 'entryPoint'
+  | 'desc' | 'peakPower' | 'contractorDist' | 'priorLegacy' | 'plotDrift' | 'identity' | 'entryPoint'
   | 'mainMission' | 'sideMission' | 'warning' | 'reward';
 
-const SECTIONS: { key: SectionKey; label: string; accent?: string }[] = [
+// contentOnly：仅当该字段有内容时才显示（编辑空态也不显示）——用于混沌世界卡专属栏，避免污染普通世界卡的编辑视图。
+const SECTIONS: { key: SectionKey; label: string; accent?: string; contentOnly?: boolean }[] = [
   { key: 'desc',           label: '世界简介' },
   { key: 'peakPower',      label: '巅峰战力' },
   { key: 'contractorDist', label: '契约者分布' },
+  { key: 'priorLegacy',    label: '👣 前人遗产', accent: 'god',   contentOnly: true },
+  { key: 'plotDrift',      label: '🌀 剧情偏移', accent: 'blood', contentOnly: true },
   { key: 'identity',       label: '主角身份', accent: 'god' },
   { key: 'entryPoint',     label: '切入点',   accent: 'god' },
   { key: 'mainMission',    label: '主线任务', accent: 'amber' },
@@ -147,7 +150,7 @@ export default function WorldCardView({ worlds, index, onPrev, onNext, onJump, o
 
           {/* ── 可滚动正文 ── 编辑模式下展示全部字段（含空字段，便于补写）；浏览模式只显示非空字段 */}
           <div className="flex-1 overflow-y-auto min-h-0 divide-y divide-edge/40">
-            {SECTIONS.filter((s) => editing || world[s.key]).map((s) => (
+            {SECTIONS.filter((s) => s.contentOnly ? world[s.key] : (editing || world[s.key])).map((s) => (
               <CardSection
                 key={s.key}
                 label={s.label}
