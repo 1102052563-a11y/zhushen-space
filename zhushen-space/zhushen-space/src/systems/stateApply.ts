@@ -43,10 +43,12 @@ export function stripLeakedThinking(text: string): string {
   if (!text) return text;
   let t = text;
   if (/<\/?(?:think|thinking|thought)\b/i.test(t)) {
-    t = t
-      .replace(/<(think|thinking|thought)\b[^>]*>[\s\S]*?<\/\1>/gi, '')   // 闭合思维块（任意位置）
-      .replace(/^\s*<\/(?:think|thinking|thought)>\s*/i, '')               // 开头孤立的闭合标签（预填充回显残留）
-      .trimStart();
+    t = t.replace(/<(think|thinking|thought)\b[^>]*>[\s\S]*?<\/\1>/gi, '').trimStart();   // 闭合思维块（任意位置）
+    // 预填充 <think>/</think> 强制或跳过思维链时，端点可能只回「…思考续写…</think>正文」——开标签在 prefill 里没回显，
+    // 剩下一个「前方没有任何 <think 开标签」的孤立闭合标签：把它连同它之前的思考草稿整段剥掉（普通正文不会出现裸 </think>）。
+    const cm = /<\/(?:think|thinking|thought)>/i.exec(t);
+    if (cm && !/<(?:think|thinking|thought)\b/i.test(t.slice(0, cm.index))) t = t.slice(cm.index + cm[0].length);
+    t = t.trimStart();
   }
   return stripLeadingPlanLeak(t);
 }

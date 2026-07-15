@@ -26,6 +26,29 @@ export interface ArenaCard {
 
 export interface ArenaMe { playerId: string; name: string; hue?: number }
 
+// ── 实时对战（双方在线·逐回合各自出招→发起方跑一次 AI 公正裁判→广播结果）──
+export type DuelSide = 'A' | 'B';   // A=发起方(评委卡)，B=被邀方
+export interface DuelFighter {
+  side: DuelSide;
+  cardId: string;
+  name: string;
+  ownerName: string;
+  snapshot: AssistSnapshot;   // 完整档案（渲染血条/供评委端 AI 裁定）
+  maxHp: number;
+  hp: number;
+}
+// 服务端 duel_started 下发的一局视图（you=自己是哪一位、isJudge=是否评委）
+export interface DuelView {
+  duelId: string;
+  ranked: boolean;
+  round: number;
+  status: 'inviting' | 'active' | 'ended';
+  you: DuelSide;
+  isJudge: boolean;
+  a: DuelFighter;
+  b: DuelFighter;
+}
+
 // 服务端裁判后的挑战结果（只发给挑战者，据 winner 播过场动画；胜负服务端已定，客户端改不了）。
 export interface ArenaChallengeResult {
   matchId: string;
@@ -39,9 +62,18 @@ export interface ArenaChallengeResult {
 
 // ── 服务端 → 客户端 ──────────────────────────
 export type ArenaInbound =
-  | { type: 'hello'; you?: ArenaMe; cards: ArenaCard[]; online: number }
+  | { type: 'hello'; you?: ArenaMe; cards: ArenaCard[]; online: number; onlineOwners?: string[] }
   | { type: 'ladder'; cards: ArenaCard[] }                       // 榜单全量同步（上传/删卡/挑战后广播）
   | ({ type: 'challenge_result' } & ArenaChallengeResult)
+  | { type: 'online_owners'; owners: string[]; online?: number }                 // 在线名单变化广播
+  | { type: 'duel_invited'; duelId: string; ranked: boolean; challengerCard: ArenaCard; targetCardId: string }   // 收到对战邀请
+  | { type: 'duel_pending'; duelId: string; opponent: ArenaCard }                // 我方发起后·等待对方接受
+  | { type: 'duel_declined'; duelId: string }                                    // 对方拒绝
+  | ({ type: 'duel_started' } & DuelView)                                        // 对方接受·开战
+  | { type: 'duel_action_ack'; duelId: string; round: number; who: DuelSide }    // 某方已出招（更新等待态）
+  | { type: 'duel_round_ready'; duelId: string; round: number; actionA: string; actionB: string }   // 仅发评委：双方已出招·请裁定本回合
+  | { type: 'duel_round'; duelId: string; round: number; narrative: string; hpA: number; hpB: number; maxHpA: number; maxHpB: number; ended: boolean; winner: DuelSide | null; nextRound: number }   // 本回合裁定结果广播
+  | { type: 'duel_ended'; duelId: string; winner: DuelSide | null; reason: string }   // 认输/掉线/取消
   | { type: 'rate_limited' }
   | { type: 'error'; reason?: string; error?: string };
 
@@ -50,4 +82,9 @@ export type ArenaOutbound =
   | { type: 'publish_card'; kind: ArenaKind; snapshot: AssistSnapshot; srcKey: string }
   | { type: 'remove_card'; cardId: string }
   | { type: 'challenge'; myCardId: string; opponentCardId: string }
-  | { type: 'report_result'; myCardId: string; opponentCardId: string; win: boolean };   // 手动应战·上报真实战斗胜负
+  | { type: 'report_result'; myCardId: string; opponentCardId: string; win: boolean }   // 手动应战·上报真实战斗胜负
+  | { type: 'duel_invite'; myCardId: string; opponentCardId: string; ranked: boolean }
+  | { type: 'duel_respond'; duelId: string; accept: boolean }
+  | { type: 'duel_action'; duelId: string; round: number; text: string }
+  | { type: 'duel_round_result'; duelId: string; round: number; narrative: string; dmgA: number; dmgB: number; ended: boolean; winner: DuelSide | null }   // 评委裁定回传
+  | { type: 'duel_forfeit'; duelId: string };

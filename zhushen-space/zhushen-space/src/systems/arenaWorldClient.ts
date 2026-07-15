@@ -8,7 +8,7 @@ import { buildPlayerSnapshot } from './mpSnapshot';
 import { shrinkDataUrl } from './imageGen';
 import { npcToSnapshotRaw } from './assistApply';
 import { trimForUpload } from './arenaWorldBattle';
-import type { ArenaCard, ArenaInbound, ArenaKind, ArenaOutbound, AssistSnapshot } from './arenaWorldProtocol';
+import type { ArenaCard, ArenaInbound, ArenaKind, ArenaOutbound, AssistSnapshot, DuelSide } from './arenaWorldProtocol';
 
 // 世界竞技场 WebSocket 客户端（事件名照搬后端 ArenaWorldDO 协议）。
 // 与聊天室共用 Discord 身份：连接带 chatToken(→后端 pid=chat:uid) + 头像/名牌(avv/ds/nc)。
@@ -84,11 +84,16 @@ function connect(name: string, token: string) {
   ws.onerror = () => { set({ error: '连接错误' }); };
 }
 
+function flashError(msg: string, ms = 2500) {
+  set({ error: msg });
+  setTimeout(() => { if (useArenaWorld.getState().error === msg) set({ error: null }); }, ms);
+}
+
 function dispatch(m: ArenaInbound) {
   const st = useArenaWorld.getState();
   switch (m.type) {
     case 'hello':
-      set({ me: m.you || null, cards: m.cards || [], online: m.online || 0 });
+      set({ me: m.you || null, cards: m.cards || [], online: m.online || 0, onlineOwners: m.onlineOwners || [] });
       break;
     case 'ladder':
       set({ cards: m.cards || [] });
@@ -96,13 +101,79 @@ function dispatch(m: ArenaInbound) {
     case 'challenge_result':
       set({ lastResult: m });
       break;
+    case 'online_owners':
+      set({ onlineOwners: m.owners || [], ...(typeof m.online === 'number' ? { online: m.online } : {}) });
+      break;
+
+    // ── 实时对战 ──────────────────────────
+    case 'duel_invited':
+      // 已在对战/已有待处理邀请时忽略新邀请（避免打断）；否则弹出接受/拒绝
+      if (!st.duel && !st.incomingInvite) set({ incomingInvite: { duelId: m.duelId, ranked: m.ranked, challengerCard: m.challengerCard } });
+      break;
+    case 'duel_pending':
+      set({ pendingInvite: { duelId: m.duelId, opponent: m.opponent } });
+      break;
+    case 'duel_declined':
+      if (st.pendingInvite?.duelId === m.duelId) set({ pendingInvite: null });
+      flashError('对方拒绝了对战');
+      break;
+    case 'duel_started':
+      set({
+        incomingInvite: null, pendingInvite: null, error: null,
+        duel: {
+          duelId: m.duelId, ranked: m.ranked, you: m.you, isJudge: m.isJudge,
+          status: 'active', round: m.round,
+          a: m.a, b: m.b,
+          hpA: m.a.hp, hpB: m.b.hp, maxHpA: m.a.maxHp, maxHpB: m.b.maxHp,
+          rounds: [], submitted: { A: false, B: false }, judging: false, winner: null,
+        },
+      });
+      break;
+    case 'duel_action_ack': {
+      const d = st.duel;
+      if (d && d.duelId === m.duelId && m.round === d.round) set({ duel: { ...d, submitted: { ...d.submitted, [m.who]: true } } });
+      break;
+    }
+    case 'duel_round_ready': {
+      // 仅评委收到：交给面板 effect 跑一次 AI 裁定
+      const d = st.duel;
+      set({
+        pendingJudge: { duelId: m.duelId, round: m.round, actionA: m.actionA, actionB: m.actionB },
+        duel: d && d.duelId === m.duelId ? { ...d, judging: true } : d,
+      });
+      break;
+    }
+    case 'duel_round': {
+      const d = st.duel;
+      if (!d || d.duelId !== m.duelId) break;
+      set({
+        pendingJudge: st.pendingJudge?.duelId === m.duelId ? null : st.pendingJudge,
+        duel: {
+          ...d,
+          rounds: [...d.rounds, { round: m.round, narrative: m.narrative, hpA: m.hpA, hpB: m.hpB }],
+          hpA: m.hpA, hpB: m.hpB,
+          round: m.ended ? d.round : m.nextRound,
+          submitted: { A: false, B: false }, judging: false,
+          status: m.ended ? 'ended' : 'active',
+          winner: m.ended ? m.winner : null,
+        },
+      });
+      break;
+    }
+    case 'duel_ended': {
+      const d = st.duel;
+      if (d && d.duelId === m.duelId) set({ duel: { ...d, status: 'ended', winner: m.winner, endedReason: m.reason, judging: false }, pendingJudge: null });
+      if (st.pendingInvite?.duelId === m.duelId) { set({ pendingInvite: null }); if (m.reason === 'disconnect') flashError('对方已离线'); }
+      if (st.incomingInvite?.duelId === m.duelId) { set({ incomingInvite: null }); if (m.reason === 'cancel') flashError('对方取消了对战'); }
+      break;
+    }
+
     case 'rate_limited':
       set({ error: RATE_MSG });
       setTimeout(() => { if (useArenaWorld.getState().error === RATE_MSG) set({ error: null }); }, 1500);
       break;
     case 'error':
-      set({ error: m.reason || m.error || '操作失败' });
-      setTimeout(() => { const e = useArenaWorld.getState().error; if (e === (m.reason || m.error || '操作失败')) set({ error: null }); }, 2500);
+      flashError(m.reason || m.error || '操作失败');
       break;
     default:
       assertNever(m);   // 新增 ArenaInbound 类型却忘处理 → 编译期报错（穷尽性守卫）
@@ -153,5 +224,13 @@ export const arenaWorldClient = {
   challenge: (myCardId: string, opponentCardId: string) => sendRaw({ type: 'challenge', myCardId, opponentCardId }),
   reportChallenge: (myCardId: string, opponentCardId: string, win: boolean) => sendRaw({ type: 'report_result', myCardId, opponentCardId, win }),
   clearResult: () => useArenaWorld.getState()._set({ lastResult: null }),
+  // ── 实时对战 ──
+  duelInvite: (myCardId: string, opponentCardId: string, ranked: boolean) => sendRaw({ type: 'duel_invite', myCardId, opponentCardId, ranked }),
+  duelRespond: (duelId: string, accept: boolean) => { if (!accept) useArenaWorld.getState()._set({ incomingInvite: null }); return sendRaw({ type: 'duel_respond', duelId, accept }); },
+  duelAction: (duelId: string, round: number, text: string) => sendRaw({ type: 'duel_action', duelId, round, text }),
+  duelRoundResult: (p: { duelId: string; round: number; narrative: string; dmgA: number; dmgB: number; ended: boolean; winner: DuelSide | null }) => sendRaw({ type: 'duel_round_result', ...p }),
+  duelForfeit: (duelId: string) => sendRaw({ type: 'duel_forfeit', duelId }),
+  cancelInvite: (duelId: string) => { useArenaWorld.getState()._set({ pendingInvite: null }); return sendRaw({ type: 'duel_forfeit', duelId }); },
+  clearDuel: () => useArenaWorld.getState()._set({ duel: null, pendingJudge: null }),
   isOpen: () => !!ws && ws.readyState === 1,
 };

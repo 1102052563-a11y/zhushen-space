@@ -102,6 +102,7 @@ import {
   GLADIATOR_BATTLE_RULE,
   ARENA_MANUAL_NARRATE_RULE,
   ARENA_AUTO_NARRATE_RULE,
+  ARENA_DUEL_JUDGE_RULE,
   GACHA_REWARD_RULE,
   CASINO_BANTER_RULE,
   SOUL_GAMBLE_RULE,
@@ -1225,6 +1226,7 @@ export default function App() {
   // activeTextPresetId/Name 现由 sendMessage/演化处直接走 useSettings.getState() 实时读取（免 stale 闭包），不再在此订阅
   const textStream           = useSettings((s) => s.textStream);
   const skipNarrativeThinking = useSettings((s) => s.skipNarrativeThinking);
+  const forceNarrativeThinking = useSettings((s) => s.forceNarrativeThinking);
   const plotGuidance         = useSettings((s) => s.plotGuidance);
   const guidancePrompt       = useSettings((s) => s.guidancePrompt);
   const preludePrompt        = useSettings((s) => s.preludePrompt);   // 玩家常驻「前置提示词」（输入框上方可编辑，每回合注入正文最深处）
@@ -3014,8 +3016,17 @@ export default function App() {
     setPlayerPhaseLog('主角演化阶段处理中…');
 
     try {
-      // 主角演化发送【全部正文】（不截断）
-      const trimmedNarrative = narrative;
+      // 主角演化本应发全部正文；但对超长存档做硬上限兜底，防整请求顶过模型输入上限（如 Gemini 1M token → 400 崩·"主角数据更新"报错）。
+      const clampLines = (text: string, budget: number, noun: string): string => {   // 逐行保留到预算内，超出的仅计数省略（治技能/天赋极多或单条效果超长把请求撑爆）
+        if (text.length <= budget) return text;
+        const lines = text.split('\n'); const kept: string[] = []; let used = 0;
+        for (const ln of lines) { if (used + ln.length + 1 > budget) break; kept.push(ln); used += ln.length + 1; }
+        const dropped = lines.length - kept.length;
+        if (dropped > 0) kept.push(`· …（另有 ${dropped} 条${noun}未列全——为防请求超模型输入上限而省略；若常触发请减少${noun}数量或精简其效果文本）`);
+        return kept.join('\n');
+      };
+      const NARR_BUDGET = 80000;   // 正文只需最近部分即可判定本轮主角变化
+      const trimmedNarrative = narrative.length > NARR_BUDGET ? `…（前文过长已截断，仅保留最近约 ${NARR_BUDGET} 字用于本轮判定）…\n` + narrative.slice(-NARR_BUDGET) : narrative;
 
       // 注入主角当前档案快照，让主角演化看到等级/已有技能天赋（避免重复生成）
       const prof = playerState.profile;
@@ -3024,8 +3035,8 @@ export default function App() {
       const pTalents = b1?.traits ?? [];
       // 喂给 AI 的技能/天赋清单带上完整「效果+加成」（治"快照只给名字与品级→AI 看着像信息缺失就凭空重写天赋"）：
       // 内容完整，AI 才知道"已经有了、别动"；万一确有升级也能照着原效果保留再叠加，而非整条重编。
-      const pSkillsLine = pSkills.length ? pSkills.map((s) => `· ${s.id}「${s.name}」${s.level ?? ''}${s.skillType ? `[${s.skillType}]` : ''}${s.rarity ? `·${s.rarity}` : ''}｜效果:${(s.effect || '（无）').trim()}${s.attrBonus ? `｜加成:${s.attrBonus}` : ''}`).join('\n') : '（无）';
-      const pTalentsLine = pTalents.length ? pTalents.map((t) => `· 「${t.name}」${t.category ?? ''}·${t.rarity}级｜效果:${(t.effect || '（无）').trim()}${t.attrBonus ? `｜加成:${t.attrBonus}` : ''}`).join('\n') : '（无）';
+      const pSkillsLine = clampLines(pSkills.length ? pSkills.map((s) => `· ${s.id}「${s.name}」${s.level ?? ''}${s.skillType ? `[${s.skillType}]` : ''}${s.rarity ? `·${s.rarity}` : ''}｜效果:${(s.effect || '（无）').trim()}${s.attrBonus ? `｜加成:${s.attrBonus}` : ''}`).join('\n') : '（无）', 60000, '技能');
+      const pTalentsLine = clampLines(pTalents.length ? pTalents.map((t) => `· 「${t.name}」${t.category ?? ''}·${t.rarity}级｜效果:${(t.effect || '（无）').trim()}${t.attrBonus ? `｜加成:${t.attrBonus}` : ''}`).join('\n') : '（无）', 45000, '天赋');
       const a = prof.attrs;
       const playerProfileSnapshot = [
         `姓名:${prof.name || '主角'} | 阶位:${prof.tier} Lv.${prof.level} | 世界之源:${prof.worldSource ?? 0} | 属性点:${prof.attrPoints ?? 0} | 真实属性点:${prof.realAttrPoints ?? 0}`,
@@ -3057,6 +3068,7 @@ export default function App() {
         + '\n\n' + getPrompt('PARADISE_RULES_RULE', PARADISE_RULES_RULE) + '\n\n' + NARRATIVE_FIRST_RULE + '\n' + EVO_VERIFY_RULE + '\n' + BUFF_AS_STATUS_RULE + '\n' + SUBPROF_RULE + '\n' + TALENT_NO_CAP_RULE + '\n' + TITLE_DIVERSITY_RULE + '\n' + SKILL_TALENT_NOTE_RULE + '\n' + SKILL_TIER_RULE + '\n' + SKILL_TALENT_ATTR_CAP_RULE + '\n' + PLAYER_SKILL_KEEP_RULE + '\n' + ITEM_GRANTED_SKILL_RULE + '\n' + SKILL_STABILITY_RULE + '\n' + SKILL_COMBAT_TAG_RULE + '\n' + TIER_RULE +'\n' + IMAGE_TAGS_RULE + '\n' + HPEP_NARRATIVE_ONLY_RULE + '\n' + WORLDSOURCE_RULE + '\n' + POINTS_NARRATIVE_RULE + '\n' + ATTR_SANITY_RULE + '\n' + ATTR_CAP_RULE + '\n' + PLAYER_ATTR_LOCK_RULE + '\n' + APPEARANCE_UPDATE_RULE + '\n' + STATUS_FORMAT_RULE + '\n' + STATUS_COUNTDOWN_TURN_RULE + '\n' + FIRST_UPDATE_COMPLETE_RULE + '\n' + EVO_EXACT_REF_RULE + '\n' + SKILL_TALENT_GUIDE + '\n' + getPrompt('PLAYER_COT_RULE', PLAYER_COT_RULE);
       const userContent  = `# 本轮正文\n${trimmedNarrative}\n\n---\n请根据以上正文处理本轮主角属性与状态的变化。**先输出一个 <think>…</think> 思考块**，按系统提示里的「主角演化思维链」逐项自检；**随后**输出 <state>（及如有需要的 <upstore>）指令块，无变化时输出空块。除 <think> / <state> / <upstore> 外不要有其它文字。`;
 
+      console.log('[Player] 📏 输入体量(字符·若超模型上限，从这几项找膨胀源):', { 系统提示总: systemPrompt.length, 用户内容: userContent.length, 其中正文: trimmedNarrative.length, 技能清单: pSkillsLine.length, 天赋清单: pTalentsLine.length, 档案快照: playerProfileSnapshot.length });
       const ss2 = useSettings.getState();
       const activePreset = ss2.textPresets.find((p) => p.id === ss2.activeTextPresetId)
         ?? ss2.textPresets[0];
@@ -7592,6 +7604,48 @@ ${lines}`;
     return { scenes, summary: `${wName} 笑到了最后。` };
   }
 
+  // 世界竞技场·实时对战：发起方(评委)每回合跑一次 AI，据双方**完整档案 + 本回合各自行动**中立裁定这一个回合。
+  // 复用赌场 API 链 + 战斗写作指导世界书；输出散文 + <judge> 数据块；解析出双方伤害/是否结束/胜者。胜负不由本端预设，纯看双方信息+行动。
+  async function genArenaDuelRound(
+    aSnap: AssistSnapshot, bSnap: AssistSnapshot,
+    actionA: string, actionB: string,
+    ctx: { round: number; hpA: number; hpB: number; maxHpA: number; maxHpB: number; prior: string[] },
+  ): Promise<{ narrative: string; dmgA: number; dmgB: number; ended: boolean; winner: 'A' | 'B' | null; summary: string }> {
+    const listOf = (arr: any[] | undefined, withGrade = false) => (arr || [])
+      .map((x: any) => `${x?.name || x?.title || ''}${withGrade && x?.gradeDesc ? '[' + x.gradeDesc + ']' : ''}（${[x?.combatStat, x?.effect || x?.desc || x?.description, x?.affix].filter(Boolean).join(' ') || '—'}）`)
+      .filter((t) => t && !t.startsWith('（')).join('；') || '无';
+    const dossier = (s: AssistSnapshot, i: number) => {
+      const at: any = s.attrs || {};
+      return `【${i === 0 ? '一号位' : '二号位'}】${s.name}（${[s.race, s.tier, s.profession, s.gender].filter(Boolean).join('·')}）血量上限${s.maxHp ?? '?'}\n六维 力${at.str ?? '?'}/敏${at.agi ?? '?'}/体${at.con ?? '?'}/智${at.int ?? '?'}/魅${at.cha ?? '?'}/幸${at.luck ?? '?'}\n外观：${s.appearance || '（未描述）'}\n技能：${listOf(s.skills)}\n天赋：${listOf(s.traits)}\n装备：${listOf(s.equipment, true)}\n储存空间：${listOf(s.items)}`;
+    };
+    const priorBlock = ctx.prior.filter(Boolean).length
+      ? `\n\n# 前几回合要点（供延续，不必重复描写）\n${ctx.prior.map((s, i) => `第${i + 1}回合：${s || '（略）'}`).join('\n')}`
+      : '';
+    const user = `# 两名参赛者完整档案\n${dossier(aSnap, 0)}\n\n${dossier(bSnap, 1)}\n\n# 当前血量\n一号位 ${aSnap.name || '一号位'}：${ctx.hpA}/${ctx.maxHpA}\n二号位 ${bSnap.name || '二号位'}：${ctx.hpB}/${ctx.maxHpB}${priorBlock}\n\n# 第 ${ctx.round} 回合·双方各自声明的行动（只裁定本回合这一次交锋）\n【一号位 ${aSnap.name || '一号位'}】${(actionA || '').trim() || '（未声明·视为迟疑防守）'}\n【二号位 ${bSnap.name || '二号位'}】${(actionB || '').trim() || '（未声明·视为迟疑防守）'}`;
+    const wbCtx = [aSnap, bSnap].map((s) => `${s.race || ''} ${s.profession || ''} ${(s.skills || []).map((x: any) => x?.name).join(' ')} ${(s.traits || []).map((x: any) => x?.name).join(' ')} ${(s.equipment || []).map((x: any) => x?.name).join(' ')} ${(s.items || []).map((x: any) => x?.name).join(' ')}`).join(' ');
+    const wbInj = buildBattleWbInjection(useCasino.getState().battleWorldBooks, wbCtx);
+    const sys = wbInj ? `${ARENA_DUEL_JUDGE_RULE}\n\n${wbInj}` : ARENA_DUEL_JUDGE_RULE;
+    let narrative = ''; let j: any = {};
+    try {
+      const { content } = await apiChatFallback(casinoChain(), [{ role: 'system', content: sys }, { role: 'user', content: user }], { timeoutMs: 120000 });
+      const raw = content || '';
+      const m = raw.match(/<judge>([\s\S]*?)<\/judge>/i);
+      if (m) j = lenientJsonParse(m[1].trim()) || {};
+      narrative = raw.replace(/<judge>[\s\S]*?<\/judge>/ig, '').replace(/```json|```/g, '').trim();
+      if (!narrative) narrative = raw.replace(/<judge>[\s\S]*?<\/judge>/ig, '').trim();
+    } catch (e) { console.warn('[ArenaDuel] 裁定失败:', e); }
+    // 兜底：AI 没给数据块 → 按血量上限给一个小伤害，避免卡死；ended 由血量归零兜底。
+    const num = (x: any, d: number) => { const n = Math.round(Number(x)); return Number.isFinite(n) ? n : d; };
+    const dmgA = Math.max(0, num(j.dmgA, Math.round(ctx.maxHpA * 0.08)));
+    const dmgB = Math.max(0, num(j.dmgB, Math.round(ctx.maxHpB * 0.08)));
+    const nextA = ctx.hpA - dmgA, nextB = ctx.hpB - dmgB;
+    const ended = !!j.ended || nextA <= 0 || nextB <= 0;
+    let winner: 'A' | 'B' | null = null;
+    if (ended) winner = (j.winner === 'A' || j.winner === 'B') ? j.winner : (nextA <= 0 && nextB <= 0 ? (nextA >= nextB ? 'A' : 'B') : nextA <= 0 ? 'B' : 'A');
+    if (!narrative) narrative = `${aSnap.name || '一号位'} 与 ${bSnap.name || '二号位'} 又是一轮激烈交锋，刀光剑影间难分高下。`;
+    return { narrative, dmgA, dmgB, ended, winner, summary: String(j.summary || '').slice(0, 40) };
+  }
+
   async function genGachaRewards(rewards: GachaReward[]): Promise<GachaReward[]> {
     const slots = rewards.map((r, i) => ({ i, r })).filter(({ r }) => r.kind === 'equip' || r.kind === 'material' || r.kind === 'skillbook');
     if (slots.length === 0) return rewards;
@@ -8550,8 +8604,16 @@ ${lines}`;
     } catch (e) { console.warn('[TableSqlite] 预备镜像失败（{[db]}/{[sql]} 降级为空）', e); }
 
     const { sysPrompt, examples, prefill, depthInjections, sysSegments, tail, worldbook } = buildPresetMessages(preset, worldInfoText, userText);
-    // 跳过思维链（设置开时）：末尾预填充 </think>，让思考模型以为思考已结束、直接出正文（与 preset 自带 prefill 叠加）
-    const effectivePrefill = skipNarrativeThinking ? ('</think>\n' + (prefill ?? '')).trimEnd() : prefill;
+    // 末尾预填充策略（skip / force 互斥·store 已保证不同时开；均与 preset 自带 prefill 叠加）：
+    //   skipNarrativeThinking  → 预填 </think>：让思考模型以为思考已结束、直接出正文（提速·省 token）
+    //   forceNarrativeThinking → 预填 <think>：以 assistant 预填充强制模型从思维链开写，根治「正文思维链十次只出五次」
+    //     （同 SillyTavern 的 assistant 预填充 / continue prefill：末尾一条 assistant 消息让模型续写）
+    //     若 preset 自带 prefill 已以 <think> 开头则不重复叠加；泄漏进正文的思考由 stripLeakedThinking 剥除
+    const effectivePrefill = skipNarrativeThinking
+      ? ('</think>\n' + (prefill ?? '')).trimEnd()
+      : (forceNarrativeThinking && !/^\s*<think\b/i.test(prefill ?? ''))
+        ? ('<think>\n' + (prefill ?? '')).trimEnd()
+        : prefill;
     // 剧情指导（开启时）：正文生成【前】先跑一次，产出剧情优化建议 → 像叙事回忆一样注入主正文，由主正文据此写（仅一次正文生成）
     let guidanceBlock: { role: 'system'; content: string }[] = [];
     if (plotGuidance && !isOutline) {
@@ -10932,7 +10994,7 @@ ${lines}`;
       {chatRoomOpen && <ChatRoomPanel onClose={() => setChatRoomOpen(false)} />}
       {tradeOpen && <TradePanel onClose={() => setTradeOpen(false)} />}
       {assistOpen && <AssistPanel onClose={() => setAssistOpen(false)} />}
-      {arenaWorldOpen && <ArenaWorldPanel onClose={() => setArenaWorldOpen(false)} onGenBattle={genArenaWorldBattle} onSpar={(card) => startArenaWorldSpar(card.snapshot, card.kind)} onManualChallenge={(opp, myCardId) => startArenaWorldRankedManual(opp.snapshot, myCardId, opp.id, opp.kind)} />}
+      {arenaWorldOpen && <ArenaWorldPanel onClose={() => setArenaWorldOpen(false)} onGenBattle={genArenaWorldBattle} onSpar={(card) => startArenaWorldSpar(card.snapshot, card.kind)} onManualChallenge={(opp, myCardId) => startArenaWorldRankedManual(opp.snapshot, myCardId, opp.id, opp.kind)} onDuelJudge={genArenaDuelRound} />}
       {playtimeOpen && <PlaytimePanel onClose={() => setPlaytimeOpen(false)} />}
       {monumentOpen && <MonumentPanel onClose={() => setMonumentOpen(false)} />}
       {vaultOpen && <AccountVaultPanel onClose={() => setVaultOpen(false)} />}

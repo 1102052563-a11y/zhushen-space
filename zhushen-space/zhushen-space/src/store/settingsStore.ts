@@ -369,6 +369,7 @@ interface SettingsState {
   textUseSharedApi: boolean;
   textStream: boolean;
   skipNarrativeThinking: boolean;   // 正文末尾预填充 </think>，让思考模型跳过原生思维链直接出正文（提速·省 token）
+  forceNarrativeThinking: boolean;  // 正文末尾预填充 <think>，以 assistant 预填充强制模型从思维链开写（根治「正文思维链时有时无」·与 skip 互斥）
   plotGuidance: boolean;            // 剧情指导：正文生成前先跑一次"剧情优化建议"调用 → 像叙事回忆一样注入主正文（仅一次正文生成·受指导）
   planningReview: boolean;          // 正文前审核窗：剧情指导/数据库推进的产出先弹窗给玩家编辑确认，再写正文（细纲本就有弹窗）
   guidancePrompt: string;           // 剧情指导自定义提示词（留空=用内置 PLOT_GUIDANCE_RULE）
@@ -410,6 +411,7 @@ interface SettingsState {
   setTextUseSharedApi: (v: boolean) => void;
   setTextStream: (v: boolean) => void;
   setSkipNarrativeThinking: (v: boolean) => void;
+  setForceNarrativeThinking: (v: boolean) => void;
   setPlotGuidance: (v: boolean) => void;
   setPlanningReview: (v: boolean) => void;
   setGuidancePrompt: (v: string) => void;
@@ -812,6 +814,7 @@ export const useSettings = create<SettingsState>()(
       textUseSharedApi: true,
       textStream: true,
       skipNarrativeThinking: false,
+      forceNarrativeThinking: false,
       plotGuidance: false,
       planningReview: false,
       guidancePrompt: '',
@@ -1004,7 +1007,9 @@ export const useSettings = create<SettingsState>()(
       setTextApi: (patch) => set((s) => ({ textApi: { ...s.textApi, ...patch } })),
       setTextUseSharedApi: (v) => set({ textUseSharedApi: v }),
       setTextStream: (v) => set({ textStream: v }),
-      setSkipNarrativeThinking: (v) => set({ skipNarrativeThinking: v }),
+      // skip 与 force 互斥：开一个自动关另一个（两者都在正文末尾预填充 assistant，语义相反）
+      setSkipNarrativeThinking: (v) => set(v ? { skipNarrativeThinking: true, forceNarrativeThinking: false } : { skipNarrativeThinking: false }),
+      setForceNarrativeThinking: (v) => set(v ? { forceNarrativeThinking: true, skipNarrativeThinking: false } : { forceNarrativeThinking: false }),
       setPlotGuidance: (v) => set({ plotGuidance: v }),
       setPlanningReview: (v) => set({ planningReview: v }),
       setGuidancePrompt: (v) => set({ guidancePrompt: v }),

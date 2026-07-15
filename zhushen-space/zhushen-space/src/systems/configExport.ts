@@ -171,6 +171,7 @@ function settingsExtract(s: any): any {
     textUseSharedApi: s.textUseSharedApi,
     textStream: s.textStream,
     skipNarrativeThinking: s.skipNarrativeThinking,
+    forceNarrativeThinking: s.forceNarrativeThinking,
     plotGuidance: s.plotGuidance,
     guidancePrompt: s.guidancePrompt,
     choicesPrompt: s.choicesPrompt,

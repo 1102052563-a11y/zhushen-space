@@ -1399,10 +1399,12 @@ function TextWorldSection() {
 function TextApiSection() {
   const textStream         = useSettings((s) => s.textStream);
   const skipNarrativeThinking = useSettings((s) => s.skipNarrativeThinking);
+  const forceNarrativeThinking = useSettings((s) => s.forceNarrativeThinking);
   const plotGuidance       = useSettings((s) => s.plotGuidance);
   const guidancePrompt     = useSettings((s) => s.guidancePrompt);
   const setTextStream      = useSettings((s) => s.setTextStream);
   const setSkipNarrativeThinking = useSettings((s) => s.setSkipNarrativeThinking);
+  const setForceNarrativeThinking = useSettings((s) => s.setForceNarrativeThinking);
   const setPlotGuidance    = useSettings((s) => s.setPlotGuidance);
   const planningReview     = useSettings((s) => s.planningReview);
   const setPlanningReview  = useSettings((s) => s.setPlanningReview);
@@ -1446,6 +1448,13 @@ function TextApiSection() {
           <div>
             <div className="text-sm text-slate-200">跳过正文思维链（提速·思考模型）</div>
             <div className="text-sm text-dim mt-0.5">在正文请求末尾预填充 <code>&lt;/think&gt;</code>，让思考模型跳过原生思维链直接出正文——更快首字节、更省 token。只影响正文渲染，不碰各演化阶段的推理；并自动剥除泄漏进正文的思维链。默认关；若你的接口不支持「助手预填充」可关掉。</div>
+          </div>
+        </div>
+        <div className="flex items-center gap-3 p-3 bg-panel border border-edge rounded-lg">
+          <Toggle checked={forceNarrativeThinking} onChange={() => setForceNarrativeThinking(!forceNarrativeThinking)} />
+          <div>
+            <div className="text-sm text-slate-200">强制正文思维链（预填充 <code>&lt;think&gt;</code>·根治时有时无）</div>
+            <div className="text-sm text-dim mt-0.5">在正文请求末尾以 assistant 身份预填充一个 <code>&lt;think&gt;</code> 开标签，让模型只能从思维链续写——把「十次只出五次思维链」变成基本每次都出（与 SillyTavern 的「继续预填充 / assistant 预填充」同一机制）。只影响正文，思考照旧自动剥除、不进正文。与上面「跳过正文思维链」互斥（开一个自动关另一个）。默认关；若接口不支持「助手预填充」（如部分 Gemini 端点拒绝以 assistant 结尾）请关掉。</div>
           </div>
         </div>
         <div className="flex items-center gap-3 p-3 bg-panel border border-edge rounded-lg">

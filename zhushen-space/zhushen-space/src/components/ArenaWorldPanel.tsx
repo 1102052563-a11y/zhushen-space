@@ -1,6 +1,6 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useArenaWorld } from '../store/arenaWorldStore';
-import type { ArenaCard } from '../store/arenaWorldStore';
+import type { ArenaCard, DuelLive } from '../store/arenaWorldStore';
 import { arenaWorldClient } from '../systems/arenaWorldClient';
 import { useNpc, hasRealNpcName } from '../store/npcStore';
 import { useCombat } from '../store/combatStore';
@@ -42,11 +42,115 @@ function OwnerTag({ c }: { c: ArenaCard }) {
   );
 }
 
-export default function ArenaWorldPanel({ onClose, onGenBattle, onSpar, onManualChallenge }: {
+// ── 实时对战·血条 / 立绘 / 对战房（均为模块级组件：受控 textarea 若定义在父组件内会每键重挂→中文输入断字，故提到模块级）──
+function DuelFace({ snapshot }: { snapshot: any }) {
+  return (
+    <span className="w-10 h-10 rounded-lg overflow-hidden shrink-0 bg-void border border-edge flex items-center justify-center">
+      {snapshot?.avatar ? <img src={snapshot.avatar} alt="" className="w-full h-full object-cover" /> : <span className="text-sm text-dim/50">{String(snapshot?.name || '?').slice(0, 1)}</span>}
+    </span>
+  );
+}
+function HpBar({ name, hp, max, side, mine }: { name: string; hp: number; max: number; side: 'A' | 'B'; mine: boolean }) {
+  const pct = max > 0 ? Math.max(0, Math.min(100, (hp / max) * 100)) : 0;
+  const low = pct <= 25;
+  const fill = low ? 'from-blood/70 to-blood' : side === 'A' ? 'from-sky-500/70 to-sky-400' : 'from-rose-500/70 to-rose-400';
+  return (
+    <div className="flex-1 min-w-0">
+      <div className="flex items-center justify-between gap-2 mb-1">
+        <span className="text-[13px] font-bold text-slate-100 truncate">{name}{mine && <span className="text-[10px] font-normal text-god/70 ml-1">（你）</span>}</span>
+        <span className={`text-[11px] font-mono shrink-0 ${low ? 'text-blood' : 'text-dim/60'}`}>{Math.max(0, Math.round(hp))}/{max}</span>
+      </div>
+      <div className="h-2.5 rounded-full bg-void border border-edge overflow-hidden">
+        <div className={`h-full rounded-full bg-gradient-to-r ${fill} transition-all duration-500`} style={{ width: `${pct}%` }} />
+      </div>
+    </div>
+  );
+}
+function DuelRoom({ duel, input, onInput, onSubmit, onForfeit, onExit }: {
+  duel: DuelLive;
+  input: string;
+  onInput: (v: string) => void;
+  onSubmit: () => void;
+  onForfeit: () => void;
+  onExit: () => void;
+}) {
+  const me = duel.you;
+  const oppSide = me === 'A' ? 'B' : 'A';
+  const meSubmitted = duel.submitted[me];
+  const oppSubmitted = duel.submitted[oppSide];
+  const ended = duel.status === 'ended';
+  const iWon = ended && duel.winner === me;
+  const isDraw = ended && !duel.winner;
+  const myName = me === 'A' ? duel.a.name : duel.b.name;
+  const logRef = useRef<HTMLDivElement>(null);
+  useEffect(() => { const el = logRef.current; if (el) el.scrollTop = el.scrollHeight; }, [duel.rounds.length, duel.judging]);
+  return (
+    <div className="space-y-3">
+      <div className="flex items-center gap-2">
+        <span className="text-[13px] font-bold text-slate-100">⚔️ 实时对战</span>
+        <span className={`text-[10px] font-semibold px-1.5 py-0.5 rounded ${duel.ranked ? 'bg-amber-400/15 border border-amber-400/30 text-amber-200/90' : 'bg-god/10 border border-god/30 text-god/80'}`}>{duel.ranked ? '排位' : '友谊'}</span>
+        {!ended && <span className="text-[11px] text-dim/50">第 {duel.round} 回合</span>}
+      </div>
+
+      {/* 双方血条 */}
+      <div className="rounded-xl border border-edge bg-panel2/20 p-3 space-y-2">
+        <div className="flex items-center gap-3"><DuelFace snapshot={duel.a.snapshot} /><HpBar name={duel.a.name} hp={duel.hpA} max={duel.maxHpA} side="A" mine={me === 'A'} /></div>
+        <div className="text-center text-[10px] font-bold text-dim/40 tracking-widest">— VS —</div>
+        <div className="flex items-center gap-3"><DuelFace snapshot={duel.b.snapshot} /><HpBar name={duel.b.name} hp={duel.hpB} max={duel.maxHpB} side="B" mine={me === 'B'} /></div>
+      </div>
+
+      {/* 回合日志 */}
+      <div ref={logRef} className="max-h-[38vh] overflow-y-auto space-y-2 pr-0.5">
+        {duel.rounds.length === 0 && !duel.judging && (
+          <div className="py-6 text-center text-dim/50 text-[13px] leading-relaxed">对战开始！双方各自输入本回合行动，等两边都出招后由 AI 依双方全部信息公正裁定。</div>
+        )}
+        {duel.rounds.map((r) => (
+          <div key={r.round} className="rounded-xl border border-edge bg-panel2/20 p-3">
+            <div className="text-[11px] font-bold text-god/70 mb-1">第 {r.round} 回合</div>
+            <div className="text-[13px] leading-relaxed text-slate-200/90 whitespace-pre-wrap">{r.narrative}</div>
+          </div>
+        ))}
+        {duel.judging && <div className="py-3 text-center text-amber-200/80 text-sm animate-pulse">⚖️ 正在公正裁定本回合…</div>}
+        {!duel.judging && !ended && meSubmitted && oppSubmitted && <div className="py-3 text-center text-amber-200/70 text-sm animate-pulse">⚔️ 双方已出招，等待裁定…</div>}
+      </div>
+
+      {/* 出招 / 结果 */}
+      {ended ? (
+        <div className="space-y-3">
+          <div className={`rounded-xl border p-3 text-center ${iWon ? 'border-amber-400/60 bg-amber-400/10' : isDraw ? 'border-edge bg-panel2/20' : 'border-blood/40 bg-blood/5'}`}>
+            <div className="text-base font-bold text-slate-100">{isDraw ? '同归于尽 · 平局' : `${duel.winner === 'A' ? duel.a.name : duel.b.name} 获胜 👑`}</div>
+            <div className="text-[12px] text-dim/70 mt-0.5">
+              {duel.endedReason === 'forfeit' ? '一方认输 · ' : duel.endedReason === 'disconnect' ? '对方掉线 · ' : ''}
+              {iWon ? '你赢下了这场对决' : isDraw ? '势均力敌' : '你败下阵来'}{duel.ranked ? ' · 计入排名' : ' · 友谊战不计分'}
+            </div>
+          </div>
+          <div className="text-center"><button onClick={onExit} className="px-4 py-1.5 rounded-lg text-[13px] font-semibold bg-god/20 border border-god/40 text-god hover:bg-god/30 transition-colors">返回榜单</button></div>
+        </div>
+      ) : meSubmitted ? (
+        <div className="rounded-xl border border-edge bg-panel2/20 p-3 text-center space-y-2">
+          <div className="text-[13px] text-emerald-300/80">✅ 你已出招，本回合等待{oppSubmitted ? '裁定' : '对方出招'}…</div>
+          <button onClick={onForfeit} className="text-[12px] text-blood/70 hover:text-blood transition-colors">认输退出</button>
+        </div>
+      ) : (
+        <div className="space-y-2">
+          <textarea value={input} onChange={(e) => onInput(e.target.value)} rows={3} placeholder={`第 ${duel.round} 回合 · 输入你（${myName}）本回合的行动…`} className="w-full bg-void border border-edge rounded-lg px-3 py-2 text-[13px] text-slate-200 resize-none focus:border-god/40 focus:outline-none" />
+          <div className="flex items-center gap-2">
+            <button onClick={onSubmit} disabled={!input.trim()} className="flex-1 px-4 py-2 rounded-lg text-[13px] font-bold bg-blood/20 border border-blood/40 text-blood/90 hover:bg-blood/30 disabled:opacity-40 transition-colors">⚔ 出招</button>
+            <button onClick={onForfeit} className="px-3 py-2 rounded-lg text-[12px] text-dim/60 hover:text-blood border border-edge transition-colors">认输</button>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+export default function ArenaWorldPanel({ onClose, onGenBattle, onSpar, onManualChallenge, onDuelJudge }: {
   onClose: () => void;
   onGenBattle: (challengerSnap: AssistSnapshot, opponentSnap: AssistSnapshot, winner: 0 | 1) => Promise<{ scenes: string[]; summary: string }>;
   onSpar: (card: ArenaCard) => void;   // 切磋：真实战斗系统对战，不计排名
   onManualChallenge: (opp: ArenaCard, myCardId: string) => void;   // 手动应战：真实战斗，胜负计入排名
+  // 实时对战·发起方(评委)每回合跑一次 AI 中立裁定（据双方完整档案+本回合行动）
+  onDuelJudge: (aSnap: AssistSnapshot, bSnap: AssistSnapshot, actionA: string, actionB: string, ctx: { round: number; hpA: number; hpB: number; maxHpA: number; maxHpB: number; prior: string[] }) => Promise<{ narrative: string; dmgA: number; dmgB: number; ended: boolean; winner: 'A' | 'B' | null; summary: string }>;
 }) {
   const st = useArenaWorld();
   const npcs = useNpc((s) => s.npcs);
@@ -70,6 +174,12 @@ export default function ArenaWorldPanel({ onClose, onGenBattle, onSpar, onManual
 
   const [battle, setBattle] = useState<ArenaBattlePayload | null>(null);
   const [battleBusy, setBattleBusy] = useState(false);
+
+  // 实时对战：发起小窗（选排位/友谊）+ 出招输入 + 评委防重复/前几回合摘要
+  const [duelTarget, setDuelTarget] = useState<ArenaCard | null>(null);
+  const [duelInput, setDuelInput] = useState('');
+  const judgeBusyRef = useRef<string>('');          // "duelId:round"，防同回合重复裁定
+  const duelSummariesRef = useRef<string[]>([]);     // 评委本地累积各回合要点，喂下一回合上下文
 
   // 进场：已登录则确保身份后连接（与聊天室同一 Discord 身份）；未登录显门禁。离场断开。
   useEffect(() => {
@@ -129,6 +239,44 @@ export default function ArenaWorldPanel({ onClose, onGenBattle, onSpar, onManual
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [st.lastResult]);
 
+  // 实时对战·评委端：收到 pendingJudge（仅发起方）→ 跑一次 AI 中立裁定本回合 → 回传结果给服务端广播
+  useEffect(() => {
+    const pj = st.pendingJudge, d = st.duel;
+    if (!pj || !d || !d.isJudge || pj.duelId !== d.duelId) return;
+    const key = `${pj.duelId}:${pj.round}`;
+    if (judgeBusyRef.current === key) return;
+    judgeBusyRef.current = key;
+    (async () => {
+      try {
+        const res = await onDuelJudge(d.a.snapshot, d.b.snapshot, pj.actionA, pj.actionB, {
+          round: pj.round, hpA: d.hpA, hpB: d.hpB, maxHpA: d.maxHpA, maxHpB: d.maxHpB, prior: duelSummariesRef.current,
+        });
+        duelSummariesRef.current = [...duelSummariesRef.current, res.summary || ''];
+        arenaWorldClient.duelRoundResult({ duelId: pj.duelId, round: pj.round, narrative: res.narrative, dmgA: res.dmgA, dmgB: res.dmgB, ended: res.ended, winner: res.winner });
+      } catch (e) { console.warn('[ArenaDuel] 裁定失败', e); judgeBusyRef.current = ''; }
+    })();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [st.pendingJudge]);
+
+  // 新对战/新回合 → 清空出招框；换对战 → 清空评委累积摘要
+  const duelId = st.duel?.duelId || '';
+  const duelRound = st.duel?.round || 0;
+  useEffect(() => { duelSummariesRef.current = []; judgeBusyRef.current = ''; }, [duelId]);
+  useEffect(() => { setDuelInput(''); }, [duelId, duelRound]);
+
+  const doDuelInvite = (opp: ArenaCard, ranked: boolean) => {
+    if (!connected || !myFighter) return;
+    arenaWorldClient.duelInvite(myFighter.id, opp.id, ranked);
+    setDuelTarget(null);
+  };
+  const submitDuelAction = () => {
+    const d = useArenaWorld.getState().duel; const t = duelInput.trim();
+    if (!d || !t) return;
+    arenaWorldClient.duelAction(d.duelId, d.round, t);
+    setDuelInput('');
+  };
+  const forfeitDuel = () => { const d = useArenaWorld.getState().duel; if (d) arenaWorldClient.duelForfeit(d.duelId); };
+
   // 上传表单：源快照 + 可选技能/天赋/物品清单
   const srcSnap = useMemo(() => {
     if (!showForm) return null;
@@ -174,7 +322,7 @@ export default function ArenaWorldPanel({ onClose, onGenBattle, onSpar, onManual
 
   return (
     <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/60 backdrop-blur-sm p-3" onClick={onClose}>
-      <div className="w-full max-w-3xl h-[90vh] flex flex-col rounded-2xl border border-edge bg-panel shadow-2xl overflow-hidden" onClick={(e) => e.stopPropagation()}>
+      <div className="relative w-full max-w-3xl h-[90vh] flex flex-col rounded-2xl border border-edge bg-panel shadow-2xl overflow-hidden" onClick={(e) => e.stopPropagation()}>
         <header className="shrink-0 flex items-center gap-2 px-4 py-3 border-b border-edge bg-panel/60">
           <span className="text-xl">🏆</span>
           <div className="min-w-0">
@@ -185,7 +333,7 @@ export default function ArenaWorldPanel({ onClose, onGenBattle, onSpar, onManual
             </div>
           </div>
           <div className="flex-1" />
-          {entered && !battle && (
+          {entered && !battle && !st.duel && (
             <button onClick={openUpload} disabled={!connected || !canUploadMore} title={canUploadMore ? '' : '每账号最多 3 个角色'} className="px-3 py-1.5 rounded-lg text-[13px] font-semibold bg-god/20 border border-god/40 text-god hover:bg-god/30 disabled:opacity-40 transition-colors">➕ 上传角色</button>
           )}
           <button onClick={onClose} className="text-dim/50 hover:text-blood text-lg transition-colors">✕</button>
@@ -198,6 +346,11 @@ export default function ArenaWorldPanel({ onClose, onGenBattle, onSpar, onManual
             <div className="text-[12px] text-dim/60 max-w-xs leading-relaxed">把你的<span className="text-god">主角或 NPC</span> 上传成参赛卡，挑战其他契约者、争夺排名榜的<span className="text-god">轮回主宰</span>之位——与聊天室<span className="text-god">共用 Discord 身份</span>。</div>
             <button onClick={doLogin} disabled={busy} className="px-5 py-2.5 rounded-lg text-sm font-semibold bg-god/20 border border-god/40 text-god hover:bg-god/30 disabled:opacity-50 transition-colors">{busy ? '登录中…' : (loggedIn ? '进入竞技场' : '用 Discord 登录')}</button>
             {gateErr && <div className="text-[11px] text-amber-400/80 max-w-xs leading-relaxed">{gateErr}</div>}
+          </div>
+        ) : st.duel ? (
+          /* ── 实时对战房（双方在线·逐回合各自出招·AI 公正裁定）── */
+          <div className="flex-1 overflow-y-auto p-3">
+            <DuelRoom duel={st.duel} input={duelInput} onInput={setDuelInput} onSubmit={submitDuelAction} onForfeit={forfeitDuel} onExit={() => arenaWorldClient.clearDuel()} />
           </div>
         ) : battle ? (
           /* ── 战斗回放 ── */
@@ -267,11 +420,15 @@ export default function ArenaWorldPanel({ onClose, onGenBattle, onSpar, onManual
                           <span className="flex items-center gap-2 mt-0.5">
                             <OwnerTag c={c} />
                             <span className="text-[10px] font-mono text-dim/40">{c.wins}胜{c.losses}负</span>
+                            {!mine && st.onlineOwners.includes(c.ownerId) && <span className="text-[9px] font-mono text-emerald-400/90">● 在线</span>}
                           </span>
                         </span>
                       </button>
                       {canChallenge && (
                         <button onClick={() => doChallenge(c)} className="shrink-0 px-3 py-1.5 rounded-lg text-[13px] font-semibold border border-blood/40 text-blood/90 hover:bg-blood/15 transition-colors">⚔ 挑战</button>
+                      )}
+                      {!mine && st.onlineOwners.includes(c.ownerId) && myFighter && (
+                        <button onClick={() => setDuelTarget(c)} title="实时对战·双方各自出招，AI 逐回合公正裁定" className="shrink-0 px-2.5 py-1.5 rounded-lg text-[12px] font-semibold border border-amber-400/40 text-amber-200/90 hover:bg-amber-400/15 transition-colors">⚔️ 实时</button>
                       )}
                       {!mine && (
                         <button onClick={() => onSpar(c)} title="切磋·真实战斗，不计排名" className="shrink-0 px-2.5 py-1.5 rounded-lg text-[12px] font-semibold border border-god/40 text-god/80 hover:bg-god/15 transition-colors">🤺 切磋</button>
@@ -353,6 +510,56 @@ export default function ArenaWorldPanel({ onClose, onGenBattle, onSpar, onManual
               )}
             </div>
           </>
+        )}
+
+        {/* 收到实时对战邀请 → 接受 / 拒绝 */}
+        {st.incomingInvite && (
+          <div className="absolute inset-0 z-[70] flex items-center justify-center bg-black/70 backdrop-blur-sm p-4">
+            <div className="w-full max-w-sm rounded-2xl border border-amber-400/40 bg-panel p-5 text-center space-y-3 shadow-2xl">
+              <div className="text-3xl">⚔️</div>
+              <div className="text-[13px] text-slate-100 leading-relaxed">
+                <span className="font-bold text-amber-200">{st.incomingInvite.challengerCard.ownerName}</span> 用「<span className="font-bold">{st.incomingInvite.challengerCard.snapshot.name}</span>」向你发起<span className="font-bold text-amber-200">{st.incomingInvite.ranked ? '排位' : '友谊'}实时对战</span>
+              </div>
+              <div className="text-[12px] text-dim/60 leading-relaxed">双方逐回合各自出招，由 AI 依双方全部信息公正裁定{st.incomingInvite.ranked ? '，结果计入排名' : '，友谊战不计分'}。</div>
+              <div className="flex items-center gap-2 justify-center pt-1">
+                <button onClick={() => arenaWorldClient.duelRespond(st.incomingInvite!.duelId, true)} className="px-5 py-2 rounded-lg text-[13px] font-bold bg-god/20 border border-god/40 text-god hover:bg-god/30 transition-colors">接受</button>
+                <button onClick={() => arenaWorldClient.duelRespond(st.incomingInvite!.duelId, false)} className="px-4 py-2 rounded-lg text-[13px] font-semibold border border-edge text-dim/70 hover:text-blood transition-colors">拒绝</button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* 我方已发起 → 等待对方接受 */}
+        {st.pendingInvite && !st.duel && (
+          <div className="absolute inset-0 z-[70] flex items-center justify-center bg-black/70 backdrop-blur-sm p-4">
+            <div className="w-full max-w-sm rounded-2xl border border-god/40 bg-panel p-5 text-center space-y-3 shadow-2xl">
+              <div className="text-3xl animate-pulse">📨</div>
+              <div className="text-[13px] text-slate-100 leading-relaxed">已向「<span className="font-bold">{st.pendingInvite.opponent.snapshot.name}</span>」（{st.pendingInvite.opponent.ownerName}）发起实时对战，等待对方接受…</div>
+              <button onClick={() => arenaWorldClient.cancelInvite(st.pendingInvite!.duelId)} className="px-4 py-1.5 rounded-lg text-[13px] font-semibold border border-edge text-dim/70 hover:text-blood transition-colors">取消</button>
+            </div>
+          </div>
+        )}
+
+        {/* 发起实时对战 → 选排位 / 友谊 */}
+        {duelTarget && myFighter && (
+          <div className="absolute inset-0 z-[70] flex items-center justify-center bg-black/70 backdrop-blur-sm p-4" onClick={() => setDuelTarget(null)}>
+            <div className="w-full max-w-sm rounded-2xl border border-amber-400/40 bg-panel p-5 space-y-3 shadow-2xl" onClick={(e) => e.stopPropagation()}>
+              <div className="text-center space-y-1">
+                <div className="text-3xl">⚔️</div>
+                <div className="text-[13px] text-slate-100">向「<span className="font-bold">{duelTarget.snapshot.name}</span>」发起实时对战</div>
+                <div className="text-[11px] text-dim/50">出战：{myFighter.snapshot.name}（#{myFighter.rank}）</div>
+              </div>
+              <div className="flex flex-col gap-2 pt-1">
+                {duelTarget.rank < myFighter.rank ? (
+                  <button onClick={() => doDuelInvite(duelTarget, true)} className="w-full px-4 py-2 rounded-lg text-[13px] font-bold bg-amber-400/15 border border-amber-400/40 text-amber-200/90 hover:bg-amber-400/25 transition-colors">🏆 排位对战 · 胜则占位取代（计入排名）</button>
+                ) : (
+                  <div className="text-[11px] text-dim/50 text-center px-2 py-1.5 rounded-lg border border-dashed border-edge">排位对战仅可挑战排名比你高的对手</div>
+                )}
+                <button onClick={() => doDuelInvite(duelTarget, false)} className="w-full px-4 py-2 rounded-lg text-[13px] font-bold bg-god/15 border border-god/40 text-god hover:bg-god/25 transition-colors">🤝 友谊对战 · 不计分</button>
+                <button onClick={() => setDuelTarget(null)} className="text-[12px] text-dim/60 hover:text-slate-200 transition-colors pt-0.5">取消</button>
+              </div>
+            </div>
+          </div>
         )}
 
         {/* 点榜单角色 → 完整只读面板 */}

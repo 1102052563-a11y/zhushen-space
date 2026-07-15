@@ -11,6 +11,9 @@ const MAX_NAME = 24;
 const MAX_AVATAR = 60000;      // 立绘缩略图上限（~45KB 的 dataURL；超出/非图则剥掉）
 const MAX_SNAPSHOT = 200000;   // 整张快照序列化上限（~200KB；剥立绘后仍超则拒绝上传）
 const MIN_INTERVAL = 900;      // 防刷：同一玩家两次写操作最小间隔(ms)
+const MAX_NARR = 12000;        // 实时对战·单回合战斗描写上限（防超大 WS 消息）
+const MAX_DUEL_LOG = 40;       // 实时对战·回合日志留存条数
+const MAX_ACTION = 2000;       // 实时对战·单条行动文本上限
 
 function json(o, init = {}) {
   return new Response(JSON.stringify(o), { ...init, headers: { "Content-Type": "application/json" } });
@@ -57,6 +60,14 @@ function powerOf(snap) {
     + Math.max(0, Number((snap && snap.maxEp) || 0)) * 0.01;
 }
 
+// 实时对战·开局血量：优先用卡里算好的 maxHp（与单机同口径）；缺失则按体质粗估，保证双方都有合理血条。
+function duelMaxHp(snap) {
+  const h = Math.round(Number(snap && snap.maxHp) || 0);
+  if (h > 0) return Math.min(9000000, h);
+  const con = Number(snap && snap.attrs && snap.attrs.con) || 0;
+  return Math.max(100, con * 20 || 500);
+}
+
 // 快照消毒：剥超大/非法立绘；整体超限先剥图再判，仍超则拒绝（返回 null）。
 function sanitizeSnapshot(s) {
   if (!s || typeof s !== "object") return null;
@@ -80,6 +91,7 @@ export class ArenaWorldDO {
     this.matches = null;    // 挑战记录（最近在前）
     this._loaded = null;
     this._rate = new Map();
+    this.duels = {};        // 实时对战会话（内存态·短生命周期，按 duelId 存；DO 重启即中断，可接受）
     try {
       this.ctx.setWebSocketAutoResponse(new WebSocketRequestResponsePair("ping", "pong"));
     } catch {}
@@ -152,7 +164,9 @@ export class ArenaWorldDO {
     this.ctx.acceptWebSocket(server, [playerId]);
     server.serializeAttachment({ playerId, name, hue, avv, ds, nc, du, joinedAt: Date.now() });
 
-    this.#sendTo(server, { type: "hello", you: { playerId, name, hue }, cards: this.#sorted(), online: this.#online() });
+    this.#sendTo(server, { type: "hello", you: { playerId, name, hue }, cards: this.#sorted(), online: this.#online(), onlineOwners: this.#onlineOwners() });
+    // 新玩家上线 → 广播在线名单（各端据此标记「可实时对战」的在线对手）
+    this.#broadcast({ type: "online_owners", owners: this.#onlineOwners(), online: this.#online() });
 
     return new Response(null, { status: 101, webSocket: client });
   }
@@ -291,11 +305,132 @@ export class ArenaWorldDO {
         this.#broadcast({ type: "ladder", cards: this.#sorted() });
         break;
       }
+      // ── 实时对战（双方在线·逐回合各自出招→发起方跑一次 AI 公正裁判→广播结果·可选计入排名）──
+      case "duel_invite": {
+        if (this.#tooFast(att.playerId)) { this.#sendTo(ws, { type: "rate_limited" }); break; }
+        const mine = this.cards.find((c) => c.id === String(msg.myCardId || "") && c.ownerId === att.playerId);
+        const opp = this.cards.find((c) => c.id === String(msg.opponentCardId || ""));
+        if (!mine || !opp) { this.#sendTo(ws, { type: "error", reason: "对手或参赛角色不存在（请刷新）" }); break; }
+        if (mine.id === opp.id || opp.ownerId === att.playerId) { this.#sendTo(ws, { type: "error", reason: "不能和自己对战" }); break; }
+        if (!this.#playerOnline(opp.ownerId)) { this.#sendTo(ws, { type: "error", reason: "对方不在线，无法实时对战" }); break; }
+        const ranked = !!msg.ranked;
+        if (ranked && !(opp.rank < mine.rank)) { this.#sendTo(ws, { type: "error", reason: "排位对战只能挑战排名比你高的对手" }); break; }
+        if (this.#duelOf(att.playerId)) { this.#sendTo(ws, { type: "error", reason: "你已在一场对战中" }); break; }
+        if (this.#duelOf(opp.ownerId)) { this.#sendTo(ws, { type: "error", reason: "对方正在对战中，稍后再试" }); break; }
+        const id = crypto.randomUUID();
+        this.duels[id] = {
+          id, ranked,
+          hostId: att.playerId, guestId: opp.ownerId,   // 发起方=评委(卡A)，被邀方=卡B
+          aCardId: mine.id, bCardId: opp.id,
+          aName: mine.snapshot.name, bName: opp.snapshot.name,
+          aSnapshot: mine.snapshot, bSnapshot: opp.snapshot,
+          aOwnerName: mine.ownerName, bOwnerName: opp.ownerName,
+          status: "inviting", round: 1,
+          hpA: 0, hpB: 0, maxHpA: 0, maxHpB: 0,
+          actions: {}, resolving: false, log: [], createdAt: Date.now(),
+        };
+        this.#sendToPlayer(opp.ownerId, { type: "duel_invited", duelId: id, ranked, challengerCard: mine, targetCardId: opp.id });
+        this.#sendTo(ws, { type: "duel_pending", duelId: id, opponent: opp });
+        break;
+      }
+      case "duel_respond": {
+        const d = this.duels[String(msg.duelId || "")];
+        if (!d || d.status !== "inviting" || d.guestId !== att.playerId) break;   // 只有被邀请者能应答
+        if (!msg.accept) { this.#sendToPlayer(d.hostId, { type: "duel_declined", duelId: d.id }); delete this.duels[d.id]; break; }
+        if (!this.#playerOnline(d.hostId)) { this.#sendTo(ws, { type: "error", reason: "发起方已离线" }); delete this.duels[d.id]; break; }
+        d.maxHpA = duelMaxHp(d.aSnapshot); d.maxHpB = duelMaxHp(d.bSnapshot);
+        d.hpA = d.maxHpA; d.hpB = d.maxHpB;
+        d.status = "active"; d.round = 1; d.actions = {}; d.resolving = false;
+        this.#sendToPlayer(d.hostId, { type: "duel_started", ...this.#duelView(d, d.hostId) });
+        this.#sendToPlayer(d.guestId, { type: "duel_started", ...this.#duelView(d, d.guestId) });
+        break;
+      }
+      case "duel_action": {
+        const d = this.duels[String(msg.duelId || "")];
+        if (!d || d.status !== "active") break;
+        const side = att.playerId === d.hostId ? "A" : att.playerId === d.guestId ? "B" : null;
+        if (!side) break;
+        if (typeof msg.round === "number" && msg.round !== d.round) break;   // 过期回合忽略
+        if (d.resolving) break;                                             // 正在裁定，忽略新出招
+        const text = String(msg.text || "").slice(0, MAX_ACTION).trim();
+        if (!text) break;
+        d.actions[side] = text;
+        this.#broadcastDuel(d, { type: "duel_action_ack", duelId: d.id, round: d.round, who: side });
+        if (d.actions.A && d.actions.B) {   // 双方都已出招 → 交给发起方(评委)跑一次 AI 裁定
+          d.resolving = true;
+          this.#sendToPlayer(d.hostId, { type: "duel_round_ready", duelId: d.id, round: d.round, actionA: d.actions.A, actionB: d.actions.B });
+        }
+        break;
+      }
+      case "duel_round_result": {
+        const d = this.duels[String(msg.duelId || "")];
+        if (!d || d.status !== "active" || att.playerId !== d.hostId) break;   // 只有评委(发起方)能裁定
+        if (typeof msg.round === "number" && msg.round !== d.round) break;
+        if (!d.resolving) break;
+        const dmgA = Math.max(0, Math.min(d.maxHpA, Math.round(Number(msg.dmgA) || 0)));
+        const dmgB = Math.max(0, Math.min(d.maxHpB, Math.round(Number(msg.dmgB) || 0)));
+        d.hpA = Math.max(0, d.hpA - dmgA);
+        d.hpB = Math.max(0, d.hpB - dmgB);
+        const ended = !!msg.ended || d.hpA <= 0 || d.hpB <= 0;
+        let winner = null;
+        if (ended) {
+          if (msg.winner === "A" || msg.winner === "B") winner = msg.winner;
+          else if (d.hpA <= 0 && d.hpB <= 0) winner = d.hpA >= d.hpB ? "A" : "B";
+          else winner = d.hpA <= 0 ? "B" : "A";
+        }
+        const narrative = String(msg.narrative || "").slice(0, MAX_NARR);
+        const resolvedRound = d.round;
+        d.log.push({ round: resolvedRound, narrative });
+        if (d.log.length > MAX_DUEL_LOG) d.log = d.log.slice(-MAX_DUEL_LOG);
+        d.actions = {}; d.resolving = false;
+        if (ended) d.status = "ended"; else d.round = resolvedRound + 1;
+        this.#broadcastDuel(d, {
+          type: "duel_round", duelId: d.id, round: resolvedRound, narrative,
+          hpA: d.hpA, hpB: d.hpB, maxHpA: d.maxHpA, maxHpB: d.maxHpB,
+          ended, winner, nextRound: ended ? resolvedRound : d.round,
+        });
+        if (ended) {
+          if (d.ranked) await this.#settleDuelRanking(d, winner);
+          delete this.duels[d.id];
+        }
+        break;
+      }
+      case "duel_forfeit": {
+        const d = this.duels[String(msg.duelId || "")];
+        if (!d || d.status === "ended") break;
+        const side = att.playerId === d.hostId ? "A" : att.playerId === d.guestId ? "B" : null;
+        if (!side) break;
+        const active = d.status === "active";
+        const winner = active ? (side === "A" ? "B" : "A") : null;   // 认输者判负；邀请阶段取消则无胜负
+        if (active && d.ranked) await this.#settleDuelRanking(d, winner);
+        d.status = "ended";
+        this.#broadcastDuel(d, { type: "duel_ended", duelId: d.id, winner, reason: active ? "forfeit" : "cancel" });
+        delete this.duels[d.id];
+        break;
+      }
       // 心跳是裸字符串 "ping"（构造函数 setWebSocketAutoResponse 自动回 "pong"）。
     }
   }
 
-  async webSocketClose() {}
+  async webSocketClose(ws) {
+    try {
+      await this.#ensureLoaded();
+      const pid = (ws.deserializeAttachment() || {}).playerId;
+      if (pid) {
+        // 掉线 → 中断该玩家参与的进行中/邀请中对战（不计排名，避免掉线被误判为失败）
+        for (const d of Object.values(this.duels)) {
+          if (d.status !== "ended" && (d.hostId === pid || d.guestId === pid)) {
+            d.status = "ended";
+            const other = d.hostId === pid ? d.guestId : d.hostId;
+            this.#sendToPlayer(other, { type: "duel_ended", duelId: d.id, winner: null, reason: "disconnect" });
+            delete this.duels[d.id];
+          }
+        }
+      }
+    } catch {}
+    // 在线名单变化 → 广播（排除正在关闭的这个连接）
+    this.#broadcast({ type: "online_owners", owners: this.#onlineOwners(ws), online: this.#online(ws) });
+  }
   async webSocketError(ws) { try { ws.close(); } catch {} }
 
   // ---- 工具 ----
@@ -306,13 +441,69 @@ export class ArenaWorldDO {
     this._rate.set(pid, now);
     return false;
   }
-  #online() {
+  #online(exclude) {
+    return this.#onlineOwners(exclude).length;
+  }
+  // 当前在线的玩家 id 列表（供各端标记「可实时对战」的在线对手）；exclude=正在关闭的连接
+  #onlineOwners(exclude) {
     const s = new Set();
     for (const ws of this.ctx.getWebSockets()) {
+      if (exclude && ws === exclude) continue;
       const a = ws.deserializeAttachment();
       if (a && a.playerId) s.add(a.playerId);
     }
-    return s.size;
+    return [...s];
+  }
+  #playerOnline(pid) {
+    for (const ws of this.ctx.getWebSockets()) {
+      const a = ws.deserializeAttachment();
+      if (a && a.playerId === pid) return true;
+    }
+    return false;
+  }
+  #sendToPlayer(pid, obj) {
+    const s = JSON.stringify(obj);
+    for (const ws of this.ctx.getWebSockets()) {
+      const a = ws.deserializeAttachment();
+      if (a && a.playerId === pid) { try { ws.send(s); } catch {} }
+    }
+  }
+  // 该玩家正参与的未结束对战（每人同一时刻只允许一场）
+  #duelOf(pid) {
+    return Object.values(this.duels).find((d) => d.status !== "ended" && (d.hostId === pid || d.guestId === pid)) || null;
+  }
+  #broadcastDuel(d, obj) {
+    this.#sendToPlayer(d.hostId, obj);
+    this.#sendToPlayer(d.guestId, obj);
+  }
+  // 对战视图（发给某一方；you=自己是哪一位、isJudge=是否评委）
+  #duelView(d, forPid) {
+    return {
+      duelId: d.id, ranked: d.ranked, round: d.round, status: d.status,
+      you: forPid === d.hostId ? "A" : "B",
+      isJudge: forPid === d.hostId,
+      a: { side: "A", cardId: d.aCardId, name: d.aName, ownerName: d.aOwnerName, snapshot: d.aSnapshot, maxHp: d.maxHpA, hp: d.hpA },
+      b: { side: "B", cardId: d.bCardId, name: d.bName, ownerName: d.bOwnerName, snapshot: d.bSnapshot, maxHp: d.maxHpB, hp: d.hpB },
+    };
+  }
+  // 排位对战结算：胜者占位取代/败者下降一名（复用 #occupy/#demote·A=发起方=挑战者）
+  async #settleDuelRanking(d, winner) {
+    const A = this.cards.find((c) => c.id === d.aCardId);
+    const B = this.cards.find((c) => c.id === d.bCardId);
+    if (!A || !B) return;
+    const rankBefore = A.rank;
+    if (winner === "A") { A.wins = (A.wins || 0) + 1; B.losses = (B.losses || 0) + 1; if (B.rank < A.rank) this.#occupy(A, B); }
+    else { A.losses = (A.losses || 0) + 1; B.wins = (B.wins || 0) + 1; this.#demote(A); }
+    this.matches.unshift({
+      matchId: crypto.randomUUID(), at: Date.now(), mode: "duel",
+      challenger: { id: A.id, name: A.snapshot.name, ownerName: A.ownerName, ownerDu: A.ownerDu },
+      opponent: { id: B.id, name: B.snapshot.name, ownerName: B.ownerName, ownerDu: B.ownerDu },
+      winner: winner === "A" ? "challenger" : "opponent", rankBefore, rankAfter: A.rank,
+    });
+    if (this.matches.length > MAX_MATCHES) this.matches = this.matches.slice(0, MAX_MATCHES);
+    await this.ctx.storage.put("cards", this.cards);
+    await this.ctx.storage.put("matches", this.matches);
+    this.#broadcast({ type: "ladder", cards: this.#sorted() });
   }
   #broadcast(obj) {
     const s = JSON.stringify(obj);

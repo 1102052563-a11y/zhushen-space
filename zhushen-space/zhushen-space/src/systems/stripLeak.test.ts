@@ -26,4 +26,20 @@ describe('stripLeakedThinking · 裸奔规划兜底', () => {
     const t = '本回合是个安静的开场，他独自落笔。接着抬头望向窗外。';
     expect(stripLeakedThinking(t)).toBe(t);
   });
+
+  // ── 强制思维链预填充（forceNarrativeThinking）：末尾预填 <think>，端点续写 ──
+  it('强制 <think> 预填充·端点不回显开标签：思考续写+孤立 </think> 整段剥掉', () => {
+    // 开标签 <think> 在 prefill 里，content 里只回「思考续写…</think>正文」
+    const r = '确认语言为简体中文，视角第三人称限知，过一遍在场角色……反八股自检完毕。</think>\n林源睁开眼，头顶是陌生的天花板。';
+    expect(stripLeakedThinking(r)).toBe('林源睁开眼，头顶是陌生的天花板。');
+  });
+
+  it('跳过思维链预填充·回显的开头孤立 </think> 照剥（不回归）', () => {
+    expect(stripLeakedThinking('</think>\n正文照常开始。')).toBe('正文照常开始。');
+  });
+
+  it('普通正文绝无裸 </think> → 不受新兜底影响', () => {
+    const normal = '他抬头望向漫天星斗，久久没有说话。风穿过山谷。';
+    expect(stripLeakedThinking(normal)).toBe(normal);
+  });
 });
