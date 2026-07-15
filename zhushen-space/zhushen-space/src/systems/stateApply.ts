@@ -53,6 +53,22 @@ export function stripLeakedThinking(text: string): string {
   return stripLeadingPlanLeak(t);
 }
 
+/* 流式期间「隐藏思维链」——正文逐字渲染时用（不是最终剥离；最终仍走 stripLeakedThinking）。
+   返回此刻应显示给读者的正文片段；仍在思考中时返回 null（调用方显示占位，如「💭 思考中…」，不把思考直播给读者）。
+   - 已出现闭合标签 </think> → 返回其后的正文（思考整段隐藏）；其后暂空也返回 null，保持占位不闪空。
+   - 无闭合标签且本轮预填了 <think> 开标签（强制思维链 / 预设自带 prefill·端点可能不回显开标签）→ 通篇仍是思考，隐藏。
+   - 无闭合标签、未强制：内容以 <think 开头（含逐字到来的部分前缀 <、<t、<th…）也判为思考中；否则原样返回（普通正文零改动、不闪烁）。 */
+export function streamVisibleNarrative(acc: string, prefilledOpenThink: boolean): string | null {
+  if (!acc) return prefilledOpenThink ? null : acc;
+  const close = /<\/(?:think|thinking|thought)>/i.exec(acc);
+  if (close) return acc.slice(close.index + close[0].length).replace(/^\s+/, '') || null;
+  if (prefilledOpenThink) return null;
+  if (/^\s*<(?:think|thinking|thought)\b/i.test(acc)) return null;
+  const head = acc.trimStart().toLowerCase();
+  if (head && head[0] === '<' && '<thinking'.startsWith(head)) return null;   // 逐字到来的部分开标签前缀（<, <t, <th…）
+  return acc;
+}
+
 /* 兜底：模型把「动笔前思考」草稿裸奔在正文最前（没包 <think>，故上面按标签剥不到）。
    仅当开头那段——含 ≥2 个规划标记（切入点/节拍/防OOC/字数目标/世界之源/要输出/钩子/落点/时间设定…）——
    且以「落笔」收口时，整段剥掉。两道闸（≥2标记 + 落笔收口）保证普通正文绝不误伤。 */

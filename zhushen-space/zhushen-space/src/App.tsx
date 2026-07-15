@@ -126,7 +126,7 @@ import { useSettings, resolveApiChain, inferViewScopes, type WorldbookConflict }
 import { runRegexReplace } from './systems/regexEngine';
 import { apiChatFallback, fetchWithProxy, abortAllApiCalls, narrativeLangDirective } from './systems/apiChat';
 import { parseAllStateUpdates, stripStateBlocks, parseAllItemCommands, applyItemCommands, parseAllCharCommands, applyCharacterCommands, parseAllNpcCommands, applyNpcCommands, parseAllFactionCommands, applyFactionCommands, applyTerritoryCommands, applyTeamCommands, isEquippable, lenientJsonParse, buildItemFeedback, recordEvo, purgeItemPhaseCurrency, editToTerritoryText, editToTeamText, detectUnregisteredCurrencyGains } from './systems/stateParser';
-import { isRealNpc, sanitizeEntryName, stripLeakedThinking, setNpcPreferredOwners, applyStateUpdates, applyAllUpdates, stripKillBlocks, stripVitalsBlocks, stripWorldSourceBlocks, collapseRunaway } from './systems/stateApply';
+import { isRealNpc, sanitizeEntryName, stripLeakedThinking, streamVisibleNarrative, setNpcPreferredOwners, applyStateUpdates, applyAllUpdates, stripKillBlocks, stripVitalsBlocks, stripWorldSourceBlocks, collapseRunaway } from './systems/stateApply';
 import { buildTableFillPrompt, buildPlotStateSnapshot } from './systems/tablePrompt';   // ACU 表格数据库：填表提示词 + 剧情状态快照（喂剧情指导）
 import { resolveTableTemplates } from './systems/tableTemplate';   // ACU 表格数据库：读路径 native 模板（<if cell/seed>/计算标签）
 import { ensureSqliteMirror, needsSqlite } from './systems/tableSqlite';   // ACU 表格数据库：读路径 6b sql.js 镜像（{[db]}/{[sql]}）
@@ -353,6 +353,7 @@ interface ChatMessage {
   id: number;
   role: 'user' | 'assistant' | 'system';
   content: string;
+  inputImages?: string[];  // 玩家本楼随行动附带的图片（data:URL·已压缩）→ 随本回合以多模态喂给视觉正文接口，并在用户气泡里显示缩略图
   smallSummary?: string;   // 该楼层小总结（叙事记忆三档注入用）
   largeSummary?: string;   // 该楼层大总结
   images?: StoryImage[];   // 正文配图（按 anchor 插入楼层正文）
@@ -368,6 +369,30 @@ interface ChatMessage {
 function isAbyssLocked(prof?: { tier?: string; level?: number } | null): boolean {
   const t = normalizeTier(prof?.tier || '') || realmFromLevel(prof?.level ?? 1);
   return TIERS.indexOf(t as typeof TIERS[number]) < 4;
+}
+
+/* 多模态：把图片(data:URL)挂到消息序列里【最后一条 user 消息】上——OpenAI 兼容视觉格式
+   （content 由纯字符串改为 [{type:'text'},{type:'image_url'}…] 数组，GPT-4o/Gemini/Claude 视觉模型皆认）。
+   无图片则原样返回（零改动·不影响不带图的正常回合）。只改「发出去」的那一份，聊天历史仍存字符串。 */
+type VisionPart = { type: 'text'; text: string } | { type: 'image_url'; image_url: { url: string } };
+type OutMsg = { role: string; content: string | VisionPart[] };
+function attachImagesToLastUser(msgs: { role: string; content: string }[], images?: string[]): OutMsg[] {
+  if (!images || images.length === 0) return msgs;
+  const out: OutMsg[] = msgs.slice();
+  for (let i = out.length - 1; i >= 0; i--) {
+    if (out[i].role === 'user') {
+      const txt = typeof out[i].content === 'string' ? (out[i].content as string) : '';
+      out[i] = {
+        role: out[i].role,
+        content: [
+          ...(txt ? [{ type: 'text', text: txt } as VisionPart] : []),
+          ...images.map((url): VisionPart => ({ type: 'image_url', image_url: { url } })),
+        ],
+      };
+      break;
+    }
+  }
+  return out;
 }
 // 五阶前硬兜底：把 AI 正文里漏网的「深渊」及 深渊X 衍生替换成模糊化说法（机读护栏，防提示词失守）。
 function scrubAbyss(text: string): string {
@@ -1522,6 +1547,9 @@ export default function App() {
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [mobileDrawer, setMobileDrawer] = useState<'player' | 'menu' | null>(null); // 手机端：左角色栏 / 右导航 抽屉
   const [inputValue, setInputValue] = useState(() => { try { return localStorage.getItem('drpg-chat-draft') || ''; } catch { return ''; } });   // 输入草稿持久化：误触返回/刷新/崩溃也不丢已输入的行动
+  const [attachedImages, setAttachedImages] = useState<string[]>([]);   // 待发送的图片附件（拖入/粘贴/选择·data:URL 已压缩）：随本回合以多模态喂给视觉正文接口
+  const [dragOverInput, setDragOverInput] = useState(false);            // 拖拽悬停高亮
+  const imgFileInputRef = useRef<HTMLInputElement>(null);               // 隐藏的文件选择器（🖼 按钮触发）
   const [openChoiceIds, setOpenChoiceIds] = useState<Set<number>>(new Set());   // 剧情选项：按楼层展开（附在正文末尾，点击查看；默认收起）
   const [choicesRevarOpen, setChoicesRevarOpen] = useState(false);             // 「重新生成 选项/同人/事实/小剧场」方向提示词弹窗
   const [choicesDir, setChoicesDir] = useState('');                            // 上述弹窗的自定义方向提示词（可留空）
@@ -8513,7 +8541,7 @@ ${lines}`;
     return edited;
   }
 
-  async function callApi(userText: string, extraHistory: ChatMessage[] = [], opts: { narrateOnly?: boolean; task?: 'outline' | 'dbAdvance'; outline?: string; guidance?: string; dbAdvance?: string; onDelta?: (t: string) => void } = {}) {
+  async function callApi(userText: string, extraHistory: ChatMessage[] = [], opts: { narrateOnly?: boolean; task?: 'outline' | 'dbAdvance'; outline?: string; guidance?: string; dbAdvance?: string; images?: string[]; onDelta?: (t: string) => void } = {}) {
     const isOutline = opts.task === 'outline';   // 细纲生成：复用正文全上下文注入，但只发 OUTLINE_GEN_RULE（不带正文预设的写正文/排版指令·A2）→产出细纲文本、流式喂 onDelta、只 return 不落地
     const isDbAdvance = opts.task === 'dbAdvance';   // 数据库推进·预生成（审核窗）：复用 worldInfoText 跑推进管线、只 return 不落地
     const narrateOnly = !!opts.narrateOnly || isOutline || isDbAdvance;   // 细纲/推进预生成继承 narrateOnly 的全部副作用屏蔽（不计回合/不消费前置须知/不解析<state>/不显示气泡/不演化）
@@ -8614,6 +8642,8 @@ ${lines}`;
       : (forceNarrativeThinking && !/^\s*<think\b/i.test(prefill ?? ''))
         ? ('<think>\n' + (prefill ?? '')).trimEnd()
         : prefill;
+    // 本轮是否以「<think> 开标签」预填充（强制思维链 / 预设自带 <think> prefill）——供流式期间把思考隐藏、只显示 </think> 之后的正文
+    const prefilledOpenThink = /^\s*<think\b/i.test(effectivePrefill || '');
     // 剧情指导（开启时）：正文生成【前】先跑一次，产出剧情优化建议 → 像叙事回忆一样注入主正文，由主正文据此写（仅一次正文生成）
     let guidanceBlock: { role: 'system'; content: string }[] = [];
     if (plotGuidance && !isOutline) {
@@ -8901,6 +8931,10 @@ ${lines}`;
     abortRef.current = ac;
     stopAllRef.current = false;   // 新一轮生成：解除上次「停止生成」
 
+    // 多模态：本回合玩家附带了图片 → 把它们挂到「最后一条 user 消息」上（OpenAI 视觉格式）。无图则原样。
+    //   只改这份「发出去」的消息序列，不动 histForSend/调试日志（它们仍按字符串展示）。细纲草稿也可带图 → 让视觉信息进入规划。
+    const outMessages = attachImagesToLastUser([{ role: 'system', content: sysForSend }, ...histForSend], opts.images);
+
     try {
       // 接口路由：按优先级逐个尝试，失败/非 OK 自动 fallback 到下一条；首个成功者用于（流式）读取
       let res: Response | null = null;
@@ -8911,7 +8945,7 @@ ${lines}`;
         if (!ep.baseUrl || !ep.apiKey) continue;
         const reqBody: Record<string, unknown> = {
           model:       ep.modelId,
-          messages:    [{ role: 'system', content: sysForSend }, ...histForSend],
+          messages:    outMessages,
           temperature: preset?.temperature ?? ep.temperature,
           max_tokens:  preset?.max_tokens  ?? Math.max(ep.maxTokens || 0, 60000),   // 按用户要求保持 60000（若遇变慢/network error，多为大提示词+60000 撑爆上下文，可调小）
           top_p:       preset?.top_p       ?? ep.topP,
@@ -8967,16 +9001,20 @@ ${lines}`;
                 const delta = json.choices?.[0]?.delta?.content ?? '';
                 if (delta) {
                   accumulated += delta;
-                  // 流式期间显示原始内容，避免正则对不完整结构误判导致内容闪烁。
-                  // 但"失控复读"（极其极其…数万字）若原样渲染会直接卡死前端，故廉价预检末尾、命中才就地折叠 accumulated：
+                  // "失控复读"（极其极其…数万字）若原样渲染会直接卡死前端，故廉价预检末尾、命中才就地折叠 accumulated：
                   // 折叠后它不再膨胀（解析/渲染都有界）；卡死的复读循环本就不会再吐 <state>，折叠不影响后续状态解析。
                   if (accumulated.length > 64 && /(.{1,8}?)\1{7,}$/s.test(accumulated.slice(-128)))
                     accumulated = collapseRunaway(accumulated);
-                  if (isOutline) opts.onDelta?.(accumulated);   // 细纲：流式喂进弹窗（无正文气泡）
-                  else setMessages((prev) =>
-                    prev.map((m) => m.id === streamMsgId ? { ...m, content: accumulated } : m)
-                  );
-                  if (!isOutline) maybeDispatchProgressiveImages(accumulated, streamMsgId);   // 「边写边出」：每写完一段就给那段配图（细纲不配图）
+                  if (isOutline) opts.onDelta?.(accumulated);   // 细纲：流式喂进弹窗（自己剥 <剧情推演>，喂全量）
+                  else {
+                    // 流式隐藏思维链：预填了 <think>（强制思维链）或内容以 <think 开头时，闭合前整段是思考 → 只显示 </think> 之后的正文，
+                    // 思考中显示占位（不把思考直播给读者）；普通(无思考)内容原样、零改动、不闪烁。最终仍由 stripLeakedThinking 兜底剥净。
+                    const vis = streamVisibleNarrative(accumulated, prefilledOpenThink);
+                    setMessages((prev) =>
+                      prev.map((m) => m.id === streamMsgId ? { ...m, content: vis === null ? '💭 思考中……' : vis } : m)
+                    );
+                    if (vis) maybeDispatchProgressiveImages(vis, streamMsgId);   // 「边写边出」只对已显现的正文配图，绝不给思考配图（细纲不配图）
+                  }
                 }
               } catch { /* 忽略解析失败的行 */ }
             }
@@ -9311,10 +9349,34 @@ ${lines}`;
     void autoAdvanceStep();
   }
 
+  /* 读入图片文件 → 压缩为小 JPEG（data:URL）→ 追加进「待发送附件」。拖入/粘贴/选择器共用。
+     压到 ≤1280px 保证体积可控（既省视觉 token，又不撑爆存档/IndexedDB）；最多 6 张。 */
+  const MAX_INPUT_IMAGES = 6;
+  async function addImageFiles(files: FileList | File[]) {
+    const arr = Array.from(files).filter((f) => f.type.startsWith('image/'));
+    if (!arr.length) return;
+    for (const f of arr) {
+      try {
+        const raw = await new Promise<string>((res, rej) => {
+          const r = new FileReader();
+          r.onload = () => res(String(r.result || ''));
+          r.onerror = () => rej(new Error('read'));
+          r.readAsDataURL(f);
+        });
+        const small = await shrinkDataUrl(raw, 1280, 0.85);
+        setAttachedImages((prev) => (prev.length >= MAX_INPUT_IMAGES ? prev : [...prev, small]));
+      } catch (e) { console.warn('[图片附件] 读取/压缩失败，已跳过', e); }
+    }
+  }
+
   async function sendMessage(textArg?: string, fromAuto = false, sendOpts: { skipOutline?: boolean; forceMpSend?: boolean } = {}) {
     const text = (textArg ?? inputValue).trim();
     if (!fromAuto) stopAutoAdvance();   // 用户手动发送即中断循环自动推进
     if (!text || generating || guidanceRunning || outlineModal.open || planModal?.open || !!diceReviewModal) return;   // 剧情指导前置阶段/细纲·检定·规划审核弹窗开着也算「忙」，防重复发起并发调用
+    // 图片附件：仅手动发送（textArg==null＝输入框那口）随本回合带图；⏩推进/自动推进等 textArg 非空的调用不吃附件条。
+    //   发送即消费（清空附件条）；下面的取消路径会用 turnImages 还原。
+    const turnImages = (textArg == null) ? attachedImages : [];
+    if (textArg == null) setAttachedImages([]);
 
     // ── 联机分叉 ──
     const mp = useMp.getState();
@@ -9364,7 +9426,7 @@ ${lines}`;
 
     const histSnapshot = [...messagesRef.current];   // 发送前抓拍历史（仅含已结算的过往楼层，不含本回合）——供自动检定 AI 等待期后传给 callApi
     const userMsgId = ++msgId.current;
-    const userMsg: ChatMessage = { id: userMsgId, role: 'user', content: effectiveText };
+    const userMsg: ChatMessage = { id: userMsgId, role: 'user', content: effectiveText, inputImages: turnImages.length ? turnImages : undefined };
     setMessages((prev) => [...prev, userMsg]);
     if (textArg == null) setInputValue('');
     // 自动检定（骰子面板开「自动检定」时·仅单人）：hybrid＝关键词命中才 roll，judgeMode=ai 再 AI 精修。
@@ -9387,7 +9449,7 @@ ${lines}`;
             setDiceReviewModal(null);
             if (decided === null) {   // 取消 → 作废本回合（撤回用户气泡 + 还原输入框）
               setMessages((prev) => prev.filter((m) => m.id !== userMsgId));
-              if (textArg == null) setInputValue(text);
+              if (textArg == null) { setInputValue(text); setAttachedImages(turnImages); }
               return;
             }
             finalBlock = decided.block; finalCards = decided.cards;
@@ -9411,7 +9473,7 @@ ${lines}`;
       outlineHistRef.current = histSnapshot;
       setOutlineModal({ open: true, loading: true, text: '' });
       let draft = '';
-      try { draft = (await callApi(apiText, histSnapshot, { task: 'outline', onDelta: (t) => setOutlineModal((m) => m.open ? { ...m, text: outlineStreamDisplay(t) } : m) })) || ''; }
+      try { draft = (await callApi(apiText, histSnapshot, { task: 'outline', images: turnImages, onDelta: (t) => setOutlineModal((m) => m.open ? { ...m, text: outlineStreamDisplay(t) } : m) })) || ''; }
       catch (e) { console.warn('[细纲] 生成失败', e); }
       setOutlineModal((m) => m.open ? { ...m, loading: false, text: draft || m.text } : m);
       // Promise 桥：等玩家「确认并生成正文」(编辑后文本) 或「取消」(null)
@@ -9420,10 +9482,10 @@ ${lines}`;
       setOutlineModal({ open: false, loading: false, text: '' });
       if (edited == null) {   // 取消：撤回用户气泡（连同检定卡）、还原输入框，本回合作废
         setMessages((prev) => prev.filter((m) => m.id !== userMsgId));
-        if (textArg == null) setInputValue(text);
+        if (textArg == null) { setInputValue(text); setAttachedImages(turnImages); }
         return;
       }
-      await callApi(apiText, histSnapshot, { outline: edited });   // 正文：注入玩家确认的细纲，其余上下文与正文一致
+      await callApi(apiText, histSnapshot, { outline: edited, images: turnImages });   // 正文：注入玩家确认的细纲，其余上下文与正文一致
       return;   // 单机（联机不管），无需广播
     }
 
@@ -9435,15 +9497,15 @@ ${lines}`;
         const edited = await runPlanReview(mode, apiText, histSnapshot);
         if (edited === null) {   // 取消 → 作废本回合（撤回用户气泡 + 还原输入框）
           setMessages((prev) => prev.filter((m) => m.id !== userMsgId));
-          if (textArg == null) setInputValue(text);
+          if (textArg == null) { setInputValue(text); setAttachedImages(turnImages); }
           return;
         }
-        await callApi(apiText, histSnapshot, mode === 'guidance' ? { guidance: edited } : { dbAdvance: edited });   // 正文：注入玩家确认的规划（空=不注入），其余上下文与正文一致
+        await callApi(apiText, histSnapshot, mode === 'guidance' ? { guidance: edited, images: turnImages } : { dbAdvance: edited, images: turnImages });   // 正文：注入玩家确认的规划（空=不注入），其余上下文与正文一致
         return;
       }
     }
 
-    const narrative = await callApi(apiText, extraHist);
+    const narrative = await callApi(apiText, extraHist, { images: turnImages });
 
     // 房主：把算好的正文广播给全房，并开启下一回合（清空本回合已用的队友行动）
     if (isMpHost && narrative) {
@@ -10173,6 +10235,18 @@ ${lines}`;
                                 <div className="flex flex-col items-end min-w-0">
                                   <div className="max-w-sm px-4 py-2 rounded-xl bg-god/10 border border-god/20 text-sm text-god/90 font-mono"
                                     dangerouslySetInnerHTML={{ __html: userToHtml(msg.content) }} />
+                                  {msg.inputImages && msg.inputImages.length > 0 && (
+                                    <div className="mt-1.5 flex flex-wrap gap-1.5 justify-end max-w-sm">
+                                      {msg.inputImages.map((src, i) => (
+                                        <img
+                                          key={i}
+                                          src={src}
+                                          onClick={() => useImageViewer.getState().open(src, '发送的图片')}
+                                          className="max-w-[160px] max-h-40 rounded-lg border border-god/25 cursor-zoom-in"
+                                        />
+                                      ))}
+                                    </div>
+                                  )}
                                   {msg.dice && msg.dice.map((d, i) => <DiceCard key={i} data={d} />)}
                                 </div>
                               </div>
@@ -10618,14 +10692,55 @@ ${lines}`;
             )}
           </div>
 
+          {/* 图片附件条：拖入/粘贴/选择的图片缩略图（可逐张移除）→ 随本回合以多模态喂给视觉正文接口 */}
+          {attachedImages.length > 0 && (
+            <div className="shrink-0 border-t border-edge/60 bg-panel/40 px-3 py-1.5 flex items-center gap-2 flex-wrap">
+              {attachedImages.map((src, i) => (
+                <div key={i} className="relative group/att">
+                  <img
+                    src={src}
+                    onClick={() => useImageViewer.getState().open(src, '待发送图片')}
+                    className="w-14 h-14 object-cover rounded border border-god/30 cursor-zoom-in"
+                  />
+                  <button
+                    onClick={() => setAttachedImages((prev) => prev.filter((_, j) => j !== i))}
+                    title="移除这张图片"
+                    className="absolute -top-1.5 -right-1.5 w-4 h-4 flex items-center justify-center rounded-full bg-blood text-white text-[10px] leading-none border border-void shadow hover:bg-blood/80"
+                  >✕</button>
+                </div>
+              ))}
+              <span className="text-[11px] text-dim/50 font-mono">📎 {attachedImages.length}/{MAX_INPUT_IMAGES} 张图将随本回合发送（需正文接口为视觉模型，如 GPT-4o / Gemini / Claude）</span>
+            </div>
+          )}
+
           {/* 输入框（手机：正文输入独占一行·按钮换到下一行，省得输入框被挤成三行） */}
-          <div className="shrink-0 border-t border-edge bg-panel flex items-center gap-2 px-3 py-2 max-lg:flex-wrap">
+          <div
+            className={`shrink-0 border-t bg-panel flex items-center gap-2 px-3 py-2 max-lg:flex-wrap transition-colors ${dragOverInput ? 'border-god/70 bg-god/5' : 'border-edge'}`}
+            onDragOver={(e) => { if (Array.from(e.dataTransfer?.types || []).includes('Files')) { e.preventDefault(); setDragOverInput(true); } }}
+            onDragLeave={(e) => { if (e.currentTarget === e.target) setDragOverInput(false); }}
+            onDrop={(e) => { const fs = e.dataTransfer?.files; setDragOverInput(false); if (fs && fs.length) { e.preventDefault(); void addImageFiles(fs); } }}
+          >
+            <input
+              ref={imgFileInputRef}
+              type="file"
+              accept="image/*"
+              multiple
+              className="hidden"
+              onChange={(e) => { if (e.target.files) void addImageFiles(e.target.files); e.target.value = ''; }}
+            />
             <button
               onClick={() => setMessages([])}
               title="清空对话"
               className="w-7 h-7 max-lg:w-9 max-lg:h-9 max-lg:order-2 flex items-center justify-center text-blood bg-blood/10 border border-blood/30 rounded text-sm hover:bg-blood/20 shrink-0"
             >
               ↺
+            </button>
+            <button
+              onClick={() => imgFileInputRef.current?.click()}
+              title="添加图片（也可直接拖入输入框 / 粘贴截图）：随本回合发给正文接口，需接口为视觉模型（GPT-4o / Gemini / Claude 视觉版等）"
+              className="w-7 h-7 max-lg:w-9 max-lg:h-9 max-lg:order-2 flex items-center justify-center text-god/80 border border-god/30 rounded text-sm hover:bg-god/10 shrink-0"
+            >
+              🖼
             </button>
             <textarea
               ref={chatInputRef}
@@ -10634,6 +10749,7 @@ ${lines}`;
               onChange={(e) => setInputValue(e.target.value)}
               onInput={(e) => { const t = e.currentTarget; t.style.height = 'auto'; t.style.height = Math.min(t.scrollHeight, 128) + 'px'; }}
               onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { if (disableEnterSend) return; e.preventDefault(); sendMessage(); } }}
+              onPaste={(e) => { const imgs = Array.from(e.clipboardData?.items || []).filter((it) => it.kind === 'file' && it.type.startsWith('image/')).map((it) => it.getAsFile()).filter(Boolean) as File[]; if (imgs.length) { e.preventDefault(); void addImageFiles(imgs); } }}
               placeholder={disableEnterSend ? '在此输入你的行动…（回车发送已禁用，点 ▶ 发送）' : (showNewlineButton ? '在此输入你的行动…（Shift+Enter 或点 ↵ 换行）' : '在此输入你的行动…（Shift+Enter 换行）')}
               className="flex-1 max-lg:basis-full max-lg:order-1 bg-transparent text-sm max-lg:text-base text-slate-200 placeholder:text-dim outline-none resize-none max-h-32 overflow-y-auto leading-relaxed py-1"
             />

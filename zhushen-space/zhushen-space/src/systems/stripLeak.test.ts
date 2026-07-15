@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { stripLeakedThinking } from './stateApply';
+import { stripLeakedThinking, streamVisibleNarrative } from './stateApply';
 
 describe('stripLeakedThinking · 裸奔规划兜底', () => {
   it('剥掉开头裸奔的「动笔前思考」草稿（含多个规划标记 + 落笔收口）', () => {
@@ -41,5 +41,37 @@ describe('stripLeakedThinking · 裸奔规划兜底', () => {
   it('普通正文绝无裸 </think> → 不受新兜底影响', () => {
     const normal = '他抬头望向漫天星斗，久久没有说话。风穿过山谷。';
     expect(stripLeakedThinking(normal)).toBe(normal);
+  });
+});
+
+describe('streamVisibleNarrative · 流式期间隐藏思维链', () => {
+  // 强制预填 <think>（prefilledOpenThink=true）：端点不回显开标签
+  it('强制预填·思考中(未见 </think>) → 隐藏(返回 null 显占位)', () => {
+    expect(streamVisibleNarrative('确认语言，过一遍在场角色，排节拍……', true)).toBeNull();
+    expect(streamVisibleNarrative('', true)).toBeNull();
+  });
+  it('强制预填·见到 </think> → 只显示其后的正文', () => {
+    expect(streamVisibleNarrative('自检完毕。</think>\n林源睁开眼。', true)).toBe('林源睁开眼。');
+  });
+  it('强制预填·刚闭合但正文未到 → 仍返回 null 保持占位(不闪空)', () => {
+    expect(streamVisibleNarrative('想完了。</think>\n   ', true)).toBeNull();
+  });
+
+  // echo 情形：content 里带回显的 <think>…（prefilledOpenThink 传 false 也能靠标签判断）
+  it('echo·闭合前(<think> 开头未闭合) → 隐藏', () => {
+    expect(streamVisibleNarrative('<think>我先想想剧情走向', false)).toBeNull();
+  });
+  it('echo·闭合后 → 显示正文', () => {
+    expect(streamVisibleNarrative('<think>想好了</think>正文开始。', false)).toBe('正文开始。');
+  });
+  it('逐字到来的部分开标签前缀(<, <th) → 隐藏(不闪烁)', () => {
+    expect(streamVisibleNarrative('<th', false)).toBeNull();
+    expect(streamVisibleNarrative('<', false)).toBeNull();
+  });
+
+  // 普通正文（无思维链、未强制）：原样、零改动
+  it('普通正文·未强制 → 原样返回(不误伤)', () => {
+    const n = '晨风灌进领口，他握紧了拳。';
+    expect(streamVisibleNarrative(n, false)).toBe(n);
   });
 });

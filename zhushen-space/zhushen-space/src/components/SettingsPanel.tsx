@@ -1454,7 +1454,7 @@ function TextApiSection() {
           <Toggle checked={forceNarrativeThinking} onChange={() => setForceNarrativeThinking(!forceNarrativeThinking)} />
           <div>
             <div className="text-sm text-slate-200">强制正文思维链（预填充 <code>&lt;think&gt;</code>·根治时有时无）</div>
-            <div className="text-sm text-dim mt-0.5">在正文请求末尾以 assistant 身份预填充一个 <code>&lt;think&gt;</code> 开标签，让模型只能从思维链续写——把「十次只出五次思维链」变成基本每次都出（与 SillyTavern 的「继续预填充 / assistant 预填充」同一机制）。只影响正文，思考照旧自动剥除、不进正文。与上面「跳过正文思维链」互斥（开一个自动关另一个）。默认关；若接口不支持「助手预填充」（如部分 Gemini 端点拒绝以 assistant 结尾）请关掉。</div>
+            <div className="text-sm text-dim mt-0.5">在正文请求末尾以 assistant 身份预填充一个 <code>&lt;think&gt;</code> 开标签，让模型只能从思维链续写——把「十次只出五次思维链」变成基本每次都出（与 SillyTavern 的「继续预填充 / assistant 预填充」同一机制）。<b className="text-slate-300">流式期间会自动隐藏思考、只把正文逐字显示给你</b>（思考中显示「💭 思考中……」占位），最终也不会残留在正文里。与上面「跳过正文思维链」互斥（开一个自动关另一个）。<b className="text-emerald-400/90">默认开</b>；若接口不支持「助手预填充」（如部分 Gemini 端点拒绝以 assistant 结尾）请关掉。</div>
           </div>
         </div>
         <div className="flex items-center gap-3 p-3 bg-panel border border-edge rounded-lg">

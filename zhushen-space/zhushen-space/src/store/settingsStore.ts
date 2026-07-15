@@ -814,7 +814,7 @@ export const useSettings = create<SettingsState>()(
       textUseSharedApi: true,
       textStream: true,
       skipNarrativeThinking: false,
-      forceNarrativeThinking: false,
+      forceNarrativeThinking: true,   // 默认开：预填 <think> 强制每回合出思维链（流式期间自动隐藏思考、只显示正文）；端点若拒绝 assistant 结尾可在设置关掉
       plotGuidance: false,
       planningReview: false,
       guidancePrompt: '',
