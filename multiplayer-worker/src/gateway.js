@@ -279,6 +279,11 @@ function openaiToGemini(body) {
 
   const out = { contents, generationConfig };
   if (sysText) out.systemInstruction = { role: 'user', parts: [{ text: sysText }] };
+  // 联网检索（grounding）：客户端经 extra 通道发 tools:[{ google_search:{} }]（登场判断/技能树/混沌世界卡等）。
+  // AI Studio 直通 / 通用代理会原样透传，但本 Vertex 转换器过去漏掉了 tools → grounding 静默失效。这里补上映射。
+  if (Array.isArray(body.tools) && body.tools.some((t) => t && (t.google_search || t.googleSearch))) {
+    out.tools = [{ google_search: {} }];
+  }
   // RPG 含成人/暴力叙事 → 关掉安全拦截，避免正文被 Vertex 拦空
   out.safetySettings = [
     'HARM_CATEGORY_HARASSMENT', 'HARM_CATEGORY_HATE_SPEECH',

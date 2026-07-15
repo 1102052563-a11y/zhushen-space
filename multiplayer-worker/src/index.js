@@ -14,6 +14,7 @@ import { ArenaWorldDO } from "./ArenaWorldDO.js";
 import { handleGateway } from "./gateway.js";
 import { handleWorkshop } from "./workshop.js";
 import { handlePlaytime } from "./playtime.js";
+import { handleChaos } from "./chaosRecords.js";
 import { handleCloud } from "./cloud.js";
 import { handleMonumentGet, handleMonumentPut } from "./monumentCloud.js";
 import { handleVaultGet, handleVaultPut } from "./vaultCloud.js";
@@ -108,6 +109,11 @@ export default {
       // 游玩时长记录 + 排行榜（凡 Discord 登录者累计活跃游玩时长；存 D1·共用 workshop 库）
       if (p.startsWith("/api/playtime")) {
         return await handlePlaytime(request, env, ch, url);
+      }
+
+      // 混沌世界·世界影响记录（离世时生成的「对世界的影响 + 剧情偏移度」opt-in 上传；按世界分组看板 + 喂 AI 生成世界卡；存 D1·共用 workshop 库）
+      if (p.startsWith("/api/chaos")) {
+        return await handleChaos(request, env, ch, url);
       }
 
       // 云存档（Discord 登录 + R2 存档 blob + D1 索引；手动上传/下载，含图）
