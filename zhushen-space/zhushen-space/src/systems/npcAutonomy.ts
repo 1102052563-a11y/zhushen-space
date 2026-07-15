@@ -12,6 +12,7 @@
   安全：仅离场 NPC、不碰主角；致死护 好友/羁绊/长留/队友。
 */
 import { useNpc, hasRealNpcName, type NpcRecord, type NpcAuto, type NpcOwnedItem } from '../store/npcStore';
+import { isPetLike } from './petEvolution';
 import { useCharacters, type Deed, type Skill, type Talent } from '../store/characterStore';
 import { useSettings } from '../store/settingsStore';
 import {
@@ -591,7 +592,8 @@ export function runNpcAutonomy(turn: number): number {
   const runIdx = Math.floor(turn / every);            // 轮换计数：按"运行次数"循环，与 every 解耦防只跑一个分组
   const maxTicks = Math.max(1, ss.npcAutonomyMax ?? MAX_TICKS_PER_TURN);
   const store = useNpc.getState();
-  const eligible = Object.values(store.npcs).filter((n) => !n.onScene && !n.isDead && hasRealNpcName(n));
+  // 宠物/召唤物随主人待命、不过独立离场生活（"不自行成长"）→ 排除出轨道A 自治，交给独立的宠物演化。
+  const eligible = Object.values(store.npcs).filter((n) => !n.onScene && !n.isDead && hasRealNpcName(n) && !isPetLike(n));
   if (!eligible.length) return 0;
 
   const contractorNames = eligible.filter((n) => !isNative(n)).map((n) => n.name).filter(Boolean);

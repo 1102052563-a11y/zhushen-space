@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { parseAttrRequirement, unmetRequirements, stripConditionalAttrSegments, computeAttrBreakdown } from './attrBonus';
+import { parseAttrRequirement, unmetRequirements, stripConditionalAttrSegments, computeAttrBreakdown, clampedBonus } from './attrBonus';
 import type { PlayerAttrs } from '../store/playerStore';
 
 const A = (p: Partial<PlayerAttrs>): PlayerAttrs => ({ str: 5, agi: 5, con: 5, int: 5, cha: 5, luck: 5, ...p });
@@ -49,6 +49,31 @@ describe('装备常驻六维加成：条件加成不计入、常驻计入、cond
     const bd = computeAttrBreakdown(A({}), [], [], [{ activeEffect: '发动后体质+50、力量+30' } as any]);
     expect(bd.con.equip).toBe(0);
     expect(bd.str.equip).toBe(0);
+  });
+});
+
+describe('clampedBonus（真实属性顶到本阶上限后·装备/技能/天赋加成被夹掉的差额）', () => {
+  const cap = 8000;
+  it('基础已顶到 cap：装备+100 全被夹掉、合计不动 → clampedBonus=100（正是"显示了却没加上"）', () => {
+    const bd = computeAttrBreakdown(A({ str: 8000 }), [], [], [{ attrBonus: '力量+100' } as any], cap);
+    expect(bd.str.total).toBe(8000);        // 有效值不动（真实属性顶格·装备加不上去）
+    expect(bd.str.equip).toBe(100);         // 装备确实解析出 +100（卡片显示无误）
+    expect(clampedBonus(bd.str)).toBe(100); // 但 +100 全被 cap 夹掉
+  });
+  it('未顶到 cap：装备+100 正常计入、合计上升 → clampedBonus=0', () => {
+    const bd = computeAttrBreakdown(A({ str: 5000 }), [], [], [{ attrBonus: '力量+100' } as any], cap);
+    expect(bd.str.total).toBe(5100);
+    expect(clampedBonus(bd.str)).toBe(0);
+  });
+  it('部分夹顶：base 7950 +装备100 → 有效顶到 8000、被夹 50', () => {
+    const bd = computeAttrBreakdown(A({ str: 7950 }), [], [], [{ attrBonus: '力量+100' } as any], cap);
+    expect(bd.str.total).toBe(8000);
+    expect(clampedBonus(bd.str)).toBe(50);
+  });
+  it('无 cap（一~三阶不传上限）→ 从不夹、clampedBonus=0', () => {
+    const bd = computeAttrBreakdown(A({ str: 90 }), [], [], [{ attrBonus: '力量+50' } as any]);
+    expect(bd.str.total).toBe(140);
+    expect(clampedBonus(bd.str)).toBe(0);
   });
 });
 

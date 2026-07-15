@@ -135,6 +135,7 @@ export default function VariableManager({
   onOpenItemManager,
   onOpenPlayerManager,
   onOpenNpcManager,
+  onOpenPetManager,
   onOpenEntryJudgeManager,
   onOpenFactionManager,
   onOpenTerritoryManager,
@@ -160,6 +161,7 @@ export default function VariableManager({
   onOpenItemManager?: () => void;
   onOpenPlayerManager?: () => void;
   onOpenNpcManager?: () => void;
+  onOpenPetManager?: () => void;
   onOpenEntryJudgeManager?: () => void;
   onOpenFactionManager?: () => void;
   onOpenTerritoryManager?: () => void;
@@ -188,6 +190,7 @@ export default function VariableManager({
         { icon: '🗃', label: '表格数据库', desc: '游戏状态表 · 查看/编辑',      color: 'cyan',    cb: onOpenTableManager },
         { icon: '🧬', label: '主角演化',   desc: '六维 · 技能 · 天赋 · 身份',  color: 'sky',     cb: onOpenPlayerManager },
         { icon: '🧑‍🤝‍🧑', label: 'NPC 演化', desc: '角色档案 · 重点演化',        color: 'violet',  cb: onOpenNpcManager },
+        { icon: '🐾', label: '宠物/召唤物演化', desc: '豢养/召唤 · 不自行成长',  color: 'teal',    cb: onOpenPetManager },
         { icon: '🚪', label: '登场判断',   desc: 'API · 世界书 · 提示词 · 联网',  color: 'violet',  cb: onOpenEntryJudgeManager },
         { icon: '⚔',  label: '物品管理',   desc: '背包 · 装备 · 定价',         color: 'amber',   cb: onOpenItemManager },
         { icon: '🧩', label: '杂项演化',   desc: '任务 · 大事 · 时间天气',      color: 'teal',    cb: onOpenMiscManager },

@@ -2,6 +2,7 @@ import { type StoryImage, userToHtml, toHtmlWithImagesCached } from './systems/n
 import {
   buildPerspectiveRule,
   NARRATIVE_FIRST_RULE,
+  PET_EVOLUTION_RULE,
   TERRITORY_EFFECT_RULE,
   TERRITORY_STABILITY_RULE,
   TERRITORY_DEDUP_RULE,
@@ -138,7 +139,7 @@ import { runPhasePipeline, type Phase } from './systems/phasePipeline';
 import { buildFanficInjection, buildFactInjection, buildCosmosInjection, buildPlayerCoreInjection, buildWorldTimeInjection, buildQuestInjection, buildGuildInjection } from './systems/promptInjections';
 import { takeSkillUpNote } from './systems/skillUpgrade';
 import { applyPlayerProfileCommands, applyTimedStatusCommands, expireStatuses } from './systems/statusCommands';
-import { getNpcApi, trimNarrative, npcChatCompletion, buildNpcVars, fillVars, serializeNpcSnapshot } from './systems/npcEvolutionHelpers';
+import { getNpcApi, getPetApi, trimNarrative, npcChatCompletion, petChatCompletion, buildNpcVars, fillVars, serializeNpcSnapshot } from './systems/npcEvolutionHelpers';
 import { reconcileNewNpcNames } from './systems/npcNameGuard';
 import { reconcileNewFactions } from './systems/factionNameGuard';
 import { speakText, stopTts, speakLine, resolveSpeakerVoice, useTtsSpeaking, ttsSupported } from './systems/tts';
@@ -222,6 +223,8 @@ import { useComposer } from './store/composerStore';
 import { usePlayer, buildPlayerSystemPrompt, extractPlayerPresetFromJson } from './store/playerStore';
 import { useWorldRecord, formatWorldviewForInjection, formatInheritAnchors, normWorldName, type Worldview, type WorldSummary } from './store/worldRecordStore';
 import { useNpcEvo, extractNpcPresetFromJson } from './store/npcEvoStore';
+import { usePetEvo } from './store/petEvoStore';
+import { isPetLike } from './systems/petEvolution';
 import { useEntryJudge } from './store/entryJudgeStore';
 import { useFaction } from './store/factionStore';
 import { useFactionEvo, buildFactionSystemPrompt, buildFactionEntryPrompt, extractFactionPresetFromJson } from './store/factionEvoStore';
@@ -252,6 +255,7 @@ import { runAutoDice, isDiceReviewOn, type DiceCardData, type AutoDiceOut } from
 const EnhancePanel = lazy(() => import('./components/EnhancePanel'));
 const SkillUpgradePanel = lazy(() => import('./components/SkillUpgradePanel'));
 const CasinoPanel = lazy(() => import('./components/CasinoPanel'));
+const ImagePromptEditModal = lazy(() => import('./components/ImagePromptEditModal'));   // 生图提示词编辑框（正文配图「✏️」用；肖像侧自带 eager 引入）
 const AbyssPanel = lazy(() => import('./components/AbyssPanel'));
 import { ABYSS_BOON_GEN_RULE, ABYSS_SIN_GEN_RULE, ABYSS_AWAKEN_RULE, ABYSS_JUDGE_RULE, ABYSS_ENEMY_GEN_RULE } from './systems/abyssPrompts';
 import { materializeBoons, panelToEnemies, type SinFlavor, type SinTemplate, type BoonGenContext, type AwakenFlavor, type JudgeFlavor, type AbyssUnit as AbyssEnemyUnit } from './systems/abyssEngine';
@@ -546,7 +550,12 @@ async function loadBuiltinDefaults() {
       if (p) useItems.getState().setPresetEntries(p.entries, p.name, p.version); }
     { const t = await grab('npc.json'); const p = t ? extractNpcPresetFromJson(t) : null;
       // NPC 演化只取「重点演化」条目；登场判断条目(entrySharedRules)已分割到独立的「登场判断」模块(entryJudge)。
-      if (p) useNpcEvo.getState().setPresetEntries(p.entries.filter((e) => e.source !== 'entrySharedRules'), p.name, p.version); }
+      if (p) {
+        const evoEntries = p.entries.filter((e) => e.source !== 'entrySharedRules');
+        useNpcEvo.getState().setPresetEntries(evoEntries, p.name, p.version);
+        // 宠物/召唤物演化「演化规则一致」：复用同一套 NPC 规则体，专属差异(不自行成长)由代码尾 PET_EVOLUTION_RULE 注入。
+        usePetEvo.getState().setPresetEntries(evoEntries, p.name, p.version);
+      } }
     { const t = await grab('entry-judge.json'); const p = t ? extractNpcPresetFromJson(t) : null;   // 登场判断·独立预设
       if (p) useEntryJudge.getState().setPresetEntries(p.entries, p.name, p.version); }
     { const t = await grab('faction.json'); const p = t ? extractFactionPresetFromJson(t) : null;
@@ -1275,6 +1284,8 @@ export default function App() {
   const [npcPhaseRunning,    setNpcPhaseRunning]    = useState(false);
   const [npcPhaseLog,        setNpcPhaseLog]        = useState('');
   const [npcManualUpdatingId, setNpcManualUpdatingId] = useState<string | null>(null);   // 正在「手动更新」的单个 NPC id
+  const [petPhaseRunning,    setPetPhaseRunning]    = useState(false);
+  const [petPhaseLog,        setPetPhaseLog]        = useState('');
   const [npcManualToast, setNpcManualToast] = useState<{ kind: 'info' | 'ok' | 'err'; text: string } | null>(null);   // NPC 手动更新浮层提示（盖在面板之上）
   const [factionPhaseLog,    setFactionPhaseLog]    = useState('');     // 势力演化阶段提示
   const [factionPanelOpen,   setFactionPanelOpen]   = useState(false);
@@ -1501,7 +1512,7 @@ export default function App() {
   // 另两处清除：① 新回合重跑全部演化时(runPostNarrativePhases 开头 setPhaseFail({})) ② 从菜单重 ROLL 该项时乐观清除。
   useEffect(() => {
     const pairs: [string, string][] = [
-      ['item', itemPhaseLog], ['player', playerPhaseLog], ['npc', npcPhaseLog],
+      ['item', itemPhaseLog], ['player', playerPhaseLog], ['npc', npcPhaseLog], ['pet', petPhaseLog],
       ['faction', factionPhaseLog], ['territory', territoryPhaseLog], ['team', teamPhaseLog],
       ['cosmos', cosmosPhaseLog], ['misc', miscPhaseLog], ['image', imagePhaseLog],
     ];
@@ -1521,7 +1532,7 @@ export default function App() {
       }
       return changed ? n : prev;
     });
-  }, [itemPhaseLog, playerPhaseLog, npcPhaseLog, factionPhaseLog, territoryPhaseLog, teamPhaseLog, cosmosPhaseLog, miscPhaseLog, imagePhaseLog]);
+  }, [itemPhaseLog, playerPhaseLog, npcPhaseLog, petPhaseLog, factionPhaseLog, territoryPhaseLog, teamPhaseLog, cosmosPhaseLog, miscPhaseLog, imagePhaseLog]);
   useEffect(() => {   // 天气环境音：随顶栏天气切换（仅任务世界有天气；回归乐园/无天气→停）
     const kind = (!!miscWeather && !isHomeWorld(miscWorldName)) ? parseWeather(miscWeather).kind : 'none';
     setAmbient(kind);
@@ -1606,6 +1617,8 @@ export default function App() {
   const storyRegenBusy = useRef<Set<string>>(new Set());  // 正文配图重生成防连点（key=msgId:idx）
   const progImgRef = useRef<{ offset: number; dispatched: number }>({ offset: 0, dispatched: 0 });  // 「边写边出」：流式期间已处理到的字符 offset + 已派发出图段数（每回合重置）
   const [storyImgBusyId, setStoryImgBusyId] = useState<number | null>(null);   // 手动「为本回合生图」：正在生图的楼层 id（防并发 + 按钮态）
+  const [storyPromptEdit, setStoryPromptEdit] = useState<{ msgId: number; idx: number; prompt: string } | null>(null);   // 正文配图「编辑提示词」框：目标楼层/图序 + 当前提示词
+  const [storyPromptBusy, setStoryPromptBusy] = useState(false);               // 编辑框内「重新生成」进行中
   const storyImgDiagRef = useRef<string>('');                                  // 正文配图上次失败原因（供 toast 给出可操作提示，而非笼统"没生成"）
   const autoSaveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const lastAutoSaveTurn = useRef(-1);   // 本回合是否已自动存过：防同回合内(生图/选项等异步改 messages 反复触发定时器)重复自动存、刷出多份🛟备份
@@ -3164,6 +3177,7 @@ export default function App() {
     narrative: string,
     charId?: string,
     entryCreatedIds?: Set<string>,
+    petTail?: string,   // 宠物/召唤物演化：追加在完整 NPC 规则尾之后（如 PET_EVOLUTION_RULE·不自行成长）
   ): string {
     const vars = buildNpcVars(narrative);
     const rec = charId ? useNpc.getState().npcs[charId] : undefined;
@@ -3187,7 +3201,8 @@ export default function App() {
       + (rec && rec.background && !rec.selfNarration ? '\n' + NPC_SELF_NARRATION_RULE : '')
       // 门控：已有背景但缺 原则底线 / 范例台词 → 本轮一并生成（反谄媚·治同质化的锚点，一次性·省 token）
       + (rec && rec.background && !rec.principles ? '\n' + NPC_PRINCIPLES_RULE : '')
-      + (rec && rec.background && !rec.sampleLines ? '\n' + NPC_SAMPLE_LINES_RULE : '');
+      + (rec && rec.background && !rec.sampleLines ? '\n' + NPC_SAMPLE_LINES_RULE : '')
+      + (petTail ? '\n' + petTail : '');
   }
 
   /* 登场判断 system prompt（只取 entrySharedRules 条目） */
@@ -3614,7 +3629,7 @@ export default function App() {
     // 手动模式：只推进「手动重点列表」（+本轮新登场，确保新角色至少建档一次）
     if (scheduling.targetMode === 'manual') {
       const ids = new Set<string>([...createdIds, ...(scheduling.manualFocusIds ?? [])]);
-      return [...ids].filter((id) => npcs[id] && alive(npcs[id]));
+      return [...ids].filter((id) => npcs[id] && alive(npcs[id]) && !isPetLike(npcs[id]));   // 宠物/召唤物走独立宠物演化，NPC 演化不碰
     }
 
     const must = new Set<string>();
@@ -3643,7 +3658,7 @@ export default function App() {
           .map((n) => n.id)
       : [];
 
-    return [...new Set([...must, ...friendIds, ...offCands])];
+    return [...new Set([...must, ...friendIds, ...offCands])].filter((id) => npcs[id] && !isPetLike(npcs[id]));   // 宠物/召唤物由独立宠物演化处理，从 NPC 焦点里剔除
   }
 
   /* ─── 策略B 第三段：单 NPC 重点演化 ─── */
@@ -3999,6 +4014,26 @@ export default function App() {
       toast('err', '暂无正文内容——本会话还没生成过正文，先发一条消息再手动更新', 5000);
       return;
     }
+    // 宠物/召唤物：走独立的宠物演化（合并版会覆盖该在场/羁绊宠物），不走 NPC 演化
+    const petRec = useNpc.getState().npcs[charId];
+    if (petRec && isPetLike(petRec)) {
+      const petChain = resolveApiChain('pet', getPetApi());
+      if (!petChain[0]?.baseUrl || !petChain[0]?.apiKey) {
+        toast('err', '宠物演化 API 未配置（设置→宠物/召唤物演化→API设置，或综合设置→API 接口库选 pet 路由）', 6000);
+        return;
+      }
+      setNpcManualUpdatingId(charId);
+      toast('info', `正在更新宠物「${name}」…`);
+      try {
+        await runPetEvolutionPhase(narrative, true);
+        toast('ok', `宠物「${name}」更新完成`, 5000);
+      } catch (e: any) {
+        toast('err', `「${name}」更新失败：${String(e?.message ?? '').slice(0, 80)}`, 6000);
+      } finally {
+        setNpcManualUpdatingId(null);
+      }
+      return;
+    }
     const npcChain = resolveApiChain('npc', getNpcApi());
     if (!npcChain[0]?.baseUrl || !npcChain[0]?.apiKey) {
       toast('err', 'NPC 演化 API 未配置（设置→NPC演化→API设置，或综合设置→API 接口库选 NPC 路由）', 6000);
@@ -4180,7 +4215,7 @@ ${AFFIX_EFFECT_RULE}`;
       const systemPrompt = buildNpcPhaseSystemPrompt(settings.entries, trimmed); // 无 charId → 在场列表
       // 注入在场 NPC 的【完整现有档案】——策略A 原本只发正文+在场C编号、不发 NPC 现有变量，导致演化只能凭正文重建、
       //   无法查漏补缺/修正/去重（用户报"NPC变量重roll不发送npc完整变量"、C编号混淆）。这里把每个在场 NPC 的完整快照发给它。
-      const snapNpcs = Object.values(useNpc.getState().npcs).filter((r) => r.onScene && !r.isDead && r.name && r.name !== r.id);
+      const snapNpcs = Object.values(useNpc.getState().npcs).filter((r) => r.onScene && !r.isDead && r.name && r.name !== r.id && !isPetLike(r));   // 宠物/召唤物走独立宠物演化，策略A 不碰
       const beforeNpcIds = new Set(Object.keys(useNpc.getState().npcs));   // 演化前已存在的 NPC id（名字守卫据此识别本回合新建的）
       const snapBlock = snapNpcs.length
         ? `# 当前在场 NPC 的完整现有档案（据此**查漏补缺 / 修正错误 / 去重 / 别搞混 C 编号**；只更新真有变化的字段，其余原样保留·勿凭空重建）\n`
@@ -4245,6 +4280,68 @@ ${AFFIX_EFFECT_RULE}`;
       }
       await runNpcEvolutionPhaseCoreA(narrative);
     }
+  }
+
+  /* ─── 宠物/召唤物演化·合并阶段（精简版：一次调用演化所有「在场+羁绊」宠物/召唤物）───
+     与 NPC 演化「规则一致」：复用同一套 buildNpcPhaseSystemPrompt 规则体，仅在末尾追加宠物专属铁则
+     PET_EVOLUTION_RULE（不自行成长）。数据模型、指令解析、apply 路径全与 NPC 共用，只是标签不同。 */
+  async function runPetEvolutionPhaseCore(narrative: string) {
+    const { settings } = usePetEvo.getState();
+    const petRecs = Object.values(useNpc.getState().npcs).filter(
+      (r) => isPetLike(r) && !r.isDead && r.name && r.name !== r.id && (r.onScene || r.isBond || r.isFriend),
+    );
+    if (petRecs.length === 0) { setPetPhaseLog('✓ 宠物演化：本轮无在场/羁绊宠物'); setTimeout(() => setPetPhaseLog(''), 5000); return; }
+
+    setPetPhaseRunning(true);
+    setPetPhaseLog('宠物/召唤物演化处理中…');
+    try {
+      const trimmed = trimNarrative(narrative);
+      // 复用 NPC 规则体系（演化规则一致），末尾追加宠物专属铁则 PET_EVOLUTION_RULE（不自行成长·覆盖成长/自治类规则）。
+      const systemPrompt = buildNpcPhaseSystemPrompt(settings.entries, trimmed, undefined, undefined, PET_EVOLUTION_RULE);
+      const snapBlock = `# 当前宠物/召唤物的完整现有档案（据此**查漏补缺 / 修正错误 / 去重**；只更新真有变化的字段，其余原样保留·勿凭空重建；**数值默认冻结，除非本轮正文写明"主人的投入"**）\n${petRecs.map(serializeNpcSnapshot).join('\n\n')}\n\n`;
+      const userContent  = `${snapBlock}# 本轮正文\n${trimmed}\n\n---\n**先输出一个 <think>…</think> 思考块**，逐项自检（尤其"是否有主人投入才允许动数值"）；**随后**为正文中出现/相关的宠物/召唤物输出 <state> 与 <upstore> 指令（无变化时输出空标签）。禁止输出正文；除 <think> / <state> / <upstore> 外不要有其它文字。`;
+      const reply = await petChatCompletion(systemPrompt, userContent);
+      console.log('[宠物] 原始响应:', reply);
+      if (reply) {
+        const cleanReply = reply.replace(/<think[^>]*>[\s\S]*?<\/think>/gi, '').trim();
+        const npcCmds  = parseAllNpcCommands(cleanReply); applyNpcCommands(npcCmds);
+        const charCmds = parseAllCharCommands(cleanReply); applyCharacterCommands(charCmds);
+        const shorts   = applyNpcShortCommands(cleanReply, undefined, narrative);
+        try { autoGenMissingAttrs(); ensureNpcLuck(); ensureNpcVitalsCap(); } catch { /* 六维/幸运/上限兜底 */ }
+        const total = npcCmds.length + charCmds.length + shorts;
+        setPetPhaseLog(total > 0
+          ? `✓ 宠物演化完成：${npcCmds.length} 条档案更新，${charCmds.length} 条技能/天赋指令`
+          : '✓ 宠物演化完成：本轮无变化');
+      } else {
+        setPetPhaseLog('✓ 宠物演化完成：无输出');
+      }
+    } catch (e: any) {
+      const msg = e.message ?? '未知错误';
+      console.error('[宠物] 演化阶段失败:', msg);
+      setPetPhaseLog(`⚠ 宠物演化失败：${msg.slice(0, 60)}`);
+    } finally {
+      setPetPhaseRunning(false);
+      setTimeout(() => setPetPhaseLog(''), 8000);
+    }
+  }
+
+  /* ─── 宠物/召唤物演化独立阶段（自动，按 pet 路由 + 独立频率检查）─── */
+  async function runPetEvolutionPhase(narrative: string, force = false) {
+    const { settings } = usePetEvo.getState();
+    if (!settings.enabled) { return; }
+    const chain = resolveApiChain('pet', getPetApi());
+    if (!chain[0]?.baseUrl || !chain[0]?.apiKey) {
+      console.warn('[宠物] API 未配置（设置→宠物/召唤物演化→API设置，或综合设置→API 接口库选 pet 路由）');
+      setPetPhaseLog('⚠ 宠物演化：API 未配置');
+      setTimeout(() => setPetPhaseLog(''), 5000);
+      return;
+    }
+    const freq = settings.frequency || 1;
+    if (!force && turnCountRef.current % freq !== 0) {
+      console.log(`[宠物] 回合 ${turnCountRef.current} 不触发（每 ${freq} 回合一次）`);
+      return;
+    }
+    await runPetEvolutionPhaseCore(narrative);
   }
 
   /* ─── 正文完成后的后续阶段编排 ───
@@ -4362,9 +4459,9 @@ ${AFFIX_EFFECT_RULE}`;
     else mpClient.relay('pov_draft', { seatId, draft: '', noKey: true });   // 无 key / 生成失败 → 立即请房主代渲染（不再让房主干等）
   }
   // 房主：本回合分头三段式编排（Stage1 出分头支线大纲→Stage2 各自渲染→Stage3 对齐→Stage4 变量·共享世界）
-  async function runPovTurn(hostText: string) {
+  async function runPovTurn(hostText: string, inputsSnapshot?: Record<string, any>) {
     const mp = useMp.getState();
-    const inputs = mp.turn?.inputs || {};
+    const inputs = inputsSnapshot ?? (mp.turn?.inputs || {});   // 用发送时抓拍的队友输入(而非此刻现读)——「全员就绪门」自动补发这条路里，现读可能已被 startTurn 清空 → guests 变空 → 不给队友派 pov_outline/pov_final → 队友没正文(本轮 bug 根因)
     const myName = usePlayer.getState().profile.name || '主角';
     const cardName = (seatId: string) => (mp.cards || []).find((c) => c.seatId === seatId)?.snapshot?.name;
     const guests = Object.entries(inputs).map(([seatId, v]) => ({ seatId, name: cardName(seatId) || v.name || '队友', text: (v.text || '').trim() })).filter((g) => g.text);
@@ -5255,9 +5352,9 @@ ${AFFIX_EFFECT_RULE}`;
         }
         const prompt = buildPortraitPrompt({ ...job.fields, imageTags: tags });
         const url = await shrinkDataUrl(await generateImage(service, { prompt, negative: ig.portraitNegative, label: `自动肖像 · ${job.name}` }));
-        // 记下本次所用 imageTags + 外观文本，供"标签/外观变化时刷新"对比
-        if (job.kind === 'player') usePlayer.getState().setProfile({ avatar: url, avatarTags: tags || '', avatarAppearance: job.appSig ?? '' });
-        else useNpc.getState().upsertNpc(job.id, { avatar: url, avatarTags: tags || '' });
+        // 记下本次所用 imageTags + 外观文本，供"标签/外观变化时刷新"对比；再存下完整 prompt 供「编辑提示词」回显
+        if (job.kind === 'player') usePlayer.getState().setProfile({ avatar: url, avatarTags: tags || '', avatarAppearance: job.appSig ?? '', avatarPrompt: prompt });
+        else useNpc.getState().upsertNpc(job.id, { avatar: url, avatarTags: tags || '', avatarPrompt: prompt });
         ok++;
       } catch (e: any) { console.warn(`[Portrait] ${job.name} 生成失败:`, e.message ?? e); }
       done++;
@@ -5515,31 +5612,47 @@ ${AFFIX_EFFECT_RULE}`;
     finally { setStoryImgBusyId(null); setTimeout(() => setImagePhaseLog(''), 7000); }
   }
 
-  /* 双击正文配图 → 用该张原 prompt 重新生成（不重抽锚点、不动其它图）。复用 storyService 与 storySize。 */
-  async function regenerateStoryImage(msgId: number, idx: number) {
-    if (!Number.isInteger(idx) || idx < 0) return;
+  /* 双击正文配图 / 点右上🔄 → 用该张原 prompt 重新生成（不重抽锚点、不动其它图）。复用 storyService 与 storySize。
+     overridePrompt：玩家在「编辑提示词」框改过的新提示词——用它出图并把新提示词回写进该张 image（下次重生成/回显都用新的）。 */
+  async function regenerateStoryImage(msgId: number, idx: number, overridePrompt?: string): Promise<boolean> {
+    if (!Number.isInteger(idx) || idx < 0) return false;
     const key = `${msgId}:${idx}`;
-    if (storyRegenBusy.current.has(key)) return;                 // 防连点重复触发
+    if (storyRegenBusy.current.has(key)) return false;           // 防连点重复触发
     const cur = (messagesRef.current ?? []).find((m) => m.id === msgId)?.images?.[idx];
-    if (!cur) return;
+    if (!cur) return false;
     const ig = useImageGen.getState();
     const size = ig.storySize && ig.storySize !== 'inherit' ? ig.storySize : undefined;
-    const prompt = cur.nsfw && cur.nsfw !== 'sfw' ? `${cur.prompt}, nsfw` : cur.prompt;   // 与首次生成同样按等级补 nsfw
+    const base = (overridePrompt != null && overridePrompt.trim()) ? overridePrompt.trim() : cur.prompt;   // 玩家改过提示词就用新的
+    const prompt = cur.nsfw && cur.nsfw !== 'sfw' ? `${base}, nsfw` : base;   // 与首次生成同样按等级补 nsfw
     storyRegenBusy.current.add(key);
-    setImagePhaseLog('正文配图·重新生成中…');
+    setImagePhaseLog(overridePrompt != null ? '正文配图·按新提示词重生成中…' : '正文配图·重新生成中…');
     try {
       const url = await generateImage(ig.storyService, { prompt, size, label: '重新生成配图' });
       setMessages((prev) => prev.map((m) => m.id === msgId
-        ? { ...m, images: (m.images ?? []).map((x, i) => (i === idx ? { ...x, url, ts: Date.now() } : x)) }
+        ? { ...m, images: (m.images ?? []).map((x, i) => (i === idx ? { ...x, url, prompt: base, ts: Date.now() } : x)) }   // 回写新提示词
         : m));
       setImagePhaseLog('✓ 配图已重新生成');
       setTimeout(() => setImagePhaseLog(''), 4000);
+      return true;
     } catch (e: any) {
       console.warn('[StoryImg] 重新生成失败:', e?.message ?? e);
       setImagePhaseLog(`⚠ 重新生成失败：${String(e?.message ?? e).slice(0, 40)}`);
       setTimeout(() => setImagePhaseLog(''), 7000);
+      return false;
     } finally {
       storyRegenBusy.current.delete(key);
+    }
+  }
+
+  /* 「编辑提示词」框点「重新生成」：按改后的提示词重出该张正文配图，成功则关框。 */
+  async function submitStoryPromptEdit(newPrompt: string) {
+    if (!storyPromptEdit || storyPromptBusy) return;
+    setStoryPromptBusy(true);
+    try {
+      const ok = await regenerateStoryImage(storyPromptEdit.msgId, storyPromptEdit.idx, newPrompt);
+      if (ok) setStoryPromptEdit(null);   // 失败则留框，玩家可微调再试
+    } finally {
+      setStoryPromptBusy(false);
     }
   }
 
@@ -7644,7 +7757,7 @@ ${lines}`;
       .filter((t) => t && !t.startsWith('（')).join('；') || '无';
     const dossier = (s: AssistSnapshot, i: number) => {
       const at: any = s.attrs || {};
-      return `【${i === 0 ? '一号位' : '二号位'}】${s.name}（${[s.race, s.tier, s.profession, s.gender].filter(Boolean).join('·')}）血量上限${s.maxHp ?? '?'}\n六维 力${at.str ?? '?'}/敏${at.agi ?? '?'}/体${at.con ?? '?'}/智${at.int ?? '?'}/魅${at.cha ?? '?'}/幸${at.luck ?? '?'}\n外观：${s.appearance || '（未描述）'}\n技能：${listOf(s.skills)}\n天赋：${listOf(s.traits)}\n装备：${listOf(s.equipment, true)}\n储存空间：${listOf(s.items)}`;
+      return `【${i === 0 ? '一号位' : '二号位'}】${s.name}（${[s.race, s.tier, s.profession, s.gender].filter(Boolean).join('·')}）血量上限${s.maxHp ?? '?'} 能量上限${s.maxEp ?? '?'}\n六维 力${at.str ?? '?'}/敏${at.agi ?? '?'}/体${at.con ?? '?'}/智${at.int ?? '?'}/魅${at.cha ?? '?'}/幸${at.luck ?? '?'}\n外观：${s.appearance || '（未描述）'}\n技能：${listOf(s.skills)}\n天赋：${listOf(s.traits)}\n装备：${listOf(s.equipment, true)}\n储存空间：${listOf(s.items)}`;
     };
     const priorBlock = ctx.prior.filter(Boolean).length
       ? `\n\n# 前几回合要点（供延续，不必重复描写）\n${ctx.prior.map((s, i) => `第${i + 1}回合：${s || '（略）'}`).join('\n')}`
@@ -8348,6 +8461,7 @@ ${lines}`;
       { key: 'audit',     enabled: dueItem || duePlayer, deps: ['item', 'player'], awaitForSnapshot: true,
         run: () => runMergedAuditPhase(narrative, { player: duePlayer, item: dueItem }), onDone: onCombat },
       { key: 'npc',       enabled: due('npc'),          awaitForSnapshot: true, run: () => runNpcEvolutionPhase(narr('npc') + mpEx), onDone: onCombat },
+      { key: 'pet',       enabled: due('pet'),          awaitForSnapshot: true, run: () => runPetEvolutionPhase(narr('pet') + mpEx), onDone: onCombat },
       { key: 'faction',   enabled: due('faction'),      awaitForSnapshot: true, run: () => runFactionEvolutionPhase(narr('faction')) },
       { key: 'territory', enabled: due('territory'),    run: () => runTerritoryEvolutionPhase(narr('territory')) },
       { key: 'subprof',   enabled: due('subprof'),      run: () => runSubProfEvolutionPhase(narr('subprof')) },   // 内部机械预筛（提到副职业/配方 或 升档）才真正调 API
@@ -9115,7 +9229,7 @@ ${lines}`;
     abortAllApiCalls();          // 全部演化阶段（物品/主角/NPC/势力/领地/冒险团/万族/杂项/记忆…走 apiChatFallback）
     abortAllImageGen();          // 全部生图（肖像/装备/正文配图）
     setFloorProg(null); setPhaseBusy({});
-    setItemPhaseRunning(false); setPlayerPhaseRunning(false); setNpcPhaseRunning(false);
+    setItemPhaseRunning(false); setPlayerPhaseRunning(false); setNpcPhaseRunning(false); setPetPhaseRunning(false);
     setGenError('已停止所有变量生成'); setTimeout(() => setGenError(''), 3000);
   }
   /* 重算单项变量：取本回合正文（无则回退到最后一条 AI 正文）；空则提示不跑 */
@@ -9128,7 +9242,7 @@ ${lines}`;
   // 「按楼层批量更新」：把某变量的演化在指定「正文楼层」范围内分批重跑（每 N 层一批，逐批顺序调用其演化）。
   // 仅支持吃正文的 8 个阶段（item 走 core；其余 run*EvolutionPhase）；记忆/生图不吃正文不在此列。
   const BATCH_RUNNERS: Record<string, (n: string, force?: boolean) => Promise<void> | void> = {
-    item: runItemManagementPhaseCore, player: runPlayerEvolutionPhase, npc: runNpcEvolutionPhase,
+    item: runItemManagementPhaseCore, player: runPlayerEvolutionPhase, npc: runNpcEvolutionPhase, pet: runPetEvolutionPhase,
     faction: runFactionEvolutionPhase, territory: runTerritoryEvolutionPhase, team: runTeamEvolutionPhase,
     cosmos: runCosmosEvolutionPhase, misc: runMiscEvolutionPhase,
   };
@@ -9418,7 +9532,8 @@ ${lines}`;
     // 这类共享回合绕过三段式，走下面普通房主单正文流程（带结算规则、正常发奖、并广播给全房）。
     const isSystemSharedTurn = /【结算任务】/.test(effectiveText);
     if (isMpHost && mp.povMode && !isSystemSharedTurn) {   // 分头三段式：替代普通单正文广播（主控出分头支线大纲→各自渲染→对齐冲突→变量）
-      setMessages((prev) => [...prev, { id: ++msgId.current, role: 'user', content: effectiveText }]);
+      const partyMsgId = ++msgId.current;   // ⚠必须在 runPovTurn(内部也 ++msgId) 之前**提前**取 id——否则 id 写在 setMessages 更新函数里会被 React 延后执行、拿到比正文占位更大的 id → 楼层按 id 排序时"行动"被排到正文下面(乱序 bug)
+      setMessages((prev) => [...prev, { id: partyMsgId, role: 'user', content: effectiveText }]);
       if (textArg == null) setInputValue('');
       await runPovTurn(text);
       return;
@@ -10293,6 +10408,8 @@ ${lines}`;
                                   if (play) { e.preventDefault(); const line = play.dataset.line || ''; const spk = play.dataset.speaker || ''; if (line) void speakLine(line, spk ? resolveSpeakerVoice(spk) : undefined); return; }
                                   const regen = t.closest('.illust-regen') as HTMLElement | null;
                                   if (regen) { e.preventDefault(); void regenerateStoryImage(msg.id, Number(regen.dataset.imgIdx)); return; }   // 点右上🔄重新生成（手机不用双击）
+                                  const editP = t.closest('.illust-edit-prompt') as HTMLElement | null;
+                                  if (editP) { e.preventDefault(); const i = Number(editP.dataset.imgIdx); const im = msg.images?.[i]; if (im) setStoryPromptEdit({ msgId: msg.id, idx: i, prompt: im.prompt || '' }); return; }   // 点✏️编辑提示词
                                   const el = t.closest('.story-illust') as HTMLElement | null;
                                   if (!el) return;
                                   const idx = Number(el.dataset.imgIdx);
@@ -10478,6 +10595,17 @@ ${lines}`;
             {!npcPhaseRunning && npcPhaseLog && (
               <span className={npcPhaseLog.startsWith('⚠') ? 'text-blood' : 'text-violet-400/80'}>
                 {npcPhaseLog}
+              </span>
+            )}
+            {petPhaseRunning && (
+              <span className="flex items-center gap-1 text-teal-400">
+                <span className="animate-spin inline-block">◌</span>
+                🐾 宠物/召唤物演化处理中…
+              </span>
+            )}
+            {!petPhaseRunning && petPhaseLog && (
+              <span className={petPhaseLog.startsWith('⚠') ? 'text-blood' : 'text-teal-400/80'}>
+                {petPhaseLog}
               </span>
             )}
             {factionPhaseLog && (
@@ -10859,6 +10987,7 @@ ${lines}`;
                 { icon: '🎒', label: '物品 / 背包', fk: 'item', batch: true, run: () => triggerItemPhaseManually() },
                 { icon: '🧬', label: '主角属性', fk: 'player', batch: true, run: revarRun(runPlayerEvolutionPhase) },
                 { icon: '📇', label: 'NPC', fk: 'npc', batch: true, run: revarRun(runNpcEvolutionPhase) },
+                { icon: '🐾', label: '宠物', fk: 'pet', batch: true, run: revarRun(runPetEvolutionPhase) },
                 { icon: '🏛', label: '势力', fk: 'faction', batch: true, run: revarRun(runFactionEvolutionPhase) },
                 { icon: '🏯', label: '领地', fk: 'territory', batch: true, run: revarRun(runTerritoryEvolutionPhase) },
                 { icon: '🛡', label: '冒险团', fk: 'team', batch: true, run: revarRun(runTeamEvolutionPhase) },
@@ -11271,6 +11400,16 @@ ${lines}`;
       {chestPanelOpen && <ChestPanel onClose={() => { setChestPanelOpen(false); useChest.getState().endSession(); }} onOpen={runChestOpenPhase} onConfirm={confirmChestOpen} />}
       {producePanelOpen && <ProducePanel onClose={() => setProducePanelOpen(false)} onJoySend={onJoySend} onGenerateGoods={genShopGoods} onBuyCompanion={buyShopCompanion} />}
       {guildPanelOpen && <GuildPanel onClose={() => setGuildPanelOpen(false)} onGenerateBuildings={genGuildBuildings} />}
+
+      {storyPromptEdit && (
+        <ImagePromptEditModal
+          title="正文配图 · 编辑提示词"
+          initialPrompt={storyPromptEdit.prompt}
+          busy={storyPromptBusy}
+          onClose={() => { if (!storyPromptBusy) setStoryPromptEdit(null); }}
+          onSubmit={submitStoryPromptEdit}
+        />
+      )}
 
       {casinoOpen && <CasinoPanel onClose={() => setCasinoOpen(false)} onGenMatch={genGladiatorMatch} onGenBattle={genGladiatorBattle} onGenRewards={genGachaRewards} onBanter={casinoBanter} onGenSoul={genSoulGamble} onGenPortraits={genGladiatorPortraits} />}
       {abyssOpen && <AbyssPanel onClose={() => setAbyssOpen(false)} onGenBoons={genAbyssBoons} onGenSin={genAbyssSin} onGenAwaken={genAbyssAwaken} onGenJudge={genAbyssJudge} onGenEnemies={genAbyssEnemies} />}

@@ -800,7 +800,7 @@ function Scheduling() {
           <Toggle checked={scheduling.cleanupEnabled} onChange={() => setScheduling({ cleanupEnabled: !scheduling.cleanupEnabled })} />
         </div>
         <p className="text-[13px] text-dim">
-          每隔固定回合提示可清理的长期离场路人；羁绊角色与「保留」标记不进入清理名单。
+          每隔固定回合提示可清理的长期离场路人；羁绊角色与「永久保留」标记的角色一律不进入清理名单——无论在场或离场、也不受死亡自动清除影响，勾了就绝不会被移除。
         </p>
         {scheduling.cleanupEnabled && (
           <div className="flex items-center justify-between gap-4">
@@ -818,20 +818,23 @@ function Scheduling() {
             已保留：{records.filter((r) => r.keepForever || r.isBond).map((r) => `${r.id}`).join(', ')}
           </div>
         )}
-        {/* 手动标记长期保留 */}
-        {records.filter((r) => !r.onScene && !r.isBond).length > 0 && (
+        {/* 永久保留：勾了就在场/离场/清理都绝不移除。列表含【全部已保留角色·不分在场离场】——防"角色一在场 chip 就从列表消失、让人以为保留丢了"（其实 flag 始终在）——外加可继续勾选的离场路人。 */}
+        {records.filter((r) => !r.isBond && (r.keepForever || !r.onScene)).length > 0 && (
           <div className="space-y-1 pt-1">
-            <div className="text-[12px] font-mono text-dim/50 uppercase tracking-widest">手动保留（防止被清理）</div>
+            <div className="text-[12px] font-mono text-dim/50 uppercase tracking-widest">永久保留（勾选后·在场/离场/清理都绝不移除）</div>
             <div className="flex flex-wrap gap-1.5">
-              {records.filter((r) => !r.onScene && !r.isBond).map((r) => (
+              {records.filter((r) => !r.isBond && (r.keepForever || !r.onScene))
+                .sort((a, b) => (b.keepForever ? 1 : 0) - (a.keepForever ? 1 : 0))   // 已保留的排在前面，一眼可见、永不因在场而消失
+                .map((r) => (
                 <button
                   key={r.id}
                   onClick={() => upsertNpc(r.id, { keepForever: !r.keepForever })}
+                  title={r.keepForever ? '已永久保留——点击取消保留' : '点击永久保留：此角色在场/离场/清理时都不会被移除'}
                   className={`px-2 py-1 text-[12px] font-mono rounded border transition-colors ${
                     r.keepForever ? 'border-sky-500/50 text-sky-300 bg-sky-900/20' : 'border-edge text-dim hover:text-slate-200'
                   }`}
                 >
-                  {r.keepForever ? '✓ ' : ''}{r.id} {r.name}
+                  {r.keepForever ? '✓ ' : ''}{r.id} {r.name}{r.onScene ? ' ·在场' : ''}
                 </button>
               ))}
             </div>
@@ -847,7 +850,7 @@ function Scheduling() {
         </div>
         <p className="text-[13px] text-dim leading-relaxed">
           确认死亡的 NPC 延迟若干回合后<span className="text-blood/80">物理删除</span>（连同其技能/天赋档案），精简存档。
-          <span className="text-amber-300/80"> 护栏：仅强死亡证据触发；羁绊角色与「保留」标记不删；延迟期内被复活/纠偏则取消删除。</span>
+          <span className="text-amber-300/80"> 护栏：仅强死亡证据触发；羁绊角色与「永久保留」标记不删；延迟期内被复活/纠偏则取消删除。</span>
         </p>
         {scheduling.autoPurgeDead && (
           <div className="flex items-center justify-between gap-4">

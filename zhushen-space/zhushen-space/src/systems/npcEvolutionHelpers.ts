@@ -1,5 +1,6 @@
 // NPC 演化·API/上下文/序列化助手（从 App.tsx 抽出；只读 store + 入参，无组件 state/ref 耦合）。
 import { useNpcEvo } from '../store/npcEvoStore';
+import { usePetEvo } from '../store/petEvoStore';
 import { useEntryJudge } from '../store/entryJudgeStore';
 import { useSettings, resolveApiChain } from '../store/settingsStore';
 import { useNpc, type NpcRecord } from '../store/npcStore';
@@ -16,6 +17,15 @@ export function getNpcApi() {
   return npcEvoState.npcUseSharedApi
     ? (ss.textUseSharedApi ? ss.api : ss.textApi)
     : npcEvoState.npcApi;
+}
+
+/* 宠物/召唤物演化的 legacy 回退接口（集成路由 pet 为空时用）：自配接口 / 与正文共用。 */
+export function getPetApi() {
+  const st = usePetEvo.getState();
+  const ss = useSettings.getState();
+  return st.petUseSharedApi
+    ? (ss.textUseSharedApi ? ss.api : ss.textApi)
+    : st.petApi;
 }
 
 // NPC / 势力演化仍用此截断控 token（可能逐目标并发多次调用）；杂项/领地/冒险团已改发全文
@@ -49,6 +59,24 @@ export async function npcChatCompletion(systemPrompt: string, userContent: strin
   const timeoutSec = isEntry
     ? Math.max(10, useEntryJudge.getState().requestTimeout || 90)
     : Math.max(10, useNpcEvo.getState().settings.scheduling.requestTimeout || 90);
+  const { content } = await apiChatFallback(
+    chain,
+    [{ role: 'system', content: systemPrompt }, { role: 'user', content: userContent }],
+    { timeoutMs: timeoutSec * 1000, extra },
+  );
+  return content;
+}
+
+/* 宠物/召唤物演化的一次 chat/completions 调用（接口路由 'pet'→轮流+fallback）。与 npcChatCompletion 同构，只是走独立路由与超时。 */
+export async function petChatCompletion(systemPrompt: string, userContent: string): Promise<string> {
+  const chain = resolveApiChain('pet', getPetApi());
+  const ss2 = useSettings.getState();
+  const activePreset = ss2.textPresets.find((p) => p.id === ss2.activeTextPresetId) ?? ss2.textPresets[0];
+  const extra: Record<string, unknown> = {};
+  if (activePreset?.temperature != null) extra.temperature = activePreset.temperature;
+  if (activePreset?.max_tokens != null) extra.max_tokens = activePreset.max_tokens;
+  if (activePreset?.top_p != null && activePreset.top_p > 0 && activePreset.top_p <= 1) extra.top_p = activePreset.top_p;
+  const timeoutSec = Math.max(10, usePetEvo.getState().settings.scheduling.requestTimeout || 90);
   const { content } = await apiChatFallback(
     chain,
     [{ role: 'system', content: systemPrompt }, { role: 'user', content: userContent }],

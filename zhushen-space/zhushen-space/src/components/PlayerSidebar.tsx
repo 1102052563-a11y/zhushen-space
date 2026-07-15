@@ -9,7 +9,7 @@ import { computeDerived, tierFxClass, realmFromLevel, effectiveResource, fullMax
 import { useResource } from '../store/resourceStore';
 import { playerResourceMax, refillAllVitals } from '../systems/playerVitals';
 import { useCharacters } from '../store/characterStore';
-import { computeAttrBreakdown, withAttrDelta, ATTR_LABEL, ATTR_KEYS, type AttrBreak } from '../systems/attrBonus';
+import { computeAttrBreakdown, withAttrDelta, clampedBonus, ATTR_LABEL, ATTR_KEYS, type AttrBreak } from '../systems/attrBonus';
 import { playerStatusAttrDelta } from '../systems/statusAttrs';
 import { activeGemSets, gemSetEquipEntry } from '../systems/gemSets';
 import { useGemSets } from '../store/gemSetStore';
@@ -21,6 +21,7 @@ import HoloInspector from './HoloInspector';
 import { useImageGen } from '../store/imageGenStore';
 import { generateImage, buildPortraitPrompt, equippedForPrompt, shrinkDataUrl } from '../systems/imageGen';
 import { PortraitPicker, PortraitLibraryModal } from './PortraitPicker';
+import ImagePromptEditModal from './ImagePromptEditModal';
 import { genPortraitTags } from '../systems/imageTags';
 import Bar, { BAR_STYLES } from './Bar';
 import AttrTalentPicker from './AttrTalentPicker';
@@ -117,6 +118,7 @@ function PlayerAvatar() {
   const [err, setErr] = useState('');
   const [libOpen, setLibOpen] = useState(false);
   const [inspectOpen, setInspectOpen] = useState(false);
+  const [promptOpen, setPromptOpen] = useState(false);   // 「编辑提示词」框
   function handleUpload(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0]; e.target.value = '';
     if (!file) return;
@@ -137,7 +139,23 @@ function PlayerAvatar() {
       if (gen && gen !== profile.imageTags) setProfile({ imageTags: gen });
       const prompt = buildPortraitPrompt({ gender: profile.gender, race: profile.race, appearance: profile.appearance, baseAppearance: profile.baseAppearance, bodyType: profile.bodyType, equipment: equip, profession: profile.profession, tier: realmFromLevel(profile.level), imageTags: tags });
       const url = await generateImage(portraitService, { prompt, negative: portraitNegative, label: '生成主角立绘' });
-      setProfile({ avatar: await shrinkDataUrl(url), avatarTags: tags || '' });
+      setProfile({ avatar: await shrinkDataUrl(url), avatarTags: tags || '', avatarPrompt: prompt });
+    } catch (e: any) { setErr(e.message ?? '生成失败'); }
+    finally { setGening(false); }
+  }
+  // 「编辑提示词」框回显：优先用上次生成所存的完整提示词；没有则按当前档案字段实时重建（用现有 imageTags，不重译）
+  function currentPortraitPrompt(): string {
+    if (profile.avatarPrompt && profile.avatarPrompt.trim()) return profile.avatarPrompt;
+    const equip = equippedForPrompt(useItems.getState().items);
+    return buildPortraitPrompt({ gender: profile.gender, race: profile.race, appearance: profile.appearance, baseAppearance: profile.baseAppearance, bodyType: profile.bodyType, equipment: equip, profession: profile.profession, tier: realmFromLevel(profile.level), imageTags: profile.imageTags });
+  }
+  // 「编辑提示词」框点「重新生成」：按改后的提示词重出立绘（不重译标签），并存回 avatarPrompt
+  async function handleRegenWithPrompt(prompt: string) {
+    setGening(true); setErr('');
+    try {
+      const url = await generateImage(portraitService, { prompt, negative: portraitNegative, label: '按新提示词重生成主角立绘' });
+      setProfile({ avatar: await shrinkDataUrl(url), avatarPrompt: prompt });
+      setPromptOpen(false);
     } catch (e: any) { setErr(e.message ?? '生成失败'); }
     finally { setGening(false); }
   }
@@ -167,8 +185,13 @@ function PlayerAvatar() {
         <PortraitPicker onPick={(url) => setProfile({ avatar: url })} />
         {profile.avatar && <button onClick={() => setProfile({ avatar: '' })} className="text-[11px] font-mono px-2 py-0.5 rounded border border-edge text-dim/50 hover:text-blood transition-colors">移除</button>}
       </div>
+      {profile.avatar && (
+        <button onClick={() => setPromptOpen(true)} disabled={gening} title="查看/编辑当前立绘的生图提示词后重新生成"
+          className="text-[11px] font-mono px-2 py-0.5 rounded border border-god/30 text-god/80 hover:bg-god/10 disabled:opacity-40 transition-colors">✏️ 编辑提示词</button>
+      )}
       {err && <div className="text-[10px] text-blood font-mono max-w-[220px] leading-snug whitespace-pre-line text-center">{err}</div>}
       <HoloInspector open={inspectOpen} onClose={() => setInspectOpen(false)} img={profile.avatar} name={profile.name || '主角'} badge={pTier || undefined} tier={pTier} power={bioPowerBadge} rows={attrRows} />
+      {promptOpen && <ImagePromptEditModal title={`${profile.name || '主角'} · 立绘提示词`} initialPrompt={currentPortraitPrompt()} busy={gening} onClose={() => { if (!gening) setPromptOpen(false); }} onSubmit={handleRegenWithPrompt} />}
     </div>
   );
 }
@@ -498,6 +521,7 @@ function PlayerSidebar({ onClose }: { onClose?: () => void }) {
                 {bk.skill !== 0 && <div className="flex justify-between"><span className="text-dim/60">技能加成</span><span className="text-sky-300/80">{bk.skill > 0 ? '+' : ''}{bk.skill}</span></div>}
                 {bk.talent !== 0 && <div className="flex justify-between"><span className="text-dim/60">天赋加成</span><span className="text-fuchsia-300/80">{bk.talent > 0 ? '+' : ''}{bk.talent}</span></div>}
                 <div className="flex justify-between border-t border-edge/40 pt-1"><span className="text-slate-300">合计</span><span className="text-slate-100 font-bold">{bk.total}</span></div>
+                {clampedBonus(bk) > 0 && <div className="text-amber-400/70 text-[11px] leading-snug">⚠ 加成有 +{clampedBonus(bk)} 顶到【本阶单属性极值】上限、超出不生效——四阶起六维即真实属性，真实属性顶格后装备/技能/天赋加不上去（忠于原著·唯升阶提高上限）。</div>}
                 {bk.equip === 0 && bk.skill === 0 && bk.talent === 0 && <div className="text-dim/40 text-[11px]">暂无装备/技能/天赋加成</div>}
               </div>
             );

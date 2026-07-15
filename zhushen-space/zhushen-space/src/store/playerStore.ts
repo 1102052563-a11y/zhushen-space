@@ -94,6 +94,7 @@ export interface PlayerProfile {
   location: string;      // 所处位置
   avatar?: string;       // 主角立绘（上传的图片 dataURL / AI 生成）
   avatarTags?: string;   // 生成当前立绘所用的 imageTags（"外观变化时刷新"判断用）
+  avatarPrompt?: string; // 生成当前立绘所用的完整生图提示词（供「编辑提示词→重新生成」回显；缺省则按当前档案字段实时重建）
   avatarAppearance?: string;  // 生成当前立绘时的外观文本（外观文字变化→自动刷新立绘的判断用）
   imageTags?: string;    // 生图提示词（英文 NAI/Danbooru tags，主角演化生成；肖像生图优先用它保证一致）
   // 档案

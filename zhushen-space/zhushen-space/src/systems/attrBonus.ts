@@ -108,6 +108,13 @@ export function computeAttrBreakdown(
   return out;
 }
 
+/* 被本阶【单属性极值】上限「夹掉」的加成量 = 显示合计(基础+装备+技能+天赋) − 实际有效合计(total)。
+   >0 ⇒ 装备/技能/天赋加成有一部分因顶到上限而不生效（四阶起六维即真实属性，故真实属性顶格后
+   装备/天赋加不上去——忠于原著；唯升阶提高上限）。供属性面板诚实标注"显示了却没加上"的差额。 */
+export function clampedBonus(bk: AttrBreak): number {
+  return Math.max(0, (bk.base + bk.equip + bk.skill + bk.talent) - bk.total);
+}
+
 /* 从「装备需求(requirement)」文本解析出各六维的**门槛值**（不是加成，故取每项最大值、不累加），
    并按尺度分两桶：
    - real（真实尺度）：需求名前带「真实」标记，如「真实力量300」「真实·魅力150」——所有玩家都按真实属性逐值比较。

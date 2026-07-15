@@ -19,6 +19,7 @@ import { resetEventCoresIdb } from './ledger/coreKv';       // 阶段1：清空�
 import { useNpc } from '../store/npcStore';
 import { useNpcChat } from '../store/npcChatStore';
 import { useNpcEvo } from '../store/npcEvoStore';
+import { usePetEvo } from '../store/petEvoStore';
 import { useFaction } from '../store/factionStore';
 import { useFactionEvo } from '../store/factionEvoStore';
 import { useTerritory } from '../store/territoryStore';
@@ -72,6 +73,7 @@ const STORES: { key: string; api: any; clear?: () => void }[] = [
   { key: 'drpg-npc',        api: useNpc, clear: () => useNpc.getState().clearAll() },
   { key: 'drpg-npc-chat',   api: useNpcChat, clear: () => useNpcChat.getState().clearAll() },
   { key: 'drpg-npc-evo',    api: useNpcEvo },     // 预设：保留
+  { key: 'drpg-pet-evo',    api: usePetEvo },     // 宠物/召唤物演化·预设/配置：保留（不给 clear，随新游戏保留）
   { key: 'drpg-faction',    api: useFaction, clear: () => useFaction.getState().clearAll() },
   { key: 'drpg-faction-evo', api: useFactionEvo }, // 预设：保留
   { key: 'drpg-territory',   api: useTerritory, clear: () => useTerritory.getState().clearTerritory() },

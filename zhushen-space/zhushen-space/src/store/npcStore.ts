@@ -130,6 +130,7 @@ export interface NpcRecord {
   npcTag?: string;        // 标签（限定：契约者/土著/随从/宠物/召唤物）
   avatar?: string;        // 人物头像（上传的自定义图片 dataURL / 未来生图地址；在场面板与肖像栏展示）
   avatarTags?: string;    // 生成当前头像所用的 imageTags（用于"外观变化时刷新肖像"判断是否需要重绘）
+  avatarPrompt?: string;  // 生成当前头像所用的完整生图提示词（供「编辑提示词→重新生成」回显；缺省则按当前档案字段实时重建）
   imageTags?: string;     // 生图提示词（第19列：英文 NAI/Danbooru tags，NPC演化生成；肖像生图优先用它保证一致）
   attrs?: PlayerAttrs;    // 基础属性（力/敏/体/智/魅/幸）；其中「幸运」由前端独占机械生成(ensureNpcLuck)，AI 的绝对赋值被忽略
   realAttrs?: Partial<PlayerAttrs>;  // 真实属性·直加分配（真实属性点加点 +1 这里，与基础属性独立、不互相影响）；显示真实属性 = floor(基础/80) + 直加值

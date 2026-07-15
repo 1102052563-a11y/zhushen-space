@@ -19,6 +19,7 @@ import { useSettings } from '../store/settingsStore';
 import { usePlayer } from '../store/playerStore';
 import { useItems } from '../store/itemStore';
 import { useNpcEvo } from '../store/npcEvoStore';
+import { usePetEvo } from '../store/petEvoStore';
 import { useEntryJudge } from '../store/entryJudgeStore';
 import { useFactionEvo } from '../store/factionEvoStore';
 import { useTerritory } from '../store/territoryStore';
@@ -229,6 +230,7 @@ const SPECS: StoreSpec[] = [
   { key: 'drpg-player-evo',         label: '主角演化',     api: usePlayer as any,            extract: evoExtract },
   { key: 'drpg-items',              label: '物品管理',     api: useItems as any,             extract: evoExtract },
   { key: 'drpg-npc-evo',            label: 'NPC 演化',     api: useNpcEvo as any,            extract: evoExtract },
+  { key: 'drpg-pet-evo',            label: '宠物/召唤物演化', api: usePetEvo as any,           extract: evoExtract },
   { key: 'drpg-entry-judge',        label: '登场判断',     api: useEntryJudge as any,        extract: entryJudgeExtract },
   { key: 'drpg-faction-evo',        label: '势力演化',     api: useFactionEvo as any,        extract: evoExtract },
   { key: 'drpg-territory',          label: '领地演化',     api: useTerritory as any,         extract: evoExtract },

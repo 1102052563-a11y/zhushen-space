@@ -3,7 +3,7 @@ import { useNpc, type NpcRecord } from '../store/npcStore';
 import { stageOf, type DispAxis } from '../systems/dispositionGuard';
 import { useCharacters, RARITY_CLS, ELEMENT_CLS, SKILL_TIER_CLS, normSkillTier, type Deed } from '../store/characterStore';
 import { computeDerived, lvFromRealm, normalizeTier, tierFxClass, realmFromLevel, effectiveResource, fullMaxHp, fullMaxEp, TIERS, realAttrCapForTier, realAttrMult, attrCapForTier, ratioOf, hpCoefOf, epCoefOf, vitalFormula, npcBaseAttrs } from '../systems/derivedStats';
-import { computeAttrBreakdown, effectiveAttrs, ATTR_LABEL, ATTR_KEYS, type AttrBreak } from '../systems/attrBonus';
+import { computeAttrBreakdown, effectiveAttrs, clampedBonus, ATTR_LABEL, ATTR_KEYS, type AttrBreak } from '../systems/attrBonus';
 import { bioInnate, bioPower, bioStrengthLabel, BIO_TIER_NAMES, nominalTierNum } from '../systems/bioStrength';
 import { generateNpcAttrs, resolveForm, UNIT_TYPE_LABELS } from '../systems/npcAttrGen';
 import { usePlayer, type PlayerAttrs } from '../store/playerStore';
@@ -24,6 +24,7 @@ import { generateImage, buildPortraitPrompt, buildEquipPrompt, equippedForPrompt
 import { useHoloViewer } from '../store/holoViewerStore';
 import { genPortraitTags, genEquipTags, isTagService } from '../systems/imageTags';
 import { PortraitPicker, PortraitLibraryModal } from './PortraitPicker';
+import ImagePromptEditModal from './ImagePromptEditModal';
 import { SkillEditForm, TraitEditForm } from './CharEditForms';
 import NpcVoicePicker from './NpcVoicePicker';
 import { ttsSupported } from '../systems/tts';
@@ -934,6 +935,7 @@ function AvatarBlock({ npc }: { npc: NpcRecord }) {
   const [err, setErr] = useState('');
   const [libOpen, setLibOpen] = useState(false);
   const [inspectOpen, setInspectOpen] = useState(false);
+  const [promptOpen, setPromptOpen] = useState(false);   // 「编辑提示词」框
   function handleUpload(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
     e.target.value = '';
@@ -942,6 +944,14 @@ function AvatarBlock({ npc }: { npc: NpcRecord }) {
     const reader = new FileReader();
     reader.onload = async () => upsert(npc.id, { avatar: await shrinkDataUrl(String(reader.result)) });
     reader.readAsDataURL(file);
+  }
+  // 按 NPC 当前档案字段拼当前肖像提示词（用现有 imageTags，不重译）——供「编辑提示词」回显 & 无存档 prompt 时兜底
+  function buildNpcPortraitPrompt(): string {
+    const ap = parseAppearance5(npc.appearance5);
+    const appearance = [ap.look, ap.figure, ap.outfit, npc.appearanceDetail].filter(Boolean).join('，');
+    const equip = equippedForPrompt(npc.items);
+    return buildPortraitPrompt({ gender: npc.gender, age: npc.age, appearance, baseAppearance: npc.baseAppearance, bodyType: npc.bodyType, equipment: equip, profession: npc.profession, tier: parseRealm(npc.realm).tier, npcTag: npc.npcTag, imageTags: npc.imageTags,
+      action: ap.action, attire: ap.outfit, location: ap.location, figure: ap.figure, appearanceDetails: npc.appearanceDetail });
   }
   async function handleGen() {
     setGening(true); setErr('');
@@ -957,7 +967,17 @@ function AvatarBlock({ npc }: { npc: NpcRecord }) {
       const prompt = buildPortraitPrompt({ gender: npc.gender, age: npc.age, appearance, baseAppearance: npc.baseAppearance, bodyType: npc.bodyType, equipment: equip, profession: npc.profession, tier: parseRealm(npc.realm).tier, npcTag: npc.npcTag, imageTags: tags,
         action: ap.action, attire: ap.outfit, location: ap.location, figure: ap.figure, appearanceDetails: npc.appearanceDetail });
       const url = await generateImage(portraitService, { prompt, negative: portraitNegative, label: `生成 ${npc.name} 肖像` });
-      upsert(npc.id, { avatar: await shrinkDataUrl(url), avatarTags: tags || '' });
+      upsert(npc.id, { avatar: await shrinkDataUrl(url), avatarTags: tags || '', avatarPrompt: prompt });
+    } catch (e: any) { setErr(e.message ?? '生成失败'); }
+    finally { setGening(false); }
+  }
+  // 「编辑提示词」框点「重新生成」：按改后的提示词重出头像（不重译标签），并存回 avatarPrompt
+  async function handleRegenWithPrompt(prompt: string) {
+    setGening(true); setErr('');
+    try {
+      const url = await generateImage(portraitService, { prompt, negative: portraitNegative, label: `按新提示词重生成 ${npc.name} 肖像` });
+      upsert(npc.id, { avatar: await shrinkDataUrl(url), avatarPrompt: prompt });
+      setPromptOpen(false);
     } catch (e: any) { setErr(e.message ?? '生成失败'); }
     finally { setGening(false); }
   }
@@ -983,6 +1003,12 @@ function AvatarBlock({ npc }: { npc: NpcRecord }) {
             className="px-3 py-1.5 text-[13px] font-mono border border-god/50 text-god rounded hover:bg-god/10 disabled:opacity-40 transition-colors">
             {gening ? '生成中…' : '✨ AI 生成'}
           </button>
+          {npc.avatar && (
+            <button onClick={() => setPromptOpen(true)} disabled={gening} title="查看/编辑当前头像的生图提示词后重新生成"
+              className="px-3 py-1.5 text-[13px] font-mono border border-god/30 text-god/80 rounded hover:bg-god/10 disabled:opacity-40 transition-colors">
+              ✏️ 编辑提示词
+            </button>
+          )}
           <button onClick={() => fileRef.current?.click()}
             className="px-3 py-1.5 text-[13px] font-mono border border-edge text-dim rounded hover:border-god/40 hover:text-god transition-colors">
             {npc.avatar ? '替换图片' : '上传图片'}
@@ -998,6 +1024,7 @@ function AvatarBlock({ npc }: { npc: NpcRecord }) {
           {err && <div className="text-[11px] text-blood font-mono max-w-[240px] leading-snug whitespace-pre-line">{err}</div>}
           <div className="text-[11px] text-dim/40 leading-relaxed max-w-[160px]">AI 生成走「生图设置」选定的服务；也可上传自定义图。</div>
           <PortraitLibraryModal open={libOpen} onClose={() => setLibOpen(false)} onPick={(url) => upsert(npc.id, { avatar: url })} />
+          {promptOpen && <ImagePromptEditModal title={`${npc.name} · 肖像提示词`} initialPrompt={(npc.avatarPrompt && npc.avatarPrompt.trim()) ? npc.avatarPrompt : buildNpcPortraitPrompt()} busy={gening} onClose={() => { if (!gening) setPromptOpen(false); }} onSubmit={handleRegenWithPrompt} />}
         </div>
         )}
       </div>
@@ -1337,6 +1364,7 @@ function AttrTab({ npc: npcProp, realm }: { npc: NpcRecord; realm: ReturnType<ty
               {bk.skill !== 0 && <div className="flex justify-between"><span className="text-dim/60">技能加成</span><span className="text-sky-300/80">{bk.skill > 0 ? '+' : ''}{bk.skill}</span></div>}
               {bk.talent !== 0 && <div className="flex justify-between"><span className="text-dim/60">天赋加成</span><span className="text-fuchsia-300/80">{bk.talent > 0 ? '+' : ''}{bk.talent}</span></div>}
               <div className="flex justify-between border-t border-edge/40 pt-1"><span className="text-slate-300">合计</span><span className="text-slate-100 font-bold">{bk.total}</span></div>
+              {clampedBonus(bk) > 0 && <div className="text-amber-400/70 text-[11px] leading-snug">⚠ 加成有 +{clampedBonus(bk)} 顶到【本阶单属性极值】上限、超出不生效——四阶起六维即真实属性，真实属性顶格后装备/技能/天赋加不上去（忠于原著·唯升阶提高上限）。</div>}
               {bk.equip === 0 && bk.skill === 0 && bk.talent === 0 && <div className="text-dim/40 text-[11px]">暂无装备/技能/天赋加成</div>}
             </div>
           );
