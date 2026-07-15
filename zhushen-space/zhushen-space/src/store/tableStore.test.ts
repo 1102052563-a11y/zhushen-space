@@ -9,9 +9,9 @@ beforeEach(() => {
 });
 
 describe('acuTableSpec / buildDefaultTables', () => {
-  it('23 张默认表，含 row_id 表头', () => {
+  it('24 张默认表，含 row_id 表头', () => {
     const tables = buildDefaultTables();
-    expect(Object.keys(tables).length).toBe(23);
+    expect(Object.keys(tables).length).toBe(24);
     expect(DEFAULT_SHEET_UIDS).toContain('protagonist_info');
     for (const uid of DEFAULT_SHEET_UIDS) {
       expect(tables[uid].content[0][0]).toBe('row_id');

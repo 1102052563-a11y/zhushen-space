@@ -13,6 +13,7 @@ import { usePlayer } from '../store/playerStore';
 import { useGame } from '../store/gameStore';
 import { useItems } from '../store/itemStore';
 import { useNpc } from '../store/npcStore';
+import { isPetLike } from './petEvolution';   // 宠物/召唤物分流到独立的 宠物/召唤物表
 import { useMisc } from '../store/miscStore';
 import { useCharacters } from '../store/characterStore';   // 技能/天赋/称号（主角 B1）
 import { useFaction } from '../store/factionStore';         // 势力
@@ -81,8 +82,9 @@ function realNpcs(): any[] {
   return Object.values((useNpc.getState() as any).npcs ?? {}).filter((npc: any) => npc?.name && npc.name !== npc.id && !npc.isDead);
 }
 
+/** 重要角色表 = 真名 NPC 中的**非宠物/召唤物**（宠物/召唤物走独立的 宠物/召唤物表）。 */
 function buildImportantChars(): Row[] {
-  return realNpcs().map((npc) => ({
+  return realNpcs().filter((npc) => !isPetLike(npc)).map((npc) => ({
     姓名: S(npc.name), 关系: S(npc.relations), 好感度: S(npc.favor), 阶位: S(npc.realm),
     状态: S(npc.status), 所属势力: S(npc.affiliatedTeam),
     力量: S(npc.attrs?.str), 敏捷: S(npc.attrs?.agi), 体质: S(npc.attrs?.con),
@@ -95,6 +97,25 @@ function buildImportantChars(): Row[] {
     动机: S(npc.motiveNow), 短期目标: S(npc.shortGoal), 长期目标: S(npc.longGoal), 内心: S(npc.innerThought),
     真实力量: realAttrCell(npc, 'str'), 真实敏捷: realAttrCell(npc, 'agi'), 真实体质: realAttrCell(npc, 'con'),
     真实智力: realAttrCell(npc, 'int'), 真实魅力: realAttrCell(npc, 'cha'), 真实幸运: realAttrCell(npc, 'luck'),
+  }));
+}
+
+/** 宠物/召唤物表 = 真名 NPC 中的**宠物/召唤物**（与重要角色表同构·多一列 形态）。技能/天赋/物品仍走共享的 NPC明细表。 */
+function buildPetSummons(): Row[] {
+  return realNpcs().filter((npc) => isPetLike(npc)).map((npc) => ({
+    姓名: S(npc.name), 关系: S(npc.relations), 好感度: S(npc.favor), 阶位: S(npc.realm),
+    状态: S(npc.status), 所属势力: S(npc.affiliatedTeam),
+    力量: S(npc.attrs?.str), 敏捷: S(npc.attrs?.agi), 体质: S(npc.attrs?.con),
+    智力: S(npc.attrs?.int), 魅力: S(npc.attrs?.cha), 幸运: S(npc.attrs?.luck),
+    描述: S(npc.personality),
+    性别: S(npc.gender), 职业: S(npc.profession), 生物强度: S(npc.bioStrength), 年龄: S(npc.age), 标签: S(npc.npcTag),
+    契约者编号: S(npc.contractorId), 烙印等级: S(npc.brandLevel), 竞技场排名: S(npc.arenaRank),
+    HP: S(npc.hp), HP上限: S(npc.maxHp), EP: S(npc.mp), EP上限: S(npc.maxMp),
+    称呼: S(npc.callPlayer), 背景: S(npc.background), 外观: S(npc.appearance5 || npc.appearanceDetail || npc.baseAppearance),
+    动机: S(npc.motiveNow), 短期目标: S(npc.shortGoal), 长期目标: S(npc.longGoal), 内心: S(npc.innerThought),
+    真实力量: realAttrCell(npc, 'str'), 真实敏捷: realAttrCell(npc, 'agi'), 真实体质: realAttrCell(npc, 'con'),
+    真实智力: realAttrCell(npc, 'int'), 真实魅力: realAttrCell(npc, 'cha'), 真实幸运: realAttrCell(npc, 'luck'),
+    形态: S(npc.bodyType),
   }));
 }
 
@@ -250,6 +271,7 @@ const MIRROR_TABLES: (SingleSpec | MultiSpec)[] = [
   { uid: 'currency', name: '货币表', single: false, build: buildCurrency },
   { uid: 'inventory', name: '背包物品表', single: false, build: buildInventory },
   { uid: 'important_characters', name: '重要角色表', single: false, build: buildImportantChars },
+  { uid: 'pet_summons', name: '宠物/召唤物表', single: false, build: buildPetSummons },
   { uid: 'protagonist_skills', name: '技能表', single: false, build: buildSkills },
   { uid: 'talents', name: '天赋表', single: false, build: buildTalents },
   { uid: 'titles', name: '称号表', single: false, build: buildTitles },

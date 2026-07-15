@@ -242,16 +242,16 @@ export const useTables = create<TableState>()(
     }),
     {
       name: 'drpg-tables',
-      version: 8,
+      version: 9,
       storage: lzStorage(),   // lz 压缩
       /* 结构演进（…v5→v6 加 NPC明细表 + 重要角色表补标量；v6→v7 重要角色表加真实六维列·六维改回基础值；
-         v7→v8 加 3 张剧情记忆表：进程/伏笔/约定表·AI 维护·非镜像）。
+         v7→v8 加 3 张剧情记忆表：进程/伏笔/约定表·AI 维护·非镜像；v8→v9 加 宠物/召唤物表·镜像·从重要角色表分流）。
          `evolveTables` 幂等：以最新 buildDefaultTables() 为准，按**列名**把旧行重映射进新表头 →
          新表补齐、新列留空、旧数据一律不丢、用户自建表保留。加表/加列后 bump version 即可让老存档自动补上。 */
       migrate: (persisted: unknown, version: number): { tables: AcuTableData } => {
         const p = persisted as { tables?: AcuTableData } | null;
         if (!p || typeof p !== 'object') return { tables: buildDefaultTables() };
-        if (version >= 8) return { tables: p.tables ?? buildDefaultTables() };
+        if (version >= 9) return { tables: p.tables ?? buildDefaultTables() };
         return { tables: evolveTables(p.tables ?? {}) };   // 结构演进（列名重映射·数据不丢·见 evolveTables）
       },
     }

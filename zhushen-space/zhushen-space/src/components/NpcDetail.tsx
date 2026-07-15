@@ -1,5 +1,6 @@
 import { useState, useRef, useEffect, createContext, useContext, type ReactNode } from 'react';
 import { useNpc, type NpcRecord } from '../store/npcStore';
+import { isPetLike } from '../systems/petEvolution';   // 宠物/召唤物专属「培养」按钮的门控
 import { stageOf, type DispAxis } from '../systems/dispositionGuard';
 import { useCharacters, RARITY_CLS, ELEMENT_CLS, SKILL_TIER_CLS, normSkillTier, type Deed } from '../store/characterStore';
 import { computeDerived, lvFromRealm, normalizeTier, tierFxClass, realmFromLevel, effectiveResource, fullMaxHp, fullMaxEp, TIERS, realAttrCapForTier, realAttrMult, attrCapForTier, ratioOf, hpCoefOf, epCoefOf, vitalFormula, npcBaseAttrs } from '../systems/derivedStats';
@@ -85,7 +86,7 @@ function favorCls(v: number) {
 }
 
 export default function NpcDetail({
-  npc, list, onClose, onSelect, onManualUpdate, updating, preview = false, previewActions,
+  npc, list, onClose, onSelect, onManualUpdate, updating, onCultivate, preview = false, previewActions,
 }: {
   npc: NpcRecord;
   list: NpcRecord[];
@@ -93,6 +94,7 @@ export default function NpcDetail({
   onSelect: (id: string) => void;
   onManualUpdate?: (id: string) => void;
   updating?: boolean;
+  onCultivate?: (r: NpcRecord) => void;   // 宠物/召唤物「培养」（仅 isPetLike 显示）
   preview?: boolean;          // 只读卡片预览（助战卡 / 聊天室分享 NPC）：隐藏编辑/对话/删除/转移/生图等可变控件
   previewActions?: ReactNode; // 预览模式下头部右侧自定义按钮（如「邀请助战」），替代默认的对话/编辑/删除
 }) {
@@ -169,6 +171,17 @@ export default function NpcDetail({
               }`}
             >
               {updating ? <><span className="animate-spin inline-block">◌</span> 更新中…</> : '⟳ 手动更新'}
+            </button>
+          )}
+
+          {/* 培养：仅宠物/召唤物·投材料+提示词，AI 据合理性给出提升，采纳后同步到本面板 */}
+          {!effPreview && onCultivate && isPetLike(npc) && (
+            <button
+              onClick={() => onCultivate(npc)}
+              title="投入储存空间的材料 + 填写培养方向，AI 据合理性培养这只宠物 / 召唤物（提升同步到本面板）"
+              className="inline-flex items-center gap-1 px-3 py-1.5 max-lg:px-2 max-lg:py-1 text-sm max-lg:text-[13px] rounded-lg border font-mono transition-colors border-edge text-dim/70 hover:border-teal-500/50 hover:text-teal-300"
+            >
+              🌱 培养
             </button>
           )}
 

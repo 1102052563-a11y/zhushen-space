@@ -100,7 +100,7 @@ function NpcCard({ npc, onOpen, onDm, onToggleFriend, onManualUpdate, onRestore,
 /* ════════════════════════════════════════════
    主弹窗
 ════════════════════════════════════════════ */
-export default function NpcPanel({ onClose, onDm, onManualUpdate, manualUpdatingId }: { onClose: () => void; onDm?: (r: NpcRecord) => void; onManualUpdate?: (id: string) => void; manualUpdatingId?: string | null }) {
+export default function NpcPanel({ onClose, onDm, onManualUpdate, manualUpdatingId, onCultivate }: { onClose: () => void; onDm?: (r: NpcRecord) => void; onManualUpdate?: (id: string) => void; manualUpdatingId?: string | null; onCultivate?: (r: NpcRecord) => void }) {
   const npcs      = useNpc((s) => s.npcs);
   const clearAll  = useNpc((s) => s.clearAll);
   const setFriend = useNpc((s) => s.setFriend);
@@ -248,6 +248,7 @@ export default function NpcPanel({ onClose, onDm, onManualUpdate, manualUpdating
           onSelect={(id) => setSelectedId(id)}
           onManualUpdate={onManualUpdate}
           updating={manualUpdatingId === selected.id}
+          onCultivate={onCultivate}
         />
       )}
     </div>

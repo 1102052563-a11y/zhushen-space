@@ -3,6 +3,7 @@ import {
   buildPerspectiveRule,
   NARRATIVE_FIRST_RULE,
   PET_EVOLUTION_RULE,
+  PET_CULTIVATE_RULE,
   TERRITORY_EFFECT_RULE,
   TERRITORY_STABILITY_RULE,
   TERRITORY_DEDUP_RULE,
@@ -245,7 +246,7 @@ import { buildMemPool, loadAll as factVecLoadAll, ensureVectors as factVecEnsure
 import { useDbAdvance } from './store/dbAdvanceStore';   // 数据库推进管线（Stitches 规划层）
 import { findModule as dbFindModule, buildModuleMessages as dbBuildMsgs, extractTag as dbExtractTag, stripExcluded as dbStripExcluded, resolveFinalDirective as dbResolveDirective, type DbAdvanceCtx } from './systems/dbAdvancePreset';
 import { serializePlayerCard, serializeNpcCard, buildNpcCandidateTitles, buildPlayerSkillCandidates, buildPlayerItemCandidates, rankNpcsLocal, pickOffsceneRescue, serializeFactionsSection, namesMentionedIn, NM_STRUCT_SELECT_PROMPT, type RecallLimits } from './systems/structuredRecall';
-import { drainSceneNotices, pushSceneNotice, drainGrowthNotices, pushGrowthNotice, pushFacilityGranted, drainFacilityGranted } from './systems/allocNotice';
+import { drainSceneNotices, pushSceneNotice, drainGrowthNotices, pushFacilityGranted, drainFacilityGranted } from './systems/allocNotice';
 import { getPrompt, renderPrompt, setLastUserMessage } from './store/promptOverrideStore';   // 预设中心：主提示词 override（有玩家自定义用之，否则回退内置默认常量）；renderPrompt=给 field 类补一遍变量标签替换；setLastUserMessage=记玩家当前输入供 {{lastUserMessage}}   // 场外操作通报→正文前置须知；星图习得/开箱→入戏交代块；设施发放物→物品阶段勿再建
 import { rollGemDrops } from './systems/gemDrop';   // 正文击杀 → 结算掉落宝石（前端确定性）
 const MiscPanel = lazy(() => import('./components/MiscPanel'));
@@ -344,6 +345,7 @@ const SubProfessionPanel = lazy(() => import('./components/SubProfessionPanel'))
 const SkillTreePanel = lazy(() => import('./components/SkillTreePanel'));
 const LoadoutPanel = lazy(() => import('./components/LoadoutPanel'));
 const NpcPanel = lazy(() => import('./components/NpcPanel'));
+const PetCultivateModal = lazy(() => import('./components/PetCultivateModal'));
 const NpcDetail = lazy(() => import('./components/NpcDetail'));
 import OnScenePanel from './components/OnScenePanel';
 import PlayerEquipPanel from './components/PlayerEquipPanel';
@@ -1286,6 +1288,12 @@ export default function App() {
   const [npcManualUpdatingId, setNpcManualUpdatingId] = useState<string | null>(null);   // 正在「手动更新」的单个 NPC id
   const [petPhaseRunning,    setPetPhaseRunning]    = useState(false);
   const [petPhaseLog,        setPetPhaseLog]        = useState('');
+  // 宠物/召唤物·培养弹窗（投材料+提示词·同一 pet API·可重掷·采纳同步到面板）
+  const [cultivatePet,     setCultivatePet]     = useState<import('./store/npcStore').NpcRecord | null>(null);
+  const [cultivateResult,  setCultivateResult]  = useState('');
+  const [cultivateLoading, setCultivateLoading] = useState(false);
+  const [cultivateError,   setCultivateError]   = useState('');
+  const cultivateMaterialsRef = useRef<{ id: string; name: string; qty: number }[]>([]);
   const [npcManualToast, setNpcManualToast] = useState<{ kind: 'info' | 'ok' | 'err'; text: string } | null>(null);   // NPC 手动更新浮层提示（盖在面板之上）
   const [factionPhaseLog,    setFactionPhaseLog]    = useState('');     // 势力演化阶段提示
   const [factionPanelOpen,   setFactionPanelOpen]   = useState(false);
@@ -2776,10 +2784,11 @@ export default function App() {
     }
     for (const [chestId, n] of Object.entries(consume)) items.consumeItem(chestId, n);   // 按 chestId 汇总消耗（成功一只消耗一只）
     pushFacilityGranted(openedNames);   // 登记本回合已入库的开箱产物 → 物品阶段绝不可再 createItem（根治"开完箱正文又生成一批"）
-    // 入戏交代（注入正文最深处·<本回合成长·需入戏交代> 块）：让正文演出主角开箱取物的画面，而非仅数值知晓；数值已定，附"勿重复发放/勿改数值"守卫。
+    // 场外操作通报（注入正文最深处·<前置须知> 块，与合成/商店/强化同口径）：让正文 AI 权威知晓"主角开了箱、开出了什么"，
+    //   治"开完箱下一回合 AI 不知道这些物品"的 OOC；数值已由前端结算，附"勿重复发放/勿改名改数值"守卫；开箱那一幕交由 AI 自然带过、不强求。
     try {
       const nm = openedNames.filter(Boolean).join('、');
-      if (nm) pushGrowthNotice(`主角一口气开启了 ${done.length} 只宝箱，从中取得：${nm}（已入储存空间、数值已由前端结算，勿重复发放、勿改数值）。请用一小段叙述交代主角开箱、取出这些之物的过程与见到珍宝的那一瞬。`);
+      if (nm) pushSceneNotice(`【场外·开箱】主角开启了 ${done.length} 只宝箱，开出：${nm}（已入储存空间、数值已由前端结算）。正文据此知晓即可，勿重复发放/结算，也**勿改写这些物品的名称与效果**；可在正文里自然带过主角开箱取宝的一幕，不强求。`);
     } catch { /* 通报失败不阻断 */ }
     C.endSession();
   }
@@ -4342,6 +4351,59 @@ ${AFFIX_EFFECT_RULE}`;
       return;
     }
     await runPetEvolutionPhaseCore(narrative);
+  }
+
+  /* ─── 宠物/召唤物·培养（弹窗：投材料 + 提示词 → 同一 pet API 生成"合理"提升 → 可重掷 → 采纳同步到面板 + 消耗材料）─── */
+  function openCultivateFor(pet: import('./store/npcStore').NpcRecord) {
+    setCultivatePet(pet);
+    setCultivateResult(''); setCultivateError(''); setCultivateLoading(false);
+    cultivateMaterialsRef.current = [];
+  }
+  function closeCultivate() { setCultivatePet(null); setCultivateResult(''); setCultivateError(''); }
+
+  async function runPetCultivation(prompt: string, materials: { id: string; name: string; qty: number }[]) {
+    const pet = cultivatePet;
+    if (!pet) return;
+    const chain = resolveApiChain('pet', getPetApi());
+    if (!chain[0]?.baseUrl || !chain[0]?.apiKey) { setCultivateError('宠物演化 API 未配置（设置→宠物/召唤物演化→API 设置，或综合设置→API 接口库选 pet 路由）'); return; }
+    setCultivateLoading(true); setCultivateError(''); setCultivateResult('');
+    cultivateMaterialsRef.current = materials;
+    try {
+      const petEntries = usePetEvo.getState().settings.entries;
+      // 复用整套 NPC 规则体系 + 目标宠物档案快照，末尾追加「培养铁则」PET_CULTIVATE_RULE（合理性/不灌水/不越阶）。
+      const systemPrompt = buildNpcPhaseSystemPrompt(petEntries, '', pet.id, undefined, PET_CULTIVATE_RULE);
+      const matText = materials.length ? materials.map((m) => `- ${m.name} ×${m.qty}`).join('\n') : '（无材料·仅凭主人的调教与培养方向）';
+      const userContent = `# 培养对象\n${pet.name}（角色ID ${pet.id}·详见系统提示中的角色档案）\n\n# 投入的材料（来自主人的储存空间·采纳后会被消耗）\n${matText}\n\n# 主人的培养意图（玩家输入）\n${prompt.trim() || '（未填写·请按材料与常理给出合理的小幅提升）'}\n\n---\n请据【宠物/召唤物·培养铁则】：先输出一段简短【培养叙述】（过程 + 所得 + 为何合理），随后输出 <state> / <upstore> 指令，把合理的提升写到该宠物（角色ID ${pet.id}）。只动这一只，勿碰主角 / 其它 NPC / 货币。`;
+      const reply = await petChatCompletion(systemPrompt, userContent);
+      setCultivateResult(reply || '');
+      if (!reply) setCultivateError('AI 无输出，请重试');
+    } catch (e: any) {
+      setCultivateError(String(e?.message ?? '生成失败').slice(0, 100));
+    } finally {
+      setCultivateLoading(false);
+    }
+  }
+
+  function acceptPetCultivation() {
+    const pet = cultivatePet;
+    const reply = cultivateResult;
+    if (!pet || !reply.trim()) return;
+    const petId = pet.id;
+    const clean = reply.replace(/<think[^>]*>[\s\S]*?<\/think>/gi, '').trim();
+    try {
+      const npcCmds = parseAllNpcCommands(clean).filter((c) => c.id === petId); applyNpcCommands(npcCmds);
+      const charCmds = parseAllCharCommands(clean).filter((c) => c.charId === petId); applyCharacterCommands(charCmds);
+      applyNpcShortCommands(clean, petId, '');
+      try { ensureNpcLuck(); ensureNpcVitalsCap(); } catch { /* 幸运/上限兜底 */ }
+      for (const m of cultivateMaterialsRef.current) { try { useItems.getState().consumeItem(m.id, m.qty); } catch { /* 材料消耗失败不阻断 */ } }
+      const total = npcCmds.length + charCmds.length;
+      setNpcManualToast({ kind: 'ok', text: `🌱「${pet.name}」培养完成：${total} 项提升已同步到面板` });
+      setTimeout(() => setNpcManualToast((t) => (t && t.text.startsWith(`🌱「${pet.name}」培养完成`) ? null : t)), 5000);
+    } catch (e: any) {
+      setNpcManualToast({ kind: 'err', text: `培养应用失败：${String(e?.message ?? '').slice(0, 60)}` });
+      setTimeout(() => setNpcManualToast(null), 5000);
+    }
+    setCultivatePet(null); setCultivateResult(''); setCultivateError(''); cultivateMaterialsRef.current = [];
   }
 
   /* ─── 正文完成后的后续阶段编排 ───
@@ -9535,7 +9597,7 @@ ${lines}`;
       const partyMsgId = ++msgId.current;   // ⚠必须在 runPovTurn(内部也 ++msgId) 之前**提前**取 id——否则 id 写在 setMessages 更新函数里会被 React 延后执行、拿到比正文占位更大的 id → 楼层按 id 排序时"行动"被排到正文下面(乱序 bug)
       setMessages((prev) => [...prev, { id: partyMsgId, role: 'user', content: effectiveText }]);
       if (textArg == null) setInputValue('');
-      await runPovTurn(text);
+      await runPovTurn(text, mp.turn?.inputs);   // 传入发送时抓拍的队友输入快照，防自动补发路径里现读变空 → 队友收不到正文
       return;
     }
 
@@ -11170,7 +11232,20 @@ ${lines}`;
           onClose={() => setNpcPanelOpen(false)}
           onManualUpdate={triggerNpcUpdateManually}
           manualUpdatingId={npcManualUpdatingId}
+          onCultivate={openCultivateFor}
           onDm={(r) => { setNpcPanelOpen(false); openDmFor({ targetId: r.id, targetName: r.name || r.id, targetTier: (r.realm || '').split(/[·|]/)[0] || undefined, targetJob: r.profession, targetPersona: r.personality, targetStrength: r.bioStrength, targetTag: r.npcTag }); }}
+        />
+      )}
+      {cultivatePet && (
+        <PetCultivateModal
+          open={!!cultivatePet}
+          pet={cultivatePet}
+          loading={cultivateLoading}
+          result={cultivateResult}
+          error={cultivateError}
+          onGenerate={runPetCultivation}
+          onAccept={acceptPetCultivation}
+          onClose={closeCultivate}
         />
       )}
 

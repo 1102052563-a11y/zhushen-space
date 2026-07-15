@@ -184,6 +184,27 @@ describe('migrateStoresToTables（Step 7 迁移）', () => {
     expect(r[0]['好感度']).toBe('60');
   });
 
+  it('★宠物/召唤物表 ← npcs（宠物/召唤物从重要角色表分流出去）', () => {
+    useNpc.setState({ npcs: {
+      C1: { id: 'C1', name: '张三', relations: 'B1:盟友', favor: 60, realm: '二阶', status: '正常' },
+      C3: { id: 'C3', name: '小黑', npcTag: '宠物', bodyType: '兽形', realm: '一阶', status: '跟随中', attrs: { str: 30, agi: 40, con: 20, int: 8, cha: 15, luck: 5 } },
+      G1: { id: 'G1', name: '火元素', npcTag: '召唤物', bodyType: '非人形', realm: '三阶', status: '已召唤' },
+    } } as any);
+    migrateStoresToTables({ overwrite: true });
+    const t = useTables.getState();
+    // 重要角色表只剩非宠物 NPC（张三）
+    const imp = t.rows('important_characters');
+    expect(imp.length).toBe(1);
+    expect(imp[0]['姓名']).toBe('张三');
+    // 宠物/召唤物表拿到两只，带形态
+    const pets = t.rows('pet_summons');
+    expect(pets.map((r) => r['姓名']).sort()).toEqual(['小黑', '火元素']);
+    const hei = pets.find((r) => r['姓名'] === '小黑')!;
+    expect(hei['标签']).toBe('宠物');
+    expect(hei['形态']).toBe('兽形');
+    expect(pets.find((r) => r['姓名'] === '火元素')!['形态']).toBe('非人形');
+  });
+
   it('世界状态表 ← misc', () => {
     migrateStoresToTables({ overwrite: true });
     const t = useTables.getState();

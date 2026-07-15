@@ -15,9 +15,9 @@ function ddlColumnCount(ddl: string): number {
 describe('acuTableSpec 表结构守卫（单一真相·机器可校验）', () => {
   const tables = buildDefaultTables();
 
-  it('23 张默认表全部建出，uid 无重复', () => {
-    expect(Object.keys(tables).length).toBe(23);
-    expect(new Set(DEFAULT_SHEET_UIDS).size).toBe(23);
+  it('24 张默认表全部建出，uid 无重复', () => {
+    expect(Object.keys(tables).length).toBe(24);
+    expect(new Set(DEFAULT_SHEET_UIDS).size).toBe(24);
   });
 
   it('★每张表 ddl 列数 == headers 列数（防 headers/ddl 漂移）', () => {

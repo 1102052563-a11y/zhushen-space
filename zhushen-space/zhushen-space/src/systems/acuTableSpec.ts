@@ -334,7 +334,48 @@ const SHEET_DEFS: SheetDef[] = [
   inner_thought TEXT, -- 内心想法
   real_str INTEGER, real_agi INTEGER, real_con INTEGER, real_int INTEGER, real_cha INTEGER, real_luck INTEGER -- 真实六维（基础+真实属性点直加；无直加留空）
 );`,
-    note: '重要 NPC，一人一行。只登记真正有名有姓的角色，勿建无名编号 NPC。离场/死亡改 状态，别删。六维=基础属性，真实六维=基础+真实属性点直加（无直加留空）。NPC 的 技能/天赋/物品 见 NPC技能表/NPC天赋表/NPC物品表（按 归属NPC 关联）。前 14 列位置固定（列索引契约）。',
+    note: '重要 NPC，一人一行。只登记真正有名有姓的角色，勿建无名编号 NPC。离场/死亡改 状态，别删。六维=基础属性，真实六维=基础+真实属性点直加（无直加留空）。NPC 的 技能/天赋/物品 见 NPC技能表/NPC天赋表/NPC物品表（按 归属NPC 关联）。前 14 列位置固定（列索引契约）。⚠标签为「宠物/召唤物」的角色不进本表，见 宠物/召唤物表。',
+  },
+  {
+    uid: 'pet_summons', name: '宠物/召唤物表', single: false, orderNo: 24,
+    // 与「重要角色表」同构（宠物/召唤物也是完整角色·全信息对齐），仅多末列「形态」；标签固定为 宠物/召唤物。前 14 列位置与重要角色表一致。
+    headers: ['姓名', '关系', '好感度', '阶位', '位置', '状态', '所属势力', '力量', '敏捷', '体质', '智力', '魅力', '幸运', '描述',
+      '性别', '职业', '生物强度', '年龄', '标签', '契约者编号', '烙印等级', '竞技场排名', 'HP', 'HP上限', 'EP', 'EP上限', '称呼', '背景', '外观', '动机', '短期目标', '长期目标', '内心',
+      '真实力量', '真实敏捷', '真实体质', '真实智力', '真实魅力', '真实幸运', '形态'],
+    ddl: `CREATE TABLE pet_summons ( -- 宠物/召唤物表（主角豢养/召唤的角色·不自行成长）
+  row_id INTEGER PRIMARY KEY, -- 行号
+  name TEXT NOT NULL, -- 姓名
+  relation TEXT, -- 与主人的关系
+  favor INTEGER, -- 好感度/亲密
+  tier TEXT, -- 阶位（除非主人投入否则冻结）
+  location TEXT, -- 位置
+  status TEXT, -- 状态
+  faction TEXT, -- 所属（一般随主人）
+  str INTEGER, agi INTEGER, con INTEGER, int INTEGER, cha INTEGER, luck INTEGER, -- 六维
+  description TEXT, -- 一句话介绍/性情
+  gender TEXT, -- 性别
+  profession TEXT, -- 种类/职业
+  bio_strength TEXT, -- 生物强度档
+  age TEXT, -- 年龄
+  npc_tag TEXT, -- 标签（宠物/召唤物）
+  contractor_id TEXT, -- 契约者编号（一般空）
+  brand_level TEXT, -- 烙印等级（一般空）
+  arena_rank TEXT, -- 竞技场排名（一般空）
+  hp TEXT, -- 当前生命
+  max_hp TEXT, -- 生命上限
+  ep TEXT, -- 当前能量
+  max_ep TEXT, -- 能量上限
+  call_player TEXT, -- 对主人的称呼
+  background TEXT, -- 背景/来历
+  appearance TEXT, -- 外观
+  motive TEXT, -- 当前动机
+  short_goal TEXT, -- 短期目标
+  long_goal TEXT, -- 长期目标
+  inner_thought TEXT, -- 内心
+  real_str INTEGER, real_agi INTEGER, real_con INTEGER, real_int INTEGER, real_cha INTEGER, real_luck INTEGER, -- 真实六维（基础+真实属性点直加；无直加留空）
+  body_type TEXT -- 形态（人形/兽形/非人形；召唤物必为非人形）
+);`,
+    note: '主角的宠物/召唤物，一只一行（与重要角色表同构·就是标签不同）。⚠不自行成长：阶位/等级/六维默认冻结，仅当正文写明"主人的投入"（喂养/灌注/契约升级/血脉进化/并肩历练）才变。召唤物 形态 必为非人形。技能/天赋/物品 见 NPC技能表/NPC天赋表/NPC物品表（按 归属NPC 关联）。',
   },
   {
     uid: 'factions', name: '势力表', single: false, orderNo: 8,
