@@ -459,7 +459,7 @@ export function applyStateUpdates(raw: string) {
   }
 }
 
-export function applyAllUpdates(raw: string, ctx?: LedgerCtx, opts?: { deferItemCreate?: boolean; suppressCreateNames?: string[] }): { itemResults: ItemEditResult[] } {
+export function applyAllUpdates(raw: string, ctx?: LedgerCtx, opts?: { deferItemCreate?: boolean; suppressCreateNames?: string[] }): { itemResults: ItemEditResult[]; deferredCreates: ReturnType<typeof parseAllItemCommands> } {
   // ★ 先创建物品（<upstore> createItem），再应用 <state>（含 eq 装备短指令），
   //   否则 eq 会在物品尚未创建时执行而装备失败（物品全堆在储物袋里）。
   const parsedItemCmds = parseAllItemCommands(raw);
@@ -470,8 +470,14 @@ export function applyAllUpdates(raw: string, ctx?: LedgerCtx, opts?: { deferItem
   //   交由带护栏（思维链/背包快照/判重闸门/货币守卫/回喂纠错）的物品阶段统一建一次——根治
   //   "正文 <upstore> + 物品阶段各建一次 → 同一件物两条(描述还不一样、判重按名字漏网)"。消耗/更新/穿脱/转移等其余物品指令仍即时生效。
   let itemCmds = opts?.deferItemCreate ? itemCmdsAll.filter((c) => c.type !== 'createItem') : itemCmdsAll;
-  if (opts?.deferItemCreate && itemCmds.length !== itemCmdsAll.length)
-    console.log(`[Item] 主正文延后 ${itemCmdsAll.length - itemCmds.length} 条 createItem → 交物品阶段独占建（去重）`);
+  // ★延后 ≠ 丢弃：把延后的 createItem 原样回传给调用方，供演化跑完后对账补建（reconcileDeferredCreates）。
+  //   否则物品阶段一旦没接住（未配 API 早退 / 抛异常被 catch 吞 / 演化调度频率与物品频率不同步该回合根本不跑 /
+  //   AI 就是没发这条 createItem），这件物品就**永久消失**——正文说给了、背包里没有。
+  //   而现成的「物品守护看门狗」(snapshotPlayerBag→reconcilePlayerBag) 对它天然瞎：它比对的是"进过背包又消失"，
+  //   这类物品从未进过背包。故必须由本函数把原始指令交出去。
+  const deferredCreates = opts?.deferItemCreate ? itemCmdsAll.filter((c) => c.type === 'createItem') : [];
+  if (deferredCreates.length)
+    console.log(`[Item] 主正文延后 ${deferredCreates.length} 条 createItem → 交物品阶段独占建（去重）；演化 settle 后对账补建兜底`);
   // 设施已发放物：本回合由开箱/合成等确定性发放、已在背包中的物品——**绝不可再 createItem**（防重复建档；
   // 容忍正文把名字写漂：归一化后双向包含匹配，"暗金·裂空战刃"≈"裂空战刃"也拦下，补 dedupeByName 按精确名漏合并的洞）。
   if (opts?.suppressCreateNames?.length) {
@@ -518,7 +524,7 @@ export function applyAllUpdates(raw: string, ctx?: LedgerCtx, opts?: { deferItem
     seedNpcsIfEmpty((useNpc.getState() as { npcs?: Record<string, unknown> }).npcs ?? {});   // NPC 影子对齐
     for (const r of watchdogViolations()) console.warn(`[看门狗] ⚠ ${r.domain}：`, r.violations);
   } catch { /* 看门狗绝不阻断主流程 */ }
-  return { itemResults };
+  return { itemResults, deferredCreates };
 }
 
 /* 过渡期：进阶点数/击杀结算已移除。正文若仍输出旧 <kill> 清单，直接剥除不显示

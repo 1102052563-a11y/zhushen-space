@@ -378,10 +378,21 @@ export function effectiveResource(cur: number | undefined, _storedMax: number | 
   return Math.min(Math.max(0, cur), derivedMax);
 }
 
-/* 从 realm 字符串（如 "一阶·Lv.8|身份"）提取 Lv 数字；取不到默认 1 */
+/* 从 realm 字符串（如 "一阶·Lv.8|身份"）提取 Lv 数字；取不到默认 1。
+   ⚠ 阶位·等级一致性守卫：同一串里阶位与等级矛盾时（AI 幻觉写出 "二阶·Lv.86"）以**阶位**为准，
+   把等级夹进该阶合法区间（二阶 → Lv.20）。理由：NPC 的阶位与等级来自同一个字符串、同时写入，
+   不存在 attrCapForTier/nominalTierNum 里 max(阶位串, 按等级推) 想防的「阶位字段滞后于等级」——
+   矛盾只可能是 AI 写错。不夹的话 Lv.86 会经该 max() 把「二阶」顶成九阶，连锁三处爆炸：
+   ① bioInnate 拿九阶区间[301,500]量她 ~65 的峰值 → 占用率负 → 掉到九阶窗口**地板 T8·真神**
+   ② tierVitalMult(8) → NPC maxHp ×32  ③ 六维上限由 80 放开到 500，且 T8 还会注回提示词
+   让 NPC 演化真按真神养她 → 每回合自我强化。（主角走 profile.tier/level 两个独立字段、确实可能滞后，
+   不经本函数，max() 对主角仍然成立。）
+   阶位段取 '|' 前的头部——身份后缀里的阶位词（如 "一阶·Lv.5|三阶佣兵团学徒"）不作数。
+   认不出阶位（纯 "Lv.25" / "结丹中期·Lv.25" 等脏数据）→ 不夹，仍交给 realmFromLevel 推导。 */
 export function lvFromRealm(realm?: string): number {
   const m = /Lv\.?\s*(\d+)/i.exec(realm ?? '');
-  return m ? Number(m[1]) : 1;
+  if (!m) return 1;
+  return clampLevelToTier(Number(m[1]), (realm ?? '').split('|')[0]);
 }
 
 /* 等级 → 阶位名（轮回乐园阶位表，与角色阶位体系一致）
@@ -402,6 +413,22 @@ export function realmFromLevel(level: number): string {
   if (lv <= 130) return '至强';
   if (lv <= 150) return '巅峰至强';
   return '无上之境';
+}
+
+/* 阶位 → 合法等级区间 [下限,上限]（无上之境 无上限）。realmFromLevel 的**反向表**——两张表必须一致，
+   derivedStats.test.ts 有双向一致性测试兜底（改一处漏改另一处会直接测挂）。 */
+export const TIER_LEVEL_RANGE: Record<string, [number, number]> = {
+  一阶: [1, 10], 二阶: [11, 20], 三阶: [21, 30], 四阶: [31, 40], 五阶: [41, 50],
+  六阶: [51, 60], 七阶: [61, 70], 八阶: [71, 80], 九阶: [81, 90],
+  绝强: [91, 100], 巅峰绝强: [101, 110], 至强: [111, 130], 巅峰至强: [131, 150],
+  无上之境: [151, Infinity],
+};
+
+/* 把等级夹进某阶位的合法等级区间；阶位认不出（''/脏数据）→ 原样返回、不夹。 */
+export function clampLevelToTier(level: number, tier?: string): number {
+  const lv = Math.max(1, Math.round(level || 1));
+  const r = TIER_LEVEL_RANGE[normalizeTier(tier)];
+  return r ? Math.max(r[0], Math.min(r[1], lv)) : lv;
 }
 
 /* 真实属性·÷80 折算（旧口径·保留为内部因子）：floor(值/80)。

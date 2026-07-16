@@ -4,7 +4,7 @@ import {
   realmFromLevel, normalizeTier, trueAttr, lvFromRealm,
   attrCapForTier, clampBaseAttrs, gearMaxHpBonus, gearMaxHpPctBonus, fullMaxHp, fullMaxEp,
   realAttrMult, parseCombatStat, computeDerived, ratioOf, hpCoefOf, epCoefOf, vitalFormula, computeAttrPool,
-  npcBaseAttrs,
+  npcBaseAttrs, TIER_LEVEL_RANGE, clampLevelToTier, TIERS,
 } from './derivedStats';
 import type { PlayerAttrs } from '../store/playerStore';
 
@@ -174,6 +174,56 @@ describe('lvFromRealm（从 realm 串提 Lv）', () => {
   it('取不到默认 1', () => {
     expect(lvFromRealm('无')).toBe(1);
     expect(lvFromRealm(undefined)).toBe(1);
+  });
+
+  // ⚠ 阶位·等级一致性守卫（治「毒岛冴子·二阶·Lv.86 → 资质T8·真神」）
+  it('阶位与 Lv 矛盾 → 以阶位为准夹回该阶区间', () => {
+    expect(lvFromRealm('二阶·Lv.86')).toBe(20);        // 越上限 → 夹到二阶顶 Lv.20
+    expect(lvFromRealm('五阶·Lv.3')).toBe(41);         // 越下限 → 夹到五阶底 Lv.41
+    expect(lvFromRealm('二阶·Lv.86|藤美学园3年级学生')).toBe(20);   // 带身份后缀
+  });
+  it('阶位与 Lv 自洽 → 原样返回（不误伤正常数据）', () => {
+    expect(lvFromRealm('九阶·Lv.86')).toBe(86);
+    expect(lvFromRealm('三阶·Lv.25|调查员')).toBe(25);
+    expect(lvFromRealm('无上之境·Lv.999')).toBe(999);   // 无上无上限
+  });
+  it('身份后缀里的阶位词不参与判定（只认 | 前的头部）', () => {
+    expect(lvFromRealm('一阶·Lv.5|三阶佣兵团学徒')).toBe(5);
+  });
+  it('认不出阶位的脏数据 → 不夹，仍交给 realmFromLevel 推导', () => {
+    expect(lvFromRealm('结丹中期·Lv.25')).toBe(25);
+    expect(lvFromRealm('Lv.86')).toBe(86);
+  });
+});
+
+describe('TIER_LEVEL_RANGE ↔ realmFromLevel 双向一致（改一处漏改另一处就挂）', () => {
+  it('每个阶位的区间上下界都能被 realmFromLevel 判回该阶', () => {
+    for (const [tier, [lo, hi]] of Object.entries(TIER_LEVEL_RANGE)) {
+      expect(realmFromLevel(lo)).toBe(tier);
+      if (Number.isFinite(hi)) expect(realmFromLevel(hi)).toBe(tier);
+    }
+  });
+  it('区间首尾相接、无空洞无重叠', () => {
+    const rs = TIERS.map((t) => TIER_LEVEL_RANGE[t]);
+    expect(rs[0][0]).toBe(1);
+    for (let i = 1; i < rs.length; i++) expect(rs[i][0]).toBe(rs[i - 1][1] + 1);
+  });
+});
+
+describe('clampLevelToTier', () => {
+  it('夹进区间；阶位认不出则原样返回', () => {
+    expect(clampLevelToTier(86, '二阶')).toBe(20);
+    expect(clampLevelToTier(15, '二阶')).toBe(15);
+    expect(clampLevelToTier(86, '结丹')).toBe(86);
+    expect(clampLevelToTier(86, undefined)).toBe(86);
+  });
+});
+
+// 冴子回归：realm 一矛盾就会经 max(阶位串, realmFromLevel(Lv)) 把二阶顶成九阶 → 六维上限 80 放开到 500
+describe('回归·二阶Lv.86 不得被当成九阶', () => {
+  it('attrCapForTier 仍按二阶封顶 80（而非九阶的 500）', () => {
+    const realm = '二阶·Lv.86|藤美学园3年级学生';
+    expect(attrCapForTier(realm, lvFromRealm(realm))).toBe(80);
   });
 });
 

@@ -31,6 +31,19 @@ const INDEFINITE_STATUS_RE = /永久|永远|长期|永续|不限|无限|terminal
 const DEFAULT_STATUS_TURNS = 4;   // 限时状态无明确时长时的默认持续回合
 const STALE_STATUS_TURNS = 5;     // 旧存档无时限、未标永久的限时状态，超此回合数强制清理（兜底）
 
+/* ⚠「永续/永久」判定：只测 duration 字段会漏——AI 常把永久性写进 name/type/effect/desc 而**不给 duration**
+   （如 addStatus("B1",{name:"永续·龙鳞护体",effect:"永久提升体质"})），于是 durStr='' → INDEFINITE 不命中
+   → 落到 DEFAULT_STATUS_TURNS=4 → 四回合后被 expireStatuses 清掉。这正是「永续状态过几个回合消失不见」的病根。
+   故合并全部文本字段一起测。
+   BUFF_AS_STATUS_RULE 早已写明"永久的绝不能写 addStatus、写成限时状态过几回合就被引擎清掉"，AI 照样违反
+   → 纪律下沉代码：AI 既然把永久性说出口了，引擎就得听懂，而不是按默认时长把玩家的东西删掉。
+   注：本判定**仅在 AI 没给出可解析时长时**才被咨询（见 applyTimedStatusCommands）——AI 明写了
+   duration:"3回合" 就以 duration 为准，不会被 effect 里一句"永久疤痕"绑架。 */
+function isIndefiniteStatus(d: { name?: unknown; type?: unknown; effect?: unknown; desc?: unknown; durationDesc?: unknown }): boolean {
+  const txt = [d?.name, d?.type, d?.effect, d?.desc, d?.durationDesc].filter((x) => typeof x === 'string').join(' ');
+  return INDEFINITE_STATUS_RE.test(txt);
+}
+
 /* ── 忠于正文·状态时长守卫（治"正文说3回合、状态却给15回合"）──
    narratedMaxTurns：本轮正文里**明确声明**的最长「前向回合时长」。只认明确时长短语(接下来/持续/维持/…N回合、N回合内)，
    避开"第3回合/3回合前"等非时长数字；并**先剥掉 <state>/<upstore> 指令块**，否则会把状态指令自己写的 15回合 当成"正文声明"。*/
@@ -245,8 +258,9 @@ export function applyTimedStatusCommands(reply: string, turn: number, onlyId?: s
     const durStr = String(d.duration ?? d.dur ?? d.durationDesc ?? '').trim();
     let durTurns = parseDurationTurns(durStr);
     const durMin = parseDurationMinutes(durStr);
-    // 无明确时长（如"持续"）→ 按类型给默认回合数，避免限时状态永不过期；显式"永久/长期"才保留无限期
-    if (durTurns == null && durMin == null && !INDEFINITE_STATUS_RE.test(durStr)) {
+    // 无明确时长（如"持续"）→ 按类型给默认回合数，避免限时状态永不过期；
+    // 标了"永久/永续/长期"的（不限 duration 字段，name/type/effect/desc 里说了也算）保留无限期，绝不塞默认时长
+    if (durTurns == null && durMin == null && !isIndefiniteStatus({ ...d, durationDesc: durStr })) {
       durTurns = CC_STATUS_RE.test(`${name}${d.type ?? ''}${d.effect ?? ''}`) ? 2 : DEFAULT_STATUS_TURNS;
     }
     // 忠于正文：回合制时长不得超过本轮正文明确声明的最长回合时长（治"正文3回合、状态15回合"），并同步胶囊显示文本
@@ -293,11 +307,16 @@ export function expireStatuses(turn: number) {
   const M = useMisc.getState();
   const nowMin = parseGameMinutes(M.worldTime || M.paradiseTime);
   const isExpired = (e: StatusEffect): boolean => {
+    // ★存量救援（治「永续状态过几个回合消失不见」）：durationDesc 为空 = 这条时长不是 AI 明写的、
+    //   而是前端 DEFAULT_STATUS_TURNS 兜底塞进去的；此时状态自身文本若自称永续/永久，说明它本就不该有时限 → 绝不清。
+    //   （AI 明写过时长的 durationDesc 非空，照常按时限过期，不被 effect 里一句"永久疤痕"绑架。）
+    //   宁可留着让玩家自己删，也不静默删掉玩家挣来的东西——同 db-as-library 铁则。
+    if (!String(e.durationDesc ?? '').trim() && isIndefiniteStatus(e)) return false;
     if (e.durationTurns != null && turn - e.startTurn >= e.durationTurns) return true;
     if (e.expireAtMin != null && nowMin != null && nowMin >= e.expireAtMin) return true;
     // 兜底：旧存档里既无回合上限也无时间上限、且未标注永久/长期的限时状态，超过 STALE 回合强制清理
     if (e.durationTurns == null && e.expireAtMin == null
-        && !INDEFINITE_STATUS_RE.test(e.durationDesc ?? '')
+        && !isIndefiniteStatus(e)
         && typeof e.startTurn === 'number' && turn - e.startTurn >= STALE_STATUS_TURNS) return true;
     return false;
   };

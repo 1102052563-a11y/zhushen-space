@@ -1,0 +1,79 @@
+﻿{{Veil|time=2015-09-12T10:56:41+00:00}}
+{{Onesource|time=2014-12-30T02:08:43+00:00}}
+
+{{NoteTA|G1=Games}}
+{{Infobox VG
+| title =軒轅劍外傳 穹之扉
+| image = Swd6e.JPG
+| caption =
+| genre =[[电子角色扮演游戏|角色扮演]]
+| platform =[[Windows]]、[[PlayStation 4]]、[[Xbox One]]、[[PlayStation 5]]
+| developer =[[DOMO小組]] <br />（[[大宇資訊]]台北總部研發一部）
+| publisher = {{vgrelease|TW|[[大宇資訊|大宇遊戲]]<ref>原大宇資訊因組織架構調整，旗下單機遊戲的發行業務已轉至集團內關係企業「大宇遊戲股份有限公司」進行後續運作。</ref>|CN|[[畅游]]|AS|[[索尼互動娛樂]]|CN|百家合|AS|EastAsiaSoft}}
+| producer = [[楊淵升]]
+| composer= [[吳欣叡]]、[[曾志豪 (作曲家)|曾志豪]]<ref name="t1" />
+| director =[[蔡明宏]]
+| designer = 
+| writer = [[黃秀娟]]<ref name="t1">{{Citation|title=全面揭秘 直擊《軒轅劍外傳穹之扉》研發幕後之旅|url=https://www.youtube.com/watch?v=2ogYQPf9NEw|accessdate=2019-08-07|language=zh|archive-date=2016-03-28|archive-url=https://web.archive.org/web/20160328090300/https://www.youtube.com/watch?v=2ogYQPf9NEw|dead-url=no}}</ref>
+| programmer = [[吳東興]]<ref name="t1" />
+| artist = 陳建民
+| series =[[轩辕剑系列]]
+| engine =[[Unity (遊戲引擎)|Unity]]
+| modes =[[单人游戏|单人]]
+| released header =2015年3月26日
+| released ='''Windows'''{{vgrelease|TW|2015年3月26日|CN|2015年3月26日}}'''PC (Steam)'''{{vgr|WW|2016年2月25日}}'''PlayStation 4'''{{vgrelease|AS|2017年3月23日|CN|2017年6月29日}}'''Xbox One'''{{vgrelease|CN|2017年9月28日}}'''PlayStation 5'''{{vgr|2024年夏季<ref>{{cite web |title=《軒轅劍外傳：穹之扉》2024 年夏季登陸 PS5 平台 |url=https://gnn.gamer.com.tw/detail.php?sn=263764 |website=巴哈姆特電玩資訊站 |accessdate=2024-02-19 |archive-date=2024-02-19 |archive-url=https://web.archive.org/web/20240219204443/https://gnn.gamer.com.tw/detail.php?sn=263764 |dead-url=no }}</ref>}}
+}}
+{{ external media
+| align  = right
+| width  = 300px
+| video1 = [https://www.youtube.com/watch?v=2ogYQPf9NEw 《軒轅劍外傳穹之扉》研發小組影片]  - [[YouTube]]
+| video2 = [https://www.youtube.com/watch?v=Lr5s3AWSg18 《軒轅劍外傳穹之扉》PV5]  - [[YouTube]]
+}}
+《'''軒轅劍外傳 穹之扉'''》是[[大宇資訊]]旗下經典[[单机游戏|單機]][[電子角色扮演遊戲|角色扮演遊戲]]《[[軒轅劍系列|軒轅劍]]》系列的第十二款單機作品。2014年7月17日釋出首波遊戲宣傳影片及形象網站，原定於2015年1月推出<ref>{{Cite web|title=《軒轅劍陸》外傳《穹之扉》正式曝光！|url=https://gnn.gamer.com.tw/detail.php?sn=100274|accessdate=2019-08-07|work=巴哈姆特電玩資訊站|archive-date=2021-03-03|archive-url=https://web.archive.org/web/20210303213344/https://gnn.gamer.com.tw/detail.php?sn=100274|dead-url=no}}</ref>，因負責研發的DOMO小組對遊戲品質的更高要求，經和代理商協商後延期至2015年3月26日推出。<ref>{{Cite web|title=青空绘旅途《轩辕剑穹之扉》实景视频公布-《轩辕剑外传：穹之扉》官方网站|url=http://x6w.changyou.com/x6w/news/20150116/91009.shtml|accessdate=2019-08-07|work=x6w.changyou.com|archive-url=https://web.archive.org/web/20160304212806/http://x6w.changyou.com/x6w/news/20150116/91009.shtml|archive-date=2016-03-04|dead-url=yes}}</ref><ref>{{Cite web|title=國產單機系列續作《軒轅劍外傳：穹之扉》發表延期上市聲明|url=https://gnn.gamer.com.tw/detail.php?sn=107266|accessdate=2019-08-07|work=巴哈姆特電玩資訊站|archive-date=2020-11-25|archive-url=https://web.archive.org/web/20201125002042/https://gnn.gamer.com.tw/detail.php?sn=107266|dead-url=no}}</ref><ref>{{Cite web|title=版本初览《轩辕剑外传穹之扉》上市日期公布-《轩辕剑外传：穹之扉》官方网站|url=http://x6w.changyou.com/x6w/news/20150205/91955.shtml|accessdate=2019-08-07|work=x6w.changyou.com|archive-url=https://web.archive.org/web/20190803144227/http://x6w.changyou.com/x6w/news/20150205/91955.shtml|archive-date=2019-08-03|dead-url=yes}}</ref>
+
+==故事情节==
+背景設定於上古時代，天地可以互相連結，凡人可覲見天帝，學習神力，降妖除魔。然而被有心人利用，使得人間昏亂，[[伏羲]]與[[女媧]]不忍於此，協同[[顓頊]]帝說服[[華胥]]之主，將天門關閉，之後將無人隨意到天庭，史稱為「[[絕地天通]]」<ref>{{Cite web|title=《軒轅劍外傳：穹之扉》揭露故事劇情背景 首部宣傳影片、設定圖曝光|url=https://gnn.gamer.com.tw/detail.php?sn=100309|accessdate=2019-08-07|work=巴哈姆特電玩資訊站}}</ref>。
+
+==人物==
+
+===主要角色===
+
+'''司空宇'''<ref name="m1">{{Cite web|title=《軒轅劍外傳：穹之扉》曝光首位男主角 新技術為角色帶來不同光影效果|url=https://gnn.gamer.com.tw/detail.php?sn=102227|accessdate=2019-08-07|work=巴哈姆特電玩資訊站|archive-date=2020-11-23|archive-url=https://web.archive.org/web/20201123164821/https://gnn.gamer.com.tw/detail.php?sn=102227|dead-url=no}}</ref>（CV：[[皇貞季]]）
+:''衛吾土兮獻厥功，守堅志兮竟何從。一朝馳兮中原上，奔長虹兮劃碧空。''
+:男主角，20歲，使用武器為長棍，風屬性。
+:因為某些原因，只對家人和認識的人友善，對於不認識的陌生人則是一副很難接近的樣子，再加上平時總是表現一副事不關己的態度，更讓人感覺難以相處。
+:實際上卻是外冷內熱，責任心很強的性格。
+
+'''沐月'''<ref name="m4">{{Cite web|title=《軒轅劍外傳：穹之扉》全主角登場 揭露新女性主角「沐月」基本資料|url=https://gnn.gamer.com.tw/detail.php?sn=105976|accessdate=2019-08-07|work=巴哈姆特電玩資訊站|archive-date=2021-01-16|archive-url=https://web.archive.org/web/20210116101512/https://gnn.gamer.com.tw/detail.php?sn=105976|dead-url=no}}</ref>（CV：[[小連殺]]）
+:''月出皎兮江水邊，有女鬱兮靜少言。瀟瀟雨兮沐清影，鴻雁歸兮伴幽嫻。''
+:女主角，17(????)歲，使用武器為魂玉，水屬性。
+:冰山美人。
+:非凡間之人，卻因雙生姐姐的緣故塵落凡間，可能因為所屬的種族特性，表現較冰冷且少言，讓人覺得難以捉摸。
+:由於無故到人間，其他主角幫忙她一起找尋回故鄉之路。
+
+'''鳳煜'''<ref name="m3">{{Cite web|title=《軒轅劍外傳：穹之扉》曝光新主角「鳳煜」形象與資本資訊|url=https://gnn.gamer.com.tw/detail.php?sn=104665|accessdate=2019-08-07|work=巴哈姆特電玩資訊站|archive-date=2020-11-25|archive-url=https://web.archive.org/web/20201125002002/https://gnn.gamer.com.tw/detail.php?sn=104665|dead-url=no}}</ref>（CV：[[藤新]]）
+:''大風起兮連蒼鷂，破中流兮振九韜。平四海兮合諸侯，一匡商室兮復何求？''
+:第二男主角，28歲，使用武器為劍，火屬性。
+:為人風趣，不拘小節，因長相俊美，常被輕視弱如女子。
+:實際上劍術高超，並且智謀過人。
+真實身分為之後的第23代商王：子昭，廟號武丁，真實歷史人物。在位59年，將商王國國勢推至鼎盛。
+
+'''子巧'''<ref name="m2">{{Cite web|title=《軒轅劍外傳：穹之扉》曝光第二女主角個人資料 善用中國古代兵器「鉞」|url=https://gnn.gamer.com.tw/detail.php?sn=100902|accessdate=2019-08-07|work=巴哈姆特電玩資訊站|archive-date=2026-03-05|archive-url=https://web.archive.org/web/20260305091633/https://gnn.gamer.com.tw/detail.php?sn=100902|dead-url=no}}</ref>（CV：[[山新]]）
+:''蕙蘭質兮天生麗，懷眾庶兮思明庭。駕余鳳兮乘余驥，展浩氣兮自芳馨。''
+:第二女主角，19歲，使用武器為長斧[[鉞]]，土屬性。
+:雖然個頭嬌小，但卻善使巨大的長柄斧頭。
+:製作人在訪談中表示其為一名真實歷史人物
+
+其實為[[武丁|商高宗]]皇后[[妇好|婦好]]，為中國有史載以來首位女軍事家、政治家。
+
+'''阿奇'''<ref>{{Cite web|title=《軒轅劍外傳：穹之扉》曝光新寵物「阿奇野豬」形象 召喚阿奇協助收妖|url=https://gnn.gamer.com.tw/detail.php?sn=101778|accessdate=2019-08-07|work=巴哈姆特電玩資訊站}}</ref>（CV：[[幽舞越山]]）
+
+:寵物，幼年，身長50cm，小野豬，技能為收妖。
+:阿奇有著與它羈絆深刻的主人，並且是遊戲劇情中不可缺少的一份子。
+:具有的不同形態，不知有何等原因會變化出與琥珀極其類似的形態。
+:在精怪形態的阿奇身上背著上古神器「煉妖壺」，玩家可在戰鬥中召喚出阿奇前來收妖。
+:而阿奇的收妖動作與玩家的戰鬥操作相互獨立且互不干涉，並不影響戰鬥的進行。
+
+===其他角色===
+
+'''青梅'''<ref name="o1">{{Cite web|title=《軒轅劍外傳：穹之扉》兩名重要配角背景今日揭曉|url=https://gnn.gamer.com.tw/detail.php?sn=103287|accessdate=2019-08-07|work=巴哈姆特電玩資訊站|archive-date=2020-12-03|archive-url=https://web.archive.org/web/20201203235733/https://gnn.gamer.com.tw/detail.php?sn=103287|dead-url=no}}</ref>（CV

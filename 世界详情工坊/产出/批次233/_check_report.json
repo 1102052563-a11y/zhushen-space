@@ -1,0 +1,42 @@
+﻿[
+    {
+        "World":  "轩辕剑外传：汉之云.md",
+        "Plot":  11108,
+        "Entry":  2280,
+        "Check":  "PASS",
+        "Meta":  "主库·一至六",
+        "URLs":  4
+    },
+    {
+        "World":  "轩辕剑外传：云之遥.md",
+        "Plot":  11051,
+        "Entry":  1987,
+        "Check":  "PASS",
+        "Meta":  "主库·一至六",
+        "URLs":  4
+    },
+    {
+        "World":  "轩辕剑陆：凤凌长空千载云.md",
+        "Plot":  10151,
+        "Entry":  1831,
+        "Check":  "PASS",
+        "Meta":  "主库·一至六",
+        "URLs":  4
+    },
+    {
+        "World":  "轩辕剑外传：穹之扉.md",
+        "Plot":  10545,
+        "Entry":  1817,
+        "Check":  "PASS",
+        "Meta":  "主库·一至六",
+        "URLs":  4
+    },
+    {
+        "World":  "轩辕剑柒.md",
+        "Plot":  10139,
+        "Entry":  1814,
+        "Check":  "PASS",
+        "Meta":  "主库·一至六",
+        "URLs":  4
+    }
+]

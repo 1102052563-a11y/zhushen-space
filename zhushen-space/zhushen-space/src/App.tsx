@@ -1290,6 +1290,9 @@ export default function App() {
   // 同一回合再次触发(储存空间「手动更新」=重跑)时，先回退到这份快照(撤销本回合物品演化的修改)，再重新演化一次，避免在已改过的状态上叠加(重复/错乱)。
   const itemPhaseUndoRef     = useRef<{ key: number; items: any[]; currency: any; npcItems: Record<string, any[]> } | null>(null);
   const facilityGrantedRef   = useRef<string[]>([]);   // 本回合由设施(开箱/合成)确定性发放、已入库的物品名 → 物品阶段勿再 createItem（callApi 开头从 allocNotice 取进）
+  // 本回合被 deferItemCreate 延后的正文 createItem 原始指令 → 演化 settle 后对账：仍不在背包的补建（见 reconcileDeferredCreates）。
+  // 「延后」只为让物品阶段独占建、去重，绝不该等于「丢弃」。
+  const deferredCreatesRef   = useRef<ReturnType<typeof parseAllItemCommands>>([]);
   const prevWorldNameRef     = useRef('');   // 上一次杂项演化时的世界名，检测"进入新世界"→触发主线路线图规划
   const [itemPhaseRunning,   setItemPhaseRunning]   = useState(false);
   const [itemPhaseLog,       setItemPhaseLog]       = useState('');
@@ -3104,11 +3107,42 @@ export default function App() {
   }
 
   /* ─── 物品管理独立阶段（自动，含启用和频率检查）─── */
-  /* 物品阶段本回合是否会真正触发（启用 + 命中频率）——主正文据此决定「延后自带的 createItem，交物品阶段独占建物品」，
-     杜绝"正文 <upstore> + 物品阶段各建一次 → 同物两条(描述还不一样)"的重复。物品阶段没开/本回合不触发时返回 false，正文照旧即时建、不丢物。*/
+  /* 物品阶段本回合是否会真正触发——主正文据此决定「延后自带的 createItem，交物品阶段独占建物品」，
+     杜绝"正文 <upstore> + 物品阶段各建一次 → 同物两条(描述还不一样)"的重复。返回 false 时正文照旧即时建、不丢物。
+     ⚠ 必须与「物品阶段实际会不会跑」**严格同口径**，否则"正文的 createItem 被丢 + 物品阶段又没跑" = 物品凭空消失
+     （正文说给了装备/宝箱，背包里没有）。三道都得核，缺一就是黑洞：
+       ① useItems.settings.enabled / frequency —— 物品管理自己的开关与频率（runItemManagementPhase 内部检查）
+       ② phaseSched.item.every —— 演化调度的频率，**另一套独立旋钮**（runPostNarrativePhases 的 due('item') 检查）。
+          两套频率不同步时（如调度每3回合一次、物品频率每回合），非3倍数的回合全是"延后了但没人建"。
+       ③ API 是否配置 —— 未配置时 runItemManagementPhaseCore 直接早退、一件不建。
+     （仍有 AI 没发 createItem / 阶段抛异常被 catch 吞 等漏网 → 另有 reconcileDeferredCreates 事后对账兜底。） */
   function itemPhaseWillRunThisTurn(): boolean {
     const s = useItems.getState().settings;
-    return !!s.enabled && turnCountRef.current % (s.frequency || 1) === 0;
+    if (!s.enabled || turnCountRef.current % (s.frequency || 1) !== 0) return false;
+    const sched = useSettings.getState().phaseSched ?? {};
+    if (turnCountRef.current % Math.max(1, sched['item']?.every || 1) !== 0) return false;
+    const ss = useSettings.getState();
+    const it = useItems.getState();
+    const chain = resolveApiChain('item', it.itemUseSharedApi ? (ss.textUseSharedApi ? ss.api : ss.textApi) : it.itemApi);
+    return !!chain[0]?.baseUrl && !!chain[0]?.apiKey;
+  }
+
+  /* 「延后 ≠ 丢弃」·延后建物对账（演化阶段全部 settle 后跑一次）：
+     本回合被 deferItemCreate 从正文摘走的 createItem，若物品阶段最终没接住 —— 现在按正文原指令补建。
+     复用物品单一闸门自带的**跨批次状态判重**：物品阶段已经建过的会被判 dup 拦掉，只有真缺的才落库，
+     故本对账天然幂等，绝不会造成"正文+兜底各建一次"的重复（那正是 deferItemCreate 当初要根治的病）。
+     ⚠ 现成的「物品守护看门狗」(snapshotPlayerBag→reconcilePlayerBag) 补不了这个洞：它比对的是
+     "进过背包又消失"，而这些物品**从未进过背包**，对它天然不可见。 */
+  function reconcileDeferredCreates() {
+    const pending = deferredCreatesRef.current;
+    deferredCreatesRef.current = [];
+    if (!pending.length) return;
+    const made = applyItemCommands(pending).filter((r) => r.ok && !r.skipped);
+    if (made.length) {
+      const names = made.map((r) => r.ref).filter(Boolean);
+      console.warn(`[Item] 🛟 延后建物兜底：物品阶段未接住 ${made.length}/${pending.length} 件 → 已按正文原指令补建`, names);
+      setItemRecoverNotice(`🛟 物品守护：正文给的 ${made.length} 件物品没被物品阶段接住，已按正文补进背包 —— ${names.slice(0, 6).join('、')}`);
+    }
   }
 
   async function runItemManagementPhase(narrative: string) {
@@ -8640,6 +8674,9 @@ ${lines}`;
     const pipe = runPhasePipeline(phases);
     // 会改快照变量的阶段全部 settle 后抓「回合洞察」快照；若已被新回合取代则跳过（20s 定时器仍兜底，同回合覆盖）
     pipe.snapshotReady.then(() => {
+      // 延后建物对账（「延后≠丢弃」）：正文被摘走的 createItem 若物品阶段没接住 → 按正文原指令补建（闸门判重保证幂等）。
+      // 必须先于下面的背包对账：这些物品从未进过背包快照，那道看门狗看不见它们。同样先于"被新回合取代则跳过"。
+      try { reconcileDeferredCreates(); } catch (e) { console.warn('[Item] 延后建物对账失败', e); }
       // 物品守护对账：先于"被新回合取代则跳过"的判断执行，确保即便本回合已被取代，丢失的物品也已被捞回
       try {
         const rec = reconcilePlayerBag(bagSnapForReconcile);
@@ -9312,7 +9349,7 @@ ${lines}`;
         if (isOutline) { apiDebugLog.finish(narrLogId, accumulated, true); return stripOutlineThinking(cleaned); }   // 细纲：剥<剧情推演>思维链后回传（不落地/不解析<state>/不演化/不动 ref）
         lastRawNarrativeRef.current = cleaned;   // 存含指令原文，供「仅重算变量」复用
         if (/<世界结算>/.test(cleaned)) { playSfx('fanfare'); try { useMisc.getState().markWorldSettled(); } catch { /* 结算完成→推进结算边界戳，下个世界不再重复结算本世界任务 */ } }   // 世界结算 → 号角音效
-        if (!narrateOnly) { applyAllUpdates(cleaned, undefined, { deferItemCreate: itemPhaseWillRunThisTurn() }); try { applyPlayerProfileCommands(cleaned, '', turnCountRef.current); } catch { /* 主角位置/外观/身份：正文若直接输出 character.B1.* 也即时生效，不必等主角演化阶段 */ } }
+        if (!narrateOnly) { deferredCreatesRef.current = applyAllUpdates(cleaned, undefined, { deferItemCreate: itemPhaseWillRunThisTurn() }).deferredCreates; try { applyPlayerProfileCommands(cleaned, '', turnCountRef.current); } catch { /* 主角位置/外观/身份：正文若直接输出 character.B1.* 也即时生效，不必等主角演化阶段 */ } }
         const settledText = stripKillBlocks(cleaned);   // 过渡期：剥除旧 <kill> 清单（不再结算进阶点）
         const gemLootLine = !narrateOnly ? rollAndApplyGemDrops(cleaned) : '';   // 正文击杀 → 结算掉落宝石（读含 <击杀结算> 的原始正文）
         // 演化/解析读的正文（prompt 视图：跳过 markdownOnly 美化壳、应用 promptOnly「对AI隐藏」）；再剥 <state>/<upstore>，保留 <状态结算> HP/EP 块
@@ -9344,7 +9381,7 @@ ${lines}`;
         if (isOutline) return stripOutlineThinking(cleanedReply);   // 细纲：剥<剧情推演>思维链后回传（不落地/不解析<state>/不演化/不动 ref）
         lastRawNarrativeRef.current = cleanedReply;   // 存含指令原文，供「仅重算变量」复用
         if (/<世界结算>/.test(cleanedReply)) { playSfx('fanfare'); try { useMisc.getState().markWorldSettled(); } catch { /* 结算完成→推进结算边界戳，下个世界不再重复结算本世界任务 */ } }   // 世界结算 → 号角音效
-        if (!narrateOnly) { applyAllUpdates(cleanedReply, undefined, { deferItemCreate: itemPhaseWillRunThisTurn() }); try { applyPlayerProfileCommands(cleanedReply, '', turnCountRef.current); } catch { /* 主角位置/外观/身份：正文直接输出 character.B1.* 即时生效 */ } }
+        if (!narrateOnly) { deferredCreatesRef.current = applyAllUpdates(cleanedReply, undefined, { deferItemCreate: itemPhaseWillRunThisTurn() }).deferredCreates; try { applyPlayerProfileCommands(cleanedReply, '', turnCountRef.current); } catch { /* 主角位置/外观/身份：正文直接输出 character.B1.* 即时生效 */ } }
         const settledReply = stripKillBlocks(cleanedReply);   // 过渡期：剥除旧 <kill> 清单（不再结算进阶点）
         const gemLootLine = !narrateOnly ? rollAndApplyGemDrops(cleanedReply) : '';   // 正文击杀 → 结算掉落宝石（读含 <击杀结算> 的原始正文）
         // 演化/解析读的正文（prompt 视图：跳过 markdownOnly 美化壳、应用 promptOnly「对AI隐藏」）；再剥 <state>/<upstore>，保留 <状态结算> HP/EP 块
@@ -9575,7 +9612,7 @@ ${lines}`;
     if (userInput) setMessages((prev) => [...prev, { id: ++msgId.current, role: 'user', content: userInput }]);
     const cleaned = stripLeakedThinking(rawNarrative);
     lastRawNarrativeRef.current = cleaned;
-    applyAllUpdates(cleaned, undefined, { deferItemCreate: itemPhaseWillRunThisTurn() });
+    deferredCreatesRef.current = applyAllUpdates(cleaned, undefined, { deferItemCreate: itemPhaseWillRunThisTurn() }).deferredCreates;
     try { applyPlayerProfileCommands(cleaned, '', turnCountRef.current); } catch { /* */ }
     const settled = stripKillBlocks(cleaned);
     const _ssEvo = useSettings.getState();   // 同上：实时读 store，免 stale 闭包导致演化也拿不到预设

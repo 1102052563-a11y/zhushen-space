@@ -1,11 +1,40 @@
 import { describe, it, expect } from 'vitest';
 import {
   tierWindow, tierBounds, templateFromRatio, clampToTierWindow,
-  nominalTierNum, bioInnate, bioPower, bioStrengthLabel,
+  nominalTierNum, bioInnate, bioPower, bioStrengthLabel, tierVitalMult,
 } from './bioStrength';
+import { lvFromRealm } from './derivedStats';
 import type { PlayerAttrs } from '../store/playerStore';
 
 const A = (p: Partial<PlayerAttrs>): PlayerAttrs => ({ str: 5, agi: 5, con: 5, int: 5, cha: 5, luck: 5, ...p } as PlayerAttrs);
+
+/* ⚠ 回归：一阶世界(学园默示录)的土著「毒岛冴子」被 AI 写成 realm="二阶·Lv.86"，面板显示 资质T8·真神。
+   病理：Lv.86 → realmFromLevel=九阶 → nominalTierNum 的 max(二阶, 九阶)=9 → bioInnate 拿九阶区间[301,500]
+   量她 ~65 的峰值 → 占用率负 → clamp 到 0 → 掉进 tierWindow(9)=[8,11] 的**地板 T8·真神**。
+   T8 既非"她很强"、恰恰是"她触底"，且会连锁：HP×32(tierVitalMult) + T8 注回提示词让 NPC 演化真按真神养她。
+   守卫落在 lvFromRealm（阶位·等级同源同时写、矛盾必是 AI 幻觉 → 以阶位为准）。 */
+describe('回归·毒岛冴子（二阶·Lv.86 → 曾误判 T8·真神）', () => {
+  const realm = '二阶·Lv.86|藤美学园3年级学生';
+  const saeko = A({ str: 62, agi: 65, con: 58, int: 55, cha: 60 });   // 正常二阶水平(峰值65·二阶上限80)
+  const lv = () => lvFromRealm(realm);
+
+  it('名义阶位锁回二阶，不被 Lv.86 顶成九阶', () => {
+    expect(nominalTierNum(realm, lv())).toBe(2);
+  });
+  it('资质档回到二阶窗口内的合理档，不再是 T8·真神', () => {
+    const innate = bioInnate(saeko, realm, lv())!;
+    expect(innate.num).toBeLessThanOrEqual(4);           // 二阶窗口 [1,4]
+    expect(innate.label).not.toContain('真神');
+  });
+  it('资质档 与 战力档 不再撕裂（同一副六维不该差 6 档）', () => {
+    const innate = bioInnate(saeko, realm, lv())!;
+    const power = bioPower(saeko, realm, lv())!;
+    expect(Math.abs(innate.num - power.num)).toBeLessThanOrEqual(1);
+  });
+  it('HP 倍率回到 ×1，不再 ×32', () => {
+    expect(tierVitalMult(bioInnate(saeko, realm, lv())!.num)).toBe(1);
+  });
+});
 
 describe('tierWindow（本阶可出现的档位区间）', () => {
   it('[min(9,t-1), min(9,t+2)]', () => {

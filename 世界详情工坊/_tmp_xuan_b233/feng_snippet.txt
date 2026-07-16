@@ -1,0 +1,64 @@
+﻿{{NoteTA|G1=Games}}
+{{Infobox VG
+| title =軒轅劍陸 鳳凌長空千載雲
+| image = File:Swd6.JPG
+| caption =
+| english =
+| genre =[[角色扮演游戏|角色扮演]] （RPG）
+| platform =[[个人电脑|PC]] ([[Windows]])
+| developer =[[DOMO小組]] <br />（[[大宇資訊]]台北總部研發一部）
+| publisher = {{vgrelease|TW|[[大宇資訊]]|CN|[[畅游]]}}
+| producer = [[楊淵升]]
+| composer=[[吳欣叡]]、[[曾志豪]]
+| director =[[蔡明宏]]
+| designer = [[吳東興]]、[[饒開元]]
+| writer = [[吳欣叡]]
+| programmer =
+| artist = [[陳建民]]、[[郭信宏]]
+| series =[[轩辕剑系列]]
+| engine =[[Unity (遊戲引擎)|Unity]]
+| modes =[[单人游戏|单人]]
+| released ={{vgrelease|TW|2013年8月9日|CN|2013年8月9日}}
+}}
+
+《'''軒轅劍陸 鳳凌長空千載雲'''》是[[大宇資訊]]旗下經典[[單機]][[電子角色扮演遊戲|角色扮演遊戲]]《[[軒轅劍系列|軒轅劍]]》系列的第十一款作品。
+
+2011年末，開始有《軒轅劍陸》的訊息傳出稱已經開始前期開發工作<ref>{{cite web|url=http://games.sina.com.cn/j/n/2011-11-24/1128553583.shtml|title=《軒轅劍6》正式立項 期待取材於民|date=2011-11-24|accessdate=2012-03-30|archive-date=2020-06-28|archive-url=https://web.archive.org/web/20200628143623/http://games.sina.com.cn/j/n/2011-11-24/1128553583.shtml|dead-url=no}}</ref>。2012年1月4日，[[蔡明宏]]在[[新浪微博|微博]]上稱時代背景為[[商周]]<ref>{{cite web|url=http://games.sina.com.cn/j/n/2012-01-04/1607569750.shtml|title=蔡明宏：《軒轅劍6》歷史背景為商周|date=2012-01-04|accessdate=2012-03-30|archive-date=2020-06-28|archive-url=https://web.archive.org/web/20200628143614/http://games.sina.com.cn/j/n/2012-01-04/1607569750.shtml|dead-url=no}}</ref>，遊戲採用[[Unity3D]][[遊戲引擎|引擎]]製作<ref>本遊戲assetbundles資料夾下的絕大多數檔案的副檔名皆為unity3d。</ref>，全面回归水墨風格。
+
+《軒轅劍陸》在由蔡明宏領銜，[[DOMO小組]]開發製作，預定於2013年於[[中國大陸]]、[[台灣]]兩地同步發行。大陸的代理是[[畅游有限公司|畅游公司]]。
+軒陸拋棄了[[雲之遙]]必須全程連線至[[互聯網]]才可進行遊戲的模式，採用了最新一代的加密技術，玩家進入遊戲不需強制[[互聯網]]認證，真正回歸單機本源。
+
+==故事情节==
+<!--游戏剧情，字数以2000字以内为宜-->
+===主線劇情===
+主角為[[奄國]]([[商朝]]最大方國)大夫之子，從小受到父親教導要保存諸夏文化為己任，對此身為一個商人，感到無比自豪。
+
+相傳在[[牧野之戰]]時，天空出現了神祕的黑色巨龍，大肆地殘殺商軍，然而商朝守護神─鳳靈卻非遲遲不見蹤影，主角奉命去找尋此事的幕後原因，
+在路程中，相遇了[[身毒]]異國人、[[周朝]]王姬、[[古蜀國]]少女，以及宣稱與主角有深厚60年姻緣的神秘金髮女子...。
+
+===天外之章【DLC-濁山鑄篇】===
+於2013年11月7日免費釋出。<ref>{{Cite web |url=http://km.softstar.com.tw/topic.aspx?tid=583 |title=謎之視頻！《軒轅劍陸》DLC故事之始揭幕 |access-date=2013-11-01 |archive-date=2020-09-25 |archive-url=https://web.archive.org/web/20200925044114/http://km.softstar.com.tw/topic.aspx?tid=583 |dead-url=no }}</ref>此外，本章節亦於2014年1月16日<ref>{{Cite web |url=http://x6.changyou.com/x6/news/20140110/66378.shtml |title=精彩畅享 《轩辕剑6》免费试玩即将推出 |access-date=2014-01-11 |archive-url=https://web.archive.org/web/20140111104807/http://x6.changyou.com/x6/news/20140110/66378.shtml |archive-date=2014-01-11 |dead-url=yes }}</ref><ref>{{Cite web |url=http://km.softstar.com.tw/topic.aspx?tid=597 |title=《軒轅劍陸》試玩版1/16免費體驗 |access-date=2014-01-11 |archive-date=2020-06-28 |archive-url=https://web.archive.org/web/20200628143623/http://km.softstar.com.tw/topic.aspx?tid=597 |dead-url=no }}</ref>以免費試玩版的形式獨立釋出，供玩家免費體驗本作。
+
+故事開端承接鳳天凌一行人埋葬濁山鑄一幕，在妹妹蓉霜不捨離去後，本應該長眠在塵土之下的濁山鑄，此時竟然發生詭異的變化。
+
+==游戏背景==<!--游戏的世界设定，简介，500字以内-->
+公元前1046年，來自西方的[[周武王]]，趁[[商紂]]正派大軍攻打東南方淮夷之時，
+率領西方各國諸侯，會師於[[孟津]]，閃電襲擊了正無防備的商之首都─[[朝歌]]。
+商敗，紂王逃回[[朝歌]]，登上鹿台，自燔於火而死。史稱之為[[牧野之戰]]。
+
+似乎商朝到此滅亡，邁入周朝時代，然而始終仍有緊張氣氛瀰漫於商、周兩族之間，關於東方與西岐之戰，正悄然發生中...
+
+==人物==
+
+===主要角色===
+{|class="wikitable" style="width:75%"
+|- style="width:75%; background:#A31D1B; color:white" align=center
+| style="width:10%"|'''姓名'''||style="width:10%"|'''配音員'''||style="width:13%"|'''角色詩'''||'''敘述'''||style="width:5%"|'''兵器'''||style="width:5%"|'''天賦'''||style="width:5%"|'''屬性'''
+|-
+||<center>鳳天凌<ref name="m1">{{Cite web |url=http://km.softstar.com.tw/topic.aspx?tid=504 |title=男一英挺現身！《軒轅劍陸》開場動畫曝光 |access-date=2013-05-16 |archive-date=2020-06-28 |archive-url=https://web.archive.org/web/20200628143629/http://km.softstar.com.tw/topic.aspx?tid=504 |dead-url=no }}</ref></center>||<center>[[张杰 (配音演員)|阿杰]]<br>[[朱雀橙]](幼年)</center>||鳳靈佑兮耀英傑，<br />踏歌行兮度蒼茫。<br />攬長劍兮凌長空，<br />震九霄兮叩天門。||[[商朝]][[奄國]]大夫鳳千平之子。擁有特殊符鬼─琥珀。經常路見不平，拔刀相助，由於生長環境關係，十分瞧不起周國人，認為周國文化遠不如商國，與其他商國之民所期盼相同，希望有一天，商國能重回天下共主。||<center>青銅劍</center>||<center>鬼眼</center>||<center>火</center>
+|-
+||<center>瑚月<ref>{{Cite web |url=http://km.softstar.com.tw/topic.aspx?tid=508 |title=《軒轅劍陸》第一女主角閃耀登場 主角群全員到位 |access-date=2013-05-17 |archive-date=2016-09-20 |archive-url=https://web.archive.org/web/20160920221501/http://km.softstar.com.tw/topic.aspx?tid=508 |dead-url=no }}</ref></center>||<center>[[季冠霖]]<br>[[山新]](幼年)</center>||列群芳而不群兮，<br />若瓊苞以敷雪。<br />橫玉笛欲寄意兮，<br />盼惜取而相依。||留者一頭金髮，身分不明，據說有上古之某一族有關。不知道為什麼，對鳳天凌情有獨鍾。||<center>[[篪]]</center>||<center>雲身</center>||<center>水</center>
+|-
+||<center>姬亭<ref>{{Cite web |url=http://km.softstar.com.tw/topic.aspx?tid=501 |title=《軒轅劍陸》第二女主角姬亭亮相 |access-date=2013-05-16 |archive-date=2020-06-28 |archive-url=https://web.archive.org/web/20200628143637/http://km.softstar.com.tw/topic.aspx?tid=501 |dead-url=no }}</ref></center>||<center>[[劉校妤]]||帝子降若晨星兮，<br />顏如華而清絕。<br />執長弓兮之援轡，<br />馳四海而暢懷。||[[周朝]][[周武王]]之女，[[周成王]]之同母姐姐，史稱「[[太姬 (周武王)|太姬]]」，因聯姻關係，想到東方去見未來的夫君[[姜契]]（[[姜子牙]]之孫），在旅途中，巧遇到鳳天凌一行人。||<center>長弓||<center>貫鵠||<center>岩
+|-
+||<center>迦蘭多<ref name="m2">{{Cite web |url=http://km.softstar.com.tw/topic.aspx?tid=494 |title=《軒轅劍陸》第二男主角猛爆登場！神祕角色同步發威 |access-date=2013-05-16 |archive-date=2020-06-28 |archive-u
