@@ -25,6 +25,28 @@ export interface CraftSessionInput {
 }
 
 /** AI 产出的一件产物（未入库，确认后由 App 转成 addItem）*/
+/* 御兽产物（宠物生灵）专属：AI 在同一次合成调用里按投料+前端拍板的规格推导出的技能/天赋。
+   确认收服时由 confirmCraft 写进 characterStore（NPC 技能/天赋的正经落点）——不落这里就只剩一段简介文本。 */
+export interface CraftPetSkill {
+  name: string;
+  level?: string;
+  skillType?: string;   // 主动/被动/奥义/领域/状态/光环
+  rarity?: string;      // 普通/精良/稀有/史诗/传说/奥义/极境
+  effect?: string;
+  desc?: string;
+  attrBonus?: string;
+  cost?: string;
+  target?: string;
+}
+export interface CraftPetTalent {
+  name: string;
+  rarity?: string;      // D/C/B/A/S/SS/SSS
+  effect?: string;
+  desc?: string;
+  attrBonus?: string;
+  category?: string;
+}
+
 export interface CraftProduct {
   name: string;
   category: string;
@@ -40,6 +62,8 @@ export interface CraftProduct {
   killCount?: string;
   gemSlot?: string;   // 炼晶产物：可镶嵌部位（走 gemEngine 确定性生成时带）
   gemAttr?: string;   // 炼晶产物：宝石属性
+  skills?: CraftPetSkill[];    // 御兽产物：宠物技能（收服时进 characterStore）
+  talents?: CraftPetTalent[];  // 御兽产物：宠物天赋（收服时进 characterStore）
 }
 
 export type CraftPhase = 'idle' | 'generating' | 'preview' | 'error';

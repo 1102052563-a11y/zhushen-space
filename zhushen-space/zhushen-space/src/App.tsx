@@ -200,7 +200,7 @@ import { setSettlementWhitelist, getSettlementWhitelist } from './systems/settle
 import { isHomeWorld, reconcileHomeWorld, reconcilePlayerVitals, playerMaxHp, playerMaxEp, syncPlayerVitalsMax, applyCombatResourceGains, resetCombatResources } from './systems/playerVitals';
 import { startPlaytimeHeartbeat, stopPlaytimeHeartbeat } from './systems/playtime';   // 线上游玩时长累计（登录 Discord 者·可见活跃时长）
 import { startPresenceHeartbeat, stopPresenceHeartbeat } from './systems/presence';   // 当前在玩人数（按IP·含未登录者·聊天室展示）
-import { bioInnate, tierVitalMult, peakCapForTier, clampToTierWindow, nominalTierNum } from './systems/bioStrength';
+import { bioInnate, tierVitalMult, peakCapForTier, clampToTierWindow, nominalTierNum, tierWindow, BIO_TIER_NAMES } from './systems/bioStrength';
 import { generateNpcAttrs, resolveForm, generateLuck } from './systems/npcAttrGen';
 import { useImageGen, effectiveEquipService } from './store/imageGenStore';
 import { generateImage, buildPortraitPrompt, buildEquipPrompt, equippedForPrompt, inferBodyType, shrinkDataUrl, abortAllImageGen } from './systems/imageGen';
@@ -220,7 +220,7 @@ import ImageViewer from './components/ImageViewer';
 import HoloViewer from './components/HoloViewer';
 import { useImageViewer } from './store/imageViewerStore';
 import ImageBusyToast from './components/ImageBusyToast';
-import { useItems, extractItemPresetFromJson, ITEM_CATEGORIES, formatItemLine } from './store/itemStore';
+import { useItems, extractItemPresetFromJson, ITEM_CATEGORIES, ITEM_GRADES, formatItemLine } from './store/itemStore';
 import type { ItemPresetEntry } from './store/itemStore';
 import { useComposer } from './store/composerStore';
 import { usePlayer, buildPlayerSystemPrompt, extractPlayerPresetFromJson } from './store/playerStore';
@@ -283,8 +283,8 @@ import { useArena } from './store/arenaStore';
 import { ladderBadge, rewardTierFor, REWARD_BANDS, streakBonusMul, pickInt as arenaPickInt, effectiveTier as arenaEffectiveTier, type ArenaDef as ArenaDefType, type LadderEntry as ArenaLadderEntry } from './systems/arena';
 import { useEnhance } from './store/enhanceStore';
 import { PITY_THRESHOLD, stageFromLevel, growthCoef } from './systems/enhanceEngine';
-import { useCraft, ensureCraftWbDefaults, type CraftProduct } from './store/craftStore';
-import { craftMode, craftOutputSlots } from './systems/craftEngine';
+import { useCraft, ensureCraftWbDefaults, type CraftProduct, type CraftPetSkill, type CraftPetTalent } from './store/craftStore';
+import { craftMode, craftOutputSlots, type CraftQuality } from './systems/craftEngine';
 import { buildCraftWbInjection } from './systems/craftWorldBook';
 import { generateGem } from './systems/gemEngine';
 import { useChest, type ChestJob } from './store/chestStore';
@@ -2557,6 +2557,52 @@ export default function App() {
     }
   }
 
+  /* ─── 御兽产物 → 宠物规格（前端拍板，AI 只填风味）──────────────────────────────
+     阶位/等级 = 主角当前阶位（宠物不越主人）；产出品级只决定它在**本阶窗口内**的生物强度档
+     （白色=同阶杂鱼 … 创世=同阶顶尖）——即"阶位=层级、bioT=该阶内强弱"的既有分工。
+     提示词(runCraftPhase)与建档(confirmCraft)共用本函数 → 预览里说的和收服到的是同一只。 */
+  function petSpecOf(q: CraftQuality | null | undefined): { realm: string; level: number; bioT: number; label: string } {
+    const pf = usePlayer.getState().profile;
+    const level = Math.max(1, pf.level || lvFromRealm(pf.tier));
+    const realm = normalizeTier(pf.tier) || realmFromLevel(level);
+    const [winLo, winHi] = tierWindow(nominalTierNum(realm, level));
+    const grade = Math.max(1, Math.min(ITEM_GRADES.length, q?.ceilingGrade ?? 1));
+    const pos = (grade - 1) / (ITEM_GRADES.length - 1);            // 白色=0 … 创世=1
+    const bioT = Math.round(winLo + (winHi - winLo) * pos);        // 品级 → 本阶窗口内的档位
+    return { realm, level, bioT, label: `T${bioT}·${BIO_TIER_NAMES[bioT]}` };
+  }
+
+  /* 御兽产物里 AI 给的 skills[]/talents[] → 规整条目（容错：非数组→[]、字符串条目→当技能名、无名条目丢弃） */
+  function parsePetSkills(raw: any): CraftPetSkill[] {
+    return (Array.isArray(raw) ? raw : []).map((x: any) => (typeof x === 'string' ? { name: x } : x))
+      .filter((x: any) => x && typeof x === 'object' && flattenAiText(x.name).trim())
+      .slice(0, 8)
+      .map((x: any) => ({
+        name: flattenAiText(x.name).slice(0, 40),
+        level: flattenAiText(x.level).slice(0, 24) || undefined,
+        skillType: flattenAiText(x.skillType).slice(0, 12) || undefined,
+        rarity: flattenAiText(x.rarity).slice(0, 12) || undefined,
+        effect: flattenAiText(x.effect).slice(0, 400) || undefined,
+        desc: flattenAiText(x.desc).slice(0, 200) || undefined,
+        attrBonus: flattenAiText(x.attrBonus).slice(0, 120) || undefined,
+        cost: flattenAiText(x.cost).slice(0, 40) || undefined,
+        target: flattenAiText(x.target).slice(0, 24) || undefined,
+      }));
+  }
+  function parsePetTalents(raw: any): CraftPetTalent[] {
+    return (Array.isArray(raw) ? raw : []).map((x: any) => (typeof x === 'string' ? { name: x } : x))
+      .filter((x: any) => x && typeof x === 'object' && flattenAiText(x.name).trim())
+      .slice(0, 8)
+      .map((x: any) => ({
+        name: flattenAiText(x.name).slice(0, 40),
+        rarity: flattenAiText(x.rarity).slice(0, 12) || undefined,
+        effect: flattenAiText(x.effect).slice(0, 400) || undefined,
+        desc: flattenAiText(x.desc).slice(0, 200) || undefined,
+        attrBonus: flattenAiText(x.attrBonus).slice(0, 120) || undefined,
+        category: flattenAiText(x.category).slice(0, 20) || undefined,
+      }));
+  }
+
   /* ─── 合成工坊：产物生成（一次 API；前端已锁 category+gradeDesc+词缀预算，AI 只在护栏内填风味）───
      产物落进 session.pending（预览，未入库）；确认才 confirmCraft 消耗投料+入库 → 撤销/重新生成零副作用。 */
   async function runCraftPhase(): Promise<void> {
@@ -2587,7 +2633,12 @@ export default function App() {
     const wbCtx = [mode.wbSeed, sess.inputs.map((x) => `${x.name} ${x.category || ''}`).join(' '), sess.tendency].join(' ');
     const wbInj = buildCraftWbInjection(C.worldBooks, wbCtx);
 
-    const system = getPrompt('CRAFT_RULE', CRAFT_RULE) + (wbInj ? '\n\n' + wbInj : '');
+    // 御兽：产物是活物不是道具 —— 六维走前端机械生成(铁律：AI 不凭空定数值)，AI 只按前端拍板的规格补技能/天赋
+    const isTameGen = mode.id === 'tame';
+    const spec = isTameGen ? petSpecOf(q) : null;
+    const system = getPrompt('CRAFT_RULE', CRAFT_RULE)
+      + (isTameGen ? '\n\n' + SKILL_TALENT_GUIDE : '')   // 生成技能/天赋的功能一律注技能天赋世界书 + 合理性 COT
+      + (wbInj ? '\n\n' + wbInj : '');
     const user = [
       `【合成门类】${mode.icon} ${mode.name}——${mode.blurb}`,
       `【本门类工艺要点】${mode.cotFocus}`,
@@ -2595,7 +2646,17 @@ export default function App() {
       `【玩家倾向提示】${sess.tendency || '（未填，由你按材料判定方向）'}`,
       `【合成品质档（系统已掷定，据此定档、不得突破）】${q.label}——${q.note}`,
       `【产出槽】\n${slotsText}`,
-      mode.id === 'tame' ? '【特别说明·本次产物是一只宠物生灵，不是道具】把 JSON 各字段当一只可随行的活物来填：name=宠物名、subType=种族、intro=性情性格、appearance=外观、effect/affix=天赋与能力、combatStat=可选战力概述；gradeDesc=这只宠物的品阶。' : '',
+      ...(spec ? [
+        `【特别说明·本次产物是一只宠物生灵，不是道具】把 JSON 各字段当一只可随行的活物来填：name=宠物名、subType=种族、intro=性情性格、appearance=外观、effect=核心能力/血脉概述（散文）、affix=可选的额外特性、combatStat=战力概述、gradeDesc=这只宠物的品阶。`,
+        `【这只宠物的规格（前端已按主角阶位×产出品级拍板，据此定强弱，不得突破）】`,
+        `· 阶位/等级：${spec.realm}·Lv.${spec.level}（与主人同阶——宠物不越主人）`,
+        `· 生物强度档：${spec.label}（由产出品级「${q.ceilingName}」决定它在本阶内的档次；照技能天赋世界书第四节按本档给"该配多少技能/天赋、多强"）`,
+        `· **六维（力/敏/体/智/魅/幸）由前端按上述规格机械生成，你一个数都不要写**：attrBonus 留空。技能/天赋自带的加成另算，可以写。`,
+        `【必须额外输出·同一个 JSON object 内的两个数组（技能/天赋是这只宠物的立身之本，绝不可省略或留空）】`,
+        `· "skills": [{ "name", "level", "skillType"(主动/被动/奥义/领域/状态/光环), "rarity"(普通/精良/稀有/史诗/传说/奥义/极境), "effect", "desc", "attrBonus"(可空), "cost"(可空), "target"(可空) }]`,
+        `· "talents": [{ "name", "rarity"(D/C/B/A/S/SS/SSS), "effect", "desc", "attrBonus"(可空), "category"(可空) }]`,
+        `· 两者都必须**由投入的精魂/材料与它的种族合理推导**（精魂来自什么血脉、媒介是什么属性 → 长出什么能力），不得给与上述规格不符的逆天技能。`,
+      ] : []),
       `【词缀预算】每件装备类产物最多 ${q.affixBudget} 条词缀${q.affixBudget === 0 ? '（本次为失败/消耗品，可不写词缀）' : ''}`,
       ``,
       `请先在 <合成推演> 里按六步推演（≥200字），再紧接着输出长度为 ${slots.length} 的 JSON 数组（slot 从 1 起一一对应）。`,
@@ -2617,19 +2678,24 @@ export default function App() {
         let cat = slot.category || flattenAiText(j.category).trim();
         if (!ITEM_CATEGORIES.includes(cat as any)) cat = slot.category || '特殊物品';
         const isEquip = EQUIP.includes(cat);
+        // 御兽产物类别是「特殊物品」，但它是活物：combatStat/affix 得跟装备一样留着（提示词点名要它们填），
+        // 否则生成完就被丢掉；而 attrBonus 反过来要丢——六维归前端机械生成，AI 写的六维一律不认。
+        const keepFlavor = isEquip || isTameGen;
         return {
           name: flattenAiText(j.name).slice(0, 40) || `${mode.name}产物`,
           category: cat,
           gradeDesc: slot.gradeDesc,   // 品级锁死（前端已按成功度定档，不得越级）
           subType: flattenAiText(j.subType).slice(0, 30) || undefined,
-          combatStat: isEquip ? (flattenAiText(j.combatStat).slice(0, 50) || undefined) : undefined,
-          attrBonus: flattenAiText(j.attrBonus).slice(0, 120) || undefined,
+          combatStat: keepFlavor ? (flattenAiText(j.combatStat).slice(0, 50) || undefined) : undefined,
+          attrBonus: isTameGen ? undefined : (flattenAiText(j.attrBonus).slice(0, 120) || undefined),
           score: flattenAiText(j.score).slice(0, 60) || undefined,
-          affix: isEquip ? (flattenAiText(j.affix).slice(0, 200) || undefined) : undefined,
+          affix: keepFlavor ? (flattenAiText(j.affix).slice(0, 200) || undefined) : undefined,
           effect: flattenAiText(j.effect).slice(0, 400) || undefined,
           intro: flattenAiText(j.intro).slice(0, 200) || undefined,
           appearance: flattenAiText(j.appearance).slice(0, 300) || undefined,
           killCount: cat === '武器' ? '0' : undefined,
+          skills: isTameGen ? parsePetSkills(j.skills) : undefined,
+          talents: isTameGen ? parsePetTalents(j.talents ?? j.traits) : undefined,
         };
       });
       C.setPending(products);
@@ -2651,17 +2717,28 @@ export default function App() {
       st.consumeItem(inp.itemId, inp.qty);
     }
     const isTame = craftMode(sess.modeId).id === 'tame';
-    const petGrade = sess.quality?.ceilingGrade ?? 4;   // 宠物品阶(1-15) → 反推六维档位
+    const petSpec = isTame ? petSpecOf(sess.quality) : null;   // 与 runCraftPhase 写提示词时同源 → 预览说的就是收服到的
     for (const p of sess.pending) {
-      if (isTame) {
-        // 御兽：产物直接收服成一只宠物 NPC（在场+入队+好友），并按品阶 roll 一套六维（凶兽形态·跳过凡人档）
-        const petTierNum = Math.max(1, Math.min(14, Math.round(petGrade * 0.9)));
-        const bioT = Math.max(0, Math.min(9, Math.round((petGrade - 1) * 9 / 14)));
-        const attrs = generateNpcAttrs({ type: '凶兽魔兽', job: p.subType || '凶兽', form: p.subType, level: petTierNum * 10 - 5, bioTier: `T${bioT}`, seed: p.name, force: true });
-        useNpc.getState().createPet({
+      if (petSpec) {
+        // 御兽：产物直接收服成一只宠物 NPC（在场+入队+好友）。六维按 主角阶位×品级档 机械 roll（凶兽形态·跳过凡人档）；
+        // ★阶位/等级必须一并写进记录：realm 为空 → lvFromRealm=1 → 全链路当一阶 → 单属性上限 50 把六维夹平（每只宠物都变 50）。
+        const attrs = generateNpcAttrs({ tier: petSpec.realm, level: petSpec.level, bioTier: petSpec.bioT, type: '凶兽魔兽', job: p.subType || '凶兽', form: p.subType, seed: p.name, force: true });
+        const petId = useNpc.getState().createPet({
           name: p.name, species: p.subType, persona: p.intro, appearance: p.appearance,
-          ability: [p.effect, p.affix].filter(Boolean).join('；'), attrs, strength: `T${bioT}`,
+          ability: [p.effect, p.affix, p.combatStat].filter(Boolean).join('；'),
+          attrs, strength: `T${petSpec.bioT}`, tier: petSpec.realm, level: petSpec.level,
         });
+        // 技能/天赋落进 characterStore（NPC 技能天赋的正经落点）——只拼进简介文本的话，面板那两栏是空的
+        const CH = useCharacters.getState();
+        (p.skills ?? []).forEach((s, i) => CH.addSkill(petId, {
+          id: `S_${petId}_${(i + 1).toString().padStart(2, '0')}`,
+          name: s.name, level: s.level || '入门·Lv.1', desc: s.desc || s.effect || '', effect: s.effect || '',
+          skillType: s.skillType, rarity: s.rarity, attrBonus: s.attrBonus, cost: s.cost, target: s.target,
+        }));
+        (p.talents ?? []).forEach((t) => CH.addTrait(petId, {
+          name: t.name, desc: t.desc || t.effect || '', effect: t.effect || '', rarity: t.rarity || 'C',
+          attrBonus: t.attrBonus, category: t.category, source: `合成工坊·御兽（${p.name}）`,
+        }));
         continue;
       }
       const effect = [p.effect, p.attrBonus].filter(Boolean).join('；') || '';   // 六维/上限数值折进 effect，供 effectiveAttrs 读取（同 gacha）

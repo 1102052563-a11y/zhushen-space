@@ -91,8 +91,11 @@ export default function DbAdvancePresetEditor({ onClose }: { onClose: () => void
                     </div>
                     {mod.promptGroup.map((m, ji) => (
                       <div key={ji} className="flex gap-1.5 items-start">
+                        {/* ⚠ 存量老预设/外部导入可能带 `SYSTEM`/`USER` 这类大写 role：value 匹配不到 option 时浏览器会
+                            静默显示第一项(system)——即"消息归属显示错乱"。解析已折小写；这里再兜一层：认不出的 role
+                            也照原样列成选项，宁可显示得难看，也绝不谎报归属。 */}
                         <select value={m.role} onChange={(e) => msgSet(mi, ji, 'role', e.target.value)} className={`bg-void border rounded px-1 py-1 text-[12px] shrink-0 ${m.role === 'system' ? 'border-blood/40 text-blood/80' : 'border-edge text-slate-300'}`}>
-                          {ROLES.map((r) => <option key={r} value={r}>{r}</option>)}
+                          {(ROLES.includes(m.role) ? ROLES : [...ROLES, m.role]).map((r) => <option key={r} value={r}>{r}</option>)}
                         </select>
                         <textarea value={m.content} onChange={(e) => msgSet(mi, ji, 'content', e.target.value)} rows={m.content.length > 140 ? 4 : 2} placeholder="提示词内容（可粘破限）" className={`${inputCls} flex-1 resize-y font-mono text-[12px]`} />
                         <div className="flex flex-col gap-0.5 shrink-0">

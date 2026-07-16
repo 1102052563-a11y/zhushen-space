@@ -12,7 +12,7 @@ import { useTables, rowsToContent } from '../store/tableStore';
 import { usePlayer } from '../store/playerStore';
 import { useGame } from '../store/gameStore';
 import { useItems } from '../store/itemStore';
-import { useNpc } from '../store/npcStore';
+import { useNpc, looksDead } from '../store/npcStore';   // looksDead：状态文本是否已明确表示死亡（statusCell 兜底用）
 import { isPetLike } from './petEvolution';   // 宠物/召唤物分流到独立的 宠物/召唤物表
 import { useMisc } from '../store/miscStore';
 import { useCharacters } from '../store/characterStore';   // 技能/天赋/称号（主角 B1）
@@ -77,16 +77,29 @@ function buildInventory(): Row[] {
   }));
 }
 
-/** 真名 NPC（非无名/编号/死亡）—— 重要角色表 + NPC 明细表共用的筛选。 */
+/** 真名 NPC（排除无名/编号空壳）—— 重要角色表 + NPC 明细表共用的筛选。
+    ⚠ **不排除死亡**：表规约白纸黑字写着「离场/死亡改 状态，别删」。历史上这里带着 `!npc.isDead`，
+      导致已死亡角色整行从表里蒸发（玩家眼里＝"重要NPC就剩这几个、其他都没了"），与规约直接冲突，
+      也违背"数据库＝图书馆·只存不删"的定位。死亡改由 状态 列标明（见 statusCell）。 */
 function realNpcs(): any[] {
-  return Object.values((useNpc.getState() as any).npcs ?? {}).filter((npc: any) => npc?.name && npc.name !== npc.id && !npc.isDead);
+  return Object.values((useNpc.getState() as any).npcs ?? {}).filter((npc: any) => npc?.name && npc.name !== npc.id);
+}
+
+/** 状态列：死亡角色**必定**标明死亡。
+    isDead 是布尔标记、status 是自由文本，两者可能不同步（status 为空/没写死字）——
+    若只是把死者的行加回表里而状态列没标死，AI 读表时会把死人当活人写。故此处以 isDead 为准强制兜底。 */
+function statusCell(npc: any): string {
+  const st = S(npc.status);
+  if (!npc.isDead) return st;
+  if (looksDead(st)) return st;              // 状态文本已明确表示死亡 → 照原文（保留"阵亡于XX"这类细节）
+  return st ? `已死亡（${st}）` : '已死亡';   // 否则强制标明，原状态作补充
 }
 
 /** 重要角色表 = 真名 NPC 中的**非宠物/召唤物**（宠物/召唤物走独立的 宠物/召唤物表）。 */
 function buildImportantChars(): Row[] {
   return realNpcs().filter((npc) => !isPetLike(npc)).map((npc) => ({
     姓名: S(npc.name), 关系: S(npc.relations), 好感度: S(npc.favor), 阶位: S(npc.realm),
-    状态: S(npc.status), 所属势力: S(npc.affiliatedTeam),
+    状态: statusCell(npc), 所属势力: S(npc.affiliatedTeam),
     力量: S(npc.attrs?.str), 敏捷: S(npc.attrs?.agi), 体质: S(npc.attrs?.con),
     智力: S(npc.attrs?.int), 魅力: S(npc.attrs?.cha), 幸运: S(npc.attrs?.luck),
     描述: S(npc.personality),
@@ -104,7 +117,7 @@ function buildImportantChars(): Row[] {
 function buildPetSummons(): Row[] {
   return realNpcs().filter((npc) => isPetLike(npc)).map((npc) => ({
     姓名: S(npc.name), 关系: S(npc.relations), 好感度: S(npc.favor), 阶位: S(npc.realm),
-    状态: S(npc.status), 所属势力: S(npc.affiliatedTeam),
+    状态: statusCell(npc), 所属势力: S(npc.affiliatedTeam),
     力量: S(npc.attrs?.str), 敏捷: S(npc.attrs?.agi), 体质: S(npc.attrs?.con),
     智力: S(npc.attrs?.int), 魅力: S(npc.attrs?.cha), 幸运: S(npc.attrs?.luck),
     描述: S(npc.personality),

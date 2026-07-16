@@ -448,11 +448,20 @@ function playUrl(url: string): Promise<void> {
       if (_pendingDone === done) _pendingDone = null;
       resolve();
     };
+    // 一次失败会同时触发 onerror 和 play() 的 reject → 只让先到的那条报，另一条闭嘴（否则一个错刷两行、还互相打架）
+    const fail = (why: string, e?: unknown) => { if (!settled) console.warn(`[TTS] 本地 TTS ${why}`, url, e ?? ''); done(); };
     _pendingDone = done;                                                     // stop() 要能把它 settle 掉，否则队列卡死
     el.onended = done;
-    el.onerror = () => { console.warn('[TTS] 本地 TTS 播放失败（服务没启动 / 参考音频路径不存在 / 参数不对 / 未授权本地网络）：', url); done(); };
+    el.onerror = () => fail('取不到音频（服务没启动 / 参考音频路径不存在 / 参数不对 / 未授权本地网络）：');
     const p = el.play();
-    if (p) p.catch((e) => { console.warn('[TTS] 本地 TTS play 被拒（自动播放策略——先点一下页面再朗读）', e); done(); });
+    if (p) {
+      p.catch((e: unknown) => {
+        // ⚠ 只有 NotAllowedError 才是自动播放策略；NotSupportedError 等一律是上面那条请求没成功，
+        //   别把「服务没开」误报成「先点一下页面」——会把人带到完全错的方向去查。
+        if ((e as { name?: string } | null)?.name === 'NotAllowedError') fail('被自动播放策略拦下（先在页面上点一下，再朗读）：', e);
+        else fail('无法播放（音频没能加载，看上一条）：', e);
+      });
+    }
   });
 }
 

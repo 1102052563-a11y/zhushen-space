@@ -9,6 +9,17 @@
 
 export interface DbAdvanceMessage { role: string; content: string; }
 
+/** role 归一：**解析时就折成小写规范值**（Stitches 原始预设里大小写混乱——`SYSTEM`/`USER` 大写、`assistant` 小写）。
+    ⚠ 不归一会导致：编辑器的 `<select>` 选项是小写，`value="USER"` 匹配不到任何 option → 浏览器回退显示第一项，
+      于是一条 user 消息在编辑器里**显示成 system**（"消息归属出问题"／"上面的全是system"）。
+      发送侧 buildModuleMessages 虽然也 toLowerCase 过、实际请求 role 是对的，但 UI 撒谎会让人照着错的去改。
+    非法/未知 role → 回落 system。 */
+const ROLE_SET = new Set(['system', 'user', 'assistant']);
+export function normalizeDbRole(r: unknown): string {
+  const x = String(r ?? '').trim().toLowerCase();
+  return ROLE_SET.has(x) ? x : 'system';
+}
+
 export interface DbAdvanceModule {
   id: string;
   name: string;                // "召回" / "推进"
@@ -37,7 +48,7 @@ export function parseDbAdvancePreset(raw: unknown): DbAdvancePreset | null {
         id: String(t.id ?? ''),
         name: String(t.name ?? ''),
         promptGroup: (Array.isArray(t.promptGroup) ? t.promptGroup : [])
-          .map((m: Record<string, unknown>) => ({ role: String(m.role ?? 'system'), content: String(m.content ?? '') })),
+          .map((m: Record<string, unknown>) => ({ role: normalizeDbRole(m.role), content: String(m.content ?? '') })),
         extractTags: String(t.extractTags ?? ''),
         extractInjectTags: String(t.extractInjectTags ?? ''),
         minLength: Number(t.minLength ?? 0),
@@ -80,10 +91,10 @@ export function resolveDbPlaceholders(text: string, ctx: DbAdvanceCtx): string {
   return out;
 }
 
-/** 把一个模块的 promptGroup 解析成带占位符替换的消息数组（role 归一小写）。 */
+/** 把一个模块的 promptGroup 解析成带占位符替换的消息数组（role 归一；解析时已折过一次，这里兜老存档里的大写残留）。 */
 export function buildModuleMessages(mod: DbAdvanceModule, ctx: DbAdvanceCtx): DbAdvanceMessage[] {
   return (mod?.promptGroup ?? []).map((m) => ({
-    role: (m.role || 'system').toLowerCase(),
+    role: normalizeDbRole(m.role),
     content: resolveDbPlaceholders(m.content, ctx),
   }));
 }
