@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { runRegexReplace, filterString } from './regexEngine';
+import { runRegexReplace, filterString, compileFindRegex, regexScriptApplies, escapeRegexLiteral } from './regexEngine';
 
 const S = (replaceString: string, trimStrings: string[] = []) => ({ replaceString, trimStrings });
 
@@ -74,5 +74,70 @@ describe('runRegexReplace（照搬 ST runRegexScript 替换语义）', () => {
     const stripUnknown = (s: string) => s.replace(/\{\{[^}]+\}\}/g, '');   // 模拟宏引擎清掉未识别宏
     const r = runRegexReplace('foo', /foo/g, S('[{{match}}]'), stripUnknown);
     expect(r).toBe('[foo]');
+  });
+});
+
+describe('compileFindRegex（/pattern/flags 兼容 + flags 消毒）', () => {
+  it('裸 pattern + 独立 flags', () => {
+    const c = compileFindRegex('极其', 'g')!;
+    expect(c.pattern).toBe('极其');
+    expect(c.flags).toBe('g');
+    expect('极其好'.replace(c.re, '')).toBe('好');
+  });
+  it('/pattern/flags 包裹格式：斜线内 flags 优先合并', () => {
+    const c = compileFindRegex('/foo/i', 'g')!;
+    expect(c.pattern).toBe('foo');
+    expect([...c.flags].sort().join('')).toBe('gi');
+  });
+  it('非法 flags 字符被剔除、缺省补 g', () => {
+    expect(compileFindRegex('a', 'gxz')!.flags).toBe('g');
+    expect(compileFindRegex('a', '')!.flags).toBe('g');
+  });
+  it('空 pattern / 非法正则 → null（不抛）', () => {
+    expect(compileFindRegex('', 'g')).toBeNull();
+    expect(compileFindRegex('([', 'g')).toBeNull();
+  });
+});
+
+describe('regexScriptApplies（stage/target/depth 统一过滤谓词）', () => {
+  const base = { disabled: false, findRegex: 'x', placement: [1] as number[], markdownOnly: undefined, promptOnly: undefined, minDepth: undefined, maxDepth: undefined };
+  it('三视图（本项目改编版）：display 跳过 promptOnly、prompt 跳过 markdownOnly、alter-chat 两边都跑', () => {
+    expect(regexScriptApplies({ ...base, promptOnly: true }, { stage: 'display' })).toBe(false);
+    expect(regexScriptApplies({ ...base, promptOnly: true }, { stage: 'prompt' })).toBe(true);
+    expect(regexScriptApplies({ ...base, markdownOnly: true }, { stage: 'prompt' })).toBe(false);
+    expect(regexScriptApplies({ ...base, markdownOnly: true }, { stage: 'display' })).toBe(true);
+    expect(regexScriptApplies(base, { stage: 'display' })).toBe(true);
+    expect(regexScriptApplies(base, { stage: 'prompt' })).toBe(true);
+  });
+  it('placement 分流：target=user 只认 0；target=ai 认 1/2（ST 旧码兼容）', () => {
+    expect(regexScriptApplies({ ...base, placement: [0] }, { stage: 'prompt', target: 'user' })).toBe(true);
+    expect(regexScriptApplies({ ...base, placement: [0] }, { stage: 'prompt' })).toBe(false);
+    expect(regexScriptApplies({ ...base, placement: [1] }, { stage: 'prompt', target: 'user' })).toBe(false);
+    expect(regexScriptApplies({ ...base, placement: [2] }, { stage: 'prompt' })).toBe(true);
+  });
+  it('Min/Max Depth：仅在传入 depth 时过滤，缺省/null 不限', () => {
+    const s = { ...base, minDepth: 2, maxDepth: 5 };
+    expect(regexScriptApplies(s, { stage: 'prompt', depth: 0 })).toBe(false);   // 最新楼在范围外
+    expect(regexScriptApplies(s, { stage: 'prompt', depth: 2 })).toBe(true);
+    expect(regexScriptApplies(s, { stage: 'prompt', depth: 5 })).toBe(true);
+    expect(regexScriptApplies(s, { stage: 'prompt', depth: 6 })).toBe(false);
+    expect(regexScriptApplies(s, { stage: 'prompt' })).toBe(true);              // 不传 depth = 不按深度过滤
+    expect(regexScriptApplies({ ...base, minDepth: null, maxDepth: null }, { stage: 'prompt', depth: 99 })).toBe(true);
+  });
+  it('bakedPromptOnly（旧楼层无 raw）：只放行 promptOnly 脚本', () => {
+    expect(regexScriptApplies(base, { stage: 'prompt', bakedPromptOnly: true })).toBe(false);            // alter-chat 已烙进 content，不重跑
+    expect(regexScriptApplies({ ...base, promptOnly: true }, { stage: 'prompt', bakedPromptOnly: true })).toBe(true);
+  });
+  it('disabled / 空 findRegex 恒不跑', () => {
+    expect(regexScriptApplies({ ...base, disabled: true }, { stage: 'display' })).toBe(false);
+    expect(regexScriptApplies({ ...base, findRegex: '' }, { stage: 'display' })).toBe(false);
+  });
+});
+
+describe('escapeRegexLiteral（substituteRegex=2 转义模式）', () => {
+  it('正则特殊字符全部转义成字面量', () => {
+    const name = '林源(主角)+.星?';
+    const re = new RegExp(escapeRegexLiteral(name), 'g');
+    expect('提到林源(主角)+.星?了'.replace(re, 'X')).toBe('提到X了');
   });
 });

@@ -1,0 +1,665 @@
+<!DOCTYPE html>
+<html data-theme="light"  data-theme-color="pink" data-cover-size="default" data-avatar-size="default">
+<head>
+<meta charset="utf-8" />
+<meta content="width=device-width, initial-scale=1, maximum-scale=1, minimum-scale=1" name="viewport">
+<title>Bangumi 条目搜索: 魔剣の姫</title>
+<meta name="keywords" content="Bangumi 条目搜索: 魔剣の姫,ACG,anime,comic,game,music,动漫,音乐,游戏,动画,漫画,番组,bangumi,chii,chobits" />
+<meta name="description" content="Bangumi 条目搜索: 魔剣の姫" />
+<link rel="search" type="application/opensearchdescription+xml" href="https://bgm.tv/static/xml/opensearch_bgm.xml" title="Bangumi 番组计划" />
+<link rel="shortcut icon" href="/img/favicon.ico" type="image/x-icon" />
+<link rel="apple-touch-icon-precomposed" href="/img/ico/ico_ios.png" />
+
+<!--[if lte IE 6]>
+<script src="/js/pngfixed.js" type="text/javascript"></script>
+<script>
+  DD_belatedPNG.fix('.png_bg,img,#wrapper');
+</script>
+<![endif]-->
+
+<link rel="stylesheet" type="text/css" href="/css/dist/bangumi.min.css?r753" />
+<script type="text/javascript">
+var SHOW_ROBOT = '0', CHOBITS_UID = 0, CHOBITS_USERNAME = '', SITE_URL = 'https://bgm.tv', CHOBITS_VER = 'r753';</script>
+</head>
+<body class="bangumi">
+<div id="wrapperNeue" class="wrapperNeue ">
+<div id="headerNeue2">
+    <div class="headerNeueInner clearit">
+         <div class="bg musume_0"></div>
+    <a href="/" class="logo">Bangumi 番组计划</a>
+    
+<input type="checkbox" id="navMenuNeueToggle" class="menu-toggle" />
+<label for="navMenuNeueToggle" class="menuCompact" role="button" aria-label="菜单" onclick="document.getElementById('search-bar-toggle').checked = false;">
+<div class="icon"></div>
+</label>
+<input type="checkbox" id="search-bar-toggle" class="menu-toggle" />
+<label for="search-bar-toggle" class="search-menu-compact" role="button" aria-label="搜索" onclick="document.getElementById('navMenuNeueToggle').checked = false; setTimeout(function(){ var searchInput = document.getElementById('search_text'); if(searchInput) searchInput.focus(); }, 300);">
+<div class="ico ico_search"></div>
+</label>
+
+    
+<div id="navNeue2">
+<div id="menuNeue">
+<ul id="navMenuNeue" class="clearit">
+<li><a href="/anime" class="top chl anime"><span>动画</span></a>
+    			<div class="clear"></div>
+<ul class="explore clearit">
+<li class="group">
+<a href="/anime/browser/?sort=trends" class="nav">近期注目</a>
+<a href="/anime/chart" class="nav">排行榜</a>
+<a href="/anime/browser" class="nav">分类浏览</a>
+<a href="/anime/tag" class="nav">动画标签</a>
+</li>
+<li class="single"><a href="/calendar" class="nav">每日放送</a></li>
+<li class="single"><a href="/anime/blog" class="nav">动画日志</a></li>
+</ul>
+</li>
+<li><a href="/book" class="top chl"><span>书籍</span></a>
+<div class="clear"></div>
+<ul class="explore clearit">
+<li class="group">
+<a href="/book/browser/?sort=trends" class="nav">近期注目</a>
+<a href="/book/chart" class="nav">排行榜</a>
+<a href="/book/browser" class="nav">分类浏览</a>
+<a href="/book/tag" class="nav">图书标签</a>
+</li>
+<li class="single"><a href="/book/blog" class="nav">图书日志</a></li>
+</ul>
+</li>
+<li><a href="/music" class="top chl"><span>音乐</span></a>
+<div class="clear"></div>
+<ul class="explore clearit">
+<li class="group">
+<a href="/music/browser/?sort=trends" class="nav">近期注目</a>
+<a href="/music/chart" class="nav">排行榜</a>
+<a href="/music/browser" class="nav">浏览全部</a>
+<a href="/music/tag" class="nav">音乐标签</a>
+</li>
+<li class="single"><a href="/music/blog" class="nav">音乐日志</a></li>
+</ul>
+</li>
+<li><a href="/game" class="top chl"><span>游戏</span></a>
+<div class="clear"></div>
+<ul class="explore clearit">
+<li class="group">
+<a href="/game/browser/?sort=trends" class="nav">近期注目</a>
+<a href="/game/chart" class="nav">排行榜</a>
+<a href="/game/browser" class="nav">平台浏览</a>
+<a href="/game/tag" class="nav">游戏标签</a>
+</li>
+<li class="single"><a href="/game/blog" class="nav">游戏日志</a></li>
+</ul>
+</li>
+<li><a href="/real" class="top chl real"><span>三次元</span></a>
+<div class="clear"></div>
+<ul class="explore clearit">
+<li class="group">
+<a href="/real/browser/?sort=trends" class="nav">近期注目</a>
+<a href="/real/chart" class="nav">排行榜</a>
+<a href="/real/browser" class="nav">分类浏览</a>
+<a href="/real/tag" class="nav">三次元标签</a>
+</li>
+<li class="single"><a href="/real/blog" class="nav">三次元日志</a></li>
+</ul>
+</li>
+            <li><a href="/mono" class="top"><span>人物</span></a>
+<div class="clear"></div>
+<ul class="clearit">
+<li><a href="/character" class="nav">虚构角色</a></li>
+<li><a href="/person" class="nav">现实人物</a></li>
+</ul>
+</li>
+<li><a href="/rakuen" class="top_lite"><span>超展开</span></a></li>
+<li><a href="/group"class="top"><span>小组</span></a>
+<div class="clear"></div>
+<ul class="clearit">
+<li><a href="/group/discover" class="nav">随便看看</a></li>
+<li><a href="/group/all" class="nav">所有小组</a></li>
+</ul>
+</li>
+<li><a href="javascript:void(0);" class="top"><span>探索</span></a>
+<div class="clear"></div>
+<ul class="explore clearit">
+<li class="single"><a href="/timeline">时空管理局</a></li>
+                <li class="group">
+<span><a href="/blog">日志</a><a href="/index">目录</a><a href="/wiki">维基人</a></span>
+</li>
+<li class="single"><a href="/dev">开发者平台</a></li>
+<li class="group"><span><a href="/magi">MAGI 问答</a><a href="/dollars">Dollars</a></span></li>
+                <li class="group">
+<span class="root">客户端</span>
+<span><a href="/onair">onAir</a><a href="/group/topic/5155">Mobile</a></span>
+</li>
+<li class="single"><a href="https://doujin.bgm.tv">天窗联盟</a></li>
+</ul>
+</li>
+</ul>
+</div>
+</div>
+    <div id="headerSearchWrapper">
+<div id="headerSearch">
+        <form action="/subject_search" method="post">
+<div class="inner">
+<select name="cat" id="siteSearchSelect">
+<option value="all">全部</option>
+<option value="2">动画</option>
+<option value="1">书籍</option>
+<option value="4">游戏</option>
+<option value="3">音乐</option>
+<option value="6">三次元</option>
+<option value="person">人物</option>
+</select>
+<input id="search_text" name="search_text" class="textfield" type="text" autocomplete="off" />
+<input type="submit" name="submit" value="搜索" class="search" />
+</div>
+<div id="searchSuggestions" class="search-suggestions">
+</div>
+</form>
+    </div>
+</div>    <div class="idBadgerNeue">
+    <div class="guest"><a href="https://bgm.tv/login" class="guest login">登录</a><a href="https://bgm.tv/signup" class="guest signup">注册</a></div>
+</div>    </div>
+</div>
+
+<div id="main" class="mainWrapper">
+</div>
+<div id="columnSearch">
+    <div class="searchBox clearit">
+        <h1>条目搜索</h1>
+                <form action="/subject_search" method="post">
+            <input name="cat" value="all" type="hidden" />
+            <input value="魔剣の姫" name="search_text" class="searchInputL" type="text" />
+            <input class="searchBtnL" title="Search" value="搜索" type="submit" />
+        </form>
+        
+            </div>    
+</div>
+    
+<div id="main" class="mainWrapper">
+<div class="columns clearit">
+<div id="columnSearchA" class="column">
+    <ul class="">
+<li class="root">条目</li>        
+        <li><a href="/subject_search/%E9%AD%94%E5%89%A3%E3%81%AE%E5%A7%AB?cat=all" class="selected"><span>全部</span></a></li>
+    	<li><a href="/subject_search/%E9%AD%94%E5%89%A3%E3%81%AE%E5%A7%AB?cat=2" ><span>动画</span></a></li>
+    	<li><a href="/subject_search/%E9%AD%94%E5%89%A3%E3%81%AE%E5%A7%AB?cat=1" ><span>书籍</span></a></li>
+    	<li><a href="/subject_search/%E9%AD%94%E5%89%A3%E3%81%AE%E5%A7%AB?cat=3" ><span>音乐</span></a></li>
+    	<li><a href="/subject_search/%E9%AD%94%E5%89%A3%E3%81%AE%E5%A7%AB?cat=4" ><span>游戏</span></a></li>
+    	<li><a href="/subject_search/%E9%AD%94%E5%89%A3%E3%81%AE%E5%A7%AB?cat=6" ><span>三次元</span></a></li>
+<li class="root">人物</li>                	
+    	<li><a href="/mono_search/%E9%AD%94%E5%89%A3%E3%81%AE%E5%A7%AB?cat=all" ><span>全部</span></a></li>
+    	<li><a href="/mono_search/%E9%AD%94%E5%89%A3%E3%81%AE%E5%A7%AB?cat=crt" ><span>虚构角色</span></a></li>
+    	<li><a href="/mono_search/%E9%AD%94%E5%89%A3%E3%81%AE%E5%A7%AB?cat=prsn" ><span>现实人物</span></a></li>
+        <!--<li class="root">社区</li>
+    	<li><a href="#" ><span>小组</span></a></li>
+    	<li><a href="#" ><span>用户</span></a></li>-->
+    </ul>
+</div>
+<div id="columnSearchB" class="column">
+        <div class="clearit">
+    <div id="browserTools" class="clearit">
+    <div class="filters">
+        
+        </div>
+
+    <ul id="browserTypeSelector" class="browserTypeSelector">
+        <li><a href="javascript:void(0);" id="list_selector" ><span>精简</span></a></li>
+        <li><a href="javascript:void(0);" id="full_selector" class="active">><span>列表</span></a></li>
+        <li><a href="javascript:void(0);" id="grid_selector" >><span>网格</span></a></li>
+    </ul>
+</div>    </div>
+    <ul id="browserItemList" class="browserFull browser-list "><li id="item_359454" class="item odd clearit" >
+    <a href="/subject/359454" class="subjectCover cover ll">
+            <span class="image">
+                        <img src="//lain.bgm.tv/r/400/pic/cover/l/4a/b4/359454_kzR6L.jpg" class="cover" loading="lazy" />
+                    </span>
+        
+    </a>
+    <div class="inner">
+                                <h3>
+                    <span class="ico_subject_type subject_type_1 ll"></span>
+                
+                
+                    <a href="/subject/359454" class="l">七圣剑与魔剑姬</a> <small class="grey">七聖剣と魔剣の姫</small>
+                </h3>
+                
+                
+        <p class="info tip">
+                          2022-04-07 / エターナル14歳 / 講談社                    </p>
+                <p class="rateInfo">
+                        <span class="tip_j">(少于10人评分)</span>
+                    </p>
+                
+                
+        
+                                
+    </div>
+</li><li id="item_12912" class="item even clearit" >
+    <a href="/subject/12912" class="subjectCover cover ll">
+            <span class="image">
+                        <img src="//lain.bgm.tv/r/400/pic/cover/l/e7/cc/12912_qf2yZ.jpg" class="cover" loading="lazy" />
+                    </span>
+        
+    </a>
+    <div class="inner">
+                                <h3>
+                    <span class="ico_subject_type subject_type_3 ll"></span>
+                
+                
+                    <a href="/subject/12912" class="l">魔剣の姫君と花園の歌姫</a>
+                </h3>
+                
+                
+        <p class="info tip">
+                          2010-08-04 / 水橋かおり,杉田智和,渕上舞,又吉愛,土居伸之,川原慶久,近藤浩徳,岡本光右                    </p>
+                <p class="rateInfo">
+                        <span class="tip_j">(少于10人评分)</span>
+                    </p>
+                
+                
+        
+                                
+    </div>
+</li><li id="item_264118" class="item odd clearit" >
+    <a href="/subject/264118" class="subjectCover cover ll">
+            <span class="image">
+                        <img src="//lain.bgm.tv/r/400/pic/cover/l/6a/76/264118_NuU8u.jpg" class="cover" loading="lazy" />
+                    </span>
+        
+    </a>
+    <div class="inner">
+                                <h3>
+                    <span class="ico_subject_type subject_type_1 ll"></span>
+                
+                
+                    <a href="/subject/264118" class="l">魔剣の姫はエロエロです</a>
+                </h3>
+                
+                
+        <p class="info tip">
+                          2015-09-24 / 青橋由高 / フランス書院 / 368                    </p>
+                <p class="rateInfo">
+                        <span class="tip_j">(少于10人评分)</span>
+                    </p>
+                
+                
+        
+                                
+    </div>
+</li><li id="item_310236" class="item even clearit" >
+    <a href="/subject/310236" class="subjectCover cover ll">
+            <span class="image">
+                        <img src="//lain.bgm.tv/r/400/pic/cover/l/5f/a5/310236_X8C4L.jpg" class="cover" loading="lazy" />
+                    </span>
+        
+    </a>
+    <div class="inner">
+                                <h3>
+                    <span class="ico_subject_type subject_type_1 ll"></span>
+                
+                
+                    <a href="/subject/310236" class="l">魔女的宠爱</a> <small class="grey">魔女の愛し仔</small>
+                </h3>
+                
+        <span class="rank"><small>Rank </small>5460</span>        
+        <p class="info tip">
+                          2020-07-17 / 綾里けいし / 星海社 / 256                    </p>
+                <p class="rateInfo">
+                        <span class="starstop-s"><span class="starlight stars7"></span></span> <small class="fade">7.0</small> <span class="tip_j">(25人评分)</span>
+                    </p>
+                
+                
+        
+                                
+    </div>
+</li><li id="item_223957" class="item odd clearit" >
+    <a href="/subject/223957" class="subjectCover cover ll">
+            <span class="image">
+                        <img src="//lain.bgm.tv/r/400/pic/cover/l/90/62/223957_yb9Bp.jpg" class="cover" loading="lazy" />
+                    </span>
+        
+    </a>
+    <div class="inner">
+                                <h3>
+                    <span class="ico_subject_type subject_type_1 ll"></span>
+                
+                
+                    <a href="/subject/223957" class="l">魔学霸王与科法枪姬</a> <small class="grey">魔学の覇王と科法の銃姫 1</small>
+                </h3>
+                
+                
+        <p class="info tip">
+                          2015-05-25 / MF文庫J                    </p>
+                <p class="rateInfo">
+                        <span class="tip_j">(少于10人评分)</span>
+                    </p>
+                
+                
+        
+                                
+    </div>
+</li><li id="item_223958" class="item even clearit" >
+    <a href="/subject/223958" class="subjectCover cover ll">
+            <span class="image">
+                        <img src="//lain.bgm.tv/r/400/pic/cover/l/12/a5/223958_JclUm.jpg" class="cover" loading="lazy" />
+                    </span>
+        
+    </a>
+    <div class="inner">
+                                <h3>
+                    <span class="ico_subject_type subject_type_1 ll"></span>
+                
+                
+                    <a href="/subject/223958" class="l">魔学霸王与科法枪姬</a> <small class="grey">魔学の覇王と科法の銃姫２</small>
+                </h3>
+                
+                
+        <p class="info tip">
+                          2015-10-23 / MF文庫J                    </p>
+                <p class="rateInfo">
+                        <span class="tip_j">(少于10人评分)</span>
+                    </p>
+                
+                
+        
+                                
+    </div>
+</li><li id="item_361082" class="item odd clearit" >
+    <a href="/subject/361082" class="subjectCover cover ll">
+            <span class="image">
+                        <img src="//lain.bgm.tv/r/400/pic/cover/l/b7/01/361082_Q7HF1.jpg" class="cover" loading="lazy" />
+                    </span>
+        
+    </a>
+    <div class="inner">
+                                <h3>
+                    <span class="ico_subject_type subject_type_1 ll"></span>
+                
+                
+                    <a href="/subject/361082" class="l">七聖剣と魔剣の姫</a>
+                </h3>
+                
+                
+        <p class="info tip">
+                          2022-01-05 / 御子柴奈々 / 講談社                    </p>
+                
+                
+        
+                                
+    </div>
+</li><li id="item_379923" class="item even clearit" >
+    <a href="/subject/379923" class="subjectCover cover ll">
+            <span class="image">
+                        <img src="//lain.bgm.tv/r/400/pic/cover/l/33/d7/379923_E0kE3.jpg" class="cover" loading="lazy" />
+                    </span>
+        
+    </a>
+    <div class="inner">
+                                <h3>
+                    <span class="ico_subject_type subject_type_1 ll"></span>
+                
+                
+                    <a href="/subject/379923" class="l">七聖剣と魔剣の姫 (1)</a>
+                </h3>
+                
+                
+        <p class="info tip">
+                          2022-01-05 / 御子柴奈々 / 講談社 / 280                    </p>
+                <p class="rateInfo">
+                        <span class="tip_j">(少于10人评分)</span>
+                    </p>
+                
+                
+        
+                                
+    </div>
+</li><li id="item_379924" class="item odd clearit" >
+    <a href="/subject/379924" class="subjectCover cover ll">
+            <span class="image">
+                        <img src="//lain.bgm.tv/r/400/pic/cover/l/90/02/379924_7r77f.jpg" class="cover" loading="lazy" />
+                    </span>
+        
+    </a>
+    <div class="inner">
+                                <h3>
+                    <span class="ico_subject_type subject_type_1 ll"></span>
+                
+                
+                    <a href="/subject/379924" class="l">七聖剣と魔剣の姫 (2)</a>
+                </h3>
+                
+                
+        <p class="info tip">
+                          2022-06-02 / 御子柴奈々 / 講談社 / 272                    </p>
+                
+                
+        
+                                
+    </div>
+</li><li id="item_384459" class="item even clearit" >
+    <a href="/subject/384459" class="subjectCover cover ll">
+            <span class="image">
+                        <img src="//lain.bgm.tv/r/400/pic/cover/l/33/c9/384459_pWtV5.jpg" class="cover" loading="lazy" />
+                    </span>
+        
+    </a>
+    <div class="inner">
+                                <h3>
+                    <span class="ico_subject_type subject_type_1 ll"></span>
+                
+                
+                    <a href="/subject/384459" class="l">七聖剣と魔剣の姫 (1)</a>
+                </h3>
+                
+                
+        <p class="info tip">
+                          2022-04-07 / エターナル14歳 / 講談社 / 160                    </p>
+                
+                
+        
+                                
+    </div>
+</li><li id="item_384460" class="item odd clearit" >
+    <a href="/subject/384460" class="subjectCover cover ll">
+            <span class="image">
+                        <img src="//lain.bgm.tv/r/400/pic/cover/l/9e/2c/384460_Mycs1.jpg" class="cover" loading="lazy" />
+                    </span>
+        
+    </a>
+    <div class="inner">
+                                <h3>
+                    <span class="ico_subject_type subject_type_1 ll"></span>
+                
+                
+                    <a href="/subject/384460" class="l">七聖剣と魔剣の姫 (2)</a>
+                </h3>
+                
+                
+        <p class="info tip">
+                          2022-06-09 / エターナル14歳 / 講談社 / 160                    </p>
+                
+                
+        
+                                
+    </div>
+</li></ul>    <div id="multipage" class="clearit"><div class="page_inner"><strong class="p_cur">1</strong><a href="/subject_search/%E9%AD%94%E5%89%A3%E3%81%AE%E5%A7%AB?cat=all&page=2" class="p">2</a><a href="/subject_search/%E9%AD%94%E5%89%A3%E3%81%AE%E5%A7%AB?cat=all&page=3" class="p">3</a><a href="/subject_search/%E9%AD%94%E5%89%A3%E3%81%AE%E5%A7%AB?cat=all&page=4" class="p">4</a><a href="/subject_search/%E9%AD%94%E5%89%A3%E3%81%AE%E5%A7%AB?cat=all&page=5" class="p">5</a><a href="/subject_search/%E9%AD%94%E5%89%A3%E3%81%AE%E5%A7%AB?cat=all&page=6" class="p">6</a><a href="/subject_search/%E9%AD%94%E5%89%A3%E3%81%AE%E5%A7%AB?cat=all&page=7" class="p">7</a><a href="/subject_search/%E9%AD%94%E5%89%A3%E3%81%AE%E5%A7%AB?cat=all&page=8" class="p">8</a><a href="/subject_search/%E9%AD%94%E5%89%A3%E3%81%AE%E5%A7%AB?cat=all&page=9" class="p">9</a><a href="/subject_search/%E9%AD%94%E5%89%A3%E3%81%AE%E5%A7%AB?cat=all&page=10" class="p">10</a><a href="/subject_search/%E9%AD%94%E5%89%A3%E3%81%AE%E5%A7%AB?cat=all&page=2" class="p">&rsaquo;&rsaquo;</a><a href="/subject_search/%E9%AD%94%E5%89%A3%E3%81%AE%E5%A7%AB?cat=all&page=48" class="p">&rsaquo;|</a><a class="p_pages" style="padding: 0px"><input class="inputtext" style="width:30px;" type="text" name="custompage" onKeyDown="if(event.keyCode==13) {window.location='/subject_search/%E9%AD%94%E5%89%A3%E3%81%AE%E5%A7%AB?cat=all&page='+this.value + ''; return false;}"></a><span class="p_edge">(&nbsp;1&nbsp;/&nbsp;48&nbsp;)</span></div></div>
+    </div>
+
+<div id="columnSearchC" class="column">   
+    <div class="menu_inner">
+<h3 class="title">相关人物</h2>                
+                
+        <div class="clearit" style="border-bottom:1px solid #DDD;">
+        <dl class="side_port" style="margin:10px 0 0 0;width:59px;">
+    <dt style="padding:0;"><a href="/person/38792" title="能勢ともみ" class="avatar"><span class="avatarNeue avatarSize48 ll" style="background-image:url('//lain.bgm.tv/pic/crt/g/3f/93/38792_prsn_GoMQG.jpg')"></span></a></dt>
+<dd style="text-align:left;"><a href="/person/38792" title="能勢ともみ" class="avatar l">能勢ともみ</a></dd>
+</dl>
+
+                
+        <dl class="side_port" style="margin:10px 0 0 0;width:59px;">
+    <dt style="padding:0;"><a href="/person/58129" title="みなみべ" class="avatar"><span class="avatarNeue avatarSize48 ll" style="background-image:url('//lain.bgm.tv/pic/crt/g/65/0d/58129_prsn_m9s4s.jpg')"></span></a></dt>
+<dd style="text-align:left;"><a href="/person/58129" title="みなみべ" class="avatar l">みなみべ</a></dd>
+</dl>
+
+                
+        <dl class="side_port" style="margin:10px 0 0 0;width:59px;">
+    <dt style="padding:0;"><a href="/person/23657" title="himesuz" class="avatar"><span class="avatarNeue avatarSize48 ll" style="background-image:url('/img/info_only_m.png')"></span></a></dt>
+<dd style="text-align:left;"><a href="/person/23657" title="himesuz" class="avatar l">himesuz</a></dd>
+</dl>
+
+                
+        <dl class="side_port" style="margin:10px 0 0 0;width:59px;">
+    <dt style="padding:0;"><a href="/person/4884" title="阿久津加菜" class="avatar"><span class="avatarNeue avatarSize48 ll" style="background-image:url('//lain.bgm.tv/pic/crt/g/69/f2/4884_prsn_HjHrp.jpg')"></span></a></dt>
+<dd style="text-align:left;"><a href="/person/4884" title="阿久津加菜" class="avatar l">阿久津加菜</a></dd>
+</dl>
+
+                
+        <dl class="side_port" style="margin:10px 0 0 0;width:59px;">
+    <dt style="padding:0;"><a href="/person/16165" title="大羽武士" class="avatar"><span class="avatarNeue avatarSize48 ll" style="background-image:url('//lain.bgm.tv/pic/crt/g/b8/ce/16165_prsn_8fz8w.jpg')"></span></a></dt>
+<dd style="text-align:left;"><a href="/person/16165" title="大羽武士" class="avatar l">大羽武士</a></dd>
+</dl>
+
+                
+        <dl class="side_port" style="margin:10px 0 0 0;width:59px;">
+    <dt style="padding:0;"><a href="/person/42501" title="手代木正太郎" class="avatar"><span class="avatarNeue avatarSize48 ll" style="background-image:url('//lain.bgm.tv/pic/crt/g/8c/98/42501_prsn_ro7kq.jpg')"></span></a></dt>
+<dd style="text-align:left;"><a href="/person/42501" title="手代木正太郎" class="avatar l">手代木正太郎</a></dd>
+</dl>
+</div>
+                        
+                
+        <div class="clearit" style="border-bottom:1px solid #DDD;">
+        <dl class="side_port" style="margin:10px 0 0 0;width:59px;">
+    <dt style="padding:0;"><a href="/character/41844" title="姉姫" class="avatar"><span class="avatarNeue avatarSize48 ll" style="background-image:url('//lain.bgm.tv/pic/crt/g/f7/66/41844_crt_D7rWd.jpg')"></span></a></dt>
+<dd style="text-align:left;"><a href="/character/41844" title="姉姫" class="avatar l">姉姫</a></dd>
+</dl>
+
+                
+        <dl class="side_port" style="margin:10px 0 0 0;width:59px;">
+    <dt style="padding:0;"><a href="/character/48178" title="桐生院美姫" class="avatar"><span class="avatarNeue avatarSize48 ll" style="background-image:url('//lain.bgm.tv/pic/crt/g/77/cf/48178_crt_Y20y5.jpg')"></span></a></dt>
+<dd style="text-align:left;"><a href="/character/48178" title="桐生院美姫" class="avatar l">桐生院美姫</a></dd>
+</dl>
+
+                
+        <dl class="side_port" style="margin:10px 0 0 0;width:59px;">
+    <dt style="padding:0;"><a href="/character/80288" title="閻魔" class="avatar"><span class="avatarNeue avatarSize48 ll" style="background-image:url('//lain.bgm.tv/pic/crt/g/5d/c4/80288_crt_H73Ke.jpg')"></span></a></dt>
+<dd style="text-align:left;"><a href="/character/80288" title="閻魔" class="avatar l">閻魔</a></dd>
+</dl>
+
+                
+        <dl class="side_port" style="margin:10px 0 0 0;width:59px;">
+    <dt style="padding:0;"><a href="/character/57443" title="風魔姫野小太郎" class="avatar"><span class="avatarNeue avatarSize48 ll" style="background-image:url('//lain.bgm.tv/pic/crt/g/08/af/57443_crt_6B1z6.jpg')"></span></a></dt>
+<dd style="text-align:left;"><a href="/character/57443" title="風魔姫野小太郎" class="avatar l">風魔姫野小太郎</a></dd>
+</dl>
+
+                
+        <dl class="side_port" style="margin:10px 0 0 0;width:59px;">
+    <dt style="padding:0;"><a href="/character/22394" title="淡雪姫乃" class="avatar"><span class="avatarNeue avatarSize48 ll" style="background-image:url('//lain.bgm.tv/pic/crt/g/e9/db/22394_crt_ryBzS.jpg')"></span></a></dt>
+<dd style="text-align:left;"><a href="/character/22394" title="淡雪姫乃" class="avatar l">淡雪姫乃</a></dd>
+</dl>
+
+                
+        <dl class="side_port" style="margin:10px 0 0 0;width:59px;">
+    <dt style="padding:0;"><a href="/character/80323" title="ディアボロス" class="avatar"><span class="avatarNeue avatarSize48 ll" style="background-image:url('//lain.bgm.tv/pic/crt/g/48/cb/80323_crt_pUEZ3.jpg')"></span></a></dt>
+<dd style="text-align:left;"><a href="/character/80323" title="ディアボロス" class="avatar l">ディアボロス</a></dd>
+</dl>
+</div>
+        </div>    
+  
+        
+        <div class="menu_inner">
+                    <a href="/subject_search/%E9%AD%94%E5%89%A3%E3%81%AE%E5%A7%AB?cat=all&legacy=1" class="l">显示精准匹配结果</a>        
+            </div>
+    
+    <div class="menu_inner">
+        <h3 class="title">搜索提示</h3>
+        <ul id="infobox">
+        <li><span class="tip">搜索时使用引号 "关键词"，如 <i>"ちょびっツ"</i> 获取精确结果</span></li>
+        <li><span class="tip">使用减号 -，如 <i>马里奥 -gba</i> 排除关键词</span></li>        
+        </ul>
+    </div>     
+        
+    </div>
+</div><div id="footer">
+<ul id="footerLinks" class="clearit">
+<li class="first">
+    <dl>
+        <dt>关于我们</dt>
+        <dd><a href="https://bgm.tv/about">关于我们</a></dd>
+        <dd><a href="https://bgm.tv/about/guideline">社区指导原则</a><dd>
+        <dd><a href="https://bgm.tv/about/copyright">版权声明</a><dd>
+        <dd><a href="https://bgm.tv/about/link2us">链接我们</a><dd>
+    </dl>
+</li>
+<li>
+    <dl>
+    <dt>获取帮助</dt>
+        <dd><a href="https://bgm.tv/help/bbcode">BBCode</a></dd>
+        <dd><a href="https://bgm.tv/group/forum">站务论坛</a></dd>
+        <dd><a href="https://bgm.tv/group/dev">番组开发</a></dd>
+        <dd><a href="https://bgm.tv/group/issues">BUG追踪</a></dd>
+        <dd><a href="https://bgm.tv/group/doujin">天窗站务</a></dd>
+    </dl>
+</li>
+<li>
+<dl>
+    <dt>特别推荐</dt>
+        <dd><a href="https://bgm.tv/award/2025">年鉴 2025</a> | <a href="https://bgm.tv/award/2024">24</a> | <a href="https://bgm.tv/award/2023">23</a> | <a href="https://bgm.tv/award/2022">22</a> | <a href="https://bgm.tv/award/2021">21</a> | <a href="https://bgm.tv/award/2020">20</a> | <a href="https://bgm.tv/award/2019">19</a> | <a href="https://bgm.tv/award/2018">18</a> | <a href="https://bgm.tv/award/2017">17</a> |  <a href="https://bgm.tv/award/2016">16</a> |  <a href="https://bgm.tv/award/2015">15</a> | <a href="https://bgm.tv/award/2014">14</a> |  <a href="https://bgm.tv/award/2013">13</a> | <a href="https://bgm.tv/award/2012">12</a> | <a href="https://bgm.tv/award/2011">11</a> | <a href="https://bgm.tv/award/2010">10</a></dd>
+        <dd><a href="https://bgm.tv/award/2025/winner">TBA 2025</a> | <a href="https://bgm.tv/award/2024/winner">24</a></dd>
+        <dd><a href="https://bgm.tv/group/wiki">番組WIKI計画</a></dd>
+        <dd><a href="https://bgm.tv/onair">onAir 客户端</a></dd>
+        <dd><a href="https://bgm.tv/tokei">etokei 绘时计</a></dd>
+    </dl>
+</li>
+<li class="last">
+    <dl>
+    <dt>更多</dt>
+        <dd><a href="https://bgm.tv/dev">开发者平台</a></dd>
+        <dd><a href="https://bgm.tv/index">目录</a></dd>
+        <dd><a href="https://bgm.tv/wiki">维基人</a></dd>
+        <dd><a href="https://bgm.tv/magi">MAGI 问答</a></dd>
+        <dd><a href="https://bgm.tv/goodies">周边</a></dd>
+        <dd><a href="https://bgm.tv/dollars">Dollars</a></dd>
+    </dl>
+</li>
+</ul><div class="copyright"><small class="grey">&copy; 2008-2026 Bangumi (a.k.a.Chobits), some rights reserved | r753</small></div>
+</div>
+</div></div>
+<div class="homeBg"></div>
+<div id="dock">
+    <div class="content">
+        <ul class="clearit">
+                <li class="first"><a href="https://bgm.tv/login">登录</a><a href="https://bgm.tv/signup">注册</a></li>
+                <li><a href="javascript:void(0);" class="toggle-customize" title="个性化"><span class="ico ico-sq ico_customize">个性化</span></a></li>
+        <li class="last"><a href="javascript:void(0);" id="showrobot" class="toggle-robot">&nbsp;</a></li>
+        </ul>
+    </div>
+</div>
+
+<div id="robot"  style="display:none;">
+<div id="ukagaka_shell" data-shell="1" data-balloon="2">
+<div class="ui_12">
+<div id="robot_balloon" class="ukagaka_balloon_pink">
+    <div class="inner">
+<div id="robot_speech" class="speech">
+没<a href="https://bgm.tv/signup"  class="nav">注册</a>时我很沉默</div>
+<div id="robot_speech_js" class="speech" style="display:none;"></div>
+</div>
+</div>
+<div class="ukagaka_body shell_1"><div id="ukagaka_voice"></div></div>
+</div>
+</div>
+</div>
+<script src="/min/g=js?r753" type="text/javascript"></script>
+<script>
+  window.dataLayer = window.dataLayer || [];
+  function gtag(){dataLayer.push(arguments);}
+  gtag('js', new Date());
+  gtag('config', 'G-1109JLGMHN');
+
+  (function() {
+    var ga = document.createElement('script'); ga.type = 'text/javascript'; ga.async = true;
+    ga.src = 'https://www.googletagmanager.com/gtag/js?id=G-1109JLGMHN';
+    var s = document.getElementsByTagName('script')[0]; s.parentNode.insertBefore(ga, s);
+  })();
+</script>
+</body></html>

@@ -127,7 +127,7 @@ import {
 import { useState, useRef, useEffect, useMemo, lazy, Suspense, type PointerEvent as RPointerEvent } from 'react';
 import { useGame } from './store/gameStore';
 import { useSettings, resolveApiChain, inferViewScopes, type WorldbookConflict } from './store/settingsStore';
-import { runRegexReplace } from './systems/regexEngine';
+import { runRegexReplace, compileFindRegex, regexScriptApplies, escapeRegexLiteral } from './systems/regexEngine';
 import { apiChatFallback, fetchWithProxy, abortAllApiCalls, narrativeLangDirective } from './systems/apiChat';
 import { parseAllStateUpdates, stripStateBlocks, parseAllItemCommands, applyItemCommands, parseAllCharCommands, applyCharacterCommands, parseAllNpcCommands, applyNpcCommands, parseAllFactionCommands, applyFactionCommands, applyTerritoryCommands, applyTeamCommands, isEquippable, lenientJsonParse, buildItemFeedback, recordEvo, purgeItemPhaseCurrency, editToTerritoryText, editToTeamText, detectUnregisteredCurrencyGains } from './systems/stateParser';
 import { isRealNpc, sanitizeEntryName, stripLeakedThinking, streamVisibleNarrative, setNpcPreferredOwners, applyStateUpdates, applyAllUpdates, stripKillBlocks, stripVitalsBlocks, stripWorldSourceBlocks, collapseRunaway } from './systems/stateApply';
@@ -365,6 +365,7 @@ interface ChatMessage {
   id: number;
   role: 'user' | 'assistant' | 'system';
   content: string;
+  raw?: string;            // 正则前原文（仅与 content 不同才存）：发正文 API 时每楼从 raw 现算 prompt 视图（promptOnly「对AI隐藏」生效、markdownOnly 美化壳不进提示词）；缺省=旧楼层，退化为对 content 只补跑 promptOnly
   inputImages?: string[];  // 玩家本楼随行动附带的图片（data:URL·已压缩）→ 随本回合以多模态喂给视觉正文接口，并在用户气泡里显示缩略图
   smallSummary?: string;   // 该楼层小总结（叙事记忆三档注入用）
   largeSummary?: string;   // 该楼层大总结
@@ -374,6 +375,20 @@ interface ChatMessage {
   fanficNote?: string;     // 同人搜索内容（本楼涉及的已知作品角色设定，折叠展示）
   factNote?: string;       // 事实查证（本楼涉及的现实可查证元素核实结果，折叠展示）
   theaterHtml?: string;    // 小剧场：番外彩蛋 HTML（<xiaojuchang> 块内的内容，直接渲染在正文末尾）
+}
+
+/* 正则配置指纹：用数组「引用身份」发号（zustand 每次更新都换新数组 → 引用变即号变），
+   供历史楼层 prompt 视图 memo 缓存做失效键——编辑任何正则脚本/切换预设都会自然换号，零深比较开销。 */
+const _regexCfgVer = new WeakMap<object, number>();
+let _regexCfgSeq = 0;
+function regexCfgSig(a?: object | null, b?: object | null): string {
+  const ver = (o?: object | null) => {
+    if (!o) return 0;
+    let v = _regexCfgVer.get(o);
+    if (v == null) { v = ++_regexCfgSeq; _regexCfgVer.set(o, v); }
+    return v;
+  };
+  return ver(a) + ':' + ver(b);
 }
 
 /* 五阶前·「深渊」封印判定：主角有效阶位（阶位串优先，回退按等级推导）< 五阶（TIERS idx4）→ 封印生效。
@@ -1981,55 +1996,75 @@ export default function App() {
   }, [messages]);
 
   // 对文本执行正则替换
-  // placement=1 是我们的 AI输出，placement=2 是 ST 原始 AI输出（兼容已存储的旧数据）
-  // stage：照搬 SillyTavern 的「三视图」——同一段正文，显示层 / 发给AI(演化) 各跑各的正则，互不污染：
+  // placement=1 是我们的 AI输出，placement=2 是 ST 原始 AI输出（兼容已存储的旧数据），placement=0 是用户输入（opts.target='user' 时启用）
+  // stage：照搬 SillyTavern 的「三视图」——同一段正文，显示层 / 发给AI(演化/历史) 各跑各的正则，互不污染：
   //   · markdownOnly（仅格式化显示）：只在 'display' 跑（美化框专用，绝不进演化/AI文本）
   //   · promptOnly（仅格式化提示词/对AI隐藏）：只在 'prompt' 跑（否则它会把美化框连同正文从屏幕上删空 = "正文被吃"）
   //   · 两者皆无（alter chat）：两个视图都跑，行为同旧版
-  function applyRegex(text: string, preset: (typeof textPresets)[0] | undefined, stage: 'display' | 'prompt' = 'display'): string {
+  // opts（ST 适配补全）：
+  //   · depth：ST Min/Max Depth——0=最新楼，向历史递增；不传=不按深度过滤（结算/历史场景请显式传）
+  //   · target：'ai'(默认)=AI输出脚本；'user'=用户输入脚本（placement 含 0）——用户输入不跑思考剥离/复读折叠/深渊清洗安全网
+  //   · quiet：静默日志（历史楼层每回合批量重算时防刷屏）
+  //   · bakedPromptOnly：旧楼层无 raw、display 已烙进 content——只补跑 promptOnly 脚本，安全网/深渊清洗也跳过（都应用过了）
+  function applyRegex(text: string, preset: (typeof textPresets)[0] | undefined, stage: 'display' | 'prompt' = 'display',
+    opts: { depth?: number; target?: 'ai' | 'user'; quiet?: boolean; bakedPromptOnly?: boolean } = {}): string {
+    const target = opts.target ?? 'ai';
     // 合并全局+预设正则，并跑一遍「视图作用域」自动推断兜底：已激活/固化进 IndexedDB 的预设不再经 parseRegexArr，
     //   靠这里保证无论怎么存的都有 md/prompt 归类（幂等：已有显式设定跳过），用户无需手动逐条调开关。
     const all = inferViewScopes([...globalRegexScripts, ...(preset?.regexScripts ?? [])]);
-    // inView：照 ST 语义按 stage 取该视图该跑的脚本（display 跳过 promptOnly；prompt 跳过 markdownOnly）
-    const scripts = all.filter((s) => !s.disabled && (s.placement.includes(1) || s.placement.includes(2)) && s.findRegex
-      && (stage === 'display' ? !s.promptOnly : !s.markdownOnly));
-    console.log(`[正则|${stage}] 共 ${all.length} 条，过滤后执行 ${scripts.length} 条`, scripts.map((s) => ({ name: s.scriptName, find: s.findRegex, flags: s.flags, placement: s.placement, md: s.markdownOnly, prompt: s.promptOnly })));
+    // 统一过滤谓词（regexEngine.regexScriptApplies）：stage 视图 + placement(target) + Min/Max Depth + 旧楼层只补 promptOnly
+    const scripts = all.filter((s) => regexScriptApplies(s, { stage, target, depth: opts.depth, bakedPromptOnly: opts.bakedPromptOnly }));
+    if (!opts.quiet) console.log(`[正则|${stage}${target === 'user' ? '|用户输入' : ''}] 共 ${all.length} 条，过滤后执行 ${scripts.length} 条`, scripts.map((s) => ({ name: s.scriptName, find: s.findRegex, flags: s.flags, placement: s.placement, md: s.markdownOnly, prompt: s.promptOnly })));
+    // 用户输入/旧楼层补跑：无匹配脚本时直接原样返回（不跑下面的 AI 输出安全网），保证没配相应正则=零改动
+    if (scripts.length === 0 && (target === 'user' || opts.bakedPromptOnly)) return text;
 
-    // 宏展开器（照 ST 对替换模板跑 substituteParams）：仅当某脚本 replaceString 里含宏（{{…}} 非 {{match}} 或 ${…}）才构建一次，省开销
+    // 宏展开器（照 ST 对替换模板跑 substituteParams）：仅当某脚本 replaceString 里含宏（{{…}} 非 {{match}} 或 ${…}），
+    //   或某脚本开了 substituteRegex（ST「查找正则中的宏」）且 findRegex 含宏时才构建，省开销
     let expandMacros: ((x: string) => string) | undefined;
-    if (scripts.some((s) => /\{\{(?!match\}\})|\$\{/.test(s.replaceString || ''))) {
+    let expandMacrosEscaped: ((x: string) => string) | undefined;   // substituteRegex=2「转义」：宏值先转义成正则字面量再代入
+    const findHasMacro = (s: typeof scripts[number]) => (s.substituteRegex === 1 || s.substituteRegex === 2) && /\{\{|\$\{/.test(s.findRegex || '');
+    if (scripts.some((s) => /\{\{(?!match\}\})|\$\{/.test(s.replaceString || '') || findHasMacro(s))) {
       try {
         const pName = usePlayer.getState().profile?.name || '主角';
-        const mctx = makeMacroCtx({ user: pName, char: pName, lastUserMessage: lastUserInputRef.current || '', runtimeVars: buildRuntimeVars() });
+        const mArgs = { user: pName, char: pName, lastUserMessage: lastUserInputRef.current || '', runtimeVars: buildRuntimeVars() };
+        const mctx = makeMacroCtx(mArgs);
         expandMacros = (x: string) => processMacros(x, mctx);
+        if (scripts.some((s) => s.substituteRegex === 2 && findHasMacro(s))) {
+          // 转义版上下文：user/char/lastUserMessage/运行时变量的「值」全部转义（random/roll 等生成值为数字，无需转义）
+          const esc = (v: string) => escapeRegexLiteral(v);
+          const mctxEsc = makeMacroCtx({
+            user: esc(mArgs.user), char: esc(mArgs.char), lastUserMessage: esc(mArgs.lastUserMessage),
+            runtimeVars: Object.fromEntries(Object.entries(mArgs.runtimeVars).map(([k, v]) => [k, esc(String(v))] as [string, string])),
+          });
+          expandMacrosEscaped = (x: string) => processMacros(x, mctxEsc);
+        }
       } catch { /* 宏上下文构建失败则跳过宏展开，不阻断正则 */ }
     }
 
     let result = text;
-    // ── 安全网：隐藏常见「思考/推理/防拦截」标签块（dotAll），即便用户正则漏配或写成贪婪也兜底 ──
-    //   覆盖 <thinking>/<think>/<reasoning>/<reason>/<plan>/<analysis>/<scratchpad>/<cot> 思考标签，
-    //   以及预设常见的 <*_opinion>（人设动笔前思考，如 <Alu_opinion>）/<*_interception>（防拦截，如 <Anti_interception>）/<viewpoint>（防拦截填充内容）。
-    //   本网跑在用户正则之前，且用【非贪婪 + 闭合标签反向引用 \1】只删配对闭合块：① 自身绝不会误吃正文（只到最近对应闭合标签）；
-    //   ② 更关键——提前把这些块删净后，用户若把 strip 写成贪婪如 `<Alu_opinion>[\s\S]*`（一路吃到结尾=把正文吞了）也已无块可匹配 → 正文得救（用户报「正文被隐藏」的根因）。
-    result = result.replace(/<(thinking|think|reasoning|reason|plan|analysis|scratchpad|settle_cot|cot|[a-z_]*opinion|[a-z_]*interception|viewpoint)\b[^>]*>[\s\S]*?<\/\1>/gi, '');
-    // ── 安全网：折叠失控复读（极其极其…），即便用户没配反复读正则也兜底，防最终文本仍带成千上万字重复 ──
-    result = collapseRunaway(result);
+    if (target === 'ai' && !opts.bakedPromptOnly) {
+      // ── 安全网：隐藏常见「思考/推理/防拦截」标签块（dotAll），即便用户正则漏配或写成贪婪也兜底 ──
+      //   覆盖 <thinking>/<think>/<reasoning>/<reason>/<plan>/<analysis>/<scratchpad>/<cot> 思考标签，
+      //   以及预设常见的 <*_opinion>（人设动笔前思考，如 <Alu_opinion>）/<*_interception>（防拦截，如 <Anti_interception>）/<viewpoint>（防拦截填充内容）。
+      //   本网跑在用户正则之前，且用【非贪婪 + 闭合标签反向引用 \1】只删配对闭合块：① 自身绝不会误吃正文（只到最近对应闭合标签）；
+      //   ② 更关键——提前把这些块删净后，用户若把 strip 写成贪婪如 `<Alu_opinion>[\s\S]*`（一路吃到结尾=把正文吞了）也已无块可匹配 → 正文得救（用户报「正文被隐藏」的根因）。
+      //   仅 AI 输出跑（用户输入是玩家自己打的字，不剥；旧楼层补跑时 content 已剥过）。
+      result = result.replace(/<(thinking|think|reasoning|reason|plan|analysis|scratchpad|settle_cot|cot|[a-z_]*opinion|[a-z_]*interception|viewpoint)\b[^>]*>[\s\S]*?<\/\1>/gi, '');
+      // ── 安全网：折叠失控复读（极其极其…），即便用户没配反复读正则也兜底，防最终文本仍带成千上万字重复 ──
+      result = collapseRunaway(result);
+    }
     for (const s of scripts) {
       try {
-        // 兼容存量数据：运行时再剥一次 /pattern/flags 格式
-        let pattern = s.findRegex;
-        let rawFlags = s.flags || '';
-        if (pattern.startsWith('/')) {
-          const last = pattern.lastIndexOf('/');
-          if (last > 0) {
-            rawFlags = pattern.slice(last + 1) + rawFlags;
-            pattern  = pattern.slice(1, last);
-          }
+        // ST「查找正则中的宏」（substituteRegex：0/缺省=不展开 1=原样 2=转义）：先对 findRegex 模板展开宏再编译
+        let findSrc = s.findRegex;
+        if (findHasMacro(s)) {
+          const fx = s.substituteRegex === 2 ? (expandMacrosEscaped ?? expandMacros) : expandMacros;
+          if (fx) { try { findSrc = fx(findSrc); } catch { /* 展开失败用原文 */ } }
         }
-        if (!pattern) continue;
-        // 去重 + 只保留合法字符
-        const flags = [...new Set(rawFlags)].filter((c) => /[gimsuy]/.test(c)).join('') || 'g';
-        const re = new RegExp(pattern, flags);
+        // 兼容存量数据：运行时再剥一次 /pattern/flags 格式（compileFindRegex 内含去重+合法字符过滤）
+        const compiled = compileFindRegex(findSrc, s.flags || '');
+        if (!compiled) continue;
+        const { re, pattern, flags } = compiled;
         const before = result;
         result = runRegexReplace(result, re, s, expandMacros);   // ST 风格替换（$1/$0/{{match}}/$<name> + trimStrings 过滤 + 模板宏），非原生裸替换
         // 兜底重试：未命中 + 含 `.` + 缺 dotAll 时，补 s 标志再试一次
@@ -2040,14 +2075,14 @@ export default function App() {
             const retried = runRegexReplace(result, reS, s, expandMacros);
             if (retried !== result) {
               result = retried;
-              console.log(`[正则] ✓ "${s.scriptName}" 命中（自动补 s/dotAll 标志后）`);
-            } else {
+              if (!opts.quiet) console.log(`[正则] ✓ "${s.scriptName}" 命中（自动补 s/dotAll 标志后）`);
+            } else if (!opts.quiet) {
               console.log(`[正则] ✗ "${s.scriptName}" 未命中（含补 s 重试）| pattern="${pattern}" flags="${flags}"`);
             }
           } catch { /* 补 s 失败则忽略 */ }
         } else if (result !== before) {
-          console.log(`[正则] ✓ "${s.scriptName}" 命中并替换`);
-        } else {
+          if (!opts.quiet) console.log(`[正则] ✓ "${s.scriptName}" 命中并替换`);
+        } else if (!opts.quiet) {
           console.log(`[正则] ✗ "${s.scriptName}" 未命中 | pattern="${pattern}" flags="${flags}"`);
         }
       } catch (e) {
@@ -2055,8 +2090,37 @@ export default function App() {
       }
     }
     // 五阶前·「深渊」硬兜底：主角未达五阶时，把正文里漏网的「深渊」模糊化（机读护栏，与提示词 ABYSS_LOCK_RULE 双保险）。
-    if (isAbyssLocked(usePlayer.getState().profile)) result = scrubAbyss(result);
+    //   仅 AI 输出（玩家自己的输入不改写；旧楼层 content 已清洗过）。
+    if (target === 'ai' && !opts.bakedPromptOnly && isAbyssLocked(usePlayer.getState().profile)) result = scrubAbyss(result);
     return result;
+  }
+
+  /* ── ST 正则·历史楼层 prompt 视图（发正文 API 用）────────────────────────────
+     每楼从 raw（正则前原文）现算 prompt 视图：promptOnly「对AI隐藏」生效、markdownOnly 美化壳不进提示词；
+     旧楼层无 raw（display 已烙进 content）→ 只补跑 promptOnly（alter-chat 已应用过，重跑可能双重替换）。
+     depth=距最新楼的距离（0=最新），供脚本 Min/Max Depth 过滤。
+     memo 缓存按 (楼id, 文本长度, 正则配置指纹[, depth]) —— 正则是确定性替换，长档每回合全量重算只付一次成本；
+     指纹用数组引用身份（zustand 更新即换新数组），编辑脚本/换预设自动失效。缓存超限粗暴清空防膨胀。 */
+  const regexHistCacheRef = useRef(new Map<string, string>());
+  function promptViewOfHistMsg(m: ChatMessage, depth: number, preset: (typeof textPresets)[0] | undefined): string {
+    const baked = m.role === 'assistant' && m.raw == null;   // 旧 AI 楼层：display 视图已烙进 content（用户楼层历史上从未处理过，content 即原文，不算 baked）
+    const src = (m.raw ?? m.content) || '';
+    if (!src || m.role === 'system') return src;
+    const merged = [...globalRegexScripts, ...(preset?.regexScripts ?? [])];
+    if (merged.length === 0 && baked) return src;
+    const depthMatters = merged.some((s) => !s.disabled && (typeof s.minDepth === 'number' || typeof s.maxDepth === 'number'));
+    const key = `${m.id}|${src.length}|${regexCfgSig(globalRegexScripts, preset?.regexScripts)}|${m.role}${baked ? '|b' : ''}${depthMatters ? '|d' + depth : ''}`;
+    const cache = regexHistCacheRef.current;
+    const hit = cache.get(key);
+    if (hit != null) return hit;
+    const out = applyRegex(src, preset, 'prompt', {
+      depth, quiet: true,
+      target: m.role === 'user' ? 'user' : 'ai',
+      bakedPromptOnly: baked,
+    });
+    if (cache.size > 2000) cache.clear();
+    cache.set(key, out);
+    return out;
   }
 
   // 从 entries[] 构建系统提示和示例消息
@@ -8894,6 +8958,11 @@ ${lines}`;
     // 历史裁切：historyLimit > 0 时只取最近 N 条（即"显示楼层"范围）
     const allHistory = extraHistory.length > 0 ? extraHistory : messagesRef.current;
     const visibleHistory = historyLimit > 0 ? allHistory.slice(-historyLimit) : allHistory;
+    // ST 正则·prompt 视图作用于历史楼层（照 ST「Alter Outgoing Prompt」补全另一半）：发给正文 API 的每一楼
+    //   从 raw 现算 prompt 视图——promptOnly「对AI隐藏」对历史生效、markdownOnly 美化壳(<div> HTML)不再进提示词历史；
+    //   用户楼层按「用户输入」placement 跑；depth=距最新楼距离(0=最新) 供 Min/Max Depth。有 memo 缓存，长档不重复算。
+    const allHistoryForApi = allHistory.map((m, i) => ({ role: m.role, content: promptViewOfHistMsg(m, allHistory.length - 1 - i, preset) }));
+    const visibleHistoryForApi = historyLimit > 0 ? allHistoryForApi.slice(-historyLimit) : allHistoryForApi;
 
     // 世界书关键词匹配：用当前输入 + 可见历史内容一起匹配
     const matchCtx = ([
@@ -9046,7 +9115,7 @@ ${lines}`;
         }
         memory = lines.length ? [{ role: 'system' as const, content: `<相关记忆>\n${lines.join('\n\n')}\n</相关记忆>` }] : [];
         const recentN = historyLimit > 0 ? historyLimit : (vm.recentFullTextCount ?? 5);
-        recent = (recentN > 0 ? allHistory.slice(-recentN) : []).map((m) => ({ role: m.role as 'user' | 'assistant', content: m.content }));
+        recent = (recentN > 0 ? allHistoryForApi.slice(-recentN) : []).map((m) => ({ role: m.role as 'user' | 'assistant', content: m.content }));
         { const sr = await buildStructuredRecall(ctx, { noLlmSelect: true, userInput: userText }); structPlayer = sr.player; structRest = sr.rest; }   // 向量模式：NPC 走本地排序，不调 LLM
         const note = ev.remaining > 0 ? `（剩 ${ev.remaining} 条将随后续回合自动补全，无需手动；想立即全量可去设置→向量记忆点"重建索引"）` : '';
         setNmPhaseLog(`🧠 向量召回：池 ${pool.length} 条 · 命中 ${hits.length}${reranked ? ' · 已精排' : ''}${(structPlayer.length || structRest.length) ? ' + 结构化档案' : ''}${note}`);
@@ -9056,7 +9125,7 @@ ${lines}`;
         const msg = e instanceof Error ? e.message : String(e);
         setNmPhaseLog(`⚠️ 向量记忆失败：${msg}（已回退最近楼层；请检查 设置→向量记忆 的接口/密钥/模型）`);
         setTimeout(() => setNmPhaseLog(''), 12000);
-        recent = visibleHistory.map((m) => ({ role: m.role as 'user' | 'assistant', content: m.content }));
+        recent = visibleHistoryForApi.map((m) => ({ role: m.role as 'user' | 'assistant', content: m.content }));
       } finally {
         setNmRecalling(false);
       }
@@ -9085,7 +9154,7 @@ ${lines}`;
         const effCfg = historyLimit > 0
           ? { ...narrativeMem, recentFullTextCount: historyLimit }
           : narrativeMem;
-        const built = buildNarrativeHistory(allHistory.filter((m) => m.role !== 'system').map((m) => ({ role: m.role as 'user' | 'assistant', content: m.content })), effCfg, facts, query);
+        const built = buildNarrativeHistory(allHistoryForApi.filter((m) => m.role !== 'system').map((m) => ({ role: m.role as 'user' | 'assistant', content: m.content })), effCfg, facts, query);
         memory = built.memory;
         recent = built.recent;
         // 结构化档案召回（主角必含 + 预测/在场 NPC）
@@ -9103,7 +9172,7 @@ ${lines}`;
         setNmRecalling(false);
       }
     } else {
-      recent = visibleHistory.map((m) => ({ role: m.role as 'user' | 'assistant', content: m.content }));
+      recent = visibleHistoryForApi.map((m) => ({ role: m.role as 'user' | 'assistant', content: m.content }));
     }
 
     // 记忆去重：若 Stitches 推进管线本回合真产出了 {{recall}}（已注入 dbAdvanceBlock），就把 zhushen 自己的 <相关记忆> 里
@@ -9336,7 +9405,7 @@ ${lines}`;
 
         if (aborted) {
           // 手动停止：只清洗已生成的部分用于显示，不解析 state、不触发任何演化（避免半截数据污染存档）
-          const partial = stripWorldSourceBlocks(stripVitalsBlocks(stripStateBlocks(applyRegex(accumulated, preset))));
+          const partial = stripWorldSourceBlocks(stripVitalsBlocks(stripStateBlocks(applyRegex(accumulated, preset, 'display', { depth: 0 }))));
           setMessages((prev) =>
             prev.map((m) => m.id === streamMsgId ? { ...m, content: partial || accumulated || '（已停止生成）' } : m)
           );
@@ -9353,11 +9422,13 @@ ${lines}`;
         const settledText = stripKillBlocks(cleaned);   // 过渡期：剥除旧 <kill> 清单（不再结算进阶点）
         const gemLootLine = !narrateOnly ? rollAndApplyGemDrops(cleaned) : '';   // 正文击杀 → 结算掉落宝石（读含 <击杀结算> 的原始正文）
         // 演化/解析读的正文（prompt 视图：跳过 markdownOnly 美化壳、应用 promptOnly「对AI隐藏」）；再剥 <state>/<upstore>，保留 <状态结算> HP/EP 块
-        const narrativeForEvoRaw = stripStateBlocks(applyRegex(settledText, preset, 'prompt'));
+        const narrativeForEvoRaw = stripStateBlocks(applyRegex(settledText, preset, 'prompt', { depth: 0 }));
         // 显示给玩家的正文（display 视图：独立跑一遍——应用 markdownOnly 美化、跳过 promptOnly，否则美化框连同正文被删空）；再剥 <状态结算>（纯数据通道，侧栏用自定义血条名）
-        const finalDisplayed = stripWorldSourceBlocks(stripVitalsBlocks(stripStateBlocks(applyRegex(settledText, preset, 'display')))) + gemLootLine;
+        const finalDisplayed = stripWorldSourceBlocks(stripVitalsBlocks(stripStateBlocks(applyRegex(settledText, preset, 'display', { depth: 0 })))) + gemLootLine;
+        // 正则前原文（同 display 的剥块链但不跑正则）：存进楼层 raw——后续回合发正文 API 时每楼从 raw 现算 prompt 视图（美化壳不进历史、对AI隐藏对历史生效）
+        const rawForHist = stripWorldSourceBlocks(stripVitalsBlocks(stripStateBlocks(settledText))) + gemLootLine;
         if (!narrateOnly) setMessages((prev) =>
-          prev.map((m) => m.id === streamMsgId ? { ...m, content: finalDisplayed } : m)
+          prev.map((m) => m.id === streamMsgId ? { ...m, content: finalDisplayed, ...(rawForHist !== finalDisplayed ? { raw: rawForHist } : {}) } : m)
         );
         setRawResponse(accumulated);
         apiDebugLog.finish(narrLogId, accumulated, true);
@@ -9385,11 +9456,13 @@ ${lines}`;
         const settledReply = stripKillBlocks(cleanedReply);   // 过渡期：剥除旧 <kill> 清单（不再结算进阶点）
         const gemLootLine = !narrateOnly ? rollAndApplyGemDrops(cleanedReply) : '';   // 正文击杀 → 结算掉落宝石（读含 <击杀结算> 的原始正文）
         // 演化/解析读的正文（prompt 视图：跳过 markdownOnly 美化壳、应用 promptOnly「对AI隐藏」）；再剥 <state>/<upstore>，保留 <状态结算> HP/EP 块
-        const narrativeForEvoRaw = stripStateBlocks(applyRegex(settledReply, preset, 'prompt'));
+        const narrativeForEvoRaw = stripStateBlocks(applyRegex(settledReply, preset, 'prompt', { depth: 0 }));
         // 显示给玩家的正文（display 视图：独立跑一遍——应用 markdownOnly 美化、跳过 promptOnly，否则美化框连同正文被删空）；再剥 <状态结算>
-        const processed = stripWorldSourceBlocks(stripVitalsBlocks(stripStateBlocks(applyRegex(settledReply, preset, 'display')))) + gemLootLine;
+        const processed = stripWorldSourceBlocks(stripVitalsBlocks(stripStateBlocks(applyRegex(settledReply, preset, 'display', { depth: 0 })))) + gemLootLine;
+        // 正则前原文 → 楼层 raw（后续回合历史按 prompt 视图现算，见流式路径同款注释）
+        const rawForHist = stripWorldSourceBlocks(stripVitalsBlocks(stripStateBlocks(settledReply))) + gemLootLine;
         const newMsgId = ++msgId.current;
-        if (!narrateOnly) setMessages((prev) => [...prev, { id: newMsgId, role: 'assistant', content: processed }]);
+        if (!narrateOnly) setMessages((prev) => [...prev, { id: newMsgId, role: 'assistant', content: processed, ...(rawForHist !== processed ? { raw: rawForHist } : {}) }]);
         // 演化阶段读的正文：去 state 块外，再去掉击杀结算块（保留 <状态结算> 供 HP/EP 结算用，避免演化AI看到点数又重复发 ap）
         const narrativeForEvo = narrativeForEvoRaw.replace(/<击杀结算>[\s\S]*?<\/击杀结算>/gi, '').trimEnd();
         lastNarrativeRef.current = narrativeForEvo;
@@ -9609,18 +9682,23 @@ ${lines}`;
     lastUserInputRef.current = userInput;
     expireStatuses(turnCountRef.current);
     reconcileHomeWorld(); reconcilePlayerVitals(); syncPlayerVitalsMax(); reconcilePartyLifecycle();
-    if (userInput) setMessages((prev) => [...prev, { id: ++msgId.current, role: 'user', content: userInput }]);
+    const _ssEvo = useSettings.getState();   // 同上：实时读 store，免 stale 闭包导致演化也拿不到预设
+    const preset = resolveActivePreset(_ssEvo);
+    if (userInput) {
+      // 与 sendMessage 同口径：用户输入 placement 正则 display 视图落楼层、原文存 raw
+      const uDisp = applyRegex(userInput, preset, 'display', { target: 'user', depth: 0, quiet: true });
+      setMessages((prev) => [...prev, { id: ++msgId.current, role: 'user', content: uDisp, ...(uDisp !== userInput ? { raw: userInput } : {}) }]);
+    }
     const cleaned = stripLeakedThinking(rawNarrative);
     lastRawNarrativeRef.current = cleaned;
     deferredCreatesRef.current = applyAllUpdates(cleaned, undefined, { deferItemCreate: itemPhaseWillRunThisTurn() }).deferredCreates;
     try { applyPlayerProfileCommands(cleaned, '', turnCountRef.current); } catch { /* */ }
     const settled = stripKillBlocks(cleaned);
-    const _ssEvo = useSettings.getState();   // 同上：实时读 store，免 stale 闭包导致演化也拿不到预设
-    const preset = resolveActivePreset(_ssEvo);
-    const narrativeForEvoRaw = stripStateBlocks(applyRegex(settled, preset, 'prompt'));   // 演化视图：跳过美化壳、应用对AI隐藏
-    const processed = stripWorldSourceBlocks(stripVitalsBlocks(stripStateBlocks(applyRegex(settled, preset, 'display'))));   // 显示视图：应用美化、跳过对AI隐藏
+    const narrativeForEvoRaw = stripStateBlocks(applyRegex(settled, preset, 'prompt', { depth: 0 }));   // 演化视图：跳过美化壳、应用对AI隐藏
+    const processed = stripWorldSourceBlocks(stripVitalsBlocks(stripStateBlocks(applyRegex(settled, preset, 'display', { depth: 0 }))));   // 显示视图：应用美化、跳过对AI隐藏
+    const rawForHist = stripWorldSourceBlocks(stripVitalsBlocks(stripStateBlocks(settled)));   // 正则前原文 → 楼层 raw（历史按 prompt 视图现算）
     const newMsgId = ++msgId.current;
-    setMessages((prev) => [...prev, { id: newMsgId, role: 'assistant', content: processed }]);
+    setMessages((prev) => [...prev, { id: newMsgId, role: 'assistant', content: processed, ...(rawForHist !== processed ? { raw: rawForHist } : {}) }]);
     const narrativeForEvo = narrativeForEvoRaw.replace(/<击杀结算>[\s\S]*?<\/击杀结算>/gi, '').trimEnd();
     lastNarrativeRef.current = narrativeForEvo;
     runPostNarrativePhases(narrativeForEvo, newMsgId);
@@ -9737,14 +9815,21 @@ ${lines}`;
       return;
     }
 
+    // ST「用户输入」placement 正则（本项目 placement=0）：display 视图落楼层显示、prompt 视图发给正文 API；
+    //   原文存楼层 raw，后续回合历史注入时每楼再按 prompt 视图现算。没配用户输入正则时三者相等=零改动。
+    //   联机来宾/分头三段式路径暂不接（正文由房主/大纲管线生成，改写玩家提交文本风险面大）。
+    const _sendPreset = resolveActivePreset(useSettings.getState());
+    const userDisplayText = applyRegex(effectiveText, _sendPreset, 'display', { target: 'user', depth: 0, quiet: true });
+    const userPromptText  = applyRegex(effectiveText, _sendPreset, 'prompt',  { target: 'user', depth: 0, quiet: true });
+
     const histSnapshot = [...messagesRef.current];   // 发送前抓拍历史（仅含已结算的过往楼层，不含本回合）——供自动检定 AI 等待期后传给 callApi
     const userMsgId = ++msgId.current;
-    const userMsg: ChatMessage = { id: userMsgId, role: 'user', content: effectiveText, inputImages: turnImages.length ? turnImages : undefined };
+    const userMsg: ChatMessage = { id: userMsgId, role: 'user', content: userDisplayText, ...(userDisplayText !== effectiveText ? { raw: effectiveText } : {}), inputImages: turnImages.length ? turnImages : undefined };
     setMessages((prev) => [...prev, userMsg]);
     if (textArg == null) setInputValue('');
     // 自动检定（骰子面板开「自动检定」时·仅单人）：hybrid＝关键词命中才 roll，judgeMode=ai 再 AI 精修。
     //   结果对读者隐藏——`<检定结果>` 块只随本回合喂给正文 API（不入楼层 content，不污染历史），另在该用户气泡下弹一张骰子卡。
-    let apiText = effectiveText;
+    let apiText = userPromptText;
     let autoFired = false;
     if (mp.status !== 'connected') {
       try {
@@ -9768,7 +9853,7 @@ ${lines}`;
             finalBlock = decided.block; finalCards = decided.cards;
           }
           if (finalBlock.trim()) {   // 清空检定块（审核时删掉）= 本回合不注入检定
-            apiText = `${effectiveText}\n${finalBlock.trim()}`;
+            apiText = `${userPromptText}\n${finalBlock.trim()}`;
             setMessages((prev) => prev.map((m) => m.id === userMsgId ? { ...m, dice: finalCards } : m));
           }
         }

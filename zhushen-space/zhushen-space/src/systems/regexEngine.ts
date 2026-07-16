@@ -11,6 +11,49 @@ export function filterString(s: string, trimStrings?: string[]): string {
   return out;
 }
 
+/* 编译 findRegex：兼容存量数据的 /pattern/flags 包裹格式（斜线内 flags 优先于独立 flags 字段），
+   去重并只保留合法 flags 字符，缺省补 g。App.applyRegex 与设置面板「试跑预览」共用，保证行为一致。 */
+export function compileFindRegex(findRegex: string, extraFlags?: string): { re: RegExp; pattern: string; flags: string } | null {
+  let pattern = findRegex ?? '';
+  let rawFlags = extraFlags || '';
+  if (pattern.startsWith('/')) {
+    const last = pattern.lastIndexOf('/');
+    if (last > 0) {
+      rawFlags = pattern.slice(last + 1) + rawFlags;
+      pattern  = pattern.slice(1, last);
+    }
+  }
+  if (!pattern) return null;
+  const flags = [...new Set(rawFlags)].filter((c) => /[gimsuy]/.test(c)).join('') || 'g';
+  try { return { re: new RegExp(pattern, flags), pattern, flags }; } catch { return null; }
+}
+
+/* 把字符串转成正则字面量（转义所有正则特殊字符）。substituteRegex=2「转义」模式对宏值转义用。 */
+export function escapeRegexLiteral(s: string): string {
+  return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+/* 一条正则脚本在给定上下文里是否该执行——照 ST 语义的统一过滤谓词（App.applyRegex 用 + 可单测）：
+   · stage 视图（本项目改编版，勿改回 ST 原版）：display=markdownOnly+alterchat（跳过 promptOnly）；prompt=promptOnly+alterchat（跳过 markdownOnly）
+   · target placement：ai 认 1（本项目 AI输出）/2（ST 旧码兼容·已存储数据）；user 认 0（本项目用户输入）
+   · depth（ST Min/Max Depth）：仅在调用方给了 depth（=prompt 历史/结算场景，0=最新楼）时过滤；min/max 缺省或 null 不限
+   · bakedPromptOnly：旧楼层无 raw、display 视图已烙进 content——只补跑 promptOnly 脚本（alter-chat 已应用过，重跑可能双重替换） */
+export function regexScriptApplies(
+  s: Pick<RegexScript, 'disabled' | 'findRegex' | 'placement' | 'markdownOnly' | 'promptOnly' | 'minDepth' | 'maxDepth'>,
+  opts: { stage: 'display' | 'prompt'; target?: 'ai' | 'user'; depth?: number; bakedPromptOnly?: boolean },
+): boolean {
+  if (s.disabled || !s.findRegex) return false;
+  const target = opts.target ?? 'ai';
+  if (target === 'user' ? !s.placement.includes(0) : !(s.placement.includes(1) || s.placement.includes(2))) return false;
+  if (opts.stage === 'display' ? s.promptOnly : s.markdownOnly) return false;
+  if (opts.bakedPromptOnly && !s.promptOnly) return false;
+  if (opts.depth != null) {
+    if (typeof s.minDepth === 'number' && opts.depth < s.minDepth) return false;
+    if (typeof s.maxDepth === 'number' && opts.depth > s.maxDepth) return false;
+  }
+  return true;
+}
+
 /* 照 ST 的替换：单次 replace 用回调，token 一次扫描精确回填，绝不把「插入的捕获内容」再当模板二次解析。
    支持：{{match}} 与 $0 = 整个匹配；$1..$n = 编号捕获组；$<name> = 命名捕获组；$$ = 字面 $；$& = 整个匹配。
    每个捕获值插入前先经 filterString(trimStrings)（ST 行为）。

@@ -1,0 +1,2228 @@
+<!DOCTYPE html>
+<html lang="ja-JP">
+
+<head>
+  <meta charset="utf-8"><!-- New Relic Browser スニペット挿入 -->
+
+<script type="text/javascript">
+  ;window.NREUM||(NREUM={});NREUM.init={performance:{capture_measures:true},privacy:{cookies_enabled:true},ajax:{deny_list:["bam.nr-data.net", "*"]}};
+
+  ;NREUM.loader_config={accountID:"2597550",trustKey:"2462166",agentID:"1134416462",licenseKey:"NRJS-26fb73475871c01d5bd",applicationID:"1033136204"};
+  ;NREUM.info={beacon:"bam.nr-data.net",errorBeacon:"bam.nr-data.net",licenseKey:"NRJS-26fb73475871c01d5bd",applicationID:"1033136204",sa:1};
+  ;/*! For license information please see nr-loader-spa-1.301.0.min.js.LICENSE.txt */
+  (()=>{var e,t,r={384:(e,t,r)=>{"use strict";r.d(t,{NT:()=>a,US:()=>d,Zm:()=>s,bQ:()=>u,dV:()=>c,pV:()=>l});var n=r(6154),i=r(1863),o=r(1910);const a={beacon:"bam.nr-data.net",errorBeacon:"bam.nr-data.net"};function s(){return n.gm.NREUM||(n.gm.NREUM={}),void 0===n.gm.newrelic&&(n.gm.newrelic=n.gm.NREUM),n.gm.NREUM}function c(){let e=s();return e.o||(e.o={ST:n.gm.setTimeout,SI:n.gm.setImmediate||n.gm.setInterval,CT:n.gm.clearTimeout,XHR:n.gm.XMLHttpRequest,REQ:n.gm.Request,EV:n.gm.Event,PR:n.gm.Promise,MO:n.gm.MutationObserver,FETCH:n.gm.fetch,WS:n.gm.WebSocket},(0,o.i)(...Object.values(e.o))),e}function u(e,t){let r=s();r.initializedAgents??={},t.initializedAt={ms:(0,i.t)(),date:new Date},r.initializedAgents[e]=t}function d(e,t){s()[e]=t}function l(){return function(){let e=s();const t=e.info||{};e.info={beacon:a.beacon,errorBeacon:a.errorBeacon,...t}}(),function(){let e=s();const t=e.init||{};e.init={...t}}(),c(),function(){let e=s();const t=e.loader_config||{};e.loader_config={...t}}(),s()}},782:(e,t,r)=>{"use strict";r.d(t,{T:()=>n});const n=r(860).K7.pageViewTiming},860:(e,t,r)=>{"use strict";r.d(t,{$J:()=>d,K7:()=>c,P3:()=>u,XX:()=>i,Yy:()=>s,df:()=>o,qY:()=>n,v4:()=>a});const n="events",i="jserrors",o="browser/blobs",a="rum",s="browser/logs",c={ajax:"ajax",genericEvents:"generic_events",jserrors:i,logging:"logging",metrics:"metrics",pageAction:"page_action",pageViewEvent:"page_view_event",pageViewTiming:"page_view_timing",sessionReplay:"session_replay",sessionTrace:"session_trace",softNav:"soft_navigations",spa:"spa"},u={[c.pageViewEvent]:1,[c.pageViewTiming]:2,[c.metrics]:3,[c.jserrors]:4,[c.spa]:5,[c.ajax]:6,[c.sessionTrace]:7,[c.softNav]:8,[c.sessionReplay]:9,[c.logging]:10,[c.genericEvents]:11},d={[c.pageViewEvent]:a,[c.pageViewTiming]:n,[c.ajax]:n,[c.spa]:n,[c.softNav]:n,[c.metrics]:i,[c.jserrors]:i,[c.sessionTrace]:o,[c.sessionReplay]:o,[c.logging]:s,[c.genericEvents]:"ins"}},944:(e,t,r)=>{"use strict";r.d(t,{R:()=>i});var n=r(3241);function i(e,t){"function"==typeof console.debug&&(console.debug("New Relic Warning: https://github.com/newrelic/newrelic-browser-agent/blob/main/docs/warning-codes.md#".concat(e),t),(0,n.W)({agentIdentifier:null,drained:null,type:"data",name:"warn",feature:"warn",data:{code:e,secondary:t}}))}},993:(e,t,r)=>{"use strict";r.d(t,{A$:()=>o,ET:()=>a,TZ:()=>s,p_:()=>i});var n=r(860);const i={ERROR:"ERROR",WARN:"WARN",INFO:"INFO",DEBUG:"DEBUG",TRACE:"TRACE"},o={OFF:0,ERROR:1,WARN:2,INFO:3,DEBUG:4,TRACE:5},a="log",s=n.K7.logging},1687:(e,t,r)=>{"use strict";r.d(t,{Ak:()=>u,Ze:()=>f,x3:()=>d});var n=r(3241),i=r(7836),o=r(3606),a=r(860),s=r(2646);const c={};function u(e,t){const r={staged:!1,priority:a.P3[t]||0};l(e),c[e].get(t)||c[e].set(t,r)}function d(e,t){e&&c[e]&&(c[e].get(t)&&c[e].delete(t),p(e,t,!1),c[e].size&&h(e))}function l(e){if(!e)throw new Error("agentIdentifier required");c[e]||(c[e]=new Map)}function f(e="",t="feature",r=!1){if(l(e),!e||!c[e].get(t)||r)return p(e,t);c[e].get(t).staged=!0,h(e)}function h(e){const t=Array.from(c[e]);t.every(([e,t])=>t.staged)&&(t.sort((e,t)=>e[1].priority-t[1].priority),t.forEach(([t])=>{c[e].delete(t),p(e,t)}))}function p(e,t,r=!0){const a=e?i.ee.get(e):i.ee,c=o.i.handlers;if(!a.aborted&&a.backlog&&c){if((0,n.W)({agentIdentifier:e,type:"lifecycle",name:"drain",feature:t}),r){const e=a.backlog[t],r=c[t];if(r){for(let t=0;e&&t<e.length;++t)g(e[t],r);Object.entries(r).forEach(([e,t])=>{Object.values(t||{}).forEach(t=>{t[0]?.on&&t[0]?.context()instanceof s.y&&t[0].on(e,t[1])})})}}a.isolatedBacklog||delete c[t],a.backlog[t]=null,a.emit("drain-"+t,[])}}function g(e,t){var r=e[1];Object.values(t[r]||{}).forEach(t=>{var r=e[0];if(t[0]===r){var n=t[1],i=e[3],o=e[2];n.apply(i,o)}})}},1741:(e,t,r)=>{"use strict";r.d(t,{W:()=>o});var n=r(944),i=r(4261);class o{#e(e,...t){if(this[e]!==o.prototype[e])return this[e](...t);(0,n.R)(35,e)}addPageAction(e,t){return this.#e(i.hG,e,t)}register(e){return this.#e(i.eY,e)}recordCustomEvent(e,t){return this.#e(i.fF,e,t)}setPageViewName(e,t){return this.#e(i.Fw,e,t)}setCustomAttribute(e,t,r){return this.#e(i.cD,e,t,r)}noticeError(e,t){return this.#e(i.o5,e,t)}setUserId(e){return this.#e(i.Dl,e)}setApplicationVersion(e){return this.#e(i.nb,e)}setErrorHandler(e){return this.#e(i.bt,e)}addRelease(e,t){return this.#e(i.k6,e,t)}log(e,t){return this.#e(i.$9,e,t)}start(){return this.#e(i.d3)}finished(e){return this.#e(i.BL,e)}recordReplay(){return this.#e(i.CH)}pauseReplay(){return this.#e(i.Tb)}addToTrace(e){return this.#e(i.U2,e)}setCurrentRouteName(e){return this.#e(i.PA,e)}interaction(e){return this.#e(i.dT,e)}wrapLogger(e,t,r){return this.#e(i.Wb,e,t,r)}measure(e,t){return this.#e(i.V1,e,t)}}},1863:(e,t,r)=>{"use strict";function n(){return Math.floor(performance.now())}r.d(t,{t:()=>n})},1910:(e,t,r)=>{"use strict";r.d(t,{i:()=>o});var n=r(944);const i=new Map;function o(...e){return e.every(e=>{if(i.has(e))return i.get(e);const t="function"==typeof e&&e.toString().includes("[native code]");return t||(0,n.R)(64,e?.name||e?.toString()),i.set(e,t),t})}},2555:(e,t,r)=>{"use strict";r.d(t,{D:()=>s,f:()=>a});var n=r(384),i=r(8122);const o={beacon:n.NT.beacon,errorBeacon:n.NT.errorBeacon,licenseKey:void 0,applicationID:void 0,sa:void 0,queueTime:void 0,applicationTime:void 0,ttGuid:void 0,user:void 0,account:void 0,product:void 0,extra:void 0,jsAttributes:{},userAttributes:void 0,atts:void 0,transactionName:void 0,tNamePlain:void 0};function a(e){try{return!!e.licenseKey&&!!e.errorBeacon&&!!e.applicationID}catch(e){return!1}}const s=e=>(0,i.a)(e,o)},2614:(e,t,r)=>{"use strict";r.d(t,{BB:()=>a,H3:()=>n,g:()=>u,iL:()=>c,tS:()=>s,uh:()=>i,wk:()=>o});const n="NRBA",i="SESSION",o=144e5,a=18e5,s={STARTED:"session-started",PAUSE:"session-pause",RESET:"session-reset",RESUME:"session-resume",UPDATE:"session-update"},c={SAME_TAB:"same-tab",CROSS_TAB:"cross-tab"},u={OFF:0,FULL:1,ERROR:2}},2646:(e,t,r)=>{"use strict";r.d(t,{y:()=>n});class n{constructor(e){this.contextId=e}}},2843:(e,t,r)=>{"use strict";r.d(t,{u:()=>i});var n=r(3878);function i(e,t=!1,r,i){(0,n.DD)("visibilitychange",function(){if(t)return void("hidden"===document.visibilityState&&e());e(document.visibilityState)},r,i)}},3241:(e,t,r)=>{"use strict";r.d(t,{W:()=>o});var n=r(6154);const i="newrelic";function o(e={}){try{n.gm.dispatchEvent(new CustomEvent(i,{detail:e}))}catch(e){}}},3304:(e,t,r)=>{"use strict";r.d(t,{A:()=>o});var n=r(7836);const i=()=>{const e=new WeakSet;return(t,r)=>{if("object"==typeof r&&null!==r){if(e.has(r))return;e.add(r)}return r}};function o(e){try{return JSON.stringify(e,i())??""}catch(e){try{n.ee.emit("internal-error",[e])}catch(e){}return""}}},3333:(e,t,r)=>{"use strict";r.d(t,{$v:()=>d,TZ:()=>n,Xh:()=>c,Zp:()=>i,kd:()=>u,mq:()=>s,nf:()=>a,qN:()=>o});const n=r(860).K7.genericEvents,i=["auxclick","click","copy","keydown","paste","scrollend"],o=["focus","blur"],a=4,s=1e3,c=2e3,u=["PageAction","UserAction","BrowserPerformance"],d={RESOURCES:"experimental.resources"}},3434:(e,t,r)=>{"use strict";r.d(t,{Jt:()=>o,YM:()=>u});var n=r(7836),i=r(5607);const o="nr@original:".concat(i.W),a=50;var s=Object.prototype.hasOwnProperty,c=!1;function u(e,t){return e||(e=n.ee),r.inPlace=function(e,t,n,i,o){n||(n="");const a="-"===n.charAt(0);for(let s=0;s<t.length;s++){const c=t[s],u=e[c];l(u)||(e[c]=r(u,a?c+n:n,i,c,o))}},r.flag=o,r;function r(t,r,n,c,u){return l(t)?t:(r||(r=""),nrWrapper[o]=t,function(e,t,r){if(Object.defineProperty&&Object.keys)try{return Object.keys(e).forEach(function(r){Object.defineProperty(t,r,{get:function(){return e[r]},set:function(t){return e[r]=t,t}})}),t}catch(e){d([e],r)}for(var n in e)s.call(e,n)&&(t[n]=e[n])}(t,nrWrapper,e),nrWrapper);function nrWrapper(){var o,s,l,f;let h;try{s=this,o=[...arguments],l="function"==typeof n?n(o,s):n||{}}catch(t){d([t,"",[o,s,c],l],e)}i(r+"start",[o,s,c],l,u);const p=performance.now();let g;try{return f=t.apply(s,o),g=performance.now(),f}catch(e){throw g=performance.now(),i(r+"err",[o,s,e],l,u),h=e,h}finally{const e=g-p,t={start:p,end:g,duration:e,isLongTask:e>=a,methodName:c,thrownError:h};t.isLongTask&&i("long-task",[t,s],l,u),i(r+"end",[o,s,f],l,u)}}}function i(r,n,i,o){if(!c||t){var a=c;c=!0;try{e.emit(r,n,i,t,o)}catch(t){d([t,r,n,i],e)}c=a}}}function d(e,t){t||(t=n.ee);try{t.emit("internal-error",e)}catch(e){}}function l(e){return!(e&&"function"==typeof e&&e.apply&&!e[o])}},3496:(e,t,r)=>{"use strict";function n(e){return!e||!(!e.licenseKey||!e.applicationID)}function i(e,t){return!e||e.licenseKey===t.info.licenseKey&&e.applicationID===t.info.applicationID}r.d(t,{A:()=>i,I:()=>n})},3606:(e,t,r)=>{"use strict";r.d(t,{i:()=>o});var n=r(9908);o.on=a;var i=o.handlers={};function o(e,t,r,o){a(o||n.d,i,e,t,r)}function a(e,t,r,i,o){o||(o="feature"),e||(e=n.d);var a=t[o]=t[o]||{};(a[r]=a[r]||[]).push([e,i])}},3738:(e,t,r)=>{"use strict";r.d(t,{He:()=>i,Kp:()=>s,Lc:()=>u,Rz:()=>d,TZ:()=>n,bD:()=>o,d3:()=>a,jx:()=>l,sl:()=>f,uP:()=>c});const n=r(860).K7.sessionTrace,i="bstResource",o="resource",a="-start",s="-end",c="fn"+a,u="fn"+s,d="pushState",l=1e3,f=3e4},3785:(e,t,r)=>{"use strict";r.d(t,{R:()=>c,b:()=>u});var n=r(9908),i=r(1863),o=r(860),a=r(8154),s=r(993);function c(e,t,r={},c=s.p_.INFO,u,d=(0,i.t)()){(0,n.p)(a.xV,["API/logging/".concat(c.toLowerCase(),"/called")],void 0,o.K7.metrics,e),(0,n.p)(s.ET,[d,t,r,c,u],void 0,o.K7.logging,e)}function u(e){return"string"==typeof e&&Object.values(s.p_).some(t=>t===e.toUpperCase().trim())}},3878:(e,t,r)=>{"use strict";function n(e,t){return{capture:e,passive:!1,signal:t}}function i(e,t,r=!1,i){window.addEventListener(e,t,n(r,i))}function o(e,t,r=!1,i){document.addEventListener(e,t,n(r,i))}r.d(t,{DD:()=>o,jT:()=>n,sp:()=>i})},3962:(e,t,r)=>{"use strict";r.d(t,{AM:()=>a,O2:()=>l,OV:()=>o,Qu:()=>f,TZ:()=>c,ih:()=>h,pP:()=>s,t1:()=>d,tC:()=>i,wD:()=>u});var n=r(860);const i=["click","keydown","submit"],o="popstate",a="api",s="initialPageLoad",c=n.K7.softNav,u=5e3,d=500,l={INITIAL_PAGE_LOAD:"",ROUTE_CHANGE:1,UNSPECIFIED:2},f={INTERACTION:1,AJAX:2,CUSTOM_END:3,CUSTOM_TRACER:4},h={IP:"in progress",PF:"pending finish",FIN:"finished",CAN:"cancelled"}},4234:(e,t,r)=>{"use strict";r.d(t,{W:()=>o});var n=r(7836),i=r(1687);class o{constructor(e,t){this.agentIdentifier=e,this.ee=n.ee.get(e),this.featureName=t,this.blocked=!1}deregisterDrain(){(0,i.x3)(this.agentIdentifier,this.featureName)}}},4261:(e,t,r)=>{"use strict";r.d(t,{$9:()=>d,BL:()=>c,CH:()=>p,Dl:()=>R,Fw:()=>w,PA:()=>v,Pl:()=>n,Tb:()=>f,U2:()=>a,V1:()=>E,Wb:()=>T,bt:()=>y,cD:()=>b,d3:()=>x,dT:()=>u,eY:()=>g,fF:()=>h,hG:()=>o,hw:()=>i,k6:()=>s,nb:()=>m,o5:()=>l});const n="api-",i=n+"ixn-",o="addPageAction",a="addToTrace",s="addRelease",c="finished",u="interaction",d="log",l="noticeError",f="pauseReplay",h="recordCustomEvent",p="recordReplay",g="register",m="setApplicationVersion",v="setCurrentRouteName",b="setCustomAttribute",y="setErrorHandler",w="setPageViewName",R="setUserId",x="start",T="wrapLogger",E="measure"},5205:(e,t,r)=>{"use strict";r.d(t,{j:()=>O});var n=r(384),i=r(1741);var o=r(2555),a=r(3333);const s=e=>{if(!e||"string"!=typeof e)return!1;try{document.createDocumentFragment().querySelector(e)}catch{return!1}return!0};var c=r(2614),u=r(944),d=r(8122);const l="[data-nr-mask]",f=e=>(0,d.a)(e,(()=>{const e={feature_flags:[],experimental:{resources:!1},mask_selector:"*",block_selector:"[data-nr-block]",mask_input_options:{color:!1,date:!1,"datetime-local":!1,email:!1,month:!1,number:!1,range:!1,search:!1,tel:!1,text:!1,time:!1,url:!1,week:!1,textarea:!1,select:!1,password:!0}};return{ajax:{deny_list:void 0,block_internal:!0,enabled:!0,autoStart:!0},api:{allow_registered_children:!0,duplicate_registered_data:!1},distributed_tracing:{enabled:void 0,exclude_newrelic_header:void 0,cors_use_newrelic_header:void 0,cors_use_tracecontext_headers:void 0,allowed_origins:void 0},get feature_flags(){return e.feature_flags},set feature_flags(t){e.feature_flags=t},generic_events:{enabled:!0,autoStart:!0},harvest:{interval:30},jserrors:{enabled:!0,autoStart:!0},logging:{enabled:!0,autoStart:!0},metrics:{enabled:!0,autoStart:!0},obfuscate:void 0,page_action:{enabled:!0},page_view_event:{enabled:!0,autoStart:!0},page_view_timing:{enabled:!0,autoStart:!0},performance:{capture_marks:!1,capture_measures:!1,capture_detail:!0,resources:{get enabled(){return e.feature_flags.includes(a.$v.RESOURCES)||e.experimental.resources},set enabled(t){e.experimental.resources=t},asset_types:[],first_party_domains:[],ignore_newrelic:!0}},privacy:{cookies_enabled:!0},proxy:{assets:void 0,beacon:void 0},session:{expiresMs:c.wk,inactiveMs:c.BB},session_replay:{autoStart:!0,enabled:!1,preload:!1,sampling_rate:10,error_sampling_rate:100,collect_fonts:!1,inline_images:!1,fix_stylesheets:!0,mask_all_inputs:!0,get mask_text_selector(){return e.mask_selector},set mask_text_selector(t){s(t)?e.mask_selector="".concat(t,",").concat(l):""===t||null===t?e.mask_selector=l:(0,u.R)(5,t)},get block_class(){return"nr-block"},get ignore_class(){return"nr-ignore"},get mask_text_class(){return"nr-mask"},get block_selector(){return e.block_selector},set block_selector(t){s(t)?e.block_selector+=",".concat(t):""!==t&&(0,u.R)(6,t)},get mask_input_options(){return e.mask_input_options},set mask_input_options(t){t&&"object"==typeof t?e.mask_input_options={...t,password:!0}:(0,u.R)(7,t)}},session_trace:{enabled:!0,autoStart:!0},soft_navigations:{enabled:!0,autoStart:!0},spa:{enabled:!0,autoStart:!0},ssl:void 0,user_actions:{enabled:!0,elementAttributes:["id","className","tagName","type"]}}})());var h=r(6154),p=r(9324);let g=0;const m={buildEnv:p.F3,distMethod:p.Xs,version:p.xv,originTime:h.WN},v={appMetadata:{},customTransaction:void 0,denyList:void 0,disabled:!1,entityManager:void 0,harvester:void 0,isolatedBacklog:!1,isRecording:!1,loaderType:void 0,maxBytes:3e4,obfuscator:void 0,onerror:void 0,ptid:void 0,releaseIds:{},session:void 0,timeKeeper:void 0,jsAttributesMetadata:{bytes:0},get harvestCount(){return++g}},b=e=>{const t=(0,d.a)(e,v),r=Object.keys(m).reduce((e,t)=>(e[t]={value:m[t],writable:!1,configurable:!0,enumerable:!0},e),{});return Object.defineProperties(t,r)};var y=r(5701);const w=e=>{const t=e.startsWith("http");e+="/",r.p=t?e:"https://"+e};var R=r(7836),x=r(3241);const T={accountID:void 0,trustKey:void 0,agentID:void 0,licenseKey:void 0,applicationID:void 0,xpid:void 0},E=e=>(0,d.a)(e,T),A=new Set;function O(e,t={},r,a){let{init:s,info:c,loader_config:u,runtime:d={},exposed:l=!0}=t;if(!c){const e=(0,n.pV)();s=e.init,c=e.info,u=e.loader_config}e.init=f(s||{}),e.loader_config=E(u||{}),c.jsAttributes??={},h.bv&&(c.jsAttributes.isWorker=!0),e.info=(0,o.D)(c);const p=e.init,g=[c.beacon,c.errorBeacon];A.has(e.agentIdentifier)||(p.proxy.assets&&(w(p.proxy.assets),g.push(p.proxy.assets)),p.proxy.beacon&&g.push(p.proxy.beacon),e.beacons=[...g],function(e){const t=(0,n.pV)();Object.getOwnPropertyNames(i.W.prototype).forEach(r=>{const n=i.W.prototype[r];if("function"!=typeof n||"constructor"===n)return;let o=t[r];e[r]&&!1!==e.exposed&&"micro-agent"!==e.runtime?.loaderType&&(t[r]=(...t)=>{const n=e[r](...t);return o?o(...t):n})})}(e),(0,n.US)("activatedFeatures",y.B),e.runSoftNavOverSpa&&=!0===p.soft_navigations.enabled&&p.feature_flags.includes("soft_nav")),d.denyList=[...p.ajax.deny_list||[],...p.ajax.block_internal?g:[]],d.ptid=e.agentIdentifier,d.loaderType=r,e.runtime=b(d),A.has(e.agentIdentifier)||(e.ee=R.ee.get(e.agentIdentifier),e.exposed=l,(0,x.W)({agentIdentifier:e.agentIdentifier,drained:!!y.B?.[e.agentIdentifier],type:"lifecycle",name:"initialize",feature:void 0,data:e.config})),A.add(e.agentIdentifier)}},5270:(e,t,r)=>{"use strict";r.d(t,{Aw:()=>a,SR:()=>o,rF:()=>s});var n=r(384),i=r(7767);function o(e){return!!(0,n.dV)().o.MO&&(0,i.V)(e)&&!0===e?.session_trace.enabled}function a(e){return!0===e?.session_replay.preload&&o(e)}function s(e,t){try{if("string"==typeof t?.type){if("password"===t.type.toLowerCase())return"*".repeat(e?.length||0);if(void 0!==t?.dataset?.nrUnmask||t?.classList?.contains("nr-unmask"))return e}}catch(e){}return"string"==typeof e?e.replace(/[\S]/g,"*"):"*".repeat(e?.length||0)}},5289:(e,t,r)=>{"use strict";r.d(t,{GG:()=>o,Qr:()=>s,sB:()=>a});var n=r(3878);function i(){return"undefined"==typeof document||"complete"===document.readyState}function o(e,t){if(i())return e();(0,n.sp)("load",e,t)}function a(e){if(i())return e();(0,n.DD)("DOMContentLoaded",e)}function s(e){if(i())return e();(0,n.sp)("popstate",e)}},5607:(e,t,r)=>{"use strict";r.d(t,{W:()=>n});const n=(0,r(9566).bz)()},5701:(e,t,r)=>{"use strict";r.d(t,{B:()=>o,t:()=>a});var n=r(3241);const i=new Set,o={};function a(e,t){const r=t.agentIdentifier;o[r]??={},e&&"object"==typeof e&&(i.has(r)||(t.ee.emit("rumresp",[e]),o[r]=e,i.add(r),(0,n.W)({agentIdentifier:r,loaded:!0,drained:!0,type:"lifecycle",name:"load",feature:void 0,data:e})))}},6154:(e,t,r)=>{"use strict";r.d(t,{A4:()=>s,OF:()=>d,RI:()=>i,WN:()=>h,bv:()=>o,gm:()=>a,lR:()=>f,m:()=>u,mw:()=>c,sb:()=>l});var n=r(1863);const i="undefined"!=typeof window&&!!window.document,o="undefined"!=typeof WorkerGlobalScope&&("undefined"!=typeof self&&self instanceof WorkerGlobalScope&&self.navigator instanceof WorkerNavigator||"undefined"!=typeof globalThis&&globalThis instanceof WorkerGlobalScope&&globalThis.navigator instanceof WorkerNavigator),a=i?window:"undefined"!=typeof WorkerGlobalScope&&("undefined"!=typeof self&&self instanceof WorkerGlobalScope&&self||"undefined"!=typeof globalThis&&globalThis instanceof WorkerGlobalScope&&globalThis),s="complete"===a?.document?.readyState,c=Boolean("hidden"===a?.document?.visibilityState),u=""+a?.location,d=/iPad|iPhone|iPod/.test(a.navigator?.userAgent),l=d&&"undefined"==typeof SharedWorker,f=(()=>{const e=a.navigator?.userAgent?.match(/Firefox[/\s](\d+\.\d+)/);return Array.isArray(e)&&e.length>=2?+e[1]:0})(),h=Date.now()-(0,n.t)()},6344:(e,t,r)=>{"use strict";r.d(t,{BB:()=>d,G4:()=>o,Qb:()=>l,TZ:()=>i,Ug:()=>a,_s:()=>s,bc:()=>u,yP:()=>c});var n=r(2614);const i=r(860).K7.sessionReplay,o={RECORD:"recordReplay",PAUSE:"pauseReplay",ERROR_DURING_REPLAY:"errorDuringReplay"},a=.12,s={DomContentLoaded:0,Load:1,FullSnapshot:2,IncrementalSnapshot:3,Meta:4,Custom:5},c={[n.g.ERROR]:15e3,[n.g.FULL]:3e5,[n.g.OFF]:0},u={RESET:{message:"Session was reset",sm:"Reset"},IMPORT:{message:"Recorder failed to import",sm:"Import"},TOO_MANY:{message:"429: Too Many Requests",sm:"Too-Many"},TOO_BIG:{message:"Payload was too large",sm:"Too-Big"},CROSS_TAB:{message:"Session Entity was set to OFF on another tab",sm:"Cross-Tab"},ENTITLEMENTS:{message:"Session Replay is not allowed and will not be started",sm:"Entitlement"}},d=5e3,l={API:"api",RESUME:"resume",SWITCH_TO_FULL:"switchToFull",INITIALIZE:"initialize",PRELOAD:"preload"}},6389:(e,t,r)=>{"use strict";function n(e,t=500,r={}){const n=r?.leading||!1;let i;return(...r)=>{n&&void 0===i&&(e.apply(this,r),i=setTimeout(()=>{i=clearTimeout(i)},t)),n||(clearTimeout(i),i=setTimeout(()=>{e.apply(this,r)},t))}}function i(e){let t=!1;return(...r)=>{t||(t=!0,e.apply(this,r))}}r.d(t,{J:()=>i,s:()=>n})},6630:(e,t,r)=>{"use strict";r.d(t,{T:()=>n});const n=r(860).K7.pageViewEvent},6774:(e,t,r)=>{"use strict";r.d(t,{T:()=>n});const n=r(860).K7.jserrors},7295:(e,t,r)=>{"use strict";r.d(t,{Xv:()=>a,gX:()=>i,iW:()=>o});var n=[];function i(e){if(!e||o(e))return!1;if(0===n.length)return!0;for(var t=0;t<n.length;t++){var r=n[t];if("*"===r.hostname)return!1;if(s(r.hostname,e.hostname)&&c(r.pathname,e.pathname))return!1}return!0}function o(e){return void 0===e.hostname}function a(e){if(n=[],e&&e.length)for(var t=0;t<e.length;t++){let r=e[t];if(!r)continue;0===r.indexOf("http://")?r=r.substring(7):0===r.indexOf("https://")&&(r=r.substring(8));const i=r.indexOf("/");let o,a;i>0?(o=r.substring(0,i),a=r.substring(i)):(o=r,a="");let[s]=o.split(":");n.push({hostname:s,pathname:a})}}function s(e,t){return!(e.length>t.length)&&t.indexOf(e)===t.length-e.length}function c(e,t){return 0===e.indexOf("/")&&(e=e.substring(1)),0===t.indexOf("/")&&(t=t.substring(1)),""===e||e===t}},7378:(e,t,r)=>{"use strict";r.d(t,{$p:()=>x,BR:()=>b,Kp:()=>R,L3:()=>y,Lc:()=>c,NC:()=>o,SG:()=>d,TZ:()=>i,U6:()=>p,UT:()=>m,d3:()=>w,dT:()=>f,e5:()=>E,gx:()=>v,l9:()=>l,oW:()=>h,op:()=>g,rw:()=>u,tH:()=>A,uP:()=>s,wW:()=>T,xq:()=>a});var n=r(384);const i=r(860).K7.spa,o=["click","submit","keypress","keydown","keyup","change"],a=999,s="fn-start",c="fn-end",u="cb-start",d="api-ixn-",l="remaining",f="interaction",h="spaNode",p="jsonpNode",g="fetch-start",m="fetch-done",v="fetch-body-",b="jsonp-end",y=(0,n.dV)().o.ST,w="-start",R="-end",x="-body",T="cb"+R,E="jsTime",A="fetch"},7485:(e,t,r)=>{"use strict";r.d(t,{D:()=>i});var n=r(6154);function i(e){if(0===(e||"").indexOf("data:"))return{protocol:"data"};try{const t=new URL(e,location.href),r={port:t.port,hostname:t.hostname,pathname:t.pathname,search:t.search,protocol:t.protocol.slice(0,t.protocol.indexOf(":")),sameOrigin:t.protocol===n.gm?.location?.protocol&&t.host===n.gm?.location?.host};return r.port&&""!==r.port||("http:"===t.protocol&&(r.port="80"),"https:"===t.protocol&&(r.port="443")),r.pathname&&""!==r.pathname?r.pathname.startsWith("/")||(r.pathname="/".concat(r.pathname)):r.pathname="/",r}catch(e){return{}}}},7699:(e,t,r)=>{"use strict";r.d(t,{It:()=>i,No:()=>n,qh:()=>a,uh:()=>o});const n=16e3,i=1e6,o="NR_CONTAINER_AGENT",a="SESSION_ERROR"},7767:(e,t,r)=>{"use strict";r.d(t,{V:()=>i});var n=r(6154);const i=e=>n.RI&&!0===e?.privacy.cookies_enabled},7836:(e,t,r)=>{"use strict";r.d(t,{P:()=>s,ee:()=>c});var n=r(384),i=r(8990),o=r(2646),a=r(5607);const s="nr@context:".concat(a.W),c=function e(t,r){var n={},a={},d={},l=!1;try{l=16===r.length&&u.initializedAgents?.[r]?.runtime.isolatedBacklog}catch(e){}var f={on:p,addEventListener:p,removeEventListener:function(e,t){var r=n[e];if(!r)return;for(var i=0;i<r.length;i++)r[i]===t&&r.splice(i,1)},emit:function(e,r,n,i,o){!1!==o&&(o=!0);if(c.aborted&&!i)return;t&&o&&t.emit(e,r,n);var s=h(n);g(e).forEach(e=>{e.apply(s,r)});var u=v()[a[e]];u&&u.push([f,e,r,s]);return s},get:m,listeners:g,context:h,buffer:function(e,t){const r=v();if(t=t||"feature",f.aborted)return;Object.entries(e||{}).forEach(([e,n])=>{a[n]=t,t in r||(r[t]=[])})},abort:function(){f._aborted=!0,Object.keys(f.backlog).forEach(e=>{delete f.backlog[e]})},isBuffering:function(e){return!!v()[a[e]]},debugId:r,backlog:l?{}:t&&"object"==typeof t.backlog?t.backlog:{},isolatedBacklog:l};return Object.defineProperty(f,"aborted",{get:()=>{let e=f._aborted||!1;return e||(t&&(e=t.aborted),e)}}),f;function h(e){return e&&e instanceof o.y?e:e?(0,i.I)(e,s,()=>new o.y(s)):new o.y(s)}function p(e,t){n[e]=g(e).concat(t)}function g(e){return n[e]||[]}function m(t){return d[t]=d[t]||e(f,t)}function v(){return f.backlog}}(void 0,"globalEE"),u=(0,n.Zm)();u.ee||(u.ee=c)},8122:(e,t,r)=>{"use strict";r.d(t,{a:()=>i});var n=r(944);function i(e,t){try{if(!e||"object"!=typeof e)return(0,n.R)(3);if(!t||"object"!=typeof t)return(0,n.R)(4);const r=Object.create(Object.getPrototypeOf(t),Object.getOwnPropertyDescriptors(t)),o=0===Object.keys(r).length?e:r;for(let a in o)if(void 0!==e[a])try{if(null===e[a]){r[a]=null;continue}Array.isArray(e[a])&&Array.isArray(t[a])?r[a]=Array.from(new Set([...e[a],...t[a]])):"object"==typeof e[a]&&"object"==typeof t[a]?r[a]=i(e[a],t[a]):r[a]=e[a]}catch(e){r[a]||(0,n.R)(1,e)}return r}catch(e){(0,n.R)(2,e)}}},8139:(e,t,r)=>{"use strict";r.d(t,{u:()=>f});var n=r(7836),i=r(3434),o=r(8990),a=r(6154);const s={},c=a.gm.XMLHttpRequest,u="addEventListener",d="removeEventListener",l="nr@wrapped:".concat(n.P);function f(e){var t=function(e){return(e||n.ee).get("events")}(e);if(s[t.debugId]++)return t;s[t.debugId]=1;var r=(0,i.YM)(t,!0);function f(e){r.inPlace(e,[u,d],"-",p)}function p(e,t){return e[1]}return"getPrototypeOf"in Object&&(a.RI&&h(document,f),c&&h(c.prototype,f),h(a.gm,f)),t.on(u+"-start",function(e,t){var n=e[1];if(null!==n&&("function"==typeof n||"object"==typeof n)&&"newrelic"!==e[0]){var i=(0,o.I)(n,l,function(){var e={object:function(){if("function"!=typeof n.handleEvent)return;return n.handleEvent.apply(n,arguments)},function:n}[typeof n];return e?r(e,"fn-",null,e.name||"anonymous"):n});this.wrapped=e[1]=i}}),t.on(d+"-start",function(e){e[1]=this.wrapped||e[1]}),t}function h(e,t,...r){let n=e;for(;"object"==typeof n&&!Object.prototype.hasOwnProperty.call(n,u);)n=Object.getPrototypeOf(n);n&&t(n,...r)}},8154:(e,t,r)=>{"use strict";r.d(t,{z_:()=>o,XG:()=>s,TZ:()=>n,rs:()=>i,xV:()=>a});r(6154),r(9566),r(384);const n=r(860).K7.metrics,i="sm",o="cm",a="storeSupportabilityMetrics",s="storeEventMetrics"},8374:(e,t,r)=>{r.nc=(()=>{try{return document?.currentScript?.nonce}catch(e){}return""})()},8990:(e,t,r)=>{"use strict";r.d(t,{I:()=>i});var n=Object.prototype.hasOwnProperty;function i(e,t,r){if(n.call(e,t))return e[t];var i=r();if(Object.defineProperty&&Object.keys)try{return Object.defineProperty(e,t,{value:i,writable:!0,enumerable:!1}),i}catch(e){}return e[t]=i,i}},9300:(e,t,r)=>{"use strict";r.d(t,{T:()=>n});const n=r(860).K7.ajax},9324:(e,t,r)=>{"use strict";r.d(t,{AJ:()=>a,F3:()=>i,Xs:()=>o,Yq:()=>s,xv:()=>n});const n="1.301.0",i="PROD",o="CDN",a="@newrelic/rrweb",s="1.0.1"},9566:(e,t,r)=>{"use strict";r.d(t,{LA:()=>s,ZF:()=>c,bz:()=>a,el:()=>u});var n=r(6154);const i="xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx";function o(e,t){return e?15&e[t]:16*Math.random()|0}function a(){const e=n.gm?.crypto||n.gm?.msCrypto;let t,r=0;return e&&e.getRandomValues&&(t=e.getRandomValues(new Uint8Array(30))),i.split("").map(e=>"x"===e?o(t,r++).toString(16):"y"===e?(3&o()|8).toString(16):e).join("")}function s(e){const t=n.gm?.crypto||n.gm?.msCrypto;let r,i=0;t&&t.getRandomValues&&(r=t.getRandomValues(new Uint8Array(e)));const a=[];for(var s=0;s<e;s++)a.push(o(r,i++).toString(16));return a.join("")}function c(){return s(16)}function u(){return s(32)}},9908:(e,t,r)=>{"use strict";r.d(t,{d:()=>n,p:()=>i});var n=r(7836).ee.get("handle");function i(e,t,r,i,o){o?(o.buffer([e],i),o.emit(e,t,r)):(n.buffer([e],i),n.emit(e,t,r))}}},n={};function i(e){var t=n[e];if(void 0!==t)return t.exports;var o=n[e]={exports:{}};return r[e](o,o.exports,i),o.exports}i.m=r,i.d=(e,t)=>{for(var r in t)i.o(t,r)&&!i.o(e,r)&&Object.defineProperty(e,r,{enumerable:!0,get:t[r]})},i.f={},i.e=e=>Promise.all(Object.keys(i.f).reduce((t,r)=>(i.f[r](e,t),t),[])),i.u=e=>({212:"nr-spa-compressor",249:"nr-spa-recorder",478:"nr-spa"}[e]+"-1.301.0.min.js"),i.o=(e,t)=>Object.prototype.hasOwnProperty.call(e,t),e={},t="NRBA-1.301.0.PROD:",i.l=(r,n,o,a)=>{if(e[r])e[r].push(n);else{var s,c;if(void 0!==o)for(var u=document.getElementsByTagName("script"),d=0;d<u.length;d++){var l=u[d];if(l.getAttribute("src")==r||l.getAttribute("data-webpack")==t+o){s=l;break}}if(!s){c=!0;var f={478:"sha512-7qHClSVBtoyiwRvCkgyaF5Ps0RAENoPwjauK0I+0bYyBYefdZVshGSe8JQWh/Wexd7hFuUui5xp+2xn5U1a3ZA==",249:"sha512-KuEP0gQ0mAldYT/AqNp3NW4kVb0kLtfIlXaPSFq4WQRFf8vKVNnSqiafso/bWR75halLwFsgmJtdLJEzntVZoQ==",212:"sha512-fqWEILwVJyfYV9/SedvSjCZ6hDRNjOvwYfN73wxZtahaztcFZ2cr3Ns172tBGIDQeWO25QmSlihZm+awv8ma/w=="};(s=document.createElement("script")).charset="utf-8",i.nc&&s.setAttribute("nonce",i.nc),s.setAttribute("data-webpack",t+o),s.src=r,0!==s.src.indexOf(window.location.origin+"/")&&(s.crossOrigin="anonymous"),f[a]&&(s.integrity=f[a])}e[r]=[n];var h=(t,n)=>{s.onerror=s.onload=null,clearTimeout(p);var i=e[r];if(delete e[r],s.parentNode&&s.parentNode.removeChild(s),i&&i.forEach(e=>e(n)),t)return t(n)},p=setTimeout(h.bind(null,void 0,{type:"timeout",target:s}),12e4);s.onerror=h.bind(null,s.onerror),s.onload=h.bind(null,s.onload),c&&document.head.appendChild(s)}},i.r=e=>{"undefined"!=typeof Symbol&&Symbol.toStringTag&&Object.defineProperty(e,Symbol.toStringTag,{value:"Module"}),Object.defineProperty(e,"__esModule",{value:!0})},i.p="https://js-agent.newrelic.com/",(()=>{var e={38:0,788:0};i.f.j=(t,r)=>{var n=i.o(e,t)?e[t]:void 0;if(0!==n)if(n)r.push(n[2]);else{var o=new Promise((r,i)=>n=e[t]=[r,i]);r.push(n[2]=o);var a=i.p+i.u(t),s=new Error;i.l(a,r=>{if(i.o(e,t)&&(0!==(n=e[t])&&(e[t]=void 0),n)){var o=r&&("load"===r.type?"missing":r.type),a=r&&r.target&&r.target.src;s.message="Loading chunk "+t+" failed.\n("+o+": "+a+")",s.name="ChunkLoadError",s.type=o,s.request=a,n[1](s)}},"chunk-"+t,t)}};var t=(t,r)=>{var n,o,[a,s,c]=r,u=0;if(a.some(t=>0!==e[t])){for(n in s)i.o(s,n)&&(i.m[n]=s[n]);if(c)c(i)}for(t&&t(r);u<a.length;u++)o=a[u],i.o(e,o)&&e[o]&&e[o][0](),e[o]=0},r=self["webpackChunk:NRBA-1.301.0.PROD"]=self["webpackChunk:NRBA-1.301.0.PROD"]||[];r.forEach(t.bind(null,0)),r.push=t.bind(null,r.push.bind(r))})(),(()=>{"use strict";i(8374);var e=i(9566),t=i(1741);class r extends t.W{agentIdentifier=(0,e.LA)(16)}var n=i(860);const o=Object.values(n.K7);var a=i(5205);var s=i(9908),c=i(1863),u=i(4261),d=i(3241),l=i(944),f=i(5701),h=i(8154);function p(e,t,i,o){const a=o||i;!a||a[e]&&a[e]!==r.prototype[e]||(a[e]=function(){(0,s.p)(h.xV,["API/"+e+"/called"],void 0,n.K7.metrics,i.ee),(0,d.W)({agentIdentifier:i.agentIdentifier,drained:!!f.B?.[i.agentIdentifier],type:"data",name:"api",feature:u.Pl+e,data:{}});try{return t.apply(this,arguments)}catch(e){(0,l.R)(23,e)}})}function g(e,t,r,n,i){const o=e.info;null===r?delete o.jsAttributes[t]:o.jsAttributes[t]=r,(i||null===r)&&(0,s.p)(u.Pl+n,[(0,c.t)(),t,r],void 0,"session",e.ee)}var m=i(1687),v=i(4234),b=i(5289),y=i(6154),w=i(5270),R=i(7767),x=i(6389),T=i(7699);class E extends v.W{constructor(e,t){super(e.agentIdentifier,t),this.agentRef=e,this.abortHandler=void 0,this.featAggregate=void 0,this.onAggregateImported=void 0,this.deferred=Promise.resolve(),!1===e.init[this.featureName].autoStart?this.deferred=new Promise((t,r)=>{this.ee.on("manual-start-all",(0,x.J)(()=>{(0,m.Ak)(e.agentIdentifier,this.featureName),t()}))}):(0,m.Ak)(e.agentIdentifier,t)}importAggregator(e,t,r={}){if(this.featAggregate)return;let n;this.onAggregateImported=new Promise(e=>{n=e});const o=async()=>{let o;await this.deferred;try{if((0,R.V)(e.init)){const{setupAgentSession:t}=await i.e(478).then(i.bind(i,8766));o=t(e)}}catch(e){(0,l.R)(20,e),this.ee.emit("internal-error",[e]),(0,s.p)(T.qh,[e],void 0,this.featureName,this.ee)}try{if(!this.#t(this.featureName,o,e.init))return(0,m.Ze)(this.agentIdentifier,this.featureName),void n(!1);const{Aggregate:i}=await t();this.featAggregate=new i(e,r),e.runtime.harvester.initializedAggregates.push(this.featAggregate),n(!0)}catch(e){(0,l.R)(34,e),this.abortHandler?.(),(0,m.Ze)(this.agentIdentifier,this.featureName,!0),n(!1),this.ee&&this.ee.abort()}};y.RI?(0,b.GG)(()=>o(),!0):o()}#t(e,t,r){if(this.blocked)return!1;switch(e){case n.K7.sessionReplay:return(0,w.SR)(r)&&!!t;case n.K7.sessionTrace:return!!t;default:return!0}}}var A=i(6630),O=i(2614);class S extends E{static featureName=A.T;constructor(e){var t;super(e,A.T),this.setupInspectionEvents(e.agentIdentifier),t=e,p(u.Fw,function(e,r){"string"==typeof e&&("/"!==e.charAt(0)&&(e="/"+e),t.runtime.customTransaction=(r||"http://custom.transaction")+e,(0,s.p)(u.Pl+u.Fw,[(0,c.t)()],void 0,void 0,t.ee))},t),this.ee.on("api-send-rum",(e,t)=>(0,s.p)("send-rum",[e,t],void 0,this.featureName,this.ee)),this.importAggregator(e,()=>i.e(478).then(i.bind(i,1983)))}setupInspectionEvents(e){const t=(t,r)=>{t&&(0,d.W)({agentIdentifier:e,timeStamp:t.timeStamp,loaded:"complete"===t.target.readyState,type:"window",name:r,data:t.target.location+""})};(0,b.sB)(e=>{t(e,"DOMContentLoaded")}),(0,b.GG)(e=>{t(e,"load")}),(0,b.Qr)(e=>{t(e,"navigate")}),this.ee.on(O.tS.UPDATE,(t,r)=>{(0,d.W)({agentIdentifier:e,type:"lifecycle",name:"session",data:r})})}}var N=i(384);var _=i(2843),I=i(3878),P=i(782);class j extends E{static featureName=P.T;constructor(e){super(e,P.T),y.RI&&((0,_.u)(()=>(0,s.p)("docHidden",[(0,c.t)()],void 0,P.T,this.ee),!0),(0,I.sp)("pagehide",()=>(0,s.p)("winPagehide",[(0,c.t)()],void 0,P.T,this.ee)),this.importAggregator(e,()=>i.e(478).then(i.bind(i,9917))))}}class C extends E{static featureName=h.TZ;constructor(e){super(e,h.TZ),y.RI&&document.addEventListener("securitypolicyviolation",e=>{(0,s.p)(h.xV,["Generic/CSPViolation/Detected"],void 0,this.featureName,this.ee)}),this.importAggregator(e,()=>i.e(478).then(i.bind(i,6555)))}}var k=i(6774),L=i(3304);class H{constructor(e,t,r,n,i){this.name="UncaughtError",this.message="string"==typeof e?e:(0,L.A)(e),this.sourceURL=t,this.line=r,this.column=n,this.__newrelic=i}}function M(e){return U(e)?e:new H(void 0!==e?.message?e.message:e,e?.filename||e?.sourceURL,e?.lineno||e?.line,e?.colno||e?.col,e?.__newrelic,e?.cause)}function D(e){const t="Unhandled Promise Rejection: ";if(!e?.reason)return;if(U(e.reason)){try{e.reason.message.startsWith(t)||(e.reason.message=t+e.reason.message)}catch(e){}return M(e.reason)}const r=M(e.reason);return(r.message||"").startsWith(t)||(r.message=t+r.message),r}function K(e){if(e.error instanceof SyntaxError&&!/:\d+$/.test(e.error.stack?.trim())){const t=new H(e.message,e.filename,e.lineno,e.colno,e.error.__newrelic,e.cause);return t.name=SyntaxError.name,t}return U(e.error)?e.error:M(e)}function U(e){return e instanceof Error&&!!e.stack}function F(e,t,r,i,o=(0,c.t)()){"string"==typeof e&&(e=new Error(e)),(0,s.p)("err",[e,o,!1,t,r.runtime.isRecording,void 0,i],void 0,n.K7.jserrors,r.ee),(0,s.p)("uaErr",[],void 0,n.K7.genericEvents,r.ee)}var W=i(3496),B=i(993),G=i(3785);function V(e,{customAttributes:t={},level:r=B.p_.INFO}={},n,i,o=(0,c.t)()){(0,G.R)(n.ee,e,t,r,i,o)}function z(e,t,r,i,o=(0,c.t)()){(0,s.p)(u.Pl+u.hG,[o,e,t,i],void 0,n.K7.genericEvents,r.ee)}function Z(e){p(u.eY,function(t){return function(e,t){const r={};let i,o;(0,l.R)(54,"newrelic.register"),e.init.api.allow_registered_children||(i=()=>(0,l.R)(55));t&&(0,W.I)(t)||(i=()=>(0,l.R)(48,t));const a={addPageAction:(n,i={})=>{u(z,[n,{...r,...i},e],t)},log:(n,i={})=>{u(V,[n,{...i,customAttributes:{...r,...i.customAttributes||{}}},e],t)},noticeError:(n,i={})=>{u(F,[n,{...r,...i},e],t)},setApplicationVersion:e=>{r["application.version"]=e},setCustomAttribute:(e,t)=>{r[e]=t},setUserId:e=>{r["enduser.id"]=e},metadata:{customAttributes:r,target:t,get connected(){return o||Promise.reject(new Error("Failed to connect"))}}};i?i():o=new Promise((n,i)=>{try{const o=e.runtime?.entityManager;let s=!!o?.get().entityGuid,c=o?.getEntityGuidFor(t.licenseKey,t.applicationID),u=!!c;if(s&&u)t.entityGuid=c,n(a);else{const d=setTimeout(()=>i(new Error("Failed to connect - Timeout")),15e3);function l(r){(0,W.A)(r,e)?s||=!0:t.licenseKey===r.licenseKey&&t.applicationID===r.applicationID&&(u=!0,t.entityGuid=r.entityGuid),s&&u&&(clearTimeout(d),e.ee.removeEventListener("entity-added",l),n(a))}e.ee.emit("api-send-rum",[r,t]),e.ee.on("entity-added",l)}}catch(f){i(f)}});const u=async(t,r,a)=>{if(i)return i();const u=(0,c.t)();(0,s.p)(h.xV,["API/register/".concat(t.name,"/called")],void 0,n.K7.metrics,e.ee);try{await o;const n=e.init.api.duplicate_registered_data;(!0===n||Array.isArray(n)&&n.includes(a.entityGuid))&&t(...r,void 0,u),t(...r,a.entityGuid,u)}catch(e){(0,l.R)(50,e)}};return a}(e,t)},e)}class q extends E{static featureName=k.T;constructor(e){var t;super(e,k.T),t=e,p(u.o5,(e,r)=>F(e,r,t),t),function(e){p(u.bt,function(t){e.runtime.onerror=t},e)}(e),function(e){let t=0;p(u.k6,function(e,r){++t>10||(this.runtime.releaseIds[e.slice(-200)]=(""+r).slice(-200))},e)}(e),Z(e);try{this.removeOnAbort=new AbortController}catch(e){}this.ee.on("internal-error",(t,r)=>{this.abortHandler&&(0,s.p)("ierr",[M(t),(0,c.t)(),!0,{},e.runtime.isRecording,r],void 0,this.featureName,this.ee)}),y.gm.addEventListener("unhandledrejection",t=>{this.abortHandler&&(0,s.p)("err",[D(t),(0,c.t)(),!1,{unhandledPromiseRejection:1},e.runtime.isRecording],void 0,this.featureName,this.ee)},(0,I.jT)(!1,this.removeOnAbort?.signal)),y.gm.addEventListener("error",t=>{this.abortHandler&&(0,s.p)("err",[K(t),(0,c.t)(),!1,{},e.runtime.isRecording],void 0,this.featureName,this.ee)},(0,I.jT)(!1,this.removeOnAbort?.signal)),this.abortHandler=this.#r,this.importAggregator(e,()=>i.e(478).then(i.bind(i,2176)))}#r(){this.removeOnAbort?.abort(),this.abortHandler=void 0}}var X=i(8990);let Y=1;function Q(e){const t=typeof e;return!e||"object"!==t&&"function"!==t?-1:e===y.gm?0:(0,X.I)(e,"nr@id",function(){return Y++})}function J(e){if("string"==typeof e&&e.length)return e.length;if("object"==typeof e){if("undefined"!=typeof ArrayBuffer&&e instanceof ArrayBuffer&&e.byteLength)return e.byteLength;if("undefined"!=typeof Blob&&e instanceof Blob&&e.size)return e.size;if(!("undefined"!=typeof FormData&&e instanceof FormData))try{return(0,L.A)(e).length}catch(e){return}}}var ee=i(8139),te=i(7836),re=i(3434);const ne={},ie=["open","send"];function oe(e){var t=e||te.ee;const r=function(e){return(e||te.ee).get("xhr")}(t);if(void 0===y.gm.XMLHttpRequest)return r;if(ne[r.debugId]++)return r;ne[r.debugId]=1,(0,ee.u)(t);var n=(0,re.YM)(r),i=y.gm.XMLHttpRequest,o=y.gm.MutationObserver,a=y.gm.Promise,s=y.gm.setInterval,c="readystatechange",u=["onload","onerror","onabort","onloadstart","onloadend","onprogress","ontimeout"],d=[],f=y.gm.XMLHttpRequest=function(e){const t=new i(e),o=r.context(t);try{r.emit("new-xhr",[t],o),t.addEventListener(c,(a=o,function(){var e=this;e.readyState>3&&!a.resolved&&(a.resolved=!0,r.emit("xhr-resolved",[],e)),n.inPlace(e,u,"fn-",b)}),(0,I.jT)(!1))}catch(e){(0,l.R)(15,e);try{r.emit("internal-error",[e])}catch(e){}}var a;return t};function h(e,t){n.inPlace(t,["onreadystatechange"],"fn-",b)}if(function(e,t){for(var r in e)t[r]=e[r]}(i,f),f.prototype=i.prototype,n.inPlace(f.prototype,ie,"-xhr-",b),r.on("send-xhr-start",function(e,t){h(e,t),function(e){d.push(e),o&&(p?p.then(v):s?s(v):(g=-g,m.data=g))}(t)}),r.on("open-xhr-start",h),o){var p=a&&a.resolve();if(!s&&!a){var g=1,m=document.createTextNode(g);new o(v).observe(m,{characterData:!0})}}else t.on("fn-end",function(e){e[0]&&e[0].type===c||v()});function v(){for(var e=0;e<d.length;e++)h(0,d[e]);d.length&&(d=[])}function b(e,t){return t}return r}var ae="fetch-",se=ae+"body-",ce=["arrayBuffer","blob","json","text","formData"],ue=y.gm.Request,de=y.gm.Response,le="prototype";const fe={};function he(e){const t=function(e){return(e||te.ee).get("fetch")}(e);if(!(ue&&de&&y.gm.fetch))return t;if(fe[t.debugId]++)return t;function r(e,r,n){var i=e[r];"function"==typeof i&&(e[r]=function(){var e,r=[...arguments],o={};t.emit(n+"before-start",[r],o),o[te.P]&&o[te.P].dt&&(e=o[te.P].dt);var a=i.apply(this,r);return t.emit(n+"start",[r,e],a),a.then(function(e){return t.emit(n+"end",[null,e],a),e},function(e){throw t.emit(n+"end",[e],a),e})})}return fe[t.debugId]=1,ce.forEach(e=>{r(ue[le],e,se),r(de[le],e,se)}),r(y.gm,"fetch",ae),t.on(ae+"end",function(e,r){var n=this;if(r){var i=r.headers.get("content-length");null!==i&&(n.rxSize=i),t.emit(ae+"done",[null,r],n)}else t.emit(ae+"done",[e],n)}),t}var pe=i(7485);class ge{constructor(e){this.agentRef=e}generateTracePayload(t){const r=this.agentRef.loader_config;if(!this.shouldGenerateTrace(t)||!r)return null;var n=(r.accountID||"").toString()||null,i=(r.agentID||"").toString()||null,o=(r.trustKey||"").toString()||null;if(!n||!i)return null;var a=(0,e.ZF)(),s=(0,e.el)(),c=Date.now(),u={spanId:a,traceId:s,timestamp:c};return(t.sameOrigin||this.isAllowedOrigin(t)&&this.useTraceContextHeadersForCors())&&(u.traceContextParentHeader=this.generateTraceContextParentHeader(a,s),u.traceContextStateHeader=this.generateTraceContextStateHeader(a,c,n,i,o)),(t.sameOrigin&&!this.excludeNewrelicHeader()||!t.sameOrigin&&this.isAllowedOrigin(t)&&this.useNewrelicHeaderForCors())&&(u.newrelicHeader=this.generateTraceHeader(a,s,c,n,i,o)),u}generateTraceContextParentHeader(e,t){return"00-"+t+"-"+e+"-01"}generateTraceContextStateHeader(e,t,r,n,i){return i+"@nr=0-1-"+r+"-"+n+"-"+e+"----"+t}generateTraceHeader(e,t,r,n,i,o){if(!("function"==typeof y.gm?.btoa))return null;var a={v:[0,1],d:{ty:"Browser",ac:n,ap:i,id:e,tr:t,ti:r}};return o&&n!==o&&(a.d.tk=o),btoa((0,L.A)(a))}shouldGenerateTrace(e){return this.agentRef.init?.distributed_tracing?.enabled&&this.isAllowedOrigin(e)}isAllowedOrigin(e){var t=!1;const r=this.agentRef.init?.distributed_tracing;if(e.sameOrigin)t=!0;else if(r?.allowed_origins instanceof Array)for(var n=0;n<r.allowed_origins.length;n++){var i=(0,pe.D)(r.allowed_origins[n]);if(e.hostname===i.hostname&&e.protocol===i.protocol&&e.port===i.port){t=!0;break}}return t}excludeNewrelicHeader(){var e=this.agentRef.init?.distributed_tracing;return!!e&&!!e.exclude_newrelic_header}useNewrelicHeaderForCors(){var e=this.agentRef.init?.distributed_tracing;return!!e&&!1!==e.cors_use_newrelic_header}useTraceContextHeadersForCors(){var e=this.agentRef.init?.distributed_tracing;return!!e&&!!e.cors_use_tracecontext_headers}}var me=i(9300),ve=i(7295);function be(e){return"string"==typeof e?e:e instanceof(0,N.dV)().o.REQ?e.url:y.gm?.URL&&e instanceof URL?e.href:void 0}var ye=["load","error","abort","timeout"],we=ye.length,Re=(0,N.dV)().o.REQ,xe=(0,N.dV)().o.XHR;const Te="X-NewRelic-App-Data";class Ee extends E{static featureName=me.T;constructor(e){super(e,me.T),this.dt=new ge(e),this.handler=(e,t,r,n)=>(0,s.p)(e,t,r,n,this.ee);try{const e={xmlhttprequest:"xhr",fetch:"fetch",beacon:"beacon"};y.gm?.performance?.getEntriesByType("resource").forEach(t=>{if(t.initiatorType in e&&0!==t.responseStatus){const r={status:t.responseStatus},i={rxSize:t.transferSize,duration:Math.floor(t.duration),cbTime:0};Ae(r,t.name),this.handler("xhr",[r,i,t.startTime,t.responseEnd,e[t.initiatorType]],void 0,n.K7.ajax)}})}catch(e){}he(this.ee),oe(this.ee),function(e,t,r,i){function o(e){var t=this;t.totalCbs=0,t.called=0,t.cbTime=0,t.end=E,t.ended=!1,t.xhrGuids={},t.lastSize=null,t.loadCaptureCalled=!1,t.params=this.params||{},t.metrics=this.metrics||{},t.latestLongtaskEnd=0,e.addEventListener("load",function(r){A(t,e)},(0,I.jT)(!1)),y.lR||e.addEventListener("progress",function(e){t.lastSize=e.loaded},(0,I.jT)(!1))}function a(e){this.params={method:e[0]},Ae(this,e[1]),this.metrics={}}function u(t,r){e.loader_config.xpid&&this.sameOrigin&&r.setRequestHeader("X-NewRelic-ID",e.loader_config.xpid);var n=i.generateTracePayload(this.parsedOrigin);if(n){var o=!1;n.newrelicHeader&&(r.setRequestHeader("newrelic",n.newrelicHeader),o=!0),n.traceContextParentHeader&&(r.setRequestHeader("traceparent",n.traceContextParentHeader),n.traceContextStateHeader&&r.setRequestHeader("tracestate",n.traceContextStateHeader),o=!0),o&&(this.dt=n)}}function d(e,r){var n=this.metrics,i=e[0],o=this;if(n&&i){var a=J(i);a&&(n.txSize=a)}this.startTime=(0,c.t)(),this.body=i,this.listener=function(e){try{"abort"!==e.type||o.loadCaptureCalled||(o.params.aborted=!0),("load"!==e.type||o.called===o.totalCbs&&(o.onloadCalled||"function"!=typeof r.onload)&&"function"==typeof o.end)&&o.end(r)}catch(e){try{t.emit("internal-error",[e])}catch(e){}}};for(var s=0;s<we;s++)r.addEventListener(ye[s],this.listener,(0,I.jT)(!1))}function l(e,t,r){this.cbTime+=e,t?this.onloadCalled=!0:this.called+=1,this.called!==this.totalCbs||!this.onloadCalled&&"function"==typeof r.onload||"function"!=typeof this.end||this.end(r)}function f(e,t){var r=""+Q(e)+!!t;this.xhrGuids&&!this.xhrGuids[r]&&(this.xhrGuids[r]=!0,this.totalCbs+=1)}function p(e,t){var r=""+Q(e)+!!t;this.xhrGuids&&this.xhrGuids[r]&&(delete this.xhrGuids[r],this.totalCbs-=1)}function g(){this.endTime=(0,c.t)()}function m(e,r){r instanceof xe&&"load"===e[0]&&t.emit("xhr-load-added",[e[1],e[2]],r)}function v(e,r){r instanceof xe&&"load"===e[0]&&t.emit("xhr-load-removed",[e[1],e[2]],r)}function b(e,t,r){t instanceof xe&&("onload"===r&&(this.onload=!0),("load"===(e[0]&&e[0].type)||this.onload)&&(this.xhrCbStart=(0,c.t)()))}function w(e,r){this.xhrCbStart&&t.emit("xhr-cb-time",[(0,c.t)()-this.xhrCbStart,this.onload,r],r)}function R(e){var t,r=e[1]||{};if("string"==typeof e[0]?0===(t=e[0]).length&&y.RI&&(t=""+y.gm.location.href):e[0]&&e[0].url?t=e[0].url:y.gm?.URL&&e[0]&&e[0]instanceof URL?t=e[0].href:"function"==typeof e[0].toString&&(t=e[0].toString()),"string"==typeof t&&0!==t.length){t&&(this.parsedOrigin=(0,pe.D)(t),this.sameOrigin=this.parsedOrigin.sameOrigin);var n=i.generateTracePayload(this.parsedOrigin);if(n&&(n.newrelicHeader||n.traceContextParentHeader))if(e[0]&&e[0].headers)s(e[0].headers,n)&&(this.dt=n);else{var o={};for(var a in r)o[a]=r[a];o.headers=new Headers(r.headers||{}),s(o.headers,n)&&(this.dt=n),e.length>1?e[1]=o:e.push(o)}}function s(e,t){var r=!1;return t.newrelicHeader&&(e.set("newrelic",t.newrelicHeader),r=!0),t.traceContextParentHeader&&(e.set("traceparent",t.traceContextParentHeader),t.traceContextStateHeader&&e.set("tracestate",t.traceContextStateHeader),r=!0),r}}function x(e,t){this.params={},this.metrics={},this.startTime=(0,c.t)(),this.dt=t,e.length>=1&&(this.target=e[0]),e.length>=2&&(this.opts=e[1]);var r=this.opts||{},n=this.target;Ae(this,be(n));var i=(""+(n&&n instanceof Re&&n.method||r.method||"GET")).toUpperCase();this.params.method=i,this.body=r.body,this.txSize=J(r.body)||0}function T(e,t){if(this.endTime=(0,c.t)(),this.params||(this.params={}),(0,ve.iW)(this.params))return;let i;this.params.status=t?t.status:0,"string"==typeof this.rxSize&&this.rxSize.length>0&&(i=+this.rxSize);const o={txSize:this.txSize,rxSize:i,duration:(0,c.t)()-this.startTime};r("xhr",[this.params,o,this.startTime,this.endTime,"fetch"],this,n.K7.ajax)}function E(e){const t=this.params,i=this.metrics;if(!this.ended){this.ended=!0;for(let t=0;t<we;t++)e.removeEventListener(ye[t],this.listener,!1);t.aborted||(0,ve.iW)(t)||(i.duration=(0,c.t)()-this.startTime,this.loadCaptureCalled||4!==e.readyState?null==t.status&&(t.status=0):A(this,e),i.cbTime=this.cbTime,r("xhr",[t,i,this.startTime,this.endTime,"xhr"],this,n.K7.ajax))}}function A(e,r){e.params.status=r.status;var i=function(e,t){var r=e.responseType;return"json"===r&&null!==t?t:"arraybuffer"===r||"blob"===r||"json"===r?J(e.response):"text"===r||""===r||void 0===r?J(e.responseText):void 0}(r,e.lastSize);if(i&&(e.metrics.rxSize=i),e.sameOrigin&&r.getAllResponseHeaders().indexOf(Te)>=0){var o=r.getResponseHeader(Te);o&&((0,s.p)(h.rs,["Ajax/CrossApplicationTracing/Header/Seen"],void 0,n.K7.metrics,t),e.params.cat=o.split(", ").pop())}e.loadCaptureCalled=!0}t.on("new-xhr",o),t.on("open-xhr-start",a),t.on("open-xhr-end",u),t.on("send-xhr-start",d),t.on("xhr-cb-time",l),t.on("xhr-load-added",f),t.on("xhr-load-removed",p),t.on("xhr-resolved",g),t.on("addEventListener-end",m),t.on("removeEventListener-end",v),t.on("fn-end",w),t.on("fetch-before-start",R),t.on("fetch-start",x),t.on("fn-start",b),t.on("fetch-done",T)}(e,this.ee,this.handler,this.dt),this.importAggregator(e,()=>i.e(478).then(i.bind(i,3845)))}}function Ae(e,t){var r=(0,pe.D)(t),n=e.params||e;n.hostname=r.hostname,n.port=r.port,n.protocol=r.protocol,n.host=r.hostname+":"+r.port,n.pathname=r.pathname,e.parsedOrigin=r,e.sameOrigin=r.sameOrigin}const Oe={},Se=["pushState","replaceState"];function Ne(e){const t=function(e){return(e||te.ee).get("history")}(e);return!y.RI||Oe[t.debugId]++||(Oe[t.debugId]=1,(0,re.YM)(t).inPlace(window.history,Se,"-")),t}var _e=i(3738);function Ie(e){p(u.BL,function(t=Date.now()){const r=t-y.WN;r<0&&(0,l.R)(62,t),(0,s.p)(h.XG,[u.BL,{time:r}],void 0,n.K7.metrics,e.ee),e.addToTrace({name:u.BL,start:t,origin:"nr"}),(0,s.p)(u.Pl+u.hG,[r,u.BL],void 0,n.K7.genericEvents,e.ee)},e)}const{He:Pe,bD:je,d3:Ce,Kp:ke,TZ:Le,Lc:He,uP:Me,Rz:De}=_e;class Ke extends E{static featureName=Le;constructor(e){var t;super(e,Le),t=e,p(u.U2,function(e){if(!(e&&"object"==typeof e&&e.name&&e.start))return;const r={n:e.name,s:e.start-y.WN,e:(e.end||e.start)-y.WN,o:e.origin||"",t:"api"};r.s<0||r.e<0||r.e<r.s?(0,l.R)(61,{start:r.s,end:r.e}):(0,s.p)("bstApi",[r],void 0,n.K7.sessionTrace,t.ee)},t),Ie(e);if(!(0,R.V)(e.init))return void this.deregisterDrain();const r=this.ee;let o;Ne(r),this.eventsEE=(0,ee.u)(r),this.eventsEE.on(Me,function(e,t){this.bstStart=(0,c.t)()}),this.eventsEE.on(He,function(e,t){(0,s.p)("bst",[e[0],t,this.bstStart,(0,c.t)()],void 0,n.K7.sessionTrace,r)}),r.on(De+Ce,function(e){this.time=(0,c.t)(),this.startPath=location.pathname+location.hash}),r.on(De+ke,function(e){(0,s.p)("bstHist",[location.pathname+location.hash,this.startPath,this.time],void 0,n.K7.sessionTrace,r)});try{o=new PerformanceObserver(e=>{const t=e.getEntries();(0,s.p)(Pe,[t],void 0,n.K7.sessionTrace,r)}),o.observe({type:je,buffered:!0})}catch(e){}this.importAggregator(e,()=>i.e(478).then(i.bind(i,6974)),{resourceObserver:o})}}var Ue=i(6344);class Fe extends E{static featureName=Ue.TZ;#n;recorder;constructor(e){var t;let r;super(e,Ue.TZ),t=e,p(u.CH,function(){(0,s.p)(u.CH,[],void 0,n.K7.sessionReplay,t.ee)},t),function(e){p(u.Tb,function(){(0,s.p)(u.Tb,[],void 0,n.K7.sessionReplay,e.ee)},e)}(e);try{r=JSON.parse(localStorage.getItem("".concat(O.H3,"_").concat(O.uh)))}catch(e){}(0,w.SR)(e.init)&&this.ee.on(Ue.G4.RECORD,()=>this.#i()),this.#o(r)&&this.importRecorder().then(e=>{e.startRecording(Ue.Qb.PRELOAD,r?.sessionReplayMode)}),this.importAggregator(this.agentRef,()=>i.e(478).then(i.bind(i,6167)),this),this.ee.on("err",e=>{this.blocked||this.agentRef.runtime.isRecording&&(this.errorNoticed=!0,(0,s.p)(Ue.G4.ERROR_DURING_REPLAY,[e],void 0,this.featureName,this.ee))})}#o(e){return e&&(e.sessionReplayMode===O.g.FULL||e.sessionReplayMode===O.g.ERROR)||(0,w.Aw)(this.agentRef.init)}importRecorder(){return this.recorder?Promise.resolve(this.recorder):(this.#n??=Promise.all([i.e(478),i.e(249)]).then(i.bind(i,4866)).then(({Recorder:e})=>(this.recorder=new e(this),this.recorder)).catch(e=>{throw this.ee.emit("internal-error",[e]),this.blocked=!0,e}),this.#n)}#i(){this.blocked||(this.featAggregate?this.featAggregate.mode!==O.g.FULL&&this.featAggregate.initializeRecording(O.g.FULL,!0,Ue.Qb.API):this.importRecorder().then(()=>{this.recorder.startRecording(Ue.Qb.API,O.g.FULL)}))}}var We=i(3962);function Be(e){const t=e.ee.get("tracer");function r(){}p(u.dT,function(e){return(new r).get("object"==typeof e?e:{})},e);const i=r.prototype={createTracer:function(r,i){var o={},a=this,d="function"==typeof i;return(0,s.p)(h.xV,["API/createTracer/called"],void 0,n.K7.metrics,e.ee),e.runSoftNavOverSpa||(0,s.p)(u.hw+"tracer",[(0,c.t)(),r,o],a,n.K7.spa,e.ee),function(){if(t.emit((d?"":"no-")+"fn-start",[(0,c.t)(),a,d],o),d)try{return i.apply(this,arguments)}catch(e){const r="string"==typeof e?new Error(e):e;throw t.emit("fn-err",[arguments,this,r],o),r}finally{t.emit("fn-end",[(0,c.t)()],o)}}}};["actionText","setName","setAttribute","save","ignore","onEnd","getContext","end","get"].forEach(t=>{p.apply(this,[t,function(){return(0,s.p)(u.hw+t,[(0,c.t)(),...arguments],this,e.runSoftNavOverSpa?n.K7.softNav:n.K7.spa,e.ee),this},e,i])}),p(u.PA,function(){e.runSoftNavOverSpa?(0,s.p)(u.hw+"routeName",[performance.now(),...arguments],void 0,n.K7.softNav,e.ee):(0,s.p)(u.Pl+"routeName",[(0,c.t)(),...arguments],this,n.K7.spa,e.ee)},e)}class Ge extends E{static featureName=We.TZ;constructor(e){if(super(e,We.TZ),Be(e),!y.RI||!(0,N.dV)().o.MO)return;const t=Ne(this.ee);try{this.removeOnAbort=new AbortController}catch(e){}We.tC.forEach(e=>{(0,I.sp)(e,e=>{a(e)},!0,this.removeOnAbort?.signal)});const r=()=>(0,s.p)("newURL",[(0,c.t)(),""+window.location],void 0,this.featureName,this.ee);t.on("pushState-end",r),t.on("replaceState-end",r),(0,I.sp)(We.OV,e=>{a(e),(0,s.p)("newURL",[e.timeStamp,""+window.location],void 0,this.featureName,this.ee)},!0,this.removeOnAbort?.signal);let n=!1;const o=new((0,N.dV)().o.MO)((e,t)=>{n||(n=!0,requestAnimationFrame(()=>{(0,s.p)("newDom",[(0,c.t)()],void 0,this.featureName,this.ee),n=!1}))}),a=(0,x.s)(e=>{(0,s.p)("newUIEvent",[e],void 0,this.featureName,this.ee),o.observe(document.body,{attributes:!0,childList:!0,subtree:!0,characterData:!0})},100,{leading:!0});this.abortHandler=function(){this.removeOnAbort?.abort(),o.disconnect(),this.abortHandler=void 0},this.importAggregator(e,()=>i.e(478).then(i.bind(i,4393)),{domObserver:o})}}var Ve=i(7378);const ze={},Ze=["appendChild","insertBefore","replaceChild"];function qe(e){const t=function(e){return(e||te.ee).get("jsonp")}(e);if(!y.RI||ze[t.debugId])return t;ze[t.debugId]=!0;var r=(0,re.YM)(t),n=/[?&](?:callback|cb)=([^&#]+)/,i=/(.*)\.([^.]+)/,o=/^(\w+)(\.|$)(.*)$/;function a(e,t){if(!e)return t;const r=e.match(o),n=r[1];return a(r[3],t[n])}return r.inPlace(Node.prototype,Ze,"dom-"),t.on("dom-start",function(e){!function(e){if(!e||"string"!=typeof e.nodeName||"script"!==e.nodeName.toLowerCase())return;if("function"!=typeof e.addEventListener)return;var o=(s=e.src,c=s.match(n),c?c[1]:null);var s,c;if(!o)return;var u=function(e){var t=e.match(i);if(t&&t.length>=3)return{key:t[2],parent:a(t[1],window)};return{key:e,parent:window}}(o);if("function"!=typeof u.parent[u.key])return;var d={};function l(){t.emit("jsonp-end",[],d),e.removeEventListener("load",l,(0,I.jT)(!1)),e.removeEventListener("error",f,(0,I.jT)(!1))}function f(){t.emit("jsonp-error",[],d),t.emit("jsonp-end",[],d),e.removeEventListener("load",l,(0,I.jT)(!1)),e.removeEventListener("error",f,(0,I.jT)(!1))}r.inPlace(u.parent,[u.key],"cb-",d),e.addEventListener("load",l,(0,I.jT)(!1)),e.addEventListener("error",f,(0,I.jT)(!1)),t.emit("new-jsonp",[e.src],d)}(e[0])}),t}const Xe={};function Ye(e){const t=function(e){return(e||te.ee).get("promise")}(e);if(Xe[t.debugId])return t;Xe[t.debugId]=!0;var r=t.context,n=(0,re.YM)(t),i=y.gm.Promise;return i&&function(){function e(r){var o=t.context(),a=n(r,"executor-",o,null,!1);const s=Reflect.construct(i,[a],e);return t.context(s).getCtx=function(){return o},s}y.gm.Promise=e,Object.defineProperty(e,"name",{value:"Promise"}),e.toString=function(){return i.toString()},Object.setPrototypeOf(e,i),["all","race"].forEach(function(r){const n=i[r];e[r]=function(e){let i=!1;[...e||[]].forEach(e=>{this.resolve(e).then(a("all"===r),a(!1))});const o=n.apply(this,arguments);return o;function a(e){return function(){t.emit("propagate",[null,!i],o,!1,!1),i=i||!e}}}}),["resolve","reject"].forEach(function(r){const n=i[r];e[r]=function(e){const r=n.apply(this,arguments);return e!==r&&t.emit("propagate",[e,!0],r,!1,!1),r}}),e.prototype=i.prototype;const o=i.prototype.then;i.prototype.then=function(...e){var i=this,a=r(i);a.promise=i,e[0]=n(e[0],"cb-",a,null,!1),e[1]=n(e[1],"cb-",a,null,!1);const s=o.apply(this,e);return a.nextPromise=s,t.emit("propagate",[i,!0],s,!1,!1),s},i.prototype.then[re.Jt]=o,t.on("executor-start",function(e){e[0]=n(e[0],"resolve-",this,null,!1),e[1]=n(e[1],"resolve-",this,null,!1)}),t.on("executor-err",function(e,t,r){e[1](r)}),t.on("cb-end",function(e,r,n){t.emit("propagate",[n,!0],this.nextPromise,!1,!1)}),t.on("propagate",function(e,r,n){this.getCtx&&!r||(this.getCtx=function(){if(e instanceof Promise)var r=t.context(e);return r&&r.getCtx?r.getCtx():this})})}(),t}const Qe={},$e="setTimeout",Je="setInterval",et="clearTimeout",tt="-start",rt=[$e,"setImmediate",Je,et,"clearImmediate"];function nt(e){const t=function(e){return(e||te.ee).get("timer")}(e);if(Qe[t.debugId]++)return t;Qe[t.debugId]=1;var r=(0,re.YM)(t);return r.inPlace(y.gm,rt.slice(0,2),$e+"-"),r.inPlace(y.gm,rt.slice(2,3),Je+"-"),r.inPlace(y.gm,rt.slice(3),et+"-"),t.on(Je+tt,function(e,t,n){e[0]=r(e[0],"fn-",null,n)}),t.on($e+tt,function(e,t,n){this.method=n,this.timerDuration=isNaN(e[1])?0:+e[1],e[0]=r(e[0],"fn-",this,n)}),t}const it={};function ot(e){const t=function(e){return(e||te.ee).get("mutation")}(e);if(!y.RI||it[t.debugId])return t;it[t.debugId]=!0;var r=(0,re.YM)(t),n=y.gm.MutationObserver;return n&&(window.MutationObserver=function(e){return this instanceof n?new n(r(e,"fn-")):n.apply(this,arguments)},MutationObserver.prototype=n.prototype),t}const{TZ:at,d3:st,Kp:ct,$p:ut,wW:dt,e5:lt,tH:ft,uP:ht,rw:pt,Lc:gt}=Ve;class mt extends E{static featureName=at;constructor(e){if(super(e,at),Be(e),!y.RI)return;try{this.removeOnAbort=new AbortController}catch(e){}let t,r=0;const n=this.ee.get("tracer"),o=qe(this.ee),a=Ye(this.ee),u=nt(this.ee),d=oe(this.ee),l=this.ee.get("events"),f=he(this.ee),h=Ne(this.ee),p=ot(this.ee);function g(e,t){h.emit("newURL",[""+window.location,t])}function m(){r++,t=window.location.hash,this[ht]=(0,c.t)()}function v(){r--,window.location.hash!==t&&g(0,!0);var e=(0,c.t)();this[lt]=~~this[lt]+e-this[ht],this[gt]=e}function b(e,t){e.on(t,function(){this[t]=(0,c.t)()})}this.ee.on(ht,m),a.on(pt,m),o.on(pt,m),this.ee.on(gt,v),a.on(dt,v),o.on(dt,v),this.ee.on("fn-err",(...t)=>{t[2]?.__newrelic?.[e.agentIdentifier]||(0,s.p)("function-err",[...t],void 0,this.featureName,this.ee)}),this.ee.buffer([ht,gt,"xhr-resolved"],this.featureName),l.buffer([ht],this.featureName),u.buffer(["setTimeout"+ct,"clearTimeout"+st,ht],this.featureName),d.buffer([ht,"new-xhr","send-xhr"+st],this.featureName),f.buffer([ft+st,ft+"-done",ft+ut+st,ft+ut+ct],this.featureName),h.buffer(["newURL"],this.featureName),p.buffer([ht],this.featureName),a.buffer(["propagate",pt,dt,"executor-err","resolve"+st],this.featureName),n.buffer([ht,"no-"+ht],this.featureName),o.buffer(["new-jsonp","cb-start","jsonp-error","jsonp-end"],this.featureName),b(f,ft+st),b(f,ft+"-done"),b(o,"new-jsonp"),b(o,"jsonp-end"),b(o,"cb-start"),h.on("pushState-end",g),h.on("replaceState-end",g),window.addEventListener("hashchange",g,(0,I.jT)(!0,this.removeOnAbort?.signal)),window.addEventListener("load",g,(0,I.jT)(!0,this.removeOnAbort?.signal)),window.addEventListener("popstate",function(){g(0,r>1)},(0,I.jT)(!0,this.removeOnAbort?.signal)),this.abortHandler=this.#r,this.importAggregator(e,()=>i.e(478).then(i.bind(i,5592)))}#r(){this.removeOnAbort?.abort(),this.abortHandler=void 0}}var vt=i(3333);class bt extends E{static featureName=vt.TZ;constructor(e){super(e,vt.TZ);const t=[e.init.page_action.enabled,e.init.performance.capture_marks,e.init.performance.capture_measures,e.init.user_actions.enabled,e.init.performance.resources.enabled];var r;if(r=e,p(u.hG,(e,t)=>z(e,t,r),r),function(e){p(u.fF,function(){(0,s.p)(u.Pl+u.fF,[(0,c.t)(),...arguments],void 0,n.K7.genericEvents,e.ee)},e)}(e),Ie(e),Z(e),function(e){p(u.V1,function(t,r){const i=(0,c.t)(),{start:o,end:a,customAttributes:d}=r||{},f={customAttributes:d||{}};if("object"!=typeof f.customAttributes||"string"!=typeof t||0===t.length)return void(0,l.R)(57);const h=(e,t)=>null==e?t:"number"==typeof e?e:e instanceof PerformanceMark?e.startTime:Number.NaN;if(f.start=h(o,0),f.end=h(a,i),Number.isNaN(f.start)||Number.isNaN(f.end))(0,l.R)(57);else{if(f.duration=f.end-f.start,!(f.duration<0))return(0,s.p)(u.Pl+u.V1,[f,t],void 0,n.K7.genericEvents,e.ee),f;(0,l.R)(58)}},e)}(e),y.RI){if(e.init.user_actions.enabled&&(vt.Zp.forEach(e=>(0,I.sp)(e,e=>(0,s.p)("ua",[e],void 0,this.featureName,this.ee),!0)),vt.qN.forEach(e=>{const t=(0,x.s)(e=>{(0,s.p)("ua",[e],void 0,this.featureName,this.ee)},500,{leading:!0});(0,I.sp)(e,t)})),e.init.performance.resources.enabled&&y.gm.PerformanceObserver?.supportedEntryTypes.includes("resource")){new PerformanceObserver(e=>{e.getEntries().forEach(e=>{(0,s.p)("browserPerformance.resource",[e],void 0,this.featureName,this.ee)})}).observe({type:"resource",buffered:!0})}const a=Ne(this.ee);function d(){a.emit("navChange")}a.on("pushState-end",d),a.on("replaceState-end",d),window.addEventListener("hashchange",d,(0,I.jT)(!0,this.removeOnAbort?.signal)),window.addEventListener("popstate",d,(0,I.jT)(!0,this.removeOnAbort?.signal))}try{this.removeOnAbort=new AbortController}catch(f){}function o(t){const r=(0,pe.D)(t);return e.beacons.includes(r.hostname+":"+r.port)}this.abortHandler=()=>{this.removeOnAbort?.abort(),this.abortHandler=void 0},y.gm.addEventListener("error",()=>{(0,s.p)("uaErr",[],void 0,n.K7.genericEvents,this.ee)},(0,I.jT)(!1,this.removeOnAbort?.signal)),he(this.ee),oe(this.ee),this.ee.on("open-xhr-start",(e,t)=>{o(e[1])||t.addEventListener("readystatechange",()=>{2===t.readyState&&(0,s.p)("uaXhr",[],void 0,n.K7.genericEvents,this.ee)})}),this.ee.on("fetch-start",e=>{e.length>=1&&!o(be(e[0]))&&(0,s.p)("uaXhr",[],void 0,n.K7.genericEvents,this.ee)}),t.some(e=>e)?this.importAggregator(e,()=>i.e(478).then(i.bind(i,8019))):this.deregisterDrain()}}var yt=i(2646);const wt=new Map;function Rt(e,t,r,n){if("object"!=typeof t||!t||"string"!=typeof r||!r||"function"!=typeof t[r])return(0,l.R)(29);const i=function(e){return(e||te.ee).get("logger")}(e),o=(0,re.YM)(i),a=new yt.y(te.P);a.level=n.level,a.customAttributes=n.customAttributes;const s=t[r]?.[re.Jt]||t[r];return wt.set(s,a),o.inPlace(t,[r],"wrap-logger-",()=>wt.get(s)),i}var xt=i(1910);class Tt extends E{static featureName=B.TZ;constructor(e){var t;super(e,B.TZ),t=e,p(u.$9,(e,r)=>V(e,r,t),t),function(e){p(u.Wb,(t,r,{customAttributes:n={},level:i=B.p_.INFO}={})=>{Rt(e.ee,t,r,{customAttributes:n,level:i})},e)}(e),Z(e);const r=this.ee;["log","error","warn","info","debug","trace"].forEach(e=>{(0,xt.i)(y.gm.console[e]),Rt(r,y.gm.console,e,{level:"log"===e?"info":e})}),this.ee.on("wrap-logger-end",function([e]){const{level:t,customAttributes:n}=this;(0,G.R)(r,e,n,t)}),this.importAggregator(e,()=>i.e(478).then(i.bind(i,5288)))}}new class extends r{constructor(e){var t;(super(),y.gm)?(this.features={},(0,N.bQ)(this.agentIdentifier,this),this.desiredFeatures=new Set(e.features||[]),this.desiredFeatures.add(S),this.runSoftNavOverSpa=[...this.desiredFeatures].some(e=>e.featureName===n.K7.softNav),(0,a.j)(this,e,e.loaderType||"agent"),t=this,p(u.cD,function(e,r,n=!1){if("string"==typeof e){if(["string","number","boolean"].includes(typeof r)||null===r)return g(t,e,r,u.cD,n);(0,l.R)(40,typeof r)}else(0,l.R)(39,typeof e)},t),function(e){p(u.Dl,function(t){if("string"==typeof t||null===t)return g(e,"enduser.id",t,u.Dl,!0);(0,l.R)(41,typeof t)},e)}(this),function(e){p(u.nb,function(t){if("string"==typeof t||null===t)return g(e,"application.version",t,u.nb,!1);(0,l.R)(42,typeof t)},e)}(this),function(e){p(u.d3,function(){e.ee.emit("manual-start-all")},e)}(this),this.run()):(0,l.R)(21)}get config(){return{info:this.info,init:this.init,loader_config:this.loader_config,runtime:this.runtime}}get api(){return this}run(){try{const e=function(e){const t={};return o.forEach(r=>{t[r]=!!e[r]?.enabled}),t}(this.init),t=[...this.desiredFeatures];t.sort((e,t)=>n.P3[e.featureName]-n.P3[t.featureName]),t.forEach(t=>{if(!e[t.featureName]&&t.featureName!==n.K7.pageViewEvent)return;if(this.runSoftNavOverSpa&&t.featureName===n.K7.spa)return;if(!this.runSoftNavOverSpa&&t.featureName===n.K7.softNav)return;const r=function(e){switch(e){case n.K7.ajax:return[n.K7.jserrors];case n.K7.sessionTrace:return[n.K7.ajax,n.K7.pageViewEvent];case n.K7.sessionReplay:return[n.K7.sessionTrace];case n.K7.pageViewTiming:return[n.K7.pageViewEvent];default:return[]}}(t.featureName).filter(e=>!(e in this.features));r.length>0&&(0,l.R)(36,{targetFeature:t.featureName,missingDependencies:r}),this.features[t.featureName]=new t(this)})}catch(e){(0,l.R)(22,e);for(const e in this.features)this.features[e].abortHandler?.();const t=(0,N.Zm)();delete t.initializedAgents[this.agentIdentifier]?.features,delete this.sharedAggregator;return t.ee.get(this.agentIdentifier).abort(),!1}}}({features:[Ee,S,j,Ke,Fe,C,q,bt,Tt,Ge,mt],loaderType:"spa"})})()})();
+</script>
+
+<!-- Datadog RUM スニペット挿入 -->
+
+<script>
+  (function(h,o,u,n,d) {
+    h=h[d]=h[d]||{q:[],onReady:function(c){h.q.push(c)}}
+    d=o.createElement(u);d.async=1;d.src=n
+    n=o.getElementsByTagName(u)[0];n.parentNode.insertBefore(d,n)
+  })(window,document,'script','https://www.datadoghq-browser-agent.com/ap1/v6/datadog-rum.js','DD_RUM')
+  window.DD_RUM.onReady(function() {
+    window.DD_RUM.init({
+      clientToken: 'pub22e996e6cd4ec7b6fc08076586f78a90',
+      applicationId: '222c4aca-6bef-40c2-9c3e-232430be013e',
+      site: 'ap1.datadoghq.com',
+      service: 'dlsite/webapp',
+      env: 'prod',
+      // Specify a version number to identify the deployed version of your application in Datadog
+      // version: '1.0.0',
+      sessionSampleRate: 1,
+      sessionReplaySampleRate: 1,
+      trackBfcacheViews: true,
+      defaultPrivacyLevel: 'mask',
+    });
+  })
+</script>
+
+<meta name="viewport" content="width=1024"><meta http-equiv="Content-Style-Type" content="text/css"><meta http-equiv="Content-Script-Type" content="text/javascript"><meta name="google-site-verification" content="S2Jzwn_Dm4hGoyTfPnxEUSKnbHSuT73N6SZbTanWbEM"><meta name="rating" content="adult"><link rel="apple-touch-icon" href="/modpub/images/web/common/apple_touch_icon_57x57.png"><link rel="apple-touch-icon" sizes="72x72" href="/modpub/images/web/common/apple_touch_icon_72x72.png"><link rel="apple-touch-icon" sizes="76x76" href="/modpub/images/web/common/apple_touch_icon_76x76.png"><link rel="apple-touch-icon" sizes="114x114" href="/modpub/images/web/common/apple_touch_icon_114x114.png"><link rel="apple-touch-icon" sizes="120x120" href="/modpub/images/web/common/apple_touch_icon_120x120.png"><link rel="apple-touch-icon" sizes="144x144" href="/modpub/images/web/common/apple_touch_icon_144x144.png"><link rel="apple-touch-icon" sizes="152x152" href="/modpub/images/web/common/apple_touch_icon_152x152.png"><meta name="msapplication-config" content="/browserconfig.xml"><link rel="shortcut icon" href="/images/web/common/favicon.ico">
+  
+            
+  <link rel="canonical" href="https://www.dlsite.com/books/work/=/product_id/BJ108758.html"><link rel="alternate" media="only screen and (max-width: 640px)" href="https://www.dlsite.com/books-touch/work/=/product_id/BJ108758.html" class="alternate_smartphone" /><link rel="alternate" hreflang="ja" href="https://www.dlsite.com/books/work/=/product_id/BJ108758.html"><link rel="alternate" hreflang="zh-TW" href="https://www.dlsite.com/books/work/=/product_id/BJ108758.html/?locale=zh_TW"><link rel="alternate" hreflang="zh-CN" href="https://www.dlsite.com/books/work/=/product_id/BJ108758.html/?locale=zh_CN"><link rel="alternate" hreflang="ko" href="https://www.dlsite.com/books/work/=/product_id/BJ108758.html/?locale=ko_KR"><link rel="alternate" hreflang="en" href="https://www.dlsite.com/books/work/=/product_id/BJ108758.html/?locale=en_US"><link rel="alternate" hreflang="es-ES" href="https://www.dlsite.com/books/work/=/product_id/BJ108758.html/?locale=es_ES"><link rel="alternate" hreflang="ar-AE" href="https://www.dlsite.com/books/work/=/product_id/BJ108758.html/?locale=ar_AE"><link rel="alternate" hreflang="de-DE" href="https://www.dlsite.com/books/work/=/product_id/BJ108758.html/?locale=de_DE"><link rel="alternate" hreflang="fr-FR" href="https://www.dlsite.com/books/work/=/product_id/BJ108758.html/?locale=fr_FR"><link rel="alternate" hreflang="id-ID" href="https://www.dlsite.com/books/work/=/product_id/BJ108758.html/?locale=id_ID"><link rel="alternate" hreflang="it-IT" href="https://www.dlsite.com/books/work/=/product_id/BJ108758.html/?locale=it_IT"><link rel="alternate" hreflang="pt-BR" href="https://www.dlsite.com/books/work/=/product_id/BJ108758.html/?locale=pt_BR"><link rel="alternate" hreflang="sv-SE" href="https://www.dlsite.com/books/work/=/product_id/BJ108758.html/?locale=sv_SE"><link rel="alternate" hreflang="th-TH" href="https://www.dlsite.com/books/work/=/product_id/BJ108758.html/?locale=th_TH"><link rel="alternate" hreflang="vi-VN" href="https://www.dlsite.com/books/work/=/product_id/BJ108758.html/?locale=vi_VN">
+
+<meta name="description" content="「魔剣のせいなんだからね!」魔剣によってツンツン年上幼なじみ姫シーラがエロエロに! 腹黒エルフのニナも加わり冒険はハーレムへ!「DLsite 成年コミック - R18」はエロマンガ・アダルトマンガのダウンロードショップ。お気に入りの作品をすぐダウンロードできてすぐ楽しめる！毎日更新しているのであなたが探している作品にきっと出会えます。国内最大級の二次元総合ダウンロードショップ「DLsite」！">
+<title>魔剣の姫はエロエロです [フランス書院] | DLsite 成年コミック - R18</title>
+
+<meta name="dlsite-product-has-price" content="1">
+
+
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:site" content="@DLsite">
+<meta name="twitter:image:src" content="https://img.dlsite.jp/modpub/images2/work/books/BJ109000/BJ108758_img_main.jpg">
+
+<meta property="og:title" content="魔剣の姫はエロエロです [青橋由高 有末つかさ] | DLsite">
+<meta property="og:type" content="website">
+<meta property="og:description" content="「魔剣のせいなんだからね!」魔剣によってツンツン年上幼なじみ姫シーラがエロエロに! 腹黒エルフのニナも加わり冒険はハーレムへ!「DLsite 成年コミック - R18」はエロマンガ・アダルトマンガのダウンロードショップ。お気に入りの作品をすぐダウンロードできてすぐ楽しめる！毎日更新しているのであなたが探している作品にきっと出会えます。国内最大級の二次元総合ダウンロードショップ「DLsite」！">
+<meta property="og:url" content="https://www.dlsite.com/books/work/=/product_id/BJ108758.html">
+<meta property="og:image" content="https://img.dlsite.jp/modpub/images2/work/books/BJ109000/BJ108758_img_main.jpg">
+<meta property="og:site_name" content="DLsite">
+<meta property="fb:app_id" content="226115600829997">
+<meta property="mixi:content-rating" content="1">
+<meta property="mixi:device-smartphone" content="https://www.dlsite.com/books-touch/work/=/product_id/BJ108758.html">
+
+
+    <script>(() => {if (!/recommend_device_id=/.test(document.cookie)) {const device_id = Math.floor(Math.random() * 9000000000 + 1000000000) + '.' + Math.floor(Date.now() / 1000);document.cookie = `recommend_device_id=${device_id}; domain=.dlsite.com; path=/; max-age=63072000`;}})();</script><!-- A/BテストツールVWOの検証期間中設定 -->
+<!-- Start VWO Async SmartCode -->
+<link rel="preconnect" href="https://dev.visualwebsiteoptimizer.com" />
+<script type='text/javascript' id='vwoCode'>
+window._vwo_code || (function() {
+var account_id=855141,
+version=2.0,
+settings_tolerance=2000,
+hide_element='body',
+hide_element_style = 'opacity:0 !important;filter:alpha(opacity=0) !important;background:none !important',
+/* DO NOT EDIT BELOW THIS LINE */
+f=false,w=window,d=document,v=d.querySelector('#vwoCode'),cK='_vwo_'+account_id+'_settings',cc={};try{var c=JSON.parse(localStorage.getItem('_vwo_'+account_id+'_config'));cc=c&&typeof c==='object'?c:{}}catch(e){}var stT=cc.stT==='session'?w.sessionStorage:w.localStorage;code={use_existing_jquery:function(){return typeof use_existing_jquery!=='undefined'?use_existing_jquery:undefined},library_tolerance:function(){return typeof library_tolerance!=='undefined'?library_tolerance:undefined},settings_tolerance:function(){return cc.sT||settings_tolerance},hide_element_style:function(){return'{'+(cc.hES||hide_element_style)+'}'},hide_element:function(){return typeof cc.hE==='string'?cc.hE:hide_element},getVersion:function(){return version},finish:function(){if(!f){f=true;var e=d.getElementById('_vis_opt_path_hides');if(e)e.parentNode.removeChild(e)}},finished:function(){return f},load:function(e){var t=this.getSettings(),n=d.createElement('script'),i=this;if(t){n.textContent=t;d.getElementsByTagName('head')[0].appendChild(n);if(!w.VWO||VWO.caE){stT.removeItem(cK);i.load(e)}}else{n.fetchPriority='high';n.src=e;n.type='text/javascript';n.onerror=function(){_vwo_code.finish()};d.getElementsByTagName('head')[0].appendChild(n)}},getSettings:function(){try{var e=stT.getItem(cK);if(!e){return}e=JSON.parse(e);if(Date.now()>e.e){stT.removeItem(cK);return}return e.s}catch(e){return}},init:function(){if(d.URL.indexOf('__vwo_disable__')>-1)return;var e=this.settings_tolerance();w._vwo_settings_timer=setTimeout(function(){_vwo_code.finish();stT.removeItem(cK)},e);var t=d.currentScript,n=d.createElement('style'),i=this.hide_element(),r=t&&!t.async&&i?i+this.hide_element_style():'',c=d.getElementsByTagName('head')[0];n.setAttribute('id','_vis_opt_path_hides');v&&n.setAttribute('nonce',v.nonce);n.setAttribute('type','text/css');if(n.styleSheet)n.styleSheet.cssText=r;else n.appendChild(d.createTextNode(r));c.appendChild(n);this.load('https://dev.visualwebsiteoptimizer.com/j.php?a='+account_id+'&u='+encodeURIComponent(d.URL)+'&vn='+version)}};w._vwo_code=code;code.init();})();
+</script>
+<!-- End VWO Async SmartCode -->
+
+  <link rel="stylesheet" href="/css/reset.css?1784196017" type="text/css" id="reset" />
+<link rel="stylesheet" href="/css/default.css?1784196017" type="text/css" id="default" />
+<link rel="stylesheet" href="/css/layout_2col_work.css?1784196017" type="text/css" id="layout_2col_work" />
+<link rel="stylesheet" href="/css/common.css?1784196017" type="text/css" id="common" />
+<link rel="stylesheet" href="/css/switch.css?1784196017" type="text/css" id="switch" />
+<link rel="stylesheet" href="/css/suggest.css?1784196017" type="text/css" id="suggest" />
+<link rel="stylesheet" href="/css/header_campaign_banner.css?1784196017" type="text/css" id="header_campaign_banner" />
+<link rel="stylesheet" href="/modpub/universal/css/universal.css?" type="text/css" id="universal" />
+<link rel="stylesheet" href="/css/work_template.css?1784196017" type="text/css" id="work_template" />
+<link rel="stylesheet" href="/css/work_slider.css?1784196017" type="text/css" id="work_slider" />
+<link rel="stylesheet" href="/css/couponget.css?1784196017" type="text/css" id="couponget" />
+
+  <script type="text/javascript" src="/js/libs/libraries-pack.js?1784196002"></script>
+<script type="text/javascript" src="/js/dlsite_util.js?1784195830"></script>
+<script type="text/javascript" src="/js/slide_menu.js?1784195830"></script>
+<script type="text/javascript" src="/js/dlsite_suggest.js?1784195830"></script>
+<script type="text/javascript" src="/js/dlsite_trigger.js?1784195830"></script>
+<script type="text/javascript" src="/js/jquery.slideproduct.js?1784195830"></script>
+<script type="text/javascript" src="/js/dlsite_img_filter.js?1784195830"></script>
+<script type="text/javascript" src="/js/dlsite/work/work_logger.js?1784195830"></script>
+<script type="text/javascript" src="/js/libs/clipboard.min.js?1784195830"></script>
+<script type="text/javascript" src="/js/swiper4.0.7/js/swiper.min.js?1784195830"></script>
+<script type="text/javascript" src="/js/picturefill.min.js?1784195830"></script>
+
+  
+<!-- Google Tag Manager -->
+<script>(function(w,d,s,l,i){w[l]=w[l]||[];w[l].push({'gtm.start': new Date().getTime(), event:'gtm.js'}); var f=d.getElementsByTagName(s)[0], j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src='https://www.googletagmanager.com/gtm.js?id='+i+dl+ '&gtm_auth=Z_ubU9a2b3yGEFSh9Hdtkg&gtm_preview=env-12&gtm_cookies_win=x';f.parentNode.insertBefore(j,f); })(window,document,'script','dataLayer','GTM-NTSRG2');</script>
+<!-- End Google Tag Manager -->
+
+
+
+</head>
+
+<body class="style_books t_male">
+  
+  
+<script>
+(function(){
+$.extend({
+  useAdultcheck: false,
+  importAdultcheck: function(){
+    if ($.useAdultcheck) return;
+    $.useAdultcheck = true;
+    var s = document.createElement('script');
+    s.src = '/js/adultcheck.js?1784195830';
+    s.defer = true;
+    document.querySelector('head').appendChild(s);
+  }
+});
+if ((dlsite.isAdult() && dlsite.getId() !== 'circle' && !(dlsite.isFemale() && dlsite.isBooks())) || dlsite.forceAdultCheck) {
+  $.importAdultcheck();
+}
+})();
+</script>
+
+
+  <!-- Google Tag Manager (noscript) -->
+<noscript><iframe src="https://www.googletagmanager.com/ns.html?id=GTM-NTSRG2&gtm_auth=Z_ubU9a2b3yGEFSh9Hdtkg&gtm_preview=env-12&gtm_cookies_win=x" height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
+<!-- End Google Tag Manager (noscript) -->
+
+
+
+    <div data-vue-component="header-banner" data-vue-async="true" data-section_name="campaign_header_banner" data-ga4-ref="campaign_header_banner">
+    <div v-if="loading" class="hd_cp_banner type_4bn">
+    <ul class="cp_bn_list">
+            <li class="cp_bn_item" style="background-color: #3edbea;">
+        <a href="https://www.dlsite.com/books/genres/works?genrekey=books20260717summer" >
+          <div class="cp_bn_inner">
+                        <div class="cp_bn_reminder " style="background-color: ; color: ;">
+              <div class="cp_bn_reminder_content"><i class="cp_bn_reminder_period type_date">7/30</i><i class="cp_bn_reminder_period type_time">23:59</i>まで</div>
+            </div>
+                        <div class="cp_bn"><img src="https://media.vivion-bcs.com/images/dlsite/jajp/books/11695-3594371b75d0ab7d6bcfa126d4ae96c274512469.png" alt=""></div>
+                      </div>
+        </a>
+      </li>
+            <li class="cp_bn_item" style="background-color: #000240;">
+        <a href="https://www.dlsite.com/books/promo/works/=/key/books20260717-got" >
+          <div class="cp_bn_inner">
+                        <div class="cp_bn_reminder " style="background-color: ; color: ;">
+              <div class="cp_bn_reminder_content"><i class="cp_bn_reminder_period type_date">8/01</i><i class="cp_bn_reminder_period type_time">23:59</i>まで</div>
+            </div>
+                        <div class="cp_bn"><img src="https://media.vivion-bcs.com/images/dlsite/jajp/books/11432-34b4a593e350e57f2ca1642e868b223db87da228.png" alt=""></div>
+                      </div>
+        </a>
+      </li>
+            <li class="cp_bn_item" style="background-color: #ffda00;">
+        <a href="https://www.dlsite.com/books/discount/=/hd/1/per_page/100/order%5B0%5D/trend/campaign/3iszi0/show_type/3/logged/1" >
+          <div class="cp_bn_inner">
+                        <div class="cp_bn_reminder " style="background-color: ; color: ;">
+              <div class="cp_bn_reminder_content"><i class="cp_bn_reminder_period type_date">7/23</i><i class="cp_bn_reminder_period type_time">23:59</i>まで</div>
+            </div>
+                        <div class="cp_bn"><img src="https://media.vivion-bcs.com/images/dlsite/jajp/books/11118-541966e2bd9c950051d60382d0c335061fda1c78.png" alt=""></div>
+                      </div>
+        </a>
+      </li>
+            <li class="cp_bn_item" style="background-color: #c5acff;">
+        <a href="https://app.adjust.com/1teo9qmg?redirect=https%3A%2F%2Fpay.vivion.jp%2Fminna-no-ginko" >
+          <div class="cp_bn_inner">
+                        <div class="cp_bn"><img src="https://media.vivion-bcs.com/images/dlsite/jajp/books/11233-87225749236f3a79943a9bf02a0b747e5d0b3de2.png" alt=""></div>
+                      </div>
+        </a>
+      </li>
+          </ul>
+  </div>
+    
+  <div v-else-if="is_show_frame" :class="style" class="hd_cp_banner" v-cloak>
+    <ul class="cp_bn_list">
+      <li v-for="campaign in campaigns" class="cp_bn_item" :data-ab-test="campaign.abTest" :style="{'background-color': campaign.mainColor}">
+        <a :href="campaign.url" :target="campaign.option.includes('target_blank') ? 'blank' : null">
+          <div class="cp_bn_inner">
+            <div class="cp_bn_reminder" v-if="campaign.isShowLimit" :class="{blank: !campaign.isShowLimit}" :style="{'background-color': campaign.periodBgColor, 'color': campaign.periodTextColor}">
+              <div class="cp_bn_reminder_content" v-html="campaign.period"></div>
+            </div>
+            <div class="cp_bn"><img :src="campaign.img" :alt="campaign.alt"></div>
+            <div
+              class="cp_bn_work"
+              v-if="campaign.outline"
+              v-html="campaign.outline"
+              :style="{'background-color': campaign.periodBgColor}"
+            >
+            </div>
+          </div>
+        </a>
+      </li>
+    </ul>
+  </div>
+  
+</div>
+
+  <div data-vue-component="global-notice-modal" v-cloak></div>
+
+
+<div data-vue-component="header-locale-suggest-dialog" data-vue-async="true"></div>
+
+<div data-vue-component="ie-alert" v-cloak></div>
+  <!-- container -->
+                    <div itemscope itemtype="http://schema.org/Product" id="container" site="books">
+      
+      <div id="top_header">
+        
+      </div>
+
+      <!-- header -->
+      <div id="header">
+        <header class="l-header" data-vue-component="header" data-search-category="books">
+  <div class="headerCore">
+    <div class="headerCore_top" data-ga4-ref="header_menu">
+      <div class="headerCore_top_item">
+        <p class="header_description">
+                                    漫画・コミック読むならDLsite                              </p>
+      </div>
+      <div class="headerCore_top_item">
+                <ul v-if="isMemberLogin" v-cloak class="login_information">
+          <li class="login_information_item type_point">
+            <a href="https://www.dlsite.com/books/mypage/point" class="coupon_text">
+            ポイント<span class="number" v-text="point_str">-</span>pt
+            </a>
+          </li>
+          <li class="login_information_item type_coupon" :class="{ 'is-active': noticeCoupons.length, 'singular-number': coupons.length === 1 }">
+            <a href="https://www.dlsite.com/books/mypage/coupon/list" class="coupon_text">クーポン<span class="number" v-text="coupons.length">-</span>枚</a>
+          </li>
+        </ul>
+                <header_locale class="header_dropdown_nav type_language">
+          <div class="header_dropdown_nav_Link">Language</div>
+        </header_locale>
+                        <header_service class="header_dropdown_nav type_service">
+          <div class="header_dropdown_nav_Link">関連サービス</div>
+        </header_service>
+              </div>
+    </div>
+
+    <div class="headerCore-sub" data-ga4-ref="header">
+                      <a href="https://www.dlsite.com/books/" class="logo">
+                    <img src="/images/web/common/logo/pc/logo-dlsite-r18.png" alt="DLsite R18" width="132" height="25">
+                  </a>
+                    <!-- 検索 -->
+              <div class="globalSearch" :class="{active: isFocus}">
+          <form class="globalSearch-form" action="https://www.dlsite.com/books/fs" method="post">
+            <input name="_qf__fulltext_search" type="hidden" value="">
+            <input name="_layout" type="hidden" value="fs">
+            <input name="_site" type="hidden" value="books">
+            <input name="_form_id" type="hidden" value="FulltextSearchProductForm">
+            <input name="_view" type="hidden" value="input">
+            <input name="from" type="hidden" value="fs.header" id="header_search_from">
+            <input name="ana_flg" type="hidden" value="all">
+
+                                        <input type="hidden" name="site_category" :value="selected" v-if="!/drama$/.test(selected)">
+                            <input type="hidden" name="work_category" :value="'drama'" v-if="/drama$/.test(selected)">
+                            <input type="hidden" name="work_category" :value="'all'" v-if="site.gender === 'female' && !selected">
+                            <input type="hidden" name="is_tl"  :value="1" v-if="/^girls/.test(selected)">
+              <input type="hidden" name="is_bl"  :value="1" v-if="/^bl/.test(selected)">
+              <input type="hidden" name="is_gay" :value="1" v-if="/^bl/.test(selected)">
+            
+                        <div class="globalSearchSelect">
+              <div class="globalSearchSelect-lable">
+                <span v-text="searchCategories[selected]">すべて</span>
+              </div>
+              <select v-model="selected" class="globalSearchSelect-list is-active">
+                <option value="">すべて</option>
+                                <option value="maniax">同人</option>
+                <option value="books">成年コミック</option>
+                <option value="pro">美少女ゲーム</option>
+                <option value="appx">スマホゲーム</option>
+                                              </select>
+            </div>
+                        <div class="globalSearchForm">
+              <input
+                name="keyword"
+                type="search"
+                id="search_text"
+                ref="keyword"
+                maxlength="255"
+                autocomplete="off"
+                aria-autocomplete="list"
+                                                placeholder="キーワードから探す（作品名、サークル名など）"                @focus="isFocus = true"
+                @blur="isFocus = false"
+              >
+            </div>
+            <button id="search_button" class="globalSearchBtn" type="submit" @click="saveSelected()"><i>検索</i></button>
+          </form>
+        </div>
+        <div
+          class="globalSearchBg"
+          :class="{active: isFocus}"
+        ></div>
+        <div class="detailedSearch">
+          <a href="https://www.dlsite.com/books/fs">こだわり条件</a>
+        </div>
+            <!-- /検索 -->
+      <!-- アイコンメニュー -->
+      <ul class="globalNav">
+        <li v-if="!isMemberLogin && !isCircleLogin" class="globalNav-item type-register" v-cloak>
+          <a href="https://www.dlsite.com/books/regist/user"><i>新規登録</i></a>
+        </li>
+        <li v-if="!isMemberLogin && !isCircleLogin" class="globalNav-item type-login" v-cloak>
+          <a href="https://www.dlsite.com/books/login/=/skip_register/1" referrerpolicy="no-referrer-when-downgrade"><i>ログイン</i></a>
+        </li>
+        <li v-if="isMemberLogin" class="globalNav-item type-favorite">
+          <a  :href="hasUnboughtFavorites ? 'https://www.dlsite.com/books/mypage/wishlist/=/discount/1/order/cstart_d' : 'https://www.dlsite.com/books/mypage/wishlist'"><i>お気に入り</i></a><template v-if="hasUnboughtFavorites" v-cloak><a href="https://www.dlsite.com/books/mypage/wishlist/=/discount/1/order/cstart_d" class="notificationBadge" >割引作品あり</a></template>
+        </li>
+        <li class="globalNav-item type-cart"><a href="https://www.dlsite.com/books/cart"><i>カート</i></a><span v-if="cartActives.length" v-cloak class="cartBadge" v-text="Math.min(cartActives.length, 100)"></span></li>
+        <li v-if="isMemberLogin" class="globalNav-item type-play">
+          <a rel="noopener" href="https://play.dlsite.com/" target="_blank" v-cloak><i>購入済作品</i></a>
+        </li>
+        <!-- メンバーアカウント登録の場合　-->
+        <li v-if="isMemberLogin" class="globalNav-item type-circle">
+          <a v-cloak><i>アカウント</i></a>
+          <div class="dropdown_list type_account" v-cloak>
+            <div class="dropdown_list_inner">
+              <ul class="globalNav">
+                <li class="globalNav-item type-review">
+                  <a href="https://www.dlsite.com/books/mypage/short-review">
+                    <i>評価・レビュー</i>
+                  </a>
+                </li>
+                <li class="globalNav-item type-coupon">
+                  <a href="https://www.dlsite.com/books/mypage/coupon/list">
+                    <i>クーポン管理</i>
+                  </a>
+                </li>
+                <li class="globalNav-item type-userbuy">
+                  <a href="https://www.dlsite.com/books/mypage/userbuy">
+                    <i>購入履歴</i>
+                  </a>
+                </li>
+              </ul>
+              <ul class="menu_list">
+                <li class="menu_list_item type-mypage">
+                  <a href="https://www.dlsite.com/books/mypage" class="link">
+                    <i>マイページ</i>
+                    <span v-if="mypageNotices > 0" class="count" v-cloak>{{ noticesBadge(mypageNotices) }}</span>
+                  </a>
+                  <div v-if="mypageNotices > 0" class="notice">
+                                        重要なお知らせが<span>{{ mypageNotices }}件</span>あります。                  </div>
+                </li>
+                <li v-if="isCircleLogin" class="menu_list_item type-circle" v-cloak>
+                  <a href="https://www.dlsite.com/circle/" class="link">
+                    <i>サークル管理</i>
+                    <span v-if="circleNotices > 0" class="count" v-cloak>{{ noticesBadge(circleNotices) }}</span>
+                  </a>
+                  <div v-if="circleNotices > 0" class="notice">
+                                        重要なお知らせが<span>{{ circleNotices }}件</span>あります。                  </div>
+                </li>
+                <li v-if="is_translator" class="menu_list_item" v-cloak>
+                  <a href="https://www.dlsite.com/translator/work" class="link">
+                    <i>みんなで翻訳管理</i>
+                  </a>
+                </li>
+                <li class="menu_list_item">
+                  <a href="https://login.dlsite.com/user/self?lang=ja&redirect_uri=https%3A%2F%2Fwww.dlsite.com%2Fbooks%2F&cancel_uri=https://www.dlsite.com/books/" class="link" target="_blank">
+                    <i>アカウント管理</i>
+                  </a>
+                </li>
+              </ul>
+              <div class="login_account">
+                <div class="login_account_item">
+                  <p v-if="login_id" v-cloak class="account_name">
+                                                            <span>{{ login_id.substr(0, 30) }}{{ login_id.length > 30 ? '...' : '' }}</span>
+                    さん                  </p>
+                </div>
+                <div class="login_account_item">
+                  <a href="https://www.dlsite.com/books/logout" class="logout">ログアウト</a>
+                </div>
+              </div>
+            </div>
+          </div>
+          <span v-if="(mypageNotices + circleNotices) > 0 " class="accountBadge" v-text="noticesBadge(mypageNotices + circleNotices)" v-cloak></span>
+        </li>
+        <!-- サークルアカウントのみ登録の場合　-->
+        <li v-if="isCircleLogin && !isMemberLogin" class="globalNav-item type-circle">
+          <a v-cloak><i>アカウント</i></a>
+          <div class="dropdown_list type_account" v-cloak>
+            <div class="dropdown_list_inner">
+              <ul class="menu_list">
+                <li v-if="isCircleLogin" class="menu_list_item type-circle" v-cloak>
+                  <a href="https://www.dlsite.com/circle/" class="link">
+                    <i>サークル管理</i>
+                    <span v-if="circleNotices > 0" class="count" v-cloak>{{ noticesBadge(circleNotices) }}</span>
+                  </a>
+                  <div v-if="circleNotices > 0" class="notice">
+                                        重要なお知らせが<span>{{ circleNotices }}件</span>あります。                  </div>
+                </li>
+                <li v-if="is_translator" class="menu_list_item" v-cloak>
+                  <a href="https://www.dlsite.com/translator/work" class="link">
+                    <i>みんなで翻訳管理</i>
+                  </a>
+                </li>
+                <li class="menu_list_item">
+                  <a href="https://login.dlsite.com/user/self?lang=ja&redirect_uri=https%3A%2F%2Fwww.dlsite.com%2Fbooks%2F&cancel_uri=https://www.dlsite.com/books/" class="link" target="_blank">
+                    <i>アカウント管理</i>
+                  </a>
+                </li>
+              </ul>
+              <div class="login_account">
+                <div class="login_account_item">
+                  <p v-if="login_id" v-cloak class="account_name">
+                                                            <span>{{ login_id.substr(0, 30) }}{{ login_id.length > 30 ? '...' : '' }}</span>
+                    さん                  </p>
+                </div>
+                <div class="login_account_item">
+                  <a href="https://www.dlsite.com/books/logout" class="logout">ログアウト</a>
+                </div>
+              </div>
+            </div>
+          </div>
+          <span v-if="(circleNotices) > 0 " class="accountBadge" v-text="noticesBadge(circleNotices)" v-cloak></span>
+        </li>
+        <li class="globalNav-item type-guide">
+          <a href="#"><i>ガイド</i></a>
+          <div class="dropdown_list type_guide">
+            <div class="dropdown_list_inner">
+              <ul class="menu_list">
+                <li class="menu_list_item"><a rel="noopener" href="https://www.dlsite.com/books/faq/=/type/user" target="_blank" class="link">ヘルプ</a></li>
+                <li class="menu_list_item"><a href="https://www.dlsite.com/books/welcome" class="link">初めての方へ</a></li>
+                                <li class="menu_list_item"><a href="https://www.dlsite.com/books/circle/invite" class="link">サークル登録について</a></li>
+                                <li class="menu_list_item"><a href="https://www.dlsite.com/books/guide/payment" class="link">お支払方法について</a></li>
+                <li class="menu_list_item"><a href="https://www.dlsite.com/books/mypage/aboutpoint" class="link">ポイントについて</a></li>
+              </ul>
+            </div>
+          </div>
+        </li>
+      </ul>
+      <!-- /ガイドメニュー -->
+    </div>
+
+        <div class="headerCore-main"><div class="headerCore-mainWrap">
+        <div class="headerCore-mainInner " :class="{ couponShow: isAccountLogin }" data-ga4-ref="floor_navi">
+                <ul class="floorTab type-adult" role="navigation">
+          <li class="floorTab-item type-doujin"><a href="https://www.dlsite.com/maniax/">同人</a>       </li>
+          <li class="floorTab-item type-ebook  is-active"><a href="https://www.dlsite.com/books/">成年コミック</a></li>
+          <li class="floorTab-item type-com   "><a href="https://www.dlsite.com/pro/">美少女ゲーム</a>  </li>
+          <li class="floorTab-item type-app   "><a href="https://www.dlsite.com/appx/">スマホゲーム</a></li>
+          <li class="floorTab-item type-tool "><a href="https://www.dlsite.com/maniax/tool">制作ソフト・素材</a></li>
+                    <li class="floorTab-item type-nijiyome"><a href="https://www.nijiyome.jp?en=dlsite&em=tab&et=books">オンラインゲーム</a></li>
+        </ul>
+        
+                <div class="floorNavLink">
+                    <div class="floorNavLink-item type-general"><a rel="noopener" href="https://www.comipo.app/" target="_blank">コミック（comipo）へ</a></div>
+                              <div class="floorNavLink-item type-garumani"><a href="https://www.dlsite.com/garumani/">女性向け 全年齢へ</a></div>
+          <div class="floorNavLink-item type-female"><a href="https://www.dlsite.com/girls-pro/">女性向け TL/BLへ</a></div>
+        </div>
+              </div>
+            <div class="floorSubNav" data-ga4-ref="floor_sub_navi">
+        <div class="floorSubNav-item">
+          <ul class="headerNav">
+
+      
+                  <li class="headerNav-item"><a href="https://www.dlsite.com/books/" class="top">TOP</a></li>
+                                  <li class="headerNav-item">
+              <a href="https://www.dlsite.com/books/works/comic" class="comic">単行本</a>
+            </li>
+                      <li class="headerNav-item">
+              <a href="https://www.dlsite.com/books/works/magazine" class="magazine">雑誌/アンソロ</a>
+            </li>
+                      <li class="headerNav-item">
+              <a href="https://www.dlsite.com/books/works/oneshot" class="oneshot">単話/短編</a>
+            </li>
+            <li class="headerNav-item">
+              <a href="https://www.dlsite.com/books/promo/works/=/key/adult-webtoon" class="webtoon" :class="{'is-active': currentPromoKeyEquals('adult-webtoon')}">タテヨミ</a>
+            </li>
+            <li class="headerNav-item">
+              <a href="https://www.dlsite.com/books/ranking?date=30d" class="ranking">ランキング</a>
+            </li>
+            <li class="headerNav-item"><a href="https://www.dlsite.com/books/new" class="calendar">発売カレンダー</a></li>
+
+                        </ul>
+        </div>
+      </div>
+      
+    </div></div>
+      </div>
+</header>
+
+
+
+
+        <script type="text/javascript">
+var loginchecked = document.getCookie('loginchecked');
+
+if (loginchecked & 1) {
+  // ユーザがログイン中の表示
+  $("li#nav_login a").attr("title", "ログアウト").attr("href", "https://www.dlsite.com/books/logout/=/type/member");
+  $("li#nav_login").attr("id", "nav_logout");
+} else {
+  // ユーザがログアウト中の表示
+//  $("li#nav_logout a").attr("title", "ログイン").attr("href", "https://www.dlsite.com/books/login/=/type/member");
+//  $("li#nav_logout").attr("id", "nav_login");
+}
+</script>
+
+        
+      </div>
+      <!-- /header -->
+
+            <!-- top_wrapper -->
+      <div id="top_wrapper" class="clearfix" data-section_name="top_wrapper">
+        <ul class="topicpath">
+  <li class="topicpath_item">
+    <a href="https://www.dlsite.com/books/">
+    <span>
+              成年コミック          </span>
+    </a>
+  </li>
+                          <li class="topicpath_item">
+        <a href="https://www.dlsite.com/books/circle/list">
+          <span>
+                                                                    出版社／著者一覧                      </span>
+        </a>
+      </li>
+                  <li class="topicpath_item">
+        <a href="https://www.dlsite.com/books/circle/profile/=/maker_id/BG01010.html">
+          <span>フランス書院</span>
+        </a>
+      </li>
+                                                  <li class="topicpath_item">
+            <a href="https://www.dlsite.com/books/fsr/=/keyword_maker_name/LBL00052/from/work.label">
+              <span>美少女文庫</span>
+            </a>
+          </li>
+                                  <li class="topicpath_item">
+                                      <a href="https://www.dlsite.com/books/fsr/=/title_id/TITLE00104699/order/title_d/from/work.titles">
+                <span>「魔剣の姫はエロエロです」シリーズ</span>
+              </a>
+                      </li>
+                    <li class="topicpath_item">
+                  <a>
+            <span>魔剣の姫はエロエロです</span>
+          </a>
+              </li>
+                            
+      </ul>
+
+<script type="application/ld+json">
+
+{
+  "@context": "https://schema.org",
+  "@type": "BreadcrumbList",
+  "itemListElement": [
+    {
+      "@type": "ListItem",
+      "position": 1,
+      "name": "成年コミック",
+      "item": "https://www.dlsite.com/books/"
+    }
+                                  ,{
+      "@type": "ListItem",
+      "position": 2,
+      "name": "出版社／著者一覧",
+      "item": "https://www.dlsite.com/books/circle/list"
+    }
+                              ,{
+      "@type": "ListItem",
+      "position": 3,
+      "name": "フランス書院",
+      "item": "https://www.dlsite.com/books/circle/profile/=/maker_id/BG01010.html"
+    }
+                                                                  ,{
+      "@type": "ListItem",
+      "position": 4,
+      "name": "美少女文庫",
+      "item": "https://www.dlsite.com/books/fsr/=/keyword_maker_name/LBL00052/from/work.label"
+    }
+                                              ,{
+      "@type": "ListItem",
+      "position": 5,
+      "name": "「魔剣の姫はエロエロです」シリーズ",
+      "item": "https://www.dlsite.com/books/fsr/=/title_id/TITLE00104699/order/title_d/from/work.titles"
+    }
+                                          ,{
+      "@type": "ListItem",
+      "position": 6,
+      "name": "魔剣の姫はエロエロです"
+    }
+                                              
+                
+  ]
+}
+
+</script>
+<div class="base_title_br clearfix">
+
+<div class="icon_wrap">
+
+
+
+
+
+
+
+
+
+
+</div>
+<h1 itemprop="name" id="work_name">魔剣の姫はエロエロです</h1>
+<meta itemprop="alternateName" content="makennohimehaeroerodesu">
+
+<template data-vue-component="dlchannel-topic" data-product-id="BJ108758" data-product-name="魔剣の姫はエロエロです" data-maker-name="フランス書院"></template>
+
+
+  
+    
+  
+
+  
+
+<template data-vue-component="share-button" data-twitter-share-url="https://twitter.com/intent/tweet?url=https%3A%2F%2Fdlsharing.com%2Fbooks%2Fwork%2F%3D%2Fproduct_id%2FBJ108758.html%0A&text=%E9%AD%94%E5%89%A3%E3%81%AE%E5%A7%AB%E3%81%AF%E3%82%A8%E3%83%AD%E3%82%A8%E3%83%AD%E3%81%A7%E3%81%99%2F%E9%9D%92%E6%A9%8B%E7%94%B1%E9%AB%98%20%E6%9C%89%E6%9C%AB%E3%81%A4%E3%81%8B%E3%81%95%20%20%28%E7%BE%8E%E5%B0%91%E5%A5%B3%E6%96%87%E5%BA%AB%29&hashtags=DLsite&lang=ja
+" data-award-share-url="https://twitter.com/intent/tweet?text=DLsite%E3%82%A2%E3%83%AF%E3%83%BC%E3%83%892022%0A%E3%81%93%E3%81%AE%E4%BD%9C%E5%93%81%E3%81%AB%E6%8A%95%E7%A5%A8%E3%81%97%E3%81%BE%E3%81%97%E3%81%9F%EF%BC%81%F0%9F%92%8C%0A%0A%E3%80%90%E4%BD%9C%E5%93%81%E5%90%8D%E3%80%91%0A%E9%AD%94%E5%89%A3%E3%81%AE%E5%A7%AB%E3%81%AF%E3%82%A8%E3%83%AD%E3%82%A8%E3%83%AD%E3%81%A7%E3%81%99%0A%0Ahttps%3A%2F%2Fwww.dlsite.com%2Fmodpub%2Flp%2Fhome%2Fdlsiteawards2022%2Fvote%2F%0A%0A%23DLsite%E3%82%A2%E3%83%AF%E3%83%BC%E3%83%89&lang=ja
+" data-share-url="https://dlsharing.com/books/work/=/product_id/BJ108758.html" data-share-title="魔剣の姫はエロエロです" data-share-maker-name="フランス書院"></template>
+</div>
+      </div>
+      <!-- /top_wrapper -->
+      
+      <!-- wrapper -->
+      <div id="wrapper">
+
+        <template data-vue-component="share-group"></template>
+
+        
+        <!-- main -->
+        <div id="main" data-section_name="main">
+
+          <!-- main_inner -->
+          <div id="main_inner">
+            
+
+
+
+
+<!-- work_header -->
+<div id="work_header">
+<!-- work_left -->
+<div id="work_left">
+
+<meta itemprop="image" content="//img.dlsite.jp/modpub/images2/work/books/BJ109000/BJ108758_img_main.jpg"><div data-vue-component="product-slider" data-product-id="BJ108758"><div class="product-slider"><div ref="product_slider_data" class="product-slider-data"><div data-src="//img.dlsite.jp/modpub/images2/work/books/BJ109000/BJ108758_img_main.jpg" data-width="315" data-height="450" data-thumb="//img.dlsite.jp/resize/images2/work/books/BJ109000/BJ108758_img_main_240x240.jpg"></div><div data-src="//img.dlsite.jp/modpub/images2/work/books/BJ109000/BJ108758_img_smp1.jpg" data-width="760" data-height="600" data-thumb="//img.dlsite.jp/resize/images2/work/books/BJ109000/BJ108758_img_smp1_100x100.jpg"></div><div data-src="//img.dlsite.jp/modpub/images2/work/books/BJ109000/BJ108758_img_smp2.jpg" data-width="850" data-height="600" data-thumb="//img.dlsite.jp/resize/images2/work/books/BJ109000/BJ108758_img_smp2_100x100.jpg"></div><div data-src="//img.dlsite.jp/modpub/images2/work/books/BJ109000/BJ108758_img_smp3.jpg" data-width="850" data-height="600" data-thumb="//img.dlsite.jp/resize/images2/work/books/BJ109000/BJ108758_img_smp3_100x100.jpg"></div></div><div class="work_slider male"><div class="work_slider_container"><div class="slider_body"><div ref="swiper" class="slider_body_inner"><ul class="slider_items trans" ref="body_items" @click="showPopup"><li v-if="items.length === 0" class="slider_item active" :key="'empty'"><img-with-fallback :candidates="['//img.dlsite.jp/modpub/images2/work/books/BJ109000/BJ108758_img_main.webp', '//img.dlsite.jp/modpub/images2/work/books/BJ109000/BJ108758_img_main.jpg']"width="auto"height="450"alt="魔剣の姫はエロエロです [フランス書院]"/></li><li v-for="(item, index) in items":key="index":class="{ active: index === 0 }"class="slider_item"><img-with-fallback :candidates="[item.src.replace('.jpg', '.webp'), item.src]"alt="魔剣の姫はエロエロです [フランス書院]"title="魔剣の姫はエロエロです [フランス書院]":loading="index === 0 ? 'eager' : 'lazy'"/></li></ul></div><div v-cloak v-if="items.length > 1" class="slider_prev" @click="slideTo('prev')"></div><div v-cloak v-if="items.length > 1" class="slider_next" @click="slideTo('next')"></div></div><div v-cloak v-if="items.length > 1" ref="ctrl" @wheel="slideScroll" class="slider_controller"><div class="controller_body"><ul ref="ctrl_items" class="controller_items"><template v-for="(item, index) in items"><li class="controller_item" :class="{ active: index === swiper.realIndex }" @click="slideTo(index)"><div class="thumb_box"><img-with-fallback alt="魔剣の姫はエロエロです [フランス書院]"title="魔剣の姫はエロエロです [フランス書院]":candidates="item.thumb.type === 'thumb'? [item.thumb.src.replace('.jpg', '.webp'), item.thumb.src]: [item.src.replace('.jpg', '.webp'), item.src]":width="item.thumb.width":height="item.thumb.height"/></div></li></template></ul></div><div class="controller_prev" @click="slideTo('prev')"></div><div class="controller_next" @click="slideTo('next')"></div></div></div></div><div v-cloak class="work_slider_comp" v-if="items.length > 1"><span v-t="{ path: 'product.slider.totalImages', args: [items.length] }"></span></div><div v-if="popupVisible" class="slider_popup_overlay" @click="hidePopup"><div class="slider_popup" @click.stop><span class="slider_popup_close" @click="hidePopup"></span><div class="slider_popup_rightpane"><div class="slider_popup_sidebar"><template v-for="(item, index) in items"><div rel="noopener"target="_blank":class="{ active: index === swiper.realIndex }"@click="slideTo(index, false)"><picture><source type="image/webp":srcset="item.thumb.src.replace('.jpg', '.webp')"><img :src="item.thumb.src":v-lazy="item.thumb.src"alt="魔剣の姫はエロエロです [フランス書院]"></picture></div></template></div><div class="slider_popup_arrows"><div class="slider_popup_button"><div class="slider_popup_prev" @click="slideTo('prev', false)"></div><div class="slider_popup_next" @click="slideTo('next', false)"></div></div><div class="slider_popup_count">{{ swiper.realIndex + 1 }} / {{ items.length }}</div></div></div><div class="slider_popup_leftpane"><div ref="mainbox" class="slider_popup_mainbox" @wheel.prevent="slideScroll"><div class="slider_zoom_container" ref="zoom_container" @mousemove.prevent="setPopupPosition" @click="setPopupImage(true)"><picture><source type="image/webp":srcset="items[swiper.realIndex].src.replace('.jpg', '.webp')"><img :src="items[swiper.realIndex].src"ref="zoom_container_image"alt="魔剣の姫はエロエロです [フランス書院]"></picture></div></div><div class="slider_popup_tool"><input id="target1" class="checkbox" name="target" type="checkbox" value="1" v-model="alwaysActualSize" @change="toggleActualSize" @click="toggleActualSize"><label for="target1" class="checkbox-label" v-t="'product.slider.alwaysActual'"></label><span class="slider_popup_description" v-t="'product.slider.tools'"></span></div></div></div></div></div></div>
+
+</div>
+<!-- /work_left -->
+
+<!-- work_right -->
+<div id="work_right">
+<div itemprop="aggregateRating" itemscope itemtype="https://schema.org/AggregateRating">
+  <meta itemprop="ratingValue" content="4.09">
+  <meta itemprop="ratingCount" content="35">
+</div>
+<div
+  class="work_right_info"
+  data-vue-component="product-price"
+  data-product-id="BJ108758"
+  data-is-check="false"
+  data-is-comingsoon="false"
+>
+  <template v-if="(product.dl_count !== undefined && product.dl_count > 0) || (!isFemale() && product.wishlist_count !== undefined && product.wishlist_count > 0) || product.rate_count > 0 || product.review_count" v-cloak>
+    <product-rank product-id="BJ108758"></product-rank>
+
+    <div v-if="(product.dl_count !== undefined && product.dl_count > 0) || product.rate_count > 0" v-cloak class="work_right_info_item">
+      <dl class="work_right_info_title value">
+                        
+                <template v-if="product.rate_count > 0" v-cloak>
+          <dt v-t="'product.evaluate.rating_label'"></dt>
+          <dd class="star_box" @mouseenter="showRateDetail" @mouseleave="hideRateDetail">
+            <span class="point average_count">{{ product.rate_average_2dp }}</span>
+            <div class="star_wrap">
+              
+              <span class="rate" :class="'rate' + product.rate_average_star"></span>
+
+              <div class="rating_popup" :class="{ open: is_open_rate }" v-if="is_display_rate">
+                <div class="rating_popup_inner">
+                  <div class="rating_content">
+                    <dl class="rating_content_inner">
+                      <dt class="rating_itemTitle" v-t="'product.rating.average'"></dt>
+                      <dd><p class="rating_score">{{ product.rate_average_2dp }}</p></dd>
+                    </dl>
+                    <dl class="rating_content_inner">
+                      <dt class="rating_itemTitle" v-t="'product.rating.ratings'"></dt>
+                      <dd><p class="">{{ product.rate_count|number_format }}</p></dd>
+                    </dl>
+                  </div>
+
+                  <div class="rating_content">
+                    <dl class="rating_content_inner">
+                      <dt class="rating_itemTitle" v-t="'product.rating.rating'"></dt>
+                      <dd>
+                        <dl class="rating_map">
+                          <dt class="rating_map_label">
+                            <p v-t="'product.rating.star_5'"></p>
+                          </dt>
+                          <dd class="rating_map_body">
+                            <div class="rating_meter">
+                              <div class="rating_bar" :style="{ width: is_open_rate ? Math.floor(product.rate_count_detail[4].ratio * 0.8) + 'px' : 0 }"></div>
+                            </div>
+                            ({{ product.rate_count_detail ? product.rate_count_detail[4].count : 0|number_format }})
+                          </dd>
+                          <dt class="rating_map_label">
+                            <p v-t="'product.rating.star_4'"></p>
+                          </dt>
+                          <dd class="rating_map_body">
+                            <div class="rating_meter">
+                              <div class="rating_bar" :style="{ width: is_open_rate ? Math.floor(product.rate_count_detail[3].ratio * 0.8) + 'px' : 0 }"></div>
+                            </div>
+                            ({{ product.rate_count_detail ? product.rate_count_detail[3].count : 0|number_format }})
+                          </dd>
+                          <dt class="rating_map_label">
+                            <p v-t="'product.rating.star_3'"></p>
+                          </dt>
+                          <dd class="rating_map_body">
+                            <div class="rating_meter">
+                              <div class="rating_bar" :style="{ width: is_open_rate ? Math.floor(product.rate_count_detail[2].ratio * 0.8) + 'px' : 0 }"></div>
+                            </div>
+                            ({{ product.rate_count_detail ? product.rate_count_detail[2].count : 0|number_format }})
+                          </dd>
+                          <dt class="rating_map_label">
+                            <p v-t="'product.rating.star_2'"></p>
+                          </dt>
+                          <dd class="rating_map_body">
+                            <div class="rating_meter">
+                              <div class="rating_bar" :style="{ width: is_open_rate ? Math.floor(product.rate_count_detail[1].ratio * 0.8) + 'px' : 0 }"></div>
+                            </div>
+                            ({{ product.rate_count_detail ? product.rate_count_detail[1].count : 0|number_format }})
+                          </dd>
+                          <dt class="rating_map_label">
+                            <p v-t="'product.rating.star_1'"></p>
+                          </dt>
+                          <dd class="rating_map_body">
+                            <div class="rating_meter">
+                              <div class="rating_bar" :style="{ width: is_open_rate ? Math.floor(product.rate_count_detail[0].ratio * 0.8) + 'px' : 0 }"></div>
+                            </div>
+                            ({{ product.rate_count_detail ? product.rate_count_detail[0].count : 0|number_format }})
+                          </dd>
+                        </dl>
+                      </dd>
+                    </dl>
+                  </div>
+                </div>
+              </div>
+              
+            </div>
+            <span class="count">({{ product.rate_count|number_format }})</span></p>
+          </dd>
+        </template>
+              </dl>
+    </div>
+
+    <div v-if="(!isFemale() && product.wishlist_count !== undefined && product.wishlist_count > 0) || product.review_count" v-cloak class="work_right_info_item">
+      <dl class="work_right_info_title">
+        
+        <!-- レビュー ここから -->
+        <template v-if="product.review_count" v-cloak>
+          <dt v-t="'product.evaluate.review_number_label'"></dt>
+          <dd class="position_fix"><span>{{ product.review_count|number_format }}</span><span class="count"></span>&nbsp;(<a href="#review_link" v-html="$t('product.evaluate.to_rating_label')"></a>)</span></dd>
+        </template>
+        <!-- レビュー ここまで -->
+      </dl>
+    </div>
+    <!--  -->
+  </template>
+</div>
+<div id="work_right_inner">
+
+<div id="work_right_name">
+<table id="work_maker">
+        <tr>
+      <th>著者</th>
+      <td>
+                              <a href="https://www.dlsite.com/books/author/=/author_id/AJ001112/ana_flg/all">青橋由高</a>(作)
+                                      &nbsp;/&nbsp;            <a href="https://www.dlsite.com/books/author/=/author_id/AJ001658/ana_flg/all">有末つかさ</a>(画)
+                                  </td>
+    </tr>
+  
+    
+    <tr>
+    <th>出版社名</th>
+    <td>
+      <span itemprop="brand" class="maker_name">
+        <a href="https://www.dlsite.com/books/circle/profile/=/maker_id/BG01010.html">フランス書院</a>
+      </span>
+      <span class="add_follow" data-vue-component="follow-button" data-follow-key="BG01010" data-follow-name="フランス書院" v-cloak>
+        <a class="btn_follow" href="https://www.dlsite.com/books/mypage/followlist/add/=/work_id/BJ108758/product_state/1/maker_id/BG01010.html">フォローする</a>
+      </span>
+    </td>
+  </tr>
+
+        <tr>
+      <th>レーベル</th>
+      <td>
+        <span class="maker_name">
+          <a href="https://www.dlsite.com/books/fsr/=/keyword_maker_name/LBL00052/from/work.label/ana_flg/all">美少女文庫</a>
+        </span>
+      </td>
+    </tr>
+  </table>
+
+<span data-vue-component="cien-creator-link" data-vue-async="true" data-maker-id="BG01010"></span>
+</div>
+
+<table cellspacing="0" id="work_outline">
+    <tr>
+    <th>販売日</th>
+    <td><a href="https://www.dlsite.com/books/new/=/year/2017/mon/05/day/14/cyear/2017/cmon/05">2017年05月14日</a></td>  </tr>
+
+  
+    
+        <tr>
+      <th>シリーズ名</th>
+      <td>
+                          <a href="https://www.dlsite.com/books/fsr/=/title_id/TITLE00104699/order/title_d/from/work.titles/ana_flg/all">魔剣の姫はエロエロです</a>
+              </td>
+    </tr>
+  
+    
+    
+          <tr>
+      <th>年齢指定</th>
+      <td>
+        <div class="work_genre">
+                      <a href="https://www.dlsite.com/books/fsr/=/work_category%5B0%5D/books/age_category/3/from/icon.work"><span class="icon_ADL" title="R18">R18</span></a>
+                  </div>
+      </td>
+    </tr>
+  
+    <tr>
+    <th>作品形式</th>
+    <td>
+      <div class="work_genre" id="category_type">
+        <a href="https://www.dlsite.com/books/works/type/=/work_type/NRE/from/icon.work"><span class="icon_NRE" title="ノベル">ノベル</span></a>
+        
+                      </div>
+    </td>
+  </tr>
+
+                <tr>
+        <th>ファイル形式</th>
+        <td>
+          <div class="work_genre">
+            <span class="icon_CVW" title="コミックビューア（ブラウザ専用）">コミックビューア（ブラウザ専用）</span>          </div>
+        </td>
+      </tr>
+      
+                                
+          
+          <tr>
+      <th>ページ数</th>
+      <td>362</td>
+    </tr>
+  
+        <tr>
+      <th>ジャンル</th>
+      <td>
+        <div class="main_genre">
+                                    <a href="https://www.dlsite.com/books/fsr/=/genre/256/from/work.genre/ana_flg/all">首輪/鎖/拘束具</a>
+                          <a href="https://www.dlsite.com/books/fsr/=/genre/235/from/work.genre/ana_flg/all">エルフ/妖精</a>
+                          <a href="https://www.dlsite.com/books/fsr/=/genre/222/from/work.genre/ana_flg/all">幼なじみ</a>
+                          <a href="https://www.dlsite.com/books/fsr/=/genre/234/from/work.genre/ana_flg/all">女王様/お姫様</a>
+                          <a href="https://www.dlsite.com/books/fsr/=/genre/046/from/work.genre/ana_flg/all">ハーレム</a>
+                          <a href="https://www.dlsite.com/books/fsr/=/genre/511/from/work.genre/ana_flg/all">ライトノベル</a>
+                          <a href="https://www.dlsite.com/books/fsr/=/genre/140/from/work.genre/ana_flg/all">しつけ</a>
+                          <a href="https://www.dlsite.com/books/fsr/=/genre/128/from/work.genre/ana_flg/all">中出し</a>
+                          <a href="https://www.dlsite.com/books/fsr/=/genre/116/from/work.genre/ana_flg/all">複数プレイ/乱交</a>
+                          <a href="https://www.dlsite.com/books/fsr/=/genre/182/from/work.genre/ana_flg/all">巨乳/爆乳</a>
+                                
+        </div>
+      </td>
+    </tr>
+  
+  
+    
+  </table>
+
+
+
+<ul class="work_feature">
+
+
+    
+<li>
+  <div id="work_protect" class="__nomac _no_mac_protect">
+    <strong>この作品はブラウザ視聴（コミックビューア）作品です。</strong>
+    <span>[&nbsp;<a href="https://www.dlsite.com/home/zendesk/auth/=/return_to/https%3A%2F%2Fcs.dlsite.com%2Fhc%2Fja%2Farticles%2F900007232423">コミックビューアについて</a>&nbsp;]</span>
+  </div>
+</li>
+
+
+
+
+
+</ul>
+
+<div data-vue-component="product-sales-end" data-product-id="BJ108758" data-is-sp-site="" v-cloak></div>
+
+</div>
+
+
+
+<div class="trial_download mb30">
+</div>
+
+<ul class="work_edition">
+  
+            <li
+    data-vue-component="language-edition-selector"
+    data-language-editions='[]'
+    data-supported-languages='["JPN"]'
+    data-product-id="BJ108758"
+    v-cloak
+  ></li>
+
+  
+  </ul>
+
+</div>
+<!-- /work_right-->
+</div>
+<!-- /work_header -->
+
+
+
+<div class="title_01 clearfix"><h2>作品内容</h2></div>
+
+<div itemprop="description" class="work_parts_container">
+      
+  
+<div class="work_parts type_text">
+
+        
+    
+          <div class="work_parts_area">
+        <p>魔剣の呪いでエロエロ発情ボディになってしまったシーラ相手に、夢の童貞喪失。<br />
+「バカエリク! これ以上はダメ! さっきからアンタのせいで何度もイッてるのよ! あっ、またイクイクッ、イクぅぅ!」<br />
+背をのけ反らせて達する幼なじみの艶姿。<br />
+少年の抽送はフルスロットルに変わっていく。<br />
+「うふふ、姫様、素敵なアヘ顔ですわ」<br />
+さらに、憧れのエルフお姉さん・ニナまで百合責めに加われば……<br />
+「シーラ、シーラぁっ」<br />
+「なによ、こんなときだけ昔みたいに呼んでっ!」<br />
+「いいですよ、そのまま姫様の中に注いであげてください」<br />
+三人の想いは一つに重なり、シーラは快感の高み、オルガスムスへと飛翔した。<br />
+「イッ……イグ、イッちゃうのぉ」<br />
+「シーラ、そんなに締めつけないでっ!」<br />
+「二人とも、とっても幸せそう」</p>
+      </div>
+
+    
+</div>
+    
+    </div>
+
+<!-- spec -->
+<!-- /spec -->
+
+
+<div id="work_series_top"></div>
+<template data-vue-component="product-title-works" data-title-id="TITLE00104699" data-product-id="BJ108758" data-pagenate=""></template>
+
+<template data-vue-component="product-relation-titles" data-title-id="TITLE00104699" data-product-id="BJ108758"></template>
+
+
+
+
+            
+            
+<!-- same_series -->
+<!-- /same_series -->
+
+<!-- 同一メーカー作品（サークル作品一覧・著者作品一覧・サークル／ブランド作品一覧・ブランド作品一覧） -->
+<div class="work_series">
+  <div class="title_01 clearfix">
+    <h2>
+      <span class="title">
+                著者作品一覧              </span>
+    </h2>
+        <p class="move">
+      <span>
+        <a href="https://www.dlsite.com/books/fsr/=/keyword_maker_name/AJ001112%7CAJ001658/from/work.same_author">作品をもっと見る</a>
+      </span>
+    </p>
+      </div>
+      <div class="sub_title"><span class="ml10">販売作品</span></div>
+    <div class="recommend_list portrait"
+    data-href="https://www.dlsite.com/books/load/recommend/detail/v2/=/type/maker_works/workno/BJ02870730%2CBJ02870729%2CBJ02870728%2CBJ02870727%2CBJ02626207%2CBJ02626206%2CBJ02527249%2CBJ02527248%2CBJ02484912%2CBJ02484911%2CBJ02484910%2CBJ02484909%2CBJ02452679%2CBJ02452678%2CBJ02403357%2CBJ02403356%2CBJ02348618%2CBJ02348617%2CBJ02348616%2CBJ02348615%2CBJ02300815%2C"
+    data-type="maker_works"></div>
+  </div>
+<!-- maker_works -->
+
+<!-- label_works（商業翻訳作品の場合は非表示） -->
+<div class="work_series">
+  <div class="title_01 clearfix">
+    <h2><span class="title">レーベル作品一覧</span></h2>
+        <p class="move"><span><a
+          href="https://www.dlsite.com/books/fsr/=/keyword_maker_name/%E7%BE%8E%E5%B0%91%E5%A5%B3%E6%96%87%E5%BA%AB+LBL00052/from/work.same_author">作品をもっと見る</a></span>
+    </p>
+      </div>
+    <div class="recommend_list portrait"
+    data-href="https://www.dlsite.com/books/load/recommend/detail/v2/=/type/label_works/workno/BJ057429%2CBJ01004073%2CBJ003955%2CBJ01004074%2CBJ01004072%2CBJ620916%2CBJ620917%2CBJ620919%2CBJ620918%2CBJ589969%2CBJ589968%2CBJ589970%2CBJ571521%2CBJ571520%2CBJ562730%2CBJ562731%2CBJ532065%2CBJ532064%2CBJ521136%2CBJ521135%2CBJ502693%2C"
+    data-type="label_works"></div>
+</div>
+
+<!-- /label_works -->
+
+<!-- relation -->
+<!-- /relation -->
+
+<!-- same_voice -->
+<!-- /same_voice -->
+
+            <!-- recommend --><div data-ga4-ref="similer_recommend"><div class="title_01 clearfix" data-download-threshold="5"><h2>この作品を買った人はこんな作品も買っています</h2></div><div class="recommend_list portrait"data-section-name="work_recommend_history"data-href="https://www.dlsite.com/books/load/recommend/v2/=/type/viewsales2/reject/BG01010/product_id/BJ108758.html"data-type="viewsales2"></div></div><!-- /recommend --><div data-ga4-ref="recent_recommend"><div class="title_01 clearfix"><h2>最近チェックした作品</h2></div><div class="recommend_list portrait"data-section-name="work_recommend_history"data-href="https://www.dlsite.com/books/load/recommend/v2/=/type/history/product_id/BJ108758.html"data-type="history"></div></div><script>$(() => {const isLoggedIn = ['1', '3'].includes(document.getCookie('loginchecked'));$(document).bind('ajaxSuccess', () => {const targetBlocks = $('.work_main_list_ncol');targetBlocks.each(() => {if ($(this).thumbImgPopup !== undefined) {$(this).thumbImgPopup();$(this).setBlockViewSetting('mheight_01', '__sp_detail', 'end');}});});void (async () => {const rejects = await fetchUninterestRejects(isLoggedIn);const elements = document.querySelectorAll('.recommend_list');for (const element of elements) {fetchRecommendParts({ element, rejects });}})();async function fetchUninterestRejects(isLoggedIn) {if (!isLoggedIn) {return [];}const cacheKey = '__dlsite_member_uninterest_promise__';if (!window[cacheKey]) {const memberUninterestEndpoint = 'https://www.dlsite.com/books/load/member/uninterest';window[cacheKey] = fetch(memberUninterestEndpoint).then((res) => res.json()).catch(() => ({}));}const data = await window[cacheKey];return [...(data['reason_1'] ?? []),...(data['reason_2'] ?? []),];}async function fetchRecommendParts({ element, rejects }) {const { href, type } = element.dataset;if (typeof href !== 'string') return;const res = await fetch(href);const html = await res.text();element.innerHTML = html;for (const li of element.querySelectorAll('li.swiper-slide')) {if (rejects.includes(li.dataset.prod)) {li.remove();}li.querySelector('.mini_menu')?.addEventListener('click', () => {li.querySelector('.mini_menu_dropdown')?.classList.toggle('open');});li.querySelector('.mini_menu_dropdown_inner')?.addEventListener('click', async () => {if (!isLoggedIn) {window.location.href = 'https://www.dlsite.com/books/regist/user';return;}const res = await fetch(`https://www.dlsite.com/books/cart/ajax/=/mode/nothanks/product_id/${li.dataset.prod}`);if (res.ok) {li.querySelector('.recommend_work_item')?.classList.add('hidden');} else {window.location.href = 'https://www.dlsite.com/books/regist/user';}});li.addEventListener('click', (e) => {const anchorElements = [...li.querySelectorAll('a')];if (anchorElements.length > 0 && anchorElements.some((el) => el.contains(e.target))) {sendGaEvent(e, li.dataset.category);}});li.addEventListener('mousedown', (e) => {const anchorElements = [...li.querySelectorAll('a')];if (anchorElements.length > 0 && anchorElements.some((el) => el.contains(e.target))) {if (e.button !== 1) return;sendGaEvent(e, li.dataset.category);}});}$.filterImage();$(window).triggerHandler('initialize.vue');const slidesPerView = Math.floor($(element).find('.swiper-container').width() / 200);const swiper = new Swiper(element.querySelector('.swiper-container'), {preloadImages: false,lazy: {loadPrevNext: false,loadOnTransitionStart: true,},navigation: {nextEl: '.swiper-button-next.type-' + type,prevEl: '.swiper-button-prev.type-' + type,disabledClass: 'disable',},slidesPerColumn: type === 'viewsales2' ? 2 : 1,slidesPerView,slidesPerGroup: slidesPerView,spaceBetween: 10,breakpoints: {1194: {slidesPerView: 3,slidesPerGroup: 3,},1364: {slidesPerView: 4,slidesPerGroup: 4,},1534: {slidesPerView: 5,slidesPerGroup: 5,},1704: {slidesPerView: 6,slidesPerGroup: 6,},1874: {slidesPerView: 7,slidesPerGroup: 7,},max: {slidesPerView: 8,slidesPerGroup: 8,},},on: {init: () => {const numOfImg = 16;const imagesInFirstSlide = [...element.querySelectorAll('img.swiper-lazy')].slice(0, numOfImg);for (const img of imagesInFirstSlide) {img.classList.remove('swiper-lazy');img.setAttribute('loading', 'lazy');img.src = img.dataset.src;delete img.dataset.src;}},},});let allImagesLoaded = false;swiper.on('slideChangeTransitionStart', () => {if (allImagesLoaded) return;allImagesLoaded = true;for (const img of element.querySelectorAll('img.swiper-lazy:not(.swiper-lazy-loaded)')) {img.classList.add('swiper-lazy-loaded');img.src = img.dataset.src;delete img.dataset.src;}});}});function sendGaEvent(e, category) {const self = e.currentTarget;try {window.ga('send', 'event', dlsite.getName(), `recommend_${category}`, self.pathname);} catch (ex) {}}</script>
+            <!-- review -->
+
+<div class="title_01 clearfix" id="review_link">
+  <h2>ユーザーレビュー</h2>
+</div>
+
+<div data-vue-component="review" id="work_review" class="work_article">
+        
+  <product-review-list
+    product-id="BJ108758"
+    parent-product-id=""
+    is-translation-parent=""
+    more-load=""
+    sort-in-page=""
+    is-simplified="true"
+    :show-review-snippet="true"
+  >
+  </product-review-list>
+  
+</div>
+
+
+<div data-vue-component="review">
+  <review-modal v-show="$store.getters.onReviewModal" is-minhon="true"></review-modal>
+</div>
+
+            <div class="_work_matome"></div>
+
+
+<script>
+    $(function () {
+        var endpoint = 'https://www.dlsite.com/books/work/matome/ajax/=/product_id/BJ108758.html';
+        $.get(endpoint).then(function(res){
+            // html適用
+            $('._work_matome').html(res);
+
+            //要素表示時読み込み
+            if (document.getElementById('matome-swiper') != null) {
+                // Swiper4系
+                var swiper = new Swiper('#matome-swiper', {
+                    slidesPerView: 6,
+                    slidesPerGroup: 6,
+                    spaceBetween: 20,
+                    watchSlidesVisibility: true,
+                    navigation: {
+                        nextEl: '.swiper-button-next.type-matome',
+                        prevEl: '.swiper-button-prev.type-matome',
+                    },
+                    preloadImages: false,
+                    lazy: true,
+                    breakpoints: {
+                        1900: {
+                            slidesPerView: 5,
+                            slidesPerGroup: 5,
+                        },
+                        1620: {
+                            slidesPerView: 4,
+                            slidesPerGroup: 4,
+                        },
+                        1390: {
+                            slidesPerView: 3,
+                            slidesPerGroup: 3,
+                        },
+                        1150: {
+                            slidesPerGroup: 2,
+                            slidesPerView: 2,
+                        }
+                    }
+                });
+
+                $('.matome_box').show();
+
+                var scrollIn = function(event) {
+                    var target_rect = document.getElementById('matome-swiper').getBoundingClientRect();
+                    if (0 < target_rect.top && target_rect.bottom <= window.innerHeight) {
+                        swiper.lazy.load();
+                        window.removeEventListener('scroll', scrollIn, false);
+                    }
+                };
+                window.addEventListener('scroll', scrollIn, false);
+            }
+        });
+    });
+</script>
+
+            <div class="title_01 clearfix">
+  <h2>開催中の企画・キャンペーン</h2>
+</div>
+  <div class="content_scroller" data-section-name="eisys-campaign" id="campaign_bcs">
+    <div class="relation_content_container">
+      <div id="content-swiper" class="swiper-container">
+        <ul class="relation_content_list swiper-wrapper" style="display:none;">
+                      <li class="relation_content_list_item swiper-slide">
+              <div class="content_item">
+                <div class="content_item_img">
+                  <a rel="noopener" href="https://ch.dlsite.com/matome/566728?from=event_matome_2607_ranking" target="_blank">
+                    <img data-src="//media.dlsite.com/bcs/dlsite/1785423600/bn_616ceb605f69c7e161277c3df3c4b346cc36beff.jpg?w=200&h=150&s=30" alt="【2026年6月】月間ランキング！　※R18" class="swiper-lazy"></a>
+                    <div class="swiper-lazy-preloader"></div>
+                </div>
+                <p class="content_item_title">
+                  <a rel="noopener" href="https://ch.dlsite.com/matome/566728?from=event_matome_2607_ranking" target="_blank">【2026年6月】月間ランキング！　※R18</a>
+                </p>
+              </div>
+            </li>
+                      <li class="relation_content_list_item swiper-slide">
+              <div class="content_item">
+                <div class="content_item_img">
+                  <a rel="noopener" href="https://ch.dlsite.com/matome/566727?from=event_matome_2607_rankingN" target="_blank">
+                    <img data-src="//media.dlsite.com/bcs/dlsite/1785423600/bn_58fe54bf2ae84c87beddc8b3b9dc5accdba5a24d.jpg?w=200&h=150&s=30" alt="【2026年6月】月間ランキング！" class="swiper-lazy"></a>
+                    <div class="swiper-lazy-preloader"></div>
+                </div>
+                <p class="content_item_title">
+                  <a rel="noopener" href="https://ch.dlsite.com/matome/566727?from=event_matome_2607_rankingN" target="_blank">【2026年6月】月間ランキング！</a>
+                </p>
+              </div>
+            </li>
+                      <li class="relation_content_list_item swiper-slide">
+              <div class="content_item">
+                <div class="content_item_img">
+                  <a rel="noopener" href="https://ch.dlsite.com/matome/566711?from=event_matome_2607_6month-matome" target="_blank">
+                    <img data-src="//media.dlsite.com/bcs/dlsite/1785423600/bn_96d16e1bfcae5e831df2053dedb51a4e54556dea.jpg?w=200&h=150&s=30" alt="【2026年6月】DLチャンネル運営が勝手に選ぶ、先月面白かったまとめ記事" class="swiper-lazy"></a>
+                    <div class="swiper-lazy-preloader"></div>
+                </div>
+                <p class="content_item_title">
+                  <a rel="noopener" href="https://ch.dlsite.com/matome/566711?from=event_matome_2607_6month-matome" target="_blank">【2026年6月】DLチャンネル運営が勝手に選ぶ、先月面白かったまとめ記事</a>
+                </p>
+              </div>
+            </li>
+                      <li class="relation_content_list_item swiper-slide">
+              <div class="content_item">
+                <div class="content_item_img">
+                  <a rel="noopener" href="https://ch.dlsite.com/matome/565091?from=event_matome_teisousp" target="_blank">
+                    <img data-src="//media.dlsite.com/bcs/dlsite/1782745200/bn_a74e0bf825ab2255f24d02d6c30482cc361ce33a.jpg?w=200&h=150&s=30" alt="【GIFあり】貞操観念なし？その場の雰囲気でパコっちゃおう！色んな女の子とエッチできるゲーム3選！" class="swiper-lazy"></a>
+                    <div class="swiper-lazy-preloader"></div>
+                </div>
+                <p class="content_item_title">
+                  <a rel="noopener" href="https://ch.dlsite.com/matome/565091?from=event_matome_teisousp" target="_blank">【GIFあり】貞操観念なし？その場の雰囲気でパコっちゃおう！色んな女の子とエッチできるゲーム3選！</a>
+                </p>
+              </div>
+            </li>
+                      <li class="relation_content_list_item swiper-slide">
+              <div class="content_item">
+                <div class="content_item_img">
+                  <a rel="noopener" href="https://ch.dlsite.com/matome/564640?from=event_matome_pommustart" target="_blank">
+                    <img data-src="//media.dlsite.com/bcs/dlchannel/1782745200/bn_4c0507aae417db1513b9e6b38d7b2ba6766a7705.png?w=200&h=150&s=30" alt="やさしいオタクのひみつ基地「Pommu」、ついに本格始動！" class="swiper-lazy"></a>
+                    <div class="swiper-lazy-preloader"></div>
+                </div>
+                <p class="content_item_title">
+                  <a rel="noopener" href="https://ch.dlsite.com/matome/564640?from=event_matome_pommustart" target="_blank">やさしいオタクのひみつ基地「Pommu」、ついに本格始動！</a>
+                </p>
+              </div>
+            </li>
+                      <li class="relation_content_list_item swiper-slide">
+              <div class="content_item">
+                <div class="content_item_img">
+                  <a rel="noopener" href="https://ch.dlsite.com/matome/566681?from=event_matome_2607_talk" target="_blank">
+                    <img data-src="//media.dlsite.com/bcs/dlsite/1785423600/bn_9a73d557fbb89277099d8e101d3f64c4d557416e.jpg?w=200&h=150&s=30" alt="【トークキャンペーン】オススメの「田舎のはなし」作品を語って1000ポイント！？" class="swiper-lazy"></a>
+                    <div class="swiper-lazy-preloader"></div>
+                </div>
+                <p class="content_item_title">
+                  <a rel="noopener" href="https://ch.dlsite.com/matome/566681?from=event_matome_2607_talk" target="_blank">【トークキャンペーン】オススメの「田舎のはなし」作品を語って1000ポイント！？</a>
+                </p>
+              </div>
+            </li>
+                      <li class="relation_content_list_item swiper-slide">
+              <div class="content_item">
+                <div class="content_item_img">
+                  <a rel="noopener" href="https://ch.dlsite.com/matome/564657?from=event_matome_2606_colorcomic" target="_blank">
+                    <img data-src="//media.dlsite.com/bcs/dlchannel/1782745200/bn_4f4a28ab4b90111b017c80f79d307aabfd1c3785.png?w=200&h=150&s=30" alt="TOZAN:BUさんの同人漫画2作品がフルカラーになって登場！（モノクロ版購入済なら90%OFF！）" class="swiper-lazy"></a>
+                    <div class="swiper-lazy-preloader"></div>
+                </div>
+                <p class="content_item_title">
+                  <a rel="noopener" href="https://ch.dlsite.com/matome/564657?from=event_matome_2606_colorcomic" target="_blank">TOZAN:BUさんの同人漫画2作品がフルカラーになって登場！（モノクロ版購入済なら90%OFF！）</a>
+                </p>
+              </div>
+            </li>
+                      <li class="relation_content_list_item swiper-slide">
+              <div class="content_item">
+                <div class="content_item_img">
+                  <a rel="noopener" href="https://ch.dlsite.com/matome/562965?from=event_matome_2606_ossansp" target="_blank">
+                    <img data-src="//media.dlsite.com/bcs/dlsite/1782745200/bn_b63ea114fc3ff6380d50a876c68e694877a0c7e1.jpg?w=200&h=150&s=30" alt="【GIFあり】お相手は&hellip;オッサン！？美女と野獣ならぬ、美少女とオッサン！竿役がオッサンの作品3選！" class="swiper-lazy"></a>
+                    <div class="swiper-lazy-preloader"></div>
+                </div>
+                <p class="content_item_title">
+                  <a rel="noopener" href="https://ch.dlsite.com/matome/562965?from=event_matome_2606_ossansp" target="_blank">【GIFあり】お相手は&hellip;オッサン！？美女と野獣ならぬ、美少女とオッサン！竿役がオッサンの作品3選！</a>
+                </p>
+              </div>
+            </li>
+                      <li class="relation_content_list_item swiper-slide">
+              <div class="content_item">
+                <div class="content_item_img">
+                  <a rel="noopener" href="https://ch.dlsite.com/matome/561415?from=event_matome_2606_RJ01637234" target="_blank">
+                    <img data-src="//media.dlsite.com/bcs/dlchannel/1782745200/bn_81c01c9a1117395f0679667f3c2dca87d36a0f36.png?w=200&h=150&s=30" alt="DemonsRootsシリーズ初の音声作品！💗えらい魔族におねだりえっち💗／深爪貴族" class="swiper-lazy"></a>
+                    <div class="swiper-lazy-preloader"></div>
+                </div>
+                <p class="content_item_title">
+                  <a rel="noopener" href="https://ch.dlsite.com/matome/561415?from=event_matome_2606_RJ01637234" target="_blank">DemonsRootsシリーズ初の音声作品！💗えらい魔族におねだりえっち💗／深爪貴族</a>
+                </p>
+              </div>
+            </li>
+                      <li class="relation_content_list_item swiper-slide">
+              <div class="content_item">
+                <div class="content_item_img">
+                  <a rel="noopener" href="https://ch.dlsite.com/matome/555673?from=event_matome_2606_bunsekibl" target="_blank">
+                    <img data-src="//media.dlsite.com/bcs/dlchannel/1782745200/bn_857c4ed9642e302e91c6685110b4d9e3357314bd.png?w=200&h=150&s=30" alt="性格&times;性癖分析大作戦 ～BL研究編 ～ アンケート結果発表" class="swiper-lazy"></a>
+                    <div class="swiper-lazy-preloader"></div>
+                </div>
+                <p class="content_item_title">
+                  <a rel="noopener" href="https://ch.dlsite.com/matome/555673?from=event_matome_2606_bunsekibl" target="_blank">性格&times;性癖分析大作戦 ～BL研究編 ～ アンケート結果発表</a>
+                </p>
+              </div>
+            </li>
+                      <li class="relation_content_list_item swiper-slide">
+              <div class="content_item">
+                <div class="content_item_img">
+                  <a rel="noopener" href="https://ch.dlsite.com/matome/561654?from=event_matome_2606_erofurasp" target="_blank">
+                    <img data-src="//media.dlsite.com/bcs/dlsite/1782745200/bn_f96585fead084fcb44471c52f39b3440c3325ae6.jpg?w=200&h=150&s=30" alt="【GIFあり】おさわりゲーの神がスマホ版にやってきた！エロフラ部おすすめ作品3選！！👋【特集】" class="swiper-lazy"></a>
+                    <div class="swiper-lazy-preloader"></div>
+                </div>
+                <p class="content_item_title">
+                  <a rel="noopener" href="https://ch.dlsite.com/matome/561654?from=event_matome_2606_erofurasp" target="_blank">【GIFあり】おさわりゲーの神がスマホ版にやってきた！エロフラ部おすすめ作品3選！！👋【特集】</a>
+                </p>
+              </div>
+            </li>
+                      <li class="relation_content_list_item swiper-slide">
+              <div class="content_item">
+                <div class="content_item_img">
+                  <a rel="noopener" href="https://ch.dlsite.com/matome/558386?from=event_matome_2606_dochasiko02" target="_blank">
+                    <img data-src="//media.dlsite.com/bcs/dlsite/1782745200/bn_60a31ca6b6b6cb24979ab7828ea51a7acf7cba3d.png?w=200&h=150&s=30" alt="【8PからOK】あなたの性癖を込めよう！「第2回どちゃシコチャレンジ シコパ追求編」開催！" class="swiper-lazy"></a>
+                    <div class="swiper-lazy-preloader"></div>
+                </div>
+                <p class="content_item_title">
+                  <a rel="noopener" href="https://ch.dlsite.com/matome/558386?from=event_matome_2606_dochasiko02" target="_blank">【8PからOK】あなたの性癖を込めよう！「第2回どちゃシコチャレンジ シコパ追求編」開催！</a>
+                </p>
+              </div>
+            </li>
+                      <li class="relation_content_list_item swiper-slide">
+              <div class="content_item">
+                <div class="content_item_img">
+                  <a rel="noopener" href="https://ch.dlsite.com/matome/559975?from=event_matome_2606_hinmukisp" target="_blank">
+                    <img data-src="//media.dlsite.com/bcs/dlsite/1782745200/bn_fc2d8bfb0bd49beeee4c21a3ea4056354c1d9934.jpg?w=200&h=150&s=30" alt="【GIFあり】オラッ！その服の下を見せろッ！👗女の子の服をひん剥くエロゲ3選！" class="swiper-lazy"></a>
+                    <div class="swiper-lazy-preloader"></div>
+                </div>
+                <p class="content_item_title">
+                  <a rel="noopener" href="https://ch.dlsite.com/matome/559975?from=event_matome_2606_hinmukisp" target="_blank">【GIFあり】オラッ！その服の下を見せろッ！👗女の子の服をひん剥くエロゲ3選！</a>
+                </p>
+              </div>
+            </li>
+                      <li class="relation_content_list_item swiper-slide">
+              <div class="content_item">
+                <div class="content_item_img">
+                  <a rel="noopener" href="https://ch.dlsite.com/matome/558190?from=event_matome_2605_onatore" target="_blank">
+                    <img data-src="//media.dlsite.com/bcs/dlchannel/1780153200/bn_fe0fb7ab687f4538eaf4184a4929d5086b8d77b0.png?w=200&h=150&s=30" alt="【GIFあり】リズムに合わせてLet&#039;sシコシコ！GGGぐんぐんぐーなー！特集！【android】" class="swiper-lazy"></a>
+                    <div class="swiper-lazy-preloader"></div>
+                </div>
+                <p class="content_item_title">
+                  <a rel="noopener" href="https://ch.dlsite.com/matome/558190?from=event_matome_2605_onatore" target="_blank">【GIFあり】リズムに合わせてLet&#039;sシコシコ！GGGぐんぐんぐーなー！特集！【android】</a>
+                </p>
+              </div>
+            </li>
+                      <li class="relation_content_list_item swiper-slide">
+              <div class="content_item">
+                <div class="content_item_img">
+                  <a rel="noopener" href="https://ch.dlsite.com/matome/556705?from=event_matome_2605_eromangatotsu" target="_blank">
+                    <img data-src="//media.dlsite.com/bcs/dlchannel/1780153200/bn_ffd30025bb145095c86a8ee0466bd0a5fe1e7499.png?w=200&h=150&s=30" alt="佃煮のりおPresents成人マンガレビュー凸　Supporred byドスケベカンパニースペシャル" class="swiper-lazy"></a>
+                    <div class="swiper-lazy-preloader"></div>
+                </div>
+                <p class="content_item_title">
+                  <a rel="noopener" href="https://ch.dlsite.com/matome/556705?from=event_matome_2605_eromangatotsu" target="_blank">佃煮のりおPresents成人マンガレビュー凸　Supporred byドスケベカンパニースペシャル</a>
+                </p>
+              </div>
+            </li>
+                      <li class="relation_content_list_item swiper-slide">
+              <div class="content_item">
+                <div class="content_item_img">
+                  <a rel="noopener" href="https://ch.dlsite.com/matome/559538?from=event_matome_2606_sensitivityN" target="_blank">
+                    <img data-src="//media.dlsite.com/bcs/dlsite/1782745200/bn_0008f25431c89159082dd610764c3bb47d97ecb5.jpg?w=200&h=150&s=30" alt="【全年齢向け】売れ筋への感度の高いユーザーたちが買った作品まとめ【2026年4月版】" class="swiper-lazy"></a>
+                    <div class="swiper-lazy-preloader"></div>
+                </div>
+                <p class="content_item_title">
+                  <a rel="noopener" href="https://ch.dlsite.com/matome/559538?from=event_matome_2606_sensitivityN" target="_blank">【全年齢向け】売れ筋への感度の高いユーザーたちが買った作品まとめ【2026年4月版】</a>
+                </p>
+              </div>
+            </li>
+                      <li class="relation_content_list_item swiper-slide">
+              <div class="content_item">
+                <div class="content_item_img">
+                  <a rel="noopener" href="https://ch.dlsite.com/matome/559539?from=event_matome_2606_sensitivity" target="_blank">
+                    <img data-src="//media.dlsite.com/bcs/dlsite/1782745200/bn_165efbd9aec396f9a32e4fe87f4bb44831791368.jpg?w=200&h=150&s=30" alt="【成人向け】エロスへの感度の高いユーザーたちが買った作品まとめ【2026年4月版】" class="swiper-lazy"></a>
+                    <div class="swiper-lazy-preloader"></div>
+                </div>
+                <p class="content_item_title">
+                  <a rel="noopener" href="https://ch.dlsite.com/matome/559539?from=event_matome_2606_sensitivity" target="_blank">【成人向け】エロスへの感度の高いユーザーたちが買った作品まとめ【2026年4月版】</a>
+                </p>
+              </div>
+            </li>
+                      <li class="relation_content_list_item swiper-slide">
+              <div class="content_item">
+                <div class="content_item_img">
+                  <a rel="noopener" href="https://ch.dlsite.com/matome/555656?from=event_matome_2605_dungeonwithgirl-asmr" target="_blank">
+                    <img data-src="//media.dlsite.com/bcs/dlsite/1780153200/bn_9d08540f44bcfcd0eeca3c661c6ac7ae3256fac8.jpg?w=200&h=150&s=30" alt="大人気エロRPG「ダンジョンウィズガール」がASMRになって登場✨【完全新規ストーリー！】" class="swiper-lazy"></a>
+                    <div class="swiper-lazy-preloader"></div>
+                </div>
+                <p class="content_item_title">
+                  <a rel="noopener" href="https://ch.dlsite.com/matome/555656?from=event_matome_2605_dungeonwithgirl-asmr" target="_blank">大人気エロRPG「ダンジョンウィズガール」がASMRになって登場✨【完全新規ストーリー！】</a>
+                </p>
+              </div>
+            </li>
+                  </ul>
+      </div>
+      <div class="carousel_arrow_left content-swiper-button-prev"></div>
+      <div class="carousel_arrow_right content-swiper-button-next"></div>
+    </div>
+  </div>
+
+
+<script>
+$(function () {
+
+  //作品並びシャッフル
+  function shuffleContent(container) {
+    var content = container.find('> li');
+    var total = content.size();
+    content.each(function() {
+        content.eq(Math.floor(Math.random()*total)).prependTo(container);
+    });
+    return true;
+  }
+  shuffleContent($('.relation_content_list'));
+
+  // Swiper4系
+  var swiper = new Swiper('#content-swiper', {
+      slidesPerView: 6,
+      slidesPerGroup: 6,
+      spaceBetween: 20,
+      watchSlidesVisibility: true,
+      navigation: {
+          nextEl: '.content-swiper-button-next',
+          prevEl: '.content-swiper-button-prev',
+      },
+      preloadImages: false,
+      lazy: true,
+      breakpoints: {
+          1900: {
+              slidesPerView: 5,
+              slidesPerGroup: 5,
+          },
+          1620: {
+              slidesPerView: 4,
+              slidesPerGroup: 4,
+          },
+          1390: {
+              slidesPerView: 3,
+              slidesPerGroup: 3,
+          },
+          1150: {
+              slidesPerGroup: 2,
+              slidesPerView: 2,
+          }
+      }
+  });
+
+  //要素表示時読み込み
+  var scrollIn = function(event) {
+      var target_rect = document.getElementById('campaign_bcs').getBoundingClientRect();
+      if (0 < target_rect.top && target_rect.bottom <= window.innerHeight) {
+          swiper.lazy.load();
+          window.removeEventListener('scroll', scrollIn, false);
+      }
+  };
+  window.addEventListener('scroll', scrollIn, false);
+
+  // ファーストビューに含まれそうならすぐ表示
+  if (!document.querySelector('#work_name')) {
+    scrollIn();
+  }
+
+  $('.relation_content_list').show();
+});
+</script>
+
+
+            
+            
+            
+          </div>
+          <!-- /main_inner -->
+        </div>
+        <!-- /main -->
+
+        <template data-vue-component="restriction-of-countries"></template>
+        <template data-vue-component="notice"></template>
+
+      </div>
+      <!-- /wrapper -->
+
+      <!-- right -->
+      <div id="right" data-section_name="right">
+        
+        
+        
+        
+<div itemprop="offers" itemscope itemtype="https://schema.org/Offer">
+  <meta itemprop="price" content="792">
+  <meta itemprop="priceCurrency" content="JPY">
+                <meta itemprop="availability" content="https://schema.org/OnlineOnly">
+      </div>
+<div id="work_buy_box_wrapper" data-vue-component="product-price" data-product-id="BJ108758" data-is-check="" data-is-comingsoon="0" data-section_name="right_work_price">
+  <div hidden class="ga4_event_item_BJ108758"data-product_id="BJ108758"data-work_name="魔剣の姫はエロエロです"data-maker_id="BG01010"data-work_type="NRE"data-options="DLP#JPN"data-price="792"data-official_price="792"></div>
+  <div v-if="typeof product.price !== 'undefined' && (product.translation_info.is_parent || product.on_sale || product.is_rental || is_bought)" v-cloak class="work_buy_main">
+    
+    <div id="work_price">
+      <div v-if="product.translation_info.is_parent || product.on_sale" class="work_buy_type" :class="class_buy_type_sell" @click.stop="buy_type = 'sell'">
+        
+
+        <div v-if="product.voice_pack && product.is_discount" class="campaign_info">
+          <!-- 割引中 -->
+          <p v-if="product.is_discount" class="type_sale"><span v-t="'product.price.sale_now'"></span></p>
+        </div>
+        <div v-else-if="product.is_discount || product.is_pointup || product.is_limit_work" class="campaign_info">
+          <p v-if="product.is_limit_work" class="type_quantity"><span v-t="'product.title_works.limit_sales'"></span></p>
+          <!-- タイムセール -->
+          <p v-if="product.is_timesale" class="type_sale">
+            <span>{{$t('product.title_works.limit_sales')}} {{ product.discount_rate == 100 ? $t('product.title_works.only_now_free') : product.discount_rate + '%OFF' }}</span>
+          </p>
+          <!-- 割引・無料販売 -->
+          <template v-else-if="product.is_discount">
+            <div v-if="product.discount_to">
+              <div class="work_border">
+                <p class="type_sale" data-toggle="found">
+                  <span>{{ product.discount_rate == 100 ? $t('product.title_works.only_now_free') : product.discount_rate + '%OFF' }}</span>
+                </p>
+                <span class="type_date" v-if="product.discount_end_date">{{ $t('product.price.til', [product.discount_end_date]) }}</span>
+              </div>
+            </div>
+            <div v-else>
+              <div class="work_border">
+                <p class="type_sale" data-toggle="found">
+                  <span>{{ product.discount_rate == 100 ? $t('product.title_works.only_now_free') : product.discount_rate + '%OFF' }}</span>
+                </p>
+                <span class="type_date" v-if="product.discount_end_date">{{ $t('product.price.til', [product.discount_end_date]) }}</span>
+              </div>
+            </div>
+          </template>
+        </div>
+
+        <div class="work_buy_container">
+          
+                    <div v-if="limited_free_end_time" class="free_limited_btn">
+            <p v-if="!(product.is_free && !product.sales_end_info && limited_free_end_time)" v-html="$t('limited_free.end_date_text.pc', [format_free_end_time])"></p>
+            <p class="work_stream free_limited"><a href="https://play.dlsite.com/?" class="btn_st" target="_blank">無料で読む</a></p>
+          </div>
+                    
+          <template v-if="product.voice_pack">
+            <div class="price_inner_comipo">
+              <div class="work_buy_body">
+                <div class="work_buy_label label_comipo" v-t="'product.price.comic_main'"><!-- コミック本体 --></div>
+                <div class="work_buy_content">
+                  <div class="work_buy_content_right">
+                    <span v-if="product.voice_pack.parent_official_price" class="price strike">{{ product.voice_pack.parent_official_price | number_format }}<i v-html="yen_symbol_label"></i></span>
+                    <strong class="price comipo_price_black"><span>{{ product.voice_pack.parent_price | number_format }}<i v-html="yen_symbol_label"></i></span></strong>
+                  </div>
+                </div>
+              </div>
+              <div class="work_buy_body">
+                <div class="work_buy_label label_comipo" v-t="'product.price.additional_voice'"><!-- 追加ボイス --></div>
+                <div class="work_buy_content">
+                  <div class="work_buy_content_right">
+                    <span v-if="product.voice_pack.child_official_price" class="price strike">{{ product.voice_pack.child_official_price | number_format }}<i v-html="yen_symbol_label"></i></span>
+                    <strong class="price comipo_price_black"><span>{{ product.voice_pack.child_price | number_format }}<i v-html="yen_symbol_label"></i></span></strong>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div class="work_buy_body">
+              <div class="work_buy_label" v-t="'product.price.price'"><!-- 価格 --></div>
+              <div class="work_buy_content">
+                <span class="price">{{ product.voice_pack.sum_price | number_format  }}<i v-html="yen_symbol_label"></i></span>
+              </div>
+            </div>
+          </template>
+          <template v-else>
+            <div v-if="product.is_discount" class="work_buy_body">
+              <div v-if="['home', 'maniax', 'girls', 'bl'].includes($dlsite.getId())" class="work_buy_label" v-t="'product.price.circle_price'"><!-- サークル設定価格 --></div>
+              <div v-else-if="['pro', 'soft', 'girlsdrama', 'bldrama', 'app', 'appx'].includes($dlsite.getId())" class="work_buy_label" v-t="'product.price.maker_price'"><!-- メーカー設定価格 --></div>
+              <div v-else class="work_buy_label" v-t="'product.price.normal_price'"><!-- 通常価格 --></div>
+              <div class="work_buy_content">
+                <span v-if="product.official_price" v-html="currencyFormatWithSymbolTag(product.official_price)" class="strike"></span>
+                <span v-else v-html="currencyFormatWithSymbolTag(product.price)" class="strike"></span>
+              </div>
+            </div>
+
+            <div class="work_buy_body">
+              <div v-if="product.is_discount" class="work_buy_label" v-t="'product.price.special_price'"><!-- セール特価 --></div>
+              <div v-else class="work_buy_label" v-t="'product.price.price'"><!-- 価格 --></div>
+              <div class="work_buy_content">
+                <strong v-if="product.is_discount" class="price" v-html="currencyFormatWithSymbolTag(product.price)"></strong>
+                <span v-else class="price" v-html="currencyFormatWithSymbolTag(product.price)"></span>
+              </div>
+            </div>
+
+            <!-- 日本円以外は通貨ヘルプページのリンクを表示 -->
+            <div v-if="$dlsite.getCurrency() != 'JPY'" class="work_buy_body">
+              <p>[&nbsp;<a :href="estimation_link" v-t="'product.price.estimation'"></a>&nbsp;]</p>
+            </div>
+          </template>
+        
+
+          
+          <div v-if="bestCouponDiscount" v-cloak class="coupon_available">
+            <span class="coupon_available_head">会員登録でクーポンを複数プレゼント！</span>
+            <div class="coupon_available_inner">
+              <dl class="coupon_detail">
+                <dt class="ex">一番お得なクーポン利用価格</dt>
+                <dd class="total type_jpy" v-html="currencyDiscountFormat(product.currency_price)"></dd>
+              </dl>
+              <dl>
+                <dd v-if="product.price < 301" class="coupon_note">301円以上の購入で利用可能</dd>
+              </dl>
+            </div>
+          </div>
+          
+          <div v-else-if="bestUserCoupon" v-cloak class="coupon_available">
+            <div class="coupon_available_inner">
+              <dl class="coupon_detail">
+                <dt class="ex">一番お得なクーポン利用価格</dt>
+                <dd class="total type_jpy" v-html="currencyDiscountFormat(product.currency_price)"></dd>
+              </dl>
+            </div>
+            <span class="attended">対象クーポン</span>
+            <p class="coupon_name" v-text="bestUserCoupon.coupon_name"></p>
+            <div class="coupon_detail">
+              <a href="https://www.dlsite.com/books/mypage/coupon/list">利用条件の確認はこちら</a>
+            </div>
+          </div>
+          
+          <div v-else-if="real_point === 0" class="coupon_available_inner">
+            <dl class="coupon_detail">
+              <dt class="ex">クーポンは利用できません</dt>
+            </dl>
+          </div>
+          
+
+                    
+          <div class="point_up_announce_box">
+            <p class="point_up_announce_title">クーポン利用でももらえる！</p>
+            <div class="point_up_announce_content">
+              <template v-if="product.is_pointup && (product.product_point || product.default_point)">
+                <p class="point_up_announce_text">
+                  
+                                                      [&nbsp;<a href="https://cs.dlsite.com/hc/ja/articles/53366608836377" target="_blank" rel="noreferrer" class="icon_link_blank_01 point_up_announce_link">特定決済方法</a>&nbsp;]なら<strong class="strong_text">%ポイント還元</strong>                  
+                </p>
+              </template>
+              <template v-else>
+                <p class="point_up_announce_text">
+                  
+                                                      [&nbsp;<a href="https://cs.dlsite.com/hc/ja/articles/53366608836377" target="_blank" rel="noreferrer" class="icon_link_blank_01 point_up_announce_link">特定決済方法</a>&nbsp;]なら<strong class="strong_text">最大5%ポイント還元</strong>                  
+                </p>
+              </template>
+            </div>
+            <!-- ポイント還元 -->
+            <p v-if="product.is_pointup && (product.product_point || product.default_point)" class="type_point">
+              <span>ポイントアップ中</span>
+            </p>
+          </div>
+          
+        </div>
+      </div>
+    </div>
+    
+    <div id="work_buy_btn">
+      <!-- ダウンロード -->
+      <template v-if=" ! product.is_sale && is_comingsoon && !is_check">
+        <div class="pre_work_message">
+          <span class="title">販売開始予定</span>
+          <span class="date">5月14日 0時</span>
+          <span class="note">※状況により販売延期される<br>場合もあります</span>
+        </div>
+      </template>
+      <template v-else-if=" ! product.is_sale && product.on_sale && ! is_check">
+        <p class="work_sales_end">販売終了しました</p>
+      </template>
+      <template v-else>
+        <template v-if="is_bought">
+          
+                                                
+              <p class="work_stream"><a rel="noopener" href="https://play.dlsite.com/?workno=BJ108758" class="btn_st" :class="{ disabled: ! product.dlsiteplay_work || product.dl_format == 16 }" title="ブラウザ視聴" target="_blank">ブラウザ視聴</a></p>
+              <p v-if="![20, 21, 22, 24, 26, 27, 28].includes(product.dl_format)" class="work_cart">
+                <a :href="product.down_url" class="btn_dl" :class="{ disabled: product.dl_format == 17 }">ダウンロード</a>
+              </p>
+              
+                                
+        </template>
+        <template v-else-if="is_already">
+          <p class="work_already">既に持っています</p>
+        </template>
+
+        <transition name="popup" mode="out-in">
+        <p v-if="product.is_rental && ((product.work_rentals || []).length + ( ! is_bought && product.on_sale ? 1 : 0) > 1) && carted" class="message_cart_in" :key="carted.rental_id"><span>{{ carted.name }}</span>追加済み</p>
+        </transition>
+
+        <template v-if="is_check">
+          <p class="work_cart">
+            <a class="btn_cart" v-t="'cart.add_cart'"><!-- カートに入れる --></a>
+          </p>
+        </template>
+        <template v-else-if="buy_type == 'rental' || ! is_bought && ! product.on_sale">
+          <p v-if="carted && carted.rental_id == rental.id" class="work_cart">
+            <a :href="makeUrl('/cart', { rental_id: rental_id, product_id: product.product_id })" class="btn_cart_in" v-t="'cart.in_cart'"><!-- カートに入っています--></a>
+          </p>
+          <p v-else class="work_cart">
+            <a @click.prevent="addCart({ product_id:product.product_id, rental_id: rental.id }); showCartPopup()" :href="makeUrl('/cart', { rental_id: rental_id, product_id: product.product_id })" class="btn_cart" v-t="'cart.add_cart'"><!-- カートに入れる --></a>
+          </p>
+        </template>
+        <template v-else-if=" ! is_bought && product.on_sale">
+          <p v-if="product.is_sold_out" class="work_cart">
+            <a href="#" class="btn_cart disabled" v-t="'product.item.sold_out'"></a>
+          </p>
+          <p v-else-if="carted && ! carted.rental_id" class="work_cart">
+            
+                          <a :href="makeUrl('/cart', { product_id: product.product_id })" class="btn_cart_in" v-t="'cart.in_cart'"><!-- カートに入っています --></a>
+                      
+          </p>
+          <template v-else>
+          
+                          
+              <p class="work_cart" v-if="!isAccountLogin">
+                <a v-if="product.voice_pack" :href="makeUrl('/pay/member', { relayout:'cart', buynow:1, 'product_ids[]': product.voice_pack.product_ids })" class="btn_buy">会員登録して購入</a>
+                <a v-else href="https://www.dlsite.com/books/pay/member/=/relayout/cart/buynow/1/product_id/BJ108758.html" class="btn_buy">会員登録して購入</a>
+              </p>
+              <p class="work_cart">
+                <a v-if="product.voice_pack" @click.prevent="addSeriesToCart({ product_ids:product.voice_pack.product_ids }); showCartPopup()" :href="makeUrl('/cart', { product_id: product.product_id })" class="btn_cart" v-t="'cart.add_cart'"><!-- カートに入れる --></a>
+                <a v-else @click.prevent="addCart({ product_id:product.product_id }); showCartPopup()" :href="makeUrl('/cart', { product_id: product.product_id })" class="btn_cart" v-t="'cart.add_cart'"><!-- カートに入れる --></a>
+              </p>
+              <p class="work_cart" v-if="isAccountLogin">
+                <a v-if="product.voice_pack" :href="makeUrl('/pay/member', { relayout:'cart', buynow:1, 'product_ids[]': product.voice_pack.product_ids })" class="btn_buy">すぐに購入</a>
+                <a v-else @click="deleteByteplusRecommendPocTrafficSource()" :href="'https://www.dlsite.com/books/pay/member/=/relayout/cart/buynow/1/product_id/BJ108758.html' + getByteplusRecommendPocTrafficSourceParam" class="btn_buy">すぐに購入</a>
+              </p>
+              
+                      
+          </template>
+        </template>
+
+        <!-- セット割 -->
+        
+        <sets-list product-id="BJ108758"></sets-list>
+        
+
+        <!-- お気に入り -->
+        <p v-if="is_check" class="work_favorite"><a class="btn_favorite" v-t="favorite.add_fav"><!-- お気に入りに追加 --></a></p>
+        <p v-else-if="product.is_sold_out" class="work_favorite"><a href="#" class="btn_favorite disabled" v-t="'favorite.add_fav'"><!-- お気に入りに追加 --></a></p>
+        <p v-else-if="! user.customer_id" class="work_favorite"><a :href="link.favorite" class="btn_favorite" :class="{ btn_favorite_in: is_favorite }">{{ $t('favorite.add_fav') }}</a></p>
+        <p v-else-if="user.customer_id && is_favorite" class="work_favorite"><a @click.prevent="openRemoveConfirm" href="#" class="btn_favorite btn_favorite_in">{{ $t('favorite.in_fav') }}</a></p>
+        <p v-else class="work_favorite"><a @click.prevent="addFavorite({ product_id:product.product_id })" :href="link.favorite" class="btn_favorite">{{ $t('favorite.add_fav') }}</a></p>
+        <favorite-remove-confirm :visible="showRemoveConfirm" :wishlist-url="wishlistUrl" :product-image="product.work_image" :product-name="product.work_name_masked" @close="showRemoveConfirm = false" @confirm="onConfirmRemove"></favorite-remove-confirm>
+
+        <!-- 購入済み作品の場合、作品評価ページへのリンクを表示する -->
+        <template v-if="is_bought" v-cloak>
+          <div v-if="is_myrated" class="work_rating" v-cloak><a href="https://www.dlsite.com/books/mypage/short-review" class="btn_rating_in">作品評価済み</a></div>
+          <div v-else class="work_rating" v-cloak><a href="https://www.dlsite.com/books/mypage/short-review" class="btn_rating">作品を評価する</a></div>
+        </template>
+
+        
+        <!-- 多言語の場合、ポイント購入へのリンクを表示する -->
+                
+
+        <!-- カートボタン押下時にレコメンドのモーダル表示 -->
+        <div
+          v-show="this.$store.state.is_carted"
+          class="add_cart_overlay"
+          @click.stop.prevent="function(){ closeRecommend(); $(document.body).removeClass('scrolling_stop'); }"
+        >
+          <div
+            class="add_cart_modal"
+            :class="{ 'garumani_add_cart_modal': $dlsite.isGarumani() }"
+            @click.stop
+          >
+            <span
+              class="add_cart_close"
+              @click.stop.prevent="function(){ closeRecommend(); $(document.body).removeClass('scrolling_stop'); }"
+            ></span>
+            <div
+              class="add_cart_btn_inner"
+              :class="{ 'garumani_add_cart_btn_inner': $dlsite.isGarumani() }"
+            >
+              <p
+                class="add_cart_note"
+                :class="{ 'garumani_add_cart_note': $dlsite.isGarumani() }"
+              >
+                <template v-if="!isCartFull && addCartCount >= 0">
+                  作品をカートに追加しました
+                </template>
+                <span
+                  v-else
+                  class="add_cart_attention"
+                  v-t="'cart.not_into_cart'"
+                ></span>
+              </p>
+              <a
+                :href="makeUrl('/cart', { product_id: product.product_id })"
+                class="add_cart_btn"
+                :class="{ 'mt10': $dlsite.isGarumani() }"
+                v-t="user.customer_id ? 'cart.go_buy' : 'cart.go_cart'"
+              ></a>
+            </div>
+            <!-- TODO: cart_recommendの利用箇所がすべてリファクタできたら_v2は消す -->
+            <cart_recommend_v2
+              v-bind:on_display="this.$store.state.is_carted"
+              :product_id="product_id"
+            ></cart_recommend_v2>
+          </div>
+        </div>
+        <!-- /カートボタン押下時にレコメンドのモーダル表示 -->
+      </template>
+
+    </div>
+      </div>
+  <div v-else-if="typeof product.price === 'undefined'" class="work_buy_main">
+    <!-- IE8 or noscript -->
+    <div id="work_price">
+      <div class="work_buy_type">
+        <div class="work_buy_container">
+          <div class="work_buy_body">
+            <div class="work_buy_label">価格</div>
+            <div class="work_buy_content"><span class="price">792<i>円</i></span></div>
+          </div>
+        </div>
+      </div>
+    </div>
+    
+    <sets-list product-id="BJ108758"></sets-list>
+    
+    <div id="work_buy_btn">
+              <p class="work_cart _work_cart" id="_work_cart_BJ108758"><a href="https://www.dlsite.com/books/cart/=/product_id/BJ108758.html" class="btn_cart _btn_cart" id="_btn_cart_BJ108758">カートに入れる</a></p>
+        <p class="work_favorite _work_favorite" id="_work_favorite_BJ108758"><a href="https://www.dlsite.com/books/mypage/wishlist/=/product_id/BJ108758.html" class="btn_favorite _btn_favorite" id="_btn_favorite_BJ108758">お気に入りに追加</a></p>
+          </div>
+  </div>
+
+      <div v-if="product.is_sale && ! is_bought && ! product.is_sold_out && (product.on_sale || product.is_rental)" v-cloak class="floating_cart_box" :class="class_floating_cart_box">
+    <div class="cart_box_header" @click.prevent="toggleDisplayFloat">{{$t('cart.buy_this')}}<div class="hide" v-t="'cart.hide'"></div></div>
+    <div class="cart_box_body">
+      <div class="cart_box_body_inner">
+        <div class="work_info_wrap">
+          <div class="work_thumb">
+            <img
+              src="//img.dlsite.jp/resize/images2/work/books/BJ109000/BJ108758_img_main_240x240.jpg"
+              alt="魔剣の姫はエロエロです [フランス書院]"
+              class="target_type"
+              @error="(e) => {
+                const fallbackSrc = '/modpub/images/web/home/not_found_img_main.png'
+                if (e.target.src === fallbackSrc) return;
+                e.target.onerror = null;
+                e.target.src = fallbackSrc;
+              }"
+            >
+          </div>
+          
+          <div class="work_buy_body_wrap">
+            <div class="work_buy_body">
+              <div class="work_buy_label" v-t="'product.price.price'"><!-- 価格 --></div>
+              <div class="work_buy_content">
+                <strong v-if="product.voice_pack" class="price">{{ product.voice_pack.sum_price | number_format }}<i v-t="'product.price.yen'"></i></strong>
+                <strong v-else class="price" v-html="currencyFormatWithSymbolTag(product.price)"></strong>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="btn_wrap">
+          <div class="btn_wrap_inner">
+          <template v-if="buy_type == 'rental' || ! is_bought && ! product.on_sale">
+            <p v-if="carted && carted.rental_id == rental.id" class="work_cart">
+              <a :href="'https://www.dlsite.com/books/cart/=/rental_id/_rental_/product_id/BJ108758.html'.replace('_rental_', rental_id)" class="btn_cart_in" v-t="'product.item.into_cart_result'"></a>
+            </p>
+            <p v-else class="work_cart">
+              <a @click.prevent="addCart({ product_id:product.product_id, rental_id: rental.id }); showCartPopup()" :href="'https://www.dlsite.com/books/cart/=/rental_id/_rental_/product_id/BJ108758.html'.replace('_rental_', rental_id)" class="btn_cart" data-link-name="float" v-t="'product.item.into_cart'"></a>
+            </p>
+          </template>
+
+          <template v-else-if=" ! is_bought && product.on_sale">
+          
+            <p v-if="carted && ! carted.rental_id" class="work_cart">
+              <a href="https://www.dlsite.com/books/cart/=/product_id/BJ108758.html" class="btn_cart_in" v-t="'cart.in_cart_s'"><!-- カートに追加済み --></a>
+            </p>
+            <template v-else>
+              <p class="work_cart" v-if="!isAccountLogin">
+                <a v-if="product.voice_pack" :href="makeUrl('/pay/member', { relayout:'cart', buynow:1, 'product_ids[]': product.voice_pack.product_ids })" class="btn_buy">会員登録して購入</a>
+                <a v-else href="https://www.dlsite.com/books/pay/member/=/relayout/cart/buynow/1/product_id/BJ108758.html" class="btn_buy">会員登録して購入</a>
+              </p>
+              <p class="work_cart">
+                <a v-if="product.voice_pack" @click.prevent="addSeriesToCart({ product_ids:product.voice_pack.product_ids }); showCartPopup()" href="https://www.dlsite.com/books/cart/=/product_id/BJ108758.html" class="btn_cart" data-link-name="float" v-t="'cart.add_cart_s'"><!-- カートに追加 --></a>
+                <a v-else @click.prevent="addCart({ product_id:product.product_id }); showCartPopup()" href="https://www.dlsite.com/books/cart/=/product_id/BJ108758.html" class="btn_cart" data-link-name="float" v-t="'cart.add_cart_s'"><!-- カートに追加 --></a>
+              </p>
+              <p class="work_cart" v-if="isAccountLogin">
+                <a v-if="product.voice_pack" :href="makeUrl('/pay/member', { relayout:'cart', buynow:1, 'product_ids[]': product.voice_pack.product_ids })" class="btn_buy">すぐに購入</a>
+                <a v-else @click="deleteByteplusRecommendPocTrafficSource()" :href="'https://www.dlsite.com/books/pay/member/=/relayout/cart/buynow/1/product_id/BJ108758.html' + getByteplusRecommendPocTrafficSourceParam" class="btn_buy">すぐに購入</a>
+              </p>
+            </template>
+          
+          </template>
+
+          <p v-if="user.customer_id && is_favorite" class="work_favorite">
+            <a @click.prevent="openRemoveConfirm" href="#" class="btn_favorite_in" data-link-name="float" v-t="'favorite.in_fav'"><!-- お気に入りに追加済 --></a>
+          </p>
+          <p v-else-if="user.customer_id && ! is_favorite" class="work_favorite">
+            <a @click.prevent="addFavorite({ product_id:product.product_id })" href="https://www.dlsite.com/books/mypage/wishlist/=/product_id/BJ108758.html" class="btn_favorite" data-link-name="float" v-t="'favorite.add_fav'"><!-- お気に入りに追加 --></a>
+          </p>
+          <p v-else class="work_favorite">
+            <a href="https://www.dlsite.com/books/mypage/wishlist/=/product_id/BJ108758.html" class="btn_favorite" data-link-name="float" v-t="'favorite.add_fav'"><!-- お気に入りに追加 --></a>
+          </p>
+          </div>
+        </div>
+        
+      </div>
+    </div>
+  </div>
+    
+      
+  
+    
+    <div class="work_privilege_guide" v-if="gift && gift.title || coupons.length || bonuses.length" v-cloak>
+    <p class="separate_title"><span>購入特典</span></p>
+    
+    <div class="work_privilege_guide_inner">
+      <ul>
+        
+        <li v-if="gift && gift.title">
+          <p class="label bonus_code">{{ gift.title }}</p>
+          <p v-if="gift.distribute_end_str" class="distribution_period">
+          
+                        {{ gift.distribute_end_str }}まで配布中          
+          </p>
+          <p class="body" v-html="gift.description"></p>
+        </li>
+
+        
+        <li v-for="coupon in coupons">
+          <p class="label coupon" :class="{ type_work: coupon.issue.product_id, type_maker: coupon.issue.maker_id, type_price: ! coupon.issue.product_id && ! coupon.issue.maker_id }">{{ coupon.coupon_name }}</p>
+          <p v-if="coupon.end_date_str" class="distribution_period" :class="{ type_work: coupon.issue.product_id, type_maker: coupon.issue.maker_id, type_price: ! coupon.issue.product_id && ! coupon.issue.maker_id }">{{ coupon.end_date_str }}まで配布中</p>
+          <p class="body" v-html="coupon.info"></p>
+          <p v-if="coupon.user_limit_date" class="period"><span>有効期限：</span>{{ coupon.user_limit_date }}</p>
+          <p v-else-if="coupon.limit_days_day" class="period">
+          
+                        <span>有効期限：</span>取得から{{ coupon.limit_days_day }}日後          
+          </p>
+        </li>
+
+        
+        <li v-for="bonus in bonuses">
+          <p class="label limited_benefit">{{ bonus.title }}</p>
+          <p v-if="bonus.end_date_str" class="distribution_period type_work">
+          
+                        {{ bonus.end_date_str }}まで配布中          
+          </p>
+          <p class="body" v-html="bonus.description"></p>
+        </li>
+      </ul>
+    </div>
+    
+    <p v-if="product.is_rental" class="guide_message">レンタルでは購入特典は<br>付与されません。</p>
+  </div>
+
+  <div id="work_device_guide">
+            <div class="system_requirements">
+        <ul class="sysreq_list">
+      <li class="sysreq_list_item">
+        <span class="env_label">対応環境</span>
+                <a class="env_cs_link" href="https://www.dlsite.com/home/zendesk/auth/=/return_to/https%3A%2F%2Fcs.dlsite.com%2Fhc%2Fja%2Fsections%2F360011333874" rel="noopener" target="_blank">
+          <svg class="env_icon browser" xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 32 32" fill="none">
+            <path d="M23.0224 4V16.1584C23.0357 17.0703 22.8514 17.9743 22.4824 18.8081C22.1133 19.6421 21.568 20.3863 20.884 20.9896C19.5316 22.2748 17.7311 22.9817 15.8656 22.96C14.9531 22.9697 14.0485 22.7896 13.2094 22.4309C12.3702 22.0723 11.6148 21.5431 10.9912 20.8768C10.3365 20.2327 9.81848 19.4629 9.46837 18.6139C9.11824 17.7648 8.94315 16.8537 8.9536 15.9352C8.93396 14.9979 9.11677 14.0673 9.48953 13.207C9.86229 12.3468 10.4163 11.5771 11.1136 10.9504C12.4825 9.65849 14.3055 8.95828 16.1872 9.00161C17.2049 9.01232 18.2063 9.25876 19.1128 9.72161L19.12 13.4776C18.3808 12.5176 17.3176 12.0376 15.9304 12.0376C15.4097 12.0256 14.8921 12.1197 14.4091 12.314C13.9259 12.5083 13.4873 12.7989 13.12 13.168C12.7483 13.53 12.4552 13.9645 12.2591 14.4448C12.0629 14.9251 11.9679 15.4407 11.98 15.9592C11.9749 16.4857 12.0771 17.0079 12.2806 17.4936C12.484 17.9793 12.7843 18.4183 13.1632 18.784C13.5255 19.1644 13.9621 19.4659 14.446 19.6699C14.9301 19.8739 15.4509 19.9759 15.976 19.9696C17.0063 19.9768 18.0035 19.6062 18.7792 18.928C19.168 18.6183 19.4809 18.2236 19.6939 17.7744C19.9067 17.3251 20.0143 16.8331 20.008 16.336V4H7C5.34315 4 4 5.34315 4 7V25C4 26.6569 5.34315 28 7 28H25C26.6569 28 28 26.6569 28 25V7C28 5.34315 26.6569 4 25 4H23.0224Z" fill="#637599"/>
+          </svg>
+        </a>
+        <span class="env_description">ブラウザ視聴</span>
+              </li>
+                                                                            <li class="sysreq_list_item">
+                <span class="env_label">対応アプリ</span>
+        <a class="env_cs_link" href="https://www.dlsite.com/modpub/lp/dlsite-library/" rel="noopener" target="_blank">
+          <svg class="env_icon dlsite_library" xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 32 32" fill="none">
+            <path d="M8.10105 4.01027H10.9336C11.1225 4.01027 11.2758 4.16356 11.2758 4.35244V12.7365H7.75886V4.35244C7.75886 4.16356 7.91217 4.01027 8.10105 4.01027ZM21.0005 4.21489H23.7714C23.9603 4.21489 24.1136 4.36819 24.1136 4.55707V12.7365H20.6583V4.55707C20.6583 4.36819 20.8116 4.21489 21.0005 4.21489ZM15.5571 16.8645H18.3896C18.5785 16.8645 18.7318 17.0178 18.7318 17.2067V25.6198H15.2149V17.2067C15.2149 17.0178 15.3682 16.8645 15.5571 16.8645ZM10.6055 16.9591L13.0585 18.3753C13.2222 18.4698 13.2783 18.6791 13.1838 18.8428L9.36969 25.4489C9.27519 25.6126 9.06593 25.6687 8.90226 25.5742L6.44921 24.1579C6.28554 24.0634 6.22947 23.8541 6.32397 23.6905L10.138 17.0843C10.2325 16.9206 10.4418 16.8646 10.6055 16.9591ZM19.9229 25.6202V22.4455C19.9229 22.2566 20.0762 22.1033 20.2651 22.1033H25.356C25.5449 22.1033 25.6982 22.2566 25.6982 22.4455V25.6202H19.9229ZM17.1506 8.65021C17.1506 10.1264 16.7852 11.517 16.1398 12.7368H12.5251C13.1704 11.517 13.5359 10.1264 13.5359 8.65021C13.5359 7.17407 13.1779 5.81253 12.5453 4.60191C12.4022 4.32816 12.5997 4.00036 12.9083 4.00036H15.3453C15.645 4.00036 15.9208 4.16427 16.0656 4.42672C16.7571 5.67909 17.1506 7.11863 17.1506 8.65021ZM4.58381 25.6198H27.4163C27.5675 25.6198 27.69 25.7423 27.69 25.8936V28H4.31006V25.8936C4.31006 25.7423 4.43255 25.6198 4.58381 25.6198ZM4.58381 12.7365H27.4163C27.5675 12.7365 27.69 12.859 27.69 13.0102V15.1167H4.31006V13.0102C4.31006 12.859 4.43255 12.7365 4.58381 12.7365ZM8.10105 4.01027H10.9336C11.1225 4.01027 11.2758 4.16356 11.2758 4.35244V12.7365H7.75886V4.35244C7.75886 4.16356 7.91217 4.01027 8.10105 4.01027ZM21.0005 4.21489H23.7714C23.9603 4.21489 24.1136 4.36819 24.1136 4.55707V12.7365H20.6583V4.55707C20.6583 4.36819 20.8116 4.21489 21.0005 4.21489ZM15.5571 16.8645H18.3896C18.5785 16.8645 18.7318 17.0178 18.7318 17.2067V25.6198H15.2149V17.2067C15.2149 17.0178 15.3682 16.8645 15.5571 16.8645ZM10.6055 16.9591L13.0585 18.3753C13.2222 18.4698 13.2783 18.6791 13.1838 18.8428L9.36969 25.4489C9.27519 25.6126 9.06593 25.6687 8.90226 25.5742L6.44921 24.1579C6.28554 24.0634 6.22947 23.8541 6.32397 23.6905L10.138 17.0843C10.2325 16.9206 10.4418 16.8646 10.6055 16.9591ZM19.9229 25.6202V22.4455C19.9229 22.2566 20.0762 22.1033 20.2651 22.1033H25.356C25.5449 22.1033 25.6982 22.2566 25.6982 22.4455V25.6202H19.9229ZM17.1506 8.65021C17.1506 10.1264 16.7852 11.517 16.1398 12.7368H12.5251C13.1704 11.517 13.5359 10.1264 13.5359 8.65021C13.5359 7.17407 13.1779 5.81253 12.5453 4.60191C12.4022 4.32816 12.5997 4.00036 12.9083 4.00036H15.3453C15.645 4.00036 15.9208 4.16427 16.0656 4.42672C16.7571 5.67909 17.1506 7.11863 17.1506 8.65021ZM4.58381 25.6198H27.4163C27.5675 25.6198 27.69 25.7423 27.69 25.8936V28H4.31006V25.8936C4.31006 25.7423 4.43255 25.6198 4.58381 25.6198ZM4.58381 12.7365H27.4163C27.5675 12.7365 27.69 12.859 27.69 13.0102V15.1167H4.31006V13.0102C4.31006 12.859 4.43255 12.7365 4.58381 12.7365Z" fill="#637599"/>
+          </svg>
+        </a>
+        <span class="env_description">DL Library</span>
+              </li>
+          </ul>
+      </div>
+  
+      
+  <div class="os_popup" :class="{ active: is_display_machine_list }">
+    <div class="os_popup_header">対応OS</div>
+    <div class="os_popup_body">
+      <table>
+        <tbody>
+          <tr>
+            <td>Windows</td>
+            <td>                                                                          7 / 8.1 / 10                            </td>
+          </tr>
+          <tr>
+            <td>Mac</td>
+            <td>-</td>
+          </tr>
+          <tr>
+            <td>iOS</td>
+            <td>iOS 7.0以上</td>
+          </tr>
+          <tr>
+            <td>Android</td>
+            <td>Android5.0以上</td>
+          </tr>
+          <tr>
+            <td>その他</td>
+            <td>-</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+  
+
+        <div class="work_buy_guide type_affiliate" v-if="!is_comingsoon && !product.affiliate_deny" v-cloak>
+      <ul class="guide_list">
+        <li>
+          <a href="https://www.dlsite.com/books/circle/affiliate/link/work/=/product_id/BJ108758.html" v-if="isCircleLogin">アフィリエイトリンク作成</a>
+          <a href="https://www.dlsite.com/books/user/affiliate/link/work/=/product_id/BJ108758.html" v-else>アフィリエイトリンク作成</a>
+        </li>
+      </ul>
+    </div>
+  </div>
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+      </div>
+      <!-- /right -->
+
+            
+      
+      
+      
+      <!-- footer -->
+      <div id="footer" data-section_name="footer">
+        
+        <div class="pagetop_block" data-ga4-ref="to_top_button">
+  <p class="pagetop"><a href="#header">このページの上部へ</a></p>
+</div>
+<div class="footer_floor_nav">
+<ul class="floor_list">
+  <li class="floor_list_item"><a href="https://www.dlsite.com">総合トップ</a></li>
+            <li class="floor_list_item"><a href="https://www.dlsite.com/maniax/">同人</a></li>
+      <li class="floor_list_item"><a href="https://www.dlsite.com/books/">成年コミック</a></li>
+      <li class="floor_list_item"><a href="https://www.dlsite.com/pro/">美少女ゲーム</a></li>
+      <li class="floor_list_item"><a href="https://www.dlsite.com/appx/">スマホゲーム</a></li>
+              <li class="floor_list_item sp_switch"><a id="_touch_link" href="https://www.dlsite.com/books-touch/work/=/product_id/BJ108758.html" data-platform="touch">スマホ版DLsiteへ</a></li>
+  </ul>
+</div>
+
+
+
+
+<div class="footer_section">
+  <div class="footer_section_inner">
+    <div class="link_list_wrap">
+      <div class="link_list_box col_2">
+                <div class="label">DLsiteについて</div>
+                <ul class="link_list">
+          <li class="link_list_item"><a rel="noopener" href="https://www.eisys.co.jp/company/information" target="_blank">会社概要</a></li>
+          <li class="link_list_item"><a rel="noopener" href="https://www.eisys.co.jp/recruit" target="_blank">採用情報</a></li>
+          <li class="link_list_item"><a href="https://www.dlsite.com/books/user/regulations">利用規約</a></li>
+          <li class="link_list_item"><a href="https://www.dlsite.com/books/guide/law">特定商取引法に基づく表示</a></li>
+                              <li class="link_list_item"><a href="https://www.dlsite.com/books/guide/settlement">資金決済法に基づく表記</a></li>
+                    <li class="link_list_item"><a href="https://www.dlsite.com/books/guide/privacy">個人情報の取扱いについて</a></li>
+                    <li class="link_list_item"><a href="https://www.eisys.co.jp/cookie/policy" rel="noopener" target="_blank">外部送信規律に関する公表</a></li>
+                    <li class="link_list_item"><a href="https://www.dlsite.com/books/mosaic">コンプライアンスポリシー</a></li>
+          <li class="link_list_item"><a href="https://www.dlsite.com/books/guide/copy">著作権と不正アクセス</a></li>
+          <li class="link_list_item"><a href="https://www.geonet.co.jp/csr/social/customer-harassment/" target="_blank" rel="noopener noreferrer">カスタマーハラスメントに対する行動指針</a></li>
+          <li class="link_list_item"><a href="https://www.dlsite.com/books/banners">リンクについて</a></li>
+          <li class="link_list_item"><a href="https://www.dlsite.com/books/sitemap">サイトマップ</a></li>
+                  </ul>
+      </div>
+      <div class="link_list_box">
+        <div class="label">ヘルプ&amp;ガイド</div>
+        <ul class="link_list">
+          <li class="link_list_item"><a href="https://www.dlsite.com/books/welcome">初めての方へ</a></li>
+          <li class="link_list_item"><a rel="noopener" href="https://cs.dlsite.com/hc/ja" target="_blank">よくある質問</a></li>
+          <li class="link_list_item"><a href="https://cs.dlsite.com/hc/ja/requests/new?ticket_form_id=1500000429921">作品リクエスト</a></li>
+        </ul>
+      </div>
+      <div class="link_list_box">
+                <div class="label">DLsiteのサービス</div>
+                <ul class="link_list">
+          <li class="link_list_item"><a href="/modpub/lp/home/circle/"target="_blank" rel="noopener">作品を販売したい方へ</a></li>
+          <li class="link_list_item"><a rel="noopener" target="_blank" href="https://min-hon.net/">みんなで翻訳</a></li>
+          <li class="link_list_item"><a href="https://www.dlsite.com/books/guide/affiliate">アフィリエイト</a></li>
+          <li class="link_list_item"><a href="/books/mypage/setting/mail">メールマガジン</a></li>
+          <li class="link_list_item"><a rel="noopener" href="https://play.dlsite.com/ja" target="_blank">Webビューア DLsite Play</a></li>
+          <li class="link_list_item"><a href="https://www.dlsite.com/books/guide/dlnest">PCクライアント DLsite Nest</a></li>
+        </ul>
+      </div>
+    </div>
+  </div>
+  <div class="footer_section_inner payment">
+    <div class="label">お支払い&amp;ポイント</div>
+    <div class="footer_payment_box">
+      <ul class="link_list">
+        <li class="link_list_item"><a href="https://www.dlsite.com/books/guide/payment">お支払い方法</a></li>
+        <li class="link_list_item"><a href="https://www.dlsite.com/books/mypage/aboutpoint">ポイントについて</a></li>
+        <li class="link_list_item"><a href="https://www.dlsite.com/books/guide/payment#link_point">ポイント購入方法</a></li>
+      </ul>
+            <a href="https://www.dlsite.com/books/guide/payment" class="footer_payment_img">
+        <div class="img_lists">
+                    <div class="img_list_item">
+            <p class="img_list_text">即時口座振替</p>
+            <div class="img_list">
+              <img src="/modpub/images/web/common/payment/logo_minnanoginko.png" alt="みんなの銀行">
+            </div>
+          </div>
+                    <div class="img_list_item">
+            <p class="img_list_text">クレジットカード</p>
+            <div class="img_list">
+                            <img loading="lazy" src="/modpub/images/web/common/payment/logo_jcb.png" alt="JCB">
+            </div>
+          </div>
+          <div class="img_list_item">
+            <p class="img_list_text">コンビニ・ネットバンク</p>
+            <div class="img_list">
+              <img loading="lazy" src="/modpub/images/web/common/payment/logo_lawson.png" alt="Lawson">
+              <img loading="lazy" src="/modpub/images/web/common/payment/logo_familymart.png" alt="Familymart">
+              <img loading="lazy" src="/modpub/images/web/common/payment/logo_payeasy.png" alt="Pay-easy">
+            </div>
+          </div>
+          <div class="img_list_item">
+            <p class="img_list_text">電子マネー</p>
+            <div class="img_list">
+              <img loading="lazy" src="/modpub/images/web/common/payment/logo_redy.png" alt="楽天Edy">
+              <img loading="lazy" src="/modpub/images/web/common/payment/logo_bitcash.png" alt="BitCash">
+              <img loading="lazy" src="/modpub/images/web/common/payment/logo_famipay.png" alt="FamiPay">
+            </div>
+            <div class="img_list">
+              <img loading="lazy" src="/modpub/images/web/common/payment/logo_webmoney.png" alt="WebMoney">
+              <img loading="lazy" src="/modpub/images/web/common/payment/logo_paypay.png" alt="PayPay">
+            </div>
+          </div>
+          <div class="img_list_item">
+            <p class="img_list_text">後払い</p>
+            <div class="img_list">
+              <img loading="lazy" src="/modpub/images/web/common/payment/logo_paidy.png" alt="paidy">
+              <img loading="lazy" src="/modpub/images/web/common/payment/logo_atone.png" alt="atone">
+            </div>
+                      </div>
+        </div>
+      </a>
+    </div>
+  </div>
+  <div class="footer_section_inner sns">
+            <div class="link_list_wrap">
+      <div class="link_list_box">
+        <div class="label">X(Twitter)</div>
+        <ul class="footer_sns">
+                                  <li class="footer_sns_item"><a rel="noopener" href="https://x.com/DLsite" target="_blank" class="twitter_all">全年齢</a></li>
+            <li class="footer_sns_item"><a rel="noopener" href="https://x.com/DLsiteEnglish" target="_blank" class="twitter_r18_en">English R18</a></li>
+            <li class="footer_sns_item"><a rel="noopener" href="https://x.com/DLsite_info" target="_blank" class="twitter_pr">広報</a></li>
+                              </ul>
+      </div>
+      <div class="link_list_box">
+        <div class="label">Youtube</div>
+        <ul class="footer_sns">
+          <li class="footer_sns_item"><a rel="noopener" href="https://www.youtube.com/channel/UCQEN3LsNnqottC2mXx3tAjA" target="_blank" class="youtube_pr">広報</a></li>
+        </ul>
+      </div>
+    </div>
+      </div>
+    <div class="footer_section_inner recruit">
+    <div class="label">採用情報（グループ一括採用）</div>
+    <template data-vue-component="footer-recruit-links"></template>
+        <a rel="noopener" href="https://www.eisys.co.jp/recruit" class="recruit_more" target="_blank">採用サイトへ</a>
+      </div>
+  </div>
+<div id="copyright">
+  <div class="container clearfix">
+    <div id="system">推奨環境：最新版のMicrosoft Edge、Safari、Chrome、Firefox（JavaScript・Cookieを許可）</div>
+    <p>&copy; 1996 DLsite</p>
+  </div>
+</div>
+
+<div data-vue-component="thumb-img-popup-in-swiper"></div>
+<div data-vue-component="thumb-img-popup-in-swiper-v2"></div>
+      </div>
+      <!-- /footer -->
+
+    </div>
+    <!-- /container -->
+
+        <!-- script_footer -->
+    
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "WebSite",
+  "name": "DLsite",
+  "alternateName": "DLsite",
+  "url": "https://www.dlsite.com/"
+}
+</script>
+
+
+<script type="text/javascript" src="/vue/js/pc/vendor.js?cdn_cache=1&v=0.1.2&_=1784195994"></script>
+<script type="text/javascript" src="/vue/js/pc/app.js?cdn_cache=1&v=0.1.2&_=1784195994"></script>
+
+
+
+
+
+<script type="text/javascript">
+(function(document, undefined) {
+  "use strict";
+  var $script = document.createElement('script');
+  $script.src = document.location.protocol + '//banner.eisys-bcs.jp/js/bcs.min.js';
+  document.body.appendChild($script);
+
+  $(window).bind('guestbannerDelete', function(){
+    var $guest_banner = $('.bcs_viewer').find('.__guest');
+    if (document.getCookie('loginchecked') >= 1 && $guest_banner.length > 0 ) {
+      $guest_banner.remove();
+    }
+  });
+
+  // フッターリンクQRコードのモーダル
+  // 開き
+  $('.qr-modal-open-link').bind('click', function(e) {
+    e.preventDefault();
+    var targetModal = $(this).attr('data-modal-open');
+    $('[data-modal-type =' + targetModal + ']').addClass('is-show');
+  })
+  // 閉じ（ボタン）
+  $('.global_modal_content_close').bind('click', function(e) {
+    $('[data-modal-type]').removeClass('is-show');
+  })
+  // 閉じ（オーバーレイ）
+  $('.global_modal_overlay.type_qr').bind('click', function(e) {
+    $('[data-modal-type]').removeClass('is-show');
+  })
+  $('.global_modal_content.type_qr').bind('click', function(e) {
+    e.stopPropagation();
+  })
+})(document);
+</script>
+
+
+
+<style>
+div.measure_tag {
+  height: 0 !important;
+  width: 0 !important;
+  line-height: 0 !important;
+  font-size: 0 !important;
+  margin-top: -10000px;
+  margin-left: -10000px;
+  float: left;
+}
+</style>
+
+<div class="measure_tag"></div>
+    <!-- /script_footer -->
+        <script type="text/javascript">var contents = {"impression":[],"detail":[{"id":"BJ108758","name":"\u9b54\u5263\u306e\u59eb\u306f\u30a8\u30ed\u30a8\u30ed\u3067\u3059","category":"books","brand":"BG01010","price":720,"regist_date":"2017\/05\/14","image_main":"\/\/img.dlsite.jp\/modpub\/images2\/work\/books\/BJ109000\/BJ108758_img_main.jpg","official_price":"","series_id":"TITLE00104699","series_name":"\u9b54\u5263\u306e\u59eb\u306f\u30a8\u30ed\u30a8\u30ed\u3067\u3059","title_id":"TITLE00104699","title_name":"\u9b54\u5263\u306e\u59eb\u306f\u30a8\u30ed\u30a8\u30ed\u3067\u3059","discount":null,"work_type":"NRE","lang_options":"JPN","price_with_tax":792}],"time":0.0009779930114746094};</script>
+</body>
+
+</html>

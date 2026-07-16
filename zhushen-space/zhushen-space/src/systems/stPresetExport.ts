@@ -1,4 +1,29 @@
-import type { TextGenPreset } from '../store/settingsStore';
+import type { TextGenPreset, RegexScript } from '../store/settingsStore';
+
+/* 我们的正则脚本 → SillyTavern 原生格式（酒馆可直接导入）。
+   placement 编号映射回 ST 体系（我们 0=用户输入→ST 1，我们 1=AI输出→ST 2；存量 ST 旧码 2 保留），
+   其余字段本项目本就无损保留（runOnEdit/substituteRegex/minDepth/maxDepth），缺省补 ST 默认值。 */
+export function toStRegexScript(s: RegexScript): Record<string, unknown> {
+  const stPlacement = [...new Set(s.placement.map((p) => (p === 0 ? 1 : 2)))];
+  return {
+    id: s.id,
+    scriptName: s.scriptName,
+    findRegex: s.findRegex,
+    replaceString: s.replaceString,
+    trimStrings: s.trimStrings ?? [],
+    placement: stPlacement.length ? stPlacement : [2],
+    disabled: !!s.disabled,
+    markdownOnly: !!s.markdownOnly,
+    promptOnly: !!s.promptOnly,
+    runOnEdit: !!s.runOnEdit,
+    substituteRegex: typeof s.substituteRegex === 'number' ? s.substituteRegex : 0,
+    minDepth: typeof s.minDepth === 'number' ? s.minDepth : null,
+    maxDepth: typeof s.maxDepth === 'number' ? s.maxDepth : null,
+  };
+}
+export function toStRegexScripts(arr: RegexScript[] | undefined): Record<string, unknown>[] {
+  return (arr ?? []).map(toStRegexScript);
+}
 
 /* ── 导出为 SillyTavern 可导入的预设 ─────────────────────────────────
    zhushen 内部预设是 { entries: STPromptEntry[] } 格式，SillyTavern 不认；ST 需要
@@ -76,7 +101,7 @@ export function toSTPreset(preset: TextGenPreset): Record<string, unknown> {
     stream_openai: preset.stream ?? true,
     prompts,
     prompt_order: [{ character_id: 100001, order }],
-    extensions: { regex_scripts: preset.regexScripts ?? [] },
+    extensions: { regex_scripts: toStRegexScripts(preset.regexScripts) },   // placement 映射回 ST 编号，酒馆直接可用
   };
   if (preset.max_tokens) out.openai_max_tokens = preset.max_tokens;
   if (preset.context_length) out.openai_max_context = preset.context_length;

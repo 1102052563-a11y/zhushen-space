@@ -3,7 +3,8 @@ import { useSettings, endpointToConfig, type WorldBook, type WorldBookEntry, typ
 import { apiChatFallback, fetchWithProxy, gwProxyBase } from '../systems/apiChat';
 import { READING_FONTS, readingFontStack } from '../systems/readingFonts';
 import { UI_THEMES } from '../systems/uiThemes';
-import { toSTPreset } from '../systems/stPresetExport';
+import { toSTPreset, toStRegexScript, toStRegexScripts } from '../systems/stPresetExport';
+import { runRegexReplace, compileFindRegex } from '../systems/regexEngine';   // 正则试跑预览：与 App.applyRegex 同一编译/替换引擎，预览即实况
 import { ADVANCE_PRESET_BUILTINS, PLOT_CHOICES_RULE } from '../promptRules';
 import { useDbAdvance } from '../store/dbAdvanceStore';   // 数据库推进管线（Stitches 规划层）
 import PromptCenterPanel from './PromptCenterPanel';   // 预设中心：各功能主提示词编辑页
@@ -2013,6 +2014,33 @@ function PresetEntryEditor({ entry, onChange, onClose }: {
 ════════════════════════════════════════════ */
 const PLACEMENT_LABELS: Record<number, string> = { 0: '用户输入', 1: 'AI输出' };
 
+/* 下载正则脚本 JSON（ST 原生格式，酒馆可直接导入） */
+function downloadRegexJson(name: string, data: unknown) {
+  const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `${(name || 'regex').replace(/[\\/:*?"<>|]/g, '_')}.json`;
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
+
+/* 试跑一条脚本（含 App.applyRegex 同款「未命中自动补 s/dotAll 重试」）；宏不展开（以运行时为准） */
+function previewRegexRun(script: RegexScript, sample: string): { ok: boolean; out: string; note: string } | null {
+  const compiled = compileFindRegex(script.findRegex, script.flags || '');
+  if (!compiled) return null;
+  let out = runRegexReplace(sample, compiled.re, script);
+  let note = '';
+  if (out === sample && /\./.test(compiled.pattern) && !compiled.flags.includes('s')) {
+    try {
+      const reS = new RegExp(compiled.pattern, compiled.flags + 's');
+      const retried = runRegexReplace(sample, reS, script);
+      if (retried !== sample) { out = retried; note = '（自动补 s/dotAll 后命中）'; }
+    } catch { /* 忽略 */ }
+  }
+  return { ok: out !== sample, out, note };
+}
+
 function RegexScriptCard({ script, onToggle, onUpdate, onRemove, onMoveUp, onMoveDown, isFirst, isLast }: {
   script: RegexScript;
   onToggle: () => void;
@@ -2024,6 +2052,7 @@ function RegexScriptCard({ script, onToggle, onUpdate, onRemove, onMoveUp, onMov
   isLast: boolean;
 }) {
   const [expanded, setExpanded] = useState(false);
+  const [sample, setSample] = useState('');   // 试跑预览样例文本
 
   function togglePlacement(p: number) {
     const cur = script.placement;
@@ -2045,6 +2074,7 @@ function RegexScriptCard({ script, onToggle, onUpdate, onRemove, onMoveUp, onMov
           <button onClick={onMoveUp} disabled={isFirst} className="text-[12px] px-1 text-dim hover:text-god disabled:opacity-20 transition-colors">↑</button>
           <button onClick={onMoveDown} disabled={isLast} className="text-[12px] px-1 text-dim hover:text-god disabled:opacity-20 transition-colors">↓</button>
           <button onClick={() => setExpanded(!expanded)} className={`text-[12px] px-2 py-0.5 rounded border font-mono transition-colors ${expanded ? 'border-god/50 text-god bg-god/10' : 'border-edge text-dim hover:border-god/40 hover:text-god'}`}>{expanded ? '收起' : '编辑'}</button>
+          <button onClick={() => downloadRegexJson(script.scriptName || 'regex', toStRegexScript(script))} title="导出为 SillyTavern 原生格式 JSON（酒馆可直接导入）" className="text-[12px] px-2 py-0.5 rounded border border-edge text-dim hover:border-god/40 hover:text-god transition-colors font-mono">导出</button>
           <button onClick={onRemove} className="text-[12px] px-2 py-0.5 rounded border border-edge text-dim hover:border-blood/40 hover:text-blood transition-colors font-mono">删除</button>
         </div>
       </div>
@@ -2095,6 +2125,44 @@ function RegexScriptCard({ script, onToggle, onUpdate, onRemove, onMoveUp, onMov
             </div>
             <div className="text-[12px] text-dim">都不选 = 显示与发给AI都替换（旧行为）。<span className="text-sky-300">美化/包裹框（如 &lt;htm1fenge&gt;→&lt;div&gt;）务必选「仅格式化显示」</span>，否则配套的「对AI隐藏(删空)」正则会把正文从屏幕删空。</div>
           </div>
+          {/* ST 进阶：查找宏展开（substituteRegex）+ 深度范围（Min/Max Depth） */}
+          <div className="grid grid-cols-3 gap-3">
+            <Field label="查找宏展开（substituteRegex）">
+              <select value={script.substituteRegex ?? 0} onChange={(e) => onUpdate({ substituteRegex: Number(e.target.value) })} className="input-base text-sm">
+                <option value={0}>不展开（默认）</option>
+                <option value={1}>原样展开</option>
+                <option value={2}>展开并转义（推荐）</option>
+              </select>
+            </Field>
+            <Field label="最小深度（minDepth）">
+              <input type="number" min={0} value={script.minDepth ?? ''} placeholder="不限"
+                onChange={(e) => onUpdate({ minDepth: e.target.value === '' ? null : Math.max(0, Math.floor(Number(e.target.value)) || 0) })}
+                className="input-base text-sm font-mono" />
+            </Field>
+            <Field label="最大深度（maxDepth）">
+              <input type="number" min={0} value={script.maxDepth ?? ''} placeholder="不限"
+                onChange={(e) => onUpdate({ maxDepth: e.target.value === '' ? null : Math.max(0, Math.floor(Number(e.target.value)) || 0) })}
+                className="input-base text-sm font-mono" />
+            </Field>
+          </div>
+          <div className="text-[12px] text-dim">深度照 ST：0=最新一楼，向历史递增；范围外的楼层不跑本条（作用于发给正文 API 的历史与本回合结算）。宏展开：findRegex 里的 {'{{user}}'}/{'{{getvar::x}}'} 等执行时代入——「展开并转义」把宏值当字面文本匹配（安全），「原样」把宏值当正则片段。</div>
+          {/* 试跑预览（ST Test Mode 等价）：贴样例文本，实时看本条脚本的替换结果 */}
+          <div className="space-y-1">
+            <label className="text-[12px] font-mono text-dim">试跑预览（仅本条脚本 · 宏以运行时为准，此处不展开）</label>
+            <textarea value={sample} onChange={(e) => setSample(e.target.value)} rows={3}
+              placeholder="贴一段样例正文/输入，实时查看本条正则的替换结果"
+              className="w-full bg-panel border border-edge rounded-lg p-3 text-sm text-slate-200 font-mono leading-relaxed resize-y focus:border-god outline-none" />
+            {sample && (() => {
+              const r = previewRegexRun(script, sample);
+              if (!r) return <div className="text-[12px] font-mono text-blood">✗ 正则无效（编译失败），检查 findRegex / flags</div>;
+              return (
+                <div className="space-y-1">
+                  <div className={`text-[12px] font-mono ${r.ok ? 'text-god' : 'text-dim'}`}>{r.ok ? `✓ 命中并替换${r.note}` : '✗ 未命中（输出＝输入）'}</div>
+                  <pre className="w-full bg-panel border border-edge rounded-lg p-3 text-[13px] text-slate-300 font-mono leading-relaxed whitespace-pre-wrap break-all max-h-48 overflow-y-auto">{r.out || '（输出为空 ＝ 匹配内容被整段删除）'}</pre>
+                </div>
+              );
+            })()}
+          </div>
           <div className="flex justify-end">
             <button onClick={() => setExpanded(false)} className="px-4 py-1.5 text-sm border border-god/40 text-god rounded hover:bg-god/10 transition-colors font-mono">完成</button>
           </div>
@@ -2141,6 +2209,11 @@ function RegexList({ scripts, onToggle, onUpdate, onRemove, onMove, onAdd, onImp
             <button onClick={() => importRef.current?.click()} className="px-4 py-2 border border-edge text-dim text-sm rounded hover:border-god/40 hover:text-god transition-colors font-mono">导入 (.json)</button>
             <input ref={importRef} type="file" accept=".json" className="hidden" onChange={handleFile} />
           </>
+        )}
+        {scripts.length > 0 && (
+          <button onClick={() => downloadRegexJson(`${title}-脚本合集`, toStRegexScripts(scripts))}
+            title="导出全部脚本为 SillyTavern 原生格式 JSON 数组（酒馆/本项目均可再导入）"
+            className="px-4 py-2 border border-edge text-dim text-sm rounded hover:border-god/40 hover:text-god transition-colors font-mono">导出全部 (ST)</button>
         )}
         {msg && <span className={`text-sm font-mono ${msg.includes('失败') ? 'text-blood' : 'text-god'}`}>{msg}</span>}
       </div>
