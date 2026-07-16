@@ -134,6 +134,7 @@ import { isRealNpc, sanitizeEntryName, stripLeakedThinking, streamVisibleNarrati
 import { buildTableFillPrompt, buildPlotStateSnapshot } from './systems/tablePrompt';   // ACU 表格数据库：填表提示词 + 剧情状态快照（喂剧情指导）
 import { resolveTableTemplates } from './systems/tableTemplate';   // ACU 表格数据库：读路径 native 模板（<if cell/seed>/计算标签）
 import { ensureSqliteMirror, needsSqlite } from './systems/tableSqlite';   // ACU 表格数据库：读路径 6b sql.js 镜像（{[db]}/{[sql]}）
+import { projectStoresToTables } from './systems/tableMigrate';   // 1c 镜像投影：project-on-read（发送前重投影，回合间的面板手改/交易/自愈也进表，读路径永不陈旧）
 import { healWatchdog } from './systems/ledger/watchdog';   // Step 10 看门狗·自愈（回合末集中跑现成 dedup 修复）
 import { preloadEventCores } from './systems/ledger/preloadCores';   // 阶段1：事件核心从 IndexedDB 载入（启动 await）
 import { snapshotPlayerBag, reconcilePlayerBag } from './systems/itemWatchdog';
@@ -9004,6 +9005,10 @@ ${lines}`;
     const worldInfoText = [wbKeywordText, novelVecText].filter(Boolean).join('\n\n');
     if (isDbAdvance) return await runDbAdvancePipeline(userText, worldInfoText);   // 数据库推进·预生成（审核窗）：拿到世界书信息即跑管线返回，不继续走正文
 
+    // ACU 表格数据库·project-on-read：读表之前（native 模板/sqlite 镜像/填表提示词都在下面）先把 13 张镜像表
+    // 从 store 重投影一次——上回合投影之后发生的 store 变化（面板手改/交易/开箱/强化/NPC 自治/看门狗自愈/演化收尾）
+    // 全部进表，{[db]}/{[sql]}/<if cell> 读到的永远是当前真相，不再吃"回合间陈旧镜像"。投影=整表 replaceRows，开销一次 set。
+    try { projectStoresToTables(); } catch (e) { console.warn('[Table] project-on-read 投影失败（忽略）:', e); }
     // ACU 表格数据库·读路径 6b：预设/世界书若用到 {[db]}/{[sql]}/<if db|sql> 才懒加载 sql.js 建只读镜像（真懒加载·不用则永不拉 wasm）
     try {
       const _needsSql = needsSqlite(worldInfoText) || (preset?.entries ?? []).some((e: { enabled?: boolean; content?: string }) => e.enabled && needsSqlite(e.content || ''));

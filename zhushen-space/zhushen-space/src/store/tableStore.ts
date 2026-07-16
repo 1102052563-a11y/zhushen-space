@@ -41,6 +41,10 @@ interface TableState {
   updateCell: (uid: string, rowIndex: number, col: string | number, value: string) => boolean;
   /** 删一行。单行表拒绝。 */
   deleteRow: (uid: string, rowIndex: number) => boolean;
+  /** row_id（行的永久编号·删行不位移不复用）→ 当前 0 基行号；找不到返回 -1。AI 引用按 row_id 优先解析用。 */
+  rowIndexById: (uid: string, rowId: string) => number;
+  /** 恢复一整行（含原 row_id·尽量放回原位置）。同 row_id 已存在则拒绝（防二次恢复重复）。表编辑日志「删除找回」用。 */
+  restoreRow: (uid: string, row: string[], atIndex?: number) => boolean;
   /** 批量替换一张多行表的**全部数据行**（一次 set·高性能·投影每回合用）。row_id 重排 1..N。单行表拒绝。返回写入行数，失败 -1。 */
   replaceRows: (uid: string, rows: Record<string, string>[]) => number;
 
@@ -92,6 +96,38 @@ const emptyHeaders: string[] = [];
 export function rowsToContent(header: string[], rowObjs: Record<string, string>[]): string[][] {
   const headers = header.slice(1);
   return [header, ...rowObjs.map((d, i) => [String(i + 1), ...headers.map((_h, ci) => pickCol(d, headers, ci))])];
+}
+
+/** 数据行里最大的数字 row_id（无数据行返回 0）。insertRow 用 max+1 分配新 row_id —— 删行后绝不复用旧编号。 */
+function maxRowId(content: string[][]): number {
+  let max = 0;
+  for (let i = 1; i < content.length; i++) {
+    const n = parseInt(content[i]?.[0] ?? '', 10);
+    if (Number.isFinite(n) && n > max) max = n;
+  }
+  return max;
+}
+
+/** row_id 归一化（持久化 migrate v10 用·纯函数便于测试）：历史 insertRow 用 content.length 分配 row_id，
+   删行后新插入会**复用已有编号**→ 按 row_id 定位会打错行。这里把 重复/非法(非正整数) 的 row_id
+   重新分配为 max+1（保留首见者·行序/数据不动），让「row_id=行的永久编号」自此成立。 */
+export function normalizeRowIds(tables: AcuTableData): AcuTableData {
+  const out: AcuTableData = {};
+  for (const [uid, sheet] of Object.entries(tables)) {
+    const content = sheet?.content ?? [];
+    let max = maxRowId(content);
+    const seen = new Set<string>();
+    let changed = false;
+    const rows = content.map((row, i) => {
+      if (i === 0) return row;   // 表头
+      const id = row[0] ?? '';
+      if (/^[1-9]\d*$/.test(id) && !seen.has(id)) { seen.add(id); return row; }
+      max += 1; changed = true; seen.add(String(max));
+      return [String(max), ...row.slice(1)];
+    });
+    out[uid] = changed ? { ...sheet, content: rows } : sheet;
+  }
+  return out;
 }
 
 /** 表结构演进（持久化 migrate 用·纯函数便于测试）：以最新默认表结构为准，把旧表按**列名**重映射进新表头
@@ -163,7 +199,7 @@ export const useTables = create<TableState>()(
           console.warn(`[tableStore] insertRow 被拒：${sheet.name} 是单行表，请用 updateRow(0,...)`);
           return -1;
         }
-        const newRowId = String(sheet.content.length); // 表头占 [0]
+        const newRowId = String(maxRowId(sheet.content) + 1);   // max+1：删行后不复用旧编号（row_id=永久编号，AI 按它 updateRow）
         const newRow = [newRowId, ...headers.map((_h, i) => pickCol(data, headers, i))];
         const rowIndex = sheet.content.length - 1; // 0 基数据行号
         set((s) => ({
@@ -211,6 +247,27 @@ export const useTables = create<TableState>()(
         return true;
       },
 
+      rowIndexById: (uid, rowId) => {
+        const sheet = get().tables[uid];
+        if (!sheet || !rowId) return -1;
+        for (let i = 1; i < sheet.content.length; i++) {
+          if ((sheet.content[i]?.[0] ?? '') === rowId) return i - 1;
+        }
+        return -1;
+      },
+
+      restoreRow: (uid, row, atIndex) => {
+        const sheet = get().tables[uid];
+        if (!sheet || !Array.isArray(row) || row.length === 0) return false;
+        if (sheet.single && sheet.content.length > 1) { console.warn(`[tableStore] restoreRow 被拒：${sheet.name} 是单行表且已有数据`); return false; }
+        const rowId = row[0] ?? '';
+        if (rowId && get().rowIndexById(uid, rowId) >= 0) { console.warn(`[tableStore] restoreRow 跳过：${sheet.name} 已存在 row_id=${rowId}（防二次恢复重复）`); return false; }
+        const insertAt = Math.max(1, Math.min(sheet.content.length, (atIndex ?? sheet.content.length - 1) + 1));   // content 下标（表头占 0）
+        const newContent = [...sheet.content.slice(0, insertAt), row, ...sheet.content.slice(insertAt)];
+        set((s) => ({ tables: { ...s.tables, [uid]: { ...sheet, content: newContent } } }));
+        return true;
+      },
+
       replaceRows: (uid, rowsData) => {
         const sheet = get().tables[uid];
         if (!sheet) { console.warn(`[tableStore] replaceRows: 表不存在 ${uid}`); return -1; }
@@ -242,17 +299,19 @@ export const useTables = create<TableState>()(
     }),
     {
       name: 'drpg-tables',
-      version: 9,
+      version: 10,
       storage: lzStorage(),   // lz 压缩
       /* 结构演进（…v5→v6 加 NPC明细表 + 重要角色表补标量；v6→v7 重要角色表加真实六维列·六维改回基础值；
-         v7→v8 加 3 张剧情记忆表：进程/伏笔/约定表·AI 维护·非镜像；v8→v9 加 宠物/召唤物表·镜像·从重要角色表分流）。
+         v7→v8 加 3 张剧情记忆表：进程/伏笔/约定表·AI 维护·非镜像；v8→v9 加 宠物/召唤物表·镜像·从重要角色表分流；
+         v9→v10 row_id 归一化：重复/非法编号重派 max+1 → row_id 自此=行的永久编号，AI 按它 updateRow 不再打错行）。
          `evolveTables` 幂等：以最新 buildDefaultTables() 为准，按**列名**把旧行重映射进新表头 →
          新表补齐、新列留空、旧数据一律不丢、用户自建表保留。加表/加列后 bump version 即可让老存档自动补上。 */
       migrate: (persisted: unknown, version: number): { tables: AcuTableData } => {
         const p = persisted as { tables?: AcuTableData } | null;
         if (!p || typeof p !== 'object') return { tables: buildDefaultTables() };
-        if (version >= 9) return { tables: p.tables ?? buildDefaultTables() };
-        return { tables: evolveTables(p.tables ?? {}) };   // 结构演进（列名重映射·数据不丢·见 evolveTables）
+        if (version >= 10) return { tables: p.tables ?? buildDefaultTables() };
+        if (version >= 9) return { tables: normalizeRowIds(p.tables ?? buildDefaultTables()) };
+        return { tables: normalizeRowIds(evolveTables(p.tables ?? {})) };   // 结构演进（列名重映射·数据不丢）+ row_id 归一化
       },
     }
   )

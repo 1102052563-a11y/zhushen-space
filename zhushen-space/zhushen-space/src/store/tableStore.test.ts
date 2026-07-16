@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach } from 'vitest';
-import { useTables, evolveTables } from './tableStore';
+import { useTables, evolveTables, normalizeRowIds } from './tableStore';
 import { buildDefaultTables, DEFAULT_SHEET_UIDS, type AcuTableData } from '../systems/acuTableSpec';
 
 const T = () => useTables.getState();
@@ -148,5 +148,59 @@ describe('evolveTables（v1→v2 结构演进·列名重映射·数据不丢）'
     const evolved = evolveTables(oldTables);
     expect(evolved['my_custom']).toBeTruthy();
     expect(evolved['protagonist_info']).toBeTruthy();   // 默认表也补齐
+  });
+});
+
+describe('row_id 稳定性（永久编号·删行不复用不位移）+ restoreRow', () => {
+  it('删行后新插入不复用旧 row_id（max+1·治按编号打错行）', () => {
+    T().insertRow('inventory', { 0: 'A' });   // row_id 1
+    T().insertRow('inventory', { 0: 'B' });   // row_id 2
+    T().insertRow('inventory', { 0: 'C' });   // row_id 3
+    T().deleteRow('inventory', 1);            // 删 B（row_id 2）→ 旧算法 content.length 会给新行发已被 C 占用的 "3"
+    const ri = T().insertRow('inventory', { 0: 'D' });
+    expect(T().rows('inventory')[ri].row_id).toBe('4');
+  });
+
+  it('rowIndexById：删行位移后仍按永久编号命中', () => {
+    T().insertRow('inventory', { 0: 'A' });
+    T().insertRow('inventory', { 0: 'B' });
+    T().insertRow('inventory', { 0: 'C' });   // row_id 3 @pos 2
+    T().deleteRow('inventory', 0);            // 删 A → C 位移到 pos 1
+    expect(T().rowIndexById('inventory', '3')).toBe(1);
+    expect(T().rowIndexById('inventory', '1')).toBe(-1);   // 已删的编号查不到（绝不复用）
+  });
+
+  it('restoreRow：整行放回原位（含原 row_id）·二次恢复被拒防重复', () => {
+    T().insertRow('inventory', { 0: 'A' });
+    T().insertRow('inventory', { 0: 'B' });
+    T().insertRow('inventory', { 0: 'C' });
+    const before = [...T().getSheet('inventory')!.content[2]];   // B 整行（含 row_id "2"）
+    T().deleteRow('inventory', 1);
+    expect(T().restoreRow('inventory', before, 1)).toBe(true);
+    expect(T().rows('inventory')[1].row_id).toBe('2');
+    expect(T().getCell('inventory', 1, '物品名称')).toBe('B');
+    expect(T().restoreRow('inventory', before, 1)).toBe(false);
+  });
+});
+
+describe('normalizeRowIds（v10 迁移·存量重复/非法编号归一）', () => {
+  it('重复→重派 max+1（首见者保留）·非法→重派·数据/行序不动', () => {
+    const fresh = buildDefaultTables();
+    const bad = {
+      inventory: { ...fresh.inventory, content: [fresh.inventory.content[0], ['2', 'A'], ['2', 'B'], ['abc', 'C']] },
+    } as unknown as AcuTableData;
+    const fixed = normalizeRowIds(bad);
+    const rows = fixed.inventory.content.slice(1);
+    expect(rows.map((r) => r[0])).toEqual(['2', '3', '4']);
+    expect(rows.map((r) => r[1])).toEqual(['A', 'B', 'C']);
+  });
+
+  it('本就合法唯一 → 原样保留（幂等）', () => {
+    const fresh = buildDefaultTables();
+    const ok = {
+      inventory: { ...fresh.inventory, content: [fresh.inventory.content[0], ['1', 'A'], ['5', 'B']] },
+    } as unknown as AcuTableData;
+    const fixed = normalizeRowIds(ok);
+    expect(fixed.inventory.content.slice(1).map((r) => r[0])).toEqual(['1', '5']);
   });
 });

@@ -10,8 +10,9 @@ import { useResource } from '../store/resourceStore';
 import { useMisc } from '../store/miscStore';   // 当地货币（世界级·世界限定·离世归零）
 import { effectiveResource, fullMaxHp, fullMaxEp, ratioOf, npcBaseAttrs } from './derivedStats';
 import { parseAllStateUpdates, parseAllItemCommands, applyItemCommands, stripPreviewRewardCurrency, isEquippable, setNpcOwnerResolver, type StateUpdate, type ItemEditResult, type LedgerCtx } from './stateParser';
-import { applyTableEdits } from './tableEditParser';   // ACU 表格数据库：<tableEdit> → tableStore
+import { applyTableEdits, type TableEditResult } from './tableEditParser';   // ACU 表格数据库：<tableEdit> → tableStore
 import { projectStoresToTables } from './tableMigrate';   // 1c：镜像表每回合从 store 投影（漂移从构造上消除）
+import { useTurnReport, recordHasActivity } from '../store/turnReportStore';   // 回合级变量事务报告（每次应用收一条可见记录）
 import { seedWalletIfEmpty } from './ledger/walletCore';   // Step 10 货币事件核心
 import { seedItemsIfEmpty } from './ledger/itemCore';   // Step 10 物品事件核心
 import { seedNpcsIfEmpty } from './ledger/npcCore';   // Step 10 NPC 事件核心
@@ -401,7 +402,7 @@ export function reconcileSettlementCurrency(raw: string, updates: StateUpdate[])
   return out;
 }
 
-export function applyStateUpdates(raw: string) {
+export function applyStateUpdates(raw: string): { applied: number; failed: string[] } {
   // ★ 点数（潜能点/技能点/黄金技能点/属性点）**只在「世界结算」时由正文一次性发放**：
   //   平时正文只"计入/统计"不入账（防提前发），消耗交由前端确定性系统处理（防按正文"消耗"乱扣），
   //   且各演化阶段(物品/主角/NPC/对账)的输出都不含 <世界结算>，故不会重复计数。判据=本段文本是否含 <世界结算> 块。
@@ -451,12 +452,20 @@ export function applyStateUpdates(raw: string) {
     }
   } catch { /* 当地货币解析失败不阻断其余 state 应用 */ }
   let updates = parseAllStateUpdates(raw);
-  if (updates.length === 0) return;
+  if (updates.length === 0) return { applied: 0, failed: [] };
   if (atSettlement) updates = reconcileSettlementCurrency(raw, updates);   // 结算·货币忠于【最终清算】面板 + 同类去重防双入账
   console.log('[State] 解析到变量更新:', updates);
+  // 失败收集（回合事务报告用）：原来只 console.warn 一声就吞掉——键写错/值非法的指令等于静默丢失，
+  //   玩家与 AI 都不知道。收成结构化明细在「变量事务报告」可见（先可见·不自动重试）。
+  const failed: string[] = [];
+  let applied = 0;
   for (const u of updates) {
-    try { applyOneUpdate(u); } catch (e) { console.warn('[State] 应用更新失败:', u, e); }
+    try { applyOneUpdate(u); applied++; } catch (e) {
+      console.warn('[State] 应用更新失败:', u, e);
+      failed.push(`${u.key} ${u.op} ${String(u.value)} — ${e instanceof Error ? e.message : String(e)}`);
+    }
   }
+  return { applied, failed };
 }
 
 export function applyAllUpdates(raw: string, ctx?: LedgerCtx, opts?: { deferItemCreate?: boolean; suppressCreateNames?: string[] }): { itemResults: ItemEditResult[]; deferredCreates: ReturnType<typeof parseAllItemCommands> } {
@@ -480,6 +489,7 @@ export function applyAllUpdates(raw: string, ctx?: LedgerCtx, opts?: { deferItem
     console.log(`[Item] 主正文延后 ${deferredCreates.length} 条 createItem → 交物品阶段独占建（去重）；演化 settle 后对账补建兜底`);
   // 设施已发放物：本回合由开箱/合成等确定性发放、已在背包中的物品——**绝不可再 createItem**（防重复建档；
   // 容忍正文把名字写漂：归一化后双向包含匹配，"暗金·裂空战刃"≈"裂空战刃"也拦下，补 dedupeByName 按精确名漏合并的洞）。
+  let suppressedCreates = 0;   // 设施已发放物拦截数（回合事务报告用）
   if (opts?.suppressCreateNames?.length) {
     const norm = (s: string) => String(s ?? '').replace(/[\s·・,，。.、"'「」【】\[\]()（）+＋]/g, '').toLowerCase();
     const banned = opts.suppressCreateNames.map(norm).filter((b) => b.length >= 2);   // 太短的名字不做包含匹配，防误杀
@@ -494,7 +504,8 @@ export function applyAllUpdates(raw: string, ctx?: LedgerCtx, opts?: { deferItem
         if (hit) console.log(`[Item] 抑制重复 createItem「${String((d.item ?? d).name ?? '')}」——本回合已由设施(开箱/合成)确定性发放并入库`);
         return !hit;
       });
-      if (itemCmds.length !== before) console.log(`[Item] 设施已发放物：拦下 ${before - itemCmds.length} 条重复 createItem`);
+      suppressedCreates = before - itemCmds.length;
+      if (suppressedCreates > 0) console.log(`[Item] 设施已发放物：拦下 ${suppressedCreates} 条重复 createItem`);
     }
   }
   let itemResults: ItemEditResult[] = [];
@@ -502,12 +513,14 @@ export function applyAllUpdates(raw: string, ctx?: LedgerCtx, opts?: { deferItem
     console.log('[Item] 解析到物品指令:', itemCmds);
     itemResults = applyItemCommands(itemCmds, ctx);   // 经单一闸门：解析稳定 id / 去重 / 记账本 / 返回结构化结果
   }
-  applyStateUpdates(raw);
+  const stateRes = applyStateUpdates(raw);
   // ACU 表格数据库：认正文里的 <tableEdit> 块 → 写 tableStore（与 <state>/<upstore> 并存）。
   // 只有真含 <tableEdit> 的回复（主正文/填表阶段）才动手；其余阶段回复走到这里是 no-op。
-  // 单一提交闸门 + 幂等留作后续硬化（设计文档 §4B），当前每条回复应用一次（同物品阶段）。
+  // 已硬化：幂等（同回合同批指令重复应用=no-op）+ 编辑流水（before/after 镜像·删除可找回）+
+  //   失败清单回喂（buildTableFillPrompt 下回合注给 AI 自纠），见 tableJournalStore。ctx.turn 供幂等/归档。
+  let te: TableEditResult | null = null;
   try {
-    const te = applyTableEdits(raw);
+    te = applyTableEdits(raw, ctx);
     if (te.applied > 0 || te.failed > 0) {
       console.log(`[Table] 填表：应用 ${te.applied} 条，失败 ${te.failed}`, te.modifiedUids);
       if (te.errors.length) console.warn('[Table] 填表告警:', te.errors);
@@ -518,12 +531,33 @@ export function applyAllUpdates(raw: string, ctx?: LedgerCtx, opts?: { deferItem
   try { projectStoresToTables(); } catch (e) { console.warn('[Table] 镜像表投影失败（忽略）:', e); }
   // Step 10 状态对账看门狗：每次应用后按不变量核对 货币/物品/NPC 当前态，corruption/漂移当场告警
   //   （幽灵NPC/重复id双计/装备槽冲突/货币漂移）——不是几周后才发现。纯只读，绝不阻断主流程。
+  let driftSnap: string[] = [];
   try {
     seedWalletIfEmpty(useItems.getState().currency as unknown as Record<string, number>);   // 货币影子对齐
     seedItemsIfEmpty((useItems.getState() as { items?: unknown[] }).items ?? []);   // 物品影子对齐
     seedNpcsIfEmpty((useNpc.getState() as { npcs?: Record<string, unknown> }).npcs ?? {});   // NPC 影子对齐
-    for (const r of watchdogViolations()) console.warn(`[看门狗] ⚠ ${r.domain}：`, r.violations);
+    const viol = watchdogViolations();
+    for (const r of viol) console.warn(`[看门狗] ⚠ ${r.domain}：`, r.violations);
+    driftSnap = viol.map((r) => `【${r.domain}】${r.violations.join('，')}`);
   } catch { /* 看门狗绝不阻断主流程 */ }
+  // 回合级变量事务报告：本次应用"动了什么/拦了什么/哪里失败"收成一条可见记录（TableManager 📋 展示）。
+  //   无事发生的阶段回复不记（防刷屏）；纯只读收集，绝不阻断主流程。
+  try {
+    const rec = {
+      turn: ctx?.turn ?? -1,
+      source: ctx?.source ?? '未知',
+      stateApplied: stateRes.applied,
+      stateFailed: stateRes.failed,
+      itemApplied: itemResults.filter((r) => r.ok).length,
+      itemRejected: itemResults.filter((r) => !r.ok).map((r) => `${r.op} ${r.ref}${r.reason ? `（${r.reason}${r.detail ? `·${r.detail}` : ''}）` : ''}`),
+      itemBlocked: previewBlocked + suppressedCreates,
+      tableApplied: te?.applied ?? 0,
+      tableFailed: te?.errors ?? [],
+      tableSkippedDup: te?.skippedDuplicate === true,
+      drift: driftSnap,
+    };
+    if (recordHasActivity(rec)) useTurnReport.getState().push(rec);
+  } catch { /* 报告收集绝不阻断主流程 */ }
   return { itemResults, deferredCreates };
 }
 

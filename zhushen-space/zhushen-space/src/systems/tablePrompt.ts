@@ -6,6 +6,7 @@
              + 进程/伏笔/约定表的当前数据（带 0 基行号，供 AI 判 update-vs-insert）。
    设计文档：`指导/ACU星数据库-移植-设计.md` §3 + §6 Step 5 / 1c。 */
 import { useTables } from '../store/tableStore';
+import { useTableJournal } from '../store/tableJournalStore';
 import { isCustomSheet, type AcuSheet } from './acuTableSpec';
 import { TABLE_FILL_RULE } from '../promptRules';
 
@@ -23,15 +24,15 @@ function fmtRow(headers: string[], row: string[]): string {
   return headers.map((h, ci) => (row[ci + 1] ? `${h}=${row[ci + 1]}` : '')).filter(Boolean).join(' ｜ ');
 }
 
-/** 一张跟踪表 →「[0] 列=值 …」清单（0 基行号供 updateRow）；空表给新增提示。 */
+/** 一张跟踪表 →「[编号] 列=值 …」清单（[ ] 内=row_id·行的永久编号，updateRow 照抄它）；空表给新增提示。 */
 function dumpTracker(uid: string, name: string): string {
   const sheet = useTables.getState().getSheet(uid);
   const headers = (sheet?.content[0] ?? []).slice(1);
   const dataRows = sheet?.content.slice(1) ?? [];
   const body = dataRows.length === 0
     ? '  （暂无·按需 insertRow 新增）'
-    : dataRows.map((row, ri) => `  [${ri}] ${fmtRow(headers, row) || '（空）'}`).join('\n');
-  return `## ${name}·当前（改已有条目用 updateRow(表, 行号, {...})·行号=[ ] 里的数字·0基）\n${body}`;
+    : dataRows.map((row, ri) => `  [${row[0] || ri}] ${fmtRow(headers, row) || '（空）'}`).join('\n');
+  return `## ${name}·当前（改已有条目用 updateRow(表, 行号, {...})·行号=[ ] 里的编号，是该行的**永久编号**·照抄即可，别自己数位置）\n${body}`;
 }
 
 /** 一张用户自定义表 →「## 表名（自定义·AI 维护）+【维护规则】note +【当前数据】带行号」。
@@ -39,11 +40,11 @@ function dumpTracker(uid: string, name: string): string {
 function dumpCustomTable(sheet: AcuSheet): string {
   const headers = (sheet.content[0] ?? []).slice(1);
   const dataRows = sheet.content.slice(1);
-  const kind = sheet.single ? '单行·只 updateRow("' + sheet.name + '", 0, {...})' : '多行·insertRow/updateRow(行号0基)/deleteRow';
+  const kind = sheet.single ? '单行·只 updateRow("' + sheet.name + '", 0, {...})' : '多行·insertRow/updateRow(行号=[ ]内编号)/deleteRow(同)';
   const body = dataRows.length === 0
     ? '  （暂无数据·按维护规则需要时 insertRow 新增）'
-    : dataRows.map((row, ri) => `  [${ri}] ${fmtRow(headers, row) || '（空）'}`).join('\n');
-  return `## ${sheet.name}（用户自定义·AI 维护·${kind}）\n【维护规则·必须遵守】${sheet.sourceData.note || '（未填）'}\n【当前数据·列：${headers.join('/')}】\n${body}`;
+    : dataRows.map((row, ri) => `  [${row[0] || ri}] ${fmtRow(headers, row) || '（空）'}`).join('\n');
+  return `## ${sheet.name}（用户自定义·AI 维护·${kind}）\n【维护规则·必须遵守】${sheet.sourceData.note || '（未填）'}\n【当前数据·列：${headers.join('/')}·[ ] 内=行的永久编号·照抄】\n${body}`;
 }
 
 /** 剧情状态快照（供「剧情指导」导演做状态感知）：纪要表最近几条 + 进程/伏笔/约定表当前非空行。
@@ -84,6 +85,12 @@ export function buildTableFillPrompt(only?: string[]): string {
   const customSheets = useTables.getState().sortedSheets().filter(isCustomSheet);
   if (customSheets.length) {
     parts.push(`# 用户自定义表（各按其【维护规则】维护·行=可变值随剧情更新、维护规则固定不许改）\n${customSheets.map(dumpCustomTable).join('\n\n')}`);
+  }
+  // 失败回喂：上一批填表有指令没应用成功 → 把失败清单交给 AI 本回合修正补写（零额外 API 调用的自纠闭环）。
+  //   成功批会把 lastErrors 清空，故此块只在真有遗留失败时出现。
+  const { lastErrors, lastErrorsTurn } = useTableJournal.getState();
+  if (lastErrors.length) {
+    parts.push(`## ⚠ 上回合填表失败清单（第 ${lastErrorsTurn} 回合·这些指令**没有生效**，对应内容仍缺失——本回合请修正后补写）\n${lastErrors.map((e) => `- ${e}`).join('\n')}\n（常见原因：表名/行号写错、JSON 引号或逗号缺失。改已有行时，行号照抄上方清单 [ ] 里的编号。）`);
   }
   return parts.join('\n\n');
 }

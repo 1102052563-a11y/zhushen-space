@@ -11,6 +11,7 @@ import { usePlayer, DEFAULT_PLAYER_PROFILE } from '../store/playerStore';
 import { useResource } from '../store/resourceStore';
 import { useVariables } from '../store/variableStore';
 import { useTables } from '../store/tableStore';
+import { useTableJournal } from '../store/tableJournalStore';
 import { walletReset } from './ledger/walletCore';   // Step 10 货币事件核心（drpg-wallet·自管 localStorage）
 import { itemCoreReset } from './ledger/itemCore';   // Step 10 物品事件核心（drpg-items-core·现搬 IndexedDB）
 import { npcCoreReset } from './ledger/npcCore';   // Step 10 NPC 事件核心（drpg-npc-core·现搬 IndexedDB）
@@ -94,6 +95,7 @@ const STORES: { key: string; api: any; clear?: () => void }[] = [
   { key: 'drpg-resource',   api: useResource, clear: () => useResource.getState().clearResources() },   // 自定义能量条（定义+当前值随存档；新游戏清空）
   { key: 'drpg-variables',  api: useVariables, clear: () => useVariables.getState().resetAll() },   // 自定义变量（透明引用）：定义+当前值随存档；新游戏只清零值、保留定义（便于二创导入的变量过新游戏不丢）
   { key: 'drpg-tables',     api: useTables, clear: () => useTables.getState().resetAll() },   // ACU 表格数据库（游戏状态表·主角/背包/NPC…）：进度数据，随存档快照，新游戏重置为默认表
+  { key: 'drpg-table-journal', api: useTableJournal, clear: () => useTableJournal.getState().clear() },   // 表编辑日志（幂等摘要+流水+删除找回）：随存档快照（回退点恢复=摘要一并回卷，重放不误拦），新游戏清空
   // 三事件核心（阶段1 已搬 IndexedDB drpg-core-kv·不再占 localStorage）：snapshotStores 读 localStorage 为空即跳过（不随存档快照），
   //   读档/新游戏经 flagCoresReseed→preloadEventCores 清 IDB 后从现场 store 重播影子基线；此处仅保留 clear 供 clearProgress 复位。
   { key: 'drpg-wallet',     api: { setState: () => {} }, clear: () => walletReset() },   // Step 10 货币事件核心（IndexedDB·非 zustand 故 api 占位·不进 ROLLBACK_KEYS）
@@ -354,7 +356,7 @@ export async function loadSlot(id: string): Promise<boolean> {
   // - 快照里没有 → **只清【较新功能的进度缓存】**（防上一局的 潜能点/筹码/深渊进度 等泄漏进读入的旧档）；
   //   **核心存档（主角技能/天赋/副职业·背包·NPC·主角档案·HP/EP 等）绝不因快照缺失而清空**——
   //   否则读个缺这些键的旧档/回退点就会把当前的技能天赋副职业全抹掉（"读档后技能丢失"的根因，已修）。
-  const CLEAR_ON_MISSING = new Set(['drpg-skilltree', 'drpg-subproftree', 'drpg-casino', 'drpg-abyss', 'drpg-world-codex', 'drpg-tables', 'drpg-wallet', 'drpg-items-core', 'drpg-npc-core', 'drpg-trade-escrow', 'drpg-trade-coin-escrow']);
+  const CLEAR_ON_MISSING = new Set(['drpg-skilltree', 'drpg-subproftree', 'drpg-casino', 'drpg-abyss', 'drpg-world-codex', 'drpg-tables', 'drpg-table-journal', 'drpg-wallet', 'drpg-items-core', 'drpg-npc-core', 'drpg-trade-escrow', 'drpg-trade-coin-escrow']);
   // 设备级全局配置：读档一律保留【当前】值、绝不回滚到存档快照。否则读个旧档/回退点，就会把
   // 「剧情指导」等功能开关、人称、记忆/向量配置等全冲回存档当时的旧值——这正是「开启剧情指导后
   // 一刷新/读档又关闭」的根因（2026-06-20 修）。API 字段原本已由 mergeKeepApi 保当前，这里把整个

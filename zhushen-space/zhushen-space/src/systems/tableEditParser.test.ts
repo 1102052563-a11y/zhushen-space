@@ -1,9 +1,10 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 import { extractTableEditInner, splitCommands, parseCommandLine, parseTableEdits, applyTableEdits } from './tableEditParser';
 import { useTables } from '../store/tableStore';
+import { useTableJournal } from '../store/tableJournalStore';
 
 const T = () => useTables.getState();
-beforeEach(() => { useTables.getState().resetAll(); });
+beforeEach(() => { useTables.getState().resetAll(); useTableJournal.getState().clear(); });
 
 describe('extractTableEditInner', () => {
   it('取最后一对 <tableEdit>', () => {
@@ -121,5 +122,88 @@ describe('applyTableEdits（写进 tableStore）', () => {
     const cmds = parseTableEdits('<tableEdit>insertRow(2,{"0":"X"})</tableEdit>');
     expect(cmds.length).toBe(1);
     expect(T().rows('inventory').length).toBe(0); // 未写入
+  });
+});
+
+describe('row_id 优先解析（行的永久编号·删行位移不打错行）', () => {
+  it('删行位移后 updateRow 按 row_id 命中原行', () => {
+    T().insertRow('progress', { 进程名: '甲', 状态: '进行中' });   // row_id 1
+    T().insertRow('progress', { 进程名: '乙', 状态: '进行中' });   // row_id 2
+    T().insertRow('progress', { 进程名: '丙', 状态: '进行中' });   // row_id 3
+    T().deleteRow('progress', 0);   // 删甲 → 丙从 pos2 位移到 pos1
+    const r = applyTableEdits('<tableEdit>updateRow("进程表", 3, {"状态":"已达成"})</tableEdit>');
+    expect(r.applied).toBe(1);
+    const rows = T().rows('progress');
+    expect(rows.find((x) => x['进程名'] === '丙')!['状态']).toBe('已达成');
+    expect(rows.find((x) => x['进程名'] === '乙')!['状态']).toBe('进行中');   // 旧位置语义会误改乙——现在不会
+  });
+
+  it('批内 deleteRow 之后的 updateRow 不受位移影响', () => {
+    T().insertRow('progress', { 进程名: '甲' });
+    T().insertRow('progress', { 进程名: '乙' });
+    T().insertRow('progress', { 进程名: '丙' });
+    const r = applyTableEdits('<tableEdit>deleteRow("进程表", 1)\nupdateRow("进程表", 3, {"状态":"已达成"})</tableEdit>');
+    expect(r.applied).toBe(2);
+    expect(T().rows('progress').find((x) => x['进程名'] === '丙')!['状态']).toBe('已达成');
+  });
+
+  it('"0" 永远按 0 基行号（row_id 从 1 起·单行表 updateRow(表,0) 兼容不变）', () => {
+    const r = applyTableEdits('<tableEdit>updateRow("主角信息表", 0, {"姓名":"苏晓"})</tableEdit>');
+    expect(r.applied).toBe(1);
+    expect(T().getCell('protagonist_info', 0, '姓名')).toBe('苏晓');
+  });
+});
+
+describe('幂等 + 编辑日志（tableJournalStore）', () => {
+  it('同回合同批指令重复应用 = 整批 no-op（治意外双调双插）', () => {
+    const text = '<tableEdit>insertRow("纪要表", {"时间":"第1天","地点":"新手村","事件":"苏醒"})</tableEdit>';
+    const r1 = applyTableEdits(text, { turn: 7 });
+    expect(r1.applied).toBe(1);
+    const r2 = applyTableEdits(text, { turn: 7 });
+    expect(r2.skippedDuplicate).toBe(true);
+    expect(r2.applied).toBe(0);
+    expect(T().rows('chronicle').length).toBe(1);
+  });
+
+  it('不同回合同文本不误拦（正常连续回合）', () => {
+    const text = '<tableEdit>insertRow("纪要表", {"事件":"赶路"})</tableEdit>';
+    applyTableEdits(text, { turn: 7 });
+    const r2 = applyTableEdits(text, { turn: 8 });
+    expect(r2.applied).toBe(1);
+    expect(T().rows('chronicle').length).toBe(2);
+  });
+
+  it('失败清单：失败批记入 lastErrors·下批成功清空（供下回合回喂自纠）', () => {
+    applyTableEdits('<tableEdit>updateRow("进程表", 99, {"状态":"x"})</tableEdit>', { turn: 3 });
+    expect(useTableJournal.getState().lastErrors.length).toBe(1);
+    expect(useTableJournal.getState().lastErrors[0]).toContain('未命中');
+    applyTableEdits('<tableEdit>insertRow("纪要表", {"事件":"顺利"})</tableEdit>', { turn: 4 });
+    expect(useTableJournal.getState().lastErrors.length).toBe(0);
+  });
+
+  it('删除找回：deleteRow 的整行镜像进日志·restoreDeleted 放回原位（图书馆铁则）', () => {
+    T().insertRow('progress', { 进程名: '献祭仪式', 状态: '进行中' });
+    applyTableEdits('<tableEdit>deleteRow("进程表", 1)</tableEdit>', { turn: 5 });
+    expect(T().rows('progress').length).toBe(0);
+    const entry = useTableJournal.getState().entries.find((e) => e.command === 'deleteRow');
+    expect(entry?.before?.[0]).toBe('1');   // 整行镜像含原 row_id
+    expect(useTableJournal.getState().restoreDeleted(entry!.id)).toBe(true);
+    const rows = T().rows('progress');
+    expect(rows.length).toBe(1);
+    expect(rows[0].row_id).toBe('1');
+    expect(rows[0]['进程名']).toBe('献祭仪式');
+    expect(useTableJournal.getState().restoreDeleted(entry!.id)).toBe(false);   // 二次恢复被拒
+  });
+
+  it('insert/update 也进流水（before/after 镜像·审计可查）', () => {
+    applyTableEdits('<tableEdit>insertRow("进程表", {"进程名":"觉醒","当前":"10"})\nupdateRow("进程表", 1, {"当前":"20"})</tableEdit>', { turn: 6 });
+    const es = useTableJournal.getState().entries;
+    expect(es.length).toBe(2);
+    expect(es[0].command).toBe('insertRow');
+    expect(es[0].after).toBeTruthy();
+    expect(es[1].command).toBe('updateRow');
+    expect(es[1].before).toBeTruthy();
+    expect(es[1].after?.join('|')).toContain('20');
+    expect(es[1].before?.join('|')).toContain('10');
   });
 });

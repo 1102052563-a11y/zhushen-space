@@ -3,6 +3,8 @@
    单行表（主角信息/世界状态）只能改、不能增删。青光主题。ACU 表数据库 Step 8（设计文档 §6）。 */
 import { useState, useEffect, useMemo } from 'react';
 import { useTables } from '../store/tableStore';
+import { useTableJournal } from '../store/tableJournalStore';
+import { useTurnReport } from '../store/turnReportStore';
 import { useItems } from '../store/itemStore';
 import { useNpc } from '../store/npcStore';
 import { useSettings } from '../store/settingsStore';
@@ -66,6 +68,9 @@ export default function TableManager() {
         </button>
       </div>
 
+      {/* 📋 回合级变量事务报告 + 表编辑流水（删除找回） */}
+      <TurnReportPanel />
+
       {/* 工具：分阶段人设生成器 */}
       <div className="flex items-center gap-2">
         <button
@@ -116,7 +121,7 @@ export default function TableManager() {
         <table className="text-[12px] w-full border-collapse">
           <thead>
             <tr className="bg-black/30">
-              <th className="px-2 py-1.5 text-dim/45 font-mono text-left w-10">行</th>
+              <th className="px-2 py-1.5 text-dim/45 font-mono text-left w-10" title="行的永久编号（row_id）：AI 填表按它引用行，删行不位移不复用">编号</th>
               {headers.map((h) => (
                 <th key={h} className="px-2 py-1.5 text-god/80 font-semibold text-left whitespace-nowrap">{h}</th>
               ))}
@@ -131,7 +136,7 @@ export default function TableManager() {
             )}
             {dataRows.map((row, ri) => (
               <tr key={ri} className="border-t border-edge/40 hover:bg-white/[0.02]">
-                <td className="px-2 py-1 text-dim/40 font-mono align-top">{ri}</td>
+                <td className="px-2 py-1 text-dim/40 font-mono align-top">{row[0] || ri}</td>
                 {headers.map((h, ci) => (
                   <td key={ci} className="px-1 py-0.5">
                     <input
@@ -186,6 +191,62 @@ export default function TableManager() {
 
       {showPersona && <StagedPersonaModal onClose={() => setShowPersona(false)} />}
       {showNewTable && <CustomTableModal onClose={() => setShowNewTable(false)} onCreated={(u) => setUid(u)} />}
+    </div>
+  );
+}
+
+// ── 回合级变量事务报告：本回合变量"动了什么/拦了什么/哪里失败"一眼可见 + 表删除找回 ──
+function TurnReportPanel() {
+  const records = useTurnReport((s) => s.records);
+  const entries = useTableJournal((s) => s.entries);
+  const restoreDeleted = useTableJournal((s) => s.restoreDeleted);
+  const [open, setOpen] = useState(false);
+  const [note, setNote] = useState('');
+  const recent = [...records].reverse().slice(0, 12);
+  const restorable = [...entries].reverse().filter((e) => e.command === 'deleteRow' && !e.restored && e.before).slice(0, 8);
+  const last = records[records.length - 1];
+  const lastProblems = last ? last.stateFailed.length + last.tableFailed.length + last.itemRejected.length + (last.tableSkippedDup ? 1 : 0) : 0;
+  const summary = !last
+    ? '本会话还没有变量应用记录（发一回合正文后出现）'
+    : `最近一次（T${last.turn}·${last.source}）：<state> ${last.stateApplied} 条 · 物品 ${last.itemApplied} 条${last.itemBlocked ? `（拦 ${last.itemBlocked}）` : ''} · 填表 ${last.tableApplied} 条${lastProblems ? ` · ⚠ ${lastProblems} 处异常` : ' · 全部成功'}`;
+  return (
+    <div className={`rounded-lg border px-2.5 py-1.5 text-[11px] space-y-1.5 ${lastProblems ? 'border-amber-600/50' : 'border-edge'}`}>
+      <div className="flex items-center gap-2">
+        <span className={`flex-1 min-w-0 ${lastProblems ? 'text-amber-300/90' : 'text-dim/70'}`}>📋 变量事务报告：{summary}</span>
+        <button onClick={() => setOpen((o) => !o)} className="shrink-0 px-2 py-0.5 rounded border border-god/40 text-god hover:bg-god/10 transition-colors">
+          {open ? '收起' : `明细（${records.length}）`}
+        </button>
+      </div>
+      {open && (
+        <div className="space-y-1 max-h-64 overflow-y-auto">
+          {recent.length === 0 && <p className="text-dim/40">（暂无记录·每次正文/演化应用变量后在此留痕）</p>}
+          {recent.map((r) => (
+            <div key={r.id} className="border-t border-edge/40 pt-1">
+              <span className="text-dim/50 font-mono">T{r.turn}·{r.source}</span>
+              <span className="text-dim/70 ml-2">state {r.stateApplied} · 物品 {r.itemApplied}{r.itemBlocked ? `（拦${r.itemBlocked}）` : ''} · 填表 {r.tableApplied}{r.tableSkippedDup ? '（幂等跳过）' : ''}</span>
+              {r.stateFailed.map((f, i) => <p key={`s${i}`} className="text-amber-300/80 pl-3">✗ state：{f}</p>)}
+              {r.itemRejected.map((f, i) => <p key={`i${i}`} className="text-amber-300/80 pl-3">✗ 物品：{f}</p>)}
+              {r.tableFailed.map((f, i) => <p key={`t${i}`} className="text-amber-300/80 pl-3">✗ 填表：{f}</p>)}
+              {r.drift.map((f, i) => <p key={`d${i}`} className="text-amber-300/60 pl-3">🛡 {f}</p>)}
+            </div>
+          ))}
+          {restorable.length > 0 && (
+            <div className="border-t border-edge/40 pt-1 space-y-0.5">
+              <p className="text-dim/60">🗑 最近被删的表行（图书馆铁则·可找回）：</p>
+              {restorable.map((e) => (
+                <div key={e.id} className="flex items-center gap-2 pl-3">
+                  <span className="flex-1 min-w-0 truncate text-dim/70">T{e.turn}·{e.sheetName} [{e.rowId}] {(e.before ?? []).slice(1).filter(Boolean).slice(0, 3).join(' ｜ ')}</span>
+                  <button
+                    onClick={() => { const ok = restoreDeleted(e.id); setNote(ok ? `↩ 已放回：${e.sheetName} [${e.rowId}]` : '找回失败（同编号行已存在？）'); setTimeout(() => setNote(''), 5000); }}
+                    className="shrink-0 px-1.5 py-0.5 rounded border border-god/40 text-god hover:bg-god/10 transition-colors"
+                  >↩ 找回</button>
+                </div>
+              ))}
+            </div>
+          )}
+          {note && <p className="text-emerald-400/80">{note}</p>}
+        </div>
+      )}
     </div>
   );
 }

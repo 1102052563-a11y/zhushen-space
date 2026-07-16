@@ -12,6 +12,7 @@
    设计文档：`指导/ACU星数据库-移植-设计.md` §3 + §6 Step 3。 */
 import { lenientJsonParse } from './stateParser';
 import { useTables } from '../store/tableStore';
+import { useTableJournal, tableEditDigest, type TableEditLogEntry } from '../store/tableJournalStore';
 
 export type TableEditCommand = 'insertRow' | 'updateRow' | 'deleteRow';
 
@@ -27,6 +28,8 @@ export interface TableEditResult {
   failed: number;
   modifiedUids: string[];
   errors: string[];
+  /** 本批指令与已应用批摘要相同（同回合重复应用）→ 整批 no-op 跳过。 */
+  skippedDuplicate?: boolean;
 }
 
 const CMD_RE = /(insertRow|updateRow|deleteRow)\s*\(/;
@@ -192,6 +195,17 @@ function toRowIndex(v: unknown): number {
   return Number.isFinite(n) ? n : NaN;
 }
 
+/** 行引用 → 0 基行号：**row_id 优先**（行的永久编号·删行不位移，提示词里 [ ] 展示的就是它），
+   查无此编号再退回按 0 基行号（兼容旧输出；"0" 永远走行号——row_id 从 1 起）。 */
+function resolveRowRef(uid: string, v: unknown): number {
+  const s = String(v ?? '').trim();
+  if (/^[1-9]\d*$/.test(s)) {
+    const byId = useTables.getState().rowIndexById(uid, s);
+    if (byId >= 0) return byId;
+  }
+  return toRowIndex(v);
+}
+
 function asData(v: unknown): Record<string, string> | null {
   if (!v || typeof v !== 'object' || Array.isArray(v)) return null;
   const out: Record<string, string> = {};
@@ -201,32 +215,56 @@ function asData(v: unknown): Record<string, string> | null {
   return out;
 }
 
-/** 解析 AI 文本里的填表指令并写进 tableStore。返回应用统计。 */
-export function applyTableEdits(text: string): TableEditResult {
+/** 解析 AI 文本里的填表指令并写进 tableStore。返回应用统计。
+   ctx.turn=回合号：幂等判重（同回合同批指令只应用一次）+ 编辑流水归档都按它记；缺省 -1。 */
+export function applyTableEdits(text: string, ctx?: { turn?: number }): TableEditResult {
   const result: TableEditResult = { applied: 0, failed: 0, modifiedUids: [], errors: [] };
   const commands = parseTableEdits(text);
+  if (commands.length === 0) return result;   // 无填表指令的回复（各演化阶段）：零副作用直接返回，不动摘要/失败清单
+
+  const turn = ctx?.turn ?? -1;
+  const journal = useTableJournal.getState();
+  // 幂等：同一批指令（回合号+原文摘要）已应用过 → 整批 no-op。重生成/回退走回退点全量恢复（含日志 store），
+  // 恢复后摘要一并回卷，重放不会被误拦；这里只挡"同会话意外双调"。
+  const digest = tableEditDigest(turn, commands.map((c) => c.raw));
+  if (journal.wasApplied(digest)) {
+    console.log(`[Table] 幂等跳过：本批填表指令已应用过（turn=${turn}）`);
+    return { ...result, skippedDuplicate: true };
+  }
+
   const st = useTables.getState();
   const touched = new Set<string>();
+  const log: Omit<TableEditLogEntry, 'id'>[] = [];
+  const sheetOf = (uid: string) => useTables.getState().getSheet(uid);   // 每条 op 后重取（content 不可变更新）
 
   for (const { command, args, raw } of commands) {
     try {
       const uid = resolveUid(args[0]);
       if (!uid) { result.failed++; result.errors.push(`表未匹配：${raw}`); continue; }
+      const sheetName = sheetOf(uid)?.name ?? uid;
 
       if (command === 'insertRow') {
         const data = asData(args[1]);
         if (!data) { result.failed++; result.errors.push(`insertRow 数据无效：${raw}`); continue; }
         const ri = st.insertRow(uid, data);
         if (ri < 0) { result.failed++; result.errors.push(`insertRow 被拒（单行表？）：${raw}`); continue; }
+        const after = sheetOf(uid)?.content[ri + 1] ?? null;
+        log.push({ turn, uid, sheetName, command, rowId: after?.[0] ?? '', pos: ri, before: null, after: after ? [...after] : null });
       } else if (command === 'updateRow') {
-        const ri = toRowIndex(args[1]);
+        const ri = resolveRowRef(uid, args[1]);   // row_id 优先（永久编号），查无再按 0 基行号
         const data = asData(args[2]);
         if (!Number.isFinite(ri) || !data) { result.failed++; result.errors.push(`updateRow 参数无效：${raw}`); continue; }
+        const before = sheetOf(uid)?.content[ri + 1];
         if (!st.updateRow(uid, ri, data)) { result.failed++; result.errors.push(`updateRow 未命中行：${raw}`); continue; }
+        const after = sheetOf(uid)?.content[ri + 1] ?? null;
+        log.push({ turn, uid, sheetName, command, rowId: before?.[0] ?? '', pos: ri, before: before ? [...before] : null, after: after ? [...after] : null });
       } else {
-        const ri = toRowIndex(args[1]);
+        const ri = resolveRowRef(uid, args[1]);
         if (!Number.isFinite(ri)) { result.failed++; result.errors.push(`deleteRow 行号无效：${raw}`); continue; }
+        const before = sheetOf(uid)?.content[ri + 1];
         if (!st.deleteRow(uid, ri)) { result.failed++; result.errors.push(`deleteRow 未命中/被拒：${raw}`); continue; }
+        // 图书馆铁则：删除=挪进日志可找回。整行镜像（含原 row_id）已在 before，restoreDeleted 可放回原位。
+        log.push({ turn, uid, sheetName, command, rowId: before?.[0] ?? '', pos: ri, before: before ? [...before] : null, after: null });
       }
       result.applied++;
       touched.add(uid);
@@ -237,5 +275,11 @@ export function applyTableEdits(text: string): TableEditResult {
   }
 
   result.modifiedUids = [...touched];
+  // 归档 + 幂等登记 + 失败清单（下回合回喂 AI 自纠；本批全成功则清旧账）
+  try {
+    if (log.length) journal.record(log);
+    if (result.applied > 0) journal.markApplied(digest);
+    journal.setLastErrors(result.errors, turn);
+  } catch (e) { console.warn('[Table] 编辑日志归档失败（忽略）:', e); }
   return result;
 }

@@ -2,9 +2,10 @@ import { describe, it, expect, beforeEach } from 'vitest';
 import { buildTableFillPrompt, buildPlotStateSnapshot } from './tablePrompt';
 import { stripStateBlocks } from './stateParser';
 import { useTables } from '../store/tableStore';
+import { useTableJournal } from '../store/tableJournalStore';
 import { buildCustomSheet } from './acuTableSpec';
 
-beforeEach(() => { useTables.getState().resetAll(); });
+beforeEach(() => { useTables.getState().resetAll(); useTableJournal.getState().clear(); });
 
 describe('buildTableFillPrompt（1c：只教填纪要表·镜像表自动派生）', () => {
   it('含填表规则·只维护纪要表·明示镜像表别写·不再 dump 全表结构', () => {
@@ -93,6 +94,26 @@ describe('buildPlotStateSnapshot（喂剧情指导·状态感知）', () => {
     expect(s).not.toContain('【进程表】');
     expect(s).not.toContain('【约定表】');
     expect(s).not.toContain('【纪要·最近】');
+  });
+});
+
+describe('row_id 永久编号展示 + 失败回喂', () => {
+  it('跟踪表 [ ] 展示 row_id（删行后编号不变·AI 照抄不打错行）', () => {
+    useTables.getState().insertRow('progress', { 进程名: '甲' });   // row_id 1
+    useTables.getState().insertRow('progress', { 进程名: '乙' });   // row_id 2
+    useTables.getState().deleteRow('progress', 0);                  // 删甲 → 乙位移到 pos0 但编号仍是 2
+    const p = buildTableFillPrompt(['progress']);
+    expect(p).toContain('[2] 进程名=乙');
+    expect(p).toContain('永久编号');
+  });
+
+  it('上回合填表失败 → 注入失败清单块让 AI 修正补写；无失败不注', () => {
+    expect(buildTableFillPrompt()).not.toContain('上回合填表失败清单');
+    useTableJournal.getState().setLastErrors(['updateRow 未命中行：updateRow("进程表", 99, {...})'], 12);
+    const p = buildTableFillPrompt();
+    expect(p).toContain('上回合填表失败清单');
+    expect(p).toContain('第 12 回合');
+    expect(p).toContain('updateRow 未命中行');
   });
 });
 
