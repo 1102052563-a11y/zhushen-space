@@ -1,0 +1,232 @@
+# 美国恐怖故事S7
+<!--meta lib=主库 tiers=一、二、三、四、五、七-->
+
+## 剧情
+
+**【作品来源】**
+《美国恐怖故事》第七季副标题 **Cult（邪教/异教）**，由 Ryan Murphy 与 Brad Falchuk 创作，FX 于 2017 年 9 月 5 日至 11 月 14 日播出，共 11 集。本季为系列中**极少呈现超自然元素**的一季，舞台落在密歇根州虚构郊区 **Brookfield Heights**（中文资料亦常写底特律近郊语境），时间锚定 **2016 年美国总统大选夜及其余波（2017）**。主题：政治恐慌、邪教操纵、小丑恐怖、米德韦斯特小镇的恐惧经济。主演：Sarah Paulson（**Ally Mayfair-Richards**）、Evan Peters（**Kai Anderson** 及多位历史邪教领袖幻象/扮演）、Alison Pill（**Ivy Mayfair-Richards**）、Billie Lourd（**Winter Anderson**）、Cheyenne Jackson（**Dr. Rudy Vincent / Vincent Anderson**）。本档案以剧集正典为准，与第四季 *Freak Show* 通过 **Twisty the Clown** 漫画与文化记忆互文，但不引入超自然鬼魂体系。  
+**检索来源**：[Wikipedia·American Horror Story: Cult](https://en.wikipedia.org/wiki/American_Horror_Story:_Cult) + [中文维基·美國恐怖故事：異教](https://zh.wikipedia.org/wiki/美國恐怖故事：異教) + [Fandom·Kai Anderson](https://americanhorrorstory.fandom.com/wiki/Kai_Anderson) + [Fandom·Ally Mayfair-Richards](https://americanhorrorstory.fandom.com/wiki/Ally_Mayfair-Richards) + [Wikipedia 分集列表·Season 7](https://en.wikipedia.org/wiki/List_of_American_Horror_Story_episodes)。
+
+**【世界定位】**
+密歇根郊区 Brookfield Heights：大选后「恐惧即真理」被武器化。契约者切入的是**可被操纵的恐慌市场**——没有魔药与神通，只有枪、面具、媒体镜头、市政席位、精神病院与 FBI 线报。一句话：**恐惧被组织成政党与邪教，谁掌控恐惧谁就掌权。** 卡片锚点：**小丑夜袭 + 市议会空缺争夺 + 忠诚测试（假毒酷爱）+ 百名孕妇屠杀计划被破**。顶点不是星球爆炸，而是 **Kai 体系的系统性失控与情报战条件下的胜利**。
+
+**【世界观 · 力量体系】**
+本季**无超自然力量**。战力=心理操控、组织动员、暴力执行、媒体叙事、法律/执法渗透、恐惧诱导。
+
+**力量本源**  
+1. **恐惧工程**：制造、放大、定向恐惧（小丑、停电、毒气车、公开谋杀），使目标服从或崩溃。  
+2. **身份与面具**：小丑面具（Meadow 等设计的恐怖面具）=匿名杀伤与心理冲击；政治身份=合法动员。  
+3. **忠诚仪式**：共同犯罪、小指勾誓、钉枪处决弱环、假毒酷爱、隔离室，把个体焊进组织。  
+4. **媒体与选票**：新闻镜头、同情叙事、市议会空缺、州参议员竞选=把街头暴力兑换成制度权力。  
+5. **执法与情报渗透**：Detective Jack Samuels 的双重身份；FBI 线人豁免；狱警换枪=终局条件性胜利的核心。
+
+**死亡规则**  
+普通人一枪/一刀即死；组织可掩盖（谋杀伪造成自杀、警察误判）；精神病院可合法剥夺行动权；入狱后仍可重建邪教。**无复活、无真灵、无神性**。顶点「不死」=组织残余与意识形态复制，而非肉体无敌。
+
+**组织战力阶梯（宁低勿高）**  
+1. **恐慌平民 / 恐惧症患者**：可被恐吓、误杀、被栽赃。乐园观感≈一阶。  
+2. **外围执行者 / 被招募边缘人**：参与单次恐吓、投毒式骚扰、打手。≈二阶。  
+3. **核心成员（FIT 核心圈）**：戴面具集体谋杀、共享罪证、可动用枪支与密室。≈三阶。  
+4. **渗透位（警探/记者/议员候选人）**：能改写现场结论、控制新闻、影响市政。≈四阶。  
+5. **教主与全国级民兵追随**：市议会席位、全国媒体曝光、民兵层、跨城协调屠杀计划。≈五阶。  
+6. **系统性恐怖终局（Kai 体系峰值 / Ally 的情报反杀网）**：监狱扩军、辩论场刺杀、FBI 突袭、换枪与公开处刑式击杀。≈**七阶**（本季无六阶切入点；七阶=城市—州级系统性失控，**勿写成星球毁灭**）。
+
+**乐园阶位映射**（对照阶位战力图鉴，宁低勿高）：  
+恐慌平民/单次受害者≈**一阶**；外围打手与被操控邻居≈**二阶**；FIT 核心执行与餐厅/家暴式局部恐怖≈**三阶**；警探—记者—市议会级渗透≈**四阶**；教主全国动员与假暗杀政治秀≈**五阶**；**无六阶**；季末百人屠杀计划、监狱邪教、参议员辩论场对决与系统性恐怖=**七阶**。  
+世界顶点：**Kai Anderson 的邪教—政治—暴力复合体系** 与 **Ally Mayfair-Richards 后期的情报优先反杀**；写 **存在·情报优先 / 条件性胜利**，严禁「被封印所以战力为零」。
+
+**【地理 · 舞台】**
+- **Brookfield Heights, Michigan**：主舞台。郊区住宅区、邻居视线、市政政治。适合一~五阶。  
+- **Mayfair-Richards 宅**：Ally 恐惧症被攻击的主战场；停电夜、小丑入室、Pedro 误杀、Meadow 后院坟坑。  
+- **The Butchery on Main（主街屠宰/餐厅）**：Ivy 与 Ally 的餐厅；Roger 吊尸、Pedro 冲突、后期女成员被当「女仆」羞辱。  
+- **Chang 宅 → Wilton 宅**：Councilman **Tom Chang** 夫妇被小丑屠杀后，**Harrison Wilton** 与 **Meadow Wilton** 迁入。  
+- **Anderson 宅地下室 / 父母尸房**：Kai 与 Winter 的巢穴；父母尸体用碱液处理封存；后期关押、处决、藏尸。  
+- **市议会 / 竞选集会场**：Kai 竞选、Meadow 假暗杀、Sally Keffler 被杀。  
+- **精神病院**：Ally 被扣押三周，FBI 招募线人的关键节点。  
+- **地方电视台 / Bob Thompson 宅**：Beverly Hope 的职场战场；Bob 与 gimp 被集体谋杀并录像。  
+- **Planned Parenthood 等公共符号地**：Gary 被杀后弃尸与政治栽赃。  
+- **最高安保监狱 → 参议员电视辩论场**：终局棋盘。  
+- **历史闪回舞台**（非主线可长期驻留）：Valerie Solanas / Andy Warhol 线；Charles Manson 泰特案讲述；Jim Jones、David Koresh、Marshall Applewhite 的「教主课」。  
+势力地盘：邻居—餐厅员工—市议会—媒体—民兵—联邦执法，层层碾压。本地人若听闻「一枪解决教主」而忽略布局，会当疯子——正确反应是先问：枪里有没有子弹、谁在镜头后、谁是线人。
+
+**【世界剧情线】**
+① **大选夜：恐惧开闸（Election Night）**  
+2016 年大选夜，Brookfield Heights 的空气像被撕开。**Ally Mayfair-Richards** 与妻子 **Ivy Mayfair-Richards**、儿子 **Ozymandias “Oz” Mayfair-Richards** 组成的多元家庭，本就因选票裂痕（Ally 投 **Jill Stein** 而非 Hillary，激怒 Ivy）与旧创伤摇摇欲坠。Ally 在 9/11 后曾崩溃，靠 Ivy 稳住，却仍背负 **小丑恐惧症（coulrophobia）**、**密集/孔洞相关恐惧（trypophobia）**、对血与失控的过敏式反应；精神科医生 **Dr. Rudy Vincent** 建议药物与断网，她抗拒服药。Oz 沉迷 **Twisty the Clown** 漫画，恐惧以童书形式回流。  
+同夜，**Kai Anderson** 与妹妹 **Winter Anderson** 立下神秘契约：把国家级恐慌当燃料。Kai 在犹太中心安全议题上公开演说，鼓吹「与恐惧共处」，被邻居市议员 **Tom Chang** 否决。Kai 故意激怒一群西班牙裔男子殴打自己，换取同情叙事。Winter 成为 Oz 的保姆，以暴力脱敏方式「教育」孩子。Oz 与 Winter 目击 **Tom Chang 夫妇被一群小丑屠杀**；警方误判为谋杀—自杀。世界状态：一阶叙事，枪与面具即天灾。主题：恐惧不是幻觉，是被组织的生产。
+
+② **别怕黑：餐厅钩子与误杀（Don't Be Afraid of the Dark）**  
+Oz 向警方与母亲描述小丑，Winter 称其幻想。Tom Chang 死后市议会席位空缺，Kai 以「被移民殴打」的同情浪竞选。Chang 旧宅入住古怪邻居 **Harrison Wilton** 与 **Meadow Wilton**。餐厅 The Butchery on Main 内，副厨 **Roger** 与员工 **Pedro Morales** 冲突升级；安保报警后 Ally 发现 Roger 吊在冷库挂钩上。警探 **Jack Samuels** 把嫌疑导向 Pedro。Ally 从 Wilton 夫妇处获得枪支。停电之夜小丑再次恐怖化 Ally；Ivy 派 Pedro 送物资，Ally **误杀 Pedro**，Oz 目击——创伤二次固化。可介入：目击证词、安保录像、枪支来源、Pedro 抗议者围堵餐厅。
+
+③ **地狱邻居：煤气灯与栽赃（Neighbors from Hell）**  
+治疗室内一对夫妇谈论克服「被活埋恐惧」后，小丑破门把他们封进棺材——恐惧被精确匹配。Pedro 之死引来抗议；Kai 向 Ally 承诺驱散。Wilton 夫妇羞辱 Ally，送 Oz 豚鼠；豚鼠被微波杀死，Ally 袭击 Harrison、威胁 Meadow。绿雾卡车驶过街区。Oz 发现网上 Ally 被 Winter 引诱的影像，Ivy 崩溃。Kai 分别审讯 Wilton：Harrison 吐露希望 Meadow 死；Meadow 随后「失踪」，Harrison 嫁祸 Ally。世界逻辑：邻居不是背景板，是邪教的前线工兵。
+
+④ **11/9：招募史（11/9）**  
+闪回大选日：各人投票站立场撕开。大选后 Harrison 成为 Kai 的私教；Kai 诱导 Harrison 杀死羞辱他的老板（Vinny 一类），Meadow 撞见分尸却被夸「面具艺术」而入教。Kai 盯上屡被压榨的记者 **Beverly Hope**：安排杀害更年轻、与上司 **Bob Thompson** 有染的记者 **Serena Belinda**，向 Beverly 展示「能力」并许诺对等权力。Ivy 在集会被 **Gary K. Longstreet** 性骚扰；Winter 与 Ivy 绑走 Gary 阻止其投票；Kai 在投票截止前递锯子，Gary **锯断被铐之手** 仍赶去投 Trump，并喊出时代口号。因果：每个人的屈辱都被兑换成入会费。
+
+⑤ **洞：集体谋杀与父母尸房（Holes）**  
+Beverly 告知 Bob 压制小丑案报道、阻碍 Kai 竞选。Kai、Beverly、Winter、Harrison、Samuels、Ivy、Gary、摄像 **R.J.** 戴面具闯入 Bob 宅，杀害 Bob 与阁楼 gimp 并录像。Ivy 与 R.J. 动摇；Beverly 建议切断弱环。众人用钉枪轮流射 R.J. 头部，Kai 补枪——**共同罪证=共同沉没**。Meadow 向 Ally 求救并泄露 **Ivy 是成员**；Ally 见 Meadow 躺在自家后院坟坑。Beverly 追问 Kai 父母：Kai 坦白母亲枪杀施虐的父亲后自杀；兄长 **Rudy Vincent** 为诊所与养老金/残疾金，与 Kai 将尸体碱液处理封存。主题：邪教的地基是家庭腐烂与制度自保。
+
+⑥ **中西部刺客：假暗杀政治秀（Mid-Western Assassin）**  
+Meadow 称爱 Kai 未得回报而「叛逃」，并揭示邪教目标是逼疯 Ally、让 Ivy 夺 Oz 监护权。Ally 带 Meadow 证词找对手候选人 **Sally Keffler** 求助；邪教闯入，Kai 枪杀 Sally 伪造成自杀，Ally 躲浴室。次日集会，Meadow 开枪扫射并击中 Kai，Ally 夺枪失败，Meadow 吞枪自杀；SWAT 发现 Ally 持枪将其逮捕。真相：整场是 Kai 授意的**自导自演暗杀**，用「疯女人」证词与现场构图把 Ally 钉死，Kai 借此冲上全国镜头。卡片锚点核心之一：政治秀=合法化的恐怖。
+
+⑦ **Valerie Solanas 线：女权暗流与男民兵（Valerie Solanas Died for Your Sins: Scumbag）**  
+Ally 入精神病院。Kai 赢得市议会席位，吸引厌女民兵追随。**Bebe Babbitt**（Valerie Solanas 的前恋人）警告 Beverly、Winter、Ivy：把信任押在男人身上终将被推开；她讲述 Solanas 与「黄道带」叙事、枪杀 Andy Warhol 的遗产诅咒。三名女性因 Harrison 的性别歧视言论将其肢解杀害（Ivy 用电锯）。Kai 与 Bebe 共观 Beverly 的新闻播报——权力开始双重下注。注意：Bebe 与 Kai 的真实关系更复杂（愤怒管理课上的启蒙/利用），后续反转见隐藏剧情。
+
+⑧ **不满之冬：救世主仪式与兄长之死（Winter of Our Discontent）**  
+女成员被降为仆役，Beverly 与 Ivy 欲反，Winter 仍护兄，讲述二人曾救下 **Pastor Charles** 审判屋中的囚徒并杀牧师的往事。Kai 要求 Winter 由 Samuels 受孕「救世主」失败；Samuels 企图强奸 Winter，Winter 爆头杀之并栽赃。Ally 出院，为夺回儿子向 Kai 告发 Vincent 欲送其强制医疗；Kai 当众残杀 **Rudy Vincent**（削指割喉），把 Beverly 丢进隔离室。Ally **加入邪教**，Ivy 惊恐。世界状态：家庭医生线断绝，合法「治疗」变成杀人理由。
+
+⑨ **饮酷爱：忠诚测试与砒霜晚餐（Drink the Kool-Aid）**  
+Kai 向追随者讲授 Marshall Applewhite、David Koresh、Jim Jones，表达崇拜。Winter 因 Vincent 之死劝 Ally、Ivy 逃离被截；Oz 被绑至据点。Kai 令全员喝下「毒酷爱」，后揭晓无毒——**忠诚游戏**。Ally 以砒霜意大利面与红酒毒杀 Ivy，复仇完成。Oz 反驳 Kai 对教主的神化叙述遭罚；Ally 伪造精子捐赠记录，让 Kai 相信自己是 Oz 生父以保子命。主题：爱与监护权被写成毒药与契约。
+
+⑩ **曼森当家：偏执、内奸与百孕计划（Charles (Manson) in Charge）**  
+Kai 向民兵讲述 Tate 案，抛出总计划：**同时协调屠杀一百名孕妇**，制造最大恐惧。他陷入偏执，幻见亡兄与 **Charles Manson**。Bebe 怒其未推动「女性怒火」政治纲领，拔枪对 Kai，**Ally 击杀 Bebe**。邪教在 Planned Parenthood 前杀害 Gary 并留标语栽赃。Winter 劝 Beverly 逃离被拒。Ally 指认 Winter 为内奸，Kai 含泪掐死 Winter。Ally 注意到真内奸民兵 **Speedwagon**。世界顶点阴影：系统性屠杀计划进入倒计时。
+
+⑪ **再次伟大：线人终局与换枪（Great Again）**  
+Ally 杀 Speedwagon（州警线人），随即向 FBI SWAT 报信，突袭安排在屠杀之夜的 Anderson 地下室。数月后：Beverly 因 Ally 作证获释；Ally 透露自己在精神病院已被 FBI 发展为线人。Beverly 成为 Ally 竞选密歇根参议员的关键顾问。Kai 在最高安保监狱吸收囚犯与狱警重建邪教后越狱，闯入 Ally 与对手的电视辩论，厌女狂言后举枪对 Ally 扣扳机——**子弹已被狱警侧调包**；**Beverly Hope 爆头击杀 Kai**。Ally 拿下女性选票多数，赢得参议院席位；终场她披上类似 Solanas 团体的斗篷，赴「想改变体制的赋权女性」集会——胜利昂贵，且未必更「干净」。  
+**蝴蝶效应边界**：契约者可改局部（救下某次被恐吓者、截获一条线报、让某场栽赃多一份物证）；不可无代价改写：Ivy 之死与 Ally 弧光、Kai 的教主路径、终局换枪与 Beverly 开枪、Oz 作为软肋被利用的结构。改了局部，原作因果以「新替罪羊、更大媒体风暴、联邦提前/延后突袭」回流。
+
+⑫ **微观政治（日常可介入，优先于大战）**  
+护送/接孩子放学（小丑出没）；餐厅后厨冲突调解；市议会旁听与拉票；向记者泄料；在精神病院送药/藏信；识别谁戴面具谁是邻居；假死与监护权听证会；黑市购买枪与监控；监听器排查（Speedwagon 线）；监狱探视与狱警贿赂。写战斗：先环境（镜头、警察、孩子在场）与政治代价，再胜负。写资源：选票、镜头时间、罪证录像、豁免协议、监护权文件。写 Kai：魅力—羞辱—共同犯罪三段式。写 Ally：恐惧→工具化无畏→政客。写 Winter：爱兄与恐惧并存，死于被利用的「内奸」叙事。
+
+**【主要人物】**
+- **Ally Mayfair-Richards**｜性格：焦虑、自由派、保护欲强；后期因复仇与线人身份变得冷酷、算计、无畏。｜装备·能力：恐惧症（可被武器化）、枪、餐厅资源、FBI 线人豁免、参议员竞选机器。｜人物弧光：恐慌受害者→精神病院→入教→毒杀 Ivy→布局清党→夺回 Oz→参议员。｜立场：对 **Oz** 绝对软肋；对 **Ivy** 由爱生恨；对 **Kai** 先惧后猎；与 **Beverly** 终局同盟。  
+- **Kai Anderson**｜性格：魅力型自恋、互联网喷子升级版、恐惧理论家；后期偏执幻听。｜装备·能力：演讲、招募、面具小队、市议会席位、民兵、监狱扩军；无超自然。｜人物弧光：父母尸房秘密→FIT 教主→市议员→全国镜头→屠杀计划→入狱越狱→辩论场死。｜立场：视恐惧为燃料；可牺牲 **Meadow/Winter/任何人**；终局败于情报。**七阶级体系核心**。  
+- **Ivy Mayfair-Richards**｜性格：务实厨师、大选后失望激进；妒与怨交织。｜装备·能力：餐厅、早期与 Winter 设计「出轨」戏码、邪教执行。｜人物弧光：妻子→成员→电锯杀 Harrison→被 Ally 毒杀。｜立场：夺监护权动机；对 Ally 复杂恨意。  
+- **Winter Anderson**｜性格：诡异温柔、自残史、儿童恐惧、深网熟练。｜装备·能力：保姆权限、深网、枪。｜人物弧光：兄妹共犯→入教→杀 Samuels→被指内奸掐死。｜立场：爱 Kai 亦惧 Kai；对 Oz 既伤害又复杂关切。  
+- **Dr. Rudy Vincent / Vincent Anderson**｜性格：体面精神科医生，道德破产的兄长。｜装备·能力：处方权、病历（被 Kai 偷窥利用）、强制医疗威胁。｜人物弧光：藏尸共谋→扣留 Ally→欲办 Kai→被 Kai 当众杀害。｜立场：非成员但关键信息源。  
+- **Beverly Hope**｜性格：隐忍、野心、职业羞辱后的锋利。｜装备·能力：镜头、叙事、终局一枪。｜人物弧光：被压榨记者→入教→杀 Bob→隔离→崩溃→Ally 副手→击杀 Kai。｜立场：要「对等权力」；终局与 Ally 绑定。  
+- **Harrison Wilton**｜性格：被羞辱的同志健身教练，渴望被看见。｜装备·能力：体能、分尸执行。｜人物弧光：杀老板→邻居骚扰→被女成员肢解。｜立场：Kai 早期铁杆。  
+- **Meadow Wilton**｜性格：迷恋 Kai 的艺术家/面具匠，可殉道。｜装备·能力：面具设计、假叛逃演技、集会枪。｜人物弧光：入教→坟坑戏→假暗杀自杀。｜立场：爱即武器。  
+- **Detective Jack Samuels**｜性格：未出柜、恐同表演、执法暴力。｜装备·能力：警徽、现场定性、性暴力威胁。｜人物弧光：勒索 Kai→主从逆转入教→「救世主」仪式失败→被 Winter 爆头。｜立场：体制内钉子。  
+- **Oz Mayfair-Richards**｜性格：有礼儿童，被暴力与谎言加速成人。｜装备·能力：无；叙事上是监护权与「救世主/血缘」棋子。｜人物弧光：目击屠杀与误杀→据点人质→生日派对短暂平静。｜立场：Ally 的命门。  
+- **Gary K. Longstreet**｜性格：狂热、忠诚、可自残式献身。｜装备·能力：锯子、菜刀队中的炮灰。｜人物弧光：被绑→锯手投票→入教→被杀弃尸政治栽赃。  
+- **Bebe Babbitt**｜性格：激进女权残余、启蒙者亦是棋手。｜装备·能力：Solanas 意识形态、对女性成员的动员。｜人物弧光：警告→导杀 Harrison→对 Kai 翻脸→被 Ally 枪杀。  
+- **Sally Keffler**｜性格：传统保守派候选人。｜装备·能力：竞选平台。｜人物弧光：Ally 求助对象→被 Kai 枪杀伪自杀。  
+- **Serena Belinda / Bob Thompson / R.J. / Pedro Morales / Roger / Tom Chang**｜功能位：媒体食物链、弱环处决、餐厅种族与劳资冲突、市政否决者——各自以死亡推进 Kai 的恐惧经济。  
+- **Twisty the Clown（漫画/文化形象）**｜非本季实体反派，而是 Oz 与全城恐惧的符号接口（互文 Freak Show）。  
+- **历史教主镜像（Kai 讲述/幻觉）**：Charles Manson、Jim Jones、David Koresh、Marshall Applewhite、Valerie Solanas 线——**意识形态武器库**，非可长期合作 NPC。
+
+**【势力图谱】**
+- **FIT / Kai 的邪教（Fear Is Truth 语境下的追随网络）**：核心 Kai；执行 Winter、Harrison、Meadow、Ivy、Beverly、Samuels、Gary、R.J. 等；后期厌女民兵与狱中新军。宗旨：恐惧建国、混乱夺权。  
+- **Mayfair-Richards 家庭/餐厅单元**：Ally、Ivy、Oz、员工；从受害者单元裂变为内鬼与复仇场。  
+- **地方执法与 Samuels 线**：可洗白现场、定向嫌疑。  
+- **媒体机器（电视台）**：Beverly vs Serena/Bob；镜头即弹药。  
+- **市政与竞选场**：市议会空缺、Sally 对手位、参议员选举。  
+- **FBI / 州警线报网**：Speedwagon、精神病院招募、SWAT 突袭——终局真正的「高阶武装」。  
+- **Bebe—Solanas 意识形态余党**：短暂影响女成员，终被 Kai/Ally 双杀。  
+敌友逻辑：共同犯罪>誓言；镜头>真相；豁免协议>忠诚。
+
+**【贵重物品】**
+- **小丑面具组（Meadow 等制作）**：匿名与恐惧投射；持有=可参与夜袭。谁想要：执行者。后果：罪证与身份绑定。  
+- **Ally 的枪（源自 Wilton）**：误杀 Pedro 的关键道具；后成「持枪嫌犯」构图核心。  
+- **Bob 宅谋杀录像**：勒索与凝聚力双刃剑。  
+- **病历与处方权（Vincent 诊所）**：Kai 偷窥以定制恐惧攻击。  
+- **假精子捐赠文件**：Ally 保 Oz 的契约级谎言。  
+- **监听器/窃听器（Speedwagon）**：真内奸线。  
+- **「毒」酷爱杯**：忠诚测试道具（实际无毒）。  
+- **砒霜晚餐**：Ivy 死亡现场。  
+- **狱警调包的空枪**：七阶终局条件性胜利钥匙。  
+- **FBI 线人豁免与突袭时间表**：比任何枪更强。  
+- **Twisty 漫画/玩偶**：儿童心理与互文符号，非战力装备。  
+- **市议会席位 / 参议员选票**：制度硬通货。  
+每件写清：当前阶能否用——低阶用面具与枪；高阶用豁免、镜头、空枪与突袭时刻表。
+
+**【隐藏剧情 · 伏笔】**
+- **Anderson 父母尸房**：一切激进的起点；Rudy 的体面是共谋。  
+- **Kai 偷病历**：Ally「被小丑针对」高度定制，非随机超自然。  
+- **Ivy 早期即参与设计 Ally 的崩溃**（含与 Winter 的影像局）：婚姻战先于大选战。  
+- **Meadow 的「叛逃」是剧本**：证词武器化。  
+- **Bebe 曾是 Kai 愤怒管理导师/启蒙者**：女权话语被男教主盗用后反噬。  
+- **真内奸是 Speedwagon 而非 Winter**：Ally 借刀杀「爱人/妹妹」型软肋。  
+- **Ally 的无畏来自复仇执念与线人身份**，不是魔法治愈。  
+- **互文 Twisty**：恐惧可跨季作为文化病毒传播，仍非鬼。  
+- **结局斗篷集会**：权力从男教主转到女政客/组织，循环未必终止。  
+- **Oz 的血缘谎言**：若揭穿，监护与教主叙事同时爆炸（契约者高危钩子，须付代价）。
+
+**【大事记时间线】**
+前史（约 2014）→ Anderson 父母谋杀—自杀；兄弟藏尸；Kai/Winter 深网与 Pastor Charles 审判屋。  
+2016-11 大选夜 → 恐惧开闸；Chang 夫妇被杀；Kai/Winter 契约。  
+大选后数周 → 餐厅 Roger/Pedro；Wilton 入驻；Kai 招募 Harrison、Beverly；Gary 锯手。  
+Holes 节点 → Bob 宅灭口；R.J. 钉枪；父母真相。  
+Mid-Western Assassin → Sally 死；Meadow 假暗杀；Ally 被捕入精神病院。  
+Kai 当选市议员 → 民兵层；Bebe 线；Harrison 死。  
+Winter of Our Discontent → Samuels 死；Vincent 死；Ally 入教。  
+Drink the Kool-Aid → 假毒测试；Ivy 被毒杀；Oz 血缘局。  
+Charles in Charge → 百孕计划；Bebe 死；Winter 死；Speedwagon 暴露。  
+Great Again → FBI 突袭；Kai 入狱扩军越狱；辩论场空枪；Beverly 击杀 Kai；Ally 当选参议员。
+
+**【叙事基调 · 雷区】**
+基调：政治惊悚 + 邪教犯罪 + 小丑恐怖；黑色、尖锐、不适，**禁止写成超英打怪或修仙升级**。  
+忌：给 Kai 魔法、让面具附灵、让 Twisty 实体乱入当主线 Boss。  
+忌：低阶硬刚七阶体系（民兵+枪+镜头+执法）。  
+忌：把 Ally 写成无代价圣女；她终局胜利建立在利用、杀人与制度交易上。  
+忌：六阶切入点（本世界**有七无六**）。  
+忌：编造原作没有的角色死亡逆转（Ivy、Winter、Vincent、Kai 等以正典为准）。  
+忌：【加厚】【扩写】【细目N】【补述】等凑字标记。  
+最早切入：大选夜前后，或 Ally 尚未误杀 Pedro 的餐厅危机前夜。
+
+## 阶位切入点
+
+> 阶位↔原作强度：恐慌平民≈一阶；外围执行≈二阶；FIT 核心≈三阶；警探/记者/市议会渗透≈四阶；教主全国动员≈五阶；**无六阶**；系统性恐怖终局（屠杀计划/监狱邪教/辩论场情报战）≈七阶。宁低勿高。顶点 **Kai 体系**＝情报优先/条件性胜利，严禁硬刚本体与战力归零。本世界仅覆盖：一、二、三、四、五、七阶。
+
+**一阶（大选夜恐慌 · 郊区普通人）**
+切入身份/时点：Brookfield Heights 居民、餐厅临工、投票站志愿者；锚定 **Election Night** 前后。  
+初始事件：电视宣布大选结果，街区传来警笛；你目睹（或听说）**Tom Chang** 宅异动，或在 The Butchery on Main 外被抗议与恐惧言论裹挟。  
+开场白建议：「密歇根的夜风里有烧烤味和电视噪音。有人哭，有人笑，有人已经戴上面具——你口袋里的钥匙串突然轻得像假的。」  
+关键NPC立场：**Ally Mayfair-Richards**——惊恐求证；**Ivy Mayfair-Richards**——烦躁护店；**Kai Anderson**——公开演说吸粉；**Winter Anderson**——靠近孩子；**Oz Mayfair-Richards**——说「我看见小丑了」。  
+主线钩子/支线：活过第一周恐慌；支线＝护送邻居回家、保护摄像头、拒绝加入「夜间巡逻」的匿名群。  
+危险度/规避：中——死于误判、流弹、被栽赃；规避持枪小队与警探定性。  
+任务方向/奖励：存活、一份未被篡改的目击记录、基础防身与社区信任；不发终局权柄。
+
+**二阶（外围执行 / 被招募边缘人）**
+切入身份/时点：健身会所学员、餐厅后厨、小竞选义工；锚定 Kai 招募 **Harrison Wilton**、拉拢 **Gary Longstreet** 阶段。  
+初始事件：有人请你「帮个小忙」：送包裹、盯梢 **Ally**、在停电夜站街角举灯；拒绝则被威胁，接受则沾血。  
+开场白建议：「他叫你『兄弟』时微笑很干净。你看见冷库挂钩上的影子，才明白干净是包装。」  
+关键NPC立场：**Kai Anderson**——测试服从；**Harrison Wilton**——拉你入伙；**Detective Jack Samuels**——选择性执法；**Beverly Hope**——镜头外谈条件；**Meadow Wilton**——送你一只面具。  
+主线钩子/支线：是否参与第一次恐吓；支线＝藏匿罪证、给 **Pedro Morales** 通风报信、向 **Rudy Vincent** 诊所匿名报料。  
+危险度/规避：中高——共同犯罪后无法抽身；规避钉枪局与「弱环处决」。  
+任务方向/奖励：退出通道（假死/搬家/污点证人雏形）、一张罪证拷贝、有限枪支；禁止直接击杀教主通关。
+
+**三阶（FIT 核心 · 面具谋杀圈）**
+切入身份/时点：已入核心或等价渗透；锚定 **Holes**（Bob 宅）至 **Neighbors** 深水区。  
+初始事件：你被要求戴上面具参与行动：目标是 **Bob Thompson** 或一次「棺材恐吓」；入口门槛是开枪/钉枪或录像入镜。  
+开场白建议：「橡胶缝里是别人的汗味。有人勾小指起誓，有人已经在选谁是下一个 R.J.。」  
+关键NPC立场：**Kai Anderson**——发令；**Beverly Hope**——要镜头与权力；**Ivy Mayfair-Richards**——手抖仍扣；**Winter Anderson**——执行与动摇并存；**Ally Mayfair-Richards**——仍是猎物。  
+主线钩子/支线：完成或破坏一次集体谋杀；支线＝救 R.J. 类弱环、复制录像、把 **Meadow** 坟坑情报送给 Ally。  
+危险度/规避：高——死于灭口与背刺；规避教主私人清算。  
+任务方向/奖励：核心名单、父母尸房线索、短暂同盟；奖励=情报与撤离资源。
+
+**四阶（渗透位 · 警徽/镜头/市政）**
+切入身份/时点：记者助理、警员、竞选幕僚、诊所职员；锚定市议会空缺战与 **Sally Keffler** 被杀前后。  
+初始事件：你掌握能改变定性的材料：Chang 案不是谋杀自杀、Sally 不是自杀、或 **Samuels** 的双重身份碎片。  
+开场白建议：「新闻提词器比枪危险。你改一个词，全城的恐惧就换一个方向。」  
+关键NPC立场：**Beverly Hope**——交易镜头；**Detective Jack Samuels**——灭口或招安；**Kai Anderson**——收编或抹除；**Sally Keffler**——求证；**Ally Mayfair-Richards**——Desperate 求助。  
+主线钩子/支线：保护或出卖关键证词；支线＝阻止假暗杀完整演出、在集会疏散人群、截获 Kai 全国采访。  
+危险度/规避：高——体制内清洗；规避民兵层围猎。  
+任务方向/奖励：媒体曝光窗口、临时保护令、进入精神病院探视 Ally 的权限。
+
+**五阶（教主动员 · 全国镜头与假暗杀）**
+切入身份/时点：核心副手、民兵联络、对立候选人团队、已入教的 Ally 同期；锚定 **Mid-Western Assassin** 至 **Drink the Kool-Aid**。  
+初始事件：你被编入「忠诚测试」或得知 **Meadow** 将在集会开枪；同时 **Vincent** 可能被灭口，**Oz** 可能被劫至据点。  
+开场白建议：「口号响到震碎玻璃。有人把血当选票，有人把酷爱当圣经——杯子递到你嘴边。」  
+关键NPC立场：**Kai Anderson**——要求你喝下/开枪/作证；**Meadow Wilton**——殉道剧本；**Ally Mayfair-Richards**——入教夺子；**Winter Anderson**——裂痕加大；**Bebe Babbitt**——煽动女成员。  
+主线钩子/支线：破坏假暗杀或保护 Oz；支线＝调换酷爱、泄露尸房、阻止 Ivy 被毒杀（高代价蝴蝶）。  
+危险度/规避：极高——政治秀+真枪；规避与教主单挑。  
+任务方向/奖励：全国级线索、民兵名单、据点结构图；仍非终局豁免。
+
+**七阶（系统性恐怖 · 情报优先终局）**
+切入身份/时点：FBI 协作、州警线报链、狱政、参议员竞选核心、等价高阶契约身份；锚定 **Charles (Manson) in Charge** 至 **Great Again**。  
+初始事件：百名孕妇同步屠杀倒计时；或 Kai 越狱后的辩论场刺杀；你手中只有「时刻表、空枪、谁开枪」三类条件之一。  
+开场白建议：「地下室像投票站，也像屠场。对讲机里有人说『进』——你知道这一枪若有子弹，历史会写成另一种恐惧。」  
+关键NPC立场：**Kai Anderson**——体系顶点，偏执与动员峰值；**Ally Mayfair-Richards**——线人与政客双面；**Beverly Hope**——终局扳机；**Winter Anderson**（若时点较早）——被误杀风险；**Speedwagon**——真线报；**Oz Mayfair-Richards**——人质/象征。  
+主线钩子/支线：确保 FBI 突袭窗口 / 完成换枪 / 保护辩论场不死；支线＝监狱止暴、阻止新一代邪教复制、处理 Ally 当选后的「新斗篷」集会暗线。  
+危险度/规避：极高/贴近顶点——**Kai 体系＝七阶系统性恐怖：情报优先、条件性胜利**；严禁无布局硬刚、严禁战力归零解释。  
+任务方向/奖励：州级局势改写权、豁免与身份重建、阻止百人屠杀的乐园级结算；不发「星球爆破」式神器。
+
+## 来源
+
+- [American Horror Story: Cult - Wikipedia](https://en.wikipedia.org/wiki/American_Horror_Story:_Cult)
+- [美國恐怖故事：異教 - 中文维基百科](https://zh.wikipedia.org/wiki/美國恐怖故事：異教)
+- [Kai Anderson - American Horror Story Wiki (Fandom)](https://americanhorrorstory.fandom.com/wiki/Kai_Anderson)
+- [Ally Mayfair-Richards - American Horror Story Wiki (Fandom)](https://americanhorrorstory.fandom.com/wiki/Ally_Mayfair-Richards)
+- [List of American Horror Story episodes - Wikipedia (Season 7: Cult)](https://en.wikipedia.org/wiki/List_of_American_Horror_Story_episodes)

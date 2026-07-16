@@ -1,0 +1,359 @@
+﻿<!DOCTYPE html><html lang="it" dir="ltr"><head><style nonce="u8vI2PpzwnGB7Gky-p5CuA">
+a, a:link, a:visited, a:active, a:hover {
+  color: #1a73e8;
+  text-decoration: none;
+}
+body {
+  font-family: Roboto, Helvetica, Arial, sans-serif;
+  text-align: center;
+  -ms-text-size-adjust: 100%;
+  -moz-text-size-adjust: 100%;
+  -webkit-text-size-adjust: 100%;
+}
+.youtubeContainerUIModernization,
+.boxUIModernization {
+  box-sizing: border-box;
+  margin-left: auto;
+  margin-right: auto;
+  max-width: 800px;
+}
+.signInContainerUIModernization {
+    display: flex;
+    justify-content: flex-end;
+}
+h1 {
+  color: #2c2c2c;
+  font-size: 24px;
+  hyphens: auto;
+  margin: 24px 0;
+}
+.openInNewIcon,
+.openInNewIconYouTube {
+  height: 12px;
+  width: 12px;
+  margin-bottom: -2px;
+  margin-left: 2px;
+
+  
+}
+.openInNewIcon {
+  fill: #0b57d0; // gm3-primary-blue
+}
+.openInNewIconYouTube {
+  fill: #065fd4; // yt-primary-dark-blue
+}
+.icaCallout {
+  background-color: #f8f9fa;
+  padding: 12px 16px;
+  border-radius: 10px;
+  margin-bottom: 10px;
+}
+.icaCalloutGm3 {
+  background-color: #f8fafd;
+  padding: 12px 16px;
+  border-radius: 10px;
+  margin-bottom: 10px;
+}
+.icaCalloutUIModernization,
+.icaCalloutUIModernizationGm3 {
+  color: #0f0f0f;
+  font-family: Roboto, Arial, sans-serif;
+  font-weight: 400;
+  font-size: 14px;
+  line-height: 18px;
+  letter-spacing: 0.2px;
+  background-color: #f8f9fa;
+  padding: 12px 24px;
+  border-radius: 12px;
+  margin-bottom: 16px;
+  text-align: left;
+}
+.icaCalloutUIModernization > a {
+  color: #065fd4;  /* youtube dark-blue color */
+}
+.icaCalloutUIModernizationGm3 > a {
+  color: #065fd4;  /* youtube dark-blue color */
+  text-decoration: underline;
+}
+.subUIModernization,
+.subUIModernizationGm3,
+.contentTextUIModernization,
+.contentTextUIModernization > p {
+  color: #0f0f0f;
+  font-family: Roboto, Arial, sans-serif;
+  font-weight: 400;
+  font-size: 14px;
+  letter-spacing: 0;
+  line-height: 18px;
+  text-align: left;
+}
+.contentTextUIModernization > a,
+.contentTextUIModernization > p > a {
+  color: #065fd4;
+}
+.contentTextUIModernization > p {
+  margin: 16px 0;
+}
+.contentTextUIModernization > ul {
+  padding-left: 36px;
+  margin: 16px 0;
+}
+p, .sub, .contentText, .icaCallout {
+  color: #5f6368;;
+  font-size: 14px;
+  line-height: 20px;
+  letter-spacing: 0.2px;
+  text-align: left;
+}
+.signin {
+  text-align: right;
+}
+.signInIconContainer {
+  width: 24px;
+  height: 24px;
+  margin: 0 6px 0 -6px;
+}
+.signInIcon {
+  fill: #065fd4; /* dark-blue-color */
+}
+.signinUIModernization {
+  display: flex;
+  flex-direction: row;
+  justify-content: flex-end;
+  text-align: right;
+}
+.bulletUIModernization {
+  line-height: 18px;
+  margin: 8px 0;
+}
+.signinButtonDisplayUIModernization {
+  display: flex;
+  box-sizing: border-box;
+  align-items: center;
+  flex-direction: row;
+  justify-content: flex-start;
+}
+.horizontalContainerEndUIModernization {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+}
+.cardHeaderUIModernization {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+}
+.logoCenter {
+  justify-content: center;
+}
+.logoUIModernization {
+  margin-right: auto;
+}
+.youTubeHeaderUIModernization {
+ padding: 20px 24px 0;
+}
+.saveButtonContainer,
+.saveButtonContainerNarrowScreen {
+  width: 100%;
+  margin-top: 12px;
+}
+.saveButtonContainerNarrowScreenUIModernization {
+  width: 100%;
+}
+.customButtonContainer {
+  height: 20px;
+  padding: 8px 0;
+  margin-top: 8px;
+}
+.navigationCtasYoutube {
+  text-align: right;
+}
+a.button {
+  color: #fff;
+}
+a.hairlinebutton,
+a.nolinebutton{
+  color: #1a73e8;
+}
+.navigationCtasYoutube a.hairlinebutton {
+  border-color: #1a73e8;
+}
+button, .button {
+  background-color: #1a73e8;
+  border: none;
+  color: #fff;
+}
+input.button {
+  -webkit-appearance: none;
+}
+.basebutton {
+  border-radius: 4px;
+  cursor: pointer;
+  font-family: Roboto, Helvetica, Arial, sans-serif;
+  font-size: 14px;
+  font-weight: 500;
+  height: 36px;
+  margin: 12px 4px 0;
+  padding: 8px 24px;
+}
+.hairlinebutton {
+  background-color: #fff;
+  border-width: 1px;
+  border-color: #dadce0;
+  border-style: solid;
+  max-height: 15px;
+}
+.basebuttonUIModernization {
+  outline: none;
+  text-align: center;
+  vertical-align: middle;
+  line-height: 18px;
+  cursor: pointer;
+  font-family: Roboto, Arial, sans-serif;
+  font-size: 14px;
+  font-weight: 500;
+  font-style: normal;
+  height: 36px;
+  min-width: 72px;
+  border-radius: 18px;
+  padding: 0 16px;
+}
+.basebuttonUIModernization:focus,
+.basebuttonUIModernization:focus-visible,
+.basebuttonUIModernization:hover:focus,
+.basebuttonUIModernization:hover:focus-visible {
+  outline: 2px solid transparent;
+  outline-offset: 2px;
+}
+.signInButtonUIModernization {
+  background-color: #fff;
+  border: 1px solid #e5e5e5;
+  color: #065fd4;
+}
+.signInButtonUIModernization:focus-visible {
+  background-color: #fff;
+  border: 1px solid #065fd4;
+  color: #065fd4;
+}
+.signInButtonUIModernization:hover {
+  background-color: #f2f8ff;
+  border: 1px solid transparent;
+  color: #065fd4;
+}
+.signInButtonUIModernization:hover:focus-visible {
+  background-color: #f2f8ff;
+  border: 1px solid #065fd4;
+  color: #065fd4;
+}
+.signInButtonUIModernization:active,
+.signInButtonUIModernization:active:hover,
+.signInButtonUIModernization:active:focus-visible {
+  background-color: #e5e5e5;
+  border: 1px solid transparent;
+  color: #065fd4;
+}
+.signinUIModernization a,
+.signinUIModernization a:link,
+.signinUIModernization a:visited,
+.signinUIModernization a:active,
+.signinUIModernization a:hover,
+.signinUIModernization a:focus-visible {
+  color: #065fd4;
+}
+.hairlinebuttonUIModernization {
+  background-color: #0f0f0f;
+  border: 2px solid transparent;
+  color: #fff;
+  }
+.hairlinebuttonUIModernization:focus-visible {
+  background-color: #fff;
+  border: 2px solid #0f0f0f;
+  color: #0f0f0f;
+}
+.hairlinebuttonUIModernization:hover {
+  background-color: #272727;
+  border: 2px solid transparent;
+  color: #fff;
+}
+.hairlinebuttonUIModernization:hover:focus-visible {
+  background-color: #e7e7e7;
+  border: 2px solid transparent;
+  color: #0f0f0f;
+}
+.hairlinebuttonUIModernization:active,
+.hairlinebuttonUIModernization:active:hover,
+.hairlinebuttonUIModernization:active:focus-visible {
+  background-color: #3f3f3f;
+  border: 2px solid transparent;
+  color: #fff;
+}
+.customizeButtonContainerUIModernization {
+  display: flex;
+  text-align: center;
+}
+.customizeButtonUIModernization {
+  box-sizing: border-box;
+  background-color: #f2f2f2;
+  border: 2px solid transparent;
+  text-align: center;
+}
+.customizeButtonUIModernization:focus-visible {
+  background-color: #fff;
+  border: 2px solid #0f0f0f;
+}
+.customizeButtonUIModernization:hover {
+  background-color: #e6e6e6;
+  border: 2px solid transparent;
+}
+.customizeButtonUIModernization:active,
+.customizeButtonUIModernization:active:hover,
+.customizeButtonUIModernization:active:focus-visible {
+  background-color: #cfcfcf;
+  border: 2px solid transparent;
+}
+a.basebuttonUIModernization.customizeButtonUIModernization,
+a.basebuttonUIModernization.customizeButtonUIModernization:link,
+a.basebuttonUIModernization.customizeButtonUIModernization:visited,
+a.basebuttonUIModernization.customizeButtonUIModernization:active,
+a.basebuttonUIModernization.customizeButtonUIModernization:focus {
+  color: #0f0f0f;
+  text-decoration: none;
+  padding: 8px 16px;
+}
+.saveButtonUIModernization {
+  text-align: center;
+}
+.detailsButtonUIModernization {
+  margin-top: 16px;
+  min-width: 220px;
+}
+.error {
+  border: 2px solid #d93025;
+  border-radius: 5px;
+  color: #d93025;
+  margin: auto;
+  padding: 5px;
+}
+.boxUIModernization a:hover {
+  text-decoration: underline;
+}
+.footerLinks {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+.footerUIModernization {
+  display: flex;
+  flex-direction: row;
+  justify-content: space-between;
+  margin-top: 16px;
+}
+.footerUIModernization a {
+  margin-left: 8px;
+  padding: 0 8px;
+}
+.footerUIModernization a,
+.footerUIModernization input,
+.footerUIModernization select {
+  color: #606060;  /* grey5 color - youtube secondary color */
+  font-family: Robot

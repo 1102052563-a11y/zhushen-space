@@ -1,0 +1,619 @@
+URL https://www.dlsite.com/pro/work/=/product_id/VJ006326.html
+STATUS 200
+IDS VJ006326
+
+【50%OFF】JKとエロコンビニ店長～アルバイト娘の弱みを握ってヤリたい放題～ [ブルゲLIGHT] | DLsite 美少女ゲーム - R18
+
+ 8/17 13:59 まで
+
+ 8/17 13:59 まで
+
+ エロゲー・エロアニメ・アダルトゲーム・アダルトアニメならDLsite
+
+ ポイント - pt
+
+ クーポン - 枚
+
+ Language
+
+ 関連サービス
+
+ すべて
+
+ すべて
+ 同人
+ 成年コミック
+ 美少女ゲーム
+ スマホゲーム
+
+ 検索
+
+ こだわり条件
+
+ 新規登録
+
+ ログイン
+
+ お気に入り 割引作品あり
+
+ カート
+
+ 購入済作品
+
+ アカウント
+
+ 評価・レビュー
+
+ クーポン管理
+
+ 購入履歴
+
+ マイページ
+ 0" class="count" v-cloak>{{ noticesBadge(mypageNotices) }}
+
+ 0" class="notice">
+ 重要なお知らせが {{ mypageNotices }}件 あります。
+
+ サークル管理
+ 0" class="count" v-cloak>{{ noticesBadge(circleNotices) }}
+
+ 0" class="notice">
+ 重要なお知らせが {{ circleNotices }}件 あります。
+
+ みんなで翻訳管理
+
+ アカウント管理
+
+ {{ login_id.substr(0, 30) }}{{ login_id.length > 30 ? '...' : '' }}
+ さん
+
+ ログアウト
+
+ 0 " class="accountBadge" v-text="noticesBadge(mypageNotices + circleNotices)" v-cloak>
+
+ アカウント
+
+ サークル管理
+ 0" class="count" v-cloak>{{ noticesBadge(circleNotices) }}
+
+ 0" class="notice">
+ 重要なお知らせが {{ circleNotices }}件 あります。
+
+ みんなで翻訳管理
+
+ アカウント管理
+
+ {{ login_id.substr(0, 30) }}{{ login_id.length > 30 ? '...' : '' }}
+ さん
+
+ ログアウト
+
+ 0 " class="accountBadge" v-text="noticesBadge(circleNotices)" v-cloak>
+
+ ガイド
+
+ ヘルプ
+ 初めての方へ
+ サークル登録について
+ お支払方法について
+ ポイントについて
+
+ 同人
+ 成年コミック
+ 美少女ゲーム
+ スマホゲーム
+ 制作ソフト・素材
+ オンラインゲーム
+
+ 全年齢向けへ
+
+ 女性向け 全年齢へ
+
+ 女性向け TL/BLへ
+
+ TOP
+
+ ゲーム
+
+ 動画
+
+ ボイス・ASMR
+
+ 音楽
+
+ ランキング
+
+ 美少女ゲーム
+
+ ブランド一覧
+
+ ブルゲLIGHT
+
+ JKとエロコンビニ店長～アルバイト娘の弱みを握ってヤリたい放題～
+
+ JKとエロコンビニ店長～アルバイト娘の弱みを握ってヤリたい放題～
+
+ 1" class="slider_prev" @click="slideTo('prev')">
+ 1" class="slider_next" @click="slideTo('next')">
+
+ 1" ref="ctrl" @wheel="slideScroll" class="slider_controller">
+
+ 1">
+
+ {{ swiper.realIndex + 1 }} / {{ items.length }}
+
+ 0) || (!isFemale() && product.wishlist_count !== undefined && product.wishlist_count > 0) || product.rate_count > 0 || product.review_count" v-cloak>
+
+ 0) || product.rate_count > 0" v-cloak class="work_right_info_item">
+
+ 0" v-cloak>
+
+ {{ product.rate_average_2dp }}
+
+ {{ product.rate_average_2dp }}
+
+ {{ product.rate_count|number_format }}
+
+ ({{ product.rate_count_detail ? product.rate_count_detail[4].count : 0|number_format }})
+
+ ({{ product.rate_count_detail ? product.rate_count_detail[3].count : 0|number_format }})
+
+ ({{ product.rate_count_detail ? product.rate_count_detail[2].count : 0|number_format }})
+
+ ({{ product.rate_count_detail ? product.rate_count_detail[1].count : 0|number_format }})
+
+ ({{ product.rate_count_detail ? product.rate_count_detail[0].count : 0|number_format }})
+
+ ({{ product.rate_count|number_format }})
+
+ 0) || product.review_count" v-cloak class="work_right_info_item">
+
+ {{ product.review_count|number_format }} ( )
+
+ ブランド名
+
+ ブルゲLIGHT
+
+ フォローする
+
+ 販売日
+ 2011年11月04日
+
+ シナリオ
+
+ 七瀬流
+
+ イラスト
+
+ 鋼丸
+
+ 声優
+
+ 神坂秋穂 / 水純なな歩
+
+ 音楽
+
+ Joke drops / 奏森愛
+
+ 年齢指定
+
+ R18
+
+ 作品形式
+
+ アドベンチャー 音声あり 音楽あり / 女子校生ガチエロ淫行AVG
+
+ ジャンル
+
+ おやじ
+ 母親
+ 娘
+ 退廃/背徳/インモラル
+ 初体験
+ 超ひどい
+ 命令/無理矢理
+ 盗撮
+ 中出し
+ 屈辱
+ 合意なし
+ 処女
+
+ この作品は「シリアル番号発行型」の作品です。
+ ご購入前に必ず [ シリアル発行について ] をご覧の上、動作確認をしてください。
+
+ ムービーダウンロード
+ (52.29MB)
+
+ 作品内容
+
+ 「未成熟なJK娘を、じっくりと味わいつくせ！」をコンセプトに世の男たちを狂喜させる「JK」シリーズ。
+
+今回「淫行教師」「エロサラリーマン」というゲスな主人公に、新たに「エロ店長」が加わった！
+
+店内に仕掛けた隠しカメラに映った女性でオナニーするのが趣味という最底辺の男に雇われた
+
+真面目なJK“結衣”。彼女に隠しカメラの秘密を知られた主人公は、“ピンチがチャンス”とばかりに
+
+店長の権力を振りかざし、己の欲棒を処女JKのマ○コ奥深くに激・挿入！
+
+コンビニ制服の奥に潜む生々しいメスの匂いを胸一杯に吸いこみながら、最高の気分で中出しをキメる！
+
+今回も「最後までヌかずに我慢できる確率　０．００１％」のキャッチフレーズを裏切らない、
+
+最上級のJKとのセックスをたっぷり体感させてくれる。
+
+さらには、シリーズ初となる“母娘同時指導”も登場！　JKとその母とのいやらしい3P！
+
+娘の痴態に驚く母親、母親の牝の顔に驚く娘……今までにない興奮がアナタの股間をガッチガチに！
+
+
+
+■□■ストーリー■□■
+
+主人公は零細コンビニ店の店長。メタボが気になる中年間近で独身。
+
+オーナーからはいつも売り上げの事で怒られてばかり。
+
+そんな店長の最近の楽しみは、新しくバイトで入って来た
+
+ＪＫの“結衣”を隠しカメラで盗撮する事。
+
+結衣の着替えやトイレでの姿をオカズにオナニーをするのが日課だった。
+
+そんなある日、事件が起きる。
+
+主人公がトイレに仕掛けていた隠しカメラを結衣が見つけたのだ。
+
+
+
+「店長、隠しカメラがありました！警察に知らせましょう」
+
+「いや、それはあの……きっと……オーナーが仕掛けた物で、ウチ万引きが多いから……ね」
+
+「でも、女子トイレにカメラを置くなんて、盗撮目的かもしれません！」
+
+「オーナーはそんな事を考えるような人じゃ……」
+
+「なんでオーナーをかばうんですか？！店長はこの事を知っていたんですか？！」
+
+「い、いや、オレは知らないけど……」
+
+「それじゃ、オーナーが来たら、私、話します」
+
+（そんな事をされたら、オレが盗撮していたことがバレちまうだろうが！）
+
+
+
+義憤にかられている結衣を前に、策略を考える主人公。
+
+（そうだ、何も言えないように結衣を罠にはめよう。オトナの怖さをその身体に教えこんでやる！）
+
+
+
+■□■登場キャラクター■□■
+
+●中泉結衣 （CV：神坂秋穂）
+
+今回のヒロイン学園１年生。
+
+ちょっと気が強いけど、明るく頑張り屋さん。
+
+アパートで母親と二人暮らし。
+
+私立の女子校に通っていて、学費を稼ぐ為、
+
+けなげにアルバイトに励む日々。
+
+処女
+
+
+
+●中泉麻央 （CV：水純なな歩）
+
+ヒロインの母親。
+
+30代後半だが、かなり若く見られる。
+
+結衣が小学生の時に、夫と離婚。
+
+それ以後、生命保険の外交員をしながら
+
+女手ひとつで結衣を育てて来た。
+
+枕営業の誘いは数多くあるが、今まで一度も枕営業をした事は無い。
+
+ 作品情報/動作環境
+
+ ファイル容量
+
+450.21MB
+
+ CPU PentiumIII 500MHz以上 / PentiumIII 1GHz以上
+ メモリ 256MB以上 / 512MB以上
+ 必要解像度 800*600 フルカラー
+ DirectX DirectX 9.0以上
+
+ ソフ倫受理番号 このタイトルはソフ倫審査済みです （受理番号0004724D）
+
+ ブランド作品一覧
+
+ 作品をもっと見る
+
+ 販売作品
+
+ 関連作品
+
+ この作品を買った人はこんな作品も買っています
+
+ 最近チェックした作品
+
+ ユーザーレビュー
+
+ 開催中の企画・キャンペーン
+
+ 【2026年6月】月間ランキング！　※R18
+
+ 【2026年6月】月間ランキング！
+
+ 【2026年6月】DLチャンネル運営が勝手に選ぶ、先月面白かったまとめ記事
+
+ 【GIFあり】貞操観念なし？その場の雰囲気でパコっちゃおう！色んな女の子とエッチできるゲーム3選！
+
+ やさしいオタクのひみつ基地「Pommu」、ついに本格始動！
+
+ 【トークキャンペーン】オススメの「田舎のはなし」作品を語って1000ポイント！？
+
+ TOZAN:BUさんの同人漫画2作品がフルカラーになって登場！（モノクロ版購入済なら90%OFF！）
+
+ 【GIFあり】お相手は&hellip;オッサン！？美女と野獣ならぬ、美少女とオッサン！竿役がオッサンの作品3選！
+
+ DemonsRootsシリーズ初の音声作品！💗えらい魔族におねだりえっち💗／深爪貴族
+
+ 性格&times;性癖分析大作戦 ～BL研究編 ～ アンケート結果発表
+
+ 【GIFあり】おさわりゲーの神がスマホ版にやってきた！エロフラ部おすすめ作品3選！！👋【特集】
+
+ 【8PからOK】あなたの性癖を込めよう！「第2回どちゃシコチャレンジ シコパ追求編」開催！
+
+ 【GIFあり】オラッ！その服の下を見せろッ！👗女の子の服をひん剥くエロゲ3選！
+
+ 【GIFあり】リズムに合わせてLet'sシコシコ！GGGぐんぐんぐーなー！特集！【android】
+
+ 佃煮のりおPresents成人マンガレビュー凸　Supporred byドスケベカンパニースペシャル
+
+ 【全年齢向け】売れ筋への感度の高いユーザーたちが買った作品まとめ【2026年4月版】
+
+ 【成人向け】エロスへの感度の高いユーザーたちが買った作品まとめ【2026年4月版】
+
+ 大人気エロRPG「ダンジョンウィズガール」がASMRになって登場✨【完全新規ストーリー！】
+
+ {{$t('product.title_works.limit_sales')}} {{ product.discount_rate == 100 ? $t('product.title_works.only_now_free') : product.discount_rate + '%OFF' }}
+
+ {{ product.discount_rate == 100 ? $t('product.title_works.only_now_free') : product.discount_rate + '%OFF' }}
+
+ {{ $t('product.price.til', [product.discount_end_date]) }}
+
+ {{ product.discount_rate == 100 ? $t('product.title_works.only_now_free') : product.discount_rate + '%OFF' }}
+
+ {{ $t('product.price.til', [product.discount_end_date]) }}
+
+ 無料で読む
+
+ {{ product.voice_pack.parent_official_price | number_format }}
+ {{ product.voice_pack.parent_price | number_format }}
+
+ {{ product.voice_pack.child_official_price | number_format }}
+ {{ product.voice_pack.child_price | number_format }}
+
+ {{ product.voice_pack.sum_price | number_format }}
+
+ [ ]
+
+ 会員登録でクーポンを複数プレゼント！
+
+ 一番お得なクーポン利用価格
+
+ 301円以上の購入で利用可能
+
+ 一番お得なクーポン利用価格
+
+ 対象クーポン
+
+ 利用条件の確認はこちら
+
+ クーポンは利用できません
+
+ クーポン利用でももらえる！
+
+ [ 特定決済方法 ]なら %ポイント還元
+
+ [ 特定決済方法 ]なら 最大5%ポイント還元
+
+ ポイントアップ中
+
+ 販売開始予定
+ 11月4日 0時
+ ※状況により販売延期される
+場合もあります
+
+ 販売終了しました
+
+ ブラウザ視聴
+
+ ダウンロード
+
+ 既に持っています
+
+ 1) && carted" class="message_cart_in" :key="carted.rental_id"> {{ carted.name }} 追加済み
+
+ 会員登録して購入
+ 会員登録して購入
+
+ すぐに購入
+ すぐに購入
+
+ {{ $t('favorite.add_fav') }}
+
+ {{ $t('favorite.in_fav') }}
+
+ {{ $t('favorite.add_fav') }}
+
+ 作品評価済み
+
+ 作品を評価する
+
+ = 0">
+ 作品をカートに追加しました
+
+ 価格
+
+ 1,540 円
+
+ カートに入れる
+
+ お気に入りに追加
+
+ {{$t('cart.buy_this')}}
+
+ {
+ const fallbackSrc = '/modpub/images/web/home/not_found_img_main.png'
+ if (e.target.src === fallbackSrc) return;
+ e.target.onerror = null;
+ e.target.src = fallbackSrc;
+ }"
+ >
+
+ {{ product.voice_pack.sum_price | number_format }}
+
+ 会員登録して購入
+ 会員登録して購入
+
+ すぐに購入
+ すぐに購入
+
+ 購入特典
+
+ {{ gift.title }}
+
+ {{ gift.distribute_end_str }}まで配布中
+
+ {{ coupon.coupon_name }}
+
+ {{ coupon.end_date_str }}まで配布中
+
+ 有効期限： {{ coupon.user_limit_date }}
+
+ 有効期限： 取得から{{ coupon.limit_days_day }}日後
+
+ {{ bonus.title }}
+
+ {{ bonus.end_date_str }}まで配布中
+
+ レンタルでは購入特典は
+付与されません。
+
+ 対応環境
+
+ PC専用
+
+ 対応環境
+
+ Mac 非対応
+
+ Windows
+ 2000 / XP / Vista / 7
+
+ すべての対応OSを表示する
+
+ 対応OS
+
+ Windows
+ 2000 / XP / Vista / 7
+
+ Mac
+ -
+
+ iOS
+ -
+
+ Android
+ -
+
+ その他
+ -
+
+ アフィリエイトリンク作成
+ アフィリエイトリンク作成
+
+ このページの上部へ
+
+ 総合トップ
+ 同人
+ 成年コミック
+ 美少女ゲーム
+ スマホゲーム
+ スマホ版DLsiteへ
+
+ DLsiteについて
+
+ 会社概要
+ 採用情報
+ 利用規約
+ 特定商取引法に基づく表示
+ 資金決済法に基づく表記
+ 個人情報の取扱いについて
+ 外部送信規律に関する公表
+ コンプライアンスポリシー
+ 著作権と不正アクセス
+ カスタマーハラスメントに対する行動指針
+ リンクについて
+ サイトマップ
+
+ ヘルプ&ガイド
+
+ 初めての方へ
+ よくある質問
+ 作品リクエスト
+
+ DLsiteのサービス
+
+ 作品を販売したい方へ
+ みんなで翻訳
+ アフィリエイト
+ メールマガジン
+ Webビューア DLsite Play
+ PCクライアント DLsite Nest
+
+ お支払い&ポイント
+
+ お支払い方法
+ ポイントについて
+ ポイント購入方法
+
+ 即時口座振替
+
+ クレジットカード
+
+ コンビニ・ネットバンク
+
+ 電子マネー
+
+ 後払い
+
+ X(Twitter)
+
+ 全年齢
+ English R18
+ 広報
+
+ Youtube
+
+ 広報
+
+ 採用情報（グループ一括採用）
+
+ 採用サイトへ
+
+ 推奨環境：最新版のMicrosoft Edge、Safari、Chrome、Firefox（JavaScript・Cookieを許可）
+
+ &copy; 1996 DLsite

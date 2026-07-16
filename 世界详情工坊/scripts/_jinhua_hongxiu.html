@@ -1,0 +1,932 @@
+﻿<!DOCTYPE html>
+<html>
+<head>
+    <script>
+        var resCode = '0'
+        var url = ''
+        if (resCode == 1500 && url) {
+            var back = encodeURIComponent(location.href)
+            url = url + '&backUrl=' + back
+            location.href = url
+        }
+    </script>
+    
+    <!-- end 页面直出变量 -->
+
+
+    
+<script>
+   var g_data = g_data || {};
+   g_data.site = 'hongxiu'
+
+   // 环境变量，会按照环境选择性打log
+   g_data.envType = 'pro';
+
+   //环境域名
+   g_data.rootDomain = 'hongxiu.com';
+   g_data.domain = '';
+   g_data.domainPreFix = '';
+
+   //静态资源域名
+   g_data.staticPath = '//yuxseocdn.yuewen.com/pro/hongxiu_pc/_prelease';
+
+   //获取用户是否登录
+   g_data.isLogin = '';
+
+   // 导流相关
+   g_data.appDownloadUrl = 'https://www.yuewen.com/app.html#appxx';
+   g_data.guide2app = 'qd';
+   g_data.guide2appXXLocationSite = '_hxpc';
+   g_data.isQReaderNoFreeBook = false;
+
+   // 是否支持登录
+   g_data.enableLogin = true;
+
+   // 是否支持充值 / 消费 / 打赏 / 投票等
+   g_data.enableChargeAndConsume = true;
+</script>
+
+    <script>
+      // 全局的通用数据都放g_data变量里
+      // 用作统计PV
+      var directCatalog = location.hash;
+
+      // 用作统计PV
+      g_data.pageId = 'hx_P_bqx';
+
+      //上报用cbid
+      g_data.cbid = '29970570504746908';
+      g_data.qdbid = '';
+
+      // 上报埋点前缀
+      g_data.pageIdPrefix = 'hx';
+
+      g_data.pageJson = {
+        // 是否已登录，传入js，EJS后加载模板判断是否显示
+        isLogin:false,
+
+        // 获得bookId的json格式，传入js，EJS后加载模板中可以直接使用
+        bookId: '',
+
+      }
+    </script>
+    <script>
+
+  function setCookie(name, value, domain, path, expires){
+    if(expires){
+      expires = new Date(+new Date() + expires);
+    }
+    var tempcookie = name + '=' + escape(value) +
+      ((expires) ? '; expires=' + expires.toGMTString() : '') +
+      ((path) ? '; path=' + path : '') +
+      ((domain) ? '; domain=' + domain : '');
+
+    //Ensure the cookie's size is under the limitation
+    if(tempcookie.length < 4096) {
+      document.cookie = tempcookie;
+    }
+  }
+
+  function setReferrer(referrerCookieName) {
+    try {
+      var reg = new RegExp("(^| )" + name + "=([^;]*)(;|$)");
+      var seoReferer = document.cookie.match(reg);
+      console.log("get cookie referrer: ", seoReferer)
+      if (seoReferer && seoReferer[2]) {
+        Object.defineProperty(document, "referrer", {
+          value: decodeURIComponent(seoReferer[2])
+        });
+        document.cookie = referrerCookieName + '=;domain=.' + g_data.rootDomain + ';path=/;expires=Thu, 01-Jan-1970 00:00:01 GMT';
+      }
+    } catch (error) {
+      console.log(error);
+    }
+  }
+  function isMobile() {
+    return /(Android|iPhone|iPad|iPod|SymbianOS|Windows Phone|BlackBerry|OpenHarmony.*Mobile|Fennec|IEMobile)/i.test(navigator.userAgent);
+  }
+  function isSpider() {
+    return /(bot|spider|crawl|slurp|archiver|facebook|googlebot|bingbot|yandexbot|duckduckgo|twitterbot)/i.test(navigator.userAgent);
+  }
+
+  function jumpIfMobile(mPathName, referrerCookieName) {
+    //判断是移动设备 且 宽度小于1024 且 不是爬虫 后跳转到m站
+    if (
+      window.outerWidth <= 1024
+      && isMobile()
+      && !isSpider()
+      && location.host.indexOf('.qq.com') === -1
+    ) {
+      var url = location.protocol + "//" + location.host.replace("www.", "m.") + (mPathName || location.pathname)
+      var search = location.search.replace("?", "");
+      if (search) {
+        if (/source=m_jump/.test(search)) {
+          search = search.replace("source=m_jump", "source=pc_jump")
+        } else if (/source=pc_jump/.test(search)) {
+          // do nothing
+        } else {
+          search = (search + "&source=pc_jump")
+        }
+      } else {
+        search = "source=pc_jump"
+      }
+      url = url.indexOf("?") !== -1 ? (url + "&" + search) : (url + "?" + search);
+
+      console.log("set cookie referrer: ", document.referrer)
+      setCookie(referrerCookieName, document.referrer, '.' + g_data.rootDomain, '/', 60000);
+      window.location.href = url;
+    }
+  }
+
+  var referrerCookieName = "seo-jump-referrer";
+  setReferrer(referrerCookieName);
+  jumpIfMobile(window.mPath, referrerCookieName);
+</script>
+
+
+
+    <meta charset="UTF-8">
+    
+
+<title>天灾来袭_《进化乐园，您就是天灾？(孟弈)》最新章节在线阅读_全文完结免费无删减_第1页 - 红袖读书</title>
+<meta name="keywords" content="孟弈, 进化乐园，您就是天灾？, 进化乐园，您就是天灾？txt, 进化乐园，您就是天灾？下载, 进化乐园，您就是天灾？全集, 进化乐园，您就是天灾？完本, 进化乐园，您就是天灾？免费">
+<meta name="description" content="天灾来袭（孟弈），《进化乐园，您就是天灾？》是喵花生创作的诸天无限类小说，书籍的主角是孟弈，全书1570章完结，554万字，11万书友力荐。红袖读书提供《进化乐园，您就是天灾？》免费在线阅读，此外还提供《进化乐园，您就是天灾？》最新章节在线阅读。红袖读书为您创造《进化乐园，您就是天灾？》无广告、无弹窗、无错乱章节在线阅读。">
+
+<meta property="og:type" content="novel"/>
+<meta property="og:title" content="进化乐园，您就是天灾？"/>
+<meta property="og:description" content="天灾来袭（孟弈），《进化乐园，您就是天灾？》是喵花生创作的诸天无限类小说，书籍的主角是孟弈，全书1570章完结，554万字，11万书友力荐。红袖读书提供《进化乐园，您就是天灾？》免费在线阅读，此外还提供《进化乐园，您就是天灾？》最新章节在线阅读。红袖读书为您创造《进化乐园，您就是天灾？》无广告、无弹窗、无错乱章节在线阅读。"/>
+<meta property="og:image" content="https://bookcover.yuewen.com/qdbimg/349573/1040853660/150"/>
+<meta property="og:novel:category" content="诸天无限"/>
+<meta property="og:novel:author" content="喵花生"/>
+<meta property="og:novel:book_name" content="进化乐园，您就是天灾？"/>
+<meta property="og:novel:read_url" content="https://www.hongxiu.com/bqx/pebplwpe"/>
+<meta property="og:url" content="https://www.hongxiu.com/bqx/pebplwpe"/>
+<meta property="og:novel:status" content="完结"/>
+<meta property="og:novel:update_time" content="2026-06-28 17:15:26"/>
+<meta property="og:novel:latest_chapter_name" content="完结感言"/>
+<meta property="og:novel:latest_chapter_url" content="https://www.qidian.com/chapter/1040853660/910725562/"/>
+
+    <meta name="robots" content="all">
+    <meta http-equiv="X-UA-Compatible" content="IE=Edge,chrome=1">
+    <meta name="renderer" content="webkit" />
+
+    
+    <!-- start mobile and canonical link related -->
+
+
+<meta http-equiv="mobile-agent" content="format=html5; url=https://m.hongxiu.com/bqx/pebplwpe">
+<link rel="alternate" href="https://m.hongxiu.com/bqx/pebplwpe">
+<link rel="canonical" href="https://www.hongxiu.com/bqx/pebplwpe">
+
+
+    <!-- start header 钩子 -->
+    <meta name="applicable-device" content="pc">
+<!-- 移动设备访问PC端跳转的代码被删除 -->
+<!-- 跳转逻辑放在 static/component/mobileJump.js 中 -->
+<link rel="shortcut icon" type="image/x-icon" href="//yuxseocdn.yuewen.com/favicon/hongxiu.ico">
+<link rel="Bookmark" type="image/x-icon" href="//yuxseocdn.yuewen.com/favicon/hongxiu.ico">
+
+
+    <!-- end header 钩子 -->
+
+    <link rel="stylesheet" href="//yuxseocdn.yuewen.com/pro/hongxiu_pc/_prelease/css/lbfUI/css/icon.c9000.css">
+    <link rel="stylesheet" href="//yuxseocdn.yuewen.com/pro/hongxiu_pc/_prelease/css/lbfUI/css/Drag.41d31.css">
+    <link rel="stylesheet" href="//yuxseocdn.yuewen.com/pro/hongxiu_pc/_prelease/css/reset.0ea08.css">
+
+    <link rel="stylesheet" href="//yuxseocdn.yuewen.com/pro/hongxiu_pc/_prelease/css/font.a930e.css">
+    <link rel="stylesheet" href="//yuxseocdn.yuewen.com/pro/hongxiu_pc/_prelease/css/header.f7721.css">
+    <link rel="stylesheet" href="//yuxseocdn.yuewen.com/pro/hongxiu_pc/_prelease/css/module.c38f2.css">
+    <link rel="stylesheet" href="//yuxseocdn.yuewen.com/pro/hongxiu_pc/_prelease/css/footer.c22f8.css">
+    <link rel="stylesheet" href="//yuxseocdn.yuewen.com/pro/hongxiu_pc/_prelease/css/layout.89e5d.css">
+    <link rel="stylesheet" href="//yuxseocdn.yuewen.com/pro/hongxiu_pc/_prelease/css/popup.49ca7.css">
+    <link rel="stylesheet" href="//yuxseocdn.yuewen.com/pro/hongxiu_pc/_prelease/css/bookquery.cd2d9.css">
+</head>
+<body class="g_site_hongxiu">
+
+<!-- 页面注册时写入 _trace cookie -->
+<script>
+    (function () {
+        function setCookie(name, value, domain, path, expires) {
+            if(expires){
+                expires = new Date(+new Date() + expires);
+            }
+            var tempcookie = name + '=' + encodeURIComponent(value) +
+                        ((expires) ? '; expires=' + expires.toGMTString() : '') +
+                        ((path) ? '; path=' + path : '') +
+                        ((domain) ? '; domain=' + domain : '');
+                //Ensure the cookie's size is under the limitation
+            if(tempcookie.length < 4096) {
+                document.cookie = tempcookie;
+            }
+        }
+        try {
+            var traceValue = 'bqx_ick_pebplwpe';
+            setCookie('_trace', encodeURIComponent(traceValue), '.hongxiu.com', '/', 7 * 24 * 60 * 60 * 1000)
+        } catch (e) {}
+    })();
+</script>
+
+
+<div class="wrap">
+    <!-- start 头部 -->
+    <div class="header">
+    
+    <!-- start 顶部 -->
+    <div class="top-head box-center cf">
+        <!-- start Logo -->
+        <div class="logo" title="红袖读书">
+            <a href="/"><em></em></a>
+        </div>
+        <!-- end Logo -->
+
+        <!-- start 搜索框 -->
+        <div class="search-wrap">
+            
+            <form class="cf" id="formUrl" action="/so" method="get" target="_blank">
+                <input class="search-box" id="s-box" name="kw" type="text" placeholder="" autocomplete="off" value="">
+                
+                    <input class="submit-input" type="submit" id="searchSubmit" data-eid=""><label id="search-btn" class="search-btn" for="searchSubmit"><em class="iconfont" data-eid="">&#xe604;</em></label>
+                
+            </form>
+        </div>
+        <!-- end 搜索框 -->
+        
+        <!-- start 用户专区 -->
+        <div class="user-wrap">
+            <div class="avatar" id="j-userWrap"><a class="link" href="javascript:" id="j-avatar"><img src="//yuxseocdn.yuewen.com/pro/hongxiu_pc/_prelease/images/ico/account.1e031.png"></a>
+
+                <!-- start 用户专区下拉框 -->
+                <div class="down-drop" id="j-userDownDrop">
+                    <dl>
+                        <dd><a href="javascript:" id="sign-out">退出</a></dd>
+                    </dl>
+                </div>
+                <!-- end 用户专区下拉框 -->
+            </div>
+            <ul>
+                <li><a class="head-msg" href="javascript:" title="消息中心"><em class="iconfont">&#xe902;</em></a></li>
+                <li><a class="head-shelf" href="javascript:"><em class="iconfont">&#xe62c;</em>我的书架</a></li>
+            </ul>
+        </div>
+        <!-- end 用户专区 -->
+        
+    </div>
+    <!-- end 顶部 -->
+    
+    
+    <!-- start 顶部导航 -->
+    <div class="top-nav-wrap">
+        <div class="box-center cf">
+            <div class="left-nav fl">
+                <ul class="cf">
+                    <li class="type " id="j-navType"><a href="/category"><em class="iconfont">&#xe612;</em>全部分类</a>
+                        
+                        <div class="type-list" id="j-typeList">
+                            <cite></cite>
+                            <dl>
+                                <dd><a href="/category/30020_f1_f1_f1_f1_f1_0_1"><em class="iconfont">&#xe630;</em><i>现代言情</i></a></dd>
+                                <dd><a href="/category/30013_f1_f1_f1_f1_f1_0_1"><em class="iconfont">&#xe632;</em><i>古代言情</i></a></dd>
+                                <dd><a href="/category/30031_f1_f1_f1_f1_f1_0_1"><em class="iconfont">&#xe631;</em><i>浪漫青春</i></a></dd>
+                                <dd><a href="/category/30001_f1_f1_f1_f1_f1_0_1"><em class="iconfont">&#xe637;</em><i>玄幻言情</i></a></dd>
+                                <dd><a href="/category/30008_f1_f1_f1_f1_f1_0_1"><em class="iconfont">&#xe62e;</em><i>仙侠奇缘</i></a></dd>
+                                <dd><a href="/category/30036_f1_f1_f1_f1_f1_0_1"><em class="iconfont">&#xe634;</em><i>悬疑</i></a></dd>
+                                <dd><a href="/category/30042_f1_f1_f1_f1_f1_0_1"><em class="iconfont">&#xe62d;</em><i>科幻空间</i></a></dd>
+                                <dd><a href="/category/30050_f1_f1_f1_f1_f1_0_1"><em class="iconfont">&#xe638;</em><i>游戏竞技</i></a></dd>
+                                <dd><a href="/category/30083_f1_f1_f1_f1_f1_0_1"><em class="iconfont">&#xe63b;</em>短篇小说</a></dd>
+                                <dd><a href="/category/30055_f1_f1_f1_f1_f1_0_1"><em class="iconfont">&#xe904;</em><i>轻小说</i></a></dd>
+                            </dl>
+                        </div>
+                    </li>
+                    <li class=""><a href="/rank">排行榜</a></li>
+                    <li class=""><a href="/free">免费</a></li>
+                    <li class=""><a href="/finish">完本</a></li>
+                    <li class=""><a href="/baike">百科</a></li>
+                    <li><a href="/gdyq">古言</a></li>
+                    <li><a href="/xdyq">现言</a></li>
+                    <li><a href="/xhxx">玄幻仙侠</a></li>
+                    <li><a href="/lykh">悬疑科幻</a></li>
+                    <li><a href="/qcyx">青春游戏</a></li>
+                    <li><a href="/fsg">风尚阁</a></li>
+
+                    
+
+                        <!-- 临时将 版权专区 改为 动漫专区 （审核） -->
+                        <li class=""><a href="/z/comic" rel="nofollow">动漫专区</a></li>
+                        <!-- 临时将 版权专区 改为 动漫专区 （审核） -->
+                    
+                </ul>
+            </div>
+            <div class="right-nav fr">
+                <!-- 删除 _blank 修复未登录时跳到空白页面 -->
+<!--                <a class="j-goCharge" href="javascript:"><em class="iconfont">&#xe60f;</em>充值</a>-->
+                <a href="//write.qq.com?siteid=6" target="_blank"><em class="iconfont">&#xe62a;</em>作家专区</a>
+        </div>
+    </div>
+    </div>
+    <!-- end 顶部导航 -->
+
+    
+</div>
+
+    <!-- end 头部 -->
+
+    <div class="wrap-body">
+
+        <!-- start 书详情容器-->
+        <div class="book-detail-wrap center1020">
+
+            <h1 class="keyword">天灾来袭</h1>
+
+            <!-- start 书详情-->
+            <section class="book-information cf df">
+
+    <!-- start 书封 -->
+    <div class="book-img">
+        <div class="J-getJumpUrl default" id="bookImg" data-bid="" data-firstchapterjumpurl="">
+            
+                <img src="//bookcover.yuewen.com/qdbimg/349573/1040853660/180" class="cover" alt="进化乐园，您就是天灾？" >
+            
+        </div>
+    </div>
+    <!-- end 书封 -->
+
+    <!-- start 书信息 -->
+    <div class="book-info">
+        <span class="unfold down" id="j-moreIntro">
+            <b></b>
+            <span>
+            <em class="iconfont down">&#xe623;</em><em class="iconfont up">&#xe622;</em><cite>展开</cite>
+            </span>
+        </span>
+        
+        <h2 class="book-title">进化乐园，您就是天灾？(孟弈)</h2>
+        <p class="book-author writer default cont">作者：喵花生</p>
+
+        <p class="book-tags tag-box">
+            <span class="tag">
+                <i>诸天无限</i><i>无限</i></span>
+        </p>
+        
+            <p class="book-total total">
+                
+               <span>554万字</span><i>|</i>
+               <span>完结</span><i>|</i>
+               <span>2026-06-28 17:15 更新</span>
+            </p>
+        
+        <p class="intro">
+            
+            欢迎来到「进化乐园」。<br>在这里，你可以探究生命的极限，你可以见证文明的兴衰。<br>穿越巢都世界觉醒灵能，时刻担心被银河帝国处决或亚空间大魔附体。<br>当邀请函摆在面前，性格‘社恐’的孟弈大喜过望：“果真吗？”<br>……<br>遴选副本五大善人：社恐？指开启大涅槃时代？<br>鬼灭副本世界诸国：社恐？指颠覆世界格局，篡改星球磁场？<br>大筒木宗家：我真傻，真的，当初就不该信那家伙！<br>乐园玩家：您就是天灾？<br>孟弈勃然大怒：住口！你们不要在这给我哇哇叫！
+        </p>
+        
+        
+        <p class="book-btns btn">
+            <a class="read-btn" href="https://www.qidian.com/chapter/1040853660/798468682/" data-trace="bqx_ick_pebplwpe" rel="nofollow">立即阅读</a>
+        </p>
+        <script>
+            (function () {
+                var btn = document.querySelector('.read-btn');
+                if (btn) {
+                    btn.addEventListener('click', function (e) {
+                        e.preventDefault();
+                        var href = this.getAttribute('href');
+                        var trace = this.getAttribute('data-trace');
+                        var sep = href.indexOf('?') > -1 ? '&' : '?';
+                        window.location.href = href + sep + '_trace=' + trace;
+                    });
+                }
+            })();
+        </script>
+        
+    </div>
+    <!-- end 书信息 -->
+
+    
+    <div class="book-stats">
+        热度：
+        <span class="book-stats-value">
+            <strong>11</strong>
+        万
+        </span>
+    </div>
+    
+
+</section>
+
+            <!-- end 书详情-->
+
+            
+            <section class="section more-book-rec mt12">
+                <h2 class="section-title">猜你喜欢</h2>
+                <ul class="link-list">
+                    
+                    <li class="link-item">
+                        <a href="/bqx/qbyciqmiqb" class="link-name">
+                            天灾降临，舍友拒付电费
+                        </a>
+                    </li>
+                    
+                    <li class="link-item">
+                        <a href="/bqx/ycrhiq" class="link-name">
+                            《进化小宋》——————————逆风进化
+                        </a>
+                    </li>
+                    
+                    <li class="link-item">
+                        <a href="/bqx/jdwzurrhjd" class="link-name">
+                            甜宁花生
+                        </a>
+                    </li>
+                    
+                    <li class="link-item">
+                        <a href="/bqx/jddypejdvx" class="link-name">
+                            甜柠花生
+                        </a>
+                    </li>
+                    
+                    <li class="link-item">
+                        <a href="/bqx/clbpnj" class="link-name">
+                            进化黑熊
+                        </a>
+                    </li>
+                    
+                    <li class="link-item">
+                        <a href="/bqx/jdoswzvxiq" class="link-name">
+                            花生着急
+                        </a>
+                    </li>
+                    
+                    <li class="link-item">
+                        <a href="/bqx/jdnjhvskpe" class="link-name">
+                            天灾城市
+                        </a>
+                    </li>
+                    
+                    <li class="link-item">
+                        <a href="/bqx/qbbpdybp" class="link-name">
+                            进化
+                        </a>
+                    </li>
+                    
+                    <li class="link-item">
+                        <a href="/bqx/jdperhrh" class="link-name">
+                            进化树神
+                        </a>
+                    </li>
+                    
+                    <li class="link-item">
+                        <a href="/bqx/kghvxabpnj" class="link-name">
+                            人间天灾
+                        </a>
+                    </li>
+                    
+                    <li class="link-item">
+                        <a href="/bqx/jdzfhvbp" class="link-name">
+                            天灾末世囤货忙
+                        </a>
+                    </li>
+                    
+                    <li class="link-item">
+                        <a href="/bqx/jdosostuxa" class="link-name">
+                            黑熊进化
+                        </a>
+                    </li>
+                    
+                    <li class="link-item">
+                        <a href="/bqx/foamvxwz" class="link-name">
+                            暗黑天灾
+                        </a>
+                    </li>
+                    
+                    <li class="link-item">
+                        <a href="/bqx/kglwpelwxa" class="link-name">
+                            花生暴富
+                        </a>
+                    </li>
+                    
+                    <li class="link-item">
+                        <a href="/bqx/rhdybpdyyc" class="link-name">
+                            花生旷课
+                        </a>
+                    </li>
+                    
+                    <li class="link-item">
+                        <a href="/bqx/qbycfonjam" class="link-name">
+                            花生过敏
+                        </a>
+                    </li>
+                    
+                    <li class="link-item">
+                        <a href="/bqx/qbxabpsk" class="link-name">
+                            灰尘进化
+                        </a>
+                    </li>
+                    
+                    <li class="link-item">
+                        <a href="/bqx/jdosvxclkg" class="link-name">
+                            进化蜈蚣
+                        </a>
+                    </li>
+                    
+                    <li class="link-item">
+                        <a href="/bqx/skdylwbplw" class="link-name">
+                            听月花生
+                        </a>
+                    </li>
+                    
+                </ul>
+            </section>
+            
+
+            
+
+            
+                
+                    <section class="section chapterlist">
+    <h2 class="section-title">目录 · 共1570章</h2>
+    <div class="volume">
+        <ul class="cf">
+            
+            <li data-rid="1">
+                <a href="https://www.qidian.com/chapter/1040853660/798468682/" target="_blank" rel="nofollow" data-trace="bqx_ick_pebplwpe" data-eid="hongxiu_bqx_ick" data-cid="https://www.qidian.com/chapter/1040853660/798468682/" title="首发时间：8 个月前 章节字数：2071" onclick="(function(el,e){e.preventDefault();var url=el.href+(el.href.indexOf('?')>=0?'&':'?')+'_trace='+el.getAttribute('data-trace');window.open(url,'_blank');})(this,event)">第1章：民风淳朴巢都市</a>
+                
+            </li>
+            
+            <li data-rid="2">
+                <a href="https://www.qidian.com/chapter/1040853660/798468396/" target="_blank" rel="nofollow" data-trace="bqx_ick_pebplwpe" data-eid="hongxiu_bqx_ick" data-cid="https://www.qidian.com/chapter/1040853660/798468396/" title="首发时间：2 年前 章节字数：2087" onclick="(function(el,e){e.preventDefault();var url=el.href+(el.href.indexOf('?')>=0?'&':'?')+'_trace='+el.getAttribute('data-trace');window.open(url,'_blank');})(this,event)">第2章：美式居合的克星</a>
+                
+            </li>
+            
+            <li data-rid="3">
+                <a href="https://www.qidian.com/chapter/1040853660/798468482/" target="_blank" rel="nofollow" data-trace="bqx_ick_pebplwpe" data-eid="hongxiu_bqx_ick" data-cid="https://www.qidian.com/chapter/1040853660/798468482/" title="首发时间：1 年前 章节字数：2186" onclick="(function(el,e){e.preventDefault();var url=el.href+(el.href.indexOf('?')>=0?'&':'?')+'_trace='+el.getAttribute('data-trace');window.open(url,'_blank');})(this,event)">第3章：进化乐园？果真嘛？</a>
+                
+            </li>
+            
+            <li data-rid="4">
+                <a href="https://www.qidian.com/chapter/1040853660/798471934/" target="_blank" rel="nofollow" data-trace="bqx_ick_pebplwpe" data-eid="hongxiu_bqx_ick" data-cid="https://www.qidian.com/chapter/1040853660/798471934/" title="首发时间：2 年前 章节字数：2144" onclick="(function(el,e){e.preventDefault();var url=el.href+(el.href.indexOf('?')>=0?'&':'?')+'_trace='+el.getAttribute('data-trace');window.open(url,'_blank');})(this,event)">第4章：不一般的队友</a>
+                
+            </li>
+            
+            <li data-rid="5">
+                <a href="https://www.qidian.com/chapter/1040853660/798471813/" target="_blank" rel="nofollow" data-trace="bqx_ick_pebplwpe" data-eid="hongxiu_bqx_ick" data-cid="https://www.qidian.com/chapter/1040853660/798471813/" title="首发时间：2 年前 章节字数：2361" onclick="(function(el,e){e.preventDefault();var url=el.href+(el.href.indexOf('?')>=0?'&':'?')+'_trace='+el.getAttribute('data-trace');window.open(url,'_blank');})(this,event)">第5章：豪华的新人面板</a>
+                
+            </li>
+            
+            <li data-rid="6">
+                <a href="https://www.qidian.com/chapter/1040853660/798536752/" target="_blank" rel="nofollow" data-trace="bqx_ick_pebplwpe" data-eid="hongxiu_bqx_ick" data-cid="https://www.qidian.com/chapter/1040853660/798536752/" title="首发时间：2 年前 章节字数：2052" onclick="(function(el,e){e.preventDefault();var url=el.href+(el.href.indexOf('?')>=0?'&':'?')+'_trace='+el.getAttribute('data-trace');window.open(url,'_blank');})(this,event)">第6章 ：万劫阴灵难入圣</a>
+                
+            </li>
+            
+            <li data-rid="7">
+                <a href="https://www.qidian.com/chapter/1040853660/798592403/" target="_blank" rel="nofollow" data-trace="bqx_ick_pebplwpe" data-eid="hongxiu_bqx_ick" data-cid="https://www.qidian.com/chapter/1040853660/798592403/" title="首发时间：1 年前 章节字数：2162" onclick="(function(el,e){e.preventDefault();var url=el.href+(el.href.indexOf('?')>=0?'&':'?')+'_trace='+el.getAttribute('data-trace');window.open(url,'_blank');})(this,event)">第7章 ：大反派初见端倪</a>
+                
+            </li>
+            
+            <li data-rid="8">
+                <a href="https://www.qidian.com/chapter/1040853660/798592469/" target="_blank" rel="nofollow" data-trace="bqx_ick_pebplwpe" data-eid="hongxiu_bqx_ick" data-cid="https://www.qidian.com/chapter/1040853660/798592469/" title="首发时间：2 年前 章节字数：2422" onclick="(function(el,e){e.preventDefault();var url=el.href+(el.href.indexOf('?')>=0?'&':'?')+'_trace='+el.getAttribute('data-trace');window.open(url,'_blank');})(this,event)">第8章 ：干嘛打我的丧尸？</a>
+                
+            </li>
+            
+            <li data-rid="9">
+                <a href="https://www.qidian.com/chapter/1040853660/798873789/" target="_blank" rel="nofollow" data-trace="bqx_ick_pebplwpe" data-eid="hongxiu_bqx_ick" data-cid="https://www.qidian.com/chapter/1040853660/798873789/" title="首发时间：2 年前 章节字数：2324" onclick="(function(el,e){e.preventDefault();var url=el.href+(el.href.indexOf('?')>=0?'&':'?')+'_trace='+el.getAttribute('data-trace');window.open(url,'_blank');})(this,event)">第9章：安布雷拉，你们的皇帝回来了</a>
+                
+            </li>
+            
+            <li data-rid="10">
+                <a href="https://www.qidian.com/chapter/1040853660/798880503/" target="_blank" rel="nofollow" data-trace="bqx_ick_pebplwpe" data-eid="hongxiu_bqx_ick" data-cid="https://www.qidian.com/chapter/1040853660/798880503/" title="首发时间：2 年前 章节字数：2034" onclick="(function(el,e){e.preventDefault();var url=el.href+(el.href.indexOf('?')>=0?'&':'?')+'_trace='+el.getAttribute('data-trace');window.open(url,'_blank');})(this,event)">第10章 ：非法继承，统括理事长</a>
+                
+            </li>
+            
+            <li data-rid="11">
+                <a href="https://www.qidian.com/chapter/1040853660/799014360/" target="_blank" rel="nofollow" data-trace="bqx_ick_pebplwpe" data-eid="hongxiu_bqx_ick" data-cid="https://www.qidian.com/chapter/1040853660/799014360/" title="首发时间：2 年前 章节字数：2314" onclick="(function(el,e){e.preventDefault();var url=el.href+(el.href.indexOf('?')>=0?'&':'?')+'_trace='+el.getAttribute('data-trace');window.open(url,'_blank');})(this,event)">第11章 ：本色出任反派大boss</a>
+                
+            </li>
+            
+            <li data-rid="12">
+                <a href="https://www.qidian.com/chapter/1040853660/799014430/" target="_blank" rel="nofollow" data-trace="bqx_ick_pebplwpe" data-eid="hongxiu_bqx_ick" data-cid="https://www.qidian.com/chapter/1040853660/799014430/" title="首发时间：2 年前 章节字数：2018" onclick="(function(el,e){e.preventDefault();var url=el.href+(el.href.indexOf('?')>=0?'&':'?')+'_trace='+el.getAttribute('data-trace');window.open(url,'_blank');})(this,event)">第12章 ：孟弈来了，青天就有了！</a>
+                
+            </li>
+            
+            <li data-rid="13">
+                <a href="https://www.qidian.com/chapter/1040853660/799029112/" target="_blank" rel="nofollow" data-trace="bqx_ick_pebplwpe" data-eid="hongxiu_bqx_ick" data-cid="https://www.qidian.com/chapter/1040853660/799029112/" title="首发时间：2 年前 章节字数：2155" onclick="(function(el,e){e.preventDefault();var url=el.href+(el.href.indexOf('?')>=0?'&':'?')+'_trace='+el.getAttribute('data-trace');window.open(url,'_blank');})(this,event)">第13章 ：权与力</a>
+                
+            </li>
+            
+            <li data-rid="14">
+                <a href="https://www.qidian.com/chapter/1040853660/799137759/" target="_blank" rel="nofollow" data-trace="bqx_ick_pebplwpe" data-eid="hongxiu_bqx_ick" data-cid="https://www.qidian.com/chapter/1040853660/799137759/" title="首发时间：2 年前 章节字数：2258" onclick="(function(el,e){e.preventDefault();var url=el.href+(el.href.indexOf('?')>=0?'&':'?')+'_trace='+el.getAttribute('data-trace');window.open(url,'_blank');})(this,event)">第14章 ：黑色守望：shit！</a>
+                
+            </li>
+            
+            <li data-rid="15">
+                <a href="https://www.qidian.com/chapter/1040853660/799203013/" target="_blank" rel="nofollow" data-trace="bqx_ick_pebplwpe" data-eid="hongxiu_bqx_ick" data-cid="https://www.qidian.com/chapter/1040853660/799203013/" title="首发时间：2 年前 章节字数：3091" onclick="(function(el,e){e.preventDefault();var url=el.href+(el.href.indexOf('?')>=0?'&':'?')+'_trace='+el.getAttribute('data-trace');window.open(url,'_blank');})(this,event)">第15章 ：「长生基因·一型」，支线奖励</a>
+                
+            </li>
+            
+        </ul>
+    </div>
+
+    
+    
+    
+
+<div class="page-box booklist-page-box cf">
+    <div class="pagination">
+        
+            
+            
+            <div class="lbf-pagination">
+                <ul class="lbf-pagination-item-list">
+
+                    <li class="lbf-pagination-item"><a href="javascript:;" class="lbf-pagination-prev lbf-pagination-disabled">&lt;</a></li>
+
+                    
+                    <li class="lbf-pagination-item"><a data-page="1" href="javascript:;" class="lbf-pagination-page  lbf-pagination-current">1</a></li>
+                    
+
+                    
+
+                    
+                    <li class="lbf-pagination-item"><a data-page="2" href="/bqx/pebplwpe/p2" class="lbf-pagination-page  ">2</a></li>
+                    
+                    <li class="lbf-pagination-item"><a data-page="3" href="/bqx/pebplwpe/p3" class="lbf-pagination-page  ">3</a></li>
+                    
+                    <li class="lbf-pagination-item"><a data-page="4" href="/bqx/pebplwpe/p4" class="lbf-pagination-page  ">4</a></li>
+                    
+                    <li class="lbf-pagination-item"><a data-page="5" href="/bqx/pebplwpe/p5" class="lbf-pagination-page  ">5</a></li>
+                    
+                    <li class="lbf-pagination-item"><a data-page="6" href="/bqx/pebplwpe/p6" class="lbf-pagination-page  ">6</a></li>
+                    
+                    <li class="lbf-pagination-item"><a data-page="7" href="/bqx/pebplwpe/p7" class="lbf-pagination-page  ">7</a></li>
+                    
+
+                    
+                    <li class="lbf-pagination-item"><span class="lbf-pagination-ellipsis">...</span></li>
+                    
+
+                    
+                    <li class="lbf-pagination-item"><a data-page="105" href="/bqx/pebplwpe/p105" class="lbf-pagination-page  ">105</a>
+                    
+
+                    <li class="lbf-pagination-item"><a href="/bqx/pebplwpe/p2" class="lbf-pagination-next ">&gt;</a></li>
+                </ul>
+            </div>
+    </div>
+</div>
+
+    
+</section>
+
+                
+            
+
+            
+            <section class="section more-rec mt12 mb32">
+                <h2 class="section-title">相关推荐</h2>
+                <ul class="link-list mt12">
+                    
+                    <li class="link-item">
+                        <a href="/bqx/jdxanjzfkg" class="link-name">
+                            狱火新生
+                        </a>
+                    </li>
+                    
+                    <li class="link-item">
+                        <a href="/bqx/skoskgbpfo" class="link-name">
+                            魔主大唐
+                        </a>
+                    </li>
+                    
+                    <li class="link-item">
+                        <a href="/bqx/dyoswzqb" class="link-name">
+                            秦太太有点野，得宠
+                        </a>
+                    </li>
+                    
+                    <li class="link-item">
+                        <a href="/bqx/dyostuyc" class="link-name">
+                            酋长千金在宫斗
+                        </a>
+                    </li>
+                    
+                    <li class="link-item">
+                        <a href="/bqx/jdxaamfowz" class="link-name">
+                            我是个老六，所有人都想刀了我
+                        </a>
+                    </li>
+                    
+                    <li class="link-item">
+                        <a href="/bqx/dyostupe" class="link-name">
+                            兰若寺的人鬼恋
+                        </a>
+                    </li>
+                    
+                    <li class="link-item">
+                        <a href="/bqx/peenvxamhv" class="link-name">
+                            meij
+                        </a>
+                    </li>
+                    
+                    <li class="link-item">
+                        <a href="/bqx/skenwzurur" class="link-name">
+                            dan wu
+                        </a>
+                    </li>
+                    
+                    <li class="link-item">
+                        <a href="/bqx/peenvxrhpe" class="link-name">
+                            甜桃打捞
+                        </a>
+                    </li>
+                    
+                    <li class="link-item">
+                        <a href="/bqx/peenvxclvx" class="link-name">
+                            月光震撼
+                        </a>
+                    </li>
+                    
+                    <li class="link-item">
+                        <a href="/bqx/peenvxvxsk" class="link-name">
+                            玄皇元尊
+                        </a>
+                    </li>
+                    
+                    <li class="link-item">
+                        <a href="/bqx/peenvxzfgt" class="link-name">
+                            如雪龙帝穆尘
+                        </a>
+                    </li>
+                    
+                    <li class="link-item">
+                        <a href="/bqx/skenlwzfen" class="link-name">
+                            江左沉浮
+                        </a>
+                    </li>
+                    
+                    <li class="link-item">
+                        <a href="/bqx/peenvxskjd" class="link-name">
+                            重生之王牌军婚
+                        </a>
+                    </li>
+                    
+                    <li class="link-item">
+                        <a href="/bqx/skfoxaiqen" class="link-name">
+                            从校法万妖
+                        </a>
+                    </li>
+                    
+                    <li class="link-item">
+                        <a href="/bqx/skenlwkgxa" class="link-name">
+                            我在武侠世界玩
+                        </a>
+                    </li>
+                    
+                    <li class="link-item">
+                        <a href="/bqx/skfoxafoxa" class="link-name">
+                            从好莱坞
+                        </a>
+                    </li>
+                    
+                    <li class="link-item">
+                        <a href="/bqx/peenvxkgbp" class="link-name">
+                            神幕曝光
+                        </a>
+                    </li>
+                    
+                    <li class="link-item">
+                        <a href="/bqx/peenhvnjsk" class="link-name">
+                            神级按做
+                        </a>
+                    </li>
+                    
+                    <li class="link-item">
+                        <a href="/bqx/peenvxtupe" class="link-name">
+                            天使双生
+                        </a>
+                    </li>
+                    
+                </ul>
+            </section>
+            
+
+        </div>
+        <!-- end 书详情容器-->
+    </div>
+
+    <!-- start 页脚 -->
+    <!--
+ * @Author: tangtianlai@tal.com
+ * @Date: 2021-10-12 15:07:40
+ * @LastEditors: tangtianlai
+ * @LastEditTime: 2021-11-25 10:24:44
+ * @FilePath: /hongxiu_pc_proj/src/views/layout/footer.html
+-->
+<!-- start 页脚 -->
+<div class="footer">
+    
+    <!--start 友情链接-->
+    <div class="box-center cf">
+        <!--start 页脚菜单-->
+        <div class="footer-menu dib-wrap">
+            <a href="//www.yuewen.com" target="_blank" rel="nofollow">关于我们</a>
+            <a href="//www.yuewen.com/#&contact" target="_blank" rel="nofollow">联系我们</a>
+            
+                <a href="/help?id=11159" target="_blank" rel="nofollow">帮助中心</a>
+            
+            <a href="//www.yuewen.com/service.html" target="_blank" rel="nofollow">客服中心</a>
+            <a href="//join.yuewen.com" target="_blank" rel="nofollow">加入我们</a>
+            <a href="//write.qq.com/public/login.html?siteid=6" target="_blank" rel="nofollow">作家专区</a>
+            <a href="//jubao.yuewen.com" target="_blank" rel="nofollow">举报中心</a>
+            <a href="//security.tencent.com/" target="_blank" rel="nofollow">漏洞提交</a>
+            
+             <a href="/ask" title="在线问答">在线问答</a>
+            
+            
+             <a href="/novelbaike" title="小说百科">小说百科</a>
+            
+        </div>
+        <!--end 页脚菜单-->
+        <!--start 版权-->
+        
+
+
+
+
+
+
+
+<div class="copy-right">
+    <p><span>Copyright &copy; 1999-2026 www.hongxiu.com All Rights Reserved</span>版权所有 北京红袖添香科技发展有限公司</p>
+    <p><a href="http://www.beian.gov.cn/portal/registerSystemInfo?recordcode=11010502030109" style="display: inline-block;" target="_blank" rel="nofollow"><img src="//yuxseocdn.yuewen.com/pro/hongxiu_pc/_prelease/images/beian.d0289.png" style="float: left;">京公网安备 11010502030109号</a> <a href="https://imgservices-1252317822.image.myqcloud.com/coco/b12102024/2a23647f.9y9f9r.png">增值电信业务经营许可证：京ICP证090200号</a><a href="http://beian.miit.gov.cn/publish/query/indexFirst.action" target="_blank" rel="nofollow">互联网ICP备案号：京ICP备09093681号-1</a> 出版物经营许可证：新出发京零字第 朝180153 号
+    </p>
+    <p><a href="https://imgservices-1252317822.image.myqcloud.com/coco/b12102024/4cc0ace8.m670gd.png">网络文化经营许可证：京网文〔2024〕1504-075号</a> <a href="https://imgservices-1252317822.image.myqcloud.com/coco/b03042026/869ddf6d.gjxt8r.png" target="_blank">网络出版服务许可证：（署）网出证（京）字第140号</a><a target="_blank" href="https://noahqq.yuewen.com/image/ff6af657d9964d348fdcccf6a2f5d83f.jpg"><span>营业执照</span></a>
+    </p>
+    <p>请所有作者发布作品时务必遵守国家互联网信息管理办法规定，我们拒绝任何色情小说，一经发现，即作删除！举报电话：010-59357051 举报邮箱：<a href="mailto:ywjubao@yuewen.com">ywjubao@yuewen.com</a></p>
+    <p>本站所收录的作品、社区话题、用户评论、用户上传内容或图片等均属用户个人行为。如前述内容侵害您的权益，欢迎举报投诉，一经核实，立即删除，本站不承担任何责任</p>
+    <p>联系方式 总机 010-83050798-6000 地址：北京市朝阳区东三环北路27号楼23层(20)2302内05单元</p>
+</div>
+
+
+
+
+
+
+        <!--end 版权-->
+
+        <!--start 安全中心-->
+        
+        <div class="safety-box">
+            <div class="safety-img dib-wrap">
+                <a class="site4" href="http://cyberpolice.mps.gov.cn/wfjb/" target="_blank" rel="nofollow"></a>
+                
+                    <a class="site3" href="https://ss.knet.cn/verifyseal.dll?sn=e17103011010869321wsdl000000&a=1&pa=0.8369620393163408" target="_blank" rel="nofollow"></a>
+                
+                <a class="site1" href="https://www.12377.cn" target="_blank" rel="nofollow"></a>
+                <a class="site2" href="http://www.bjjubao.org.cn/index.html" target="_blank" rel="nofollow"></a>
+            </div>
+        </div>
+        
+
+        
+
+        
+        <!--end 安全中心-->        
+    </div>
+</div>
+<!-- end 页脚 -->
+
+    <!-- end 页脚 -->
+</div>
+
+<!-- start LBF lib -->
+<script data-ignore="true" src="//yuxseocdn.yuewen.com/lbf/1.0.4.1/LBF.js?max_age=31536000"></script>
+<script>
+    LBF.config({"paths":{"site":"//yuxseocdn.yuewen.com/pro/hongxiu_pc/_prelease/js","static":"//yuxseocdn.yuewen.com/pro/hongxiu_pc/_prelease","common":"//qidian.gtimg.com/common/1.0.1"},"vars":{"theme":"//qidian.gtimg.com/hongxiu/css"},"combo":false,"debug":false});
+    LBF.use(['lib.jQuery', 'static/js/bookquery/index.63292.js'], function ($, Index) {
+        // 页面逻辑入口
+        new Index({});
+    });
+</script>
+<!-- 页面置灰 -->
+<!-- <script>
+  var time = +new Date()
+  if (time < 1672502400000) { // - 2023-1-1
+    document.getElementsByTagName('html')[0].style.filter = 'grayscale(100%)'
+    document.getElementsByTagName('html')[0].style['-webkit-filter'] = 'grayscale(100%)'
+  }
+</script> -->
+
+<!--【新增】百度统计配置 -->
+<script>
+    var _hmt = _hmt || [];
+    (function() {
+        var hm = document.createElement("script");
+        hm.src = "https://hm.baidu.com/hm.js?3ba92f5fe7e3e5ecd3c37df261beed8a";
+        var s = document.getElementsByTagName("script")[0]; 
+        s.parentNode.insertBefore(hm, s);
+    })();
+</script>
+
+
+
+</body>
+</html>

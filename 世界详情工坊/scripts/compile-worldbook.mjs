@@ -53,13 +53,22 @@ function validate(doc) {
   if (!doc.name) errors.push('缺文件首行 `# 世界名` 标题');
   const world = byName.get(doc.name);
   if (doc.name && !world) errors.push(`世界名「${doc.name}」不在清单里（错别字？全名不精确？对照 清单/manifest.json）`);
-  const plot = doc.sections['剧情'], entry = doc.sections['阶位切入点'], src = doc.sections['来源'];
+  const isLeisure = world && world.lib === '休闲';
+  const plot = doc.sections['剧情'], src = doc.sections['来源'];
+  const entry = doc.sections['阶位切入点'] || doc.sections['休闲切入点'];
+  const entryLabel = isLeisure ? '休闲切入点' : '阶位切入点';
+  const minPlot = isLeisure ? MIN_PLOT_LEISURE : MIN_PLOT;
   if (!plot) errors.push('缺 `## 剧情` 段');
-  if (!entry) errors.push('缺 `## 阶位切入点` 段');
-  if (plot && charCount(plot) < MIN_PLOT) errors.push(`剧情 ${charCount(plot)} 字 < ${MIN_PLOT}（去空白计）`);
+  if (!entry) errors.push(`缺 \`## ${entryLabel}\` 段`);
+  else if (isLeisure && doc.sections['阶位切入点']) warnings.push('休闲世界应用 `## 休闲切入点`（写的是「阶位切入点」——休闲世界无阶位/战力）');
+  if (plot && charCount(plot) < minPlot) errors.push(`剧情 ${charCount(plot)} 字 < ${minPlot}（去空白计）`);
   if (entry && charCount(entry) < MIN_ENTRY) errors.push(`切入点 ${charCount(entry)} 字 < ${MIN_ENTRY}`);
-  if (plot) for (const seg of ['【作品来源】', '【世界观 · 力量体系】', '【世界剧情线】', '【主要人物】', '【贵重物品】', '【隐藏剧情 · 伏笔】'])
-    if (!plot.includes(seg)) errors.push(`剧情缺必备段落 ${seg}`);
+  // 必备段落按 lib 分流：休闲＝情感/角色向；主库＝力量/剧情向
+  const REQ = isLeisure
+    ? ['【作品来源】', '【世界观 · 舞台设定】', '【故事主线 · 情感线】', '【可攻略角色 / 主要人物】', '【氛围基调 · 雷区】']
+    : ['【作品来源】', '【世界观 · 力量体系】', '【世界剧情线】', '【主要人物】', '【贵重物品】', '【隐藏剧情 · 伏笔】'];
+  if (plot) for (const seg of REQ) if (!plot.includes(seg)) errors.push(`剧情缺必备段落 ${seg}`);
+  if (isLeisure && plot && /力量体系|战力|阶位|巅峰战力/.test(plot)) warnings.push('休闲世界剧情出现「力量体系/战力/阶位」等战斗向措辞，应改写为日常/情感向');
   if (world && world.lib === '主库') {
     if (plot && !plot.includes('乐园阶位映射')) errors.push('剧情缺「乐园阶位映射」锚定行（须对照 参考/阶位战力图鉴.md，工单铁令7）');
     if (entry && !entry.includes('阶位↔')) errors.push('切入点缺开头「阶位↔」对照行（须对照 参考/阶位战力图鉴.md）');
@@ -81,7 +90,7 @@ function validate(doc) {
 function report(doc, v) {
   const status = v.errors.length ? '✗ 不过关' : v.warnings.length ? '△ 过关(有警告)' : '✓ 过关';
   console.log(`\n${status}  ${doc.name || path.basename(doc.file)}  [${path.relative(ROOT, doc.file)}]`);
-  const plot = doc.sections['剧情'], entry = doc.sections['阶位切入点'];
+  const plot = doc.sections['剧情'], entry = doc.sections['阶位切入点'] || doc.sections['休闲切入点'];
   if (plot || entry) console.log(`   剧情 ${charCount(plot)} 字 · 切入点 ${charCount(entry)} 字`);
   for (const e of v.errors) console.log(`   [错误] ${e}`);
   for (const w of v.warnings) console.log(`   [警告] ${w}`);
@@ -130,9 +139,10 @@ for (const file of walkMd(OUT_DIR)) {
     uid: base, key: [doc.name], keysecondary: [], comment: `${doc.name}·剧情`,
     content: doc.sections['剧情'], constant: false, selective: true, enabled: true, order: base, position: 0,
   };
+  const cutLabel = lib === '休闲' ? '休闲切入点' : '阶位切入点';
   books[lib][base + 1] = {
-    uid: base + 1, key: [doc.name], keysecondary: ['切入点'], comment: `${doc.name}·阶位切入点`,
-    content: doc.sections['阶位切入点'], constant: false, selective: true, enabled: true, order: base + 1, position: 0,
+    uid: base + 1, key: [doc.name], keysecondary: ['切入点'], comment: `${doc.name}·${cutLabel}`,
+    content: doc.sections['阶位切入点'] || doc.sections['休闲切入点'], constant: false, selective: true, enabled: true, order: base + 1, position: 0,
   };
 }
 
