@@ -5,6 +5,9 @@ import { READING_FONTS, readingFontStack } from '../systems/readingFonts';
 import { UI_THEMES } from '../systems/uiThemes';
 import { toSTPreset, toStRegexScript, toStRegexScripts } from '../systems/stPresetExport';
 import { runRegexReplace, compileFindRegex } from '../systems/regexEngine';   // 正则试跑预览：与 App.applyRegex 同一编译/替换引擎，预览即实况
+// 本地网关（仿 SillyTavern 本地后端）：?raw 内嵌脚本源码 → 设置页一键下载，玩家不需要 clone 仓库；与 tools/ 下文件同源零漂移
+import localGatewaySrc from '../../tools/local-gateway/local-gateway.mjs?raw';
+import localGatewayBat from '../../tools/local-gateway/启动本地网关.bat?raw';
 import { ADVANCE_PRESET_BUILTINS, PLOT_CHOICES_RULE } from '../promptRules';
 import { useDbAdvance } from '../store/dbAdvanceStore';   // 数据库推进管线（Stitches 规划层）
 import PromptCenterPanel from './PromptCenterPanel';   // 预设中心：各功能主提示词编辑页
@@ -2014,15 +2017,20 @@ function PresetEntryEditor({ entry, onChange, onClose }: {
 ════════════════════════════════════════════ */
 const PLACEMENT_LABELS: Record<number, string> = { 0: '用户输入', 1: 'AI输出' };
 
-/* 下载正则脚本 JSON（ST 原生格式，酒馆可直接导入） */
-function downloadRegexJson(name: string, data: unknown) {
-  const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+/* 通用：把文本内容作为文件下载 */
+function downloadTextFile(name: string, text: string, mime = 'application/octet-stream') {
+  const blob = new Blob([text], { type: mime });
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
   a.href = url;
-  a.download = `${(name || 'regex').replace(/[\\/:*?"<>|]/g, '_')}.json`;
+  a.download = name;
   document.body.appendChild(a); a.click(); a.remove();
   setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
+
+/* 下载正则脚本 JSON（ST 原生格式，酒馆可直接导入） */
+function downloadRegexJson(name: string, data: unknown) {
+  downloadTextFile(`${(name || 'regex').replace(/[\\/:*?"<>|]/g, '_')}.json`, JSON.stringify(data, null, 2), 'application/json');
 }
 
 /* 试跑一条脚本（含 App.applyRegex 同款「未命中自动补 s/dotAll 重试」）；宏不展开（以运行时为准） */
@@ -2301,8 +2309,34 @@ function ApiLibrarySection() {
   const [testById, setTestById] = useState<Record<string, { ok: boolean; msg: string } | undefined>>({});
   const [vImport, setVImport] = useState<Record<string, { ok: boolean; msg: string } | undefined>>({});
   const [gwUrl, setGwUrl] = useState(() => { try { return localStorage.getItem('drpg-gateway-url') || ''; } catch { return ''; } });
+  const [gwTesting, setGwTesting] = useState(false);
+  const [gwTest, setGwTest] = useState<{ ok: boolean; msg: string } | null>(null);
 
   const inputCls = 'w-full bg-void border border-edge rounded px-2 py-1 text-[13px] font-mono text-slate-200 outline-none focus:border-god';
+
+  /* 测试本地网关连通：优先 /health（一键脚本有）；老式 wrangler dev worker 无 /health → 探 /api/gw/proxy 空参的 400 特征响应也算活着 */
+  async function testLocalGateway() {
+    const base = gwUrl.trim().replace(/\/+$/, '').replace(/\/api\/gw\/proxy$/, '');
+    if (!base) { setGwTest({ ok: false, msg: '先填地址（本机默认 http://localhost:8787）' }); return; }
+    setGwTesting(true); setGwTest(null);
+    const timedFetch = async (u: string) => {
+      const ac = new AbortController();
+      const t = setTimeout(() => ac.abort(), 5000);
+      try { return await fetch(u, { signal: ac.signal }); } finally { clearTimeout(t); }
+    };
+    try {
+      const r = await timedFetch(base + '/health');
+      const j = await r.json().catch(() => null);
+      if (r.ok && j?.ok) { setGwTest({ ok: true, msg: `✓ 已连通 ${j.service || '网关'} v${j.version || '?'} —— 代理转发已优先走它（家宽 IP）` }); return; }
+      // /health 不存在（老式 worker）→ 探通用代理路由：空 ?url= 会回 400 + 特征报错，仍证明网关活着
+      const r2 = await timedFetch(base + '/api/gw/proxy');
+      const j2 = await r2.json().catch(() => null);
+      if (String(j2?.error?.message || '').includes('代理')) { setGwTest({ ok: true, msg: '✓ 已连通（wrangler dev worker）—— 代理转发已优先走它' }); return; }
+      setGwTest({ ok: false, msg: `✗ 有响应但不像网关（HTTP ${r.status}）——地址填对了吗？` });
+    } catch {
+      setGwTest({ ok: false, msg: '✗ 连不上——先双击「启动本地网关.bat」（下方可下载），窗口开着别关，再点我' });
+    } finally { setGwTesting(false); }
+  }
 
   // Vertex：直接导入服务账号 JSON 文件 → 校验 → 转 base64 存进 apiKey（HTTP header 安全；worker 本地解码用）
   function importVertexJson(epId: string, file: File) {
@@ -2377,12 +2411,27 @@ function ApiLibrarySection() {
   return (
     <div className="space-y-3">
       <SectionTitle title="API 接口库" desc="统一填写并管理 LLM 接口（可多条）。各功能的 API 设置页可「⚡ 接口库快捷填入」，不必逐个手填。Key 仅存本地浏览器。" />
-      <div className="rounded-lg border border-edge/60 bg-panel px-3 py-2 space-y-1">
-        <div className="text-[12px] font-mono text-dim/60">本地网关地址<span className="text-dim/40">（选填 · 解决「本地能用、线上 403」的 IP 锁定中转，仿 SillyTavern 本地后端）</span></div>
+      <div className="rounded-lg border border-edge/60 bg-panel px-3 py-2 space-y-1.5">
+        <div className="text-[12px] font-mono text-dim/60">本地网关地址<span className="text-dim/40">（选填 · 让中转看到你家 IP＝SillyTavern 本地后端同款待遇，专治「酒馆能用、网页被拒/403/被盾」）</span></div>
         <input value={gwUrl}
-          onChange={(e) => { const v = e.target.value; setGwUrl(v); try { v.trim() ? localStorage.setItem('drpg-gateway-url', v.trim()) : localStorage.removeItem('drpg-gateway-url'); } catch { /* ignore */ } }}
+          onChange={(e) => { const v = e.target.value; setGwUrl(v); setGwTest(null); try { v.trim() ? localStorage.setItem('drpg-gateway-url', v.trim()) : localStorage.removeItem('drpg-gateway-url'); } catch { /* ignore */ } }}
           placeholder="留空=云端网关；本机填 http://localhost:8787；手机填 http://电脑局域网IP:8787" className={inputCls} />
-        <div className="text-[11px] text-dim/40 font-mono">填了之后，中转经「你本地跑的 worker（你家 IP）」转发，中转看到的是你家 IP（和本地直连一样）。需先在 multiplayer-worker 跑 <code className="text-god">npx wrangler dev</code>。</div>
+        <div className="flex items-center gap-2 flex-wrap">
+          <button onClick={() => void testLocalGateway()} disabled={gwTesting || !gwUrl.trim()}
+            className="text-[12px] font-mono px-2.5 py-1 rounded border border-god/40 text-god hover:bg-god/10 disabled:opacity-40 transition-colors">{gwTesting ? '◌ 测试中…' : '🔌 测试连通'}</button>
+          <button onClick={() => { downloadTextFile('local-gateway.mjs', localGatewaySrc); setTimeout(() => downloadTextFile('启动本地网关.bat', localGatewayBat), 250); }}
+            title="下载网关脚本 + Windows 启动器（两个文件，请放进同一个文件夹；浏览器若询问「下载多个文件」请允许）"
+            className="text-[12px] font-mono px-2.5 py-1 rounded border border-edge text-dim hover:border-god/40 hover:text-god transition-colors">⬇ 下载启动器（脚本+.bat）</button>
+          {gwTest && <span className={`text-[12px] font-mono ${gwTest.ok ? 'text-god' : 'text-blood'}`}>{gwTest.msg}</span>}
+        </div>
+        <div className="text-[11px] text-dim/40 font-mono leading-relaxed">
+          网页出于浏览器安全<span className="text-slate-300">不能替你启动本地程序</span>，所以是「一次下载、之后双击」：
+          ① 点上方下载，两个文件放<span className="text-slate-300">同一文件夹</span>（电脑需装过 <a href="https://nodejs.org/" target="_blank" rel="noopener noreferrer" className="text-god hover:underline">Node.js</a>，LTS 一路下一步）；
+          ② 双击 <code className="text-god">启动本地网关.bat</code>，窗口保持开着；
+          ③ 上方填 <code className="text-god">http://localhost:8787</code> → 点「测试连通」。
+          之后所有代理转发<span className="text-god">优先走本机（你家宽带 IP）</span>；脚本没开会自动回退云端网关，游戏不受影响。
+          手机玩：与电脑同一 WiFi，填电脑局域网 IP（个别浏览器在 https 站点会拦局域网 http 请求）。仓库用户也可直接跑 <code>tools/local-gateway/</code> 下的同名文件。
+        </div>
       </div>
       <div className="border border-edge rounded-lg bg-panel divide-y divide-edge/50">
         {(library ?? []).length === 0 && (

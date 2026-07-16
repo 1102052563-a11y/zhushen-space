@@ -46,15 +46,16 @@ export function narrativeLangDirective(): string {
     + `一句话：**给玩家读的散文、名称、说明句 → ${name}；喂给程序解析的结构/字段/枚举/数字/模块标题 → 照旧中文。**`;
 }
 
-// 默认云端网关；可被「本地网关地址」覆盖（localStorage drpg-gateway-url），用于走你本地 worker（你家 IP，仿 SillyTavern 本地后端）
+// 默认云端网关；可被「本地网关地址」覆盖（localStorage drpg-gateway-url），用于走你本地网关脚本（你家 IP，仿 SillyTavern 本地后端）
 const GW_DEPLOYED = 'https://zhushen-multiplayer.1102052563.workers.dev/api/gw/proxy';
-/** 当前生效的网关代理地址：填了「本地网关地址」就用本地 worker（你家 IP），否则用云端 */
+/** 用户填写的「本地网关地址」原文（未填=''）。tools/local-gateway/local-gateway.mjs 一键脚本或本地 wrangler dev 均可。 */
+export function localGatewayUrl(): string {
+  try { return ((typeof localStorage !== 'undefined' ? localStorage.getItem('drpg-gateway-url') : '') || '').trim(); } catch { return ''; }
+}
+/** 当前生效的网关代理地址：填了「本地网关地址」就用本地网关（你家 IP），否则用云端 */
 export function gwProxyBase(): string {
-  try {
-    const u = (typeof localStorage !== 'undefined' ? localStorage.getItem('drpg-gateway-url') : '') || '';
-    const t = u.trim().replace(/\/+$/, '');
-    if (t) return /\/api\/gw\/proxy$/.test(t) ? t : t + '/api/gw/proxy';
-  } catch { /* ignore */ }
+  const t = localGatewayUrl().replace(/\/+$/, '');
+  if (t) return /\/api\/gw\/proxy$/.test(t) ? t : t + '/api/gw/proxy';
   return GW_DEPLOYED;
 }
 /* ── 仿 fanren：按 origin 记忆「直连失败过」的源 ──
@@ -79,9 +80,21 @@ function isAbortError(e: unknown): boolean {
   return !!e && typeof e === 'object' && (e as { name?: string }).name === 'AbortError';
 }
 /* 服务端转发（绕过浏览器 SSL/混合内容/CORS）：
+   ⓪ 填了「本地网关地址」→ **最优先**走本地网关（你家 IP，仿 SillyTavern 本地后端）：
+      同源 Pages 代理和云端 worker 的出口都是 Cloudflare 机房 IP，救不了「按 IP 风控/拒机房段」的中转——
+      用户显式配置本地网关就是点名要家宽 IP，必须压过同源代理（否则部署站上填了也永远轮不到，形同虚设）。
+      本地网关连不上（脚本没开）→ 自动降级走下面的常规链路，不影响使用。
    ① 部署环境优先**同源** /proxy（真实地址放 X-Upstream 头）——proxy 调用本身同源、无 CORS、零外部依赖，与 fanren 的 /api/llm-proxy 同款；
-   ② 同源代理缺失(本地 dev / 非 Pages 部署) → 回退跨站网关 worker（?url=，仿 SillyTavern 后端转发）。*/
+   ② 同源代理缺失(本地 dev / 非 Pages 部署) → 回退跨站云端网关 worker（?url=，仿 SillyTavern 后端转发）。*/
 async function fetchViaProxy(url: string, init?: RequestInit): Promise<Response> {
+  if (localGatewayUrl()) {
+    try {
+      return await fetch(`${gwProxyBase()}?url=${encodeURIComponent(url)}`, init);   // gwProxyBase 此时=本地网关
+    } catch (e) {
+      if (isAbortError(e)) throw e;                                     // 用户中止：原样抛，不降级
+      console.warn('[代理] 本地网关连不上（脚本未启动？），本次回退同源/云端代理。要用家宽 IP 转发请双击「启动本地网关.bat」', e);
+    }
+  }
   if (sameOriginProxyAvailable()) {
     try {
       const headers = new Headers(init?.headers as HeadersInit | undefined);
@@ -91,7 +104,7 @@ async function fetchViaProxy(url: string, init?: RequestInit): Promise<Response>
       if (r.headers.has('access-control-allow-origin')) return r;
     } catch { /* 同源代理不可用 → 落网关 */ }
   }
-  return await fetch(`${gwProxyBase()}?url=${encodeURIComponent(url)}`, init);
+  return await fetch(`${GW_DEPLOYED}?url=${encodeURIComponent(url)}`, init);   // 云端兜底（走到这里时本地网关已失败/未配置，不能再用 gwProxyBase）
 }
 /** 先直连中转；若因 SSL / CORS / 混合内容失败，自动改走服务端代理转发。
  *  傻瓜化：用户只管粘地址；http/裸IP/无CORS 的公网中转会被自动救活。

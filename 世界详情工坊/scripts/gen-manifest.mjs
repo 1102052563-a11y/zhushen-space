@@ -84,7 +84,8 @@ const all = [...mainList, ...leisureList].map((w) => ({
 
 // ── 合并「新增世界」（判重新加·据 maxTier 生成覆盖阶位 一~maxTier）──
 // 读取 清单/新增世界*.json 全部（分批加时各写一个文件即可，按文件名排序）
-let extraCount = 0;
+let extraCount = 0;      // 新增·战斗(主库轨道)
+let extraLeisure = 0;    // 新增·休闲(休闲轨道·leisure:true)
 {
   const extraFiles = fs.readdirSync(OUT_DIR).filter((f) => /^新增世界.*\.json$/.test(f)).sort();
   const extra = extraFiles.flatMap((f) => JSON.parse(fs.readFileSync(path.join(OUT_DIR, f), 'utf8')).worlds || []);
@@ -92,6 +93,19 @@ let extraCount = 0;
   for (const e of extra) {
     if (!e.name || existing.has(e.name)) continue;   // 与主/休闲/彼此判重
     existing.add(e.name);
+    // 休闲世界（leisure:true 或 lib:'休闲'）：无阶位/战力，走休闲轨道
+    if (e.leisure === true || e.lib === '休闲') {
+      all.push({
+        name: e.name,
+        lib: '休闲',
+        tiers: ['休闲'],
+        ids: {},
+        blurb: e.cat ? `【新增·${e.cat}】` : '【新增·休闲】',
+        source: '新增',
+      });
+      extraLeisure++;
+      continue;
+    }
     const mt = Math.max(1, Math.min(9, e.maxTier || 1));
     all.push({
       name: e.name,
@@ -109,12 +123,12 @@ let extraCount = 0;
 
 fs.mkdirSync(OUT_DIR, { recursive: true });
 fs.writeFileSync(path.join(OUT_DIR, 'manifest.json'), JSON.stringify({
-  stats: { 主库: mainList.length, 休闲: leisureList.length, 新增: extraCount, 合计: all.length },
+  stats: { 主库: mainList.length, 休闲: leisureList.length, 新增战斗: extraCount, 新增休闲: extraLeisure, 合计: all.length },
   worlds: all,
 }, null, 1), 'utf8');
 
 // ── 批次表：5 个一批 ──
-const lines = ['# 批次表（5 个/批 · 按目录顺序）', '', `> 主库 ${mainList.length} + 休闲 ${leisureList.length} + 新增 ${extraCount} = ${all.length} 个世界，共 ${Math.ceil(all.length / 5)} 批。`, '> 完成一个划一个勾；实惠模型产出放 产出/批次NN/。新增世界的阶位＝一阶..最高阶(据战力图鉴)，峰值超阶者标注。', ''];
+const lines = ['# 批次表（5 个/批 · 按目录顺序）', '', `> 主库 ${mainList.length} + 休闲 ${leisureList.length} + 新增战斗 ${extraCount} + 新增休闲 ${extraLeisure} = ${all.length} 个世界，共 ${Math.ceil(all.length / 5)} 批。`, '> 完成一个划一个勾；实惠模型产出放 产出/批次NN/。战斗世界阶位＝一阶..最高阶(据战力图鉴)，峰值超阶者标注；休闲世界走休闲轨道(无阶位·见 README)。', ''];
 const firstExtraIdx = all.findIndex((w) => w.source === '新增');
 for (let i = 0; i < all.length; i += 5) {
   const nn = String(Math.floor(i / 5) + 1).padStart(3, '0');
@@ -131,5 +145,5 @@ for (let i = 0; i < all.length; i += 5) {
 }
 fs.writeFileSync(path.join(OUT_DIR, '批次表.md'), lines.join('\n'), 'utf8');
 
-console.log(`manifest.json：主库 ${mainList.length} + 休闲 ${leisureList.length} + 新增 ${extraCount} = ${all.length} 个世界`);
+console.log(`manifest.json：主库 ${mainList.length} + 休闲 ${leisureList.length} + 新增战斗 ${extraCount} + 新增休闲 ${extraLeisure} = ${all.length} 个世界`);
 console.log(`批次表.md：${Math.ceil(all.length / 5)} 批 · 新增世界从批次 ${firstExtraIdx >= 0 ? String(Math.floor(firstExtraIdx / 5) + 1).padStart(3, '0') : '—'} 起`);

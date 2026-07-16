@@ -9360,6 +9360,36 @@ ${lines}`;
         let aborted = false;
         progImgRef.current = { offset: 0, dispatched: 0 };   // 「边写边出」：每回合开始重置已派发段落
 
+        // ── 流式 UI 节流合帧（搬 SillyTavern「只动一条消息」的本质）──
+        // 旧版每个 SSE 分片都 setMessages：模型快时每秒几十次整 App 重渲，且流式楼层每分片对**全文**重跑
+        // streamVisibleNarrative + HTML 管线（O(n²)）→ 正文越长出字越慢、主线程被渲染占死后连读流本身都被饿着。
+        // 现在：网络读取照旧逐分片累积（parse 循环里只做便宜的字符串拼接+复读预检），UI 刷新最多每 FLUSH_MS 一次；
+        // 窗口内最后一批分片由尾随 timer 兜底必刷。⚠ 退出流式循环时必须 cancelStreamFlush()——
+        // 否则挂起的节流帧会迟到，覆盖掉后面已结算/已清洗的正文。
+        const FLUSH_MS = 100;
+        let lastFlushAt = 0;
+        let flushTimer: ReturnType<typeof setTimeout> | null = null;
+        let flushDirty = false;
+        const flushStreamUi = () => {
+          flushDirty = false;
+          lastFlushAt = Date.now();
+          if (isOutline) { opts.onDelta?.(accumulated); return; }   // 细纲：流式喂进弹窗（自己剥 <剧情推演>，喂全量）
+          // 流式隐藏思维链：预填了 <think>（强制思维链）或内容以 <think 开头时，闭合前整段是思考 → 只显示 </think> 之后的正文，
+          // 思考中显示占位（不把思考直播给读者）；普通(无思考)内容原样、零改动、不闪烁。最终仍由 stripLeakedThinking 兜底剥净。
+          const vis = streamVisibleNarrative(accumulated, prefilledOpenThink);
+          setMessages((prev) =>
+            prev.map((m) => m.id === streamMsgId ? { ...m, content: vis === null ? '💭 思考中……' : vis } : m)
+          );
+          if (vis) maybeDispatchProgressiveImages(vis, streamMsgId);   // 「边写边出」只对已显现的正文配图，绝不给思考配图（细纲不配图）
+        };
+        const scheduleStreamFlush = () => {
+          flushDirty = true;
+          if (flushTimer) return;   // 已有待刷帧：本窗口内后续分片并进同一帧
+          const wait = Math.max(0, FLUSH_MS - (Date.now() - lastFlushAt));
+          flushTimer = setTimeout(() => { flushTimer = null; if (flushDirty) flushStreamUi(); }, wait);
+        };
+        const cancelStreamFlush = () => { if (flushTimer) { clearTimeout(flushTimer); flushTimer = null; } flushDirty = false; };
+
         try {
           while (true) {
             const { done, value } = await reader.read();
@@ -9384,16 +9414,7 @@ ${lines}`;
                   // 折叠后它不再膨胀（解析/渲染都有界）；卡死的复读循环本就不会再吐 <state>，折叠不影响后续状态解析。
                   if (accumulated.length > 64 && /(.{1,8}?)\1{7,}$/s.test(accumulated.slice(-128)))
                     accumulated = collapseRunaway(accumulated);
-                  if (isOutline) opts.onDelta?.(accumulated);   // 细纲：流式喂进弹窗（自己剥 <剧情推演>，喂全量）
-                  else {
-                    // 流式隐藏思维链：预填了 <think>（强制思维链）或内容以 <think 开头时，闭合前整段是思考 → 只显示 </think> 之后的正文，
-                    // 思考中显示占位（不把思考直播给读者）；普通(无思考)内容原样、零改动、不闪烁。最终仍由 stripLeakedThinking 兜底剥净。
-                    const vis = streamVisibleNarrative(accumulated, prefilledOpenThink);
-                    setMessages((prev) =>
-                      prev.map((m) => m.id === streamMsgId ? { ...m, content: vis === null ? '💭 思考中……' : vis } : m)
-                    );
-                    if (vis) maybeDispatchProgressiveImages(vis, streamMsgId);   // 「边写边出」只对已显现的正文配图，绝不给思考配图（细纲不配图）
-                  }
+                  scheduleStreamFlush();   // UI 更新合帧：最多每 FLUSH_MS 刷一次（含细纲弹窗）
                 }
               } catch { /* 忽略解析失败的行 */ }
             }
@@ -9401,6 +9422,8 @@ ${lines}`;
         } catch (streamErr: any) {
           if (streamErr?.name === 'AbortError') aborted = true;   // 用户手动停止
           else throw streamErr;
+        } finally {
+          cancelStreamFlush();   // 流式结束/中止/异常：取消挂起的节流帧，防止迟到帧覆盖下面的结算/部分正文
         }
 
         if (aborted) {
