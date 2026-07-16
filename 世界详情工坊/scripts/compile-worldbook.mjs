@@ -15,7 +15,8 @@ const REPO = path.resolve(ROOT, '..');
 const OUT_DIR = path.join(ROOT, '产出');
 const LIST_DIR = path.join(ROOT, '清单');
 const WB_DIR = path.join(REPO, '世界书');
-const MIN_PLOT = 10000;    // 剧情最少字数（去空白后）
+const MIN_PLOT = 10000;         // 主库(战斗世界)剧情最少字数（去空白后）
+const MIN_PLOT_LEISURE = 6000;  // 休闲世界剧情最少字数（角色/情感为主·门槛略低）
 const MIN_ENTRY = 1500;    // 切入点最少字数
 const MIN_SOURCES = 3;
 
@@ -33,7 +34,7 @@ function parseMd(file) {
   const meta = {};
   if (metaM) for (const kv of metaM[1].trim().split(/\s+/)) { const [k, v] = kv.split('='); if (k && v) meta[k] = v; }
   const sections = {};
-  const secRe = /^##\s+(剧情|阶位切入点|来源)\s*$/gm;
+  const secRe = /^##\s+(剧情|阶位切入点|休闲切入点|来源)\s*$/gm;
   const marks = [];
   let m;
   while ((m = secRe.exec(text)) !== null) marks.push({ name: m[1], start: m.index, bodyStart: m.index + m[0].length });

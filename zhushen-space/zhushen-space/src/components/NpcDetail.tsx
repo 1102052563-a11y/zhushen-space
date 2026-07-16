@@ -1894,18 +1894,26 @@ function RelationTab({ npc, list, onSelect }: { npc: NpcRecord; list: NpcRecord[
 /* ────────── 记忆（生平压缩 short/long）NPC/主角共用 ────────── */
 export function CharMemoryView({ charId }: { charId: string }) {
   const mem = useCharacters((s) => s.characters[charId]?.memory);
+  const removeMemoryEntry = useCharacters((s) => s.removeMemoryEntry);
   const short = mem?.shortTerm ?? [];
   const long = mem?.longTerm ?? [];
   if (short.length === 0 && long.length === 0) return null;
-  const row = (e: { time: string; location: string; content: string }, i: number) => (
-    <div key={i} className="rounded-lg bg-void/40 border border-edge/60 px-3 py-2">
-      {(e.time || e.location) && (
-        <div className="flex flex-wrap gap-2 text-[12px] font-mono text-dim/50 mb-0.5">
-          {e.time && <span>🕒 {e.time}</span>}
-          {e.location && <span>📍 {e.location}</span>}
-        </div>
-      )}
-      <div className="text-[14px] text-slate-300 leading-relaxed whitespace-pre-wrap">{e.content}</div>
+  const row = (kind: 'short' | 'long', e: { time: string; location: string; content: string }, i: number) => (
+    <div key={i} className="rounded-lg bg-void/40 border border-edge/60 px-3 py-2 flex items-start gap-2">
+      <div className="flex-1 min-w-0">
+        {(e.time || e.location) && (
+          <div className="flex flex-wrap gap-2 text-[12px] font-mono text-dim/50 mb-0.5">
+            {e.time && <span>🕒 {e.time}</span>}
+            {e.location && <span>📍 {e.location}</span>}
+          </div>
+        )}
+        <div className="text-[14px] text-slate-300 leading-relaxed whitespace-pre-wrap">{e.content}</div>
+      </div>
+      <button
+        onClick={() => removeMemoryEntry(charId, kind, i)}
+        title="删除这条记忆"
+        className="shrink-0 text-[12px] font-mono text-blood/50 hover:text-blood transition-colors"
+      >删</button>
     </div>
   );
   return (
@@ -1913,13 +1921,13 @@ export function CharMemoryView({ charId }: { charId: string }) {
       {short.length > 0 && (
         <div className="space-y-1.5">
           <div className="text-[12px] font-mono text-god/50">近期记忆 · {short.length}</div>
-          {short.map(row)}
+          {short.map((e, i) => row('short', e, i))}
         </div>
       )}
       {long.length > 0 && (
         <div className="space-y-1.5 mt-3">
           <div className="text-[12px] font-mono text-dim/50">长期记忆 · {long.length}</div>
-          {long.map(row)}
+          {long.map((e, i) => row('long', e, i))}
         </div>
       )}
     </Section>

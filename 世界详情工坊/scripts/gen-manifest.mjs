@@ -83,10 +83,11 @@ const all = [...mainList, ...leisureList].map((w) => ({
 }));
 
 // ── 合并「新增世界」（判重新加·据 maxTier 生成覆盖阶位 一~maxTier）──
-const extraPath = path.join(OUT_DIR, '新增世界.json');
+// 读取 清单/新增世界*.json 全部（分批加时各写一个文件即可，按文件名排序）
 let extraCount = 0;
-if (fs.existsSync(extraPath)) {
-  const extra = JSON.parse(fs.readFileSync(extraPath, 'utf8')).worlds || [];
+{
+  const extraFiles = fs.readdirSync(OUT_DIR).filter((f) => /^新增世界.*\.json$/.test(f)).sort();
+  const extra = extraFiles.flatMap((f) => JSON.parse(fs.readFileSync(path.join(OUT_DIR, f), 'utf8')).worlds || []);
   const existing = new Set(all.map((w) => w.name));
   for (const e of extra) {
     if (!e.name || existing.has(e.name)) continue;   // 与主/休闲/彼此判重

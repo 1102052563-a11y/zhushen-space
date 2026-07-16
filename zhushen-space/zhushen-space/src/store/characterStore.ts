@@ -195,8 +195,9 @@ interface CharacterState {
   addRecipe:           (charId: string, profName: string, recipe: Omit<Recipe, 'addedAt'>) => void; // upsert by id/name；prof 缺失则自动建
   removeRecipe:        (charId: string, profName: string, recipeName: string) => void;
   bumpRecipe:          (charId: string, profName: string, recipeName: string, delta: number) => void; // 配方熟练度 +=（封顶100）
-  appendMemory: (charId: string, entry: MemoryEntry) => void;      // 追加一条 shortTerm 记忆
+  appendMemory: (charId: string, entry: MemoryEntry) => void;      // 追加一条 shortTerm 记忆（自动去重）
   setMemory:    (charId: string, memory: CharMemory) => void;      // 压缩后整体重写 short/long
+  removeMemoryEntry: (charId: string, kind: 'short' | 'long', index: number) => void;  // 手动删除一条记忆（短期/长期）
   removeCharacter: (charId: string) => void;       // 删除某角色的全部技能/词条
   renameCharacter: (oldId: string, newId: string) => void;   // 角色 ID 规范化时迁移其技能/天赋/称号/记忆到新 ID
   purgeNpcCharacters: () => void;                  // 清除所有 NPC(C*/G*) 的技能/词条，保留玩家 B*
@@ -548,6 +549,14 @@ export const useCharacters = create<CharacterState>()(
           const char = ensureChar(s.characters, charId);
           const mem: CharMemory = char.memory ?? { shortTerm: [], longTerm: [] };
           const e: MemoryEntry = { ...entry, addedAt: entry.addedAt ?? Date.now() };
+          // 去重：完全相同(时间+地点+内容)的记忆不重复追加——治「同一条 addMemory 被 AI 连发多次、一件事堆成 N 条重复记忆」
+          const memKey = (m: { time?: string; location?: string; content?: string }) =>
+            `${(m.time ?? '').trim()}|${(m.location ?? '').trim()}|${(m.content ?? '').trim().replace(/\s+/g, ' ')}`;
+          const key = memKey(e);
+          if (mem.shortTerm.some((m) => memKey(m) === key) || mem.longTerm.some((m) => memKey(m) === key)) {
+            console.log(`[Char] appendMemory 跳过重复记忆 ${charId}: ${e.content}`);
+            return s;   // 短期或长期里已有相同记忆 → 跳过，不产生重复
+          }
           // 安全上限 60，避免压缩关闭时无限膨胀（压缩会把它收到 ≤5）
           const shortTerm = [...mem.shortTerm, e].slice(-60);
           return { characters: { ...s.characters, [charId]: { ...char, memory: { ...mem, shortTerm } } } };
@@ -557,6 +566,17 @@ export const useCharacters = create<CharacterState>()(
         set((s) => {
           const char = ensureChar(s.characters, charId);
           return { characters: { ...s.characters, [charId]: { ...char, memory } } };
+        }),
+
+      removeMemoryEntry: (charId, kind, index) =>
+        set((s) => {
+          const char = s.characters[charId];
+          if (!char?.memory) return s;
+          const field = kind === 'short' ? 'shortTerm' : 'longTerm';
+          const arr = char.memory[field];
+          if (index < 0 || index >= arr.length) return s;
+          const nextArr = arr.filter((_, i) => i !== index);
+          return { characters: { ...s.characters, [charId]: { ...char, memory: { ...char.memory, [field]: nextArr } } } };
         }),
 
       removeCharacter: (charId) =>

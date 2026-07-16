@@ -2,8 +2,8 @@
  "stats": {
   "主库": 1346,
   "休闲": 1184,
-  "新增": 168,
-  "合计": 2698
+  "新增": 659,
+  "合计": 3189
  },
  "worlds": [
   {
@@ -40261,6 +40261,7648 @@
    "ids": {},
    "blurb": "【新增·国产·鬼吹灯】",
    "maxTier": "四",
+   "peakBeyond": false,
+   "source": "新增"
+  },
+  {
+   "name": "鹿鼎记",
+   "lib": "主库",
+   "tiers": [
+    "一",
+    "二",
+    "三"
+   ],
+   "ids": {},
+   "blurb": "【新增·金庸武侠】",
+   "maxTier": "三",
+   "peakBeyond": false,
+   "source": "新增"
+  },
+  {
+   "name": "雪山飞狐",
+   "lib": "主库",
+   "tiers": [
+    "一",
+    "二",
+    "三",
+    "四"
+   ],
+   "ids": {},
+   "blurb": "【新增·金庸武侠】",
+   "maxTier": "四",
+   "peakBeyond": false,
+   "source": "新增"
+  },
+  {
+   "name": "飞狐外传",
+   "lib": "主库",
+   "tiers": [
+    "一",
+    "二",
+    "三",
+    "四"
+   ],
+   "ids": {},
+   "blurb": "【新增·金庸武侠】",
+   "maxTier": "四",
+   "peakBeyond": false,
+   "source": "新增"
+  },
+  {
+   "name": "连城诀",
+   "lib": "主库",
+   "tiers": [
+    "一",
+    "二",
+    "三",
+    "四"
+   ],
+   "ids": {},
+   "blurb": "【新增·金庸武侠】",
+   "maxTier": "四",
+   "peakBeyond": false,
+   "source": "新增"
+  },
+  {
+   "name": "侠客行",
+   "lib": "主库",
+   "tiers": [
+    "一",
+    "二",
+    "三",
+    "四",
+    "五"
+   ],
+   "ids": {},
+   "blurb": "【新增·金庸武侠】",
+   "maxTier": "五",
+   "peakBeyond": false,
+   "source": "新增"
+  },
+  {
+   "name": "碧血剑",
+   "lib": "主库",
+   "tiers": [
+    "一",
+    "二",
+    "三",
+    "四"
+   ],
+   "ids": {},
+   "blurb": "【新增·金庸武侠】",
+   "maxTier": "四",
+   "peakBeyond": false,
+   "source": "新增"
+  },
+  {
+   "name": "书剑恩仇录",
+   "lib": "主库",
+   "tiers": [
+    "一",
+    "二",
+    "三",
+    "四"
+   ],
+   "ids": {},
+   "blurb": "【新增·金庸武侠】",
+   "maxTier": "四",
+   "peakBeyond": false,
+   "source": "新增"
+  },
+  {
+   "name": "白马啸西风",
+   "lib": "主库",
+   "tiers": [
+    "一",
+    "二",
+    "三"
+   ],
+   "ids": {},
+   "blurb": "【新增·金庸武侠】",
+   "maxTier": "三",
+   "peakBeyond": false,
+   "source": "新增"
+  },
+  {
+   "name": "鸳鸯刀",
+   "lib": "主库",
+   "tiers": [
+    "一",
+    "二",
+    "三"
+   ],
+   "ids": {},
+   "blurb": "【新增·金庸武侠】",
+   "maxTier": "三",
+   "peakBeyond": false,
+   "source": "新增"
+  },
+  {
+   "name": "越女剑",
+   "lib": "主库",
+   "tiers": [
+    "一",
+    "二",
+    "三",
+    "四"
+   ],
+   "ids": {},
+   "blurb": "【新增·金庸武侠】",
+   "maxTier": "四",
+   "peakBeyond": false,
+   "source": "新增"
+  },
+  {
+   "name": "楚留香传奇",
+   "lib": "主库",
+   "tiers": [
+    "一",
+    "二",
+    "三",
+    "四"
+   ],
+   "ids": {},
+   "blurb": "【新增·古龙武侠】",
+   "maxTier": "四",
+   "peakBeyond": false,
+   "source": "新增"
+  },
+  {
+   "name": "陆小凤传奇",
+   "lib": "主库",
+   "tiers": [
+    "一",
+    "二",
+    "三",
+    "四"
+   ],
+   "ids": {},
+   "blurb": "【新增·古龙武侠】",
+   "maxTier": "四",
+   "peakBeyond": false,
+   "source": "新增"
+  },
+  {
+   "name": "绝代双骄",
+   "lib": "主库",
+   "tiers": [
+    "一",
+    "二",
+    "三",
+    "四"
+   ],
+   "ids": {},
+   "blurb": "【新增·古龙武侠】",
+   "maxTier": "四",
+   "peakBeyond": false,
+   "source": "新增"
+  },
+  {
+   "name": "萧十一郎",
+   "lib": "主库",
+   "tiers": [
+    "一",
+    "二",
+    "三"
+   ],
+   "ids": {},
+   "blurb": "【新增·古龙武侠】",
+   "maxTier": "三",
+   "peakBeyond": false,
+   "source": "新增"
+  },
+  {
+   "name": "多情剑客无情剑（小李飞刀）",
+   "lib": "主库",
+   "tiers": [
+    "一",
+    "二",
+    "三",
+    "四"
+   ],
+   "ids": {},
+   "blurb": "【新增·古龙武侠】",
+   "maxTier": "四",
+   "peakBeyond": false,
+   "source": "新增"
+  },
+  {
+   "name": "武林外史",
+   "lib": "主库",
+   "tiers": [
+    "一",
+    "二",
+    "三"
+   ],
+   "ids": {},
+   "blurb": "【新增·古龙武侠】",
+   "maxTier": "三",
+   "peakBeyond": false,
+   "source": "新增"
+  },
+  {
+   "name": "三少爷的剑",
+   "lib": "主库",
+   "tiers": [
+    "一",
+    "二",
+    "三",
+    "四"
+   ],
+   "ids": {},
+   "blurb": "【新增·古龙武侠】",
+   "maxTier": "四",
+   "peakBeyond": false,
+   "source": "新增"
+  },
+  {
+   "name": "天涯明月刀",
+   "lib": "主库",
+   "tiers": [
+    "一",
+    "二",
+    "三",
+    "四"
+   ],
+   "ids": {},
+   "blurb": "【新增·古龙武侠】",
+   "maxTier": "四",
+   "peakBeyond": false,
+   "source": "新增"
+  },
+  {
+   "name": "边城浪子",
+   "lib": "主库",
+   "tiers": [
+    "一",
+    "二",
+    "三"
+   ],
+   "ids": {},
+   "blurb": "【新增·古龙武侠】",
+   "maxTier": "三",
+   "peakBeyond": false,
+   "source": "新增"
+  },
+  {
+   "name": "流星·蝴蝶·剑",
+   "lib": "主库",
+   "tiers": [
+    "一",
+    "二",
+    "三"
+   ],
+   "ids": {},
+   "blurb": "【新增·古龙武侠】",
+   "maxTier": "三",
+   "peakBeyond": false,
+   "source": "新增"
+  },
+  {
+   "name": "欢乐英雄",
+   "lib": "主库",
+   "tiers": [
+    "一",
+    "二",
+    "三"
+   ],
+   "ids": {},
+   "blurb": "【新增·古龙武侠】",
+   "maxTier": "三",
+   "peakBeyond": false,
+   "source": "新增"
+  },
+  {
+   "name": "七种武器",
+   "lib": "主库",
+   "tiers": [
+    "一",
+    "二",
+    "三"
+   ],
+   "ids": {},
+   "blurb": "【新增·古龙武侠】",
+   "maxTier": "三",
+   "peakBeyond": false,
+   "source": "新增"
+  },
+  {
+   "name": "圆月弯刀",
+   "lib": "主库",
+   "tiers": [
+    "一",
+    "二",
+    "三",
+    "四"
+   ],
+   "ids": {},
+   "blurb": "【新增·古龙武侠】",
+   "maxTier": "四",
+   "peakBeyond": false,
+   "source": "新增"
+  },
+  {
+   "name": "白发魔女传",
+   "lib": "主库",
+   "tiers": [
+    "一",
+    "二",
+    "三",
+    "四"
+   ],
+   "ids": {},
+   "blurb": "【新增·其他武侠】",
+   "maxTier": "四",
+   "peakBeyond": false,
+   "source": "新增"
+  },
+  {
+   "name": "七剑下天山",
+   "lib": "主库",
+   "tiers": [
+    "一",
+    "二",
+    "三",
+    "四"
+   ],
+   "ids": {},
+   "blurb": "【新增·其他武侠】",
+   "maxTier": "四",
+   "peakBeyond": false,
+   "source": "新增"
+  },
+  {
+   "name": "云海玉弓缘",
+   "lib": "主库",
+   "tiers": [
+    "一",
+    "二",
+    "三",
+    "四"
+   ],
+   "ids": {},
+   "blurb": "【新增·其他武侠】",
+   "maxTier": "四",
+   "peakBeyond": false,
+   "source": "新增"
+  },
+  {
+   "name": "萍踪侠影录",
+   "lib": "主库",
+   "tiers": [
+    "一",
+    "二",
+    "三",
+    "四"
+   ],
+   "ids": {},
+   "blurb": "【新增·其他武侠】",
+   "maxTier": "四",
+   "peakBeyond": false,
+   "source": "新增"
+  },
+  {
+   "name": "四大名捕",
+   "lib": "主库",
+   "tiers": [
+    "一",
+    "二",
+    "三",
+    "四"
+   ],
+   "ids": {},
+   "blurb": "【新增·其他武侠】",
+   "maxTier": "四",
+   "peakBeyond": false,
+   "source": "新增"
+  },
+  {
+   "name": "说英雄谁是英雄",
+   "lib": "主库",
+   "tiers": [
+    "一",
+    "二",
+    "三",
+    "四"
+   ],
+   "ids": {},
+   "blurb": "【新增·其他武侠】",
+   "maxTier": "四",
+   "peakBeyond": false,
+   "source": "新增"
+  },
+  {
+   "name": "大唐双龙传",
+   "lib": "主库",
+   "tiers": [
+    "一",
+    "二",
+    "三",
+    "四",
+    "五"
+   ],
+   "ids": {},
+   "blurb": "【新增·其他武侠】",
+   "maxTier": "五",
+   "peakBeyond": false,
+   "source": "新增"
+  },
+  {
+   "name": "寻秦记",
+   "lib": "主库",
+   "tiers": [
+    "一",
+    "二",
+    "三"
+   ],
+   "ids": {},
+   "blurb": "【新增·其他武侠】",
+   "maxTier": "三",
+   "peakBeyond": false,
+   "source": "新增"
+  },
+  {
+   "name": "覆雨翻云",
+   "lib": "主库",
+   "tiers": [
+    "一",
+    "二",
+    "三",
+    "四",
+    "五"
+   ],
+   "ids": {},
+   "blurb": "【新增·其他武侠】",
+   "maxTier": "五",
+   "peakBeyond": false,
+   "source": "新增"
+  },
+  {
+   "name": "蜀山剑侠传",
+   "lib": "主库",
+   "tiers": [
+    "一",
+    "二",
+    "三",
+    "四",
+    "五",
+    "六",
+    "七"
+   ],
+   "ids": {},
+   "blurb": "【新增·其他武侠】",
+   "maxTier": "七",
+   "peakBeyond": false,
+   "source": "新增"
+  },
+  {
+   "name": "昆仑（凤歌）",
+   "lib": "主库",
+   "tiers": [
+    "一",
+    "二",
+    "三",
+    "四",
+    "五"
+   ],
+   "ids": {},
+   "blurb": "【新增·其他武侠】",
+   "maxTier": "五",
+   "peakBeyond": false,
+   "source": "新增"
+  },
+  {
+   "name": "沧海（凤歌）",
+   "lib": "主库",
+   "tiers": [
+    "一",
+    "二",
+    "三",
+    "四",
+    "五"
+   ],
+   "ids": {},
+   "blurb": "【新增·其他武侠】",
+   "maxTier": "五",
+   "peakBeyond": false,
+   "source": "新增"
+  },
+  {
+   "name": "悟空传",
+   "lib": "主库",
+   "tiers": [
+    "一",
+    "二",
+    "三",
+    "四",
+    "五",
+    "六",
+    "七",
+    "八"
+   ],
+   "ids": {},
+   "blurb": "【新增·其他武侠】",
+   "maxTier": "八",
+   "peakBeyond": false,
+   "source": "新增"
+  },
+  {
+   "name": "奥特曼（初代）",
+   "lib": "主库",
+   "tiers": [
+    "一",
+    "二",
+    "三",
+    "四",
+    "五",
+    "六",
+    "七"
+   ],
+   "ids": {},
+   "blurb": "【新增·特摄·奥特曼】",
+   "maxTier": "七",
+   "peakBeyond": false,
+   "source": "新增"
+  },
+  {
+   "name": "迪迦奥特曼",
+   "lib": "主库",
+   "tiers": [
+    "一",
+    "二",
+    "三",
+    "四",
+    "五",
+    "六",
+    "七",
+    "八"
+   ],
+   "ids": {},
+   "blurb": "【新增·特摄·奥特曼】",
+   "maxTier": "八",
+   "peakBeyond": false,
+   "source": "新增"
+  },
+  {
+   "name": "赛罗奥特曼",
+   "lib": "主库",
+   "tiers": [
+    "一",
+    "二",
+    "三",
+    "四",
+    "五",
+    "六",
+    "七",
+    "八",
+    "九"
+   ],
+   "ids": {},
+   "blurb": "【新增·特摄·奥特曼】",
+   "maxTier": "九",
+   "peakBeyond": true,
+   "source": "新增"
+  },
+  {
+   "name": "银河奥特曼",
+   "lib": "主库",
+   "tiers": [
+    "一",
+    "二",
+    "三",
+    "四",
+    "五",
+    "六",
+    "七",
+    "八"
+   ],
+   "ids": {},
+   "blurb": "【新增·特摄·奥特曼】",
+   "maxTier": "八",
+   "peakBeyond": false,
+   "source": "新增"
+  },
+  {
+   "name": "捷德奥特曼",
+   "lib": "主库",
+   "tiers": [
+    "一",
+    "二",
+    "三",
+    "四",
+    "五",
+    "六",
+    "七",
+    "八"
+   ],
+   "ids": {},
+   "blurb": "【新增·特摄·奥特曼】",
+   "maxTier": "八",
+   "peakBeyond": false,
+   "source": "新增"
+  },
+  {
+   "name": "泰罗奥特曼",
+   "lib": "主库",
+   "tiers": [
+    "一",
+    "二",
+    "三",
+    "四",
+    "五",
+    "六",
+    "七",
+    "八"
+   ],
+   "ids": {},
+   "blurb": "【新增·特摄·奥特曼】",
+   "maxTier": "八",
+   "peakBeyond": false,
+   "source": "新增"
+  },
+  {
+   "name": "梦比优斯奥特曼",
+   "lib": "主库",
+   "tiers": [
+    "一",
+    "二",
+    "三",
+    "四",
+    "五",
+    "六",
+    "七",
+    "八"
+   ],
+   "ids": {},
+   "blurb": "【新增·特摄·奥特曼】",
+   "maxTier": "八",
+   "peakBeyond": false,
+   "source": "新增"
+  },
+  {
+   "name": "欧布奥特曼",
+   "lib": "主库",
+   "tiers": [
+    "一",
+    "二",
+    "三",
+    "四",
+    "五",
+    "六",
+    "七",
+    "八"
+   ],
+   "ids": {},
+   "blurb": "【新增·特摄·奥特曼】",
+   "maxTier": "八",
+   "peakBeyond": false,
+   "source": "新增"
+  },
+  {
+   "name": "泽塔奥特曼",
+   "lib": "主库",
+   "tiers": [
+    "一",
+    "二",
+    "三",
+    "四",
+    "五",
+    "六",
+    "七",
+    "八"
+   ],
+   "ids": {},
+   "blurb": "【新增·特摄·奥特曼】",
+   "maxTier": "八",
+   "peakBeyond": false,
+   "source": "新增"
+  },
+  {
+   "name": "特利迦奥特曼",
+   "lib": "主库",
+   "tiers": [
+    "一",
+    "二",
+    "三",
+    "四",
+    "五",
+    "六",
+    "七",
+    "八"
+   ],
+   "ids": {},
+   "blurb": "【新增·特摄·奥特曼】",
+   "maxTier": "八",
+   "peakBeyond": false,
+   "source": "新增"
+  },
+  {
+   "name": "恐龙战队",
+   "lib": "主库",
+   "tiers": [
+    "一",
+    "二",
+    "三",
+    "四",
+    "五"
+   ],
+   "ids": {},
+   "blurb": "【新增·特摄】",
+   "maxTier": "五",
+   "peakBeyond": false,
+   "source": "新增"
+  },
+  {
+   "name": "超级战队",
+   "lib": "主库",
+   "tiers": [
+    "一",
+    "二",
+    "三",
+    "四",
+    "五"
+   ],
+   "ids": {},
+   "blurb": "【新增·特摄】",
+   "maxTier": "五",
+   "peakBeyond": false,
+   "source": "新增"
+  },
+  {
+   "name": "北斗神拳",
+   "lib": "主库",
+   "tiers": [
+    "一",
+    "二",
+    "三"
+   ],
+   "ids": {},
+   "blurb": "【新增·经典日漫】",
+   "maxTier": "三",
+   "peakBeyond": false,
+   "source": "新增"
+  },
+  {
+   "name": "幽游白书",
+   "lib": "主库",
+   "tiers": [
+    "一",
+    "二",
+    "三",
+    "四",
+    "五",
+    "六"
+   ],
+   "ids": {},
+   "blurb": "【新增·经典日漫】",
+   "maxTier": "六",
+   "peakBeyond": false,
+   "source": "新增"
+  },
+  {
+   "name": "足球小将",
+   "lib": "主库",
+   "tiers": [
+    "一"
+   ],
+   "ids": {},
+   "blurb": "【新增·经典日漫】",
+   "maxTier": "一",
+   "peakBeyond": false,
+   "source": "新增"
+  },
+  {
+   "name": "美少女战士",
+   "lib": "主库",
+   "tiers": [
+    "一",
+    "二",
+    "三",
+    "四",
+    "五",
+    "六",
+    "七",
+    "八",
+    "九"
+   ],
+   "ids": {},
+   "blurb": "【新增·经典日漫】",
+   "maxTier": "九",
+   "peakBeyond": true,
+   "source": "新增"
+  },
+  {
+   "name": "乱马½",
+   "lib": "主库",
+   "tiers": [
+    "一",
+    "二"
+   ],
+   "ids": {},
+   "blurb": "【新增·经典日漫】",
+   "maxTier": "二",
+   "peakBeyond": false,
+   "source": "新增"
+  },
+  {
+   "name": "福星小子",
+   "lib": "主库",
+   "tiers": [
+    "一",
+    "二",
+    "三",
+    "四"
+   ],
+   "ids": {},
+   "blurb": "【新增·经典日漫】",
+   "maxTier": "四",
+   "peakBeyond": false,
+   "source": "新增"
+  },
+  {
+   "name": "名侦探柯南",
+   "lib": "主库",
+   "tiers": [
+    "一"
+   ],
+   "ids": {},
+   "blurb": "【新增·经典日漫】",
+   "maxTier": "一",
+   "peakBeyond": false,
+   "source": "新增"
+  },
+  {
+   "name": "金田一少年事件簿",
+   "lib": "主库",
+   "tiers": [
+    "一"
+   ],
+   "ids": {},
+   "blurb": "【新增·经典日漫】",
+   "maxTier": "一",
+   "peakBeyond": false,
+   "source": "新增"
+  },
+  {
+   "name": "哆啦A梦",
+   "lib": "主库",
+   "tiers": [
+    "一",
+    "二",
+    "三",
+    "四",
+    "五"
+   ],
+   "ids": {},
+   "blurb": "【新增·经典日漫】",
+   "maxTier": "五",
+   "peakBeyond": false,
+   "source": "新增"
+  },
+  {
+   "name": "蜡笔小新",
+   "lib": "主库",
+   "tiers": [
+    "一"
+   ],
+   "ids": {},
+   "blurb": "【新增·经典日漫】",
+   "maxTier": "一",
+   "peakBeyond": false,
+   "source": "新增"
+  },
+  {
+   "name": "未闻花名",
+   "lib": "主库",
+   "tiers": [
+    "一"
+   ],
+   "ids": {},
+   "blurb": "【新增·经典日漫】",
+   "maxTier": "一",
+   "peakBeyond": false,
+   "source": "新增"
+  },
+  {
+   "name": "魔法少女奈叶",
+   "lib": "主库",
+   "tiers": [
+    "一",
+    "二",
+    "三",
+    "四",
+    "五",
+    "六",
+    "七"
+   ],
+   "ids": {},
+   "blurb": "【新增·经典日漫】",
+   "maxTier": "七",
+   "peakBeyond": false,
+   "source": "新增"
+  },
+  {
+   "name": "齐木楠雄的灾难",
+   "lib": "主库",
+   "tiers": [
+    "一",
+    "二",
+    "三",
+    "四",
+    "五",
+    "六",
+    "七",
+    "八"
+   ],
+   "ids": {},
+   "blurb": "【新增·经典日漫】",
+   "maxTier": "八",
+   "peakBeyond": false,
+   "source": "新增"
+  },
+  {
+   "name": "地狱少女",
+   "lib": "主库",
+   "tiers": [
+    "一",
+    "二",
+    "三",
+    "四"
+   ],
+   "ids": {},
+   "blurb": "【新增·经典日漫】",
+   "maxTier": "四",
+   "peakBeyond": false,
+   "source": "新增"
+  },
+  {
+   "name": "元气少女缘结神",
+   "lib": "主库",
+   "tiers": [
+    "一",
+    "二",
+    "三",
+    "四"
+   ],
+   "ids": {},
+   "blurb": "【新增·经典日漫】",
+   "maxTier": "四",
+   "peakBeyond": false,
+   "source": "新增"
+  },
+  {
+   "name": "天行九歌",
+   "lib": "主库",
+   "tiers": [
+    "一",
+    "二",
+    "三"
+   ],
+   "ids": {},
+   "blurb": "【新增·国漫】",
+   "maxTier": "三",
+   "peakBeyond": false,
+   "source": "新增"
+  },
+  {
+   "name": "画江湖之不良人",
+   "lib": "主库",
+   "tiers": [
+    "一",
+    "二",
+    "三",
+    "四",
+    "五"
+   ],
+   "ids": {},
+   "blurb": "【新增·国漫】",
+   "maxTier": "五",
+   "peakBeyond": false,
+   "source": "新增"
+  },
+  {
+   "name": "魔道祖师",
+   "lib": "主库",
+   "tiers": [
+    "一",
+    "二",
+    "三",
+    "四",
+    "五"
+   ],
+   "ids": {},
+   "blurb": "【新增·国漫】",
+   "maxTier": "五",
+   "peakBeyond": false,
+   "source": "新增"
+  },
+  {
+   "name": "天官赐福",
+   "lib": "主库",
+   "tiers": [
+    "一",
+    "二",
+    "三",
+    "四",
+    "五",
+    "六"
+   ],
+   "ids": {},
+   "blurb": "【新增·国漫】",
+   "maxTier": "六",
+   "peakBeyond": false,
+   "source": "新增"
+  },
+  {
+   "name": "雾山五行",
+   "lib": "主库",
+   "tiers": [
+    "一",
+    "二",
+    "三",
+    "四",
+    "五",
+    "六"
+   ],
+   "ids": {},
+   "blurb": "【新增·国漫】",
+   "maxTier": "六",
+   "peakBeyond": false,
+   "source": "新增"
+  },
+  {
+   "name": "时光代理人",
+   "lib": "主库",
+   "tiers": [
+    "一",
+    "二",
+    "三"
+   ],
+   "ids": {},
+   "blurb": "【新增·国漫】",
+   "maxTier": "三",
+   "peakBeyond": false,
+   "source": "新增"
+  },
+  {
+   "name": "罗小黑战记",
+   "lib": "主库",
+   "tiers": [
+    "一",
+    "二",
+    "三",
+    "四",
+    "五",
+    "六"
+   ],
+   "ids": {},
+   "blurb": "【新增·国漫】",
+   "maxTier": "六",
+   "peakBeyond": false,
+   "source": "新增"
+  },
+  {
+   "name": "刺客伍六七",
+   "lib": "主库",
+   "tiers": [
+    "一",
+    "二",
+    "三",
+    "四",
+    "五"
+   ],
+   "ids": {},
+   "blurb": "【新增·国漫】",
+   "maxTier": "五",
+   "peakBeyond": false,
+   "source": "新增"
+  },
+  {
+   "name": "眷思量",
+   "lib": "主库",
+   "tiers": [
+    "一",
+    "二",
+    "三",
+    "四",
+    "五"
+   ],
+   "ids": {},
+   "blurb": "【新增·国漫】",
+   "maxTier": "五",
+   "peakBeyond": false,
+   "source": "新增"
+  },
+  {
+   "name": "中国奇谭",
+   "lib": "主库",
+   "tiers": [
+    "一",
+    "二",
+    "三",
+    "四"
+   ],
+   "ids": {},
+   "blurb": "【新增·国漫】",
+   "maxTier": "四",
+   "peakBeyond": false,
+   "source": "新增"
+  },
+  {
+   "name": "非人哉",
+   "lib": "主库",
+   "tiers": [
+    "一",
+    "二",
+    "三",
+    "四"
+   ],
+   "ids": {},
+   "blurb": "【新增·国漫】",
+   "maxTier": "四",
+   "peakBeyond": false,
+   "source": "新增"
+  },
+  {
+   "name": "狐妖小红娘",
+   "lib": "主库",
+   "tiers": [
+    "一",
+    "二",
+    "三",
+    "四",
+    "五",
+    "六"
+   ],
+   "ids": {},
+   "blurb": "【新增·国漫】",
+   "maxTier": "六",
+   "peakBeyond": false,
+   "source": "新增"
+  },
+  {
+   "name": "山海经",
+   "lib": "主库",
+   "tiers": [
+    "一",
+    "二",
+    "三",
+    "四",
+    "五",
+    "六"
+   ],
+   "ids": {},
+   "blurb": "【新增·国漫】",
+   "maxTier": "六",
+   "peakBeyond": false,
+   "source": "新增"
+  },
+  {
+   "name": "基地（阿西莫夫）",
+   "lib": "主库",
+   "tiers": [
+    "一",
+    "二",
+    "三",
+    "四",
+    "五",
+    "六",
+    "七"
+   ],
+   "ids": {},
+   "blurb": "【新增·科幻奇幻名著】",
+   "maxTier": "七",
+   "peakBeyond": false,
+   "source": "新增"
+  },
+  {
+   "name": "银河帝国",
+   "lib": "主库",
+   "tiers": [
+    "一",
+    "二",
+    "三",
+    "四",
+    "五",
+    "六",
+    "七"
+   ],
+   "ids": {},
+   "blurb": "【新增·科幻奇幻名著】",
+   "maxTier": "七",
+   "peakBeyond": false,
+   "source": "新增"
+  },
+  {
+   "name": "海伯利安",
+   "lib": "主库",
+   "tiers": [
+    "一",
+    "二",
+    "三",
+    "四",
+    "五",
+    "六",
+    "七",
+    "八"
+   ],
+   "ids": {},
+   "blurb": "【新增·科幻奇幻名著】",
+   "maxTier": "八",
+   "peakBeyond": false,
+   "source": "新增"
+  },
+  {
+   "name": "神经漫游者",
+   "lib": "主库",
+   "tiers": [
+    "一",
+    "二"
+   ],
+   "ids": {},
+   "blurb": "【新增·科幻奇幻名著】",
+   "maxTier": "二",
+   "peakBeyond": false,
+   "source": "新增"
+  },
+  {
+   "name": "雪崩（Snow Crash）",
+   "lib": "主库",
+   "tiers": [
+    "一",
+    "二"
+   ],
+   "ids": {},
+   "blurb": "【新增·科幻奇幻名著】",
+   "maxTier": "二",
+   "peakBeyond": false,
+   "source": "新增"
+  },
+  {
+   "name": "1984",
+   "lib": "主库",
+   "tiers": [
+    "一"
+   ],
+   "ids": {},
+   "blurb": "【新增·科幻奇幻名著】",
+   "maxTier": "一",
+   "peakBeyond": false,
+   "source": "新增"
+  },
+  {
+   "name": "美丽新世界",
+   "lib": "主库",
+   "tiers": [
+    "一"
+   ],
+   "ids": {},
+   "blurb": "【新增·科幻奇幻名著】",
+   "maxTier": "一",
+   "peakBeyond": false,
+   "source": "新增"
+  },
+  {
+   "name": "我，机器人",
+   "lib": "主库",
+   "tiers": [
+    "一",
+    "二"
+   ],
+   "ids": {},
+   "blurb": "【新增·科幻奇幻名著】",
+   "maxTier": "二",
+   "peakBeyond": false,
+   "source": "新增"
+  },
+  {
+   "name": "银河系漫游指南",
+   "lib": "主库",
+   "tiers": [
+    "一",
+    "二",
+    "三",
+    "四",
+    "五"
+   ],
+   "ids": {},
+   "blurb": "【新增·科幻奇幻名著】",
+   "maxTier": "五",
+   "peakBeyond": false,
+   "source": "新增"
+  },
+  {
+   "name": "龙枪编年史",
+   "lib": "主库",
+   "tiers": [
+    "一",
+    "二",
+    "三",
+    "四",
+    "五",
+    "六"
+   ],
+   "ids": {},
+   "blurb": "【新增·科幻奇幻名著】",
+   "maxTier": "六",
+   "peakBeyond": false,
+   "source": "新增"
+  },
+  {
+   "name": "时光之轮",
+   "lib": "主库",
+   "tiers": [
+    "一",
+    "二",
+    "三",
+    "四",
+    "五",
+    "六",
+    "七",
+    "八"
+   ],
+   "ids": {},
+   "blurb": "【新增·科幻奇幻名著】",
+   "maxTier": "八",
+   "peakBeyond": false,
+   "source": "新增"
+  },
+  {
+   "name": "地海传奇",
+   "lib": "主库",
+   "tiers": [
+    "一",
+    "二",
+    "三",
+    "四",
+    "五"
+   ],
+   "ids": {},
+   "blurb": "【新增·科幻奇幻名著】",
+   "maxTier": "五",
+   "peakBeyond": false,
+   "source": "新增"
+  },
+  {
+   "name": "纳尼亚传奇",
+   "lib": "主库",
+   "tiers": [
+    "一",
+    "二",
+    "三",
+    "四",
+    "五",
+    "六",
+    "七"
+   ],
+   "ids": {},
+   "blurb": "【新增·科幻奇幻名著】",
+   "maxTier": "七",
+   "peakBeyond": false,
+   "source": "新增"
+  },
+  {
+   "name": "黑暗物质（黄金罗盘）",
+   "lib": "主库",
+   "tiers": [
+    "一",
+    "二",
+    "三",
+    "四",
+    "五",
+    "六"
+   ],
+   "ids": {},
+   "blurb": "【新增·科幻奇幻名著】",
+   "maxTier": "六",
+   "peakBeyond": false,
+   "source": "新增"
+  },
+  {
+   "name": "环形世界",
+   "lib": "主库",
+   "tiers": [
+    "一",
+    "二",
+    "三",
+    "四",
+    "五",
+    "六",
+    "七"
+   ],
+   "ids": {},
+   "blurb": "【新增·科幻奇幻名著】",
+   "maxTier": "七",
+   "peakBeyond": false,
+   "source": "新增"
+  },
+  {
+   "name": "海底两万里",
+   "lib": "主库",
+   "tiers": [
+    "一",
+    "二"
+   ],
+   "ids": {},
+   "blurb": "【新增·科幻奇幻名著】",
+   "maxTier": "二",
+   "peakBeyond": false,
+   "source": "新增"
+  },
+  {
+   "name": "地心游记",
+   "lib": "主库",
+   "tiers": [
+    "一"
+   ],
+   "ids": {},
+   "blurb": "【新增·科幻奇幻名著】",
+   "maxTier": "一",
+   "peakBeyond": false,
+   "source": "新增"
+  },
+  {
+   "name": "睡魔（Sandman）",
+   "lib": "主库",
+   "tiers": [
+    "一",
+    "二",
+    "三",
+    "四",
+    "五",
+    "六",
+    "七",
+    "八",
+    "九"
+   ],
+   "ids": {},
+   "blurb": "【新增·科幻奇幻名著】",
+   "maxTier": "九",
+   "peakBeyond": true,
+   "source": "新增"
+  },
+  {
+   "name": "战锤：全面战争",
+   "lib": "主库",
+   "tiers": [
+    "一",
+    "二",
+    "三",
+    "四",
+    "五",
+    "六",
+    "七"
+   ],
+   "ids": {},
+   "blurb": "【新增·科幻奇幻名著】",
+   "maxTier": "七",
+   "peakBeyond": false,
+   "source": "新增"
+  },
+  {
+   "name": "龙与地下城",
+   "lib": "主库",
+   "tiers": [
+    "一",
+    "二",
+    "三",
+    "四",
+    "五",
+    "六",
+    "七",
+    "八"
+   ],
+   "ids": {},
+   "blurb": "【新增·科幻奇幻名著】",
+   "maxTier": "八",
+   "peakBeyond": false,
+   "source": "新增"
+  },
+  {
+   "name": "被遗忘的国度",
+   "lib": "主库",
+   "tiers": [
+    "一",
+    "二",
+    "三",
+    "四",
+    "五",
+    "六",
+    "七",
+    "八"
+   ],
+   "ids": {},
+   "blurb": "【新增·科幻奇幻名著】",
+   "maxTier": "八",
+   "peakBeyond": false,
+   "source": "新增"
+  },
+  {
+   "name": "冰风谷",
+   "lib": "主库",
+   "tiers": [
+    "一",
+    "二",
+    "三",
+    "四",
+    "五",
+    "六"
+   ],
+   "ids": {},
+   "blurb": "【新增·科幻奇幻名著】",
+   "maxTier": "六",
+   "peakBeyond": false,
+   "source": "新增"
+  },
+  {
+   "name": "高等灵魂",
+   "lib": "主库",
+   "tiers": [
+    "一",
+    "二",
+    "三",
+    "四",
+    "五"
+   ],
+   "ids": {},
+   "blurb": "【新增·韩漫/韩网文】",
+   "maxTier": "五",
+   "peakBeyond": false,
+   "source": "新增"
+  },
+  {
+   "name": "大贵族",
+   "lib": "主库",
+   "tiers": [
+    "一",
+    "二",
+    "三",
+    "四",
+    "五"
+   ],
+   "ids": {},
+   "blurb": "【新增·韩漫/韩网文】",
+   "maxTier": "五",
+   "peakBeyond": false,
+   "source": "新增"
+  },
+  {
+   "name": "剑帝",
+   "lib": "主库",
+   "tiers": [
+    "一",
+    "二",
+    "三",
+    "四",
+    "五"
+   ],
+   "ids": {},
+   "blurb": "【新增·韩漫/韩网文】",
+   "maxTier": "五",
+   "peakBeyond": false,
+   "source": "新增"
+  },
+  {
+   "name": "血之音",
+   "lib": "主库",
+   "tiers": [
+    "一",
+    "二",
+    "三",
+    "四",
+    "五"
+   ],
+   "ids": {},
+   "blurb": "【新增·韩漫/韩网文】",
+   "maxTier": "五",
+   "peakBeyond": false,
+   "source": "新增"
+  },
+  {
+   "name": "我独自使用咒术回归",
+   "lib": "主库",
+   "tiers": [
+    "一",
+    "二",
+    "三",
+    "四",
+    "五",
+    "六"
+   ],
+   "ids": {},
+   "blurb": "【新增·韩漫/韩网文】",
+   "maxTier": "六",
+   "peakBeyond": false,
+   "source": "新增"
+  },
+  {
+   "name": "至尊神殿",
+   "lib": "主库",
+   "tiers": [
+    "一",
+    "二",
+    "三",
+    "四",
+    "五",
+    "六"
+   ],
+   "ids": {},
+   "blurb": "【新增·韩漫/韩网文】",
+   "maxTier": "六",
+   "peakBeyond": false,
+   "source": "新增"
+  },
+  {
+   "name": "恶役千金",
+   "lib": "主库",
+   "tiers": [
+    "一",
+    "二",
+    "三"
+   ],
+   "ids": {},
+   "blurb": "【新增·韩漫/韩网文】",
+   "maxTier": "三",
+   "peakBeyond": false,
+   "source": "新增"
+  },
+  {
+   "name": "极道天下",
+   "lib": "主库",
+   "tiers": [
+    "一",
+    "二",
+    "三",
+    "四",
+    "五"
+   ],
+   "ids": {},
+   "blurb": "【新增·韩漫/韩网文】",
+   "maxTier": "五",
+   "peakBeyond": false,
+   "source": "新增"
+  },
+  {
+   "name": "教皇的加护",
+   "lib": "主库",
+   "tiers": [
+    "一",
+    "二",
+    "三",
+    "四"
+   ],
+   "ids": {},
+   "blurb": "【新增·韩漫/韩网文】",
+   "maxTier": "四",
+   "peakBeyond": false,
+   "source": "新增"
+  },
+  {
+   "name": "白虎（韩漫）",
+   "lib": "主库",
+   "tiers": [
+    "一",
+    "二",
+    "三",
+    "四",
+    "五"
+   ],
+   "ids": {},
+   "blurb": "【新增·韩漫/韩网文】",
+   "maxTier": "五",
+   "peakBeyond": false,
+   "source": "新增"
+  },
+  {
+   "name": "我成为了魔王",
+   "lib": "主库",
+   "tiers": [
+    "一",
+    "二",
+    "三",
+    "四",
+    "五",
+    "六"
+   ],
+   "ids": {},
+   "blurb": "【新增·韩漫/韩网文】",
+   "maxTier": "六",
+   "peakBeyond": false,
+   "source": "新增"
+  },
+  {
+   "name": "菜鸟猎人",
+   "lib": "主库",
+   "tiers": [
+    "一",
+    "二",
+    "三",
+    "四",
+    "五",
+    "六"
+   ],
+   "ids": {},
+   "blurb": "【新增·韩漫/韩网文】",
+   "maxTier": "六",
+   "peakBeyond": false,
+   "source": "新增"
+  },
+  {
+   "name": "剑尊归来",
+   "lib": "主库",
+   "tiers": [
+    "一",
+    "二",
+    "三",
+    "四",
+    "五",
+    "六"
+   ],
+   "ids": {},
+   "blurb": "【新增·韩漫/韩网文】",
+   "maxTier": "六",
+   "peakBeyond": false,
+   "source": "新增"
+  },
+  {
+   "name": "买下未来",
+   "lib": "主库",
+   "tiers": [
+    "一",
+    "二",
+    "三",
+    "四",
+    "五"
+   ],
+   "ids": {},
+   "blurb": "【新增·韩漫/韩网文】",
+   "maxTier": "五",
+   "peakBeyond": false,
+   "source": "新增"
+  },
+  {
+   "name": "超越极限的玩家",
+   "lib": "主库",
+   "tiers": [
+    "一",
+    "二",
+    "三",
+    "四",
+    "五",
+    "六"
+   ],
+   "ids": {},
+   "blurb": "【新增·韩漫/韩网文】",
+   "maxTier": "六",
+   "peakBeyond": false,
+   "source": "新增"
+  },
+  {
+   "name": "幼女战记",
+   "lib": "主库",
+   "tiers": [
+    "一",
+    "二",
+    "三",
+    "四"
+   ],
+   "ids": {},
+   "blurb": "【新增·轻小说/异世界】",
+   "maxTier": "四",
+   "peakBeyond": false,
+   "source": "新增"
+  },
+  {
+   "name": "骑士&魔法",
+   "lib": "主库",
+   "tiers": [
+    "一",
+    "二",
+    "三",
+    "四",
+    "五"
+   ],
+   "ids": {},
+   "blurb": "【新增·轻小说/异世界】",
+   "maxTier": "五",
+   "peakBeyond": false,
+   "source": "新增"
+  },
+  {
+   "name": "转生成蜘蛛又怎样",
+   "lib": "主库",
+   "tiers": [
+    "一",
+    "二",
+    "三",
+    "四",
+    "五",
+    "六",
+    "七",
+    "八"
+   ],
+   "ids": {},
+   "blurb": "【新增·轻小说/异世界】",
+   "maxTier": "八",
+   "peakBeyond": false,
+   "source": "新增"
+  },
+  {
+   "name": "龙王的工作",
+   "lib": "主库",
+   "tiers": [
+    "一"
+   ],
+   "ids": {},
+   "blurb": "【新增·轻小说/异世界】",
+   "maxTier": "一",
+   "peakBeyond": false,
+   "source": "新增"
+  },
+  {
+   "name": "末日时在做什么",
+   "lib": "主库",
+   "tiers": [
+    "一",
+    "二",
+    "三",
+    "四",
+    "五",
+    "六"
+   ],
+   "ids": {},
+   "blurb": "【新增·轻小说/异世界】",
+   "maxTier": "六",
+   "peakBeyond": false,
+   "source": "新增"
+  },
+  {
+   "name": "记录的地平线",
+   "lib": "主库",
+   "tiers": [
+    "一",
+    "二",
+    "三",
+    "四"
+   ],
+   "ids": {},
+   "blurb": "【新增·轻小说/异世界】",
+   "maxTier": "四",
+   "peakBeyond": false,
+   "source": "新增"
+  },
+  {
+   "name": "只有我不存在的城市",
+   "lib": "主库",
+   "tiers": [
+    "一"
+   ],
+   "ids": {},
+   "blurb": "【新增·轻小说/异世界】",
+   "maxTier": "一",
+   "peakBeyond": false,
+   "source": "新增"
+  },
+  {
+   "name": "弹丸论破",
+   "lib": "主库",
+   "tiers": [
+    "一",
+    "二"
+   ],
+   "ids": {},
+   "blurb": "【新增·轻小说/异世界】",
+   "maxTier": "二",
+   "peakBeyond": false,
+   "source": "新增"
+  },
+  {
+   "name": "魔弹之王",
+   "lib": "主库",
+   "tiers": [
+    "一",
+    "二",
+    "三"
+   ],
+   "ids": {},
+   "blurb": "【新增·轻小说/异世界】",
+   "maxTier": "三",
+   "peakBeyond": false,
+   "source": "新增"
+  },
+  {
+   "name": "关于邻家的天使",
+   "lib": "主库",
+   "tiers": [
+    "一"
+   ],
+   "ids": {},
+   "blurb": "【新增·轻小说/异世界】",
+   "maxTier": "一",
+   "peakBeyond": false,
+   "source": "新增"
+  },
+  {
+   "name": "杀戮的天使",
+   "lib": "主库",
+   "tiers": [
+    "一"
+   ],
+   "ids": {},
+   "blurb": "【新增·轻小说/异世界】",
+   "maxTier": "一",
+   "peakBeyond": false,
+   "source": "新增"
+  },
+  {
+   "name": "街头霸王",
+   "lib": "主库",
+   "tiers": [
+    "一",
+    "二",
+    "三",
+    "四",
+    "五"
+   ],
+   "ids": {},
+   "blurb": "【新增·游戏·格斗/JRPG】",
+   "maxTier": "五",
+   "peakBeyond": false,
+   "source": "新增"
+  },
+  {
+   "name": "铁拳",
+   "lib": "主库",
+   "tiers": [
+    "一",
+    "二",
+    "三",
+    "四",
+    "五"
+   ],
+   "ids": {},
+   "blurb": "【新增·游戏·格斗/JRPG】",
+   "maxTier": "五",
+   "peakBeyond": false,
+   "source": "新增"
+  },
+  {
+   "name": "拳皇",
+   "lib": "主库",
+   "tiers": [
+    "一",
+    "二",
+    "三",
+    "四",
+    "五",
+    "六",
+    "七"
+   ],
+   "ids": {},
+   "blurb": "【新增·游戏·格斗/JRPG】",
+   "maxTier": "七",
+   "peakBeyond": false,
+   "source": "新增"
+  },
+  {
+   "name": "侍魂",
+   "lib": "主库",
+   "tiers": [
+    "一",
+    "二",
+    "三",
+    "四"
+   ],
+   "ids": {},
+   "blurb": "【新增·游戏·格斗/JRPG】",
+   "maxTier": "四",
+   "peakBeyond": false,
+   "source": "新增"
+  },
+  {
+   "name": "真人快打",
+   "lib": "主库",
+   "tiers": [
+    "一",
+    "二",
+    "三",
+    "四",
+    "五",
+    "六",
+    "七"
+   ],
+   "ids": {},
+   "blurb": "【新增·游戏·格斗/JRPG】",
+   "maxTier": "七",
+   "peakBeyond": false,
+   "source": "新增"
+  },
+  {
+   "name": "死或生",
+   "lib": "主库",
+   "tiers": [
+    "一",
+    "二",
+    "三"
+   ],
+   "ids": {},
+   "blurb": "【新增·游戏·格斗/JRPG】",
+   "maxTier": "三",
+   "peakBeyond": false,
+   "source": "新增"
+  },
+  {
+   "name": "罪恶装备",
+   "lib": "主库",
+   "tiers": [
+    "一",
+    "二",
+    "三",
+    "四",
+    "五",
+    "六",
+    "七"
+   ],
+   "ids": {},
+   "blurb": "【新增·游戏·格斗/JRPG】",
+   "maxTier": "七",
+   "peakBeyond": false,
+   "source": "新增"
+  },
+  {
+   "name": "苍翼默示录",
+   "lib": "主库",
+   "tiers": [
+    "一",
+    "二",
+    "三",
+    "四",
+    "五",
+    "六",
+    "七",
+    "八"
+   ],
+   "ids": {},
+   "blurb": "【新增·游戏·格斗/JRPG】",
+   "maxTier": "八",
+   "peakBeyond": false,
+   "source": "新增"
+  },
+  {
+   "name": "碧蓝幻想",
+   "lib": "主库",
+   "tiers": [
+    "一",
+    "二",
+    "三",
+    "四",
+    "五",
+    "六",
+    "七",
+    "八"
+   ],
+   "ids": {},
+   "blurb": "【新增·游戏·格斗/JRPG】",
+   "maxTier": "八",
+   "peakBeyond": false,
+   "source": "新增"
+  },
+  {
+   "name": "人中之龙（如龙）",
+   "lib": "主库",
+   "tiers": [
+    "一",
+    "二"
+   ],
+   "ids": {},
+   "blurb": "【新增·游戏·格斗/JRPG】",
+   "maxTier": "二",
+   "peakBeyond": false,
+   "source": "新增"
+  },
+  {
+   "name": "异度之刃",
+   "lib": "主库",
+   "tiers": [
+    "一",
+    "二",
+    "三",
+    "四",
+    "五",
+    "六",
+    "七",
+    "八"
+   ],
+   "ids": {},
+   "blurb": "【新增·游戏·格斗/JRPG】",
+   "maxTier": "八",
+   "peakBeyond": false,
+   "source": "新增"
+  },
+  {
+   "name": "空之轨迹",
+   "lib": "主库",
+   "tiers": [
+    "一",
+    "二",
+    "三",
+    "四",
+    "五",
+    "六"
+   ],
+   "ids": {},
+   "blurb": "【新增·游戏·格斗/JRPG】",
+   "maxTier": "六",
+   "peakBeyond": false,
+   "source": "新增"
+  },
+  {
+   "name": "闪之轨迹",
+   "lib": "主库",
+   "tiers": [
+    "一",
+    "二",
+    "三",
+    "四",
+    "五",
+    "六",
+    "七"
+   ],
+   "ids": {},
+   "blurb": "【新增·游戏·格斗/JRPG】",
+   "maxTier": "七",
+   "peakBeyond": false,
+   "source": "新增"
+  },
+  {
+   "name": "伊苏",
+   "lib": "主库",
+   "tiers": [
+    "一",
+    "二",
+    "三",
+    "四",
+    "五",
+    "六"
+   ],
+   "ids": {},
+   "blurb": "【新增·游戏·格斗/JRPG】",
+   "maxTier": "六",
+   "peakBeyond": false,
+   "source": "新增"
+  },
+  {
+   "name": "传说系列（Tales of）",
+   "lib": "主库",
+   "tiers": [
+    "一",
+    "二",
+    "三",
+    "四",
+    "五",
+    "六",
+    "七"
+   ],
+   "ids": {},
+   "blurb": "【新增·游戏·格斗/JRPG】",
+   "maxTier": "七",
+   "peakBeyond": false,
+   "source": "新增"
+  },
+  {
+   "name": "尼尔：人工生命",
+   "lib": "主库",
+   "tiers": [
+    "一",
+    "二",
+    "三",
+    "四",
+    "五",
+    "六"
+   ],
+   "ids": {},
+   "blurb": "【新增·游戏·格斗/JRPG】",
+   "maxTier": "六",
+   "peakBeyond": false,
+   "source": "新增"
+  },
+  {
+   "name": "鬼武者",
+   "lib": "主库",
+   "tiers": [
+    "一",
+    "二",
+    "三",
+    "四"
+   ],
+   "ids": {},
+   "blurb": "【新增·游戏·格斗/JRPG】",
+   "maxTier": "四",
+   "peakBeyond": false,
+   "source": "新增"
+  },
+  {
+   "name": "战国无双",
+   "lib": "主库",
+   "tiers": [
+    "一",
+    "二",
+    "三"
+   ],
+   "ids": {},
+   "blurb": "【新增·游戏·格斗/JRPG】",
+   "maxTier": "三",
+   "peakBeyond": false,
+   "source": "新增"
+  },
+  {
+   "name": "真·三国无双",
+   "lib": "主库",
+   "tiers": [
+    "一",
+    "二",
+    "三"
+   ],
+   "ids": {},
+   "blurb": "【新增·游戏·格斗/JRPG】",
+   "maxTier": "三",
+   "peakBeyond": false,
+   "source": "新增"
+  },
+  {
+   "name": "丧尸围城",
+   "lib": "主库",
+   "tiers": [
+    "一",
+    "二"
+   ],
+   "ids": {},
+   "blurb": "【新增·游戏·生存/恐怖/联机】",
+   "maxTier": "二",
+   "peakBeyond": false,
+   "source": "新增"
+  },
+  {
+   "name": "恶灵附身",
+   "lib": "主库",
+   "tiers": [
+    "一",
+    "二",
+    "三",
+    "四"
+   ],
+   "ids": {},
+   "blurb": "【新增·游戏·生存/恐怖/联机】",
+   "maxTier": "四",
+   "peakBeyond": false,
+   "source": "新增"
+  },
+  {
+   "name": "逃生（Outlast）",
+   "lib": "主库",
+   "tiers": [
+    "一"
+   ],
+   "ids": {},
+   "blurb": "【新增·游戏·生存/恐怖/联机】",
+   "maxTier": "一",
+   "peakBeyond": false,
+   "source": "新增"
+  },
+  {
+   "name": "失忆症（Amnesia）",
+   "lib": "主库",
+   "tiers": [
+    "一"
+   ],
+   "ids": {},
+   "blurb": "【新增·游戏·生存/恐怖/联机】",
+   "maxTier": "一",
+   "peakBeyond": false,
+   "source": "新增"
+  },
+  {
+   "name": "消逝的光芒",
+   "lib": "主库",
+   "tiers": [
+    "一",
+    "二"
+   ],
+   "ids": {},
+   "blurb": "【新增·游戏·生存/恐怖/联机】",
+   "maxTier": "二",
+   "peakBeyond": false,
+   "source": "新增"
+  },
+  {
+   "name": "潜行者（STALKER）",
+   "lib": "主库",
+   "tiers": [
+    "一",
+    "二",
+    "三"
+   ],
+   "ids": {},
+   "blurb": "【新增·游戏·生存/恐怖/联机】",
+   "maxTier": "三",
+   "peakBeyond": false,
+   "source": "新增"
+  },
+  {
+   "name": "命运2（Destiny 2）",
+   "lib": "主库",
+   "tiers": [
+    "一",
+    "二",
+    "三",
+    "四",
+    "五",
+    "六",
+    "七",
+    "八"
+   ],
+   "ids": {},
+   "blurb": "【新增·游戏·生存/恐怖/联机】",
+   "maxTier": "八",
+   "peakBeyond": false,
+   "source": "新增"
+  },
+  {
+   "name": "全境封锁",
+   "lib": "主库",
+   "tiers": [
+    "一",
+    "二"
+   ],
+   "ids": {},
+   "blurb": "【新增·游戏·生存/恐怖/联机】",
+   "maxTier": "二",
+   "peakBeyond": false,
+   "source": "新增"
+  },
+  {
+   "name": "Apex英雄",
+   "lib": "主库",
+   "tiers": [
+    "一",
+    "二"
+   ],
+   "ids": {},
+   "blurb": "【新增·游戏·生存/恐怖/联机】",
+   "maxTier": "二",
+   "peakBeyond": false,
+   "source": "新增"
+  },
+  {
+   "name": "黎明杀机",
+   "lib": "主库",
+   "tiers": [
+    "一",
+    "二",
+    "三"
+   ],
+   "ids": {},
+   "blurb": "【新增·游戏·生存/恐怖/联机】",
+   "maxTier": "三",
+   "peakBeyond": false,
+   "source": "新增"
+  },
+  {
+   "name": "方舟：生存进化",
+   "lib": "主库",
+   "tiers": [
+    "一",
+    "二",
+    "三"
+   ],
+   "ids": {},
+   "blurb": "【新增·游戏·生存/恐怖/联机】",
+   "maxTier": "三",
+   "peakBeyond": false,
+   "source": "新增"
+  },
+  {
+   "name": "漫漫长夜",
+   "lib": "主库",
+   "tiers": [
+    "一"
+   ],
+   "ids": {},
+   "blurb": "【新增·游戏·生存/恐怖/联机】",
+   "maxTier": "一",
+   "peakBeyond": false,
+   "source": "新增"
+  },
+  {
+   "name": "星露谷物语",
+   "lib": "主库",
+   "tiers": [
+    "一"
+   ],
+   "ids": {},
+   "blurb": "【新增·游戏·独立/沙盒/国产】",
+   "maxTier": "一",
+   "peakBeyond": false,
+   "source": "新增"
+  },
+  {
+   "name": "环世界（RimWorld）",
+   "lib": "主库",
+   "tiers": [
+    "一",
+    "二",
+    "三"
+   ],
+   "ids": {},
+   "blurb": "【新增·游戏·独立/沙盒/国产】",
+   "maxTier": "三",
+   "peakBeyond": false,
+   "source": "新增"
+  },
+  {
+   "name": "群星（Stellaris）",
+   "lib": "主库",
+   "tiers": [
+    "一",
+    "二",
+    "三",
+    "四",
+    "五",
+    "六",
+    "七",
+    "八",
+    "九"
+   ],
+   "ids": {},
+   "blurb": "【新增·游戏·独立/沙盒/国产】",
+   "maxTier": "九",
+   "peakBeyond": false,
+   "source": "新增"
+  },
+  {
+   "name": "文明（席德梅尔）",
+   "lib": "主库",
+   "tiers": [
+    "一",
+    "二",
+    "三",
+    "四",
+    "五",
+    "六",
+    "七"
+   ],
+   "ids": {},
+   "blurb": "【新增·游戏·独立/沙盒/国产】",
+   "maxTier": "七",
+   "peakBeyond": false,
+   "source": "新增"
+  },
+  {
+   "name": "全面战争",
+   "lib": "主库",
+   "tiers": [
+    "一",
+    "二",
+    "三"
+   ],
+   "ids": {},
+   "blurb": "【新增·游戏·独立/沙盒/国产】",
+   "maxTier": "三",
+   "peakBeyond": false,
+   "source": "新增"
+  },
+  {
+   "name": "杀戮尖塔",
+   "lib": "主库",
+   "tiers": [
+    "一",
+    "二",
+    "三",
+    "四"
+   ],
+   "ids": {},
+   "blurb": "【新增·游戏·独立/沙盒/国产】",
+   "maxTier": "四",
+   "peakBeyond": false,
+   "source": "新增"
+  },
+  {
+   "name": "死亡细胞",
+   "lib": "主库",
+   "tiers": [
+    "一",
+    "二",
+    "三",
+    "四"
+   ],
+   "ids": {},
+   "blurb": "【新增·游戏·独立/沙盒/国产】",
+   "maxTier": "四",
+   "peakBeyond": false,
+   "source": "新增"
+  },
+  {
+   "name": "以撒的结合",
+   "lib": "主库",
+   "tiers": [
+    "一",
+    "二",
+    "三"
+   ],
+   "ids": {},
+   "blurb": "【新增·游戏·独立/沙盒/国产】",
+   "maxTier": "三",
+   "peakBeyond": false,
+   "source": "新增"
+  },
+  {
+   "name": "挺进地牢",
+   "lib": "主库",
+   "tiers": [
+    "一",
+    "二",
+    "三"
+   ],
+   "ids": {},
+   "blurb": "【新增·游戏·独立/沙盒/国产】",
+   "maxTier": "三",
+   "peakBeyond": false,
+   "source": "新增"
+  },
+  {
+   "name": "蔚蓝（Celeste）",
+   "lib": "主库",
+   "tiers": [
+    "一"
+   ],
+   "ids": {},
+   "blurb": "【新增·游戏·独立/沙盒/国产】",
+   "maxTier": "一",
+   "peakBeyond": false,
+   "source": "新增"
+  },
+  {
+   "name": "纪念碑谷",
+   "lib": "主库",
+   "tiers": [
+    "一"
+   ],
+   "ids": {},
+   "blurb": "【新增·游戏·独立/沙盒/国产】",
+   "maxTier": "一",
+   "peakBeyond": false,
+   "source": "新增"
+  },
+  {
+   "name": "鬼谷八荒",
+   "lib": "主库",
+   "tiers": [
+    "一",
+    "二",
+    "三",
+    "四",
+    "五",
+    "六",
+    "七"
+   ],
+   "ids": {},
+   "blurb": "【新增·游戏·独立/沙盒/国产】",
+   "maxTier": "七",
+   "peakBeyond": false,
+   "source": "新增"
+  },
+  {
+   "name": "太吾绘卷",
+   "lib": "主库",
+   "tiers": [
+    "一",
+    "二",
+    "三",
+    "四",
+    "五"
+   ],
+   "ids": {},
+   "blurb": "【新增·游戏·独立/沙盒/国产】",
+   "maxTier": "五",
+   "peakBeyond": false,
+   "source": "新增"
+  },
+  {
+   "name": "了不起的修仙模拟器",
+   "lib": "主库",
+   "tiers": [
+    "一",
+    "二",
+    "三",
+    "四",
+    "五",
+    "六",
+    "七"
+   ],
+   "ids": {},
+   "blurb": "【新增·游戏·独立/沙盒/国产】",
+   "maxTier": "七",
+   "peakBeyond": false,
+   "source": "新增"
+  },
+  {
+   "name": "中国式家长",
+   "lib": "主库",
+   "tiers": [
+    "一"
+   ],
+   "ids": {},
+   "blurb": "【新增·游戏·独立/沙盒/国产】",
+   "maxTier": "一",
+   "peakBeyond": false,
+   "source": "新增"
+  },
+  {
+   "name": "烟火",
+   "lib": "主库",
+   "tiers": [
+    "一"
+   ],
+   "ids": {},
+   "blurb": "【新增·游戏·独立/沙盒/国产】",
+   "maxTier": "一",
+   "peakBeyond": false,
+   "source": "新增"
+  },
+  {
+   "name": "纸嫁衣",
+   "lib": "主库",
+   "tiers": [
+    "一",
+    "二"
+   ],
+   "ids": {},
+   "blurb": "【新增·游戏·独立/沙盒/国产】",
+   "maxTier": "二",
+   "peakBeyond": false,
+   "source": "新增"
+  },
+  {
+   "name": "港诡实录",
+   "lib": "主库",
+   "tiers": [
+    "一",
+    "二"
+   ],
+   "ids": {},
+   "blurb": "【新增·游戏·独立/沙盒/国产】",
+   "maxTier": "二",
+   "peakBeyond": false,
+   "source": "新增"
+  },
+  {
+   "name": "无敌少侠（Invincible）",
+   "lib": "主库",
+   "tiers": [
+    "一",
+    "二",
+    "三",
+    "四",
+    "五",
+    "六",
+    "七",
+    "八"
+   ],
+   "ids": {},
+   "blurb": "【新增·欧美漫改/影视】",
+   "maxTier": "八",
+   "peakBeyond": false,
+   "source": "新增"
+  },
+  {
+   "name": "V字仇杀队",
+   "lib": "主库",
+   "tiers": [
+    "一"
+   ],
+   "ids": {},
+   "blurb": "【新增·欧美漫改/影视】",
+   "maxTier": "一",
+   "peakBeyond": false,
+   "source": "新增"
+  },
+  {
+   "name": "300勇士",
+   "lib": "主库",
+   "tiers": [
+    "一",
+    "二"
+   ],
+   "ids": {},
+   "blurb": "【新增·欧美漫改/影视】",
+   "maxTier": "二",
+   "peakBeyond": false,
+   "source": "新增"
+  },
+  {
+   "name": "罪恶之城",
+   "lib": "主库",
+   "tiers": [
+    "一",
+    "二"
+   ],
+   "ids": {},
+   "blurb": "【新增·欧美漫改/影视】",
+   "maxTier": "二",
+   "peakBeyond": false,
+   "source": "新增"
+  },
+  {
+   "name": "惊变28天",
+   "lib": "主库",
+   "tiers": [
+    "一",
+    "二"
+   ],
+   "ids": {},
+   "blurb": "【新增·欧美漫改/影视】",
+   "maxTier": "二",
+   "peakBeyond": false,
+   "source": "新增"
+  },
+  {
+   "name": "我是传奇",
+   "lib": "主库",
+   "tiers": [
+    "一",
+    "二"
+   ],
+   "ids": {},
+   "blurb": "【新增·欧美漫改/影视】",
+   "maxTier": "二",
+   "peakBeyond": false,
+   "source": "新增"
+  },
+  {
+   "name": "请叫我英雄",
+   "lib": "主库",
+   "tiers": [
+    "一",
+    "二"
+   ],
+   "ids": {},
+   "blurb": "【新增·欧美漫改/影视】",
+   "maxTier": "二",
+   "peakBeyond": false,
+   "source": "新增"
+  },
+  {
+   "name": "毒液",
+   "lib": "主库",
+   "tiers": [
+    "一",
+    "二",
+    "三",
+    "四",
+    "五"
+   ],
+   "ids": {},
+   "blurb": "【新增·欧美漫改/影视】",
+   "maxTier": "五",
+   "peakBeyond": false,
+   "source": "新增"
+  },
+  {
+   "name": "惩罚者",
+   "lib": "主库",
+   "tiers": [
+    "一",
+    "二"
+   ],
+   "ids": {},
+   "blurb": "【新增·欧美漫改/影视】",
+   "maxTier": "二",
+   "peakBeyond": false,
+   "source": "新增"
+  },
+  {
+   "name": "夜魔侠",
+   "lib": "主库",
+   "tiers": [
+    "一",
+    "二",
+    "三"
+   ],
+   "ids": {},
+   "blurb": "【新增·欧美漫改/影视】",
+   "maxTier": "三",
+   "peakBeyond": false,
+   "source": "新增"
+  },
+  {
+   "name": "双面法医（Dexter）",
+   "lib": "主库",
+   "tiers": [
+    "一"
+   ],
+   "ids": {},
+   "blurb": "【新增·欧美漫改/影视】",
+   "maxTier": "一",
+   "peakBeyond": false,
+   "source": "新增"
+  },
+  {
+   "name": "闪灵",
+   "lib": "主库",
+   "tiers": [
+    "一",
+    "二",
+    "三"
+   ],
+   "ids": {},
+   "blurb": "【新增·欧美漫改/影视】",
+   "maxTier": "三",
+   "peakBeyond": false,
+   "source": "新增"
+  },
+  {
+   "name": "鱿鱼游戏",
+   "lib": "主库",
+   "tiers": [
+    "一"
+   ],
+   "ids": {},
+   "blurb": "【新增·剧集】",
+   "maxTier": "一",
+   "peakBeyond": false,
+   "source": "新增"
+  },
+  {
+   "name": "王国（韩剧·丧尸）",
+   "lib": "主库",
+   "tiers": [
+    "一",
+    "二"
+   ],
+   "ids": {},
+   "blurb": "【新增·剧集】",
+   "maxTier": "二",
+   "peakBeyond": false,
+   "source": "新增"
+  },
+  {
+   "name": "地狱公使",
+   "lib": "主库",
+   "tiers": [
+    "一",
+    "二",
+    "三",
+    "四"
+   ],
+   "ids": {},
+   "blurb": "【新增·剧集】",
+   "maxTier": "四",
+   "peakBeyond": false,
+   "source": "新增"
+  },
+  {
+   "name": "黑暗荣耀",
+   "lib": "主库",
+   "tiers": [
+    "一"
+   ],
+   "ids": {},
+   "blurb": "【新增·剧集】",
+   "maxTier": "一",
+   "peakBeyond": false,
+   "source": "新增"
+  },
+  {
+   "name": "半泽直树",
+   "lib": "主库",
+   "tiers": [
+    "一"
+   ],
+   "ids": {},
+   "blurb": "【新增·剧集】",
+   "maxTier": "一",
+   "peakBeyond": false,
+   "source": "新增"
+  },
+  {
+   "name": "Legal High",
+   "lib": "主库",
+   "tiers": [
+    "一"
+   ],
+   "ids": {},
+   "blurb": "【新增·剧集】",
+   "maxTier": "一",
+   "peakBeyond": false,
+   "source": "新增"
+  },
+  {
+   "name": "世界奇妙物语",
+   "lib": "主库",
+   "tiers": [
+    "一",
+    "二",
+    "三",
+    "四"
+   ],
+   "ids": {},
+   "blurb": "【新增·剧集】",
+   "maxTier": "四",
+   "peakBeyond": false,
+   "source": "新增"
+  },
+  {
+   "name": "深夜食堂",
+   "lib": "主库",
+   "tiers": [
+    "一"
+   ],
+   "ids": {},
+   "blurb": "【新增·剧集】",
+   "maxTier": "一",
+   "peakBeyond": false,
+   "source": "新增"
+  },
+  {
+   "name": "请回答1988",
+   "lib": "主库",
+   "tiers": [
+    "一"
+   ],
+   "ids": {},
+   "blurb": "【新增·剧集】",
+   "maxTier": "一",
+   "peakBeyond": false,
+   "source": "新增"
+  },
+  {
+   "name": "琅琊榜",
+   "lib": "主库",
+   "tiers": [
+    "一",
+    "二"
+   ],
+   "ids": {},
+   "blurb": "【新增·剧集】",
+   "maxTier": "二",
+   "peakBeyond": false,
+   "source": "新增"
+  },
+  {
+   "name": "甄嬛传",
+   "lib": "主库",
+   "tiers": [
+    "一"
+   ],
+   "ids": {},
+   "blurb": "【新增·剧集】",
+   "maxTier": "一",
+   "peakBeyond": false,
+   "source": "新增"
+  },
+  {
+   "name": "无间道",
+   "lib": "主库",
+   "tiers": [
+    "一",
+    "二"
+   ],
+   "ids": {},
+   "blurb": "【新增·港片/华语武打】",
+   "maxTier": "二",
+   "peakBeyond": false,
+   "source": "新增"
+  },
+  {
+   "name": "英雄本色",
+   "lib": "主库",
+   "tiers": [
+    "一",
+    "二"
+   ],
+   "ids": {},
+   "blurb": "【新增·港片/华语武打】",
+   "maxTier": "二",
+   "peakBeyond": false,
+   "source": "新增"
+  },
+  {
+   "name": "大话西游",
+   "lib": "主库",
+   "tiers": [
+    "一",
+    "二",
+    "三",
+    "四",
+    "五",
+    "六",
+    "七"
+   ],
+   "ids": {},
+   "blurb": "【新增·港片/华语武打】",
+   "maxTier": "七",
+   "peakBeyond": false,
+   "source": "新增"
+  },
+  {
+   "name": "功夫（周星驰）",
+   "lib": "主库",
+   "tiers": [
+    "一",
+    "二",
+    "三",
+    "四"
+   ],
+   "ids": {},
+   "blurb": "【新增·港片/华语武打】",
+   "maxTier": "四",
+   "peakBeyond": false,
+   "source": "新增"
+  },
+  {
+   "name": "少林足球",
+   "lib": "主库",
+   "tiers": [
+    "一",
+    "二",
+    "三"
+   ],
+   "ids": {},
+   "blurb": "【新增·港片/华语武打】",
+   "maxTier": "三",
+   "peakBeyond": false,
+   "source": "新增"
+  },
+  {
+   "name": "倩女幽魂",
+   "lib": "主库",
+   "tiers": [
+    "一",
+    "二",
+    "三",
+    "四"
+   ],
+   "ids": {},
+   "blurb": "【新增·港片/华语武打】",
+   "maxTier": "四",
+   "peakBeyond": false,
+   "source": "新增"
+  },
+  {
+   "name": "青蛇",
+   "lib": "主库",
+   "tiers": [
+    "一",
+    "二",
+    "三",
+    "四",
+    "五"
+   ],
+   "ids": {},
+   "blurb": "【新增·港片/华语武打】",
+   "maxTier": "五",
+   "peakBeyond": false,
+   "source": "新增"
+  },
+  {
+   "name": "新龙门客栈",
+   "lib": "主库",
+   "tiers": [
+    "一",
+    "二",
+    "三"
+   ],
+   "ids": {},
+   "blurb": "【新增·港片/华语武打】",
+   "maxTier": "三",
+   "peakBeyond": false,
+   "source": "新增"
+  },
+  {
+   "name": "黄飞鸿",
+   "lib": "主库",
+   "tiers": [
+    "一",
+    "二",
+    "三"
+   ],
+   "ids": {},
+   "blurb": "【新增·港片/华语武打】",
+   "maxTier": "三",
+   "peakBeyond": false,
+   "source": "新增"
+  },
+  {
+   "name": "叶问",
+   "lib": "主库",
+   "tiers": [
+    "一",
+    "二",
+    "三"
+   ],
+   "ids": {},
+   "blurb": "【新增·港片/华语武打】",
+   "maxTier": "三",
+   "peakBeyond": false,
+   "source": "新增"
+  },
+  {
+   "name": "一代宗师",
+   "lib": "主库",
+   "tiers": [
+    "一",
+    "二",
+    "三"
+   ],
+   "ids": {},
+   "blurb": "【新增·港片/华语武打】",
+   "maxTier": "三",
+   "peakBeyond": false,
+   "source": "新增"
+  },
+  {
+   "name": "醉拳",
+   "lib": "主库",
+   "tiers": [
+    "一",
+    "二",
+    "三"
+   ],
+   "ids": {},
+   "blurb": "【新增·港片/华语武打】",
+   "maxTier": "三",
+   "peakBeyond": false,
+   "source": "新增"
+  },
+  {
+   "name": "警察故事",
+   "lib": "主库",
+   "tiers": [
+    "一",
+    "二"
+   ],
+   "ids": {},
+   "blurb": "【新增·港片/华语武打】",
+   "maxTier": "二",
+   "peakBeyond": false,
+   "source": "新增"
+  },
+  {
+   "name": "卧虎藏龙",
+   "lib": "主库",
+   "tiers": [
+    "一",
+    "二",
+    "三",
+    "四"
+   ],
+   "ids": {},
+   "blurb": "【新增·港片/华语武打】",
+   "maxTier": "四",
+   "peakBeyond": false,
+   "source": "新增"
+  },
+  {
+   "name": "英雄（张艺谋）",
+   "lib": "主库",
+   "tiers": [
+    "一",
+    "二",
+    "三",
+    "四"
+   ],
+   "ids": {},
+   "blurb": "【新增·港片/华语武打】",
+   "maxTier": "四",
+   "peakBeyond": false,
+   "source": "新增"
+  },
+  {
+   "name": "让子弹飞",
+   "lib": "主库",
+   "tiers": [
+    "一",
+    "二"
+   ],
+   "ids": {},
+   "blurb": "【新增·港片/华语武打】",
+   "maxTier": "二",
+   "peakBeyond": false,
+   "source": "新增"
+  },
+  {
+   "name": "战狼",
+   "lib": "主库",
+   "tiers": [
+    "一",
+    "二"
+   ],
+   "ids": {},
+   "blurb": "【新增·港片/华语武打】",
+   "maxTier": "二",
+   "peakBeyond": false,
+   "source": "新增"
+  },
+  {
+   "name": "画皮",
+   "lib": "主库",
+   "tiers": [
+    "一",
+    "二",
+    "三",
+    "四"
+   ],
+   "ids": {},
+   "blurb": "【新增·港片/华语武打】",
+   "maxTier": "四",
+   "peakBeyond": false,
+   "source": "新增"
+  },
+  {
+   "name": "捉妖记",
+   "lib": "主库",
+   "tiers": [
+    "一",
+    "二",
+    "三",
+    "四"
+   ],
+   "ids": {},
+   "blurb": "【新增·港片/华语武打】",
+   "maxTier": "四",
+   "peakBeyond": false,
+   "source": "新增"
+  },
+  {
+   "name": "精武英雄",
+   "lib": "主库",
+   "tiers": [
+    "一",
+    "二",
+    "三"
+   ],
+   "ids": {},
+   "blurb": "【新增·港片/华语武打】",
+   "maxTier": "三",
+   "peakBeyond": false,
+   "source": "新增"
+  },
+  {
+   "name": "方世玉",
+   "lib": "主库",
+   "tiers": [
+    "一",
+    "二",
+    "三"
+   ],
+   "ids": {},
+   "blurb": "【新增·港片/华语武打】",
+   "maxTier": "三",
+   "peakBeyond": false,
+   "source": "新增"
+  },
+  {
+   "name": "水浒传",
+   "lib": "主库",
+   "tiers": [
+    "一",
+    "二",
+    "三"
+   ],
+   "ids": {},
+   "blurb": "【新增·文学/神话】",
+   "maxTier": "三",
+   "peakBeyond": false,
+   "source": "新增"
+  },
+  {
+   "name": "聊斋志异",
+   "lib": "主库",
+   "tiers": [
+    "一",
+    "二",
+    "三",
+    "四"
+   ],
+   "ids": {},
+   "blurb": "【新增·文学/神话】",
+   "maxTier": "四",
+   "peakBeyond": false,
+   "source": "新增"
+  },
+  {
+   "name": "镜花缘",
+   "lib": "主库",
+   "tiers": [
+    "一",
+    "二",
+    "三"
+   ],
+   "ids": {},
+   "blurb": "【新增·文学/神话】",
+   "maxTier": "三",
+   "peakBeyond": false,
+   "source": "新增"
+  },
+  {
+   "name": "白蛇传",
+   "lib": "主库",
+   "tiers": [
+    "一",
+    "二",
+    "三",
+    "四",
+    "五"
+   ],
+   "ids": {},
+   "blurb": "【新增·文学/神话】",
+   "maxTier": "五",
+   "peakBeyond": false,
+   "source": "新增"
+  },
+  {
+   "name": "三个火枪手",
+   "lib": "主库",
+   "tiers": [
+    "一",
+    "二"
+   ],
+   "ids": {},
+   "blurb": "【新增·文学/神话】",
+   "maxTier": "二",
+   "peakBeyond": false,
+   "source": "新增"
+  },
+  {
+   "name": "德古拉",
+   "lib": "主库",
+   "tiers": [
+    "一",
+    "二",
+    "三",
+    "四"
+   ],
+   "ids": {},
+   "blurb": "【新增·文学/神话】",
+   "maxTier": "四",
+   "peakBeyond": false,
+   "source": "新增"
+  },
+  {
+   "name": "弗兰肯斯坦",
+   "lib": "主库",
+   "tiers": [
+    "一",
+    "二",
+    "三"
+   ],
+   "ids": {},
+   "blurb": "【新增·文学/神话】",
+   "maxTier": "三",
+   "peakBeyond": false,
+   "source": "新增"
+  },
+  {
+   "name": "化身博士",
+   "lib": "主库",
+   "tiers": [
+    "一",
+    "二"
+   ],
+   "ids": {},
+   "blurb": "【新增·文学/神话】",
+   "maxTier": "二",
+   "peakBeyond": false,
+   "source": "新增"
+  },
+  {
+   "name": "隐形人",
+   "lib": "主库",
+   "tiers": [
+    "一",
+    "二"
+   ],
+   "ids": {},
+   "blurb": "【新增·文学/神话】",
+   "maxTier": "二",
+   "peakBeyond": false,
+   "source": "新增"
+  },
+  {
+   "name": "绿野仙踪",
+   "lib": "主库",
+   "tiers": [
+    "一",
+    "二",
+    "三"
+   ],
+   "ids": {},
+   "blurb": "【新增·文学/神话】",
+   "maxTier": "三",
+   "peakBeyond": false,
+   "source": "新增"
+  },
+  {
+   "name": "爱丽丝梦游仙境",
+   "lib": "主库",
+   "tiers": [
+    "一",
+    "二",
+    "三"
+   ],
+   "ids": {},
+   "blurb": "【新增·文学/神话】",
+   "maxTier": "三",
+   "peakBeyond": false,
+   "source": "新增"
+  },
+  {
+   "name": "彼得潘",
+   "lib": "主库",
+   "tiers": [
+    "一",
+    "二"
+   ],
+   "ids": {},
+   "blurb": "【新增·文学/神话】",
+   "maxTier": "二",
+   "peakBeyond": false,
+   "source": "新增"
+  },
+  {
+   "name": "一千零一夜",
+   "lib": "主库",
+   "tiers": [
+    "一",
+    "二",
+    "三",
+    "四",
+    "五",
+    "六"
+   ],
+   "ids": {},
+   "blurb": "【新增·文学/神话】",
+   "maxTier": "六",
+   "peakBeyond": false,
+   "source": "新增"
+  },
+  {
+   "name": "荷马史诗",
+   "lib": "主库",
+   "tiers": [
+    "一",
+    "二",
+    "三",
+    "四",
+    "五",
+    "六",
+    "七",
+    "八"
+   ],
+   "ids": {},
+   "blurb": "【新增·文学/神话】",
+   "maxTier": "八",
+   "peakBeyond": false,
+   "source": "新增"
+  },
+  {
+   "name": "神曲（但丁）",
+   "lib": "主库",
+   "tiers": [
+    "一",
+    "二",
+    "三",
+    "四",
+    "五",
+    "六"
+   ],
+   "ids": {},
+   "blurb": "【新增·文学/神话】",
+   "maxTier": "六",
+   "peakBeyond": false,
+   "source": "新增"
+  },
+  {
+   "name": "浮士德",
+   "lib": "主库",
+   "tiers": [
+    "一",
+    "二",
+    "三",
+    "四"
+   ],
+   "ids": {},
+   "blurb": "【新增·文学/神话】",
+   "maxTier": "四",
+   "peakBeyond": false,
+   "source": "新增"
+  },
+  {
+   "name": "尼伯龙根的指环",
+   "lib": "主库",
+   "tiers": [
+    "一",
+    "二",
+    "三",
+    "四",
+    "五",
+    "六",
+    "七"
+   ],
+   "ids": {},
+   "blurb": "【新增·文学/神话】",
+   "maxTier": "七",
+   "peakBeyond": false,
+   "source": "新增"
+  },
+  {
+   "name": "亚瑟王传说",
+   "lib": "主库",
+   "tiers": [
+    "一",
+    "二",
+    "三",
+    "四",
+    "五"
+   ],
+   "ids": {},
+   "blurb": "【新增·文学/神话】",
+   "maxTier": "五",
+   "peakBeyond": false,
+   "source": "新增"
+  },
+  {
+   "name": "罗宾汉",
+   "lib": "主库",
+   "tiers": [
+    "一",
+    "二"
+   ],
+   "ids": {},
+   "blurb": "【新增·文学/神话】",
+   "maxTier": "二",
+   "peakBeyond": false,
+   "source": "新增"
+  },
+  {
+   "name": "希腊神话",
+   "lib": "主库",
+   "tiers": [
+    "一",
+    "二",
+    "三",
+    "四",
+    "五",
+    "六",
+    "七",
+    "八",
+    "九"
+   ],
+   "ids": {},
+   "blurb": "【新增·文学/神话】",
+   "maxTier": "九",
+   "peakBeyond": true,
+   "source": "新增"
+  },
+  {
+   "name": "北欧神话",
+   "lib": "主库",
+   "tiers": [
+    "一",
+    "二",
+    "三",
+    "四",
+    "五",
+    "六",
+    "七",
+    "八",
+    "九"
+   ],
+   "ids": {},
+   "blurb": "【新增·文学/神话】",
+   "maxTier": "九",
+   "peakBeyond": true,
+   "source": "新增"
+  },
+  {
+   "name": "埃及神话",
+   "lib": "主库",
+   "tiers": [
+    "一",
+    "二",
+    "三",
+    "四",
+    "五",
+    "六",
+    "七",
+    "八",
+    "九"
+   ],
+   "ids": {},
+   "blurb": "【新增·文学/神话】",
+   "maxTier": "九",
+   "peakBeyond": true,
+   "source": "新增"
+  },
+  {
+   "name": "爱，死亡和机器人",
+   "lib": "主库",
+   "tiers": [
+    "一",
+    "二",
+    "三",
+    "四",
+    "五",
+    "六",
+    "七"
+   ],
+   "ids": {},
+   "blurb": "【新增·欧美动画】",
+   "maxTier": "七",
+   "peakBeyond": false,
+   "source": "新增"
+  },
+  {
+   "name": "探险活宝",
+   "lib": "主库",
+   "tiers": [
+    "一",
+    "二",
+    "三",
+    "四",
+    "五",
+    "六"
+   ],
+   "ids": {},
+   "blurb": "【新增·欧美动画】",
+   "maxTier": "六",
+   "peakBeyond": false,
+   "source": "新增"
+  },
+  {
+   "name": "飞天小女警",
+   "lib": "主库",
+   "tiers": [
+    "一",
+    "二",
+    "三",
+    "四",
+    "五"
+   ],
+   "ids": {},
+   "blurb": "【新增·欧美动画】",
+   "maxTier": "五",
+   "peakBeyond": false,
+   "source": "新增"
+  },
+  {
+   "name": "降世神通：最后的气宗",
+   "lib": "主库",
+   "tiers": [
+    "一",
+    "二",
+    "三",
+    "四",
+    "五",
+    "六"
+   ],
+   "ids": {},
+   "blurb": "【新增·欧美动画】",
+   "maxTier": "六",
+   "peakBeyond": false,
+   "source": "新增"
+  },
+  {
+   "name": "科拉传奇",
+   "lib": "主库",
+   "tiers": [
+    "一",
+    "二",
+    "三",
+    "四",
+    "五",
+    "六"
+   ],
+   "ids": {},
+   "blurb": "【新增·欧美动画】",
+   "maxTier": "六",
+   "peakBeyond": false,
+   "source": "新增"
+  },
+  {
+   "name": "星际牛仔",
+   "lib": "主库",
+   "tiers": [
+    "一",
+    "二",
+    "三"
+   ],
+   "ids": {},
+   "blurb": "【新增·欧美动画】",
+   "maxTier": "三",
+   "peakBeyond": false,
+   "source": "新增"
+  },
+  {
+   "name": "功夫熊猫",
+   "lib": "主库",
+   "tiers": [
+    "一",
+    "二",
+    "三",
+    "四",
+    "五"
+   ],
+   "ids": {},
+   "blurb": "【新增·欧美动画】",
+   "maxTier": "五",
+   "peakBeyond": false,
+   "source": "新增"
+  },
+  {
+   "name": "驯龙高手",
+   "lib": "主库",
+   "tiers": [
+    "一",
+    "二",
+    "三",
+    "四",
+    "五"
+   ],
+   "ids": {},
+   "blurb": "【新增·欧美动画】",
+   "maxTier": "五",
+   "peakBeyond": false,
+   "source": "新增"
+  },
+  {
+   "name": "超人总动员",
+   "lib": "主库",
+   "tiers": [
+    "一",
+    "二",
+    "三",
+    "四",
+    "五"
+   ],
+   "ids": {},
+   "blurb": "【新增·欧美动画】",
+   "maxTier": "五",
+   "peakBeyond": false,
+   "source": "新增"
+  },
+  {
+   "name": "拯救大兵瑞恩",
+   "lib": "主库",
+   "tiers": [
+    "一",
+    "二"
+   ],
+   "ids": {},
+   "blurb": "【新增·战争/怪兽片】",
+   "maxTier": "二",
+   "peakBeyond": false,
+   "source": "新增"
+  },
+  {
+   "name": "兄弟连",
+   "lib": "主库",
+   "tiers": [
+    "一",
+    "二"
+   ],
+   "ids": {},
+   "blurb": "【新增·战争/怪兽片】",
+   "maxTier": "二",
+   "peakBeyond": false,
+   "source": "新增"
+  },
+  {
+   "name": "血战钢锯岭",
+   "lib": "主库",
+   "tiers": [
+    "一",
+    "二"
+   ],
+   "ids": {},
+   "blurb": "【新增·战争/怪兽片】",
+   "maxTier": "二",
+   "peakBeyond": false,
+   "source": "新增"
+  },
+  {
+   "name": "珍珠港",
+   "lib": "主库",
+   "tiers": [
+    "一",
+    "二"
+   ],
+   "ids": {},
+   "blurb": "【新增·战争/怪兽片】",
+   "maxTier": "二",
+   "peakBeyond": false,
+   "source": "新增"
+  },
+  {
+   "name": "现代启示录",
+   "lib": "主库",
+   "tiers": [
+    "一",
+    "二"
+   ],
+   "ids": {},
+   "blurb": "【新增·战争/怪兽片】",
+   "maxTier": "二",
+   "peakBeyond": false,
+   "source": "新增"
+  },
+  {
+   "name": "黑鹰坠落",
+   "lib": "主库",
+   "tiers": [
+    "一",
+    "二"
+   ],
+   "ids": {},
+   "blurb": "【新增·战争/怪兽片】",
+   "maxTier": "二",
+   "peakBeyond": false,
+   "source": "新增"
+  },
+  {
+   "name": "决战中途岛",
+   "lib": "主库",
+   "tiers": [
+    "一",
+    "二"
+   ],
+   "ids": {},
+   "blurb": "【新增·战争/怪兽片】",
+   "maxTier": "二",
+   "peakBeyond": false,
+   "source": "新增"
+  },
+  {
+   "name": "1917",
+   "lib": "主库",
+   "tiers": [
+    "一",
+    "二"
+   ],
+   "ids": {},
+   "blurb": "【新增·战争/怪兽片】",
+   "maxTier": "二",
+   "peakBeyond": false,
+   "source": "新增"
+  },
+  {
+   "name": "狂怒",
+   "lib": "主库",
+   "tiers": [
+    "一",
+    "二"
+   ],
+   "ids": {},
+   "blurb": "【新增·战争/怪兽片】",
+   "maxTier": "二",
+   "peakBeyond": false,
+   "source": "新增"
+  },
+  {
+   "name": "兵临城下",
+   "lib": "主库",
+   "tiers": [
+    "一",
+    "二"
+   ],
+   "ids": {},
+   "blurb": "【新增·战争/怪兽片】",
+   "maxTier": "二",
+   "peakBeyond": false,
+   "source": "新增"
+  },
+  {
+   "name": "独立日",
+   "lib": "主库",
+   "tiers": [
+    "一",
+    "二",
+    "三"
+   ],
+   "ids": {},
+   "blurb": "【新增·战争/怪兽片】",
+   "maxTier": "三",
+   "peakBeyond": false,
+   "source": "新增"
+  },
+  {
+   "name": "世界大战（世界之战）",
+   "lib": "主库",
+   "tiers": [
+    "一",
+    "二",
+    "三"
+   ],
+   "ids": {},
+   "blurb": "【新增·战争/怪兽片】",
+   "maxTier": "三",
+   "peakBeyond": false,
+   "source": "新增"
+  },
+  {
+   "name": "汉江怪物",
+   "lib": "主库",
+   "tiers": [
+    "一",
+    "二",
+    "三"
+   ],
+   "ids": {},
+   "blurb": "【新增·战争/怪兽片】",
+   "maxTier": "三",
+   "peakBeyond": false,
+   "source": "新增"
+  },
+  {
+   "name": "雪国列车",
+   "lib": "主库",
+   "tiers": [
+    "一",
+    "二"
+   ],
+   "ids": {},
+   "blurb": "【新增·战争/怪兽片】",
+   "maxTier": "二",
+   "peakBeyond": false,
+   "source": "新增"
+  },
+  {
+   "name": "太平洋战争",
+   "lib": "主库",
+   "tiers": [
+    "一",
+    "二"
+   ],
+   "ids": {},
+   "blurb": "【新增·战争/怪兽片】",
+   "maxTier": "二",
+   "peakBeyond": false,
+   "source": "新增"
+  },
+  {
+   "name": "我们的父辈",
+   "lib": "主库",
+   "tiers": [
+    "一",
+    "二"
+   ],
+   "ids": {},
+   "blurb": "【新增·战争/怪兽片】",
+   "maxTier": "二",
+   "peakBeyond": false,
+   "source": "新增"
+  },
+  {
+   "name": "帝霸",
+   "lib": "主库",
+   "tiers": [
+    "一",
+    "二",
+    "三",
+    "四",
+    "五",
+    "六",
+    "七",
+    "八"
+   ],
+   "ids": {},
+   "blurb": "【新增·国产网文】",
+   "maxTier": "八",
+   "peakBeyond": false,
+   "source": "新增"
+  },
+  {
+   "name": "神藏",
+   "lib": "主库",
+   "tiers": [
+    "一",
+    "二",
+    "三",
+    "四",
+    "五",
+    "六"
+   ],
+   "ids": {},
+   "blurb": "【新增·国产网文】",
+   "maxTier": "六",
+   "peakBeyond": false,
+   "source": "新增"
+  },
+  {
+   "name": "大道争锋",
+   "lib": "主库",
+   "tiers": [
+    "一",
+    "二",
+    "三",
+    "四",
+    "五",
+    "六",
+    "七"
+   ],
+   "ids": {},
+   "blurb": "【新增·国产网文】",
+   "maxTier": "七",
+   "peakBeyond": false,
+   "source": "新增"
+  },
+  {
+   "name": "阳神",
+   "lib": "主库",
+   "tiers": [
+    "一",
+    "二",
+    "三",
+    "四",
+    "五",
+    "六",
+    "七",
+    "八"
+   ],
+   "ids": {},
+   "blurb": "【新增·国产网文】",
+   "maxTier": "八",
+   "peakBeyond": false,
+   "source": "新增"
+  },
+  {
+   "name": "兽血沸腾",
+   "lib": "主库",
+   "tiers": [
+    "一",
+    "二",
+    "三",
+    "四",
+    "五",
+    "六"
+   ],
+   "ids": {},
+   "blurb": "【新增·国产网文】",
+   "maxTier": "六",
+   "peakBeyond": false,
+   "source": "新增"
+  },
+  {
+   "name": "神游",
+   "lib": "主库",
+   "tiers": [
+    "一",
+    "二",
+    "三",
+    "四",
+    "五",
+    "六",
+    "七"
+   ],
+   "ids": {},
+   "blurb": "【新增·国产网文】",
+   "maxTier": "七",
+   "peakBeyond": false,
+   "source": "新增"
+  },
+  {
+   "name": "飘渺之旅",
+   "lib": "主库",
+   "tiers": [
+    "一",
+    "二",
+    "三",
+    "四",
+    "五",
+    "六",
+    "七"
+   ],
+   "ids": {},
+   "blurb": "【新增·国产网文】",
+   "maxTier": "七",
+   "peakBeyond": false,
+   "source": "新增"
+  },
+  {
+   "name": "尘缘",
+   "lib": "主库",
+   "tiers": [
+    "一",
+    "二",
+    "三",
+    "四",
+    "五",
+    "六",
+    "七",
+    "八"
+   ],
+   "ids": {},
+   "blurb": "【新增·国产网文】",
+   "maxTier": "八",
+   "peakBeyond": false,
+   "source": "新增"
+  },
+  {
+   "name": "三寸人间",
+   "lib": "主库",
+   "tiers": [
+    "一",
+    "二",
+    "三",
+    "四",
+    "五",
+    "六",
+    "七",
+    "八"
+   ],
+   "ids": {},
+   "blurb": "【新增·国产网文】",
+   "maxTier": "八",
+   "peakBeyond": false,
+   "source": "新增"
+  },
+  {
+   "name": "灭运图录",
+   "lib": "主库",
+   "tiers": [
+    "一",
+    "二",
+    "三",
+    "四",
+    "五",
+    "六",
+    "七"
+   ],
+   "ids": {},
+   "blurb": "【新增·国产网文】",
+   "maxTier": "七",
+   "peakBeyond": false,
+   "source": "新增"
+  },
+  {
+   "name": "五行天",
+   "lib": "主库",
+   "tiers": [
+    "一",
+    "二",
+    "三",
+    "四",
+    "五",
+    "六"
+   ],
+   "ids": {},
+   "blurb": "【新增·国产网文】",
+   "maxTier": "六",
+   "peakBeyond": false,
+   "source": "新增"
+  },
+  {
+   "name": "我师兄实在太稳健了",
+   "lib": "主库",
+   "tiers": [
+    "一",
+    "二",
+    "三",
+    "四",
+    "五",
+    "六",
+    "七"
+   ],
+   "ids": {},
+   "blurb": "【新增·国产网文】",
+   "maxTier": "七",
+   "peakBeyond": false,
+   "source": "新增"
+  },
+  {
+   "name": "神话纪元",
+   "lib": "主库",
+   "tiers": [
+    "一",
+    "二",
+    "三",
+    "四",
+    "五",
+    "六",
+    "七",
+    "八"
+   ],
+   "ids": {},
+   "blurb": "【新增·国产网文】",
+   "maxTier": "八",
+   "peakBeyond": false,
+   "source": "新增"
+  },
+  {
+   "name": "天启预报",
+   "lib": "主库",
+   "tiers": [
+    "一",
+    "二",
+    "三",
+    "四",
+    "五",
+    "六"
+   ],
+   "ids": {},
+   "blurb": "【新增·国产网文】",
+   "maxTier": "六",
+   "peakBeyond": false,
+   "source": "新增"
+  },
+  {
+   "name": "唐砖",
+   "lib": "主库",
+   "tiers": [
+    "一",
+    "二"
+   ],
+   "ids": {},
+   "blurb": "【新增·国产网文】",
+   "maxTier": "二",
+   "peakBeyond": false,
+   "source": "新增"
+  },
+  {
+   "name": "回到明朝当王爷",
+   "lib": "主库",
+   "tiers": [
+    "一",
+    "二"
+   ],
+   "ids": {},
+   "blurb": "【新增·国产网文】",
+   "maxTier": "二",
+   "peakBeyond": false,
+   "source": "新增"
+  },
+  {
+   "name": "极品家丁",
+   "lib": "主库",
+   "tiers": [
+    "一",
+    "二"
+   ],
+   "ids": {},
+   "blurb": "【新增·国产网文】",
+   "maxTier": "二",
+   "peakBeyond": false,
+   "source": "新增"
+  },
+  {
+   "name": "苟在初圣魔门当人材",
+   "lib": "主库",
+   "tiers": [
+    "一",
+    "二",
+    "三",
+    "四",
+    "五",
+    "六"
+   ],
+   "ids": {},
+   "blurb": "【新增·国产网文】",
+   "maxTier": "六",
+   "peakBeyond": false,
+   "source": "新增"
+  },
+  {
+   "name": "主神空间",
+   "lib": "主库",
+   "tiers": [
+    "一",
+    "二",
+    "三",
+    "四",
+    "五",
+    "六",
+    "七",
+    "八"
+   ],
+   "ids": {},
+   "blurb": "【新增·无限流/系统】",
+   "maxTier": "八",
+   "peakBeyond": false,
+   "source": "新增"
+  },
+  {
+   "name": "恐怖复苏",
+   "lib": "主库",
+   "tiers": [
+    "一",
+    "二",
+    "三",
+    "四",
+    "五",
+    "六"
+   ],
+   "ids": {},
+   "blurb": "【新增·无限流/系统】",
+   "maxTier": "六",
+   "peakBeyond": false,
+   "source": "新增"
+  },
+  {
+   "name": "王牌进化",
+   "lib": "主库",
+   "tiers": [
+    "一",
+    "二",
+    "三",
+    "四",
+    "五",
+    "六",
+    "七",
+    "八"
+   ],
+   "ids": {},
+   "blurb": "【新增·无限流/系统】",
+   "maxTier": "八",
+   "peakBeyond": false,
+   "source": "新增"
+  },
+  {
+   "name": "无限世界",
+   "lib": "主库",
+   "tiers": [
+    "一",
+    "二",
+    "三",
+    "四",
+    "五",
+    "六",
+    "七",
+    "八"
+   ],
+   "ids": {},
+   "blurb": "【新增·无限流/系统】",
+   "maxTier": "八",
+   "peakBeyond": false,
+   "source": "新增"
+  },
+  {
+   "name": "死亡万花筒",
+   "lib": "主库",
+   "tiers": [
+    "一",
+    "二",
+    "三",
+    "四",
+    "五",
+    "六"
+   ],
+   "ids": {},
+   "blurb": "【新增·无限流/系统】",
+   "maxTier": "六",
+   "peakBeyond": false,
+   "source": "新增"
+  },
+  {
+   "name": "我在恐怖游戏里封神",
+   "lib": "主库",
+   "tiers": [
+    "一",
+    "二",
+    "三",
+    "四",
+    "五",
+    "六"
+   ],
+   "ids": {},
+   "blurb": "【新增·无限流/系统】",
+   "maxTier": "六",
+   "peakBeyond": false,
+   "source": "新增"
+  },
+  {
+   "name": "全球进化",
+   "lib": "主库",
+   "tiers": [
+    "一",
+    "二",
+    "三",
+    "四",
+    "五",
+    "六"
+   ],
+   "ids": {},
+   "blurb": "【新增·无限流/系统】",
+   "maxTier": "六",
+   "peakBeyond": false,
+   "source": "新增"
+  },
+  {
+   "name": "诸天万界",
+   "lib": "主库",
+   "tiers": [
+    "一",
+    "二",
+    "三",
+    "四",
+    "五",
+    "六",
+    "七",
+    "八",
+    "九"
+   ],
+   "ids": {},
+   "blurb": "【新增·无限流/系统】",
+   "maxTier": "九",
+   "peakBeyond": false,
+   "source": "新增"
+  },
+  {
+   "name": "网游之近战法师",
+   "lib": "主库",
+   "tiers": [
+    "一",
+    "二",
+    "三",
+    "四",
+    "五"
+   ],
+   "ids": {},
+   "blurb": "【新增·无限流/系统】",
+   "maxTier": "五",
+   "peakBeyond": false,
+   "source": "新增"
+  },
+  {
+   "name": "这个人仙太过正经",
+   "lib": "主库",
+   "tiers": [
+    "一",
+    "二",
+    "三",
+    "四",
+    "五",
+    "六",
+    "七"
+   ],
+   "ids": {},
+   "blurb": "【新增·无限流/系统】",
+   "maxTier": "七",
+   "peakBeyond": false,
+   "source": "新增"
+  },
+  {
+   "name": "全民领主",
+   "lib": "主库",
+   "tiers": [
+    "一",
+    "二",
+    "三",
+    "四",
+    "五",
+    "六"
+   ],
+   "ids": {},
+   "blurb": "【新增·无限流/系统】",
+   "maxTier": "六",
+   "peakBeyond": false,
+   "source": "新增"
+  },
+  {
+   "name": "恋与制作人",
+   "lib": "主库",
+   "tiers": [
+    "一",
+    "二",
+    "三",
+    "四",
+    "五"
+   ],
+   "ids": {},
+   "blurb": "【新增·女性向(有战斗)】",
+   "maxTier": "五",
+   "peakBeyond": false,
+   "source": "新增"
+  },
+  {
+   "name": "恋与深空",
+   "lib": "主库",
+   "tiers": [
+    "一",
+    "二",
+    "三",
+    "四",
+    "五",
+    "六"
+   ],
+   "ids": {},
+   "blurb": "【新增·女性向(有战斗)】",
+   "maxTier": "六",
+   "peakBeyond": false,
+   "source": "新增"
+  },
+  {
+   "name": "遇见逆水寒",
+   "lib": "主库",
+   "tiers": [
+    "一",
+    "二",
+    "三",
+    "四"
+   ],
+   "ids": {},
+   "blurb": "【新增·女性向(有战斗)】",
+   "maxTier": "四",
+   "peakBeyond": false,
+   "source": "新增"
+  },
+  {
+   "name": "三生三世十里桃花",
+   "lib": "主库",
+   "tiers": [
+    "一",
+    "二",
+    "三",
+    "四",
+    "五",
+    "六",
+    "七"
+   ],
+   "ids": {},
+   "blurb": "【新增·仙侠剧】",
+   "maxTier": "七",
+   "peakBeyond": false,
+   "source": "新增"
+  },
+  {
+   "name": "香蜜沉沉烬如霜",
+   "lib": "主库",
+   "tiers": [
+    "一",
+    "二",
+    "三",
+    "四",
+    "五",
+    "六",
+    "七"
+   ],
+   "ids": {},
+   "blurb": "【新增·仙侠剧】",
+   "maxTier": "七",
+   "peakBeyond": false,
+   "source": "新增"
+  },
+  {
+   "name": "花千骨",
+   "lib": "主库",
+   "tiers": [
+    "一",
+    "二",
+    "三",
+    "四",
+    "五",
+    "六"
+   ],
+   "ids": {},
+   "blurb": "【新增·仙侠剧】",
+   "maxTier": "六",
+   "peakBeyond": false,
+   "source": "新增"
+  },
+  {
+   "name": "古剑奇谭",
+   "lib": "主库",
+   "tiers": [
+    "一",
+    "二",
+    "三",
+    "四",
+    "五",
+    "六"
+   ],
+   "ids": {},
+   "blurb": "【新增·仙侠剧】",
+   "maxTier": "六",
+   "peakBeyond": false,
+   "source": "新增"
+  },
+  {
+   "name": "苍兰诀",
+   "lib": "主库",
+   "tiers": [
+    "一",
+    "二",
+    "三",
+    "四",
+    "五",
+    "六",
+    "七"
+   ],
+   "ids": {},
+   "blurb": "【新增·仙侠剧】",
+   "maxTier": "七",
+   "peakBeyond": false,
+   "source": "新增"
+  },
+  {
+   "name": "长相思",
+   "lib": "主库",
+   "tiers": [
+    "一",
+    "二",
+    "三",
+    "四",
+    "五",
+    "六"
+   ],
+   "ids": {},
+   "blurb": "【新增·仙侠剧】",
+   "maxTier": "六",
+   "peakBeyond": false,
+   "source": "新增"
+  },
+  {
+   "name": "沉香如屑",
+   "lib": "主库",
+   "tiers": [
+    "一",
+    "二",
+    "三",
+    "四",
+    "五",
+    "六",
+    "七"
+   ],
+   "ids": {},
+   "blurb": "【新增·仙侠剧】",
+   "maxTier": "七",
+   "peakBeyond": false,
+   "source": "新增"
+  },
+  {
+   "name": "山河令",
+   "lib": "主库",
+   "tiers": [
+    "一",
+    "二",
+    "三"
+   ],
+   "ids": {},
+   "blurb": "【新增·仙侠剧】",
+   "maxTier": "三",
+   "peakBeyond": false,
+   "source": "新增"
+  },
+  {
+   "name": "镇魂（priest）",
+   "lib": "主库",
+   "tiers": [
+    "一",
+    "二",
+    "三",
+    "四",
+    "五",
+    "六"
+   ],
+   "ids": {},
+   "blurb": "【新增·仙侠剧】",
+   "maxTier": "六",
+   "peakBeyond": false,
+   "source": "新增"
+  },
+  {
+   "name": "亮剑",
+   "lib": "主库",
+   "tiers": [
+    "一",
+    "二"
+   ],
+   "ids": {},
+   "blurb": "【新增·军旅】",
+   "maxTier": "二",
+   "peakBeyond": false,
+   "source": "新增"
+  },
+  {
+   "name": "黑色四叶草",
+   "lib": "主库",
+   "tiers": [
+    "一",
+    "二",
+    "三",
+    "四",
+    "五",
+    "六",
+    "七"
+   ],
+   "ids": {},
+   "blurb": "【新增·更多日漫】",
+   "maxTier": "七",
+   "peakBeyond": false,
+   "source": "新增"
+  },
+  {
+   "name": "银河英雄传说",
+   "lib": "主库",
+   "tiers": [
+    "一",
+    "二",
+    "三",
+    "四",
+    "五",
+    "六",
+    "七"
+   ],
+   "ids": {},
+   "blurb": "【新增·更多日漫】",
+   "maxTier": "七",
+   "peakBeyond": false,
+   "source": "新增"
+  },
+  {
+   "name": "平凡职业造就世界最强",
+   "lib": "主库",
+   "tiers": [
+    "一",
+    "二",
+    "三",
+    "四",
+    "五",
+    "六"
+   ],
+   "ids": {},
+   "blurb": "【新增·更多日漫】",
+   "maxTier": "六",
+   "peakBeyond": false,
+   "source": "新增"
+  },
+  {
+   "name": "贤者之孙",
+   "lib": "主库",
+   "tiers": [
+    "一",
+    "二",
+    "三",
+    "四",
+    "五",
+    "六"
+   ],
+   "ids": {},
+   "blurb": "【新增·更多日漫】",
+   "maxTier": "六",
+   "peakBeyond": false,
+   "source": "新增"
+  },
+  {
+   "name": "翼神传说（Eureka：交响诗篇姊妹作）",
+   "lib": "主库",
+   "tiers": [
+    "一",
+    "二",
+    "三",
+    "四",
+    "五",
+    "六"
+   ],
+   "ids": {},
+   "blurb": "【新增·更多日漫】",
+   "maxTier": "六",
+   "peakBeyond": false,
+   "source": "新增"
+  },
+  {
+   "name": "境界触发者",
+   "lib": "主库",
+   "tiers": [
+    "一",
+    "二",
+    "三",
+    "四",
+    "五"
+   ],
+   "ids": {},
+   "blurb": "【新增·更多日漫】",
+   "maxTier": "五",
+   "peakBeyond": false,
+   "source": "新增"
+  },
+  {
+   "name": "万智牌",
+   "lib": "主库",
+   "tiers": [
+    "一",
+    "二",
+    "三",
+    "四",
+    "五",
+    "六",
+    "七",
+    "八"
+   ],
+   "ids": {},
+   "blurb": "【新增·MMO/手游】",
+   "maxTier": "八",
+   "peakBeyond": false,
+   "source": "新增"
+  },
+  {
+   "name": "昆特牌（巫师）",
+   "lib": "主库",
+   "tiers": [
+    "一",
+    "二",
+    "三",
+    "四",
+    "五",
+    "六"
+   ],
+   "ids": {},
+   "blurb": "【新增·MMO/手游】",
+   "maxTier": "六",
+   "peakBeyond": false,
+   "source": "新增"
+  },
+  {
+   "name": "碧蓝档案",
+   "lib": "主库",
+   "tiers": [
+    "一",
+    "二",
+    "三",
+    "四",
+    "五"
+   ],
+   "ids": {},
+   "blurb": "【新增·MMO/手游】",
+   "maxTier": "五",
+   "peakBeyond": false,
+   "source": "新增"
+  },
+  {
+   "name": "公主连结",
+   "lib": "主库",
+   "tiers": [
+    "一",
+    "二",
+    "三",
+    "四",
+    "五",
+    "六"
+   ],
+   "ids": {},
+   "blurb": "【新增·MMO/手游】",
+   "maxTier": "六",
+   "peakBeyond": false,
+   "source": "新增"
+  },
+  {
+   "name": "战双帕弥什",
+   "lib": "主库",
+   "tiers": [
+    "一",
+    "二",
+    "三",
+    "四",
+    "五",
+    "六"
+   ],
+   "ids": {},
+   "blurb": "【新增·MMO/手游】",
+   "maxTier": "六",
+   "peakBeyond": false,
+   "source": "新增"
+  },
+  {
+   "name": "鸣潮",
+   "lib": "主库",
+   "tiers": [
+    "一",
+    "二",
+    "三",
+    "四",
+    "五",
+    "六"
+   ],
+   "ids": {},
+   "blurb": "【新增·MMO/手游】",
+   "maxTier": "六",
+   "peakBeyond": false,
+   "source": "新增"
+  },
+  {
+   "name": "幻塔",
+   "lib": "主库",
+   "tiers": [
+    "一",
+    "二",
+    "三",
+    "四",
+    "五",
+    "六"
+   ],
+   "ids": {},
+   "blurb": "【新增·MMO/手游】",
+   "maxTier": "六",
+   "peakBeyond": false,
+   "source": "新增"
+  },
+  {
+   "name": "第五人格",
+   "lib": "主库",
+   "tiers": [
+    "一",
+    "二",
+    "三"
+   ],
+   "ids": {},
+   "blurb": "【新增·MMO/手游】",
+   "maxTier": "三",
+   "peakBeyond": false,
+   "source": "新增"
+  },
+  {
+   "name": "洛克王国",
+   "lib": "主库",
+   "tiers": [
+    "一",
+    "二",
+    "三"
+   ],
+   "ids": {},
+   "blurb": "【新增·MMO/手游】",
+   "maxTier": "三",
+   "peakBeyond": false,
+   "source": "新增"
+  },
+  {
+   "name": "赛尔号",
+   "lib": "主库",
+   "tiers": [
+    "一",
+    "二",
+    "三",
+    "四",
+    "五"
+   ],
+   "ids": {},
+   "blurb": "【新增·MMO/手游】",
+   "maxTier": "五",
+   "peakBeyond": false,
+   "source": "新增"
+  },
+  {
+   "name": "奥拉星",
+   "lib": "主库",
+   "tiers": [
+    "一",
+    "二",
+    "三",
+    "四"
+   ],
+   "ids": {},
+   "blurb": "【新增·MMO/手游】",
+   "maxTier": "四",
+   "peakBeyond": false,
+   "source": "新增"
+  },
+  {
+   "name": "剑网3",
+   "lib": "主库",
+   "tiers": [
+    "一",
+    "二",
+    "三",
+    "四"
+   ],
+   "ids": {},
+   "blurb": "【新增·MMO/手游】",
+   "maxTier": "四",
+   "peakBeyond": false,
+   "source": "新增"
+  },
+  {
+   "name": "逆水寒",
+   "lib": "主库",
+   "tiers": [
+    "一",
+    "二",
+    "三",
+    "四"
+   ],
+   "ids": {},
+   "blurb": "【新增·MMO/手游】",
+   "maxTier": "四",
+   "peakBeyond": false,
+   "source": "新增"
+  },
+  {
+   "name": "永劫无间",
+   "lib": "主库",
+   "tiers": [
+    "一",
+    "二",
+    "三",
+    "四"
+   ],
+   "ids": {},
+   "blurb": "【新增·MMO/手游】",
+   "maxTier": "四",
+   "peakBeyond": false,
+   "source": "新增"
+  },
+  {
+   "name": "梦幻西游",
+   "lib": "主库",
+   "tiers": [
+    "一",
+    "二",
+    "三",
+    "四",
+    "五",
+    "六"
+   ],
+   "ids": {},
+   "blurb": "【新增·MMO/手游】",
+   "maxTier": "六",
+   "peakBeyond": false,
+   "source": "新增"
+  },
+  {
+   "name": "问道",
+   "lib": "主库",
+   "tiers": [
+    "一",
+    "二",
+    "三",
+    "四",
+    "五",
+    "六"
+   ],
+   "ids": {},
+   "blurb": "【新增·MMO/手游】",
+   "maxTier": "六",
+   "peakBeyond": false,
+   "source": "新增"
+  },
+  {
+   "name": "龙之谷",
+   "lib": "主库",
+   "tiers": [
+    "一",
+    "二",
+    "三",
+    "四",
+    "五"
+   ],
+   "ids": {},
+   "blurb": "【新增·MMO/手游】",
+   "maxTier": "五",
+   "peakBeyond": false,
+   "source": "新增"
+  },
+  {
+   "name": "阴阳师（网易）",
+   "lib": "主库",
+   "tiers": [
+    "一",
+    "二",
+    "三",
+    "四",
+    "五",
+    "六"
+   ],
+   "ids": {},
+   "blurb": "【新增·MMO/手游】",
+   "maxTier": "六",
+   "peakBeyond": false,
+   "source": "新增"
+  },
+  {
+   "name": "星之卡比",
+   "lib": "主库",
+   "tiers": [
+    "一",
+    "二",
+    "三",
+    "四",
+    "五",
+    "六",
+    "七"
+   ],
+   "ids": {},
+   "blurb": "【新增·任天堂/主机】",
+   "maxTier": "七",
+   "peakBeyond": false,
+   "source": "新增"
+  },
+  {
+   "name": "银河战士（密特罗德）",
+   "lib": "主库",
+   "tiers": [
+    "一",
+    "二",
+    "三",
+    "四",
+    "五",
+    "六"
+   ],
+   "ids": {},
+   "blurb": "【新增·任天堂/主机】",
+   "maxTier": "六",
+   "peakBeyond": false,
+   "source": "新增"
+  },
+  {
+   "name": "喷射战士",
+   "lib": "主库",
+   "tiers": [
+    "一",
+    "二"
+   ],
+   "ids": {},
+   "blurb": "【新增·任天堂/主机】",
+   "maxTier": "二",
+   "peakBeyond": false,
+   "source": "新增"
+  },
+  {
+   "name": "皮克敏",
+   "lib": "主库",
+   "tiers": [
+    "一",
+    "二"
+   ],
+   "ids": {},
+   "blurb": "【新增·任天堂/主机】",
+   "maxTier": "二",
+   "peakBeyond": false,
+   "source": "新增"
+  },
+  {
+   "name": "任天堂明星大乱斗",
+   "lib": "主库",
+   "tiers": [
+    "一",
+    "二",
+    "三",
+    "四",
+    "五",
+    "六",
+    "七",
+    "八"
+   ],
+   "ids": {},
+   "blurb": "【新增·任天堂/主机】",
+   "maxTier": "八",
+   "peakBeyond": false,
+   "source": "新增"
+  },
+  {
+   "name": "塞尔达传说：旷野之息",
+   "lib": "主库",
+   "tiers": [
+    "一",
+    "二",
+    "三",
+    "四",
+    "五"
+   ],
+   "ids": {},
+   "blurb": "【新增·任天堂/主机】",
+   "maxTier": "五",
+   "peakBeyond": false,
+   "source": "新增"
+  },
+  {
+   "name": "后室（Backrooms）",
+   "lib": "主库",
+   "tiers": [
+    "一",
+    "二",
+    "三"
+   ],
+   "ids": {},
+   "blurb": "【新增·共创恐怖/新怪谈】",
+   "maxTier": "三",
+   "peakBeyond": false,
+   "source": "新增"
+  },
+  {
+   "name": "都市传说",
+   "lib": "主库",
+   "tiers": [
+    "一",
+    "二",
+    "三",
+    "四"
+   ],
+   "ids": {},
+   "blurb": "【新增·共创恐怖/新怪谈】",
+   "maxTier": "四",
+   "peakBeyond": false,
+   "source": "新增"
+  },
+  {
+   "name": "恐鬼症（Phasmophobia）",
+   "lib": "主库",
+   "tiers": [
+    "一",
+    "二"
+   ],
+   "ids": {},
+   "blurb": "【新增·共创恐怖/新怪谈】",
+   "maxTier": "二",
+   "peakBeyond": false,
+   "source": "新增"
+  },
+  {
+   "name": "致命公司（Lethal Company）",
+   "lib": "主库",
+   "tiers": [
+    "一",
+    "二"
+   ],
+   "ids": {},
+   "blurb": "【新增·共创恐怖/新怪谈】",
+   "maxTier": "二",
+   "peakBeyond": false,
+   "source": "新增"
+  },
+  {
+   "name": "装甲骑兵",
+   "lib": "主库",
+   "tiers": [
+    "一",
+    "二",
+    "三",
+    "四",
+    "五"
+   ],
+   "ids": {},
+   "blurb": "【新增·经典机甲】",
+   "maxTier": "五",
+   "peakBeyond": false,
+   "source": "新增"
+  },
+  {
+   "name": "机动警察",
+   "lib": "主库",
+   "tiers": [
+    "一",
+    "二",
+    "三",
+    "四"
+   ],
+   "ids": {},
+   "blurb": "【新增·经典机甲】",
+   "maxTier": "四",
+   "peakBeyond": false,
+   "source": "新增"
+  },
+  {
+   "name": "苍蓝钢铁的琶音",
+   "lib": "主库",
+   "tiers": [
+    "一",
+    "二",
+    "三",
+    "四",
+    "五",
+    "六"
+   ],
+   "ids": {},
+   "blurb": "【新增·经典机甲】",
+   "maxTier": "六",
+   "peakBeyond": false,
+   "source": "新增"
+  },
+  {
+   "name": "战斗妖精雪风",
+   "lib": "主库",
+   "tiers": [
+    "一",
+    "二",
+    "三",
+    "四",
+    "五",
+    "六"
+   ],
+   "ids": {},
+   "blurb": "【新增·经典机甲】",
+   "maxTier": "六",
+   "peakBeyond": false,
+   "source": "新增"
+  },
+  {
+   "name": "太空堡垒（Robotech）",
+   "lib": "主库",
+   "tiers": [
+    "一",
+    "二",
+    "三",
+    "四",
+    "五",
+    "六",
+    "七"
+   ],
+   "ids": {},
+   "blurb": "【新增·经典机甲】",
+   "maxTier": "七",
+   "peakBeyond": false,
+   "source": "新增"
+  },
+  {
+   "name": "魔神Z",
+   "lib": "主库",
+   "tiers": [
+    "一",
+    "二",
+    "三",
+    "四",
+    "五",
+    "六",
+    "七"
+   ],
+   "ids": {},
+   "blurb": "【新增·经典机甲】",
+   "maxTier": "七",
+   "peakBeyond": false,
+   "source": "新增"
+  },
+  {
+   "name": "盖塔机器人",
+   "lib": "主库",
+   "tiers": [
+    "一",
+    "二",
+    "三",
+    "四",
+    "五",
+    "六",
+    "七",
+    "八"
+   ],
+   "ids": {},
+   "blurb": "【新增·经典机甲】",
+   "maxTier": "八",
+   "peakBeyond": false,
+   "source": "新增"
+  },
+  {
+   "name": "银河机攻队",
+   "lib": "主库",
+   "tiers": [
+    "一",
+    "二",
+    "三",
+    "四",
+    "五",
+    "六"
+   ],
+   "ids": {},
+   "blurb": "【新增·经典机甲】",
+   "maxTier": "六",
+   "peakBeyond": false,
+   "source": "新增"
+  },
+  {
+   "name": "巨神战击队",
+   "lib": "主库",
+   "tiers": [
+    "一",
+    "二",
+    "三",
+    "四",
+    "五"
+   ],
+   "ids": {},
+   "blurb": "【新增·经典机甲】",
+   "maxTier": "五",
+   "peakBeyond": false,
+   "source": "新增"
+  },
+  {
+   "name": "铁甲小宝",
+   "lib": "主库",
+   "tiers": [
+    "一",
+    "二",
+    "三"
+   ],
+   "ids": {},
+   "blurb": "【新增·经典机甲】",
+   "maxTier": "三",
+   "peakBeyond": false,
+   "source": "新增"
+  },
+  {
+   "name": "恐龙特急克塞号",
+   "lib": "主库",
+   "tiers": [
+    "一",
+    "二",
+    "三",
+    "四",
+    "五",
+    "六"
+   ],
+   "ids": {},
+   "blurb": "【新增·经典机甲】",
+   "maxTier": "六",
+   "peakBeyond": false,
+   "source": "新增"
+  },
+  {
+   "name": "忍者龙剑传",
+   "lib": "主库",
+   "tiers": [
+    "一",
+    "二",
+    "三",
+    "四",
+    "五"
+   ],
+   "ids": {},
+   "blurb": "【新增·类魂/动作游戏】",
+   "maxTier": "五",
+   "peakBeyond": false,
+   "source": "新增"
+  },
+  {
+   "name": "黑神话：悟空",
+   "lib": "主库",
+   "tiers": [
+    "一",
+    "二",
+    "三",
+    "四",
+    "五",
+    "六",
+    "七"
+   ],
+   "ids": {},
+   "blurb": "【新增·类魂/动作游戏】",
+   "maxTier": "七",
+   "peakBeyond": false,
+   "source": "新增"
+  },
+  {
+   "name": "卧龙：苍天陨落",
+   "lib": "主库",
+   "tiers": [
+    "一",
+    "二",
+    "三",
+    "四",
+    "五"
+   ],
+   "ids": {},
+   "blurb": "【新增·类魂/动作游戏】",
+   "maxTier": "五",
+   "peakBeyond": false,
+   "source": "新增"
+  },
+  {
+   "name": "匹诺曹的谎言",
+   "lib": "主库",
+   "tiers": [
+    "一",
+    "二",
+    "三",
+    "四"
+   ],
+   "ids": {},
+   "blurb": "【新增·类魂/动作游戏】",
+   "maxTier": "四",
+   "peakBeyond": false,
+   "source": "新增"
+  },
+  {
+   "name": "噬血代码",
+   "lib": "主库",
+   "tiers": [
+    "一",
+    "二",
+    "三",
+    "四",
+    "五"
+   ],
+   "ids": {},
+   "blurb": "【新增·类魂/动作游戏】",
+   "maxTier": "五",
+   "peakBeyond": false,
+   "source": "新增"
+  },
+  {
+   "name": "对马岛之魂",
+   "lib": "主库",
+   "tiers": [
+    "一",
+    "二",
+    "三"
+   ],
+   "ids": {},
+   "blurb": "【新增·类魂/动作游戏】",
+   "maxTier": "三",
+   "peakBeyond": false,
+   "source": "新增"
+  },
+  {
+   "name": "恶魔城（Castlevania）",
+   "lib": "主库",
+   "tiers": [
+    "一",
+    "二",
+    "三",
+    "四",
+    "五",
+    "六"
+   ],
+   "ids": {},
+   "blurb": "【新增·类魂/动作游戏】",
+   "maxTier": "六",
+   "peakBeyond": false,
+   "source": "新增"
+  },
+  {
+   "name": "洛克人（Mega Man）",
+   "lib": "主库",
+   "tiers": [
+    "一",
+    "二",
+    "三",
+    "四",
+    "五",
+    "六"
+   ],
+   "ids": {},
+   "blurb": "【新增·类魂/动作游戏】",
+   "maxTier": "六",
+   "peakBeyond": false,
+   "source": "新增"
+  },
+  {
+   "name": "光明记忆",
+   "lib": "主库",
+   "tiers": [
+    "一",
+    "二",
+    "三"
+   ],
+   "ids": {},
+   "blurb": "【新增·类魂/动作游戏】",
+   "maxTier": "三",
+   "peakBeyond": false,
+   "source": "新增"
+  },
+  {
+   "name": "帕斯卡契约",
+   "lib": "主库",
+   "tiers": [
+    "一",
+    "二",
+    "三",
+    "四"
+   ],
+   "ids": {},
+   "blurb": "【新增·类魂/动作游戏】",
+   "maxTier": "四",
+   "peakBeyond": false,
+   "source": "新增"
+  },
+  {
+   "name": "影子武士（Shadow Warrior）",
+   "lib": "主库",
+   "tiers": [
+    "一",
+    "二",
+    "三",
+    "四"
+   ],
+   "ids": {},
+   "blurb": "【新增·类魂/动作游戏】",
+   "maxTier": "四",
+   "peakBeyond": false,
+   "source": "新增"
+  },
+  {
+   "name": "忍者之印",
+   "lib": "主库",
+   "tiers": [
+    "一",
+    "二",
+    "三",
+    "四"
+   ],
+   "ids": {},
+   "blurb": "【新增·类魂/动作游戏】",
+   "maxTier": "四",
+   "peakBeyond": false,
+   "source": "新增"
+  },
+  {
+   "name": "师父（Sifu）",
+   "lib": "主库",
+   "tiers": [
+    "一",
+    "二",
+    "三"
+   ],
+   "ids": {},
+   "blurb": "【新增·类魂/动作游戏】",
+   "maxTier": "三",
+   "peakBeyond": false,
+   "source": "新增"
+  },
+  {
+   "name": "刀语",
+   "lib": "主库",
+   "tiers": [
+    "一",
+    "二",
+    "三",
+    "四"
+   ],
+   "ids": {},
+   "blurb": "【新增·战斗日轻/漫画】",
+   "maxTier": "四",
+   "peakBeyond": false,
+   "source": "新增"
+  },
+  {
+   "name": "空之境界（型月）",
+   "lib": "主库",
+   "tiers": [
+    "一",
+    "二",
+    "三",
+    "四",
+    "五"
+   ],
+   "ids": {},
+   "blurb": "【新增·战斗日轻/漫画】",
+   "maxTier": "五",
+   "peakBeyond": false,
+   "source": "新增"
+  },
+  {
+   "name": "落第骑士英雄谭",
+   "lib": "主库",
+   "tiers": [
+    "一",
+    "二",
+    "三",
+    "四",
+    "五"
+   ],
+   "ids": {},
+   "blurb": "【新增·战斗日轻/漫画】",
+   "maxTier": "五",
+   "peakBeyond": false,
+   "source": "新增"
+  },
+  {
+   "name": "学战都市",
+   "lib": "主库",
+   "tiers": [
+    "一",
+    "二",
+    "三",
+    "四",
+    "五"
+   ],
+   "ids": {},
+   "blurb": "【新增·战斗日轻/漫画】",
+   "maxTier": "五",
+   "peakBeyond": false,
+   "source": "新增"
+  },
+  {
+   "name": "双星之阴阳师",
+   "lib": "主库",
+   "tiers": [
+    "一",
+    "二",
+    "三",
+    "四",
+    "五"
+   ],
+   "ids": {},
+   "blurb": "【新增·战斗日轻/漫画】",
+   "maxTier": "五",
+   "peakBeyond": false,
+   "source": "新增"
+  },
+  {
+   "name": "传说的勇者的传说",
+   "lib": "主库",
+   "tiers": [
+    "一",
+    "二",
+    "三",
+    "四",
+    "五",
+    "六"
+   ],
+   "ids": {},
+   "blurb": "【新增·战斗日轻/漫画】",
+   "maxTier": "六",
+   "peakBeyond": false,
+   "source": "新增"
+  },
+  {
+   "name": "天镜的极北之星",
+   "lib": "主库",
+   "tiers": [
+    "一",
+    "二",
+    "三"
+   ],
+   "ids": {},
+   "blurb": "【新增·战斗日轻/漫画】",
+   "maxTier": "三",
+   "peakBeyond": false,
+   "source": "新增"
+  },
+  {
+   "name": "魔法战争",
+   "lib": "主库",
+   "tiers": [
+    "一",
+    "二",
+    "三",
+    "四"
+   ],
+   "ids": {},
+   "blurb": "【新增·战斗日轻/漫画】",
+   "maxTier": "四",
+   "peakBeyond": false,
+   "source": "新增"
+  },
+  {
+   "name": "灼眼的夏娜",
+   "lib": "主库",
+   "tiers": [
+    "一",
+    "二",
+    "三",
+    "四",
+    "五",
+    "六"
+   ],
+   "ids": {},
+   "blurb": "【新增·战斗日轻/漫画】",
+   "maxTier": "六",
+   "peakBeyond": false,
+   "source": "新增"
+  },
+  {
+   "name": "绝世武神",
+   "lib": "主库",
+   "tiers": [
+    "一",
+    "二",
+    "三",
+    "四",
+    "五",
+    "六"
+   ],
+   "ids": {},
+   "blurb": "【新增·战斗韩漫/韩网文】",
+   "maxTier": "六",
+   "peakBeyond": false,
+   "source": "新增"
+  },
+  {
+   "name": "拔剑",
+   "lib": "主库",
+   "tiers": [
+    "一",
+    "二",
+    "三",
+    "四",
+    "五"
+   ],
+   "ids": {},
+   "blurb": "【新增·战斗韩漫/韩网文】",
+   "maxTier": "五",
+   "peakBeyond": false,
+   "source": "新增"
+  },
+  {
+   "name": "死灵法师",
+   "lib": "主库",
+   "tiers": [
+    "一",
+    "二",
+    "三",
+    "四",
+    "五",
+    "六"
+   ],
+   "ids": {},
+   "blurb": "【新增·战斗韩漫/韩网文】",
+   "maxTier": "六",
+   "peakBeyond": false,
+   "source": "新增"
+  },
+  {
+   "name": "通天之路",
+   "lib": "主库",
+   "tiers": [
+    "一",
+    "二",
+    "三",
+    "四",
+    "五",
+    "六"
+   ],
+   "ids": {},
+   "blurb": "【新增·战斗韩漫/韩网文】",
+   "maxTier": "六",
+   "peakBeyond": false,
+   "source": "新增"
+  },
+  {
+   "name": "逆天而行",
+   "lib": "主库",
+   "tiers": [
+    "一",
+    "二",
+    "三",
+    "四",
+    "五",
+    "六"
+   ],
+   "ids": {},
+   "blurb": "【新增·战斗韩漫/韩网文】",
+   "maxTier": "六",
+   "peakBeyond": false,
+   "source": "新增"
+  },
+  {
+   "name": "神级血脉",
+   "lib": "主库",
+   "tiers": [
+    "一",
+    "二",
+    "三",
+    "四",
+    "五",
+    "六"
+   ],
+   "ids": {},
+   "blurb": "【新增·战斗韩漫/韩网文】",
+   "maxTier": "六",
+   "peakBeyond": false,
+   "source": "新增"
+  },
+  {
+   "name": "最强出租车",
+   "lib": "主库",
+   "tiers": [
+    "一",
+    "二",
+    "三",
+    "四",
+    "五"
+   ],
+   "ids": {},
+   "blurb": "【新增·战斗韩漫/韩网文】",
+   "maxTier": "五",
+   "peakBeyond": false,
+   "source": "新增"
+  },
+  {
+   "name": "超能立方",
+   "lib": "主库",
+   "tiers": [
+    "一",
+    "二",
+    "三",
+    "四",
+    "五"
+   ],
+   "ids": {},
+   "blurb": "【新增·战斗韩漫/韩网文】",
+   "maxTier": "五",
+   "peakBeyond": false,
+   "source": "新增"
+  },
+  {
+   "name": "狂徒",
+   "lib": "主库",
+   "tiers": [
+    "一",
+    "二",
+    "三",
+    "四",
+    "五"
+   ],
+   "ids": {},
+   "blurb": "【新增·战斗韩漫/韩网文】",
+   "maxTier": "五",
+   "peakBeyond": false,
+   "source": "新增"
+  },
+  {
+   "name": "格斗实况",
+   "lib": "主库",
+   "tiers": [
+    "一",
+    "二",
+    "三",
+    "四"
+   ],
+   "ids": {},
+   "blurb": "【新增·战斗韩漫/韩网文】",
+   "maxTier": "四",
+   "peakBeyond": false,
+   "source": "新增"
+  },
+  {
+   "name": "巴霍巴利王",
+   "lib": "主库",
+   "tiers": [
+    "一",
+    "二",
+    "三"
+   ],
+   "ids": {},
+   "blurb": "【新增·亚洲动作片】",
+   "maxTier": "三",
+   "peakBeyond": false,
+   "source": "新增"
+  },
+  {
+   "name": "RRR",
+   "lib": "主库",
+   "tiers": [
+    "一",
+    "二",
+    "三"
+   ],
+   "ids": {},
+   "blurb": "【新增·亚洲动作片】",
+   "maxTier": "三",
+   "peakBeyond": false,
+   "source": "新增"
+  },
+  {
+   "name": "拳霸",
+   "lib": "主库",
+   "tiers": [
+    "一",
+    "二"
+   ],
+   "ids": {},
+   "blurb": "【新增·亚洲动作片】",
+   "maxTier": "二",
+   "peakBeyond": false,
+   "source": "新增"
+  },
+  {
+   "name": "冬荫功",
+   "lib": "主库",
+   "tiers": [
+    "一",
+    "二"
+   ],
+   "ids": {},
+   "blurb": "【新增·亚洲动作片】",
+   "maxTier": "二",
+   "peakBeyond": false,
+   "source": "新增"
+  },
+  {
+   "name": "突袭（The Raid）",
+   "lib": "主库",
+   "tiers": [
+    "一",
+    "二"
+   ],
+   "ids": {},
+   "blurb": "【新增·亚洲动作片】",
+   "maxTier": "二",
+   "peakBeyond": false,
+   "source": "新增"
+  },
+  {
+   "name": "这个杀手不太冷",
+   "lib": "主库",
+   "tiers": [
+    "一",
+    "二"
+   ],
+   "ids": {},
+   "blurb": "【新增·亚洲动作片】",
+   "maxTier": "二",
+   "peakBeyond": false,
+   "source": "新增"
+  },
+  {
+   "name": "飓风营救",
+   "lib": "主库",
+   "tiers": [
+    "一",
+    "二"
+   ],
+   "ids": {},
+   "blurb": "【新增·亚洲动作片】",
+   "maxTier": "二",
+   "peakBeyond": false,
+   "source": "新增"
+  },
+  {
+   "name": "极限特工",
+   "lib": "主库",
+   "tiers": [
+    "一",
+    "二"
+   ],
+   "ids": {},
+   "blurb": "【新增·亚洲动作片】",
+   "maxTier": "二",
+   "peakBeyond": false,
+   "source": "新增"
+  },
+  {
+   "name": "龙争虎斗（李小龙）",
+   "lib": "主库",
+   "tiers": [
+    "一",
+    "二"
+   ],
+   "ids": {},
+   "blurb": "【新增·亚洲动作片】",
+   "maxTier": "二",
+   "peakBeyond": false,
+   "source": "新增"
+  },
+  {
+   "name": "精武门（李小龙）",
+   "lib": "主库",
+   "tiers": [
+    "一",
+    "二"
+   ],
+   "ids": {},
+   "blurb": "【新增·亚洲动作片】",
+   "maxTier": "二",
+   "peakBeyond": false,
+   "source": "新增"
+  },
+  {
+   "name": "猛龙过江",
+   "lib": "主库",
+   "tiers": [
+    "一",
+    "二"
+   ],
+   "ids": {},
+   "blurb": "【新增·亚洲动作片】",
+   "maxTier": "二",
+   "peakBeyond": false,
+   "source": "新增"
+  },
+  {
+   "name": "死亡游戏",
+   "lib": "主库",
+   "tiers": [
+    "一",
+    "二"
+   ],
+   "ids": {},
+   "blurb": "【新增·亚洲动作片】",
+   "maxTier": "二",
+   "peakBeyond": false,
+   "source": "新增"
+  },
+  {
+   "name": "杀破狼",
+   "lib": "主库",
+   "tiers": [
+    "一",
+    "二"
+   ],
+   "ids": {},
+   "blurb": "【新增·亚洲动作片】",
+   "maxTier": "二",
+   "peakBeyond": false,
+   "source": "新增"
+  },
+  {
+   "name": "导火线",
+   "lib": "主库",
+   "tiers": [
+    "一",
+    "二"
+   ],
+   "ids": {},
+   "blurb": "【新增·亚洲动作片】",
+   "maxTier": "二",
+   "peakBeyond": false,
+   "source": "新增"
+  },
+  {
+   "name": "地狱神探（康斯坦丁）",
+   "lib": "主库",
+   "tiers": [
+    "一",
+    "二",
+    "三",
+    "四",
+    "五"
+   ],
+   "ids": {},
+   "blurb": "【新增·欧美超英漫画】",
+   "maxTier": "五",
+   "peakBeyond": false,
+   "source": "新增"
+  },
+  {
+   "name": "传教士（Preacher）",
+   "lib": "主库",
+   "tiers": [
+    "一",
+    "二",
+    "三",
+    "四",
+    "五",
+    "六"
+   ],
+   "ids": {},
+   "blurb": "【新增·欧美超英漫画】",
+   "maxTier": "六",
+   "peakBeyond": false,
+   "source": "新增"
+  },
+  {
+   "name": "沼泽怪物",
+   "lib": "主库",
+   "tiers": [
+    "一",
+    "二",
+    "三",
+    "四",
+    "五",
+    "六"
+   ],
+   "ids": {},
+   "blurb": "【新增·欧美超英漫画】",
+   "maxTier": "六",
+   "peakBeyond": false,
+   "source": "新增"
+  },
+  {
+   "name": "神奇四侠",
+   "lib": "主库",
+   "tiers": [
+    "一",
+    "二",
+    "三",
+    "四",
+    "五",
+    "六",
+    "七"
+   ],
+   "ids": {},
+   "blurb": "【新增·欧美超英漫画】",
+   "maxTier": "七",
+   "peakBeyond": false,
+   "source": "新增"
+  },
+  {
+   "name": "银影侠",
+   "lib": "主库",
+   "tiers": [
+    "一",
+    "二",
+    "三",
+    "四",
+    "五",
+    "六",
+    "七",
+    "八"
+   ],
+   "ids": {},
+   "blurb": "【新增·欧美超英漫画】",
+   "maxTier": "八",
+   "peakBeyond": false,
+   "source": "新增"
+  },
+  {
+   "name": "绿灯军团",
+   "lib": "主库",
+   "tiers": [
+    "一",
+    "二",
+    "三",
+    "四",
+    "五",
+    "六",
+    "七",
+    "八"
+   ],
+   "ids": {},
+   "blurb": "【新增·欧美超英漫画】",
+   "maxTier": "八",
+   "peakBeyond": false,
+   "source": "新增"
+  },
+  {
+   "name": "沙赞（DC）",
+   "lib": "主库",
+   "tiers": [
+    "一",
+    "二",
+    "三",
+    "四",
+    "五",
+    "六",
+    "七"
+   ],
+   "ids": {},
+   "blurb": "【新增·欧美超英漫画】",
+   "maxTier": "七",
+   "peakBeyond": false,
+   "source": "新增"
+  },
+  {
+   "name": "黑亚当（DC）",
+   "lib": "主库",
+   "tiers": [
+    "一",
+    "二",
+    "三",
+    "四",
+    "五",
+    "六",
+    "七"
+   ],
+   "ids": {},
+   "blurb": "【新增·欧美超英漫画】",
+   "maxTier": "七",
+   "peakBeyond": false,
+   "source": "新增"
+  },
+  {
+   "name": "海王（DC）",
+   "lib": "主库",
+   "tiers": [
+    "一",
+    "二",
+    "三",
+    "四",
+    "五",
+    "六"
+   ],
+   "ids": {},
+   "blurb": "【新增·欧美超英漫画】",
+   "maxTier": "六",
+   "peakBeyond": false,
+   "source": "新增"
+  },
+  {
+   "name": "神奇女侠（DC）",
+   "lib": "主库",
+   "tiers": [
+    "一",
+    "二",
+    "三",
+    "四",
+    "五",
+    "六",
+    "七"
+   ],
+   "ids": {},
+   "blurb": "【新增·欧美超英漫画】",
+   "maxTier": "七",
+   "peakBeyond": false,
+   "source": "新增"
+  },
+  {
+   "name": "原子侠",
+   "lib": "主库",
+   "tiers": [
+    "一",
+    "二",
+    "三",
+    "四",
+    "五"
+   ],
+   "ids": {},
+   "blurb": "【新增·欧美超英漫画】",
+   "maxTier": "五",
+   "peakBeyond": false,
+   "source": "新增"
+  },
+  {
+   "name": "镖人",
+   "lib": "主库",
+   "tiers": [
+    "一",
+    "二",
+    "三"
+   ],
+   "ids": {},
+   "blurb": "【新增·国漫/漫画(战斗)】",
+   "maxTier": "三",
+   "peakBeyond": false,
+   "source": "新增"
+  },
+  {
+   "name": "火凤燎原",
+   "lib": "主库",
+   "tiers": [
+    "一",
+    "二",
+    "三"
+   ],
+   "ids": {},
+   "blurb": "【新增·国漫/漫画(战斗)】",
+   "maxTier": "三",
+   "peakBeyond": false,
+   "source": "新增"
+  },
+  {
+   "name": "中华英雄",
+   "lib": "主库",
+   "tiers": [
+    "一",
+    "二",
+    "三",
+    "四",
+    "五"
+   ],
+   "ids": {},
+   "blurb": "【新增·国漫/漫画(战斗)】",
+   "maxTier": "五",
+   "peakBeyond": false,
+   "source": "新增"
+  },
+  {
+   "name": "从前有座灵剑山",
+   "lib": "主库",
+   "tiers": [
+    "一",
+    "二",
+    "三",
+    "四",
+    "五",
+    "六"
+   ],
+   "ids": {},
+   "blurb": "【新增·国漫/漫画(战斗)】",
+   "maxTier": "六",
+   "peakBeyond": false,
+   "source": "新增"
+  },
+  {
+   "name": "尸兄（我叫白小飞）",
+   "lib": "主库",
+   "tiers": [
+    "一",
+    "二",
+    "三",
+    "四",
+    "五",
+    "六"
+   ],
+   "ids": {},
+   "blurb": "【新增·国漫/漫画(战斗)】",
+   "maxTier": "六",
+   "peakBeyond": false,
+   "source": "新增"
+  },
+  {
+   "name": "端脑",
+   "lib": "主库",
+   "tiers": [
+    "一",
+    "二",
+    "三",
+    "四"
+   ],
+   "ids": {},
+   "blurb": "【新增·国漫/漫画(战斗)】",
+   "maxTier": "四",
+   "peakBeyond": false,
+   "source": "新增"
+  },
+  {
+   "name": "凸变英雄",
+   "lib": "主库",
+   "tiers": [
+    "一",
+    "二",
+    "三",
+    "四",
+    "五"
+   ],
+   "ids": {},
+   "blurb": "【新增·国漫/漫画(战斗)】",
+   "maxTier": "五",
+   "peakBeyond": false,
+   "source": "新增"
+  },
+  {
+   "name": "风起苍岚",
+   "lib": "主库",
+   "tiers": [
+    "一",
+    "二",
+    "三",
+    "四",
+    "五",
+    "六"
+   ],
+   "ids": {},
+   "blurb": "【新增·国漫/漫画(战斗)】",
+   "maxTier": "六",
+   "peakBeyond": false,
+   "source": "新增"
+  },
+  {
+   "name": "灵剑尊",
+   "lib": "主库",
+   "tiers": [
+    "一",
+    "二",
+    "三",
+    "四",
+    "五",
+    "六",
+    "七",
+    "八"
+   ],
+   "ids": {},
+   "blurb": "【新增·国漫/漫画(战斗)】",
+   "maxTier": "八",
+   "peakBeyond": false,
+   "source": "新增"
+  },
+  {
+   "name": "武神主宰",
+   "lib": "主库",
+   "tiers": [
+    "一",
+    "二",
+    "三",
+    "四",
+    "五",
+    "六",
+    "七",
+    "八"
+   ],
+   "ids": {},
+   "blurb": "【新增·国漫/漫画(战斗)】",
+   "maxTier": "八",
+   "peakBeyond": false,
+   "source": "新增"
+  },
+  {
+   "name": "零红蝶（Fatal Frame）",
+   "lib": "主库",
+   "tiers": [
+    "一",
+    "二",
+    "三"
+   ],
+   "ids": {},
+   "blurb": "【新增·恐怖/生存游戏】",
+   "maxTier": "三",
+   "peakBeyond": false,
+   "source": "新增"
+  },
+  {
+   "name": "死魂曲（Siren）",
+   "lib": "主库",
+   "tiers": [
+    "一",
+    "二",
+    "三"
+   ],
+   "ids": {},
+   "blurb": "【新增·恐怖/生存游戏】",
+   "maxTier": "三",
+   "peakBeyond": false,
+   "source": "新增"
+  },
+  {
+   "name": "除夕",
+   "lib": "主库",
+   "tiers": [
+    "一",
+    "二"
+   ],
+   "ids": {},
+   "blurb": "【新增·恐怖/生存游戏】",
+   "maxTier": "二",
+   "peakBeyond": false,
+   "source": "新增"
+  },
+  {
+   "name": "纸人",
+   "lib": "主库",
+   "tiers": [
+    "一",
+    "二"
+   ],
+   "ids": {},
+   "blurb": "【新增·恐怖/生存游戏】",
+   "maxTier": "二",
+   "peakBeyond": false,
+   "source": "新增"
+  },
+  {
+   "name": "战锤40K：星际战士",
+   "lib": "主库",
+   "tiers": [
+    "一",
+    "二",
+    "三",
+    "四",
+    "五",
+    "六",
+    "七"
+   ],
+   "ids": {},
+   "blurb": "【新增·战锤/桌游战斗】",
+   "maxTier": "七",
+   "peakBeyond": true,
+   "source": "新增"
+  },
+  {
+   "name": "战锤：西格玛时代",
+   "lib": "主库",
+   "tiers": [
+    "一",
+    "二",
+    "三",
+    "四",
+    "五",
+    "六",
+    "七",
+    "八"
+   ],
+   "ids": {},
+   "blurb": "【新增·战锤/桌游战斗】",
+   "maxTier": "八",
+   "peakBeyond": true,
+   "source": "新增"
+  },
+  {
+   "name": "阿斯塔特（Astartes）",
+   "lib": "主库",
+   "tiers": [
+    "一",
+    "二",
+    "三",
+    "四",
+    "五",
+    "六",
+    "七"
+   ],
+   "ids": {},
+   "blurb": "【新增·战锤/桌游战斗】",
+   "maxTier": "七",
+   "peakBeyond": false,
+   "source": "新增"
+  },
+  {
+   "name": "仙剑奇侠传四",
+   "lib": "主库",
+   "tiers": [
+    "一",
+    "二",
+    "三",
+    "四",
+    "五",
+    "六"
+   ],
+   "ids": {},
+   "blurb": "【新增·早期国产单机武侠】",
+   "maxTier": "六",
+   "peakBeyond": false,
+   "source": "新增"
+  },
+  {
+   "name": "仙剑奇侠传五",
+   "lib": "主库",
+   "tiers": [
+    "一",
+    "二",
+    "三",
+    "四",
+    "五",
+    "六"
+   ],
+   "ids": {},
+   "blurb": "【新增·早期国产单机武侠】",
+   "maxTier": "六",
+   "peakBeyond": false,
+   "source": "新增"
+  },
+  {
+   "name": "仙剑奇侠传六",
+   "lib": "主库",
+   "tiers": [
+    "一",
+    "二",
+    "三",
+    "四",
+    "五",
+    "六"
+   ],
+   "ids": {},
+   "blurb": "【新增·早期国产单机武侠】",
+   "maxTier": "六",
+   "peakBeyond": false,
+   "source": "新增"
+  },
+  {
+   "name": "轩辕剑外传：天之痕",
+   "lib": "主库",
+   "tiers": [
+    "一",
+    "二",
+    "三",
+    "四",
+    "五",
+    "六"
+   ],
+   "ids": {},
+   "blurb": "【新增·早期国产单机武侠】",
+   "maxTier": "六",
+   "peakBeyond": false,
+   "source": "新增"
+  },
+  {
+   "name": "轩辕剑三：云和山的彼端",
+   "lib": "主库",
+   "tiers": [
+    "一",
+    "二",
+    "三",
+    "四",
+    "五",
+    "六"
+   ],
+   "ids": {},
+   "blurb": "【新增·早期国产单机武侠】",
+   "maxTier": "六",
+   "peakBeyond": false,
+   "source": "新增"
+  },
+  {
+   "name": "河洛群侠传",
+   "lib": "主库",
+   "tiers": [
+    "一",
+    "二",
+    "三",
+    "四"
+   ],
+   "ids": {},
+   "blurb": "【新增·早期国产单机武侠】",
+   "maxTier": "四",
+   "peakBeyond": false,
+   "source": "新增"
+  },
+  {
+   "name": "金庸群侠传",
+   "lib": "主库",
+   "tiers": [
+    "一",
+    "二",
+    "三",
+    "四"
+   ],
+   "ids": {},
+   "blurb": "【新增·早期国产单机武侠】",
+   "maxTier": "四",
+   "peakBeyond": false,
+   "source": "新增"
+  },
+  {
+   "name": "武林群侠传（侠客风云传）",
+   "lib": "主库",
+   "tiers": [
+    "一",
+    "二",
+    "三",
+    "四"
+   ],
+   "ids": {},
+   "blurb": "【新增·早期国产单机武侠】",
+   "maxTier": "四",
+   "peakBeyond": false,
+   "source": "新增"
+  },
+  {
+   "name": "剑侠情缘",
+   "lib": "主库",
+   "tiers": [
+    "一",
+    "二",
+    "三",
+    "四"
+   ],
+   "ids": {},
+   "blurb": "【新增·早期国产单机武侠】",
+   "maxTier": "四",
+   "peakBeyond": false,
+   "source": "新增"
+  },
+  {
+   "name": "天地劫：幽城幻剑录",
+   "lib": "主库",
+   "tiers": [
+    "一",
+    "二",
+    "三",
+    "四",
+    "五",
+    "六"
+   ],
+   "ids": {},
+   "blurb": "【新增·早期国产单机武侠】",
+   "maxTier": "六",
+   "peakBeyond": false,
+   "source": "新增"
+  },
+  {
+   "name": "秦殇",
+   "lib": "主库",
+   "tiers": [
+    "一",
+    "二",
+    "三",
+    "四"
+   ],
+   "ids": {},
+   "blurb": "【新增·早期国产单机武侠】",
+   "maxTier": "四",
+   "peakBeyond": false,
+   "source": "新增"
+  },
+  {
+   "name": "傲世三国",
+   "lib": "主库",
+   "tiers": [
+    "一",
+    "二",
+    "三"
+   ],
+   "ids": {},
+   "blurb": "【新增·早期国产单机武侠】",
+   "maxTier": "三",
+   "peakBeyond": false,
+   "source": "新增"
+  },
+  {
+   "name": "刀剑封魔录",
+   "lib": "主库",
+   "tiers": [
+    "一",
+    "二",
+    "三",
+    "四",
+    "五"
+   ],
+   "ids": {},
+   "blurb": "【新增·早期国产单机武侠】",
+   "maxTier": "五",
+   "peakBeyond": false,
+   "source": "新增"
+  },
+  {
+   "name": "剑侠奇缘",
+   "lib": "主库",
+   "tiers": [
+    "一",
+    "二",
+    "三",
+    "四"
+   ],
+   "ids": {},
+   "blurb": "【新增·早期国产单机武侠】",
+   "maxTier": "四",
+   "peakBeyond": false,
+   "source": "新增"
+  },
+  {
+   "name": "合金弹头",
+   "lib": "主库",
+   "tiers": [
+    "一",
+    "二",
+    "三"
+   ],
+   "ids": {},
+   "blurb": "【新增·经典街机清版】",
+   "maxTier": "三",
+   "peakBeyond": false,
+   "source": "新增"
+  },
+  {
+   "name": "名将（Captain Commando）",
+   "lib": "主库",
+   "tiers": [
+    "一",
+    "二",
+    "三"
+   ],
+   "ids": {},
+   "blurb": "【新增·经典街机清版】",
+   "maxTier": "三",
+   "peakBeyond": false,
+   "source": "新增"
+  },
+  {
+   "name": "恐龙快打",
+   "lib": "主库",
+   "tiers": [
+    "一",
+    "二",
+    "三"
+   ],
+   "ids": {},
+   "blurb": "【新增·经典街机清版】",
+   "maxTier": "三",
+   "peakBeyond": false,
+   "source": "新增"
+  },
+  {
+   "name": "快打旋风",
+   "lib": "主库",
+   "tiers": [
+    "一",
+    "二"
+   ],
+   "ids": {},
+   "blurb": "【新增·经典街机清版】",
+   "maxTier": "二",
+   "peakBeyond": false,
+   "source": "新增"
+  },
+  {
+   "name": "圆桌骑士",
+   "lib": "主库",
+   "tiers": [
+    "一",
+    "二",
+    "三",
+    "四"
+   ],
+   "ids": {},
+   "blurb": "【新增·经典街机清版】",
+   "maxTier": "四",
+   "peakBeyond": false,
+   "source": "新增"
+  },
+  {
+   "name": "三国战纪",
+   "lib": "主库",
+   "tiers": [
+    "一",
+    "二",
+    "三",
+    "四"
+   ],
+   "ids": {},
+   "blurb": "【新增·经典街机清版】",
+   "maxTier": "四",
+   "peakBeyond": false,
+   "source": "新增"
+  },
+  {
+   "name": "西游释厄传",
+   "lib": "主库",
+   "tiers": [
+    "一",
+    "二",
+    "三",
+    "四",
+    "五",
+    "六"
+   ],
+   "ids": {},
+   "blurb": "【新增·经典街机清版】",
+   "maxTier": "六",
+   "peakBeyond": false,
+   "source": "新增"
+  },
+  {
+   "name": "吞食天地",
+   "lib": "主库",
+   "tiers": [
+    "一",
+    "二",
+    "三"
+   ],
+   "ids": {},
+   "blurb": "【新增·经典街机清版】",
+   "maxTier": "三",
+   "peakBeyond": false,
+   "source": "新增"
+  },
+  {
+   "name": "战斧（Golden Axe）",
+   "lib": "主库",
+   "tiers": [
+    "一",
+    "二",
+    "三",
+    "四",
+    "五"
+   ],
+   "ids": {},
+   "blurb": "【新增·经典街机清版】",
+   "maxTier": "五",
+   "peakBeyond": false,
+   "source": "新增"
+  },
+  {
+   "name": "双截龙",
+   "lib": "主库",
+   "tiers": [
+    "一",
+    "二"
+   ],
+   "ids": {},
+   "blurb": "【新增·经典街机清版】",
+   "maxTier": "二",
+   "peakBeyond": false,
+   "source": "新增"
+  },
+  {
+   "name": "铁钩船长",
+   "lib": "主库",
+   "tiers": [
+    "一",
+    "二"
+   ],
+   "ids": {},
+   "blurb": "【新增·经典街机清版】",
+   "maxTier": "二",
+   "peakBeyond": false,
+   "source": "新增"
+  },
+  {
+   "name": "龙王战士（吞食天地2）",
+   "lib": "主库",
+   "tiers": [
+    "一",
+    "二",
+    "三"
+   ],
+   "ids": {},
+   "blurb": "【新增·经典街机清版】",
+   "maxTier": "三",
+   "peakBeyond": false,
+   "source": "新增"
+  },
+  {
+   "name": "大魔界村",
+   "lib": "主库",
+   "tiers": [
+    "一",
+    "二",
+    "三",
+    "四",
+    "五"
+   ],
+   "ids": {},
+   "blurb": "【新增·经典街机清版】",
+   "maxTier": "五",
+   "peakBeyond": false,
+   "source": "新增"
+  },
+  {
+   "name": "修罗之门",
+   "lib": "主库",
+   "tiers": [
+    "一",
+    "二",
+    "三"
+   ],
+   "ids": {},
+   "blurb": "【新增·格斗热血漫画】",
+   "maxTier": "三",
+   "peakBeyond": false,
+   "source": "新增"
+  },
+  {
+   "name": "修罗之刻",
+   "lib": "主库",
+   "tiers": [
+    "一",
+    "二",
+    "三"
+   ],
+   "ids": {},
+   "blurb": "【新增·格斗热血漫画】",
+   "maxTier": "三",
+   "peakBeyond": false,
+   "source": "新增"
+  },
+  {
+   "name": "第一神拳",
+   "lib": "主库",
+   "tiers": [
+    "一",
+    "二"
+   ],
+   "ids": {},
+   "blurb": "【新增·格斗热血漫画】",
+   "maxTier": "二",
+   "peakBeyond": false,
+   "source": "新增"
+  },
+  {
+   "name": "龙拳",
+   "lib": "主库",
+   "tiers": [
+    "一",
+    "二",
+    "三"
+   ],
+   "ids": {},
+   "blurb": "【新增·格斗热血漫画】",
+   "maxTier": "三",
+   "peakBeyond": false,
+   "source": "新增"
+  },
+  {
+   "name": "拳儿",
+   "lib": "主库",
+   "tiers": [
+    "一",
+    "二",
+    "三"
+   ],
+   "ids": {},
+   "blurb": "【新增·格斗热血漫画】",
+   "maxTier": "三",
+   "peakBeyond": false,
+   "source": "新增"
+  },
+  {
+   "name": "明日之丈",
+   "lib": "主库",
+   "tiers": [
+    "一",
+    "二"
+   ],
+   "ids": {},
+   "blurb": "【新增·格斗热血漫画】",
+   "maxTier": "二",
+   "peakBeyond": false,
+   "source": "新增"
+  },
+  {
+   "name": "赛文奥特曼",
+   "lib": "主库",
+   "tiers": [
+    "一",
+    "二",
+    "三",
+    "四",
+    "五",
+    "六",
+    "七",
+    "八"
+   ],
+   "ids": {},
+   "blurb": "【新增·奥特曼补充】",
+   "maxTier": "八",
+   "peakBeyond": false,
+   "source": "新增"
+  },
+  {
+   "name": "杰克奥特曼",
+   "lib": "主库",
+   "tiers": [
+    "一",
+    "二",
+    "三",
+    "四",
+    "五",
+    "六",
+    "七",
+    "八"
+   ],
+   "ids": {},
+   "blurb": "【新增·奥特曼补充】",
+   "maxTier": "八",
+   "peakBeyond": false,
+   "source": "新增"
+  },
+  {
+   "name": "艾斯奥特曼",
+   "lib": "主库",
+   "tiers": [
+    "一",
+    "二",
+    "三",
+    "四",
+    "五",
+    "六",
+    "七",
+    "八"
+   ],
+   "ids": {},
+   "blurb": "【新增·奥特曼补充】",
+   "maxTier": "八",
+   "peakBeyond": false,
+   "source": "新增"
+  },
+  {
+   "name": "佐菲奥特曼",
+   "lib": "主库",
+   "tiers": [
+    "一",
+    "二",
+    "三",
+    "四",
+    "五",
+    "六",
+    "七",
+    "八"
+   ],
+   "ids": {},
+   "blurb": "【新增·奥特曼补充】",
+   "maxTier": "八",
+   "peakBeyond": false,
+   "source": "新增"
+  },
+  {
+   "name": "雷欧奥特曼",
+   "lib": "主库",
+   "tiers": [
+    "一",
+    "二",
+    "三",
+    "四",
+    "五",
+    "六",
+    "七",
+    "八"
+   ],
+   "ids": {},
+   "blurb": "【新增·奥特曼补充】",
+   "maxTier": "八",
+   "peakBeyond": false,
+   "source": "新增"
+  },
+  {
+   "name": "爱迪奥特曼",
+   "lib": "主库",
+   "tiers": [
+    "一",
+    "二",
+    "三",
+    "四",
+    "五",
+    "六",
+    "七",
+    "八"
+   ],
+   "ids": {},
+   "blurb": "【新增·奥特曼补充】",
+   "maxTier": "八",
+   "peakBeyond": false,
+   "source": "新增"
+  },
+  {
+   "name": "戴拿奥特曼",
+   "lib": "主库",
+   "tiers": [
+    "一",
+    "二",
+    "三",
+    "四",
+    "五",
+    "六",
+    "七",
+    "八"
+   ],
+   "ids": {},
+   "blurb": "【新增·奥特曼补充】",
+   "maxTier": "八",
+   "peakBeyond": false,
+   "source": "新增"
+  },
+  {
+   "name": "盖亚奥特曼",
+   "lib": "主库",
+   "tiers": [
+    "一",
+    "二",
+    "三",
+    "四",
+    "五",
+    "六",
+    "七",
+    "八"
+   ],
+   "ids": {},
+   "blurb": "【新增·奥特曼补充】",
+   "maxTier": "八",
+   "peakBeyond": false,
+   "source": "新增"
+  },
+  {
+   "name": "高斯奥特曼",
+   "lib": "主库",
+   "tiers": [
+    "一",
+    "二",
+    "三",
+    "四",
+    "五",
+    "六",
+    "七",
+    "八"
+   ],
+   "ids": {},
+   "blurb": "【新增·奥特曼补充】",
+   "maxTier": "八",
+   "peakBeyond": false,
+   "source": "新增"
+  },
+  {
+   "name": "奈克瑟斯奥特曼",
+   "lib": "主库",
+   "tiers": [
+    "一",
+    "二",
+    "三",
+    "四",
+    "五",
+    "六",
+    "七",
+    "八"
+   ],
+   "ids": {},
+   "blurb": "【新增·奥特曼补充】",
+   "maxTier": "八",
+   "peakBeyond": false,
+   "source": "新增"
+  },
+  {
+   "name": "麦克斯奥特曼",
+   "lib": "主库",
+   "tiers": [
+    "一",
+    "二",
+    "三",
+    "四",
+    "五",
+    "六",
+    "七",
+    "八"
+   ],
+   "ids": {},
+   "blurb": "【新增·奥特曼补充】",
+   "maxTier": "八",
+   "peakBeyond": false,
+   "source": "新增"
+  },
+  {
+   "name": "布莱泽奥特曼",
+   "lib": "主库",
+   "tiers": [
+    "一",
+    "二",
+    "三",
+    "四",
+    "五",
+    "六",
+    "七",
+    "八"
+   ],
+   "ids": {},
+   "blurb": "【新增·奥特曼补充】",
+   "maxTier": "八",
+   "peakBeyond": false,
+   "source": "新增"
+  },
+  {
+   "name": "艾克斯奥特曼",
+   "lib": "主库",
+   "tiers": [
+    "一",
+    "二",
+    "三",
+    "四",
+    "五",
+    "六",
+    "七",
+    "八"
+   ],
+   "ids": {},
+   "blurb": "【新增·奥特曼补充】",
+   "maxTier": "八",
+   "peakBeyond": false,
+   "source": "新增"
+  },
+  {
+   "name": "罗布奥特曼",
+   "lib": "主库",
+   "tiers": [
+    "一",
+    "二",
+    "三",
+    "四",
+    "五",
+    "六",
+    "七",
+    "八"
+   ],
+   "ids": {},
+   "blurb": "【新增·奥特曼补充】",
+   "maxTier": "八",
+   "peakBeyond": false,
+   "source": "新增"
+  },
+  {
+   "name": "武装突袭（ArmA）",
+   "lib": "主库",
+   "tiers": [
+    "一",
+    "二"
+   ],
+   "ids": {},
+   "blurb": "【新增·军事模拟/战争游戏】",
+   "maxTier": "二",
+   "peakBeyond": false,
+   "source": "新增"
+  },
+  {
+   "name": "幽灵行动",
+   "lib": "主库",
+   "tiers": [
+    "一",
+    "二"
+   ],
+   "ids": {},
+   "blurb": "【新增·军事模拟/战争游戏】",
+   "maxTier": "二",
+   "peakBeyond": false,
+   "source": "新增"
+  },
+  {
+   "name": "闪点行动",
+   "lib": "主库",
+   "tiers": [
+    "一",
+    "二"
+   ],
+   "ids": {},
+   "blurb": "【新增·军事模拟/战争游戏】",
+   "maxTier": "二",
+   "peakBeyond": false,
+   "source": "新增"
+  },
+  {
+   "name": "战争雷霆",
+   "lib": "主库",
+   "tiers": [
+    "一",
+    "二"
+   ],
+   "ids": {},
+   "blurb": "【新增·军事模拟/战争游戏】",
+   "maxTier": "二",
+   "peakBeyond": false,
+   "source": "新增"
+  },
+  {
+   "name": "坦克世界",
+   "lib": "主库",
+   "tiers": [
+    "一",
+    "二"
+   ],
+   "ids": {},
+   "blurb": "【新增·军事模拟/战争游戏】",
+   "maxTier": "二",
+   "peakBeyond": false,
+   "source": "新增"
+  },
+  {
+   "name": "战舰世界",
+   "lib": "主库",
+   "tiers": [
+    "一",
+    "二"
+   ],
+   "ids": {},
+   "blurb": "【新增·军事模拟/战争游戏】",
+   "maxTier": "二",
+   "peakBeyond": false,
+   "source": "新增"
+  },
+  {
+   "name": "装甲战争",
+   "lib": "主库",
+   "tiers": [
+    "一",
+    "二"
+   ],
+   "ids": {},
+   "blurb": "【新增·军事模拟/战争游戏】",
+   "maxTier": "二",
+   "peakBeyond": false,
+   "source": "新增"
+  },
+  {
+   "name": "钢铁雄心",
+   "lib": "主库",
+   "tiers": [
+    "一",
+    "二",
+    "三"
+   ],
+   "ids": {},
+   "blurb": "【新增·军事模拟/战争游戏】",
+   "maxTier": "三",
+   "peakBeyond": false,
+   "source": "新增"
+  },
+  {
+   "name": "巴哈姆特之怒",
+   "lib": "主库",
+   "tiers": [
+    "一",
+    "二",
+    "三",
+    "四",
+    "五",
+    "六",
+    "七"
+   ],
+   "ids": {},
+   "blurb": "【新增·更多战斗日漫】",
+   "maxTier": "七",
+   "peakBeyond": false,
+   "source": "新增"
+  },
+  {
+   "name": "混沌武士",
+   "lib": "主库",
+   "tiers": [
+    "一",
+    "二",
+    "三"
+   ],
+   "ids": {},
+   "blurb": "【新增·更多战斗日漫】",
+   "maxTier": "三",
+   "peakBeyond": false,
+   "source": "新增"
+  },
+  {
+   "name": "无皇刃谭",
+   "lib": "主库",
+   "tiers": [
+    "一",
+    "二",
+    "三"
+   ],
+   "ids": {},
+   "blurb": "【新增·更多战斗日漫】",
+   "maxTier": "三",
+   "peakBeyond": false,
+   "source": "新增"
+  },
+  {
+   "name": "DOGS：狂野之枪",
+   "lib": "主库",
+   "tiers": [
+    "一",
+    "二",
+    "三"
+   ],
+   "ids": {},
+   "blurb": "【新增·更多战斗日漫】",
+   "maxTier": "三",
+   "peakBeyond": false,
+   "source": "新增"
+  },
+  {
+   "name": "恶魔奶爸",
+   "lib": "主库",
+   "tiers": [
+    "一",
+    "二",
+    "三",
+    "四"
+   ],
+   "ids": {},
+   "blurb": "【新增·更多战斗日漫】",
+   "maxTier": "四",
+   "peakBeyond": false,
+   "source": "新增"
+  },
+  {
+   "name": "虫奉行",
+   "lib": "主库",
+   "tiers": [
+    "一",
+    "二",
+    "三"
+   ],
+   "ids": {},
+   "blurb": "【新增·更多战斗日漫】",
+   "maxTier": "三",
+   "peakBeyond": false,
+   "source": "新增"
+  },
+  {
+   "name": "我不是戏神",
+   "lib": "主库",
+   "tiers": [
+    "一",
+    "二",
+    "三",
+    "四",
+    "五",
+    "六"
+   ],
+   "ids": {},
+   "blurb": "【新增·更多战斗国产/网文】",
+   "maxTier": "六",
+   "peakBeyond": false,
+   "source": "新增"
+  },
+  {
+   "name": "长夜余火",
+   "lib": "主库",
+   "tiers": [
+    "一",
+    "二",
+    "三",
+    "四",
+    "五",
+    "六"
+   ],
+   "ids": {},
+   "blurb": "【新增·更多战斗国产/网文】",
+   "maxTier": "六",
+   "peakBeyond": false,
+   "source": "新增"
+  },
+  {
+   "name": "稳住别浪",
+   "lib": "主库",
+   "tiers": [
+    "一",
+    "二",
+    "三",
+    "四",
+    "五",
+    "六"
+   ],
+   "ids": {},
+   "blurb": "【新增·更多战斗国产/网文】",
+   "maxTier": "六",
+   "peakBeyond": false,
+   "source": "新增"
+  },
+  {
+   "name": "我的徒弟都是大反派",
+   "lib": "主库",
+   "tiers": [
+    "一",
+    "二",
+    "三",
+    "四",
+    "五",
+    "六",
+    "七"
+   ],
+   "ids": {},
+   "blurb": "【新增·更多战斗国产/网文】",
+   "maxTier": "七",
+   "peakBeyond": false,
+   "source": "新增"
+  },
+  {
+   "name": "这游戏也太真实了",
+   "lib": "主库",
+   "tiers": [
+    "一",
+    "二",
+    "三",
+    "四",
+    "五"
+   ],
+   "ids": {},
+   "blurb": "【新增·更多战斗国产/网文】",
+   "maxTier": "五",
    "peakBeyond": false,
    "source": "新增"
   }
