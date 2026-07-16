@@ -233,71 +233,61 @@ export function buildAiFullBlock(opts: {
 }
 
 /* ════════════════════════════════════════════
-   AI 分类裁判（一次调用·多结果）：读行动+面板，识别最多 2 个需检定的行为，各挑对口属性+难度、
-   用给定骰点裁成败。治「关键词误判属性」（如"赠送礼物"被当力量）+ 支持一段行动多类行为分别摇。
-   ai / ai-full 模式共用（都是 AI 挑属性+裁定，只一次调用出多结果）。
+   AI 行为分类器（一次调用·多结果·只分类不判数值）：读行动+面板+在场角色，识别最多 2 个需检定的行为，
+   为每个挑「对口属性 + 事件难度 + 目标阶级（若针对具体对象）」；成败/DC/阈值由前端确定性算
+   （diceEngine.resolveTargeted / resolve）。治「赠送礼物被当力量」(属性误判) + 「掳走普通人却判输」(没吃目标阶级)
+   + 一段行动多类行为分别摇。ai / ai-full 共用。
 ════════════════════════════════════════════ */
-const AI_CLASSIFY_SYSTEM = `你是轮回乐园 TRPG 的【判定裁判】。读【玩家行动】+【角色面板】，识别其中**需要检定的行为**（最多2个；日常/闲聊/情感/必成之事→0个），为每个行为挑**最对口的属性**与相对难度，并用给定骰点裁定成败。只输出 JSON，不要额外文字或 markdown。
+const AI_CLASSIFY_SYSTEM = `你是轮回乐园 TRPG 的【行为分类器】。读【玩家行动】+【角色面板】+【在场角色】，识别其中**需要检定的行为**（最多2个；日常/闲聊/情感/必成之事→0个）。为每个行为输出分类字段，**不要判成败、不要掷骰**（数值由系统算死）。只输出 JSON。
 
-【属性对口（务必按行为语义挑，切勿默认力量）】
-- 力量：砍杀/搏斗/格挡/推举/破开/硬闯/抢夺等发力对抗。
+【attr·对口属性（按行为语义挑，切勿默认力量）】
+- 力量：砍杀/搏斗/格挡/推举/破开/硬闯/抢夺等发力。
 - 敏捷：闪避/潜行/攀爬/逃脱/偷取/轻功等身法。
 - 体质：硬抗/耐毒/负重/憋气/久战等耐受。
 - 智力：破解/推理/施法/观察/鉴定/参悟/布阵等心智。
-- 魅力：说服/交涉/欺骗/威吓/求情/**赠送礼物·馈赠·打赏·贿赂·示好·邀请·魅惑**/讨价等社交。
+- 魅力：说服/交涉/欺骗/威吓/求情/赠送礼物·馈赠·打赏·贿赂·示好·邀请·魅惑/讨价等社交。
 - 幸运：碰运气/赌/祈祷/抽取等。
 
-【裁定】第1个行为用骰点1、第2个用骰点2，结合属性/技能/天赋/难度：
-- d100：骰点≤成功率P→倾向成功，≤5必大成功，≥96必大失败；>P倾向失败。
-- d20：（骰点+修正）≥DC→成功，自然20必大成功，自然1必大失败。
-- 以骰点为准绳，不得无视它强行成功；必须保留判失败/大失败的可能。
-- level 只能取：大成功 / 碾压成功 / 困难成功 / 成功 / 失败 / 大失败。
+【difficulty·事件本身多难（与目标强弱无关！仅指行动类型的内在难度）】：简单 / 普通 / 困难 / 极难 / 几乎不可能。
+
+【targetTier·目标阶级（关键）】：**若行动针对某个具体对象/生物**（掳走/击败/说服/欺骗/制服某人某物），填该对象的**强度阶级**，只能取：普通人 / 一阶 / 二阶 / 三阶 / 四阶 / 五阶 / 六阶 / 七阶 / 八阶 / 九阶 / 绝强 / 巅峰绝强 / 至强 / 巅峰至强 / 无上之境。任务世界（如赤瞳）里的常人一律填「普通人」；不确定就按在场信息估。**没有明确目标对象则省略此字段**（如解谜、感知、施法自强）。系统会据目标阶级缩放 DC——对普通人几乎必成、对高阶几乎必败。
 
 【只输出此 JSON】
 - 无需检定：{"behaviors": []}
-- 需检定：{"behaviors": [{"attr":"魅力","difficulty":"普通","level":"成功","success":true,"reasoning":"≤50字依据","consequences":["简短后果"],"calc":"可选·数值推演摘要"}]}
+- 需检定：{"behaviors": [{"attr":"魅力","difficulty":"普通","targetTier":"普通人","reasoning":"≤40字为何这属性/难度/目标阶级"}]}
 - behaviors 最多 2 个；只列真正需要随机检定的行为，纯叙事/情感不列。`;
 
-export interface JudgedBehavior {
+export interface ClassifiedBehavior {
   attr: string;          // 判定属性中文标签（力量/敏捷/体质/智力/魅力/幸运）
-  difficulty?: string;
-  level: OutcomeLevel;
-  success: boolean;
+  difficulty: Difficulty;// 事件本身难度（与目标强弱无关）
+  targetTier?: string;   // 目标阶级（有明确目标才填；普通人/一阶…无上之境）；无=非目标检定
   reasoning?: string;
-  consequences?: string[];
-  roll: number;          // 该行为用的骰点
-  calc?: string;
 }
-export interface ClassifyJudgeInput {
-  mode: DiceMode;
+export interface ClassifyInput {
   actorName: string;
   action: string;
-  difficulty?: Difficulty;
   playerSheet: string;
-  rolls: number[];       // 前端预掷的骰点（≤2，按行为顺序取用）
+  onscene?: string;      // 在场角色简述（帮 AI 认目标阶级）
 }
-export interface ClassifyJudgeOut {
-  behaviors: JudgedBehavior[];
-  usedAI: boolean;       // false = 调用/解析失败（调用方回退前端确定性）
+export interface ClassifyOut {
+  behaviors: ClassifiedBehavior[];
+  usedAI: boolean;       // false = 调用/解析失败（调用方回退前端关键词多摇）
   error?: string;
 }
 
 const ATTR_LABEL_SET = new Set(['力量', '敏捷', '体质', '智力', '魅力', '幸运']);
+const toDifficulty = (v: any): Difficulty => { const s = String(v ?? '').trim(); return (DIFFICULTIES as string[]).includes(s) ? (s as Difficulty) : '普通'; };
 
-/** 一次调用识别最多 2 个行为并各自裁定。失败 → usedAI:false（调用方回退前端关键词多摇）。 */
-export async function aiClassifyJudge(inp: ClassifyJudgeInput): Promise<ClassifyJudgeOut> {
+/** 一次调用识别最多 2 个行为的分类（属性/事件难度/目标阶级）；成败与数值由前端算。失败 → usedAI:false（回退关键词多摇）。 */
+export async function aiClassifyActions(inp: ClassifyInput): Promise<ClassifyOut> {
   try {
     const d = useDice.getState();
     const ss = useSettings.getState();
     const legacy = d.diceUseSharedApi ? (ss.textUseSharedApi ? ss.api : ss.textApi) : d.diceApi;
     const chain = resolveApiChain('dice', legacy);
-    const rolls = (inp.rolls || []).slice(0, 2);
-    const rollLine = rolls.map((r, i) => `骰点${i + 1}=${inp.mode === 'd20' ? 'd20' : 'd100'}:${r}`).join('，');
     const user = [
       `玩家行动：${inp.action.trim() || '（未填）'}`,
-      `骰子模式：${inp.mode}`,
-      `本次骰点（不可更改，第1个行为用骰点1、第2个用骰点2）：${rollLine}`,
-      inp.difficulty ? `建议难度：${inp.difficulty}` : '',
+      inp.onscene ? `在场角色：${inp.onscene}` : '',
       `【角色面板】\n${inp.playerSheet}`,
       '请识别需检定的行为（最多2个）并只输出 JSON。',
     ].filter(Boolean).join('\n');
@@ -308,21 +298,17 @@ export async function aiClassifyJudge(inp: ClassifyJudgeInput): Promise<Classify
     );
     const obj = extractJson(content);
     const arr = Array.isArray(obj?.behaviors) ? obj.behaviors : Array.isArray(obj) ? obj : [];
-    const behaviors: JudgedBehavior[] = [];
+    const behaviors: ClassifiedBehavior[] = [];
     for (let i = 0; i < arr.length && behaviors.length < 2; i++) {
       const b = arr[i];
       if (!b || typeof b !== 'object') continue;
-      let level = String(b.level || '').trim() as OutcomeLevel;
-      if (!LEVELS.includes(level)) level = '成功';
-      const success = typeof b.success === 'boolean' ? b.success : level !== '失败' && level !== '大失败';
       const attrRaw = String(b.attr || '').trim();
       const attr = ATTR_LABEL_SET.has(attrRaw) ? attrRaw : (attrRaw || '力量');
-      const cons = Array.isArray(b.consequences) ? b.consequences.map((x: any) => String(x)).filter(Boolean) : b.consequences ? [String(b.consequences)] : [];
+      const tt = b.targetTier != null ? String(b.targetTier).trim() : '';
       behaviors.push({
-        attr, difficulty: b.difficulty ? String(b.difficulty) : undefined,
-        level, success, reasoning: b.reasoning ? String(b.reasoning).slice(0, 200) : undefined,
-        consequences: cons, roll: rolls[behaviors.length] ?? rolls[0] ?? 0,
-        calc: b.calc ? String(b.calc).slice(0, 120) : undefined,
+        attr, difficulty: toDifficulty(b.difficulty),
+        targetTier: tt && tt !== '无' && tt !== '（无）' && tt !== 'null' ? tt : undefined,
+        reasoning: b.reasoning ? String(b.reasoning).slice(0, 120) : undefined,
       });
     }
     return { behaviors, usedAI: true };

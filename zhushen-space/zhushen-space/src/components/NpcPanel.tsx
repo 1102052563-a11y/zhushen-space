@@ -26,7 +26,7 @@ function FavorBar({ value }: { value: number }) {
 }
 
 /* ── NPC 卡片（点击打开完整档案）── */
-function NpcCard({ npc, onOpen, onDm, onToggleFriend, onManualUpdate, onRestore, updating }: { npc: NpcRecord; onOpen: () => void; onDm?: (r: NpcRecord) => void; onToggleFriend?: (id: string, on: boolean) => void; onManualUpdate?: (id: string) => void; onRestore?: (id: string) => void; updating?: boolean }) {
+function NpcCard({ npc, onOpen, onDm, onToggleFriend, onManualUpdate, onRestore, onArchive, updating }: { npc: NpcRecord; onOpen: () => void; onDm?: (r: NpcRecord) => void; onToggleFriend?: (id: string, on: boolean) => void; onManualUpdate?: (id: string) => void; onRestore?: (id: string) => void; onArchive?: (id: string) => void; updating?: boolean }) {
   const genderCls = npc.gender === '女' ? 'text-rose-400' : npc.gender === '男' ? 'text-sky-400' : 'text-dim/40';
   const itemCount = npc.items?.length ?? 0;
   const canDm = !!onDm && !npc.isDead && isDmableTag(npc.npcTag);
@@ -54,7 +54,8 @@ function NpcCard({ npc, onOpen, onDm, onToggleFriend, onManualUpdate, onRestore,
             {npc.npcTag && <span className="text-[10px] font-mono px-1.5 py-0.5 rounded border border-cyan-700/50 text-cyan-300/80 shrink-0">{npc.npcTag}</span>}
             {npc.partyMember && <span className="text-[10px] font-mono px-1.5 py-0.5 rounded border border-sky-500/50 text-sky-300/80 bg-sky-900/20 shrink-0" title="临时队友">队</span>}
             {npc.isDead && <span className="text-[11px] font-mono text-blood ml-1">已死亡</span>}
-            {!npc.onScene && !npc.isDead && <span className="text-[11px] font-mono text-dim/40 ml-1">已离场</span>}
+            {npc.archived && !npc.isDead && <span className="text-[11px] font-mono text-amber-400/70 ml-1">已归档</span>}
+            {!npc.onScene && !npc.archived && !npc.isDead && <span className="text-[11px] font-mono text-dim/40 ml-1">已离场</span>}
           </div>
           {npc.realm && (() => {
             const full = npc.realm.split('|').join(' · ');
@@ -73,8 +74,12 @@ function NpcCard({ npc, onOpen, onDm, onToggleFriend, onManualUpdate, onRestore,
         </div>
         <div className="shrink-0 flex flex-col items-end gap-1 text-[11px] font-mono text-dim/40">
           {!npc.onScene && onRestore && (
-            <button onClick={(e) => { e.stopPropagation(); onRestore(npc.id); }} title="重新上场（归档保留在档，随时召回，非删除）"
+            <button onClick={(e) => { e.stopPropagation(); onRestore(npc.id); }} title={npc.archived ? '重新上场（解除归档，拉回在场；档案完整保留，非删除）' : '重新上场（离场保留在档，随时召回，非删除）'}
               className="px-1.5 py-0.5 rounded border border-god/40 text-god/80 hover:bg-god/10 transition-colors">↑ 上场</button>
+          )}
+          {!npc.archived && onArchive && (
+            <button onClick={(e) => { e.stopPropagation(); onArchive(npc.id); }} title="归档（玩家主动封存：收进归档区，不再参与离场自治/演化/正文召回，随时可重新上场，非删除）"
+              className="px-1.5 py-0.5 rounded border border-edge text-dim/60 hover:border-amber-600/50 hover:text-amber-400 transition-colors">↓ 归档</button>
           )}
           {itemCount > 0 && <span>🎒{itemCount}</span>}
           {canDm && (
@@ -106,7 +111,8 @@ export default function NpcPanel({ onClose, onDm, onManualUpdate, manualUpdating
   const clearAll  = useNpc((s) => s.clearAll);
   const setFriend = useNpc((s) => s.setFriend);
   const upsertNpc = useNpc((s) => s.upsertNpc);
-  const restoreNpc = (id: string) => upsertNpc(id, { onScene: true });   // 归档角色重新上场（B 区拉回，非删除）
+  const restoreNpc = (id: string) => upsertNpc(id, { onScene: true, archived: false });   // 重新上场（离场/归档皆拉回在场，解除归档；非删除）
+  const archiveNpc = (id: string) => upsertNpc(id, { onScene: false, archived: true });   // 归档：玩家主动封存（独立第三态），不再参与自治/演化/召回，随时可拉回，非删除
 
   // 死亡角色不出现在档案列表（仍保留在 store 里，仅不展示）。
   // 只认 isDead 标记（与在场浮窗/其余各处一致）——不再在展示层重跑 looksDead，
@@ -116,10 +122,12 @@ export default function NpcPanel({ onClose, onDm, onManualUpdate, manualUpdating
   // （仍想手动处理可去「设置→变量管理→NPC演化」的管理面板，那里不过滤。）
   // petMode=宠物/召唤物专属花名册；否则 NPC 档案排除宠物/召唤物（它们有独立的 🐾 面板·严格区分）。
   const records  = Object.values(npcs).filter((r) => !isDeadNpc(r) && hasRealNpcName(r) && (petMode ? isPetLike(r) : !isPetLike(r))).sort((a, b) => b.updatedAt - a.updatedAt);
-  const onScene  = records.filter((r) => r.onScene);
-  const offScene = records.filter((r) => !r.onScene);
+  // 三态互斥（不变量 archived⟹!onScene）：在场 / 离场（AI 剧情自动收起·仍被追踪）/ 归档（玩家主动封存·不参与 AI 处理）
+  const onScene  = records.filter((r) => r.onScene && !r.archived);
+  const offScene = records.filter((r) => !r.onScene && !r.archived);
+  const archived = records.filter((r) => r.archived);
 
-  const [tab, setTab]           = useState<'on' | 'off'>('on');
+  const [tab, setTab]           = useState<'on' | 'off' | 'arc'>('on');
   const [search, setSearch]     = useState('');
   const [tagFilter, setTagFilter] = useState<string>('');   // 标签筛选（空=全部）
   const [confirmClear, setConfirmClear] = useState(false);
@@ -129,7 +137,7 @@ export default function NpcPanel({ onClose, onDm, onManualUpdate, manualUpdating
 
   const TAGS = petMode ? ['宠物', '召唤物'] : ['契约者', '土著', '随从'];
 
-  const displayed = (tab === 'on' ? onScene : offScene).filter((r) => {
+  const displayed = (tab === 'on' ? onScene : tab === 'off' ? offScene : archived).filter((r) => {
     if (tagFilter && r.npcTag !== tagFilter) return false;
     if (!search) return true;
     const q = search.toLowerCase();
@@ -154,7 +162,7 @@ export default function NpcPanel({ onClose, onDm, onManualUpdate, manualUpdating
           <div>
             <div className="text-sm font-bold text-slate-100">{petMode ? '宠物 / 召唤物' : 'NPC 档案'}</div>
             <div className="text-[12px] font-mono text-dim/60">
-              在场 {onScene.length} · 离场 {offScene.length}
+              在场 {onScene.length} · 离场 {offScene.length}{archived.length > 0 && <> · <span className="text-amber-400/70">归档 {archived.length}</span></>}
             </div>
           </div>
           <div className="flex-1" />
@@ -202,6 +210,15 @@ export default function NpcPanel({ onClose, onDm, onManualUpdate, manualUpdating
             >
               离场 B 区 {offScene.length > 0 && <span className="ml-1 text-[11px] opacity-60">{offScene.length}</span>}
             </button>
+            <button
+              onClick={() => setTab('arc')}
+              title="归档区：玩家主动封存的 NPC，不再参与离场自治 / 演化 / 正文召回，随时可「↑ 上场」拉回（非删除）"
+              className={`px-3 py-1 rounded text-[13px] font-mono transition-colors ${
+                tab === 'arc' ? 'bg-amber-500/10 text-amber-300 border border-amber-500/40' : 'text-dim hover:text-slate-200'
+              }`}
+            >
+              归档 {archived.length > 0 && <span className="ml-1 text-[11px] opacity-60">{archived.length}</span>}
+            </button>
           </div>
           <input
             value={search}
@@ -232,11 +249,11 @@ export default function NpcPanel({ onClose, onDm, onManualUpdate, manualUpdating
                   ? 'NPC 档案为空。启用 NPC 演化后，AI 会自动建立档案。'
                   : search
                   ? '无匹配 NPC'
-                  : tab === 'on' ? '当前无在场 NPC' : '当前无离场 NPC'}
+                  : tab === 'on' ? '当前无在场 NPC' : tab === 'off' ? '当前无离场 NPC' : '归档区为空。在场/离场 NPC 卡片点「↓ 归档」即可封存。'}
               </span>
             </div>
           ) : (
-            displayed.map((npc) => <NpcCard key={npc.id} npc={npc} onOpen={() => setSelectedId(npc.id)} onDm={onDm} onToggleFriend={setFriend} onManualUpdate={onManualUpdate} onRestore={restoreNpc} updating={manualUpdatingId === npc.id} />)
+            displayed.map((npc) => <NpcCard key={npc.id} npc={npc} onOpen={() => setSelectedId(npc.id)} onDm={onDm} onToggleFriend={setFriend} onManualUpdate={onManualUpdate} onRestore={restoreNpc} onArchive={archiveNpc} updating={manualUpdatingId === npc.id} />)
           )}
         </div>
       </div>

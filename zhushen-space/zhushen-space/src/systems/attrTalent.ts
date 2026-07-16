@@ -54,6 +54,17 @@ export interface AttrTalentOpts {
   isPlayer: boolean;
 }
 
+export type AttrTalentGrade = 'A' | 'S' | 'SS' | 'SSS';
+/* 里程碑天赋·档位判定（单一真相·UI 与生成共用）。档位按【阶位】定、非按里程碑值：
+   一~三阶=普通属性档(全 A·强力但克制)；四阶起「六维即真实属性」=真实属性档(S 起步→SS→SSS·质变法则级)。
+   真实档永远高普通档整整一档，杜绝"真实属性给的天赋反而不如普通属性"的倒挂。UI(AttrTalentPicker) 据此
+   显示「普通/真实档 · 等级」，让玩家一眼分清 20 点普通里程碑 ≠ 真实属性逆天被动。 */
+export function attrTalentGrade(charTier: string, milestone: number): { isReal: boolean; grade: AttrTalentGrade } {
+  const isReal = attrCapForTier(charTier) >= 150;   // 四阶起六维即真实属性（单属性极值≥150）
+  const grade: AttrTalentGrade = !isReal ? 'A' : milestone >= 2000 ? 'SSS' : milestone >= 500 ? 'SS' : 'S';
+  return { isReal, grade };
+}
+
 /* 调主角演化 API 生成 4 个该属性的逆天级天赋候选（玩家四选一）。失败抛错由 UI 兜。*/
 export async function generateAttrTalents(o: AttrTalentOpts): Promise<Omit<Trait, 'addedAt'>[]> {
   const ss = useSettings.getState();
@@ -62,11 +73,8 @@ export async function generateAttrTalents(o: AttrTalentOpts): Promise<Omit<Trait
   const chain = resolveApiChain('player', legacy);
   if (!chain[0]?.baseUrl || !chain[0]?.apiKey) throw new Error('未配置 AI 接口（设置→主角演化→API设置 或 综合设置→正文生成）');
   const who = o.isPlayer ? `主角「${o.charName || '主角'}」` : `契约者「${o.charName || '该角色'}」`;
-  // 档位按【阶位】定，而非按里程碑值：一~三阶=普通属性档(全 A·克制)；四阶起=真实属性档(S 起步·质变)。
-  // 这样真实属性奖励永远高普通属性整整一档，杜绝"真实属性给的天赋反而不如普通属性"的倒挂。
-  const isReal = attrCapForTier(o.charTier) >= 150;   // 四阶起六维即真实属性（单属性极值≥150）
-  const grade = !isReal ? 'A'
-    : o.milestone >= 2000 ? 'SSS' : o.milestone >= 500 ? 'SS' : 'S';
+  // 档位（普通 A / 真实 S+）由阶位+里程碑确定，UI(AttrTalentPicker) 与此同源（见 attrTalentGrade）。
+  const { isReal, grade } = attrTalentGrade(o.charTier, o.milestone);
   const klassLine = isReal
     ? '真实属性档（四阶起·六维即真实属性·1点真实≈5点普通之效·判定绝对优先·可抗虚空压制）——必须质变/法则级，每个都要全面碾压普通属性档'
     : '普通属性档（一~三阶·单项≤99）——强力但克制，加成一律用百分比/小数值，严禁真实属性措辞/无视防御/巨额固定值/血脉质变';

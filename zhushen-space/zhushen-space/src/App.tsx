@@ -3658,7 +3658,7 @@ export default function App() {
     Object.values(npcs).filter((n) => n.onScene && alive(n)).forEach((n) => must.add(n.id));
 
     const offCands = Object.values(npcs)
-      .filter((n) => !n.onScene && alive(n) && !must.has(n.id))
+      .filter((n) => !n.onScene && !n.archived && alive(n) && !must.has(n.id))   // 归档=封存，不参与演化
       .filter((n) => passFrequency(n, turn, scheduling))
       .sort((a, b) => {
         const aB = /B1/.test(a.relations) ? 1 : 0;
@@ -4087,7 +4087,7 @@ export default function App() {
     if (turn % Math.max(1, scheduling.cleanupCycle) !== 0) return;
     const { npcs } = useNpc.getState();
     const stale = Object.values(npcs).filter(
-      (n) => !n.onScene && !n.isBond && !n.keepForever && !n.isDead
+      (n) => !n.onScene && !n.isBond && !n.keepForever && !n.archived && !n.isDead   // 归档=玩家主动保留，不进清理建议
         && (turn - (n.lastSeenTurn ?? 0)) >= scheduling.cleanupCycle * 2,
     );
     if (stale.length > 0) {
@@ -5800,7 +5800,9 @@ ${AFFIX_EFFECT_RULE}`;
       maxNpcItems: Math.max(0, cfg.structMaxNpcItems ?? 8),     // 每 NPC 物品/装备上限（超出仅列名）
     };
     const chars = useCharacters.getState().characters;
-    const npcs = Object.values(useNpc.getState().npcs);
+    // 归档 NPC（玩家显式封存，不想让叙事关注）整体排除出结构化召回——与下方 archived 物品同理。
+    // 一次过滤即覆盖：LLM 候选(buildNpcCandidateTitles)、本地兜底(rankNpcsLocal)、userInput 点名护栏、离场救回(pickOffsceneRescue)。
+    const npcs = Object.values(useNpc.getState().npcs).filter((r) => !r.archived);
     const profile = usePlayer.getState().profile;
     const game = useGame.getState().player;
     const b1 = chars['B1'];
@@ -7121,6 +7123,7 @@ ${lines}`;
     const ARCHIVE_AFTER = 2;
     for (const r of Object.values(npc.npcs)) {
       if (r.isDead || !r.name || r.name === r.id) continue;
+      if (r.archived) continue;   // 归档=玩家封存：即便正文点名也不自动上场，须玩家显式「重新上场」
       // 队友恒在场：随主角同行的队友若被（历史 bug 等）误判离场，对账时拉回在场——只有剧情明确离队 / leaveParty / 世界结束解散才真离场。
       if (r.partyMember && !r.onScene) { npc.setScene(r.id, true, turn); continue; }
       const nameKey = r.name.split('|')[0].trim();
@@ -7433,7 +7436,7 @@ ${lines}`;
       j = parseEntryJson(content) || lenientJsonParse(content) || {};
     } catch (e) { console.warn('[Arena] 对手建档失败:', e); }
     const a = (v: any, d = 30) => Math.max(1, Math.min(99, parseInt(String(v), 10) || d));
-    const patch: any = { isDead: false, onScene: true, npcTag: '竞技对手', arenaRank: `${def.name}·第${entry.rank}名` };
+    const patch: any = { isDead: false, onScene: true, archived: false, npcTag: '竞技对手', arenaRank: `${def.name}·第${entry.rank}名` };
     patch.realm = stripDeadWords(flattenAiText(j.realm)).slice(0, 60) || `${entry.tier}|${entry.job || '竞技强者'}`;
     if (j.personality) patch.personality = flattenAiText(j.personality).slice(0, 300);
     if (j.appearance) patch.appearance5 = flattenAiText(j.appearance).slice(0, 300);

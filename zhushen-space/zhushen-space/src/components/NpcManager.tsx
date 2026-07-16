@@ -276,10 +276,11 @@ function NpcRoster() {
       {offScene.length > 0 && (
         <div className="space-y-2">
           <div className="text-[12px] font-mono text-dim/40 uppercase tracking-widest">离场 B 区 ({offScene.length})</div>
-          <div className="text-[11px] font-mono text-dim/30">归档≠删除：这些角色已离场保留在档，随时可「↑上场」拉回；「删除」才是彻底清除、不可恢复。</div>
+          <div className="text-[11px] font-mono text-dim/30">离场 / 归档≠删除：这些角色保留在档，随时可「↑上场」拉回（归档者一并解封）；「删除」才是彻底清除、不可恢复。</div>
           <div className="divide-y divide-edge/30 border border-edge rounded-xl overflow-hidden bg-panel opacity-60">
+            {/* onScene:true 同时解除归档，保不变量 archived⟹!onScene（归档 NPC 也落在此 B 区，↑上场即拉回并解封）*/}
             {offScene.map((npc) => (
-              <NpcRow key={npc.id} npc={npc} onRemove={() => hardRemoveNpc(npc.id)} onRestore={() => upsertNpc(npc.id, { onScene: true })} danger />
+              <NpcRow key={npc.id} npc={npc} onRemove={() => hardRemoveNpc(npc.id)} onRestore={() => upsertNpc(npc.id, { onScene: true, archived: false })} danger />
             ))}
           </div>
         </div>

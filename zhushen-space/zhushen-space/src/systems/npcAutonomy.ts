@@ -593,7 +593,7 @@ export function runNpcAutonomy(turn: number): number {
   const maxTicks = Math.max(1, ss.npcAutonomyMax ?? MAX_TICKS_PER_TURN);
   const store = useNpc.getState();
   // 宠物/召唤物随主人待命、不过独立离场生活（"不自行成长"）→ 排除出轨道A 自治，交给独立的宠物演化。
-  const eligible = Object.values(store.npcs).filter((n) => !n.onScene && !n.isDead && hasRealNpcName(n) && !isPetLike(n));
+  const eligible = Object.values(store.npcs).filter((n) => !n.onScene && !n.archived && !n.isDead && hasRealNpcName(n) && !isPetLike(n));   // 归档=玩家封存，不跑离场自治
   if (!eligible.length) return 0;
 
   const contractorNames = eligible.filter((n) => !isNative(n)).map((n) => n.name).filter(Boolean);

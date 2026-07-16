@@ -325,3 +325,52 @@ export function buildCheckResultBlock(opts: {
   const mult = res.backlash ? '（大失败·后果反噬己方）' : res.multiplier !== 1 ? `（后果×${res.multiplier}）` : '';
   return `<检定结果> ${head} → ${res.level}${mult}（${calc}） </检定结果>\n（以上为系统骰子判定结果，请让本回合剧情严格服从该成败与等级，不要推翻。）`;
 }
+
+/* ════════════════════════════════════════════
+   目标阶级感知 DC（确定性·吸收「诡秘序列 DC 公式」思想·调成 zhushen 口径）
+   针对具体目标的行动（掳走/击败/说服某人某物），难度随【目标阶级】缩放，而非只按玩家自身相对难度。
+   治「掳走一个普通人却判输」：DC = 目标阶级基准 × 事件系数；成功率 = 属性值/DC 的比值公式（越级差天然体现）。
+   AI 只负责认「目标阶级 + 事件难度 + 用哪个属性」，DC/阈值/成败由本函数算死（数值可复现·不再 AI 瞎判）。
+════════════════════════════════════════════ */
+/** 目标阶级 → 强度基准（单属性尺度，取各阶「单属性极值」；普通人/土著给低值）。 */
+export const TARGET_TIER_BASE: Record<string, number> = {
+  普通人: 12, 凡人: 12, 常人: 12, 土著: 12, 平民: 12, 弱者: 20,
+  一阶: 50, 二阶: 80, 三阶: 99, 四阶: 150, 五阶: 175, 六阶: 200, 七阶: 250, 八阶: 300,
+  九阶: 500, 绝强: 1000, 巅峰绝强: 2500, 至强: 4000, 巅峰至强: 8000, 无上之境: 20000,
+};
+/** 目标阶级标签 → 强度基准（含包含匹配，如「赤瞳普通人」「七阶强者」；未知按一阶 50）。 */
+export function targetTierBase(label?: string): number {
+  const s = String(label || '').trim();
+  if (!s) return 50;
+  if (TARGET_TIER_BASE[s] != null) return TARGET_TIER_BASE[s];
+  for (const k of Object.keys(TARGET_TIER_BASE)) if (s.includes(k)) return TARGET_TIER_BASE[k];
+  return 50;
+}
+/** 事件系数（这件事本身多难·与目标强弱独立；单属性尺度）。 */
+export const EVENT_COEFF: Record<Difficulty, number> = {
+  简单: 0.3, 普通: 0.6, 困难: 1.0, 极难: 1.6, 几乎不可能: 2.5,
+};
+
+export interface TargetedResult {
+  attrVal: number; targetBase: number; coeff: number; dc: number;
+  threshold: number;   // 成功率 P%（阈值）
+  roll: number;        // d100 掷点
+  success: boolean; level: OutcomeLevel; multiplier: number; backlash: boolean;
+}
+/** 目标阶级感知判定（d100·确定性）：DC=目标基准×事件系数；阈值=40+40×(属性值/DC−1)+运气项，夹 5~95。 */
+export function resolveTargeted(opts: { attrVal: number; targetBase: number; difficulty: Difficulty; luck: number; roll: number }): TargetedResult {
+  const coeff = EVENT_COEFF[opts.difficulty] ?? 0.6;
+  const dc = Math.max(1, Math.round(opts.targetBase * coeff));
+  const luckTerm = 20 * (1 - 1 / (1 + 0.005 * Math.max(0, opts.luck || 0)));
+  const threshold = clamp(Math.round(40 + 40 * ((opts.attrVal || 0) / dc - 1) + luckTerm), 5, 95);
+  const roll = clamp(Math.round(opts.roll) || 1, 1, 100);
+  let level: OutcomeLevel;
+  if (roll >= 96) level = '大失败';
+  else if (roll <= 5) level = '大成功';
+  else if (roll <= threshold / 5) level = '极难成功';
+  else if (roll <= threshold / 2) level = '困难成功';
+  else if (roll <= threshold) level = '成功';
+  else level = '失败';
+  const success = level !== '失败' && level !== '大失败';
+  return { attrVal: opts.attrVal || 0, targetBase: opts.targetBase, coeff, dc, threshold, roll, success, level, multiplier: CRIT_MULT[level], backlash: level === '大失败' };
+}

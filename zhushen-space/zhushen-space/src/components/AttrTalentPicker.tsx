@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { useCharacters, RARITY_CLS, type Trait } from '../store/characterStore';
-import { generateAttrTalents } from '../systems/attrTalent';
+import { generateAttrTalents, attrTalentGrade } from '../systems/attrTalent';
 
 /* 真实属性里程碑·四选一逆天天赋（主角 B1 与 NPC Cx 共用）。
    挂载即调主角演化 API 生成 4 个该属性专属天赋 → 玩家选 1 个写进该角色天赋。
@@ -24,6 +24,11 @@ export default function AttrTalentPicker({
   const [err, setErr] = useState('');
   const [cands, setCands] = useState<Omit<Trait, 'addedAt'>[]>([]);
   const [done, setDone] = useState(false);
+
+  // 档位：与 generateAttrTalents 同源——普通属性档(一~三阶·A) vs 真实属性档(四阶起·S+)。
+  // 据此分色分词，让玩家一眼分清「普通属性里程碑」≠「真实属性逆天被动」。
+  const { isReal, grade } = attrTalentGrade(charTier, milestone);
+  const gradeCls = RARITY_CLS[grade] ?? 'border-edge text-slate-300';
 
   // 竞态保护：StrictMode(dev) 把挂载 effect 跑两遍 → 两次 generateAttrTalents 命中同一实例；其一常被中止
   // (signal is aborted)。不守卫的话，中止那次的报错会盖掉另一次的成功结果 → "返回有效却报错"。
@@ -93,12 +98,20 @@ export default function AttrTalentPicker({
         <header className="shrink-0 flex items-center gap-3 px-5 py-3 border-b border-edge bg-gradient-to-b from-panel to-void">
           <span className="text-xl">🌟</span>
           <div className="flex-1 min-w-0">
-            <div className="text-sm font-bold text-god flex items-center gap-2">
-              真实{attrLabel}·里程碑 {milestone} —— 觉醒逆天天赋
+            <div className="text-sm font-bold text-god flex items-center gap-2 flex-wrap">
+              {isReal ? `真实${attrLabel}` : attrLabel}·里程碑 {milestone} —— {isReal ? '觉醒逆天天赋' : '淬炼属性天赋'}
+              <span className={`text-[11px] font-mono font-bold px-1.5 py-0.5 rounded border ${gradeCls}`}>
+                {isReal ? '真实属性档' : '普通属性档'} · {grade}
+              </span>
               {moreCount > 0 && <span className="text-[11px] font-mono text-amber-300/80 px-1.5 py-0.5 rounded border border-amber-500/40 bg-amber-900/20">本批还剩 {moreCount} 项</span>}
             </div>
             <div className="text-[12px] font-mono text-dim/60 truncate">
-              {isPlayer ? '主角' : charName || '该角色'}　真实{attrLabel} 突破至 {trueValue}，从 4 选 1 纳入天赋
+              {isPlayer ? '主角' : charName || '该角色'}　{isReal ? `真实${attrLabel}` : attrLabel} 突破至 {trueValue}，四选一纳入天赋
+            </div>
+            <div className="text-[11px] font-mono text-dim/45 mt-0.5 leading-snug">
+              {isReal
+                ? '真实属性档 · 质变法则级逆天被动（1 点真实 ≈ 5 点普通之效）'
+                : '普通属性档 · 强力但克制的 A 级天赋（四阶起「真实属性」方觉醒质变级逆天被动）'}
             </div>
           </div>
           <button onClick={onClose} disabled={loading} className="shrink-0 text-dim/50 hover:text-blood text-lg disabled:opacity-40">✕</button>
@@ -107,7 +120,7 @@ export default function AttrTalentPicker({
         <div className="flex-1 overflow-y-auto p-4 space-y-3">
           {loading && (
             <div className="py-16 text-center text-god/80 font-mono text-sm">
-              <span className="inline-block animate-spin mr-2">⟳</span>正在铸造 4 个【{attrLabel}】逆天天赋…
+              <span className="inline-block animate-spin mr-2">⟳</span>正在铸造 4 个【{attrLabel}】{isReal ? '逆天天赋' : '属性天赋'}（{grade} 级）…
               <div className="text-[12px] text-dim/40 mt-1">调用主角演化 API · 检索网游资料，可能需要十几秒</div>
             </div>
           )}

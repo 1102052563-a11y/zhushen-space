@@ -144,6 +144,9 @@ export interface NpcRecord {
   deadTurn?: number;      // 首次被检测为死亡的回合号（死亡自动清除的延迟计时；复活则清空）
   isBond?: boolean;       // 羁绊/开局角色，自带"长期保留"，不进清理名单
   keepForever?: boolean;  // 用户手动标记长期保留
+  archived?: boolean;     // 玩家手动「归档」（独立于在场/离场的第三态）：主动收进档案库、不想让叙事关注 →
+                          //   彻底封存(不参与轨道A自治/演化/正文召回/自动上场/清理建议)，除非玩家「重新上场」才恢复。
+                          //   与「离场」区别：离场是 AI 剧情自动收起、仍被追踪；归档是玩家显式封存。不变量：archived ⟹ !onScene。
   kitDone?: boolean;      // 已发放过初始家当（装备+储物），避免重复发放
 
   // ── 临时世界队伍（频道组队；世界结束自动解散，与永久冒险团两层分开）──
@@ -631,6 +634,7 @@ export const useNpc = create<NpcState>()(
               [id]: {
                 ...rec,
                 onScene,
+                ...(onScene ? { archived: false } : {}),   // 不变量 archived⟹!onScene：一旦重新上场即解除归档
                 ...(onScene && turn != null ? { lastSeenTurn: turn } : {}),
                 updatedAt: Date.now(),
               },
@@ -770,7 +774,7 @@ export const useNpc = create<NpcState>()(
               const items = [...(merged.items ?? [])];
               for (const it of dup.items ?? []) if (!items.some((x) => x.id === it.id)) items.push(it);
               merged.items = items;
-              if (dup.onScene) merged.onScene = true;
+              if (dup.onScene) { merged.onScene = true; merged.archived = false; }   // 有在场副本→合并结果视为活跃，解除归档（保不变量）
               // keeper 缺失的字段用 dup 补全
               for (const f of ['realm', 'personality', 'background', 'appearanceDetail', 'title', 'profession', 'contractorId', 'affiliatedTeam', 'gender', 'attrs', 'avatar', 'imageTags'] as (keyof NpcRecord)[]) {
                 if ((merged[f] == null || merged[f] === '') && dup[f] != null && dup[f] !== '') (merged as any)[f] = dup[f];
@@ -828,7 +832,7 @@ export const useNpc = create<NpcState>()(
               const items = [...(keeper.items ?? [])];
               for (const it of sus.items ?? []) if (!items.some((x: any) => x.id === it.id)) items.push(it);
               keeper.items = items;
-              if (sus.onScene) keeper.onScene = true;
+              if (sus.onScene) { keeper.onScene = true; keeper.archived = false; }   // 同上：在场副本→解除归档
               for (const f of ['realm', 'personality', 'background', 'appearanceDetail', 'title', 'profession', 'contractorId', 'affiliatedTeam', 'gender', 'attrs', 'avatar', 'imageTags'] as (keyof NpcRecord)[]) {
                 if ((keeper[f] == null || keeper[f] === '') && sus[f] != null && sus[f] !== '') keeper[f] = sus[f];
               }

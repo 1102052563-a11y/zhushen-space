@@ -1,6 +1,7 @@
 import { usePlayer } from '../store/playerStore';
 import { useCharacters } from '../store/characterStore';
 import { useItems, gradeToNum } from '../store/itemStore';
+import { useNpc } from '../store/npcStore';
 import { useDice } from '../store/diceStore';
 import { attrCapForTier } from './derivedStats';
 import { effectiveAttrs, withAttrDelta } from './attrBonus';
@@ -9,9 +10,10 @@ import { playerTreeAttrBonus } from '../store/skillTreeStore';
 import { playerTeamAttrBonus } from '../store/adventureTeamStore';
 import {
   resolve, buildCheckResultBlock, CRIT_MULT, ATTR_KEYS, ATTR_LABELS, strengthScoreFromBio, rollDie,
-  type AttrKey, type Difficulty, type OutcomeLevel, type DiceMode, type ResolveResult, type DiceAttrs, type EquipItemLite,
+  resolveTargeted, targetTierBase,
+  type AttrKey, type Difficulty, type OutcomeLevel, type DiceMode, type ResolveResult, type DiceAttrs, type EquipItemLite, type TargetedResult,
 } from './diceEngine';
-import { aiClassifyJudge, type JudgedBehavior } from './diceJudge';
+import { aiClassifyActions } from './diceJudge';
 import { detectAutoActions, detectDifficulty } from './autoDiceDetect';
 
 /* ════════════════════════════════════════════
@@ -41,8 +43,9 @@ export interface DiceCardData {
   usedAI: boolean;       // 是否 AI 裁定（否=纯前端确定性）
   reasoning?: string;    // AI 裁定依据（≤60字）
   consequences?: string[];
-  calcNote?: string;     // AI 模式：AI 的数值推演摘要（有则替代 d20/d100 算式行）
+  calcNote?: string;     // AI 模式：数值推演摘要（有则替代 d20/d100 算式行）
   rerolls?: number;      // 有限重掷：本次因失败额外掷了几次（0/undefined=没重掷；仅 frontend）
+  targetTier?: string;   // 目标阶级感知判定：目标的强度阶级（有目标才有）
 }
 
 export interface AutoDiceOut {
@@ -115,16 +118,22 @@ export const isDiceReviewOn = (): boolean => !!useDice.getState().settings.diceR
 const LEVEL_ORDER: OutcomeLevel[] = ['大成功', '碾压成功', '极难成功', '困难成功', '成功', '失败', '大失败'];
 const levelRank = (lv: OutcomeLevel): number => { const i = LEVEL_ORDER.indexOf(lv); return i < 0 ? 99 : i; };
 
-/** 把 AI 分类裁判的单个行为拼成 `<检定结果>` 块（多行为各一段·末尾总服从提示由调用方统一追加一条） */
-function buildBehaviorBlock(actorName: string, b: JudgedBehavior, mode: DiceMode): string {
-  const head = `${actorName}（${b.attr}）${b.difficulty ? ` 难度=${b.difficulty}` : ''}`;
-  const anchor = mode === 'd20' ? `d20:${b.roll}` : `d100:${b.roll}`;
-  return [
-    `<检定结果> ${head} → ${b.level}（AI 裁定·骰点 ${anchor}）`,
-    b.reasoning ? `裁定：${b.reasoning}` : '',
-    b.consequences?.length ? `后果：${b.consequences.join('；')}` : '',
-    `</检定结果>`,
-  ].filter(Boolean).join('\n');
+/** 中文属性标签 → 六维键（AI 分类返回中文，前端读属性值/算修正用） */
+const LABEL_TO_KEY: Record<string, AttrKey> = { 力量: 'str', 敏捷: 'agi', 体质: 'con', 智力: 'int', 魅力: 'cha', 幸运: 'luck' };
+
+/** 在场角色简述（名+阶位/强度）——喂 AI 分类器帮它认目标阶级 */
+function onSceneBrief(): string {
+  try {
+    const npcs = useNpc.getState().npcs;
+    const list = Object.values(npcs).filter((n: any) => n?.onScene && !n?.isDead).slice(0, 8);
+    return list.map((n: any) => `${n.name || n.id}（${n.realm || n.bioStrength || '?'}）`).join('、');
+  } catch { return ''; }
+}
+
+/** 目标阶级感知判定拼 `<检定结果>` 块 */
+function buildTargetedBlock(actorName: string, attr: string, targetTier: string, difficulty: Difficulty, res: TargetedResult): string {
+  const mult = res.backlash ? '（大失败·反噬）' : res.multiplier !== 1 ? `（后果×${res.multiplier}）` : '';
+  return `<检定结果> ${actorName}（${attr}）对【${targetTier}】·难度${difficulty} → ${res.level}${mult}（d100:${res.roll} ${res.success ? '≤' : '>'} 阈值${res.threshold}%｜属性${res.attrVal} vs DC${res.dc}=${targetTier}基准×${res.coeff}） </检定结果>`;
 }
 
 const FOLLOW_LINE = '（以上为系统判定结果，请让本回合剧情严格服从各项成败、等级与后果，不要推翻。）';
@@ -149,38 +158,60 @@ export async function runAutoDice(text: string): Promise<AutoDiceOut | null> {
   const profile = usePlayer.getState().profile;
   const actorName = profile.name || '主角';
   const rerollMax = Math.max(0, Math.min(5, Math.floor(s.rerollOnFail || 0)));   // 有限重掷上限（仅 frontend 路径）
-  const isD20 = s.mode === 'd20';
 
   const cards: DiceCardData[] = [];
   const blocks: string[] = [];
 
-  // ── AI 模式（ai / ai-full）：一次调用识别最多 2 个行为、各挑对口属性并裁定（治关键词误判属性 + 多行为分别摇）。
-  //    失败 → 落到下方前端确定性多摇兜底。 ──
+  // ── AI 模式（ai / ai-full）：一次调用 aiClassifyActions 只做分类（属性/事件难度/目标阶级），数值由前端算死。
+  //    有目标 → 目标阶级感知 resolveTargeted（DC 随目标阶级缩放·治「掳走普通人却判输」）；无目标 → 相对难度 computeAutoFe。
+  //    失败 → 落到下方前端关键词确定性多摇兜底。 ──
   if (s.judgeMode === 'ai' || s.judgeMode === 'ai-full') {
-    const rolls = [rollDie(isD20 ? 20 : 100), rollDie(isD20 ? 20 : 100)];   // 预掷 2 颗诚实骰点，按行为顺序取用
-    const out = await aiClassifyJudge({ mode: s.mode, actorName, action: t, difficulty, playerSheet: buildPlayerSheet(), rolls });
-    if (out.usedAI) {
-      if (!out.behaviors.length) return null;                        // AI 判无需检定 → 不注入
-      for (const b of out.behaviors) {
-        const mult = CRIT_MULT[b.level] ?? 1;
-        blocks.push(buildBehaviorBlock(actorName, b, s.mode));
-        try {
-          useDice.getState().addHistory({
-            actorName, actionText: t, attrLabel: b.attr, difficulty, opposed: false,
-            mode: s.mode, dice: [b.roll], chosen: b.roll, total: b.roll, dc: 0, P: 0,
-            level: b.level, success: b.success, multiplier: mult, backlash: b.level === '大失败',
+    const cls = await aiClassifyActions({ actorName, action: t, playerSheet: buildPlayerSheet(), onscene: onSceneBrief() });
+    if (cls.usedAI) {
+      if (!cls.behaviors.length) return null;                        // AI 判无需检定 → 不注入
+      const attrs = playerEffAttrs();
+      for (const b of cls.behaviors) {
+        const attrKey = LABEL_TO_KEY[b.attr] ?? 'str';
+        if (b.targetTier) {
+          // 目标阶级感知·确定性 d100（DC=目标基准×事件系数，成功率=属性值/DC 比值公式）
+          const roll = rollDie(100);
+          const res = resolveTargeted({ attrVal: attrs[attrKey], targetBase: targetTierBase(b.targetTier), difficulty: b.difficulty, luck: attrs.luck, roll });
+          blocks.push(buildTargetedBlock(actorName, b.attr, b.targetTier, b.difficulty, res));
+          try {
+            useDice.getState().addHistory({
+              actorName, actionText: t, attrLabel: b.attr, difficulty: b.difficulty, opposed: false,
+              mode: 'd100', dice: [res.roll], chosen: res.roll, total: res.roll, dc: res.dc, P: res.threshold,
+              level: res.level, success: res.success, multiplier: res.multiplier, backlash: res.backlash,
+            });
+          } catch { /* 历史记录失败不影响判定 */ }
+          cards.push({
+            actorName, action: t, attrLabel: b.attr, mode: 'd100', chosen: res.roll,
+            modsTotal: 0, dc: res.dc, P: res.threshold, level: res.level, success: res.success, multiplier: res.multiplier,
+            usedAI: true, reasoning: b.reasoning, targetTier: b.targetTier,
+            calcNote: `d100:${res.roll} ${res.success ? '≤' : '>'} 阈值${res.threshold}%（vs ${b.targetTier}）`,
           });
-        } catch { /* 历史记录失败不影响判定 */ }
-        cards.push({
-          actorName, action: t, attrLabel: b.attr, mode: s.mode, chosen: b.roll,
-          modsTotal: 0, dc: 0, P: 0, level: b.level, success: b.success, multiplier: mult,
-          usedAI: true, reasoning: b.reasoning, consequences: b.consequences?.length ? b.consequences : undefined,
-          calcNote: b.calc || (isD20 ? `d20:${b.roll}` : `d100:${b.roll}`),
-        });
+        } else {
+          // 无目标 → 相对难度确定性（与 frontend 同口径）
+          const fe = computeAutoFe(attrKey, b.difficulty);
+          const mult = CRIT_MULT[fe.level] ?? 1;
+          blocks.push(buildCheckResultBlock({ actorName, actionText: t, attrLabel: b.attr, difficulty: b.difficulty, opposed: false, res: fe }));
+          try {
+            useDice.getState().addHistory({
+              actorName, actionText: t, attrLabel: b.attr, difficulty: b.difficulty, opposed: false,
+              mode: fe.mode, dice: fe.dice, chosen: fe.chosen, total: fe.total, dc: fe.dc, P: fe.P,
+              level: fe.level, success: fe.success, multiplier: mult, backlash: fe.level === '大失败',
+            });
+          } catch { /* 历史记录失败不影响判定 */ }
+          cards.push({
+            actorName, action: t, attrLabel: b.attr, mode: fe.mode, chosen: fe.chosen,
+            modsTotal: fe.mods.total, dc: fe.dc, P: fe.P, level: fe.level, success: fe.success, multiplier: mult,
+            usedAI: true, reasoning: b.reasoning,
+          });
+        }
       }
       return { block: blocks.join('\n\n') + '\n' + FOLLOW_LINE, cards };
     }
-    // AI 失败 → 前端确定性兜底（下面）
+    // AI 失败 → 前端关键词确定性兜底（下面）
   }
 
   // ── 前端确定性（frontend 模式 / AI 失败兜底）：关键词命中的每类属性各摇一次（最多 2）。 ──

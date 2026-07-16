@@ -486,22 +486,23 @@ export function buildPlayerItemCandidates(items: InventoryItem[]): string {
 /* ── 本地兜底排序：在场且未死 > 好感高 > 最近在场 ── */
 export function rankNpcsLocal(npcs: NpcRecord[], max: number): NpcRecord[] {
   return pickTop(
-    npcs.filter((r) => !r.isDead),
+    npcs.filter((r) => !r.isDead && !r.archived),   // 归档=玩家封存，不进召回（除非重新上场）
     max,
     (r) => (r.onScene ? 100000 : 0) + (r.favor ?? 0) * 100 + (r.lastSeenTurn ?? 0),
   );
 }
 
-/* ── 归档≠删除·防「离场就失忆」──
-   被【最近正文】字面点到名的【离场】NPC（尤其被玩家归档的任务BOSS/关键角色），按「最近在场优先」取前 cap 个救回结构化召回，
-   带着他的性格/关系/动机/近期经历回到 AI 上下文——否则一归档，AI 就当他不存在、同一世界前后文对不上（用户明确报此坑）。
+/* ── 离场≠失忆·被点名的离场角色救回召回 ──
+   被【最近正文】字面点到名的【离场】NPC（AI 剧情自动收起、仍被追踪的任务BOSS/关键角色），按「最近在场优先」取前 cap 个救回结构化召回，
+   带着他的性格/关系/动机/近期经历回到 AI 上下文——否则一离场，AI 就当他不存在、同一世界前后文对不上（用户明确报此坑）。
+   **归档另论**：玩家显式「归档」(archived) 的角色是主动封存，即便被点名也不救回（下面 !r.archived）——要回来须玩家「重新上场」。
    **边界**：只补【离场】(在场的由 rankNpcsLocal 覆盖)、硬上限 cap(默认3·防一场群戏把离场配角全塞进来重演"一大堆")、
    exclude=已选中的(避免与 userInput 护栏重复)。参见 rankNpcsLocal 对在场 NPC 的 +100000 压制——正是它让离场角色拿不到名额。 */
 export function pickOffsceneRescue(npcs: NpcRecord[], context: string | undefined, exclude: NpcRecord[] = [], cap = 3): NpcRecord[] {
   if (cap <= 0) return [];
   const ex = new Set(exclude);
   return namesMentionedIn(npcs, context)
-    .filter((r) => !r.isDead && !r.onScene && !ex.has(r))
+    .filter((r) => !r.isDead && !r.onScene && !r.archived && !ex.has(r))
     .sort((a, b) => (b.lastSeenTurn ?? 0) - (a.lastSeenTurn ?? 0))
     .slice(0, cap);
 }

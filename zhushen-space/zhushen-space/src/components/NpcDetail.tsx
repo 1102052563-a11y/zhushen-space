@@ -150,7 +150,8 @@ export default function NpcDetail({
             <div className="flex items-center gap-2">
               <span className="text-lg font-bold text-slate-100 truncate">{npc.name || npc.id}</span>
               {npc.gender && <span className={`text-sm font-mono px-1.5 py-0.5 rounded border border-edge ${genderCls}`}>{npc.gender}</span>}
-              {!npc.onScene && <span className="text-[12px] font-mono text-dim/50">离场</span>}
+              {npc.archived && <span className="text-[12px] font-mono text-amber-400/70" title="玩家已归档·封存（不参与自治/演化/召回）">已归档</span>}
+              {!npc.onScene && !npc.archived && <span className="text-[12px] font-mono text-dim/50">离场</span>}
               {npc.isDead && <span className="text-[12px] font-mono text-blood">已死亡</span>}
             </div>
             <div className="text-sm font-mono text-dim/70 truncate">
@@ -209,14 +210,25 @@ export default function NpcDetail({
             {editing ? '✏️ 编辑中' : '✏️ 编辑'}
           </button>
 
-          {/* 离场/上场 */}
+          {/* 离场 / 上场（AI 剧情态：离场仍被追踪）；上场时一并解除归档，保不变量 archived⟹!onScene */}
           <button
-            onClick={() => upsertNpc(npc.id, { onScene: !npc.onScene })}
+            onClick={() => upsertNpc(npc.id, npc.onScene ? { onScene: false } : { onScene: true, archived: false })}
             className={`hidden sm:inline-flex px-3 py-1.5 max-lg:px-2 max-lg:py-1 text-sm max-lg:text-[13px] rounded-lg border font-mono transition-colors ${
               npc.onScene ? 'border-edge text-dim hover:border-amber-600/50 hover:text-amber-400' : 'border-god/40 text-god hover:bg-god/10'
             }`}
           >
             {npc.onScene ? '令其离场' : '重新上场'}
+          </button>
+
+          {/* 归档 / 取消归档（玩家封存态·独立第三态：不参与离场自治 / 演化 / 正文召回，随时可重新上场，非删除）*/}
+          <button
+            onClick={() => upsertNpc(npc.id, npc.archived ? { archived: false } : { onScene: false, archived: true })}
+            title={npc.archived ? '取消归档（转为离场，重新参与自治 / 演化 / 召回）' : '归档·封存（收进归档区，不再参与离场自治 / 演化 / 正文召回，随时可重新上场，非删除）'}
+            className={`hidden sm:inline-flex px-3 py-1.5 max-lg:px-2 max-lg:py-1 text-sm max-lg:text-[13px] rounded-lg border font-mono transition-colors ${
+              npc.archived ? 'border-amber-500/50 text-amber-300 bg-amber-900/15' : 'border-edge text-dim/70 hover:border-amber-600/50 hover:text-amber-400'
+            }`}
+          >
+            {npc.archived ? '📤 取消归档' : '📥 归档'}
           </button>
 
           {/* 直接删除该 NPC（物理删除）→ 弹独立确认框（不在挤压的头部里就地两步确认，避免点击后按钮变宽、布局重排把「重新上场」挪到删除位致误触）*/}
