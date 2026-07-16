@@ -5,6 +5,7 @@ import { stageOf, type DispAxis } from '../systems/dispositionGuard';
 import { useCharacters, RARITY_CLS, ELEMENT_CLS, SKILL_TIER_CLS, normSkillTier, type Deed } from '../store/characterStore';
 import { computeDerived, lvFromRealm, normalizeTier, tierFxClass, realmFromLevel, effectiveResource, fullMaxHp, fullMaxEp, TIERS, realAttrCapForTier, realAttrMult, attrCapForTier, ratioOf, hpCoefOf, epCoefOf, vitalFormula, npcBaseAttrs } from '../systems/derivedStats';
 import { computeAttrBreakdown, effectiveAttrs, clampedBonus, ATTR_LABEL, ATTR_KEYS, type AttrBreak } from '../systems/attrBonus';
+import { effectiveCombatStat } from '../systems/enhanceEngine';
 import { bioInnate, bioPower, bioStrengthLabel, BIO_TIER_NAMES, nominalTierNum } from '../systems/bioStrength';
 import { generateNpcAttrs, resolveForm, UNIT_TYPE_LABELS } from '../systems/npcAttrGen';
 import { usePlayer, type PlayerAttrs } from '../store/playerStore';
@@ -184,6 +185,20 @@ export default function NpcDetail({
             >
               🌱 培养
             </button>
+          )}
+
+          {/* 手动转换标签：NPC ↔ 宠物/召唤物 一键互转。
+              治「召唤物被登场判断默认标成土著 → 全跑进 NPC 面板、进不了宠物系统」——AI 没标对时玩家自己一键转。 */}
+          {!effPreview && (
+            <select
+              value={npc.npcTag ?? ''}
+              onChange={(e) => useNpc.getState().upsertNpc(npc.id, { npcTag: e.target.value })}
+              title="手动转换标签：选「宠物 / 召唤物」即转入宠物系统（独立宠物演化 + 🌱培养 + 🐾面板 + 不自行成长）；选回 契约者/土著/随从 则回 NPC 系统"
+              className="px-2 py-1.5 max-lg:py-1 text-sm max-lg:text-[13px] rounded-lg border border-edge bg-void text-dim/80 font-mono outline-none cursor-pointer transition-colors hover:border-cyan-500/50 hover:text-cyan-300 focus:border-cyan-500/50"
+            >
+              <option value="">🏷 未定</option>
+              {['契约者', '土著', '随从', '宠物', '召唤物'].map((t) => <option key={t} value={t}>🏷 {t}</option>)}
+            </select>
           )}
 
           {effPreview && previewActions}
@@ -441,7 +456,12 @@ function NpcEditForm({ npc, onDone }: { npc: NpcRecord; onDone: () => void }) {
               <option value="">未设置</option><option value="男">男</option><option value="女">女</option>
             </select>
           </ERow>
-          <ERow label="标签" hint="契约者/土著/随从/宠物"><input className={EDIT_INP} value={f.npcTag} onChange={(e) => set({ npcTag: e.target.value })} /></ERow>
+          <ERow label="标签" hint="契约者/土著/随从/宠物/召唤物（宠物·召唤物=转入宠物系统）">
+            <select className={EDIT_INP} value={f.npcTag} onChange={(e) => set({ npcTag: e.target.value })}>
+              <option value="">未设置</option>
+              {['契约者', '土著', '随从', '宠物', '召唤物'].map((t) => <option key={t} value={t}>{t}</option>)}
+            </select>
+          </ERow>
           <ERow label="阶位·Lv|身份" hint="第2列"><input className={EDIT_INP} value={f.realm} onChange={(e) => set({ realm: e.target.value })} placeholder="如 三阶·Lv.12|雇佣兵队长" /></ERow>
           <ERow label="称号"><input className={EDIT_INP} value={f.title} onChange={(e) => set({ title: e.target.value })} /></ERow>
           <ERow label="职业"><input className={EDIT_INP} value={f.profession} onChange={(e) => set({ profession: e.target.value })} /></ERow>
@@ -1223,7 +1243,7 @@ function AttrTab({ npc: npcProp, realm }: { npc: NpcRecord; realm: ReturnType<ty
     setRerollN((v) => v + 1);
   };
   const [attrPop, setAttrPop] = useState<keyof PlayerAttrs | null>(null);
-  const npcEquipped = equippedFull.map((it) => ({ category: it.category, grade: (it.numeric?.grade as number) ?? gradeToNum(it.gradeDesc), combatStat: it.combatStat }));
+  const npcEquipped = equippedFull.map((it) => ({ category: it.category, grade: (it.numeric?.grade as number) ?? gradeToNum(it.gradeDesc), combatStat: effectiveCombatStat(it) }));
   const derived = computeDerived(effAttrs, lvFromRealm(npc.realm), npcEquipped);   // 衍生属性按"有效六维"
   const derivedNoEq = computeDerived(effAttrs, lvFromRealm(npc.realm), []);
   const [derivedPop, setDerivedPop] = useState<keyof typeof derived | null>(null);

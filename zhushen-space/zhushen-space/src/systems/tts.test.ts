@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
-import { cleanForTts, chunkSentences, parseSegments, attributeSpeaker, resolveNpcVoice } from './tts';
-import { useTts } from '../store/ttsStore';
+import { cleanForTts, chunkSentences, parseSegments, attributeSpeaker, resolveNpcVoice, buildSovitsUrl } from './tts';
+import { useTts, type SovitsVoice } from '../store/ttsStore';
 
 describe('tts · cleanForTts 清洗成可朗读纯文', () => {
   it('剥掉成对机器指令块（连内文）', () => {
@@ -110,5 +110,49 @@ describe('tts · resolveNpcVoice 音色分配', () => {
   it('无指定且 node 无音色池 → 空串（浏览器里才有音色）', () => {
     useTts.setState({ npcVoices: {} });
     expect(resolveNpcVoice('无名氏')).toBe('');
+  });
+});
+
+describe('tts · buildSovitsUrl 拼 GPT-SoVITS api_v2 的 GET /tts', () => {
+  const cfg = { url: 'http://127.0.0.1:9880', textLang: 'zh', streaming: false, extra: '' };
+  const kar: SovitsVoice = { id: 'sv_1', label: '卡尔', gender: 'male', refAudioPath: 'D:\\gsv\\refs\\kar.wav', promptText: '这是一段参考音频。', promptLang: 'zh' };
+  const q = (url: string) => new URL(url).searchParams;
+
+  it('必填参数齐全、值正确', () => {
+    const p = q(buildSovitsUrl(cfg, kar, '你好世界', 1));
+    expect(p.get('text')).toBe('你好世界');
+    expect(p.get('text_lang')).toBe('zh');
+    expect(p.get('ref_audio_path')).toBe('D:\\gsv\\refs\\kar.wav');   // Windows 路径原样送达（编码解码后一致）
+    expect(p.get('prompt_text')).toBe('这是一段参考音频。');
+    expect(p.get('prompt_lang')).toBe('zh');
+    expect(p.get('media_type')).toBe('wav');
+    expect(p.get('streaming_mode')).toBe('false');
+  });
+  it('走 /tts 路径，末尾斜杠会被吃掉，空地址回退默认', () => {
+    expect(buildSovitsUrl({ ...cfg, url: 'http://127.0.0.1:9880/' }, kar, 'x').startsWith('http://127.0.0.1:9880/tts?')).toBe(true);
+    expect(buildSovitsUrl({ ...cfg, url: '  ' }, kar, 'x').startsWith('http://127.0.0.1:9880/tts?')).toBe(true);
+  });
+  it('语速映射到 speed_factor 并夹在 0.5–2', () => {
+    expect(q(buildSovitsUrl(cfg, kar, 'x', 1.5)).get('speed_factor')).toBe('1.5');
+    expect(q(buildSovitsUrl(cfg, kar, 'x', 9)).get('speed_factor')).toBe('2');
+    expect(q(buildSovitsUrl(cfg, kar, 'x', 0.1)).get('speed_factor')).toBe('0.5');
+    expect(q(buildSovitsUrl(cfg, kar, 'x', 0)).get('speed_factor')).toBe('1');    // 0/NaN → 默认 1，别退化成 0.5
+  });
+  it('流式开关 → streaming_mode', () => {
+    expect(q(buildSovitsUrl({ ...cfg, streaming: true }, kar, 'x')).get('streaming_mode')).toBe('true');
+  });
+  it('extra 覆盖默认参数、且能加新参数', () => {
+    const p = q(buildSovitsUrl({ ...cfg, extra: 'media_type=ogg&top_k=15' }, kar, 'x'));
+    expect(p.get('media_type')).toBe('ogg');    // 覆盖掉默认 wav
+    expect(p.get('top_k')).toBe('15');
+  });
+  it('没配音色 → 参考音频为空（引擎据此拦截并提示，不发请求）', () => {
+    const p = q(buildSovitsUrl(cfg, undefined, 'x'));
+    expect(p.get('ref_audio_path')).toBe('');
+    expect(p.get('prompt_lang')).toBe('zh');
+  });
+  it('特殊字符（中文/空格/&）被正确编码，不会撕裂 query', () => {
+    const p = q(buildSovitsUrl(cfg, kar, '他说：「A & B」，对吗？'));
+    expect(p.get('text')).toBe('他说：「A & B」，对吗？');
   });
 });

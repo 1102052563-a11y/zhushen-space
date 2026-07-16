@@ -5,6 +5,7 @@ import { gradeToNum, type InventoryItem, type CurrencyWallet } from '../store/it
 import type { PlayerProfile, PlayerAttrs } from '../store/playerStore';
 import { effectiveResource, lvFromRealm, fullMaxHp, fullMaxEp, computeDerived, realAttrMult, attrCapForTier, ratioOf, hpCoefOf, epCoefOf, vitalFormula, npcBaseAttrs } from './derivedStats';
 import { effectiveAttrs, withAttrDelta } from './attrBonus';
+import { effectiveCombatStat } from './enhanceEngine';
 import { playerTreeAttrBonus, playerGrowthSummary } from '../store/skillTreeStore';
 import { playerTeamAttrBonus, playerTeamPerkAbilities } from '../store/adventureTeamStore';
 import { bioInnate, bioPower, bioStrengthLabel } from './bioStrength';
@@ -266,7 +267,7 @@ export function serializePlayerCard(
   // 有效六维 = 基础 + 装备/技能/天赋 + 技能树 + 团队加成（与属性面板/战斗/骰子完全一致；注入正文用实战值，并标注基础值）
   const effA = effectiveAttrs(hpBase, skills, talents, pEqp, attrCapForTier(profile.tier, profile.level));   // 用 hpBase（已含真实属性点直加 realAttrs + 技能树 + 团队）→ 注入六维=面板「真实属性」+装备/技能/天赋，不再漏 realAttrs
   // 衍生攻防（与属性面板同式：有效六维 + 等级 + 已装备品级）
-  const derived = computeDerived(effA, profile.level, pEqp.map((it) => ({ category: it.category as string, grade: (it.numeric?.grade as number) ?? gradeToNum(it.gradeDesc), combatStat: it.combatStat })));
+  const derived = computeDerived(effA, profile.level, pEqp.map((it) => ({ category: it.category as string, grade: (it.numeric?.grade as number) ?? gradeToNum(it.gradeDesc), combatStat: effectiveCombatStat(it) })));   // 攻防按强化等级放大，AI 看到的与面板/战斗一致
   const aReal = withAttrDelta(a, profile.realAttrs);   // 真实属性 = 基础六维 + 真实属性点直加(realAttrs)；四阶起面板即此
   const faP = (k: keyof PlayerAttrs) => { if (!a) return ''; return effA[k] === aReal[k] ? `${effA[k]}` : `${effA[k]}(基${aReal[k]})`; };
   // 自定义能量条（玩家自设·纯剧情资源）：注入当前值/上限 + 一行更新规则，让 AI 按语义驱动
@@ -398,7 +399,7 @@ export function serializeNpcCard(
   const nHpForm = vitalFormula(hpCoefOf(nRatio)), nEpForm = vitalFormula(epCoefOf(nRatio));
   const nMaxHp = a ? fullMaxHp(npcBaseAttrs(npc), nEqp, skills, talents, rmN, nRatio) : 0;   // npcBaseAttrs=attrs+真实属性点直加(realAttrs)
   const nMaxEp = a ? fullMaxEp(npcBaseAttrs(npc), nEqp, skills, talents, rmN, nRatio) : 0;
-  const nDerived = a && effA ? computeDerived(effA, lvFromRealm(npc.realm), nEqp.map((it: any) => ({ category: it.category as string, grade: (it.numeric?.grade as number) ?? gradeToNum(it.gradeDesc), combatStat: it.combatStat }))) : undefined;
+  const nDerived = a && effA ? computeDerived(effA, lvFromRealm(npc.realm), nEqp.map((it: any) => ({ category: it.category as string, grade: (it.numeric?.grade as number) ?? gradeToNum(it.gradeDesc), combatStat: effectiveCombatStat(it) }))) : undefined;
   const stat = [
     a && `HP:${effectiveResource(npc.hp, npc.maxHp, nMaxHp)}/${nMaxHp}（上限=${nHpForm}，自动算）`,
     a && `EP:${effectiveResource(npc.mp, npc.maxMp, nMaxEp)}/${nMaxEp}（上限=${nEpForm}，自动算）`,

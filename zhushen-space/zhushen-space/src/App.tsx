@@ -1153,6 +1153,11 @@ const CHANNEL_AUTHOR_INFO_RULE = `
 
 
 
+/** 宠物/召唤物是否**已被分流**到独立的宠物演化：只有「宠物演化」真的启用了才算。
+    关着时宠物仍留在 NPC 演化里兜底——否则「标成宠物 → 宠物演化没开 → 从此没任何阶段演化它」会是个静默陷阱。
+    （🐾面板/宠物表按标签分，与本判定无关；这里只管"谁来演化它"。）*/
+const petRoutedAway = (n: { npcTag?: string }) => isPetLike(n) && usePetEvo.getState().settings.enabled;
+
 const rightMenuItems = [
   { icon: '⚔', label: '装备' },
   { icon: '🎒', label: '储存空间' },
@@ -3650,7 +3655,7 @@ export default function App() {
     // 手动模式：只推进「手动重点列表」（+本轮新登场，确保新角色至少建档一次）
     if (scheduling.targetMode === 'manual') {
       const ids = new Set<string>([...createdIds, ...(scheduling.manualFocusIds ?? [])]);
-      return [...ids].filter((id) => npcs[id] && alive(npcs[id]) && !isPetLike(npcs[id]));   // 宠物/召唤物走独立宠物演化，NPC 演化不碰
+      return [...ids].filter((id) => npcs[id] && alive(npcs[id]) && !petRoutedAway(npcs[id]));   // 宠物演化启用时才把宠物/召唤物分流走
     }
 
     const must = new Set<string>();
@@ -3679,7 +3684,7 @@ export default function App() {
           .map((n) => n.id)
       : [];
 
-    return [...new Set([...must, ...friendIds, ...offCands])].filter((id) => npcs[id] && !isPetLike(npcs[id]));   // 宠物/召唤物由独立宠物演化处理，从 NPC 焦点里剔除
+    return [...new Set([...must, ...friendIds, ...offCands])].filter((id) => npcs[id] && !petRoutedAway(npcs[id]));   // 宠物演化启用时才从 NPC 焦点里剔除宠物/召唤物
   }
 
   /* ─── 策略B 第三段：单 NPC 重点演化 ─── */
@@ -4236,7 +4241,7 @@ ${AFFIX_EFFECT_RULE}`;
       const systemPrompt = buildNpcPhaseSystemPrompt(settings.entries, trimmed); // 无 charId → 在场列表
       // 注入在场 NPC 的【完整现有档案】——策略A 原本只发正文+在场C编号、不发 NPC 现有变量，导致演化只能凭正文重建、
       //   无法查漏补缺/修正/去重（用户报"NPC变量重roll不发送npc完整变量"、C编号混淆）。这里把每个在场 NPC 的完整快照发给它。
-      const snapNpcs = Object.values(useNpc.getState().npcs).filter((r) => r.onScene && !r.isDead && r.name && r.name !== r.id && !isPetLike(r));   // 宠物/召唤物走独立宠物演化，策略A 不碰
+      const snapNpcs = Object.values(useNpc.getState().npcs).filter((r) => r.onScene && !r.isDead && r.name && r.name !== r.id && !petRoutedAway(r));   // 宠物演化启用时才把宠物/召唤物分流走
       const beforeNpcIds = new Set(Object.keys(useNpc.getState().npcs));   // 演化前已存在的 NPC id（名字守卫据此识别本回合新建的）
       const snapBlock = snapNpcs.length
         ? `# 当前在场 NPC 的完整现有档案（据此**查漏补缺 / 修正错误 / 去重 / 别搞混 C 编号**；只更新真有变化的字段，其余原样保留·勿凭空重建）\n`

@@ -10,6 +10,7 @@ import { useResource } from '../store/resourceStore';
 import { playerResourceMax, refillAllVitals } from '../systems/playerVitals';
 import { useCharacters } from '../store/characterStore';
 import { computeAttrBreakdown, withAttrDelta, clampedBonus, ATTR_LABEL, ATTR_KEYS, type AttrBreak } from '../systems/attrBonus';
+import { effectiveCombatStat } from '../systems/enhanceEngine';
 import { playerStatusAttrDelta } from '../systems/statusAttrs';
 import { activeGemSets, gemSetEquipEntry } from '../systems/gemSets';
 import { useGemSets } from '../store/gemSetStore';
@@ -247,7 +248,7 @@ function PlayerSidebar({ onClose }: { onClose?: () => void }) {
     updateSkill('B1', sk.id, { numeric: { ...num, [field]: id && amt > 0 ? { id, amount: amt } : undefined } });
   };
   const equippedFull = items.filter((it) => it.equipped);
-  const equipped = equippedFull.map((it) => ({ category: it.category as string, grade: (it.numeric?.grade as number) ?? gradeToNum(it.gradeDesc), combatStat: it.combatStat }));
+  const equipped = equippedFull.map((it) => ({ category: it.category as string, grade: (it.numeric?.grade as number) ?? gradeToNum(it.gradeDesc), combatStat: effectiveCombatStat(it) }));   // 攻防按强化等级放大，与背包卡面的「基础→强化」显示同口径
   // 属性构成：原始 + 技能树 + 装备/技能/天赋 的属性加成（真实加载，不只是摆设）
   // 技能树六维折进 base（与战斗/骰子一致），资质档 bioInnate 仍用原始 profile.attrs
   const capB = attrCapForTier(profile.tier, profile.level);

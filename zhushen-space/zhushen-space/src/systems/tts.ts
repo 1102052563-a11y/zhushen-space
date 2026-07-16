@@ -6,7 +6,7 @@
 // 播放序列用 generation token 防竞态（新朗读/停止会作废上一段的循环）。
 
 import { useSyncExternalStore } from 'react';
-import { useTts, type CloudProvider } from '../store/ttsStore';
+import { useTts, type CloudProvider, type SovitsVoice } from '../store/ttsStore';
 import { useNpc } from '../store/npcStore';
 import { usePlayer } from '../store/playerStore';
 import { gwProxyBase } from './apiChat';
@@ -17,6 +17,8 @@ export interface TtsEngine {
   speak(text: string, opts: TtsSpeakOpts): Promise<void>;   // 播完一段(resolve)；被 stop 打断也应尽快 settle
   stop(): void;
   voices(): TtsVoice[];
+  /** 可选：预热下一句。本地大模型合成一句要 1–3 秒，不预热就每句之间断档。云/Web Speech 不需要，不实现即可。 */
+  prefetch?(text: string, opts: TtsSpeakOpts): void;
 }
 
 // ── 纯逻辑①：清洗成可朗读的纯文（剥游戏指令块 / 卡片标签 / markdown / 行首 UI 符号）──
@@ -275,10 +277,28 @@ function audioCtx(): AudioContext | null {
   return _actx;
 }
 /** 必须在用户手势(点击)的同步路径里调一次以解锁音频；speakText/speakLine 开头已调。 */
-export function unlockAudio(): void { try { const c = audioCtx(); if (c && c.state === 'suspended') void c.resume(); } catch { /* */ } }
+export function unlockAudio(): void {
+  try { const c = audioCtx(); if (c && c.state === 'suspended') void c.resume(); } catch { /* */ }
+  unlockAudioEls();   // local 引擎走 <audio>（绕 CORS），它有自己的一套解锁，见下
+}
+
+// ── Web Audio 播放（云 / 本地 OpenAI 兼容共用：拿到整段音频字节 → 解码 → 播）──
+let _ctxSrc: AudioBufferSourceNode | null = null;
+async function playViaCtx(ctx: AudioContext, data: ArrayBuffer): Promise<void> {
+  const audioBuf = await ctx.decodeAudioData(data);
+  if (ctx.state === 'suspended') { try { await ctx.resume(); } catch { /* */ } }
+  await new Promise<void>((resolve) => {
+    const src = ctx.createBufferSource();
+    src.buffer = audioBuf;
+    src.connect(ctx.destination);
+    _ctxSrc = src;
+    src.onended = () => resolve();
+    try { src.start(); } catch { resolve(); }
+  });
+}
+function stopCtxSrc(): void { if (_ctxSrc) { try { _ctxSrc.stop(); } catch { /* */ } _ctxSrc = null; } }
 
 // ── 云 TTS 引擎（经网关统一入口 → 按 cloudProvider 翻译成 edge/openai/azure/google，一律回 MP3）──
-let _cloudSrc: AudioBufferSourceNode | null = null;
 const cloudTtsEngine: TtsEngine = {
   async speak(text, opts) {
     const ctx = audioCtx();
@@ -299,24 +319,211 @@ const cloudTtsEngine: TtsEngine = {
         body: JSON.stringify(body),
       });
       if (!res.ok) { console.warn('[TTS] 云 TTS 失败', st.cloudProvider, res.status, await res.text().catch(() => '')); return; }
-      const audioBuf = await ctx.decodeAudioData(await res.arrayBuffer());
-      if (ctx.state === 'suspended') { try { await ctx.resume(); } catch { /* */ } }
-      await new Promise<void>((resolve) => {
-        const src = ctx.createBufferSource();
-        src.buffer = audioBuf;
-        src.connect(ctx.destination);
-        _cloudSrc = src;
-        src.onended = () => resolve();
-        try { src.start(); } catch { resolve(); }
-      });
+      await playViaCtx(ctx, await res.arrayBuffer());
     } catch (e) { console.warn('[TTS] 云 TTS 异常', e); }
   },
-  stop() { if (_cloudSrc) { try { _cloudSrc.stop(); } catch { /* */ } _cloudSrc = null; } },
+  stop() { stopCtxSrc(); },
   voices() { return cloudVoices(useTts.getState().cloudProvider); },
 };
 
-// 引擎选择：本地 Web Speech / 云 TTS（engine !== 'webspeech' 即云；兼容旧持久化值 'edge'）
-function getEngine(): TtsEngine { return useTts.getState().engine === 'webspeech' ? webSpeechEngine : cloudTtsEngine; }
+// ═══ 本地自部署引擎（GPT-SoVITS api_v2 / 任意本地 OpenAI 兼容服务）═══════════════════════
+// ⚠ **必须浏览器直连**：本地服务跑在玩家自己机器上，网关(Cloudflare Worker)只能连到它自己的
+//   localhost，永远够不着玩家的 127.0.0.1 → 这条路不能复用 cloud 的 /api/gw/tts/speech。
+//   同 imageGen 的 ComfyUI 直连（systems/imageGen.ts genComfy）。
+// ⚠ **CORS**：GPT-SoVITS 的 api_v2.py 不带 CORSMiddleware → fetch 读不到响应。故播放走
+//   `<audio src=GET_URL>`：媒体元素加载不受 CORS 约束，而 /tts 支持 GET 全参数、URL 能纯客户端
+//   拼出来 → **玩家零改 Python 即可用**。代价=拿不到 HTTP 错误详情，只有 onerror（见下方兜底提示）。
+// ⚠ **混合内容**：页面是 HTTPS，但 127.0.0.1/localhost 属"可信源"，不会被 mixed-content 拦。
+// ⚠ **Chrome 142+ LNA**：公网源(pages.dev)→回环 会弹一次「允许访问本地网络」，点允许即可；
+//   npm run dev(localhost) 与目标同属回环空间，不弹。
+// ⚠ 本地 OpenAI 兼容那条是 POST + JSON → 绕不开 CORS，服务端必须自己开（多数已默认开）。
+
+export interface SovitsCfg { url: string; textLang: string; streaming: boolean; extra: string }
+
+/** 拼 GPT-SoVITS api_v2 的 GET /tts URL。纯函数（可单测）——本地引擎全靠它，不经网关。 */
+export function buildSovitsUrl(cfg: SovitsCfg, v: SovitsVoice | undefined, text: string, rate = 1): string {
+  const base = (cfg.url || '').trim().replace(/\/+$/, '') || 'http://127.0.0.1:9880';
+  const q = new URLSearchParams({
+    text,
+    text_lang: cfg.textLang || 'zh',
+    ref_audio_path: v?.refAudioPath || '',
+    prompt_text: v?.promptText || '',
+    prompt_lang: v?.promptLang || 'zh',
+    speed_factor: String(Math.min(2, Math.max(0.5, rate || 1))),
+    media_type: 'wav',
+    streaming_mode: cfg.streaming ? 'true' : 'false',
+  });
+  for (const [k, val] of new URLSearchParams(cfg.extra || '')) q.set(k, val);   // 高级：额外参数覆盖默认
+  return `${base}/tts?${q.toString()}`;
+}
+
+function sovitsCfg(): SovitsCfg {
+  const st = useTts.getState();
+  return { url: st.sovitsUrl, textLang: st.sovitsTextLang, streaming: st.sovitsStreaming, extra: st.sovitsExtra };
+}
+function sovitsBase(): string { return (useTts.getState().sovitsUrl || '').trim().replace(/\/+$/, '') || 'http://127.0.0.1:9880'; }
+/** 指定 id 找音色；没指定/指定的已删 → 退回第一个（别让整段哑掉）。 */
+function findSovitsVoice(id?: string): SovitsVoice | undefined {
+  const list = useTts.getState().sovitsVoices;
+  return list.find((v) => v.id === id) || list[0];
+}
+function weightsKey(v?: SovitsVoice): string {
+  if (!v || (!v.gptWeights && !v.sovitsWeights)) return '';   // 零样本克隆（多数玩家）：不切权重
+  return `${v.gptWeights || ''}|${v.sovitsWeights || ''}`;
+}
+let _loadedWeights = '';
+/** 切角色专训权重（可选）。GPT-SoVITS 是**全局**切换且慢 → 只在与当前不同才发。
+ *  ⚠ 没 CORS 读不到响应 → no-cors 只管发出去（服务端照样执行）；await 只为保证排在 /tts 之前。 */
+async function ensureWeights(v: SovitsVoice | undefined): Promise<void> {
+  const key = weightsKey(v);
+  if (!key || key === _loadedWeights) return;
+  const base = sovitsBase();
+  const hit = async (path: string, w: string) => {
+    try { await fetch(`${base}/${path}?weights_path=${encodeURIComponent(w)}`, { mode: 'no-cors' }); } catch { /* */ }
+  };
+  if (v?.gptWeights) await hit('set_gpt_weights', v.gptWeights);
+  if (v?.sovitsWeights) await hit('set_sovits_weights', v.sovitsWeights);
+  _loadedWeights = key;
+}
+
+// ── <audio> 元素池：乒乓 2 个，一个在播、另一个预热下一句（本地合成一句 1–3 秒，不预热句句断档）──
+// ⚠ 自动播放策略：元素必须在**用户手势里**成功 play 过一次，之后换 src 再 play 才不被拦
+//   → unlockAudio() 里拿一段静音 wav 解锁（与 AudioContext 那套同理，见上方注释）。
+let _elPool: HTMLAudioElement[] | null = null;
+let _elUnlocked = false;
+let _curEl: HTMLAudioElement | null = null;
+let _warm: { url: string; el: HTMLAudioElement } | null = null;
+let _pendingDone: (() => void) | null = null;
+let _silentUrl = '';
+
+function silentWavUrl(): string {
+  if (_silentUrl) return _silentUrl;
+  const b = new Uint8Array(44);                       // 44 字节 wav 头 + 0 采样 = 合法的空音频
+  const dv = new DataView(b.buffer);
+  const wr = (o: number, s: string) => { for (let i = 0; i < s.length; i++) b[o + i] = s.charCodeAt(i); };
+  wr(0, 'RIFF'); dv.setUint32(4, 36, true); wr(8, 'WAVE'); wr(12, 'fmt ');
+  dv.setUint32(16, 16, true); dv.setUint16(20, 1, true); dv.setUint16(22, 1, true);
+  dv.setUint32(24, 8000, true); dv.setUint32(28, 8000, true); dv.setUint16(32, 1, true); dv.setUint16(34, 8, true);
+  wr(36, 'data'); dv.setUint32(40, 0, true);
+  _silentUrl = URL.createObjectURL(new Blob([b], { type: 'audio/wav' }));
+  return _silentUrl;
+}
+function elPool(): HTMLAudioElement[] | null {
+  if (typeof Audio === 'undefined') return null;
+  if (!_elPool) _elPool = [new Audio(), new Audio()].map((e) => { e.preload = 'auto'; return e; });
+  return _elPool;
+}
+function idleEl(): HTMLAudioElement | null {
+  const p = elPool();
+  if (!p) return null;
+  return p[0] === _curEl ? p[1] : p[0];
+}
+function unlockAudioEls(): void {
+  try {
+    if (_elUnlocked || useTts.getState().engine !== 'local') return;
+    const p = elPool();
+    if (!p) return;
+    _elUnlocked = true;
+    for (const el of p) { el.src = silentWavUrl(); const r = el.play(); if (r) r.then(() => el.pause()).catch(() => { /* */ }); }
+  } catch { /* */ }
+}
+/** 播一个 URL（<audio> 直连·不受 CORS 限制）；命中预热则复用那个已经在下载的元素。 */
+function playUrl(url: string): Promise<void> {
+  return new Promise<void>((resolve) => {
+    const pool = elPool();
+    if (!pool) return resolve();
+    let el: HTMLAudioElement;
+    if (_warm && _warm.url === url) { el = _warm.el; _warm = null; }        // 预热命中：已经在下载了
+    else {
+      el = idleEl() as HTMLAudioElement;
+      if (_warm && _warm.el === el) _warm = null;                            // 预热的是别的句子 → 作废
+      el.src = url;
+    }
+    _curEl = el;
+    let settled = false;
+    const done = () => {
+      if (settled) return;
+      settled = true;
+      el.onended = null; el.onerror = null;
+      if (_pendingDone === done) _pendingDone = null;
+      resolve();
+    };
+    _pendingDone = done;                                                     // stop() 要能把它 settle 掉，否则队列卡死
+    el.onended = done;
+    el.onerror = () => { console.warn('[TTS] 本地 TTS 播放失败（服务没启动 / 参考音频路径不存在 / 参数不对 / 未授权本地网络）：', url); done(); };
+    const p = el.play();
+    if (p) p.catch((e) => { console.warn('[TTS] 本地 TTS play 被拒（自动播放策略——先点一下页面再朗读）', e); done(); });
+  });
+}
+
+/** 本地 OpenAI 兼容端（POST /v1/audio/speech）：绕不开 CORS，服务端得自己开。 */
+async function speakLocalOpenai(text: string, opts: TtsSpeakOpts): Promise<void> {
+  const st = useTts.getState();
+  const base = (st.localOpenaiUrl || '').trim().replace(/\/+$/, '');
+  if (!base) { console.warn('[TTS] 未填本地 OpenAI 兼容端地址'); return; }
+  const ctx = audioCtx();
+  if (!ctx) return;
+  try {
+    const res = await fetch(`${base}/audio/speech`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', ...(st.localOpenaiKey ? { Authorization: `Bearer ${st.localOpenaiKey}` } : {}) },
+      body: JSON.stringify({
+        model: st.localOpenaiModel || 'tts-1',
+        input: text,
+        voice: opts.voiceURI || '',
+        speed: Math.min(2, Math.max(0.5, opts.rate ?? 1)),
+      }),
+    });
+    if (!res.ok) { console.warn('[TTS] 本地 OpenAI 兼容端失败', res.status, await res.text().catch(() => '')); return; }
+    await playViaCtx(ctx, await res.arrayBuffer());
+  } catch (e) { console.warn('[TTS] 本地 OpenAI 兼容端异常（多半是服务没开 CORS，或没启动）', e); }
+}
+
+const localTtsEngine: TtsEngine = {
+  async speak(text, opts) {
+    const st = useTts.getState();
+    if (st.localProvider === 'openai') return speakLocalOpenai(text, opts);
+    const v = findSovitsVoice(opts.voiceURI);
+    if (!v || !v.refAudioPath) { console.warn('[TTS] GPT-SoVITS 还没配音色 → 到「🔊 语音」页加一个（要填参考音频路径）'); return; }
+    await ensureWeights(v);
+    await playUrl(buildSovitsUrl(sovitsCfg(), v, text, opts.rate));
+  },
+  stop() {
+    for (const el of elPool() || []) { try { el.pause(); } catch { /* */ } }
+    _curEl = null; _warm = null;
+    if (_pendingDone) { const d = _pendingDone; _pendingDone = null; d(); }   // pause 不触发 onended → 手动 settle
+    stopCtxSrc();
+  },
+  voices() {
+    const st = useTts.getState();
+    if (st.localProvider === 'openai') {
+      return (st.localOpenaiVoiceList || '').split(/[,，]/).map((s) => s.trim()).filter(Boolean).map((s) => ({ id: s, label: s, lang: '' }));
+    }
+    return st.sovitsVoices.map((v) => ({ id: v.id, label: v.label || v.id, lang: v.promptLang || 'zh', gender: v.gender }));
+  },
+  prefetch(text, opts) {
+    const st = useTts.getState();
+    if (st.localProvider !== 'gptsovits' || !text) return;
+    const v = findSovitsVoice(opts.voiceURI);
+    if (!v || !v.refAudioPath) return;
+    if (weightsKey(v) && weightsKey(v) !== _loadedWeights) return;   // 需切权重 → 预热会拿上个角色的权重合成，放弃
+    const url = buildSovitsUrl(sovitsCfg(), v, text, opts.rate);
+    if (_warm?.url === url) return;
+    const el = idleEl();
+    if (!el || el === _curEl) return;
+    el.src = url;
+    try { el.load(); } catch { /* */ }
+    _warm = { url, el };
+  },
+};
+
+// 引擎选择：Web Speech(浏览器本地) / local(玩家自部署·直连) / 云 TTS（兼容旧持久化值 'edge' → 云）
+function getEngine(): TtsEngine {
+  const e = useTts.getState().engine;
+  if (e === 'webspeech') return webSpeechEngine;
+  if (e === 'local') return localTtsEngine;
+  return cloudTtsEngine;
+}
 
 // ── 队列管理器（引擎无关）──
 let _speaking = false;
@@ -355,9 +562,11 @@ export async function speakText(raw: string): Promise<void> {
   if (!units.length) { if (_speaking) { _speaking = false; notify(); } return; }
   _speaking = true; notify();
   try {
-    for (const u of units) {
+    for (let i = 0; i < units.length; i++) {
       if (myToken !== _token) return;            // 被新朗读/停止取代
-      await engine.speak(u.text, { rate: st.rate, voiceURI: u.voiceURI });
+      const next = units[i + 1];                 // 边播这句边预热下一句（本地大模型合成一句 1–3 秒，不预热句句断档）
+      if (next) engine.prefetch?.(next.text, { rate: st.rate, voiceURI: next.voiceURI });
+      await engine.speak(units[i].text, { rate: st.rate, voiceURI: units[i].voiceURI });
       if (myToken !== _token) return;
     }
   } finally {
@@ -383,9 +592,10 @@ export async function speakLine(raw: string, voiceURI?: string): Promise<void> {
   const st = useTts.getState();
   const voice = voiceURI ?? st.narratorVoice ?? '';
   try {
-    for (const c of chunks) {
+    for (let i = 0; i < chunks.length; i++) {
       if (myToken !== _token) return;
-      await engine.speak(c, { rate: st.rate, voiceURI: voice });
+      if (chunks[i + 1]) engine.prefetch?.(chunks[i + 1], { rate: st.rate, voiceURI: voice });
+      await engine.speak(chunks[i], { rate: st.rate, voiceURI: voice });
       if (myToken !== _token) return;
     }
   } finally {

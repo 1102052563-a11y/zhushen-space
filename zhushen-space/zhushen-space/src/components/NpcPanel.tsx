@@ -1,8 +1,10 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useNpc, hasRealNpcName, type NpcRecord } from '../store/npcStore';
 import { isPetLike } from '../systems/petEvolution';   // 宠物/召唤物分流：默认档案排除宠物，petMode 只看宠物
 import { isDmableTag } from '../store/dmStore';
 import { normalizeTier, tierFxClass } from '../systems/derivedStats';
+import { listSnapshots, REASON_LABEL, type NpcSnapshot } from '../systems/npcLibrary';   // NPC 图书馆：只进不出的档案库
+import { restoreSnapshot, aiSyncSnapshot } from '../systems/npcRestore';                 // 找回：A 确定性还原 / B AI 提取同步
 import NpcDetail from './NpcDetail';
 
 /* 好感度颜色 */
@@ -104,6 +106,84 @@ function NpcCard({ npc, onOpen, onDm, onToggleFriend, onManualUpdate, onRestore,
 }
 
 /* ════════════════════════════════════════════
+   NPC 图书馆（只进不出的档案库）
+   任何被删除/被合并掉的真实 NPC，消失前都在这里留了全量快照。此处可「找回」。
+   ⚠ 模块级组件，绝不内联进主弹窗——内联会导致每次父组件重渲染就整个重挂（输入法/焦点全断）。
+════════════════════════════════════════════ */
+function LibrarySection({ onRestored }: { onRestored: (id: string) => void }) {
+  const [snaps, setSnaps] = useState<NpcSnapshot[] | null>(null);
+  const [busy, setBusy] = useState<string>('');
+  const [msg, setMsg] = useState<string>('');
+
+  const reload = () => { void listSnapshots().then(setSnaps).catch(() => setSnaps([])); };
+  useEffect(reload, []);
+
+  if (snaps === null) {
+    return <div className="flex items-center justify-center h-40 text-dim/40 text-sm font-mono"><span className="animate-spin mr-2">◌</span> 读取图书馆…</div>;
+  }
+  if (snaps.length === 0) {
+    return (
+      <div className="flex flex-col items-center justify-center h-40 gap-3 text-dim/30 text-center px-6">
+        <span className="text-3xl opacity-30">📚</span>
+        <span className="text-sm font-mono">图书馆是空的。</span>
+        <span className="text-[12px] font-mono text-dim/40 leading-relaxed">
+          今后任何有名有姓的 NPC 被删除或被同名合并掉之前，都会在这里留一份完整快照（含技能/天赋/记忆/头像），永不自动清理。
+        </span>
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-2">
+      {msg && <div className="rounded-lg border border-god/30 bg-god/5 px-3 py-2 text-[12px] font-mono text-god/80">{msg}</div>}
+      {snaps.map((s) => (
+        <div key={s.key} className="rounded-lg border border-edge bg-panel/60 px-3 py-2">
+          <div className="flex items-center gap-2">
+            <span className="text-sm font-semibold text-slate-100 flex-1 truncate">{s.name}</span>
+            <span className="text-[11px] font-mono text-dim/40">{s.npcId}</span>
+            <span className="text-[11px] font-mono px-1.5 py-0.5 rounded bg-void/60 text-amber-300/70">{REASON_LABEL[s.reason]}</span>
+          </div>
+          <div className="text-[11px] font-mono text-dim/40 mt-0.5">
+            {new Date(s.archivedAt).toLocaleString()}
+            {s.record?.realm ? ` · ${s.record.realm}` : ''}
+            {s.record?.deedLog?.length ? ` · 经历 ${s.record.deedLog.length}` : ''}
+            {typeof s.record?.favor === 'number' ? ` · 好感 ${s.record.favor}` : ''}
+          </div>
+          <div className="flex gap-1.5 mt-2">
+            <button
+              disabled={!!busy}
+              onClick={() => {
+                setBusy(s.key);
+                const r = restoreSnapshot(s);
+                setMsg(r.msg);
+                setBusy('');
+                if (r.ok) onRestored(r.id);
+              }}
+              title="确定性还原：档案 / 技能 / 天赋 / 记忆 / 头像原样写回；若已有同名档案会自动合并（丰满的那份当留存者）"
+              className="px-2 py-1 rounded text-[12px] font-mono border border-god/40 text-god hover:bg-god/10 disabled:opacity-40 transition-colors"
+            >↩ 找回</button>
+            <button
+              disabled={!!busy}
+              onClick={async () => {
+                const cur = useNpc.getState().npcs[s.npcId];
+                if (!cur) { setMsg('当前没有同 ID 的档案可同步 —— 请先点「↩ 找回」'); return; }
+                setBusy(s.key);
+                setMsg('AI 同步中…');
+                const r = await aiSyncSnapshot(s, s.npcId);
+                setMsg(r.msg);
+                setBusy('');
+              }}
+              title="AI 提取同步：把这份旧快照里的历史/关系/感情线，融进当前那份同 ID 的档案（适合「当前是 AI 新建空壳」的情况）"
+              className="px-2 py-1 rounded text-[12px] font-mono border border-edge text-dim hover:text-slate-200 disabled:opacity-40 transition-colors"
+            >{busy === s.key ? '◌ 处理中' : '✨ AI 同步'}</button>
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+/* ════════════════════════════════════════════
    主弹窗
 ════════════════════════════════════════════ */
 export default function NpcPanel({ onClose, onDm, onManualUpdate, manualUpdatingId, onCultivate, petMode }: { onClose: () => void; onDm?: (r: NpcRecord) => void; onManualUpdate?: (id: string) => void; manualUpdatingId?: string | null; onCultivate?: (r: NpcRecord) => void; petMode?: boolean }) {
@@ -127,7 +207,7 @@ export default function NpcPanel({ onClose, onDm, onManualUpdate, manualUpdating
   const offScene = records.filter((r) => !r.onScene && !r.archived);
   const archived = records.filter((r) => r.archived);
 
-  const [tab, setTab]           = useState<'on' | 'off' | 'arc'>('on');
+  const [tab, setTab]           = useState<'on' | 'off' | 'arc' | 'lib'>('on');
   const [search, setSearch]     = useState('');
   const [tagFilter, setTagFilter] = useState<string>('');   // 标签筛选（空=全部）
   const [confirmClear, setConfirmClear] = useState(false);
@@ -219,6 +299,15 @@ export default function NpcPanel({ onClose, onDm, onManualUpdate, manualUpdating
             >
               归档 {archived.length > 0 && <span className="ml-1 text-[11px] opacity-60">{archived.length}</span>}
             </button>
+            <button
+              onClick={() => setTab('lib')}
+              title="图书馆：只进不出的档案库。任何有名有姓的 NPC 被删除/被同名合并掉之前，都在这里留了全量快照（含技能/天赋/记忆/头像），永不自动清理 —— 随时可找回"
+              className={`px-3 py-1 rounded text-[13px] font-mono transition-colors ${
+                tab === 'lib' ? 'bg-cyan-500/10 text-cyan-300 border border-cyan-500/40' : 'text-dim hover:text-slate-200'
+              }`}
+            >
+              📚 图书馆
+            </button>
           </div>
           <input
             value={search}
@@ -239,9 +328,11 @@ export default function NpcPanel({ onClose, onDm, onManualUpdate, manualUpdating
           ))}
         </div>
 
-        {/* NPC 列表 */}
+        {/* NPC 列表 / 图书馆 */}
         <div className="flex-1 overflow-y-auto p-4 space-y-3">
-          {displayed.length === 0 ? (
+          {tab === 'lib' ? (
+            <LibrarySection onRestored={(id) => { setTab(npcs[id]?.onScene ? 'on' : 'off'); setSelectedId(id); }} />
+          ) : displayed.length === 0 ? (
             <div className="flex flex-col items-center justify-center h-40 gap-3 text-dim/30">
               <span className="text-3xl opacity-30">📇</span>
               <span className="text-sm font-mono">

@@ -40,6 +40,7 @@ import { useSkillTree } from '../store/skillTreeStore';
 import { useSubProfTree } from '../store/subProfTreeStore';
 import { useVariables } from '../store/variableStore';
 import { usePromptOverride } from '../store/promptOverrideStore';   // 预设中心：主提示词覆盖
+import { useTts } from '../store/ttsStore';
 
 export const CONFIG_KIND = 'zhushen-global-config';
 export const CONFIG_FORMAT_VERSION = 1;
@@ -251,6 +252,7 @@ const SPECS: StoreSpec[] = [
   { key: 'drpg-subproftree',        label: '副职业树模板', api: useSubProfTree as any,       extract: skillTreeExtract, apply: skillTreeApply },
   { key: 'drpg-variables',          label: '自定义变量定义', api: useVariables as any,         extract: variablesExtract, apply: variablesApply },
   { key: 'drpg-prompt-override',    label: '主提示词覆盖',   api: usePromptOverride as any,    extract: plainExtract },
+  { key: 'drpg-tts',                label: '语音朗读',     api: useTts as any,               extract: plainExtract },
 ];
 
 // 合成工坊：导出配置 + 合成图鉴(非内置) + API（不含 session/已发现配方那些进度数据）
@@ -263,13 +265,15 @@ function craftExtract(s: any): any {
   };
 }
 
-// 递归清空 API 密钥（apiKey / apiToken），用于"不含密钥"导出（可安全分享）
+// 递归清空 API 密钥，用于"不含密钥"导出（可安全分享）
+// ⚠ 必须**逐个列全名**：TTS 的密钥字段叫 openaiKey/azureKey/… 不叫 apiKey，漏一个就随分享包泄出去。
+//   别图省事写成 /.*Key$/i —— 那会连 variableStore 的 `key`（变量名）一起清空，导入后变量全废。
 function stripKeys(obj: any): any {
   if (Array.isArray(obj)) return obj.map(stripKeys);
   if (obj && typeof obj === 'object') {
     const out: any = {};
     for (const [k, v] of Object.entries(obj)) {
-      out[k] = /^(apiKey|apiToken)$/i.test(k) ? '' : stripKeys(v);
+      out[k] = /^(apiKey|apiToken|openaiKey|azureKey|googleKey|localOpenaiKey)$/i.test(k) ? '' : stripKeys(v);
     }
     return out;
   }

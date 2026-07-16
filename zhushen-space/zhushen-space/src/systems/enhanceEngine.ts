@@ -204,6 +204,15 @@ export function enhancedCombat(combatStat: string | undefined, level: number): {
   return { base: s, enhanced, pct };
 }
 
+/* 「实际生效的攻防数值」= 基础 combatStat 按当前强化等级放大。存储的 combatStat 永远是基础值(见上)，
+   故凡是**消费**攻防数值的地方——衍生攻防(computeDerived)/战斗(buildCombatant)/AI 注入(structuredRecall)——
+   都必须经本函数取值，否则 +N 强化只在卡面好看、进不了战力（该 bug 曾让 +14 武器一点攻击都没加）。
+   ⚠ 不要反过来把强化值回写进 item.combatStat：降级会在已放大的值上再放大而滚雪球，且与 driftGuard 防漂/物品对账冲突。
+   降级/归零时 enhanceLevel 变小 → 本函数自动跟着降，无需回写。 */
+export function effectiveCombatStat(it?: { combatStat?: string; enhanceLevel?: number } | null): string | undefined {
+  return enhancedCombat(it?.combatStat, it?.enhanceLevel ?? 0)?.enhanced ?? it?.combatStat;
+}
+
 /* 强化外观记录（按等级分档，喂给生图让 +N 装备出对应特效）*/
 export function enhanceVisualNote(level: number): string {
   if (level <= 0) return '';
