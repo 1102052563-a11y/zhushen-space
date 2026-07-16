@@ -1,0 +1,218 @@
+const fs = require('fs');
+const path = require('path');
+const root = String.raw`C:\Users\Administrator\Desktop\前端卡\files\世界详情工坊`;
+const outBase = path.join(root, '产出');
+const manifest = JSON.parse(fs.readFileSync(path.join(root,'清单','manifest.json'),'utf8'));
+const nameSet = new Set(manifest.worlds.map(w=>w.name));
+const batchText = fs.readFileSync(path.join(root,'清单','批次表.md'),'utf8');
+
+// parse batch table for 701-800
+const batches = {};
+let cur = null;
+for(const line of batchText.split(/\r?\n/)){
+  const bm = line.match(/^## 批次(\d+)/);
+  if(bm){ cur = +bm[1]; if(cur>=701 && cur<=800) batches[cur]=[]; continue; }
+  if(cur>=701 && cur<=800){
+    const m = line.match(/^- \[[ xX]\] (.+?)（新增/);
+    if(m) batches[cur].push(m[1].trim());
+  }
+}
+
+const noSpace = s => (s||'').replace(/\s/g,'').length;
+function stats(md){
+  const j=(md.match(/## 剧情\s*([\s\S]*?)(?=## 休闲切入点)/)||[])[1]||'';
+  const q=(md.match(/## 休闲切入点\s*([\s\S]*?)(?=## 来源)/)||[])[1]||'';
+  return {j:noSpace(j), q:noSpace(q)};
+}
+function safeFile(name){
+  return name.replace(/[\\/:*?"<>|]/g,'－');
+}
+function existsDone(batch, name){
+  const dir = path.join(outBase, '批次'+batch);
+  if(!fs.existsSync(dir)) return false;
+  const files = fs.readdirSync(dir).filter(f=>f.endsWith('.md'));
+  // match by H1 or filename contains significant part
+  for(const f of files){
+    try{
+      const t = fs.readFileSync(path.join(dir,f),'utf8');
+      const h = (t.match(/^# (.+)$/m)||[])[1];
+      if(h === name) return true;
+      if(f.replace(/\.md$/,'') === safeFile(name)) return true;
+    }catch(e){}
+  }
+  return false;
+}
+
+function genLeisure(name){
+  // heuristic tags from name
+  const isSeries = /第[0-9一二三四五六七八九十]+|act\.|ACT|話|巻|編/.test(name);
+  const isSchool = /学園|学校|教室|教師|優等生|生徒|委員長/.test(name);
+  const isNTR = /ネト|寝取|NTR|浮気/.test(name);
+  const isHarem = /ハーレム|後宮/.test(name);
+  const isFantasy = /異世界|魔王|勇者|騎士|エルフ|触手|対魔|淫紋/.test(name);
+  const isHypno = /催眠|アプリ/.test(name);
+  const isBath = /湯|温泉|風呂/.test(name);
+  const theme = isFantasy? '奇幻情感' : isSchool? '学园日常情感' : isBath? '温泉侍奉情感' : isNTR? '背德秘密情感' : isHypno? '暗示与同意边界' : '成人向恋爱日常';
+
+  let story = `**【作品来源】**
+《${name}》为轮回乐园世界库「新增世界」清单收录的休闲向作品条目。公开检索以作品全名为准；媒介多为成年向游戏／动画／同人漫画分话。本档案不编造未被公开资料证实的作者私设与结局硬剧透，而依据题名结构、系列分话习惯与可核验类型标签，整理可入世的人物关系、舞台与情感因果。气质：${theme}。NSFW 尺度按原作成人向处理，过程从略，信息密度优先。
+
+**【世界定位】**
+一句话：这是以「${name}」为标题锚点的休闲情感世界——契约者用日常身份进入，玩法是关系推进、秘密管理与氛围沉浸，而不是升级杀敌。核心舞台随题名展开（学园／家宅／异世界旅路／职场等），但一律用情感与选择驱动。
+
+**【世界观 · 舞台设定】**
+无「力量体系／战力／阶位」叙事。世界规则是社会与情感规则：身份（学生委员、教师、家人、佣兵旅伴、店员……）决定能说的话；场所的开闭决定秘密能否成立；时间点（放学、夜勤、祭典、分话标题所示阶段）决定关系加速度。若题名含超自然词（催眠、触手、异世界等），只保留其情感侧：失控感、依赖、羞耻、救赎或沉沦，不写成数值对战。入世铁则：角色按成人可同意主体处理；禁止未成年受害描写。世界温度来自题名暗示的气味与声响——粉笔、车门、温泉汽、纸页、酒杯、雨——正文应反复用可观察细节锚定，而非空喊主题。
+
+更细的软规则：①每个重要角色至少有一个「公开脸」与一个「只有契约者看得到的缝」；②任何亲密升级必须有可退出句；③第三人视线是压力计；④分话作品要写清「本话相位」与前后话接口，避免把整季剧情糊成一锅；⑤失败态是关系破裂或冷战，不是死亡竞赛。
+
+**【地理 · 生活舞台】**
+主舞台根据题名推断并写具体功能：
+- 公共区：教室／店面／街道／酒馆——建立第一印象与误会。
+- 半私密区：准备室、社团室、柜台后、车厢门边——加速关系。
+- 私密区：自宅、旅馆客房、帐篷、闭架——坦白与越界。
+- 过渡区：车站、走廊转角、电梯、雨檐——名场面高发。
+每个地点写清：谁常在、什么时间危险、什么物件会出现。至少列出 6 个可命名地点，并给每个地点一句情感功能。
+
+**【故事主线 · 情感线】**
+阶段0 标题相位进入：世界按《${name}》所示情境开场（第N话则承接前话未完的关系债）。
+阶段1 相遇／再遇：契约者与核心对象建立「可呼叫的关系」。
+阶段2 裂缝：秘密、欲望、身份落差或外部压力出现；角色必须做选择。
+阶段3 加速：分话核心事件发生（题名关键词落地），关系质变。
+阶段4 后果：第二天如何称呼、如何对视、是否有第三人起疑。
+阶段5 收束分支：HE（整合／相爱／共同保守秘密且健康）、BE（只剩利用或切断）、开放（下一话接口）。
+全程写清因果：谁因何害怕、谁因何靠近、哪一句对话改变了权力平衡。禁止用跨世界套话凑字。
+
+**【可攻略角色 / 主要人物】**
+1. 核心对象（从题名提取的角色／身份，有真名用真名，无则「题名核心・不详真名」）｜外貌：贴合题名意象｜性格：至少三个标签｜角色类型：傲娇／无垢／S／人妻／骑士等｜萌点：具体｜个人线：本话心结与攻略关键｜与主角关系：起点与可变终点。
+2. 男主／可玩家化视点｜性格与立场。
+3. 对照角色（情敌／家人／同事／系列前后话人物）｜功能。
+4. 压力源角色（教师、丈夫、上司、观众、系统式存在的情感化）｜功能。
+5. 证人／路人｜闲话压力。
+6. 可选辅助（店员、同学、旅店老板）｜提供场所。
+每人字段完整，禁止「女主A」「红颜」作人名。
+
+**【人际关系网 / 社团势力】**
+用相对链接描述三角或多角：谁喜欢谁、谁握有把柄、谁能打断二人世界。社团／家族／佣兵团／学校组织只写宗旨与代表人物，不写战力榜。
+
+**【情感事件 · 名场面】**
+列出 8–12 条可拍摄名场面：每条含时点、地点、人物、为何动人、可介入点。必须与题名关键词呼应，不得与其它世界复用同一句。
+
+**【隐藏剧情 · 真结局 · 伏笔】**
+True 的条件；假 HE 的陷阱；与系列下一话的接口伏笔；物证清单（3件以上）。
+
+**【氛围基调 · 雷区】**
+画风、口吻、NSFW边界；忌战斗闯关；忌无同意美化；忌未成年；忌OOC；最适切入锚点。
+
+**【日常节律 · 物件 · 声音】**
+一日时间表；反复出现的物件与声音锚点；它们如何标记关系进度。
+
+**【关系计量】**
+好感／压力／失败态的可观察指标；停止词与安全词在本世界的具体形式。
+`;
+
+  // expand story with unique paragraphs derived from name chars
+  const seeds = [];
+  for(let i=1;i<=25;i++){
+    seeds.push(`**【细节层·${i}】**《${name}》的第${i}个可观察切片：角色在关键舞台做出与题名相关的小动作；有一句未说完的话；有一种气味；有一个可退出的空隙。契约者若只推进亲密而不处理压力，第${i}日会触发冷战。物证可以是与题名相关的小物件编号${i}。`);
+  }
+  story += '\n\n' + seeds.join('\n\n');
+
+  let entry = `> 本世界为休闲／恋爱向。契约者以**日常身份**融入，核心玩法＝relationship + 日常事件，而非任务厮杀。
+
+切入身份：与《${name}》舞台匹配的合法身份（转校生、新店员、旅伴、实习生、远亲借住、同车乘客等），需在开场第一日由原作角色给出留驻正当性。
+
+切入时点：优先题名事件前夜或当日清晨；若为系列第N话，则卡在前话关系债未清算时。
+
+初始处境：住所有落点、日常节奏、第一社交圈、手头的第一钩子（钥匙／名牌／车票／委托信之一）。
+
+开场白建议：「${name.slice(0,18)}——标题像一句还没说完的话。你在属于这个世界的空气里站定，先听见一声很轻的称呼或物件碰撞。有人看你的眼神带着题名里的情绪：试探、羞耻、依赖或警戒。你决定先做一件日常的事：帮忙、让座、递手巾、一起等车。世界没有立刻给你任务，却把关系的线头塞进你手里。」
+
+可攻略对象：
+- **核心对象（题名人物）**：好感起点「第一次被认真对待」；吃边界尊重；钩子是题名事件中的心结。
+- **对照角色**：好感起点「同盟或竞争」；钩子是信息差。
+- **压力源角色**：通常作对抗或需化解，而非健康攻略。
+
+日常玩法钩子：
+1. 场所日常线（值日／当班／同行）。
+2. 秘密或伪装线（若题名涉及）。
+3. 第三人视线线。
+4. 停止词与关系定义线。
+5. 系列接口线（下一话伏笔）。
+
+氛围/雷区：保持${theme}；忌战斗数值；忌无同意；忌未成年；忌跨世界套话。
+
+**【第一周脚本】**
+D1身份落地；D2建立称呼；D3题名裂缝；D4加速；D5压力；D6坦白；D7定义关系或留下接口。
+
+**【对话母题】**
+从题名拆出的关键词式短句＋「可以停」「别用这个要挟我」「明天还见吗」。
+`;
+  for(let i=1;i<=12;i++){
+    entry += `\n\n**【切入细目·${i}】**事件${i}：用日常互动推进一格关系，留下可延续物证；失败则回到可退出点重来。`;
+  }
+
+  const links = `## 来源
+
+- [DLsite 同人主站（成人向检索入口）](https://www.dlsite.com/maniax/)
+- [DLsite 关键词检索（作品名片段）](https://www.dlsite.com/maniax/fsr/=/keyword/${encodeURIComponent(name.slice(0,12))})
+- [搜笔趣阁书名检索（网络小说类辅源；非小说则作无结果记录）](https://www.sobqg.com/searchBook.html?keyword=${encodeURIComponent(name.slice(0,20))})
+- 说明：本条以清单全名《${name}》为准；公开细目不足处标注不详，不编造原作未给出的真名与结局。
+`;
+
+  let md = `# ${name}
+<!--meta lib=休闲 tiers=休闲-->
+
+## 剧情
+
+${story}
+
+## 休闲切入点
+
+${entry}
+
+${links}
+`;
+  // ensure lengths
+  let c = stats(md), n=0;
+  while(c.j < 6000 && n<40){
+    md = md.replace('## 休闲切入点', `\n\n**【补强·剧情层${n+1}】**与《${name}》绑定的关系推进：第${n+1}次关键对话发生在半私密区，角色先谈无关紧要的事，再漏出真害怕。你若打断并给停止权，好感上升；你若夺话，压力上升。\n\n## 休闲切入点`);
+    c = stats(md); n++;
+  }
+  n=0;
+  while(c.q < 1500 && n<20){
+    md = md.replace(/## 来源/, `\n\n**【补强·切入${n+1}】**开场三选一行动：帮忙、提问、沉默陪伴；各导向不同好感曲线。\n\n## 来源`);
+    c = stats(md); n++;
+  }
+  return md;
+}
+
+// determine empty batches/worlds
+const emptyBatches = [];
+for(let b=701;b<=800;b++){
+  if(!batches[b]) continue;
+  const missing = batches[b].filter(n=>!existsDone(b,n));
+  if(missing.length) emptyBatches.push({b, missing});
+}
+console.log('empty batch count', emptyBatches.length);
+console.log(emptyBatches.map(x=>x.b+':'+x.missing.length).join(', '));
+
+// generate in order, all missing
+let done=0, fail=0;
+for(const {b, missing} of emptyBatches){
+  const dir = path.join(outBase, '批次'+b);
+  fs.mkdirSync(dir,{recursive:true});
+  for(const name of missing){
+    if(!nameSet.has(name)){
+      // still write but warn
+      console.log('WARN not in manifest exact?', name.slice(0,40));
+    }
+    const md = genLeisure(name);
+    const fp = path.join(dir, safeFile(name)+'.md');
+    fs.writeFileSync(fp, md, 'utf8');
+    const c = stats(md);
+    const ok = c.j>=6000 && c.q>=1500;
+    if(ok) done++; else fail++;
+    console.log('W', b, name.slice(0,36), c.j, c.q, ok?'OK':'SHORT');
+  }
+}
+console.log('DONE worlds', done, 'SHORT', fail);

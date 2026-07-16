@@ -239,6 +239,7 @@ import { useTurnInsight } from './store/turnInsightStore';
 const TurnInsightPanel = lazy(() => import('./components/TurnInsightPanel'));
 import { useNpc, looksDead, isGhostNpc, DISPOSITION_COLS } from './store/npcStore';
 import { clampDispositionDelta, DISP_DEFAULT, dispositionLine, type DispAxis } from './systems/dispositionGuard';
+import { withGrowthGuardCtx, guardBioStrength, guardAttrValue, highestTierIn, logArbitration, drainArbitration, type GrowthGuardCtx } from './systems/npcGrowthGuard';   // NPC 成长闸门（阶位/等级/bs/六维变更裁决）
 import PartyPromoteDialog from './components/PartyPromoteDialog';
 import { useCharacters, type MemoryEntry } from './store/characterStore';
 import { useMemory } from './store/memoryStore';
@@ -446,6 +447,20 @@ function worldLoreEvoInjection(): string {
   const t = activeWorldLoreText();
   if (!t) return '';
   return `\n\n【本世界·世界志（主角当前所在世界·最高约束·仅在此世界内生效）】以下是主角当前所在世界的既定设定。**在本世界登场 / 演化的任何人物，其阶位·等级·生物强度都不得超过本世界「巅峰战力」，并须与下方势力 / 关键人物的强度档相称**——世界巅峰若仅五~七阶，就绝不冒出八阶 / 巅峰至强的路人；人物立场·所属势力·剧情走向亦据此保持一致。\n${t}`;
+}
+// 成长闸门（npcGrowthGuard）用：当前任务世界「巅峰战力」文本里的最高阶位名（自由文本 → 扫 14 阶名取最高；
+// 提不出/在主神空间/无世界记录 → '' 不封顶）。土著/契约者的升阶与首档以此封顶，随从/宠物/召唤物豁免。
+function currentWorldPeakTier(): string {
+  try {
+    const rec = useWorldRecord.getState().getActive();
+    if (!rec || isHomeWorld(useMisc.getState().worldName || '')) return '';
+    const txt = `${rec.cardSnapshot?.peakPower ?? ''} ${rec.cardSnapshot?.['世界巅峰战力'] ?? ''} ${rec.worldview?.阶位 ?? ''} ${rec.tier ?? ''}`;
+    return highestTierIn(txt);
+  } catch { return ''; }
+}
+// 组装成长闸门回合上下文：narrative=证据判定文本（正文优先，缺省用整段回复）；<世界结算> 步长放宽。
+function buildGrowthGuardCtx(reply: string, narrative?: string): GrowthGuardCtx {
+  return { narrative: narrative || reply, settlement: /<世界结算>/.test(reply), worldPeakTier: currentWorldPeakTier() };
 }
 // 任务/杂项演化专用：当前世界若在「世界记录」里已有世界观骨架 → 注入它，让主线路线图与世界志的【主线阶段】【任务预埋】对齐（治"任务系统和世界记录不联动"）。
 // 世界记录里没有当前世界(activeWorldLoreText 返回空) → 返回空，任务系统照常自主规划、不强行联动。
