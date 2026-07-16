@@ -82,23 +82,53 @@ const all = [...mainList, ...leisureList].map((w) => ({
   blurb: w.blurb,
 }));
 
+// ── 合并「新增世界」（判重新加·据 maxTier 生成覆盖阶位 一~maxTier）──
+const extraPath = path.join(OUT_DIR, '新增世界.json');
+let extraCount = 0;
+if (fs.existsSync(extraPath)) {
+  const extra = JSON.parse(fs.readFileSync(extraPath, 'utf8')).worlds || [];
+  const existing = new Set(all.map((w) => w.name));
+  for (const e of extra) {
+    if (!e.name || existing.has(e.name)) continue;   // 与主/休闲/彼此判重
+    existing.add(e.name);
+    const mt = Math.max(1, Math.min(9, e.maxTier || 1));
+    all.push({
+      name: e.name,
+      lib: '主库',
+      tiers: CN_TIERS.slice(0, mt),                    // 一阶 .. maxTier阶
+      ids: {},
+      blurb: e.cat ? `【新增·${e.cat}】` : '【新增】',
+      maxTier: CN_TIERS[mt - 1],
+      peakBeyond: !!e.peakBeyond,                       // 峰值达超阶(绝强+)
+      source: '新增',
+    });
+    extraCount++;
+  }
+}
+
 fs.mkdirSync(OUT_DIR, { recursive: true });
 fs.writeFileSync(path.join(OUT_DIR, 'manifest.json'), JSON.stringify({
-  stats: { 主库: mainList.length, 休闲: leisureList.length, 合计: all.length },
+  stats: { 主库: mainList.length, 休闲: leisureList.length, 新增: extraCount, 合计: all.length },
   worlds: all,
 }, null, 1), 'utf8');
 
 // ── 批次表：5 个一批 ──
-const lines = ['# 批次表（5 个/批 · 按目录顺序）', '', `> 主库 ${mainList.length} + 休闲 ${leisureList.length} = ${all.length} 个世界，共 ${Math.ceil(all.length / 5)} 批。`, '> 完成一个划一个勾；实惠模型产出放 产出/批次NN/。', ''];
+const lines = ['# 批次表（5 个/批 · 按目录顺序）', '', `> 主库 ${mainList.length} + 休闲 ${leisureList.length} + 新增 ${extraCount} = ${all.length} 个世界，共 ${Math.ceil(all.length / 5)} 批。`, '> 完成一个划一个勾；实惠模型产出放 产出/批次NN/。新增世界的阶位＝一阶..最高阶(据战力图鉴)，峰值超阶者标注。', ''];
+const firstExtraIdx = all.findIndex((w) => w.source === '新增');
 for (let i = 0; i < all.length; i += 5) {
   const nn = String(Math.floor(i / 5) + 1).padStart(3, '0');
-  lines.push(`## 批次${nn}`);
+  const isExtraBatch = firstExtraIdx >= 0 && i >= firstExtraIdx;
+  lines.push(`## 批次${nn}${isExtraBatch ? '　【新增世界】' : ''}`);
   for (const w of all.slice(i, i + 5)) {
-    lines.push(`- [ ] ${w.name}（${w.lib}·阶位：${w.tiers.join('、')}）`);
+    if (w.source === '新增') {
+      lines.push(`- [ ] ${w.name}（新增·最高${w.maxTier}阶${w.peakBeyond ? '·峰值超阶' : ''}·切入点覆盖：${w.tiers.join('、')}）`);
+    } else {
+      lines.push(`- [ ] ${w.name}（${w.lib}·阶位：${w.tiers.join('、')}）`);
+    }
   }
   lines.push('');
 }
 fs.writeFileSync(path.join(OUT_DIR, '批次表.md'), lines.join('\n'), 'utf8');
 
-console.log(`manifest.json：主库 ${mainList.length} + 休闲 ${leisureList.length} = ${all.length} 个世界`);
-console.log(`批次表.md：${Math.ceil(all.length / 5)} 批`);
+console.log(`manifest.json：主库 ${mainList.length} + 休闲 ${leisureList.length} + 新增 ${extraCount} = ${all.length} 个世界`);
+console.log(`批次表.md：${Math.ceil(all.length / 5)} 批 · 新增世界从批次 ${firstExtraIdx >= 0 ? String(Math.floor(firstExtraIdx / 5) + 1).padStart(3, '0') : '—'} 起`);
