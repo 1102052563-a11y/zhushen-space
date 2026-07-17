@@ -304,6 +304,8 @@ ZO是试验体、新生命体是「成功体」——认同战也是「谁才是
 
 ## 来源
 
+- [资料](https://zh.wikipedia.org/wiki/%E5%81%87%E9%9D%A2%E9%A8%8E%E5%A3%ABZO)
+- [资料](https://ja.wikipedia.org/wiki/%E4%BB%AE%E9%9D%A2%E3%83%A9%E3%82%A4%E3%83%80%E3%83%BCZO)
 - [假面骑士ZO - 中文维基百科](https://zh.wikipedia.org/wiki/假面骑士ZO)
 - [Kamen Rider ZO - 英文维基百科](https://en.wikipedia.org/wiki/Kamen_Rider_ZO)
 - [假面骑士ZO - JMDB](http://www.jmdb.ne.jp/1993/dq000710.htm)

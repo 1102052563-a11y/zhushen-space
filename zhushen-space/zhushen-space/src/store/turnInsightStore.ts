@@ -26,6 +26,7 @@ export interface TurnSnapshot {
   };
   npcs: Record<string, TurnNpc>;
   factions: Record<string, TurnFaction>;
+  arbitration?: string[];   // ⚖️ 成长仲裁：本回合被闸门驳回/夹逼的 NPC 阶位·等级·bs·六维变更（npcGrowthGuard 日志）
 }
 
 const MAX_SNAPSHOTS = 14;

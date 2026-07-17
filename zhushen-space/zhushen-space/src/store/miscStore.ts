@@ -226,6 +226,10 @@ export interface MiscSettings {
   largeCap?: number;   // 大总结上限
   questInjectEnabled?: boolean;  // 是否把当前任务(主线重/支线轻)注入正文上下文（默认开）
   questSideCap?: number;         // 注入正文的支线条数上限（相关性排序后封顶，默认 3）
+  // ── 任务闸门（questGuard·AI 侧护栏；玩家 ✏️ 编辑/手动生成不受限）──
+  questGuardLock?: boolean;      // AI 结构锁（默认开）：已建档任务 AI 只许推进（状态/进度/评级/环推进），名称/描述/奖惩/时限/终局/环内容冻结
+  questSideMax?: number;         // 在场支线数量上限：满额时 AI 新建支线被驳回（0=不限，默认 4；主线/职业任务/进阶通告不占额）
+  questNewPerRound?: number;     // 每轮杂项演化 AI 新建任务条数上限（0=不限，默认 1）
 }
 
 const DEFAULT_SETTINGS: MiscSettings = {
@@ -239,6 +243,9 @@ const DEFAULT_SETTINGS: MiscSettings = {
   largeCap: 0,   // 0 = 大总结不限数量
   questInjectEnabled: true,
   questSideCap: 3,
+  questGuardLock: true,
+  questSideMax: 4,
+  questNewPerRound: 1,
 };
 
 interface MiscState {

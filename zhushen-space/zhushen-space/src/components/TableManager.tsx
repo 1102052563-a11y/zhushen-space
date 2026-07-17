@@ -13,6 +13,7 @@ import { seedWalletIfEmpty } from '../systems/ledger/walletCore';
 import { runWatchdogs, healWatchdog } from '../systems/ledger/watchdog';
 import StagedPersonaModal from './StagedPersonaModal';
 import CustomTableModal from './CustomTableModal';
+import ApiRoutePicker from './ApiRoutePicker';
 
 export default function TableManager() {
   const [showPersona, setShowPersona] = useState(false);
@@ -291,6 +292,17 @@ function TableFillSchedule() {
           </label>
         ))}
         <span className="text-dim/50">（全勾/全不勾＝全部；要一个都不填请关上面总开关）</span>
+      </div>
+      {/* 填表接口：自动填表跟着主正文走（用正文接口），这条路由只作用于「♻ 重算变量 → 🗂 填表」的独立补填调用。
+          留空＝回退正文接口。补填只吐 <tableEdit> 不写正文，挂个便宜模型足够。 */}
+      <div className="pt-1 border-t border-edge/60 space-y-1">
+        <div className="text-dim/70">
+          🔌 填表接口 <span className="text-dim/40">（仅用于「♻ 重算变量 → 🗂 填表」的手动补填；留空＝回退正文接口。补填只输出填表指令、不写正文，用便宜模型即可）</span>
+        </div>
+        <ApiRoutePicker routeKey="table" />
+      </div>
+      <div className="text-dim/50 leading-relaxed">
+        💡 漏了某一层没记进表？→ 正文下方 <span className="text-god/70">♻ 重算变量</span> → <span className="text-god/70">🗂 填表</span> → 选楼层范围补跑（正文不会变）。
       </div>
     </div>
   );

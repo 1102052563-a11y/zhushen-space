@@ -1,6 +1,8 @@
 import { useMisc, isMainQuest, type MiscTask, type ArchivedTask, type WorldEvent, type QuestRing } from '../store/miscStore';
 import { usePlayer } from '../store/playerStore';
 import { isHomeWorld } from './playerVitals';
+import { filterAiTaskPatch, gateNewAiTask, isTerminalTaskStatus } from './questGuard';
+import { logArbitration } from './npcGrowthGuard';
 
 /* 杂项演化指令解析（不含小地图）
    只认 timeLocation.* / addSmall|LargeSummary / addWorldEvent.. / T_ 任务 / ringAdvance
@@ -90,13 +92,7 @@ function taskFromCols(o: Record<string, any>): MiscTask {
   if (o.rating != null || o['评分'] != null) t.rating = String(o.rating ?? o['评分']);
   return t;
 }
-/* 任务状态是否为"已结算"（完成/失败/放弃/结束）——用于把任务移出进行中列表。
-   先排除明确的进行态（进行中/未完成/待…），再匹配结算关键词。*/
-function isTerminalTaskStatus(s?: string): boolean {
-  const t = String(s ?? '');
-  if (/进行中|未完成|待执行|待完成|进行|执行中|跟进中/.test(t)) return false;
-  return /已?完成|已达成|达成|成功|已?失败|失败|已?放弃|放弃|已结束|结束|作废|取消/.test(t);
-}
+/* 任务状态是否为"已结算" → 已移入 questGuard.ts（isTerminalTaskStatus），闸门与解析共用 */
 
 function patchFromCols(o: Record<string, any>): Partial<MiscTask> {
   const p: Partial<MiscTask> = {};
@@ -112,10 +108,16 @@ function patchFromCols(o: Record<string, any>): Partial<MiscTask> {
   return p;
 }
 
-export function applyMiscCommands(reply: string, opts: { allowLarge?: boolean } = {}): number {
+export function applyMiscCommands(reply: string, opts: { allowLarge?: boolean; taskGuard?: boolean } = {}): number {
   const allowLarge = opts.allowLarge !== false;   // 默认允许；非大总结周期传 false，丢弃 AI 误输出的大总结
   const block = (reply.match(/<upstore>([\s\S]*?)<\/upstore>/i)?.[1] ?? reply);
   const M = useMisc.getState();
+  // 任务闸门（questGuard）：AI 侧护栏，默认开；玩家主动路径（manualGenTask 等）传 taskGuard:false 全豁免
+  const guardOn = opts.taskGuard !== false;
+  const lockOn = guardOn && M.settings.questGuardLock !== false;         // AI 结构锁：已建档任务只许推进
+  const sideMax = M.settings.questSideMax ?? 4;                          // 在场支线上限（0=不限）
+  const perRound = M.settings.questNewPerRound ?? 1;                     // 每轮新建配额（0=不限）
+  let tasksCreated = 0;                                                  // 本轮已放行的新建条数
   // 世界大事「地点」补全所处世界前缀：让地点成为「所处世界 … 具体位置」的完整路径（如「生化危机2 浣熊市 警察局 二楼回廊」）。
   // 已含当前世界名则不重复前缀；地点为空则不强加。
   const withWorld = (loc: string) => {
@@ -163,23 +165,63 @@ export function applyMiscCommands(reply: string, opts: { allowLarge?: boolean } 
       M.advanceRing(m[1], pl ? { summary: sv != null ? String(sv) : undefined, rating: rt != null ? String(rt) : undefined } : undefined);
       n++; continue;
     }
-    if ((m = /^de\(\s*"(T_\d+)"\s*\)$/.exec(line))) { M.removeTask(m[1]); n++; continue; }
+    if ((m = /^de\(\s*"(T_\d+)"\s*\)$/.exec(line))) {
+      // 图书馆铁则「只存不删」：AI 的删除一律转为「作废」归档留底（面板可查、玩家可 ✏️ 复原），绝不物理删除；玩家在面板删除不受此限
+      if (useMisc.getState().tasks.some((t) => t.id === m[1])) {
+        M.settleTask(m[1], '已作废');
+        logArbitration(`任务 ${m[1]}`, '删除指令已转为「作废」归档留底（数据库只存不删）');
+      }
+      n++; continue;
+    }
     if ((m = /^set\(\s*(\{[\s\S]*\})\s*\)$/.exec(line))) {
       const o = safeJson(m[1]);
       if (o && typeof o['0'] === 'string' && /^T_\d+$/.test(o['0'])) {
-        M.upsertTask(taskFromCols(o));
-        // 状态直接给的就是已结算（如 AI 一次性给出"已完成"任务）→ 立即归档
-        if (isTerminalTaskStatus(o['5'])) M.settleTask(o['0'], String(o['5']));
-        n++;
+        const id = o['0'] as string;
+        const t = taskFromCols(o);
+        const existing = useMisc.getState().tasks.find((x) => x.id === id);
+        if (existing) {
+          // 已建档任务的 set = 更新。AI 结构锁：只放行推进类字段（status/progress/rating/rings/currentRing），
+          // 名称/描述/奖惩/时限/线别/终局冻结（环内容另有 mergeRings 冻结）；被驳回的改动尝试记入仲裁日志。
+          if (lockOn) {
+            const { patch, dropped } = filterAiTaskPatch(existing, t);
+            if (dropped.length) logArbitration(`任务 ${id}`, `结构锁驳回改写：${dropped.join('；')}（要改结构请在任务面板 ✏️ 手动编辑）`);
+            M.updateTask(id, patch);
+          } else {
+            M.upsertTask(t);
+          }
+          // 状态直接给的就是已结算（如 AI 一次性给出"已完成"任务）→ 立即归档
+          if (isTerminalTaskStatus(o['5'])) M.settleTask(id, String(o['5']));
+          n++;
+        } else {
+          // 全新任务：布置闸（每轮配额 + 在场支线上限；主线/职业任务/进阶通告豁免——见 questGuard）
+          const reason = guardOn ? gateNewAiTask(t, useMisc.getState().tasks, { sideMax, newPerRound: perRound, roundCreated: tasksCreated }) : null;
+          if (reason) {
+            logArbitration(`任务 ${id}`, `驳回新建「${t.name || id}」：${reason}`);
+          } else {
+            tasksCreated++;
+            M.upsertTask(t);
+            if (isTerminalTaskStatus(o['5'])) M.settleTask(id, String(o['5']));
+            n++;
+          }
+        }
       }
       continue;
     }
     if ((m = /^add\(\s*"(T_\d+)"\s*,\s*(\{[\s\S]*\})\s*\)$/.exec(line))) {
       const o = safeJson(m[2]);
       if (o) {
-        M.updateTask(m[1], patchFromCols(o));
+        const id = m[1];
+        let p = patchFromCols(o);
+        const existing = useMisc.getState().tasks.find((x) => x.id === id);
+        if (existing && lockOn) {
+          // AI 结构锁：add 增量更新同样只放行推进类字段
+          const { patch, dropped } = filterAiTaskPatch(existing, p);
+          if (dropped.length) logArbitration(`任务 ${id}`, `结构锁驳回改写：${dropped.join('；')}（要改结构请在任务面板 ✏️ 手动编辑）`);
+          p = patch;
+        }
+        M.updateTask(id, p);
         // 任务被标记为完成/失败/放弃 → 移出进行中列表（归档），修复"完成后任务仍在"
-        if (o['5'] != null && isTerminalTaskStatus(o['5'])) M.settleTask(m[1], String(o['5']));
+        if (o['5'] != null && isTerminalTaskStatus(o['5'])) M.settleTask(id, String(o['5']));
         n++;
       }
       continue;

@@ -122,6 +122,7 @@ import {
   CHAOS_RECORD_PROMPT,
   CHAOS_WORLD_GEN_PROMPT,
   CRAFT_RULE,
+  TABLE_FILL_MANUAL_RULE,
 } from './promptRules';
 
 import { useState, useRef, useEffect, useMemo, lazy, Suspense, type PointerEvent as RPointerEvent } from 'react';
@@ -132,6 +133,8 @@ import { apiChatFallback, fetchWithProxy, abortAllApiCalls, narrativeLangDirecti
 import { parseAllStateUpdates, stripStateBlocks, parseAllItemCommands, applyItemCommands, parseAllCharCommands, applyCharacterCommands, parseAllNpcCommands, applyNpcCommands, parseAllFactionCommands, applyFactionCommands, applyTerritoryCommands, applyTeamCommands, isEquippable, lenientJsonParse, buildItemFeedback, recordEvo, purgeItemPhaseCurrency, editToTerritoryText, editToTeamText, detectUnregisteredCurrencyGains } from './systems/stateParser';
 import { isRealNpc, sanitizeEntryName, stripLeakedThinking, streamVisibleNarrative, setNpcPreferredOwners, applyStateUpdates, applyAllUpdates, stripKillBlocks, stripVitalsBlocks, stripWorldSourceBlocks, collapseRunaway } from './systems/stateApply';
 import { buildTableFillPrompt, buildPlotStateSnapshot } from './systems/tablePrompt';   // ACU 表格数据库：填表提示词 + 剧情状态快照（喂剧情指导）
+import { applyTableEdits } from './systems/tableEditParser';   // ACU 表格数据库：<tableEdit> → tableStore（手动补填阶段直接落库，不经 applyAllUpdates）
+import { useTurnReport, recordHasActivity, type TurnApplyRecord } from './store/turnReportStore';   // 手动补填也记进 📋 变量事务报告（与自动填表同一视图）
 import { resolveTableTemplates } from './systems/tableTemplate';   // ACU 表格数据库：读路径 native 模板（<if cell/seed>/计算标签）
 import { ensureSqliteMirror, needsSqlite } from './systems/tableSqlite';   // ACU 表格数据库：读路径 6b sql.js 镜像（{[db]}/{[sql]}）
 import { projectStoresToTables } from './systems/tableMigrate';   // 1c 镜像投影：project-on-read（发送前重投影，回合间的面板手改/交易/自愈也进表，读路径永不陈旧）
@@ -195,7 +198,7 @@ import { useTerritory, buildTerritorySystemPrompt, buildingCap } from './store/t
 import { useAccountVault } from './store/accountVaultStore';
 import { useTeam, buildTeamSystemPrompt, memberCap as teamMemberCap } from './store/adventureTeamStore';
 import { useCosmos, buildCosmosSystemPrompt, cosmosNameEq, cleanCosmosName } from './store/cosmosStore';
-import { realmFromLevel, normalizeTier, lvFromRealm, computeMaxHp, computeMaxEp, effectiveResource, attrCapForTier, clampBaseAttrs, fullMaxHp, fullMaxEp, TIERS, realAttrMult, ratioOf, npcBaseAttrs } from './systems/derivedStats';
+import { realmFromLevel, normalizeTier, lvFromRealm, computeMaxHp, computeMaxEp, effectiveResource, attrCapForTier, clampBaseAttrs, fullMaxHp, fullMaxEp, TIERS, TIER_LEVEL_RANGE, realAttrMult, ratioOf, npcBaseAttrs } from './systems/derivedStats';
 import { isSettlingCompanion, isCandidateCompanion, selectSettlingCompanions, COMPANION_SETTLE_RATIO } from './systems/companionSettlement';   // 随从/队友世界结算判定（结算卡点名 + 前端折算发点同源）
 import { setSettlementWhitelist, getSettlementWhitelist } from './systems/settlementSelection';   // 结算随从弹窗勾选缓冲
 import { isHomeWorld, reconcileHomeWorld, reconcilePlayerVitals, playerMaxHp, playerMaxEp, syncPlayerVitalsMax, applyCombatResourceGains, resetCombatResources } from './systems/playerVitals';
@@ -239,7 +242,7 @@ import { useTurnInsight } from './store/turnInsightStore';
 const TurnInsightPanel = lazy(() => import('./components/TurnInsightPanel'));
 import { useNpc, looksDead, isGhostNpc, DISPOSITION_COLS } from './store/npcStore';
 import { clampDispositionDelta, DISP_DEFAULT, dispositionLine, type DispAxis } from './systems/dispositionGuard';
-import { withGrowthGuardCtx, guardBioStrength, guardAttrValue, highestTierIn, logArbitration, drainArbitration, type GrowthGuardCtx } from './systems/npcGrowthGuard';   // NPC 成长闸门（阶位/等级/bs/六维变更裁决）
+import { withGrowthGuardCtx, guardBioStrength, guardAttrValue, highestTierIn, tierIdxOf, logArbitration, drainArbitration, type GrowthGuardCtx } from './systems/npcGrowthGuard';   // NPC 成长闸门（阶位/等级/bs/六维变更裁决）
 import PartyPromoteDialog from './components/PartyPromoteDialog';
 import { useCharacters, type MemoryEntry } from './store/characterStore';
 import { useMemory } from './store/memoryStore';
@@ -1082,7 +1085,8 @@ const TASK_RECONCILE_RULE = `
 ⑦ **修复扁平主线（重要）**：若【当前任务列表】里当前世界的 active **主线没有 rings**（是扁平任务）→ 立即用 \`add("T_x",{...})\` **一次补全整条路线图**：现有目标作第1环(status="active")、按核心目标/finale 铺 3~12 环（强制环+贪婪环）、各环**一次写全** goal/reward(六选三)/penalty(三类)/时限(startTime~endTime≥7天)、不留占位，带 currentRing:1 与 finale。**一次补好即锁定**，此后只推进不改。支线多回合且无环者同理可补。
 - **防抖护栏（路线图锁定·铁则）**：**任务内容一经创建即锁死**——绝大多数回合主线**没有任何环指令**；只在正文给出**明确证据**时发**一条** ringAdvance（推进·带 summary/rating）或**纯状态**调整（done/skipped）；**绝不重命名/改写/增删/缩水既有环的内容与数量**（前端已强制冻结已定实的环，只接收 status/summary/rating）。唯一例外：旧档遗留的"（待…规划）"占位环，推进到时可用 add rings 一次填实（填实后同样锁定）。
 - **【已达成环·奖励保留铁则】已达成(done)环的目标与奖励(reward)一经记录即固定不变**：后续 ringAdvance/补环/重排时**只动尚未完成的环**，**绝不改写、覆盖或清空**已达成环的 reward——它是玩家闯该环时被承诺、要留到【结算任务】兑现的奖励（前端也会冻结 done 环的 goal/reward/penalty，但你也别去动它）。补新数组时若带上已达成环，**照抄其原奖励**，别留空。
-- 支线的环同理可用 \`ringAdvance\` / \`add rings\` 维护，但**优先保证主线**的环准确。`;
+- 支线的环同理可用 \`ringAdvance\` / \`add rings\` 维护，但**优先保证主线**的环准确。
+- 【前端任务闸门·硬护栏（别输出注定被驳回的指令）】①已建档任务的**结构**（名称/描述/奖惩/时限/线别/终局/环内容）由前端锁定：改写会被驳回并记入仲裁日志，只有玩家能在面板手动编辑——你只发推进类指令（状态/progress/评级/ringAdvance/环状态）。②**新建任务每轮有配额（默认 1 条）**、在场支线有上限（默认 4 条）：满额时新建支线会被驳回——先推进/结算旧支线，别堆新任务。③\`de()\` 删除会被转为「作废」归档而非删除——任务作废就把它标 skipped/已作废，别指望删掉重建。`;
 
 const TASK_CANON_RULE = `
 【同人世界·任务接地铁则（让任务贴合原作主线脉络，而非套通用模板）】当【当前世界】是**已知虚构作品**（动漫/游戏/小说/影视等同人世界）、且【同人增强】=开时，生成或规划任务（尤其主线路线图）前先做"接地"：
@@ -1348,6 +1352,7 @@ export default function App() {
   const [territoryPanelOpen, setTerritoryPanelOpen] = useState(false);
   const [cosmosPhaseLog,     setCosmosPhaseLog]     = useState('');     // 万族演化阶段提示
   const [miscPhaseLog,       setMiscPhaseLog]       = useState('');     // 杂项演化阶段提示（仅失败时显示「杂项更新失败」）
+  const [tablePhaseLog,      setTablePhaseLog]      = useState('');     // 手动补填表格阶段提示（自动填表跟着主正文走·无独立日志）
   const [cosmosPanelOpen,    setCosmosPanelOpen]    = useState(false);
   const [worldCodexOpen,     setWorldCodexOpen]     = useState(false);
   const [wikiOpen,           setWikiOpen]           = useState(false);
@@ -1573,7 +1578,7 @@ export default function App() {
     const pairs: [string, string][] = [
       ['item', itemPhaseLog], ['player', playerPhaseLog], ['npc', npcPhaseLog], ['pet', petPhaseLog],
       ['faction', factionPhaseLog], ['territory', territoryPhaseLog], ['team', teamPhaseLog],
-      ['cosmos', cosmosPhaseLog], ['misc', miscPhaseLog], ['image', imagePhaseLog],
+      ['cosmos', cosmosPhaseLog], ['misc', miscPhaseLog], ['image', imagePhaseLog], ['table', tablePhaseLog],
     ];
     setPhaseFail((prev) => {
       let n = prev, changed = false;
@@ -1591,7 +1596,7 @@ export default function App() {
       }
       return changed ? n : prev;
     });
-  }, [itemPhaseLog, playerPhaseLog, npcPhaseLog, petPhaseLog, factionPhaseLog, territoryPhaseLog, teamPhaseLog, cosmosPhaseLog, miscPhaseLog, imagePhaseLog]);
+  }, [itemPhaseLog, playerPhaseLog, npcPhaseLog, petPhaseLog, factionPhaseLog, territoryPhaseLog, teamPhaseLog, cosmosPhaseLog, miscPhaseLog, imagePhaseLog, tablePhaseLog]);
   useEffect(() => {   // 天气环境音：随顶栏天气切换（仅任务世界有天气；回归乐园/无天气→停）
     const kind = (!!miscWeather && !isHomeWorld(miscWorldName)) ? parseWeather(miscWeather).kind : 'none';
     setAmbient(kind);
@@ -1967,6 +1972,7 @@ export default function App() {
       try { useItems.getState().normalizeEquipSlots(); } catch { /* 规范化历史非规范装备槽（armor:armor→armor:upper 等），使装备面板与背包一致 */ }
       try { const f = useNpc.getState().normalizeNpcIds(); if (f) console.log(`[NPC] 启动时规范化非法ID ${f} 个`); } catch { /* 修复历史存档里 AI 自创的非法ID(如 P_Aesc)，否则其属性更新被丢弃、面板点不开 */ }
       try { ensureNpcLuck(); ensureNpcVitalsCap(); } catch { /* 载入时一次性把在场 NPC 幸运按前端独占规则重算(治旧档 AI 乱给的高/乱幸运；保留 luckDelta 剧情增减) */ }
+      try { npcSanitySweep(); } catch { /* 载入时一次性 NPC 体检：补缺失realm/重生成夹平六维/超上限夹回 + attrsEstablished 回填（旧档保护） */ }
       // 主角自检兜底：B1 技能/天赋异常空但对局在进行中 → 从镜像自动补回（治"读档/回退误清角色库后主角莫名空白"）
       try { const rb = restoreB1IfWiped(); if (rb) { setB1Notice(`检测到主角技能/天赋异常丢失，已自动从镜像兜底恢复：技能${rb.counts.skills} / 天赋${rb.counts.traits} / 副职业${rb.counts.subProfessions}`); console.warn('[B1自检] 已自动从镜像恢复', rb.counts); } } catch { /* */ }
       try { setCanUndo(await undoPointHasChat()); } catch { /* */ }   // 仅当回退点**有真实对话**才亮按钮（空回退点会清屏，当无回退点处理）
@@ -3449,8 +3455,12 @@ export default function App() {
       + '\n\n' + NARRATIVE_FIRST_RULE + '\n' + EVO_VERIFY_RULE + '\n' + NPC_DEAD_EXCLUDE_RULE + '\n' + NPC_ID_RULE + '\n' + TIER_RULE + '\n' + SKILL_TIER_RULE + '\n' + NPC_TEAM_AFFILIATION_RULE + '\n' + NPC_ENTRY_BIO_RULE + '\n' + ENTRY_NAME_CN_RULE + '\n' + ENTRY_DEDUP_RULE + codexInjection + tierPowerInjection + worldLoreEvoInjection() + '\n' + SKILL_TALENT_GUIDE + '\n' + ANTI_OMNISCIENCE_RULE + '\n' + NATIVE_LIFE_LOCAL_RULE + '\n' + CANON_STRENGTH_NO_SCALE_RULE + '\n' + getPrompt('ENTRY_COT_RULE', ENTRY_COT_RULE);
   }
 
-  /* 解析 NPC <state> 短指令（favor/title/realm/hp），可按 charId 过滤 */
+  /* 解析 NPC <state> 短指令（favor/title/realm/hp），可按 charId 过滤。
+     解析期间挂成长闸门上下文（npcGrowthGuard）：内部 cr.<id>、列2、bs、attrs 的变更全部经证据+步长裁决。 */
   function applyNpcShortCommands(reply: string, onlyId?: string, narrative?: string): number {
+    return withGrowthGuardCtx(buildGrowthGuardCtx(reply, narrative), () => applyNpcShortCommandsImpl(reply, onlyId, narrative));
+  }
+  function applyNpcShortCommandsImpl(reply: string, onlyId?: string, narrative?: string): number {
     const npc = useNpc.getState();
     let n = 0;
     const ok = (id: string) => !onlyId || id === onlyId;
@@ -3563,8 +3573,16 @@ export default function App() {
     const apRe = /\bcharacter\.(C\d+)\.appearance\s*=\s*"([^"]*)"/g;
     while ((m = apRe.exec(reply))) { if (ok(m[1])) { npc.upsertNpc(m[1], { appearanceDetail: m[2] }); n++; } }
     // 生物强度模板（T0~T9，含非人生物）：character.C1.bioStrength = "T3·勇士"
+    // ⚠ bs 是六维 bs 峰值封顶的锚，绝不裸写：夹进本阶窗口；已有档升/降档过证据裁决（防"AI 先抬 bs 再灌属性"绕过护栏）
     const bioRe = /\bcharacter\.(C\d+)\.bioStrength\s*=\s*"([^"]*)"/g;
-    while ((m = bioRe.exec(reply))) { if (ok(m[1])) { npc.upsertNpc(m[1], { bioStrength: m[2] }); n++; } }
+    while ((m = bioRe.exec(reply))) {
+      if (!ok(m[1])) continue;
+      const live = useNpc.getState().npcs[m[1]];
+      const gb = guardBioStrength(live?.bioStrength, m[2], live?.realm, live?.name || m[1]);
+      for (const nt of gb.notes) logArbitration(live?.name || m[1], nt);
+      npc.upsertNpc(m[1], { bioStrength: gb.bs });
+      n++;
+    }
     // 年龄：character.C1.age = "约25岁"（正文有则照抄，没有则按设定生成）
     const ageRe = /\bcharacter\.(C\d+)\.age\s*=\s*"([^"]*)"/g;
     while ((m = ageRe.exec(reply))) { if (ok(m[1])) { npc.upsertNpc(m[1], { age: m[2] }); n++; } }
@@ -3584,6 +3602,7 @@ export default function App() {
     }
     // 六维基础属性（支持 = 绝对值 / += / -= 增减；含 C 与 G 系 NPC；可随剧情成长/受损更新）
     const npcAttrRe = /\bcharacter\.([CG]\d+)\.attrs\.(str|agi|con|int|cha|luck)\s*(=|\+=|-=)\s*(-?\d+)/g;
+    const attrGenDims = new Map<string, Set<string>>();   // 未建档 NPC 本轮经 `=` 生成的维度（≥4 维=一次完整生成 → 落 attrsEstablished）
     while ((m = npcAttrRe.exec(reply))) {
       if (!ok(m[1])) continue;
       const key = m[2], op = m[3], v = Number(m[4]);
@@ -3601,7 +3620,16 @@ export default function App() {
       const live = useNpc.getState().npcs[m[1]];
       const base = live?.attrs ?? { str: 5, agi: 5, con: 5, int: 5, cha: 5, luck: 5 };
       const cur = (base as unknown as Record<string, number>)[key] ?? 5;
-      const next = op === '=' ? v : op === '+=' ? cur + v : cur - v;
+      // 成长闸门（npcGrowthGuard）：未建档的 `=` 是生成路径放行；已建档后 `=` 折算成增量收敛，
+      // 增减一律 宠物冻结→下调要证据→步长限幅（突破/结算放宽）。治"每回合整套重写/自我强化螺旋"。
+      const established = !!live?.attrsEstablished;
+      const gv = guardAttrValue({ cur, desired: v, op: op as '=' | '+=' | '-=', established, isPet: isPetLike({ npcTag: live?.npcTag }), name: live?.name || m[1] });
+      if (gv.note) logArbitration(live?.name || m[1], `${key} ${gv.note}`);
+      if (!established && op === '=') {
+        const dims = attrGenDims.get(m[1]) ?? new Set<string>();
+        dims.add(key); attrGenDims.set(m[1], dims);
+      }
+      const next = gv.value;
       // 双护栏：① 本阶单属性上限 ② 生物强度档窗口峰值（AI 给的六维不得越出登场判断所定 bs 档·守"不接受纯提示词"铁律）。
       const tierCap = attrCapForTier(live?.realm);
       const bsM = /T\s*(\d+)/i.exec(live?.bioStrength ?? '');
@@ -3613,6 +3641,11 @@ export default function App() {
       npc.upsertNpc(m[1], { attrs: { ...base, [key]: Math.min(cap, Math.max(0, next)) } });
       n++;
     }
+    // 六维建档落锁：本轮对「未建档」NPC 经 `=` 完整生成（≥4 维）→ 标 attrsEstablished，此后 AI 的 `=` 降级为增量收敛。
+    // 只认"一次完整生成"，零散写 1~2 维不落锁——防正文阶段先写一两维、演化阶段的全量生成反被步长夹住。
+    for (const [gid, dims] of attrGenDims) {
+      if (dims.size >= 4 && useNpc.getState().npcs[gid]?.attrs) npc.upsertNpc(gid, { attrsEstablished: true });
+    }
     // NPC 六维·机械生成(治 API 幻觉乱给离谱属性)：character.<id>.genAttrs = "阶位·Lv|生物强度档|类型|形态|定位"
     // 前端据 阶位/生物强度档/类型/形态/定位 用 generateNpcAttrs 反推六维(种子=id 可复现)；首次建档优先用它，不再让 AI 手写属性
     const genAttrRe = /\bcharacter\.([CG]\d+)\.genAttrs\s*=\s*"([^"]*)"/g;
@@ -3623,7 +3656,7 @@ export default function App() {
       const live = useNpc.getState().npcs[m[1]];
       const realm = realmStr || live?.realm || '';
       const attrs = generateNpcAttrs({ tier: realm, level: lvFromRealm(realm), bioTier, type: typeTag || live?.unitType, job: live?.profession, form, role, identity: live?.npcTag, seed: m[1] });
-      npc.upsertNpc(m[1], { attrs, ...(realmStr && !live?.realm ? { realm: realmStr } : {}), ...(typeTag ? { unitType: typeTag } : {}) });
+      npc.upsertNpc(m[1], { attrs, attrsEstablished: true, ...(realmStr && !live?.realm ? { realm: realmStr } : {}), ...(typeTag ? { unitType: typeTag } : {}) });
       n++;
     }
     // mp.C1（蓝量 EP）：上限=智力×15+装备/技能天赋的「EP上限」加成（与卡片/详情显示同口径，忽略 AI 写的 /上限），未记录当前值时以满蓝为基准
@@ -3698,6 +3731,8 @@ export default function App() {
     // 本回合即死亡的角色不建档：登场条目里带死亡关键词的 new 直接跳过
     const DEATH_RE = /(死亡|死了|已死|身亡|毙命|丧命|气绝|阵亡|被杀|被击杀|被斩杀|被击毙|被秒杀|被消灭|被摧毁|灰飞烟灭|化为灰烬|当场死|一击毙命|尸体|尸首|断气)/;
     const narrativeNow = lastNarrativeRef.current || '';
+    // 成长闸门上下文（applySkeleton 的 r/bs 写入用）：首档=合法化+世界巅峰封顶；重新登场改档=按正文证据裁决
+    const entryGuardCtx: GrowthGuardCtx = { narrative: narrativeNow, worldPeakTier: currentWorldPeakTier() };
     for (const e of result.entries ?? []) {
       if (!e?.id) continue;
       if (e.type === 'new') {
@@ -3753,7 +3788,7 @@ export default function App() {
         }
         used.add(id);
         if (nameKey) nameToId.set(nameKey, id);   // 登记新建名字，使本批后续同名条目并入此角色
-        if (skel) npc.applySkeleton(id, skel.short);
+        if (skel) withGrowthGuardCtx(entryGuardCtx, () => npc.applySkeleton(id, skel.short));
         else npc.upsertNpc(id, { name: storeName || id, onScene: true });
         npc.setScene(id, true, turn);
         // 世界默认标签（登场判断不产 npcTag）：新 NPC 若还没标签，按当前世界定档——**任务世界=土著(默认)**、乐园/枢纽=契约者。
@@ -3903,9 +3938,9 @@ export default function App() {
     }
     if (!reply) return 0;
     const cleanReply = reply.replace(/<think[^>]*>[\s\S]*?<\/think>/gi, '').trim();   // 剥掉思维链再解析
-    // 单角色作用域：过滤掉越界指令
+    // 单角色作用域：过滤掉越界指令。add() 全列格式的 realm 写入也过成长闸门（列2 在 applyColumns 内读 ctx）
     const npcCmds = parseAllNpcCommands(cleanReply).filter((c) => c.id === charId);
-    applyNpcCommands(npcCmds, { source: 'npc-phase', turn: turnCountRef.current });
+    withGrowthGuardCtx(buildGrowthGuardCtx(cleanReply, narrative), () => applyNpcCommands(npcCmds, { source: 'npc-phase', turn: turnCountRef.current }));
     const charCmds = parseAllCharCommands(cleanReply).filter((c) => c.charId === charId);
     applyCharacterCommands(charCmds, undefined, { source: 'npc-phase', turn: turnCountRef.current });
     const shorts = applyNpcShortCommands(cleanReply, charId, narrative);
@@ -4444,7 +4479,7 @@ ${AFFIX_EFFECT_RULE}`;
       console.log('[NPC] 原始响应:', reply);
       if (reply) {
         const cleanReply = reply.replace(/<think[^>]*>[\s\S]*?<\/think>/gi, '').trim();   // 剥掉思维链再解析
-        const npcCmds  = parseAllNpcCommands(cleanReply); applyNpcCommands(npcCmds);
+        const npcCmds  = parseAllNpcCommands(cleanReply); withGrowthGuardCtx(buildGrowthGuardCtx(cleanReply, narrative), () => applyNpcCommands(npcCmds));   // add() 的列2 realm 过成长闸门
         const charCmds = parseAllCharCommands(cleanReply); applyCharacterCommands(charCmds);
         const shorts   = applyNpcShortCommands(cleanReply, undefined, narrative);
         try { useNpc.getState().dedupeByName(); } catch { /* 防同名重复建档 */ }
@@ -4521,7 +4556,7 @@ ${AFFIX_EFFECT_RULE}`;
       console.log('[宠物] 原始响应:', reply);
       if (reply) {
         const cleanReply = reply.replace(/<think[^>]*>[\s\S]*?<\/think>/gi, '').trim();
-        const npcCmds  = parseAllNpcCommands(cleanReply); applyNpcCommands(npcCmds);
+        const npcCmds  = parseAllNpcCommands(cleanReply); withGrowthGuardCtx(buildGrowthGuardCtx(cleanReply, narrative), () => applyNpcCommands(npcCmds));   // add() 的列2 realm 过成长闸门
         const charCmds = parseAllCharCommands(cleanReply); applyCharacterCommands(charCmds);
         const shorts   = applyNpcShortCommands(cleanReply, undefined, narrative);
         try { autoGenMissingAttrs(); ensureNpcLuck(); ensureNpcVitalsCap(); } catch { /* 六维/幸运/上限兜底 */ }
@@ -4601,7 +4636,7 @@ ${AFFIX_EFFECT_RULE}`;
     try {
       const npcCmds = parseAllNpcCommands(clean).filter((c) => c.id === petId); applyNpcCommands(npcCmds);
       const charCmds = parseAllCharCommands(clean).filter((c) => c.charId === petId); applyCharacterCommands(charCmds);
-      applyNpcShortCommands(clean, petId, '');
+      applyNpcShortCommandsImpl(clean, petId, '');   // 玩家亲点「接受培养」＝已授权的主人投入 → 显式旁路成长闸门（Impl 不挂 ctx）
       try { ensureNpcLuck(); ensureNpcVitalsCap(); } catch { /* 幸运/上限兜底 */ }
       for (const m of cultivateMaterialsRef.current) { try { useItems.getState().consumeItem(m.id, m.qty); } catch { /* 材料消耗失败不阻断 */ } }
       const total = npcCmds.length + charCmds.length;
@@ -5031,8 +5066,8 @@ ${AFFIX_EFFECT_RULE}`;
     } catch (e: any) { return { ok: false, msg: '生成失败：' + (e?.message || String(e)) }; }
     if (!/set\(\s*\{[\s\S]*\}\s*\)/.test(reply)) return { ok: false, msg: 'AI 没返回有效的任务命令，请重试或换个说法。' };
     const createdId = /["']0["']\s*:\s*["'](T_\d+)["']/.exec(reply)?.[1] || newId;
-    // 先建新任务（解析失败就不动原有主线，避免误删）
-    const n = applyMiscCommands(reply, { allowLarge: false });
+    // 先建新任务（解析失败就不动原有主线，避免误删）；玩家主动生成 → 豁免任务闸门（配额/支线上限不拦）
+    const n = applyMiscCommands(reply, { allowLarge: false, taskGuard: false });
     if (n <= 0) return { ok: false, msg: '任务命令解析失败，请重试。' };
     // 覆盖：移除本世界原有 active 主线（新建那条除外·据边界戳框住"本世界"），再把新任务强制为主线（绕过"一世界一主线"降级）
     const boundary = M.lastWorldSettleAt || 0;
@@ -5189,6 +5224,53 @@ ${AFFIX_EFFECT_RULE}`;
       console.error('[Misc] 杂项演化失败:', e.message ?? e);
       setMiscPhaseLog(`⚠ 杂项更新失败：${(e.message ?? '').slice(0, 50)}`);
       setTimeout(() => setMiscPhaseLog(''), 8000);
+    }
+  }
+
+  /* ════════════════════════════════════════════
+     手动补填表格阶段（♻ 重算变量 →「🗂 填表」·按楼层批量）
+     —— 自动填表没有独立阶段：填表规则+当前表数据注在**主正文** systemPrompt 里，AI 跟着正文一起吐
+        <tableEdit>（见 buildTableFillPrompt 注入处）。所以 AI 哪回合没吐，纪要表就漏一层，事后无从补。
+        本阶段专治那种漏：单独调一次 AI，只读给定楼层正文、只吐 <tableEdit> 落库，**正文一个字不动**。
+        接口 featureKey='table'（未单独配路由 → 回退正文接口，开箱即用）。
+  ════════════════════════════════════════════ */
+  async function runTableFillPhase(narrative: string) {
+    if (!narrative.trim()) return;
+    const ss = useSettings.getState();
+    // 只认 only（维护哪几张表）；enabled 是「**自动**填表」总开关——手动补填是玩家明确点的，不受它管
+    const tf = ss.tableFill ?? { enabled: true, everyN: 1, only: [] };
+    const legacyApi = ss.textUseSharedApi ? ss.api : ss.textApi;
+    const chain = resolveApiChain('table', legacyApi);
+    if (!chain[0]?.baseUrl || !chain[0]?.apiKey) {
+      setTablePhaseLog('⚠ 填表更新失败：未配置接口（变量管理 → 表格数据库 → 填表接口）');
+      setTimeout(() => setTablePhaseLog(''), 8000);
+      return;
+    }
+    const systemPrompt = buildTableFillPrompt(tf.only) + '\n\n' + TABLE_FILL_MANUAL_RULE;
+    try {
+      const { content: reply } = await apiChatFallback(chain, [
+        { role: 'system', content: systemPrompt },
+        { role: 'user', content: `【本次要归档的正文】\n${narrative}\n\n请按【输出格式铁律】只输出一个 <tableEdit> 块。` },
+      ]);
+      console.log('[Table] 手动补填响应:', reply);
+      const te = applyTableEdits(reply, { turn: turnCountRef.current });
+      // 进 📋 变量事务报告（与自动填表同一视图·来源标「手动补填」便于区分是谁写的）
+      try {
+        const rec: Omit<TurnApplyRecord, 'id' | 'at'> = {
+          turn: turnCountRef.current, source: '手动补填表格',
+          stateApplied: 0, stateFailed: [], itemApplied: 0, itemRejected: [], itemBlocked: 0,
+          tableApplied: te.applied, tableFailed: te.errors, tableSkippedDup: te.skippedDuplicate === true, drift: [],
+        };
+        if (recordHasActivity(rec)) useTurnReport.getState().push(rec);
+      } catch { /* 报告收集绝不阻断 */ }
+      if (te.failed > 0) setTablePhaseLog(`⚠ 填表：补记 ${te.applied} 条·失败 ${te.failed} 条（失败清单已存·下回合 AI 自纠补写）`);
+      else if (te.skippedDuplicate) setTablePhaseLog('✓ 填表：本批指令与已应用过的完全相同·已跳过（未重复记账）');
+      else setTablePhaseLog(te.applied > 0 ? `✓ 填表：补记 ${te.applied} 条` : '✓ 填表：本段无可补记的内容');
+      setTimeout(() => setTablePhaseLog(''), 8000);
+    } catch (e: any) {
+      console.error('[Table] 手动补填失败:', e?.message ?? e);
+      setTablePhaseLog(`⚠ 填表更新失败：${String(e?.message ?? '').slice(0, 50)}`);
+      setTimeout(() => setTablePhaseLog(''), 8000);
     }
   }
 
@@ -7204,10 +7286,83 @@ ${lines}`;
           form: resolveForm(`${r.npcTag ?? ''}${r.profession ?? ''}${(r as any).species ?? ''}${r.name ?? ''}`),
           identity: r.npcTag, seed: r.id,
         });
-        npc.upsertNpc(r.id, { attrs }); n++;
+        npc.upsertNpc(r.id, { attrs, attrsEstablished: true }); n++;   // 机械生成=一次完整建档 → 落锁，此后 AI 的 `=` 走增量收敛
       }
     }
     if (n > 0) console.log(`[Attr] 机械生成六维(bioStrength引擎)：${n} 个NPC`);
+  }
+
+  /* NPC 体检 npcSanitySweep（机械·零API·幂等）：载入后 + 回合末防漂哨之后各跑一遍，治历史脏档与漏网写入。
+     跑点选在 guardNpcAttrDrift 之后＝体检修复不会被基线对账当"无据漂移"退回；🔒锁定字段随后由 enforceLocks 钉回，锁权威不破。
+     ① realm 缺失/认不出阶位 → 按 Lv/bs 推保守阶位补全（治「空realm当一阶→六维静默夹平50 + HP自相矛盾」）；
+     ② 战斗五维全相等且非默认5（如 50×5=历史夹平签名）→ 按档案机械重生成（默认5×5=未生成，留给 autoGenMissingAttrs）；
+     ③ 存量六维超 本阶上限∧bs峰值 → 夹回存储值（与写入端 npcAttrRe 同口径，补历史脏数据的差）；
+     ④ 资质占用率为负（阶位/等级矛盾余波·读取端 lvFromRealm 已夹）→ 只上报仲裁日志不改数；
+     ⑤ attrsEstablished 回填：已有一套非全等六维的旧档 NPC 落锁，防演化把它当"未建档"整套重写。 */
+  function npcSanitySweep(): void {
+    const npc = useNpc.getState();
+    let fixed = 0;
+    for (const r of Object.values(npc.npcs)) {
+      if (r.isDead) continue;
+      if (!r.name || r.name === r.id) continue;   // 无名壳（幽灵）不修饰，交 pruneGhostNpcs
+      const patch: Partial<import('./store/npcStore').NpcRecord> = {};
+      // ① realm 补全
+      if (tierIdxOf((r.realm ?? '').split('|')[0]) < 0) {
+        const mLv = /Lv\.?\s*(\d+)/i.exec((r.realm ?? '').split('|')[0]);
+        const bsM = /T\s*(\d+)/i.exec(r.bioStrength ?? '');
+        const tierName = mLv ? realmFromLevel(Number(mLv[1]))
+          : bsM ? TIERS[Math.max(0, Math.min(8, Number(bsM[1]) - 2))]   // bs 档窗口所含的最低阶位（宁低勿高）
+          : '一阶';
+        const lv = mLv ? Number(mLv[1]) : (TIER_LEVEL_RANGE[tierName]?.[0] ?? 1);
+        const idPart = (r.realm ?? '').includes('|') ? (r.realm as string).slice((r.realm as string).indexOf('|') + 1).trim() : (r.realm ?? '').trim();
+        patch.realm = `${tierName}·Lv.${lv}${idPart ? '|' + idPart : ''}`;
+        logArbitration(r.name, `体检：阶位缺失/认不出（「${r.realm || '∅'}」）→ 保守补全为「${patch.realm}」`);
+      }
+      const realmEff = patch.realm ?? r.realm;
+      const a = r.attrs;
+      if (a) {
+        const five = [a.str, a.agi, a.con, a.int, a.cha];
+        const allEq = five.every((v) => v === five[0]);
+        if (allEq && (five[0] ?? 0) > 5) {
+          // ② 全等非默认 → 夹平签名：机械重生成（与 autoGenMissingAttrs 同参数口径）
+          const bsM2 = /[Tt]\s*(\d)/.exec(`${r.bioStrength ?? ''} ${realmEff ?? ''}`);
+          patch.attrs = generateNpcAttrs({
+            tier: realmEff, level: lvFromRealm(realmEff),
+            bioTier: bsM2 ? Number(bsM2[1]) : parseTierNum(realmEff),
+            type: r.unitType, job: r.profession || realmEff,
+            role: `${r.profession ?? ''} ${realmEff ?? ''} ${r.npcTag ?? ''} ${r.bioStrength ?? ''}`,
+            form: resolveForm(`${r.npcTag ?? ''}${r.profession ?? ''}${r.name ?? ''}`),
+            identity: r.npcTag, seed: r.id,
+          });
+          patch.attrsEstablished = true;
+          logArbitration(r.name, `体检：战斗五维全等（${five[0]}×5＝历史夹平签名）→ 按档案机械重生成六维`);
+        } else {
+          // ③ 超上限夹回
+          const tierCap = attrCapForTier(realmEff);
+          const bsM3 = /T\s*(\d+)/i.exec(r.bioStrength ?? '');
+          let cap = tierCap;
+          if (bsM3) { const tn = nominalTierNum(realmEff, lvFromRealm(realmEff)); cap = Math.min(tierCap, peakCapForTier(clampToTierWindow(Number(bsM3[1]), tn), tn)); }
+          if (isFinite(cap)) {
+            const over = (['str', 'agi', 'con', 'int', 'cha'] as const).filter((k) => (a[k] ?? 0) > cap);
+            if (over.length) {
+              patch.attrs = { ...a };
+              for (const k of over) (patch.attrs as Record<string, number>)[k] = cap;
+              logArbitration(r.name, `体检：${over.join('/')} 超出 阶位∧bs峰值上限(${cap}) → 夹回`);
+            }
+          }
+          // ⑤ 建档锁回填（静默，不进日志）
+          if (!r.attrsEstablished && !allEq) patch.attrsEstablished = true;
+          // ④ 资质地板告警
+          const bi = bioInnate(a, realmEff, lvFromRealm(realmEff));
+          if (bi && bi.ratio < 0) logArbitration(r.name, `体检警报：资质占用率为负(${bi.ratio.toFixed(2)})——「${realmEff}」阶位/等级疑似矛盾（已按阶位夹回读取，请检查档案）`);
+        }
+      }
+      if (Object.keys(patch).length) { npc.upsertNpc(r.id, patch); fixed++; }
+    }
+    if (fixed) {
+      console.log(`[体检] npcSanitySweep 修正 ${fixed} 个 NPC`);
+      try { ensureNpcLuck(); ensureNpcVitalsCap(); } catch { /* 六维变动后重算幸运/血蓝上限 */ }
+    }
   }
 
   /* 幸运·前端独占重算：幸运是「特殊属性」(不进六维预算/不算战力；diceEngine.luckMod 比的是相对六维均值)。
@@ -7291,6 +7446,7 @@ ${lines}`;
           name: f.name, favorToPlayer: f.favorToPlayer, status: f.status, inCurrentWorld: f.inCurrentWorld,
           goal: f.goal, territory: f.territory, resources: f.resources, scale: f.scale, powerLevel: f.powerLevel, relations: f.relations, leader: f.leader,
         }])),
+        arbitration: drainArbitration(),   // ⚖️ 成长仲裁：本回合被闸门驳回/夹逼的 NPC 数值变更（晚到的进下一回合快照）
       });
     } catch (e) { console.warn('[Insight] 快照失败:', e); }
   }
@@ -8767,6 +8923,7 @@ ${lines}`;
       if (!combatSettled) { try { applyNarrativeVitals(narrative); applyNarrativeNpcVitals(narrative); } catch (e) { console.warn('[Vitals] settle 后压回失败', e); } }
       try { sanitizeNumericGate(); } catch (e) { console.warn('[数值校验] 失败', e); }   // ③数值闸门：六维/数量/强化等级非法值→夹成合法整数（防 ATK/DEF NaN、交易数量垃圾），在防漂哨前跑
       try { guardNpcAttrDrift(narrative); } catch (e) { console.warn('[防漂] 六维对账失败', e); }   // 无据六维漂移→退回回合初基线（治1500→300）
+      try { npcSanitySweep(); } catch (e) { console.warn('[体检] NPC 体检失败', e); }   // 体检：补缺失realm/重生成夹平六维/超上限夹回/矛盾告警（在防漂哨后跑，修复不会被基线退回；锁随后由 enforceLocks 钉回）
       try { guardCharDrift(narrative); } catch (e) { console.warn('[防漂] 技能/天赋对账失败', e); }   // 无据效果/等级改写→退回（治"5回合改3次"）
       try { guardItemDrift(narrative); } catch (e) { console.warn('[防漂] 物品对账失败', e); }   // 已有物品被无据改写→退回（强化/镶嵌结果除外）
       try { guardFactionDrift(narrative); } catch (e) { console.warn('[防漂] 势力对账失败', e); }   // 势力身份/实力锚点被无据翻写→退回
@@ -9556,7 +9713,7 @@ ${lines}`;
   const BATCH_RUNNERS: Record<string, (n: string, force?: boolean) => Promise<void> | void> = {
     item: runItemManagementPhaseCore, player: runPlayerEvolutionPhase, npc: runNpcEvolutionPhase, pet: runPetEvolutionPhase,
     faction: runFactionEvolutionPhase, territory: runTerritoryEvolutionPhase, team: runTeamEvolutionPhase,
-    cosmos: runCosmosEvolutionPhase, misc: runMiscEvolutionPhase,
+    cosmos: runCosmosEvolutionPhase, misc: runMiscEvolutionPhase, table: runTableFillPhase,
   };
   function narrativeFloors(): string[] {   // 楼层 = 每条 AI 正文（从旧到新）
     return (messagesRef.current ?? []).filter((m) => m.role === 'assistant' && m.content).map((m) => m.content as string);
@@ -11086,6 +11243,11 @@ ${lines}`;
                 {imagePhaseLog}
               </span>
             )}
+            {tablePhaseLog && (
+              <span className={tablePhaseLog.startsWith('⚠') ? 'text-blood' : 'text-god/80'}>
+                {tablePhaseLog}
+              </span>
+            )}
             {nmRecalling && (
               <span className="flex items-center gap-1 text-emerald-400">
                 <span className="animate-spin inline-block">◌</span>
@@ -11441,6 +11603,7 @@ ${lines}`;
                 { icon: '🛡', label: '冒险团', fk: 'team', batch: true, run: revarRun(runTeamEvolutionPhase) },
                 { icon: '🌌', label: '万族', fk: 'cosmos', batch: true, run: revarRun(runCosmosEvolutionPhase) },
                 { icon: '📋', label: '任务 / 世界 / 杂项', fk: 'misc', batch: true, run: revarRun(runMiscEvolutionPhase) },
+                { icon: '🗂', label: '填表（纪要 / 进程 / 伏笔 / 约定）', fk: 'table', batch: true, run: revarRun(runTableFillPhase) },
                 { icon: '🧠', label: '记忆整理', run: () => runMemoryCompressionPhase() },
                 { icon: '🖼', label: '生图（肖像 + 装备）', fk: 'image', run: () => { runPortraitPhase(); runEquipImagePhase(); } },
                 { icon: '🎭', label: '选项 / 同人 / 事实 / 小剧场', fk: 'choices', direct: true, run: () => { setChoicesDir(''); setChoicesRevarOpen(true); } },

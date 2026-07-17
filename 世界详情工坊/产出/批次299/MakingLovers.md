@@ -156,6 +156,9 @@
 
 ## 来源
 
+- [资料](https://ja.wikipedia.org/wiki/Making*_Lovers)
+- [资料](https://vndb.org/v21522)
+- [资料](https://en.wikipedia.org/wiki/Making*_Lovers)
 - [Making*Lovers - 日文维基百科](https://ja.wikipedia.org/wiki/Making*Lovers)
 - [Making＊Lovers - 中文维基百科](https://zh.wikipedia.org/wiki/Making%EF%BC%8ALovers)
 - [SMEE 官方 Making*Lovers](http://www.hook-net.jp/smee/makinglovers/)

@@ -232,6 +232,8 @@ EXTRA 甜闹，UNLIMITED 压抑希望。忌跳过 EXTRA 直接战争爽文；忌
 
 ## 来源
 
+- [资料](https://en.wikipedia.org/wiki/Muv-Luv)
+- [资料](https://ja.wikipedia.org/wiki/Muv-Luv)
 - [Muv-Luv - 维基百科](https://zh.wikipedia.org/wiki/Muv-Luv)
 - [マブラヴ - 日文维基](https://ja.wikipedia.org/wiki/マブラヴ)
 - [âge 官方](http://www.age-soft.co.jp/)

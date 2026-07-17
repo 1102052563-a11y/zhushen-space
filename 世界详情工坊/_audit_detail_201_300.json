@@ -1,0 +1,716 @@
+﻿{
+    "dup":  [
+                {
+                    "B":  237,
+                    "Name":  "黑兽帝国终焉-女神苏醒.md",
+                    "Dup":  72,
+                    "Plot":  10201,
+                    "Leisure":  false
+                },
+                {
+                    "B":  237,
+                    "Name":  "黑兽帝国终焉-公主军团.md",
+                    "Dup":  66,
+                    "Plot":  10080,
+                    "Leisure":  false
+                },
+                {
+                    "B":  227,
+                    "Name":  "钢铁魔女安妮罗泽-堕落魔女.md",
+                    "Dup":  60,
+                    "Plot":  10070,
+                    "Leisure":  false
+                },
+                {
+                    "B":  227,
+                    "Name":  "钢铁魔女安妮罗泽-触手侵袭.md",
+                    "Dup":  52,
+                    "Plot":  10280,
+                    "Leisure":  false
+                },
+                {
+                    "B":  228,
+                    "Name":  "我有一座冒险屋（漫画－改编）.md",
+                    "Dup":  50,
+                    "Plot":  10071,
+                    "Leisure":  false
+                },
+                {
+                    "B":  237,
+                    "Name":  "黑兽帝国终焉-阿丽西亚觉醒.md",
+                    "Dup":  48,
+                    "Plot":  10137,
+                    "Leisure":  false
+                },
+                {
+                    "B":  227,
+                    "Name":  "虚构推理（漫画）.md",
+                    "Dup":  48,
+                    "Plot":  10088,
+                    "Leisure":  false
+                },
+                {
+                    "B":  222,
+                    "Name":  "装甲骑女伊莉丝-堕落魔将.md",
+                    "Dup":  46,
+                    "Plot":  10227,
+                    "Leisure":  false
+                },
+                {
+                    "B":  208,
+                    "Name":  "假面骑士V3.md",
+                    "Dup":  46,
+                    "Plot":  10013,
+                    "Leisure":  false
+                },
+                {
+                    "B":  210,
+                    "Name":  "假面骑士Super-1.md",
+                    "Dup":  39,
+                    "Plot":  10113,
+                    "Leisure":  false
+                },
+                {
+                    "B":  210,
+                    "Name":  "神兵玄奇.md",
+                    "Dup":  37,
+                    "Plot":  10053,
+                    "Leisure":  false
+                },
+                {
+                    "B":  227,
+                    "Name":  "虚构推理（动画）.md",
+                    "Dup":  35,
+                    "Plot":  10083,
+                    "Leisure":  false
+                },
+                {
+                    "B":  242,
+                    "Name":  "魔界骑士深渊大门-牺牲之门.md",
+                    "Dup":  35,
+                    "Plot":  10612,
+                    "Leisure":  false
+                },
+                {
+                    "B":  252,
+                    "Name":  "姫骑士莉莉亚-公主陷落.md",
+                    "Dup":  34,
+                    "Plot":  10264,
+                    "Leisure":  false
+                },
+                {
+                    "B":  252,
+                    "Name":  "姫骑士莉莉亚-侍女沦陷.md",
+                    "Dup":  34,
+                    "Plot":  10186,
+                    "Leisure":  false
+                },
+                {
+                    "B":  242,
+                    "Name":  "民俗-酆都鬼城.md",
+                    "Dup":  34,
+                    "Plot":  10667,
+                    "Leisure":  false
+                },
+                {
+                    "B":  230,
+                    "Name":  "民俗-黄泉接引.md",
+                    "Dup":  33,
+                    "Plot":  10101,
+                    "Leisure":  false
+                },
+                {
+                    "B":  230,
+                    "Name":  "民俗-百鬼夜市.md",
+                    "Dup":  32,
+                    "Plot":  10287,
+                    "Leisure":  false
+                },
+                {
+                    "B":  252,
+                    "Name":  "姫骑士莉莉亚-主仆双堕.md",
+                    "Dup":  32,
+                    "Plot":  10194,
+                    "Leisure":  false
+                },
+                {
+                    "B":  239,
+                    "Name":  "黑兽魔王觉醒-女神堕落.md",
+                    "Dup":  32,
+                    "Plot":  10069,
+                    "Leisure":  false
+                },
+                {
+                    "B":  253,
+                    "Name":  "淫妖虫-蝕变.md",
+                    "Dup":  31,
+                    "Plot":  10121,
+                    "Leisure":  false
+                },
+                {
+                    "B":  254,
+                    "Name":  "淫妖虫-完全寄生.md",
+                    "Dup":  31,
+                    "Plot":  10097,
+                    "Leisure":  false
+                },
+                {
+                    "B":  221,
+                    "Name":  "装甲骑女伊莉丝-双堕深渊.md",
+                    "Dup":  31,
+                    "Plot":  10569,
+                    "Leisure":  false
+                },
+                {
+                    "B":  210,
+                    "Name":  "天子传说（天子传奇）.md",
+                    "Dup":  31,
+                    "Plot":  10011,
+                    "Leisure":  false
+                },
+                {
+                    "B":  253,
+                    "Name":  "淫妖虫-产卵.md",
+                    "Dup":  30,
+                    "Plot":  10127,
+                    "Leisure":  false
+                },
+                {
+                    "B":  291,
+                    "Name":  "学校圣域.md",
+                    "Dup":  30,
+                    "Plot":  6025,
+                    "Leisure":  true
+                },
+                {
+                    "B":  254,
+                    "Name":  "淫妖虫-姐弟共堕.md",
+                    "Dup":  30,
+                    "Plot":  10144,
+                    "Leisure":  false
+                },
+                {
+                    "B":  236,
+                    "Name":  "黑兽帝国终焉-神格降临.md",
+                    "Dup":  30,
+                    "Plot":  10109,
+                    "Leisure":  false
+                },
+                {
+                    "B":  291,
+                    "Name":  "茜色圣域.md",
+                    "Dup":  30,
+                    "Plot":  6003,
+                    "Leisure":  true
+                },
+                {
+                    "B":  236,
+                    "Name":  "対魔忍RPG-最终决战.md",
+                    "Dup":  30,
+                    "Plot":  10371,
+                    "Leisure":  false
+                },
+                {
+                    "B":  230,
+                    "Name":  "史上最强弟子兼一：达人激突.md",
+                    "Dup":  30,
+                    "Plot":  10137,
+                    "Leisure":  false
+                },
+                {
+                    "B":  236,
+                    "Name":  "黑兽帝国终焉-帝国建立.md",
+                    "Dup":  30,
+                    "Plot":  10076,
+                    "Leisure":  false
+                },
+                {
+                    "B":  248,
+                    "Name":  "钢铁魔女虚空战争-新世界.md",
+                    "Dup":  29,
+                    "Plot":  10698,
+                    "Leisure":  false
+                },
+                {
+                    "B":  254,
+                    "Name":  "魔界骑士英格丽德-骑士陷落.md",
+                    "Dup":  28,
+                    "Plot":  10178,
+                    "Leisure":  false
+                },
+                {
+                    "B":  252,
+                    "Name":  "姫骑士莉莉亚-妹妹堕落.md",
+                    "Dup":  28,
+                    "Plot":  10285,
+                    "Leisure":  false
+                },
+                {
+                    "B":  254,
+                    "Name":  "魔界骑士英格丽德-公开凌辱.md",
+                    "Dup":  28,
+                    "Plot":  10062,
+                    "Leisure":  false
+                },
+                {
+                    "B":  254,
+                    "Name":  "魔界骑士英格丽德-妹妹威胁.md",
+                    "Dup":  28,
+                    "Plot":  10054,
+                    "Leisure":  false
+                },
+                {
+                    "B":  211,
+                    "Name":  "假面骑士BLACK.md",
+                    "Dup":  28,
+                    "Plot":  16726,
+                    "Leisure":  false
+                },
+                {
+                    "B":  230,
+                    "Name":  "午夜凶铃（小说环界版）.md",
+                    "Dup":  28,
+                    "Plot":  10218,
+                    "Leisure":  false
+                },
+                {
+                    "B":  210,
+                    "Name":  "咒怨（剧场版）.md",
+                    "Dup":  27,
+                    "Plot":  10068,
+                    "Leisure":  false
+                },
+                {
+                    "B":  291,
+                    "Name":  "妹的圣域.md",
+                    "Dup":  27,
+                    "Plot":  6208,
+                    "Leisure":  true
+                },
+                {
+                    "B":  212,
+                    "Name":  "假面骑士J.md",
+                    "Dup":  27,
+                    "Plot":  10081,
+                    "Leisure":  false
+                },
+                {
+                    "B":  247,
+                    "Name":  "钢铁魔女虚空战争-维度崩塌.md",
+                    "Dup":  26,
+                    "Plot":  10693,
+                    "Leisure":  false
+                },
+                {
+                    "B":  227,
+                    "Name":  "钢铁魔女安妮罗泽-魔女陷落.md",
+                    "Dup":  26,
+                    "Plot":  10210,
+                    "Leisure":  false
+                },
+                {
+                    "B":  253,
+                    "Name":  "淫妖虫-退魔失败.md",
+                    "Dup":  25,
+                    "Plot":  10132,
+                    "Leisure":  false
+                },
+                {
+                    "B":  226,
+                    "Name":  "约会大作战V（如按动画续作口径）.md",
+                    "Dup":  24,
+                    "Plot":  10327,
+                    "Leisure":  false
+                },
+                {
+                    "B":  247,
+                    "Name":  "钢铁魔女虚空战争-最后的魔女.md",
+                    "Dup":  24,
+                    "Plot":  10513,
+                    "Leisure":  false
+                },
+                {
+                    "B":  212,
+                    "Name":  "游戏王5D\u0027s.md",
+                    "Dup":  24,
+                    "Plot":  10084,
+                    "Leisure":  false
+                },
+                {
+                    "B":  226,
+                    "Name":  "对魔忍紫-三代同堕.md",
+                    "Dup":  24,
+                    "Plot":  10042,
+                    "Leisure":  false
+                },
+                {
+                    "B":  247,
+                    "Name":  "钢铁魔女虚空战争-协会沦陷.md",
+                    "Dup":  23,
+                    "Plot":  10706,
+                    "Leisure":  false
+                },
+                {
+                    "B":  212,
+                    "Name":  "游戏王ZEXAL.md",
+                    "Dup":  23,
+                    "Plot":  10178,
+                    "Leisure":  false
+                },
+                {
+                    "B":  210,
+                    "Name":  "假面骑士Skyrider.md",
+                    "Dup":  23,
+                    "Plot":  10070,
+                    "Leisure":  false
+                },
+                {
+                    "B":  226,
+                    "Name":  "对魔忍阿莎姬3-完全堕落.md",
+                    "Dup":  22,
+                    "Plot":  10076,
+                    "Leisure":  false
+                },
+                {
+                    "B":  226,
+                    "Name":  "对魔忍阿莎姬2-再次沦陷.md",
+                    "Dup":  22,
+                    "Plot":  10300,
+                    "Leisure":  false
+                },
+                {
+                    "B":  230,
+                    "Name":  "Ben 10：终极异形（Ultimate Alien）.md",
+                    "Dup":  22,
+                    "Plot":  10155,
+                    "Leisure":  false
+                },
+                {
+                    "B":  229,
+                    "Name":  "惊悚乐园（游戏化副本口径）.md",
+                    "Dup":  22,
+                    "Plot":  10112,
+                    "Leisure":  false
+                },
+                {
+                    "B":  234,
+                    "Name":  "対魔忍深渊侵蚀-裂隙开启.md",
+                    "Dup":  21,
+                    "Plot":  10089,
+                    "Leisure":  false
+                },
+                {
+                    "B":  235,
+                    "Name":  "対魔忍深渊侵蚀-最终仪式.md",
+                    "Dup":  20,
+                    "Plot":  10083,
+                    "Leisure":  false
+                },
+                {
+                    "B":  226,
+                    "Name":  "对魔忍阿莎姬-竞技场.md",
+                    "Dup":  20,
+                    "Plot":  10635,
+                    "Leisure":  false
+                },
+                {
+                    "B":  242,
+                    "Name":  "淫妖虫母巢觉醒-铃音融合.md",
+                    "Dup":  19,
+                    "Plot":  10624,
+                    "Leisure":  false
+                },
+                {
+                    "B":  251,
+                    "Name":  "巨乳女战士土下座催眠-全队土下座.md",
+                    "Dup":  18,
+                    "Plot":  10296,
+                    "Leisure":  false
+                },
+                {
+                    "B":  235,
+                    "Name":  "対魔忍深渊侵蚀-东京陷落.md",
+                    "Dup":  18,
+                    "Plot":  10122,
+                    "Leisure":  false
+                },
+                {
+                    "B":  251,
+                    "Name":  "巨乳女战士土下座催眠-神官堕落.md",
+                    "Dup":  18,
+                    "Plot":  10214,
+                    "Leisure":  false
+                },
+                {
+                    "B":  253,
+                    "Name":  "姫骑士莉莉亚-完全堕落.md",
+                    "Dup":  18,
+                    "Plot":  10086,
+                    "Leisure":  false
+                },
+                {
+                    "B":  234,
+                    "Name":  "対魔忍深渊侵蚀-姐妹共堕.md",
+                    "Dup":  18,
+                    "Plot":  10077,
+                    "Leisure":  false
+                },
+                {
+                    "B":  242,
+                    "Name":  "淫妖虫母巢觉醒-女皇诞生.md",
+                    "Dup":  18,
+                    "Plot":  10540,
+                    "Leisure":  false
+                },
+                {
+                    "B":  273,
+                    "Name":  "交响乐之雨.md",
+                    "Dup":  18,
+                    "Plot":  6375,
+                    "Leisure":  true
+                },
+                {
+                    "B":  247,
+                    "Name":  "钢铁魔女虚空战争-虚空之心.md",
+                    "Dup":  18,
+                    "Plot":  10692,
+                    "Leisure":  false
+                },
+                {
+                    "B":  217,
+                    "Name":  "假面骑士铠武.md",
+                    "Dup":  18,
+                    "Plot":  10268,
+                    "Leisure":  false
+                },
+                {
+                    "B":  273,
+                    "Name":  "水月 (Suigetsu).md",
+                    "Dup":  17,
+                    "Plot":  6453,
+                    "Leisure":  true
+                },
+                {
+                    "B":  259,
+                    "Name":  "黑暗圣经新约-绚香堕落.md",
+                    "Dup":  17,
+                    "Plot":  10154,
+                    "Leisure":  false
+                },
+                {
+                    "B":  260,
+                    "Name":  "黑暗圣经起源-往昔悲剧.md",
+                    "Dup":  17,
+                    "Plot":  10116,
+                    "Leisure":  false
+                },
+                {
+                    "B":  249,
+                    "Name":  "GTA 3.md",
+                    "Dup":  17,
+                    "Plot":  10034,
+                    "Leisure":  false
+                },
+                {
+                    "B":  217,
+                    "Name":  "回复术士的重启人生.md",
+                    "Dup":  17,
+                    "Plot":  10406,
+                    "Leisure":  false
+                },
+                {
+                    "B":  217,
+                    "Name":  "假面骑士Wizard.md",
+                    "Dup":  17,
+                    "Plot":  10120,
+                    "Leisure":  false
+                },
+                {
+                    "B":  235,
+                    "Name":  "対魔忍深渊侵蚀-学园沦陷.md",
+                    "Dup":  17,
+                    "Plot":  10266,
+                    "Leisure":  false
+                },
+                {
+                    "B":  239,
+                    "Name":  "黑兽魔王觉醒-大陆统一.md",
+                    "Dup":  17,
+                    "Plot":  10219,
+                    "Leisure":  false
+                },
+                {
+                    "B":  215,
+                    "Name":  "失落的方舟－Lost Ark－.md",
+                    "Dup":  16,
+                    "Plot":  12588,
+                    "Leisure":  false
+                },
+                {
+                    "B":  273,
+                    "Name":  "水仙 (Narcissu).md",
+                    "Dup":  16,
+                    "Plot":  6286,
+                    "Leisure":  true
+                },
+                {
+                    "B":  215,
+                    "Name":  "王者荣耀（背景故事）.md",
+                    "Dup":  16,
+                    "Plot":  11472,
+                    "Leisure":  false
+                },
+                {
+                    "B":  240,
+                    "Name":  "闪乱神乐-阴阳师决战.md",
+                    "Dup":  16,
+                    "Plot":  10071,
+                    "Leisure":  false
+                },
+                {
+                    "B":  215,
+                    "Name":  "假面骑士电王.md",
+                    "Dup":  16,
+                    "Plot":  11633,
+                    "Leisure":  false
+                },
+                {
+                    "B":  234,
+                    "Name":  "対魔忍深渊侵蚀-三代祭品.md",
+                    "Dup":  16,
+                    "Plot":  10123,
+                    "Leisure":  false
+                },
+                {
+                    "B":  215,
+                    "Name":  "假面骑士响鬼.md",
+                    "Dup":  16,
+                    "Plot":  11518,
+                    "Leisure":  false
+                },
+                {
+                    "B":  215,
+                    "Name":  "假面骑士Kabuto.md",
+                    "Dup":  16,
+                    "Plot":  12808,
+                    "Leisure":  false
+                },
+                {
+                    "B":  217,
+                    "Name":  "假面骑士Fourze.md",
+                    "Dup":  16,
+                    "Plot":  10113,
+                    "Leisure":  false
+                },
+                {
+                    "B":  221,
+                    "Name":  "装甲骑女伊莉丝-魔铠融合.md",
+                    "Dup":  15,
+                    "Plot":  10056,
+                    "Leisure":  false
+                },
+                {
+                    "B":  235,
+                    "Name":  "対魔忍深渊侵蚀-反抗军.md",
+                    "Dup":  15,
+                    "Plot":  10305,
+                    "Leisure":  false
+                },
+                {
+                    "B":  242,
+                    "Name":  "民俗-封神遗冢.md",
+                    "Dup":  15,
+                    "Plot":  10512,
+                    "Leisure":  false
+                },
+                {
+                    "B":  273,
+                    "Name":  "One ~辉之季节~.md",
+                    "Dup":  15,
+                    "Plot":  6281,
+                    "Leisure":  true
+                }
+            ],
+    "checked":  501,
+    "short":  [
+                  "B218|假面骑士Drive.md|plot=9997"
+              ],
+    "ph":  [
+               "B205|对魔忍：红.md",
+               "B212|游戏王ZEXAL.md",
+               "B251|巨乳女战士土下座催眠-全队土下座.md",
+               "B251|巨乳女战士土下座催眠-神官堕落.md",
+               "B272|Rewrite Harvest festa!.md",
+               "B273|交响乐之雨.md",
+               "B274|Fate－hollow ataraxia.md",
+               "B279|美好的每一天 (Subahibi).md",
+               "B280|车轮之国，向日葵的少女.md",
+               "B284|传颂之物－ 给逝者的摇篮曲.md",
+               "B284|传颂之物－ 虚伪的假面.md",
+               "B284|灰色的乐园.md",
+               "B284|白色相簿2－ Closing Chapter (终章－Coda).md",
+               "B284|白色相簿2－ Introductory Chapter (序章).md",
+               "B285|Muv-Luv (Extra \u0026 Unlimited).md",
+               "B285|Muv-Luv Alternative.md",
+               "B285|To Heart 2.md",
+               "B285|传颂之物－ 二人的白皇.md",
+               "B285|痕 (Kizuato).md",
+               "B288|兰斯01－ 寻找小光 (重制版).md"
+           ],
+    "tpl":  [
+
+            ],
+    "fail":  [
+
+             ],
+    "nosrc":  [
+                  "B212|假面骑士ZO.md|2",
+                  "B253|淫妖虫-蝕变.md|2",
+                  "B253|淫妖虫-退魔失败.md|2",
+                  "B264|受胎岛-原住民.md|2",
+                  "B264|受胎岛-漂流.md|2",
+                  "B264|受胎岛-繁殖.md|2",
+                  "B265|受胎岛-逃脱失败.md|2",
+                  "B282|监禁.md|2",
+                  "B283|灰色的迷宫.md|2",
+                  "B284|灰色的乐园.md|2",
+                  "B285|Muv-Luv (Extra \u0026 Unlimited).md|2",
+                  "B290|缘之空 (Yosuga no Sora).md|2",
+                  "B291|悠之空 (Haruka na Sora).md|2",
+                  "B292|美少女万华镜2.5－ 献给曾是少女的你.md|1",
+                  "B295|姐名 (Aneiro).md|2",
+                  "B299|MakingLovers.md|2",
+                  "B300|HaremKingdom.md|2"
+              ],
+    "warn":  [
+
+             ],
+    "pad":  [
+                "B223|黑兽-佣兵堕落.md",
+                "B223|黑兽-侍从双堕.md",
+                "B223|黑兽-黑暗女王屈服.md",
+                "B265|剑星-地下遗迹.md",
+                "B265|受胎岛-逃脱失败.md",
+                "B265|奴隶区-完全服从.md",
+                "B265|爱嬢学园-羞耻课程.md",
+                "B265|爱嬢学园-贵族入学.md",
+                "B266|命运石之门-D-Mail干涉.md",
+                "B266|民俗-赶尸匠.md",
+                "B266|爱嬢学园-毕业典礼.md",
+                "B266|痴漢電車-早高峰.md",
+                "B266|石世界-科学王国.md",
+                "B286|SHUFFLE!.md",
+                "B286|初音岛II (D.C. II).md",
+                "B286|初音岛III (D.C. III).md",
+                "B286|千恋＊万花.md",
+                "B286|魔女的夜宴 (Sanoba Witch).md",
+                "B287|DRACU-RIOT!.md",
+                "B287|Parquet.md",
+                "B287|RIDDLE JOKER.md",
+                "B287|名流得主 (Noble Works).md",
+                "B287|天使嚣嚣 (Tenshi Souzou Re-Boot!).md",
+                "B299|9-nine- 九次九日九重色.md",
+                "B299|9-nine- 天色天歌天籁音.md",
+                "B299|9-nine- 春色春恋春熙风.md"
+            ]
+}

@@ -1239,7 +1239,7 @@ function AttrTab({ npc: npcProp, realm }: { npc: NpcRecord; realm: ReturnType<ty
     // 手动选了阶位 → 一并把 NPC 阶位改成所选阶(保留"|身份"后缀)，否则面板阶位仍显示离谱旧值
     const idSuffix = (npc.realm ?? '').includes('|') ? (npc.realm ?? '').split('|').slice(1).join('|').trim() : '';
     const realmPatch = pickRealm ? { realm: `${pickRealm}·Lv.${genLevel}${idSuffix ? '|' + idSuffix : ''}` } : {};
-    upsertNpc(npc.id, { attrs, ...realmPatch, ...(pickType ? { unitType: pickType } : {}) });
+    upsertNpc(npc.id, { attrs, attrsEstablished: true, ...realmPatch, ...(pickType ? { unitType: pickType } : {}) });   // 手动🎲=玩家亲手建档 → 落 attrsEstablished，AI 此后只能增量微调
     setRerollN((v) => v + 1);
   };
   const [attrPop, setAttrPop] = useState<keyof PlayerAttrs | null>(null);

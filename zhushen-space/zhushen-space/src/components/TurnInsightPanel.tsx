@@ -202,7 +202,10 @@ function InsightBody({ cur, prev }: { cur: TurnSnapshot; prev: TurnSnapshot }) {
     return { id, c, p, isNew, favorCh, worldCh, fieldCh };
   }).filter(Boolean) as any[];
 
-  const nothing = !playerHasChange && npcRows.length === 0 && facRows.length === 0;
+  // ⚖️ 闸门仲裁：本回合被成长闸门（npcGrowthGuard）驳回/夹逼的 NPC 数值变更 + 被任务闸门（questGuard）驳回的任务改写/新建
+  const arb = cur.arbitration ?? [];
+
+  const nothing = !playerHasChange && npcRows.length === 0 && facRows.length === 0 && arb.length === 0;
   if (nothing) return <div className="text-center text-dim/40 text-sm py-12">本轮相对上一轮无可识别的结构化变化。</div>;
 
   return (
@@ -301,6 +304,19 @@ function InsightBody({ cur, prev }: { cur: TurnSnapshot; prev: TurnSnapshot }) {
               ))}
             </Card>
           ))}
+        </Section>
+      )}
+
+      {arb.length > 0 && (
+        <Section title="⚖️ 闸门仲裁（AI 提议的 NPC 数值 / 任务变更被闸门驳回或夹逼）">
+          <Card title={`本回合 ${arb.length} 笔`}>
+            <div className="space-y-1">
+              {arb.map((line, i) => (
+                <div key={i} className="text-[12px] text-dim/70 leading-relaxed font-mono">{line}</div>
+              ))}
+            </div>
+            <div className="text-[11px] text-dim/40 mt-2">NPC：升阶/升档/属性大涨需正文出现该角色的突破类事件；降档/属性下调需跌落/致残类证据。任务：已建档任务结构冻结、AI 只许推进，新建有配额与支线上限，删除转「作废」归档。误拦时可在 NPC 详情 / 任务面板 ✏️ 手动修改（手动编辑不经闸门）。</div>
+          </Card>
         </Section>
       )}
     </>

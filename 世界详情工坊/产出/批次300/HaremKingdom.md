@@ -185,6 +185,9 @@
 
 ## 来源
 
+- [资料](https://vndb.org/v24253)
+- [资料](https://ja.wikipedia.org/wiki/HaremKingdom)
+- [资料](https://www.sokrates-soft.com/)
 - [HaremKingdom - 维基百科](https://zh.wikipedia.org/wiki/HaremKingdom)
 - [HaremKingdom 公式サイト](http://www.hook-net.jp/smee/haremkingdom/index.html)
 - [HaremKingdom ストーリー](http://www.hook-net.jp/smee/haremkingdom/story.html)

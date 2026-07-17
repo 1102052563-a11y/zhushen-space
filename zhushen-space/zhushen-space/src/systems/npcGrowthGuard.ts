@@ -123,10 +123,12 @@ export function guardRealmChange(
   const nx = parseRealmParts(nextRaw ?? '');
   const id = nx.id.trim() ? nx.id : p.id;    // 身份段：新值优先，纯数字裁决不拦身份更新
 
-  // next 认不出阶位也推不出 → 纯身份/垃圾串：有旧数字保旧数字，双方都没有则原样（不乱改）
+  // next 认不出阶位也推不出 → 纯身份更新：保留旧数字段、把新串当身份（如「首席调查员」）；双方都没数字则原样（不乱改）
   if (nx.tierIdx < 0) {
     if (p.tierIdx < 0) return { realm: nextRaw, notes };
-    return { realm: buildRealm(p.tierIdx, p.lv, id), notes };
+    const head = (nextRaw ?? '').split('|')[0].trim();
+    const asIdentity = nx.id.trim() || (head && !/Lv\.?\s*\d+/i.test(head) ? head : '');
+    return { realm: buildRealm(p.tierIdx, p.lv, asIdentity || p.id), notes };
   }
 
   let outIdx = nx.tierIdx;
@@ -141,7 +143,7 @@ export function guardRealmChange(
       if (!evid) {
         notes.push(`升阶驳回（正文无突破证据）：${TIERS[p.tierIdx]}→${TIERS[nx.tierIdx]} 不予落地`);
         outIdx = p.tierIdx;
-        outLv = guardLvSameTier(p, nx.lv, name, ctx, notes);
+        outLv = p.lv;   // AI 的意图是升阶而非升级：整段驳回、数字全保，不让等级顺带爬步长
       } else {
         const step = settle ? TIER_STEP_SETTLE : TIER_STEP_MAX;
         outIdx = Math.min(nx.tierIdx, p.tierIdx + step);

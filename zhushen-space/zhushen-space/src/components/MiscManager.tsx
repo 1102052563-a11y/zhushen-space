@@ -166,6 +166,31 @@ function SettingsSection() {
         <div className="text-[12px] text-dim/50 leading-snug">支线按"贴合当前地点 / 在场 NPC"相关性排序后取前 N 条注入；主线始终全量注入。关掉开关则正文完全不注入任务（回到旧行为）。</div>
       </div>
 
+      {/* 任务闸门（questGuard）：AI 侧护栏——结构锁 + 布置配额；玩家 ✏️ 编辑 / 手动生成不受限 */}
+      <div className="rounded-lg border border-edge bg-panel px-3 py-2.5 space-y-2">
+        <div className="flex items-center justify-between gap-3">
+          <div>
+            <div className="text-sm text-slate-200">任务闸门 · AI 结构锁</div>
+            <div className="text-[13px] text-dim/70 mt-0.5">已建档任务 AI 只能推进（状态 / 进度 / 评级 / 环推进），名称 / 描述 / 奖惩 / 终局 / 环内容一律冻结，被驳回的改写记入回合洞察仲裁日志</div>
+          </div>
+          <Toggle checked={settings.questGuardLock !== false}
+            onChange={() => setSettings({ questGuardLock: settings.questGuardLock === false } as any)} />
+        </div>
+        <label className="flex items-center justify-between gap-2 text-sm text-dim">
+          <span>在场支线数量上限（满额时 AI 新建支线被驳回；0 = 不限）</span>
+          <input type="number" min={0} max={20} value={settings.questSideMax ?? 4}
+            onChange={(e) => setSettings({ questSideMax: Math.max(0, Math.min(20, Number(e.target.value) || 0)) } as any)}
+            className="w-20 bg-void border border-edge rounded px-2 py-1 text-sm font-mono text-slate-200 outline-none focus:border-god text-right" />
+        </label>
+        <label className="flex items-center justify-between gap-2 text-sm text-dim">
+          <span>每轮杂项演化 AI 新建任务上限（0 = 不限）</span>
+          <input type="number" min={0} max={10} value={settings.questNewPerRound ?? 1}
+            onChange={(e) => setSettings({ questNewPerRound: Math.max(0, Math.min(10, Number(e.target.value) || 0)) } as any)}
+            className="w-20 bg-void border border-edge rounded px-2 py-1 text-sm font-mono text-slate-200 outline-none focus:border-god text-right" />
+        </label>
+        <div className="text-[12px] text-dim/50 leading-snug">治"任务乱变动 / 无限布置"：主线、职业任务、进阶通告不占支线额度；AI 的 de() 删除一律转「作废」归档留底（只存不删）。玩家在任务面板 ✏️ 编辑、🎲 手动生成不经闸门。</div>
+      </div>
+
       {/* 预设：导入 / 导出 / 恢复默认 + 条目列表 */}
       <div className="rounded-lg border border-edge bg-panel">
         <div className="flex items-center gap-2 px-3 py-2.5 border-b border-edge">

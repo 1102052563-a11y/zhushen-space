@@ -171,6 +171,8 @@
 
 ## 来源
 
+- [资料](https://zh.wikipedia.org/wiki/%E7%BC%98%E4%B9%8B%E7%A9%BA)
+- [资料](https://ja.wikipedia.org/wiki/%E3%82%88%E3%81%99%E3%81%8C%E3%81%AE%E7%A9%BA)
 - [缘之空 - 中文维基百科](https://zh.wikipedia.org/wiki/缘之空)
 - [Sphere 缘之空官方（存档）](http://www.cuffs-sphere.jp/products/yosuga/)
 - [悠之空官方（存档）](http://www.cuffs-sphere.jp/products/haruka/)
