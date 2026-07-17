@@ -64,7 +64,7 @@ export function filterAiTaskPatch(
     if (AI_TASK_PATCH_ALLOW.has(k)) { (patch as Record<string, unknown>)[k] = v; continue; }
     // 结构字段：冻结。只把"真的想改"的记入仲裁（缺省 kind 视为支线，避免重发 kind:"支线" 误报）
     const nv = String(v).trim();
-    const ov = k === 'kind' ? String(existing.kind ?? '支线') : String((existing as Record<string, unknown>)[k] ?? '').trim();
+    const ov = k === 'kind' ? String(existing.kind ?? '支线') : String((existing as unknown as Record<string, unknown>)[k] ?? '').trim();
     if (nv && nv !== ov) dropped.push(`${STRUCT_LABEL[k] ?? k}「${clip(ov) || '（空）'}→${clip(nv)}」`);
   }
   return { patch, dropped };

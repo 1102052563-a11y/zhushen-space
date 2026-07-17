@@ -1660,10 +1660,11 @@ export default function App() {
   const [generating, setGenerating] = useState(false);
   const [genError, setGenError] = useState('');
   // 细纲弹窗：正文前先生成本回合细纲 → 玩家编辑 → 确认后注入正文。open=true 期间 sendMessage 门控（防重复发起）。
-  const [outlineModal, setOutlineModal] = useState<{ open: boolean; loading: boolean; text: string }>({ open: false, loading: false, text: '' });
+  const [outlineModal, setOutlineModal] = useState<{ open: boolean; loading: boolean; text: string; dice?: DiceCardData[] }>({ open: false, loading: false, text: '' });
   const outlineResolveRef = useRef<((v: string | null) => void) | null>(null);  // Promise 桥：确认(编辑后文本)/取消(null) 由弹窗按钮 resolve
   const outlineInputRef = useRef<string>('');   // 本回合玩家输入(含检定块，=apiText)（供「重新生成细纲」复用）
   const outlineHistRef = useRef<ChatMessage[]>([]);   // 本回合发送前抓拍历史（供「重新生成细纲」复用·杜绝当前行动重复）
+  const outlineRunRef = useRef(0);   // 细纲轮次令牌：取消/重新生成后，上一轮的迟到流式帧对不上令牌 → 不会把旧细纲写进新弹窗
   // 检定审核窗：自动检定出结果后弹窗（可重掷/编辑检定块）→ 确认才进正文。Promise 桥：确认(结果)/取消(null)。
   const [diceReviewModal, setDiceReviewModal] = useState<{ result: AutoDiceOut; text: string } | null>(null);
   const diceReviewResolveRef = useRef<((v: AutoDiceOut | null) => void) | null>(null);
@@ -1672,6 +1673,7 @@ export default function App() {
   const planResolveRef = useRef<((v: string | null) => void) | null>(null);
   const planInputRef = useRef<string>('');
   const planHistRef = useRef<ChatMessage[]>([]);
+  const planRunRef = useRef(0);   // 同 outlineRunRef：审核窗轮次令牌，挡住上一轮的迟到结果
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const chatScrollRef = useRef<HTMLDivElement>(null);      // 对话滚动容器
   const stickBottomRef = useRef(true);                     // 是否吸附底部（用户上滑查看时置 false，流式生成不再强拉到底）
@@ -7345,8 +7347,9 @@ ${lines}`;
           if (isFinite(cap)) {
             const over = (['str', 'agi', 'con', 'int', 'cha'] as const).filter((k) => (a[k] ?? 0) > cap);
             if (over.length) {
-              patch.attrs = { ...a };
-              for (const k of over) (patch.attrs as Record<string, number>)[k] = cap;
+              const clamped = { ...a };
+              for (const k of over) clamped[k] = cap;   // over 的键本就是 PlayerAttrs 的字面量键，无需转 Record
+              patch.attrs = clamped;
               logArbitration(r.name, `体检：${over.join('/')} 超出 阶位∧bs峰值上限(${cap}) → 夹回`);
             }
           }
@@ -9069,20 +9072,26 @@ ${lines}`;
     planInputRef.current = input;
     planHistRef.current = hist;
     const title = mode === 'guidance' ? '💡 本回合剧情指导' : '🎬 本回合数据库推进';
+    const run = ++planRunRef.current;
     setPlanModal({ open: true, loading: true, text: '', mode, title });
-    let draft = '';
-    try {
-      if (mode === 'guidance') {
-        const g = await runPlotGuidance(input);
-        draft = guidanceLooksLikeNarrative(g)   // 跑偏成正文→不把整篇正文塞进弹窗，改放引导语（用户可清空跳过或改写）
-          ? '（⚠️ 剧情指导疑似生成了「正文」而不是「要点建议」，已拦下、没直接塞进来。\n多半是 设置→正文生成→剧情指导 的「自定义提示词」里填了正文预设/写作指令——留空即用内置的“只给要点、不写正文”规则。\n你可以：清空本框直接跳过本回合指导，或在这里手写几条方向建议再确认。）'
-          : g;
-      } else {
-        draft = (await callApi(input, hist, { task: 'dbAdvance' })) || '';
-      }
-    } catch (e) { console.warn('[正文前审核] 生成失败', e); }
-    setPlanModal((m) => (m && m.open) ? { ...m, loading: false, text: draft } : m);
-    const edited = await new Promise<string | null>((res) => { planResolveRef.current = res; });
+    // ⚠ Promise 桥必须**先挂再生成**（详见细纲那处注释）：旧版在 await 生成之后才挂 resolve，
+    //    于是「生成中」点取消/×/Esc 全打在 null 上＝弹窗关不掉。现在生成与「等玩家决定」解耦跑。
+    const decision = new Promise<string | null>((res) => { planResolveRef.current = res; });
+    void (async () => {
+      let draft = '';
+      try {
+        if (mode === 'guidance') {
+          const g = await runPlotGuidance(input);
+          draft = guidanceLooksLikeNarrative(g)   // 跑偏成正文→不把整篇正文塞进弹窗，改放引导语（用户可清空跳过或改写）
+            ? '（⚠️ 剧情指导疑似生成了「正文」而不是「要点建议」，已拦下、没直接塞进来。\n多半是 设置→正文生成→剧情指导 的「自定义提示词」里填了正文预设/写作指令——留空即用内置的“只给要点、不写正文”规则。\n你可以：清空本框直接跳过本回合指导，或在这里手写几条方向建议再确认。）'
+            : g;
+        } else {
+          draft = (await callApi(input, hist, { task: 'dbAdvance' })) || '';
+        }
+      } catch (e) { console.warn('[正文前审核] 生成失败', e); }
+      setPlanModal((m) => (planRunRef.current === run && m && m.open && m.loading) ? { ...m, loading: false, text: draft } : m);   // 令牌对得上才落笔：取消后这一轮的迟到结果直接丢弃
+    })();
+    const edited = await decision;
     planResolveRef.current = null;
     setPlanModal(null);
     return edited;
@@ -9119,6 +9128,11 @@ ${lines}`;
         : '请先在设置→正文生成→API配置中填写 API 地址和 Key（或在综合设置→API 接口库添加后于此选择路由）');
       return;
     }
+    // 中止控制器**在准备期就挂上**（而不是等拼完提示词、临发请求前才挂）：记忆召回/向量检索/世界书扫描可能跑好几秒，
+    // 期间玩家点「停止/取消」若 abortRef 还是 null 就等于点了个寂寞（细纲弹窗「生成中…关不掉」的另一半根因）。
+    // 提前挂上后，准备期收到的 abort 会被 signal 记住，下面发请求前先自检直接 bail。
+    const ac = new AbortController();
+    abortRef.current = ac;
 
     // 解析激活预设：先按 id，再按名（id 失配兜底——内置预设跨刷新 id 可能变），最后退到库内第一个；
     // 只要预设库非空就一定注入某个预设，绝不因 activeId 为 null/失配而「裸奔」无预设（修「预设没注入」）。
@@ -9483,8 +9497,6 @@ ${lines}`;
     }
     setGenerating(true);
     setGenError('');
-    const ac = new AbortController();
-    abortRef.current = ac;
     stopAllRef.current = false;   // 新一轮生成：解除上次「停止生成」
 
     // 多模态：本回合玩家附带了图片 → 把它们挂到「最后一条 user 消息」上（OpenAI 视觉格式）。无图则原样。
@@ -9492,6 +9504,7 @@ ${lines}`;
     const outMessages = attachImagesToLastUser([{ role: 'system', content: sysForSend }, ...histForSend], opts.images);
 
     try {
+      if (ac.signal.aborted) throw new DOMException('已取消', 'AbortError');   // 准备期就被停掉 → 别再白发一轮请求（走 catch 的 AbortError 静默分支）
       // 接口路由：按优先级逐个尝试，失败/非 OK 自动 fallback 到下一条；首个成功者用于（流式）读取
       let res: Response | null = null;
       let usedApi = apiChain[0];
@@ -10031,6 +10044,7 @@ ${lines}`;
     //   结果对读者隐藏——`<检定结果>` 块只随本回合喂给正文 API（不入楼层 content，不污染历史），另在该用户气泡下弹一张骰子卡。
     let apiText = userPromptText;
     let autoFired = false;
+    let turnDice: DiceCardData[] = [];   // 本回合最终生效的检定卡：细纲弹窗里同屏摆一份，规划这一拍时能直接看 roll 点（成败决定这拍怎么写）
     if (mp.status !== 'connected') {
       try {
         const auto = await runAutoDice(text);
@@ -10054,6 +10068,7 @@ ${lines}`;
           }
           if (finalBlock.trim()) {   // 清空检定块（审核时删掉）= 本回合不注入检定
             apiText = `${userPromptText}\n${finalBlock.trim()}`;
+            turnDice = finalCards;
             setMessages((prev) => prev.map((m) => m.id === userMsgId ? { ...m, dice: finalCards } : m));
           }
         }
@@ -10069,13 +10084,20 @@ ${lines}`;
     if (outlineOn) {
       outlineInputRef.current = apiText;
       outlineHistRef.current = histSnapshot;
-      setOutlineModal({ open: true, loading: true, text: '' });
-      let draft = '';
-      try { draft = (await callApi(apiText, histSnapshot, { task: 'outline', images: turnImages, onDelta: (t) => setOutlineModal((m) => m.open ? { ...m, text: outlineStreamDisplay(t) } : m) })) || ''; }
-      catch (e) { console.warn('[细纲] 生成失败', e); }
-      setOutlineModal((m) => m.open ? { ...m, loading: false, text: draft || m.text } : m);
-      // Promise 桥：等玩家「确认并生成正文」(编辑后文本) 或「取消」(null)
-      const edited = await new Promise<string | null>((res) => { outlineResolveRef.current = res; });
+      const run = ++outlineRunRef.current;
+      setOutlineModal({ open: true, loading: true, text: '', dice: turnDice });
+      // ⚠ Promise 桥必须**在生成之前**挂：旧版是 await callApi 之后才把 resolve 塞进 ref，
+      //    于是整个「生成中……」窗口里 outlineResolveRef.current 都还是 null → 取消/×/Esc 全是空操作＝弹窗关不掉
+      //    （发错了只能干等它写完）。现在生成与「等玩家决定」解耦：生成中取消 → 中止请求 + 立刻放行，不等它写完。
+      const decision = new Promise<string | null>((res) => { outlineResolveRef.current = res; });
+      void (async () => {
+        let draft = '';
+        try { draft = (await callApi(apiText, histSnapshot, { task: 'outline', images: turnImages, onDelta: (t) => setOutlineModal((m) => (outlineRunRef.current === run && m.open) ? { ...m, text: outlineStreamDisplay(t) } : m) })) || ''; }
+        catch (e) { console.warn('[细纲] 生成失败', e); }
+        // 令牌对得上、且弹窗还在等这一轮，才落笔：取消/重开后这一轮的迟到帧一律丢弃（draft 为空＝被中止 → 留住已写的部分转可编辑）
+        setOutlineModal((m) => (outlineRunRef.current === run && m.open && m.loading) ? { ...m, loading: false, text: draft || m.text } : m);
+      })();
+      const edited = await decision;   // 等玩家「确认并生成正文」(编辑后文本) 或「取消」(null)
       outlineResolveRef.current = null;
       setOutlineModal({ open: false, loading: false, text: '' });
       if (edited == null) {   // 取消：撤回用户气泡（连同检定卡）、还原输入框，本回合作废
@@ -11896,9 +11918,11 @@ ${lines}`;
           subtitle="先审核这一拍的规划，编辑满意后再生成正文（清空则本回合不注入该规划）。"
           allowEmpty
           onConfirm={(v) => planResolveRef.current?.(v)}
-          onCancel={() => planResolveRef.current?.(null)}
+          onCancel={() => { if (planModal.loading) stopGeneration(); planResolveRef.current?.(null); }}   // 生成中取消：先中止请求，别让它继续占着 generating 门
+          onStop={() => stopGeneration()}
           onRegenerate={async () => {
             const mode = planModal.mode;
+            const run = ++planRunRef.current;
             setPlanModal((m) => m ? { ...m, loading: true, text: '' } : m);
             let d = '';
             try {
@@ -11906,7 +11930,7 @@ ${lines}`;
                 ? await runPlotGuidance(planInputRef.current)
                 : (await callApi(planInputRef.current, planHistRef.current, { task: 'dbAdvance' })) || '';
             } catch (e) { console.warn('[正文前审核] 重新生成失败', e); }
-            setPlanModal((m) => (m && m.open) ? { ...m, loading: false, text: d } : m);
+            setPlanModal((m) => (planRunRef.current === run && m && m.open) ? { ...m, loading: false, text: d } : m);
           }}
         />
       )}
@@ -11916,14 +11940,17 @@ ${lines}`;
           loading={outlineModal.loading}
           text={outlineModal.text}
           wordTarget={useSettings.getState().outlineWordTarget || undefined}
+          dice={outlineModal.dice}
           onConfirm={(v) => outlineResolveRef.current?.(v)}
-          onCancel={() => outlineResolveRef.current?.(null)}
+          onCancel={() => { if (outlineModal.loading) stopGeneration(); outlineResolveRef.current?.(null); }}   // 生成中取消：先中止请求（否则它会一直占着 generating 门，玩家重发被挡）
+          onStop={() => stopGeneration()}   // 只停生成、留住已写的部分转可编辑（弹窗不关）
           onRegenerate={async () => {
+            const run = ++outlineRunRef.current;
             setOutlineModal((m) => ({ ...m, loading: true, text: '' }));
             let d = '';
-            try { d = (await callApi(outlineInputRef.current, outlineHistRef.current, { task: 'outline', onDelta: (t) => setOutlineModal((m) => m.open ? { ...m, text: outlineStreamDisplay(t) } : m) })) || ''; }
+            try { d = (await callApi(outlineInputRef.current, outlineHistRef.current, { task: 'outline', onDelta: (t) => setOutlineModal((m) => (outlineRunRef.current === run && m.open) ? { ...m, text: outlineStreamDisplay(t) } : m) })) || ''; }
             catch (e) { console.warn('[细纲] 重新生成失败', e); }
-            setOutlineModal((m) => m.open ? { ...m, loading: false, text: d || m.text } : m);
+            setOutlineModal((m) => (outlineRunRef.current === run && m.open) ? { ...m, loading: false, text: d || m.text } : m);
           }}
         />
       )}

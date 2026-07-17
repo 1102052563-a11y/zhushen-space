@@ -167,9 +167,10 @@ export function applyMiscCommands(reply: string, opts: { allowLarge?: boolean; t
     }
     if ((m = /^de\(\s*"(T_\d+)"\s*\)$/.exec(line))) {
       // 图书馆铁则「只存不删」：AI 的删除一律转为「作废」归档留底（面板可查、玩家可 ✏️ 复原），绝不物理删除；玩家在面板删除不受此限
-      if (useMisc.getState().tasks.some((t) => t.id === m[1])) {
-        M.settleTask(m[1], '已作废');
-        logArbitration(`任务 ${m[1]}`, '删除指令已转为「作废」归档留底（数据库只存不删）');
+      const tid = m[1];   // 先取出：m 是 let，闭包内 TS 不保证仍非 null（TS18047）
+      if (useMisc.getState().tasks.some((t) => t.id === tid)) {
+        M.settleTask(tid, '已作废');
+        logArbitration(`任务 ${tid}`, '删除指令已转为「作废」归档留底（数据库只存不删）');
       }
       n++; continue;
     }
