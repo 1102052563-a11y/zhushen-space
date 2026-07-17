@@ -113,3 +113,8 @@ export async function getCachedDepth(imgSrc?: string): Promise<string | null> {
   if (!imgSrc) return null;
   return idbGet(hashImg(imgSrc));
 }
+
+/** 深度图缓存 key（=图片内容 hash）。对外暴露，供「这张图记住切回平面」按同一把 key 记偏好（见 imageGenStore.holoFlatImgs）。 */
+export function depthKeyOf(imgSrc: string): string {
+  return hashImg(imgSrc);
+}

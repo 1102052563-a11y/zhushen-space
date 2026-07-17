@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import HoloCard from './HoloCard';
 import { type HoloFoil } from '../systems/holoFoils';
 import { useImageGen } from '../store/imageGenStore';
-import { getDepthMap, getCachedDepth } from '../systems/depthMap';
+import { getDepthMap, getCachedDepth, depthKeyOf } from '../systems/depthMap';
 import { useSettings } from '../store/settingsStore';
 
 interface Props {
@@ -28,9 +28,12 @@ export default function HoloInspector({ open, onClose, img, name, badge, grade, 
   const [busy, setBusy] = useState(false);
   const [prog, setProg] = useState('');
 
-  // 打开时只查缓存（生成过一次就直接 2.5D），不自动生成——生成由玩家手动点按钮
+  // 打开时只查缓存（生成过一次就直接 2.5D），不自动生成——生成由玩家手动点按钮。
+  // ⚠ flat 初值必须读「这张图上次是不是被切回平面了」：深度图一进 IndexedDB 就永久缓存，
+  //   若每次打开都无脑 setFlat(false)，玩家点的「切回平面」只在本次弹层有效，重开又自动凸起 = 2.5D 关不掉。
   useEffect(() => {
-    setDepthSrc(undefined); setFlat(false); setBusy(false); setProg('');
+    setDepthSrc(undefined); setBusy(false); setProg('');
+    setFlat(!!img && (useImageGen.getState().holoFlatImgs ?? []).includes(depthKeyOf(img)));   // getState 现读：别把 holoFlatImgs 塞进依赖，否则一点按钮就重跑本 effect、depthSrc 被清掉闪一下
     if (!open || !holoParallax || !img) return;
     let alive = true;
     getCachedDepth(img).then((d) => { if (alive && d) setDepthSrc(d); });
@@ -71,7 +74,7 @@ export default function HoloInspector({ open, onClose, img, name, badge, grade, 
       setProg(info.pct != null ? `${info.stage} ${info.pct}%` : info.stage);
     });
     setBusy(false);
-    if (d) { setDepthSrc(d); setFlat(false); setProg(''); }
+    if (d) { setDepthSrc(d); setFlat(false); if (img) useImageGen.getState().setHoloFlatImg(depthKeyOf(img), false); setProg(''); }   // 手动点了 2.5D 化＝撤销这张图之前的「切回平面」记忆
     else setProg(errMsg || '生成失败（模型下载失败？国内在 设置→生图 填 hf-mirror，或改用网关端点）');
   }
 
@@ -96,7 +99,8 @@ export default function HoloInspector({ open, onClose, img, name, badge, grade, 
               {busy ? (prog || '生成中…') : '✨ 2.5D 化'}
             </button>
           ) : (
-            <button onClick={() => setFlat((f) => !f)}
+            <button onClick={() => { const f = !flat; setFlat(f); if (img) useImageGen.getState().setHoloFlatImg(depthKeyOf(img), f); }}
+              title={flat ? '这张图当前记为平面，重开检视也保持平面' : '切回平面后会被记住：以后打开这张图不再自动 2.5D'}
               style={{ ...btnBase, color: '#e7d9ff', background: 'rgba(26,5,20,.8)', border: '0.5px solid #6a3a52' }}>
               {flat ? '切到 2.5D 立体' : '切回平面'}
             </button>

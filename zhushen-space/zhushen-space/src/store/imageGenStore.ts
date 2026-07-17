@@ -260,6 +260,8 @@ export interface ImageGenSettings {
   depthUrl: string;                 // gateway 端点（图入 → 深度图出；POST {image:base64} → 深度图）
   depthKey: string;                 // gateway 密钥（Bearer，可空）
   depthHfMirror: string;            // local 模型下载镜像（国内访问 HuggingFace 慢/失败时填 https://hf-mirror.com；空=官方 HF）
+  holoFlatImgs: string[];           // 玩家点过「切回平面」的图（按 depthKeyOf(img)=深度图缓存 key 记）：重开检视不再自动 2.5D。
+                                    //   没这条的话，深度图一旦生成就永久缓存、每次打开都自动凸起 → 「切回平面」只在本次弹层有效，关不掉（玩家原话：关掉了但人物肖像还是2.5D）
 }
 
 interface ImageGenState extends ImageGenSettings {
@@ -277,6 +279,7 @@ interface ImageGenState extends ImageGenSettings {
   setGemini: (patch: Partial<OpenAIImgConfig>) => void;
   setCustom: (patch: Partial<OpenAIImgConfig>) => void;
   setComfy: (patch: Partial<ComfyConfig>) => void;
+  setHoloFlatImg: (key: string, flat: boolean) => void;   // 记住/取消某张图的「切回平面」（key=depthKeyOf(img)）
   resetEquipTemplate: () => void;
   resetStoryTemplate: () => void;
   resetGptStoryTemplate: () => void;
@@ -300,7 +303,7 @@ export const useImageGen = create<ImageGenState>()(
       autoEquipPlayer: false, autoEquipNpc: false, equipTemplate: DEFAULT_EQUIP_TEMPLATE, equipNegative: DEFAULT_EQUIP_NEG,
       activeStyleId: 'nai-anime',
       autoStory: false, storyProgressive: false, storyImageCount: 4, storySize: 'inherit', storyTemplate: DEFAULT_STORY_TEMPLATE, gptStoryTemplate: DEFAULT_GPT_STORY_TEMPLATE, storyLlmRoutes: [],
-      holoParallax: true, depthProvider: 'local', depthUrl: '', depthKey: '', depthHfMirror: '',
+      holoParallax: true, depthProvider: 'local', depthUrl: '', depthKey: '', depthHfMirror: '', holoFlatImgs: [],
       styles: DEFAULT_STYLES.map((s) => ({ ...s })),
 
       nai: {
@@ -321,6 +324,10 @@ export const useImageGen = create<ImageGenState>()(
       setGemini: (patch) => set((s) => ({ gemini: { ...s.gemini, ...patch } })),
       setCustom: (patch) => set((s) => ({ custom: { ...s.custom, ...patch } })),
       setComfy: (patch) => set((s) => ({ comfy: { ...s.comfy, ...patch } })),
+      setHoloFlatImg: (key, flat) => set((s) => {
+        const cur = s.holoFlatImgs ?? [];   // ?? []：老存档没这字段（persist 直接回灌旧对象）
+        return { holoFlatImgs: flat ? (cur.includes(key) ? cur : [...cur, key]) : cur.filter((k) => k !== key) };
+      }),
       resetEquipTemplate: () => set({ equipTemplate: DEFAULT_EQUIP_TEMPLATE, equipNegative: DEFAULT_EQUIP_NEG }),
       resetStoryTemplate: () => set({ storyTemplate: DEFAULT_STORY_TEMPLATE }),
       resetGptStoryTemplate: () => set({ gptStoryTemplate: DEFAULT_GPT_STORY_TEMPLATE }),
