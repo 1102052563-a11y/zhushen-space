@@ -44,27 +44,29 @@ export default function WorldCardView({ worlds, index, onPrev, onNext, onJump, o
   const [profEditing, setProfEditing] = useState(false);   // 职业任务区的编辑开关
 
   return (
-    <div className="absolute inset-0 flex flex-col items-center justify-center bg-void/90 backdrop-blur-sm px-6 max-lg:px-2 py-3">
+    // 桌面：铺在叙事区内（absolute inset-0）。手机：叙事区仅约 400px 高，头/尾吃完只剩个位数像素给正文，
+    // 故提成「header 以下整屏」的固定浮层（对齐左右抽屉的 top-14 bottom-0 约定；z-30 仍低于抽屉遮罩 z-40）。
+    <div className="absolute inset-0 max-lg:fixed max-lg:top-14 max-lg:bottom-0 max-lg:left-0 max-lg:right-0 max-lg:z-30 flex flex-col items-center justify-center bg-void/90 backdrop-blur-sm px-6 max-lg:px-2 py-3 max-lg:py-2">
       {/* 关闭 */}
       <button
         onClick={onClose}
-        className="absolute top-4 right-5 text-dim hover:text-blood text-sm font-mono transition-colors"
+        className="absolute top-4 right-5 max-lg:top-2 max-lg:right-2 text-dim hover:text-blood text-sm font-mono transition-colors max-lg:px-2.5 max-lg:py-1.5 max-lg:border max-lg:border-edge max-lg:rounded-lg max-lg:bg-void/70"
       >
         ✕ 关闭
       </button>
 
       {/* 计数 */}
-      <div className="mb-2 text-sm font-mono text-dim tracking-widest">
+      <div className="mb-2 max-lg:mb-1 text-sm max-lg:text-xs font-mono text-dim tracking-widest">
         {index + 1} / {worlds.length}
-        {editing && <span className="ml-3 text-god/70">✎ 编辑中（改完点「进入此世界」即用改后内容）</span>}
+        {editing && <span className="ml-3 max-lg:hidden text-god/70">✎ 编辑中（改完点「进入此世界」即用改后内容）</span>}
       </div>
 
       {/* 卡片 + 左右箭头 */}
-      <div className="flex items-stretch gap-4 max-lg:gap-1.5 w-full max-w-4xl min-h-0 max-h-[calc(100%-2.75rem)]">
-        {/* 左箭头 */}
+      <div className="flex items-stretch gap-4 max-lg:gap-1.5 w-full max-w-4xl min-h-0 max-h-[calc(100%-2.75rem)] max-lg:max-h-[calc(100%-4rem)]">
+        {/* 左箭头（手机端移到底部圆点行：两侧各 44px 在窄屏要吃掉四分之一宽度）*/}
         <button
           onClick={onPrev}
-          className="shrink-0 w-11 h-11 self-center flex items-center justify-center border border-edge rounded-full text-dim hover:border-god/50 hover:text-god transition-colors text-2xl"
+          className="max-lg:hidden shrink-0 w-11 h-11 self-center flex items-center justify-center border border-edge rounded-full text-dim hover:border-god/50 hover:text-god transition-colors text-2xl"
         >
           ‹
         </button>
@@ -73,9 +75,9 @@ export default function WorldCardView({ worlds, index, onPrev, onNext, onJump, o
         <div className="flex-1 border border-god/30 rounded-2xl bg-panel shadow-[0_0_50px_rgba(70,227,207,0.08)] overflow-hidden flex flex-col min-h-0">
 
           {/* ── 头部：编号 + 世界名 + 类型 ── */}
-          <div className="px-8 pt-4 pb-3.5 border-b border-edge shrink-0">
-            <div className="flex items-center justify-between mb-1.5">
-              <span className="text-sm font-mono text-god/40 tracking-widest uppercase">
+          <div className="px-8 max-lg:px-4 pt-4 max-lg:pt-2.5 pb-3.5 max-lg:pb-2 border-b border-edge shrink-0">
+            <div className="flex items-center justify-between mb-1.5 max-lg:mb-0.5">
+              <span className="text-sm max-lg:text-xs font-mono text-god/40 tracking-widest uppercase">
                 World · {String(index + 1).padStart(2, '0')}
               </span>
               {editing ? (
@@ -86,7 +88,7 @@ export default function WorldCardView({ worlds, index, onPrev, onNext, onJump, o
                   className="text-sm font-mono px-2 py-0.5 w-28 bg-void border border-god/30 text-god/70 rounded outline-none focus:border-god/60 text-center"
                 />
               ) : world.worldType ? (
-                <span className="text-sm font-mono px-3 py-0.5 border border-god/20 text-god/60 rounded">
+                <span className="text-sm max-lg:text-xs font-mono px-3 max-lg:px-2 py-0.5 border border-god/20 text-god/60 rounded shrink-0">
                   {world.worldType}
                 </span>
               ) : null}
@@ -100,7 +102,7 @@ export default function WorldCardView({ worlds, index, onPrev, onNext, onJump, o
                 className="w-full text-2xl font-bold text-slate-100 leading-snug bg-void border border-god/30 rounded px-2 py-1 mt-0.5 outline-none focus:border-god/60"
               />
             ) : (
-              <h2 className="text-2xl font-bold text-slate-100 leading-snug god-glow mt-0.5">{world.name}</h2>
+              <h2 className="text-2xl max-lg:text-xl font-bold text-slate-100 leading-snug god-glow mt-0.5 max-lg:mt-0">{world.name}</h2>
             )}
 
             {/* 阶位 + 难度 + 区域 */}
@@ -130,19 +132,19 @@ export default function WorldCardView({ worlds, index, onPrev, onNext, onJump, o
                 </label>
               </div>
             ) : (
-              <div className="flex items-center gap-4 mt-2 flex-wrap">
+              <div className="flex items-center gap-4 max-lg:gap-x-2.5 max-lg:gap-y-0 mt-2 max-lg:mt-1 flex-wrap">
                 {world.tier !== '' && (
-                  <span className="text-base font-mono text-sky-400/80">
+                  <span className="text-base max-lg:text-[13px] font-mono text-sky-400/80 shrink-0">
                     {typeof world.tier === 'number' || /^\d+$/.test(world.tier)
                       ? `${world.tier} 阶`
                       : world.tier}
                   </span>
                 )}
                 {world.dangerLevel && (
-                  <span className="text-base font-mono text-amber-400/80">{world.dangerLevel}</span>
+                  <span className="text-base max-lg:text-[13px] font-mono text-amber-400/80">{world.dangerLevel}</span>
                 )}
                 {world.region && (
-                  <span className="text-sm font-mono text-dim truncate max-w-sm">📍 {world.region}</span>
+                  <span className="text-sm max-lg:text-xs font-mono text-dim truncate max-w-sm max-lg:max-w-full">📍 {world.region}</span>
                 )}
               </div>
             )}
@@ -161,9 +163,9 @@ export default function WorldCardView({ worlds, index, onPrev, onNext, onJump, o
               />
             ))}
             {profQuests !== undefined && (
-              <div className="px-8 py-3 bg-amber-500/[0.05]">
+              <div className="px-8 max-lg:px-4 py-3 max-lg:py-2.5 bg-amber-500/[0.05]">
                 <div className="flex items-center gap-2 mb-1.5">
-                  <span className="flex-1 text-sm font-mono text-amber-300/80">🎯 职业专属任务（据你的技能树 / 副职业生成 · 完成后经正文即时发放奖励，不计世界结算）</span>
+                  <span className="flex-1 text-sm max-lg:text-xs font-mono text-amber-300/80">🎯 职业专属任务（据你的技能树 / 副职业生成 · 完成后经正文即时发放奖励，不计世界结算）</span>
                   {onProfQuestsChange && (
                     <button
                       onClick={() => setProfEditing((v) => !v)}
@@ -213,7 +215,7 @@ export default function WorldCardView({ worlds, index, onPrev, onNext, onJump, o
                   : 'border-violet-500/40 text-violet-300 hover:bg-violet-500/10'
                 }`}
               >
-                {genBusy ? '◌ 生成中…' : hasWorldview ? '🌐 重生成世界观' : '🌐 生成世界观'}
+                {genBusy ? '◌ 生成中…' : <>🌐 <span className="max-lg:hidden">{hasWorldview ? '重生成' : '生成'}</span>世界观</>}
               </button>
             )}
             {onGenProfQuests && (
@@ -227,7 +229,7 @@ export default function WorldCardView({ worlds, index, onPrev, onNext, onJump, o
                   : 'border-amber-500/40 text-amber-300 hover:bg-amber-500/10'
                 }`}
               >
-                {profBusy ? '◌ 生成中…' : profQuests ? '🎯 重生成职业任务' : '🎯 生成职业任务'}
+                {profBusy ? '◌ 生成中…' : <>🎯 <span className="max-lg:hidden">{profQuests ? '重生成' : '生成'}</span>职业任务</>}
               </button>
             )}
             <button
@@ -239,26 +241,40 @@ export default function WorldCardView({ worlds, index, onPrev, onNext, onJump, o
           </div>
         </div>
 
-        {/* 右箭头 */}
+        {/* 右箭头（手机端移到底部圆点行）*/}
         <button
           onClick={onNext}
-          className="shrink-0 w-11 h-11 self-center flex items-center justify-center border border-edge rounded-full text-dim hover:border-god/50 hover:text-god transition-colors text-2xl"
+          className="max-lg:hidden shrink-0 w-11 h-11 self-center flex items-center justify-center border border-edge rounded-full text-dim hover:border-god/50 hover:text-god transition-colors text-2xl"
         >
           ›
         </button>
       </div>
 
-      {/* 缩略点导航 */}
-      <div className="mt-3 flex gap-2">
-        {worlds.map((_, i) => (
-          <button
-            key={i}
-            onClick={() => onJump(i)}
-            className={`w-2 h-2 rounded-full transition-all ${
-              i === index ? 'bg-god scale-125' : 'bg-dim/40 hover:bg-dim'
-            }`}
-          />
-        ))}
+      {/* 缩略点导航（手机端两侧并入 ‹ ›，替代被隐藏的侧边箭头）*/}
+      <div className="mt-3 max-lg:mt-2 flex items-center gap-2 max-lg:gap-1.5 shrink-0">
+        <button
+          onClick={onPrev}
+          className="lg:hidden shrink-0 w-8 h-8 flex items-center justify-center border border-edge rounded-full text-dim text-lg leading-none"
+        >
+          ‹
+        </button>
+        <div className="flex flex-wrap justify-center gap-2 max-lg:gap-1.5">
+          {worlds.map((_, i) => (
+            <button
+              key={i}
+              onClick={() => onJump(i)}
+              className={`w-2 h-2 max-lg:w-2.5 max-lg:h-2.5 rounded-full transition-all ${
+                i === index ? 'bg-god scale-125' : 'bg-dim/40 hover:bg-dim'
+              }`}
+            />
+          ))}
+        </div>
+        <button
+          onClick={onNext}
+          className="lg:hidden shrink-0 w-8 h-8 flex items-center justify-center border border-edge rounded-full text-dim text-lg leading-none"
+        >
+          ›
+        </button>
       </div>
     </div>
   );
@@ -280,7 +296,7 @@ function CardSection({ label, content, accent, editing, onChange }: {
 }) {
   const labelColor = accent ? accentMap[accent] ?? 'text-dim' : 'text-dim';
   return (
-    <div className="px-8 py-3">
+    <div className="px-8 max-lg:px-4 py-3 max-lg:py-2.5">
       <div className={`text-sm font-mono mb-1 ${labelColor}`}>{label}</div>
       {editing ? (
         <textarea
