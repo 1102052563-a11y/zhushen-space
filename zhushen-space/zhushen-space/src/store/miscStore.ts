@@ -292,6 +292,8 @@ interface MiscState {
   removeWorldEvent: (id: string) => void;
   pushSmall: (s: string) => void;
   pushLarge: (s: string) => void;
+  removeSmall: (index: number) => void;   // 按原始数组下标删除一条小总结（玩家在记忆面板手动清理重复/误产条目）
+  removeLarge: (index: number) => void;   // 按原始数组下标删除一条大总结
   bumpSummaryRound: () => number;   // +1 并返回新值
   setTurnCount: (n: number) => void;   // 设置累计总回合数（持久化）
   addNarrativeFacts: (items: { title: string; text: string; keywords: string[] }[]) => void;
@@ -474,6 +476,8 @@ export const useMisc = create<MiscState>()(
 
       pushSmall: (str) => set((s) => { const arr = [...s.smallSummaries, str]; const cap = s.settings.smallCap ?? 0; return { smallSummaries: cap > 0 ? arr.slice(-cap) : arr }; }),   // 默认不限；smallCap>0 时保留最近 N 条
       pushLarge: (str) => set((s) => { const arr = [...s.largeSummaries, str]; const cap = s.settings.largeCap ?? 0; return { largeSummaries: cap > 0 ? arr.slice(-cap) : arr }; }),   // 默认不限；largeCap>0 时保留最近 N 条
+      removeSmall: (i) => set((s) => ({ smallSummaries: s.smallSummaries.filter((_, idx) => idx !== i) })),   // 按下标删；总结是无 id 的字符串数组，只能按位置删（不按内容，避免误删重复文本的所有条目）
+      removeLarge: (i) => set((s) => ({ largeSummaries: s.largeSummaries.filter((_, idx) => idx !== i) })),
       bumpSummaryRound: () => { const n = get().summaryRound + 1; set({ summaryRound: n }); return n; },
       setTurnCount: (n) => set({ turnCount: Math.max(0, Math.floor(n) || 0) }),
       addNarrativeFacts: (items) =>

@@ -107,38 +107,6 @@ Omnitrix；Proto-Tool；时间兽卵；Annihilaarg；Dwarf Star；Chrono-navigat
 
 **【Time War·作战备忘15】**Maltruant 的目标是重写宇宙起源，不是单纯毁城；战场尺度含时间乱流与歼星级火力。 契约者须用可验证时间物证（卵壳频谱、时间环参数、Annihilaarg 保险栓状态、Dwarf Star 封装编号）推进，绑定 Ben Tennyson／Rook Blonko／Professor Paradox／Maltruant／Eon／Ben 10,000／Chrono Spanner 等真名行动；存在抹除优先于巷战输出。现场可观察：表针逆行、未来通讯丢包率、Omnitrix 乱闪模式、Proto-Tool 校准失败次数。
 
-**【Time War·作战备忘16】**时间兽（Time Beast）卵是关键物证，Eon 曾交付双卵。 契约者须用可验证时间物证（卵壳频谱、时间环参数、Annihilaarg 保险栓状态、Dwarf Star 封装编号）推进，绑定 Ben Tennyson／Rook Blonko／Professor Paradox／Maltruant／Eon／Ben 10,000／Chrono Spanner 等真名行动；存在抹除优先于巷战输出。现场可观察：表针逆行、未来通讯丢包率、Omnitrix 乱闪模式、Proto-Tool 校准失败次数。
-
-**【Time War·作战备忘17】**Professor Paradox 与 Ben 10,000 提供时间侧支援，但低阶不可指挥他们。 契约者须用可验证时间物证（卵壳频谱、时间环参数、Annihilaarg 保险栓状态、Dwarf Star 封装编号）推进，绑定 Ben Tennyson／Rook Blonko／Professor Paradox／Maltruant／Eon／Ben 10,000／Chrono Spanner 等真名行动；存在抹除优先于巷战输出。现场可观察：表针逆行、未来通讯丢包率、Omnitrix 乱闪模式、Proto-Tool 校准失败次数。
-
-**【Time War·作战备忘18】**Rook Blonko 的 Proto-Tool 在时间乱流中需重新校准。 契约者须用可验证时间物证（卵壳频谱、时间环参数、Annihilaarg 保险栓状态、Dwarf Star 封装编号）推进，绑定 Ben Tennyson／Rook Blonko／Professor Paradox／Maltruant／Eon／Ben 10,000／Chrono Spanner 等真名行动；存在抹除优先于巷战输出。现场可观察：表针逆行、未来通讯丢包率、Omnitrix 乱闪模式、Proto-Tool 校准失败次数。
-
-**【Time War·作战备忘19】**Skurd 可临时改造 Omnitrix 输出，是条件性胜利工具。 契约者须用可验证时间物证（卵壳频谱、时间环参数、Annihilaarg 保险栓状态、Dwarf Star 封装编号）推进，绑定 Ben Tennyson／Rook Blonko／Professor Paradox／Maltruant／Eon／Ben 10,000／Chrono Spanner 等真名行动；存在抹除优先于巷战输出。现场可观察：表针逆行、未来通讯丢包率、Omnitrix 乱闪模式、Proto-Tool 校准失败次数。
-
-**【Time War·作战备忘20】**Chrono Spanner 真身是未来 Ken Tennyson，身份暴露改变家庭线。 契约者须用可验证时间物证（卵壳频谱、时间环参数、Annihilaarg 保险栓状态、Dwarf Star 封装编号）推进，绑定 Ben Tennyson／Rook Blonko／Professor Paradox／Maltruant／Eon／Ben 10,000／Chrono Spanner 等真名行动；存在抹除优先于巷战输出。现场可观察：表针逆行、未来通讯丢包率、Omnitrix 乱闪模式、Proto-Tool 校准失败次数。
-
-**【Time War·作战备忘21】**Annihilaarg 与 Dwarf Star 是终局组件，不可当普通炸弹。 契约者须用可验证时间物证（卵壳频谱、时间环参数、Annihilaarg 保险栓状态、Dwarf Star 封装编号）推进，绑定 Ben Tennyson／Rook Blonko／Professor Paradox／Maltruant／Eon／Ben 10,000／Chrono Spanner 等真名行动；存在抹除优先于巷战输出。现场可观察：表针逆行、未来通讯丢包率、Omnitrix 乱闪模式、Proto-Tool 校准失败次数。
-
-**【Time War·作战备忘22】**Contemelia 星船位于时间起点附近，Maltruant 欲在此造私宇宙。 契约者须用可验证时间物证（卵壳频谱、时间环参数、Annihilaarg 保险栓状态、Dwarf Star 封装编号）推进，绑定 Ben Tennyson／Rook Blonko／Professor Paradox／Maltruant／Eon／Ben 10,000／Chrono Spanner 等真名行动；存在抹除优先于巷战输出。现场可观察：表针逆行、未来通讯丢包率、Omnitrix 乱闪模式、Proto-Tool 校准失败次数。
-
-**【Time War·作战备忘23】**Feedback 吸收 Dwarf Star 供能的 Annihilaarg 是 canon 胜机。 契约者须用可验证时间物证（卵壳频谱、时间环参数、Annihilaarg 保险栓状态、Dwarf Star 封装编号）推进，绑定 Ben Tennyson／Rook Blonko／Professor Paradox／Maltruant／Eon／Ben 10,000／Chrono Spanner 等真名行动；存在抹除优先于巷战输出。现场可观察：表针逆行、未来通讯丢包率、Omnitrix 乱闪模式、Proto-Tool 校准失败次数。
-
-**【Time War·作战备忘24】**Maltruant 最终被锁进时间环，永劫重温 Time War——条件性胜利范本。 契约者须用可验证时间物证（卵壳频谱、时间环参数、Annihilaarg 保险栓状态、Dwarf Star 封装编号）推进，绑定 Ben Tennyson／Rook Blonko／Professor Paradox／Maltruant／Eon／Ben 10,000／Chrono Spanner 等真名行动；存在抹除优先于巷战输出。现场可观察：表针逆行、未来通讯丢包率、Omnitrix 乱闪模式、Proto-Tool 校准失败次数。
-
-**【Time War·作战备忘25】**平行 Ben（Ben 23 等）可参战，但因果债务各自清算。 契约者须用可验证时间物证（卵壳频谱、时间环参数、Annihilaarg 保险栓状态、Dwarf Star 封装编号）推进，绑定 Ben Tennyson／Rook Blonko／Professor Paradox／Maltruant／Eon／Ben 10,000／Chrono Spanner 等真名行动；存在抹除优先于巷战输出。现场可观察：表针逆行、未来通讯丢包率、Omnitrix 乱闪模式、Proto-Tool 校准失败次数。
-
-**【Time War·作战备忘26】**Undertown 与 Bellwood 在时间乱流中可能短暂重叠。 契约者须用可验证时间物证（卵壳频谱、时间环参数、Annihilaarg 保险栓状态、Dwarf Star 封装编号）推进，绑定 Ben Tennyson／Rook Blonko／Professor Paradox／Maltruant／Eon／Ben 10,000／Chrono Spanner 等真名行动；存在抹除优先于巷战输出。现场可观察：表针逆行、未来通讯丢包率、Omnitrix 乱闪模式、Proto-Tool 校准失败次数。
-
-**【Time War·作战备忘27】**Plumbers 总部未来夜被袭是「The End of an Era」节点。 契约者须用可验证时间物证（卵壳频谱、时间环参数、Annihilaarg 保险栓状态、Dwarf Star 封装编号）推进，绑定 Ben Tennyson／Rook Blonko／Professor Paradox／Maltruant／Eon／Ben 10,000／Chrono Spanner 等真名行动；存在抹除优先于巷战输出。现场可观察：表针逆行、未来通讯丢包率、Omnitrix 乱闪模式、Proto-Tool 校准失败次数。
-
-**【Time War·作战备忘28】**Kai Green 与未来线婚姻预言影响队伍情绪，不是战力外挂。 契约者须用可验证时间物证（卵壳频谱、时间环参数、Annihilaarg 保险栓状态、Dwarf Star 封装编号）推进，绑定 Ben Tennyson／Rook Blonko／Professor Paradox／Maltruant／Eon／Ben 10,000／Chrono Spanner 等真名行动；存在抹除优先于巷战输出。现场可观察：表针逆行、未来通讯丢包率、Omnitrix 乱闪模式、Proto-Tool 校准失败次数。
-
-**【Time War·作战备忘29】**存在抹除是最大威胁：历史改写可比炮火优先处理。 契约者须用可验证时间物证（卵壳频谱、时间环参数、Annihilaarg 保险栓状态、Dwarf Star 封装编号）推进，绑定 Ben Tennyson／Rook Blonko／Professor Paradox／Maltruant／Eon／Ben 10,000／Chrono Spanner 等真名行动；存在抹除优先于巷战输出。现场可观察：表针逆行、未来通讯丢包率、Omnitrix 乱闪模式、Proto-Tool 校准失败次数。
-
-**【Time War·作战备忘30】**Maltruant 的目标是重写宇宙起源，不是单纯毁城；战场尺度含时间乱流与歼星级火力。 契约者须用可验证时间物证（卵壳频谱、时间环参数、Annihilaarg 保险栓状态、Dwarf Star 封装编号）推进，绑定 Ben Tennyson／Rook Blonko／Professor Paradox／Maltruant／Eon／Ben 10,000／Chrono Spanner 等真名行动；存在抹除优先于巷战输出。现场可观察：表针逆行、未来通讯丢包率、Omnitrix 乱闪模式、Proto-Tool 校准失败次数。
-
-**【Time War·作战备忘31】**时间兽（Time Beast）卵是关键物证，Eon 曾交付双卵。 契约者须用可验证时间物证（卵壳频谱、时间环参数、Annihilaarg 保险栓状态、Dwarf Star 封装编号）推进，绑定 Ben Tennyson／Rook Blonko／Professor Paradox／Maltruant／Eon／Ben 10,000／Chrono Spanner 等真名行动；存在抹除优先于巷战输出。现场可观察：表针逆行、未来通讯丢包率、Omnitrix 乱闪模式、Proto-Tool 校准失败次数。
-
 ## 阶位切入点
 
 > 阶位↔原作：日常英雄线≈一～五阶见映射；**六阶**≈Time War 时间乱流／歼星级与存在抹除。顶点（Maltruant 完整计划／Alien X）情报优先／条件性胜利。本世界仅覆盖：**六阶**。
@@ -169,13 +137,7 @@ Omnitrix；Proto-Tool；时间兽卵；Annihilaarg；Dwarf Star；Chrono-navigat
 
 （并行·Time War 专属）可介入节点：时间兽卵交付、未来 HQ 派对夜、1773 侧翼、Contemelia 星船终局。每一节点须有不同物证编号，禁止各节点复制同一句「护送假货」。Skurd 改造次数有限；Feedback 吸收窗口只在终局条件满足时开放。平行 Ben 参战须各自清算因果债务。
 
-
-
 （切入补强1·TimeWar）卵壳频谱与保险栓状态不同编号；Feedback窗口仅终局；平行Ben各自清算因果。 本段服务「Ben 10：全面进化（Time War）」专属开局：须在开场三十分钟内出示物证并触发具名NPC立场句；中段只用可验证细节推进；末段条件性胜利。禁止跨世界套话，禁止无名群像，禁止战力归零式削弱顶点。
-
-（切入补强2·TimeWar）卵壳频谱与保险栓状态不同编号；Feedback窗口仅终局；平行Ben各自清算因果。 本段服务「Ben 10：全面进化（Time War）」专属开局：须在开场三十分钟内出示物证并触发具名NPC立场句；中段只用可验证细节推进；末段条件性胜利。禁止跨世界套话，禁止无名群像，禁止战力归零式削弱顶点。
-
-（切入补强3·TimeWar）卵壳频谱与保险栓状态不同编号；Feedback窗口仅终局；平行Ben各自清算因果。 本段服务「Ben 10：全面进化（Time War）」专属开局：须在开场三十分钟内出示物证并触发具名NPC立场句；中段只用可验证细节推进；末段条件性胜利。禁止跨世界套话，禁止无名群像，禁止战力归零式削弱顶点。
 
 ## 来源
 

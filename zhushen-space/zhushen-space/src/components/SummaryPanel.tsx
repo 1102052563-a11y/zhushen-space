@@ -9,9 +9,12 @@ export default function SummaryPanel({ onClose, onManualUpdate }: { onClose: () 
   const large = useMisc((s) => s.largeSummaries);
   const facts = useMisc((s) => s.narrativeFacts);
   const removeFact = useMisc((s) => s.removeNarrativeFact);
+  const removeSmall = useMisc((s) => s.removeSmall);
+  const removeLarge = useMisc((s) => s.removeLarge);
   const [tab, setTab] = useState<Tab>('facts');
   const [updating, setUpdating] = useState(false);   // 长期事实「手动更新」中
   const list = tab === 'small' ? small : large;
+  const removeSummary = tab === 'small' ? removeSmall : removeLarge;   // 当前列表对应的删除 action（按原始下标删）
 
   return (
     <div className="fixed inset-0 z-50 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4"
@@ -75,14 +78,23 @@ export default function SummaryPanel({ onClose, onManualUpdate }: { onClose: () 
               <div className="mt-2 text-dim/30">启用「🧩 杂项演化」后，每回合自动生成</div>
             </div>
           ) : (
-            [...list].reverse().map((s, i) => (
-              <div key={i} className={`rounded-lg border px-3 py-2 text-[14px] leading-relaxed ${
-                tab === 'large' ? 'border-god/20 bg-god/5 text-slate-300' : 'border-edge bg-panel/60 text-dim/80'
-              }`}>
-                <div className="text-[11px] font-mono text-dim/40 mb-1">#{list.length - i}{i === 0 ? ' · 最新' : ''}</div>
-                {s}
-              </div>
-            ))
+            [...list].reverse().map((s, i) => {
+              const origIdx = list.length - 1 - i;   // 倒序展示：显示位 i → 原始数组下标（删除按此下标，不按内容，避免误删重复文本的其它条目）
+              return (
+                <div key={origIdx} className={`rounded-lg border px-3 py-2 text-[14px] leading-relaxed ${
+                  tab === 'large' ? 'border-god/20 bg-god/5 text-slate-300' : 'border-edge bg-panel/60 text-dim/80'
+                }`}>
+                  <div className="flex items-center gap-2 mb-1">
+                    <span className="text-[11px] font-mono text-dim/40">#{list.length - i}{i === 0 ? ' · 最新' : ''}</span>
+                    <button
+                      onClick={() => removeSummary(origIdx)}
+                      title="删除这条总结（不可恢复）"
+                      className="ml-auto shrink-0 text-[12px] font-mono text-blood/50 hover:text-blood transition-colors">🗑 删除</button>
+                  </div>
+                  {s}
+                </div>
+              );
+            })
           )}
         </div>
       </div>

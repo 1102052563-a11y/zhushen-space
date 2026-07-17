@@ -1,0 +1,339 @@
+﻿批次207	骑马与砍杀：战团.md	plot=5201	pad=False
+批次207	骑马与砍杀2：霸主.md	plot=4176	pad=False
+批次207	勇者王 GaoGaiGar.md	plot=6878	pad=False
+批次207	远行星号－Starsector－.md	plot=8651	pad=False
+批次208	假面骑士（1971）.md	plot=6155	pad=False
+批次208	假面骑士V3.md	plot=6857	pad=False
+批次208	午夜凶铃（日版）.md	plot=6814	pad=False
+批次208	最高指挥官（Supreme Commander）.md	plot=6393	pad=False
+批次208	最高指挥官－Supreme Commander－.md	plot=6393	pad=False
+批次210	假面骑士Skyrider.md	plot=5384	pad=False
+批次210	假面骑士Super-1.md	plot=3919	pad=False
+批次210	神兵玄奇.md	plot=3897	pad=False
+批次210	天子传说（天子传奇）.md	plot=4641	pad=False
+批次210	咒怨（剧场版）.md	plot=7468	pad=False
+批次211	假面骑士 真.md	plot=6097	pad=False
+批次211	假面骑士BLACK RX.md	plot=7609	pad=False
+批次211	假面骑士BLACK.md	plot=7591	pad=False
+批次211	冒险岛－MapleStory－.md	plot=5431	pad=False
+批次211	游戏王：怪兽之决斗.md	plot=7285	pad=False
+批次212	假面骑士J.md	plot=7473	pad=False
+批次212	游戏王5D's.md	plot=7710	pad=False
+批次212	游戏王ZEXAL.md	plot=7849	pad=False
+批次215	假面骑士Kabuto.md	plot=7384	pad=False
+批次215	假面骑士电王.md	plot=6445	pad=False
+批次215	假面骑士响鬼.md	plot=8865	pad=False
+批次215	失落的方舟－Lost Ark－.md	plot=7212	pad=False
+批次215	王者荣耀（背景故事）.md	plot=6194	pad=False
+批次216	尘白禁区.md	plot=9273	pad=False
+批次216	假面骑士Kiva.md	plot=8154	pad=False
+批次216	假面骑士W.md	plot=7622	pad=False
+批次216	少女前线.md	plot=7654	pad=False
+批次217	回复术士的重启人生.md	plot=3246	pad=False
+批次217	假面骑士Fourze.md	plot=3374	pad=False
+批次217	假面骑士Wizard.md	plot=2928	pad=False
+批次217	假面骑士铠武.md	plot=2759	pad=False
+批次221	装甲骑女伊莉丝-妹妹援救.md	plot=6894	pad=False
+批次221	装甲骑女伊莉丝-魔铠融合.md	plot=6002	pad=False
+批次221	装甲骑女伊莉丝-骑女沦陷.md	plot=8642	pad=False
+批次221	装甲骑女伊莉丝-双堕深渊.md	plot=5705	pad=False
+批次222	装甲骑女伊莉丝-堕落魔将.md	plot=4375	pad=False
+批次222	装甲骑女伊莉丝-姐妹侍奉.md	plot=2486	pad=False
+批次226	对魔忍阿莎姬2-再次沦陷.md	plot=5336	pad=False
+批次226	对魔忍阿莎姬3-完全堕落.md	plot=5227	pad=False
+批次226	对魔忍阿莎姬-竞技场.md	plot=5962	pad=False
+批次226	对魔忍紫-三代同堕.md	plot=4667	pad=False
+批次226	约会大作战V（如按动画续作口径）.md	plot=5088	pad=False
+批次227	钢铁魔女安妮罗泽-触手侵袭.md	plot=4438	pad=False
+批次227	钢铁魔女安妮罗泽-堕落魔女.md	plot=3292	pad=False
+批次227	钢铁魔女安妮罗泽-魔女陷落.md	plot=7410	pad=False
+批次227	虚构推理（动画）.md	plot=3529	pad=False
+批次227	虚构推理（漫画）.md	plot=4783	pad=False
+批次228	Muv-Luv-原初巢穴突入.md	plot=3994	pad=False
+批次228	剑星-克西翁巢穴.md	plot=3906	pad=False
+批次228	丽可莉丝（Lycoris Recoil）.md	plot=6471	pad=False
+批次228	闪乱神乐-妖魔复苏.md	plot=3998	pad=False
+批次228	我有一座冒险屋（漫画－改编）.md	plot=5209	pad=False
+批次229	地狱公寓（小说）.md	plot=2350	pad=False
+批次229	惊悚乐园（游戏化副本口径）.md	plot=7498	pad=False
+批次229	命运石之门-SERN追击.md	plot=4909	pad=False
+批次229	石世界-石化装置.md	plot=2321	pad=False
+批次229	远星号（Starsector）.md	plot=3054	pad=False
+批次230	Ben 10：终极异形（Ultimate Alien）.md	plot=7992	pad=False
+批次230	民俗-百鬼夜市.md	plot=7094	pad=False
+批次230	民俗-黄泉接引.md	plot=6805	pad=False
+批次230	史上最强弟子兼一：达人激突.md	plot=7150	pad=False
+批次230	午夜凶铃（小说环界版）.md	plot=7437	pad=False
+批次231	神界：原罪（Divinity－ Original Sin）.md	plot=8341	pad=False
+批次231	轩辕剑.md	plot=8748	pad=False
+批次231	轩辕剑贰.md	plot=8870	pad=False
+批次231	轩辕剑叁：云和山的彼端.md	plot=7700	pad=False
+批次231	轩辕剑外传：枫之舞.md	plot=7787	pad=False
+批次234	対魔忍深渊侵蚀-阿莎姬深渊化.md	plot=8799	pad=False
+批次234	対魔忍深渊侵蚀-姐妹共堕.md	plot=8390	pad=False
+批次234	対魔忍深渊侵蚀-裂隙开启.md	plot=6922	pad=False
+批次234	対魔忍深渊侵蚀-三代祭品.md	plot=7539	pad=False
+批次234	対魔忍深渊侵蚀-雪风先驱.md	plot=7251	pad=False
+批次235	対魔忍深渊侵蚀-布拉克融合.md	plot=7261	pad=False
+批次235	対魔忍深渊侵蚀-东京陷落.md	plot=6946	pad=False
+批次235	対魔忍深渊侵蚀-反抗军.md	plot=6611	pad=False
+批次235	対魔忍深渊侵蚀-学园沦陷.md	plot=7270	pad=False
+批次235	対魔忍深渊侵蚀-最终仪式.md	plot=6641	pad=False
+批次236	対魔忍RPG-深渊入侵.md	plot=10013	pad=True
+批次236	対魔忍RPG-最终决战.md	plot=6261	pad=False
+批次236	黑兽帝国终焉-帝国建立.md	plot=5966	pad=False
+批次236	黑兽帝国终焉-神格降临.md	plot=5999	pad=False
+批次237	黑兽帝国终焉-阿丽西亚觉醒.md	plot=5283	pad=False
+批次237	黑兽帝国终焉-公主军团.md	plot=3268	pad=False
+批次237	黑兽帝国终焉-女神苏醒.md	plot=2729	pad=False
+批次239	黑兽魔王觉醒-大陆统一.md	plot=5259	pad=False
+批次239	黑兽魔王觉醒-女神堕落.md	plot=2428	pad=False
+批次239	黑兽魔王觉醒-沃尔特进化.md	plot=1800	pad=False
+批次239	魔界骑士深渊大门-大门开启.md	plot=2230	pad=False
+批次239	魔界骑士深渊大门-英格丽德深渊化.md	plot=1865	pad=False
+批次240	剑星-天使会堂.md	plot=8259	pad=False
+批次240	闪乱神乐-阴阳师决战.md	plot=9061	pad=False
+批次241	Muv-Luv-Alternative计划.md	plot=9809	pad=False
+批次242	民俗-封神遗冢.md	plot=5362	pad=False
+批次242	民俗-酆都鬼城.md	plot=3481	pad=False
+批次242	魔界骑士深渊大门-牺牲之门.md	plot=3282	pad=False
+批次242	淫妖虫母巢觉醒-铃音融合.md	plot=2903	pad=False
+批次242	淫妖虫母巢觉醒-女皇诞生.md	plot=4408	pad=False
+批次244	淫妖虫母巢觉醒-共生体.md	plot=5012	pad=False
+批次244	淫妖虫母巢觉醒-基因进化.md	plot=3742	pad=False
+批次244	淫妖虫母巢觉醒-母巢核心.md	plot=3366	pad=False
+批次244	淫妖虫母巢觉醒-最终选择.md	plot=3352	pad=False
+批次244	姫骑士诸神黄昏-神明堕落.md	plot=3479	pad=False
+批次245	姫骑士诸神黄昏-姐妹分离.md	plot=6456	pad=False
+批次245	姫骑士诸神黄昏-莉莉亚神化.md	plot=6206	pad=False
+批次245	姫骑士诸神黄昏-神殿仪式.md	plot=6308	pad=False
+批次245	姫骑士诸神黄昏-神器觉醒.md	plot=6247	pad=False
+批次245	姫骑士诸神黄昏-信仰崩塌.md	plot=6803	pad=False
+批次246	钢铁魔女虚空战争-安妮罗泽虚空化.md	plot=4940	pad=False
+批次246	钢铁魔女虚空战争-维度裂隙.md	plot=5011	pad=False
+批次246	假面骑士真.md	plot=4810	pad=False
+批次246	姫骑士诸神黄昏-弑神之战.md	plot=6147	pad=False
+批次246	姫骑士诸神黄昏-新神诞生.md	plot=6078	pad=False
+批次247	钢铁魔女虚空战争-魔女狩猎.md	plot=7304	pad=False
+批次247	钢铁魔女虚空战争-维度崩塌.md	plot=6917	pad=False
+批次247	钢铁魔女虚空战争-协会沦陷.md	plot=7082	pad=False
+批次247	钢铁魔女虚空战争-虚空之心.md	plot=6764	pad=False
+批次247	钢铁魔女虚空战争-最后的魔女.md	plot=6761	pad=False
+批次248	Ben 10：全面进化（Time War）.md	plot=6528	pad=False
+批次248	钢铁魔女虚空战争-新世界.md	plot=6633	pad=False
+批次248	极道帝兵（遮天概念向）.md	plot=2926	pad=False
+批次248	龙符（梦入神机）.md	plot=3073	pad=False
+批次248	史上最强弟子兼一：暗之最终战.md	plot=3830	pad=False
+批次249	GTA 3.md	plot=6354	pad=False
+批次249	GTA：罪恶都市.md	plot=8945	pad=False
+批次251	对魔忍雪风-母女再会.md	plot=8939	pad=False
+批次251	对魔忍雪风-同伴双堕.md	plot=9012	pad=False
+批次251	对魔忍雪风-新人堕落.md	plot=9168	pad=False
+批次251	巨乳女战士土下座催眠-全队土下座.md	plot=8208	pad=False
+批次251	巨乳女战士土下座催眠-神官堕落.md	plot=8134	pad=False
+批次252	对魔忍雪风2-彻底陷落.md	plot=8940	pad=False
+批次252	姫骑士莉莉亚-公主陷落.md	plot=6646	pad=False
+批次252	姫骑士莉莉亚-妹妹堕落.md	plot=6926	pad=False
+批次252	姫骑士莉莉亚-侍女沦陷.md	plot=6568	pad=False
+批次252	姫骑士莉莉亚-主仆双堕.md	plot=6835	pad=False
+批次253	淫妖虫-产卵.md	plot=6871	pad=False
+批次253	淫妖虫-蝕变.md	plot=6717	pad=False
+批次253	淫妖虫-退魔失败.md	plot=7400	pad=False
+批次253	姫骑士莉莉亚-完全堕落.md	plot=7935	pad=False
+批次253	姫骑士莉莉亚-王族血统.md	plot=8789	pad=False
+批次254	魔界骑士英格丽德-公开凌辱.md	plot=6787	pad=False
+批次254	魔界骑士英格丽德-妹妹威胁.md	plot=6848	pad=False
+批次254	魔界骑士英格丽德-骑士陷落.md	plot=6926	pad=False
+批次254	淫妖虫-姐弟共堕.md	plot=6873	pad=False
+批次254	淫妖虫-完全寄生.md	plot=6703	pad=False
+批次257	催眠性指導-学园催眠.md	plot=5499	pad=False
+批次257	巨乳公主催眠-骑士陷落.md	plot=5476	pad=False
+批次257	巨乳公主催眠-双堕王城.md	plot=5342	pad=False
+批次257	巨乳公主催眠-王宫阴谋.md	plot=5687	pad=False
+批次257	史上最强弟子兼一：D of D 大赛.md	plot=7159	pad=False
+批次258	催眠性指導-母女沦陷.md	plot=5367	pad=False
+批次258	催眠性指導-校园支配.md	plot=5316	pad=False
+批次258	催眠性指導-性指导课.md	plot=5248	pad=False
+批次258	性爱成瘾-堕落处女.md	plot=5085	pad=False
+批次258	性爱成瘾-依存沉沦.md	plot=5070	pad=False
+批次259	催眠性指導2-新任女教.md	plot=8706	pad=False
+批次259	催眠性指導2-泳装陷落.md	plot=8285	pad=False
+批次259	黑暗圣经新约-新篇开启.md	plot=6871	pad=False
+批次259	黑暗圣经新约-绚香堕落.md	plot=6146	pad=False
+批次259	性爱成瘾-眼镜淫乱.md	plot=8416	pad=False
+批次260	催眠性指導3-家庭教师.md	plot=8083	pad=False
+批次260	催眠性指導3-姐妹堕落.md	plot=8157	pad=False
+批次260	催眠性指導4-人妻崩坏.md	plot=8051	pad=False
+批次260	催眠性指導4-终极宴会.md	plot=8100	pad=False
+批次260	黑暗圣经起源-往昔悲剧.md	plot=6108	pad=False
+批次265	爱嬢学园-贵族入学.md	plot=7721	pad=False
+批次265	爱嬢学园-羞耻课程.md	plot=6763	pad=False
+批次265	剑星-地下遗迹.md	plot=6794	pad=False
+批次265	奴隶区-完全服从.md	plot=9837	pad=False
+批次265	受胎岛-逃脱失败.md	plot=8257	pad=False
+批次266	爱嬢学园-毕业典礼.md	plot=6524	pad=False
+批次266	痴漢電車-早高峰.md	plot=6680	pad=False
+批次266	民俗-赶尸匠.md	plot=6726	pad=False
+批次266	命运石之门-D-Mail干涉.md	plot=6342	pad=False
+批次266	石世界-科学王国.md	plot=6986	pad=False
+批次267	痴漢電車-集团犯罪.md	plot=5574	pad=False
+批次267	痴漢電車-女学生.md	plot=5358	pad=False
+批次267	痴漢電車-人妻陷落.md	plot=5491	pad=False
+批次267	黑暗圣经2.md	plot=6276	pad=False
+批次267	民俗-冥婚夜.md	plot=5597	pad=False
+批次268	Ben 10：变异危机.md	plot=5398	pad=False
+批次268	黑暗圣经3.md	plot=5230	pad=False
+批次268	凌辱学园-新生入学.md	plot=5008	pad=False
+批次268	凌辱学园-优等生.md	plot=5018	pad=False
+批次268	史上最强弟子兼一：黑暗且来.md	plot=5406	pad=False
+批次269	Muv-Luv-横滨基地防线.md	plot=9066	pad=False
+批次269	剑星-废土边缘.md	plot=6492	pad=False
+批次269	凌辱学园-反抗无效.md	plot=6950	pad=False
+批次269	命运石之门-秋叶原潜入.md	plot=6561	pad=False
+批次269	闪乱神乐-飞蛇入学篇.md	plot=6276	pad=False
+批次270	CLANNAD－ Side Stories (光见守的坡道).md	plot=9243	pad=False
+批次270	CLANNAD.md	plot=9831	pad=False
+批次270	Kanon (雪之少女).md	plot=9550	pad=False
+批次270	智代后记 (Tomoyo After－ It's a Wonderful Life).md	plot=9272	pad=False
+批次271	AIR (鸟之诗).md	plot=9427	pad=False
+批次271	Kud Wafter.md	plot=9013	pad=False
+批次271	Little Busters! Ecstasy (EX).md	plot=9004	pad=False
+批次271	Little Busters!.md	plot=9634	pad=False
+批次271	Rewrite.md	plot=9632	pad=False
+批次272	Angel Beats! -1st beat-.md	plot=6512	pad=False
+批次272	Rewrite Harvest festa!.md	plot=6329	pad=False
+批次272	Summer Pockets REFLECTION BLUE.md	plot=4810	pad=False
+批次272	Summer Pockets.md	plot=3452	pad=False
+批次272	星之梦 (Planetarian).md	plot=3942	pad=False
+批次273	ATRI -My Dear Moments-.md	plot=3489	pad=False
+批次273	One ~辉之季节~.md	plot=3125	pad=False
+批次273	交响乐之雨.md	plot=2677	pad=False
+批次273	水仙 (Narcissu).md	plot=2814	pad=False
+批次273	水月 (Suigetsu).md	plot=2749	pad=False
+批次274	Fate－hollow ataraxia.md	plot=8964	pad=False
+批次274	Fate－stay night.md	plot=8192	pad=False
+批次274	魔法使之夜.md	plot=8774	pad=False
+批次274	月姬 (Tsukihime Original).md	plot=5046	pad=False
+批次274	月姬 -A piece of blue glass moon- (重制版).md	plot=8833	pad=False
+批次275	Chaos;Head Noah.md	plot=9938	pad=False
+批次275	命运石之门 (Steins;Gate).md	plot=9892	pad=False
+批次277	寒蝉鸣泣之时－ 鬼隐篇.md	plot=8755	pad=False
+批次277	寒蝉鸣泣之时－ 绵流篇.md	plot=8878	pad=False
+批次277	寒蝉鸣泣之时－ 目明篇.md	plot=8827	pad=False
+批次277	寒蝉鸣泣之时－ 祟杀篇.md	plot=8884	pad=False
+批次277	寒蝉鸣泣之时－ 暇溃篇.md	plot=8897	pad=False
+批次278	海猫鸣泣之时 (Ep1-4).md	plot=3798	pad=False
+批次278	海猫鸣泣之时散 (Ep5-8).md	plot=3522	pad=False
+批次278	寒蝉鸣泣之时－ 祭林篇.md	plot=3763	pad=False
+批次278	寒蝉鸣泣之时－ 皆杀篇.md	plot=3647	pad=False
+批次278	寒蝉鸣泣之时－ 罪灭篇.md	plot=4537	pad=False
+批次279	Cross†Channel.md	plot=3376	pad=False
+批次279	美好的每一天 (Subahibi).md	plot=3544	pad=False
+批次279	沙耶之歌.md	plot=3330	pad=False
+批次279	樱之诗 (Sakura no Uta).md	plot=3318	pad=False
+批次279	装甲恶鬼村正.md	plot=3651	pad=False
+批次280	G线上的魔王.md	plot=7886	pad=False
+批次280	车轮之国，向日葵的少女.md	plot=6619	pad=False
+批次280	天鹅之歌 (Swan Song).md	plot=6853	pad=False
+批次280	樱之刻 (Sakura no Toki).md	plot=6291	pad=False
+批次280	纸上的魔法使.md	plot=6771	pad=False
+批次281	Dies irae.md	plot=7187	pad=False
+批次281	Doki Doki Literature Club! (DDLC).md	plot=7557	pad=False
+批次281	腐姬.md	plot=6219	pad=False
+批次281	海市蜃楼之馆.md	plot=6113	pad=False
+批次281	君与她与她的恋爱 (Totono).md	plot=5883	pad=False
+批次282	Dark Blue.md	plot=6280	pad=False
+批次282	ROOT DOUBLE.md	plot=6291	pad=False
+批次282	监禁.md	plot=6221	pad=False
+批次282	梦见之药.md	plot=6250	pad=False
+批次282	人狼村之谜 (Raging Loop).md	plot=6281	pad=False
+批次283	Euphoria.md	plot=6275	pad=False
+批次283	拔作岛1.md	plot=6247	pad=False
+批次283	拔作岛2.md	plot=6204	pad=False
+批次283	灰色的果实.md	plot=6244	pad=False
+批次283	灰色的迷宫.md	plot=6273	pad=False
+批次284	白色相簿2－ Closing Chapter (终章－Coda).md	plot=6277	pad=False
+批次284	白色相簿2－ Introductory Chapter (序章).md	plot=6277	pad=False
+批次284	传颂之物－ 给逝者的摇篮曲.md	plot=6264	pad=False
+批次284	传颂之物－ 虚伪的假面.md	plot=6202	pad=False
+批次284	灰色的乐园.md	plot=6260	pad=False
+批次285	Muv-Luv (Extra & Unlimited).md	plot=6260	pad=False
+批次285	Muv-Luv Alternative.md	plot=6218	pad=False
+批次285	To Heart 2.md	plot=6202	pad=False
+批次285	传颂之物－ 二人的白皇.md	plot=6222	pad=False
+批次285	痕 (Kizuato).md	plot=6267	pad=False
+批次286	SHUFFLE!.md	plot=6089	pad=False
+批次286	初音岛II (D.C. II).md	plot=3740	pad=False
+批次286	初音岛III (D.C. III).md	plot=3972	pad=False
+批次286	魔女的夜宴 (Sanoba Witch).md	plot=4123	pad=False
+批次286	千恋＊万花.md	plot=3930	pad=False
+批次287	DRACU-RIOT!.md	plot=3768	pad=False
+批次287	Parquet.md	plot=3582	pad=False
+批次287	RIDDLE JOKER.md	plot=3780	pad=False
+批次287	名流得主 (Noble Works).md	plot=3631	pad=False
+批次287	天使嚣嚣 (Tenshi Souzou Re-Boot!).md	plot=3537	pad=False
+批次288	Fortune Arterial.md	plot=3814	pad=False
+批次288	大图书馆的牧羊人.md	plot=5037	pad=False
+批次288	秽翼的尤斯蒂娅.md	plot=3877	pad=False
+批次288	兰斯01－ 寻找小光 (重制版).md	plot=3304	pad=False
+批次288	夜明前的琉璃色.md	plot=3764	pad=False
+批次289	兰斯02－ 反叛的少女们 (重制版).md	plot=2859	pad=False
+批次289	兰斯03－ 利萨斯陷落 (重制版).md	plot=2887	pad=False
+批次289	兰斯5D－ 孤独的少女.md	plot=2635	pad=False
+批次289	兰斯IV － 4.1 － 4.2.md	plot=2774	pad=False
+批次289	兰斯VI－ 赛斯崩坏.md	plot=2711	pad=False
+批次290	兰斯10－ 决战.md	plot=1650	pad=False
+批次290	兰斯7－ 战国兰斯.md	plot=3334	pad=False
+批次290	兰斯8－ Rance Quest.md	plot=2317	pad=False
+批次290	兰斯9－ 赫尔曼革命.md	plot=1951	pad=False
+批次290	缘之空 (Yosuga no Sora).md	plot=2025	pad=False
+批次291	妹的圣域.md	plot=2810	pad=False
+批次291	妹之形.md	plot=1446	pad=False
+批次291	茜色圣域.md	plot=2212	pad=False
+批次291	学校圣域.md	plot=2234	pad=False
+批次291	悠之空 (Haruka na Sora).md	plot=1431	pad=False
+批次292	美少女万华镜1－ 被诅咒的传说少女.md	plot=5821	pad=False
+批次292	美少女万华镜2－ 勿忘草与永远的少女.md	plot=5714	pad=False
+批次292	美少女万华镜2.5－ 献给曾是少女的你.md	plot=5697	pad=False
+批次292	美少女万华镜3－ 神明创造的少女们.md	plot=5697	pad=False
+批次292	美少女万华镜4－ 罪与罚的少女.md	plot=5520	pad=False
+批次293	姐姐，要好好做哦！ 1.md	plot=5251	pad=False
+批次293	美少女万华镜5－ 理与迷宫的少女.md	plot=5594	pad=False
+批次293	妹天堂! 1.md	plot=5100	pad=False
+批次293	妹天堂! 2.md	plot=4944	pad=False
+批次293	妹天堂! 3.md	plot=4880	pad=False
+批次294	大哥哥，吻我！！.md	plot=6007	pad=False
+批次294	姐姐，要好好做哦！ 2.md	plot=6043	pad=False
+批次294	媚肉之香.md	plot=6012	pad=False
+批次294	母娘乱馆.md	plot=6001	pad=False
+批次294	遥仰凰华.md	plot=6001	pad=False
+批次295	姐名 (Aneiro).md	plot=6031	pad=False
+批次295	恋爱0公里.md	plot=6013	pad=False
+批次295	任性High Spec.md	plot=6014	pad=False
+批次295	辻堂山的纯爱之路.md	plot=6005	pad=False
+批次295	夕阳染红的坡道.md	plot=6163	pad=True
+批次296	School Days.md	plot=6207	pad=False
+批次296	Shiny Days.md	plot=6688	pad=False
+批次296	天津罪.md	plot=6173	pad=False
+批次296	幸福噩梦 (Hapymaher).md	plot=6103	pad=False
+批次296	重生萝莉岛 (Teaching Feeling).md	plot=6075	pad=False
+批次297	Cross Days.md	plot=7021	pad=True
+批次297	壳之少女.md	plot=6303	pad=False
+批次297	恋狱月狂病 (Cartagra).md	plot=6001	pad=False
+批次297	天之少女.md	plot=6012	pad=False
+批次297	虚之少女.md	plot=6044	pad=False
+批次298	FLOWERS 春篇.md	plot=6318	pad=False
+批次298	FLOWERS 冬篇.md	plot=6175	pad=False
+批次298	FLOWERS 秋篇.md	plot=6480	pad=False
+批次298	FLOWERS 夏篇.md	plot=6716	pad=False
+批次298	高加索之南 (Caucasus).md	plot=2713	pad=False
+批次299	9-nine- 春色春恋春熙风.md	plot=5262	pad=False
+批次299	9-nine- 九次九日九重色.md	plot=6303	pad=False
+批次299	9-nine- 天色天歌天籁音.md	plot=5263	pad=False
+批次299	9-nine- 雪色雪花雪余痕.md	plot=6405	pad=False
+批次299	MakingLovers.md	plot=4701	pad=False
+批次300	Fureraba ~Friend to Lover~.md	plot=6034	pad=False
+批次300	HaremKingdom.md	plot=6002	pad=False
+批次300	Sugar  Style.md	plot=6006	pad=False
+批次300	近月少女的礼仪.md	plot=6004	pad=False
+批次300	少女理论及其周边.md	plot=6084	pad=False

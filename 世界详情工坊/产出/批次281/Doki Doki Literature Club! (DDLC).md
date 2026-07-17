@@ -61,7 +61,6 @@
 **【氛围基调 · 雷区】**
 先甜后凛、心理向；全年龄主轴（原作无H）。忌把抑郁当梗；忌残忍周目当乐趣主轴；忌战斗化。最佳切入：入部第一周诗会。
 
-
 **【故事主线 · 情感线 · 加厚】**
 文学部的桌子永远缺一只杯子。纱世里把你拉进门时笑得很亮，发饰却像一小片雨云。夏树把杯子蛋糕切成「公平的块」，刀面反射她不愿示弱的眼睛。优里倒茶前问糖量，声音轻，书很厚。莫妮卡在黑板上写「欢迎」，字迹完美得像练习过一百次孤独。
 
@@ -105,30 +104,6 @@ Plus 的侧故事把「仍想写诗」写得更温柔。主题是心理健康与
 （Doki Doki Literature Club! (DDLC)细部9）只聊天日谁也不评价作品 对话只留半句，其余用动作完成；好感体现在称呼、距离与是否分享食物。这一刻只属于《Doki Doki Literature Club! (DDLC)》，禁止套用其他世界模板句。
 
 （Doki Doki Literature Club! (DDLC)细部10）钢琴角落有人认真听完一整首 对话只留半句，其余用动作完成；好感体现在称呼、距离与是否分享食物。这一刻只属于《Doki Doki Literature Club! (DDLC)》，禁止套用其他世界模板句。
-
-（Doki Doki Literature Club! (DDLC)细部11）纱世里笑很亮发饰却像雨云 对话只留半句，其余用动作完成；好感体现在称呼、距离与是否分享食物。这一刻只属于《Doki Doki Literature Club! (DDLC)》，禁止套用其他世界模板句。
-
-（Doki Doki Literature Club! (DDLC)细部12）夏树把杯子蛋糕切成公平的块 对话只留半句，其余用动作完成；好感体现在称呼、距离与是否分享食物。这一刻只属于《Doki Doki Literature Club! (DDLC)》，禁止套用其他世界模板句。
-
-（Doki Doki Literature Club! (DDLC)细部13）优里倒茶前先问糖量 对话只留半句，其余用动作完成；好感体现在称呼、距离与是否分享食物。这一刻只属于《Doki Doki Literature Club! (DDLC)》，禁止套用其他世界模板句。
-
-（Doki Doki Literature Club! (DDLC)细部14）莫妮卡黑板上的欢迎写得太完美 对话只留半句，其余用动作完成；好感体现在称呼、距离与是否分享食物。这一刻只属于《Doki Doki Literature Club! (DDLC)》，禁止套用其他世界模板句。
-
-（Doki Doki Literature Club! (DDLC)细部15）诗被折好递出时指尖发抖 对话只留半句，其余用动作完成；好感体现在称呼、距离与是否分享食物。这一刻只属于《Doki Doki Literature Club! (DDLC)》，禁止套用其他世界模板句。
-
-（Doki Doki Literature Club! (DDLC)细部16）放学共回迁就彼此步速 对话只留半句，其余用动作完成；好感体现在称呼、距离与是否分享食物。这一刻只属于《Doki Doki Literature Club! (DDLC)》，禁止套用其他世界模板句。
-
-（Doki Doki Literature Club! (DDLC)细部17）部室椅子被拉开一格 对话只留半句，其余用动作完成；好感体现在称呼、距离与是否分享食物。这一刻只属于《Doki Doki Literature Club! (DDLC)》，禁止套用其他世界模板句。
-
-（Doki Doki Literature Club! (DDLC)细部18）文化祭海报贴正又贴歪再贴正 对话只留半句，其余用动作完成；好感体现在称呼、距离与是否分享食物。这一刻只属于《Doki Doki Literature Club! (DDLC)》，禁止套用其他世界模板句。
-
-（Doki Doki Literature Club! (DDLC)细部19）只聊天日谁也不评价作品 对话只留半句，其余用动作完成；好感体现在称呼、距离与是否分享食物。这一刻只属于《Doki Doki Literature Club! (DDLC)》，禁止套用其他世界模板句。
-
-（Doki Doki Literature Club! (DDLC)细部20）钢琴角落有人认真听完一整首 对话只留半句，其余用动作完成；好感体现在称呼、距离与是否分享食物。这一刻只属于《Doki Doki Literature Club! (DDLC)》，禁止套用其他世界模板句。
-
-（Doki Doki Literature Club! (DDLC)细部21）纱世里笑很亮发饰却像雨云 对话只留半句，其余用动作完成；好感体现在称呼、距离与是否分享食物。这一刻只属于《Doki Doki Literature Club! (DDLC)》，禁止套用其他世界模板句。
-
-（Doki Doki Literature Club! (DDLC)细部22）夏树把杯子蛋糕切成公平的块 对话只留半句，其余用动作完成；好感体现在称呼、距离与是否分享食物。这一刻只属于《Doki Doki Literature Club! (DDLC)》，禁止套用其他世界模板句。
 
 **【生活细节库 · Doki Doki Literature Club! (DDLC)】**
 

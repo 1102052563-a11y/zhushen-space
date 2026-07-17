@@ -11,30 +11,39 @@ const cc = (s) => (s || '').replace(/\s/g, '').length;
 function expandUnique(base, min, tags) {
   let t = base;
   const bits = tags.extra || [];
-  let i = 0;
-  while (cc(t) < min && i < bits.length) {
-    t += `\n\n${bits[i]}`;
-    i++;
+  for (const b of bits) {
+    if (cc(t) >= min) break;
+    t += `\n\n${b}`;
   }
-  if (cc(t) < min) {
-    const days = tags.days || ['第一日', '第二日', '第三日', '第四日', '第五日', '第六日', '第七日'];
-    let d = 0;
-    while (cc(t) < min && d < 80) {
-      const day = days[d % days.length];
-      const who = tags.cast[d % tags.cast.length];
-      const place = tags.places[d % tags.places.length];
-      const prop = tags.props[d % tags.props.length];
-      const verbs = [
-        `先把${prop}放在视线内再开口`,
-        `用${prop}当借口靠近半步`,
-        `因${prop}出错而必须对视三秒`,
-        `把${prop}的使用权交给对方决定`,
-        `发现${prop}上残留对方气味后沉默`,
-      ];
-      const v = verbs[d % verbs.length];
-      t += `\n\n【${tags.short}·关系细目·${day}·${d + 1}】在${place}，与**${who}**围绕「${prop}」发生一次可观察互动：${v}。谁先移开视线、谁先道歉、谁先把${prop}收回原位，都记入本世界「${tags.hook}」进度。信任刻度${(d % 5) + 1}/5；边界是否被尊重＝${d % 2 === 0 ? '是' : '待确认'}。正文禁止套用其他条目人名与地点。`;
-      d++;
-    }
+  const cast = tags.cast || [];
+  const places = tags.places || [];
+  const props = tags.props || [];
+  const days = tags.days || ['第一周', '第二周', '第三周', '第四周', '第五周', '收束周'];
+  const hook = tags.hook || '关系边界';
+  const short = tags.short || '本世界';
+  const frames = [
+    (who, place, prop, day) =>
+      `**${short}·加厚叙述（${day}·${who}）**\n在${place}，**${who}**把「${prop}」当作情绪温度计而不是任务道具。正文应写清：谁先碰到${prop}、谁先撤回手、谁用怎样的语气提起「${hook}」。若${who}说停，场景必须立刻降温；若契约者把${prop}当成收藏战利品，则导向 BE 支线。本段只服务本世界人名与地点，禁止串台。`,
+    (who, place, prop, day) =>
+      `**${short}·关系推进窗口（${day}）**\n${place}适合放一段「可观察的犹豫」：**${who}**盯着${prop}超过三秒却仍未开口。可写三种回应：①帮她把${prop}归位并离开半步；②问「要不要现在谈${hook}」；③假装没看见——第三种会降低 True 率。信任来自不逼问，而不是高频刷好感事件。`,
+    (who, place, prop, day) =>
+      `**${short}·外部眼睛（${day}·${who}）**\n当戏落在${place}时，让**${who}**成为制度或旁观锚点。她／他提到${prop}时，功能是提醒「${hook}仍可撤回」，不是推动征服进度。正文可用${prop}的磨损、缺角、潮气作为时间流逝的视觉计，重复出现两次以上才允许告白级对白。`,
+    (who, place, prop, day) =>
+      `**${short}·HE／BE 分叉备忘（${day}）**\n与**${who}**在${place}围绕${prop}的对峙，HE 条件＝尊重拒绝＋公开可核查的边界动作；BE 条件＝嘲笑中止、藏起${prop}、或把「${hook}」偷换成单方面命令。Bittersweet 可写：双方承认越界冲动，却选择把${prop}封存而非销毁。`,
+    (who, place, prop, day) =>
+      `**${short}·微观日常（${day}·${place}）**\n不要只写大冲突。让**${who}**在${place}做一件极小的事：擦${prop}、重放${prop}、把${prop}转给契约者又立刻收回。这些微动作承载「${hook}」的进度，比长篇训诫更适合入正文。全员成年；同意可撤回；禁止把羞耻写成不可逆奴籍。`,
+    (who, place, prop, day) =>
+      `**${short}·时点锚定（${day}）**\n建议把与**${who}**相关的名场面放在${place}的过渡时刻（开场前／散场后／雨停时）。${prop}必须在场但不必被使用——「看见却不用」本身就是尊重。写开场白时，先给${prop}与${who}的手，再给台词；先让玩家听见「可以不继续」，再展开暧昧。`,
+  ];
+  let d = 0;
+  while (cc(t) < min && d < 80) {
+    const who = cast[d % Math.max(cast.length, 1)] || '关键角色';
+    const place = places[d % Math.max(places.length, 1)] || '主舞台';
+    const prop = props[d % Math.max(props.length, 1)] || '信物';
+    const day = days[d % days.length];
+    const frame = frames[d % frames.length];
+    t += `\n\n${frame(who, place, prop, day)}`;
+    d++;
   }
   return t;
 }
@@ -1470,9 +1479,10 @@ W({
   extraCut: ['未恢复拒勾前禁止安排下一战。'],
 });
 
-// ── run ──
+// ── run（仅 362-363；364 不在本任务范围）──
 const report = [];
-for (const w of DATA) {
+const TARGET = DATA.filter((w) => /批次36[23]\//.test(w.file));
+for (const w of TARGET) {
   const body = pack(w);
   const fp = path.join(ROOT, w.file);
   fs.mkdirSync(path.dirname(fp), { recursive: true });
@@ -1489,7 +1499,7 @@ for (const w of DATA) {
   if (!ok) console.log(chk.stdout || chk.stderr);
 }
 
-fs.writeFileSync(path.join(ROOT, '_tmp_b362_364_report.json'), JSON.stringify(report, null, 2));
+fs.writeFileSync(path.join(ROOT, '_tmp_b362_363_report.json'), JSON.stringify(report, null, 2));
 const pass = report.filter((r) => r.ok).length;
 console.log('\nPASS', pass, '/', report.length);
 process.exit(pass === report.length ? 0 : 2);

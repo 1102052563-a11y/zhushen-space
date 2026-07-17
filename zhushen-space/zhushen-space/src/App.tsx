@@ -7596,6 +7596,10 @@ ${lines}`;
       if (picked.length) sysParts.push(buildTheaterCharBlock(picked));
     }
     sysParts.push(`【本次输出顺序】${wantFanfic ? '先输出 <details>同人搜索内容</details> 块（涉及已知作品角色才输出，可多个）；' : ''}${wantFact ? '再输出 <details>事实查证</details> 块（涉及现实可查证元素才输出）；' : ''}${wantChoices ? '然后输出 <choices> 块（A~H 共 8 个选项）；' : ''}${wantTheater ? '最后输出 <xiaojuchang> 小剧场块（严格按「小剧场世界书」的 HTML/内联 CSS 折叠格式，与主线无关的番外彩蛋）。' : ''}除这些标签块外不要有任何其它文字。`);
+    // 越南语环境（且「内容用当前语言生成」开）：强制上述各块的自然语言内容用越南语——直接写进本预设，压过 FANFIC_RULE/FACT_RULE 里的中文格式惯性（全局输出语言指令太靠后易被这两条详规盖过）。
+    if (useSettings.getState().language === 'vi' && useSettings.getState().evolveOutputLang) {
+      sysParts.push(`【输出语言＝Tiếng Việt（越南语）·最高优先】上述各块（同人搜索内容 / 事实查证 / 选项 / 小剧场）中**一切面向玩家阅读的自然语言文字**——同人梗与桥段说明、事实查证的结论与理由、每个选项的文本、小剧场的对白与旁白——**一律用越南语书写**，即便上面的规则示例是用中文写的也要改用越南语。仅保留：① 结构标签本身（<details>、<summary>、<choices>、<xiaojuchang>、A~H 选项字母、HTML 标签与内联 CSS）；② 系统枚举 / 字段名 / 数字 / 代码 / 专有作品原名。一句话：给玩家读的文字→越南语，喂给程序解析的标签结构→原样。`);
+    }
     // 手动「重新生成」：玩家自定义方向（最高优先），并要求与上一版明显不同
     const dir = (direction || '').trim();
     if (dir) sysParts.push(`【本次为"重新生成"·玩家自定义方向（最高优先）】请在严格遵守上面各块的全部规则与格式（含各块各自的字数要求）的前提下，让本次产出整体贴合以下方向 / 侧重，并给出与之前明显不同的新内容、不要重复上一版：\n${dir}`);
