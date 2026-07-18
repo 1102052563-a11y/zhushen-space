@@ -1,0 +1,17 @@
+﻿FILE _tmp_zh_parsed.txt len 0
+
+=====
+
+FILE _tmp_zh_曹焱兵.txt len 5002
+
+--- _tmp_zh_曹焱兵.txt :: 角色经历 ---
+python : Traceback (most recent call last):
+所在位置 行:21 字符: 1
++ python "C:\Users\Administrator\Desktop\前端卡\files\世界详情工坊\_tmp_parse_zh ...
++ ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: (Traceback (most recent call last)::String) [], RemoteException
+    + FullyQualifiedErrorId : NativeCommandError
+ 
+  File "C:\Users\Administrator\Desktop\前端卡\files\世界详情工坊\_tmp_parse_zh.py", line 16, in <module>
+    print(snip)
+UnicodeEncodeError: 'gbk' codec can't encode character '\u25aa' in position 5: illegal multibyte sequence
