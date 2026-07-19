@@ -9846,6 +9846,27 @@ ${lines}`;
       undefined;
     open?.();
   }
+  /* 保存楼层编辑（用户气泡 / 正文）：
+     ① 改本楼 content 并**丢弃旧 raw**——历史/记忆注入读 `raw ?? content`（promptViewOfHistMsg），
+        只改 content 会让 AI 仍看到「正则前的旧原文」，出现"改了显示、AI 却看不到"的假象（用户报"编辑貌似没用"）。
+     ② 若改的是「最后一条用户输入」，同步 lastUserInputRef →「⟳ 重新生成」按新文本重出。
+        否则 regenerateTurn 一直优先读这条内存态旧输入 → reroll 后又变回改之前（用户报的第 2 个 bug）。
+        （reload/读档后 lastUserInputRef 已丢，regenerateTurn 兜底读 messagesRef 的最后一条用户楼层 content，
+         此时 raw 已被本函数清掉 → content 即编辑后文本，同样正确。） */
+  function saveMessageEdit(id: number) {
+    const text = editDraft;
+    setMessages((prev) => prev.map((m) => {
+      if (m.id !== id) return m;
+      const next = { ...m, content: text };
+      delete next.raw;
+      return next;
+    }));
+    const msgs = messagesRef.current ?? [];
+    const isLastUser = msgs.some((m) => m.id === id && m.role === 'user')
+      && !msgs.some((m) => m.role === 'user' && m.id > id);
+    if (isLastUser) lastUserInputRef.current = text;
+    setEditingMsgId(null);
+  }
   /* 回退到上一回合：恢复所有演化/对话/图到发送本回合之前（整页 reload）*/
   async function rollbackTurn() {
     if (useMp.getState().status === 'connected') { setGenError('联机房间内不能回退（会刷新页面+断开房间，队友会被还原到各自单机存档）。请先关闭/离开房间再回退。'); setTimeout(() => setGenError(''), 6000); return; }
@@ -10960,7 +10981,7 @@ ${lines}`;
                                 <div className="flex items-center justify-end gap-2 flex-wrap">
                                   <span className="text-[11px] text-dim/40 font-mono mr-auto">仅改本楼文本（供后续正文参考）·想按新内容重写正文改完点「⟳ 重新生成」</span>
                                   <button
-                                    onClick={() => { setMessages((prev) => prev.map((m) => m.id === msg.id ? { ...m, content: editDraft } : m)); setEditingMsgId(null); }}
+                                    onClick={() => saveMessageEdit(msg.id)}
                                     className="px-3 py-1 rounded border border-god/40 text-god bg-god/10 hover:bg-god/20 text-[13px] font-mono transition-colors"
                                   >✓ 保存</button>
                                   <button
@@ -11008,10 +11029,7 @@ ${lines}`;
                               />
                               <div className="flex items-center gap-2">
                                 <button
-                                  onClick={() => {
-                                    setMessages((prev) => prev.map((m) => m.id === msg.id ? { ...m, content: editDraft } : m));
-                                    setEditingMsgId(null);
-                                  }}
+                                  onClick={() => saveMessageEdit(msg.id)}
                                   className="px-3 py-1 rounded border border-god/40 text-god bg-god/10 hover:bg-god/20 text-[13px] font-mono transition-colors"
                                 >✓ 保存</button>
                                 <button

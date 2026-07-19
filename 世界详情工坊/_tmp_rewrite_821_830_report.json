@@ -1,0 +1,473 @@
+{
+  "total": 51,
+  "ok": 1,
+  "warn": 50,
+  "hard": 0,
+  "err": 0,
+  "plotGe7500": 51,
+  "entryGe1800": 51,
+  "clicheCleared": 0,
+  "stillCliche": [
+    "D.C.II P.C..md",
+    "D.C.II P.S..md",
+    "FORTUNE ARTERIAL 赤い約束.md",
+    "うたわれるもの ロストフラグ.md",
+    "うたわれるもの 斬.md",
+    "CLANNAD 光見守る坂道で.md",
+    "D.C.4 Plus Harmony.md",
+    "D.C.III P.P..md",
+    "DIABOLIK LOVERS LUNATIC PARADE.md",
+    "Little Busters! SS.md",
+    "DIABOLIK LOVERS CHAOS LINEAGE.md",
+    "DIABOLIK LOVERS GRAND EDITION.md",
+    "うたの☆プリンスさまっ♪ MUSIC 2.md",
+    "うたの☆プリンスさまっ♪ MUSIC 3.md",
+    "うたの☆プリンスさまっ♪ Repeat.md",
+    "NEWラブプラス.md",
+    "ときめきメモリアル Girl's Side.md",
+    "ときめきメモリアル.md",
+    "ときめきメモリアル2.md",
+    "ラブプラス.md",
+    "Psychedelica of the Ashen Hawk.md",
+    "Psychedelica of the Black Butterfly.md",
+    "ときめきメモリアル Girl's Side 2nd Kiss.md",
+    "ときめきメモリアル Girl's Side 3rd Story.md",
+    "ときめきメモリアル Girl's Side 4th Heart.md",
+    "CLOCK ZERO ～終焉の一秒～ Devote.md",
+    "CLOCK ZERO ～終焉の一秒～.md",
+    "薄桜鬼SSL ～sweet school life～.md",
+    "遙かなる時空の中で Ultimate.md",
+    "金色のコルダ スターライトオーケストラ.md",
+    "A3!.md",
+    "アイ★チュウ.md",
+    "ツキウタ。.md",
+    "ドグラ・マグラ.md",
+    "夢色キャスト.md",
+    "ましろ色シンフォニー SANA EDITION.md",
+    "ガールズシンフォニー ～少女交響詩～.md",
+    "ドグラ・マグラ～深淵よりの呼び声～.md",
+    "星空のメモリア -Wish upon a shooting star-.md",
+    "星空のメモリア Perfect Edition.md",
+    "Collar×Malice -Unlimited-.md",
+    "ROBOTICS;NOTES ELITE.md",
+    "STEINS;GATE Elite.md",
+    "時計仕掛けのレイライン -無限の夜想曲-.md",
+    "BROTHERS CONFLICT Brilliant Blue.md",
+    "Code：Realize Future Blessings.md",
+    "Norn9 Act Tune.md",
+    "うたの☆プリンスさまっ♪ All Star After Secret.md",
+    "薄桜鬼 真改 華ノ章.md",
+    "薄桜鬼 真改 風華伝.md"
+  ],
+  "hardList": [],
+  "rows": [
+    {
+      "b": "821",
+      "f": "D.C.II P.C..md",
+      "plot": "7666->7641",
+      "entry": "1550->1844",
+      "hits": "15->4",
+      "st": "WARN"
+    },
+    {
+      "b": "821",
+      "f": "D.C.II P.S..md",
+      "plot": "7529->7617",
+      "entry": "1585->1934",
+      "hits": "15->4",
+      "st": "WARN"
+    },
+    {
+      "b": "821",
+      "f": "FORTUNE ARTERIAL 赤い約束.md",
+      "plot": "7632->7580",
+      "entry": "1590->1825",
+      "hits": "15->4",
+      "st": "WARN"
+    },
+    {
+      "b": "821",
+      "f": "うたわれるもの ロストフラグ.md",
+      "plot": "7608->7635",
+      "entry": "1558->1968",
+      "hits": "15->4",
+      "st": "WARN"
+    },
+    {
+      "b": "821",
+      "f": "うたわれるもの 斬.md",
+      "plot": "7566->7602",
+      "entry": "1559->1921",
+      "hits": "15->4",
+      "st": "WARN"
+    },
+    {
+      "b": "822",
+      "f": "CLANNAD 光見守る坂道で.md",
+      "plot": "6795->7609",
+      "entry": "1581->1901",
+      "hits": "15->4",
+      "st": "WARN"
+    },
+    {
+      "b": "822",
+      "f": "D.C.4 Plus Harmony.md",
+      "plot": "6860->7643",
+      "entry": "1564->1990",
+      "hits": "15->4",
+      "st": "WARN"
+    },
+    {
+      "b": "822",
+      "f": "D.C.III P.P..md",
+      "plot": "6965->7607",
+      "entry": "1562->1969",
+      "hits": "15->4",
+      "st": "WARN"
+    },
+    {
+      "b": "822",
+      "f": "DIABOLIK LOVERS LUNATIC PARADE.md",
+      "plot": "6840->7623",
+      "entry": "1576->2006",
+      "hits": "15->4",
+      "st": "WARN"
+    },
+    {
+      "b": "822",
+      "f": "Little Busters! SS.md",
+      "plot": "7039->7665",
+      "entry": "1580->2084",
+      "hits": "15->4",
+      "st": "WARN"
+    },
+    {
+      "b": "823",
+      "f": "DIABOLIK LOVERS CHAOS LINEAGE.md",
+      "plot": "6185->7551",
+      "entry": "1528->2144",
+      "hits": "21->4",
+      "st": "WARN"
+    },
+    {
+      "b": "823",
+      "f": "DIABOLIK LOVERS GRAND EDITION.md",
+      "plot": "6116->7632",
+      "entry": "1543->1933",
+      "hits": "21->4",
+      "st": "WARN"
+    },
+    {
+      "b": "823",
+      "f": "うたの☆プリンスさまっ♪ MUSIC 2.md",
+      "plot": "6204->7566",
+      "entry": "1515->1941",
+      "hits": "21->4",
+      "st": "WARN"
+    },
+    {
+      "b": "823",
+      "f": "うたの☆プリンスさまっ♪ MUSIC 3.md",
+      "plot": "6170->7650",
+      "entry": "1547->1889",
+      "hits": "21->4",
+      "st": "WARN"
+    },
+    {
+      "b": "823",
+      "f": "うたの☆プリンスさまっ♪ Repeat.md",
+      "plot": "6222->7632",
+      "entry": "1538->1946",
+      "hits": "21->4",
+      "st": "WARN"
+    },
+    {
+      "b": "824",
+      "f": "NEWラブプラス.md",
+      "plot": "6031->7638",
+      "entry": "1569->1823",
+      "hits": "20->4",
+      "st": "WARN"
+    },
+    {
+      "b": "824",
+      "f": "ときめきメモリアル Girl's Side.md",
+      "plot": "6023->7627",
+      "entry": "1584->1927",
+      "hits": "20->4",
+      "st": "WARN"
+    },
+    {
+      "b": "824",
+      "f": "ときめきメモリアル.md",
+      "plot": "6079->7604",
+      "entry": "1558->1899",
+      "hits": "20->4",
+      "st": "WARN"
+    },
+    {
+      "b": "824",
+      "f": "ときめきメモリアル2.md",
+      "plot": "6092->7600",
+      "entry": "1581->1881",
+      "hits": "20->4",
+      "st": "WARN"
+    },
+    {
+      "b": "824",
+      "f": "ラブプラス.md",
+      "plot": "6360->7623",
+      "entry": "1587->2169",
+      "hits": "16->4",
+      "st": "WARN"
+    },
+    {
+      "b": "825",
+      "f": "Psychedelica of the Ashen Hawk.md",
+      "plot": "6054->7613",
+      "entry": "2056->2584",
+      "hits": "19->4",
+      "st": "WARN"
+    },
+    {
+      "b": "825",
+      "f": "Psychedelica of the Black Butterfly.md",
+      "plot": "6081->7668",
+      "entry": "2018->2567",
+      "hits": "18->2",
+      "st": "WARN"
+    },
+    {
+      "b": "825",
+      "f": "ときめきメモリアル Girl's Side 2nd Kiss.md",
+      "plot": "6473->7929",
+      "entry": "2155->2484",
+      "hits": "3->3",
+      "st": "WARN"
+    },
+    {
+      "b": "825",
+      "f": "ときめきメモリアル Girl's Side 3rd Story.md",
+      "plot": "6354->7715",
+      "entry": "1985->2451",
+      "hits": "18->4",
+      "st": "WARN"
+    },
+    {
+      "b": "825",
+      "f": "ときめきメモリアル Girl's Side 4th Heart.md",
+      "plot": "6012->7620",
+      "entry": "1852->2348",
+      "hits": "19->4",
+      "st": "WARN"
+    },
+    {
+      "b": "826",
+      "f": "CLOCK ZERO ～終焉の一秒～ Devote.md",
+      "plot": "6059->7751",
+      "entry": "1517->2379",
+      "hits": "0->3",
+      "st": "WARN"
+    },
+    {
+      "b": "826",
+      "f": "CLOCK ZERO ～終焉の一秒～.md",
+      "plot": "7426->7559",
+      "entry": "1741->2502",
+      "hits": "15->3",
+      "st": "WARN"
+    },
+    {
+      "b": "826",
+      "f": "薄桜鬼SSL ～sweet school life～.md",
+      "plot": "7508->7666",
+      "entry": "1853->1853",
+      "hits": "15->3",
+      "st": "WARN"
+    },
+    {
+      "b": "826",
+      "f": "遙かなる時空の中で Ultimate.md",
+      "plot": "6037->7610",
+      "entry": "1567->2333",
+      "hits": "0->3",
+      "st": "WARN"
+    },
+    {
+      "b": "826",
+      "f": "金色のコルダ スターライトオーケストラ.md",
+      "plot": "7420->7619",
+      "entry": "1802->2601",
+      "hits": "15->3",
+      "st": "WARN"
+    },
+    {
+      "b": "827",
+      "f": "A3!.md",
+      "plot": "6119->7636",
+      "entry": "1579->2281",
+      "hits": "0->4",
+      "st": "WARN"
+    },
+    {
+      "b": "827",
+      "f": "アイ★チュウ.md",
+      "plot": "6093->7694",
+      "entry": "1534->2335",
+      "hits": "4->4",
+      "st": "WARN"
+    },
+    {
+      "b": "827",
+      "f": "ツキウタ。.md",
+      "plot": "6036->7627",
+      "entry": "1578->2328",
+      "hits": "4->4",
+      "st": "WARN"
+    },
+    {
+      "b": "827",
+      "f": "ドグラ・マグラ.md",
+      "plot": "6006->7594",
+      "entry": "1599->2412",
+      "hits": "4->4",
+      "st": "WARN"
+    },
+    {
+      "b": "827",
+      "f": "夢色キャスト.md",
+      "plot": "6806->7655",
+      "entry": "1602->2327",
+      "hits": "0->4",
+      "st": "WARN"
+    },
+    {
+      "b": "828",
+      "f": "ましろ色シンフォニー SANA EDITION.md",
+      "plot": "6057->7655",
+      "entry": "1949->1949",
+      "hits": "20->4",
+      "st": "WARN"
+    },
+    {
+      "b": "828",
+      "f": "ガールズシンフォニー ～少女交響詩～.md",
+      "plot": "6734->7644",
+      "entry": "2037->2037",
+      "hits": "0->3",
+      "st": "WARN"
+    },
+    {
+      "b": "828",
+      "f": "ドグラ・マグラ～深淵よりの呼び声～.md",
+      "plot": "6061->7729",
+      "entry": "1732->2585",
+      "hits": "5->4",
+      "st": "WARN"
+    },
+    {
+      "b": "828",
+      "f": "星空のメモリア -Wish upon a shooting star-.md",
+      "plot": "6273->7648",
+      "entry": "2227->2227",
+      "hits": "15->1",
+      "st": "WARN"
+    },
+    {
+      "b": "828",
+      "f": "星空のメモリア Perfect Edition.md",
+      "plot": "6111->7614",
+      "entry": "1950->1950",
+      "hits": "20->4",
+      "st": "WARN"
+    },
+    {
+      "b": "829",
+      "f": "Collar×Malice -Unlimited-.md",
+      "plot": "6743->7669",
+      "entry": "1902->1902",
+      "hits": "0->3",
+      "st": "WARN"
+    },
+    {
+      "b": "829",
+      "f": "OZMAFIA!! -vivace-.md",
+      "plot": "7833->7833",
+      "entry": "1901->1901",
+      "hits": "0->0",
+      "st": "OK"
+    },
+    {
+      "b": "829",
+      "f": "ROBOTICS;NOTES ELITE.md",
+      "plot": "6308->7808",
+      "entry": "1716->2554",
+      "hits": "0->3",
+      "st": "WARN"
+    },
+    {
+      "b": "829",
+      "f": "STEINS;GATE Elite.md",
+      "plot": "6245->7724",
+      "entry": "1717->2543",
+      "hits": "0->3",
+      "st": "WARN"
+    },
+    {
+      "b": "829",
+      "f": "時計仕掛けのレイライン -無限の夜想曲-.md",
+      "plot": "6095->7634",
+      "entry": "1527->2354",
+      "hits": "5->4",
+      "st": "WARN"
+    },
+    {
+      "b": "830",
+      "f": "BROTHERS CONFLICT Brilliant Blue.md",
+      "plot": "6000->7729",
+      "entry": "1619->2443",
+      "hits": "4->4",
+      "st": "WARN"
+    },
+    {
+      "b": "830",
+      "f": "Code：Realize Future Blessings.md",
+      "plot": "6092->7767",
+      "entry": "1654->2524",
+      "hits": "4->4",
+      "st": "WARN"
+    },
+    {
+      "b": "830",
+      "f": "Norn9 Act Tune.md",
+      "plot": "6035->7655",
+      "entry": "1580->2319",
+      "hits": "4->4",
+      "st": "WARN"
+    },
+    {
+      "b": "830",
+      "f": "うたの☆プリンスさまっ♪ All Star After Secret.md",
+      "plot": "6046->7672",
+      "entry": "1616->2479",
+      "hits": "4->2",
+      "st": "WARN"
+    },
+    {
+      "b": "830",
+      "f": "薄桜鬼 真改 華ノ章.md",
+      "plot": "7060->7915",
+      "entry": "1628->2346",
+      "hits": "0->3",
+      "st": "WARN"
+    },
+    {
+      "b": "830",
+      "f": "薄桜鬼 真改 風華伝.md",
+      "plot": "6091->7560",
+      "entry": "1592->2313",
+      "hits": "4->4",
+      "st": "WARN"
+    }
+  ]
+}

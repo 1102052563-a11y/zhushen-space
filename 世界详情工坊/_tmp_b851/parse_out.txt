@@ -1,0 +1,395 @@
+﻿==== baidu_sg.html 1489
+titles [ 'ç\x99¾åº¦å®\x89å\x85¨éª\x8Cè¯\x81' ]
+==== baidu_tm.html 1489
+titles [ 'ç\x99¾åº¦å®\x89å\x85¨éª\x8Cè¯\x81' ]
+==== baidu_ty.html 1489
+titles [ 'ç\x99¾åº¦å®\x89å\x85¨éª\x8Cè¯\x81' ]
+==== ddg_sg.html 14216
+  三国神话世界 @ 2532 "e2e6ab73ae6-e2b117e6d65ad8fec61f90b62dac192f-1c99feae044b17b40052102827882c38&q=三国神话世界 小说&o=bk7jycQRHZLyBwkNr36biqaQroqdSVZmFWtjOKEb8dCJ3C%2FLSqM91g7KFOiINMiV%0A&r=euw\" target=\"ifr\" method=\"POST\"></form> <form id=\"challenge-form\" ac"
+  三国神话世界 @ 3092 "e2e6ab73ae6-e2b117e6d65ad8fec61f90b62dac192f-1c99feae044b17b40052102827882c38&q=三国神话世界 小说&o=bk7jycQRHZLyBwkNr36biqaQroqdSVZmFWtjOKEb8dCJ3C%2FLSqM91g7KFOiINMiV%0A&r=euw\" method=\"POST\"> <div class=\"anomaly-modal__mask\"> "
+titles [ '\n        DuckDuckGo\n    ' ]
+==== ddg_tm.html 14228
+  天命游戏平台 @ 2532 "e2e6ab73ae6-e2b117e6d65ad8fec61f90b62dac192f-1c99feae044b17b40052102827882c38&q=天命游戏平台 小说&o=iaNPS%2BhhsYv5pLeB91Kh8c3AotuCLE4j49MGyNqXyHsYoTq%2BBIUXEP%2BmlZBSMWkY%0A&r=euw\" target=\"ifr\" method=\"POST\"></form> <form id=\"challenge-form"
+  天命游戏平台 @ 3096 "e2e6ab73ae6-e2b117e6d65ad8fec61f90b62dac192f-1c99feae044b17b40052102827882c38&q=天命游戏平台 小说&o=iaNPS%2BhhsYv5pLeB91Kh8c3AotuCLE4j49MGyNqXyHsYoTq%2BBIUXEP%2BmlZBSMWkY%0A&r=euw\" method=\"POST\"> <div class=\"anomaly-modal__mask\"> "
+titles [ '\n        DuckDuckGo\n    ' ]
+==== ddg_ty.html 14224
+  天运玩家 @ 2532 "e2e6ab73ae6-e2b117e6d65ad8fec61f90b62dac192f-1c99feae044b17b40052102827882c38&q=天运玩家 小说&o=NwA%2B%2FdET4qr8wrqW1GlCtPXsBbsuy9mNo9B1Dx%2B1wvl3H7YGRSkAwa7V4NM9GfIZ%0A&r=euw\" target=\"ifr\" method=\"POST\"></form> <form id=\"challenge-form\" "
+  天运玩家 @ 3094 "e2e6ab73ae6-e2b117e6d65ad8fec61f90b62dac192f-1c99feae044b17b40052102827882c38&q=天运玩家 小说&o=NwA%2B%2FdET4qr8wrqW1GlCtPXsBbsuy9mNo9B1Dx%2B1wvl3H7YGRSkAwa7V4NM9GfIZ%0A&r=euw\" method=\"POST\"> <div class=\"anomaly-modal__mask\"> "
+titles [ '\n        DuckDuckGo\n    ' ]
+==== https___m_qidian_com_search_kw_三国神话世界.html 80133
+  三国神话世界 @ 3404 "ot|twitterbot\", \"i\"))) { var url = 'https://www.qidian.com/soushu/三国神话世界.html' if (url) { if (location.search) { if (/source=pc_jump/.test(location.search)) { "
+  三国神话世界 @ 5169 "<link rel=\"dns-prefetch\" href=\"https://aegis.cdn-go.cn\"> <title>三国神话世界小说作品大全_小说作者信息-起点中文网</title> <meta name=\"keywords\" content=\"三国神话世界搜索小说,搜书,搜小说,搜图书,搜作者\"> <meta name=\"description\" content=\"起点中文网搜书频道为您找到了有关三国神话世"
+  三国神话世界 @ 5240 " <title>三国神话世界小说作品大全_小说作者信息-起点中文网</title> <meta name=\"keywords\" content=\"三国神话世界搜索小说,搜书,搜小说,搜图书,搜作者\"> <meta name=\"description\" content=\"起点中文网搜书频道为您找到了有关三国神话世界的20个信息，想了解有关三国神话世界小说及作者信息的书友，欢迎访问起点中文网搜书频道。\"> <meta name=\"r"
+  三国神话世界 @ 5324 "世界搜索小说,搜书,搜小说,搜图书,搜作者\"> <meta name=\"description\" content=\"起点中文网搜书频道为您找到了有关三国神话世界的20个信息，想了解有关三国神话世界小说及作者信息的书友，欢迎访问起点中文网搜书频道。\"> <meta name=\"robots\" content=\"all\"> <meta name=\"googlebot\" content=\"all\"> <meta na"
+  三国神话世界 @ 5342 "搜作者\"> <meta name=\"description\" content=\"起点中文网搜书频道为您找到了有关三国神话世界的20个信息，想了解有关三国神话世界小说及作者信息的书友，欢迎访问起点中文网搜书频道。\"> <meta name=\"robots\" content=\"all\"> <meta name=\"googlebot\" content=\"all\"> <meta name=\"baiduspider\" c"
+  三国神话世界 @ 5761 "=0\"> <link rel=\"canonical\" href=\"https://www.qidian.com/soushu/三国神话世界.html\" /> <link rel=\"icon\" type=\"image/x-icon\" href=\"https://imgservices-1252317822.image.myqcloud.com/coco/s03102023/b7b10602.w663ve.ico\"> "
+  三国神话世界 @ 11762 "ut id=\"search-kw\" type=\"search\" name=\"kw\" class=\"_searchInput_lrbl7_152\" value=\"三国神话世界\" aria-label=\"Search\"></div><a href=\"javascript:history.go(-1);\" class=\"_searchCancel_lrbl7_194 search-cancel jsBack\" role=\"button\" aria-label=\"取消\"> 取消 </"
+  三国神话世界 @ 14906 "7_246 auto-tr auto-click-tr\" href=\"//m.qidian.com/chapter/1009795401/0/\" title=\"三国神话世界在线阅读\" data-showeid data-showl1 data-rid=\"0\" data-auid=\"400170508\" data-eid data-bid=\"1009795401\"><div class=\"_bookImgWrapper_e9qzy_223\"><!--[--><img src=\""
+  作者 @ 5184 "prefetch\" href=\"https://aegis.cdn-go.cn\"> <title>三国神话世界小说作品大全_小说作者信息-起点中文网</title> <meta name=\"keywords\" content=\"三国神话世界搜索小说,搜书,搜小说,搜图书,搜作者\"> <meta name=\"description\" content=\"起点中文网搜书频道为您找到了有关三国神话世界的20个信息，想了解有关三国"
+  作者 @ 5263 "说作者信息-起点中文网</title> <meta name=\"keywords\" content=\"三国神话世界搜索小说,搜书,搜小说,搜图书,搜作者\"> <meta name=\"description\" content=\"起点中文网搜书频道为您找到了有关三国神话世界的20个信息，想了解有关三国神话世界小说及作者信息的书友，欢迎访问起点中文网搜书频道。\"> <meta name=\"robots\" content=\"all\"> "
+  作者 @ 5351 " <meta name=\"description\" content=\"起点中文网搜书频道为您找到了有关三国神话世界的20个信息，想了解有关三国神话世界小说及作者信息的书友，欢迎访问起点中文网搜书频道。\"> <meta name=\"robots\" content=\"all\"> <meta name=\"googlebot\" content=\"all\"> <meta name=\"baiduspider\" content=\"a"
+  作者 @ 15586 "/mark>，有天地神将常山赵子龙，有历史美女貂蝉，有冠绝神州的神谋。======================本书是慢热型，前面介绍比较多，但是后面会好的，作者一直在努力进步！每天两更，会爆发，求收藏！求订阅！</p><!--]--><div class=\"_bookTips_e9qzy_161\"><!--[--><p class=\"_searchBookAuthor_lrbl7_429\">永牧</p><!--]--><!--[--><div class=\"_tags_l"
+  作者 @ 62778 "三国神话世界，有天地神将常山赵子龙，有历史美女貂蝉，有冠绝神州的神谋。======================本书是慢热型，前面介绍比较多，但是后面会好的，作者一直在努力进步！每天两更，会爆发，求收藏！求订阅！\",\"lastUpdateTime\":\"2026-07-17\",\"_index\":0},{\"subCateId\":48,\"bName\":\"神话版三国\",\"clickCnt\":-1,\"signStatus\":\"签约作品\",\"favoriteCnt\":\"114.33万\""
+hrefs [
+  'https://qdfepccdn.qidian.com/m.qidian.com/read/assets/static/index.1f6e6400.css',
+  'https://qdfepccdn.qidian.com/m.qidian.com/read/assets/static/index.955cd4ba.css',
+  'https://qdfepccdn.qidian.com/m.qidian.com/read/assets/static/bookItemHComplex.0f6d42bf.css',
+  'https://qdfepccdn.qidian.com/m.qidian.com/read/assets/static/index.d10046b7.css',
+  'https://qdfepccdn.qidian.com/m.qidian.com/read/assets/static/index.3abf8205.css',
+  'https://qdfepccdn.qidian.com/m.qidian.com/read/assets/static/index.dd5b1e25.css',
+  'https://qdfepccdn.qidian.com/m.qidian.com/read/assets/static/index.page.fc135ae2.css',
+  'https://qdfepccdn.qidian.com/m.qidian.com/read/assets/static/index.0b4690db.css',
+  'https://qdfepccdn.qidian.com/m.qidian.com/read/assets/static/index.bb61086b.css',
+  'https://qdfepccdn.qidian.com/m.qidian.com/read/assets/static/index.8bc6e0c7.css',
+  'https://qdfepccdn.qidian.com/m.qidian.com/read/assets/static/default.page.client.67c8a7d9.css',
+  'https://www.qidian.com/soushu/三国神话世界.html',
+  'https://qdfepccdn.qidian.com',
+  'https://www.qidian.com/soushu/三国神话世界.html',
+  'https://qdfepccdn.qidian.com/m.qidian.com/read/assets/polyfills.4ad16b01.js',
+  'https://m.qidian.com',
+  'https://m.qidian.com/user/help/',
+  'https://m.qidian.com/so/',
+  'https://qdfepccdn.qidian.com/m.qidian.com/read/assets/polyfills.0a1bf6ca-legacy.js',
+  'https://qdfepccdn.qidian.com/m.qidian.com/read/assets/entries/entry-server-routing.a2d599a2-legacy.js'
+]
+titles [ '三国神话世界小说作品大全_小说作者信息-起点中文网' ]
+novelLinks [
+  'https://qdfepccdn.qidian.com/m.qidian.com/read/assets/static/index.1f6e6400.css',
+  'https://qdfepccdn.qidian.com/m.qidian.com/read/assets/static/index.955cd4ba.css',
+  'https://qdfepccdn.qidian.com/m.qidian.com/read/assets/static/bookItemHComplex.0f6d42bf.css',
+  'https://qdfepccdn.qidian.com/m.qidian.com/read/assets/static/index.d10046b7.css',
+  'https://qdfepccdn.qidian.com/m.qidian.com/read/assets/static/index.3abf8205.css',
+  'https://qdfepccdn.qidian.com/m.qidian.com/read/assets/static/index.dd5b1e25.css',
+  'https://qdfepccdn.qidian.com/m.qidian.com/read/assets/static/index.page.fc135ae2.css',
+  'https://qdfepccdn.qidian.com/m.qidian.com/read/assets/static/index.0b4690db.css',
+  'https://qdfepccdn.qidian.com/m.qidian.com/read/assets/static/index.bb61086b.css',
+  'https://qdfepccdn.qidian.com/m.qidian.com/read/assets/static/index.8bc6e0c7.css',
+  'https://qdfepccdn.qidian.com/m.qidian.com/read/assets/static/default.page.client.67c8a7d9.css',
+  'https://qdfepccdn.qidian.com',
+  'https://www.qidian.com/soushu/三国神话世界.html',
+  'https://m.qidian.com',
+  'https://m.qidian.com/user/help/',
+  'https://m.qidian.com/so/',
+  'https://qdfepccdn.qidian.com/m.qidian.com/read/assets/entries/src_pages_searchResult_index.page.0204b081.js',
+  'https://qdfepccdn.qidian.com/m.qidian.com/read/assets/chunks/chunk-b89c944a.js',
+  'https://qdfepccdn.qidian.com/m.qidian.com/read/assets/chunks/chunk-25601357.js',
+  'https://qdfepccdn.qidian.com/m.qidian.com/read/assets/chunks/chunk-2250ac69.js'
+]
+==== https___m_qidian_com_search_kw_天命游戏平台.html 82602
+  天命游戏平台 @ 3404 "ot|twitterbot\", \"i\"))) { var url = 'https://www.qidian.com/soushu/天命游戏平台.html' if (url) { if (location.search) { if (/source=pc_jump/.test(location.search)) { "
+  天命游戏平台 @ 5169 "<link rel=\"dns-prefetch\" href=\"https://aegis.cdn-go.cn\"> <title>天命游戏平台小说作品大全_小说作者信息-起点中文网</title> <meta name=\"keywords\" content=\"天命游戏平台搜索小说,搜书,搜小说,搜图书,搜作者\"> <meta name=\"description\" content=\"起点中文网搜书频道为您找到了有关天命游戏平"
+  天命游戏平台 @ 5240 " <title>天命游戏平台小说作品大全_小说作者信息-起点中文网</title> <meta name=\"keywords\" content=\"天命游戏平台搜索小说,搜书,搜小说,搜图书,搜作者\"> <meta name=\"description\" content=\"起点中文网搜书频道为您找到了有关天命游戏平台的20个信息，想了解有关天命游戏平台小说及作者信息的书友，欢迎访问起点中文网搜书频道。\"> <meta name=\"r"
+  天命游戏平台 @ 5324 "平台搜索小说,搜书,搜小说,搜图书,搜作者\"> <meta name=\"description\" content=\"起点中文网搜书频道为您找到了有关天命游戏平台的20个信息，想了解有关天命游戏平台小说及作者信息的书友，欢迎访问起点中文网搜书频道。\"> <meta name=\"robots\" content=\"all\"> <meta name=\"googlebot\" content=\"all\"> <meta na"
+  天命游戏平台 @ 5342 "搜作者\"> <meta name=\"description\" content=\"起点中文网搜书频道为您找到了有关天命游戏平台的20个信息，想了解有关天命游戏平台小说及作者信息的书友，欢迎访问起点中文网搜书频道。\"> <meta name=\"robots\" content=\"all\"> <meta name=\"googlebot\" content=\"all\"> <meta name=\"baiduspider\" c"
+  天命游戏平台 @ 5761 "=0\"> <link rel=\"canonical\" href=\"https://www.qidian.com/soushu/天命游戏平台.html\" /> <link rel=\"icon\" type=\"image/x-icon\" href=\"https://imgservices-1252317822.image.myqcloud.com/coco/s03102023/b7b10602.w663ve.ico\"> "
+  天命游戏平台 @ 11762 "ut id=\"search-kw\" type=\"search\" name=\"kw\" class=\"_searchInput_lrbl7_152\" value=\"天命游戏平台\" aria-label=\"Search\"></div><a href=\"javascript:history.go(-1);\" class=\"_searchCancel_lrbl7_194 search-cancel jsBack\" role=\"button\" aria-label=\"取消\"> 取消 </"
+  天命游戏平台 @ 14906 "7_246 auto-tr auto-click-tr\" href=\"//m.qidian.com/chapter/1049582478/0/\" title=\"天命游戏平台在线阅读\" data-showeid data-showl1 data-rid=\"0\" data-auid=\"5857363\" data-eid data-bid=\"1049582478\"><div class=\"_bookImgWrapper_e9qzy_223\"><!--[--><img src=\"ht"
+  作者 @ 5184 "prefetch\" href=\"https://aegis.cdn-go.cn\"> <title>天命游戏平台小说作品大全_小说作者信息-起点中文网</title> <meta name=\"keywords\" content=\"天命游戏平台搜索小说,搜书,搜小说,搜图书,搜作者\"> <meta name=\"description\" content=\"起点中文网搜书频道为您找到了有关天命游戏平台的20个信息，想了解有关天命"
+  作者 @ 5263 "说作者信息-起点中文网</title> <meta name=\"keywords\" content=\"天命游戏平台搜索小说,搜书,搜小说,搜图书,搜作者\"> <meta name=\"description\" content=\"起点中文网搜书频道为您找到了有关天命游戏平台的20个信息，想了解有关天命游戏平台小说及作者信息的书友，欢迎访问起点中文网搜书频道。\"> <meta name=\"robots\" content=\"all\"> "
+  作者 @ 5351 " <meta name=\"description\" content=\"起点中文网搜书频道为您找到了有关天命游戏平台的20个信息，想了解有关天命游戏平台小说及作者信息的书友，欢迎访问起点中文网搜书频道。\"> <meta name=\"robots\" content=\"all\"> <meta name=\"googlebot\" content=\"all\"> <meta name=\"baiduspider\" content=\"a"
+hrefs [
+  'https://qdfepccdn.qidian.com/m.qidian.com/read/assets/static/index.1f6e6400.css',
+  'https://qdfepccdn.qidian.com/m.qidian.com/read/assets/static/index.955cd4ba.css',
+  'https://qdfepccdn.qidian.com/m.qidian.com/read/assets/static/bookItemHComplex.0f6d42bf.css',
+  'https://qdfepccdn.qidian.com/m.qidian.com/read/assets/static/index.d10046b7.css',
+  'https://qdfepccdn.qidian.com/m.qidian.com/read/assets/static/index.3abf8205.css',
+  'https://qdfepccdn.qidian.com/m.qidian.com/read/assets/static/index.dd5b1e25.css',
+  'https://qdfepccdn.qidian.com/m.qidian.com/read/assets/static/index.page.fc135ae2.css',
+  'https://qdfepccdn.qidian.com/m.qidian.com/read/assets/static/index.0b4690db.css',
+  'https://qdfepccdn.qidian.com/m.qidian.com/read/assets/static/index.bb61086b.css',
+  'https://qdfepccdn.qidian.com/m.qidian.com/read/assets/static/index.8bc6e0c7.css',
+  'https://qdfepccdn.qidian.com/m.qidian.com/read/assets/static/default.page.client.67c8a7d9.css',
+  'https://www.qidian.com/soushu/天命游戏平台.html',
+  'https://qdfepccdn.qidian.com',
+  'https://www.qidian.com/soushu/天命游戏平台.html',
+  'https://qdfepccdn.qidian.com/m.qidian.com/read/assets/polyfills.4ad16b01.js',
+  'https://m.qidian.com',
+  'https://m.qidian.com/user/help/',
+  'https://m.qidian.com/so/',
+  'https://qdfepccdn.qidian.com/m.qidian.com/read/assets/polyfills.0a1bf6ca-legacy.js',
+  'https://qdfepccdn.qidian.com/m.qidian.com/read/assets/entries/entry-server-routing.a2d599a2-legacy.js'
+]
+titles [ '天命游戏平台小说作品大全_小说作者信息-起点中文网' ]
+novelLinks [
+  'https://qdfepccdn.qidian.com/m.qidian.com/read/assets/static/index.1f6e6400.css',
+  'https://qdfepccdn.qidian.com/m.qidian.com/read/assets/static/index.955cd4ba.css',
+  'https://qdfepccdn.qidian.com/m.qidian.com/read/assets/static/bookItemHComplex.0f6d42bf.css',
+  'https://qdfepccdn.qidian.com/m.qidian.com/read/assets/static/index.d10046b7.css',
+  'https://qdfepccdn.qidian.com/m.qidian.com/read/assets/static/index.3abf8205.css',
+  'https://qdfepccdn.qidian.com/m.qidian.com/read/assets/static/index.dd5b1e25.css',
+  'https://qdfepccdn.qidian.com/m.qidian.com/read/assets/static/index.page.fc135ae2.css',
+  'https://qdfepccdn.qidian.com/m.qidian.com/read/assets/static/index.0b4690db.css',
+  'https://qdfepccdn.qidian.com/m.qidian.com/read/assets/static/index.bb61086b.css',
+  'https://qdfepccdn.qidian.com/m.qidian.com/read/assets/static/index.8bc6e0c7.css',
+  'https://qdfepccdn.qidian.com/m.qidian.com/read/assets/static/default.page.client.67c8a7d9.css',
+  'https://qdfepccdn.qidian.com',
+  'https://www.qidian.com/soushu/天命游戏平台.html',
+  'https://m.qidian.com',
+  'https://m.qidian.com/user/help/',
+  'https://m.qidian.com/so/',
+  'https://qdfepccdn.qidian.com/m.qidian.com/read/assets/entries/src_pages_searchResult_index.page.0204b081.js',
+  'https://qdfepccdn.qidian.com/m.qidian.com/read/assets/chunks/chunk-b89c944a.js',
+  'https://qdfepccdn.qidian.com/m.qidian.com/read/assets/chunks/chunk-25601357.js',
+  'https://qdfepccdn.qidian.com/m.qidian.com/read/assets/chunks/chunk-2250ac69.js'
+]
+==== https___m_qidian_com_search_kw_天运玩家.html 81174
+  天运玩家 @ 3404 "ot|twitterbot\", \"i\"))) { var url = 'https://www.qidian.com/soushu/天运玩家.html' if (url) { if (location.search) { if (/source=pc_jump/.test(location.search)) { u"
+  天运玩家 @ 5167 "<link rel=\"dns-prefetch\" href=\"https://aegis.cdn-go.cn\"> <title>天运玩家小说作品大全_小说作者信息-起点中文网</title> <meta name=\"keywords\" content=\"天运玩家搜索小说,搜书,搜小说,搜图书,搜作者\"> <meta name=\"description\" content=\"起点中文网搜书频道为您找到了有关天运玩家的20个信"
+  天运玩家 @ 5236 " <title>天运玩家小说作品大全_小说作者信息-起点中文网</title> <meta name=\"keywords\" content=\"天运玩家搜索小说,搜书,搜小说,搜图书,搜作者\"> <meta name=\"description\" content=\"起点中文网搜书频道为您找到了有关天运玩家的20个信息，想了解有关天运玩家小说及作者信息的书友，欢迎访问起点中文网搜书频道。\"> <meta name=\"robots\""
+  天运玩家 @ 5318 "玩家搜索小说,搜书,搜小说,搜图书,搜作者\"> <meta name=\"description\" content=\"起点中文网搜书频道为您找到了有关天运玩家的20个信息，想了解有关天运玩家小说及作者信息的书友，欢迎访问起点中文网搜书频道。\"> <meta name=\"robots\" content=\"all\"> <meta name=\"googlebot\" content=\"all\"> <meta name=\""
+  天运玩家 @ 5334 "书,搜作者\"> <meta name=\"description\" content=\"起点中文网搜书频道为您找到了有关天运玩家的20个信息，想了解有关天运玩家小说及作者信息的书友，欢迎访问起点中文网搜书频道。\"> <meta name=\"robots\" content=\"all\"> <meta name=\"googlebot\" content=\"all\"> <meta name=\"baiduspider\" con"
+  天运玩家 @ 5751 "=0\"> <link rel=\"canonical\" href=\"https://www.qidian.com/soushu/天运玩家.html\" /> <link rel=\"icon\" type=\"image/x-icon\" href=\"https://imgservices-1252317822.image.myqcloud.com/coco/s03102023/b7b10602.w663ve.ico\"> "
+  天运玩家 @ 11750 "ut id=\"search-kw\" type=\"search\" name=\"kw\" class=\"_searchInput_lrbl7_152\" value=\"天运玩家\" aria-label=\"Search\"></div><a href=\"javascript:history.go(-1);\" class=\"_searchCancel_lrbl7_194 search-cancel jsBack\" role=\"button\" aria-label=\"取消\"> 取消 </a>"
+  天运玩家 @ 14892 "7_246 auto-tr auto-click-tr\" href=\"//m.qidian.com/chapter/1049375385/0/\" title=\"天运玩家在线阅读\" data-showeid data-showl1 data-rid=\"0\" data-auid=\"433331823\" data-eid data-bid=\"1049375385\"><div class=\"_bookImgWrapper_e9qzy_223\"><!--[--><img src=\"ht"
+  作者 @ 5180 "s-prefetch\" href=\"https://aegis.cdn-go.cn\"> <title>天运玩家小说作品大全_小说作者信息-起点中文网</title> <meta name=\"keywords\" content=\"天运玩家搜索小说,搜书,搜小说,搜图书,搜作者\"> <meta name=\"description\" content=\"起点中文网搜书频道为您找到了有关天运玩家的20个信息，想了解有关天运玩家小说"
+  作者 @ 5257 "_小说作者信息-起点中文网</title> <meta name=\"keywords\" content=\"天运玩家搜索小说,搜书,搜小说,搜图书,搜作者\"> <meta name=\"description\" content=\"起点中文网搜书频道为您找到了有关天运玩家的20个信息，想了解有关天运玩家小说及作者信息的书友，欢迎访问起点中文网搜书频道。\"> <meta name=\"robots\" content=\"all\"> "
+  作者 @ 5341 " <meta name=\"description\" content=\"起点中文网搜书频道为您找到了有关天运玩家的20个信息，想了解有关天运玩家小说及作者信息的书友，欢迎访问起点中文网搜书频道。\"> <meta name=\"robots\" content=\"all\"> <meta name=\"googlebot\" content=\"all\"> <meta name=\"baiduspider\" content=\"a"
+hrefs [
+  'https://qdfepccdn.qidian.com/m.qidian.com/read/assets/static/index.1f6e6400.css',
+  'https://qdfepccdn.qidian.com/m.qidian.com/read/assets/static/index.955cd4ba.css',
+  'https://qdfepccdn.qidian.com/m.qidian.com/read/assets/static/bookItemHComplex.0f6d42bf.css',
+  'https://qdfepccdn.qidian.com/m.qidian.com/read/assets/static/index.d10046b7.css',
+  'https://qdfepccdn.qidian.com/m.qidian.com/read/assets/static/index.3abf8205.css',
+  'https://qdfepccdn.qidian.com/m.qidian.com/read/assets/static/index.dd5b1e25.css',
+  'https://qdfepccdn.qidian.com/m.qidian.com/read/assets/static/index.page.fc135ae2.css',
+  'https://qdfepccdn.qidian.com/m.qidian.com/read/assets/static/index.0b4690db.css',
+  'https://qdfepccdn.qidian.com/m.qidian.com/read/assets/static/index.bb61086b.css',
+  'https://qdfepccdn.qidian.com/m.qidian.com/read/assets/static/index.8bc6e0c7.css',
+  'https://qdfepccdn.qidian.com/m.qidian.com/read/assets/static/default.page.client.67c8a7d9.css',
+  'https://www.qidian.com/soushu/天运玩家.html',
+  'https://qdfepccdn.qidian.com',
+  'https://www.qidian.com/soushu/天运玩家.html',
+  'https://qdfepccdn.qidian.com/m.qidian.com/read/assets/polyfills.4ad16b01.js',
+  'https://m.qidian.com',
+  'https://m.qidian.com/user/help/',
+  'https://m.qidian.com/so/',
+  'https://qdfepccdn.qidian.com/m.qidian.com/read/assets/polyfills.0a1bf6ca-legacy.js',
+  'https://qdfepccdn.qidian.com/m.qidian.com/read/assets/entries/entry-server-routing.a2d599a2-legacy.js'
+]
+titles [ '天运玩家小说作品大全_小说作者信息-起点中文网' ]
+novelLinks [
+  'https://qdfepccdn.qidian.com/m.qidian.com/read/assets/static/index.1f6e6400.css',
+  'https://qdfepccdn.qidian.com/m.qidian.com/read/assets/static/index.955cd4ba.css',
+  'https://qdfepccdn.qidian.com/m.qidian.com/read/assets/static/bookItemHComplex.0f6d42bf.css',
+  'https://qdfepccdn.qidian.com/m.qidian.com/read/assets/static/index.d10046b7.css',
+  'https://qdfepccdn.qidian.com/m.qidian.com/read/assets/static/index.3abf8205.css',
+  'https://qdfepccdn.qidian.com/m.qidian.com/read/assets/static/index.dd5b1e25.css',
+  'https://qdfepccdn.qidian.com/m.qidian.com/read/assets/static/index.page.fc135ae2.css',
+  'https://qdfepccdn.qidian.com/m.qidian.com/read/assets/static/index.0b4690db.css',
+  'https://qdfepccdn.qidian.com/m.qidian.com/read/assets/static/index.bb61086b.css',
+  'https://qdfepccdn.qidian.com/m.qidian.com/read/assets/static/index.8bc6e0c7.css',
+  'https://qdfepccdn.qidian.com/m.qidian.com/read/assets/static/default.page.client.67c8a7d9.css',
+  'https://qdfepccdn.qidian.com',
+  'https://www.qidian.com/soushu/天运玩家.html',
+  'https://m.qidian.com',
+  'https://m.qidian.com/user/help/',
+  'https://m.qidian.com/so/',
+  'https://qdfepccdn.qidian.com/m.qidian.com/read/assets/entries/src_pages_searchResult_index.page.0204b081.js',
+  'https://qdfepccdn.qidian.com/m.qidian.com/read/assets/chunks/chunk-b89c944a.js',
+  'https://qdfepccdn.qidian.com/m.qidian.com/read/assets/chunks/chunk-25601357.js',
+  'https://qdfepccdn.qidian.com/m.qidian.com/read/assets/chunks/chunk-2250ac69.js'
+]
+==== https___www_qidian_com_so_三国神话世界_html.html 210
+==== https___www_qidian_com_so_天命游戏平台_html.html 210
+==== https___www_qidian_com_so_天运玩家_html.html 210
+==== parse_out.txt 18572
+  三国神话世界 @ 246 "1489 titles [ 'ç\\x99¾åº¦å®\\x89å\\x85¨éª\\x8Cè¯\\x81' ] ==== ddg_sg.html 14216 三国神话世界 @ 2532 \"e2e6ab73ae6-e2b117e6d65ad8fec61f90b62dac192f-1c99feae044b17b40052102827882c38&q=三国神话世界 小说&o=bk7jycQRHZLyBwkNr36biqaQroqdSVZmFWtjOKEb8dCJ3C%2FLSqM"
+  三国神话世界 @ 341 "e2e6ab73ae6-e2b117e6d65ad8fec61f90b62dac192f-1c99feae044b17b40052102827882c38&q=三国神话世界 小说&o=bk7jycQRHZLyBwkNr36biqaQroqdSVZmFWtjOKEb8dCJ3C%2FLSqM91g7KFOiINMiV%0A&r=euw\\\" target=\\\"ifr\\\" method=\\\"POST\\\"></form> <form id=\\\"challenge-form\\\" ac\""
+  三国神话世界 @ 505 "euw\\\" target=\\\"ifr\\\" method=\\\"POST\\\"></form> <form id=\\\"challenge-form\\\" ac\" 三国神话世界 @ 3092 \"e2e6ab73ae6-e2b117e6d65ad8fec61f90b62dac192f-1c99feae044b17b40052102827882c38&q=三国神话世界 小说&o=bk7jycQRHZLyBwkNr36biqaQroqdSVZmFWtjOKEb8dCJ3C%2FLSqM"
+  三国神话世界 @ 600 "e2e6ab73ae6-e2b117e6d65ad8fec61f90b62dac192f-1c99feae044b17b40052102827882c38&q=三国神话世界 小说&o=bk7jycQRHZLyBwkNr36biqaQroqdSVZmFWtjOKEb8dCJ3C%2FLSqM91g7KFOiINMiV%0A&r=euw\\\" method=\\\"POST\\\"> <div class=\\\"anomaly-modal__mask\\\"> \" titles [ '\\n "
+  三国神话世界 @ 1958 "\" titles [ '\\n DuckDuckGo\\n ' ] ==== https___m_qidian_com_search_kw_三国神话世界.html 80133 三国神话世界 @ 3404 \"ot|twitterbot\\\", \\\"i\\\"))) { var url = 'https://www.qidian.com/soushu/三国神话世界.html' if (url) { if (location.search) { if (/sou"
+  三国神话世界 @ 1979 " DuckDuckGo\\n ' ] ==== https___m_qidian_com_search_kw_三国神话世界.html 80133 三国神话世界 @ 3404 \"ot|twitterbot\\\", \\\"i\\\"))) { var url = 'https://www.qidian.com/soushu/三国神话世界.html' if (url) { if (location.search) { if (/source=pc_jump/.test(loc"
+  三国神话世界 @ 2063 "世界 @ 3404 \"ot|twitterbot\\\", \\\"i\\\"))) { var url = 'https://www.qidian.com/soushu/三国神话世界.html' if (url) { if (location.search) { if (/source=pc_jump/.test(location.search)) { \" 三国神话世界 @ 5169 \"<link rel=\\\"dns-prefetch\\\" href=\\\"https://aegis"
+  三国神话世界 @ 2161 "rl) { if (location.search) { if (/source=pc_jump/.test(location.search)) { \" 三国神话世界 @ 5169 \"<link rel=\\\"dns-prefetch\\\" href=\\\"https://aegis.cdn-go.cn\\\"> <title>三国神话世界小说作品大全_小说作者信息-起点中文网</title> <meta name=\\\"keywords\\\" content=\\\"三国神话世界搜索小"
+  天命游戏平台 @ 813 "__mask\\\"> \" titles [ '\\n DuckDuckGo\\n ' ] ==== ddg_tm.html 14228 天命游戏平台 @ 2532 \"e2e6ab73ae6-e2b117e6d65ad8fec61f90b62dac192f-1c99feae044b17b40052102827882c38&q=天命游戏平台 小说&o=iaNPS%2BhhsYv5pLeB91Kh8c3AotuCLE4j49MGyNqXyHsYoTq%2BB"
+  天命游戏平台 @ 908 "e2e6ab73ae6-e2b117e6d65ad8fec61f90b62dac192f-1c99feae044b17b40052102827882c38&q=天命游戏平台 小说&o=iaNPS%2BhhsYv5pLeB91Kh8c3AotuCLE4j49MGyNqXyHsYoTq%2BBIUXEP%2BmlZBSMWkY%0A&r=euw\\\" target=\\\"ifr\\\" method=\\\"POST\\\"></form> <form id=\\\"challenge-form\" "
+  天命游戏平台 @ 1071 "0A&r=euw\\\" target=\\\"ifr\\\" method=\\\"POST\\\"></form> <form id=\\\"challenge-form\" 天命游戏平台 @ 3096 \"e2e6ab73ae6-e2b117e6d65ad8fec61f90b62dac192f-1c99feae044b17b40052102827882c38&q=天命游戏平台 小说&o=iaNPS%2BhhsYv5pLeB91Kh8c3AotuCLE4j49MGyNqXyHsYoTq%2BB"
+  天命游戏平台 @ 1166 "e2e6ab73ae6-e2b117e6d65ad8fec61f90b62dac192f-1c99feae044b17b40052102827882c38&q=天命游戏平台 小说&o=iaNPS%2BhhsYv5pLeB91Kh8c3AotuCLE4j49MGyNqXyHsYoTq%2BBIUXEP%2BmlZBSMWkY%0A&r=euw\\\" method=\\\"POST\\\"> <div class=\\\"anomaly-modal__mask\\\"> \" titles [ '"
+  天命游戏平台 @ 8300 "m/read/assets/chunks/chunk-2250ac69.js' ] ==== https___m_qidian_com_search_kw_天命游戏平台.html 82602 天命游戏平台 @ 3404 \"ot|twitterbot\\\", \\\"i\\\"))) { var url = 'https://www.qidian.com/soushu/天命游戏平台.html' if (url) { if (location.search) { if (/sou"
+  天命游戏平台 @ 8321 "chunk-2250ac69.js' ] ==== https___m_qidian_com_search_kw_天命游戏平台.html 82602 天命游戏平台 @ 3404 \"ot|twitterbot\\\", \\\"i\\\"))) { var url = 'https://www.qidian.com/soushu/天命游戏平台.html' if (url) { if (location.search) { if (/source=pc_jump/.test(loc"
+  天命游戏平台 @ 8405 "平台 @ 3404 \"ot|twitterbot\\\", \\\"i\\\"))) { var url = 'https://www.qidian.com/soushu/天命游戏平台.html' if (url) { if (location.search) { if (/source=pc_jump/.test(location.search)) { \" 天命游戏平台 @ 5169 \"<link rel=\\\"dns-prefetch\\\" href=\\\"https://aegis"
+  天命游戏平台 @ 8503 "rl) { if (location.search) { if (/source=pc_jump/.test(location.search)) { \" 天命游戏平台 @ 5169 \"<link rel=\\\"dns-prefetch\\\" href=\\\"https://aegis.cdn-go.cn\\\"> <title>天命游戏平台小说作品大全_小说作者信息-起点中文网</title> <meta name=\\\"keywords\\\" content=\\\"天命游戏平台搜索小"
+  天运玩家 @ 1383 "__mask\\\"> \" titles [ '\\n DuckDuckGo\\n ' ] ==== ddg_ty.html 14224 天运玩家 @ 2532 \"e2e6ab73ae6-e2b117e6d65ad8fec61f90b62dac192f-1c99feae044b17b40052102827882c38&q=天运玩家 小说&o=NwA%2B%2FdET4qr8wrqW1GlCtPXsBbsuy9mNo9B1Dx%2B1wvl3H7YGRSk"
+  天运玩家 @ 1476 "e2e6ab73ae6-e2b117e6d65ad8fec61f90b62dac192f-1c99feae044b17b40052102827882c38&q=天运玩家 小说&o=NwA%2B%2FdET4qr8wrqW1GlCtPXsBbsuy9mNo9B1Dx%2B1wvl3H7YGRSkAwa7V4NM9GfIZ%0A&r=euw\\\" target=\\\"ifr\\\" method=\\\"POST\\\"></form> <form id=\\\"challenge-form\\\" \""
+  天运玩家 @ 1640 "r=euw\\\" target=\\\"ifr\\\" method=\\\"POST\\\"></form> <form id=\\\"challenge-form\\\" \" 天运玩家 @ 3094 \"e2e6ab73ae6-e2b117e6d65ad8fec61f90b62dac192f-1c99feae044b17b40052102827882c38&q=天运玩家 小说&o=NwA%2B%2FdET4qr8wrqW1GlCtPXsBbsuy9mNo9B1Dx%2B1wvl3H7YGRSk"
+  天运玩家 @ 1733 "e2e6ab73ae6-e2b117e6d65ad8fec61f90b62dac192f-1c99feae044b17b40052102827882c38&q=天运玩家 小说&o=NwA%2B%2FdET4qr8wrqW1GlCtPXsBbsuy9mNo9B1Dx%2B1wvl3H7YGRSkAwa7V4NM9GfIZ%0A&r=euw\\\" method=\\\"POST\\\"> <div class=\\\"anomaly-modal__mask\\\"> \" titles [ '\\n"
+  天运玩家 @ 14100 "m/read/assets/chunks/chunk-2250ac69.js' ] ==== https___m_qidian_com_search_kw_天运玩家.html 81174 天运玩家 @ 3404 \"ot|twitterbot\\\", \\\"i\\\"))) { var url = 'https://www.qidian.com/soushu/天运玩家.html' if (url) { if (location.search) { if (/source=pc"
+  天运玩家 @ 14119 "s/chunk-2250ac69.js' ] ==== https___m_qidian_com_search_kw_天运玩家.html 81174 天运玩家 @ 3404 \"ot|twitterbot\\\", \\\"i\\\"))) { var url = 'https://www.qidian.com/soushu/天运玩家.html' if (url) { if (location.search) { if (/source=pc_jump/.test(locatio"
+  天运玩家 @ 14201 "玩家 @ 3404 \"ot|twitterbot\\\", \\\"i\\\"))) { var url = 'https://www.qidian.com/soushu/天运玩家.html' if (url) { if (location.search) { if (/source=pc_jump/.test(location.search)) { u\" 天运玩家 @ 5167 \"<link rel=\\\"dns-prefetch\\\" href=\\\"https://aegis.cd"
+  天运玩家 @ 14298 "l) { if (location.search) { if (/source=pc_jump/.test(location.search)) { u\" 天运玩家 @ 5167 \"<link rel=\\\"dns-prefetch\\\" href=\\\"https://aegis.cdn-go.cn\\\"> <title>天运玩家小说作品大全_小说作者信息-起点中文网</title> <meta name=\\\"keywords\\\" content=\\\"天运玩家搜索小说,搜书,搜"
+  作者 @ 2259 "nk rel=\\\"dns-prefetch\\\" href=\\\"https://aegis.cdn-go.cn\\\"> <title>三国神话世界小说作品大全_小说作者信息-起点中文网</title> <meta name=\\\"keywords\\\" content=\\\"三国神话世界搜索小说,搜书,搜小说,搜图书,搜作者\\\"> <meta name=\\\"description\\\" content=\\\"起点中文网搜书频道为您找到了有关三国神话世\" 三国神话世界 @ 5240 \""
+  作者 @ 2335 "全_小说作者信息-起点中文网</title> <meta name=\\\"keywords\\\" content=\\\"三国神话世界搜索小说,搜书,搜小说,搜图书,搜作者\\\"> <meta name=\\\"description\\\" content=\\\"起点中文网搜书频道为您找到了有关三国神话世\" 三国神话世界 @ 5240 \" <title>三国神话世界小说作品大全_小说作者信息-起点中文网</title> <meta name=\\\"keywords\\\" content=\\\""
+  作者 @ 2442 "ion\\\" content=\\\"起点中文网搜书频道为您找到了有关三国神话世\" 三国神话世界 @ 5240 \" <title>三国神话世界小说作品大全_小说作者信息-起点中文网</title> <meta name=\\\"keywords\\\" content=\\\"三国神话世界搜索小说,搜书,搜小说,搜图书,搜作者\\\"> <meta name=\\\"description\\\" content=\\\"起点中文网搜书频道为您找到了有关三国神话世界的20个信息，想了解有关三国神话世界小"
+  作者 @ 2518 "全_小说作者信息-起点中文网</title> <meta name=\\\"keywords\\\" content=\\\"三国神话世界搜索小说,搜书,搜小说,搜图书,搜作者\\\"> <meta name=\\\"description\\\" content=\\\"起点中文网搜书频道为您找到了有关三国神话世界的20个信息，想了解有关三国神话世界小说及作者信息的书友，欢迎访问起点中文网搜书频道。\\\"> <meta name=\\\"r\" 三国神话世界 @ 5324 \"世界搜索小说,搜书,搜小说,"
+  作者 @ 2604 "<meta name=\\\"description\\\" content=\\\"起点中文网搜书频道为您找到了有关三国神话世界的20个信息，想了解有关三国神话世界小说及作者信息的书友，欢迎访问起点中文网搜书频道。\\\"> <meta name=\\\"r\" 三国神话世界 @ 5324 \"世界搜索小说,搜书,搜小说,搜图书,搜作者\\\"> <meta name=\\\"description\\\" content=\\\"起点中文网搜书频道为您找到了有关三国神话世界的20个信息，想了解有关三国神话"
+  作者 @ 2683 "及作者信息的书友，欢迎访问起点中文网搜书频道。\\\"> <meta name=\\\"r\" 三国神话世界 @ 5324 \"世界搜索小说,搜书,搜小说,搜图书,搜作者\\\"> <meta name=\\\"description\\\" content=\\\"起点中文网搜书频道为您找到了有关三国神话世界的20个信息，想了解有关三国神话世界小说及作者信息的书友，欢迎访问起点中文网搜书频道。\\\"> <meta name=\\\"robots\\\" content=\\\"all\\\"> <meta nam"
+  作者 @ 2769 "<meta name=\\\"description\\\" content=\\\"起点中文网搜书频道为您找到了有关三国神话世界的20个信息，想了解有关三国神话世界小说及作者信息的书友，欢迎访问起点中文网搜书频道。\\\"> <meta name=\\\"robots\\\" content=\\\"all\\\"> <meta name=\\\"googlebot\\\" content=\\\"all\\\"> <meta na\" 三国神话世界 @ 5342 \"搜作者\\\"> <meta name=\\\"descr"
+  作者 @ 2905 "\\\"all\\\"> <meta name=\\\"googlebot\\\" content=\\\"all\\\"> <meta na\" 三国神话世界 @ 5342 \"搜作者\\\"> <meta name=\\\"description\\\" content=\\\"起点中文网搜书频道为您找到了有关三国神话世界的20个信息，想了解有关三国神话世界小说及作者信息的书友，欢迎访问起点中文网搜书频道。\\\"> <meta name=\\\"robots\\\" content=\\\"all\\\"> <meta nam"
+hrefs [
+  'https://www.qidian.com/soushu/三国神话世界.html',
+  'https://www.qidian.com/soushu/三国神话世界.html\\',
+  'https://qdfepccdn.qidian.com/m.qidian.com/read/assets/static/index.1f6e6400.css',
+  'https://qdfepccdn.qidian.com/m.qidian.com/read/assets/static/index.955cd4ba.css',
+  'https://qdfepccdn.qidian.com/m.qidian.com/read/assets/static/bookItemHComplex.0f6d42bf.css',
+  'https://qdfepccdn.qidian.com/m.qidian.com/read/assets/static/index.d10046b7.css',
+  'https://qdfepccdn.qidian.com/m.qidian.com/read/assets/static/index.3abf8205.css',
+  'https://qdfepccdn.qidian.com/m.qidian.com/read/assets/static/index.dd5b1e25.css',
+  'https://qdfepccdn.qidian.com/m.qidian.com/read/assets/static/index.page.fc135ae2.css',
+  'https://qdfepccdn.qidian.com/m.qidian.com/read/assets/static/index.0b4690db.css',
+  'https://qdfepccdn.qidian.com/m.qidian.com/read/assets/static/index.bb61086b.css',
+  'https://qdfepccdn.qidian.com/m.qidian.com/read/assets/static/index.8bc6e0c7.css',
+  'https://qdfepccdn.qidian.com/m.qidian.com/read/assets/static/default.page.client.67c8a7d9.css',
+  'https://www.qidian.com/soushu/三国神话世界.html',
+  'https://qdfepccdn.qidian.com',
+  'https://www.qidian.com/soushu/三国神话世界.html',
+  'https://qdfepccdn.qidian.com/m.qidian.com/read/assets/polyfills.4ad16b01.js',
+  'https://m.qidian.com',
+  'https://m.qidian.com/user/help/',
+  'https://m.qidian.com/so/'
+]
+titles [
+  '三国神话世界小说作品大全_小说作者信息-起点中文网',
+  '三国神话世界小说作品大全_小说作者信息-起点中文网',
+  '三国神话世界小说作品大全_小说作者信息-起点中文网',
+  '天命游戏平台小说作品大全_小说作者信息-起点中文网',
+  '天命游戏平台小说作品大全_小说作者信息-起点中文网',
+  '天命游戏平台小说作品大全_小说作者信息-起点中文网',
+  '天运玩家小说作品大全_小说作者信息-起点中文网',
+  '天运玩家小说作品大全_小说作者信息-起点中文网',
+  '天运玩家小说作品大全_小说作者信息-起点中文网'
+]
+==== qdapi_sg.html 210
+==== qdapi_tm.html 210
+==== qdapi_ty.html 210
+==== sogou_sg.html 5446
+titles [ '搜狗搜索' ]
+==== sogou_tm.html 388123
+  天命游戏平台 @ 93142 "AAuipyZ93gEASQU=\",\"disableClickSugg\":false}; SgConst.common.oldQuery = \"天命游戏平台\\x20小说\"; SgConst.common.gbkQuery = \"%CC%EC%C3%FC%D3%CE%CF%B7%C6%BD%CC%A8%20%D0%A1%CB%B5\"; SgConst.common.qcQuery = \"\"; SgConst.com"
+  天命游戏平台 @ 93325 " SgConst.common.qcQuery = \"\"; SgConst.common.keywords_string = \"天命游戏平台\\x20小说\"; SgConst.common.sab = \"3\"; SgConst.common.keywords = SgConst.common.oldQuery.split(' '); SgConst.common.now = 178442945187"
+  天命游戏平台 @ 93983 " SgConst.common.ipsec = \"\"; var showNewOfficialSite=true; var oldQuery=\"天命游戏平台\\x20小说\", reventonCode='reventonCode=2db87bde6ba1da4e262adc0e473cdbf0&reventonTime=1784429452279', gbkQuery=\"%CC%EC%C3%FC%D3%CE%CF%"
+  天命游戏平台 @ 124674 "ation/opensearchdescription+xml\" href=\"/content-search.xml\" title=\"搜狗搜索\"><title>天命游戏平台 小说 - 搜狗搜索</title> <script>(function(){if(typeof sogou != 'undefined' && typeof sogou.WebReportSpeed != 'undefined'){sogou.WebReportSpeed.setBeforeBody();"
+  天命游戏平台 @ 244676 "type=\"hidden\" name=\"cause\" value=\"满意\"> <input type=\"hidden\" name=\"query\" value=\"天命游戏平台 小说\"> <input type=\"hidden\" name=\"refer\" value=\"\"> <input type=\"hidden\" name=\"uuid\" value=\"264bfb06-927e-400d-9a63-7e5c9861a39f\"> <input type=\"hidden\" name"
+  天命游戏平台 @ 250154 "\"upquery\" name=\"query\" maxlength=\"250\" len=\"200\" onfocus=\"focusInput(this)\" ov=\"天命游戏平台 小说\" value=\"天命游戏平台 小说\" autocomplete=\"off\"> <a href=\"javascript:void(0);\" class=\"input-reset\" id=\"upquery_reset\"><i></i></a><div class=\"keywords-tips\" id="
+  天命游戏平台 @ 250172 "ery\" maxlength=\"250\" len=\"200\" onfocus=\"focusInput(this)\" ov=\"天命游戏平台 小说\" value=\"天命游戏平台 小说\" autocomplete=\"off\"> <a href=\"javascript:void(0);\" class=\"input-reset\" id=\"upquery_reset\"><i></i></a><div class=\"keywords-tips\" id=\"keywordsTips\" sty"
+  天命游戏平台 @ 267976 "mary_0\">宝月流光创作的悬疑灵异<em>小说</em>《古神的诡异<em>游戏</em>》,已更新456章,最新章节:新<em>书</em>公告《<em>天命游戏平台</em>》。本<em>书</em>为大狙回归经典文风的全新力作《古神的诡异...</div> <a class=\"citeLinkClass\" target=\"_blank\" href=\"/link?url=hedJjaC291MBM4BuhQMzgAS6jmUOfB0vvVlKDoxwQPPh3G2d"
+  作者 @ 285985 "963e\"> 胯下奔雷踏雪驹，麾下... 作者： <em><!--red_beg-->天意<!--red_end--></em>弑神狼 大小： 349KB 今日下载： 0 次 ... 南璃夜司珩<em><!--red_beg-->小说<!--red_end--></em>免费观看 说好制作烂<em><!--red_beg-->游戏<!--red_end--><"
+  qidian.com/book @ 268611 "ae0890-6be83098c8aba8e8-03ac8a4cba59f1e68907687eb0900d41\" data-url=\"https://www.qidian.com/book/1025296384/\" ><span><strong></strong>推荐您搜索</span><i></i><p></p></div></div><!--STATUS VR OK--><!--VR TYPE:30000000,,RANK:0--><!-- z --><!-- a --"
+hrefs [
+  'https://cdn-yb.icon.qq.com/zuowei_dir/www_qidian_com.ico',
+  'https://www.qidian.com/b...',
+  'https://www.qidian.com/book/1025296384/',
+  'https://cdn-yb.icon.qq.com/zuowei_dir/www_qidian_com.ico',
+  'https://www.qidian.com/a...',
+  'https://www.qidian.com/all/?chanId=7&amp;subCateId=222&amp;size=1&amp;orderId=&amp;page=1&amp;vip=0&amp;update=4&amp;style=1&amp;pageSize=20&amp;siteid=1&amp;hiddenField=0',
+  'https://cdn-yb.icon.qq.com/zuowei_dir/my_qidian_com.ico',
+  'https://my.qidian.com/a...',
+  'https://my.qidian.com/author/5857363/',
+  'https://cdn-yb.icon.qq.com/zuowei_dir/www_qidian_com.ico',
+  'https://www.qidian.com/a...',
+  'https://www.qidian.com/all/chanId7-subCateId230-action1-vip1-size4-sign1-tag%E9%AD%94%E5%85%BD/',
+  'https://cdn-yb.icon.qq.com/zuowei_dir/www_qidian_com.ico',
+  'http://www.qidian.com/a...',
+  'http://www.qidian.com/all?chanId=7&amp;subCateId=240&amp;size=1&amp;orderId=2&amp;page=1&amp;update=4&amp;style=2&amp;pageSize=50&amp;siteid=1&amp;hiddenField=0'
+]
+titles [ '天命游戏平台 小说 - 搜狗搜索' ]
+==== sogou_ty.html 5428
+titles [ '搜狗搜索' ]
+==== so_sg.html 461813
+  三国神话世界 @ 398 "eferrer\"> <meta http-equiv=\"X-UA-Compatible\" content=\"IE=edge,chrome=1\"> <title>三国神话世界 小说 起点_360搜索</title> <script>var __performancetime__={};</script> <script>__performancetime__.header_server_render_start= 1784429498414;__performancetime_"
+  三国神话世界 @ 56932 " <textarea name=\"q\" id=\"ai-textarea\" class=\"ai-input-textarea\" rows=\"1\">三国神话世界 小说 起点</textarea> </div> <div class=\"ai-input-actions\"> <div class=\"left-actions\"> <div class=\"left-item\"> "
+  三国神话世界 @ 131251 "_guide_3.5\" data-source=\"sub_ex'qwen'bert@0.8613@0.0256@0.0000\" target=\"_blank\">三国神话世界顶点小说</a><a data-ext=\"eci=&nlpv=base\" href=\"/s?q=%E4%B8%89%E5%9B%BD%E7%A5%9E%E8%AF%9D%E4%B8%96%E7%95%8C%E7%AC%94%E8%B6%A3%E9%98%81%E6%97%A0%E5%BC%B9%E7%AA%"
+  三国神话世界 @ 131561 "_guide_3.5\" data-source=\"sub_ex'qwen'bert@0.8422@0.0239@0.0000\" target=\"_blank\">三国神话世界笔趣阁无弹窗</a><a data-ext=\"eci=&nlpv=base\" href=\"/s?q=%E7%A5%9E%E8%AF%9D%E4%B8%89%E5%9B%BD%E4%B8%96%E7%95%8C%E7%AC%94%E8%B6%A3%E9%98%81&sp=ab0&psid=9f4d55f6ab"
+  三国神话世界 @ 132172 "src=pdr_guide_3.5\" data-source=\"qwen'bert@0.7627@0.0019@0.0000\" target=\"_blank\">三国神话世界笔趣阁无弹窗免费阅读</a><a data-ext=\"eci=&nlpv=base\" href=\"/s?q=%E4%B8%89%E5%9B%BD%E7%A5%9E%E8%AF%9D%E4%B8%96%E7%95%8C&sp=ab0&psid=9f4d55f6ab22d40cad8ab761775cf5d6&"
+  三国神话世界 @ 132426 "&src=pdr_guide_3.5\" data-source=\"sub'bert@0.8941@0.0014@0.0000\" target=\"_blank\">三国神话世界</a><a data-ext=\"eci=&nlpv=base\" href=\"/s?q=%E4%B8%89%E5%9B%BD%E7%A5%9E%E8%AF%9D%E4%B8%96%E7%95%8C%E6%9C%80%E6%96%B0%E7%AB%A0%E8%8A%82&sp=ab0&psid=9f4d55f"
+  三国神话世界 @ 132702 "base&src=pdr_guide_3.5\" data-source=\"bert@0.8332@0.0005@0.0000\" target=\"_blank\">三国神话世界最新章节</a><a data-ext=\"eci=&nlpv=base\" href=\"/s?q=%E7%AC%94%E8%B6%A3%E9%98%81%E4%BB%8E%E7%A5%9E%E8%AF%9D%E4%B8%89%E5%9B%BD%E5%BC%80%E5%A7%8B%E5%BE%81%E6%9C%"
+  三国神话世界 @ 133644 "src=pdr_guide_3.5\" data-source=\"qwen'bert@0.7975@0.0005@0.0000\" target=\"_blank\">三国神话世界笔趣阁免费阅读</a><a data-ext=\"eci=&nlpv=base\" href=\"/s?q=%E7%A5%9E%E8%AF%9D%E4%B8%89%E5%9B%BD+%E6%88%91%E7%9A%84%E8%AF%8D%E6%9D%A1%E6%97%A0%E9%99%90%E6%8F%90%E5"
+  作者 @ 249414 "><div class=\"res-rich so-rich-fiction clearfix\"><!-- 左侧图片 --> <!-- 在一行显示基本信息（作者、状态、类型） --> <p class=\"info g-ellipsis\"> <a href=\"https://www.so.com/link?m=z5yo6%2FOFYa3%2FJZy4QGRgEVIBGdJnyVPDKpSnYhNND06wgLjz1o%2FN3qRpIeTWF07RzUtNekN"
+  作者 @ 249934 "\" data-type=\"btn\"><span class=\"icon-read\"></span>开始阅读</a> <span class=\"gray\">作者:</span>永牧 <span class=\"gray\">状态:</span>连载 <span class=\"gray\">类型:</span>虚拟网游 </p> <p class=\"res-desc\"> <!-- 如果有简介，显示简介；否则显示自然结果摘要 --> "
+  作者 @ 259100 "><div class=\"res-rich so-rich-fiction clearfix\"><!-- 左侧图片 --> <!-- 在一行显示基本信息（作者、状态、类型） --> <p class=\"info g-ellipsis\"> <a href=\"https://www.so.com/link?m=zTUyoYEIfPsW%2BnuNiuiRujB1wAlMuvfuzha1x7w%2Bh4GAzI5KzGxrobdRNNwXuH%2FobLsB%2B"
+  作者 @ 259618 "\" data-type=\"btn\"><span class=\"icon-read\"></span>开始阅读</a> <span class=\"gray\">作者:</span>永牧 <span class=\"gray\">状态:</span>连载 <span class=\"gray\">类型:</span>虚拟网游 </p> <p class=\"res-desc\"> <!-- 如果有简介，显示简介；否则显示自然结果摘要 --> "
+  作者 @ 263925 "><div class=\"res-rich so-rich-fiction clearfix\"><!-- 左侧图片 --> <!-- 在一行显示基本信息（作者、状态、类型） --> <p class=\"info g-ellipsis\"> <a href=\"https://www.so.com/link?m=zQLXB9a4jYTSVIeqoxspaBXepAWVmfEWpFoQGcY2XVp7%2Fb%2FHSAiudmBIZ9ww6%2FIDwunp2FN"
+  作者 @ 264441 "\" data-type=\"btn\"><span class=\"icon-read\"></span>开始阅读</a> <span class=\"gray\">作者:</span>永牧 <span class=\"gray\">状态:</span>连载 <span class=\"gray\">类型:</span>虚拟网游 </p> <p class=\"res-desc\"> <!-- 如果有简介，显示简介；否则显示自然结果摘要 --> "
+  qidian.com/book @ 249104 "bA5BB3zcO64avEtO84TLqmYvssQiWim5QzeHZLZBWK7oJIuQ%3D%3D\" data-mdurl=\"https://www.qidian.com/book/1009795401/\" rel=\"noopener\" data-res='{\"tp\":21,\"fr\":\"engine\",\"stp\":\"fiction\",\"st\":0,\"e\":2,\"pos\":2,\"m\":\"093dd1e3bd8d2104d280b7c8a57ece3f\"}' targe"
+  qidian.com/book @ 249794 "bA5BB3zcO64avEtO84TLqmYvssQiWim5QzeHZLZBWK7oJIuQ%3D%3D\" data-mdurl=\"https://www.qidian.com/book/1009795401/\" target=\"_blank\" class=\"rich-btn\" data-type=\"btn\"><span class=\"icon-read\"></span>开始阅读</a> <span class=\"gray\">作者:</span>永牧 <spa"
+  qidian.com/book @ 258786 "Hn8D4cMwZQ2Nnf9vbZ7%2BQDzQ4VLLKg5tzDMRSl1oHwrdfrcQ%3D%3D\" data-mdurl=\"https://m.qidian.com/book/1009795401/\" rel=\"noopener\" data-res='{\"tp\":21,\"fr\":\"engine\",\"stp\":\"fiction\",\"st\":0,\"e\":2,\"pos\":3,\"m\":\"fde2c6c1a3d4357518e162d5604efd65\"}' targe"
+  qidian.com/book @ 259478 "Hn8D4cMwZQ2Nnf9vbZ7%2BQDzQ4VLLKg5tzDMRSl1oHwrdfrcQ%3D%3D\" data-mdurl=\"https://m.qidian.com/book/1009795401/\" target=\"_blank\" class=\"rich-btn\" data-type=\"btn\"><span class=\"icon-read\"></span>开始阅读</a> <span class=\"gray\">作者:</span>永牧 <spa"
+  qidian.com/book @ 261311 "sgOk2ujGdDx%2B1nheeqkILFT7loM48hvAfq%2BzETARc6a90b3nEL\" data-mdurl=\"https://www.qidian.com/bookrecommend/sqefaac0326fd6e648/\" rel=\"noopener\" data-res='{\"tp\":21,\"fr\":\"engine\",\"stp\":\"\",\"st\":0,\"e\":2,\"pos\":4,\"m\":\"23f1b2b795782fdb462f4fdc9b44fb"
+  qidian.com/book @ 262472 "7PsNcSufN%2FaRfPuBQWxdI2ZL2h6FvKSAftA00T%2FFYVrVplgLieZG\" data-mdurl=\"https://m.qidian.com/book/1009795401/catalog/\" rel=\"noopener\" data-res='{\"tp\":21,\"fr\":\"engine\",\"stp\":\"\",\"st\":0,\"e\":2,\"pos\":5,\"m\":\"086305af85b939b5e0d7e2efb77fc77f\"}' ta"
+  qidian.com/book @ 263614 "2BVFYA8qyG6cIiosc68rdv3UUrw8cEFED02tzARyAdJvcrCs4Q%3D%3D\" data-mdurl=\"https://m.qidian.com/book/1009795401.html\" rel=\"noopener\" data-res='{\"tp\":21,\"fr\":\"engine\",\"stp\":\"fiction\",\"st\":0,\"e\":2,\"pos\":6,\"m\":\"141c5c2e68762c4bb70e0cfb55b54914\"}' t"
+  qidian.com/book @ 264297 "2BVFYA8qyG6cIiosc68rdv3UUrw8cEFED02tzARyAdJvcrCs4Q%3D%3D\" data-mdurl=\"https://m.qidian.com/book/1009795401.html\" target=\"_blank\" class=\"rich-btn\" data-type=\"btn\"><span class=\"icon-read\"></span>开始阅读</a> <span class=\"gray\">作者:</span>永牧 "
+hrefs [
+  'https://www.qidian.com/book/1009795401/',
+  'https://www.qidian.com/book/1009795401/',
+  'https://www.qidian.com/chapter/1009795401/916995973/',
+  'https://m.qidian.com/book/1009795401/',
+  'https://m.qidian.com/book/1009795401/',
+  'https://m.qidian.com/chapter/1009795401/916781918/',
+  'https://www.qidian.com/bookrecommend/sqefaac0326fd6e648/',
+  'https://m.qidian.com/book/1009795401/catalog/',
+  'https://m.qidian.com/book/1009795401.html',
+  'https://m.qidian.com/book/1009795401.html',
+  'https://m.qidian.com/chapter/1009795401/916781918/',
+  'https://m.qidian.com/bookrecommend/sq1139249aa030fe6e/'
+]
+titles [ '三国神话世界 小说 起点_360搜索' ]
+==== so_tm.html 367594
+  天命游戏平台 @ 398 "eferrer\"> <meta http-equiv=\"X-UA-Compatible\" content=\"IE=edge,chrome=1\"> <title>天命游戏平台 小说_360搜索</title> <script>var __performancetime__={};</script> <script>__performancetime__.header_server_render_start= 1784429490086;__performancetime__.h"
+  天命游戏平台 @ 56929 " <textarea name=\"q\" id=\"ai-textarea\" class=\"ai-input-textarea\" rows=\"1\">天命游戏平台 小说</textarea> </div> <div class=\"ai-input-actions\"> <div class=\"left-actions\"> <div class=\"left-item\"> "
+  天命游戏平台 @ 132024 "t&src=pdr_guide_3.5\" data-source=\"sub'gcn@0.9211@0.0060@0.0000\" target=\"_blank\">天命游戏平台</a><a data-ext=\"eci=&nlpv=test\" href=\"/s?q=%E5%A4%A9%E6%88%90%E6%B8%B8%E6%88%8F%E5%B9%B3%E5%8F%B0%E5%AE%98%E7%BD%91&sp=af6&psid=6091289296883a75f80b11fac"
+  天命游戏平台 @ 151865 "t\":0,\"e\":2,\"pos\":1,\"m\":\"1312e282444b88879d2abef24acf0206\"}' target=\"_blank\"><em>天命游戏平台</em>_(宝月流光)<em>小说</em>最新章节全文免费在线阅读下载-QQ阅读</a></h3><div class=\"res-rich so-rich-fiction clearfix\"><!-- 左侧图片 --> <div class=\"res-comm-con\"> <!-- 在一行显"
+  天命游戏平台 @ 152783 " <span class=\"gray\">简介：</span><span class=\"res-list-summary\">林玄宇收到一份神秘遗产--<em>天命游戏平台</em>。在这里,一年寿命可兑换一枚<em>命运</em>币,使用命运币购买<em>游戏</em>,通关即得超凡能力。限...</span><br/> <!-- 最新章节 --> <span class=\"gray\">最新章节：</span> "
+  天命游戏平台 @ 155039 "t\":0,\"e\":1,\"pos\":2,\"m\":\"b48bb56bb13c2459fe3b2daf56a8e8f7\"}' target=\"_blank\"><em>天命游戏平台</em>(宝月流光)<em>小说</em>在线阅读-首发起点中文网</a></h3><div class=\"res-rich so-rich-fiction clearfix\"><!-- 左侧图片 --> <!-- 在一行显示基本信息（作者、状态、类型） --> <p class=\"info "
+  天命游戏平台 @ 155892 " <span class=\"gray\">简介：</span><span class=\"res-list-summary\">林玄宇收到一份神秘遗产--<em>天命游戏平台</em>。在这里,一年寿命可兑换一枚<em>命运</em>币,使用命运币购买<em>游戏</em>,通关即得超凡能力。限免<em>游戏</em>...</span><br/> <!-- 最新章节 --> <span class=\"gray\">最新章节：<"
+  天命游戏平台 @ 157613 "14ef702551b13b1a0.png\" alt=\"search-icon\" class=\"sug-search-icon\" loading=\"lazy\">天命游戏平台</a><a class=\"\" data-ext=\"eci=&nlpv=test\" data-source=\"qwen@0.7994@0.0047@0.0000\" href=\"/s?q=%E5%A4%A9%E5%91%BD%E7%A5%9E%E8%AF%9D%E7%BD%91%E9%A1%B5%E6%B8%"
+  作者 @ 152031 "fiction clearfix\"><!-- 左侧图片 --> <div class=\"res-comm-con\"> <!-- 在一行显示基本信息（作者、状态、类型） --> <p class=\"info g-ellipsis\"> <a href=\"https://www.so.com/link?m=zAmnGP2D6VnpbsmJj6%2F9hyoDbBROiPKOu%2Bm4celhRvDwp9Onn6i1Kfx8409LcolzfeFI0cOT4"
+  作者 @ 152544 "\" data-type=\"btn\"><span class=\"icon-read\"></span>开始阅读</a> <span class=\"gray\">作者:</span>宝月流光 <span class=\"gray\">状态:</span>连载 <span class=\"gray\">类型:</span>游戏 </p> <p class=\"res-desc\"> <!-- 如果有简介，显示简介；否则显示自然结果摘要 --> "
+  作者 @ 155167 "><div class=\"res-rich so-rich-fiction clearfix\"><!-- 左侧图片 --> <!-- 在一行显示基本信息（作者、状态、类型） --> <p class=\"info g-ellipsis\"> <a href=\"https://www.so.com/link?m=wVacowuL0CS9UPZZlspBpynt3gKZYzF38g5CZH5r1xjXSmwNrzSZklbzPfw%2FfgnJc4Jqy3qG2F0"
+  作者 @ 155651 "\" data-type=\"btn\"><span class=\"icon-read\"></span>开始阅读</a> <span class=\"gray\">作者:</span>宝月流光 <span class=\"gray\">状态:</span>连载 <span class=\"gray\">类型:</span>游戏异界 </p> <p class=\"res-desc\"> <!-- 如果有简介，显示简介；否则显示自然结果摘要 --> "
+  作者 @ 164450 "><div class=\"res-rich so-rich-fiction clearfix\"><!-- 左侧图片 --> <!-- 在一行显示基本信息（作者、状态、类型） --> <p class=\"info g-ellipsis\"> <a href=\"https://www.so.com/link?m=b5afcUvhqnNhDlxxzEN6%2FuI9b%2BSXQpGv2gGNe88e%2FyfDNKje5EjgdpwfEtdSYtoeMhmbE6j"
+  作者 @ 164930 "\" data-type=\"btn\"><span class=\"icon-read\"></span>开始阅读</a> <span class=\"gray\">作者:</span>宝月流光 <span class=\"gray\">状态:</span>连载 <span class=\"gray\">类型:</span>游戏异界 </p> <p class=\"res-desc\"> <!-- 如果有简介，显示简介；否则显示自然结果摘要 --> "
+  作者 @ 166879 "><div class=\"res-rich so-rich-fiction clearfix\"><!-- 左侧图片 --> <!-- 在一行显示基本信息（作者、状态、类型） --> <p class=\"info g-ellipsis\"> <a href=\"https://www.so.com/link?m=e1ayyRHU63DhvkFrpum0nbDpqk6OO5KmBt6KhwbXjbdDrHrlfJjFhr5rwHPduzNrYV6k0FNuNPVHy"
+  作者 @ 167360 "\" data-type=\"btn\"><span class=\"icon-read\"></span>开始阅读</a> <span class=\"gray\">作者:</span>佚名 <span class=\"gray\">状态:</span>连载中 <span class=\"gray\">类型:</span>玄幻修真 </p> <p class=\"res-desc\"> <!-- 如果有简介，显示简介；否则显示自然结果摘要 --> "
+  qidian.com/book @ 154866 "822W1qaPdvvoGMLEDg%2FuoGS53HLQjisoC36ZMFzetvks5iwIrLFv\" data-mdurl=\"https://www.qidian.com/book/1049582478/\" rel=\"noopener\" data-res='{\"tp\":12,\"fr\":\"kvdb\",\"stp\":\"fiction\",\"st\":0,\"e\":1,\"pos\":2,\"m\":\"b48bb56bb13c2459fe3b2daf56a8e8f7\"}' target="
+  qidian.com/book @ 155511 "822W1qaPdvvoGMLEDg%2FuoGS53HLQjisoC36ZMFzetvks5iwIrLFv\" data-mdurl=\"https://www.qidian.com/book/1049582478/\" target=\"_blank\" class=\"rich-btn\" data-type=\"btn\"><span class=\"icon-read\"></span>开始阅读</a> <span class=\"gray\">作者:</span>宝月流光 <s"
+  qidian.com/book @ 164143 "JUNJU4Sy9132x331Oj3eLUt%2FJBwJToqQdiWL13O6z5QnWVj7UGc%3D\" data-mdurl=\"https://m.qidian.com/book/1049582478/\" rel=\"noopener\" data-res='{\"tp\":21,\"fr\":\"engine\",\"stp\":\"fiction\",\"st\":0,\"e\":2,\"pos\":3,\"m\":\"4a8e5dcd81d1714ced00f8dead7a6bd6\"}' targe"
+  qidian.com/book @ 164790 "JUNJU4Sy9132x331Oj3eLUt%2FJBwJToqQdiWL13O6z5QnWVj7UGc%3D\" data-mdurl=\"https://m.qidian.com/book/1049582478/\" target=\"_blank\" class=\"rich-btn\" data-type=\"btn\"><span class=\"icon-read\"></span>开始阅读</a> <span class=\"gray\">作者:</span>宝月流光 <s"
+hrefs [
+  'https://www.qidian.com/book/1049582478/',
+  'https://www.qidian.com/book/1049582478/',
+  'https://www.qidian.com/chapter/1049582478/916481516/',
+  'https://m.qidian.com/book/1049582478/',
+  'https://m.qidian.com/book/1049582478/',
+  'https://m.qidian.com/chapter/1049582478/913354423/'
+]
+titles [ '天命游戏平台 小说_360搜索' ]
+==== so_ty.html 361744
+  天运玩家 @ 398 "eferrer\"> <meta http-equiv=\"X-UA-Compatible\" content=\"IE=edge,chrome=1\"> <title>天运玩家 小说 起点_360搜索</title> <script>var __performancetime__={};</script> <script>__performancetime__.header_server_render_start= 1784429494436;__performancetime__."
+  天运玩家 @ 56930 " <textarea name=\"q\" id=\"ai-textarea\" class=\"ai-input-textarea\" rows=\"1\">天运玩家 小说 起点</textarea> </div> <div class=\"ai-input-actions\"> <div class=\"left-actions\"> <div class=\"left-item\"> "
+  天运玩家 @ 151464 "t\":0,\"e\":2,\"pos\":1,\"m\":\"8628ce6ebde62b13163ac41a763a018b\"}' target=\"_blank\"><em>天运玩家</em>(失落叶)<em>小说</em>在线阅读-首发<em>起点</em>中文网</a></h3><div class=\"res-rich so-rich-fiction clearfix\"><!-- 左侧图片 --> <!-- 在一行显示基本信息（作者、状态、类型） --> <p class="
+  天运玩家 @ 153913 "0,\"e\":2,\"pos\":2,\"m\":\"f46ac1a1803e125e7eea898a4e71ff91\"}' target=\"_blank\">新书<em>天运玩家</em>正式发布,首发<em>起点</em>,这次... 来自失落叶_sly - 微博</a></h3> <p class=\"res-desc\"><span class=\"gray g-c-gray\">2026年7月1日&nbsp;-&nbsp;</span>新书《<em>天运玩家</em>》正式发布,"
+  天运玩家 @ 154058 "lass=\"res-desc\"><span class=\"gray g-c-gray\">2026年7月1日&nbsp;-&nbsp;</span>新书《<em>天运玩家</em>》正式发布,首发<em>起点</em>,这次尝试废土游戏+校园青春类型,希望新老读者们喜欢,本条微博转发+点赞+评论里抽出一位幸运粉丝转500,请大家帮着...</p><p class=\"g-linkinfo\"><cite><a href=\"https://www.so.com/link?m=wJ0T"
+  天运玩家 @ 162001 "t\":0,\"e\":2,\"pos\":3,\"m\":\"2294ecf158a05c62d87f843e8488380d\"}' target=\"_blank\"><em>天运玩家小说</em>_《<em>天运玩家</em>(林池鱼)》最新章节在线阅读_全文完结免费无...</a></h3><div class=\"res-rich so-rich-fiction clearfix\"><!-- 左侧图片 --> <!-- 在一行显示基本信息（作者、状态、类型） --> <p c"
+  天运玩家 @ 162018 "3,\"m\":\"2294ecf158a05c62d87f843e8488380d\"}' target=\"_blank\"><em>天运玩家小说</em>_《<em>天运玩家</em>(林池鱼)》最新章节在线阅读_全文完结免费无...</a></h3><div class=\"res-rich so-rich-fiction clearfix\"><!-- 左侧图片 --> <!-- 在一行显示基本信息（作者、状态、类型） --> <p class=\"info g-elli"
+  天运玩家 @ 162854 "结果摘要 --> <span class=\"gray\">简介：</span><span class=\"res-list-summary\"><em>天运玩家小说</em>(林池鱼),《<em>天运玩家</em>》是失落叶创作的游戏类<em>小说</em>,书籍的主角是林池鱼,全书35章连载,11万字,8366书友力荐。红...</span><br/> <!-- 最新章节 --> </p><p class=\"g-linkinfo\""
+  作者 @ 151598 "><div class=\"res-rich so-rich-fiction clearfix\"><!-- 左侧图片 --> <!-- 在一行显示基本信息（作者、状态、类型） --> <p class=\"info g-ellipsis\"> <a href=\"https://www.so.com/link?m=z5dnStzToTSIXd3WwJge5RADh4uxFvk80RYjjuH8VjBN1WeAMemj%2BOSC8%2FYU8x414UKtS%2Bt"
+  作者 @ 152078 "\" data-type=\"btn\"><span class=\"icon-read\"></span>开始阅读</a> <span class=\"gray\">作者:</span>失落叶 <span class=\"gray\">状态:</span>连载 <span class=\"gray\">类型:</span>游戏系统 </p> <p class=\"res-desc\"> <!-- 如果有简介，显示简介；否则显示自然结果摘要 --> "
+  作者 @ 162140 "><div class=\"res-rich so-rich-fiction clearfix\"><!-- 左侧图片 --> <!-- 在一行显示基本信息（作者、状态、类型） --> <p class=\"info g-ellipsis\"> <a href=\"https://www.so.com/link?m=wL6B7zQsMRB1Ld%2BvjkFRKMsmHwQlHjPNOyPujZ%2BK2JEs6X0zmC03D0S1dWC2BaDmsbbdumSox"
+  作者 @ 162629 "\" data-type=\"btn\"><span class=\"icon-read\"></span>开始阅读</a> <span class=\"gray\">作者:</span>失落叶 <span class=\"gray\">状态:</span>连载 <span class=\"gray\">类型:</span>游戏 </p> <p class=\"res-desc\"> <!-- 如果有简介，显示简介；否则显示自然结果摘要 --> "
+  作者 @ 166308 "><div class=\"res-rich so-rich-fiction clearfix\"><!-- 左侧图片 --> <!-- 在一行显示基本信息（作者、状态、类型） --> <p class=\"info g-ellipsis\"> <a href=\"https://www.so.com/link?m=e7929scrgoVhXtBFDMZ0eG0k1M%2BeZsVrC1v6CqmPHgImmIwG9mUsaN8XM5yEnvkI16%2FB8cxJ%"
+  作者 @ 166792 "\" data-type=\"btn\"><span class=\"icon-read\"></span>开始阅读</a> <span class=\"gray\">作者:</span>天运老猫 <span class=\"gray\">状态:</span>完本 <span class=\"gray\">类型:</span>游戏异界 </p> <p class=\"res-desc\"> <!-- 如果有简介，显示简介；否则显示自然结果摘要 --> "
+  qidian.com/book @ 151289 "7U6We36AVKcKMEofbOM5tJqowCR8tEeexXZhqGHsPlRdCNtcNNP2a0\" data-mdurl=\"https://www.qidian.com/book/1049375385/\" rel=\"noopener\" data-res='{\"tp\":21,\"fr\":\"engine\",\"stp\":\"fiction\",\"st\":0,\"e\":2,\"pos\":1,\"m\":\"8628ce6ebde62b13163ac41a763a018b\"}' targe"
+  qidian.com/book @ 151938 "7U6We36AVKcKMEofbOM5tJqowCR8tEeexXZhqGHsPlRdCNtcNNP2a0\" data-mdurl=\"https://www.qidian.com/book/1049375385/\" target=\"_blank\" class=\"rich-btn\" data-type=\"btn\"><span class=\"icon-read\"></span>开始阅读</a> <span class=\"gray\">作者:</span>失落叶 <sp"
+  qidian.com/book @ 165978 "gv6ej3w2NL9AHKpFE0gd0oqdlz54YjnHQIs25XbYYaP9HVliwisfst\" data-mdurl=\"https://www.qidian.com/book/1043076277/\" rel=\"noopener\" data-res='{\"tp\":21,\"fr\":\"engine\",\"stp\":\"fiction\",\"st\":0,\"e\":2,\"pos\":6,\"m\":\"4d98dd11a14ebd9a2e884a3c37b67014\"}' targe"
+  qidian.com/book @ 166652 "gv6ej3w2NL9AHKpFE0gd0oqdlz54YjnHQIs25XbYYaP9HVliwisfst\" data-mdurl=\"https://www.qidian.com/book/1043076277/\" target=\"_blank\" class=\"rich-btn\" data-type=\"btn\"><span class=\"icon-read\"></span>开始阅读</a> <span class=\"gray\">作者:</span>天运老猫 <s"
+  qidian.com/book @ 168448 "hrKWcoaSiRdc%2BOI44Til1ExbbpLTZjkTK5eqDxaxvwbXuKM5Vun%2F\" data-mdurl=\"https://m.qidian.com/bookrecommend/2be67d9b88d2e8d1/\" rel=\"noopener\" data-res='{\"tp\":21,\"fr\":\"engine\",\"stp\":\"\",\"st\":0,\"e\":2,\"pos\":7,\"m\":\"f6610c0b640317e8ee395ed29c782723"
+hrefs [
+  'https://www.qidian.com/book/1049375385/',
+  'https://www.qidian.com/book/1049375385/',
+  'https://www.qidian.com/chapter/1049375385/916862042/',
+  'https://m.qidian.com/chapter/1041157705/913641561/',
+  'https://www.qidian.com/book/1043076277/',
+  'https://www.qidian.com/book/1043076277/',
+  'https://www.qidian.com/chapter/1043076277/867795440/',
+  'https://m.qidian.com/bookrecommend/2be67d9b88d2e8d1/'
+]
+titles [ '天运玩家 小说 起点_360搜索' ]

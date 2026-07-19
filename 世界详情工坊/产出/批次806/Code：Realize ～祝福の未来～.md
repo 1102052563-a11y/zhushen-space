@@ -180,4 +180,5 @@
 - [Code:Realize ～創世的公主～ - 中文维基百科](https://zh.wikipedia.org/wiki/Code:Realize_%EF%BD%9E%E5%89%B5%E4%B8%96%E7%9A%84%E5%85%AC%E4%B8%BB%EF%BD%9E)
 - [Code：Realize ～祝福の未来～ 官方网站（Otomate）](https://www.otomate.jp/code-realize/fd/)
 - [官方 Story 页：祝福の未来](https://www.otomate.jp/code-realize/fd/story/)
-- [Siliconera：Future Blessings 北美消息](https://www.siliconera.com/code-realizes-fan-disc-will-bring-future-blessings-north-america-2017/)
+- [Siliconera：Future Blessings 北美消息](https://www.siliconera.com/code-realizes-fan-disc-will-bring-future-blessings-north-america-2017/)\n
+

@@ -10,6 +10,32 @@ import { execSync } from 'child_process'
 function buildWiki(): Plugin {
   const CFG = '../../lunhui-wiki/mkdocs.yml'
   const OUT = 'public/wiki/index.html'
+  const IDX = 'public/wiki/search/search_index.json'
+  // mkdocs 生成的搜索索引默认 ASCII 转义（每个中文→\uXXXX，6 字节/字，是原字 UTF-8 3 字节的两倍）。
+  // 词条累积到 7000+ 后体积虚高到 27.2 MiB，触发 Cloudflare Pages「单文件 ≤25 MiB」上限 → 部署失败。
+  // 就地把索引重写为紧凑 UTF-8（中文按原字存 3 字节）：纯序列化层变换，客户端 JSON.parse 得到的对象逐字节等价、
+  // 搜索质量零损失 → 27.2 → ~14.3 MiB。兜底：万一日后内容膨胀到重写后仍 >24MiB，逐步截断超长条目正文直至达标（仅极端情况触发）。
+  const shrinkSearchIndex = () => {
+    try {
+      if (!existsSync(IDX)) return
+      const before = statSync(IDX).size
+      const data = JSON.parse(readFileSync(IDX, 'utf8'))
+      let out = JSON.stringify(data)                        // Node 默认输出不转义非 ASCII 的紧凑 UTF-8 → 主要瘦身来源
+      const CAP = 24 * 1024 * 1024                          // 25 MiB 硬上限留 1 MiB 余量
+      let finalLimit = 0
+      if (Buffer.byteLength(out) > CAP && Array.isArray(data.docs)) {
+        for (let limit = 8000; limit >= 400 && Buffer.byteLength(out) > CAP; limit -= 800) {
+          for (const d of data.docs) if (typeof d?.text === 'string' && d.text.length > limit) d.text = d.text.slice(0, limit)
+          out = JSON.stringify(data); finalLimit = limit
+        }
+      }
+      writeFileSync(IDX, out)
+      const line = `[build-wiki] search_index ${(before / 1048576).toFixed(1)}→${(Buffer.byteLength(out) / 1048576).toFixed(1)} MiB`
+      console.log(finalLimit ? `${line}（内容超量，已把超长条目正文截断至 ≤${finalLimit} 字以压进 24MiB）` : line)
+    } catch (e) {
+      console.warn('[build-wiki] 搜索索引瘦身跳过（解析失败，保留原文件）：', (e as Error)?.message)
+    }
+  }
   const build = () => {
     // 兼容不同环境的 python 入口；任一成功即停。
     const cmds = [
@@ -18,7 +44,7 @@ function buildWiki(): Plugin {
       `mkdocs build -f ${CFG}`,
     ]
     for (const c of cmds) {
-      try { execSync(c, { stdio: 'inherit' }); return } catch { /* 试下一个入口 */ }
+      try { execSync(c, { stdio: 'inherit' }); shrinkSearchIndex(); return } catch { /* 试下一个入口 */ }
     }
     console.warn('[build-wiki] mkdocs 未能构建（python/mkdocs 不可用？）— 保留已有 public/wiki')
   }

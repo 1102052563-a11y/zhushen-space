@@ -50,6 +50,15 @@ const charCount = (s) => (s || '').replace(/\s/g, '').length;
 // ── 校验 ──
 function validate(doc) {
   const errors = [], warnings = [];
+  const raw = fs.readFileSync(doc.file, 'utf8');
+  // 年龄政策 ABORT：短文件占位，跳过剧情/切入字数门禁
+  if (/status=ABORT|reason=age-policy|## ABORT/.test(raw)) {
+    if (!doc.name) errors.push('缺文件首行 `# 世界名` 标题');
+    const world = byName.get(doc.name);
+    if (doc.name && !world) warnings.push(`ABORT 占位：世界名「${doc.name}」暂不在清单（可后续同步）`);
+    warnings.push('年龄政策 ABORT：不写真稿（剧情/切入字数=0）');
+    return { errors, warnings, world, abort: true };
+  }
   if (!doc.name) errors.push('缺文件首行 `# 世界名` 标题');
   const world = byName.get(doc.name);
   if (doc.name && !world) errors.push(`世界名「${doc.name}」不在清单里（错别字？全名不精确？对照 清单/manifest.json）`);
@@ -88,10 +97,15 @@ function validate(doc) {
 }
 
 function report(doc, v) {
-  const status = v.errors.length ? '✗ 不过关' : v.warnings.length ? '△ 过关(有警告)' : '✓ 过关';
+  const status = v.abort
+    ? (v.errors.length ? '✗ 不过关' : '✓ ABORT')
+    : v.errors.length ? '✗ 不过关' : v.warnings.length ? '△ 过关(有警告)' : '✓ 过关';
   console.log(`\n${status}  ${doc.name || path.basename(doc.file)}  [${path.relative(ROOT, doc.file)}]`);
-  const plot = doc.sections['剧情'], entry = doc.sections['阶位切入点'] || doc.sections['休闲切入点'];
-  if (plot || entry) console.log(`   剧情 ${charCount(plot)} 字 · 切入点 ${charCount(entry)} 字`);
+  if (v.abort) console.log('   剧情 0 字 · 切入点 0 字（年龄政策不写真稿）');
+  else {
+    const plot = doc.sections['剧情'], entry = doc.sections['阶位切入点'] || doc.sections['休闲切入点'];
+    if (plot || entry) console.log(`   剧情 ${charCount(plot)} 字 · 切入点 ${charCount(entry)} 字`);
+  }
   for (const e of v.errors) console.log(`   [错误] ${e}`);
   for (const w of v.warnings) console.log(`   [警告] ${w}`);
 }
@@ -132,6 +146,7 @@ for (const file of walkMd(OUT_DIR)) {
   const v = validate(doc);
   report(doc, v);
   if (v.errors.length) { fail++; failed.push(doc.name || file); continue; }
+  if (v.abort) { pass++; continue; }
   pass++;
   const lib = v.world.lib;
   const base = uidOf(doc.name);

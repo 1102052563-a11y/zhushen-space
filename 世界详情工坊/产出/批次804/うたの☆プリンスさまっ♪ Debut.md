@@ -36,7 +36,7 @@
 - **寿嶺二** → 指导一十木音也、一ノ瀬トキヤ  
 - **黒崎蘭丸** → 指导圣川真斗、神宫寺レン  
 - **美風藍** → 指导四ノ宫那月、来栖翔  
-- **カミュ** → 指导爱岛セシル  
+- **カミュ** → 指导爱岛セシル
 
 共通线的情感引擎是：学园里「六人抢一个作曲家搭档」的青涩，变成业界里「七人（含セシル）如何在职业规则下继续把春歌的歌当作心」；前辈则用更残酷也更温柔的职业标准拆掉他们的学生气。恋爱仍被业界潜规则压抑，于是告白往往藏在 demo 完成的夜里、成功演出后的后台、以及「只为你写的词」。
 
@@ -155,6 +155,8 @@
 忌：把出道竞争写成打怪升级或无限流任务；忌把 Happy Pulse 写成战斗力数值；忌音也变愚蠢吉祥物、トキヤ变无理由永久冷暴力、那月只有黑暗料理梗、セシル只剩「我爱你」复读、前辈无代价洗白；忌抹去「业界禁止恋爱」的制度温差（那是秘密恋情的戏剧引擎）；忌用学园篇人设原地踏步取消大师课程成长。  
 最适切入：进入事务所大师课程第一周；セシル归国动摇期；うたプリアワード前夜；某次单独写曲到天亮的练习室。
 
+**【故事主线 · Debut 补钉】**
+毕业试镜一年后，シャイニング事务所大师课程：从学生搭档变为出道预备役。前辈 QUARTET NIGHT 登场对照；Happy Pulse 等是「心象表现」非战斗数值。うたプリアワード前夜、单独写曲到天亮、セシル归国动摇，是恋爱与职业双线交叉的名场面。
 ## 休闲切入点
 
 > 本世界为休闲／乙女恋爱向，无生存压力与厮杀闯关。契约者以**日常身份**融入シャイニング事务所的大师课程与通告现场，核心玩法＝relationship 攻略＋出道日常事件，而非任务厮杀。
@@ -194,4 +196,5 @@
 - [List of Uta no Prince-sama characters - English Wikipedia](https://en.wikipedia.org/wiki/List_of_Uta_no_Prince-sama_characters)
 - [List of Uta no Prince-sama episodes - English Wikipedia](https://en.wikipedia.org/wiki/List_of_Uta_no_Prince-sama_episodes)
 - [うたの☆プリンスさまっ♪Debut 公式サイト](https://www.utapri.com/game/debut/)
-- [寿 嶺二 公式キャラクターページ（Debut）](https://www.utapri.com/game/debut/character_reiji.php)
+- [寿 嶺二 公式キャラクターページ（Debut）](https://www.utapri.com/game/debut/character_reiji.php)\n
+

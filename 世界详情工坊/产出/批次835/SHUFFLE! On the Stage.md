@@ -165,4 +165,5 @@
 - [Shuffle! - 英文维基百科](https://en.wikipedia.org/wiki/Shuffle!)
 - [SHUFFLE! - 日文维基百科](https://ja.wikipedia.org/wiki/SHUFFLE!)
 - [巴哈姆特 SHUFFLE! 相关讨论与攻略](https://forum.gamer.com.tw/C.php?bsn=8812&snA=519)
-- [Anime News Network：Shuffle! 英文版与 PS2 路线说明](https://www.animenewsnetwork.com/news/2016-10-21/shuffle-visual-novel-gets-english-release-on-steam-in-november/.107933)
+- [Anime News Network：Shuffle! 英文版与 PS2 路线说明](https://www.animenewsnetwork.com/news/2016-10-21/shuffle-visual-novel-gets-english-release-on-steam-in-november/.107933)\n
+

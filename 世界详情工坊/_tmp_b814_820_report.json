@@ -1,0 +1,289 @@
+{
+  "processed": 35,
+  "pass": 35,
+  "fail": 0,
+  "minPlot": 7700,
+  "fails": [],
+  "results": [
+    {
+      "b": 814,
+      "f": "大図書館の羊飼い -Dreaming Sheep-.md",
+      "name": "大図書館の羊飼い -Dreaming Sheep-",
+      "plot": 7926,
+      "entry": 2018,
+      "ok": true
+    },
+    {
+      "b": 814,
+      "f": "時計仕掛けのレイライン -朝霧に散る花-.md",
+      "name": "時計仕掛けのレイライン -朝霧に散る花-",
+      "plot": 7801,
+      "entry": 2050,
+      "ok": true
+    },
+    {
+      "b": 814,
+      "f": "時計仕掛けのレイライン -残影の夜が明ける時-.md",
+      "name": "時計仕掛けのレイライン -残影の夜が明ける時-",
+      "plot": 7795,
+      "entry": 1954,
+      "ok": true
+    },
+    {
+      "b": 814,
+      "f": "時計仕掛けのレイライン -黄昏時の境界線-.md",
+      "name": "時計仕掛けのレイライン -黄昏時の境界線-",
+      "plot": 7845,
+      "entry": 2060,
+      "ok": true
+    },
+    {
+      "b": 814,
+      "f": "真・恋姫†夢想-革命- 劉旗の大望.md",
+      "name": "真・恋姫†夢想-革命- 劉旗の大望",
+      "plot": 7711,
+      "entry": 2025,
+      "ok": true
+    },
+    {
+      "b": 815,
+      "f": "はぴねす!.md",
+      "name": "はぴねす!",
+      "plot": 7805,
+      "entry": 2039,
+      "ok": true
+    },
+    {
+      "b": 815,
+      "f": "ましろ色シンフォニー Love is Pure White.md",
+      "name": "ましろ色シンフォニー Love is Pure White",
+      "plot": 7904,
+      "entry": 2133,
+      "ok": true
+    },
+    {
+      "b": 815,
+      "f": "大図書館の羊飼い -Library Party-.md",
+      "name": "大図書館の羊飼い -Library Party-",
+      "plot": 7700,
+      "entry": 1856,
+      "ok": true
+    },
+    {
+      "b": 815,
+      "f": "恋色空模様 after happiness and extra hearts.md",
+      "name": "恋色空模様 after happiness and extra hearts",
+      "plot": 7742,
+      "entry": 1836,
+      "ok": true
+    },
+    {
+      "b": 815,
+      "f": "星空のメモリア Eternal Heart.md",
+      "name": "星空のメモリア Eternal Heart",
+      "plot": 7821,
+      "entry": 2042,
+      "ok": true
+    },
+    {
+      "b": 816,
+      "f": "Planetarian ～雪圏球～.md",
+      "name": "Planetarian ～雪圏球～",
+      "plot": 7738,
+      "entry": 2100,
+      "ok": true
+    },
+    {
+      "b": 816,
+      "f": "はぴねす! りらっくす.md",
+      "name": "はぴねす! りらっくす",
+      "plot": 7797,
+      "entry": 2086,
+      "ok": true
+    },
+    {
+      "b": 816,
+      "f": "恋する彼女の不器用な舞台.md",
+      "name": "恋する彼女の不器用な舞台",
+      "plot": 7717,
+      "entry": 1890,
+      "ok": true
+    },
+    {
+      "b": 816,
+      "f": "近月少女の礼儀2.1 A Midsummer Moon's Night.md",
+      "name": "近月少女の礼儀2.1 A Midsummer Moon's Night",
+      "plot": 7792,
+      "entry": 1848,
+      "ok": true
+    },
+    {
+      "b": 816,
+      "f": "近月少女の礼儀2.2 A Midautumn Night's Dream.md",
+      "name": "近月少女の礼儀2.2 A Midautumn Night's Dream",
+      "plot": 7803,
+      "entry": 1815,
+      "ok": true
+    },
+    {
+      "b": 817,
+      "f": "D.C. Summer Vacation.md",
+      "name": "D.C. Summer Vacation",
+      "plot": 7798,
+      "entry": 1939,
+      "ok": true
+    },
+    {
+      "b": 817,
+      "f": "D.C. White Season.md",
+      "name": "D.C. White Season",
+      "plot": 7736,
+      "entry": 2137,
+      "ok": true
+    },
+    {
+      "b": 817,
+      "f": "D.C.II Spring Celebration.md",
+      "name": "D.C.II Spring Celebration",
+      "plot": 7831,
+      "entry": 1948,
+      "ok": true
+    },
+    {
+      "b": 817,
+      "f": "恋する気持ちのかさねかた ～かさねた想いをずっと～.md",
+      "name": "恋する気持ちのかさねかた ～かさねた想いをずっと～",
+      "plot": 7737,
+      "entry": 1923,
+      "ok": true
+    },
+    {
+      "b": 817,
+      "f": "近月少女の礼儀2.2 A Happy End.md",
+      "name": "近月少女の礼儀2.2 A Happy End",
+      "plot": 7723,
+      "entry": 1944,
+      "ok": true
+    },
+    {
+      "b": 818,
+      "f": "D.C.4 Fortunate Departures.md",
+      "name": "D.C.4 Fortunate Departures",
+      "plot": 7840,
+      "entry": 2106,
+      "ok": true
+    },
+    {
+      "b": 818,
+      "f": "D.C.II Fall in Love.md",
+      "name": "D.C.II Fall in Love",
+      "plot": 7849,
+      "entry": 1923,
+      "ok": true
+    },
+    {
+      "b": 818,
+      "f": "D.C.II To You.md",
+      "name": "D.C.II To You",
+      "plot": 7727,
+      "entry": 2113,
+      "ok": true
+    },
+    {
+      "b": 818,
+      "f": "D.C.III Dream Days.md",
+      "name": "D.C.III Dream Days",
+      "plot": 7927,
+      "entry": 1925,
+      "ok": true
+    },
+    {
+      "b": 818,
+      "f": "D.C.III With You.md",
+      "name": "D.C.III With You",
+      "plot": 7733,
+      "entry": 1937,
+      "ok": true
+    },
+    {
+      "b": 819,
+      "f": "Code_18.md",
+      "name": "Code_18",
+      "plot": 7715,
+      "entry": 1997,
+      "ok": true
+    },
+    {
+      "b": 819,
+      "f": "D.C.4 Sweet Harmony.md",
+      "name": "D.C.4 Sweet Harmony",
+      "plot": 7772,
+      "entry": 2084,
+      "ok": true
+    },
+    {
+      "b": 819,
+      "f": "D.C.5 Fortune Future.md",
+      "name": "D.C.5 Fortune Future",
+      "plot": 7758,
+      "entry": 1960,
+      "ok": true
+    },
+    {
+      "b": 819,
+      "f": "D.C.5 Future Link.md",
+      "name": "D.C.5 Future Link",
+      "plot": 7706,
+      "entry": 2042,
+      "ok": true
+    },
+    {
+      "b": 819,
+      "f": "STEINS;GATE 線形拘束のフェノグラム.md",
+      "name": "STEINS;GATE 線形拘束のフェノグラム",
+      "plot": 7838,
+      "entry": 2030,
+      "ok": true
+    },
+    {
+      "b": 820,
+      "f": "Narcissu 0.md",
+      "name": "Narcissu 0",
+      "plot": 7860,
+      "entry": 2068,
+      "ok": true
+    },
+    {
+      "b": 820,
+      "f": "narcissu 1st & 2nd.md",
+      "name": "narcissu 1st & 2nd",
+      "plot": 7801,
+      "entry": 2037,
+      "ok": true
+    },
+    {
+      "b": 820,
+      "f": "narcissu 3rd.md",
+      "name": "narcissu 3rd",
+      "plot": 7736,
+      "entry": 1989,
+      "ok": true
+    },
+    {
+      "b": 820,
+      "f": "ノラとと0.md",
+      "name": "ノラとと0",
+      "plot": 7795,
+      "entry": 2048,
+      "ok": true
+    },
+    {
+      "b": 820,
+      "f": "恋する乙女と守護の楯 -The shield of AIGIS-.md",
+      "name": "恋する乙女と守護の楯 -The shield of AIGIS-",
+      "plot": 7724,
+      "entry": 2043,
+      "ok": true
+    }
+  ]
+}

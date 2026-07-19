@@ -1,0 +1,821 @@
+[
+  {
+    "name": "中世纪：天国拯救（网文）",
+    "b": 852,
+    "pc": 11015,
+    "ec": 2016,
+    "links": 5,
+    "junk": false,
+    "ok": true
+  },
+  {
+    "name": "堑壕大栓与魔法",
+    "b": 852,
+    "pc": 11018,
+    "ec": 2459,
+    "links": 5,
+    "junk": false,
+    "ok": true
+  },
+  {
+    "name": "异度旅社",
+    "b": 852,
+    "pc": 10876,
+    "ec": 2796,
+    "links": 5,
+    "junk": false,
+    "ok": true
+  },
+  {
+    "name": "我在迷雾打造完美领地",
+    "b": 852,
+    "pc": 10814,
+    "ec": 2983,
+    "links": 5,
+    "junk": false,
+    "ok": true
+  },
+  {
+    "name": "熊学派的阿斯塔特",
+    "b": 852,
+    "pc": 11023,
+    "ec": 3434,
+    "links": 5,
+    "junk": false,
+    "ok": true
+  },
+  {
+    "name": "三塔游戏",
+    "b": 853,
+    "pc": 10966,
+    "ec": 2852,
+    "links": 4,
+    "junk": false,
+    "ok": true
+  },
+  {
+    "name": "废土边境检查官",
+    "b": 853,
+    "pc": 11014,
+    "ec": 2440,
+    "links": 5,
+    "junk": false,
+    "ok": true
+  },
+  {
+    "name": "急急如律令",
+    "b": 853,
+    "pc": 10955,
+    "ec": 2894,
+    "links": 5,
+    "junk": false,
+    "ok": true
+  },
+  {
+    "name": "科技入侵现代",
+    "b": 853,
+    "pc": 10981,
+    "ec": 2431,
+    "links": 5,
+    "junk": false,
+    "ok": true
+  },
+  {
+    "name": "说好的民企，空天母舰什么鬼",
+    "b": 853,
+    "pc": 10876,
+    "ec": 2521,
+    "links": 5,
+    "junk": false,
+    "ok": true
+  },
+  {
+    "name": "人在荒岛，灵气怎么复苏了？",
+    "b": 854,
+    "pc": 10902,
+    "ec": 3039,
+    "links": 5,
+    "junk": false,
+    "ok": true
+  },
+  {
+    "name": "我在噩梦世界建立安全区",
+    "b": 854,
+    "pc": 10800,
+    "ec": 2993,
+    "links": 5,
+    "junk": false,
+    "ok": true
+  },
+  {
+    "name": "文明乐园",
+    "b": 854,
+    "pc": 10846,
+    "ec": 2876,
+    "links": 5,
+    "junk": false,
+    "ok": true
+  },
+  {
+    "name": "末日边缘",
+    "b": 854,
+    "pc": 11000,
+    "ec": 2399,
+    "links": 5,
+    "junk": false,
+    "ok": true
+  },
+  {
+    "name": "独守要塞三年，我成了长夜领主",
+    "b": 854,
+    "pc": 10902,
+    "ec": 3050,
+    "links": 5,
+    "junk": false,
+    "ok": true
+  },
+  {
+    "name": "以一龙之力打倒整个世界！",
+    "b": 855,
+    "pc": 10801,
+    "ec": 3512,
+    "links": 5,
+    "junk": false,
+    "ok": true
+  },
+  {
+    "name": "我正经学生，每天只吃九种魔药",
+    "b": 855,
+    "pc": 10895,
+    "ec": 3049,
+    "links": 5,
+    "junk": false,
+    "ok": true
+  },
+  {
+    "name": "赛博英雄传",
+    "b": 855,
+    "pc": 10984,
+    "ec": 2865,
+    "links": 5,
+    "junk": false,
+    "ok": true
+  },
+  {
+    "name": "还能保送怪物职业学院？",
+    "b": 855,
+    "pc": 10990,
+    "ec": 2987,
+    "links": 5,
+    "junk": false,
+    "ok": true
+  },
+  {
+    "name": "逆旅",
+    "b": 855,
+    "pc": 10968,
+    "ec": 2856,
+    "links": 5,
+    "junk": false,
+    "ok": true
+  },
+  {
+    "name": "从魔法少女开始独断万古",
+    "b": 856,
+    "pc": 10995,
+    "ec": 3484,
+    "links": 5,
+    "junk": false,
+    "ok": true
+  },
+  {
+    "name": "冬日重现",
+    "b": 856,
+    "pc": 10807,
+    "ec": 2398,
+    "links": 5,
+    "junk": false,
+    "ok": true
+  },
+  {
+    "name": "天命之上",
+    "b": 856,
+    "pc": 11016,
+    "ec": 2809,
+    "links": 5,
+    "junk": false,
+    "ok": true
+  },
+  {
+    "name": "诳言法师的十三试炼",
+    "b": 856,
+    "pc": 10976,
+    "ec": 2976,
+    "links": 5,
+    "junk": false,
+    "ok": true
+  },
+  {
+    "name": "谁说我不是正经冒险者",
+    "b": 856,
+    "pc": 10810,
+    "ec": 2990,
+    "links": 5,
+    "junk": false,
+    "ok": true
+  },
+  {
+    "name": "同时穿越：继承万界遗产",
+    "b": 857,
+    "pc": 10994,
+    "ec": 3698,
+    "links": 4,
+    "junk": false,
+    "ok": true
+  },
+  {
+    "name": "宇智波赤石之旅",
+    "b": 857,
+    "pc": 10995,
+    "ec": 3103,
+    "links": 4,
+    "junk": false,
+    "ok": true
+  },
+  {
+    "name": "谁让他当假面骑士的！",
+    "b": 857,
+    "pc": 10909,
+    "ec": 3157,
+    "links": 4,
+    "junk": false,
+    "ok": true
+  },
+  {
+    "name": "贫民窟的游戏王",
+    "b": 857,
+    "pc": 10992,
+    "ec": 2587,
+    "links": 4,
+    "junk": false,
+    "ok": true
+  },
+  {
+    "name": "超人灭绝指南",
+    "b": 857,
+    "pc": 10933,
+    "ec": 3593,
+    "links": 4,
+    "junk": false,
+    "ok": true
+  },
+  {
+    "name": "呢喃诗章",
+    "b": 858,
+    "pc": 11067,
+    "ec": 3049,
+    "links": 4,
+    "junk": false,
+    "ok": true
+  },
+  {
+    "name": "天珠变",
+    "b": 858,
+    "pc": 11041,
+    "ec": 3721,
+    "links": 5,
+    "junk": false,
+    "ok": true
+  },
+  {
+    "name": "谁说我做的魔法卡牌有问题？",
+    "b": 858,
+    "pc": 10809,
+    "ec": 3211,
+    "links": 4,
+    "junk": false,
+    "ok": true
+  },
+  {
+    "name": "陈二狗的妖孽人生",
+    "b": 858,
+    "pc": 11032,
+    "ec": 1552,
+    "links": 4,
+    "junk": false,
+    "ok": true
+  },
+  {
+    "name": "魔王大人深不可测",
+    "b": 858,
+    "pc": 11067,
+    "ec": 3121,
+    "links": 4,
+    "junk": false,
+    "ok": true
+  },
+  {
+    "name": "古代末世的文弱书生",
+    "b": 859,
+    "pc": 10838,
+    "ec": 3139,
+    "links": 4,
+    "junk": false,
+    "ok": true
+  },
+  {
+    "name": "天人图谱",
+    "b": 859,
+    "pc": 10802,
+    "ec": 4057,
+    "links": 4,
+    "junk": false,
+    "ok": true
+  },
+  {
+    "name": "太尊！",
+    "b": 859,
+    "pc": 11020,
+    "ec": 4033,
+    "links": 4,
+    "junk": false,
+    "ok": true
+  },
+  {
+    "name": "我创造了怪物序列！",
+    "b": 859,
+    "pc": 10839,
+    "ec": 3139,
+    "links": 4,
+    "junk": false,
+    "ok": true
+  },
+  {
+    "name": "超级兵王",
+    "b": 859,
+    "pc": 11035,
+    "ec": 1629,
+    "links": 4,
+    "junk": false,
+    "ok": true
+  },
+  {
+    "name": "一世之尊",
+    "b": 860,
+    "pc": 11064,
+    "ec": 3742,
+    "links": 5,
+    "junk": false,
+    "ok": true
+  },
+  {
+    "name": "吞噬星空2：起源大陆",
+    "b": 860,
+    "pc": 10826,
+    "ec": 3845,
+    "links": 5,
+    "junk": false,
+    "ok": true
+  },
+  {
+    "name": "我都成超人了，灵气才复苏？",
+    "b": 860,
+    "pc": 10820,
+    "ec": 3740,
+    "links": 4,
+    "junk": false,
+    "ok": true
+  },
+  {
+    "name": "深海余烬",
+    "b": 860,
+    "pc": 10821,
+    "ec": 3245,
+    "links": 5,
+    "junk": false,
+    "ok": true
+  },
+  {
+    "name": "鸣龙",
+    "b": 860,
+    "pc": 10932,
+    "ec": 3509,
+    "links": 4,
+    "junk": false,
+    "ok": true
+  },
+  {
+    "name": "从武道世界开始击穿深渊",
+    "b": 861,
+    "pc": 10994,
+    "ec": 3698,
+    "links": 4,
+    "junk": false,
+    "ok": true
+  },
+  {
+    "name": "你这义体合法吗",
+    "b": 861,
+    "pc": 10991,
+    "ec": 2587,
+    "links": 4,
+    "junk": false,
+    "ok": true
+  },
+  {
+    "name": "异常生物见闻录",
+    "b": 861,
+    "pc": 10872,
+    "ec": 3321,
+    "links": 5,
+    "junk": false,
+    "ok": true
+  },
+  {
+    "name": "末世第一狠人",
+    "b": 861,
+    "pc": 10918,
+    "ec": 2572,
+    "links": 4,
+    "junk": false,
+    "ok": true
+  },
+  {
+    "name": "黄昏分界",
+    "b": 861,
+    "pc": 11081,
+    "ec": 3551,
+    "links": 4,
+    "junk": false,
+    "ok": true
+  },
+  {
+    "name": "噩梦使徒",
+    "b": 862,
+    "pc": 11071,
+    "ec": 3049,
+    "links": 4,
+    "junk": false,
+    "ok": true
+  },
+  {
+    "name": "我在神异司斩邪",
+    "b": 862,
+    "pc": 10992,
+    "ec": 2587,
+    "links": 4,
+    "junk": false,
+    "ok": true
+  },
+  {
+    "name": "玩家请上车",
+    "b": 862,
+    "pc": 10847,
+    "ec": 2557,
+    "links": 4,
+    "junk": false,
+    "ok": true
+  },
+  {
+    "name": "现实编程协会",
+    "b": 862,
+    "pc": 10915,
+    "ec": 2572,
+    "links": 4,
+    "junk": false,
+    "ok": true
+  },
+  {
+    "name": "谁说这里有怪谈的？",
+    "b": 862,
+    "pc": 10836,
+    "ec": 2617,
+    "links": 4,
+    "junk": false,
+    "ok": true
+  },
+  {
+    "name": "伪像报告",
+    "b": 863,
+    "pc": 11068,
+    "ec": 2542,
+    "links": 4,
+    "junk": false,
+    "ok": true
+  },
+  {
+    "name": "屠魔快刀",
+    "b": 863,
+    "pc": 11065,
+    "ec": 2542,
+    "links": 4,
+    "junk": false,
+    "ok": true
+  },
+  {
+    "name": "欢迎来到诡诞游戏",
+    "b": 863,
+    "pc": 11067,
+    "ec": 2602,
+    "links": 4,
+    "junk": false,
+    "ok": true
+  },
+  {
+    "name": "深渊片场",
+    "b": 863,
+    "pc": 11070,
+    "ec": 3049,
+    "links": 4,
+    "junk": false,
+    "ok": true
+  },
+  {
+    "name": "神秘复苏：假如",
+    "b": 863,
+    "pc": 10994,
+    "ec": 3103,
+    "links": 4,
+    "junk": false,
+    "ok": true
+  },
+  {
+    "name": "不死的我速通灵异游戏",
+    "b": 864,
+    "pc": 10906,
+    "ec": 2632,
+    "links": 4,
+    "junk": false,
+    "ok": true
+  },
+  {
+    "name": "出马大舞台，有仙你就来",
+    "b": 864,
+    "pc": 10976,
+    "ec": 2647,
+    "links": 4,
+    "junk": false,
+    "ok": true
+  },
+  {
+    "name": "天官赐邪",
+    "b": 864,
+    "pc": 11068,
+    "ec": 2542,
+    "links": 4,
+    "junk": false,
+    "ok": true
+  },
+  {
+    "name": "我的治愈系游戏",
+    "b": 864,
+    "pc": 11046,
+    "ec": 2437,
+    "links": 5,
+    "junk": false,
+    "ok": true
+  },
+  {
+    "name": "鬼上房",
+    "b": 864,
+    "pc": 10982,
+    "ec": 2022,
+    "links": 4,
+    "junk": false,
+    "ok": true
+  },
+  {
+    "name": "全球冰封：我打造了末日安全屋",
+    "b": 865,
+    "pc": 10866,
+    "ec": 2154,
+    "links": 4,
+    "junk": false,
+    "ok": true
+  },
+  {
+    "name": "废土",
+    "b": 865,
+    "pc": 10915,
+    "ec": 2512,
+    "links": 4,
+    "junk": false,
+    "ok": true
+  },
+  {
+    "name": "我的女友是丧尸",
+    "b": 865,
+    "pc": 10990,
+    "ec": 2587,
+    "links": 4,
+    "junk": false,
+    "ok": true
+  },
+  {
+    "name": "驱邪从食尸请神开始",
+    "b": 865,
+    "pc": 10837,
+    "ec": 2617,
+    "links": 4,
+    "junk": false,
+    "ok": true
+  },
+  {
+    "name": "黑暗血时代",
+    "b": 865,
+    "pc": 10864,
+    "ec": 3572,
+    "links": 4,
+    "junk": false,
+    "ok": true
+  },
+  {
+    "name": "亵渎",
+    "b": 866,
+    "pc": 10961,
+    "ec": 3762,
+    "links": 5,
+    "junk": false,
+    "ok": true
+  },
+  {
+    "name": "佣兵天下",
+    "b": 866,
+    "pc": 10952,
+    "ec": 2385,
+    "links": 5,
+    "junk": false,
+    "ok": true
+  },
+  {
+    "name": "末世之丧尸传奇",
+    "b": 866,
+    "pc": 10993,
+    "ec": 2587,
+    "links": 4,
+    "junk": false,
+    "ok": true
+  },
+  {
+    "name": "狩魔手记",
+    "b": 866,
+    "pc": 11071,
+    "ec": 3049,
+    "links": 4,
+    "junk": false,
+    "ok": true
+  },
+  {
+    "name": "紫川",
+    "b": 866,
+    "pc": 10972,
+    "ec": 2306,
+    "links": 5,
+    "junk": false,
+    "ok": true
+  },
+  {
+    "name": "光明纪元",
+    "b": 867,
+    "pc": 11070,
+    "ec": 3049,
+    "links": 4,
+    "junk": false,
+    "ok": true
+  },
+  {
+    "name": "大龙挂了",
+    "b": 867,
+    "pc": 11068,
+    "ec": 2542,
+    "links": 4,
+    "junk": false,
+    "ok": true
+  },
+  {
+    "name": "我的模拟长生路",
+    "b": 867,
+    "pc": 11036,
+    "ec": 3882,
+    "links": 5,
+    "junk": false,
+    "ok": true
+  },
+  {
+    "name": "谁让他修仙的！",
+    "b": 867,
+    "pc": 10917,
+    "ec": 3832,
+    "links": 5,
+    "junk": false,
+    "ok": true
+  },
+  {
+    "name": "魔法学徒",
+    "b": 867,
+    "pc": 11071,
+    "ec": 3049,
+    "links": 4,
+    "junk": false,
+    "ok": true
+  },
+  {
+    "name": "全球崩坏",
+    "b": 868,
+    "pc": 11069,
+    "ec": 3049,
+    "links": 4,
+    "junk": false,
+    "ok": true
+  },
+  {
+    "name": "大乘期才有逆袭系统",
+    "b": 868,
+    "pc": 10865,
+    "ec": 4177,
+    "links": 4,
+    "junk": false,
+    "ok": true
+  },
+  {
+    "name": "怪谈游戏设计师",
+    "b": 868,
+    "pc": 10992,
+    "ec": 2587,
+    "links": 4,
+    "junk": false,
+    "ok": true
+  },
+  {
+    "name": "活人深处",
+    "b": 868,
+    "pc": 11069,
+    "ec": 2542,
+    "links": 4,
+    "junk": false,
+    "ok": true
+  },
+  {
+    "name": "镇妖博物馆",
+    "b": 868,
+    "pc": 10850,
+    "ec": 3067,
+    "links": 4,
+    "junk": false,
+    "ok": true
+  },
+  {
+    "name": "噩梦惊袭",
+    "b": 869,
+    "pc": 11069,
+    "ec": 3049,
+    "links": 4,
+    "junk": false,
+    "ok": true
+  },
+  {
+    "name": "师妹，我真得控制你了",
+    "b": 869,
+    "pc": 10922,
+    "ec": 3677,
+    "links": 4,
+    "junk": false,
+    "ok": true
+  },
+  {
+    "name": "战锤：我也要坐黄金王座吗？",
+    "b": 869,
+    "pc": 10820,
+    "ec": 3740,
+    "links": 4,
+    "junk": false,
+    "ok": true
+  },
+  {
+    "name": "战锤：群星与蝼蚁",
+    "b": 869,
+    "pc": 11080,
+    "ec": 3635,
+    "links": 4,
+    "junk": false,
+    "ok": true
+  },
+  {
+    "name": "斗罗绝世：多情剑客无情剑",
+    "b": 869,
+    "pc": 11066,
+    "ec": 3719,
+    "links": 4,
+    "junk": false,
+    "ok": true
+  },
+  {
+    "name": "是，伟大魔女2077",
+    "b": 870,
+    "pc": 10908,
+    "ec": 3157,
+    "links": 4,
+    "junk": false,
+    "ok": true
+  }
+]

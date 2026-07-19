@@ -170,4 +170,5 @@
 - [NORN9 命運九重奏 - 维基百科](https://zh.wikipedia.org/wiki/NORN9_%E5%91%BD%E9%81%8B%E4%B9%9D%E9%87%8D%E5%A5%8F)
 - [Norn9 Wiki | Fandom](https://norn9.fandom.com/wiki/Norn9_Wiki)
 - [Koharu | Norn9 Wiki](https://norn9.fandom.com/wiki/Koharu)
-- [Otomate 公式（NORN9）](http://www.otomate.jp/norn9/)
+- [Otomate 公式（NORN9）](http://www.otomate.jp/norn9/)\n
+

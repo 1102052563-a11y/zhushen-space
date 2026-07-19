@@ -1,0 +1,526 @@
+{
+  "summary": {
+    "total": 51,
+    "ok": 51,
+    "warn": 0,
+    "hard": 0,
+    "plotGe7500": 44,
+    "entryGe1800": 51,
+    "zeroCliche": 51,
+    "stillCliche": [],
+    "hardList": [],
+    "warnSamples": []
+  },
+  "results": [
+    {
+      "b": 821,
+      "f": "D.C.II P.C..md",
+      "plot": 6726,
+      "entry": 1935,
+      "beforeHits": 3,
+      "afterHits": 0,
+      "status": "OK",
+      "warn": []
+    },
+    {
+      "b": 821,
+      "f": "D.C.II P.S..md",
+      "plot": 6901,
+      "entry": 1902,
+      "beforeHits": 3,
+      "afterHits": 0,
+      "status": "OK",
+      "warn": []
+    },
+    {
+      "b": 821,
+      "f": "FORTUNE ARTERIAL 赤い約束.md",
+      "plot": 8075,
+      "entry": 1941,
+      "beforeHits": 3,
+      "afterHits": 0,
+      "status": "OK",
+      "warn": []
+    },
+    {
+      "b": 821,
+      "f": "うたわれるもの ロストフラグ.md",
+      "plot": 7613,
+      "entry": 1888,
+      "beforeHits": 3,
+      "afterHits": 0,
+      "status": "OK",
+      "warn": []
+    },
+    {
+      "b": 821,
+      "f": "うたわれるもの 斬.md",
+      "plot": 6943,
+      "entry": 1888,
+      "beforeHits": 3,
+      "afterHits": 0,
+      "status": "OK",
+      "warn": []
+    },
+    {
+      "b": 822,
+      "f": "CLANNAD 光見守る坂道で.md",
+      "plot": 7776,
+      "entry": 1820,
+      "beforeHits": 3,
+      "afterHits": 0,
+      "status": "OK",
+      "warn": []
+    },
+    {
+      "b": 822,
+      "f": "D.C.4 Plus Harmony.md",
+      "plot": 7702,
+      "entry": 1907,
+      "beforeHits": 3,
+      "afterHits": 0,
+      "status": "OK",
+      "warn": []
+    },
+    {
+      "b": 822,
+      "f": "D.C.III P.P..md",
+      "plot": 7775,
+      "entry": 1891,
+      "beforeHits": 3,
+      "afterHits": 0,
+      "status": "OK",
+      "warn": []
+    },
+    {
+      "b": 822,
+      "f": "DIABOLIK LOVERS LUNATIC PARADE.md",
+      "plot": 7647,
+      "entry": 1912,
+      "beforeHits": 3,
+      "afterHits": 0,
+      "status": "OK",
+      "warn": []
+    },
+    {
+      "b": 822,
+      "f": "Little Busters! SS.md",
+      "plot": 7673,
+      "entry": 2001,
+      "beforeHits": 3,
+      "afterHits": 0,
+      "status": "OK",
+      "warn": []
+    },
+    {
+      "b": 823,
+      "f": "DIABOLIK LOVERS CHAOS LINEAGE.md",
+      "plot": 7778,
+      "entry": 2051,
+      "beforeHits": 3,
+      "afterHits": 0,
+      "status": "OK",
+      "warn": []
+    },
+    {
+      "b": 823,
+      "f": "DIABOLIK LOVERS GRAND EDITION.md",
+      "plot": 7762,
+      "entry": 1840,
+      "beforeHits": 3,
+      "afterHits": 0,
+      "status": "OK",
+      "warn": []
+    },
+    {
+      "b": 823,
+      "f": "うたの☆プリンスさまっ♪ MUSIC 2.md",
+      "plot": 8043,
+      "entry": 1909,
+      "beforeHits": 3,
+      "afterHits": 0,
+      "status": "OK",
+      "warn": []
+    },
+    {
+      "b": 823,
+      "f": "うたの☆プリンスさまっ♪ MUSIC 3.md",
+      "plot": 7887,
+      "entry": 1857,
+      "beforeHits": 3,
+      "afterHits": 0,
+      "status": "OK",
+      "warn": []
+    },
+    {
+      "b": 823,
+      "f": "うたの☆プリンスさまっ♪ Repeat.md",
+      "plot": 7898,
+      "entry": 1914,
+      "beforeHits": 3,
+      "afterHits": 0,
+      "status": "OK",
+      "warn": []
+    },
+    {
+      "b": 824,
+      "f": "NEWラブプラス.md",
+      "plot": 7294,
+      "entry": 1931,
+      "beforeHits": 3,
+      "afterHits": 0,
+      "status": "OK",
+      "warn": []
+    },
+    {
+      "b": 824,
+      "f": "ときめきメモリアル Girl's Side.md",
+      "plot": 7045,
+      "entry": 1903,
+      "beforeHits": 3,
+      "afterHits": 0,
+      "status": "OK",
+      "warn": []
+    },
+    {
+      "b": 824,
+      "f": "ときめきメモリアル.md",
+      "plot": 7239,
+      "entry": 1866,
+      "beforeHits": 3,
+      "afterHits": 0,
+      "status": "OK",
+      "warn": []
+    },
+    {
+      "b": 824,
+      "f": "ときめきメモリアル2.md",
+      "plot": 7153,
+      "entry": 1964,
+      "beforeHits": 3,
+      "afterHits": 0,
+      "status": "OK",
+      "warn": []
+    },
+    {
+      "b": 824,
+      "f": "ラブプラス.md",
+      "plot": 7719,
+      "entry": 2097,
+      "beforeHits": 3,
+      "afterHits": 0,
+      "status": "OK",
+      "warn": []
+    },
+    {
+      "b": 825,
+      "f": "Psychedelica of the Ashen Hawk.md",
+      "plot": 7656,
+      "entry": 2491,
+      "beforeHits": 3,
+      "afterHits": 0,
+      "status": "OK",
+      "warn": []
+    },
+    {
+      "b": 825,
+      "f": "Psychedelica of the Black Butterfly.md",
+      "plot": 7971,
+      "entry": 2469,
+      "beforeHits": 2,
+      "afterHits": 0,
+      "status": "OK",
+      "warn": []
+    },
+    {
+      "b": 825,
+      "f": "ときめきメモリアル Girl's Side 2nd Kiss.md",
+      "plot": 7710,
+      "entry": 2391,
+      "beforeHits": 2,
+      "afterHits": 0,
+      "status": "OK",
+      "warn": []
+    },
+    {
+      "b": 825,
+      "f": "ときめきメモリアル Girl's Side 3rd Story.md",
+      "plot": 7725,
+      "entry": 2357,
+      "beforeHits": 3,
+      "afterHits": 0,
+      "status": "OK",
+      "warn": []
+    },
+    {
+      "b": 825,
+      "f": "ときめきメモリアル Girl's Side 4th Heart.md",
+      "plot": 7686,
+      "entry": 2254,
+      "beforeHits": 3,
+      "afterHits": 0,
+      "status": "OK",
+      "warn": []
+    },
+    {
+      "b": 826,
+      "f": "CLOCK ZERO ～終焉の一秒～ Devote.md",
+      "plot": 7760,
+      "entry": 2290,
+      "beforeHits": 2,
+      "afterHits": 0,
+      "status": "OK",
+      "warn": []
+    },
+    {
+      "b": 826,
+      "f": "CLOCK ZERO ～終焉の一秒～.md",
+      "plot": 7690,
+      "entry": 2419,
+      "beforeHits": 2,
+      "afterHits": 0,
+      "status": "OK",
+      "warn": []
+    },
+    {
+      "b": 826,
+      "f": "薄桜鬼SSL ～sweet school life～.md",
+      "plot": 7653,
+      "entry": 1853,
+      "beforeHits": 2,
+      "afterHits": 0,
+      "status": "OK",
+      "warn": []
+    },
+    {
+      "b": 826,
+      "f": "遙かなる時空の中で Ultimate.md",
+      "plot": 7737,
+      "entry": 2249,
+      "beforeHits": 2,
+      "afterHits": 0,
+      "status": "OK",
+      "warn": []
+    },
+    {
+      "b": 826,
+      "f": "金色のコルダ スターライトオーケストラ.md",
+      "plot": 7607,
+      "entry": 2516,
+      "beforeHits": 2,
+      "afterHits": 0,
+      "status": "OK",
+      "warn": []
+    },
+    {
+      "b": 827,
+      "f": "A3!.md",
+      "plot": 7636,
+      "entry": 2211,
+      "beforeHits": 3,
+      "afterHits": 0,
+      "status": "OK",
+      "warn": []
+    },
+    {
+      "b": 827,
+      "f": "アイ★チュウ.md",
+      "plot": 7712,
+      "entry": 2262,
+      "beforeHits": 3,
+      "afterHits": 0,
+      "status": "OK",
+      "warn": []
+    },
+    {
+      "b": 827,
+      "f": "ツキウタ。.md",
+      "plot": 7628,
+      "entry": 2256,
+      "beforeHits": 3,
+      "afterHits": 0,
+      "status": "OK",
+      "warn": []
+    },
+    {
+      "b": 827,
+      "f": "ドグラ・マグラ.md",
+      "plot": 7627,
+      "entry": 2338,
+      "beforeHits": 3,
+      "afterHits": 0,
+      "status": "OK",
+      "warn": []
+    },
+    {
+      "b": 827,
+      "f": "夢色キャスト.md",
+      "plot": 7662,
+      "entry": 2254,
+      "beforeHits": 3,
+      "afterHits": 0,
+      "status": "OK",
+      "warn": []
+    },
+    {
+      "b": 828,
+      "f": "ましろ色シンフォニー SANA EDITION.md",
+      "plot": 7758,
+      "entry": 1949,
+      "beforeHits": 3,
+      "afterHits": 0,
+      "status": "OK",
+      "warn": []
+    },
+    {
+      "b": 828,
+      "f": "ガールズシンフォニー ～少女交響詩～.md",
+      "plot": 7628,
+      "entry": 2037,
+      "beforeHits": 2,
+      "afterHits": 0,
+      "status": "OK",
+      "warn": []
+    },
+    {
+      "b": 828,
+      "f": "ドグラ・マグラ～深淵よりの呼び声～.md",
+      "plot": 7609,
+      "entry": 2501,
+      "beforeHits": 3,
+      "afterHits": 0,
+      "status": "OK",
+      "warn": []
+    },
+    {
+      "b": 828,
+      "f": "星空のメモリア -Wish upon a shooting star-.md",
+      "plot": 7630,
+      "entry": 2227,
+      "beforeHits": 1,
+      "afterHits": 0,
+      "status": "OK",
+      "warn": []
+    },
+    {
+      "b": 828,
+      "f": "星空のメモリア Perfect Edition.md",
+      "plot": 7648,
+      "entry": 1950,
+      "beforeHits": 3,
+      "afterHits": 0,
+      "status": "OK",
+      "warn": []
+    },
+    {
+      "b": 829,
+      "f": "Collar×Malice -Unlimited-.md",
+      "plot": 7652,
+      "entry": 1902,
+      "beforeHits": 2,
+      "afterHits": 0,
+      "status": "OK",
+      "warn": []
+    },
+    {
+      "b": 829,
+      "f": "OZMAFIA!! -vivace-.md",
+      "plot": 7833,
+      "entry": 1901,
+      "beforeHits": 0,
+      "afterHits": 0,
+      "status": "OK",
+      "warn": []
+    },
+    {
+      "b": 829,
+      "f": "ROBOTICS;NOTES ELITE.md",
+      "plot": 7818,
+      "entry": 2468,
+      "beforeHits": 2,
+      "afterHits": 0,
+      "status": "OK",
+      "warn": []
+    },
+    {
+      "b": 829,
+      "f": "STEINS;GATE Elite.md",
+      "plot": 7735,
+      "entry": 2460,
+      "beforeHits": 2,
+      "afterHits": 0,
+      "status": "OK",
+      "warn": []
+    },
+    {
+      "b": 829,
+      "f": "時計仕掛けのレイライン -無限の夜想曲-.md",
+      "plot": 7786,
+      "entry": 2268,
+      "beforeHits": 3,
+      "afterHits": 0,
+      "status": "OK",
+      "warn": []
+    },
+    {
+      "b": 830,
+      "f": "BROTHERS CONFLICT Brilliant Blue.md",
+      "plot": 7725,
+      "entry": 2347,
+      "beforeHits": 3,
+      "afterHits": 0,
+      "status": "OK",
+      "warn": []
+    },
+    {
+      "b": 830,
+      "f": "Code：Realize Future Blessings.md",
+      "plot": 7636,
+      "entry": 2430,
+      "beforeHits": 3,
+      "afterHits": 0,
+      "status": "OK",
+      "warn": []
+    },
+    {
+      "b": 830,
+      "f": "Norn9 Act Tune.md",
+      "plot": 7726,
+      "entry": 2240,
+      "beforeHits": 3,
+      "afterHits": 0,
+      "status": "OK",
+      "warn": []
+    },
+    {
+      "b": 830,
+      "f": "うたの☆プリンスさまっ♪ All Star After Secret.md",
+      "plot": 7849,
+      "entry": 2382,
+      "beforeHits": 2,
+      "afterHits": 0,
+      "status": "OK",
+      "warn": []
+    },
+    {
+      "b": 830,
+      "f": "薄桜鬼 真改 華ノ章.md",
+      "plot": 7716,
+      "entry": 2271,
+      "beforeHits": 2,
+      "afterHits": 0,
+      "status": "OK",
+      "warn": []
+    },
+    {
+      "b": 830,
+      "f": "薄桜鬼 真改 風華伝.md",
+      "plot": 7718,
+      "entry": 2238,
+      "beforeHits": 3,
+      "afterHits": 0,
+      "status": "OK",
+      "warn": []
+    }
+  ]
+}

@@ -132,7 +132,7 @@
 
 **Shining·早乙女｜身份：校长兼事务所社长，传说偶像｜性格：神出鬼没、破坏设施、课题制造机｜功能：认可恋爱又丢新曲；龙也线最大外力阻碍；年轻态攻略在 AA 不在 SS**
 
-**春辉（ハルキ）｜身份：龙也已故挚友／作词搭档｜功能：龙也封唱心结与友情 END 墓园；只作回忆与歌声，不复活成战力**
+**春辉（ハルキ）｜身份：龙也已故挚友／作词搭档｜功能：龙也封唱心结与友情 END 墓园；只作回忆与歌声，不复活成压力强度**
 
 **乔治｜身份：莲线相关友人｜功能：恋爱 END 探望病愈的人情锚**
 
@@ -230,4 +230,5 @@
 - [Uta no☆Prince-sama♪ -Sweet Serenade- (Fandom wiki)](https://utanoprincesama.fandom.com/wiki/Uta_no%E2%98%86Prince-sama%E2%99%AA_-Sweet_Serenade-)
 - [Sweet Serenade 攻略 chart（otomegame-capture）](https://otomegame-capture.com/psp/utapri_ss/chart1.html)
 - [Otome review: Uta no Prince-sama♪ Sweet Serenade](https://breadmasterlee.com/2011/12/30/otome-game-review-uta-no-prince-sama%E2%99%AA-sweet-serenade/)
-- [Uta no Prince-sama♪ Sweet Serenade route notes](https://ancientshining.wordpress.com/2013/09/09/uta-no-prince-sama-%E2%99%AA-sweet-serenade/)
+- [Uta no Prince-sama♪ Sweet Serenade route notes](https://ancientshining.wordpress.com/2013/09/09/uta-no-prince-sama-%E2%99%AA-sweet-serenade/)\n
+

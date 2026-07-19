@@ -160,4 +160,5 @@
 
 - [Diabolik Lovers - Wikipedia (English)](https://en.wikipedia.org/wiki/Diabolik_Lovers)
 - [魔鬼戀人 - 中文维基百科](https://zh.wikipedia.org/wiki/%E9%AD%94%E9%AC%BC%E6%88%80%E4%BA%BA)
-- [DIABOLIK LOVERS - 日本語版ウィキペディア](https://ja.wikipedia.org/wiki/DIABOLIK_LOVERS)
+- [DIABOLIK LOVERS - 日本語版ウィキペディア](https://ja.wikipedia.org/wiki/DIABOLIK_LOVERS)\n
+

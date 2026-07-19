@@ -188,4 +188,5 @@
 - [NORN9 ノルン+ノネット - 日本語版 Wikipedia](https://ja.wikipedia.org/wiki/NORN9_%E3%83%8E%E3%83%AB%E3%83%B3%2B%E3%83%8E%E3%83%8D%E3%83%83%E3%83%88)
 - [Otomate 公式：ノルン+ノネット ラスト イーラ](http://www.otomate.jp/norn9/last-era/)
 - [Otomate Last Era · Story 分区](http://www.otomate.jp/norn9/last-era/world/)
-- [Norn9 Wiki (Fandom)](https://norn9.fandom.com/wiki/Norn9_Wiki)
+- [Norn9 Wiki (Fandom)](https://norn9.fandom.com/wiki/Norn9_Wiki)\n
+

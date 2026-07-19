@@ -1,0 +1,1027 @@
+{
+  "need": [],
+  "ok": [
+    {
+      "batch": 821,
+      "file": "D.C.II P.C..md",
+      "chars": 7693,
+      "hits": [],
+      "status": "OK",
+      "short": false,
+      "need": false,
+      "check": "✓ 过关  D.C.II P.C.  [产出\\批次821\\D.C.II P.C..md] |    剧情 7693 字 · 切入点 1935 字"
+    },
+    {
+      "batch": 821,
+      "file": "D.C.II P.S..md",
+      "chars": 7675,
+      "hits": [],
+      "status": "OK",
+      "short": false,
+      "need": false,
+      "check": "✓ 过关  D.C.II P.S.  [产出\\批次821\\D.C.II P.S..md] |    剧情 7675 字 · 切入点 1902 字"
+    },
+    {
+      "batch": 821,
+      "file": "FORTUNE ARTERIAL 赤い約束.md",
+      "chars": 8075,
+      "hits": [],
+      "status": "OK",
+      "short": false,
+      "need": false,
+      "check": "✓ 过关  FORTUNE ARTERIAL 赤い約束  [产出\\批次821\\FORTUNE ARTERIAL 赤い約束.md] |    剧情 8075 字 · 切入点 1941 字"
+    },
+    {
+      "batch": 821,
+      "file": "うたわれるもの ロストフラグ.md",
+      "chars": 7613,
+      "hits": [],
+      "status": "OK",
+      "short": false,
+      "need": false,
+      "check": "✓ 过关  うたわれるもの ロストフラグ  [产出\\批次821\\うたわれるもの ロストフラグ.md] |    剧情 7613 字 · 切入点 1888 字"
+    },
+    {
+      "batch": 821,
+      "file": "うたわれるもの 斬.md",
+      "chars": 7693,
+      "hits": [],
+      "status": "OK",
+      "short": false,
+      "need": false,
+      "check": "✓ 过关  うたわれるもの 斬  [产出\\批次821\\うたわれるもの 斬.md] |    剧情 7693 字 · 切入点 1888 字"
+    },
+    {
+      "batch": 822,
+      "file": "CLANNAD 光見守る坂道で.md",
+      "chars": 7776,
+      "hits": [],
+      "status": "OK",
+      "short": false,
+      "need": false,
+      "check": "✓ 过关  CLANNAD 光見守る坂道で  [产出\\批次822\\CLANNAD 光見守る坂道で.md] |    剧情 7776 字 · 切入点 1820 字"
+    },
+    {
+      "batch": 822,
+      "file": "D.C.4 Plus Harmony.md",
+      "chars": 7702,
+      "hits": [],
+      "status": "OK",
+      "short": false,
+      "need": false,
+      "check": "✓ 过关  D.C.4 Plus Harmony  [产出\\批次822\\D.C.4 Plus Harmony.md] |    剧情 7702 字 · 切入点 1907 字"
+    },
+    {
+      "batch": 822,
+      "file": "D.C.III P.P..md",
+      "chars": 7775,
+      "hits": [],
+      "status": "OK",
+      "short": false,
+      "need": false,
+      "check": "✓ 过关  D.C.III P.P.  [产出\\批次822\\D.C.III P.P..md] |    剧情 7775 字 · 切入点 1891 字"
+    },
+    {
+      "batch": 822,
+      "file": "DIABOLIK LOVERS LUNATIC PARADE.md",
+      "chars": 7647,
+      "hits": [],
+      "status": "OK",
+      "short": false,
+      "need": false,
+      "check": "✓ 过关  DIABOLIK LOVERS LUNATIC PARADE  [产出\\批次822\\DIABOLIK LOVERS LUNATIC PARADE.md] |    剧情 7647 字 · 切入点 1912 字"
+    },
+    {
+      "batch": 822,
+      "file": "Little Busters! SS.md",
+      "chars": 7673,
+      "hits": [],
+      "status": "OK",
+      "short": false,
+      "need": false,
+      "check": "✓ 过关  Little Busters! SS  [产出\\批次822\\Little Busters! SS.md] |    剧情 7673 字 · 切入点 2001 字"
+    },
+    {
+      "batch": 823,
+      "file": "DIABOLIK LOVERS CHAOS LINEAGE.md",
+      "chars": 7778,
+      "hits": [],
+      "status": "OK",
+      "short": false,
+      "need": false,
+      "check": "✓ 过关  DIABOLIK LOVERS CHAOS LINEAGE  [产出\\批次823\\DIABOLIK LOVERS CHAOS LINEAGE.md] |    剧情 7778 字 · 切入点 2051 字"
+    },
+    {
+      "batch": 823,
+      "file": "DIABOLIK LOVERS GRAND EDITION.md",
+      "chars": 7762,
+      "hits": [],
+      "status": "OK",
+      "short": false,
+      "need": false,
+      "check": "✓ 过关  DIABOLIK LOVERS GRAND EDITION  [产出\\批次823\\DIABOLIK LOVERS GRAND EDITION.md] |    剧情 7762 字 · 切入点 1840 字"
+    },
+    {
+      "batch": 823,
+      "file": "うたの☆プリンスさまっ♪ MUSIC 2.md",
+      "chars": 8043,
+      "hits": [],
+      "status": "OK",
+      "short": false,
+      "need": false,
+      "check": "✓ 过关  うたの☆プリンスさまっ♪ MUSIC 2  [产出\\批次823\\うたの☆プリンスさまっ♪ MUSIC 2.md] |    剧情 8043 字 · 切入点 1909 字"
+    },
+    {
+      "batch": 823,
+      "file": "うたの☆プリンスさまっ♪ MUSIC 3.md",
+      "chars": 7887,
+      "hits": [],
+      "status": "OK",
+      "short": false,
+      "need": false,
+      "check": "✓ 过关  うたの☆プリンスさまっ♪ MUSIC 3  [产出\\批次823\\うたの☆プリンスさまっ♪ MUSIC 3.md] |    剧情 7887 字 · 切入点 1857 字"
+    },
+    {
+      "batch": 823,
+      "file": "うたの☆プリンスさまっ♪ Repeat.md",
+      "chars": 7898,
+      "hits": [],
+      "status": "OK",
+      "short": false,
+      "need": false,
+      "check": "✓ 过关  うたの☆プリンスさまっ♪ Repeat  [产出\\批次823\\うたの☆プリンスさまっ♪ Repeat.md] |    剧情 7898 字 · 切入点 1914 字"
+    },
+    {
+      "batch": 824,
+      "file": "NEWラブプラス.md",
+      "chars": 7688,
+      "hits": [],
+      "status": "OK",
+      "short": false,
+      "need": false,
+      "check": "✓ 过关  NEWラブプラス  [产出\\批次824\\NEWラブプラス.md] |    剧情 7688 字 · 切入点 1931 字"
+    },
+    {
+      "batch": 824,
+      "file": "ときめきメモリアル Girl's Side.md",
+      "chars": 7633,
+      "hits": [],
+      "status": "OK",
+      "short": false,
+      "need": false,
+      "check": "✓ 过关  ときめきメモリアル Girl's Side  [产出\\批次824\\ときめきメモリアル Girl's Side.md] |    剧情 7633 字 · 切入点 1903 字"
+    },
+    {
+      "batch": 824,
+      "file": "ときめきメモリアル.md",
+      "chars": 7648,
+      "hits": [],
+      "status": "OK",
+      "short": false,
+      "need": false,
+      "check": "✓ 过关  ときめきメモリアル  [产出\\批次824\\ときめきメモリアル.md] |    剧情 7648 字 · 切入点 1866 字"
+    },
+    {
+      "batch": 824,
+      "file": "ときめきメモリアル2.md",
+      "chars": 7663,
+      "hits": [],
+      "status": "OK",
+      "short": false,
+      "need": false,
+      "check": "✓ 过关  ときめきメモリアル2  [产出\\批次824\\ときめきメモリアル2.md] |    剧情 7663 字 · 切入点 1964 字"
+    },
+    {
+      "batch": 824,
+      "file": "ラブプラス.md",
+      "chars": 7719,
+      "hits": [],
+      "status": "OK",
+      "short": false,
+      "need": false,
+      "check": "✓ 过关  ラブプラス  [产出\\批次824\\ラブプラス.md] |    剧情 7719 字 · 切入点 2097 字"
+    },
+    {
+      "batch": 825,
+      "file": "Psychedelica of the Ashen Hawk.md",
+      "chars": 7656,
+      "hits": [],
+      "status": "OK",
+      "short": false,
+      "need": false,
+      "check": "✓ 过关  Psychedelica of the Ashen Hawk  [产出\\批次825\\Psychedelica of the Ashen Hawk.md] |    剧情 7656 字 · 切入点 2491 字"
+    },
+    {
+      "batch": 825,
+      "file": "Psychedelica of the Black Butterfly.md",
+      "chars": 7971,
+      "hits": [],
+      "status": "OK",
+      "short": false,
+      "need": false,
+      "check": "✓ 过关  Psychedelica of the Black Butterfly  [产出\\批次825\\Psychedelica of the Black Butterfly.md] |    剧情 7971 字 · 切入点 2469 字"
+    },
+    {
+      "batch": 825,
+      "file": "ときめきメモリアル Girl's Side 2nd Kiss.md",
+      "chars": 7710,
+      "hits": [],
+      "status": "OK",
+      "short": false,
+      "need": false,
+      "check": "✓ 过关  ときめきメモリアル Girl's Side 2nd Kiss  [产出\\批次825\\ときめきメモリアル Girl's Side 2nd Kiss.md] |    剧情 7710 字 · 切入点 2391 字"
+    },
+    {
+      "batch": 825,
+      "file": "ときめきメモリアル Girl's Side 3rd Story.md",
+      "chars": 7725,
+      "hits": [],
+      "status": "OK",
+      "short": false,
+      "need": false,
+      "check": "✓ 过关  ときめきメモリアル Girl's Side 3rd Story  [产出\\批次825\\ときめきメモリアル Girl's Side 3rd Story.md] |    剧情 7725 字 · 切入点 2357 字"
+    },
+    {
+      "batch": 825,
+      "file": "ときめきメモリアル Girl's Side 4th Heart.md",
+      "chars": 7686,
+      "hits": [],
+      "status": "OK",
+      "short": false,
+      "need": false,
+      "check": "✓ 过关  ときめきメモリアル Girl's Side 4th Heart  [产出\\批次825\\ときめきメモリアル Girl's Side 4th Heart.md] |    剧情 7686 字 · 切入点 2254 字"
+    },
+    {
+      "batch": 826,
+      "file": "CLOCK ZERO ～終焉の一秒～ Devote.md",
+      "chars": 7760,
+      "hits": [],
+      "status": "OK",
+      "short": false,
+      "need": false,
+      "check": "✓ 过关  CLOCK ZERO ～終焉の一秒～ Devote  [产出\\批次826\\CLOCK ZERO ～終焉の一秒～ Devote.md] |    剧情 7760 字 · 切入点 2290 字"
+    },
+    {
+      "batch": 826,
+      "file": "CLOCK ZERO ～終焉の一秒～.md",
+      "chars": 7690,
+      "hits": [],
+      "status": "OK",
+      "short": false,
+      "need": false,
+      "check": "✓ 过关  CLOCK ZERO ～終焉の一秒～  [产出\\批次826\\CLOCK ZERO ～終焉の一秒～.md] |    剧情 7690 字 · 切入点 2419 字"
+    },
+    {
+      "batch": 826,
+      "file": "薄桜鬼SSL ～sweet school life～.md",
+      "chars": 7653,
+      "hits": [],
+      "status": "OK",
+      "short": false,
+      "need": false,
+      "check": "✓ 过关  薄桜鬼SSL ～sweet school life～  [产出\\批次826\\薄桜鬼SSL ～sweet school life～.md] |    剧情 7653 字 · 切入点 1853 字"
+    },
+    {
+      "batch": 826,
+      "file": "遙かなる時空の中で Ultimate.md",
+      "chars": 7737,
+      "hits": [],
+      "status": "OK",
+      "short": false,
+      "need": false,
+      "check": "✓ 过关  遙かなる時空の中で Ultimate  [产出\\批次826\\遙かなる時空の中で Ultimate.md] |    剧情 7737 字 · 切入点 2249 字"
+    },
+    {
+      "batch": 826,
+      "file": "金色のコルダ スターライトオーケストラ.md",
+      "chars": 7607,
+      "hits": [],
+      "status": "OK",
+      "short": false,
+      "need": false,
+      "check": "✓ 过关  金色のコルダ スターライトオーケストラ  [产出\\批次826\\金色のコルダ スターライトオーケストラ.md] |    剧情 7607 字 · 切入点 2516 字"
+    },
+    {
+      "batch": 827,
+      "file": "A3!.md",
+      "chars": 7636,
+      "hits": [],
+      "status": "OK",
+      "short": false,
+      "need": false,
+      "check": "✓ 过关  A3!  [产出\\批次827\\A3!.md] |    剧情 7636 字 · 切入点 2211 字"
+    },
+    {
+      "batch": 827,
+      "file": "アイ★チュウ.md",
+      "chars": 7712,
+      "hits": [],
+      "status": "OK",
+      "short": false,
+      "need": false,
+      "check": "✓ 过关  アイ★チュウ  [产出\\批次827\\アイ★チュウ.md] |    剧情 7712 字 · 切入点 2262 字"
+    },
+    {
+      "batch": 827,
+      "file": "ツキウタ。.md",
+      "chars": 7628,
+      "hits": [],
+      "status": "OK",
+      "short": false,
+      "need": false,
+      "check": "✓ 过关  ツキウタ。  [产出\\批次827\\ツキウタ。.md] |    剧情 7628 字 · 切入点 2256 字"
+    },
+    {
+      "batch": 827,
+      "file": "ドグラ・マグラ.md",
+      "chars": 7627,
+      "hits": [],
+      "status": "OK",
+      "short": false,
+      "need": false,
+      "check": "✓ 过关  ドグラ・マグラ  [产出\\批次827\\ドグラ・マグラ.md] |    剧情 7627 字 · 切入点 2338 字"
+    },
+    {
+      "batch": 827,
+      "file": "夢色キャスト.md",
+      "chars": 7662,
+      "hits": [],
+      "status": "OK",
+      "short": false,
+      "need": false,
+      "check": "✓ 过关  夢色キャスト  [产出\\批次827\\夢色キャスト.md] |    剧情 7662 字 · 切入点 2254 字"
+    },
+    {
+      "batch": 828,
+      "file": "ましろ色シンフォニー SANA EDITION.md",
+      "chars": 7758,
+      "hits": [],
+      "status": "OK",
+      "short": false,
+      "need": false,
+      "check": "✓ 过关  ましろ色シンフォニー SANA EDITION  [产出\\批次828\\ましろ色シンフォニー SANA EDITION.md] |    剧情 7758 字 · 切入点 1949 字"
+    },
+    {
+      "batch": 828,
+      "file": "ガールズシンフォニー ～少女交響詩～.md",
+      "chars": 7628,
+      "hits": [],
+      "status": "OK",
+      "short": false,
+      "need": false,
+      "check": "✓ 过关  ガールズシンフォニー ～少女交響詩～  [产出\\批次828\\ガールズシンフォニー ～少女交響詩～.md] |    剧情 7628 字 · 切入点 2037 字"
+    },
+    {
+      "batch": 828,
+      "file": "ドグラ・マグラ～深淵よりの呼び声～.md",
+      "chars": 7609,
+      "hits": [],
+      "status": "OK",
+      "short": false,
+      "need": false,
+      "check": "✓ 过关  ドグラ・マグラ～深淵よりの呼び声～  [产出\\批次828\\ドグラ・マグラ～深淵よりの呼び声～.md] |    剧情 7609 字 · 切入点 2501 字"
+    },
+    {
+      "batch": 828,
+      "file": "星空のメモリア -Wish upon a shooting star-.md",
+      "chars": 7630,
+      "hits": [],
+      "status": "OK",
+      "short": false,
+      "need": false,
+      "check": "✓ 过关  星空のメモリア -Wish upon a shooting star-  [产出\\批次828\\星空のメモリア -Wish upon a shooting star-.md] |    剧情 7630 字 · 切入点 2227 字"
+    },
+    {
+      "batch": 828,
+      "file": "星空のメモリア Perfect Edition.md",
+      "chars": 7648,
+      "hits": [],
+      "status": "OK",
+      "short": false,
+      "need": false,
+      "check": "✓ 过关  星空のメモリア Perfect Edition  [产出\\批次828\\星空のメモリア Perfect Edition.md] |    剧情 7648 字 · 切入点 1950 字"
+    },
+    {
+      "batch": 829,
+      "file": "Collar×Malice -Unlimited-.md",
+      "chars": 7652,
+      "hits": [],
+      "status": "OK",
+      "short": false,
+      "need": false,
+      "check": "✓ 过关  Collar×Malice -Unlimited-  [产出\\批次829\\Collar×Malice -Unlimited-.md] |    剧情 7652 字 · 切入点 1902 字"
+    },
+    {
+      "batch": 829,
+      "file": "OZMAFIA!! -vivace-.md",
+      "chars": 7833,
+      "hits": [],
+      "status": "OK",
+      "short": false,
+      "need": false,
+      "check": "✓ 过关  OZMAFIA!! -vivace-  [产出\\批次829\\OZMAFIA!! -vivace-.md] |    剧情 7833 字 · 切入点 1901 字"
+    },
+    {
+      "batch": 829,
+      "file": "ROBOTICS;NOTES ELITE.md",
+      "chars": 7818,
+      "hits": [],
+      "status": "OK",
+      "short": false,
+      "need": false,
+      "check": "✓ 过关  ROBOTICS;NOTES ELITE  [产出\\批次829\\ROBOTICS;NOTES ELITE.md] |    剧情 7818 字 · 切入点 2468 字"
+    },
+    {
+      "batch": 829,
+      "file": "STEINS;GATE Elite.md",
+      "chars": 7735,
+      "hits": [],
+      "status": "OK",
+      "short": false,
+      "need": false,
+      "check": "✓ 过关  STEINS;GATE Elite  [产出\\批次829\\STEINS;GATE Elite.md] |    剧情 7735 字 · 切入点 2460 字"
+    },
+    {
+      "batch": 829,
+      "file": "時計仕掛けのレイライン -無限の夜想曲-.md",
+      "chars": 7786,
+      "hits": [],
+      "status": "OK",
+      "short": false,
+      "need": false,
+      "check": "✓ 过关  時計仕掛けのレイライン -無限の夜想曲-  [产出\\批次829\\時計仕掛けのレイライン -無限の夜想曲-.md] |    剧情 7786 字 · 切入点 2268 字"
+    },
+    {
+      "batch": 830,
+      "file": "BROTHERS CONFLICT Brilliant Blue.md",
+      "chars": 7725,
+      "hits": [],
+      "status": "OK",
+      "short": false,
+      "need": false,
+      "check": "✓ 过关  BROTHERS CONFLICT Brilliant Blue  [产出\\批次830\\BROTHERS CONFLICT Brilliant Blue.md] |    剧情 7725 字 · 切入点 2347 字"
+    },
+    {
+      "batch": 830,
+      "file": "Code：Realize Future Blessings.md",
+      "chars": 7636,
+      "hits": [],
+      "status": "OK",
+      "short": false,
+      "need": false,
+      "check": "✓ 过关  Code:Realize Future Blessings  [产出\\批次830\\Code：Realize Future Blessings.md] |    剧情 7636 字 · 切入点 2430 字"
+    },
+    {
+      "batch": 830,
+      "file": "Norn9 Act Tune.md",
+      "chars": 7726,
+      "hits": [],
+      "status": "OK",
+      "short": false,
+      "need": false,
+      "check": "✓ 过关  Norn9 Act Tune  [产出\\批次830\\Norn9 Act Tune.md] |    剧情 7726 字 · 切入点 2240 字"
+    },
+    {
+      "batch": 830,
+      "file": "うたの☆プリンスさまっ♪ All Star After Secret.md",
+      "chars": 7849,
+      "hits": [],
+      "status": "OK",
+      "short": false,
+      "need": false,
+      "check": "✓ 过关  うたの☆プリンスさまっ♪ All Star After Secret  [产出\\批次830\\うたの☆プリンスさまっ♪ All Star After Secret.md] |    剧情 7849 字 · 切入点 2382 字"
+    },
+    {
+      "batch": 830,
+      "file": "薄桜鬼 真改 華ノ章.md",
+      "chars": 7716,
+      "hits": [],
+      "status": "OK",
+      "short": false,
+      "need": false,
+      "check": "✓ 过关  薄桜鬼 真改 華ノ章  [产出\\批次830\\薄桜鬼 真改 華ノ章.md] |    剧情 7716 字 · 切入点 2271 字"
+    },
+    {
+      "batch": 830,
+      "file": "薄桜鬼 真改 風華伝.md",
+      "chars": 7718,
+      "hits": [],
+      "status": "OK",
+      "short": false,
+      "need": false,
+      "check": "✓ 过关  薄桜鬼 真改 風華伝  [产出\\批次830\\薄桜鬼 真改 風華伝.md] |    剧情 7718 字 · 切入点 2238 字"
+    }
+  ],
+  "all": [
+    {
+      "batch": 821,
+      "file": "D.C.II P.C..md",
+      "chars": 7693,
+      "hits": [],
+      "status": "OK",
+      "short": false,
+      "need": false,
+      "check": "✓ 过关  D.C.II P.C.  [产出\\批次821\\D.C.II P.C..md] |    剧情 7693 字 · 切入点 1935 字"
+    },
+    {
+      "batch": 821,
+      "file": "D.C.II P.S..md",
+      "chars": 7675,
+      "hits": [],
+      "status": "OK",
+      "short": false,
+      "need": false,
+      "check": "✓ 过关  D.C.II P.S.  [产出\\批次821\\D.C.II P.S..md] |    剧情 7675 字 · 切入点 1902 字"
+    },
+    {
+      "batch": 821,
+      "file": "FORTUNE ARTERIAL 赤い約束.md",
+      "chars": 8075,
+      "hits": [],
+      "status": "OK",
+      "short": false,
+      "need": false,
+      "check": "✓ 过关  FORTUNE ARTERIAL 赤い約束  [产出\\批次821\\FORTUNE ARTERIAL 赤い約束.md] |    剧情 8075 字 · 切入点 1941 字"
+    },
+    {
+      "batch": 821,
+      "file": "うたわれるもの ロストフラグ.md",
+      "chars": 7613,
+      "hits": [],
+      "status": "OK",
+      "short": false,
+      "need": false,
+      "check": "✓ 过关  うたわれるもの ロストフラグ  [产出\\批次821\\うたわれるもの ロストフラグ.md] |    剧情 7613 字 · 切入点 1888 字"
+    },
+    {
+      "batch": 821,
+      "file": "うたわれるもの 斬.md",
+      "chars": 7693,
+      "hits": [],
+      "status": "OK",
+      "short": false,
+      "need": false,
+      "check": "✓ 过关  うたわれるもの 斬  [产出\\批次821\\うたわれるもの 斬.md] |    剧情 7693 字 · 切入点 1888 字"
+    },
+    {
+      "batch": 822,
+      "file": "CLANNAD 光見守る坂道で.md",
+      "chars": 7776,
+      "hits": [],
+      "status": "OK",
+      "short": false,
+      "need": false,
+      "check": "✓ 过关  CLANNAD 光見守る坂道で  [产出\\批次822\\CLANNAD 光見守る坂道で.md] |    剧情 7776 字 · 切入点 1820 字"
+    },
+    {
+      "batch": 822,
+      "file": "D.C.4 Plus Harmony.md",
+      "chars": 7702,
+      "hits": [],
+      "status": "OK",
+      "short": false,
+      "need": false,
+      "check": "✓ 过关  D.C.4 Plus Harmony  [产出\\批次822\\D.C.4 Plus Harmony.md] |    剧情 7702 字 · 切入点 1907 字"
+    },
+    {
+      "batch": 822,
+      "file": "D.C.III P.P..md",
+      "chars": 7775,
+      "hits": [],
+      "status": "OK",
+      "short": false,
+      "need": false,
+      "check": "✓ 过关  D.C.III P.P.  [产出\\批次822\\D.C.III P.P..md] |    剧情 7775 字 · 切入点 1891 字"
+    },
+    {
+      "batch": 822,
+      "file": "DIABOLIK LOVERS LUNATIC PARADE.md",
+      "chars": 7647,
+      "hits": [],
+      "status": "OK",
+      "short": false,
+      "need": false,
+      "check": "✓ 过关  DIABOLIK LOVERS LUNATIC PARADE  [产出\\批次822\\DIABOLIK LOVERS LUNATIC PARADE.md] |    剧情 7647 字 · 切入点 1912 字"
+    },
+    {
+      "batch": 822,
+      "file": "Little Busters! SS.md",
+      "chars": 7673,
+      "hits": [],
+      "status": "OK",
+      "short": false,
+      "need": false,
+      "check": "✓ 过关  Little Busters! SS  [产出\\批次822\\Little Busters! SS.md] |    剧情 7673 字 · 切入点 2001 字"
+    },
+    {
+      "batch": 823,
+      "file": "DIABOLIK LOVERS CHAOS LINEAGE.md",
+      "chars": 7778,
+      "hits": [],
+      "status": "OK",
+      "short": false,
+      "need": false,
+      "check": "✓ 过关  DIABOLIK LOVERS CHAOS LINEAGE  [产出\\批次823\\DIABOLIK LOVERS CHAOS LINEAGE.md] |    剧情 7778 字 · 切入点 2051 字"
+    },
+    {
+      "batch": 823,
+      "file": "DIABOLIK LOVERS GRAND EDITION.md",
+      "chars": 7762,
+      "hits": [],
+      "status": "OK",
+      "short": false,
+      "need": false,
+      "check": "✓ 过关  DIABOLIK LOVERS GRAND EDITION  [产出\\批次823\\DIABOLIK LOVERS GRAND EDITION.md] |    剧情 7762 字 · 切入点 1840 字"
+    },
+    {
+      "batch": 823,
+      "file": "うたの☆プリンスさまっ♪ MUSIC 2.md",
+      "chars": 8043,
+      "hits": [],
+      "status": "OK",
+      "short": false,
+      "need": false,
+      "check": "✓ 过关  うたの☆プリンスさまっ♪ MUSIC 2  [产出\\批次823\\うたの☆プリンスさまっ♪ MUSIC 2.md] |    剧情 8043 字 · 切入点 1909 字"
+    },
+    {
+      "batch": 823,
+      "file": "うたの☆プリンスさまっ♪ MUSIC 3.md",
+      "chars": 7887,
+      "hits": [],
+      "status": "OK",
+      "short": false,
+      "need": false,
+      "check": "✓ 过关  うたの☆プリンスさまっ♪ MUSIC 3  [产出\\批次823\\うたの☆プリンスさまっ♪ MUSIC 3.md] |    剧情 7887 字 · 切入点 1857 字"
+    },
+    {
+      "batch": 823,
+      "file": "うたの☆プリンスさまっ♪ Repeat.md",
+      "chars": 7898,
+      "hits": [],
+      "status": "OK",
+      "short": false,
+      "need": false,
+      "check": "✓ 过关  うたの☆プリンスさまっ♪ Repeat  [产出\\批次823\\うたの☆プリンスさまっ♪ Repeat.md] |    剧情 7898 字 · 切入点 1914 字"
+    },
+    {
+      "batch": 824,
+      "file": "NEWラブプラス.md",
+      "chars": 7688,
+      "hits": [],
+      "status": "OK",
+      "short": false,
+      "need": false,
+      "check": "✓ 过关  NEWラブプラス  [产出\\批次824\\NEWラブプラス.md] |    剧情 7688 字 · 切入点 1931 字"
+    },
+    {
+      "batch": 824,
+      "file": "ときめきメモリアル Girl's Side.md",
+      "chars": 7633,
+      "hits": [],
+      "status": "OK",
+      "short": false,
+      "need": false,
+      "check": "✓ 过关  ときめきメモリアル Girl's Side  [产出\\批次824\\ときめきメモリアル Girl's Side.md] |    剧情 7633 字 · 切入点 1903 字"
+    },
+    {
+      "batch": 824,
+      "file": "ときめきメモリアル.md",
+      "chars": 7648,
+      "hits": [],
+      "status": "OK",
+      "short": false,
+      "need": false,
+      "check": "✓ 过关  ときめきメモリアル  [产出\\批次824\\ときめきメモリアル.md] |    剧情 7648 字 · 切入点 1866 字"
+    },
+    {
+      "batch": 824,
+      "file": "ときめきメモリアル2.md",
+      "chars": 7663,
+      "hits": [],
+      "status": "OK",
+      "short": false,
+      "need": false,
+      "check": "✓ 过关  ときめきメモリアル2  [产出\\批次824\\ときめきメモリアル2.md] |    剧情 7663 字 · 切入点 1964 字"
+    },
+    {
+      "batch": 824,
+      "file": "ラブプラス.md",
+      "chars": 7719,
+      "hits": [],
+      "status": "OK",
+      "short": false,
+      "need": false,
+      "check": "✓ 过关  ラブプラス  [产出\\批次824\\ラブプラス.md] |    剧情 7719 字 · 切入点 2097 字"
+    },
+    {
+      "batch": 825,
+      "file": "Psychedelica of the Ashen Hawk.md",
+      "chars": 7656,
+      "hits": [],
+      "status": "OK",
+      "short": false,
+      "need": false,
+      "check": "✓ 过关  Psychedelica of the Ashen Hawk  [产出\\批次825\\Psychedelica of the Ashen Hawk.md] |    剧情 7656 字 · 切入点 2491 字"
+    },
+    {
+      "batch": 825,
+      "file": "Psychedelica of the Black Butterfly.md",
+      "chars": 7971,
+      "hits": [],
+      "status": "OK",
+      "short": false,
+      "need": false,
+      "check": "✓ 过关  Psychedelica of the Black Butterfly  [产出\\批次825\\Psychedelica of the Black Butterfly.md] |    剧情 7971 字 · 切入点 2469 字"
+    },
+    {
+      "batch": 825,
+      "file": "ときめきメモリアル Girl's Side 2nd Kiss.md",
+      "chars": 7710,
+      "hits": [],
+      "status": "OK",
+      "short": false,
+      "need": false,
+      "check": "✓ 过关  ときめきメモリアル Girl's Side 2nd Kiss  [产出\\批次825\\ときめきメモリアル Girl's Side 2nd Kiss.md] |    剧情 7710 字 · 切入点 2391 字"
+    },
+    {
+      "batch": 825,
+      "file": "ときめきメモリアル Girl's Side 3rd Story.md",
+      "chars": 7725,
+      "hits": [],
+      "status": "OK",
+      "short": false,
+      "need": false,
+      "check": "✓ 过关  ときめきメモリアル Girl's Side 3rd Story  [产出\\批次825\\ときめきメモリアル Girl's Side 3rd Story.md] |    剧情 7725 字 · 切入点 2357 字"
+    },
+    {
+      "batch": 825,
+      "file": "ときめきメモリアル Girl's Side 4th Heart.md",
+      "chars": 7686,
+      "hits": [],
+      "status": "OK",
+      "short": false,
+      "need": false,
+      "check": "✓ 过关  ときめきメモリアル Girl's Side 4th Heart  [产出\\批次825\\ときめきメモリアル Girl's Side 4th Heart.md] |    剧情 7686 字 · 切入点 2254 字"
+    },
+    {
+      "batch": 826,
+      "file": "CLOCK ZERO ～終焉の一秒～ Devote.md",
+      "chars": 7760,
+      "hits": [],
+      "status": "OK",
+      "short": false,
+      "need": false,
+      "check": "✓ 过关  CLOCK ZERO ～終焉の一秒～ Devote  [产出\\批次826\\CLOCK ZERO ～終焉の一秒～ Devote.md] |    剧情 7760 字 · 切入点 2290 字"
+    },
+    {
+      "batch": 826,
+      "file": "CLOCK ZERO ～終焉の一秒～.md",
+      "chars": 7690,
+      "hits": [],
+      "status": "OK",
+      "short": false,
+      "need": false,
+      "check": "✓ 过关  CLOCK ZERO ～終焉の一秒～  [产出\\批次826\\CLOCK ZERO ～終焉の一秒～.md] |    剧情 7690 字 · 切入点 2419 字"
+    },
+    {
+      "batch": 826,
+      "file": "薄桜鬼SSL ～sweet school life～.md",
+      "chars": 7653,
+      "hits": [],
+      "status": "OK",
+      "short": false,
+      "need": false,
+      "check": "✓ 过关  薄桜鬼SSL ～sweet school life～  [产出\\批次826\\薄桜鬼SSL ～sweet school life～.md] |    剧情 7653 字 · 切入点 1853 字"
+    },
+    {
+      "batch": 826,
+      "file": "遙かなる時空の中で Ultimate.md",
+      "chars": 7737,
+      "hits": [],
+      "status": "OK",
+      "short": false,
+      "need": false,
+      "check": "✓ 过关  遙かなる時空の中で Ultimate  [产出\\批次826\\遙かなる時空の中で Ultimate.md] |    剧情 7737 字 · 切入点 2249 字"
+    },
+    {
+      "batch": 826,
+      "file": "金色のコルダ スターライトオーケストラ.md",
+      "chars": 7607,
+      "hits": [],
+      "status": "OK",
+      "short": false,
+      "need": false,
+      "check": "✓ 过关  金色のコルダ スターライトオーケストラ  [产出\\批次826\\金色のコルダ スターライトオーケストラ.md] |    剧情 7607 字 · 切入点 2516 字"
+    },
+    {
+      "batch": 827,
+      "file": "A3!.md",
+      "chars": 7636,
+      "hits": [],
+      "status": "OK",
+      "short": false,
+      "need": false,
+      "check": "✓ 过关  A3!  [产出\\批次827\\A3!.md] |    剧情 7636 字 · 切入点 2211 字"
+    },
+    {
+      "batch": 827,
+      "file": "アイ★チュウ.md",
+      "chars": 7712,
+      "hits": [],
+      "status": "OK",
+      "short": false,
+      "need": false,
+      "check": "✓ 过关  アイ★チュウ  [产出\\批次827\\アイ★チュウ.md] |    剧情 7712 字 · 切入点 2262 字"
+    },
+    {
+      "batch": 827,
+      "file": "ツキウタ。.md",
+      "chars": 7628,
+      "hits": [],
+      "status": "OK",
+      "short": false,
+      "need": false,
+      "check": "✓ 过关  ツキウタ。  [产出\\批次827\\ツキウタ。.md] |    剧情 7628 字 · 切入点 2256 字"
+    },
+    {
+      "batch": 827,
+      "file": "ドグラ・マグラ.md",
+      "chars": 7627,
+      "hits": [],
+      "status": "OK",
+      "short": false,
+      "need": false,
+      "check": "✓ 过关  ドグラ・マグラ  [产出\\批次827\\ドグラ・マグラ.md] |    剧情 7627 字 · 切入点 2338 字"
+    },
+    {
+      "batch": 827,
+      "file": "夢色キャスト.md",
+      "chars": 7662,
+      "hits": [],
+      "status": "OK",
+      "short": false,
+      "need": false,
+      "check": "✓ 过关  夢色キャスト  [产出\\批次827\\夢色キャスト.md] |    剧情 7662 字 · 切入点 2254 字"
+    },
+    {
+      "batch": 828,
+      "file": "ましろ色シンフォニー SANA EDITION.md",
+      "chars": 7758,
+      "hits": [],
+      "status": "OK",
+      "short": false,
+      "need": false,
+      "check": "✓ 过关  ましろ色シンフォニー SANA EDITION  [产出\\批次828\\ましろ色シンフォニー SANA EDITION.md] |    剧情 7758 字 · 切入点 1949 字"
+    },
+    {
+      "batch": 828,
+      "file": "ガールズシンフォニー ～少女交響詩～.md",
+      "chars": 7628,
+      "hits": [],
+      "status": "OK",
+      "short": false,
+      "need": false,
+      "check": "✓ 过关  ガールズシンフォニー ～少女交響詩～  [产出\\批次828\\ガールズシンフォニー ～少女交響詩～.md] |    剧情 7628 字 · 切入点 2037 字"
+    },
+    {
+      "batch": 828,
+      "file": "ドグラ・マグラ～深淵よりの呼び声～.md",
+      "chars": 7609,
+      "hits": [],
+      "status": "OK",
+      "short": false,
+      "need": false,
+      "check": "✓ 过关  ドグラ・マグラ～深淵よりの呼び声～  [产出\\批次828\\ドグラ・マグラ～深淵よりの呼び声～.md] |    剧情 7609 字 · 切入点 2501 字"
+    },
+    {
+      "batch": 828,
+      "file": "星空のメモリア -Wish upon a shooting star-.md",
+      "chars": 7630,
+      "hits": [],
+      "status": "OK",
+      "short": false,
+      "need": false,
+      "check": "✓ 过关  星空のメモリア -Wish upon a shooting star-  [产出\\批次828\\星空のメモリア -Wish upon a shooting star-.md] |    剧情 7630 字 · 切入点 2227 字"
+    },
+    {
+      "batch": 828,
+      "file": "星空のメモリア Perfect Edition.md",
+      "chars": 7648,
+      "hits": [],
+      "status": "OK",
+      "short": false,
+      "need": false,
+      "check": "✓ 过关  星空のメモリア Perfect Edition  [产出\\批次828\\星空のメモリア Perfect Edition.md] |    剧情 7648 字 · 切入点 1950 字"
+    },
+    {
+      "batch": 829,
+      "file": "Collar×Malice -Unlimited-.md",
+      "chars": 7652,
+      "hits": [],
+      "status": "OK",
+      "short": false,
+      "need": false,
+      "check": "✓ 过关  Collar×Malice -Unlimited-  [产出\\批次829\\Collar×Malice -Unlimited-.md] |    剧情 7652 字 · 切入点 1902 字"
+    },
+    {
+      "batch": 829,
+      "file": "OZMAFIA!! -vivace-.md",
+      "chars": 7833,
+      "hits": [],
+      "status": "OK",
+      "short": false,
+      "need": false,
+      "check": "✓ 过关  OZMAFIA!! -vivace-  [产出\\批次829\\OZMAFIA!! -vivace-.md] |    剧情 7833 字 · 切入点 1901 字"
+    },
+    {
+      "batch": 829,
+      "file": "ROBOTICS;NOTES ELITE.md",
+      "chars": 7818,
+      "hits": [],
+      "status": "OK",
+      "short": false,
+      "need": false,
+      "check": "✓ 过关  ROBOTICS;NOTES ELITE  [产出\\批次829\\ROBOTICS;NOTES ELITE.md] |    剧情 7818 字 · 切入点 2468 字"
+    },
+    {
+      "batch": 829,
+      "file": "STEINS;GATE Elite.md",
+      "chars": 7735,
+      "hits": [],
+      "status": "OK",
+      "short": false,
+      "need": false,
+      "check": "✓ 过关  STEINS;GATE Elite  [产出\\批次829\\STEINS;GATE Elite.md] |    剧情 7735 字 · 切入点 2460 字"
+    },
+    {
+      "batch": 829,
+      "file": "時計仕掛けのレイライン -無限の夜想曲-.md",
+      "chars": 7786,
+      "hits": [],
+      "status": "OK",
+      "short": false,
+      "need": false,
+      "check": "✓ 过关  時計仕掛けのレイライン -無限の夜想曲-  [产出\\批次829\\時計仕掛けのレイライン -無限の夜想曲-.md] |    剧情 7786 字 · 切入点 2268 字"
+    },
+    {
+      "batch": 830,
+      "file": "BROTHERS CONFLICT Brilliant Blue.md",
+      "chars": 7725,
+      "hits": [],
+      "status": "OK",
+      "short": false,
+      "need": false,
+      "check": "✓ 过关  BROTHERS CONFLICT Brilliant Blue  [产出\\批次830\\BROTHERS CONFLICT Brilliant Blue.md] |    剧情 7725 字 · 切入点 2347 字"
+    },
+    {
+      "batch": 830,
+      "file": "Code：Realize Future Blessings.md",
+      "chars": 7636,
+      "hits": [],
+      "status": "OK",
+      "short": false,
+      "need": false,
+      "check": "✓ 过关  Code:Realize Future Blessings  [产出\\批次830\\Code：Realize Future Blessings.md] |    剧情 7636 字 · 切入点 2430 字"
+    },
+    {
+      "batch": 830,
+      "file": "Norn9 Act Tune.md",
+      "chars": 7726,
+      "hits": [],
+      "status": "OK",
+      "short": false,
+      "need": false,
+      "check": "✓ 过关  Norn9 Act Tune  [产出\\批次830\\Norn9 Act Tune.md] |    剧情 7726 字 · 切入点 2240 字"
+    },
+    {
+      "batch": 830,
+      "file": "うたの☆プリンスさまっ♪ All Star After Secret.md",
+      "chars": 7849,
+      "hits": [],
+      "status": "OK",
+      "short": false,
+      "need": false,
+      "check": "✓ 过关  うたの☆プリンスさまっ♪ All Star After Secret  [产出\\批次830\\うたの☆プリンスさまっ♪ All Star After Secret.md] |    剧情 7849 字 · 切入点 2382 字"
+    },
+    {
+      "batch": 830,
+      "file": "薄桜鬼 真改 華ノ章.md",
+      "chars": 7716,
+      "hits": [],
+      "status": "OK",
+      "short": false,
+      "need": false,
+      "check": "✓ 过关  薄桜鬼 真改 華ノ章  [产出\\批次830\\薄桜鬼 真改 華ノ章.md] |    剧情 7716 字 · 切入点 2271 字"
+    },
+    {
+      "batch": 830,
+      "file": "薄桜鬼 真改 風華伝.md",
+      "chars": 7718,
+      "hits": [],
+      "status": "OK",
+      "short": false,
+      "need": false,
+      "check": "✓ 过关  薄桜鬼 真改 風華伝  [产出\\批次830\\薄桜鬼 真改 風華伝.md] |    剧情 7718 字 · 切入点 2238 字"
+    }
+  ]
+}

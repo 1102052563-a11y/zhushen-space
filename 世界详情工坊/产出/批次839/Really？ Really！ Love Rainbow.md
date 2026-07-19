@@ -268,6 +268,7 @@
 - [中文维基：SHUFFLE! Love Rainbow](https://zh.wikipedia.org/zh-hans/SHUFFLE!_Love_Rainbow)  
 - [VNDB: SHUFFLE! Love Rainbow (v6427)](https://vndb.org/v6427)  
 - [Shuffle Wiki / Navel 系列条目索引](https://shuffle.fandom.com/wiki/Navel)  
-- 关联前置作公开页：[Wikipedia / 系列中 Really? Really! 与 SHUFFLE! 关系见 Love Rainbow 页内描述](https://en.wikipedia.org/wiki/Shuffle!_Love_Rainbow)  
+- 关联前置作公开页：[Wikipedia / 系列中 Really? Really! 与 SHUFFLE! 关系见 Love Rainbow 页内描述](https://en.wikipedia.org/wiki/Shuffle!_Love_Rainbow)
 
-**关系结论（写入验收）**：检索未找到官方作品全名「Really? Really! Love Rainbow」；本条目按最接近的 **《SHUFFLE! Love Rainbow》** 撰写，并标明其中 **芙蓉枫后日谈承接《Really? Really!》**，清单题名视为系列名叠合笔误而非另一整作。
+**关系结论（写入验收）**：检索未找到官方作品全名「Really? Really! Love Rainbow」；本条目按最接近的 **《SHUFFLE! Love Rainbow》** 撰写，并标明其中 **芙蓉枫后日谈承接《Really? Really!》**，清单题名视为系列名叠合笔误而非另一整作。\n
+
