@@ -3,7 +3,7 @@ import { useNpc, hasRealNpcName, type NpcRecord } from '../store/npcStore';
 import { isPetLike } from '../systems/petEvolution';   // 宠物/召唤物分流：默认档案排除宠物，petMode 只看宠物
 import { isDmableTag } from '../store/dmStore';
 import { normalizeTier, tierFxClass } from '../systems/derivedStats';
-import { listSnapshots, REASON_LABEL, type NpcSnapshot } from '../systems/npcLibrary';   // NPC 图书馆：只进不出的档案库
+import { listSnapshots, removeSnapshot, clearLibrary, REASON_LABEL, type NpcSnapshot } from '../systems/npcLibrary';   // NPC 图书馆：只进不出的档案库（删除仅供玩家显式清理）
 import { restoreSnapshot, aiSyncSnapshot } from '../systems/npcRestore';                 // 找回：A 确定性还原 / B AI 提取同步
 import NpcDetail from './NpcDetail';
 
@@ -114,9 +114,19 @@ function LibrarySection({ onRestored }: { onRestored: (id: string) => void }) {
   const [snaps, setSnaps] = useState<NpcSnapshot[] | null>(null);
   const [busy, setBusy] = useState<string>('');
   const [msg, setMsg] = useState<string>('');
+  const [confirmClear, setConfirmClear] = useState(false);
 
   const reload = () => { void listSnapshots().then(setSnaps).catch(() => setSnaps([])); };
   useEffect(reload, []);
+
+  // 删除都是玩家显式清理（removeSnapshot / clearLibrary 本就只供玩家）：落 IndexedDB 后刷新列表。
+  const delOne = async (key: string) => { setBusy('del:' + key); await removeSnapshot(key); setBusy(''); setMsg(''); reload(); };
+  const delByName = async (name: string, keys: string[]) => {
+    setBusy('name:' + name);
+    for (const k of keys) await removeSnapshot(k);
+    setBusy(''); setMsg(`已删除「${name}」的 ${keys.length} 份快照`); reload();
+  };
+  const doClear = async () => { setBusy('__clear__'); await clearLibrary(); setBusy(''); setConfirmClear(false); setMsg('图书馆已清空'); reload(); };
 
   if (snaps === null) {
     return <div className="flex items-center justify-center h-40 text-dim/40 text-sm font-mono"><span className="animate-spin mr-2">◌</span> 读取图书馆…</div>;
@@ -133,10 +143,34 @@ function LibrarySection({ onRestored }: { onRestored: (id: string) => void }) {
     );
   }
 
+  // 同名份数（供「删同名」批量清理：一次清掉反复入库的重复角色/战斗敌人）
+  const nameCounts = new Map<string, number>();
+  for (const s of snaps) nameCounts.set(s.name, (nameCounts.get(s.name) ?? 0) + 1);
+
   return (
     <div className="space-y-2">
+      {/* 头部：总数 + 一键清空（不可恢复·二次确认） */}
+      <div className="flex items-center gap-2 px-1 flex-wrap">
+        <span className="text-[12px] font-mono text-dim/50 flex-1 min-w-[8rem]">
+          共 {snaps.length} 份快照{nameCounts.size < snaps.length ? `（${nameCounts.size} 个不同角色）` : ''}
+        </span>
+        {!confirmClear ? (
+          <button onClick={() => { setConfirmClear(true); setMsg(''); }} disabled={!!busy}
+            className="px-2 py-1 rounded text-[12px] font-mono border border-blood/40 text-blood/80 hover:bg-blood/10 disabled:opacity-40 transition-colors">🗑 清空全部</button>
+        ) : (
+          <>
+            <span className="text-[12px] font-mono text-blood/80">清空后不可恢复，确定？</span>
+            <button onClick={() => void doClear()} disabled={!!busy}
+              className="px-2 py-1 rounded text-[12px] font-mono border border-blood text-blood bg-blood/10 hover:bg-blood/20 disabled:opacity-40 transition-colors">{busy === '__clear__' ? '◌ 清空中' : '确认清空'}</button>
+            <button onClick={() => setConfirmClear(false)} disabled={!!busy}
+              className="px-2 py-1 rounded text-[12px] font-mono border border-edge text-dim hover:text-slate-200 transition-colors">取消</button>
+          </>
+        )}
+      </div>
       {msg && <div className="rounded-lg border border-god/30 bg-god/5 px-3 py-2 text-[12px] font-mono text-god/80">{msg}</div>}
-      {snaps.map((s) => (
+      {snaps.map((s) => {
+        const dup = nameCounts.get(s.name) ?? 1;
+        return (
         <div key={s.key} className="rounded-lg border border-edge bg-panel/60 px-3 py-2">
           <div className="flex items-center gap-2">
             <span className="text-sm font-semibold text-slate-100 flex-1 truncate">{s.name}</span>
@@ -149,7 +183,7 @@ function LibrarySection({ onRestored }: { onRestored: (id: string) => void }) {
             {s.record?.deedLog?.length ? ` · 经历 ${s.record.deedLog.length}` : ''}
             {typeof s.record?.favor === 'number' ? ` · 好感 ${s.record.favor}` : ''}
           </div>
-          <div className="flex gap-1.5 mt-2">
+          <div className="flex gap-1.5 mt-2 flex-wrap">
             <button
               disabled={!!busy}
               onClick={() => {
@@ -176,9 +210,25 @@ function LibrarySection({ onRestored }: { onRestored: (id: string) => void }) {
               title="AI 提取同步：把这份旧快照里的历史/关系/感情线，融进当前那份同 ID 的档案（适合「当前是 AI 新建空壳」的情况）"
               className="px-2 py-1 rounded text-[12px] font-mono border border-edge text-dim hover:text-slate-200 disabled:opacity-40 transition-colors"
             >{busy === s.key ? '◌ 处理中' : '✨ AI 同步'}</button>
+            <div className="flex-1" />
+            {dup > 1 && (
+              <button
+                disabled={!!busy}
+                onClick={() => void delByName(s.name, (snaps ?? []).filter((x) => x.name === s.name).map((x) => x.key))}
+                title={`删除全部「${s.name}」的 ${dup} 份快照（清理反复入库的重复角色 / 战斗敌人）`}
+                className="px-2 py-1 rounded text-[12px] font-mono border border-blood/30 text-blood/70 hover:bg-blood/10 disabled:opacity-40 transition-colors"
+              >{busy === 'name:' + s.name ? '◌ 删除中' : `🗑 删同名 ×${dup}`}</button>
+            )}
+            <button
+              disabled={!!busy}
+              onClick={() => void delOne(s.key)}
+              title="从图书馆删除这一份快照（只删这条·不影响当前存档里的同名角色）"
+              className="px-2 py-1 rounded text-[12px] font-mono border border-blood/30 text-blood/70 hover:bg-blood/10 disabled:opacity-40 transition-colors"
+            >{busy === 'del:' + s.key ? '◌' : '🗑 删除'}</button>
           </div>
         </div>
-      ))}
+        );
+      })}
     </div>
   );
 }

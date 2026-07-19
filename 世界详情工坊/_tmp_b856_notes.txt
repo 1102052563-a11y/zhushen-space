@@ -1,0 +1,89 @@
+﻿===== 冬日重现.md b=856 =====
+blurb: 
+src: 
+loc: 
+pow: 
+people: 
+tiers: 
+inManifest: False
+
+===== 谁说我不是正经冒险者.md b=856 =====
+blurb: 
+src: 
+loc: 
+pow: 
+people: 
+tiers: 
+inManifest: False
+
+===== 从魔法少女开始独断万古.md b=856 =====
+blurb: 
+src: 
+loc: 
+pow: 
+people: 
+tiers: 
+inManifest: False
+
+===== 诳言法师的十三试炼.md b=856 =====
+blurb: 
+src: 
+loc: 
+pow: 
+people: 
+tiers: 
+inManifest: False
+
+===== 天命之上.md b=856 =====
+blurb: 
+src: 
+loc: 
+pow: 
+people: 
+tiers: 
+inManifest: False
+
+===== 超人灭绝指南.md b=857 =====
+blurb: 
+src: 
+loc: 
+pow: 
+people: 
+tiers: 
+inManifest: False
+
+===== 同时穿越：继承万界遗产.md b=857 =====
+blurb: 
+src: 
+loc: 
+pow: 
+people: 
+tiers: 
+inManifest: False
+
+===== 贫民窟的游戏王.md b=857 =====
+blurb: 
+src: 
+loc: 
+pow: 
+people: 
+tiers: 
+inManifest: False
+
+===== 谁让他当假面骑士的！.md b=857 =====
+blurb: 
+src: 
+loc: 
+pow: 
+people: 
+tiers: 
+inManifest: False
+
+===== 宇智波赤石之旅.md b=857 =====
+blurb: 
+src: 
+loc: 
+pow: 
+people: 
+tiers: 
+inManifest: False

@@ -33,7 +33,8 @@ export interface NpcCharData {
 }
 
 export interface NpcSnapshot {
-  key: string;            // `${npcId}:${archivedAt}`——同一 id 可多次入库，互不覆盖（只进不出）
+  key: string;            // `${npcId}:${内容指纹}`——**同一角色·同一版本**重复入库会命中同 key → 覆盖而非堆叠（根治重复刷屏）；
+                          //   内容变了（好感涨/经历多/人设改）指纹就变 → 各留一份（仍满足"有意义的多版本留底"）
   npcId: string;
   name: string;
   reason: ArchiveReason;
@@ -74,6 +75,23 @@ export async function putSnapshot(snap: NpcSnapshot): Promise<void> {
   });
 }
 
+/** 内容指纹：只取"能区分不同版本"的稳定字段（排除 updatedAt/lastSeenTurn/onScene 等易变噪音与体积巨大的 avatar）。
+    同一角色·同一版本反复入库（如"找回→又被自动清理"的循环、反复被删的同一敌人）→ 指纹相同 → 同 key 覆盖，不再堆叠。
+    好感/经历/人设真的变了 → 指纹变 → 各留一份。32位 FNV-1a 足够避免正常规模下的碰撞。 */
+function contentFingerprint(rec: NpcRecord): string {
+  const deeds = (rec.deedLog ?? []).map((d) => `${d?.time || ''}|${d?.location || ''}|${d?.description || ''}`).join('¶');
+  const items = (rec.items ?? []).map((it) => `${it?.name || ''}#${it?.gradeDesc || ''}×${it?.quantity ?? 1}`).join(',');
+  const parts = [
+    rec.name, rec.realm, rec.gender, rec.npcTag, rec.profession, rec.title,
+    rec.favor, rec.trust, rec.respect, rec.corruption, rec.lust,
+    rec.personality, rec.background, rec.appearanceDetail, rec.relations,
+    rec.selfNarration, rec.principles, deeds, items,
+  ].map((v) => (v == null ? '' : String(v))).join('');
+  let h = 0x811c9dc5 >>> 0;
+  for (let i = 0; i < parts.length; i++) { h ^= parts.charCodeAt(i); h = Math.imul(h, 0x01000193); }
+  return (h >>> 0).toString(16).padStart(8, '0');
+}
+
 /** 入库：拍一份快照进图书馆。**绝不抛错、绝不阻断**——归档失败不许拖累删除/合并主流程。
     ⚠ 调用方负责"只送有名有姓的真实 NPC"（幽灵空壳是 AI 手滑建的噪音，进库只会淹没真人）。*/
 export function archiveNpc(record: NpcRecord, char?: NpcCharData, reason: ArchiveReason = 'manual', turn?: number): void {
@@ -81,7 +99,8 @@ export function archiveNpc(record: NpcRecord, char?: NpcCharData, reason: Archiv
     if (!record?.id || !idbAvailable()) return;
     const archivedAt = Date.now();
     const snap: NpcSnapshot = {
-      key: `${record.id}:${archivedAt}`,
+      // 内容指纹当 key：同一角色·同一版本重复入库 → 覆盖不堆叠（治"越删越多"）。archivedAt 仍随覆盖刷新为最近一次。
+      key: `${record.id}:${contentFingerprint(record)}`,
       npcId: record.id,
       name: record.name || record.id,
       reason,
