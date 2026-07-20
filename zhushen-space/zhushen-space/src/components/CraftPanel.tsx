@@ -19,6 +19,10 @@ const TIER_COLOR: Record<string, string> = {
   fail: 'text-rose-300 border-rose-400/50',
 };
 
+// 一键投料单次上限：把当前筛选出的材料一次投进料台。超出的先投这么多，投过的会移出左侧列表 → 再点一次即可续投，
+// 既省"一个个点"、又不至于把整个背包糊进一次合成（AI 提示词过大 / 合成语义荒谬）。
+const BULK_CAP = 30;
+
 export default function CraftPanel({ onClose, onGenerate, onConfirm }: Props) {
   const config = useCraft((s) => s.config);
   const session = useCraft((s) => s.session);
@@ -46,6 +50,18 @@ export default function CraftPanel({ onClose, onGenerate, onConfirm }: Props) {
   );
 
   const flash = (m: string) => { setToast(m); setTimeout(() => setToast(''), 2600); };
+
+  // 一键投料：把当前筛选出的材料一次全放进料台（超过 BULK_CAP 的先投这么多，投过的移出列表→再点续投）
+  function addAllPickable() {
+    if (busy || pickable.length === 0) return;
+    const batch = pickable.slice(0, BULK_CAP);
+    useCraft.getState().addInputs(
+      batch.map((it) => ({ itemId: it.id, name: it.name, maxQty: it.quantity, gradeDesc: it.gradeDesc, category: it.category, subType: it.subType })),
+    );
+    flash(pickable.length > BULK_CAP
+      ? `已投入 ${batch.length} 件（材料较多，可再点一次续投，或先搜索/分类筛选）`
+      : `已投入 ${batch.length} 件材料`);
+  }
 
   async function doGenerate(regen = false) {
     if (busy) return;
@@ -138,7 +154,16 @@ export default function CraftPanel({ onClose, onGenerate, onConfirm }: Props) {
                     <input type="checkbox" checked={showAll} onChange={(e) => setShowAll(e.target.checked)} />显示全部
                   </label>
                 </div>
-                <div className="text-[11px] text-dim/50 px-3 pb-1 shrink-0">建议投入：{mode.inputHint}</div>
+                <div className="px-3 pb-1 shrink-0 flex items-center gap-2">
+                  <span className="text-[11px] text-dim/50 flex-1 truncate min-w-0">建议投入：{mode.inputHint}</span>
+                  {pickable.length > 0 && (
+                    <button onClick={addAllPickable} disabled={busy}
+                      title={`把当前列出的材料一键全投进料台${pickable.length > BULK_CAP ? `（材料较多，本次先投 ${BULK_CAP} 件，可再点续投）` : ''}`}
+                      className="shrink-0 text-[11px] px-2 py-0.5 rounded border border-god/40 text-god/85 hover:bg-god/10 whitespace-nowrap disabled:opacity-40 transition-colors">
+                      ＋ 一键投料 ×{Math.min(pickable.length, BULK_CAP)}
+                    </button>
+                  )}
+                </div>
                 <div className="flex-1 overflow-y-auto px-2 pb-2 space-y-1">
                   {pickable.length === 0 && <div className="text-center text-dim/40 text-[12px] py-8">背包里没有可投入的材料{!showAll && '（试试「显示全部」）'}</div>}
                   {pickable.map((it) => (

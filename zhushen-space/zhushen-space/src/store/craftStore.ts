@@ -150,6 +150,7 @@ interface CraftState {
   /* ── 会话（选料 / 倾向 / 掷品质 / 预览）── */
   setMode: (id: string) => void;
   addInput: (input: Omit<CraftSessionInput, 'qty'> & { qty?: number }) => void;
+  addInputs: (inputs: (Omit<CraftSessionInput, 'qty'> & { qty?: number })[]) => void;   // 一键批量投料：去重 + clamp，一次 set（省得一个个点材料）
   setInputQty: (itemId: string, qty: number) => void;
   removeInput: (itemId: string) => void;
   clearInputs: () => void;
@@ -210,6 +211,16 @@ export const useCraft = create<CraftState>()(
           if (s.session.inputs.some((x) => x.itemId === input.itemId)) return s;   // 已在料格
           const qty = Math.max(1, Math.min(input.qty ?? 1, input.maxQty));
           return { session: { ...s.session, inputs: [...s.session.inputs, { ...input, qty }], quality: null, pending: null, phase: 'idle' } };
+        }),
+
+      addInputs: (inputs) =>
+        set((s) => {
+          const have = new Set(s.session.inputs.map((x) => x.itemId));
+          const add = inputs
+            .filter((i) => i && i.itemId && !have.has(i.itemId))
+            .map((i) => ({ ...i, qty: Math.max(1, Math.min(i.qty ?? 1, i.maxQty)) }));
+          if (!add.length) return s;
+          return { session: { ...s.session, inputs: [...s.session.inputs, ...add], quality: null, pending: null, phase: 'idle' } };
         }),
 
       setInputQty: (itemId, qty) =>
