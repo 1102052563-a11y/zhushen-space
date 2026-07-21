@@ -1,0 +1,3976 @@
+{
+ "A": [
+  {
+   "priority": "P0",
+   "batch": 36,
+   "file": "产出\\批次36\\高達SEED.md",
+   "name": "高達SEED",
+   "lib": "主库",
+   "issue": "机检错误:剧情 9449 字 < 10000",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "待修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P0",
+   "batch": 36,
+   "file": "产出\\批次36\\金刚狼1.md",
+   "name": "金刚狼1",
+   "lib": "主库",
+   "issue": "机检错误:剧情 7495 字 < 10000",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "待修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P0",
+   "batch": 36,
+   "file": "产出\\批次36\\金刚狼2.md",
+   "name": "金刚狼2",
+   "lib": "主库",
+   "issue": "机检错误:剧情 3218 字 < 10000",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "待修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P0",
+   "batch": 36,
+   "file": "产出\\批次36\\金刚狼3.md",
+   "name": "金刚狼3",
+   "lib": "主库",
+   "issue": "机检错误:剧情 2291 字 < 10000",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "待修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P0",
+   "batch": 36,
+   "file": "产出\\批次36\\为美好的世界献上祝福.md",
+   "name": "为美好的世界献上祝福",
+   "lib": "主库",
+   "issue": "机检错误:剧情 9286 字 < 10000",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "待修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P0",
+   "batch": 94,
+   "file": "产出\\批次94\\SCP基金会.md",
+   "name": "SCP基金会",
+   "lib": "主库",
+   "issue": "机检错误:剧情 7884 字 < 10000",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "待修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P0",
+   "batch": 95,
+   "file": "产出\\批次95\\林中小屋.md",
+   "name": "林中小屋",
+   "lib": "主库",
+   "issue": "机检错误:剧情 7142 字 < 10000",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "待修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P0",
+   "batch": 95,
+   "file": "产出\\批次95\\人类清除计划.md",
+   "name": "人类清除计划",
+   "lib": "主库",
+   "issue": "机检错误:剧情 6424 字 < 10000",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "待修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P0",
+   "batch": 95,
+   "file": "产出\\批次95\\吸血鬼猎人D.md",
+   "name": "吸血鬼猎人D",
+   "lib": "主库",
+   "issue": "机检错误:剧情 6839 字 < 10000",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "待修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P0",
+   "batch": 119,
+   "file": "产出\\批次119\\东方兽王园.md",
+   "name": "东方兽王园",
+   "lib": "主库",
+   "issue": "机检错误:剧情 7285 字 < 10000",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "待修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P0",
+   "batch": 119,
+   "file": "产出\\批次119\\剧场版：你可曾记得爱.md",
+   "name": "剧场版：你可曾记得爱",
+   "lib": "主库",
+   "issue": "机检错误:剧情 9317 字 < 10000",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "待修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P0",
+   "batch": 121,
+   "file": "产出\\批次121\\超时空要塞：你可曾记得爱（剧场版）.md",
+   "name": "超时空要塞：你可曾记得爱（剧场版）",
+   "lib": "主库",
+   "issue": "机检错误:剧情 8403 字 < 10000",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "待修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P0",
+   "batch": 122,
+   "file": "产出\\批次122\\超时空要塞F：恋离飞翼（剧场版后篇）.md",
+   "name": "超时空要塞F：恋离飞翼（剧场版后篇）",
+   "lib": "主库",
+   "issue": "机检错误:剧情 4880 字 < 10000/切入点 896 字 < 1500",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "待修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P0",
+   "batch": 122,
+   "file": "产出\\批次122\\超时空要塞F：虚空歌姬（剧场版前篇）.md",
+   "name": "超时空要塞F：虚空歌姬（剧场版前篇）",
+   "lib": "主库",
+   "issue": "机检错误:剧情 7021 字 < 10000/切入点 1170 字 < 1500 | 警告:切入点疑似\"被封印\"式顶点解释",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "待修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P0",
+   "batch": 130,
+   "file": "产出\\批次130\\火焰之纹章：觉醒.md",
+   "name": "火焰之纹章：觉醒",
+   "lib": "主库",
+   "issue": "机检错误:剧情 6289 字 < 10000 | 灌水标记:【补密、【剧情补述",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "待修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P0",
+   "batch": 130,
+   "file": "产出\\批次130\\饥饿游戏2.md",
+   "name": "饥饿游戏2",
+   "lib": "主库",
+   "issue": "机检错误:剧情 7829 字 < 10000",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "待修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P0",
+   "batch": 135,
+   "file": "产出\\批次135\\攻克机动队（按：攻壳机动队）.md",
+   "name": "攻克机动队（按：攻壳机动队）",
+   "lib": "主库",
+   "issue": "机检错误:剧情 9070 字 < 10000",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "待修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P0",
+   "batch": 135,
+   "file": "产出\\批次135\\黑暗塔（系列总览）.md",
+   "name": "黑暗塔（系列总览）",
+   "lib": "主库",
+   "issue": "机检错误:剧情 9153 字 < 10000",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "待修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P0",
+   "batch": 136,
+   "file": "产出\\批次136\\攻壳机动队（漫画原作）.md",
+   "name": "攻壳机动队（漫画原作）",
+   "lib": "主库",
+   "issue": "机检错误:剧情 3475 字 < 10000",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "待修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P0",
+   "batch": 166,
+   "file": "产出\\批次166\\宝可梦：超世代.md",
+   "name": "宝可梦：超世代",
+   "lib": "主库",
+   "issue": "机检错误:剧情 6119 字 < 10000/切入点 1022 字 < 1500 | 警告:切入点疑似\"被封印\"式顶点解释；切入点疑似\"被削弱\"式顶点解释",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "待修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P0",
+   "batch": 166,
+   "file": "产出\\批次166\\宝可梦：钻石与珍珠.md",
+   "name": "宝可梦：钻石与珍珠",
+   "lib": "主库",
+   "issue": "机检错误:剧情 1586 字 < 10000",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "待修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P0",
+   "batch": 167,
+   "file": "产出\\批次167\\宝可梦XY.md",
+   "name": "宝可梦XY",
+   "lib": "主库",
+   "issue": "机检错误:剧情 8904 字 < 10000 | 警告:切入点疑似\"被封印\"式顶点解释",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "待修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P0",
+   "batch": 168,
+   "file": "产出\\批次168\\宝可梦不可思议迷宫：红－蓝救助队.md",
+   "name": "宝可梦不可思议迷宫：红/蓝救助队",
+   "lib": "主库",
+   "issue": "机检错误:剧情 8881 字 < 10000 | 警告:来源链接 0 条 < 3",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "待修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P0",
+   "batch": 170,
+   "file": "产出\\批次170\\宝可梦不可思议迷宫：超级.md",
+   "name": "宝可梦不可思议迷宫：超级",
+   "lib": "主库",
+   "issue": "机检错误:剧情 5887 字 < 10000 | 灌水标记:跨媒介流行作品、可被契约者切入的完整任务世界 | 跨世界重复(组#210·146个世界共用)",
+   "hasCrossDup": true,
+   "crossGroupIds": [
+    210
+   ],
+   "status": "待修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P0",
+   "batch": 170,
+   "file": "产出\\批次170\\宝可梦不可思议迷宫：救助队DX.md",
+   "name": "宝可梦不可思议迷宫：救助队DX",
+   "lib": "主库",
+   "issue": "机检错误:剧情 7789 字 < 10000 | 警告:切入点疑似\"被封印\"式顶点解释；切入点疑似\"被削弱\"式顶点解释",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "待修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P0",
+   "batch": 170,
+   "file": "产出\\批次170\\假面骑士Fourze（TV）.md",
+   "name": "假面骑士Fourze（TV）",
+   "lib": "主库",
+   "issue": "机检错误:剧情 5905 字 < 10000 | 灌水标记:跨媒介流行作品、可被契约者切入的完整任务世界 | 跨世界重复(组#210·146个世界共用)",
+   "hasCrossDup": true,
+   "crossGroupIds": [
+    210
+   ],
+   "status": "待修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P0",
+   "batch": 170,
+   "file": "产出\\批次170\\假面骑士OOO：Wonderful 将军与21枚核心硬币（剧场版）.md",
+   "name": "假面骑士OOO：Wonderful 将军与21枚核心硬币（剧场版）",
+   "lib": "主库",
+   "issue": "机检错误:剧情 6049 字 < 10000 | 灌水标记:跨媒介流行作品、可被契约者切入的完整任务世界 | 跨世界重复(组#210·146个世界共用)",
+   "hasCrossDup": true,
+   "crossGroupIds": [
+    210
+   ],
+   "status": "待修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P0",
+   "batch": 170,
+   "file": "产出\\批次170\\OOO×W：MOVIE大战MEGAMAX（剧场版）.md",
+   "name": "OOO×W：MOVIE大战MEGAMAX（剧场版）",
+   "lib": "主库",
+   "issue": "机检错误:剧情 7401 字 < 10000",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "待修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P0",
+   "batch": 171,
+   "file": "产出\\批次171\\宝可梦大集结.md",
+   "name": "宝可梦大集结",
+   "lib": "主库",
+   "issue": "机检错误:剧情 5839 字 < 10000 | 灌水标记:跨媒介流行作品、可被契约者切入的完整任务世界 | 跨世界重复(组#210·146个世界共用)",
+   "hasCrossDup": true,
+   "crossGroupIds": [
+    210
+   ],
+   "status": "待修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P0",
+   "batch": 171,
+   "file": "产出\\批次171\\假面骑士Fourze：大家一起宇宙来啦！（剧场版）.md",
+   "name": "假面骑士Fourze：大家一起宇宙来啦！（剧场版）",
+   "lib": "主库",
+   "issue": "机检错误:剧情 5993 字 < 10000 | 灌水标记:跨媒介流行作品、可被契约者切入的完整任务世界 | 跨世界重复(组#210·146个世界共用)",
+   "hasCrossDup": true,
+   "crossGroupIds": [
+    210
+   ],
+   "status": "待修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P0",
+   "batch": 171,
+   "file": "产出\\批次171\\魔兽世界：黑翼血环.md",
+   "name": "魔兽世界：黑翼血环",
+   "lib": "主库",
+   "issue": "机检错误:剧情 5865 字 < 10000 | 灌水标记:跨媒介流行作品、可被契约者切入的完整任务世界 | 跨世界重复(组#210·146个世界共用)",
+   "hasCrossDup": true,
+   "crossGroupIds": [
+    210
+   ],
+   "status": "待修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P0",
+   "batch": 171,
+   "file": "产出\\批次171\\Fourze×OOO：MOVIE大战ULTIMATUM（剧场版）.md",
+   "name": "Fourze×OOO：MOVIE大战ULTIMATUM（剧场版）",
+   "lib": "主库",
+   "issue": "机检错误:剧情 6049 字 < 10000 | 灌水标记:跨媒介流行作品、可被契约者切入的完整任务世界 | 跨世界重复(组#210·146个世界共用)",
+   "hasCrossDup": true,
+   "crossGroupIds": [
+    210
+   ],
+   "status": "待修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P0",
+   "batch": 171,
+   "file": "产出\\批次171\\Pokémon GO.md",
+   "name": "Pokémon GO",
+   "lib": "主库",
+   "issue": "机检错误:剧情 5863 字 < 10000 | 灌水标记:跨媒介流行作品、可被契约者切入的完整任务世界 | 跨世界重复(组#210·146个世界共用)",
+   "hasCrossDup": true,
+   "crossGroupIds": [
+    210
+   ],
+   "status": "待修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P0",
+   "batch": 172,
+   "file": "产出\\批次172\\假面骑士铠武Gaim（TV）.md",
+   "name": "假面骑士铠武Gaim（TV）",
+   "lib": "主库",
+   "issue": "机检错误:剧情 5905 字 < 10000 | 灌水标记:跨媒介流行作品、可被契约者切入的完整任务世界 | 跨世界重复(组#210·146个世界共用)",
+   "hasCrossDup": true,
+   "crossGroupIds": [
+    210
+   ],
+   "status": "待修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P0",
+   "batch": 172,
+   "file": "产出\\批次172\\假面骑士Wizard：IN MAGIC LAND（剧场版）.md",
+   "name": "假面骑士Wizard：IN MAGIC LAND（剧场版）",
+   "lib": "主库",
+   "issue": "机检错误:剧情 6009 字 < 10000 | 灌水标记:跨媒介流行作品、可被契约者切入的完整任务世界 | 跨世界重复(组#210·146个世界共用)",
+   "hasCrossDup": true,
+   "crossGroupIds": [
+    210
+   ],
+   "status": "待修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P0",
+   "batch": 172,
+   "file": "产出\\批次172\\假面骑士Wizard（TV）.md",
+   "name": "假面骑士Wizard（TV）",
+   "lib": "主库",
+   "issue": "机检错误:剧情 5905 字 < 10000 | 灌水标记:跨媒介流行作品、可被契约者切入的完整任务世界 | 跨世界重复(组#210·146个世界共用)",
+   "hasCrossDup": true,
+   "crossGroupIds": [
+    210
+   ],
+   "status": "待修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P0",
+   "batch": 172,
+   "file": "产出\\批次172\\铠武Gaim：足球大决战！黄金果实争夺杯！（剧场版）.md",
+   "name": "铠武Gaim：足球大决战！黄金果实争夺杯！（剧场版）",
+   "lib": "主库",
+   "issue": "机检错误:剧情 6001 字 < 10000 | 灌水标记:跨媒介流行作品、可被契约者切入的完整任务世界 | 跨世界重复(组#210·146个世界共用)",
+   "hasCrossDup": true,
+   "crossGroupIds": [
+    210
+   ],
+   "status": "待修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P0",
+   "batch": 172,
+   "file": "产出\\批次172\\Wizard×Fourze：MOVIE大战Z（剧场版）.md",
+   "name": "Wizard×Fourze：MOVIE大战Z（剧场版）",
+   "lib": "主库",
+   "issue": "机检错误:剧情 6009 字 < 10000 | 灌水标记:跨媒介流行作品、可被契约者切入的完整任务世界 | 跨世界重复(组#210·146个世界共用)",
+   "hasCrossDup": true,
+   "crossGroupIds": [
+    210
+   ],
+   "status": "待修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P0",
+   "batch": 173,
+   "file": "产出\\批次173\\假面骑士Drive：Surprise Future（剧场版）.md",
+   "name": "假面骑士Drive：Surprise Future（剧场版）",
+   "lib": "主库",
+   "issue": "机检错误:剧情 6025 字 < 10000 | 灌水标记:跨媒介流行作品、可被契约者切入的完整任务世界 | 跨世界重复(组#210·146个世界共用)",
+   "hasCrossDup": true,
+   "crossGroupIds": [
+    210
+   ],
+   "status": "待修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P0",
+   "batch": 173,
+   "file": "产出\\批次173\\假面骑士Drive（TV）.md",
+   "name": "假面骑士Drive（TV）",
+   "lib": "主库",
+   "issue": "机检错误:剧情 5897 字 < 10000 | 灌水标记:跨媒介流行作品、可被契约者切入的完整任务世界 | 跨世界重复(组#210·146个世界共用)",
+   "hasCrossDup": true,
+   "crossGroupIds": [
+    210
+   ],
+   "status": "待修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P0",
+   "batch": 173,
+   "file": "产出\\批次173\\假面骑士Ghost（TV）.md",
+   "name": "假面骑士Ghost（TV）",
+   "lib": "主库",
+   "issue": "机检错误:剧情 5897 字 < 10000 | 灌水标记:跨媒介流行作品、可被契约者切入的完整任务世界 | 跨世界重复(组#210·146个世界共用)",
+   "hasCrossDup": true,
+   "crossGroupIds": [
+    210
+   ],
+   "status": "待修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P0",
+   "batch": 173,
+   "file": "产出\\批次173\\铠武Gaim：战国MOVIE大合战（剧场版）.md",
+   "name": "铠武Gaim：战国MOVIE大合战（剧场版）",
+   "lib": "主库",
+   "issue": "机检错误:剧情 5969 字 < 10000 | 灌水标记:跨媒介流行作品、可被契约者切入的完整任务世界 | 跨世界重复(组#210·146个世界共用)",
+   "hasCrossDup": true,
+   "crossGroupIds": [
+    210
+   ],
+   "status": "待修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P0",
+   "batch": 173,
+   "file": "产出\\批次173\\Drive×铠武：MOVIE大战FULL THROTTLE（剧场版）.md",
+   "name": "Drive×铠武：MOVIE大战FULL THROTTLE（剧场版）",
+   "lib": "主库",
+   "issue": "机检错误:剧情 6057 字 < 10000 | 灌水标记:跨媒介流行作品、可被契约者切入的完整任务世界 | 跨世界重复(组#210·146个世界共用)",
+   "hasCrossDup": true,
+   "crossGroupIds": [
+    210
+   ],
+   "status": "待修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P0",
+   "batch": 174,
+   "file": "产出\\批次174\\火焰之纹章无双：风花雪月.md",
+   "name": "火焰之纹章无双：风花雪月",
+   "lib": "主库",
+   "issue": "机检错误:剧情 5889 字 < 10000 | 灌水标记:跨媒介流行作品、可被契约者切入的完整任务世界 | 跨世界重复(组#210·146个世界共用)",
+   "hasCrossDup": true,
+   "crossGroupIds": [
+    210
+   ],
+   "status": "待修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P0",
+   "batch": 174,
+   "file": "产出\\批次174\\假面骑士Zero-One（TV）.md",
+   "name": "假面骑士Zero-One（TV）",
+   "lib": "主库",
+   "issue": "机检错误:剧情 5921 字 < 10000 | 灌水标记:跨媒介流行作品、可被契约者切入的完整任务世界 | 跨世界重复(组#210·146个世界共用)",
+   "hasCrossDup": true,
+   "crossGroupIds": [
+    210
+   ],
+   "status": "待修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P0",
+   "batch": 174,
+   "file": "产出\\批次174\\平成GENERATION'S FINAL：Build&Ex-Aid with 传说骑士（剧场版）.md",
+   "name": "平成GENERATION'S FINAL：Build&Ex-Aid with 传说骑士（剧场版）",
+   "lib": "主库",
+   "issue": "机检错误:剧情 6153 字 < 10000 | 灌水标记:跨媒介流行作品、可被契约者切入的完整任务世界 | 跨世界重复(组#210·146个世界共用)",
+   "hasCrossDup": true,
+   "crossGroupIds": [
+    210
+   ],
+   "status": "待修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P0",
+   "batch": 174,
+   "file": "产出\\批次174\\平成GENERATION'S：Dr.吃豆人对Ex-Aid&Ghost（剧场版）.md",
+   "name": "平成GENERATION'S：Dr.吃豆人对Ex-Aid&Ghost（剧场版）",
+   "lib": "主库",
+   "issue": "机检错误:剧情 6105 字 < 10000 | 灌水标记:跨媒介流行作品、可被契约者切入的完整任务世界 | 跨世界重复(组#210·146个世界共用)",
+   "hasCrossDup": true,
+   "crossGroupIds": [
+    210
+   ],
+   "status": "待修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P0",
+   "batch": 174,
+   "file": "产出\\批次174\\Ghost：100眼魂与Ghost命运的瞬间（剧场版）.md",
+   "name": "Ghost：100眼魂与Ghost命运的瞬间（剧场版）",
+   "lib": "主库",
+   "issue": "机检错误:剧情 6009 字 < 10000 | 灌水标记:跨媒介流行作品、可被契约者切入的完整任务世界 | 跨世界重复(组#210·146个世界共用)",
+   "hasCrossDup": true,
+   "crossGroupIds": [
+    210
+   ],
+   "status": "待修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P0",
+   "batch": 175,
+   "file": "产出\\批次175\\假面骑士×超级战队：Super Hero Senki（剧场版）.md",
+   "name": "假面骑士×超级战队：Super Hero Senki（剧场版）",
+   "lib": "主库",
+   "issue": "机检错误:剧情 6025 字 < 10000 | 灌水标记:跨媒介流行作品、可被契约者切入的完整任务世界 | 跨世界重复(组#210·146个世界共用)",
+   "hasCrossDup": true,
+   "crossGroupIds": [
+    210
+   ],
+   "status": "待修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P0",
+   "batch": 175,
+   "file": "产出\\批次175\\假面骑士Revice（TV）.md",
+   "name": "假面骑士Revice（TV）",
+   "lib": "主库",
+   "issue": "机检错误:剧情 5905 字 < 10000 | 灌水标记:跨媒介流行作品、可被契约者切入的完整任务世界 | 跨世界重复(组#210·146个世界共用)",
+   "hasCrossDup": true,
+   "crossGroupIds": [
+    210
+   ],
+   "status": "待修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P0",
+   "batch": 175,
+   "file": "产出\\批次175\\魔兽世界：安托鲁斯：燃烧王座.md",
+   "name": "魔兽世界：安托鲁斯：燃烧王座",
+   "lib": "主库",
+   "issue": "机检错误:剧情 5915 字 < 10000 | 灌水标记:跨媒介流行作品、可被契约者切入的完整任务世界 | 跨世界重复(组#210·146个世界共用)",
+   "hasCrossDup": true,
+   "crossGroupIds": [
+    210,
+    211
+   ],
+   "status": "待修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P0",
+   "batch": 175,
+   "file": "产出\\批次175\\Revice：Battle Familia（剧场版）.md",
+   "name": "Revice：Battle Familia（剧场版）",
+   "lib": "主库",
+   "issue": "机检错误:剧情 5993 字 < 10000 | 灌水标记:跨媒介流行作品、可被契约者切入的完整任务世界 | 跨世界重复(组#210·146个世界共用)",
+   "hasCrossDup": true,
+   "crossGroupIds": [
+    210
+   ],
+   "status": "待修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P0",
+   "batch": 175,
+   "file": "产出\\批次175\\Zero-One：REAL×TIME（剧场版）.md",
+   "name": "Zero-One：REAL×TIME（剧场版）",
+   "lib": "主库",
+   "issue": "机检错误:剧情 5977 字 < 10000 | 灌水标记:跨媒介流行作品、可被契约者切入的完整任务世界 | 跨世界重复(组#210·146个世界共用)",
+   "hasCrossDup": true,
+   "crossGroupIds": [
+    210
+   ],
+   "status": "待修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P0",
+   "batch": 176,
+   "file": "产出\\批次176\\假面骑士BLACK SUN（剧集）.md",
+   "name": "假面骑士BLACK SUN（剧集）",
+   "lib": "主库",
+   "issue": "机检错误:剧情 5921 字 < 10000 | 灌水标记:跨媒介流行作品、可被契约者切入的完整任务世界 | 跨世界重复(组#210·146个世界共用)",
+   "hasCrossDup": true,
+   "crossGroupIds": [
+    210
+   ],
+   "status": "待修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P0",
+   "batch": 176,
+   "file": "产出\\批次176\\假面骑士Gotchard（TV）.md",
+   "name": "假面骑士Gotchard（TV）",
+   "lib": "主库",
+   "issue": "机检错误:剧情 5921 字 < 10000 | 灌水标记:跨媒介流行作品、可被契约者切入的完整任务世界 | 跨世界重复(组#210·146个世界共用)",
+   "hasCrossDup": true,
+   "crossGroupIds": [
+    210
+   ],
+   "status": "待修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P0",
+   "batch": 176,
+   "file": "产出\\批次176\\假面骑士Outsiders（网剧）.md",
+   "name": "假面骑士Outsiders（网剧）",
+   "lib": "主库",
+   "issue": "机检错误:剧情 5929 字 < 10000 | 灌水标记:跨媒介流行作品、可被契约者切入的完整任务世界 | 跨世界重复(组#210·146个世界共用)",
+   "hasCrossDup": true,
+   "crossGroupIds": [
+    210
+   ],
+   "status": "待修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P0",
+   "batch": 176,
+   "file": "产出\\批次176\\魔兽世界：尼奥罗萨：觉醒之城.md",
+   "name": "魔兽世界：尼奥罗萨：觉醒之城",
+   "lib": "主库",
+   "issue": "机检错误:剧情 5915 字 < 10000 | 灌水标记:跨媒介流行作品、可被契约者切入的完整任务世界 | 跨世界重复(组#210·146个世界共用)",
+   "hasCrossDup": true,
+   "crossGroupIds": [
+    210,
+    211
+   ],
+   "status": "待修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P0",
+   "batch": 176,
+   "file": "产出\\批次176\\Geats×Revice：MOVIE Battle Royale（剧场版）.md",
+   "name": "Geats×Revice：MOVIE Battle Royale（剧场版）",
+   "lib": "主库",
+   "issue": "机检错误:剧情 6073 字 < 10000 | 灌水标记:跨媒介流行作品、可被契约者切入的完整任务世界 | 跨世界重复(组#210·146个世界共用)",
+   "hasCrossDup": true,
+   "crossGroupIds": [
+    210
+   ],
+   "status": "待修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P0",
+   "batch": 177,
+   "file": "产出\\批次177\\魔兽世界：阿梅达希尔：梦境之愿.md",
+   "name": "魔兽世界：阿梅达希尔：梦境之愿",
+   "lib": "主库",
+   "issue": "机检错误:剧情 5923 字 < 10000 | 灌水标记:跨媒介流行作品、可被契约者切入的完整任务世界 | 跨世界重复(组#210·146个世界共用)",
+   "hasCrossDup": true,
+   "crossGroupIds": [
+    210,
+    211
+   ],
+   "status": "待修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P0",
+   "batch": 177,
+   "file": "产出\\批次177\\魔兽世界：法力熔炉欧米伽（Manaforge Omega）.md",
+   "name": "魔兽世界：法力熔炉欧米伽（Manaforge Omega）",
+   "lib": "主库",
+   "issue": "机检错误:剧情 6023 字 < 10000 | 灌水标记:跨媒介流行作品、可被契约者切入的完整任务世界 | 跨世界重复(组#210·146个世界共用)",
+   "hasCrossDup": true,
+   "crossGroupIds": [
+    210
+   ],
+   "status": "待修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P0",
+   "batch": 177,
+   "file": "产出\\批次177\\魔兽世界：解放安德麦（Liberation of Undermine）.md",
+   "name": "魔兽世界：解放安德麦（Liberation of Undermine）",
+   "lib": "主库",
+   "issue": "机检错误:剧情 6063 字 < 10000 | 灌水标记:跨媒介流行作品、可被契约者切入的完整任务世界 | 跨世界重复(组#210·146个世界共用)",
+   "hasCrossDup": true,
+   "crossGroupIds": [
+    210
+   ],
+   "status": "待修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P0",
+   "batch": 177,
+   "file": "产出\\批次177\\魔兽世界：奈鲁布尔宫殿.md",
+   "name": "魔兽世界：奈鲁布尔宫殿",
+   "lib": "主库",
+   "issue": "机检错误:剧情 5889 字 < 10000 | 灌水标记:跨媒介流行作品、可被契约者切入的完整任务世界 | 跨世界重复(组#210·146个世界共用)",
+   "hasCrossDup": true,
+   "crossGroupIds": [
+    210,
+    212
+   ],
+   "status": "待修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P0",
+   "batch": 177,
+   "file": "产出\\批次177\\魔兽世界：亚贝鲁斯：暗影熔炉.md",
+   "name": "魔兽世界：亚贝鲁斯：暗影熔炉",
+   "lib": "主库",
+   "issue": "机检错误:剧情 5915 字 < 10000 | 灌水标记:跨媒介流行作品、可被契约者切入的完整任务世界 | 跨世界重复(组#210·146个世界共用)",
+   "hasCrossDup": true,
+   "crossGroupIds": [
+    210,
+    211
+   ],
+   "status": "待修复",
+   "fixedMark": false
+  }
+ ],
+ "B": [
+  {
+   "priority": "P0",
+   "batch": 178,
+   "file": "产出\\批次178\\魔兽世界：安其拉开门.md",
+   "name": "魔兽世界：安其拉开门",
+   "lib": "主库",
+   "issue": "机检错误:剧情 5883 字 < 10000 | 灌水标记:跨媒介流行作品、可被契约者切入的完整任务世界 | 跨世界重复(组#210·146个世界共用)",
+   "hasCrossDup": true,
+   "crossGroupIds": [
+    210,
+    211
+   ],
+   "status": "待修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P0",
+   "batch": 178,
+   "file": "产出\\批次178\\魔兽世界：斯坦索姆净化.md",
+   "name": "魔兽世界：斯坦索姆净化",
+   "lib": "主库",
+   "issue": "机检错误:剧情 5891 字 < 10000 | 灌水标记:跨媒介流行作品、可被契约者切入的完整任务世界 | 跨世界重复(组#210·146个世界共用)",
+   "hasCrossDup": true,
+   "crossGroupIds": [
+    210,
+    211
+   ],
+   "status": "待修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P0",
+   "batch": 178,
+   "file": "产出\\批次178\\魔兽世界：天灾入侵（经典前夕）.md",
+   "name": "魔兽世界：天灾入侵（经典前夕）",
+   "lib": "主库",
+   "issue": "机检错误:剧情 5923 字 < 10000 | 灌水标记:跨媒介流行作品、可被契约者切入的完整任务世界 | 跨世界重复(组#210·146个世界共用)",
+   "hasCrossDup": true,
+   "crossGroupIds": [
+    210,
+    211
+   ],
+   "status": "待修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P0",
+   "batch": 178,
+   "file": "产出\\批次178\\魔兽世界：希利苏斯战争物资.md",
+   "name": "魔兽世界：希利苏斯战争物资",
+   "lib": "主库",
+   "issue": "机检错误:剧情 5907 字 < 10000 | 灌水标记:跨媒介流行作品、可被契约者切入的完整任务世界 | 跨世界重复(组#210·146个世界共用)",
+   "hasCrossDup": true,
+   "crossGroupIds": [
+    210,
+    211
+   ],
+   "status": "待修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P0",
+   "batch": 178,
+   "file": "产出\\批次178\\魔兽世界：战歌峡谷第一次冲锋.md",
+   "name": "魔兽世界：战歌峡谷第一次冲锋",
+   "lib": "主库",
+   "issue": "机检错误:剧情 5915 字 < 10000 | 灌水标记:跨媒介流行作品、可被契约者切入的完整任务世界 | 跨世界重复(组#210·146个世界共用)",
+   "hasCrossDup": true,
+   "crossGroupIds": [
+    210,
+    211
+   ],
+   "status": "待修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P0",
+   "batch": 179,
+   "file": "产出\\批次179\\魔兽世界：奥特兰克山谷拉锯战.md",
+   "name": "魔兽世界：奥特兰克山谷拉锯战",
+   "lib": "主库",
+   "issue": "机检错误:剧情 5915 字 < 10000 | 灌水标记:跨媒介流行作品、可被契约者切入的完整任务世界 | 跨世界重复(组#210·146个世界共用)",
+   "hasCrossDup": true,
+   "crossGroupIds": [
+    210,
+    211
+   ],
+   "status": "待修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P0",
+   "batch": 179,
+   "file": "产出\\批次179\\魔兽世界：奎尔丹纳斯进攻.md",
+   "name": "魔兽世界：奎尔丹纳斯进攻",
+   "lib": "主库",
+   "issue": "机检错误:剧情 5899 字 < 10000 | 灌水标记:跨媒介流行作品、可被契约者切入的完整任务世界 | 跨世界重复(组#210·146个世界共用)",
+   "hasCrossDup": true,
+   "crossGroupIds": [
+    210,
+    211
+   ],
+   "status": "待修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P0",
+   "batch": 179,
+   "file": "产出\\批次179\\魔兽世界：纳格兰竞技场首战.md",
+   "name": "魔兽世界：纳格兰竞技场首战",
+   "lib": "主库",
+   "issue": "机检错误:剧情 5907 字 < 10000 | 灌水标记:跨媒介流行作品、可被契约者切入的完整任务世界 | 跨世界重复(组#210·146个世界共用)",
+   "hasCrossDup": true,
+   "crossGroupIds": [
+    210,
+    211
+   ],
+   "status": "待修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P0",
+   "batch": 179,
+   "file": "产出\\批次179\\魔兽世界：诺森德登陆战.md",
+   "name": "魔兽世界：诺森德登陆战",
+   "lib": "主库",
+   "issue": "机检错误:剧情 5891 字 < 10000 | 灌水标记:跨媒介流行作品、可被契约者切入的完整任务世界 | 跨世界重复(组#210·146个世界共用)",
+   "hasCrossDup": true,
+   "crossGroupIds": [
+    210,
+    211
+   ],
+   "status": "待修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P0",
+   "batch": 179,
+   "file": "产出\\批次179\\魔兽世界：外域：黑暗之门重启.md",
+   "name": "魔兽世界：外域：黑暗之门重启",
+   "lib": "主库",
+   "issue": "机检错误:剧情 5913 字 < 10000 | 灌水标记:跨媒介流行作品、可被契约者切入的完整任务世界 | 跨世界重复(组#210·146个世界共用)",
+   "hasCrossDup": true,
+   "crossGroupIds": [
+    210,
+    212
+   ],
+   "status": "待修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P0",
+   "batch": 180,
+   "file": "产出\\批次180\\魔兽世界：大地的裂变：死亡之翼降临.md",
+   "name": "魔兽世界：大地的裂变：死亡之翼降临",
+   "lib": "主库",
+   "issue": "机检错误:剧情 5937 字 < 10000 | 灌水标记:跨媒介流行作品、可被契约者切入的完整任务世界 | 跨世界重复(组#210·146个世界共用)",
+   "hasCrossDup": true,
+   "crossGroupIds": [
+    210,
+    212
+   ],
+   "status": "待修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P0",
+   "batch": 180,
+   "file": "产出\\批次180\\魔兽世界：夺回安卡赫特.md",
+   "name": "魔兽世界：夺回安卡赫特",
+   "lib": "主库",
+   "issue": "机检错误:剧情 5891 字 < 10000 | 灌水标记:跨媒介流行作品、可被契约者切入的完整任务世界 | 跨世界重复(组#210·146个世界共用)",
+   "hasCrossDup": true,
+   "crossGroupIds": [
+    210,
+    211
+   ],
+   "status": "待修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P0",
+   "batch": 180,
+   "file": "产出\\批次180\\魔兽世界：龙骨荒野天灾防线.md",
+   "name": "魔兽世界：龙骨荒野天灾防线",
+   "lib": "主库",
+   "issue": "机检错误:剧情 5907 字 < 10000 | 灌水标记:跨媒介流行作品、可被契约者切入的完整任务世界 | 跨世界重复(组#210·146个世界共用)",
+   "hasCrossDup": true,
+   "crossGroupIds": [
+    210,
+    211
+   ],
+   "status": "待修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P0",
+   "batch": 180,
+   "file": "产出\\批次180\\魔兽世界：奈鲁布尔宫殿（Nerub-ar Palace）.md",
+   "name": "魔兽世界：奈鲁布尔宫殿（Nerub-ar Palace）",
+   "lib": "主库",
+   "issue": "机检错误:剧情 6007 字 < 10000 | 灌水标记:跨媒介流行作品、可被契约者切入的完整任务世界 | 跨世界重复(组#210·146个世界共用)",
+   "hasCrossDup": true,
+   "crossGroupIds": [
+    210
+   ],
+   "status": "待修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P0",
+   "batch": 180,
+   "file": "产出\\批次180\\魔兽世界：巫妖王的冰冠冲锋.md",
+   "name": "魔兽世界：巫妖王的冰冠冲锋",
+   "lib": "主库",
+   "issue": "机检错误:剧情 5905 字 < 10000 | 灌水标记:跨媒介流行作品、可被契约者切入的完整任务世界 | 跨世界重复(组#210·146个世界共用)",
+   "hasCrossDup": true,
+   "crossGroupIds": [
+    210,
+    212
+   ],
+   "status": "待修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P0",
+   "batch": 181,
+   "file": "产出\\批次181\\魔兽世界：奥格瑞玛城门攻防.md",
+   "name": "魔兽世界：奥格瑞玛城门攻防",
+   "lib": "主库",
+   "issue": "机检错误:剧情 5907 字 < 10000 | 灌水标记:跨媒介流行作品、可被契约者切入的完整任务世界 | 跨世界重复(组#210·146个世界共用)",
+   "hasCrossDup": true,
+   "crossGroupIds": [
+    210,
+    211
+   ],
+   "status": "待修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P0",
+   "batch": 181,
+   "file": "产出\\批次181\\魔兽世界：法力熔炉欧米伽.md",
+   "name": "魔兽世界：法力熔炉欧米伽",
+   "lib": "主库",
+   "issue": "机检错误:剧情 5889 字 < 10000 | 灌水标记:跨媒介流行作品、可被契约者切入的完整任务世界 | 跨世界重复(组#210·146个世界共用)",
+   "hasCrossDup": true,
+   "crossGroupIds": [
+    210
+   ],
+   "status": "待修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P0",
+   "batch": 181,
+   "file": "产出\\批次181\\魔兽世界：海加尔山守卫战.md",
+   "name": "魔兽世界：海加尔山守卫战",
+   "lib": "主库",
+   "issue": "机检错误:剧情 5899 字 < 10000 | 灌水标记:跨媒介流行作品、可被契约者切入的完整任务世界 | 跨世界重复(组#210·146个世界共用)",
+   "hasCrossDup": true,
+   "crossGroupIds": [
+    210,
+    211
+   ],
+   "status": "待修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P0",
+   "batch": 181,
+   "file": "产出\\批次181\\魔兽世界：锦绣谷保卫战.md",
+   "name": "魔兽世界：锦绣谷保卫战",
+   "lib": "主库",
+   "issue": "机检错误:剧情 5891 字 < 10000 | 灌水标记:跨媒介流行作品、可被契约者切入的完整任务世界 | 跨世界重复(组#210·146个世界共用)",
+   "hasCrossDup": true,
+   "crossGroupIds": [
+    210,
+    211
+   ],
+   "status": "待修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P0",
+   "batch": 181,
+   "file": "产出\\批次181\\魔兽世界：潘达利亚登陆.md",
+   "name": "魔兽世界：潘达利亚登陆",
+   "lib": "主库",
+   "issue": "机检错误:剧情 5891 字 < 10000 | 灌水标记:跨媒介流行作品、可被契约者切入的完整任务世界 | 跨世界重复(组#210·146个世界共用)",
+   "hasCrossDup": true,
+   "crossGroupIds": [
+    210,
+    211
+   ],
+   "status": "待修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P0",
+   "batch": 182,
+   "file": "产出\\批次182\\魔兽世界：德拉诺：黑暗之门突袭.md",
+   "name": "魔兽世界：德拉诺：黑暗之门突袭",
+   "lib": "主库",
+   "issue": "机检错误:剧情 5921 字 < 10000 | 灌水标记:跨媒介流行作品、可被契约者切入的完整任务世界 | 跨世界重复(组#210·146个世界共用)",
+   "hasCrossDup": true,
+   "crossGroupIds": [
+    210,
+    212
+   ],
+   "status": "待修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P0",
+   "batch": 182,
+   "file": "产出\\批次182\\魔兽世界：破碎海滩惨败.md",
+   "name": "魔兽世界：破碎海滩惨败",
+   "lib": "主库",
+   "issue": "机检错误:剧情 5891 字 < 10000 | 灌水标记:跨媒介流行作品、可被契约者切入的完整任务世界 | 跨世界重复(组#210·146个世界共用)",
+   "hasCrossDup": true,
+   "crossGroupIds": [
+    210,
+    211
+   ],
+   "status": "待修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P0",
+   "batch": 182,
+   "file": "产出\\批次182\\魔兽世界：苏拉玛起义.md",
+   "name": "魔兽世界：苏拉玛起义",
+   "lib": "主库",
+   "issue": "机检错误:剧情 5883 字 < 10000 | 灌水标记:跨媒介流行作品、可被契约者切入的完整任务世界 | 跨世界重复(组#210·146个世界共用)",
+   "hasCrossDup": true,
+   "crossGroupIds": [
+    210,
+    211
+   ],
+   "status": "待修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P0",
+   "batch": 182,
+   "file": "产出\\批次182\\魔兽世界：塔纳安丛林登陆.md",
+   "name": "魔兽世界：塔纳安丛林登陆",
+   "lib": "主库",
+   "issue": "机检错误:剧情 5899 字 < 10000 | 灌水标记:跨媒介流行作品、可被契约者切入的完整任务世界 | 跨世界重复(组#210·146个世界共用)",
+   "hasCrossDup": true,
+   "crossGroupIds": [
+    210,
+    211
+   ],
+   "status": "待修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P0",
+   "batch": 182,
+   "file": "产出\\批次182\\魔兽世界：外域—黑暗之门重启.md",
+   "name": "魔兽世界：外域—黑暗之门重启",
+   "lib": "主库",
+   "issue": "机检错误:剧情 5903 字 < 10000 | 灌水标记:跨媒介流行作品、可被契约者切入的完整任务世界 | 跨世界重复(组#210·146个世界共用)",
+   "hasCrossDup": true,
+   "crossGroupIds": [
+    210
+   ],
+   "status": "待修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P0",
+   "batch": 183,
+   "file": "产出\\批次183\\魔兽世界：阿古斯登陆.md",
+   "name": "魔兽世界：阿古斯登陆",
+   "lib": "主库",
+   "issue": "机检错误:剧情 5883 字 < 10000 | 灌水标记:跨媒介流行作品、可被契约者切入的完整任务世界 | 跨世界重复(组#210·146个世界共用)",
+   "hasCrossDup": true,
+   "crossGroupIds": [
+    210,
+    211
+   ],
+   "status": "待修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P0",
+   "batch": 183,
+   "file": "产出\\批次183\\魔兽世界：冰冠冲锋.md",
+   "name": "魔兽世界：冰冠冲锋",
+   "lib": "主库",
+   "issue": "机检错误:剧情 5863 字 < 10000 | 灌水标记:跨媒介流行作品、可被契约者切入的完整任务世界 | 跨世界重复(组#210·146个世界共用)",
+   "hasCrossDup": true,
+   "crossGroupIds": [
+    210
+   ],
+   "status": "待修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P0",
+   "batch": 183,
+   "file": "产出\\批次183\\魔兽世界：纳沙塔尔沉船.md",
+   "name": "魔兽世界：纳沙塔尔沉船",
+   "lib": "主库",
+   "issue": "机检错误:剧情 5891 字 < 10000 | 灌水标记:跨媒介流行作品、可被契约者切入的完整任务世界 | 跨世界重复(组#210·146个世界共用)",
+   "hasCrossDup": true,
+   "crossGroupIds": [
+    210,
+    211
+   ],
+   "status": "待修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P0",
+   "batch": 183,
+   "file": "产出\\批次183\\魔兽世界：泰达希尔燃烧.md",
+   "name": "魔兽世界：泰达希尔燃烧",
+   "lib": "主库",
+   "issue": "机检错误:剧情 5891 字 < 10000 | 灌水标记:跨媒介流行作品、可被契约者切入的完整任务世界 | 跨世界重复(组#210·146个世界共用)",
+   "hasCrossDup": true,
+   "crossGroupIds": [
+    210,
+    211
+   ],
+   "status": "待修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P0",
+   "batch": 183,
+   "file": "产出\\批次183\\魔兽世界：赞达拉登陆战.md",
+   "name": "魔兽世界：赞达拉登陆战",
+   "lib": "主库",
+   "issue": "机检错误:剧情 5891 字 < 10000 | 灌水标记:跨媒介流行作品、可被契约者切入的完整任务世界 | 跨世界重复(组#210·146个世界共用)",
+   "hasCrossDup": true,
+   "crossGroupIds": [
+    210,
+    211
+   ],
+   "status": "待修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P0",
+   "batch": 184,
+   "file": "产出\\批次184\\魔兽世界：大地的裂变—死亡之翼降临.md",
+   "name": "魔兽世界：大地的裂变—死亡之翼降临",
+   "lib": "主库",
+   "issue": "机检错误:剧情 5927 字 < 10000 | 灌水标记:跨媒介流行作品、可被契约者切入的完整任务世界 | 跨世界重复(组#210·146个世界共用)",
+   "hasCrossDup": true,
+   "crossGroupIds": [
+    210
+   ],
+   "status": "待修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P0",
+   "batch": 184,
+   "file": "产出\\批次184\\魔兽世界：恩佐斯的低语蔓延.md",
+   "name": "魔兽世界：恩佐斯的低语蔓延",
+   "lib": "主库",
+   "issue": "机检错误:剧情 5905 字 < 10000 | 灌水标记:跨媒介流行作品、可被契约者切入的完整任务世界 | 跨世界重复(组#210·146个世界共用)",
+   "hasCrossDup": true,
+   "crossGroupIds": [
+    210,
+    212
+   ],
+   "status": "待修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P0",
+   "batch": 184,
+   "file": "产出\\批次184\\魔兽世界：巨龙群岛初到.md",
+   "name": "魔兽世界：巨龙群岛初到",
+   "lib": "主库",
+   "issue": "机检错误:剧情 5891 字 < 10000 | 灌水标记:跨媒介流行作品、可被契约者切入的完整任务世界 | 跨世界重复(组#210·146个世界共用)",
+   "hasCrossDup": true,
+   "crossGroupIds": [
+    210,
+    211
+   ],
+   "status": "待修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P0",
+   "batch": 184,
+   "file": "产出\\批次184\\魔兽世界：噬渊初入.md",
+   "name": "魔兽世界：噬渊初入",
+   "lib": "主库",
+   "issue": "机检错误:剧情 5875 字 < 10000 | 灌水标记:跨媒介流行作品、可被契约者切入的完整任务世界 | 跨世界重复(组#210·146个世界共用)",
+   "hasCrossDup": true,
+   "crossGroupIds": [
+    210,
+    211
+   ],
+   "status": "待修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P0",
+   "batch": 184,
+   "file": "产出\\批次184\\魔兽世界：噬渊突围救援.md",
+   "name": "魔兽世界：噬渊突围救援",
+   "lib": "主库",
+   "issue": "机检错误:剧情 5887 字 < 10000 | 灌水标记:跨媒介流行作品、可被契约者切入的完整任务世界 | 跨世界重复(组#210·146个世界共用)",
+   "hasCrossDup": true,
+   "crossGroupIds": [
+    210
+   ],
+   "status": "待修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P0",
+   "batch": 185,
+   "file": "产出\\批次185\\国家队（DARLING in the FRANXX）.md",
+   "name": "国家队（DARLING in the FRANXX）",
+   "lib": "主库",
+   "issue": "机检错误:剧情 5985 字 < 10000 | 灌水标记:跨媒介流行作品、可被契约者切入的完整任务世界 | 跨世界重复(组#210·146个世界共用)",
+   "hasCrossDup": true,
+   "crossGroupIds": [
+    210,
+    222
+   ],
+   "status": "待修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P0",
+   "batch": 185,
+   "file": "产出\\批次185\\魔兽世界：德拉诺—黑暗之门突袭.md",
+   "name": "魔兽世界：德拉诺—黑暗之门突袭",
+   "lib": "主库",
+   "issue": "机检错误:剧情 5911 字 < 10000 | 灌水标记:跨媒介流行作品、可被契约者切入的完整任务世界 | 跨世界重复(组#210·146个世界共用)",
+   "hasCrossDup": true,
+   "crossGroupIds": [
+    210
+   ],
+   "status": "待修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P0",
+   "batch": 185,
+   "file": "产出\\批次185\\魔兽世界：地心之战：多恩岛登陆.md",
+   "name": "魔兽世界：地心之战：多恩岛登陆",
+   "lib": "主库",
+   "issue": "机检错误:剧情 5921 字 < 10000 | 灌水标记:跨媒介流行作品、可被契约者切入的完整任务世界 | 跨世界重复(组#210·146个世界共用)",
+   "hasCrossDup": true,
+   "crossGroupIds": [
+    210,
+    212
+   ],
+   "status": "待修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P0",
+   "batch": 185,
+   "file": "产出\\批次185\\魔兽世界：瓦德拉肯集结.md",
+   "name": "魔兽世界：瓦德拉肯集结",
+   "lib": "主库",
+   "issue": "机检错误:剧情 5891 字 < 10000 | 灌水标记:跨媒介流行作品、可被契约者切入的完整任务世界 | 跨世界重复(组#210·146个世界共用)",
+   "hasCrossDup": true,
+   "crossGroupIds": [
+    210,
+    211
+   ],
+   "status": "待修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P0",
+   "batch": 185,
+   "file": "产出\\批次185\\野良神（漫画）.md",
+   "name": "野良神（漫画）",
+   "lib": "主库",
+   "issue": "机检错误:剧情 5855 字 < 10000 | 灌水标记:跨媒介流行作品、可被契约者切入的完整任务世界 | 跨世界重复(组#210·146个世界共用)",
+   "hasCrossDup": true,
+   "crossGroupIds": [
+    210
+   ],
+   "status": "待修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P0",
+   "batch": 186,
+   "file": "产出\\批次186\\黑兽（Kuroinu）.md",
+   "name": "黑兽（Kuroinu）",
+   "lib": "主库",
+   "issue": "机检错误:剧情 5887 字 < 10000 | 灌水标记:跨媒介流行作品、可被契约者切入的完整任务世界 | 跨世界重复(组#210·146个世界共用)",
+   "hasCrossDup": true,
+   "crossGroupIds": [
+    210
+   ],
+   "status": "待修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P0",
+   "batch": 186,
+   "file": "产出\\批次186\\黑兽2（Kuroinu 2）.md",
+   "name": "黑兽2（Kuroinu 2）",
+   "lib": "主库",
+   "issue": "机检错误:剧情 5903 字 < 10000 | 灌水标记:跨媒介流行作品、可被契约者切入的完整任务世界 | 跨世界重复(组#210·146个世界共用)",
+   "hasCrossDup": true,
+   "crossGroupIds": [
+    210
+   ],
+   "status": "待修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P0",
+   "batch": 186,
+   "file": "产出\\批次186\\野良神 ARAGOTO（动画第二季）.md",
+   "name": "野良神 ARAGOTO（动画第二季）",
+   "lib": "主库",
+   "issue": "机检错误:剧情 5935 字 < 10000 | 灌水标记:跨媒介流行作品、可被契约者切入的完整任务世界 | 跨世界重复(组#210·146个世界共用)",
+   "hasCrossDup": true,
+   "crossGroupIds": [
+    210
+   ],
+   "status": "待修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P0",
+   "batch": 186,
+   "file": "产出\\批次186\\野良神（动画第一季）.md",
+   "name": "野良神（动画第一季）",
+   "lib": "主库",
+   "issue": "机检错误:剧情 5879 字 < 10000 | 灌水标记:跨媒介流行作品、可被契约者切入的完整任务世界 | 跨世界重复(组#210·146个世界共用)",
+   "hasCrossDup": true,
+   "crossGroupIds": [
+    210
+   ],
+   "status": "待修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P0",
+   "batch": 186,
+   "file": "产出\\批次186\\野良神（OAD－OVA）.md",
+   "name": "野良神（OAD/OVA）",
+   "lib": "主库",
+   "issue": "机检错误:剧情 5895 字 < 10000 | 灌水标记:跨媒介流行作品、可被契约者切入的完整任务世界 | 跨世界重复(组#210·146个世界共用)",
+   "hasCrossDup": true,
+   "crossGroupIds": [
+    210
+   ],
+   "status": "待修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P0",
+   "batch": 187,
+   "file": "产出\\批次187\\黑兽：改－外传（如按某一版本）.md",
+   "name": "黑兽：改/外传（如按某一版本）",
+   "lib": "主库",
+   "issue": "机检错误:剧情 5919 字 < 10000 | 灌水标记:跨媒介流行作品、可被契约者切入的完整任务世界 | 跨世界重复(组#210·146个世界共用)",
+   "hasCrossDup": true,
+   "crossGroupIds": [
+    210
+   ],
+   "status": "待修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P0",
+   "batch": 187,
+   "file": "产出\\批次187\\魔兽世界：恩佐斯低语蔓延.md",
+   "name": "魔兽世界：恩佐斯低语蔓延",
+   "lib": "主库",
+   "issue": "机检错误:剧情 5887 字 < 10000 | 灌水标记:跨媒介流行作品、可被契约者切入的完整任务世界 | 跨世界重复(组#210·146个世界共用)",
+   "hasCrossDup": true,
+   "crossGroupIds": [
+    210
+   ],
+   "status": "待修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P0",
+   "batch": 187,
+   "file": "产出\\批次187\\银魂（漫画）.md",
+   "name": "银魂（漫画）",
+   "lib": "主库",
+   "issue": "机检错误:剧情 5847 字 < 10000 | 灌水标记:跨媒介流行作品、可被契约者切入的完整任务世界 | 跨世界重复(组#210·146个世界共用)",
+   "hasCrossDup": true,
+   "crossGroupIds": [
+    210
+   ],
+   "status": "待修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P0",
+   "batch": 187,
+   "file": "产出\\批次187\\银魂（TV 2006）.md",
+   "name": "银魂（TV 2006）",
+   "lib": "主库",
+   "issue": "机检错误:剧情 5879 字 < 10000 | 灌水标记:跨媒介流行作品、可被契约者切入的完整任务世界 | 跨世界重复(组#210·146个世界共用)",
+   "hasCrossDup": true,
+   "crossGroupIds": [
+    210
+   ],
+   "status": "待修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P0",
+   "batch": 187,
+   "file": "产出\\批次187\\银魂（TV 2011）.md",
+   "name": "银魂（TV 2011）",
+   "lib": "主库",
+   "issue": "机检错误:剧情 5879 字 < 10000 | 灌水标记:跨媒介流行作品、可被契约者切入的完整任务世界 | 跨世界重复(组#210·146个世界共用)",
+   "hasCrossDup": true,
+   "crossGroupIds": [
+    210
+   ],
+   "status": "待修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P0",
+   "batch": 188,
+   "file": "产出\\批次188\\魔兽世界：地心之战—多恩岛登陆.md",
+   "name": "魔兽世界：地心之战—多恩岛登陆",
+   "lib": "主库",
+   "issue": "机检错误:剧情 5911 字 < 10000 | 灌水标记:跨媒介流行作品、可被契约者切入的完整任务世界 | 跨世界重复(组#210·146个世界共用)",
+   "hasCrossDup": true,
+   "crossGroupIds": [
+    210
+   ],
+   "status": "待修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P0",
+   "batch": 188,
+   "file": "产出\\批次188\\银魂：新译红樱篇（剧场版）.md",
+   "name": "银魂：新译红樱篇（剧场版）",
+   "lib": "主库",
+   "issue": "机检错误:剧情 5903 字 < 10000 | 灌水标记:跨媒介流行作品、可被契约者切入的完整任务世界 | 跨世界重复(组#210·146个世界共用)",
+   "hasCrossDup": true,
+   "crossGroupIds": [
+    210
+   ],
+   "status": "待修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P0",
+   "batch": 188,
+   "file": "产出\\批次188\\银魂.（TV 2018）.md",
+   "name": "银魂.（TV 2018）",
+   "lib": "主库",
+   "issue": "机检错误:剧情 5887 字 < 10000 | 灌水标记:跨媒介流行作品、可被契约者切入的完整任务世界 | 跨世界重复(组#210·146个世界共用)",
+   "hasCrossDup": true,
+   "crossGroupIds": [
+    210
+   ],
+   "status": "待修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P0",
+   "batch": 188,
+   "file": "产出\\批次188\\银魂（TV 2017）.md",
+   "name": "银魂（TV 2017）",
+   "lib": "主库",
+   "issue": "机检错误:剧情 5879 字 < 10000 | 灌水标记:跨媒介流行作品、可被契约者切入的完整任务世界 | 跨世界重复(组#210·146个世界共用)",
+   "hasCrossDup": true,
+   "crossGroupIds": [
+    210
+   ],
+   "status": "待修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P0",
+   "batch": 188,
+   "file": "产出\\批次188\\银魂°（TV 2015）.md",
+   "name": "银魂°（TV 2015）",
+   "lib": "主库",
+   "issue": "机检错误:剧情 5887 字 < 10000 | 灌水标记:跨媒介流行作品、可被契约者切入的完整任务世界 | 跨世界重复(组#210·146个世界共用)",
+   "hasCrossDup": true,
+   "crossGroupIds": [
+    210
+   ],
+   "status": "待修复",
+   "fixedMark": false
+  }
+ ],
+ "C": [
+  {
+   "priority": "P0",
+   "batch": 189,
+   "file": "产出\\批次189\\银魂 THE FINAL（剧场版）.md",
+   "name": "银魂 THE FINAL（剧场版）",
+   "lib": "主库",
+   "issue": "机检错误:剧情 5919 字 < 10000 | 灌水标记:跨媒介流行作品、可被契约者切入的完整任务世界 | 跨世界重复(组#210·146个世界共用)",
+   "hasCrossDup": true,
+   "crossGroupIds": [
+    210
+   ],
+   "status": "待修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P0",
+   "batch": 189,
+   "file": "产出\\批次189\\银魂：完结篇 永远的万事屋（剧场版）.md",
+   "name": "银魂：完结篇 永远的万事屋（剧场版）",
+   "lib": "主库",
+   "issue": "机检错误:剧情 5935 字 < 10000 | 灌水标记:跨媒介流行作品、可被契约者切入的完整任务世界 | 跨世界重复(组#210·146个世界共用)",
+   "hasCrossDup": true,
+   "crossGroupIds": [
+    210
+   ],
+   "status": "待修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P0",
+   "batch": 189,
+   "file": "产出\\批次189\\约会大作战（动画S1）.md",
+   "name": "约会大作战（动画S1）",
+   "lib": "主库",
+   "issue": "机检错误:剧情 5889 字 < 10000 | 灌水标记:跨媒介流行作品、可被契约者切入的完整任务世界 | 跨世界重复(组#210·146个世界共用)",
+   "hasCrossDup": true,
+   "crossGroupIds": [
+    210,
+    222
+   ],
+   "status": "待修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P0",
+   "batch": 189,
+   "file": "产出\\批次189\\约会大作战（轻小说）.md",
+   "name": "约会大作战（轻小说）",
+   "lib": "主库",
+   "issue": "机检错误:剧情 8639 字 < 10000 | 警告:切入点疑似\"被封印\"式顶点解释",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "待修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P0",
+   "batch": 189,
+   "file": "产出\\批次189\\约会大作战II.md",
+   "name": "约会大作战II",
+   "lib": "主库",
+   "issue": "机检错误:剧情 7102 字 < 10000 | 灌水标记:可被契约者切入的完整任务世界",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "待修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P0",
+   "batch": 190,
+   "file": "产出\\批次190\\塞尔达传说（总览）.md",
+   "name": "塞尔达传说（总览）",
+   "lib": "主库",
+   "issue": "机检错误:剧情 5871 字 < 10000 | 灌水标记:跨媒介流行作品、可被契约者切入的完整任务世界 | 跨世界重复(组#210·146个世界共用)",
+   "hasCrossDup": true,
+   "crossGroupIds": [
+    210
+   ],
+   "status": "待修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P0",
+   "batch": 190,
+   "file": "产出\\批次190\\塞尔达传说2：林克的冒险.md",
+   "name": "塞尔达传说2：林克的冒险",
+   "lib": "主库",
+   "issue": "机检错误:剧情 5895 字 < 10000 | 灌水标记:跨媒介流行作品、可被契约者切入的完整任务世界 | 跨世界重复(组#210·146个世界共用)",
+   "hasCrossDup": true,
+   "crossGroupIds": [
+    210
+   ],
+   "status": "待修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P0",
+   "batch": 190,
+   "file": "产出\\批次190\\约会大作战III.md",
+   "name": "约会大作战III",
+   "lib": "主库",
+   "issue": "机检错误:剧情 5865 字 < 10000 | 灌水标记:跨媒介流行作品、可被契约者切入的完整任务世界 | 跨世界重复(组#210·146个世界共用)",
+   "hasCrossDup": true,
+   "crossGroupIds": [
+    210,
+    222
+   ],
+   "status": "待修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P0",
+   "batch": 190,
+   "file": "产出\\批次190\\约会大作战IV.md",
+   "name": "约会大作战IV",
+   "lib": "主库",
+   "issue": "机检错误:剧情 5857 字 < 10000 | 灌水标记:跨媒介流行作品、可被契约者切入的完整任务世界 | 跨世界重复(组#210·146个世界共用)",
+   "hasCrossDup": true,
+   "crossGroupIds": [
+    210,
+    222
+   ],
+   "status": "待修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P0",
+   "batch": 191,
+   "file": "产出\\批次191\\塞尔达传说：林克的觉醒.md",
+   "name": "塞尔达传说：林克的觉醒",
+   "lib": "主库",
+   "issue": "机检错误:剧情 5887 字 < 10000 | 灌水标记:跨媒介流行作品、可被契约者切入的完整任务世界 | 跨世界重复(组#210·146个世界共用)",
+   "hasCrossDup": true,
+   "crossGroupIds": [
+    210
+   ],
+   "status": "待修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P0",
+   "batch": 191,
+   "file": "产出\\批次191\\塞尔达传说：众神的三角力量.md",
+   "name": "塞尔达传说：众神的三角力量",
+   "lib": "主库",
+   "issue": "机检错误:剧情 5903 字 < 10000 | 灌水标记:跨媒介流行作品、可被契约者切入的完整任务世界 | 跨世界重复(组#210·146个世界共用)",
+   "hasCrossDup": true,
+   "crossGroupIds": [
+    210
+   ],
+   "status": "待修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P0",
+   "batch": 191,
+   "file": "产出\\批次191\\约会大作战：万由里裁决（剧场版）.md",
+   "name": "约会大作战：万由里裁决（剧场版）",
+   "lib": "主库",
+   "issue": "机检错误:剧情 5925 字 < 10000 | 灌水标记:跨媒介流行作品、可被契约者切入的完整任务世界 | 跨世界重复(组#210·146个世界共用)",
+   "hasCrossDup": true,
+   "crossGroupIds": [
+    210
+   ],
+   "status": "待修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P0",
+   "batch": 191,
+   "file": "产出\\批次191\\约会大作战V.md",
+   "name": "约会大作战V",
+   "lib": "主库",
+   "issue": "机检错误:剧情 5845 字 < 10000 | 灌水标记:跨媒介流行作品、可被契约者切入的完整任务世界 | 跨世界重复(组#210·146个世界共用)",
+   "hasCrossDup": true,
+   "crossGroupIds": [
+    210
+   ],
+   "status": "待修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P0",
+   "batch": 191,
+   "file": "产出\\批次191\\DATE A BULLET（轻小说）.md",
+   "name": "DATE A BULLET（轻小说）",
+   "lib": "主库",
+   "issue": "机检错误:剧情 7863 字 < 10000",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "待修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P0",
+   "batch": 192,
+   "file": "产出\\批次192\\脑叶公司（Lobotomy Corporation）.md",
+   "name": "脑叶公司（Lobotomy Corporation）",
+   "lib": "主库",
+   "issue": "机检错误:剧情 6001 字 < 10000 | 灌水标记:跨媒介流行作品、可被契约者切入的完整任务世界 | 跨世界重复(组#210·146个世界共用)",
+   "hasCrossDup": true,
+   "crossGroupIds": [
+    210,
+    222
+   ],
+   "status": "待修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P0",
+   "batch": 192,
+   "file": "产出\\批次192\\塞尔达传说：姆吉拉的假面.md",
+   "name": "塞尔达传说：姆吉拉的假面",
+   "lib": "主库",
+   "issue": "机检错误:剧情 5895 字 < 10000 | 灌水标记:跨媒介流行作品、可被契约者切入的完整任务世界 | 跨世界重复(组#210·146个世界共用)",
+   "hasCrossDup": true,
+   "crossGroupIds": [
+    210
+   ],
+   "status": "待修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P0",
+   "batch": 192,
+   "file": "产出\\批次192\\塞尔达传说：时之笛.md",
+   "name": "塞尔达传说：时之笛",
+   "lib": "主库",
+   "issue": "机检错误:剧情 7881 字 < 10000 | 灌水标记:可被契约者切入的完整任务世界",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "待修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P0",
+   "batch": 192,
+   "file": "产出\\批次192\\DATE A BULLET（动画：后篇）.md",
+   "name": "DATE A BULLET（动画：后篇）",
+   "lib": "主库",
+   "issue": "机检错误:剧情 5941 字 < 10000 | 灌水标记:跨媒介流行作品、可被契约者切入的完整任务世界 | 跨世界重复(组#210·146个世界共用)",
+   "hasCrossDup": true,
+   "crossGroupIds": [
+    210
+   ],
+   "status": "待修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P0",
+   "batch": 192,
+   "file": "产出\\批次192\\DATE A BULLET（动画：前篇）.md",
+   "name": "DATE A BULLET（动画：前篇）",
+   "lib": "主库",
+   "issue": "机检错误:剧情 5941 字 < 10000 | 灌水标记:跨媒介流行作品、可被契约者切入的完整任务世界 | 跨世界重复(组#210·146个世界共用)",
+   "hasCrossDup": true,
+   "crossGroupIds": [
+    210
+   ],
+   "status": "待修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P0",
+   "batch": 193,
+   "file": "产出\\批次193\\废墟图书馆（Library of Ruina）.md",
+   "name": "废墟图书馆（Library of Ruina）",
+   "lib": "主库",
+   "issue": "机检错误:剧情 5969 字 < 10000 | 灌水标记:跨媒介流行作品、可被契约者切入的完整任务世界 | 跨世界重复(组#210·146个世界共用)",
+   "hasCrossDup": true,
+   "crossGroupIds": [
+    210,
+    222
+   ],
+   "status": "待修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P0",
+   "batch": 193,
+   "file": "产出\\批次193\\鬼泣（Devil May Cry 1）.md",
+   "name": "鬼泣（Devil May Cry 1）",
+   "lib": "主库",
+   "issue": "机检错误:剧情 5927 字 < 10000 | 灌水标记:跨媒介流行作品、可被契约者切入的完整任务世界 | 跨世界重复(组#210·146个世界共用)",
+   "hasCrossDup": true,
+   "crossGroupIds": [
+    210
+   ],
+   "status": "待修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P0",
+   "batch": 193,
+   "file": "产出\\批次193\\塞尔达传说：风之杖.md",
+   "name": "塞尔达传说：风之杖",
+   "lib": "主库",
+   "issue": "机检错误:剧情 5871 字 < 10000 | 灌水标记:跨媒介流行作品、可被契约者切入的完整任务世界 | 跨世界重复(组#210·146个世界共用)",
+   "hasCrossDup": true,
+   "crossGroupIds": [
+    210
+   ],
+   "status": "待修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P0",
+   "batch": 193,
+   "file": "产出\\批次193\\塞尔达传说：神谕之时空章.md",
+   "name": "塞尔达传说：神谕之时空章",
+   "lib": "主库",
+   "issue": "机检错误:剧情 5895 字 < 10000 | 灌水标记:跨媒介流行作品、可被契约者切入的完整任务世界 | 跨世界重复(组#210·146个世界共用)",
+   "hasCrossDup": true,
+   "crossGroupIds": [
+    210
+   ],
+   "status": "待修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P0",
+   "batch": 193,
+   "file": "产出\\批次193\\塞尔达传说：神谕之章.md",
+   "name": "塞尔达传说：神谕之章",
+   "lib": "主库",
+   "issue": "机检错误:剧情 5879 字 < 10000 | 灌水标记:跨媒介流行作品、可被契约者切入的完整任务世界 | 跨世界重复(组#210·146个世界共用)",
+   "hasCrossDup": true,
+   "crossGroupIds": [
+    210
+   ],
+   "status": "待修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P0",
+   "batch": 194,
+   "file": "产出\\批次194\\塞尔达传说：黄昏公主.md",
+   "name": "塞尔达传说：黄昏公主",
+   "lib": "主库",
+   "issue": "机检错误:剧情 5879 字 < 10000 | 灌水标记:跨媒介流行作品、可被契约者切入的完整任务世界 | 跨世界重复(组#210·146个世界共用)",
+   "hasCrossDup": true,
+   "crossGroupIds": [
+    210
+   ],
+   "status": "待修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P0",
+   "batch": 194,
+   "file": "产出\\批次194\\塞尔达传说：四支剑.md",
+   "name": "塞尔达传说：四支剑",
+   "lib": "主库",
+   "issue": "机检错误:剧情 5871 字 < 10000 | 灌水标记:跨媒介流行作品、可被契约者切入的完整任务世界 | 跨世界重复(组#210·146个世界共用)",
+   "hasCrossDup": true,
+   "crossGroupIds": [
+    210
+   ],
+   "status": "待修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P0",
+   "batch": 194,
+   "file": "产出\\批次194\\塞尔达传说：四支剑+.md",
+   "name": "塞尔达传说：四支剑+",
+   "lib": "主库",
+   "issue": "机检错误:剧情 5879 字 < 10000 | 灌水标记:跨媒介流行作品、可被契约者切入的完整任务世界 | 跨世界重复(组#210·146个世界共用)",
+   "hasCrossDup": true,
+   "crossGroupIds": [
+    210
+   ],
+   "status": "待修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P0",
+   "batch": 194,
+   "file": "产出\\批次194\\塞尔达传说：缩小帽.md",
+   "name": "塞尔达传说：缩小帽",
+   "lib": "主库",
+   "issue": "机检错误:剧情 5871 字 < 10000 | 灌水标记:跨媒介流行作品、可被契约者切入的完整任务世界 | 跨世界重复(组#210·146个世界共用)",
+   "hasCrossDup": true,
+   "crossGroupIds": [
+    210
+   ],
+   "status": "待修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P0",
+   "batch": 194,
+   "file": "产出\\批次194\\DmC：鬼泣（重启）.md",
+   "name": "DmC：鬼泣（重启）",
+   "lib": "主库",
+   "issue": "机检错误:剧情 5881 字 < 10000 | 灌水标记:跨媒介流行作品、可被契约者切入的完整任务世界 | 跨世界重复(组#210·146个世界共用)",
+   "hasCrossDup": true,
+   "crossGroupIds": [
+    210,
+    222
+   ],
+   "status": "待修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P0",
+   "batch": 195,
+   "file": "产出\\批次195\\塞尔达传说：大地汽笛.md",
+   "name": "塞尔达传说：大地汽笛",
+   "lib": "主库",
+   "issue": "机检错误:剧情 5879 字 < 10000 | 灌水标记:跨媒介流行作品、可被契约者切入的完整任务世界 | 跨世界重复(组#210·146个世界共用)",
+   "hasCrossDup": true,
+   "crossGroupIds": [
+    210
+   ],
+   "status": "待修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P0",
+   "batch": 195,
+   "file": "产出\\批次195\\塞尔达传说：幻影沙漏.md",
+   "name": "塞尔达传说：幻影沙漏",
+   "lib": "主库",
+   "issue": "机检错误:剧情 5879 字 < 10000 | 灌水标记:跨媒介流行作品、可被契约者切入的完整任务世界 | 跨世界重复(组#210·146个世界共用)",
+   "hasCrossDup": true,
+   "crossGroupIds": [
+    210
+   ],
+   "status": "待修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P0",
+   "batch": 195,
+   "file": "产出\\批次195\\塞尔达传说：三角力量英雄.md",
+   "name": "塞尔达传说：三角力量英雄",
+   "lib": "主库",
+   "issue": "机检错误:剧情 5895 字 < 10000 | 灌水标记:跨媒介流行作品、可被契约者切入的完整任务世界 | 跨世界重复(组#210·146个世界共用)",
+   "hasCrossDup": true,
+   "crossGroupIds": [
+    210
+   ],
+   "status": "待修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P0",
+   "batch": 195,
+   "file": "产出\\批次195\\塞尔达传说：天空之剑.md",
+   "name": "塞尔达传说：天空之剑",
+   "lib": "主库",
+   "issue": "机检错误:剧情 5879 字 < 10000 | 灌水标记:跨媒介流行作品、可被契约者切入的完整任务世界 | 跨世界重复(组#210·146个世界共用)",
+   "hasCrossDup": true,
+   "crossGroupIds": [
+    210
+   ],
+   "status": "待修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P0",
+   "batch": 195,
+   "file": "产出\\批次195\\塞尔达传说：众神的三角力量2.md",
+   "name": "塞尔达传说：众神的三角力量2",
+   "lib": "主库",
+   "issue": "机检错误:剧情 5911 字 < 10000 | 灌水标记:跨媒介流行作品、可被契约者切入的完整任务世界 | 跨世界重复(组#210·146个世界共用)",
+   "hasCrossDup": true,
+   "crossGroupIds": [
+    210
+   ],
+   "status": "待修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P0",
+   "batch": 196,
+   "file": "产出\\批次196\\海拉鲁无双：灾厄启示录.md",
+   "name": "海拉鲁无双：灾厄启示录",
+   "lib": "主库",
+   "issue": "机检错误:剧情 5887 字 < 10000 | 灌水标记:跨媒介流行作品、可被契约者切入的完整任务世界 | 跨世界重复(组#210·146个世界共用)",
+   "hasCrossDup": true,
+   "crossGroupIds": [
+    210
+   ],
+   "status": "待修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P0",
+   "batch": 196,
+   "file": "产出\\批次196\\海拉鲁无双.md",
+   "name": "海拉鲁无双",
+   "lib": "主库",
+   "issue": "机检错误:剧情 5839 字 < 10000 | 灌水标记:跨媒介流行作品、可被契约者切入的完整任务世界 | 跨世界重复(组#210·146个世界共用)",
+   "hasCrossDup": true,
+   "crossGroupIds": [
+    210
+   ],
+   "status": "待修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P0",
+   "batch": 196,
+   "file": "产出\\批次196\\塞尔达传说：荒野之息.md",
+   "name": "塞尔达传说：荒野之息",
+   "lib": "主库",
+   "issue": "机检错误:剧情 7324 字 < 10000 | 警告:切入点疑似\"被封印\"式顶点解释",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "待修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P0",
+   "batch": 196,
+   "file": "产出\\批次196\\塞尔达传说：王国之泪.md",
+   "name": "塞尔达传说：王国之泪",
+   "lib": "主库",
+   "issue": "机检错误:剧情 5879 字 < 10000 | 灌水标记:跨媒介流行作品、可被契约者切入的完整任务世界 | 跨世界重复(组#210·146个世界共用)",
+   "hasCrossDup": true,
+   "crossGroupIds": [
+    210
+   ],
+   "status": "待修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P0",
+   "batch": 196,
+   "file": "产出\\批次196\\弑神者（Campione!）.md",
+   "name": "弑神者（Campione!）",
+   "lib": "主库",
+   "issue": "机检错误:剧情 5913 字 < 10000 | 灌水标记:跨媒介流行作品、可被契约者切入的完整任务世界 | 跨世界重复(组#210·146个世界共用)",
+   "hasCrossDup": true,
+   "crossGroupIds": [
+    210,
+    222
+   ],
+   "status": "待修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P0",
+   "batch": 197,
+   "file": "产出\\批次197\\地狱之歌（Hellsing）.md",
+   "name": "地狱之歌（Hellsing）",
+   "lib": "主库",
+   "issue": "机检错误:剧情 8377 字 < 10000 | 警告:切入点疑似\"被封印\"式顶点解释",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "待修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P0",
+   "batch": 197,
+   "file": "产出\\批次197\\极道帝兵.md",
+   "name": "极道帝兵",
+   "lib": "主库",
+   "issue": "机检错误:剧情 5829 字 < 10000 | 灌水标记:跨媒介流行作品、可被契约者切入的完整任务世界 | 跨世界重复(组#210·146个世界共用)",
+   "hasCrossDup": true,
+   "crossGroupIds": [
+    210
+   ],
+   "status": "待修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P0",
+   "batch": 197,
+   "file": "产出\\批次197\\魔装学园H×H.md",
+   "name": "魔装学园H×H",
+   "lib": "主库",
+   "issue": "机检错误:剧情 5857 字 < 10000 | 灌水标记:跨媒介流行作品、可被契约者切入的完整任务世界 | 跨世界重复(组#210·146个世界共用)",
+   "hasCrossDup": true,
+   "crossGroupIds": [
+    210,
+    222
+   ],
+   "status": "待修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P0",
+   "batch": 197,
+   "file": "产出\\批次197\\狩龙者拉格纳.md",
+   "name": "狩龙者拉格纳",
+   "lib": "主库",
+   "issue": "机检错误:剧情 5849 字 < 10000 | 灌水标记:跨媒介流行作品、可被契约者切入的完整任务世界 | 跨世界重复(组#210·146个世界共用)",
+   "hasCrossDup": true,
+   "crossGroupIds": [
+    210,
+    222
+   ],
+   "status": "待修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P0",
+   "batch": 197,
+   "file": "产出\\批次197\\我有一座冒险屋（小说）.md",
+   "name": "我有一座冒险屋（小说）",
+   "lib": "主库",
+   "issue": "机检错误:剧情 5887 字 < 10000 | 灌水标记:跨媒介流行作品、可被契约者切入的完整任务世界 | 跨世界重复(组#210·146个世界共用)",
+   "hasCrossDup": true,
+   "crossGroupIds": [
+    210
+   ],
+   "status": "待修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P0",
+   "batch": 198,
+   "file": "产出\\批次198\\怪物猎人（初代）.md",
+   "name": "怪物猎人（初代）",
+   "lib": "主库",
+   "issue": "机检错误:剧情 5865 字 < 10000 | 灌水标记:跨媒介流行作品、可被契约者切入的完整任务世界 | 跨世界重复(组#210·146个世界共用)",
+   "hasCrossDup": true,
+   "crossGroupIds": [
+    210,
+    222
+   ],
+   "status": "待修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P0",
+   "batch": 198,
+   "file": "产出\\批次198\\惊悚乐园（小说）.md",
+   "name": "惊悚乐园（小说）",
+   "lib": "主库",
+   "issue": "机检错误:剧情 5863 字 < 10000 | 灌水标记:跨媒介流行作品、可被契约者切入的完整任务世界 | 跨世界重复(组#210·146个世界共用)",
+   "hasCrossDup": true,
+   "crossGroupIds": [
+    210
+   ],
+   "status": "待修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P0",
+   "batch": 198,
+   "file": "产出\\批次198\\七人魔法使.md",
+   "name": "七人魔法使",
+   "lib": "主库",
+   "issue": "机检错误:剧情 5841 字 < 10000 | 灌水标记:跨媒介流行作品、可被契约者切入的完整任务世界 | 跨世界重复(组#210·146个世界共用)",
+   "hasCrossDup": true,
+   "crossGroupIds": [
+    210,
+    222
+   ],
+   "status": "待修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P0",
+   "batch": 198,
+   "file": "产出\\批次198\\文豪野犬（漫画）.md",
+   "name": "文豪野犬（漫画）",
+   "lib": "主库",
+   "issue": "机检错误:剧情 5865 字 < 10000 | 灌水标记:跨媒介流行作品、可被契约者切入的完整任务世界 | 跨世界重复(组#210·146个世界共用)",
+   "hasCrossDup": true,
+   "crossGroupIds": [
+    210,
+    222
+   ],
+   "status": "待修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P0",
+   "batch": 198,
+   "file": "产出\\批次198\\最后的大魔王.md",
+   "name": "最后的大魔王",
+   "lib": "主库",
+   "issue": "机检错误:剧情 5849 字 < 10000 | 灌水标记:跨媒介流行作品、可被契约者切入的完整任务世界 | 跨世界重复(组#210·146个世界共用)",
+   "hasCrossDup": true,
+   "crossGroupIds": [
+    210,
+    222
+   ],
+   "status": "待修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P0",
+   "batch": 199,
+   "file": "产出\\批次199\\怪物猎人2（Dos）.md",
+   "name": "怪物猎人2（Dos）",
+   "lib": "主库",
+   "issue": "机检错误:剧情 5881 字 < 10000 | 灌水标记:跨媒介流行作品、可被契约者切入的完整任务世界 | 跨世界重复(组#210·146个世界共用)",
+   "hasCrossDup": true,
+   "crossGroupIds": [
+    210,
+    222
+   ],
+   "status": "待修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P0",
+   "batch": 199,
+   "file": "产出\\批次199\\怪物猎人G.md",
+   "name": "怪物猎人G",
+   "lib": "主库",
+   "issue": "机检错误:剧情 5841 字 < 10000 | 灌水标记:跨媒介流行作品、可被契约者切入的完整任务世界 | 跨世界重复(组#210·146个世界共用)",
+   "hasCrossDup": true,
+   "crossGroupIds": [
+    210,
+    222
+   ],
+   "status": "待修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P0",
+   "batch": 199,
+   "file": "产出\\批次199\\文豪野犬（动画S1）.md",
+   "name": "文豪野犬（动画S1）",
+   "lib": "主库",
+   "issue": "机检错误:剧情 5881 字 < 10000 | 灌水标记:跨媒介流行作品、可被契约者切入的完整任务世界 | 跨世界重复(组#210·146个世界共用)",
+   "hasCrossDup": true,
+   "crossGroupIds": [
+    210,
+    222
+   ],
+   "status": "待修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P0",
+   "batch": 199,
+   "file": "产出\\批次199\\文豪野犬（动画S2）.md",
+   "name": "文豪野犬（动画S2）",
+   "lib": "主库",
+   "issue": "机检错误:剧情 5881 字 < 10000 | 灌水标记:跨媒介流行作品、可被契约者切入的完整任务世界 | 跨世界重复(组#210·146个世界共用)",
+   "hasCrossDup": true,
+   "crossGroupIds": [
+    210,
+    222
+   ],
+   "status": "待修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P0",
+   "batch": 199,
+   "file": "产出\\批次199\\文豪野犬（动画S3）.md",
+   "name": "文豪野犬（动画S3）",
+   "lib": "主库",
+   "issue": "机检错误:剧情 5881 字 < 10000 | 灌水标记:跨媒介流行作品、可被契约者切入的完整任务世界 | 跨世界重复(组#210·146个世界共用)",
+   "hasCrossDup": true,
+   "crossGroupIds": [
+    210,
+    222
+   ],
+   "status": "待修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P0",
+   "batch": 200,
+   "file": "产出\\批次200\\怪物猎人3（Tri）.md",
+   "name": "怪物猎人3（Tri）",
+   "lib": "主库",
+   "issue": "机检错误:剧情 5881 字 < 10000 | 灌水标记:跨媒介流行作品、可被契约者切入的完整任务世界 | 跨世界重复(组#210·146个世界共用)",
+   "hasCrossDup": true,
+   "crossGroupIds": [
+    210,
+    222
+   ],
+   "status": "待修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P0",
+   "batch": 200,
+   "file": "产出\\批次200\\怪物猎人3G－Ultimate.md",
+   "name": "怪物猎人3G/Ultimate",
+   "lib": "主库",
+   "issue": "机检错误:剧情 5921 字 < 10000 | 灌水标记:跨媒介流行作品、可被契约者切入的完整任务世界 | 跨世界重复(组#210·146个世界共用)",
+   "hasCrossDup": true,
+   "crossGroupIds": [
+    210,
+    222
+   ],
+   "status": "待修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P0",
+   "batch": 200,
+   "file": "产出\\批次200\\怪物猎人4.md",
+   "name": "怪物猎人4",
+   "lib": "主库",
+   "issue": "机检错误:剧情 5841 字 < 10000 | 灌水标记:跨媒介流行作品、可被契约者切入的完整任务世界 | 跨世界重复(组#210·146个世界共用)",
+   "hasCrossDup": true,
+   "crossGroupIds": [
+    210,
+    222
+   ],
+   "status": "待修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P0",
+   "batch": 200,
+   "file": "产出\\批次200\\文豪野犬（动画S4）.md",
+   "name": "文豪野犬（动画S4）",
+   "lib": "主库",
+   "issue": "机检错误:剧情 5881 字 < 10000 | 灌水标记:跨媒介流行作品、可被契约者切入的完整任务世界 | 跨世界重复(组#210·146个世界共用)",
+   "hasCrossDup": true,
+   "crossGroupIds": [
+    210,
+    222
+   ],
+   "status": "待修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P0",
+   "batch": 200,
+   "file": "产出\\批次200\\文豪野犬（动画S5）.md",
+   "name": "文豪野犬（动画S5）",
+   "lib": "主库",
+   "issue": "机检错误:剧情 5881 字 < 10000 | 灌水标记:跨媒介流行作品、可被契约者切入的完整任务世界 | 跨世界重复(组#210·146个世界共用)",
+   "hasCrossDup": true,
+   "crossGroupIds": [
+    210,
+    222
+   ],
+   "status": "待修复",
+   "fixedMark": false
+  }
+ ],
+ "D": [
+  {
+   "priority": "P0",
+   "batch": 241,
+   "file": "产出\\批次241\\Muv-Luv-Alternative计划.md",
+   "name": "Muv-Luv-Alternative计划",
+   "lib": "主库",
+   "issue": "机检错误:剧情 9884 字 < 10000",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "待修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P0",
+   "batch": 251,
+   "file": "产出\\批次251\\对魔忍雪风-母女再会.md",
+   "name": "对魔忍雪风-母女再会",
+   "lib": "主库",
+   "issue": "机检错误:剧情 8939 字 < 10000 | 跨世界重复(组#268·4个世界共用)",
+   "hasCrossDup": true,
+   "crossGroupIds": [
+    268,
+    269,
+    270,
+    271,
+    272,
+    273,
+    274,
+    275,
+    276,
+    277,
+    278,
+    267
+   ],
+   "status": "待修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P0",
+   "batch": 251,
+   "file": "产出\\批次251\\对魔忍雪风-同伴双堕.md",
+   "name": "对魔忍雪风-同伴双堕",
+   "lib": "主库",
+   "issue": "机检错误:剧情 9563 字 < 10000 | 跨世界重复(组#268·4个世界共用)",
+   "hasCrossDup": true,
+   "crossGroupIds": [
+    268,
+    269,
+    270,
+    271,
+    272,
+    273,
+    274,
+    275,
+    276,
+    277,
+    278,
+    267
+   ],
+   "status": "待修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P0",
+   "batch": 251,
+   "file": "产出\\批次251\\对魔忍雪风-新人堕落.md",
+   "name": "对魔忍雪风-新人堕落",
+   "lib": "主库",
+   "issue": "机检错误:剧情 9168 字 < 10000 | 跨世界重复(组#268·4个世界共用)",
+   "hasCrossDup": true,
+   "crossGroupIds": [
+    268,
+    269,
+    270,
+    271,
+    272,
+    273,
+    274,
+    275,
+    276,
+    277,
+    278,
+    267
+   ],
+   "status": "待修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P0",
+   "batch": 265,
+   "file": "产出\\批次265\\奴隶区-完全服从.md",
+   "name": "奴隶区-完全服从",
+   "lib": "主库",
+   "issue": "机检错误:剧情 9837 字 < 10000",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "待修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P0",
+   "batch": 274,
+   "file": "产出\\批次274\\月姬 (Tsukihime Original).md",
+   "name": "月姬 (Tsukihime Original)",
+   "lib": "休闲",
+   "issue": "机检错误:剧情 5046 字 < 6000",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "待修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P0",
+   "batch": 281,
+   "file": "产出\\批次281\\君与她与她的恋爱 (Totono).md",
+   "name": "君与她与她的恋爱 (Totono)",
+   "lib": "休闲",
+   "issue": "机检错误:剧情 5883 字 < 6000",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "待修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P0",
+   "batch": 292,
+   "file": "产出\\批次292\\美少女万华镜1－ 被诅咒的传说少女.md",
+   "name": "美少女万华镜1: 被诅咒的传说少女",
+   "lib": "休闲",
+   "issue": "机检错误:剧情 5821 字 < 6000",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "待修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P0",
+   "batch": 292,
+   "file": "产出\\批次292\\美少女万华镜2－ 勿忘草与永远的少女.md",
+   "name": "美少女万华镜2: 勿忘草与永远的少女",
+   "lib": "休闲",
+   "issue": "机检错误:剧情 5714 字 < 6000",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "待修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P0",
+   "batch": 292,
+   "file": "产出\\批次292\\美少女万华镜2.5－ 献给曾是少女的你.md",
+   "name": "美少女万华镜2.5: 献给曾是少女的你",
+   "lib": "休闲",
+   "issue": "机检错误:剧情 5697 字 < 6000",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "待修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P0",
+   "batch": 292,
+   "file": "产出\\批次292\\美少女万华镜3－ 神明创造的少女们.md",
+   "name": "美少女万华镜3: 神明创造的少女们",
+   "lib": "休闲",
+   "issue": "机检错误:剧情 5697 字 < 6000",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "待修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P0",
+   "batch": 292,
+   "file": "产出\\批次292\\美少女万华镜4－ 罪与罚的少女.md",
+   "name": "美少女万华镜4: 罪与罚的少女",
+   "lib": "休闲",
+   "issue": "机检错误:剧情 5520 字 < 6000",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "待修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P0",
+   "batch": 293,
+   "file": "产出\\批次293\\美少女万华镜5－ 理与迷宫的少女.md",
+   "name": "美少女万华镜5: 理与迷宫的少女",
+   "lib": "休闲",
+   "issue": "机检错误:剧情 5594 字 < 6000",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "待修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P0",
+   "batch": 317,
+   "file": "产出\\批次317\\终之空 Remake (Tsui no Sora Remake).md",
+   "name": "终之空 Remake (Tsui no Sora Remake)",
+   "lib": "休闲",
+   "issue": "机检错误:剧情 5852 字 < 6000 | 跨世界重复(组#362·3个世界共用)",
+   "hasCrossDup": true,
+   "crossGroupIds": [
+    362
+   ],
+   "status": "待修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P0",
+   "batch": 330,
+   "file": "产出\\批次330\\OVA 巨乳プリンセス催眠.md",
+   "name": "OVA 巨乳プリンセス催眠",
+   "lib": "休闲",
+   "issue": "机检错误:剧情 5969 字 < 6000 | 跨世界重复(组#401·14个世界共用)",
+   "hasCrossDup": true,
+   "crossGroupIds": [
+    401,
+    402
+   ],
+   "status": "待修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P0",
+   "batch": 495,
+   "file": "产出\\批次495\\聖騎士団-歴史博物館拡張.md",
+   "name": "聖騎士団-歴史博物館拡張",
+   "lib": "休闲",
+   "issue": "机检错误:剧情 5898 字 < 6000",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "待修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P0",
+   "batch": 499,
+   "file": "产出\\批次499\\エルフ歌劇団-海外公演.md",
+   "name": "エルフ歌劇団-海外公演",
+   "lib": "休闲",
+   "issue": "机检错误:剧情 4926 字 < 6000/切入点 988 字 < 1500",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "待修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P0",
+   "batch": 515,
+   "file": "产出\\批次515\\女神降临.md",
+   "name": "女神降临",
+   "lib": "主库",
+   "issue": "机检错误:剧情 7459 字 < 10000/切入点 1243 字 < 1500 | 警告:来源链接 0 条 < 3",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "待修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P0",
+   "batch": 515,
+   "file": "产出\\批次515\\外貌至上主义.md",
+   "name": "外貌至上主义",
+   "lib": "主库",
+   "issue": "机检错误:剧情 7939 字 < 10000 | 警告:切入点疑似\"被封印\"式顶点解释",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "待修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P0",
+   "batch": 515,
+   "file": "产出\\批次515\\再婚皇后.md",
+   "name": "再婚皇后",
+   "lib": "主库",
+   "issue": "机检错误:剧情 9972 字 < 10000",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "待修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P0",
+   "batch": 524,
+   "file": "产出\\批次524\\小丑回魂（IT）.md",
+   "name": "小丑回魂（IT）",
+   "lib": "主库",
+   "issue": "机检错误:剧情 8019 字 < 10000",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "待修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P0",
+   "batch": 526,
+   "file": "产出\\批次526\\古墓丽影.md",
+   "name": "古墓丽影",
+   "lib": "主库",
+   "issue": "机检错误:剧情 9099 字 < 10000",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "待修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P0",
+   "batch": 527,
+   "file": "产出\\批次527\\半衰期.md",
+   "name": "半衰期",
+   "lib": "主库",
+   "issue": "机检错误:剧情 7656 字 < 10000",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "待修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P0",
+   "batch": 527,
+   "file": "产出\\批次527\\彩虹六号.md",
+   "name": "彩虹六号",
+   "lib": "主库",
+   "issue": "机检错误:剧情 9398 字 < 10000",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "待修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P0",
+   "batch": 527,
+   "file": "产出\\批次527\\传送门.md",
+   "name": "传送门",
+   "lib": "主库",
+   "issue": "机检错误:剧情 7216 字 < 10000",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "待修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P0",
+   "batch": 527,
+   "file": "产出\\批次527\\反恐精英.md",
+   "name": "反恐精英",
+   "lib": "主库",
+   "issue": "机检错误:剧情 8089 字 < 10000",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "待修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P0",
+   "batch": 527,
+   "file": "产出\\批次527\\战争机器.md",
+   "name": "战争机器",
+   "lib": "主库",
+   "issue": "机检错误:剧情 8364 字 < 10000",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "待修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P0",
+   "batch": 528,
+   "file": "产出\\批次528\\王国之心.md",
+   "name": "王国之心",
+   "lib": "主库",
+   "issue": "机检错误:剧情 6955 字 < 10000",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "待修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P0",
+   "batch": 528,
+   "file": "产出\\批次528\\真·女神转生.md",
+   "name": "真·女神转生",
+   "lib": "主库",
+   "issue": "机检错误:剧情 8291 字 < 10000",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "待修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P0",
+   "batch": 531,
+   "file": "产出\\批次531\\使命召唤：黑色行动.md",
+   "name": "使命召唤：黑色行动",
+   "lib": "主库",
+   "issue": "机检错误:剧情 9651 字 < 10000",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "待修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P0",
+   "batch": 581,
+   "file": "产出\\批次581\\青蛇.md",
+   "name": "青蛇",
+   "lib": "主库",
+   "issue": "机检错误:剧情 5817 字 < 10000/切入点 1495 字 < 1500",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "待修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P0",
+   "batch": 591,
+   "file": "产出\\批次591\\决战中途岛.md",
+   "name": "决战中途岛",
+   "lib": "主库",
+   "issue": "机检错误:剧情 6710 字 < 10000/切入点 1471 字 < 1500",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "待修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P0",
+   "batch": 598,
+   "file": "产出\\批次598\\诸天万界.md",
+   "name": "诸天万界",
+   "lib": "主库",
+   "issue": "机检错误:剧情 4756 字 < 10000",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "待修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P0",
+   "batch": 608,
+   "file": "产出\\批次608\\机动警察.md",
+   "name": "机动警察",
+   "lib": "主库",
+   "issue": "机检错误:剧情 7329 字 < 10000",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "待修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P0",
+   "batch": 608,
+   "file": "产出\\批次608\\恐鬼症（Phasmophobia）.md",
+   "name": "恐鬼症（Phasmophobia）",
+   "lib": "主库",
+   "issue": "机检错误:剧情 2231 字 < 10000 | 跨世界重复(组#750·3个世界共用)",
+   "hasCrossDup": true,
+   "crossGroupIds": [
+    750
+   ],
+   "status": "待修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P0",
+   "batch": 608,
+   "file": "产出\\批次608\\致命公司（Lethal Company）.md",
+   "name": "致命公司（Lethal Company）",
+   "lib": "主库",
+   "issue": "机检错误:剧情 2189 字 < 10000 | 跨世界重复(组#750·3个世界共用)",
+   "hasCrossDup": true,
+   "crossGroupIds": [
+    750
+   ],
+   "status": "待修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P0",
+   "batch": 608,
+   "file": "产出\\批次608\\装甲骑兵.md",
+   "name": "装甲骑兵",
+   "lib": "主库",
+   "issue": "机检错误:剧情 2433 字 < 10000 | 跨世界重复(组#750·3个世界共用)",
+   "hasCrossDup": true,
+   "crossGroupIds": [
+    750
+   ],
+   "status": "待修复",
+   "fixedMark": false
+  }
+ ],
+ "E": [
+  {
+   "priority": "P0",
+   "batch": 619,
+   "file": "产出\\批次619\\导火线.md",
+   "name": "导火线",
+   "lib": "主库",
+   "issue": "机检错误:剧情 8820 字 < 10000",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "待修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P0",
+   "batch": 619,
+   "file": "产出\\批次619\\精武门（李小龙）.md",
+   "name": "精武门（李小龙）",
+   "lib": "主库",
+   "issue": "机检错误:剧情 7149 字 < 10000",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "待修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P0",
+   "batch": 619,
+   "file": "产出\\批次619\\猛龙过江.md",
+   "name": "猛龙过江",
+   "lib": "主库",
+   "issue": "机检错误:剧情 8066 字 < 10000",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "待修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P0",
+   "batch": 619,
+   "file": "产出\\批次619\\杀破狼.md",
+   "name": "杀破狼",
+   "lib": "主库",
+   "issue": "机检错误:剧情 8826 字 < 10000",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "待修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P0",
+   "batch": 619,
+   "file": "产出\\批次619\\死亡游戏.md",
+   "name": "死亡游戏",
+   "lib": "主库",
+   "issue": "机检错误:剧情 8241 字 < 10000",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "待修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P0",
+   "batch": 620,
+   "file": "产出\\批次620\\神奇四侠.md",
+   "name": "神奇四侠",
+   "lib": "主库",
+   "issue": "机检错误:剧情 1770 字 < 10000",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "待修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P0",
+   "batch": 620,
+   "file": "产出\\批次620\\银影侠.md",
+   "name": "银影侠",
+   "lib": "主库",
+   "issue": "机检错误:剧情 1427 字 < 10000",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "待修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P0",
+   "batch": 628,
+   "file": "产出\\批次628\\合金弹头.md",
+   "name": "合金弹头",
+   "lib": "主库",
+   "issue": "机检错误:切入点 1150 字 < 1500 | 跨世界重复(组#753·4个世界共用)",
+   "hasCrossDup": true,
+   "crossGroupIds": [
+    753
+   ],
+   "status": "待修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P0",
+   "batch": 628,
+   "file": "产出\\批次628\\剑侠奇缘.md",
+   "name": "剑侠奇缘",
+   "lib": "主库",
+   "issue": "机检错误:切入点 1455 字 < 1500 | 跨世界重复(组#753·4个世界共用)",
+   "hasCrossDup": true,
+   "crossGroupIds": [
+    753
+   ],
+   "status": "待修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P0",
+   "batch": 628,
+   "file": "产出\\批次628\\恐龙快打.md",
+   "name": "恐龙快打",
+   "lib": "主库",
+   "issue": "机检错误:切入点 1150 字 < 1500 | 跨世界重复(组#753·4个世界共用)",
+   "hasCrossDup": true,
+   "crossGroupIds": [
+    753
+   ],
+   "status": "待修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P0",
+   "batch": 628,
+   "file": "产出\\批次628\\名将（Captain Commando）.md",
+   "name": "名将（Captain Commando）",
+   "lib": "主库",
+   "issue": "机检错误:切入点 1156 字 < 1500 | 跨世界重复(组#753·4个世界共用)",
+   "hasCrossDup": true,
+   "crossGroupIds": [
+    753
+   ],
+   "status": "待修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P0",
+   "batch": 715,
+   "file": "产出\\批次715\\催眠性指導.md",
+   "name": "催眠性指導",
+   "lib": "休闲",
+   "issue": "结构异常",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "待修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P0",
+   "batch": 715,
+   "file": "产出\\批次715\\夢魔の街コルネリカ 第二話 お仕事たくさんコルネリカ.md",
+   "name": "夢魔の街コルネリカ 第二話 お仕事たくさんコルネリカ",
+   "lib": "休闲",
+   "issue": "机检错误:剧情 5863 字 < 6000",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "待修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P0",
+   "batch": 715,
+   "file": "产出\\批次715\\我が家のリリアナさん.md",
+   "name": "我が家のリリアナさん",
+   "lib": "休闲",
+   "issue": "结构异常",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "待修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P0",
+   "batch": 715,
+   "file": "产出\\批次715\\しゅうでんごかぷせるほてるでじょうしにびねつつたわるよる[終電後､カプセルホテルで､上司に微熱伝わる夜｡ 完全版.md",
+   "name": "しゅうでんごかぷせるほてるでじょうしにびねつつたわるよる[終電後､カプセルホテルで､上司に微熱伝わる夜｡ 完全版",
+   "lib": "休闲",
+   "issue": "结构异常",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "待修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P0",
+   "batch": 715,
+   "file": "产出\\批次715\\マックスハート 媚姉誘淫ファミレス風・更紗.md",
+   "name": "マックスハート 媚姉誘淫ファミレス風・更紗",
+   "lib": "休闲",
+   "issue": "结构异常",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "待修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P0",
+   "batch": 719,
+   "file": "产出\\批次719\\マックスハート 変態かてきょ・更紗.md",
+   "name": "マックスハート 変態かてきょ・更紗",
+   "lib": "休闲",
+   "issue": "机检错误:剧情 5824 字 < 6000",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "待修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P0",
+   "batch": 721,
+   "file": "产出\\批次721\\自宅警備員 ターゲット：由紀.md",
+   "name": "自宅警備員 ターゲット:由紀",
+   "lib": "休闲",
+   "issue": "机检错误:剧情 2446 字 < 6000 | 文件名不符",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "待修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P0",
+   "batch": 733,
+   "file": "产出\\批次733\\○○交配 第三話 傲慢な彼女は竜の長.md",
+   "name": "○○交配 第三話 傲慢な彼女は竜の長",
+   "lib": "休闲",
+   "issue": "机检错误:剧情 2676 字 < 6000",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "待修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P0",
+   "batch": 733,
+   "file": "产出\\批次733\\巨乳プリンセス催眠 第1話 Revenge.md",
+   "name": "巨乳プリンセス催眠 第1話 Revenge",
+   "lib": "休闲",
+   "issue": "机检错误:剧情 2661 字 < 6000",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "待修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P0",
+   "batch": 733,
+   "file": "产出\\批次733\\色情教団 第二話.md",
+   "name": "色情教団 第二話",
+   "lib": "休闲",
+   "issue": "机检错误:剧情 2809 字 < 6000",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "待修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P0",
+   "batch": 733,
+   "file": "产出\\批次733\\自宅警備員2 灰原家の血族 第一話 巨乳エリート従兄妹・玲奈.md",
+   "name": "自宅警備員2 灰原家の血族 第一話 巨乳エリート従兄妹・玲奈",
+   "lib": "休闲",
+   "issue": "机检错误:剧情 3359 字 < 6000",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "待修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P0",
+   "batch": 733,
+   "file": "产出\\批次733\\おーばーふろぉ 完全版.md",
+   "name": "おーばーふろぉ 完全版",
+   "lib": "休闲",
+   "issue": "机检错误:剧情 2694 字 < 6000",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "待修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P0",
+   "batch": 734,
+   "file": "产出\\批次734\\○○交配 第四話 淫らな彼女たちは俺の教え子.md",
+   "name": "○○交配 第四話 淫らな彼女たちは俺の教え子",
+   "lib": "休闲",
+   "issue": "机检错误:剧情 2489 字 < 6000",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "待修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P0",
+   "batch": 734,
+   "file": "产出\\批次734\\初めてのヒトヅマ 第1話 俺が見たことのない彼女.md",
+   "name": "",
+   "lib": "?",
+   "issue": "机检错误:剧情 7742 字 < 10000 | 灌水标记:【再补 | 警告:剧情缺段落 【世界观 · 力量体系】；剧情缺段落 【世界剧情线】",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "待修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P0",
+   "batch": 734,
+   "file": "产出\\批次734\\小さな蕾のその奥に…….md",
+   "name": "小さな蕾のその奥に……",
+   "lib": "休闲",
+   "issue": "机检错误:剧情 2466 字 < 6000",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "待修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P0",
+   "batch": 734,
+   "file": "产出\\批次734\\卒業○○電車 一輌目 思い出の○○巨乳教師は狙われている.md",
+   "name": "卒業○○電車 一輌目 思い出の○○巨乳教師は狙われている",
+   "lib": "休闲",
+   "issue": "机检错误:剧情 2576 字 < 6000",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "待修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P0",
+   "batch": 734,
+   "file": "产出\\批次734\\すけっとさんじょうきんぱつきょにゅうがあるとねつもりぜっちょうぷれい1助っ人参上!! 金髪巨乳ガールと熱盛絶頂プレイ.md",
+   "name": "すけっとさんじょうきんぱつきょにゅうがあるとねつもりぜっちょうぷれい1助っ人参上!! 金髪巨乳ガールと熱盛絶頂プレイ",
+   "lib": "休闲",
+   "issue": "机检错误:剧情 2597 字 < 6000",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "待修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P0",
+   "batch": 734,
+   "file": "产出\\批次734\\てにおはっ!2 リミットオーバー.md",
+   "name": "てにおはっ!2 リミットオーバー",
+   "lib": "休闲",
+   "issue": "机检错误:剧情 2486 字 < 6000",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "待修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P0",
+   "batch": 758,
+   "file": "产出\\批次758\\家属 〜母と姉妹の嬌声〜 足裏熟女・乙葉〜指示裏ハマるつちふまず.md",
+   "name": "家属 〜母と姉妹の嬌声〜 足裏熟女・乙葉〜指示裏ハマるつちふまず",
+   "lib": "休闲",
+   "issue": "结构异常",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "待修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P0",
+   "batch": 764,
+   "file": "产出\\批次764\\○○交配 第六話 真面目な彼女は鬼の姫巫女.md",
+   "name": "○○交配 第六話 真面目な彼女は鬼の姫巫女",
+   "lib": "休闲",
+   "issue": "机检错误:剧情 5102 字 < 6000 | 灌水标记:【补密",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "待修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P0",
+   "batch": 764,
+   "file": "产出\\批次764\\少女Z 第三話 あなた、ヤンクレママですよね。旦那に万引きがバレていいんですか.md",
+   "name": "少女Z 第三話 あなた、ヤンクレママですよね。旦那に万引きがバレていいんですか",
+   "lib": "休闲",
+   "issue": "机检错误:剧情 4206 字 < 6000 | 灌水标记:【补密",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "待修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P0",
+   "batch": 764,
+   "file": "产出\\批次764\\おたくにやさしいぎゃるとかきょにゅうのおさななじみとか2オタクに優しいギャルとか、巨乳の幼なじみとか。②.md",
+   "name": "おたくにやさしいぎゃるとかきょにゅうのおさななじみとか2オタクに優しいギャルとか、巨乳の幼なじみとか。②",
+   "lib": "休闲",
+   "issue": "机检错误:剧情 4316 字 < 6000 | 灌水标记:【补密",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "待修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P0",
+   "batch": 765,
+   "file": "产出\\批次765\\しょじょはおねえさまにこいしてるみっつのきらぼし1[処女はお姉さまに恋してる 三つのきら星.md",
+   "name": "しょじょはおねえさまにこいしてるみっつのきらぼし1[処女はお姉さまに恋してる 三つのきら星",
+   "lib": "休闲",
+   "issue": "机检错误:剧情 5185 字 < 6000",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "待修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P0",
+   "batch": 771,
+   "file": "产出\\批次771\\姪っ子をもう一人ラブホに連れ込んで、さらにヤリたい放題 憧憬クルエロ・真冬.md",
+   "name": "姪っ子をもう一人ラブホに連れ込んで、さらにヤリたい放題 憧憬クルエロ・真冬",
+   "lib": "休闲",
+   "issue": "机检错误:剧情 4998 字 < 6000",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "待修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P0",
+   "batch": 774,
+   "file": "产出\\批次774\\君が望む永遠.md",
+   "name": "君が望む永遠",
+   "lib": "休闲",
+   "issue": "机检错误:剧情 3480 字 < 6000",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "待修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P0",
+   "batch": 774,
+   "file": "产出\\批次774\\ToHeart.md",
+   "name": "ToHeart",
+   "lib": "休闲",
+   "issue": "机检错误:剧情 4080 字 < 6000",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "待修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P0",
+   "batch": 780,
+   "file": "产出\\批次780\\夏空のペルセウス.md",
+   "name": "夏空のペルセウス",
+   "lib": "休闲",
+   "issue": "机检错误:剧情 5371 字 < 6000",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "待修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P0",
+   "batch": 780,
+   "file": "产出\\批次780\\夏ノ終熄.md",
+   "name": "夏ノ終熄",
+   "lib": "休闲",
+   "issue": "机检错误:剧情 5288 字 < 6000",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "待修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P0",
+   "batch": 780,
+   "file": "产出\\批次780\\ハルキス.md",
+   "name": "ハルキス",
+   "lib": "休闲",
+   "issue": "机检错误:剧情 5227 字 < 6000",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "待修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P0",
+   "batch": 781,
+   "file": "产出\\批次781\\夏色ハイスクル★青春白書.md",
+   "name": "夏色ハイスクル★青春白書",
+   "lib": "休闲",
+   "issue": "机检错误:剧情 5447 字 < 6000",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "待修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P0",
+   "batch": 781,
+   "file": "产出\\批次781\\グリザイア：ファントムトリガー.md",
+   "name": "グリザイア：ファントムトリガー",
+   "lib": "休闲",
+   "issue": "机检错误:剧情 5564 字 < 6000",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "待修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P0",
+   "batch": 781,
+   "file": "产出\\批次781\\グリザイアの果実.md",
+   "name": "グリザイアの果実",
+   "lib": "休闲",
+   "issue": "机检错误:剧情 5967 字 < 6000",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "待修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P0",
+   "batch": 781,
+   "file": "产出\\批次781\\グリザイアの楽園.md",
+   "name": "グリザイアの楽園",
+   "lib": "休闲",
+   "issue": "机检错误:剧情 5488 字 < 6000",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "待修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P0",
+   "batch": 781,
+   "file": "产出\\批次781\\グリザイアの迷宮.md",
+   "name": "グリザイアの迷宮",
+   "lib": "休闲",
+   "issue": "机检错误:剧情 5546 字 < 6000",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "待修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P0",
+   "batch": 782,
+   "file": "产出\\批次782\\穢翼のユースティア.md",
+   "name": "穢翼のユースティア",
+   "lib": "休闲",
+   "issue": "机检错误:剧情 5545 字 < 6000",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "待修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P0",
+   "batch": 782,
+   "file": "产出\\批次782\\千の刃濤、桃花染の皇姫 -花あかり-.md",
+   "name": "千の刃濤、桃花染の皇姫 -花あかり-",
+   "lib": "休闲",
+   "issue": "机检错误:剧情 5584 字 < 6000",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "待修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P0",
+   "batch": 782,
+   "file": "产出\\批次782\\千の刃濤、桃花染の皇姫.md",
+   "name": "千の刃濤、桃花染の皇姫",
+   "lib": "休闲",
+   "issue": "机检错误:剧情 5583 字 < 6000",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "待修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P0",
+   "batch": 782,
+   "file": "产出\\批次782\\あいりすミスティリア!.md",
+   "name": "あいりすミスティリア!",
+   "lib": "休闲",
+   "issue": "机检错误:剧情 5552 字 < 6000",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "待修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P0",
+   "batch": 782,
+   "file": "产出\\批次782\\グリザイア クロノスリベリオン.md",
+   "name": "グリザイア クロノスリベリオン",
+   "lib": "休闲",
+   "issue": "机检错误:剧情 5499 字 < 6000",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "待修复",
+   "fixedMark": false
+  }
+ ],
+ "F": [
+  {
+   "priority": "P0",
+   "batch": 783,
+   "file": "产出\\批次783\\時計仕掛けのレイライン.md",
+   "name": "時計仕掛けのレイライン",
+   "lib": "休闲",
+   "issue": "机检错误:剧情 5399 字 < 6000",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "待修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P0",
+   "batch": 783,
+   "file": "产出\\批次783\\アマツツミ.md",
+   "name": "アマツツミ",
+   "lib": "休闲",
+   "issue": "机检错误:剧情 5222 字 < 6000",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "待修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P0",
+   "batch": 783,
+   "file": "产出\\批次783\\タユタマ -Kiss on my Deity-.md",
+   "name": "タユタマ -Kiss on my Deity-",
+   "lib": "休闲",
+   "issue": "机检错误:剧情 5718 字 < 6000",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "待修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P0",
+   "batch": 783,
+   "file": "产出\\批次783\\タユタマ2 -you're the only one-.md",
+   "name": "タユタマ2 -you're the only one-",
+   "lib": "休闲",
+   "issue": "机检错误:剧情 5640 字 < 6000",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "待修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P0",
+   "batch": 788,
+   "file": "产出\\批次788\\アマカノ.md",
+   "name": "アマカノ",
+   "lib": "休闲",
+   "issue": "机检错误:剧情 5202 字 < 6000",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "待修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P0",
+   "batch": 788,
+   "file": "产出\\批次788\\アマカノ～Second Season～.md",
+   "name": "アマカノ～Second Season～",
+   "lib": "休闲",
+   "issue": "机检错误:剧情 5552 字 < 6000",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "待修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P0",
+   "batch": 788,
+   "file": "产出\\批次788\\アマカノ2.md",
+   "name": "アマカノ2",
+   "lib": "休闲",
+   "issue": "机检错误:剧情 5234 字 < 6000",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "待修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P0",
+   "batch": 788,
+   "file": "产出\\批次788\\ノラと皇女と野良猫ハート.md",
+   "name": "ノラと皇女と野良猫ハート",
+   "lib": "休闲",
+   "issue": "机检错误:剧情 5637 字 < 6000",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "待修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P0",
+   "batch": 789,
+   "file": "产出\\批次789\\恋姫†無双.md",
+   "name": "恋姫†無双",
+   "lib": "休闲",
+   "issue": "机检错误:剧情 5268 字 < 6000",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "待修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P0",
+   "batch": 789,
+   "file": "产出\\批次789\\真・恋姫†無双.md",
+   "name": "真・恋姫†無双",
+   "lib": "休闲",
+   "issue": "机检错误:剧情 5332 字 < 6000",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "待修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P0",
+   "batch": 789,
+   "file": "产出\\批次789\\真・恋姫†英雄譚.md",
+   "name": "真・恋姫†英雄譚",
+   "lib": "休闲",
+   "issue": "机检错误:剧情 5364 字 < 6000",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "待修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P0",
+   "batch": 789,
+   "file": "产出\\批次789\\ノラとと2.md",
+   "name": "ノラとと2",
+   "lib": "休闲",
+   "issue": "机检错误:剧情 5413 字 < 6000",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "待修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P0",
+   "batch": 789,
+   "file": "产出\\批次789\\ノラとと3.md",
+   "name": "ノラとと3",
+   "lib": "休闲",
+   "issue": "机检错误:剧情 5413 字 < 6000",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "待修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P0",
+   "batch": 790,
+   "file": "产出\\批次790\\近月少女の礼儀.md",
+   "name": "近月少女の礼儀",
+   "lib": "休闲",
+   "issue": "机检错误:剧情 5257 字 < 6000",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "待修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P0",
+   "batch": 790,
+   "file": "产出\\批次790\\近月少女の礼儀2.md",
+   "name": "近月少女の礼儀2",
+   "lib": "休闲",
+   "issue": "机检错误:剧情 5289 字 < 6000",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "待修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P0",
+   "batch": 790,
+   "file": "产出\\批次790\\真・恋姫†夢想.md",
+   "name": "真・恋姫†夢想",
+   "lib": "休闲",
+   "issue": "机检错误:剧情 5332 字 < 6000",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "待修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P0",
+   "batch": 790,
+   "file": "产出\\批次790\\アストラエアの白き永遠 Finale -白き星の夢-.md",
+   "name": "アストラエアの白き永遠 Finale -白き星の夢-",
+   "lib": "休闲",
+   "issue": "机检错误:剧情 5594 字 < 6000",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "待修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P0",
+   "batch": 790,
+   "file": "产出\\批次790\\アストラエアの白き永遠.md",
+   "name": "アストラエアの白き永遠",
+   "lib": "休闲",
+   "issue": "机检错误:剧情 5360 字 < 6000",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "待修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P0",
+   "batch": 791,
+   "file": "产出\\批次791\\恋する気持ちのかさねかた.md",
+   "name": "恋する気持ちのかさねかた",
+   "lib": "休闲",
+   "issue": "机检错误:剧情 5439 字 < 6000",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "待修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P0",
+   "batch": 791,
+   "file": "产出\\批次791\\あなたに恋する恋愛ルセット.md",
+   "name": "あなたに恋する恋愛ルセット",
+   "lib": "休闲",
+   "issue": "机检错误:剧情 5467 字 < 6000",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "待修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P0",
+   "batch": 791,
+   "file": "产出\\批次791\\あなたの事を好きと言わせて.md",
+   "name": "あなたの事を好きと言わせて",
+   "lib": "休闲",
+   "issue": "机检错误:剧情 5467 字 < 6000",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "待修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P0",
+   "batch": 791,
+   "file": "产出\\批次791\\あなたをオトコにしてあげる!.md",
+   "name": "あなたをオトコにしてあげる!",
+   "lib": "休闲",
+   "issue": "机检错误:剧情 5485 字 < 6000",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "待修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P0",
+   "batch": 791,
+   "file": "产出\\批次791\\ガールズシンフォニー.md",
+   "name": "ガールズシンフォニー",
+   "lib": "休闲",
+   "issue": "机检错误:剧情 5391 字 < 6000",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "待修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P0",
+   "batch": 792,
+   "file": "产出\\批次792\\恋する乙女と守護の楯 Re－boot The SHIELD-9.md",
+   "name": "恋する乙女と守護の楯 Re:boot The SHIELD-9",
+   "lib": "休闲",
+   "issue": "机检错误:剧情 5713 字 < 6000",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "待修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P0",
+   "batch": 792,
+   "file": "产出\\批次792\\恋する乙女と守護の楯.md",
+   "name": "恋する乙女と守護の楯",
+   "lib": "休闲",
+   "issue": "机检错误:剧情 5375 字 < 6000",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "待修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P0",
+   "batch": 792,
+   "file": "产出\\批次792\\Narcissu.md",
+   "name": "Narcissu",
+   "lib": "休闲",
+   "issue": "机检错误:剧情 5329 字 < 6000",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "待修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P0",
+   "batch": 792,
+   "file": "产出\\批次792\\ガールズシンフォニー2.md",
+   "name": "ガールズシンフォニー2",
+   "lib": "休闲",
+   "issue": "机检错误:剧情 5423 字 < 6000",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "待修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P0",
+   "batch": 853,
+   "file": "产出\\批次853\\废土边境检查官.md",
+   "name": "废土边境检查官",
+   "lib": "主库",
+   "issue": "机检错误:剧情 2592 字 < 10000",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "待修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P0",
+   "batch": 853,
+   "file": "产出\\批次853\\急急如律令.md",
+   "name": "急急如律令",
+   "lib": "主库",
+   "issue": "机检错误:剧情 2779 字 < 10000",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "待修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P0",
+   "batch": 853,
+   "file": "产出\\批次853\\科技入侵现代.md",
+   "name": "科技入侵现代",
+   "lib": "主库",
+   "issue": "机检错误:剧情 2609 字 < 10000",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "待修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P0",
+   "batch": 853,
+   "file": "产出\\批次853\\三塔游戏.md",
+   "name": "三塔游戏",
+   "lib": "主库",
+   "issue": "机检错误:剧情 2747 字 < 10000",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "待修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P0",
+   "batch": 853,
+   "file": "产出\\批次853\\说好的民企，空天母舰什么鬼.md",
+   "name": "说好的民企，空天母舰什么鬼",
+   "lib": "主库",
+   "issue": "机检错误:剧情 2183 字 < 10000",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "待修复",
+   "fixedMark": false
+  }
+ ]
+}
