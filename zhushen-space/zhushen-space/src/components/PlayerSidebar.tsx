@@ -14,6 +14,8 @@ import { effectiveCombatStat } from '../systems/enhanceEngine';
 import { playerStatusAttrDelta } from '../systems/statusAttrs';
 import { activeGemSets, gemSetEquipEntry } from '../systems/gemSets';
 import { useGemSets } from '../store/gemSetStore';
+import { activeEquipSets, equipSetEquipEntry } from '../systems/equipSets';
+import { useEquipSets } from '../store/equipSetStore';
 import { playerTreeAttrBonus } from '../store/skillTreeStore';
 import { playerTeamAttrBonus, playerTeamPerkAbilities } from '../store/adventureTeamStore';
 import { bioInnate, bioPower, bioStrengthLabel, nominalTierNum } from '../systems/bioStrength';
@@ -256,7 +258,11 @@ function PlayerSidebar({ onClose }: { onClose?: () => void }) {
   const gemSetDefs = useGemSets((s) => s.sets);
   const gemSets = activeGemSets(equippedFull, gemSetDefs);
   const setEntry = gemSetEquipEntry(equippedFull, gemSetDefs);
-  const equipForAttr = setEntry ? [...equippedFull, setEntry as any] : equippedFull;
+  // 装备套装（合成工坊·套装锻造）同口径并入：按已装备同套件数递进激活
+  const equipSetDefs = useEquipSets((s) => s.sets);
+  const equipSetsActive = activeEquipSets(equippedFull, equipSetDefs);
+  const esEntry = equipSetEquipEntry(equippedFull, equipSetDefs);
+  const equipForAttr = [...equippedFull, ...(setEntry ? [setEntry as any] : []), ...(esEntry ? [esEntry as any] : [])];
   const statusDelta = playerStatusAttrDelta();   // 限时状态(发动/服药类临时增益)的六维加成——与常驻/真实分开，到期由 expireStatuses 自动撤销
   const breakdown = computeAttrBreakdown(withAttrDelta(withAttrDelta(withAttrDelta(profile.attrs, playerTreeAttrBonus()), playerTeamAttrBonus()), statusDelta), b1?.skills ?? [], b1?.traits ?? [], equipForAttr, capB);   // 基础有效六维(不含真实属性点直加·含限时状态)·夹本阶上限·供属性栏展示
   // 衍生/战力按「有效六维 + 真实属性点直加(realAttrs)」算，与战斗 buildCombatant 同口径（直加并入再夹本阶上限）
@@ -490,6 +496,29 @@ function PlayerSidebar({ onClose }: { onClose?: () => void }) {
                     {s.tiers.map((t) => (
                       <span key={t.need} className={`text-[10.5px] font-mono ${t.active ? 'text-emerald-300/90' : 'text-dim/35'}`}
                         title={t.active ? '已激活' : `再镶嵌 ${t.need - s.count} 件同套装宝石激活`}>
+                        {t.active ? '✓' : '○'}{t.need}件·{t.bonus}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+          {/* 装备套装（合成工坊·套装锻造）：按已装备的同套件数递进激活（六维已并入"装备"来源列，战斗被动进战斗结算） */}
+          {equipSetsActive.length > 0 && (
+            <div className="mt-2 space-y-1">
+              {equipSetsActive.map((s) => (
+                <div key={s.key} className="rounded-lg border border-purple-400/25 bg-purple-500/5 px-2 py-1">
+                  <div className="flex items-center gap-1.5 text-[12px]">
+                    <span>{s.emoji}</span>
+                    <span className="font-bold text-purple-200/90">{s.name}</span>
+                    <span className="font-mono text-[11px] text-amber-300/80">{s.count}/{s.pieces}件</span>
+                    <span className="text-[10px] text-dim/45">{s.gradeDesc}</span>
+                  </div>
+                  <div className="mt-0.5 flex flex-wrap gap-x-2 gap-y-0.5">
+                    {s.tiers.map((t) => (
+                      <span key={t.need} className={`text-[10.5px] font-mono ${t.active ? 'text-emerald-300/90' : 'text-dim/35'}`}
+                        title={t.active ? '已激活' : `再装备 ${t.need - s.count} 件同套装部件激活`}>
                         {t.active ? '✓' : '○'}{t.need}件·{t.bonus}
                       </span>
                     ))}

@@ -17,7 +17,7 @@ import {
   SKILL_LEVELUP_PROMPT, SKILL_FUSION_RULE, TITLE_GEN_RULE, TITLE_FUSION_RULE, ACHIEVEMENT_GEN_RULE,
   JOY_SYSTEM_RULE, JOY_OUTPUT_RULE, JOY_PRIVATE_FIELDS_RULE,
   CHEST_OPEN_RULE, ARENA_OPPONENT_RULE, ARENA_REWARD_RULE, GLADIATOR_MATCH_RULE, GACHA_REWARD_RULE,
-  CRAFT_RULE, WORLDVIEW_GEN_PROMPT, WORLD_SUMMARY_PROMPT,
+  CRAFT_RULE, EQUIP_SET_RULE, EQUIP_ASCEND_RULE, WORLDVIEW_GEN_PROMPT, WORLD_SUMMARY_PROMPT,
   CHAOS_RECORD_PROMPT, CHAOS_WORLD_GEN_PROMPT,
 } from '../promptRules';
 import { COMBAT_WRITING_GUIDE_RULE } from './combatWritingGuide';
@@ -109,6 +109,8 @@ export const PROMPT_REGISTRY: PromptEntry[] = [
   { key: 'ABYSS_ENEMY_GEN_RULE', label: '深渊 · 敌人面板', group: '深渊地牢', kind: 'override', def: ABYSS_ENEMY_GEN_RULE, desc: '深渊敌人面板生成' },
   // ── 合成工坊 ──
   { key: 'CRAFT_RULE', label: '合成工坊 · 规则', group: '合成工坊', kind: 'override', def: CRAFT_RULE, desc: '合成 / 炼制守恒、格式、品质规则' },
+  { key: 'EQUIP_SET_RULE', label: '套装锻造', group: '合成工坊', kind: 'override', def: EQUIP_SET_RULE, desc: '整套主题装备生成 · 套装效果按已装备件数递进解锁' },
+  { key: 'EQUIP_ASCEND_RULE', label: '品级进阶', group: '玩法设施', kind: 'override', def: EQUIP_ASCEND_RULE, desc: '强化所 · 装备品级 +1 档进阶形态生成' },
   // ── 世界生成 / 总结 ──
   { key: 'WORLDVIEW_GEN_PROMPT', label: '世界观生成', group: '世界生成 / 总结', kind: 'override', def: WORLDVIEW_GEN_PROMPT, desc: '进入世界时生成世界观设定' },
   { key: 'WORLD_SUMMARY_PROMPT', label: '离世总结', group: '世界生成 / 总结', kind: 'override', def: WORLD_SUMMARY_PROMPT, desc: '离开世界时的世界志总结' },

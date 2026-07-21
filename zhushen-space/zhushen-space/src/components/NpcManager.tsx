@@ -304,6 +304,10 @@ function NpcRow({ npc, onRemove, onRestore, danger }: { npc: import('../store/np
         <span className="flex-1 text-sm text-slate-300 font-mono truncate">
           {npc.name}{npc.gender ? `·${npc.gender}` : ''}{npc.realm ? ` [${npc.realm}]` : ''}
         </span>
+        {npc.isDead && (
+          <span className="shrink-0 text-[11px] font-mono px-1.5 py-0.5 rounded border border-blood/50 text-blood/80 bg-blood/10"
+            title="已标记死亡：会从「NPC 档案」列表整条隐藏（此管理页不过滤，故这里仍能看到）。若是误判，点右侧「↩ 复活」即可清除死亡标记、让它回到档案。">☠ 已死亡</span>
+        )}
         {npc.favor !== 0 && (
           <span className={`text-[12px] font-mono ${npc.favor > 0 ? 'text-god/70' : 'text-blood/70'}`}>
             好感:{npc.favor > 0 ? '+' : ''}{npc.favor}
@@ -312,6 +316,11 @@ function NpcRow({ npc, onRemove, onRestore, danger }: { npc: import('../store/np
         <button onClick={() => setOpen(!open)} className="text-[12px] font-mono text-dim/50 hover:text-god transition-colors">
           {open ? '收起' : '详情'}
         </button>
+        {npc.isDead && (
+          <button onClick={() => useNpc.getState().upsertNpc(npc.id, { isDead: false, deadTurn: undefined })}
+            title="误判死亡 → 标记为存活：清除死亡标记，NPC 立刻重新出现在「NPC 档案」里（不改动它的在场/离场状态）"
+            className="text-[12px] font-mono text-emerald-400/70 hover:text-emerald-300 transition-colors">↩ 复活</button>
+        )}
         {onRestore && (
           <button onClick={onRestore} title="拉回·重新上场（归档角色不会丢，随时可召回）"
             className="text-[12px] font-mono text-dim/50 hover:text-god transition-colors">↑ 上场</button>

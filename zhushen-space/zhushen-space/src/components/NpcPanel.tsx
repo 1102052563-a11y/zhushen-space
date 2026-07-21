@@ -248,10 +248,13 @@ export default function NpcPanel({ onClose, onDm, onManualUpdate, manualUpdating
   // 只认 isDead 标记（与在场浮窗/其余各处一致）——不再在展示层重跑 looksDead，
   // 否则丧尸/不死生物这类「状态里本就含死字但其实是活跃敌人」的 NPC 会被误判死亡、整条从档案消失。
   const isDeadNpc = (r: NpcRecord) => !!r.isDead;
+  const [showDead, setShowDead] = useState(false);   // 默认隐藏已死亡；用户报"NPC消失"多半是角色在剧情里死了→本被过滤掉，开这个能看回来（档案仍在，未删）
   // 无名编号空壳(C11/C22…)不进档案列表——它们要么会被自动清理，要么待补名后才以真名出现。
   // （仍想手动处理可去「设置→变量管理→NPC演化」的管理面板，那里不过滤。）
   // petMode=宠物/召唤物专属花名册；否则 NPC 档案排除宠物/召唤物（它们有独立的 🐾 面板·严格区分）。
-  const records  = Object.values(npcs).filter((r) => !isDeadNpc(r) && hasRealNpcName(r) && (petMode ? isPetLike(r) : !isPetLike(r))).sort((a, b) => b.updatedAt - a.updatedAt);
+  const records  = Object.values(npcs).filter((r) => (showDead || !isDeadNpc(r)) && hasRealNpcName(r) && (petMode ? isPetLike(r) : !isPetLike(r))).sort((a, b) => b.updatedAt - a.updatedAt);
+  // 已死亡的真实 NPC 份数（供「☠ 已死亡」开关：>0 才显示开关；默认隐藏它们，避免丧尸/复活误判刷屏）
+  const deadCount = Object.values(npcs).filter((r) => isDeadNpc(r) && hasRealNpcName(r) && (petMode ? isPetLike(r) : !isPetLike(r))).length;
   // 三态互斥（不变量 archived⟹!onScene）：在场 / 离场（AI 剧情自动收起·仍被追踪）/ 归档（玩家主动封存·不参与 AI 处理）
   const onScene  = records.filter((r) => r.onScene && !r.archived);
   const offScene = records.filter((r) => !r.onScene && !r.archived);
@@ -376,6 +379,13 @@ export default function NpcPanel({ onClose, onDm, onManualUpdate, manualUpdating
             <button key={tg} onClick={() => setTagFilter(tagFilter === tg ? '' : tg)}
               className={`shrink-0 px-2 py-0.5 rounded text-[12px] font-mono border transition-colors ${tagFilter === tg ? 'border-cyan-600/60 text-cyan-300 bg-cyan-900/20' : 'border-edge text-dim hover:text-slate-200'}`}>{tg}</button>
           ))}
+          {deadCount > 0 && (
+            <button onClick={() => setShowDead((v) => !v)}
+              title="显示/隐藏已死亡的 NPC。默认隐藏——角色在剧情里死亡会从列表消失（档案仍在、未删除），开启即可看回来。"
+              className={`shrink-0 ml-auto px-2 py-0.5 rounded text-[12px] font-mono border transition-colors ${showDead ? 'border-blood/60 text-blood bg-blood/10' : 'border-edge text-dim/60 hover:text-blood/80 hover:border-blood/40'}`}>
+              ☠ 已死亡 {deadCount}
+            </button>
+          )}
         </div>
 
         {/* NPC 列表 / 图书馆 */}

@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react';
 import { useCraft } from '../store/craftStore';
 import { useItems, splitAffixEntries } from '../store/itemStore';
 import { CRAFT_MODES, craftMode, craftCost } from '../systems/craftEngine';
+import { tiersForPieces } from '../systems/equipSets';
 
 /* 合成工坊面板：门类 tab → 选料(数量步进) + 倾向 → 合成 → 产物预览(确认/重新生成/撤销)。
    前端只掷品质档并锁品级；AI 产物由 onGenerate 生成到 session.pending（未入库）；
@@ -119,6 +120,26 @@ export default function CraftPanel({ onClose, onGenerate, onConfirm }: Props) {
                   <div className="text-dim/80 text-[12px] mt-0.5">{session.quality.note}　产出品级上限：{session.quality.ceilingName}</div>
                 </div>
               )}
+              {/* 套装锻造：套装头卡（名/主题/递进效果档位）*/}
+              {session.pendingSet && (
+                <div className="rounded-xl border border-purple-400/40 bg-purple-500/5 px-3 py-2.5 space-y-1.5">
+                  <div className="flex items-center gap-2">
+                    <span className="text-[15px]">{session.pendingSet.emoji}</span>
+                    <span className="text-[15px] font-bold text-purple-200">{session.pendingSet.name}</span>
+                    <span className="text-[11px] px-1.5 py-0.5 rounded border border-purple-400/40 text-purple-300/90">{session.pendingSet.pieces} 件套 · {session.pendingSet.gradeDesc}</span>
+                    <span className="text-[11px] text-dim/60">{session.pendingSet.theme}</span>
+                  </div>
+                  {session.pendingSet.desc && <div className="text-[12px] text-dim/70 italic">{session.pendingSet.desc}</div>}
+                  <div className="space-y-0.5">
+                    {session.pendingSet.tiers.map((t) => (
+                      <div key={t.need} className="text-[12px] text-purple-300/85 border-l-2 border-purple-400/30 pl-1.5">
+                        <span className="font-mono text-amber-300/80">{t.need}件</span>：{t.bonus}
+                      </div>
+                    ))}
+                  </div>
+                  <div className="text-[10px] text-dim/45">套装效果按【已装备】的同套件数递进激活；单件强度按整套摊薄</div>
+                </div>
+              )}
               {session.pending!.map((p, i) => (
                 <div key={i} className="rounded-xl border border-edge bg-panel p-3 space-y-1.5">
                   <div className="flex items-center gap-2">
@@ -193,6 +214,9 @@ export default function CraftPanel({ onClose, onGenerate, onConfirm }: Props) {
                         <button onClick={() => useCraft.getState().setInputQty(inp.itemId, inp.qty - 1)} className="w-5 h-5 rounded bg-panel2 text-dim hover:text-slate-100">−</button>
                         <span className="text-[12px] text-slate-200 w-6 text-center">{inp.qty}</span>
                         <button onClick={() => useCraft.getState().setInputQty(inp.itemId, inp.qty + 1)} className="w-5 h-5 rounded bg-panel2 text-dim hover:text-slate-100">＋</button>
+                        <button onClick={() => useCraft.getState().setInputQty(inp.itemId, inp.maxQty)} disabled={inp.qty >= inp.maxQty}
+                          title="梭哈：一键拉满到背包现有数量"
+                          className="px-1 h-5 rounded bg-panel2 text-[10px] text-god/75 hover:text-god disabled:opacity-30 transition-colors">满</button>
                         <span className="text-[10px] text-dim/40">/{inp.maxQty}</span>
                         <button onClick={() => useCraft.getState().removeInput(inp.itemId)} className="ml-1 text-dim/50 hover:text-blood text-sm">✕</button>
                       </div>
@@ -201,6 +225,21 @@ export default function CraftPanel({ onClose, onGenerate, onConfirm }: Props) {
                 </div>
                 <div className="p-3 border-t border-edge space-y-2 shrink-0">
                   {mode.id === 'crystal' && <div className="text-[11px] text-amber-300/70">💎 炼晶为确定性生成，产出真·可镶嵌宝石（不走 AI；倾向可指定属性/部位，如「暴击」「防具」「采矿」）</div>}
+                  {mode.id === 'suit' && (
+                    <div className="space-y-1">
+                      <div className="flex items-center gap-1.5">
+                        <span className="text-[11px] text-dim/70 mr-1">套装件数</span>
+                        {[2, 3, 4, 5, 6].map((n) => (
+                          <button key={n} onClick={() => useCraft.getState().setSuitPieces(n)}
+                            className={`w-7 h-7 rounded border text-[12px] font-mono transition-colors ${session.suitPieces === n ? 'border-god/60 bg-god/15 text-god' : 'border-edge text-dim hover:text-slate-200 hover:border-god/30'}`}>
+                            {n}
+                          </button>
+                        ))}
+                        <span className="text-[10px] text-dim/45 ml-1">解锁档位：{tiersForPieces(session.suitPieces).map((x) => `${x}件`).join(' / ')}</span>
+                      </div>
+                      <div className="text-[10px] text-dim/45">🛡 整套同品级、主题统一；件数越多单件越克制，套装效果按已装备件数递进激活</div>
+                    </div>
+                  )}
                   <textarea value={session.tendency} onChange={(e) => useCraft.getState().setTendency(e.target.value)}
                     placeholder="倾向提示（可选）：攻击向 / 辅助向 / 冰属性 / 隐匿 / 采集…只导方向、不改档次"
                     rows={2} className="w-full bg-panel2 border border-edge rounded px-2 py-1.5 text-[12px] text-slate-200 outline-none focus:border-god/40 resize-none" />
@@ -228,7 +267,7 @@ export default function CraftPanel({ onClose, onGenerate, onConfirm }: Props) {
           <div className="px-4 py-3 border-t border-edge bg-panel flex items-center gap-2 shrink-0">
             {preview && (
               <button onClick={doConfirm} disabled={busy}
-                className="flex-1 py-2 rounded-lg border border-emerald-500/50 bg-emerald-500/10 text-emerald-300 font-semibold text-[13px] hover:bg-emerald-500/20 disabled:opacity-40 transition-colors">{mode.id === 'tame' ? '✅ 收服宠物' : '✅ 确认入库'}</button>
+                className="flex-1 py-2 rounded-lg border border-emerald-500/50 bg-emerald-500/10 text-emerald-300 font-semibold text-[13px] hover:bg-emerald-500/20 disabled:opacity-40 transition-colors">{mode.id === 'tame' ? '✅ 收服宠物' : mode.id === 'suit' ? '✅ 确认铸成套装' : '✅ 确认入库'}</button>
             )}
             <button onClick={() => doGenerate(true)} disabled={busy}
               className="flex-1 py-2 rounded-lg border border-god/40 text-god/90 text-[13px] hover:bg-god/10 disabled:opacity-40 transition-colors">🔄 重新生成</button>

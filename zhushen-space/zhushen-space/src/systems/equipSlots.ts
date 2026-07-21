@@ -48,6 +48,14 @@ export const SLOT_DEFS: SlotDef[] = [
   { key: 'vehicle:#1', label: '载具', icon: '🐎', group: 'vehicle', allowedCats: ['载具', '特殊物品', '其他物品', '法宝'] },
 ];
 
+/* 「哪些分类可装备」＝存在任一槽位接受它（union of SLOT_DEFS.allowedCats）——**单一来源**。
+   BackpackModal 的装备/卸下按钮据此判定，与槽位定义同源，杜绝"能装进槽却没卸下按钮"的漂移
+   （曾漏 工具/其他物品/载具：它们能进特殊/载具槽，却因这里没收录而卸不掉）。 */
+export const EQUIPPABLE_CATS: ReadonlySet<string> = new Set(SLOT_DEFS.flatMap((d) => d.allowedCats as string[]));
+export function isEquippableCategory(cat?: string): boolean {
+  return EQUIPPABLE_CATS.has(String(cat ?? '').trim());
+}
+
 /* 把任意槽位串规范化成合法槽位 key（武器/防具7部位/饰品/特殊装备），
    修复 AI 写出的 armor:armor / armor:legs / weapon:right / technique:N 等非规范槽 → 装备面板找不到。
    已是合法 key 则原样返回（幂等）。 */

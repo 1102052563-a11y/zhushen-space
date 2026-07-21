@@ -320,13 +320,9 @@ export function hasRealName(r: { id: string; name?: string }): boolean {
 function archiveBeforeRemove(rec: NpcRecord | undefined, reason: ArchiveReason): void {
   try {
     if (!rec?.id || !hasRealName(rec)) return;
-    // 图书馆本意＝「别弄丢有感情线的角色」。以下两类**没有任何感情线可留**，入库只会刷屏（用户报"删不掉·越来越多"）：
-    //   ① 竞技/切磋临时对手：一战一建一删，纯战斗道具。
-    //   ② 纯敌对且玩家零投入：负好感 + 无羁绊/好友/队友/长期保留 + 情欲=0 + 沉沦=0（打一只算一只的战斗敌人，如"猎犬")。
-    // 但凡有一丝正向投入（羁绊/好友/队友/保留/情欲>0/沉沦>0/好感≥0）都照旧入库，绝不误伤真感情线。
-    if (rec.npcTag === '竞技对手') return;
-    const noStake = !rec.isBond && !rec.keepForever && !rec.isFriend && !rec.partyMember;
-    if ((rec.favor ?? 0) < 0 && noStake && (rec.lust ?? 0) <= 0 && (rec.corruption ?? 0) <= 0) return;
+    // ⚠ 铁律「只存不删」：任何有名有姓的 NPC 消失前都必须入库，绝不按"敌对/临时/无关系"提前放行——
+    //   否则被删的 NPC 既找不回、又在图书馆里查不到入库记录（连"是被什么删的"都断了线）。
+    //   刷屏由 npcLibrary 的内容指纹去重（同版本覆盖）+ 图书馆里的手动删除/删同名/清空来治，不靠这里少存。
     let char: NpcCharData | undefined;
     try {
       const c = useCharacters.getState().characters[rec.id] as unknown as NpcCharData | undefined;

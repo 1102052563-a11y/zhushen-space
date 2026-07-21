@@ -312,6 +312,8 @@ export interface InventoryItem {
   maxEnhanceLevel?: number;  // 历史最高强化等级（高水位）：词缀只在峰值刷新时按此生成；降级不降此值（降级只降属性，词缀不消失）
   affixLevel?: number;    // 已用 AI 结算过词缀的等级（持久化）；待结算 = floor(maxEnhanceLevel/3) > floor(affixLevel/3)，故退出重开仍能结算，结算成功才推进到峰值
   awakenLv?: number;      // 深渊觉醒阶数（觉醒系统升品级+加词缀，0/缺省=未觉醒）
+  ascendLv?: number;      // 品级进阶次数（强化所·品级进阶：沿 ITEM_GRADES 一次+1档，0/缺省=未进阶）
+  equipSet?: string;      // 该装备件所属**锻造套装** key（equipSetStore；合成工坊「套装锻造」入库时烘焙）——按已装备同套件数递进激活套装效果；与 gemSet（宝石套装）互不相干
   // ── 宝石/镶嵌系统（仅装备类）──
   sockets?: number;       // 镶嵌孔总数（缺省时按品级 defaultSocketsByGrade 派生；打孔石可增至 MAX_SOCKETS）
   gems?: SocketedGem[];   // 已镶嵌宝石（length ≤ socketsOf(item)）

@@ -294,8 +294,8 @@ interface SettingsState {
   allowAutoEquipNpc: boolean;  // 是否允许自动给 NPC 穿戴装备（含初始装备与 AI 装备指令；关闭=只入 NPC 储存空间）
   setAllowAutoEquipNpc: (v: boolean) => void;
   customOpening: string;  // 自定义开场白模板（角色创建确认后自动发送；含 ${...} 占位符，空=用内置默认）
-  reading: { fontSize: number; letterSpacing: number; lineHeight: number; fontFamily: 'default' | 'kai' | 'song' };  // 正文阅读排版：字号(px)/字间距(px)/行距(倍数)/正文字体；默认 17/0/1.8/default=现状
-  setReading: (patch: Partial<{ fontSize: number; letterSpacing: number; lineHeight: number; fontFamily: 'default' | 'kai' | 'song' }>) => void;
+  reading: { fontSize: number; letterSpacing: number; lineHeight: number; paraSpacing: number; fontFamily: 'default' | 'kai' | 'song'; dialogueHl: boolean; innerDim: boolean };  // 正文阅读排版：字号/字间距/行距/段落间距(em)/字体 + 对话高亮(dialogueHl)/心理·旁白弱化(innerDim)；默认 17/0/1.8/0.45/default/开/开
+  setReading: (patch: Partial<{ fontSize: number; letterSpacing: number; lineHeight: number; paraSpacing: number; fontFamily: 'default' | 'kai' | 'song'; dialogueHl: boolean; innerDim: boolean }>) => void;
   uiTheme: string;  // 主题配色（整体界面色+文字色）key，见 systems/uiThemes.ts（default/solarized-light/gruvbox-light/nord/dracula…）
   setUiTheme: (v: string) => void;
   appearance: 'classic' | 'eyecare' | 'warm';  // 外观护眼色调（叠加在主题之上的暖光滤镜）：classic=关 / eyecare=柔光护眼 / warm=夜读暖光；全局固定层，pointer-events:none
@@ -768,7 +768,7 @@ export const useSettings = create<SettingsState>()(
       allowAutoEquip: true,
       allowAutoEquipNpc: true,
       customOpening: '',
-      reading: { fontSize: 17, letterSpacing: 0, lineHeight: 1.8, fontFamily: 'default' },
+      reading: { fontSize: 17, letterSpacing: 0, lineHeight: 1.8, paraSpacing: 0.45, fontFamily: 'default', dialogueHl: true, innerDim: true },
       uiTheme: 'default',
       appearance: 'classic',
       uiVignette: false,

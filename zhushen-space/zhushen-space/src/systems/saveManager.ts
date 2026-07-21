@@ -44,6 +44,7 @@ import { useSubProfTree } from '../store/subProfTreeStore';
 import { useCasino } from '../store/casinoStore';
 import { useAbyss } from '../store/abyssStore';
 import { useCraft } from '../store/craftStore';
+import { useEquipSets } from '../store/equipSetStore';
 import { useLedger } from './ledger/ledgerStore';
 import { useLocks } from '../store/lockStore';
 import { useFieldHistory } from '../store/fieldHistoryStore';
@@ -109,6 +110,7 @@ const STORES: { key: string; api: any; clear?: () => void }[] = [
   { key: 'drpg-subproftree', api: useSubProfTree, clear: () => useSubProfTree.setState({ progress: {} }) },
   { key: 'drpg-casino',     api: useCasino, clear: () => useCasino.getState().clearCasino() },
   { key: 'drpg-craft',      api: useCraft, clear: () => useCraft.getState().clearCraft() },   // 合成工坊：配置/图鉴/API 保留，会话+已发现配方随新游戏清空
+  { key: 'drpg-equipsets',  api: useEquipSets, clear: () => useEquipSets.getState().clearAll() },   // 装备套装定义（套装锻造产出·与 drpg-items 部件强耦合）：随存档快照，新游戏清空
   { key: 'drpg-abyss',      api: useAbyss, clear: () => useAbyss.getState().clearAbyss() },
   { key: 'drpg-worldrecord', api: useWorldRecord, clear: () => useWorldRecord.getState().clearAll() },   // 世界记录/世界志（世界观骨架+离世总结·随存档快照；新游戏清空）
   { key: 'drpg-loadout',    api: useLoadout, clear: () => useLoadout.getState().clearBench() },   // 体系/流派：clear 只清替补席+激活态；模板 builds[] 像技能树定义一样跨新游戏保留（照 drpg-skilltree 口径）
@@ -356,7 +358,7 @@ export async function loadSlot(id: string): Promise<boolean> {
   // - 快照里没有 → **只清【较新功能的进度缓存】**（防上一局的 潜能点/筹码/深渊进度 等泄漏进读入的旧档）；
   //   **核心存档（主角技能/天赋/副职业·背包·NPC·主角档案·HP/EP 等）绝不因快照缺失而清空**——
   //   否则读个缺这些键的旧档/回退点就会把当前的技能天赋副职业全抹掉（"读档后技能丢失"的根因，已修）。
-  const CLEAR_ON_MISSING = new Set(['drpg-skilltree', 'drpg-subproftree', 'drpg-casino', 'drpg-abyss', 'drpg-world-codex', 'drpg-tables', 'drpg-table-journal', 'drpg-wallet', 'drpg-items-core', 'drpg-npc-core', 'drpg-trade-escrow', 'drpg-trade-coin-escrow']);
+  const CLEAR_ON_MISSING = new Set(['drpg-skilltree', 'drpg-subproftree', 'drpg-casino', 'drpg-abyss', 'drpg-world-codex', 'drpg-tables', 'drpg-table-journal', 'drpg-wallet', 'drpg-items-core', 'drpg-npc-core', 'drpg-trade-escrow', 'drpg-trade-coin-escrow', 'drpg-equipsets']);
   // 设备级全局配置：读档一律保留【当前】值、绝不回滚到存档快照。否则读个旧档/回退点，就会把
   // 「剧情指导」等功能开关、人称、记忆/向量配置等全冲回存档当时的旧值——这正是「开启剧情指导后
   // 一刷新/读档又关闭」的根因（2026-06-20 修）。API 字段原本已由 mergeKeepApi 保当前，这里把整个

@@ -3,6 +3,7 @@ import { persist } from 'zustand/middleware';
 import type { ApiConfig, WorldBook, WorldBookEntry } from './settingsStore';
 import { useSettings, parseWorldBook } from './settingsStore';
 import { CRAFT_MODES, craftMode, rollCraftQuality, craftCost, validateInputs, type CraftQuality } from '../systems/craftEngine';
+import type { PendingEquipSetDef } from '../systems/equipSets';
 
 /* ════════════════════════════════════════════
    合成工坊 store（drpg-craft）
@@ -75,6 +76,8 @@ export interface CraftSession {
   quality: CraftQuality | null;   // 开合时掷定、锁住（重新生成沿用）
   cost: number;                   // 本次手工费（乐园币）
   pending: CraftProduct[] | null; // AI 产物预览（未入库）
+  suitPieces: number;             // 套装锻造：玩家自选件数（2~6）
+  pendingSet: PendingEquipSetDef | null;   // 套装锻造：套装定义预览（与 pending 部件同进退，确认才入 equipSetStore）
   phase: CraftPhase;
   error?: string;
 }
@@ -96,7 +99,7 @@ const DEFAULT_CONFIG: CraftConfig = {
 };
 
 function freshSession(modeId = CRAFT_MODES[0].id): CraftSession {
-  return { modeId, inputs: [], tendency: '', quality: null, cost: 0, pending: null, phase: 'idle' };
+  return { modeId, inputs: [], tendency: '', quality: null, cost: 0, pending: null, suitPieces: 3, pendingSet: null, phase: 'idle' };
 }
 
 /* ── 内置「合成图鉴」世界书 ──
@@ -130,6 +133,7 @@ const DEFAULT_CRAFT_WB: WorldBook = {
     cwbEntry(12, '宠物·契灵', '把精魂/兽核与契约媒介结契，孕育出一只可随行的**宠物生灵**（不是道具、不是凭证）。精魂强度、血脉纯度、媒介品阶共同决定宠物的种族、形态与天赋；结契不稳则得残缺或狂暴之物。**请把产物当一只活物来写**：name=宠物名、subType=种族、intro=性情性格、appearance=外观、effect/affix=天赋与能力、combatStat=可选的战力概述；gradeDesc 表示这只宠物的品阶。', ['御兽', '契灵', '精魂', '随从', '宠物', '契约', '血脉', '兽核']),
     cwbEntry(13, '分解提炼', '分解是逆向工艺：把一件物品拆解/熔毁，回收其构成材料（数份）。越精良的物品拆出的材料越多、越好，但过程有损耗（回收品级一般不超过原物、且总价值略低于原物）。产出材料的名称/性质要能对应上被拆物（暗金剑→暗金锭+魔钢碎+残余符能）。', ['分解', '提炼', '拆解', '回收', '材料', '熔毁', '精炼']),
     cwbEntry(14, '炼晶', '炼晶把元素/精华凝成可镶嵌的宝石。纯度与元素属性决定宝石的加成方向与强弱：战斗类（攻/防/暴击/元素伤）、功能类（移速/寻宝/冷却）、生活类（采集/庖厨/社交）。杂质多则只能凝出低阶浑浊晶。effect 写其镶嵌加成。', ['炼晶', '宝石', '结晶', '镶嵌', '纯度', '元素', '晶']),
+    cwbEntry(15, '套装锻造', '套装锻造是把一批材料铸成**一整套主题装备**：全套共享一个主题（由材料与倾向推导），各部件在武器/防具/饰品里互补搭配、可同时穿戴、subType 互不重复。套装效果按已装备件数递进解锁（档位由系统给定，只写每档效果文案）：低档小增益、满件才质变；件数越多单件本身越克制（整套预算摊薄，单件强度低于同品级散件）。部件命名带套装印记（如「霜狼」系列），简介写明同出一炉的来历。', ['套装', '成套', '锻造', '主题', '共鸣', '整套', '系列']),
   ],
 };
 function cloneDefaultCraftWb(): WorldBook { return JSON.parse(JSON.stringify(DEFAULT_CRAFT_WB)); }
@@ -155,6 +159,8 @@ interface CraftState {
   removeInput: (itemId: string) => void;
   clearInputs: () => void;
   setTendency: (t: string) => void;
+  setSuitPieces: (n: number) => void;      // 套装锻造：自选件数（2~6）
+  setPendingSet: (def: PendingEquipSetDef | null) => void;   // 套装锻造：套装定义预览
   /** 校验 + 掷品质 + 记手工费；成功返回 {ok:true}，失败返回原因。随后由 App 调 runCraftPhase。*/
   startCraft: () => { ok: boolean; why?: string };
   setGenerating: () => void;
@@ -239,6 +245,10 @@ export const useCraft = create<CraftState>()(
 
       setTendency: (t) => set((s) => ({ session: { ...s.session, tendency: t } })),
 
+      setSuitPieces: (n) => set((s) => ({ session: { ...s.session, suitPieces: Math.max(2, Math.min(6, Math.round(n) || 3)), quality: null, pending: null, pendingSet: null, phase: 'idle' } })),
+
+      setPendingSet: (def) => set((s) => ({ session: { ...s.session, pendingSet: def } })),
+
       startCraft: () => {
         const s = get();
         const mode = craftMode(s.session.modeId);
@@ -253,8 +263,8 @@ export const useCraft = create<CraftState>()(
       setGenerating: () => set((s) => ({ session: { ...s.session, phase: 'generating', error: undefined } })),
       setPending: (products) => set((s) => ({ session: { ...s.session, pending: products, phase: 'preview', error: undefined } })),
       setError: (msg) => set((s) => ({ session: { ...s.session, phase: 'error', error: msg } })),
-      resetResult: () => set((s) => ({ session: { ...s.session, pending: null, phase: 'generating', error: undefined } })),
-      backToStaging: () => set((s) => ({ session: { ...s.session, pending: null, quality: null, cost: 0, phase: 'idle', error: undefined } })),
+      resetResult: () => set((s) => ({ session: { ...s.session, pending: null, pendingSet: null, phase: 'generating', error: undefined } })),
+      backToStaging: () => set((s) => ({ session: { ...s.session, pending: null, pendingSet: null, quality: null, cost: 0, phase: 'idle', error: undefined } })),
 
       recordDiscovered: (names) =>
         set((s) => {

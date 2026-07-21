@@ -1,6 +1,7 @@
 import { useState, useRef } from 'react';
 import { useItems, ITEM_CATEGORIES, ITEM_GRADES, gradeColorClass, gradeBadgeClass, gradeNameClass, socketsOf, splitAffixEntries, isResourcePseudoItem, asText, getItemLog, type InventoryItem, type ItemCategory, type CurrencyWallet } from '../store/itemStore';
 import { enhanceColorClass, enhancedCombat } from '../systems/enhanceEngine';
+import { isEquippableCategory } from '../systems/equipSlots';   // 可装备分类单一来源（与槽位定义同源）
 import { applyItemActiveBuff } from '../systems/statusAttrs';
 import { walletLedger, type WalletTxn } from '../systems/ledger/walletCore';
 import { usePlayer } from '../store/playerStore';
@@ -193,7 +194,9 @@ export function ItemDetailModal({ item, onClose }: { item: InventoryItem; onClos
 
   const cfg  = CAT_CFG[item.category] ?? CAT_CFG['其他物品'];
   const icon = CAT_ICON[item.category] ?? '◆';
-  const canEquip   = (['武器','防具','饰品','法宝','功法','特殊物品'] as string[]).includes(item.category) && !isResourcePseudoItem(item);
+  // 可装备＝存在接受该分类的槽位（与 equipSlots.SLOT_DEFS 同源）——治旧硬清单漏了 工具/其他物品/载具、
+  // 导致它们能装进特殊/载具槽却在背包里没「卸下」按钮而卡死。伪物品（能量条等）除外。
+  const canEquip   = isEquippableCategory(item.category) && !isResourcePseudoItem(item);
   const canConsume = (['消耗品','丹药','符箓','灵药'] as string[]).includes(item.category);
 
   const saveEdit = () => {
@@ -549,20 +552,20 @@ export function ItemDetailModal({ item, onClose }: { item: InventoryItem; onClos
               </button>
             </>
           )}
-          {/* 装备/卸下 */}
-          {canEquip && (
-            item.equipped ? (
-              <button
-                onClick={() => unequipItem(item.id)}
-                className="px-3 py-1.5 border border-god/30 text-god/70 hover:border-blood/40 hover:text-blood rounded-lg text-sm font-mono transition-colors"
-              >
-                卸下
-              </button>
-            ) : (
-              // 不在背包里直接装备：请到「⚔ 装备」面板先选槽位再穿戴
-              <span className="px-3 py-1.5 text-[12px] font-mono text-dim/40 border border-dashed border-edge rounded-lg">到「⚔ 装备」面板穿戴</span>
-            )
-          )}
+          {/* 卸下：**任何已装备的物品都必须能卸下**（不受 canEquip 门控）——治"工具/特殊装备/载具穿上就换不掉"：
+              它们装进了特殊/载具槽，但旧 canEquip 清单没收录这些分类 → 卸下按钮不显示 → 卡死。
+              未装备 + 可装备分类 → 提示去装备面板穿戴；其余（不可装备的杂物）不显示任何装备相关按钮。 */}
+          {item.equipped ? (
+            <button
+              onClick={() => unequipItem(item.id)}
+              className="px-3 py-1.5 border border-god/30 text-god/70 hover:border-blood/40 hover:text-blood rounded-lg text-sm font-mono transition-colors"
+            >
+              卸下
+            </button>
+          ) : canEquip ? (
+            // 不在背包里直接装备：请到「⚔ 装备」面板先选槽位再穿戴
+            <span className="px-3 py-1.5 text-[12px] font-mono text-dim/40 border border-dashed border-edge rounded-lg">到「⚔ 装备」面板穿戴</span>
+          ) : null}
 
           {/* 发动主动效果：前端即时登记为「限时状态」（六维立刻生效、到点自动撤销），同时填输入框让 AI 叙述 */}
           {item.activeEffect && !editing && (

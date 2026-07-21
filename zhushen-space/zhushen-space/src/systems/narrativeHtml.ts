@@ -13,6 +13,20 @@ function escapeHtml(s: string): string {
   return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 }
 
+/* 正文散文行「美化」：对话高亮 + 心理/旁白弱化（纯确定性·不依赖 AI 输出任何标记）。
+   仅在 wrapSettlementBlocks 的「普通散文行」分支调用（结算块/HTML 行/占位符行不进这里）；入参已 escapeHtml。
+   **永远输出 span**——是否真着色由正文容器的 data-dlg / data-inner 属性 + CSS 决定，故开关是纯 CSS、即时生效、
+   不必重算/重渲 HTML（渲染缓存照旧有效）。 */
+function styleProse(escaped: string): string {
+  let s = escaped;
+  // 对话：中文「」/『』 + 全角/半角双引号 → 高亮（引号一并包进去）
+  s = s.replace(/(「[^「」\n]{0,400}」|『[^『』\n]{0,400}』|“[^“”\n]{0,400}”|"[^"\n]{1,300}")/g, '<span class="narr-dialogue">$1</span>');
+  // 心理/旁白弱化：*…*（去掉星号）与 全角（…）（保留括号）→ 弱化色，让旁白/心声从主叙述里退后
+  s = s.replace(/\*([^*\n]{1,300}?)\*/g, '<span class="narr-inner">$1</span>');
+  s = s.replace(/（([^（）\n]{1,300}?)）/g, '<span class="narr-inner">（$1）</span>');
+  return s;
+}
+
 // ── 对话行内小喇叭（可点朗读该句）：说话人归属 + 图标 HTML（纯函数·归属逻辑与 tts.ts 一致，独立写以免拖 store 依赖）──
 const TTS_VERB = '说|道|问|答|喊|叫|吼|笑|冷笑|轻声|低语|开口|沉声|喝|骂|叹|念|应|回答|嘟囔|嘀咕|喃喃|嘲讽|反问|补充|解释|吩咐|命令';
 export function ttsAttribSpeaker(lead: string, names: string[]): string | undefined {
@@ -116,7 +130,7 @@ function wrapSettlementBlocks(text: string): string {
       out.push(renderSettleBlock(header, body));
       continue;
     }
-    out.push(escapeHtml(line));
+    out.push(styleProse(escapeHtml(line)));   // 普通散文行：转义后套对话/心理美化 span（是否着色由容器 data 属性 + CSS 决定）
     i++;
   }
   return out.join('<br>');

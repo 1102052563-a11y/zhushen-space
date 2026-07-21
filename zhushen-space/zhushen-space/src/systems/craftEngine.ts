@@ -117,6 +117,14 @@ export const CRAFT_MODES: CraftMode[] = [
     cotFocus: '元素/精华能否凝晶、纯度够不够；晶体属性由投入之物的性质推导。',
     wbSeed: '炼晶 宝石 结晶 镶嵌 纯度 元素',
   },
+  {
+    id: 'suit', icon: '🛡', name: '套装锻造', blurb: '材料 → 一整套主题装备（件数递进套装效果）',
+    inputHint: '金属 / 魔材 / 主题材料（决定套装主题与品级）',
+    prefCats: ['材料', '武器', '防具', '饰品'], outCategory: '', outHint: '2~6 件套主题装备（武器/防具/饰品搭配，集齐越多套装效果越强）', multiOut: true,
+    minInputs: 1,
+    cotFocus: '这批材料能否支撑一个统一主题的整套装备；件数越多单件应越克制（整套预算摊薄）。',
+    wbSeed: '套装 成套 锻造 主题 共鸣 整套',
+  },
 ];
 
 export function craftMode(id: string): CraftMode {
@@ -215,9 +223,14 @@ export function craftCost(inputs: CraftInput[], mul = 1): number {
   return Math.round(200 * Math.pow(1.7, base - 1) * mul);
 }
 
-/** 产出槽（喂给 AI 的"你要生成几件、各是什么类别、品级上限多少"）。分解＝多件材料，其余＝一件。*/
+/** 产出槽（喂给 AI 的"你要生成几件、各是什么类别、品级上限多少"）。分解＝多件材料，套装＝玩家自选件数，其余＝一件。*/
 export interface CraftSlot { category: string; gradeDesc: string; note: string }
-export function craftOutputSlots(mode: CraftMode, q: CraftQuality): CraftSlot[] {
+export function craftOutputSlots(mode: CraftMode, q: CraftQuality, pieces?: number): CraftSlot[] {
+  if (mode.id === 'suit') {
+    // 套装锻造：件数由玩家自选（2~6），全套锁同一品级档（ceilingName）；category 留空由 AI 在武器/防具/饰品里搭配
+    const n = Math.max(2, Math.min(6, Math.round(pieces ?? 0) || 3));
+    return Array.from({ length: n }, (_, i) => ({ category: '', gradeDesc: q.ceilingName, note: `套装部件 ${i + 1}/${n}` }));
+  }
   if (mode.multiOut) {
     const n = q.tier === 'fail' ? 1 : q.baseGrade >= 8 ? 4 : q.baseGrade >= 4 ? 3 : 2;
     const g = gradeName(Math.max(1, q.ceilingGrade));

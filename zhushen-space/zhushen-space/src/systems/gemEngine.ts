@@ -1,5 +1,5 @@
 import { gradeToNum, ITEM_GRADES, type GemSlotKind, type SocketedGem, type InventoryItem } from '../store/itemStore';
-import { setForGem, gemSetName, looseJson } from './gemSets';
+import { setForGem, gemSetName, looseJson, type GemSetDef } from './gemSets';
 import { useGemSets } from '../store/gemSetStore';
 
 export const GEM_SLOTS: GemSlotKind[] = ['通用', '武器', '防具', '饰品'];
@@ -121,7 +121,7 @@ function pickDef(grade: string, rng: Rng, want?: { attr?: string; slot?: GemSlot
 }
 
 /** 用一条属性定义烘焙出一颗宝石物品（数值在此定下，镶嵌只套用）*/
-function buildGem(grade: string, def: GemDef, rng: Rng): GeneratedGem {
+function buildGem(grade: string, def: GemDef, rng: Rng, forceSet?: GemSetDef): GeneratedGem {
   const n = gradeToNum(grade);
   const high = n >= GEM_HIGH_FROM;
   const cat = def.cat ?? '战斗';
@@ -136,8 +136,9 @@ function buildGem(grade: string, def: GemDef, rng: Rng): GeneratedGem {
   const slotLabel = def.slot === '通用' ? '任意装备' : `仅${def.slot}`;
   const tierLabel = cat === '战斗' ? (high ? '高阶战斗属性' : '基础面板加成') : `${cat}类`;
   const sets = useGemSets.getState().sets;                 // 按玩家当前套装定义归属（非写死）
-  const setKey = setForGem(def.attr, sets);                // 归入某套装（集齐激活套装加成）；无匹配则不归套
-  const setLabel = gemSetName(setKey, sets);
+  // forceSet：强制归入指定套装——治「AI/自定义套装 members 与内置重叠时，setForGem 的"首个匹配"总把宝石判给内置套装 → AI 套装永远刷不出」。
+  const setKey = forceSet ? forceSet.key : setForGem(def.attr, sets);
+  const setLabel = forceSet ? forceSet.name : gemSetName(setKey, sets);
   return {
     item: {
       name: `${grade}·${def.flavor}${noun}`,
@@ -164,9 +165,40 @@ export function generateGem(grade: string, rng: Rng = Math.random, want?: { attr
   return buildGem(grade, pickDef(grade, rng, want), rng);
 }
 
-/** 刷新一批商店宝石（同品级、效果各异）*/
+/* 洗牌（Fisher-Yates·就地）：让商店里"套装保底宝石"不总排在最前 */
+function shuffle<T>(arr: T[], rng: Rng): T[] {
+  for (let i = arr.length - 1; i > 0; i--) { const j = Math.floor(rng() * (i + 1)); [arr[i], arr[j]] = [arr[j], arr[i]]; }
+  return arr;
+}
+
+/* 为"自造词 member"（AI 没从属性池取词）兜底一个 GemDef：**本身无面板数值**（绝不凭空造数值），只作套装计数用——套装真正的加成来自各档 tiers。 */
+function customMemberDef(member: string): GemDef {
+  const f = member.replace(/[+\d%·、，,\s]/g, '').slice(0, 4) || '奇珍';
+  return { attr: member, slot: '通用', cat: '功能', flavor: f, gen: () => '契合本套装（自身无独立面板数值，靠集齐激活套装档加成生效）' };
+}
+
+/** 产出一颗**必定归属指定套装**的宝石：优先用能对上属性池的 member（带正经效果），对不上则用自造词兜底。 */
+export function generateSetGem(grade: string, set: GemSetDef, rng: Rng = Math.random): GeneratedGem | null {
+  const members = (set.members ?? []).map((m) => String(m).trim()).filter(Boolean);
+  if (!members.length) return null;
+  const base = gradeToNum(grade) >= GEM_HIGH_FROM ? HIGH_GEMS : LOW_GEMS;
+  const pool = [...base, ...UTILITY_GEMS, ...LIFE_GEMS];
+  const matched = members.map((m) => pool.find((d) => d.attr === m)).filter((d): d is GemDef => !!d);
+  const def = matched.length ? pick(rng, matched) : customMemberDef(pick(rng, members));
+  return buildGem(grade, def, rng, set);   // forceSet=set → 一定归入本套装
+}
+
+/** 刷新一批商店宝石（同品级）——**每个已定义套装（含 AI/自定义）保底各出 1 颗归属它的宝石**，其余随机，最后打乱。
+    治"AI 生成的套装怎么也刷不出来"：随机池抽不到 + setForGem 首个匹配会把与内置重叠的 member 判给内置套装。
+    AI/自定义套装优先占保底槽（内置套装本就易随机刷到）；至少保留 2 个纯随机槽。 */
 export function generateGemShop(grade: string, count = 8, rng: Rng = Math.random): GeneratedGem[] {
-  return Array.from({ length: count }, () => generateGem(grade, rng));
+  const sets = useGemSets.getState().sets ?? [];
+  const out: GeneratedGem[] = [];
+  const order = [...shuffle(sets.filter((s) => !s.builtin), rng), ...shuffle(sets.filter((s) => s.builtin), rng)];
+  const reserve = Math.max(0, Math.min(count - 2, order.length));
+  for (let i = 0; i < reserve; i++) { const g = generateSetGem(grade, order[i], rng); if (g) out.push(g); }
+  while (out.length < count) out.push(generateGem(grade, rng));
+  return shuffle(out, rng);
 }
 
 /* ───── 宝石合成「赌狗深渊」：3 颗同品级 → 1 颗高一阶 ───── */

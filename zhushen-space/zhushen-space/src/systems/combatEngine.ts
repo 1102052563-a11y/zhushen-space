@@ -34,6 +34,8 @@ import {
 } from './combatTags';
 import { gemSetPassive, gemSetEquipEntry } from './gemSets';
 import { useGemSets } from '../store/gemSetStore';
+import { equipSetPassive, equipSetEquipEntry } from './equipSets';
+import { useEquipSets } from '../store/equipSetStore';
 
 const DEFAULT_ATTRS: DiceAttrs = { str: 5, agi: 5, con: 5, int: 5, cha: 5, luck: 5 };
 
@@ -110,7 +112,9 @@ export function buildCombatant(id: string, side: Side, override?: Partial<Combat
     const rm = realAttrMult(p.tier, p.level);   // 四阶起六维×5（攻防/伤害/HP/EP 一并放大）
     const gsets = useGemSets.getState().sets;
     const setEntry = gemSetEquipEntry(equippedFull, gsets);   // 宝石套装六维加成 → 合成"装备条目"并入有效六维
-    const equipForAttr = setEntry ? [...equippedFull, setEntry as any] : equippedFull;
+    const esets = useEquipSets.getState().sets;
+    const esEntry = equipSetEquipEntry(equippedFull, esets);   // 装备套装（套装锻造）六维加成 → 同口径并入
+    const equipForAttr = [...equippedFull, ...(setEntry ? [setEntry as any] : []), ...(esEntry ? [esEntry as any] : [])];
     const attrs = scaleCombat(effectiveAttrs(baseTT, b1c?.skills, b1c?.traits, equipForAttr, attrCapForTier(p.tier, p.level)) as DiceAttrs, rm);   // 有效六维先夹本阶上限(遵守阶位)，再×真实倍率
     const equipped = equippedOf(useItems.getState().items);
     const d = computeDerived(attrs, p.level, equipped as any);
@@ -124,8 +128,8 @@ export function buildCombatant(id: string, side: Side, override?: Partial<Combat
       bioStrength: p.bioStrength || '', favor: undefined,
       patk: d.patk, pdef: d.pdef, matk: d.matk, mdef: d.mdef,
       maxHp, maxEp, initHp: effectiveResource(g.hp, g.maxHp, maxHp), initEp: effectiveResource(g.mp, g.maxMp, maxEp),
-      // 被动 = 技能/天赋 + 装备&镶嵌宝石的高阶战斗属性(暴击/暴伤/破甲/减伤) + 宝石套装被动（后二者此前从不生效，是"宝石效果不生效"根因）
-      passive: mergePassive(mergePassive(aggregatePassives(b1kit), equipmentPassive(equippedFull)), gemSetPassive(equippedFull, gsets)),
+      // 被动 = 技能/天赋 + 装备&镶嵌宝石的高阶战斗属性(暴击/暴伤/破甲/减伤) + 宝石套装被动（后二者此前从不生效，是"宝石效果不生效"根因）+ 装备套装被动
+      passive: mergePassive(mergePassive(mergePassive(aggregatePassives(b1kit), equipmentPassive(equippedFull)), gemSetPassive(equippedFull, gsets)), equipSetPassive(equippedFull, esets)),
       triggers: aggregateTriggers(b1kit),
     };
   }
@@ -137,7 +141,9 @@ export function buildCombatant(id: string, side: Side, override?: Partial<Combat
   const npcBase = withAttrDelta(npc?.attrs ?? DEFAULT_ATTRS, npc?.realAttrs);   // 真实属性点直加(realAttrs)并入基础六维→进攻防/HP/EP并随四阶×5
   const npcGsets = useGemSets.getState().sets;
   const npcSetEntry = gemSetEquipEntry(equippedFull as any, npcGsets);   // NPC 亦可镶嵌宝石成套 → 套装六维并入
-  const npcEquipForAttr = npcSetEntry ? [...(equippedFull as any[]), npcSetEntry] : (equippedFull as any);
+  const npcEsets = useEquipSets.getState().sets;
+  const npcEsEntry = equipSetEquipEntry(equippedFull as any, npcEsets);   // NPC 拿到套装部件（赠予/交易）同样生效
+  const npcEquipForAttr = [...(equippedFull as any[]), ...(npcSetEntry ? [npcSetEntry] : []), ...(npcEsEntry ? [npcEsEntry] : [])];
   const attrs = scaleCombat(effectiveAttrs(npcBase, npcC?.skills, npcC?.traits, npcEquipForAttr, attrCapForTier(npc?.realm, level)) as DiceAttrs, rm);  // 有效六维先夹本阶上限(遵守阶位)，再×真实倍率
   const equipped = equippedOf(npc?.items);
   const d = computeDerived(attrs, level, equipped as any);
@@ -150,7 +156,7 @@ export function buildCombatant(id: string, side: Side, override?: Partial<Combat
     patk: d.patk, pdef: d.pdef, matk: d.matk, mdef: d.mdef,
     maxHp, maxEp,
     initHp: effectiveResource(npc?.hp, npc?.maxHp, maxHp), initEp: effectiveResource(npc?.mp, npc?.maxMp, maxEp),
-    passive: mergePassive(mergePassive(aggregatePassives(npcKit), equipmentPassive(equippedFull as any)), gemSetPassive(equippedFull as any, npcGsets)),
+    passive: mergePassive(mergePassive(mergePassive(aggregatePassives(npcKit), equipmentPassive(equippedFull as any)), gemSetPassive(equippedFull as any, npcGsets)), equipSetPassive(equippedFull as any, npcEsets)),
     triggers: aggregateTriggers(npcKit),
   };
 }

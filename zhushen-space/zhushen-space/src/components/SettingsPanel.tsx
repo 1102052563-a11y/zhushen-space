@@ -2927,6 +2927,7 @@ function GeneralSettingsSection() {
 const READ_FONT_SIZES    = [{ label: '小', v: 15 }, { label: '标准', v: 17 }, { label: '大', v: 19 }, { label: '特大', v: 22 }];
 const READ_LETTER_SPACES = [{ label: '标准', v: 0 }, { label: '适中', v: 0.5 }, { label: '宽松', v: 1 }, { label: '超宽', v: 2 }];
 const READ_LINE_HEIGHTS  = [{ label: '紧凑', v: 1.6 }, { label: '标准', v: 1.8 }, { label: '宽松', v: 2.1 }, { label: '超宽', v: 2.4 }];
+const READ_PARA_SPACES   = [{ label: '紧凑', v: 0.1 }, { label: '标准', v: 0.45 }, { label: '宽松', v: 0.8 }, { label: '超宽', v: 1.2 }];
 
 function ReadingOptionRow({ title, desc, opts, cur, onPick, fmt }: {
   title: string; desc: string; opts: { label: string; v: number }[]; cur: number; onPick: (v: number) => void; fmt: (v: number) => string;
@@ -3162,17 +3163,36 @@ function AppearanceSettingsSection() {
       <ReadingOptionRow title="字体大小" desc="正文文字的字号大小。" opts={READ_FONT_SIZES} cur={reading.fontSize} onPick={(v) => setReading({ fontSize: v })} fmt={(v) => `${v}px`} />
       <ReadingOptionRow title="字间距" desc="文字之间的横向间隔。" opts={READ_LETTER_SPACES} cur={reading.letterSpacing} onPick={(v) => setReading({ letterSpacing: v })} fmt={(v) => v === 0 ? 'normal' : `${v}px`} />
       <ReadingOptionRow title="行间距" desc="正文段落内行与行的高度。" opts={READ_LINE_HEIGHTS} cur={reading.lineHeight} onPick={(v) => setReading({ lineHeight: v })} fmt={(v) => `${v}×`} />
+      <ReadingOptionRow title="段落间距" desc="每一处换行之间的纵向留白。正文总觉得「黏在一起、看着累」就调大它——最直接治读起来挤。" opts={READ_PARA_SPACES} cur={reading.paraSpacing ?? 0.45} onPick={(v) => setReading({ paraSpacing: v })} fmt={(v) => `${v}em`} />
+      <div className="space-y-3">
+        <div className="text-sm font-mono text-god/70 uppercase tracking-widest">对话 / 心理美化</div>
+        <div className="border border-edge rounded-lg p-4 bg-panel space-y-3">
+          <div className="text-sm text-dim leading-relaxed">自动识别正文里的对话与心声并区分呈现，让阅读更清爽——**不需要 AI 配合任何格式**，也对已有旧楼层即时生效。</div>
+          <label className="flex items-center gap-2.5 cursor-pointer select-none">
+            <input type="checkbox" checked={reading.dialogueHl !== false} onChange={(e) => setReading({ dialogueHl: e.target.checked })} className="accent-god w-4 h-4" />
+            <span className="text-sm text-slate-300">对话高亮</span>
+            <span className="text-[12px] text-dim/60">「…」/“…” 等引号里的对白用主题强调色标出，一眼从叙述里跳出来</span>
+          </label>
+          <label className="flex items-center gap-2.5 cursor-pointer select-none">
+            <input type="checkbox" checked={reading.innerDim !== false} onChange={(e) => setReading({ innerDim: e.target.checked })} className="accent-god w-4 h-4" />
+            <span className="text-sm text-slate-300">心理 · 旁白弱化</span>
+            <span className="text-[12px] text-dim/60">*心声* 与（旁白）调暗，让它们从主叙述里退后（*星号*会自动隐去）</span>
+          </label>
+        </div>
+      </div>
       <div className="space-y-3">
         <div className="text-sm font-mono text-god/70 uppercase tracking-widest">实时预览</div>
         <div className="border border-edge rounded-lg p-5 bg-void/40">
+          {/* 用 <br> + 对话/心理 span 排版（与真实正文渲染一致）→ 间距与美化开关的效果这里都能真实看到 */}
           <div className="text-slate-300 narrative-content"
-            style={{ fontSize: `${reading.fontSize}px`, letterSpacing: `${reading.letterSpacing}px`, fontFamily: readingFontStack(ff), '--narr-lh': String(reading.lineHeight) } as any}>
-            <p>淡金色的文字在你面前浮现——它们不是光，而是直接烙进灵魂的讯息。【乐园】正在校验你的灵魂，适配判定：通过。</p>
-            <p>“欢迎加入，契约者。”冰冷的提示音在空旷的大厅里回响，你能感觉到黑暗深处有无数双眼睛正注视着你。</p>
+            data-dlg={reading.dialogueHl === false ? '0' : '1'}
+            data-inner={reading.innerDim === false ? '0' : '1'}
+            style={{ fontSize: `${reading.fontSize}px`, letterSpacing: `${reading.letterSpacing}px`, fontFamily: readingFontStack(ff), '--narr-lh': String(reading.lineHeight), '--narr-para': `${reading.paraSpacing ?? 0.45}em` } as any}>
+            淡金色的文字在你面前浮现——它们不是光，而是直接烙进灵魂的讯息。<br />【乐园】正在校验你的灵魂，适配判定：通过。<br /><br /><span className="narr-dialogue">“欢迎加入，契约者。”</span>冰冷的提示音在空旷的大厅里回响，<span className="narr-inner">（这算盘，打得可真响。）</span><br />你能感觉到黑暗深处，有无数双眼睛正静静注视着你。
           </div>
         </div>
-        <button onClick={() => setReading({ fontSize: 17, letterSpacing: 0, lineHeight: 1.8, fontFamily: 'default' })}
-          className="text-[13px] font-mono text-dim/50 hover:text-blood transition-colors">↺ 恢复默认排版（17px / normal / 1.8× / 默认字体）</button>
+        <button onClick={() => setReading({ fontSize: 17, letterSpacing: 0, lineHeight: 1.8, paraSpacing: 0.45, fontFamily: 'default', dialogueHl: true, innerDim: true })}
+          className="text-[13px] font-mono text-dim/50 hover:text-blood transition-colors">↺ 恢复默认排版（17px / normal / 1.8× / 间距 0.45em / 默认字体 / 对话·心理美化开）</button>
       </div>
     </div>
   );

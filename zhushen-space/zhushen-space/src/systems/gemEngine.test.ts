@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest';
-import { makeCustomGem, parseGeneratedGems } from './gemEngine';
-import { activeGemSets, DEFAULT_GEM_SETS } from './gemSets';
+import { makeCustomGem, parseGeneratedGems, generateGemShop } from './gemEngine';
+import { activeGemSets, DEFAULT_GEM_SETS, type GemSetDef } from './gemSets';
+import { useGemSets } from '../store/gemSetStore';
 import { equipmentPassive } from './combatTags';
 import type { SocketedGem } from '../store/itemStore';
 
@@ -42,6 +43,34 @@ describe('parseGeneratedGems（AI 输出解析）', () => {
     expect(out[1].gemSet).toBe('bulwark');
   });
   it('非 JSON → 空数组', () => expect(parseGeneratedGems('无法生成', '紫色')).toEqual([]));
+});
+
+describe('generateGemShop（保底出货：AI/自定义套装也刷得出来）', () => {
+  it('AI 套装(members 与内置「疾风迅捷」重叠) 也保底出 1 颗归属它的宝石', () => {
+    // 治用户报「AI 整的套装怎么也刷不出来」：随机池抽不到 + setForGem 首个匹配把重叠 member 判给内置套装
+    const before = useGemSets.getState().sets;
+    const aiSet: GemSetDef = { key: 'ai_test_gale', name: '测试急速流', emoji: '⚡', theme: '敏', desc: '', members: ['敏捷', '急速'], tiers: [{ need: 2, bonus: '敏捷+10' }] };
+    useGemSets.setState({ sets: [...before, aiSet] });
+    try {
+      const keys = new Set(generateGemShop('紫色', 8).map((g) => g.item.gemSet));
+      expect(keys.has('ai_test_gale')).toBe(true);   // force-assign 生效：重叠 member 也归到 AI 套装
+    } finally {
+      useGemSets.setState({ sets: before });
+    }
+  });
+  it('多个 AI 套装(含全自造词 member) 都被覆盖', () => {
+    const before = useGemSets.getState().sets;
+    const ai1: GemSetDef = { key: 'ai_a', name: '甲套', emoji: '💠', theme: '攻', desc: '', members: ['自造词甲'], tiers: [{ need: 2, bonus: '力量+5' }] };
+    const ai2: GemSetDef = { key: 'ai_b', name: '乙套', emoji: '💠', theme: '防', desc: '', members: ['自造词乙'], tiers: [{ need: 2, bonus: '体质+5' }] };
+    useGemSets.setState({ sets: [...before, ai1, ai2] });
+    try {
+      const keys = new Set(generateGemShop('紫色', 8).map((g) => g.item.gemSet));
+      expect(keys.has('ai_a')).toBe(true);   // 自造词 member 也兜底出货
+      expect(keys.has('ai_b')).toBe(true);
+    } finally {
+      useGemSets.setState({ sets: before });
+    }
+  });
 });
 
 describe('端到端：自定义宝石被套装识别 + 效果生效', () => {

@@ -208,7 +208,16 @@ body {
 .narrative-content p { margin: 0.6em 0; line-height: var(--narr-lh, 1.8); }
 .narrative-content .dialogue-play { transition: opacity .15s, transform .1s; }
 .narrative-content .dialogue-play:hover { opacity: 0.95 !important; transform: scale(1.15); }
-.narrative-content br { display: block; content: ''; margin: 2px 0; }
+/* 每个换行的纵向留白（正文"黏在一起"就靠它撑开）：由阅读设置「段落间距」控制，缺省 0.45em */
+.narrative-content br { display: block; content: ''; margin: var(--narr-para, 0.45em) 0; }
+
+/* 正文美化：对话高亮 / 心理·旁白弱化。渲染器永远输出 .narr-dialogue / .narr-inner，
+   实际是否着色由容器 data-dlg / data-inner 开关（阅读设置）控制 → 纯 CSS 切换、即时生效。
+   用主题 token（--c-god 强调色 / --c-dim 弱化色）着色，随换肤/护眼自动适配、浅色主题也可读。 */
+.narrative-content .narr-dialogue { color: inherit; }
+.narrative-content .narr-inner { color: inherit; }
+.narrative-content[data-dlg="1"] .narr-dialogue { color: rgb(var(--c-god)); }
+.narrative-content[data-inner="1"] .narr-inner { color: rgb(var(--c-dim)); }
 
 .input-base {
   width: 100%;

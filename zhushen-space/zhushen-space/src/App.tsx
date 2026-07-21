@@ -122,6 +122,8 @@ import {
   CHAOS_RECORD_PROMPT,
   CHAOS_WORLD_GEN_PROMPT,
   CRAFT_RULE,
+  EQUIP_SET_RULE,
+  EQUIP_ASCEND_RULE,
   TABLE_FILL_MANUAL_RULE,
 } from './promptRules';
 
@@ -290,6 +292,9 @@ import { useEnhance } from './store/enhanceStore';
 import { PITY_THRESHOLD, stageFromLevel, growthCoef } from './systems/enhanceEngine';
 import { useCraft, ensureCraftWbDefaults, type CraftProduct, type CraftPetSkill, type CraftPetTalent } from './store/craftStore';
 import { craftMode, craftOutputSlots, type CraftQuality } from './systems/craftEngine';
+import { tiersForPieces, parsePendingSuit } from './systems/equipSets';
+import { useEquipSets } from './store/equipSetStore';
+import { nextGradeOf, ascendCost, targetScoreFor, type AscendPreview } from './systems/equipAscend';
 import { buildCraftWbInjection } from './systems/craftWorldBook';
 import { generateGem } from './systems/gemEngine';
 import { useChest, type ChestJob } from './store/chestStore';
@@ -1127,6 +1132,7 @@ const MISC_WEATHER_RULE = `
 const CONTRACTOR_EVOLUTION_RULE = `
 【本世界·其他契约者人口·时间演化铁则（让任务世界不是"单机"，随时间活起来）】本世界除主角外还有**其他契约者**（被各乐园投放进本世界执行任务的存在）；其数量与分布**随世界时间推移而变化**。用指令一行维护人口数：\`contractors(数量)\` 或 \`contractors(数量, "分布/本轮变动一句话")\`。
 - **进入新世界时初始化（【进入新世界信号】=是那回合必给）**：据【本世界·世界志】的"契约者分布"设定给初值；世界志没写则按世界体量/难度合理估——小世界几人、中等十几人、大世界数十人；note 写清大致分布（聚集地/势力/有无强者/榜单）。
+- **★阶位相称（治"高阶世界乱入低阶契约者"）**：能在本世界立足的其他契约者，其阶位应与**本世界难度**大致相称——本世界的凶险就是筛子，远低于本世界难度的契约者活不下来、也不该被记进人口。**别在八九阶世界维护一堆一阶契约者**；note 若提具体强者/榜单，阶位也要贴合本世界难度。
 - **随时间演化（核心·别让它一动不动）**：**世界时间每推进一段（数天~数周）就该有增减**——有人任务失败/PvP 陨落、有人达成目标结算离场（减少），偶有新契约者被投放进来（增加）；据本轮正文与流逝的世界时间**合理增减**（别无根据暴涨暴跌）。把本轮变动写进 note（如"上周旧矿争夺战两名契约者身亡，现存 N 人"）。
 - **与正文呼应**：人口不是空数字——人多时正文可安排遇到/听闻其他契约者（交易、结盟、火并、情报、榜单、悬赏），人骤减时透出肃杀与危险；主角亲手击杀/救助其他契约者、或听闻某契约者动向时，据此调数量并写进 note。
 - 主角**回归乐园/离开本世界**则本数据作废（前端已随切世界清零），乐园/枢纽内不必维护。`;
@@ -2245,7 +2251,10 @@ export default function App() {
     // 任务击杀目标阶位上限：强制环≤主角阶位、贪婪环≤+1；勿降级剧情高端战力，改派阶位相称的目标
     addRule('击杀阶位上限', '前端规则 · 击杀阶位上限', QUEST_KILL_TIER_RULE);
     // 其他契约者人口：让正文知道本世界不是"单机"，可自然安排遇见/听闻其他契约者
-    { const _c = useMisc.getState().contractors; if (_c?.count && !isHomeWorld(useMisc.getState().worldName || '')) addRule('其他契约者人口', '前端数据 · 本世界其他契约者', `【本世界·其他契约者】本世界现存约 **${_c.count} 名**其他契约者${_c.note ? `（${_c.note}）` : ''}，各自在本世界执行任务。**本世界不是单机**——可自然安排主角遇见/听闻他们：交易、结盟、火并、情报交换、榜单/悬赏、目睹某契约者陨落或撤离等，让世界有"人气"与竞争感；数量多则更热闹、骤减则更肃杀。别喧宾夺主、别每回合硬塞，顺剧情自然带出即可。`); }
+    { const _M = useMisc.getState(); const _c = _M.contractors; const _wt = _M.worldTier; if (_c?.count && !isHomeWorld(_M.worldName || '')) addRule('其他契约者人口', '前端数据 · 本世界其他契约者', `【本世界·其他契约者】本世界现存约 **${_c.count} 名**其他契约者${_c.note ? `（${_c.note}）` : ''}，各自在本世界执行任务。**本世界不是单机**——可自然安排主角遇见/听闻他们：交易、结盟、火并、情报交换、榜单/悬赏、目睹某契约者陨落或撤离等，让世界有"人气"与竞争感；数量多则更热闹、骤减则更肃杀。
+- **克制出场（别乱入·别硬塞）**：多数回合根本不必让其他契约者露面；只在剧情自然需要时才带出、一次一两个、点到为止，**别喧宾夺主、别每回合硬塞、别为凑热闹而无端新增角色**。${_wt ? `
+- **★阶位相称铁则（本世界锁定难度：${_wt}）**：能在本世界"活着执行任务"的其他契约者，其阶位应与本世界难度**大致相称（约 ${_wt} 上下）**——本世界的凶险本身就是筛子，远低于本世界难度者根本活不下来。**绝不能乱入远低于本世界阶位的契约者**（如本世界 ${_wt}、却冒出个一阶契约者在旁悠闲围观 / 吐槽 / 挑衅主角——既违背轮回乐园设定、又极度出戏、破坏沉浸）。
+- **万一确需写低阶契约者，必须交代合理性且态度自洽**：要么是刚被投放就濒死 / 仓皇逃命 / 躲藏苟活的倒霉蛋，要么已是尸体 / 残躯 / 前人遗骸；面对**明显强于自己**的主角，低阶者只会**恐惧、逃避、噤声、谄媚或求饶**，**绝不会像没事人一样窥视、嘲讽、点评一个远比自己强大的存在**——那是找死。（此为「弱者对强者」态度，与「强者对弱者不屑」互为镜像。）` : ''}`); }
     // 任务世界结算：仅当本回合输入含【结算任务】时才注入（平时不喂，省 token、避免误触发）
     if (/【结算任务】/.test(userInput)) {
       addRule('任务世界结算', '前端规则 · 任务世界结算（本回合触发）', WORLD_SETTLEMENT_RULE, 'WORLD_SETTLEMENT_RULE');
@@ -2648,6 +2657,101 @@ export default function App() {
     }
   }
 
+  /* ─── 强化所·品级进阶：AI 生成进阶后的形态（预览，不落库）───
+     前端锁死：目标品级（沿 ITEM_GRADES 一次+1档·nextGradeOf）+ 评分（targetScoreFor 落新档区间）+ 费用（ascendCost）。
+     AI 只写升华后的词缀/效果/攻防/外观/简介 + 一句正文通报（EQUIP_ASCEND_RULE）；确认才 confirmEquipAscend 扣费落库。 */
+  async function runEquipAscendPhase(args: { itemId: string; tendency?: string }): Promise<{ ok: true; preview: AscendPreview } | { ok: false; error: string }> {
+    const it = useItems.getState().items.find((x) => x.id === args.itemId);
+    if (!it) return { ok: false, error: '物品不存在' };
+    const step = nextGradeOf(it.gradeDesc);
+    if (!step) return { ok: false, error: '该装备已是最高品级（创世），无法再进阶' };
+    const E = useEnhance.getState();
+    const ss = useSettings.getState();
+    const legacy = E.enhanceUseSharedApi ? (ss.textUseSharedApi ? ss.api : ss.textApi) : E.enhanceApi;
+    const chain = resolveApiChain('enhance', legacy);
+    if (!chain[0]?.baseUrl || !chain[0]?.apiKey) return { ok: false, error: '未配置接口：设置→变量管理→装备强化→API（品级进阶与装备强化共用此接口），或勾「复用正文生成 API」' };
+
+    const card = [
+      `名称: ${it.name}`,
+      `分类: ${it.category}${it.subType ? ' / ' + it.subType : ''}`,
+      `当前品级: ${it.gradeDesc || '—'}`,
+      it.combatStat && `当前攻防(combatStat·+0基础值): ${it.combatStat}`,
+      it.affix && `现有词缀(affix): ${it.affix}`,
+      it.effect && `现有效果(effect): ${it.effect}`,
+      it.appearance && `现有外观(appearance): ${it.appearance}`,
+      it.intro && `现有简介(intro): ${it.intro}`,
+      it.score && `现有评分(score): ${it.score}`,
+      (it.enhanceLevel ?? 0) > 0 && `强化等级: +${it.enhanceLevel}（强化倍率由系统读时另算，你写的攻防是 +0 基础值）`,
+      (it.ascendLv ?? 0) > 0 && `已进阶次数: ${it.ascendLv}`,
+    ].filter(Boolean).join('\n');
+    const user = [
+      `# 待进阶的装备完整信息`,
+      card,
+      ``,
+      `【系统锁定】品级 ${step.from} → ${step.to}（仅此一档；你不得输出 gradeDesc/score，输出也不采信）。`,
+      args.tendency ? `【玩家倾向提示（只导方向、不导档次）】「${args.tendency}」` : `【玩家倾向提示】（未填，按装备本源自然升华）`,
+      ``,
+      `请先在 <进阶推演> 里按六步推演（≥180字），再紧接着输出**单个 JSON object**（name/combatStat/attrBonus/affix/effect/appearance/intro/notice）。`,
+    ].join('\n');
+
+    try {
+      const system = getPrompt('EQUIP_ASCEND_RULE', EQUIP_ASCEND_RULE) + '\n' + ITEM_EXACT_REF_RULE + '\n' + getPrompt('EQUIP_CODEX', EQUIP_CODEX);
+      const { content } = await apiChatFallback(chain, [
+        { role: 'system', content: system },
+        { role: 'user', content: user },
+      ], { timeoutMs: 150000, label: '品级进阶' });
+      const body = (content || '').replace(/<进阶推演>[\s\S]*?<\/进阶推演>/g, ' ');
+      const m = body.match(/\{[\s\S]*\}/);
+      const j: any = m ? lenientJsonParse(m[0]) : null;
+      if (!j || typeof j !== 'object') return { ok: false, error: 'AI 未返回有效进阶结果（F12 看原始回复），可重试' };
+      // 改名护栏：默认钉回原名；仅玩家在倾向里点名改名才采信 AI 的新名
+      const wantRename = /改名|更名|重命名|换个名|新名字|命名为/.test(args.tendency ?? '');
+      const aiName = flattenAiText(j.name).slice(0, 40).trim();
+      const renamed = !!(wantRename && aiName && aiName !== it.name);
+      const preview: AscendPreview = {
+        itemId: it.id, from: step.from, to: step.to, toNum: step.toNum, cost: ascendCost(step.toNum),
+        name: renamed ? aiName : it.name, renamed,
+        combatStat: flattenAiText(j.combatStat).slice(0, 50) || undefined,
+        attrBonus: flattenAiText(j.attrBonus).slice(0, 120) || undefined,
+        affix: flattenAiText(j.affix).slice(0, 400) || undefined,
+        effect: flattenAiText(j.effect).slice(0, 400) || undefined,
+        appearance: flattenAiText(j.appearance).slice(0, 300) || undefined,
+        intro: flattenAiText(j.intro).slice(0, 200) || undefined,
+        notice: flattenAiText(j.notice).slice(0, 200) || undefined,
+      };
+      return { ok: true, preview };
+    } catch (e: any) {
+      return { ok: false, error: (e?.message ?? '接口调用失败').slice(0, 100) };
+    }
+  }
+
+  /* 品级进阶：确认落库（扣乐园币 + updateItem 原地升级 + 场外通报正文）。updateItem 是浅合并、不重钳品级。 */
+  function confirmEquipAscend(preview: AscendPreview): { ok: boolean; error?: string } {
+    const items = useItems.getState();
+    const it = items.items.find((x) => x.id === preview.itemId);
+    if (!it) return { ok: false, error: '物品不存在（可能已被消耗）' };
+    if (items.currency.乐园币 < preview.cost) return { ok: false, error: '乐园币不足' };
+    items.adjustCurrency('乐园币', -preview.cost, `品级进阶·${it.name}（${preview.from}→${preview.to}）`);
+    const effect = [preview.effect, preview.attrBonus].filter(Boolean).join('；');   // 六维数值折进 effect（同合成/gacha 惯例，供 effectiveAttrs 读取）
+    items.updateItem(preview.itemId, {
+      name: preview.name,
+      gradeDesc: preview.to,
+      score: String(targetScoreFor(preview.toNum)),   // 评分前端写死落新档区间，防后续 normalizeGrades/演化按低分钳回
+      ascendLv: (it.ascendLv ?? 0) + 1,
+      combatStat: preview.combatStat ?? it.combatStat,
+      affix: preview.affix ?? it.affix,
+      effect: effect || it.effect,
+      appearance: preview.appearance ?? it.appearance,
+      intro: preview.intro ?? it.intro,
+      numeric: { ...(it.numeric ?? {}), grade: preview.toNum },   // 数值档同步（combatEngine 优先读 numeric.grade）
+      notes: [it.notes, `【品级进阶】${preview.from}→${preview.to}`].filter(Boolean).join('\n'),
+    });
+    try {
+      pushSceneNotice(`【场外·进阶】玩家在乐园强化所将「${it.name}」${preview.renamed ? `进阶并更名为「${preview.name}」` : '完成品级进阶'}：${preview.from} → ${preview.to}。${preview.notice || ''}正文据此知晓即可，勿重复发放。`);
+    } catch { /* 通报失败不阻断 */ }
+    return { ok: true };
+  }
+
   /* ─── 御兽产物 → 宠物规格（前端拍板，AI 只填风味）──────────────────────────────
      阶位/等级 = 主角当前阶位（宠物不越主人）；产出品级只决定它在**本阶窗口内**的生物强度档
      （白色=同阶杂鱼 … 创世=同阶顶尖）——即"阶位=层级、bioT=该阶内强弱"的既有分工。
@@ -2718,11 +2822,71 @@ export default function App() {
 
     ensureCraftWbDefaults();
     const q = sess.quality;
-    const slots = craftOutputSlots(mode, q);
+    const slots = craftOutputSlots(mode, q, sess.suitPieces);
     const inputsText = sess.inputs.map((x, i) => `${i + 1}. ${x.name} ×${x.qty}｜品级 ${x.gradeDesc || '—'}｜类别 ${x.category || '—'}${x.subType ? '/' + x.subType : ''}`).join('\n');
     const slotsText = slots.map((s, i) => `槽${i + 1}：category=${s.category || `（由你判定：${mode.outHint}）`}｜gradeDesc上限=${s.gradeDesc}（不得越级）｜${s.note}`).join('\n');
     const wbCtx = [mode.wbSeed, sess.inputs.map((x) => `${x.name} ${x.category || ''}`).join(' '), sess.tendency].join(' ');
     const wbInj = buildCraftWbInjection(C.worldBooks, wbCtx);
+
+    // 套装锻造：一次生成 套装定义 + N 件部件。品级(全套同档)/件数/效果档位表全部前端锁死（EQUIP_SET_RULE），
+    // AI 只写主题/部件风味/每档效果文案；解析为单个 object（set+pieces），非产物数组。
+    if (mode.id === 'suit') {
+      const n = slots.length;   // craftOutputSlots 已按 suitPieces 钳到 2~6
+      const needs = tiersForPieces(n);
+      const suitSlotsText = slots.map((s, i) => `槽${i + 1}：category=武器/防具/饰品之一（由你搭配·subType 互不重复）｜gradeDesc=${s.gradeDesc}（系统锁定·全套同档）｜${s.note}`).join('\n');
+      const system = getPrompt('EQUIP_SET_RULE', EQUIP_SET_RULE) + (wbInj ? '\n\n' + wbInj : '');
+      const user = [
+        `【套装件数 N（系统锁定）】${n} 件`,
+        `【效果解锁档位表（系统锁定·tiers 的 need 逐档照抄、不得增删改）】${needs.map((x) => `${x}件`).join(' / ')}（共 ${needs.length} 档）`,
+        `【投入材料】\n${inputsText}`,
+        `【玩家倾向提示】${sess.tendency || '（未填，由你按材料判定主题方向）'}`,
+        `【合成品质档（系统已掷定，全套品级据此锁定）】${q.label}——${q.note}`,
+        `【产出槽】\n${suitSlotsText}`,
+        `【词缀预算】全套合计最多 ${q.affixBudget} 条词缀（按整套摊薄，每件至多 1~2 条）${q.affixBudget === 0 ? '（本次为失败档，可不写词缀）' : ''}`,
+        ``,
+        `请先在 <套装推演> 里按六步推演（≥200字），再紧接着输出**单个 JSON object**（set + pieces；pieces 长度=${n}、slot 从 1 起一一对应；tiers 恰好 ${needs.length} 档、need 照抄档位表）。`,
+      ].join('\n');
+      C.setGenerating();
+      try {
+        const { content } = await apiChatFallback(chain, [
+          { role: 'system', content: system },
+          { role: 'user', content: user },
+        ], { timeoutMs: 150000 });
+        const parsed = parsePendingSuit(content || '');
+        if (!parsed) { C.setError('AI 未返回有效套装（F12 看原始回复）。可点「重新生成」重试。'); return; }
+        const EQUIP = ['武器', '防具', '饰品'];
+        const lockedScore = String(targetScoreFor(q.ceilingGrade));   // 评分前端写死在锁定档区间（防 addItem 的 normalizeGradeLabel 按 AI 低分把品级钳降）
+        const products: CraftProduct[] = slots.map((slot, i) => {
+          const j: any = parsed.pieces.find((x: any) => parseInt(String(x?.slot), 10) === i + 1) || parsed.pieces[i] || {};
+          let cat = flattenAiText(j.category).trim();
+          if (!EQUIP.includes(cat)) cat = i === 0 ? '武器' : i % 2 ? '防具' : '饰品';   // 非法类别按序回退成合法搭配
+          return {
+            name: flattenAiText(j.name).slice(0, 40) || `${parsed.set.name}·部件${i + 1}`,
+            category: cat,
+            gradeDesc: slot.gradeDesc,   // 品级锁死（全套同档）
+            subType: flattenAiText(j.subType).slice(0, 30) || undefined,
+            combatStat: flattenAiText(j.combatStat).slice(0, 50) || undefined,
+            attrBonus: flattenAiText(j.attrBonus).slice(0, 120) || undefined,
+            score: lockedScore,
+            affix: flattenAiText(j.affix).slice(0, 200) || undefined,
+            effect: flattenAiText(j.effect).slice(0, 400) || undefined,
+            intro: flattenAiText(j.intro).slice(0, 200) || undefined,
+            appearance: flattenAiText(j.appearance).slice(0, 300) || undefined,
+            killCount: cat === '武器' ? '0' : undefined,
+          };
+        });
+        // 套装定义：tiers 的 need 以前端档位表逐档覆盖（AI 值不采信）；缺档用末档文案兜底
+        const tiers = needs.map((need, ti) => ({
+          need,
+          bonus: String(parsed.set.tiers[ti]?.bonus ?? parsed.set.tiers[parsed.set.tiers.length - 1]?.bonus ?? '').slice(0, 160) || `集齐 ${need} 件生效`,
+        }));
+        C.setPendingSet({ name: parsed.set.name, emoji: parsed.set.emoji, theme: parsed.set.theme, desc: parsed.set.desc, gradeDesc: q.ceilingName, pieces: n, tiers });
+        C.setPending(products);
+      } catch (e: any) {
+        C.setError((e?.message ?? '接口调用失败').slice(0, 100));
+      }
+      return;
+    }
 
     // 御兽：产物是活物不是道具 —— 六维走前端机械生成(铁律：AI 不凭空定数值)，AI 只按前端拍板的规格补技能/天赋
     const isTameGen = mode.id === 'tame';
@@ -2809,6 +2973,8 @@ export default function App() {
     }
     const isTame = craftMode(sess.modeId).id === 'tame';
     const petSpec = isTame ? petSpecOf(sess.quality) : null;   // 与 runCraftPhase 写提示词时同源 → 预览说的就是收服到的
+    // 套装锻造：先把套装定义入 equipSetStore 拿稳定 key，部件入库时烘焙 equipSet 字段（按已装备同套件数递进激活）
+    const suitKey = craftMode(sess.modeId).id === 'suit' && sess.pendingSet ? useEquipSets.getState().addSet(sess.pendingSet) : '';
     for (const p of sess.pending) {
       if (petSpec) {
         // 御兽：产物直接收服成一只宠物 NPC（在场+入队+好友）。六维按 主角阶位×品级档 机械 roll（凶兽形态·跳过凡人档）；
@@ -2838,7 +3004,8 @@ export default function App() {
         subType: p.subType, combatStat: p.combatStat, score: p.score,
         affix: p.affix, effect, intro: p.intro, appearance: p.appearance, killCount: p.killCount,
         gemSlot: p.gemSlot as any, gemAttr: p.gemAttr,   // 炼晶产物带镶嵌部位/属性
-        quantity: 1, equipped: false, tags: ['合成工坊'], acquisition: `合成工坊·${craftMode(sess.modeId).name}`,
+        equipSet: suitKey || undefined,   // 套装部件烘焙所属套装 key
+        quantity: 1, equipped: false, tags: suitKey ? ['合成工坊', '套装'] : ['合成工坊'], acquisition: `合成工坊·${craftMode(sess.modeId).name}`,
       });
     }
     C.recordDiscovered(sess.pending.map((p) => p.name));
@@ -2846,7 +3013,10 @@ export default function App() {
     // 场外通报：本次合成产物 → 让正文知晓（防"合成了X正文却不知"）；手工费另有货币通报
     try {
       const names = sess.pending.map((p) => p.name).filter(Boolean).join('、');
-      if (names) pushSceneNotice(`【场外·合成】玩家在合成工坊（${craftMode(sess.modeId).name}）合成/炼制出：${names}。${isTame ? '已收服为随从宠物。' : '已入库。'}正文据此知晓即可，勿重复发放。`);
+      const suitNote = suitKey && sess.pendingSet
+        ? `已铸成套装「${sess.pendingSet.name}」（${sess.pendingSet.pieces} 件套：套装效果按已装备件数递进激活——${sess.pendingSet.tiers.map((t) => `${t.need}件:${t.bonus}`).join('；')}）。`
+        : '';
+      if (names) pushSceneNotice(`【场外·合成】玩家在合成工坊（${craftMode(sess.modeId).name}）合成/炼制出：${names}。${suitNote}${isTame ? '已收服为随从宠物。' : '已入库。'}正文据此知晓即可，勿重复发放。`);
     } catch { /* 通报失败不阻断 */ }
     C.endSession();
   }
@@ -11050,7 +11220,9 @@ ${lines}`;
                               </button>
                               <div
                                 className="text-slate-300 narrative-content"
-                                style={{ fontSize: `${reading.fontSize}px`, letterSpacing: `${reading.letterSpacing}px`, fontFamily: readingFontStack(reading.fontFamily), '--narr-lh': String(reading.lineHeight) } as any}
+                                data-dlg={reading.dialogueHl === false ? '0' : '1'}
+                                data-inner={reading.innerDim === false ? '0' : '1'}
+                                style={{ fontSize: `${reading.fontSize}px`, letterSpacing: `${reading.letterSpacing}px`, fontFamily: readingFontStack(reading.fontFamily), '--narr-lh': String(reading.lineHeight), '--narr-para': `${reading.paraSpacing ?? 0.45}em` } as any}
                                 onClick={(e) => {
                                   const t = e.target as HTMLElement;
                                   const play = t.closest('.dialogue-play') as HTMLElement | null;   // 行内对话小喇叭 → 用说话人音色朗读该句
@@ -12080,6 +12252,8 @@ ${lines}`;
           onClose={() => setEnhancePanelOpen(false)}
           onBanter={enhanceBanter}
           onFinalize={runEnhanceFinalizePhase}
+          onAscend={runEquipAscendPhase}
+          onAscendConfirm={confirmEquipAscend}
         />
       )}
 

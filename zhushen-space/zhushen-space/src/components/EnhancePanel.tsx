@@ -10,11 +10,13 @@ import {
   type EnhanceOutcome,
 } from '../systems/enhanceEngine';
 import { loadBossManifest, pickStagePortrait, type BossManifest } from '../systems/enhanceBosses';
+import { nextGradeOf, ascendCost, isAscendable, type AscendPreview } from '../systems/equipAscend';
 import GemPanel from './GemPanel';
 import { pushSceneNotice } from '../systems/allocNotice';   // 场外强化结果 → 正文前置须知（按真实等级，勿凭货币"尝试等级"误判）
 
 export interface EnhanceFinalizeArgs { itemId: string; startLevel: number; newLevel: number; tendency?: string; }
 export interface FinalizeStatus { ok: boolean; changed: boolean; error?: string; }
+export type AscendResult = { ok: true; preview: AscendPreview } | { ok: false; error: string };
 
 /* 词缀/效果拆条复用 itemStore 的 splitAffixEntries（吃字符串/数组/对象/JSON 串，绝不吐 [object Object]），
    不再本地弱实现——旧本地版对对象只 String() → 频道交易物品在强化所也会显示 [object Object]。 */
@@ -23,11 +25,13 @@ export interface FinalizeStatus { ok: boolean; changed: boolean; error?: string;
    仅乐园内（轮回乐园/专属房间）可强化；摇率/爆装/降级/保底全在 enhanceEngine 算，不花 API。
    两个 AI 点（吐槽 onBanter / 收尾 onFinalize）由 App 提供，读 store.session 自行拼 prompt。 */
 export default function EnhancePanel({
-  onClose, onBanter, onFinalize,
+  onClose, onBanter, onFinalize, onAscend, onAscendConfirm,
 }: {
   onClose: () => void;
   onBanter: () => Promise<string>;
   onFinalize: (args: EnhanceFinalizeArgs) => Promise<FinalizeStatus | void> | void;
+  onAscend: (args: { itemId: string; tendency?: string }) => Promise<AscendResult>;
+  onAscendConfirm: (preview: AscendPreview) => { ok: boolean; error?: string };
 }) {
   const items          = useItems((s) => s.items);
   const currency       = useItems((s) => s.currency);
@@ -62,6 +66,7 @@ export default function EnhancePanel({
   const [manifest, setManifest] = useState<BossManifest | null>(null);
   const [portraitUrl, setPortraitUrl] = useState<string | null>(null);
   const [gemsOpen, setGemsOpen] = useState(false);
+  const [tab, setTab] = useState<'enhance' | 'ascend'>('enhance');   // ⚒ 强化 / 🔼 品级进阶 页签
   const [finalizing, setFinalizing] = useState(false);   // 结束强化的收尾 AI 调用中（显示"正在为您强化装备"）
   const [tendency, setTendency] = useState('');   // 玩家指定的词缀/效果生成方向（攻击类/辅助类/挖矿类…），收尾时传给 AI 按此方向生成
   const [finalizeResult, setFinalizeResult] = useState<{ status: 'ok' | 'fail'; name: string; level: number; affix: string; effect: string; error?: string; args: EnhanceFinalizeArgs } | null>(null);  // 收尾结果（成功展示词缀/效果，失败显示原因+重试）
@@ -244,6 +249,13 @@ export default function EnhancePanel({
             <div className="text-sm font-bold text-slate-100">装备强化所</div>
             <div className={`text-[12px] font-mono ${isHome ? 'text-god/60' : 'text-blood/70'}`}>{isHome ? '乐园 · 营业中' : '⚠ 仅乐园内可用'}</div>
           </div>
+          {/* 页签：⚒ 强化 / 🔼 品级进阶 */}
+          <div className="flex items-center gap-1">
+            <button onClick={() => setTab('enhance')}
+              className={`px-2.5 py-1 rounded-lg border text-[12px] font-bold transition-colors ${tab === 'enhance' ? 'border-god/60 bg-god/15 text-god' : 'border-edge text-dim hover:text-slate-200 hover:border-god/30'}`}>⚒ 强化</button>
+            <button onClick={() => setTab('ascend')}
+              className={`px-2.5 py-1 rounded-lg border text-[12px] font-bold transition-colors ${tab === 'ascend' ? 'border-purple-400/60 bg-purple-500/15 text-purple-200' : 'border-edge text-dim hover:text-slate-200 hover:border-purple-400/40'}`}>🔼 品级进阶</button>
+          </div>
           <div className="text-right">
             <div className="text-[11px] font-mono text-dim/50">垫子计数 · 爆装攒保底</div>
             <div className={`text-sm font-bold font-mono ${pityReady ? 'text-emerald-300' : 'text-amber-300'}`}>{Math.min(pity, PITY_THRESHOLD)} / {PITY_THRESHOLD}{pityReady ? ' ★必成' : ''}</div>
@@ -311,6 +323,9 @@ export default function EnhancePanel({
           );
         })()}
 
+        {tab === 'ascend' && <AscendView onAscend={onAscend} onAscendConfirm={onAscendConfirm} />}
+
+        {tab === 'enhance' && (
         <div className="flex-1 flex flex-col overflow-hidden max-lg:overflow-y-auto">
 
           {/* ── 上：看板娘立绘（整宽，占上方约 58% 高，给横图立绘更多纵向空间）── */}
@@ -519,7 +534,137 @@ export default function EnhancePanel({
           </div>
           </div>
         </div>
+        )}
       </div>
+    </div>
+  );
+}
+
+/* ── 品级进阶页签（模块级组件：内含受控输入，遵守"受控输入面板别内联子组件"铁则防拼音断字）──
+   选装备 → 前端锁定 当前品级→下一档（nextGradeOf）+ 费用（ascendCost）→ 玩家输提示词 →
+   AI 生成进阶形态预览（onAscend＝App.runEquipAscendPhase）→ 确认才扣费落库（onAscendConfirm）。 */
+function AscendView({ onAscend, onAscendConfirm }: {
+  onAscend: (args: { itemId: string; tendency?: string }) => Promise<AscendResult>;
+  onAscendConfirm: (preview: AscendPreview) => { ok: boolean; error?: string };
+}) {
+  const items = useItems((s) => s.items);
+  const currency = useItems((s) => s.currency);
+  const [selId, setSelId] = useState('');
+  const [tendency, setTendency] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [preview, setPreview] = useState<AscendPreview | null>(null);
+  const [err, setErr] = useState('');
+  const [done, setDone] = useState('');
+
+  const candidates = items.filter((it) => isEnhanceable(it.category))
+    .sort((a, b) => (Number(b.equipped) - Number(a.equipped)) || ((b.ascendLv ?? 0) - (a.ascendLv ?? 0)));
+  const sel = items.find((x) => x.id === selId) ?? null;
+  const step = sel ? nextGradeOf(sel.gradeDesc) : null;
+  const cost = step ? ascendCost(step.toNum) : 0;
+  const canGo = !!sel && !!step && !busy && currency.乐园币 >= cost;
+
+  async function doAscend(regen = false) {
+    if (!sel || !step || busy) return;
+    setBusy(true); setErr(''); setDone('');
+    if (!regen) setPreview(null);
+    try {
+      const r = await onAscend({ itemId: sel.id, tendency: tendency.trim() || undefined });
+      if (r.ok) setPreview(r.preview);
+      else setErr(r.error);
+    } finally { setBusy(false); }
+  }
+  function doConfirm() {
+    if (!preview || busy) return;
+    const r = onAscendConfirm(preview);
+    if (r.ok) { setDone(`✓ 「${preview.name}」已进阶至 ${preview.to}`); setPreview(null); setErr(''); setTendency(''); }
+    else setErr(r.error ?? '确认失败');
+  }
+
+  return (
+    <div className="flex-1 overflow-y-auto p-3 space-y-2.5">
+      {/* 选择装备 */}
+      <div className="rounded-xl border border-edge bg-void p-2">
+        <div className="text-[11px] font-mono text-dim/50 mb-1.5 px-1">选择要进阶的装备（{candidates.length}）</div>
+        <div className="max-h-44 overflow-y-auto space-y-1">
+          {candidates.length === 0
+            ? <div className="text-[12px] text-dim/30 px-1 py-2">背包/身上没有装备</div>
+            : candidates.map((it) => (
+              <button key={it.id} onClick={() => { setSelId(it.id); setPreview(null); setErr(''); setDone(''); }}
+                className={`w-full flex items-center gap-2 px-2 py-1.5 rounded-lg border text-left transition-colors ${it.id === selId ? 'border-purple-400/50 bg-purple-500/10' : 'border-edge/50 hover:bg-panel2'}`}>
+                <span className="text-base shrink-0">{CAT_ICON[it.category] ?? '◆'}</span>
+                <span className={`flex-1 min-w-0 text-[13px] truncate ${gradeNameClass(it.gradeDesc)}`}>{it.name}</span>
+                {(it.ascendLv ?? 0) > 0 && <span className="text-[10px] font-mono text-purple-300/70 shrink-0">进阶×{it.ascendLv}</span>}
+                <span className="text-[10px] text-dim/50 shrink-0">{it.gradeDesc || '—'}</span>
+                {!isAscendable(it) && <span className="text-[10px] font-mono text-amber-300/60 shrink-0">已顶格</span>}
+                {it.equipped && <span className="text-[10px] font-mono text-god/55 shrink-0">装备中</span>}
+              </button>
+            ))}
+        </div>
+      </div>
+
+      {/* 费用卡：当前品级 → 下一品级 */}
+      {sel && step && (
+        <div className="rounded-xl border border-edge bg-void p-3 space-y-2">
+          <div className="flex items-center justify-between text-sm">
+            <span className="font-mono text-dim/60">品级</span>
+            <span className="font-mono">
+              <span className={gradeNameClass(step.from)}>{step.from}</span>
+              <span className="text-dim/40"> → </span>
+              <span className={gradeNameClass(step.to)}>{step.to}</span>
+            </span>
+          </div>
+          <div className="flex items-center justify-between text-sm">
+            <span className="font-mono text-dim/60">进阶费用</span>
+            <span className="font-mono text-amber-300 font-bold">{cost.toLocaleString()} 🪙</span>
+          </div>
+          <div className="flex items-center justify-between text-[12px]">
+            <span className="font-mono text-dim/40">乐园币余额</span>
+            <span className={`font-mono ${currency.乐园币 >= cost ? 'text-dim/55' : 'text-blood/80'}`}>{currency.乐园币.toLocaleString()}</span>
+          </div>
+        </div>
+      )}
+      {sel && !step && (
+        <div className="rounded-xl border border-amber-400/40 bg-amber-400/5 px-3 py-2 text-[12px] text-amber-200/80">「{sel.name}」已是最高品级（创世），无法再进阶。</div>
+      )}
+
+      {/* 提示词 + 开始进阶 */}
+      <input type="text" value={tendency} onChange={(e) => setTendency(e.target.value)} disabled={busy}
+        placeholder="✎ 进阶方向提示词（选填）：如 火焰淬炼 / 深化吸血词缀 / 更名为「XX」…只导方向、不导档次"
+        title="AI 会按这个方向写进阶后的形态；留空则按装备本源自然升华；点名「改名/更名」才会改名"
+        className="w-full px-2.5 py-1.5 rounded-lg bg-void border border-edge/50 text-[12px] text-slate-200 placeholder:text-dim/35 focus:outline-none focus:border-purple-400/50" />
+      <button onClick={() => doAscend(false)} disabled={!canGo}
+        className="w-full py-2.5 rounded-xl text-base font-bold border border-purple-400/50 text-purple-200 bg-purple-500/10 hover:bg-purple-500/20 transition-all disabled:opacity-40 disabled:cursor-not-allowed">
+        {busy ? '🔥 进阶炉炼化中…' : step ? `🔼 品级进阶 ${step.from} → ${step.to} · ${cost.toLocaleString()} 🪙` : '🔼 品级进阶（先选一件装备）'}
+      </button>
+      <div className="text-[10px] text-dim/40 text-center">先出预览，确认才扣费落库；品级/评分由系统锁定一次+1档，AI 只写进阶后的形态</div>
+      {err && <div className="text-[12px] font-mono text-blood/80 text-center">{err}</div>}
+      {done && <div className="text-[12px] font-mono text-emerald-300/90 text-center">{done}</div>}
+
+      {/* 进阶预览：确认 / 重新生成 / 取消 */}
+      {preview && (
+        <div className="rounded-xl border border-purple-400/40 bg-purple-500/5 p-3 space-y-2">
+          <div className="flex items-center gap-2 flex-wrap">
+            <span className={`text-[15px] font-bold ${gradeNameClass(preview.to)}`}>{preview.name}</span>
+            <span className="text-[11px] px-1.5 py-0.5 rounded border border-purple-400/40 text-purple-300/90">{preview.from} → {preview.to}</span>
+            {preview.renamed && <span className="text-[10px] text-amber-300/70">已更名</span>}
+          </div>
+          {preview.combatStat && <div className="text-[12px] text-orange-300/90">⚔ {preview.combatStat}</div>}
+          {preview.attrBonus && <div className="text-[12px] text-emerald-300/90">✦ {preview.attrBonus}</div>}
+          {preview.affix && <div className="text-[12px] text-purple-300/90 space-y-0.5">{splitAffixEntries(preview.affix).map((a, j) => <div key={j} className="border-l-2 border-purple-400/30 pl-1.5">{a}</div>)}</div>}
+          {preview.effect && <div className="text-[12px] text-sky-300/80 space-y-0.5">{splitAffixEntries(preview.effect).map((a, j) => <div key={j} className="border-l-2 border-sky-400/30 pl-1.5">{a}</div>)}</div>}
+          {preview.intro && <div className="text-[12px] text-dim/70 italic">{preview.intro}</div>}
+          {preview.appearance && <div className="text-[11px] text-dim/50">外观：{preview.appearance}</div>}
+          {preview.notice && <div className="text-[11px] text-dim/55 border-t border-edge/40 pt-1.5">📜 {preview.notice}</div>}
+          <div className="flex gap-2 pt-1">
+            <button onClick={doConfirm} disabled={busy || currency.乐园币 < preview.cost}
+              className="flex-1 py-2 rounded-lg border border-emerald-500/50 bg-emerald-500/10 text-emerald-300 font-semibold text-[13px] hover:bg-emerald-500/20 disabled:opacity-40 transition-colors">✅ 确认进阶 · {preview.cost.toLocaleString()} 🪙</button>
+            <button onClick={() => doAscend(true)} disabled={busy}
+              className="flex-1 py-2 rounded-lg border border-god/40 text-god/90 text-[13px] hover:bg-god/10 disabled:opacity-40 transition-colors">🔄 重新生成</button>
+            <button onClick={() => { setPreview(null); setErr(''); }} disabled={busy}
+              className="flex-1 py-2 rounded-lg border border-edge text-dim hover:text-slate-200 text-[13px] disabled:opacity-40 transition-colors">↩ 取消</button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
