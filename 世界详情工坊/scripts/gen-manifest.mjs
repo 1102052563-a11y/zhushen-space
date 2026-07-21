@@ -77,7 +77,10 @@ const leisureList = [...leisure.values()].sort((a, b) => a.minId - b.minId);
 const all = [...mainList, ...leisureList].map((w) => ({
   name: w.name,
   lib: w.lib,
-  tiers: w.lib === '主库' ? CN_TIERS.filter((t) => w.tiers.has(t)) : ['休闲'],
+  // 铁则：切入点覆盖必须是「一阶 ~ 该世界最高阶」的连续区间。
+  // 源目录里旧主库世界只登记了实际出现过的阶位（会出现"只有四阶""只有八阶""三阶+九阶"这种空档），
+  // 但一个世界既然存在高阶切入点，就必然也存在所有低阶切入点——故此处按最高阶补齐为连续区间。
+  tiers: w.lib === '主库' ? CN_TIERS.slice(0, Math.max(...CN_TIERS.map((t, i) => (w.tiers.has(t) ? i : -1))) + 1) : ['休闲'],
   ids: w.ids,
   blurb: w.blurb,
 }));

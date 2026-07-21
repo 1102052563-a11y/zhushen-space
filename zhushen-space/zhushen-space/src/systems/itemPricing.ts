@@ -43,6 +43,22 @@ export function categoryMult(category?: string): number {
   return 1.0; // 特殊物品 / 其他物品
 }
 
+/** 某档的「公允价中位」（乐园币，已含分类系数）。
+ *  供品级进阶等**前端定价**锚定同一张价表——别处再拍一套数就会出现"进阶比买还便宜"的套利口子。*/
+export function gradeMidPark(gradeNum: number, category?: string): number {
+  const i = Math.min(GRADE_PARK_BAND.length, Math.max(1, Math.round(gradeNum))) - 1;
+  const [lo, hi] = GRADE_PARK_BAND[i];
+  return Math.round(((lo + hi) / 2) * categoryMult(category));
+}
+
+/** 乐园币金额文案：够 1 魂币的价位附注魂币等值，免得高阶一长串数字读不出量级。*/
+export function formatPark(park: number): string {
+  const n = Math.max(0, Math.round(park));
+  if (n < SOUL_TO_PARK) return `${n.toLocaleString()} 🪙`;
+  const soul = n / SOUL_TO_PARK;
+  return `${n.toLocaleString()} 🪙（≈${soul >= 10 ? Math.round(soul).toLocaleString() : soul.toFixed(1)} 魂币）`;
+}
+
 /** 评分优先、品级兜底地解析出 1..15 的档位。*/
 export function resolveGradeNum(opts: { score?: string | number; gradeDesc?: string }): number {
   const byScore = scoreToGradeNum(opts.score); // 0 = 无评分

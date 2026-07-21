@@ -17,7 +17,7 @@ import { useCharacters } from '../store/characterStore';
 import { useNpc } from '../store/npcStore';
 import { usePlayer } from '../store/playerStore';
 import { buildPlayerSnapshot } from './mpSnapshot';
-import { useSettings, type WorldBook } from '../store/settingsStore';
+import { useSettings, parseWorldBook, type WorldBook } from '../store/settingsStore';
 import { useSkillTree, type TreeDef } from '../store/skillTreeStore';
 import { useSubProfTree } from '../store/subProfTreeStore';
 import { useLoadout } from '../store/loadoutStore';
@@ -151,6 +151,23 @@ function installCharacterCard(payload: any): void {
 const ch = () => useCharacters.getState();
 const player = () => ch().characters[PLAYER_ID];
 
+/* ── 世界书·两个书架 ──
+ *   正文世界书 = settings.textWorldBooks（正文生成用，玩家嘴里的「正文世界书那一栏」）
+ *   辅助世界书 = settings.worldBooks（世界选择模块用）
+ * pack 时把书架写进 payload.shelf，install 按 shelf 放回对应栏；
+ * 老条目（没有 shelf 字段）→ 一律装进正文世界书，下载世界书基本都是为了正文用。 */
+export const WB_CAT_TEXT = '正文世界书';
+export const WB_CAT_AUX = '辅助世界书';
+export type WbShelf = 'text' | 'aux';
+const wbCat = (shelf: WbShelf) => (shelf === 'aux' ? WB_CAT_AUX : WB_CAT_TEXT);
+
+// 本地 .json 直接打包（不必先导进设置页）：解析成与本地书同构的 payload
+export function packWorldBookFile(raw: string, fileName = '', shelf: WbShelf = 'text'): PackResult {
+  const { name, entries } = parseWorldBook(raw, fileName);
+  if (!entries.length) throw new Error('这个文件里没有解析出任何条目');
+  return { payload: { name, entries, enabled: true, shelf }, name, category: wbCat(shelf) };
+}
+
 /* ── 角色创建·自定义内容库（乐园/种族/天赋）：listLocal/pack/install 走 creationContentStore ── */
 const cc = () => useCreationContent.getState();
 export function ccListLocal(type: WorkshopKindId): LocalEntry[] {
@@ -271,15 +288,39 @@ export const KINDS: Record<WorkshopKindId, WorkshopKindDef> = {
     install: (payload) => { useLoadout.getState().addBuild({ ...(payload ?? {}), id: undefined }); },   // 只入库，回「🎴 体系/流派」面板点「应用」才生效
   },
   worldbook: {
-    id: 'worldbook', label: '世界书', emoji: '📚', group: '世界书',
-    listLocal: () => useSettings.getState().worldBooks.map((b) => ({ id: b.id, name: b.name })),   // 含内置：内置世界书也可分享，安装时会标成非内置
-    pack: (id) => { const b = useSettings.getState().worldBooks.find((x) => x.id === id); return b ? { payload: b, name: b.name } : null; },
-    install: (payload) => useSettings.setState((s) => {
-      const b = payload as WorldBook;
-      const incoming: WorldBook = { ...b, id: `wb_${Date.now()}`, builtin: false, builtinKey: undefined, enabled: b.enabled ?? true, createdAt: Date.now() };
-      const others = s.worldBooks.filter((x) => x.name !== incoming.name);   // 同名覆盖，不堆叠
-      return { worldBooks: [...others, incoming] };
-    }),
+    id: 'worldbook', label: '世界书', emoji: '📚', group: '世界书', categories: [WB_CAT_TEXT, WB_CAT_AUX],
+    // 两个书架都可分享（含内置：内置世界书也能分享，安装时会标成非内置）
+    listLocal: () => {
+      const s = useSettings.getState();
+      return [
+        ...s.textWorldBooks.map((b) => ({ id: b.id, name: b.name, category: WB_CAT_TEXT })),
+        ...s.worldBooks.map((b) => ({ id: b.id, name: b.name, category: WB_CAT_AUX })),
+      ];
+    },
+    pack: (id) => {
+      const s = useSettings.getState();
+      const t = s.textWorldBooks.find((x) => x.id === id);
+      const b = t ?? s.worldBooks.find((x) => x.id === id);
+      if (!b) return null;
+      const shelf: WbShelf = t ? 'text' : 'aux';
+      // 剥掉本机实例字段（id/建档时间/内置标记/删除记录），只发书本体
+      const payload = { ...stripKeys(b, ['id', 'createdAt', 'builtin', 'builtinKey', 'removedBuiltinUids']), shelf };
+      return { payload, name: b.name, category: wbCat(shelf) };
+    },
+    install: (payload) => {
+      const b: any = payload ?? {};
+      const shelf: WbShelf = b.shelf === 'aux' ? 'aux' : 'text';   // 缺省=正文世界书（老条目也走这里）
+      const incoming: WorldBook = {
+        ...(stripKeys(b, ['shelf']) as WorldBook),
+        id: `${shelf === 'aux' ? 'wb' : 'twb'}_${Date.now()}`,
+        entries: Array.isArray(b.entries) ? b.entries : [],
+        builtin: false, builtinKey: undefined, removedBuiltinUids: undefined,
+        enabled: b.enabled ?? true, createdAt: Date.now(),
+      };
+      useSettings.setState((s) => (shelf === 'aux'   // 同名覆盖，不堆叠
+        ? { worldBooks: [...s.worldBooks.filter((x) => x.name !== incoming.name), incoming] }
+        : { textWorldBooks: [...s.textWorldBooks.filter((x) => x.name !== incoming.name), incoming] }));
+    },
   },
   paradise: {
     id: 'paradise', label: '乐园', emoji: '🏝', group: '创建', creationOnly: true,
@@ -390,6 +431,11 @@ export async function uploadLocal(type: WorkshopKindId, localId: string, meta: U
   if (!kind) throw new Error(`未知类型 ${type}`);
   const packed = (creation && CREATION_TYPES.includes(type)) ? ccPack(type, localId) : kind.pack(localId);
   if (!packed) throw new Error('没有可上传的内容');
+  return uploadPacked(type, packed, meta);
+}
+
+// 上传已打包内容（本地文件导入等：内容不在本地库里，直接发）。返回新 id。
+export async function uploadPacked(type: WorkshopKindId, packed: PackResult, meta: UploadMeta): Promise<string> {
   const author = uploaderName();
   if (!author) throw new Error('请先在「设置」里起一个工坊昵称');
   const finalName = meta.name.trim() || packed.name;

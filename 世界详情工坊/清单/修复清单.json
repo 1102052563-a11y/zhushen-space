@@ -1,23 +1,23 @@
 {
  "generatedAt": "20260721",
- "total": 917,
+ "total": 1204,
  "byStatus": {
-  "已修复": 11,
-  "待修复": 906
+  "已修复": 171,
+  "待修复": 1033
  },
  "byPriority": {
-  "P0": 296,
-  "P1": 509,
-  "P2": 112
+  "P0": 635,
+  "P1": 468,
+  "P2": 101
  },
  "rows": [
   {
    "priority": "P0",
-   "batch": 36,
-   "file": "产出\\批次36\\高達SEED.md",
-   "name": "高達SEED",
+   "batch": 4,
+   "file": "产出\\批次04\\FATE系列.md",
+   "name": "FATE系列",
    "lib": "主库",
-   "issue": "机检错误:剧情 9449 字 < 10000",
+   "issue": "机检错误:切入点缺少阶位：一、二、三、四、六（须覆盖一阶~最高阶全部连续阶位）",
    "hasCrossDup": false,
    "crossGroupIds": [],
    "status": "已修复",
@@ -25,11 +25,11 @@
   },
   {
    "priority": "P0",
-   "batch": 36,
-   "file": "产出\\批次36\\金刚狼1.md",
-   "name": "金刚狼1",
+   "batch": 5,
+   "file": "产出\\批次05\\FATE－Grand Order.md",
+   "name": "FATE/Grand Order",
    "lib": "主库",
-   "issue": "机检错误:剧情 7495 字 < 10000",
+   "issue": "机检错误:切入点缺少阶位：一、二、三、四、五（须覆盖一阶~最高阶全部连续阶位）",
    "hasCrossDup": false,
    "crossGroupIds": [],
    "status": "已修复",
@@ -37,11 +37,251 @@
   },
   {
    "priority": "P0",
-   "batch": 36,
-   "file": "产出\\批次36\\金刚狼2.md",
-   "name": "金刚狼2",
+   "batch": 5,
+   "file": "产出\\批次05\\FATE－Zero.md",
+   "name": "FATE/Zero",
    "lib": "主库",
-   "issue": "机检错误:剧情 3218 字 < 10000",
+   "issue": "机检错误:切入点缺少阶位：一、二、三（须覆盖一阶~最高阶全部连续阶位）",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "已修复",
+   "fixedMark": true
+  },
+  {
+   "priority": "P0",
+   "batch": 7,
+   "file": "产出\\批次07\\漫威电影宇宙.md",
+   "name": "漫威电影宇宙",
+   "lib": "主库",
+   "issue": "机检错误:切入点缺少阶位：七、八（须覆盖一阶~最高阶全部连续阶位）",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "已修复",
+   "fixedMark": true
+  },
+  {
+   "priority": "P0",
+   "batch": 9,
+   "file": "产出\\批次09\\星际争霸2：终章.md",
+   "name": "星际争霸2：终章",
+   "lib": "主库",
+   "issue": "机检错误:切入点缺少阶位：一、二、三、四、五、六（须覆盖一阶~最高阶全部连续阶位）",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "已修复",
+   "fixedMark": true
+  },
+  {
+   "priority": "P0",
+   "batch": 11,
+   "file": "产出\\批次11\\型月世界.md",
+   "name": "型月世界",
+   "lib": "主库",
+   "issue": "机检错误:切入点缺少阶位：三（须覆盖一阶~最高阶全部连续阶位）",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "已修复",
+   "fixedMark": true
+  },
+  {
+   "priority": "P0",
+   "batch": 15,
+   "file": "产出\\批次15\\X战警：黑凤凰 (重复).md",
+   "name": "X战警：黑凤凰 (重复)",
+   "lib": "主库",
+   "issue": "机检错误:切入点缺少阶位：一、二、三、四、五、六（须覆盖一阶~最高阶全部连续阶位）",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "已修复",
+   "fixedMark": true
+  },
+  {
+   "priority": "P0",
+   "batch": 16,
+   "file": "产出\\批次16\\克苏鲁神话系列.md",
+   "name": "克苏鲁神话系列",
+   "lib": "主库",
+   "issue": "机检错误:切入点缺少阶位：四（须覆盖一阶~最高阶全部连续阶位）",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "已修复",
+   "fixedMark": true
+  },
+  {
+   "priority": "P0",
+   "batch": 17,
+   "file": "产出\\批次17\\星球大战系列.md",
+   "name": "星球大战系列",
+   "lib": "主库",
+   "issue": "机检错误:切入点缺少阶位：一、三、四、五、六（须覆盖一阶~最高阶全部连续阶位）",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "已修复",
+   "fixedMark": true
+  },
+  {
+   "priority": "P0",
+   "batch": 17,
+   "file": "产出\\批次17\\星球大战I.md",
+   "name": "星球大战I",
+   "lib": "主库",
+   "issue": "机检错误:切入点缺少阶位：一、二、三（须覆盖一阶~最高阶全部连续阶位）",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "已修复",
+   "fixedMark": true
+  },
+  {
+   "priority": "P0",
+   "batch": 17,
+   "file": "产出\\批次17\\型月世界系列.md",
+   "name": "型月世界系列",
+   "lib": "主库",
+   "issue": "机检错误:切入点缺少阶位：一、二、四、五、六、七、八（须覆盖一阶~最高阶全部连续阶位）",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "已修复",
+   "fixedMark": true
+  },
+  {
+   "priority": "P0",
+   "batch": 18,
+   "file": "产出\\批次18\\星球大战II.md",
+   "name": "星球大战II",
+   "lib": "主库",
+   "issue": "机检错误:切入点缺少阶位：一、二、三（须覆盖一阶~最高阶全部连续阶位） | 灌水标记:跨媒介流行作品、可被契约者切入的完整任务世界",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "已修复",
+   "fixedMark": true
+  },
+  {
+   "priority": "P0",
+   "batch": 18,
+   "file": "产出\\批次18\\星球大战III.md",
+   "name": "星球大战III",
+   "lib": "主库",
+   "issue": "机检错误:切入点缺少阶位：一、二、三（须覆盖一阶~最高阶全部连续阶位）",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "已修复",
+   "fixedMark": true
+  },
+  {
+   "priority": "P0",
+   "batch": 18,
+   "file": "产出\\批次18\\星球大战IV.md",
+   "name": "星球大战IV",
+   "lib": "主库",
+   "issue": "机检错误:切入点缺少阶位：一、二、三（须覆盖一阶~最高阶全部连续阶位）",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "已修复",
+   "fixedMark": true
+  },
+  {
+   "priority": "P0",
+   "batch": 19,
+   "file": "产出\\批次19\\星球大战V.md",
+   "name": "星球大战V",
+   "lib": "主库",
+   "issue": "机检错误:切入点缺少阶位：一、二、三（须覆盖一阶~最高阶全部连续阶位）",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "已修复",
+   "fixedMark": true
+  },
+  {
+   "priority": "P0",
+   "batch": 19,
+   "file": "产出\\批次19\\星球大战VI.md",
+   "name": "星球大战VI",
+   "lib": "主库",
+   "issue": "机检错误:切入点缺少阶位：一、二、三（须覆盖一阶~最高阶全部连续阶位）",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "已修复",
+   "fixedMark": true
+  },
+  {
+   "priority": "P0",
+   "batch": 20,
+   "file": "产出\\批次20\\星球大战IX.md",
+   "name": "星球大战IX",
+   "lib": "主库",
+   "issue": "机检错误:切入点缺少阶位：一、二、三（须覆盖一阶~最高阶全部连续阶位）",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "已修复",
+   "fixedMark": true
+  },
+  {
+   "priority": "P0",
+   "batch": 20,
+   "file": "产出\\批次20\\星球大战VII.md",
+   "name": "星球大战VII",
+   "lib": "主库",
+   "issue": "机检错误:切入点缺少阶位：一、二、三（须覆盖一阶~最高阶全部连续阶位）",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "已修复",
+   "fixedMark": true
+  },
+  {
+   "priority": "P0",
+   "batch": 20,
+   "file": "产出\\批次20\\星球大战VIII.md",
+   "name": "星球大战VIII",
+   "lib": "主库",
+   "issue": "机检错误:切入点缺少阶位：一、二、三（须覆盖一阶~最高阶全部连续阶位）",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "已修复",
+   "fixedMark": true
+  },
+  {
+   "priority": "P0",
+   "batch": 21,
+   "file": "产出\\批次21\\最终幻想系列.md",
+   "name": "最终幻想系列",
+   "lib": "主库",
+   "issue": "机检错误:切入点缺少阶位：一、二、三、四、五、六（须覆盖一阶~最高阶全部连续阶位）",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "已修复",
+   "fixedMark": true
+  },
+  {
+   "priority": "P0",
+   "batch": 22,
+   "file": "产出\\批次22\\光环：致远星.md",
+   "name": "光环：致远星",
+   "lib": "主库",
+   "issue": "机检错误:切入点缺少阶位：三、五、六、七（须覆盖一阶~最高阶全部连续阶位）",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "已修复",
+   "fixedMark": true
+  },
+  {
+   "priority": "P0",
+   "batch": 26,
+   "file": "产出\\批次26\\机动战士高达（系列）.md",
+   "name": "机动战士高达（系列）",
+   "lib": "主库",
+   "issue": "机检错误:切入点缺少阶位：一、二、三、四、五、六（须覆盖一阶~最高阶全部连续阶位）",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "已修复",
+   "fixedMark": true
+  },
+  {
+   "priority": "P0",
+   "batch": 34,
+   "file": "产出\\批次34\\变形金刚系列.md",
+   "name": "变形金刚系列",
+   "lib": "主库",
+   "issue": "机检错误:切入点缺少阶位：一、二、三、四、五、六（须覆盖一阶~最高阶全部连续阶位）",
    "hasCrossDup": false,
    "crossGroupIds": [],
    "status": "已修复",
@@ -53,7 +293,7 @@
    "file": "产出\\批次36\\金刚狼3.md",
    "name": "金刚狼3",
    "lib": "主库",
-   "issue": "机检错误:剧情 2291 字 < 10000",
+   "issue": "机检错误:切入点缺少阶位：一、二（须覆盖一阶~最高阶全部连续阶位）",
    "hasCrossDup": false,
    "crossGroupIds": [],
    "status": "已修复",
@@ -61,11 +301,812 @@
   },
   {
    "priority": "P0",
-   "batch": 36,
-   "file": "产出\\批次36\\为美好的世界献上祝福.md",
-   "name": "为美好的世界献上祝福",
+   "batch": 37,
+   "file": "产出\\批次37\\复仇者联盟系列.md",
+   "name": "复仇者联盟系列",
    "lib": "主库",
-   "issue": "机检错误:剧情 9286 字 < 10000",
+   "issue": "机检错误:切入点缺少阶位：一、二、三、四、五、六、七、八（须覆盖一阶~最高阶全部连续阶位）",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "已修复",
+   "fixedMark": true
+  },
+  {
+   "priority": "P0",
+   "batch": 37,
+   "file": "产出\\批次37\\金刚狼3：殊死一战.md",
+   "name": "金刚狼3：殊死一战",
+   "lib": "主库",
+   "issue": "机检错误:切入点缺少阶位：三、五（须覆盖一阶~最高阶全部连续阶位）",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "已修复",
+   "fixedMark": true
+  },
+  {
+   "priority": "P0",
+   "batch": 37,
+   "file": "产出\\批次37\\Overlord (不死者之王).md",
+   "name": "Overlord (不死者之王)",
+   "lib": "主库",
+   "issue": "机检错误:切入点缺少阶位：一、二、三（须覆盖一阶~最高阶全部连续阶位）",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "已修复",
+   "fixedMark": true
+  },
+  {
+   "priority": "P0",
+   "batch": 38,
+   "file": "产出\\批次38\\黑暗之魂系列.md",
+   "name": "黑暗之魂系列",
+   "lib": "主库",
+   "issue": "机检错误:切入点缺少阶位：一、二（须覆盖一阶~最高阶全部连续阶位） | 警告:切入点疑似\"被封印\"式顶点解释",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "已修复",
+   "fixedMark": true
+  },
+  {
+   "priority": "P0",
+   "batch": 40,
+   "file": "产出\\批次40\\刀剑神域系列.md",
+   "name": "刀剑神域系列",
+   "lib": "主库",
+   "issue": "机检错误:切入点缺少阶位：五（须覆盖一阶~最高阶全部连续阶位）",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "已修复",
+   "fixedMark": true
+  },
+  {
+   "priority": "P0",
+   "batch": 41,
+   "file": "产出\\批次41\\刀剑神域：战争篇.md",
+   "name": "刀剑神域：战争篇",
+   "lib": "主库",
+   "issue": "机检错误:切入点缺少阶位：一、二、三（须覆盖一阶~最高阶全部连续阶位）",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "已修复",
+   "fixedMark": true
+  },
+  {
+   "priority": "P0",
+   "batch": 41,
+   "file": "产出\\批次41\\刀剑神域：Alicization-战争篇.md",
+   "name": "刀剑神域：Alicization-战争篇",
+   "lib": "主库",
+   "issue": "机检错误:切入点缺少阶位：四、五、六（须覆盖一阶~最高阶全部连续阶位）",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "已修复",
+   "fixedMark": true
+  },
+  {
+   "priority": "P0",
+   "batch": 41,
+   "file": "产出\\批次41\\侠盗一号.md",
+   "name": "侠盗一号",
+   "lib": "主库",
+   "issue": "机检错误:切入点缺少阶位：三（须覆盖一阶~最高阶全部连续阶位）",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "已修复",
+   "fixedMark": true
+  },
+  {
+   "priority": "P0",
+   "batch": 42,
+   "file": "产出\\批次42\\游侠索罗.md",
+   "name": "游侠索罗",
+   "lib": "主库",
+   "issue": "机检错误:切入点缺少阶位：三、四（须覆盖一阶~最高阶全部连续阶位）",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "已修复",
+   "fixedMark": true
+  },
+  {
+   "priority": "P0",
+   "batch": 42,
+   "file": "产出\\批次42\\最终幻想1.md",
+   "name": "最终幻想1",
+   "lib": "主库",
+   "issue": "机检错误:切入点缺少阶位：四（须覆盖一阶~最高阶全部连续阶位）",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "已修复",
+   "fixedMark": true
+  },
+  {
+   "priority": "P0",
+   "batch": 42,
+   "file": "产出\\批次42\\最终幻想2.md",
+   "name": "最终幻想2",
+   "lib": "主库",
+   "issue": "机检错误:切入点缺少阶位：四（须覆盖一阶~最高阶全部连续阶位）",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "已修复",
+   "fixedMark": true
+  },
+  {
+   "priority": "P0",
+   "batch": 45,
+   "file": "产出\\批次45\\环太平洋2.md",
+   "name": "环太平洋2",
+   "lib": "主库",
+   "issue": "机检错误:切入点缺少阶位：二、三（须覆盖一阶~最高阶全部连续阶位）",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "已修复",
+   "fixedMark": true
+  },
+  {
+   "priority": "P0",
+   "batch": 45,
+   "file": "产出\\批次45\\最终幻想6.md",
+   "name": "最终幻想6",
+   "lib": "主库",
+   "issue": "机检错误:切入点缺少阶位：四（须覆盖一阶~最高阶全部连续阶位）",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "已修复",
+   "fixedMark": true
+  },
+  {
+   "priority": "P0",
+   "batch": 46,
+   "file": "产出\\批次46\\最终幻想8.md",
+   "name": "最终幻想8",
+   "lib": "主库",
+   "issue": "机检错误:切入点缺少阶位：四（须覆盖一阶~最高阶全部连续阶位）",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "已修复",
+   "fixedMark": true
+  },
+  {
+   "priority": "P0",
+   "batch": 47,
+   "file": "产出\\批次47\\侠盗一号：星球大战外传.md",
+   "name": "侠盗一号：星球大战外传",
+   "lib": "主库",
+   "issue": "机检错误:切入点缺少阶位：一、二（须覆盖一阶~最高阶全部连续阶位） | 跨世界重复(组#654·4个世界共用)",
+   "hasCrossDup": true,
+   "crossGroupIds": [
+    654
+   ],
+   "status": "已修复",
+   "fixedMark": true
+  },
+  {
+   "priority": "P0",
+   "batch": 47,
+   "file": "产出\\批次47\\游侠索罗：星球大战外传.md",
+   "name": "游侠索罗：星球大战外传",
+   "lib": "主库",
+   "issue": "机检错误:切入点缺少阶位：一、二（须覆盖一阶~最高阶全部连续阶位） | 跨世界重复(组#654·4个世界共用)",
+   "hasCrossDup": true,
+   "crossGroupIds": [
+    654
+   ],
+   "status": "已修复",
+   "fixedMark": true
+  },
+  {
+   "priority": "P0",
+   "batch": 47,
+   "file": "产出\\批次47\\最终幻想11.md",
+   "name": "最终幻想11",
+   "lib": "主库",
+   "issue": "机检错误:切入点缺少阶位：四（须覆盖一阶~最高阶全部连续阶位） | 跨世界重复(组#654·4个世界共用)",
+   "hasCrossDup": true,
+   "crossGroupIds": [
+    654
+   ],
+   "status": "已修复",
+   "fixedMark": true
+  },
+  {
+   "priority": "P0",
+   "batch": 48,
+   "file": "产出\\批次48\\最终幻想12.md",
+   "name": "最终幻想12",
+   "lib": "主库",
+   "issue": "机检错误:切入点缺少阶位：四（须覆盖一阶~最高阶全部连续阶位）",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "已修复",
+   "fixedMark": true
+  },
+  {
+   "priority": "P0",
+   "batch": 48,
+   "file": "产出\\批次48\\最终幻想13.md",
+   "name": "最终幻想13",
+   "lib": "主库",
+   "issue": "机检错误:切入点缺少阶位：四（须覆盖一阶~最高阶全部连续阶位）",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "已修复",
+   "fixedMark": true
+  },
+  {
+   "priority": "P0",
+   "batch": 50,
+   "file": "产出\\批次50\\光环 (Halo).md",
+   "name": "光环 (Halo)",
+   "lib": "主库",
+   "issue": "机检错误:切入点缺少阶位：一、二、三、四（须覆盖一阶~最高阶全部连续阶位）",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "已修复",
+   "fixedMark": true
+  },
+  {
+   "priority": "P0",
+   "batch": 50,
+   "file": "产出\\批次50\\环太平洋系列.md",
+   "name": "环太平洋系列",
+   "lib": "主库",
+   "issue": "机检错误:切入点缺少阶位：二、四、五、六（须覆盖一阶~最高阶全部连续阶位）",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "已修复",
+   "fixedMark": true
+  },
+  {
+   "priority": "P0",
+   "batch": 50,
+   "file": "产出\\批次50\\英雄联盟.md",
+   "name": "英雄联盟",
+   "lib": "主库",
+   "issue": "机检错误:切入点缺少阶位：四（须覆盖一阶~最高阶全部连续阶位）",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "已修复",
+   "fixedMark": true
+  },
+  {
+   "priority": "P0",
+   "batch": 50,
+   "file": "产出\\批次50\\正义联盟（扎导版）.md",
+   "name": "正义联盟（扎导版）",
+   "lib": "主库",
+   "issue": "机检错误:切入点缺少阶位：二（须覆盖一阶~最高阶全部连续阶位）",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "已修复",
+   "fixedMark": true
+  },
+  {
+   "priority": "P0",
+   "batch": 51,
+   "file": "产出\\批次51\\光环 (Halo) - 致远星.md",
+   "name": "光环 (Halo) - 致远星",
+   "lib": "主库",
+   "issue": "机检错误:切入点缺少阶位：一、二、四、五、六（须覆盖一阶~最高阶全部连续阶位）",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "已修复",
+   "fixedMark": true
+  },
+  {
+   "priority": "P0",
+   "batch": 51,
+   "file": "产出\\批次51\\英雄 (Heroes).md",
+   "name": "英雄 (Heroes)",
+   "lib": "主库",
+   "issue": "机检错误:切入点缺少阶位：一、二、三（须覆盖一阶~最高阶全部连续阶位）",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "已修复",
+   "fixedMark": true
+  },
+  {
+   "priority": "P0",
+   "batch": 52,
+   "file": "产出\\批次52\\环太平洋2：雷霆再起.md",
+   "name": "环太平洋2：雷霆再起",
+   "lib": "主库",
+   "issue": "机检错误:切入点缺少阶位：一（须覆盖一阶~最高阶全部连续阶位）",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "已修复",
+   "fixedMark": true
+  },
+  {
+   "priority": "P0",
+   "batch": 52,
+   "file": "产出\\批次52\\龙珠.md",
+   "name": "龙珠",
+   "lib": "主库",
+   "issue": "机检错误:切入点缺少阶位：四、六、八（须覆盖一阶~最高阶全部连续阶位）",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "已修复",
+   "fixedMark": true
+  },
+  {
+   "priority": "P0",
+   "batch": 52,
+   "file": "产出\\批次52\\龙珠系列.md",
+   "name": "龙珠系列",
+   "lib": "主库",
+   "issue": "机检错误:切入点缺少阶位：一、二、三、四、五、八（须覆盖一阶~最高阶全部连续阶位）",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "已修复",
+   "fixedMark": true
+  },
+  {
+   "priority": "P0",
+   "batch": 53,
+   "file": "产出\\批次53\\高达G.md",
+   "name": "高达G",
+   "lib": "主库",
+   "issue": "机检错误:切入点缺少阶位：一、二（须覆盖一阶~最高阶全部连续阶位）",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "已修复",
+   "fixedMark": true
+  },
+  {
+   "priority": "P0",
+   "batch": 53,
+   "file": "产出\\批次53\\高达V.md",
+   "name": "高达V",
+   "lib": "主库",
+   "issue": "机检错误:切入点缺少阶位：一、二（须覆盖一阶~最高阶全部连续阶位）",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "已修复",
+   "fixedMark": true
+  },
+  {
+   "priority": "P0",
+   "batch": 53,
+   "file": "产出\\批次53\\高达W.md",
+   "name": "高达W",
+   "lib": "主库",
+   "issue": "机检错误:切入点缺少阶位：一、二、三（须覆盖一阶~最高阶全部连续阶位）",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "已修复",
+   "fixedMark": true
+  },
+  {
+   "priority": "P0",
+   "batch": 54,
+   "file": "产出\\批次54\\高达水星的魔女.md",
+   "name": "高达水星的魔女",
+   "lib": "主库",
+   "issue": "机检错误:切入点缺少阶位：一、二（须覆盖一阶~最高阶全部连续阶位）",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "已修复",
+   "fixedMark": true
+  },
+  {
+   "priority": "P0",
+   "batch": 54,
+   "file": "产出\\批次54\\机动战士高达0079.md",
+   "name": "机动战士高达0079",
+   "lib": "主库",
+   "issue": "机检错误:切入点缺少阶位：一、二、三、四、五（须覆盖一阶~最高阶全部连续阶位） | 跨世界重复(组#112·3个世界共用)",
+   "hasCrossDup": true,
+   "crossGroupIds": [
+    112,
+    116
+   ],
+   "status": "已修复",
+   "fixedMark": true
+  },
+  {
+   "priority": "P0",
+   "batch": 54,
+   "file": "产出\\批次54\\邪恶力量美剧.md",
+   "name": "邪恶力量美剧",
+   "lib": "主库",
+   "issue": "机检错误:切入点缺少阶位：一、二、四、五、六（须覆盖一阶~最高阶全部连续阶位）",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "已修复",
+   "fixedMark": true
+  },
+  {
+   "priority": "P0",
+   "batch": 54,
+   "file": "产出\\批次54\\英雄（hero美剧）.md",
+   "name": "英雄（hero美剧）",
+   "lib": "主库",
+   "issue": "机检错误:切入点缺少阶位：一、二、四、五、六（须覆盖一阶~最高阶全部连续阶位）",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "已修复",
+   "fixedMark": true
+  },
+  {
+   "priority": "P0",
+   "batch": 54,
+   "file": "产出\\批次54\\Z高达.md",
+   "name": "Z高达",
+   "lib": "主库",
+   "issue": "机检错误:切入点缺少阶位：四（须覆盖一阶~最高阶全部连续阶位）",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "已修复",
+   "fixedMark": true
+  },
+  {
+   "priority": "P0",
+   "batch": 55,
+   "file": "产出\\批次55\\ZZ高达.md",
+   "name": "ZZ高达",
+   "lib": "主库",
+   "issue": "机检错误:切入点缺少阶位：四（须覆盖一阶~最高阶全部连续阶位）",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "已修复",
+   "fixedMark": true
+  },
+  {
+   "priority": "P0",
+   "batch": 56,
+   "file": "产出\\批次56\\∀高达.md",
+   "name": "∀高达",
+   "lib": "主库",
+   "issue": "机检错误:切入点缺少阶位：四（须覆盖一阶~最高阶全部连续阶位）",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "已修复",
+   "fixedMark": true
+  },
+  {
+   "priority": "P0",
+   "batch": 56,
+   "file": "产出\\批次56\\X高达.md",
+   "name": "X高达",
+   "lib": "主库",
+   "issue": "机检错误:切入点缺少阶位：四（须覆盖一阶~最高阶全部连续阶位）",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "已修复",
+   "fixedMark": true
+  },
+  {
+   "priority": "P0",
+   "batch": 57,
+   "file": "产出\\批次57\\革命机Valvrave.md",
+   "name": "革命机Valvrave",
+   "lib": "主库",
+   "issue": "机检错误:切入点缺少阶位：一、五（须覆盖一阶~最高阶全部连续阶位）",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "已修复",
+   "fixedMark": true
+  },
+  {
+   "priority": "P0",
+   "batch": 58,
+   "file": "产出\\批次58\\银河护卫队1.md",
+   "name": "银河护卫队1",
+   "lib": "主库",
+   "issue": "机检错误:切入点缺少阶位：一、二、三（须覆盖一阶~最高阶全部连续阶位）",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "已修复",
+   "fixedMark": true
+  },
+  {
+   "priority": "P0",
+   "batch": 67,
+   "file": "产出\\批次67\\仙剑奇侠传3外传：问情篇.md",
+   "name": "仙剑奇侠传3外传：问情篇",
+   "lib": "主库",
+   "issue": "机检错误:切入点缺少阶位：一、二、五、六（须覆盖一阶~最高阶全部连续阶位）",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "已修复",
+   "fixedMark": true
+  },
+  {
+   "priority": "P0",
+   "batch": 67,
+   "file": "产出\\批次67\\仙剑奇侠传3外传.md",
+   "name": "仙剑奇侠传3外传",
+   "lib": "主库",
+   "issue": "机检错误:切入点缺少阶位：三、四（须覆盖一阶~最高阶全部连续阶位）",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "已修复",
+   "fixedMark": true
+  },
+  {
+   "priority": "P0",
+   "batch": 70,
+   "file": "产出\\批次70\\鬼泣系列.md",
+   "name": "鬼泣系列",
+   "lib": "主库",
+   "issue": "机检错误:切入点缺少阶位：一、二、四、五（须覆盖一阶~最高阶全部连续阶位）",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "已修复",
+   "fixedMark": true
+  },
+  {
+   "priority": "P0",
+   "batch": 71,
+   "file": "产出\\批次71\\虐杀原形系列.md",
+   "name": "虐杀原形系列",
+   "lib": "主库",
+   "issue": "机检错误:切入点缺少阶位：一、二、四、五（须覆盖一阶~最高阶全部连续阶位）",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "已修复",
+   "fixedMark": true
+  },
+  {
+   "priority": "P0",
+   "batch": 73,
+   "file": "产出\\批次73\\哥斯拉系列.md",
+   "name": "哥斯拉系列",
+   "lib": "主库",
+   "issue": "机检错误:切入点缺少阶位：一、三、四、五、六（须覆盖一阶~最高阶全部连续阶位）",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "已修复",
+   "fixedMark": true
+  },
+  {
+   "priority": "P0",
+   "batch": 73,
+   "file": "产出\\批次73\\泰坦陨落系列.md",
+   "name": "泰坦陨落系列",
+   "lib": "主库",
+   "issue": "机检错误:切入点缺少阶位：一、三、四、五、六（须覆盖一阶~最高阶全部连续阶位）",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "已修复",
+   "fixedMark": true
+  },
+  {
+   "priority": "P0",
+   "batch": 76,
+   "file": "产出\\批次76\\钢铁侠系列.md",
+   "name": "钢铁侠系列",
+   "lib": "主库",
+   "issue": "机检错误:切入点缺少阶位：一、二、三、四、五、六（须覆盖一阶~最高阶全部连续阶位）",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "已修复",
+   "fixedMark": true
+  },
+  {
+   "priority": "P0",
+   "batch": 78,
+   "file": "产出\\批次78\\耻辱系列.md",
+   "name": "耻辱系列",
+   "lib": "主库",
+   "issue": "机检错误:切入点缺少阶位：一（须覆盖一阶~最高阶全部连续阶位）",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "已修复",
+   "fixedMark": true
+  },
+  {
+   "priority": "P0",
+   "batch": 79,
+   "file": "产出\\批次79\\终结者系列.md",
+   "name": "终结者系列",
+   "lib": "主库",
+   "issue": "机检错误:切入点缺少阶位：二（须覆盖一阶~最高阶全部连续阶位）",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "已修复",
+   "fixedMark": true
+  },
+  {
+   "priority": "P0",
+   "batch": 80,
+   "file": "产出\\批次80\\蜘蛛侠1（雷米）.md",
+   "name": "蜘蛛侠1（雷米）",
+   "lib": "主库",
+   "issue": "机检错误:切入点缺少阶位：二、三（须覆盖一阶~最高阶全部连续阶位）",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "已修复",
+   "fixedMark": true
+  },
+  {
+   "priority": "P0",
+   "batch": 80,
+   "file": "产出\\批次80\\蜘蛛侠2（雷米）.md",
+   "name": "蜘蛛侠2（雷米）",
+   "lib": "主库",
+   "issue": "机检错误:切入点缺少阶位：二、三（须覆盖一阶~最高阶全部连续阶位）",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "已修复",
+   "fixedMark": true
+  },
+  {
+   "priority": "P0",
+   "batch": 81,
+   "file": "产出\\批次81\\金刚狼系列.md",
+   "name": "金刚狼系列",
+   "lib": "主库",
+   "issue": "机检错误:切入点缺少阶位：一、三（须覆盖一阶~最高阶全部连续阶位）",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "已修复",
+   "fixedMark": true
+  },
+  {
+   "priority": "P0",
+   "batch": 81,
+   "file": "产出\\批次81\\蜘蛛侠3（雷米）.md",
+   "name": "蜘蛛侠3（雷米）",
+   "lib": "主库",
+   "issue": "机检错误:切入点缺少阶位：二、三（须覆盖一阶~最高阶全部连续阶位）",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "已修复",
+   "fixedMark": true
+  },
+  {
+   "priority": "P0",
+   "batch": 82,
+   "file": "产出\\批次82\\蝙蝠侠（1989）.md",
+   "name": "蝙蝠侠（1989）",
+   "lib": "主库",
+   "issue": "机检错误:切入点缺少阶位：二、三（须覆盖一阶~最高阶全部连续阶位）",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "已修复",
+   "fixedMark": true
+  },
+  {
+   "priority": "P0",
+   "batch": 82,
+   "file": "产出\\批次82\\蝙蝠侠归来.md",
+   "name": "蝙蝠侠归来",
+   "lib": "主库",
+   "issue": "机检错误:切入点缺少阶位：二、三（须覆盖一阶~最高阶全部连续阶位）",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "已修复",
+   "fixedMark": true
+  },
+  {
+   "priority": "P0",
+   "batch": 83,
+   "file": "产出\\批次83\\蝙蝠侠与罗宾.md",
+   "name": "蝙蝠侠与罗宾",
+   "lib": "主库",
+   "issue": "机检错误:切入点缺少阶位：二、三（须覆盖一阶~最高阶全部连续阶位）",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "已修复",
+   "fixedMark": true
+  },
+  {
+   "priority": "P0",
+   "batch": 84,
+   "file": "产出\\批次84\\蝙蝠侠系列.md",
+   "name": "蝙蝠侠系列",
+   "lib": "主库",
+   "issue": "机检错误:切入点缺少阶位：一、五（须覆盖一阶~最高阶全部连续阶位）",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "已修复",
+   "fixedMark": true
+  },
+  {
+   "priority": "P0",
+   "batch": 86,
+   "file": "产出\\批次86\\法科高中的劣等生.md",
+   "name": "法科高中的劣等生",
+   "lib": "主库",
+   "issue": "机检错误:切入点缺少阶位：一、二、三（须覆盖一阶~最高阶全部连续阶位）",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "已修复",
+   "fixedMark": true
+  },
+  {
+   "priority": "P0",
+   "batch": 86,
+   "file": "产出\\批次86\\黑兽 (Kuroinu).md",
+   "name": "黑兽 (Kuroinu)",
+   "lib": "主库",
+   "issue": "机检错误:切入点缺少阶位：一、二、三、五（须覆盖一阶~最高阶全部连续阶位）",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "已修复",
+   "fixedMark": true
+  },
+  {
+   "priority": "P0",
+   "batch": 86,
+   "file": "产出\\批次86\\黑兽.md",
+   "name": "黑兽",
+   "lib": "主库",
+   "issue": "机检错误:切入点缺少阶位：四、六（须覆盖一阶~最高阶全部连续阶位）",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "已修复",
+   "fixedMark": true
+  },
+  {
+   "priority": "P0",
+   "batch": 90,
+   "file": "产出\\批次90\\弗莱迪.md",
+   "name": "弗莱迪",
+   "lib": "主库",
+   "issue": "机检错误:切入点缺少阶位：一（须覆盖一阶~最高阶全部连续阶位）",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "已修复",
+   "fixedMark": true
+  },
+  {
+   "priority": "P0",
+   "batch": 90,
+   "file": "产出\\批次90\\学院默示录.md",
+   "name": "学院默示录",
+   "lib": "主库",
+   "issue": "机检错误:切入点缺少阶位：一、二、三、五（须覆盖一阶~最高阶全部连续阶位）",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "已修复",
+   "fixedMark": true
+  },
+  {
+   "priority": "P0",
+   "batch": 91,
+   "file": "产出\\批次91\\Blade.md",
+   "name": "Blade",
+   "lib": "主库",
+   "issue": "机检错误:切入点缺少阶位：一、二、三、四、五（须覆盖一阶~最高阶全部连续阶位）",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "已修复",
+   "fixedMark": true
+  },
+  {
+   "priority": "P0",
+   "batch": 92,
+   "file": "产出\\批次92\\特种部队.md",
+   "name": "特种部队",
+   "lib": "主库",
+   "issue": "机检错误:切入点缺少阶位：一、二、三、四、五（须覆盖一阶~最高阶全部连续阶位）",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "已修复",
+   "fixedMark": true
+  },
+  {
+   "priority": "P0",
+   "batch": 93,
+   "file": "产出\\批次93\\Metro 2033.md",
+   "name": "Metro 2033",
+   "lib": "主库",
+   "issue": "机检错误:切入点缺少阶位：一、二、三、四、五（须覆盖一阶~最高阶全部连续阶位）",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "已修复",
+   "fixedMark": true
+  },
+  {
+   "priority": "P0",
+   "batch": 94,
+   "file": "产出\\批次94\\神话版三国.md",
+   "name": "神话版三国",
+   "lib": "主库",
+   "issue": "机检错误:切入点缺少阶位：一、二、三（须覆盖一阶~最高阶全部连续阶位）",
    "hasCrossDup": false,
    "crossGroupIds": [],
    "status": "已修复",
@@ -77,7 +1118,7 @@
    "file": "产出\\批次94\\SCP基金会.md",
    "name": "SCP基金会",
    "lib": "主库",
-   "issue": "机检错误:剧情 7884 字 < 10000",
+   "issue": "机检错误:切入点缺少阶位：四、五（须覆盖一阶~最高阶全部连续阶位）",
    "hasCrossDup": false,
    "crossGroupIds": [],
    "status": "已修复",
@@ -85,11 +1126,11 @@
   },
   {
    "priority": "P0",
-   "batch": 95,
-   "file": "产出\\批次95\\林中小屋.md",
-   "name": "林中小屋",
+   "batch": 97,
+   "file": "产出\\批次97\\行尸走肉.md",
+   "name": "行尸走肉",
    "lib": "主库",
-   "issue": "机检错误:剧情 7142 字 < 10000",
+   "issue": "机检错误:切入点缺少阶位：五（须覆盖一阶~最高阶全部连续阶位）",
    "hasCrossDup": false,
    "crossGroupIds": [],
    "status": "已修复",
@@ -97,11 +1138,143 @@
   },
   {
    "priority": "P0",
-   "batch": 95,
-   "file": "产出\\批次95\\人类清除计划.md",
-   "name": "人类清除计划",
+   "batch": 97,
+   "file": "产出\\批次97\\SCP基金会·Site-19站点.md",
+   "name": "SCP基金会·Site-19站点",
    "lib": "主库",
-   "issue": "机检错误:剧情 6424 字 < 10000",
+   "issue": "机检错误:切入点缺少阶位：一、二、三（须覆盖一阶~最高阶全部连续阶位）",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "已修复",
+   "fixedMark": true
+  },
+  {
+   "priority": "P0",
+   "batch": 98,
+   "file": "产出\\批次98\\美国恐怖故事.md",
+   "name": "美国恐怖故事",
+   "lib": "主库",
+   "issue": "机检错误:切入点缺少阶位：一、二、三、四、五（须覆盖一阶~最高阶全部连续阶位）",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "已修复",
+   "fixedMark": true
+  },
+  {
+   "priority": "P0",
+   "batch": 100,
+   "file": "产出\\批次100\\美国恐怖故事S10.md",
+   "name": "美国恐怖故事S10",
+   "lib": "主库",
+   "issue": "机检错误:切入点缺少阶位：六（须覆盖一阶~最高阶全部连续阶位）",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "已修复",
+   "fixedMark": true
+  },
+  {
+   "priority": "P0",
+   "batch": 100,
+   "file": "产出\\批次100\\美国恐怖故事S8.md",
+   "name": "美国恐怖故事S8",
+   "lib": "主库",
+   "issue": "机检错误:切入点缺少阶位：六（须覆盖一阶~最高阶全部连续阶位）",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "已修复",
+   "fixedMark": true
+  },
+  {
+   "priority": "P0",
+   "batch": 100,
+   "file": "产出\\批次100\\美国恐怖故事S9.md",
+   "name": "美国恐怖故事S9",
+   "lib": "主库",
+   "issue": "机检错误:切入点缺少阶位：六（须覆盖一阶~最高阶全部连续阶位）",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "已修复",
+   "fixedMark": true
+  },
+  {
+   "priority": "P0",
+   "batch": 101,
+   "file": "产出\\批次101\\从姑获鸟开始.md",
+   "name": "从姑获鸟开始",
+   "lib": "主库",
+   "issue": "机检错误:切入点缺少阶位：四（须覆盖一阶~最高阶全部连续阶位）",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "已修复",
+   "fixedMark": true
+  },
+  {
+   "priority": "P0",
+   "batch": 101,
+   "file": "产出\\批次101\\美国恐怖故事S11.md",
+   "name": "美国恐怖故事S11",
+   "lib": "主库",
+   "issue": "机检错误:切入点缺少阶位：六（须覆盖一阶~最高阶全部连续阶位）",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "已修复",
+   "fixedMark": true
+  },
+  {
+   "priority": "P0",
+   "batch": 101,
+   "file": "产出\\批次101\\美国恐怖故事S12.md",
+   "name": "美国恐怖故事S12",
+   "lib": "主库",
+   "issue": "机检错误:切入点缺少阶位：六（须覆盖一阶~最高阶全部连续阶位）",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "已修复",
+   "fixedMark": true
+  },
+  {
+   "priority": "P0",
+   "batch": 101,
+   "file": "产出\\批次101\\异形4.md",
+   "name": "异形4",
+   "lib": "主库",
+   "issue": "机检错误:切入点缺少阶位：四、五（须覆盖一阶~最高阶全部连续阶位）",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "已修复",
+   "fixedMark": true
+  },
+  {
+   "priority": "P0",
+   "batch": 102,
+   "file": "产出\\批次102\\异形系列.md",
+   "name": "异形系列",
+   "lib": "主库",
+   "issue": "机检错误:切入点缺少阶位：二、三、四、五、六（须覆盖一阶~最高阶全部连续阶位）",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "已修复",
+   "fixedMark": true
+  },
+  {
+   "priority": "P0",
+   "batch": 103,
+   "file": "产出\\批次103\\巫师：最后的愿望.md",
+   "name": "巫师：最后的愿望",
+   "lib": "主库",
+   "issue": "机检错误:切入点缺少阶位：四、五（须覆盖一阶~最高阶全部连续阶位）",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "已修复",
+   "fixedMark": true
+  },
+  {
+   "priority": "P0",
+   "batch": 103,
+   "file": "产出\\批次103\\巫师世界（总览）.md",
+   "name": "巫师世界（总览）",
+   "lib": "主库",
+   "issue": "机检错误:切入点缺少阶位：四、五（须覆盖一阶~最高阶全部连续阶位）",
    "hasCrossDup": false,
    "crossGroupIds": [],
    "status": "待修复",
@@ -109,11 +1282,407 @@
   },
   {
    "priority": "P0",
-   "batch": 95,
-   "file": "产出\\批次95\\吸血鬼猎人D.md",
-   "name": "吸血鬼猎人D",
+   "batch": 103,
+   "file": "产出\\批次103\\异形2.md",
+   "name": "异形2",
    "lib": "主库",
-   "issue": "机检错误:剧情 6839 字 < 10000",
+   "issue": "机检错误:切入点缺少阶位：六（须覆盖一阶~最高阶全部连续阶位）",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "待修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P0",
+   "batch": 103,
+   "file": "产出\\批次103\\永噩长夜.md",
+   "name": "永噩长夜",
+   "lib": "主库",
+   "issue": "机检错误:切入点缺少阶位：四、五（须覆盖一阶~最高阶全部连续阶位）",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "待修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P0",
+   "batch": 104,
+   "file": "产出\\批次104\\巫师：精灵之血.md",
+   "name": "巫师：精灵之血",
+   "lib": "主库",
+   "issue": "机检错误:切入点缺少阶位：四、五（须覆盖一阶~最高阶全部连续阶位）",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "待修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P0",
+   "batch": 104,
+   "file": "产出\\批次104\\巫师：蔑视时代.md",
+   "name": "巫师：蔑视时代",
+   "lib": "主库",
+   "issue": "机检错误:切入点缺少阶位：四、五（须覆盖一阶~最高阶全部连续阶位）",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "待修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P0",
+   "batch": 104,
+   "file": "产出\\批次104\\巫师：命运之剑.md",
+   "name": "巫师：命运之剑",
+   "lib": "主库",
+   "issue": "机检错误:切入点缺少阶位：四、五（须覆盖一阶~最高阶全部连续阶位）",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "已修复",
+   "fixedMark": true
+  },
+  {
+   "priority": "P0",
+   "batch": 104,
+   "file": "产出\\批次104\\异形3.md",
+   "name": "异形3",
+   "lib": "主库",
+   "issue": "机检错误:切入点缺少阶位：六（须覆盖一阶~最高阶全部连续阶位）",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "已修复",
+   "fixedMark": true
+  },
+  {
+   "priority": "P0",
+   "batch": 104,
+   "file": "产出\\批次104\\异形4：复活.md",
+   "name": "异形4：复活",
+   "lib": "主库",
+   "issue": "机检错误:切入点缺少阶位：一、二、三、六（须覆盖一阶~最高阶全部连续阶位）",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "已修复",
+   "fixedMark": true
+  },
+  {
+   "priority": "P0",
+   "batch": 105,
+   "file": "产出\\批次105\\城市獵人.md",
+   "name": "城市獵人",
+   "lib": "主库",
+   "issue": "机检错误:切入点缺少阶位：一（须覆盖一阶~最高阶全部连续阶位）",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "已修复",
+   "fixedMark": true
+  },
+  {
+   "priority": "P0",
+   "batch": 105,
+   "file": "产出\\批次105\\龙符.md",
+   "name": "龙符",
+   "lib": "主库",
+   "issue": "机检错误:切入点缺少阶位：一、二、七（须覆盖一阶~最高阶全部连续阶位）",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "已修复",
+   "fixedMark": true
+  },
+  {
+   "priority": "P0",
+   "batch": 105,
+   "file": "产出\\批次105\\巫师：火之洗礼.md",
+   "name": "巫师：火之洗礼",
+   "lib": "主库",
+   "issue": "机检错误:切入点缺少阶位：四、五（须覆盖一阶~最高阶全部连续阶位）",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "已修复",
+   "fixedMark": true
+  },
+  {
+   "priority": "P0",
+   "batch": 105,
+   "file": "产出\\批次105\\巫师：燕子之塔.md",
+   "name": "巫师：燕子之塔",
+   "lib": "主库",
+   "issue": "机检错误:切入点缺少阶位：四、五（须覆盖一阶~最高阶全部连续阶位）",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "已修复",
+   "fixedMark": true
+  },
+  {
+   "priority": "P0",
+   "batch": 105,
+   "file": "产出\\批次105\\异形：普罗米修斯.md",
+   "name": "异形：普罗米修斯",
+   "lib": "主库",
+   "issue": "机检错误:切入点缺少阶位：一、二、三、六（须覆盖一阶~最高阶全部连续阶位）",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "已修复",
+   "fixedMark": true
+  },
+  {
+   "priority": "P0",
+   "batch": 106,
+   "file": "产出\\批次106\\巫师：风暴季.md",
+   "name": "巫师：风暴季",
+   "lib": "主库",
+   "issue": "机检错误:切入点缺少阶位：四、五（须覆盖一阶~最高阶全部连续阶位）",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "已修复",
+   "fixedMark": true
+  },
+  {
+   "priority": "P0",
+   "batch": 106,
+   "file": "产出\\批次106\\巫师：湖之女.md",
+   "name": "巫师：湖之女",
+   "lib": "主库",
+   "issue": "机检错误:切入点缺少阶位：四、五（须覆盖一阶~最高阶全部连续阶位）",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "已修复",
+   "fixedMark": true
+  },
+  {
+   "priority": "P0",
+   "batch": 107,
+   "file": "产出\\批次107\\列宁格勒保卫战.md",
+   "name": "列宁格勒保卫战",
+   "lib": "主库",
+   "issue": "机检错误:切入点缺少阶位：一（须覆盖一阶~最高阶全部连续阶位）",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "待修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P0",
+   "batch": 107,
+   "file": "产出\\批次107\\巫师（游戏）.md",
+   "name": "巫师（游戏）",
+   "lib": "主库",
+   "issue": "机检错误:切入点缺少阶位：四、五（须覆盖一阶~最高阶全部连续阶位）",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "待修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P0",
+   "batch": 108,
+   "file": "产出\\批次108\\史实版三国.md",
+   "name": "史实版三国",
+   "lib": "主库",
+   "issue": "机检错误:切入点缺少阶位：一（须覆盖一阶~最高阶全部连续阶位）",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "待修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P0",
+   "batch": 108,
+   "file": "产出\\批次108\\巫师2：国王刺客.md",
+   "name": "巫师2：国王刺客",
+   "lib": "主库",
+   "issue": "机检错误:切入点缺少阶位：四、五（须覆盖一阶~最高阶全部连续阶位）",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "待修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P0",
+   "batch": 108,
+   "file": "产出\\批次108\\巫师3：狂猎.md",
+   "name": "巫师3：狂猎",
+   "lib": "主库",
+   "issue": "机检错误:切入点缺少阶位：四、五（须覆盖一阶~最高阶全部连续阶位）",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "待修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P0",
+   "batch": 110,
+   "file": "产出\\批次110\\黑暗塔：电影版.md",
+   "name": "黑暗塔：电影版",
+   "lib": "主库",
+   "issue": "机检错误:切入点缺少阶位：三、六（须覆盖一阶~最高阶全部连续阶位） | 警告:切入点疑似\"被封印\"式顶点解释",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "待修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P0",
+   "batch": 111,
+   "file": "产出\\批次111\\剧场版：起始的物语.md",
+   "name": "剧场版：起始的物语",
+   "lib": "主库",
+   "issue": "机检错误:切入点缺少阶位：一、二、三、四、五（须覆盖一阶~最高阶全部连续阶位） | 警告:切入点疑似\"被封印\"式顶点解释；切入点疑似\"被削弱\"式顶点解释",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "待修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P0",
+   "batch": 112,
+   "file": "产出\\批次112\\剧场版：永远的物语.md",
+   "name": "剧场版：永远的物语",
+   "lib": "主库",
+   "issue": "机检错误:切入点缺少阶位：一、二、三、四（须覆盖一阶~最高阶全部连续阶位） | 警告:切入点疑似\"被封印\"式顶点解释；切入点疑似\"被削弱\"式顶点解释",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "待修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P0",
+   "batch": 113,
+   "file": "产出\\批次113\\剧场版：叛逆的物语.md",
+   "name": "剧场版：叛逆的物语",
+   "lib": "主库",
+   "issue": "机检错误:切入点缺少阶位：一、二、三、四、五、六、七（须覆盖一阶~最高阶全部连续阶位）",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "待修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P0",
+   "batch": 113,
+   "file": "产出\\批次113\\魔法纪录：魔法少女小圆外传（动画）.md",
+   "name": "魔法纪录：魔法少女小圆外传（动画）",
+   "lib": "主库",
+   "issue": "机检错误:切入点缺少阶位：二、四（须覆盖一阶~最高阶全部连续阶位） | 警告:切入点疑似\"被封印\"式顶点解释",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "待修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P0",
+   "batch": 113,
+   "file": "产出\\批次113\\倚天屠龙刀.md",
+   "name": "倚天屠龙刀",
+   "lib": "主库",
+   "issue": "机检错误:切入点缺少阶位：一、二、三（须覆盖一阶~最高阶全部连续阶位）",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "待修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P0",
+   "batch": 114,
+   "file": "产出\\批次114\\问题儿童来自异世界（轻小说本篇）.md",
+   "name": "问题儿童来自异世界（轻小说本篇）",
+   "lib": "主库",
+   "issue": "机检错误:切入点缺少阶位：一、二、三、四、五、六、七（须覆盖一阶~最高阶全部连续阶位）",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "待修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P0",
+   "batch": 115,
+   "file": "产出\\批次115\\创圣的大天使：太阳之翼（OVA）.md",
+   "name": "创圣的大天使：太阳之翼（OVA）",
+   "lib": "主库",
+   "issue": "机检错误:切入点缺少阶位：一、二、三、四、五、六、七（须覆盖一阶~最高阶全部连续阶位） | 警告:切入点疑似\"被封印\"式顶点解释",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "待修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P0",
+   "batch": 115,
+   "file": "产出\\批次115\\创圣的大天使（TV）.md",
+   "name": "创圣的大天使（TV）",
+   "lib": "主库",
+   "issue": "机检错误:切入点缺少阶位：一、二、三、四、五、六、七（须覆盖一阶~最高阶全部连续阶位） | 警告:切入点疑似\"被封印\"式顶点解释",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "待修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P0",
+   "batch": 115,
+   "file": "产出\\批次115\\Last Embryo（问题儿童外传）.md",
+   "name": "Last Embryo（问题儿童外传）",
+   "lib": "主库",
+   "issue": "机检错误:切入点缺少阶位：一、二、三、四、五、六、七（须覆盖一阶~最高阶全部连续阶位）",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "待修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P0",
+   "batch": 116,
+   "file": "产出\\批次116\\创圣的大天使：背叛之翼（OVA）.md",
+   "name": "创圣的大天使：背叛之翼（OVA）",
+   "lib": "主库",
+   "issue": "机检错误:切入点缺少阶位：一、二、三、四、五、六（须覆盖一阶~最高阶全部连续阶位）",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "待修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P0",
+   "batch": 117,
+   "file": "产出\\批次117\\创圣机械天使EVOL（TV）.md",
+   "name": "创圣机械天使EVOL（TV）",
+   "lib": "主库",
+   "issue": "机检错误:切入点缺少阶位：一、二、三、四、五、六、七（须覆盖一阶~最高阶全部连续阶位）",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "待修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P0",
+   "batch": 117,
+   "file": "产出\\批次117\\剧场版：创圣的大天使（一发逆转篇－创星神话篇）.md",
+   "name": "剧场版：创圣的大天使（一发逆转篇/创星神话篇）",
+   "lib": "主库",
+   "issue": "机检错误:切入点缺少阶位：一、二、三、四、五、六（须覆盖一阶~最高阶全部连续阶位）",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "待修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P0",
+   "batch": 118,
+   "file": "产出\\批次118\\创圣机械天使LOGOS（TV）.md",
+   "name": "创圣机械天使LOGOS（TV）",
+   "lib": "主库",
+   "issue": "机检错误:切入点缺少阶位：一、六（须覆盖一阶~最高阶全部连续阶位）",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "待修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P0",
+   "batch": 118,
+   "file": "产出\\批次118\\创势的大天使EVOL（OVA）.md",
+   "name": "创势的大天使EVOL（OVA）",
+   "lib": "主库",
+   "issue": "机检错误:切入点缺少阶位：二、四（须覆盖一阶~最高阶全部连续阶位）",
    "hasCrossDup": false,
    "crossGroupIds": [],
    "status": "待修复",
@@ -122,10 +1691,10 @@
   {
    "priority": "P0",
    "batch": 119,
-   "file": "产出\\批次119\\东方兽王园.md",
-   "name": "东方兽王园",
+   "file": "产出\\批次119\\超时空要塞（TV）.md",
+   "name": "超时空要塞（TV）",
    "lib": "主库",
-   "issue": "机检错误:剧情 7285 字 < 10000",
+   "issue": "机检错误:切入点缺少阶位：一、二、三、四、五、六、七（须覆盖一阶~最高阶全部连续阶位） | 警告:切入点疑似\"被封印\"式顶点解释",
    "hasCrossDup": false,
    "crossGroupIds": [],
    "status": "待修复",
@@ -137,7 +1706,43 @@
    "file": "产出\\批次119\\剧场版：你可曾记得爱.md",
    "name": "剧场版：你可曾记得爱",
    "lib": "主库",
-   "issue": "机检错误:剧情 9317 字 < 10000",
+   "issue": "机检错误:切入点缺少阶位：一、二、三、四、五、六、七（须覆盖一阶~最高阶全部连续阶位）",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "已修复",
+   "fixedMark": true
+  },
+  {
+   "priority": "P0",
+   "batch": 119,
+   "file": "产出\\批次119\\想星的Aquarion：Myth of Emotions（TV）.md",
+   "name": "想星的Aquarion：Myth of Emotions（TV）",
+   "lib": "主库",
+   "issue": "机检错误:切入点缺少阶位：一、二、三、四、五、六、七（须覆盖一阶~最高阶全部连续阶位） | 警告:切入点疑似\"被封印\"式顶点解释",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "待修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P0",
+   "batch": 120,
+   "file": "产出\\批次120\\超时空要塞 Flash Back 2012.md",
+   "name": "超时空要塞 Flash Back 2012",
+   "lib": "主库",
+   "issue": "机检错误:切入点缺少阶位：一、二、三、四、五、六、七（须覆盖一阶~最高阶全部连续阶位）",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "待修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P0",
+   "batch": 120,
+   "file": "产出\\批次120\\超时空要塞（系列总览）.md",
+   "name": "超时空要塞（系列总览）",
+   "lib": "主库",
+   "issue": "机检错误:切入点缺少阶位：四、五（须覆盖一阶~最高阶全部连续阶位）",
    "hasCrossDup": false,
    "crossGroupIds": [],
    "status": "待修复",
@@ -146,10 +1751,22 @@
   {
    "priority": "P0",
    "batch": 121,
-   "file": "产出\\批次121\\超时空要塞：你可曾记得爱（剧场版）.md",
-   "name": "超时空要塞：你可曾记得爱（剧场版）",
+   "file": "产出\\批次121\\超时空要塞Dynamite 7（OVA）.md",
+   "name": "超时空要塞Dynamite 7（OVA）",
    "lib": "主库",
-   "issue": "机检错误:剧情 8403 字 < 10000",
+   "issue": "机检错误:切入点缺少阶位：一、二、三、四、五、六、七（须覆盖一阶~最高阶全部连续阶位）",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "待修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P0",
+   "batch": 121,
+   "file": "产出\\批次121\\超时空要塞Plus（剧场版）.md",
+   "name": "超时空要塞Plus（剧场版）",
+   "lib": "主库",
+   "issue": "机检错误:切入点缺少阶位：一、二、三、四、五、六、七（须覆盖一阶~最高阶全部连续阶位）",
    "hasCrossDup": false,
    "crossGroupIds": [],
    "status": "待修复",
@@ -161,11 +1778,11 @@
    "file": "产出\\批次122\\超时空要塞F：恋离飞翼（剧场版后篇）.md",
    "name": "超时空要塞F：恋离飞翼（剧场版后篇）",
    "lib": "主库",
-   "issue": "机检错误:剧情 4880 字 < 10000/切入点 896 字 < 1500",
+   "issue": "机检错误:切入点缺少阶位：一、二、三、四、五、六、七（须覆盖一阶~最高阶全部连续阶位）",
    "hasCrossDup": false,
    "crossGroupIds": [],
-   "status": "待修复",
-   "fixedMark": false
+   "status": "已修复",
+   "fixedMark": true
   },
   {
    "priority": "P0",
@@ -173,7 +1790,383 @@
    "file": "产出\\批次122\\超时空要塞F：虚空歌姬（剧场版前篇）.md",
    "name": "超时空要塞F：虚空歌姬（剧场版前篇）",
    "lib": "主库",
-   "issue": "机检错误:剧情 7021 字 < 10000/切入点 1170 字 < 1500 | 警告:切入点疑似\"被封印\"式顶点解释",
+   "issue": "机检错误:切入点缺少阶位：二、三、四、五、六、七（须覆盖一阶~最高阶全部连续阶位）",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "已修复",
+   "fixedMark": true
+  },
+  {
+   "priority": "P0",
+   "batch": 123,
+   "file": "产出\\批次123\\火焰纹章系列（总览）.md",
+   "name": "火焰纹章系列（总览）",
+   "lib": "主库",
+   "issue": "机检错误:切入点缺少阶位：四、五（须覆盖一阶~最高阶全部连续阶位） | 警告:来源链接 0 条 < 3",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "待修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P0",
+   "batch": 123,
+   "file": "产出\\批次123\\剧场版：激情的Walküre.md",
+   "name": "剧场版：激情的Walküre",
+   "lib": "主库",
+   "issue": "机检错误:切入点缺少阶位：一、二、三、四、五、六、七（须覆盖一阶~最高阶全部连续阶位） | 警告:来源链接 0 条 < 3",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "待修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P0",
+   "batch": 123,
+   "file": "产出\\批次123\\剧场版：绝对LIVE!!!!!!.md",
+   "name": "剧场版：绝对LIVE!!!!!!",
+   "lib": "主库",
+   "issue": "机检错误:切入点缺少阶位：一、二、三、四、五、六、七（须覆盖一阶~最高阶全部连续阶位） | 灌水标记:【补密",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "待修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P0",
+   "batch": 124,
+   "file": "产出\\批次124\\崩坏学园2.md",
+   "name": "崩坏学园2",
+   "lib": "主库",
+   "issue": "机检错误:切入点缺少阶位：一、二、三、四、五、六、七（须覆盖一阶~最高阶全部连续阶位）",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "待修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P0",
+   "batch": 124,
+   "file": "产出\\批次124\\火焰之纹章：暗黑龙与光之剑.md",
+   "name": "火焰之纹章：暗黑龙与光之剑",
+   "lib": "主库",
+   "issue": "机检错误:切入点缺少阶位：四、五（须覆盖一阶~最高阶全部连续阶位）",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "待修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P0",
+   "batch": 124,
+   "file": "产出\\批次124\\宇宙星神（银河星神）.md",
+   "name": "宇宙星神（银河星神）",
+   "lib": "主库",
+   "issue": "机检错误:切入点缺少阶位：一、二、三、四、五、六、七（须覆盖一阶~最高阶全部连续阶位）",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "待修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P0",
+   "batch": 125,
+   "file": "产出\\批次125\\火焰之纹章：纹章之谜.md",
+   "name": "火焰之纹章：纹章之谜",
+   "lib": "主库",
+   "issue": "机检错误:切入点缺少阶位：四、五（须覆盖一阶~最高阶全部连续阶位） | 跨世界重复(组#61·3个世界共用)",
+   "hasCrossDup": true,
+   "crossGroupIds": [
+    61,
+    62,
+    63,
+    64,
+    65,
+    66,
+    67,
+    68,
+    69,
+    70,
+    71,
+    72,
+    73,
+    74,
+    75,
+    76,
+    77,
+    78,
+    79,
+    80,
+    81,
+    82,
+    83,
+    84,
+    85,
+    86,
+    87,
+    88,
+    89,
+    90,
+    91
+   ],
+   "status": "待修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P0",
+   "batch": 125,
+   "file": "产出\\批次125\\火焰之纹章外传：Gaiden.md",
+   "name": "火焰之纹章外传：Gaiden",
+   "lib": "主库",
+   "issue": "机检错误:切入点缺少阶位：四、五（须覆盖一阶~最高阶全部连续阶位） | 跨世界重复(组#61·3个世界共用)",
+   "hasCrossDup": true,
+   "crossGroupIds": [
+    61,
+    62,
+    63,
+    64,
+    65,
+    66,
+    67,
+    68,
+    69,
+    70,
+    71,
+    72,
+    73,
+    74,
+    75,
+    76,
+    77,
+    78,
+    79,
+    80,
+    81,
+    82,
+    83,
+    84,
+    85,
+    86,
+    87,
+    88,
+    89,
+    90,
+    91
+   ],
+   "status": "待修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P0",
+   "batch": 126,
+   "file": "产出\\批次126\\火焰之纹章：多拉基亚776.md",
+   "name": "火焰之纹章：多拉基亚776",
+   "lib": "主库",
+   "issue": "机检错误:切入点缺少阶位：四、五（须覆盖一阶~最高阶全部连续阶位）",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "待修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P0",
+   "batch": 126,
+   "file": "产出\\批次126\\火焰之纹章：封印之剑.md",
+   "name": "火焰之纹章：封印之剑",
+   "lib": "主库",
+   "issue": "机检错误:切入点缺少阶位：四、五（须覆盖一阶~最高阶全部连续阶位） | 灌水标记:可被契约者切入的完整任务世界",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "待修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P0",
+   "batch": 126,
+   "file": "产出\\批次126\\火焰之纹章：圣战之系谱.md",
+   "name": "火焰之纹章：圣战之系谱",
+   "lib": "主库",
+   "issue": "机检错误:切入点缺少阶位：四、五（须覆盖一阶~最高阶全部连续阶位）",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "待修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P0",
+   "batch": 126,
+   "file": "产出\\批次126\\噬神者：爆裂（Burst）.md",
+   "name": "噬神者：爆裂（Burst）",
+   "lib": "主库",
+   "issue": "机检错误:切入点缺少阶位：一、二、三、四、五、六、七（须覆盖一阶~最高阶全部连续阶位）",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "待修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P0",
+   "batch": 126,
+   "file": "产出\\批次126\\噬神者（God Eater）.md",
+   "name": "噬神者（God Eater）",
+   "lib": "主库",
+   "issue": "机检错误:切入点缺少阶位：七（须覆盖一阶~最高阶全部连续阶位）",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "待修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P0",
+   "batch": 127,
+   "file": "产出\\批次127\\火焰之纹章：烈火之剑.md",
+   "name": "火焰之纹章：烈火之剑",
+   "lib": "主库",
+   "issue": "机检错误:切入点缺少阶位：四、五（须覆盖一阶~最高阶全部连续阶位）",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "待修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P0",
+   "batch": 127,
+   "file": "产出\\批次127\\火焰之纹章：圣魔之光石.md",
+   "name": "火焰之纹章：圣魔之光石",
+   "lib": "主库",
+   "issue": "机检错误:切入点缺少阶位：四、五（须覆盖一阶~最高阶全部连续阶位）",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "待修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P0",
+   "batch": 127,
+   "file": "产出\\批次127\\噬神者2：愤怒爆裂（Rage Burst）.md",
+   "name": "噬神者2：愤怒爆裂（Rage Burst）",
+   "lib": "主库",
+   "issue": "机检错误:切入点缺少阶位：一、二、三、四、五、六、七（须覆盖一阶~最高阶全部连续阶位）",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "待修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P0",
+   "batch": 127,
+   "file": "产出\\批次127\\噬神者2.md",
+   "name": "噬神者2",
+   "lib": "主库",
+   "issue": "机检错误:切入点缺少阶位：七（须覆盖一阶~最高阶全部连续阶位）",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "待修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P0",
+   "batch": 128,
+   "file": "产出\\批次128\\火焰之纹章：苍炎之轨迹.md",
+   "name": "火焰之纹章：苍炎之轨迹",
+   "lib": "主库",
+   "issue": "机检错误:切入点缺少阶位：四、五（须覆盖一阶~最高阶全部连续阶位）",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "待修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P0",
+   "batch": 128,
+   "file": "产出\\批次128\\火焰之纹章：外传：Gaiden.md",
+   "name": "火焰之纹章：外传：Gaiden",
+   "lib": "主库",
+   "issue": "机检错误:切入点缺少阶位：一、二、三、四、五、六（须覆盖一阶~最高阶全部连续阶位）",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "待修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P0",
+   "batch": 128,
+   "file": "产出\\批次128\\火焰之纹章：晓之女神.md",
+   "name": "火焰之纹章：晓之女神",
+   "lib": "主库",
+   "issue": "机检错误:切入点缺少阶位：四、五（须覆盖一阶~最高阶全部连续阶位）",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "待修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P0",
+   "batch": 128,
+   "file": "产出\\批次128\\噬神者：复生（Resurrection）.md",
+   "name": "噬神者：复生（Resurrection）",
+   "lib": "主库",
+   "issue": "机检错误:切入点缺少阶位：二、三、四、五、六、七（须覆盖一阶~最高阶全部连续阶位）",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "待修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P0",
+   "batch": 129,
+   "file": "产出\\批次129\\火焰之纹章：新·暗黑龙与光之剑.md",
+   "name": "火焰之纹章：新·暗黑龙与光之剑",
+   "lib": "主库",
+   "issue": "机检错误:切入点缺少阶位：四、五（须覆盖一阶~最高阶全部连续阶位）",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "待修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P0",
+   "batch": 129,
+   "file": "产出\\批次129\\火焰之纹章：新·纹章之谜.md",
+   "name": "火焰之纹章：新·纹章之谜",
+   "lib": "主库",
+   "issue": "机检错误:切入点缺少阶位：四、五（须覆盖一阶~最高阶全部连续阶位）",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "待修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P0",
+   "batch": 129,
+   "file": "产出\\批次129\\弑神者（Campione，轻小说）.md",
+   "name": "弑神者（Campione，轻小说）",
+   "lib": "主库",
+   "issue": "机检错误:切入点缺少阶位：一、二、三、五、六（须覆盖一阶~最高阶全部连续阶位）",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "待修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P0",
+   "batch": 129,
+   "file": "产出\\批次129\\噬神者（动画）.md",
+   "name": "噬神者（动画）",
+   "lib": "主库",
+   "issue": "机检错误:切入点缺少阶位：二（须覆盖一阶~最高阶全部连续阶位）",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "待修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P0",
+   "batch": 130,
+   "file": "产出\\批次130\\暗黑破坏神.md",
+   "name": "暗黑破坏神",
+   "lib": "主库",
+   "issue": "机检错误:切入点缺少阶位：七（须覆盖一阶~最高阶全部连续阶位）",
    "hasCrossDup": false,
    "crossGroupIds": [],
    "status": "待修复",
@@ -185,7 +2178,19 @@
    "file": "产出\\批次130\\火焰之纹章：觉醒.md",
    "name": "火焰之纹章：觉醒",
    "lib": "主库",
-   "issue": "机检错误:剧情 6289 字 < 10000 | 灌水标记:【补密、【剧情补述",
+   "issue": "机检错误:切入点缺少阶位：四、五（须覆盖一阶~最高阶全部连续阶位）",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "已修复",
+   "fixedMark": true
+  },
+  {
+   "priority": "P0",
+   "batch": 130,
+   "file": "产出\\批次130\\火焰之纹章：if（Fates）.md",
+   "name": "火焰之纹章：if（Fates）",
+   "lib": "主库",
+   "issue": "机检错误:切入点缺少阶位：四、五（须覆盖一阶~最高阶全部连续阶位）",
    "hasCrossDup": false,
    "crossGroupIds": [],
    "status": "待修复",
@@ -194,10 +2199,202 @@
   {
    "priority": "P0",
    "batch": 130,
-   "file": "产出\\批次130\\饥饿游戏2.md",
-   "name": "饥饿游戏2",
+   "file": "产出\\批次130\\弑神者（Campione，动画）.md",
+   "name": "弑神者（Campione，动画）",
    "lib": "主库",
-   "issue": "机检错误:剧情 7829 字 < 10000",
+   "issue": "机检错误:切入点缺少阶位：一、二、三、四、五、七（须覆盖一阶~最高阶全部连续阶位）",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "待修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P0",
+   "batch": 131,
+   "file": "产出\\批次131\\暗黑破坏神：地狱火.md",
+   "name": "暗黑破坏神：地狱火",
+   "lib": "主库",
+   "issue": "机检错误:切入点缺少阶位：七（须覆盖一阶~最高阶全部连续阶位）",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "待修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P0",
+   "batch": 131,
+   "file": "产出\\批次131\\暗黑破坏神II.md",
+   "name": "暗黑破坏神II",
+   "lib": "主库",
+   "issue": "机检错误:切入点缺少阶位：七（须覆盖一阶~最高阶全部连续阶位）",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "待修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P0",
+   "batch": 131,
+   "file": "产出\\批次131\\火焰之纹章Echoes：另一个英雄王.md",
+   "name": "火焰之纹章Echoes：另一个英雄王",
+   "lib": "主库",
+   "issue": "机检错误:切入点缺少阶位：四、五（须覆盖一阶~最高阶全部连续阶位）",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "待修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P0",
+   "batch": 132,
+   "file": "产出\\批次132\\暗黑破坏神II：毁灭之王.md",
+   "name": "暗黑破坏神II：毁灭之王",
+   "lib": "主库",
+   "issue": "机检错误:切入点缺少阶位：七（须覆盖一阶~最高阶全部连续阶位）",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "待修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P0",
+   "batch": 132,
+   "file": "产出\\批次132\\暗黑破坏神III.md",
+   "name": "暗黑破坏神III",
+   "lib": "主库",
+   "issue": "机检错误:切入点缺少阶位：七（须覆盖一阶~最高阶全部连续阶位）",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "待修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P0",
+   "batch": 132,
+   "file": "产出\\批次132\\火焰之纹章：风花雪月.md",
+   "name": "火焰之纹章：风花雪月",
+   "lib": "主库",
+   "issue": "机检错误:切入点缺少阶位：四、五（须覆盖一阶~最高阶全部连续阶位） | 灌水标记:【补密",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "待修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P0",
+   "batch": 132,
+   "file": "产出\\批次132\\火焰之纹章：Engage.md",
+   "name": "火焰之纹章：Engage",
+   "lib": "主库",
+   "issue": "机检错误:切入点缺少阶位：四、五（须覆盖一阶~最高阶全部连续阶位） | 灌水标记:【补密",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "待修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P0",
+   "batch": 132,
+   "file": "产出\\批次132\\火焰之纹章无双.md",
+   "name": "火焰之纹章无双",
+   "lib": "主库",
+   "issue": "机检错误:切入点缺少阶位：四、五（须覆盖一阶~最高阶全部连续阶位） | 灌水标记:【补密",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "待修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P0",
+   "batch": 133,
+   "file": "产出\\批次133\\暗黑破坏神：不朽.md",
+   "name": "暗黑破坏神：不朽",
+   "lib": "主库",
+   "issue": "机检错误:切入点缺少阶位：七（须覆盖一阶~最高阶全部连续阶位）",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "待修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P0",
+   "batch": 133,
+   "file": "产出\\批次133\\暗黑破坏神III：夺魂之镰.md",
+   "name": "暗黑破坏神III：夺魂之镰",
+   "lib": "主库",
+   "issue": "机检错误:切入点缺少阶位：七（须覆盖一阶~最高阶全部连续阶位）",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "待修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P0",
+   "batch": 133,
+   "file": "产出\\批次133\\火焰纹章无双：风花雪月.md",
+   "name": "火焰纹章无双：风花雪月",
+   "lib": "主库",
+   "issue": "机检错误:切入点缺少阶位：一、二、四、五（须覆盖一阶~最高阶全部连续阶位）",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "待修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P0",
+   "batch": 133,
+   "file": "产出\\批次133\\FlyMe2theMoon（崩坏系）.md",
+   "name": "FlyMe2theMoon（崩坏系）",
+   "lib": "主库",
+   "issue": "机检错误:切入点缺少阶位：一、二、三（须覆盖一阶~最高阶全部连续阶位）",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "待修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P0",
+   "batch": 134,
+   "file": "产出\\批次134\\暗黑破坏神IV.md",
+   "name": "暗黑破坏神IV",
+   "lib": "主库",
+   "issue": "机检错误:切入点缺少阶位：七（须覆盖一阶~最高阶全部连续阶位）",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "待修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P0",
+   "batch": 134,
+   "file": "产出\\批次134\\黄油（成人向AVG）.md",
+   "name": "黄油（成人向AVG）",
+   "lib": "主库",
+   "issue": "机检错误:切入点缺少阶位：一（须覆盖一阶~最高阶全部连续阶位）",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "待修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P0",
+   "batch": 134,
+   "file": "产出\\批次134\\火焰之纹章Heroes.md",
+   "name": "火焰之纹章Heroes",
+   "lib": "主库",
+   "issue": "机检错误:切入点缺少阶位：四、五（须覆盖一阶~最高阶全部连续阶位）",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "待修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P0",
+   "batch": 134,
+   "file": "产出\\批次134\\Bangumi.md",
+   "name": "Bangumi",
+   "lib": "主库",
+   "issue": "机检错误:切入点缺少阶位：一（须覆盖一阶~最高阶全部连续阶位）",
    "hasCrossDup": false,
    "crossGroupIds": [],
    "status": "待修复",
@@ -206,10 +2403,10 @@
   {
    "priority": "P0",
    "batch": 135,
-   "file": "产出\\批次135\\攻克机动队（按：攻壳机动队）.md",
-   "name": "攻克机动队（按：攻壳机动队）",
+   "file": "产出\\批次135\\暗黑破坏神IV：憎恨之躯.md",
+   "name": "暗黑破坏神IV：憎恨之躯",
    "lib": "主库",
-   "issue": "机检错误:剧情 9070 字 < 10000",
+   "issue": "机检错误:切入点缺少阶位：一、二、三、四、五、六、七（须覆盖一阶~最高阶全部连续阶位）",
    "hasCrossDup": false,
    "crossGroupIds": [],
    "status": "待修复",
@@ -221,7 +2418,19 @@
    "file": "产出\\批次135\\黑暗塔（系列总览）.md",
    "name": "黑暗塔（系列总览）",
    "lib": "主库",
-   "issue": "机检错误:剧情 9153 字 < 10000",
+   "issue": "机检错误:切入点缺少阶位：四、五（须覆盖一阶~最高阶全部连续阶位）",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "已修复",
+   "fixedMark": true
+  },
+  {
+   "priority": "P0",
+   "batch": 135,
+   "file": "产出\\批次135\\赛博PK.md",
+   "name": "赛博PK",
+   "lib": "主库",
+   "issue": "机检错误:切入点缺少阶位：一（须覆盖一阶~最高阶全部连续阶位）",
    "hasCrossDup": false,
    "crossGroupIds": [],
    "status": "待修复",
@@ -230,10 +2439,370 @@
   {
    "priority": "P0",
    "batch": 136,
-   "file": "产出\\批次136\\攻壳机动队（漫画原作）.md",
-   "name": "攻壳机动队（漫画原作）",
+   "file": "产出\\批次136\\火焰之纹章：回声：另一个英雄王.md",
+   "name": "火焰之纹章：回声：另一个英雄王",
    "lib": "主库",
-   "issue": "机检错误:剧情 3475 字 < 10000",
+   "issue": "机检错误:切入点缺少阶位：四、五、六（须覆盖一阶~最高阶全部连续阶位）",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "待修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P0",
+   "batch": 136,
+   "file": "产出\\批次136\\泰拉瑞亚：Otherworld（企划－衍生）.md",
+   "name": "泰拉瑞亚：Otherworld（企划/衍生）",
+   "lib": "主库",
+   "issue": "机检错误:切入点缺少阶位：一、二、三、四、五、六、七（须覆盖一阶~最高阶全部连续阶位）",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "待修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P0",
+   "batch": 137,
+   "file": "产出\\批次137\\魔兽争霸：兽人与人类.md",
+   "name": "魔兽争霸：兽人与人类",
+   "lib": "主库",
+   "issue": "机检错误:切入点缺少阶位：一、二、三、四、五、六、七（须覆盖一阶~最高阶全部连续阶位）",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "待修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P0",
+   "batch": 138,
+   "file": "产出\\批次138\\火焰之纹章：无双（Warriors）.md",
+   "name": "火焰之纹章：无双（Warriors）",
+   "lib": "主库",
+   "issue": "机检错误:切入点缺少阶位：一、二、三、四、五、六（须覆盖一阶~最高阶全部连续阶位）",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "待修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P0",
+   "batch": 138,
+   "file": "产出\\批次138\\火焰之纹章：英雄（Heroes）.md",
+   "name": "火焰之纹章：英雄（Heroes）",
+   "lib": "主库",
+   "issue": "机检错误:切入点缺少阶位：一、二、三、四、五、六（须覆盖一阶~最高阶全部连续阶位）",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "待修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P0",
+   "batch": 138,
+   "file": "产出\\批次138\\魔兽争霸II.md",
+   "name": "魔兽争霸II",
+   "lib": "主库",
+   "issue": "机检错误:切入点缺少阶位：一、二、三、四、五、六、七（须覆盖一阶~最高阶全部连续阶位）",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "待修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P0",
+   "batch": 139,
+   "file": "产出\\批次139\\火焰纹章：无双：风花雪月（Three Hopes）.md",
+   "name": "火焰纹章：无双：风花雪月（Three Hopes）",
+   "lib": "主库",
+   "issue": "机检错误:切入点缺少阶位：一、二、三、四、五、六（须覆盖一阶~最高阶全部连续阶位）",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "待修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P0",
+   "batch": 141,
+   "file": "产出\\批次141\\炉石传说.md",
+   "name": "炉石传说",
+   "lib": "主库",
+   "issue": "机检错误:切入点缺少阶位：二、三、四（须覆盖一阶~最高阶全部连续阶位）",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "待修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P0",
+   "batch": 142,
+   "file": "产出\\批次142\\崩坏（系列总览）.md",
+   "name": "崩坏（系列总览）",
+   "lib": "主库",
+   "issue": "机检错误:切入点缺少阶位：四、五（须覆盖一阶~最高阶全部连续阶位）",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "待修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P0",
+   "batch": 143,
+   "file": "产出\\批次143\\FlyMe2theMoon.md",
+   "name": "FlyMe2theMoon",
+   "lib": "主库",
+   "issue": "机检错误:切入点缺少阶位：四、五（须覆盖一阶~最高阶全部连续阶位）",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "待修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P0",
+   "batch": 146,
+   "file": "产出\\批次146\\宝可梦（主线游戏总览）.md",
+   "name": "宝可梦（主线游戏总览）",
+   "lib": "主库",
+   "issue": "机检错误:切入点缺少阶位：四、五（须覆盖一阶~最高阶全部连续阶位）",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "待修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P0",
+   "batch": 148,
+   "file": "产出\\批次148\\魔兽世界：海加尔山之战.md",
+   "name": "魔兽世界：海加尔山之战",
+   "lib": "主库",
+   "issue": "机检错误:切入点缺少阶位：一、二、三、四、五、六、七（须覆盖一阶~最高阶全部连续阶位）",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "待修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P0",
+   "batch": 152,
+   "file": "产出\\批次152\\宝可梦 皮卡丘（黄）.md",
+   "name": "宝可梦 皮卡丘（黄）",
+   "lib": "主库",
+   "issue": "机检错误:切入点缺少阶位：一（须覆盖一阶~最高阶全部连续阶位）",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "待修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P0",
+   "batch": 153,
+   "file": "产出\\批次153\\魔兽世界：奥妮克希亚的巢穴（重制）.md",
+   "name": "魔兽世界：奥妮克希亚的巢穴（重制）",
+   "lib": "主库",
+   "issue": "机检错误:切入点缺少阶位：一、二、四、五、六、七（须覆盖一阶~最高阶全部连续阶位） | 灌水标记:【再补",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "待修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P0",
+   "batch": 159,
+   "file": "产出\\批次159\\银河星神.md",
+   "name": "宇宙星神（银河星神）",
+   "lib": "主库",
+   "issue": "机检错误:切入点缺少阶位：一、二、三、四、五、六、七（须覆盖一阶~最高阶全部连续阶位） | 文件名不符",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "待修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P0",
+   "batch": 161,
+   "file": "产出\\批次161\\魔兽世界：安托鲁斯·燃烧王座.md",
+   "name": "魔兽世界：安托鲁斯·燃烧王座",
+   "lib": "主库",
+   "issue": "机检错误:切入点缺少阶位：一、二、三、四、五、六、七（须覆盖一阶~最高阶全部连续阶位）",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "待修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P0",
+   "batch": 162,
+   "file": "产出\\批次162\\魔兽世界：尼奥罗萨·觉醒之城.md",
+   "name": "魔兽世界：尼奥罗萨·觉醒之城",
+   "lib": "主库",
+   "issue": "机检错误:切入点缺少阶位：一、二、三、四、五、六、七（须覆盖一阶~最高阶全部连续阶位）",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "待修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P0",
+   "batch": 163,
+   "file": "产出\\批次163\\宝可梦 冠之雪原（DLC）.md",
+   "name": "宝可梦 冠之雪原（DLC）",
+   "lib": "主库",
+   "issue": "机检错误:切入点缺少阶位：二、四（须覆盖一阶~最高阶全部连续阶位）",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "待修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P0",
+   "batch": 163,
+   "file": "产出\\批次163\\宝可梦 铠之孤岛（DLC）.md",
+   "name": "宝可梦 铠之孤岛（DLC）",
+   "lib": "主库",
+   "issue": "机检错误:切入点缺少阶位：二、四（须覆盖一阶~最高阶全部连续阶位）",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "待修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P0",
+   "batch": 164,
+   "file": "产出\\批次164\\宝可梦 传说 阿尔宙斯.md",
+   "name": "宝可梦 传说 阿尔宙斯",
+   "lib": "主库",
+   "issue": "机检错误:切入点缺少阶位：二、四（须覆盖一阶~最高阶全部连续阶位）",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "待修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P0",
+   "batch": 164,
+   "file": "产出\\批次164\\魔兽世界：阿梅达希尔·梦境之愿.md",
+   "name": "魔兽世界：阿梅达希尔·梦境之愿",
+   "lib": "主库",
+   "issue": "机检错误:切入点缺少阶位：一、二、三、四、五、六、七（须覆盖一阶~最高阶全部连续阶位）",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "待修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P0",
+   "batch": 164,
+   "file": "产出\\批次164\\魔兽世界：解放安德麦.md",
+   "name": "魔兽世界：解放安德麦",
+   "lib": "主库",
+   "issue": "机检错误:切入点缺少阶位：一、二、四、五（须覆盖一阶~最高阶全部连续阶位） | 灌水标记:【再补",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "待修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P0",
+   "batch": 164,
+   "file": "产出\\批次164\\魔兽世界：尼鲁巴尔王宫.md",
+   "name": "魔兽世界：尼鲁巴尔王宫",
+   "lib": "主库",
+   "issue": "机检错误:切入点缺少阶位：一、二、三、四、五、六、七（须覆盖一阶~最高阶全部连续阶位）",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "待修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P0",
+   "batch": 164,
+   "file": "产出\\批次164\\魔兽世界：亚贝鲁斯·暗影熔炉.md",
+   "name": "魔兽世界：亚贝鲁斯·暗影熔炉",
+   "lib": "主库",
+   "issue": "机检错误:切入点缺少阶位：一、二、三、四、五、六（须覆盖一阶~最高阶全部连续阶位）",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "待修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P0",
+   "batch": 165,
+   "file": "产出\\批次165\\宝可梦 碧之假面（DLC）.md",
+   "name": "宝可梦 碧之假面（DLC）",
+   "lib": "主库",
+   "issue": "机检错误:切入点缺少阶位：二、四（须覆盖一阶~最高阶全部连续阶位）",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "待修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P0",
+   "batch": 165,
+   "file": "产出\\批次165\\宝可梦（动画）.md",
+   "name": "宝可梦（动画）",
+   "lib": "主库",
+   "issue": "机检错误:切入点缺少阶位：一、二、四、六（须覆盖一阶~最高阶全部连续阶位）",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "待修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P0",
+   "batch": 165,
+   "file": "产出\\批次165\\魔兽世界：法力熔炉·欧米伽.md",
+   "name": "魔兽世界：法力熔炉·欧米伽",
+   "lib": "主库",
+   "issue": "机检错误:切入点缺少阶位：一、二、三、四、五、六、七（须覆盖一阶~最高阶全部连续阶位）",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "待修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P0",
+   "batch": 165,
+   "file": "产出\\批次165\\魔兽系列（总览）.md",
+   "name": "魔兽系列（总览）",
+   "lib": "主库",
+   "issue": "机检错误:切入点缺少阶位：四、五（须覆盖一阶~最高阶全部连续阶位）",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "待修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P0",
+   "batch": 166,
+   "file": "产出\\批次166\\宝可梦 传说 Z-A.md",
+   "name": "宝可梦 传说 Z-A",
+   "lib": "主库",
+   "issue": "机检错误:切入点缺少阶位：一、二、三、四、五、六（须覆盖一阶~最高阶全部连续阶位）",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "待修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P0",
+   "batch": 166,
+   "file": "产出\\批次166\\宝可梦 蓝之圆盘（DLC）.md",
+   "name": "宝可梦 蓝之圆盘（DLC）",
+   "lib": "主库",
+   "issue": "机检错误:切入点缺少阶位：一、二、三、四、五、六（须覆盖一阶~最高阶全部连续阶位）",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "待修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P0",
+   "batch": 166,
+   "file": "产出\\批次166\\宝可梦 Champions.md",
+   "name": "宝可梦 Champions",
+   "lib": "主库",
+   "issue": "机检错误:切入点缺少阶位：一、二、三、四、五、六（须覆盖一阶~最高阶全部连续阶位）",
    "hasCrossDup": false,
    "crossGroupIds": [],
    "status": "待修复",
@@ -245,11 +2814,11 @@
    "file": "产出\\批次166\\宝可梦：超世代.md",
    "name": "宝可梦：超世代",
    "lib": "主库",
-   "issue": "机检错误:剧情 6119 字 < 10000/切入点 1022 字 < 1500 | 警告:切入点疑似\"被封印\"式顶点解释；切入点疑似\"被削弱\"式顶点解释",
+   "issue": "机检错误:切入点缺少阶位：一、二、三、四、五、六、七（须覆盖一阶~最高阶全部连续阶位）",
    "hasCrossDup": false,
    "crossGroupIds": [],
-   "status": "待修复",
-   "fixedMark": false
+   "status": "已修复",
+   "fixedMark": true
   },
   {
    "priority": "P0",
@@ -257,7 +2826,55 @@
    "file": "产出\\批次166\\宝可梦：钻石与珍珠.md",
    "name": "宝可梦：钻石与珍珠",
    "lib": "主库",
-   "issue": "机检错误:剧情 1586 字 < 10000",
+   "issue": "机检错误:切入点缺少阶位：一、二、三、四、五、六、七（须覆盖一阶~最高阶全部连续阶位）",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "已修复",
+   "fixedMark": true
+  },
+  {
+   "priority": "P0",
+   "batch": 167,
+   "file": "产出\\批次167\\宝可梦 体育馆.md",
+   "name": "宝可梦 体育馆",
+   "lib": "主库",
+   "issue": "机检错误:切入点缺少阶位：三、五（须覆盖一阶~最高阶全部连续阶位）",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "待修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P0",
+   "batch": 167,
+   "file": "产出\\批次167\\宝可梦 体育馆2.md",
+   "name": "宝可梦 体育馆2",
+   "lib": "主库",
+   "issue": "机检错误:切入点缺少阶位：一、三、四（须覆盖一阶~最高阶全部连续阶位）",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "待修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P0",
+   "batch": 167,
+   "file": "产出\\批次167\\宝可梦：太阳&月亮.md",
+   "name": "宝可梦：太阳&月亮",
+   "lib": "主库",
+   "issue": "机检错误:切入点缺少阶位：二（须覆盖一阶~最高阶全部连续阶位）",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "待修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P0",
+   "batch": 167,
+   "file": "产出\\批次167\\宝可梦：最佳愿望.md",
+   "name": "宝可梦：最佳愿望",
+   "lib": "主库",
+   "issue": "机检错误:切入点缺少阶位：七（须覆盖一阶~最高阶全部连续阶位） | 灌水标记:【细目",
    "hasCrossDup": false,
    "crossGroupIds": [],
    "status": "待修复",
@@ -269,7 +2886,43 @@
    "file": "产出\\批次167\\宝可梦XY.md",
    "name": "宝可梦XY",
    "lib": "主库",
-   "issue": "机检错误:剧情 8904 字 < 10000 | 警告:切入点疑似\"被封印\"式顶点解释",
+   "issue": "机检错误:切入点缺少阶位：一、三、五、七（须覆盖一阶~最高阶全部连续阶位）",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "已修复",
+   "fixedMark": true
+  },
+  {
+   "priority": "P0",
+   "batch": 168,
+   "file": "产出\\批次168\\宝可梦 对战革命.md",
+   "name": "宝可梦 对战革命",
+   "lib": "主库",
+   "issue": "机检错误:切入点缺少阶位：一、二、三、四、五、六（须覆盖一阶~最高阶全部连续阶位） | 灌水标记:【细目",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "待修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P0",
+   "batch": 168,
+   "file": "产出\\批次168\\宝可梦：地平线.md",
+   "name": "宝可梦：地平线",
+   "lib": "主库",
+   "issue": "机检错误:切入点缺少阶位：一、二、三、四、五、六、七（须覆盖一阶~最高阶全部连续阶位） | 灌水标记:【细目",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "待修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P0",
+   "batch": 168,
+   "file": "产出\\批次168\\宝可梦：旅途.md",
+   "name": "宝可梦：旅途",
+   "lib": "主库",
+   "issue": "机检错误:切入点缺少阶位：一、二、三、四、五、六、七（须覆盖一阶~最高阶全部连续阶位） | 灌水标记:【细目",
    "hasCrossDup": false,
    "crossGroupIds": [],
    "status": "待修复",
@@ -281,7 +2934,67 @@
    "file": "产出\\批次168\\宝可梦不可思议迷宫：红－蓝救助队.md",
    "name": "宝可梦不可思议迷宫：红/蓝救助队",
    "lib": "主库",
-   "issue": "机检错误:剧情 8881 字 < 10000 | 警告:来源链接 0 条 < 3",
+   "issue": "机检错误:切入点缺少阶位：六（须覆盖一阶~最高阶全部连续阶位） | 文件内重复段",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "已修复",
+   "fixedMark": true
+  },
+  {
+   "priority": "P0",
+   "batch": 168,
+   "file": "产出\\批次168\\假面骑士W（TV）.md",
+   "name": "假面骑士W（TV）",
+   "lib": "主库",
+   "issue": "机检错误:切入点缺少阶位：一、二、三、四、五、六（须覆盖一阶~最高阶全部连续阶位）",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "待修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P0",
+   "batch": 169,
+   "file": "产出\\批次169\\宝可梦不可思议迷宫：闯进无限迷宫.md",
+   "name": "宝可梦不可思议迷宫：闯进无限迷宫",
+   "lib": "主库",
+   "issue": "机检错误:切入点缺少阶位：一、二、三、四、五、六、七（须覆盖一阶~最高阶全部连续阶位）",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "待修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P0",
+   "batch": 169,
+   "file": "产出\\批次169\\宝可梦不可思议迷宫：时－暗－空探险队.md",
+   "name": "宝可梦不可思议迷宫：时/暗/空探险队",
+   "lib": "主库",
+   "issue": "机检错误:切入点缺少阶位：一、二、三、四、五、六、七（须覆盖一阶~最高阶全部连续阶位）",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "待修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P0",
+   "batch": 169,
+   "file": "产出\\批次169\\假面骑士OOO（TV）.md",
+   "name": "假面骑士OOO（TV）",
+   "lib": "主库",
+   "issue": "机检错误:切入点缺少阶位：一、二、三、四、五、六（须覆盖一阶~最高阶全部连续阶位）",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "待修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P0",
+   "batch": 169,
+   "file": "产出\\批次169\\假面骑士W：A to Z／命运的盖亚记忆体（剧场版）.md",
+   "name": "假面骑士W：A to Z／命运的盖亚记忆体（剧场版）",
+   "lib": "主库",
+   "issue": "机检错误:切入点缺少阶位：一、二、三、四、五、六（须覆盖一阶~最高阶全部连续阶位）",
    "hasCrossDup": false,
    "crossGroupIds": [],
    "status": "待修复",
@@ -293,13 +3006,11 @@
    "file": "产出\\批次170\\宝可梦不可思议迷宫：超级.md",
    "name": "宝可梦不可思议迷宫：超级",
    "lib": "主库",
-   "issue": "机检错误:剧情 5887 字 < 10000 | 灌水标记:跨媒介流行作品、可被契约者切入的完整任务世界 | 跨世界重复(组#210·146个世界共用)",
-   "hasCrossDup": true,
-   "crossGroupIds": [
-    210
-   ],
-   "status": "待修复",
-   "fixedMark": false
+   "issue": "机检错误:切入点缺少阶位：一、二、三、四、五、六、七（须覆盖一阶~最高阶全部连续阶位）",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "已修复",
+   "fixedMark": true
   },
   {
    "priority": "P0",
@@ -307,11 +3018,11 @@
    "file": "产出\\批次170\\宝可梦不可思议迷宫：救助队DX.md",
    "name": "宝可梦不可思议迷宫：救助队DX",
    "lib": "主库",
-   "issue": "机检错误:剧情 7789 字 < 10000 | 警告:切入点疑似\"被封印\"式顶点解释；切入点疑似\"被削弱\"式顶点解释",
+   "issue": "机检错误:切入点缺少阶位：二、三、四、七（须覆盖一阶~最高阶全部连续阶位）",
    "hasCrossDup": false,
    "crossGroupIds": [],
-   "status": "待修复",
-   "fixedMark": false
+   "status": "已修复",
+   "fixedMark": true
   },
   {
    "priority": "P0",
@@ -319,13 +3030,11 @@
    "file": "产出\\批次170\\假面骑士Fourze（TV）.md",
    "name": "假面骑士Fourze（TV）",
    "lib": "主库",
-   "issue": "机检错误:剧情 5905 字 < 10000 | 灌水标记:跨媒介流行作品、可被契约者切入的完整任务世界 | 跨世界重复(组#210·146个世界共用)",
-   "hasCrossDup": true,
-   "crossGroupIds": [
-    210
-   ],
-   "status": "待修复",
-   "fixedMark": false
+   "issue": "机检错误:切入点缺少阶位：一、二、三、四、五、六（须覆盖一阶~最高阶全部连续阶位）",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "已修复",
+   "fixedMark": true
   },
   {
    "priority": "P0",
@@ -333,13 +3042,11 @@
    "file": "产出\\批次170\\假面骑士OOO：Wonderful 将军与21枚核心硬币（剧场版）.md",
    "name": "假面骑士OOO：Wonderful 将军与21枚核心硬币（剧场版）",
    "lib": "主库",
-   "issue": "机检错误:剧情 6049 字 < 10000 | 灌水标记:跨媒介流行作品、可被契约者切入的完整任务世界 | 跨世界重复(组#210·146个世界共用)",
-   "hasCrossDup": true,
-   "crossGroupIds": [
-    210
-   ],
-   "status": "待修复",
-   "fixedMark": false
+   "issue": "机检错误:切入点缺少阶位：一、二、三、四、五、六（须覆盖一阶~最高阶全部连续阶位）",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "已修复",
+   "fixedMark": true
   },
   {
    "priority": "P0",
@@ -347,11 +3054,11 @@
    "file": "产出\\批次170\\OOO×W：MOVIE大战MEGAMAX（剧场版）.md",
    "name": "OOO×W：MOVIE大战MEGAMAX（剧场版）",
    "lib": "主库",
-   "issue": "机检错误:剧情 7401 字 < 10000",
+   "issue": "机检错误:切入点缺少阶位：一、二、三、四（须覆盖一阶~最高阶全部连续阶位）",
    "hasCrossDup": false,
    "crossGroupIds": [],
-   "status": "待修复",
-   "fixedMark": false
+   "status": "已修复",
+   "fixedMark": true
   },
   {
    "priority": "P0",
@@ -359,13 +3066,11 @@
    "file": "产出\\批次171\\宝可梦大集结.md",
    "name": "宝可梦大集结",
    "lib": "主库",
-   "issue": "机检错误:剧情 5839 字 < 10000 | 灌水标记:跨媒介流行作品、可被契约者切入的完整任务世界 | 跨世界重复(组#210·146个世界共用)",
-   "hasCrossDup": true,
-   "crossGroupIds": [
-    210
-   ],
-   "status": "待修复",
-   "fixedMark": false
+   "issue": "机检错误:切入点缺少阶位：一、二、三、四、五、六、七（须覆盖一阶~最高阶全部连续阶位）",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "已修复",
+   "fixedMark": true
   },
   {
    "priority": "P0",
@@ -373,13 +3078,11 @@
    "file": "产出\\批次171\\假面骑士Fourze：大家一起宇宙来啦！（剧场版）.md",
    "name": "假面骑士Fourze：大家一起宇宙来啦！（剧场版）",
    "lib": "主库",
-   "issue": "机检错误:剧情 5993 字 < 10000 | 灌水标记:跨媒介流行作品、可被契约者切入的完整任务世界 | 跨世界重复(组#210·146个世界共用)",
-   "hasCrossDup": true,
-   "crossGroupIds": [
-    210
-   ],
-   "status": "待修复",
-   "fixedMark": false
+   "issue": "机检错误:切入点缺少阶位：一、二、三、四、五、六（须覆盖一阶~最高阶全部连续阶位）",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "已修复",
+   "fixedMark": true
   },
   {
    "priority": "P0",
@@ -387,13 +3090,11 @@
    "file": "产出\\批次171\\魔兽世界：黑翼血环.md",
    "name": "魔兽世界：黑翼血环",
    "lib": "主库",
-   "issue": "机检错误:剧情 5865 字 < 10000 | 灌水标记:跨媒介流行作品、可被契约者切入的完整任务世界 | 跨世界重复(组#210·146个世界共用)",
-   "hasCrossDup": true,
-   "crossGroupIds": [
-    210
-   ],
-   "status": "待修复",
-   "fixedMark": false
+   "issue": "机检错误:切入点缺少阶位：一、二（须覆盖一阶~最高阶全部连续阶位）",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "已修复",
+   "fixedMark": true
   },
   {
    "priority": "P0",
@@ -401,13 +3102,11 @@
    "file": "产出\\批次171\\Fourze×OOO：MOVIE大战ULTIMATUM（剧场版）.md",
    "name": "Fourze×OOO：MOVIE大战ULTIMATUM（剧场版）",
    "lib": "主库",
-   "issue": "机检错误:剧情 6049 字 < 10000 | 灌水标记:跨媒介流行作品、可被契约者切入的完整任务世界 | 跨世界重复(组#210·146个世界共用)",
-   "hasCrossDup": true,
-   "crossGroupIds": [
-    210
-   ],
-   "status": "待修复",
-   "fixedMark": false
+   "issue": "机检错误:切入点缺少阶位：一、二、三、四、五、六（须覆盖一阶~最高阶全部连续阶位）",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "已修复",
+   "fixedMark": true
   },
   {
    "priority": "P0",
@@ -415,13 +3114,11 @@
    "file": "产出\\批次171\\Pokémon GO.md",
    "name": "Pokémon GO",
    "lib": "主库",
-   "issue": "机检错误:剧情 5863 字 < 10000 | 灌水标记:跨媒介流行作品、可被契约者切入的完整任务世界 | 跨世界重复(组#210·146个世界共用)",
-   "hasCrossDup": true,
-   "crossGroupIds": [
-    210
-   ],
-   "status": "待修复",
-   "fixedMark": false
+   "issue": "机检错误:切入点缺少阶位：一、二、三、四、五、六、七（须覆盖一阶~最高阶全部连续阶位）",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "已修复",
+   "fixedMark": true
   },
   {
    "priority": "P0",
@@ -429,13 +3126,11 @@
    "file": "产出\\批次172\\假面骑士铠武Gaim（TV）.md",
    "name": "假面骑士铠武Gaim（TV）",
    "lib": "主库",
-   "issue": "机检错误:剧情 5905 字 < 10000 | 灌水标记:跨媒介流行作品、可被契约者切入的完整任务世界 | 跨世界重复(组#210·146个世界共用)",
-   "hasCrossDup": true,
-   "crossGroupIds": [
-    210
-   ],
-   "status": "待修复",
-   "fixedMark": false
+   "issue": "机检错误:切入点缺少阶位：一、二、三、四、五、六（须覆盖一阶~最高阶全部连续阶位）",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "已修复",
+   "fixedMark": true
   },
   {
    "priority": "P0",
@@ -443,13 +3138,11 @@
    "file": "产出\\批次172\\假面骑士Wizard：IN MAGIC LAND（剧场版）.md",
    "name": "假面骑士Wizard：IN MAGIC LAND（剧场版）",
    "lib": "主库",
-   "issue": "机检错误:剧情 6009 字 < 10000 | 灌水标记:跨媒介流行作品、可被契约者切入的完整任务世界 | 跨世界重复(组#210·146个世界共用)",
-   "hasCrossDup": true,
-   "crossGroupIds": [
-    210
-   ],
-   "status": "待修复",
-   "fixedMark": false
+   "issue": "机检错误:切入点缺少阶位：一、二、三、四、五、六（须覆盖一阶~最高阶全部连续阶位）",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "已修复",
+   "fixedMark": true
   },
   {
    "priority": "P0",
@@ -457,13 +3150,11 @@
    "file": "产出\\批次172\\假面骑士Wizard（TV）.md",
    "name": "假面骑士Wizard（TV）",
    "lib": "主库",
-   "issue": "机检错误:剧情 5905 字 < 10000 | 灌水标记:跨媒介流行作品、可被契约者切入的完整任务世界 | 跨世界重复(组#210·146个世界共用)",
-   "hasCrossDup": true,
-   "crossGroupIds": [
-    210
-   ],
-   "status": "待修复",
-   "fixedMark": false
+   "issue": "机检错误:切入点缺少阶位：一、二、三、四、五、六（须覆盖一阶~最高阶全部连续阶位）",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "已修复",
+   "fixedMark": true
   },
   {
    "priority": "P0",
@@ -471,13 +3162,11 @@
    "file": "产出\\批次172\\铠武Gaim：足球大决战！黄金果实争夺杯！（剧场版）.md",
    "name": "铠武Gaim：足球大决战！黄金果实争夺杯！（剧场版）",
    "lib": "主库",
-   "issue": "机检错误:剧情 6001 字 < 10000 | 灌水标记:跨媒介流行作品、可被契约者切入的完整任务世界 | 跨世界重复(组#210·146个世界共用)",
-   "hasCrossDup": true,
-   "crossGroupIds": [
-    210
-   ],
-   "status": "待修复",
-   "fixedMark": false
+   "issue": "机检错误:切入点缺少阶位：一、二、三、四、五、六（须覆盖一阶~最高阶全部连续阶位）",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "已修复",
+   "fixedMark": true
   },
   {
    "priority": "P0",
@@ -485,13 +3174,11 @@
    "file": "产出\\批次172\\Wizard×Fourze：MOVIE大战Z（剧场版）.md",
    "name": "Wizard×Fourze：MOVIE大战Z（剧场版）",
    "lib": "主库",
-   "issue": "机检错误:剧情 6009 字 < 10000 | 灌水标记:跨媒介流行作品、可被契约者切入的完整任务世界 | 跨世界重复(组#210·146个世界共用)",
-   "hasCrossDup": true,
-   "crossGroupIds": [
-    210
-   ],
-   "status": "待修复",
-   "fixedMark": false
+   "issue": "机检错误:切入点缺少阶位：一、二、三、四、五、六（须覆盖一阶~最高阶全部连续阶位）",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "已修复",
+   "fixedMark": true
   },
   {
    "priority": "P0",
@@ -499,13 +3186,11 @@
    "file": "产出\\批次173\\假面骑士Drive：Surprise Future（剧场版）.md",
    "name": "假面骑士Drive：Surprise Future（剧场版）",
    "lib": "主库",
-   "issue": "机检错误:剧情 6025 字 < 10000 | 灌水标记:跨媒介流行作品、可被契约者切入的完整任务世界 | 跨世界重复(组#210·146个世界共用)",
-   "hasCrossDup": true,
-   "crossGroupIds": [
-    210
-   ],
-   "status": "待修复",
-   "fixedMark": false
+   "issue": "机检错误:切入点缺少阶位：一、二、三、四、五、六（须覆盖一阶~最高阶全部连续阶位）",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "已修复",
+   "fixedMark": true
   },
   {
    "priority": "P0",
@@ -513,13 +3198,11 @@
    "file": "产出\\批次173\\假面骑士Drive（TV）.md",
    "name": "假面骑士Drive（TV）",
    "lib": "主库",
-   "issue": "机检错误:剧情 5897 字 < 10000 | 灌水标记:跨媒介流行作品、可被契约者切入的完整任务世界 | 跨世界重复(组#210·146个世界共用)",
-   "hasCrossDup": true,
-   "crossGroupIds": [
-    210
-   ],
-   "status": "待修复",
-   "fixedMark": false
+   "issue": "机检错误:切入点缺少阶位：一、二、三、四、五、六（须覆盖一阶~最高阶全部连续阶位）",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "已修复",
+   "fixedMark": true
   },
   {
    "priority": "P0",
@@ -527,13 +3210,11 @@
    "file": "产出\\批次173\\假面骑士Ghost（TV）.md",
    "name": "假面骑士Ghost（TV）",
    "lib": "主库",
-   "issue": "机检错误:剧情 5897 字 < 10000 | 灌水标记:跨媒介流行作品、可被契约者切入的完整任务世界 | 跨世界重复(组#210·146个世界共用)",
-   "hasCrossDup": true,
-   "crossGroupIds": [
-    210
-   ],
-   "status": "待修复",
-   "fixedMark": false
+   "issue": "机检错误:切入点缺少阶位：一、二、三、四、五、六（须覆盖一阶~最高阶全部连续阶位）",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "已修复",
+   "fixedMark": true
   },
   {
    "priority": "P0",
@@ -541,13 +3222,11 @@
    "file": "产出\\批次173\\铠武Gaim：战国MOVIE大合战（剧场版）.md",
    "name": "铠武Gaim：战国MOVIE大合战（剧场版）",
    "lib": "主库",
-   "issue": "机检错误:剧情 5969 字 < 10000 | 灌水标记:跨媒介流行作品、可被契约者切入的完整任务世界 | 跨世界重复(组#210·146个世界共用)",
-   "hasCrossDup": true,
-   "crossGroupIds": [
-    210
-   ],
-   "status": "待修复",
-   "fixedMark": false
+   "issue": "机检错误:切入点缺少阶位：一、二、三、四、五、六（须覆盖一阶~最高阶全部连续阶位）",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "已修复",
+   "fixedMark": true
   },
   {
    "priority": "P0",
@@ -555,21 +3234,7 @@
    "file": "产出\\批次173\\Drive×铠武：MOVIE大战FULL THROTTLE（剧场版）.md",
    "name": "Drive×铠武：MOVIE大战FULL THROTTLE（剧场版）",
    "lib": "主库",
-   "issue": "机检错误:剧情 6057 字 < 10000 | 灌水标记:跨媒介流行作品、可被契约者切入的完整任务世界 | 跨世界重复(组#210·146个世界共用)",
-   "hasCrossDup": true,
-   "crossGroupIds": [
-    210
-   ],
-   "status": "待修复",
-   "fixedMark": false
-  },
-  {
-   "priority": "P0",
-   "batch": 174,
-   "file": "产出\\批次174\\火焰之纹章无双：风花雪月.md",
-   "name": "火焰之纹章无双：风花雪月",
-   "lib": "主库",
-   "issue": "机检错误:剧情 5889 字 < 10000 | 灌水标记:跨媒介流行作品、可被契约者切入的完整任务世界 | 跨世界重复(组#210·146个世界共用)",
+   "issue": "机检错误:剧情 6124 字 < 10000 | 跨世界重复(组#210·114个世界共用)",
    "hasCrossDup": true,
    "crossGroupIds": [
     210
@@ -583,13 +3248,11 @@
    "file": "产出\\批次174\\假面骑士Zero-One（TV）.md",
    "name": "假面骑士Zero-One（TV）",
    "lib": "主库",
-   "issue": "机检错误:剧情 5921 字 < 10000 | 灌水标记:跨媒介流行作品、可被契约者切入的完整任务世界 | 跨世界重复(组#210·146个世界共用)",
-   "hasCrossDup": true,
-   "crossGroupIds": [
-    210
-   ],
-   "status": "待修复",
-   "fixedMark": false
+   "issue": "机检错误:切入点缺少阶位：一、二、三、四、五、六（须覆盖一阶~最高阶全部连续阶位）",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "已修复",
+   "fixedMark": true
   },
   {
    "priority": "P0",
@@ -597,13 +3260,11 @@
    "file": "产出\\批次174\\平成GENERATION'S FINAL：Build&Ex-Aid with 传说骑士（剧场版）.md",
    "name": "平成GENERATION'S FINAL：Build&Ex-Aid with 传说骑士（剧场版）",
    "lib": "主库",
-   "issue": "机检错误:剧情 6153 字 < 10000 | 灌水标记:跨媒介流行作品、可被契约者切入的完整任务世界 | 跨世界重复(组#210·146个世界共用)",
-   "hasCrossDup": true,
-   "crossGroupIds": [
-    210
-   ],
-   "status": "待修复",
-   "fixedMark": false
+   "issue": "机检错误:切入点缺少阶位：一、二、三、四、五、六（须覆盖一阶~最高阶全部连续阶位）",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "已修复",
+   "fixedMark": true
   },
   {
    "priority": "P0",
@@ -611,13 +3272,11 @@
    "file": "产出\\批次174\\平成GENERATION'S：Dr.吃豆人对Ex-Aid&Ghost（剧场版）.md",
    "name": "平成GENERATION'S：Dr.吃豆人对Ex-Aid&Ghost（剧场版）",
    "lib": "主库",
-   "issue": "机检错误:剧情 6105 字 < 10000 | 灌水标记:跨媒介流行作品、可被契约者切入的完整任务世界 | 跨世界重复(组#210·146个世界共用)",
-   "hasCrossDup": true,
-   "crossGroupIds": [
-    210
-   ],
-   "status": "待修复",
-   "fixedMark": false
+   "issue": "机检错误:切入点缺少阶位：一、二、三、四、五、六（须覆盖一阶~最高阶全部连续阶位）",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "已修复",
+   "fixedMark": true
   },
   {
    "priority": "P0",
@@ -625,7 +3284,7 @@
    "file": "产出\\批次174\\Ghost：100眼魂与Ghost命运的瞬间（剧场版）.md",
    "name": "Ghost：100眼魂与Ghost命运的瞬间（剧场版）",
    "lib": "主库",
-   "issue": "机检错误:剧情 6009 字 < 10000 | 灌水标记:跨媒介流行作品、可被契约者切入的完整任务世界 | 跨世界重复(组#210·146个世界共用)",
+   "issue": "机检错误:剧情 5991 字 < 10000 | 跨世界重复(组#210·114个世界共用)",
    "hasCrossDup": true,
    "crossGroupIds": [
     210
@@ -639,13 +3298,11 @@
    "file": "产出\\批次175\\假面骑士×超级战队：Super Hero Senki（剧场版）.md",
    "name": "假面骑士×超级战队：Super Hero Senki（剧场版）",
    "lib": "主库",
-   "issue": "机检错误:剧情 6025 字 < 10000 | 灌水标记:跨媒介流行作品、可被契约者切入的完整任务世界 | 跨世界重复(组#210·146个世界共用)",
-   "hasCrossDup": true,
-   "crossGroupIds": [
-    210
-   ],
-   "status": "待修复",
-   "fixedMark": false
+   "issue": "机检错误:切入点缺少阶位：一、二、三、四、五、六（须覆盖一阶~最高阶全部连续阶位）",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "已修复",
+   "fixedMark": true
   },
   {
    "priority": "P0",
@@ -653,13 +3310,11 @@
    "file": "产出\\批次175\\假面骑士Revice（TV）.md",
    "name": "假面骑士Revice（TV）",
    "lib": "主库",
-   "issue": "机检错误:剧情 5905 字 < 10000 | 灌水标记:跨媒介流行作品、可被契约者切入的完整任务世界 | 跨世界重复(组#210·146个世界共用)",
-   "hasCrossDup": true,
-   "crossGroupIds": [
-    210
-   ],
-   "status": "待修复",
-   "fixedMark": false
+   "issue": "机检错误:切入点缺少阶位：一、二、三、四、五、六（须覆盖一阶~最高阶全部连续阶位）",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "已修复",
+   "fixedMark": true
   },
   {
    "priority": "P0",
@@ -667,7 +3322,7 @@
    "file": "产出\\批次175\\魔兽世界：安托鲁斯：燃烧王座.md",
    "name": "魔兽世界：安托鲁斯：燃烧王座",
    "lib": "主库",
-   "issue": "机检错误:剧情 5915 字 < 10000 | 灌水标记:跨媒介流行作品、可被契约者切入的完整任务世界 | 跨世界重复(组#210·146个世界共用)",
+   "issue": "机检错误:剧情 5915 字 < 10000 | 灌水标记:跨媒介流行作品、可被契约者切入的完整任务世界 | 跨世界重复(组#210·114个世界共用)",
    "hasCrossDup": true,
    "crossGroupIds": [
     210,
@@ -682,7 +3337,7 @@
    "file": "产出\\批次175\\Revice：Battle Familia（剧场版）.md",
    "name": "Revice：Battle Familia（剧场版）",
    "lib": "主库",
-   "issue": "机检错误:剧情 5993 字 < 10000 | 灌水标记:跨媒介流行作品、可被契约者切入的完整任务世界 | 跨世界重复(组#210·146个世界共用)",
+   "issue": "机检错误:剧情 5993 字 < 10000 | 灌水标记:跨媒介流行作品、可被契约者切入的完整任务世界 | 跨世界重复(组#210·114个世界共用)",
    "hasCrossDup": true,
    "crossGroupIds": [
     210
@@ -696,7 +3351,7 @@
    "file": "产出\\批次175\\Zero-One：REAL×TIME（剧场版）.md",
    "name": "Zero-One：REAL×TIME（剧场版）",
    "lib": "主库",
-   "issue": "机检错误:剧情 5977 字 < 10000 | 灌水标记:跨媒介流行作品、可被契约者切入的完整任务世界 | 跨世界重复(组#210·146个世界共用)",
+   "issue": "机检错误:剧情 5977 字 < 10000 | 灌水标记:跨媒介流行作品、可被契约者切入的完整任务世界 | 跨世界重复(组#210·114个世界共用)",
    "hasCrossDup": true,
    "crossGroupIds": [
     210
@@ -710,13 +3365,11 @@
    "file": "产出\\批次176\\假面骑士BLACK SUN（剧集）.md",
    "name": "假面骑士BLACK SUN（剧集）",
    "lib": "主库",
-   "issue": "机检错误:剧情 5921 字 < 10000 | 灌水标记:跨媒介流行作品、可被契约者切入的完整任务世界 | 跨世界重复(组#210·146个世界共用)",
-   "hasCrossDup": true,
-   "crossGroupIds": [
-    210
-   ],
-   "status": "待修复",
-   "fixedMark": false
+   "issue": "机检错误:切入点缺少阶位：一、二、三、四、五、六（须覆盖一阶~最高阶全部连续阶位）",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "已修复",
+   "fixedMark": true
   },
   {
    "priority": "P0",
@@ -724,13 +3377,11 @@
    "file": "产出\\批次176\\假面骑士Gotchard（TV）.md",
    "name": "假面骑士Gotchard（TV）",
    "lib": "主库",
-   "issue": "机检错误:剧情 5921 字 < 10000 | 灌水标记:跨媒介流行作品、可被契约者切入的完整任务世界 | 跨世界重复(组#210·146个世界共用)",
-   "hasCrossDup": true,
-   "crossGroupIds": [
-    210
-   ],
-   "status": "待修复",
-   "fixedMark": false
+   "issue": "机检错误:切入点缺少阶位：一、二、三、四、五、六（须覆盖一阶~最高阶全部连续阶位）",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "已修复",
+   "fixedMark": true
   },
   {
    "priority": "P0",
@@ -738,28 +3389,11 @@
    "file": "产出\\批次176\\假面骑士Outsiders（网剧）.md",
    "name": "假面骑士Outsiders（网剧）",
    "lib": "主库",
-   "issue": "机检错误:剧情 5929 字 < 10000 | 灌水标记:跨媒介流行作品、可被契约者切入的完整任务世界 | 跨世界重复(组#210·146个世界共用)",
-   "hasCrossDup": true,
-   "crossGroupIds": [
-    210
-   ],
-   "status": "待修复",
-   "fixedMark": false
-  },
-  {
-   "priority": "P0",
-   "batch": 176,
-   "file": "产出\\批次176\\魔兽世界：尼奥罗萨：觉醒之城.md",
-   "name": "魔兽世界：尼奥罗萨：觉醒之城",
-   "lib": "主库",
-   "issue": "机检错误:剧情 5915 字 < 10000 | 灌水标记:跨媒介流行作品、可被契约者切入的完整任务世界 | 跨世界重复(组#210·146个世界共用)",
-   "hasCrossDup": true,
-   "crossGroupIds": [
-    210,
-    211
-   ],
-   "status": "待修复",
-   "fixedMark": false
+   "issue": "机检错误:切入点缺少阶位：一、二、三、四、五、六（须覆盖一阶~最高阶全部连续阶位）",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "已修复",
+   "fixedMark": true
   },
   {
    "priority": "P0",
@@ -767,42 +3401,11 @@
    "file": "产出\\批次176\\Geats×Revice：MOVIE Battle Royale（剧场版）.md",
    "name": "Geats×Revice：MOVIE Battle Royale（剧场版）",
    "lib": "主库",
-   "issue": "机检错误:剧情 6073 字 < 10000 | 灌水标记:跨媒介流行作品、可被契约者切入的完整任务世界 | 跨世界重复(组#210·146个世界共用)",
-   "hasCrossDup": true,
-   "crossGroupIds": [
-    210
-   ],
-   "status": "待修复",
-   "fixedMark": false
-  },
-  {
-   "priority": "P0",
-   "batch": 177,
-   "file": "产出\\批次177\\魔兽世界：阿梅达希尔：梦境之愿.md",
-   "name": "魔兽世界：阿梅达希尔：梦境之愿",
-   "lib": "主库",
-   "issue": "机检错误:剧情 5923 字 < 10000 | 灌水标记:跨媒介流行作品、可被契约者切入的完整任务世界 | 跨世界重复(组#210·146个世界共用)",
-   "hasCrossDup": true,
-   "crossGroupIds": [
-    210,
-    211
-   ],
-   "status": "待修复",
-   "fixedMark": false
-  },
-  {
-   "priority": "P0",
-   "batch": 177,
-   "file": "产出\\批次177\\魔兽世界：法力熔炉欧米伽（Manaforge Omega）.md",
-   "name": "魔兽世界：法力熔炉欧米伽（Manaforge Omega）",
-   "lib": "主库",
-   "issue": "机检错误:剧情 6023 字 < 10000 | 灌水标记:跨媒介流行作品、可被契约者切入的完整任务世界 | 跨世界重复(组#210·146个世界共用)",
-   "hasCrossDup": true,
-   "crossGroupIds": [
-    210
-   ],
-   "status": "待修复",
-   "fixedMark": false
+   "issue": "机检错误:切入点缺少阶位：一、二、三、四、五、六（须覆盖一阶~最高阶全部连续阶位）",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "已修复",
+   "fixedMark": true
   },
   {
    "priority": "P0",
@@ -810,7 +3413,7 @@
    "file": "产出\\批次177\\魔兽世界：解放安德麦（Liberation of Undermine）.md",
    "name": "魔兽世界：解放安德麦（Liberation of Undermine）",
    "lib": "主库",
-   "issue": "机检错误:剧情 6063 字 < 10000 | 灌水标记:跨媒介流行作品、可被契约者切入的完整任务世界 | 跨世界重复(组#210·146个世界共用)",
+   "issue": "机检错误:剧情 6063 字 < 10000 | 灌水标记:跨媒介流行作品、可被契约者切入的完整任务世界 | 跨世界重复(组#210·114个世界共用)",
    "hasCrossDup": true,
    "crossGroupIds": [
     210
@@ -824,7 +3427,7 @@
    "file": "产出\\批次177\\魔兽世界：奈鲁布尔宫殿.md",
    "name": "魔兽世界：奈鲁布尔宫殿",
    "lib": "主库",
-   "issue": "机检错误:剧情 5889 字 < 10000 | 灌水标记:跨媒介流行作品、可被契约者切入的完整任务世界 | 跨世界重复(组#210·146个世界共用)",
+   "issue": "机检错误:剧情 5889 字 < 10000 | 灌水标记:跨媒介流行作品、可被契约者切入的完整任务世界 | 跨世界重复(组#210·114个世界共用)",
    "hasCrossDup": true,
    "crossGroupIds": [
     210,
@@ -839,7 +3442,7 @@
    "file": "产出\\批次177\\魔兽世界：亚贝鲁斯：暗影熔炉.md",
    "name": "魔兽世界：亚贝鲁斯：暗影熔炉",
    "lib": "主库",
-   "issue": "机检错误:剧情 5915 字 < 10000 | 灌水标记:跨媒介流行作品、可被契约者切入的完整任务世界 | 跨世界重复(组#210·146个世界共用)",
+   "issue": "机检错误:剧情 5915 字 < 10000 | 灌水标记:跨媒介流行作品、可被契约者切入的完整任务世界 | 跨世界重复(组#210·114个世界共用)",
    "hasCrossDup": true,
    "crossGroupIds": [
     210,
@@ -851,25 +3454,10 @@
   {
    "priority": "P0",
    "batch": 178,
-   "file": "产出\\批次178\\魔兽世界：安其拉开门.md",
-   "name": "魔兽世界：安其拉开门",
-   "lib": "主库",
-   "issue": "机检错误:剧情 5883 字 < 10000 | 灌水标记:跨媒介流行作品、可被契约者切入的完整任务世界 | 跨世界重复(组#210·146个世界共用)",
-   "hasCrossDup": true,
-   "crossGroupIds": [
-    210,
-    211
-   ],
-   "status": "已修复",
-   "fixedMark": true
-  },
-  {
-   "priority": "P0",
-   "batch": 178,
    "file": "产出\\批次178\\魔兽世界：斯坦索姆净化.md",
    "name": "魔兽世界：斯坦索姆净化",
    "lib": "主库",
-   "issue": "机检错误:剧情 5891 字 < 10000 | 灌水标记:跨媒介流行作品、可被契约者切入的完整任务世界 | 跨世界重复(组#210·146个世界共用)",
+   "issue": "机检错误:剧情 5891 字 < 10000 | 灌水标记:跨媒介流行作品、可被契约者切入的完整任务世界 | 跨世界重复(组#210·114个世界共用)",
    "hasCrossDup": true,
    "crossGroupIds": [
     210,
@@ -884,7 +3472,7 @@
    "file": "产出\\批次178\\魔兽世界：天灾入侵（经典前夕）.md",
    "name": "魔兽世界：天灾入侵（经典前夕）",
    "lib": "主库",
-   "issue": "机检错误:剧情 5923 字 < 10000 | 灌水标记:跨媒介流行作品、可被契约者切入的完整任务世界 | 跨世界重复(组#210·146个世界共用)",
+   "issue": "机检错误:剧情 5923 字 < 10000 | 灌水标记:跨媒介流行作品、可被契约者切入的完整任务世界 | 跨世界重复(组#210·114个世界共用)",
    "hasCrossDup": true,
    "crossGroupIds": [
     210,
@@ -899,7 +3487,7 @@
    "file": "产出\\批次178\\魔兽世界：希利苏斯战争物资.md",
    "name": "魔兽世界：希利苏斯战争物资",
    "lib": "主库",
-   "issue": "机检错误:剧情 5907 字 < 10000 | 灌水标记:跨媒介流行作品、可被契约者切入的完整任务世界 | 跨世界重复(组#210·146个世界共用)",
+   "issue": "机检错误:剧情 5907 字 < 10000 | 灌水标记:跨媒介流行作品、可被契约者切入的完整任务世界 | 跨世界重复(组#210·114个世界共用)",
    "hasCrossDup": true,
    "crossGroupIds": [
     210,
@@ -914,7 +3502,7 @@
    "file": "产出\\批次178\\魔兽世界：战歌峡谷第一次冲锋.md",
    "name": "魔兽世界：战歌峡谷第一次冲锋",
    "lib": "主库",
-   "issue": "机检错误:剧情 5915 字 < 10000 | 灌水标记:跨媒介流行作品、可被契约者切入的完整任务世界 | 跨世界重复(组#210·146个世界共用)",
+   "issue": "机检错误:剧情 5915 字 < 10000 | 灌水标记:跨媒介流行作品、可被契约者切入的完整任务世界 | 跨世界重复(组#210·114个世界共用)",
    "hasCrossDup": true,
    "crossGroupIds": [
     210,
@@ -929,7 +3517,7 @@
    "file": "产出\\批次179\\魔兽世界：奥特兰克山谷拉锯战.md",
    "name": "魔兽世界：奥特兰克山谷拉锯战",
    "lib": "主库",
-   "issue": "机检错误:剧情 5915 字 < 10000 | 灌水标记:跨媒介流行作品、可被契约者切入的完整任务世界 | 跨世界重复(组#210·146个世界共用)",
+   "issue": "机检错误:剧情 5915 字 < 10000 | 灌水标记:跨媒介流行作品、可被契约者切入的完整任务世界 | 跨世界重复(组#210·114个世界共用)",
    "hasCrossDup": true,
    "crossGroupIds": [
     210,
@@ -944,7 +3532,7 @@
    "file": "产出\\批次179\\魔兽世界：奎尔丹纳斯进攻.md",
    "name": "魔兽世界：奎尔丹纳斯进攻",
    "lib": "主库",
-   "issue": "机检错误:剧情 5899 字 < 10000 | 灌水标记:跨媒介流行作品、可被契约者切入的完整任务世界 | 跨世界重复(组#210·146个世界共用)",
+   "issue": "机检错误:剧情 5899 字 < 10000 | 灌水标记:跨媒介流行作品、可被契约者切入的完整任务世界 | 跨世界重复(组#210·114个世界共用)",
    "hasCrossDup": true,
    "crossGroupIds": [
     210,
@@ -959,7 +3547,7 @@
    "file": "产出\\批次179\\魔兽世界：纳格兰竞技场首战.md",
    "name": "魔兽世界：纳格兰竞技场首战",
    "lib": "主库",
-   "issue": "机检错误:剧情 5907 字 < 10000 | 灌水标记:跨媒介流行作品、可被契约者切入的完整任务世界 | 跨世界重复(组#210·146个世界共用)",
+   "issue": "机检错误:剧情 5907 字 < 10000 | 灌水标记:跨媒介流行作品、可被契约者切入的完整任务世界 | 跨世界重复(组#210·114个世界共用)",
    "hasCrossDup": true,
    "crossGroupIds": [
     210,
@@ -974,7 +3562,7 @@
    "file": "产出\\批次179\\魔兽世界：诺森德登陆战.md",
    "name": "魔兽世界：诺森德登陆战",
    "lib": "主库",
-   "issue": "机检错误:剧情 5891 字 < 10000 | 灌水标记:跨媒介流行作品、可被契约者切入的完整任务世界 | 跨世界重复(组#210·146个世界共用)",
+   "issue": "机检错误:剧情 5891 字 < 10000 | 灌水标记:跨媒介流行作品、可被契约者切入的完整任务世界 | 跨世界重复(组#210·114个世界共用)",
    "hasCrossDup": true,
    "crossGroupIds": [
     210,
@@ -989,7 +3577,7 @@
    "file": "产出\\批次179\\魔兽世界：外域：黑暗之门重启.md",
    "name": "魔兽世界：外域：黑暗之门重启",
    "lib": "主库",
-   "issue": "机检错误:剧情 5913 字 < 10000 | 灌水标记:跨媒介流行作品、可被契约者切入的完整任务世界 | 跨世界重复(组#210·146个世界共用)",
+   "issue": "机检错误:剧情 5913 字 < 10000 | 灌水标记:跨媒介流行作品、可被契约者切入的完整任务世界 | 跨世界重复(组#210·114个世界共用)",
    "hasCrossDup": true,
    "crossGroupIds": [
     210,
@@ -1004,7 +3592,7 @@
    "file": "产出\\批次180\\魔兽世界：大地的裂变：死亡之翼降临.md",
    "name": "魔兽世界：大地的裂变：死亡之翼降临",
    "lib": "主库",
-   "issue": "机检错误:剧情 5937 字 < 10000 | 灌水标记:跨媒介流行作品、可被契约者切入的完整任务世界 | 跨世界重复(组#210·146个世界共用)",
+   "issue": "机检错误:剧情 5937 字 < 10000 | 灌水标记:跨媒介流行作品、可被契约者切入的完整任务世界 | 跨世界重复(组#210·114个世界共用)",
    "hasCrossDup": true,
    "crossGroupIds": [
     210,
@@ -1019,7 +3607,7 @@
    "file": "产出\\批次180\\魔兽世界：夺回安卡赫特.md",
    "name": "魔兽世界：夺回安卡赫特",
    "lib": "主库",
-   "issue": "机检错误:剧情 5891 字 < 10000 | 灌水标记:跨媒介流行作品、可被契约者切入的完整任务世界 | 跨世界重复(组#210·146个世界共用)",
+   "issue": "机检错误:剧情 9692 字 < 10000 | 跨世界重复(组#210·114个世界共用)",
    "hasCrossDup": true,
    "crossGroupIds": [
     210,
@@ -1034,7 +3622,7 @@
    "file": "产出\\批次180\\魔兽世界：龙骨荒野天灾防线.md",
    "name": "魔兽世界：龙骨荒野天灾防线",
    "lib": "主库",
-   "issue": "机检错误:剧情 5907 字 < 10000 | 灌水标记:跨媒介流行作品、可被契约者切入的完整任务世界 | 跨世界重复(组#210·146个世界共用)",
+   "issue": "机检错误:剧情 9962 字 < 10000 | 跨世界重复(组#210·114个世界共用)",
    "hasCrossDup": true,
    "crossGroupIds": [
     210,
@@ -1049,7 +3637,7 @@
    "file": "产出\\批次180\\魔兽世界：奈鲁布尔宫殿（Nerub-ar Palace）.md",
    "name": "魔兽世界：奈鲁布尔宫殿（Nerub-ar Palace）",
    "lib": "主库",
-   "issue": "机检错误:剧情 6007 字 < 10000 | 灌水标记:跨媒介流行作品、可被契约者切入的完整任务世界 | 跨世界重复(组#210·146个世界共用)",
+   "issue": "机检错误:剧情 6007 字 < 10000 | 灌水标记:跨媒介流行作品、可被契约者切入的完整任务世界 | 跨世界重复(组#210·114个世界共用)",
    "hasCrossDup": true,
    "crossGroupIds": [
     210
@@ -1063,7 +3651,7 @@
    "file": "产出\\批次180\\魔兽世界：巫妖王的冰冠冲锋.md",
    "name": "魔兽世界：巫妖王的冰冠冲锋",
    "lib": "主库",
-   "issue": "机检错误:剧情 5905 字 < 10000 | 灌水标记:跨媒介流行作品、可被契约者切入的完整任务世界 | 跨世界重复(组#210·146个世界共用)",
+   "issue": "机检错误:剧情 5905 字 < 10000 | 灌水标记:跨媒介流行作品、可被契约者切入的完整任务世界 | 跨世界重复(组#210·114个世界共用)",
    "hasCrossDup": true,
    "crossGroupIds": [
     210,
@@ -1078,7 +3666,7 @@
    "file": "产出\\批次181\\魔兽世界：奥格瑞玛城门攻防.md",
    "name": "魔兽世界：奥格瑞玛城门攻防",
    "lib": "主库",
-   "issue": "机检错误:剧情 5907 字 < 10000 | 灌水标记:跨媒介流行作品、可被契约者切入的完整任务世界 | 跨世界重复(组#210·146个世界共用)",
+   "issue": "机检错误:剧情 5907 字 < 10000 | 灌水标记:跨媒介流行作品、可被契约者切入的完整任务世界 | 跨世界重复(组#210·114个世界共用)",
    "hasCrossDup": true,
    "crossGroupIds": [
     210,
@@ -1093,7 +3681,7 @@
    "file": "产出\\批次181\\魔兽世界：法力熔炉欧米伽.md",
    "name": "魔兽世界：法力熔炉欧米伽",
    "lib": "主库",
-   "issue": "机检错误:剧情 5889 字 < 10000 | 灌水标记:跨媒介流行作品、可被契约者切入的完整任务世界 | 跨世界重复(组#210·146个世界共用)",
+   "issue": "机检错误:剧情 5889 字 < 10000 | 灌水标记:跨媒介流行作品、可被契约者切入的完整任务世界 | 跨世界重复(组#210·114个世界共用)",
    "hasCrossDup": true,
    "crossGroupIds": [
     210
@@ -1107,7 +3695,7 @@
    "file": "产出\\批次181\\魔兽世界：海加尔山守卫战.md",
    "name": "魔兽世界：海加尔山守卫战",
    "lib": "主库",
-   "issue": "机检错误:剧情 5899 字 < 10000 | 灌水标记:跨媒介流行作品、可被契约者切入的完整任务世界 | 跨世界重复(组#210·146个世界共用)",
+   "issue": "机检错误:剧情 5899 字 < 10000 | 灌水标记:跨媒介流行作品、可被契约者切入的完整任务世界 | 跨世界重复(组#210·114个世界共用)",
    "hasCrossDup": true,
    "crossGroupIds": [
     210,
@@ -1122,7 +3710,7 @@
    "file": "产出\\批次181\\魔兽世界：锦绣谷保卫战.md",
    "name": "魔兽世界：锦绣谷保卫战",
    "lib": "主库",
-   "issue": "机检错误:剧情 5891 字 < 10000 | 灌水标记:跨媒介流行作品、可被契约者切入的完整任务世界 | 跨世界重复(组#210·146个世界共用)",
+   "issue": "机检错误:剧情 5891 字 < 10000 | 灌水标记:跨媒介流行作品、可被契约者切入的完整任务世界 | 跨世界重复(组#210·114个世界共用)",
    "hasCrossDup": true,
    "crossGroupIds": [
     210,
@@ -1137,7 +3725,7 @@
    "file": "产出\\批次181\\魔兽世界：潘达利亚登陆.md",
    "name": "魔兽世界：潘达利亚登陆",
    "lib": "主库",
-   "issue": "机检错误:剧情 5891 字 < 10000 | 灌水标记:跨媒介流行作品、可被契约者切入的完整任务世界 | 跨世界重复(组#210·146个世界共用)",
+   "issue": "机检错误:剧情 5891 字 < 10000 | 灌水标记:跨媒介流行作品、可被契约者切入的完整任务世界 | 跨世界重复(组#210·114个世界共用)",
    "hasCrossDup": true,
    "crossGroupIds": [
     210,
@@ -1152,7 +3740,7 @@
    "file": "产出\\批次182\\魔兽世界：德拉诺：黑暗之门突袭.md",
    "name": "魔兽世界：德拉诺：黑暗之门突袭",
    "lib": "主库",
-   "issue": "机检错误:剧情 5921 字 < 10000 | 灌水标记:跨媒介流行作品、可被契约者切入的完整任务世界 | 跨世界重复(组#210·146个世界共用)",
+   "issue": "机检错误:剧情 5921 字 < 10000 | 灌水标记:跨媒介流行作品、可被契约者切入的完整任务世界 | 跨世界重复(组#210·114个世界共用)",
    "hasCrossDup": true,
    "crossGroupIds": [
     210,
@@ -1167,7 +3755,7 @@
    "file": "产出\\批次182\\魔兽世界：破碎海滩惨败.md",
    "name": "魔兽世界：破碎海滩惨败",
    "lib": "主库",
-   "issue": "机检错误:剧情 5891 字 < 10000 | 灌水标记:跨媒介流行作品、可被契约者切入的完整任务世界 | 跨世界重复(组#210·146个世界共用)",
+   "issue": "机检错误:剧情 5891 字 < 10000 | 灌水标记:跨媒介流行作品、可被契约者切入的完整任务世界 | 跨世界重复(组#210·114个世界共用)",
    "hasCrossDup": true,
    "crossGroupIds": [
     210,
@@ -1182,7 +3770,7 @@
    "file": "产出\\批次182\\魔兽世界：苏拉玛起义.md",
    "name": "魔兽世界：苏拉玛起义",
    "lib": "主库",
-   "issue": "机检错误:剧情 5883 字 < 10000 | 灌水标记:跨媒介流行作品、可被契约者切入的完整任务世界 | 跨世界重复(组#210·146个世界共用)",
+   "issue": "机检错误:剧情 5883 字 < 10000 | 灌水标记:跨媒介流行作品、可被契约者切入的完整任务世界 | 跨世界重复(组#210·114个世界共用)",
    "hasCrossDup": true,
    "crossGroupIds": [
     210,
@@ -1197,7 +3785,7 @@
    "file": "产出\\批次182\\魔兽世界：塔纳安丛林登陆.md",
    "name": "魔兽世界：塔纳安丛林登陆",
    "lib": "主库",
-   "issue": "机检错误:剧情 5899 字 < 10000 | 灌水标记:跨媒介流行作品、可被契约者切入的完整任务世界 | 跨世界重复(组#210·146个世界共用)",
+   "issue": "机检错误:剧情 5899 字 < 10000 | 灌水标记:跨媒介流行作品、可被契约者切入的完整任务世界 | 跨世界重复(组#210·114个世界共用)",
    "hasCrossDup": true,
    "crossGroupIds": [
     210,
@@ -1212,7 +3800,7 @@
    "file": "产出\\批次182\\魔兽世界：外域—黑暗之门重启.md",
    "name": "魔兽世界：外域—黑暗之门重启",
    "lib": "主库",
-   "issue": "机检错误:剧情 5903 字 < 10000 | 灌水标记:跨媒介流行作品、可被契约者切入的完整任务世界 | 跨世界重复(组#210·146个世界共用)",
+   "issue": "机检错误:剧情 5903 字 < 10000 | 灌水标记:跨媒介流行作品、可被契约者切入的完整任务世界 | 跨世界重复(组#210·114个世界共用)",
    "hasCrossDup": true,
    "crossGroupIds": [
     210
@@ -1226,7 +3814,7 @@
    "file": "产出\\批次183\\魔兽世界：阿古斯登陆.md",
    "name": "魔兽世界：阿古斯登陆",
    "lib": "主库",
-   "issue": "机检错误:剧情 5883 字 < 10000 | 灌水标记:跨媒介流行作品、可被契约者切入的完整任务世界 | 跨世界重复(组#210·146个世界共用)",
+   "issue": "机检错误:剧情 5883 字 < 10000 | 灌水标记:跨媒介流行作品、可被契约者切入的完整任务世界 | 跨世界重复(组#210·114个世界共用)",
    "hasCrossDup": true,
    "crossGroupIds": [
     210,
@@ -1241,7 +3829,7 @@
    "file": "产出\\批次183\\魔兽世界：冰冠冲锋.md",
    "name": "魔兽世界：冰冠冲锋",
    "lib": "主库",
-   "issue": "机检错误:剧情 5863 字 < 10000 | 灌水标记:跨媒介流行作品、可被契约者切入的完整任务世界 | 跨世界重复(组#210·146个世界共用)",
+   "issue": "机检错误:剧情 5863 字 < 10000 | 灌水标记:跨媒介流行作品、可被契约者切入的完整任务世界 | 跨世界重复(组#210·114个世界共用)",
    "hasCrossDup": true,
    "crossGroupIds": [
     210
@@ -1255,7 +3843,7 @@
    "file": "产出\\批次183\\魔兽世界：纳沙塔尔沉船.md",
    "name": "魔兽世界：纳沙塔尔沉船",
    "lib": "主库",
-   "issue": "机检错误:剧情 5891 字 < 10000 | 灌水标记:跨媒介流行作品、可被契约者切入的完整任务世界 | 跨世界重复(组#210·146个世界共用)",
+   "issue": "机检错误:剧情 5891 字 < 10000 | 灌水标记:跨媒介流行作品、可被契约者切入的完整任务世界 | 跨世界重复(组#210·114个世界共用)",
    "hasCrossDup": true,
    "crossGroupIds": [
     210,
@@ -1270,7 +3858,7 @@
    "file": "产出\\批次183\\魔兽世界：泰达希尔燃烧.md",
    "name": "魔兽世界：泰达希尔燃烧",
    "lib": "主库",
-   "issue": "机检错误:剧情 5891 字 < 10000 | 灌水标记:跨媒介流行作品、可被契约者切入的完整任务世界 | 跨世界重复(组#210·146个世界共用)",
+   "issue": "机检错误:剧情 5891 字 < 10000 | 灌水标记:跨媒介流行作品、可被契约者切入的完整任务世界 | 跨世界重复(组#210·114个世界共用)",
    "hasCrossDup": true,
    "crossGroupIds": [
     210,
@@ -1285,7 +3873,7 @@
    "file": "产出\\批次183\\魔兽世界：赞达拉登陆战.md",
    "name": "魔兽世界：赞达拉登陆战",
    "lib": "主库",
-   "issue": "机检错误:剧情 5891 字 < 10000 | 灌水标记:跨媒介流行作品、可被契约者切入的完整任务世界 | 跨世界重复(组#210·146个世界共用)",
+   "issue": "机检错误:剧情 5891 字 < 10000 | 灌水标记:跨媒介流行作品、可被契约者切入的完整任务世界 | 跨世界重复(组#210·114个世界共用)",
    "hasCrossDup": true,
    "crossGroupIds": [
     210,
@@ -1300,7 +3888,7 @@
    "file": "产出\\批次184\\魔兽世界：大地的裂变—死亡之翼降临.md",
    "name": "魔兽世界：大地的裂变—死亡之翼降临",
    "lib": "主库",
-   "issue": "机检错误:剧情 5927 字 < 10000 | 灌水标记:跨媒介流行作品、可被契约者切入的完整任务世界 | 跨世界重复(组#210·146个世界共用)",
+   "issue": "机检错误:剧情 5927 字 < 10000 | 灌水标记:跨媒介流行作品、可被契约者切入的完整任务世界 | 跨世界重复(组#210·114个世界共用)",
    "hasCrossDup": true,
    "crossGroupIds": [
     210
@@ -1314,7 +3902,7 @@
    "file": "产出\\批次184\\魔兽世界：恩佐斯的低语蔓延.md",
    "name": "魔兽世界：恩佐斯的低语蔓延",
    "lib": "主库",
-   "issue": "机检错误:剧情 5905 字 < 10000 | 灌水标记:跨媒介流行作品、可被契约者切入的完整任务世界 | 跨世界重复(组#210·146个世界共用)",
+   "issue": "机检错误:剧情 5905 字 < 10000 | 灌水标记:跨媒介流行作品、可被契约者切入的完整任务世界 | 跨世界重复(组#210·114个世界共用)",
    "hasCrossDup": true,
    "crossGroupIds": [
     210,
@@ -1329,7 +3917,7 @@
    "file": "产出\\批次184\\魔兽世界：巨龙群岛初到.md",
    "name": "魔兽世界：巨龙群岛初到",
    "lib": "主库",
-   "issue": "机检错误:剧情 5891 字 < 10000 | 灌水标记:跨媒介流行作品、可被契约者切入的完整任务世界 | 跨世界重复(组#210·146个世界共用)",
+   "issue": "机检错误:剧情 5891 字 < 10000 | 灌水标记:跨媒介流行作品、可被契约者切入的完整任务世界 | 跨世界重复(组#210·114个世界共用)",
    "hasCrossDup": true,
    "crossGroupIds": [
     210,
@@ -1344,7 +3932,7 @@
    "file": "产出\\批次184\\魔兽世界：噬渊初入.md",
    "name": "魔兽世界：噬渊初入",
    "lib": "主库",
-   "issue": "机检错误:剧情 5875 字 < 10000 | 灌水标记:跨媒介流行作品、可被契约者切入的完整任务世界 | 跨世界重复(组#210·146个世界共用)",
+   "issue": "机检错误:剧情 5875 字 < 10000 | 灌水标记:跨媒介流行作品、可被契约者切入的完整任务世界 | 跨世界重复(组#210·114个世界共用)",
    "hasCrossDup": true,
    "crossGroupIds": [
     210,
@@ -1359,7 +3947,7 @@
    "file": "产出\\批次184\\魔兽世界：噬渊突围救援.md",
    "name": "魔兽世界：噬渊突围救援",
    "lib": "主库",
-   "issue": "机检错误:剧情 5887 字 < 10000 | 灌水标记:跨媒介流行作品、可被契约者切入的完整任务世界 | 跨世界重复(组#210·146个世界共用)",
+   "issue": "机检错误:剧情 5887 字 < 10000 | 灌水标记:跨媒介流行作品、可被契约者切入的完整任务世界 | 跨世界重复(组#210·114个世界共用)",
    "hasCrossDup": true,
    "crossGroupIds": [
     210
@@ -1373,7 +3961,7 @@
    "file": "产出\\批次185\\国家队（DARLING in the FRANXX）.md",
    "name": "国家队（DARLING in the FRANXX）",
    "lib": "主库",
-   "issue": "机检错误:剧情 5985 字 < 10000 | 灌水标记:跨媒介流行作品、可被契约者切入的完整任务世界 | 跨世界重复(组#210·146个世界共用)",
+   "issue": "机检错误:剧情 5985 字 < 10000 | 灌水标记:跨媒介流行作品、可被契约者切入的完整任务世界 | 跨世界重复(组#210·114个世界共用)",
    "hasCrossDup": true,
    "crossGroupIds": [
     210,
@@ -1388,7 +3976,7 @@
    "file": "产出\\批次185\\魔兽世界：德拉诺—黑暗之门突袭.md",
    "name": "魔兽世界：德拉诺—黑暗之门突袭",
    "lib": "主库",
-   "issue": "机检错误:剧情 5911 字 < 10000 | 灌水标记:跨媒介流行作品、可被契约者切入的完整任务世界 | 跨世界重复(组#210·146个世界共用)",
+   "issue": "机检错误:剧情 5911 字 < 10000 | 灌水标记:跨媒介流行作品、可被契约者切入的完整任务世界 | 跨世界重复(组#210·114个世界共用)",
    "hasCrossDup": true,
    "crossGroupIds": [
     210
@@ -1402,7 +3990,7 @@
    "file": "产出\\批次185\\魔兽世界：地心之战：多恩岛登陆.md",
    "name": "魔兽世界：地心之战：多恩岛登陆",
    "lib": "主库",
-   "issue": "机检错误:剧情 5921 字 < 10000 | 灌水标记:跨媒介流行作品、可被契约者切入的完整任务世界 | 跨世界重复(组#210·146个世界共用)",
+   "issue": "机检错误:剧情 5921 字 < 10000 | 灌水标记:跨媒介流行作品、可被契约者切入的完整任务世界 | 跨世界重复(组#210·114个世界共用)",
    "hasCrossDup": true,
    "crossGroupIds": [
     210,
@@ -1417,7 +4005,7 @@
    "file": "产出\\批次185\\魔兽世界：瓦德拉肯集结.md",
    "name": "魔兽世界：瓦德拉肯集结",
    "lib": "主库",
-   "issue": "机检错误:剧情 5891 字 < 10000 | 灌水标记:跨媒介流行作品、可被契约者切入的完整任务世界 | 跨世界重复(组#210·146个世界共用)",
+   "issue": "机检错误:剧情 5891 字 < 10000 | 灌水标记:跨媒介流行作品、可被契约者切入的完整任务世界 | 跨世界重复(组#210·114个世界共用)",
    "hasCrossDup": true,
    "crossGroupIds": [
     210,
@@ -1432,7 +4020,7 @@
    "file": "产出\\批次185\\野良神（漫画）.md",
    "name": "野良神（漫画）",
    "lib": "主库",
-   "issue": "机检错误:剧情 5855 字 < 10000 | 灌水标记:跨媒介流行作品、可被契约者切入的完整任务世界 | 跨世界重复(组#210·146个世界共用)",
+   "issue": "机检错误:剧情 5855 字 < 10000 | 灌水标记:跨媒介流行作品、可被契约者切入的完整任务世界 | 跨世界重复(组#210·114个世界共用)",
    "hasCrossDup": true,
    "crossGroupIds": [
     210
@@ -1446,7 +4034,7 @@
    "file": "产出\\批次186\\黑兽（Kuroinu）.md",
    "name": "黑兽（Kuroinu）",
    "lib": "主库",
-   "issue": "机检错误:剧情 5887 字 < 10000 | 灌水标记:跨媒介流行作品、可被契约者切入的完整任务世界 | 跨世界重复(组#210·146个世界共用)",
+   "issue": "机检错误:剧情 5887 字 < 10000 | 灌水标记:跨媒介流行作品、可被契约者切入的完整任务世界 | 跨世界重复(组#210·114个世界共用)",
    "hasCrossDup": true,
    "crossGroupIds": [
     210
@@ -1460,7 +4048,7 @@
    "file": "产出\\批次186\\黑兽2（Kuroinu 2）.md",
    "name": "黑兽2（Kuroinu 2）",
    "lib": "主库",
-   "issue": "机检错误:剧情 5903 字 < 10000 | 灌水标记:跨媒介流行作品、可被契约者切入的完整任务世界 | 跨世界重复(组#210·146个世界共用)",
+   "issue": "机检错误:剧情 5903 字 < 10000 | 灌水标记:跨媒介流行作品、可被契约者切入的完整任务世界 | 跨世界重复(组#210·114个世界共用)",
    "hasCrossDup": true,
    "crossGroupIds": [
     210
@@ -1474,7 +4062,7 @@
    "file": "产出\\批次186\\野良神 ARAGOTO（动画第二季）.md",
    "name": "野良神 ARAGOTO（动画第二季）",
    "lib": "主库",
-   "issue": "机检错误:剧情 5935 字 < 10000 | 灌水标记:跨媒介流行作品、可被契约者切入的完整任务世界 | 跨世界重复(组#210·146个世界共用)",
+   "issue": "机检错误:剧情 5935 字 < 10000 | 灌水标记:跨媒介流行作品、可被契约者切入的完整任务世界 | 跨世界重复(组#210·114个世界共用)",
    "hasCrossDup": true,
    "crossGroupIds": [
     210
@@ -1488,7 +4076,7 @@
    "file": "产出\\批次186\\野良神（动画第一季）.md",
    "name": "野良神（动画第一季）",
    "lib": "主库",
-   "issue": "机检错误:剧情 5879 字 < 10000 | 灌水标记:跨媒介流行作品、可被契约者切入的完整任务世界 | 跨世界重复(组#210·146个世界共用)",
+   "issue": "机检错误:剧情 5879 字 < 10000 | 灌水标记:跨媒介流行作品、可被契约者切入的完整任务世界 | 跨世界重复(组#210·114个世界共用)",
    "hasCrossDup": true,
    "crossGroupIds": [
     210
@@ -1502,7 +4090,7 @@
    "file": "产出\\批次186\\野良神（OAD－OVA）.md",
    "name": "野良神（OAD/OVA）",
    "lib": "主库",
-   "issue": "机检错误:剧情 5895 字 < 10000 | 灌水标记:跨媒介流行作品、可被契约者切入的完整任务世界 | 跨世界重复(组#210·146个世界共用)",
+   "issue": "机检错误:剧情 5895 字 < 10000 | 灌水标记:跨媒介流行作品、可被契约者切入的完整任务世界 | 跨世界重复(组#210·114个世界共用)",
    "hasCrossDup": true,
    "crossGroupIds": [
     210
@@ -1516,7 +4104,7 @@
    "file": "产出\\批次187\\黑兽：改－外传（如按某一版本）.md",
    "name": "黑兽：改/外传（如按某一版本）",
    "lib": "主库",
-   "issue": "机检错误:剧情 5919 字 < 10000 | 灌水标记:跨媒介流行作品、可被契约者切入的完整任务世界 | 跨世界重复(组#210·146个世界共用)",
+   "issue": "机检错误:剧情 5919 字 < 10000 | 灌水标记:跨媒介流行作品、可被契约者切入的完整任务世界 | 跨世界重复(组#210·114个世界共用)",
    "hasCrossDup": true,
    "crossGroupIds": [
     210
@@ -1530,7 +4118,7 @@
    "file": "产出\\批次187\\魔兽世界：恩佐斯低语蔓延.md",
    "name": "魔兽世界：恩佐斯低语蔓延",
    "lib": "主库",
-   "issue": "机检错误:剧情 5887 字 < 10000 | 灌水标记:跨媒介流行作品、可被契约者切入的完整任务世界 | 跨世界重复(组#210·146个世界共用)",
+   "issue": "机检错误:剧情 5887 字 < 10000 | 灌水标记:跨媒介流行作品、可被契约者切入的完整任务世界 | 跨世界重复(组#210·114个世界共用)",
    "hasCrossDup": true,
    "crossGroupIds": [
     210
@@ -1544,7 +4132,7 @@
    "file": "产出\\批次187\\银魂（漫画）.md",
    "name": "银魂（漫画）",
    "lib": "主库",
-   "issue": "机检错误:剧情 5847 字 < 10000 | 灌水标记:跨媒介流行作品、可被契约者切入的完整任务世界 | 跨世界重复(组#210·146个世界共用)",
+   "issue": "机检错误:剧情 5847 字 < 10000 | 灌水标记:跨媒介流行作品、可被契约者切入的完整任务世界 | 跨世界重复(组#210·114个世界共用)",
    "hasCrossDup": true,
    "crossGroupIds": [
     210
@@ -1558,7 +4146,7 @@
    "file": "产出\\批次187\\银魂（TV 2006）.md",
    "name": "银魂（TV 2006）",
    "lib": "主库",
-   "issue": "机检错误:剧情 5879 字 < 10000 | 灌水标记:跨媒介流行作品、可被契约者切入的完整任务世界 | 跨世界重复(组#210·146个世界共用)",
+   "issue": "机检错误:剧情 5879 字 < 10000 | 灌水标记:跨媒介流行作品、可被契约者切入的完整任务世界 | 跨世界重复(组#210·114个世界共用)",
    "hasCrossDup": true,
    "crossGroupIds": [
     210
@@ -1572,7 +4160,7 @@
    "file": "产出\\批次187\\银魂（TV 2011）.md",
    "name": "银魂（TV 2011）",
    "lib": "主库",
-   "issue": "机检错误:剧情 5879 字 < 10000 | 灌水标记:跨媒介流行作品、可被契约者切入的完整任务世界 | 跨世界重复(组#210·146个世界共用)",
+   "issue": "机检错误:剧情 5879 字 < 10000 | 灌水标记:跨媒介流行作品、可被契约者切入的完整任务世界 | 跨世界重复(组#210·114个世界共用)",
    "hasCrossDup": true,
    "crossGroupIds": [
     210
@@ -1586,7 +4174,7 @@
    "file": "产出\\批次188\\魔兽世界：地心之战—多恩岛登陆.md",
    "name": "魔兽世界：地心之战—多恩岛登陆",
    "lib": "主库",
-   "issue": "机检错误:剧情 5911 字 < 10000 | 灌水标记:跨媒介流行作品、可被契约者切入的完整任务世界 | 跨世界重复(组#210·146个世界共用)",
+   "issue": "机检错误:剧情 5911 字 < 10000 | 灌水标记:跨媒介流行作品、可被契约者切入的完整任务世界 | 跨世界重复(组#210·114个世界共用)",
    "hasCrossDup": true,
    "crossGroupIds": [
     210
@@ -1600,7 +4188,7 @@
    "file": "产出\\批次188\\银魂：新译红樱篇（剧场版）.md",
    "name": "银魂：新译红樱篇（剧场版）",
    "lib": "主库",
-   "issue": "机检错误:剧情 5903 字 < 10000 | 灌水标记:跨媒介流行作品、可被契约者切入的完整任务世界 | 跨世界重复(组#210·146个世界共用)",
+   "issue": "机检错误:剧情 5903 字 < 10000 | 灌水标记:跨媒介流行作品、可被契约者切入的完整任务世界 | 跨世界重复(组#210·114个世界共用)",
    "hasCrossDup": true,
    "crossGroupIds": [
     210
@@ -1614,7 +4202,7 @@
    "file": "产出\\批次188\\银魂.（TV 2018）.md",
    "name": "银魂.（TV 2018）",
    "lib": "主库",
-   "issue": "机检错误:剧情 5887 字 < 10000 | 灌水标记:跨媒介流行作品、可被契约者切入的完整任务世界 | 跨世界重复(组#210·146个世界共用)",
+   "issue": "机检错误:剧情 5887 字 < 10000 | 灌水标记:跨媒介流行作品、可被契约者切入的完整任务世界 | 跨世界重复(组#210·114个世界共用)",
    "hasCrossDup": true,
    "crossGroupIds": [
     210
@@ -1628,7 +4216,7 @@
    "file": "产出\\批次188\\银魂（TV 2017）.md",
    "name": "银魂（TV 2017）",
    "lib": "主库",
-   "issue": "机检错误:剧情 5879 字 < 10000 | 灌水标记:跨媒介流行作品、可被契约者切入的完整任务世界 | 跨世界重复(组#210·146个世界共用)",
+   "issue": "机检错误:剧情 5879 字 < 10000 | 灌水标记:跨媒介流行作品、可被契约者切入的完整任务世界 | 跨世界重复(组#210·114个世界共用)",
    "hasCrossDup": true,
    "crossGroupIds": [
     210
@@ -1642,7 +4230,7 @@
    "file": "产出\\批次188\\银魂°（TV 2015）.md",
    "name": "银魂°（TV 2015）",
    "lib": "主库",
-   "issue": "机检错误:剧情 5887 字 < 10000 | 灌水标记:跨媒介流行作品、可被契约者切入的完整任务世界 | 跨世界重复(组#210·146个世界共用)",
+   "issue": "机检错误:剧情 5887 字 < 10000 | 灌水标记:跨媒介流行作品、可被契约者切入的完整任务世界 | 跨世界重复(组#210·114个世界共用)",
    "hasCrossDup": true,
    "crossGroupIds": [
     210
@@ -1656,11 +4244,9 @@
    "file": "产出\\批次189\\银魂 THE FINAL（剧场版）.md",
    "name": "银魂 THE FINAL（剧场版）",
    "lib": "主库",
-   "issue": "机检错误:剧情 5919 字 < 10000 | 灌水标记:跨媒介流行作品、可被契约者切入的完整任务世界 | 跨世界重复(组#210·146个世界共用)",
-   "hasCrossDup": true,
-   "crossGroupIds": [
-    210
-   ],
+   "issue": "机检错误:切入点缺少阶位：四（须覆盖一阶~最高阶全部连续阶位）",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
    "status": "已修复",
    "fixedMark": true
   },
@@ -1670,7 +4256,7 @@
    "file": "产出\\批次189\\银魂：完结篇 永远的万事屋（剧场版）.md",
    "name": "银魂：完结篇 永远的万事屋（剧场版）",
    "lib": "主库",
-   "issue": "机检错误:剧情 5935 字 < 10000 | 灌水标记:跨媒介流行作品、可被契约者切入的完整任务世界 | 跨世界重复(组#210·146个世界共用)",
+   "issue": "机检错误:剧情 5935 字 < 10000 | 灌水标记:跨媒介流行作品、可被契约者切入的完整任务世界 | 跨世界重复(组#210·114个世界共用)",
    "hasCrossDup": true,
    "crossGroupIds": [
     210
@@ -1684,7 +4270,7 @@
    "file": "产出\\批次189\\约会大作战（动画S1）.md",
    "name": "约会大作战（动画S1）",
    "lib": "主库",
-   "issue": "机检错误:剧情 5889 字 < 10000 | 灌水标记:跨媒介流行作品、可被契约者切入的完整任务世界 | 跨世界重复(组#210·146个世界共用)",
+   "issue": "机检错误:剧情 5889 字 < 10000 | 灌水标记:跨媒介流行作品、可被契约者切入的完整任务世界 | 跨世界重复(组#210·114个世界共用)",
    "hasCrossDup": true,
    "crossGroupIds": [
     210,
@@ -1723,7 +4309,7 @@
    "file": "产出\\批次190\\塞尔达传说（总览）.md",
    "name": "塞尔达传说（总览）",
    "lib": "主库",
-   "issue": "机检错误:剧情 5871 字 < 10000 | 灌水标记:跨媒介流行作品、可被契约者切入的完整任务世界 | 跨世界重复(组#210·146个世界共用)",
+   "issue": "机检错误:剧情 5871 字 < 10000 | 灌水标记:跨媒介流行作品、可被契约者切入的完整任务世界 | 跨世界重复(组#210·114个世界共用)",
    "hasCrossDup": true,
    "crossGroupIds": [
     210
@@ -1737,7 +4323,7 @@
    "file": "产出\\批次190\\塞尔达传说2：林克的冒险.md",
    "name": "塞尔达传说2：林克的冒险",
    "lib": "主库",
-   "issue": "机检错误:剧情 5895 字 < 10000 | 灌水标记:跨媒介流行作品、可被契约者切入的完整任务世界 | 跨世界重复(组#210·146个世界共用)",
+   "issue": "机检错误:剧情 5895 字 < 10000 | 灌水标记:跨媒介流行作品、可被契约者切入的完整任务世界 | 跨世界重复(组#210·114个世界共用)",
    "hasCrossDup": true,
    "crossGroupIds": [
     210
@@ -1751,7 +4337,7 @@
    "file": "产出\\批次190\\约会大作战III.md",
    "name": "约会大作战III",
    "lib": "主库",
-   "issue": "机检错误:剧情 5865 字 < 10000 | 灌水标记:跨媒介流行作品、可被契约者切入的完整任务世界 | 跨世界重复(组#210·146个世界共用)",
+   "issue": "机检错误:剧情 5865 字 < 10000 | 灌水标记:跨媒介流行作品、可被契约者切入的完整任务世界 | 跨世界重复(组#210·114个世界共用)",
    "hasCrossDup": true,
    "crossGroupIds": [
     210,
@@ -1766,7 +4352,7 @@
    "file": "产出\\批次190\\约会大作战IV.md",
    "name": "约会大作战IV",
    "lib": "主库",
-   "issue": "机检错误:剧情 5857 字 < 10000 | 灌水标记:跨媒介流行作品、可被契约者切入的完整任务世界 | 跨世界重复(组#210·146个世界共用)",
+   "issue": "机检错误:剧情 5857 字 < 10000 | 灌水标记:跨媒介流行作品、可被契约者切入的完整任务世界 | 跨世界重复(组#210·114个世界共用)",
    "hasCrossDup": true,
    "crossGroupIds": [
     210,
@@ -1781,7 +4367,7 @@
    "file": "产出\\批次191\\塞尔达传说：林克的觉醒.md",
    "name": "塞尔达传说：林克的觉醒",
    "lib": "主库",
-   "issue": "机检错误:剧情 5887 字 < 10000 | 灌水标记:跨媒介流行作品、可被契约者切入的完整任务世界 | 跨世界重复(组#210·146个世界共用)",
+   "issue": "机检错误:剧情 5887 字 < 10000 | 灌水标记:跨媒介流行作品、可被契约者切入的完整任务世界 | 跨世界重复(组#210·114个世界共用)",
    "hasCrossDup": true,
    "crossGroupIds": [
     210
@@ -1795,7 +4381,7 @@
    "file": "产出\\批次191\\塞尔达传说：众神的三角力量.md",
    "name": "塞尔达传说：众神的三角力量",
    "lib": "主库",
-   "issue": "机检错误:剧情 5903 字 < 10000 | 灌水标记:跨媒介流行作品、可被契约者切入的完整任务世界 | 跨世界重复(组#210·146个世界共用)",
+   "issue": "机检错误:剧情 5903 字 < 10000 | 灌水标记:跨媒介流行作品、可被契约者切入的完整任务世界 | 跨世界重复(组#210·114个世界共用)",
    "hasCrossDup": true,
    "crossGroupIds": [
     210
@@ -1809,7 +4395,7 @@
    "file": "产出\\批次191\\约会大作战：万由里裁决（剧场版）.md",
    "name": "约会大作战：万由里裁决（剧场版）",
    "lib": "主库",
-   "issue": "机检错误:剧情 5925 字 < 10000 | 灌水标记:跨媒介流行作品、可被契约者切入的完整任务世界 | 跨世界重复(组#210·146个世界共用)",
+   "issue": "机检错误:剧情 5925 字 < 10000 | 灌水标记:跨媒介流行作品、可被契约者切入的完整任务世界 | 跨世界重复(组#210·114个世界共用)",
    "hasCrossDup": true,
    "crossGroupIds": [
     210
@@ -1823,7 +4409,7 @@
    "file": "产出\\批次191\\约会大作战V.md",
    "name": "约会大作战V",
    "lib": "主库",
-   "issue": "机检错误:剧情 5845 字 < 10000 | 灌水标记:跨媒介流行作品、可被契约者切入的完整任务世界 | 跨世界重复(组#210·146个世界共用)",
+   "issue": "机检错误:剧情 5845 字 < 10000 | 灌水标记:跨媒介流行作品、可被契约者切入的完整任务世界 | 跨世界重复(组#210·114个世界共用)",
    "hasCrossDup": true,
    "crossGroupIds": [
     210
@@ -1849,7 +4435,7 @@
    "file": "产出\\批次192\\脑叶公司（Lobotomy Corporation）.md",
    "name": "脑叶公司（Lobotomy Corporation）",
    "lib": "主库",
-   "issue": "机检错误:剧情 6001 字 < 10000 | 灌水标记:跨媒介流行作品、可被契约者切入的完整任务世界 | 跨世界重复(组#210·146个世界共用)",
+   "issue": "机检错误:剧情 6001 字 < 10000 | 灌水标记:跨媒介流行作品、可被契约者切入的完整任务世界 | 跨世界重复(组#210·114个世界共用)",
    "hasCrossDup": true,
    "crossGroupIds": [
     210,
@@ -1864,7 +4450,7 @@
    "file": "产出\\批次192\\塞尔达传说：姆吉拉的假面.md",
    "name": "塞尔达传说：姆吉拉的假面",
    "lib": "主库",
-   "issue": "机检错误:剧情 5895 字 < 10000 | 灌水标记:跨媒介流行作品、可被契约者切入的完整任务世界 | 跨世界重复(组#210·146个世界共用)",
+   "issue": "机检错误:剧情 5895 字 < 10000 | 灌水标记:跨媒介流行作品、可被契约者切入的完整任务世界 | 跨世界重复(组#210·114个世界共用)",
    "hasCrossDup": true,
    "crossGroupIds": [
     210
@@ -1890,7 +4476,7 @@
    "file": "产出\\批次192\\DATE A BULLET（动画：后篇）.md",
    "name": "DATE A BULLET（动画：后篇）",
    "lib": "主库",
-   "issue": "机检错误:剧情 5941 字 < 10000 | 灌水标记:跨媒介流行作品、可被契约者切入的完整任务世界 | 跨世界重复(组#210·146个世界共用)",
+   "issue": "机检错误:剧情 5941 字 < 10000 | 灌水标记:跨媒介流行作品、可被契约者切入的完整任务世界 | 跨世界重复(组#210·114个世界共用)",
    "hasCrossDup": true,
    "crossGroupIds": [
     210
@@ -1904,7 +4490,7 @@
    "file": "产出\\批次192\\DATE A BULLET（动画：前篇）.md",
    "name": "DATE A BULLET（动画：前篇）",
    "lib": "主库",
-   "issue": "机检错误:剧情 5941 字 < 10000 | 灌水标记:跨媒介流行作品、可被契约者切入的完整任务世界 | 跨世界重复(组#210·146个世界共用)",
+   "issue": "机检错误:剧情 5941 字 < 10000 | 灌水标记:跨媒介流行作品、可被契约者切入的完整任务世界 | 跨世界重复(组#210·114个世界共用)",
    "hasCrossDup": true,
    "crossGroupIds": [
     210
@@ -1918,7 +4504,7 @@
    "file": "产出\\批次193\\废墟图书馆（Library of Ruina）.md",
    "name": "废墟图书馆（Library of Ruina）",
    "lib": "主库",
-   "issue": "机检错误:剧情 5969 字 < 10000 | 灌水标记:跨媒介流行作品、可被契约者切入的完整任务世界 | 跨世界重复(组#210·146个世界共用)",
+   "issue": "机检错误:剧情 5969 字 < 10000 | 灌水标记:跨媒介流行作品、可被契约者切入的完整任务世界 | 跨世界重复(组#210·114个世界共用)",
    "hasCrossDup": true,
    "crossGroupIds": [
     210,
@@ -1933,7 +4519,7 @@
    "file": "产出\\批次193\\鬼泣（Devil May Cry 1）.md",
    "name": "鬼泣（Devil May Cry 1）",
    "lib": "主库",
-   "issue": "机检错误:剧情 5927 字 < 10000 | 灌水标记:跨媒介流行作品、可被契约者切入的完整任务世界 | 跨世界重复(组#210·146个世界共用)",
+   "issue": "机检错误:剧情 5927 字 < 10000 | 灌水标记:跨媒介流行作品、可被契约者切入的完整任务世界 | 跨世界重复(组#210·114个世界共用)",
    "hasCrossDup": true,
    "crossGroupIds": [
     210
@@ -1947,7 +4533,7 @@
    "file": "产出\\批次193\\塞尔达传说：风之杖.md",
    "name": "塞尔达传说：风之杖",
    "lib": "主库",
-   "issue": "机检错误:剧情 5871 字 < 10000 | 灌水标记:跨媒介流行作品、可被契约者切入的完整任务世界 | 跨世界重复(组#210·146个世界共用)",
+   "issue": "机检错误:剧情 5871 字 < 10000 | 灌水标记:跨媒介流行作品、可被契约者切入的完整任务世界 | 跨世界重复(组#210·114个世界共用)",
    "hasCrossDup": true,
    "crossGroupIds": [
     210
@@ -1961,7 +4547,7 @@
    "file": "产出\\批次193\\塞尔达传说：神谕之时空章.md",
    "name": "塞尔达传说：神谕之时空章",
    "lib": "主库",
-   "issue": "机检错误:剧情 5895 字 < 10000 | 灌水标记:跨媒介流行作品、可被契约者切入的完整任务世界 | 跨世界重复(组#210·146个世界共用)",
+   "issue": "机检错误:剧情 5895 字 < 10000 | 灌水标记:跨媒介流行作品、可被契约者切入的完整任务世界 | 跨世界重复(组#210·114个世界共用)",
    "hasCrossDup": true,
    "crossGroupIds": [
     210
@@ -1975,7 +4561,7 @@
    "file": "产出\\批次193\\塞尔达传说：神谕之章.md",
    "name": "塞尔达传说：神谕之章",
    "lib": "主库",
-   "issue": "机检错误:剧情 5879 字 < 10000 | 灌水标记:跨媒介流行作品、可被契约者切入的完整任务世界 | 跨世界重复(组#210·146个世界共用)",
+   "issue": "机检错误:剧情 5879 字 < 10000 | 灌水标记:跨媒介流行作品、可被契约者切入的完整任务世界 | 跨世界重复(组#210·114个世界共用)",
    "hasCrossDup": true,
    "crossGroupIds": [
     210
@@ -1989,7 +4575,7 @@
    "file": "产出\\批次194\\塞尔达传说：黄昏公主.md",
    "name": "塞尔达传说：黄昏公主",
    "lib": "主库",
-   "issue": "机检错误:剧情 5879 字 < 10000 | 灌水标记:跨媒介流行作品、可被契约者切入的完整任务世界 | 跨世界重复(组#210·146个世界共用)",
+   "issue": "机检错误:剧情 5879 字 < 10000 | 灌水标记:跨媒介流行作品、可被契约者切入的完整任务世界 | 跨世界重复(组#210·114个世界共用)",
    "hasCrossDup": true,
    "crossGroupIds": [
     210
@@ -2003,7 +4589,7 @@
    "file": "产出\\批次194\\塞尔达传说：四支剑.md",
    "name": "塞尔达传说：四支剑",
    "lib": "主库",
-   "issue": "机检错误:剧情 5871 字 < 10000 | 灌水标记:跨媒介流行作品、可被契约者切入的完整任务世界 | 跨世界重复(组#210·146个世界共用)",
+   "issue": "机检错误:剧情 5871 字 < 10000 | 灌水标记:跨媒介流行作品、可被契约者切入的完整任务世界 | 跨世界重复(组#210·114个世界共用)",
    "hasCrossDup": true,
    "crossGroupIds": [
     210
@@ -2017,7 +4603,7 @@
    "file": "产出\\批次194\\塞尔达传说：四支剑+.md",
    "name": "塞尔达传说：四支剑+",
    "lib": "主库",
-   "issue": "机检错误:剧情 5879 字 < 10000 | 灌水标记:跨媒介流行作品、可被契约者切入的完整任务世界 | 跨世界重复(组#210·146个世界共用)",
+   "issue": "机检错误:剧情 5879 字 < 10000 | 灌水标记:跨媒介流行作品、可被契约者切入的完整任务世界 | 跨世界重复(组#210·114个世界共用)",
    "hasCrossDup": true,
    "crossGroupIds": [
     210
@@ -2031,7 +4617,7 @@
    "file": "产出\\批次194\\塞尔达传说：缩小帽.md",
    "name": "塞尔达传说：缩小帽",
    "lib": "主库",
-   "issue": "机检错误:剧情 5871 字 < 10000 | 灌水标记:跨媒介流行作品、可被契约者切入的完整任务世界 | 跨世界重复(组#210·146个世界共用)",
+   "issue": "机检错误:剧情 5871 字 < 10000 | 灌水标记:跨媒介流行作品、可被契约者切入的完整任务世界 | 跨世界重复(组#210·114个世界共用)",
    "hasCrossDup": true,
    "crossGroupIds": [
     210
@@ -2045,7 +4631,7 @@
    "file": "产出\\批次194\\DmC：鬼泣（重启）.md",
    "name": "DmC：鬼泣（重启）",
    "lib": "主库",
-   "issue": "机检错误:剧情 5881 字 < 10000 | 灌水标记:跨媒介流行作品、可被契约者切入的完整任务世界 | 跨世界重复(组#210·146个世界共用)",
+   "issue": "机检错误:剧情 5881 字 < 10000 | 灌水标记:跨媒介流行作品、可被契约者切入的完整任务世界 | 跨世界重复(组#210·114个世界共用)",
    "hasCrossDup": true,
    "crossGroupIds": [
     210,
@@ -2060,7 +4646,7 @@
    "file": "产出\\批次195\\塞尔达传说：大地汽笛.md",
    "name": "塞尔达传说：大地汽笛",
    "lib": "主库",
-   "issue": "机检错误:剧情 5879 字 < 10000 | 灌水标记:跨媒介流行作品、可被契约者切入的完整任务世界 | 跨世界重复(组#210·146个世界共用)",
+   "issue": "机检错误:剧情 5879 字 < 10000 | 灌水标记:跨媒介流行作品、可被契约者切入的完整任务世界 | 跨世界重复(组#210·114个世界共用)",
    "hasCrossDup": true,
    "crossGroupIds": [
     210
@@ -2074,7 +4660,7 @@
    "file": "产出\\批次195\\塞尔达传说：幻影沙漏.md",
    "name": "塞尔达传说：幻影沙漏",
    "lib": "主库",
-   "issue": "机检错误:剧情 5879 字 < 10000 | 灌水标记:跨媒介流行作品、可被契约者切入的完整任务世界 | 跨世界重复(组#210·146个世界共用)",
+   "issue": "机检错误:剧情 5879 字 < 10000 | 灌水标记:跨媒介流行作品、可被契约者切入的完整任务世界 | 跨世界重复(组#210·114个世界共用)",
    "hasCrossDup": true,
    "crossGroupIds": [
     210
@@ -2088,7 +4674,7 @@
    "file": "产出\\批次195\\塞尔达传说：三角力量英雄.md",
    "name": "塞尔达传说：三角力量英雄",
    "lib": "主库",
-   "issue": "机检错误:剧情 5895 字 < 10000 | 灌水标记:跨媒介流行作品、可被契约者切入的完整任务世界 | 跨世界重复(组#210·146个世界共用)",
+   "issue": "机检错误:剧情 5895 字 < 10000 | 灌水标记:跨媒介流行作品、可被契约者切入的完整任务世界 | 跨世界重复(组#210·114个世界共用)",
    "hasCrossDup": true,
    "crossGroupIds": [
     210
@@ -2102,7 +4688,7 @@
    "file": "产出\\批次195\\塞尔达传说：天空之剑.md",
    "name": "塞尔达传说：天空之剑",
    "lib": "主库",
-   "issue": "机检错误:剧情 5879 字 < 10000 | 灌水标记:跨媒介流行作品、可被契约者切入的完整任务世界 | 跨世界重复(组#210·146个世界共用)",
+   "issue": "机检错误:剧情 5879 字 < 10000 | 灌水标记:跨媒介流行作品、可被契约者切入的完整任务世界 | 跨世界重复(组#210·114个世界共用)",
    "hasCrossDup": true,
    "crossGroupIds": [
     210
@@ -2116,7 +4702,7 @@
    "file": "产出\\批次195\\塞尔达传说：众神的三角力量2.md",
    "name": "塞尔达传说：众神的三角力量2",
    "lib": "主库",
-   "issue": "机检错误:剧情 5911 字 < 10000 | 灌水标记:跨媒介流行作品、可被契约者切入的完整任务世界 | 跨世界重复(组#210·146个世界共用)",
+   "issue": "机检错误:剧情 5911 字 < 10000 | 灌水标记:跨媒介流行作品、可被契约者切入的完整任务世界 | 跨世界重复(组#210·114个世界共用)",
    "hasCrossDup": true,
    "crossGroupIds": [
     210
@@ -2130,7 +4716,7 @@
    "file": "产出\\批次196\\海拉鲁无双：灾厄启示录.md",
    "name": "海拉鲁无双：灾厄启示录",
    "lib": "主库",
-   "issue": "机检错误:剧情 5887 字 < 10000 | 灌水标记:跨媒介流行作品、可被契约者切入的完整任务世界 | 跨世界重复(组#210·146个世界共用)",
+   "issue": "机检错误:剧情 5887 字 < 10000 | 灌水标记:跨媒介流行作品、可被契约者切入的完整任务世界 | 跨世界重复(组#210·114个世界共用)",
    "hasCrossDup": true,
    "crossGroupIds": [
     210
@@ -2144,7 +4730,7 @@
    "file": "产出\\批次196\\海拉鲁无双.md",
    "name": "海拉鲁无双",
    "lib": "主库",
-   "issue": "机检错误:剧情 5839 字 < 10000 | 灌水标记:跨媒介流行作品、可被契约者切入的完整任务世界 | 跨世界重复(组#210·146个世界共用)",
+   "issue": "机检错误:剧情 5839 字 < 10000 | 灌水标记:跨媒介流行作品、可被契约者切入的完整任务世界 | 跨世界重复(组#210·114个世界共用)",
    "hasCrossDup": true,
    "crossGroupIds": [
     210
@@ -2158,7 +4744,7 @@
    "file": "产出\\批次196\\塞尔达传说：荒野之息.md",
    "name": "塞尔达传说：荒野之息",
    "lib": "主库",
-   "issue": "机检错误:剧情 7324 字 < 10000 | 警告:切入点疑似\"被封印\"式顶点解释",
+   "issue": "机检错误:剧情 7324 字 < 10000/切入点缺少阶位：四（须覆盖一阶~最高阶全部连续阶位） | 警告:切入点疑似\"被封印\"式顶点解释",
    "hasCrossDup": false,
    "crossGroupIds": [],
    "status": "待修复",
@@ -2170,7 +4756,7 @@
    "file": "产出\\批次196\\塞尔达传说：王国之泪.md",
    "name": "塞尔达传说：王国之泪",
    "lib": "主库",
-   "issue": "机检错误:剧情 5879 字 < 10000 | 灌水标记:跨媒介流行作品、可被契约者切入的完整任务世界 | 跨世界重复(组#210·146个世界共用)",
+   "issue": "机检错误:剧情 5879 字 < 10000 | 灌水标记:跨媒介流行作品、可被契约者切入的完整任务世界 | 跨世界重复(组#210·114个世界共用)",
    "hasCrossDup": true,
    "crossGroupIds": [
     210
@@ -2184,7 +4770,7 @@
    "file": "产出\\批次196\\弑神者（Campione!）.md",
    "name": "弑神者（Campione!）",
    "lib": "主库",
-   "issue": "机检错误:剧情 5913 字 < 10000 | 灌水标记:跨媒介流行作品、可被契约者切入的完整任务世界 | 跨世界重复(组#210·146个世界共用)",
+   "issue": "机检错误:剧情 5913 字 < 10000 | 灌水标记:跨媒介流行作品、可被契约者切入的完整任务世界 | 跨世界重复(组#210·114个世界共用)",
    "hasCrossDup": true,
    "crossGroupIds": [
     210,
@@ -2211,7 +4797,7 @@
    "file": "产出\\批次197\\极道帝兵.md",
    "name": "极道帝兵",
    "lib": "主库",
-   "issue": "机检错误:剧情 5829 字 < 10000 | 灌水标记:跨媒介流行作品、可被契约者切入的完整任务世界 | 跨世界重复(组#210·146个世界共用)",
+   "issue": "机检错误:剧情 5829 字 < 10000 | 灌水标记:跨媒介流行作品、可被契约者切入的完整任务世界 | 跨世界重复(组#210·114个世界共用)",
    "hasCrossDup": true,
    "crossGroupIds": [
     210
@@ -2225,7 +4811,7 @@
    "file": "产出\\批次197\\魔装学园H×H.md",
    "name": "魔装学园H×H",
    "lib": "主库",
-   "issue": "机检错误:剧情 5857 字 < 10000 | 灌水标记:跨媒介流行作品、可被契约者切入的完整任务世界 | 跨世界重复(组#210·146个世界共用)",
+   "issue": "机检错误:剧情 5857 字 < 10000 | 灌水标记:跨媒介流行作品、可被契约者切入的完整任务世界 | 跨世界重复(组#210·114个世界共用)",
    "hasCrossDup": true,
    "crossGroupIds": [
     210,
@@ -2240,7 +4826,7 @@
    "file": "产出\\批次197\\狩龙者拉格纳.md",
    "name": "狩龙者拉格纳",
    "lib": "主库",
-   "issue": "机检错误:剧情 5849 字 < 10000 | 灌水标记:跨媒介流行作品、可被契约者切入的完整任务世界 | 跨世界重复(组#210·146个世界共用)",
+   "issue": "机检错误:剧情 5849 字 < 10000 | 灌水标记:跨媒介流行作品、可被契约者切入的完整任务世界 | 跨世界重复(组#210·114个世界共用)",
    "hasCrossDup": true,
    "crossGroupIds": [
     210,
@@ -2255,7 +4841,7 @@
    "file": "产出\\批次197\\我有一座冒险屋（小说）.md",
    "name": "我有一座冒险屋（小说）",
    "lib": "主库",
-   "issue": "机检错误:剧情 5887 字 < 10000 | 灌水标记:跨媒介流行作品、可被契约者切入的完整任务世界 | 跨世界重复(组#210·146个世界共用)",
+   "issue": "机检错误:剧情 5887 字 < 10000 | 灌水标记:跨媒介流行作品、可被契约者切入的完整任务世界 | 跨世界重复(组#210·114个世界共用)",
    "hasCrossDup": true,
    "crossGroupIds": [
     210
@@ -2269,7 +4855,7 @@
    "file": "产出\\批次198\\怪物猎人（初代）.md",
    "name": "怪物猎人（初代）",
    "lib": "主库",
-   "issue": "机检错误:剧情 5865 字 < 10000 | 灌水标记:跨媒介流行作品、可被契约者切入的完整任务世界 | 跨世界重复(组#210·146个世界共用)",
+   "issue": "机检错误:剧情 5865 字 < 10000 | 灌水标记:跨媒介流行作品、可被契约者切入的完整任务世界 | 跨世界重复(组#210·114个世界共用)",
    "hasCrossDup": true,
    "crossGroupIds": [
     210,
@@ -2284,7 +4870,7 @@
    "file": "产出\\批次198\\惊悚乐园（小说）.md",
    "name": "惊悚乐园（小说）",
    "lib": "主库",
-   "issue": "机检错误:剧情 5863 字 < 10000 | 灌水标记:跨媒介流行作品、可被契约者切入的完整任务世界 | 跨世界重复(组#210·146个世界共用)",
+   "issue": "机检错误:剧情 5863 字 < 10000 | 灌水标记:跨媒介流行作品、可被契约者切入的完整任务世界 | 跨世界重复(组#210·114个世界共用)",
    "hasCrossDup": true,
    "crossGroupIds": [
     210
@@ -2298,7 +4884,7 @@
    "file": "产出\\批次198\\七人魔法使.md",
    "name": "七人魔法使",
    "lib": "主库",
-   "issue": "机检错误:剧情 5841 字 < 10000 | 灌水标记:跨媒介流行作品、可被契约者切入的完整任务世界 | 跨世界重复(组#210·146个世界共用)",
+   "issue": "机检错误:剧情 5841 字 < 10000 | 灌水标记:跨媒介流行作品、可被契约者切入的完整任务世界 | 跨世界重复(组#210·114个世界共用)",
    "hasCrossDup": true,
    "crossGroupIds": [
     210,
@@ -2313,7 +4899,7 @@
    "file": "产出\\批次198\\文豪野犬（漫画）.md",
    "name": "文豪野犬（漫画）",
    "lib": "主库",
-   "issue": "机检错误:剧情 5865 字 < 10000 | 灌水标记:跨媒介流行作品、可被契约者切入的完整任务世界 | 跨世界重复(组#210·146个世界共用)",
+   "issue": "机检错误:剧情 5865 字 < 10000 | 灌水标记:跨媒介流行作品、可被契约者切入的完整任务世界 | 跨世界重复(组#210·114个世界共用)",
    "hasCrossDup": true,
    "crossGroupIds": [
     210,
@@ -2328,7 +4914,7 @@
    "file": "产出\\批次198\\最后的大魔王.md",
    "name": "最后的大魔王",
    "lib": "主库",
-   "issue": "机检错误:剧情 5849 字 < 10000 | 灌水标记:跨媒介流行作品、可被契约者切入的完整任务世界 | 跨世界重复(组#210·146个世界共用)",
+   "issue": "机检错误:剧情 5849 字 < 10000 | 灌水标记:跨媒介流行作品、可被契约者切入的完整任务世界 | 跨世界重复(组#210·114个世界共用)",
    "hasCrossDup": true,
    "crossGroupIds": [
     210,
@@ -2343,7 +4929,7 @@
    "file": "产出\\批次199\\怪物猎人2（Dos）.md",
    "name": "怪物猎人2（Dos）",
    "lib": "主库",
-   "issue": "机检错误:剧情 5881 字 < 10000 | 灌水标记:跨媒介流行作品、可被契约者切入的完整任务世界 | 跨世界重复(组#210·146个世界共用)",
+   "issue": "机检错误:剧情 5881 字 < 10000 | 灌水标记:跨媒介流行作品、可被契约者切入的完整任务世界 | 跨世界重复(组#210·114个世界共用)",
    "hasCrossDup": true,
    "crossGroupIds": [
     210,
@@ -2358,7 +4944,7 @@
    "file": "产出\\批次199\\怪物猎人G.md",
    "name": "怪物猎人G",
    "lib": "主库",
-   "issue": "机检错误:剧情 5841 字 < 10000 | 灌水标记:跨媒介流行作品、可被契约者切入的完整任务世界 | 跨世界重复(组#210·146个世界共用)",
+   "issue": "机检错误:剧情 5841 字 < 10000 | 灌水标记:跨媒介流行作品、可被契约者切入的完整任务世界 | 跨世界重复(组#210·114个世界共用)",
    "hasCrossDup": true,
    "crossGroupIds": [
     210,
@@ -2373,7 +4959,7 @@
    "file": "产出\\批次199\\文豪野犬（动画S1）.md",
    "name": "文豪野犬（动画S1）",
    "lib": "主库",
-   "issue": "机检错误:剧情 5881 字 < 10000 | 灌水标记:跨媒介流行作品、可被契约者切入的完整任务世界 | 跨世界重复(组#210·146个世界共用)",
+   "issue": "机检错误:剧情 5881 字 < 10000 | 灌水标记:跨媒介流行作品、可被契约者切入的完整任务世界 | 跨世界重复(组#210·114个世界共用)",
    "hasCrossDup": true,
    "crossGroupIds": [
     210,
@@ -2388,7 +4974,7 @@
    "file": "产出\\批次199\\文豪野犬（动画S2）.md",
    "name": "文豪野犬（动画S2）",
    "lib": "主库",
-   "issue": "机检错误:剧情 5881 字 < 10000 | 灌水标记:跨媒介流行作品、可被契约者切入的完整任务世界 | 跨世界重复(组#210·146个世界共用)",
+   "issue": "机检错误:剧情 5881 字 < 10000 | 灌水标记:跨媒介流行作品、可被契约者切入的完整任务世界 | 跨世界重复(组#210·114个世界共用)",
    "hasCrossDup": true,
    "crossGroupIds": [
     210,
@@ -2403,7 +4989,7 @@
    "file": "产出\\批次199\\文豪野犬（动画S3）.md",
    "name": "文豪野犬（动画S3）",
    "lib": "主库",
-   "issue": "机检错误:剧情 5881 字 < 10000 | 灌水标记:跨媒介流行作品、可被契约者切入的完整任务世界 | 跨世界重复(组#210·146个世界共用)",
+   "issue": "机检错误:剧情 5881 字 < 10000 | 灌水标记:跨媒介流行作品、可被契约者切入的完整任务世界 | 跨世界重复(组#210·114个世界共用)",
    "hasCrossDup": true,
    "crossGroupIds": [
     210,
@@ -2418,7 +5004,7 @@
    "file": "产出\\批次200\\怪物猎人3（Tri）.md",
    "name": "怪物猎人3（Tri）",
    "lib": "主库",
-   "issue": "机检错误:剧情 5881 字 < 10000 | 灌水标记:跨媒介流行作品、可被契约者切入的完整任务世界 | 跨世界重复(组#210·146个世界共用)",
+   "issue": "机检错误:剧情 5881 字 < 10000 | 灌水标记:跨媒介流行作品、可被契约者切入的完整任务世界 | 跨世界重复(组#210·114个世界共用)",
    "hasCrossDup": true,
    "crossGroupIds": [
     210,
@@ -2433,7 +5019,7 @@
    "file": "产出\\批次200\\怪物猎人3G－Ultimate.md",
    "name": "怪物猎人3G/Ultimate",
    "lib": "主库",
-   "issue": "机检错误:剧情 5921 字 < 10000 | 灌水标记:跨媒介流行作品、可被契约者切入的完整任务世界 | 跨世界重复(组#210·146个世界共用)",
+   "issue": "机检错误:剧情 5921 字 < 10000 | 灌水标记:跨媒介流行作品、可被契约者切入的完整任务世界 | 跨世界重复(组#210·114个世界共用)",
    "hasCrossDup": true,
    "crossGroupIds": [
     210,
@@ -2448,7 +5034,7 @@
    "file": "产出\\批次200\\怪物猎人4.md",
    "name": "怪物猎人4",
    "lib": "主库",
-   "issue": "机检错误:剧情 5841 字 < 10000 | 灌水标记:跨媒介流行作品、可被契约者切入的完整任务世界 | 跨世界重复(组#210·146个世界共用)",
+   "issue": "机检错误:剧情 5841 字 < 10000 | 灌水标记:跨媒介流行作品、可被契约者切入的完整任务世界 | 跨世界重复(组#210·114个世界共用)",
    "hasCrossDup": true,
    "crossGroupIds": [
     210,
@@ -2463,7 +5049,7 @@
    "file": "产出\\批次200\\文豪野犬（动画S4）.md",
    "name": "文豪野犬（动画S4）",
    "lib": "主库",
-   "issue": "机检错误:剧情 5881 字 < 10000 | 灌水标记:跨媒介流行作品、可被契约者切入的完整任务世界 | 跨世界重复(组#210·146个世界共用)",
+   "issue": "机检错误:剧情 5881 字 < 10000 | 灌水标记:跨媒介流行作品、可被契约者切入的完整任务世界 | 跨世界重复(组#210·114个世界共用)",
    "hasCrossDup": true,
    "crossGroupIds": [
     210,
@@ -2478,7 +5064,7 @@
    "file": "产出\\批次200\\文豪野犬（动画S5）.md",
    "name": "文豪野犬（动画S5）",
    "lib": "主库",
-   "issue": "机检错误:剧情 5881 字 < 10000 | 灌水标记:跨媒介流行作品、可被契约者切入的完整任务世界 | 跨世界重复(组#210·146个世界共用)",
+   "issue": "机检错误:剧情 5881 字 < 10000 | 灌水标记:跨媒介流行作品、可被契约者切入的完整任务世界 | 跨世界重复(组#210·114个世界共用)",
    "hasCrossDup": true,
    "crossGroupIds": [
     210,
@@ -2489,11 +5075,1292 @@
   },
   {
    "priority": "P0",
+   "batch": 201,
+   "file": "产出\\批次201\\神界：原罪.md",
+   "name": "神界：原罪",
+   "lib": "主库",
+   "issue": "机检错误:切入点缺少阶位：一、二、四（须覆盖一阶~最高阶全部连续阶位）",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "待修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P0",
+   "batch": 201,
+   "file": "产出\\批次201\\神界：原罪2.md",
+   "name": "神界：原罪2",
+   "lib": "主库",
+   "issue": "机检错误:切入点缺少阶位：四（须覆盖一阶~最高阶全部连续阶位）",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "待修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P0",
+   "batch": 202,
+   "file": "产出\\批次202\\斩服少女（Kill la Kill）.md",
+   "name": "斩服少女（Kill la Kill）",
+   "lib": "主库",
+   "issue": "机检错误:切入点缺少阶位：四（须覆盖一阶~最高阶全部连续阶位）",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "待修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P0",
+   "batch": 203,
+   "file": "产出\\批次203\\地狱潜兵－Helldivers 1－.md",
+   "name": "地狱潜兵（Helldivers 1）",
+   "lib": "主库",
+   "issue": "机检错误:切入点缺少阶位：三（须覆盖一阶~最高阶全部连续阶位） | 文件名不符",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "已修复",
+   "fixedMark": true
+  },
+  {
+   "priority": "P0",
+   "batch": 203,
+   "file": "产出\\批次203\\地狱潜兵2.md",
+   "name": "地狱潜兵2",
+   "lib": "主库",
+   "issue": "机检错误:切入点缺少阶位：三（须覆盖一阶~最高阶全部连续阶位）",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "待修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P0",
+   "batch": 211,
+   "file": "产出\\批次211\\假面骑士 真.md",
+   "name": "假面骑士 真",
+   "lib": "主库",
+   "issue": "机检错误:切入点缺少阶位：一、二（须覆盖一阶~最高阶全部连续阶位） | 警告:切入点疑似\"被封印\"式顶点解释",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "待修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P0",
+   "batch": 213,
+   "file": "产出\\批次213\\假面骑士空我.md",
+   "name": "假面骑士空我",
+   "lib": "主库",
+   "issue": "机检错误:切入点缺少阶位：四（须覆盖一阶~最高阶全部连续阶位）",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "待修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P0",
+   "batch": 213,
+   "file": "产出\\批次213\\假面骑士亚极陀.md",
+   "name": "假面骑士亚极陀",
+   "lib": "主库",
+   "issue": "机检错误:切入点缺少阶位：四（须覆盖一阶~最高阶全部连续阶位）",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "待修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P0",
+   "batch": 214,
+   "file": "产出\\批次214\\假面骑士555.md",
+   "name": "假面骑士555",
+   "lib": "主库",
+   "issue": "机检错误:切入点缺少阶位：四（须覆盖一阶~最高阶全部连续阶位）",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "待修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P0",
+   "batch": 214,
+   "file": "产出\\批次214\\假面骑士剑（Blade）.md",
+   "name": "假面骑士剑（Blade）",
+   "lib": "主库",
+   "issue": "机检错误:切入点缺少阶位：四（须覆盖一阶~最高阶全部连续阶位）",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "待修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P0",
+   "batch": 214,
+   "file": "产出\\批次214\\假面骑士龙骑.md",
+   "name": "假面骑士龙骑",
+   "lib": "主库",
+   "issue": "机检错误:切入点缺少阶位：四（须覆盖一阶~最高阶全部连续阶位）",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "待修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P0",
+   "batch": 215,
+   "file": "产出\\批次215\\假面骑士电王.md",
+   "name": "假面骑士电王",
+   "lib": "主库",
+   "issue": "机检错误:切入点缺少阶位：四（须覆盖一阶~最高阶全部连续阶位）",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "待修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P0",
+   "batch": 215,
+   "file": "产出\\批次215\\假面骑士响鬼.md",
+   "name": "假面骑士响鬼",
+   "lib": "主库",
+   "issue": "机检错误:切入点缺少阶位：四（须覆盖一阶~最高阶全部连续阶位）",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "待修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P0",
+   "batch": 215,
+   "file": "产出\\批次215\\假面骑士Kabuto.md",
+   "name": "假面骑士Kabuto",
+   "lib": "主库",
+   "issue": "机检错误:切入点缺少阶位：四（须覆盖一阶~最高阶全部连续阶位）",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "待修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P0",
+   "batch": 216,
+   "file": "产出\\批次216\\假面骑士Kiva.md",
+   "name": "假面骑士Kiva",
+   "lib": "主库",
+   "issue": "机检错误:切入点缺少阶位：四（须覆盖一阶~最高阶全部连续阶位）",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "待修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P0",
+   "batch": 216,
+   "file": "产出\\批次216\\假面骑士W.md",
+   "name": "假面骑士W",
+   "lib": "主库",
+   "issue": "机检错误:切入点缺少阶位：四（须覆盖一阶~最高阶全部连续阶位）",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "待修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P0",
+   "batch": 217,
+   "file": "产出\\批次217\\假面骑士铠武.md",
+   "name": "假面骑士铠武",
+   "lib": "主库",
+   "issue": "机检错误:切入点缺少阶位：四（须覆盖一阶~最高阶全部连续阶位）",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "待修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P0",
+   "batch": 217,
+   "file": "产出\\批次217\\假面骑士Fourze.md",
+   "name": "假面骑士Fourze",
+   "lib": "主库",
+   "issue": "机检错误:切入点缺少阶位：四（须覆盖一阶~最高阶全部连续阶位）",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "待修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P0",
+   "batch": 217,
+   "file": "产出\\批次217\\假面骑士OOO.md",
+   "name": "假面骑士OOO",
+   "lib": "主库",
+   "issue": "机检错误:切入点缺少阶位：四（须覆盖一阶~最高阶全部连续阶位）",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "待修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P0",
+   "batch": 217,
+   "file": "产出\\批次217\\假面骑士Wizard.md",
+   "name": "假面骑士Wizard",
+   "lib": "主库",
+   "issue": "机检错误:切入点缺少阶位：四（须覆盖一阶~最高阶全部连续阶位）",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "待修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P0",
+   "batch": 218,
+   "file": "产出\\批次218\\假面骑士Drive.md",
+   "name": "假面骑士Drive",
+   "lib": "主库",
+   "issue": "机检错误:切入点缺少阶位：四（须覆盖一阶~最高阶全部连续阶位）",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "待修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P0",
+   "batch": 218,
+   "file": "产出\\批次218\\假面骑士Ghost.md",
+   "name": "假面骑士Ghost",
+   "lib": "主库",
+   "issue": "机检错误:切入点缺少阶位：四（须覆盖一阶~最高阶全部连续阶位）",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "待修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P0",
+   "batch": 221,
+   "file": "产出\\批次221\\假面骑士Gotchard.md",
+   "name": "假面骑士Gotchard",
+   "lib": "主库",
+   "issue": "机检错误:切入点缺少阶位：四（须覆盖一阶~最高阶全部连续阶位）",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "待修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P0",
+   "batch": 221,
+   "file": "产出\\批次221\\装甲骑女伊莉丝-妹妹援救.md",
+   "name": "装甲骑女伊莉丝-妹妹援救",
+   "lib": "主库",
+   "issue": "机检错误:切入点缺少阶位：一、二、三（须覆盖一阶~最高阶全部连续阶位） | 跨世界重复(组#256·4个世界共用)",
+   "hasCrossDup": true,
+   "crossGroupIds": [
+    256
+   ],
+   "status": "待修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P0",
+   "batch": 221,
+   "file": "产出\\批次221\\装甲骑女伊莉丝-魔铠融合.md",
+   "name": "装甲骑女伊莉丝-魔铠融合",
+   "lib": "主库",
+   "issue": "机检错误:切入点缺少阶位：一、二、三（须覆盖一阶~最高阶全部连续阶位） | 跨世界重复(组#256·4个世界共用)",
+   "hasCrossDup": true,
+   "crossGroupIds": [
+    256
+   ],
+   "status": "待修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P0",
+   "batch": 221,
+   "file": "产出\\批次221\\装甲骑女伊莉丝-骑女沦陷.md",
+   "name": "装甲骑女伊莉丝-骑女沦陷",
+   "lib": "主库",
+   "issue": "机检错误:切入点缺少阶位：二（须覆盖一阶~最高阶全部连续阶位） | 跨世界重复(组#256·4个世界共用)",
+   "hasCrossDup": true,
+   "crossGroupIds": [
+    256
+   ],
+   "status": "待修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P0",
+   "batch": 221,
+   "file": "产出\\批次221\\装甲骑女伊莉丝-双堕深渊.md",
+   "name": "装甲骑女伊莉丝-双堕深渊",
+   "lib": "主库",
+   "issue": "机检错误:切入点缺少阶位：一、二、三（须覆盖一阶~最高阶全部连续阶位） | 跨世界重复(组#256·4个世界共用)",
+   "hasCrossDup": true,
+   "crossGroupIds": [
+    256
+   ],
+   "status": "待修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P0",
+   "batch": 222,
+   "file": "产出\\批次222\\黑兽-公主凌辱.md",
+   "name": "黑兽-公主凌辱",
+   "lib": "主库",
+   "issue": "机检错误:切入点缺少阶位：一、三（须覆盖一阶~最高阶全部连续阶位）",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "待修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P0",
+   "batch": 222,
+   "file": "产出\\批次222\\黑兽-圣女沦陷.md",
+   "name": "黑兽-圣女沦陷",
+   "lib": "主库",
+   "issue": "机检错误:切入点缺少阶位：一、三（须覆盖一阶~最高阶全部连续阶位）",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "待修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P0",
+   "batch": 222,
+   "file": "产出\\批次222\\装甲骑女伊莉丝-堕落魔将.md",
+   "name": "装甲骑女伊莉丝-堕落魔将",
+   "lib": "主库",
+   "issue": "机检错误:切入点缺少阶位：一、二、三（须覆盖一阶~最高阶全部连续阶位） | 警告:切入点疑似\"被削弱\"式顶点解释",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "待修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P0",
+   "batch": 222,
+   "file": "产出\\批次222\\装甲骑女伊莉丝-姐妹侍奉.md",
+   "name": "装甲骑女伊莉丝-姐妹侍奉",
+   "lib": "主库",
+   "issue": "机检错误:切入点缺少阶位：二（须覆盖一阶~最高阶全部连续阶位） | 警告:切入点疑似\"被封印\"式顶点解释",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "待修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P0",
+   "batch": 223,
+   "file": "产出\\批次223\\黑兽-表妹堕落.md",
+   "name": "黑兽-表妹堕落",
+   "lib": "主库",
+   "issue": "机检错误:切入点缺少阶位：一、三（须覆盖一阶~最高阶全部连续阶位）",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "待修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P0",
+   "batch": 223,
+   "file": "产出\\批次223\\黑兽-黑暗女王屈服.md",
+   "name": "黑兽-黑暗女王屈服",
+   "lib": "主库",
+   "issue": "机检错误:切入点缺少阶位：一、三（须覆盖一阶~最高阶全部连续阶位）",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "待修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P0",
+   "batch": 223,
+   "file": "产出\\批次223\\黑兽-圣骑士长陷落.md",
+   "name": "黑兽-圣骑士长陷落",
+   "lib": "主库",
+   "issue": "机检错误:切入点缺少阶位：一、三（须覆盖一阶~最高阶全部连续阶位）",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "待修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P0",
+   "batch": 223,
+   "file": "产出\\批次223\\黑兽-侍从双堕.md",
+   "name": "黑兽-侍从双堕",
+   "lib": "主库",
+   "issue": "机检错误:切入点缺少阶位：一、三（须覆盖一阶~最高阶全部连续阶位）",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "待修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P0",
+   "batch": 223,
+   "file": "产出\\批次223\\黑兽-佣兵堕落.md",
+   "name": "黑兽-佣兵堕落",
+   "lib": "主库",
+   "issue": "机检错误:切入点缺少阶位：一、二、三（须覆盖一阶~最高阶全部连续阶位）",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "待修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P0",
+   "batch": 224,
+   "file": "产出\\批次224\\鬼泣.md",
+   "name": "鬼泣",
+   "lib": "主库",
+   "issue": "机检错误:切入点缺少阶位：二（须覆盖一阶~最高阶全部连续阶位）",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "待修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P0",
+   "batch": 224,
+   "file": "产出\\批次224\\黑兽-半精灵陷落.md",
+   "name": "黑兽-半精灵陷落",
+   "lib": "主库",
+   "issue": "机检错误:切入点缺少阶位：一、二、三（须覆盖一阶~最高阶全部连续阶位）",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "待修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P0",
+   "batch": 224,
+   "file": "产出\\批次224\\黑兽-七公主宴.md",
+   "name": "黑兽-七公主宴",
+   "lib": "主库",
+   "issue": "机检错误:切入点缺少阶位：一、二、三（须覆盖一阶~最高阶全部连续阶位）",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "待修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P0",
+   "batch": 224,
+   "file": "产出\\批次224\\黑兽-巫女凌辱.md",
+   "name": "黑兽-巫女凌辱",
+   "lib": "主库",
+   "issue": "机检错误:切入点缺少阶位：一、二、三（须覆盖一阶~最高阶全部连续阶位）",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "待修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P0",
+   "batch": 224,
+   "file": "产出\\批次224\\黑兽2-都城再陷.md",
+   "name": "黑兽2-都城再陷",
+   "lib": "主库",
+   "issue": "机检错误:切入点缺少阶位：一、二、三（须覆盖一阶~最高阶全部连续阶位）",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "待修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P0",
+   "batch": 225,
+   "file": "产出\\批次225\\对魔忍阿莎姬-最强陷落.md",
+   "name": "对魔忍阿莎姬-最强陷落",
+   "lib": "主库",
+   "issue": "机检错误:切入点缺少阶位：一、二、三（须覆盖一阶~最高阶全部连续阶位）",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "待修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P0",
+   "batch": 227,
+   "file": "产出\\批次227\\钢铁魔女安妮罗泽-触手侵袭.md",
+   "name": "钢铁魔女安妮罗泽-触手侵袭",
+   "lib": "主库",
+   "issue": "机检错误:切入点缺少阶位：一、二、三（须覆盖一阶~最高阶全部连续阶位）",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "待修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P0",
+   "batch": 227,
+   "file": "产出\\批次227\\钢铁魔女安妮罗泽-堕落魔女.md",
+   "name": "钢铁魔女安妮罗泽-堕落魔女",
+   "lib": "主库",
+   "issue": "机检错误:切入点缺少阶位：一、二、三（须覆盖一阶~最高阶全部连续阶位）",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "待修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P0",
+   "batch": 227,
+   "file": "产出\\批次227\\钢铁魔女安妮罗泽-魔女陷落.md",
+   "name": "钢铁魔女安妮罗泽-魔女陷落",
+   "lib": "主库",
+   "issue": "机检错误:切入点缺少阶位：一、二、三（须覆盖一阶~最高阶全部连续阶位） | 警告:切入点疑似\"被封印\"式顶点解释",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "待修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P0",
+   "batch": 228,
+   "file": "产出\\批次228\\Muv-Luv-原初巢穴突入.md",
+   "name": "Muv-Luv-原初巢穴突入",
+   "lib": "主库",
+   "issue": "机检错误:切入点缺少阶位：一、二（须覆盖一阶~最高阶全部连续阶位）",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "待修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P0",
+   "batch": 229,
+   "file": "产出\\批次229\\命运石之门-SERN追击.md",
+   "name": "命运石之门-SERN追击",
+   "lib": "主库",
+   "issue": "机检错误:切入点缺少阶位：一、二（须覆盖一阶~最高阶全部连续阶位）",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "待修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P0",
+   "batch": 229,
+   "file": "产出\\批次229\\石世界-石化装置.md",
+   "name": "石世界-石化装置",
+   "lib": "主库",
+   "issue": "机检错误:切入点缺少阶位：一（须覆盖一阶~最高阶全部连续阶位）",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "待修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P0",
+   "batch": 229,
+   "file": "产出\\批次229\\远星号（Starsector）.md",
+   "name": "远星号（Starsector）",
+   "lib": "主库",
+   "issue": "机检错误:切入点缺少阶位：一、二、四（须覆盖一阶~最高阶全部连续阶位） | 警告:切入点疑似\"被封印\"式顶点解释",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "待修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P0",
+   "batch": 230,
+   "file": "产出\\批次230\\史上最强弟子兼一：达人激突.md",
+   "name": "史上最强弟子兼一：达人激突",
+   "lib": "主库",
+   "issue": "机检错误:切入点缺少阶位：一、二（须覆盖一阶~最高阶全部连续阶位） | 警告:来源链接 0 条 < 3；切入点疑似\"被封印\"式顶点解释",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "待修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P0",
+   "batch": 230,
+   "file": "产出\\批次230\\午夜凶铃（小说环界版）.md",
+   "name": "午夜凶铃（小说环界版）",
+   "lib": "主库",
+   "issue": "机检错误:切入点缺少阶位：一、二、三、四、五（须覆盖一阶~最高阶全部连续阶位） | 警告:切入点疑似\"被封印\"式顶点解释",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "待修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P0",
+   "batch": 230,
+   "file": "产出\\批次230\\Ben 10：终极异形（Ultimate Alien）.md",
+   "name": "Ben 10：终极异形（Ultimate Alien）",
+   "lib": "主库",
+   "issue": "机检错误:切入点缺少阶位：一、二、三（须覆盖一阶~最高阶全部连续阶位） | 警告:切入点疑似\"被封印\"式顶点解释",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "待修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P0",
+   "batch": 234,
+   "file": "产出\\批次234\\対魔忍深渊侵蚀-阿莎姬深渊化.md",
+   "name": "対魔忍深渊侵蚀-阿莎姬深渊化",
+   "lib": "主库",
+   "issue": "机检错误:切入点缺少阶位：一、二、三、四、五（须覆盖一阶~最高阶全部连续阶位） | 警告:切入点疑似\"被封印\"式顶点解释",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "待修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P0",
+   "batch": 234,
+   "file": "产出\\批次234\\対魔忍深渊侵蚀-雪风先驱.md",
+   "name": "対魔忍深渊侵蚀-雪风先驱",
+   "lib": "主库",
+   "issue": "机检错误:切入点缺少阶位：一、二、三、四、五（须覆盖一阶~最高阶全部连续阶位） | 警告:切入点疑似\"被封印\"式顶点解释",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "待修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P0",
+   "batch": 236,
+   "file": "产出\\批次236\\対魔忍RPG-深渊入侵.md",
+   "name": "対魔忍RPG-深渊入侵",
+   "lib": "主库",
+   "issue": "机检错误:切入点缺少阶位：一、二、三（须覆盖一阶~最高阶全部连续阶位） | 灌水标记:【再补",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "待修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P0",
+   "batch": 236,
+   "file": "产出\\批次236\\対魔忍RPG-最终决战.md",
+   "name": "対魔忍RPG-最终决战",
+   "lib": "主库",
+   "issue": "机检错误:切入点缺少阶位：一、二、三（须覆盖一阶~最高阶全部连续阶位）",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "待修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P0",
+   "batch": 236,
+   "file": "产出\\批次236\\黑兽帝国终焉-帝国建立.md",
+   "name": "黑兽帝国终焉-帝国建立",
+   "lib": "主库",
+   "issue": "机检错误:切入点缺少阶位：一、二、四（须覆盖一阶~最高阶全部连续阶位） | 警告:切入点疑似\"被封印\"式顶点解释",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "待修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P0",
+   "batch": 236,
+   "file": "产出\\批次236\\黑兽帝国终焉-神格降临.md",
+   "name": "黑兽帝国终焉-神格降临",
+   "lib": "主库",
+   "issue": "机检错误:切入点缺少阶位：一、二、三、四、五（须覆盖一阶~最高阶全部连续阶位） | 警告:切入点疑似\"被封印\"式顶点解释",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "待修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P0",
+   "batch": 237,
+   "file": "产出\\批次237\\対魔忍RPG-对魔忍全堕.md",
+   "name": "対魔忍RPG-对魔忍全堕",
+   "lib": "主库",
+   "issue": "机检错误:切入点缺少阶位：一、二、三、四（须覆盖一阶~最高阶全部连续阶位）",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "待修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P0",
+   "batch": 237,
+   "file": "产出\\批次237\\黑暗圣经深渊篇-完全降临.md",
+   "name": "黑暗圣经深渊篇-完全降临",
+   "lib": "主库",
+   "issue": "机检错误:切入点缺少阶位：一、二、三、四（须覆盖一阶~最高阶全部连续阶位）",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "待修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P0",
+   "batch": 237,
+   "file": "产出\\批次237\\黑兽帝国终焉-公主军团.md",
+   "name": "黑兽帝国终焉-公主军团",
+   "lib": "主库",
+   "issue": "机检错误:切入点缺少阶位：一、二、三、四、五（须覆盖一阶~最高阶全部连续阶位）",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "待修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P0",
+   "batch": 238,
+   "file": "产出\\批次238\\黑暗圣经深渊篇-城市沦陷.md",
+   "name": "黑暗圣经深渊篇-城市沦陷",
+   "lib": "主库",
+   "issue": "机检错误:切入点缺少阶位：一、二、三、四（须覆盖一阶~最高阶全部连续阶位）",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "待修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P0",
+   "batch": 238,
+   "file": "产出\\批次238\\黑暗圣经深渊篇-封印仪式.md",
+   "name": "黑暗圣经深渊篇-封印仪式",
+   "lib": "主库",
+   "issue": "机检错误:切入点缺少阶位：一、二、三、四（须覆盖一阶~最高阶全部连续阶位）",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "待修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P0",
+   "batch": 238,
+   "file": "产出\\批次238\\黑兽帝国终焉-世代繁衍.md",
+   "name": "黑兽帝国终焉-世代繁衍",
+   "lib": "主库",
+   "issue": "机检错误:切入点缺少阶位：一、二、三、四、五（须覆盖一阶~最高阶全部连续阶位）",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "待修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P0",
+   "batch": 238,
+   "file": "产出\\批次238\\黑兽帝国终焉-诸神黄昏.md",
+   "name": "黑兽帝国终焉-诸神黄昏",
+   "lib": "主库",
+   "issue": "机检错误:切入点缺少阶位：一、二、三、四、五（须覆盖一阶~最高阶全部连续阶位）",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "待修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P0",
+   "batch": 238,
+   "file": "产出\\批次238\\黑兽帝国终焉-最终决战.md",
+   "name": "黑兽帝国终焉-最终决战",
+   "lib": "主库",
+   "issue": "机检错误:切入点缺少阶位：一、二、三、四、五（须覆盖一阶~最高阶全部连续阶位）",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "待修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P0",
+   "batch": 239,
+   "file": "产出\\批次239\\魔界骑士深渊大门-英格丽德深渊化.md",
+   "name": "魔界骑士深渊大门-英格丽德深渊化",
+   "lib": "主库",
+   "issue": "机检错误:切入点缺少阶位：一、二、三、四、五（须覆盖一阶~最高阶全部连续阶位）",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "待修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P0",
+   "batch": 240,
+   "file": "产出\\批次240\\剑星-天使会堂.md",
+   "name": "剑星-天使会堂",
+   "lib": "主库",
+   "issue": "机检错误:切入点缺少阶位：一、二、三、四（须覆盖一阶~最高阶全部连续阶位）",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "待修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P0",
+   "batch": 240,
+   "file": "产出\\批次240\\魔界骑士深渊大门-妹妹陷落.md",
+   "name": "魔界骑士深渊大门-妹妹陷落",
+   "lib": "主库",
+   "issue": "机检错误:切入点缺少阶位：一、二、三、四、五（须覆盖一阶~最高阶全部连续阶位） | 跨世界重复(组#262·3个世界共用)",
+   "hasCrossDup": true,
+   "crossGroupIds": [
+    262,
+    263
+   ],
+   "status": "待修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P0",
+   "batch": 240,
+   "file": "产出\\批次240\\魔界骑士深渊大门-魔界沦陷.md",
+   "name": "魔界骑士深渊大门-魔界沦陷",
+   "lib": "主库",
+   "issue": "机检错误:切入点缺少阶位：一、二、三、四、五（须覆盖一阶~最高阶全部连续阶位） | 跨世界重复(组#262·3个世界共用)",
+   "hasCrossDup": true,
+   "crossGroupIds": [
+    262,
+    263
+   ],
+   "status": "待修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P0",
+   "batch": 240,
+   "file": "产出\\批次240\\魔界骑士深渊大门-人界危机.md",
+   "name": "魔界骑士深渊大门-人界危机",
+   "lib": "主库",
+   "issue": "机检错误:切入点缺少阶位：一、二、三、四、五（须覆盖一阶~最高阶全部连续阶位） | 跨世界重复(组#262·3个世界共用)",
+   "hasCrossDup": true,
+   "crossGroupIds": [
+    262,
+    263
+   ],
+   "status": "待修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P0",
+   "batch": 240,
+   "file": "产出\\批次240\\闪乱神乐-阴阳师决战.md",
+   "name": "闪乱神乐-阴阳师决战",
+   "lib": "主库",
+   "issue": "机检错误:切入点缺少阶位：一、二、三、四（须覆盖一阶~最高阶全部连续阶位）",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "待修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P0",
+   "batch": 241,
+   "file": "产出\\批次241\\命运石之门-Steins Gate.md",
+   "name": "命运石之门-Steins Gate",
+   "lib": "主库",
+   "issue": "机检错误:切入点缺少阶位：一、二、三、四（须覆盖一阶~最高阶全部连续阶位）",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "待修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P0",
+   "batch": 241,
+   "file": "产出\\批次241\\魔界骑士深渊大门-骑士挣扎.md",
+   "name": "魔界骑士深渊大门-骑士挣扎",
+   "lib": "主库",
+   "issue": "机检错误:切入点缺少阶位：一、二、三、四、五（须覆盖一阶~最高阶全部连续阶位）",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "待修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P0",
+   "batch": 241,
+   "file": "产出\\批次241\\魔界骑士深渊大门-最终防线.md",
+   "name": "魔界骑士深渊大门-最终防线",
+   "lib": "主库",
+   "issue": "机检错误:切入点缺少阶位：一、二、三、四、五（须覆盖一阶~最高阶全部连续阶位）",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "待修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P0",
+   "batch": 241,
+   "file": "产出\\批次241\\石世界-WHY-MAN.md",
+   "name": "石世界-WHY-MAN",
+   "lib": "主库",
+   "issue": "机检错误:切入点缺少阶位：一、二、三、四（须覆盖一阶~最高阶全部连续阶位）",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "待修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P0",
    "batch": 241,
    "file": "产出\\批次241\\Muv-Luv-Alternative计划.md",
    "name": "Muv-Luv-Alternative计划",
    "lib": "主库",
-   "issue": "机检错误:剧情 9884 字 < 10000",
+   "issue": "机检错误:剧情 9884 字 < 10000/切入点缺少阶位：一、二、三、四（须覆盖一阶~最高阶全部连续阶位）",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "待修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P0",
+   "batch": 242,
+   "file": "产出\\批次242\\魔界骑士深渊大门-牺牲之门.md",
+   "name": "魔界骑士深渊大门-牺牲之门",
+   "lib": "主库",
+   "issue": "机检错误:切入点缺少阶位：一、二、三、四、五（须覆盖一阶~最高阶全部连续阶位） | 灌水标记:【再补",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "待修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P0",
+   "batch": 242,
+   "file": "产出\\批次242\\淫妖虫母巢觉醒-铃音融合.md",
+   "name": "淫妖虫母巢觉醒-铃音融合",
+   "lib": "主库",
+   "issue": "机检错误:切入点缺少阶位：一、二、三、四、五（须覆盖一阶~最高阶全部连续阶位）",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "待修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P0",
+   "batch": 242,
+   "file": "产出\\批次242\\淫妖虫母巢觉醒-女皇诞生.md",
+   "name": "淫妖虫母巢觉醒-女皇诞生",
+   "lib": "主库",
+   "issue": "机检错误:切入点缺少阶位：一、二、三、四、五（须覆盖一阶~最高阶全部连续阶位）",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "待修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P0",
+   "batch": 243,
+   "file": "产出\\批次243\\史上最强弟子兼一：久远的落日.md",
+   "name": "史上最强弟子兼一：久远的落日",
+   "lib": "主库",
+   "issue": "机检错误:切入点缺少阶位：一、二、三、四（须覆盖一阶~最高阶全部连续阶位）",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "待修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P0",
+   "batch": 243,
+   "file": "产出\\批次243\\淫妖虫母巢觉醒-城市感染.md",
+   "name": "淫妖虫母巢觉醒-城市感染",
+   "lib": "主库",
+   "issue": "机检错误:切入点缺少阶位：一、二、三、四、五（须覆盖一阶~最高阶全部连续阶位）",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "待修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P0",
+   "batch": 243,
+   "file": "产出\\批次243\\淫妖虫母巢觉醒-退魔师全灭.md",
+   "name": "淫妖虫母巢觉醒-退魔师全灭",
+   "lib": "主库",
+   "issue": "机检错误:切入点缺少阶位：一、二、三、四、五（须覆盖一阶~最高阶全部连续阶位）",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "待修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P0",
+   "batch": 243,
+   "file": "产出\\批次243\\Ben 10：大刚降临（Diagon Arc）.md",
+   "name": "Ben 10：大刚降临（Diagon Arc）",
+   "lib": "主库",
+   "issue": "机检错误:切入点缺少阶位：一、二、三、四（须覆盖一阶~最高阶全部连续阶位）",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "待修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P0",
+   "batch": 244,
+   "file": "产出\\批次244\\淫妖虫母巢觉醒-共生体.md",
+   "name": "淫妖虫母巢觉醒-共生体",
+   "lib": "主库",
+   "issue": "机检错误:切入点缺少阶位：一、二、三、四（须覆盖一阶~最高阶全部连续阶位）",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "待修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P0",
+   "batch": 244,
+   "file": "产出\\批次244\\淫妖虫母巢觉醒-母巢核心.md",
+   "name": "淫妖虫母巢觉醒-母巢核心",
+   "lib": "主库",
+   "issue": "机检错误:切入点缺少阶位：一、二、三、四（须覆盖一阶~最高阶全部连续阶位）",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "待修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P0",
+   "batch": 244,
+   "file": "产出\\批次244\\淫妖虫母巢觉醒-最终选择.md",
+   "name": "淫妖虫母巢觉醒-最终选择",
+   "lib": "主库",
+   "issue": "机检错误:切入点缺少阶位：一、二、三、四（须覆盖一阶~最高阶全部连续阶位）",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "待修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P0",
+   "batch": 245,
+   "file": "产出\\批次245\\姫骑士诸神黄昏-姐妹分离.md",
+   "name": "姫骑士诸神黄昏-姐妹分离",
+   "lib": "主库",
+   "issue": "机检错误:切入点缺少阶位：一、二、三、四（须覆盖一阶~最高阶全部连续阶位）",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "待修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P0",
+   "batch": 245,
+   "file": "产出\\批次245\\姫骑士诸神黄昏-神殿仪式.md",
+   "name": "姫骑士诸神黄昏-神殿仪式",
+   "lib": "主库",
+   "issue": "机检错误:切入点缺少阶位：一、二、三、四（须覆盖一阶~最高阶全部连续阶位）",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "待修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P0",
+   "batch": 245,
+   "file": "产出\\批次245\\姫骑士诸神黄昏-信仰崩塌.md",
+   "name": "姫骑士诸神黄昏-信仰崩塌",
+   "lib": "主库",
+   "issue": "机检错误:切入点缺少阶位：一、二、三、四（须覆盖一阶~最高阶全部连续阶位）",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "待修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P0",
+   "batch": 246,
+   "file": "产出\\批次246\\钢铁魔女虚空战争-安妮罗泽虚空化.md",
+   "name": "钢铁魔女虚空战争-安妮罗泽虚空化",
+   "lib": "主库",
+   "issue": "机检错误:切入点缺少阶位：一、二、三、四（须覆盖一阶~最高阶全部连续阶位） | 跨世界重复(组#266·8个世界共用)",
+   "hasCrossDup": true,
+   "crossGroupIds": [
+    266
+   ],
+   "status": "待修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P0",
+   "batch": 246,
+   "file": "产出\\批次246\\钢铁魔女虚空战争-维度裂隙.md",
+   "name": "钢铁魔女虚空战争-维度裂隙",
+   "lib": "主库",
+   "issue": "机检错误:切入点缺少阶位：一、二、三、四（须覆盖一阶~最高阶全部连续阶位） | 跨世界重复(组#266·8个世界共用)",
+   "hasCrossDup": true,
+   "crossGroupIds": [
+    266
+   ],
+   "status": "待修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P0",
+   "batch": 246,
+   "file": "产出\\批次246\\姫骑士诸神黄昏-弑神之战.md",
+   "name": "姫骑士诸神黄昏-弑神之战",
+   "lib": "主库",
+   "issue": "机检错误:切入点缺少阶位：一、二、三、四（须覆盖一阶~最高阶全部连续阶位）",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "待修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P0",
+   "batch": 246,
+   "file": "产出\\批次246\\姫骑士诸神黄昏-新神诞生.md",
+   "name": "姫骑士诸神黄昏-新神诞生",
+   "lib": "主库",
+   "issue": "机检错误:切入点缺少阶位：一、二、三、四（须覆盖一阶~最高阶全部连续阶位）",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "待修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P0",
+   "batch": 247,
+   "file": "产出\\批次247\\钢铁魔女虚空战争-魔女狩猎.md",
+   "name": "钢铁魔女虚空战争-魔女狩猎",
+   "lib": "主库",
+   "issue": "机检错误:切入点缺少阶位：一、二、三、四（须覆盖一阶~最高阶全部连续阶位） | 跨世界重复(组#266·8个世界共用)",
+   "hasCrossDup": true,
+   "crossGroupIds": [
+    266
+   ],
+   "status": "待修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P0",
+   "batch": 247,
+   "file": "产出\\批次247\\钢铁魔女虚空战争-维度崩塌.md",
+   "name": "钢铁魔女虚空战争-维度崩塌",
+   "lib": "主库",
+   "issue": "机检错误:切入点缺少阶位：一、二、三、四（须覆盖一阶~最高阶全部连续阶位） | 跨世界重复(组#266·8个世界共用)",
+   "hasCrossDup": true,
+   "crossGroupIds": [
+    266
+   ],
+   "status": "待修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P0",
+   "batch": 247,
+   "file": "产出\\批次247\\钢铁魔女虚空战争-协会沦陷.md",
+   "name": "钢铁魔女虚空战争-协会沦陷",
+   "lib": "主库",
+   "issue": "机检错误:切入点缺少阶位：一、二、三、四（须覆盖一阶~最高阶全部连续阶位） | 跨世界重复(组#266·8个世界共用)",
+   "hasCrossDup": true,
+   "crossGroupIds": [
+    266
+   ],
+   "status": "待修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P0",
+   "batch": 247,
+   "file": "产出\\批次247\\钢铁魔女虚空战争-虚空之心.md",
+   "name": "钢铁魔女虚空战争-虚空之心",
+   "lib": "主库",
+   "issue": "机检错误:切入点缺少阶位：一、二、三、四（须覆盖一阶~最高阶全部连续阶位） | 跨世界重复(组#266·8个世界共用)",
+   "hasCrossDup": true,
+   "crossGroupIds": [
+    266
+   ],
+   "status": "待修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P0",
+   "batch": 247,
+   "file": "产出\\批次247\\钢铁魔女虚空战争-最后的魔女.md",
+   "name": "钢铁魔女虚空战争-最后的魔女",
+   "lib": "主库",
+   "issue": "机检错误:切入点缺少阶位：一、二、三、四（须覆盖一阶~最高阶全部连续阶位） | 跨世界重复(组#266·8个世界共用)",
+   "hasCrossDup": true,
+   "crossGroupIds": [
+    266
+   ],
+   "status": "待修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P0",
+   "batch": 248,
+   "file": "产出\\批次248\\钢铁魔女虚空战争-新世界.md",
+   "name": "钢铁魔女虚空战争-新世界",
+   "lib": "主库",
+   "issue": "机检错误:切入点缺少阶位：一、二、三、四（须覆盖一阶~最高阶全部连续阶位） | 跨世界重复(组#266·8个世界共用)",
+   "hasCrossDup": true,
+   "crossGroupIds": [
+    266
+   ],
+   "status": "待修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P0",
+   "batch": 248,
+   "file": "产出\\批次248\\史上最强弟子兼一：暗之最终战.md",
+   "name": "史上最强弟子兼一：暗之最终战",
+   "lib": "主库",
+   "issue": "机检错误:切入点缺少阶位：一、二、三（须覆盖一阶~最高阶全部连续阶位）",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "待修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P0",
+   "batch": 248,
+   "file": "产出\\批次248\\Ben 10：全面进化（Time War）.md",
+   "name": "Ben 10：全面进化（Time War）",
+   "lib": "主库",
+   "issue": "机检错误:切入点缺少阶位：一、二、三、四（须覆盖一阶~最高阶全部连续阶位）",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "待修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P0",
+   "batch": 250,
+   "file": "产出\\批次250\\对魔忍（系列通用）.md",
+   "name": "对魔忍（系列通用）",
+   "lib": "主库",
+   "issue": "机检错误:切入点缺少阶位：一、二（须覆盖一阶~最高阶全部连续阶位）",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "待修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P0",
+   "batch": 250,
+   "file": "产出\\批次250\\巨乳女战士土下座催眠-魔法师沦陷.md",
+   "name": "巨乳女战士土下座催眠-魔法师沦陷",
+   "lib": "主库",
+   "issue": "机检错误:切入点缺少阶位：一（须覆盖一阶~最高阶全部连续阶位）",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "待修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P0",
+   "batch": 250,
+   "file": "产出\\批次250\\巨乳女战士土下座催眠-勇者羞辱.md",
+   "name": "巨乳女战士土下座催眠-勇者羞辱",
+   "lib": "主库",
+   "issue": "机检错误:切入点缺少阶位：一（须覆盖一阶~最高阶全部连续阶位）",
    "hasCrossDup": false,
    "crossGroupIds": [],
    "status": "待修复",
@@ -2505,7 +6372,7 @@
    "file": "产出\\批次251\\对魔忍雪风-母女再会.md",
    "name": "对魔忍雪风-母女再会",
    "lib": "主库",
-   "issue": "机检错误:剧情 8939 字 < 10000 | 跨世界重复(组#268·4个世界共用)",
+   "issue": "机检错误:剧情 8939 字 < 10000/切入点缺少阶位：一（须覆盖一阶~最高阶全部连续阶位） | 跨世界重复(组#268·4个世界共用)",
    "hasCrossDup": true,
    "crossGroupIds": [
     268,
@@ -2530,7 +6397,7 @@
    "file": "产出\\批次251\\对魔忍雪风-同伴双堕.md",
    "name": "对魔忍雪风-同伴双堕",
    "lib": "主库",
-   "issue": "机检错误:剧情 9563 字 < 10000 | 跨世界重复(组#268·4个世界共用)",
+   "issue": "机检错误:剧情 9563 字 < 10000/切入点缺少阶位：一（须覆盖一阶~最高阶全部连续阶位） | 跨世界重复(组#268·4个世界共用)",
    "hasCrossDup": true,
    "crossGroupIds": [
     268,
@@ -2555,7 +6422,7 @@
    "file": "产出\\批次251\\对魔忍雪风-新人堕落.md",
    "name": "对魔忍雪风-新人堕落",
    "lib": "主库",
-   "issue": "机检错误:剧情 9168 字 < 10000 | 跨世界重复(组#268·4个世界共用)",
+   "issue": "机检错误:剧情 9168 字 < 10000/切入点缺少阶位：一（须覆盖一阶~最高阶全部连续阶位） | 跨世界重复(组#268·4个世界共用)",
    "hasCrossDup": true,
    "crossGroupIds": [
     268,
@@ -2576,11 +6443,255 @@
   },
   {
    "priority": "P0",
+   "batch": 251,
+   "file": "产出\\批次251\\巨乳女战士土下座催眠-全队土下座.md",
+   "name": "巨乳女战士土下座催眠-全队土下座",
+   "lib": "主库",
+   "issue": "机检错误:切入点缺少阶位：一（须覆盖一阶~最高阶全部连续阶位） | 跨世界重复(组#282·3个世界共用)",
+   "hasCrossDup": true,
+   "crossGroupIds": [
+    282
+   ],
+   "status": "待修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P0",
+   "batch": 251,
+   "file": "产出\\批次251\\巨乳女战士土下座催眠-神官堕落.md",
+   "name": "巨乳女战士土下座催眠-神官堕落",
+   "lib": "主库",
+   "issue": "机检错误:切入点缺少阶位：一（须覆盖一阶~最高阶全部连续阶位）",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "待修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P0",
+   "batch": 252,
+   "file": "产出\\批次252\\对魔忍雪风2-彻底陷落.md",
+   "name": "对魔忍雪风2-彻底陷落",
+   "lib": "主库",
+   "issue": "机检错误:切入点缺少阶位：一、二（须覆盖一阶~最高阶全部连续阶位） | 跨世界重复(组#268·4个世界共用)",
+   "hasCrossDup": true,
+   "crossGroupIds": [
+    268,
+    269,
+    270,
+    271,
+    272,
+    273,
+    274,
+    275,
+    276,
+    277,
+    278
+   ],
+   "status": "待修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P0",
+   "batch": 252,
+   "file": "产出\\批次252\\姫骑士莉莉亚-公主陷落.md",
+   "name": "姫骑士莉莉亚-公主陷落",
+   "lib": "主库",
+   "issue": "机检错误:切入点缺少阶位：一（须覆盖一阶~最高阶全部连续阶位） | 跨世界重复(组#283·4个世界共用)",
+   "hasCrossDup": true,
+   "crossGroupIds": [
+    283,
+    284,
+    285,
+    286,
+    287
+   ],
+   "status": "待修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P0",
+   "batch": 252,
+   "file": "产出\\批次252\\姫骑士莉莉亚-妹妹堕落.md",
+   "name": "姫骑士莉莉亚-妹妹堕落",
+   "lib": "主库",
+   "issue": "机检错误:切入点缺少阶位：一（须覆盖一阶~最高阶全部连续阶位） | 跨世界重复(组#283·4个世界共用)",
+   "hasCrossDup": true,
+   "crossGroupIds": [
+    283,
+    284,
+    285,
+    286,
+    287,
+    282
+   ],
+   "status": "待修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P0",
+   "batch": 252,
+   "file": "产出\\批次252\\姫骑士莉莉亚-侍女沦陷.md",
+   "name": "姫骑士莉莉亚-侍女沦陷",
+   "lib": "主库",
+   "issue": "机检错误:切入点缺少阶位：一（须覆盖一阶~最高阶全部连续阶位） | 跨世界重复(组#283·4个世界共用)",
+   "hasCrossDup": true,
+   "crossGroupIds": [
+    283,
+    284,
+    285,
+    286,
+    287
+   ],
+   "status": "待修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P0",
+   "batch": 252,
+   "file": "产出\\批次252\\姫骑士莉莉亚-主仆双堕.md",
+   "name": "姫骑士莉莉亚-主仆双堕",
+   "lib": "主库",
+   "issue": "机检错误:切入点缺少阶位：一（须覆盖一阶~最高阶全部连续阶位） | 跨世界重复(组#283·4个世界共用)",
+   "hasCrossDup": true,
+   "crossGroupIds": [
+    283,
+    284,
+    285,
+    286,
+    287,
+    282
+   ],
+   "status": "待修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P0",
+   "batch": 257,
+   "file": "产出\\批次257\\巨乳公主催眠-骑士陷落.md",
+   "name": "巨乳公主催眠-骑士陷落",
+   "lib": "主库",
+   "issue": "机检错误:切入点缺少阶位：一（须覆盖一阶~最高阶全部连续阶位）",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "待修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P0",
+   "batch": 257,
+   "file": "产出\\批次257\\巨乳公主催眠-双堕王城.md",
+   "name": "巨乳公主催眠-双堕王城",
+   "lib": "主库",
+   "issue": "机检错误:切入点缺少阶位：一（须覆盖一阶~最高阶全部连续阶位）",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "待修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P0",
+   "batch": 257,
+   "file": "产出\\批次257\\巨乳公主催眠-王宫阴谋.md",
+   "name": "巨乳公主催眠-王宫阴谋",
+   "lib": "主库",
+   "issue": "机检错误:切入点缺少阶位：一（须覆盖一阶~最高阶全部连续阶位）",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "待修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P0",
+   "batch": 257,
+   "file": "产出\\批次257\\史上最强弟子兼一：D of D 大赛.md",
+   "name": "史上最强弟子兼一：D of D 大赛",
+   "lib": "主库",
+   "issue": "机检错误:切入点缺少阶位：一、二（须覆盖一阶~最高阶全部连续阶位）",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "待修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P0",
+   "batch": 259,
+   "file": "产出\\批次259\\黑暗圣经新约-新篇开启.md",
+   "name": "黑暗圣经新约-新篇开启",
+   "lib": "主库",
+   "issue": "机检错误:切入点缺少阶位：一（须覆盖一阶~最高阶全部连续阶位）",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "待修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P0",
+   "batch": 259,
+   "file": "产出\\批次259\\黑暗圣经新约-绚香堕落.md",
+   "name": "黑暗圣经新约-绚香堕落",
+   "lib": "主库",
+   "issue": "机检错误:切入点缺少阶位：一（须覆盖一阶~最高阶全部连续阶位）",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "待修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P0",
+   "batch": 260,
+   "file": "产出\\批次260\\黑暗圣经起源-往昔悲剧.md",
+   "name": "黑暗圣经起源-往昔悲剧",
+   "lib": "主库",
+   "issue": "机检错误:切入点缺少阶位：一（须覆盖一阶~最高阶全部连续阶位）",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "待修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P0",
+   "batch": 262,
+   "file": "产出\\批次262\\监狱战舰-完全服从.md",
+   "name": "监狱战舰-完全服从",
+   "lib": "主库",
+   "issue": "机检错误:切入点缺少阶位：一（须覆盖一阶~最高阶全部连续阶位）",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "待修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P0",
    "batch": 265,
    "file": "产出\\批次265\\奴隶区-完全服从.md",
    "name": "奴隶区-完全服从",
    "lib": "主库",
    "issue": "机检错误:剧情 9837 字 < 10000",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "待修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P0",
+   "batch": 266,
+   "file": "产出\\批次266\\石世界-科学王国.md",
+   "name": "石世界-科学王国",
+   "lib": "主库",
+   "issue": "机检错误:切入点缺少阶位：一（须覆盖一阶~最高阶全部连续阶位）",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "待修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P0",
+   "batch": 268,
+   "file": "产出\\批次268\\黑暗圣经3.md",
+   "name": "黑暗圣经3",
+   "lib": "主库",
+   "issue": "机检错误:切入点缺少阶位：一（须覆盖一阶~最高阶全部连续阶位）",
    "hasCrossDup": false,
    "crossGroupIds": [],
    "status": "待修复",
@@ -2818,18 +6929,6 @@
    "crossGroupIds": [],
    "status": "待修复",
    "fixedMark": false
-  },
-  {
-   "priority": "P0",
-   "batch": 527,
-   "file": "产出\\批次527\\传送门.md",
-   "name": "传送门",
-   "lib": "主库",
-   "issue": "机检错误:剧情 7216 字 < 10000",
-   "hasCrossDup": false,
-   "crossGroupIds": [],
-   "status": "已修复",
-   "fixedMark": true
   },
   {
    "priority": "P0",
@@ -3915,6 +8014,54 @@
   },
   {
    "priority": "P0",
+   "batch": 848,
+   "file": "产出\\批次848\\廓晋.md",
+   "name": "廓晋",
+   "lib": "主库",
+   "issue": "机检错误:切入点缺少阶位：三（须覆盖一阶~最高阶全部连续阶位）",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "待修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P0",
+   "batch": 849,
+   "file": "产出\\批次849\\草芥称王.md",
+   "name": "草芥称王",
+   "lib": "主库",
+   "issue": "机检错误:切入点缺少阶位：三（须覆盖一阶~最高阶全部连续阶位）",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "待修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P0",
+   "batch": 849,
+   "file": "产出\\批次849\\戾天子.md",
+   "name": "戾天子",
+   "lib": "主库",
+   "issue": "机检错误:切入点缺少阶位：三（须覆盖一阶~最高阶全部连续阶位）",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "待修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P0",
+   "batch": 849,
+   "file": "产出\\批次849\\五代风华.md",
+   "name": "五代风华",
+   "lib": "主库",
+   "issue": "机检错误:切入点缺少阶位：三（须覆盖一阶~最高阶全部连续阶位）",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "待修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P0",
    "batch": 853,
    "file": "产出\\批次853\\废土边境检查官.md",
    "name": "废土边境检查官",
@@ -4050,18 +8197,6 @@
   },
   {
    "priority": "P1",
-   "batch": 18,
-   "file": "产出\\批次18\\星球大战II.md",
-   "name": "星球大战II",
-   "lib": "主库",
-   "issue": "灌水标记:跨媒介流行作品、可被契约者切入的完整任务世界",
-   "hasCrossDup": false,
-   "crossGroupIds": [],
-   "status": "待修复",
-   "fixedMark": false
-  },
-  {
-   "priority": "P1",
    "batch": 22,
    "file": "产出\\批次22\\龙珠Z.md",
    "name": "龙珠Z",
@@ -4102,20 +8237,6 @@
   {
    "priority": "P1",
    "batch": 47,
-   "file": "产出\\批次47\\侠盗一号：星球大战外传.md",
-   "name": "侠盗一号：星球大战外传",
-   "lib": "主库",
-   "issue": "跨世界重复(组#654·4个世界共用)",
-   "hasCrossDup": true,
-   "crossGroupIds": [
-    654
-   ],
-   "status": "待修复",
-   "fixedMark": false
-  },
-  {
-   "priority": "P1",
-   "batch": 47,
    "file": "产出\\批次47\\星球大战IX：天行者崛起.md",
    "name": "星球大战IX：天行者崛起",
    "lib": "主库",
@@ -4123,49 +8244,6 @@
    "hasCrossDup": true,
    "crossGroupIds": [
     654
-   ],
-   "status": "待修复",
-   "fixedMark": false
-  },
-  {
-   "priority": "P1",
-   "batch": 47,
-   "file": "产出\\批次47\\游侠索罗：星球大战外传.md",
-   "name": "游侠索罗：星球大战外传",
-   "lib": "主库",
-   "issue": "跨世界重复(组#654·4个世界共用)",
-   "hasCrossDup": true,
-   "crossGroupIds": [
-    654
-   ],
-   "status": "待修复",
-   "fixedMark": false
-  },
-  {
-   "priority": "P1",
-   "batch": 47,
-   "file": "产出\\批次47\\最终幻想11.md",
-   "name": "最终幻想11",
-   "lib": "主库",
-   "issue": "跨世界重复(组#654·4个世界共用)",
-   "hasCrossDup": true,
-   "crossGroupIds": [
-    654
-   ],
-   "status": "待修复",
-   "fixedMark": false
-  },
-  {
-   "priority": "P1",
-   "batch": 54,
-   "file": "产出\\批次54\\机动战士高达0079.md",
-   "name": "机动战士高达0079",
-   "lib": "主库",
-   "issue": "跨世界重复(组#112·3个世界共用)",
-   "hasCrossDup": true,
-   "crossGroupIds": [
-    112,
-    116
    ],
    "status": "待修复",
    "fixedMark": false
@@ -4256,18 +8334,6 @@
   },
   {
    "priority": "P1",
-   "batch": 123,
-   "file": "产出\\批次123\\剧场版：绝对LIVE!!!!!!.md",
-   "name": "剧场版：绝对LIVE!!!!!!",
-   "lib": "主库",
-   "issue": "灌水标记:【补密",
-   "hasCrossDup": false,
-   "crossGroupIds": [],
-   "status": "待修复",
-   "fixedMark": false
-  },
-  {
-   "priority": "P1",
    "batch": 125,
    "file": "产出\\批次125\\敦刻尔克.md",
    "name": "敦刻尔克",
@@ -4307,142 +8373,6 @@
     90,
     91
    ],
-   "status": "待修复",
-   "fixedMark": false
-  },
-  {
-   "priority": "P1",
-   "batch": 125,
-   "file": "产出\\批次125\\火焰之纹章：纹章之谜.md",
-   "name": "火焰之纹章：纹章之谜",
-   "lib": "主库",
-   "issue": "跨世界重复(组#61·3个世界共用)",
-   "hasCrossDup": true,
-   "crossGroupIds": [
-    61,
-    62,
-    63,
-    64,
-    65,
-    66,
-    67,
-    68,
-    69,
-    70,
-    71,
-    72,
-    73,
-    74,
-    75,
-    76,
-    77,
-    78,
-    79,
-    80,
-    81,
-    82,
-    83,
-    84,
-    85,
-    86,
-    87,
-    88,
-    89,
-    90,
-    91
-   ],
-   "status": "待修复",
-   "fixedMark": false
-  },
-  {
-   "priority": "P1",
-   "batch": 125,
-   "file": "产出\\批次125\\火焰之纹章外传：Gaiden.md",
-   "name": "火焰之纹章外传：Gaiden",
-   "lib": "主库",
-   "issue": "跨世界重复(组#61·3个世界共用)",
-   "hasCrossDup": true,
-   "crossGroupIds": [
-    61,
-    62,
-    63,
-    64,
-    65,
-    66,
-    67,
-    68,
-    69,
-    70,
-    71,
-    72,
-    73,
-    74,
-    75,
-    76,
-    77,
-    78,
-    79,
-    80,
-    81,
-    82,
-    83,
-    84,
-    85,
-    86,
-    87,
-    88,
-    89,
-    90,
-    91
-   ],
-   "status": "待修复",
-   "fixedMark": false
-  },
-  {
-   "priority": "P1",
-   "batch": 126,
-   "file": "产出\\批次126\\火焰之纹章：封印之剑.md",
-   "name": "火焰之纹章：封印之剑",
-   "lib": "主库",
-   "issue": "灌水标记:可被契约者切入的完整任务世界",
-   "hasCrossDup": false,
-   "crossGroupIds": [],
-   "status": "待修复",
-   "fixedMark": false
-  },
-  {
-   "priority": "P1",
-   "batch": 132,
-   "file": "产出\\批次132\\火焰之纹章：风花雪月.md",
-   "name": "火焰之纹章：风花雪月",
-   "lib": "主库",
-   "issue": "灌水标记:【补密",
-   "hasCrossDup": false,
-   "crossGroupIds": [],
-   "status": "待修复",
-   "fixedMark": false
-  },
-  {
-   "priority": "P1",
-   "batch": 132,
-   "file": "产出\\批次132\\火焰之纹章：Engage.md",
-   "name": "火焰之纹章：Engage",
-   "lib": "主库",
-   "issue": "灌水标记:【补密",
-   "hasCrossDup": false,
-   "crossGroupIds": [],
-   "status": "待修复",
-   "fixedMark": false
-  },
-  {
-   "priority": "P1",
-   "batch": 132,
-   "file": "产出\\批次132\\火焰之纹章无双.md",
-   "name": "火焰之纹章无双",
-   "lib": "主库",
-   "issue": "灌水标记:【补密",
-   "hasCrossDup": false,
-   "crossGroupIds": [],
    "status": "待修复",
    "fixedMark": false
   },
@@ -4577,18 +8507,6 @@
   },
   {
    "priority": "P1",
-   "batch": 153,
-   "file": "产出\\批次153\\魔兽世界：奥妮克希亚的巢穴（重制）.md",
-   "name": "魔兽世界：奥妮克希亚的巢穴（重制）",
-   "lib": "主库",
-   "issue": "灌水标记:【再补",
-   "hasCrossDup": false,
-   "crossGroupIds": [],
-   "status": "待修复",
-   "fixedMark": false
-  },
-  {
-   "priority": "P1",
    "batch": 155,
    "file": "产出\\批次155\\宝可梦 晶灿钻石.md",
    "name": "宝可梦 晶灿钻石",
@@ -4625,66 +8543,6 @@
   },
   {
    "priority": "P1",
-   "batch": 164,
-   "file": "产出\\批次164\\魔兽世界：解放安德麦.md",
-   "name": "魔兽世界：解放安德麦",
-   "lib": "主库",
-   "issue": "灌水标记:【再补",
-   "hasCrossDup": false,
-   "crossGroupIds": [],
-   "status": "待修复",
-   "fixedMark": false
-  },
-  {
-   "priority": "P1",
-   "batch": 167,
-   "file": "产出\\批次167\\宝可梦：最佳愿望.md",
-   "name": "宝可梦：最佳愿望",
-   "lib": "主库",
-   "issue": "灌水标记:【细目",
-   "hasCrossDup": false,
-   "crossGroupIds": [],
-   "status": "待修复",
-   "fixedMark": false
-  },
-  {
-   "priority": "P1",
-   "batch": 168,
-   "file": "产出\\批次168\\宝可梦 对战革命.md",
-   "name": "宝可梦 对战革命",
-   "lib": "主库",
-   "issue": "灌水标记:【细目",
-   "hasCrossDup": false,
-   "crossGroupIds": [],
-   "status": "待修复",
-   "fixedMark": false
-  },
-  {
-   "priority": "P1",
-   "batch": 168,
-   "file": "产出\\批次168\\宝可梦：地平线.md",
-   "name": "宝可梦：地平线",
-   "lib": "主库",
-   "issue": "灌水标记:【细目",
-   "hasCrossDup": false,
-   "crossGroupIds": [],
-   "status": "待修复",
-   "fixedMark": false
-  },
-  {
-   "priority": "P1",
-   "batch": 168,
-   "file": "产出\\批次168\\宝可梦：旅途.md",
-   "name": "宝可梦：旅途",
-   "lib": "主库",
-   "issue": "灌水标记:【细目",
-   "hasCrossDup": false,
-   "crossGroupIds": [],
-   "status": "待修复",
-   "fixedMark": false
-  },
-  {
-   "priority": "P1",
    "batch": 207,
    "file": "产出\\批次207\\黑夜君临5：血战.md",
    "name": "黑夜君临5：血战",
@@ -4692,62 +8550,6 @@
    "issue": "灌水标记:【叙事执行细则",
    "hasCrossDup": false,
    "crossGroupIds": [],
-   "status": "待修复",
-   "fixedMark": false
-  },
-  {
-   "priority": "P1",
-   "batch": 221,
-   "file": "产出\\批次221\\装甲骑女伊莉丝-妹妹援救.md",
-   "name": "装甲骑女伊莉丝-妹妹援救",
-   "lib": "主库",
-   "issue": "跨世界重复(组#256·4个世界共用)",
-   "hasCrossDup": true,
-   "crossGroupIds": [
-    256
-   ],
-   "status": "待修复",
-   "fixedMark": false
-  },
-  {
-   "priority": "P1",
-   "batch": 221,
-   "file": "产出\\批次221\\装甲骑女伊莉丝-魔铠融合.md",
-   "name": "装甲骑女伊莉丝-魔铠融合",
-   "lib": "主库",
-   "issue": "跨世界重复(组#256·4个世界共用)",
-   "hasCrossDup": true,
-   "crossGroupIds": [
-    256
-   ],
-   "status": "待修复",
-   "fixedMark": false
-  },
-  {
-   "priority": "P1",
-   "batch": 221,
-   "file": "产出\\批次221\\装甲骑女伊莉丝-骑女沦陷.md",
-   "name": "装甲骑女伊莉丝-骑女沦陷",
-   "lib": "主库",
-   "issue": "跨世界重复(组#256·4个世界共用)",
-   "hasCrossDup": true,
-   "crossGroupIds": [
-    256
-   ],
-   "status": "待修复",
-   "fixedMark": false
-  },
-  {
-   "priority": "P1",
-   "batch": 221,
-   "file": "产出\\批次221\\装甲骑女伊莉丝-双堕深渊.md",
-   "name": "装甲骑女伊莉丝-双堕深渊",
-   "lib": "主库",
-   "issue": "跨世界重复(组#256·4个世界共用)",
-   "hasCrossDup": true,
-   "crossGroupIds": [
-    256
-   ],
    "status": "待修复",
    "fixedMark": false
   },
@@ -4777,63 +8579,6 @@
   },
   {
    "priority": "P1",
-   "batch": 236,
-   "file": "产出\\批次236\\対魔忍RPG-深渊入侵.md",
-   "name": "対魔忍RPG-深渊入侵",
-   "lib": "主库",
-   "issue": "灌水标记:【再补",
-   "hasCrossDup": false,
-   "crossGroupIds": [],
-   "status": "待修复",
-   "fixedMark": false
-  },
-  {
-   "priority": "P1",
-   "batch": 240,
-   "file": "产出\\批次240\\魔界骑士深渊大门-妹妹陷落.md",
-   "name": "魔界骑士深渊大门-妹妹陷落",
-   "lib": "主库",
-   "issue": "跨世界重复(组#262·3个世界共用)",
-   "hasCrossDup": true,
-   "crossGroupIds": [
-    262,
-    263
-   ],
-   "status": "待修复",
-   "fixedMark": false
-  },
-  {
-   "priority": "P1",
-   "batch": 240,
-   "file": "产出\\批次240\\魔界骑士深渊大门-魔界沦陷.md",
-   "name": "魔界骑士深渊大门-魔界沦陷",
-   "lib": "主库",
-   "issue": "跨世界重复(组#262·3个世界共用)",
-   "hasCrossDup": true,
-   "crossGroupIds": [
-    262,
-    263
-   ],
-   "status": "待修复",
-   "fixedMark": false
-  },
-  {
-   "priority": "P1",
-   "batch": 240,
-   "file": "产出\\批次240\\魔界骑士深渊大门-人界危机.md",
-   "name": "魔界骑士深渊大门-人界危机",
-   "lib": "主库",
-   "issue": "跨世界重复(组#262·3个世界共用)",
-   "hasCrossDup": true,
-   "crossGroupIds": [
-    262,
-    263
-   ],
-   "status": "待修复",
-   "fixedMark": false
-  },
-  {
-   "priority": "P1",
    "batch": 242,
    "file": "产出\\批次242\\民俗-封神遗冢.md",
    "name": "民俗-封神遗冢",
@@ -4841,242 +8586,6 @@
    "issue": "灌水标记:【再补",
    "hasCrossDup": false,
    "crossGroupIds": [],
-   "status": "待修复",
-   "fixedMark": false
-  },
-  {
-   "priority": "P1",
-   "batch": 242,
-   "file": "产出\\批次242\\魔界骑士深渊大门-牺牲之门.md",
-   "name": "魔界骑士深渊大门-牺牲之门",
-   "lib": "主库",
-   "issue": "灌水标记:【再补",
-   "hasCrossDup": false,
-   "crossGroupIds": [],
-   "status": "待修复",
-   "fixedMark": false
-  },
-  {
-   "priority": "P1",
-   "batch": 246,
-   "file": "产出\\批次246\\钢铁魔女虚空战争-安妮罗泽虚空化.md",
-   "name": "钢铁魔女虚空战争-安妮罗泽虚空化",
-   "lib": "主库",
-   "issue": "跨世界重复(组#266·8个世界共用)",
-   "hasCrossDup": true,
-   "crossGroupIds": [
-    266
-   ],
-   "status": "待修复",
-   "fixedMark": false
-  },
-  {
-   "priority": "P1",
-   "batch": 246,
-   "file": "产出\\批次246\\钢铁魔女虚空战争-维度裂隙.md",
-   "name": "钢铁魔女虚空战争-维度裂隙",
-   "lib": "主库",
-   "issue": "跨世界重复(组#266·8个世界共用)",
-   "hasCrossDup": true,
-   "crossGroupIds": [
-    266
-   ],
-   "status": "待修复",
-   "fixedMark": false
-  },
-  {
-   "priority": "P1",
-   "batch": 247,
-   "file": "产出\\批次247\\钢铁魔女虚空战争-魔女狩猎.md",
-   "name": "钢铁魔女虚空战争-魔女狩猎",
-   "lib": "主库",
-   "issue": "跨世界重复(组#266·8个世界共用)",
-   "hasCrossDup": true,
-   "crossGroupIds": [
-    266
-   ],
-   "status": "待修复",
-   "fixedMark": false
-  },
-  {
-   "priority": "P1",
-   "batch": 247,
-   "file": "产出\\批次247\\钢铁魔女虚空战争-维度崩塌.md",
-   "name": "钢铁魔女虚空战争-维度崩塌",
-   "lib": "主库",
-   "issue": "跨世界重复(组#266·8个世界共用)",
-   "hasCrossDup": true,
-   "crossGroupIds": [
-    266
-   ],
-   "status": "待修复",
-   "fixedMark": false
-  },
-  {
-   "priority": "P1",
-   "batch": 247,
-   "file": "产出\\批次247\\钢铁魔女虚空战争-协会沦陷.md",
-   "name": "钢铁魔女虚空战争-协会沦陷",
-   "lib": "主库",
-   "issue": "跨世界重复(组#266·8个世界共用)",
-   "hasCrossDup": true,
-   "crossGroupIds": [
-    266
-   ],
-   "status": "待修复",
-   "fixedMark": false
-  },
-  {
-   "priority": "P1",
-   "batch": 247,
-   "file": "产出\\批次247\\钢铁魔女虚空战争-虚空之心.md",
-   "name": "钢铁魔女虚空战争-虚空之心",
-   "lib": "主库",
-   "issue": "跨世界重复(组#266·8个世界共用)",
-   "hasCrossDup": true,
-   "crossGroupIds": [
-    266
-   ],
-   "status": "待修复",
-   "fixedMark": false
-  },
-  {
-   "priority": "P1",
-   "batch": 247,
-   "file": "产出\\批次247\\钢铁魔女虚空战争-最后的魔女.md",
-   "name": "钢铁魔女虚空战争-最后的魔女",
-   "lib": "主库",
-   "issue": "跨世界重复(组#266·8个世界共用)",
-   "hasCrossDup": true,
-   "crossGroupIds": [
-    266
-   ],
-   "status": "待修复",
-   "fixedMark": false
-  },
-  {
-   "priority": "P1",
-   "batch": 248,
-   "file": "产出\\批次248\\钢铁魔女虚空战争-新世界.md",
-   "name": "钢铁魔女虚空战争-新世界",
-   "lib": "主库",
-   "issue": "跨世界重复(组#266·8个世界共用)",
-   "hasCrossDup": true,
-   "crossGroupIds": [
-    266
-   ],
-   "status": "待修复",
-   "fixedMark": false
-  },
-  {
-   "priority": "P1",
-   "batch": 251,
-   "file": "产出\\批次251\\巨乳女战士土下座催眠-全队土下座.md",
-   "name": "巨乳女战士土下座催眠-全队土下座",
-   "lib": "主库",
-   "issue": "跨世界重复(组#282·3个世界共用)",
-   "hasCrossDup": true,
-   "crossGroupIds": [
-    282
-   ],
-   "status": "待修复",
-   "fixedMark": false
-  },
-  {
-   "priority": "P1",
-   "batch": 252,
-   "file": "产出\\批次252\\对魔忍雪风2-彻底陷落.md",
-   "name": "对魔忍雪风2-彻底陷落",
-   "lib": "主库",
-   "issue": "跨世界重复(组#268·4个世界共用)",
-   "hasCrossDup": true,
-   "crossGroupIds": [
-    268,
-    269,
-    270,
-    271,
-    272,
-    273,
-    274,
-    275,
-    276,
-    277,
-    278
-   ],
-   "status": "待修复",
-   "fixedMark": false
-  },
-  {
-   "priority": "P1",
-   "batch": 252,
-   "file": "产出\\批次252\\姫骑士莉莉亚-公主陷落.md",
-   "name": "姫骑士莉莉亚-公主陷落",
-   "lib": "主库",
-   "issue": "跨世界重复(组#283·4个世界共用)",
-   "hasCrossDup": true,
-   "crossGroupIds": [
-    283,
-    284,
-    285,
-    286,
-    287
-   ],
-   "status": "待修复",
-   "fixedMark": false
-  },
-  {
-   "priority": "P1",
-   "batch": 252,
-   "file": "产出\\批次252\\姫骑士莉莉亚-妹妹堕落.md",
-   "name": "姫骑士莉莉亚-妹妹堕落",
-   "lib": "主库",
-   "issue": "跨世界重复(组#283·4个世界共用)",
-   "hasCrossDup": true,
-   "crossGroupIds": [
-    283,
-    284,
-    285,
-    286,
-    287,
-    282
-   ],
-   "status": "待修复",
-   "fixedMark": false
-  },
-  {
-   "priority": "P1",
-   "batch": 252,
-   "file": "产出\\批次252\\姫骑士莉莉亚-侍女沦陷.md",
-   "name": "姫骑士莉莉亚-侍女沦陷",
-   "lib": "主库",
-   "issue": "跨世界重复(组#283·4个世界共用)",
-   "hasCrossDup": true,
-   "crossGroupIds": [
-    283,
-    284,
-    285,
-    286,
-    287
-   ],
-   "status": "待修复",
-   "fixedMark": false
-  },
-  {
-   "priority": "P1",
-   "batch": 252,
-   "file": "产出\\批次252\\姫骑士莉莉亚-主仆双堕.md",
-   "name": "姫骑士莉莉亚-主仆双堕",
-   "lib": "主库",
-   "issue": "跨世界重复(组#283·4个世界共用)",
-   "hasCrossDup": true,
-   "crossGroupIds": [
-    283,
-    284,
-    285,
-    286,
-    287,
-    282
-   ],
    "status": "待修复",
    "fixedMark": false
   },
@@ -11950,15 +15459,51 @@
   },
   {
    "priority": "P2",
-   "batch": 38,
-   "file": "产出\\批次38\\黑暗之魂系列.md",
-   "name": "黑暗之魂系列",
+   "batch": 36,
+   "file": "产出\\批次36\\高達SEED.md",
+   "name": "高達SEED",
    "lib": "主库",
-   "issue": "警告:切入点疑似\"被封印\"式顶点解释",
+   "issue": "",
    "hasCrossDup": false,
    "crossGroupIds": [],
-   "status": "待修复",
-   "fixedMark": false
+   "status": "已修复",
+   "fixedMark": true
+  },
+  {
+   "priority": "P2",
+   "batch": 36,
+   "file": "产出\\批次36\\金刚狼1.md",
+   "name": "金刚狼1",
+   "lib": "主库",
+   "issue": "",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "已修复",
+   "fixedMark": true
+  },
+  {
+   "priority": "P2",
+   "batch": 36,
+   "file": "产出\\批次36\\金刚狼2.md",
+   "name": "金刚狼2",
+   "lib": "主库",
+   "issue": "",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "已修复",
+   "fixedMark": true
+  },
+  {
+   "priority": "P2",
+   "batch": 36,
+   "file": "产出\\批次36\\为美好的世界献上祝福.md",
+   "name": "为美好的世界献上祝福",
+   "lib": "主库",
+   "issue": "",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "已修复",
+   "fixedMark": true
   },
   {
    "priority": "P2",
@@ -11974,39 +15519,39 @@
   },
   {
    "priority": "P2",
-   "batch": 110,
-   "file": "产出\\批次110\\黑暗塔：电影版.md",
-   "name": "黑暗塔：电影版",
+   "batch": 95,
+   "file": "产出\\批次95\\林中小屋.md",
+   "name": "林中小屋",
    "lib": "主库",
-   "issue": "警告:切入点疑似\"被封印\"式顶点解释",
+   "issue": "",
    "hasCrossDup": false,
    "crossGroupIds": [],
-   "status": "待修复",
-   "fixedMark": false
+   "status": "已修复",
+   "fixedMark": true
   },
   {
    "priority": "P2",
-   "batch": 111,
-   "file": "产出\\批次111\\剧场版：起始的物语.md",
-   "name": "剧场版：起始的物语",
+   "batch": 95,
+   "file": "产出\\批次95\\人类清除计划.md",
+   "name": "人类清除计划",
    "lib": "主库",
-   "issue": "警告:切入点疑似\"被封印\"式顶点解释；切入点疑似\"被削弱\"式顶点解释",
+   "issue": "",
    "hasCrossDup": false,
    "crossGroupIds": [],
-   "status": "待修复",
-   "fixedMark": false
+   "status": "已修复",
+   "fixedMark": true
   },
   {
    "priority": "P2",
-   "batch": 112,
-   "file": "产出\\批次112\\剧场版：永远的物语.md",
-   "name": "剧场版：永远的物语",
+   "batch": 95,
+   "file": "产出\\批次95\\吸血鬼猎人D.md",
+   "name": "吸血鬼猎人D",
    "lib": "主库",
-   "issue": "警告:切入点疑似\"被封印\"式顶点解释；切入点疑似\"被削弱\"式顶点解释",
+   "issue": "",
    "hasCrossDup": false,
    "crossGroupIds": [],
-   "status": "待修复",
-   "fixedMark": false
+   "status": "已修复",
+   "fixedMark": true
   },
   {
    "priority": "P2",
@@ -12034,18 +15579,6 @@
   },
   {
    "priority": "P2",
-   "batch": 113,
-   "file": "产出\\批次113\\魔法纪录：魔法少女小圆外传（动画）.md",
-   "name": "魔法纪录：魔法少女小圆外传（动画）",
-   "lib": "主库",
-   "issue": "警告:切入点疑似\"被封印\"式顶点解释",
-   "hasCrossDup": false,
-   "crossGroupIds": [],
-   "status": "待修复",
-   "fixedMark": false
-  },
-  {
-   "priority": "P2",
    "batch": 114,
    "file": "产出\\批次114\\东方永夜抄.md",
    "name": "东方永夜抄",
@@ -12061,30 +15594,6 @@
    "batch": 114,
    "file": "产出\\批次114\\问题儿童来自异世界（动画）.md",
    "name": "问题儿童来自异世界（动画）",
-   "lib": "主库",
-   "issue": "警告:切入点疑似\"被封印\"式顶点解释",
-   "hasCrossDup": false,
-   "crossGroupIds": [],
-   "status": "待修复",
-   "fixedMark": false
-  },
-  {
-   "priority": "P2",
-   "batch": 115,
-   "file": "产出\\批次115\\创圣的大天使：太阳之翼（OVA）.md",
-   "name": "创圣的大天使：太阳之翼（OVA）",
-   "lib": "主库",
-   "issue": "警告:切入点疑似\"被封印\"式顶点解释",
-   "hasCrossDup": false,
-   "crossGroupIds": [],
-   "status": "待修复",
-   "fixedMark": false
-  },
-  {
-   "priority": "P2",
-   "batch": 115,
-   "file": "产出\\批次115\\创圣的大天使（TV）.md",
-   "name": "创圣的大天使（TV）",
    "lib": "主库",
    "issue": "警告:切入点疑似\"被封印\"式顶点解释",
    "hasCrossDup": false,
@@ -12119,26 +15628,14 @@
   {
    "priority": "P2",
    "batch": 119,
-   "file": "产出\\批次119\\超时空要塞（TV）.md",
-   "name": "超时空要塞（TV）",
+   "file": "产出\\批次119\\东方兽王园.md",
+   "name": "东方兽王园",
    "lib": "主库",
-   "issue": "警告:切入点疑似\"被封印\"式顶点解释",
+   "issue": "",
    "hasCrossDup": false,
    "crossGroupIds": [],
-   "status": "待修复",
-   "fixedMark": false
-  },
-  {
-   "priority": "P2",
-   "batch": 119,
-   "file": "产出\\批次119\\想星的Aquarion：Myth of Emotions（TV）.md",
-   "name": "想星的Aquarion：Myth of Emotions（TV）",
-   "lib": "主库",
-   "issue": "警告:切入点疑似\"被封印\"式顶点解释",
-   "hasCrossDup": false,
-   "crossGroupIds": [],
-   "status": "待修复",
-   "fixedMark": false
+   "status": "已修复",
+   "fixedMark": true
   },
   {
    "priority": "P2",
@@ -12151,6 +15648,18 @@
    "crossGroupIds": [],
    "status": "待修复",
    "fixedMark": false
+  },
+  {
+   "priority": "P2",
+   "batch": 121,
+   "file": "产出\\批次121\\超时空要塞：你可曾记得爱（剧场版）.md",
+   "name": "超时空要塞：你可曾记得爱（剧场版）",
+   "lib": "主库",
+   "issue": "",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "已修复",
+   "fixedMark": true
   },
   {
    "priority": "P2",
@@ -12203,30 +15712,6 @@
   {
    "priority": "P2",
    "batch": 123,
-   "file": "产出\\批次123\\火焰纹章系列（总览）.md",
-   "name": "火焰纹章系列（总览）",
-   "lib": "主库",
-   "issue": "警告:来源链接 0 条 < 3",
-   "hasCrossDup": false,
-   "crossGroupIds": [],
-   "status": "待修复",
-   "fixedMark": false
-  },
-  {
-   "priority": "P2",
-   "batch": 123,
-   "file": "产出\\批次123\\剧场版：激情的Walküre.md",
-   "name": "剧场版：激情的Walküre",
-   "lib": "主库",
-   "issue": "警告:来源链接 0 条 < 3",
-   "hasCrossDup": false,
-   "crossGroupIds": [],
-   "status": "待修复",
-   "fixedMark": false
-  },
-  {
-   "priority": "P2",
-   "batch": 123,
    "file": "产出\\批次123\\倚天屠龙记.md",
    "name": "倚天屠龙记",
    "lib": "主库",
@@ -12262,23 +15747,95 @@
   },
   {
    "priority": "P2",
-   "batch": 159,
-   "file": "产出\\批次159\\银河星神.md",
-   "name": "宇宙星神（银河星神）",
+   "batch": 130,
+   "file": "产出\\批次130\\饥饿游戏2.md",
+   "name": "饥饿游戏2",
    "lib": "主库",
-   "issue": "文件名不符",
+   "issue": "",
    "hasCrossDup": false,
    "crossGroupIds": [],
-   "status": "待修复",
-   "fixedMark": false
+   "status": "已修复",
+   "fixedMark": true
   },
   {
    "priority": "P2",
-   "batch": 203,
-   "file": "产出\\批次203\\地狱潜兵－Helldivers 1－.md",
-   "name": "地狱潜兵（Helldivers 1）",
+   "batch": 135,
+   "file": "产出\\批次135\\攻克机动队（按：攻壳机动队）.md",
+   "name": "攻克机动队（按：攻壳机动队）",
    "lib": "主库",
-   "issue": "文件名不符",
+   "issue": "",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "已修复",
+   "fixedMark": true
+  },
+  {
+   "priority": "P2",
+   "batch": 136,
+   "file": "产出\\批次136\\攻壳机动队（漫画原作）.md",
+   "name": "攻壳机动队（漫画原作）",
+   "lib": "主库",
+   "issue": "",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "已修复",
+   "fixedMark": true
+  },
+  {
+   "priority": "P2",
+   "batch": 174,
+   "file": "产出\\批次174\\火焰之纹章无双：风花雪月.md",
+   "name": "火焰之纹章无双：风花雪月",
+   "lib": "主库",
+   "issue": "",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "已修复",
+   "fixedMark": true
+  },
+  {
+   "priority": "P2",
+   "batch": 176,
+   "file": "产出\\批次176\\魔兽世界：尼奥罗萨：觉醒之城.md",
+   "name": "魔兽世界：尼奥罗萨：觉醒之城",
+   "lib": "主库",
+   "issue": "",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "已修复",
+   "fixedMark": true
+  },
+  {
+   "priority": "P2",
+   "batch": 177,
+   "file": "产出\\批次177\\魔兽世界：阿梅达希尔：梦境之愿.md",
+   "name": "魔兽世界：阿梅达希尔：梦境之愿",
+   "lib": "主库",
+   "issue": "",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "已修复",
+   "fixedMark": true
+  },
+  {
+   "priority": "P2",
+   "batch": 177,
+   "file": "产出\\批次177\\魔兽世界：法力熔炉欧米伽（Manaforge Omega）.md",
+   "name": "魔兽世界：法力熔炉欧米伽（Manaforge Omega）",
+   "lib": "主库",
+   "issue": "",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "已修复",
+   "fixedMark": true
+  },
+  {
+   "priority": "P2",
+   "batch": 178,
+   "file": "产出\\批次178\\魔兽世界：安其拉开门.md",
+   "name": "魔兽世界：安其拉开门",
+   "lib": "主库",
+   "issue": "",
    "hasCrossDup": false,
    "crossGroupIds": [],
    "status": "已修复",
@@ -12323,18 +15880,6 @@
   {
    "priority": "P2",
    "batch": 211,
-   "file": "产出\\批次211\\假面骑士 真.md",
-   "name": "假面骑士 真",
-   "lib": "主库",
-   "issue": "警告:切入点疑似\"被封印\"式顶点解释",
-   "hasCrossDup": false,
-   "crossGroupIds": [],
-   "status": "待修复",
-   "fixedMark": false
-  },
-  {
-   "priority": "P2",
-   "batch": 211,
    "file": "产出\\批次211\\冒险岛－MapleStory－.md",
    "name": "冒险岛（MapleStory）",
    "lib": "主库",
@@ -12363,30 +15908,6 @@
    "name": "失落的方舟（Lost Ark）",
    "lib": "主库",
    "issue": "文件名不符 | 警告:切入点疑似\"被封印\"式顶点解释",
-   "hasCrossDup": false,
-   "crossGroupIds": [],
-   "status": "待修复",
-   "fixedMark": false
-  },
-  {
-   "priority": "P2",
-   "batch": 222,
-   "file": "产出\\批次222\\装甲骑女伊莉丝-堕落魔将.md",
-   "name": "装甲骑女伊莉丝-堕落魔将",
-   "lib": "主库",
-   "issue": "警告:切入点疑似\"被削弱\"式顶点解释",
-   "hasCrossDup": false,
-   "crossGroupIds": [],
-   "status": "待修复",
-   "fixedMark": false
-  },
-  {
-   "priority": "P2",
-   "batch": 222,
-   "file": "产出\\批次222\\装甲骑女伊莉丝-姐妹侍奉.md",
-   "name": "装甲骑女伊莉丝-姐妹侍奉",
-   "lib": "主库",
-   "issue": "警告:切入点疑似\"被封印\"式顶点解释",
    "hasCrossDup": false,
    "crossGroupIds": [],
    "status": "待修复",
@@ -12467,18 +15988,6 @@
   {
    "priority": "P2",
    "batch": 227,
-   "file": "产出\\批次227\\钢铁魔女安妮罗泽-魔女陷落.md",
-   "name": "钢铁魔女安妮罗泽-魔女陷落",
-   "lib": "主库",
-   "issue": "警告:切入点疑似\"被封印\"式顶点解释",
-   "hasCrossDup": false,
-   "crossGroupIds": [],
-   "status": "待修复",
-   "fixedMark": false
-  },
-  {
-   "priority": "P2",
-   "batch": 227,
    "file": "产出\\批次227\\虚构推理（动画）.md",
    "name": "虚构推理（动画）",
    "lib": "主库",
@@ -12502,54 +16011,6 @@
   },
   {
    "priority": "P2",
-   "batch": 229,
-   "file": "产出\\批次229\\远星号（Starsector）.md",
-   "name": "远星号（Starsector）",
-   "lib": "主库",
-   "issue": "警告:切入点疑似\"被封印\"式顶点解释",
-   "hasCrossDup": false,
-   "crossGroupIds": [],
-   "status": "待修复",
-   "fixedMark": false
-  },
-  {
-   "priority": "P2",
-   "batch": 230,
-   "file": "产出\\批次230\\史上最强弟子兼一：达人激突.md",
-   "name": "史上最强弟子兼一：达人激突",
-   "lib": "主库",
-   "issue": "警告:来源链接 0 条 < 3；切入点疑似\"被封印\"式顶点解释",
-   "hasCrossDup": false,
-   "crossGroupIds": [],
-   "status": "待修复",
-   "fixedMark": false
-  },
-  {
-   "priority": "P2",
-   "batch": 230,
-   "file": "产出\\批次230\\午夜凶铃（小说环界版）.md",
-   "name": "午夜凶铃（小说环界版）",
-   "lib": "主库",
-   "issue": "警告:切入点疑似\"被封印\"式顶点解释",
-   "hasCrossDup": false,
-   "crossGroupIds": [],
-   "status": "待修复",
-   "fixedMark": false
-  },
-  {
-   "priority": "P2",
-   "batch": 230,
-   "file": "产出\\批次230\\Ben 10：终极异形（Ultimate Alien）.md",
-   "name": "Ben 10：终极异形（Ultimate Alien）",
-   "lib": "主库",
-   "issue": "警告:切入点疑似\"被封印\"式顶点解释",
-   "hasCrossDup": false,
-   "crossGroupIds": [],
-   "status": "待修复",
-   "fixedMark": false
-  },
-  {
-   "priority": "P2",
    "batch": 231,
    "file": "产出\\批次231\\轩辕剑.md",
    "name": "轩辕剑",
@@ -12563,56 +16024,8 @@
   {
    "priority": "P2",
    "batch": 234,
-   "file": "产出\\批次234\\対魔忍深渊侵蚀-阿莎姬深渊化.md",
-   "name": "対魔忍深渊侵蚀-阿莎姬深渊化",
-   "lib": "主库",
-   "issue": "警告:切入点疑似\"被封印\"式顶点解释",
-   "hasCrossDup": false,
-   "crossGroupIds": [],
-   "status": "待修复",
-   "fixedMark": false
-  },
-  {
-   "priority": "P2",
-   "batch": 234,
    "file": "产出\\批次234\\対魔忍深渊侵蚀-三代祭品.md",
    "name": "対魔忍深渊侵蚀-三代祭品",
-   "lib": "主库",
-   "issue": "警告:切入点疑似\"被封印\"式顶点解释",
-   "hasCrossDup": false,
-   "crossGroupIds": [],
-   "status": "待修复",
-   "fixedMark": false
-  },
-  {
-   "priority": "P2",
-   "batch": 234,
-   "file": "产出\\批次234\\対魔忍深渊侵蚀-雪风先驱.md",
-   "name": "対魔忍深渊侵蚀-雪风先驱",
-   "lib": "主库",
-   "issue": "警告:切入点疑似\"被封印\"式顶点解释",
-   "hasCrossDup": false,
-   "crossGroupIds": [],
-   "status": "待修复",
-   "fixedMark": false
-  },
-  {
-   "priority": "P2",
-   "batch": 236,
-   "file": "产出\\批次236\\黑兽帝国终焉-帝国建立.md",
-   "name": "黑兽帝国终焉-帝国建立",
-   "lib": "主库",
-   "issue": "警告:切入点疑似\"被封印\"式顶点解释",
-   "hasCrossDup": false,
-   "crossGroupIds": [],
-   "status": "待修复",
-   "fixedMark": false
-  },
-  {
-   "priority": "P2",
-   "batch": 236,
-   "file": "产出\\批次236\\黑兽帝国终焉-神格降临.md",
-   "name": "黑兽帝国终焉-神格降临",
    "lib": "主库",
    "issue": "警告:切入点疑似\"被封印\"式顶点解释",
    "hasCrossDup": false,
@@ -12691,6 +16104,18 @@
    "crossGroupIds": [],
    "status": "待修复",
    "fixedMark": false
+  },
+  {
+   "priority": "P2",
+   "batch": 527,
+   "file": "产出\\批次527\\传送门.md",
+   "name": "传送门",
+   "lib": "主库",
+   "issue": "",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "已修复",
+   "fixedMark": true
   },
   {
    "priority": "P2",
@@ -13239,54 +16664,6 @@
    "name": "Really? Really! Love Rainbow",
    "lib": "休闲",
    "issue": "文件名不符",
-   "hasCrossDup": false,
-   "crossGroupIds": [],
-   "status": "待修复",
-   "fixedMark": false
-  },
-  {
-   "priority": "P2",
-   "batch": 848,
-   "file": "产出\\批次848\\廓晋.md",
-   "name": "廓晋",
-   "lib": "主库",
-   "issue": "警告:切入点未覆盖清单阶位：三",
-   "hasCrossDup": false,
-   "crossGroupIds": [],
-   "status": "待修复",
-   "fixedMark": false
-  },
-  {
-   "priority": "P2",
-   "batch": 849,
-   "file": "产出\\批次849\\草芥称王.md",
-   "name": "草芥称王",
-   "lib": "主库",
-   "issue": "警告:切入点未覆盖清单阶位：三",
-   "hasCrossDup": false,
-   "crossGroupIds": [],
-   "status": "待修复",
-   "fixedMark": false
-  },
-  {
-   "priority": "P2",
-   "batch": 849,
-   "file": "产出\\批次849\\戾天子.md",
-   "name": "戾天子",
-   "lib": "主库",
-   "issue": "警告:切入点未覆盖清单阶位：三",
-   "hasCrossDup": false,
-   "crossGroupIds": [],
-   "status": "待修复",
-   "fixedMark": false
-  },
-  {
-   "priority": "P2",
-   "batch": 849,
-   "file": "产出\\批次849\\五代风华.md",
-   "name": "五代风华",
-   "lib": "主库",
-   "issue": "警告:切入点未覆盖清单阶位：三",
    "hasCrossDup": false,
    "crossGroupIds": [],
    "status": "待修复",

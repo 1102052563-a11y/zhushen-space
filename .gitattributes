@@ -1,0 +1,13 @@
+# Windows 批处理必须是 CRLF：cmd.exe 官方只支持 CRLF，LF 换行会让多行 if(...) 块行为异常
+# （曾导致「启动本地网关.bat」逐行错位、报一串「'xist' 不是内部或外部命令」）。
+*.bat text eol=crlf
+*.cmd text eol=crlf
+*.ps1 text eol=crlf
+
+# 明确交给 git 按文本处理、仓库内统一存 LF 的源码
+*.ts   text eol=lf
+*.tsx  text eol=lf
+*.js   text eol=lf
+*.mjs  text eol=lf
+*.json text eol=lf
+*.md   text eol=lf

@@ -294,7 +294,8 @@ import { useCraft, ensureCraftWbDefaults, type CraftProduct, type CraftPetSkill,
 import { craftMode, craftOutputSlots, type CraftQuality } from './systems/craftEngine';
 import { tiersForPieces, parsePendingSuit } from './systems/equipSets';
 import { useEquipSets } from './store/equipSetStore';
-import { nextGradeOf, ascendCost, targetScoreFor, type AscendPreview } from './systems/equipAscend';
+import { nextGradeOf, ascendCost, targetScoreFor, planAscendPayment, type AscendPreview } from './systems/equipAscend';
+import { formatPark } from './systems/itemPricing';
 import { buildCraftWbInjection } from './systems/craftWorldBook';
 import { generateGem } from './systems/gemEngine';
 import { useChest, type ChestJob } from './store/chestStore';
@@ -2709,7 +2710,7 @@ export default function App() {
       const aiName = flattenAiText(j.name).slice(0, 40).trim();
       const renamed = !!(wantRename && aiName && aiName !== it.name);
       const preview: AscendPreview = {
-        itemId: it.id, from: step.from, to: step.to, toNum: step.toNum, cost: ascendCost(step.toNum),
+        itemId: it.id, from: step.from, to: step.to, toNum: step.toNum, cost: ascendCost(step.toNum, it.category),
         name: renamed ? aiName : it.name, renamed,
         combatStat: flattenAiText(j.combatStat).slice(0, 50) || undefined,
         attrBonus: flattenAiText(j.attrBonus).slice(0, 120) || undefined,
@@ -2730,8 +2731,12 @@ export default function App() {
     const items = useItems.getState();
     const it = items.items.find((x) => x.id === preview.itemId);
     if (!it) return { ok: false, error: '物品不存在（可能已被消耗）' };
-    if (items.currency.乐园币 < preview.cost) return { ok: false, error: '乐园币不足' };
-    items.adjustCurrency('乐园币', -preview.cost, `品级进阶·${it.name}（${preview.from}→${preview.to}）`);
+    // 付款：优先乐园币，缺口按 1:150000 用魂币补（六阶起收入直接发魂币，只收乐园币会逼玩家每次先去背包手动兑换）
+    const pay = planAscendPayment(preview.cost, { park: items.currency.乐园币, soul: items.currency.灵魂钱币 });
+    if (!pay) return { ok: false, error: `资金不足：本次进阶需 ${formatPark(preview.cost)}` };
+    const payReason = `品级进阶·${it.name}（${preview.from}→${preview.to}）`;
+    if (pay.soulDelta) items.adjustCurrency('灵魂钱币', pay.soulDelta, payReason);
+    if (pay.parkDelta) items.adjustCurrency('乐园币', pay.parkDelta, pay.soulDelta ? `${payReason}·魂币兑换结余` : payReason);
     const effect = [preview.effect, preview.attrBonus].filter(Boolean).join('；');   // 六维数值折进 effect（同合成/gacha 惯例，供 effectiveAttrs 读取）
     items.updateItem(preview.itemId, {
       name: preview.name,

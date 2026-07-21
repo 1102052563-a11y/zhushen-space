@@ -85,8 +85,9 @@ function validate(doc) {
   const links = (src || '').match(/\]\(https?:\/\/[^)]+\)/g) || [];
   if (links.length < MIN_SOURCES) warnings.push(`来源链接 ${links.length} 条 < ${MIN_SOURCES}`);
   if (world && entry && world.lib === '主库') {
+    // 铁则：有高阶切入点就必须有全部低阶切入点。阶位覆盖须是「一阶~最高阶」的连续区间，缺一不可。
     const missing = world.tiers.filter((t) => !entry.includes(`${t}阶`));
-    if (missing.length) warnings.push(`切入点未覆盖清单阶位：${missing.join('、')}`);
+    if (missing.length) errors.push(`切入点缺少阶位：${missing.join('、')}（须覆盖一阶~最高阶全部连续阶位，不能只写高阶）`);
     const extra = ['一', '二', '三', '四', '五', '六', '七', '八', '九'].filter((t) => !world.tiers.includes(t) && new RegExp(`\\*\\*${t}阶`).test(entry));
     if (extra.length) errors.push(`切入点写了该世界不覆盖的阶位：${extra.join('、')}（严禁硬凑）`);
   }

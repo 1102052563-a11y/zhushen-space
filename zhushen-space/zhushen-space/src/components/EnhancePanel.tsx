@@ -10,7 +10,8 @@ import {
   type EnhanceOutcome,
 } from '../systems/enhanceEngine';
 import { loadBossManifest, pickStagePortrait, type BossManifest } from '../systems/enhanceBosses';
-import { nextGradeOf, ascendCost, isAscendable, type AscendPreview } from '../systems/equipAscend';
+import { nextGradeOf, ascendCost, isAscendable, planAscendPayment, type AscendPreview } from '../systems/equipAscend';
+import { formatPark, SOUL_TO_PARK } from '../systems/itemPricing';
 import GemPanel from './GemPanel';
 import { pushSceneNotice } from '../systems/allocNotice';   // 场外强化结果 → 正文前置须知（按真实等级，勿凭货币"尝试等级"误判）
 
@@ -560,8 +561,11 @@ function AscendView({ onAscend, onAscendConfirm }: {
     .sort((a, b) => (Number(b.equipped) - Number(a.equipped)) || ((b.ascendLv ?? 0) - (a.ascendLv ?? 0)));
   const sel = items.find((x) => x.id === selId) ?? null;
   const step = sel ? nextGradeOf(sel.gradeDesc) : null;
-  const cost = step ? ascendCost(step.toNum) : 0;
-  const canGo = !!sel && !!step && !busy && currency.乐园币 >= cost;
+  const cost = step ? ascendCost(step.toNum, sel?.category) : 0;
+  const wallet = { park: currency.乐园币, soul: currency.灵魂钱币 };
+  const pay = step ? planAscendPayment(cost, wallet) : null;   // 乐园币不足时按 1:150000 用魂币补
+  const affordable = !!pay;
+  const canGo = !!sel && !!step && !busy && affordable;
 
   async function doAscend(regen = false) {
     if (!sel || !step || busy) return;
@@ -613,14 +617,20 @@ function AscendView({ onAscend, onAscendConfirm }: {
               <span className={gradeNameClass(step.to)}>{step.to}</span>
             </span>
           </div>
-          <div className="flex items-center justify-between text-sm">
-            <span className="font-mono text-dim/60">进阶费用</span>
-            <span className="font-mono text-amber-300 font-bold">{cost.toLocaleString()} 🪙</span>
+          <div className="flex items-start justify-between text-sm gap-2">
+            <span className="font-mono text-dim/60 shrink-0">进阶费用</span>
+            <span className="font-mono text-amber-300 font-bold text-right">{formatPark(cost)}</span>
           </div>
           <div className="flex items-center justify-between text-[12px]">
-            <span className="font-mono text-dim/40">乐园币余额</span>
-            <span className={`font-mono ${currency.乐园币 >= cost ? 'text-dim/55' : 'text-blood/80'}`}>{currency.乐园币.toLocaleString()}</span>
+            <span className="font-mono text-dim/40">余额</span>
+            <span className={`font-mono ${affordable ? 'text-dim/55' : 'text-blood/80'}`}>
+              {currency.乐园币.toLocaleString()} 🪙{currency.灵魂钱币 > 0 ? ` · ${currency.灵魂钱币.toLocaleString()} 魂币` : ''}
+            </span>
           </div>
+          {pay && pay.soulDelta < 0 && (
+            <div className="text-[11px] font-mono text-amber-300/60">乐园币不足，将自动动用 {(-pay.soulDelta).toLocaleString()} 魂币（1 魂币 = {SOUL_TO_PARK.toLocaleString()} 乐园币，找零退回乐园币）</div>
+          )}
+          <div className="text-[10.5px] text-dim/40 leading-snug">费用按该品级装备的公允价差定档（约差价的一半）——同品级装备打满 +16 也需其市价的 25~60%，且进阶必成、无爆装风险。</div>
         </div>
       )}
       {sel && !step && (
@@ -634,7 +644,7 @@ function AscendView({ onAscend, onAscendConfirm }: {
         className="w-full px-2.5 py-1.5 rounded-lg bg-void border border-edge/50 text-[12px] text-slate-200 placeholder:text-dim/35 focus:outline-none focus:border-purple-400/50" />
       <button onClick={() => doAscend(false)} disabled={!canGo}
         className="w-full py-2.5 rounded-xl text-base font-bold border border-purple-400/50 text-purple-200 bg-purple-500/10 hover:bg-purple-500/20 transition-all disabled:opacity-40 disabled:cursor-not-allowed">
-        {busy ? '🔥 进阶炉炼化中…' : step ? `🔼 品级进阶 ${step.from} → ${step.to} · ${cost.toLocaleString()} 🪙` : '🔼 品级进阶（先选一件装备）'}
+        {busy ? '🔥 进阶炉炼化中…' : !step ? '🔼 品级进阶（先选一件装备）' : !affordable ? `资金不足 · 需 ${formatPark(cost)}` : `🔼 品级进阶 ${step.from} → ${step.to} · ${formatPark(cost)}`}
       </button>
       <div className="text-[10px] text-dim/40 text-center">先出预览，确认才扣费落库；品级/评分由系统锁定一次+1档，AI 只写进阶后的形态</div>
       {err && <div className="text-[12px] font-mono text-blood/80 text-center">{err}</div>}
@@ -656,8 +666,8 @@ function AscendView({ onAscend, onAscendConfirm }: {
           {preview.appearance && <div className="text-[11px] text-dim/50">外观：{preview.appearance}</div>}
           {preview.notice && <div className="text-[11px] text-dim/55 border-t border-edge/40 pt-1.5">📜 {preview.notice}</div>}
           <div className="flex gap-2 pt-1">
-            <button onClick={doConfirm} disabled={busy || currency.乐园币 < preview.cost}
-              className="flex-1 py-2 rounded-lg border border-emerald-500/50 bg-emerald-500/10 text-emerald-300 font-semibold text-[13px] hover:bg-emerald-500/20 disabled:opacity-40 transition-colors">✅ 确认进阶 · {preview.cost.toLocaleString()} 🪙</button>
+            <button onClick={doConfirm} disabled={busy || !planAscendPayment(preview.cost, wallet)}
+              className="flex-1 py-2 rounded-lg border border-emerald-500/50 bg-emerald-500/10 text-emerald-300 font-semibold text-[13px] hover:bg-emerald-500/20 disabled:opacity-40 transition-colors">✅ 确认进阶 · {formatPark(preview.cost)}</button>
             <button onClick={() => doAscend(true)} disabled={busy}
               className="flex-1 py-2 rounded-lg border border-god/40 text-god/90 text-[13px] hover:bg-god/10 disabled:opacity-40 transition-colors">🔄 重新生成</button>
             <button onClick={() => { setPreview(null); setErr(''); }} disabled={busy}

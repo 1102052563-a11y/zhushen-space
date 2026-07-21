@@ -1,13 +1,13 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useRef } from 'react';
 import { useWorkshop } from '../store/workshopStore';
 import { AutoText } from './AutoText';
 import TreeCanvas from './TreeCanvas';
 import { autoLayout } from '../systems/skillTree';
 import type { TreeDef } from '../store/skillTreeStore';
 import {
-  wsList, wsGet, wsListMine, wsDelete, wsRename, wsVerifyAdmin, installFromBackend, uploadLocal, statusFor, KIND_LIST, kindOf, apiBase,
-  CREATION_TYPES, ccListLocal,
-  type WorkshopMeta, type WorkshopItem, type WorkshopKindId,
+  wsList, wsGet, wsListMine, wsDelete, wsRename, wsVerifyAdmin, installFromBackend, uploadLocal, uploadPacked, statusFor, KIND_LIST, kindOf, apiBase,
+  CREATION_TYPES, ccListLocal, packWorldBookFile, WB_CAT_TEXT, WB_CAT_AUX,
+  type WorkshopMeta, type WorkshopItem, type WorkshopKindId, type WbShelf,
 } from '../systems/workshop';
 import { myMpName } from '../systems/mpConfig';
 
@@ -15,6 +15,8 @@ import { myMpName } from '../systems/mpConfig';
    页签：浏览 / 上传 / 已安装 / 设置。 */
 
 type Tab = 'browse' | 'upload' | 'mine' | 'installed' | 'settings';
+
+const FILE_LOCAL_ID = '__file__';   // 「本地导入」的合成条目 id（内容不在本地库，走 uploadPacked 直传）
 
 function fmtDate(ts?: number): string { try { return ts ? new Date(ts).toLocaleDateString() : ''; } catch { return ''; } }
 
@@ -67,6 +69,10 @@ export default function WorkshopPanel({ onClose, creationMode = false, initialTa
   const [pubLocalId, setPubLocalId] = useState('');
   const [form, setForm] = useState({ name: '', author: '', version: '1.0.0', summary: '', tags: '' });
   const [uploading, setUploading] = useState(false);
+  // 世界书·本地导入：选个 .json 就能直接分享，不必先导进设置页（内容只在内存里，不进本地库）
+  const [fileWb, setFileWb] = useState<{ raw: string; fileName: string; name: string; count: number } | null>(null);
+  const [wbShelf, setWbShelf] = useState<WbShelf>('text');   // 别人下载后放进哪一栏
+  const wbFileRef = useRef<HTMLInputElement>(null);
 
   // 设置
   const [apiInput, setApiInput] = useState(apiOverride);
@@ -154,8 +160,9 @@ export default function WorkshopPanel({ onClose, creationMode = false, initialTa
     return () => { cancelled = true; };
   }, [tab, mineRefresh]);
 
-  // 切上传类型 → 复位条目 + 预填名
+  // 切上传类型 → 复位条目 + 预填名（世界书已载入本地文件时，优先选它）
   useEffect(() => {
+    if (pubType === 'worldbook' && fileWb) { setPubLocalId(FILE_LOCAL_ID); setForm((f) => ({ ...f, name: fileWb.name })); return; }
     const l = localEntriesOf(pubType);
     setPubLocalId(l[0]?.id ?? '');
     setForm((f) => ({ ...f, name: l[0]?.name ?? '' }));
@@ -164,6 +171,7 @@ export default function WorkshopPanel({ onClose, creationMode = false, initialTa
   // 进「上传」页时，若当前类型没条目，自动跳到第一个有内容的类型（免得默认空类型让人以为坏了）
   useEffect(() => {
     if (tab !== 'upload') return;
+    if (pubType === 'worldbook' && fileWb) return;   // 已载入本地文件 → 别跳走
     if (localEntriesOf(pubType).length > 0) return;
     const firstNonEmpty = visibleKinds.find((k) => localEntriesOf(k.id).length > 0);
     if (firstNonEmpty) setPubType(firstNonEmpty.id);
@@ -180,7 +188,9 @@ export default function WorkshopPanel({ onClose, creationMode = false, initialTa
     try {
       const dl = await installFromBackend(meta, creationMode);
       setList((prev) => prev.map((m) => (m.id === meta.id ? { ...m, downloads: dl } : m)));
-      flash(`已安装「${meta.name}」`);
+      // 世界书说清楚落在哪一栏（老条目没 category → 与 install 缺省一致，落正文世界书）
+      const where = meta.type === 'worldbook' ? ` → 已放进设置里的「${meta.category === WB_CAT_AUX ? WB_CAT_AUX : WB_CAT_TEXT}」` : '';
+      flash(`已安装「${meta.name}」${where}`);
     } catch (e: any) {
       flash(`安装失败：${e?.message ?? e}`);
     } finally { setInstallingId(null); }
@@ -198,6 +208,26 @@ export default function WorkshopPanel({ onClose, creationMode = false, initialTa
     } finally { setDeletingId(null); }
   }
 
+  // 世界书本地导入：读文件 → 解析校验 → 存内存（上传时按当前书架重新打包），不进本地库
+  function handleWbFile(e: React.ChangeEvent<HTMLInputElement>) {
+    const f = e.target.files?.[0]; if (!f) return;
+    const fileName = f.name.replace(/\.json$/i, '');
+    const reader = new FileReader();
+    reader.onload = (ev) => {
+      const raw = String(ev.target?.result ?? '');
+      try {
+        const packed = packWorldBookFile(raw, fileName, wbShelf);
+        const count = packed.payload.entries.length;
+        setFileWb({ raw, fileName, name: packed.name, count });
+        setPubLocalId(FILE_LOCAL_ID);
+        setForm((f2) => ({ ...f2, name: packed.name }));
+        flash(`已载入「${packed.name}」（${count} 条条目）· 填好简介即可上传`);
+      } catch (err: any) { flash(`解析失败：${err?.message ?? err}`); }
+    };
+    reader.readAsText(f, 'utf-8');
+    e.target.value = '';
+  }
+
   async function doUpload() {
     if (!nickname.trim()) { flash('请先在「设置」起一个工坊昵称'); setTab('settings'); return; }
     if (!pubLocalId) { flash('没有可上传的本地条目'); return; }
@@ -205,10 +235,16 @@ export default function WorkshopPanel({ onClose, creationMode = false, initialTa
     setUploading(true);
     try {
       const tags = form.tags.split(/[,，]/).map((s) => s.trim()).filter(Boolean);
-      await uploadLocal(pubType, pubLocalId, { name: form.name, author: form.author, version: form.version, summary: form.summary, tags }, creationMode);
+      const meta = { name: form.name, author: form.author, version: form.version, summary: form.summary, tags };
+      if (pubLocalId === FILE_LOCAL_ID) {
+        if (!fileWb) throw new Error('请先选择世界书文件');
+        await uploadPacked('worldbook', packWorldBookFile(fileWb.raw, fileWb.fileName, wbShelf), meta);
+      } else {
+        await uploadLocal(pubType, pubLocalId, meta, creationMode);
+      }
       flash(`已上传「${form.name || '未命名'}」，现在所有人都能看到`);
       // 上传成功 → 退回（重置）上传页：清掉本次简介/标签，保留作者/版本，便于连续上传
-      const cur = localEntriesOf(pubType).find((x) => x.id === pubLocalId);
+      const cur = pubLocalId === FILE_LOCAL_ID ? fileWb : localEntriesOf(pubType).find((x) => x.id === pubLocalId);
       setForm((f) => ({ ...f, name: cur?.name ?? '', summary: '', tags: '' }));
       setTab('upload');
     } catch (e: any) {
@@ -217,7 +253,10 @@ export default function WorkshopPanel({ onClose, creationMode = false, initialTa
   }
 
   const installedList = Object.values(installs).sort((a, b) => b.installedAt - a.installedAt);
-  const pubList = localEntriesOf(pubType);
+  // 本地导入的世界书排在最前（合成条目，id=FILE_LOCAL_ID）
+  const pubList = (pubType === 'worldbook' && fileWb)
+    ? [{ id: FILE_LOCAL_ID, name: fileWb.name, category: `📂 本地文件 · ${fileWb.count} 条` }, ...localEntriesOf(pubType)]
+    : localEntriesOf(pubType);
 
   const TabBtn = ({ id, label }: { id: Tab; label: string }) => (
     <button onClick={() => setTab(id)}
@@ -364,8 +403,44 @@ export default function WorkshopPanel({ onClose, creationMode = false, initialTa
                 </label>
               </div>
 
+              {/* 世界书：本地 .json 直传（不必先导进设置页）+ 指定别人下载后放进哪一栏 */}
+              {pubType === 'worldbook' && (
+                <div className="rounded-lg border border-edge/70 bg-void/40 p-2.5 space-y-2">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <button type="button" onClick={() => wbFileRef.current?.click()}
+                      className="text-[12px] font-mono px-2.5 py-1.5 rounded border border-god/40 text-god hover:bg-god/10 transition-colors">📂 本地导入 (.json)</button>
+                    <input ref={wbFileRef} type="file" accept=".json" className="hidden" onChange={handleWbFile} />
+                    <span className="text-[11px] font-mono text-dim/50">兼容 SillyTavern 世界书 · 不必先导进设置页，选了文件就能分享</span>
+                  </div>
+                  {fileWb && (
+                    <div className="flex items-center gap-2 text-[11px] font-mono text-god/80">
+                      <span className="truncate">✓ 已载入「{fileWb.name}」· {fileWb.count} 条条目</span>
+                      <button type="button" onClick={() => { setFileWb(null); const l = localEntriesOf('worldbook'); setPubLocalId(l[0]?.id ?? ''); setForm((f) => ({ ...f, name: l[0]?.name ?? '' })); }}
+                        className="shrink-0 text-dim/60 hover:text-blood">清除</button>
+                    </div>
+                  )}
+                  {pubLocalId === FILE_LOCAL_ID && (
+                    <div className="flex items-center gap-3 text-[11px] font-mono text-dim/60">
+                      <span>下载后放进：</span>
+                      {([['text', WB_CAT_TEXT], ['aux', WB_CAT_AUX]] as [WbShelf, string][]).map(([v, label]) => (
+                        <label key={v} className={`cursor-pointer select-none ${wbShelf === v ? 'text-god' : 'text-dim/60 hover:text-slate-300'}`}>
+                          <input type="radio" className="mr-1 align-middle accent-cyan-400" checked={wbShelf === v} onChange={() => setWbShelf(v)} />{label}
+                        </label>
+                      ))}
+                    </div>
+                  )}
+                  {pubLocalId !== FILE_LOCAL_ID && pubList.length > 0 && (
+                    <div className="text-[11px] font-mono text-dim/40">选的是本地已有的书 · 别人下载后会放回同一栏（括号里标了是哪一栏）。</div>
+                  )}
+                </div>
+              )}
+
               {pubList.length === 0 && (
-                <div className="text-[11px] font-mono text-amber-300/70">该类型暂无可上传条目——换上面「类型」试试（括号里是各类条目数），或确认已进入有数据的游戏存档（上传读的是当前存档实时数据）。</div>
+                <div className="text-[11px] font-mono text-amber-300/70">
+                  {pubType === 'worldbook'
+                    ? '本地还没有世界书——点上面「📂 本地导入」直接选个 .json 文件就能上传。'
+                    : '该类型暂无可上传条目——换上面「类型」试试（括号里是各类条目数），或确认已进入有数据的游戏存档（上传读的是当前存档实时数据）。'}
+                </div>
               )}
 
               <div className="grid grid-cols-2 gap-2.5">
@@ -385,7 +460,7 @@ export default function WorkshopPanel({ onClose, creationMode = false, initialTa
                 className="w-full mt-1 text-[13px] font-mono px-3 py-2 rounded-lg border border-god/50 text-god hover:bg-god/10 transition-colors disabled:opacity-40">
                 {uploading ? '上传中…' : '⤒ 上传到工坊'}
               </button>
-              <div className="text-[11px] font-mono text-dim/40">上传会剥离图片/强化等运行时数据，只分享条目本体；NPC 连同其技能天赋与持有物一起分享。</div>
+              <div className="text-[11px] font-mono text-dim/40">上传会剥离图片/强化等运行时数据，只分享条目本体；NPC 连同其技能天赋与持有物一起分享；世界书按书架原样送达（默认落「{WB_CAT_TEXT}」）。</div>
             </div>
           </div>
         )}
@@ -706,7 +781,9 @@ function WorldBookDetail({ payload }: { payload: any }) {
   const entries: any[] = payload?.entries || [];
   return (
     <div className="space-y-2">
-      <div className="text-[11px] font-mono text-dim/55">{entries.length} 条条目{payload?.enabled === false ? ' · 安装后默认关闭' : ''}</div>
+      <div className="text-[11px] font-mono text-dim/55">
+        {entries.length} 条条目 · 安装后进「{payload?.shelf === 'aux' ? WB_CAT_AUX : WB_CAT_TEXT}」栏{payload?.enabled === false ? ' · 默认关闭' : ''}
+      </div>
       {entries.length === 0 && <div className="text-[12px] text-dim/40">（空世界书）</div>}
       {entries.map((e, i) => (
         <div key={i} className="text-[12px] border-l-2 border-cyan-600/40 pl-2">

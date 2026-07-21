@@ -95,8 +95,9 @@ function validate(doc) {
     if (plot && !plot.includes('乐园阶位映射')) warnings.push('剧情缺「乐园阶位映射」锚定行');
     if (entry && !entry.includes('阶位↔')) warnings.push('切入点缺「阶位↔」对照行');
     if (entry) {
+      // 铁则：有高阶切入点就必须有全部低阶，阶位覆盖须为「一阶~最高阶」连续区间
       const missing = world.tiers.filter((t) => !entry.includes(`${t}阶`));
-      if (missing.length) warnings.push(`切入点未覆盖清单阶位：${missing.join('、')}`);
+      if (missing.length) errors.push(`切入点缺少阶位：${missing.join('、')}（须覆盖一阶~最高阶全部连续阶位）`);
     }
   }
   const links = (src || '').match(/\]\(https?:\/\/[^)]+\)/g) || [];
