@@ -13,6 +13,7 @@
 */
 import { useNpc, hasRealNpcName, type NpcRecord, type NpcAuto, type NpcOwnedItem } from '../store/npcStore';
 import { isPetLike } from './petEvolution';
+import { useCanonRoute } from '../store/canonRouteStore';   // 🛤 轨道态白夜排除出通用自治（脱轨才接管）
 import { useCharacters, type Deed, type Skill, type Talent } from '../store/characterStore';
 import { useSettings } from '../store/settingsStore';
 import {
@@ -592,8 +593,12 @@ export function runNpcAutonomy(turn: number): number {
   const runIdx = Math.floor(turn / every);            // 轮换计数：按"运行次数"循环，与 every 解耦防只跑一个分组
   const maxTicks = Math.max(1, ss.npcAutonomyMax ?? MAX_TICKS_PER_TURN);
   const store = useNpc.getState();
+  // 🛤 原著路线：轨道态/同盟的白夜按 canon 轨道行动（动向由 enforceCanonLock 同步），不跑通用自治防串戏；
+  //   **脱轨后才交给轨道A 自治**（他此后按人设自由生活，数值仍由 canon 锁每回合钉回）。
+  const canonSx = useCanonRoute.getState();
+  const canonTracked = (n: NpcRecord) => !!n.isCanonLocked && canonSx.enabled && canonSx.suxiao.state !== 'derailed';
   // 宠物/召唤物随主人待命、不过独立离场生活（"不自行成长"）→ 排除出轨道A 自治，交给独立的宠物演化。
-  const eligible = Object.values(store.npcs).filter((n) => !n.onScene && !n.archived && !n.isDead && hasRealNpcName(n) && !isPetLike(n));   // 归档=玩家封存，不跑离场自治
+  const eligible = Object.values(store.npcs).filter((n) => !n.onScene && !n.archived && !n.isDead && hasRealNpcName(n) && !isPetLike(n) && !canonTracked(n));   // 归档=玩家封存，不跑离场自治
   if (!eligible.length) return 0;
 
   const contractorNames = eligible.filter((n) => !isNative(n)).map((n) => n.name).filter(Boolean);

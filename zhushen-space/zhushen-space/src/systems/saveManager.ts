@@ -50,6 +50,7 @@ import { useLocks } from '../store/lockStore';
 import { useFieldHistory } from '../store/fieldHistoryStore';
 import { useLoadout } from '../store/loadoutStore';
 import { useShop } from '../store/shopStore';
+import { useCanonRoute } from '../store/canonRouteStore';
 import { clearJoySessions } from '../store/joyStore';
 import { useDbAdvance } from '../store/dbAdvanceStore';   // 数据库推进桌面态现已持久化 → 新游戏须显式清运行态
 import { logWarn } from '../utils/log';
@@ -115,6 +116,7 @@ const STORES: { key: string; api: any; clear?: () => void }[] = [
   { key: 'drpg-worldrecord', api: useWorldRecord, clear: () => useWorldRecord.getState().clearAll() },   // 世界记录/世界志（世界观骨架+离世总结·随存档快照；新游戏清空）
   { key: 'drpg-loadout',    api: useLoadout, clear: () => useLoadout.getState().clearBench() },   // 体系/流派：clear 只清替补席+激活态；模板 builds[] 像技能树定义一样跨新游戏保留（照 drpg-skilltree 口径）
   { key: 'drpg-shop',       api: useShop, clear: () => useShop.getState().clearShopRun() },   // 玩家产业：店铺定义随存档快照/新游戏保留，clear 只清经营进度(earnings/visits)
+  { key: 'drpg-canon-route', api: useCanonRoute, clear: () => useCanonRoute.getState().clearAll() },   // 原著路线进度（站序/偏差/苏晓轨道态）：随存档快照，新游戏清空（是否启用由创建流程重新勾选）
 ];
 
 /* 「回滚本回合演化改动」（数据库引入②）——把**演化变量域** store 整体还原到某份快照（in-place setState，

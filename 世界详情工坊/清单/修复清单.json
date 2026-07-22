@@ -2,8 +2,8 @@
  "generatedAt": "20260721",
  "total": 1204,
  "byStatus": {
-  "已修复": 236,
-  "待修复": 968
+  "已修复": 348,
+  "待修复": 856
  },
  "byPriority": {
   "P0": 635,
@@ -2265,8 +2265,8 @@
    "issue": "机检错误:切入点缺少阶位：七（须覆盖一阶~最高阶全部连续阶位）",
    "hasCrossDup": false,
    "crossGroupIds": [],
-   "status": "待修复",
-   "fixedMark": false
+   "status": "已修复",
+   "fixedMark": true
   },
   {
    "priority": "P0",
@@ -2277,8 +2277,8 @@
    "issue": "机检错误:切入点缺少阶位：四、五（须覆盖一阶~最高阶全部连续阶位） | 灌水标记:【补密",
    "hasCrossDup": false,
    "crossGroupIds": [],
-   "status": "待修复",
-   "fixedMark": false
+   "status": "已修复",
+   "fixedMark": true
   },
   {
    "priority": "P0",
@@ -2289,8 +2289,8 @@
    "issue": "机检错误:切入点缺少阶位：四、五（须覆盖一阶~最高阶全部连续阶位） | 灌水标记:【补密",
    "hasCrossDup": false,
    "crossGroupIds": [],
-   "status": "待修复",
-   "fixedMark": false
+   "status": "已修复",
+   "fixedMark": true
   },
   {
    "priority": "P0",
@@ -2301,8 +2301,8 @@
    "issue": "机检错误:切入点缺少阶位：四、五（须覆盖一阶~最高阶全部连续阶位） | 灌水标记:【补密",
    "hasCrossDup": false,
    "crossGroupIds": [],
-   "status": "待修复",
-   "fixedMark": false
+   "status": "已修复",
+   "fixedMark": true
   },
   {
    "priority": "P0",
@@ -2313,8 +2313,8 @@
    "issue": "机检错误:切入点缺少阶位：七（须覆盖一阶~最高阶全部连续阶位）",
    "hasCrossDup": false,
    "crossGroupIds": [],
-   "status": "待修复",
-   "fixedMark": false
+   "status": "已修复",
+   "fixedMark": true
   },
   {
    "priority": "P0",
@@ -2325,8 +2325,8 @@
    "issue": "机检错误:切入点缺少阶位：七（须覆盖一阶~最高阶全部连续阶位）",
    "hasCrossDup": false,
    "crossGroupIds": [],
-   "status": "待修复",
-   "fixedMark": false
+   "status": "已修复",
+   "fixedMark": true
   },
   {
    "priority": "P0",
@@ -2337,8 +2337,8 @@
    "issue": "机检错误:切入点缺少阶位：一、二、四、五（须覆盖一阶~最高阶全部连续阶位）",
    "hasCrossDup": false,
    "crossGroupIds": [],
-   "status": "待修复",
-   "fixedMark": false
+   "status": "已修复",
+   "fixedMark": true
   },
   {
    "priority": "P0",
@@ -2409,8 +2409,8 @@
    "issue": "机检错误:切入点缺少阶位：一、二、三、四、五、六、七（须覆盖一阶~最高阶全部连续阶位）",
    "hasCrossDup": false,
    "crossGroupIds": [],
-   "status": "待修复",
-   "fixedMark": false
+   "status": "已修复",
+   "fixedMark": true
   },
   {
    "priority": "P0",
@@ -2445,8 +2445,8 @@
    "issue": "机检错误:切入点缺少阶位：四、五、六（须覆盖一阶~最高阶全部连续阶位）",
    "hasCrossDup": false,
    "crossGroupIds": [],
-   "status": "待修复",
-   "fixedMark": false
+   "status": "已修复",
+   "fixedMark": true
   },
   {
    "priority": "P0",
@@ -2457,8 +2457,8 @@
    "issue": "机检错误:切入点缺少阶位：一、二、三、四、五、六、七（须覆盖一阶~最高阶全部连续阶位）",
    "hasCrossDup": false,
    "crossGroupIds": [],
-   "status": "待修复",
-   "fixedMark": false
+   "status": "已修复",
+   "fixedMark": true
   },
   {
    "priority": "P0",
@@ -2469,8 +2469,8 @@
    "issue": "机检错误:切入点缺少阶位：一、二、三、四、五、六、七（须覆盖一阶~最高阶全部连续阶位）",
    "hasCrossDup": false,
    "crossGroupIds": [],
-   "status": "待修复",
-   "fixedMark": false
+   "status": "已修复",
+   "fixedMark": true
   },
   {
    "priority": "P0",
@@ -2481,8 +2481,8 @@
    "issue": "机检错误:切入点缺少阶位：一、二、三、四、五、六（须覆盖一阶~最高阶全部连续阶位）",
    "hasCrossDup": false,
    "crossGroupIds": [],
-   "status": "待修复",
-   "fixedMark": false
+   "status": "已修复",
+   "fixedMark": true
   },
   {
    "priority": "P0",
@@ -2493,8 +2493,8 @@
    "issue": "机检错误:切入点缺少阶位：一、二、三、四、五、六（须覆盖一阶~最高阶全部连续阶位）",
    "hasCrossDup": false,
    "crossGroupIds": [],
-   "status": "待修复",
-   "fixedMark": false
+   "status": "已修复",
+   "fixedMark": true
   },
   {
    "priority": "P0",
@@ -2505,8 +2505,8 @@
    "issue": "机检错误:切入点缺少阶位：一、二、三、四、五、六、七（须覆盖一阶~最高阶全部连续阶位）",
    "hasCrossDup": false,
    "crossGroupIds": [],
-   "status": "待修复",
-   "fixedMark": false
+   "status": "已修复",
+   "fixedMark": true
   },
   {
    "priority": "P0",
@@ -2517,8 +2517,8 @@
    "issue": "机检错误:切入点缺少阶位：一、二、三、四、五、六（须覆盖一阶~最高阶全部连续阶位）",
    "hasCrossDup": false,
    "crossGroupIds": [],
-   "status": "待修复",
-   "fixedMark": false
+   "status": "已修复",
+   "fixedMark": true
   },
   {
    "priority": "P0",
@@ -2529,8 +2529,8 @@
    "issue": "机检错误:切入点缺少阶位：二、三、四（须覆盖一阶~最高阶全部连续阶位）",
    "hasCrossDup": false,
    "crossGroupIds": [],
-   "status": "待修复",
-   "fixedMark": false
+   "status": "已修复",
+   "fixedMark": true
   },
   {
    "priority": "P0",
@@ -2541,8 +2541,8 @@
    "issue": "机检错误:切入点缺少阶位：四、五（须覆盖一阶~最高阶全部连续阶位）",
    "hasCrossDup": false,
    "crossGroupIds": [],
-   "status": "待修复",
-   "fixedMark": false
+   "status": "已修复",
+   "fixedMark": true
   },
   {
    "priority": "P0",
@@ -2553,8 +2553,8 @@
    "issue": "机检错误:切入点缺少阶位：四、五（须覆盖一阶~最高阶全部连续阶位）",
    "hasCrossDup": false,
    "crossGroupIds": [],
-   "status": "待修复",
-   "fixedMark": false
+   "status": "已修复",
+   "fixedMark": true
   },
   {
    "priority": "P0",
@@ -2565,8 +2565,8 @@
    "issue": "机检错误:切入点缺少阶位：四、五（须覆盖一阶~最高阶全部连续阶位）",
    "hasCrossDup": false,
    "crossGroupIds": [],
-   "status": "待修复",
-   "fixedMark": false
+   "status": "已修复",
+   "fixedMark": true
   },
   {
    "priority": "P0",
@@ -2577,8 +2577,8 @@
    "issue": "机检错误:切入点缺少阶位：一、二、三、四、五、六、七（须覆盖一阶~最高阶全部连续阶位）",
    "hasCrossDup": false,
    "crossGroupIds": [],
-   "status": "待修复",
-   "fixedMark": false
+   "status": "已修复",
+   "fixedMark": true
   },
   {
    "priority": "P0",
@@ -2589,8 +2589,8 @@
    "issue": "机检错误:切入点缺少阶位：一（须覆盖一阶~最高阶全部连续阶位）",
    "hasCrossDup": false,
    "crossGroupIds": [],
-   "status": "待修复",
-   "fixedMark": false
+   "status": "已修复",
+   "fixedMark": true
   },
   {
    "priority": "P0",
@@ -2661,8 +2661,8 @@
    "issue": "机检错误:切入点缺少阶位：二、四（须覆盖一阶~最高阶全部连续阶位）",
    "hasCrossDup": false,
    "crossGroupIds": [],
-   "status": "待修复",
-   "fixedMark": false
+   "status": "已修复",
+   "fixedMark": true
   },
   {
    "priority": "P0",
@@ -2673,8 +2673,8 @@
    "issue": "机检错误:切入点缺少阶位：二、四（须覆盖一阶~最高阶全部连续阶位）",
    "hasCrossDup": false,
    "crossGroupIds": [],
-   "status": "待修复",
-   "fixedMark": false
+   "status": "已修复",
+   "fixedMark": true
   },
   {
    "priority": "P0",
@@ -2685,8 +2685,8 @@
    "issue": "机检错误:切入点缺少阶位：一、二、三、四、五、六、七（须覆盖一阶~最高阶全部连续阶位）",
    "hasCrossDup": false,
    "crossGroupIds": [],
-   "status": "待修复",
-   "fixedMark": false
+   "status": "已修复",
+   "fixedMark": true
   },
   {
    "priority": "P0",
@@ -2697,8 +2697,8 @@
    "issue": "机检错误:切入点缺少阶位：一、二、四、五（须覆盖一阶~最高阶全部连续阶位） | 灌水标记:【再补",
    "hasCrossDup": false,
    "crossGroupIds": [],
-   "status": "待修复",
-   "fixedMark": false
+   "status": "已修复",
+   "fixedMark": true
   },
   {
    "priority": "P0",
@@ -2709,8 +2709,8 @@
    "issue": "机检错误:切入点缺少阶位：一、二、三、四、五、六、七（须覆盖一阶~最高阶全部连续阶位）",
    "hasCrossDup": false,
    "crossGroupIds": [],
-   "status": "待修复",
-   "fixedMark": false
+   "status": "已修复",
+   "fixedMark": true
   },
   {
    "priority": "P0",
@@ -2721,8 +2721,8 @@
    "issue": "机检错误:切入点缺少阶位：一、二、三、四、五、六（须覆盖一阶~最高阶全部连续阶位）",
    "hasCrossDup": false,
    "crossGroupIds": [],
-   "status": "待修复",
-   "fixedMark": false
+   "status": "已修复",
+   "fixedMark": true
   },
   {
    "priority": "P0",
@@ -2733,8 +2733,8 @@
    "issue": "机检错误:切入点缺少阶位：二、四（须覆盖一阶~最高阶全部连续阶位）",
    "hasCrossDup": false,
    "crossGroupIds": [],
-   "status": "待修复",
-   "fixedMark": false
+   "status": "已修复",
+   "fixedMark": true
   },
   {
    "priority": "P0",
@@ -2745,8 +2745,8 @@
    "issue": "机检错误:切入点缺少阶位：一、二、四、六（须覆盖一阶~最高阶全部连续阶位）",
    "hasCrossDup": false,
    "crossGroupIds": [],
-   "status": "待修复",
-   "fixedMark": false
+   "status": "已修复",
+   "fixedMark": true
   },
   {
    "priority": "P0",
@@ -2757,8 +2757,8 @@
    "issue": "机检错误:切入点缺少阶位：一、二、三、四、五、六、七（须覆盖一阶~最高阶全部连续阶位）",
    "hasCrossDup": false,
    "crossGroupIds": [],
-   "status": "待修复",
-   "fixedMark": false
+   "status": "已修复",
+   "fixedMark": true
   },
   {
    "priority": "P0",
@@ -2769,8 +2769,8 @@
    "issue": "机检错误:切入点缺少阶位：四、五（须覆盖一阶~最高阶全部连续阶位）",
    "hasCrossDup": false,
    "crossGroupIds": [],
-   "status": "待修复",
-   "fixedMark": false
+   "status": "已修复",
+   "fixedMark": true
   },
   {
    "priority": "P0",
@@ -2781,8 +2781,8 @@
    "issue": "机检错误:切入点缺少阶位：一、二、三、四、五、六（须覆盖一阶~最高阶全部连续阶位）",
    "hasCrossDup": false,
    "crossGroupIds": [],
-   "status": "待修复",
-   "fixedMark": false
+   "status": "已修复",
+   "fixedMark": true
   },
   {
    "priority": "P0",
@@ -2793,8 +2793,8 @@
    "issue": "机检错误:切入点缺少阶位：一、二、三、四、五、六（须覆盖一阶~最高阶全部连续阶位）",
    "hasCrossDup": false,
    "crossGroupIds": [],
-   "status": "待修复",
-   "fixedMark": false
+   "status": "已修复",
+   "fixedMark": true
   },
   {
    "priority": "P0",
@@ -2805,8 +2805,8 @@
    "issue": "机检错误:切入点缺少阶位：一、二、三、四、五、六（须覆盖一阶~最高阶全部连续阶位）",
    "hasCrossDup": false,
    "crossGroupIds": [],
-   "status": "待修复",
-   "fixedMark": false
+   "status": "已修复",
+   "fixedMark": true
   },
   {
    "priority": "P0",
@@ -2841,8 +2841,8 @@
    "issue": "机检错误:切入点缺少阶位：三、五（须覆盖一阶~最高阶全部连续阶位）",
    "hasCrossDup": false,
    "crossGroupIds": [],
-   "status": "待修复",
-   "fixedMark": false
+   "status": "已修复",
+   "fixedMark": true
   },
   {
    "priority": "P0",
@@ -2853,8 +2853,8 @@
    "issue": "机检错误:切入点缺少阶位：一、三、四（须覆盖一阶~最高阶全部连续阶位）",
    "hasCrossDup": false,
    "crossGroupIds": [],
-   "status": "待修复",
-   "fixedMark": false
+   "status": "已修复",
+   "fixedMark": true
   },
   {
    "priority": "P0",
@@ -2865,8 +2865,8 @@
    "issue": "机检错误:切入点缺少阶位：二（须覆盖一阶~最高阶全部连续阶位）",
    "hasCrossDup": false,
    "crossGroupIds": [],
-   "status": "待修复",
-   "fixedMark": false
+   "status": "已修复",
+   "fixedMark": true
   },
   {
    "priority": "P0",
@@ -2877,8 +2877,8 @@
    "issue": "机检错误:切入点缺少阶位：七（须覆盖一阶~最高阶全部连续阶位） | 灌水标记:【细目",
    "hasCrossDup": false,
    "crossGroupIds": [],
-   "status": "待修复",
-   "fixedMark": false
+   "status": "已修复",
+   "fixedMark": true
   },
   {
    "priority": "P0",
@@ -2901,8 +2901,8 @@
    "issue": "机检错误:切入点缺少阶位：一、二、三、四、五、六（须覆盖一阶~最高阶全部连续阶位） | 灌水标记:【细目",
    "hasCrossDup": false,
    "crossGroupIds": [],
-   "status": "待修复",
-   "fixedMark": false
+   "status": "已修复",
+   "fixedMark": true
   },
   {
    "priority": "P0",
@@ -2913,8 +2913,8 @@
    "issue": "机检错误:切入点缺少阶位：一、二、三、四、五、六、七（须覆盖一阶~最高阶全部连续阶位） | 灌水标记:【细目",
    "hasCrossDup": false,
    "crossGroupIds": [],
-   "status": "待修复",
-   "fixedMark": false
+   "status": "已修复",
+   "fixedMark": true
   },
   {
    "priority": "P0",
@@ -2925,8 +2925,8 @@
    "issue": "机检错误:切入点缺少阶位：一、二、三、四、五、六、七（须覆盖一阶~最高阶全部连续阶位） | 灌水标记:【细目",
    "hasCrossDup": false,
    "crossGroupIds": [],
-   "status": "待修复",
-   "fixedMark": false
+   "status": "已修复",
+   "fixedMark": true
   },
   {
    "priority": "P0",
@@ -2949,8 +2949,8 @@
    "issue": "机检错误:切入点缺少阶位：一、二、三、四、五、六（须覆盖一阶~最高阶全部连续阶位）",
    "hasCrossDup": false,
    "crossGroupIds": [],
-   "status": "待修复",
-   "fixedMark": false
+   "status": "已修复",
+   "fixedMark": true
   },
   {
    "priority": "P0",
@@ -2961,8 +2961,8 @@
    "issue": "机检错误:切入点缺少阶位：一、二、三、四、五、六、七（须覆盖一阶~最高阶全部连续阶位）",
    "hasCrossDup": false,
    "crossGroupIds": [],
-   "status": "待修复",
-   "fixedMark": false
+   "status": "已修复",
+   "fixedMark": true
   },
   {
    "priority": "P0",
@@ -2973,8 +2973,8 @@
    "issue": "机检错误:切入点缺少阶位：一、二、三、四、五、六、七（须覆盖一阶~最高阶全部连续阶位）",
    "hasCrossDup": false,
    "crossGroupIds": [],
-   "status": "待修复",
-   "fixedMark": false
+   "status": "已修复",
+   "fixedMark": true
   },
   {
    "priority": "P0",
@@ -2985,8 +2985,8 @@
    "issue": "机检错误:切入点缺少阶位：一、二、三、四、五、六（须覆盖一阶~最高阶全部连续阶位）",
    "hasCrossDup": false,
    "crossGroupIds": [],
-   "status": "待修复",
-   "fixedMark": false
+   "status": "已修复",
+   "fixedMark": true
   },
   {
    "priority": "P0",
@@ -2997,8 +2997,8 @@
    "issue": "机检错误:切入点缺少阶位：一、二、三、四、五、六（须覆盖一阶~最高阶全部连续阶位）",
    "hasCrossDup": false,
    "crossGroupIds": [],
-   "status": "待修复",
-   "fixedMark": false
+   "status": "已修复",
+   "fixedMark": true
   },
   {
    "priority": "P0",
@@ -3239,8 +3239,8 @@
    "crossGroupIds": [
     210
    ],
-   "status": "待修复",
-   "fixedMark": false
+   "status": "已修复",
+   "fixedMark": true
   },
   {
    "priority": "P0",
@@ -3289,8 +3289,8 @@
    "crossGroupIds": [
     210
    ],
-   "status": "待修复",
-   "fixedMark": false
+   "status": "已修复",
+   "fixedMark": true
   },
   {
    "priority": "P0",
@@ -3328,8 +3328,8 @@
     210,
     211
    ],
-   "status": "待修复",
-   "fixedMark": false
+   "status": "已修复",
+   "fixedMark": true
   },
   {
    "priority": "P0",
@@ -3342,8 +3342,8 @@
    "crossGroupIds": [
     210
    ],
-   "status": "待修复",
-   "fixedMark": false
+   "status": "已修复",
+   "fixedMark": true
   },
   {
    "priority": "P0",
@@ -3356,8 +3356,8 @@
    "crossGroupIds": [
     210
    ],
-   "status": "待修复",
-   "fixedMark": false
+   "status": "已修复",
+   "fixedMark": true
   },
   {
    "priority": "P0",
@@ -3418,8 +3418,8 @@
    "crossGroupIds": [
     210
    ],
-   "status": "待修复",
-   "fixedMark": false
+   "status": "已修复",
+   "fixedMark": true
   },
   {
    "priority": "P0",
@@ -3433,8 +3433,8 @@
     210,
     212
    ],
-   "status": "待修复",
-   "fixedMark": false
+   "status": "已修复",
+   "fixedMark": true
   },
   {
    "priority": "P0",
@@ -3448,8 +3448,8 @@
     210,
     211
    ],
-   "status": "待修复",
-   "fixedMark": false
+   "status": "已修复",
+   "fixedMark": true
   },
   {
    "priority": "P0",
@@ -3463,8 +3463,8 @@
     210,
     211
    ],
-   "status": "待修复",
-   "fixedMark": false
+   "status": "已修复",
+   "fixedMark": true
   },
   {
    "priority": "P0",
@@ -3478,8 +3478,8 @@
     210,
     211
    ],
-   "status": "待修复",
-   "fixedMark": false
+   "status": "已修复",
+   "fixedMark": true
   },
   {
    "priority": "P0",
@@ -3493,8 +3493,8 @@
     210,
     211
    ],
-   "status": "待修复",
-   "fixedMark": false
+   "status": "已修复",
+   "fixedMark": true
   },
   {
    "priority": "P0",
@@ -3508,8 +3508,8 @@
     210,
     211
    ],
-   "status": "待修复",
-   "fixedMark": false
+   "status": "已修复",
+   "fixedMark": true
   },
   {
    "priority": "P0",
@@ -3523,8 +3523,8 @@
     210,
     211
    ],
-   "status": "待修复",
-   "fixedMark": false
+   "status": "已修复",
+   "fixedMark": true
   },
   {
    "priority": "P0",
@@ -3538,8 +3538,8 @@
     210,
     211
    ],
-   "status": "待修复",
-   "fixedMark": false
+   "status": "已修复",
+   "fixedMark": true
   },
   {
    "priority": "P0",
@@ -3553,8 +3553,8 @@
     210,
     211
    ],
-   "status": "待修复",
-   "fixedMark": false
+   "status": "已修复",
+   "fixedMark": true
   },
   {
    "priority": "P0",
@@ -3568,8 +3568,8 @@
     210,
     211
    ],
-   "status": "待修复",
-   "fixedMark": false
+   "status": "已修复",
+   "fixedMark": true
   },
   {
    "priority": "P0",
@@ -3583,8 +3583,8 @@
     210,
     212
    ],
-   "status": "待修复",
-   "fixedMark": false
+   "status": "已修复",
+   "fixedMark": true
   },
   {
    "priority": "P0",
@@ -3598,8 +3598,8 @@
     210,
     212
    ],
-   "status": "待修复",
-   "fixedMark": false
+   "status": "已修复",
+   "fixedMark": true
   },
   {
    "priority": "P0",
@@ -3613,8 +3613,8 @@
     210,
     211
    ],
-   "status": "待修复",
-   "fixedMark": false
+   "status": "已修复",
+   "fixedMark": true
   },
   {
    "priority": "P0",
@@ -3628,8 +3628,8 @@
     210,
     211
    ],
-   "status": "待修复",
-   "fixedMark": false
+   "status": "已修复",
+   "fixedMark": true
   },
   {
    "priority": "P0",
@@ -3642,8 +3642,8 @@
    "crossGroupIds": [
     210
    ],
-   "status": "待修复",
-   "fixedMark": false
+   "status": "已修复",
+   "fixedMark": true
   },
   {
    "priority": "P0",
@@ -3657,8 +3657,8 @@
     210,
     212
    ],
-   "status": "待修复",
-   "fixedMark": false
+   "status": "已修复",
+   "fixedMark": true
   },
   {
    "priority": "P0",
@@ -3672,8 +3672,8 @@
     210,
     211
    ],
-   "status": "待修复",
-   "fixedMark": false
+   "status": "已修复",
+   "fixedMark": true
   },
   {
    "priority": "P0",
@@ -3686,8 +3686,8 @@
    "crossGroupIds": [
     210
    ],
-   "status": "待修复",
-   "fixedMark": false
+   "status": "已修复",
+   "fixedMark": true
   },
   {
    "priority": "P0",
@@ -3701,8 +3701,8 @@
     210,
     211
    ],
-   "status": "待修复",
-   "fixedMark": false
+   "status": "已修复",
+   "fixedMark": true
   },
   {
    "priority": "P0",
@@ -3716,8 +3716,8 @@
     210,
     211
    ],
-   "status": "待修复",
-   "fixedMark": false
+   "status": "已修复",
+   "fixedMark": true
   },
   {
    "priority": "P0",
@@ -3731,8 +3731,8 @@
     210,
     211
    ],
-   "status": "待修复",
-   "fixedMark": false
+   "status": "已修复",
+   "fixedMark": true
   },
   {
    "priority": "P0",
@@ -3746,8 +3746,8 @@
     210,
     212
    ],
-   "status": "待修复",
-   "fixedMark": false
+   "status": "已修复",
+   "fixedMark": true
   },
   {
    "priority": "P0",
@@ -3761,8 +3761,8 @@
     210,
     211
    ],
-   "status": "待修复",
-   "fixedMark": false
+   "status": "已修复",
+   "fixedMark": true
   },
   {
    "priority": "P0",
@@ -3776,8 +3776,8 @@
     210,
     211
    ],
-   "status": "待修复",
-   "fixedMark": false
+   "status": "已修复",
+   "fixedMark": true
   },
   {
    "priority": "P0",
@@ -3791,8 +3791,8 @@
     210,
     211
    ],
-   "status": "待修复",
-   "fixedMark": false
+   "status": "已修复",
+   "fixedMark": true
   },
   {
    "priority": "P0",
@@ -3805,8 +3805,8 @@
    "crossGroupIds": [
     210
    ],
-   "status": "待修复",
-   "fixedMark": false
+   "status": "已修复",
+   "fixedMark": true
   },
   {
    "priority": "P0",
@@ -3820,8 +3820,8 @@
     210,
     211
    ],
-   "status": "待修复",
-   "fixedMark": false
+   "status": "已修复",
+   "fixedMark": true
   },
   {
    "priority": "P0",
@@ -3834,8 +3834,8 @@
    "crossGroupIds": [
     210
    ],
-   "status": "待修复",
-   "fixedMark": false
+   "status": "已修复",
+   "fixedMark": true
   },
   {
    "priority": "P0",
@@ -3849,8 +3849,8 @@
     210,
     211
    ],
-   "status": "待修复",
-   "fixedMark": false
+   "status": "已修复",
+   "fixedMark": true
   },
   {
    "priority": "P0",
@@ -3864,8 +3864,8 @@
     210,
     211
    ],
-   "status": "待修复",
-   "fixedMark": false
+   "status": "已修复",
+   "fixedMark": true
   },
   {
    "priority": "P0",
@@ -3879,8 +3879,8 @@
     210,
     211
    ],
-   "status": "待修复",
-   "fixedMark": false
+   "status": "已修复",
+   "fixedMark": true
   },
   {
    "priority": "P0",
@@ -3893,8 +3893,8 @@
    "crossGroupIds": [
     210
    ],
-   "status": "待修复",
-   "fixedMark": false
+   "status": "已修复",
+   "fixedMark": true
   },
   {
    "priority": "P0",
@@ -3923,8 +3923,8 @@
     210,
     211
    ],
-   "status": "待修复",
-   "fixedMark": false
+   "status": "已修复",
+   "fixedMark": true
   },
   {
    "priority": "P0",
@@ -3981,8 +3981,8 @@
    "crossGroupIds": [
     210
    ],
-   "status": "待修复",
-   "fixedMark": false
+   "status": "已修复",
+   "fixedMark": true
   },
   {
    "priority": "P0",
@@ -3996,8 +3996,8 @@
     210,
     212
    ],
-   "status": "待修复",
-   "fixedMark": false
+   "status": "已修复",
+   "fixedMark": true
   },
   {
    "priority": "P0",
@@ -4025,8 +4025,8 @@
    "crossGroupIds": [
     210
    ],
-   "status": "待修复",
-   "fixedMark": false
+   "status": "已修复",
+   "fixedMark": true
   },
   {
    "priority": "P0",
@@ -4095,8 +4095,8 @@
    "crossGroupIds": [
     210
    ],
-   "status": "待修复",
-   "fixedMark": false
+   "status": "已修复",
+   "fixedMark": true
   },
   {
    "priority": "P0",
@@ -4109,8 +4109,8 @@
    "crossGroupIds": [
     210
    ],
-   "status": "待修复",
-   "fixedMark": false
+   "status": "已修复",
+   "fixedMark": true
   },
   {
    "priority": "P0",
@@ -4123,8 +4123,8 @@
    "crossGroupIds": [
     210
    ],
-   "status": "待修复",
-   "fixedMark": false
+   "status": "已修复",
+   "fixedMark": true
   },
   {
    "priority": "P0",
@@ -4137,8 +4137,8 @@
    "crossGroupIds": [
     210
    ],
-   "status": "待修复",
-   "fixedMark": false
+   "status": "已修复",
+   "fixedMark": true
   },
   {
    "priority": "P0",
@@ -4151,8 +4151,8 @@
    "crossGroupIds": [
     210
    ],
-   "status": "待修复",
-   "fixedMark": false
+   "status": "已修复",
+   "fixedMark": true
   },
   {
    "priority": "P0",
@@ -4165,8 +4165,8 @@
    "crossGroupIds": [
     210
    ],
-   "status": "待修复",
-   "fixedMark": false
+   "status": "已修复",
+   "fixedMark": true
   },
   {
    "priority": "P0",
@@ -4179,8 +4179,8 @@
    "crossGroupIds": [
     210
    ],
-   "status": "待修复",
-   "fixedMark": false
+   "status": "已修复",
+   "fixedMark": true
   },
   {
    "priority": "P0",
@@ -4193,8 +4193,8 @@
    "crossGroupIds": [
     210
    ],
-   "status": "待修复",
-   "fixedMark": false
+   "status": "已修复",
+   "fixedMark": true
   },
   {
    "priority": "P0",
@@ -4207,8 +4207,8 @@
    "crossGroupIds": [
     210
    ],
-   "status": "待修复",
-   "fixedMark": false
+   "status": "已修复",
+   "fixedMark": true
   },
   {
    "priority": "P0",
@@ -4221,8 +4221,8 @@
    "crossGroupIds": [
     210
    ],
-   "status": "待修复",
-   "fixedMark": false
+   "status": "已修复",
+   "fixedMark": true
   },
   {
    "priority": "P0",
@@ -4235,8 +4235,8 @@
    "crossGroupIds": [
     210
    ],
-   "status": "待修复",
-   "fixedMark": false
+   "status": "已修复",
+   "fixedMark": true
   },
   {
    "priority": "P0",
@@ -4276,8 +4276,8 @@
     210,
     222
    ],
-   "status": "待修复",
-   "fixedMark": false
+   "status": "已修复",
+   "fixedMark": true
   },
   {
    "priority": "P0",
@@ -4288,8 +4288,8 @@
    "issue": "机检错误:剧情 8639 字 < 10000 | 警告:切入点疑似\"被封印\"式顶点解释",
    "hasCrossDup": false,
    "crossGroupIds": [],
-   "status": "待修复",
-   "fixedMark": false
+   "status": "已修复",
+   "fixedMark": true
   },
   {
    "priority": "P0",
@@ -4300,8 +4300,8 @@
    "issue": "机检错误:剧情 7102 字 < 10000 | 灌水标记:可被契约者切入的完整任务世界",
    "hasCrossDup": false,
    "crossGroupIds": [],
-   "status": "待修复",
-   "fixedMark": false
+   "status": "已修复",
+   "fixedMark": true
   },
   {
    "priority": "P0",
@@ -4314,8 +4314,8 @@
    "crossGroupIds": [
     210
    ],
-   "status": "待修复",
-   "fixedMark": false
+   "status": "已修复",
+   "fixedMark": true
   },
   {
    "priority": "P0",
@@ -4328,8 +4328,8 @@
    "crossGroupIds": [
     210
    ],
-   "status": "待修复",
-   "fixedMark": false
+   "status": "已修复",
+   "fixedMark": true
   },
   {
    "priority": "P0",
@@ -15803,7 +15803,7 @@
    "hasCrossDup": false,
    "crossGroupIds": [],
    "status": "已修复",
-   "fixedMark": true
+   "fixedMark": false
   },
   {
    "priority": "P2",

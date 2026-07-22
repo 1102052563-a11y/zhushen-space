@@ -147,6 +147,7 @@ export interface NpcRecord {
   deadTurn?: number;      // 首次被检测为死亡的回合号（死亡自动清除的延迟计时；复活则清空）
   isBond?: boolean;       // 羁绊/开局角色，自带"长期保留"，不进清理名单
   keepForever?: boolean;  // 用户手动标记长期保留
+  isCanonLocked?: boolean;// 🛤 原著路线·原著人物（如白夜/苏晓）：数值查表锁死——每回合 settle 由 enforceCanonLock 按站点基准复位，AI 演化改不动
   archived?: boolean;     // 玩家手动「归档」（独立于在场/离场的第三态）：主动收进档案库、不想让叙事关注 →
                           //   彻底封存(不参与轨道A自治/演化/正文召回/自动上场/清理建议)，除非玩家「重新上场」才恢复。
                           //   与「离场」区别：离场是 AI 剧情自动收起、仍被追踪；归档是玩家显式封存。不变量：archived ⟹ !onScene。

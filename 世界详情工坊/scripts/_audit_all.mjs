@@ -102,7 +102,8 @@ function validate(doc) {
   }
   const links = (src || '').match(/\]\(https?:\/\/[^)]+\)/g) || [];
   if (links.length < MIN_SOURCES) warnings.push(`来源链接 ${links.length} 条 < ${MIN_SOURCES}`);
-  for (const bad of ['被封印', '被削弱', '战力限制', '任务公证限制']) {
+  // "封印" is an in-universe Zelda/Date A Live mechanic, not an artificial nerf.
+  for (const bad of ['被削弱', '战力限制', '任务公证限制']) {
     if (entry && entry.includes(bad)) warnings.push(`切入点疑似"${bad}"式顶点解释`);
   }
   return { errors, warnings, world };

@@ -19,6 +19,7 @@ import {
   CHEST_OPEN_RULE, ARENA_OPPONENT_RULE, ARENA_REWARD_RULE, GLADIATOR_MATCH_RULE, GACHA_REWARD_RULE,
   CRAFT_RULE, EQUIP_SET_RULE, EQUIP_ASCEND_RULE, WORLDVIEW_GEN_PROMPT, WORLD_SUMMARY_PROMPT,
   CHAOS_RECORD_PROMPT, CHAOS_WORLD_GEN_PROMPT,
+  CANON_INERTIA_RULE, SUXIAO_PERSONA_RULE, CANON_MISC_RULE,
 } from '../promptRules';
 import { COMBAT_WRITING_GUIDE_RULE } from './combatWritingGuide';
 import { ABYSS_BOON_GEN_RULE, ABYSS_SIN_GEN_RULE, ABYSS_AWAKEN_RULE, ABYSS_JUDGE_RULE, ABYSS_ENEMY_GEN_RULE } from './abyssPrompts';
@@ -119,6 +120,10 @@ export const PROMPT_REGISTRY: PromptEntry[] = [
   { key: 'NM_COMPILE_PROMPT', label: '记忆召回 · 关键词规划', group: '叙事记忆 RAG', kind: 'override', def: NM_COMPILE_PROMPT, desc: '检索关键词规划（LLM 召回模式）' },
   { key: 'NM_INGEST_PROMPT', label: '记忆抽取 · 长期事实', group: '叙事记忆 RAG', kind: 'override', def: NM_INGEST_PROMPT, desc: '从正文抽取长期事实入库' },
   { key: 'NM_STRUCT_SELECT_PROMPT', label: '结构化召回 · 选取', group: '叙事记忆 RAG', kind: 'override', def: NM_STRUCT_SELECT_PROMPT, desc: 'API 选取该注入哪些 NPC / 技能 / 装备' },
+  // ── 🛤 原著路线 ──
+  { key: 'CANON_INERTIA_RULE', label: '原著惯性铁则', group: '🛤 原著路线', kind: 'override', def: CANON_INERTIA_RULE, desc: '原著事件=世界默认走向；玩家可改写、绝不剧情杀掰回、不剧透' },
+  { key: 'SUXIAO_PERSONA_RULE', label: '白夜 · 演绎铁则', group: '🛤 原著路线', kind: 'override', def: SUXIAO_PERSONA_RULE, desc: '苏晓的人设/强度锁定、可敌可杀无护甲、脱轨联动、现身节制' },
+  { key: 'CANON_MISC_RULE', label: '路线状态维护（杂项阶段）', group: '🛤 原著路线', kind: 'override', def: CANON_MISC_RULE, desc: 'canonPhase / canonDivergence / canonSuxiao / canonEncounter / canonChecklist 输出指令' },
 ];
 
 /** 玩家当前自定义值（field=store 字段值 / override=override map 值；未自定义时可能为空或等于默认）。 */

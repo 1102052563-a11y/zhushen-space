@@ -91,7 +91,9 @@ function validate(doc) {
     const extra = ['一', '二', '三', '四', '五', '六', '七', '八', '九'].filter((t) => !world.tiers.includes(t) && new RegExp(`\\*\\*${t}阶`).test(entry));
     if (extra.length) errors.push(`切入点写了该世界不覆盖的阶位：${extra.join('、')}（严禁硬凑）`);
   }
-  for (const bad of ['被封印', '被削弱', '战力限制', '任务公证限制']) {
+  // Only flag wording that claims an artificial combat nerf. In this setting,
+  // "封印" is a genuine story mechanic and is not itself an invalid explanation.
+  for (const bad of ['被削弱', '战力限制', '任务公证限制']) {
     if (entry && entry.includes(bad)) warnings.push(`切入点疑似出现"${bad}"式顶点解释，人工复核（铁令6）`);
   }
   return { errors, warnings, world };

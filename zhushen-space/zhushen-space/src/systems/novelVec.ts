@@ -1,6 +1,7 @@
 import { useNovelVec, type UserIndexMeta } from '../store/novelVecStore';
 import { fetchWithProxy } from './apiChat';   // 查询 embed 直连失败(CORS/SSL)自动回退服务端代理
 import { openDb, kvGet, kvPut, chunkGet, chunksBulk } from './novelVecDb';
+import { canonMaxVolume, cnVolToInt } from './canonRoute';   // 🛤 原著路线·剧透闸（≤本站卷才放行原著片段）
 
 /* 向量资料库运行时（多索引 + 多模型）：
    - 内置源：懒加载 public/<source>/{manifest,vectors.bin,chunks.json.gz}，缓存进 IndexedDB。
@@ -233,14 +234,23 @@ export async function retrieveNovel(queryText: string): Promise<NovelHit[]> {
   }
   if (merged.length === 0) return [];
   merged.sort((a, b) => b.score - a.score);
-  const top = merged.slice(0, Math.max(1, s.topK ?? 5));
+  const topK = Math.max(1, s.topK ?? 5);
+
+  // 🛤 原著路线·剧透闸：身处某站世界时，原著小说源片段只放行 ≤ 本站卷（未来卷=剧透，直接拦）。
+  //   无卷标片段（前言等）与其他源（世界书/wiki/自建）不受限；候选池本就 3×topK，滤后仍够填满。
+  const volCap = canonMaxVolume();
 
   const db = await openDb();
   const out: NovelHit[] = [];
   let chars = 0; const cap = s.maxChars ?? 2500;
-  for (const h of top) {
+  for (const h of merged) {
+    if (out.length >= topK) break;
     const row = await chunkGet(db, `${h.name}#${h.id}`);
     if (!row) continue;
+    if (volCap != null && h.name === 'novel-vectors' && row.v) {
+      const vn = cnVolToInt(row.v);
+      if (vn != null && vn > volCap) continue;
+    }
     if (chars && chars + row.t.length > cap) break;
     chars += row.t.length;
     out.push({ text: row.t, vol: row.v, chap: row.c, score: h.score, source: h.label });

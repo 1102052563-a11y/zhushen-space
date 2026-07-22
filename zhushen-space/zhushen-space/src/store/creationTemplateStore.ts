@@ -32,6 +32,7 @@ export interface CreationTemplateData {
   startItems?: any[];          // 已生成的携带物品（固定格式字段·预览+开局入库）
   companionsPrompt?: string;   // 随行人物·生成提示词
   companions?: any[];          // 已生成的随行随从（NPC 建档字段·预览+开局在场入队）
+  canonRoute?: boolean;        // 🛤 原著路线模式（按原著世界顺序推进）
 }
 export interface SavedTemplate { id: string; name: string; createdAt: number; data: CreationTemplateData }
 

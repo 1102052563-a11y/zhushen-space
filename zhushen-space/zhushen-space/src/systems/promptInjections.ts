@@ -12,6 +12,11 @@ import { useGuild } from '../store/guildStore';
 import { playerMaxHp, playerMaxEp } from './playerVitals';
 import { effectiveResource } from './derivedStats';
 import { serializeQuestsForNarrative } from './miscParser';
+import { useCanonRoute } from '../store/canonRouteStore';
+import { CANON_STATIONS, CANON_SUXIAO } from '../data/canonRoute';
+import { CANON_INERTIA_RULE, SUXIAO_PERSONA_RULE } from '../promptRules';
+import { ensureQuestRelation, QUEST_REL_TEXT, activeCanonStation } from './canonRoute';
+import { getPrompt } from '../store/promptOverrideStore';
 export function buildFanficInjection(): { role: 'system'; content: string }[] {
   if (!useSettings.getState().fanficMode) return [];
   const all = Object.values(useFanfic.getState().entries);
@@ -190,5 +195,93 @@ export function buildQuestInjection(deferToPlan = false): { role: 'system'; cont
       `- 支线：仅当当前场景/人物契合时按其当前目标自然推进，不喧宾夺主、不强行塞入。\n` +
       `- **唯一例外**：玩家本轮输入明确转向别处时以玩家为准（顺其自然写、系统会据正文重排路线）；除此之外都应朝当前环目标推进。\n` +
       `</当前任务>`,
+  }];
+}
+
+/* ════════ 🛤 原著路线注入（仅模式开启且身在当前站世界时） ════════ */
+
+/** 站内判定统一走 systems/canonRoute.activeCanonStation（注入/向量剧透闸共用同一口径） */
+const inCanonStationWorld = activeCanonStation;
+
+/** 苏晓本站入场实力基准 = 上一站离世定格 + 站间乐园变化；首站为初始新人 */
+function suxiaoEntryBasis(idx: number): string {
+  const prev = idx > 0 ? CANON_STATIONS[idx - 1] : undefined;
+  if (!prev) return 'LV.1 新人猎杀者：六维凡人级（力6 敏7 体5 智6 魅3 幸1 上下）、持「斩龙闪（白·稀有）」与「亡妻的项坠」、天赋噬灵者、尚无职业与技能';
+  const e = prev.suxiao.exit;
+  const a = e.attrs;
+  const attrs = a ? `六维 力${a.力量 ?? '?'} 敏${a.敏捷 ?? '?'} 体${a.体力 ?? '?'} 智${a.智力 ?? '?'} 魅${a.魅力 ?? '?'} 幸${a.幸运 ?? '?'}` : '';
+  const bits = [e.lv != null ? `Lv.${e.lv}` : '', e.realm || '', attrs].filter(Boolean).join(' · ');
+  const after = prev.suxiao.paradiseAfter ? `；站间乐园变化：${prev.suxiao.paradiseAfter.slice(0, 300)}` : '';
+  return `上一站《${prev.name}》离世定格（${bits}）${after}`;
+}
+
+/** <原著路线·本站剧本>：时间轴窗口 + 世界规则 + 原著任务参照 + 结算基准 + 原著惯性铁则 */
+export function buildCanonWorldInjection(): { role: 'system'; content: string }[] {
+  const hit = inCanonStationWorld();
+  if (!hit) return [];
+  const s = hit.station;
+  const st = useCanonRoute.getState();
+  const total = Math.max(1, s.suxiao.track.length);
+  const phase = Math.min(Math.max(1, st.worldPhase), total);
+  const from = Math.max(0, phase - 3), to = Math.min(total, phase + 2);
+  const axis = s.suxiao.track.slice(from, to).map((p, i) => {
+    const n = from + i + 1;
+    const mark = n < phase ? '✓' : n === phase ? '▶' : '·';
+    return `${mark} ${n}. ${p.title}${p.chapters ? `（${p.chapters}）` : ''}${p.note ? ` — ${p.note}` : ''}`;
+  });
+  const tailN = total - to;
+  const extras = [...(s.world.sideMissions ?? []), ...(s.world.triggerQuests ?? [])].slice(0, 6);
+  const lines = [
+    `第${s.order}站《${s.name}》（${s.volume}卷·${s.stationType}）· 原著时间轴阶段 ${phase}/${total}`,
+    s.world.era ? `■ 时间点锚定：${s.world.era}` : '',
+    s.world.rules ? `■ 世界规则：${s.world.rules}` : '',
+    `■ 原著大事轴（苏晓的轨道＝世界惯性·无人干涉则按此推进）：\n${from > 0 ? `（前 ${from} 阶段已过）\n` : ''}${axis.join('\n')}${tailN > 0 ? `\n（后续还有 ${tailN} 阶段·勿剧透）` : ''}`,
+    s.world.mainMission ? `■ 原著任务参照（苏晓的任务·玩家主线与之同场交叉但独立）：${s.world.mainMission}${s.world.mainReward ? `（原著奖励：${s.world.mainReward}）` : ''}` : '',
+    extras.length ? `■ 原著支线/隐藏/猎杀线索（真实存在于本世界·玩家可循迹亦可无视）：\n${extras.map((x) => `- ${x}`).join('\n')}` : '',
+    (s.suxiao.settle?.sourcePct != null || s.suxiao.settle?.rating)
+      ? `■ 结算基准：白夜本站成绩 ${[s.suxiao.settle?.sourcePct != null ? `世界之源 ${s.suxiao.settle.sourcePct}%` : '', s.suxiao.settle?.rating || ''].filter(Boolean).join(' · ')}`
+      : '',
+    (() => { const rel = ensureQuestRelation(hit.idx); return `■ 本站任务关系（掷定·全站固定）：${rel} —— ${QUEST_REL_TEXT[rel]}`; })(),
+  ].filter(Boolean);
+  return [{
+    role: 'system' as const,
+    content: `<原著路线·本站剧本>（GM 内部参照——绝不向玩家复述、罗列或剧透本块内容）\n${lines.join('\n')}\n${getPrompt('CANON_INERTIA_RULE', CANON_INERTIA_RULE)}\n</原著路线·本站剧本>`,
+  }];
+}
+
+/** <苏晓轨道>：同世界猎杀者「白夜」的当前状态卡（轨道态/脱轨/同盟/已陨落） */
+export function buildSuxiaoTrackInjection(): { role: 'system'; content: string }[] {
+  const hit = inCanonStationWorld();
+  if (!hit) return [];
+  const st = useCanonRoute.getState();
+  const s = hit.station;
+  if (st.suxiao.state === 'dead') {
+    return [{
+      role: 'system' as const,
+      content: `<苏晓轨道>（原著猎杀者「白夜」已陨落——本站及之后不再有他的原著轨道；他原本会做的事无人去做，世界按现状自洽演化，可自然呈现他缺席造成的涟漪）</苏晓轨道>`,
+    }];
+  }
+  const total = Math.max(1, s.suxiao.track.length);
+  const phase = Math.min(Math.max(1, st.worldPhase), total);
+  const cur = s.suxiao.track[phase - 1];
+  const curTxt = cur ? `${cur.title}${cur.chapters ? `（${cur.chapters}）` : ''}${cur.note ? ` — ${cur.note}` : ''}` : '（本站轨道已走完·收尾/离世阶段）';
+  const stateLine = st.suxiao.state === 'derailed'
+    ? `【已脱轨】玩家已实质干涉他的原著轨道${st.suxiao.derailedAt ? `（${st.suxiao.derailedAt}）` : ''}——此后他不再照原著行动，按人设、目标与利害自由决策${st.suxiao.note ? `。当前动向：${st.suxiao.note}` : ''}`
+    : st.suxiao.state === 'allied'
+      ? `【与主角同盟】仍大体沿原著轨道推进自己的任务。当前阶段：${curTxt}`
+      : `【按原著轨道行动中】当前阶段：${curTxt}`;
+  const home = (usePlayer.getState().profile.homeParadise || '轮回乐园').trim();
+  const lines = [
+    `身份：轮回乐园猎杀者「${s.suxiao.alias}」（真名苏晓·在本世界用化名行事）`,
+    `人设：${CANON_SUXIAO.persona.replace(/\n/g, ' ')}`,
+    `本站入场实力基准：${suxiaoEntryBasis(hit.idx)}`,
+    stateLine,
+    home !== '轮回乐园'
+      ? `立场加剧：主角隶属「${home}」（非轮回乐园）——白夜天然视其为他乐园竞争者，警惕与算计基线更高、绝不透底；若主角行为触犯轮回乐园规则沦为违规者，白夜的猎杀任务可能直接指向主角。`
+      : '',
+  ].filter(Boolean);
+  return [{
+    role: 'system' as const,
+    content: `<苏晓轨道>（同世界的另一位猎杀者·GM 内部参照，勿向玩家复述）\n${lines.join('\n')}\n${getPrompt('SUXIAO_PERSONA_RULE', SUXIAO_PERSONA_RULE)}\n</苏晓轨道>`,
   }];
 }

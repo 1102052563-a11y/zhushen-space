@@ -3,6 +3,9 @@ import { usePlayer } from '../store/playerStore';
 import { isHomeWorld } from './playerVitals';
 import { filterAiTaskPatch, gateNewAiTask, isTerminalTaskStatus } from './questGuard';
 import { logArbitration } from './npcGrowthGuard';
+import { useCanonRoute } from '../store/canonRouteStore';
+import { CANON_STATIONS } from '../data/canonRoute';
+import { grantCanonAchievement } from './canonRoute';
 
 /* 杂项演化指令解析（不含小地图）
    只认 timeLocation.* / addSmall|LargeSummary / addWorldEvent.. / T_ 任务 / ringAdvance
@@ -134,6 +137,66 @@ export function applyMiscCommands(reply: string, opts: { allowLarge?: boolean; t
 
     if ((m = /^addSmallSummary\(\s*"([\s\S]*)"\s*\)$/.exec(line))) { M.pushSmall(unquote(m[1])); n++; continue; }
     if ((m = /^addLargeSummary\(\s*"([\s\S]*)"\s*\)$/.exec(line))) { if (allowLarge) { M.pushLarge(unquote(m[1])); n++; } continue; }
+
+    // 🛤 原著路线状态维护（仅模式开启时生效；canon* 前缀短路，不与其他指令冲突）
+    if ((m = /^canonPhase\(\s*(\d+)\s*\)$/.exec(line))) {
+      const CR = useCanonRoute.getState();
+      if (CR.enabled) {
+        const station = CANON_STATIONS[CR.stationIndex];
+        const maxLen = Math.max(1, station?.suxiao.track.length ?? 1);
+        const next = Math.min(Number(m[1]), CR.worldPhase + 2, maxLen);   // 只进不退·单轮最多+2·不超本站轨道长度
+        if (next > CR.worldPhase) { CR.setWorldPhase(next); n++; }
+      }
+      continue;
+    }
+    if ((m = /^canonDivergence\(\s*(\d+)\s*(?:,\s*"[\s\S]*?"\s*)?\)$/.exec(line))) {
+      const CR = useCanonRoute.getState();
+      if (CR.enabled) { CR.setDivergence(Number(m[1])); n++; }
+      continue;
+    }
+    if ((m = /^canonSuxiao\(\s*"(on-track|derailed|allied|dead)"\s*(?:,\s*"([\s\S]*?)"\s*)?\)$/.exec(line))) {
+      const CR = useCanonRoute.getState();
+      if (CR.enabled) {
+        const state = m[1] as 'on-track' | 'derailed' | 'allied' | 'dead';
+        const note = m[2] ? unquote(m[2]).slice(0, 120) : '';
+        const station = CANON_STATIONS[CR.stationIndex];
+        const where = station ? `${station.name}·阶段${CR.worldPhase}` : '';
+        if (state === 'derailed') CR.setSuxiao({ state, derailedAt: note ? `${where}：${note}` : where, note: note || undefined });
+        else CR.setSuxiao({ state, note: note || undefined });
+        if (state === 'dead') { try { grantCanonAchievement('slain'); } catch { /* */ } }   // ☠ 击杀白夜 → 传说级隐藏成就
+        n++;
+      }
+      continue;
+    }
+    if ((m = /^canonEncounter\(\s*"([\s\S]+?)"\s*\)$/.exec(line))) {
+      const CR = useCanonRoute.getState();
+      const station = CANON_STATIONS[CR.stationIndex];
+      if (CR.enabled && station) { CR.addEncounter(station.id, unquote(m[1]).slice(0, 80)); n++; }
+      continue;
+    }
+    if ((m = /^canonChecklist\(\s*"([\s\S]+?)"\s*\)$/.exec(line))) {
+      const CR = useCanonRoute.getState();
+      const station = CANON_STATIONS[CR.stationIndex];
+      if (CR.enabled && station) {
+        // 模糊对上〈本站剧本〉列出的原著支线/隐藏/猎杀条目才打勾（存原文条目串，路线图据此 ✅），对不上则忽略防垃圾
+        const cn = (x: string) => x.replace(/[\s·•・\-—_,，。、|｜()（）【】「」：:*＊]/g, '').toLowerCase();
+        const arg = cn(unquote(m[1]));
+        const cands = [...(station.world.sideMissions ?? []), ...(station.world.triggerQuests ?? [])];
+        const hitEntry = arg ? cands.find((c) => { const e = cn(c); return e.includes(arg) || arg.includes(e.slice(0, 16)); }) : undefined;
+        if (hitEntry) {
+          const first = !(CR.stations[station.id]?.checklist ?? []).includes(hitEntry);
+          CR.tickChecklist(station.id, hitEntry);
+          if (first) {   // 首次打勾发成就；条目里记着「苏晓放弃/未做」→ 额外淡金隐藏成就（他放弃的路，你走完了）
+            try {
+              grantCanonAchievement('checklist', { station, entry: hitEntry });
+              if (/放弃|未接|未做/.test(hitEntry)) grantCanonAchievement('abandoned', { station, entry: hitEntry });
+            } catch { /* */ }
+          }
+          n++;
+        }
+      }
+      continue;
+    }
 
     if ((m = /^timeLocation\.paradiseTime\s*=\s*"([^"]*)"$/.exec(line))) { M.setTime({ paradiseTime: m[1] }); n++; continue; }
     if ((m = /^timeLocation\.worldTime\s*=\s*"([^"]*)"$/.exec(line)))    { M.setTime({ worldTime: m[1] }); n++; continue; }

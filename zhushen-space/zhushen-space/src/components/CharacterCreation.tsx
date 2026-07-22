@@ -36,6 +36,7 @@ export interface CreationData {
   startItems?: any[];          // 已生成的携带物品（确认开局入库）
   companionsPrompt?: string;   // 开局随行人物·生成提示词
   companions?: any[];          // 已生成的随行随从（确认开局在场入队）
+  canonRoute?: boolean;        // 🛤 原著路线：按原著顺序进入苏晓走过的世界（勾选即激活该系统）
 }
 
 const DIFFICULTIES: { key: string; points: number; desc: string }[] = [
@@ -89,6 +90,7 @@ export default function CharacterCreation({ onConfirm, onCancel, onGenItems, onG
   const [talentAttrBonus, setTalentAttrBonus] = useState('');
   const [talentDesc, setTalentDesc] = useState('');
   const [contractId, setContractId] = useState('');
+  const [canonRoute, setCanonRoute] = useState(false);   // 🛤 原著路线模式
   // 开局携带物品 / 随行人物（提示词 + 生成结果预览；生成走物品演化 / NPC演化 API）
   const [startItemsPrompt, setStartItemsPrompt] = useState('');
   const [startItems, setStartItems] = useState<any[]>([]);
@@ -117,7 +119,7 @@ export default function CharacterCreation({ onConfirm, onCancel, onGenItems, onG
   const removeCustomTalent = useCreationContent((s) => s.removeTalent);
 
   function currentData(): CreationTemplateData {
-    return { difficulty, paradise, paradiseCustom, name, gender, genderCustom, race, raceCustom, raceDetail, age, personality, personalityDetail, prevProfession, appearance, attrs: { ...attrs }, talentName, talentEffect, talentRarity, talentCategory, talentLevel, talentSource, talentAttrBonus, talentDesc, contractId, startItemsPrompt, startItems, companionsPrompt, companions };
+    return { difficulty, paradise, paradiseCustom, name, gender, genderCustom, race, raceCustom, raceDetail, age, personality, personalityDetail, prevProfession, appearance, attrs: { ...attrs }, talentName, talentEffect, talentRarity, talentCategory, talentLevel, talentSource, talentAttrBonus, talentDesc, contractId, startItemsPrompt, startItems, companionsPrompt, companions, canonRoute };
   }
   function loadTemplate(d: CreationTemplateData) {
     setDifficulty(d.difficulty); setParadise(d.paradise); setParadiseCustom(d.paradiseCustom ?? '');
@@ -131,6 +133,7 @@ export default function CharacterCreation({ onConfirm, onCancel, onGenItems, onG
     setContractId(d.contractId ?? '');
     setStartItemsPrompt(d.startItemsPrompt ?? ''); setStartItems(Array.isArray(d.startItems) ? d.startItems : []);
     setCompanionsPrompt(d.companionsPrompt ?? ''); setCompanions(Array.isArray(d.companions) ? d.companions : []);
+    setCanonRoute(!!d.canonRoute);
     setTplMode('none');
   }
 
@@ -156,6 +159,7 @@ export default function CharacterCreation({ onConfirm, onCancel, onGenItems, onG
     talentRarity: talentRarity.trim(), talentCategory: talentCategory.trim(), talentLevel: talentLevel.trim(), talentSource: talentSource.trim(), talentAttrBonus: talentAttrBonus.trim(), talentDesc: talentDesc.trim(),
     contractId: contractId.trim(),
     startItemsPrompt: startItemsPrompt.trim(), startItems, companionsPrompt: companionsPrompt.trim(), companions,
+    canonRoute,
   };
 
   async function doGenItems() {
@@ -182,6 +186,7 @@ export default function CharacterCreation({ onConfirm, onCancel, onGenItems, onG
     const rows: [string, string][] = [
       ['游戏难度', `${difficulty}（${totalPoints} 属性点）`],
       ['所属乐园', resolvedParadise],
+      ['原著路线', canonRoute ? '🛤 开启（按苏晓的世界顺序推进·首站 海贼王·哥亚王都·苏晓同行）' : '关闭（自由选择世界）'],
       ['姓名', data.name],
       ['年龄', age || '—'],
       ['性别', resolvedGender],
@@ -297,6 +302,18 @@ export default function CharacterCreation({ onConfirm, onCancel, onGenItems, onG
             )}
           </div>
         )}
+        {/* 🛤 原著路线模式开关 */}
+        <button onClick={() => setCanonRoute((v) => !v)}
+          className={`w-full text-left rounded-lg border px-3 py-2.5 transition-colors ${canonRoute ? 'border-god/60 bg-god/10' : 'border-edge hover:border-god/30'}`}>
+          <span className="flex items-center gap-2 text-sm">
+            <span className={`shrink-0 w-4 h-4 rounded border flex items-center justify-center text-[10px] ${canonRoute ? 'border-god/70 bg-god/30 text-god' : 'border-edge text-transparent'}`}>✓</span>
+            <span className={canonRoute ? 'text-god font-bold' : 'text-slate-200'}>🛤 原著路线</span>
+            <span className="text-[11px] font-mono text-dim">{canonRoute ? '已开启' : '未开启'}</span>
+          </span>
+          <span className="block pl-6 pt-1 text-[12px] leading-relaxed text-dim">
+            按原著顺序依次进入苏晓走过的任务世界（首站：海贼王·哥亚王都）。原著剧情作为世界惯性推进；苏晓（化名白夜）同行于各世界执行他的任务——可遇、可盟、可敌。不勾选则自由选择世界。
+          </span>
+        </button>
       </Section>
 
       <Section n={3} title="主角基本信息">
