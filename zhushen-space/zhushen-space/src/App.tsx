@@ -263,6 +263,7 @@ import { getPrompt, renderPrompt, setLastUserMessage } from './store/promptOverr
 import { rollGemDrops } from './systems/gemDrop';   // 正文击杀 → 结算掉落宝石（前端确定性）
 const MiscPanel = lazy(() => import('./components/MiscPanel'));
 import DiceCard from './components/DiceCard';
+import PanelBoundary from './components/PanelBoundary';
 const DiceReviewModal = lazy(() => import('./components/DiceReviewModal'));   // 检定审核窗（自动检定后弹窗·重掷/编辑）
 import { runAutoDice, isDiceReviewOn, type DiceCardData, type AutoDiceOut } from './systems/autoDice';   // 自动检定：发送即判定 → 隐藏喂API + 骰子卡 + 审核窗
 const EnhancePanel = lazy(() => import('./components/EnhancePanel'));
@@ -10991,8 +10992,27 @@ ${lines}`;
     setSettleModalOpen(true);
   }
 
+  // 面板级错误边界（PanelBoundary）的「关闭弹窗继续游戏」：清掉弹窗层里所有面板的 open 态，
+  // 崩溃面板被卸载即恢复、游戏主体不动。与底部弹窗层大 <Suspense> 块保持同步：新增弹窗想被一键关闭就把 setter 加进来。
+  const closeAllPanels = () => {
+    setBackpackOpen(false); setNpcPanelOpen(false); setPetRosterOpen(false); setChannelPanelOpen(false);
+    setDmPanelOpen(false); setMpPanelOpen(false); setChatRoomOpen(false); setTradeOpen(false);
+    setAssistOpen(false); setArenaWorldOpen(false); setPlaytimeOpen(false); setMonumentOpen(false);
+    setVaultOpen(false); setFriendsPanelOpen(false); setPartyPanelOpen(false); setWorkshopOpen(false);
+    setShopOpen(false); setMiscPanelOpen(false); setWorldRecordOpen(false); setChaosWorldOpen(false);
+    setCombatSetupOpen(false); setArenaPanelOpen(false); setEnhancePanelOpen(false); setSkillUpPanelOpen(false);
+    setCraftPanelOpen(false); setProducePanelOpen(false); setGuildPanelOpen(false); setCasinoOpen(false);
+    setAbyssOpen(false); setJoyPanelOpen(false); setSummaryPanelOpen(false); setAuditOpen(false);
+    setSaveOpen(false); setTitlePanelOpen(false); setAchievePanelOpen(false); setSubProfOpen(false);
+    setLoadoutOpen(false); setFactionPanelOpen(false); setTerritoryPanelOpen(false); setTeamPanelOpen(false);
+    setCosmosPanelOpen(false); setWorldCodexOpen(false); setWikiOpen(false); setShowVer(false);
+    setInsightOpen(false); setCharPanelOpen(false);
+    setPromoteCandidates([]); setChaosPending(null); setOnSceneDetailId(null); setCleanupNpcs([]);
+    try { closeCultivate(); } catch { /* */ }
+  };
+
   if (settingsOpen) {
-    return <Suspense fallback={null}><SettingsPanel onClose={() => setSettingsOpen(false)} onOpenSaveLoad={() => { setSettingsOpen(false); setSaveOpen(true); }} /></Suspense>;
+    return <PanelBoundary label="设置面板" onReset={() => setSettingsOpen(false)}><Suspense fallback={null}><SettingsPanel onClose={() => setSettingsOpen(false)} onOpenSaveLoad={() => { setSettingsOpen(false); setSaveOpen(true); }} /></Suspense></PanelBoundary>;
   }
 
   if (!started) {
@@ -12060,6 +12080,9 @@ ${lines}`;
         <span>VERSION V0.0.1 // ONLINE 2</span>
       </footer>
 
+      {/* 弹窗层错误边界：任一面板渲染崩（多为 AI 脏数据）只塌弹窗层——正文/输入照常；
+          「关闭弹窗继续游戏」= closeAllPanels（定义见 settingsOpen 分支上方），崩溃自动上报（crashReport） */}
+      <PanelBoundary label="弹窗" onReset={closeAllPanels}>
       <Suspense fallback={null}>
       {/* ── 背包弹窗 ── */}
       {backpackOpen && (
@@ -12467,6 +12490,7 @@ ${lines}`;
         </div>
       )}
       </Suspense>
+      </PanelBoundary>
     </div>
   );
 }

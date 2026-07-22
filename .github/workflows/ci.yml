@@ -1,0 +1,54 @@
+# CI：每次 push/PR 自动在 GitHub 服务器上跑全部质量门禁（本地照样能手动跑，这里只是自动化）。
+# 门禁清单（全部在内层项目 zhushen-space/zhushen-space 执行）：
+#   1. npm run typecheck        —— tsc 基线门禁（scripts/check-types.mjs）
+#   2. node scripts/check-network.mjs —— 网络规约门禁（裸 fetch / 缺 timeoutMs，基线见 network-baseline.json）
+#   3. npx eslint src           —— hooks correctness（rules-of-hooks=error 拦截；exhaustive-deps=warn 不拦）
+#   4. npm test                 —— vitest 引擎层单测
+#   5. npx vite build           —— 真实构建（buildWiki 插件在无 mkdocs 的 runner 上自动跳过，不阻断）
+# 注意：本 CI 与 Cloudflare Pages 部署相互独立——CI 红了 Pages 仍会照常部署。
+# 想让「坏提交不上线」，把 Pages 面板的 Build command 改成：
+#   pip install -r ../../lunhui-wiki/requirements.txt && npm run typecheck && node scripts/check-network.mjs && npx vite build
+name: CI
+
+on:
+  push:
+    branches: [master]
+    paths:
+      - 'zhushen-space/zhushen-space/**'
+      - '.github/workflows/**'
+  pull_request:
+    paths:
+      - 'zhushen-space/zhushen-space/**'
+      - '.github/workflows/**'
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+defaults:
+  run:
+    working-directory: zhushen-space/zhushen-space
+
+jobs:
+  checks:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: zhushen-space/zhushen-space/package-lock.json
+      - name: 安装依赖
+        run: npm ci
+      - name: 类型门禁（tsc 基线）
+        run: npm run typecheck
+      - name: 网络规约门禁（裸 fetch / 缺 timeoutMs）
+        run: node scripts/check-network.mjs
+      - name: ESLint（hooks correctness）
+        run: npx eslint src
+      - name: 单元测试（vitest）
+        run: npm test
+      - name: 构建（vite build）
+        run: npx vite build

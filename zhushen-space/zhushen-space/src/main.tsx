@@ -5,11 +5,15 @@ import ErrorBoundary from './components/ErrorBoundary'
 import DomI18n from './i18n/DomI18n'
 import { setResumeFlag } from './systems/resumeFlag'
 import { migrateCompressLegacy, COMPRESSED_KEYS } from './systems/compressedStorage'
+import { installGlobalCrashReporter } from './systems/crashReport'
 import './index.css'
 
 // 启动即把旧·未压缩的大 store 就地压缩，立即释放 localStorage 配额（长档曾顶满 5MB 致写入失败）。
 // 纯 localStorage 操作、静默容错，不阻塞、不影响已 hydrate 的内存态（见 compressedStorage / localstorage-compression-stores）。
 migrateCompressLegacy(COMPRESSED_KEYS)
+
+// 全局崩溃上报兜网（事件回调/Promise 里的异常；渲染期异常由 ErrorBoundary/PanelBoundary 上报）
+installGlobalCrashReporter()
 
 ReactDOM.createRoot(document.getElementById('root')!).render(
   <React.StrictMode>

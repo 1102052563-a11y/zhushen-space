@@ -1,5 +1,6 @@
 # Ben 10：大刚降临（Diagon Arc）
 <!--meta lib=主库 tiers=五-->
+<!--repaired: 20260721-->
 <!-- VERIFY ✅ 2026-07-22: 已按《The Beginning of the End》《The Ultimate Enemy: Part 1》《The Ultimate Enemy: Part 2》的连续事件复核；一至五阶均为对应集内的具名事件，单文件门禁通过。 -->
 
 ## 剧情

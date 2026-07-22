@@ -40,6 +40,8 @@
 
 ## 2. 静态扫描清单（必做）
 
+> **本节已脚本化**：`npm run check-network`（`scripts/check-network.mjs`，与 tsc 门禁同款 baseline 思路：存量入 `scripts/network-baseline.json`，只拦新增违规；已挂进 `npm run build` 与 CI）。修掉存量后跑 `npm run check-network:update` 收紧基线。下述 grep 仍适用于手工深查/定位具体行。
+
 在内层 `zhushen-space/zhushen-space/` 执行思路（PowerShell / 编辑器 Grep 均可）。
 
 ### 2.1 裸 fetch（最高危）

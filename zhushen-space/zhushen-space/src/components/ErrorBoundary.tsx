@@ -1,5 +1,6 @@
 import React from 'react';
 import { setResumeFlag, clearResumeFlag } from '../systems/resumeFlag';
+import { reportCrash } from '../systems/crashReport';
 
 /* 顶层错误边界：任何组件渲染时抛出的异常都被这里兜住，显示一个可恢复的提示，
    而不是让 React 卸载整棵树导致【整页黑屏】。
@@ -44,6 +45,7 @@ export default class ErrorBoundary extends React.Component<{ children: React.Rea
     const ts = tsGet(RESUME_TS); if (ts && Date.now() - ts < 10000) loop = true;
     if (loop) this.setState({ loop: true });
     console.error('[ErrorBoundary] 渲染崩溃：', error, info?.componentStack);
+    reportCrash('boundary', error, { componentStack: String(info?.componentStack || '') });
   }
 
   resumeReload = () => {

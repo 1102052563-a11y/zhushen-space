@@ -1,6 +1,7 @@
 # 奴隶区-SCM对决
 <!--meta lib=主库 tiers=一-->
 
+<!--repaired: 20260721-->
 ## 剧情
 
 **【作品来源】**
@@ -358,6 +359,6 @@
 
 ## 来源
 
-- [奴隷区相关公开介绍（动画／漫画条目检索）](https://www.animenewsnetwork.com/)
-- [MyAnimeList 检索入口](https://myanimelist.net/)
-- [轮回乐园世界库](https://zhushen-space.pages.dev)
+- [Dorei-ku The Animation - MyAnimeList](https://myanimelist.net/anime/36525/Dorei-ku_The_Animation)
+- [Dorei-ku: Boku to 23-nin no Dorei - MyAnimeList](https://myanimelist.net/manga/57063/Dorei-ku__Boku_to_23-nin_no_Dorei)
+- [Dorei-ku The Animation - Anime News Network](https://www.animenewsnetwork.com/encyclopedia/anime.php?id=20321)

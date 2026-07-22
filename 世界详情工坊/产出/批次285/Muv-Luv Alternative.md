@@ -1,5 +1,6 @@
 # Muv-Luv Alternative
 <!--meta lib=休闲 tiers=休闲-->
+<!--repaired: 20260721-->
 <!--verify=2026-07-22 check=PASS fields=七字段 sources=4 sensitivity=public-non-explicit-->
 
 ## 剧情

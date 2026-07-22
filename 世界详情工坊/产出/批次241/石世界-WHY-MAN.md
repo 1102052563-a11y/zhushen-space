@@ -1,5 +1,6 @@
 # 石世界-WHY-MAN
 <!--meta lib=主库 tiers=一、二、三、四、五-->
+<!--repaired: 20260721-->
 <!--verify=2026-07-22 check=PASS fields=七字段 named-npc=PASS sources=4 sensitivity=public-non-explicit-->
 
 ## 剧情

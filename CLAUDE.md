@@ -17,7 +17,7 @@ npm run dev                      # localhost:5173
 .\node_modules\.bin\vite build   # 构建 dist/（本地二进制，跳过 tsc）
 npm run build-vectors[-wb]       # 建小说/世界书向量库（需 $env:EMBED_KEY）
 ```
-> **铁则**：① 始终 `vite build` 跳过 tsc（`npm run build` 因 WorldSelector 等预存 TS 错会失败，非真 bug）。② 用本地二进制、必须在内层目录（裸 `npx vite build` 可能报 entry module 错）。③ 勿对原生命令用 `2>$null`（会把 chunk 警告当错、误报 `$?=false`）；见 `✓ built in…` 即成功。④ 改 `src/` 后必须重 build 才更新 `dist/`（前端加载 dist/，已 gitignore）。⑤ 无测试框架；用户负责 commit+push → Cloudflare 自动部署（zhushen-space.pages.dev）。
+> **铁则**：① tsc 已清零＋基线门禁（`npm run typecheck`=check-types.mjs，只拦新增错误）；`npm run build`=类型门禁+网络门禁(check-network.mjs)+vite build。快速迭代可仍用裸 `vite build`，但**收尾前门禁必须绿**（CI 也会跑）。② 用本地二进制、必须在内层目录（裸 `npx vite build` 可能报 entry module 错）。③ 勿对原生命令用 `2>$null`（会把 chunk 警告当错、误报 `$?=false`）；见 `✓ built in…` 即成功。④ 改 `src/` 后必须重 build 才更新 `dist/`（前端加载 dist/，已 gitignore）。⑤ 测试=vitest（`npm test`，引擎层102文件；组件无测试）；lint=`npm run lint`（hooks correctness）。用户负责 commit+push → Cloudflare 自动部署（zhushen-space.pages.dev）+ GitHub Actions CI（.github/workflows/ci.yml，五道门禁）。⑥ 线上崩溃自动上报：GET `https://zhushen-space.pages.dev/crash-report` 看最近记录（functions/crash-report.js→R2）。
 
 ## 架构地图
 - **Store**（Zustand+persist→localStorage，key `drpg-*`）：game / settings / item / player / npc / npcEvo / faction(+Evo) / adventureTeam / territory / cosmos / character(技能·天赋·称号·副职业·记忆，B1+Cx 共用) / memory / misc / imageGen / channel / dm / turnInsight / creationTemplate / novelVec / variable / resource(自定义能量条·HP/EP外·仅主角)。职责/action 见 `CODE_MAP.md §5`。

@@ -136,6 +136,8 @@ export interface NpcRecord {
   imageTags?: string;     // 生图提示词（第19列：英文 NAI/Danbooru tags，NPC演化生成；肖像生图优先用它保证一致）
   attrs?: PlayerAttrs;    // 基础属性（力/敏/体/智/魅/幸）；其中「幸运」由前端独占机械生成(ensureNpcLuck)，AI 的绝对赋值被忽略
   attrsEstablished?: boolean; // 六维已建档（生成过/手动给过）→ AI 的 `=` 绝对赋值降级为增量收敛+步长限幅（npcGrowthGuard），治"每回合整套重写漂移"
+  attrsLocked?: boolean;      // 🔒玩家手动锁定六维：**AI 侧一切 attrs 写入全部剥掉**（正文人物卡照抄 / character.<id>.attr 指令 / 机械补全 / 幸运重算 都不再改）。
+                              // 只有手动编辑面板（upsertNpc 传 {manual:true}）能改 → 治"在档案里改了、下回合又被改回去"
   realAttrs?: Partial<PlayerAttrs>;  // 真实属性·直加分配（真实属性点加点 +1 这里，与基础属性独立、不互相影响）；显示真实属性 = floor(基础/80) + 直加值
   luckDelta?: number;     // 幸运·剧情增减累加器（AI 的 attrs.luck += / -= 记这里，叠加在前端基础幸运上，前端重算不丢；见 ensureNpcLuck）
   items: NpcOwnedItem[];  // NPC 持有物品列表
@@ -259,7 +261,8 @@ export interface DispositionPatch {
 
 interface NpcState {
   npcs: Record<string, NpcRecord>;
-  upsertNpc: (id: string, patch: Partial<NpcRecord>) => void;
+  /** opts.manual=true → 玩家手动编辑：绕过 attrsLocked 六维锁（AI 侧一律不传，故会被锁拦下）。 */
+  upsertNpc: (id: string, patch: Partial<NpcRecord>, opts?: { manual?: boolean }) => void;
   applyColumns: (id: string, cols: Record<string, unknown>) => void;
   applyDisposition: (id: string, patch: DispositionPatch) => void;  // 四轴 clamp 0-100（限速已由 dispositionGuard 先算好）
   applySkeleton: (id: string, short: Record<string, unknown>) => void; // 登场骨架 npc.<id>={n,r,p,…}
@@ -392,7 +395,7 @@ export const useNpc = create<NpcState>()(
     (set): NpcState => ({
       npcs: {},
 
-      upsertNpc: (id, patch) => {
+      upsertNpc: (id, patch, opts) => {
         set((s) => {
           const prev = s.npcs[id];
           // 档案不存在 + 本次又没带真实姓名 → 不凭空建壳。散落的 hp.C22 / favor / status 等短指令命中一个
@@ -403,8 +406,17 @@ export const useNpc = create<NpcState>()(
             if (!realName) return s;
           }
           const existing = prev ?? defaultNpcRecord(id);
-          const merged = { ...existing, ...patch, updatedAt: Date.now() };
-          if ('name' in patch) merged.name = resolveNpcName(existing.name, id, patch.name);   // 防占位名冲掉真实名（reentry）
+          // 🔒六维锁·单一收口点：玩家锁定后，**AI 侧一切 attrs 写入在这里统一剥掉**——
+          // 正文人物卡照抄(applyNarrativeAttrs) / character.<id>.attr 指令 / 机械补全 / 幸运重算 全都走 upsertNpc，
+          // 故这一处即可根治"在档案里改了六维、下回合又被改回去"。手动编辑面板传 {manual:true} 绕过。
+          let p: Partial<NpcRecord> = patch;
+          if (existing.attrsLocked && !opts?.manual && p && 'attrs' in p) {
+            const rest = { ...(p as Record<string, unknown>) };
+            delete rest.attrs;
+            p = rest as Partial<NpcRecord>;
+          }
+          const merged = { ...existing, ...p, updatedAt: Date.now() };
+          if ('name' in p) merged.name = resolveNpcName(existing.name, id, p.name);   // 防占位名冲掉真实名（reentry）
           return { npcs: { ...s.npcs, [id]: merged } };
         });
         try { const n = useNpc.getState().npcs[id]; if (n?.name && n.name !== id) npcRegister(n.name, id, 'upsert'); } catch { /* NPC 影子记账失败绝不阻断 */ }

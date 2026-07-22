@@ -433,7 +433,7 @@ function NpcEditForm({ npc, onDone }: { npc: NpcRecord; onDone: () => void }) {
     // HP/EP 多属性系数表：始终写入（空表→undefined=回默认 体×20 / 智×15，允许清回默认）
     patch.hpRatio = formToCoef(f.hpRatio);
     patch.epRatio = formToCoef(f.epRatio);
-    upsertNpc(npc.id, patch);
+    upsertNpc(npc.id, patch, { manual: true });   // manual：手动编辑是玩家权威，绕过 🔒六维锁（锁只拦 AI 侧写入）
     onDone();
   }
 
@@ -444,6 +444,16 @@ function NpcEditForm({ npc, onDone }: { npc: NpcRecord; onDone: () => void }) {
         <span className="text-sm font-mono text-god/80">✏️ 编辑面板</span>
         <span className="text-[11px] text-dim/40 hidden sm:inline">手动纠正 AI 写错/遗漏的字段；「资源·点数」留空=不改</span>
         <div className="flex-1" />
+        {/* 🔒六维锁：锁上后 AI 侧一切六维写入（正文人物卡 / character 指令 / 机械补全）都被剥掉，改完不会下回合被改回去 */}
+        <button
+          onClick={() => upsertNpc(npc.id, { attrsLocked: !npc.attrsLocked }, { manual: true })}
+          title={npc.attrsLocked
+            ? '已锁定：AI 不会再改这个角色的六维（正文人物卡 / 演化指令 / 机械补全全部拦下）。点此解锁，恢复 AI 自动更新。'
+            : '锁定六维：改完就不会被下回合的 AI / 正文人物卡改回去（只锁六维，其余字段照常演化）。'}
+          className={`px-3 py-1.5 text-sm rounded-lg border font-mono transition-colors ${
+            npc.attrsLocked ? 'border-amber-500/60 text-amber-300 bg-amber-500/10' : 'border-edge text-dim hover:text-amber-300 hover:border-amber-500/40'
+          }`}
+        >{npc.attrsLocked ? '🔒 六维已锁' : '🔓 锁定六维'}</button>
         <button onClick={onDone} className="px-3 py-1.5 text-sm rounded-lg border border-edge text-dim hover:text-slate-200 font-mono transition-colors">取消</button>
         <button onClick={save} className="px-4 py-1.5 text-sm rounded-lg border border-god/50 bg-god/10 text-god hover:bg-god/20 font-mono transition-colors">✓ 保存</button>
       </div>
