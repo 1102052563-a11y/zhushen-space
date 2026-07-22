@@ -14,6 +14,7 @@
     "gen-ui-strings": "node tools/gen-ui-strings.mjs public/ui-strings.json",
     "build-vectors": "node tools/build-novel-vectors.mjs",
     "build-vectors-wb": "node tools/build-novel-vectors.mjs --input=../../______.json --out=public/worldbook-vectors",
+    "build-vectors-wiki": "node tools/build-novel-vectors.mjs --input=../../lunhui-wiki/docs --out=public/wiki-vectors",
     "nai": "node tools/nai-batch/nai-batch.mjs",
     "nai-ui": "node tools/nai-batch/server.mjs",
     "upload-r2": "node tools/upload-r2/upload-r2.mjs"

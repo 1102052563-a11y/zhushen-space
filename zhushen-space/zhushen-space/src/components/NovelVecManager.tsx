@@ -281,10 +281,12 @@ export default function NovelVecManager() {
       {/* 📀 内置向量库（预建·可单独关） */}
       <div className="space-y-2 p-4 bg-panel border border-edge rounded-xl">
         <div className="text-sm font-mono text-god/70 uppercase tracking-widest">📀 内置向量库（预建）</div>
-        <div className="text-[12px] text-dim/50 leading-relaxed">预建的《轮回乐园》原著/世界书向量。不想让它参与检索注入就<b>取消勾选</b>——只关它、不影响你的自建库，也不用动上面的「启用向量资料库」总开关。</div>
+        <div className="text-[12px] text-dim/50 leading-relaxed">预建的《轮回乐园》原著 / 世界书 / 轮回WIKI 向量。不想让它参与检索注入就<b>取消勾选</b>——只关它、不影响你的自建库，也不用动上面的「启用向量资料库」总开关。</div>
         {BUILTIN_SOURCES.map((b) => {
           const on = !(settings.builtinDisabled ?? []).includes(b.name);
-          const label = b.name === 'novel-vectors' ? '《轮回乐园》原著' : b.name === 'worldbook-vectors' ? '内置世界书' : b.label;
+          const label = b.name === 'novel-vectors' ? '《轮回乐园》原著'
+            : b.name === 'worldbook-vectors' ? '内置世界书'
+            : b.name === 'wiki-vectors' ? '轮回WIKI（世界观百科·按条目切块）' : b.label;
           return (
             <label key={b.name} className="flex items-center gap-2 text-[13px] rounded border border-edge/60 bg-void/40 p-2.5 cursor-pointer">
               <input type="checkbox" checked={on}

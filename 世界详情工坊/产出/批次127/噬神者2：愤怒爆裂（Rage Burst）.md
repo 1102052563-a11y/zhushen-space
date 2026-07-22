@@ -1,6 +1,7 @@
 # 噬神者2：愤怒爆裂（Rage Burst）
 <!--meta lib=主库 tiers=一、二、三、四、五、六、七、八-->
 
+<!--repaired: 20260721-->
 ## 剧情
 
 **【作品来源】**
@@ -199,3 +200,5 @@
 - [God Eater 2 - Wikipedia](https://en.wikipedia.org/wiki/God_Eater_2)
 - [Story Chronology](https://godeater.fandom.com/wiki/Story_Chronology)
 - [噬神者2 - 中文维基](https://zh.wikipedia.org/wiki/%E5%99%AC%E7%A5%9E%E8%80%852)
+- [GOD EATER 2: Rage Burst - Bandai Namco 官方页](https://www.bandainamcoent.com/games/god-eater-2-rage-burst)
+- [GOD EATER 2 Rage Burst - Steam](https://store.steampowered.com/app/438490/GOD_EATER_2_Rage_Burst/)

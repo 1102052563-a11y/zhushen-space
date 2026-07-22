@@ -1,0 +1,12 @@
+{
+  "source": "docs",
+  "model": "Pro/BAAI/bge-m3",
+  "dim": 1024,
+  "count": 11460,
+  "chunkSize": 700,
+  "overlap": 100,
+  "normalized": true,
+  "quant": "int8",
+  "parts": 0,
+  "builtAt": "2026-07-22T00:24:07.141Z"
+}

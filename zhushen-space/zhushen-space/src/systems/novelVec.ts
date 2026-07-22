@@ -8,8 +8,8 @@ import { openDb, kvGet, kvPut, chunkGet, chunksBulk } from './novelVecDb';
    每回合把查询按【模型分组】各 embed 一次 → 在同模型(同维)索引里 cosine 检索 → 合并 topK → 注入正文世界书。
    向量为单位归一化后 int8 量化(×127)；查询向量也归一化，cosine = (q·int8)/127。 */
 
-const SOURCES = ['novel-vectors', 'worldbook-vectors'];          // 内置候选索引目录，存在哪个加载哪个
-const SRC_LABEL: Record<string, string> = { 'novel-vectors': '原著', 'worldbook-vectors': '世界书' };
+const SOURCES = ['novel-vectors', 'worldbook-vectors', 'wiki-vectors'];   // 内置候选索引目录，存在哪个加载哪个
+const SRC_LABEL: Record<string, string> = { 'novel-vectors': '原著', 'worldbook-vectors': '世界书', 'wiki-vectors': '轮回WIKI' };
 /* 供 UI 列出内置源做单独开关（目录名 + 显示名）；实际是否加载仍看 public/ 是否部署 */
 export const BUILTIN_SOURCES: { name: string; label: string }[] = SOURCES.map((n) => ({ name: n, label: SRC_LABEL[n] ?? n }));
 
