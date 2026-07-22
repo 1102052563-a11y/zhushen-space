@@ -75,6 +75,75 @@ const hasChapterRange = (t) => /\d+\s*[–—\-~～]\s*\d+\s*章/.test(t);
 
 const NORM_MINUS = (s) => String(s).replace(/[−–—]/g, '-');
 
+/* ── 人物名册：nav 人物区按世界分组（组标签自带「第N·M卷」；成员=名+一行注解+页面文件）── */
+const GROUP_SKIP = /主角与随从|轮回乐园|虚空|竞技场|跨全书|现实/;
+function parseCharGroups(yml) {
+  const lines = yml.split('\n');
+  const start = lines.findIndex((l) => /^  - 人物:\s*$/.test(l));
+  if (start < 0) return [];
+  const groups = [];
+  let cur = null;
+  for (let i = start + 1; i < lines.length; i++) {
+    const line = lines[i];
+    if (/^  - \S/.test(line)) break;   // 下一个顶级 nav 段
+    let m;
+    if ((m = line.match(/^      - (.+):\s*$/))) {
+      const label = m[1].trim();
+      const vm = label.match(/第([\d·、,\s]+)卷/);
+      const vols = vm ? vm[1].split(/[^\d]+/).filter(Boolean).map(Number) : [];
+      cur = { label, vols, skip: GROUP_SKIP.test(label) || !vols.length, members: [] };
+      groups.push(cur);
+      continue;
+    }
+    if (cur && (m = line.match(/^          - (.+):\s*(人物\/[^\s:]+\.md)\s*$/))) {
+      const raw = m[1].trim();
+      const nm = raw.match(/^([^（(]+)[（(]([^）)]*)[）)]?\s*$/);
+      cur.members.push({
+        name: (nm ? nm[1] : raw).replace(/\\/g, '').trim().slice(0, 14),
+        anno: nm ? nm[2].trim() : '',
+        file: m[2],
+      });
+    }
+  }
+  return groups.filter((g) => !g.skip && g.members.length);
+}
+
+const CN1 = { 一: 1, 二: 2, 三: 3, 四: 4, 五: 5, 六: 6, 七: 7, 八: 8, 九: 9, 十: 10 };
+function volCharToInt(v) {
+  const s = String(v);
+  if (/^\d+$/.test(s)) return Number(s);
+  const shi = s.indexOf('十');
+  if (shi < 0) return CN1[s] ?? null;
+  const t = shi === 0 ? 1 : CN1[s[0]];
+  const o = shi === s.length - 1 ? 0 : CN1[s[s.length - 1]];
+  return t != null && o != null ? t * 10 + o : null;
+}
+
+/** 人物页首次出现卷：全文最小「N卷」；只有「第N章」引用 → 第1卷；全无 → null */
+function scanFirstVol(text) {
+  let min = null;
+  for (const m of text.matchAll(/([一二三四五六七八九十]{1,3}|\d{1,2})\s*卷/g)) {
+    const n = volCharToInt(m[1]);
+    if (n != null && n >= 1 && n <= 60 && (min == null || n < min)) min = n;
+  }
+  if (min != null) return min;
+  if (/第\s*\d+[\d–\-~～、,\s]*章/.test(text)) return 1;
+  return null;
+}
+
+/** 人物页正文首句（nav 无注解时的简介兜底） */
+function firstParagraphBrief(text) {
+  const body = text.replace(/^---\n[\s\S]*?\n---/, '');
+  for (const ln of body.split('\n')) {
+    const t = ln.trim();
+    if (!t || t.startsWith('#') || t.startsWith('>') || t.startsWith('|') || t.startsWith('!!!')) continue;
+    const clean = stripMd(t.replace(/^[-*]\s+/, '')).trim();
+    const sent = clean.split(/[。；]/)[0];
+    if (sent.length >= 4) return cap(sent, 32);
+  }
+  return '';
+}
+
 /* ── mkdocs nav：任务世界顺序 ── */
 function parseNav(yml) {
   const lines = yml.split('\n');
@@ -386,7 +455,8 @@ function parseSuxiaoPage() {
 
 /* ── 主流程 ── */
 function main() {
-  const nav = parseNav(read(path.join(WIKI, 'mkdocs.yml')));
+  const yml = read(path.join(WIKI, 'mkdocs.yml'));
+  const nav = parseNav(yml);
   console.log(`nav 任务世界共 ${nav.length} 站，取前 ${COUNT} 站`);
   const picked = nav.slice(0, COUNT);
 
@@ -399,6 +469,27 @@ function main() {
     if (pa) station.suxiao.paradiseAfter = pa;
     stations.push(station); logs.push(log);
   });
+
+  // 🧑‍🤝‍🧑 每站原著人物名册：站卷号 ∈ 人物分组卷号集合 → 该组成员中「首现卷 ≤ 本站卷」者（与向量剧透闸同口径）
+  const charGroups = parseCharGroups(yml);
+  for (const st of stations) {
+    const V = volCharToInt(st.volume);
+    if (!V) continue;
+    const g = charGroups.find((x) => x.vols.includes(V));
+    if (!g) continue;
+    const roster = [];
+    for (const mem of g.members) {
+      let vol = g.vols.length === 1 ? g.vols[0] : null;   // 单卷分组免读页；多卷分组逐页判首现卷
+      let brief = mem.anno;
+      try {
+        const txt = read(path.join(WIKI, 'docs', mem.file.replace(/\//g, path.sep)));
+        if (vol == null) vol = scanFirstVol(txt) ?? Math.min(...g.vols);
+        if (!brief) brief = firstParagraphBrief(txt);
+      } catch { if (vol == null) vol = Math.min(...g.vols); }
+      if (vol <= V) roster.push({ name: mem.name, ...(brief ? { brief: cap(brief, 30) } : {}), vol });
+    }
+    if (roster.length) st.world.npcRoster = roster.sort((a, b) => a.vol - b.vol).slice(0, 20);
+  }
 
   // 推荐阶位 = 上一站离世阶位（首站一阶；解析不到则沿用）
   let tier = '一阶';
@@ -423,7 +514,8 @@ export const CANON_STATIONS: CanonStation[] = ${JSON.stringify(stations, null, 2
   for (const l of logs) {
     const s = stations.find((x) => x.id === l.id);
     console.log(`— ${String(s.order).padStart(2)}. ${s.name} [${s.stationType}·${s.volume}卷·荐${s.recommendedTier}]`);
-    console.log(`   锚点${l.phases}  主线:${s.world.mainMission ? '✓' : '✗'}  时间点:${s.world.era ? '✓' : '✗'}  规则:${s.world.rules ? '✓' : '✗'}  结算:${s.suxiao.settle?.sourcePct ?? '?'}%/${s.suxiao.settle?.rating ?? '?'}  定格:Lv${s.suxiao.exit.lv ?? '?'}·${s.suxiao.exit.realm ?? '?'}·六维${s.suxiao.exit.attrs ? '✓' : '✗'}  乐园后记:${s.suxiao.paradiseAfter ? '✓' : '✗'}`);
+    console.log(`   锚点${l.phases}  主线:${s.world.mainMission ? '✓' : '✗'}  时间点:${s.world.era ? '✓' : '✗'}  规则:${s.world.rules ? '✓' : '✗'}  结算:${s.suxiao.settle?.sourcePct ?? '?'}%/${s.suxiao.settle?.rating ?? '?'}  定格:Lv${s.suxiao.exit.lv ?? '?'}·${s.suxiao.exit.realm ?? '?'}·六维${s.suxiao.exit.attrs ? '✓' : '✗'}  乐园后记:${s.suxiao.paradiseAfter ? '✓' : '✗'}  名册:${s.world.npcRoster?.length ?? 0}人`);
+    if (s.world.npcRoster?.length) console.log(`   👥 ${s.world.npcRoster.map((r) => `${r.name}(卷${r.vol})`).join('、')}`);
     console.log(`   小节分类: ${l.secs.join(' / ')}`);
   }
 }

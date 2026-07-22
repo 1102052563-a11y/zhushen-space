@@ -3,6 +3,9 @@
 /** 六维（缺项=页面未记录） */
 export interface CanonAttrs { 力量?: number; 敏捷?: number; 体力?: number; 智力?: number; 魅力?: number; 幸运?: number }
 
+/** 原著同期人物（该站时间线上存在；vol=首次出现卷·已过滤 ≤ 本站卷） */
+export interface CanonNpcEntry { name: string; brief?: string; vol: number }
+
 /** 苏晓在该世界的一段轨道锚点（按剧情顺序） */
 export interface CanonTrackPhase {
   title: string;      // 这一阶段他在做什么（短句）
@@ -39,6 +42,7 @@ export interface CanonStation {
     mainReward?: string;     // 主线奖励
     sideMissions?: string[];
     triggerQuests?: string[]; // 触发 / 隐藏任务（GM 提示用，勿直接发布）
+    npcRoster?: CanonNpcEntry[]; // 原著同期人物名册（wiki 人物 nav 世界分组抽取·卷≤本站·≤20人）
   };
   suxiao: {
     alias: string;               // 该站化名（默认「白夜」）

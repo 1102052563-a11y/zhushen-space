@@ -1,6 +1,7 @@
 # 対魔忍RPG-最终决战
 <!--meta lib=主库 tiers=五-->
 
+<!--repaired: 20260721-->
 ## 剧情
 
 **【作品来源】**
@@ -265,5 +266,3 @@ TABA再创造完成 → 对魔忍集中五车、学园运转。
 - [Teutates - Taimanin Wiki](https://taimanin.fandom.com/wiki/Teutates)
 - [Nomad - Taimanin Wiki](https://taimanin.fandom.com/wiki/Nomad)
 - [対魔忍RPGX 公式](https://www.lilith-soft.com/sns/taimanin_rpgx)
-
-<!-- verify✅ 2026-07-22：单文件编译通过；一至五阶均有具名事件与完整七字段；实际复核 RPG/RPGX 官方页、作品条目、章节与人物公开资料；已删除元执行说明；来源 8 条；无露骨叙述、无灌水标记、无顶点伪削弱。 -->

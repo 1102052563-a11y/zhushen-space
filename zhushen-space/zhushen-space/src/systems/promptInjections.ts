@@ -238,6 +238,9 @@ export function buildCanonWorldInjection(): { role: 'system'; content: string }[
     `■ 原著大事轴（苏晓的轨道＝世界惯性·无人干涉则按此推进）：\n${from > 0 ? `（前 ${from} 阶段已过）\n` : ''}${axis.join('\n')}${tailN > 0 ? `\n（后续还有 ${tailN} 阶段·勿剧透）` : ''}`,
     s.world.mainMission ? `■ 原著任务参照（苏晓的任务·玩家主线与之同场交叉但独立）：${s.world.mainMission}${s.world.mainReward ? `（原著奖励：${s.world.mainReward}）` : ''}` : '',
     extras.length ? `■ 原著支线/隐藏/猎杀线索（真实存在于本世界·玩家可循迹亦可无视）：\n${extras.map((x) => `- ${x}`).join('\n')}` : '',
+    s.world.npcRoster?.length
+      ? `■ 原著同期人物名册（这些人此刻真实存在于本世界·可自然登场、可遇可用；其既定轨迹随原著惯性推进、玩家可干涉改写；名册与人物底细【绝不向玩家整体罗列或剧透】）：\n${s.world.npcRoster.map((r) => `${r.name}${r.brief ? `（${r.brief}）` : ''}`).join('、')}`
+      : '',
     (s.suxiao.settle?.sourcePct != null || s.suxiao.settle?.rating)
       ? `■ 结算基准：白夜本站成绩 ${[s.suxiao.settle?.sourcePct != null ? `世界之源 ${s.suxiao.settle.sourcePct}%` : '', s.suxiao.settle?.rating || ''].filter(Boolean).join(' · ')}`
       : '',

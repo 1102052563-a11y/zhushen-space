@@ -1,6 +1,7 @@
 # 対魔忍RPG-深渊入侵
 <!--meta lib=主库 tiers=五-->
 
+<!--repaired: 20260721-->
 ## 剧情
 
 **【作品来源】**
@@ -300,5 +301,3 @@ Chapter28穿越 → 见沦陷东京与未来雪风。
 - [対魔忍RPGの登場人物一覧 - 日文维基百科](https://ja.wikipedia.org/wiki/%E5%AF%BE%E9%AD%94%E5%BF%8DRPG%E3%81%AE%E7%99%BB%E5%A0%B4%E4%BA%BA%E7%89%A9%E4%B8%80%E8%A6%A7)
 - [対魔忍シリーズ - 日文维基百科](https://ja.wikipedia.org/wiki/%E5%AF%BE%E9%AD%94%E5%BF%8D%E3%82%B7%E3%83%AA%E3%83%BC%E3%82%BA)
 - [Taimanin - 英文维基百科](https://en.wikipedia.org/wiki/Taimanin)
-
-<!-- verify✅ 2026-07-22：单文件编译通过；一至五阶均有具名事件与完整七字段；实际复核 RPG 官方页、作品条目、章节与人物公开资料；来源 5 条；无露骨叙述、无灌水标记、无顶点伪削弱。 -->

@@ -113,6 +113,11 @@ export default function CanonRoutePanel({ onClose, onEnterWorld, onDmSuxiao }: {
                         <span className={p.questRelation === '对立' ? 'text-blood' : p.questRelation === '协同' ? 'text-emerald-300' : 'text-dim'}>{p.questRelation}</span>
                       </p>
                     )}
+                    {s.world.npcRoster?.length ? (
+                      <p className="text-dim"><span className="text-sky-300/80 font-mono">👥 原著同期人物：</span>
+                        {s.world.npcRoster.slice(0, 10).map((r) => r.name).join('、')}{s.world.npcRoster.length > 10 ? ` …共${s.world.npcRoster.length}人` : ''}
+                      </p>
+                    ) : null}
                     {(s.world.sideMissions?.length || s.world.triggerQuests?.length) ? (
                       <div><span className="text-emerald-300/80 font-mono">📜 原著对照收集册（复刻原著支线/隐藏/猎杀即打勾）：</span>
                         <ul className="pl-5 space-y-0.5">

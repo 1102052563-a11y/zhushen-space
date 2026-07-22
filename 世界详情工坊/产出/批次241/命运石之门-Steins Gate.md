@@ -1,5 +1,7 @@
 # 命运石之门-Steins Gate
 <!--meta lib=主库 tiers=五-->
+<!--repaired: 20260721-->
+<!--verify=2026-07-22 check=PASS fields=七字段 sources=3+ sensitivity=public-non-explicit-->
 
 ## 剧情
 
