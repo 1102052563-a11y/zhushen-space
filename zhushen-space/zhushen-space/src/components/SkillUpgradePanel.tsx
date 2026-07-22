@@ -50,8 +50,8 @@ export default function SkillUpgradePanel({ onClose }: { onClose: () => void }) 
   const subProgress = useSubProfTree((s) => s.progress);
 
   const b1 = chars['B1'];
-  const skills: Skill[] = b1?.skills ?? [];
-  const traits: Trait[] = b1?.traits ?? [];
+  const skills: Skill[] = useMemo(() => b1?.skills ?? [], [b1]);   // 稳定身份：?? [] 每渲染新数组会让下游 memo 失效
+  const traits: Trait[] = useMemo(() => b1?.traits ?? [], [b1]);
   const subprofs: SubProfession[] = b1?.subProfessions ?? [];
 
   const [sel, setSel] = useState<Sel>(null);

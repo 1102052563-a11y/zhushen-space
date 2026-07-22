@@ -16,7 +16,10 @@ export default function BgmPlayer() {
   const [collapsed, setCollapsed] = useState(true);   // 开局默认缩成 🎵 图标（轻点展开控制条），避免占地方/误触
   const [themeOpen, setThemeOpen] = useState(false);
   const [browseCat, setBrowseCat] = useState<string | null>(null);   // 二级菜单：null=看主题列表；主题名=看该主题歌单
+  // snap.count 是刻意的失效触发器：曲库清单异步加载完成时 count 变 → 强制重取分类/歌单（回调不直接引用它）
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- snap.count=刻意失效触发器（见上）
   const cats = useMemo(() => getBgmCategories(), [snap.count]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- snap.count=刻意失效触发器（见上）
   const songs = useMemo(() => (browseCat != null ? getBgmTracks(browseCat) : []), [browseCat, snap.count]);
 
   const containerRef = useRef<HTMLDivElement>(null);

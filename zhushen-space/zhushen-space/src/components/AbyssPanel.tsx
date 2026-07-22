@@ -76,6 +76,7 @@ export default function AbyssPanel({ onClose, onGenBoons, onGenSin, onGenAwaken,
   const panelRef = useRef<string | null>(null);
   useEffect(() => {
     if (!run) { genRef.current = false; sinRef.current = null; }
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- 仅随 seed 换局重置守卫，run 其它变动无关
   }, [run?.seed]);
 
   useEffect(() => {
@@ -98,6 +99,7 @@ export default function AbyssPanel({ onClose, onGenBoons, onGenSin, onGenAwaken,
       setPendingBoons(cards);
       genRef.current = false;
     })();
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- 状态机转移触发器（进入 choosingBoon 时经 genRef 去重生成一次；补回调依赖会因身份变动反复触发生成）
   }, [run?.status, run?.pendingBoons, boonLoading]);
 
   // 随机原罪物 AI 配文增强（兜底版已落库）
@@ -112,6 +114,7 @@ export default function AbyssPanel({ onClose, onGenBoons, onGenSin, onGenAwaken,
       if (onGenSin) { try { flavor = await onGenSin(ps.template); } catch { /* */ } }
       enrichSin(flavor);
     })();
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- ref 键(seed#idx)去重的一次性配文生成，仅随键变触发
   }, [run?.pendingSin?.idx, run?.seed]);
 
   // 精英/区主：AI 生成敌人面板（六维/技能），替换数据兜底敌人；战斗开始即触发，玩家在此期间无法行动
@@ -126,6 +129,7 @@ export default function AbyssPanel({ onClose, onGenBoons, onGenSin, onGenAwaken,
       if (onGenEnemies && ctx) { try { units = await onGenEnemies(ctx); } catch { /* */ } }
       setFightEnemies(units);
     })();
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- ref 键(seed#pos)去重的一次性敌人面板生成，仅随键变触发
   }, [run?.fight?.pendingPanel, run?.posIdx, run?.seed]);
 
   // 深渊裁判剧情局 AI 配文（场景+选项文案，后果前端定）
@@ -140,6 +144,7 @@ export default function AbyssPanel({ onClose, onGenBoons, onGenSin, onGenAwaken,
         enrichJudge(f);
       } catch { /* */ }
     })();
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- ref 键(seed#pos)去重的一次性裁判配文生成，仅随键变触发
   }, [run?.status, run?.posIdx, run?.seed]);
 
   const hero = run?.party[0];

@@ -156,7 +156,7 @@ export default function CombatPanel({ onPlayerAction, onUndo, canUndo, mpMode, m
   const myTurn = battle.stage === 'awaiting_player' && battle.active && !!curActor && mineToControl;
   const stunned = !!curActor?.status?.some((s) => s.combat?.cannotAct);
   const charging = curActor?.charging;
-  const actorSkills = (curId ? characters[curId]?.skills : undefined) ?? [];
+  const actorSkills = useMemo(() => (curId ? characters[curId]?.skills : undefined) ?? [], [characters, curId]);   // 稳定身份：?? [] 每渲染新数组会让下游 activeSkills memo 失效
   const isChargeSkill = (s: any) => /蓄力|蓄势|充能|聚能|聚力|过载|引导|凝聚|积蓄|灌注|吟唱/.test(`${s?.name ?? ''}${s?.skillType ?? ''}${s?.effect ?? ''}${(s?.tags ?? []).join('')}`);
   const isDomainSkillUI = (s: any) => /领域|结界|阵法|法阵|大阵|绝阵|场域|领地之|神域|封印之地|囚笼|阵图/.test(`${s?.name ?? ''}${s?.skillType ?? ''}${s?.effect ?? ''}${(s?.tags ?? []).join('')}`);
 
@@ -171,7 +171,7 @@ export default function CombatPanel({ onPlayerAction, onUndo, canUndo, mpMode, m
   }, [myTurn, curId, battle.round, battle.turn]);
 
   // 当前出手角色可用的战斗道具（B1 取背包，队友取 NPC 物品；排除装备/已装备/空数量；要有效果或属消耗类）
-  const actorItems = (curId === 'B1' || (mpMode === 'guest' && curId === `MP_${mySeatId}`)) ? playerItems : (npcsMap[curId ?? '']?.items ?? []);
+  const actorItems = useMemo(() => (curId === 'B1' || (mpMode === 'guest' && curId === `MP_${mySeatId}`)) ? playerItems : (npcsMap[curId ?? '']?.items ?? []), [curId, mpMode, mySeatId, playerItems, npcsMap]);
   const usableItems = useMemo(() => actorItems.filter((i: any) =>
     !i.equipped && (i.quantity ?? 0) > 0 && !/武器|防具|饰品|宝石/.test(i.category ?? '')
     && (!!i.effect || /消耗品|丹药|灵药|符箓/.test(i.category ?? ''))

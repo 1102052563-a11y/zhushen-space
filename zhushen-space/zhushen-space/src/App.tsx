@@ -1869,6 +1869,7 @@ export default function App() {
       onStartDungeonEncounter: (encId: any) => { if (useMp.getState().role === 'host') startDungeonEncounter(String(encId)); },   // 房主：开打副本某一场
       onGenHidden: () => { void genHiddenConditions(); },   // 隐藏结局：房主编织跨玩家条件
     });
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- 仅挂载时注册一次联机事件处理器；回调内经 getState()/ref 取最新值，重注册无意义
   }, []);
 
   // 滚动监听：判断是否贴近底部（贴近=继续吸附跟随；上滑超过阈值=暂停跟随）
@@ -2017,6 +2018,7 @@ export default function App() {
         { void builtinsReady.then(() => sendMessage(regen, false, { skipOutline: true })); }   // 重新生成：跳过细纲弹窗，直接重出正文
       }
     })();
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- 仅挂载时处理一次续玩/重算/重发标志（reload 后的启动一次性序列）
   }, []);
 
   // 一次性迁移：把历史已存物品(背包+NPC持有)的复合品级收敛为单一档。

@@ -107,6 +107,7 @@ export default function ArenaPanel({ onClose, onGenerateLadder, onScout, onChall
     onClose();
   }
   // 关面板时丢弃未挑战的临时对手
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- 仅卸载时清理：若补 onDiscardOpponent（每渲染变身份），清理会在每次渲染时误触发、把还在看的对手提前丢弃
   useEffect(() => () => { if (scoutCidRef.current) onDiscardOpponent(scoutCidRef.current); }, []);
 
   return (

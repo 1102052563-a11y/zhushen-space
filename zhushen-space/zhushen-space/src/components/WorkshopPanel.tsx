@@ -166,6 +166,7 @@ export default function WorkshopPanel({ onClose, creationMode = false, initialTa
     const l = localEntriesOf(pubType);
     setPubLocalId(l[0]?.id ?? '');
     setForm((f) => ({ ...f, name: l[0]?.name ?? '' }));
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- 仅在切换上传类型时复位表单（fileWb/条目库变动不应重置用户已填内容）
   }, [pubType]);
 
   // 进「上传」页时，若当前类型没条目，自动跳到第一个有内容的类型（免得默认空类型让人以为坏了）
@@ -175,6 +176,7 @@ export default function WorkshopPanel({ onClose, creationMode = false, initialTa
     if (localEntriesOf(pubType).length > 0) return;
     const firstNonEmpty = visibleKinds.find((k) => localEntriesOf(k.id).length > 0);
     if (firstNonEmpty) setPubType(firstNonEmpty.id);
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- 仅在进入上传页时自动跳一次非空类型（其它变动不应再跳）
   }, [tab]);
 
   const shown = list.filter((m) => {

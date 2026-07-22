@@ -65,7 +65,7 @@ export default function NpcCardPreview({ data, onClose, previewActions, mt }: {
   data: any; onClose: () => void; previewActions?: ReactNode; mt?: boolean;
 }) {
   // mt=true（在线跨玩家 NPC 卡）：把主要文字字段按当前语言机翻，再拼成 NpcDetail 用的记录（字段数固定·符合 hooks 规则）。
-  const d = data || {};
+  const d = useMemo(() => data || {}, [data]);   // 稳定身份：|| {} 每渲染新对象会让下游 tData/rec memo 失效
   const tName = useAutoText(mt ? d.name : undefined);
   const tBackground = useAutoText(mt ? d.background : undefined);
   const tPersonality = useAutoText(mt ? d.personality : undefined);
@@ -74,9 +74,9 @@ export default function NpcCardPreview({ data, onClose, previewActions, mt }: {
   const tReview = useAutoText(mt ? d.review : undefined);
   const tStatus = useAutoText(mt ? d.status : undefined);
   const tTitle = useAutoText(mt ? d.title : undefined);
-  const tData = mt
+  const tData = useMemo(() => mt
     ? { ...d, name: tName || d.name, background: tBackground, personality: tPersonality, personalityDetail: tInner, innerThought: tInner, appearance: tAppearance, appearanceDetail: tAppearance, review: tReview, status: tStatus, title: tTitle }
-    : d;
+    : d, [mt, d, tName, tBackground, tPersonality, tInner, tAppearance, tReview, tStatus, tTitle]);   // 稳定身份：内联对象每渲染变身份会让下游 rec memo 失效
   const rec = useMemo(() => snapshotToRecord(tData), [tData]);
   useEffect(() => {
     useCharacters.setState((s) => ({

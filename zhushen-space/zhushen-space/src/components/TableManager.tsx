@@ -30,7 +30,9 @@ export default function TableManager() {
   const currency = useItems((s) => s.currency);
   const items = useItems((s) => s.items);
   const npcs = useNpc((s) => s.npcs);
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- 仅挂载时播种一次影子钱包（列入 currency 会每次变动重播）
   useEffect(() => { seedWalletIfEmpty(currency as unknown as Record<string, number>); }, []);   // 货币影子对齐
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- runWatchdogs 直读 store，依赖数组全部是刻意失效触发器（healTick 见上方注释）
   const watch = useMemo(() => runWatchdogs(), [currency, items, npcs, healTick]);
   const watchBad = watch.filter((r) => r.violations.length > 0);
 
