@@ -79,7 +79,7 @@ export default function TradePanel({ onClose }: { onClose: () => void }) {
       } catch { /* 失败留在门禁 */ }
     })();
     return () => tradeClient.leave();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+     
   }, []);
 
   const doLogin = async () => {

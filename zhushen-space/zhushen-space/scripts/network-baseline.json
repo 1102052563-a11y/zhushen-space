@@ -47,9 +47,5 @@
     "src/systems/tts.ts": 3,
     "src/systems/workshop.ts": 8
   },
-  "fallbackNoTimeout": {
-    "src/App.tsx": 15,
-    "src/systems/combatHelpers.ts": 1,
-    "src/systems/monument.ts": 1
-  }
+  "fallbackNoTimeout": {}
 }

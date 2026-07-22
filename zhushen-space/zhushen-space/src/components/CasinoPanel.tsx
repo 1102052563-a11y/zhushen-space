@@ -74,7 +74,8 @@ export default function CasinoPanel({ onClose, onGenMatch, onGenBattle, onGenRew
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
   // 换荷官：刷新立绘
-  useEffect(() => { setDealerPortrait(pickDealerPortrait(dealerManifest, dealer.portraitFolder)); /* eslint-disable-next-line react-hooks/exhaustive-deps */ }, [dealerManifest, dealerIdx]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- dealer 由 dealerIdx 派生，以 dealerIdx 为驱动依赖是本意
+  useEffect(() => { setDealerPortrait(pickDealerPortrait(dealerManifest, dealer.portraitFolder)); }, [dealerManifest, dealerIdx]);
   // 新结算流水 → 据输赢吐槽
   useEffect(() => {
     const top = log[0];

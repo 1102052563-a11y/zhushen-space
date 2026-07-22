@@ -200,7 +200,7 @@ export default function ChatRoomPanel({ onClose }: { onClose: () => void }) {
       fetchChatIdentity().then((id) => { setUid(id.uid); setDispUid(id.displayUid ?? id.uid); setCustomUidInput(String(id.displayUid ?? id.uid)); }).catch(() => {});
     }
     return () => { useChatRoom.getState()._set({ open: false }); };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+     
   }, []);
 
   // 新消息自动滚到底（仅当本来贴底）

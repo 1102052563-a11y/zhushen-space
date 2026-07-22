@@ -253,7 +253,7 @@ async function generateEulogy(id: string): Promise<void> {
     const { content } = await apiChatFallback(chain, [
       { role: 'system', content: getPrompt('MONUMENT_EULOGY_RULE', MONUMENT_EULOGY_RULE) },
       { role: 'user', content: `【契约者档案】\n${dossier}\n\n请基于以上档案，按【输出格式】撰写其生平总结与结语。` },
-    ], { label: '纪念丰碑·生平结语' });
+    ], { label: '纪念丰碑·生平结语', timeoutMs: 60000 });
     const { summary, eulogy } = parseEulogy(content);
     if (summary || eulogy) useMonument.getState().updateEntry(id, { summary, eulogy, eulogyStatus: 'done' });
     else useMonument.getState().updateEntry(id, { eulogyStatus: 'error' });

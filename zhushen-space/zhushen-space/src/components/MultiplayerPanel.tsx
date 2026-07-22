@@ -45,7 +45,7 @@ export default function MultiplayerPanel({ onClose }: { onClose: () => void }) {
     try { setRooms(await mpClient.listRooms()); } catch {}
     setLoadingList(false);
   };
-  useEffect(() => { if (!inRoom) refreshList(); /* eslint-disable-next-line */ }, [inRoom]);
+  useEffect(() => { if (!inRoom) refreshList();   }, [inRoom]);
 
   const ensureName = () => { const n = (name || '').trim() || '道友'; setMpName(n); return n; };
   const doCreate = async () => {

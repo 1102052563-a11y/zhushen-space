@@ -42,7 +42,7 @@ export default function AccountVaultPanel({ onClose }: { onClose: () => void }) 
         await pullVaultCloud();
       } catch { /* 失败留在未登录态，可手动重试 */ }
     })();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+     
   }, []);
 
   const doCloudLogin = async () => {

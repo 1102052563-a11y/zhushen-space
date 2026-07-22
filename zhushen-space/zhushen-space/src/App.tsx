@@ -1455,7 +1455,7 @@ export default function App() {
     if (chatDiscordLoggedIn() && chatReady()) {
       chatClient.ensureConnected(chatName() || '道友', chatToken());
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+     
   }, []);
   const [shopOpen, setShopOpen] = useState(false);
   const [summaryPanelOpen, setSummaryPanelOpen] = useState(false);
@@ -1528,7 +1528,7 @@ export default function App() {
     const mp = useMp.getState();
     if (mp.status !== 'connected' || mp.role !== 'host') return;
     mpClient.publishCombat({ battle: useCombat.getState().battle });
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+     
   }, [combatActive, combatStage, combatTurn, combatRound, combatApiBusy]);
 
   // 联机·房主：来宾(MP_)战斗角色 AFK 接管。每回合开局先收回该角色的接管标记（来宾回归即自动夺回控制权）；
@@ -1886,7 +1886,7 @@ export default function App() {
         if (el) { el.scrollTop = el.scrollHeight; stickBottomRef.current = true; }
       });
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+     
   }, [settingsOpen, started, worlds.length]);
 
   // 打开公共频道时：内容为空或距上次刷新过久则懒刷新一批（手动 🔄 强制刷新）
@@ -2544,7 +2544,7 @@ export default function App() {
       const { content: reply } = await apiChatFallback(chain, [
         { role: 'system', content: systemPrompt },
         { role: 'user',   content: userContent },
-      ], { extra });
+      ], { extra, timeoutMs: 120000 });   // 空闲超时·演化档（流仍在吐字不掐；硬上限自动=max(4×,240s)，防永久挂）
       console.log(`[Item] 物品阶段原始响应:`, reply);
 
       if (reply) {
@@ -2568,7 +2568,7 @@ export default function App() {
               { role: 'user', content: userContent },
               { role: 'assistant', content: reply },
               { role: 'user', content: feedback + '\n\n只输出修正后的 <upstore>/<state> 指令块，不要任何其它文字。' },
-            ], { extra });
+            ], { extra, timeoutMs: 120000 });
             if (retry) {
               const cleanRetry = retry.replace(/<think[^>]*>[\s\S]*?<\/think>/gi, '').trim();
               applyAllUpdates(cleanRetry, { source: 'item-phase-retry', turn: turnCountRef.current }, { suppressCreateNames: facilityGranted });
@@ -3261,7 +3261,7 @@ export default function App() {
     const { content } = await apiChatFallback(chain, [
       { role: 'system', content: ENHANCE_BANTER_RULE },
       { role: 'user', content: `【强化实况】\n${lines}\n\n${styleBlock}\n\n以「${boss.name}」本人的身份，**严格按上面的对话预设、并贴合「当前阶段」**，对正在强化的主角说一两句话。` },
-    ]);
+    ], { timeoutMs: 30000 });
     return (content || '').replace(/^[「『"'\s]+|[」』"'\s]+$/g, '').trim();
   }
 
@@ -3339,7 +3339,7 @@ export default function App() {
       const { content: reply } = await apiChatFallback(chain, [
         { role: 'system', content: MERGED_AUDIT_SYSTEM + '\n' + ITEM_GRADE_TABLE_RULE + '\n' + getPrompt('EQUIP_CODEX', EQUIP_CODEX) + '\n' + STATUS_COUNTDOWN_TURN_RULE + (checkItems ? '\n' + getPrompt('ITEM_EVOLUTION_CODEX', ITEM_EVOLUTION_CODEX) + '\n' + ITEM_STABLE_ON_MENTION_RULE : '') },
         { role: 'user', content: userContent },
-      ]);
+      ], { timeoutMs: 120000 });
       console.log('[MergedAudit] 对账原始响应:', reply);
       if (reply) {
         // 「为什么纠正」= 模型 <think> 说明；剥离后再解析，避免说明文字被当指令
@@ -3530,7 +3530,7 @@ export default function App() {
       const { content: reply } = await apiChatFallback(chain, [
         { role: 'system', content: systemPrompt },
         { role: 'user',   content: userContent },
-      ], { extra });
+      ], { extra, timeoutMs: 120000 });
       console.log('[Player] 主角演化原始响应:', reply);
 
       if (reply) {
@@ -5182,7 +5182,7 @@ ${AFFIX_EFFECT_RULE}`;
       const { content: reply } = await apiChatFallback(chain, [
         { role: 'system', content: systemPrompt },
         { role: 'user', content: '请按【输出格式】只输出 JSON 对象。' },
-      ]);
+      ], { timeoutMs: 120000 });
       console.log('[Memory] 压缩响应:', reply);
 
       // 提取 JSON object
@@ -5383,7 +5383,7 @@ ${AFFIX_EFFECT_RULE}`;
       const { content: reply } = await apiChatFallback(chain, [
         { role: 'system', content: systemPrompt },
         { role: 'user', content: '请按【输出格式铁律】只输出 <upstore> 指令块。' },
-      ]);
+      ], { timeoutMs: 120000 });
       console.log('[Misc] 杂项演化响应:', reply);
       const applied = applyMiscCommands(reply, { allowLarge: isLargeTurn });
       console.log(`[Misc] 杂项演化应用 ${applied} 条指令（第 ${round} 轮，大总结周期：${isLargeTurn ? '是' : '否'}）`);
@@ -5439,7 +5439,7 @@ ${AFFIX_EFFECT_RULE}`;
       const { content: reply } = await apiChatFallback(chain, [
         { role: 'system', content: systemPrompt },
         { role: 'user', content: `【本次要归档的正文】\n${narrative}\n\n请按【输出格式铁律】只输出一个 <tableEdit> 块。` },
-      ]);
+      ], { timeoutMs: 90000 });
       console.log('[Table] 手动补填响应:', reply);
       const te = applyTableEdits(reply, { turn: turnCountRef.current });
       // 进 📋 变量事务报告（与自动填表同一视图·来源标「手动补填」便于区分是谁写的）
@@ -5529,7 +5529,7 @@ ${AFFIX_EFFECT_RULE}`;
       const { content: rawReply } = await apiChatFallback(chain, [
         { role: 'system', content: systemPrompt },
         { role: 'user', content: '**先输出一个 <think>…</think> 思考块**，按「领地演化思维链」逐项自检（尤其：本轮没明确建立领地就绝不凭空造领地/建筑）；**随后**按【输出格式铁律】输出 <upstore> 指令块（必要时附 <state> 块），无变化输出空块。' },
-      ]);
+      ], { timeoutMs: 120000 });
       console.log('[Territory] 领地演化响应:', rawReply);
       const reply = (rawReply || '').replace(/<think[^>]*>[\s\S]*?<\/think>/gi, '').trim();   // 剥掉思维链再解析
       const applied = applyTerritoryCommands(reply + '\n' + editToTerritoryText(reply));   // 同时认 <upstore> 与 <edit>(territory.*)
@@ -5586,7 +5586,7 @@ ${AFFIX_EFFECT_RULE}`;
       const { content: rawReply } = await apiChatFallback(chain, [
         { role: 'system', content: SUBPROF_EVO_PROMPT },
         { role: 'user', content: userContent },
-      ]);
+      ], { timeoutMs: 120000 });
       const reply = (rawReply || '').replace(/<think[^>]*>[\s\S]*?<\/think>/gi, '').trim();
       const cmds = parseAllCharCommands(reply).filter((c) => c.charId === 'B1' && (c.type === 'bumpRecipe' || c.type === 'addRecipe'));
       let applied = 0;
@@ -5801,7 +5801,7 @@ ${AFFIX_EFFECT_RULE}`;
       const { content: rawReply } = await apiChatFallback(chain, [
         { role: 'system', content: systemPrompt },
         { role: 'user', content: '**先输出一个 <think>…</think> 思考块**，按「冒险团演化思维链」逐项自检（尤其：团队未建立且本轮未明确建团就绝不凭空建团）；**随后**按【输出格式铁律】输出 <upstore> 指令块（必要时附 <state> 块），无变化输出空块。' },
-      ]);
+      ], { timeoutMs: 120000 });
       console.log('[Team] 冒险团演化响应:', rawReply);
       const reply = (rawReply || '').replace(/<think[^>]*>[\s\S]*?<\/think>/gi, '').trim();   // 剥掉思维链再解析
       const applied = applyTeamCommands(reply + '\n' + editToTeamText(reply));   // 同时认 <upstore> 与 <edit>(team.*)
@@ -6051,7 +6051,7 @@ ${AFFIX_EFFECT_RULE}`;
       return arr;
     };
     const extract = async (msgs: Msg[], label: string) => {
-      try { const r = await apiChatFallback(chain, msgs, { rawLang: true }); return { specs: parseSpecs(r.content), raw: r.content }; }   // 生图提示词=英文标签，勿套输出语言指令
+      try { const r = await apiChatFallback(chain, msgs, { rawLang: true, timeoutMs: 60000 }); return { specs: parseSpecs(r.content), raw: r.content }; }   // 生图提示词=英文标签，勿套输出语言指令
       catch (e: any) { console.error(`[StoryImg] 抽取失败(${label}):`, e.message ?? e); return { specs: [] as ReturnType<typeof parseSpecs>, raw: '' }; }
     };
 
@@ -6474,7 +6474,7 @@ ${AFFIX_EFFECT_RULE}`;
       const { content: reply } = await apiChatFallback(chain, [
         { role: 'system', content: sys },
         { role: 'user', content: '请按格式只输出 JSON 对象 {"messages":[...]}。' },
-      ]);
+      ], { timeoutMs: 60000 });
       const j = parseEntryJson(reply);
       const arr = Array.isArray(j?.messages) ? j.messages : [];
       // 护栏：AI 偶尔会冒用主角名义发帖（主角名在提示词里作上下文）——凡作者=主角名/主角/我 的一律丢弃，主角只由本人操作发言
@@ -7123,7 +7123,7 @@ ${lines}`;
     const user = `玩家挂出的帖子如下，请为每个帖子生成 2~4 条报价/出价：\n${postsDesc}\n\n【按估价锚点反应·务必执行】每帖末〔系统估价〕已给出该物公允价与玩家定价判级，据此回应：\n- 判级「离谱虚高」(出售要价远超公允价)→ 至少 1~2 条买家**戳破并拒绝/嘲笑/劝阻**，note 直说品级评分配不上这价，price 给贴近公允价的诚实出价，绝不照单全收。\n- 判级「严重偏离」(求购预算远低于公允价)→ 至少 1~2 条卖家**拒绝/调侃这点钱买不到、劝其加价**，price 给该档真实售价当还价，note 写明「加到 X 才有人卖」。\n- 判级「接近公允/偏高/偏低」→ 正常砍价还价，报价落在公允价区间附近。\n- 面议(玩家没填价)→ 按公允价主动给出合理报价。\n离谱定价必须有人说实话，切忌全场假装能成交；语气贴合各契约者人设(毒舌奸商/老好心前辈/看热闹/就事论事的行家)。\n\n只输出 JSON：{"quotes":[{"postId":"<帖子号如 M_5>","fromName":"昵称","fromTier":"三阶·Lv.25","fromTag":"契约者","barter":false,"itemName":"(求购帖=你提供的物品名；出售帖纯现金收购留空，以物换物则填你拿出交换的物品名)","gradeDesc":"品质色","category":"分类","subType":"类型细分","origin":"产地","combatStat":"攻防数值","durability":"耐久","requirement":"装备需求","affix":"词缀","score":"评分","effect":"效果","intro":"简介","appearance":"逐部件外观","killCount":"杀敌数(武器)","qty":1,"price":数字,"currency":"乐园币","note":"留言"}]}（求购帖的卖家报价务必填全 origin/subType/combatStat/durability/requirement/affix/score/effect/intro/appearance 等固定格式字段；出售帖：纯现金收购 barter:false 只给 price/currency/note，以物换物则 barter:true 并把换购物品按上述固定格式字段写全、price=额外找补现金/平换填0）`;
     useChannel.getState().setRefreshing(true);
     try {
-      const { content } = await apiChatFallback(chain, [{ role: 'system', content: sys }, { role: 'user', content: user }]);
+      const { content } = await apiChatFallback(chain, [{ role: 'system', content: sys }, { role: 'user', content: user }], { timeoutMs: 60000 });
       const j = parseEntryJson(content);
       const arr = Array.isArray(j?.quotes) ? j.quotes : [];
       const byPost: Record<string, any[]> = {};
@@ -8882,7 +8882,7 @@ ${lines}`;
     const sys = '你是「组队讨伐」BOSS 设定生成器。据主题生成一个强大的 BOSS。只输出 JSON：{"name":"名字(4~8字)","emoji":"单个emoji","intro":"登场威胁台词(一句)","affixes":["从 enrage shield regen tough bleed burn 里选若干,可空数组"]}。不要输出别的。';
     const user = `主题：${theme || '随机强敌'}；难度档：${difficulty}。`;
     try {
-      const { content } = await apiChatFallback(chain, [{ role: 'system', content: sys }, { role: 'user', content: user }]);
+      const { content } = await apiChatFallback(chain, [{ role: 'system', content: sys }, { role: 'user', content: user }], { timeoutMs: 30000 });
       const j: any = lenientJsonParse(content) || {};
       const mp = useMp.getState();
       const partyTier = usePlayer.getState().profile?.tier;

@@ -52,7 +52,8 @@ export default function AttrTalentPicker({
     }
   };
   const reload = () => { settledRef.current = false; setCands([]); setEditIdx(null); setDraft(null); setEditedIdxs(new Set()); load(); };   // 换一批：重置落定标记+编辑态，重新生成
-  useEffect(() => { load(); /* eslint-disable-next-line react-hooks/exhaustive-deps */ }, []);
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- 仅挂载时生成一次候选（load 非稳定身份，列入会每渲染重触发）
+  useEffect(() => { load(); }, []);
 
   const choose = (t: Omit<Trait, 'addedAt'>) => {
     if (done) return;

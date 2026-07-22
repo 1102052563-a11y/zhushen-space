@@ -102,6 +102,7 @@ export default function SaveLoadPanel({ messages, onClose, onCleanupLive }: Prop
     try { setAutoSnaps(await listAutoSnaps()); }
     catch (e: any) { flash('❌ 读取自动备份失败：' + (e?.message ?? e)); }
   }
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- 仅挂载时拉一次存档列表（refresh 非稳定身份）
   useEffect(() => { refresh(); void getStorageStatus().then(setPersist); }, []);
   // 申请持久化（用户手势触发，比启动时静默申请更易被浏览器授予）
   async function handleRequestPersist() {
@@ -129,7 +130,8 @@ export default function SaveLoadPanel({ messages, onClose, onCleanupLive }: Prop
     setFbAuto(await folderAutoEnabled());
     setFbPerm(h ? await fbCheckPermission(false) : 'none');
   }
-  useEffect(() => { if (fbOpen) void fbRefresh(); /* eslint-disable-next-line */ }, [fbOpen]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- 仅在展开文件夹备份区时刷新（fbRefresh 非稳定身份）
+  useEffect(() => { if (fbOpen) void fbRefresh(); }, [fbOpen]);
   async function fbPick() {
     setFbBusy(true);
     try {
@@ -175,9 +177,11 @@ export default function SaveLoadPanel({ messages, onClose, onCleanupLive }: Prop
     try { await forgetFolder(); await setFolderAutoEnabled(false); setFbFiles(null); await fbRefresh(); flash('已忘记文件夹（磁盘上的文件不会被删除）'); }
     finally { setFbBusy(false); }
   }
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- 仅在展开自动备份区时刷新（refreshSnaps 非稳定身份·与上下两处同模式）
   useEffect(() => { if (snapsOpen) void refreshSnaps(); }, [snapsOpen]);
   // 展开云存档区且已登录 → 拉云端列表
-  useEffect(() => { if (cloudOpen && cloudLoggedIn()) void refreshCloud(); /* eslint-disable-next-line */ }, [cloudOpen]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- 仅在展开云存档区时刷新（refreshCloud 非稳定身份）
+  useEffect(() => { if (cloudOpen && cloudLoggedIn()) void refreshCloud(); }, [cloudOpen]);
 
   function flash(t: string) { setMsg(t); setTimeout(() => setMsg(''), 4000); }
 

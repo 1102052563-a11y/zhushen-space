@@ -45,7 +45,7 @@ export default function CasinoGladiator({
   useEffect(() => {
     const m = useCasino.getState().gladiator;
     if (m && m.status === 'fighting' && !m.result) useCasino.getState().clearGladiator();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+     
   }, []);
 
   async function generate() {

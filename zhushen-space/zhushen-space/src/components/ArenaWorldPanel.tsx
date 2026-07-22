@@ -192,7 +192,7 @@ export default function ArenaWorldPanel({ onClose, onGenBattle, onSpar, onManual
       } catch { /* 失败留门禁 */ }
     })();
     return () => arenaWorldClient.leave();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+     
   }, []);
 
   const doLogin = async () => {

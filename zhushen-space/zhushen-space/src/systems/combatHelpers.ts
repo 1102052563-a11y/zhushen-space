@@ -59,7 +59,7 @@ export async function runBattleSummaryPhase(state: BattleState, victor: Side | n
     // 战斗叙事提示词 = 自定义预设(可空) + 叙事铁则 + 内嵌《战斗写作指导》(思维链/物理具现化/镜头感/力量标尺)
     const sys = (combatPreset().summaryPrompt?.trim() || '') + '\n\n' + getPrompt('COMBAT_NARRATE_RULE', COMBAT_NARRATE_RULE) + '\n\n' + getPrompt('COMBAT_WRITING_GUIDE_RULE', COMBAT_WRITING_GUIDE_RULE);
     const record = buildBattleRecord(state, victor);
-    const { content } = await apiChatFallback(combatChain(), [{ role: 'system', content: sys }, { role: 'user', content: record }]);
+    const { content } = await apiChatFallback(combatChain(), [{ role: 'system', content: sys }, { role: 'user', content: record }], { timeoutMs: 60000 });
     // 先剥掉 <think_battle> 内部推演（连内容），再去残留标签
     return (content || '')
       .replace(/<think_battle>[\s\S]*?<\/think_battle>/gi, '')
