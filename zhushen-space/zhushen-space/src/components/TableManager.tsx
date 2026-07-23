@@ -295,11 +295,11 @@ function TableFillSchedule() {
         ))}
         <span className="text-dim/50">（全勾/全不勾＝全部；要一个都不填请关上面总开关）</span>
       </div>
-      {/* 填表接口：自动填表跟着主正文走（用正文接口），这条路由只作用于「♻ 重算变量 → 🗂 填表」的独立补填调用。
-          留空＝回退正文接口。补填只吐 <tableEdit> 不写正文，挂个便宜模型足够。 */}
+      {/* 填表接口：自动填表已改为独立演化阶段 + 手动「🗂 填表」补填，二者都走这条路由（留空＝回退正文接口）。
+          填表只吐 <tableEdit> 不写正文，挂个便宜模型足够，且和正文接口分开、互不占用。 */}
       <div className="pt-1 border-t border-edge/60 space-y-1">
         <div className="text-dim/70">
-          🔌 填表接口 <span className="text-dim/40">（仅用于「♻ 重算变量 → 🗂 填表」的手动补填；留空＝回退正文接口。补填只输出填表指令、不写正文，用便宜模型即可）</span>
+          🔌 填表接口 <span className="text-dim/40">（自动填表阶段 + 手动「♻ 重算变量 → 🗂 填表」都用它；留空＝回退正文接口。填表只输出 &lt;tableEdit&gt; 指令、不写正文，用便宜模型即可）</span>
         </div>
         <ApiRoutePicker routeKey="table" />
       </div>

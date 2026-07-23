@@ -9,6 +9,7 @@ import { useTables } from '../store/tableStore';
 import { useTableJournal } from '../store/tableJournalStore';
 import { isCustomSheet, type AcuSheet } from './acuTableSpec';
 import { TABLE_FILL_RULE } from '../promptRules';
+import { getPrompt } from '../store/promptOverrideStore';   // 预设中心：玩家可覆盖填表规则，留空回退内置常量
 
 const CHRONICLE_UID = 'chronicle';   // 纪要表（编年史·只追加）
 const RECENT_N = 6;                  // 纪要表只展示最近几条，够续写连贯即可
@@ -69,7 +70,7 @@ export function buildPlotStateSnapshot(): string {
    only=只维护这些表(uid: chronicle/progress/foreshadowing/pacts)；undefined/空=全部（＝原行为）。 */
 export function buildTableFillPrompt(only?: string[]): string {
   const want = (uid: string) => !only || only.length === 0 || only.includes(uid);
-  const parts: string[] = [TABLE_FILL_RULE];
+  const parts: string[] = [getPrompt('TABLE_FILL_RULE', TABLE_FILL_RULE)];   // 预设中心可覆盖·留空回退内置
   if (want(CHRONICLE_UID)) {
     const chron = useTables.getState().getSheet(CHRONICLE_UID);
     const chronHeaders = (chron?.content[0] ?? []).slice(1);

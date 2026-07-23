@@ -2233,17 +2233,9 @@ export default function App() {
     addRule('HP_EP结算输出', '前端规则 · HP/EP 结算输出', VITALS_SETTLEMENT_EMIT_RULE);
     // 主角会死·非不死之身：治"不战斗没掉血判定→顶着1滴血无限存活/被锁血不死"，用户要求主角能死
     addRule('主角会死亡', '前端规则 · 主角会死·非不死之身', PLAYER_MORTALITY_RULE);
-    // ACU 表格数据库：把填表铁则 + 当前所有表的结构与数据注入主正文，让 AI 每回合末尾输出 <tableEdit> 维护游戏状态表（applyAllUpdates 落库、stripStateBlocks 从展示剥离）
-    // 填表调度（设置→变量管理→填表调度）：enabled=总开关；everyN>1=每 N 回合才填一次；only=只维护指定剧情表。默认 {enabled,everyN:1,only:[]}=每回合全填(原行为)
-    {
-      const tf = useSettings.getState().tableFill ?? { enabled: true, everyN: 1, only: [] };
-      const everyN = Math.max(1, Math.floor(tf.everyN || 1));
-      const turnNo = useMisc.getState().turnCount ?? 0;
-      if (tf.enabled && (everyN <= 1 || turnNo % everyN === 0)) {
-        const _tableFill = buildTableFillPrompt(tf.only);
-        addRule('表格填表', '前端规则+数据 · 表格数据库填表', _tableFill);
-      }
-    }
+    // ACU 表格数据库·填表：**已改为独立演化阶段**（runPostNarrativePhases 的 'table' 阶段：填表结束后专门调一次 AI，
+    //   只读本回合正文、只吐 <tableEdit> 落库，正文一个字不动）。不再塞进主正文让正文 AI 顺手吐——那样正文 AI 负担重、
+    //   常整段漏填（用户报"完全不填表"）。故这里不再注入填表规则；调度仍走「填表调度」(tableFill·enabled/everyN)。
     // 在场 NPC 当前 HP/EP + 上限：把真实数值喂给主正文，让上面的 <状态结算> 能**逐个准确**列出在场队友（不靠 AI 凭记忆瞎填/漏填导致队友卡在残血），休息疗伤时也据上限回满
     try {
       const onSceneNpcs = Object.values(useNpc.getState().npcs).filter((r: any) => r.onScene && !r.isDead && r.name && r.name !== r.id);
@@ -5419,7 +5411,7 @@ ${AFFIX_EFFECT_RULE}`;
         本阶段专治那种漏：单独调一次 AI，只读给定楼层正文、只吐 <tableEdit> 落库，**正文一个字不动**。
         接口 featureKey='table'（未单独配路由 → 回退正文接口，开箱即用）。
   ════════════════════════════════════════════ */
-  async function runTableFillPhase(narrative: string) {
+  async function runTableFillPhase(narrative: string, opts?: { auto?: boolean }) {
     if (!narrative.trim()) return;
     const ss = useSettings.getState();
     // 只认 only（维护哪几张表）；enabled 是「**自动**填表」总开关——手动补填是玩家明确点的，不受它管
@@ -5431,7 +5423,7 @@ ${AFFIX_EFFECT_RULE}`;
       setTimeout(() => setTablePhaseLog(''), 8000);
       return;
     }
-    const systemPrompt = buildTableFillPrompt(tf.only) + '\n\n' + TABLE_FILL_MANUAL_RULE;
+    const systemPrompt = buildTableFillPrompt(tf.only) + '\n\n' + getPrompt('TABLE_FILL_MANUAL_RULE', TABLE_FILL_MANUAL_RULE);   // 预设中心可覆盖填表输出格式铁则
     try {
       const { content: reply } = await apiChatFallback(chain, [
         { role: 'system', content: systemPrompt },
@@ -5442,7 +5434,7 @@ ${AFFIX_EFFECT_RULE}`;
       // 进 📋 变量事务报告（与自动填表同一视图·来源标「手动补填」便于区分是谁写的）
       try {
         const rec: Omit<TurnApplyRecord, 'id' | 'at'> = {
-          turn: turnCountRef.current, source: '手动补填表格',
+          turn: turnCountRef.current, source: opts?.auto ? '自动填表' : '手动补填表格',
           stateApplied: 0, stateFailed: [], itemApplied: 0, itemRejected: [], itemBlocked: 0,
           tableApplied: te.applied, tableFailed: te.errors, tableSkippedDup: te.skippedDuplicate === true, drift: [],
         };
@@ -9091,6 +9083,9 @@ ${lines}`;
     const snapTurn = turnCountRef.current;
     const onCombat = () => { if (combatSettled) applyCombatVitals(combatSettled); };   // 战斗回合：演化跑完把 HP 压回战斗结算值（防复盘重复扣血）
     const dueItem = due('item'), duePlayer = due('player');
+    // 填表阶段用它自己的「填表调度」开关(tableFill·enabled/everyN)门控，与其他阶段的 phaseSched 独立（沿用原填表设置 UI）
+    const _tf = useSettings.getState().tableFill ?? { enabled: true, everyN: 1, only: [] };
+    const tableDue = !!_tf.enabled && turn % Math.max(1, Math.floor(_tf.everyN || 1)) === 0;
     // ── 演化阶段·声明式表（加阶段/调顺序/开关 gate/依赖都改这里；调度器见 systems/phasePipeline）──
     //   awaitForSnapshot=会改「回合洞察」快照变量的阶段，抓快照前需等它们 settle；delayMs=延后启动（生图等演化先写档）。
     const phases: Phase[] = [
@@ -9109,6 +9104,7 @@ ${lines}`;
       { key: 'memory',    enabled: true,                run: () => runMemoryCompressionPhase() },   // 内部按阈值判定，不走回合门控
       { key: 'misc',      enabled: due('misc'),         run: () => runMiscEvolutionPhase(narr('misc')) },
       { key: 'nm',        enabled: due('nm'),           run: () => runNarrativeIngestPhase(lastUserInputRef.current, narr('nm')) },
+      { key: 'table',     enabled: tableDue,            run: () => runTableFillPhase(narr('table'), { auto: true }) },   // 剧情表(纪要/进程/伏笔/约定)独立成阶段·专人调一次 AI 只吐<tableEdit>·比塞进正文让 AI 顺手吐可靠得多
       { key: 'choices',   enabled: true,                run: () => runChoicesFanficPhase(narrative, assistantMsgId) },   // 内部各自开关门控
       // 生图：延后约 6s 等演化先写档；正文配图需有楼层 id
       { key: 'portrait',  enabled: true, delayMs: 6000, run: () => runPortraitPhase() },
@@ -9939,7 +9935,7 @@ ${lines}`;
   const BATCH_RUNNERS: Record<string, (n: string, force?: boolean) => Promise<void> | void> = {
     item: runItemManagementPhaseCore, player: runPlayerEvolutionPhase, npc: runNpcEvolutionPhase, pet: runPetEvolutionPhase,
     faction: runFactionEvolutionPhase, territory: runTerritoryEvolutionPhase, team: runTeamEvolutionPhase,
-    cosmos: runCosmosEvolutionPhase, misc: runMiscEvolutionPhase, table: runTableFillPhase,
+    cosmos: runCosmosEvolutionPhase, misc: runMiscEvolutionPhase, table: (n) => runTableFillPhase(n),   // 手动批量补填=非 auto（默认走"手动补填表格"标签）
   };
   function narrativeFloors(): string[] {   // 楼层 = 每条 AI 正文（从旧到新）
     return (messagesRef.current ?? []).filter((m) => m.role === 'assistant' && m.content).map((m) => m.content as string);

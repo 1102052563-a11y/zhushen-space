@@ -20,6 +20,7 @@ import {
   CRAFT_RULE, EQUIP_SET_RULE, EQUIP_ASCEND_RULE, WORLDVIEW_GEN_PROMPT, WORLD_SUMMARY_PROMPT,
   CHAOS_RECORD_PROMPT, CHAOS_WORLD_GEN_PROMPT,
   CANON_INERTIA_RULE, SUXIAO_PERSONA_RULE, CANON_MISC_RULE,
+  TABLE_FILL_RULE, TABLE_FILL_MANUAL_RULE,
 } from '../promptRules';
 import { COMBAT_WRITING_GUIDE_RULE } from './combatWritingGuide';
 import { ABYSS_BOON_GEN_RULE, ABYSS_SIN_GEN_RULE, ABYSS_AWAKEN_RULE, ABYSS_JUDGE_RULE, ABYSS_ENEMY_GEN_RULE } from './abyssPrompts';
@@ -57,6 +58,8 @@ export const PROMPT_REGISTRY: PromptEntry[] = [
   { key: 'FACTION_COT_RULE', label: '势力演化 · 思维链', group: '演化阶段', kind: 'override', def: FACTION_COT_RULE, desc: '势力登场/演化 CoT' },
   { key: 'TERRITORY_COT_RULE', label: '领地演化 · 思维链', group: '演化阶段', kind: 'override', def: TERRITORY_COT_RULE, desc: '领地建设演化 CoT' },
   { key: 'TEAM_COT_RULE', label: '冒险团 · 思维链', group: '演化阶段', kind: 'override', def: TEAM_COT_RULE, desc: '冒险团演化 CoT' },
+  { key: 'TABLE_FILL_RULE', label: '填表 · 填表铁则', group: '演化阶段', kind: 'override', def: TABLE_FILL_RULE, desc: '剧情表（纪要/进程/伏笔/约定）该记什么、怎么记的规则' },
+  { key: 'TABLE_FILL_MANUAL_RULE', label: '填表 · 输出格式铁则', group: '演化阶段', kind: 'override', def: TABLE_FILL_MANUAL_RULE, desc: '填表调用只吐 <tableEdit>、不写正文的格式约束（⚠ 改坏会导致填表解析失败）' },
   // ── 演化阶段 · 图鉴 / 总纲（第二批）──
   { key: 'ITEM_EVOLUTION_CODEX', label: '物品演化 · 图鉴总纲', group: '演化阶段', kind: 'override', def: ITEM_EVOLUTION_CODEX, desc: '物品演化的图鉴/总纲（物品阶段 + 对账）' },
   { key: 'EQUIP_CODEX', label: '装备生成 · 世界书图鉴', group: '演化阶段', kind: 'override', def: EQUIP_CODEX, desc: '装备生成总纲/品级/数值/词缀（物品·强化·开箱·交易·竞技场·深渊·福袋 通用）' },
