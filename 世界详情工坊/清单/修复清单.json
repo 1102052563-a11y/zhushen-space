@@ -2,8 +2,8 @@
  "generatedAt": "20260721",
  "total": 1206,
  "byStatus": {
-  "已修复": 1074,
-  "待修复": 132
+  "已修复": 1111,
+  "待修复": 95
  },
  "byPriority": {
   "P0": 47,
@@ -1074,8 +1074,8 @@
     589,
     590
    ],
-   "status": "待修复",
-   "fixedMark": false
+   "status": "已修复",
+   "fixedMark": true
   },
   {
    "priority": "P1",
@@ -1106,8 +1106,8 @@
     589,
     590
    ],
-   "status": "待修复",
-   "fixedMark": false
+   "status": "已修复",
+   "fixedMark": true
   },
   {
    "priority": "P1",
@@ -1138,8 +1138,8 @@
     589,
     590
    ],
-   "status": "待修复",
-   "fixedMark": false
+   "status": "已修复",
+   "fixedMark": true
   },
   {
    "priority": "P1",
@@ -1150,8 +1150,8 @@
    "issue": "灌水标记:【阶段档案",
    "hasCrossDup": false,
    "crossGroupIds": [],
-   "status": "待修复",
-   "fixedMark": false
+   "status": "已修复",
+   "fixedMark": true
   },
   {
    "priority": "P1",
@@ -1162,8 +1162,8 @@
    "issue": "灌水标记:【阶段档案",
    "hasCrossDup": false,
    "crossGroupIds": [],
-   "status": "待修复",
-   "fixedMark": false
+   "status": "已修复",
+   "fixedMark": true
   },
   {
    "priority": "P1",
@@ -1174,8 +1174,8 @@
    "issue": "灌水标记:【阶段档案",
    "hasCrossDup": false,
    "crossGroupIds": [],
-   "status": "待修复",
-   "fixedMark": false
+   "status": "已修复",
+   "fixedMark": true
   },
   {
    "priority": "P1",
@@ -1186,8 +1186,8 @@
    "issue": "灌水标记:【阶段档案",
    "hasCrossDup": false,
    "crossGroupIds": [],
-   "status": "待修复",
-   "fixedMark": false
+   "status": "已修复",
+   "fixedMark": true
   },
   {
    "priority": "P1",
@@ -1198,8 +1198,8 @@
    "issue": "灌水标记:【阶段档案",
    "hasCrossDup": false,
    "crossGroupIds": [],
-   "status": "待修复",
-   "fixedMark": false
+   "status": "已修复",
+   "fixedMark": true
   },
   {
    "priority": "P1",
@@ -1210,8 +1210,8 @@
    "issue": "灌水标记:【再补",
    "hasCrossDup": false,
    "crossGroupIds": [],
-   "status": "待修复",
-   "fixedMark": false
+   "status": "已修复",
+   "fixedMark": true
   },
   {
    "priority": "P1",
@@ -1222,8 +1222,8 @@
    "issue": "灌水标记:【再补",
    "hasCrossDup": false,
    "crossGroupIds": [],
-   "status": "待修复",
-   "fixedMark": false
+   "status": "已修复",
+   "fixedMark": true
   },
   {
    "priority": "P1",
@@ -1234,8 +1234,8 @@
    "issue": "灌水标记:【补密",
    "hasCrossDup": false,
    "crossGroupIds": [],
-   "status": "待修复",
-   "fixedMark": false
+   "status": "已修复",
+   "fixedMark": true
   },
   {
    "priority": "P1",
@@ -1246,8 +1246,8 @@
    "issue": "灌水标记:【再补",
    "hasCrossDup": false,
    "crossGroupIds": [],
-   "status": "待修复",
-   "fixedMark": false
+   "status": "已修复",
+   "fixedMark": true
   },
   {
    "priority": "P1",
@@ -1258,8 +1258,8 @@
    "issue": "灌水标记:【再补",
    "hasCrossDup": false,
    "crossGroupIds": [],
-   "status": "待修复",
-   "fixedMark": false
+   "status": "已修复",
+   "fixedMark": true
   },
   {
    "priority": "P1",
@@ -1270,8 +1270,8 @@
    "issue": "灌水标记:【再补",
    "hasCrossDup": false,
    "crossGroupIds": [],
-   "status": "待修复",
-   "fixedMark": false
+   "status": "已修复",
+   "fixedMark": true
   },
   {
    "priority": "P1",
@@ -1282,8 +1282,8 @@
    "issue": "灌水标记:【扩写·",
    "hasCrossDup": false,
    "crossGroupIds": [],
-   "status": "待修复",
-   "fixedMark": false
+   "status": "已修复",
+   "fixedMark": true
   },
   {
    "priority": "P1",
@@ -1294,8 +1294,8 @@
    "issue": "灌水标记:【扩写·",
    "hasCrossDup": false,
    "crossGroupIds": [],
-   "status": "待修复",
-   "fixedMark": false
+   "status": "已修复",
+   "fixedMark": true
   },
   {
    "priority": "P1",
@@ -1306,8 +1306,8 @@
    "issue": "灌水标记:【补密、【补段、【再补",
    "hasCrossDup": false,
    "crossGroupIds": [],
-   "status": "待修复",
-   "fixedMark": false
+   "status": "已修复",
+   "fixedMark": true
   },
   {
    "priority": "P1",
@@ -1318,8 +1318,8 @@
    "issue": "灌水标记:【补段",
    "hasCrossDup": false,
    "crossGroupIds": [],
-   "status": "待修复",
-   "fixedMark": false
+   "status": "已修复",
+   "fixedMark": true
   },
   {
    "priority": "P1",
@@ -1330,8 +1330,8 @@
    "issue": "灌水标记:【阶段档案、【再补",
    "hasCrossDup": false,
    "crossGroupIds": [],
-   "status": "待修复",
-   "fixedMark": false
+   "status": "已修复",
+   "fixedMark": true
   },
   {
    "priority": "P1",
@@ -1342,8 +1342,8 @@
    "issue": "灌水标记:【补密、【再补",
    "hasCrossDup": false,
    "crossGroupIds": [],
-   "status": "待修复",
-   "fixedMark": false
+   "status": "已修复",
+   "fixedMark": true
   },
   {
    "priority": "P1",
@@ -1354,8 +1354,8 @@
    "issue": "灌水标记:【扩写·、【再补",
    "hasCrossDup": false,
    "crossGroupIds": [],
-   "status": "待修复",
-   "fixedMark": false
+   "status": "已修复",
+   "fixedMark": true
   },
   {
    "priority": "P1",
@@ -1366,8 +1366,8 @@
    "issue": "灌水标记:【再补",
    "hasCrossDup": false,
    "crossGroupIds": [],
-   "status": "待修复",
-   "fixedMark": false
+   "status": "已修复",
+   "fixedMark": true
   },
   {
    "priority": "P1",
@@ -1381,8 +1381,8 @@
     598,
     599
    ],
-   "status": "待修复",
-   "fixedMark": false
+   "status": "已修复",
+   "fixedMark": true
   },
   {
    "priority": "P1",
@@ -1396,8 +1396,8 @@
     598,
     599
    ],
-   "status": "待修复",
-   "fixedMark": false
+   "status": "已修复",
+   "fixedMark": true
   },
   {
    "priority": "P1",
@@ -1493,8 +1493,8 @@
     603,
     604
    ],
-   "status": "待修复",
-   "fixedMark": false
+   "status": "已修复",
+   "fixedMark": true
   },
   {
    "priority": "P1",
@@ -1511,8 +1511,8 @@
     603,
     604
    ],
-   "status": "待修复",
-   "fixedMark": false
+   "status": "已修复",
+   "fixedMark": true
   },
   {
    "priority": "P1",
@@ -1529,8 +1529,8 @@
     603,
     604
    ],
-   "status": "待修复",
-   "fixedMark": false
+   "status": "已修复",
+   "fixedMark": true
   },
   {
    "priority": "P1",
@@ -1543,8 +1543,8 @@
    "crossGroupIds": [
     607
    ],
-   "status": "待修复",
-   "fixedMark": false
+   "status": "已修复",
+   "fixedMark": true
   },
   {
    "priority": "P1",
@@ -1717,8 +1717,8 @@
     694,
     695
    ],
-   "status": "待修复",
-   "fixedMark": false
+   "status": "已修复",
+   "fixedMark": true
   },
   {
    "priority": "P1",
@@ -1737,8 +1737,8 @@
     694,
     695
    ],
-   "status": "待修复",
-   "fixedMark": false
+   "status": "已修复",
+   "fixedMark": true
   },
   {
    "priority": "P1",
@@ -1757,8 +1757,8 @@
     694,
     695
    ],
-   "status": "待修复",
-   "fixedMark": false
+   "status": "已修复",
+   "fixedMark": true
   },
   {
    "priority": "P1",
@@ -1777,8 +1777,8 @@
     694,
     695
    ],
-   "status": "待修复",
-   "fixedMark": false
+   "status": "已修复",
+   "fixedMark": true
   },
   {
    "priority": "P1",
@@ -1789,8 +1789,8 @@
    "issue": "灌水标记:【叙事执行细则",
    "hasCrossDup": false,
    "crossGroupIds": [],
-   "status": "待修复",
-   "fixedMark": false
+   "status": "已修复",
+   "fixedMark": true
   },
   {
    "priority": "P1",
@@ -1801,8 +1801,8 @@
    "issue": "灌水标记:【叙事执行细则",
    "hasCrossDup": false,
    "crossGroupIds": [],
-   "status": "待修复",
-   "fixedMark": false
+   "status": "已修复",
+   "fixedMark": true
   },
   {
    "priority": "P1",
@@ -1813,8 +1813,8 @@
    "issue": "灌水标记:【叙事执行细则",
    "hasCrossDup": false,
    "crossGroupIds": [],
-   "status": "待修复",
-   "fixedMark": false
+   "status": "已修复",
+   "fixedMark": true
   },
   {
    "priority": "P1",
@@ -1825,8 +1825,8 @@
    "issue": "灌水标记:【叙事执行细则",
    "hasCrossDup": false,
    "crossGroupIds": [],
-   "status": "待修复",
-   "fixedMark": false
+   "status": "已修复",
+   "fixedMark": true
   },
   {
    "priority": "P1",
@@ -1837,8 +1837,8 @@
    "issue": "灌水标记:【叙事执行细则",
    "hasCrossDup": false,
    "crossGroupIds": [],
-   "status": "待修复",
-   "fixedMark": false
+   "status": "已修复",
+   "fixedMark": true
   },
   {
    "priority": "P1",

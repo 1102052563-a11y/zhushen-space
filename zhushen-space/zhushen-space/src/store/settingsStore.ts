@@ -303,6 +303,8 @@ interface SettingsState {
   setAppearance: (v: 'classic' | 'eyecare' | 'warm') => void;
   uiVignette: boolean;  // 背景暗角氛围：四周轻微压暗、聚焦中央正文（纯视觉·pointer-events:none）
   setUiVignette: (v: boolean) => void;
+  uiUnify: boolean;  // 统一排版规范（界面外观）：圆角三档归一/面板 text-sm 行高 1.6/游离描边归 edge——纯 CSS 令牌层（tailwind 变量路由，见 index.css data-ui-unify），关=逐像素回原样；正文楼层排版仍归 reading 管
+  setUiUnify: (v: boolean) => void;
   holoCardFx: boolean;  // 全息卡片特效总开关：on=立绘/物品/装备显示全息卡（默认）；off=普通图片（回退原样）
   setHoloCardFx: (v: boolean) => void;
   plotChoices: boolean;   // 剧情选项：每段正文生成后，额外生成 8 个主角行动选项（最后 1 个限制级）
@@ -773,6 +775,7 @@ export const useSettings = create<SettingsState>()(
       uiTheme: 'default',
       appearance: 'classic',
       uiVignette: false,
+      uiUnify: true,
       holoCardFx: true,
       plotChoices: false,
       fanficMode: false,
@@ -856,6 +859,7 @@ export const useSettings = create<SettingsState>()(
       setUiTheme: (v) => set({ uiTheme: v }),
       setAppearance: (v) => set({ appearance: v }),
       setUiVignette: (v) => set({ uiVignette: v }),
+      setUiUnify: (v) => set({ uiUnify: v }),
       setHoloCardFx: (v) => set({ holoCardFx: v }),
       setPlotChoices: (v) => set({ plotChoices: v }),
       setNpcAutonomyOn: (v) => set({ npcAutonomyOn: v }),

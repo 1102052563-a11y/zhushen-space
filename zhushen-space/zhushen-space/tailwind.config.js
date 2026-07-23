@@ -20,6 +20,16 @@ export default {
         mono: ['"JetBrains Mono"', 'ui-monospace', 'SFMono-Regular', 'Menlo', 'monospace'],
         sans: ['"Noto Sans SC"', 'system-ui', 'sans-serif'],
       },
+      // 统一排版规范（设置→界面外观→统一排版）：圆角/text-sm 行高经 CSS 变量路由。
+      // 变量未定义时 fallback＝Tailwind 默认值（开关关=逐像素原样）；html[data-ui-unify="1"] 在 index.css 改写变量。
+      borderRadius: {
+        DEFAULT: 'var(--r-base, 0.25rem)',
+        md: 'var(--r-md, 0.375rem)',
+        lg: 'var(--r-lg, 0.5rem)',
+      },
+      fontSize: {
+        sm: ['0.875rem', { lineHeight: 'var(--lh-sm, 1.25rem)' }],
+      },
     },
   },
   plugins: [],

@@ -457,19 +457,13 @@ export function normalizeTier(raw?: string): string {
   return '';
 }
 
-/* 阶位 → 特效 class（越高阶越华丽，主角/NPC 通用；对应 index.css 的 .tier-fx*）。
-   一阶起就有流光特效（最低档珠光微流·无光环），逐阶升级：翠光→青蓝→碧蓝呼吸→金辉光环→紫电→烈焰→神性彩虹旋环。 */
+/* 阶位 → 特效 class v2「十四阶全谱」（一档一效·主角/NPC 通用；对应 index.css 的 .tier-fx-t1..t14）。
+   色谱沿用 holoFoils.TIER_FOILS：象牙→月银→翠玉→碧翠→潮青→冰蓝→天青→苍蓝→渊蓝→金辉→玄金→紫电→烈焰→无上金芒。
+   性能：t1~t5 静态（悬停才流光），t6 起常驻缓流，光环 t10 起——列表大量低阶 NPC 零常驻动画。 */
 export function tierFxClass(tier?: string): string {
   const i = TIERS.indexOf(normalizeTier(tier) as typeof TIERS[number]);
   if (i < 0) return 'text-god';            // 认不出阶位 → 普通青光
-  if (i <= 1) return 'tier-fx tier-fx-0';  // 一/二阶 珠光微流（入门也有特效）
-  if (i <= 4) return 'tier-fx tier-fx-1';  // 三/四/五阶 翠光
-  if (i <= 6) return 'tier-fx tier-fx-2';  // 六/七阶 青蓝
-  if (i <= 8) return 'tier-fx tier-fx-3';  // 八/九阶 碧蓝流光呼吸
-  if (i <= 10) return 'tier-fx tier-fx-4'; // 绝强 / 巅峰绝强 金辉光环
-  if (i === 11) return 'tier-fx tier-fx-5'; // 至强 紫电强光环
-  if (i === 12) return 'tier-fx tier-fx-6'; // 巅峰至强 烈焰
-  return 'tier-fx tier-fx-7';               // 无上之境 神性彩虹旋环
+  return `tier-fx tier-fx-t${i + 1}`;      // 一阶=t1 … 无上之境=t14
 }
 
 /* ── 各阶位「单个基础属性」单属性极值（仅约束基础六维；装备/技能/天赋加成可超过此上限）──

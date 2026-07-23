@@ -227,24 +227,27 @@ export function gradeColorClass(grade?: string): string {
   return 'text-dim/70';
 }
 
-/** 品级 → 完整徽章样式（品级越高越华丽：颜色→发光→渐变→流光→脉冲）。用于品级标签醒目展示。
- *  配合 index.css 的 .grade-* 类。元素须只包含品级文字（渐变文字会把内容设为透明）。*/
+/** 品级 → 完整徽章样式 v2「材质十五阶」（素色→微光→铸金→宝焰→虹彩→箔纸星屑→创世全谱）。
+ *  配合 index.css 的 .grade-* 类。元素须只包含品级文字（渐变文字会把内容设为透明）。
+ *  性能纪律：常驻动画只从圣灵级起；传说/史诗悬停才流光（grade-shimmer-h）；铸金档纯静态。
+ *  每档类都定义 --gc 主色，容器可用 .grade-chip 吃色做徽章底/描边。*/
 export function gradeBadgeClass(grade?: string): string {
   const g = String(grade ?? '');
   if (g.includes('创世')) return 'grade-badge grade-grad grade-grad-genesis grade-shimmer grade-pulse';
-  if (g.includes('永恒')) return 'grade-badge grade-grad grade-grad-eternal grade-shimmer grade-pulse';
-  if (g.includes('起源')) return 'grade-badge grade-grad grade-grad-origin grade-shimmer grade-glow-1';
-  if (g.includes('不朽')) return 'grade-badge grade-grad grade-grad-immortal grade-shimmer grade-glow-1';
-  if (g.includes('圣灵')) return 'grade-badge grade-grad grade-grad-holy grade-shimmer grade-glow-1';
-  if (g.includes('史诗')) return 'grade-badge grade-grad grade-grad-epic grade-shimmer';
-  if (g.includes('传说')) return 'grade-badge grade-grad grade-grad-legend grade-shimmer';
-  if (g.includes('暗金')) return 'grade-badge grade-grad grade-grad-darkgold grade-shimmer';
-  if (g.includes('金'))   return 'grade-badge grade-grad grade-grad-gold grade-glow-2';   // 淡金/金色
-  if (g.includes('暗紫')) return 'grade-badge grade-grad grade-grad-darkpurple grade-glow-1';
-  if (g.includes('紫'))   return 'grade-badge text-purple-300 grade-glow-1';
-  if (g.includes('蓝'))   return 'grade-badge text-sky-300';
-  if (g.includes('绿'))   return 'grade-badge text-emerald-300';
-  if (g.includes('白'))   return 'grade-badge text-slate-200';
+  if (g.includes('永恒')) return 'grade-badge grade-grad grade-grad-eternal grade-shimmer';
+  if (g.includes('起源')) return 'grade-badge grade-grad grade-grad-origin grade-shimmer';
+  if (g.includes('不朽')) return 'grade-badge grade-grad grade-grad-immortal grade-shimmer';
+  if (g.includes('圣灵')) return 'grade-badge grade-grad grade-grad-holy grade-shimmer';
+  if (g.includes('史诗')) return 'grade-badge grade-grad grade-grad-epic grade-shimmer-h';
+  if (g.includes('传说')) return 'grade-badge grade-grad grade-grad-legend grade-shimmer-h';
+  if (g.includes('暗金')) return 'grade-badge grade-grad grade-grad-darkgold';
+  if (g.includes('淡金')) return 'grade-badge grade-grad grade-grad-palegold';
+  if (g.includes('金'))   return 'grade-badge grade-grad grade-grad-gold';
+  if (g.includes('暗紫')) return 'grade-badge grade-c-darkpurple';
+  if (g.includes('紫'))   return 'grade-badge grade-c-purple';
+  if (g.includes('蓝'))   return 'grade-badge grade-c-blue';
+  if (g.includes('绿'))   return 'grade-badge grade-c-green';
+  if (g.includes('白'))   return 'grade-badge grade-c-white';
   return 'text-dim/70';
 }
 

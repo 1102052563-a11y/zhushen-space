@@ -1566,6 +1566,7 @@ export default function App() {
   const weatherFxOn      = useSettings((s) => s.weatherFx);
   const appearanceMode   = useSettings((s) => s.appearance);   // 外观护眼色调（classic/eyecare/warm）→ <html data-appearance>
   const uiVignette       = useSettings((s) => s.uiVignette);   // 背景暗角氛围 → <html data-vignette>
+  const uiUnify          = useSettings((s) => s.uiUnify);      // 统一排版规范 → <html data-ui-unify>（圆角/行高/描边令牌层，见 index.css）
   const uiTheme          = useSettings((s) => s.uiTheme);      // 主题配色（整体界面色+文字色）→ 改写 <html> 上的 --c-* 变量
   // ── 游戏音效（懒加载 Howler·缺音频文件静默）──
   const audioCfg = useSettings((s) => s.audio);
@@ -1575,6 +1576,7 @@ export default function App() {
   // 外观美化：把护眼色调 / 暗角写到 <html> 属性，由 index.css 的固定滤镜层响应（全局生效、不影响布局与点击）
   useEffect(() => { document.documentElement.setAttribute('data-appearance', appearanceMode || 'classic'); }, [appearanceMode]);
   useEffect(() => { document.documentElement.setAttribute('data-vignette', uiVignette ? '1' : '0'); }, [uiVignette]);
+  useEffect(() => { document.documentElement.setAttribute('data-ui-unify', uiUnify ? '1' : '0'); }, [uiUnify]);
   useEffect(() => { applyUiTheme(uiTheme); }, [uiTheme]);   // 主题配色：把 --c-* 变量改写到 <html>（含浅色标记 data-ui-light）
   // 正文字体选「霞鹜文楷」时才懒加载其 webfont CSS（分块 woff2，仅用到的字形下载）；加载一次即留存，切走不卸载
   useEffect(() => {

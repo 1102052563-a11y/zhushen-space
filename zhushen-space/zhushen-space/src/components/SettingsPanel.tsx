@@ -2965,6 +2965,8 @@ function AppearanceSettingsSection() {
   const setAppearance = useSettings((s) => s.setAppearance);
   const uiVignette    = useSettings((s) => s.uiVignette);
   const setUiVignette = useSettings((s) => s.setUiVignette);
+  const uiUnify    = useSettings((s) => s.uiUnify);
+  const setUiUnify = useSettings((s) => s.setUiUnify);
   const holoCardFx    = useSettings((s) => s.holoCardFx);
   const setHoloCardFx = useSettings((s) => s.setHoloCardFx);
   const uiTheme    = useSettings((s) => s.uiTheme);
@@ -3109,6 +3111,19 @@ function AppearanceSettingsSection() {
               </button>
             ))}
           </div>
+        </div>
+      </div>
+
+      {/* 统一排版规范：圆角三档/面板行高/描边归 edge 的全局令牌层（tailwind 变量路由 + index.css data-ui-unify） */}
+      <div className="space-y-3">
+        <div className="text-sm font-mono text-god/70 uppercase tracking-widest">统一排版</div>
+        <div className="border border-edge rounded-lg p-4 bg-panel space-y-2">
+          <label className="flex items-center gap-2.5 cursor-pointer select-none">
+            <input type="checkbox" checked={uiUnify} onChange={(e) => setUiUnify(e.target.checked)} className="accent-god w-4 h-4" />
+            <span className="text-sm text-slate-300">统一排版规范</span>
+            <span className="text-[12px] text-dim/60">圆角三档归一 · 面板文字行高放松 · 描边色统一随主题</span>
+          </label>
+          <div className="text-[12px] text-dim/60 leading-relaxed">把全站散落的 6 档圆角收成「控件 8 / 卡片 12 / 面板 16」，密集面板文字行高 1.25→1.6，游离的灰蓝描边统一回主题描边色（随 8 套主题换色）。纯样式令牌、零动画零性能开销；关闭即逐像素回到旧观感。正文楼层的字号行距仍由下方「正文排版」独立控制。</div>
         </div>
       </div>
 
