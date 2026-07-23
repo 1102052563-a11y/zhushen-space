@@ -1310,8 +1310,6 @@ export default function App() {
 
   // 综合设置
   const historyLimit = useSettings((s) => s.historyLimit);
-  const disableEnterSend = useSettings((s) => s.disableEnterSend);
-  const showNewlineButton = useSettings((s) => s.showNewlineButton);
   const reading = useSettings((s) => s.reading);
   const narrativeMem = useSettings((s) => s.narrativeMemory);
 
@@ -1674,7 +1672,7 @@ export default function App() {
   const [prevInput, setPrevInput] = useState('');
 
   const [messages, setMessages] = useState<ChatMessage[]>([]);
-  // 展示层稳定升序：只在 messages 变化时重排，避免每次打字(setInputValue 触发整 App 重渲染)都对全量历史重排一遍(长档卡顿)。
+  // 展示层稳定升序：只在 messages 变化时重排，避免无关重渲染（流式 flush/状态变化）都对全量历史重排一遍(长档卡顿)。
   const sortedMessages = useMemo(() => [...messages].sort((a, b) => (a.id ?? 0) - (b.id ?? 0)), [messages]);
   const [generating, setGenerating] = useState(false);
   const [genError, setGenError] = useState('');
@@ -10077,7 +10075,6 @@ ${lines}`;
       && !msgs.some((m) => m.role === 'user' && m.id > id);
     if (isLastUser) lastUserInputRef.current = text;
     setEditingMsgId(null);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
   // MessageRow（memo 行组件）的稳定回调组：引用恒定 → 打字/流式等无关重渲不击穿行级缓存。
   // 包的都是「只碰 ref/setState/getState」的函数（regenerateStoryImage 等为函数声明·提升可见），冻结安全；
@@ -10090,7 +10087,6 @@ ${lines}`;
   const startEditCb = useCallback((id: number) => setEditingMsgId(id), []);
   const cancelEditCb = useCallback(() => setEditingMsgId(null), []);
   const editImagePromptCb = useCallback((msgId: number, idx: number, prompt: string) => setStoryPromptEdit({ msgId, idx, prompt }), []);
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   const regenImageCb = useCallback((msgId: number, idx: number) => { void regenerateStoryImage(msgId, idx); }, []);
   // eslint-disable-next-line react-hooks/exhaustive-deps
   const manualImagesCb = useCallback((id: number) => { void manualStoryImagesForMsg(id); }, [storyImgBusyId]);
