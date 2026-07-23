@@ -9626,7 +9626,7 @@ ${lines}`;
       ...tail.map((t) => ({ role: t.role, content: t.content })),   // <后历史预设块> chatHistory marker 之后的预设块（破限/格式/规则等）→ 真实楼层之后（仿 fanren post-history）
       ...[...depthInjections, ...wbDepthInjections].sort((a, b) => b.depth - a.depth).map((inj) => ({ role: inj.role, content: inj.content })),
       ...buildWorldviewInjection(),                     // <本世界·世界观骨架> 当前所在世界的世界志 → 就近注入（正文最深处）
-      ...buildWorldDetailInjection(),                   // <本世界·世界详情> 世界详情库·剧情 常青档案（预写既定设定·切入点不注）→ 与世界志并排
+      ...buildWorldDetailInjection({ ctxText: [...recent.slice(-3).map((m) => m.content), userText].join('\n').slice(-4000) }),   // <本世界·世界详情> 分层注入：常驻核心+进度门控剧情线+按近期正文打分的相关节选（切入点不注；ctx=最近楼层+本回合输入）
       ...buildCanonWorldInjection(),                    // 🛤 <原著路线·本站剧本> 原著时间轴/规则/任务参照 + 原著惯性铁则（仅模式开启且身在站内）
       ...buildSuxiaoTrackInjection(),                   // 🛤 <苏晓轨道> 同世界猎杀者白夜的状态卡 + 演绎铁则
       ...buildPlotGuardInjection(turnCountRef.current), // <伏笔催收>+<世界真相·重申> 账龄催收（表日志机械核账）+ 周期真相强化（见 systems/plotThreads）
@@ -9665,7 +9665,7 @@ ${lines}`;
         ...structPlayer,                                 // <主角当前档案>
         ...outlineDepth,                                 // 世界书/预设 position=4 深度注入（纯信息）
         ...buildWorldviewInjection(),                     // <本世界·世界观骨架>
-        ...buildWorldDetailInjection(),                   // <本世界·世界详情> 世界详情库·剧情 档案（细纲规划同样以既定设定为准）
+        ...buildWorldDetailInjection({ mode: 'full' }),   // <本世界·世界详情·完整版> 细纲=规划层：拿全档案（含后续阶段+隐藏剧情）做全局规划，正文只拿分层节选——规划者知全局、叙事者只知眼前
         ...buildCanonWorldInjection(),                    // 🛤 <原著路线·本站剧本>（细纲规划也须感知原著惯性）
         ...buildSuxiaoTrackInjection(),                   // 🛤 <苏晓轨道>
         { role: 'user' as const, content: userText },

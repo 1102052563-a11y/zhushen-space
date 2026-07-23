@@ -2,8 +2,8 @@
  "generatedAt": "20260721",
  "total": 1206,
  "byStatus": {
-  "已修复": 1178,
-  "待修复": 28
+  "已修复": 1191,
+  "待修复": 15
  },
  "byPriority": {
   "P0": 61,
@@ -13277,11 +13277,11 @@
    "file": "产出\\批次711\\彼女（ナース）の研修日誌.md",
    "name": "彼女（ナース）の研修日誌",
    "lib": "休闲",
-   "issue": "警告:来源链接 0 条 < 3",
+   "issue": "",
    "hasCrossDup": false,
    "crossGroupIds": [],
-   "status": "待修复",
-   "fixedMark": false
+   "status": "已修复",
+   "fixedMark": true
   },
   {
    "priority": "P2",
@@ -13316,8 +13316,8 @@
    "issue": "文件名不符",
    "hasCrossDup": false,
    "crossGroupIds": [],
-   "status": "待修复",
-   "fixedMark": false
+   "status": "已修复",
+   "fixedMark": true
   },
   {
    "priority": "P2",
@@ -13325,11 +13325,11 @@
    "file": "产出\\批次714\\夢魔の街コルネリカ 第二話 お仕事たくさんコルネリカ.md",
    "name": "夢魔の街コルネリカ 第二話 お仕事たくさんコルネリカ",
    "lib": "休闲",
-   "issue": "警告:来源链接 0 条 < 3",
+   "issue": "",
    "hasCrossDup": false,
    "crossGroupIds": [],
-   "status": "待修复",
-   "fixedMark": false
+   "status": "已修复",
+   "fixedMark": true
   },
   {
    "priority": "P2",
@@ -13400,8 +13400,8 @@
    "issue": "文件名不符",
    "hasCrossDup": false,
    "crossGroupIds": [],
-   "status": "待修复",
-   "fixedMark": false
+   "status": "已修复",
+   "fixedMark": true
   },
   {
    "priority": "P2",
@@ -13412,8 +13412,8 @@
    "issue": "文件名不符",
    "hasCrossDup": false,
    "crossGroupIds": [],
-   "status": "待修复",
-   "fixedMark": false
+   "status": "已修复",
+   "fixedMark": true
   },
   {
    "priority": "P2",
@@ -13580,8 +13580,8 @@
    "issue": "文件名不符",
    "hasCrossDup": false,
    "crossGroupIds": [],
-   "status": "待修复",
-   "fixedMark": false
+   "status": "已修复",
+   "fixedMark": true
   },
   {
    "priority": "P2",
@@ -13652,8 +13652,8 @@
    "issue": "文件名不符",
    "hasCrossDup": false,
    "crossGroupIds": [],
-   "status": "待修复",
-   "fixedMark": false
+   "status": "已修复",
+   "fixedMark": true
   },
   {
    "priority": "P2",
@@ -14240,8 +14240,8 @@
    "issue": "文件名不符",
    "hasCrossDup": false,
    "crossGroupIds": [],
-   "status": "待修复",
-   "fixedMark": false
+   "status": "已修复",
+   "fixedMark": true
   },
   {
    "priority": "P2",
@@ -14408,8 +14408,8 @@
    "issue": "文件名不符",
    "hasCrossDup": false,
    "crossGroupIds": [],
-   "status": "待修复",
-   "fixedMark": false
+   "status": "已修复",
+   "fixedMark": true
   },
   {
    "priority": "P2",
@@ -14420,8 +14420,8 @@
    "issue": "文件名不符",
    "hasCrossDup": false,
    "crossGroupIds": [],
-   "status": "待修复",
-   "fixedMark": false
+   "status": "已修复",
+   "fixedMark": true
   },
   {
    "priority": "P2",
@@ -14432,8 +14432,8 @@
    "issue": "文件名不符",
    "hasCrossDup": false,
    "crossGroupIds": [],
-   "status": "待修复",
-   "fixedMark": false
+   "status": "已修复",
+   "fixedMark": true
   },
   {
    "priority": "P2",
@@ -14456,8 +14456,8 @@
    "issue": "文件名不符",
    "hasCrossDup": false,
    "crossGroupIds": [],
-   "status": "待修复",
-   "fixedMark": false
+   "status": "已修复",
+   "fixedMark": true
   },
   {
    "priority": "P2",
@@ -14492,8 +14492,8 @@
    "issue": "文件名不符",
    "hasCrossDup": false,
    "crossGroupIds": [],
-   "status": "待修复",
-   "fixedMark": false
+   "status": "已修复",
+   "fixedMark": true
   },
   {
    "priority": "P2",

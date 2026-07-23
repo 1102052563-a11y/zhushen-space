@@ -6,6 +6,7 @@ import { downloadGlobalConfig, importGlobalConfig } from '../systems/configExpor
 import VariableBridge from './VariableBridge';
 import LockManager from './LockManager';
 import { useSnapshots } from '../store/snapshotStore';
+import { useSettings, type WorldDetailInjectConfig } from '../store/settingsStore';
 
 type Cb = (() => void) | undefined;
 
@@ -60,6 +61,59 @@ function SnapshotConfigBar() {
         <span className="font-mono text-god w-6 text-center">{keep}</span>
         <span className="text-[11px] text-dim/50 ml-auto shrink-0">当前已存 {snapCount} 份</span>
       </div>
+    </div>
+  );
+}
+
+/* 世界资料库 → 正文的注入方式（引擎 systems/worldDetailInject.ts；面板入口 右侧导航🗂世界资料库） */
+function SegBtn({ active, onClick, label, hint }: { active: boolean; onClick: () => void; label: string; hint?: string }) {
+  return (
+    <button onClick={onClick} title={hint}
+      className={`px-2.5 py-1 rounded-lg text-[12px] font-mono border transition-colors ${active ? 'bg-god/15 text-god border-god/40' : 'text-dim/60 border-edge hover:text-slate-200 hover:border-god/30'}`}>
+      {label}
+    </button>
+  );
+}
+
+function WorldDetailInjectBar() {
+  const cfg = useSettings((s) => s.worldDetailInject);
+  const setCfg = useSettings((s) => s.setWorldDetailInject);
+  const mode = cfg?.mode ?? 'layered';
+  const budget = cfg?.budget ?? 'standard';
+  const outlineFull = cfg?.outlineFull ?? true;
+  const MODES: { v: WorldDetailInjectConfig['mode']; label: string; hint: string }[] = [
+    { v: 'layered', label: '分层节选（推荐）', hint: '常驻核心+当前阶段剧情线+按近期正文选取的相关节；未来剧情/隐藏剧情对正文不可见（防抢进度/泄底）' },
+    { v: 'full', label: '全量档案', hint: '整份档案(~1万字)每回合注入——最忠实但费 token，且全部剧情线摊开、有抢进度风险' },
+    { v: 'off', label: '关闭', hint: '正文不再注入世界详情档案（世界卡生成不受影响）' },
+  ];
+  const BUDGETS: { v: WorldDetailInjectConfig['budget']; label: string; hint: string }[] = [
+    { v: 'lean', label: '精简 ~3千字', hint: '各层预算 ×0.6：上下文紧张/便宜模型用' },
+    { v: 'standard', label: '标准 ~4-5千字', hint: '默认预算：核心2800+剧情线1600+相关2200字' },
+    { v: 'rich', label: '充裕 ~7千字', hint: '各层预算 ×1.6：大上下文模型可开' },
+  ];
+  return (
+    <div className="mt-6 rounded-xl border border-edge/50 bg-black/20 p-4 space-y-3">
+      <div className="flex items-center gap-2 flex-wrap">
+        <span className="text-sm font-semibold text-slate-200">🗂 世界详情注入</span>
+        <span className="text-[11px] text-dim/60">入世后正文怎么读「世界资料库」档案。分层=只给正文当下需要的部分，未来剧情不摊开；档案本体在 右侧导航→世界资料库 里看/改。</span>
+      </div>
+      <div className="flex items-center gap-2 flex-wrap text-[12px]">
+        <span className="text-dim/70 shrink-0 font-mono">注入模式</span>
+        {MODES.map((m) => <SegBtn key={m.v} active={mode === m.v} onClick={() => setCfg({ mode: m.v })} label={m.label} hint={m.hint} />)}
+      </div>
+      {mode === 'layered' && (
+        <div className="flex items-center gap-2 flex-wrap text-[12px]">
+          <span className="text-dim/70 shrink-0 font-mono">体量档位</span>
+          {BUDGETS.map((b) => <SegBtn key={b.v} active={budget === b.v} onClick={() => setCfg({ budget: b.v })} label={b.label} hint={b.hint} />)}
+        </div>
+      )}
+      {mode !== 'off' && (
+        <label className="flex items-center gap-2 text-[12px] text-dim/80 cursor-pointer select-none w-fit">
+          <input type="checkbox" checked={outlineFull} onChange={(e) => setCfg({ outlineFull: e.target.checked })} className="accent-god" />
+          细纲（规划层）拿完整档案
+          <span className="text-dim/45">——规划者知全局（含后续阶段/隐藏剧情）、叙事者只知眼前；关掉则细纲也用分层节选</span>
+        </label>
+      )}
     </div>
   );
 }
@@ -256,6 +310,7 @@ export default function VariableManager({
 
         <VariableBridge />
         <SnapshotConfigBar />
+        <WorldDetailInjectBar />
         <details className="mt-6 rounded-xl border border-edge/50 bg-black/20 p-4">
           <summary className="cursor-pointer select-none text-sm font-semibold text-slate-200 flex items-center gap-2">
             🔒 字段锁定 / Pin

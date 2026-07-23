@@ -12,6 +12,8 @@ import { useMisc } from '../store/miscStore';
 import { useWorldEdit } from '../store/worldEditStore';
 import { isHomeWorld } from './playerVitals';
 import { wdApiBase } from './worldDetailShare';
+import { assembleInjection, BUDGET_SCALE } from './worldDetailInject';
+import { useSettings } from '../store/settingsStore';
 
 export type WorldDetail = { name: string; plot: string; cut?: string };
 type ShardRec = { p: string; c?: string };
@@ -188,20 +190,29 @@ function getCachedDetail(raw: string): WorldDetail | null {
   return detailCache.get(name) ?? null;
 }
 
-/** C2 正文注入块：当前在任务世界且详情库有此世界 → 注 ·剧情 全文（不注切入点）；否则空。
- *  与世界志(buildWorldviewInjection)并排放正文最深处；两者互补——世界志=AI 生成的本局世界观，详情=库预写常青档案。 */
-export function buildWorldDetailInjection(): { role: 'system'; content: string }[] {
+// 世界名→已见最高剧情阶段（会话内只进不退，防词法推断偶发回跳；reload 后由近期楼层重新推出，无需持久化）
+const stageMemory = new Map<string, number>();
+
+/** C2 正文注入块（分层引擎 worldDetailInject.ts）：①常驻核心＋③进度门控剧情线＋②按 ctxText 打分的相关节选；
+ *  mode:'full'=规划层（细纲等）拿完整档案（含全部阶段+隐藏剧情）。切入点仍然不注。
+ *  ctxText=最近楼层+本回合输入（相关性打分与阶段推断的证据源）；不传则退化为核心+第1阶段。
+ *  与世界志(buildWorldviewInjection)并排放正文最深处；两者互补——世界志=AI 生成的本局动态世界观，详情=静态正典。 */
+export function buildWorldDetailInjection(opts: { ctxText?: string; mode?: 'layered' | 'full' } = {}): { role: 'system'; content: string }[] {
   try {
     const worldName = useMisc.getState().worldName || '';
     if (!worldName || isHomeWorld(worldName)) return [];
+    // 玩家设置（变量管理→世界详情注入）：off=不注入；full=正文也拿全量(旧行为)；outlineFull 关=细纲也退回分层
+    const cfg = useSettings.getState().worldDetailInject || { mode: 'layered' as const, budget: 'standard' as const, outlineFull: true };
+    if (cfg.mode === 'off') return [];
     const d = getCachedDetail(worldName);
     if (!d) return [];
-    return [{
-      role: 'system',
-      content: `<本世界·世界详情（预写既定档案·主角当前所在世界「${d.name}」·据此演绎）>\n` +
-        '以下是本世界的常青档案（剧情线/人物/力量体系/势力/贵重物品/隐藏剧情）。演绎本世界时以此为最高事实参考：' +
-        '人物性格·立场·装备、势力关系、阶位映射、剧情走向都据此保持一致；它是骨架非剧本——主角的介入可以改变走向，' +
-        '但改变前的世界既定状态必须符合此档案，不得与之矛盾。\n' + d.plot,
-    }];
+    let mode: 'layered' | 'full' = opts.mode ?? 'layered';
+    if (mode === 'full' && !cfg.outlineFull) mode = 'layered';
+    if (mode === 'layered' && cfg.mode === 'full') mode = 'full';
+    const r = assembleInjection(d.name, d.plot, opts.ctxText || '', {
+      mode, minStage: stageMemory.get(d.name) || 0, scale: BUDGET_SCALE[cfg.budget] ?? 1,
+    });
+    if (r.stage > (stageMemory.get(d.name) || 0)) stageMemory.set(d.name, r.stage);
+    return [{ role: 'system', content: r.content }];
   } catch { return []; }
 }

@@ -218,6 +218,13 @@ function extractGenParams(data: any): Partial<TextGenPreset> {
   };
 }
 
+/* 世界详情注入（世界详情库档案 → 正文；引擎 systems/worldDetailInject.ts，UI 在 变量管理→世界详情注入） */
+export interface WorldDetailInjectConfig {
+  mode: 'layered' | 'full' | 'off';       // 正文注入模式：layered=分层节选(默认) / full=整份档案(旧行为·档案会摊开含后续剧情) / off=不注入
+  budget: 'lean' | 'standard' | 'rich';   // 分层体量档位 → 三层预算成套缩放（见 worldDetailInject.BUDGET_SCALE）
+  outlineFull: boolean;                   // 细纲(规划层)是否拿完整档案（含未来阶段+隐藏剧情）；关=细纲也用分层节选
+}
+
 export interface NarrativeMemConfig {
   enabled: boolean;                // 启用叙事记忆（关键词召回）
   recentFullTextCount: number;     // 最近正文全文保留条数（0-10）
@@ -351,6 +358,8 @@ interface SettingsState {
   setApiThrottle: (patch: Partial<{ maxConcurrent: number; minGapMs: number }>) => void;
   setPhaseSched: (key: string, patch: Partial<{ every: number; read: number }>) => void;
   narrativeMemory: NarrativeMemConfig;
+  worldDetailInject: WorldDetailInjectConfig;   // 世界详情注入（世界详情库 → 正文的分层注入引擎；UI 在 变量管理）
+  setWorldDetailInject: (patch: Partial<WorldDetailInjectConfig>) => void;
   vectorMemory: VecMemConfig;       // 向量召回（与关键词叙事记忆并行的另一套引擎）
   setVectorMemory: (patch: Partial<VecMemConfig>) => void;
   nmApi: ApiConfig;
@@ -798,6 +807,7 @@ export const useSettings = create<SettingsState>()(
       apiThrottle: { maxConcurrent: 3, minGapMs: 250 },
       phaseSched: {},
       narrativeMemory: { enabled: false, recentFullTextCount: 5, distantKeywordThreshold: 200, recallTopK: 6, recallMinScore: 1, requestTimeout: 90, llmMode: false, compileModelId: '', ingestModelId: '', structEnabled: true, structApiSelect: false, structMaxNpcs: 2, structMaxSkills: 3, structMaxItems: 2, structMaxNpcSkills: 8, structMaxNpcTalents: 8, structMaxNpcItems: 8, structMaxSubProfs: 4, structMaxFactions: 4 },
+      worldDetailInject: { mode: 'layered', budget: 'standard', outlineFull: true },
       vectorMemory: { enabled: false, apiBase: 'https://api.siliconflow.cn/v1', apiKey: '', model: 'Pro/BAAI/bge-m3', topK: 6, threshold: 0.3, recentFullTextCount: 5, maxItems: 1000, factsOnly: false, rerankEnabled: false, rerankBase: 'https://api.siliconflow.cn/v1', rerankKey: '', rerankModel: 'BAAI/bge-reranker-v2-m3', rerankCandidates: 40, rerankThreshold: 0 },
       nmApi: { ...DEFAULT_API },
       nmUseSharedApi: true,
@@ -921,6 +931,7 @@ export const useSettings = create<SettingsState>()(
       setApiThrottle: (patch) => set((s) => ({ apiThrottle: { ...s.apiThrottle, ...patch } })),
       setPhaseSched: (key, patch) => set((s) => ({ phaseSched: { ...s.phaseSched, [key]: { ...(s.phaseSched?.[key] ?? { every: 1, read: 1 }), ...patch } } })),
       setNarrativeMemory: (patch) => set((s) => ({ narrativeMemory: { ...s.narrativeMemory, ...patch } })),
+      setWorldDetailInject: (patch) => set((s) => ({ worldDetailInject: { ...s.worldDetailInject, ...patch } })),
       setVectorMemory: (patch) => set((s) => ({ vectorMemory: { ...s.vectorMemory, ...patch } })),
       setNmApi: (patch) => set((s) => ({ nmApi: { ...s.nmApi, ...patch } })),
       setNmUseSharedApi: (v) => set({ nmUseSharedApi: v }),
@@ -1283,6 +1294,7 @@ export const useSettings = create<SettingsState>()(
         ...(persisted && typeof persisted === 'object' ? persisted : {}),
         // 子对象浅合并回填：老存档的 audio 若缺新字段（music/musicVolume/…），从默认补齐，否则整体覆盖丢默认
         audio: { ...current.audio, ...(persisted && typeof persisted.audio === 'object' ? persisted.audio : {}) },
+        worldDetailInject: { ...current.worldDetailInject, ...(persisted && typeof persisted.worldDetailInject === 'object' ? persisted.worldDetailInject : {}) },
         modelsLoading: false,
         modelsError: '',
         textModelsLoading: false,
