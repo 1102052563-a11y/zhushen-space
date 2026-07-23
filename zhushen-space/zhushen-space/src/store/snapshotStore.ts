@@ -8,6 +8,7 @@
  */
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
+import { flushPersistWrites } from '../systems/compressedStorage';   // 合并写盘：直读 localStorage 前先强制落盘
 
 export interface EvoSnapshot {
   turn: number;
@@ -55,6 +56,7 @@ export function snapState(snap: EvoSnapshot | undefined, key: string): any {
  *  读 localStorage（= 各 store 已持久化、已剥图的当前值），文本、体积可控。*/
 export function captureEvoSnapshot(turn: number): void {
   try {
+    flushPersistWrites();   // 合并写盘下 localStorage 可能落后 ≤300ms：先落盘，基线才含正文解析刚写入的值（防漂哨对账要准）
     const stores: Record<string, string> = {};
     for (let i = 0; i < localStorage.length; i++) {
       const k = localStorage.key(i);

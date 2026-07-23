@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
+import { debouncedStorage } from '../systems/compressedStorage';   // 合并写盘：背包物品多，演化/对账一回合写几十次
 import type { ApiConfig } from './settingsStore';
 import { useSettings } from './settingsStore';
 import { normalizeEquipSlot } from '../systems/equipSlots';
@@ -822,6 +823,7 @@ export const useItems = create<ItemState>()(
     }),
     {
       name: 'drpg-items',
+      storage: debouncedStorage(),   // 合并写盘（300ms）：底层仍是裸 JSON 同一格式，切换零迁移
       // 物品图(image)体积大，不写 localStorage（改存 IndexedDB）
       partialize: (s: any) => ({
         ...s,

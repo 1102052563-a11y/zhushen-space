@@ -3,11 +3,9 @@
         逐条配上当前译文（覆盖 > 内置 > 空）→ 下载 JSON。玩家线下编辑优化后再导入。
    导入：JSON（对象 {中文:译文} 或数组 [[中文,译文]]）→ 只保留非空条目 → 存进 settings.userGlossary。 */
 import { EN_EXACT } from './en';
-import { VI_EXACT } from './vi';
+import { ensureViDict, getViExact } from './translate';   // vi 词库已改动态加载：勿再静态 import './vi'（会把 522KB 焊回 chunk）
 import { getSeen } from './seen';
 import { useSettings, type UiLang } from '../store/settingsStore';
-
-const BUILTIN: Partial<Record<UiLang, Record<string, string>>> = { en: EN_EXACT, vi: VI_EXACT };
 
 /** 组装某语言的可编辑映射表：{中文源: 译文或空}，按中文排序。 */
 export async function buildGlossaryTable(lang: UiLang): Promise<Record<string, string>> {
@@ -16,7 +14,10 @@ export async function buildGlossaryTable(lang: UiLang): Promise<Record<string, s
     const res = await fetch('/ui-strings.json', { cache: 'no-cache' });
     if (res.ok) { const j = await res.json(); if (Array.isArray(j)) sources = j.map(String); }
   } catch { /* 取不到源全集就只用词库 key */ }
-  const builtin = BUILTIN[lang] || {};
+  // 内置词库：en 静态（32KB）；vi 按需拉（导出表是稀操作，就地 await；拉失败=只出用户覆盖与源 key，空译文可下次补）
+  let builtin: Record<string, string> = {};
+  if (lang === 'en') builtin = EN_EXACT;
+  else if (lang === 'vi') { try { await ensureViDict(); builtin = getViExact(); } catch { /* 保持空表 */ } }
   const override = useSettings.getState().userGlossary?.[lang] || {};
   // 源字符串全集：静态提取(ui-strings.json) ∪ 运行时真渲染过的(SEEN·补静态漏掉的动态文案) ∪ 内置词库 ∪ 已有覆盖
   const keys = new Set<string>([...sources, ...getSeen(), ...Object.keys(builtin), ...Object.keys(override)]);

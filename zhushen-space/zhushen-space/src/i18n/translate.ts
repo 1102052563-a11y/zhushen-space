@@ -3,8 +3,35 @@
    - 英文：先精确查 en.ts 词库，再按有序正则规则匹配插值串；都不中则原样返回（回退中文，不报错）。
    保留原文的首尾空白，只翻中间实体，避免破坏排版（如「  设置 」→「  Settings 」）。 */
 import { EN_EXACT, EN_RULES } from './en';
-import { VI_EXACT, VI_RULES } from './vi';
 import { userMap } from './userDict';
+
+/* ── vi 词库（522KB）按需动态加载 ─────────────────────────────
+   不再静态 import './vi'——否则被 main.tsx→DomI18n 与 App→narrativeHtml 两条 eager 链焊进主 chunk，
+   简体玩家首屏也要白下 522KB（运行时 zh-Hans 提前 return 省的是 CPU、省不了下载字节）。
+   改为：语言为 vi 时 ensureViDict() 动态 import（Vite 自动拆成独立 chunk，只有越南语用户才拉）。
+   未就绪时 translateToVi 原样返回（保持中文）；DomI18n 等就绪后才开扫（与繁體 OpenCC 词典同模式），
+   narrativeHtml 的楼层缓存签名带上就绪位（viDictReady），就绪后自动重建。en 词库仅 32KB，不值得拆。 */
+let VI_EXACT: Record<string, string> = {};
+let VI_RULES: [RegExp, string][] = [];
+let _viReady = false;
+let _viLoading: Promise<void> | null = null;
+
+/** vi 词库是否已加载（DomI18n 决定「等就绪再扫」；narrativeHtml 进缓存签名）。 */
+export function viDictReady(): boolean { return _viReady; }
+
+/** 按需加载 vi 词库（幂等；失败重置 → 下次调用可重试；rejection 交调用方处理，别让它 unhandled）。 */
+export function ensureViDict(): Promise<void> {
+  if (_viReady) return Promise.resolve();
+  if (!_viLoading) {
+    _viLoading = import('./vi')
+      .then((m) => { VI_EXACT = m.VI_EXACT; VI_RULES = m.VI_RULES; _viReady = true; })
+      .catch((e) => { _viLoading = null; throw e; });
+  }
+  return _viLoading;
+}
+
+/** 内置 vi 精确词表（glossaryIO 组装导出表用；调用前须 await ensureViDict，否则拿到空表）。 */
+export function getViExact(): Record<string, string> { return VI_EXACT; }
 
 const CJK_RE = /[㐀-鿿豈-﫿]/;
 

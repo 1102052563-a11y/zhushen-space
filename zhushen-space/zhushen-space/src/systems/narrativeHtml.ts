@@ -5,7 +5,7 @@
    - toHtmlWithImages：正文（占位符法插入配图 + 各结算卡）
    仅 userToHtml / toHtmlWithImages / StoryImage 对外导出，其余为内部 helper。 */
 import { useSettings } from '../store/settingsStore';
-import { translateNarrativeLabels } from '../i18n/translate';
+import { translateNarrativeLabels, viDictReady } from '../i18n/translate';
 
 export interface StoryImage { anchor: string; url: string; prompt: string; nsfw: string; ts: number }
 
@@ -233,7 +233,10 @@ export function userToHtml(text: string): string {
 // 按楼层 id + 内容签名缓存产出：内容没变（打字等无关重渲染）→ 直接返回上次 HTML，彻底跳过重算。
 const _htmlCache = new Map<number, { sig: string; html: string }>();
 export function toHtmlWithImagesCached(id: number, text: string, images?: StoryImage[], opts?: { speakable?: boolean; npcNames?: string[] }): string {
-  const sig = `${text}${JSON.stringify(images ?? [])}${opts?.speakable ? '1' : '0'}${(opts?.npcNames ?? []).join(',')}`;
+  // 语言进签名：楼层里结算块标签的本地化随界面语言走（en/vi），语言或 vi 词库就绪态变化必须重建——
+  // 否则切语言后命中旧缓存、标签停在旧语言；vi0→vi1 = 动态词库迟到后自动重建。
+  const langTok = (() => { try { const l = useSettings.getState().language; return l === 'vi' ? (viDictReady() ? 'vi1' : 'vi0') : l; } catch { return 'zh-Hans'; } })();
+  const sig = `${langTok}${text}${JSON.stringify(images ?? [])}${opts?.speakable ? '1' : '0'}${(opts?.npcNames ?? []).join(',')}`;
   const hit = _htmlCache.get(id);
   if (hit && hit.sig === sig) { _htmlCache.delete(id); _htmlCache.set(id, hit); return hit.html; }   // LRU：命中挪到末尾
   const html = toHtmlWithImages(text, images, opts);

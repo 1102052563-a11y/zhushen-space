@@ -15,9 +15,26 @@
     <meta name="apple-mobile-web-app-status-bar-style" content="black" />
     <meta name="apple-mobile-web-app-title" content="轮回乐园" />
     <link rel="apple-touch-icon" href="/icons/apple-touch-icon.png" />
+
+    <!-- 首屏骨架：主 chunk 较大（约 3MB），慢网/手机首开有数秒空窗——这段内联样式让玩家立刻看到加载中
+         而不是白屏。React 挂载时 createRoot().render() 会清空 #root 子节点，骨架自动消失，无需任何 JS 配合。 -->
+    <style>
+      html, body { background: #070a10; }
+      #zs-boot { position: fixed; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 18px; background: #070a10; color: #94a3b8; font-family: ui-monospace, Consolas, monospace; }
+      #zs-boot .t { font-size: 22px; letter-spacing: .35em; text-indent: .35em; color: #e2e8f0; }
+      #zs-boot .ring { width: 34px; height: 34px; border-radius: 50%; border: 2px solid #1e293b; border-top-color: #22d3ee; animation: zs-spin .9s linear infinite; }
+      #zs-boot .tip { font-size: 11px; color: #475569; letter-spacing: .1em; }
+      @keyframes zs-spin { to { transform: rotate(360deg); } }
+    </style>
   </head>
   <body>
-    <div id="root"></div>
+    <div id="root">
+      <div id="zs-boot">
+        <div class="t">轮回乐园</div>
+        <div class="ring"></div>
+        <div class="tip">正在加载…首次打开或更新后需要多等一会儿</div>
+      </div>
+    </div>
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>

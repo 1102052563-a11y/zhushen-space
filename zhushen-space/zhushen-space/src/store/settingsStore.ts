@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
+import { debouncedStorage } from '../systems/compressedStorage';   // 合并写盘：settings 块大（正则库/预设/词典），改一个开关也全量 stringify+写盘
 import { setUserDict } from '../i18n/userDict';
 
 // position: 0=角色前 1=角色后 2=作者注释上 3=作者注释下 4=主提示前 5=主提示后
@@ -1240,6 +1241,7 @@ export const useSettings = create<SettingsState>()(
     }),
     {
       name: 'drpg-settings',
+      storage: debouncedStorage(),   // 合并写盘（300ms）：底层仍是裸 JSON 同一格式，切换零迁移
       // v1：为存量用户注入内置全局正则「反极其」（仅一次，按固定 id 判重；用户删/改后版本已升级，不再覆盖）。
       //     新用户走初始 state 已含该脚本，不经 migrate。
       // v2：为存量全局正则自动补「视图作用域」默认（美化框=仅显示 / 配套删框=仅AI），免用户重导入或逐条手动调开关。

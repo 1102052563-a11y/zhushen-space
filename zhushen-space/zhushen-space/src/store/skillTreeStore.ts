@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
+import { debouncedStorage } from '../systems/compressedStorage';   // 合并写盘：trees 含整套内置星图定义，单次写不小
 import type { Skill, Trait } from './characterStore';
 import { useCharacters } from './characterStore';
 import { usePlayer } from './playerStore';
@@ -711,6 +712,7 @@ export const useSkillTree = create<SkillTreeState>()(
     }),
     {
       name: 'drpg-skilltree',
+      storage: debouncedStorage(),   // 合并写盘（300ms）：底层仍是裸 JSON 同一格式，切换零迁移
       partialize: (s) => ({ trees: s.trees, progress: s.progress }),
       // 内置树版本升级：把老存档里的旧内置树替换为最新星图（保留用户自建树与解锁进度）
       // 用 TreeDef.version 自判，不动 persist 顶层 version（避免无 migrate 时的迁移告警）

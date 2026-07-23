@@ -1,5 +1,7 @@
-import { describe, it, expect } from 'vitest';
-import { translateNarrativeLabels as T } from './translate';
+import { describe, it, expect, beforeAll } from 'vitest';
+import { translateNarrativeLabels as T, ensureViDict } from './translate';
+
+beforeAll(() => ensureViDict());   // vi 词库已改动态加载：②通用词库回退分支需要它就绪
 
 const CJK = /[㐀-鿿]/;
 

@@ -268,6 +268,7 @@ interface MiscState {
   contractors: { count: number; note: string };   // 本世界"其他契约者"人口：进世界按世界观设定初值，随世界时间演化（陨落/离场/新来），让世界不是单机
   localCurrencyName: string;   // 本世界【当地货币】名称（贝利/戒尼/美元/骨币…）——世界限定、带不出；空=在乐园/枢纽或本世界未设定。土著报酬走它、不发乐园币/魂币
   localCurrency: number;       // 本世界【当地货币】余额——离开/切换任务世界即归零（与 worldTier/contractors 同批重置）
+  truths: string[];            // 已确立真相清单（≤12·杂项阶段 truths([...]) 覆盖式维护；周期强化注入数据源，见 systems/plotThreads。⚠切世界不自动清——世界专属条目由 AI 按维护规则移除，跨世界长线保留）
 
   settings: MiscSettings;
   miscApi: ApiConfig;
@@ -303,6 +304,7 @@ interface MiscState {
   setWeatherFx: (key: string, css: string) => void;
   setTime: (patch: { paradiseTime?: string; worldTime?: string; worldName?: string }) => void;
   setWorldTier: (tier: string) => void;   // 进入新世界时锁定本世界难度/阶位
+  setTruths: (list: string[]) => void;    // 覆盖式更新已确立真相清单（裁剪至 12 条·去空白）
   setContractors: (count: number, note?: string) => void;   // 更新本世界其他契约者人口（数量/分布）
   setLocalCurrencyName: (name: string) => void;   // 进入新任务世界时设定本世界当地货币名称（贝利/戒尼…）
   adjustLocalCurrency: (delta: number) => void;   // 当地货币加减（≥0 保护）——土著发报酬/本地买卖
@@ -343,6 +345,7 @@ export const useMisc = create<MiscState>()(
       contractors: { count: 0, note: '' },
       localCurrencyName: '',
       localCurrency: 0,
+      truths: [],
 
       settings: { ...DEFAULT_SETTINGS },
       miscApi: {
@@ -510,6 +513,7 @@ export const useMisc = create<MiscState>()(
         };
       }),
       setWorldTier: (tier) => set({ worldTier: tier || '' }),
+      setTruths: (list) => set({ truths: (Array.isArray(list) ? list : []).map((t) => String(t ?? '').trim()).filter(Boolean).slice(0, 12) }),
       setContractors: (count, note) => set((s) => ({ contractors: {
         count: Number.isFinite(count) ? Math.max(0, Math.round(count)) : s.contractors.count,
         note: note != null && String(note).trim() ? String(note).trim() : s.contractors.note,

@@ -1,5 +1,5 @@
 import { saveDb } from './saveDb';
-import { decompressMaybe } from './compressedStorage';   // drpg-characters 现为 lz 压缩存，读原始 localStorage 需先解压
+import { decompressMaybe, flushPersistWrites } from './compressedStorage';   // drpg-characters 现为 lz 压缩存，读原始 localStorage 需先解压；读前先 flush 合并写盘
 import { imageDbStats } from './imageDb';                 // 图片库(drpg-images)体积/孤儿统计——查"清完存档图仍占 GB"
 import { liveEntityImageKeys } from './imageSync';        // 现存实体的图片 key 全集（判孤儿基线·实体存在即 live）
 import { useCharacters } from '../store/characterStore';
@@ -108,6 +108,7 @@ export async function buildDiagnosticBundle(): Promise<string> {
 
   // ── 主角：内存 vs 本地存储 ──
   L.push('\n## 主角角色  （内存 = 界面现在看到的；本地 = 刷新/读档后会加载的）');
+  try { flushPersistWrites(); } catch { /* 诊断别因 flush 崩 */ }   // 合并写盘：先落盘，否则排程中的写会被误报成「内存 ≠ 本地」
   const memChars = (() => { try { return useCharacters.getState().characters || {}; } catch { return {}; } })();
   const lsChars = charsFromRaw(decompressMaybe(localStorage.getItem('drpg-characters')));
   const ids = Array.from(new Set([...Object.keys(memChars), ...Object.keys(lsChars)])).sort();

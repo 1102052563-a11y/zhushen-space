@@ -31,7 +31,7 @@ const CONC    = +(E.CONCURRENCY || args.concurrency || 3);
 const DIM     = +(E.DIM || args.dim || 1024);
 
 /* ── 分片：Cloudflare Pages 单文件上限 25 MiB，vectors.bin 超了就切成多片 ── */
-const MAXPART = 24 * 1024 * 1024;   // 24 MiB，留余量
+const MAXPART = 20 * 1024 * 1024;   // 20 MiB：离 Cloudflare 25 MiB 红线留足余量（曾 24 MiB 只差 1 MiB，太贴线）
 function writeVectorsMaybeSplit(outdir, buf) {
   const n = Math.ceil(buf.length / MAXPART);
   try { fs.unlinkSync(path.join(outdir, 'vectors.bin')); } catch { /* */ }          // 清旧单文件
@@ -54,7 +54,7 @@ if (args['split-only'] || E.SPLIT_ONLY) {
   const parts = writeVectorsMaybeSplit(OUTDIR, fs.readFileSync(vPath0));
   manifest.parts = parts;
   fs.writeFileSync(mPath, JSON.stringify(manifest, null, 2));
-  console.log(parts ? `✓ split-only: ${OUTDIR} → ${parts} 片（各 ≤24 MiB）` : `✓ split-only: ${OUTDIR} 无需切片`);
+  console.log(parts ? `✓ split-only: ${OUTDIR} → ${parts} 片（各 ≤${MAXPART / 1048576} MiB）` : `✓ split-only: ${OUTDIR} 无需切片`);
   process.exit(0);
 }
 

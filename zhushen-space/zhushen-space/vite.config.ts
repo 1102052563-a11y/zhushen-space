@@ -1,6 +1,6 @@
 import { defineConfig, type Plugin } from 'vite'
 import react from '@vitejs/plugin-react'
-import { copyFileSync, existsSync, mkdirSync, readdirSync, readFileSync, statSync, writeFileSync } from 'fs'
+import { copyFileSync, existsSync, mkdirSync, readdirSync, readFileSync, rmdirSync, statSync, unlinkSync, writeFileSync } from 'fs'
 import { execSync } from 'child_process'
 
 // 轮回WIKI：每次 vite build（含 Cloudflare）自动用 mkdocs 重建静态站到 public/wiki/。
@@ -145,7 +145,11 @@ function buildPortraitManifest(): Plugin {
           out.push({ file: top.name, name: top.name.replace(IMG, '') })
         }
       }
-      writeFileSync(DIR + '/manifest.json', JSON.stringify(out, null, 2))
+      // 同名双格式去重：同一张图同时有 .webp 与 .png/.jpg（WebP 化后保留旧格式是为了已保存进角色头像的
+      // 旧 URL 不断链）→ 图库只列 .webp（新选图走小文件）；旧格式文件仍留在 public/ 继续可访问。
+      const webpBase = new Set(out.filter((e) => /\.webp$/i.test(e.file)).map((e) => e.file.replace(IMG, '')))
+      const deduped = out.filter((e) => /\.webp$/i.test(e.file) || !webpBase.has(e.file.replace(IMG, '')))
+      writeFileSync(DIR + '/manifest.json', JSON.stringify(deduped, null, 2))
     } catch { /* 失败不阻断构建 */ }
   }
   return { name: 'build-portrait-manifest', buildStart() { gen() }, configureServer() { gen() } }
@@ -342,9 +346,58 @@ function syncJoyWorldBooks(): Plugin {
 // 如果你用的 API 地址不同，把 VITE_API_TARGET 写进 .env.local 文件
 const API_TARGET = process.env.VITE_API_TARGET ?? 'https://api.baimeow.icu'
 
+// dist 显式清理：下方 build.emptyOutDir:true 实测并不总生效（本地曾累积 3.6 万个旧哈希 chunk / 3.2GB 未被清理）。
+// 这里在 build 启动时直接删掉整个 dist 一劳永逸——dist 内容全部可由 public/ + 本次构建再生，删了零损失。
+// ⚠ 手写递归删除，绝不用 fs.rmSync({recursive:true})：本机 Node v24.12 的递归删除**静默失败**
+//   （返回成功、0ms、文件全在——连新建的小目录都删不掉；单文件 unlinkSync/rmdirSync 正常）。
+//   Vite 的 emptyOutDir 内部同样走 rm 递归 → 同样被这个 bug 废掉，这才是 dist 累积 686 份旧构建的根因。
+function rmrfManual(p: string): number {
+  let st; try { st = statSync(p) } catch { return 0 }   // 不存在=完成
+  let n = 0
+  if (st.isDirectory()) {
+    for (const name of readdirSync(p)) n += rmrfManual(p + '/' + name)
+    try { rmdirSync(p) } catch { /* 顽固残留不阻断构建 */ }
+  } else {
+    try { unlinkSync(p); n = 1 } catch { /* */ }
+  }
+  return n
+}
+function cleanDist(): Plugin {
+  return {
+    name: 'clean-dist',
+    // config 钩子在配置解析期最早执行；仅 build 命令清（dev / vite preview 不动 dist——本地 zhushen-dist 预览在用）。
+    config(_cfg, env) {
+      if (env.command !== 'build') return
+      const t0 = Date.now()
+      const n = rmrfManual('dist')
+      if (existsSync('dist')) console.warn(`[cleanDist] ⚠ dist/ 未能完全清空（已删 ${n} 个文件）`)
+      else console.log(`[cleanDist] 已清空 dist/（删除 ${n} 个文件，耗时 ${Date.now() - t0}ms）`)
+    },
+  }
+}
+
 export default defineConfig({
-  plugins: [react(), buildWiki(), buildLunhuiCharacters(), copyBuiltinPresets(), buildPortraitManifest(), buildStickerManifest(), buildBgmManifest(), syncEnhanceBosses(), syncJoyGirls(), syncJoyWorldBooks(), syncCasinoDealers()],
-  build: { emptyOutDir: true },   // 始终清空 dist 再构建（防 index-*.js 历史残留堆积；从外层目录构建时 Vite 默认会跳过清空）
+  plugins: [cleanDist(), react(), buildWiki(), buildLunhuiCharacters(), copyBuiltinPresets(), buildPortraitManifest(), buildStickerManifest(), buildBgmManifest(), syncEnhanceBosses(), syncJoyGirls(), syncJoyWorldBooks(), syncCasinoDealers()],
+  build: {
+    emptyOutDir: true,   // 防历史残留（实测不总生效，另有上方 cleanDist 插件兜底强删）
+    rollupOptions: {
+      output: {
+        // 稳定 vendor 分包：把不随业务代码变动的大依赖拆成独立 chunk——发版后主 chunk 换哈希、
+        // 这些 vendor 哈希不变 → 老玩家更新后二次加载命中缓存；首开也能多路并行下载。
+        // 分组不改变加载时机（懒加载的照旧懒加载），只改打包归属。
+        manualChunks(id: string) {
+          if (!id.includes('node_modules')) return
+          if (/[\\/]node_modules[\\/](react|react-dom|scheduler)[\\/]/.test(id)) return 'vendor-react'
+          if (/[\\/]node_modules[\\/](react-markdown|remark-|rehype-|micromark|mdast-|unist-|unified|vfile|hast-)/.test(id)) return 'vendor-md'
+          if (id.includes('react-icons')) return 'vendor-icons'
+          if (id.includes('opencc')) return 'vendor-opencc'
+          if (id.includes('@dicebear')) return 'vendor-avatar'
+          if (id.includes('howler')) return 'vendor-audio'
+          if (id.includes('sql.js')) return 'vendor-sql'
+        },
+      },
+    },
+  },
   server: {
     proxy: {
       // 访问 http://localhost:5173/dev-proxy/* 时自动转发到目标 API

@@ -1,6 +1,6 @@
 import { saveDb } from './saveDb';
 import { setResumeFlag } from './resumeFlag';
-import { decompressMaybe, compressWithMark, isCompressed } from './compressedStorage';   // drpg-misc 压缩存：mergeKeepApi 需解压再合并
+import { decompressMaybe, compressWithMark, isCompressed, flushPersistWrites, suspendPersistWrites } from './compressedStorage';   // drpg-misc 压缩存：mergeKeepApi 需解压再合并；flush/suspend=合并写盘下快照读最新值、读档防延迟写盖档
 import { replaceAll as replaceChat, loadAll as loadChat, loadArchive, replaceArchive, clearArchive, type ArchivedMsg } from './chatDb';
 import { bulkPutImg, clearAllImg } from './imageDb';
 import { snapshotImages } from './imageSync';
@@ -167,6 +167,7 @@ const APP_VERSION = 'V0.0.1';
 
 /* 读取所有 store 当前持久化的原始 JSON 字符串 */
 function snapshotStores(): Record<string, string> {
+  flushPersistWrites();   // 合并写盘下 localStorage 可能落后 live state ≤300ms：先强制落盘，快照才不缺最后几笔演化
   const out: Record<string, string> = {};
   for (const { key } of STORES) {
     const v = localStorage.getItem(key);
@@ -355,6 +356,10 @@ async function prevAutosnapSlot(curId: string): Promise<SaveSlot | null> {
 export async function loadSlot(id: string): Promise<boolean> {
   const slot = await saveDb.get<SaveSlot>(id);
   if (!slot) return false;
+  // ★合并写盘挂起：先把排程中的写 flush（下方 mergeKeepApi / KEEP_CURRENT 读到的才是最新配置），
+  //   随后到 reload 前**丢弃**一切新的 persist 写——否则后台演化阶段的 300ms 延迟写会落在
+  //   restoreStores() 与 reload 之间，绕过下面苦心维持的「零 async 窗口」保证、把快照又盖回去。
+  suspendPersistWrites();
   // 读档时 store 写回策略：
   // - 快照里有 → 写回（API 字段保当前）。
   // - 快照里没有 → **只清【较新功能的进度缓存】**（防上一局的 潜能点/筹码/深渊进度 等泄漏进读入的旧档）；
@@ -625,6 +630,9 @@ export async function clearProgress(): Promise<void> {
   // UNDO_ID 是内部槽（不在存档列表显示、非用户命名存档），删它不影响任何旧存档；
   // 新局的开局建档/首次发送会通过 captureUndoPoint 重建一个属于本局的回退点。
   try { await saveDb.del(UNDO_ID); } catch (e) { logWarn('clearProgress', e); }
+  // 合并写盘：上面各 store clear() 的「空状态」写还在 300ms 排程里——立即落盘，
+  // 确保紧随其后的 reload（newGame）后不会 hydrate 回旧进度。
+  flushPersistWrites();
 }
 
 export async function newGame(): Promise<void> {

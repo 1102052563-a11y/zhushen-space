@@ -1,5 +1,7 @@
-import { describe, it, expect } from 'vitest';
-import { translateToEn, translateToVi, convert, hasCJK } from './translate';
+import { describe, it, expect, beforeAll } from 'vitest';
+import { translateToEn, translateToVi, convert, hasCJK, ensureViDict } from './translate';
+
+beforeAll(() => ensureViDict());   // vi 词库已改动态加载：先拉完再测（生产由 DomI18n 等就绪后才开扫）
 
 describe('i18n · hasCJK', () => {
   it('识别中日韩表意文字', () => {

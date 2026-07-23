@@ -1,7 +1,9 @@
-import { describe, it, expect, afterEach } from 'vitest';
+import { describe, it, expect, afterEach, beforeAll } from 'vitest';
 import { parseGlossaryImport } from './glossaryIO';
 import { setUserDict } from './userDict';
-import { translateToVi } from './translate';
+import { translateToVi, ensureViDict } from './translate';
+
+beforeAll(() => ensureViDict());   // vi 词库已改动态加载：内置词条断言（取消→Hủy）需要它就绪
 
 describe('glossaryIO · parseGlossaryImport', () => {
   it('对象格式，空译文跳过（不覆盖）', () => {

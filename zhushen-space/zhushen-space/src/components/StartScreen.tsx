@@ -105,7 +105,7 @@ export default function StartScreen({ onStart, onContinue, onSettings }: StartSc
       <div className="zs-cover relative overflow-hidden">
         {/* 背景：缓慢呼吸位移 */}
         <img
-          src="/cover-bg.jpg"
+          src="/cover-bg.webp"
           alt="轮回乐园"
           draggable={false}
           className="zs-anim absolute inset-0 w-full h-full object-cover"
@@ -180,11 +180,11 @@ export default function StartScreen({ onStart, onContinue, onSettings }: StartSc
           style={{ background: 'radial-gradient(ellipse at 50% 44%, transparent 56%, rgba(0,0,0,0.42) 100%)' }}
         />
 
-        {/* 三个发光浮动按钮（独立 PNG，本身即点击区）—— 仅桌面：浮在封面右侧 */}
+        {/* 三个发光浮动按钮（独立图，本身即点击区；WebP=原 PNG 的 ~1/6 体积）—— 仅桌面：浮在封面右侧 */}
         <div className="hidden lg:flex absolute z-30 flex-col top-[40%] right-[6.5%] w-[28%] gap-[2.2%]">
-          <CoverButton src="/btn-start.png" label="开始游戏" onClick={onStart} delay={0} />
-          <CoverButton src="/btn-continue.png" label="读取存档" onClick={onContinue} delay={0.5} />
-          <CoverButton src="/btn-settings.png" label="系统设置" onClick={onSettings} delay={1} />
+          <CoverButton src="/btn-start.webp" label="开始游戏" onClick={onStart} delay={0} />
+          <CoverButton src="/btn-continue.webp" label="读取存档" onClick={onContinue} delay={0.5} />
+          <CoverButton src="/btn-settings.webp" label="系统设置" onClick={onSettings} delay={1} />
         </div>
 
         {/* 版本号 */}
@@ -196,9 +196,9 @@ export default function StartScreen({ onStart, onContinue, onSettings }: StartSc
       {/* 手机端：封面在上 + 按钮在下方深色区（桌面 lg: 隐藏，桌面用上方封面内的右侧浮层按钮）*/}
       <div className="lg:hidden flex-1 w-full flex flex-col items-center justify-center gap-4 bg-gradient-to-b from-[#0a0e18] to-[#02040a]">
         <div className="w-[80%] max-w-xs flex flex-col gap-4">
-          <CoverButton src="/btn-start.png" label="开始游戏" onClick={onStart} delay={0} />
-          <CoverButton src="/btn-continue.png" label="读取存档" onClick={onContinue} delay={0.5} />
-          <CoverButton src="/btn-settings.png" label="系统设置" onClick={onSettings} delay={1} />
+          <CoverButton src="/btn-start.webp" label="开始游戏" onClick={onStart} delay={0} />
+          <CoverButton src="/btn-continue.webp" label="读取存档" onClick={onContinue} delay={0.5} />
+          <CoverButton src="/btn-settings.webp" label="系统设置" onClick={onSettings} delay={1} />
         </div>
       </div>
     </div>

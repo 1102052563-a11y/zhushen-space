@@ -4,6 +4,7 @@ import { isHomeWorld } from './playerVitals';
 import { filterAiTaskPatch, gateNewAiTask, isTerminalTaskStatus } from './questGuard';
 import { logArbitration } from './npcGrowthGuard';
 import { useCanonRoute } from '../store/canonRouteStore';
+import { lenientJsonParse } from './stateParser';
 import { CANON_STATIONS } from '../data/canonRoute';
 import { grantCanonAchievement } from './canonRoute';
 
@@ -137,6 +138,13 @@ export function applyMiscCommands(reply: string, opts: { allowLarge?: boolean; t
 
     if ((m = /^addSmallSummary\(\s*"([\s\S]*)"\s*\)$/.exec(line))) { M.pushSmall(unquote(m[1])); n++; continue; }
     if ((m = /^addLargeSummary\(\s*"([\s\S]*)"\s*\)$/.exec(line))) { if (allowLarge) { M.pushLarge(unquote(m[1])); n++; } continue; }
+
+    // 已确立真相清单（世界真相周期强化数据源·覆盖式 ≤12 条·非数组静默忽略；见 systems/plotThreads）
+    if ((m = /^truths\(\s*(\[[\s\S]*?\])\s*\)$/.exec(line))) {
+      const arr = lenientJsonParse(m[1]);
+      if (Array.isArray(arr)) { M.setTruths(arr.map((t: unknown) => String(t ?? ''))); n++; }
+      continue;
+    }
 
     // 🛤 原著路线状态维护（仅模式开启时生效；canon* 前缀短路，不与其他指令冲突）
     if ((m = /^canonPhase\(\s*(\d+)\s*\)$/.exec(line))) {
