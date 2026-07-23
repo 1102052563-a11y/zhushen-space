@@ -128,7 +128,7 @@ import {
   CANON_MISC_RULE,
 } from './promptRules';
 
-import { useState, useRef, useEffect, useMemo, lazy, Suspense, type PointerEvent as RPointerEvent } from 'react';
+import { useState, useRef, useEffect, useMemo, useCallback, memo, lazy, Suspense, type PointerEvent as RPointerEvent } from 'react';
 import { useGame } from './store/gameStore';
 import { useSettings, resolveApiChain, inferViewScopes, type WorldbookConflict } from './store/settingsStore';
 import { runRegexReplace, compileFindRegex, regexScriptApplies, escapeRegexLiteral } from './systems/regexEngine';
@@ -230,6 +230,7 @@ import ImageBusyToast from './components/ImageBusyToast';
 import { useItems, extractItemPresetFromJson, ITEM_CATEGORIES, ITEM_GRADES, formatItemLine } from './store/itemStore';
 import type { ItemPresetEntry } from './store/itemStore';
 import { useComposer } from './store/composerStore';
+import { ComposerTextarea, ComposerSendButton } from './components/ChatComposer';   // 主输入框（拆出·打字不重渲 App）
 import { usePlayer, buildPlayerSystemPrompt, extractPlayerPresetFromJson } from './store/playerStore';
 import { useWorldRecord, formatWorldviewForInjection, formatInheritAnchors, normWorldName, type Worldview, type WorldSummary } from './store/worldRecordStore';
 import { useChaosWorld } from './store/chaosWorldStore';
@@ -1634,7 +1635,8 @@ export default function App() {
   const [itemRecoverNotice, setItemRecoverNotice] = useState('');   // 物品守护看门狗：自动捞回静默丢失后的提示横幅
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [mobileDrawer, setMobileDrawer] = useState<'player' | 'menu' | null>(null); // 手机端：左角色栏 / 右导航 抽屉
-  const [inputValue, setInputValue] = useState(() => { try { return localStorage.getItem('drpg-chat-draft') || ''; } catch { return ''; } });   // 输入草稿持久化：误触返回/刷新/崩溃也不丢已输入的行动
+  // 输入框内容已迁 composerStore（真相源）：⚠App 绝不订阅它的 value（每键重渲整树=打字卡顿根源），
+  // 读写一律 useComposer.getState().value / setValue / update / fill / clear；草稿持久化也在 store 内。
   const [attachedImages, setAttachedImages] = useState<string[]>([]);   // 待发送的图片附件（拖入/粘贴/选择·data:URL 已压缩）：随本回合以多模态喂给视觉正文接口
   const [dragOverInput, setDragOverInput] = useState(false);            // 拖拽悬停高亮
   const imgFileInputRef = useRef<HTMLInputElement>(null);               // 隐藏的文件选择器（🖼 按钮触发）
@@ -1696,7 +1698,6 @@ export default function App() {
   const stickBottomRef = useRef(true);                     // 是否吸附底部（用户上滑查看时置 false，流式生成不再强拉到底）
   const msgId = useRef(0);
   const messagesRef = useRef<ChatMessage[]>([]);   // 始终镜像 messages，供 callApi 取到最新历史（避免 setState 后闭包仍是旧值）
-  const illustClickTimer = useRef<number | null>(null);   // 正文配图单击/双击消歧：单击延时开灯箱，双击则取消并重生成
   const storyRegenBusy = useRef<Set<string>>(new Set());  // 正文配图重生成防连点（key=msgId:idx）
   const progImgRef = useRef<{ offset: number; dispatched: number }>({ offset: 0, dispatched: 0 });  // 「边写边出」：流式期间已处理到的字符 offset + 已派发出图段数（每回合重置）
   const [storyImgBusyId, setStoryImgBusyId] = useState<number | null>(null);   // 手动「为本回合生图」：正在生图的楼层 id（防并发 + 按钮态）
@@ -1724,29 +1725,22 @@ export default function App() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [mpTurnInputs]);
   const ttsSpeaking = useTtsSpeaking();                    // TTS 朗读中？（控制 🔊/⏹ 图标切换）
-  // 正文行内小喇叭：speakable 时给每句对话注入可点朗读图标（npcNames 供说话人归属→用其音色）
-  const ttsDlgOpts = ttsSupported()
-    ? { speakable: true, npcNames: [...Object.values(useNpc.getState().npcs).filter((r) => r.name && r.name !== r.id && !r.isDead).map((r) => r.name), usePlayer.getState().profile?.name].filter(Boolean) as string[] }
-    : undefined;
+  // 正文行内小喇叭：speakable 时给每句对话注入可点朗读图标（npcNames 供说话人归属→用其音色）。
+  // useMemo + 订阅：旧写法每次渲染重建新对象+遍历全部 NPC，传给 memo 的 MessageRow 会成「永远变化的 prop」击穿行级缓存。
+  const npcsForTts = useNpc((s) => s.npcs);
+  const playerNameForTts = usePlayer((s) => s.profile?.name);
+  const ttsDlgOpts = useMemo(() => ttsSupported()
+    ? { speakable: true, npcNames: [...Object.values(npcsForTts).filter((r) => r.name && r.name !== r.id && !r.isDead).map((r) => r.name), playerNameForTts].filter(Boolean) as string[] }
+    : undefined, [npcsForTts, playerNameForTts]);
   const [ttsSettingsOpen, setTtsSettingsOpen] = useState(false);   // 语音朗读设置弹窗
   const [confirmAction, setConfirmAction] = useState<null | { title: string; desc: string; run: () => void }>(null); // 回退/重新生成的确认弹窗
-  const [editingMsgId, setEditingMsgId] = useState<number | null>(null);   // 正在编辑的正文楼层 id
-  const [editDraft, setEditDraft] = useState('');                          // 编辑中的正文草稿
-  const chatInputRef = useRef<HTMLTextAreaElement>(null);                  // 主聊天输入框（供「使用物品」填入后聚焦）
+  const [editingMsgId, setEditingMsgId] = useState<number | null>(null);   // 正在编辑的正文楼层 id（编辑草稿在 MessageRow 本地，键入不重渲 App）
 
-  // 输入框草稿通道：背包等深层组件把「使用XX」填入输入框（露出输入框 + 聚焦，由用户确认后再发送）
-  const composerDraft = useComposer((s) => s.draft);
+  // 输入框填入通道（fill()）：值与聚焦由 ChatComposer 响应 fillSeq 自理；App 只负责关掉背包弹窗露出输入框
+  const composerFillSeq = useComposer((s) => s.fillSeq);
   useEffect(() => {
-    if (!composerDraft) return;
-    setInputValue(composerDraft);
-    setBackpackOpen(false);   // 若从「储存空间」弹窗触发，关掉它露出输入框
-    useComposer.getState().fill('');   // 一次性消费，清空草稿
-    setTimeout(() => chatInputRef.current?.focus(), 0);
-  }, [composerDraft]);
-  // 输入草稿持久化：随输入存 localStorage，发送后(inputValue→'')自动清；刷新/误触返回/崩溃后自动恢复，绝不丢已输入的行动
-  useEffect(() => {
-    try { if (inputValue) localStorage.setItem('drpg-chat-draft', inputValue); else localStorage.removeItem('drpg-chat-draft'); } catch { /* */ }
-  }, [inputValue]);
+    if (composerFillSeq) setBackpackOpen(false);   // 若从「储存空间」弹窗触发，关掉它露出输入框
+  }, [composerFillSeq]);
 
   useEffect(() => {
     messagesRef.current = messages;
@@ -9039,14 +9033,14 @@ ${lines}`;
         const settledNote = '（系统：本场战斗的 HP/EP 已结算并写入面板，续写正文请从当前面板状态出发，不要重复结算战斗伤害或再加减 HP/EP。）';
         const full = resultText ? `${resultText}\n${settledNote}` : '';
         // 战斗结果写进用户输入框，由玩家确认/编辑后点发送续写正文（不自动插入正文楼层）
-        if (full) setInputValue((prev) => (prev && prev.trim() ? `${prev}\n\n${full}` : full));
+        if (full) useComposer.getState().update((prev) => (prev && prev.trim() ? `${prev}\n\n${full}` : full));
         writeBackCombatVitals(state);
         // 局部竞技场挑战结算（取代名次 + 前100奖励 + 击败记录 + 清理临时对手）
         const arenaPending = useArena.getState().pendingChallenge;
         if (arenaPending && state.initialState[arenaPending.opponentCid]) {
           try {
             const arenaNote = await runArenaWinSettlement(arenaPending, victor);
-            if (arenaNote) setInputValue((prev) => (prev && prev.trim() ? `${prev}\n\n${arenaNote}` : arenaNote));
+            if (arenaNote) useComposer.getState().update((prev) => (prev && prev.trim() ? `${prev}\n\n${arenaNote}` : arenaNote));
           } catch (e) { console.warn('[Arena] 战斗结算失败:', e); useArena.getState().setPendingChallenge(null); }
         }
       }
@@ -10070,8 +10064,8 @@ ${lines}`;
         否则 regenerateTurn 一直优先读这条内存态旧输入 → reroll 后又变回改之前（用户报的第 2 个 bug）。
         （reload/读档后 lastUserInputRef 已丢，regenerateTurn 兜底读 messagesRef 的最后一条用户楼层 content，
          此时 raw 已被本函数清掉 → content 即编辑后文本，同样正确。） */
-  function saveMessageEdit(id: number) {
-    const text = editDraft;
+  // 编辑楼层保存：草稿由 MessageRow 本地持有（键入不重渲 App），保存时随回调带出。useCallback 稳定引用供 memo 行复用。
+  const saveMessageEdit = useCallback((id: number, text: string) => {
     setMessages((prev) => prev.map((m) => {
       if (m.id !== id) return m;
       const next = { ...m, content: text };
@@ -10083,7 +10077,23 @@ ${lines}`;
       && !msgs.some((m) => m.role === 'user' && m.id > id);
     if (isLastUser) lastUserInputRef.current = text;
     setEditingMsgId(null);
-  }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+  // MessageRow（memo 行组件）的稳定回调组：引用恒定 → 打字/流式等无关重渲不击穿行级缓存。
+  // 包的都是「只碰 ref/setState/getState」的函数（regenerateStoryImage 等为函数声明·提升可见），冻结安全；
+  // manualImagesCb 例外：其并发闸读 storyImgBusyId 状态，须随之刷新引用（仅生图开始/结束各变一次）。
+  const toggleChoicesCb = useCallback((id: number) => setOpenChoiceIds((prev) => {
+    const n = new Set(prev);
+    if (n.has(id)) n.delete(id); else n.add(id);
+    return n;
+  }), []);
+  const startEditCb = useCallback((id: number) => setEditingMsgId(id), []);
+  const cancelEditCb = useCallback(() => setEditingMsgId(null), []);
+  const editImagePromptCb = useCallback((msgId: number, idx: number, prompt: string) => setStoryPromptEdit({ msgId, idx, prompt }), []);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  const regenImageCb = useCallback((msgId: number, idx: number) => { void regenerateStoryImage(msgId, idx); }, []);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  const manualImagesCb = useCallback((id: number) => { void manualStoryImagesForMsg(id); }, [storyImgBusyId]);
   /* 回退到上一回合：恢复所有演化/对话/图到发送本回合之前（整页 reload）*/
   async function rollbackTurn() {
     if (useMp.getState().status === 'connected') { setGenError('联机房间内不能回退（会刷新页面+断开房间，队友会被还原到各自单机存档）。请先关闭/离开房间再回退。'); setTimeout(() => setGenError(''), 6000); return; }
@@ -10215,7 +10225,7 @@ ${lines}`;
   }
 
   async function sendMessage(textArg?: string, fromAuto = false, sendOpts: { skipOutline?: boolean; forceMpSend?: boolean } = {}) {
-    const text = (textArg ?? inputValue).trim();
+    const text = (textArg ?? useComposer.getState().value).trim();
     if (!fromAuto) stopAutoAdvance();   // 用户手动发送即中断循环自动推进
     if (!text || generating || guidanceRunning || outlineModal.open || planModal?.open || !!diceReviewModal) return;   // 剧情指导前置阶段/细纲·检定·规划审核弹窗开着也算「忙」，防重复发起并发调用
     // 图片附件：仅手动发送（textArg==null＝输入框那口）随本回合带图；⏩推进/自动推进等 textArg 非空的调用不吃附件条。
@@ -10232,7 +10242,7 @@ ${lines}`;
       const submitText = mp.splitMode ? `【分头行动·脱离主队独自行动】${text}` : text;
       mpClient.submitInput(submitText, buildPlayerSnapshot());
       setMessages((prev) => [...prev, { id: ++msgId.current, role: 'user', content: mp.splitMode ? `🚶（分头行动）${text}` : text }]);
-      if (textArg == null) setInputValue('');
+      if (textArg == null) useComposer.getState().clear();
       return;
     }
 
@@ -10244,7 +10254,7 @@ ${lines}`;
       if (waitingFor.length > 0 && !sendOpts.forceMpSend) {
         pendingHostSendRef.current = text;
         setWaitingSubmit(`⏳ 已就绪，等 ${waitingFor.length} 位队友提交行动后自动一起发送：${waitingFor.map((s) => s.name || s.seatId).join('、')}`);
-        if (textArg == null) setInputValue('');
+        if (textArg == null) useComposer.getState().clear();
         return;
       }
       pendingHostSendRef.current = null;   // 全员已就绪：清队列，正常往下发
@@ -10265,7 +10275,7 @@ ${lines}`;
     if (isMpHost && mp.povMode && !isSystemSharedTurn) {   // 分头三段式：替代普通单正文广播（主控出分头支线大纲→各自渲染→对齐冲突→变量）
       const partyMsgId = ++msgId.current;   // ⚠必须在 runPovTurn(内部也 ++msgId) 之前**提前**取 id——否则 id 写在 setMessages 更新函数里会被 React 延后执行、拿到比正文占位更大的 id → 楼层按 id 排序时"行动"被排到正文下面(乱序 bug)
       setMessages((prev) => [...prev, { id: partyMsgId, role: 'user', content: effectiveText }]);
-      if (textArg == null) setInputValue('');
+      if (textArg == null) useComposer.getState().clear();
       await runPovTurn(text, mp.turn?.inputs);   // 传入发送时抓拍的队友输入快照，防自动补发路径里现读变空 → 队友收不到正文
       return;
     }
@@ -10281,7 +10291,7 @@ ${lines}`;
     const userMsgId = ++msgId.current;
     const userMsg: ChatMessage = { id: userMsgId, role: 'user', content: userDisplayText, ...(userDisplayText !== effectiveText ? { raw: effectiveText } : {}), inputImages: turnImages.length ? turnImages : undefined };
     setMessages((prev) => [...prev, userMsg]);
-    if (textArg == null) setInputValue('');
+    if (textArg == null) useComposer.getState().clear();
     // 自动检定（骰子面板开「自动检定」时·仅单人）：hybrid＝关键词命中才 roll，judgeMode=ai 再 AI 精修。
     //   结果对读者隐藏——`<检定结果>` 块只随本回合喂给正文 API（不入楼层 content，不污染历史），另在该用户气泡下弹一张骰子卡。
     let apiText = userPromptText;
@@ -10303,7 +10313,7 @@ ${lines}`;
             setDiceReviewModal(null);
             if (decided === null) {   // 取消 → 作废本回合（撤回用户气泡 + 还原输入框）
               setMessages((prev) => prev.filter((m) => m.id !== userMsgId));
-              if (textArg == null) { setInputValue(text); setAttachedImages(turnImages); }
+              if (textArg == null) { useComposer.getState().setValue(text); setAttachedImages(turnImages); }
               return;
             }
             finalBlock = decided.block; finalCards = decided.cards;
@@ -10344,7 +10354,7 @@ ${lines}`;
       setOutlineModal({ open: false, loading: false, text: '' });
       if (edited == null) {   // 取消：撤回用户气泡（连同检定卡）、还原输入框，本回合作废
         setMessages((prev) => prev.filter((m) => m.id !== userMsgId));
-        if (textArg == null) { setInputValue(text); setAttachedImages(turnImages); }
+        if (textArg == null) { useComposer.getState().setValue(text); setAttachedImages(turnImages); }
         return;
       }
       await callApi(apiText, histSnapshot, { outline: edited, images: turnImages });   // 正文：注入玩家确认的细纲，其余上下文与正文一致
@@ -10359,7 +10369,7 @@ ${lines}`;
         const edited = await runPlanReview(mode, apiText, histSnapshot);
         if (edited === null) {   // 取消 → 作废本回合（撤回用户气泡 + 还原输入框）
           setMessages((prev) => prev.filter((m) => m.id !== userMsgId));
-          if (textArg == null) { setInputValue(text); setAttachedImages(turnImages); }
+          if (textArg == null) { useComposer.getState().setValue(text); setAttachedImages(turnImages); }
           return;
         }
         await callApi(apiText, histSnapshot, mode === 'guidance' ? { guidance: edited, images: turnImages } : { dbAdvance: edited, images: turnImages });   // 正文：注入玩家确认的规划（空=不注入），其余上下文与正文一致
@@ -10993,7 +11003,7 @@ ${lines}`;
   // 点【结算任务】（世界栏 / 原著路线栏共用）：先弹窗勾选给哪些随从发点；无候选随从则直接塞关键词结算
   function openSettleFlow() {
     const cands = Object.values(useNpc.getState().npcs).filter(isCandidateCompanion);
-    if (!cands.length) { setSettlementWhitelist(null); setInputValue((prev) => (prev && prev.trim() ? `${prev}\n【结算任务】` : '【结算任务】')); return; }
+    if (!cands.length) { setSettlementWhitelist(null); useComposer.getState().update((prev) => (prev && prev.trim() ? `${prev}\n【结算任务】` : '【结算任务】')); return; }
     setSettleCands(cands.map((c) => ({ id: c.id, name: c.name || c.id, tier: normalizeTier(c.realm) || c.realm || '', tag: c.npcTag, onScene: c.onScene, defaultChecked: isSettlingCompanion(c) })));
     setSettleModalOpen(true);
   }
@@ -11223,195 +11233,22 @@ ${lines}`;
                         </div>
                       )}
                       {visibleMsgs.map((msg) => (
-                        <div key={msg.id} className={msg.role === 'user' ? 'flex justify-end' : ''}>
-                          {msg.role === 'user' ? (
-                            editingMsgId === msg.id ? (
-                              <div className="w-full max-w-sm space-y-2">
-                                <textarea
-                                  value={editDraft}
-                                  onChange={(e) => setEditDraft(e.target.value)}
-                                  rows={Math.min(20, Math.max(3, editDraft.split('\n').length + 1))}
-                                  autoFocus
-                                  className="w-full bg-void border border-god/40 rounded-lg px-3 py-2 text-sm text-god/90 font-mono leading-relaxed outline-none focus:border-god/70 resize-y"
-                                />
-                                <div className="flex items-center justify-end gap-2 flex-wrap">
-                                  <span className="text-[11px] text-dim/40 font-mono mr-auto">仅改本楼文本（供后续正文参考）·想按新内容重写正文改完点「⟳ 重新生成」</span>
-                                  <button
-                                    onClick={() => saveMessageEdit(msg.id)}
-                                    className="px-3 py-1 rounded border border-god/40 text-god bg-god/10 hover:bg-god/20 text-[13px] font-mono transition-colors"
-                                  >✓ 保存</button>
-                                  <button
-                                    onClick={() => setEditingMsgId(null)}
-                                    className="px-3 py-1 rounded border border-edge text-dim hover:text-slate-300 text-[13px] font-mono transition-colors"
-                                  >取消</button>
-                                </div>
-                              </div>
-                            ) : (
-                              <div className="group flex items-start justify-end gap-1.5">
-                                <button
-                                  onClick={() => { setEditDraft(msg.content); setEditingMsgId(msg.id); }}
-                                  title="编辑这条你发送的内容（只改本楼文本，不会重新发送/触发演化；想按新内容重写正文，改完点「⟳ 重新生成」）"
-                                  className="mt-1 shrink-0 opacity-0 group-hover:opacity-100 focus:opacity-100 max-lg:opacity-60 transition-opacity w-7 h-7 flex items-center justify-center rounded-md border border-edge bg-void/85 text-dim/60 hover:text-god hover:border-god/40"
-                                >
-                                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round"><path d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg>
-                                </button>
-                                <div className="flex flex-col items-end min-w-0">
-                                  <div className="max-w-sm px-4 py-2 rounded-xl bg-god/10 border border-god/20 text-sm text-god/90 font-mono"
-                                    dangerouslySetInnerHTML={{ __html: userToHtml(msg.content) }} />
-                                  {msg.inputImages && msg.inputImages.length > 0 && (
-                                    <div className="mt-1.5 flex flex-wrap gap-1.5 justify-end max-w-sm">
-                                      {msg.inputImages.map((src, i) => (
-                                        <img
-                                          key={i}
-                                          src={src}
-                                          onClick={() => useImageViewer.getState().open(src, '发送的图片')}
-                                          className="max-w-[160px] max-h-40 rounded-lg border border-god/25 cursor-zoom-in"
-                                        />
-                                      ))}
-                                    </div>
-                                  )}
-                                  {msg.dice && msg.dice.map((d, i) => <DiceCard key={i} data={d} />)}
-                                </div>
-                              </div>
-                            )
-                          ) : editingMsgId === msg.id ? (
-                            <div className="space-y-2">
-                              <textarea
-                                value={editDraft}
-                                onChange={(e) => setEditDraft(e.target.value)}
-                                rows={Math.min(28, Math.max(6, editDraft.split('\n').length + 1))}
-                                autoFocus
-                                className="w-full bg-void border border-god/40 rounded-lg px-3 py-2 text-[16px] text-slate-200 leading-relaxed outline-none focus:border-god/70 resize-y"
-                              />
-                              <div className="flex items-center gap-2">
-                                <button
-                                  onClick={() => saveMessageEdit(msg.id)}
-                                  className="px-3 py-1 rounded border border-god/40 text-god bg-god/10 hover:bg-god/20 text-[13px] font-mono transition-colors"
-                                >✓ 保存</button>
-                                <button
-                                  onClick={() => setEditingMsgId(null)}
-                                  className="px-3 py-1 rounded border border-edge text-dim hover:text-slate-300 text-[13px] font-mono transition-colors"
-                                >取消</button>
-                                <span className="text-[11px] text-dim/40 font-mono">仅修改本楼显示文本，不会重新触发演化</span>
-                              </div>
-                            </div>
-                          ) : (
-                            <div className="group relative">
-                              <button
-                                onClick={() => { setEditDraft(msg.content); setEditingMsgId(msg.id); }}
-                                title="编辑这段正文"
-                                className="absolute top-0 right-0 z-10 opacity-0 group-hover:opacity-100 focus:opacity-100 transition-opacity w-7 h-7 flex items-center justify-center rounded-md border border-edge bg-void/85 text-dim/60 hover:text-god hover:border-god/40"
-                              >
-                                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round"><path d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg>
-                              </button>
-                              <div
-                                className="text-slate-300 narrative-content"
-                                data-dlg={reading.dialogueHl === false ? '0' : '1'}
-                                data-inner={reading.innerDim === false ? '0' : '1'}
-                                style={{ fontSize: `${reading.fontSize}px`, letterSpacing: `${reading.letterSpacing}px`, fontFamily: readingFontStack(reading.fontFamily), '--narr-lh': String(reading.lineHeight), '--narr-para': `${reading.paraSpacing ?? 0.45}em` } as any}
-                                onClick={(e) => {
-                                  const t = e.target as HTMLElement;
-                                  const play = t.closest('.dialogue-play') as HTMLElement | null;   // 行内对话小喇叭 → 用说话人音色朗读该句
-                                  if (play) { e.preventDefault(); const line = play.dataset.line || ''; const spk = play.dataset.speaker || ''; if (line) void speakLine(line, spk ? resolveSpeakerVoice(spk) : undefined); return; }
-                                  const regen = t.closest('.illust-regen') as HTMLElement | null;
-                                  if (regen) { e.preventDefault(); void regenerateStoryImage(msg.id, Number(regen.dataset.imgIdx)); return; }   // 点右上🔄重新生成（手机不用双击）
-                                  const editP = t.closest('.illust-edit-prompt') as HTMLElement | null;
-                                  if (editP) { e.preventDefault(); const i = Number(editP.dataset.imgIdx); const im = msg.images?.[i]; if (im) setStoryPromptEdit({ msgId: msg.id, idx: i, prompt: im.prompt || '' }); return; }   // 点✏️编辑提示词
-                                  const el = t.closest('.story-illust') as HTMLElement | null;
-                                  if (!el) return;
-                                  const idx = Number(el.dataset.imgIdx);
-                                  if (illustClickTimer.current) { clearTimeout(illustClickTimer.current); illustClickTimer.current = null; }
-                                  illustClickTimer.current = window.setTimeout(() => {   // 延时开灯箱：若紧跟双击会被取消
-                                    illustClickTimer.current = null;
-                                    const im = msg.images?.[idx];
-                                    if (im) useImageViewer.getState().open(im.url, im.nsfw || '正文配图');
-                                  }, 250);
-                                }}
-                                onDoubleClick={(e) => {
-                                  const el = (e.target as HTMLElement).closest('.story-illust') as HTMLElement | null;
-                                  if (!el) return;
-                                  if (illustClickTimer.current) { clearTimeout(illustClickTimer.current); illustClickTimer.current = null; }   // 取消单击开灯箱
-                                  void regenerateStoryImage(msg.id, Number(el.dataset.imgIdx));
-                                }}
-                                dangerouslySetInnerHTML={{ __html: toHtmlWithImagesCached(msg.id, msg.content, msg.images, ttsDlgOpts) }}
-                              />
-                              {/* 手动正文生图：重新为本回合配图（不重 roll 正文，救"没出图/失败"的错）*/}
-                              <div className="mt-1">
-                                <button
-                                  onClick={() => void manualStoryImagesForMsg(msg.id)}
-                                  disabled={storyImgBusyId === msg.id}
-                                  title="重新为本回合正文生成配图（不会改写正文）"
-                                  className="text-[11px] font-mono text-dim/45 hover:text-god transition-colors disabled:opacity-50">
-                                  {storyImgBusyId === msg.id ? '◌ 生图中…' : (msg.images?.length ? '🖼 追加配图' : '🖼 为本回合生图')}
-                                </button>
-                              </div>
-                              {msg.fanficNote && (
-                                <details className="mt-2 rounded-lg border border-fuchsia-500/25 bg-fuchsia-500/5 px-3 py-2 text-[13px]">
-                                  <summary className="cursor-pointer text-fuchsia-300/80 font-mono select-none">🔍 同人搜索内容</summary>
-                                  <div className="mt-2 text-slate-300 whitespace-pre-wrap leading-relaxed">{msg.fanficNote}</div>
-                                </details>
-                              )}
-                              {msg.factNote && (
-                                <details className="mt-2 rounded-lg border border-sky-500/25 bg-sky-500/5 px-3 py-2 text-[13px]">
-                                  <summary className="cursor-pointer text-sky-300/80 font-mono select-none">🔎 事实查证</summary>
-                                  <div className="mt-2 text-slate-300 whitespace-pre-wrap leading-relaxed">{msg.factNote}</div>
-                                </details>
-                              )}
-                              {/* 剧情选项：附在本楼正文末尾，点击展开查看（点选叠加进输入框）*/}
-                              {msg.choices && msg.choices.length > 0 && (() => {
-                                const opts = msg.choices!;
-                                const open = openChoiceIds.has(msg.id);
-                                return (
-                                  <div className="mt-2 rounded-lg border border-fuchsia-500/25 bg-fuchsia-500/5">
-                                    <button
-                                      onClick={() => setOpenChoiceIds((prev) => {
-                                        const n = new Set(prev);
-                                        if (n.has(msg.id)) n.delete(msg.id); else n.add(msg.id);
-                                        return n;
-                                      })}
-                                      className="w-full flex items-center gap-2 px-3 py-1.5 text-[12px] font-mono text-fuchsia-300/80 hover:text-fuchsia-200 transition-colors">
-                                      <span>🎭 剧情选项</span>
-                                      <span className="px-1 rounded bg-void/60 text-dim/70">{opts.length}</span>
-                                      <span className="flex-1 text-left text-dim/40 truncate">{open ? '可多选 · 点选叠加，再点取消' : '点击展开 · 可多选叠加'}</span>
-                                      <span className={`transition-transform ${open ? 'rotate-180' : ''}`}>▾</span>
-                                    </button>
-                                    {open && (
-                                      <div className="px-3 pb-2 grid grid-cols-1 sm:grid-cols-2 gap-2">
-                                        {opts.map((opt, i) => {
-                                          const letter = String.fromCharCode(65 + i);
-                                          const nsfw = i === opts.length - 1;   // 最后一个（H）= 限制级 18+
-                                          const picked = !!inputValue.trim() && inputValue.includes(opt);   // 已叠加进输入框 → 显示 ✓
-                                          return (
-                                            <button key={i} title="点选叠加进输入框，再点取消（可多选，编辑后发送）"
-                                              onClick={() => setInputValue((prev) => {
-                                                const cur = prev ?? '';
-                                                const o = opt.trim();
-                                                if (cur.includes(o)) {                                          // 再点已选项 → 取消：移除该项并规整逗号（保留手输文字）
-                                                  return cur.replace(o, '').replace(/，\s*，/g, '，').replace(/^[，\s]+|[，\s]+$/g, '');
-                                                }
-                                                const base = cur.replace(/[，,\s]+$/, '');                       // 末尾已有分隔则复用，避免叠重
-                                                return base ? `${base}，${o}` : o;                              // 叠加而非覆盖；单行输入框用「，」分隔（换行会被 input 吞掉看不见）
-                                              })}
-                                              className={`text-left rounded-lg border px-3 py-2 text-sm leading-snug transition-colors ${nsfw ? 'border-rose-500/40 bg-rose-500/5 text-rose-200/90 hover:bg-rose-500/15' : 'border-edge bg-panel/40 text-slate-300 hover:border-god/40 hover:text-god'} ${picked ? 'ring-1 ring-god/50' : ''}`}>
-                                              <span className="font-mono text-[12px] text-dim/50 mr-1.5">{picked ? '✓' : letter}{nsfw ? '·18+' : ''}</span>{opt}
-                                            </button>
-                                          );
-                                        })}
-                                      </div>
-                                    )}
-                                  </div>
-                                );
-                              })()}
-                              {/* 小剧场：番外彩蛋 HTML（与主线无关·直接渲染世界书产出的折叠块）*/}
-                              {msg.theaterHtml && (
-                                <div className="mt-2 rounded-lg border border-amber-400/25 bg-amber-400/[0.04] px-3 py-2">
-                                  <div className="text-[12px] font-mono text-amber-300/80 mb-1.5 select-none">🎭 小剧场 · 番外彩蛋</div>
-                                  <div className="zs-theater text-[13px] leading-relaxed text-slate-200" dangerouslySetInnerHTML={{ __html: msg.theaterHtml }} />
-                                </div>
-                              )}
-                            </div>
-                          )}
-                        </div>
+                        <MessageRow
+                          key={msg.id}
+                          msg={msg}
+                          isEditing={editingMsgId === msg.id}
+                          reading={reading}
+                          ttsDlgOpts={ttsDlgOpts}
+                          storyImgBusy={storyImgBusyId === msg.id}
+                          choicesOpen={openChoiceIds.has(msg.id)}
+                          onToggleChoices={toggleChoicesCb}
+                          onStartEdit={startEditCb}
+                          onSaveEdit={saveMessageEdit}
+                          onCancelEdit={cancelEditCb}
+                          onRegenImage={regenImageCb}
+                          onEditImagePrompt={editImagePromptCb}
+                          onManualImages={manualImagesCb}
+                        />
                       ))}
                     </>
                   );
@@ -11566,7 +11403,7 @@ ${lines}`;
                 onClick={() => {
                   setWorlds(prevWorlds);
                   setCardIndex(0);
-                  setInputValue(prevInput);
+                  useComposer.getState().setValue(prevInput);
                   setPrevWorlds([]);
                   setPrevInput('');
                 }}
@@ -11646,9 +11483,9 @@ ${lines}`;
           )) : (
           <WorldSelector
             expanded={worldBarOpen}
-            onSelect={(text) => setInputValue(text)}
+            onSelect={(text) => useComposer.getState().setValue(text)}
             onSettle={openSettleFlow}
-            onInsertText={(t) => setInputValue((prev) => (prev && prev.trim() ? `${prev.replace(/\s+$/, '')} ${t}` : t))}
+            onInsertText={(t) => useComposer.getState().update((prev) => (prev && prev.trim() ? `${prev.replace(/\s+$/, '')} ${t}` : t))}
             onRawResponse={(raw) => { setRawResponse(raw); setShowRaw(false); }}
             onPromptSent={(p) => { setPromptSent(p); setShowPrompt(false); }}
             onWorlds={(list) => { setWorlds(list); setCardIndex(0); }}
@@ -11802,40 +11639,8 @@ ${lines}`;
             >
               🖼
             </button>
-            <textarea
-              ref={chatInputRef}
-              rows={1}
-              value={inputValue}
-              onChange={(e) => setInputValue(e.target.value)}
-              onInput={(e) => { const t = e.currentTarget; t.style.height = 'auto'; t.style.height = Math.min(t.scrollHeight, 128) + 'px'; }}
-              onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { if (disableEnterSend) return; e.preventDefault(); sendMessage(); } }}
-              onPaste={(e) => { const imgs = Array.from(e.clipboardData?.items || []).filter((it) => it.kind === 'file' && it.type.startsWith('image/')).map((it) => it.getAsFile()).filter(Boolean) as File[]; if (imgs.length) { e.preventDefault(); void addImageFiles(imgs); } }}
-              placeholder={disableEnterSend ? '在此输入你的行动…（回车发送已禁用，点 ▶ 发送）' : (showNewlineButton ? '在此输入你的行动…（Shift+Enter 或点 ↵ 换行）' : '在此输入你的行动…（Shift+Enter 换行）')}
-              className="flex-1 max-lg:basis-full max-lg:order-1 bg-transparent text-sm max-lg:text-base text-slate-200 placeholder:text-dim outline-none resize-none max-h-32 overflow-y-auto leading-relaxed py-1"
-            />
-            {showNewlineButton && (
-            <button
-              onClick={() => {
-                const el = chatInputRef.current;
-                const start = el?.selectionStart ?? inputValue.length;
-                const end = el?.selectionEnd ?? inputValue.length;
-                const next = inputValue.slice(0, start) + '\n' + inputValue.slice(end);
-                setInputValue(next);
-                setTimeout(() => {
-                  if (!el) return;
-                  el.focus();
-                  const pos = start + 1;
-                  el.setSelectionRange(pos, pos);
-                  el.style.height = 'auto';
-                  el.style.height = Math.min(el.scrollHeight, 128) + 'px';
-                }, 0);
-              }}
-              title="插入换行（Shift+Enter 同效）"
-              className="w-7 h-7 max-lg:w-9 max-lg:h-9 max-lg:order-2 flex items-center justify-center text-dim border border-edge rounded text-sm hover:bg-panel2 hover:text-slate-200 shrink-0 transition-colors"
-            >
-              ↵
-            </button>
-            )}
+            {/* 输入框 + ↵ 换行钮已拆到 ChatComposer（打字只重渲它，不再整 App 重渲）；值经 composerStore 读写 */}
+            <ComposerTextarea onSend={() => { void sendMessage(); }} onAddImages={(files) => { void addImageFiles(files); }} />
             <button
               onClick={() => sendMessage(selectedAdvanceText())}
               disabled={generating || guidanceRunning}
@@ -11852,13 +11657,7 @@ ${lines}`;
             >
               {autoAdvActive ? '⏹' : '🔁'}
             </button>
-            <button
-              onClick={() => sendMessage()}
-              disabled={generating || !inputValue.trim()}
-              className="w-7 h-7 max-lg:w-9 max-lg:h-9 max-lg:order-2 max-lg:ml-auto flex items-center justify-center text-god border border-god/30 rounded hover:bg-god/10 shrink-0 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
-            >
-              {generating ? <span className="animate-spin text-xs">◌</span> : '▶'}
-            </button>
+            <ComposerSendButton generating={generating} onSend={() => { void sendMessage(); }} />
           </div>
         </main>
 
@@ -12265,7 +12064,7 @@ ${lines}`;
           onConfirm={(ids) => {
             setSettlementWhitelist(ids);   // 记下本次结算给哪些随从发点（供正文结算落地读取）
             setSettleModalOpen(false);
-            setInputValue((prev) => (prev && prev.trim() ? `${prev}\n【结算任务】` : '【结算任务】'));   // 塞入关键词，由玩家发送触发结算
+            useComposer.getState().update((prev) => (prev && prev.trim() ? `${prev}\n【结算任务】` : '【结算任务】'));   // 塞入关键词，由玩家发送触发结算
           }}
           onCancel={() => setSettleModalOpen(false)}
         />
@@ -12500,3 +12299,223 @@ ${lines}`;
     </div>
   );
 }
+
+/* ══════════ 聊天楼层（模块级 memo 组件·2026-07-23 从 App 内联 JSX 拆出） ══════════
+   旧形态：每条消息的整套 JSX 内联在 App 的 map 里、无行级 memo → 每次 App 重渲（打字/流式 100ms flush/
+   任意 state 变化）都重新执行并 diff 所有可见行。memo 化后 props 不变的行整体跳过——流式期间每帧只有
+   流式那一条重渲（流式 setMessages 用 prev.map 只换那一条的对象引用，其余行引用稳定，正好满足 memo 前提）。
+   ⚠向 MessageRow 传的回调必须是 App 侧 useCallback 的稳定引用；对象 prop（reading/ttsDlgOpts）必须 useMemo。
+   编辑草稿是本组件局部 state：编辑键入只重渲本行，不再打扰 App。 */
+
+/** 剧情选项格子：picked ✓ 需要实时对照输入框内容 → 单独订阅 composerStore（打字时只重渲这个小块，不碰楼层其余部分）。 */
+const ChoiceOptions = memo(function ChoiceOptions({ opts }: { opts: string[] }) {
+  const value = useComposer((s) => s.value);
+  return (
+    <div className="px-3 pb-2 grid grid-cols-1 sm:grid-cols-2 gap-2">
+      {opts.map((opt, i) => {
+        const letter = String.fromCharCode(65 + i);
+        const nsfw = i === opts.length - 1;   // 最后一个（H）= 限制级 18+
+        const picked = !!value.trim() && value.includes(opt);   // 已叠加进输入框 → 显示 ✓
+        return (
+          <button key={i} title="点选叠加进输入框，再点取消（可多选，编辑后发送）"
+            onClick={() => useComposer.getState().update((prev) => {
+              const cur = prev ?? '';
+              const o = opt.trim();
+              if (cur.includes(o)) {                                          // 再点已选项 → 取消：移除该项并规整逗号（保留手输文字）
+                return cur.replace(o, '').replace(/，\s*，/g, '，').replace(/^[，\s]+|[，\s]+$/g, '');
+              }
+              const base = cur.replace(/[，,\s]+$/, '');                       // 末尾已有分隔则复用，避免叠重
+              return base ? `${base}，${o}` : o;                              // 叠加而非覆盖；单行输入框用「，」分隔（换行会被 input 吞掉看不见）
+            })}
+            className={`text-left rounded-lg border px-3 py-2 text-sm leading-snug transition-colors ${nsfw ? 'border-rose-500/40 bg-rose-500/5 text-rose-200/90 hover:bg-rose-500/15' : 'border-edge bg-panel/40 text-slate-300 hover:border-god/40 hover:text-god'} ${picked ? 'ring-1 ring-god/50' : ''}`}>
+            <span className="font-mono text-[12px] text-dim/50 mr-1.5">{picked ? '✓' : letter}{nsfw ? '·18+' : ''}</span>{opt}
+          </button>
+        );
+      })}
+    </div>
+  );
+});
+
+interface MessageRowProps {
+  msg: ChatMessage;
+  isEditing: boolean;
+  reading: ReturnType<typeof useSettings.getState>['reading'];
+  ttsDlgOpts: { speakable: boolean; npcNames: string[] } | undefined;
+  storyImgBusy: boolean;
+  choicesOpen: boolean;
+  onToggleChoices: (id: number) => void;
+  onStartEdit: (id: number) => void;
+  onSaveEdit: (id: number, text: string) => void;
+  onCancelEdit: () => void;
+  onRegenImage: (msgId: number, idx: number) => void;
+  onEditImagePrompt: (msgId: number, idx: number, prompt: string) => void;
+  onManualImages: (id: number) => void;
+}
+
+const MessageRow = memo(function MessageRow({ msg, isEditing, reading, ttsDlgOpts, storyImgBusy, choicesOpen, onToggleChoices, onStartEdit, onSaveEdit, onCancelEdit, onRegenImage, onEditImagePrompt, onManualImages }: MessageRowProps) {
+  const [draft, setDraft] = useState('');                        // 编辑草稿（局部：键入不重渲 App）
+  const illustClickTimer = useRef<number | null>(null);          // 正文配图单击/双击消歧：单击延时开灯箱，双击则取消并重生成
+  // 进入编辑时以当前正文起草（只在 isEditing 翻转时取一次，编辑中流式改动不重置草稿）
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  useEffect(() => { if (isEditing) setDraft(msg.content); }, [isEditing]);
+  return (
+    <div className={msg.role === 'user' ? 'flex justify-end' : ''}>
+      {msg.role === 'user' ? (
+        isEditing ? (
+          <div className="w-full max-w-sm space-y-2">
+            <textarea
+              value={draft}
+              onChange={(e) => setDraft(e.target.value)}
+              rows={Math.min(20, Math.max(3, draft.split('\n').length + 1))}
+              autoFocus
+              className="w-full bg-void border border-god/40 rounded-lg px-3 py-2 text-sm text-god/90 font-mono leading-relaxed outline-none focus:border-god/70 resize-y"
+            />
+            <div className="flex items-center justify-end gap-2 flex-wrap">
+              <span className="text-[11px] text-dim/40 font-mono mr-auto">仅改本楼文本（供后续正文参考）·想按新内容重写正文改完点「⟳ 重新生成」</span>
+              <button
+                onClick={() => onSaveEdit(msg.id, draft)}
+                className="px-3 py-1 rounded border border-god/40 text-god bg-god/10 hover:bg-god/20 text-[13px] font-mono transition-colors"
+              >✓ 保存</button>
+              <button
+                onClick={onCancelEdit}
+                className="px-3 py-1 rounded border border-edge text-dim hover:text-slate-300 text-[13px] font-mono transition-colors"
+              >取消</button>
+            </div>
+          </div>
+        ) : (
+          <div className="group flex items-start justify-end gap-1.5">
+            <button
+              onClick={() => onStartEdit(msg.id)}
+              title="编辑这条你发送的内容（只改本楼文本，不会重新发送/触发演化；想按新内容重写正文，改完点「⟳ 重新生成」）"
+              className="mt-1 shrink-0 opacity-0 group-hover:opacity-100 focus:opacity-100 max-lg:opacity-60 transition-opacity w-7 h-7 flex items-center justify-center rounded-md border border-edge bg-void/85 text-dim/60 hover:text-god hover:border-god/40"
+            >
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round"><path d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg>
+            </button>
+            <div className="flex flex-col items-end min-w-0">
+              <div className="max-w-sm px-4 py-2 rounded-xl bg-god/10 border border-god/20 text-sm text-god/90 font-mono"
+                dangerouslySetInnerHTML={{ __html: userToHtml(msg.content) }} />
+              {msg.inputImages && msg.inputImages.length > 0 && (
+                <div className="mt-1.5 flex flex-wrap gap-1.5 justify-end max-w-sm">
+                  {msg.inputImages.map((src, i) => (
+                    <img
+                      key={i}
+                      src={src}
+                      onClick={() => useImageViewer.getState().open(src, '发送的图片')}
+                      className="max-w-[160px] max-h-40 rounded-lg border border-god/25 cursor-zoom-in"
+                    />
+                  ))}
+                </div>
+              )}
+              {msg.dice && msg.dice.map((d, i) => <DiceCard key={i} data={d} />)}
+            </div>
+          </div>
+        )
+      ) : isEditing ? (
+        <div className="space-y-2">
+          <textarea
+            value={draft}
+            onChange={(e) => setDraft(e.target.value)}
+            rows={Math.min(28, Math.max(6, draft.split('\n').length + 1))}
+            autoFocus
+            className="w-full bg-void border border-god/40 rounded-lg px-3 py-2 text-[16px] text-slate-200 leading-relaxed outline-none focus:border-god/70 resize-y"
+          />
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => onSaveEdit(msg.id, draft)}
+              className="px-3 py-1 rounded border border-god/40 text-god bg-god/10 hover:bg-god/20 text-[13px] font-mono transition-colors"
+            >✓ 保存</button>
+            <button
+              onClick={onCancelEdit}
+              className="px-3 py-1 rounded border border-edge text-dim hover:text-slate-300 text-[13px] font-mono transition-colors"
+            >取消</button>
+            <span className="text-[11px] text-dim/40 font-mono">仅修改本楼显示文本，不会重新触发演化</span>
+          </div>
+        </div>
+      ) : (
+        <div className="group relative">
+          <button
+            onClick={() => onStartEdit(msg.id)}
+            title="编辑这段正文"
+            className="absolute top-0 right-0 z-10 opacity-0 group-hover:opacity-100 focus:opacity-100 transition-opacity w-7 h-7 flex items-center justify-center rounded-md border border-edge bg-void/85 text-dim/60 hover:text-god hover:border-god/40"
+          >
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round"><path d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg>
+          </button>
+          <div
+            className="text-slate-300 narrative-content"
+            data-dlg={reading.dialogueHl === false ? '0' : '1'}
+            data-inner={reading.innerDim === false ? '0' : '1'}
+            style={{ fontSize: `${reading.fontSize}px`, letterSpacing: `${reading.letterSpacing}px`, fontFamily: readingFontStack(reading.fontFamily), '--narr-lh': String(reading.lineHeight), '--narr-para': `${reading.paraSpacing ?? 0.45}em` } as any}
+            onClick={(e) => {
+              const t = e.target as HTMLElement;
+              const play = t.closest('.dialogue-play') as HTMLElement | null;   // 行内对话小喇叭 → 用说话人音色朗读该句
+              if (play) { e.preventDefault(); const line = play.dataset.line || ''; const spk = play.dataset.speaker || ''; if (line) void speakLine(line, spk ? resolveSpeakerVoice(spk) : undefined); return; }
+              const regen = t.closest('.illust-regen') as HTMLElement | null;
+              if (regen) { e.preventDefault(); onRegenImage(msg.id, Number(regen.dataset.imgIdx)); return; }   // 点右上🔄重新生成（手机不用双击）
+              const editP = t.closest('.illust-edit-prompt') as HTMLElement | null;
+              if (editP) { e.preventDefault(); const i = Number(editP.dataset.imgIdx); const im = msg.images?.[i]; if (im) onEditImagePrompt(msg.id, i, im.prompt || ''); return; }   // 点✏️编辑提示词
+              const el = t.closest('.story-illust') as HTMLElement | null;
+              if (!el) return;
+              const idx = Number(el.dataset.imgIdx);
+              if (illustClickTimer.current) { clearTimeout(illustClickTimer.current); illustClickTimer.current = null; }
+              illustClickTimer.current = window.setTimeout(() => {   // 延时开灯箱：若紧跟双击会被取消
+                illustClickTimer.current = null;
+                const im = msg.images?.[idx];
+                if (im) useImageViewer.getState().open(im.url, im.nsfw || '正文配图');
+              }, 250);
+            }}
+            onDoubleClick={(e) => {
+              const el = (e.target as HTMLElement).closest('.story-illust') as HTMLElement | null;
+              if (!el) return;
+              if (illustClickTimer.current) { clearTimeout(illustClickTimer.current); illustClickTimer.current = null; }   // 取消单击开灯箱
+              onRegenImage(msg.id, Number(el.dataset.imgIdx));
+            }}
+            dangerouslySetInnerHTML={{ __html: toHtmlWithImagesCached(msg.id, msg.content, msg.images, ttsDlgOpts) }}
+          />
+          {/* 手动正文生图：重新为本回合配图（不重 roll 正文，救"没出图/失败"的错）*/}
+          <div className="mt-1">
+            <button
+              onClick={() => onManualImages(msg.id)}
+              disabled={storyImgBusy}
+              title="重新为本回合正文生成配图（不会改写正文）"
+              className="text-[11px] font-mono text-dim/45 hover:text-god transition-colors disabled:opacity-50">
+              {storyImgBusy ? '◌ 生图中…' : (msg.images?.length ? '🖼 追加配图' : '🖼 为本回合生图')}
+            </button>
+          </div>
+          {msg.fanficNote && (
+            <details className="mt-2 rounded-lg border border-fuchsia-500/25 bg-fuchsia-500/5 px-3 py-2 text-[13px]">
+              <summary className="cursor-pointer text-fuchsia-300/80 font-mono select-none">🔍 同人搜索内容</summary>
+              <div className="mt-2 text-slate-300 whitespace-pre-wrap leading-relaxed">{msg.fanficNote}</div>
+            </details>
+          )}
+          {msg.factNote && (
+            <details className="mt-2 rounded-lg border border-sky-500/25 bg-sky-500/5 px-3 py-2 text-[13px]">
+              <summary className="cursor-pointer text-sky-300/80 font-mono select-none">🔎 事实查证</summary>
+              <div className="mt-2 text-slate-300 whitespace-pre-wrap leading-relaxed">{msg.factNote}</div>
+            </details>
+          )}
+          {/* 剧情选项：附在本楼正文末尾，点击展开查看（点选叠加进输入框）*/}
+          {msg.choices && msg.choices.length > 0 && (
+            <div className="mt-2 rounded-lg border border-fuchsia-500/25 bg-fuchsia-500/5">
+              <button
+                onClick={() => onToggleChoices(msg.id)}
+                className="w-full flex items-center gap-2 px-3 py-1.5 text-[12px] font-mono text-fuchsia-300/80 hover:text-fuchsia-200 transition-colors">
+                <span>🎭 剧情选项</span>
+                <span className="px-1 rounded bg-void/60 text-dim/70">{msg.choices.length}</span>
+                <span className="flex-1 text-left text-dim/40 truncate">{choicesOpen ? '可多选 · 点选叠加，再点取消' : '点击展开 · 可多选叠加'}</span>
+                <span className={`transition-transform ${choicesOpen ? 'rotate-180' : ''}`}>▾</span>
+              </button>
+              {choicesOpen && <ChoiceOptions opts={msg.choices} />}
+            </div>
+          )}
+          {/* 小剧场：番外彩蛋 HTML（与主线无关·直接渲染世界书产出的折叠块）*/}
+          {msg.theaterHtml && (
+            <div className="mt-2 rounded-lg border border-amber-400/25 bg-amber-400/[0.04] px-3 py-2">
+              <div className="text-[12px] font-mono text-amber-300/80 mb-1.5 select-none">🎭 小剧场 · 番外彩蛋</div>
+              <div className="zs-theater text-[13px] leading-relaxed text-slate-200" dangerouslySetInnerHTML={{ __html: msg.theaterHtml }} />
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+});
