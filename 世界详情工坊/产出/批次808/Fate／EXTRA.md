@@ -1,6 +1,7 @@
 # Fate/EXTRA
 <!--meta lib=休闲 tiers=休闲-->
 
+<!--repaired: 20260721-->
 ## 剧情
 
 **【作品来源】**

@@ -2,12 +2,12 @@
  "generatedAt": "20260721",
  "total": 1206,
  "byStatus": {
-  "已修复": 1145,
-  "待修复": 61
+  "已修复": 1178,
+  "待修复": 28
  },
  "byPriority": {
-  "P0": 47,
-  "P1": 28,
+  "P0": 61,
+  "P1": 14,
   "P2": 1131
  },
  "rows": [
@@ -553,6 +553,42 @@
   },
   {
    "priority": "P0",
+   "batch": 705,
+   "file": "产出\\批次705\\恋妹・菫〜背徳に溺れるギセイ.md",
+   "name": "恋妹・菫〜背徳に溺れるギセイ",
+   "lib": "休闲",
+   "issue": "机检错误:剧情 792 字 < 6000/切入点 97 字 < 1500 | 警告:剧情缺段落 【世界观 · 舞台设定】；剧情缺段落 【可攻略角色 / 主要人物】",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "待修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P0",
+   "batch": 705,
+   "file": "产出\\批次705\\無知ッ強制成長中っ!!! Growth.1 カラダは大人っ! 中身は….md",
+   "name": "無知ッ強制成長中っ!!! Growth.1 カラダは大人っ! 中身は…",
+   "lib": "休闲",
+   "issue": "机检错误:剧情 618 字 < 6000/切入点 67 字 < 1500 | 警告:剧情缺段落 【世界观 · 舞台设定】；剧情缺段落 【故事主线 · 情感线】",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "待修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P0",
+   "batch": 705,
+   "file": "产出\\批次705\\Lilitales リリテイルズ act.4「流浪の踊り子」.md",
+   "name": "Lilitales リリテイルズ act.4「流浪の踊り子」",
+   "lib": "休闲",
+   "issue": "机检错误:剧情 1019 字 < 6000/切入点 132 字 < 1500 | 警告:剧情缺段落 【世界观 · 舞台设定】；剧情缺段落 【故事主线 · 情感线】",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "待修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P0",
    "batch": 715,
    "file": "产出\\批次715\\催眠性指導.md",
    "name": "催眠性指導",
@@ -566,6 +602,18 @@
   {
    "priority": "P0",
    "batch": 715,
+   "file": "产出\\批次715\\店長 アルバイト娘の弱みを握ってヤリたい放題 ナマイキ被害暴想娘・美樹.md",
+   "name": "店長 アルバイト娘の弱みを握ってヤリたい放題 ナマイキ被害暴想娘・美樹",
+   "lib": "休闲",
+   "issue": "机检错误:剧情 336 字 < 6000/切入点 58 字 < 1500 | 警告:剧情缺段落 【世界观 · 舞台设定】；剧情缺段落 【故事主线 · 情感线】",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "待修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P0",
+   "batch": 715,
    "file": "产出\\批次715\\我が家のリリアナさん.md",
    "name": "我が家のリリアナさん",
    "lib": "休闲",
@@ -574,6 +622,126 @@
    "crossGroupIds": [],
    "status": "已修复",
    "fixedMark": true
+  },
+  {
+   "priority": "P0",
+   "batch": 716,
+   "file": "产出\\批次716\\ひなぎくヴぁあじんろすとくらぶへようこそ1ヒナギクヴァージンロストクラブへようこそ.md",
+   "name": "ひなぎくヴぁあじんろすとくらぶへようこそ1ヒナギクヴァージンロストクラブへようこそ",
+   "lib": "休闲",
+   "issue": "机检错误:剧情 345 字 < 6000/切入点 55 字 < 1500 | 警告:剧情缺段落 【世界观 · 舞台设定】；剧情缺段落 【故事主线 · 情感线】",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "待修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P0",
+   "batch": 724,
+   "file": "产出\\批次724\\虜ノ雫 後編 夏の豪華客船で穢される処女たち.md",
+   "name": "虜ノ雫 後編 夏の豪華客船で穢される処女たち",
+   "lib": "休闲",
+   "issue": "机检错误:剧情 5722 字 < 6000",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "待修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P0",
+   "batch": 729,
+   "file": "产出\\批次729\\○○交配 第一話 優等生の彼女はエルフのお姫様.md",
+   "name": "○○交配 第一話 優等生の彼女はエルフのお姫様",
+   "lib": "休闲",
+   "issue": "机检错误:剧情 5756 字 < 6000",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "待修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P0",
+   "batch": 730,
+   "file": "产出\\批次730\\彼女 〜上書き性服・楓〜剥がれ注ぐおじさん棒.md",
+   "name": "彼女 〜上書き性服・楓〜剥がれ注ぐおじさん棒",
+   "lib": "休闲",
+   "issue": "机检错误:剧情 5759 字 < 6000",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "待修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P0",
+   "batch": 733,
+   "file": "产出\\批次733\\小さな蕾のその奥に…….md",
+   "name": "小さな蕾のその奥に……",
+   "lib": "休闲",
+   "issue": "机检错误:剧情 5769 字 < 6000",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "待修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P0",
+   "batch": 739,
+   "file": "产出\\批次739\\卒業○○電車 三輌目 酔いつぶれた女教師は弛緩した身体を弄ばれる.md",
+   "name": "卒業○○電車 三輌目 酔いつぶれた女教師は弛緩した身体を弄ばれる",
+   "lib": "休闲",
+   "issue": "机检错误:剧情 5755 字 < 6000",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "待修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P0",
+   "batch": 740,
+   "file": "产出\\批次740\\思春期セックス 第3話 今日、私ん家集合ね!Ⅱ.md",
+   "name": "思春期セックス 第3話 今日、私ん家集合ね!Ⅱ",
+   "lib": "休闲",
+   "issue": "机检错误:剧情 5759 字 < 6000",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "待修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P0",
+   "batch": 743,
+   "file": "产出\\批次743\\実娘(あの子)の代わりに好きなだけ.md",
+   "name": "実娘(あの子)の代わりに好きなだけ",
+   "lib": "休闲",
+   "issue": "机检错误:剧情 5712 字 < 6000",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "待修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P0",
+   "batch": 747,
+   "file": "产出\\批次747\\はじめてのおるすばん 観月さおり編] ).md",
+   "name": "はじめてのおるすばん 観月さおり編] )",
+   "lib": "休闲",
+   "issue": "机检错误:剧情 5750 字 < 6000",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "待修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P0",
+   "batch": 748,
+   "file": "产出\\批次748\\J〇フーゾク学園祭.md",
+   "name": "J〇フーゾク学園祭",
+   "lib": "休闲",
+   "issue": "机检错误:剧情 5779 字 < 6000",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "待修复",
+   "fixedMark": false
   },
   {
    "priority": "P1",
@@ -869,213 +1037,11 @@
    "file": "产出\\批次705\\俺が姪（かのじょ）を○す理由（わけ） 三日目 彼女が心を閉ざした日.md",
    "name": "俺が姪（かのじょ）を○す理由（わけ） 三日目 彼女が心を閉ざした日",
    "lib": "休闲",
-   "issue": "文件内重复段 | 跨世界重复(组#575·4个世界共用)",
-   "hasCrossDup": true,
-   "crossGroupIds": [
-    575,
-    576
-   ],
+   "issue": "文件内重复段",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
    "status": "已修复",
    "fixedMark": true
-  },
-  {
-   "priority": "P1",
-   "batch": 705,
-   "file": "产出\\批次705\\恋妹・菫〜背徳に溺れるギセイ.md",
-   "name": "恋妹・菫〜背徳に溺れるギセイ",
-   "lib": "休闲",
-   "issue": "文件内重复段 | 跨世界重复(组#575·4个世界共用)",
-   "hasCrossDup": true,
-   "crossGroupIds": [
-    575,
-    576
-   ],
-   "status": "待修复",
-   "fixedMark": false
-  },
-  {
-   "priority": "P1",
-   "batch": 705,
-   "file": "产出\\批次705\\無知ッ強制成長中っ!!! Growth.1 カラダは大人っ! 中身は….md",
-   "name": "無知ッ強制成長中っ!!! Growth.1 カラダは大人っ! 中身は…",
-   "lib": "休闲",
-   "issue": "文件内重复段 | 跨世界重复(组#575·4个世界共用)",
-   "hasCrossDup": true,
-   "crossGroupIds": [
-    575,
-    576
-   ],
-   "status": "待修复",
-   "fixedMark": false
-  },
-  {
-   "priority": "P1",
-   "batch": 705,
-   "file": "产出\\批次705\\Lilitales リリテイルズ act.4「流浪の踊り子」.md",
-   "name": "Lilitales リリテイルズ act.4「流浪の踊り子」",
-   "lib": "休闲",
-   "issue": "文件内重复段 | 跨世界重复(组#575·4个世界共用)",
-   "hasCrossDup": true,
-   "crossGroupIds": [
-    575,
-    576
-   ],
-   "status": "待修复",
-   "fixedMark": false
-  },
-  {
-   "priority": "P1",
-   "batch": 715,
-   "file": "产出\\批次715\\店長 アルバイト娘の弱みを握ってヤリたい放題 ナマイキ被害暴想娘・美樹.md",
-   "name": "店長 アルバイト娘の弱みを握ってヤリたい放題 ナマイキ被害暴想娘・美樹",
-   "lib": "休闲",
-   "issue": "跨世界重复(组#580·11个世界共用)",
-   "hasCrossDup": true,
-   "crossGroupIds": [
-    580
-   ],
-   "status": "待修复",
-   "fixedMark": false
-  },
-  {
-   "priority": "P1",
-   "batch": 716,
-   "file": "产出\\批次716\\ひなぎくヴぁあじんろすとくらぶへようこそ1ヒナギクヴァージンロストクラブへようこそ.md",
-   "name": "ひなぎくヴぁあじんろすとくらぶへようこそ1ヒナギクヴァージンロストクラブへようこそ",
-   "lib": "休闲",
-   "issue": "跨世界重复(组#580·11个世界共用)",
-   "hasCrossDup": true,
-   "crossGroupIds": [
-    580
-   ],
-   "status": "待修复",
-   "fixedMark": false
-  },
-  {
-   "priority": "P1",
-   "batch": 724,
-   "file": "产出\\批次724\\虜ノ雫 後編 夏の豪華客船で穢される処女たち.md",
-   "name": "虜ノ雫 後編 夏の豪華客船で穢される処女たち",
-   "lib": "休闲",
-   "issue": "跨世界重复(组#580·11个世界共用)",
-   "hasCrossDup": true,
-   "crossGroupIds": [
-    580
-   ],
-   "status": "待修复",
-   "fixedMark": false
-  },
-  {
-   "priority": "P1",
-   "batch": 729,
-   "file": "产出\\批次729\\○○交配 第一話 優等生の彼女はエルフのお姫様.md",
-   "name": "○○交配 第一話 優等生の彼女はエルフのお姫様",
-   "lib": "休闲",
-   "issue": "跨世界重复(组#580·11个世界共用)",
-   "hasCrossDup": true,
-   "crossGroupIds": [
-    580
-   ],
-   "status": "待修复",
-   "fixedMark": false
-  },
-  {
-   "priority": "P1",
-   "batch": 730,
-   "file": "产出\\批次730\\彼女 〜上書き性服・楓〜剥がれ注ぐおじさん棒.md",
-   "name": "彼女 〜上書き性服・楓〜剥がれ注ぐおじさん棒",
-   "lib": "休闲",
-   "issue": "跨世界重复(组#580·11个世界共用)",
-   "hasCrossDup": true,
-   "crossGroupIds": [
-    580
-   ],
-   "status": "待修复",
-   "fixedMark": false
-  },
-  {
-   "priority": "P1",
-   "batch": 733,
-   "file": "产出\\批次733\\小さな蕾のその奥に…….md",
-   "name": "小さな蕾のその奥に……",
-   "lib": "休闲",
-   "issue": "跨世界重复(组#580·11个世界共用)",
-   "hasCrossDup": true,
-   "crossGroupIds": [
-    580
-   ],
-   "status": "待修复",
-   "fixedMark": false
-  },
-  {
-   "priority": "P1",
-   "batch": 739,
-   "file": "产出\\批次739\\卒業○○電車 三輌目 酔いつぶれた女教師は弛緩した身体を弄ばれる.md",
-   "name": "卒業○○電車 三輌目 酔いつぶれた女教師は弛緩した身体を弄ばれる",
-   "lib": "休闲",
-   "issue": "跨世界重复(组#580·11个世界共用)",
-   "hasCrossDup": true,
-   "crossGroupIds": [
-    580
-   ],
-   "status": "待修复",
-   "fixedMark": false
-  },
-  {
-   "priority": "P1",
-   "batch": 740,
-   "file": "产出\\批次740\\思春期セックス 第3話 今日、私ん家集合ね!Ⅱ.md",
-   "name": "思春期セックス 第3話 今日、私ん家集合ね!Ⅱ",
-   "lib": "休闲",
-   "issue": "跨世界重复(组#580·11个世界共用)",
-   "hasCrossDup": true,
-   "crossGroupIds": [
-    580
-   ],
-   "status": "待修复",
-   "fixedMark": false
-  },
-  {
-   "priority": "P1",
-   "batch": 743,
-   "file": "产出\\批次743\\実娘(あの子)の代わりに好きなだけ.md",
-   "name": "実娘(あの子)の代わりに好きなだけ",
-   "lib": "休闲",
-   "issue": "跨世界重复(组#580·11个世界共用)",
-   "hasCrossDup": true,
-   "crossGroupIds": [
-    580
-   ],
-   "status": "待修复",
-   "fixedMark": false
-  },
-  {
-   "priority": "P1",
-   "batch": 747,
-   "file": "产出\\批次747\\はじめてのおるすばん 観月さおり編] ).md",
-   "name": "はじめてのおるすばん 観月さおり編] )",
-   "lib": "休闲",
-   "issue": "跨世界重复(组#580·11个世界共用)",
-   "hasCrossDup": true,
-   "crossGroupIds": [
-    580
-   ],
-   "status": "待修复",
-   "fixedMark": false
-  },
-  {
-   "priority": "P1",
-   "batch": 748,
-   "file": "产出\\批次748\\J〇フーゾク学園祭.md",
-   "name": "J〇フーゾク学園祭",
-   "lib": "休闲",
-   "issue": "跨世界重复(组#580·11个世界共用)",
-   "hasCrossDup": true,
-   "crossGroupIds": [
-    580
-   ],
-   "status": "待修复",
-   "fixedMark": false
   },
   {
    "priority": "P2",
@@ -6523,7 +6489,7 @@
    "hasCrossDup": false,
    "crossGroupIds": [],
    "status": "已修复",
-   "fixedMark": false
+   "fixedMark": true
   },
   {
    "priority": "P2",
@@ -6547,7 +6513,7 @@
    "hasCrossDup": false,
    "crossGroupIds": [],
    "status": "已修复",
-   "fixedMark": false
+   "fixedMark": true
   },
   {
    "priority": "P2",
@@ -6555,11 +6521,11 @@
    "file": "产出\\批次226\\对魔忍紫-三代同堕.md",
    "name": "对魔忍紫-三代同堕",
    "lib": "主库",
-   "issue": "警告:来源链接 0 条 < 3",
+   "issue": "",
    "hasCrossDup": false,
    "crossGroupIds": [],
-   "status": "待修复",
-   "fixedMark": false
+   "status": "已修复",
+   "fixedMark": true
   },
   {
    "priority": "P2",
@@ -6775,7 +6741,7 @@
    "hasCrossDup": false,
    "crossGroupIds": [],
    "status": "已修复",
-   "fixedMark": false
+   "fixedMark": true
   },
   {
    "priority": "P2",
@@ -6871,7 +6837,7 @@
    "hasCrossDup": false,
    "crossGroupIds": [],
    "status": "已修复",
-   "fixedMark": false
+   "fixedMark": true
   },
   {
    "priority": "P2",
@@ -7891,7 +7857,7 @@
    "hasCrossDup": false,
    "crossGroupIds": [],
    "status": "已修复",
-   "fixedMark": false
+   "fixedMark": true
   },
   {
    "priority": "P2",
@@ -12367,7 +12333,7 @@
    "hasCrossDup": false,
    "crossGroupIds": [],
    "status": "已修复",
-   "fixedMark": false
+   "fixedMark": true
   },
   {
    "priority": "P2",
@@ -12663,11 +12629,11 @@
    "file": "产出\\批次556\\海伯利安.md",
    "name": "海伯利安",
    "lib": "主库",
-   "issue": "警告:切入点疑似\"被削弱\"式顶点解释；切入点疑似\"战力限制\"式顶点解释",
+   "issue": "",
    "hasCrossDup": false,
    "crossGroupIds": [],
-   "status": "待修复",
-   "fixedMark": false
+   "status": "已修复",
+   "fixedMark": true
   },
   {
    "priority": "P2",
@@ -12675,11 +12641,11 @@
    "file": "产出\\批次556\\神经漫游者.md",
    "name": "神经漫游者",
    "lib": "主库",
-   "issue": "警告:切入点疑似\"被削弱\"式顶点解释",
+   "issue": "",
    "hasCrossDup": false,
    "crossGroupIds": [],
-   "status": "待修复",
-   "fixedMark": false
+   "status": "已修复",
+   "fixedMark": true
   },
   {
    "priority": "P2",
@@ -12687,11 +12653,11 @@
    "file": "产出\\批次556\\雪崩（Snow Crash）.md",
    "name": "雪崩（Snow Crash）",
    "lib": "主库",
-   "issue": "警告:切入点疑似\"被削弱\"式顶点解释",
+   "issue": "",
    "hasCrossDup": false,
    "crossGroupIds": [],
-   "status": "待修复",
-   "fixedMark": false
+   "status": "已修复",
+   "fixedMark": true
   },
   {
    "priority": "P2",
@@ -12699,11 +12665,11 @@
    "file": "产出\\批次556\\银河帝国.md",
    "name": "银河帝国",
    "lib": "主库",
-   "issue": "警告:切入点疑似\"战力限制\"式顶点解释；切入点疑似\"任务公证限制\"式顶点解释",
+   "issue": "",
    "hasCrossDup": false,
    "crossGroupIds": [],
-   "status": "待修复",
-   "fixedMark": false
+   "status": "已修复",
+   "fixedMark": true
   },
   {
    "priority": "P2",
@@ -12711,11 +12677,11 @@
    "file": "产出\\批次566\\苍翼默示录.md",
    "name": "苍翼默示录",
    "lib": "主库",
-   "issue": "警告:切入点疑似\"被削弱\"式顶点解释",
+   "issue": "",
    "hasCrossDup": false,
    "crossGroupIds": [],
-   "status": "待修复",
-   "fixedMark": false
+   "status": "已修复",
+   "fixedMark": true
   },
   {
    "priority": "P2",
@@ -12723,11 +12689,11 @@
    "file": "产出\\批次566\\侍魂.md",
    "name": "侍魂",
    "lib": "主库",
-   "issue": "警告:切入点疑似\"被削弱\"式顶点解释",
+   "issue": "",
    "hasCrossDup": false,
    "crossGroupIds": [],
-   "status": "待修复",
-   "fixedMark": false
+   "status": "已修复",
+   "fixedMark": true
   },
   {
    "priority": "P2",
@@ -12735,11 +12701,11 @@
    "file": "产出\\批次566\\死或生.md",
    "name": "死或生",
    "lib": "主库",
-   "issue": "警告:切入点疑似\"被削弱\"式顶点解释",
+   "issue": "",
    "hasCrossDup": false,
    "crossGroupIds": [],
-   "status": "待修复",
-   "fixedMark": false
+   "status": "已修复",
+   "fixedMark": true
   },
   {
    "priority": "P2",
@@ -12747,11 +12713,11 @@
    "file": "产出\\批次566\\真人快打.md",
    "name": "真人快打",
    "lib": "主库",
-   "issue": "警告:切入点疑似\"被削弱\"式顶点解释",
+   "issue": "",
    "hasCrossDup": false,
    "crossGroupIds": [],
-   "status": "待修复",
-   "fixedMark": false
+   "status": "已修复",
+   "fixedMark": true
   },
   {
    "priority": "P2",
@@ -12759,11 +12725,11 @@
    "file": "产出\\批次566\\罪恶装备.md",
    "name": "罪恶装备",
    "lib": "主库",
-   "issue": "警告:切入点疑似\"被削弱\"式顶点解释",
+   "issue": "",
    "hasCrossDup": false,
    "crossGroupIds": [],
-   "status": "待修复",
-   "fixedMark": false
+   "status": "已修复",
+   "fixedMark": true
   },
   {
    "priority": "P2",
@@ -12771,11 +12737,11 @@
    "file": "产出\\批次567\\碧蓝幻想.md",
    "name": "碧蓝幻想",
    "lib": "主库",
-   "issue": "警告:切入点疑似\"被削弱\"式顶点解释",
+   "issue": "",
    "hasCrossDup": false,
    "crossGroupIds": [],
-   "status": "待修复",
-   "fixedMark": false
+   "status": "已修复",
+   "fixedMark": true
   },
   {
    "priority": "P2",
@@ -12783,11 +12749,11 @@
    "file": "产出\\批次567\\空之轨迹.md",
    "name": "空之轨迹",
    "lib": "主库",
-   "issue": "警告:切入点疑似\"被削弱\"式顶点解释",
+   "issue": "",
    "hasCrossDup": false,
    "crossGroupIds": [],
-   "status": "待修复",
-   "fixedMark": false
+   "status": "已修复",
+   "fixedMark": true
   },
   {
    "priority": "P2",
@@ -12795,11 +12761,11 @@
    "file": "产出\\批次567\\人中之龙（如龙）.md",
    "name": "人中之龙（如龙）",
    "lib": "主库",
-   "issue": "警告:切入点疑似\"被削弱\"式顶点解释",
+   "issue": "",
    "hasCrossDup": false,
    "crossGroupIds": [],
-   "status": "待修复",
-   "fixedMark": false
+   "status": "已修复",
+   "fixedMark": true
   },
   {
    "priority": "P2",
@@ -12807,11 +12773,11 @@
    "file": "产出\\批次567\\闪之轨迹.md",
    "name": "闪之轨迹",
    "lib": "主库",
-   "issue": "警告:切入点疑似\"被削弱\"式顶点解释",
+   "issue": "",
    "hasCrossDup": false,
    "crossGroupIds": [],
-   "status": "待修复",
-   "fixedMark": false
+   "status": "已修复",
+   "fixedMark": true
   },
   {
    "priority": "P2",
@@ -12819,11 +12785,11 @@
    "file": "产出\\批次567\\异度之刃.md",
    "name": "异度之刃",
    "lib": "主库",
-   "issue": "警告:切入点疑似\"被削弱\"式顶点解释",
+   "issue": "",
    "hasCrossDup": false,
    "crossGroupIds": [],
-   "status": "待修复",
-   "fixedMark": false
+   "status": "已修复",
+   "fixedMark": true
   },
   {
    "priority": "P2",
@@ -12831,11 +12797,11 @@
    "file": "产出\\批次568\\传说系列（Tales of）.md",
    "name": "传说系列（Tales of）",
    "lib": "主库",
-   "issue": "警告:切入点疑似\"被削弱\"式顶点解释",
+   "issue": "",
    "hasCrossDup": false,
    "crossGroupIds": [],
-   "status": "待修复",
-   "fixedMark": false
+   "status": "已修复",
+   "fixedMark": true
   },
   {
    "priority": "P2",
@@ -12843,11 +12809,11 @@
    "file": "产出\\批次568\\伊苏.md",
    "name": "伊苏",
    "lib": "主库",
-   "issue": "警告:切入点疑似\"被削弱\"式顶点解释",
+   "issue": "",
    "hasCrossDup": false,
    "crossGroupIds": [],
-   "status": "待修复",
-   "fixedMark": false
+   "status": "已修复",
+   "fixedMark": true
   },
   {
    "priority": "P2",
@@ -12930,8 +12896,8 @@
    "issue": "文件名不符",
    "hasCrossDup": false,
    "crossGroupIds": [],
-   "status": "待修复",
-   "fixedMark": false
+   "status": "已修复",
+   "fixedMark": true
   },
   {
    "priority": "P2",
@@ -13218,8 +13184,8 @@
    "issue": "文件名不符",
    "hasCrossDup": false,
    "crossGroupIds": [],
-   "status": "待修复",
-   "fixedMark": false
+   "status": "已修复",
+   "fixedMark": true
   },
   {
    "priority": "P2",
@@ -13326,8 +13292,8 @@
    "issue": "文件名不符",
    "hasCrossDup": false,
    "crossGroupIds": [],
-   "status": "待修复",
-   "fixedMark": false
+   "status": "已修复",
+   "fixedMark": true
   },
   {
    "priority": "P2",
@@ -13338,8 +13304,8 @@
    "issue": "文件名不符",
    "hasCrossDup": false,
    "crossGroupIds": [],
-   "status": "待修复",
-   "fixedMark": false
+   "status": "已修复",
+   "fixedMark": true
   },
   {
    "priority": "P2",
@@ -14202,8 +14168,8 @@
    "issue": "文件名不符",
    "hasCrossDup": false,
    "crossGroupIds": [],
-   "status": "待修复",
-   "fixedMark": false
+   "status": "已修复",
+   "fixedMark": true
   },
   {
    "priority": "P2",
@@ -14214,8 +14180,8 @@
    "issue": "文件名不符",
    "hasCrossDup": false,
    "crossGroupIds": [],
-   "status": "待修复",
-   "fixedMark": false
+   "status": "已修复",
+   "fixedMark": true
   },
   {
    "priority": "P2",
@@ -14226,8 +14192,8 @@
    "issue": "文件名不符",
    "hasCrossDup": false,
    "crossGroupIds": [],
-   "status": "待修复",
-   "fixedMark": false
+   "status": "已修复",
+   "fixedMark": true
   },
   {
    "priority": "P2",
@@ -14238,8 +14204,8 @@
    "issue": "文件名不符",
    "hasCrossDup": false,
    "crossGroupIds": [],
-   "status": "待修复",
-   "fixedMark": false
+   "status": "已修复",
+   "fixedMark": true
   },
   {
    "priority": "P2",
@@ -14250,8 +14216,8 @@
    "issue": "文件名不符",
    "hasCrossDup": false,
    "crossGroupIds": [],
-   "status": "待修复",
-   "fixedMark": false
+   "status": "已修复",
+   "fixedMark": true
   },
   {
    "priority": "P2",
@@ -14262,8 +14228,8 @@
    "issue": "文件名不符",
    "hasCrossDup": false,
    "crossGroupIds": [],
-   "status": "待修复",
-   "fixedMark": false
+   "status": "已修复",
+   "fixedMark": true
   },
   {
    "priority": "P2",
@@ -14406,8 +14372,8 @@
    "issue": "文件名不符",
    "hasCrossDup": false,
    "crossGroupIds": [],
-   "status": "待修复",
-   "fixedMark": false
+   "status": "已修复",
+   "fixedMark": true
   },
   {
    "priority": "P2",
@@ -14418,8 +14384,8 @@
    "issue": "文件名不符",
    "hasCrossDup": false,
    "crossGroupIds": [],
-   "status": "待修复",
-   "fixedMark": false
+   "status": "已修复",
+   "fixedMark": true
   },
   {
    "priority": "P2",
@@ -14430,8 +14396,8 @@
    "issue": "文件名不符",
    "hasCrossDup": false,
    "crossGroupIds": [],
-   "status": "待修复",
-   "fixedMark": false
+   "status": "已修复",
+   "fixedMark": true
   },
   {
    "priority": "P2",
@@ -14478,8 +14444,8 @@
    "issue": "文件名不符",
    "hasCrossDup": false,
    "crossGroupIds": [],
-   "status": "待修复",
-   "fixedMark": false
+   "status": "已修复",
+   "fixedMark": true
   },
   {
    "priority": "P2",
@@ -14502,8 +14468,8 @@
    "issue": "文件名不符",
    "hasCrossDup": false,
    "crossGroupIds": [],
-   "status": "待修复",
-   "fixedMark": false
+   "status": "已修复",
+   "fixedMark": true
   },
   {
    "priority": "P2",
@@ -14514,8 +14480,8 @@
    "issue": "文件名不符",
    "hasCrossDup": false,
    "crossGroupIds": [],
-   "status": "待修复",
-   "fixedMark": false
+   "status": "已修复",
+   "fixedMark": true
   },
   {
    "priority": "P2",
