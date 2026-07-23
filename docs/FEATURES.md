@@ -203,6 +203,8 @@
 
 **世界详情库**（世界详情工坊产物消费层,`systems/worldDetail.ts`,零配置默认生效）：仓库根 `世界书/世界详情库·主库.json`+`·休闲.json`(每世界两条目 `<名>·剧情`≥1万字/`<名>·阶位切入点|·休闲切入点`,由 `世界详情工坊/scripts/compile-worldbook.mjs` 编译)合计 ~137MB 不能整本进前端 → vite 插件 `buildWorldDetailShards`(vite.config.ts)构建时按世界名 FNV-1a 切 **256 哈希分桶** `public/worlddetail/s<i>.json`(单片~0.5MB)+`manifest.json`(名→分桶号,~228KB)；产物 gitignore,源 size+mtime 记 `srcStamp` 没变秒跳(工坊重编译后下次 build 自动重切)。前端按需 fetch+进程内缓存：**C1 世界卡生成**(`WorldSelector.generate`)按点名世界名 `fetchWorldDetailsFor` 注 剧情+切入点 两段(总预算 `WORLD_DETAIL_BUDGET`=6万字,超则切入点保全量、剧情从头保留截尾;命中的卡片字段严格照档案);**C2 入世正文**(`callApi`)`ensureWorldDetailFor(misc.worldName)` 回合前预取(超时5s放行)+`buildWorldDetailInjection()` 在世界志旁注 **·剧情全文(切入点不注**——选择期资料,入世后会诱导复述开场);细纲分支同注。世界名漂移(「世界名+地点」等)用 `resolveWorldNameFrom` 三级匹配(精确>归一>双向子串取最长,与 worldCodexStore 同款 norm)。查无此世界/无产物/断网一律静默降级。
 
+**世界资料库面板**（右侧导航🗂,`WorldDetailLibPanel.tsx`,lazy）：浏览/搜索全部世界档案+**编辑修订链路**。读取三层覆盖(见 worldDetail.ts `getWorldDetail`)：**本地修订**(`worldEditStore`,key `drpg-worldedit`·lz压缩·不进saveManager同workshopStore)＞**全局修订**(worker `/api/worlddetail/overrides`,会话内拉一次,失败5分钟后才重试防墙外每回合白等)＞内置分片。编辑保存→本机立即生效(面板调 `invalidateWorldDetail`)→弹「是否提交站长审核」→`wdSubmit`(systems/worldDetailShare.ts,署名=工坊昵称,owner=mpConfig `myPlayerId`)。「我的提交」查状态(待审/已通过/已拒绝)。**审核页签仅站长可见**：复用创意工坊管理员密钥(`workshopStore.adminKey`=worker `env.WS_ADMIN_KEY`,创意工坊→设置里验证)，现行版vs提交版对照→通过=写 D1 `worlddetail_overrides` 对所有玩家生效(前端 `refreshOverrides` 本机即时换新)/拒绝=标记。服务端 `multiplayer-worker/src/worldDetail.js`(D1共用workshop库·懒建表·同IP限流10/时·全文≤300K字符·同owner同世界旧待审自动替换)，路由挂 index.js `/api/worlddetail/*`——**改动后 worker 需 redeploy**。
+
 ---
 
 ## 19. 装备强化系统

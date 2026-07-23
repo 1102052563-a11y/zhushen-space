@@ -6,8 +6,12 @@
 //   C2 入世后正文（App.callApi）→ ensureWorldDetailFor(当前世界) 回合前预取 + buildWorldDetailInjection() 同步注入：
 //      只注 ·剧情——切入点是「怎么进入世界」的选择期资料，入世后没用且会诱导 AI 复述开场。
 // 无产物 / 404 / 网络失败 → 一律静默降级为空（功能可整体缺席，不影响主流程）。
+// 三层覆盖（getWorldDetail 读取顺序）：本地修订(worldEditStore·玩家在「世界资料库」面板的编辑，本机即时生效)
+//   > 全局修订(服务端 /api/worlddetail/overrides·玩家提交+站长审核后对所有人生效) > 内置分片。
 import { useMisc } from '../store/miscStore';
+import { useWorldEdit } from '../store/worldEditStore';
 import { isHomeWorld } from './playerVitals';
+import { wdApiBase } from './worldDetailShare';
 
 export type WorldDetail = { name: string; plot: string; cut?: string };
 type ShardRec = { p: string; c?: string };
@@ -39,6 +43,21 @@ function loadShard(i: number): Promise<Record<string, ShardRec> | null> {
   let p = shardP.get(i);
   if (!p) { p = fetchJson<Record<string, ShardRec>>(`/worlddetail/s${i}.json`); shardP.set(i, p); }
   return p;
+}
+
+// 全局修订（站长已审）：会话内拉一次；失败 5 分钟后才重试（workers.dev 被墙时不能每回合白等一次）
+let overridesP: Promise<Record<string, ShardRec> | null> | null = null;
+let overridesFailedAt = 0;
+function loadOverrides(): Promise<Record<string, ShardRec> | null> {
+  if (!overridesP) {
+    if (Date.now() - overridesFailedAt < 300_000) return Promise.resolve(null);
+    overridesP = fetchJson<{ worlds?: Record<string, ShardRec> }>(`${wdApiBase()}/api/worlddetail/overrides`).then((r) => {
+      const ok = r && r.worlds ? r.worlds : null;
+      if (!ok) { overridesP = null; overridesFailedAt = Date.now(); }
+      return ok;
+    });
+  }
+  return overridesP;
 }
 
 // 归一（与 worldCodexStore 同款）：worldName 由杂项演化按正文改写，常见「格式/空格/世界名+地点」漂移
@@ -74,21 +93,75 @@ async function resolveName(raw: string): Promise<string | null> {
   return hit;
 }
 
-/** 按世界名取详情（含分片下载·进程内缓存）；查无此世界/无产物 → null。 */
+/** 按世界名取详情（三层覆盖：本地修订 > 全局修订 > 内置分片；进程内缓存合并结果）；查无此世界/无产物 → null。 */
 export async function getWorldDetail(raw: string): Promise<WorldDetail | null> {
   const name = await resolveName(raw);
   if (!name) return null;
   const cached = detailCache.get(name);
   if (cached !== undefined) return cached;
+  // ① 本地修订：玩家自己的编辑，本机最优先（面板保存后调 invalidateWorldDetail 使其立即生效）
+  const local = useWorldEdit.getState().edits[name];
+  if (local?.plot) { const d: WorldDetail = { name, plot: local.plot, cut: local.cut }; detailCache.set(name, d); return d; }
+  // ② 全局修订：站长审核通过的社区修订
+  const ov = (await loadOverrides())?.[name];
+  if (ov?.p) { const d: WorldDetail = { name, plot: ov.p, cut: ov.c }; detailCache.set(name, d); return d; }
+  // ③ 内置分片
+  const base = await getBaseWorldDetail(name);
+  if (base === undefined) return null;   // 分片网络失败：不定论，下次重试
+  detailCache.set(name, base);           // 拿到分片才定论（null=确认库里没有）
+  return base;
+}
+
+/** 内置原版（不吃本地/全局修订；供面板「查看原版/对比」）。undefined=分片网络失败（内部用），null=库里没有。 */
+async function readBaseDetail(name: string): Promise<WorldDetail | null | undefined> {
   const m = await loadManifest();
   const meta = m?.worlds[name];
   if (!meta) return null;
   const shard = await loadShard(meta.s);
-  if (!shard) { shardP.delete(meta.s); return null; }   // 分片网络失败：不定论、撤掉失败 promise 供下次重试
+  if (!shard) { shardP.delete(meta.s); return undefined; }   // 网络失败：撤掉失败 promise 供下次重试
   const rec = shard[name];
-  const detail: WorldDetail | null = rec?.p ? { name, plot: rec.p, cut: rec.c } : null;
-  detailCache.set(name, detail);   // 拿到分片才定论（null=确认库里没有）
-  return detail;
+  return rec?.p ? { name, plot: rec.p, cut: rec.c } : null;
+}
+export async function getBaseWorldDetail(raw: string): Promise<WorldDetail | null | undefined> {
+  const name = await resolveName(raw);
+  if (!name) return null;
+  return readBaseDetail(name);
+}
+
+/** 当前「已发布」版（全局修订 || 内置原版，不含本地修订；站长审核对比用）。 */
+export async function getPublishedDetail(raw: string): Promise<WorldDetail | null> {
+  const name = await resolveName(raw);
+  if (!name) return null;
+  const ov = (await loadOverrides())?.[name];
+  if (ov?.p) return { name, plot: ov.p, cut: ov.c };
+  return (await readBaseDetail(name)) ?? null;
+}
+
+/** 面板列表用：全库索引（名 + 主库/休闲），按中文排序。 */
+export async function loadWorldIndex(): Promise<{ name: string; lib: string }[]> {
+  const m = await loadManifest();
+  if (!m) return [];
+  return Object.entries(m.worlds).map(([name, v]) => ({ name, lib: v.l })).sort((a, b) => a.name.localeCompare(b.name, 'zh'));
+}
+
+/** 有全局修订的世界名集合（面板标徽章用）。 */
+export async function getOverrideNames(): Promise<Set<string>> {
+  const ov = await loadOverrides();
+  return new Set(Object.keys(ov || {}));
+}
+
+/** 使缓存失效：传世界名（原始名或正名均可）只清那一个；不传清全部。面板保存/撤销本地修订后必调，注入立即换新。 */
+export function invalidateWorldDetail(raw?: string): void {
+  if (raw == null) { detailCache.clear(); return; }
+  const key = raw.trim();
+  detailCache.delete(resolveCache.get(key) || key);
+}
+
+/** 全局修订强制重拉（站长审核通过后调，本机立即看到新版）。 */
+export function refreshOverrides(): void {
+  overridesP = null;
+  overridesFailedAt = 0;
+  detailCache.clear();
 }
 
 /** C1 世界卡生成：并发取一批点名世界的详情（查无此世界的剔除，顺序保持）。 */

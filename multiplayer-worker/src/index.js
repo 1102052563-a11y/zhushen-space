@@ -13,6 +13,7 @@ import { GuildListDO } from "./GuildListDO.js";
 import { ArenaWorldDO } from "./ArenaWorldDO.js";
 import { handleGateway } from "./gateway.js";
 import { handleWorkshop } from "./workshop.js";
+import { handleWorldDetail } from "./worldDetail.js";
 import { handlePlaytime } from "./playtime.js";
 import { handleChaos } from "./chaosRecords.js";
 import { handleCloud } from "./cloud.js";
@@ -104,6 +105,11 @@ export default {
       // 创意工坊（社区共享内容：浏览/上传/下载计数；存 Cloudflare D1）
       if (p.startsWith("/api/workshop")) {
         return await handleWorkshop(request, env, ch, url);
+      }
+
+      // 世界资料库·修订（玩家提交世界档案修订 → 站长审核 → 全局 overrides；存 D1·共用 workshop 库）
+      if (p.startsWith("/api/worlddetail")) {
+        return await handleWorldDetail(request, env, ch, url);
       }
 
       // 游玩时长记录 + 排行榜（凡 Discord 登录者累计活跃游玩时长；存 D1·共用 workshop 库）

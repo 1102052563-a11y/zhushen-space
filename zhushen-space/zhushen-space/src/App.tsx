@@ -335,6 +335,7 @@ import GiftPrompt from './components/GiftPrompt';
 const FriendsPanel = lazy(() => import('./components/FriendsPanel'));
 const PartyPanel = lazy(() => import('./components/PartyPanel'));
 const WorkshopPanel = lazy(() => import('./components/WorkshopPanel'));
+const WorldDetailLibPanel = lazy(() => import('./components/WorldDetailLibPanel'));   // 世界资料库：浏览/搜索/编辑世界详情档案＋提交审核
 import { retrieveNovel } from './systems/novelVec';
 import { useDm, isDmableTag } from './store/dmStore';
 import { useFanfic } from './store/fanficStore';
@@ -1230,6 +1231,7 @@ const rightMenuItems = [
   { icon: '🤝', label: '队伍' },
   { icon: '🌌', label: '万族' },
   { icon: '📖', label: '世界百科' },
+  { icon: '🗂', label: '世界资料库' },
   { icon: '📚', label: '轮回WIKI' },
   { icon: '🗺', label: '世界记录' },
   { icon: '☄️', label: '混沌世界' },
@@ -1262,7 +1264,7 @@ const rightMenuItems = [
 const NAV_FX: Record<string, string> = {
   '装备': 'fx-sword', '储存空间': 'fx-bag', 'NPC': 'fx-card', '技能': 'fx-sparkle',
   '副职业': 'fx-wrench', '技能树': 'fx-tree', '体系': 'fx-tree', '合成': 'fx-wrench', '开箱': 'fx-bag', '称号': 'fx-medal', '成就': 'fx-trophy', '势力': 'fx-pillar',
-  '领地': 'fx-castle', '冒险团': 'fx-shield', '队伍': 'fx-friends', '万族': 'fx-cosmos', '世界百科': 'fx-book', '轮回WIKI': 'fx-book', '混沌世界': 'fx-void',
+  '领地': 'fx-castle', '冒险团': 'fx-shield', '队伍': 'fx-friends', '万族': 'fx-cosmos', '世界百科': 'fx-book', '世界资料库': 'fx-book', '轮回WIKI': 'fx-book', '混沌世界': 'fx-void',
   '战斗': 'fx-clash', '乐园设施': 'fx-ferris', '深渊': 'fx-void', '回合洞察': 'fx-zoom', '审计': 'fx-zoom', '任务': 'fx-quest',
   '频道': 'fx-signal', '私信': 'fx-mail', '好友': 'fx-friends', '聊天室': 'fx-signal', '交易行': 'fx-bag', '产业': 'fx-bag', '公会': 'fx-castle', '助战': 'fx-clash', '世界竞技场': 'fx-trophy', '游玩时长': 'fx-trophy', '纪念丰碑': 'fx-pillar', '账户仓库': 'fx-bag', '记忆': 'fx-brain', '创意工坊': 'fx-sparkle', '存档': 'fx-save', '设置': 'fx-gear',
 };
@@ -1382,6 +1384,7 @@ export default function App() {
   const [friendsPanelOpen,   setFriendsPanelOpen]   = useState(false);  // 好友面板
   const [partyPanelOpen,     setPartyPanelOpen]     = useState(false);  // 临时队伍面板
   const [workshopOpen,       setWorkshopOpen]       = useState(false);  // 创意工坊
+  const [worldLibOpen,       setWorldLibOpen]       = useState(false);  // 世界资料库（世界详情档案 浏览/编辑/审核）
   const [imagePhaseLog,      setImagePhaseLog]      = useState('');     // 生图（肖像/装备）阶段提示
   const [onSceneDetailId,    setOnSceneDetailId]    = useState<string | null>(null);  // 在场人物浮窗 → NPC 详情
   const [insightOpen,        setInsightOpen]        = useState(false);
@@ -10036,6 +10039,7 @@ ${lines}`;
       label === '冒险团' ? () => setTeamPanelOpen(true) :
       label === '万族' ? () => setCosmosPanelOpen(true) :
       label === '世界百科' ? () => setWorldCodexOpen(true) :
+      label === '世界资料库' ? () => setWorldLibOpen(true) :
       label === '轮回WIKI' ? () => setWikiOpen(true) :
       label === '世界记录' ? () => setWorldRecordOpen(true) :
       label === '混沌世界' ? () => setChaosWorldOpen(true) :
@@ -11020,7 +11024,7 @@ ${lines}`;
     setBackpackOpen(false); setNpcPanelOpen(false); setPetRosterOpen(false); setChannelPanelOpen(false);
     setDmPanelOpen(false); setMpPanelOpen(false); setChatRoomOpen(false); setTradeOpen(false);
     setAssistOpen(false); setArenaWorldOpen(false); setPlaytimeOpen(false); setMonumentOpen(false);
-    setVaultOpen(false); setFriendsPanelOpen(false); setPartyPanelOpen(false); setWorkshopOpen(false);
+    setVaultOpen(false); setFriendsPanelOpen(false); setPartyPanelOpen(false); setWorkshopOpen(false); setWorldLibOpen(false);
     setShopOpen(false); setMiscPanelOpen(false); setWorldRecordOpen(false); setChaosWorldOpen(false);
     setCombatSetupOpen(false); setArenaPanelOpen(false); setEnhancePanelOpen(false); setSkillUpPanelOpen(false);
     setCraftPanelOpen(false); setProducePanelOpen(false); setGuildPanelOpen(false); setCasinoOpen(false);
@@ -12083,6 +12087,7 @@ ${lines}`;
         onOpenNpc={(cid) => { setPartyPanelOpen(false); setOnSceneDetailId(cid); }}
         onDm={(cid) => { const r = useNpc.getState().npcs[cid]; if (!r) return; setPartyPanelOpen(false); openDmFor({ targetId: r.id, targetName: r.name || r.id, targetTier: (r.realm || '').split(/[·|]/)[0] || undefined, targetJob: r.profession, targetPersona: r.personality, targetStrength: r.bioStrength, targetTag: r.npcTag }); }} />}
       {workshopOpen && <WorkshopPanel onClose={() => setWorkshopOpen(false)} />}
+      {worldLibOpen && <WorldDetailLibPanel onClose={() => setWorldLibOpen(false)} />}
       {promoteCandidates.length > 0 && <PartyPromoteDialog ids={promoteCandidates} onClose={() => setPromoteCandidates([])} />}
       {shopOpen && <SystemShop onGenShop={genShopItems} onQuoteSell={genSellQuotes} onClose={() => setShopOpen(false)} />}
       {miscPanelOpen && (

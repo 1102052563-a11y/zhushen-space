@@ -164,4 +164,5 @@ export function migrateCompressLegacy(keys: string[]): void {
 export const COMPRESSED_KEYS = [
   'drpg-misc', 'drpg-turn-insight',
   'drpg-npc', 'drpg-faction', 'drpg-characters', 'drpg-fanfic', 'drpg-ledger', 'drpg-tables', 'drpg-channel',
+  'drpg-worldedit',   // 世界资料库·本地修订（每世界 ~1万字文本）
 ];
