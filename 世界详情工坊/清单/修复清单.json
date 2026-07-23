@@ -2,13 +2,13 @@
  "generatedAt": "20260721",
  "total": 1206,
  "byStatus": {
-  "已修复": 742,
-  "待修复": 464
+  "已修复": 1074,
+  "待修复": 132
  },
  "byPriority": {
-  "P0": 48,
-  "P1": 412,
-  "P2": 746
+  "P0": 47,
+  "P1": 81,
+  "P2": 1078
  },
  "rows": [
   {
@@ -541,18 +541,6 @@
   },
   {
    "priority": "P0",
-   "batch": 328,
-   "file": "产出\\批次328\\真章-幕末機関説いろはにほへと.md",
-   "name": "真章-幕末機関説いろはにほへと",
-   "lib": "休闲",
-   "issue": "机检错误:缺 切入点 段/剧情 1167 字 < 6000 | 警告:剧情缺段落 【作品来源】；剧情缺段落 【世界观 · 舞台设定】",
-   "hasCrossDup": false,
-   "crossGroupIds": [],
-   "status": "待修复",
-   "fixedMark": false
-  },
-  {
-   "priority": "P0",
    "batch": 598,
    "file": "产出\\批次598\\诸天万界.md",
    "name": "诸天万界",
@@ -593,10 +581,10 @@
    "file": "产出\\批次47\\侠盗一号：星球大战外传.md",
    "name": "侠盗一号：星球大战外传",
    "lib": "主库",
-   "issue": "跨世界重复(组#805·3个世界共用)",
+   "issue": "跨世界重复(组#564·3个世界共用)",
    "hasCrossDup": true,
    "crossGroupIds": [
-    805
+    564
    ],
    "status": "已修复",
    "fixedMark": true
@@ -607,10 +595,10 @@
    "file": "产出\\批次47\\游侠索罗：星球大战外传.md",
    "name": "游侠索罗：星球大战外传",
    "lib": "主库",
-   "issue": "跨世界重复(组#805·3个世界共用)",
+   "issue": "跨世界重复(组#564·3个世界共用)",
    "hasCrossDup": true,
    "crossGroupIds": [
-    805
+    564
    ],
    "status": "已修复",
    "fixedMark": true
@@ -621,10 +609,10 @@
    "file": "产出\\批次47\\最终幻想11.md",
    "name": "最终幻想11",
    "lib": "主库",
-   "issue": "跨世界重复(组#805·3个世界共用)",
+   "issue": "跨世界重复(组#564·3个世界共用)",
    "hasCrossDup": true,
    "crossGroupIds": [
-    805
+    564
    ],
    "status": "已修复",
    "fixedMark": true
@@ -877,5099 +865,14 @@
   },
   {
    "priority": "P1",
-   "batch": 330,
-   "file": "产出\\批次330\\エルフの双子姫-奴隶市场.md",
-   "name": "エルフの双子姫-奴隶市场",
-   "lib": "休闲",
-   "issue": "跨世界重复(组#552·5个世界共用)",
-   "hasCrossDup": true,
-   "crossGroupIds": [
-    552,
-    553
-   ],
-   "status": "待修复",
-   "fixedMark": false
-  },
-  {
-   "priority": "P1",
-   "batch": 331,
-   "file": "产出\\批次331\\女教師玲子-放学后.md",
-   "name": "女教師玲子-放学后",
-   "lib": "休闲",
-   "issue": "跨世界重复(组#552·5个世界共用)",
-   "hasCrossDup": true,
-   "crossGroupIds": [
-    552,
-    553
-   ],
-   "status": "待修复",
-   "fixedMark": false
-  },
-  {
-   "priority": "P1",
-   "batch": 331,
-   "file": "产出\\批次331\\夜這いする七人の孕女-村庄秘仪.md",
-   "name": "夜這いする七人の孕女-村庄秘仪",
-   "lib": "休闲",
-   "issue": "跨世界重复(组#552·5个世界共用)",
-   "hasCrossDup": true,
-   "crossGroupIds": [
-    552,
-    553
-   ],
-   "status": "待修复",
-   "fixedMark": false
-  },
-  {
-   "priority": "P1",
-   "batch": 331,
-   "file": "产出\\批次331\\淫蟲の宴-寄生完成.md",
-   "name": "淫蟲の宴-寄生完成",
-   "lib": "休闲",
-   "issue": "跨世界重复(组#552·5个世界共用)",
-   "hasCrossDup": true,
-   "crossGroupIds": [
-    552,
-    553
-   ],
-   "status": "待修复",
-   "fixedMark": false
-  },
-  {
-   "priority": "P1",
-   "batch": 331,
-   "file": "产出\\批次331\\ふたりエッチ-新婚修行.md",
-   "name": "ふたりエッチ-新婚修行",
-   "lib": "休闲",
-   "issue": "跨世界重复(组#552·5个世界共用)",
-   "hasCrossDup": true,
-   "crossGroupIds": [
-    552,
-    553
-   ],
-   "status": "待修复",
-   "fixedMark": false
-  },
-  {
-   "priority": "P1",
-   "batch": 338,
-   "file": "产出\\批次338\\女教師・真紀-校内調教.md",
-   "name": "女教師・真紀-校内調教",
-   "lib": "休闲",
-   "issue": "跨世界重复(组#554·13个世界共用)",
-   "hasCrossDup": true,
-   "crossGroupIds": [
-    554
-   ],
-   "status": "待修复",
-   "fixedMark": false
-  },
-  {
-   "priority": "P1",
-   "batch": 338,
-   "file": "产出\\批次338\\淫欲の都市-地下闘技.md",
-   "name": "淫欲の都市-地下闘技",
-   "lib": "休闲",
-   "issue": "跨世界重复(组#554·13个世界共用)",
-   "hasCrossDup": true,
-   "crossGroupIds": [
-    554
-   ],
-   "status": "待修复",
-   "fixedMark": false
-  },
-  {
-   "priority": "P1",
-   "batch": 338,
-   "file": "产出\\批次338\\エルフの森と淫魔-侵蝕篇.md",
-   "name": "エルフの森と淫魔-侵蝕篇",
-   "lib": "休闲",
-   "issue": "跨世界重复(组#554·13个世界共用)",
-   "hasCrossDup": true,
-   "crossGroupIds": [
-    554
-   ],
-   "status": "待修复",
-   "fixedMark": false
-  },
-  {
-   "priority": "P1",
-   "batch": 339,
-   "file": "产出\\批次339\\触手屋敷-招待客.md",
-   "name": "触手屋敷-招待客",
-   "lib": "休闲",
-   "issue": "跨世界重复(组#554·13个世界共用)",
-   "hasCrossDup": true,
-   "crossGroupIds": [
-    554
-   ],
-   "status": "待修复",
-   "fixedMark": false
-  },
-  {
-   "priority": "P1",
-   "batch": 339,
-   "file": "产出\\批次339\\鬼畜道-復讐譚.md",
-   "name": "鬼畜道-復讐譚",
-   "lib": "休闲",
-   "issue": "跨世界重复(组#554·13个世界共用)",
-   "hasCrossDup": true,
-   "crossGroupIds": [
-    554
-   ],
-   "status": "待修复",
-   "fixedMark": false
-  },
-  {
-   "priority": "P1",
-   "batch": 339,
-   "file": "产出\\批次339\\魔物娘の館-飼育篇.md",
-   "name": "魔物娘の館-飼育篇",
-   "lib": "休闲",
-   "issue": "跨世界重复(组#554·13个世界共用)",
-   "hasCrossDup": true,
-   "crossGroupIds": [
-    554
-   ],
-   "status": "待修复",
-   "fixedMark": false
-  },
-  {
-   "priority": "P1",
-   "batch": 339,
-   "file": "产出\\批次339\\淫獄病棟-深夜勤務.md",
-   "name": "淫獄病棟-深夜勤務",
-   "lib": "休闲",
-   "issue": "跨世界重复(组#554·13个世界共用)",
-   "hasCrossDup": true,
-   "crossGroupIds": [
-    554
-   ],
-   "status": "待修复",
-   "fixedMark": false
-  },
-  {
-   "priority": "P1",
-   "batch": 339,
-   "file": "产出\\批次339\\レイプゲーム-生存確率.md",
-   "name": "レイプゲーム-生存確率",
-   "lib": "休闲",
-   "issue": "跨世界重复(组#554·13个世界共用)",
-   "hasCrossDup": true,
-   "crossGroupIds": [
-    554
-   ],
-   "status": "待修复",
-   "fixedMark": false
-  },
-  {
-   "priority": "P1",
-   "batch": 340,
-   "file": "产出\\批次340\\姫君たちの牢獄-奴隷市.md",
-   "name": "姫君たちの牢獄-奴隷市",
-   "lib": "休闲",
-   "issue": "跨世界重复(组#554·13个世界共用)",
-   "hasCrossDup": true,
-   "crossGroupIds": [
-    554
-   ],
-   "status": "待修复",
-   "fixedMark": false
-  },
-  {
-   "priority": "P1",
-   "batch": 340,
-   "file": "产出\\批次340\\女戦士エフトラ-敗北者.md",
-   "name": "女戦士エフトラ-敗北者",
-   "lib": "休闲",
-   "issue": "跨世界重复(组#554·13个世界共用)",
-   "hasCrossDup": true,
-   "crossGroupIds": [
-    554
-   ],
-   "status": "待修复",
-   "fixedMark": false
-  },
-  {
-   "priority": "P1",
-   "batch": 340,
-   "file": "产出\\批次340\\学園ハーレム-支配者.md",
-   "name": "学園ハーレム-支配者",
-   "lib": "休闲",
-   "issue": "跨世界重复(组#554·13个世界共用)",
-   "hasCrossDup": true,
-   "crossGroupIds": [
-    554
-   ],
-   "status": "待修复",
-   "fixedMark": false
-  },
-  {
-   "priority": "P1",
-   "batch": 340,
-   "file": "产出\\批次340\\妖艶くノ一-密命失敗.md",
-   "name": "妖艶くノ一-密命失敗",
-   "lib": "休闲",
-   "issue": "跨世界重复(组#554·13个世界共用)",
-   "hasCrossDup": true,
-   "crossGroupIds": [
-    554
-   ],
-   "status": "待修复",
-   "fixedMark": false
-  },
-  {
-   "priority": "P1",
-   "batch": 340,
-   "file": "产出\\批次340\\淫魔の契約-代償.md",
-   "name": "淫魔の契約-代償",
-   "lib": "休闲",
-   "issue": "跨世界重复(组#554·13个世界共用)",
-   "hasCrossDup": true,
-   "crossGroupIds": [
-    554
-   ],
-   "status": "待修复",
-   "fixedMark": false
-  },
-  {
-   "priority": "P1",
-   "batch": 346,
-   "file": "产出\\批次346\\触手列車-終点駅.md",
-   "name": "触手列車-終点駅",
-   "lib": "休闲",
-   "issue": "文件内重复段",
-   "hasCrossDup": false,
-   "crossGroupIds": [],
-   "status": "待修复",
-   "fixedMark": false
-  },
-  {
-   "priority": "P1",
-   "batch": 352,
-   "file": "产出\\批次352\\触手病棟-感染拡大.md",
-   "name": "触手病棟-感染拡大",
-   "lib": "休闲",
-   "issue": "文件内重复段",
-   "hasCrossDup": false,
-   "crossGroupIds": [],
-   "status": "待修复",
-   "fixedMark": false
-  },
-  {
-   "priority": "P1",
-   "batch": 352,
-   "file": "产出\\批次352\\女子校生拘束-地下室.md",
-   "name": "女子校生拘束-地下室",
-   "lib": "休闲",
-   "issue": "文件内重复段",
-   "hasCrossDup": false,
-   "crossGroupIds": [],
-   "status": "待修复",
-   "fixedMark": false
-  },
-  {
-   "priority": "P1",
-   "batch": 352,
-   "file": "产出\\批次352\\淫魔の館-メイド調教.md",
-   "name": "淫魔の館-メイド調教",
-   "lib": "休闲",
-   "issue": "文件内重复段",
-   "hasCrossDup": false,
-   "crossGroupIds": [],
-   "status": "待修复",
-   "fixedMark": false
-  },
-  {
-   "priority": "P1",
-   "batch": 354,
-   "file": "产出\\批次354\\触手孤島-サバイバル.md",
-   "name": "触手孤島-サバイバル",
-   "lib": "休闲",
-   "issue": "跨世界重复(组#563·299个世界共用)",
-   "hasCrossDup": true,
-   "crossGroupIds": [
-    563
-   ],
-   "status": "待修复",
-   "fixedMark": false
-  },
-  {
-   "priority": "P1",
-   "batch": 354,
-   "file": "产出\\批次354\\催眠お姉さん-家庭教師.md",
-   "name": "催眠お姉さん-家庭教師",
-   "lib": "休闲",
-   "issue": "跨世界重复(组#563·299个世界共用)",
-   "hasCrossDup": true,
-   "crossGroupIds": [
-    563,
-    562
-   ],
-   "status": "待修复",
-   "fixedMark": false
-  },
-  {
-   "priority": "P1",
-   "batch": 354,
-   "file": "产出\\批次354\\女戦士奴隷-闘技場.md",
-   "name": "女戦士奴隷-闘技場",
-   "lib": "休闲",
-   "issue": "跨世界重复(组#563·299个世界共用)",
-   "hasCrossDup": true,
-   "crossGroupIds": [
-    563
-   ],
-   "status": "待修复",
-   "fixedMark": false
-  },
-  {
-   "priority": "P1",
-   "batch": 354,
-   "file": "产出\\批次354\\聖女監禁-暗黒神殿.md",
-   "name": "聖女監禁-暗黒神殿",
-   "lib": "休闲",
-   "issue": "跨世界重复(组#563·299个世界共用)",
-   "hasCrossDup": true,
-   "crossGroupIds": [
-    563
-   ],
-   "status": "待修复",
-   "fixedMark": false
-  },
-  {
-   "priority": "P1",
-   "batch": 354,
-   "file": "产出\\批次354\\淫魔の種-孕ませ計画.md",
-   "name": "淫魔の種-孕ませ計画",
-   "lib": "休闲",
-   "issue": "跨世界重复(组#563·299个世界共用)",
-   "hasCrossDup": true,
-   "crossGroupIds": [
-    563
-   ],
-   "status": "待修复",
-   "fixedMark": false
-  },
-  {
-   "priority": "P1",
-   "batch": 356,
-   "file": "产出\\批次356\\触手研究所-被験体.md",
-   "name": "触手研究所-被験体",
-   "lib": "休闲",
-   "issue": "跨世界重复(组#563·299个世界共用)",
-   "hasCrossDup": true,
-   "crossGroupIds": [
-    563
-   ],
-   "status": "待修复",
-   "fixedMark": false
-  },
-  {
-   "priority": "P1",
-   "batch": 356,
-   "file": "产出\\批次356\\女忍者拷問-落城後.md",
-   "name": "女忍者拷問-落城後",
-   "lib": "休闲",
-   "issue": "跨世界重复(组#563·299个世界共用)",
-   "hasCrossDup": true,
-   "crossGroupIds": [
-    563
-   ],
-   "status": "待修复",
-   "fixedMark": false
-  },
-  {
-   "priority": "P1",
-   "batch": 356,
-   "file": "产出\\批次356\\人妻調教-完全服従.md",
-   "name": "人妻調教-完全服従",
-   "lib": "休闲",
-   "issue": "跨世界重复(组#563·299个世界共用)",
-   "hasCrossDup": true,
-   "crossGroupIds": [
-    563,
-    565
-   ],
-   "status": "待修复",
-   "fixedMark": false
-  },
-  {
-   "priority": "P1",
-   "batch": 356,
-   "file": "产出\\批次356\\聖騎士陥落-二段階.md",
-   "name": "聖騎士陥落-二段階",
-   "lib": "休闲",
-   "issue": "跨世界重复(组#563·299个世界共用)",
-   "hasCrossDup": true,
-   "crossGroupIds": [
-    563,
-    567
-   ],
-   "status": "待修复",
-   "fixedMark": false
-  },
-  {
-   "priority": "P1",
-   "batch": 356,
-   "file": "产出\\批次356\\淫魔寄宿舎-新入生.md",
-   "name": "淫魔寄宿舎-新入生",
-   "lib": "休闲",
-   "issue": "跨世界重复(组#563·299个世界共用)",
-   "hasCrossDup": true,
-   "crossGroupIds": [
-    563,
-    562
-   ],
-   "status": "待修复",
-   "fixedMark": false
-  },
-  {
-   "priority": "P1",
-   "batch": 357,
-   "file": "产出\\批次357\\触手宇宙船-漂流者.md",
-   "name": "触手宇宙船-漂流者",
-   "lib": "休闲",
-   "issue": "跨世界重复(组#563·299个世界共用)",
-   "hasCrossDup": true,
-   "crossGroupIds": [
-    563
-   ],
-   "status": "待修复",
-   "fixedMark": false
-  },
-  {
-   "priority": "P1",
-   "batch": 357,
-   "file": "产出\\批次357\\魔法少女堕落計画-洗脳完了.md",
-   "name": "魔法少女堕落計画-洗脳完了",
-   "lib": "休闲",
-   "issue": "跨世界重复(组#563·299个世界共用)",
-   "hasCrossDup": true,
-   "crossGroupIds": [
-    563
-   ],
-   "status": "待修复",
-   "fixedMark": false
-  },
-  {
-   "priority": "P1",
-   "batch": 357,
-   "file": "产出\\批次357\\女子刑務所-特別房.md",
-   "name": "女子刑務所-特別房",
-   "lib": "休闲",
-   "issue": "跨世界重复(组#563·299个世界共用)",
-   "hasCrossDup": true,
-   "crossGroupIds": [
-    563
-   ],
-   "status": "待修复",
-   "fixedMark": false
-  },
-  {
-   "priority": "P1",
-   "batch": 357,
-   "file": "产出\\批次357\\人妻調教-完全服従編.md",
-   "name": "人妻調教-完全服従編",
-   "lib": "休闲",
-   "issue": "跨世界重复(组#563·299个世界共用)",
-   "hasCrossDup": true,
-   "crossGroupIds": [
-    563,
-    565
-   ],
-   "status": "待修复",
-   "fixedMark": false
-  },
-  {
-   "priority": "P1",
-   "batch": 357,
-   "file": "产出\\批次357\\エルフ女王-降伏儀式.md",
-   "name": "エルフ女王-降伏儀式",
-   "lib": "休闲",
-   "issue": "跨世界重复(组#563·299个世界共用)",
-   "hasCrossDup": true,
-   "crossGroupIds": [
-    563
-   ],
-   "status": "待修复",
-   "fixedMark": false
-  },
-  {
-   "priority": "P1",
-   "batch": 358,
-   "file": "产出\\批次358\\触手工場-生産ライン.md",
-   "name": "触手工場-生産ライン",
-   "lib": "休闲",
-   "issue": "跨世界重复(组#563·299个世界共用)",
-   "hasCrossDup": true,
-   "crossGroupIds": [
-    563
-   ],
-   "status": "待修复",
-   "fixedMark": false
-  },
-  {
-   "priority": "P1",
-   "batch": 358,
-   "file": "产出\\批次358\\催眠アプリ-学園制覇.md",
-   "name": "催眠アプリ-学園制覇",
-   "lib": "休闲",
-   "issue": "跨世界重复(组#563·299个世界共用)",
-   "hasCrossDup": true,
-   "crossGroupIds": [
-    563
-   ],
-   "status": "待修复",
-   "fixedMark": false
-  },
-  {
-   "priority": "P1",
-   "batch": 358,
-   "file": "产出\\批次358\\魔界奴隷商-新商品入荷.md",
-   "name": "魔界奴隷商-新商品入荷",
-   "lib": "休闲",
-   "issue": "跨世界重复(组#563·299个世界共用)",
-   "hasCrossDup": true,
-   "crossGroupIds": [
-    563,
-    572
-   ],
-   "status": "待修复",
-   "fixedMark": false
-  },
-  {
-   "priority": "P1",
-   "batch": 358,
-   "file": "产出\\批次358\\女騎士敗北-二度目の堕落.md",
-   "name": "女騎士敗北-二度目の堕落",
-   "lib": "休闲",
-   "issue": "跨世界重复(组#563·299个世界共用)",
-   "hasCrossDup": true,
-   "crossGroupIds": [
-    563,
-    567
-   ],
-   "status": "待修复",
-   "fixedMark": false
-  },
-  {
-   "priority": "P1",
-   "batch": 358,
-   "file": "产出\\批次358\\淫獣の城-囚われの姫.md",
-   "name": "淫獣の城-囚われの姫",
-   "lib": "休闲",
-   "issue": "跨世界重复(组#563·299个世界共用)",
-   "hasCrossDup": true,
-   "crossGroupIds": [
-    563
-   ],
-   "status": "待修复",
-   "fixedMark": false
-  },
-  {
-   "priority": "P1",
-   "batch": 361,
-   "file": "产出\\批次361\\触手マンション-管理人.md",
-   "name": "触手マンション-管理人",
-   "lib": "休闲",
-   "issue": "跨世界重复(组#563·299个世界共用)",
-   "hasCrossDup": true,
-   "crossGroupIds": [
-    563,
-    576,
-    583
-   ],
-   "status": "待修复",
-   "fixedMark": false
-  },
-  {
-   "priority": "P1",
-   "batch": 361,
-   "file": "产出\\批次361\\魔界娼館-新人教育.md",
-   "name": "魔界娼館-新人教育",
-   "lib": "休闲",
-   "issue": "跨世界重复(组#563·299个世界共用)",
-   "hasCrossDup": true,
-   "crossGroupIds": [
-    563,
-    576
-   ],
-   "status": "待修复",
-   "fixedMark": false
-  },
-  {
-   "priority": "P1",
-   "batch": 361,
-   "file": "产出\\批次361\\人妻堕落-近所の目.md",
-   "name": "人妻堕落-近所の目",
-   "lib": "休闲",
-   "issue": "跨世界重复(组#563·299个世界共用)",
-   "hasCrossDup": true,
-   "crossGroupIds": [
-    563,
-    576,
-    573,
-    577
-   ],
-   "status": "待修复",
-   "fixedMark": false
-  },
-  {
-   "priority": "P1",
-   "batch": 361,
-   "file": "产出\\批次361\\聖騎士團-全滅後.md",
-   "name": "聖騎士團-全滅後",
-   "lib": "休闲",
-   "issue": "跨世界重复(组#563·299个世界共用)",
-   "hasCrossDup": true,
-   "crossGroupIds": [
-    563,
-    576,
-    580
-   ],
-   "status": "待修复",
-   "fixedMark": false
-  },
-  {
-   "priority": "P1",
-   "batch": 361,
-   "file": "产出\\批次361\\淫魔契約-代價支付.md",
-   "name": "淫魔契約-代價支付",
-   "lib": "休闲",
-   "issue": "跨世界重复(组#563·299个世界共用)",
-   "hasCrossDup": true,
-   "crossGroupIds": [
-    563,
-    576,
-    579
-   ],
-   "status": "待修复",
-   "fixedMark": false
-  },
-  {
-   "priority": "P1",
-   "batch": 362,
-   "file": "产出\\批次362\\触手学園-部活動.md",
-   "name": "触手学園-部活動",
-   "lib": "休闲",
-   "issue": "跨世界重复(组#563·299个世界共用)",
-   "hasCrossDup": true,
-   "crossGroupIds": [
-    563,
-    576,
-    590
-   ],
-   "status": "待修复",
-   "fixedMark": false
-  },
-  {
-   "priority": "P1",
-   "batch": 362,
-   "file": "产出\\批次362\\催眠温泉-女将調教.md",
-   "name": "催眠温泉-女将調教",
-   "lib": "休闲",
-   "issue": "跨世界重复(组#563·299个世界共用)",
-   "hasCrossDup": true,
-   "crossGroupIds": [
-    563,
-    576,
-    588
-   ],
-   "status": "待修复",
-   "fixedMark": false
-  },
-  {
-   "priority": "P1",
-   "batch": 362,
-   "file": "产出\\批次362\\魔法少女覚醒-闇の契約.md",
-   "name": "魔法少女覚醒-闇の契約",
-   "lib": "休闲",
-   "issue": "跨世界重复(组#563·299个世界共用)",
-   "hasCrossDup": true,
-   "crossGroupIds": [
-    563,
-    576,
-    579
-   ],
-   "status": "待修复",
-   "fixedMark": false
-  },
-  {
-   "priority": "P1",
-   "batch": 362,
-   "file": "产出\\批次362\\女忍者捕獲-拷問開始.md",
-   "name": "女忍者捕獲-拷問開始",
-   "lib": "休闲",
-   "issue": "跨世界重复(组#563·299个世界共用)",
-   "hasCrossDup": true,
-   "crossGroupIds": [
-    563,
-    576,
-    580
-   ],
-   "status": "待修复",
-   "fixedMark": false
-  },
-  {
-   "priority": "P1",
-   "batch": 362,
-   "file": "产出\\批次362\\エルフ村-侵略完了.md",
-   "name": "エルフ村-侵略完了",
-   "lib": "休闲",
-   "issue": "跨世界重复(组#563·299个世界共用)",
-   "hasCrossDup": true,
-   "crossGroupIds": [
-    563,
-    576,
-    585,
-    586
-   ],
-   "status": "待修复",
-   "fixedMark": false
-  },
-  {
-   "priority": "P1",
-   "batch": 363,
-   "file": "产出\\批次363\\触手研究所-新型開発.md",
-   "name": "触手研究所-新型開発",
-   "lib": "休闲",
-   "issue": "跨世界重复(组#563·299个世界共用)",
-   "hasCrossDup": true,
-   "crossGroupIds": [
-    563,
-    576,
-    583
-   ],
-   "status": "待修复",
-   "fixedMark": false
-  },
-  {
-   "priority": "P1",
-   "batch": 363,
-   "file": "产出\\批次363\\女騎士団-裏切り者.md",
-   "name": "女騎士団-裏切り者",
-   "lib": "休闲",
-   "issue": "跨世界重复(组#563·299个世界共用)",
-   "hasCrossDup": true,
-   "crossGroupIds": [
-    563,
-    576,
-    580
-   ],
-   "status": "待修复",
-   "fixedMark": false
-  },
-  {
-   "priority": "P1",
-   "batch": 363,
-   "file": "产出\\批次363\\人妻教師-放課後補習.md",
-   "name": "人妻教師-放課後補習",
-   "lib": "休闲",
-   "issue": "跨世界重复(组#563·299个世界共用)",
-   "hasCrossDup": true,
-   "crossGroupIds": [
-    563,
-    576,
-    573
-   ],
-   "status": "待修复",
-   "fixedMark": false
-  },
-  {
-   "priority": "P1",
-   "batch": 363,
-   "file": "产出\\批次363\\聖女監禁-洗脳進行.md",
-   "name": "聖女監禁-洗脳進行",
-   "lib": "休闲",
-   "issue": "跨世界重复(组#563·299个世界共用)",
-   "hasCrossDup": true,
-   "crossGroupIds": [
-    563,
-    576,
-    579
-   ],
-   "status": "待修复",
-   "fixedMark": false
-  },
-  {
-   "priority": "P1",
-   "batch": 363,
-   "file": "产出\\批次363\\淫獣ダンジョン-ボス部屋.md",
-   "name": "淫獣ダンジョン-ボス部屋",
-   "lib": "休闲",
-   "issue": "跨世界重复(组#563·299个世界共用)",
-   "hasCrossDup": true,
-   "crossGroupIds": [
-    563,
-    576
-   ],
-   "status": "待修复",
-   "fixedMark": false
-  },
-  {
-   "priority": "P1",
-   "batch": 364,
-   "file": "产出\\批次364\\触手列車-終電後.md",
-   "name": "触手列車-終電後",
-   "lib": "休闲",
-   "issue": "跨世界重复(组#563·299个世界共用)",
-   "hasCrossDup": true,
-   "crossGroupIds": [
-    563,
-    595
-   ],
-   "status": "待修复",
-   "fixedMark": false
-  },
-  {
-   "priority": "P1",
-   "batch": 364,
-   "file": "产出\\批次364\\催眠クラブ-VIP会員.md",
-   "name": "催眠クラブ-VIP会員",
-   "lib": "休闲",
-   "issue": "跨世界重复(组#563·299个世界共用)",
-   "hasCrossDup": true,
-   "crossGroupIds": [
-    563,
-    593
-   ],
-   "status": "待修复",
-   "fixedMark": false
-  },
-  {
-   "priority": "P1",
-   "batch": 364,
-   "file": "产出\\批次364\\魔法少女敗北-連続堕落.md",
-   "name": "魔法少女敗北-連続堕落",
-   "lib": "休闲",
-   "issue": "跨世界重复(组#563·299个世界共用)",
-   "hasCrossDup": true,
-   "crossGroupIds": [
-    563,
-    596,
-    601
-   ],
-   "status": "待修复",
-   "fixedMark": false
-  },
-  {
-   "priority": "P1",
-   "batch": 364,
-   "file": "产出\\批次364\\淫魔寄宿舎-深夜巡回.md",
-   "name": "淫魔寄宿舎-深夜巡回",
-   "lib": "休闲",
-   "issue": "跨世界重复(组#563·299个世界共用)",
-   "hasCrossDup": true,
-   "crossGroupIds": [
-    563,
-    590
-   ],
-   "status": "待修复",
-   "fixedMark": false
-  },
-  {
-   "priority": "P1",
-   "batch": 364,
-   "file": "产出\\批次364\\エルフ姫堕落-完全服従.md",
-   "name": "エルフ姫堕落-完全服従",
-   "lib": "休闲",
-   "issue": "跨世界重复(组#563·299个世界共用)",
-   "hasCrossDup": true,
-   "crossGroupIds": [
-    563,
-    591
-   ],
-   "status": "待修复",
-   "fixedMark": false
-  },
-  {
-   "priority": "P1",
-   "batch": 365,
-   "file": "产出\\批次365\\触手病院-深夜病棟.md",
-   "name": "触手病院-深夜病棟",
-   "lib": "休闲",
-   "issue": "跨世界重复(组#563·299个世界共用)",
-   "hasCrossDup": true,
-   "crossGroupIds": [
-    563
-   ],
-   "status": "待修复",
-   "fixedMark": false
-  },
-  {
-   "priority": "P1",
-   "batch": 365,
-   "file": "产出\\批次365\\女子校生調教-夏合宿.md",
-   "name": "女子校生調教-夏合宿",
-   "lib": "休闲",
-   "issue": "跨世界重复(组#563·299个世界共用)",
-   "hasCrossDup": true,
-   "crossGroupIds": [
-    563
-   ],
-   "status": "待修复",
-   "fixedMark": false
-  },
-  {
-   "priority": "P1",
-   "batch": 365,
-   "file": "产出\\批次365\\人妻スワップ-隣人交換.md",
-   "name": "人妻スワップ-隣人交換",
-   "lib": "休闲",
-   "issue": "跨世界重复(组#563·299个世界共用)",
-   "hasCrossDup": true,
-   "crossGroupIds": [
-    563,
-    603
-   ],
-   "status": "待修复",
-   "fixedMark": false
-  },
-  {
-   "priority": "P1",
-   "batch": 365,
-   "file": "产出\\批次365\\聖騎士レナ-二段階堕落.md",
-   "name": "聖騎士レナ-二段階堕落",
-   "lib": "休闲",
-   "issue": "跨世界重复(组#563·299个世界共用)",
-   "hasCrossDup": true,
-   "crossGroupIds": [
-    563,
-    591,
-    621
-   ],
-   "status": "待修复",
-   "fixedMark": false
-  },
-  {
-   "priority": "P1",
-   "batch": 365,
-   "file": "产出\\批次365\\淫獣の森-迷子救出.md",
-   "name": "淫獣の森-迷子救出",
-   "lib": "休闲",
-   "issue": "跨世界重复(组#563·299个世界共用)",
-   "hasCrossDup": true,
-   "crossGroupIds": [
-    563,
-    613
-   ],
-   "status": "待修复",
-   "fixedMark": false
-  },
-  {
-   "priority": "P1",
-   "batch": 366,
-   "file": "产出\\批次366\\触手異世界-召喚少女.md",
-   "name": "触手異世界-召喚少女",
-   "lib": "休闲",
-   "issue": "跨世界重复(组#563·299个世界共用)",
-   "hasCrossDup": true,
-   "crossGroupIds": [
-    563
-   ],
-   "status": "待修复",
-   "fixedMark": false
-  },
-  {
-   "priority": "P1",
-   "batch": 366,
-   "file": "产出\\批次366\\催眠学校-教師会議.md",
-   "name": "催眠学校-教師会議",
-   "lib": "休闲",
-   "issue": "跨世界重复(组#563·299个世界共用)",
-   "hasCrossDup": true,
-   "crossGroupIds": [
-    563,
-    625
-   ],
-   "status": "待修复",
-   "fixedMark": false
-  },
-  {
-   "priority": "P1",
-   "batch": 366,
-   "file": "产出\\批次366\\魔法少女NTR-仲間寝取り.md",
-   "name": "魔法少女NTR-仲間寝取り",
-   "lib": "休闲",
-   "issue": "跨世界重复(组#563·299个世界共用)",
-   "hasCrossDup": true,
-   "crossGroupIds": [
-    563,
-    596,
-    601
-   ],
-   "status": "待修复",
-   "fixedMark": false
-  },
-  {
-   "priority": "P1",
-   "batch": 366,
-   "file": "产出\\批次366\\淫魔の契約-償還期限.md",
-   "name": "淫魔の契約-償還期限",
-   "lib": "休闲",
-   "issue": "跨世界重复(组#563·299个世界共用)",
-   "hasCrossDup": true,
-   "crossGroupIds": [
-    563
-   ],
-   "status": "待修复",
-   "fixedMark": false
-  },
-  {
-   "priority": "P1",
-   "batch": 366,
-   "file": "产出\\批次366\\エルフ奴隷市場-競売会.md",
-   "name": "エルフ奴隷市場-競売会",
-   "lib": "休闲",
-   "issue": "跨世界重复(组#563·299个世界共用)",
-   "hasCrossDup": true,
-   "crossGroupIds": [
-    563,
-    596
-   ],
-   "status": "待修复",
-   "fixedMark": false
-  },
-  {
-   "priority": "P1",
-   "batch": 367,
-   "file": "产出\\批次367\\触手銀河-宇宙海賊.md",
-   "name": "触手銀河-宇宙海賊",
-   "lib": "休闲",
-   "issue": "跨世界重复(组#563·299个世界共用)",
-   "hasCrossDup": true,
-   "crossGroupIds": [
-    563,
-    596
-   ],
-   "status": "待修复",
-   "fixedMark": false
-  },
-  {
-   "priority": "P1",
-   "batch": 367,
-   "file": "产出\\批次367\\催眠王国-女王陥落.md",
-   "name": "催眠王国-女王陥落",
-   "lib": "休闲",
-   "issue": "跨世界重复(组#563·299个世界共用)",
-   "hasCrossDup": true,
-   "crossGroupIds": [
-    563,
-    593
-   ],
-   "status": "待修复",
-   "fixedMark": false
-  },
-  {
-   "priority": "P1",
-   "batch": 367,
-   "file": "产出\\批次367\\人妻堕落-配達員の罠.md",
-   "name": "人妻堕落-配達員の罠",
-   "lib": "休闲",
-   "issue": "跨世界重复(组#563·299个世界共用)",
-   "hasCrossDup": true,
-   "crossGroupIds": [
-    563,
-    603
-   ],
-   "status": "待修复",
-   "fixedMark": false
-  },
-  {
-   "priority": "P1",
-   "batch": 367,
-   "file": "产出\\批次367\\淫獄城塞-攻城戦後.md",
-   "name": "淫獄城塞-攻城戦後",
-   "lib": "休闲",
-   "issue": "跨世界重复(组#563·299个世界共用)",
-   "hasCrossDup": true,
-   "crossGroupIds": [
-    563,
-    625,
-    621
-   ],
-   "status": "待修复",
-   "fixedMark": false
-  },
-  {
-   "priority": "P1",
-   "batch": 367,
-   "file": "产出\\批次367\\エルフ留学生-人間学園.md",
-   "name": "エルフ留学生-人間学園",
-   "lib": "休闲",
-   "issue": "跨世界重复(组#563·299个世界共用)",
-   "hasCrossDup": true,
-   "crossGroupIds": [
-    563,
-    591,
-    621
-   ],
-   "status": "待修复",
-   "fixedMark": false
-  },
-  {
-   "priority": "P1",
-   "batch": 368,
-   "file": "产出\\批次368\\触手遺跡-探険隊全滅.md",
-   "name": "触手遺跡-探険隊全滅",
-   "lib": "休闲",
-   "issue": "跨世界重复(组#563·299个世界共用)",
-   "hasCrossDup": true,
-   "crossGroupIds": [
-    563
-   ],
-   "status": "待修复",
-   "fixedMark": false
-  },
-  {
-   "priority": "P1",
-   "batch": 368,
-   "file": "产出\\批次368\\魔法少女ミラ-絶望の魔女化.md",
-   "name": "魔法少女ミラ-絶望の魔女化",
-   "lib": "休闲",
-   "issue": "跨世界重复(组#563·299个世界共用)",
-   "hasCrossDup": true,
-   "crossGroupIds": [
-    563,
-    596,
-    601
-   ],
-   "status": "待修复",
-   "fixedMark": false
-  },
-  {
-   "priority": "P1",
-   "batch": 368,
-   "file": "产出\\批次368\\女教師寮-管理人の夜.md",
-   "name": "女教師寮-管理人の夜",
-   "lib": "休闲",
-   "issue": "跨世界重复(组#563·299个世界共用)",
-   "hasCrossDup": true,
-   "crossGroupIds": [
-    563,
-    590
-   ],
-   "status": "待修复",
-   "fixedMark": false
-  },
-  {
-   "priority": "P1",
-   "batch": 368,
-   "file": "产出\\批次368\\聖女騎士団-全員洗脳.md",
-   "name": "聖女騎士団-全員洗脳",
-   "lib": "休闲",
-   "issue": "跨世界重复(组#563·299个世界共用)",
-   "hasCrossDup": true,
-   "crossGroupIds": [
-    563,
-    591,
-    621
-   ],
-   "status": "待修复",
-   "fixedMark": false
-  },
-  {
-   "priority": "P1",
-   "batch": 368,
-   "file": "产出\\批次368\\淫獣農場-収穫祭.md",
-   "name": "淫獣農場-収穫祭",
-   "lib": "休闲",
-   "issue": "跨世界重复(组#563·299个世界共用)",
-   "hasCrossDup": true,
-   "crossGroupIds": [
-    563,
-    613
-   ],
-   "status": "待修复",
-   "fixedMark": false
-  },
-  {
-   "priority": "P1",
-   "batch": 369,
-   "file": "产出\\批次369\\催眠カルテ-女医の堕落.md",
-   "name": "催眠カルテ-女医の堕落",
-   "lib": "休闲",
-   "issue": "跨世界重复(组#563·299个世界共用)",
-   "hasCrossDup": true,
-   "crossGroupIds": [
-    563,
-    641,
-    644,
-    645
-   ],
-   "status": "待修复",
-   "fixedMark": false
-  },
-  {
-   "priority": "P1",
-   "batch": 369,
-   "file": "产出\\批次369\\魔界闘技場-敗者の末路.md",
-   "name": "魔界闘技場-敗者の末路",
-   "lib": "休闲",
-   "issue": "跨世界重复(组#563·299个世界共用)",
-   "hasCrossDup": true,
-   "crossGroupIds": [
-    563,
-    654,
-    572,
-    652,
-    653,
-    655
-   ],
-   "status": "待修复",
-   "fixedMark": false
-  },
-  {
-   "priority": "P1",
-   "batch": 369,
-   "file": "产出\\批次369\\人妻カフェ-裏メニュー.md",
-   "name": "人妻カフェ-裏メニュー",
-   "lib": "休闲",
-   "issue": "跨世界重复(组#563·299个世界共用)",
-   "hasCrossDup": true,
-   "crossGroupIds": [
-    563,
-    634,
-    636
-   ],
-   "status": "待修复",
-   "fixedMark": false
-  },
-  {
-   "priority": "P1",
-   "batch": 369,
-   "file": "产出\\批次369\\淫魔学園-卒業試験.md",
-   "name": "淫魔学園-卒業試験",
-   "lib": "休闲",
-   "issue": "跨世界重复(组#563·299个世界共用)",
-   "hasCrossDup": true,
-   "crossGroupIds": [
-    563,
-    647,
-    649,
-    646
-   ],
-   "status": "待修复",
-   "fixedMark": false
-  },
-  {
-   "priority": "P1",
-   "batch": 369,
-   "file": "产出\\批次369\\エルフ女王-和平代價.md",
-   "name": "エルフ女王-和平代價",
-   "lib": "休闲",
-   "issue": "跨世界重复(组#563·299个世界共用)",
-   "hasCrossDup": true,
-   "crossGroupIds": [
-    563,
-    633,
-    632,
-    629
-   ],
-   "status": "待修复",
-   "fixedMark": false
-  },
-  {
-   "priority": "P1",
-   "batch": 370,
-   "file": "产出\\批次370\\触手プール-水泳部占拠.md",
-   "name": "触手プール-水泳部占拠",
-   "lib": "休闲",
-   "issue": "跨世界重复(组#563·299个世界共用)",
-   "hasCrossDup": true,
-   "crossGroupIds": [
-    563,
-    656,
-    664
-   ],
-   "status": "待修复",
-   "fixedMark": false
-  },
-  {
-   "priority": "P1",
-   "batch": 370,
-   "file": "产出\\批次370\\催眠寮母-女子大生支配.md",
-   "name": "催眠寮母-女子大生支配",
-   "lib": "休闲",
-   "issue": "跨世界重复(组#563·299个世界共用)",
-   "hasCrossDup": true,
-   "crossGroupIds": [
-    563,
-    590
-   ],
-   "status": "待修复",
-   "fixedMark": false
-  },
-  {
-   "priority": "P1",
-   "batch": 370,
-   "file": "产出\\批次370\\女騎士レイラ-調教日誌.md",
-   "name": "女騎士レイラ-調教日誌",
-   "lib": "休闲",
-   "issue": "跨世界重复(组#563·299个世界共用)",
-   "hasCrossDup": true,
-   "crossGroupIds": [
-    563,
-    654,
-    633,
-    567
-   ],
-   "status": "待修复",
-   "fixedMark": false
-  },
-  {
-   "priority": "P1",
-   "batch": 370,
-   "file": "产出\\批次370\\聖女アリア-暗黒儀式完了.md",
-   "name": "聖女アリア-暗黒儀式完了",
-   "lib": "休闲",
-   "issue": "跨世界重复(组#563·299个世界共用)",
-   "hasCrossDup": true,
-   "crossGroupIds": [
-    563,
-    649
-   ],
-   "status": "待修复",
-   "fixedMark": false
-  },
-  {
-   "priority": "P1",
-   "batch": 370,
-   "file": "产出\\批次370\\エルフ双子姫-分離売却.md",
-   "name": "エルフ双子姫-分離売却",
-   "lib": "休闲",
-   "issue": "跨世界重复(组#563·299个世界共用)",
-   "hasCrossDup": true,
-   "crossGroupIds": [
-    563,
-    656,
-    632
-   ],
-   "status": "待修复",
-   "fixedMark": false
-  },
-  {
-   "priority": "P1",
-   "batch": 371,
-   "file": "产出\\批次371\\触手神社-巫女修行.md",
-   "name": "触手神社-巫女修行",
-   "lib": "休闲",
-   "issue": "跨世界重复(组#563·299个世界共用)",
-   "hasCrossDup": true,
-   "crossGroupIds": [
-    563,
-    649
-   ],
-   "status": "待修复",
-   "fixedMark": false
-  },
-  {
-   "priority": "P1",
-   "batch": 371,
-   "file": "产出\\批次371\\魔法少女堕落-連鎖反応.md",
-   "name": "魔法少女堕落-連鎖反応",
-   "lib": "休闲",
-   "issue": "跨世界重复(组#563·299个世界共用)",
-   "hasCrossDup": true,
-   "crossGroupIds": [
-    563,
-    654,
-    647,
-    656,
-    666
-   ],
-   "status": "待修复",
-   "fixedMark": false
-  },
-  {
-   "priority": "P1",
-   "batch": 371,
-   "file": "产出\\批次371\\女教師落とし-職員室の秘密.md",
-   "name": "女教師落とし-職員室の秘密",
-   "lib": "休闲",
-   "issue": "跨世界重复(组#563·299个世界共用)",
-   "hasCrossDup": true,
-   "crossGroupIds": [
-    563,
-    641,
-    644,
-    645
-   ],
-   "status": "待修复",
-   "fixedMark": false
-  },
-  {
-   "priority": "P1",
-   "batch": 371,
-   "file": "产出\\批次371\\人妻温泉-秘湯の秘密.md",
-   "name": "人妻温泉-秘湯の秘密",
-   "lib": "休闲",
-   "issue": "跨世界重复(组#563·299个世界共用)",
-   "hasCrossDup": true,
-   "crossGroupIds": [
-    563,
-    665
-   ],
-   "status": "待修复",
-   "fixedMark": false
-  },
-  {
-   "priority": "P1",
-   "batch": 371,
-   "file": "产出\\批次371\\淫獣島-サバイバル最終章.md",
-   "name": "淫獣島-サバイバル最終章",
-   "lib": "休闲",
-   "issue": "跨世界重复(组#563·299个世界共用)",
-   "hasCrossDup": true,
-   "crossGroupIds": [
-    563,
-    654,
-    633,
-    647
-   ],
-   "status": "待修复",
-   "fixedMark": false
-  },
-  {
-   "priority": "P1",
-   "batch": 372,
-   "file": "产出\\批次372\\触手宇宙船-漂流二年目.md",
-   "name": "触手宇宙船-漂流二年目",
-   "lib": "休闲",
-   "issue": "跨世界重复(组#563·299个世界共用)",
-   "hasCrossDup": true,
-   "crossGroupIds": [
-    563,
-    654,
-    647,
-    656
-   ],
-   "status": "待修复",
-   "fixedMark": false
-  },
-  {
-   "priority": "P1",
-   "batch": 372,
-   "file": "产出\\批次372\\催眠医院-入院から退院不能.md",
-   "name": "催眠医院-入院から退院不能",
-   "lib": "休闲",
-   "issue": "跨世界重复(组#563·299个世界共用)",
-   "hasCrossDup": true,
-   "crossGroupIds": [
-    563,
-    641,
-    644,
-    645
-   ],
-   "status": "待修复",
-   "fixedMark": false
-  },
-  {
-   "priority": "P1",
-   "batch": 372,
-   "file": "产出\\批次372\\聖騎士陥落-三段階.md",
-   "name": "聖騎士陥落-三段階",
-   "lib": "休闲",
-   "issue": "跨世界重复(组#563·299个世界共用)",
-   "hasCrossDup": true,
-   "crossGroupIds": [
-    563,
-    654,
-    633,
-    567
-   ],
-   "status": "待修复",
-   "fixedMark": false
-  },
-  {
-   "priority": "P1",
-   "batch": 372,
-   "file": "产出\\批次372\\淫魔契約-永久束縛.md",
-   "name": "淫魔契約-永久束縛",
-   "lib": "休闲",
-   "issue": "跨世界重复(组#563·299个世界共用)",
-   "hasCrossDup": true,
-   "crossGroupIds": [
-    563,
-    647,
-    649,
-    646
-   ],
-   "status": "待修复",
-   "fixedMark": false
-  },
-  {
-   "priority": "P1",
-   "batch": 372,
-   "file": "产出\\批次372\\エルフ村-奴隷化完了後.md",
-   "name": "エルフ村-奴隷化完了後",
-   "lib": "休闲",
-   "issue": "跨世界重复(组#563·299个世界共用)",
-   "hasCrossDup": true,
-   "crossGroupIds": [
-    563,
-    633,
-    632,
-    629
-   ],
-   "status": "待修复",
-   "fixedMark": false
-  },
-  {
-   "priority": "P1",
-   "batch": 373,
-   "file": "产出\\批次373\\触手研究所-被験体変異.md",
-   "name": "触手研究所-被験体変異",
-   "lib": "休闲",
-   "issue": "跨世界重复(组#563·299个世界共用)",
-   "hasCrossDup": true,
-   "crossGroupIds": [
-    563,
-    656,
-    664
-   ],
-   "status": "待修复",
-   "fixedMark": false
-  },
-  {
-   "priority": "P1",
-   "batch": 373,
-   "file": "产出\\批次373\\魔界公主-人間牧場経営.md",
-   "name": "魔界公主-人間牧場経営",
-   "lib": "休闲",
-   "issue": "跨世界重复(组#563·299个世界共用)",
-   "hasCrossDup": true,
-   "crossGroupIds": [
-    563,
-    654,
-    572,
-    652,
-    653,
-    655
-   ],
-   "status": "待修复",
-   "fixedMark": false
-  },
-  {
-   "priority": "P1",
-   "batch": 373,
-   "file": "产出\\批次373\\女戦士ギルド-全滅壊滅.md",
-   "name": "女戦士ギルド-全滅壊滅",
-   "lib": "休闲",
-   "issue": "跨世界重复(组#563·299个世界共用)",
-   "hasCrossDup": true,
-   "crossGroupIds": [
-    563,
-    654,
-    572,
-    652,
-    653,
-    655
-   ],
-   "status": "待修复",
-   "fixedMark": false
-  },
-  {
-   "priority": "P1",
-   "batch": 373,
-   "file": "产出\\批次373\\人妻調教-隣人全員.md",
-   "name": "人妻調教-隣人全員",
-   "lib": "休闲",
-   "issue": "跨世界重复(组#563·299个世界共用)",
-   "hasCrossDup": true,
-   "crossGroupIds": [
-    563,
-    667,
-    634,
-    636
-   ],
-   "status": "待修复",
-   "fixedMark": false
-  },
-  {
-   "priority": "P1",
-   "batch": 373,
-   "file": "产出\\批次373\\淫獣祭壇-大祭司就任.md",
-   "name": "淫獣祭壇-大祭司就任",
-   "lib": "休闲",
-   "issue": "跨世界重复(组#563·299个世界共用)",
-   "hasCrossDup": true,
-   "crossGroupIds": [
-    563,
-    654,
-    633,
-    652
-   ],
-   "status": "待修复",
-   "fixedMark": false
-  },
-  {
-   "priority": "P1",
-   "batch": 374,
-   "file": "产出\\批次374\\催眠学園-三年間支配.md",
-   "name": "催眠学園-三年間支配",
-   "lib": "休闲",
-   "issue": "跨世界重复(组#563·299个世界共用)",
-   "hasCrossDup": true,
-   "crossGroupIds": [
-    563,
-    562
-   ],
-   "status": "待修复",
-   "fixedMark": false
-  },
-  {
-   "priority": "P1",
-   "batch": 374,
-   "file": "产出\\批次374\\魔法少女絶望-最後の一人.md",
-   "name": "魔法少女絶望-最後の一人",
-   "lib": "休闲",
-   "issue": "跨世界重复(组#563·299个世界共用)",
-   "hasCrossDup": true,
-   "crossGroupIds": [
-    563
-   ],
-   "status": "待修复",
-   "fixedMark": false
-  },
-  {
-   "priority": "P1",
-   "batch": 374,
-   "file": "产出\\批次374\\人妻NTR-同僚の妻.md",
-   "name": "人妻NTR-同僚の妻",
-   "lib": "休闲",
-   "issue": "跨世界重复(组#563·299个世界共用)",
-   "hasCrossDup": true,
-   "crossGroupIds": [
-    563,
-    565
-   ],
-   "status": "待修复",
-   "fixedMark": false
-  },
-  {
-   "priority": "P1",
-   "batch": 374,
-   "file": "产出\\批次374\\聖女監禁-千日記録.md",
-   "name": "聖女監禁-千日記録",
-   "lib": "休闲",
-   "issue": "跨世界重复(组#563·299个世界共用)",
-   "hasCrossDup": true,
-   "crossGroupIds": [
-    563
-   ],
-   "status": "待修复",
-   "fixedMark": false
-  },
-  {
-   "priority": "P1",
-   "batch": 374,
-   "file": "产出\\批次374\\エルフ奴隷市場-競売記録.md",
-   "name": "エルフ奴隷市場-競売記録",
-   "lib": "休闲",
-   "issue": "跨世界重复(组#563·299个世界共用)",
-   "hasCrossDup": true,
-   "crossGroupIds": [
-    563
-   ],
-   "status": "待修复",
-   "fixedMark": false
-  },
-  {
-   "priority": "P1",
-   "batch": 375,
-   "file": "产出\\批次375\\触手列車-環状線.md",
-   "name": "触手列車-環状線",
-   "lib": "休闲",
-   "issue": "跨世界重复(组#563·299个世界共用)",
-   "hasCrossDup": true,
-   "crossGroupIds": [
-    563
-   ],
-   "status": "待修复",
-   "fixedMark": false
-  },
-  {
-   "priority": "P1",
-   "batch": 375,
-   "file": "产出\\批次375\\催眠リゾート-永住者.md",
-   "name": "催眠リゾート-永住者",
-   "lib": "休闲",
-   "issue": "跨世界重复(组#563·299个世界共用)",
-   "hasCrossDup": true,
-   "crossGroupIds": [
-    563
-   ],
-   "status": "待修复",
-   "fixedMark": false
-  },
-  {
-   "priority": "P1",
-   "batch": 375,
-   "file": "产出\\批次375\\女騎士団-裏切者処刑.md",
-   "name": "女騎士団-裏切者処刑",
-   "lib": "休闲",
-   "issue": "跨世界重复(组#563·299个世界共用)",
-   "hasCrossDup": true,
-   "crossGroupIds": [
-    563
-   ],
-   "status": "待修复",
-   "fixedMark": false
-  },
-  {
-   "priority": "P1",
-   "batch": 375,
-   "file": "产出\\批次375\\淫魔寄宿舎-最終学年.md",
-   "name": "淫魔寄宿舎-最終学年",
-   "lib": "休闲",
-   "issue": "跨世界重复(组#563·299个世界共用)",
-   "hasCrossDup": true,
-   "crossGroupIds": [
-    563
-   ],
-   "status": "待修复",
-   "fixedMark": false
-  },
-  {
-   "priority": "P1",
-   "batch": 375,
-   "file": "产出\\批次375\\エルフ姫レティシア-完全服従.md",
-   "name": "エルフ姫レティシア-完全服従",
-   "lib": "休闲",
-   "issue": "跨世界重复(组#563·299个世界共用)",
-   "hasCrossDup": true,
-   "crossGroupIds": [
-    563
-   ],
-   "status": "待修复",
-   "fixedMark": false
-  },
-  {
-   "priority": "P1",
-   "batch": 377,
-   "file": "产出\\批次377\\触手病院-院長就任.md",
-   "name": "触手病院-院長就任",
-   "lib": "休闲",
-   "issue": "跨世界重复(组#563·299个世界共用)",
-   "hasCrossDup": true,
-   "crossGroupIds": [
-    563
-   ],
-   "status": "待修复",
-   "fixedMark": false
-  },
-  {
-   "priority": "P1",
-   "batch": 377,
-   "file": "产出\\批次377\\催眠お嬢様-家庭教師支配.md",
-   "name": "催眠お嬢様-家庭教師支配",
-   "lib": "休闲",
-   "issue": "跨世界重复(组#563·299个世界共用)",
-   "hasCrossDup": true,
-   "crossGroupIds": [
-    563
-   ],
-   "status": "待修复",
-   "fixedMark": false
-  },
-  {
-   "priority": "P1",
-   "batch": 377,
-   "file": "产出\\批次377\\魔法少女覚醒-闇の力.md",
-   "name": "魔法少女覚醒-闇の力",
-   "lib": "休闲",
-   "issue": "跨世界重复(组#563·299个世界共用)",
-   "hasCrossDup": true,
-   "crossGroupIds": [
-    563
-   ],
-   "status": "待修复",
-   "fixedMark": false
-  },
-  {
-   "priority": "P1",
-   "batch": 377,
-   "file": "产出\\批次377\\淫獣ダンジョン-迷宮主.md",
-   "name": "淫獣ダンジョン-迷宮主",
-   "lib": "休闲",
-   "issue": "跨世界重复(组#563·299个世界共用)",
-   "hasCrossDup": true,
-   "crossGroupIds": [
-    563
-   ],
-   "status": "待修复",
-   "fixedMark": false
-  },
-  {
-   "priority": "P1",
-   "batch": 377,
-   "file": "产出\\批次377\\エルフ森林-狩猟解禁日.md",
-   "name": "エルフ森林-狩猟解禁日",
-   "lib": "休闲",
-   "issue": "跨世界重复(组#563·299个世界共用)",
-   "hasCrossDup": true,
-   "crossGroupIds": [
-    563
-   ],
-   "status": "待修复",
-   "fixedMark": false
-  },
-  {
-   "priority": "P1",
-   "batch": 378,
-   "file": "产出\\批次378\\触手世界-転生令嬢.md",
-   "name": "触手世界-転生令嬢",
-   "lib": "休闲",
-   "issue": "跨世界重复(组#563·299个世界共用)",
-   "hasCrossDup": true,
-   "crossGroupIds": [
-    563
-   ],
-   "status": "待修复",
-   "fixedMark": false
-  },
-  {
-   "priority": "P1",
-   "batch": 378,
-   "file": "产出\\批次378\\女戦士捕虜-長期拘束後.md",
-   "name": "女戦士捕虜-長期拘束後",
-   "lib": "休闲",
-   "issue": "跨世界重复(组#563·299个世界共用)",
-   "hasCrossDup": true,
-   "crossGroupIds": [
-    563
-   ],
-   "status": "待修复",
-   "fixedMark": false
-  },
-  {
-   "priority": "P1",
-   "batch": 378,
-   "file": "产出\\批次378\\人妻スワップ-団地全員.md",
-   "name": "人妻スワップ-団地全員",
-   "lib": "休闲",
-   "issue": "跨世界重复(组#563·299个世界共用)",
-   "hasCrossDup": true,
-   "crossGroupIds": [
-    563,
-    603
-   ],
-   "status": "待修复",
-   "fixedMark": false
-  },
-  {
-   "priority": "P1",
-   "batch": 378,
-   "file": "产出\\批次378\\聖女アウレリア-堕落完成.md",
-   "name": "聖女アウレリア-堕落完成",
-   "lib": "休闲",
-   "issue": "跨世界重复(组#563·299个世界共用)",
-   "hasCrossDup": true,
-   "crossGroupIds": [
-    563
-   ],
-   "status": "待修复",
-   "fixedMark": false
-  },
-  {
-   "priority": "P1",
-   "batch": 378,
-   "file": "产出\\批次378\\淫魔の巣-繁殖女王.md",
-   "name": "淫魔の巣-繁殖女王",
-   "lib": "休闲",
-   "issue": "跨世界重复(组#563·299个世界共用)",
-   "hasCrossDup": true,
-   "crossGroupIds": [
-    563
-   ],
-   "status": "待修复",
-   "fixedMark": false
-  },
-  {
-   "priority": "P1",
-   "batch": 379,
-   "file": "产出\\批次379\\触手孤島-第三世代.md",
-   "name": "触手孤島-第三世代",
-   "lib": "休闲",
-   "issue": "跨世界重复(组#563·299个世界共用)",
-   "hasCrossDup": true,
-   "crossGroupIds": [
-    563
-   ],
-   "status": "待修复",
-   "fixedMark": false
-  },
-  {
-   "priority": "P1",
-   "batch": 379,
-   "file": "产出\\批次379\\催眠アパート-住民全員.md",
-   "name": "催眠アパート-住民全員",
-   "lib": "休闲",
-   "issue": "跨世界重复(组#563·299个世界共用)",
-   "hasCrossDup": true,
-   "crossGroupIds": [
-    563
-   ],
-   "status": "待修复",
-   "fixedMark": false
-  },
-  {
-   "priority": "P1",
-   "batch": 379,
-   "file": "产出\\批次379\\魔界奴隷商-VIP顧客.md",
-   "name": "魔界奴隷商-VIP顧客",
-   "lib": "休闲",
-   "issue": "跨世界重复(组#563·299个世界共用)",
-   "hasCrossDup": true,
-   "crossGroupIds": [
-    563
-   ],
-   "status": "待修复",
-   "fixedMark": false
-  },
-  {
-   "priority": "P1",
-   "batch": 379,
-   "file": "产出\\批次379\\女騎士陥落-二人同時.md",
-   "name": "女騎士陥落-二人同時",
-   "lib": "休闲",
-   "issue": "跨世界重复(组#563·299个世界共用)",
-   "hasCrossDup": true,
-   "crossGroupIds": [
-    563
-   ],
-   "status": "待修复",
-   "fixedMark": false
-  },
-  {
-   "priority": "P1",
-   "batch": 379,
-   "file": "产出\\批次379\\エルフ双子-再会.md",
-   "name": "エルフ双子-再会",
-   "lib": "休闲",
-   "issue": "跨世界重复(组#563·299个世界共用)",
-   "hasCrossDup": true,
-   "crossGroupIds": [
-    563
-   ],
-   "status": "待修复",
-   "fixedMark": false
-  },
-  {
-   "priority": "P1",
-   "batch": 384,
-   "file": "产出\\批次384\\催眠医院-外来患者.md",
-   "name": "催眠医院-外来患者",
-   "lib": "休闲",
-   "issue": "跨世界重复(组#563·299个世界共用)",
-   "hasCrossDup": true,
-   "crossGroupIds": [
-    563
-   ],
-   "status": "待修复",
-   "fixedMark": false
-  },
-  {
-   "priority": "P1",
-   "batch": 384,
-   "file": "产出\\批次384\\魔法少女ミカ-堕落教官.md",
-   "name": "魔法少女ミカ-堕落教官",
-   "lib": "休闲",
-   "issue": "跨世界重复(组#563·299个世界共用)",
-   "hasCrossDup": true,
-   "crossGroupIds": [
-    563
-   ],
-   "status": "待修复",
-   "fixedMark": false
-  },
-  {
-   "priority": "P1",
-   "batch": 384,
-   "file": "产出\\批次384\\人妻温泉-常連客.md",
-   "name": "人妻温泉-常連客",
-   "lib": "休闲",
-   "issue": "跨世界重复(组#563·299个世界共用)",
-   "hasCrossDup": true,
-   "crossGroupIds": [
-    563
-   ],
-   "status": "待修复",
-   "fixedMark": false
-  },
-  {
-   "priority": "P1",
-   "batch": 384,
-   "file": "产出\\批次384\\聖騎士レナ-第四回捕獲.md",
-   "name": "聖騎士レナ-第四回捕獲",
-   "lib": "休闲",
-   "issue": "跨世界重复(组#563·299个世界共用)",
-   "hasCrossDup": true,
-   "crossGroupIds": [
-    563
-   ],
-   "status": "待修复",
-   "fixedMark": false
-  },
-  {
-   "priority": "P1",
-   "batch": 384,
-   "file": "产出\\批次384\\エルフ女王-第二王女献上.md",
-   "name": "エルフ女王-第二王女献上",
-   "lib": "休闲",
-   "issue": "跨世界重复(组#563·299个世界共用)",
-   "hasCrossDup": true,
-   "crossGroupIds": [
-    563
-   ],
-   "status": "待修复",
-   "fixedMark": false
-  },
-  {
-   "priority": "P1",
-   "batch": 385,
-   "file": "产出\\批次385\\触手列車-新路線開通.md",
-   "name": "触手列車-新路線開通",
-   "lib": "休闲",
-   "issue": "跨世界重复(组#563·299个世界共用)",
-   "hasCrossDup": true,
-   "crossGroupIds": [
-    563,
-    590
-   ],
-   "status": "待修复",
-   "fixedMark": false
-  },
-  {
-   "priority": "P1",
-   "batch": 385,
-   "file": "产出\\批次385\\催眠リゾート-職員採用.md",
-   "name": "催眠リゾート-職員採用",
-   "lib": "休闲",
-   "issue": "跨世界重复(组#563·299个世界共用)",
-   "hasCrossDup": true,
-   "crossGroupIds": [
-    563
-   ],
-   "status": "待修复",
-   "fixedMark": false
-  },
-  {
-   "priority": "P1",
-   "batch": 385,
-   "file": "产出\\批次385\\女戦士捕虜-解放条件.md",
-   "name": "女戦士捕虜-解放条件",
-   "lib": "休闲",
-   "issue": "跨世界重复(组#563·299个世界共用)",
-   "hasCrossDup": true,
-   "crossGroupIds": [
-    563
-   ],
-   "status": "待修复",
-   "fixedMark": false
-  },
-  {
-   "priority": "P1",
-   "batch": 385,
-   "file": "产出\\批次385\\聖女アリシア-使徒任命.md",
-   "name": "聖女アリシア-使徒任命",
-   "lib": "休闲",
-   "issue": "跨世界重复(组#563·299个世界共用)",
-   "hasCrossDup": true,
-   "crossGroupIds": [
-    563
-   ],
-   "status": "待修复",
-   "fixedMark": false
-  },
-  {
-   "priority": "P1",
-   "batch": 385,
-   "file": "产出\\批次385\\淫魔契約-世代継承.md",
-   "name": "淫魔契約-世代継承",
-   "lib": "休闲",
-   "issue": "跨世界重复(组#563·299个世界共用)",
-   "hasCrossDup": true,
-   "crossGroupIds": [
-    563
-   ],
-   "status": "待修复",
-   "fixedMark": false
-  },
-  {
-   "priority": "P1",
-   "batch": 386,
-   "file": "产出\\批次386\\触手異世界-帝国建国.md",
-   "name": "触手異世界-帝国建国",
-   "lib": "休闲",
-   "issue": "跨世界重复(组#563·299个世界共用)",
-   "hasCrossDup": true,
-   "crossGroupIds": [
-    563
-   ],
-   "status": "待修复",
-   "fixedMark": false
-  },
-  {
-   "priority": "P1",
-   "batch": 386,
-   "file": "产出\\批次386\\魔界娼館-最高位昇格.md",
-   "name": "魔界娼館-最高位昇格",
-   "lib": "休闲",
-   "issue": "跨世界重复(组#563·299个世界共用)",
-   "hasCrossDup": true,
-   "crossGroupIds": [
-    563,
-    680,
-    681
-   ],
-   "status": "待修复",
-   "fixedMark": false
-  },
-  {
-   "priority": "P1",
-   "batch": 386,
-   "file": "产出\\批次386\\人妻調教-近所全員完了.md",
-   "name": "人妻調教-近所全員完了",
-   "lib": "休闲",
-   "issue": "跨世界重复(组#563·299个世界共用)",
-   "hasCrossDup": true,
-   "crossGroupIds": [
-    563,
-    675,
-    676,
-    678,
-    677,
-    679
-   ],
-   "status": "待修复",
-   "fixedMark": false
-  },
-  {
-   "priority": "P1",
-   "batch": 386,
-   "file": "产出\\批次386\\淫獣研究所-最終形態.md",
-   "name": "淫獣研究所-最終形態",
-   "lib": "休闲",
-   "issue": "跨世界重复(组#563·299个世界共用)",
-   "hasCrossDup": true,
-   "crossGroupIds": [
-    563
-   ],
-   "status": "待修复",
-   "fixedMark": false
-  },
-  {
-   "priority": "P1",
-   "batch": 386,
-   "file": "产出\\批次386\\エルフ双子姫-主人交換.md",
-   "name": "エルフ双子姫-主人交換",
-   "lib": "休闲",
-   "issue": "跨世界重复(组#563·299个世界共用)",
-   "hasCrossDup": true,
-   "crossGroupIds": [
-    563
-   ],
-   "status": "待修复",
-   "fixedMark": false
-  },
-  {
-   "priority": "P1",
-   "batch": 387,
-   "file": "产出\\批次387\\触手公園-深夜散歩.md",
-   "name": "触手公園-深夜散歩",
-   "lib": "休闲",
-   "issue": "跨世界重复(组#563·299个世界共用)",
-   "hasCrossDup": true,
-   "crossGroupIds": [
-    563
-   ],
-   "status": "待修复",
-   "fixedMark": false
-  },
-  {
-   "priority": "P1",
-   "batch": 387,
-   "file": "产出\\批次387\\催眠教室-補習時間.md",
-   "name": "催眠教室-補習時間",
-   "lib": "休闲",
-   "issue": "跨世界重复(组#563·299个世界共用)",
-   "hasCrossDup": true,
-   "crossGroupIds": [
-    563
-   ],
-   "status": "待修复",
-   "fixedMark": false
-  },
-  {
-   "priority": "P1",
-   "batch": 387,
-   "file": "产出\\批次387\\人妻配達-宅配便.md",
-   "name": "人妻配達-宅配便",
-   "lib": "休闲",
-   "issue": "跨世界重复(组#563·299个世界共用)",
-   "hasCrossDup": true,
-   "crossGroupIds": [
-    563,
-    676,
-    683,
-    684
-   ],
-   "status": "待修复",
-   "fixedMark": false
-  },
-  {
-   "priority": "P1",
-   "batch": 387,
-   "file": "产出\\批次387\\淫獣王国-女王蹂躙.md",
-   "name": "淫獣王国-女王蹂躙",
-   "lib": "休闲",
-   "issue": "跨世界重复(组#563·299个世界共用)",
-   "hasCrossDup": true,
-   "crossGroupIds": [
-    563,
-    685
-   ],
-   "status": "待修复",
-   "fixedMark": false
-  },
-  {
-   "priority": "P1",
-   "batch": 387,
-   "file": "产出\\批次387\\エルフ温泉郷-混浴の夜.md",
-   "name": "エルフ温泉郷-混浴の夜",
-   "lib": "休闲",
-   "issue": "跨世界重复(组#563·299个世界共用)",
-   "hasCrossDup": true,
-   "crossGroupIds": [
-    563,
-    682
-   ],
-   "status": "待修复",
-   "fixedMark": false
-  },
-  {
-   "priority": "P1",
-   "batch": 390,
-   "file": "产出\\批次390\\触手列車-夜行便.md",
-   "name": "触手列車-夜行便",
-   "lib": "休闲",
-   "issue": "跨世界重复(组#563·299个世界共用)",
-   "hasCrossDup": true,
-   "crossGroupIds": [
-    563
-   ],
-   "status": "待修复",
-   "fixedMark": false
-  },
-  {
-   "priority": "P1",
-   "batch": 390,
-   "file": "产出\\批次390\\催眠リゾート-従業員教育.md",
-   "name": "催眠リゾート-従業員教育",
-   "lib": "休闲",
-   "issue": "跨世界重复(组#563·299个世界共用)",
-   "hasCrossDup": true,
-   "crossGroupIds": [
-    563,
-    680,
-    681,
-    696
-   ],
-   "status": "待修复",
-   "fixedMark": false
-  },
-  {
-   "priority": "P1",
-   "batch": 390,
-   "file": "产出\\批次390\\女教師ハーレム-学年全員.md",
-   "name": "女教師ハーレム-学年全員",
-   "lib": "休闲",
-   "issue": "跨世界重复(组#563·299个世界共用)",
-   "hasCrossDup": true,
-   "crossGroupIds": [
-    563
-   ],
-   "status": "待修复",
-   "fixedMark": false
-  },
-  {
-   "priority": "P1",
-   "batch": 390,
-   "file": "产出\\批次390\\聖騎士団-内通者.md",
-   "name": "聖騎士団-内通者",
-   "lib": "休闲",
-   "issue": "跨世界重复(组#563·299个世界共用)",
-   "hasCrossDup": true,
-   "crossGroupIds": [
-    563
-   ],
-   "status": "待修复",
-   "fixedMark": false
-  },
-  {
-   "priority": "P1",
-   "batch": 390,
-   "file": "产出\\批次390\\エルフ村-第三次侵略.md",
-   "name": "エルフ村-第三次侵略",
-   "lib": "休闲",
-   "issue": "跨世界重复(组#563·299个世界共用)",
-   "hasCrossDup": true,
-   "crossGroupIds": [
-    563,
-    686
-   ],
-   "status": "待修复",
-   "fixedMark": false
-  },
-  {
-   "priority": "P1",
-   "batch": 391,
-   "file": "产出\\批次391\\触手神殿-大祭典.md",
-   "name": "触手神殿-大祭典",
-   "lib": "休闲",
-   "issue": "跨世界重复(组#563·299个世界共用)",
-   "hasCrossDup": true,
-   "crossGroupIds": [
-    563,
-    726,
-    728,
-    729,
-    731,
-    732,
-    733,
-    734
-   ],
-   "status": "待修复",
-   "fixedMark": false
-  },
-  {
-   "priority": "P1",
-   "batch": 391,
-   "file": "产出\\批次391\\魔法少女覚醒-闇の使徒.md",
-   "name": "魔法少女覚醒-闇の使徒",
-   "lib": "休闲",
-   "issue": "跨世界重复(组#563·299个世界共用)",
-   "hasCrossDup": true,
-   "crossGroupIds": [
-    563,
-    590
-   ],
-   "status": "待修复",
-   "fixedMark": false
-  },
-  {
-   "priority": "P1",
-   "batch": 391,
-   "file": "产出\\批次391\\女戦士ギルド-全員堕落.md",
-   "name": "女戦士ギルド-全員堕落",
-   "lib": "休闲",
-   "issue": "跨世界重复(组#563·299个世界共用)",
-   "hasCrossDup": true,
-   "crossGroupIds": [
-    563,
-    685
-   ],
-   "status": "待修复",
-   "fixedMark": false
-  },
-  {
-   "priority": "P1",
-   "batch": 391,
-   "file": "产出\\批次391\\人妻調教-マンション全戸.md",
-   "name": "人妻調教-マンション全戸",
-   "lib": "休闲",
-   "issue": "跨世界重复(组#563·299个世界共用)",
-   "hasCrossDup": true,
-   "crossGroupIds": [
-    563,
-    675,
-    676,
-    678,
-    683,
-    684,
-    677,
-    679,
-    712,
-    713,
-    714
-   ],
-   "status": "待修复",
-   "fixedMark": false
-  },
-  {
-   "priority": "P1",
-   "batch": 391,
-   "file": "产出\\批次391\\淫魔学園-修学旅行.md",
-   "name": "淫魔学園-修学旅行",
-   "lib": "休闲",
-   "issue": "跨世界重复(组#563·299个世界共用)",
-   "hasCrossDup": true,
-   "crossGroupIds": [
-    563,
-    665,
-    682
-   ],
-   "status": "待修复",
-   "fixedMark": false
-  },
-  {
-   "priority": "P1",
-   "batch": 394,
-   "file": "产出\\批次394\\触手マンション-住民規約.md",
-   "name": "触手マンション-住民規約",
-   "lib": "休闲",
-   "issue": "跨世界重复(组#563·299个世界共用)",
-   "hasCrossDup": true,
-   "crossGroupIds": [
-    563
-   ],
-   "status": "待修复",
-   "fixedMark": false
-  },
-  {
-   "priority": "P1",
-   "batch": 394,
-   "file": "产出\\批次394\\魔法少女敗北-全員孕.md",
-   "name": "魔法少女敗北-全員孕",
-   "lib": "休闲",
-   "issue": "跨世界重复(组#563·299个世界共用)",
-   "hasCrossDup": true,
-   "crossGroupIds": [
-    563
-   ],
-   "status": "待修复",
-   "fixedMark": false
-  },
-  {
-   "priority": "P1",
-   "batch": 394,
-   "file": "产出\\批次394\\人妻カフェ-裏営業.md",
-   "name": "人妻カフェ-裏営業",
-   "lib": "休闲",
-   "issue": "跨世界重复(组#563·299个世界共用)",
-   "hasCrossDup": true,
-   "crossGroupIds": [
-    563
-   ],
-   "status": "待修复",
-   "fixedMark": false
-  },
-  {
-   "priority": "P1",
-   "batch": 394,
-   "file": "产出\\批次394\\淫魔契約-母娘同時.md",
-   "name": "淫魔契約-母娘同時",
-   "lib": "休闲",
-   "issue": "跨世界重复(组#563·299个世界共用)",
-   "hasCrossDup": true,
-   "crossGroupIds": [
-    563
-   ],
-   "status": "待修复",
-   "fixedMark": false
-  },
-  {
-   "priority": "P1",
-   "batch": 394,
-   "file": "产出\\批次394\\エルフ森林-狩猎祭.md",
-   "name": "エルフ森林-狩猎祭",
-   "lib": "休闲",
-   "issue": "跨世界重复(组#563·299个世界共用)",
-   "hasCrossDup": true,
-   "crossGroupIds": [
-    563,
-    629
-   ],
-   "status": "待修复",
-   "fixedMark": false
-  },
-  {
-   "priority": "P1",
-   "batch": 395,
-   "file": "产出\\批次395\\催眠アイドル-握手会.md",
-   "name": "催眠アイドル-握手会",
-   "lib": "休闲",
-   "issue": "跨世界重复(组#563·299个世界共用)",
-   "hasCrossDup": true,
-   "crossGroupIds": [
-    563
-   ],
-   "status": "待修复",
-   "fixedMark": false
-  },
-  {
-   "priority": "P1",
-   "batch": 395,
-   "file": "产出\\批次395\\魔界闘技場-敗者専用.md",
-   "name": "魔界闘技場-敗者専用",
-   "lib": "休闲",
-   "issue": "跨世界重复(组#563·299个世界共用)",
-   "hasCrossDup": true,
-   "crossGroupIds": [
-    563
-   ],
-   "status": "待修复",
-   "fixedMark": false
-  },
-  {
-   "priority": "P1",
-   "batch": 395,
-   "file": "产出\\批次395\\女教師監禁-夏休み.md",
-   "name": "女教師監禁-夏休み",
-   "lib": "休闲",
-   "issue": "跨世界重复(组#563·299个世界共用)",
-   "hasCrossDup": true,
-   "crossGroupIds": [
-    563
-   ],
-   "status": "待修复",
-   "fixedMark": false
-  },
-  {
-   "priority": "P1",
-   "batch": 395,
-   "file": "产出\\批次395\\聖女牧場-繁殖計画.md",
-   "name": "聖女牧場-繁殖計画",
-   "lib": "休闲",
-   "issue": "跨世界重复(组#563·299个世界共用)",
-   "hasCrossDup": true,
-   "crossGroupIds": [
-    563
-   ],
-   "status": "待修复",
-   "fixedMark": false
-  },
-  {
-   "priority": "P1",
-   "batch": 395,
-   "file": "产出\\批次395\\エルフ姫堕落-完全調教日誌.md",
-   "name": "エルフ姫堕落-完全調教日誌",
-   "lib": "休闲",
-   "issue": "跨世界重复(组#563·299个世界共用)",
-   "hasCrossDup": true,
-   "crossGroupIds": [
-    563,
-    686
-   ],
-   "status": "待修复",
-   "fixedMark": false
-  },
-  {
-   "priority": "P1",
-   "batch": 396,
-   "file": "产出\\批次396\\触手学園-保健室.md",
-   "name": "触手学園-保健室",
-   "lib": "休闲",
-   "issue": "跨世界重复(组#563·299个世界共用)",
-   "hasCrossDup": true,
-   "crossGroupIds": [
-    563
-   ],
-   "status": "待修复",
-   "fixedMark": false
-  },
-  {
-   "priority": "P1",
-   "batch": 396,
-   "file": "产出\\批次396\\催眠会社-OL全員.md",
-   "name": "催眠会社-OL全員",
-   "lib": "休闲",
-   "issue": "跨世界重复(组#563·299个世界共用)",
-   "hasCrossDup": true,
-   "crossGroupIds": [
-    563
-   ],
-   "status": "待修复",
-   "fixedMark": false
-  },
-  {
-   "priority": "P1",
-   "batch": 396,
-   "file": "产出\\批次396\\女戦士捕虜-奴隷市場.md",
-   "name": "女戦士捕虜-奴隷市場",
-   "lib": "休闲",
-   "issue": "跨世界重复(组#563·299个世界共用)",
-   "hasCrossDup": true,
-   "crossGroupIds": [
-    563
-   ],
-   "status": "待修复",
-   "fixedMark": false
-  },
-  {
-   "priority": "P1",
-   "batch": 396,
-   "file": "产出\\批次396\\人妻堕落-PTA会長.md",
-   "name": "人妻堕落-PTA会長",
-   "lib": "休闲",
-   "issue": "跨世界重复(组#563·299个世界共用)",
-   "hasCrossDup": true,
-   "crossGroupIds": [
-    563
-   ],
-   "status": "待修复",
-   "fixedMark": false
-  },
-  {
-   "priority": "P1",
-   "batch": 396,
-   "file": "产出\\批次396\\淫獣村-新嫁入り.md",
-   "name": "淫獣村-新嫁入り",
-   "lib": "休闲",
-   "issue": "跨世界重复(组#563·299个世界共用)",
-   "hasCrossDup": true,
-   "crossGroupIds": [
-    563
-   ],
-   "status": "待修复",
-   "fixedMark": false
-  },
-  {
-   "priority": "P1",
-   "batch": 397,
-   "file": "产出\\批次397\\魔法少女絶望-仲間喰い.md",
-   "name": "魔法少女絶望-仲間喰い",
-   "lib": "休闲",
-   "issue": "跨世界重复(组#563·299个世界共用)",
-   "hasCrossDup": true,
-   "crossGroupIds": [
-    563,
-    590
-   ],
-   "status": "待修复",
-   "fixedMark": false
-  },
-  {
-   "priority": "P1",
-   "batch": 397,
-   "file": "产出\\批次397\\人妻NTR-同窓会二次会.md",
-   "name": "人妻NTR-同窓会二次会",
-   "lib": "休闲",
-   "issue": "跨世界重复(组#563·299个世界共用)",
-   "hasCrossDup": true,
-   "crossGroupIds": [
-    563,
-    675,
-    676,
-    678,
-    683,
-    684,
-    712,
-    713,
-    714
-   ],
-   "status": "待修复",
-   "fixedMark": false
-  },
-  {
-   "priority": "P1",
-   "batch": 397,
-   "file": "产出\\批次397\\聖騎士ミリア-第五次捕獲.md",
-   "name": "聖騎士ミリア-第五次捕獲",
-   "lib": "休闲",
-   "issue": "跨世界重复(组#563·299个世界共用)",
-   "hasCrossDup": true,
-   "crossGroupIds": [
-    563
-   ],
-   "status": "待修复",
-   "fixedMark": false
-  },
-  {
-   "priority": "P1",
-   "batch": 397,
-   "file": "产出\\批次397\\淫魔寄宿舎-卒業記念.md",
-   "name": "淫魔寄宿舎-卒業記念",
-   "lib": "休闲",
-   "issue": "跨世界重复(组#563·299个世界共用)",
-   "hasCrossDup": true,
-   "crossGroupIds": [
-    563,
-    665,
-    682
-   ],
-   "status": "待修复",
-   "fixedMark": false
-  },
-  {
-   "priority": "P1",
-   "batch": 397,
-   "file": "产出\\批次397\\エルフ村-人間牧場化.md",
-   "name": "エルフ村-人間牧場化",
-   "lib": "休闲",
-   "issue": "跨世界重复(组#563·299个世界共用)",
-   "hasCrossDup": true,
-   "crossGroupIds": [
-    563
-   ],
-   "status": "待修复",
-   "fixedMark": false
-  },
-  {
-   "priority": "P1",
-   "batch": 398,
-   "file": "产出\\批次398\\触手遺跡-第二次探検隊.md",
-   "name": "触手遺跡-第二次探検隊",
-   "lib": "休闲",
-   "issue": "跨世界重复(组#563·299个世界共用)",
-   "hasCrossDup": true,
-   "crossGroupIds": [
-    563,
-    726,
-    728,
-    729,
-    731,
-    732,
-    733,
-    734
-   ],
-   "status": "待修复",
-   "fixedMark": false
-  },
-  {
-   "priority": "P1",
-   "batch": 398,
-   "file": "产出\\批次398\\催眠温泉-団体客.md",
-   "name": "催眠温泉-団体客",
-   "lib": "休闲",
-   "issue": "跨世界重复(组#563·299个世界共用)",
-   "hasCrossDup": true,
-   "crossGroupIds": [
-    563,
-    680,
-    681,
-    696
-   ],
-   "status": "待修复",
-   "fixedMark": false
-  },
-  {
-   "priority": "P1",
-   "batch": 398,
-   "file": "产出\\批次398\\女教師寮-全室巡回.md",
-   "name": "女教師寮-全室巡回",
-   "lib": "休闲",
-   "issue": "跨世界重复(组#563·299个世界共用)",
-   "hasCrossDup": true,
-   "crossGroupIds": [
-    563
-   ],
-   "status": "待修复",
-   "fixedMark": false
-  },
-  {
-   "priority": "P1",
-   "batch": 398,
-   "file": "产出\\批次398\\聖女監禁-三年目.md",
-   "name": "聖女監禁-三年目",
-   "lib": "休闲",
-   "issue": "跨世界重复(组#563·299个世界共用)",
-   "hasCrossDup": true,
-   "crossGroupIds": [
-    563
-   ],
-   "status": "待修复",
-   "fixedMark": false
-  },
-  {
-   "priority": "P1",
-   "batch": 398,
-   "file": "产出\\批次398\\エルフ双子姫-主人交代.md",
-   "name": "エルフ双子姫-主人交代",
-   "lib": "休闲",
-   "issue": "跨世界重复(组#563·299个世界共用)",
-   "hasCrossDup": true,
-   "crossGroupIds": [
-    563,
-    686
-   ],
-   "status": "待修复",
-   "fixedMark": false
-  },
-  {
-   "priority": "P1",
-   "batch": 399,
-   "file": "产出\\批次399\\触手孤島-第四世代.md",
-   "name": "触手孤島-第四世代",
-   "lib": "休闲",
-   "issue": "跨世界重复(组#563·299个世界共用)",
-   "hasCrossDup": true,
-   "crossGroupIds": [
-    563
-   ],
-   "status": "待修复",
-   "fixedMark": false
-  },
-  {
-   "priority": "P1",
-   "batch": 399,
-   "file": "产出\\批次399\\魔界公主-人間娼館経営.md",
-   "name": "魔界公主-人間娼館経営",
-   "lib": "休闲",
-   "issue": "跨世界重复(组#563·299个世界共用)",
-   "hasCrossDup": true,
-   "crossGroupIds": [
-    563,
-    680,
-    681,
-    696
-   ],
-   "status": "待修复",
-   "fixedMark": false
-  },
-  {
-   "priority": "P1",
-   "batch": 399,
-   "file": "产出\\批次399\\女騎士団-再建三度失敗.md",
-   "name": "女騎士団-再建三度失敗",
-   "lib": "休闲",
-   "issue": "跨世界重复(组#563·299个世界共用)",
-   "hasCrossDup": true,
-   "crossGroupIds": [
-    563,
-    685
-   ],
-   "status": "待修复",
-   "fixedMark": false
-  },
-  {
-   "priority": "P1",
-   "batch": 399,
-   "file": "产出\\批次399\\人妻調教-団地自治会.md",
-   "name": "人妻調教-団地自治会",
-   "lib": "休闲",
-   "issue": "跨世界重复(组#563·299个世界共用)",
-   "hasCrossDup": true,
-   "crossGroupIds": [
-    563,
-    675,
-    676,
-    678,
-    683,
-    684,
-    677,
-    679,
-    712,
-    713,
-    714
-   ],
-   "status": "待修复",
-   "fixedMark": false
-  },
-  {
-   "priority": "P1",
-   "batch": 399,
-   "file": "产出\\批次399\\淫獣祭壇-百人祭.md",
-   "name": "淫獣祭壇-百人祭",
-   "lib": "休闲",
-   "issue": "跨世界重复(组#563·299个世界共用)",
-   "hasCrossDup": true,
-   "crossGroupIds": [
-    563,
-    726,
-    728,
-    729,
-    731,
-    732,
-    733,
-    734
-   ],
-   "status": "待修复",
-   "fixedMark": false
-  },
-  {
-   "priority": "P1",
-   "batch": 434,
-   "file": "产出\\批次434\\触手病棟-長期入院.md",
-   "name": "触手病棟-長期入院",
-   "lib": "休闲",
-   "issue": "跨世界重复(组#742·5个世界共用)",
-   "hasCrossDup": true,
-   "crossGroupIds": [
-    742,
-    743,
-    744,
-    745,
-    746,
-    747,
-    748,
-    749,
-    750,
-    751,
-    752,
-    753
-   ],
-   "status": "待修复",
-   "fixedMark": false
-  },
-  {
-   "priority": "P1",
-   "batch": 434,
-   "file": "产出\\批次434\\人妻温泉-混浴指定.md",
-   "name": "人妻温泉-混浴指定",
-   "lib": "休闲",
-   "issue": "跨世界重复(组#742·5个世界共用)",
-   "hasCrossDup": true,
-   "crossGroupIds": [
-    742,
-    743
-   ],
-   "status": "待修复",
-   "fixedMark": false
-  },
-  {
-   "priority": "P1",
-   "batch": 434,
-   "file": "产出\\批次434\\淫魔学園-二期生.md",
-   "name": "淫魔学園-二期生",
-   "lib": "休闲",
-   "issue": "跨世界重复(组#742·5个世界共用)",
-   "hasCrossDup": true,
-   "crossGroupIds": [
-    742,
-    743,
-    744,
-    745,
-    746,
-    747,
-    748
-   ],
-   "status": "待修复",
-   "fixedMark": false
-  },
-  {
-   "priority": "P1",
-   "batch": 436,
-   "file": "产出\\批次436\\女教師落とし-全国大会.md",
-   "name": "女教師落とし-全国大会",
-   "lib": "休闲",
-   "issue": "跨世界重复(组#742·5个世界共用)",
-   "hasCrossDup": true,
-   "crossGroupIds": [
-    742,
-    743,
-    744,
-    745,
-    746,
-    747,
-    748,
-    749,
-    750,
-    751,
-    752,
-    753
-   ],
-   "status": "待修复",
-   "fixedMark": false
-  },
-  {
-   "priority": "P1",
-   "batch": 436,
-   "file": "产出\\批次436\\淫獣研究所-第四期開始.md",
-   "name": "淫獣研究所-第四期開始",
-   "lib": "休闲",
-   "issue": "跨世界重复(组#742·5个世界共用)",
-   "hasCrossDup": true,
-   "crossGroupIds": [
-    742,
-    743,
-    744,
-    745,
-    746,
-    747,
-    748,
-    749,
-    750,
-    751,
-    752,
-    753
-   ],
-   "status": "待修复",
-   "fixedMark": false
-  },
-  {
-   "priority": "P1",
-   "batch": 445,
-   "file": "产出\\批次445\\淫魔帝国-宇宙征服完了.md",
-   "name": "淫魔帝国-宇宙征服完了",
-   "lib": "休闲",
-   "issue": "跨世界重复(组#759·3个世界共用)",
-   "hasCrossDup": true,
-   "crossGroupIds": [
-    759,
-    760
-   ],
-   "status": "待修复",
-   "fixedMark": false
-  },
-  {
-   "priority": "P1",
-   "batch": 446,
-   "file": "产出\\批次446\\触手列車-時空路線.md",
-   "name": "触手列車-時空路線",
-   "lib": "休闲",
-   "issue": "跨世界重复(组#761·4个世界共用)",
-   "hasCrossDup": true,
-   "crossGroupIds": [
-    761
-   ],
-   "status": "待修复",
-   "fixedMark": false
-  },
-  {
-   "priority": "P1",
-   "batch": 446,
-   "file": "产出\\批次446\\触手水族館-海洋公園化.md",
-   "name": "触手水族館-海洋公園化",
-   "lib": "休闲",
-   "issue": "跨世界重复(组#761·4个世界共用)",
-   "hasCrossDup": true,
-   "crossGroupIds": [
-    761
-   ],
-   "status": "待修复",
-   "fixedMark": false
-  },
-  {
-   "priority": "P1",
-   "batch": 446,
-   "file": "产出\\批次446\\催眠美術館-常設展.md",
-   "name": "催眠美術館-常設展",
-   "lib": "休闲",
-   "issue": "跨世界重复(组#761·4个世界共用)",
-   "hasCrossDup": true,
-   "crossGroupIds": [
-    761
-   ],
-   "status": "待修复",
-   "fixedMark": false
-  },
-  {
-   "priority": "P1",
-   "batch": 446,
-   "file": "产出\\批次446\\魔導図書館-禁書開放.md",
-   "name": "魔導図書館-禁書開放",
-   "lib": "休闲",
-   "issue": "跨世界重复(组#761·4个世界共用)",
-   "hasCrossDup": true,
-   "crossGroupIds": [
-    761
-   ],
-   "status": "待修复",
-   "fixedMark": false
-  },
-  {
-   "priority": "P1",
-   "batch": 447,
-   "file": "产出\\批次447\\聖女修道院-連鎖化.md",
-   "name": "聖女修道院-連鎖化",
-   "lib": "休闲",
-   "issue": "跨世界重复(组#759·3个世界共用)",
-   "hasCrossDup": true,
-   "crossGroupIds": [
-    759,
-    760
-   ],
-   "status": "待修复",
-   "fixedMark": false
-  },
-  {
-   "priority": "P1",
-   "batch": 449,
-   "file": "产出\\批次449\\触手動物園-サファリ化.md",
-   "name": "触手動物園-サファリ化",
-   "lib": "休闲",
-   "issue": "跨世界重复(组#563·299个世界共用)",
-   "hasCrossDup": true,
-   "crossGroupIds": [
-    563,
-    762,
-    763
-   ],
-   "status": "待修复",
-   "fixedMark": false
-  },
-  {
-   "priority": "P1",
-   "batch": 449,
-   "file": "产出\\批次449\\催眠美容-全国チェーン.md",
-   "name": "催眠美容-全国チェーン",
-   "lib": "休闲",
-   "issue": "跨世界重复(组#563·299个世界共用)",
-   "hasCrossDup": true,
-   "crossGroupIds": [
-    563,
-    762,
-    763
-   ],
-   "status": "待修复",
-   "fixedMark": false
-  },
-  {
-   "priority": "P1",
-   "batch": 449,
-   "file": "产出\\批次449\\女教師教育-正式制度.md",
-   "name": "女教師教育-正式制度",
-   "lib": "休闲",
-   "issue": "跨世界重复(组#563·299个世界共用)",
-   "hasCrossDup": true,
-   "crossGroupIds": [
-    563,
-    762,
-    763
-   ],
-   "status": "待修复",
-   "fixedMark": false
-  },
-  {
-   "priority": "P1",
-   "batch": 449,
-   "file": "产出\\批次449\\聖騎士団-遺産博物館.md",
-   "name": "聖騎士団-遺産博物館",
-   "lib": "休闲",
-   "issue": "跨世界重复(组#563·299个世界共用)",
-   "hasCrossDup": true,
-   "crossGroupIds": [
-    563,
-    762,
-    763
-   ],
-   "status": "待修复",
-   "fixedMark": false
-  },
-  {
-   "priority": "P1",
-   "batch": 449,
-   "file": "产出\\批次449\\淫獣劇場-連鎖劇場.md",
-   "name": "淫獣劇場-連鎖劇場",
-   "lib": "休闲",
-   "issue": "跨世界重复(组#563·299个世界共用)",
-   "hasCrossDup": true,
-   "crossGroupIds": [
-    563,
-    762,
-    763
-   ],
-   "status": "待修复",
-   "fixedMark": false
-  },
-  {
-   "priority": "P1",
-   "batch": 454,
-   "file": "产出\\批次454\\触手病棟-専門病院化.md",
-   "name": "触手病棟-専門病院化",
-   "lib": "休闲",
-   "issue": "跨世界重复(组#563·299个世界共用)",
-   "hasCrossDup": true,
-   "crossGroupIds": [
-    563,
-    667
-   ],
-   "status": "待修复",
-   "fixedMark": false
-  },
-  {
-   "priority": "P1",
-   "batch": 454,
-   "file": "产出\\批次454\\催眠病院-国際連盟.md",
-   "name": "催眠病院-国際連盟",
-   "lib": "休闲",
-   "issue": "跨世界重复(组#563·299个世界共用)",
-   "hasCrossDup": true,
-   "crossGroupIds": [
-    563
-   ],
-   "status": "待修复",
-   "fixedMark": false
-  },
-  {
-   "priority": "P1",
-   "batch": 454,
-   "file": "产出\\批次454\\女戦士ギルド-国際連盟.md",
-   "name": "女戦士ギルド-国際連盟",
-   "lib": "休闲",
-   "issue": "跨世界重复(组#563·299个世界共用)",
-   "hasCrossDup": true,
-   "crossGroupIds": [
-    563,
-    590
-   ],
-   "status": "待修复",
-   "fixedMark": false
-  },
-  {
-   "priority": "P1",
-   "batch": 454,
-   "file": "产出\\批次454\\聖女牧場-産業化完了.md",
-   "name": "聖女牧場-産業化完了",
-   "lib": "休闲",
-   "issue": "跨世界重复(组#563·299个世界共用)",
-   "hasCrossDup": true,
-   "crossGroupIds": [
-    563
-   ],
-   "status": "待修复",
-   "fixedMark": false
-  },
-  {
-   "priority": "P1",
-   "batch": 454,
-   "file": "产出\\批次454\\エルフ村-歴史遺産.md",
-   "name": "エルフ村-歴史遺産",
-   "lib": "休闲",
-   "issue": "跨世界重复(组#563·299个世界共用)",
-   "hasCrossDup": true,
-   "crossGroupIds": [
-    563
-   ],
-   "status": "待修复",
-   "fixedMark": false
-  },
-  {
-   "priority": "P1",
-   "batch": 456,
-   "file": "产出\\批次456\\催眠リゾート-多元宇宙.md",
-   "name": "催眠リゾート-多元宇宙",
-   "lib": "休闲",
-   "issue": "跨世界重复(组#563·299个世界共用)",
-   "hasCrossDup": true,
-   "crossGroupIds": [
-    563,
-    762
-   ],
-   "status": "待修复",
-   "fixedMark": false
-  },
-  {
-   "priority": "P1",
-   "batch": 456,
-   "file": "产出\\批次456\\魔法少女堕落-次元征服.md",
-   "name": "魔法少女堕落-次元征服",
-   "lib": "休闲",
-   "issue": "跨世界重复(组#563·299个世界共用)",
-   "hasCrossDup": true,
-   "crossGroupIds": [
-    563,
-    762
-   ],
-   "status": "待修复",
-   "fixedMark": false
-  },
-  {
-   "priority": "P1",
-   "batch": 456,
-   "file": "产出\\批次456\\人妻温泉-宇宙展開.md",
-   "name": "人妻温泉-宇宙展開",
-   "lib": "休闲",
-   "issue": "跨世界重复(组#563·299个世界共用)",
-   "hasCrossDup": true,
-   "crossGroupIds": [
-    563,
-    762
-   ],
-   "status": "待修复",
-   "fixedMark": false
-  },
-  {
-   "priority": "P1",
-   "batch": 456,
-   "file": "产出\\批次456\\聖騎士カタリナ-宇宙帝国.md",
-   "name": "聖騎士カタリナ-宇宙帝国",
-   "lib": "休闲",
-   "issue": "跨世界重复(组#563·299个世界共用)",
-   "hasCrossDup": true,
-   "crossGroupIds": [
-    563,
-    762,
-    770
-   ],
-   "status": "待修复",
-   "fixedMark": false
-  },
-  {
-   "priority": "P1",
-   "batch": 456,
-   "file": "产出\\批次456\\エルフ双子姫-銀河帝国.md",
-   "name": "エルフ双子姫-銀河帝国",
-   "lib": "休闲",
-   "issue": "跨世界重复(组#563·299个世界共用)",
-   "hasCrossDup": true,
-   "crossGroupIds": [
-    563,
-    762
-   ],
-   "status": "待修复",
-   "fixedMark": false
-  },
-  {
-   "priority": "P1",
-   "batch": 457,
-   "file": "产出\\批次457\\触手世界-時空統一.md",
-   "name": "触手世界-時空統一",
-   "lib": "休闲",
-   "issue": "灌水标记:【加厚·",
-   "hasCrossDup": false,
-   "crossGroupIds": [],
-   "status": "待修复",
-   "fixedMark": false
-  },
-  {
-   "priority": "P1",
-   "batch": 457,
-   "file": "产出\\批次457\\催眠占い館-運命改変.md",
-   "name": "催眠占い館-運命改変",
-   "lib": "休闲",
-   "issue": "灌水标记:【加厚·",
-   "hasCrossDup": false,
-   "crossGroupIds": [],
-   "status": "待修复",
-   "fixedMark": false
-  },
-  {
-   "priority": "P1",
-   "batch": 457,
-   "file": "产出\\批次457\\魔導騎士団-全員堕落.md",
-   "name": "魔導騎士団-全員堕落",
-   "lib": "休闲",
-   "issue": "灌水标记:【加厚·",
-   "hasCrossDup": false,
-   "crossGroupIds": [],
-   "status": "待修复",
-   "fixedMark": false
-  },
-  {
-   "priority": "P1",
-   "batch": 457,
-   "file": "产出\\批次457\\淫魔帝国-多元宇宙.md",
-   "name": "淫魔帝国-多元宇宙",
-   "lib": "休闲",
-   "issue": "灌水标记:【加厚·",
-   "hasCrossDup": false,
-   "crossGroupIds": [],
-   "status": "待修复",
-   "fixedMark": false
-  },
-  {
-   "priority": "P1",
-   "batch": 457,
-   "file": "产出\\批次457\\エルフ薬師-禁忌調合.md",
-   "name": "エルフ薬師-禁忌調合",
-   "lib": "休闲",
-   "issue": "灌水标记:【加厚·",
-   "hasCrossDup": false,
-   "crossGroupIds": [],
-   "status": "待修复",
-   "fixedMark": false
-  },
-  {
-   "priority": "P1",
-   "batch": 459,
-   "file": "产出\\批次459\\触手映画館-上映中.md",
-   "name": "触手映画館-上映中",
-   "lib": "休闲",
-   "issue": "跨世界重复(组#563·299个世界共用)",
-   "hasCrossDup": true,
-   "crossGroupIds": [
-    563,
-    762
-   ],
-   "status": "待修复",
-   "fixedMark": false
-  },
-  {
-   "priority": "P1",
-   "batch": 459,
-   "file": "产出\\批次459\\催眠写真館-記念撮影.md",
-   "name": "催眠写真館-記念撮影",
-   "lib": "休闲",
-   "issue": "跨世界重复(组#563·299个世界共用)",
-   "hasCrossDup": true,
-   "crossGroupIds": [
-    563,
-    762
-   ],
-   "status": "待修复",
-   "fixedMark": false
-  },
-  {
-   "priority": "P1",
-   "batch": 459,
-   "file": "产出\\批次459\\魔界喫茶-ウェイトレス.md",
-   "name": "魔界喫茶-ウェイトレス",
-   "lib": "休闲",
-   "issue": "跨世界重复(组#563·299个世界共用)",
-   "hasCrossDup": true,
-   "crossGroupIds": [
-    563,
-    762
-   ],
-   "status": "待修复",
-   "fixedMark": false
-  },
-  {
-   "priority": "P1",
-   "batch": 459,
-   "file": "产出\\批次459\\女騎士エリカ-八度目覚醒.md",
-   "name": "女騎士エリカ-八度目覚醒",
-   "lib": "休闲",
-   "issue": "跨世界重复(组#563·299个世界共用)",
-   "hasCrossDup": true,
-   "crossGroupIds": [
-    563,
-    762,
-    770
-   ],
-   "status": "待修复",
-   "fixedMark": false
-  },
-  {
-   "priority": "P1",
-   "batch": 460,
-   "file": "产出\\批次460\\触手ビーチ-海開き.md",
-   "name": "触手ビーチ-海開き",
-   "lib": "休闲",
-   "issue": "跨世界重复(组#563·299个世界共用)",
-   "hasCrossDup": true,
-   "crossGroupIds": [
-    563,
-    762
-   ],
-   "status": "待修复",
-   "fixedMark": false
-  },
-  {
-   "priority": "P1",
-   "batch": 460,
-   "file": "产出\\批次460\\女教師温泉-慰安旅行.md",
-   "name": "女教師温泉-慰安旅行",
-   "lib": "休闲",
-   "issue": "跨世界重复(组#563·299个世界共用)",
-   "hasCrossDup": true,
-   "crossGroupIds": [
-    563,
-    762
-   ],
-   "status": "待修复",
-   "fixedMark": false
-  },
-  {
-   "priority": "P1",
-   "batch": 460,
-   "file": "产出\\批次460\\人妻ジム-パーソナル.md",
-   "name": "人妻ジム-パーソナル",
-   "lib": "休闲",
-   "issue": "跨世界重复(组#563·299个世界共用)",
-   "hasCrossDup": true,
-   "crossGroupIds": [
-    563,
-    762
-   ],
-   "status": "待修复",
-   "fixedMark": false
-  },
-  {
-   "priority": "P1",
-   "batch": 460,
-   "file": "产出\\批次460\\聖騎士団-復活計画.md",
-   "name": "聖騎士団-復活計画",
-   "lib": "休闲",
-   "issue": "跨世界重复(组#563·299个世界共用)",
-   "hasCrossDup": true,
-   "crossGroupIds": [
-    563,
-    762
-   ],
-   "status": "待修复",
-   "fixedMark": false
-  },
-  {
-   "priority": "P1",
-   "batch": 460,
-   "file": "产出\\批次460\\淫獣サーカス-団員募集.md",
-   "name": "淫獣サーカス-団員募集",
-   "lib": "休闲",
-   "issue": "跨世界重复(组#563·299个世界共用)",
-   "hasCrossDup": true,
-   "crossGroupIds": [
-    563,
-    762
-   ],
-   "status": "待修复",
-   "fixedMark": false
-  },
-  {
-   "priority": "P1",
-   "batch": 461,
-   "file": "产出\\批次461\\催眠書店-読書会.md",
-   "name": "催眠書店-読書会",
-   "lib": "休闲",
-   "issue": "跨世界重复(组#563·299个世界共用)",
-   "hasCrossDup": true,
-   "crossGroupIds": [
-    563,
-    762
-   ],
-   "status": "待修复",
-   "fixedMark": false
-  },
-  {
-   "priority": "P1",
-   "batch": 461,
-   "file": "产出\\批次461\\魔法少女ミオ-時間停止.md",
-   "name": "魔法少女ミオ-時間停止",
-   "lib": "休闲",
-   "issue": "跨世界重复(组#563·299个世界共用)",
-   "hasCrossDup": true,
-   "crossGroupIds": [
-    563,
-    762,
-    770
-   ],
-   "status": "待修复",
-   "fixedMark": false
-  },
-  {
-   "priority": "P1",
-   "batch": 461,
-   "file": "产出\\批次461\\人妻茶道-裏千家.md",
-   "name": "人妻茶道-裏千家",
-   "lib": "休闲",
-   "issue": "跨世界重复(组#563·299个世界共用)",
-   "hasCrossDup": true,
-   "crossGroupIds": [
-    563,
-    762
-   ],
-   "status": "待修复",
-   "fixedMark": false
-  },
-  {
-   "priority": "P1",
-   "batch": 461,
-   "file": "产出\\批次461\\淫魔旅行社-ツアー.md",
-   "name": "淫魔旅行社-ツアー",
-   "lib": "休闲",
-   "issue": "跨世界重复(组#563·299个世界共用)",
-   "hasCrossDup": true,
-   "crossGroupIds": [
-    563,
-    762
-   ],
-   "status": "待修复",
-   "fixedMark": false
-  },
-  {
-   "priority": "P1",
-   "batch": 461,
-   "file": "产出\\批次461\\エルフ織物工房-職人.md",
-   "name": "エルフ織物工房-職人",
-   "lib": "休闲",
-   "issue": "跨世界重复(组#563·299个世界共用)",
-   "hasCrossDup": true,
-   "crossGroupIds": [
-    563,
-    762
-   ],
-   "status": "待修复",
-   "fixedMark": false
-  },
-  {
-   "priority": "P1",
-   "batch": 463,
-   "file": "产出\\批次463\\人妻ネイル-施術室.md",
-   "name": "人妻ネイル-施術室",
-   "lib": "休闲",
-   "issue": "跨世界重复(组#759·3个世界共用)",
-   "hasCrossDup": true,
-   "crossGroupIds": [
-    759,
-    760
-   ],
-   "status": "待修复",
-   "fixedMark": false
-  },
-  {
-   "priority": "P1",
-   "batch": 464,
-   "file": "产出\\批次464\\催眠エステ-痩身コース.md",
-   "name": "催眠エステ-痩身コース",
-   "lib": "休闲",
-   "issue": "跨世界重复(组#563·299个世界共用)",
-   "hasCrossDup": true,
-   "crossGroupIds": [
-    563,
-    775,
-    776,
-    779,
-    777
-   ],
-   "status": "待修复",
-   "fixedMark": false
-  },
-  {
-   "priority": "P1",
-   "batch": 464,
-   "file": "产出\\批次464\\魔法少女ノエル-聖夜堕落.md",
-   "name": "魔法少女ノエル-聖夜堕落",
-   "lib": "休闲",
-   "issue": "跨世界重复(组#563·299个世界共用)",
-   "hasCrossDup": true,
-   "crossGroupIds": [
-    563,
-    590,
-    787,
-    792,
-    794
-   ],
-   "status": "待修复",
-   "fixedMark": false
-  },
-  {
-   "priority": "P1",
-   "batch": 464,
-   "file": "产出\\批次464\\人妻ヨガ-上級クラス.md",
-   "name": "人妻ヨガ-上級クラス",
-   "lib": "休闲",
-   "issue": "跨世界重复(组#563·299个世界共用)",
-   "hasCrossDup": true,
-   "crossGroupIds": [
-    563,
-    667
-   ],
-   "status": "待修复",
-   "fixedMark": false
-  },
-  {
-   "priority": "P1",
-   "batch": 464,
-   "file": "产出\\批次464\\聖騎士ローザ-九度目.md",
-   "name": "聖騎士ローザ-九度目",
-   "lib": "休闲",
-   "issue": "跨世界重复(组#563·299个世界共用)",
-   "hasCrossDup": true,
-   "crossGroupIds": [
-    563,
-    625,
-    780
-   ],
-   "status": "待修复",
-   "fixedMark": false
-  },
-  {
-   "priority": "P1",
-   "batch": 464,
-   "file": "产出\\批次464\\エルフ鍛冶-弟子入門.md",
-   "name": "エルフ鍛冶-弟子入門",
-   "lib": "休闲",
-   "issue": "跨世界重复(组#563·299个世界共用)",
-   "hasCrossDup": true,
-   "crossGroupIds": [
-    563,
-    773
-   ],
-   "status": "待修复",
-   "fixedMark": false
-  },
-  {
-   "priority": "P1",
-   "batch": 465,
-   "file": "产出\\批次465\\触手温室-園芸部.md",
-   "name": "触手温室-園芸部",
-   "lib": "休闲",
-   "issue": "跨世界重复(组#563·299个世界共用)",
-   "hasCrossDup": true,
-   "crossGroupIds": [
-    563,
-    667
-   ],
-   "status": "待修复",
-   "fixedMark": false
-  },
-  {
-   "priority": "P1",
-   "batch": 465,
-   "file": "产出\\批次465\\催眠料亭-接待.md",
-   "name": "催眠料亭-接待",
-   "lib": "休闲",
-   "issue": "跨世界重复(组#563·299个世界共用)",
-   "hasCrossDup": true,
-   "crossGroupIds": [
-    563,
-    593,
-    796
-   ],
-   "status": "待修复",
-   "fixedMark": false
-  },
-  {
-   "priority": "P1",
-   "batch": 465,
-   "file": "产出\\批次465\\女教師合唱団-練習風景.md",
-   "name": "女教師合唱団-練習風景",
-   "lib": "休闲",
-   "issue": "跨世界重复(组#563·299个世界共用)",
-   "hasCrossDup": true,
-   "crossGroupIds": [
-    563,
-    595
-   ],
-   "status": "待修复",
-   "fixedMark": false
-  },
-  {
-   "priority": "P1",
-   "batch": 465,
-   "file": "产出\\批次465\\聖女楽団-演奏会.md",
-   "name": "聖女楽団-演奏会",
-   "lib": "休闲",
-   "issue": "跨世界重复(组#563·299个世界共用)",
-   "hasCrossDup": true,
-   "crossGroupIds": [
-    563,
-    625,
-    780
-   ],
-   "status": "待修复",
-   "fixedMark": false
-  },
-  {
-   "priority": "P1",
-   "batch": 465,
-   "file": "产出\\批次465\\淫魔芸能事務所-新人発掘.md",
-   "name": "淫魔芸能事務所-新人発掘",
-   "lib": "休闲",
-   "issue": "跨世界重复(组#563·299个世界共用)",
-   "hasCrossDup": true,
-   "crossGroupIds": [
-    563,
-    794
-   ],
-   "status": "待修复",
-   "fixedMark": false
-  },
-  {
-   "priority": "P1",
-   "batch": 466,
-   "file": "产出\\批次466\\触手プラネタリウム-上映会.md",
-   "name": "触手プラネタリウム-上映会",
-   "lib": "休闲",
-   "issue": "跨世界重复(组#563·299个世界共用)",
-   "hasCrossDup": true,
-   "crossGroupIds": [
-    563,
-    590
-   ],
-   "status": "待修复",
-   "fixedMark": false
-  },
-  {
-   "priority": "P1",
-   "batch": 466,
-   "file": "产出\\批次466\\魔界遊園地-夜間営業.md",
-   "name": "魔界遊園地-夜間営業",
-   "lib": "休闲",
-   "issue": "跨世界重复(组#563·299个世界共用)",
-   "hasCrossDup": true,
-   "crossGroupIds": [
-    563
-   ],
-   "status": "待修复",
-   "fixedMark": false
-  },
-  {
-   "priority": "P1",
-   "batch": 466,
-   "file": "产出\\批次466\\人妻花屋-配達サービス.md",
-   "name": "人妻花屋-配達サービス",
-   "lib": "休闲",
-   "issue": "跨世界重复(组#563·299个世界共用)",
-   "hasCrossDup": true,
-   "crossGroupIds": [
-    563,
-    634,
-    775,
-    636
-   ],
-   "status": "待修复",
-   "fixedMark": false
-  },
-  {
-   "priority": "P1",
-   "batch": 466,
-   "file": "产出\\批次466\\淫獣美術学校-デッサン.md",
-   "name": "淫獣美術学校-デッサン",
-   "lib": "休闲",
-   "issue": "跨世界重复(组#563·299个世界共用)",
-   "hasCrossDup": true,
-   "crossGroupIds": [
-    563,
-    667,
-    776,
-    779
-   ],
-   "status": "待修复",
-   "fixedMark": false
-  },
-  {
-   "priority": "P1",
-   "batch": 466,
-   "file": "产出\\批次466\\エルフ舞踊団-稽古場.md",
-   "name": "エルフ舞踊団-稽古場",
-   "lib": "休闲",
-   "issue": "跨世界重复(组#563·299个世界共用)",
-   "hasCrossDup": true,
-   "crossGroupIds": [
-    563,
-    664,
-    773
-   ],
-   "status": "待修复",
-   "fixedMark": false
-  },
-  {
-   "priority": "P1",
-   "batch": 467,
-   "file": "产出\\批次467\\触手茶寮-女将修行.md",
-   "name": "触手茶寮-女将修行",
-   "lib": "休闲",
-   "issue": "跨世界重复(组#563·299个世界共用)",
-   "hasCrossDup": true,
-   "crossGroupIds": [
-    563,
-    625,
-    780
-   ],
-   "status": "待修复",
-   "fixedMark": false
-  },
-  {
-   "priority": "P1",
-   "batch": 467,
-   "file": "产出\\批次467\\催眠花店-配達先.md",
-   "name": "催眠花店-配達先",
-   "lib": "休闲",
-   "issue": "跨世界重复(组#563·299个世界共用)",
-   "hasCrossDup": true,
-   "crossGroupIds": [
-    563,
-    775,
-    776,
-    779,
-    777
-   ],
-   "status": "待修复",
-   "fixedMark": false
-  },
-  {
-   "priority": "P1",
-   "batch": 467,
-   "file": "产出\\批次467\\魔法少女ミサキ-裏切りの代償.md",
-   "name": "魔法少女ミサキ-裏切りの代償",
-   "lib": "休闲",
-   "issue": "跨世界重复(组#563·299个世界共用)",
-   "hasCrossDup": true,
-   "crossGroupIds": [
-    563,
-    590,
-    787,
-    792,
-    794
-   ],
-   "status": "待修复",
-   "fixedMark": false
-  },
-  {
-   "priority": "P1",
-   "batch": 467,
-   "file": "产出\\批次467\\人妻ブティック-試着室.md",
-   "name": "人妻ブティック-試着室",
-   "lib": "休闲",
-   "issue": "跨世界重复(组#563·299个世界共用)",
-   "hasCrossDup": true,
-   "crossGroupIds": [
-    563,
-    667,
-    634
-   ],
-   "status": "待修复",
-   "fixedMark": false
-  },
-  {
-   "priority": "P1",
-   "batch": 467,
-   "file": "产出\\批次467\\エルフ鍛冶屋-夜勤.md",
-   "name": "エルフ鍛冶屋-夜勤",
-   "lib": "休闲",
-   "issue": "跨世界重复(组#563·299个世界共用)",
-   "hasCrossDup": true,
-   "crossGroupIds": [
-    563,
-    632,
-    773
-   ],
-   "status": "待修复",
-   "fixedMark": false
-  },
-  {
-   "priority": "P1",
-   "batch": 468,
-   "file": "产出\\批次468\\淫魔航空会社-CA研修.md",
-   "name": "淫魔航空会社-CA研修",
-   "lib": "休闲",
-   "issue": "跨世界重复(组#596·7个世界共用)",
-   "hasCrossDup": true,
-   "crossGroupIds": [
-    596
-   ],
-   "status": "待修复",
-   "fixedMark": false
-  },
-  {
-   "priority": "P1",
-   "batch": 469,
-   "file": "产出\\批次469\\触手美容院-シャンプー.md",
-   "name": "触手美容院-シャンプー",
-   "lib": "休闲",
-   "issue": "跨世界重复(组#585·3个世界共用)",
-   "hasCrossDup": true,
-   "crossGroupIds": [
-    585,
-    586
-   ],
-   "status": "待修复",
-   "fixedMark": false
-  },
-  {
-   "priority": "P1",
-   "batch": 469,
-   "file": "产出\\批次469\\魔界銭湯-番台.md",
-   "name": "魔界銭湯-番台",
-   "lib": "休闲",
-   "issue": "跨世界重复(组#595·3个世界共用)",
-   "hasCrossDup": true,
-   "crossGroupIds": [
-    595
-   ],
-   "status": "待修复",
-   "fixedMark": false
-  },
-  {
-   "priority": "P1",
-   "batch": 469,
-   "file": "产出\\批次469\\エルフ楽団-公演裏側.md",
-   "name": "エルフ楽団-公演裏側",
-   "lib": "休闲",
-   "issue": "跨世界重复(组#596·7个世界共用)",
-   "hasCrossDup": true,
-   "crossGroupIds": [
-    596
-   ],
-   "status": "待修复",
-   "fixedMark": false
-  },
-  {
-   "priority": "P1",
-   "batch": 470,
-   "file": "产出\\批次470\\催眠診療所-内科.md",
-   "name": "催眠診療所-内科",
-   "lib": "休闲",
-   "issue": "跨世界重复(组#563·299个世界共用)",
-   "hasCrossDup": true,
-   "crossGroupIds": [
-    563,
-    775,
-    776,
-    779,
-    777
-   ],
-   "status": "待修复",
-   "fixedMark": false
-  },
-  {
-   "priority": "P1",
-   "batch": 470,
-   "file": "产出\\批次470\\魔法少女覚醒-時間遡行.md",
-   "name": "魔法少女覚醒-時間遡行",
-   "lib": "休闲",
-   "issue": "跨世界重复(组#563·299个世界共用)",
-   "hasCrossDup": true,
-   "crossGroupIds": [
-    563,
-    613
-   ],
-   "status": "待修复",
-   "fixedMark": false
-  },
-  {
-   "priority": "P1",
-   "batch": 470,
-   "file": "产出\\批次470\\女教師陥落-合唱祭.md",
-   "name": "女教師陥落-合唱祭",
-   "lib": "休闲",
-   "issue": "跨世界重复(组#563·299个世界共用)",
-   "hasCrossDup": true,
-   "crossGroupIds": [
-    563,
-    806
-   ],
-   "status": "待修复",
-   "fixedMark": false
-  },
-  {
-   "priority": "P1",
-   "batch": 470,
-   "file": "产出\\批次470\\聖騎士ユリア-十度目.md",
-   "name": "聖騎士ユリア-十度目",
-   "lib": "休闲",
-   "issue": "跨世界重复(组#563·299个世界共用)",
-   "hasCrossDup": true,
-   "crossGroupIds": [
-    563,
-    590,
-    787,
-    792
-   ],
-   "status": "待修复",
-   "fixedMark": false
-  },
-  {
-   "priority": "P1",
-   "batch": 470,
-   "file": "产出\\批次470\\エルフ牧場-搾乳.md",
-   "name": "エルフ牧場-搾乳",
-   "lib": "休闲",
-   "issue": "跨世界重复(组#563·299个世界共用)",
-   "hasCrossDup": true,
-   "crossGroupIds": [
-    563,
-    585,
-    586
-   ],
-   "status": "待修复",
-   "fixedMark": false
-  },
-  {
-   "priority": "P1",
-   "batch": 471,
-   "file": "产出\\批次471\\触手神社-年間祭事.md",
-   "name": "触手神社-年間祭事",
-   "lib": "休闲",
-   "issue": "跨世界重复(组#563·299个世界共用)",
-   "hasCrossDup": true,
-   "crossGroupIds": [
-    563,
-    579,
-    828,
-    827
-   ],
-   "status": "待修复",
-   "fixedMark": false
-  },
-  {
-   "priority": "P1",
-   "batch": 471,
-   "file": "产出\\批次471\\催眠フィットネス-深夜.md",
-   "name": "催眠フィットネス-深夜",
-   "lib": "休闲",
-   "issue": "跨世界重复(组#563·299个世界共用)",
-   "hasCrossDup": true,
-   "crossGroupIds": [
-    563,
-    588,
-    812,
-    815,
-    813,
-    814
-   ],
-   "status": "待修复",
-   "fixedMark": false
-  },
-  {
-   "priority": "P1",
-   "batch": 471,
-   "file": "产出\\批次471\\女戦士調教-闘技場楽屋.md",
-   "name": "女戦士調教-闘技場楽屋",
-   "lib": "休闲",
-   "issue": "跨世界重复(组#563·299个世界共用)",
-   "hasCrossDup": true,
-   "crossGroupIds": [
-    563,
-    580,
-    816,
-    806,
-    818
-   ],
-   "status": "待修复",
-   "fixedMark": false
-  },
-  {
-   "priority": "P1",
-   "batch": 471,
-   "file": "产出\\批次471\\人妻料亭-宴会.md",
-   "name": "人妻料亭-宴会",
-   "lib": "休闲",
-   "issue": "跨世界重复(组#563·299个世界共用)",
-   "hasCrossDup": true,
-   "crossGroupIds": [
-    563,
-    573,
-    577,
-    810
-   ],
-   "status": "待修复",
-   "fixedMark": false
-  },
-  {
-   "priority": "P1",
-   "batch": 471,
-   "file": "产出\\批次471\\淫魔幼稚園-保育士.md",
-   "name": "淫魔幼稚園-保育士",
-   "lib": "休闲",
-   "issue": "跨世界重复(组#563·299个世界共用)",
-   "hasCrossDup": true,
-   "crossGroupIds": [
-    563,
-    820,
-    821
-   ],
-   "status": "待修复",
-   "fixedMark": false
-  },
-  {
-   "priority": "P1",
-   "batch": 472,
-   "file": "产出\\批次472\\魔界レース場-女性騎手.md",
-   "name": "魔界レース場-女性騎手",
-   "lib": "休闲",
-   "issue": "跨世界重复(组#563·299个世界共用)",
-   "hasCrossDup": true,
-   "crossGroupIds": [
-    563
-   ],
-   "status": "待修复",
-   "fixedMark": false
-  },
-  {
-   "priority": "P1",
-   "batch": 472,
-   "file": "产出\\批次472\\人妻温泉-貸切露天.md",
-   "name": "人妻温泉-貸切露天",
-   "lib": "休闲",
-   "issue": "跨世界重复(组#563·299个世界共用)",
-   "hasCrossDup": true,
-   "crossGroupIds": [
-    563
-   ],
-   "status": "待修复",
-   "fixedMark": false
-  },
-  {
-   "priority": "P1",
-   "batch": 472,
-   "file": "产出\\批次472\\聖女アンナ-三重生活.md",
-   "name": "聖女アンナ-三重生活",
-   "lib": "休闲",
-   "issue": "跨世界重复(组#563·299个世界共用)",
-   "hasCrossDup": true,
-   "crossGroupIds": [
-    563,
-    828
-   ],
-   "status": "待修复",
-   "fixedMark": false
-  },
-  {
-   "priority": "P1",
-   "batch": 472,
-   "file": "产出\\批次472\\淫獣植物園-園芸師.md",
-   "name": "淫獣植物園-園芸師",
-   "lib": "休闲",
-   "issue": "跨世界重复(组#563·299个世界共用)",
-   "hasCrossDup": true,
-   "crossGroupIds": [
-    563
-   ],
-   "status": "待修复",
-   "fixedMark": false
-  },
-  {
-   "priority": "P1",
-   "batch": 472,
-   "file": "产出\\批次472\\エルフ織姫-機織り部屋.md",
-   "name": "エルフ織姫-機織り部屋",
-   "lib": "休闲",
-   "issue": "跨世界重复(组#563·299个世界共用)",
-   "hasCrossDup": true,
-   "crossGroupIds": [
-    563
-   ],
-   "status": "待修复",
-   "fixedMark": false
-  },
-  {
-   "priority": "P1",
-   "batch": 473,
-   "file": "产出\\批次473\\触手列車-寝台車両.md",
-   "name": "触手列車-寝台車両",
-   "lib": "休闲",
-   "issue": "跨世界重复(组#563·299个世界共用)",
-   "hasCrossDup": true,
-   "crossGroupIds": [
-    563,
-    579
-   ],
-   "status": "待修复",
-   "fixedMark": false
-  },
-  {
-   "priority": "P1",
-   "batch": 473,
-   "file": "产出\\批次473\\催眠結婚式場-新婦.md",
-   "name": "催眠結婚式場-新婦",
-   "lib": "休闲",
-   "issue": "跨世界重复(组#563·299个世界共用)",
-   "hasCrossDup": true,
-   "crossGroupIds": [
-    563
-   ],
-   "status": "待修复",
-   "fixedMark": false
-  },
-  {
-   "priority": "P1",
-   "batch": 473,
-   "file": "产出\\批次473\\女騎士団-入団試験.md",
-   "name": "女騎士団-入団試験",
-   "lib": "休闲",
-   "issue": "跨世界重复(组#563·299个世界共用)",
-   "hasCrossDup": true,
-   "crossGroupIds": [
-    563
-   ],
-   "status": "待修复",
-   "fixedMark": false
-  },
-  {
-   "priority": "P1",
-   "batch": 473,
-   "file": "产出\\批次473\\聖騎士カレン-堕落布教.md",
-   "name": "聖騎士カレン-堕落布教",
-   "lib": "休闲",
-   "issue": "跨世界重复(组#563·299个世界共用)",
-   "hasCrossDup": true,
-   "crossGroupIds": [
-    563,
-    828
-   ],
-   "status": "待修复",
-   "fixedMark": false
-  },
-  {
-   "priority": "P1",
-   "batch": 473,
-   "file": "产出\\批次473\\エルフ姫堕落-国際条約.md",
-   "name": "エルフ姫堕落-国際条約",
-   "lib": "休闲",
-   "issue": "跨世界重复(组#563·299个世界共用)",
-   "hasCrossDup": true,
-   "crossGroupIds": [
-    563
-   ],
-   "status": "待修复",
-   "fixedMark": false
-  },
-  {
-   "priority": "P1",
-   "batch": 474,
-   "file": "产出\\批次474\\触手海洋-客船沈没.md",
-   "name": "触手海洋-客船沈没",
-   "lib": "休闲",
-   "issue": "跨世界重复(组#563·299个世界共用)",
-   "hasCrossDup": true,
-   "crossGroupIds": [
-    563,
-    579,
-    828
-   ],
-   "status": "待修复",
-   "fixedMark": false
-  },
-  {
-   "priority": "P1",
-   "batch": 474,
-   "file": "产出\\批次474\\魔法少女敗北-魔女裁判.md",
-   "name": "魔法少女敗北-魔女裁判",
-   "lib": "休闲",
-   "issue": "跨世界重复(组#563·299个世界共用)",
-   "hasCrossDup": true,
-   "crossGroupIds": [
-    563,
-    588,
-    821,
-    812,
-    813
-   ],
-   "status": "待修复",
-   "fixedMark": false
-  },
-  {
-   "priority": "P1",
-   "batch": 474,
-   "file": "产出\\批次474\\女教師寮-盆休み.md",
-   "name": "女教師寮-盆休み",
-   "lib": "休闲",
-   "issue": "跨世界重复(组#563·299个世界共用)",
-   "hasCrossDup": true,
-   "crossGroupIds": [
-    563,
-    815,
-    583
-   ],
-   "status": "待修复",
-   "fixedMark": false
-  },
-  {
-   "priority": "P1",
-   "batch": 474,
-   "file": "产出\\批次474\\人妻堕落-同窓会三次会.md",
-   "name": "人妻堕落-同窓会三次会",
-   "lib": "休闲",
-   "issue": "跨世界重复(组#563·299个世界共用)",
-   "hasCrossDup": true,
-   "crossGroupIds": [
-    563,
-    820
-   ],
-   "status": "待修复",
-   "fixedMark": false
-  },
-  {
-   "priority": "P1",
-   "batch": 474,
-   "file": "产出\\批次474\\淫魔城-女騎士捕虜.md",
-   "name": "淫魔城-女騎士捕虜",
-   "lib": "休闲",
-   "issue": "跨世界重复(组#563·299个世界共用)",
-   "hasCrossDup": true,
-   "crossGroupIds": [
-    563,
-    580,
-    816,
-    806
-   ],
-   "status": "待修复",
-   "fixedMark": false
-  },
-  {
-   "priority": "P1",
-   "batch": 475,
-   "file": "产出\\批次475\\催眠博物館-学芸員.md",
-   "name": "催眠博物館-学芸員",
-   "lib": "休闲",
-   "issue": "跨世界重复(组#563·299个世界共用)",
-   "hasCrossDup": true,
-   "crossGroupIds": [
-    563,
-    579,
-    828,
-    827
-   ],
-   "status": "待修复",
-   "fixedMark": false
-  },
-  {
-   "priority": "P1",
-   "batch": 475,
-   "file": "产出\\批次475\\魔界遊郭-太夫.md",
-   "name": "魔界遊郭-太夫",
-   "lib": "休闲",
-   "issue": "跨世界重复(组#563·299个世界共用)",
-   "hasCrossDup": true,
-   "crossGroupIds": [
-    563,
-    573,
-    842,
-    810,
-    841
-   ],
-   "status": "待修复",
-   "fixedMark": false
-  },
-  {
-   "priority": "P1",
-   "batch": 475,
-   "file": "产出\\批次475\\人妻堕落-ママさんバレー.md",
-   "name": "人妻堕落-ママさんバレー",
-   "lib": "休闲",
-   "issue": "跨世界重复(组#563·299个世界共用)",
-   "hasCrossDup": true,
-   "crossGroupIds": [
-    563,
-    820,
-    812,
-    815,
-    814
-   ],
-   "status": "待修复",
-   "fixedMark": false
-  },
-  {
-   "priority": "P1",
-   "batch": 475,
-   "file": "产出\\批次475\\聖女監禁-三千日.md",
-   "name": "聖女監禁-三千日",
-   "lib": "休闲",
-   "issue": "跨世界重复(组#563·299个世界共用)",
-   "hasCrossDup": true,
-   "crossGroupIds": [
-    563,
-    580,
-    821,
-    816,
-    818,
-    838
-   ],
-   "status": "待修复",
-   "fixedMark": false
-  },
-  {
-   "priority": "P1",
-   "batch": 475,
-   "file": "产出\\批次475\\エルフ舞姫-公演夜.md",
-   "name": "エルフ舞姫-公演夜",
-   "lib": "休闲",
-   "issue": "跨世界重复(组#563·299个世界共用)",
-   "hasCrossDup": true,
-   "crossGroupIds": [
-    563,
-    829,
-    577
-   ],
-   "status": "待修复",
-   "fixedMark": false
-  },
-  {
-   "priority": "P1",
-   "batch": 478,
-   "file": "产出\\批次478\\催眠サウナ-発汗.md",
-   "name": "催眠サウナ-発汗",
-   "lib": "休闲",
-   "issue": "跨世界重复(组#563·299个世界共用)",
-   "hasCrossDup": true,
-   "crossGroupIds": [
-    563,
-    588
-   ],
-   "status": "待修复",
-   "fixedMark": false
-  },
-  {
-   "priority": "P1",
-   "batch": 478,
-   "file": "产出\\批次478\\魔界酒場-女給仕.md",
-   "name": "魔界酒場-女給仕",
-   "lib": "休闲",
-   "issue": "跨世界重复(组#563·299个世界共用)",
-   "hasCrossDup": true,
-   "crossGroupIds": [
-    563,
-    573,
-    842
-   ],
-   "status": "待修复",
-   "fixedMark": false
-  },
-  {
-   "priority": "P1",
-   "batch": 478,
-   "file": "产出\\批次478\\女教師調教-卒業旅行.md",
-   "name": "女教師調教-卒業旅行",
-   "lib": "休闲",
-   "issue": "跨世界重复(组#563·299个世界共用)",
-   "hasCrossDup": true,
-   "crossGroupIds": [
-    563,
-    820
-   ],
-   "status": "待修复",
-   "fixedMark": false
-  },
-  {
-   "priority": "P1",
-   "batch": 478,
-   "file": "产出\\批次478\\聖女アリシア-暗黒教皇.md",
-   "name": "聖女アリシア-暗黒教皇",
-   "lib": "休闲",
-   "issue": "跨世界重复(组#563·299个世界共用)",
-   "hasCrossDup": true,
-   "crossGroupIds": [
-    563,
-    579,
-    828,
-    827,
-    850,
-    851,
-    852
-   ],
-   "status": "待修复",
-   "fixedMark": false
-  },
-  {
-   "priority": "P1",
-   "batch": 478,
-   "file": "产出\\批次478\\エルフ職人-弟子教育.md",
-   "name": "エルフ職人-弟子教育",
-   "lib": "休闲",
-   "issue": "跨世界重复(组#563·299个世界共用)",
-   "hasCrossDup": true,
-   "crossGroupIds": [
-    563,
-    580
-   ],
-   "status": "待修复",
-   "fixedMark": false
-  },
-  {
-   "priority": "P1",
-   "batch": 479,
-   "file": "产出\\批次479\\触手学園-運動会.md",
-   "name": "触手学園-運動会",
-   "lib": "休闲",
-   "issue": "跨世界重复(组#563·299个世界共用)",
-   "hasCrossDup": true,
-   "crossGroupIds": [
-    563,
-    820,
-    812,
-    815,
-    814
-   ],
-   "status": "待修复",
-   "fixedMark": false
-  },
-  {
-   "priority": "P1",
-   "batch": 479,
-   "file": "产出\\批次479\\催眠ホテル-フロント.md",
-   "name": "催眠ホテル-フロント",
-   "lib": "休闲",
-   "issue": "跨世界重复(组#563·299个世界共用)",
-   "hasCrossDup": true,
-   "crossGroupIds": [
-    563,
-    828
-   ],
-   "status": "待修复",
-   "fixedMark": false
-  },
-  {
-   "priority": "P1",
-   "batch": 479,
-   "file": "产出\\批次479\\女騎士監獄-脱獄失敗.md",
-   "name": "女騎士監獄-脱獄失敗",
-   "lib": "休闲",
-   "issue": "跨世界重复(组#563·299个世界共用)",
-   "hasCrossDup": true,
-   "crossGroupIds": [
-    563,
-    580,
-    821,
-    816,
-    818,
-    838
-   ],
-   "status": "待修复",
-   "fixedMark": false
-  },
-  {
-   "priority": "P1",
-   "batch": 479,
-   "file": "产出\\批次479\\人妻堕落-管理組合.md",
-   "name": "人妻堕落-管理組合",
-   "lib": "休闲",
-   "issue": "跨世界重复(组#563·299个世界共用)",
-   "hasCrossDup": true,
-   "crossGroupIds": [
-    563,
-    829
-   ],
-   "status": "待修复",
-   "fixedMark": false
-  },
-  {
-   "priority": "P1",
-   "batch": 479,
-   "file": "产出\\批次479\\淫獣牧場-品種展示会.md",
-   "name": "淫獣牧場-品種展示会",
-   "lib": "休闲",
-   "issue": "跨世界重复(组#563·299个世界共用)",
-   "hasCrossDup": true,
-   "crossGroupIds": [
-    563,
-    573,
-    842,
-    810,
-    841
-   ],
-   "status": "待修复",
-   "fixedMark": false
-  },
-  {
-   "priority": "P1",
-   "batch": 481,
-   "file": "产出\\批次481\\触手宇宙船-冷凍睡眠.md",
-   "name": "触手宇宙船-冷凍睡眠",
-   "lib": "休闲",
-   "issue": "跨世界重复(组#563·299个世界共用)",
-   "hasCrossDup": true,
-   "crossGroupIds": [
-    563
-   ],
-   "status": "待修复",
-   "fixedMark": false
-  },
-  {
-   "priority": "P1",
-   "batch": 481,
-   "file": "产出\\批次481\\催眠アイドル-ライブ.md",
-   "name": "催眠アイドル-ライブ",
-   "lib": "休闲",
-   "issue": "跨世界重复(组#563·299个世界共用)",
-   "hasCrossDup": true,
-   "crossGroupIds": [
-    563,
-    646
-   ],
-   "status": "待修复",
-   "fixedMark": false
-  },
-  {
-   "priority": "P1",
-   "batch": 481,
-   "file": "产出\\批次481\\女教師落とし-新学期.md",
-   "name": "女教師落とし-新学期",
-   "lib": "休闲",
-   "issue": "跨世界重复(组#563·299个世界共用)",
-   "hasCrossDup": true,
-   "crossGroupIds": [
-    563,
-    820
-   ],
-   "status": "待修复",
-   "fixedMark": false
-  },
-  {
-   "priority": "P1",
-   "batch": 481,
-   "file": "产出\\批次481\\聖女牧場-国営化.md",
-   "name": "聖女牧場-国営化",
-   "lib": "休闲",
-   "issue": "跨世界重复(组#563·299个世界共用)",
-   "hasCrossDup": true,
-   "crossGroupIds": [
-    563,
-    579,
-    828,
-    827,
-    850,
-    851,
-    852
-   ],
-   "status": "待修复",
-   "fixedMark": false
-  },
-  {
-   "priority": "P1",
-   "batch": 481,
-   "file": "产出\\批次481\\エルフ村-第四次侵略.md",
-   "name": "エルフ村-第四次侵略",
-   "lib": "休闲",
-   "issue": "跨世界重复(组#563·299个世界共用)",
-   "hasCrossDup": true,
-   "crossGroupIds": [
-    563
-   ],
-   "status": "待修复",
-   "fixedMark": false
-  },
-  {
-   "priority": "P1",
-   "batch": 482,
-   "file": "产出\\批次482\\触手マッサージ-出張.md",
-   "name": "触手マッサージ-出張",
-   "lib": "休闲",
-   "issue": "跨世界重复(组#563·299个世界共用)",
-   "hasCrossDup": true,
-   "crossGroupIds": [
-    563,
-    828
-   ],
-   "status": "待修复",
-   "fixedMark": false
-  },
-  {
-   "priority": "P1",
-   "batch": 482,
-   "file": "产出\\批次482\\魔界闘技場-女王決勝戦.md",
-   "name": "魔界闘技場-女王決勝戦",
-   "lib": "休闲",
-   "issue": "跨世界重复(组#563·299个世界共用)",
-   "hasCrossDup": true,
-   "crossGroupIds": [
-    563,
-    580,
-    838
-   ],
-   "status": "待修复",
-   "fixedMark": false
-  },
-  {
-   "priority": "P1",
-   "batch": 482,
-   "file": "产出\\批次482\\女戦士捕虜-展示販売.md",
-   "name": "女戦士捕虜-展示販売",
-   "lib": "休闲",
-   "issue": "跨世界重复(组#563·299个世界共用)",
-   "hasCrossDup": true,
-   "crossGroupIds": [
-    563,
-    821
-   ],
-   "status": "待修复",
-   "fixedMark": false
-  },
-  {
-   "priority": "P1",
-   "batch": 482,
-   "file": "产出\\批次482\\人妻堕落-PTA役員.md",
-   "name": "人妻堕落-PTA役員",
-   "lib": "休闲",
-   "issue": "跨世界重复(组#563·299个世界共用)",
-   "hasCrossDup": true,
-   "crossGroupIds": [
-    563,
-    590
-   ],
-   "status": "待修复",
-   "fixedMark": false
-  },
-  {
-   "priority": "P1",
-   "batch": 482,
-   "file": "产出\\批次482\\淫獣神社-宮司.md",
-   "name": "淫獣神社-宮司",
-   "lib": "休闲",
-   "issue": "跨世界重复(组#563·299个世界共用)",
-   "hasCrossDup": true,
-   "crossGroupIds": [
-    563,
-    829,
-    842,
-    841
-   ],
-   "status": "待修复",
-   "fixedMark": false
-  },
-  {
-   "priority": "P1",
-   "batch": 483,
-   "file": "产出\\批次483\\催眠美術館-開館記念.md",
-   "name": "催眠美術館-開館記念",
-   "lib": "休闲",
-   "issue": "跨世界重复(组#563·299个世界共用)",
-   "hasCrossDup": true,
-   "crossGroupIds": [
-    563,
-    579
-   ],
-   "status": "待修复",
-   "fixedMark": false
-  },
-  {
-   "priority": "P1",
-   "batch": 483,
-   "file": "产出\\批次483\\魔法少女堕落-宗教化.md",
-   "name": "魔法少女堕落-宗教化",
-   "lib": "休闲",
-   "issue": "跨世界重复(组#563·299个世界共用)",
-   "hasCrossDup": true,
-   "crossGroupIds": [
-    563,
-    590,
-    796
-   ],
-   "status": "待修复",
-   "fixedMark": false
-  },
-  {
-   "priority": "P1",
-   "batch": 483,
-   "file": "产出\\批次483\\人妻ネイル-爪先調教.md",
-   "name": "人妻ネイル-爪先調教",
-   "lib": "休闲",
-   "issue": "跨世界重复(组#563·299个世界共用)",
-   "hasCrossDup": true,
-   "crossGroupIds": [
-    563,
-    588,
-    813
-   ],
-   "status": "待修复",
-   "fixedMark": false
-  },
-  {
-   "priority": "P1",
-   "batch": 483,
-   "file": "产出\\批次483\\聖騎士ローザ-十度目.md",
-   "name": "聖騎士ローザ-十度目",
-   "lib": "休闲",
-   "issue": "跨世界重复(组#563·299个世界共用)",
-   "hasCrossDup": true,
-   "crossGroupIds": [
-    563,
-    579,
-    827,
-    850,
-    851,
-    852
-   ],
-   "status": "待修复",
-   "fixedMark": false
-  },
-  {
-   "priority": "P1",
-   "batch": 483,
-   "file": "产出\\批次483\\エルフ姫三姉妹-再統一.md",
-   "name": "エルフ姫三姉妹-再統一",
-   "lib": "休闲",
-   "issue": "跨世界重复(组#563·299个世界共用)",
-   "hasCrossDup": true,
-   "crossGroupIds": [
-    563
-   ],
-   "status": "待修复",
-   "fixedMark": false
-  },
-  {
-   "priority": "P1",
-   "batch": 484,
-   "file": "产出\\批次484\\触手水族館-夜間見学.md",
-   "name": "触手水族館-夜間見学",
-   "lib": "休闲",
-   "issue": "跨世界重复(组#563·299个世界共用)",
-   "hasCrossDup": true,
-   "crossGroupIds": [
-    563,
-    870
-   ],
-   "status": "待修复",
-   "fixedMark": false
-  },
-  {
-   "priority": "P1",
-   "batch": 484,
-   "file": "产出\\批次484\\催眠温泉-正月.md",
-   "name": "催眠温泉-正月",
-   "lib": "休闲",
-   "issue": "跨世界重复(组#563·299个世界共用)",
-   "hasCrossDup": true,
-   "crossGroupIds": [
-    563
-   ],
-   "status": "待修复",
-   "fixedMark": false
-  },
-  {
-   "priority": "P1",
-   "batch": 484,
-   "file": "产出\\批次484\\女教師寮-年末大掃除.md",
-   "name": "女教師寮-年末大掃除",
-   "lib": "休闲",
-   "issue": "跨世界重复(组#563·299个世界共用)",
-   "hasCrossDup": true,
-   "crossGroupIds": [
-    563,
-    565,
-    796
-   ],
-   "status": "待修复",
-   "fixedMark": false
-  },
-  {
-   "priority": "P1",
-   "batch": 484,
-   "file": "产出\\批次484\\聖女アウロラ-帝国建立完了.md",
-   "name": "聖女アウロラ-帝国建立完了",
-   "lib": "休闲",
-   "issue": "跨世界重复(组#563·299个世界共用)",
-   "hasCrossDup": true,
-   "crossGroupIds": [
-    563,
-    863
-   ],
-   "status": "待修复",
-   "fixedMark": false
-  },
-  {
-   "priority": "P1",
-   "batch": 484,
-   "file": "产出\\批次484\\淫魔学園-期末試験.md",
-   "name": "淫魔学園-期末試験",
-   "lib": "休闲",
-   "issue": "跨世界重复(组#563·299个世界共用)",
-   "hasCrossDup": true,
-   "crossGroupIds": [
-    563,
-    857,
-    858
-   ],
-   "status": "待修复",
-   "fixedMark": false
-  },
-  {
-   "priority": "P1",
-   "batch": 485,
-   "file": "产出\\批次485\\触手孤島-三代目女王.md",
-   "name": "触手孤島-三代目女王",
-   "lib": "休闲",
-   "issue": "跨世界重复(组#870·3个世界共用)",
-   "hasCrossDup": true,
-   "crossGroupIds": [
-    870
-   ],
-   "status": "待修复",
-   "fixedMark": false
-  },
-  {
-   "priority": "P1",
-   "batch": 485,
-   "file": "产出\\批次485\\人妻調教-住宅街完全制覇.md",
-   "name": "人妻調教-住宅街完全制覇",
-   "lib": "休闲",
-   "issue": "跨世界重复(组#565·5个世界共用)",
-   "hasCrossDup": true,
-   "crossGroupIds": [
-    565
-   ],
-   "status": "待修复",
-   "fixedMark": false
-  },
-  {
-   "priority": "P1",
-   "batch": 486,
-   "file": "产出\\批次486\\催眠学園-建学記念日.md",
-   "name": "催眠学園-建学記念日",
-   "lib": "休闲",
-   "issue": "跨世界重复(组#563·299个世界共用)",
-   "hasCrossDup": true,
-   "crossGroupIds": [
-    563
-   ],
-   "status": "待修复",
-   "fixedMark": false
-  },
-  {
-   "priority": "P1",
-   "batch": 486,
-   "file": "产出\\批次486\\魔法少女覚醒-全宇宙支配.md",
-   "name": "魔法少女覚醒-全宇宙支配",
-   "lib": "休闲",
-   "issue": "跨世界重复(组#563·299个世界共用)",
-   "hasCrossDup": true,
-   "crossGroupIds": [
-    563,
-    857,
-    858
-   ],
-   "status": "待修复",
-   "fixedMark": false
-  },
-  {
-   "priority": "P1",
-   "batch": 486,
-   "file": "产出\\批次486\\女騎士団-歴史終結.md",
-   "name": "女騎士団-歴史終結",
-   "lib": "休闲",
-   "issue": "跨世界重复(组#563·299个世界共用)",
-   "hasCrossDup": true,
-   "crossGroupIds": [
-    563
-   ],
-   "status": "待修复",
-   "fixedMark": false
-  },
-  {
-   "priority": "P1",
-   "batch": 486,
-   "file": "产出\\批次486\\聖騎士ミリア-神格化.md",
-   "name": "聖騎士ミリア-神格化",
-   "lib": "休闲",
-   "issue": "跨世界重复(组#563·299个世界共用)",
-   "hasCrossDup": true,
-   "crossGroupIds": [
-    563,
-    863
-   ],
-   "status": "待修复",
-   "fixedMark": false
-  },
-  {
-   "priority": "P1",
-   "batch": 486,
-   "file": "产出\\批次486\\エルフ森林-完全観光地化.md",
-   "name": "エルフ森林-完全観光地化",
-   "lib": "休闲",
-   "issue": "跨世界重复(组#563·299个世界共用)",
-   "hasCrossDup": true,
-   "crossGroupIds": [
-    563
-   ],
-   "status": "待修复",
-   "fixedMark": false
-  },
-  {
-   "priority": "P1",
-   "batch": 488,
-   "file": "产出\\批次488\\触手養魚場-管理人.md",
-   "name": "触手養魚場-管理人",
-   "lib": "休闲",
-   "issue": "跨世界重复(组#563·299个世界共用)",
-   "hasCrossDup": true,
-   "crossGroupIds": [
-    563,
-    870
-   ],
-   "status": "待修复",
-   "fixedMark": false
-  },
-  {
-   "priority": "P1",
-   "batch": 488,
-   "file": "产出\\批次488\\魔法少女ナナミ-時間逆行.md",
-   "name": "魔法少女ナナミ-時間逆行",
-   "lib": "休闲",
-   "issue": "跨世界重复(组#563·299个世界共用)",
-   "hasCrossDup": true,
-   "crossGroupIds": [
-    563,
-    666
-   ],
-   "status": "待修复",
-   "fixedMark": false
-  },
-  {
-   "priority": "P1",
    "batch": 488,
    "file": "产出\\批次488\\人妻派遣-社長秘書.md",
    "name": "人妻派遣-社長秘書",
    "lib": "休闲",
-   "issue": "跨世界重复(组#563·299个世界共用)",
+   "issue": "跨世界重复(组#565·13个世界共用)",
    "hasCrossDup": true,
    "crossGroupIds": [
-    563
+    565
    ],
    "status": "待修复",
    "fixedMark": false
@@ -5980,11 +883,10 @@
    "file": "产出\\批次488\\聖女孤児院-院長就任.md",
    "name": "聖女孤児院-院長就任",
    "lib": "休闲",
-   "issue": "跨世界重复(组#563·299个世界共用)",
+   "issue": "跨世界重复(组#565·13个世界共用)",
    "hasCrossDup": true,
    "crossGroupIds": [
-    563,
-    863
+    565
    ],
    "status": "待修复",
    "fixedMark": false
@@ -5995,10 +897,10 @@
    "file": "产出\\批次488\\エルフ鉱山-坑道深部.md",
    "name": "エルフ鉱山-坑道深部",
    "lib": "休闲",
-   "issue": "跨世界重复(组#563·299个世界共用)",
+   "issue": "跨世界重复(组#565·13个世界共用)",
    "hasCrossDup": true,
    "crossGroupIds": [
-    563
+    565
    ],
    "status": "待修复",
    "fixedMark": false
@@ -6009,11 +911,10 @@
    "file": "产出\\批次489\\触手遊園地-夜間営業.md",
    "name": "触手遊園地-夜間営業",
    "lib": "休闲",
-   "issue": "跨世界重复(组#563·299个世界共用)",
+   "issue": "跨世界重复(组#565·13个世界共用)",
    "hasCrossDup": true,
    "crossGroupIds": [
-    563,
-    666
+    565
    ],
    "status": "待修复",
    "fixedMark": false
@@ -6024,11 +925,10 @@
    "file": "产出\\批次489\\催眠塾-冬期講習.md",
    "name": "催眠塾-冬期講習",
    "lib": "休闲",
-   "issue": "跨世界重复(组#563·299个世界共用)",
+   "issue": "跨世界重复(组#565·13个世界共用)",
    "hasCrossDup": true,
    "crossGroupIds": [
-    563,
-    858
+    565
    ],
    "status": "待修复",
    "fixedMark": false
@@ -6039,11 +939,10 @@
    "file": "产出\\批次489\\女騎士レオナ-永久服従.md",
    "name": "女騎士レオナ-永久服従",
    "lib": "休闲",
-   "issue": "跨世界重复(组#563·299个世界共用)",
+   "issue": "跨世界重复(组#565·13个世界共用)",
    "hasCrossDup": true,
    "crossGroupIds": [
-    563,
-    613
+    565
    ],
    "status": "待修复",
    "fixedMark": false
@@ -6054,11 +953,10 @@
    "file": "产出\\批次489\\淫魔劇団-舞台稽古.md",
    "name": "淫魔劇団-舞台稽古",
    "lib": "休闲",
-   "issue": "跨世界重复(组#563·299个世界共用)",
+   "issue": "跨世界重复(组#565·13个世界共用)",
    "hasCrossDup": true,
    "crossGroupIds": [
-    563,
-    857
+    565
    ],
    "status": "待修复",
    "fixedMark": false
@@ -6069,10 +967,10 @@
    "file": "产出\\批次489\\エルフ貿易港-税関検査.md",
    "name": "エルフ貿易港-税関検査",
    "lib": "休闲",
-   "issue": "跨世界重复(组#563·299个世界共用)",
+   "issue": "跨世界重复(组#565·13个世界共用)",
    "hasCrossDup": true,
    "crossGroupIds": [
-    563
+    565
    ],
    "status": "待修复",
    "fixedMark": false
@@ -6083,11 +981,10 @@
    "file": "产出\\批次490\\触手博物館-学芸員.md",
    "name": "触手博物館-学芸員",
    "lib": "休闲",
-   "issue": "跨世界重复(组#563·299个世界共用)",
+   "issue": "跨世界重复(组#565·13个世界共用)",
    "hasCrossDup": true,
    "crossGroupIds": [
-    563,
-    829
+    565
    ],
    "status": "待修复",
    "fixedMark": false
@@ -6098,11 +995,10 @@
    "file": "产出\\批次490\\魔界拍卖所-希少品競売.md",
    "name": "魔界拍卖所-希少品競売",
    "lib": "休闲",
-   "issue": "跨世界重复(组#563·299个世界共用)",
+   "issue": "跨世界重复(组#565·13个世界共用)",
    "hasCrossDup": true,
    "crossGroupIds": [
-    563,
-    675
+    565
    ],
    "status": "待修复",
    "fixedMark": false
@@ -6113,10 +1009,10 @@
    "file": "产出\\批次490\\女教師調教-春休み.md",
    "name": "女教師調教-春休み",
    "lib": "休闲",
-   "issue": "跨世界重复(组#563·299个世界共用)",
+   "issue": "跨世界重复(组#565·13个世界共用)",
    "hasCrossDup": true,
    "crossGroupIds": [
-    563
+    565
    ],
    "status": "待修复",
    "fixedMark": false
@@ -6127,10 +1023,10 @@
    "file": "产出\\批次490\\人妻堕落-自治会副会長.md",
    "name": "人妻堕落-自治会副会長",
    "lib": "休闲",
-   "issue": "跨世界重复(组#563·299个世界共用)",
+   "issue": "跨世界重复(组#565·13个世界共用)",
    "hasCrossDup": true,
    "crossGroupIds": [
-    563
+    565
    ],
    "status": "待修复",
    "fixedMark": false
@@ -6141,11 +1037,10 @@
    "file": "产出\\批次490\\淫獣研究所-第五期計画.md",
    "name": "淫獣研究所-第五期計画",
    "lib": "休闲",
-   "issue": "跨世界重复(组#563·299个世界共用)",
+   "issue": "跨世界重复(组#565·13个世界共用)",
    "hasCrossDup": true,
    "crossGroupIds": [
-    563,
-    590
+    565
    ],
    "status": "待修复",
    "fixedMark": false
@@ -6156,28 +1051,28 @@
    "file": "产出\\批次524\\寂静之地.md",
    "name": "寂静之地",
    "lib": "主库",
-   "issue": "跨世界重复(组#878·3个世界共用)",
+   "issue": "跨世界重复(组#572·3个世界共用)",
    "hasCrossDup": true,
    "crossGroupIds": [
-    878,
-    879,
-    880,
-    881,
-    882,
-    883,
-    884,
-    885,
-    886,
-    887,
-    888,
-    889,
-    890,
-    891,
-    892,
-    893,
-    894,
-    895,
-    896
+    572,
+    573,
+    574,
+    575,
+    576,
+    577,
+    578,
+    579,
+    580,
+    581,
+    582,
+    583,
+    584,
+    585,
+    586,
+    587,
+    588,
+    589,
+    590
    ],
    "status": "待修复",
    "fixedMark": false
@@ -6188,28 +1083,28 @@
    "file": "产出\\批次524\\逃出绝命镇.md",
    "name": "逃出绝命镇",
    "lib": "主库",
-   "issue": "跨世界重复(组#878·3个世界共用)",
+   "issue": "跨世界重复(组#572·3个世界共用)",
    "hasCrossDup": true,
    "crossGroupIds": [
-    878,
-    879,
-    880,
-    881,
-    882,
-    883,
-    884,
-    885,
-    886,
-    887,
-    888,
-    889,
-    890,
-    891,
-    892,
-    893,
-    894,
-    895,
-    896
+    572,
+    573,
+    574,
+    575,
+    576,
+    577,
+    578,
+    579,
+    580,
+    581,
+    582,
+    583,
+    584,
+    585,
+    586,
+    587,
+    588,
+    589,
+    590
    ],
    "status": "待修复",
    "fixedMark": false
@@ -6220,28 +1115,28 @@
    "file": "产出\\批次524\\招魂.md",
    "name": "招魂",
    "lib": "主库",
-   "issue": "跨世界重复(组#878·3个世界共用)",
+   "issue": "跨世界重复(组#572·3个世界共用)",
    "hasCrossDup": true,
    "crossGroupIds": [
-    878,
-    879,
-    880,
-    881,
-    882,
-    883,
-    884,
-    885,
-    886,
-    887,
-    888,
-    889,
-    890,
-    891,
-    892,
-    893,
-    894,
-    895,
-    896
+    572,
+    573,
+    574,
+    575,
+    576,
+    577,
+    578,
+    579,
+    580,
+    581,
+    582,
+    583,
+    584,
+    585,
+    586,
+    587,
+    588,
+    589,
+    590
    ],
    "status": "待修复",
    "fixedMark": false
@@ -6480,11 +1375,11 @@
    "file": "产出\\批次705\\25歳の女子○生] ［完全版］.md",
    "name": "25歳の女子○生] ［完全版］",
    "lib": "休闲",
-   "issue": "文件内重复段 | 跨世界重复(组#904·5个世界共用)",
+   "issue": "文件内重复段 | 跨世界重复(组#598·5个世界共用)",
    "hasCrossDup": true,
    "crossGroupIds": [
-    904,
-    905
+    598,
+    599
    ],
    "status": "待修复",
    "fixedMark": false
@@ -6495,11 +1390,11 @@
    "file": "产出\\批次705\\俺が姪（かのじょ）を○す理由（わけ） 三日目 彼女が心を閉ざした日.md",
    "name": "俺が姪（かのじょ）を○す理由（わけ） 三日目 彼女が心を閉ざした日",
    "lib": "休闲",
-   "issue": "文件内重复段 | 跨世界重复(组#904·5个世界共用)",
+   "issue": "文件内重复段 | 跨世界重复(组#598·5个世界共用)",
    "hasCrossDup": true,
    "crossGroupIds": [
-    904,
-    905
+    598,
+    599
    ],
    "status": "待修复",
    "fixedMark": false
@@ -6510,11 +1405,11 @@
    "file": "产出\\批次705\\恋妹・菫〜背徳に溺れるギセイ.md",
    "name": "恋妹・菫〜背徳に溺れるギセイ",
    "lib": "休闲",
-   "issue": "文件内重复段 | 跨世界重复(组#904·5个世界共用)",
+   "issue": "文件内重复段 | 跨世界重复(组#598·5个世界共用)",
    "hasCrossDup": true,
    "crossGroupIds": [
-    904,
-    905
+    598,
+    599
    ],
    "status": "待修复",
    "fixedMark": false
@@ -6525,11 +1420,11 @@
    "file": "产出\\批次705\\無知ッ強制成長中っ!!! Growth.1 カラダは大人っ! 中身は….md",
    "name": "無知ッ強制成長中っ!!! Growth.1 カラダは大人っ! 中身は…",
    "lib": "休闲",
-   "issue": "文件内重复段 | 跨世界重复(组#904·5个世界共用)",
+   "issue": "文件内重复段 | 跨世界重复(组#598·5个世界共用)",
    "hasCrossDup": true,
    "crossGroupIds": [
-    904,
-    905
+    598,
+    599
    ],
    "status": "待修复",
    "fixedMark": false
@@ -6540,11 +1435,11 @@
    "file": "产出\\批次705\\Lilitales リリテイルズ act.4「流浪の踊り子」.md",
    "name": "Lilitales リリテイルズ act.4「流浪の踊り子」",
    "lib": "休闲",
-   "issue": "文件内重复段 | 跨世界重复(组#904·5个世界共用)",
+   "issue": "文件内重复段 | 跨世界重复(组#598·5个世界共用)",
    "hasCrossDup": true,
    "crossGroupIds": [
-    904,
-    905
+    598,
+    599
    ],
    "status": "待修复",
    "fixedMark": false
@@ -6555,14 +1450,14 @@
    "file": "产出\\批次707\\大好きな母.md",
    "name": "大好きな母",
    "lib": "休闲",
-   "issue": "跨世界重复(组#906·5个世界共用)",
+   "issue": "跨世界重复(组#600·5个世界共用)",
    "hasCrossDup": true,
    "crossGroupIds": [
-    906,
-    907,
-    908,
-    909,
-    910
+    600,
+    601,
+    602,
+    603,
+    604
    ],
    "status": "待修复",
    "fixedMark": false
@@ -6573,12 +1468,12 @@
    "file": "产出\\批次707\\教え子と先生 上巻 秘密の放課後デート.md",
    "name": "教え子と先生 上巻 秘密の放課後デート",
    "lib": "休闲",
-   "issue": "跨世界重复(组#906·5个世界共用)",
+   "issue": "跨世界重复(组#600·5个世界共用)",
    "hasCrossDup": true,
    "crossGroupIds": [
-    906,
-    907,
-    908
+    600,
+    601,
+    602
    ],
    "status": "待修复",
    "fixedMark": false
@@ -6589,14 +1484,14 @@
    "file": "产出\\批次707\\一牡丹 その一.md",
    "name": "一牡丹 その一",
    "lib": "休闲",
-   "issue": "跨世界重复(组#906·5个世界共用)",
+   "issue": "跨世界重复(组#600·5个世界共用)",
    "hasCrossDup": true,
    "crossGroupIds": [
-    906,
-    907,
-    908,
-    909,
-    910
+    600,
+    601,
+    602,
+    603,
+    604
    ],
    "status": "待修复",
    "fixedMark": false
@@ -6607,14 +1502,14 @@
    "file": "产出\\批次707\\はさんてあける1はさんであげる.md",
    "name": "はさんてあける1はさんであげる",
    "lib": "休闲",
-   "issue": "跨世界重复(组#906·5个世界共用)",
+   "issue": "跨世界重复(组#600·5个世界共用)",
    "hasCrossDup": true,
    "crossGroupIds": [
-    906,
-    907,
-    908,
-    909,
-    910
+    600,
+    601,
+    602,
+    603,
+    604
    ],
    "status": "待修复",
    "fixedMark": false
@@ -6625,14 +1520,14 @@
    "file": "产出\\批次707\\マックスハート 溺愛美少女姉・更紗.md",
    "name": "マックスハート 溺愛美少女姉・更紗",
    "lib": "休闲",
-   "issue": "跨世界重复(组#906·5个世界共用)",
+   "issue": "跨世界重复(组#600·5个世界共用)",
    "hasCrossDup": true,
    "crossGroupIds": [
-    906,
-    907,
-    908,
-    909,
-    910
+    600,
+    601,
+    602,
+    603,
+    604
    ],
    "status": "待修复",
    "fixedMark": false
@@ -6643,10 +1538,10 @@
    "file": "产出\\批次710\\dokidokiりとる大家さん お家賃3突き目♡ 保健体育って何年ぶり!－ 「黒縁メガネに白衣」の先生がお好きでしょ♡の巻.md",
    "name": "dokidokiりとる大家さん お家賃3突き目♡ 保健体育って何年ぶり!? 「黒縁メガネに白衣」の先生がお好きでしょ♡の巻",
    "lib": "休闲",
-   "issue": "跨世界重复(组#913·12个世界共用)",
+   "issue": "跨世界重复(组#607·12个世界共用)",
    "hasCrossDup": true,
    "crossGroupIds": [
-    913
+    607
    ],
    "status": "待修复",
    "fixedMark": false
@@ -6657,10 +1552,10 @@
    "file": "产出\\批次715\\店長 アルバイト娘の弱みを握ってヤリたい放題 ナマイキ被害暴想娘・美樹.md",
    "name": "店長 アルバイト娘の弱みを握ってヤリたい放題 ナマイキ被害暴想娘・美樹",
    "lib": "休闲",
-   "issue": "跨世界重复(组#913·12个世界共用)",
+   "issue": "跨世界重复(组#607·12个世界共用)",
    "hasCrossDup": true,
    "crossGroupIds": [
-    913
+    607
    ],
    "status": "待修复",
    "fixedMark": false
@@ -6671,10 +1566,10 @@
    "file": "产出\\批次716\\ひなぎくヴぁあじんろすとくらぶへようこそ1ヒナギクヴァージンロストクラブへようこそ.md",
    "name": "ひなぎくヴぁあじんろすとくらぶへようこそ1ヒナギクヴァージンロストクラブへようこそ",
    "lib": "休闲",
-   "issue": "跨世界重复(组#913·12个世界共用)",
+   "issue": "跨世界重复(组#607·12个世界共用)",
    "hasCrossDup": true,
    "crossGroupIds": [
-    913
+    607
    ],
    "status": "待修复",
    "fixedMark": false
@@ -6685,10 +1580,10 @@
    "file": "产出\\批次724\\虜ノ雫 後編 夏の豪華客船で穢される処女たち.md",
    "name": "虜ノ雫 後編 夏の豪華客船で穢される処女たち",
    "lib": "休闲",
-   "issue": "跨世界重复(组#913·12个世界共用)",
+   "issue": "跨世界重复(组#607·12个世界共用)",
    "hasCrossDup": true,
    "crossGroupIds": [
-    913
+    607
    ],
    "status": "待修复",
    "fixedMark": false
@@ -6699,10 +1594,10 @@
    "file": "产出\\批次729\\○○交配 第一話 優等生の彼女はエルフのお姫様.md",
    "name": "○○交配 第一話 優等生の彼女はエルフのお姫様",
    "lib": "休闲",
-   "issue": "跨世界重复(组#913·12个世界共用)",
+   "issue": "跨世界重复(组#607·12个世界共用)",
    "hasCrossDup": true,
    "crossGroupIds": [
-    913
+    607
    ],
    "status": "待修复",
    "fixedMark": false
@@ -6713,10 +1608,10 @@
    "file": "产出\\批次730\\彼女 〜上書き性服・楓〜剥がれ注ぐおじさん棒.md",
    "name": "彼女 〜上書き性服・楓〜剥がれ注ぐおじさん棒",
    "lib": "休闲",
-   "issue": "跨世界重复(组#913·12个世界共用)",
+   "issue": "跨世界重复(组#607·12个世界共用)",
    "hasCrossDup": true,
    "crossGroupIds": [
-    913
+    607
    ],
    "status": "待修复",
    "fixedMark": false
@@ -6727,10 +1622,10 @@
    "file": "产出\\批次733\\小さな蕾のその奥に…….md",
    "name": "小さな蕾のその奥に……",
    "lib": "休闲",
-   "issue": "跨世界重复(组#913·12个世界共用)",
+   "issue": "跨世界重复(组#607·12个世界共用)",
    "hasCrossDup": true,
    "crossGroupIds": [
-    913
+    607
    ],
    "status": "待修复",
    "fixedMark": false
@@ -6741,10 +1636,10 @@
    "file": "产出\\批次739\\卒業○○電車 三輌目 酔いつぶれた女教師は弛緩した身体を弄ばれる.md",
    "name": "卒業○○電車 三輌目 酔いつぶれた女教師は弛緩した身体を弄ばれる",
    "lib": "休闲",
-   "issue": "跨世界重复(组#913·12个世界共用)",
+   "issue": "跨世界重复(组#607·12个世界共用)",
    "hasCrossDup": true,
    "crossGroupIds": [
-    913
+    607
    ],
    "status": "待修复",
    "fixedMark": false
@@ -6755,10 +1650,10 @@
    "file": "产出\\批次740\\思春期セックス 第3話 今日、私ん家集合ね!Ⅱ.md",
    "name": "思春期セックス 第3話 今日、私ん家集合ね!Ⅱ",
    "lib": "休闲",
-   "issue": "跨世界重复(组#913·12个世界共用)",
+   "issue": "跨世界重复(组#607·12个世界共用)",
    "hasCrossDup": true,
    "crossGroupIds": [
-    913
+    607
    ],
    "status": "待修复",
    "fixedMark": false
@@ -6769,10 +1664,10 @@
    "file": "产出\\批次743\\実娘(あの子)の代わりに好きなだけ.md",
    "name": "実娘(あの子)の代わりに好きなだけ",
    "lib": "休闲",
-   "issue": "跨世界重复(组#913·12个世界共用)",
+   "issue": "跨世界重复(组#607·12个世界共用)",
    "hasCrossDup": true,
    "crossGroupIds": [
-    913
+    607
    ],
    "status": "待修复",
    "fixedMark": false
@@ -6783,10 +1678,10 @@
    "file": "产出\\批次747\\はじめてのおるすばん 観月さおり編] ).md",
    "name": "はじめてのおるすばん 観月さおり編] )",
    "lib": "休闲",
-   "issue": "跨世界重复(组#913·12个世界共用)",
+   "issue": "跨世界重复(组#607·12个世界共用)",
    "hasCrossDup": true,
    "crossGroupIds": [
-    913
+    607
    ],
    "status": "待修复",
    "fixedMark": false
@@ -6797,10 +1692,10 @@
    "file": "产出\\批次748\\J〇フーゾク学園祭.md",
    "name": "J〇フーゾク学園祭",
    "lib": "休闲",
-   "issue": "跨世界重复(组#913·12个世界共用)",
+   "issue": "跨世界重复(组#607·12个世界共用)",
    "hasCrossDup": true,
    "crossGroupIds": [
-    913
+    607
    ],
    "status": "待修复",
    "fixedMark": false
@@ -6811,16 +1706,16 @@
    "file": "产出\\批次810\\ひぐらしのなく頃に 粋.md",
    "name": "ひぐらしのなく頃に 粋",
    "lib": "休闲",
-   "issue": "跨世界重复(组#995·4个世界共用)",
+   "issue": "跨世界重复(组#689·4个世界共用)",
    "hasCrossDup": true,
    "crossGroupIds": [
-    995,
-    996,
-    997,
-    998,
-    999,
-    1000,
-    1001
+    689,
+    690,
+    691,
+    692,
+    693,
+    694,
+    695
    ],
    "status": "待修复",
    "fixedMark": false
@@ -6831,16 +1726,16 @@
    "file": "产出\\批次810\\ひぐらしのなく頃に 奉.md",
    "name": "ひぐらしのなく頃に 奉",
    "lib": "休闲",
-   "issue": "跨世界重复(组#995·4个世界共用)",
+   "issue": "跨世界重复(组#689·4个世界共用)",
    "hasCrossDup": true,
    "crossGroupIds": [
-    995,
-    996,
-    997,
-    998,
-    999,
-    1000,
-    1001
+    689,
+    690,
+    691,
+    692,
+    693,
+    694,
+    695
    ],
    "status": "待修复",
    "fixedMark": false
@@ -6851,16 +1746,16 @@
    "file": "产出\\批次810\\ひぐらしのなく頃に 祭.md",
    "name": "ひぐらしのなく頃に 祭",
    "lib": "休闲",
-   "issue": "跨世界重复(组#995·4个世界共用)",
+   "issue": "跨世界重复(组#689·4个世界共用)",
    "hasCrossDup": true,
    "crossGroupIds": [
-    995,
-    996,
-    997,
-    998,
-    999,
-    1000,
-    1001
+    689,
+    690,
+    691,
+    692,
+    693,
+    694,
+    695
    ],
    "status": "待修复",
    "fixedMark": false
@@ -6871,16 +1766,16 @@
    "file": "产出\\批次810\\ひぐらしのなく頃に 解.md",
    "name": "ひぐらしのなく頃に 解",
    "lib": "休闲",
-   "issue": "跨世界重复(组#995·4个世界共用)",
+   "issue": "跨世界重复(组#689·4个世界共用)",
    "hasCrossDup": true,
    "crossGroupIds": [
-    995,
-    996,
-    997,
-    998,
-    999,
-    1000,
-    1001
+    689,
+    690,
+    691,
+    692,
+    693,
+    694,
+    695
    ],
    "status": "待修复",
    "fixedMark": false
@@ -13968,6 +8863,18 @@
   {
    "priority": "P2",
    "batch": 328,
+   "file": "产出\\批次328\\真章-幕末機関説いろはにほへと.md",
+   "name": "真章-幕末機関説いろはにほへと",
+   "lib": "休闲",
+   "issue": "",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "已修复",
+   "fixedMark": true
+  },
+  {
+   "priority": "P2",
+   "batch": 328,
    "file": "产出\\批次328\\ナマイキ姫-反抗期.md",
    "name": "ナマイキ姫-反抗期",
    "lib": "休闲",
@@ -14084,6 +8991,3978 @@
    "crossGroupIds": [],
    "status": "已修复",
    "fixedMark": true
+  },
+  {
+   "priority": "P2",
+   "batch": 330,
+   "file": "产出\\批次330\\エルフの双子姫-奴隶市场.md",
+   "name": "エルフの双子姫-奴隶市场",
+   "lib": "休闲",
+   "issue": "",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "已修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P2",
+   "batch": 331,
+   "file": "产出\\批次331\\女教師玲子-放学后.md",
+   "name": "女教師玲子-放学后",
+   "lib": "休闲",
+   "issue": "",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "已修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P2",
+   "batch": 331,
+   "file": "产出\\批次331\\夜這いする七人の孕女-村庄秘仪.md",
+   "name": "夜這いする七人の孕女-村庄秘仪",
+   "lib": "休闲",
+   "issue": "",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "已修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P2",
+   "batch": 331,
+   "file": "产出\\批次331\\淫蟲の宴-寄生完成.md",
+   "name": "淫蟲の宴-寄生完成",
+   "lib": "休闲",
+   "issue": "",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "已修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P2",
+   "batch": 331,
+   "file": "产出\\批次331\\ふたりエッチ-新婚修行.md",
+   "name": "ふたりエッチ-新婚修行",
+   "lib": "休闲",
+   "issue": "",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "已修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P2",
+   "batch": 338,
+   "file": "产出\\批次338\\女教師・真紀-校内調教.md",
+   "name": "女教師・真紀-校内調教",
+   "lib": "休闲",
+   "issue": "",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "已修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P2",
+   "batch": 338,
+   "file": "产出\\批次338\\淫欲の都市-地下闘技.md",
+   "name": "淫欲の都市-地下闘技",
+   "lib": "休闲",
+   "issue": "",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "已修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P2",
+   "batch": 338,
+   "file": "产出\\批次338\\エルフの森と淫魔-侵蝕篇.md",
+   "name": "エルフの森と淫魔-侵蝕篇",
+   "lib": "休闲",
+   "issue": "",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "已修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P2",
+   "batch": 339,
+   "file": "产出\\批次339\\触手屋敷-招待客.md",
+   "name": "触手屋敷-招待客",
+   "lib": "休闲",
+   "issue": "",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "已修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P2",
+   "batch": 339,
+   "file": "产出\\批次339\\鬼畜道-復讐譚.md",
+   "name": "鬼畜道-復讐譚",
+   "lib": "休闲",
+   "issue": "",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "已修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P2",
+   "batch": 339,
+   "file": "产出\\批次339\\魔物娘の館-飼育篇.md",
+   "name": "魔物娘の館-飼育篇",
+   "lib": "休闲",
+   "issue": "",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "已修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P2",
+   "batch": 339,
+   "file": "产出\\批次339\\淫獄病棟-深夜勤務.md",
+   "name": "淫獄病棟-深夜勤務",
+   "lib": "休闲",
+   "issue": "",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "已修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P2",
+   "batch": 339,
+   "file": "产出\\批次339\\レイプゲーム-生存確率.md",
+   "name": "レイプゲーム-生存確率",
+   "lib": "休闲",
+   "issue": "",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "已修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P2",
+   "batch": 340,
+   "file": "产出\\批次340\\姫君たちの牢獄-奴隷市.md",
+   "name": "姫君たちの牢獄-奴隷市",
+   "lib": "休闲",
+   "issue": "",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "已修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P2",
+   "batch": 340,
+   "file": "产出\\批次340\\女戦士エフトラ-敗北者.md",
+   "name": "女戦士エフトラ-敗北者",
+   "lib": "休闲",
+   "issue": "",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "已修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P2",
+   "batch": 340,
+   "file": "产出\\批次340\\学園ハーレム-支配者.md",
+   "name": "学園ハーレム-支配者",
+   "lib": "休闲",
+   "issue": "",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "已修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P2",
+   "batch": 340,
+   "file": "产出\\批次340\\妖艶くノ一-密命失敗.md",
+   "name": "妖艶くノ一-密命失敗",
+   "lib": "休闲",
+   "issue": "",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "已修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P2",
+   "batch": 340,
+   "file": "产出\\批次340\\淫魔の契約-代償.md",
+   "name": "淫魔の契約-代償",
+   "lib": "休闲",
+   "issue": "",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "已修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P2",
+   "batch": 346,
+   "file": "产出\\批次346\\触手列車-終点駅.md",
+   "name": "触手列車-終点駅",
+   "lib": "休闲",
+   "issue": "",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "已修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P2",
+   "batch": 352,
+   "file": "产出\\批次352\\触手病棟-感染拡大.md",
+   "name": "触手病棟-感染拡大",
+   "lib": "休闲",
+   "issue": "",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "已修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P2",
+   "batch": 352,
+   "file": "产出\\批次352\\女子校生拘束-地下室.md",
+   "name": "女子校生拘束-地下室",
+   "lib": "休闲",
+   "issue": "",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "已修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P2",
+   "batch": 352,
+   "file": "产出\\批次352\\淫魔の館-メイド調教.md",
+   "name": "淫魔の館-メイド調教",
+   "lib": "休闲",
+   "issue": "",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "已修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P2",
+   "batch": 354,
+   "file": "产出\\批次354\\触手孤島-サバイバル.md",
+   "name": "触手孤島-サバイバル",
+   "lib": "休闲",
+   "issue": "",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "已修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P2",
+   "batch": 354,
+   "file": "产出\\批次354\\催眠お姉さん-家庭教師.md",
+   "name": "催眠お姉さん-家庭教師",
+   "lib": "休闲",
+   "issue": "",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "已修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P2",
+   "batch": 354,
+   "file": "产出\\批次354\\女戦士奴隷-闘技場.md",
+   "name": "女戦士奴隷-闘技場",
+   "lib": "休闲",
+   "issue": "",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "已修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P2",
+   "batch": 354,
+   "file": "产出\\批次354\\聖女監禁-暗黒神殿.md",
+   "name": "聖女監禁-暗黒神殿",
+   "lib": "休闲",
+   "issue": "",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "已修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P2",
+   "batch": 354,
+   "file": "产出\\批次354\\淫魔の種-孕ませ計画.md",
+   "name": "淫魔の種-孕ませ計画",
+   "lib": "休闲",
+   "issue": "",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "已修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P2",
+   "batch": 356,
+   "file": "产出\\批次356\\触手研究所-被験体.md",
+   "name": "触手研究所-被験体",
+   "lib": "休闲",
+   "issue": "",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "已修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P2",
+   "batch": 356,
+   "file": "产出\\批次356\\女忍者拷問-落城後.md",
+   "name": "女忍者拷問-落城後",
+   "lib": "休闲",
+   "issue": "",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "已修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P2",
+   "batch": 356,
+   "file": "产出\\批次356\\人妻調教-完全服従.md",
+   "name": "人妻調教-完全服従",
+   "lib": "休闲",
+   "issue": "",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "已修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P2",
+   "batch": 356,
+   "file": "产出\\批次356\\聖騎士陥落-二段階.md",
+   "name": "聖騎士陥落-二段階",
+   "lib": "休闲",
+   "issue": "",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "已修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P2",
+   "batch": 356,
+   "file": "产出\\批次356\\淫魔寄宿舎-新入生.md",
+   "name": "淫魔寄宿舎-新入生",
+   "lib": "休闲",
+   "issue": "",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "已修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P2",
+   "batch": 357,
+   "file": "产出\\批次357\\触手宇宙船-漂流者.md",
+   "name": "触手宇宙船-漂流者",
+   "lib": "休闲",
+   "issue": "",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "已修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P2",
+   "batch": 357,
+   "file": "产出\\批次357\\魔法少女堕落計画-洗脳完了.md",
+   "name": "魔法少女堕落計画-洗脳完了",
+   "lib": "休闲",
+   "issue": "",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "已修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P2",
+   "batch": 357,
+   "file": "产出\\批次357\\女子刑務所-特別房.md",
+   "name": "女子刑務所-特別房",
+   "lib": "休闲",
+   "issue": "",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "已修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P2",
+   "batch": 357,
+   "file": "产出\\批次357\\人妻調教-完全服従編.md",
+   "name": "人妻調教-完全服従編",
+   "lib": "休闲",
+   "issue": "",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "已修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P2",
+   "batch": 357,
+   "file": "产出\\批次357\\エルフ女王-降伏儀式.md",
+   "name": "エルフ女王-降伏儀式",
+   "lib": "休闲",
+   "issue": "",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "已修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P2",
+   "batch": 358,
+   "file": "产出\\批次358\\触手工場-生産ライン.md",
+   "name": "触手工場-生産ライン",
+   "lib": "休闲",
+   "issue": "",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "已修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P2",
+   "batch": 358,
+   "file": "产出\\批次358\\催眠アプリ-学園制覇.md",
+   "name": "催眠アプリ-学園制覇",
+   "lib": "休闲",
+   "issue": "",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "已修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P2",
+   "batch": 358,
+   "file": "产出\\批次358\\魔界奴隷商-新商品入荷.md",
+   "name": "魔界奴隷商-新商品入荷",
+   "lib": "休闲",
+   "issue": "",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "已修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P2",
+   "batch": 358,
+   "file": "产出\\批次358\\女騎士敗北-二度目の堕落.md",
+   "name": "女騎士敗北-二度目の堕落",
+   "lib": "休闲",
+   "issue": "",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "已修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P2",
+   "batch": 358,
+   "file": "产出\\批次358\\淫獣の城-囚われの姫.md",
+   "name": "淫獣の城-囚われの姫",
+   "lib": "休闲",
+   "issue": "",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "已修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P2",
+   "batch": 361,
+   "file": "产出\\批次361\\触手マンション-管理人.md",
+   "name": "触手マンション-管理人",
+   "lib": "休闲",
+   "issue": "",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "已修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P2",
+   "batch": 361,
+   "file": "产出\\批次361\\魔界娼館-新人教育.md",
+   "name": "魔界娼館-新人教育",
+   "lib": "休闲",
+   "issue": "",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "已修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P2",
+   "batch": 361,
+   "file": "产出\\批次361\\人妻堕落-近所の目.md",
+   "name": "人妻堕落-近所の目",
+   "lib": "休闲",
+   "issue": "",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "已修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P2",
+   "batch": 361,
+   "file": "产出\\批次361\\聖騎士團-全滅後.md",
+   "name": "聖騎士團-全滅後",
+   "lib": "休闲",
+   "issue": "",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "已修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P2",
+   "batch": 361,
+   "file": "产出\\批次361\\淫魔契約-代價支付.md",
+   "name": "淫魔契約-代價支付",
+   "lib": "休闲",
+   "issue": "",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "已修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P2",
+   "batch": 362,
+   "file": "产出\\批次362\\触手学園-部活動.md",
+   "name": "触手学園-部活動",
+   "lib": "休闲",
+   "issue": "",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "已修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P2",
+   "batch": 362,
+   "file": "产出\\批次362\\催眠温泉-女将調教.md",
+   "name": "催眠温泉-女将調教",
+   "lib": "休闲",
+   "issue": "",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "已修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P2",
+   "batch": 362,
+   "file": "产出\\批次362\\魔法少女覚醒-闇の契約.md",
+   "name": "魔法少女覚醒-闇の契約",
+   "lib": "休闲",
+   "issue": "",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "已修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P2",
+   "batch": 362,
+   "file": "产出\\批次362\\女忍者捕獲-拷問開始.md",
+   "name": "女忍者捕獲-拷問開始",
+   "lib": "休闲",
+   "issue": "",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "已修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P2",
+   "batch": 362,
+   "file": "产出\\批次362\\エルフ村-侵略完了.md",
+   "name": "エルフ村-侵略完了",
+   "lib": "休闲",
+   "issue": "",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "已修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P2",
+   "batch": 363,
+   "file": "产出\\批次363\\触手研究所-新型開発.md",
+   "name": "触手研究所-新型開発",
+   "lib": "休闲",
+   "issue": "",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "已修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P2",
+   "batch": 363,
+   "file": "产出\\批次363\\女騎士団-裏切り者.md",
+   "name": "女騎士団-裏切り者",
+   "lib": "休闲",
+   "issue": "",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "已修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P2",
+   "batch": 363,
+   "file": "产出\\批次363\\人妻教師-放課後補習.md",
+   "name": "人妻教師-放課後補習",
+   "lib": "休闲",
+   "issue": "",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "已修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P2",
+   "batch": 363,
+   "file": "产出\\批次363\\聖女監禁-洗脳進行.md",
+   "name": "聖女監禁-洗脳進行",
+   "lib": "休闲",
+   "issue": "",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "已修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P2",
+   "batch": 363,
+   "file": "产出\\批次363\\淫獣ダンジョン-ボス部屋.md",
+   "name": "淫獣ダンジョン-ボス部屋",
+   "lib": "休闲",
+   "issue": "",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "已修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P2",
+   "batch": 364,
+   "file": "产出\\批次364\\触手列車-終電後.md",
+   "name": "触手列車-終電後",
+   "lib": "休闲",
+   "issue": "",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "已修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P2",
+   "batch": 364,
+   "file": "产出\\批次364\\催眠クラブ-VIP会員.md",
+   "name": "催眠クラブ-VIP会員",
+   "lib": "休闲",
+   "issue": "",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "已修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P2",
+   "batch": 364,
+   "file": "产出\\批次364\\魔法少女敗北-連続堕落.md",
+   "name": "魔法少女敗北-連続堕落",
+   "lib": "休闲",
+   "issue": "",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "已修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P2",
+   "batch": 364,
+   "file": "产出\\批次364\\淫魔寄宿舎-深夜巡回.md",
+   "name": "淫魔寄宿舎-深夜巡回",
+   "lib": "休闲",
+   "issue": "",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "已修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P2",
+   "batch": 364,
+   "file": "产出\\批次364\\エルフ姫堕落-完全服従.md",
+   "name": "エルフ姫堕落-完全服従",
+   "lib": "休闲",
+   "issue": "",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "已修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P2",
+   "batch": 365,
+   "file": "产出\\批次365\\触手病院-深夜病棟.md",
+   "name": "触手病院-深夜病棟",
+   "lib": "休闲",
+   "issue": "",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "已修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P2",
+   "batch": 365,
+   "file": "产出\\批次365\\女子校生調教-夏合宿.md",
+   "name": "女子校生調教-夏合宿",
+   "lib": "休闲",
+   "issue": "",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "已修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P2",
+   "batch": 365,
+   "file": "产出\\批次365\\人妻スワップ-隣人交換.md",
+   "name": "人妻スワップ-隣人交換",
+   "lib": "休闲",
+   "issue": "",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "已修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P2",
+   "batch": 365,
+   "file": "产出\\批次365\\聖騎士レナ-二段階堕落.md",
+   "name": "聖騎士レナ-二段階堕落",
+   "lib": "休闲",
+   "issue": "",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "已修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P2",
+   "batch": 365,
+   "file": "产出\\批次365\\淫獣の森-迷子救出.md",
+   "name": "淫獣の森-迷子救出",
+   "lib": "休闲",
+   "issue": "",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "已修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P2",
+   "batch": 366,
+   "file": "产出\\批次366\\触手異世界-召喚少女.md",
+   "name": "触手異世界-召喚少女",
+   "lib": "休闲",
+   "issue": "",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "已修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P2",
+   "batch": 366,
+   "file": "产出\\批次366\\催眠学校-教師会議.md",
+   "name": "催眠学校-教師会議",
+   "lib": "休闲",
+   "issue": "",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "已修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P2",
+   "batch": 366,
+   "file": "产出\\批次366\\魔法少女NTR-仲間寝取り.md",
+   "name": "魔法少女NTR-仲間寝取り",
+   "lib": "休闲",
+   "issue": "",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "已修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P2",
+   "batch": 366,
+   "file": "产出\\批次366\\淫魔の契約-償還期限.md",
+   "name": "淫魔の契約-償還期限",
+   "lib": "休闲",
+   "issue": "",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "已修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P2",
+   "batch": 366,
+   "file": "产出\\批次366\\エルフ奴隷市場-競売会.md",
+   "name": "エルフ奴隷市場-競売会",
+   "lib": "休闲",
+   "issue": "",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "已修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P2",
+   "batch": 367,
+   "file": "产出\\批次367\\触手銀河-宇宙海賊.md",
+   "name": "触手銀河-宇宙海賊",
+   "lib": "休闲",
+   "issue": "",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "已修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P2",
+   "batch": 367,
+   "file": "产出\\批次367\\催眠王国-女王陥落.md",
+   "name": "催眠王国-女王陥落",
+   "lib": "休闲",
+   "issue": "",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "已修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P2",
+   "batch": 367,
+   "file": "产出\\批次367\\人妻堕落-配達員の罠.md",
+   "name": "人妻堕落-配達員の罠",
+   "lib": "休闲",
+   "issue": "",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "已修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P2",
+   "batch": 367,
+   "file": "产出\\批次367\\淫獄城塞-攻城戦後.md",
+   "name": "淫獄城塞-攻城戦後",
+   "lib": "休闲",
+   "issue": "",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "已修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P2",
+   "batch": 367,
+   "file": "产出\\批次367\\エルフ留学生-人間学園.md",
+   "name": "エルフ留学生-人間学園",
+   "lib": "休闲",
+   "issue": "",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "已修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P2",
+   "batch": 368,
+   "file": "产出\\批次368\\触手遺跡-探険隊全滅.md",
+   "name": "触手遺跡-探険隊全滅",
+   "lib": "休闲",
+   "issue": "",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "已修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P2",
+   "batch": 368,
+   "file": "产出\\批次368\\魔法少女ミラ-絶望の魔女化.md",
+   "name": "魔法少女ミラ-絶望の魔女化",
+   "lib": "休闲",
+   "issue": "",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "已修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P2",
+   "batch": 368,
+   "file": "产出\\批次368\\女教師寮-管理人の夜.md",
+   "name": "女教師寮-管理人の夜",
+   "lib": "休闲",
+   "issue": "",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "已修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P2",
+   "batch": 368,
+   "file": "产出\\批次368\\聖女騎士団-全員洗脳.md",
+   "name": "聖女騎士団-全員洗脳",
+   "lib": "休闲",
+   "issue": "",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "已修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P2",
+   "batch": 368,
+   "file": "产出\\批次368\\淫獣農場-収穫祭.md",
+   "name": "淫獣農場-収穫祭",
+   "lib": "休闲",
+   "issue": "",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "已修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P2",
+   "batch": 369,
+   "file": "产出\\批次369\\催眠カルテ-女医の堕落.md",
+   "name": "催眠カルテ-女医の堕落",
+   "lib": "休闲",
+   "issue": "",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "已修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P2",
+   "batch": 369,
+   "file": "产出\\批次369\\魔界闘技場-敗者の末路.md",
+   "name": "魔界闘技場-敗者の末路",
+   "lib": "休闲",
+   "issue": "",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "已修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P2",
+   "batch": 369,
+   "file": "产出\\批次369\\人妻カフェ-裏メニュー.md",
+   "name": "人妻カフェ-裏メニュー",
+   "lib": "休闲",
+   "issue": "",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "已修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P2",
+   "batch": 369,
+   "file": "产出\\批次369\\淫魔学園-卒業試験.md",
+   "name": "淫魔学園-卒業試験",
+   "lib": "休闲",
+   "issue": "",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "已修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P2",
+   "batch": 369,
+   "file": "产出\\批次369\\エルフ女王-和平代價.md",
+   "name": "エルフ女王-和平代價",
+   "lib": "休闲",
+   "issue": "",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "已修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P2",
+   "batch": 370,
+   "file": "产出\\批次370\\触手プール-水泳部占拠.md",
+   "name": "触手プール-水泳部占拠",
+   "lib": "休闲",
+   "issue": "",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "已修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P2",
+   "batch": 370,
+   "file": "产出\\批次370\\催眠寮母-女子大生支配.md",
+   "name": "催眠寮母-女子大生支配",
+   "lib": "休闲",
+   "issue": "",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "已修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P2",
+   "batch": 370,
+   "file": "产出\\批次370\\女騎士レイラ-調教日誌.md",
+   "name": "女騎士レイラ-調教日誌",
+   "lib": "休闲",
+   "issue": "",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "已修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P2",
+   "batch": 370,
+   "file": "产出\\批次370\\聖女アリア-暗黒儀式完了.md",
+   "name": "聖女アリア-暗黒儀式完了",
+   "lib": "休闲",
+   "issue": "",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "已修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P2",
+   "batch": 370,
+   "file": "产出\\批次370\\エルフ双子姫-分離売却.md",
+   "name": "エルフ双子姫-分離売却",
+   "lib": "休闲",
+   "issue": "",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "已修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P2",
+   "batch": 371,
+   "file": "产出\\批次371\\触手神社-巫女修行.md",
+   "name": "触手神社-巫女修行",
+   "lib": "休闲",
+   "issue": "",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "已修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P2",
+   "batch": 371,
+   "file": "产出\\批次371\\魔法少女堕落-連鎖反応.md",
+   "name": "魔法少女堕落-連鎖反応",
+   "lib": "休闲",
+   "issue": "",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "已修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P2",
+   "batch": 371,
+   "file": "产出\\批次371\\女教師落とし-職員室の秘密.md",
+   "name": "女教師落とし-職員室の秘密",
+   "lib": "休闲",
+   "issue": "",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "已修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P2",
+   "batch": 371,
+   "file": "产出\\批次371\\人妻温泉-秘湯の秘密.md",
+   "name": "人妻温泉-秘湯の秘密",
+   "lib": "休闲",
+   "issue": "",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "已修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P2",
+   "batch": 371,
+   "file": "产出\\批次371\\淫獣島-サバイバル最終章.md",
+   "name": "淫獣島-サバイバル最終章",
+   "lib": "休闲",
+   "issue": "",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "已修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P2",
+   "batch": 372,
+   "file": "产出\\批次372\\触手宇宙船-漂流二年目.md",
+   "name": "触手宇宙船-漂流二年目",
+   "lib": "休闲",
+   "issue": "",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "已修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P2",
+   "batch": 372,
+   "file": "产出\\批次372\\催眠医院-入院から退院不能.md",
+   "name": "催眠医院-入院から退院不能",
+   "lib": "休闲",
+   "issue": "",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "已修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P2",
+   "batch": 372,
+   "file": "产出\\批次372\\聖騎士陥落-三段階.md",
+   "name": "聖騎士陥落-三段階",
+   "lib": "休闲",
+   "issue": "",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "已修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P2",
+   "batch": 372,
+   "file": "产出\\批次372\\淫魔契約-永久束縛.md",
+   "name": "淫魔契約-永久束縛",
+   "lib": "休闲",
+   "issue": "",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "已修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P2",
+   "batch": 372,
+   "file": "产出\\批次372\\エルフ村-奴隷化完了後.md",
+   "name": "エルフ村-奴隷化完了後",
+   "lib": "休闲",
+   "issue": "",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "已修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P2",
+   "batch": 373,
+   "file": "产出\\批次373\\触手研究所-被験体変異.md",
+   "name": "触手研究所-被験体変異",
+   "lib": "休闲",
+   "issue": "",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "已修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P2",
+   "batch": 373,
+   "file": "产出\\批次373\\魔界公主-人間牧場経営.md",
+   "name": "魔界公主-人間牧場経営",
+   "lib": "休闲",
+   "issue": "",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "已修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P2",
+   "batch": 373,
+   "file": "产出\\批次373\\女戦士ギルド-全滅壊滅.md",
+   "name": "女戦士ギルド-全滅壊滅",
+   "lib": "休闲",
+   "issue": "",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "已修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P2",
+   "batch": 373,
+   "file": "产出\\批次373\\人妻調教-隣人全員.md",
+   "name": "人妻調教-隣人全員",
+   "lib": "休闲",
+   "issue": "",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "已修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P2",
+   "batch": 373,
+   "file": "产出\\批次373\\淫獣祭壇-大祭司就任.md",
+   "name": "淫獣祭壇-大祭司就任",
+   "lib": "休闲",
+   "issue": "",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "已修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P2",
+   "batch": 374,
+   "file": "产出\\批次374\\催眠学園-三年間支配.md",
+   "name": "催眠学園-三年間支配",
+   "lib": "休闲",
+   "issue": "",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "已修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P2",
+   "batch": 374,
+   "file": "产出\\批次374\\魔法少女絶望-最後の一人.md",
+   "name": "魔法少女絶望-最後の一人",
+   "lib": "休闲",
+   "issue": "",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "已修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P2",
+   "batch": 374,
+   "file": "产出\\批次374\\人妻NTR-同僚の妻.md",
+   "name": "人妻NTR-同僚の妻",
+   "lib": "休闲",
+   "issue": "",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "已修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P2",
+   "batch": 374,
+   "file": "产出\\批次374\\聖女監禁-千日記録.md",
+   "name": "聖女監禁-千日記録",
+   "lib": "休闲",
+   "issue": "",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "已修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P2",
+   "batch": 374,
+   "file": "产出\\批次374\\エルフ奴隷市場-競売記録.md",
+   "name": "エルフ奴隷市場-競売記録",
+   "lib": "休闲",
+   "issue": "",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "已修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P2",
+   "batch": 375,
+   "file": "产出\\批次375\\触手列車-環状線.md",
+   "name": "触手列車-環状線",
+   "lib": "休闲",
+   "issue": "",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "已修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P2",
+   "batch": 375,
+   "file": "产出\\批次375\\催眠リゾート-永住者.md",
+   "name": "催眠リゾート-永住者",
+   "lib": "休闲",
+   "issue": "",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "已修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P2",
+   "batch": 375,
+   "file": "产出\\批次375\\女騎士団-裏切者処刑.md",
+   "name": "女騎士団-裏切者処刑",
+   "lib": "休闲",
+   "issue": "",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "已修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P2",
+   "batch": 375,
+   "file": "产出\\批次375\\淫魔寄宿舎-最終学年.md",
+   "name": "淫魔寄宿舎-最終学年",
+   "lib": "休闲",
+   "issue": "",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "已修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P2",
+   "batch": 375,
+   "file": "产出\\批次375\\エルフ姫レティシア-完全服従.md",
+   "name": "エルフ姫レティシア-完全服従",
+   "lib": "休闲",
+   "issue": "",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "已修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P2",
+   "batch": 377,
+   "file": "产出\\批次377\\触手病院-院長就任.md",
+   "name": "触手病院-院長就任",
+   "lib": "休闲",
+   "issue": "",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "已修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P2",
+   "batch": 377,
+   "file": "产出\\批次377\\催眠お嬢様-家庭教師支配.md",
+   "name": "催眠お嬢様-家庭教師支配",
+   "lib": "休闲",
+   "issue": "",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "已修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P2",
+   "batch": 377,
+   "file": "产出\\批次377\\魔法少女覚醒-闇の力.md",
+   "name": "魔法少女覚醒-闇の力",
+   "lib": "休闲",
+   "issue": "",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "已修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P2",
+   "batch": 377,
+   "file": "产出\\批次377\\淫獣ダンジョン-迷宮主.md",
+   "name": "淫獣ダンジョン-迷宮主",
+   "lib": "休闲",
+   "issue": "",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "已修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P2",
+   "batch": 377,
+   "file": "产出\\批次377\\エルフ森林-狩猟解禁日.md",
+   "name": "エルフ森林-狩猟解禁日",
+   "lib": "休闲",
+   "issue": "",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "已修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P2",
+   "batch": 378,
+   "file": "产出\\批次378\\触手世界-転生令嬢.md",
+   "name": "触手世界-転生令嬢",
+   "lib": "休闲",
+   "issue": "",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "已修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P2",
+   "batch": 378,
+   "file": "产出\\批次378\\女戦士捕虜-長期拘束後.md",
+   "name": "女戦士捕虜-長期拘束後",
+   "lib": "休闲",
+   "issue": "",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "已修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P2",
+   "batch": 378,
+   "file": "产出\\批次378\\人妻スワップ-団地全員.md",
+   "name": "人妻スワップ-団地全員",
+   "lib": "休闲",
+   "issue": "",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "已修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P2",
+   "batch": 378,
+   "file": "产出\\批次378\\聖女アウレリア-堕落完成.md",
+   "name": "聖女アウレリア-堕落完成",
+   "lib": "休闲",
+   "issue": "",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "已修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P2",
+   "batch": 378,
+   "file": "产出\\批次378\\淫魔の巣-繁殖女王.md",
+   "name": "淫魔の巣-繁殖女王",
+   "lib": "休闲",
+   "issue": "",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "已修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P2",
+   "batch": 379,
+   "file": "产出\\批次379\\触手孤島-第三世代.md",
+   "name": "触手孤島-第三世代",
+   "lib": "休闲",
+   "issue": "",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "已修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P2",
+   "batch": 379,
+   "file": "产出\\批次379\\催眠アパート-住民全員.md",
+   "name": "催眠アパート-住民全員",
+   "lib": "休闲",
+   "issue": "",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "已修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P2",
+   "batch": 379,
+   "file": "产出\\批次379\\魔界奴隷商-VIP顧客.md",
+   "name": "魔界奴隷商-VIP顧客",
+   "lib": "休闲",
+   "issue": "",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "已修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P2",
+   "batch": 379,
+   "file": "产出\\批次379\\女騎士陥落-二人同時.md",
+   "name": "女騎士陥落-二人同時",
+   "lib": "休闲",
+   "issue": "",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "已修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P2",
+   "batch": 379,
+   "file": "产出\\批次379\\エルフ双子-再会.md",
+   "name": "エルフ双子-再会",
+   "lib": "休闲",
+   "issue": "",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "已修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P2",
+   "batch": 384,
+   "file": "产出\\批次384\\催眠医院-外来患者.md",
+   "name": "催眠医院-外来患者",
+   "lib": "休闲",
+   "issue": "",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "已修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P2",
+   "batch": 384,
+   "file": "产出\\批次384\\魔法少女ミカ-堕落教官.md",
+   "name": "魔法少女ミカ-堕落教官",
+   "lib": "休闲",
+   "issue": "",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "已修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P2",
+   "batch": 384,
+   "file": "产出\\批次384\\人妻温泉-常連客.md",
+   "name": "人妻温泉-常連客",
+   "lib": "休闲",
+   "issue": "",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "已修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P2",
+   "batch": 384,
+   "file": "产出\\批次384\\聖騎士レナ-第四回捕獲.md",
+   "name": "聖騎士レナ-第四回捕獲",
+   "lib": "休闲",
+   "issue": "",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "已修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P2",
+   "batch": 384,
+   "file": "产出\\批次384\\エルフ女王-第二王女献上.md",
+   "name": "エルフ女王-第二王女献上",
+   "lib": "休闲",
+   "issue": "",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "已修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P2",
+   "batch": 385,
+   "file": "产出\\批次385\\触手列車-新路線開通.md",
+   "name": "触手列車-新路線開通",
+   "lib": "休闲",
+   "issue": "",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "已修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P2",
+   "batch": 385,
+   "file": "产出\\批次385\\催眠リゾート-職員採用.md",
+   "name": "催眠リゾート-職員採用",
+   "lib": "休闲",
+   "issue": "",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "已修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P2",
+   "batch": 385,
+   "file": "产出\\批次385\\女戦士捕虜-解放条件.md",
+   "name": "女戦士捕虜-解放条件",
+   "lib": "休闲",
+   "issue": "",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "已修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P2",
+   "batch": 385,
+   "file": "产出\\批次385\\聖女アリシア-使徒任命.md",
+   "name": "聖女アリシア-使徒任命",
+   "lib": "休闲",
+   "issue": "",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "已修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P2",
+   "batch": 385,
+   "file": "产出\\批次385\\淫魔契約-世代継承.md",
+   "name": "淫魔契約-世代継承",
+   "lib": "休闲",
+   "issue": "",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "已修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P2",
+   "batch": 386,
+   "file": "产出\\批次386\\触手異世界-帝国建国.md",
+   "name": "触手異世界-帝国建国",
+   "lib": "休闲",
+   "issue": "",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "已修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P2",
+   "batch": 386,
+   "file": "产出\\批次386\\魔界娼館-最高位昇格.md",
+   "name": "魔界娼館-最高位昇格",
+   "lib": "休闲",
+   "issue": "",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "已修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P2",
+   "batch": 386,
+   "file": "产出\\批次386\\人妻調教-近所全員完了.md",
+   "name": "人妻調教-近所全員完了",
+   "lib": "休闲",
+   "issue": "",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "已修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P2",
+   "batch": 386,
+   "file": "产出\\批次386\\淫獣研究所-最終形態.md",
+   "name": "淫獣研究所-最終形態",
+   "lib": "休闲",
+   "issue": "",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "已修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P2",
+   "batch": 386,
+   "file": "产出\\批次386\\エルフ双子姫-主人交換.md",
+   "name": "エルフ双子姫-主人交換",
+   "lib": "休闲",
+   "issue": "",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "已修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P2",
+   "batch": 387,
+   "file": "产出\\批次387\\触手公園-深夜散歩.md",
+   "name": "触手公園-深夜散歩",
+   "lib": "休闲",
+   "issue": "",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "已修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P2",
+   "batch": 387,
+   "file": "产出\\批次387\\催眠教室-補習時間.md",
+   "name": "催眠教室-補習時間",
+   "lib": "休闲",
+   "issue": "",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "已修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P2",
+   "batch": 387,
+   "file": "产出\\批次387\\人妻配達-宅配便.md",
+   "name": "人妻配達-宅配便",
+   "lib": "休闲",
+   "issue": "",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "已修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P2",
+   "batch": 387,
+   "file": "产出\\批次387\\淫獣王国-女王蹂躙.md",
+   "name": "淫獣王国-女王蹂躙",
+   "lib": "休闲",
+   "issue": "",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "已修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P2",
+   "batch": 387,
+   "file": "产出\\批次387\\エルフ温泉郷-混浴の夜.md",
+   "name": "エルフ温泉郷-混浴の夜",
+   "lib": "休闲",
+   "issue": "",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "已修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P2",
+   "batch": 390,
+   "file": "产出\\批次390\\触手列車-夜行便.md",
+   "name": "触手列車-夜行便",
+   "lib": "休闲",
+   "issue": "",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "已修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P2",
+   "batch": 390,
+   "file": "产出\\批次390\\催眠リゾート-従業員教育.md",
+   "name": "催眠リゾート-従業員教育",
+   "lib": "休闲",
+   "issue": "",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "已修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P2",
+   "batch": 390,
+   "file": "产出\\批次390\\女教師ハーレム-学年全員.md",
+   "name": "女教師ハーレム-学年全員",
+   "lib": "休闲",
+   "issue": "",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "已修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P2",
+   "batch": 390,
+   "file": "产出\\批次390\\聖騎士団-内通者.md",
+   "name": "聖騎士団-内通者",
+   "lib": "休闲",
+   "issue": "",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "已修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P2",
+   "batch": 390,
+   "file": "产出\\批次390\\エルフ村-第三次侵略.md",
+   "name": "エルフ村-第三次侵略",
+   "lib": "休闲",
+   "issue": "",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "已修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P2",
+   "batch": 391,
+   "file": "产出\\批次391\\触手神殿-大祭典.md",
+   "name": "触手神殿-大祭典",
+   "lib": "休闲",
+   "issue": "",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "已修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P2",
+   "batch": 391,
+   "file": "产出\\批次391\\魔法少女覚醒-闇の使徒.md",
+   "name": "魔法少女覚醒-闇の使徒",
+   "lib": "休闲",
+   "issue": "",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "已修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P2",
+   "batch": 391,
+   "file": "产出\\批次391\\女戦士ギルド-全員堕落.md",
+   "name": "女戦士ギルド-全員堕落",
+   "lib": "休闲",
+   "issue": "",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "已修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P2",
+   "batch": 391,
+   "file": "产出\\批次391\\人妻調教-マンション全戸.md",
+   "name": "人妻調教-マンション全戸",
+   "lib": "休闲",
+   "issue": "",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "已修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P2",
+   "batch": 391,
+   "file": "产出\\批次391\\淫魔学園-修学旅行.md",
+   "name": "淫魔学園-修学旅行",
+   "lib": "休闲",
+   "issue": "",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "已修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P2",
+   "batch": 394,
+   "file": "产出\\批次394\\触手マンション-住民規約.md",
+   "name": "触手マンション-住民規約",
+   "lib": "休闲",
+   "issue": "",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "已修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P2",
+   "batch": 394,
+   "file": "产出\\批次394\\魔法少女敗北-全員孕.md",
+   "name": "魔法少女敗北-全員孕",
+   "lib": "休闲",
+   "issue": "",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "已修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P2",
+   "batch": 394,
+   "file": "产出\\批次394\\人妻カフェ-裏営業.md",
+   "name": "人妻カフェ-裏営業",
+   "lib": "休闲",
+   "issue": "",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "已修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P2",
+   "batch": 394,
+   "file": "产出\\批次394\\淫魔契約-母娘同時.md",
+   "name": "淫魔契約-母娘同時",
+   "lib": "休闲",
+   "issue": "",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "已修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P2",
+   "batch": 394,
+   "file": "产出\\批次394\\エルフ森林-狩猎祭.md",
+   "name": "エルフ森林-狩猎祭",
+   "lib": "休闲",
+   "issue": "",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "已修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P2",
+   "batch": 395,
+   "file": "产出\\批次395\\催眠アイドル-握手会.md",
+   "name": "催眠アイドル-握手会",
+   "lib": "休闲",
+   "issue": "",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "已修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P2",
+   "batch": 395,
+   "file": "产出\\批次395\\魔界闘技場-敗者専用.md",
+   "name": "魔界闘技場-敗者専用",
+   "lib": "休闲",
+   "issue": "",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "已修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P2",
+   "batch": 395,
+   "file": "产出\\批次395\\女教師監禁-夏休み.md",
+   "name": "女教師監禁-夏休み",
+   "lib": "休闲",
+   "issue": "",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "已修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P2",
+   "batch": 395,
+   "file": "产出\\批次395\\聖女牧場-繁殖計画.md",
+   "name": "聖女牧場-繁殖計画",
+   "lib": "休闲",
+   "issue": "",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "已修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P2",
+   "batch": 395,
+   "file": "产出\\批次395\\エルフ姫堕落-完全調教日誌.md",
+   "name": "エルフ姫堕落-完全調教日誌",
+   "lib": "休闲",
+   "issue": "",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "已修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P2",
+   "batch": 396,
+   "file": "产出\\批次396\\触手学園-保健室.md",
+   "name": "触手学園-保健室",
+   "lib": "休闲",
+   "issue": "",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "已修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P2",
+   "batch": 396,
+   "file": "产出\\批次396\\催眠会社-OL全員.md",
+   "name": "催眠会社-OL全員",
+   "lib": "休闲",
+   "issue": "",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "已修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P2",
+   "batch": 396,
+   "file": "产出\\批次396\\女戦士捕虜-奴隷市場.md",
+   "name": "女戦士捕虜-奴隷市場",
+   "lib": "休闲",
+   "issue": "",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "已修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P2",
+   "batch": 396,
+   "file": "产出\\批次396\\人妻堕落-PTA会長.md",
+   "name": "人妻堕落-PTA会長",
+   "lib": "休闲",
+   "issue": "",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "已修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P2",
+   "batch": 396,
+   "file": "产出\\批次396\\淫獣村-新嫁入り.md",
+   "name": "淫獣村-新嫁入り",
+   "lib": "休闲",
+   "issue": "",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "已修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P2",
+   "batch": 397,
+   "file": "产出\\批次397\\魔法少女絶望-仲間喰い.md",
+   "name": "魔法少女絶望-仲間喰い",
+   "lib": "休闲",
+   "issue": "",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "已修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P2",
+   "batch": 397,
+   "file": "产出\\批次397\\人妻NTR-同窓会二次会.md",
+   "name": "人妻NTR-同窓会二次会",
+   "lib": "休闲",
+   "issue": "",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "已修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P2",
+   "batch": 397,
+   "file": "产出\\批次397\\聖騎士ミリア-第五次捕獲.md",
+   "name": "聖騎士ミリア-第五次捕獲",
+   "lib": "休闲",
+   "issue": "",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "已修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P2",
+   "batch": 397,
+   "file": "产出\\批次397\\淫魔寄宿舎-卒業記念.md",
+   "name": "淫魔寄宿舎-卒業記念",
+   "lib": "休闲",
+   "issue": "",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "已修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P2",
+   "batch": 397,
+   "file": "产出\\批次397\\エルフ村-人間牧場化.md",
+   "name": "エルフ村-人間牧場化",
+   "lib": "休闲",
+   "issue": "",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "已修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P2",
+   "batch": 398,
+   "file": "产出\\批次398\\触手遺跡-第二次探検隊.md",
+   "name": "触手遺跡-第二次探検隊",
+   "lib": "休闲",
+   "issue": "",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "已修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P2",
+   "batch": 398,
+   "file": "产出\\批次398\\催眠温泉-団体客.md",
+   "name": "催眠温泉-団体客",
+   "lib": "休闲",
+   "issue": "",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "已修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P2",
+   "batch": 398,
+   "file": "产出\\批次398\\女教師寮-全室巡回.md",
+   "name": "女教師寮-全室巡回",
+   "lib": "休闲",
+   "issue": "",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "已修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P2",
+   "batch": 398,
+   "file": "产出\\批次398\\聖女監禁-三年目.md",
+   "name": "聖女監禁-三年目",
+   "lib": "休闲",
+   "issue": "",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "已修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P2",
+   "batch": 398,
+   "file": "产出\\批次398\\エルフ双子姫-主人交代.md",
+   "name": "エルフ双子姫-主人交代",
+   "lib": "休闲",
+   "issue": "",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "已修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P2",
+   "batch": 399,
+   "file": "产出\\批次399\\触手孤島-第四世代.md",
+   "name": "触手孤島-第四世代",
+   "lib": "休闲",
+   "issue": "",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "已修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P2",
+   "batch": 399,
+   "file": "产出\\批次399\\魔界公主-人間娼館経営.md",
+   "name": "魔界公主-人間娼館経営",
+   "lib": "休闲",
+   "issue": "",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "已修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P2",
+   "batch": 399,
+   "file": "产出\\批次399\\女騎士団-再建三度失敗.md",
+   "name": "女騎士団-再建三度失敗",
+   "lib": "休闲",
+   "issue": "",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "已修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P2",
+   "batch": 399,
+   "file": "产出\\批次399\\人妻調教-団地自治会.md",
+   "name": "人妻調教-団地自治会",
+   "lib": "休闲",
+   "issue": "",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "已修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P2",
+   "batch": 399,
+   "file": "产出\\批次399\\淫獣祭壇-百人祭.md",
+   "name": "淫獣祭壇-百人祭",
+   "lib": "休闲",
+   "issue": "",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "已修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P2",
+   "batch": 434,
+   "file": "产出\\批次434\\触手病棟-長期入院.md",
+   "name": "触手病棟-長期入院",
+   "lib": "休闲",
+   "issue": "",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "已修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P2",
+   "batch": 434,
+   "file": "产出\\批次434\\人妻温泉-混浴指定.md",
+   "name": "人妻温泉-混浴指定",
+   "lib": "休闲",
+   "issue": "",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "已修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P2",
+   "batch": 434,
+   "file": "产出\\批次434\\淫魔学園-二期生.md",
+   "name": "淫魔学園-二期生",
+   "lib": "休闲",
+   "issue": "",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "已修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P2",
+   "batch": 436,
+   "file": "产出\\批次436\\女教師落とし-全国大会.md",
+   "name": "女教師落とし-全国大会",
+   "lib": "休闲",
+   "issue": "",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "已修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P2",
+   "batch": 436,
+   "file": "产出\\批次436\\淫獣研究所-第四期開始.md",
+   "name": "淫獣研究所-第四期開始",
+   "lib": "休闲",
+   "issue": "",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "已修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P2",
+   "batch": 445,
+   "file": "产出\\批次445\\淫魔帝国-宇宙征服完了.md",
+   "name": "淫魔帝国-宇宙征服完了",
+   "lib": "休闲",
+   "issue": "",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "已修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P2",
+   "batch": 446,
+   "file": "产出\\批次446\\触手列車-時空路線.md",
+   "name": "触手列車-時空路線",
+   "lib": "休闲",
+   "issue": "",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "已修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P2",
+   "batch": 446,
+   "file": "产出\\批次446\\触手水族館-海洋公園化.md",
+   "name": "触手水族館-海洋公園化",
+   "lib": "休闲",
+   "issue": "",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "已修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P2",
+   "batch": 446,
+   "file": "产出\\批次446\\催眠美術館-常設展.md",
+   "name": "催眠美術館-常設展",
+   "lib": "休闲",
+   "issue": "",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "已修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P2",
+   "batch": 446,
+   "file": "产出\\批次446\\魔導図書館-禁書開放.md",
+   "name": "魔導図書館-禁書開放",
+   "lib": "休闲",
+   "issue": "",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "已修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P2",
+   "batch": 447,
+   "file": "产出\\批次447\\聖女修道院-連鎖化.md",
+   "name": "聖女修道院-連鎖化",
+   "lib": "休闲",
+   "issue": "",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "已修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P2",
+   "batch": 449,
+   "file": "产出\\批次449\\触手動物園-サファリ化.md",
+   "name": "触手動物園-サファリ化",
+   "lib": "休闲",
+   "issue": "",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "已修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P2",
+   "batch": 449,
+   "file": "产出\\批次449\\催眠美容-全国チェーン.md",
+   "name": "催眠美容-全国チェーン",
+   "lib": "休闲",
+   "issue": "",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "已修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P2",
+   "batch": 449,
+   "file": "产出\\批次449\\女教師教育-正式制度.md",
+   "name": "女教師教育-正式制度",
+   "lib": "休闲",
+   "issue": "",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "已修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P2",
+   "batch": 449,
+   "file": "产出\\批次449\\聖騎士団-遺産博物館.md",
+   "name": "聖騎士団-遺産博物館",
+   "lib": "休闲",
+   "issue": "",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "已修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P2",
+   "batch": 449,
+   "file": "产出\\批次449\\淫獣劇場-連鎖劇場.md",
+   "name": "淫獣劇場-連鎖劇場",
+   "lib": "休闲",
+   "issue": "",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "已修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P2",
+   "batch": 454,
+   "file": "产出\\批次454\\触手病棟-専門病院化.md",
+   "name": "触手病棟-専門病院化",
+   "lib": "休闲",
+   "issue": "",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "已修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P2",
+   "batch": 454,
+   "file": "产出\\批次454\\催眠病院-国際連盟.md",
+   "name": "催眠病院-国際連盟",
+   "lib": "休闲",
+   "issue": "",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "已修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P2",
+   "batch": 454,
+   "file": "产出\\批次454\\女戦士ギルド-国際連盟.md",
+   "name": "女戦士ギルド-国際連盟",
+   "lib": "休闲",
+   "issue": "",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "已修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P2",
+   "batch": 454,
+   "file": "产出\\批次454\\聖女牧場-産業化完了.md",
+   "name": "聖女牧場-産業化完了",
+   "lib": "休闲",
+   "issue": "",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "已修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P2",
+   "batch": 454,
+   "file": "产出\\批次454\\エルフ村-歴史遺産.md",
+   "name": "エルフ村-歴史遺産",
+   "lib": "休闲",
+   "issue": "",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "已修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P2",
+   "batch": 456,
+   "file": "产出\\批次456\\催眠リゾート-多元宇宙.md",
+   "name": "催眠リゾート-多元宇宙",
+   "lib": "休闲",
+   "issue": "",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "已修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P2",
+   "batch": 456,
+   "file": "产出\\批次456\\魔法少女堕落-次元征服.md",
+   "name": "魔法少女堕落-次元征服",
+   "lib": "休闲",
+   "issue": "",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "已修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P2",
+   "batch": 456,
+   "file": "产出\\批次456\\人妻温泉-宇宙展開.md",
+   "name": "人妻温泉-宇宙展開",
+   "lib": "休闲",
+   "issue": "",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "已修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P2",
+   "batch": 456,
+   "file": "产出\\批次456\\聖騎士カタリナ-宇宙帝国.md",
+   "name": "聖騎士カタリナ-宇宙帝国",
+   "lib": "休闲",
+   "issue": "",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "已修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P2",
+   "batch": 456,
+   "file": "产出\\批次456\\エルフ双子姫-銀河帝国.md",
+   "name": "エルフ双子姫-銀河帝国",
+   "lib": "休闲",
+   "issue": "",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "已修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P2",
+   "batch": 457,
+   "file": "产出\\批次457\\触手世界-時空統一.md",
+   "name": "触手世界-時空統一",
+   "lib": "休闲",
+   "issue": "",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "已修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P2",
+   "batch": 457,
+   "file": "产出\\批次457\\催眠占い館-運命改変.md",
+   "name": "催眠占い館-運命改変",
+   "lib": "休闲",
+   "issue": "",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "已修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P2",
+   "batch": 457,
+   "file": "产出\\批次457\\魔導騎士団-全員堕落.md",
+   "name": "魔導騎士団-全員堕落",
+   "lib": "休闲",
+   "issue": "",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "已修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P2",
+   "batch": 457,
+   "file": "产出\\批次457\\淫魔帝国-多元宇宙.md",
+   "name": "淫魔帝国-多元宇宙",
+   "lib": "休闲",
+   "issue": "",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "已修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P2",
+   "batch": 457,
+   "file": "产出\\批次457\\エルフ薬師-禁忌調合.md",
+   "name": "エルフ薬師-禁忌調合",
+   "lib": "休闲",
+   "issue": "",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "已修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P2",
+   "batch": 459,
+   "file": "产出\\批次459\\触手映画館-上映中.md",
+   "name": "触手映画館-上映中",
+   "lib": "休闲",
+   "issue": "",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "已修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P2",
+   "batch": 459,
+   "file": "产出\\批次459\\催眠写真館-記念撮影.md",
+   "name": "催眠写真館-記念撮影",
+   "lib": "休闲",
+   "issue": "",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "已修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P2",
+   "batch": 459,
+   "file": "产出\\批次459\\魔界喫茶-ウェイトレス.md",
+   "name": "魔界喫茶-ウェイトレス",
+   "lib": "休闲",
+   "issue": "",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "已修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P2",
+   "batch": 459,
+   "file": "产出\\批次459\\女騎士エリカ-八度目覚醒.md",
+   "name": "女騎士エリカ-八度目覚醒",
+   "lib": "休闲",
+   "issue": "",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "已修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P2",
+   "batch": 460,
+   "file": "产出\\批次460\\触手ビーチ-海開き.md",
+   "name": "触手ビーチ-海開き",
+   "lib": "休闲",
+   "issue": "",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "已修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P2",
+   "batch": 460,
+   "file": "产出\\批次460\\女教師温泉-慰安旅行.md",
+   "name": "女教師温泉-慰安旅行",
+   "lib": "休闲",
+   "issue": "",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "已修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P2",
+   "batch": 460,
+   "file": "产出\\批次460\\人妻ジム-パーソナル.md",
+   "name": "人妻ジム-パーソナル",
+   "lib": "休闲",
+   "issue": "",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "已修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P2",
+   "batch": 460,
+   "file": "产出\\批次460\\聖騎士団-復活計画.md",
+   "name": "聖騎士団-復活計画",
+   "lib": "休闲",
+   "issue": "",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "已修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P2",
+   "batch": 460,
+   "file": "产出\\批次460\\淫獣サーカス-団員募集.md",
+   "name": "淫獣サーカス-団員募集",
+   "lib": "休闲",
+   "issue": "",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "已修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P2",
+   "batch": 461,
+   "file": "产出\\批次461\\催眠書店-読書会.md",
+   "name": "催眠書店-読書会",
+   "lib": "休闲",
+   "issue": "",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "已修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P2",
+   "batch": 461,
+   "file": "产出\\批次461\\魔法少女ミオ-時間停止.md",
+   "name": "魔法少女ミオ-時間停止",
+   "lib": "休闲",
+   "issue": "",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "已修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P2",
+   "batch": 461,
+   "file": "产出\\批次461\\人妻茶道-裏千家.md",
+   "name": "人妻茶道-裏千家",
+   "lib": "休闲",
+   "issue": "",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "已修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P2",
+   "batch": 461,
+   "file": "产出\\批次461\\淫魔旅行社-ツアー.md",
+   "name": "淫魔旅行社-ツアー",
+   "lib": "休闲",
+   "issue": "",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "已修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P2",
+   "batch": 461,
+   "file": "产出\\批次461\\エルフ織物工房-職人.md",
+   "name": "エルフ織物工房-職人",
+   "lib": "休闲",
+   "issue": "",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "已修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P2",
+   "batch": 463,
+   "file": "产出\\批次463\\人妻ネイル-施術室.md",
+   "name": "人妻ネイル-施術室",
+   "lib": "休闲",
+   "issue": "",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "已修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P2",
+   "batch": 464,
+   "file": "产出\\批次464\\催眠エステ-痩身コース.md",
+   "name": "催眠エステ-痩身コース",
+   "lib": "休闲",
+   "issue": "",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "已修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P2",
+   "batch": 464,
+   "file": "产出\\批次464\\魔法少女ノエル-聖夜堕落.md",
+   "name": "魔法少女ノエル-聖夜堕落",
+   "lib": "休闲",
+   "issue": "",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "已修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P2",
+   "batch": 464,
+   "file": "产出\\批次464\\人妻ヨガ-上級クラス.md",
+   "name": "人妻ヨガ-上級クラス",
+   "lib": "休闲",
+   "issue": "",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "已修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P2",
+   "batch": 464,
+   "file": "产出\\批次464\\聖騎士ローザ-九度目.md",
+   "name": "聖騎士ローザ-九度目",
+   "lib": "休闲",
+   "issue": "",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "已修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P2",
+   "batch": 464,
+   "file": "产出\\批次464\\エルフ鍛冶-弟子入門.md",
+   "name": "エルフ鍛冶-弟子入門",
+   "lib": "休闲",
+   "issue": "",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "已修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P2",
+   "batch": 465,
+   "file": "产出\\批次465\\触手温室-園芸部.md",
+   "name": "触手温室-園芸部",
+   "lib": "休闲",
+   "issue": "",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "已修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P2",
+   "batch": 465,
+   "file": "产出\\批次465\\催眠料亭-接待.md",
+   "name": "催眠料亭-接待",
+   "lib": "休闲",
+   "issue": "",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "已修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P2",
+   "batch": 465,
+   "file": "产出\\批次465\\女教師合唱団-練習風景.md",
+   "name": "女教師合唱団-練習風景",
+   "lib": "休闲",
+   "issue": "",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "已修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P2",
+   "batch": 465,
+   "file": "产出\\批次465\\聖女楽団-演奏会.md",
+   "name": "聖女楽団-演奏会",
+   "lib": "休闲",
+   "issue": "",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "已修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P2",
+   "batch": 465,
+   "file": "产出\\批次465\\淫魔芸能事務所-新人発掘.md",
+   "name": "淫魔芸能事務所-新人発掘",
+   "lib": "休闲",
+   "issue": "",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "已修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P2",
+   "batch": 466,
+   "file": "产出\\批次466\\触手プラネタリウム-上映会.md",
+   "name": "触手プラネタリウム-上映会",
+   "lib": "休闲",
+   "issue": "",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "已修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P2",
+   "batch": 466,
+   "file": "产出\\批次466\\魔界遊園地-夜間営業.md",
+   "name": "魔界遊園地-夜間営業",
+   "lib": "休闲",
+   "issue": "",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "已修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P2",
+   "batch": 466,
+   "file": "产出\\批次466\\人妻花屋-配達サービス.md",
+   "name": "人妻花屋-配達サービス",
+   "lib": "休闲",
+   "issue": "",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "已修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P2",
+   "batch": 466,
+   "file": "产出\\批次466\\淫獣美術学校-デッサン.md",
+   "name": "淫獣美術学校-デッサン",
+   "lib": "休闲",
+   "issue": "",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "已修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P2",
+   "batch": 466,
+   "file": "产出\\批次466\\エルフ舞踊団-稽古場.md",
+   "name": "エルフ舞踊団-稽古場",
+   "lib": "休闲",
+   "issue": "",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "已修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P2",
+   "batch": 467,
+   "file": "产出\\批次467\\触手茶寮-女将修行.md",
+   "name": "触手茶寮-女将修行",
+   "lib": "休闲",
+   "issue": "",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "已修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P2",
+   "batch": 467,
+   "file": "产出\\批次467\\催眠花店-配達先.md",
+   "name": "催眠花店-配達先",
+   "lib": "休闲",
+   "issue": "",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "已修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P2",
+   "batch": 467,
+   "file": "产出\\批次467\\魔法少女ミサキ-裏切りの代償.md",
+   "name": "魔法少女ミサキ-裏切りの代償",
+   "lib": "休闲",
+   "issue": "",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "已修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P2",
+   "batch": 467,
+   "file": "产出\\批次467\\人妻ブティック-試着室.md",
+   "name": "人妻ブティック-試着室",
+   "lib": "休闲",
+   "issue": "",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "已修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P2",
+   "batch": 467,
+   "file": "产出\\批次467\\エルフ鍛冶屋-夜勤.md",
+   "name": "エルフ鍛冶屋-夜勤",
+   "lib": "休闲",
+   "issue": "",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "已修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P2",
+   "batch": 468,
+   "file": "产出\\批次468\\淫魔航空会社-CA研修.md",
+   "name": "淫魔航空会社-CA研修",
+   "lib": "休闲",
+   "issue": "",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "已修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P2",
+   "batch": 469,
+   "file": "产出\\批次469\\触手美容院-シャンプー.md",
+   "name": "触手美容院-シャンプー",
+   "lib": "休闲",
+   "issue": "",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "已修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P2",
+   "batch": 469,
+   "file": "产出\\批次469\\魔界銭湯-番台.md",
+   "name": "魔界銭湯-番台",
+   "lib": "休闲",
+   "issue": "",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "已修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P2",
+   "batch": 469,
+   "file": "产出\\批次469\\エルフ楽団-公演裏側.md",
+   "name": "エルフ楽団-公演裏側",
+   "lib": "休闲",
+   "issue": "",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "已修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P2",
+   "batch": 470,
+   "file": "产出\\批次470\\催眠診療所-内科.md",
+   "name": "催眠診療所-内科",
+   "lib": "休闲",
+   "issue": "",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "已修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P2",
+   "batch": 470,
+   "file": "产出\\批次470\\魔法少女覚醒-時間遡行.md",
+   "name": "魔法少女覚醒-時間遡行",
+   "lib": "休闲",
+   "issue": "",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "已修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P2",
+   "batch": 470,
+   "file": "产出\\批次470\\女教師陥落-合唱祭.md",
+   "name": "女教師陥落-合唱祭",
+   "lib": "休闲",
+   "issue": "",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "已修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P2",
+   "batch": 470,
+   "file": "产出\\批次470\\聖騎士ユリア-十度目.md",
+   "name": "聖騎士ユリア-十度目",
+   "lib": "休闲",
+   "issue": "",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "已修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P2",
+   "batch": 470,
+   "file": "产出\\批次470\\エルフ牧場-搾乳.md",
+   "name": "エルフ牧場-搾乳",
+   "lib": "休闲",
+   "issue": "",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "已修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P2",
+   "batch": 471,
+   "file": "产出\\批次471\\触手神社-年間祭事.md",
+   "name": "触手神社-年間祭事",
+   "lib": "休闲",
+   "issue": "",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "已修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P2",
+   "batch": 471,
+   "file": "产出\\批次471\\催眠フィットネス-深夜.md",
+   "name": "催眠フィットネス-深夜",
+   "lib": "休闲",
+   "issue": "",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "已修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P2",
+   "batch": 471,
+   "file": "产出\\批次471\\女戦士調教-闘技場楽屋.md",
+   "name": "女戦士調教-闘技場楽屋",
+   "lib": "休闲",
+   "issue": "",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "已修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P2",
+   "batch": 471,
+   "file": "产出\\批次471\\人妻料亭-宴会.md",
+   "name": "人妻料亭-宴会",
+   "lib": "休闲",
+   "issue": "",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "已修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P2",
+   "batch": 471,
+   "file": "产出\\批次471\\淫魔幼稚園-保育士.md",
+   "name": "淫魔幼稚園-保育士",
+   "lib": "休闲",
+   "issue": "",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "已修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P2",
+   "batch": 472,
+   "file": "产出\\批次472\\魔界レース場-女性騎手.md",
+   "name": "魔界レース場-女性騎手",
+   "lib": "休闲",
+   "issue": "",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "已修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P2",
+   "batch": 472,
+   "file": "产出\\批次472\\人妻温泉-貸切露天.md",
+   "name": "人妻温泉-貸切露天",
+   "lib": "休闲",
+   "issue": "",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "已修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P2",
+   "batch": 472,
+   "file": "产出\\批次472\\聖女アンナ-三重生活.md",
+   "name": "聖女アンナ-三重生活",
+   "lib": "休闲",
+   "issue": "",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "已修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P2",
+   "batch": 472,
+   "file": "产出\\批次472\\淫獣植物園-園芸師.md",
+   "name": "淫獣植物園-園芸師",
+   "lib": "休闲",
+   "issue": "",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "已修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P2",
+   "batch": 472,
+   "file": "产出\\批次472\\エルフ織姫-機織り部屋.md",
+   "name": "エルフ織姫-機織り部屋",
+   "lib": "休闲",
+   "issue": "",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "已修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P2",
+   "batch": 473,
+   "file": "产出\\批次473\\触手列車-寝台車両.md",
+   "name": "触手列車-寝台車両",
+   "lib": "休闲",
+   "issue": "",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "已修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P2",
+   "batch": 473,
+   "file": "产出\\批次473\\催眠結婚式場-新婦.md",
+   "name": "催眠結婚式場-新婦",
+   "lib": "休闲",
+   "issue": "",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "已修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P2",
+   "batch": 473,
+   "file": "产出\\批次473\\女騎士団-入団試験.md",
+   "name": "女騎士団-入団試験",
+   "lib": "休闲",
+   "issue": "",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "已修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P2",
+   "batch": 473,
+   "file": "产出\\批次473\\聖騎士カレン-堕落布教.md",
+   "name": "聖騎士カレン-堕落布教",
+   "lib": "休闲",
+   "issue": "",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "已修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P2",
+   "batch": 473,
+   "file": "产出\\批次473\\エルフ姫堕落-国際条約.md",
+   "name": "エルフ姫堕落-国際条約",
+   "lib": "休闲",
+   "issue": "",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "已修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P2",
+   "batch": 474,
+   "file": "产出\\批次474\\触手海洋-客船沈没.md",
+   "name": "触手海洋-客船沈没",
+   "lib": "休闲",
+   "issue": "",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "已修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P2",
+   "batch": 474,
+   "file": "产出\\批次474\\魔法少女敗北-魔女裁判.md",
+   "name": "魔法少女敗北-魔女裁判",
+   "lib": "休闲",
+   "issue": "",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "已修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P2",
+   "batch": 474,
+   "file": "产出\\批次474\\女教師寮-盆休み.md",
+   "name": "女教師寮-盆休み",
+   "lib": "休闲",
+   "issue": "",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "已修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P2",
+   "batch": 474,
+   "file": "产出\\批次474\\人妻堕落-同窓会三次会.md",
+   "name": "人妻堕落-同窓会三次会",
+   "lib": "休闲",
+   "issue": "",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "已修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P2",
+   "batch": 474,
+   "file": "产出\\批次474\\淫魔城-女騎士捕虜.md",
+   "name": "淫魔城-女騎士捕虜",
+   "lib": "休闲",
+   "issue": "",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "已修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P2",
+   "batch": 475,
+   "file": "产出\\批次475\\催眠博物館-学芸員.md",
+   "name": "催眠博物館-学芸員",
+   "lib": "休闲",
+   "issue": "",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "已修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P2",
+   "batch": 475,
+   "file": "产出\\批次475\\魔界遊郭-太夫.md",
+   "name": "魔界遊郭-太夫",
+   "lib": "休闲",
+   "issue": "",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "已修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P2",
+   "batch": 475,
+   "file": "产出\\批次475\\人妻堕落-ママさんバレー.md",
+   "name": "人妻堕落-ママさんバレー",
+   "lib": "休闲",
+   "issue": "",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "已修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P2",
+   "batch": 475,
+   "file": "产出\\批次475\\聖女監禁-三千日.md",
+   "name": "聖女監禁-三千日",
+   "lib": "休闲",
+   "issue": "",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "已修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P2",
+   "batch": 475,
+   "file": "产出\\批次475\\エルフ舞姫-公演夜.md",
+   "name": "エルフ舞姫-公演夜",
+   "lib": "休闲",
+   "issue": "",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "已修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P2",
+   "batch": 478,
+   "file": "产出\\批次478\\催眠サウナ-発汗.md",
+   "name": "催眠サウナ-発汗",
+   "lib": "休闲",
+   "issue": "",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "已修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P2",
+   "batch": 478,
+   "file": "产出\\批次478\\魔界酒場-女給仕.md",
+   "name": "魔界酒場-女給仕",
+   "lib": "休闲",
+   "issue": "",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "已修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P2",
+   "batch": 478,
+   "file": "产出\\批次478\\女教師調教-卒業旅行.md",
+   "name": "女教師調教-卒業旅行",
+   "lib": "休闲",
+   "issue": "",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "已修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P2",
+   "batch": 478,
+   "file": "产出\\批次478\\聖女アリシア-暗黒教皇.md",
+   "name": "聖女アリシア-暗黒教皇",
+   "lib": "休闲",
+   "issue": "",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "已修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P2",
+   "batch": 478,
+   "file": "产出\\批次478\\エルフ職人-弟子教育.md",
+   "name": "エルフ職人-弟子教育",
+   "lib": "休闲",
+   "issue": "",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "已修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P2",
+   "batch": 479,
+   "file": "产出\\批次479\\触手学園-運動会.md",
+   "name": "触手学園-運動会",
+   "lib": "休闲",
+   "issue": "",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "已修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P2",
+   "batch": 479,
+   "file": "产出\\批次479\\催眠ホテル-フロント.md",
+   "name": "催眠ホテル-フロント",
+   "lib": "休闲",
+   "issue": "",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "已修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P2",
+   "batch": 479,
+   "file": "产出\\批次479\\女騎士監獄-脱獄失敗.md",
+   "name": "女騎士監獄-脱獄失敗",
+   "lib": "休闲",
+   "issue": "",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "已修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P2",
+   "batch": 479,
+   "file": "产出\\批次479\\人妻堕落-管理組合.md",
+   "name": "人妻堕落-管理組合",
+   "lib": "休闲",
+   "issue": "",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "已修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P2",
+   "batch": 479,
+   "file": "产出\\批次479\\淫獣牧場-品種展示会.md",
+   "name": "淫獣牧場-品種展示会",
+   "lib": "休闲",
+   "issue": "",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "已修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P2",
+   "batch": 481,
+   "file": "产出\\批次481\\触手宇宙船-冷凍睡眠.md",
+   "name": "触手宇宙船-冷凍睡眠",
+   "lib": "休闲",
+   "issue": "",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "已修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P2",
+   "batch": 481,
+   "file": "产出\\批次481\\催眠アイドル-ライブ.md",
+   "name": "催眠アイドル-ライブ",
+   "lib": "休闲",
+   "issue": "",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "已修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P2",
+   "batch": 481,
+   "file": "产出\\批次481\\女教師落とし-新学期.md",
+   "name": "女教師落とし-新学期",
+   "lib": "休闲",
+   "issue": "",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "已修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P2",
+   "batch": 481,
+   "file": "产出\\批次481\\聖女牧場-国営化.md",
+   "name": "聖女牧場-国営化",
+   "lib": "休闲",
+   "issue": "",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "已修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P2",
+   "batch": 481,
+   "file": "产出\\批次481\\エルフ村-第四次侵略.md",
+   "name": "エルフ村-第四次侵略",
+   "lib": "休闲",
+   "issue": "",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "已修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P2",
+   "batch": 482,
+   "file": "产出\\批次482\\触手マッサージ-出張.md",
+   "name": "触手マッサージ-出張",
+   "lib": "休闲",
+   "issue": "",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "已修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P2",
+   "batch": 482,
+   "file": "产出\\批次482\\魔界闘技場-女王決勝戦.md",
+   "name": "魔界闘技場-女王決勝戦",
+   "lib": "休闲",
+   "issue": "",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "已修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P2",
+   "batch": 482,
+   "file": "产出\\批次482\\女戦士捕虜-展示販売.md",
+   "name": "女戦士捕虜-展示販売",
+   "lib": "休闲",
+   "issue": "",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "已修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P2",
+   "batch": 482,
+   "file": "产出\\批次482\\人妻堕落-PTA役員.md",
+   "name": "人妻堕落-PTA役員",
+   "lib": "休闲",
+   "issue": "",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "已修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P2",
+   "batch": 482,
+   "file": "产出\\批次482\\淫獣神社-宮司.md",
+   "name": "淫獣神社-宮司",
+   "lib": "休闲",
+   "issue": "",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "已修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P2",
+   "batch": 483,
+   "file": "产出\\批次483\\催眠美術館-開館記念.md",
+   "name": "催眠美術館-開館記念",
+   "lib": "休闲",
+   "issue": "",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "已修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P2",
+   "batch": 483,
+   "file": "产出\\批次483\\魔法少女堕落-宗教化.md",
+   "name": "魔法少女堕落-宗教化",
+   "lib": "休闲",
+   "issue": "",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "已修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P2",
+   "batch": 483,
+   "file": "产出\\批次483\\人妻ネイル-爪先調教.md",
+   "name": "人妻ネイル-爪先調教",
+   "lib": "休闲",
+   "issue": "",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "已修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P2",
+   "batch": 483,
+   "file": "产出\\批次483\\聖騎士ローザ-十度目.md",
+   "name": "聖騎士ローザ-十度目",
+   "lib": "休闲",
+   "issue": "",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "已修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P2",
+   "batch": 483,
+   "file": "产出\\批次483\\エルフ姫三姉妹-再統一.md",
+   "name": "エルフ姫三姉妹-再統一",
+   "lib": "休闲",
+   "issue": "",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "已修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P2",
+   "batch": 484,
+   "file": "产出\\批次484\\触手水族館-夜間見学.md",
+   "name": "触手水族館-夜間見学",
+   "lib": "休闲",
+   "issue": "",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "已修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P2",
+   "batch": 484,
+   "file": "产出\\批次484\\催眠温泉-正月.md",
+   "name": "催眠温泉-正月",
+   "lib": "休闲",
+   "issue": "",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "已修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P2",
+   "batch": 484,
+   "file": "产出\\批次484\\女教師寮-年末大掃除.md",
+   "name": "女教師寮-年末大掃除",
+   "lib": "休闲",
+   "issue": "",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "已修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P2",
+   "batch": 484,
+   "file": "产出\\批次484\\聖女アウロラ-帝国建立完了.md",
+   "name": "聖女アウロラ-帝国建立完了",
+   "lib": "休闲",
+   "issue": "",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "已修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P2",
+   "batch": 484,
+   "file": "产出\\批次484\\淫魔学園-期末試験.md",
+   "name": "淫魔学園-期末試験",
+   "lib": "休闲",
+   "issue": "",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "已修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P2",
+   "batch": 485,
+   "file": "产出\\批次485\\触手孤島-三代目女王.md",
+   "name": "触手孤島-三代目女王",
+   "lib": "休闲",
+   "issue": "",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "已修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P2",
+   "batch": 485,
+   "file": "产出\\批次485\\人妻調教-住宅街完全制覇.md",
+   "name": "人妻調教-住宅街完全制覇",
+   "lib": "休闲",
+   "issue": "",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "已修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P2",
+   "batch": 486,
+   "file": "产出\\批次486\\催眠学園-建学記念日.md",
+   "name": "催眠学園-建学記念日",
+   "lib": "休闲",
+   "issue": "",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "已修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P2",
+   "batch": 486,
+   "file": "产出\\批次486\\魔法少女覚醒-全宇宙支配.md",
+   "name": "魔法少女覚醒-全宇宙支配",
+   "lib": "休闲",
+   "issue": "",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "已修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P2",
+   "batch": 486,
+   "file": "产出\\批次486\\女騎士団-歴史終結.md",
+   "name": "女騎士団-歴史終結",
+   "lib": "休闲",
+   "issue": "",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "已修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P2",
+   "batch": 486,
+   "file": "产出\\批次486\\聖騎士ミリア-神格化.md",
+   "name": "聖騎士ミリア-神格化",
+   "lib": "休闲",
+   "issue": "",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "已修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P2",
+   "batch": 486,
+   "file": "产出\\批次486\\エルフ森林-完全観光地化.md",
+   "name": "エルフ森林-完全観光地化",
+   "lib": "休闲",
+   "issue": "",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "已修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P2",
+   "batch": 488,
+   "file": "产出\\批次488\\触手養魚場-管理人.md",
+   "name": "触手養魚場-管理人",
+   "lib": "休闲",
+   "issue": "",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "已修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P2",
+   "batch": 488,
+   "file": "产出\\批次488\\魔法少女ナナミ-時間逆行.md",
+   "name": "魔法少女ナナミ-時間逆行",
+   "lib": "休闲",
+   "issue": "",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "已修复",
+   "fixedMark": false
   },
   {
    "priority": "P2",
