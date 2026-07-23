@@ -38,7 +38,7 @@
 - 王牌试飞／YF极限 ≈ **五～六阶**
 - 都市网络战／防空突破 ≈ **六～七阶**
 - シャロン事件全开／幽灵X-9／要塞被夺 ≈ **七～八阶**
-- 顶点警示：失控AI＋UCAV＋要塞主炮复合体为跨阶压迫；低阶规避地球终盘；条件性胜利＝毁核心／护航有人机证明价值，严禁「AI被封印后战力归零」式偷懒。
+- 顶点警示：失控AI＋UCAV＋要塞主炮复合体为跨阶压迫；低阶规避地球终盘；条件性胜利＝毁核心／护航有人机证明价值，严禁把AI简化为报废后失去威胁的写法。
 
 **【地理 · 舞台】**
 **惑星エデン**：移民殖民星；风电场、高速公路、伊甸都市景观参考加州／佛州意象；沙漠与试飞空域广阔。  
@@ -410,7 +410,6 @@ Plus的「Plus」是竞标的加号，也是伤痕上叠加的和解。加号两
 
 ## 来源
 
-- https://zh.wikipedia.org/wiki/超時空要塞Plus
-- https://en.wikipedia.org/wiki/Macross_Plus
-- https://ja.wikipedia.org/wiki/マクロスプラス
-- http://www.macross.co.jp/
+- [中文维基：超时空要塞Plus](https://zh.wikipedia.org/wiki/%E8%B6%85%E6%99%82%E7%A9%BA%E8%A6%81%E5%A1%9EPlus)
+- [English Wikipedia: Macross Plus](https://en.wikipedia.org/wiki/Macross_Plus)
+- [日本語版Wikipedia：マクロスプラス](https://ja.wikipedia.org/wiki/%E3%83%9E%E3%82%AF%E3%83%AD%E3%82%B9%E3%83%97%E3%83%A9%E3%82%B9)

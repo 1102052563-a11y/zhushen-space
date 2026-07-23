@@ -294,7 +294,6 @@ SNN 娱乐记者**神崎响**偷拍统合军高官**艾克塞格兰·吉里（Ex
 
 ## 来源
 
-1. Wikipedia（EN）：Super Dimensional Fortress Macross II: Lovers Again — 剧情、人物、制作背景、平行世界定位  
-2. 维基百科（中文）：超时空要塞II：再爱一次 — 故事简介、登场人物译名、黑历史说明  
-3. Anime News Network / 系列公开制作信息 — OVA 话数、职员、发行与系列年表关系  
-4. 对照：Macross 系列公开设定中的 Minmay Attack、SDF-1、U.N. Spacy 基础概念（仅作体系锚点，不引入 II 原作未登场的主年表私货）
+- [English Wikipedia: Super Dimensional Fortress Macross II: Lovers Again](https://en.wikipedia.org/wiki/Super_Dimensional_Fortress_Macross_II:_Lovers_Again)
+- [中文维基：超时空要塞II：再爱一次](https://zh.wikipedia.org/wiki/%E8%B6%85%E6%97%B6%E7%A9%BA%E8%A6%81%E5%A1%9EII%EF%BC%9A%E5%86%8D%E7%88%B1%E4%B8%80%E6%AC%A1)
+- [日本語版Wikipedia：超時空要塞マクロスII -LOVERS AGAIN-](https://ja.wikipedia.org/wiki/%E8%B6%85%E6%99%82%E7%A9%BA%E8%A6%81%E5%A1%9E%E3%83%9E%E3%82%AF%E3%83%AD%E3%82%B9II_-LOVERS_AGAIN-)

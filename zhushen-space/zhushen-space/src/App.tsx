@@ -160,6 +160,7 @@ import { parseWeather, isLightSky, extractWeatherFxCss, sanitizeWeatherCss } fro
 import { runNpcAutonomy } from './systems/npcAutonomy';
 import { useCombat, newLogId, type BattleState, type CombatStatBlock, type Side, type CombatActionKind } from './store/combatStore';
 import { buildCombatant, assembleBattle, settleAction, advanceTurn, checkEnd, currentActorId, makeActionLog, playerControlled, setMpCombatItems, clearMpCombatItems, rollInitiative } from './systems/combatEngine';
+import { deriveBattlefieldAffixes } from './systems/battlefield';
 import { generateRaidBoss, generateBakalDungeon, generateAntonDungeon, generateVykasDungeon, type RaidBoss, type RaidDifficulty } from './systems/raidBoss';
 import { generateRaidLoot, generateRaidReward } from './systems/raidLoot';
 import { useSkillTree } from './store/skillTreeStore';
@@ -8578,12 +8579,16 @@ ${lines}`;
     }
     const npcs = useNpc.getState().npcs;
     const enemyNames = picks.enemyIds.map((id) => npcs[id]?.name || id).join('、');
+    // 战场词缀（P1 环境入数值）：由当前天气+地点**确定性**推导（config.battlefieldOn 关=不推导；词缀烘焙进 battle 随存档走）
+    const bfAffixes = C.config.battlefieldOn === false ? [] : deriveBattlefieldAffixes(useMisc.getState().weather, usePlayer.getState().profile.location);
     const battle = assembleBattle(blocks, {
       reason: `与${enemyNames}交战`,
       location: usePlayer.getState().profile.location || '',
       endConditions: ['击败所有敌人'],
+      battlefieldAffixes: bfAffixes,
     }, C.config.manualAllyControl);
     battle.log = [{ id: newLogId(), round: 0, type: 'opening', text: '', narration: `战斗开始——对手：${enemyNames}。`, timestamp: Date.now() }];
+    if (bfAffixes.length) battle.log.push({ id: newLogId(), round: 0, type: 'context', text: '', narration: `🌦 战场环境：${bfAffixes.map((a) => `${a.emoji}${a.name}（${a.desc}）`).join('、')}`, timestamp: Date.now() });
     resetCombatResources();   // 标了「每战归零」的自定义能量条开战清零（如怒气从 0 攒）
     combatDrivingRef.current = false; combatFinishingRef.current = false;   // 开新战前清上一场残留的驱动/收尾标记：防上一场总结接口卡住→旧标记冻结这一场（打不动/收不了尾）
     C.setApiBusy(false); C.setApiStatus('');

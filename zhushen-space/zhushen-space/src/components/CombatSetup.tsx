@@ -1,6 +1,9 @@
 import { useMemo, useState } from 'react';
 import { useNpc } from '../store/npcStore';
 import { usePlayer } from '../store/playerStore';
+import { useCombat } from '../store/combatStore';
+import { useMisc } from '../store/miscStore';
+import { deriveBattlefieldAffixes } from '../systems/battlefield';
 
 /* 外置发起战斗：从当前在场 NPC 里挑选编入战斗（敌方/我方），主角 B1 自动入我方。
    确认后回调 onStart，由 App 的 startCombatWithSelection 直接建战。 */
@@ -15,6 +18,12 @@ export default function CombatSetup({ onClose, onStart }: {
   const playerName = usePlayer((s) => s.profile.name);
   const onScene = useMemo(() => Object.values(npcs).filter((n) => n.onScene && !n.isDead), [npcs]);
   const [picks, setPicks] = useState<Record<string, Pick>>({});
+  // 战场词缀预览（P1）：由当前天气+地点确定性推导；开关持久在 combat config（开战时 App 按它决定是否烘焙）
+  const bfOn = useCombat((s) => s.config.battlefieldOn !== false);
+  const setConfig = useCombat((s) => s.setConfig);
+  const weather = useMisc((s) => s.weather);
+  const location = usePlayer((s) => s.profile.location);
+  const bfAffixes = useMemo(() => deriveBattlefieldAffixes(weather, location), [weather, location]);
 
   const enemyIds = Object.entries(picks).filter(([, v]) => v === 'enemy').map(([k]) => k);
   const allyIds = Object.entries(picks).filter(([, v]) => v === 'ally').map(([k]) => k);
@@ -49,6 +58,17 @@ export default function CombatSetup({ onClose, onStart }: {
               </div>
             );
           })}
+        </div>
+        <div className="px-3 py-2 border-t border-slate-800 flex items-center gap-2 flex-wrap">
+          <label className="flex items-center gap-1.5 text-xs text-slate-300 cursor-pointer select-none" title="按当前天气/地点确定性推导战场词缀，让环境影响战斗数值（燃烧/回蓝/护盾/先攻等）">
+            <input type="checkbox" checked={bfOn} onChange={(e) => setConfig({ battlefieldOn: e.target.checked })} className="accent-cyan-500" />
+            🌦 战场词缀
+          </label>
+          {bfOn ? (
+            bfAffixes.length > 0
+              ? bfAffixes.map((a) => <span key={a.id} title={a.desc} className="text-[10px] px-1.5 py-0.5 rounded bg-indigo-900/50 text-indigo-100 border border-indigo-500/30 cursor-help">{a.emoji}{a.name}</span>)
+              : <span className="text-[10px] text-slate-500">当前天气/地点平淡——本场无词缀</span>
+          ) : <span className="text-[10px] text-slate-500">已关闭（环境不影响数值）</span>}
         </div>
         <div className="border-t border-slate-700/60 bg-slate-950/60 p-3 flex items-center justify-between">
           <div className="text-xs text-slate-400">敌方 {enemyIds.length} · 我方 {allyIds.length + 1}（含主角）</div>

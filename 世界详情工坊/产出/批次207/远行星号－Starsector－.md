@@ -1,6 +1,7 @@
 # 远行星号（Starsector）
 <!--meta lib=主库 tiers=一、二、三、四、五-->
 
+<!--repaired: 20260721-->
 ## 剧情
 
 **【作品来源】**
@@ -109,7 +110,7 @@ Hegemony 以 Domain AI 法强制检查 Tri-Tachyon；League 站 TT，Church 站 
 - **Remnants / Omega**：非谈判他者；官方史的红acted 空白。  
 玩家是可被招安也可自立为“第八极”的变量。
 
-**【贵重物品与战略资源】**
+**【贵重物品】**
 - **AI 核心（Gamma/Beta/Alpha）**：产业与自动舰核心；违禁与巡检焦点。  
 - **蓝图、纳米锻造（Pristine/Corrupted）**：工业天花板。  
 - **燃料、补给、船员、重机械、有机物、金属**：航线与殖民的真货币。  

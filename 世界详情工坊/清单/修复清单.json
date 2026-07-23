@@ -2,13 +2,13 @@
  "generatedAt": "20260721",
  "total": 1206,
  "byStatus": {
-  "已修复": 1111,
-  "待修复": 95
+  "已修复": 1145,
+  "待修复": 61
  },
  "byPriority": {
   "P0": 47,
-  "P1": 81,
-  "P2": 1078
+  "P1": 28,
+  "P2": 1131
  },
  "rows": [
   {
@@ -581,10 +581,10 @@
    "file": "产出\\批次47\\侠盗一号：星球大战外传.md",
    "name": "侠盗一号：星球大战外传",
    "lib": "主库",
-   "issue": "跨世界重复(组#564·3个世界共用)",
+   "issue": "跨世界重复(组#563·3个世界共用)",
    "hasCrossDup": true,
    "crossGroupIds": [
-    564
+    563
    ],
    "status": "已修复",
    "fixedMark": true
@@ -595,10 +595,10 @@
    "file": "产出\\批次47\\游侠索罗：星球大战外传.md",
    "name": "游侠索罗：星球大战外传",
    "lib": "主库",
-   "issue": "跨世界重复(组#564·3个世界共用)",
+   "issue": "跨世界重复(组#563·3个世界共用)",
    "hasCrossDup": true,
    "crossGroupIds": [
-    564
+    563
    ],
    "status": "已修复",
    "fixedMark": true
@@ -609,10 +609,10 @@
    "file": "产出\\批次47\\最终幻想11.md",
    "name": "最终幻想11",
    "lib": "主库",
-   "issue": "跨世界重复(组#564·3个世界共用)",
+   "issue": "跨世界重复(组#563·3个世界共用)",
    "hasCrossDup": true,
    "crossGroupIds": [
-    564
+    563
    ],
    "status": "已修复",
    "fixedMark": true
@@ -865,536 +865,15 @@
   },
   {
    "priority": "P1",
-   "batch": 488,
-   "file": "产出\\批次488\\人妻派遣-社長秘書.md",
-   "name": "人妻派遣-社長秘書",
-   "lib": "休闲",
-   "issue": "跨世界重复(组#565·13个世界共用)",
-   "hasCrossDup": true,
-   "crossGroupIds": [
-    565
-   ],
-   "status": "待修复",
-   "fixedMark": false
-  },
-  {
-   "priority": "P1",
-   "batch": 488,
-   "file": "产出\\批次488\\聖女孤児院-院長就任.md",
-   "name": "聖女孤児院-院長就任",
-   "lib": "休闲",
-   "issue": "跨世界重复(组#565·13个世界共用)",
-   "hasCrossDup": true,
-   "crossGroupIds": [
-    565
-   ],
-   "status": "待修复",
-   "fixedMark": false
-  },
-  {
-   "priority": "P1",
-   "batch": 488,
-   "file": "产出\\批次488\\エルフ鉱山-坑道深部.md",
-   "name": "エルフ鉱山-坑道深部",
-   "lib": "休闲",
-   "issue": "跨世界重复(组#565·13个世界共用)",
-   "hasCrossDup": true,
-   "crossGroupIds": [
-    565
-   ],
-   "status": "待修复",
-   "fixedMark": false
-  },
-  {
-   "priority": "P1",
-   "batch": 489,
-   "file": "产出\\批次489\\触手遊園地-夜間営業.md",
-   "name": "触手遊園地-夜間営業",
-   "lib": "休闲",
-   "issue": "跨世界重复(组#565·13个世界共用)",
-   "hasCrossDup": true,
-   "crossGroupIds": [
-    565
-   ],
-   "status": "待修复",
-   "fixedMark": false
-  },
-  {
-   "priority": "P1",
-   "batch": 489,
-   "file": "产出\\批次489\\催眠塾-冬期講習.md",
-   "name": "催眠塾-冬期講習",
-   "lib": "休闲",
-   "issue": "跨世界重复(组#565·13个世界共用)",
-   "hasCrossDup": true,
-   "crossGroupIds": [
-    565
-   ],
-   "status": "待修复",
-   "fixedMark": false
-  },
-  {
-   "priority": "P1",
-   "batch": 489,
-   "file": "产出\\批次489\\女騎士レオナ-永久服従.md",
-   "name": "女騎士レオナ-永久服従",
-   "lib": "休闲",
-   "issue": "跨世界重复(组#565·13个世界共用)",
-   "hasCrossDup": true,
-   "crossGroupIds": [
-    565
-   ],
-   "status": "待修复",
-   "fixedMark": false
-  },
-  {
-   "priority": "P1",
-   "batch": 489,
-   "file": "产出\\批次489\\淫魔劇団-舞台稽古.md",
-   "name": "淫魔劇団-舞台稽古",
-   "lib": "休闲",
-   "issue": "跨世界重复(组#565·13个世界共用)",
-   "hasCrossDup": true,
-   "crossGroupIds": [
-    565
-   ],
-   "status": "待修复",
-   "fixedMark": false
-  },
-  {
-   "priority": "P1",
-   "batch": 489,
-   "file": "产出\\批次489\\エルフ貿易港-税関検査.md",
-   "name": "エルフ貿易港-税関検査",
-   "lib": "休闲",
-   "issue": "跨世界重复(组#565·13个世界共用)",
-   "hasCrossDup": true,
-   "crossGroupIds": [
-    565
-   ],
-   "status": "待修复",
-   "fixedMark": false
-  },
-  {
-   "priority": "P1",
-   "batch": 490,
-   "file": "产出\\批次490\\触手博物館-学芸員.md",
-   "name": "触手博物館-学芸員",
-   "lib": "休闲",
-   "issue": "跨世界重复(组#565·13个世界共用)",
-   "hasCrossDup": true,
-   "crossGroupIds": [
-    565
-   ],
-   "status": "待修复",
-   "fixedMark": false
-  },
-  {
-   "priority": "P1",
-   "batch": 490,
-   "file": "产出\\批次490\\魔界拍卖所-希少品競売.md",
-   "name": "魔界拍卖所-希少品競売",
-   "lib": "休闲",
-   "issue": "跨世界重复(组#565·13个世界共用)",
-   "hasCrossDup": true,
-   "crossGroupIds": [
-    565
-   ],
-   "status": "待修复",
-   "fixedMark": false
-  },
-  {
-   "priority": "P1",
-   "batch": 490,
-   "file": "产出\\批次490\\女教師調教-春休み.md",
-   "name": "女教師調教-春休み",
-   "lib": "休闲",
-   "issue": "跨世界重复(组#565·13个世界共用)",
-   "hasCrossDup": true,
-   "crossGroupIds": [
-    565
-   ],
-   "status": "待修复",
-   "fixedMark": false
-  },
-  {
-   "priority": "P1",
-   "batch": 490,
-   "file": "产出\\批次490\\人妻堕落-自治会副会長.md",
-   "name": "人妻堕落-自治会副会長",
-   "lib": "休闲",
-   "issue": "跨世界重复(组#565·13个世界共用)",
-   "hasCrossDup": true,
-   "crossGroupIds": [
-    565
-   ],
-   "status": "待修复",
-   "fixedMark": false
-  },
-  {
-   "priority": "P1",
-   "batch": 490,
-   "file": "产出\\批次490\\淫獣研究所-第五期計画.md",
-   "name": "淫獣研究所-第五期計画",
-   "lib": "休闲",
-   "issue": "跨世界重复(组#565·13个世界共用)",
-   "hasCrossDup": true,
-   "crossGroupIds": [
-    565
-   ],
-   "status": "待修复",
-   "fixedMark": false
-  },
-  {
-   "priority": "P1",
-   "batch": 524,
-   "file": "产出\\批次524\\寂静之地.md",
-   "name": "寂静之地",
-   "lib": "主库",
-   "issue": "跨世界重复(组#572·3个世界共用)",
-   "hasCrossDup": true,
-   "crossGroupIds": [
-    572,
-    573,
-    574,
-    575,
-    576,
-    577,
-    578,
-    579,
-    580,
-    581,
-    582,
-    583,
-    584,
-    585,
-    586,
-    587,
-    588,
-    589,
-    590
-   ],
-   "status": "已修复",
-   "fixedMark": true
-  },
-  {
-   "priority": "P1",
-   "batch": 524,
-   "file": "产出\\批次524\\逃出绝命镇.md",
-   "name": "逃出绝命镇",
-   "lib": "主库",
-   "issue": "跨世界重复(组#572·3个世界共用)",
-   "hasCrossDup": true,
-   "crossGroupIds": [
-    572,
-    573,
-    574,
-    575,
-    576,
-    577,
-    578,
-    579,
-    580,
-    581,
-    582,
-    583,
-    584,
-    585,
-    586,
-    587,
-    588,
-    589,
-    590
-   ],
-   "status": "已修复",
-   "fixedMark": true
-  },
-  {
-   "priority": "P1",
-   "batch": 524,
-   "file": "产出\\批次524\\招魂.md",
-   "name": "招魂",
-   "lib": "主库",
-   "issue": "跨世界重复(组#572·3个世界共用)",
-   "hasCrossDup": true,
-   "crossGroupIds": [
-    572,
-    573,
-    574,
-    575,
-    576,
-    577,
-    578,
-    579,
-    580,
-    581,
-    582,
-    583,
-    584,
-    585,
-    586,
-    587,
-    588,
-    589,
-    590
-   ],
-   "status": "已修复",
-   "fixedMark": true
-  },
-  {
-   "priority": "P1",
-   "batch": 532,
-   "file": "产出\\批次532\\刺客信条：阿泰尔（第三次十字军·圣地）.md",
-   "name": "刺客信条：阿泰尔（第三次十字军·圣地）",
-   "lib": "主库",
-   "issue": "灌水标记:【阶段档案",
-   "hasCrossDup": false,
-   "crossGroupIds": [],
-   "status": "已修复",
-   "fixedMark": true
-  },
-  {
-   "priority": "P1",
-   "batch": 532,
-   "file": "产出\\批次532\\刺客信条：艾吉奥（文艺复兴·意大利）.md",
-   "name": "刺客信条：艾吉奥（文艺复兴·意大利）",
-   "lib": "主库",
-   "issue": "灌水标记:【阶段档案",
-   "hasCrossDup": false,
-   "crossGroupIds": [],
-   "status": "已修复",
-   "fixedMark": true
-  },
-  {
-   "priority": "P1",
-   "batch": 532,
-   "file": "产出\\批次532\\刺客信条3（美国独立战争）.md",
-   "name": "刺客信条3（美国独立战争）",
-   "lib": "主库",
-   "issue": "灌水标记:【阶段档案",
-   "hasCrossDup": false,
-   "crossGroupIds": [],
-   "status": "已修复",
-   "fixedMark": true
-  },
-  {
-   "priority": "P1",
-   "batch": 532,
-   "file": "产出\\批次532\\使命召唤：二战.md",
-   "name": "使命召唤：二战",
-   "lib": "主库",
-   "issue": "灌水标记:【阶段档案",
-   "hasCrossDup": false,
-   "crossGroupIds": [],
-   "status": "已修复",
-   "fixedMark": true
-  },
-  {
-   "priority": "P1",
-   "batch": 532,
-   "file": "产出\\批次532\\使命召唤：僵尸模式.md",
-   "name": "使命召唤：僵尸模式",
-   "lib": "主库",
-   "issue": "灌水标记:【阶段档案",
-   "hasCrossDup": false,
-   "crossGroupIds": [],
-   "status": "已修复",
-   "fixedMark": true
-  },
-  {
-   "priority": "P1",
-   "batch": 539,
-   "file": "产出\\批次539\\鬼吹灯：云南虫谷.md",
-   "name": "鬼吹灯：云南虫谷",
-   "lib": "主库",
-   "issue": "灌水标记:【再补",
-   "hasCrossDup": false,
-   "crossGroupIds": [],
-   "status": "已修复",
-   "fixedMark": true
-  },
-  {
-   "priority": "P1",
-   "batch": 540,
-   "file": "产出\\批次540\\鹿鼎记.md",
-   "name": "鹿鼎记",
-   "lib": "主库",
-   "issue": "灌水标记:【再补",
-   "hasCrossDup": false,
-   "crossGroupIds": [],
-   "status": "已修复",
-   "fixedMark": true
-  },
-  {
-   "priority": "P1",
-   "batch": 554,
-   "file": "产出\\批次554\\雾山五行.md",
-   "name": "雾山五行",
-   "lib": "主库",
-   "issue": "灌水标记:【补密",
-   "hasCrossDup": false,
-   "crossGroupIds": [],
-   "status": "已修复",
-   "fixedMark": true
-  },
-  {
-   "priority": "P1",
-   "batch": 613,
-   "file": "产出\\批次613\\刀语.md",
-   "name": "刀语",
-   "lib": "主库",
-   "issue": "灌水标记:【再补",
-   "hasCrossDup": false,
-   "crossGroupIds": [],
-   "status": "已修复",
-   "fixedMark": true
-  },
-  {
-   "priority": "P1",
-   "batch": 614,
-   "file": "产出\\批次614\\魔法战争.md",
-   "name": "魔法战争",
-   "lib": "主库",
-   "issue": "灌水标记:【再补",
-   "hasCrossDup": false,
-   "crossGroupIds": [],
-   "status": "已修复",
-   "fixedMark": true
-  },
-  {
-   "priority": "P1",
-   "batch": 614,
-   "file": "产出\\批次614\\天镜的极北之星.md",
-   "name": "天镜的极北之星",
-   "lib": "主库",
-   "issue": "灌水标记:【再补",
-   "hasCrossDup": false,
-   "crossGroupIds": [],
-   "status": "已修复",
-   "fixedMark": true
-  },
-  {
-   "priority": "P1",
-   "batch": 615,
-   "file": "产出\\批次615\\死灵法师.md",
-   "name": "死灵法师",
-   "lib": "主库",
-   "issue": "灌水标记:【扩写·",
-   "hasCrossDup": false,
-   "crossGroupIds": [],
-   "status": "已修复",
-   "fixedMark": true
-  },
-  {
-   "priority": "P1",
-   "batch": 615,
-   "file": "产出\\批次615\\通天之路.md",
-   "name": "通天之路",
-   "lib": "主库",
-   "issue": "灌水标记:【扩写·",
-   "hasCrossDup": false,
-   "crossGroupIds": [],
-   "status": "已修复",
-   "fixedMark": true
-  },
-  {
-   "priority": "P1",
-   "batch": 616,
-   "file": "产出\\批次616\\超能立方.md",
-   "name": "超能立方",
-   "lib": "主库",
-   "issue": "灌水标记:【补密、【补段、【再补",
-   "hasCrossDup": false,
-   "crossGroupIds": [],
-   "status": "已修复",
-   "fixedMark": true
-  },
-  {
-   "priority": "P1",
-   "batch": 616,
-   "file": "产出\\批次616\\狂徒.md",
-   "name": "狂徒",
-   "lib": "主库",
-   "issue": "灌水标记:【补段",
-   "hasCrossDup": false,
-   "crossGroupIds": [],
-   "status": "已修复",
-   "fixedMark": true
-  },
-  {
-   "priority": "P1",
-   "batch": 616,
-   "file": "产出\\批次616\\逆天而行.md",
-   "name": "逆天而行",
-   "lib": "主库",
-   "issue": "灌水标记:【阶段档案、【再补",
-   "hasCrossDup": false,
-   "crossGroupIds": [],
-   "status": "已修复",
-   "fixedMark": true
-  },
-  {
-   "priority": "P1",
-   "batch": 616,
-   "file": "产出\\批次616\\神级血脉.md",
-   "name": "神级血脉",
-   "lib": "主库",
-   "issue": "灌水标记:【补密、【再补",
-   "hasCrossDup": false,
-   "crossGroupIds": [],
-   "status": "已修复",
-   "fixedMark": true
-  },
-  {
-   "priority": "P1",
-   "batch": 616,
-   "file": "产出\\批次616\\最强出租车.md",
-   "name": "最强出租车",
-   "lib": "主库",
-   "issue": "灌水标记:【扩写·、【再补",
-   "hasCrossDup": false,
-   "crossGroupIds": [],
-   "status": "已修复",
-   "fixedMark": true
-  },
-  {
-   "priority": "P1",
-   "batch": 622,
-   "file": "产出\\批次622\\镖人.md",
-   "name": "镖人",
-   "lib": "主库",
-   "issue": "灌水标记:【再补",
-   "hasCrossDup": false,
-   "crossGroupIds": [],
-   "status": "已修复",
-   "fixedMark": true
-  },
-  {
-   "priority": "P1",
-   "batch": 705,
-   "file": "产出\\批次705\\25歳の女子○生] ［完全版］.md",
-   "name": "25歳の女子○生] ［完全版］",
-   "lib": "休闲",
-   "issue": "文件内重复段 | 跨世界重复(组#598·5个世界共用)",
-   "hasCrossDup": true,
-   "crossGroupIds": [
-    598,
-    599
-   ],
-   "status": "已修复",
-   "fixedMark": true
-  },
-  {
-   "priority": "P1",
    "batch": 705,
    "file": "产出\\批次705\\俺が姪（かのじょ）を○す理由（わけ） 三日目 彼女が心を閉ざした日.md",
    "name": "俺が姪（かのじょ）を○す理由（わけ） 三日目 彼女が心を閉ざした日",
    "lib": "休闲",
-   "issue": "文件内重复段 | 跨世界重复(组#598·5个世界共用)",
+   "issue": "文件内重复段 | 跨世界重复(组#575·4个世界共用)",
    "hasCrossDup": true,
    "crossGroupIds": [
-    598,
-    599
+    575,
+    576
    ],
    "status": "已修复",
    "fixedMark": true
@@ -1405,11 +884,11 @@
    "file": "产出\\批次705\\恋妹・菫〜背徳に溺れるギセイ.md",
    "name": "恋妹・菫〜背徳に溺れるギセイ",
    "lib": "休闲",
-   "issue": "文件内重复段 | 跨世界重复(组#598·5个世界共用)",
+   "issue": "文件内重复段 | 跨世界重复(组#575·4个世界共用)",
    "hasCrossDup": true,
    "crossGroupIds": [
-    598,
-    599
+    575,
+    576
    ],
    "status": "待修复",
    "fixedMark": false
@@ -1420,11 +899,11 @@
    "file": "产出\\批次705\\無知ッ強制成長中っ!!! Growth.1 カラダは大人っ! 中身は….md",
    "name": "無知ッ強制成長中っ!!! Growth.1 カラダは大人っ! 中身は…",
    "lib": "休闲",
-   "issue": "文件内重复段 | 跨世界重复(组#598·5个世界共用)",
+   "issue": "文件内重复段 | 跨世界重复(组#575·4个世界共用)",
    "hasCrossDup": true,
    "crossGroupIds": [
-    598,
-    599
+    575,
+    576
    ],
    "status": "待修复",
    "fixedMark": false
@@ -1435,116 +914,14 @@
    "file": "产出\\批次705\\Lilitales リリテイルズ act.4「流浪の踊り子」.md",
    "name": "Lilitales リリテイルズ act.4「流浪の踊り子」",
    "lib": "休闲",
-   "issue": "文件内重复段 | 跨世界重复(组#598·5个世界共用)",
+   "issue": "文件内重复段 | 跨世界重复(组#575·4个世界共用)",
    "hasCrossDup": true,
    "crossGroupIds": [
-    598,
-    599
+    575,
+    576
    ],
    "status": "待修复",
    "fixedMark": false
-  },
-  {
-   "priority": "P1",
-   "batch": 707,
-   "file": "产出\\批次707\\大好きな母.md",
-   "name": "大好きな母",
-   "lib": "休闲",
-   "issue": "跨世界重复(组#600·5个世界共用)",
-   "hasCrossDup": true,
-   "crossGroupIds": [
-    600,
-    601,
-    602,
-    603,
-    604
-   ],
-   "status": "待修复",
-   "fixedMark": false
-  },
-  {
-   "priority": "P1",
-   "batch": 707,
-   "file": "产出\\批次707\\教え子と先生 上巻 秘密の放課後デート.md",
-   "name": "教え子と先生 上巻 秘密の放課後デート",
-   "lib": "休闲",
-   "issue": "跨世界重复(组#600·5个世界共用)",
-   "hasCrossDup": true,
-   "crossGroupIds": [
-    600,
-    601,
-    602
-   ],
-   "status": "待修复",
-   "fixedMark": false
-  },
-  {
-   "priority": "P1",
-   "batch": 707,
-   "file": "产出\\批次707\\一牡丹 その一.md",
-   "name": "一牡丹 その一",
-   "lib": "休闲",
-   "issue": "跨世界重复(组#600·5个世界共用)",
-   "hasCrossDup": true,
-   "crossGroupIds": [
-    600,
-    601,
-    602,
-    603,
-    604
-   ],
-   "status": "已修复",
-   "fixedMark": true
-  },
-  {
-   "priority": "P1",
-   "batch": 707,
-   "file": "产出\\批次707\\はさんてあける1はさんであげる.md",
-   "name": "はさんてあける1はさんであげる",
-   "lib": "休闲",
-   "issue": "跨世界重复(组#600·5个世界共用)",
-   "hasCrossDup": true,
-   "crossGroupIds": [
-    600,
-    601,
-    602,
-    603,
-    604
-   ],
-   "status": "已修复",
-   "fixedMark": true
-  },
-  {
-   "priority": "P1",
-   "batch": 707,
-   "file": "产出\\批次707\\マックスハート 溺愛美少女姉・更紗.md",
-   "name": "マックスハート 溺愛美少女姉・更紗",
-   "lib": "休闲",
-   "issue": "跨世界重复(组#600·5个世界共用)",
-   "hasCrossDup": true,
-   "crossGroupIds": [
-    600,
-    601,
-    602,
-    603,
-    604
-   ],
-   "status": "已修复",
-   "fixedMark": true
-  },
-  {
-   "priority": "P1",
-   "batch": 710,
-   "file": "产出\\批次710\\dokidokiりとる大家さん お家賃3突き目♡ 保健体育って何年ぶり!－ 「黒縁メガネに白衣」の先生がお好きでしょ♡の巻.md",
-   "name": "dokidokiりとる大家さん お家賃3突き目♡ 保健体育って何年ぶり!? 「黒縁メガネに白衣」の先生がお好きでしょ♡の巻",
-   "lib": "休闲",
-   "issue": "跨世界重复(组#607·12个世界共用)",
-   "hasCrossDup": true,
-   "crossGroupIds": [
-    607
-   ],
-   "status": "已修复",
-   "fixedMark": true
   },
   {
    "priority": "P1",
@@ -1552,10 +929,10 @@
    "file": "产出\\批次715\\店長 アルバイト娘の弱みを握ってヤリたい放題 ナマイキ被害暴想娘・美樹.md",
    "name": "店長 アルバイト娘の弱みを握ってヤリたい放題 ナマイキ被害暴想娘・美樹",
    "lib": "休闲",
-   "issue": "跨世界重复(组#607·12个世界共用)",
+   "issue": "跨世界重复(组#580·11个世界共用)",
    "hasCrossDup": true,
    "crossGroupIds": [
-    607
+    580
    ],
    "status": "待修复",
    "fixedMark": false
@@ -1566,10 +943,10 @@
    "file": "产出\\批次716\\ひなぎくヴぁあじんろすとくらぶへようこそ1ヒナギクヴァージンロストクラブへようこそ.md",
    "name": "ひなぎくヴぁあじんろすとくらぶへようこそ1ヒナギクヴァージンロストクラブへようこそ",
    "lib": "休闲",
-   "issue": "跨世界重复(组#607·12个世界共用)",
+   "issue": "跨世界重复(组#580·11个世界共用)",
    "hasCrossDup": true,
    "crossGroupIds": [
-    607
+    580
    ],
    "status": "待修复",
    "fixedMark": false
@@ -1580,10 +957,10 @@
    "file": "产出\\批次724\\虜ノ雫 後編 夏の豪華客船で穢される処女たち.md",
    "name": "虜ノ雫 後編 夏の豪華客船で穢される処女たち",
    "lib": "休闲",
-   "issue": "跨世界重复(组#607·12个世界共用)",
+   "issue": "跨世界重复(组#580·11个世界共用)",
    "hasCrossDup": true,
    "crossGroupIds": [
-    607
+    580
    ],
    "status": "待修复",
    "fixedMark": false
@@ -1594,10 +971,10 @@
    "file": "产出\\批次729\\○○交配 第一話 優等生の彼女はエルフのお姫様.md",
    "name": "○○交配 第一話 優等生の彼女はエルフのお姫様",
    "lib": "休闲",
-   "issue": "跨世界重复(组#607·12个世界共用)",
+   "issue": "跨世界重复(组#580·11个世界共用)",
    "hasCrossDup": true,
    "crossGroupIds": [
-    607
+    580
    ],
    "status": "待修复",
    "fixedMark": false
@@ -1608,10 +985,10 @@
    "file": "产出\\批次730\\彼女 〜上書き性服・楓〜剥がれ注ぐおじさん棒.md",
    "name": "彼女 〜上書き性服・楓〜剥がれ注ぐおじさん棒",
    "lib": "休闲",
-   "issue": "跨世界重复(组#607·12个世界共用)",
+   "issue": "跨世界重复(组#580·11个世界共用)",
    "hasCrossDup": true,
    "crossGroupIds": [
-    607
+    580
    ],
    "status": "待修复",
    "fixedMark": false
@@ -1622,10 +999,10 @@
    "file": "产出\\批次733\\小さな蕾のその奥に…….md",
    "name": "小さな蕾のその奥に……",
    "lib": "休闲",
-   "issue": "跨世界重复(组#607·12个世界共用)",
+   "issue": "跨世界重复(组#580·11个世界共用)",
    "hasCrossDup": true,
    "crossGroupIds": [
-    607
+    580
    ],
    "status": "待修复",
    "fixedMark": false
@@ -1636,10 +1013,10 @@
    "file": "产出\\批次739\\卒業○○電車 三輌目 酔いつぶれた女教師は弛緩した身体を弄ばれる.md",
    "name": "卒業○○電車 三輌目 酔いつぶれた女教師は弛緩した身体を弄ばれる",
    "lib": "休闲",
-   "issue": "跨世界重复(组#607·12个世界共用)",
+   "issue": "跨世界重复(组#580·11个世界共用)",
    "hasCrossDup": true,
    "crossGroupIds": [
-    607
+    580
    ],
    "status": "待修复",
    "fixedMark": false
@@ -1650,10 +1027,10 @@
    "file": "产出\\批次740\\思春期セックス 第3話 今日、私ん家集合ね!Ⅱ.md",
    "name": "思春期セックス 第3話 今日、私ん家集合ね!Ⅱ",
    "lib": "休闲",
-   "issue": "跨世界重复(组#607·12个世界共用)",
+   "issue": "跨世界重复(组#580·11个世界共用)",
    "hasCrossDup": true,
    "crossGroupIds": [
-    607
+    580
    ],
    "status": "待修复",
    "fixedMark": false
@@ -1664,10 +1041,10 @@
    "file": "产出\\批次743\\実娘(あの子)の代わりに好きなだけ.md",
    "name": "実娘(あの子)の代わりに好きなだけ",
    "lib": "休闲",
-   "issue": "跨世界重复(组#607·12个世界共用)",
+   "issue": "跨世界重复(组#580·11个世界共用)",
    "hasCrossDup": true,
    "crossGroupIds": [
-    607
+    580
    ],
    "status": "待修复",
    "fixedMark": false
@@ -1678,10 +1055,10 @@
    "file": "产出\\批次747\\はじめてのおるすばん 観月さおり編] ).md",
    "name": "はじめてのおるすばん 観月さおり編] )",
    "lib": "休闲",
-   "issue": "跨世界重复(组#607·12个世界共用)",
+   "issue": "跨世界重复(组#580·11个世界共用)",
    "hasCrossDup": true,
    "crossGroupIds": [
-    607
+    580
    ],
    "status": "待修复",
    "fixedMark": false
@@ -1692,175 +1069,11 @@
    "file": "产出\\批次748\\J〇フーゾク学園祭.md",
    "name": "J〇フーゾク学園祭",
    "lib": "休闲",
-   "issue": "跨世界重复(组#607·12个世界共用)",
+   "issue": "跨世界重复(组#580·11个世界共用)",
    "hasCrossDup": true,
    "crossGroupIds": [
-    607
+    580
    ],
-   "status": "待修复",
-   "fixedMark": false
-  },
-  {
-   "priority": "P1",
-   "batch": 810,
-   "file": "产出\\批次810\\ひぐらしのなく頃に 粋.md",
-   "name": "ひぐらしのなく頃に 粋",
-   "lib": "休闲",
-   "issue": "跨世界重复(组#689·4个世界共用)",
-   "hasCrossDup": true,
-   "crossGroupIds": [
-    689,
-    690,
-    691,
-    692,
-    693,
-    694,
-    695
-   ],
-   "status": "已修复",
-   "fixedMark": true
-  },
-  {
-   "priority": "P1",
-   "batch": 810,
-   "file": "产出\\批次810\\ひぐらしのなく頃に 奉.md",
-   "name": "ひぐらしのなく頃に 奉",
-   "lib": "休闲",
-   "issue": "跨世界重复(组#689·4个世界共用)",
-   "hasCrossDup": true,
-   "crossGroupIds": [
-    689,
-    690,
-    691,
-    692,
-    693,
-    694,
-    695
-   ],
-   "status": "已修复",
-   "fixedMark": true
-  },
-  {
-   "priority": "P1",
-   "batch": 810,
-   "file": "产出\\批次810\\ひぐらしのなく頃に 祭.md",
-   "name": "ひぐらしのなく頃に 祭",
-   "lib": "休闲",
-   "issue": "跨世界重复(组#689·4个世界共用)",
-   "hasCrossDup": true,
-   "crossGroupIds": [
-    689,
-    690,
-    691,
-    692,
-    693,
-    694,
-    695
-   ],
-   "status": "已修复",
-   "fixedMark": true
-  },
-  {
-   "priority": "P1",
-   "batch": 810,
-   "file": "产出\\批次810\\ひぐらしのなく頃に 解.md",
-   "name": "ひぐらしのなく頃に 解",
-   "lib": "休闲",
-   "issue": "跨世界重复(组#689·4个世界共用)",
-   "hasCrossDup": true,
-   "crossGroupIds": [
-    689,
-    690,
-    691,
-    692,
-    693,
-    694,
-    695
-   ],
-   "status": "已修复",
-   "fixedMark": true
-  },
-  {
-   "priority": "P1",
-   "batch": 827,
-   "file": "产出\\批次827\\夢色キャスト.md",
-   "name": "夢色キャスト",
-   "lib": "休闲",
-   "issue": "灌水标记:【叙事执行细则",
-   "hasCrossDup": false,
-   "crossGroupIds": [],
-   "status": "已修复",
-   "fixedMark": true
-  },
-  {
-   "priority": "P1",
-   "batch": 827,
-   "file": "产出\\批次827\\A3!.md",
-   "name": "A3!",
-   "lib": "休闲",
-   "issue": "灌水标记:【叙事执行细则",
-   "hasCrossDup": false,
-   "crossGroupIds": [],
-   "status": "已修复",
-   "fixedMark": true
-  },
-  {
-   "priority": "P1",
-   "batch": 827,
-   "file": "产出\\批次827\\アイ★チュウ.md",
-   "name": "アイ★チュウ",
-   "lib": "休闲",
-   "issue": "灌水标记:【叙事执行细则",
-   "hasCrossDup": false,
-   "crossGroupIds": [],
-   "status": "已修复",
-   "fixedMark": true
-  },
-  {
-   "priority": "P1",
-   "batch": 827,
-   "file": "产出\\批次827\\ツキウタ。.md",
-   "name": "ツキウタ。",
-   "lib": "休闲",
-   "issue": "灌水标记:【叙事执行细则",
-   "hasCrossDup": false,
-   "crossGroupIds": [],
-   "status": "已修复",
-   "fixedMark": true
-  },
-  {
-   "priority": "P1",
-   "batch": 827,
-   "file": "产出\\批次827\\ドグラ・マグラ.md",
-   "name": "ドグラ・マグラ",
-   "lib": "休闲",
-   "issue": "灌水标记:【叙事执行细则",
-   "hasCrossDup": false,
-   "crossGroupIds": [],
-   "status": "已修复",
-   "fixedMark": true
-  },
-  {
-   "priority": "P1",
-   "batch": 828,
-   "file": "产出\\批次828\\ドグラ・マグラ～深淵よりの呼び声～.md",
-   "name": "ドグラ・マグラ～深淵よりの呼び声～",
-   "lib": "休闲",
-   "issue": "灌水标记:【叙事执行细则",
-   "hasCrossDup": false,
-   "crossGroupIds": [],
-   "status": "待修复",
-   "fixedMark": false
-  },
-  {
-   "priority": "P1",
-   "batch": 840,
-   "file": "产出\\批次840\\星河之主.md",
-   "name": "星河之主",
-   "lib": "主库",
-   "issue": "灌水标记:【再补",
-   "hasCrossDup": false,
-   "crossGroupIds": [],
    "status": "待修复",
    "fixedMark": false
   },
@@ -2438,7 +1651,7 @@
    "hasCrossDup": false,
    "crossGroupIds": [],
    "status": "已修复",
-   "fixedMark": false
+   "fixedMark": true
   },
   {
    "priority": "P2",
@@ -3638,7 +2851,7 @@
    "hasCrossDup": false,
    "crossGroupIds": [],
    "status": "已修复",
-   "fixedMark": false
+   "fixedMark": true
   },
   {
    "priority": "P2",
@@ -3650,7 +2863,7 @@
    "hasCrossDup": false,
    "crossGroupIds": [],
    "status": "已修复",
-   "fixedMark": false
+   "fixedMark": true
   },
   {
    "priority": "P2",
@@ -3694,11 +2907,11 @@
    "file": "产出\\批次114\\东方永夜抄.md",
    "name": "东方永夜抄",
    "lib": "主库",
-   "issue": "警告:切入点疑似\"被削弱\"式顶点解释",
+   "issue": "",
    "hasCrossDup": false,
    "crossGroupIds": [],
-   "status": "待修复",
-   "fixedMark": false
+   "status": "已修复",
+   "fixedMark": true
   },
   {
    "priority": "P2",
@@ -3710,7 +2923,7 @@
    "hasCrossDup": false,
    "crossGroupIds": [],
    "status": "已修复",
-   "fixedMark": false
+   "fixedMark": true
   },
   {
    "priority": "P2",
@@ -3782,7 +2995,7 @@
    "hasCrossDup": false,
    "crossGroupIds": [],
    "status": "已修复",
-   "fixedMark": false
+   "fixedMark": true
   },
   {
    "priority": "P2",
@@ -3806,7 +3019,7 @@
    "hasCrossDup": false,
    "crossGroupIds": [],
    "status": "已修复",
-   "fixedMark": false
+   "fixedMark": true
   },
   {
    "priority": "P2",
@@ -3910,11 +3123,11 @@
    "file": "产出\\批次120\\超时空要塞Plus（OVA）.md",
    "name": "超时空要塞Plus（OVA）",
    "lib": "主库",
-   "issue": "警告:来源链接 0 条 < 3",
+   "issue": "",
    "hasCrossDup": false,
    "crossGroupIds": [],
-   "status": "待修复",
-   "fixedMark": false
+   "status": "已修复",
+   "fixedMark": true
   },
   {
    "priority": "P2",
@@ -3934,11 +3147,11 @@
    "file": "产出\\批次121\\超时空要塞7（TV）.md",
    "name": "超时空要塞7（TV）",
    "lib": "主库",
-   "issue": "警告:来源链接 0 条 < 3",
+   "issue": "",
    "hasCrossDup": false,
    "crossGroupIds": [],
-   "status": "待修复",
-   "fixedMark": false
+   "status": "已修复",
+   "fixedMark": true
   },
   {
    "priority": "P2",
@@ -3970,11 +3183,11 @@
    "file": "产出\\批次122\\超时空要塞F（TV）.md",
    "name": "超时空要塞F（TV）",
    "lib": "主库",
-   "issue": "警告:来源链接 0 条 < 3",
+   "issue": "",
    "hasCrossDup": false,
    "crossGroupIds": [],
-   "status": "待修复",
-   "fixedMark": false
+   "status": "已修复",
+   "fixedMark": true
   },
   {
    "priority": "P2",
@@ -3982,11 +3195,11 @@
    "file": "产出\\批次122\\超时空要塞II：再爱一次.md",
    "name": "超时空要塞II：再爱一次",
    "lib": "主库",
-   "issue": "警告:来源链接 0 条 < 3",
+   "issue": "",
    "hasCrossDup": false,
    "crossGroupIds": [],
-   "status": "待修复",
-   "fixedMark": false
+   "status": "已修复",
+   "fixedMark": true
   },
   {
    "priority": "P2",
@@ -3994,11 +3207,11 @@
    "file": "产出\\批次122\\超时空要塞Zero（OVA）.md",
    "name": "超时空要塞Zero（OVA）",
    "lib": "主库",
-   "issue": "警告:来源链接 0 条 < 3",
+   "issue": "",
    "hasCrossDup": false,
    "crossGroupIds": [],
-   "status": "待修复",
-   "fixedMark": false
+   "status": "已修复",
+   "fixedMark": true
   },
   {
    "priority": "P2",
@@ -4042,11 +3255,11 @@
    "file": "产出\\批次123\\倚天屠龙记.md",
    "name": "倚天屠龙记",
    "lib": "主库",
-   "issue": "警告:来源链接 0 条 < 3",
+   "issue": "",
    "hasCrossDup": false,
    "crossGroupIds": [],
-   "status": "待修复",
-   "fixedMark": false
+   "status": "已修复",
+   "fixedMark": true
   },
   {
    "priority": "P2",
@@ -4094,7 +3307,7 @@
    "hasCrossDup": false,
    "crossGroupIds": [],
    "status": "已修复",
-   "fixedMark": false
+   "fixedMark": true
   },
   {
    "priority": "P2",
@@ -4106,7 +3319,7 @@
    "hasCrossDup": false,
    "crossGroupIds": [],
    "status": "已修复",
-   "fixedMark": false
+   "fixedMark": true
   },
   {
    "priority": "P2",
@@ -4118,7 +3331,7 @@
    "hasCrossDup": false,
    "crossGroupIds": [],
    "status": "已修复",
-   "fixedMark": false
+   "fixedMark": true
   },
   {
    "priority": "P2",
@@ -6481,8 +5694,8 @@
    "issue": "文件名不符",
    "hasCrossDup": false,
    "crossGroupIds": [],
-   "status": "待修复",
-   "fixedMark": false
+   "status": "已修复",
+   "fixedMark": true
   },
   {
    "priority": "P2",
@@ -6778,11 +5991,11 @@
    "file": "产出\\批次207\\骑马与砍杀2：霸主.md",
    "name": "骑马与砍杀2：霸主",
    "lib": "主库",
-   "issue": "警告:来源链接 0 条 < 3",
+   "issue": "",
    "hasCrossDup": false,
    "crossGroupIds": [],
-   "status": "待修复",
-   "fixedMark": false
+   "status": "已修复",
+   "fixedMark": true
   },
   {
    "priority": "P2",
@@ -6790,11 +6003,11 @@
    "file": "产出\\批次207\\远行星号－Starsector－.md",
    "name": "远行星号（Starsector）",
    "lib": "主库",
-   "issue": "文件名不符 | 警告:剧情缺段落 【贵重物品】",
+   "issue": "文件名不符",
    "hasCrossDup": false,
    "crossGroupIds": [],
-   "status": "待修复",
-   "fixedMark": false
+   "status": "已修复",
+   "fixedMark": true
   },
   {
    "priority": "P2",
@@ -6805,8 +6018,8 @@
    "issue": "文件名不符",
    "hasCrossDup": false,
    "crossGroupIds": [],
-   "status": "待修复",
-   "fixedMark": false
+   "status": "已修复",
+   "fixedMark": true
   },
   {
    "priority": "P2",
@@ -6829,8 +6042,8 @@
    "issue": "文件名不符",
    "hasCrossDup": false,
    "crossGroupIds": [],
-   "status": "待修复",
-   "fixedMark": false
+   "status": "已修复",
+   "fixedMark": true
   },
   {
    "priority": "P2",
@@ -6841,8 +6054,8 @@
    "issue": "文件名不符",
    "hasCrossDup": false,
    "crossGroupIds": [],
-   "status": "待修复",
-   "fixedMark": false
+   "status": "已修复",
+   "fixedMark": true
   },
   {
    "priority": "P2",
@@ -6949,8 +6162,8 @@
    "issue": "文件名不符",
    "hasCrossDup": false,
    "crossGroupIds": [],
-   "status": "待修复",
-   "fixedMark": false
+   "status": "已修复",
+   "fixedMark": true
   },
   {
    "priority": "P2",
@@ -7358,7 +6571,7 @@
    "hasCrossDup": false,
    "crossGroupIds": [],
    "status": "已修复",
-   "fixedMark": false
+   "fixedMark": true
   },
   {
    "priority": "P2",
@@ -7406,7 +6619,7 @@
    "hasCrossDup": false,
    "crossGroupIds": [],
    "status": "已修复",
-   "fixedMark": false
+   "fixedMark": true
   },
   {
    "priority": "P2",
@@ -7418,7 +6631,7 @@
    "hasCrossDup": false,
    "crossGroupIds": [],
    "status": "已修复",
-   "fixedMark": false
+   "fixedMark": true
   },
   {
    "priority": "P2",
@@ -7514,7 +6727,7 @@
    "hasCrossDup": false,
    "crossGroupIds": [],
    "status": "已修复",
-   "fixedMark": false
+   "fixedMark": true
   },
   {
    "priority": "P2",
@@ -8641,8 +7854,8 @@
    "issue": "文件名不符",
    "hasCrossDup": false,
    "crossGroupIds": [],
-   "status": "待修复",
-   "fixedMark": false
+   "status": "已修复",
+   "fixedMark": true
   },
   {
    "priority": "P2",
@@ -8653,8 +7866,8 @@
    "issue": "文件名不符",
    "hasCrossDup": false,
    "crossGroupIds": [],
-   "status": "待修复",
-   "fixedMark": false
+   "status": "已修复",
+   "fixedMark": true
   },
   {
    "priority": "P2",
@@ -8665,8 +7878,8 @@
    "issue": "文件名不符",
    "hasCrossDup": false,
    "crossGroupIds": [],
-   "status": "待修复",
-   "fixedMark": false
+   "status": "已修复",
+   "fixedMark": true
   },
   {
    "priority": "P2",
@@ -8690,7 +7903,7 @@
    "hasCrossDup": false,
    "crossGroupIds": [],
    "status": "已修复",
-   "fixedMark": false
+   "fixedMark": true
   },
   {
    "priority": "P2",
@@ -12966,6 +12179,162 @@
   },
   {
    "priority": "P2",
+   "batch": 488,
+   "file": "产出\\批次488\\人妻派遣-社長秘書.md",
+   "name": "人妻派遣-社長秘書",
+   "lib": "休闲",
+   "issue": "",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "已修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P2",
+   "batch": 488,
+   "file": "产出\\批次488\\聖女孤児院-院長就任.md",
+   "name": "聖女孤児院-院長就任",
+   "lib": "休闲",
+   "issue": "",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "已修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P2",
+   "batch": 488,
+   "file": "产出\\批次488\\エルフ鉱山-坑道深部.md",
+   "name": "エルフ鉱山-坑道深部",
+   "lib": "休闲",
+   "issue": "",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "已修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P2",
+   "batch": 489,
+   "file": "产出\\批次489\\触手遊園地-夜間営業.md",
+   "name": "触手遊園地-夜間営業",
+   "lib": "休闲",
+   "issue": "",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "已修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P2",
+   "batch": 489,
+   "file": "产出\\批次489\\催眠塾-冬期講習.md",
+   "name": "催眠塾-冬期講習",
+   "lib": "休闲",
+   "issue": "",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "已修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P2",
+   "batch": 489,
+   "file": "产出\\批次489\\女騎士レオナ-永久服従.md",
+   "name": "女騎士レオナ-永久服従",
+   "lib": "休闲",
+   "issue": "",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "已修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P2",
+   "batch": 489,
+   "file": "产出\\批次489\\淫魔劇団-舞台稽古.md",
+   "name": "淫魔劇団-舞台稽古",
+   "lib": "休闲",
+   "issue": "",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "已修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P2",
+   "batch": 489,
+   "file": "产出\\批次489\\エルフ貿易港-税関検査.md",
+   "name": "エルフ貿易港-税関検査",
+   "lib": "休闲",
+   "issue": "",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "已修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P2",
+   "batch": 490,
+   "file": "产出\\批次490\\触手博物館-学芸員.md",
+   "name": "触手博物館-学芸員",
+   "lib": "休闲",
+   "issue": "",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "已修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P2",
+   "batch": 490,
+   "file": "产出\\批次490\\魔界拍卖所-希少品競売.md",
+   "name": "魔界拍卖所-希少品競売",
+   "lib": "休闲",
+   "issue": "",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "已修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P2",
+   "batch": 490,
+   "file": "产出\\批次490\\女教師調教-春休み.md",
+   "name": "女教師調教-春休み",
+   "lib": "休闲",
+   "issue": "",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "已修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P2",
+   "batch": 490,
+   "file": "产出\\批次490\\人妻堕落-自治会副会長.md",
+   "name": "人妻堕落-自治会副会長",
+   "lib": "休闲",
+   "issue": "",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "已修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P2",
+   "batch": 490,
+   "file": "产出\\批次490\\淫獣研究所-第五期計画.md",
+   "name": "淫獣研究所-第五期計画",
+   "lib": "休闲",
+   "issue": "",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "已修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P2",
    "batch": 495,
    "file": "产出\\批次495\\聖騎士団-歴史博物館拡張.md",
    "name": "聖騎士団-歴史博物館拡張",
@@ -13039,8 +12408,44 @@
   {
    "priority": "P2",
    "batch": 524,
+   "file": "产出\\批次524\\寂静之地.md",
+   "name": "寂静之地",
+   "lib": "主库",
+   "issue": "",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "已修复",
+   "fixedMark": true
+  },
+  {
+   "priority": "P2",
+   "batch": 524,
+   "file": "产出\\批次524\\逃出绝命镇.md",
+   "name": "逃出绝命镇",
+   "lib": "主库",
+   "issue": "",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "已修复",
+   "fixedMark": true
+  },
+  {
+   "priority": "P2",
+   "batch": 524,
    "file": "产出\\批次524\\小丑回魂（IT）.md",
    "name": "小丑回魂（IT）",
+   "lib": "主库",
+   "issue": "",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "已修复",
+   "fixedMark": true
+  },
+  {
+   "priority": "P2",
+   "batch": 524,
+   "file": "产出\\批次524\\招魂.md",
+   "name": "招魂",
    "lib": "主库",
    "issue": "",
    "hasCrossDup": false,
@@ -13149,6 +12554,102 @@
    "batch": 531,
    "file": "产出\\批次531\\使命召唤：黑色行动.md",
    "name": "使命召唤：黑色行动",
+   "lib": "主库",
+   "issue": "",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "已修复",
+   "fixedMark": true
+  },
+  {
+   "priority": "P2",
+   "batch": 532,
+   "file": "产出\\批次532\\刺客信条：阿泰尔（第三次十字军·圣地）.md",
+   "name": "刺客信条：阿泰尔（第三次十字军·圣地）",
+   "lib": "主库",
+   "issue": "",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "已修复",
+   "fixedMark": true
+  },
+  {
+   "priority": "P2",
+   "batch": 532,
+   "file": "产出\\批次532\\刺客信条：艾吉奥（文艺复兴·意大利）.md",
+   "name": "刺客信条：艾吉奥（文艺复兴·意大利）",
+   "lib": "主库",
+   "issue": "",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "已修复",
+   "fixedMark": true
+  },
+  {
+   "priority": "P2",
+   "batch": 532,
+   "file": "产出\\批次532\\刺客信条3（美国独立战争）.md",
+   "name": "刺客信条3（美国独立战争）",
+   "lib": "主库",
+   "issue": "",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "已修复",
+   "fixedMark": true
+  },
+  {
+   "priority": "P2",
+   "batch": 532,
+   "file": "产出\\批次532\\使命召唤：二战.md",
+   "name": "使命召唤：二战",
+   "lib": "主库",
+   "issue": "",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "已修复",
+   "fixedMark": true
+  },
+  {
+   "priority": "P2",
+   "batch": 532,
+   "file": "产出\\批次532\\使命召唤：僵尸模式.md",
+   "name": "使命召唤：僵尸模式",
+   "lib": "主库",
+   "issue": "",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "已修复",
+   "fixedMark": true
+  },
+  {
+   "priority": "P2",
+   "batch": 539,
+   "file": "产出\\批次539\\鬼吹灯：云南虫谷.md",
+   "name": "鬼吹灯：云南虫谷",
+   "lib": "主库",
+   "issue": "",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "已修复",
+   "fixedMark": true
+  },
+  {
+   "priority": "P2",
+   "batch": 540,
+   "file": "产出\\批次540\\鹿鼎记.md",
+   "name": "鹿鼎记",
+   "lib": "主库",
+   "issue": "",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "已修复",
+   "fixedMark": true
+  },
+  {
+   "priority": "P2",
+   "batch": 554,
+   "file": "产出\\批次554\\雾山五行.md",
+   "name": "雾山五行",
    "lib": "主库",
    "issue": "",
    "hasCrossDup": false,
@@ -13434,6 +12935,126 @@
   },
   {
    "priority": "P2",
+   "batch": 613,
+   "file": "产出\\批次613\\刀语.md",
+   "name": "刀语",
+   "lib": "主库",
+   "issue": "",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "已修复",
+   "fixedMark": true
+  },
+  {
+   "priority": "P2",
+   "batch": 614,
+   "file": "产出\\批次614\\魔法战争.md",
+   "name": "魔法战争",
+   "lib": "主库",
+   "issue": "",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "已修复",
+   "fixedMark": true
+  },
+  {
+   "priority": "P2",
+   "batch": 614,
+   "file": "产出\\批次614\\天镜的极北之星.md",
+   "name": "天镜的极北之星",
+   "lib": "主库",
+   "issue": "",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "已修复",
+   "fixedMark": true
+  },
+  {
+   "priority": "P2",
+   "batch": 615,
+   "file": "产出\\批次615\\死灵法师.md",
+   "name": "死灵法师",
+   "lib": "主库",
+   "issue": "",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "已修复",
+   "fixedMark": true
+  },
+  {
+   "priority": "P2",
+   "batch": 615,
+   "file": "产出\\批次615\\通天之路.md",
+   "name": "通天之路",
+   "lib": "主库",
+   "issue": "",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "已修复",
+   "fixedMark": true
+  },
+  {
+   "priority": "P2",
+   "batch": 616,
+   "file": "产出\\批次616\\超能立方.md",
+   "name": "超能立方",
+   "lib": "主库",
+   "issue": "",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "已修复",
+   "fixedMark": true
+  },
+  {
+   "priority": "P2",
+   "batch": 616,
+   "file": "产出\\批次616\\狂徒.md",
+   "name": "狂徒",
+   "lib": "主库",
+   "issue": "",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "已修复",
+   "fixedMark": true
+  },
+  {
+   "priority": "P2",
+   "batch": 616,
+   "file": "产出\\批次616\\逆天而行.md",
+   "name": "逆天而行",
+   "lib": "主库",
+   "issue": "",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "已修复",
+   "fixedMark": true
+  },
+  {
+   "priority": "P2",
+   "batch": 616,
+   "file": "产出\\批次616\\神级血脉.md",
+   "name": "神级血脉",
+   "lib": "主库",
+   "issue": "",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "已修复",
+   "fixedMark": true
+  },
+  {
+   "priority": "P2",
+   "batch": 616,
+   "file": "产出\\批次616\\最强出租车.md",
+   "name": "最强出租车",
+   "lib": "主库",
+   "issue": "",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "已修复",
+   "fixedMark": true
+  },
+  {
+   "priority": "P2",
    "batch": 619,
    "file": "产出\\批次619\\导火线.md",
    "name": "导火线",
@@ -13518,6 +13139,18 @@
   },
   {
    "priority": "P2",
+   "batch": 622,
+   "file": "产出\\批次622\\镖人.md",
+   "name": "镖人",
+   "lib": "主库",
+   "issue": "",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "已修复",
+   "fixedMark": true
+  },
+  {
+   "priority": "P2",
    "batch": 628,
    "file": "产出\\批次628\\合金弹头.md",
    "name": "合金弹头",
@@ -13587,6 +13220,90 @@
    "crossGroupIds": [],
    "status": "待修复",
    "fixedMark": false
+  },
+  {
+   "priority": "P2",
+   "batch": 705,
+   "file": "产出\\批次705\\25歳の女子○生] ［完全版］.md",
+   "name": "25歳の女子○生] ［完全版］",
+   "lib": "休闲",
+   "issue": "",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "已修复",
+   "fixedMark": true
+  },
+  {
+   "priority": "P2",
+   "batch": 707,
+   "file": "产出\\批次707\\大好きな母.md",
+   "name": "大好きな母",
+   "lib": "休闲",
+   "issue": "",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "已修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P2",
+   "batch": 707,
+   "file": "产出\\批次707\\教え子と先生 上巻 秘密の放課後デート.md",
+   "name": "教え子と先生 上巻 秘密の放課後デート",
+   "lib": "休闲",
+   "issue": "",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "已修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P2",
+   "batch": 707,
+   "file": "产出\\批次707\\一牡丹 その一.md",
+   "name": "一牡丹 その一",
+   "lib": "休闲",
+   "issue": "",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "已修复",
+   "fixedMark": true
+  },
+  {
+   "priority": "P2",
+   "batch": 707,
+   "file": "产出\\批次707\\はさんてあける1はさんであげる.md",
+   "name": "はさんてあける1はさんであげる",
+   "lib": "休闲",
+   "issue": "",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "已修复",
+   "fixedMark": true
+  },
+  {
+   "priority": "P2",
+   "batch": 707,
+   "file": "产出\\批次707\\マックスハート 溺愛美少女姉・更紗.md",
+   "name": "マックスハート 溺愛美少女姉・更紗",
+   "lib": "休闲",
+   "issue": "",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "已修复",
+   "fixedMark": true
+  },
+  {
+   "priority": "P2",
+   "batch": 710,
+   "file": "产出\\批次710\\dokidokiりとる大家さん お家賃3突き目♡ 保健体育って何年ぶり!－ 「黒縁メガネに白衣」の先生がお好きでしょ♡の巻.md",
+   "name": "dokidokiりとる大家さん お家賃3突き目♡ 保健体育って何年ぶり!? 「黒縁メガネに白衣」の先生がお好きでしょ♡の巻",
+   "lib": "休闲",
+   "issue": "",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "已修复",
+   "fixedMark": true
   },
   {
    "priority": "P2",
@@ -14562,6 +14279,126 @@
   },
   {
    "priority": "P2",
+   "batch": 810,
+   "file": "产出\\批次810\\ひぐらしのなく頃に 粋.md",
+   "name": "ひぐらしのなく頃に 粋",
+   "lib": "休闲",
+   "issue": "",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "已修复",
+   "fixedMark": true
+  },
+  {
+   "priority": "P2",
+   "batch": 810,
+   "file": "产出\\批次810\\ひぐらしのなく頃に 奉.md",
+   "name": "ひぐらしのなく頃に 奉",
+   "lib": "休闲",
+   "issue": "",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "已修复",
+   "fixedMark": true
+  },
+  {
+   "priority": "P2",
+   "batch": 810,
+   "file": "产出\\批次810\\ひぐらしのなく頃に 祭.md",
+   "name": "ひぐらしのなく頃に 祭",
+   "lib": "休闲",
+   "issue": "",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "已修复",
+   "fixedMark": true
+  },
+  {
+   "priority": "P2",
+   "batch": 810,
+   "file": "产出\\批次810\\ひぐらしのなく頃に 解.md",
+   "name": "ひぐらしのなく頃に 解",
+   "lib": "休闲",
+   "issue": "",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "已修复",
+   "fixedMark": true
+  },
+  {
+   "priority": "P2",
+   "batch": 827,
+   "file": "产出\\批次827\\夢色キャスト.md",
+   "name": "夢色キャスト",
+   "lib": "休闲",
+   "issue": "",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "已修复",
+   "fixedMark": true
+  },
+  {
+   "priority": "P2",
+   "batch": 827,
+   "file": "产出\\批次827\\A3!.md",
+   "name": "A3!",
+   "lib": "休闲",
+   "issue": "",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "已修复",
+   "fixedMark": true
+  },
+  {
+   "priority": "P2",
+   "batch": 827,
+   "file": "产出\\批次827\\アイ★チュウ.md",
+   "name": "アイ★チュウ",
+   "lib": "休闲",
+   "issue": "",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "已修复",
+   "fixedMark": true
+  },
+  {
+   "priority": "P2",
+   "batch": 827,
+   "file": "产出\\批次827\\ツキウタ。.md",
+   "name": "ツキウタ。",
+   "lib": "休闲",
+   "issue": "",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "已修复",
+   "fixedMark": true
+  },
+  {
+   "priority": "P2",
+   "batch": 827,
+   "file": "产出\\批次827\\ドグラ・マグラ.md",
+   "name": "ドグラ・マグラ",
+   "lib": "休闲",
+   "issue": "",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "已修复",
+   "fixedMark": true
+  },
+  {
+   "priority": "P2",
+   "batch": 828,
+   "file": "产出\\批次828\\ドグラ・マグラ～深淵よりの呼び声～.md",
+   "name": "ドグラ・マグラ～深淵よりの呼び声～",
+   "lib": "休闲",
+   "issue": "",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "已修复",
+   "fixedMark": true
+  },
+  {
+   "priority": "P2",
    "batch": 830,
    "file": "产出\\批次830\\Code：Realize Future Blessings.md",
    "name": "Code:Realize Future Blessings",
@@ -14691,6 +14528,18 @@
    "crossGroupIds": [],
    "status": "待修复",
    "fixedMark": false
+  },
+  {
+   "priority": "P2",
+   "batch": 840,
+   "file": "产出\\批次840\\星河之主.md",
+   "name": "星河之主",
+   "lib": "主库",
+   "issue": "",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "已修复",
+   "fixedMark": true
   },
   {
    "priority": "P2",

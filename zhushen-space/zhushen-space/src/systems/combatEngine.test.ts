@@ -1,8 +1,10 @@
 import { describe, it, expect } from 'vitest';
-import { playerControlled, checkEnd, currentActorId, aliveIds, settleAction, tickRoundStart, assembleBattle, advanceTurn } from './combatEngine';
-import { pickEnemyAction } from './enemyAI';
+import { playerControlled, checkEnd, currentActorId, aliveIds, settleAction, tickRoundStart, assembleBattle, advanceTurn, effectiveSkillCost, previewAction, rollInitiative, buildCombatant } from './combatEngine';
+import { pickEnemyAction, telegraphIntent, enemyArchetype } from './enemyAI';
 import { buildBattleRecord } from './battleRecord';
+import { BATTLEFIELD_AFFIXES } from './battlefield';
 import { useCharacters } from '../store/characterStore';
+import { useItems } from '../store/itemStore';
 import type { BattleState, Combatant, CombatStatBlock, Side } from '../store/combatStore';
 
 // ── 最小战斗态 fixture（只填被测函数会读的字段，其余宽松）──
@@ -222,6 +224,224 @@ describe('settleAction（被动修正·系统 C）', () => {
     const state = mkState([mkC('B1', 'player', 100), mkC('C1', 'enemy', 100)], { B1, C1: mkB('敌', 'enemy') });
     const out = settleAction({ state, actorId: 'B1', kind: 'skill', skillId: 'S_d', targetIds: ['C1'] });
     expect(out.state.participants['C1'].curHp).toBe(32);
+  });
+});
+
+describe('effectiveSkillCost（P0·EP 消耗按品级×maxEp 百分比锚定）', () => {
+  it('高 EP 池：极境技按 30% maxEp 计费（平数值不再形同免费）', () => {
+    expect(effectiveSkillCost({ id: 's', name: '灭世', level: '极境' } as any, 10000)).toBe(3000);
+  });
+  it('authored 数值更大时尊重原文', () => {
+    expect(effectiveSkillCost({ id: 's', name: '小技', level: '普通', cost: '消耗500EP' } as any, 1000)).toBe(500);
+  });
+  it('低 EP 池回退品级平数值：稀有=max(10, 50×8%)=10', () => {
+    expect(effectiveSkillCost({ id: 's', name: '小技', level: '稀有' } as any, 50)).toBe(10);
+  });
+  it('结算侧生效：极境技在 EP 不足时退化普攻', () => {
+    useCharacters.setState({ characters: { B1: { skills: [{ id: 'S_big', name: '灭世斩', level: '极境', numeric: { combat: { cost: 0, target: 'enemy', effects: [{ tag: 'deal', mult: 3.0 }] } } }], traits: [] } } as any });
+    const state = mkState([mkC('B1', 'player', 100, { curEp: 20 }), mkC('C1', 'enemy', 200)], { B1: mkB('主角', 'player', 1000), C1: mkB('敌', 'enemy') });
+    const out = settleAction({ state, actorId: 'B1', kind: 'skill', skillId: 'S_big', targetIds: ['C1'] });
+    expect(out.logLines.join('')).toMatch(/法力不足/);   // 需 30%×1000=300 EP，只有 20 → 退化普攻
+    expect(out.state.participants['C1'].curHp).toBe(200 - 34);   // 普攻 34
+  });
+});
+
+describe('DoT/荆棘锚定攻击档（P0·平数值在高阶 HP 池前形同装饰的修复）', () => {
+  it('中毒毒性单位=施毒者攻击档3%：atk1000 → 每层30，3层下回合掉90', () => {
+    useCharacters.setState({ characters: { B1: { skills: [{ id: 'S_p', name: '毒袭', numeric: { combat: { cost: 0, target: 'enemy', effects: [{ tag: 'poison', stacks: 3 }] } } }], traits: [] } } as any });
+    const B1 = { ...mkB('主角', 'player'), patk: 1000 };
+    const state = mkState([mkC('B1', 'player', 100), mkC('C1', 'enemy', 500)], { B1, C1: { ...mkB('敌', 'enemy'), maxHp: 500 } });
+    const out = settleAction({ state, actorId: 'B1', kind: 'skill', skillId: 'S_p', targetIds: ['C1'] });
+    const st = out.state.participants['C1'].status.find((x) => x.name === '中毒');
+    expect(st?.combat?.poisonUnit).toBe(30);
+    expect(st?.combat?.poisonStacks).toBe(3);
+    out.state.round = 2;
+    tickRoundStart(out.state);
+    expect(out.state.participants['C1'].curHp).toBe(500 - 90);
+  });
+  it('旧档中毒无 poisonUnit → 视为 1（兼容不变）', () => {
+    const c1 = mkC('C1', 'enemy', 100, { status: [{ id: 'p', name: '中毒', tone: 'debuff', startTurn: 1, combat: { poisonStacks: 3 }, addedAt: 0 } as any] });
+    const s = mkState([c1], { C1: mkB('敌', 'enemy') });
+    s.round = 2;
+    tickRoundStart(s);
+    expect(s.participants['C1'].curHp).toBe(97);
+  });
+  it('荆棘反弹=层数×攻击档4%：atk500·2层 → 40', () => {
+    useCharacters.setState({ characters: { B1: { skills: [{ id: 'S_t', name: '棘甲', numeric: { combat: { cost: 0, target: 'self', effects: [{ tag: 'thorns', stacks: 2 }] } } }], traits: [] } } as any });
+    const B1 = { ...mkB('主角', 'player'), patk: 500 };
+    const state = mkState([mkC('B1', 'player', 100), mkC('C1', 'enemy', 100)], { B1, C1: mkB('敌', 'enemy') });
+    const out = settleAction({ state, actorId: 'B1', kind: 'skill', skillId: 'S_t', targetIds: [] });
+    expect(out.state.participants['B1'].status.find((x) => x.name === '荆棘')?.combat?.thorns).toBe(40);
+  });
+  it('燃烧 flat 过小时按攻击档12%兜底：atk1000·flat5 → 120/回合', () => {
+    useCharacters.setState({ characters: { B1: { skills: [{ id: 'S_b', name: '烈焰斩', numeric: { combat: { cost: 0, target: 'enemy', effects: [{ tag: 'burn', flat: 5, turns: 2 }] } } }], traits: [] } } as any });
+    const B1 = { ...mkB('主角', 'player'), patk: 1000 };
+    const state = mkState([mkC('B1', 'player', 100), mkC('C1', 'enemy', 100)], { B1, C1: mkB('敌', 'enemy') });
+    const out = settleAction({ state, actorId: 'B1', kind: 'skill', skillId: 'S_b', targetIds: ['C1'] });
+    expect(out.state.participants['C1'].status.find((x) => x.name === '燃烧')?.combat?.dotPerRound).toBe(120);
+  });
+});
+
+describe('previewAction（P0·预览=结算镜像）', () => {
+  it('普攻预览与实际结算一致（34）', () => {
+    useCharacters.setState({ characters: {} as any });
+    const state = mkState([mkC('B1', 'player', 100), mkC('C1', 'enemy', 100)], { B1: mkB('主角', 'player'), C1: mkB('敌', 'enemy') });
+    const pv = previewAction(state, 'B1', 'C1', undefined);
+    expect(pv?.kind).toBe('damage');
+    expect(pv?.total).toBe(34);
+    const out = settleAction({ state, actorId: 'B1', kind: 'attack', targetIds: ['C1'] });
+    expect(100 - out.state.participants['C1'].curHp).toBe(pv!.total);
+  });
+  it('目标缺省=首个存活敌人；攻方被动增伤计入（54）', () => {
+    useCharacters.setState({ characters: {} as any });
+    const B1 = { ...mkB('主角', 'player'), passive: { dmgDealtPct: 0.5 } } as any;
+    const state = mkState([mkC('B1', 'player', 100), mkC('C1', 'enemy', 100)], { B1, C1: mkB('敌', 'enemy') });
+    const pv = previewAction(state, 'B1', undefined, undefined);
+    expect(pv?.targetId).toBe('C1');
+    expect(pv?.total).toBe(54);
+  });
+  it('block 技能预览=按目标防御档凝盾（40）', () => {
+    useCharacters.setState({ characters: {} as any });
+    const state = mkState([mkC('B1', 'player', 100), mkC('C1', 'enemy', 100)], { B1: mkB('主角', 'player'), C1: mkB('敌', 'enemy') });
+    const pv = previewAction(state, 'B1', undefined, { id: 'S_blk', name: '铁壁', numeric: { combat: { cost: 0, target: 'self', effects: [{ tag: 'block', mult: 2.0 }] } } } as any);
+    expect(pv?.kind).toBe('block');
+    expect(pv?.total).toBe(40);
+  });
+  it('意图预告=真实决策：telegraph 显示的目标/数字与敌人实际出手一致', () => {
+    useCharacters.setState({ characters: {} as any });
+    const state = mkState([mkC('B1', 'player', 100), mkC('E1', 'enemy', 100)], { B1: mkB('主角', 'player'), E1: mkB('敌', 'enemy') });
+    const it0 = telegraphIntent(state, 'E1');
+    const act = pickEnemyAction(state, 'E1');
+    expect(act.kind).toBe('attack');
+    const pv = previewAction(state, 'E1', act.targetIds[0], undefined);
+    expect(it0.label).toContain(`~${pv!.total}`);   // 预告数字=预演数字
+    const out = settleAction({ state, actorId: 'E1', kind: act.kind, targetIds: act.targetIds });
+    expect(100 - out.state.participants['B1'].curHp).toBe(pv!.total);   // 实际掉血=预告数字
+  });
+});
+
+describe('战场词缀（P1·环境入数值）', () => {
+  const withBf = (s: BattleState, ids: string[]) => { (s as any).battlefieldAffixes = ids.map((id) => (BATTLEFIELD_AFFIXES as any)[id]); return s; };
+
+  it('雨幕压火：火系技能伤害 ×0.7（20×2×0.7=28 −6 =22），且预览镜像一致', () => {
+    useCharacters.setState({ characters: { B1: { skills: [{ id: 'S_f', name: '烈焰斩', numeric: { combat: { cost: 0, target: 'enemy', effects: [{ tag: 'deal', mult: 1.0 }] } } }], traits: [] } } as any });
+    const state = withBf(mkState([mkC('B1', 'player', 100), mkC('C1', 'enemy', 100)], { B1: mkB('主角', 'player'), C1: mkB('敌', 'enemy') }), ['rain']);
+    const pv = previewAction(state, 'B1', 'C1', (useCharacters.getState().characters as any)['B1'].skills[0]);
+    expect(pv?.total).toBe(22);
+    const out = settleAction({ state, actorId: 'B1', kind: 'skill', skillId: 'S_f', targetIds: ['C1'] });
+    expect(out.state.participants['C1'].curHp).toBe(78);
+    expect(out.logLines.join('')).toMatch(/雨幕-30%/);   // 结算日志标注环境修正
+  });
+  it('普攻无元素 → 词缀不影响（仍 34）', () => {
+    useCharacters.setState({ characters: {} as any });
+    const state = withBf(mkState([mkC('B1', 'player', 100), mkC('C1', 'enemy', 100)], { B1: mkB('主角', 'player'), C1: mkB('敌', 'enemy') }), ['rain']);
+    const out = settleAction({ state, actorId: 'B1', kind: 'attack', targetIds: ['C1'] });
+    expect(out.state.participants['C1'].curHp).toBe(66);
+  });
+  it('雨幕压燃烧：燃烧 DoT 每回合减半（10→5）', () => {
+    const c1 = mkC('C1', 'enemy', 100, { status: [{ id: 'b', name: '燃烧', tone: 'debuff', startTurn: 1, combat: { dotPerRound: 10 }, addedAt: 0 } as any] });
+    const s = withBf(mkState([c1], { C1: mkB('敌', 'enemy') }), ['rain']);
+    s.round = 2;
+    tickRoundStart(s);
+    expect(s.participants['C1'].curHp).toBe(95);
+  });
+  it('灵潮助回蓝：每回合回蓝 ×1.5（6→9）', () => {
+    const c1 = mkC('C1', 'enemy', 100, { curEp: 50 });
+    const s = withBf(mkState([c1], { C1: mkB('敌', 'enemy') }), ['ley']);
+    s.round = 2;
+    tickRoundStart(s);
+    expect(s.participants['C1'].curEp).toBe(59);
+  });
+  it('断壁助盾：block 护盾获取 ×1.2（40→48），预览一致', () => {
+    useCharacters.setState({ characters: { B1: { skills: [{ id: 'S_blk', name: '铁壁', numeric: { combat: { cost: 0, target: 'self', effects: [{ tag: 'block', mult: 2.0 }] } } }], traits: [] } } as any });
+    const state = withBf(mkState([mkC('B1', 'player', 100), mkC('C1', 'enemy', 100)], { B1: mkB('主角', 'player'), C1: mkB('敌', 'enemy') }), ['ruins']);
+    const pv = previewAction(state, 'B1', undefined, (useCharacters.getState().characters as any)['B1'].skills[0]);
+    expect(pv?.total).toBe(48);
+    const out = settleAction({ state, actorId: 'B1', kind: 'skill', skillId: 'S_blk', targetIds: [] });
+    expect(out.state.participants['B1'].curShield).toBe(48);
+  });
+  it('先攻敏捷倍率：agi100 时 ×0.5 必然低于 ×1（区间不重叠）', () => {
+    const b = { ...mkB('疾风', 'enemy'), attrs: { str: 10, agi: 100, con: 10, int: 10, cha: 10, luck: 10 } } as CombatStatBlock;
+    expect(rollInitiative(b, 0.5)).toBeLessThan(rollInitiative(b, 1));   // [53,56] < [103,106]
+  });
+  it('assembleBattle 烘焙词缀 + 战报带环境段', () => {
+    useCharacters.setState({ characters: {} as any });
+    const blocks: Record<string, CombatStatBlock> = { B1: mkB('主角', 'player'), E1: mkB('敌', 'enemy') };
+    const battle = assembleBattle(blocks, { reason: 't', location: '废墟', endConditions: [], battlefieldAffixes: [(BATTLEFIELD_AFFIXES as any).ruins] }, false);
+    expect(battle.battlefieldAffixes?.[0]?.id).toBe('ruins');
+    const rec = buildBattleRecord(battle, 'player');
+    expect(rec).toMatch(/环境=\[断壁/);
+  });
+});
+
+describe('P2 打磨（破防保底/幸运暴击/先攻种子/行为原型）', () => {
+  it('破防保底 8%：高防坦克不再永远只掉 1 点（preDef40 vs pdef200 → 4），预览一致', () => {
+    useCharacters.setState({ characters: {} as any });
+    const state = mkState([mkC('B1', 'player', 100), mkC('C1', 'enemy', 100)], { B1: mkB('主角', 'player'), C1: { ...mkB('敌', 'enemy'), pdef: 200 } });
+    const pv = previewAction(state, 'B1', 'C1', undefined);
+    expect(pv?.total).toBe(4);   // ceil(40×0.08)
+    const out = settleAction({ state, actorId: 'B1', kind: 'attack', targetIds: ['C1'] });
+    expect(out.state.participants['C1'].curHp).toBe(96);
+  });
+  it('幸运→暴击率：luck50 → +10%（每点0.2%·上限15%）', () => {
+    useCharacters.setState({ characters: {} as any });
+    const b = buildCombatant('LK', 'enemy', { isTransient: true, name: '幸运儿', attrs: { str: 5, agi: 5, con: 5, int: 5, cha: 5, luck: 50 }, tier: '一阶' });
+    expect(b.passive?.critChance ?? 0).toBeCloseTo(0.1);
+    const b2 = buildCombatant('LK2', 'enemy', { isTransient: true, name: '天命', attrs: { str: 5, agi: 5, con: 5, int: 5, cha: 5, luck: 999 }, tier: '一阶' });
+    expect(b2.passive?.critChance ?? 0).toBeCloseTo(0.15);   // 封顶
+  });
+  it('先攻可注入种子随机：rand()=0.5 → agi + int×0.3 + 1.5 精确可复现', () => {
+    expect(rollInitiative(mkB('x', 'player'), 1, () => 0.5)).toBeCloseTo(10 + 3 + 1.5);
+  });
+  it('行为原型：智堡=caster / 力堡=striker / 均衡=balanced', () => {
+    const mk = (str: number, agi: number, int: number) => ({ attrs: { str, agi, int } });
+    expect(enemyArchetype(mk(10, 10, 100))).toBe('caster');
+    expect(enemyArchetype(mk(100, 10, 10))).toBe('striker');
+    expect(enemyArchetype(mk(10, 10, 10))).toBe('balanced');
+  });
+  it('settleAction 记录 lastSkillIds（最近两次施放）', () => {
+    useCharacters.setState({ characters: { B1: { skills: [{ id: 'S_blk', name: '铁壁', numeric: { combat: { cost: 0, target: 'self', effects: [{ tag: 'block', mult: 2.0 }] } } }], traits: [] } } as any });
+    const state = mkState([mkC('B1', 'player', 100), mkC('C1', 'enemy', 100)], { B1: mkB('主角', 'player'), C1: mkB('敌', 'enemy') });
+    const o1 = settleAction({ state, actorId: 'B1', kind: 'skill', skillId: 'S_blk', targetIds: [] });
+    expect(o1.state.participants['B1'].lastSkillIds).toEqual(['S_blk']);
+    const o2 = settleAction({ state: o1.state, actorId: 'B1', kind: 'skill', skillId: 'S_blk', targetIds: [] });
+    expect(o2.state.participants['B1'].lastSkillIds).toEqual(['S_blk', 'S_blk']);
+  });
+  it('不连放同技：同技连放两次且有替代 → 换招', () => {
+    useCharacters.setState({
+      characters: { E1: { skills: [
+        { id: 'S_a', name: '横斩', numeric: { combat: { cost: 0, target: 'enemy', effects: [{ tag: 'deal', mult: 1.0 }] } } },
+        { id: 'S_b', name: '突刺', numeric: { combat: { cost: 0, target: 'enemy', effects: [{ tag: 'deal', mult: 1.2 }] } } },
+      ], traits: [] } } as any,
+    });
+    const e1 = mkC('E1', 'enemy', 100, {
+      lastSkillIds: ['S_a', 'S_a'],
+      status: [{ id: 'bf', name: '战意', tone: 'buff', combat: {} } as any],           // 有增益 → 跳过强化步
+    });
+    const b1 = mkC('B1', 'player', 100, { status: [{ id: 'db', name: '破绽', tone: 'debuff', combat: {} } as any] });   // 目标已有减益 → 跳过控场步
+    const state = mkState([b1, e1], { B1: mkB('主角', 'player'), E1: mkB('敌', 'enemy') });
+    const act = pickEnemyAction(state, 'E1');
+    expect(act.kind).toBe('skill');
+    expect(act.skillId).toBe('S_b');   // S_a 被"不连放"过滤
+  });
+});
+
+describe('道具威能锚定（P0）', () => {
+  it('炸弹伤害下限=使用者攻击档×(0.5+品级×0.1)×2：atk1000·grade1 → 1200', () => {
+    useCharacters.setState({ characters: {} as any });
+    useItems.setState({ items: [{ id: 'bomb1', name: '小炸弹', category: '消耗品', quantity: 1, effect: '投掷爆炸' }] } as any);
+    const B1 = { ...mkB('主角', 'player'), patk: 1000 };
+    const state = mkState([mkC('B1', 'player', 100), mkC('C1', 'enemy', 5000)], { B1, C1: { ...mkB('敌', 'enemy'), maxHp: 5000 } });
+    const out = settleAction({ state, actorId: 'B1', kind: 'item', itemId: 'bomb1', targetIds: ['C1'] });
+    expect(out.state.participants['C1'].curHp).toBe(5000 - 1200);
+    expect(out.consumedItem?.id).toBe('bomb1');
+  });
+  it('药剂回复下限=目标 maxHp 百分比：maxHp10000·grade1 → ≥8%', () => {
+    useCharacters.setState({ characters: {} as any });
+    useItems.setState({ items: [{ id: 'pot1', name: '治疗药剂', category: '消耗品', quantity: 1, effect: '回复生命' }] } as any);
+    const state = mkState([mkC('B1', 'player', 100), mkC('C1', 'enemy', 100)], { B1: { ...mkB('主角', 'player'), maxHp: 10000 }, C1: mkB('敌', 'enemy') });
+    const out = settleAction({ state, actorId: 'B1', kind: 'item', itemId: 'pot1', targetIds: ['B1'] });
+    expect(out.state.participants['B1'].curHp).toBe(100 + 800);   // 8%×10000=800（>品级50平数值）
   });
 });
 

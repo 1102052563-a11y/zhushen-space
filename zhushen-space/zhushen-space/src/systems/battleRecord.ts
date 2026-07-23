@@ -5,6 +5,7 @@
    设计文档：指导/战斗系统-重置-设计.md §7
 ════════════════════════════════════════════ */
 import type { BattleState, Side } from '../store/combatStore';
+import { bfRecordText } from './battlefield';
 
 /* 由 HP 占比映射成状态词（沉浸：正文不出数字，只出伤势） */
 export function statusOf(curHp: number, maxHp: number, left?: boolean): string {
@@ -50,5 +51,7 @@ export function buildBattleRecord(state: BattleState, victor: Side | null): stri
     `关键=[${key.join(' / ') || '常规交锋'}]`,
     `处置=[${disposal}]`,
   ];
+  const envTxt = bfRecordText(state.battlefieldAffixes);   // 战场词缀 → 润色叙事把环境写进描写（数值已结算）
+  if (envTxt) fields.push(`环境=[${envTxt}]`);
   return `BATTLE_RECORD: ${fields.join(' | ')}`;
 }

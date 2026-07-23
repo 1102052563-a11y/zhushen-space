@@ -4,6 +4,7 @@ import type { ApiConfig } from './settingsStore';
 import type { StatusEffect } from './playerStore';
 import type { DiceAttrs } from '../systems/diceEngine';
 import type { PassiveMod, CombatTrigger } from '../systems/combatTags';
+import type { BattlefieldAffix } from '../systems/battlefield';
 
 /* ════════════════════════════════════════════
    战斗系统 store（drpg-combat）—— 仿 fanren-remake 回合制战斗，重皮成轮回乐园风格。
@@ -74,6 +75,7 @@ export interface Combatant {
   guardedBy?: string;                   // 被某友方「保护」中：敌方单体攻击会改由该保护者承受（回合开始清除）
   charging?: ChargeState;               // 正在蓄力的大招（蓄满释放，被控制中断）
   left?: boolean;                       // 已撤退/逃离战场（不再排进出手顺序）
+  lastSkillIds?: string[];              // 最近两次施放的技能 id（敌人 AI「不连放同技」读取；settleAction 维护）
 }
 
 export interface CombatLogEntry {
@@ -108,6 +110,7 @@ export interface BattleState {
   log: CombatLogEntry[];
   transientEntities: Record<string, { name: string; side: Side; kind: string }>;
   activeArrays: DomainState[];                     // 已展开的领域/阵法
+  battlefieldAffixes?: BattlefieldAffix[];         // 战场词缀（开战时由天气/地点确定性推导烘焙·P1 环境入数值；旧存档缺省=无）
   endReason: string | null;
   victor: Side | null;
 }
@@ -129,6 +132,7 @@ export interface CombatConfig {
   combatSpeed?: number;              // 战斗节奏倍速 1/2/4（缩短回合间停顿）
   autoBattle?: boolean;             // 自动战斗：玩家回合也交给本地 AI 代打
   sfxOn?: boolean;                   // 战斗音效开关（默认开）
+  battlefieldOn?: boolean;           // 战场词缀（天气/地点入战斗数值）开关（默认开；缺省视为开）
   skillLabel?: string;               // 「技能」按钮文案（默认技能；武侠世界可改武功）
   itemLabel?: string;                // 「道具」按钮文案（默认道具；可改物品）
   activePresetId: string;
@@ -148,6 +152,7 @@ export const DEFAULT_COMBAT_CONFIG: CombatConfig = {
   combatSpeed: 1,
   autoBattle: false,
   sfxOn: true,
+  battlefieldOn: true,
   skillLabel: '技能',
   itemLabel: '道具',
   activePresetId: 'default',

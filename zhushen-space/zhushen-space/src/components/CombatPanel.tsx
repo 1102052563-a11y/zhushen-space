@@ -7,6 +7,7 @@ import { useItems } from '../store/itemStore';
 import { useResource } from '../store/resourceStore';
 import { useMp } from '../store/multiplayerStore';
 import { telegraphIntent } from '../systems/enemyAI';
+import { effectiveSkillCost, previewAction } from '../systems/combatEngine';
 import { combatIconFor } from './combatIcons';
 
 /* 模态战斗面板（仿 fanren-remake）。结算由引擎/编排器在 App 里完成；本组件只负责展示
@@ -75,7 +76,7 @@ function Card({ id, isCurrent, isTarget, onPick }: { id: string; isCurrent: bool
         </div>
         {enemy && !dead && battle.active && (() => {
           const it = telegraphIntent(battle, id);
-          return it.label ? <span className="self-start text-[9px] px-1 rounded bg-rose-950/70 text-rose-200 border border-rose-700/40 flex-none" title="敌方意图（预判）">{it.emoji}{it.label}</span> : null;
+          return it.label ? <span className="self-start text-[9px] px-1 rounded bg-rose-950/70 text-rose-200 border border-rose-700/40 flex-none max-w-[9rem] truncate" title={it.detail || '敌方意图（与其实际出手同源预演，随战况实时更新）'}>{it.emoji}{it.label}</span> : null;
         })()}
       </div>
       <div className="space-y-1">
@@ -185,6 +186,11 @@ export default function CombatPanel({ onPlayerAction, onUndo, canUndo, mpMode, m
   const activeSkills = useMemo(() => actorSkills.filter((s) => !/被动/.test(s.skillType ?? '')), [actorSkills]);
   const selSkill = activeSkills.find((s) => s.id === skillId);
   const skillCd = (id: string) => curActor?.cooldowns?.[id] ?? 0;
+  // EP 消耗单一来源（与引擎/敌AI同一函数：authored 与品级×maxEp 百分比取大）；蓄力技当回合只需一半
+  const curBlock = curId ? battle.initialState[curId] : undefined;
+  const epCostOf = (s: any) => effectiveSkillCost(s, curBlock?.maxEp ?? 0);
+  const epNeedNow = (s: any) => (isChargeSkill(s) ? Math.max(1, Math.round(epCostOf(s) * 0.5)) : epCostOf(s));
+  const epShort = (s: any) => (curActor?.curEp ?? 0) < epNeedNow(s);
   // 技能自定义能量条消耗（仅 B1·能量条存在才生效；引用已删能量条→视为无消耗，不拦不扣）
   const resources = useResource((s) => s.resources);
   const setResCur = useResource((s) => s.setCur);
@@ -252,6 +258,9 @@ export default function CombatPanel({ onPlayerAction, onUndo, canUndo, mpMode, m
             <span className="text-rose-400">⚔️</span>
             <span className="text-sm font-semibold text-slate-100">战斗 · 第 {battle.round} 回合</span>
             {battle.context.location && <span className="text-xs text-slate-400">· {battle.context.location}</span>}
+            {battle.battlefieldAffixes?.map((a) => (
+              <span key={a.id} title={a.desc} className="text-[10px] px-1.5 py-0.5 rounded bg-indigo-900/50 text-indigo-100 border border-indigo-500/30 cursor-help">{a.emoji}{a.name}</span>
+            ))}
           </div>
           {apiBusy && <span className="text-xs text-amber-300 animate-pulse">{apiStatus || 'AI 思考中…'}</span>}
         </div>
@@ -408,8 +417,8 @@ export default function CombatPanel({ onPlayerAction, onUndo, canUndo, mpMode, m
                 <select value={skillId} onChange={(e) => { setSkillId(e.target.value); setTargets([]); }}
                   className="w-full bg-slate-800 border border-slate-600 rounded px-2 py-1 text-sm text-slate-200">
                   <option value="">— 选择技能 —</option>
-                  {activeSkills.map((s) => { const cd = skillCd(s.id); const rc = rcOf(s); const g = gateOf(s); return (
-                    <option key={s.id} value={s.id} disabled={cd > 0 || resBlocked(s)}>{s.name}{s.level ? ` · ${s.level}` : ''}{s.cost ? ` (${s.cost})` : ''}{rc ? ` ⚡${rc.name}${rc.amount}${rc.avail < rc.amount ? `·不足(${rc.avail})` : ''}` : ''}{g ? ` 🔒${g.name}≥${g.amount}${g.avail < g.amount ? `·未达(${g.avail})` : ''}` : ''}{isChargeSkill(s) ? ' 🔋蓄力' : ''}{isDomainSkillUI(s) ? ' 🌀领域' : ''}{cd > 0 ? ` ⏳冷却${cd}` : ''}</option>
+                  {activeSkills.map((s) => { const cd = skillCd(s.id); const rc = rcOf(s); const g = gateOf(s); const ec = epCostOf(s); return (
+                    <option key={s.id} value={s.id} disabled={cd > 0 || resBlocked(s) || epShort(s)}>{s.name}{s.level ? ` · ${s.level}` : ''}{ec > 0 ? ` ⚡${ec}EP${epShort(s) ? '·不足' : ''}` : ''}{rc ? ` ⚡${rc.name}${rc.amount}${rc.avail < rc.amount ? `·不足(${rc.avail})` : ''}` : ''}{g ? ` 🔒${g.name}≥${g.amount}${g.avail < g.amount ? `·未达(${g.avail})` : ''}` : ''}{isChargeSkill(s) ? ' 🔋蓄力' : ''}{isDomainSkillUI(s) ? ' 🌀领域' : ''}{cd > 0 ? ` ⏳冷却${cd}` : ''}</option>
                   ); })}
                 </select>
               )}
@@ -426,6 +435,19 @@ export default function CombatPanel({ onPlayerAction, onUndo, canUndo, mpMode, m
                   <div className="text-xs text-slate-500">没有可用于战斗的道具（炸弹/药剂/丹药等）。</div>
                 )
               )}
+              {(() => {   // 出手预览（P0·数字可见）：与引擎同链的无副作用预估——未选目标时对首个存活敌人估算
+                const pv = (action === 'attack' || (action === 'skill' && selSkill && !epShort(selSkill)))
+                  ? previewAction(battle, curId!, targets[0], action === 'skill' ? (selSkill as any) : undefined)
+                  : null;
+                if (!pv) return null;
+                const pvName = battle.initialState[pv.targetId]?.name ?? '';
+                const txt = pv.kind === 'damage'
+                  ? `预计对${isAoe ? '敌方各' : ` ${pvName} `}造成 ~${pv.total}${pv.hits > 1 ? `（${pv.hits} 段）` : ''}${pv.critTotal ? ` · 暴击 ~${pv.critTotal}（${Math.round(pv.critChance * 100)}%）` : ''}${pv.executeReady ? ' · ☠️已入斩杀线' : ''}${pv.chargeRounds ? ` · 需先蓄力 ${pv.chargeRounds} 回合` : ''}`
+                  : pv.kind === 'heal'
+                  ? `预计回复 ${pvName} ~${pv.total} HP`
+                  : `预计获得护盾 ~${pv.total}`;
+                return <div className="text-[11px] text-amber-300/90" title="按当前双方属性/状态/被动实时预估（与结算公式同源；不含护盾吸收与触发追加）">📐 {txt}</div>;
+              })()}
               <div className="flex items-center justify-between">
                 <div className="text-xs text-slate-400">
                   {isAoe
@@ -441,7 +463,7 @@ export default function CombatPanel({ onPlayerAction, onUndo, canUndo, mpMode, m
                     : action === 'item' ? '选择一件道具' : action === 'defend' ? '本回合承伤减半 · 回复 EP' : '尝试脱离战斗'}
                 </div>
                 <button onClick={confirm}
-                  disabled={(action === 'skill' && (!skillId || resBlocked(selSkill))) || (action === 'item' && !itemId) || (needsTarget && targets.length === 0)}
+                  disabled={(action === 'skill' && (!skillId || resBlocked(selSkill) || (!!selSkill && epShort(selSkill)))) || (action === 'item' && !itemId) || (needsTarget && targets.length === 0)}
                   className="px-5 py-1.5 rounded-md bg-rose-600 hover:bg-rose-500 disabled:opacity-40 disabled:cursor-not-allowed text-white text-sm font-medium">
                   出手
                 </button>

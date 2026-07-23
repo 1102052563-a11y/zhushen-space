@@ -350,7 +350,6 @@ Quarter 查清 117 船团阴影中的格蕾丝；照片确认雪儿为**真央·
 
 ## 来源
 
-1. Wikipedia（EN）：Macross Frontier — 概要、剧场版关系、评价  
-2. Wikipedia（EN）：List of Macross Frontier episodes / characters — 分话与人物弧光  
-3. 维基百科（中文）：超时空要塞Frontier — 译名、势力、机体与专有名词  
-4. Anime News Network 百科 — 制作、主题曲与系列定位  
+- [English Wikipedia: Macross Frontier](https://en.wikipedia.org/wiki/Macross_Frontier)
+- [中文维基：超时空要塞Frontier](https://zh.wikipedia.org/wiki/%E8%B6%85%E6%97%B6%E7%A9%BA%E8%A6%81%E5%A1%9EFrontier)
+- [日本語版Wikipedia：マクロスF](https://ja.wikipedia.org/wiki/%E3%83%9E%E3%82%AF%E3%83%AD%E3%82%B9F)

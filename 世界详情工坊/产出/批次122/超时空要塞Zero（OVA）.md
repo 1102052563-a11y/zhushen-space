@@ -320,7 +320,6 @@
 
 ## 来源
 
-1. Wikipedia（EN）：Macross Zero — 前提、人物、分话剧情、制作与评价  
-2. Wikipedia（EN）／系列互文：Macross Frontier Episode 10「Legend of Zero」、Sheryl Nome 家族设定  
-3. Anime News Network — OVA 信息、发行与系列定位  
-4. 公开设定：VF-0／SV-51、U.N. Wars、Protoculture／Bird Human（A.F.O.S.）基础概念  
+- [English Wikipedia: Macross Zero](https://en.wikipedia.org/wiki/Macross_Zero)
+- [中文维基：超时空要塞Zero](https://zh.wikipedia.org/wiki/%E8%B6%85%E6%99%82%E7%A9%BA%E8%A6%81%E5%A1%9EZero)
+- [日本語版Wikipedia：マクロス ゼロ](https://ja.wikipedia.org/wiki/%E3%83%9E%E3%82%AF%E3%83%AD%E3%82%B9_%E3%82%BC%E3%83%AD)

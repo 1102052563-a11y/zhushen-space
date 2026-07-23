@@ -28,7 +28,8 @@ export interface CombatStatusMod {
   dexterityStacks?: number; // 敏捷层数：每层使格挡量 +10%×防御力档
   vulnerable?: boolean;     // 易伤：该单位受到的伤害 ×1.5
   weak?: boolean;           // 虚弱：该单位造成的伤害 ×0.75
-  poisonStacks?: number;    // 中毒层数：每回合损失=层数 HP，然后层数−1（耗尽即移除）
+  poisonStacks?: number;    // 中毒层数：每回合损失=层数×poisonUnit HP，然后层数−1（耗尽即移除）
+  poisonUnit?: number;      // 中毒每层每回合伤害（施毒时按施毒者攻击力档折算；缺省=1 兼容旧档）
   thorns?: number;          // 荆棘：受到攻击时反弹的固定伤害
   silenced?: boolean;       // 沉默：无法使用技能（只能普攻/防御/道具）
   taunt?: boolean;          // 嘲讽：被迫优先攻击施法者（由本地敌人 AI 读取，source=施法者）
