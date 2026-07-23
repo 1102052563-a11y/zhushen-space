@@ -932,8 +932,8 @@ function ShopCard({ shopId, onEdit, onVisit, onPublish }: { shopId: string; onEd
 
   return (
     <div className="rounded-xl border border-edge bg-panel overflow-hidden flex flex-col">
-      <div className="h-28 bg-void flex items-center justify-center overflow-hidden">
-        {(shop.signs?.length || shop.sign) ? <SignShow imgs={shop.signs} cover={shop.sign} /> : <span className="text-5xl opacity-25">{meta.emoji}</span>}
+      <div className="h-44 bg-void flex items-center justify-center overflow-hidden">
+        {(shop.signs?.length || shop.sign) ? <SignShow imgs={shop.signs} cover={shop.sign} imgClass="object-contain" /> : <span className="text-5xl opacity-25">{meta.emoji}</span>}
       </div>
       <div className="p-3 flex-1 flex flex-col gap-1.5">
         <div className="flex items-center gap-1.5">
@@ -966,8 +966,8 @@ function MarketShopCard({ shop, mine, onEnter, onUnpublish }: { shop: PublishedS
   const unit = shop.type === 'store' ? '件' : shop.type === 'brothel' ? '位' : '位';
   return (
     <div className="rounded-xl border border-edge bg-panel overflow-hidden flex flex-col">
-      <div className="h-28 bg-void flex items-center justify-center overflow-hidden">
-        {(snap.signs?.length || snap.sign) ? <SignShow imgs={snap.signs} cover={snap.sign} /> : <span className="text-5xl opacity-25">{meta.emoji}</span>}
+      <div className="h-44 bg-void flex items-center justify-center overflow-hidden">
+        {(snap.signs?.length || snap.sign) ? <SignShow imgs={snap.signs} cover={snap.sign} imgClass="object-contain" /> : <span className="text-5xl opacity-25">{meta.emoji}</span>}
       </div>
       <div className="p-3 flex-1 flex flex-col gap-1.5">
         <div className="flex items-center gap-1.5"><span className="text-sm">{meta.emoji}</span><span className="text-sm font-bold text-slate-100 truncate flex-1">{shop.name}</span></div>
