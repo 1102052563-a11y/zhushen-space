@@ -338,6 +338,63 @@ function syncJoyWorldBooks(): Plugin {
   return { name: 'sync-joy-worldbooks', buildStart() { gen() }, configureServer() { gen() } }
 }
 
+// 世界详情库切片：把仓库根 世界书/世界详情库·主库.json + ·休闲.json（世界详情工坊编译产物，每世界两条目：
+//   comment=<名>·剧情 / <名>·阶位切入点|·休闲切入点，key[0]=世界名）切成 256 个哈希分桶 s<i>.json + manifest.json，
+//   供前端按世界名点取（systems/worldDetail.ts：世界卡生成注 剧情+切入点 / 入世正文只注 剧情）。
+//   合计 ~137MB 不能整本进前端（localStorage 5MB / Pages 单文件 25MiB 都过不了），哈希分桶后单片 ~0.5MB 按需 fetch。
+//   产物 public/worlddetail/ 已 gitignore；源 size+mtime 记进 manifest.srcStamp——没变则秒跳过（工坊重编译后自动重切）。
+function buildWorldDetailShards(): Plugin {
+  const SRCS: [string, string][] = [['main', '../../世界书/世界详情库·主库.json'], ['leisure', '../../世界书/世界详情库·休闲.json']]
+  const DST = 'public/worlddetail'
+  const SHARDS = 256
+  const fnv1a = (s: string) => { let h = 0x811c9dc5; for (let i = 0; i < s.length; i++) { h ^= s.charCodeAt(i); h = Math.imul(h, 0x01000193) } return h >>> 0 }
+  const gen = () => {
+    try {
+      const avail = SRCS.filter(([, f]) => existsSync(f))
+      if (!avail.length) { console.warn('[worlddetail] 源世界书缺失（世界书/世界详情库·*.json）→ 保留已有分片'); return }
+      const stamp: Record<string, string> = {}
+      for (const [lib, f] of avail) { const st = statSync(f); stamp[lib] = `${st.size}-${Math.round(st.mtimeMs)}` }
+      const manifestPath = DST + '/manifest.json'
+      if (existsSync(manifestPath)) {
+        try {
+          const prev = JSON.parse(readFileSync(manifestPath, 'utf8'))
+          if (JSON.stringify(prev.srcStamp) === JSON.stringify(stamp)) return   // 源未变 → 秒跳
+        } catch { /* manifest 损坏 → 重建 */ }
+      }
+      const t0 = Date.now()
+      const shards: Record<string, { p: string; c?: string }>[] = Array.from({ length: SHARDS }, () => ({}))
+      const worlds: Record<string, { s: number; l: string }> = {}
+      for (const [lib, f] of avail) {
+        const doc = JSON.parse(readFileSync(f, 'utf8'))
+        const byName = new Map<string, { p?: string; c?: string }>()
+        for (const e of Object.values<any>(doc.entries || {})) {
+          const name = String(e?.key?.[0] || '').trim()
+          const comment = String(e?.comment || '')
+          if (!name || !e?.content) continue
+          const rec = byName.get(name) || {}
+          if (/·剧情$/.test(comment)) rec.p = e.content
+          else if (/切入点$/.test(comment)) rec.c = e.content
+          else continue
+          byName.set(name, rec)
+        }
+        for (const [name, rec] of byName) {
+          if (!rec.p || worlds[name]) continue   // 没·剧情条目不入库；同名先到先得（uid 全局唯一，理论不撞）
+          const k = fnv1a(name) % SHARDS
+          shards[k][name] = rec.c ? { p: rec.p, c: rec.c } : { p: rec.p }
+          worlds[name] = { s: k, l: lib }
+        }
+      }
+      mkdirSync(DST, { recursive: true })
+      for (const f of readdirSync(DST)) if (/^s\d+\.json$/.test(f)) unlinkSync(DST + '/' + f)   // 清旧分片，防世界改名残留
+      let files = 0
+      shards.forEach((sh, i) => { if (Object.keys(sh).length) { writeFileSync(DST + `/s${i}.json`, JSON.stringify(sh)); files++ } })
+      writeFileSync(manifestPath, JSON.stringify({ version: 1, srcStamp: stamp, shards: SHARDS, worlds }))
+      console.log(`[worlddetail] 世界详情库切片：${Object.keys(worlds).length} 世界 → ${files} 分片（${Date.now() - t0}ms）`)
+    } catch (e) { console.warn('[worlddetail] 切片失败（保留已有分片，不阻断构建）：', (e as Error)?.message) }
+  }
+  return { name: 'build-worlddetail-shards', buildStart() { gen() }, configureServer() { gen() } }
+}
+
 
 
 
@@ -377,7 +434,7 @@ function cleanDist(): Plugin {
 }
 
 export default defineConfig({
-  plugins: [cleanDist(), react(), buildWiki(), buildLunhuiCharacters(), copyBuiltinPresets(), buildPortraitManifest(), buildStickerManifest(), buildBgmManifest(), syncEnhanceBosses(), syncJoyGirls(), syncJoyWorldBooks(), syncCasinoDealers()],
+  plugins: [cleanDist(), react(), buildWiki(), buildLunhuiCharacters(), copyBuiltinPresets(), buildPortraitManifest(), buildStickerManifest(), buildBgmManifest(), syncEnhanceBosses(), syncJoyGirls(), syncJoyWorldBooks(), syncCasinoDealers(), buildWorldDetailShards()],
   build: {
     emptyOutDir: true,   // 防历史残留（实测不总生效，另有上方 cleanDist 插件兜底强删）
     rollupOptions: {

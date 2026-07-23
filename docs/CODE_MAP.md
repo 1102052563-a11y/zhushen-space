@@ -40,6 +40,7 @@
 | 中心 API 库 / 多接口路由 / fallback | `store/settingsStore.ts`（`apiLibrary`/`apiRoutes`/`resolveApiChain`）；`systems/apiChat.ts`（`apiChatFallback`）；`components/ApiRoutePicker.tsx` |
 | 角色创建 / 开场白 / 进入世界 | `App.tsx` → `confirmCreation`/`buildOpening`/`enterWorld`；`components/CharacterCreation.tsx` |
 | 世界选择（AI 生成乐园） | `components/WorldSelector.tsx`；`worldGenPrompt.ts` |
+| 世界详情库（工坊档案→卡片生成/正文注入） | `systems/worldDetail.ts`（`fetchWorldDetailsFor`/`ensureWorldDetailFor`/`buildWorldDetailInjection`）；切片插件 `vite.config.ts` `buildWorldDetailShards`；注入点 `WorldSelector.generate` + `App.tsx` callApi 世界志旁 |
 | 设置页路由（哪个子面板） | `components/SettingsPanel.tsx`（大路由）|
 | 变量管理页（演化功能中心启动台） | `components/VariableManager.tsx` |
 | 全局配置导出/导入（全部功能预设·世界书·API 一键备份迁移） | `systems/configExport.ts`；UI 在 `components/VariableManager.tsx` 底部 `ConfigBackupBar`（变量管理页最下方「配置备份·迁移」）|

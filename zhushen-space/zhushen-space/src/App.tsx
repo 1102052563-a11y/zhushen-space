@@ -206,6 +206,7 @@ import { realmFromLevel, normalizeTier, lvFromRealm, computeMaxHp, computeMaxEp,
 import { isSettlingCompanion, isCandidateCompanion, selectSettlingCompanions, COMPANION_SETTLE_RATIO } from './systems/companionSettlement';   // 随从/队友世界结算判定（结算卡点名 + 前端折算发点同源）
 import { setSettlementWhitelist, getSettlementWhitelist } from './systems/settlementSelection';   // 结算随从弹窗勾选缓冲
 import { isHomeWorld, reconcileHomeWorld, reconcilePlayerVitals, playerMaxHp, playerMaxEp, syncPlayerVitalsMax, applyCombatResourceGains, resetCombatResources } from './systems/playerVitals';
+import { ensureWorldDetailFor, buildWorldDetailInjection } from './systems/worldDetail';   // 世界详情库：入世后正文注 ·剧情 档案（切入点不注）
 import { startPlaytimeHeartbeat, stopPlaytimeHeartbeat } from './systems/playtime';   // 线上游玩时长累计（登录 Discord 者·可见活跃时长）
 import { startPresenceHeartbeat, stopPresenceHeartbeat } from './systems/presence';   // 当前在玩人数（按IP·含未登录者·聊天室展示）
 import { bioInnate, tierVitalMult, peakCapForTier, clampToTierWindow, nominalTierNum, tierWindow, BIO_TIER_NAMES } from './systems/bioStrength';
@@ -1126,7 +1127,7 @@ const WEATHER_FX_GEN_RULE = `
 - 作用域：只针对容器 .wfx-ai（已绝对定位铺满顶栏）及其内部 3 个 .wfx-ai>span（三层可各做一种效果：底色 / 飘动物 / 光罩）；**不要写其它选择器**。
 - **只允许 CSS**（含 @keyframes、渐变、transform、animation、opacity）；**严禁** <script>/JS、on事件、外部 url()/@import/expression/behavior。
 - 低透明度、别盖住文字；深浅底都能看清；总长 ≤ 800 字符。
-- 天气没变、或是常规天气 → **整个 <weatherfx> 块都不要输出**（前端自带预设，重复输出浪费且抖动）。
+- 天气没变、或是常规天气、**或身处枢纽/乐园（非任务世界）** → **整个 <weatherfx> 块都不要输出**（特效只在任务世界顶栏渲染；常规天气前端自带预设，重复输出浪费且抖动）。
 示例（血雨）：
 <weatherfx>
 .wfx-ai{background:linear-gradient(180deg,#3a0d12,#190406)}
@@ -1156,7 +1157,7 @@ const MISC_SUMMARY_CADENCE_RULE = `
   · 开关=是 → 必须且只输出 **1 条** addLargeSummary：它是对下方【最近小总结】的更高层「阶段压缩」——归纳这一阶段的整体走向、当前处境、未决任务与后续风险，**抹去单回合细节**，与任何一条小总结都明显不同；严禁把本回合小总结原样换句话当作大总结。`;
 
 const MISC_COT_RULE = `
-【杂项演化·强制思维链(CoT)铁则（最高优先；这是本阶段唯一允许在 <upstore> 之外输出的内容）】（本轮：所在世界《{{getvar::世界.名}}》·难度 {{getvar::世界.难度}}·世界之源 {{getvar::主角.世界之源}}%·累计回合 {{getvar::世界.回合数}}）在产出 <upstore> 指令块之前，你**必须**先输出一段 <misc_cot>…</misc_cot> 思维链，逐项推演本轮产出的"合理性与原因"，再据此落指令。系统只解析 <upstore>，<misc_cot> 块会被自动忽略——但你必须先写它、把"为什么这么记"想清楚，以杜绝套路化、失衡、与正文脱节的产出。它与【输出格式铁律】不冲突：思维链是**唯一例外**；写完思维链后，最终指令仍只写进 <upstore>，**绝不要把指令草稿留在 <misc_cot> 里当成输出**。
+【杂项演化·强制思维链(CoT)铁则（最高优先；本阶段除本 <misc_cot> 思维链、以及天气特效 <weatherfx> 块外，其余产出一律只写进 <upstore>）】（本轮：所在世界《{{getvar::世界.名}}》·难度 {{getvar::世界.难度}}·世界之源 {{getvar::主角.世界之源}}%·累计回合 {{getvar::世界.回合数}}）在产出 <upstore> 指令块之前，你**必须**先输出一段 <misc_cot>…</misc_cot> 思维链，逐项推演本轮产出的"合理性与原因"，再据此落指令。系统只解析 <upstore>，<misc_cot> 块会被自动忽略——但你必须先写它、把"为什么这么记"想清楚，以杜绝套路化、失衡、与正文脱节的产出。它与【输出格式铁律】不冲突：思维链是**唯一例外**；写完思维链后，最终指令仍只写进 <upstore>，**绝不要把指令草稿留在 <misc_cot> 里当成输出**。
 
 <misc_cot> 必须按下列顺序推演（对照【杂项演化·任务与世界规范图鉴】各条；找不到正文依据/讲不出合理原因的，一律不输出）：
 0. 本轮事实：从正文抽取会影响 总结/任务/天气/世界大事/时间 的关键事实；判定当前在【枢纽】还是【任务世界】（决定能否新建任务）。
@@ -1164,7 +1165,7 @@ const MISC_COT_RULE = `
 2. ★任务（最重要、推演最详）——对每一个"新建/推进/重排/结算"的任务动作，逐条写明原因，缺一不可：
    · 触发证据：正文哪一句让这个任务"现在"该产生/推进/结算？（无明确证据 → 不动）
    · **来源分辨（新建前必答，见【任务来源铁则】）**：这条是**被指派的委托**（乐园/主神/NPC/世界机制派给主角的目标 → 才可建任务、任务名＝被派的目标）？还是**主角自己声明的行动/手段/下一步**（如"我先去弄把枪/踩点/找线人" → 绝不建成任务，只更新对应已有任务的 progress）？若为后者一律不新建。
-   · 合理性：是否贴合当前世界设定/原作脉络（同人增强开时）？是否契合主角当前处境（阶位/强度/位置/身份）？难度是否符合【击杀阶位上限】（强制环≤主角阶位、贪婪环≤+1）？是否落入被禁止的"枢纽日常/框架流程"套路（适应乐园/逛街采购/进入衍生世界…一律不建）？是否与既有任务重复（同目标 → 优先推进既有，不另起）？
+   · 合理性：是否贴合当前世界设定/原作脉络（同人增强开时）？是否契合主角当前处境（阶位/强度/位置/身份）？难度是否符合【击杀阶位上限】（强制环≤**本世界锁定难度阶位**、贪婪环≤锁定难度+1；**基准是世界锁定难度、不是主角实时阶位**）？是否落入被禁止的"枢纽日常/框架流程"套路（适应乐园/逛街采购/进入衍生世界…一律不建）？是否与既有任务重复（同目标 → 优先推进既有，不另起）？
    · 类型与环：从【任务类型库】挑了哪种、为何最贴切？若为主线/多回合：环路线图为何这样排——每环规模/难度如何递增、为何指向这个 finale、强制环/贪婪环如何划分？
    · 奖惩与时限：reward 为何这样配（六选三、按环超线性、带本世界风味）？若含灵魂钱币，当前衍生世界是否≥四阶（否则违规、应改乐园币）？penalty 是否取自规范三类？时限 endTime−startTime 是否≥7天且贴合任务性质？
    · 结算：要标"已完成/已失败"的，正文是否有明确达成/失败证据？多环任务达成的只是"当前环" → 应 ringAdvance 而非整条结算？
@@ -2250,7 +2251,7 @@ export default function App() {
         addRule('在场NPC当前HPEP', '前端数据 · 在场NPC当前HP/EP', vitalsCtx);
       }
     } catch { /* */ }
-    // 任务击杀目标阶位上限：强制环≤主角阶位、贪婪环≤+1；勿降级剧情高端战力，改派阶位相称的目标
+    // 任务击杀目标阶位上限：强制环≤世界锁定难度阶位、贪婪环≤锁定难度+1；勿降级剧情高端战力，改派阶位相称的目标
     addRule('击杀阶位上限', '前端规则 · 击杀阶位上限', QUEST_KILL_TIER_RULE);
     // 其他契约者人口：让正文知道本世界不是"单机"，可自然安排遇见/听闻其他契约者
     { const _M = useMisc.getState(); const _c = _M.contractors; const _wt = _M.worldTier; if (_c?.count && !isHomeWorld(_M.worldName || '')) addRule('其他契约者人口', '前端数据 · 本世界其他契约者', `【本世界·其他契约者】本世界现存约 **${_c.count} 名**其他契约者${_c.note ? `（${_c.note}）` : ''}，各自在本世界执行任务。**本世界不是单机**——可自然安排主角遇见/听闻他们：交易、结盟、火并、情报交换、榜单/悬赏、目睹某契约者陨落或撤离等，让世界有"人气"与竞争感；数量多则更热闹、骤减则更肃杀。
@@ -9595,6 +9596,8 @@ ${lines}`;
       ? '【分头三段式·只写你自己这一支（最高优先，压过多人正文规则）】本回合请**只写【你操控的主角本人】这一条支线的完整正文**：聚焦你自己的所见、所历、所感，写满字数。**绝对不要**代写、附上、或另起段落去写其他队友的独立支线（例如「【分头行动·XX的独行支线】」那种段落）——他们各自会用自己的 AI 生成自己那份。提到其他队友时只写"你这一侧此刻能看到/知道的"，不要替他们叙述其独处时发生了什么，更不要擅自决定你俩是否汇合（严格以你收到的行动大纲为准）。'
       : mpNarrativeRule();        // 联机专用正文规则（建房时房主可选启用）
     const skillUpNote = takeSkillUpNote();        // 技能升级·一次性"点数已用掉"系统提示（注入一次即清）
+    // 世界详情库 ·剧情 档案预取：在任务世界才拉（首回合下载 manifest+分片 ~几百KB，之后内存缓存秒回；超时 5s 放行本回合、下回合再试）
+    await ensureWorldDetailFor(useMisc.getState().worldName || '');
     const history = [
       ...examples,
       ...(worldbook && !worldbook.post ? [{ role: worldbook.role, content: worldbook.content }] : []),   // <世界书> marker 在前历史 → 楼层前（罕见，ST 预设）
@@ -9620,6 +9623,7 @@ ${lines}`;
       ...tail.map((t) => ({ role: t.role, content: t.content })),   // <后历史预设块> chatHistory marker 之后的预设块（破限/格式/规则等）→ 真实楼层之后（仿 fanren post-history）
       ...[...depthInjections, ...wbDepthInjections].sort((a, b) => b.depth - a.depth).map((inj) => ({ role: inj.role, content: inj.content })),
       ...buildWorldviewInjection(),                     // <本世界·世界观骨架> 当前所在世界的世界志 → 就近注入（正文最深处）
+      ...buildWorldDetailInjection(),                   // <本世界·世界详情> 世界详情库·剧情 常青档案（预写既定设定·切入点不注）→ 与世界志并排
       ...buildCanonWorldInjection(),                    // 🛤 <原著路线·本站剧本> 原著时间轴/规则/任务参照 + 原著惯性铁则（仅模式开启且身在站内）
       ...buildSuxiaoTrackInjection(),                   // 🛤 <苏晓轨道> 同世界猎杀者白夜的状态卡 + 演绎铁则
       ...buildPlotGuardInjection(turnCountRef.current), // <伏笔催收>+<世界真相·重申> 账龄催收（表日志机械核账）+ 周期真相强化（见 systems/plotThreads）
@@ -9658,6 +9662,7 @@ ${lines}`;
         ...structPlayer,                                 // <主角当前档案>
         ...outlineDepth,                                 // 世界书/预设 position=4 深度注入（纯信息）
         ...buildWorldviewInjection(),                     // <本世界·世界观骨架>
+        ...buildWorldDetailInjection(),                   // <本世界·世界详情> 世界详情库·剧情 档案（细纲规划同样以既定设定为准）
         ...buildCanonWorldInjection(),                    // 🛤 <原著路线·本站剧本>（细纲规划也须感知原著惯性）
         ...buildSuxiaoTrackInjection(),                   // 🛤 <苏晓轨道>
         { role: 'user' as const, content: userText },

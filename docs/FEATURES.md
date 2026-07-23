@@ -201,6 +201,8 @@
 
 **预设文件**（仓库根 `预设/*.json` + `src/data/*DefaultPreset.json`）：导入到各演化管理子页(`entrySharedRules` 格式)。原版蓝本 `完整版-主角演化（轮回乐园适配）.json`(全阶段 prompts)。各子页有 条目搜索/仅看已启用/导出/删除未开启/⚡智能筛选。**统一映射**(改预设必守)：灵石→货币、功法→技能书、灵兽妖兽→召唤物、御兽→召唤物指挥、词条→天赋(D-SSS)、百艺炼丹炼器→副职业、修炼速度→战斗速度、境界→阶位、修为→等阶、灵根→天赋、修仙世界→轮回乐园。聚灵阵/灵脉/闭关公式/万物炼制DC已删,双修保留。
 
+**世界详情库**（世界详情工坊产物消费层,`systems/worldDetail.ts`,零配置默认生效）：仓库根 `世界书/世界详情库·主库.json`+`·休闲.json`(每世界两条目 `<名>·剧情`≥1万字/`<名>·阶位切入点|·休闲切入点`,由 `世界详情工坊/scripts/compile-worldbook.mjs` 编译)合计 ~137MB 不能整本进前端 → vite 插件 `buildWorldDetailShards`(vite.config.ts)构建时按世界名 FNV-1a 切 **256 哈希分桶** `public/worlddetail/s<i>.json`(单片~0.5MB)+`manifest.json`(名→分桶号,~228KB)；产物 gitignore,源 size+mtime 记 `srcStamp` 没变秒跳(工坊重编译后下次 build 自动重切)。前端按需 fetch+进程内缓存：**C1 世界卡生成**(`WorldSelector.generate`)按点名世界名 `fetchWorldDetailsFor` 注 剧情+切入点 两段(总预算 `WORLD_DETAIL_BUDGET`=6万字,超则切入点保全量、剧情从头保留截尾;命中的卡片字段严格照档案);**C2 入世正文**(`callApi`)`ensureWorldDetailFor(misc.worldName)` 回合前预取(超时5s放行)+`buildWorldDetailInjection()` 在世界志旁注 **·剧情全文(切入点不注**——选择期资料,入世后会诱导复述开场);细纲分支同注。世界名漂移(「世界名+地点」等)用 `resolveWorldNameFrom` 三级匹配(精确>归一>双向子串取最长,与 worldCodexStore 同款 norm)。查无此世界/无产物/断网一律静默降级。
+
 ---
 
 ## 19. 装备强化系统

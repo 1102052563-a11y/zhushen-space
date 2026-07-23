@@ -4,6 +4,7 @@ import { apiChatFallback } from '../systems/apiChat';
 import { WORLD_GEN_PROMPT } from '../worldGenPrompt';
 import { usePlayer } from '../store/playerStore';   // 读取主角所属乐园（homeParadise），生成世界时按主角真实乐园视角
 import { findJoyBook, quickInsertTitles } from '../systems/joyWorldBook';   // 通用：按书名(姿势/BDSM)定位 + 取条目标题，复用于正文世界书
+import { fetchWorldDetailsFor } from '../systems/worldDetail';   // 世界详情库（工坊预写档案·public/worlddetail 分片）：按点名世界注入 剧情+切入点
 
 export interface WorldOption {
   name: string;
@@ -41,6 +42,10 @@ type Stage = 'idle' | 'config' | 'loading' | 'results' | 'error';
 
 // 点名生成：从世界库的「真实编号集合」里随机点名 N 个不重复的编号（编号 = 世界书 id，可不连续）。
 const WORLD_PICK_COUNT = 10;
+// 世界详情库注入总预算（字）：一次点名可达 10 个世界、每世界档案 ≥1 万字，全量注入会到 12 万字爆上下文。
+// 超预算时切入点保全量（卡片的切入设计直接抄它），·剧情从头保留截尾（开头=作品来源/世界定位/力量体系/阶位映射，
+// 正是卡片各字段要的；被截的后段是入世后才用的分卷细目——正文注入(C2)不受此限、始终全量）。
+const WORLD_DETAIL_BUDGET = 60000;
 function rollPickIds(ids: number[], n = WORLD_PICK_COUNT): number[] {
   if (ids.length === 0) return [];
   const pool = [...ids];
@@ -264,6 +269,27 @@ export default function WorldSelector({ onRawResponse, onPromptSent, onWorlds, o
       }
     }
 
+    // 世界详情库（世界详情工坊预写档案）：按点名世界名点取 ·剧情+·切入点 注入，卡片各字段以档案为准。
+    // 查无此世界（自定义/未收录）= 剔除，照常凭 AI 自身知识生成；产物缺失/网络失败 = 整段跳过，不阻塞生成。
+    let detailPart = '';
+    try {
+      const details = await fetchWorldDetailsFor(pickedNames);
+      if (details.length) {
+        const per = Math.floor(WORLD_DETAIL_BUDGET / details.length);   // 每世界预算（剧情+切入点合计）
+        let truncated = 0;
+        const blocks = details.map((d) => {
+          const cutPart = d.cut ? `\n\n◇ ${d.name}·切入点\n${d.cut}` : '';
+          const plotCap = Math.max(3000, per - (d.cut?.length || 0));   // 切入点保全量，剧情吃剩余预算（至少 3000 字保住体系/映射段）
+          const plot = d.plot.length > plotCap ? (truncated++, d.plot.slice(0, plotCap) + '\n…（档案后段从略）') : d.plot;
+          return `◆ ${d.name}·剧情\n${plot}${cutPart}`;
+        });
+        detailPart =
+          `【世界详情库·预写既定档案（命中 ${details.length}/${pickedNames.length} 个点名世界·最高优先）】下列世界的卡片，其世界观 / 势力 / 关键人物 / 巅峰战力 / 任务 / 切入点等一切字段**严格以对应档案为准**（切入点按目标阶位取档案里对应阶的段落设计）；未列出的世界照常生成。\n\n` +
+          blocks.join('\n\n');
+        if (truncated) console.log(`[世界详情] ${truncated} 个世界的·剧情超预算截断（总预算 ${WORLD_DETAIL_BUDGET} 字，常量 WORLD_DETAIL_BUDGET 可调）`);
+      }
+    } catch { /* 详情拿不到不阻塞生成 */ }
+
     const rankPart = leisure
       ? '生成休闲世界（休闲 / 恋爱向的轻松日常世界，无生存压力；阶位固定一阶）'
       : (cn ? `目标阶位：${cn}阶` : '目标阶位：未指定（按通用难度生成）');
@@ -287,6 +313,7 @@ export default function WorldSelector({ onRawResponse, onPromptSent, onWorlds, o
 
     const userMessage =
       `${rankPart}\n${homePart}\n\n${listPart}\n\n` +
+      (detailPart ? `${detailPart}\n\n` : '') +
       (leisure
         ? `以下是「休闲世界」世界书条目（含规则 / 铁则与世界库），供取材与设定参考：\n\n${entriesText}`
         : `以下是该阶世界书条目（含规则 / 铁则与世界库），供取材与设定参考：\n\n${entriesText}`);
