@@ -25,11 +25,14 @@ const detailCache = new Map<string, WorldDetail | null>();   // 键=库内正名
 const resolveCache = new Map<string, string | null>();       // 原始名（正文里可能漂移）→ 库内正名
 
 async function fetchJson<T>(url: string): Promise<T | null> {
+  // 静态分片/清单（同源 public 资源）；20s abort 兜底防挂死（网络门禁规约）
+  const ctrl = new AbortController();
+  const timer = setTimeout(() => ctrl.abort(), 20000);
   try {
-    const r = await fetch(url);
+    const r = await fetch(url, { signal: ctrl.signal });
     if (!r.ok) return null;
     return await r.json() as T;
-  } catch { return null; }
+  } catch { return null; } finally { clearTimeout(timer); }
 }
 function loadManifest(): Promise<Manifest | null> {
   if (!manifestP) {

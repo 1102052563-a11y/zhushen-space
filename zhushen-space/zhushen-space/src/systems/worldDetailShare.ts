@@ -33,11 +33,19 @@ function adminHeader(): Record<string, string> {
   const k = useWorkshop.getState().adminKey;
   return k ? { 'X-Admin-Key': k } : {};
 }
+/* 本文件全部请求走这里：短 REST + 20s abort 超时（网络门禁规约，防 worker 无响应挂死 UI） */
+async function wdFetch(url: string, init?: RequestInit): Promise<Response> {
+  const ctrl = new AbortController();
+  const timer = setTimeout(() => ctrl.abort(), 20000);
+  try {
+    return await fetch(url, { ...(init ?? {}), signal: ctrl.signal });
+  } finally { clearTimeout(timer); }
+}
 
 /** 提交一份世界修订（署名 = 工坊昵称 || 联机名 || 匿名；owner = 本机联机 pid，用于「我的提交」过滤）。返回提交 id。 */
 export async function wdSubmit(s: { name: string; plot: string; cut?: string; note?: string }): Promise<string> {
   const author = (useWorkshop.getState().nickname || myMpName() || '').trim() || '匿名';
-  const res = await fetch(`${wdApiBase()}/api/worlddetail/submit`, {
+  const res = await wdFetch(`${wdApiBase()}/api/worlddetail/submit`, {
     method: 'POST', headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ name: s.name, plot: s.plot, cut: s.cut || undefined, note: (s.note || '').trim() || undefined, author, owner: myPlayerId() }),
   });
@@ -49,7 +57,7 @@ export async function wdSubmit(s: { name: string; plot: string; cut?: string; no
 export async function wdListMine(): Promise<WdSubmission[]> {
   const u = new URL(`${wdApiBase()}/api/worlddetail/submissions`);
   u.searchParams.set('owner', myPlayerId());
-  const res = await fetch(u.toString(), { cache: 'no-cache' });
+  const res = await wdFetch(u.toString(), { cache: 'no-cache' });
   if (!res.ok) throw new Error(await errMsg(res));
   return ((await res.json()).submissions ?? []) as WdSubmission[];
 }
@@ -58,14 +66,14 @@ export async function wdListMine(): Promise<WdSubmission[]> {
 export async function wdListPending(): Promise<WdSubmission[]> {
   const u = new URL(`${wdApiBase()}/api/worlddetail/submissions`);
   u.searchParams.set('status', 'pending');
-  const res = await fetch(u.toString(), { cache: 'no-cache', headers: adminHeader() });
+  const res = await wdFetch(u.toString(), { cache: 'no-cache', headers: adminHeader() });
   if (!res.ok) throw new Error(await errMsg(res));
   return ((await res.json()).submissions ?? []) as WdSubmission[];
 }
 
 /** 【站长】审核：approve = 写进全局 overrides 对所有玩家生效；reject = 仅标记。 */
 export async function wdReview(id: string, action: 'approve' | 'reject'): Promise<void> {
-  const res = await fetch(`${wdApiBase()}/api/worlddetail/review`, {
+  const res = await wdFetch(`${wdApiBase()}/api/worlddetail/review`, {
     method: 'POST', headers: { 'Content-Type': 'application/json', ...adminHeader() },
     body: JSON.stringify({ id, action }),
   });

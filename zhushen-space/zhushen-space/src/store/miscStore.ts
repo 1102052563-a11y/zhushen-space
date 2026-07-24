@@ -7,8 +7,11 @@ import miscDefaultPreset from '../data/miscDefaultPreset.json';
 
 /* ════════════════════════════════════════════
    杂项演化（misc evolution）
-   维护世界级杂项：分段总结 / 双时间 / 天气 / 世界大事 / 主角任务
+   维护世界级杂项：分段总结 / 双时间 / 天气 / 世界大事
    （小地图相关规则保留为可关闭条目，渲染暂未实现）
+   ⚠ 主角任务（T_）的**演化**已拆成独立的「任务演化」阶段（App.tsx runQuestEvolutionPhase，
+     独立 API featureKey='quest'、开关 settings.questEnabled）；任务**数据**仍存本 store（tasks/archivedTasks），
+     面板/结算/正文注入读取处不变。
 ════════════════════════════════════════════ */
 
 /* 任务环（questline 的单个阶段）。主线/多环支线的路线图由若干环组成。
@@ -214,8 +217,21 @@ export function extractMiscPresetFromJson(
   }
 }
 
+/* 拉取 /models 模型列表（杂项 miscApi 与任务演化 questApi 两套配置共用；15s 超时 abort 防挂死——网络门禁规约） */
+async function fetchModelList(api: ApiConfig): Promise<string[]> {
+  const ctrl = new AbortController();
+  const timer = setTimeout(() => ctrl.abort(), 15000);
+  try {
+    const res = await fetch(api.baseUrl.replace(/\/$/, '') + '/models', { headers: { Authorization: `Bearer ${api.apiKey}` }, signal: ctrl.signal });
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const json = await res.json();
+    return (json.data ?? json.models ?? []).map((m: any) => m.id ?? m.name ?? '').filter(Boolean).sort();
+  } finally { clearTimeout(timer); }
+}
+
 export interface MiscSettings {
   enabled: boolean;
+  questEnabled?: boolean;   // 任务演化阶段开关（独立于杂项演化 enabled；旧档缺省时继承 enabled——见 persist merge 迁移）
   entries: MiscPresetEntry[];
   presetName: string;
   presetVersion?: number;
@@ -234,6 +250,7 @@ export interface MiscSettings {
 
 const DEFAULT_SETTINGS: MiscSettings = {
   enabled: false,
+  questEnabled: false,
   entries: DEFAULT_MISC_ENTRIES,
   presetName: DEFAULT_PRESET_NAME,
   presetVersion: DEFAULT_PRESET_VERSION,
@@ -276,6 +293,12 @@ interface MiscState {
   miscAvailableModels: string[];
   miscModelsLoading: boolean;
   miscModelsError: string;
+  // ── 任务演化（独立阶段）的接口配置：featureKey='quest' 路由留空时回退到这里 ──
+  questApi: ApiConfig;
+  questUseSharedApi: boolean;
+  questAvailableModels: string[];
+  questModelsLoading: boolean;
+  questModelsError: string;
 
   upsertTask: (t: MiscTask) => void;
   updateTask: (id: string, patch: Partial<MiscTask>) => void;
@@ -321,6 +344,9 @@ interface MiscState {
   setMiscApi: (patch: Partial<ApiConfig>) => void;
   setMiscUseSharedApi: (v: boolean) => void;
   fetchMiscModels: () => Promise<void>;
+  setQuestApi: (patch: Partial<ApiConfig>) => void;
+  setQuestUseSharedApi: (v: boolean) => void;
+  fetchQuestModels: () => Promise<void>;
 }
 
 export const useMisc = create<MiscState>()(
@@ -356,6 +382,14 @@ export const useMisc = create<MiscState>()(
       miscAvailableModels: [],
       miscModelsLoading: false,
       miscModelsError: '',
+      questApi: {
+        baseUrl: 'https://api.openai.com/v1', apiKey: '', modelId: 'gpt-4o',
+        temperature: 0.6, maxTokens: 4096, topP: 1,
+      },
+      questUseSharedApi: true,
+      questAvailableModels: [],
+      questModelsLoading: false,
+      questModelsError: '',
 
       upsertTask: (t) =>
         set((s) => {
@@ -543,13 +577,24 @@ export const useMisc = create<MiscState>()(
         if (!api.baseUrl || !api.apiKey) { set({ miscModelsError: '请先填写 API 地址和 Key' }); return; }
         set({ miscModelsLoading: true, miscModelsError: '' });
         try {
-          const res = await fetch(api.baseUrl.replace(/\/$/, '') + '/models', { headers: { Authorization: `Bearer ${api.apiKey}` } });
-          if (!res.ok) throw new Error(`HTTP ${res.status}`);
-          const json = await res.json();
-          const models = (json.data ?? json.models ?? []).map((m: any) => m.id ?? m.name ?? '').filter(Boolean).sort();
-          set({ miscAvailableModels: models, miscModelsLoading: false });
+          set({ miscAvailableModels: await fetchModelList(api), miscModelsLoading: false });
         } catch (e: any) {
           set({ miscModelsError: e.message ?? '请求失败', miscModelsLoading: false });
+        }
+      },
+      setQuestApi: (patch) => set((s) => ({ questApi: { ...s.questApi, ...patch } })),
+      setQuestUseSharedApi: (v) => set({ questUseSharedApi: v }),
+      fetchQuestModels: async () => {
+        const s = get();
+        const api = s.questUseSharedApi
+          ? (() => { const ss = useSettings.getState(); return ss.textUseSharedApi ? ss.api : ss.textApi; })()
+          : s.questApi;
+        if (!api.baseUrl || !api.apiKey) { set({ questModelsError: '请先填写 API 地址和 Key' }); return; }
+        set({ questModelsLoading: true, questModelsError: '' });
+        try {
+          set({ questAvailableModels: await fetchModelList(api), questModelsLoading: false });
+        } catch (e: any) {
+          set({ questModelsError: e.message ?? '请求失败', questModelsLoading: false });
         }
       },
     }),
@@ -568,12 +613,19 @@ export const useMisc = create<MiscState>()(
           entries: DEFAULT_MISC_ENTRIES,
           presetName: DEFAULT_PRESET_NAME,
           presetVersion: DEFAULT_PRESET_VERSION,
+          // 迁移：任务演化拆分前的旧档没有 questEnabled → 继承杂项演化的 enabled（原先任务就是跟着杂项演化跑的，行为无缝）
+          questEnabled: persisted?.settings?.questEnabled ?? persisted?.settings?.enabled ?? DEFAULT_SETTINGS.questEnabled,
         },
         miscApi: { ...current.miscApi, ...(persisted?.miscApi ?? {}) },
         miscUseSharedApi: persisted?.miscUseSharedApi ?? current.miscUseSharedApi,
         miscAvailableModels: [],
         miscModelsLoading: false,
         miscModelsError: '',
+        questApi: { ...current.questApi, ...(persisted?.questApi ?? {}) },
+        questUseSharedApi: persisted?.questUseSharedApi ?? current.questUseSharedApi,
+        questAvailableModels: [],
+        questModelsLoading: false,
+        questModelsError: '',
       }),
     },
   ),

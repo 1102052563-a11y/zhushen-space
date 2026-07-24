@@ -197,6 +197,7 @@ export default function VariableManager({
   onOpenCosmosManager,
   onOpenMemoryManager,
   onOpenMiscManager,
+  onOpenQuestManager,
   onOpenDiceManager,
   onOpenCombatManager,
   onOpenArenaManager,
@@ -223,6 +224,7 @@ export default function VariableManager({
   onOpenCosmosManager?: () => void;
   onOpenMemoryManager?: () => void;
   onOpenMiscManager?: () => void;
+  onOpenQuestManager?: () => void;
   onOpenDiceManager?: () => void;
   onOpenCombatManager?: () => void;
   onOpenArenaManager?: () => void;
@@ -247,7 +249,8 @@ export default function VariableManager({
         { icon: '🐾', label: '宠物/召唤物演化', desc: '豢养/召唤 · 不自行成长',  color: 'teal',    cb: onOpenPetManager },
         { icon: '🚪', label: '登场判断',   desc: 'API · 世界书 · 提示词 · 联网',  color: 'violet',  cb: onOpenEntryJudgeManager },
         { icon: '⚔',  label: '物品管理',   desc: '背包 · 装备 · 定价',         color: 'amber',   cb: onOpenItemManager },
-        { icon: '🧩', label: '杂项演化',   desc: '任务 · 大事 · 时间天气',      color: 'teal',    cb: onOpenMiscManager },
+        { icon: '🧩', label: '杂项演化',   desc: '总结 · 大事 · 时间天气',      color: 'teal',    cb: onOpenMiscManager },
+        { icon: '🎯', label: '任务演化',   desc: '主线路线图 · 推进结算 · 独立API', color: 'amber',  cb: onOpenQuestManager },
         { icon: '🏛', label: '势力演化',   desc: '组织 · 帮派 · 阵营',         color: 'orange',  cb: onOpenFactionManager },
         { icon: '🏯', label: '领地演化',   desc: '主神空间个人基地',           color: 'emerald', cb: onOpenTerritoryManager },
         { icon: '🛡', label: '冒险团演化', desc: '主角自有团队',               color: 'cyan',    cb: onOpenTeamManager },

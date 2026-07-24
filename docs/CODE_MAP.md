@@ -18,7 +18,8 @@
 | NPC 演化（策略A/B、登场判断、调度） | `App.tsx` → `runNpcPipelineB` / `runEntryJudgment` / `computeFocusList`；`store/npcStore.ts` / `npcEvoStore.ts` |
 | 势力演化 | `App.tsx` → `runFactionEvolutionPhase` 等；`store/factionStore.ts` / `factionEvoStore.ts` |
 | 领地 / 冒险团 / 万族 演化 | `App.tsx` → `runTerritory…` / `runTeam…` / `runCosmos…`；对应 store |
-| 杂项演化（任务/总结/双时间/天气） | `App.tsx` → `runMiscEvolutionPhase`；`systems/miscParser.ts`；`store/miscStore.ts` |
+| 杂项演化（总结/双时间/天气/大事） | `App.tsx` → `runMiscEvolutionPhase`；`systems/miscParser.ts`（`applyMiscCommands` 支持 `domain:'tasks'/'world'` 域过滤）；`store/miscStore.ts` |
+| 任务演化（独立阶段·主线路线图/环推进/结算·独立API featureKey='quest'） | `App.tsx` → `runQuestEvolutionPhase` / `manualGenTask`；开关+API 在 `miscStore.settings.questEnabled`/`questApi`；UI `components/QuestManager.tsx` |
 | 生平压缩 | `App.tsx` → `runMemoryCompressionPhase`；`store/memoryStore.ts` + `characterStore.memory` |
 | 叙事记忆（召回/改写/抽取/结构化档案） | `App.tsx` → `buildStructuredRecall` / `narrativeCompile` / `runNarrativeIngestPhase`；`systems/narrativeMemory.ts` / `structuredRecall.ts` |
 | 向量资料库（原著+世界书语义检索） | `systems/novelVec.ts`；`store/novelVecStore.ts`；`components/NovelVecManager.tsx`；建库 `tools/build-novel-vectors.mjs` |
@@ -83,7 +84,7 @@
 
 **领地 / 冒险团 / 万族**：`runTerritoryEvolutionPhase` (~2820) + `serializeTerritorySnapshot` (~2803)；`runTeamEvolutionPhase` (~3081) + `serializeTeamSnapshot` (~3064)；`runCosmosEvolutionPhase` (~2955) + `serializeCosmosSnapshot` (~2870) + `buildCosmosInjection` (~2894)
 
-**杂项 / 记忆压缩**：`runMiscEvolutionPhase` (~2728)；`runMemoryCompressionPhase` (~2650)
+**杂项 / 任务 / 记忆压缩**：`runMiscEvolutionPhase`（总结/双时间/天气/大事，任务已拆出）；`runQuestEvolutionPhase`（任务演化独立阶段·紧邻其前）；`runMemoryCompressionPhase` (~2650)
 
 **叙事记忆**：`buildStructuredRecall` (~3402) / `narrativeCompile` (~3373) / `narrativeSelectChars` (~3385) / `runNarrativeIngestPhase` (~3492) / `nmChatCompletion` (~3362) / `getNmApi` (~3358)
 
@@ -164,7 +165,7 @@
 | `cosmosStore.ts` | `drpg-cosmos` | 万族演化 |
 | `characterStore.ts` | `drpg-characters` | 技能/天赋/称号/副职业/记忆（B1+Cx 共用）。`mergeKeepRich`(空字段保旧)、`nameEq`(归一化匹配)、`SKILL_TIER_*`/`normSkillTier`、`removeCharacter`/`purgeNpcCharacters` |
 | `memoryStore.ts` | `drpg-memory` | 生平压缩设置+提示词+API |
-| `miscStore.ts` | `drpg-misc` | 杂项(任务/总结/`narrativeFacts`/双时间/天气)+预设+API。`addNarrativeFacts` |
+| `miscStore.ts` | `drpg-misc` | 杂项(任务数据/总结/`narrativeFacts`/双时间/天气)+预设+API；另挂任务演化的 `settings.questEnabled`+`questApi`/`questUseSharedApi`（独立阶段，merge 迁移旧档继承 enabled）。`addNarrativeFacts` |
 | `imageGenStore.ts` | `drpg-image-gen` | 生图服务/用途/模板/自动开关 |
 | `channelStore.ts` | `drpg-channel` | 公共频道（数据+设置+API+预设）|
 | `dmStore.ts` | `drpg-dm` | 私信线程/消息/交易卡 |
@@ -193,7 +194,7 @@
 
 **右侧导航面板**：`FactionPanel`(🏛) · `TerritoryPanel`(🏯) · `AdventureTeamPanel`(🛡) · `TurnInsightPanel`(🔍回合洞察) · `MiscPanel`(📋任务) · `SummaryPanel`(🧠记忆) · `CosmosPanel`(🌌) · `ChannelPanel`(📡频道) + `SystemShop`(🏪) · `DmPanel`(✉私信) · `FriendsPanel`(👥好友) · `SaveLoadPanel`(💾存档) · `DicePanel`(🎲in-chat骰子) · `EnhancePanel`(⚒强化所：左看板娘立绘+切换+吐槽气泡/中被强化装备+特效/右选装备+率+花费+日志)
 
-**设置子页（演化管理）**：`ItemManager` · `PlayerManager` · `NpcManager` · `FactionManager` · `TerritoryManager` · `AdventureTeamManager` · `CosmosManager` · `MemoryManager` · `MiscManager` · `ChannelManager` · `ImageGenManager` · `NovelVecManager` · `DiceManager` · `EnhanceManager`(装备强化:老板名册/立绘文件夹/率表/API)
+**设置子页（演化管理）**：`ItemManager` · `PlayerManager` · `NpcManager` · `FactionManager` · `TerritoryManager` · `AdventureTeamManager` · `CosmosManager` · `MemoryManager` · `MiscManager` · `QuestManager`(任务演化:启用/任务闸门/正文注入/独立API) · `ChannelManager` · `ImageGenManager` · `NovelVecManager` · `DiceManager` · `EnhanceManager`(装备强化:老板名册/立绘文件夹/率表/API)
 
 **API/其他**：`ApiRoutePicker`(多接口路由配置) · `ApiQuickPick`(旧,未引用) · `WorldSelector`(AI生成乐园) · `Hub`/`InstanceView`(旧副本，大多未用)
 

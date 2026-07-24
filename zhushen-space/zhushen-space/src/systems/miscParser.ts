@@ -112,8 +112,15 @@ function patchFromCols(o: Record<string, any>): Partial<MiscTask> {
   return p;
 }
 
-export function applyMiscCommands(reply: string, opts: { allowLarge?: boolean; taskGuard?: boolean } = {}): number {
+export function applyMiscCommands(reply: string, opts: { allowLarge?: boolean; taskGuard?: boolean; domain?: 'all' | 'tasks' | 'world' } = {}): number {
   const allowLarge = opts.allowLarge !== false;   // 默认允许；非大总结周期传 false，丢弃 AI 误输出的大总结
+  // 域过滤（任务演化与杂项演化拆成两个独立阶段后，各自只应用自己域的指令，互不越权）：
+  //   'tasks' = 只应用 T_ 任务四类指令（set/add/de/ringAdvance），其余（总结/时间/天气/大事/truths/canon*/contractors）静默丢弃 —— 任务演化阶段用
+  //   'world' = 应用除任务外的全部指令，任务指令静默丢弃 —— 杂项演化阶段用
+  //   缺省 'all' = 全部应用（手动生成任务、旧调用路径行为不变）
+  const dom = opts.domain ?? 'all';
+  const doTasks = dom !== 'world';
+  const doWorld = dom !== 'tasks';
   const block = (reply.match(/<upstore>([\s\S]*?)<\/upstore>/i)?.[1] ?? reply);
   const M = useMisc.getState();
   // 任务闸门（questGuard）：AI 侧护栏，默认开；玩家主动路径（manualGenTask 等）传 taskGuard:false 全豁免
@@ -136,18 +143,18 @@ export function applyMiscCommands(reply: string, opts: { allowLarge?: boolean; t
     if (!line) continue;
     let m: RegExpExecArray | null;
 
-    if ((m = /^addSmallSummary\(\s*"([\s\S]*)"\s*\)$/.exec(line))) { M.pushSmall(unquote(m[1])); n++; continue; }
-    if ((m = /^addLargeSummary\(\s*"([\s\S]*)"\s*\)$/.exec(line))) { if (allowLarge) { M.pushLarge(unquote(m[1])); n++; } continue; }
+    if (doWorld && (m = /^addSmallSummary\(\s*"([\s\S]*)"\s*\)$/.exec(line))) { M.pushSmall(unquote(m[1])); n++; continue; }
+    if (doWorld && (m = /^addLargeSummary\(\s*"([\s\S]*)"\s*\)$/.exec(line))) { if (allowLarge) { M.pushLarge(unquote(m[1])); n++; } continue; }
 
     // 已确立真相清单（世界真相周期强化数据源·覆盖式 ≤12 条·非数组静默忽略；见 systems/plotThreads）
-    if ((m = /^truths\(\s*(\[[\s\S]*?\])\s*\)$/.exec(line))) {
+    if (doWorld && (m = /^truths\(\s*(\[[\s\S]*?\])\s*\)$/.exec(line))) {
       const arr = lenientJsonParse(m[1]);
       if (Array.isArray(arr)) { M.setTruths(arr.map((t: unknown) => String(t ?? ''))); n++; }
       continue;
     }
 
     // 🛤 原著路线状态维护（仅模式开启时生效；canon* 前缀短路，不与其他指令冲突）
-    if ((m = /^canonPhase\(\s*(\d+)\s*\)$/.exec(line))) {
+    if (doWorld && (m = /^canonPhase\(\s*(\d+)\s*\)$/.exec(line))) {
       const CR = useCanonRoute.getState();
       if (CR.enabled) {
         const station = CANON_STATIONS[CR.stationIndex];
@@ -157,12 +164,12 @@ export function applyMiscCommands(reply: string, opts: { allowLarge?: boolean; t
       }
       continue;
     }
-    if ((m = /^canonDivergence\(\s*(\d+)\s*(?:,\s*"[\s\S]*?"\s*)?\)$/.exec(line))) {
+    if (doWorld && (m = /^canonDivergence\(\s*(\d+)\s*(?:,\s*"[\s\S]*?"\s*)?\)$/.exec(line))) {
       const CR = useCanonRoute.getState();
       if (CR.enabled) { CR.setDivergence(Number(m[1])); n++; }
       continue;
     }
-    if ((m = /^canonSuxiao\(\s*"(on-track|derailed|allied|dead)"\s*(?:,\s*"([\s\S]*?)"\s*)?\)$/.exec(line))) {
+    if (doWorld && (m = /^canonSuxiao\(\s*"(on-track|derailed|allied|dead)"\s*(?:,\s*"([\s\S]*?)"\s*)?\)$/.exec(line))) {
       const CR = useCanonRoute.getState();
       if (CR.enabled) {
         const state = m[1] as 'on-track' | 'derailed' | 'allied' | 'dead';
@@ -176,13 +183,13 @@ export function applyMiscCommands(reply: string, opts: { allowLarge?: boolean; t
       }
       continue;
     }
-    if ((m = /^canonEncounter\(\s*"([\s\S]+?)"\s*\)$/.exec(line))) {
+    if (doWorld && (m = /^canonEncounter\(\s*"([\s\S]+?)"\s*\)$/.exec(line))) {
       const CR = useCanonRoute.getState();
       const station = CANON_STATIONS[CR.stationIndex];
       if (CR.enabled && station) { CR.addEncounter(station.id, unquote(m[1]).slice(0, 80)); n++; }
       continue;
     }
-    if ((m = /^canonChecklist\(\s*"([\s\S]+?)"\s*\)$/.exec(line))) {
+    if (doWorld && (m = /^canonChecklist\(\s*"([\s\S]+?)"\s*\)$/.exec(line))) {
       const CR = useCanonRoute.getState();
       const station = CANON_STATIONS[CR.stationIndex];
       if (CR.enabled && station) {
@@ -206,9 +213,9 @@ export function applyMiscCommands(reply: string, opts: { allowLarge?: boolean; t
       continue;
     }
 
-    if ((m = /^timeLocation\.paradiseTime\s*=\s*"([^"]*)"$/.exec(line))) { M.setTime({ paradiseTime: m[1] }); n++; continue; }
-    if ((m = /^timeLocation\.worldTime\s*=\s*"([^"]*)"$/.exec(line)))    { M.setTime({ worldTime: m[1] }); n++; continue; }
-    if ((m = /^timeLocation\.worldName\s*=\s*"([^"]*)"$/.exec(line)))    {
+    if (doWorld && (m = /^timeLocation\.paradiseTime\s*=\s*"([^"]*)"$/.exec(line))) { M.setTime({ paradiseTime: m[1] }); n++; continue; }
+    if (doWorld && (m = /^timeLocation\.worldTime\s*=\s*"([^"]*)"$/.exec(line)))    { M.setTime({ worldTime: m[1] }); n++; continue; }
+    if (doWorld && (m = /^timeLocation\.worldName\s*=\s*"([^"]*)"$/.exec(line)))    {
       const prevWorld = M.worldName;   // 本次解析前的世界名（M 为快照，setTime 后仍是旧值）
       M.setTime({ worldName: m[1] });
       // 回到轮回乐园/枢纽（从任务世界返回）→ 重置主角「身份」，避免把上个世界的身份带进下个世界
@@ -217,26 +224,26 @@ export function applyMiscCommands(reply: string, opts: { allowLarge?: boolean; t
       }
       n++; continue;
     }
-    if ((m = /^timeLocation\.weather\s*=\s*"([^"]*)"$/.exec(line)))      { M.setWeather(m[1]); n++; continue; }
+    if (doWorld && (m = /^timeLocation\.weather\s*=\s*"([^"]*)"$/.exec(line)))      { M.setWeather(m[1]); n++; continue; }
     // 本世界其他契约者人口：contractors(数量) 或 contractors(数量, "分布/变动说明")
-    if ((m = /^contractors\(\s*(\d+)\s*(?:,\s*"([\s\S]*?)"\s*)?\)$/.exec(line))) { M.setContractors(Number(m[1]), m[2] != null ? unquote(m[2]) : undefined); n++; continue; }
+    if (doWorld && (m = /^contractors\(\s*(\d+)\s*(?:,\s*"([\s\S]*?)"\s*)?\)$/.exec(line))) { M.setContractors(Number(m[1]), m[2] != null ? unquote(m[2]) : undefined); n++; continue; }
 
-    if ((m = /^addWorldEvent\(\s*"([^"]*)"\s*,\s*"([^"]*)"\s*,\s*"([\s\S]*)"\s*\)$/.exec(line))) {
+    if (doWorld && (m = /^addWorldEvent\(\s*"([^"]*)"\s*,\s*"([^"]*)"\s*,\s*"([\s\S]*)"\s*\)$/.exec(line))) {
       M.addWorldEvent({ time: m[1], location: withWorld(m[2]), desc: unquote(m[3]) }); n++; continue;
     }
-    if ((m = /^updateWorldEvent\(\s*"([^"]+)"\s*,\s*"([^"]*)"\s*,\s*"([^"]*)"\s*,\s*"([\s\S]*)"\s*\)$/.exec(line))) {
+    if (doWorld && (m = /^updateWorldEvent\(\s*"([^"]+)"\s*,\s*"([^"]*)"\s*,\s*"([^"]*)"\s*,\s*"([\s\S]*)"\s*\)$/.exec(line))) {
       M.updateWorldEvent(m[1], { time: m[2], location: withWorld(m[3]), desc: unquote(m[4]) }); n++; continue;
     }
-    if ((m = /^deleteWorldEvent\(\s*"([^"]+)"\s*\)$/.exec(line))) { M.removeWorldEvent(m[1]); n++; continue; }
+    if (doWorld && (m = /^deleteWorldEvent\(\s*"([^"]+)"\s*\)$/.exec(line))) { M.removeWorldEvent(m[1]); n++; continue; }
 
-    if ((m = /^ringAdvance\(\s*"(T_\d+)"\s*(?:,\s*(\{[\s\S]*\})\s*)?\)$/.exec(line))) {
+    if (doTasks && (m = /^ringAdvance\(\s*"(T_\d+)"\s*(?:,\s*(\{[\s\S]*\})\s*)?\)$/.exec(line))) {
       const pl = m[2] ? safeJson(m[2]) : null;
       const sv = pl?.summary ?? pl?.['总结'] ?? pl?.['行为总结'];
       const rt = pl?.rating ?? pl?.['评级'] ?? pl?.['评分'];
       M.advanceRing(m[1], pl ? { summary: sv != null ? String(sv) : undefined, rating: rt != null ? String(rt) : undefined } : undefined);
       n++; continue;
     }
-    if ((m = /^de\(\s*"(T_\d+)"\s*\)$/.exec(line))) {
+    if (doTasks && (m = /^de\(\s*"(T_\d+)"\s*\)$/.exec(line))) {
       // 图书馆铁则「只存不删」：AI 的删除一律转为「作废」归档留底（面板可查、玩家可 ✏️ 复原），绝不物理删除；玩家在面板删除不受此限
       const tid = m[1];   // 先取出：m 是 let，闭包内 TS 不保证仍非 null（TS18047）
       if (useMisc.getState().tasks.some((t) => t.id === tid)) {
@@ -245,7 +252,7 @@ export function applyMiscCommands(reply: string, opts: { allowLarge?: boolean; t
       }
       n++; continue;
     }
-    if ((m = /^set\(\s*(\{[\s\S]*\})\s*\)$/.exec(line))) {
+    if (doTasks && (m = /^set\(\s*(\{[\s\S]*\})\s*\)$/.exec(line))) {
       const o = safeJson(m[1]);
       if (o && typeof o['0'] === 'string' && /^T_\d+$/.test(o['0'])) {
         const id = o['0'] as string;
@@ -279,7 +286,7 @@ export function applyMiscCommands(reply: string, opts: { allowLarge?: boolean; t
       }
       continue;
     }
-    if ((m = /^add\(\s*"(T_\d+)"\s*,\s*(\{[\s\S]*\})\s*\)$/.exec(line))) {
+    if (doTasks && (m = /^add\(\s*"(T_\d+)"\s*,\s*(\{[\s\S]*\})\s*\)$/.exec(line))) {
       const o = safeJson(m[2]);
       if (o) {
         const id = m[1];

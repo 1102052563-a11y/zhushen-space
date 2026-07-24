@@ -109,7 +109,9 @@
 
 ## 8. 杂项演化 / 生平压缩
 
-**杂项**（`miscStore`+`miscParser`+`runMiscEvolutionPhase`,第4并发阶段,只读正文只写变量）：分段总结 `addSmallSummary/addLargeSummary`、世界大事 `addWorldEvent`、主角任务(仅 `T_<数字>`)、天气、**双时间**（`paradiseTime` 轮回历X年X月X日 + `worldTime` 任务世界时间 + `worldName`）。**回归乐园兜底**(`isHomeWorld`/`reconcileHomeWorld` 每回合开头)：worldName 命中 主神空间/专属房间/轮回乐园 → worldTime 同步 paradiseTime + 旧任务世界势力移出当前世界。`MISC_HOME_TIME_RULE`+`FACTION_HOME_EXIT_RULE` 双保险(已写入预设)。预设条目化 `settings.entries`(默认 `src/data/miscDefaultPreset.json` 14条,导入导出)。入口 🧩杂项演化→`MiscManager`;📋任务→`MiscPanel`。⚠纪元名是「轮回历」(曾误「轮回力」)。
+**杂项**（`miscStore`+`miscParser`+`runMiscEvolutionPhase`,并发阶段,只读正文只写变量）：分段总结 `addSmallSummary/addLargeSummary`、世界大事 `addWorldEvent`、天气、契约者人口、truths、canon*、**双时间**（`paradiseTime` 轮回历X年X月X日 + `worldTime` 任务世界时间 + `worldName`）。**⚠任务已拆出**(2026-07)：主角任务(`T_<数字>`)的演化归独立「任务演化」阶段(见下),杂项解析用 `applyMiscCommands({domain:'world'})` 硬过滤任务指令+`MISC_NO_TASK_RULE` 提示词禁写;misc-codex 只注世界侧条目(①⑤⑥⑦⑧)。**回归乐园兜底**(`isHomeWorld`/`reconcileHomeWorld` 每回合开头)：worldName 命中 主神空间/专属房间/轮回乐园 → worldTime 同步 paradiseTime + 旧任务世界势力移出当前世界。`MISC_HOME_TIME_RULE`+`FACTION_HOME_EXIT_RULE` 双保险(已写入预设)。预设条目化 `settings.entries`(默认 `src/data/miscDefaultPreset.json` **v4 8条**,任务条目已剔,导入导出;每刷新强制覆盖为内置)。入口 🧩杂项演化→`MiscManager`;📋任务→`MiscPanel`。⚠纪元名是「轮回历」(曾误「轮回力」)。
+
+**任务演化**（独立阶段,2026-07 从杂项拆出）：`runQuestEvolutionPhase`(App.tsx)——主角任务 `T_` 的新建/推进/进度/结算专职阶段。**独立 API** `resolveApiChain('quest', legacy)`,legacy=`miscStore.questApi`/`questUseSharedApi`;**独立开关** `miscStore.settings.questEnabled`(persist merge 迁移:旧档缺省继承 `enabled`,行为无缝)。规则链全代码注入：`QUEST_PHASE_FORMAT_RULE`(身份+指令定义+ID/时间纪律+输出格式)+TASK_SYSTEM_ROLE/OUTCOME/SOURCE/PROGRESS/CANON+QUEST_PLANNING/KILL_TIER/RATING/HOME_NO_GEN+ADVANCED_TASK_PROTOCOL+TASK_RECONCILE+`TASK_DETAIL_QUALITY_RULE`(原预设质量边界迁入)+misc-codex 任务条目(②③④按 comment 筛)+`worldLoreTaskInjection`+canon剧本参照(只读,canon* 指令仍归杂项)+`QUEST_COT_RULE`(<quest_cot>)。进入新世界检测(`prevWorldNameRef`)/`markWorldSettled` 边界戳/worldTier 锁定随任务职责迁到本阶段(杂项保留幂等补锁)。解析 `applyMiscCommands({domain:'tasks'})` 只应用任务四类指令;任务数据仍存 miscStore(面板/结算/正文注入不变)。手动生成主线 `manualGenTask` 同走 quest 接口。UI：变量管理→🎯任务演化→`QuestManager`(启用/任务注入正文/任务闸门/API,原 MiscManager 两区块迁入);演化调度加 `quest` 行;♻重算变量加「任务演化」项。
 
 **生平压缩**（`memoryStore`+`characterStore.memory`）：逐角色 `memory.shortTerm/longTerm`(`MemoryEntry{time,location,content}`)。`addMemory("B1"/"C1",{...})` 追加 shortTerm;达阈值(短25→5、长50→20,可调)`runMemoryCompressionPhase` 调 AI 压缩(轮回乐园档案官提示词,不可逆事实自检)。入口 📜生平压缩→`MemoryManager`(独立API)。
 
@@ -123,7 +125,7 @@
 
 ## 10. 中心 API 库 + 多接口路由
 
-`settingsStore.apiLibrary: ApiEndpoint[]`(增删改启停排序,Key 仅本地)+`apiRoutes: Record<featureKey,string[]>`(有序 endpoint id,上=先调)。`resolveApiChain(key,legacy): ApiConfig[]`——路由有启用接口则返回链,否则回退 legacy 单配置。调用器 `apiChatFallback(chain,messages,{timeoutMs,extra})` 逐个尝试失败切下一条;主正文 callApi 内置同款流式 fallback 循环。featureKey：text/world/item/player/npc/faction/territory/team/misc/memory/nm/image_story_llm/channel。各功能 ApiSection 用 `ApiRoutePicker`(多选+排序)。⚠ 世界选择(world)曾漏接,`WorldSelector.generate()` 早期裸 fetch,已改 `resolveApiChain('world',api)`。维护入口：综合设置→「API 接口库」。
+`settingsStore.apiLibrary: ApiEndpoint[]`(增删改启停排序,Key 仅本地)+`apiRoutes: Record<featureKey,string[]>`(有序 endpoint id,上=先调)。`resolveApiChain(key,legacy): ApiConfig[]`——路由有启用接口则返回链,否则回退 legacy 单配置。调用器 `apiChatFallback(chain,messages,{timeoutMs,extra})` 逐个尝试失败切下一条;主正文 callApi 内置同款流式 fallback 循环。featureKey：text/world/item/player/npc/faction/territory/team/misc/quest/memory/nm/image_story_llm/channel。各功能 ApiSection 用 `ApiRoutePicker`(多选+排序)。⚠ 世界选择(world)曾漏接,`WorldSelector.generate()` 早期裸 fetch,已改 `resolveApiChain('world',api)`。维护入口：综合设置→「API 接口库」。
 
 ## 11. 生图系统（三条线）
 

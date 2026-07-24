@@ -109,7 +109,7 @@ function SettingsSection() {
       <div className="flex items-center justify-between gap-3 rounded-lg border border-edge bg-panel px-3 py-2.5">
         <div>
           <div className="text-sm text-slate-200">启用杂项演化</div>
-          <div className="text-[13px] text-dim/70 mt-0.5">正文完成后维护：分段总结 / 双时间 / 天气 / 世界大事 / 主角任务</div>
+          <div className="text-[13px] text-dim/70 mt-0.5">正文完成后维护：分段总结 / 双时间 / 天气 / 世界大事（主角任务已拆去独立的「🎯 任务演化」）</div>
         </div>
         <Toggle checked={settings.enabled} onChange={() => setSettings({ enabled: !settings.enabled })} />
       </div>
@@ -148,47 +148,9 @@ function SettingsSection() {
         <div className="text-[12px] text-dim/50 leading-snug">默认 0=不限。担心存档体积时填正数=只保留最近 N 条（仅影响存储与召回候选，不影响每回合注入）。小总结每回合都产、增长最快。</div>
       </div>
 
-      <div className="rounded-lg border border-edge bg-panel px-3 py-2.5 space-y-2">
-        <div className="flex items-center justify-between gap-3">
-          <div>
-            <div className="text-sm text-slate-200">任务注入正文</div>
-            <div className="text-[13px] text-dim/70 mt-0.5">把当前主线（重·含当前环目标/下一步/终局）与相关支线（轻）回流到正文上下文，给主线存在感、由系统把控节奏</div>
-          </div>
-          <Toggle checked={settings.questInjectEnabled !== false}
-            onChange={() => setSettings({ questInjectEnabled: settings.questInjectEnabled === false })} />
-        </div>
-        <label className="flex items-center justify-between gap-2 text-sm text-dim">
-          <span>注入正文的支线条数上限（0 = 只注主线）</span>
-          <input type="number" min={0} max={10} value={settings.questSideCap ?? 3}
-            onChange={(e) => setSettings({ questSideCap: Math.max(0, Math.min(10, Number(e.target.value) || 0)) } as any)}
-            className="w-20 bg-void border border-edge rounded px-2 py-1 text-sm font-mono text-slate-200 outline-none focus:border-god text-right" />
-        </label>
-        <div className="text-[12px] text-dim/50 leading-snug">支线按"贴合当前地点 / 在场 NPC"相关性排序后取前 N 条注入；主线始终全量注入。关掉开关则正文完全不注入任务（回到旧行为）。</div>
-      </div>
-
-      {/* 任务闸门（questGuard）：AI 侧护栏——结构锁 + 布置配额；玩家 ✏️ 编辑 / 手动生成不受限 */}
-      <div className="rounded-lg border border-edge bg-panel px-3 py-2.5 space-y-2">
-        <div className="flex items-center justify-between gap-3">
-          <div>
-            <div className="text-sm text-slate-200">任务闸门 · AI 结构锁</div>
-            <div className="text-[13px] text-dim/70 mt-0.5">已建档任务 AI 只能推进（状态 / 进度 / 评级 / 环推进），名称 / 描述 / 奖惩 / 终局 / 环内容一律冻结，被驳回的改写记入回合洞察仲裁日志</div>
-          </div>
-          <Toggle checked={settings.questGuardLock !== false}
-            onChange={() => setSettings({ questGuardLock: settings.questGuardLock === false } as any)} />
-        </div>
-        <label className="flex items-center justify-between gap-2 text-sm text-dim">
-          <span>在场支线数量上限（满额时 AI 新建支线被驳回；0 = 不限）</span>
-          <input type="number" min={0} max={20} value={settings.questSideMax ?? 4}
-            onChange={(e) => setSettings({ questSideMax: Math.max(0, Math.min(20, Number(e.target.value) || 0)) } as any)}
-            className="w-20 bg-void border border-edge rounded px-2 py-1 text-sm font-mono text-slate-200 outline-none focus:border-god text-right" />
-        </label>
-        <label className="flex items-center justify-between gap-2 text-sm text-dim">
-          <span>每轮杂项演化 AI 新建任务上限（0 = 不限）</span>
-          <input type="number" min={0} max={10} value={settings.questNewPerRound ?? 1}
-            onChange={(e) => setSettings({ questNewPerRound: Math.max(0, Math.min(10, Number(e.target.value) || 0)) } as any)}
-            className="w-20 bg-void border border-edge rounded px-2 py-1 text-sm font-mono text-slate-200 outline-none focus:border-god text-right" />
-        </label>
-        <div className="text-[12px] text-dim/50 leading-snug">治"任务乱变动 / 无限布置"：主线、职业任务、进阶通告不占支线额度；AI 的 de() 删除一律转「作废」归档留底（只存不删）。玩家在任务面板 ✏️ 编辑、🎲 手动生成不经闸门。</div>
+      {/* 任务注入正文 / 任务闸门 两块设置已随任务拆分挪去「设置 → 变量管理 → 🎯 任务演化」 */}
+      <div className="rounded-lg border border-edge bg-panel px-3 py-2.5 text-[12px] text-dim/60 leading-relaxed">
+        🎯 主角任务（主线路线图 / 环推进 / 结算 / 任务闸门 / 任务注入正文）已拆成<b className="text-slate-300">独立的「任务演化」阶段</b>——调用独立 API、单独开关，去「变量管理 → 🎯 任务演化」配置；任务数据仍在「📋 任务」面板。
       </div>
 
       {/* 预设：导入 / 导出 / 恢复默认 + 条目列表 */}
@@ -211,15 +173,15 @@ function SettingsSection() {
             : entries.map((e) => <EntryRow key={e.identifier} entry={e} />)}
         </div>
         <div className="px-3 py-2 text-[12px] text-dim/50 leading-relaxed border-t border-edge">
-          占位符运行时替换：<code className="text-god/60">{'${story_text} ${current_paradise_time} ${current_world_time} ${current_world_name} ${weather} ${current_tasks} ${world_events} ${next_available_task_id}'}</code>
+          占位符运行时替换：<code className="text-god/60">{'${story_text} ${current_paradise_time} ${current_world_time} ${current_world_name} ${weather} ${world_events}'}</code>
         </div>
       </div>
 
       {/* 杂项演化专属世界书 + CoT 提示（指引去正文世界书编辑）*/}
       <div className="rounded-lg border border-god/25 bg-god/5 px-3 py-2.5 text-[12px] text-dim/70 leading-relaxed">
         <div className="text-god/80 font-mono mb-1">📖 杂项演化·专属世界书 + 思维链</div>
-        已内置「<span className="text-slate-300">杂项演化·任务与世界规范图鉴</span>」专属世界书（任务类型库 / 环结构 / 奖惩时限 / 世界大事 / 天气词库 / 双时间 / 总结规范），每轮杂项演化时<b className="text-slate-300">强制注入</b>——要编辑或关闭，去「设置 → 正文世界书」找这本书。<br />
-        另已加入<b className="text-slate-300">强制思维链(CoT)</b>：每轮先在 <code className="text-god/60">{'<misc_cot>'}</code> 里推演产出的合理性与原因（<b className="text-slate-300">尤其任务</b>：触发证据 / 合理性 / 类型与环 / 奖惩时限 / 结算），再落 <code className="text-god/60">{'<upstore>'}</code> 指令。两者均即时生效、无需重导预设。
+        已内置「<span className="text-slate-300">杂项演化·任务与世界规范图鉴</span>」专属世界书——本阶段每轮<b className="text-slate-300">强制注入其中的世界侧条目</b>（世界大事 / 天气词库 / 双时间 / 总结规范）；任务相关条目（任务类型库 / 环结构 / 奖惩时限）改由「🎯 任务演化」阶段注入。要编辑或关闭，去「设置 → 正文世界书」找这本书。<br />
+        另已加入<b className="text-slate-300">强制思维链(CoT)</b>：每轮先在 <code className="text-god/60">{'<misc_cot>'}</code> 里推演产出的合理性与原因（总结 / 天气 / 世界大事 / 双时间），再落 <code className="text-god/60">{'<upstore>'}</code> 指令。两者均即时生效、无需重导预设。
       </div>
     </div>
   );
@@ -250,7 +212,7 @@ export default function MiscManager() {
       <div className="flex items-start justify-between gap-4 border-b border-edge pb-4">
         <div>
           <h2 className="text-base font-bold text-slate-100">杂项演化</h2>
-          <p className="text-sm text-dim mt-0.5">维护世界级杂项：分段总结 / 双时间 / 天气 / 世界大事 / 主角任务（小地图暂未启用）</p>
+          <p className="text-sm text-dim mt-0.5">维护世界级杂项：分段总结 / 双时间 / 天气 / 世界大事（主角任务已拆去「🎯 任务演化」；小地图暂未启用）</p>
         </div>
         <div className="flex items-center gap-2 shrink-0">
           <span className="text-sm text-dim font-mono">{enabled ? '已启用' : '已停用'}</span>

@@ -45,7 +45,9 @@
     "src/systems/playtime.ts": 3,
     "src/systems/presence.ts": 4,
     "src/systems/tts.ts": 3,
-    "src/systems/workshop.ts": 8
+    "src/systems/workshop.ts": 8,
+    "src/systems/worldDetail.ts": 1,
+    "src/systems/worldDetailShare.ts": 1
   },
   "fallbackNoTimeout": {}
 }

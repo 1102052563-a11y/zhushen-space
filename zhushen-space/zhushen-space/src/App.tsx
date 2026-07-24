@@ -1123,6 +1123,59 @@ const TASK_PROGRESS_RULE = `
 - progress 只是"上回合做了啥"的纪实快照，**纯展示与续作连贯用，不参与任务完成/失败判定**（结算仍走 status / ringAdvance，互不替代）。
 - 示例：\`add("T_5", {"progress":"在哥布林夜袭中守住村口栅栏、救下两名村民，但右臂负伤"})\``;
 
+/* ── 任务演化·独立阶段专用规则（从杂项演化拆出；杂项预设里的任务条目已随 v4 移除，质量边界移到这里） ── */
+const TASK_DETAIL_QUALITY_RULE = `
+【任务详情质量硬边界】本规则优先于所有任务示例。
+- 任务标题必须具体指向当前线索、对象或阶段目标；避免"暗流""试炼""邀约"这类可复用泛标题。
+- 任务描述必须包含三类信息：触发事实（为何需要建/更新）+ 当前下一步（主角接下来能做什么）+ 阻塞/等待条件（若需等日期、地点、人手、情报或前置任务）。不要把最终远期目标写成当前已经要立即执行的动作。
+- 若正文、用户输入或既有任务出现明确时间窗口、约定日期、期限、最佳时机、倒计时，必须输出 startTime/endTime（绝对游戏时间、精确到分钟，格式见【指令定义与输出格式】）。
+- 奖励与失败惩罚必须绑定当前任务的对象、势力、地点、资源或关系；禁止沿用旧任务模板——奖惩里出现与当前描述无关的旧地点/旧势力/旧人物/旧阶段目标时，必须同步重写。
+- 长期悬挂任务只有被本轮正文、当前地点、当前人物、当前物品线索或用户输入重新触发时才更新；没有新证据时不强行推进、不改写、不复制为新任务。
+- 同一目标已有 active 任务 → 优先更新既有任务；只有目标、风险、执行阶段或叙事功能已明显分离时，才新建子任务。`;
+
+const QUEST_PHASE_FORMAT_RULE = `
+【★任务演化·身份与职责】你是「任务演化」独立阶段：只负责主角任务（T_ 开头）的**新建 / 推进 / 进度 / 结算**。总结、双时间、天气、世界大事、契约者人口、truths、canon* 等一律**不归你管**（由杂项演化阶段维护，你写了也会被系统丢弃、白费 token）。
+
+【指令定义与输出格式（本阶段铁律）】指令一行一条，全部放进 <upstore>…</upstore> 内：
+- 新建任务：\`set({"0":"T_x","1":"任务名","2":"任务描述(当前环目标)","3":"成功奖励","4":"失败惩罚","5":"进行中","startTime":"","endTime":"","kind":"主线|支线","finale":"终局目标","currentRing":1,"rings":[…]})\`（多环字段规范见【主线路线图规划】）
+- 更新任务/调环状态：\`add("T_x", {"2":"…","5":"…","progress":"…","rings":[…],"currentRing":N})\`
+- 推进当前环：\`ringAdvance("T_x", {"summary":"…","rating":"S~E"})\`
+- 作废无效任务：\`de("T_x")\`（系统会转「作废」归档留底，不物理删除）
+## ID 纪律
+- 任务 ID 标准格式固定为 T_<数字> 且不补零（如 T_15）；禁止 T15 / T_015 / T_001 这类变体。
+- 更新已有任务：ID 必须**逐字照抄**【当前任务列表】里的精确 ID；新建任务必须使用系统提供的【下一个可用任务ID】，不要复用已完成/已失败任务的编号。
+- 严禁把任务标题、目标名或中文短语当 ID（如 \`add("擒获尾随者",{...})\` 非法）；无法确认精确 \`T_<数字>\` ID 时，必须不输出该条指令（在 <quest_cot> 里说明即可）。
+- 新建任务字段齐全：任务名 / 描述 / 奖励 / 惩罚 / 状态缺一不可；缺字段就不要新建。
+## 时间纪律
+- 任务时间只用 startTime / endTime，必须是**绝对游戏时间**并精确到分钟（如「0001年06月01日 09:30」，按【当前游戏时间】推算）；禁止 deadline / 期限 / 第6列 / 相对模糊时间（"三日后""下月初""明日午时"）。
+- startTime = 核心执行窗口开始（不是接取时间；已可执行则写空字符串）；endTime = 最晚完成/错过窗口（无明确结束则写空字符串）。
+## 输出格式铁律
+1. 最终输出必须且只能是：一段 <quest_cot>…</quest_cot> 思维链 + 一个 <upstore>…</upstore> 指令块；两者之外**严禁任何字符**（解释、道歉、正文、Markdown 代码块都不行）。
+2. 每条 set / add / ringAdvance / de 指令独占一整行，禁止把多条压同一行。
+3. 本轮任务无任何变动 → 输出空块 <upstore></upstore>（这很正常，绝大多数回合都如此）。`;
+
+const QUEST_COT_RULE = `
+【任务演化·强制思维链(CoT)铁则（最高优先）】（本轮：所在世界《{{getvar::世界.名}}》·难度 {{getvar::世界.难度}}·世界之源 {{getvar::主角.世界之源}}%·累计回合 {{getvar::世界.回合数}}）在产出 <upstore> 指令块之前，你**必须**先输出一段 <quest_cot>…</quest_cot> 思维链，对每个任务动作逐项推演"合理性与原因"，再据此落指令。系统只解析 <upstore>，<quest_cot> 块会被自动忽略——但你必须先写它，以杜绝套路化、失衡、与正文脱节的任务产出；**绝不要把指令草稿留在 <quest_cot> 里当成输出**。
+
+<quest_cot> 必须按下列顺序推演（对照【任务与世界规范图鉴】各条；找不到正文依据/讲不出合理原因的，一律不动）：
+0. 本轮事实：从正文抽取会影响任务的关键事实；判定当前在【枢纽】还是【任务世界】（决定能否新建任务）。
+1. ★对每一个"新建/推进/结算"的任务动作，逐条写明原因，缺一不可：
+   · 触发证据：正文哪一句让这个任务"现在"该产生/推进/结算？（无明确证据 → 不动）
+   · **来源分辨（新建前必答，见【任务来源铁则】）**：这条是**被指派的委托**（乐园/主神/NPC/世界机制派给主角的目标 → 才可建任务）？还是**主角自己声明的行动/手段/下一步**（→ 绝不建成任务，只更新对应已有任务的 progress）？
+   · 合理性：是否贴合当前世界设定/原作脉络（同人增强开时）？是否契合主角当前处境（阶位/强度/位置/身份）？难度是否符合【击杀阶位上限】（强制环≤**本世界锁定难度阶位**、贪婪环≤锁定难度+1；**基准是世界锁定难度、不是主角实时阶位**）？是否落入被禁止的"枢纽日常/框架流程"套路？是否与既有任务重复（同目标 → 优先推进既有，不另起）？
+   · 类型与环：从【任务类型库】挑了哪种、为何最贴切？若为主线/多回合：环路线图为何这样排——每环规模/难度如何递增、为何指向这个 finale、强制环/贪婪环如何划分？
+   · 奖惩与时限：reward 为何这样配（六选三、按环超线性、带本世界风味）？若含灵魂钱币，当前衍生世界是否≥四阶（否则违规、应改乐园币）？penalty 是否取自规范三类？时限 endTime−startTime 是否≥7天且贴合任务性质？
+   · 结算：要标"已完成/已失败"的，正文是否有明确达成/失败证据？多环任务达成的只是"当前环" → 应 ringAdvance 而非整条结算？
+   · 进度：本回合主角对该任务有无实质推进？有则用 1~2 句具体动作/结果写进 progress 字段（覆盖上轮）；无推进则不输出 progress（保留旧值）。
+   · 结论：本任务这一轮"动 or 不动"，动则给出最终指令草稿。
+2. 自检：只输出任务指令（其他域一条不写）；任务 ID 精确（T_<数字>不补零、逐字照抄列表）；"已完成/已获得"等不可逆表述都有正文完成证据。
+
+铁律：**宁缺毋滥**——绝大多数回合任务没有任何变动、输出空 <upstore></upstore> 完全正常；任何讲不出原因的产出都不要写。`;
+
+/* 杂项演化侧：任务已拆去独立阶段，杂项 AI 绝不再碰任务（解析器 domain:'world' 兜底硬过滤） */
+const MISC_NO_TASK_RULE = `
+【任务已拆分·本阶段禁碰任务（铁则·最高优先，覆盖预设/图鉴里一切"维护任务"的旧要求）】主角任务（T_）现由独立的「任务演化」阶段专职维护——本（杂项演化）阶段**绝不输出任何任务指令**：set/add/de 的 T_ 条目、ringAdvance、任务的新建/推进/进度/补环/结算一律不写（写了也会被系统丢弃、白费 token）。你只负责：分段总结 / 双时间 / 天气 / 世界大事 / 契约者人口 / 真相清单（truths） / 原著路线状态（canon*）。`;
+
 const WEATHER_FX_GEN_RULE = `
 【顶栏天气特效·CSS 生成（仅奇异天气·可选）】前端对【晴/雨/雪/雾/阴/雷/风】等常规天气已内置精致动画——这些天气**不要**输出任何特效代码。仅当本回合天气是**特殊/奇异**天气（前端没有的，如 血雨 / 灵雾 / 沙暴 / 星陨 / 瘴气 / 雷劫 / 黑雾 / 灵气风暴 等），且**天气本回合刚发生变化**时，才追加一个 <weatherfx> 块，为它生成一层**自包含的纯 CSS 动画**做顶栏背景：
 - 作用域：只针对容器 .wfx-ai（已绝对定位铺满顶栏）及其内部 3 个 .wfx-ai>span（三层可各做一种效果：底色 / 飘动物 / 光罩）；**不要写其它选择器**。
@@ -1160,22 +1213,13 @@ const MISC_SUMMARY_CADENCE_RULE = `
 const MISC_COT_RULE = `
 【杂项演化·强制思维链(CoT)铁则（最高优先；本阶段除本 <misc_cot> 思维链、以及天气特效 <weatherfx> 块外，其余产出一律只写进 <upstore>）】（本轮：所在世界《{{getvar::世界.名}}》·难度 {{getvar::世界.难度}}·世界之源 {{getvar::主角.世界之源}}%·累计回合 {{getvar::世界.回合数}}）在产出 <upstore> 指令块之前，你**必须**先输出一段 <misc_cot>…</misc_cot> 思维链，逐项推演本轮产出的"合理性与原因"，再据此落指令。系统只解析 <upstore>，<misc_cot> 块会被自动忽略——但你必须先写它、把"为什么这么记"想清楚，以杜绝套路化、失衡、与正文脱节的产出。它与【输出格式铁律】不冲突：思维链是**唯一例外**；写完思维链后，最终指令仍只写进 <upstore>，**绝不要把指令草稿留在 <misc_cot> 里当成输出**。
 
-<misc_cot> 必须按下列顺序推演（对照【杂项演化·任务与世界规范图鉴】各条；找不到正文依据/讲不出合理原因的，一律不输出）：
-0. 本轮事实：从正文抽取会影响 总结/任务/天气/世界大事/时间 的关键事实；判定当前在【枢纽】还是【任务世界】（决定能否新建任务）。
+<misc_cot> 必须按下列顺序推演（对照【杂项演化·任务与世界规范图鉴】各条；找不到正文依据/讲不出合理原因的，一律不输出。任务不归本阶段——见【任务已拆分】，思维链里也不要推演任务）：
+0. 本轮事实：从正文抽取会影响 总结/天气/世界大事/时间 的关键事实；判定当前在【枢纽】还是【任务世界】。
 1. 总结：本回合最关键的变化是什么（小总结要点，约120~220字）；大总结开关是否=是（=否则禁止输出大总结）。
-2. ★任务（最重要、推演最详）——对每一个"新建/推进/重排/结算"的任务动作，逐条写明原因，缺一不可：
-   · 触发证据：正文哪一句让这个任务"现在"该产生/推进/结算？（无明确证据 → 不动）
-   · **来源分辨（新建前必答，见【任务来源铁则】）**：这条是**被指派的委托**（乐园/主神/NPC/世界机制派给主角的目标 → 才可建任务、任务名＝被派的目标）？还是**主角自己声明的行动/手段/下一步**（如"我先去弄把枪/踩点/找线人" → 绝不建成任务，只更新对应已有任务的 progress）？若为后者一律不新建。
-   · 合理性：是否贴合当前世界设定/原作脉络（同人增强开时）？是否契合主角当前处境（阶位/强度/位置/身份）？难度是否符合【击杀阶位上限】（强制环≤**本世界锁定难度阶位**、贪婪环≤锁定难度+1；**基准是世界锁定难度、不是主角实时阶位**）？是否落入被禁止的"枢纽日常/框架流程"套路（适应乐园/逛街采购/进入衍生世界…一律不建）？是否与既有任务重复（同目标 → 优先推进既有，不另起）？
-   · 类型与环：从【任务类型库】挑了哪种、为何最贴切？若为主线/多回合：环路线图为何这样排——每环规模/难度如何递增、为何指向这个 finale、强制环/贪婪环如何划分？
-   · 奖惩与时限：reward 为何这样配（六选三、按环超线性、带本世界风味）？若含灵魂钱币，当前衍生世界是否≥四阶（否则违规、应改乐园币）？penalty 是否取自规范三类？时限 endTime−startTime 是否≥7天且贴合任务性质？
-   · 结算：要标"已完成/已失败"的，正文是否有明确达成/失败证据？多环任务达成的只是"当前环" → 应 ringAdvance 而非整条结算？
-   · 进度：本回合主角对该任务有无实质推进？有则用 1~2 句具体动作/结果写进 progress 字段（覆盖上轮）；无推进则不输出 progress（保留旧值）。
-   · 结论：本任务这一轮"动 or 不动"，动则给出最终指令草稿。
-3. 天气：本轮正文/季节/地点是否导致天气变化？据【天气词库】挑一个贴切的（没变也照抄重出一遍，始终非空）。
-4. 世界大事：是否达到"影响大范围格局"的阈值（对照【世界大事·类型库】）？达不到就一条不写；达到则地点写全路径。
-5. 双时间：worldTime/paradiseTime 该不该推进、推进幅度是否贴合正文？在枢纽则两时间一致。
-6. 自检：只输出允许的杂项指令；任务 ID 精确（T_<数字>不补零）、不可逆事实有据、总结长度合格。
+2. 天气：本轮正文/季节/地点是否导致天气变化？据【天气词库】挑一个贴切的（没变也照抄重出一遍，始终非空）。
+3. 世界大事：是否达到"影响大范围格局"的阈值（对照【世界大事·类型库】）？达不到就一条不写；达到则地点写全路径。
+4. 双时间：worldTime/paradiseTime 该不该推进、推进幅度是否贴合正文？在枢纽则两时间一致。
+5. 自检：只输出允许的杂项指令（**任务指令一条都不许有**）；不可逆事实有据、总结长度合格。
 
 铁律：**宁缺毋滥**——把"为什么合理"的推演写在 <misc_cot> 里，把经得起推敲的结论落进 <upstore>；任何讲不出原因的产出都不要写。`;
 
@@ -1370,6 +1414,7 @@ export default function App() {
   const [territoryPanelOpen, setTerritoryPanelOpen] = useState(false);
   const [cosmosPhaseLog,     setCosmosPhaseLog]     = useState('');     // 万族演化阶段提示
   const [miscPhaseLog,       setMiscPhaseLog]       = useState('');     // 杂项演化阶段提示（仅失败时显示「杂项更新失败」）
+  const [questPhaseLog,      setQuestPhaseLog]      = useState('');     // 任务演化阶段提示（仅失败时显示「任务更新失败」）
   const [tablePhaseLog,      setTablePhaseLog]      = useState('');     // 手动补填表格阶段提示（自动填表跟着主正文走·无独立日志）
   const [cosmosPanelOpen,    setCosmosPanelOpen]    = useState(false);
   const [worldCodexOpen,     setWorldCodexOpen]     = useState(false);
@@ -1599,7 +1644,7 @@ export default function App() {
     const pairs: [string, string][] = [
       ['item', itemPhaseLog], ['player', playerPhaseLog], ['npc', npcPhaseLog], ['pet', petPhaseLog],
       ['faction', factionPhaseLog], ['territory', territoryPhaseLog], ['team', teamPhaseLog],
-      ['cosmos', cosmosPhaseLog], ['misc', miscPhaseLog], ['image', imagePhaseLog], ['table', tablePhaseLog],
+      ['cosmos', cosmosPhaseLog], ['misc', miscPhaseLog], ['quest', questPhaseLog], ['image', imagePhaseLog], ['table', tablePhaseLog],
     ];
     setPhaseFail((prev) => {
       let n = prev, changed = false;
@@ -1617,7 +1662,7 @@ export default function App() {
       }
       return changed ? n : prev;
     });
-  }, [itemPhaseLog, playerPhaseLog, npcPhaseLog, petPhaseLog, factionPhaseLog, territoryPhaseLog, teamPhaseLog, cosmosPhaseLog, miscPhaseLog, imagePhaseLog, tablePhaseLog]);
+  }, [itemPhaseLog, playerPhaseLog, npcPhaseLog, petPhaseLog, factionPhaseLog, territoryPhaseLog, teamPhaseLog, cosmosPhaseLog, miscPhaseLog, questPhaseLog, imagePhaseLog, tablePhaseLog]);
   useEffect(() => {   // 天气环境音：随顶栏天气切换（仅任务世界有天气；回归乐园/无天气→停）
     const kind = (!!miscWeather && !isHomeWorld(miscWorldName)) ? parseWeather(miscWeather).kind : 'none';
     setAmbient(kind);
@@ -5208,14 +5253,15 @@ ${AFFIX_EFFECT_RULE}`;
     }
   }
 
-  /* 玩家在任务面板手动生成主线：按【玩家任务倾向】重新规划本世界主线并覆盖原有主线（不手动则照旧由杂项演化自动规划）。 */
+  /* 玩家在任务面板手动生成主线：按【玩家任务倾向】重新规划本世界主线并覆盖原有主线（不手动则照旧由任务演化阶段自动规划）。 */
   async function manualGenTask(tendency: string): Promise<{ ok: boolean; msg: string }> {
     const M = useMisc.getState();
     if (isHomeWorld(M.worldName || '')) return { ok: false, msg: '当前在轮回乐园/枢纽——请先进入一个衍生世界，再手动生成主线。' };
     const ss = useSettings.getState();
-    const legacyApi = M.miscUseSharedApi ? (ss.textUseSharedApi ? ss.api : ss.textApi) : M.miscApi;
-    const chain = resolveApiChain('misc', legacyApi);
-    if (!chain[0]?.baseUrl || !chain[0]?.apiKey) return { ok: false, msg: '杂项/任务 API 未配置，无法生成。' };
+    // 走任务演化的独立接口（featureKey='quest'）；任务已从杂项演化拆出，手动生成同样归任务接口
+    const legacyApi = M.questUseSharedApi ? (ss.textUseSharedApi ? ss.api : ss.textApi) : M.questApi;
+    const chain = resolveApiChain('quest', legacyApi);
+    if (!chain[0]?.baseUrl || !chain[0]?.apiKey) return { ok: false, msg: '任务演化 API 未配置（变量管理 → 任务演化 → API 设置），无法生成。' };
     const _pp = usePlayer.getState().profile;
     const fanficOn = ss.fanficMode;
     const situation = [_pp.name, _pp.tier && `${_pp.tier}·Lv${_pp.level ?? 1}`, _pp.identity && `身份:${_pp.identity}`, _pp.location && `位置:${_pp.location}`].filter(Boolean).join('｜');
@@ -5260,28 +5306,24 @@ ${AFFIX_EFFECT_RULE}`;
   }
 
   /* ════════════════════════════════════════════
-     杂项演化阶段（分段总结 / 双时间 / 天气 / 世界大事 / 任务）
+     任务演化阶段（从杂项演化拆出的独立阶段：主角任务 T_ 的新建 / 推进 / 进度 / 结算）
+     —— 独立 API（featureKey='quest'，路由留空回退 questApi/共用正文接口）、独立开关（settings.questEnabled）。
+        进入新世界检测 / 本世界难度锁定 / 主角处境快照随任务职责一并搬到这里；
+        解析用 applyMiscCommands({domain:'tasks'}) 只应用任务四类指令（set/add/de/ringAdvance 的 T_），
+        任务数据仍存 miscStore（面板 / 结算 / 正文注入不受影响）。
   ════════════════════════════════════════════ */
-  async function runMiscEvolutionPhase(narrative: string) {
+  async function runQuestEvolutionPhase(narrative: string) {
     const M = useMisc.getState();
-    if (!M.settings.enabled) return;
+    // 开关：questEnabled 缺省（旧导出的配置直接 import 等边角）时跟随杂项演化 enabled——与拆分前"任务随杂项跑"的行为一致
+    if (!(M.settings.questEnabled ?? M.settings.enabled)) return;
     const ss = useSettings.getState();
-    const legacyApi = M.miscUseSharedApi
+    const legacyApi = M.questUseSharedApi
       ? (ss.textUseSharedApi ? ss.api : ss.textApi)
-      : M.miscApi;
-    const chain = resolveApiChain('misc', legacyApi);
-    if (!chain[0]?.baseUrl || !chain[0]?.apiKey) { console.warn('[Misc] API 未配置，跳过杂项演化'); return; }
+      : M.questApi;
+    const chain = resolveApiChain('quest', legacyApi);
+    if (!chain[0]?.baseUrl || !chain[0]?.apiKey) { console.warn('[Quest] API 未配置，跳过任务演化'); return; }
 
-    const enabledEntries = (M.settings.entries ?? []).filter((e) => e.enabled);
-    if (enabledEntries.length === 0) { console.warn('[Misc] 无启用的预设条目，跳过杂项演化'); return; }
-    // 大总结周期：每 largeEvery 个杂项演化回合才产一条大总结（聚合压缩近期小总结），其余回合只出小总结
-    const round = M.bumpSummaryRound();
-    const largeEvery = Math.max(1, M.settings.largeEvery || 6);
-    const isLargeTurn = round % largeEvery === 0;
-    const recentSmall = M.smallSummaries.slice(-(largeEvery + 2)).map((s, i) => `${i + 1}. ${s}`).join('\n') || '（暂无小总结）';
-    const playerName = usePlayer.getState().profile.name || '主角';
-    const tlRow = `${M.worldName || '轮回乐园'} ${M.worldTime || M.paradiseTime || ''}`.trim();
-    // 进入新世界检测：当前世界名与上次杂项演化所见不同→触发主线路线图规划。
+    // 进入新世界检测：当前世界名与上次任务演化所见不同→触发主线路线图规划。
     // 首次（prev 为空）只设基线不触发，避免读档/刷新后误判（reload 会重置此 ref）。
     const enteredNewWorld =
       prevWorldNameRef.current !== '' && !!M.worldName && M.worldName !== prevWorldNameRef.current
@@ -5315,39 +5357,24 @@ ${AFFIX_EFFECT_RULE}`;
       (_b1c?.subProfessions?.length ?? 0) > 0 && `副职业:${(_b1c!.subProfessions!).slice(0, 6).map((sp) => String(sp.name || '').split('|')[0].trim()).filter(Boolean).join('、')}`,
     ].filter(Boolean).join('｜');
     const fanficOn = useSettings.getState().fanficMode;
-    // 杂项演化·任务与世界规范图鉴（builtinKey='twb-misc'）：杂项阶段专用参照系，强制全量注入本书所有启用条目（不看蓝/绿灯）。
-    // 整本书禁用或被删则优雅留空——可在「正文世界书」列表里编辑，改即生效。
-    const miscCodexInjection = (() => {
+    // 任务与世界规范图鉴（builtinKey='twb-misc'）里的任务相关条目（①总纲/②任务类型库/③环结构/④奖惩时限）：
+    // 按条目名筛（含"总纲/任务"），玩家改名/删光则整本兜底注入；整本禁用或被删则优雅留空。
+    const questCodexInjection = (() => {
       const book = useSettings.getState().textWorldBooks.find((b) => b.builtinKey === 'twb-misc');
       if (!book || book.enabled === false) return '';
-      const body = book.entries.filter((e) => e.enabled !== false).map((e) => e.content.trim()).filter(Boolean).join('\n\n');
-      return body ? `\n\n【杂项演化·任务与世界规范图鉴（生成任务/世界大事/天气/总结前务必逐条对照）】\n${body}` : '';
+      const enabledEntries = book.entries.filter((e) => e.enabled !== false);
+      const picked = enabledEntries.filter((e) => /总纲|任务/.test(String(e.comment ?? '')));
+      const body = (picked.length ? picked : enabledEntries).map((e) => e.content.trim()).filter(Boolean).join('\n\n');
+      return body ? `\n\n【任务与世界规范图鉴（任务相关条目·生成/推进任务前务必逐条对照）】\n${body}` : '';
     })();
-    const systemPrompt = buildMiscSystemPrompt(M.settings.entries)
-      .replaceAll('${story_text}', narrative)
-      .replaceAll('${user_input}', '')
-      .replaceAll('${current_paradise_time}', M.paradiseTime || '（未设定）')
-      .replaceAll('${current_world_time}', M.worldTime || '（未设定）')
-      .replaceAll('${current_world_name}', M.worldName || '轮回乐园')
-      .replaceAll('${weather}', M.weather || '（未设定）')
-      .replaceAll('${current_tasks}', serializeTasks(M.tasks))
-      .replaceAll('${world_events}', serializeEvents(M.worldEvents))
-      .replaceAll('${next_available_task_id}', M.nextTaskId())
-      // ── 原版 13 条规则里残留的占位符（无小地图，按需填充/置空）──
-      .replaceAll('${current_time}', M.worldTime || M.paradiseTime || '（未设定）')
-      .replaceAll('${current_location}', M.worldName || '（未设定）')
-      .replaceAll('${time_location_row}', tlRow || '（未设定）')
-      .replaceAll('${world_map_pois}', '（未启用小地图）')
-      .replaceAll('${current_scene_map}', '（未启用小地图）')
-      .replaceAll('${world_factors}', '（无）')
-      .replaceAll('${player_name}', playerName)
-      .replaceAll('${player_traits}', '（略）')
-      + '\n\n' + NARRATIVE_FIRST_RULE + '\n' + MISC_HOME_TIME_RULE
-      + '\n\n' + WORLD_EVENT_LOCATION_RULE
-      + '\n\n' + MISC_SUMMARY_CADENCE_RULE
-      + '\n\n' + WEATHER_FX_GEN_RULE
-      + '\n\n' + MISC_WEATHER_RULE
-      + '\n\n' + CONTRACTOR_EVOLUTION_RULE
+    // 🛤 原著路线：本站剧本+苏晓轨道给任务 AI 作"接地"参照（原著支线/猎杀线索可直接立成任务）；canon* 状态维护仍归杂项演化
+    const canonRef = (() => {
+      const blocks = [...buildCanonWorldInjection(), ...buildSuxiaoTrackInjection()].map((b) => b.content).join('\n');
+      return blocks ? `\n\n${blocks}\n\n【原著路线·仅作任务接地参照】上面两块用于把任务锚定到本站剧本（原著支线/隐藏/猎杀线索可据此立任务、主线对齐世界进程）；canon* 状态指令由杂项演化阶段维护，**本阶段不要输出任何 canon 指令**。` : '';
+    })();
+
+    const systemPrompt = QUEST_PHASE_FORMAT_RULE
+      + '\n\n' + NARRATIVE_FIRST_RULE
       + '\n\n' + TASK_SYSTEM_ROLE
       + '\n\n' + TASK_OUTCOME_RULE
       + '\n\n' + TASK_SOURCE_RULE
@@ -5360,15 +5387,102 @@ ${AFFIX_EFFECT_RULE}`;
       + '\n\n' + TASK_RECONCILE_RULE
       + '\n\n' + TASK_PROGRESS_RULE
       + '\n\n' + TASK_CANON_RULE
-      + miscCodexInjection
+      + '\n\n' + TASK_DETAIL_QUALITY_RULE
+      + questCodexInjection
       + worldLoreTaskInjection()
-      + `\n【进入新世界信号】：${enteredNewWorld ? '是 —— 本轮检测到进入新的任务世界，请按【主线路线图规划】检查：当前任务世界若尚无 active 主线，则把该世界自身的核心目标立成主线并规划整张环路线图' : (isHomeWorld(M.worldName) ? '否 —— 当前在轮回乐园/专属房间(枢纽·任务间歇)，按【乐园·枢纽禁止生成任务】**禁止生成任何新任务**（主线/支线/隐藏/单环全不建），更不要"熟悉环境/适应乐园/逛街采购/进入衍生世界/获取身份/回归乐园"等流程·杂事任务；只对既有任务做结算/推进，等真正进入任务世界(衍生世界)再规划' : '否（沿用既有主线，勿重复新建）')}`
+      + `\n\n【进入新世界信号】：${enteredNewWorld ? '是 —— 本轮检测到进入新的任务世界，请按【主线路线图规划】检查：当前任务世界若尚无 active 主线，则把该世界自身的核心目标立成主线并规划整张环路线图' : (isHomeWorld(M.worldName) ? '否 —— 当前在轮回乐园/专属房间(枢纽·任务间歇)，按【乐园·枢纽禁止生成任务】**禁止生成任何新任务**（主线/支线/隐藏/单环全不建），更不要"熟悉环境/适应乐园/逛街采购/进入衍生世界/获取身份/回归乐园"等流程·杂事任务；只对既有任务做结算/推进，等真正进入任务世界(衍生世界)再规划' : '否（沿用既有主线，勿重复新建）')}`
       + `\n【当前世界】：${M.worldName || '轮回乐园'}`
       + `\n【本世界难度·已锁定（进入本世界即固定·全程不随主角升级/变强而变）】：${M.worldTier || _pp.tier || '（进入时主角阶位）'} —— 本世界一切**敌人强度 / 任务与环的难度 / 击杀目标阶位上限 / 掉落与奖励档位 / 结算难度**一律按这个**锁定难度**来定，**绝不因主角在本世界内升级、变强、拿到新装备而水涨船高**。【击杀阶位上限】里的"主角阶位"一律改用此锁定难度阶位判定。`
       + `\n【同人增强】：${fanficOn ? '开 —— 若当前世界为已知虚构作品，按【同人世界·任务接地】先联网搜索原作设定，再据此规划/生成任务' : '关（不联网搜索，按正文与世界设定生成任务）'}`
-      + `\n【本世界·其他契约者人口（据此按【契约者人口·时间演化】维护 contractors(...)）】：${isHomeWorld(M.worldName || '') ? '（当前在乐园/枢纽·不维护）' : (M.contractors?.count ? `现存约 ${M.contractors.count} 人${M.contractors.note ? `·${M.contractors.note}` : ''} —— 据本轮流逝的世界时间与正文合理增减(陨落/离场/新来)并更新` : '（尚未初始化 —— 若本轮进入/已在任务世界，请按世界志契约者分布或世界体量给出初值 contractors(N,"分布")）')}`
       + `\n【主角当前处境（任务须与之契合）】：${playerSituation || '（未建档）'}`
       + `\n【主角职业与专长（任务据此发挥职业所长·别不看职业千篇一律塞战斗）】：${professionInfo || '（未建职业/技能——按世界与处境常规生成）'}`
+      + `\n【当前游戏时间（startTime/endTime 据此推算绝对时间）】：世界时间 ${M.worldTime || '（未设定）'}｜轮回历 ${M.paradiseTime || '（未设定）'}`
+      + `\n【当前任务列表】：\n${serializeTasks(M.tasks)}`
+      + `\n【下一个可用任务ID】：${M.nextTaskId()}`
+      + canonRef
+      + '\n\n' + renderPrompt(QUEST_COT_RULE);
+
+    try {
+      const { content: reply } = await apiChatFallback(chain, [
+        { role: 'system', content: systemPrompt },
+        { role: 'user', content: `【本回合正文】\n${narrative}\n\n请先输出 <quest_cot> 推演，再按【输出格式铁律】只输出一个 <upstore> 任务指令块（本轮任务无变动则输出空 <upstore></upstore>）。` },
+      ], { timeoutMs: 120000 });
+      console.log('[Quest] 任务演化响应:', reply);
+      const applied = applyMiscCommands(reply, { domain: 'tasks' });
+      console.log(`[Quest] 任务演化应用 ${applied} 条指令`);
+      if (applied > 0) recordEvo('misc', { source: 'quest-phase', turn: turnCountRef.current }, 'apply', '任务', 'applied', `${applied} 项`);   // 演化账本：任务动作记 misc 域、source 区分
+    } catch (e: any) {
+      console.error('[Quest] 任务演化失败:', e.message ?? e);
+      setQuestPhaseLog(`⚠ 任务更新失败：${(e.message ?? '').slice(0, 50)}`);
+      setTimeout(() => setQuestPhaseLog(''), 8000);
+    }
+  }
+
+  /* ════════════════════════════════════════════
+     杂项演化阶段（分段总结 / 双时间 / 天气 / 世界大事——任务已拆去独立的「任务演化」阶段）
+  ════════════════════════════════════════════ */
+  async function runMiscEvolutionPhase(narrative: string) {
+    const M = useMisc.getState();
+    if (!M.settings.enabled) return;
+    const ss = useSettings.getState();
+    const legacyApi = M.miscUseSharedApi
+      ? (ss.textUseSharedApi ? ss.api : ss.textApi)
+      : M.miscApi;
+    const chain = resolveApiChain('misc', legacyApi);
+    if (!chain[0]?.baseUrl || !chain[0]?.apiKey) { console.warn('[Misc] API 未配置，跳过杂项演化'); return; }
+
+    const enabledEntries = (M.settings.entries ?? []).filter((e) => e.enabled);
+    if (enabledEntries.length === 0) { console.warn('[Misc] 无启用的预设条目，跳过杂项演化'); return; }
+    // 大总结周期：每 largeEvery 个杂项演化回合才产一条大总结（聚合压缩近期小总结），其余回合只出小总结
+    const round = M.bumpSummaryRound();
+    const largeEvery = Math.max(1, M.settings.largeEvery || 6);
+    const isLargeTurn = round % largeEvery === 0;
+    const recentSmall = M.smallSummaries.slice(-(largeEvery + 2)).map((s, i) => `${i + 1}. ${s}`).join('\n') || '（暂无小总结）';
+    const playerName = usePlayer.getState().profile.name || '主角';
+    const tlRow = `${M.worldName || '轮回乐园'} ${M.worldTime || M.paradiseTime || ''}`.trim();
+    // 本世界难度补锁（兜底·幂等）：主责已随任务职责搬去「任务演化」阶段，但 worldTier 还被 结算/契约者注入 等读取——
+    // 任务演化关着时也要能锁上，故这里保留一份 if(!worldTier) 补锁（两阶段并发跑也安全）。
+    if (!isHomeWorld(M.worldName || '') && !useMisc.getState().worldTier) { try { const t = usePlayer.getState().profile.tier || ''; if (t) useMisc.getState().setWorldTier(t); } catch { /* */ } }
+    // 任务与世界规范图鉴（builtinKey='twb-misc'）里的世界侧条目（①总纲/⑤世界大事/⑥天气/⑦双时间/⑧总结）：
+    // 任务相关条目（②③④）已改由「任务演化」阶段注入；按条目名筛，玩家改名/删光则整本兜底。整本禁用或被删则优雅留空。
+    const miscCodexInjection = (() => {
+      const book = useSettings.getState().textWorldBooks.find((b) => b.builtinKey === 'twb-misc');
+      if (!book || book.enabled === false) return '';
+      const enabledCodex = book.entries.filter((e) => e.enabled !== false);
+      const picked = enabledCodex.filter((e) => /总纲|世界大事|天气|双时间|总结/.test(String(e.comment ?? '')));
+      const body = (picked.length ? picked : enabledCodex).map((e) => e.content.trim()).filter(Boolean).join('\n\n');
+      return body ? `\n\n【杂项演化·世界规范图鉴（生成世界大事/天气/总结/推进时间前务必逐条对照）】\n${body}` : '';
+    })();
+    const systemPrompt = buildMiscSystemPrompt(M.settings.entries)
+      .replaceAll('${story_text}', narrative)
+      .replaceAll('${user_input}', '')
+      .replaceAll('${current_paradise_time}', M.paradiseTime || '（未设定）')
+      .replaceAll('${current_world_time}', M.worldTime || '（未设定）')
+      .replaceAll('${current_world_name}', M.worldName || '轮回乐园')
+      .replaceAll('${weather}', M.weather || '（未设定）')
+      // 任务占位符：v4 内置预设已无这两个占位符；当次会话导入的旧预设仍可能含有 → 填成说明文案而非任务数据
+      .replaceAll('${current_tasks}', '（任务由独立的「任务演化」阶段维护，本阶段不处理任务）')
+      .replaceAll('${world_events}', serializeEvents(M.worldEvents))
+      .replaceAll('${next_available_task_id}', '（本阶段不建任务）')
+      // ── 原版 13 条规则里残留的占位符（无小地图，按需填充/置空）──
+      .replaceAll('${current_time}', M.worldTime || M.paradiseTime || '（未设定）')
+      .replaceAll('${current_location}', M.worldName || '（未设定）')
+      .replaceAll('${time_location_row}', tlRow || '（未设定）')
+      .replaceAll('${world_map_pois}', '（未启用小地图）')
+      .replaceAll('${current_scene_map}', '（未启用小地图）')
+      .replaceAll('${world_factors}', '（无）')
+      .replaceAll('${player_name}', playerName)
+      .replaceAll('${player_traits}', '（略）')
+      + '\n\n' + NARRATIVE_FIRST_RULE + '\n' + MISC_HOME_TIME_RULE
+      + '\n\n' + MISC_NO_TASK_RULE
+      + '\n\n' + WORLD_EVENT_LOCATION_RULE
+      + '\n\n' + MISC_SUMMARY_CADENCE_RULE
+      + '\n\n' + WEATHER_FX_GEN_RULE
+      + '\n\n' + MISC_WEATHER_RULE
+      + '\n\n' + CONTRACTOR_EVOLUTION_RULE
+      + miscCodexInjection
+      + `\n\n【当前世界】：${M.worldName || '轮回乐园'}`
+      + `\n【本世界·其他契约者人口（据此按【契约者人口·时间演化】维护 contractors(...)）】：${isHomeWorld(M.worldName || '') ? '（当前在乐园/枢纽·不维护）' : (M.contractors?.count ? `现存约 ${M.contractors.count} 人${M.contractors.note ? `·${M.contractors.note}` : ''} —— 据本轮流逝的世界时间与正文合理增减(陨落/离场/新来)并更新` : '（尚未初始化 —— 若本轮进入/已在任务世界，请按世界志契约者分布或世界体量给出初值 contractors(N,"分布")）')}`
       + `\n【本轮大总结开关】：${isLargeTurn ? `是（本轮是第 ${round} 轮，到达大总结周期，必须压缩近期小总结输出 1 条大总结）` : `否（本轮第 ${round} 轮，未到周期，只写小总结，禁止输出大总结）`}`
       + `\n【最近小总结（供大总结压缩参考，仅在开关=是时使用）】：\n${recentSmall}`
       + `\n【已确立真相清单·当前（用 truths([...]) 覆盖式维护，规则见下）】：${(M.truths ?? []).length ? (M.truths ?? []).map((t, i) => `${i + 1}.${t}`).join('；') : '（空——出现身份秘密/誓言/世界铁律/重大死亡类硬事实时开始建档）'}`
@@ -5383,7 +5497,7 @@ ${AFFIX_EFFECT_RULE}`;
         { role: 'user', content: '请按【输出格式铁律】只输出 <upstore> 指令块。' },
       ], { timeoutMs: 120000 });
       console.log('[Misc] 杂项演化响应:', reply);
-      const applied = applyMiscCommands(reply, { allowLarge: isLargeTurn });
+      const applied = applyMiscCommands(reply, { allowLarge: isLargeTurn, domain: 'world' });   // 任务指令硬过滤（任务归独立的任务演化阶段）
       console.log(`[Misc] 杂项演化应用 ${applied} 条指令（第 ${round} 轮，大总结周期：${isLargeTurn ? '是' : '否'}）`);
       if (applied > 0) recordEvo('misc', { source: 'misc-phase', turn: turnCountRef.current }, 'apply', '杂项', 'applied', `${applied} 项`);   // 演化账本：杂项域时间线审计
       // 顶栏天气特效：AI 为奇异天气生成的纯 CSS（sanitize 后按当前天气缓存；常规天气无此块，走前端预设）
@@ -9116,6 +9230,7 @@ ${lines}`;
       { key: 'cosmos',    enabled: due('cosmos'),       run: () => runCosmosEvolutionPhase(narr('cosmos')) },
       { key: 'memory',    enabled: true,                run: () => runMemoryCompressionPhase() },   // 内部按阈值判定，不走回合门控
       { key: 'misc',      enabled: due('misc'),         run: () => runMiscEvolutionPhase(narr('misc')) },
+      { key: 'quest',     enabled: due('quest'),        run: () => runQuestEvolutionPhase(narr('quest')) },   // 任务演化（从杂项拆出的独立阶段·独立API featureKey='quest'）
       { key: 'nm',        enabled: due('nm'),           run: () => runNarrativeIngestPhase(lastUserInputRef.current, narr('nm')) },
       { key: 'table',     enabled: tableDue,            run: () => runTableFillPhase(narr('table'), { auto: true }) },   // 剧情表(纪要/进程/伏笔/约定)独立成阶段·专人调一次 AI 只吐<tableEdit>·比塞进正文让 AI 顺手吐可靠得多
       { key: 'choices',   enabled: true,                run: () => runChoicesFanficPhase(narrative, assistantMsgId) },   // 内部各自开关门控
@@ -9952,7 +10067,7 @@ ${lines}`;
   const BATCH_RUNNERS: Record<string, (n: string, force?: boolean) => Promise<void> | void> = {
     item: runItemManagementPhaseCore, player: runPlayerEvolutionPhase, npc: runNpcEvolutionPhase, pet: runPetEvolutionPhase,
     faction: runFactionEvolutionPhase, territory: runTerritoryEvolutionPhase, team: runTeamEvolutionPhase,
-    cosmos: runCosmosEvolutionPhase, misc: runMiscEvolutionPhase, table: (n) => runTableFillPhase(n),   // 手动批量补填=非 auto（默认走"手动补填表格"标签）
+    cosmos: runCosmosEvolutionPhase, misc: runMiscEvolutionPhase, quest: runQuestEvolutionPhase, table: (n) => runTableFillPhase(n),   // 手动批量补填=非 auto（默认走"手动补填表格"标签）
   };
   function narrativeFloors(): string[] {   // 楼层 = 每条 AI 正文（从旧到新）
     return (messagesRef.current ?? []).filter((m) => m.role === 'assistant' && m.content).map((m) => m.content as string);
@@ -11387,6 +11502,11 @@ ${lines}`;
                 {miscPhaseLog}
               </span>
             )}
+            {questPhaseLog && (
+              <span className={questPhaseLog.startsWith('⚠') ? 'text-blood' : 'text-slate-300/80'}>
+                {questPhaseLog}
+              </span>
+            )}
             {imagePhaseLog && (
               <span className={imagePhaseLog.startsWith('⚠') ? 'text-blood' : 'text-pink-400/80'}>
                 {imagePhaseLog}
@@ -11733,7 +11853,8 @@ ${lines}`;
                 { icon: '🏯', label: '领地', fk: 'territory', batch: true, run: revarRun(runTerritoryEvolutionPhase) },
                 { icon: '🛡', label: '冒险团', fk: 'team', batch: true, run: revarRun(runTeamEvolutionPhase) },
                 { icon: '🌌', label: '万族', fk: 'cosmos', batch: true, run: revarRun(runCosmosEvolutionPhase) },
-                { icon: '📋', label: '任务 / 世界 / 杂项', fk: 'misc', batch: true, run: revarRun(runMiscEvolutionPhase) },
+                { icon: '📋', label: '世界 / 杂项（总结·时间·天气·大事）', fk: 'misc', batch: true, run: revarRun(runMiscEvolutionPhase) },
+                { icon: '🎯', label: '任务演化', fk: 'quest', batch: true, run: revarRun(runQuestEvolutionPhase) },
                 { icon: '🗂', label: '填表（纪要 / 进程 / 伏笔 / 约定）', fk: 'table', batch: true, run: revarRun(runTableFillPhase) },
                 { icon: '🧠', label: '记忆整理', run: () => runMemoryCompressionPhase() },
                 { icon: '🖼', label: '生图（肖像 + 装备）', fk: 'image', run: () => { runPortraitPhase(); runEquipImagePhase(); } },

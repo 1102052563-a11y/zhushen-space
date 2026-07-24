@@ -2,7 +2,7 @@ import { useSettings } from '../store/settingsStore';
 
 /* 接口路由选择：从「综合设置 → API 接口库」勾选多条接口，按优先级（上=先调用）轮流调用、
    失败自动 fallback。留空则回退到该功能下方的「单独配置 / 共用 API」。
-   routeKey 为功能键（text/world/item/player/npc/faction/territory/team/misc/memory/nm）。 */
+   routeKey 为功能键（text/world/item/player/npc/faction/territory/team/misc/quest/memory/nm）。 */
 export default function ApiRoutePicker({ routeKey, className = '' }: { routeKey: string; className?: string }) {
   const library = useSettings((s) => s.apiLibrary);
   const routes = useSettings((s) => s.apiRoutes);
