@@ -6,9 +6,9 @@
   "待修复": 15
  },
  "byPriority": {
-  "P0": 61,
+  "P0": 62,
   "P1": 14,
-  "P2": 1131
+  "P2": 1130
  },
  "rows": [
   {
@@ -666,6 +666,18 @@
    "name": "彼女 〜上書き性服・楓〜剥がれ注ぐおじさん棒",
    "lib": "休闲",
    "issue": "机检错误:剧情 5759 字 < 6000",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "待修复",
+   "fixedMark": false
+  },
+  {
+   "priority": "P0",
+   "batch": 730,
+   "file": "产出\\批次730\\第2話 「無口な彼女」[－[注釈 1－]](＃cite_note-16).md",
+   "name": "第2話 「無口な彼女」[\\[注釈 1\\]](#cite_note-16)",
+   "lib": "休闲",
+   "issue": "机检错误:剧情 389 字 < 6000/切入点 144 字 < 1500 | 文件名不符",
    "hasCrossDup": false,
    "crossGroupIds": [],
    "status": "待修复",
@@ -13414,18 +13426,6 @@
    "crossGroupIds": [],
    "status": "已修复",
    "fixedMark": true
-  },
-  {
-   "priority": "P2",
-   "batch": 730,
-   "file": "产出\\批次730\\第2話 「無口な彼女」[－[注釈 1－]](＃cite_note-16).md",
-   "name": "第2話 「無口な彼女」[\\[注釈 1\\]](#cite_note-16)",
-   "lib": "休闲",
-   "issue": "文件名不符",
-   "hasCrossDup": false,
-   "crossGroupIds": [],
-   "status": "待修复",
-   "fixedMark": false
   },
   {
    "priority": "P2",

@@ -39,7 +39,7 @@
 | 对话持久化（跨刷新） | `systems/chatDb.ts` |
 | 中心 API 库 / 多接口路由 / fallback | `store/settingsStore.ts`（`apiLibrary`/`apiRoutes`/`resolveApiChain`）；`systems/apiChat.ts`（`apiChatFallback`）；`components/ApiRoutePicker.tsx` |
 | 角色创建 / 开场白 / 进入世界 | `App.tsx` → `confirmCreation`/`buildOpening`/`enterWorld`；`components/CharacterCreation.tsx` |
-| 世界选择（AI 生成乐园） | `components/WorldSelector.tsx`；`worldGenPrompt.ts` |
+| 世界选择（AI 生成乐园） | `components/WorldSelector.tsx`（`generate(mode,override?)`：批量出全部 Roll / 每张卡 ✨ 单独生成累加）；`worldGenPrompt.ts` |
 | 世界详情库（工坊档案→卡片生成/正文注入） | `systems/worldDetail.ts`（`fetchWorldDetailsFor`/`ensureWorldDetailFor`/`buildWorldDetailInjection`·三层覆盖 本地修订>全局修订>内置分片）；**分层注入引擎** `systems/worldDetailInject.ts`（分节/词条打分/阶段门控/预算常量）；切片插件 `vite.config.ts` `buildWorldDetailShards`；注入点 `WorldSelector.generate` + `App.tsx` callApi 世界志旁（正文=layered 传 ctxText·细纲=full）|
 | 世界资料库面板（浏览/编辑/提交审核/全局生效） | `components/WorldDetailLibPanel.tsx`；本地修订 `store/worldEditStore.ts`(`drpg-worldedit`)；提交/审核 API `systems/worldDetailShare.ts`；服务端 `multiplayer-worker/src/worldDetail.js`（D1·管理员=工坊 adminKey）|
 | 设置页路由（哪个子面板） | `components/SettingsPanel.tsx`（大路由）|

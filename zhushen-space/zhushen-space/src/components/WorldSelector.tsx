@@ -223,7 +223,9 @@ export default function WorldSelector({ onRawResponse, onPromptSent, onWorlds, o
       );
   }
 
-  async function generate(mode: 'batch' | 'customOnly' = 'batch') {
+  // mode=batch(Roll+自定义一起) / customOnly(仅自定义)；override={names,append}=只生成指定世界名
+  //   （单独生成 roll 出的某一个世界·快，不必等全部）；append=true 时结果累加到已生成列表而非整体替换。
+  async function generate(mode: 'batch' | 'customOnly' = 'batch', override?: { names: string[]; append?: boolean }) {
     setStage('loading');
     setErrorMsg('');
 
@@ -245,7 +247,10 @@ export default function WorldSelector({ onRawResponse, onPromptSent, onWorlds, o
     // 点名生成：把「点名编号」映射成世界库里的世界名清单（去重、去空）。
     //   customOnly＝只生成自定义世界（跳过世界库/Roll 要求）；batch＝Roll 点名的 + 自定义世界一起生成。
     let pickedNames: string[];
-    if (mode === 'customOnly') {
+    if (override) {
+      pickedNames = [...new Set(override.names.map((n) => n.trim()).filter(Boolean))];
+      if (pickedNames.length === 0) { setErrorMsg('该编号没有对应世界（无法单独生成）'); setStage('config'); return; }
+    } else if (mode === 'customOnly') {
       if (customNames.length === 0) {
         setErrorMsg('请先在「✨ 自定义世界」框里填想生成的世界名（如：火影忍者世界 / 克苏鲁神话…）');
         setStage('config');
@@ -351,8 +356,13 @@ export default function WorldSelector({ onRawResponse, onPromptSent, onWorlds, o
         entryContent: '',
         entryKeys: [],
       }));
-      setWorlds(merged);
-      onWorlds(merged);
+      // 单独生成(append)：新卡插最前（父级 cardIndex 归 0 即展示刚生成的），同名替换旧卡、其余累加保留；
+      //   批量/自定义则整体替换。
+      const finalWorlds = override?.append
+        ? [...merged, ...worlds.filter((w) => !merged.some((m) => m.name.trim() === w.name.trim()))]
+        : merged;
+      setWorlds(finalWorlds);
+      onWorlds(finalWorlds);
       setStage('results');
     } catch (e: any) {
       setErrorMsg(e.message ?? '未知错误');
@@ -489,7 +499,8 @@ export default function WorldSelector({ onRawResponse, onPromptSent, onWorlds, o
             )}
           </div>
           {rolls.length > 0 && worldLib.count > 0 && (
-            <div className="grid grid-cols-5 max-lg:grid-cols-2 gap-2">
+            <>
+              <div className="grid grid-cols-5 max-lg:grid-cols-2 gap-2">
               {rolls.map((v, i) => {
                 const nm = nameOf(v);
                 return (
@@ -502,13 +513,23 @@ export default function WorldSelector({ onRawResponse, onPromptSent, onWorlds, o
                         className="w-full bg-void border-b border-god/30 px-1 py-0.5 text-[13px] text-amber-300 font-mono text-center outline-none focus:border-god"
                       />
                     </div>
-                    <span className={`text-[11px] font-mono leading-tight truncate ${nm ? 'text-god/80' : 'text-blood/70'}`} title={nm || '无此编号'}>
-                      {nm || '— 无此编号'}
-                    </span>
+                    <div className="flex items-center gap-1">
+                      <span className={`flex-1 min-w-0 text-[11px] font-mono leading-tight truncate ${nm ? 'text-god/80' : 'text-blood/70'}`} title={nm || '无此编号'}>
+                        {nm || '— 无此编号'}
+                      </span>
+                      <button
+                        onClick={() => generate('batch', { names: [nm], append: true })}
+                        disabled={!nm}
+                        title={nm ? `只生成「${nm}」这一个世界（快，不必等其他；结果累加到已生成列表）` : '无此编号'}
+                        className="shrink-0 text-[12px] leading-none px-1 py-0.5 rounded border border-god/30 text-god hover:bg-god/10 transition-colors disabled:opacity-25 disabled:cursor-not-allowed"
+                      >✨</button>
+                    </div>
                   </div>
                 );
               })}
-            </div>
+              </div>
+              <div className="text-[11px] font-mono text-dim/45">每张卡的 ✨＝只生成这一个（快，不必等全部·可逐个累加）；点上方「生成」＝一次出全部 Roll 的世界。</div>
+            </>
           )}
 
           {/* 自定义世界：手动输入想生成的世界名——「✨ 单独生成」只出这几张；也可留着与上方 Roll 的一起点「生成」批量出 */}
