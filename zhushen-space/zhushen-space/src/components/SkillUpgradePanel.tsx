@@ -10,6 +10,7 @@ import {
   levelUpCoinCost, rarityUpCoinCost, masteryCoinCost,
   generateSkillFusion, type FuseSource, type FuseKind, type SkillFusionResult,
 } from '../systems/skillUpgrade';
+import { normalizeSkillLevel } from '../systems/skillLevelNorm';
 
 /* 乐园设施·技能升级面板：
    - 技能/天赋：技能点升等级 / 黄金技能点升品级质变（调 AI 生成升级效果）。
@@ -71,6 +72,13 @@ export default function SkillUpgradePanel({ onClose }: { onClose: () => void }) 
   const [fuseErr, setFuseErr] = useState('');
   const [fuseDone, setFuseDone] = useState<null | { kind: FuseKind; name: string; rarity?: string; level?: string; effect?: string }>(null);
   const [lastFuse, setLastFuse] = useState<FuseSnapshot | null>(null);   // 最近一次融合（可撤回/重铸）
+
+  // 老存档里 level 可能混着品级（"传说·Lv.1"，AI 写的）→ 直接渲染 `{rarity}·{level}` 会出现两次品级。
+  // 写入边界已经在剥了（skillLevelNorm），这里再兜一层，让**已经存进去的**旧条目也显示正常。
+  const skillTag = (s: Skill): string => {
+    const n = normalizeSkillLevel(s.level, s.rarity);
+    return [n.rarity, n.level].filter(Boolean).join('·');
+  };
 
   const sp = currency['技能点'] ?? 0;
   const gp = currency['黄金技能点'] ?? 0;
@@ -289,7 +297,7 @@ export default function SkillUpgradePanel({ onClose }: { onClose: () => void }) 
                   <div className="flex flex-wrap gap-1.5">
                     {skills.map((s) => (
                       <button key={s.id} onClick={() => pick({ kind: 'skill', key: s.id })} className={chipCls(sel?.kind === 'skill' && sel.key === s.id)}>
-                        {s.name}<span className="text-dim/40 ml-1">{s.rarity ?? ''}·{s.level ?? ''}</span>
+                        {s.name}<span className="text-dim/40 ml-1">{skillTag(s)}</span>
                       </button>
                     ))}
                   </div>
@@ -329,9 +337,12 @@ export default function SkillUpgradePanel({ onClose }: { onClose: () => void }) 
               <div className="space-y-3 border-t border-edge/60 pt-3">
                 <div className="rounded-xl border border-edge bg-panel2/40 p-3">
                   <div className="text-sm font-semibold text-slate-100">{entry.name}
-                    <span className="text-[11px] text-dim/50 ml-2">{(entry as any).rarity ?? ''}{isTalent ? '级' : ''} · {(entry as any).level ?? ''}</span>
+                    <span className="text-[11px] text-dim/50 ml-2">{isTalent
+                      ? `${(entry as any).rarity ?? ''}级${(entry as any).level ? ' · ' + (entry as any).level : ''}`
+                      : skillTag(entry as Skill)}</span>
                   </div>
-                  {(entry as any).effect && <div className="text-[11px] text-dim/70 mt-1 leading-relaxed line-clamp-4 whitespace-pre-wrap">{(entry as any).effect}</div>}
+                  {/* 只渲染**选中的**那一个（不是列表），所以不截断也不会撑爆 —— 要花点数升级它，先得能读全它现在是什么 */}
+                  {(entry as any).effect && <div className="text-[11px] text-dim/70 mt-1 leading-relaxed whitespace-pre-wrap">{(entry as any).effect}</div>}
                 </div>
 
                 <div className="flex gap-2">
@@ -380,7 +391,7 @@ export default function SkillUpgradePanel({ onClose }: { onClose: () => void }) 
                 {done && done.name === entry.name && (
                   <div className="rounded-xl border border-god/50 bg-god/10 p-3 space-y-1">
                     <div className="text-[12px] text-god font-semibold">✓ 已升级「{done.name}」 {done.rarity ? `· ${done.rarity}` : ''} {done.level ?? ''}</div>
-                    {done.effect && <div className="text-[11px] text-slate-300 leading-relaxed whitespace-pre-wrap line-clamp-6">{done.effect}</div>}
+                    {done.effect && <div className="text-[11px] text-slate-300 leading-relaxed whitespace-pre-wrap">{done.effect}</div>}   {/* 同融合：升级产物也别截断 */}
                     <div className="text-[10px] text-dim/50">已扣除资源；正文将收到一条"已用掉"提示。可在「技能」面板查看。</div>
                   </div>
                 )}
@@ -452,7 +463,7 @@ export default function SkillUpgradePanel({ onClose }: { onClose: () => void }) 
                         const key = `skill:${s.id}`; const idx = fuseSel.indexOf(key);
                         return (
                           <button key={s.id} onClick={() => toggleFuse(key)} className={chipCls(idx >= 0)}>
-                            {idx >= 0 && <span className="text-amber-300 font-mono mr-1">{idx + 1}.</span>}{s.name}<span className="text-dim/40 ml-1">{s.rarity ?? ''}·{s.level ?? ''}</span>
+                            {idx >= 0 && <span className="text-amber-300 font-mono mr-1">{idx + 1}.</span>}{s.name}<span className="text-dim/40 ml-1">{skillTag(s)}</span>
                           </button>
                         );
                       })}
@@ -492,7 +503,10 @@ export default function SkillUpgradePanel({ onClose }: { onClose: () => void }) 
                 {fuseDone && (
                   <div className="rounded-xl border border-amber-500/50 bg-amber-500/10 p-3 space-y-2">
                     <div className="text-[12px] text-amber-300 font-semibold">✓ 熔铸出{fuseDone.kind === 'skill' ? '技能' : '天赋'}「{fuseDone.name}」{fuseDone.rarity ? ` · ${fuseDone.rarity}${fuseDone.kind === 'talent' ? '级' : ''}` : ''}{fuseDone.level ? ` ${fuseDone.level}` : ''}</div>
-                    {fuseDone.effect && <div className="text-[11px] text-slate-300 leading-relaxed whitespace-pre-wrap line-clamp-6">{fuseDone.effect}</div>}
+                    {/* ⚠ 别再加 line-clamp：这是玩家花了 AI 调用 + 吃掉若干技能/天赋换来的产物，
+                        截断＝看不到自己得到了什么（多段效果的天赋常被切在第三段中间）。
+                        外层弹窗本来就是 max-h-[90dvh] overflow-y-auto，长了会自己滚。 */}
+                    {fuseDone.effect && <div className="text-[11px] text-slate-300 leading-relaxed whitespace-pre-wrap">{fuseDone.effect}</div>}
                     <div className="text-[10px] text-dim/50">新条目已加入「{fuseDone.kind === 'skill' ? '技能' : '天赋'}」列表，可在「技能」面板查看。不满意可<b className="text-slate-300">撤回</b>（还原来源）或<b className="text-slate-300">重新合成</b>（换一个）。</div>
                     {lastFuse && (
                       <div className="flex gap-2 pt-0.5">

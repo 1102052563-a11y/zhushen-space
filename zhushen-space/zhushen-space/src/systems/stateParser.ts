@@ -14,6 +14,7 @@ import { opOf, refOf, isBatchDup, newBatch, recordItem, currencyDupKey, isCurren
 import { recordEvo, charRef, npcRef, charDigest, npcDigest, type EvoCtx, type EvoResult } from './ledger/evoLedger';
 import { parseEditItems, parseEditChars, parseEditNpcs, parseEditFactions } from './editParser';
 import { shouldBlockItemGrantedSkill } from './itemGrantedSkill';
+import { normalizeSkillLevel } from './skillLevelNorm';
 
 // 演化账本闸门相关件 re-export（App / stateApply 从 stateParser 统一拿，避免到处 import 子路径）
 export { buildItemFeedback, purgeItemPhaseCurrency, detectUnregisteredCurrencyGains } from './ledger/itemLedger';
@@ -1546,11 +1547,14 @@ function applyCharacterCommandsRaw(commands: CharCommand[], _narrative?: string)
           console.warn(`[Char] 拦截"物品附带技能"漏进技能栏：${skName}（来自已装备物品的附带能力·随物品走，未收录为主角本人技能。若确已内化成自身本领，请在正文写明或手动添加）`);
           continue;
         }
+        // AI 常把品级写进 level（"传说·Lv.1"）→ 面板显示成「传说·传说·Lv.1」，质变后还会跟品级对不上。
+        // 在写入边界剥掉；rarity 没给就用剥出来的补上（见 skillLevelNorm）。
+        const lv = normalizeSkillLevel(d['2'] ?? d.level, d.rarity ?? d.tier);
         // NPC 技能是否新增/更新交由 AI（演化预设）判断，不再机械拦截
         store.addSkill(charId, {
           id:            d['0'] ?? d.id ?? `S_${charId}_${Date.now()}`,
           name:          skName,
-          level:         d['2'] ?? d.level ?? '',
+          level:         lv.level,
           cooldown:      d['3'] ?? d.cooldown,
           desc:          d['4'] ?? d.desc ?? d.description ?? '',
           layers:        d['5'] ?? d.layers,
@@ -1560,7 +1564,7 @@ function applyCharacterCommandsRaw(commands: CharCommand[], _narrative?: string)
           layerEffects:  d['9'] ?? d.layerEffects,
           // 固定格式补充字段（命名键）
           skillType:     d.skillType ?? d.type,
-          rarity:        d.rarity ?? d.tier,
+          rarity:        lv.rarity,
           target:        d.target,
           damage:        d.damage,
           attrBonus:     d.attrBonus ?? d.attr,

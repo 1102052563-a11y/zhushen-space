@@ -6,6 +6,7 @@ import { lenientJsonParse } from './stateParser';
 import { SKILL_LEVELUP_PROMPT, SKILL_FUSION_RULE } from '../promptRules';
 import { getPrompt } from '../store/promptOverrideStore';   // 预设中心：主提示词 override
 import { SUBPROF_MASTERY_LADDER, SUBPROF_MASTERY_PER_SKILLPOINT } from '../store/subProfTreeStore';
+import { SKILL_RARITIES, TALENT_RARITIES, normalizeSkillLevel } from './skillLevelNorm';
 import type { Skill, Trait } from '../store/characterStore';
 
 /* ── 乐园币消耗表（用户定稿：基价 ×10）。可在此调价。 ──
@@ -53,9 +54,8 @@ export function masteryCoinCost(curSpent: number, chunks: number): number {
    - setSkillUpNote/takeSkillUpNote：结算后给正文挂一条一次性"已用掉点数"系统提示（callApi 注入一次即清）。
 ════════════════════════════════════════════ */
 
-// 技能品级 7 档 / 天赋评级 D~SSS（与世界书一致）
-export const SKILL_RARITIES = ['普通', '精良', '稀有', '史诗', '传说', '奥义', '极境'];
-export const TALENT_RARITIES = ['D', 'C', 'B', 'A', 'S', 'SS', 'SSS'];
+// 技能品级 7 档 / 天赋评级 D~SSS（与世界书一致）——真身在 skillLevelNorm（stateParser 也要用，放那边免循环依赖），此处原样再导出，调用方不用改
+export { SKILL_RARITIES, TALENT_RARITIES } from './skillLevelNorm';
 
 /** 从 level 字符串解析当前等级数字（"入门·Lv.15"→15；"Lv.EX"→满级按 10；缺省 1）。 */
 export function parseLevelNum(level?: string): number {
@@ -168,7 +168,9 @@ export async function generateSkillUpgrade(o: SkillUpgradeOpts): Promise<SkillUp
   const apply: Record<string, any> = { ...raw, name: entry.name };
   if (o.mode === 'normal') {
     apply.rarity = oldRarity;
-    apply.level = withLevelNum(raw.level || entry.level, o.newLevelNum);
+    // 顺手治旧数据：老条目的 level 里可能混着品级（"传说·Lv.1"），而 withLevelNum 只换数字、会把它一路带下去
+    const base = o.isTalent ? (raw.level || entry.level) : normalizeSkillLevel(raw.level || entry.level, undefined).level;
+    apply.level = withLevelNum(base, o.newLevelNum);
   } else {
     apply.rarity = o.newRarity;
     if (!raw.level) apply.level = o.isTalent ? `${o.newRarity}·觉醒` : `Lv.1`;
