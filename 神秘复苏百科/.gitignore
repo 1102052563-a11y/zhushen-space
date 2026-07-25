@@ -1,0 +1,9 @@
+# 构建产物落在 zhushen-space/.../public/wiki-shenmi/（那边的 .gitignore 已排除），
+# 这里只兜底本地误用 `mkdocs build` 默认输出目录的情况。
+site/
+.cache/
+__pycache__/
+
+# 原著文本（版权）——只在本地用于逐章考据，不入库
+_source/
+神秘复苏*.txt

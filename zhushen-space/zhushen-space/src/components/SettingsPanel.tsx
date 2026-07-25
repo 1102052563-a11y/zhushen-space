@@ -1450,6 +1450,10 @@ function TextApiSection() {
   const setPlotGuidance    = useSettings((s) => s.setPlotGuidance);
   const planningReview     = useSettings((s) => s.planningReview);
   const setPlanningReview  = useSettings((s) => s.setPlanningReview);
+  const castBrief          = useSettings((s) => s.castBrief);
+  const setCastBrief       = useSettings((s) => s.setCastBrief);
+  const castBriefMax       = useSettings((s) => s.castBriefMax);
+  const setCastBriefMax    = useSettings((s) => s.setCastBriefMax);
   const setGuidancePrompt  = useSettings((s) => s.setGuidancePrompt);
   const outlineEnabled     = useSettings((s) => s.outlineEnabled);
   const outlinePrompt      = useSettings((s) => s.outlinePrompt);
@@ -1511,6 +1515,18 @@ function TextApiSection() {
           <div>
             <div className="text-sm text-slate-200">细纲（先出细纲 · 编辑后再写正文）<span className="text-xs text-amber-400/80 ml-1">· 与「剧情指导 / 数据库推进」三选一</span></div>
             <div className="text-sm text-dim mt-0.5">开启后：你每次发送，正文生成<b>前</b>先<b>单独跑一遍「细纲师」</b>——用<b>与正文完全一致的上下文</b>（世界书/记忆/角色档案/最近正文/你这步输入）产出<b>本回合细纲</b>（核心事件/情绪/情节点序列/钩子…），弹窗给你<b>编辑</b>；点「确认并生成正文」后，正文会被要求<b>严格遵循这份细纲</b>来写。<b className="text-amber-400/90">每回合 +1 次调用</b>（可在下方挂独立接口）。<b>重新生成</b>正文时不再弹细纲。默认关。</div>
+          </div>
+        </div>
+        <div className="flex items-center gap-3 p-3 bg-panel border border-edge rounded-lg">
+          <Toggle checked={castBrief} onChange={() => setCastBrief(!castBrief)} />
+          <div>
+            <div className="text-sm text-slate-200">角色立场简报（治配角同质化 / OOC / 谄媚）<span className="text-xs text-emerald-400/80 ml-1">· 不增加调用次数</span></div>
+            <div className="text-sm text-dim mt-0.5">开「细纲」或「数据库推进」时生效：给<b>那一次已有的规划调用</b>额外喂一份<b>只含人格</b>的瘦档案（性格 / 四轴态度 / 原则底线 / 范例台词口癖 / 关系网 / 当前动机），并要求它产出<b>本回合各角色的立场简报</b>（内心 / 第一反应 / 说话意图 / 绝不会做的事），随规划一起注入正文。<b className="text-emerald-400/90">不新增任何 API 调用</b>——原先这两条链子只靠最近几楼正文猜人设，配角自然被写成一个腔调。产出是<b>锁人格不锁语言</b>：台词仍由正文在当下语境自己写，简报只定立场；名单是<b>上限不是配额</b>，不会逼每个人都开口。默认开；关掉即完全恢复原行为。
+              <span className="block mt-1">最多喂
+                <input type="number" min={1} max={12} value={castBriefMax} onChange={(e) => setCastBriefMax(Number(e.target.value))}
+                  className="mx-1 w-14 px-1 py-0.5 bg-black/30 border border-edge rounded text-center text-slate-200" />
+                位候选角色（人多字段少，总开销低于 2 张全量 NPC 卡；上限 12）。</span>
+            </div>
           </div>
         </div>
         <div className="flex items-center gap-3 p-3 bg-panel border border-edge rounded-lg">

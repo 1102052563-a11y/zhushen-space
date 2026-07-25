@@ -4,19 +4,24 @@ import { copyFileSync, existsSync, mkdirSync, readdirSync, readFileSync, rmdirSy
 import { execSync } from 'child_process'
 import { createHash } from 'crypto'
 
-// 轮回WIKI：每次 vite build（含 Cloudflare）自动用 mkdocs 重建静态站到 public/wiki/。
-// 好处：你只改 lunhui-wiki/docs/*.md，build 时自动重建 → 无需手动 mkdocs、无需提交几百个构建产物（public/wiki 已 gitignore）。
-// Cloudflare 需在构建命令前装好依赖（见仓库根 部署到网页-指导.md：pip install -r ../../lunhui-wiki/requirements.txt）。
-// 失败不阻断游戏构建（保留已有 public/wiki）；本地需已装 mkdocs-material+jieba。
+// 内置 WIKI：每次 vite build（含 Cloudflare）自动用 mkdocs 重建静态站到 public/ 下。
+// 好处：你只改 <wiki>/docs/*.md，build 时自动重建 → 无需手动 mkdocs、无需提交几百个构建产物（产物已 gitignore）。
+// 两个站各自独立（各有 mkdocs.yml 与 site_dir），前端 WikiPanel 进去先选书：
+//   轮回乐园百科 → lunhui-wiki/        → public/wiki/
+//   神秘复苏百科 → 神秘复苏百科/        → public/wiki-shenmi/
+// Cloudflare 需在构建命令前装好依赖（两份 requirements.txt 内容相同：mkdocs-material + jieba）。
+// 单个站失败不阻断另一个、更不阻断游戏构建（保留已有产物）；本地需已装 mkdocs-material+jieba。
+const WIKIS = [
+  { label: '轮回乐园', cfg: '../../lunhui-wiki/mkdocs.yml', dir: 'public/wiki' },
+  { label: '神秘复苏', cfg: '../../神秘复苏百科/mkdocs.yml', dir: 'public/wiki-shenmi' },
+]
+
 function buildWiki(): Plugin {
-  const CFG = '../../lunhui-wiki/mkdocs.yml'
-  const OUT = 'public/wiki/index.html'
-  const IDX = 'public/wiki/search/search_index.json'
   // mkdocs 生成的搜索索引默认 ASCII 转义（每个中文→\uXXXX，6 字节/字，是原字 UTF-8 3 字节的两倍）。
   // 词条累积到 7000+ 后体积虚高到 27.2 MiB，触发 Cloudflare Pages「单文件 ≤25 MiB」上限 → 部署失败。
   // 就地把索引重写为紧凑 UTF-8（中文按原字存 3 字节）：纯序列化层变换，客户端 JSON.parse 得到的对象逐字节等价、
   // 搜索质量零损失 → 27.2 → ~14.3 MiB。兜底：万一日后内容膨胀到重写后仍 >24MiB，逐步截断超长条目正文直至达标（仅极端情况触发）。
-  const shrinkSearchIndex = () => {
+  const shrinkSearchIndex = (label: string, IDX: string) => {
     try {
       if (!existsSync(IDX)) return
       const before = statSync(IDX).size
@@ -31,28 +36,35 @@ function buildWiki(): Plugin {
         }
       }
       writeFileSync(IDX, out)
-      const line = `[build-wiki] search_index ${(before / 1048576).toFixed(1)}→${(Buffer.byteLength(out) / 1048576).toFixed(1)} MiB`
+      const line = `[build-wiki] ${label} search_index ${(before / 1048576).toFixed(1)}→${(Buffer.byteLength(out) / 1048576).toFixed(1)} MiB`
       console.log(finalLimit ? `${line}（内容超量，已把超长条目正文截断至 ≤${finalLimit} 字以压进 24MiB）` : line)
     } catch (e) {
       console.warn('[build-wiki] 搜索索引瘦身跳过（解析失败，保留原文件）：', (e as Error)?.message)
     }
   }
-  const build = () => {
+  const buildOne = ({ label, cfg, dir }: (typeof WIKIS)[number]) => {
     // 兼容不同环境的 python 入口；任一成功即停。
     const cmds = [
-      `python -m mkdocs build -f ${CFG}`,
-      `python3 -m mkdocs build -f ${CFG}`,
-      `mkdocs build -f ${CFG}`,
+      `python -m mkdocs build -f ${cfg}`,
+      `python3 -m mkdocs build -f ${cfg}`,
+      `mkdocs build -f ${cfg}`,
     ]
     for (const c of cmds) {
-      try { execSync(c, { stdio: 'inherit' }); shrinkSearchIndex(); return } catch { /* 试下一个入口 */ }
+      try { execSync(c, { stdio: 'inherit' }); shrinkSearchIndex(label, `${dir}/search/search_index.json`); return } catch { /* 试下一个入口 */ }
     }
-    console.warn('[build-wiki] mkdocs 未能构建（python/mkdocs 不可用？）— 保留已有 public/wiki')
+    console.warn(`[build-wiki] ${label}百科 mkdocs 未能构建（python/mkdocs 不可用？）— 保留已有 ${dir}`)
+  }
+  // 一个站构建失败只影响它自己：另一个照建，游戏本体照常打包。
+  const buildAll = (onlyMissing = false) => {
+    for (const w of WIKIS) {
+      if (onlyMissing && existsSync(`${w.dir}/index.html`)) continue
+      buildOne(w)
+    }
   }
   return {
     name: 'build-wiki',
-    buildStart() { build() },                               // 生产构建：每次重建
-    configureServer() { if (!existsSync(OUT)) build() },    // dev：仅当产物缺失时建一次（不拖慢日常启动）
+    buildStart() { buildAll() },                             // 生产构建：每次重建
+    configureServer() { buildAll(true) },                    // dev：仅当产物缺失时建（不拖慢日常启动）
   }
 }
 

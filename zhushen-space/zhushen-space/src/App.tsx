@@ -40,6 +40,8 @@ import {
   PLOT_GUIDANCE_RULE,
   OUTLINE_GEN_RULE,
   OUTLINE_FOLLOW_RULE,
+  CAST_BRIEF_RULE,
+  CAST_BRIEF_FOLLOW_RULE,
   PLOT_ADVANCE_DIRECTIVE,
   ENTRY_COT_RULE,
   CANON_STRENGTH_NO_SCALE_RULE,
@@ -273,6 +275,7 @@ import { useDbAdvance } from './store/dbAdvanceStore';   // 数据库推进管�
 import { findModule as dbFindModule, buildModuleMessages as dbBuildMsgs, extractTag as dbExtractTag, stripExcluded as dbStripExcluded, resolveFinalDirective as dbResolveDirective, type DbAdvanceCtx } from './systems/dbAdvancePreset';
 import { serializePlayerCard, serializeNpcCard, buildNpcCandidateTitles, buildPlayerSkillCandidates, buildPlayerItemCandidates, rankNpcsLocal, pickOffsceneRescue, serializeFactionsSection, namesMentionedIn, NM_STRUCT_SELECT_PROMPT, type RecallLimits } from './systems/structuredRecall';
 import { drainSceneNotices, pushSceneNotice, drainGrowthNotices, pushFacilityGranted, drainFacilityGranted } from './systems/allocNotice';
+import { buildCastBriefInput } from './systems/castBrief';   // 角色立场简报·输入侧：给细纲/推进喂只含人格的瘦档案（治配角同质化/OOC/谄媚）
 import { getPrompt, renderPrompt, setLastUserMessage } from './store/promptOverrideStore';   // 预设中心：主提示词 override（有玩家自定义用之，否则回退内置默认常量）；renderPrompt=给 field 类补一遍变量标签替换；setLastUserMessage=记玩家当前输入供 {{lastUserMessage}}   // 场外操作通报→正文前置须知；星图习得/开箱→入戏交代块；设施发放物→物品阶段勿再建
 import { rollGemDrops } from './systems/gemDrop';   // 正文击杀 → 结算掉落宝石（前端确定性）
 const MiscPanel = lazy(() => import('./components/MiscPanel'));
@@ -1347,7 +1350,7 @@ const rightMenuItems = [
   { icon: '🌌', label: '万族' },
   { icon: '📖', label: '世界百科' },
   { icon: '🗂', label: '世界资料库' },
-  { icon: '📚', label: '轮回WIKI' },
+  { icon: '📚', label: '原著WIKI' },
   { icon: '🗺', label: '世界记录' },
   { icon: '📜', label: '编年史' },
   { icon: '☄️', label: '混沌世界' },
@@ -1381,7 +1384,7 @@ const rightMenuItems = [
 const NAV_FX: Record<string, string> = {
   '装备': 'fx-sword', '储存空间': 'fx-bag', 'NPC': 'fx-card', '技能': 'fx-sparkle',
   '副职业': 'fx-wrench', '技能树': 'fx-tree', '体系': 'fx-tree', '合成': 'fx-wrench', '开箱': 'fx-bag', '称号': 'fx-medal', '成就': 'fx-trophy', '势力': 'fx-pillar',
-  '领地': 'fx-castle', '冒险团': 'fx-shield', '队伍': 'fx-friends', '万族': 'fx-cosmos', '世界百科': 'fx-book', '世界资料库': 'fx-book', '轮回WIKI': 'fx-book', '编年史': 'fx-book', '分支树': 'fx-tree', '混沌世界': 'fx-void',
+  '领地': 'fx-castle', '冒险团': 'fx-shield', '队伍': 'fx-friends', '万族': 'fx-cosmos', '世界百科': 'fx-book', '世界资料库': 'fx-book', '原著WIKI': 'fx-book', '编年史': 'fx-book', '分支树': 'fx-tree', '混沌世界': 'fx-void',
   '战斗': 'fx-clash', '乐园设施': 'fx-ferris', '深渊': 'fx-void', '回合洞察': 'fx-zoom', '审计': 'fx-zoom', '任务': 'fx-quest',
   '频道': 'fx-signal', '私信': 'fx-mail', '好友': 'fx-friends', '聊天室': 'fx-signal', '交易行': 'fx-bag', '产业': 'fx-bag', '公会': 'fx-castle', '助战': 'fx-clash', '世界竞技场': 'fx-trophy', '游玩时长': 'fx-trophy', '纪念丰碑': 'fx-pillar', '账户仓库': 'fx-bag', '记忆': 'fx-brain', '创意工坊': 'fx-sparkle', '存档': 'fx-save', '设置': 'fx-gear',
 };
@@ -9576,6 +9579,15 @@ ${lines}`;
     return false;
   };
 
+  /* 角色立场简报·输入块：本回合可能出场角色的**瘦人格档案**（性格/四轴/原则/口癖/关系/动机，无任何数值）。
+     喂给正文前的规划调用（细纲 / 数据库推进），让它们按人设排演各角色反应——原先这两条链子都只拿最近几楼正文猜人设，
+     配角自然被写成一个腔调。**不新增 API 调用**，只是把已有的那次调用喂饱。关（castBrief=false）→ 返回 ''。 */
+  const buildCastBlock = (userText: string): string => {
+    const ss = useSettings.getState();
+    if (!ss.castBrief) return '';
+    return buildCastBriefInput(Object.values(useNpc.getState().npcs), userText, { max: ss.castBriefMax });
+  };
+
   /* 剧情指导：正文生成【前】先跑一次，据「最近5楼 + 玩家这步 + 当前任务/场景」产出剧情优化建议（提示词允许联网搜原作剧情让切入更合理）。
      建议像叙事回忆一样注入主正文，由主正文据此写。失败/无配置 → 返回 ''（不注入，正文照常生成）。可挂独立 guidance 路由。 */
   async function runPlotGuidance(userText: string): Promise<string> {
@@ -9639,7 +9651,8 @@ ${lines}`;
       .map((p, i) => ({ code: `AM${String(i + 1).padStart(2, '0')}`, label: p.kind === 'event' ? '世界大事' : p.kind === 'large' ? '阶段记忆' : '长期事实', body: p.body }));
     const overview = codedMems.map((m) => `${m.code} [${m.label}] ${m.body}`).join('\n') || '（暂无）';
     const prev = (messagesRef.current ?? []).slice(-8).map((m) => `[${m.role === 'user' ? '玩家' : '正文'}] ${m.content}`).join('\n\n') || '（暂无前文）';
-    const ctx: DbAdvanceCtx = { U, C, bg: worldInfoText || '（无背景设定）', overview, prev, input: userText || '（续写）', tabletop: st.lastTabletop || '（首轮·无上轮记录）' };
+    const castBlock = buildCastBlock(userText);   // 本回合可能出场角色的人格档案（$N）；关或无候选→''
+    const ctx: DbAdvanceCtx = { U, C, bg: worldInfoText || '（无背景设定）', overview, prev, input: userText || '（续写）', N: castBlock, tabletop: st.lastTabletop || '（首轮·无上轮记录）' };
 
     setGuidanceRunning(true);
     try {
@@ -9667,7 +9680,15 @@ ${lines}`;
         if (advMod) console.warn(`[数据库推进] 未找到名为"推进"的模块，容错回退到 "${advMod.name}"（该预设模块:${tasks.map((t) => t.name).join(' / ') || '无'}）`);
       }
       if (!advMod) { console.warn(`[数据库推进] 预设里没有可用的推进模块 → 空回。plotTasks:${(st.preset.plotTasks ?? []).map((t) => t.name).join(' / ') || '（空）'}——请确认导入的是有效 Stitches 推进预设(含 plotTasks)`); return ''; }
-      const advOut = await callMod(dbBuildMsgs(advMod, { ...ctx, recall }));
+      // 角色立场简报：把人格档案 + 产出规则**追加**在推进模块的消息之后（代码注入铁则——即时生效、无需玩家重导 Stitches 预设）。
+      //   预设里若已写了 $N，占位符替换已经把档案塞进去了，这里就只补规则、不重复喂档案（省 token）。
+      const advMsgs = dbBuildMsgs(advMod, { ...ctx, recall });
+      if (castBlock) {
+        const usesN = (advMod.promptGroup ?? []).some((m) => (m.content || '').includes('$N'));
+        if (!usesN) advMsgs.push({ role: 'system', content: castBlock });
+        advMsgs.push({ role: 'system', content: getPrompt('CAST_BRIEF_RULE', CAST_BRIEF_RULE) });
+      }
+      const advOut = await callMod(advMsgs);
       if (!advOut) { console.warn(`[数据库推进] 推进子调用返回空 → 空回。若上面有"子调用失败/超 45s 跳过"日志＝接口原因(接口=${chain[0]?.baseUrl} 模型=${chain[0]?.modelId})；否则是 AI 没吐内容/被 contextExclude 剥空`); return ''; }
       const clean = dbStripExcluded(advOut, st.preset.contextExcludeRules);
       const stage = dbExtractTag(clean, 'stage');
@@ -9675,15 +9696,18 @@ ${lines}`;
       // 「桌面推演/跟踪」层：按预设声明的 extractInjectTags 抽（不再写死·默认 tabletop 兼容旧预设）——它带各角色的行动/神态/台词/beat 详细排演
       const injTags = (advMod.extractInjectTags || 'tabletop').split(',').map((s) => s.trim()).filter(Boolean);
       const tabletop = (injTags.length ? injTags : ['tabletop']).map((t) => dbExtractTag(clean, t)).filter(Boolean).join('\n\n');
+      const cast = castBlock ? dbExtractTag(clean, '立场简报') : '';   // 角色立场简报（CAST_BRIEF_RULE 要求的 <立场简报> 块）
       useDbAdvance.getState().setOutputs({ stage, scene, recall, tabletop: tabletop || st.lastTabletop });   // 存下轮 {{tabletop}}
       // 3) 注入正文 = finalSystemDirective(stage/scene/recall) + ① 本回合桌面推演(角色行动/台词·原来只存下轮没喂正文→"台词都不一样") + ② 兜底
       const directive = dbResolveDirective(st.preset, { ...ctx, stage, scene, recall });
-      const anyTag = !!(stage.trim() || scene.trim() || tabletop.trim());
+      const anyTag = !!(stage.trim() || scene.trim() || tabletop.trim() || cast.trim());
       const blocks = [directive];
       if (tabletop.trim()) blocks.push(`【本回合角色推演·请据此写各角色的行动、神态与台词，尽量沿用这里排好的台词与节拍(beat)】\n${tabletop.trim()}`);
+      // 立场简报：锁人格不锁语言（与 tabletop 的"沿用台词"相反——简报只定立场/反应/红线，措辞由正文在当下语境自己写）
+      if (cast.trim()) blocks.push(`${getPrompt('CAST_BRIEF_FOLLOW_RULE', CAST_BRIEF_FOLLOW_RULE)}\n\n<立场简报>\n${cast.trim()}\n</立场简报>`);
       if (!anyTag && clean.trim()) blocks.push(`【本回合推进规划·请据此写正文】\n${clean.trim()}`);   // 标签一个没命中(预设标签对不上/AI没按标签吐)→整段兜底注入
       const finalDirective = blocks.filter((b) => b && b.trim()).join('\n\n').trim();
-      if (finalDirective) console.log(`[数据库推进] 规划完成（stage ${stage.length} / scene ${scene.length} / tabletop ${tabletop.length} 字${anyTag ? '' : ' · 标签未命中→整段兜底注入'}）`);
+      if (finalDirective) console.log(`[数据库推进] 规划完成（stage ${stage.length} / scene ${scene.length} / tabletop ${tabletop.length} / 立场简报 ${cast.length} 字${castBlock && !cast.trim() ? '（已喂人格档案但AI没吐<立场简报>标签）' : ''}${anyTag ? '' : ' · 标签未命中→整段兜底注入'}）`);
       else console.warn(`[数据库推进] 推进有返回但抽取后为空 → 空回（clean ${clean.length}字·stage/scene/tabletop 全空）；多半 contextExcludeRules 把内容剥没了，或预设 finalSystemDirective 与标签对不上`);
       return finalDirective;
     } catch (e) { console.warn('[数据库推进] 管线失败', e); return ''; }
@@ -9858,7 +9882,10 @@ ${lines}`;
     // 本回合细纲（玩家已确认·细纲功能）：作为「最高优先·必须遵循」的正文骨架深注入。仅真实正文调用时注入（细纲生成自身/分头草稿不注入）。
     let outlineBlock: { role: 'system'; content: string }[] = [];
     if (!narrateOnly && !isOutline && opts.outline && opts.outline.trim()) {
-      outlineBlock = [{ role: 'system' as const, content: `${OUTLINE_FOLLOW_RULE}\n\n<本回合细纲>\n${opts.outline.trim()}\n</本回合细纲>` }];
+      // 细纲里若带了 <立场简报>（castBrief 开时 CAST_BRIEF_RULE 会要求它产出），补一条"怎么用简报"的正文侧规则：
+      //   锁人格不锁语言、上限不是配额、内心不得写成旁白——否则正文会把简报当剧本照抄、或让名单上每人轮流发言。
+      const outlineHasCast = /<立场简报>/.test(opts.outline);
+      outlineBlock = [{ role: 'system' as const, content: `${OUTLINE_FOLLOW_RULE}${outlineHasCast ? `\n\n${getPrompt('CAST_BRIEF_FOLLOW_RULE', CAST_BRIEF_FOLLOW_RULE)}` : ''}\n\n<本回合细纲>\n${opts.outline.trim()}\n</本回合细纲>` }];
     }
 
     // 正文输出语言：仅当界面=越南语且「演化内容用当前语言生成」开关开时，注入「正文散文/对白/名称用越南语，
@@ -10055,14 +10082,20 @@ ${lines}`;
       const wtLine = wt > 0 ? `约 ${wt} 字（可上下浮动约 10%）` : '贴合本回合体量自行把握（一般 1500~2500 字，重头戏可更长）';
       const outlineBase = renderPrompt(_ssApi.outlinePrompt?.trim() || OUTLINE_GEN_RULE).replace('{{wordTarget}}', wtLine);
       const outlineBiasTxt = (_ssApi.outlineBias || '').trim();   // 「创作偏好/倾向」·追加在内置提示词后·只改内容侧重不动格式
+      // 角色立场简报：**追加**在细纲提示词后（代码注入铁则）——玩家把 outlinePrompt 整段自定义了也照样生效。
+      //   细纲的 outlineHistory 虽已带 structRest，但那受 structMaxNpcs(默认2)限制，群戏时第3人往后没档案；
+      //   这里另喂一份"人多字段少"的人格档案（castBlock），并要求它产出 <立场简报>。
+      const outlineCast = buildCastBlock(userText);
       const outlineSys = outlineBase
         + (outlineBiasTxt ? `\n\n【本作者的创作偏好 / 细纲倾向（务必遵循——但**只影响"这一拍写什么、往哪偏、侧重什么、什么调性"**；绝不改变上面规定的输出格式/层级/字段/结构）】\n${outlineBiasTxt}` : '')
+        + (outlineCast ? `\n\n${getPrompt('CAST_BRIEF_RULE', CAST_BRIEF_RULE)}` : '')
         + (worldInfoText ? `\n\n<世界书信息>\n${worldInfoText}\n</世界书信息>` : '');
       const outlineDepth = [...depthInjections, ...wbDepthInjections].sort((a, b) => b.depth - a.depth).map((inj) => ({ role: inj.role, content: inj.content }));
       const outlineHistory = [
         ...recent,                                       // 最近原文楼层
         ...memory,                                       // <过往记忆>
         ...structRest,                                   // <在场与相关档案> NPC/势力/领地
+        ...(outlineCast ? [{ role: 'system' as const, content: outlineCast }] : []),   // 本回合可能出场角色·人格档案（人多字段少·补 structMaxNpcs 之外的长尾）
         ...buildPlayerCoreInjection(),                   // <主角核心>
         ...buildWorldTimeInjection(),                    // <当前时空>
         ...buildQuestInjection(true),                    // <当前任务>（细纲生成=规划层·任务线仅作背景参考）
@@ -10447,7 +10480,7 @@ ${lines}`;
       label === '万族' ? () => setCosmosPanelOpen(true) :
       label === '世界百科' ? () => setWorldCodexOpen(true) :
       label === '世界资料库' ? () => setWorldLibOpen(true) :
-      label === '轮回WIKI' ? () => setWikiOpen(true) :
+      label === '原著WIKI' ? () => setWikiOpen(true) :
       label === '世界记录' ? () => setWorldRecordOpen(true) :
       label === '编年史' ? () => setChroniclePanelOpen(true) :
       label === '分支树' ? () => setBranchPanelOpen(true) :

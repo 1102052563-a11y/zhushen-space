@@ -69,19 +69,23 @@ export function parseDbAdvancePreset(raw: unknown): DbAdvancePreset | null {
 
 export interface DbAdvanceCtx {
   U?: string; C?: string; bg?: string; overview?: string; prev?: string; input?: string;   // $U/$C/$1/$5/$7/$8
+  N?: string;                                          // $N 本回合可能出场角色的人格档案（zhushen 扩展·非 Stitches 原生）
   tabletop?: string;                                   // {{tabletop}} 上轮
   stage?: string; scene?: string; recall?: string;     // {{stage}}/{{scene}}/{{recall}} 本轮产出
 }
 
-/** 占位符替换：$U/$C/$1/$5/$7/$8 + {{tabletop}}/{{stage}}/{{scene}}/{{recall}}。缺省→空串。 */
+/** 占位符替换：$U/$C/$1/$5/$7/$8/$N + {{tabletop}}/{{stage}}/{{scene}}/{{recall}}。缺省→空串。
+    ⚠ $N 是 zhushen 扩展（Stitches 原生预设不会引用它）——原生预设照旧工作，
+      因为 runDbAdvancePipeline 在预设未引用 $N 时会把人格档案另挂一条 system 消息，不会丢。 */
 export function resolveDbPlaceholders(text: string, ctx: DbAdvanceCtx): string {
   if (!text) return '';
   const dollar: Record<string, string> = {
     '$U': ctx.U ?? '', '$C': ctx.C ?? '', '$1': ctx.bg ?? '',
     '$5': ctx.overview ?? '', '$7': ctx.prev ?? '', '$8': ctx.input ?? '',
+    '$N': ctx.N ?? '',
   };
   let out = text;
-  // 此格式仅 $1/$5/$7/$8/$U/$C 六个 $ 占位（无 $10 之类歧义）→ 直接 split-join 替换
+  // 此格式仅 $1/$5/$7/$8/$U/$C/$N 七个 $ 占位（无 $10 之类歧义）→ 直接 split-join 替换
   for (const k of Object.keys(dollar)) out = out.split(k).join(dollar[k]);
   out = out
     .replace(/\{\{tabletop\}\}/gi, ctx.tabletop ?? '')

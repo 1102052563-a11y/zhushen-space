@@ -396,6 +396,11 @@ interface SettingsState {
   outlineApi: ApiConfig;            // 细纲独立 API（outlineUseSharedApi=false 时用；否则复用正文/共享 API，或配 'outline' 路由）
   outlineUseSharedApi: boolean;
   preludePrompt: string;            // 玩家常驻「前置提示词」：每回合注入正文最深处(紧贴输入前)，玩家可编辑；留空=不注入
+  // 角色立场简报：给「正文前的规划调用」（细纲 / 数据库推进）额外喂一份**只含人格**的瘦档案（性格/四轴/原则/口癖/关系/动机），
+  //   让它按人设排演本回合各角色的反应，再随规划产物一起注入正文（治配角同质化/OOC/谄媚）。
+  //   只在细纲或数据库推进开启时生效（两者本就与剧情指导三选一），**不新增任何 API 调用**。见 systems/castBrief.ts
+  castBrief: boolean;
+  castBriefMax: number;             // 最多喂几位候选角色（默认 6；人多字段少，总开销低于 2 张全量 NPC 卡）
   textAvailableModels: string[];
   textModelsLoading: boolean;
   textModelsError: string;
@@ -437,6 +442,8 @@ interface SettingsState {
   setOutlineApi: (patch: Partial<ApiConfig>) => void;
   setOutlineUseSharedApi: (v: boolean) => void;
   setPreludePrompt: (v: string) => void;
+  setCastBrief: (v: boolean) => void;
+  setCastBriefMax: (v: number) => void;
   fetchTextModels: () => Promise<void>;
   importTextWorldBook: (raw: string, fileName?: string, builtin?: boolean, builtinKey?: string) => { ok: boolean; message: string };
   toggleTextWorldBook: (id: string) => void;
@@ -843,6 +850,8 @@ export const useSettings = create<SettingsState>()(
       outlineApi: { ...DEFAULT_API },
       outlineUseSharedApi: true,
       preludePrompt: '',
+      castBrief: true,      // 默认开：只在细纲/推进已开时才生效，且不新增 API 调用，纯提升配角人格保真度
+      castBriefMax: 6,
       textAvailableModels: [],
       textModelsLoading: false,
       textModelsError: '',
@@ -1041,6 +1050,8 @@ export const useSettings = create<SettingsState>()(
       setOutlineApi: (patch) => set((s) => ({ outlineApi: { ...s.outlineApi, ...patch } })),
       setOutlineUseSharedApi: (v) => set({ outlineUseSharedApi: v }),
       setPreludePrompt: (v) => set({ preludePrompt: v }),
+      setCastBrief: (v) => set({ castBrief: v }),
+      setCastBriefMax: (v) => set({ castBriefMax: Math.min(12, Math.max(1, Math.round(v || 6))) }),
 
       fetchTextModels: async () => {
         const s = get();

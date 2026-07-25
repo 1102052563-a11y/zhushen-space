@@ -21,7 +21,7 @@ export const VI_EXACT: Record<string, string> = {
   '队伍': 'Đội Hình',
   '万族': 'Vạn Tộc',
   '世界百科': 'Bách Khoa Thế Giới',
-  '轮回WIKI': 'Wiki Luân Hồi',
+  '原著WIKI': 'Wiki Nguyên Tác',
   '世界记录': 'Ghi Chép Thế Giới',
   '战斗': 'Chiến Đấu',
   '乐园设施': 'Cơ Sở Lạc Viên',

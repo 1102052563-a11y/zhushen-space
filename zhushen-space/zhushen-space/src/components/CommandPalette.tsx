@@ -19,6 +19,8 @@ const ALIAS: Record<string, string> = {
   '记忆': 'jiyi jy memory summary', '创意工坊': 'chuangyigongfang cygf workshop', '存档': 'cundang cd save archive load',
   '游玩时长': 'youwanshichang ywsc playtime shichang paihang leaderboard rank hours',
   '设置': 'shezhi sz setting config',
+  // 两本原著百科同一个入口，故 轮回/神秘复苏 两个书名都要能搜到
+  '原著WIKI': 'yuanzhu yz wiki baike novel 轮回乐园 lunhuileyuan lhly 神秘复苏 shenmifusu smfs',
 };
 
 export default function CommandPalette({ open, items, onClose, onPick, unread }: {

@@ -7,7 +7,7 @@ import { useSettings } from '../store/settingsStore';
 import { useMemory, DEFAULT_MEMORY_PROMPT } from '../store/memoryStore';
 import { usePromptOverride } from '../store/promptOverrideStore';
 import {
-  PLOT_GUIDANCE_RULE, PLOT_CHOICES_RULE, OUTLINE_GEN_RULE,
+  PLOT_GUIDANCE_RULE, PLOT_CHOICES_RULE, OUTLINE_GEN_RULE, CAST_BRIEF_RULE, CAST_BRIEF_FOLLOW_RULE,
   ITEM_COT_RULE, PLAYER_COT_RULE, NPC_COT_RULE, ENTRY_COT_RULE,
   FACTION_COT_RULE, TERRITORY_COT_RULE, TEAM_COT_RULE,
   EQUIP_CODEX, ITEM_EVOLUTION_CODEX, PARADISE_RULES_RULE,
@@ -52,6 +52,8 @@ export const PROMPT_REGISTRY: PromptEntry[] = [
     read: () => useSettings.getState().outlinePrompt, write: (v) => useSettings.getState().setOutlinePrompt(v), reset: () => useSettings.getState().setOutlinePrompt('') },
   { key: 'preludePrompt', label: '前置提示词', group: '正文前置 / 规划', kind: 'field', def: '', desc: '每回合注入正文最深处（留空=不注入·无内置默认）',
     read: () => useSettings.getState().preludePrompt, write: (v) => useSettings.getState().setPreludePrompt(v), reset: () => useSettings.getState().setPreludePrompt('') },
+  { key: 'CAST_BRIEF_RULE', label: '角色立场简报 · 产出', group: '正文前置 / 规划', kind: 'override', def: CAST_BRIEF_RULE, desc: '让细纲/推进按人格档案排演各角色的反应（锁人格不锁语言）' },
+  { key: 'CAST_BRIEF_FOLLOW_RULE', label: '角色立场简报 · 正文遵循', group: '正文前置 / 规划', kind: 'override', def: CAST_BRIEF_FOLLOW_RULE, desc: '正文侧：怎么用简报（上限不是配额·内心不写成旁白）' },
   // ── 各演化阶段 · 思维链（override·留空=内置默认）──
   { key: 'ITEM_COT_RULE', label: '物品演化 · 思维链', group: '演化阶段', kind: 'override', def: ITEM_COT_RULE, desc: '物品增删改的逐项自检 CoT' },
   { key: 'PLAYER_COT_RULE', label: '主角演化 · 思维链', group: '演化阶段', kind: 'override', def: PLAYER_COT_RULE, desc: '主角属性/技能/状态演化 CoT' },

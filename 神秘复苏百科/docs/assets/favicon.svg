@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32">
+  <!-- 神秘复苏：一只「注视」的眼 —— 鬼怪注视是全书母题；配色对齐 mkdocs.yml 的 teal -->
+  <path d="M2 16s5.5-8.5 14-8.5S30 16 30 16s-5.5 8.5-14 8.5S2 16 2 16z" fill="none" stroke="#009688" stroke-width="2.2" stroke-linejoin="round"/>
+  <circle cx="16" cy="16" r="4.6" fill="#009688"/>
+  <circle cx="16" cy="16" r="1.7" fill="#e0f2f1"/>
+</svg>

@@ -22,7 +22,7 @@ export const EN_EXACT: Record<string, string> = {
   '队伍': 'Party',
   '万族': 'Cosmos',
   '世界百科': 'World Codex',
-  '轮回WIKI': 'Samsara Wiki',
+  '原著WIKI': 'Source Novel Wiki',
   '世界记录': 'World Records',
   '战斗': 'Combat',
   '乐园设施': 'Paradise Facilities',
