@@ -6,9 +6,9 @@
   "待修复": 15
  },
  "byPriority": {
-  "P0": 60,
-  "P1": 11,
-  "P2": 1135
+  "P0": 59,
+  "P1": 7,
+  "P2": 1140
  },
  "rows": [
   {
@@ -102,18 +102,6 @@
    "name": "宝可梦XY",
    "lib": "主库",
    "issue": "机检错误:切入点缺少阶位：一、三、五、七（须覆盖一阶~最高阶全部连续阶位）",
-   "hasCrossDup": false,
-   "crossGroupIds": [],
-   "status": "已修复",
-   "fixedMark": true
-  },
-  {
-   "priority": "P0",
-   "batch": 168,
-   "file": "产出\\批次168\\宝可梦不可思议迷宫：红－蓝救助队.md",
-   "name": "宝可梦不可思议迷宫：红/蓝救助队",
-   "lib": "主库",
-   "issue": "机检错误:切入点缺少阶位：六（须覆盖一阶~最高阶全部连续阶位） | 文件内重复段",
    "hasCrossDup": false,
    "crossGroupIds": [],
    "status": "已修复",
@@ -730,54 +718,6 @@
    "crossGroupIds": [],
    "status": "待修复",
    "fixedMark": false
-  },
-  {
-   "priority": "P1",
-   "batch": 167,
-   "file": "产出\\批次167\\宝可梦：最佳愿望.md",
-   "name": "宝可梦：最佳愿望",
-   "lib": "主库",
-   "issue": "灌水标记:【细目",
-   "hasCrossDup": false,
-   "crossGroupIds": [],
-   "status": "已修复",
-   "fixedMark": true
-  },
-  {
-   "priority": "P1",
-   "batch": 168,
-   "file": "产出\\批次168\\宝可梦 对战革命.md",
-   "name": "宝可梦 对战革命",
-   "lib": "主库",
-   "issue": "灌水标记:【细目",
-   "hasCrossDup": false,
-   "crossGroupIds": [],
-   "status": "已修复",
-   "fixedMark": true
-  },
-  {
-   "priority": "P1",
-   "batch": 168,
-   "file": "产出\\批次168\\宝可梦：地平线.md",
-   "name": "宝可梦：地平线",
-   "lib": "主库",
-   "issue": "灌水标记:【细目",
-   "hasCrossDup": false,
-   "crossGroupIds": [],
-   "status": "已修复",
-   "fixedMark": true
-  },
-  {
-   "priority": "P1",
-   "batch": 168,
-   "file": "产出\\批次168\\宝可梦：旅途.md",
-   "name": "宝可梦：旅途",
-   "lib": "主库",
-   "issue": "灌水标记:【细目",
-   "hasCrossDup": false,
-   "crossGroupIds": [],
-   "status": "已修复",
-   "fixedMark": true
   },
   {
    "priority": "P1",
@@ -4366,6 +4306,66 @@
    "batch": 167,
    "file": "产出\\批次167\\宝可梦：太阳&月亮.md",
    "name": "宝可梦：太阳&月亮",
+   "lib": "主库",
+   "issue": "",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "已修复",
+   "fixedMark": true
+  },
+  {
+   "priority": "P2",
+   "batch": 167,
+   "file": "产出\\批次167\\宝可梦：最佳愿望.md",
+   "name": "宝可梦：最佳愿望",
+   "lib": "主库",
+   "issue": "",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "已修复",
+   "fixedMark": true
+  },
+  {
+   "priority": "P2",
+   "batch": 168,
+   "file": "产出\\批次168\\宝可梦 对战革命.md",
+   "name": "宝可梦 对战革命",
+   "lib": "主库",
+   "issue": "",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "已修复",
+   "fixedMark": true
+  },
+  {
+   "priority": "P2",
+   "batch": 168,
+   "file": "产出\\批次168\\宝可梦：地平线.md",
+   "name": "宝可梦：地平线",
+   "lib": "主库",
+   "issue": "",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "已修复",
+   "fixedMark": true
+  },
+  {
+   "priority": "P2",
+   "batch": 168,
+   "file": "产出\\批次168\\宝可梦：旅途.md",
+   "name": "宝可梦：旅途",
+   "lib": "主库",
+   "issue": "",
+   "hasCrossDup": false,
+   "crossGroupIds": [],
+   "status": "已修复",
+   "fixedMark": true
+  },
+  {
+   "priority": "P2",
+   "batch": 168,
+   "file": "产出\\批次168\\宝可梦不可思议迷宫：红－蓝救助队.md",
+   "name": "宝可梦不可思议迷宫：红/蓝救助队",
    "lib": "主库",
    "issue": "",
    "hasCrossDup": false,

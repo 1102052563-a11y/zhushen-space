@@ -1,0 +1,169 @@
+# Fate/stay night
+url: https://zh.moegirl.org.cn/Fate/stay_night
+pageid: 37106
+chars: 5383
+
+《Fate/stay night》（日语：フェイト/ステイナイト)，简称stay night，是由TYPE-MOON于2004年1月30日发售的PC平台文字冒险游戏/视觉小说，并于2005年10月28日发售FAN DISC《Fate/hollow ataraxia》。并有动画、漫画等衍生作品，并推出前传小说及动画《Fate/Zero》。
+由于广受欢迎，2005年10月28日发售Fan Disc「Fate/hollow ataraxia」。 2006年1月播放Fate线电视动画，至同年6月全24集已经播放完毕。该游戏的PS2版本由角川书店发售。 2010年1月23日剧场版Fate/stay night [Unlimited Blade Works]在日本本土上映，BD-DVD于2010年9月30日正式发行。此电视动画版及剧场版均由STUDIO DEEN制作。
+2007年，本作在去除R18元素后被移植到PS2上，并新增语音、CG、演出效果、剧情及追加结局，此版本被称为「Réalta Nua」，其后此版本亦被重新移植到PC、PlayStation Vita及智能手机上。
+2013年7月，曾制作动画版《Fate/Zero》的ufotable宣布即将把本作重新动画化，于2014年1月30日公布为TV动画，7月27日的“Fate Project”最新情报发表会上宣布内容为「Unlimited Blade Works」路线，并将分割为2季播出，第1季于同年10月4日播出，第2季于2015年4月播出（参见：TV动画Fate/stay night [Unlimited Blade Works]）。同时宣布「Heaven's Feel」路线将制作成剧场版动画，一共分为3章节。第1章《presage flower》于2017年10月14日上映，第2章《lost butterfly》于2019年1月12日上映，第3章《spring song》于2020年8月15日在日本、中国台湾同步上映。。（参见：剧场版Fate/stay night[Heaven's Feel]）
+2024年6月28日，「Fate/Grand Order 迦勒底放送局 轻量版 FGO Fes. 2024＆游戏最新情报」宣布，将在2024年发售「Fate/stay night REMASTERED」，其基于2012年发售的PS VITA游戏《Fate/stay night [Réalta Nua]》制作，经过高清重置，并支持英语和简体中文，将于Steam®·Nintendo Switch™发售。
+
+
+原作介绍
+
+本作品是TYPE-MOON自同人社团转为商业公司后发表的首部作品，Fate系列的开端，和TYPE-MOON此前发表的《月姬》、《空之境界》等作品有着共通世界观。
+作品中的攻略路线共3条，分别为Fate（命运）、Unlimited Blade Works（无限剑制）、Heaven's Feel（天之杯），分别对应Saber、远坂凛、间桐樱三位女主角。三线剧情按顺序依次解锁展开。
+
+
+剧情背景
+舞台，是被山与海所包围的都市·冬木市，在那里，进行着一个仪式。
+圣杯，是传说中可实现持有者一切愿望的宝物。
+被圣杯选中参加仪式的7位魔术师，由圣杯赐予从者，并与之订立契约。
+7组主从为了成为最后活下来的一组，为了得到圣杯而展开厮杀。
+这场为召唤圣杯而互相厮杀的仪式，其名，为圣杯战争。
+已故魔术师卫宫切嗣的养子，卫宫士郎，本来只是一名极为普通的高中生，却偶然地与从者中的剑士(Saber)订定契约，被卷入到了这场魔术仪式当中。
+这个7人中最弱的魔术师，为了贯彻父亲与自己的正义，在这命运停驻的十几个夜晚，开始了自己的求索。
+
+
+故事结局
+
+
+章节标题
+
+
+游戏攻略
+
+三线全部完成后，从标题界面进入Last Episode，完成Saber线后续剧情。
+
+
+PC初版制作人员
+角色设计、原画：武内崇
+剧本：奈须蘑菇
+程序：清兵卫
+脚本：つくりものじ
+图解：小山广和、BLACK、苍月誉雄
+音乐：KATE
+其他支援：OKSG
+
+
+主题曲
+
+
+PC 初版
+片头曲「THIS ILLUSION」
+作词：芳贺敬太，作曲、编曲：NUMBER 201，歌：M.H.
+片尾曲「days」
+作词：芳贺敬太，作曲、编曲：NUMBER 201，歌：CHINO
+
+
+PS2/PC Réalta Nua版
+片头曲「黄金の輝き」（PS2、PC版）
+作词：芳贺敬太，作曲：KATE、编曲：James Harris、演唱者：NUMBER201 feat. MAKI
+片尾曲「Link」
+作词：芳贺敬太、作曲：KATE、编曲：James Harris、演唱者：NUMBER 201 feat. rhu
+Last Episode插入曲「夢の終わり」
+作词：芳贺敬太，作曲：KATE，编曲：NUMBER 201，演唱者：河井英
+
+
+PS Vita/iOS/Android Réalta Nua版
+Fate线片头曲「ARCADIA」
+作词：Rico、作曲、编曲：斋藤真也、演唱者：earthmind
+Unlimited Blade Works线片头曲「HORIZON」
+作词：Rico、作曲、编曲：斋藤真也、演唱者：earthmind
+Heaven's Feel线片头曲「Another Heaven」
+作词：Rico、作曲、编曲：斋藤真也、演唱者：earthmind
+片尾曲「Link」
+作词：芳贺敬太、作曲：KATE、编曲：James Harris、演唱者：NUMBER 201 feat. rhu
+
+
+游戏版本
+2004年1月30日，PC版发售。
+2007年4月19日，由PC版移植到PS2平台的《Fate/stay night [Réalta Nua]》（命运之夜[新星]）发售，删除和谐模式，追加全语音、新BGM、新结局Last Episode，此后的各种移植版均以此为标题。
+2011年12月-2012年2月，逆移植到PC平台的《新星》以三线分割形式分别发售。
+2012年，移植到PS Vita平台的《新星》发售，ufotable为此重制了三条线路OP动画。
+2015年4月-2015年6月，移植到iOS/Android手机平台的《新星》上架。TV动画放送纪念，Fate线免费配信。
+现有的PC汉化版是由汉化组自行在PC初版基础上，从PS2新星版本逆移植追加内容而来，因此和谐模式无语音，Heaven's Feel线有独立OP。另外部分BGM来自06版动画，BGM使用也有部分地方与原作相异，如原版召唤Saber时并未使用BGM，而汉化组在此处使用了骑士王的荣耀。
+2024年8月8日发售《Fate/stay night REMASTERED》（命运之夜 重置版）。其基于《新星》制作，经过高清重置，并支持英语和简体中文，将于Steam®·Nintendo Switch™发售。作为Fate系列启航之作的“经典”，将与您再度相会。（「Fateの原点にして、『原典』」に、再び出会う。）
+
+
+补充
+截至2008年，Fate/stay night为PC平台上销量最大的galgame（175,243），第二名是Fate/hollow ataraxia（154,015）。
+
+
+衍生作品
+
+
+动画版
+2006年Studio DEEN制作电视动画《Fate/stay night》
+主条目：Fate/stay night/电视动画/2006版
+于2006年1月7日开始放送的电视动画，全24话。
+以原作的Fate路线为主轴，为了照顾新观众，同时将一些UBW和HF路线的内容整合在了剧集中。
+评价相对之后的Ufotable两作来说比较一般，主角卫宫士郎的外形和塑造评价偏低，不过由川井宪次编写的BGM《骑士王的荣耀》和原作主题曲《Illusion》重新编曲而成的第一季OP《Disillusion》评价很高，Archer对阵Berserker的战斗等剧情中也能看出制作团队有认真研究过原作。和被粉丝打成黑历史的月姬动画不同的是，不少粉丝在重新审视后会同意这个版本也有它的优点。
+原版游戏是没有配音的，大部分角色的声优团队都是在此作中决定，之后除了原作无形象的梅林和远坂时臣（由音响监督辻谷耕史兼任，FZ动画后为速水奖）之外，本作的声优阵容都一直延续了下去。
+从者七个职阶的代表图案也是在本作动画中首次出现，之后一直被各作沿用。
+有趣的是月厨中的豪杰田中美海和古川慎都是因为此动画而成为月厨。
+
+2010年Studio DEEN制作剧场版动画《剧场版 Fate/stay night UNLIMITED BLADE WORKS》
+主条目：剧场版 Fate/stay night UNLIMITED BLADE WORKS
+于2010年1月23日上映的剧场版动画。
+根据原作的UBW路线高压改编。
+超浓缩版，由于一部剧场版时间根本不够把故事讲完，所以想入门的观众看不到多少东西，而老粉丝看了又觉得大量剧情被乱删。在UBW电视动画播出之后鲜少再被提及。
+
+2014年ufotable制作电视动画《Fate/stay night [Unlimited Blade Works]》
+主条目：Fate/stay night Unlimited Blade Works
+被分割为两季放送的电视动画，第一季于2014年10月4日开始放送，第二季于2015年4月4日开始放送。
+根据原作的UBW路线改编。
+动作戏十分亮眼，脚本在忠于原作时也能做出恰到好处的改编。大多数新观众都会从FZ动画或此作开始进入型月世界。不过由于工作人员全体爆肝导致Ufo元气大伤，之后的《噬神者》动画惨遭毒手
+
+2017年ufotable制作剧场版动画《剧场版 Fate/stay night [Heaven's Feel]》
+主条目：剧场版 Fate/stay night Heaven's Feel
+分全三章上映的剧场版动画。第一章《presage flower（恶兆之花）》于2017年10月14日上映。第二章《lost butterfly（迷失之蝶）》于2019年1月12日上映。第三章《spring song（春樱之歌）》于2020年8月15日上映。
+根据原作的第三条线Heaven's Feel改编。
+
+
+广播剧
+UBW线广播剧
+Fate/stay night [Unlimited Blade Works] Blu-ray Disc Box Ⅱ
+→ロンドン編「Curtain Call ～LET US DRIVE TOGETHER～」发售日期:2015.10.7
+HF线广播剧
+presage flower
+Original Drama CD First Interlude 发售日期:	2017.10.14
+lost butterfly
+Original Drama CD インタビュー 发售日期:2019.1.12
+Original Drama CD 遠坂凛の聖杯戦争、その後发售日期:2020.8.1
+
+
+漫画版
+《Fate/stay night》：连载于角川书店的《月刊少年Ace》2006年2月号至2012年12月号，由西脇だっと作画，共20卷。以原作的Fate路线为主轴，期间穿插UBW路线的内容。全20卷。
+《Fate/stay night [Heaven's Feel]》：自2015年5月2日正式开始连载于角川书店的《月刊少年Ace》，由タスクオーナ作画。以原作的Heaven's Feel路线为主轴。
+
+日文版都由角川书店出版，繁体中文版都由台湾角川出版。
+简体中文版都由广州天闻角川代理，翻译并授权网站快看漫画刊登。
+
+
+注释
+
+
+参考资料
+
+
+外部链接
+
+
+TYPE-MOON官网
+TYPE-MOON官网（日文）
+TYPE-MOON官方推特 / Twitter（日文）
+竹帚（奈须蘑菇与武内崇的个人网站）（日文）
+
+
+游戏官网
+Fate/stay night（旧版官网）（日文）
+Fate-stay night（旧版PC官网）（日文）
+Fate/stay night Realta Nua（旧版PS2官网）（日文）
+Fate/stay night Realta Nua（新版PS vita官网）（日文）
+Fate-stay night Realta Nua（新版iOS&Android官网）（日文）
+Fate Unlimited Code游戏官网：CAPCOM|Fate/unlimited codes フェイト/アンリミテッドコード 公式サイト. （原始内容存档于2012-04-12） （日本語）. 
+Fate/tiger upper游戏官网：CAPCOM「フェイト/タイガーころしあむ　アッパー」公式Webサイト. （原始内容存档于2012-03-22） （日本語）. 
+Fate/stay night REMASTERED（重置版官网）（日文）
+Steam上的Fate/stay night REMASTERED

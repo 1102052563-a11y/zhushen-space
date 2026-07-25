@@ -139,22 +139,40 @@ export interface DispatchEstimate {
   understaffed: boolean;
 }
 
-/** 关系网白嫖：轨道A 在后台一直在写 relations（宿敌/盟友），派谁跟谁一起走因此有了真实后果。 */
+/* relations 是一行文本「名字:标签;名字:标签」——取出「某人对某人」的那**一条**标签，取不到返回 ''。
+   ⚠ 必须逐条按名精确取，不能对整串做包含匹配：见 relationDelta 的注释。 */
+function relLabelOf(rel: string | undefined, who: string): string {
+  if (!who) return '';
+  for (const e of (rel ?? '').split(/[;；]/)) {
+    const i = e.search(/[:：]/);
+    if (i < 0) continue;
+    if (e.slice(0, i).trim() === who) return e.slice(i + 1).trim();
+  }
+  return '';
+}
+const FOE_RE = /宿敌|仇/;
+const ALLY_RE = /盟友|挚友|同伴/;
+
+/** 关系网白嫖：轨道A 在后台一直在写 relations（宿敌/盟友），派谁跟谁一起走因此有了真实后果。
+ *  ⚠ 旧实现（2026-07-25 修）把两人的关系串拼起来、对**整串**正则测「宿敌」：只要队里任何人
+ *    跟**队外**任何人结过仇（轨道A 一直在织，这是常态），这一对就被误判成宿敌白扣 10 分。
+ *    现在只看两条定向的边，顺带拿到方向性——单方面记恨比互为死敌轻。 */
 function relationDelta(members: NpcRecord[]): { delta: number; foes: number; allies: number } {
-  let foes = 0, allies = 0;
+  let foes = 0, allies = 0, delta = 0;
   for (let i = 0; i < members.length; i++) {
     for (let j = i + 1; j < members.length; j++) {
-      const rel = `${members[i].relations ?? ''}｜${members[j].relations ?? ''}`;
-      const a = members[i].name ?? '', b = members[j].name ?? '';
-      if (!a || !b) continue;
-      const mentions = (s: string, who: string) => !!who && s.includes(who);
-      if (mentions(rel, a) && mentions(rel, b)) {
-        if (/宿敌|仇/.test(rel)) foes++;
-        else if (/盟友|挚友|同伴/.test(rel)) allies++;
-      }
+      const a = members[i], b = members[j];
+      if (!a.name || !b.name) continue;
+      const ab = relLabelOf(a.relations, b.name);   // 甲怎么看乙
+      const ba = relLabelOf(b.relations, a.name);   // 乙怎么看甲
+      const foeN = (FOE_RE.test(ab) ? 1 : 0) + (FOE_RE.test(ba) ? 1 : 0);
+      const allyN = (ALLY_RE.test(ab) ? 1 : 0) + (ALLY_RE.test(ba) ? 1 : 0);
+      // 结怨压过交情：一方记恨、另一方当朋友，出勤照样别扭
+      if (foeN) { foes++; delta -= foeN === 2 ? 10 : 5; }
+      else if (allyN) { allies++; delta += allyN === 2 ? 6 : 3; }
     }
   }
-  return { delta: allies * 6 - foes * 10, foes, allies };
+  return { delta, foes, allies };
 }
 
 export function estimateDispatch(offer: DispatchOffer, members: NpcRecord[], rank: TeamRank): DispatchEstimate {

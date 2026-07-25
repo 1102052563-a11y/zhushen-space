@@ -159,6 +159,36 @@ describe('胜算评估', () => {
     expect(s(allies)).toBeGreaterThan(s(neutral));
   });
 
+  // ↓ 三条都是 2026-07-25 那个「拼串后对整串正则」bug 的回归测试
+  it('跟队外的人结仇，不该算到队友头上', () => {
+    const s = (m: NpcRecord[]) => estimateDispatch(offer(), m, 'C').score;
+    // 甲跟没上队的「角色C9」有仇，甲乙之间明明是盟友 → 该按盟友加分
+    const outsiderFeud = [
+      npc('C1', { relations: '角色C9：宿敌;角色C2：盟友' }),
+      npc('C2', { relations: '角色C1：盟友' }),
+    ];
+    expect(s(outsiderFeud)).toBeGreaterThan(s([npc('C1'), npc('C2')]));
+  });
+
+  it('名字互为前缀时不该误判 —— 必须按名精确取那一条', () => {
+    const s = (m: NpcRecord[]) => estimateDispatch(offer(), m, 'C').score;
+    // 「角色C2」是队外「角色C2X」的前缀：包含匹配会把跟 C2X 的仇扣到 C2 头上
+    const prefixTrap = [
+      npc('C1', { relations: '角色C2X：宿敌' }),
+      npc('C2', { relations: '角色C1：盟友' }),
+    ];
+    expect(s(prefixTrap)).toBeGreaterThan(s([npc('C1'), npc('C2')]));
+  });
+
+  it('单方面记恨比互为死敌轻', () => {
+    const s = (m: NpcRecord[]) => estimateDispatch(offer(), m, 'C').score;
+    const mutual = [npc('C1', { relations: '角色C2：宿敌' }), npc('C2', { relations: '角色C1：宿敌' })];
+    const oneWay = [npc('C1', { relations: '角色C2：宿敌' }), npc('C2')];
+    const neutral = [npc('C1'), npc('C2')];
+    expect(s(mutual)).toBeLessThan(s(oneWay));
+    expect(s(oneWay)).toBeLessThan(s(neutral));
+  });
+
   it('疲劳的人拉低胜算', () => {
     const fresh = estimateDispatch(offer(), [npc('C1'), npc('C2')], 'C').score;
     useTeam.setState({ fatigue: { C1: 60, C2: 60 } });

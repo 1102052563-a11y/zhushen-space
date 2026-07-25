@@ -567,6 +567,9 @@ async function loadBuiltinDefaults() {
   const grab = async (f: string): Promise<string | null> => {
     try { const r = await fetch(base + 'presets/' + f); return r.ok ? await r.text() : null; } catch { return null; }
   };
+  // 内容指纹清单（build 时由 vite 的 copy-builtin-presets 插件生成）：指纹没变就不用重拉重算。
+  // 这里**只发出不等待**——让它和下面几波世界书并发跑，真正用到时才 await，不额外多花一个往返。
+  const manifestP = grab('manifest.json');
   try {
     // 一次性迁移：清掉早期误放进「世界选择」(worldBooks) 的正文世界书（它们属于正文 textWorldBooks，不该出现在选择世界里）
     try {
@@ -651,13 +654,39 @@ async function loadBuiltinDefaults() {
     // 四个演化预设（主角/物品/NPC/势力）→ **每次启动强制覆盖成内置最新**（按要求：玩家对这些预设的改动不保留，始终以内置为准）。
     // 仅当 fetch+解析成功才覆盖；失败则保留现有，避免断网把预设清空。setPresetEntries 只换 entries/名称/版本，保留各自的 API 路由配置。
     // 五份各写各的 store、互相没有依赖，原先五次串行往返只是写法所致 → 并发取回后仍按原顺序 apply。
-    const [tPlayer, tItem, tNpc, tEntry, tFaction] = await Promise.all([
-      grab('player.json'), grab('item.json'), grab('npc.json'), grab('entry-judge.json'), grab('faction.json'),
-    ]);
+    // 指纹与上次落地一致的**连拉都不拉**：这五份是「无条件覆盖、不做三方合并」，跳过是安全的；
+    // 而每次启动原样重写它们，光 localStorage 就白写 ~330KB（npc/pet 各 104KB、player 77KB、entry-judge 41KB）。
+    const HASH_KEY = 'drpg-builtin-hashes';
+    let _manifest: Record<string, string> = {};
+    let _hashes: Record<string, string> = {};
+    try { const m = await manifestP; if (m) _manifest = JSON.parse(m) || {}; } catch { /* 没清单/清单坏了 → 一律全量，不缓存 */ }
+    try { _hashes = JSON.parse(localStorage.getItem(HASH_KEY) || '{}') || {}; } catch { /* 同上 */ }
+    // ⚠「指纹没变」只是一半条件，另一半必须是「store 里确实还有条目」：
+    //   新游戏/清档会把预设清空而指纹键还在，只看指纹就会跳成空预设 → 演化阶段直接裸奔。
+    const fresh = (f: string, hasEntries: boolean) => !!_manifest[f] && _manifest[f] === _hashes[f] && hasEntries;
+    const stamp = (f: string) => {
+      if (!_manifest[f]) return;
+      _hashes[f] = _manifest[f];
+      try { localStorage.setItem(HASH_KEY, JSON.stringify(_hashes)); } catch { /* 写不进去只是下次不省，无害 */ }
+    };
+    const evoFiles = ['player.json', 'item.json', 'npc.json', 'entry-judge.json', 'faction.json'];
+    const evoHas = [
+      (usePlayer.getState().settings.entries?.length ?? 0) > 0,
+      (useItems.getState().settings.entries?.length ?? 0) > 0,
+      // npc.json 一份喂两个 store，两边都还在才算数（少一个就重拉，免得宠物演化裸奔）
+      (useNpcEvo.getState().settings.entries?.length ?? 0) > 0 && (usePetEvo.getState().settings.entries?.length ?? 0) > 0,
+      (useEntryJudge.getState().entries?.length ?? 0) > 0,
+      (useFactionEvo.getState().settings.entries?.length ?? 0) > 0,
+    ];
+    const [tPlayer, tItem, tNpc, tEntry, tFaction] = await Promise.all(
+      evoFiles.map((f, i) => (fresh(f, evoHas[i]) ? Promise.resolve(null) : grab(f))),
+    );
+    // ⚠ stamp 只在真的 apply 成功后打：t 为 null 既可能是「跳过」也可能是「fetch 失败」，
+    //   后者绝不能记指纹，否则一次断网就把旧指纹坐实、之后永远不再重拉。
     { const t = tPlayer; const p = t ? extractPlayerPresetFromJson(t) : null;
-      if (p) usePlayer.getState().setPresetEntries(p.entries, p.name, p.version); }
+      if (p) { usePlayer.getState().setPresetEntries(p.entries, p.name, p.version); stamp('player.json'); } }
     { const t = tItem; const p = t ? extractItemPresetFromJson(t) : null;
-      if (p) useItems.getState().setPresetEntries(p.entries, p.name, p.version); }
+      if (p) { useItems.getState().setPresetEntries(p.entries, p.name, p.version); stamp('item.json'); } }
     { const t = tNpc; const p = t ? extractNpcPresetFromJson(t) : null;
       // NPC 演化只取「重点演化」条目；登场判断条目(entrySharedRules)已分割到独立的「登场判断」模块(entryJudge)。
       if (p) {
@@ -665,11 +694,12 @@ async function loadBuiltinDefaults() {
         useNpcEvo.getState().setPresetEntries(evoEntries, p.name, p.version);
         // 宠物/召唤物演化「演化规则一致」：复用同一套 NPC 规则体，专属差异(不自行成长)由代码尾 PET_EVOLUTION_RULE 注入。
         usePetEvo.getState().setPresetEntries(evoEntries, p.name, p.version);
+        stamp('npc.json');
       } }
     { const t = tEntry; const p = t ? extractNpcPresetFromJson(t) : null;   // 登场判断·独立预设
-      if (p) useEntryJudge.getState().setPresetEntries(p.entries, p.name, p.version); }
+      if (p) { useEntryJudge.getState().setPresetEntries(p.entries, p.name, p.version); stamp('entry-judge.json'); } }
     { const t = tFaction; const p = t ? extractFactionPresetFromJson(t) : null;
-      if (p) useFactionEvo.getState().setPresetEntries(p.entries, p.name, p.version); }
+      if (p) { useFactionEvo.getState().setPresetEntries(p.entries, p.name, p.version); stamp('faction.json'); } }
   } catch (e) { console.warn('[内置预设] 载入失败', e); }
 }
 

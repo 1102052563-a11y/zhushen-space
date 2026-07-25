@@ -1,0 +1,20 @@
+{
+ "bdsm.json": "705e37b74e0f",
+ "entry-judge.json": "96dc074eb8ac",
+ "faction.json": "8ae44b093ef9",
+ "item.json": "a50600357679",
+ "leisure.json": "fe7abc5cd9d1",
+ "misc-codex.json": "1741098ddbe6",
+ "modular-output.json": "ffb1c4bd6679",
+ "novel.json": "deeec08fd301",
+ "npc.json": "92ced94aae4f",
+ "player.json": "e220481bfdab",
+ "pose.json": "7cd6bdb71abb",
+ "power-codex.json": "3cc36aa15253",
+ "shuangren-changfeng.json": "5542740df714",
+ "worldgen.json": "edeb88924fac",
+ "zhushen-alu.json": "4dc04033281f",
+ "zhushen-claude.json": "260f6ba4d7ca",
+ "zhushen-deepseek.json": "186f1f071388",
+ "zhushen-gemini.json": "b3575d03ca22"
+}

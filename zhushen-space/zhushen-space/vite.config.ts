@@ -2,6 +2,7 @@ import { defineConfig, type Plugin } from 'vite'
 import react from '@vitejs/plugin-react'
 import { copyFileSync, existsSync, mkdirSync, readdirSync, readFileSync, rmdirSync, statSync, unlinkSync, writeFileSync } from 'fs'
 import { execSync } from 'child_process'
+import { createHash } from 'crypto'
 
 // 轮回WIKI：每次 vite build（含 Cloudflare）自动用 mkdocs 重建静态站到 public/wiki/。
 // 好处：你只改 lunhui-wiki/docs/*.md，build 时自动重建 → 无需手动 mkdocs、无需提交几百个构建产物（public/wiki 已 gitignore）。
@@ -122,6 +123,16 @@ function copyBuiltinPresets(): Plugin {
     for (const [src, name] of map) {
       try { if (existsSync(src)) copyFileSync(src, 'public/presets/' + name) } catch { /* 源缺失则保留已提交副本 */ }
     }
+    // 内容指纹清单：前端启动先取这一个几百字节的文件，指纹与上次落地的一致就跳过对应大文件的重拉+重解析+重写盘。
+    // ⚠ 用内容哈希而不是预设 JSON 里的 version 字段——手改 演化预设/*.json 却忘了加版本号是常事，哈希不会漏。
+    // 覆盖 public/presets 下**全部** json（不止 map 里生成的那几个，其余是直接提交的）。
+    try {
+      const out: Record<string, string> = {}
+      for (const f of readdirSync('public/presets').filter((x) => x.endsWith('.json') && x !== 'manifest.json').sort()) {
+        try { out[f] = createHash('sha1').update(readFileSync('public/presets/' + f)).digest('hex').slice(0, 12) } catch { /* 单个读失败就不登记 → 前端对它按「没指纹」走全量 */ }
+      }
+      writeFileSync('public/presets/manifest.json', JSON.stringify(out, null, 1))
+    } catch { /* 清单生成失败不阻断构建：前端取不到 manifest 一律退回全量加载 */ }
   }
   return { name: 'copy-builtin-presets', buildStart() { sync() }, configureServer() { sync() } }
 }

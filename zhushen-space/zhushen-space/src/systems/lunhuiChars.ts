@@ -11,19 +11,28 @@ export function lunhuiCharsCached(): LunhuiChar[] | null {
   return _cache;
 }
 
+/* 静态资源 2.2MB，正常几百毫秒；给足慢网余量后仍要有上限——没有 abort 的话
+   连接被中间设备吊住会永久 pending，调用方（小剧场取材 / 悬浮图鉴 wiki 层）跟着一直等。
+   超时=按「取不到档案」静默降级，与网络失败同一条路径。 */
+const LOAD_TIMEOUT = 30000;
+
 export async function loadLunhuiCharacters(): Promise<LunhuiChar[]> {
   if (_cache) return _cache;
   if (_inflight) return _inflight;                     // 并发去重：小剧场与图鉴可能同帧触发
   _inflight = (async () => {
+    const ac = new AbortController();
+    const timer = setTimeout(() => ac.abort(), LOAD_TIMEOUT);
     try {
       const base = import.meta.env.BASE_URL || '/';
-      const r = await fetch(base + 'lunhui-characters.json');
+      // signal 同时管住下载与 body 读取——2.2MB 卡在半截也会被掐掉，不会只超时 headers
+      const r = await fetch(base + 'lunhui-characters.json', { signal: ac.signal });
       if (r.ok) {
         const data = await r.json();
         _cache = Array.isArray(data) ? data : [];
         return _cache;
       }
-    } catch { /* 取材失败 → 无档案，静默降级 */ }
+    } catch { /* 取材失败 / 超时 → 无档案，静默降级 */ }
+    finally { clearTimeout(timer); }
     _cache = [];
     return _cache;
   })();
