@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { useItems, gradeNameClass, splitAffixEntries, type InventoryItem } from '../store/itemStore';
+import { useItems, gradeNameClass, splitAffixEntries, ITEM_GRADES, type InventoryItem } from '../store/itemStore';
 import { useMisc } from '../store/miscStore';
 import { useEnhance, hydrateEnhancePortraits } from '../store/enhanceStore';
 import { CAT_ICON } from './BackpackModal';
@@ -12,12 +12,21 @@ import {
 import { loadBossManifest, pickStagePortrait, type BossManifest } from '../systems/enhanceBosses';
 import { nextGradeOf, ascendCost, isAscendable, planAscendPayment, type AscendPreview } from '../systems/equipAscend';
 import { formatPark, SOUL_TO_PARK } from '../systems/itemPricing';
+import { useEquipCraft } from '../store/equipCraftStore';
+import {
+  potentialLeft, potentialMax, craftStateOf, canCraft, craftCost, planCraftPayment, isPreviewMode,
+  canInfuse, expectedValue, ESSENCE_GRADE_GAP, OUTCOME_LABEL,
+  type CraftPreview, type CraftProcessDef,
+} from '../systems/equipCraft';
+import { uploadLocal } from '../systems/workshop';
 import GemPanel from './GemPanel';
 import { pushSceneNotice } from '../systems/allocNotice';   // 场外强化结果 → 正文前置须知（按真实等级，勿凭货币"尝试等级"误判）
 
 export interface EnhanceFinalizeArgs { itemId: string; startLevel: number; newLevel: number; tendency?: string; }
 export interface FinalizeStatus { ok: boolean; changed: boolean; error?: string; }
 export type AscendResult = { ok: true; preview: AscendPreview } | { ok: false; error: string };
+export type CraftResult = { ok: true; preview: CraftPreview } | { ok: false; error: string };
+export type ProcessGenResult = { ok: true; def: CraftProcessDef } | { ok: false; error: string };
 
 /* 词缀/效果拆条复用 itemStore 的 splitAffixEntries（吃字符串/数组/对象/JSON 串，绝不吐 [object Object]），
    不再本地弱实现——旧本地版对对象只 String() → 频道交易物品在强化所也会显示 [object Object]。 */
@@ -27,12 +36,17 @@ export type AscendResult = { ok: true; preview: AscendPreview } | { ok: false; e
    两个 AI 点（吐槽 onBanter / 收尾 onFinalize）由 App 提供，读 store.session 自行拼 prompt。 */
 export default function EnhancePanel({
   onClose, onBanter, onFinalize, onAscend, onAscendConfirm,
+  onCraft, onCraftConfirm, onExtractEssence, onGenProcess,
 }: {
   onClose: () => void;
   onBanter: () => Promise<string>;
   onFinalize: (args: EnhanceFinalizeArgs) => Promise<FinalizeStatus | void> | void;
   onAscend: (args: { itemId: string; tendency?: string }) => Promise<AscendResult>;
   onAscendConfirm: (preview: AscendPreview) => { ok: boolean; error?: string };
+  onCraft: (args: { itemId: string; processId: string; essenceId?: string; tendency?: string }) => Promise<CraftResult>;
+  onCraftConfirm: (preview: CraftPreview) => { ok: boolean; error?: string };
+  onExtractEssence: (itemId: string, affixIndex: number) => { ok: boolean; error?: string; name?: string };
+  onGenProcess: (prompt: string) => Promise<ProcessGenResult>;
 }) {
   const items          = useItems((s) => s.items);
   const currency       = useItems((s) => s.currency);
@@ -67,7 +81,7 @@ export default function EnhancePanel({
   const [manifest, setManifest] = useState<BossManifest | null>(null);
   const [portraitUrl, setPortraitUrl] = useState<string | null>(null);
   const [gemsOpen, setGemsOpen] = useState(false);
-  const [tab, setTab] = useState<'enhance' | 'ascend'>('enhance');   // ⚒ 强化 / 🔼 品级进阶 页签
+  const [tab, setTab] = useState<'enhance' | 'ascend' | 'craft'>('enhance');   // ⚒ 强化 / 🔼 品级进阶 / 🔨 工艺 页签
   const [finalizing, setFinalizing] = useState(false);   // 结束强化的收尾 AI 调用中（显示"正在为您强化装备"）
   const [tendency, setTendency] = useState('');   // 玩家指定的词缀/效果生成方向（攻击类/辅助类/挖矿类…），收尾时传给 AI 按此方向生成
   const [finalizeResult, setFinalizeResult] = useState<{ status: 'ok' | 'fail'; name: string; level: number; affix: string; effect: string; error?: string; args: EnhanceFinalizeArgs } | null>(null);  // 收尾结果（成功展示词缀/效果，失败显示原因+重试）
@@ -256,6 +270,8 @@ export default function EnhancePanel({
               className={`px-2.5 py-1 rounded-lg border text-[12px] font-bold transition-colors ${tab === 'enhance' ? 'border-god/60 bg-god/15 text-god' : 'border-edge text-dim hover:text-slate-200 hover:border-god/30'}`}>⚒ 强化</button>
             <button onClick={() => setTab('ascend')}
               className={`px-2.5 py-1 rounded-lg border text-[12px] font-bold transition-colors ${tab === 'ascend' ? 'border-purple-400/60 bg-purple-500/15 text-purple-200' : 'border-edge text-dim hover:text-slate-200 hover:border-purple-400/40'}`}>🔼 品级进阶</button>
+            <button onClick={() => setTab('craft')}
+              className={`px-2.5 py-1 rounded-lg border text-[12px] font-bold transition-colors ${tab === 'craft' ? 'border-sky-400/60 bg-sky-500/15 text-sky-200' : 'border-edge text-dim hover:text-slate-200 hover:border-sky-400/40'}`}>🔨 工艺</button>
           </div>
           <div className="text-right">
             <div className="text-[11px] font-mono text-dim/50">垫子计数 · 爆装攒保底</div>
@@ -325,6 +341,7 @@ export default function EnhancePanel({
         })()}
 
         {tab === 'ascend' && <AscendView onAscend={onAscend} onAscendConfirm={onAscendConfirm} />}
+        {tab === 'craft' && <CraftView onCraft={onCraft} onCraftConfirm={onCraftConfirm} onExtractEssence={onExtractEssence} onGenProcess={onGenProcess} />}
 
         {tab === 'enhance' && (
         <div className="flex-1 flex flex-col overflow-hidden max-lg:overflow-y-auto">
@@ -672,6 +689,371 @@ function AscendView({ onAscend, onAscendConfirm }: {
               className="flex-1 py-2 rounded-lg border border-god/40 text-god/90 text-[13px] hover:bg-god/10 disabled:opacity-40 transition-colors">🔄 重新生成</button>
             <button onClick={() => { setPreview(null); setErr(''); }} disabled={busy}
               className="flex-1 py-2 rounded-lg border border-edge text-dim hover:text-slate-200 text-[13px] disabled:opacity-40 transition-colors">↩ 取消</button>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+/* ── 🔨 工艺页签（模块级组件·同 AscendView 的防拼音断字铁则）─────────────────────
+   与「⚒ 强化」正交：强化赌等级、工艺改词条。三条内置工艺线 + 玩家 AI 自创。
+   前端摇定结果与全部数值（systems/equipCraft.ts），AI 只补写那一条词缀文本。
+   · 确定性工艺（结果唯一）→ 预览 → 确认才扣费
+   · 赌博工艺（多结果）→ 一次摇定即时落库，无反悔窗口 */
+function CraftView({ onCraft, onCraftConfirm, onExtractEssence, onGenProcess }: {
+  onCraft: (args: { itemId: string; processId: string; essenceId?: string; tendency?: string }) => Promise<CraftResult>;
+  onCraftConfirm: (preview: CraftPreview) => { ok: boolean; error?: string };
+  onExtractEssence: (itemId: string, affixIndex: number) => { ok: boolean; error?: string; name?: string };
+  onGenProcess: (prompt: string) => Promise<ProcessGenResult>;
+}) {
+  const items     = useItems((s) => s.items);
+  const currency  = useItems((s) => s.currency);
+  const processes = useEquipCraft((s) => s.settings.processes);
+  const essences  = useEquipCraft((s) => s.essences);
+  const removeProcess = useEquipCraft((s) => s.removeProcess);
+
+  const [procId, setProcId]   = useState('forge');
+  const [selId, setSelId]     = useState('');
+  const [essId, setEssId]     = useState('');
+  const [tendency, setTendency] = useState('');
+  const [busy, setBusy]       = useState(false);
+  const [preview, setPreview] = useState<CraftPreview | null>(null);
+  const [err, setErr]         = useState('');
+  const [done, setDone]       = useState('');
+  const [genOpen, setGenOpen] = useState(false);
+  const [genText, setGenText] = useState('');
+  const [genBusy, setGenBusy] = useState(false);
+  const [upBusy, setUpBusy]   = useState('');
+  const [extractOpen, setExtractOpen] = useState(false);
+
+  const proc = processes.find((p) => p.id === procId) ?? processes[0] ?? null;
+  const sel  = items.find((x) => x.id === selId) ?? null;
+  const candidates = items.filter((it) => isEnhanceable(it.category))
+    .sort((a, b) => (Number(b.equipped) - Number(a.equipped)) || (potentialLeft(b) - potentialLeft(a)));
+
+  const feas = sel && proc ? canCraft(sel, proc) : { ok: false, reason: '' };
+  const cost = sel && proc ? craftCost(proc, sel) : 0;
+  const wallet = { park: currency.乐园币, soul: currency.灵魂钱币 };
+  const pay = planCraftPayment(cost, wallet);
+  const needEssence = proc?.base === 'essence';
+  const essence = essences.find((e) => e.id === essId) ?? null;
+  const essenceOk = !needEssence || (!!essence && !!sel && canInfuse(essence, sel));
+  const gamble = proc ? !isPreviewMode(proc) : false;
+  const canGo = !!sel && !!proc && feas.ok && !!pay && essenceOk && !busy;
+
+  const totalWeight = proc ? proc.outcomes.reduce((s, o) => s + o.weight, 0) : 0;
+  const ev = proc ? expectedValue(proc.outcomes) : 0;
+
+  async function doCraft() {
+    if (!sel || !proc || busy) return;
+    setBusy(true); setErr(''); setDone(''); setPreview(null);
+    try {
+      const r = await onCraft({ itemId: sel.id, processId: proc.id, essenceId: needEssence ? essId : undefined, tendency: tendency.trim() || undefined });
+      if (r.ok) {
+        setPreview(r.preview);
+        if (r.preview.instant) setDone(`${r.preview.processEmoji} ${OUTCOME_LABEL[r.preview.res.outcome]} —— 已落定`);
+      } else setErr(r.error);
+    } finally { setBusy(false); }
+  }
+  function doConfirm() {
+    if (!preview || busy) return;
+    const r = onCraftConfirm(preview);
+    if (r.ok) { setDone(`✓ 「${preview.itemName}」${OUTCOME_LABEL[preview.res.outcome]}`); setPreview(null); setErr(''); setTendency(''); }
+    else setErr(r.error ?? '确认失败');
+  }
+  async function doGen() {
+    if (!genText.trim() || genBusy) return;
+    setGenBusy(true); setErr('');
+    try {
+      const r = await onGenProcess(genText.trim());
+      if (r.ok) { setProcId(r.def.id); setGenOpen(false); setGenText(''); setDone(`✨ 已创制工艺「${r.def.emoji}${r.def.name}」`); }
+      else setErr(r.error);
+    } finally { setGenBusy(false); }
+  }
+  async function doUpload(p: CraftProcessDef) {
+    if (upBusy) return;
+    setUpBusy(p.id); setErr(''); setDone('');
+    try {
+      await uploadLocal('craftProcess', p.id, { name: p.name, summary: p.desc });
+      setDone(`📤 「${p.name}」已上传创意工坊`);
+    } catch (e: any) {
+      setErr(e?.message ?? '上传失败');
+    } finally { setUpBusy(''); }
+  }
+
+  return (
+    <div className="flex-1 overflow-y-auto p-3 space-y-2.5">
+
+      {/* ── 工艺库：内置 + 自创 ── */}
+      <div className="rounded-xl border border-edge bg-void p-2">
+        <div className="flex items-center justify-between mb-1.5 px-1">
+          <span className="text-[11px] font-mono text-dim/50">工艺（{processes.length}）</span>
+          <button onClick={() => { setGenOpen((v) => !v); setErr(''); }}
+            className="px-2 py-0.5 rounded-lg border border-sky-400/45 text-sky-200 text-[11px] font-bold hover:bg-sky-500/10">
+            {genOpen ? '✕ 收起' : '✨ 自创工艺'}
+          </button>
+        </div>
+
+        {/* 自创工艺：写构想 → AI 填受限参数 → 入库即出现在上面的列表 */}
+        {genOpen && (
+          <div className="mb-2 rounded-lg border border-sky-400/30 bg-sky-500/5 p-2 space-y-1.5">
+            <textarea value={genText} onChange={(e) => setGenText(e.target.value)} disabled={genBusy} rows={3}
+              placeholder="✎ 描述你想要的工艺：如「用位面裂隙的碎片打磨，能稳定加一条防御词缀，但很费潜力」／「赌命重铸：小概率跃升品级，大概率崩毁」"
+              className="w-full px-2 py-1.5 rounded-lg bg-void border border-edge/50 text-[12px] text-slate-200 placeholder:text-dim/35 focus:outline-none focus:border-sky-400/50 resize-none" />
+            <div className="flex items-center gap-2">
+              <button onClick={doGen} disabled={genBusy || !genText.trim()}
+                className="flex-1 py-1.5 rounded-lg border border-sky-400/50 bg-sky-500/10 text-sky-200 text-[12px] font-bold hover:bg-sky-500/20 disabled:opacity-40">
+                {genBusy ? '🔥 设计中…' : '✨ 生成工艺'}
+              </button>
+            </div>
+            <div className="text-[10px] text-dim/40 leading-snug">
+              AI 只能填【受限参数】：潜力消耗、费用比例、结果赔率表。数值会被系统夹取，且**净得利越高自动越贵**——
+              想写"稳赚"的工艺可以，但它会贵到不划算。生成后即出现在工艺列表，可上传创意工坊分享。
+            </div>
+          </div>
+        )}
+
+        <div className="grid grid-cols-2 max-lg:grid-cols-1 gap-1.5">
+          {processes.map((p) => {
+            const on = p.id === proc?.id;
+            return (
+              <button key={p.id} onClick={() => { setProcId(p.id); setPreview(null); setErr(''); setDone(''); }}
+                className={`flex items-start gap-2 px-2 py-1.5 rounded-lg border text-left transition-colors ${on ? 'border-sky-400/50 bg-sky-500/10' : 'border-edge/50 hover:bg-panel2'}`}>
+                <span className="text-base shrink-0 leading-tight">{p.emoji}</span>
+                <span className="flex-1 min-w-0">
+                  <span className="flex items-center gap-1.5">
+                    <span className={`text-[13px] font-bold truncate ${on ? 'text-sky-200' : 'text-slate-200'}`}>{p.name}</span>
+                    {!p.builtin && <span className="text-[9.5px] font-mono text-amber-300/60 shrink-0">自创</span>}
+                    {!isPreviewMode(p) && <span className="text-[9.5px] font-mono text-blood/70 shrink-0">赌</span>}
+                  </span>
+                  <span className="block text-[10.5px] text-dim/50 leading-snug line-clamp-2">{p.desc}</span>
+                </span>
+              </button>
+            );
+          })}
+        </div>
+      </div>
+
+      {/* ── 选中工艺详情：风味 + 消耗 + 赔率表 ── */}
+      {proc && (
+        <div className="rounded-xl border border-edge bg-void p-3 space-y-2">
+          <div className="flex items-center gap-2 flex-wrap">
+            <span className="text-[15px] font-bold text-sky-200">{proc.emoji} {proc.name}</span>
+            <span className={`text-[10.5px] px-1.5 py-0.5 rounded border ${gamble ? 'border-blood/45 text-blood/85' : 'border-emerald-500/45 text-emerald-300/85'}`}>
+              {gamble ? '赌博工艺 · 一次摇定不可撤销' : '确定性工艺 · 先预览后确认'}
+            </span>
+            {!proc.builtin && (
+              <span className="ml-auto flex items-center gap-1">
+                <button onClick={() => doUpload(proc)} disabled={!!upBusy}
+                  className="px-1.5 py-0.5 rounded border border-god/40 text-god/85 text-[10.5px] hover:bg-god/10 disabled:opacity-40">
+                  {upBusy === proc.id ? '上传中…' : '📤 上传工坊'}
+                </button>
+                <button onClick={() => { if (confirm(`删除自创工艺「${proc.name}」？`)) { removeProcess(proc.id); setProcId('forge'); } }}
+                  className="px-1.5 py-0.5 rounded border border-edge text-dim/60 text-[10.5px] hover:text-blood hover:border-blood/40">🗑</button>
+              </span>
+            )}
+          </div>
+          {proc.flavor && <div className="text-[11.5px] text-dim/60 leading-relaxed italic border-l-2 border-sky-400/25 pl-2">{proc.flavor}</div>}
+
+          <div className="flex items-center gap-3 flex-wrap text-[12px] font-mono">
+            <span className="text-dim/55">潜力消耗 <span className="text-sky-300 font-bold">{proc.potCost}</span></span>
+            <span className="text-dim/55">费用 <span className="text-amber-300 font-bold">{sel ? formatPark(cost) : `该档公允价 ×${proc.costRatio}`}</span></span>
+            {proc.gradeMin && <span className="text-dim/55">门槛 <span className="text-purple-300">{ITEM_GRADES[proc.gradeMin - 1]}+</span></span>}
+            {!proc.builtin && <span className={`${ev > 0.5 ? 'text-amber-300/70' : 'text-dim/40'}`}>期望 {ev > 0 ? '+' : ''}{ev.toFixed(1)}{ev > 0.5 ? '（已按净得利加价）' : ''}</span>}
+          </div>
+
+          {/* 赔率表：多结果才显示（确定性工艺只有一种结果，没什么可看的）*/}
+          {gamble && (
+            <div className="space-y-1 pt-0.5">
+              {[...proc.outcomes].sort((a, b) => b.weight - a.weight).map((o) => {
+                const pct = totalWeight > 0 ? (o.weight / totalWeight) * 100 : 0;
+                const good = ['gradeUp', 'addAffix', 'upgradeAffix', 'combatUp'].includes(o.kind);
+                const bad = ['brick', 'gradeDown', 'removeAffix', 'combatDown'].includes(o.kind);
+                return (
+                  <div key={o.kind} className="flex items-center gap-2">
+                    <span className={`text-[11px] w-24 shrink-0 ${good ? 'text-emerald-300/85' : bad ? 'text-blood/80' : 'text-dim/50'}`}>{OUTCOME_LABEL[o.kind]}</span>
+                    <span className="flex-1 h-1.5 rounded-full bg-panel2 overflow-hidden">
+                      <span className={`block h-full rounded-full ${good ? 'bg-emerald-400/60' : bad ? 'bg-blood/60' : 'bg-dim/30'}`} style={{ width: `${pct}%` }} />
+                    </span>
+                    <span className="text-[10.5px] font-mono text-dim/45 w-10 text-right shrink-0">{pct.toFixed(1)}%</span>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* ── 选装备 + 锻造潜力 ── */}
+      <div className="rounded-xl border border-edge bg-void p-2">
+        <div className="text-[11px] font-mono text-dim/50 mb-1.5 px-1">选择装备（{candidates.length}）· 条=剩余锻造潜力</div>
+        <div className="max-h-40 overflow-y-auto space-y-1">
+          {candidates.length === 0
+            ? <div className="text-[12px] text-dim/30 px-1 py-2">背包/身上没有装备</div>
+            : candidates.map((it) => {
+              const left = potentialLeft(it); const max = potentialMax(it);
+              const st = craftStateOf(it);
+              return (
+                <button key={it.id} onClick={() => { setSelId(it.id); setPreview(null); setErr(''); setDone(''); }}
+                  className={`w-full flex items-center gap-2 px-2 py-1.5 rounded-lg border text-left transition-colors ${it.id === selId ? 'border-sky-400/50 bg-sky-500/10' : 'border-edge/50 hover:bg-panel2'}`}>
+                  <span className="text-base shrink-0">{CAT_ICON[it.category] ?? '◆'}</span>
+                  <span className={`flex-1 min-w-0 text-[13px] truncate ${gradeNameClass(it.gradeDesc)}`}>{it.name}</span>
+                  {st.corrupted && <span className="text-[10px] font-mono text-blood/70 shrink-0">{st.bricked ? '☠残骸' : '☠已腐蚀'}</span>}
+                  <span className="w-16 h-1.5 rounded-full bg-panel2 overflow-hidden shrink-0" title={`锻造潜力 ${left}/${max}`}>
+                    <span className={`block h-full rounded-full ${left === 0 ? 'bg-blood/50' : left <= max * 0.3 ? 'bg-amber-400/60' : 'bg-sky-400/60'}`} style={{ width: `${(left / max) * 100}%` }} />
+                  </span>
+                  <span className="text-[10px] font-mono text-dim/45 w-9 text-right shrink-0">{left}/{max}</span>
+                  {it.equipped && <span className="text-[10px] font-mono text-god/55 shrink-0">装备中</span>}
+                </button>
+              );
+            })}
+        </div>
+        {sel && craftStateOf(sel).history?.length ? (
+          <div className="mt-1.5 pt-1.5 border-t border-edge/40 text-[10.5px] font-mono text-dim/40 leading-snug">
+            履历：{craftStateOf(sel).history!.slice(0, 4).join(' ／ ')}
+          </div>
+        ) : null}
+      </div>
+
+      {/* ── 精髓图鉴：提取（拆解装备）+ 灌注选择 ── */}
+      <div className="rounded-xl border border-edge bg-void p-2">
+        <div className="flex items-center justify-between mb-1.5 px-1">
+          <span className="text-[11px] font-mono text-dim/50">🧪 精髓图鉴（{essences.length}）· 永久留存、可反复灌注</span>
+          <button onClick={() => { setExtractOpen((v) => !v); setErr(''); }}
+            className="px-2 py-0.5 rounded-lg border border-purple-400/45 text-purple-200 text-[11px] font-bold hover:bg-purple-500/10">
+            {extractOpen ? '✕ 收起' : '⚗ 提取精髓'}
+          </button>
+        </div>
+
+        {/* 提取：选中装备的每条词缀一个按钮，点了就拆解装备并录入图鉴 */}
+        {extractOpen && (
+          <div className="mb-2 rounded-lg border border-purple-400/30 bg-purple-500/5 p-2 space-y-1.5">
+            {!sel ? (
+              <div className="text-[12px] text-dim/45">先在上面选一件装备，再挑要抽出的词缀。</div>
+            ) : splitAffixEntries(sel.affix).length === 0 ? (
+              <div className="text-[12px] text-dim/45">「{sel.name}」没有词缀可提取。</div>
+            ) : (
+              <>
+                <div className="text-[11px] text-amber-300/70 leading-snug">⚠ 提取会**消耗掉「{sel.name}」本体**，只把选中的那一条词缀永久录入图鉴。</div>
+                {splitAffixEntries(sel.affix).map((a, i) => (
+                  <button key={i} onClick={() => {
+                    if (!confirm(`拆解「${sel.name}」，把这条词缀录入精髓图鉴？\n\n${a}\n\n装备本体将被消耗，此操作不可撤销。`)) return;
+                    const r = onExtractEssence(sel.id, i);
+                    if (r.ok) { setDone(`⚗ 已录入精髓【${r.name}】`); setSelId(''); setErr(''); }
+                    else setErr(r.error ?? '提取失败');
+                  }}
+                    className="w-full text-left px-2 py-1.5 rounded-lg border border-edge/50 hover:border-purple-400/50 hover:bg-purple-500/10 text-[12px] text-amber-200/85 leading-snug transition-colors">
+                    ⚗ {a}
+                  </button>
+                ))}
+              </>
+            )}
+          </div>
+        )}
+
+        {essences.length === 0 ? (
+          <div className="text-[12px] text-dim/30 px-1 py-1">图鉴还是空的 —— 拆解一件带词缀的装备即可录入第一条精髓。</div>
+        ) : (
+          <div className="max-h-32 overflow-y-auto space-y-1">
+            {essences.map((e) => {
+              const on = e.id === essId;
+              const blocked = !!sel && !canInfuse(e, sel);
+              return (
+                <button key={e.id} onClick={() => { setEssId(on ? '' : e.id); setErr(''); }}
+                  className={`w-full flex items-start gap-2 px-2 py-1.5 rounded-lg border text-left transition-colors ${on ? 'border-purple-400/50 bg-purple-500/10' : 'border-edge/50 hover:bg-panel2'} ${blocked ? 'opacity-45' : ''}`}>
+                  <span className="flex-1 min-w-0">
+                    <span className="block text-[12px] text-amber-200/85 leading-snug line-clamp-2">{e.text}</span>
+                    <span className="block text-[10px] font-mono text-dim/40 mt-0.5">
+                      出自「{e.fromItem}」· <span className={gradeNameClass(e.fromGrade)}>{e.fromGrade}</span>
+                      {blocked && <span className="text-blood/70"> · 目标品级低太多（最多差 {ESSENCE_GRADE_GAP} 档）</span>}
+                    </span>
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+        )}
+        {needEssence && !essence && <div className="mt-1.5 text-[11px] font-mono text-amber-300/70 px-1">↑「{proc?.name}」需要先选一条要灌注的精髓</div>}
+      </div>
+
+      {/* ── 倾向 + 执行 ── */}
+      <input type="text" value={tendency} onChange={(e) => setTendency(e.target.value)} disabled={busy}
+        placeholder="✎ 词缀方向提示词（选填）：如 偏向防御 / 呼应火焰 / 采集向…只导方向、不导强度"
+        className="w-full px-2.5 py-1.5 rounded-lg bg-void border border-edge/50 text-[12px] text-slate-200 placeholder:text-dim/35 focus:outline-none focus:border-sky-400/50" />
+      <button onClick={doCraft} disabled={!canGo}
+        className={`w-full py-2.5 rounded-xl text-base font-bold border transition-all disabled:opacity-40 disabled:cursor-not-allowed ${gamble ? 'border-blood/50 text-blood/90 bg-blood/10 hover:bg-blood/20' : 'border-sky-400/50 text-sky-200 bg-sky-500/10 hover:bg-sky-500/20'}`}>
+        {busy ? '🔥 工台施艺中…'
+          : !sel ? '🔨 施加工艺（先选一件装备）'
+          : !feas.ok ? (feas.reason ?? '无法施加')
+          : !pay ? `资金不足 · 需 ${formatPark(cost)}`
+          : !essenceOk ? '请先选一条可灌注的精髓'
+          : `${proc?.emoji} ${proc?.name} · 潜力-${proc?.potCost} · ${formatPark(cost)}`}
+      </button>
+      <div className="text-[10px] text-dim/40 text-center leading-snug">
+        {gamble
+          ? '⚠ 赌博工艺：点下即摇定并扣费，结果不可撤销、无预览'
+          : '确定性工艺：先出预览，确认才扣费落库'}
+        {' · '}潜力耗尽后这件装备再不能施艺（品级进阶会抬高潜力上限）
+      </div>
+      {err && <div className="text-[12px] font-mono text-blood/80 text-center">{err}</div>}
+      {done && <div className="text-[12px] font-mono text-emerald-300/90 text-center">{done}</div>}
+
+      {/* ── 结果卡：确定性工艺=待确认预览；赌博工艺=已落定的战报 ── */}
+      {preview && (
+        <div className={`rounded-xl border p-3 space-y-2 ${preview.res.outcome === 'brick' ? 'border-blood/50 bg-blood/5' : 'border-sky-400/40 bg-sky-500/5'}`}>
+          <div className="flex items-center gap-2 flex-wrap">
+            <span className="text-[15px] font-bold text-slate-100">{preview.processEmoji} {preview.itemName}</span>
+            <span className={`text-[11px] px-1.5 py-0.5 rounded border ${
+              ['gradeUp', 'addAffix', 'upgradeAffix', 'combatUp'].includes(preview.res.outcome) ? 'border-emerald-500/45 text-emerald-300/90'
+              : ['brick', 'gradeDown', 'removeAffix', 'combatDown'].includes(preview.res.outcome) ? 'border-blood/45 text-blood/90'
+              : 'border-edge text-dim/60'}`}>
+              {OUTCOME_LABEL[preview.res.outcome]}
+            </span>
+            {preview.instant && <span className="text-[10px] font-mono text-dim/45">已落定</span>}
+          </div>
+
+          {preview.res.gradeFrom && preview.res.gradeTo && (
+            <div className="text-[12.5px] font-mono">
+              <span className={gradeNameClass(preview.res.gradeFrom)}>{preview.res.gradeFrom}</span>
+              <span className="text-dim/40"> → </span>
+              <span className={gradeNameClass(preview.res.gradeTo)}>{preview.res.gradeTo}</span>
+            </div>
+          )}
+          {preview.res.combatPct != null && (
+            <div className={`text-[12.5px] font-mono ${preview.res.combatPct > 0 ? 'text-orange-300/90' : 'text-blood/80'}`}>
+              ⚔ 攻防基础值 {preview.res.combatPct > 0 ? '+' : ''}{preview.res.combatPct}%
+            </div>
+          )}
+          {preview.res.affixTarget && preview.res.outcome === 'removeAffix' && (
+            <div className="text-[12px] text-blood/70 line-through leading-snug border-l-2 border-blood/30 pl-2">{preview.res.affixTarget}</div>
+          )}
+          {preview.res.affixTarget && preview.res.outcome !== 'removeAffix' && (
+            <div className="text-[11px] text-dim/40 leading-snug border-l-2 border-edge pl-2">原：{preview.res.affixTarget}</div>
+          )}
+          {preview.aiAffix && (
+            <div className="text-[13px] text-amber-200/90 leading-relaxed border-l-2 border-amber-400/35 pl-2">{preview.aiAffix}</div>
+          )}
+          {preview.res.outcome === 'brick' && (
+            <div className="text-[12px] text-blood/85 leading-snug">☠ 这件装备已崩毁成残骸：此后无法再施加任何工艺（强化仍可进行）。</div>
+          )}
+          {preview.res.outcome === 'nothing' && <div className="text-[12px] text-dim/50">工台空转，什么也没有发生 —— 费用与潜力照收。</div>}
+          {preview.notice && <div className="text-[11px] text-dim/55 border-t border-edge/40 pt-1.5">📜 {preview.notice}</div>}
+
+          <div className="flex gap-2 pt-1">
+            {preview.instant ? (
+              <button onClick={() => { setPreview(null); setErr(''); }}
+                className="w-full py-2 rounded-lg border border-god/50 text-god bg-god/10 text-[13px] font-semibold hover:bg-god/20 transition-colors">确定</button>
+            ) : (
+              <>
+                <button onClick={doConfirm} disabled={busy || !planCraftPayment(preview.res.cost, wallet)}
+                  className="flex-1 py-2 rounded-lg border border-emerald-500/50 bg-emerald-500/10 text-emerald-300 font-semibold text-[13px] hover:bg-emerald-500/20 disabled:opacity-40 transition-colors">✅ 落定 · {formatPark(preview.res.cost)}</button>
+                <button onClick={doCraft} disabled={busy}
+                  className="flex-1 py-2 rounded-lg border border-god/40 text-god/90 text-[13px] hover:bg-god/10 disabled:opacity-40 transition-colors">🔄 重写词缀</button>
+                <button onClick={() => { setPreview(null); setErr(''); }} disabled={busy}
+                  className="flex-1 py-2 rounded-lg border border-edge text-dim hover:text-slate-200 text-[13px] disabled:opacity-40 transition-colors">↩ 取消</button>
+              </>
+            )}
           </div>
         </div>
       )}

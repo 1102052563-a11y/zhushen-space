@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
+import { useShallow } from 'zustand/react/shallow';
 import { useAbyss } from '../store/abyssStore';
 import { useItems } from '../store/itemStore';
 import { useMisc } from '../store/miscStore';
@@ -59,7 +60,9 @@ export default function AbyssPanel({ onClose, onGenBoons, onGenSin, onGenAwaken,
   const worldName = useMisc((s) => s.worldName);
   const home = true;   // 区域限制已取消：深渊入口在任何世界均可开启
   void isHome; void worldName;
-  const sceneNpcs = useNpc((s) => Object.values(s.npcs).filter((n) => n.onScene && !n.partyMember).slice(0, 12));
+  // ⚠ 同 StatusBar：Object.values+filter+slice 每次都是新数组，不包 useShallow 的话
+  //   npcStore 每一次写入（演化阶段一回合几十次）都会重渲整个深渊面板。
+  const sceneNpcs = useNpc(useShallow((s) => Object.values(s.npcs).filter((n) => n.onScene && !n.partyMember).slice(0, 12)));
 
   // 开局选项
   const [hardcore, setHardcore] = useState(false);

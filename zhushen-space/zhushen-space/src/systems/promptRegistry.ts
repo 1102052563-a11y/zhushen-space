@@ -17,12 +17,14 @@ import {
   SKILL_LEVELUP_PROMPT, SKILL_FUSION_RULE, TITLE_GEN_RULE, TITLE_FUSION_RULE, ACHIEVEMENT_GEN_RULE,
   JOY_SYSTEM_RULE, JOY_OUTPUT_RULE, JOY_PRIVATE_FIELDS_RULE,
   CHEST_OPEN_RULE, ARENA_OPPONENT_RULE, ARENA_REWARD_RULE, GLADIATOR_MATCH_RULE, GACHA_REWARD_RULE,
-  CRAFT_RULE, EQUIP_SET_RULE, EQUIP_ASCEND_RULE, WORLDVIEW_GEN_PROMPT, WORLD_SUMMARY_PROMPT,
+  CRAFT_RULE, EQUIP_SET_RULE, EQUIP_ASCEND_RULE, EQUIP_CRAFT_RULE, CRAFT_PROCESS_GEN_RULE,
+  CHRONICLE_COMPILE_RULE, WORLDVIEW_GEN_PROMPT, WORLD_SUMMARY_PROMPT,
   CHAOS_RECORD_PROMPT, CHAOS_WORLD_GEN_PROMPT,
   CANON_INERTIA_RULE, SUXIAO_PERSONA_RULE, CANON_MISC_RULE,
   TABLE_FILL_RULE, TABLE_FILL_MANUAL_RULE,
 } from '../promptRules';
 import { COMBAT_WRITING_GUIDE_RULE } from './combatWritingGuide';
+import { DISPATCH_GEN_RULE, DISPATCH_REPORT_RULE } from './dispatchPrompts';
 import { ABYSS_BOON_GEN_RULE, ABYSS_SIN_GEN_RULE, ABYSS_AWAKEN_RULE, ABYSS_JUDGE_RULE, ABYSS_ENEMY_GEN_RULE } from './abyssPrompts';
 import { NM_COMPILE_PROMPT, NM_INGEST_PROMPT } from './narrativeMemory';
 import { NM_STRUCT_SELECT_PROMPT } from './structuredRecall';
@@ -101,6 +103,8 @@ export const PROMPT_REGISTRY: PromptEntry[] = [
   { key: 'JOY_PRIVATE_FIELDS_RULE', label: '欢愉宫 · 私密字段', group: '欢愉宫', kind: 'override', def: JOY_PRIVATE_FIELDS_RULE, desc: '情欲 / 私密状态字段 schema' },
   // ── 玩法设施 ──
   { key: 'CHEST_OPEN_RULE', label: '开箱', group: '玩法设施', kind: 'override', def: CHEST_OPEN_RULE, desc: '开宝箱产出规则' },
+  { key: 'DISPATCH_GEN_RULE', label: '冒险团派遣 · 委托生成', group: '玩法设施', kind: 'override', def: DISPATCH_GEN_RULE, desc: '手动生成委托板（含奖励物品完整字段）' },
+  { key: 'DISPATCH_REPORT_RULE', label: '冒险团派遣 · 归来战报', group: '玩法设施', kind: 'override', def: DISPATCH_REPORT_RULE, desc: '照已锁死的账本写战报散文' },
   { key: 'ARENA_OPPONENT_RULE', label: '竞技场 · 对手生成', group: '玩法设施', kind: 'override', def: ARENA_OPPONENT_RULE, desc: '竞技场对手生成' },
   { key: 'ARENA_REWARD_RULE', label: '竞技场 · 奖励', group: '玩法设施', kind: 'override', def: ARENA_REWARD_RULE, desc: '竞技场排名奖励' },
   { key: 'GLADIATOR_MATCH_RULE', label: '角斗 · 赛事', group: '玩法设施', kind: 'override', def: GLADIATOR_MATCH_RULE, desc: '角斗场赛事生成' },
@@ -115,9 +119,12 @@ export const PROMPT_REGISTRY: PromptEntry[] = [
   { key: 'CRAFT_RULE', label: '合成工坊 · 规则', group: '合成工坊', kind: 'override', def: CRAFT_RULE, desc: '合成 / 炼制守恒、格式、品质规则' },
   { key: 'EQUIP_SET_RULE', label: '套装锻造', group: '合成工坊', kind: 'override', def: EQUIP_SET_RULE, desc: '整套主题装备生成 · 套装效果按已装备件数递进解锁' },
   { key: 'EQUIP_ASCEND_RULE', label: '品级进阶', group: '玩法设施', kind: 'override', def: EQUIP_ASCEND_RULE, desc: '强化所 · 装备品级 +1 档进阶形态生成' },
+  { key: 'EQUIP_CRAFT_RULE', label: '装备工艺', group: '玩法设施', kind: 'override', def: EQUIP_CRAFT_RULE, desc: '强化所 · 工艺产出的那一条词缀文本（结果由前端摇定）' },
+  { key: 'CRAFT_PROCESS_GEN_RULE', label: '自创工艺', group: '玩法设施', kind: 'override', def: CRAFT_PROCESS_GEN_RULE, desc: '强化所 · 玩家提示词 → AI 生成新工艺定义（参数受夹取）' },
   // ── 世界生成 / 总结 ──
   { key: 'WORLDVIEW_GEN_PROMPT', label: '世界观生成', group: '世界生成 / 总结', kind: 'override', def: WORLDVIEW_GEN_PROMPT, desc: '进入世界时生成世界观设定' },
   { key: 'WORLD_SUMMARY_PROMPT', label: '离世总结', group: '世界生成 / 总结', kind: 'override', def: WORLD_SUMMARY_PROMPT, desc: '离开世界时的世界志总结' },
+  { key: 'CHRONICLE_COMPILE_RULE', label: '编年史·修史', group: '世界生成 / 总结', kind: 'override', def: CHRONICLE_COMPILE_RULE, desc: '把一卷纪要实录删繁就简编纂成正史' },
   { key: 'PROFESSION_QUEST_PROMPT', label: '职业任务生成', group: '世界生成 / 总结', kind: 'override', def: PROFESSION_QUEST_PROMPT, desc: '世界卡按钮 · 读技能 / 副职业树生成职业任务' },
   // ── 叙事记忆 RAG ──
   { key: 'NM_COMPILE_PROMPT', label: '记忆召回 · 关键词规划', group: '叙事记忆 RAG', kind: 'override', def: NM_COMPILE_PROMPT, desc: '检索关键词规划（LLM 召回模式）' },

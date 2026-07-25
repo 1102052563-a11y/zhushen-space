@@ -124,6 +124,9 @@ import {
   CRAFT_RULE,
   EQUIP_SET_RULE,
   EQUIP_ASCEND_RULE,
+  EQUIP_CRAFT_RULE,
+  CRAFT_PROCESS_GEN_RULE,
+  CHRONICLE_COMPILE_RULE,
   TABLE_FILL_MANUAL_RULE,
   CANON_MISC_RULE,
 } from './promptRules';
@@ -158,6 +161,8 @@ import { combatFinalVitals, applyCombatVitals, buildCombatResultFallback, runBat
 import { pickEnemyAction } from './systems/enemyAI';
 import { parseWeather, isLightSky, extractWeatherFxCss, sanitizeWeatherCss } from './systems/weatherFx';
 import { runNpcAutonomy } from './systems/npcAutonomy';
+import { runDispatchTick } from './systems/dispatchEngine';
+import { generateDispatchReport } from './systems/dispatchReport';
 import { useCombat, newLogId, type BattleState, type CombatStatBlock, type Side, type CombatActionKind } from './store/combatStore';
 import { buildCombatant, assembleBattle, settleAction, advanceTurn, checkEnd, currentActorId, makeActionLog, playerControlled, setMpCombatItems, clearMpCombatItems, rollInitiative } from './systems/combatEngine';
 import { deriveBattlefieldAffixes } from './systems/battlefield';
@@ -226,20 +231,26 @@ const WorldCodexPanel = lazy(() => import('./components/WorldCodexPanel'));
 const WikiPanel = lazy(() => import('./components/WikiPanel'));
 const AdventureTeamPanel = lazy(() => import('./components/AdventureTeamPanel'));
 import ImageViewer from './components/ImageViewer';
+import CodexHover from './components/CodexHover';   // 正文关键词悬浮图鉴的悬浮卡宿主（全局一份·document 委托监听·零 store 订阅）
+const CodexDetail = lazy(() => import('./components/CodexDetail'));   // 完整档案页（只在点开时才拉这块）
+import { loadLunhuiCharacters, type LunhuiChar } from './systems/lunhuiChars';   // 轮回 wiki 人物库（小剧场取材 + 悬浮图鉴 wiki 层共用同一份缓存）
 import HoloViewer from './components/HoloViewer';
 import { useImageViewer } from './store/imageViewerStore';
 import ImageBusyToast from './components/ImageBusyToast';
-import { useItems, extractItemPresetFromJson, ITEM_CATEGORIES, ITEM_GRADES, formatItemLine } from './store/itemStore';
+import { useItems, extractItemPresetFromJson, ITEM_CATEGORIES, ITEM_GRADES, formatItemLine, splitAffixEntries, gradeToNum } from './store/itemStore';
 import type { ItemPresetEntry } from './store/itemStore';
 import { useComposer } from './store/composerStore';
 import { ComposerTextarea, ComposerSendButton } from './components/ChatComposer';   // 主输入框（拆出·打字不重渲 App）
 import { usePlayer, buildPlayerSystemPrompt, extractPlayerPresetFromJson } from './store/playerStore';
 import { useWorldRecord, formatWorldviewForInjection, formatInheritAnchors, normWorldName, type Worldview, type WorldSummary } from './store/worldRecordStore';
+import { useChronicle } from './store/chronicleStore';
+import { useTables } from './store/tableStore';
+import { buildVolumes, buildCompileInput, sanitizeCompiled, ORPHAN_VOLUME } from './systems/chronicle';
 import { useChaosWorld } from './store/chaosWorldStore';
 import { computeOffset, canonWorldName, chaosUpload, chaosFeed, type ChaosRecordDraft, type ChaosOffsetNode } from './systems/chaosWorld';
 import { useNpcEvo, extractNpcPresetFromJson } from './store/npcEvoStore';
 import { usePetEvo } from './store/petEvoStore';
-import { isPetLike } from './systems/petEvolution';
+import { isPetLike, isCompanionTag, ownerOf } from './systems/petEvolution';
 import { useEntryJudge } from './store/entryJudgeStore';
 import { useFaction } from './store/factionStore';
 import { useFactionEvo, buildFactionSystemPrompt, buildFactionEntryPrompt, extractFactionPresetFromJson } from './store/factionEvoStore';
@@ -301,6 +312,12 @@ import { craftMode, craftOutputSlots, type CraftQuality } from './systems/craftE
 import { tiersForPieces, parsePendingSuit } from './systems/equipSets';
 import { useEquipSets } from './store/equipSetStore';
 import { nextGradeOf, ascendCost, targetScoreFor, planAscendPayment, type AscendPreview } from './systems/equipAscend';
+import { useEquipCraft } from './store/equipCraftStore';
+import {
+  resolveCraft, canCraft, craftCost, craftPatch, planCraftPayment, isPreviewMode, craftStateOf,
+  historyLine, pushHistory, canInfuse, OUTCOME_LABEL,
+  type CraftPreview, type CraftProcessDef,
+} from './systems/equipCraft';
 import { formatPark } from './systems/itemPricing';
 import { buildCraftWbInjection } from './systems/craftWorldBook';
 import { generateGem } from './systems/gemEngine';
@@ -344,12 +361,14 @@ import { settleDmDeal, normCur as dmNormCur } from './systems/dmTrade';
 const SystemShop = lazy(() => import('./components/SystemShop'));
 const SummaryPanel = lazy(() => import('./components/SummaryPanel'));
 const WorldRecordPanel = lazy(() => import('./components/WorldRecordPanel'));
+const ChroniclePanel = lazy(() => import('./components/ChroniclePanel'));
 const ChaosWorldPanel = lazy(() => import('./components/ChaosWorldPanel'));
 const ChaosUploadModal = lazy(() => import('./components/ChaosUploadModal'));
 const WorldbookMergePanel = lazy(() => import('./components/WorldbookMergePanel'));
 const AuditPanel = lazy(() => import('./components/AuditPanel'));
 const SaveLoadPanel = lazy(() => import('./components/SaveLoadPanel'));
-import { PENDING_STARTED_KEY, clearProgress, autoSaveSlot, saveSlot, loadSlot, UNDO_ID, undoPointHasChat, requestPersistentStorage } from './systems/saveManager';
+const BranchTreePanel = lazy(() => import('./components/BranchTreePanel'));
+import { PENDING_STARTED_KEY, clearProgress, autoSaveSlot, saveSlot, loadSlot, UNDO_ID, undoPointHasChat, requestPersistentStorage, saveBranchPoint } from './systems/saveManager';
 import { setResumeFlag, getResumeFlag, clearResumeFlag } from './systems/resumeFlag';
 import { restoreB1IfWiped } from './systems/b1Mirror';
 import * as chatDb from './systems/chatDb';
@@ -521,7 +540,27 @@ function resolveActivePreset(ss: { textPresets: any[]; activeTextPresetId: strin
 let _resolveBuiltins: (() => void) | null = null;
 const builtinsReady: Promise<void> = new Promise((r) => { _resolveBuiltins = r; });
 function markBuiltinsReady() { if (_resolveBuiltins) { _resolveBuiltins(); _resolveBuiltins = null; } }
-setTimeout(markBuiltinsReady, 8000);
+
+/* 玩家自有世界书从 IndexedDB 回填完成的信号。
+   ⚠ 内置补种必须排在它后面：回填是整体 setState 覆盖，抢跑的话应用好的内置会被它整个盖掉。 */
+let _resolveWbRestored: (() => void) | null = null;
+const wbRestored: Promise<void> = new Promise((r) => { _resolveWbRestored = r; });
+function markWbRestored() { if (_resolveWbRestored) { _resolveWbRestored(); _resolveWbRestored = null; } }
+
+/* 内置补种改「首次需要时才拉」（进游戏 / 开设置 / 建角色 / 开存档），不再在挂载时抢首屏——
+   这一趟是 13 个文件约 3.1MB 的 fetch + 解析 + 六本正文世界书三方合并，全在主线程上。
+   幂等：谁先触发谁启动，之后一律复用同一个 promise；正文生成前那道 await 也走这里，
+   所以**万一哪个入口漏挂，第一条消息仍会把它拉起来再等**（自愈，不会静默裸奔）。
+   ⚠ 8s 失败兜底改成从「开始加载」起算——原先写在模块顶层，一旦触发被延后就会在预设到位前提前放行。 */
+let _builtinsStarted = false;
+function ensureBuiltins(): Promise<void> {
+  if (!_builtinsStarted) {
+    _builtinsStarted = true;
+    setTimeout(markBuiltinsReady, 8000);
+    void wbRestored.then(() => loadBuiltinDefaults()).finally(markBuiltinsReady);
+  }
+  return builtinsReady;
+}
 
 async function loadBuiltinDefaults() {
   const base = import.meta.env.BASE_URL || '/';
@@ -547,8 +586,10 @@ async function loadBuiltinDefaults() {
         useSettings.setState((s) => ({ worldBooks: (s.worldBooks ?? []).filter((b: any) => b.builtinKey !== key) }));
         useSettings.getState().importWorldBook(json, name, true, key);
       };
-      overwriteWb(await grab('worldgen.json'), '世界选择', 'wb-worldsel');
-      overwriteWb(await grab('leisure.json'),  '休闲世界', 'wb-leisure');   // 休闲/恋爱世界：同属「世界选择」世界书
+      // 两本互不相干（各自只按自己的 builtinKey 清旧），并发取回后仍按原顺序 apply
+      const [wgJson, leJson] = await Promise.all([grab('worldgen.json'), grab('leisure.json')]);
+      overwriteWb(wgJson, '世界选择', 'wb-worldsel');
+      overwriteWb(leJson, '休闲世界', 'wb-leisure');   // 休闲/恋爱世界：同属「世界选择」世界书
     }
     // 正文世界书 → textWorldBooks（正文生成读取）；内置 ST模块化·铁律 + 轮回乐园小说 + 性爱姿势 + BDSM（______.json 不内置）。
     //   性爱姿势/BDSM 两本已转纯绿灯（constant 全 false）：仅关键词命中才注入，不污染日常正文；配套 WorldSelector 的🤸姿势/⛓BDSM快捷按钮按书名定位取条目标题。
@@ -577,11 +618,18 @@ async function loadBuiltinDefaults() {
     // 轮回乐园特化预设(Claude/Gemini)→ 内置补种：按名判重(不覆盖玩家上传/已有预设)、默认不激活(activate=false)；玩家若编辑过(转非 builtin 入库、同名已在)则不再补
     {
       const has = (n: string) => useSettings.getState().textPresets.some((p) => p.name === n);
-      if (!has('轮回乐园·Claude')) { const c = await grab('zhushen-claude.json'); if (c) useSettings.getState().importTextPreset(c, '轮回乐园·Claude', true, false); }
-      if (!has('轮回乐园·Gemini')) { const g = await grab('zhushen-gemini.json'); if (g) useSettings.getState().importTextPreset(g, '轮回乐园·Gemini', true, false); }
-      if (!has('轮回乐园·DeepSeek')) { const d = await grab('zhushen-deepseek.json'); if (d) useSettings.getState().importTextPreset(d, '轮回乐园·DeepSeek', true, false); }
-      if (!has('轮回乐园 Alu v2.0')) { const alu = await grab('zhushen-alu.json'); if (alu) useSettings.getState().importTextPreset(alu, '轮回乐园 Alu v2.0', true, false); }
-      if (!has('双人成行 V7.1—长风渡')) { const sc = await grab('shuangren-changfeng.json'); if (sc) useSettings.getState().importTextPreset(sc, '双人成行 V7.1—长风渡', true, false); }
+      // 先同步判重、只并发拉「缺的那几本」：五本名字互不相同，先查后拉与逐本查拉等价，
+      // 但首次进游戏这五本全缺（共约 1.9MB，长风渡一本就 1.6MB），串行是五次往返。
+      const seeds: Array<[name: string, file: string]> = [
+        ['轮回乐园·Claude', 'zhushen-claude.json'],
+        ['轮回乐园·Gemini', 'zhushen-gemini.json'],
+        ['轮回乐园·DeepSeek', 'zhushen-deepseek.json'],
+        ['轮回乐园 Alu v2.0', 'zhushen-alu.json'],
+        ['双人成行 V7.1—长风渡', 'shuangren-changfeng.json'],
+      ];
+      const missing = seeds.filter(([n]) => !has(n));
+      const seedTexts = await Promise.all(missing.map(([, f]) => grab(f)));
+      missing.forEach(([n], i) => { const t = seedTexts[i]; if (t) useSettings.getState().importTextPreset(t, n, true, false); });
     }
     // 自动去重（仅清内置补种自身的重复，绝不碰玩家的预设）：玩家导入/编辑/激活固化过的(非 builtin)一律保留；
     //   只删「多余的同名 builtin」——同名 builtin 留一个、其余删；某 builtin 若已有同名的非 builtin(玩家版) 则该 builtin 多余、删（玩家版优先）。
@@ -602,11 +650,15 @@ async function loadBuiltinDefaults() {
     } catch { /* */ }
     // 四个演化预设（主角/物品/NPC/势力）→ **每次启动强制覆盖成内置最新**（按要求：玩家对这些预设的改动不保留，始终以内置为准）。
     // 仅当 fetch+解析成功才覆盖；失败则保留现有，避免断网把预设清空。setPresetEntries 只换 entries/名称/版本，保留各自的 API 路由配置。
-    { const t = await grab('player.json'); const p = t ? extractPlayerPresetFromJson(t) : null;
+    // 五份各写各的 store、互相没有依赖，原先五次串行往返只是写法所致 → 并发取回后仍按原顺序 apply。
+    const [tPlayer, tItem, tNpc, tEntry, tFaction] = await Promise.all([
+      grab('player.json'), grab('item.json'), grab('npc.json'), grab('entry-judge.json'), grab('faction.json'),
+    ]);
+    { const t = tPlayer; const p = t ? extractPlayerPresetFromJson(t) : null;
       if (p) usePlayer.getState().setPresetEntries(p.entries, p.name, p.version); }
-    { const t = await grab('item.json'); const p = t ? extractItemPresetFromJson(t) : null;
+    { const t = tItem; const p = t ? extractItemPresetFromJson(t) : null;
       if (p) useItems.getState().setPresetEntries(p.entries, p.name, p.version); }
-    { const t = await grab('npc.json'); const p = t ? extractNpcPresetFromJson(t) : null;
+    { const t = tNpc; const p = t ? extractNpcPresetFromJson(t) : null;
       // NPC 演化只取「重点演化」条目；登场判断条目(entrySharedRules)已分割到独立的「登场判断」模块(entryJudge)。
       if (p) {
         const evoEntries = p.entries.filter((e) => e.source !== 'entrySharedRules');
@@ -614,9 +666,9 @@ async function loadBuiltinDefaults() {
         // 宠物/召唤物演化「演化规则一致」：复用同一套 NPC 规则体，专属差异(不自行成长)由代码尾 PET_EVOLUTION_RULE 注入。
         usePetEvo.getState().setPresetEntries(evoEntries, p.name, p.version);
       } }
-    { const t = await grab('entry-judge.json'); const p = t ? extractNpcPresetFromJson(t) : null;   // 登场判断·独立预设
+    { const t = tEntry; const p = t ? extractNpcPresetFromJson(t) : null;   // 登场判断·独立预设
       if (p) useEntryJudge.getState().setPresetEntries(p.entries, p.name, p.version); }
-    { const t = await grab('faction.json'); const p = t ? extractFactionPresetFromJson(t) : null;
+    { const t = tFaction; const p = t ? extractFactionPresetFromJson(t) : null;
       if (p) useFactionEvo.getState().setPresetEntries(p.entries, p.name, p.version); }
   } catch (e) { console.warn('[内置预设] 载入失败', e); }
 }
@@ -652,12 +704,12 @@ function buildItemPhaseSystemPrompt(entries: ItemPresetEntry[], narrative: strin
   const npcCNums = npcRecords.map((r) => r.id.match(/^C(\d+)$/)?.[1]).filter(Boolean).map(Number);
   const npcNextId = `C${npcCNums.length > 0 ? Math.max(...npcCNums) + 1 : 1}`;
   const npcOnscreenText = npcRecords.filter((r) => r.onScene && !r.isDead).length > 0
-    ? npcRecords.filter((r) => r.onScene && !r.isDead).map((r) => `[${r.id}] ${r.name} 阶位:${r.realm || '未知'}`).join('\n')
+    ? npcRecords.filter((r) => r.onScene && !r.isDead).map((r) => `[${r.id}] ${r.name} 阶位:${r.realm || '未知'}${r.npcTag ? ' 标签:' + r.npcTag : ''}${isCompanionTag(r) ? ' 主人:' + ownerOf(r) : ''}`).join('\n')
     : '（无在场NPC）';
   // 已持有的 NPC 物品清单（带真实ID + 持有者）——让物品阶段勿对已存在的 NPC 物品重复 createItem。
   // 纳入「在场 NPC」+「随行的随从/宠物（即便离场也跟着主角走）」：否则离场随从的持有物对物品阶段隐身，
   // 会被重复 createItem / updateItem·destroyItem 匹配不到（口径与综合对账阶段一致）。离场随行者标注「·随行(离场)」。
-  const npcItemHolders = npcRecords.filter((r) => !r.isDead && (r.onScene || r.npcTag === '随从' || r.npcTag === '宠物'));
+  const npcItemHolders = npcRecords.filter((r) => !r.isDead && (r.onScene || isCompanionTag(r)));   // 随行=随从/宠物/召唤物（isCompanionTag 统一判定，此前散写漏了召唤物）
   const npcItemsList = npcItemHolders
     .flatMap((r) => (r.items ?? []).map((it) =>
       `${formatItemLine(it)} —— 持有者 ${r.id}(${r.name || r.id})${r.onScene ? '' : '·随行(离场)'}`));
@@ -854,19 +906,8 @@ function parseTheater(raw: string): string | null {
   return html || null;
 }
 
-/* ── 小剧场取材：轮回 wiki「人物条目」（public/lunhui-characters.json，由 vite 插件 build-lunhui-characters 生成）── */
-type LunhuiChar = { name: string; world: string; content: string };
-let _lunhuiCharsCache: LunhuiChar[] | null = null;
-async function loadLunhuiCharacters(): Promise<LunhuiChar[]> {
-  if (_lunhuiCharsCache) return _lunhuiCharsCache;
-  try {
-    const base = import.meta.env.BASE_URL || '/';
-    const r = await fetch(base + 'lunhui-characters.json');
-    if (r.ok) { const data = await r.json(); _lunhuiCharsCache = Array.isArray(data) ? data : []; return _lunhuiCharsCache; }
-  } catch { /* 取材失败 → 小剧场无档案，静默降级 */ }
-  _lunhuiCharsCache = [];
-  return _lunhuiCharsCache;
-}
+/* ── 小剧场取材：轮回 wiki「人物条目」——加载器已抽到 systems/lunhuiChars.ts
+      （正文悬浮图鉴的 wiki 层也用它，模块级缓存共享，这 2MB 只会拉一次）── */
 /* 随机挑 1~多位：1 位最常见，偶尔 2~4 位；多位时取自同一「世界」分组（彼此有关联）。*/
 function pickTheaterCharacters(all: LunhuiChar[]): LunhuiChar[] {
   if (!all.length) return [];
@@ -1278,6 +1319,7 @@ const rightMenuItems = [
   { icon: '🗂', label: '世界资料库' },
   { icon: '📚', label: '轮回WIKI' },
   { icon: '🗺', label: '世界记录' },
+  { icon: '📜', label: '编年史' },
   { icon: '☄️', label: '混沌世界' },
   { icon: '⚔️', label: '战斗' },
   { icon: '🎡', label: '乐园设施' },
@@ -1300,6 +1342,7 @@ const rightMenuItems = [
   { icon: '🧠', label: '记忆' },
   { icon: '🧩', label: '创意工坊' },
   { icon: '💾', label: '存档' },
+  { icon: '🌿', label: '分支树' },
   { icon: '🔊', label: '语音' },
   { icon: '⚙', label: '设置' },
 ];
@@ -1308,7 +1351,7 @@ const rightMenuItems = [
 const NAV_FX: Record<string, string> = {
   '装备': 'fx-sword', '储存空间': 'fx-bag', 'NPC': 'fx-card', '技能': 'fx-sparkle',
   '副职业': 'fx-wrench', '技能树': 'fx-tree', '体系': 'fx-tree', '合成': 'fx-wrench', '开箱': 'fx-bag', '称号': 'fx-medal', '成就': 'fx-trophy', '势力': 'fx-pillar',
-  '领地': 'fx-castle', '冒险团': 'fx-shield', '队伍': 'fx-friends', '万族': 'fx-cosmos', '世界百科': 'fx-book', '世界资料库': 'fx-book', '轮回WIKI': 'fx-book', '混沌世界': 'fx-void',
+  '领地': 'fx-castle', '冒险团': 'fx-shield', '队伍': 'fx-friends', '万族': 'fx-cosmos', '世界百科': 'fx-book', '世界资料库': 'fx-book', '轮回WIKI': 'fx-book', '编年史': 'fx-book', '分支树': 'fx-tree', '混沌世界': 'fx-void',
   '战斗': 'fx-clash', '乐园设施': 'fx-ferris', '深渊': 'fx-void', '回合洞察': 'fx-zoom', '审计': 'fx-zoom', '任务': 'fx-quest',
   '频道': 'fx-signal', '私信': 'fx-mail', '好友': 'fx-friends', '聊天室': 'fx-signal', '交易行': 'fx-bag', '产业': 'fx-bag', '公会': 'fx-castle', '助战': 'fx-clash', '世界竞技场': 'fx-trophy', '游玩时长': 'fx-trophy', '纪念丰碑': 'fx-pillar', '账户仓库': 'fx-bag', '记忆': 'fx-brain', '创意工坊': 'fx-sparkle', '存档': 'fx-save', '设置': 'fx-gear',
 };
@@ -1419,6 +1462,7 @@ export default function App() {
   const [cosmosPanelOpen,    setCosmosPanelOpen]    = useState(false);
   const [worldCodexOpen,     setWorldCodexOpen]     = useState(false);
   const [wikiOpen,           setWikiOpen]           = useState(false);
+  const [codexDocEk,         setCodexDocEk]         = useState<string | null>(null);   // 悬浮图鉴「完整档案页」当前词条的 data-ek（null=未打开）
   const [cosmosTicker,       setCosmosTicker]       = useState('');     // 万族本回合更新（顶部滚动条）
   const [choicesRunning,     setChoicesRunning]     = useState(false);  // 剧情选项/同人增强后处理调用中
   const [promoteCandidates,  setPromoteCandidates]  = useState<string[]>([]);  // 临时队伍解散→待"转正进冒险团"的队友 id
@@ -1469,6 +1513,9 @@ export default function App() {
   const [petRosterOpen,    setPetRosterOpen]    = useState(false);   // 🐾 宠物/召唤物花名册（复用 NpcPanel petMode）
   const [miscPanelOpen,    setMiscPanelOpen]    = useState(false);
   const [worldRecordOpen,  setWorldRecordOpen]  = useState(false);
+  const [chroniclePanelOpen, setChroniclePanelOpen] = useState(false);
+  const [branchPanelOpen,  setBranchPanelOpen]  = useState(false);   // 🌿 楼层分支树
+  const [npcFocusId,       setNpcFocusId]       = useState<string | undefined>(undefined);   // 互链跳转的目标 NPC（编年史史事 / 正文悬浮图鉴人物卡）
   const [chaosWorldOpen,   setChaosWorldOpen]   = useState(false);   // 混沌世界面板
   const [chaosPending,     setChaosPending]     = useState<ChaosRecordDraft | null>(null);   // 离世生成的混沌记录·待 opt-in 上传（非空则弹上传确认窗）
   const [chaosCardBusy,    setChaosCardBusy]    = useState(false);   // 正在据勾选世界生成混沌世界卡
@@ -1686,6 +1733,10 @@ export default function App() {
   const [b1Notice, setB1Notice] = useState('');       // 主角自检兜底：自动恢复后的提示横幅
   const [itemRecoverNotice, setItemRecoverNotice] = useState('');   // 物品守护看门狗：自动捞回静默丢失后的提示横幅
   const [settingsOpen, setSettingsOpen] = useState(false);
+  // 内置补种的触发点：封面上任何一条"往里走"的路都算（进游戏/开设置/建角色/开存档）。
+  // 设置页会列出内置世界书与预设，所以它也必须算——只挂"进游戏"的话，从封面直接开设置会看到空列表。
+  // 只看封面不动的人则一个字节都不拉。ensureBuiltins 幂等，重复触发无害。
+  useEffect(() => { if (started || settingsOpen || creating || saveOpen) void ensureBuiltins(); }, [started, settingsOpen, creating, saveOpen]);
   const [mobileDrawer, setMobileDrawer] = useState<'player' | 'menu' | null>(null); // 手机端：左角色栏 / 右导航 抽屉
   // 输入框内容已迁 composerStore（真相源）：⚠App 绝不订阅它的 value（每键重渲整树=打字卡顿根源），
   // 读写一律 useComposer.getState().value / setValue / update / fill / clear；草稿持久化也在 store 内。
@@ -1988,7 +2039,7 @@ export default function App() {
           }
         }
       } catch { /* */ }
-      void loadBuiltinDefaults().finally(markBuiltinsReady);   // 补内置（仅当对应仓库仍为空）；内置项标 builtin、不入库，每次从 public 重载
+      markWbRestored();   // 玩家自有世界书已回填 → 放行内置补种（真正的拉取由 ensureBuiltins 在首次需要时触发）
       try { reconcilePlayerVitals(); } catch { /* */ }   // 载入/旧档：HP/EP 仍是 100/50 旧默认时，开局即按六维拉满（不等到第一回合）
       try { syncPlayerVitalsMax(); } catch { /* */ }   // 刷新/读档：只同步存储上限到真实上限+夹回超出值；当前 HP/EP 忠于正文末尾结算、原样保留（不强行拉满）
       // 镜像：世界书/预设变化（剔除 builtin 内置项）→ 防抖写入 IndexedDB
@@ -2062,7 +2113,7 @@ export default function App() {
         // 等「补种」把 textPresets 填好再重发：loadBuiltinDefaults 要先 fetch 一堆大文件才填 textPresets，常超 400ms；
         //   若此刻就发会在空库瞬间发出→预设没注入(722)。轮询有了即发，最多 ~10s 兜底（真没预设也照发，不卡死）。
         // 等内置补种「全部」就绪（含正文世界书，非仅 textPresets）再重发——否则 reroll reload 后赶在世界书加载完前发出 → 偶发没世界书/722。
-        { void builtinsReady.then(() => sendMessage(regen, false, { skipOutline: true })); }   // 重新生成：跳过细纲弹窗，直接重出正文
+        { void ensureBuiltins().then(() => sendMessage(regen, false, { skipOutline: true })); }   // 重新生成：跳过细纲弹窗，直接重出正文
       }
     })();
   // eslint-disable-next-line react-hooks/exhaustive-deps -- 仅挂载时处理一次续玩/重算/重发标志（reload 后的启动一次性序列）
@@ -2297,6 +2348,21 @@ export default function App() {
         const lines = onSceneNpcs.map((r: any) => `${String(r.name).split('|')[0].trim()} 当前HP：${r.hp ?? r.maxHp ?? '?'}/${r.maxHp ?? '?'} 当前EP：${r.mp ?? r.maxMp ?? '?'}/${r.maxMp ?? '?'}`).join('\n');
         const vitalsCtx = `【在场 NPC 当前 HP/EP（结算基准·必须逐个列入上面的 <状态结算>，一个都不能漏）】\n${lines}\n— 本回合谁受伤/掉蓝就在此基础上扣；若有**休息/疗伤/治疗/睡眠/返回安全区**等恢复情节，把相关角色**回满或按正文回复量**抬上去；没被波及的照原值列出。最终值写进 <状态结算>。`;
         addRule('在场NPC当前HPEP', '前端数据 · 在场NPC当前HP/EP', vitalsCtx);
+      }
+    } catch { /* */ }
+    // 在场角色编号表（封闭注册表·治两大顽疾：①宠物/召唤物与普通NPC弄混 ②指令编号写错→变量更新打到别人头上/造出鬼档）：
+    //   每回合把 在场NPC + 随行伙伴(随从/宠物/召唤物·离场也随行) 的 编号=名(标签·主人) 喂给主正文，指令编号只准照抄本表。
+    try {
+      const _dirAll = Object.values(useNpc.getState().npcs).filter((r) => !r.isDead && !r.archived && r.name && r.name !== r.id);
+      const _dirFmt = (r: (typeof _dirAll)[number]) =>
+        `${r.id}=${String(r.name).split('|')[0].trim()}(${r.npcTag || '标签待定'}${isCompanionTag(r) ? '·主人' + ownerOf(r) : ''}${r.onScene ? '' : '·随行离场'})`;
+      const _dirNpc = _dirAll.filter((r) => r.onScene && !isCompanionTag(r)).map(_dirFmt);
+      const _dirComp = _dirAll.filter((r) => isCompanionTag(r) && (r.onScene || r.partyMember || isPetLike(r))).slice(0, 12).map(_dirFmt);
+      if (_dirNpc.length || _dirComp.length) {
+        addRule('在场角色编号表', '前端数据 · 在场角色编号表（指令目标白名单）', `【在场角色编号表（指令目标白名单·防串档）】写 character.<编号>.* / hp.<编号> / mp.<编号> 等任何角色指令时，**编号只准从本表照抄**（对准名字找编号，别凭记忆写）；表里没有的编号一律不许出现——新角色的编号由登场判断分配，正文不要自创。B1=主角（固定编号）。${_dirNpc.length ? `
+在场NPC：${_dirNpc.join('、')}` : ''}${_dirComp.length ? `
+随行伙伴（随从/宠物/召唤物·跟着主角走）：${_dirComp.join('、')}
+⚠宠物/召唤物≠普通NPC：它们已有上面标注的专属编号与主人，状态/HP/EP 更新必须挂在**它自己的编号**上（绝不写到主人或其它 NPC 头上）；它们也**不是**新角色，正文再次出现时沿用原编号，绝不另建新档。` : ''}`);
       }
     } catch { /* */ }
     // 任务击杀目标阶位上限：强制环≤世界锁定难度阶位、贪婪环≤锁定难度+1；勿降级剧情高端战力，改派阶位相称的目标
@@ -2805,6 +2871,187 @@ export default function App() {
       pushSceneNotice(`【场外·进阶】玩家在乐园强化所将「${it.name}」${preview.renamed ? `进阶并更名为「${preview.name}」` : '完成品级进阶'}：${preview.from} → ${preview.to}。${preview.notice || ''}正文据此知晓即可，勿重复发放。`);
     } catch { /* 通报失败不阻断 */ }
     return { ok: true };
+  }
+
+  /* ═══ 强化所·🔨 工艺（systems/equipCraft.ts）═══════════════════════════════════
+     与「⚒ 强化」的赌博式随机正交并存：强化赌等级、工艺改词条。
+     前端摇定结果 + 拍板潜力/费用/品级/攻防（resolveCraft），AI 只补写那一条词缀文本（EQUIP_CRAFT_RULE）。
+     · 确定性工艺（结果唯一）→ 出预览，玩家确认才扣费落库
+     · 赌博工艺（多结果）→ 一次摇定即时落库，不给反悔窗口（腐化的风险感来自不可撤销）*/
+
+  /** 工艺 / 自创工艺共用强化所的接口链（同品级进阶口径，不另开一路）。 */
+  function getCraftChain(): { chain: ReturnType<typeof resolveApiChain>; error?: string } {
+    const E = useEnhance.getState();
+    const ss = useSettings.getState();
+    const legacy = E.enhanceUseSharedApi ? (ss.textUseSharedApi ? ss.api : ss.textApi) : E.enhanceApi;
+    const chain = resolveApiChain('enhance', legacy);
+    if (!chain[0]?.baseUrl || !chain[0]?.apiKey) {
+      return { chain, error: '未配置接口：设置→变量管理→装备强化→API（工艺与装备强化共用此接口），或勾「复用正文生成 API」' };
+    }
+    return { chain };
+  }
+
+  /** 工艺落库：扣费 + 改装备 + 记履历 + 消耗精髓 + 场外通报。预览确认与赌博工艺即时结算都走这里。 */
+  function applyCraftPreview(pv: CraftPreview): { ok: boolean; error?: string } {
+    const items = useItems.getState();
+    const it = items.items.find((x) => x.id === pv.itemId);
+    if (!it) return { ok: false, error: '装备不存在（可能已被消耗）' };
+    const pay = planCraftPayment(pv.res.cost, { park: items.currency.乐园币, soul: items.currency.灵魂钱币 });
+    if (!pay) return { ok: false, error: `资金不足：本次工艺需 ${formatPark(pv.res.cost)}` };
+
+    const payReason = `装备工艺·${pv.processName}（${it.name}）`;
+    if (pay.soulDelta) items.adjustCurrency('灵魂钱币', pay.soulDelta, payReason);
+    if (pay.parkDelta) items.adjustCurrency('乐园币', pay.parkDelta, pay.soulDelta ? `${payReason}·魂币兑换结余` : payReason);
+
+    const patch = craftPatch(it, pv.res, pv.aiAffix);
+    patch.craft = { ...(patch.craft ?? {}), history: pushHistory(craftStateOf(it), historyLine({ id: pv.processId, name: pv.processName, emoji: pv.processEmoji } as CraftProcessDef, pv.res)) };
+    items.updateItem(pv.itemId, patch);
+
+    try {
+      const what = OUTCOME_LABEL[pv.res.outcome];
+      pushSceneNotice(`【场外·工艺】玩家在乐园强化所对「${it.name}」施加了工艺「${pv.processEmoji}${pv.processName}」，结果：${what}。${pv.notice || ''}正文据此知晓即可，勿重复发放。`);
+    } catch { /* 通报失败不阻断 */ }
+    return { ok: true };
+  }
+
+  /** 施加一道工艺：摇结果 →（需要时）AI 补词缀 → 确定性工艺出预览 / 赌博工艺即时落库。 */
+  async function runEquipCraftPhase(args: { itemId: string; processId: string; essenceId?: string; tendency?: string }): Promise<{ ok: true; preview: CraftPreview } | { ok: false; error: string }> {
+    const it = useItems.getState().items.find((x) => x.id === args.itemId);
+    if (!it) return { ok: false, error: '物品不存在' };
+    const C = useEquipCraft.getState();
+    const proc = C.settings.processes.find((p) => p.id === args.processId);
+    if (!proc) return { ok: false, error: '工艺不存在（可能已被删除）' };
+
+    const feas = canCraft(it, proc);
+    if (!feas.ok) return { ok: false, error: feas.reason ?? '这件装备无法施加本工艺' };
+
+    // 精髓灌注：必须选一条图鉴精髓，且品级落差不得超过 ESSENCE_GRADE_GAP
+    const essence = proc.base === 'essence' ? C.essences.find((e) => e.id === args.essenceId) : undefined;
+    if (proc.base === 'essence') {
+      if (!essence) return { ok: false, error: '请先在精髓图鉴里选一条要灌注的精髓' };
+      if (!canInfuse(essence, it)) return { ok: false, error: `精髓「${essence.name}」出自 ${essence.fromGrade}，灌不进品级低太多的装备（最多相差 2 档）` };
+    }
+
+    const cost = craftCost(proc, it);
+    const wallet = useItems.getState().currency;
+    if (!planCraftPayment(cost, { park: wallet.乐园币, soul: wallet.灵魂钱币 })) {
+      return { ok: false, error: `资金不足：本次工艺需 ${formatPark(cost)}` };
+    }
+
+    const res = resolveCraft(it, proc);
+    const preview: CraftPreview = {
+      itemId: it.id, itemName: it.name,
+      processId: proc.id, processName: proc.name, processEmoji: proc.emoji,
+      res, essenceId: essence?.id, instant: !isPreviewMode(proc),
+    };
+
+    if (res.needsAi) {
+      const { chain, error } = getCraftChain();
+      if (error) return { ok: false, error };
+      const card = [
+        `名称: ${it.name}`,
+        `分类: ${it.category}${it.subType ? ' / ' + it.subType : ''}`,
+        `品级: ${it.gradeDesc || '—'}`,
+        it.combatStat && `攻防(combatStat·+0基础值): ${it.combatStat}`,
+        it.affix && `现有全部词缀(affix): ${it.affix}`,
+        it.intro && `简介(intro): ${it.intro}`,
+        craftStateOf(it).history?.length && `工艺履历(勿与这些重复): ${craftStateOf(it).history!.join(' ／ ')}`,
+      ].filter(Boolean).join('\n');
+      const judged = res.outcome === 'addAffix'
+        ? '【系统判定】附着**一条全新词缀**（不要动现有词缀）。'
+        : res.outcome === 'upgradeAffix'
+          ? `【系统判定】把下面这条现有词缀**升华一档**（延续其名与脉络，只调威力/形态）：\n${res.affixTarget}`
+          : `【系统判定】把下面这条现有词缀**重铸**成同等强度的另一形态（名可微调、气质延续）：\n${res.affixTarget}`;
+      const user = [
+        `# 待施加工艺的装备`,
+        card,
+        ``,
+        `# 本次工艺`,
+        `名称：${proc.emoji}${proc.name}｜${proc.desc}`,
+        proc.flavor && `风味：${proc.flavor}`,
+        proc.affixHint && `词缀方向：${proc.affixHint}`,
+        essence && `【精髓灌注】本次要复现的精髓（出自「${essence.fromItem}」·${essence.fromGrade}）：\n${essence.text}\n——按其原义复现这条词缀，措辞贴合新宿主。`,
+        ``,
+        judged,
+        args.tendency ? `【玩家倾向提示（只导方向、不导强度）】「${args.tendency}」` : '',
+        ``,
+        `请先在 <工艺推演> 里推演（≥120字），再紧接着输出**单个 JSON object**（affix / notice）。`,
+      ].filter(Boolean).join('\n');
+
+      try {
+        const system = getPrompt('EQUIP_CRAFT_RULE', EQUIP_CRAFT_RULE) + '\n' + ITEM_EXACT_REF_RULE + '\n' + getPrompt('EQUIP_CODEX', EQUIP_CODEX);
+        const { content } = await apiChatFallback(chain, [
+          { role: 'system', content: system },
+          { role: 'user', content: user },
+        ], { timeoutMs: 150000, label: '装备工艺' });
+        const body = (content || '').replace(/<工艺推演>[\s\S]*?<\/工艺推演>/g, ' ');
+        const m = body.match(/\{[\s\S]*\}/);
+        const j: any = m ? lenientJsonParse(m[0]) : null;
+        const affix = flattenAiText(j?.affix).slice(0, 300).trim();
+        if (!affix) return { ok: false, error: 'AI 未返回有效词缀（F12 看原始回复），可重试；本次未扣费' };
+        preview.aiAffix = affix;
+        preview.notice = flattenAiText(j?.notice).slice(0, 200) || undefined;
+      } catch (e: any) {
+        return { ok: false, error: (e?.message ?? '接口调用失败').slice(0, 100) };
+      }
+    }
+
+    // 赌博工艺：一次摇定、当场落库，不给"看到结果再决定"的反悔窗口
+    if (preview.instant) {
+      const r = applyCraftPreview(preview);
+      if (!r.ok) return { ok: false, error: r.error ?? '结算失败' };
+    }
+    return { ok: true, preview };
+  }
+
+  /** 确定性工艺：玩家确认 → 落库。（赌博工艺已在 runEquipCraftPhase 里即时结算，不走这里）*/
+  function confirmEquipCraft(pv: CraftPreview): { ok: boolean; error?: string } {
+    if (pv.instant) return { ok: true };   // 已落库，确认按钮只是关闭结果卡
+    return applyCraftPreview(pv);
+  }
+
+  /** 精髓提取（纯前端·无 AI）：拆解一件装备，把它的一条词缀永久录入精髓图鉴。装备本体销毁。 */
+  function extractEssence(itemId: string, affixIndex: number): { ok: boolean; error?: string; name?: string } {
+    const items = useItems.getState();
+    const it = items.items.find((x) => x.id === itemId);
+    if (!it) return { ok: false, error: '物品不存在' };
+    if (it.locked) return { ok: false, error: '该装备已锁定，请先在背包解锁再拆解' };
+    if (it.equipped) return { ok: false, error: '请先脱下这件装备再拆解' };
+    const list = splitAffixEntries(it.affix);
+    const text = list[affixIndex];
+    if (!text) return { ok: false, error: '这件装备没有可提取的词缀' };
+
+    const entry = useEquipCraft.getState().addEssence({
+      text, fromItem: it.name, fromGrade: it.gradeDesc || '—', gradeNum: gradeToNum(it.gradeDesc) || 1,
+    });
+    if (!entry) return { ok: false, error: '精髓录入失败' };
+    items.binItem(it, { kind: 'used', reason: `精髓提取·录入「${entry.name}」` });
+    try {
+      pushSceneNotice(`【场外·工艺】玩家在乐园强化所拆解了「${it.name}」，将其词缀【${entry.name}】录入精髓图鉴（装备本体已消耗）。正文据此知晓即可，勿重复发放。`);
+    } catch { /* 通报失败不阻断 */ }
+    return { ok: true, name: entry.name };
+  }
+
+  /** 自创工艺：玩家写构想 → AI 填受限参数空间 → sanitizeProcess 夹取后入库（upsertProcess 内部已夹）。 */
+  async function runCraftProcessGenPhase(prompt: string): Promise<{ ok: true; def: CraftProcessDef } | { ok: false; error: string }> {
+    const idea = String(prompt || '').trim();
+    if (!idea) return { ok: false, error: '请先写下你想要的工艺构想' };
+    const { chain, error } = getCraftChain();
+    if (error) return { ok: false, error };
+    try {
+      const { content } = await apiChatFallback(chain, [
+        { role: 'system', content: getPrompt('CRAFT_PROCESS_GEN_RULE', CRAFT_PROCESS_GEN_RULE) },
+        { role: 'user', content: `# 契约者的工艺构想\n「${idea.slice(0, 600)}」\n\n请据此输出**一个 JSON object**（工艺定义），无其它文字。` },
+      ], { timeoutMs: 120000, label: '自创工艺' });
+      const m = (content || '').match(/\{[\s\S]*\}/);
+      const j: any = m ? lenientJsonParse(m[0]) : null;
+      if (!j || typeof j !== 'object' || !j.name) return { ok: false, error: 'AI 未返回有效工艺定义（F12 看原始回复），可重试' };
+      const author = usePlayer.getState().profile?.name || '契约者';   // 上传工坊时 uploadPacked 会用工坊昵称覆盖署名
+      const def = useEquipCraft.getState().upsertProcess(j, { author });
+      return { ok: true, def };
+    } catch (e: any) {
+      return { ok: false, error: (e?.message ?? '接口调用失败').slice(0, 100) };
+    }
   }
 
   /* ─── 御兽产物 → 宠物规格（前端拍板，AI 只填风味）──────────────────────────────
@@ -3359,7 +3606,7 @@ export default function App() {
       playerItems = items.length > 0
         ? items.map((it) => formatItemLine(it)).join('\n')   // 含词缀/攻防/评分/强化等全字段——对账才能核对评分↔品级、保留旧词缀
         : '（背包为空）';
-      const petRecs = Object.values(useNpc.getState().npcs).filter((r) => !r.isDead && (r.npcTag === '随从' || r.npcTag === '宠物'));
+      const petRecs = Object.values(useNpc.getState().npcs).filter((r) => !r.isDead && isCompanionTag(r));   // 随从/宠物/召唤物统一（此前漏召唤物→其持有物对对账隐身）
       const petLines = petRecs.flatMap((r) => (r.items ?? []).map((it) =>
         `${formatItemLine(it)} —— 持有者 ${r.id}(${r.name || r.id}·${r.npcTag})`));
       petItems = petLines.length > 0 ? petLines.join('\n') : '（无随从/宠物持有物）';
@@ -3693,12 +3940,12 @@ export default function App() {
     const ok = (id: string) => !onlyId || id === onlyId;
     let m: RegExpExecArray | null;
 
-    const favorRe = /\bcharacter\.(C\d+)\.stats\.favor\s*=\s*(-?\d+)/g;
+    const favorRe = /\bcharacter\.([CG]\d+)\.stats\.favor\s*=\s*(-?\d+)/g;
     while ((m = favorRe.exec(reply))) { if (ok(m[1])) { npc.applyColumns(m[1], { '15': Number(m[2]) }); n++; } }
 
     // 四轴 disposition 增量（走 dispositionGuard 限速 + 沉沦棘轮）：character.C1.disp.信任 += N / -= N / = N（中/英轴名皆可）
     {
-      const dispRe = /\bcharacter\.(C\d+)\.disp\.(信任|尊重|情欲|沉沦|trust|respect|lust|corruption)\s*(\+=|-=|=)\s*(-?\d+)/g;
+      const dispRe = /\bcharacter\.([CG]\d+)\.disp\.(信任|尊重|情欲|沉沦|trust|respect|lust|corruption)\s*(\+=|-=|=)\s*(-?\d+)/g;
       const want: Record<string, number> = {};   // key=`${id}|${axis}`；先汇总每轴净增量(相对当前值)，最后按护栏夹逼一次
       while ((m = dispRe.exec(reply))) {
         const id = m[1]; if (!ok(id)) continue;
@@ -3719,11 +3966,11 @@ export default function App() {
       }
     }
 
-    const titleRe = /\bcharacter\.(C\d+)\.identity\.title\s*=\s*"([^"]*)"/g;
+    const titleRe = /\bcharacter\.([CG]\d+)\.identity\.title\s*=\s*"([^"]*)"/g;
     while ((m = titleRe.exec(reply))) { if (ok(m[1])) { npc.upsertNpc(m[1], { title: m[2] }); n++; } }
 
     // 状态短指令：character.C1.status = "..."（仅当状态表示"真的死亡"时才标记 isDead，避免"濒临死亡"等误杀）
-    const statRe = /\bcharacter\.(C\d+)\.status\s*=\s*"([^"]*)"/g;
+    const statRe = /\bcharacter\.([CG]\d+)\.status\s*=\s*"([^"]*)"/g;
     while ((m = statRe.exec(reply))) {
       if (!ok(m[1])) continue;
       const dead = looksDead(m[2]);
@@ -3732,11 +3979,11 @@ export default function App() {
     }
 
     // 临时队友中途离队：partyLeave("C1") / leaveParty("C1")（剧情驱动，世界未结束时主动退队，仍在场待归档）
-    const leaveRe = /\b(?:partyLeave|leaveParty)\(\s*["']?(C\d+)["']?\s*\)/g;
+    const leaveRe = /\b(?:partyLeave|leaveParty)\(\s*["']?([CG]\d+)["']?\s*\)/g;
     while ((m = leaveRe.exec(reply))) { if (ok(m[1]) && npc.npcs[m[1]]?.partyMember) { npc.leaveParty(m[1]); n++; } }
 
     // cr.C1 = 一阶/8 → 列2 "一阶·Lv.8|（保留原身份）"；无 /Lv 时只写阶位
-    const crRe = /\bcr\.(C\d+)\s*=\s*([^\n/]+?)(?:\/([\d.]+))?\s*(?:\n|$)/g;
+    const crRe = /\bcr\.([CG]\d+)\s*=\s*([^\n/]+?)(?:\/([\d.]+))?\s*(?:\n|$)/g;
     while ((m = crRe.exec(reply))) {
       if (!ok(m[1])) continue;
       const lv = m[3];
@@ -3750,7 +3997,7 @@ export default function App() {
     }
 
     // hp.C1 -= 20 / += 10 / = 80：上限=体质×20+装备/技能天赋的「HP上限」加成（与卡片/详情显示同口径，忽略 AI 写的 /上限），未记录当前值时以满血为基准
-    const hpRe = /\bhp\.(C\d+)\s*(=|-=|\+=)\s*(\d+)(?:\s*\/\s*(\d+))?/g;
+    const hpRe = /\bhp\.([CG]\d+)\s*(=|-=|\+=)\s*(\d+)(?:\s*\/\s*(\d+))?/g;
     while ((m = hpRe.exec(reply))) {
       if (!ok(m[1])) continue;
       const rec = npc.npcs[m[1]];
@@ -3766,7 +4013,7 @@ export default function App() {
     // identity 字段 → 写入 extra，供 NPC 档案"伪装身份/战斗属性"栏显示
     const idStr: Record<string, string> = { aliasName: '化名', disguiseRealm: '伪装境界', youthRetentionReason: '驻颜理由' };
     for (const [field, label] of Object.entries(idStr)) {
-      const re = new RegExp(`\\bcharacter\\.(C\\d+)\\.identity\\.${field}\\s*=\\s*"([^"]*)"`, 'g');
+      const re = new RegExp(`\\bcharacter\\.([CG]\\d+)\\.identity\\.${field}\\s*=\\s*"([^"]*)"`, 'g');
       while ((m = re.exec(reply))) {
         if (!ok(m[1])) continue;
         const rec = npc.npcs[m[1]];
@@ -3776,7 +4023,7 @@ export default function App() {
     }
     const idNum: Record<string, string> = { appearanceAge: '外貌年龄', extraShouyuan: '额外寿元' };
     for (const [field, label] of Object.entries(idNum)) {
-      const re = new RegExp(`\\bcharacter\\.(C\\d+)\\.identity\\.${field}\\s*=\\s*(-?\\d+)`, 'g');
+      const re = new RegExp(`\\bcharacter\\.([CG]\\d+)\\.identity\\.${field}\\s*=\\s*(-?\\d+)`, 'g');
       while ((m = re.exec(reply))) {
         if (!ok(m[1])) continue;
         const rec = npc.npcs[m[1]];
@@ -3790,18 +4037,18 @@ export default function App() {
       profession: 'profession', arenaRank: 'arenaRank', brandLevel: 'brandLevel', contractorId: 'contractorId', affiliatedTeam: 'affiliatedTeam',
     };
     for (const [field, key] of Object.entries(npcStr)) {
-      const re = new RegExp(`\\bcharacter\\.(C\\d+)\\.identity\\.${field}\\s*=\\s*"([^"]*)"`, 'g');
+      const re = new RegExp(`\\bcharacter\\.([CG]\\d+)\\.identity\\.${field}\\s*=\\s*"([^"]*)"`, 'g');
       while ((m = re.exec(reply))) { if (ok(m[1])) { npc.upsertNpc(m[1], { [key]: m[2] } as any); n++; } }
     }
     // 隶属冒险团：character.C1.affiliatedTeam = "团名·角色"（非 identity 路径的简写）
-    const teamAffRe = /\bcharacter\.(C\d+)\.affiliatedTeam\s*=\s*"([^"]*)"/g;
+    const teamAffRe = /\bcharacter\.([CG]\d+)\.affiliatedTeam\s*=\s*"([^"]*)"/g;
     while ((m = teamAffRe.exec(reply))) { if (ok(m[1])) { npc.upsertNpc(m[1], { affiliatedTeam: m[2] }); n++; } }
     // 外观描写 → 列34
-    const apRe = /\bcharacter\.(C\d+)\.appearance\s*=\s*"([^"]*)"/g;
+    const apRe = /\bcharacter\.([CG]\d+)\.appearance\s*=\s*"([^"]*)"/g;
     while ((m = apRe.exec(reply))) { if (ok(m[1])) { npc.upsertNpc(m[1], { appearanceDetail: m[2] }); n++; } }
     // 生物强度模板（T0~T9，含非人生物）：character.C1.bioStrength = "T3·勇士"
     // ⚠ bs 是六维 bs 峰值封顶的锚，绝不裸写：夹进本阶窗口；已有档升/降档过证据裁决（防"AI 先抬 bs 再灌属性"绕过护栏）
-    const bioRe = /\bcharacter\.(C\d+)\.bioStrength\s*=\s*"([^"]*)"/g;
+    const bioRe = /\bcharacter\.([CG]\d+)\.bioStrength\s*=\s*"([^"]*)"/g;
     while ((m = bioRe.exec(reply))) {
       if (!ok(m[1])) continue;
       const live = useNpc.getState().npcs[m[1]];
@@ -3811,16 +4058,19 @@ export default function App() {
       n++;
     }
     // 年龄：character.C1.age = "约25岁"（正文有则照抄，没有则按设定生成）
-    const ageRe = /\bcharacter\.(C\d+)\.age\s*=\s*"([^"]*)"/g;
+    const ageRe = /\bcharacter\.([CG]\d+)\.age\s*=\s*"([^"]*)"/g;
     while ((m = ageRe.exec(reply))) { if (ok(m[1])) { npc.upsertNpc(m[1], { age: m[2] }); n++; } }
     // 诙谐评价：character.C1.review = "..."
-    const reviewRe = /\bcharacter\.(C\d+)\.review\s*=\s*"([^"]*)"/g;
+    const reviewRe = /\bcharacter\.([CG]\d+)\.review\s*=\s*"([^"]*)"/g;
     while ((m = reviewRe.exec(reply))) { if (ok(m[1])) { npc.upsertNpc(m[1], { review: m[2] }); n++; } }
-    // 标签（契约者/土著/随从/宠物/召唤物）：character.C1.npcTag = "随从"
-    const tagRe = /\bcharacter\.(C\d+)\.npcTag\s*=\s*"([^"]*)"/g;
+    // 标签（契约者/土著/随从/宠物/召唤物）：character.C1.npcTag = "随从"（含 G 系——召唤物常用 G 编号，C-only 会让召唤物永远改不了标签）
+    const tagRe = /\bcharacter\.([CG]\d+)\.npcTag\s*=\s*"([^"]*)"/g;
     while ((m = tagRe.exec(reply))) { if (ok(m[1])) { npc.upsertNpc(m[1], { npcTag: m[2] }); n++; } }
+    // 主人登记（随从/宠物/召唤物的归属外键）：character.C7.owner = "B1"（B1=主角；也可写主人 NPC 的 C/G 编号）。只挂到已建档角色，不凭空建档
+    const ownerRe = /\bcharacter\.([CG]\d+)\.owner\s*=\s*"?(B1|[CG]\d+)"?/g;
+    while ((m = ownerRe.exec(reply))) { if (ok(m[1]) && npc.npcs[m[1]] && m[2] !== m[1]) { npc.upsertNpc(m[1], { ownerId: m[2] }); n++; } }
     // 所处位置 → extra.位置
-    const locRe2 = /\bcharacter\.(C\d+)\.location\s*=\s*"([^"]*)"/g;
+    const locRe2 = /\bcharacter\.([CG]\d+)\.location\s*=\s*"([^"]*)"/g;
     while ((m = locRe2.exec(reply))) {
       if (!ok(m[1])) continue;
       const rec = npc.npcs[m[1]];
@@ -3887,7 +4137,7 @@ export default function App() {
       n++;
     }
     // mp.C1（蓝量 EP）：上限=智力×15+装备/技能天赋的「EP上限」加成（与卡片/详情显示同口径，忽略 AI 写的 /上限），未记录当前值时以满蓝为基准
-    const mpRe = /\bmp\.(C\d+)\s*(=|-=|\+=)\s*(\d+)(?:\s*\/\s*(\d+))?/g;
+    const mpRe = /\bmp\.([CG]\d+)\s*(=|-=|\+=)\s*(\d+)(?:\s*\/\s*(\d+))?/g;
     while ((m = mpRe.exec(reply))) {
       if (!ok(m[1])) continue;
       const rec = npc.npcs[m[1]];
@@ -6424,6 +6674,11 @@ ${AFFIX_EFFECT_RULE}`;
       // 必须带着记忆(经历/关系/动机)回到召回——否则一归档 AI 就当他不存在、同一世界前后文对不上（用户明确报此坑）。
       // 与上面 userInput 护栏互补：pickOffsceneRescue **只补【离场】NPC**（在场的已由 rankNpcsLocal 覆盖）、限量 3、最近在场者优先。
       for (const r of pickOffsceneRescue(npcs, context, chosen, 3)) chosen.unshift(r);
+      // 随行宠物/召唤物保底注入（不占 maxNpcs 名额·限4）：宠物几乎没有好感分、按 favor 排序永远挤不进 2 个默认名额，
+      // AI 看不到宠物卡 → 只能凭记忆盲写它的编号/属性、甚至当新角色重新建档——"宠物和NPC弄混"的高发路径之一。
+      for (const r of npcs.filter((x) => isPetLike(x) && !x.isDead && (x.onScene || x.partyMember || x.isBond)).slice(0, 4)) {
+        if (!chosen.includes(r)) chosen.push(r);
+      }
       for (const r of chosen) {
         const cd = chars[r.id];
         cards.push(serializeNpcCard(r, cd?.skills ?? [], cd?.traits ?? [], cd?.titles, undefined, limits));  // 技能/装备按 maxNpcSkills/maxNpcItems 限量（超出仅列名·副职业仅主角）
@@ -9177,6 +9432,13 @@ ${lines}`;
     combatSettledRef.current = null;
     // 轨道A：离场契约者零API自治（按 turnCount 推进；自带开关守卫；失败不影响演化阶段）
     try { runNpcAutonomy(useMisc.getState().turnCount); } catch (e) { console.warn('[轨道A] 自治模拟失败', e); }
+    // 🛡 冒险团派遣心跳（零API）：疲劳恢复/伤势倒数/委托板换批/**到点才封存结算**。
+    //   排在轨道A **之后**：本回合归来的成员这一轮还被 dispatchActive 挡着不跑自治，下回合才回归日常，
+    //   免得同一回合既写「委托归来」又写一条 hub 行动。战报是唯一花 token 的一步，只在真封存时触发一次。
+    try {
+      const dp = runDispatchTick(useMisc.getState().turnCount);
+      if (dp.sealed && useTeam.getState().dispatchReportAuto) void generateDispatchReport(dp.sealed.id);
+    } catch (e) { console.warn('[派遣] 心跳失败', e); }
     // 防漂哨·回合初基线：先抓一份"演化前确认值"快照（六维/阶位，保留最近 N 份）；本回合末与之对账，灭无据漂移（1500肉盾→300脆皮）
     try { captureEvoSnapshot(turnCountRef.current); } catch (e) { console.warn('[Snapshot] 抓取失败', e); }
     // 先从正文人物卡照抄六维（同步，先于各演化阶段，使快照与显示即刻正确）
@@ -9470,7 +9732,7 @@ ${lines}`;
     // 只要预设库非空就一定注入某个预设，绝不因 activeId 为 null/失配而「裸奔」无预设（修「预设没注入」）。
     // **实时读 store**：重新生成走「reload+自动重发」，sendMessage 是挂载时的空闭包(textPresets 旧值为空)；
     //   从 useSettings.getState() 现取，免受 stale 闭包影响（配合下方重发前「等补种」轮询）→ 否则 reroll 预设没注入(722 裸奔)。
-    await builtinsReady;   // 等内置正文世界书/预设加载完，杜绝首条消息偶发「没世界书注入」
+    await ensureBuiltins();   // 等内置正文世界书/预设加载完，杜绝首条消息偶发「没世界书注入」（没触发过则在此拉起）
     const _ssNarr = useSettings.getState();
     const preset = resolveActivePreset(_ssNarr);
 
@@ -10157,6 +10419,8 @@ ${lines}`;
       label === '世界资料库' ? () => setWorldLibOpen(true) :
       label === '轮回WIKI' ? () => setWikiOpen(true) :
       label === '世界记录' ? () => setWorldRecordOpen(true) :
+      label === '编年史' ? () => setChroniclePanelOpen(true) :
+      label === '分支树' ? () => setBranchPanelOpen(true) :
       label === '混沌世界' ? () => setChaosWorldOpen(true) :
       label === '回合洞察' ? () => setInsightOpen(true) :
       label === '战斗' ? () => { if (mpGuest) { setGenError('联机中：战斗由房主发起'); setTimeout(() => setGenError(''), 4000); return; } setCombatSetupOpen(true); } :
@@ -10191,6 +10455,16 @@ ${lines}`;
         否则 regenerateTurn 一直优先读这条内存态旧输入 → reroll 后又变回改之前（用户报的第 2 个 bug）。
         （reload/读档后 lastUserInputRef 已丢，regenerateTurn 兜底读 messagesRef 的最后一条用户楼层 content，
          此时 raw 已被本函数清掉 → content 即编辑后文本，同样正确。） */
+  /* 打开某 NPC 的详情（互链跳转）：编年史史事里的人名、正文悬浮图鉴的人物卡都走这里。
+     ⚠ 必须是稳定引用——CodexHover 是 memo 组件，回调每帧换新会让它跟着白重渲。 */
+  const openNpcDetail = useCallback((id: string) => {
+    setChroniclePanelOpen(false);
+    setNpcFocusId(id);
+    setNpcPanelOpen(true);
+  }, []);
+  /* 打开某词条的完整档案页（原著档案专用：wiki 人物 / 世界档案人物·宝物）。
+     入口三条：悬浮卡底栏「完整档案 →」、长按、右键。同样必须是稳定引用（memo 的 CodexHover）。 */
+  const openCodexDoc = useCallback((ek: string) => setCodexDocEk(ek), []);
   // 编辑楼层保存：草稿由 MessageRow 本地持有（键入不重渲 App），保存时随回调带出。useCallback 稳定引用供 memo 行复用。
   const saveMessageEdit = useCallback((id: number, text: string) => {
     setMessages((prev) => prev.map((m) => {
@@ -10219,6 +10493,44 @@ ${lines}`;
   const regenImageCb = useCallback((msgId: number, idx: number) => { void regenerateStoryImage(msgId, idx); }, []);
   // eslint-disable-next-line react-hooks/exhaustive-deps
   const manualImagesCb = useCallback((id: number) => { void manualStoryImagesForMsg(id); }, [storyImgBusyId]);
+  /* ══════════ 🌿 楼层分支树：把「被丢弃的那条时间线」存成可回收的支线 ══════════
+     ⚠ 抓取时机是整个功能的命门：`回退`/`重新生成` 都是「loadSlot(UNDO_ID) → reload」，
+        必须在 **loadSlot 之前** 抓——此刻 live store 里还完整保留着本回合的演化结果，
+        存下来就是被丢弃那条线的**忠实终态**；晚一步就只剩"回合前状态 + 一段孤立文本"，
+        恢复后会出现「正文说打赢了、数值还没打」的错位。
+     失败一律静默：分支是锦上添花，绝不能挡住玩家回退/重生成。 */
+  async function stashDiscardedBranch(origin: 'regen' | 'rollback'): Promise<void> {
+    try {
+      if (useSettings.getState().branchCapture === false) return;
+      const msgs = messagesRef.current ?? [];
+      if (!msgs.length) return;
+      // 分叉点 = 本回合用户楼层的**前一条**（= 与主干最后一条共有的楼层）。找不到用户楼层就不存。
+      const ui = msgs.map((m) => m.role).lastIndexOf('user');
+      if (ui < 0) return;
+      const parentMsgId = ui > 0 ? msgs[ui - 1].id : -1;
+      await saveBranchPoint(msgs, { origin, parentMsgId });
+    } catch (e) { console.warn('[Branch] 收下弃稿失败（不影响回退/重生成）:', e); }
+  }
+
+  /* 🔖 在此分岔：玩家主动给当前进度埋一个可回收的点（不改变任何现状，只多存一份）。 */
+  async function bookmarkBranchPoint() {
+    const msgs = messagesRef.current ?? [];
+    if (!msgs.length) { setGenError('还没有对话，没什么可分岔的'); setTimeout(() => setGenError(''), 4000); return; }
+    const id = await saveBranchPoint(msgs, { origin: 'manual', parentMsgId: msgs[msgs.length - 1].id, pinned: true });
+    setGenError(id ? '🔖 已在此处埋下分岔点（分支树里可随时回来）' : '分岔点保存失败（存储空间可能已满）');
+    setTimeout(() => setGenError(''), 4500);
+  }
+
+  /* 恢复一条支线 = 直接读那个槽。复用整条读档链路（含 reload / 事件核心 reseed / 图片回填），
+     这也是唯一能把 gameStore（模块级初始化）一并还原的路径。 */
+  async function jumpToBranch(slotId: string) {
+    if (useMp.getState().status === 'connected') { setGenError('联机房间内不能切换支线（会刷新页面+断开房间）。请先关闭/离开房间。'); setTimeout(() => setGenError(''), 6000); return; }
+    // 切走之前先把**当前这条线**也存成支线，否则"跳过去"就等于把现在这条丢了
+    try { await stashDiscardedBranch('rollback'); } catch { /* 静默 */ }
+    const ok = await loadSlot(slotId);
+    if (!ok) { setGenError('这条支线读不出来（可能已被裁剪或损坏）'); setTimeout(() => setGenError(''), 5000); }
+  }
+
   /* 回退到上一回合：恢复所有演化/对话/图到发送本回合之前（整页 reload）*/
   async function rollbackTurn() {
     if (useMp.getState().status === 'connected') { setGenError('联机房间内不能回退（会刷新页面+断开房间，队友会被还原到各自单机存档）。请先关闭/离开房间再回退。'); setTimeout(() => setGenError(''), 6000); return; }
@@ -10229,6 +10541,7 @@ ${lines}`;
     clearResumeFlag(PENDING_REVAR_KEY);
     // 守卫：回退点为空(旧版遗留/开局所记)就不执行——否则会把聊天清成空白。同步关掉按钮。
     if (!(await undoPointHasChat())) { setCanUndo(false); setGenError('没有可回退的对话（回退点为空，避免清屏已取消）'); setTimeout(() => setGenError(''), 5000); return; }
+    await stashDiscardedBranch('rollback');
     const ok = await loadSlot(UNDO_ID);
     if (!ok) { setGenError('没有可回退的回合（本局还没产生过回退点）'); setTimeout(() => setGenError(''), 5000); }
   }
@@ -10241,6 +10554,7 @@ ${lines}`;
     if (!input) { setGenError('找不到可重新生成的上一条输入（请直接重新输入）'); setTimeout(() => setGenError(''), 5000); return; }
     // 守卫：回退点为空则不执行——否则回退到空白聊天后再重发，会丢掉前文
     if (!(await undoPointHasChat())) { setCanUndo(false); setGenError('没有可重新生成的回合（回退点为空）'); setTimeout(() => setGenError(''), 5000); return; }
+    await stashDiscardedBranch('regen');
     setResumeFlag(PENDING_REGEN_KEY, input);
     const ok = await loadSlot(UNDO_ID);
     if (!ok) { clearResumeFlag(PENDING_REGEN_KEY); setGenError('没有回退点，无法重新生成'); setTimeout(() => setGenError(''), 5000); }
@@ -10923,6 +11237,81 @@ ${lines}`;
     }
   }
 
+  /* ─── 📜 编年史·修史：把一卷「实录」编纂成「正史」（systems/chronicle.ts）───
+     史观：当朝为实录、前朝才有正史 —— 未编纂的卷现场投影纪要实录，编纂过的卷显示正史。
+     AI 只做**取舍与提炼**（合并同类/剔琐事/保因果），不得杜撰实录里没有的事；
+     条数与字段长度由 sanitizeCompiled 前端夹取。正史不覆盖实录源数据，可随时重修。 */
+  async function runChronicleCompilePhase(volumeId: string): Promise<{ ok: boolean; error?: string; count?: number }> {
+    if (volumeId === ORPHAN_VOLUME) return { ok: false, error: '散佚残卷不归属任何世界，无法修史' };
+    const rec = useWorldRecord.getState().getById(volumeId);
+    if (!rec) return { ok: false, error: '找不到这一卷的世界记录' };
+    const chain = resolveApiChain('misc', useSettings.getState().api).filter((a) => a.baseUrl && a.apiKey);
+    if (chain.length === 0) return { ok: false, error: '请先配置 API，再修史' };
+
+    const C = useChronicle.getState();
+    const M = useMisc.getState();
+    const vol = buildVolumes({
+      rows: useTables.getState().rows('chronicle') as any,
+      rowMeta: C.rowMeta,
+      records: useWorldRecord.getState().records,
+      archivedTasks: M.archivedTasks as any,
+      deeds: collectDeedSources(),
+      known: knownEntities(),
+      currentWorld: M.worldName,
+    }).find((v) => v.id === volumeId);
+    if (!vol) return { ok: false, error: '这一卷还没有任何史料' };
+
+    const { text, count } = buildCompileInput(vol);
+    if (!text.trim()) return { ok: false, error: '这一卷的实录是空的（纪要表没有记录到本卷的内容）' };
+
+    const goldBrief = vol.events.filter((e) => e.tier === 'gold' && e.kind !== 'chronicleRow')
+      .map((e) => `· ${e.title}${e.detail ? `（${e.detail}）` : ''}`).join('\n');
+    const userMsg = [
+      `【本卷】${vol.world}${vol.tier ? `（${vol.tier}）` : ''}${vol.instanceId && vol.instanceId > 1 ? ` · 第 ${vol.instanceId} 次进入` : ''}`,
+      vol.rating ? `【综合评价】${vol.rating}` : '',
+      goldBrief ? `【已确认的里程碑（这些是系统认定的事实，正史里必须保留，可润色措辞）】\n${goldBrief}` : '',
+      `【本卷实录·${count} 条（唯一事实来源：正史里的每一条都要在这里找得到出处）】\n${text}`,
+      `请据以上编纂这一卷的正史，输出 JSON（preface + entries）。`,
+    ].filter(Boolean).join('\n\n');
+
+    try {
+      const { content } = await apiChatFallback(chain, [
+        { role: 'system', content: getPrompt('CHRONICLE_COMPILE_RULE', CHRONICLE_COMPILE_RULE) },
+        { role: 'user', content: userMsg },
+      ], { timeoutMs: 180000, label: '编年史修史' });
+      setRawResponse(content || '');
+      const j: any = lenientJsonParse(content.match(/\{[\s\S]*\}/)?.[0] ?? content);
+      const entries = sanitizeCompiled(j);
+      if (!entries.length) return { ok: false, error: 'AI 未返回有效的正史条目（可点「查看返回」排查），可重修' };
+      useChronicle.getState().setCompiled(volumeId, {
+        entries, compiledAt: Date.now(), turnAt: M.turnCount,
+        preface: String(j?.preface ?? '').trim().slice(0, 120) || undefined,
+        sourceCount: count,
+      });
+      return { ok: true, count: entries.length };
+    } catch (e: any) {
+      return { ok: false, error: (e?.message ?? '接口调用失败').slice(0, 120) };
+    }
+  }
+
+  /** 收集全部人物事迹源（主角 + 有事迹的 NPC），供编年史投影。 */
+  function collectDeedSources() {
+    const prof = usePlayer.getState().profile;
+    const npcs = Object.values(useNpc.getState().npcs);
+    return [
+      { owner: prof.name || '主角', ownerId: 'B1', log: prof.deedLog ?? [] },
+      ...npcs.filter((n) => (n.deedLog?.length ?? 0) > 0).map((n) => ({ owner: n.name || n.id, ownerId: n.id, log: n.deedLog ?? [] })),
+    ];
+  }
+  /** 已知实体名册（编年史互链用：在史事文本里扫出人名/势力名）。 */
+  function knownEntities() {
+    return {
+      npcs: Object.values(useNpc.getState().npcs).filter((n) => (n.name || '').trim()).map((n) => ({ id: n.id, name: n.name })),
+      factions: Object.values(useFaction.getState().factions ?? {}).filter((f: any) => (f?.name || '').trim()).map((f: any) => ({ id: f.id, name: f.name })),
+      playerName: usePlayer.getState().profile?.name,
+    };
+  }
+
   // ☄️ 混沌记录：离世时额外生成「主角对这个世界做了什么 / 造成了什么影响 / 原有剧情偏移到何种程度」。
   //   偏移度不由 AI 直接给分——AI 只逐个列偏移点 + 严重度(有正文证据)，前端按严重度归一到 0-100。生成后弹 opt-in 上传窗。
   async function runChaosRecordPhase(rec: { id: string; name: string; tier?: string }, narrative: string, summary: WorldSummary | null) {
@@ -11153,7 +11542,14 @@ ${lines}`;
   };
 
   if (settingsOpen) {
-    return <PanelBoundary label="设置面板" onReset={() => setSettingsOpen(false)}><Suspense fallback={null}><SettingsPanel onClose={() => setSettingsOpen(false)} onOpenSaveLoad={() => { setSettingsOpen(false); setSaveOpen(true); }} /></Suspense></PanelBoundary>;
+    // ⚠ 设置页是**整棵树的早退**（不是叠加层）→ 主返回里那份 CodexHover 此刻是卸载的。
+    //   阅读设置里有「关键词悬浮图鉴」的示例词条，这里必须自带一份，否则那条虚线悬浮不出卡（说好能试却试不出）。
+    return (
+      <PanelBoundary label="设置面板" onReset={() => setSettingsOpen(false)}>
+        <Suspense fallback={null}><SettingsPanel onClose={() => setSettingsOpen(false)} onOpenSaveLoad={() => { setSettingsOpen(false); setSaveOpen(true); }} /></Suspense>
+        <CodexHover />
+      </PanelBoundary>
+    );
   }
 
   if (!started) {
@@ -12033,7 +12429,9 @@ ${lines}`;
       {/* ── NPC 档案面板 ── */}
       {npcPanelOpen && (
         <NpcPanel
-          onClose={() => setNpcPanelOpen(false)}
+          key={npcFocusId ?? 'npc-panel'}
+          initialSelectedId={npcFocusId}
+          onClose={() => { setNpcPanelOpen(false); setNpcFocusId(undefined); }}
           onManualUpdate={triggerNpcUpdateManually}
           manualUpdatingId={npcManualUpdatingId}
           onCultivate={openCultivateFor}
@@ -12218,6 +12616,21 @@ ${lines}`;
       {worldRecordOpen && (
         <WorldRecordPanel onClose={() => setWorldRecordOpen(false)} onGenSummary={runWorldSummaryPhase} summaryBusyId={summaryBusyId} onRegenWorldview={regenWorldviewForRecord} worldviewBusyId={worldviewBusyId} />
       )}
+      {chroniclePanelOpen && (
+        <ChroniclePanel
+          onClose={() => setChroniclePanelOpen(false)}
+          onCompile={runChronicleCompilePhase}
+          onOpenNpc={openNpcDetail}
+        />
+      )}
+      {branchPanelOpen && (
+        <BranchTreePanel
+          messages={messages}
+          onClose={() => setBranchPanelOpen(false)}
+          onJump={jumpToBranch}
+          onBookmark={bookmarkBranchPoint}
+        />
+      )}
       {chaosWorldOpen && (
         <ChaosWorldPanel onClose={() => setChaosWorldOpen(false)} onGenerate={(ws, p) => generateChaosWorld(ws, p)} generating={chaosCardBusy} />
       )}
@@ -12294,6 +12707,10 @@ ${lines}`;
           onFinalize={runEnhanceFinalizePhase}
           onAscend={runEquipAscendPhase}
           onAscendConfirm={confirmEquipAscend}
+          onCraft={runEquipCraftPhase}
+          onCraftConfirm={confirmEquipCraft}
+          onExtractEssence={extractEssence}
+          onGenProcess={runCraftProcessGenPhase}
         />
       )}
 
@@ -12354,6 +12771,12 @@ ${lines}`;
       {wikiOpen && <WikiPanel onClose={() => setWikiOpen(false)} />}
       <ImageViewer />
       <HoloViewer />
+      <CodexHover onOpenNpc={openNpcDetail} onOpenDoc={openCodexDoc} />
+      {codexDocEk && (
+        <Suspense fallback={null}>
+          <CodexDetail ek={codexDocEk} onClose={() => setCodexDocEk(null)} />
+        </Suspense>
+      )}
       <ImageBusyToast />
       {showVer && <VersionToast version={APP_VERSION} note={VERSION_NOTE} onClose={() => setShowVer(false)} />}
       {/* 回退 / 重新生成 确认弹窗（破坏性操作，先确认）*/}

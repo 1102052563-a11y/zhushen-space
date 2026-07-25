@@ -130,6 +130,7 @@ export interface NpcRecord {
   lust?: number;          // 情欲：对主角的即时性欲火（默认0·即时可回落）
   corruption?: number;    // 沉沦：为主角弃守原则/越界的累计（默认0·棘轮·只增难减）
   npcTag?: string;        // 标签（限定：契约者/土著/随从/宠物/召唤物）
+  ownerId?: string;       // 主人编号（B1=主角 / C·G编号=NPC主人）：随从/宠物/召唤物的归属外键——所有权+标签共同划清宠物与普通NPC的边界（缺省视作 B1，见 ownerOf）
   avatar?: string;        // 人物头像（上传的自定义图片 dataURL / 未来生图地址；在场面板与肖像栏展示）
   avatarTags?: string;    // 生成当前头像所用的 imageTags（用于"外观变化时刷新肖像"判断是否需要重绘）
   avatarPrompt?: string;  // 生成当前头像所用的完整生图提示词（供「编辑提示词→重新生成」回显；缺省则按当前档案字段实时重建）
@@ -234,6 +235,18 @@ export function resolveNpcName(prevName: string | undefined, id: string, incomin
    展示层据此过滤掉"无名编号空壳"，保证面板永不出现 C11/C22 这类条目。 */
 export function hasRealNpcName(r: { name?: string; id: string }): boolean {
   return !!r.name && r.name !== r.id && !/^[CG]\d+$/i.test(r.name);
+}
+
+/* 事迹留存上限·分层（📜 编年史「人物列传」的数据基础）：
+   重要角色（好友/随从/队友/常驻/已故/契约者）留**全生平**，路人只留近况——
+   否则要么列传只有最近十来条读不出弧线，要么几百个路人 NPC 把存档撑爆。
+   npcStore 走 lzStorage 压缩，DEED_CAP_KEY 档位的体积开销可接受。 */
+export const DEED_CAP_KEY = 120;
+export const DEED_CAP_CASUAL = 30;
+export function deedCapOf(rec: Pick<NpcRecord, 'isFriend' | 'partyMember' | 'keepForever' | 'isDead' | 'npcTag'>): number {
+  const important = !!(rec.isFriend || rec.partyMember || rec.keepForever || rec.isDead)
+    || rec.npcTag === '随从' || rec.npcTag === '契约者' || rec.npcTag === '召唤物';
+  return important ? DEED_CAP_KEY : DEED_CAP_CASUAL;
 }
 
 export function defaultNpcRecord(id: string): NpcRecord {
@@ -722,12 +735,20 @@ export const useNpc = create<NpcState>()(
             rec.bioStrength = gb.bs;
           }
           if (g('ty')) rec.unitType = g('ty');         // AI 登场判断据正文选的类型标签(封闭枚举)→ 供 autoGen 按类型生成主属性方向/形态/凡人
+          if (g('tag')) {                              // 登场即分类（治"宠物/召唤物出生即被世界默认钉成土著/契约者"）：骨架直给五选一标签，非法值丢弃走前端默认
+            const t = g('tag').trim();
+            if (t === '契约者' || t === '土著' || t === '随从' || t === '宠物' || t === '召唤物') rec.npcTag = t;
+          }
+          if (g('ow')) {                               // 主人编号（随从/宠物/召唤物的归属外键）：B1=主角、C/G=NPC 主人；非法值丢弃
+            const o = g('ow').trim().toUpperCase();
+            if (/^(B1|[CG]\d+)$/.test(o)) rec.ownerId = o;
+          }
           if (short['extraSy'] != null) rec.extra = { ...rec.extra, 额外寿元: g('extraSy') };
           if (short['apAge'] != null)   rec.extra = { ...rec.extra, 外貌年龄: g('apAge') };
           if (g('yrr')) rec.extra = { ...rec.extra, 驻颜理由: g('yrr') };
           // 兜底：AI 塞进**未知缩写键**（如乱写的"裤"里塞了 HP/基底外观）的内容不静默丢弃——存进 extra，
           //   至少在「表格数据库/NPC详情」可见、NPC 演化阶段也能据此补正（治"登场给的字段被整段丢了"）。
-          const KNOWN_SKEL = new Set(['n', 'r', 'p', 't', 'lg', 'bg', 'act', 'bs', 'ty', 'extraSy', 'apAge', 'yrr']);
+          const KNOWN_SKEL = new Set(['n', 'r', 'p', 't', 'lg', 'bg', 'act', 'bs', 'ty', 'tag', 'ow', 'extraSy', 'apAge', 'yrr']);
           for (const k of Object.keys(short)) { if (!KNOWN_SKEL.has(k)) { const v = g(k); if (v) rec.extra = { ...rec.extra, [k]: v }; } }
           rec.onScene = true;
           rec.updatedAt = Date.now();
@@ -777,7 +798,7 @@ export const useNpc = create<NpcState>()(
           const entry: Deed = typeof deed === 'string'
             ? { time: '', location: '', description: deed, addedAt: Date.now() }
             : { ...deed, addedAt: deed.addedAt ?? Date.now() };
-          const log = [...(rec.deedLog ?? []), entry].slice(-12); // 保留最近 12 条
+          const log = [...(rec.deedLog ?? []), entry].slice(-deedCapOf(rec)); // 分层留存：重要角色留全生平，路人留近况
           // 同步维护旧字符串字段，旧 UI/导出仍可用
           const legacy = log
             .map((d) => (d.time || d.location ? `[${d.time}@${d.location}] ` : '') + d.description)
@@ -810,7 +831,7 @@ export const useNpc = create<NpcState>()(
             if (!rec) continue;
             let next: NpcRecord = { ...rec, ...(u.patch ?? {}), updatedAt: now };
             if (u.deed) {
-              const log = [...(rec.deedLog ?? []), u.deed].slice(-12);
+              const log = [...(rec.deedLog ?? []), u.deed].slice(-deedCapOf(rec));
               const legacy = log
                 .map((d) => (d.time || d.location ? `[${d.time}@${d.location}] ` : '') + d.description)
                 .slice(-6).join('\n');

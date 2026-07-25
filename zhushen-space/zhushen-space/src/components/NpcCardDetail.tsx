@@ -1,6 +1,7 @@
 import { useState, type ReactNode } from 'react';
 import { ATTR_KEYS, ATTR_LABEL } from '../systems/attrBonus';
 import { EntityCard, EntityDetailModal, type EntityKind } from './EntityDetail';
+import BioBadge from './BioBadge';
 
 /* 只读「完整 NPC 大面板」：把一份自包含快照（systems/npcCard.ts buildNpcCardSnapshot / 助战卡 / 主角卡）
    渲染成和平时 NpcDetail 接近的完整面板——基本信息 / 属性六维 / 技能 / 天赋 / 称号 / 副职业 / 装备 / 储存 / 经历。
@@ -12,13 +13,14 @@ function itemKind(it: any): EntityKind {
   return EQUIP_CATS.has(String(it?.category || it?.slot || it?.equipSlot || '')) ? 'equip' : 'item';
 }
 
-function Row({ label, value }: { label: string; value?: any }) {
+/* node = 用富节点（如生物强度徽章）替掉纯文本值；value 仍参与判空 */
+function Row({ label, value, node }: { label: string; value?: any; node?: ReactNode }) {
   const v = value == null || value === '' ? '' : String(value);
   if (!v) return null;
   return (
     <div className="grid grid-cols-[4.5rem_1fr] gap-2 items-start">
       <div className="text-[11px] font-mono text-dim/50 pt-0.5 shrink-0">{label}</div>
-      <div className="text-[13px] text-slate-200 leading-relaxed break-words whitespace-pre-wrap">{v}</div>
+      <div className="text-[13px] text-slate-200 leading-relaxed break-words whitespace-pre-wrap">{node ?? v}</div>
     </div>
   );
 }
@@ -84,7 +86,7 @@ export default function NpcCardDetail({ data, onClose, meta, actions }: {
               <Row label="阶位" value={tier} />
               <Row label="身份" value={identity} />
               <Row label="职业" value={d.profession} />
-              <Row label="生物强度" value={d.bioStrength} />
+              <Row label="生物强度" value={d.bioStrength} node={<BioBadge text={String(d.bioStrength || '')} />} />
               <Row label="年龄" value={d.age} />
               <Row label="契约者ID" value={d.contractorId} />
               <Row label="隶属" value={d.affiliatedTeam} />

@@ -24,6 +24,7 @@ import { useLoadout } from '../store/loadoutStore';
 import { useCreationTemplates, type CreationTemplateData } from '../store/creationTemplateStore';
 import { useCreationContent } from '../store/creationContentStore';
 import { useWorkshop } from '../store/workshopStore';
+import { useEquipCraft } from '../store/equipCraftStore';
 import { mpBase, myPlayerId } from './mpConfig';
 
 const PLAYER_ID = 'B1';
@@ -36,6 +37,7 @@ export type WorkshopKindId =
   | 'skill' | 'talent' | 'title' | 'subProfession'
   | 'equipment' | 'gem' | 'item' | 'npc' | 'characterCard'
   | 'skillTree' | 'subProfTree' | 'creationTemplate' | 'worldbook' | 'loadout'
+  | 'craftProcess'   // 强化所·自创装备工艺
   | 'paradise' | 'race';   // 角色创建相关（乐园/种族）
 
 // 角色创建模式下走「自定义内容库」的类型（乐园/种族/天赋）
@@ -286,6 +288,17 @@ export const KINDS: Record<WorkshopKindId, WorkshopKindDef> = {
     listLocal: () => useLoadout.getState().builds.map((b) => ({ id: b.id, name: b.name })),
     pack: (id) => { const b = useLoadout.getState().builds.find((x) => x.id === id); return b ? { payload: { name: b.name, desc: b.desc, skills: b.skills ?? [], traits: b.traits ?? [] }, name: b.name } : null; },
     install: (payload) => { useLoadout.getState().addBuild({ ...(payload ?? {}), id: undefined }); },   // 只入库，回「🎴 体系/流派」面板点「应用」才生效
+  },
+  craftProcess: {
+    id: 'craftProcess', label: '装备工艺', emoji: '🔨', group: '模板',
+    // 只分享玩家自创的工艺（内置三条人人都有，不必进工坊）
+    listLocal: () => useEquipCraft.getState().settings.processes.filter((p) => !p.builtin).map((p) => ({ id: p.id, name: `${p.emoji}${p.name}` })),
+    pack: (id) => {
+      const p = useEquipCraft.getState().settings.processes.find((x) => x.id === id);
+      return p ? { payload: stripKeys(p, ['id', 'builtin', 'createdAt']), name: p.name } : null;
+    },
+    // 安装一律经 upsertProcess → sanitizeProcess 夹取参数：别人上传的工艺**不能**绕过本机的平衡阀
+    install: (payload) => { useEquipCraft.getState().upsertProcess({ ...(payload ?? {}), builtin: false }); },
   },
   worldbook: {
     id: 'worldbook', label: '世界书', emoji: '📚', group: '世界书', categories: [WB_CAT_TEXT, WB_CAT_AUX],

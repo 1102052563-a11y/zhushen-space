@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect, memo } from 'react';
+import { useShallow } from 'zustand/react/shallow';
 import { usePlayer, type PlayerAttrs } from '../store/playerStore';
 import { useSkillTree } from '../store/skillTreeStore';   // 生效技能树的职业 → 主角职业留空时填上（以技能树为准）
 import { useGame } from '../store/gameStore';
@@ -19,6 +20,7 @@ import { useEquipSets } from '../store/equipSetStore';
 import { playerTreeAttrBonus } from '../store/skillTreeStore';
 import { playerTeamAttrBonus, playerTeamPerkAbilities } from '../store/adventureTeamStore';
 import { bioInnate, bioPower, bioStrengthLabel, nominalTierNum } from '../systems/bioStrength';
+import BioBadge from './BioBadge';
 import HoloCard from './HoloCard';
 import HoloInspector from './HoloInspector';
 import { useImageGen } from '../store/imageGenStore';
@@ -214,7 +216,9 @@ function PlayerSidebar({ onClose }: { onClose?: () => void }) {
   const setAttr = usePlayer((s) => s.setAttr);
   const removeStatusEffect = usePlayer((s) => s.removeStatusEffect);
   const p = useGame((s) => s.player);
-  const items = useItems((s) => s.items);
+  // 整个侧栏只拿 items 算这一件事（装备加成），所以只订阅已穿戴的：
+  // AI 每回合新建/改数量的那堆非装备物品不再让常驻侧栏白重渲。
+  const equippedFull = useItems(useShallow((s) => s.items.filter((it) => it.equipped)));
   const [editStatus, setEditStatus] = useState(false);
   const [personaOpen, setPersonaOpen] = useState(false);   // 性格详细描述：默认收起，点击「📖详情」展开查看/编辑
   const [labelOpen, setLabelOpen] = useState(false);       // HP/EP 条自定义称呼（换皮）：默认收起，点血条下方小按钮展开
@@ -249,7 +253,6 @@ function PlayerSidebar({ onClose }: { onClose?: () => void }) {
     const id = skillResId(sk);
     updateSkill('B1', sk.id, { numeric: { ...num, [field]: id && amt > 0 ? { id, amount: amt } : undefined } });
   };
-  const equippedFull = items.filter((it) => it.equipped);
   const equipped = equippedFull.map((it) => ({ category: it.category as string, grade: (it.numeric?.grade as number) ?? gradeToNum(it.gradeDesc), combatStat: effectiveCombatStat(it) }));   // 攻防按强化等级放大，与背包卡面的「基础→强化」显示同口径
   // 属性构成：原始 + 技能树 + 装备/技能/天赋 的属性加成（真实加载，不只是摆设）
   // 技能树六维折进 base（与战斗/骰子一致），资质档 bioInnate 仍用原始 profile.attrs
@@ -414,7 +417,7 @@ function PlayerSidebar({ onClose }: { onClose?: () => void }) {
           <Row label="竞技场排名"><EditText value={profile.arenaRank} onSave={(v) => setProfile({ arenaRank: v })} placeholder="（未上榜）" /></Row>
           <Row label="烙印等级"><EditText value={profile.brandLevel} onSave={(v) => setProfile({ brandLevel: v })} placeholder="（无）" /></Row>
           <Row label="契约者ID"><EditText value={profile.contractorId} onSave={(v) => setProfile({ contractorId: v })} placeholder="（未分配）" /></Row>
-          <Row label="生物强度" wrap><span className="text-[13px] text-amber-300/90 flex flex-col leading-snug" title="前端按六维机械判定：资质档(基础六维)/战力档(含装备技能天赋加成)">{(bioStrengthLabel(bioInnate(profile.attrs, profile.tier, profile.level), bioPower(effAttrs, profile.tier, profile.level)) || '（六维待定）').split(' / ').map((p, i) => <span key={i}>{p}</span>)}</span></Row>
+          <Row label="生物强度" wrap><BioBadge text={bioStrengthLabel(bioInnate(profile.attrs, profile.tier, profile.level), bioPower(effAttrs, profile.tier, profile.level))} fallback="（六维待定）" title="前端按六维机械判定：资质档(基础六维)/战力档(含装备技能天赋加成)" /></Row>
           <Row label="世界之源"><EditNum value={Math.round((profile.worldSource ?? 0) * 10) / 10} onSave={(v) => setProfile({ worldSource: Math.round(v * 10) / 10 })} /></Row>
         </div>
 

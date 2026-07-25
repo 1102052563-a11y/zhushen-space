@@ -45,6 +45,8 @@ import { useCasino } from '../store/casinoStore';
 import { useAbyss } from '../store/abyssStore';
 import { useCraft } from '../store/craftStore';
 import { useEquipSets } from '../store/equipSetStore';
+import { useEquipCraft } from '../store/equipCraftStore';
+import { useChronicle } from '../store/chronicleStore';
 import { useLedger } from './ledger/ledgerStore';
 import { useLocks } from '../store/lockStore';
 import { useFieldHistory } from '../store/fieldHistoryStore';
@@ -112,8 +114,10 @@ const STORES: { key: string; api: any; clear?: () => void }[] = [
   { key: 'drpg-casino',     api: useCasino, clear: () => useCasino.getState().clearCasino() },
   { key: 'drpg-craft',      api: useCraft, clear: () => useCraft.getState().clearCraft() },   // 合成工坊：配置/图鉴/API 保留，会话+已发现配方随新游戏清空
   { key: 'drpg-equipsets',  api: useEquipSets, clear: () => useEquipSets.getState().clearAll() },   // 装备套装定义（套装锻造产出·与 drpg-items 部件强耦合）：随存档快照，新游戏清空
+  { key: 'drpg-equipcraft', api: useEquipCraft, clear: () => useEquipCraft.getState().clearCraftProgress() },   // 装备工艺：精髓图鉴（拆自本档装备）随存档快照、新游戏清空；工艺库是配置，clear 不动（照 drpg-skilltree 口径）
   { key: 'drpg-abyss',      api: useAbyss, clear: () => useAbyss.getState().clearAbyss() },
   { key: 'drpg-worldrecord', api: useWorldRecord, clear: () => useWorldRecord.getState().clearAll() },   // 世界记录/世界志（世界观骨架+离世总结·随存档快照；新游戏清空）
+  { key: 'drpg-chronicle',  api: useChronicle, clear: () => useChronicle.getState().clearChronicle() },   // 📜 编年史：纪要行分卷索引 + AI 编纂的正史。都是本存档进度，随快照/新游戏清空（丰碑是账号级、另存，不在此列）
   { key: 'drpg-loadout',    api: useLoadout, clear: () => useLoadout.getState().clearBench() },   // 体系/流派：clear 只清替补席+激活态；模板 builds[] 像技能树定义一样跨新游戏保留（照 drpg-skilltree 口径）
   { key: 'drpg-shop',       api: useShop, clear: () => useShop.getState().clearShopRun() },   // 玩家产业：店铺定义随存档快照/新游戏保留，clear 只清经营进度(earnings/visits)
   { key: 'drpg-canon-route', api: useCanonRoute, clear: () => useCanonRoute.getState().clearAll() },   // 原著路线进度（站序/偏差/苏晓轨道态）：随存档快照，新游戏清空（是否启用由创建流程重新勾选）
@@ -143,6 +147,14 @@ export function rollbackEvoDomains(snap: { turn: number; stores: Record<string, 
 }
 
 export interface SlotPreview { turn: number; playerName: string; location: string; lastText: string }
+/* 分支槽元数据（🌿楼层分支树）：挂在 SaveSlot 顶层而非 data 里——`allMeta` 游标会剥掉 data，
+   放顶层才能在不载入任何存档数据的前提下画整棵树。 */
+export interface BranchMeta {
+  origin: 'regen' | 'rollback' | 'manual';   // 弃稿(重生成) / 弃稿(回退) / 玩家主动埋点
+  parentMsgId: number;                       // 分叉点 = 这条楼层之后分出去（-1 = 开局前）
+  pinned?: boolean;                          // 收藏：不被 BRANCH_KEEP 裁剪
+  note?: string;
+}
 export interface SaveSlot {
   id: string;
   name: string;
@@ -150,6 +162,10 @@ export interface SaveSlot {
   createdAt: number;
   updatedAt: number;
   preview: SlotPreview;
+  /** 本槽对话末端的楼层 id——分支树靠它把任意存档挂到主干的对应位置（旧档无此值 → 树上不显示跳转点）。*/
+  tipMsgId?: number;
+  /** 仅分支槽（id 以 BRANCH_PREFIX 开头）有 */
+  branch?: BranchMeta;
   data: {
     stores: Record<string, string>;
     messages: any[];
@@ -214,6 +230,8 @@ async function buildSlot(id: string | null, name: string, messages: any[], inclu
     createdAt: existing?.createdAt ?? now,
     updatedAt: now,
     preview: buildPreview(messages),
+    // 末端楼层 id：分支树用它把本槽挂到主干对应回合上（O(1)，不必载入 data.messages）
+    ...(messages.length ? { tipMsgId: Number(messages[messages.length - 1]?.id) || 0 } : {}),
     // 图片(IndexedDB)取内存最新快照打包进存档；includeImages=false 时不打包——降级用，避免大图把整次保存撑爆 IndexedDB 配额而失败
     data: { stores: snapshotStores(), messages, ...(includeImages ? { images: snapshotImages() } : {}), ...(narrativeArchive ? { narrativeArchive } : {}), ...(undo ? { undo } : {}) },
   };
@@ -299,8 +317,9 @@ export async function listSlots(): Promise<SlotMeta[]> {
   // 用 allMeta(游标逐条剥 data)而非 all()——后者会把所有存档(各可能几十 MB 含图)一次性载入内存，多档时直接崩溃。
   const metas = await saveDb.allMeta<SlotMeta>();
   return metas
-    // 主列表只放：手动存档 + 单一自动存档(⏱)。回退点、滚动备份(🛟)都不混进来——后者另列在「自动备份」折叠区，避免一堆刷屏。
-    .filter((s) => s.id !== UNDO_ID && !(typeof s.id === 'string' && s.id.startsWith(AUTOSNAP_PREFIX)))
+    // 主列表只放：手动存档 + 单一自动存档(⏱)。回退点、滚动备份(🛟)、支线(🌿)都不混进来——
+    // 后两者另有去处（「自动备份」折叠区 / 分支树面板），否则一堆刷屏。
+    .filter((s) => s.id !== UNDO_ID && !(typeof s.id === 'string' && (s.id.startsWith(AUTOSNAP_PREFIX) || s.id.startsWith(BRANCH_PREFIX))))
     .sort((a, b) => b.updatedAt - a.updatedAt);
 }
 
@@ -310,6 +329,77 @@ export async function listAutoSnaps(): Promise<SlotMeta[]> {
   return metas
     .filter((s) => typeof s.id === 'string' && s.id.startsWith(AUTOSNAP_PREFIX))
     .sort((a, b) => b.updatedAt - a.updatedAt);
+}
+
+/* ══════════ 🌿 楼层分支树：弃稿 = 可回收的平行线 ══════════
+   一条「支线」就是一个**普通存档槽**（前缀 branch_），只多带 branch 元数据。为什么这么设计：
+   ① 抓取时机是关键——`重新生成`/`回退` 都是「先 loadSlot(UNDO_ID) 再 reload」，在 loadSlot **之前**
+      live store 里还完整保留着这一回合的演化结果。此刻整存一份，拿到的就是**被丢弃那条时间线的忠实终态**，
+      不是"回合前状态 + 一段文本"（后者会出现"正文说打赢了、数值还没打"的错位）。
+   ② 恢复 = `loadSlot(分支槽 id)`，一行复用现成的读档全链路（含 reload / 事件核心 reseed / 图片回填），
+      不必另写一套还原逻辑——这也是唯一能把 gameStore(模块级初始化) 一并还原的路径。
+   ③ 元数据放槽顶层而非 data 里：`allMeta` 游标会剥掉 data，故画整棵树**零数据加载**。
+   体积与滚动备份同量级（都不含图），故同样只保留最近 N 份；📌收藏的豁免裁剪。 */
+export const BRANCH_PREFIX = 'branch_';
+export const BRANCH_KEEP = 12;   // 未收藏的支线保留份数（每份≈一个🛟备份大小；调此一处，UI 文案引用本常量自动同步）
+
+const ORIGIN_ICON: Record<BranchMeta['origin'], string> = { regen: '⟳', rollback: '↩', manual: '🔖' };
+
+/** 存一条支线。messages 传**当前实时对话**（含即将被丢弃的那一回合）。返回槽 id；失败返回 null（绝不阻断主流程）。*/
+export async function saveBranchPoint(messages: any[], meta: BranchMeta, name?: string): Promise<string | null> {
+  try {
+    if (!messages?.length) return null;                     // 空对话没有可回收的东西
+    const now = Date.now();
+    const id = `${BRANCH_PREFIX}${now}`;
+    const slot = await buildSlot(id, name || `${ORIGIN_ICON[meta.origin]} 支线 ${new Date(now).toLocaleString('zh-CN', { hour12: false })}`, messages, false);
+    slot.branch = meta;
+    await saveDb.put(slot);
+    await pruneBranchPoints();
+    return id;
+  } catch (e) { logWarn('saveBranchPoint', e); return null; }
+}
+
+export async function listBranchPoints(): Promise<SlotMeta[]> {
+  const metas = await saveDb.allMeta<SlotMeta>();
+  return metas
+    .filter((s) => typeof s.id === 'string' && s.id.startsWith(BRANCH_PREFIX))
+    .sort((a, b) => b.updatedAt - a.updatedAt);
+}
+
+/** 裁剪：只读主键+meta（游标剥 data），收藏的豁免。 */
+export async function pruneBranchPoints(): Promise<void> {
+  try {
+    const metas = await listBranchPoints();
+    const killable = metas.filter((s) => !s.branch?.pinned);            // listBranchPoints 已按新→旧排序
+    for (const old of killable.slice(BRANCH_KEEP)) { try { await saveDb.del(old.id); } catch { /* 删旧支线失败忽略 */ } }
+  } catch (e) { logWarn('pruneBranchPoints', e); }
+}
+
+/** 收藏/取消收藏。要改 branch 字段就得整槽读回再写——只在玩家点按时发生，不在热路径上。 */
+export async function setBranchPinned(id: string, pinned: boolean): Promise<void> {
+  const slot = await saveDb.get<SaveSlot>(id);
+  if (!slot?.branch) return;
+  slot.branch = { ...slot.branch, pinned };
+  await saveDb.put(slot);
+}
+
+export async function renameBranchPoint(id: string, name: string): Promise<void> {
+  const slot = await saveDb.get<SaveSlot>(id);
+  if (!slot) return;
+  slot.name = name.trim() || slot.name;
+  await saveDb.put(slot);
+}
+
+export async function deleteBranchPoint(id: string): Promise<void> {
+  if (!id.startsWith(BRANCH_PREFIX)) return;   // 防手滑把真存档删了
+  await saveDb.del(id);
+}
+
+export async function clearBranchPoints(): Promise<void> {
+  try {
+    const keys = ((await saveDb.keys()) as IDBValidKey[]).filter((k): k is string => typeof k === 'string' && k.startsWith(BRANCH_PREFIX));
+    for (const k of keys) { try { await saveDb.del(k); } catch { /* */ } }
+  } catch (e) { logWarn('clearBranchPoints', e); }
 }
 
 export const PENDING_STARTED_KEY = 'drpg-pending-started';
@@ -625,6 +715,8 @@ export async function clearProgress(): Promise<void> {
     const snapKeys = ((await saveDb.keys()) as IDBValidKey[]).filter((k): k is string => typeof k === 'string' && k.startsWith(AUTOSNAP_PREFIX));
     for (const k of snapKeys) { try { await saveDb.del(k); } catch { /* */ } }
   } catch (e) { logWarn('clearProgress:autosnap', e); }
+  // 支线(🌿)：同属"进度"，上一局的弃稿平行线不该带进新局（archivePreviousRun 已把整局兜底存下）。
+  await clearBranchPoints();
   // 删除上一局的内部「回退点」固定槽：否则新开局第一回合失败后点「重新生成/回退」，
   // 会载入仍残留的上一局回退点 → 瞬间跳回另一局的中断处重发。
   // UNDO_ID 是内部槽（不在存档列表显示、非用户命名存档），删它不影响任何旧存档；

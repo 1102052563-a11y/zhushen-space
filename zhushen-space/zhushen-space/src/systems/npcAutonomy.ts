@@ -16,6 +16,7 @@ import { isPetLike } from './petEvolution';
 import { useCanonRoute } from '../store/canonRouteStore';   // 🛤 轨道态白夜排除出通用自治（脱轨才接管）
 import { useCharacters, type Deed, type Skill, type Talent } from '../store/characterStore';
 import { useSettings } from '../store/settingsStore';
+import { useTeam } from '../store/adventureTeamStore';   // 🛡 只读派遣名单做分流过滤；adventureTeamStore 不反向依赖本文件（见其文件头铁则③）
 import {
   pickDeed, seedFrom, behaviorBiasFor, makeRng, pickFrom, getCorpus, hashStr,
   type DeedCtx, type DeedEvent,
@@ -207,7 +208,7 @@ const SKILL_RARITY = ['普通', '精良', '稀有', '史诗', '传说', '奥义'
 const TALENT_RARITY = ['D', 'C', 'B', 'A', 'S', 'SS', 'SSS'];                    // 天赋品级 D~SSS
 
 /* ── 离场历练技能「战斗原型」：确定性合成像样的完整技能（效果/简介/字段），无 API。治"效果=依招式发挥、信息不全"占位垃圾 ── */
-type Arch = 'assassin' | 'caster' | 'melee' | 'tank' | 'control' | 'support' | 'summon' | 'ranged';
+export type Arch = 'assassin' | 'caster' | 'melee' | 'tank' | 'control' | 'support' | 'summon' | 'ranged';
 const ARCH_KW: ReadonlyArray<readonly [Arch, readonly string[]]> = [
   ['assassin', ['刺客', '刀客', '潜杀', '暗杀', '影', '死神', '夜行', '毒', '刺']],
   ['caster', ['法师', '术士', '元素', '时空', '幻', '咒', '符', '魔导', '灵能', '祭司', '巫']],
@@ -217,7 +218,7 @@ const ARCH_KW: ReadonlyArray<readonly [Arch, readonly string[]]> = [
   ['summon', ['召唤', '驭', '御兽', '龙骑', '武魂', '亡灵', '尸', '傀']],
   ['ranged', ['弓', '射', '枪手', '铳', '狙', '箭', '炮']],
 ];
-function archOf(npc: NpcRecord): Arch {
+export function archOf(npc: NpcRecord): Arch {
   const p = (npc.profession ?? '') + (npc.unitType ?? '');
   for (const [a, kws] of ARCH_KW) if (kws.some((w) => p.includes(w))) return a;
   return 'melee';
@@ -241,8 +242,16 @@ function rarityByPower(rng: () => number, npc: NpcRecord, scale: readonly string
   return scale[Math.min(scale.length - 1, Math.max(0, j))];
 }
 
+export const GEAR_CATS = ['武器', '防具', '饰品'];
+/** 「自治获得」的装备是否已到上限（防长局囤积）。派遣战利品共用这条线——两边都标 acquisition='离场历练所得'，
+ *  免得开了派遣就成了绕过上限的后门。消耗品/物资不计。 */
+export function autoGearFull(npc: NpcRecord | undefined): boolean {
+  const n = (npc?.items ?? []).filter((it) => it.acquisition === '离场历练所得' && GEAR_CATS.includes(it.category)).length;
+  return n >= MAX_AUTO_GEAR;
+}
+
 /** 真获得：按职业造一件可写进 NPC 储物栏的装备 */
-function makeEquipItem(npc: NpcRecord, rng: () => number, turn: number): NpcOwnedItem {
+export function makeEquipItem(npc: NpcRecord, rng: () => number, turn: number): NpcOwnedItem {
   const c = composeEquip(npc, rng);
   const slotTaken = (npc.items ?? []).some((it) => it.equipped && it.category === c.category);
   return {
@@ -597,8 +606,12 @@ export function runNpcAutonomy(turn: number): number {
   //   **脱轨后才交给轨道A 自治**（他此后按人设自由生活，数值仍由 canon 锁每回合钉回）。
   const canonSx = useCanonRoute.getState();
   const canonTracked = (n: NpcRecord) => !!n.isCanonLocked && canonSx.enabled && canonSx.suxiao.state !== 'derailed';
+  // 🛡 冒险团派遣中的成员归**派遣引擎**管，轨道A 必须让开——否则同一个 NPC 一回合被两套引擎写
+  //   status/deedLog/六维（和当年「演化AI管在场 ↔ 轨道A管离场」按 onScene 分流是同一个坑）。
+  //   过滤源＝dispatchActive.memberIds 这一份唯一真相：派遣记录一旦没了，人自动回落轨道A，不会卡死。
+  const dispatched = new Set(useTeam.getState().dispatchActive?.memberIds ?? []);
   // 宠物/召唤物随主人待命、不过独立离场生活（"不自行成长"）→ 排除出轨道A 自治，交给独立的宠物演化。
-  const eligible = Object.values(store.npcs).filter((n) => !n.onScene && !n.archived && !n.isDead && hasRealNpcName(n) && !isPetLike(n) && !canonTracked(n));   // 归档=玩家封存，不跑离场自治
+  const eligible = Object.values(store.npcs).filter((n) => !n.onScene && !n.archived && !n.isDead && hasRealNpcName(n) && !isPetLike(n) && !canonTracked(n) && !dispatched.has(n.id));   // 归档=玩家封存，不跑离场自治
   if (!eligible.length) return 0;
 
   const contractorNames = eligible.filter((n) => !isNative(n)).map((n) => n.name).filter(Boolean);
@@ -679,13 +692,11 @@ export function runNpcAutonomy(turn: number): number {
   // 真实物品效果 → 写进 NPC 面板：获得（带上限）/ 消耗 / 损坏修复 / 陨落掉落
   if (itemFx.length) {
     const chars = useCharacters.getState();
-    const GEAR_CATS = ['武器', '防具', '饰品'];
     for (const { id, out } of itemFx) {
       const rec = store.npcs[id];
       if (out.grant?.equip) {
         const gear = GEAR_CATS.includes(out.grant.equip.category);
-        const gearCount = (rec?.items ?? []).filter((it) => it.acquisition === '离场历练所得' && GEAR_CATS.includes(it.category)).length;
-        if (!gear || gearCount < MAX_AUTO_GEAR) store.addNpcItem(id, out.grant.equip);   // 装备总量上限
+        if (!gear || !autoGearFull(rec)) store.addNpcItem(id, out.grant.equip);   // 装备总量上限
       }
       if (out.grant?.skill) chars.addSkill(id, out.grant.skill);
       if (out.grant?.talent) chars.addTrait(id, out.grant.talent);

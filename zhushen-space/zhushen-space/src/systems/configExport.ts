@@ -31,6 +31,7 @@ import { useMemory } from '../store/memoryStore';
 import { useDice } from '../store/diceStore';
 import { useEnhance } from '../store/enhanceStore';
 import { useCraft } from '../store/craftStore';
+import { useEquipCraft } from '../store/equipCraftStore';
 import { useJoy } from '../store/joyStore';
 import { useImageGen } from '../store/imageGenStore';
 import { useNovelVec } from '../store/novelVecStore';
@@ -118,6 +119,18 @@ function skillTreeExtract(s: any): any {
 // 技能树导入：合并模板库（导入项按 id 覆盖同名，保留本地其它树），不碰当前存档的解锁进度
 function skillTreeApply(cur: any, cfg: any): any {
   return { trees: { ...(cur.trees ?? {}), ...(cfg.trees ?? {}) } };
+}
+
+// 装备工艺：只导工艺库（配置/可分享），剔 essences 精髓图鉴（拆自本档装备＝游戏进度，随存档走）
+function equipCraftExtract(s: any): any {
+  return { settings: s.settings };
+}
+// 装备工艺导入：按 id 合并工艺库（导入项覆盖同 id，保留本地其它工艺），不碰精髓图鉴
+function equipCraftApply(cur: any, cfg: any): any {
+  const byId = new Map<string, any>();
+  for (const p of cur.settings?.processes ?? []) byId.set(p.id, p);
+  for (const p of cfg.settings?.processes ?? []) byId.set(p.id, p);
+  return { settings: { ...(cur.settings ?? {}), ...(cfg.settings ?? {}), processes: [...byId.values()] } };
 }
 
 // 自定义变量：只导**定义/schema**（key/label/type/min/max/说明/状态栏开关），值重置成初始（防把作者中途的游戏进度带出去，守"只导配置"铁则）。
@@ -244,6 +257,7 @@ const SPECS: StoreSpec[] = [
   { key: 'drpg-combat',             label: '战斗系统',     api: useCombat as any,            extract: combatExtract },
   { key: 'drpg-enhance',            label: '装备强化',     api: useEnhance as any,           extract: enhanceExtract },
   { key: 'drpg-craft',              label: '合成工坊',     api: useCraft as any,             extract: craftExtract },
+  { key: 'drpg-equipcraft',         label: '装备工艺',     api: useEquipCraft as any,        extract: equipCraftExtract, apply: equipCraftApply },
   { key: 'drpg-joy',                label: '欢愉宫',       api: useJoy as any,               extract: joyExtract, apply: joyApply },
   { key: 'drpg-image-gen',          label: '生图设置',     api: useImageGen as any,          extract: plainExtract, apply: imageGenApply },
   { key: 'drpg-novelvec',           label: '向量资料库',   api: useNovelVec as any,          extract: evoExtract },

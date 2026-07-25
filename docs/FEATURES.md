@@ -11,7 +11,7 @@
 4. 物品系统（分类/结构/模板/槽位/定价/货币/删除策略/堆叠）
 5. 主角演化系统
 6. NPC 演化系统（含关键修复）
-7. 势力 / 领地 / 冒险团 / 万族 演化
+7. 势力 / 领地 / 冒险团 / 万族 演化（7b. 冒险团派遣·离线委托）
 8. 杂项演化 / 生平压缩
 9. 叙事记忆 + 结构化召回 + 向量资料库
 10. 中心 API 库 + 多接口路由
@@ -24,6 +24,10 @@
 17. 名称模糊匹配 + 照抄铁则
 18. 世界书体系 / 预设文件
 19. 装备强化系统（仅乐园·+0~16·看板娘分阶段立绘·爆装垫子保底·品级评分缩放·收尾AI刷词缀·货币兑换）
+19b. 装备工艺（🔨锻造潜力耗尽封盘·精髓提取灌注·虚空腐蚀赌局·AI自创工艺+工坊分享·风险定价平衡阀）
+19c. 编年史 / 传奇模式（📜本纪+前尘双视图·卷页注三层·实录→AI修正史·金银灰分级·实体互链）
+19d. 正文关键词悬浮图鉴（名词 tooltip·惰性词典·只标首次·四色系·可并入轮回wiki人物）
+19e. 楼层分支树（🌿时间线视图·⟳重生成/↩回退的弃稿自动收成可回收平行线·🔖主动分岔）
 
 ---
 
@@ -103,7 +107,47 @@
 
 **领地**（主神空间个人基地·单一记录,跨世界保留,无防御绝对安全）：`territoryStore`(`drpg-territory`,数据+设置+API 合一)。`unlocked`/`name`(读正文称呼,不硬编默认名)/`level`(走阶位 `realmFromLevel`)/`buildProgress`(0~100满升级)/`effects`/`appearance`/`passiveOutput`/`members`(C-id)/`buildings`(全自定义,`buildingCap=level+2`,单栋≤5级)/`storageItems`。建设进度三来源(建筑/成员质量/投入资源,`territory.progress+=N`)。指令 `unlockTerritory/setTerritory/addBuilding/upgradeBuilding/deBuilding/addTerritoryEffect/addMember/storeItem/takeItem`(`applyTerritoryCommands`)+短指令 `territory.progress+=N`/`level=N`。被动产出落仓库 storeItem、货币走 transferSpiritStones(故领地阶段也跑 applyItemCommands)。UI 🏯领地→`TerritoryPanel`。预设 `src/data/territoryDefaultPreset.json`(8条)。
 
-**冒险团**（仅主角单一团,其他冒险团归势力）：`adventureTeamStore`(`drpg-team`,数据+设置+API)。established/disbanded/name/rank(E~SSS)/teamExp(0~100晋级主轴)/activity(0~100每回合-2)/members(C-id,主角B1=团长)/perks/deeds/assessment。`memberCap=3+idx`/`ACTIVITY_GATE=60`。双计量晋级(`addExp`)：满100时 E→A 且 activity≥60 自动;→S/SS/SSS 触发考核(不自动)。考核(建团+大阶位,纯剧情)：`establish`/`startAssessment`/`resolveAssessment('pass'|'fail'|'disband')`。仅正文明确建团才 `establishTeam`。指令 `establishTeam/addTeamMember/removeTeamMember/addTeamPerk/startAssessment/resolveAssessment`(`applyTeamCommands`,注意成员 store action 是 `upsertMember`)+短指令 `team.exp+=N`/`activity+=/-=N`/`rank="S"`。`callApi` 开头 `decayActivity()`。UI 🛡冒险团→`AdventureTeamPanel`。预设 `src/data/teamDefaultPreset.json`(6条)。
+**冒险团**（仅主角单一团,其他冒险团归势力）：`adventureTeamStore`(`drpg-team`,数据+设置+API)。established/disbanded/name/rank(E~SSS)/teamExp(0~100晋级主轴)/activity(0~100每回合-2)/members(C-id,主角B1=团长)/perks/deeds/assessment。`memberCap=3+idx`/`ACTIVITY_GATE=60`。双计量晋级(`addExp`)：满100时 E→A 且 activity≥60 自动;→S/SS/SSS 触发考核(不自动)。考核(建团+大阶位,纯剧情)：`establish`/`startAssessment`/`resolveAssessment('pass'|'fail'|'disband')`。仅正文明确建团才 `establishTeam`。指令 `establishTeam/addTeamMember/removeTeamMember/addTeamPerk/startAssessment/resolveAssessment`(`applyTeamCommands`,注意成员 store action 是 `upsertMember`)+短指令 `team.exp+=N`/`activity+=/-=N`/`rank="S"`。UI 🛡冒险团→`AdventureTeamPanel`（两 tab：🛡团队 / ⚔派遣）。预设 `src/data/teamDefaultPreset.json`(6条)。
+> ⚠ **本文档旧版称「activity 每回合 -2、`callApi` 开头 `decayActivity()`」——代码里没有这个函数**（2026-07-25 全仓 grep 零命中）。实际活跃度只会因 AI 的 `team.activity+=N`、考核失败 -20、以及**派遣归来**变动。要不要加回自然衰减是个待定的平衡问题，别当既成事实。
+
+### 7b. 冒险团派遣（⚔ 离线委托·倒数封条）
+
+派已建档的团队成员去打限时委托，到点归来出战报+战利品，疲劳/伤势强制轮换。参考 FF14 冒险者小队 / Battle Brothers。落点是补上冒险团的空洞：**活跃度此前没有任何玩家杠杆**，派遣就是那个杠杆。
+
+**三条铁则**（改动前先读 `systems/dispatchEngine.ts` 文件头）：
+1. **封条**：`DispatchRecord.ledger` 在倒数走完前**在数据里不存在**（不是 UI 藏起来）。到点由 `runDispatchTick` 一次性算出并封存 → 翻 store / 改 localStorage 都偷看不到。实机验证过：出发后 raw `drpg-team` 里 `dispatchActive.ledger` 是 `undefined`。
+2. **结算前端算死、AI 只写散文**：账本（评级 E~SSS / 伤亡 / 战利品 / 货币）由 `settleDispatch` 确定性生成；`dispatchReport.ts` 把这份锁死的账本喂给 AI 让它叙述。让 AI 同时决定"打赢没"和"掉了什么"＝每次派遣都通胀（同 bioStrength 机械判定的由来）。战报框里明写「数值已在归来时定死，重写战报不会改动它们」。
+3. **不开成长/致死后门**：战利品走轨道A 的 `makeEquipItem` + `autoGearFull`（**同一条 8 件上限**，两边同标 `acquisition='离场历练所得'`）；陨落走同一个 `settings.npcAutonomyDeath` 开关 + `isProtected`（好友/羁绊/永久保留/临时队友）。**主角 B1 永不出勤**（人在正文里，也避开"主角数值在正文外被改"的铁律）。
+
+**时间口径**：倒数用**回合**不用挂钟（全局时钟就是回合；挂钟招读档刷时间）。记的是**绝对回合 `endTurn`**、不逐回合自减——漏跑一回合不会卡死，回退时间自然延长。`paradiseTime` 只作战报里的"历时"风味。
+
+**与轨道A 的分流**（⚠ 头号 bug 风险）：分流从两方变三方——在场→演化AI / **派遣中→派遣引擎** / 其余离场→轨道A。`runNpcAutonomy` 里用 `dispatchActive.memberIds` 这份唯一真相排除；派遣记录一丢，人自动回落轨道A，**自愈**（所以刻意**不**新增 `auto.phase='dispatch'`，那样记录丢了人会永远卡在"任务中"）。心跳排在 `runNpcAutonomy` **之后**，这样归来当回合不会既写"委托归来"又写一条 hub 行动。
+
+**委托板·两条来源**
+- **自动（默认·零 token）**：`rollOfferBoard` 按 `seedFrom(floor(turn/BOARD_REFRESH))` 播种，从轨道A 语料库的 `banks.worldTheme`（98 条）× 12 类委托组合而成。阶位成梯度（低阵容 1 阶 → 持平 → 高 1 → 高 2，最后一条永远是"够一够"）。`BOARD_SIZE=4`、`BOARD_REFRESH=6` 回合换批。**`ensureBoard` 在面板打开时也调**——委托板是派生数据，不该"必须先走一个回合才有得看"（实机踩过这个空板）。
+- **AI 生成（手动·`systems/dispatchGen.ts`）**：面板「🔮 AI 生成委托」按钮是**唯一触发点，没有任何自动调用**。读主角档案（阶位/身份/职业/生物强度/所在世界/双时间）+ 冒险团现状（阶位/双计量/团队效果）+ **每个可派遣成员的完整档案**（阶位/职业/战斗原型/战力档/疲劳/性格/关系网），让 AI 出四条贴着这支队伍写的委托，带 雇主/背景简报/目标/已知风险。走 `resolveApiChain('dispatch')`。
+  - **联网搜索**（`dispatchWebSearch`，默认关）：开了才给 Gemini 原生 `extra:{tools:[{google_search:{}}]}`（同混沌世界/登场判断那条 extra 通道）——同人世界据原作真实设定出委托。关着就凭模型已有认知，提示词里明禁"声称已联网核实"。
+  - ⚠ **AI 板永不自动换批**：`boardSource==='ai'` 时 `ensureBoard` 直接让开。玩家花 token 换来的委托（还带着看得见的奖励物品）绝不能被免费的自动委托悄悄顶掉——这也是"手动生成，不要自动生成"的字面落实。要换只能再点一次生成、或点「换回自动」。
+
+**委托奖励物品**（AI 委托专有，`DispatchOffer.reward`）
+- **接单前就看得见**：委托卡上直接摊开整件物品（点「🎁 达成酬劳」展开全字段），这才是选这条委托的理由。
+- **字段照物品演化的固定格式全填**：注入 `ITEM_FIXED_FORMAT_RULE`（含词缀/效果/数值三分铁则）+ `ITEM_GRADE_TABLE_RULE` + `EQUIP_CODEX`，与开箱/合成/福袋同一套。name/category/subType/origin/combatStat/durability/requirement/attrBonus/score/affix/effect/activeEffect/intro/**appearance**(生图唯一依据·必填)/killCount/quantity/tags。
+- ⚠ **品级前端锁死**：`gradeForTier(tier)` 按委托阶位定档（吃【世界阶·装备品质上限】那张表：1阶≤紫/2≤暗紫/3≤淡金/4≤金/5≤暗金/6≤传说/7≤史诗/8≤圣灵/9≤不朽，45% 顶格 55% 下浮一档），锁死后喂给 AI，**AI 写什么品级都不采信**——照搬开箱的做法，结构上杜绝越级爆品。category 非法则回落「特殊物品」。
+- **达成才发**（评级非 E/D），失利不发，面板与战报都写明。发放走 `useItems.addItem` 直投（前端权威，不是正文指令），`attrBonus` 并进 `effect`（否则 effectiveAttrs 读不到＝死数据），随后 `pushFacilityGranted` + `pushSceneNotice`——**不这么做物品演化阶段会把同一件再 createItem 一遍、正文也可能改写它的名称效果**。
+
+**提示词可编辑**：`DISPATCH_GEN_RULE` / `DISPATCH_REPORT_RULE` 在 `systems/dispatchPrompts.ts`（单独成文件是为了断环：promptRegistry 要 import 它们，两个消费者又要 import `getPrompt`），已注册进「预设中心」→ 玩法设施。
+
+**胜算评估**（`estimateDispatch`，面板与结算同一套算法，逐项拆解可见）：战力 `top*0.6+avg*0.4` vs 委托阶 ×12 / 缺人 -15 每人 / 原型对口 +10~14 不对口 -6 / 平均疲劳 -fat÷10 / **队内宿敌 -10、盟友 +6**（白嫖轨道A 后台织的 `relations` 图）/ 团阶 +2 每档 → 0~100 分。结算 = 分数 ±15 随机 → `ratingOf`。
+
+**强制轮换**：`FATIGUE_GATE=70` 不可出勤、`FATIGUE_DECAY=6`/回合（出勤中不恢复）；坏结算 + 危险度掷骰 → 伤势 3~6 回合（期间不可出勤）。E 阶团只有 3 名额 → 两趟就得换人，板凳深度成真需求。
+
+**奖励**（刻意压在「任务每环基础给量」之下，派遣是可重复被动收入）：货币严格按既定门槛——**≤三阶发乐园币**（250/700/1800 基数）、**≥四阶发魂币**（1/2/3/6/12/25），按评级 ×0~2 缩放，绝不混发。teamExp 0~20 + 阶位加成；activity 出勤 +10、成功再 +8。战利品仅 S 及以上、只落一名生还者。
+
+**独立 API**：战报走 `resolveApiChain('dispatch', legacy)`（legacy=`dispatchApi`/`dispatchUseSharedApi`）。**不是每回合的演化阶段**——一次派遣归来才调一次，token 随派遣次数走。没接口/失败 → 回落 `fallbackReport` 确定性纪要（轨道A「活着不花钱」的承诺不破）。设置在 变量管理→🛡冒险团演化→⚡API 设置（含「归来时自动生成战报」开关）；`apiSlots` 里标「派遣战报·独立接口」。
+
+**存档**：全部住 `adventureTeamStore`（`drpg-team` 已在 saveManager + `clearTeam` 清），零存档管线改动。`configExport` 靠 `*Api` 模式自动覆盖 `dispatchApi`。
+
+**未做**：主角加入他人团时反向派遣（团长派你出任务→流进 miscStore 成任务钩子，同结构反方向）；多支队伍同时出勤（store 刻意单团）。
 
 **万族演化**（cosmosStore,宇宙背景层七乐园/万族/深渊,头顶自转）：三子模式+独立API+判词注入。`runCosmosEvolutionPhase`/`buildCosmosInjection`(<万族态势>独立于叙事记忆开关)。详见记忆 `cosmos-evolution-feature`。
 
@@ -163,7 +207,9 @@
 
 主角(`playerStore.profile`,左栏 `PlayerSidebar` 点击即编辑)+NPC(`NpcRecord`,`NpcDetail`)：姓名/等级/阶位/称号/职业/竞技场排名/身份/烙印/契约者ID/生物强度/六维(力str敏agi体con智int魅cha幸luck)/外观/位置/HP·EP。叙事区左右浮窗：左 `PlayerEquipPanel`(主角装备)↔右 `OnScenePanel`(在场人物);右下 `ItemListPanel`(物品栏简表)。新增字段 `advancePoints`(进阶点数)/`worldSource`(世界之源,任务世界累计,回归=0)。
 
-**生物强度** `bioStrength`(如 `T3·勇士`,T0~T9)：`character.<id>.bioStrength="..."`。两预设 `生物强度生成框架(T0-T9属性预算)`——按 阶位Tier预算+模板+身份层+流派分配六维,宁低勿高禁全满。**非人生物(阴影/魔物/Boss)同样必须生成六维**。六维纯AI生成,前端只算衍生ATK/DEF。
+**生物强度** `bioStrength`(如 `T3·勇士`,T0~T16)：`character.<id>.bioStrength="..."`。两预设 `生物强度生成框架(T0-T9属性预算)`——按 阶位Tier预算+模板+身份层+流派分配六维,宁低勿高禁全满。**非人生物(阴影/魔物/Boss)同样必须生成六维**。六维纯AI生成,前端只算衍生ATK/DEF。
+
+**生物强度徽章**（`components/BioBadge.tsx`,2026-07-25）：把 `bioStrengthLabel` 的「资质T0·杂鱼 / 战力T1·兵卒」渲染成**一档一色小胶囊徽章**（指示点+资质/战力前缀+T档号+渐变档名）,主角侧栏 / NPC详情 / 临时队伍 / NPC分享卡共用（`size='sm'|'xs'`）。挂钩 `bioStrength.bioVarClass/bioFxClass` → index.css `.bio-chip/.bio-pip/.bio-fx/.bio-b0..b16`：**每档只写一行主色 `--bc`**,胶囊底/描边/指示点/档名渐变全部 color-mix 派生（加档只加一行）。性能纪律同品级/阶位特效：b0~b7 静态(b2 起悬停才流光)、b8 起常驻缓流、光环 b12 起、旋环仅 b16,全部 reduced-motion 门控。解析走 `parseBioChips`,兼容旧存档自由文本（`真神`/`T2·二阶`）,**认不出档位就原样显示纯文字不猜档**。
 
 **衍生属性**（`systems/derivedStats.ts` `computeDerived`,主角侧栏+NPC详情共用）：物/法 ATK/DEF 由六维+等级+装备实时换算,换装自动重算。NPC 等级 `lvFromRealm`。纯前端算 AI 不写。
 
@@ -228,3 +274,83 @@
 **货币兑换**：储存空间(`BackpackModal`)货币栏底 `CurrencyConverter`，**1 灵魂钱币 = 150,000 乐园币**，双向（`adjustCurrency`）。
 
 **坑**：① 立绘大图 partialize 出 localStorage（存 IndexedDB key `enhance-boss:<id>`，`hydrateEnhancePortraits` 回填）。② 爆装动画用 `dying` 快照渲染（物品已 `removeItem`）。③ 改 `vite.config` 的图片同步插件需**重启 dev**。④ 立绘 `object-contain` 完整显示（不裁切）。
+
+### 19b. 装备工艺（🔨 工艺页签 · 玩家主动锻造）
+
+**定位**：强化所第三个页签，与「⚒ 强化」**正交并存**——强化赌等级（随机、可爆装），工艺改词条（确定性为主）。引擎 `systems/equipCraft.ts`，数据 `store/equipCraftStore.ts`(`drpg-equipcraft`)，UI = `EnhancePanel.tsx` 的 `CraftView`（模块级组件，守"受控输入面板别内联子组件"铁则）。API 复用 `resolveApiChain('enhance')`，不另开一路。
+
+**锻造潜力（核心约束）**：每件装备有 `potentialMax = 6 + 品级档×2`（白色 8 … 创世 36），状态存 `item.craft.potUsed`（随物品转移/分享/存档走）。每次工艺扣潜力，**耗尽即封盘**，这件装备此后再不能施艺。**品级进阶会抬高潜力上限**（公式依赖品级档，已用量保留）→ 进阶因此额外获得新的锻造空间，两系统正向联动。
+
+**三条内置工艺线**：
+- **🔨 潜能锻打**（确定性）：必定 +1 条新词缀，消耗 5 点潜力。
+- **🧪 精髓灌注**（确定性）：拆解装备把一条词缀永久录入**精髓图鉴**（装备本体消耗），再花潜力把图鉴精髓灌注到别的装备。图鉴遵守「库房只存不删」——录入后永久可反复灌注，闸门由潜力 + **品级门槛**（`canInfuse`：精髓来源品级不得高过目标 2 档以上）承担，而不是靠销毁条目。
+- **☠ 虚空腐蚀**（赌博）：不耗潜力、蓝色+ 可用。八档赔率：品级跃升/词缀升华/附着/锋芒增益 ↔ 无事 ↔ 锋芒钝挫/词缀剥落/**崩毁**。**腐蚀后 `craft.corrupted=true` 封死一切工艺**（强化不受影响，两系统仍正交）。
+
+**两种执行路径**（`isPreviewMode`：结果表长度决定）：结果唯一=**确定性工艺**→出预览、可「🔄 重写词缀」、确认才扣费落库；多结果=**赌博工艺**→点下即摇定并扣费，无预览无反悔（风险感来自不可撤销）。
+
+**✨ 自创工艺（玩家 AI 造工艺）**：面板「✨ 自创工艺」写构想 → `runCraftProcessGenPhase` 调 AI（`CRAFT_PROCESS_GEN_RULE`）填**受限参数空间**（potCost/costRatio/gradeMin/结果权重表/词缀方向）→ 入库即出现在工艺列表 → 可「📤 上传工坊」分享（`workshop.ts` KIND `craftProcess`）。
+- **平衡阀（关键设计）**：一切入库路径（AI 生成 / 工坊下载 / 手改 localStorage 回读）都过 `sanitizeProcess`——非法 kind 降级为 nothing、同 kind 合并权重（防伪造高概率）、数值夹进合法区间；再经 `riskPricing` 按**期望收益**自动加价（`expectedValue > 0` 时潜力与费用同步抬升，ev=+8 约 ×5.4）。**故提示词无法绕过经济**：玩家可以让 AI 写"必定品级跃升"的工艺，但它会贵到与直接买一件同档装备等价，只改变"花钱买什么"，不改变"能白嫖多少"。
+
+**前端拍板 / AI 只写文本**（同 `equipAscend` 范式）：`resolveCraft` 定 outcome + 潜力 + 费用 + 品级变动 + 攻防增幅 + 被作用的词缀下标；AI（`EQUIP_CRAFT_RULE`）**只写那一条词缀**，且明确不采信其 gradeDesc/score/combatStat。品级变动一律 `targetScoreFor` 写死评分落新档区间（防 `normalizeGrades` 钳回）。
+
+**坑**：① `item.craft` 字段在 `itemStore` 定义、类型从 `equipCraft` **仅类型导入**（运行时擦除，故循环引用不成环——改这里别写成值导入）。② 内置工艺 `builtin:true`，`upsertProcess` 拒绝覆盖内置、`resetProcesses` 只重置内置不动自创（自创可能已上传工坊）。③ 精髓图鉴是**进度**（进 saveManager 快照、新游戏清空），工艺库是**配置**（进 configExport、跨新游戏保留）——两者生命周期不同，别混。④ 提取精髓会**消耗装备本体**，已装备/已锁定的装备拒绝提取。
+
+### 19c. 编年史 / 传奇模式（📜 右侧导航「编年史」）
+
+**史观（一句话记住）**：**当朝为实录、前朝方有正史**。当前世界现场投影纪要实录；世界结算/离世后点「✒ 修史」由 AI 一次删繁就简编成正史。正史**不覆盖**实录源数据，可随时重修。引擎 `systems/chronicle.ts`（只读投影、不写 store），数据 `store/chronicleStore.ts`(`drpg-chronicle`)，UI `components/ChroniclePanel.tsx`。
+
+**两个视图·刻意不合并**：
+- **📖 本纪**＝当前存档。**卷**(WorldRecord·一个世界一卷) → **页**(chronicle 纪要表逐回合行 + deedLog 事迹) → **注**(离世总结/归档任务/本卷之最)。
+- **🪦 前尘**＝历代主角丰碑（`drpg-monument` 是**账号级**、跨存档常驻）。它们的回合号来自**不同存档**，并进本纪的时间轴语义上是错的，故独立成卷。
+
+**分卷（关键机制）**：纪要表只有 AI 写的自由文本「时间」列（游戏内时间，对史书比回合号好用），**没有回合号**。故 `applyTableEdits` 在纪要行 `insertRow` 成功后**旁路记** `rowMeta[row_id] = {turn, world}`（不改表结构、不污染 AI 视图）。`volumeIdForRow` 三级降级：turn 落进 `[enteredAt.turn, leftAt.turn]` 区间 → 按世界名匹配 → **散佚残卷**。老存档没有 rowMeta 也不丢数据，只是降级进散佚卷。进行中的卷是**开区间**（无 leaveTurn），故新行不会误判散佚。
+
+**重要性三级**（`classifyText`·确定性关键词表·不花 API）：金=生死/突破/通关/缔约/覆灭；银=战斗/结识/交易/任务；灰=日常，**默认折叠**。⚠ 金词表必须覆盖本作的杀伐说法（斩杀/诛杀/殒命…不只是「击杀」），否则一卷史事全是灰——这是单测抓出来的真实缺口。
+
+**修史**（`runChronicleCompilePhase` + `CHRONICLE_COMPILE_RULE`，走 `resolveApiChain('misc')`）：只送**灰+银流水**给 AI（金料已提炼过，作为"必须保留的事实"另行告知），硬限 160 行防超 token；AI 只做合并/剔除/提炼，**不得杜撰实录里没有的事**；产出经 `sanitizeCompiled` 前端夹取条数(≤40)与字段长度。
+
+**互链**：`extractEntities` 在史事文本里扫已知 NPC/势力/主角名（<2 字的名跳过防误命中），点人名经 `NpcPanel.initialSelectedId` 直落该角色详情页。
+
+**生平留存放宽**（编年史「人物列传」的数据基础）：主角 deedLog 20→**400**；NPC 按 `deedCapOf` 分层——重要角色（好友/随从/常驻/已故/契约者/召唤物）**120**、路人 **30**。npcStore 走 lzStorage 压缩，体积可接受。
+
+**坑**：① 纪要行分卷索引写失败**绝不阻断填表主流程**（没索引只是降级进散佚卷）。② 小/大总结是裸 `string[]`、**零元数据**，故意没接进编年史（改结构要动一片读取点，且与纪要表功能重叠）。③ 世界结算**没有结构化产物**（`lastWorldSettleAt` 只是个被反复覆盖的标量、结算卡只是聊天文本），编年史用 `WorldSummary` 当代理。④ ACU 事件核心（wallet/item/npc）**读档即清零**且是机器口吻，**不能**当史料源——史书≠流水账。
+
+### 19d. 正文关键词悬浮图鉴（阅读设置「关键词悬浮图鉴」开关）
+
+对标 Tyranny / Pillars of Eternity 的名词 tooltip：正文里的专有名词带虚线下划线，悬浮（手机点按）弹百科卡。**纯渲染层**——不需要 AI 配合任何格式、不占 token、不新增演化阶段，词典由存档现状实时编成。
+
+**三段结构**：① 词典 `systems/codexIndex.ts` → ② 标注 `narrativeHtml.ts`→`markEntities` → ③ 悬浮卡 `components/CodexHover.tsx`。
+
+**词源与撞名优先级**（注册顺序即优先级，先注册的赢）：NPC（在场/好友/随从 > 离场 > 归档）→ 势力 → 物品 → 技能/天赋/称号/副职业+配方（主角 B1 先）→ 万族（**仅 `isPlayerKnown`**，没接触过的不剧透）→ 领地本体/建筑/效果 → 冒险团效果 → **阶位 14 阶（常驻）** → 轮回 wiki 人物（可选层·垫底，永远让位于本档实体）。
+
+**⚠ 性能三条铁则**（打字卡顿的教训，改这块前先看）：
+1. **零订阅**：codexIndex 一律 `getState()`；`MessageRow` 里没有任何新 hook；悬浮卡靠 **document 委托监听**（正文几十个实体名 = 0 个监听器），行级 memo 完全不受影响。
+2. **惰性重建**：`getCodexIndex()` 每次只做 ~12 次 store 切片**引用比较**（zustand 不可变更新保证写入必换引用），没变直接返回上次索引。流式每帧（100ms）都会调它，靠这个免于重建。
+3. **首字快筛**：扫描按 `heads`(Set<首字>) 过一遍，未命中 O(1) 跳过；命中才按长度降序探 Map。复杂度 ≈ O(正文长度)，**与词典大小无关**。
+
+**匹配铁则**：**位置保持**——不做 `normName` 那种「删标点再比对」的归一（下标会对不上原文、span 插不回去）。变体靠「同一词条注册多个字面名」：全名 + 分隔段（`神威·空洞褫夺` → 也收 `空洞褫夺`，≥3 字才收）+ wiki 别名。ASCII 名要求词边界（`Fire` 不命中 `Firewall`），大小写不敏感（长度不变形）。
+
+**防噪三招**：① `usableName` 拒收 <2 字 / 纯 ASCII <4 字 / `C1`-`G12` 这类 id 形态 / 停用词表（世界·乐园·技能·状态…宁可漏一个也不能满屏下划线）；② **每条消息只标首次**（`ProseCtx.seen` 跨行、跨结算卡共享）；③ 品级色名（白色/紫色…）**故意没进词典**——正文里「紫色的光芒」会被误标。
+
+**标注落点**：挂在 `styleProse` 末尾（只吃**普通散文行**；结算块/HTML 透传行/占位符行压根不进这里）。`markEntities` 走状态机，`<标签>` / `&实体;` / `@@ZS…@@` 占位符**整体透传**，故不会切坏 `narr-dialogue`/`narr-inner` 的 span、不污染小喇叭的 `data-line`、不切断待替换的骰子卡/配图占位符。key 进属性前必须 `attrEsc`（名字是 AI 写的、可能带引号）。
+
+**开关与缓存**：`settings.reading.codexHl`（缺省=开）/ `codexWiki`（缺省=关·含原著剧透·首次开启拉 2.2MB）。与对话高亮不同，**这个不能纯 CSS 切**——它依赖词典内容，故开关 + `索引 version` 一起进 `toHtmlWithImagesCached` 的签名：开关翻转或实体增删后，楼层重渲时自动重标，不会停在旧标注。
+
+**坑**：① 设置页是**整棵树的早退**（不是叠加层），主返回里那份 `CodexHover` 此刻是卸载的 → 设置页必须自带一份，否则阅读设置里的示例词条悬浮不出卡。② `lookupCodex` **只查不重建**（实体被删就不弹卡，好过为一次悬浮重跑词典）；只有索引压根没建过时才建一次——这条专为设置页示例词条而留。③ 名字含 `&`/`<`/`>` 的实体永远匹配不到（正文里这些字符已被 `escapeHtml` 转义），只有双引号能原样进属性，故转义只需管它。④ 用户消息**没接**标注（价值在 AI 正文，且 `userToHtml` 走另一条渲染路径）。
+
+### 19e. 楼层分支树（🌿 右侧导航「分支树」）
+
+对标 SillyTavern 的 Timelines 扩展：聊天历史画成时间线，任意节点开分支。本作的落点是——**⟳重新生成 / ↩回退 丢掉的那条时间线，不再真的丢**。
+
+**一条支线 = 一个普通存档槽**（前缀 `branch_`，多带 `branch` 元数据）。为什么这么设计：
+- **抓取时机是命门**：`回退`/`重新生成` 都是「`loadSlot(UNDO_ID)` → reload」，`stashDiscardedBranch` 必须插在 **loadSlot 之前**——此刻 live store 里还完整保留着这一回合的演化结果，整存一份拿到的就是被丢弃那条线的**忠实终态**。晚一步就只剩"回合前状态 + 一段孤立文本"，恢复后会出现「正文说打赢了、数值还没打」的错位。
+- **恢复 = `loadSlot(分支槽 id)`**，一行复用现成读档全链路（reload / 事件核心 reseed / 图片回填）。这也是**唯一**能把 `gameStore`（模块级 `loadSave()` 初始化、无 persist 中间件）一并还原的路径——`rollbackEvoDomains` 那条免 reload 的路只覆盖 10 个 store，做不了分支。
+- **元数据放槽顶层而非 `data` 里**：`saveDb.allMeta()` 游标会剥掉 `data`，放顶层才能**零存档数据加载**画出整棵树（几十个大档也不卡）。
+
+**挂载靠两个 id**：`SaveSlot.tipMsgId`（本槽对话末端楼层，`buildSlot` 统一写入 → 每个存档/备份都知道自己在时间线的哪一格）+ `branch.parentMsgId`（分叉点＝与主干最后共有的楼层）。旧档没有 `tipMsgId` → 只是树上不显示它的跳转点，不报错不丢数据。
+
+**树上三种节点**：◉ 主干末端（你在这里）· ◍⤺ 有快照可跳回的回合（🛟滚动备份 15 深 / ⏱自动 / 手动存档）· ○ 只留正文、跳不回去。支线用虚线挂出去，⟳弃稿 / ↩回退丢的线 / 🔖主动埋的点三色区分。
+
+**体积**：每条支线≈一个 🛟 滚动备份（不含图）。未收藏的只留 `BRANCH_KEEP=12` 条，超出删最旧；📌收藏豁免裁剪。开关 `settings.branchCapture`（缺省开，在分支树面板里）。
+
+**坑**：① 抓取失败一律静默——分支是锦上添花，**绝不能挡住玩家回退/重生成**。② 切支线前会先把当前这条线也存成支线，否则"跳过去"等于把现在这条丢了。③ `listSlots()` 必须排除 `BRANCH_PREFIX`，否则支线会把存档主列表刷屏（已加，且实机验证过）。④ `clearProgress` 清空支线（属"进度"）。⑤ 分叉点不在当前对话里的支线归**游离支线**（读档换了时间线，或分叉点被时间线截断），另列不上树、不删。⑥ 联机房间内禁止切支线（会 reload + 断房）。

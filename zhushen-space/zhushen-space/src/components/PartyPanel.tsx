@@ -1,6 +1,7 @@
 import { useNpc, type NpcRecord } from '../store/npcStore';
 import { isDmableTag } from '../store/dmStore';
 import { lvFromRealm, tierFxClass } from '../systems/derivedStats';
+import BioBadge from './BioBadge';
 import { useHoloViewer } from '../store/holoViewerStore';
 
 /* 临时队伍：本世界临时组队的同伴（主角是队长），与「冒险团」不同——世界结束即自动解散。
@@ -39,7 +40,7 @@ function PartyCard({ npc, onOpen, onLeave, onKick, onDm }: { npc: NpcRecord; onO
         </div>
         <div className="flex items-center gap-2 text-[10px] font-mono mt-0.5 text-dim/45 truncate">
           {npc.profession && <span className="text-violet-300/60">{npc.profession}</span>}
-          {npc.bioStrength && <span className="text-amber-300/55">{npc.bioStrength}</span>}
+          {npc.bioStrength && <BioBadge text={npc.bioStrength} size="xs" className="shrink-0" title="生物强度" />}
           {npc.personality && <span className="truncate">{npc.personality}</span>}
         </div>
       </div>

@@ -293,7 +293,8 @@ export const usePlayer = create<PlayerState>()(
           const entry: Deed = typeof deed === 'string'
             ? { time: '', location: '', description: deed, addedAt: Date.now() }
             : { ...deed, addedAt: deed.addedAt ?? Date.now() };
-          return { profile: { ...s.profile, deedLog: [...s.profile.deedLog, entry].slice(-20) } };
+          // 主角生平是 📜 编年史「本纪」的主线，留全量（400 条≈一次长周目）；20 条只够看近况、读不出弧线
+          return { profile: { ...s.profile, deedLog: [...s.profile.deedLog, entry].slice(-400) } };
         }),
 
       removePlayerDeed: (index) =>

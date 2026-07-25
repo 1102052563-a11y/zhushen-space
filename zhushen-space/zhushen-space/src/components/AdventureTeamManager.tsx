@@ -100,9 +100,31 @@ function SettingsSection() {
 }
 
 function ApiSection() {
+  const auto = useTeam((s) => s.dispatchReportAuto);
+  const setAuto = useTeam((s) => s.setDispatchReportAuto);
   return (
     <div className="space-y-6 max-w-xl">
-      <ApiRoutePicker routeKey="team" />
+      <div>
+        <div className="text-sm text-slate-200 mb-1.5">冒险团演化</div>
+        <ApiRoutePicker routeKey="team" />
+      </div>
+      <div className="space-y-2">
+        <div>
+          <div className="text-sm text-slate-200 mb-0.5">⚔ 派遣战报</div>
+          <div className="text-[13px] text-dim/70 mb-1.5 leading-relaxed">
+            队伍归来时**只**调一次，让 AI 照着<b>已经定死的账本</b>写战报散文。
+            评级/伤亡/战利品/进账全部由前端结算，AI 改不了——不配接口也能玩，只是战报换成系统纪要。
+          </div>
+          <ApiRoutePicker routeKey="dispatch" />
+        </div>
+        <label className="flex items-center justify-between gap-3 rounded-lg border border-edge bg-panel px-3 py-2.5">
+          <div>
+            <div className="text-sm text-slate-200">归来时自动生成战报</div>
+            <div className="text-[13px] text-dim/70 mt-0.5">关掉则在「🛡 冒险团 → ⚔ 派遣」里手动点「生成战报」</div>
+          </div>
+          <Toggle checked={auto} onChange={() => setAuto(!auto)} />
+        </label>
+      </div>
     </div>
   );
 }

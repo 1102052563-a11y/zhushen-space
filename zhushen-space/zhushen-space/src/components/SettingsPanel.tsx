@@ -3216,6 +3216,32 @@ function AppearanceSettingsSection() {
         </div>
       </div>
       <div className="space-y-3">
+        <div className="text-sm font-mono text-god/70 uppercase tracking-widest">关键词悬浮图鉴</div>
+        <div className="border border-edge rounded-lg p-4 bg-panel space-y-3">
+          <div className="text-sm text-dim leading-relaxed">
+            正文里出现「本档已有的实体」（NPC / 物品 / 技能 / 天赋 / 称号 / 副职业 / 势力 / 万族 / 领地 / 阶位）时自动加虚线下划线，
+            <b className="text-slate-300">悬浮（手机点按）弹出百科卡</b>——不需要 AI 配合任何格式，词典由存档现状实时编成。
+            同一个名字每条正文<b className="text-slate-300">只标首次</b>，避免满屏下划线。
+          </div>
+          <label className="flex items-center gap-2.5 cursor-pointer select-none">
+            <input type="checkbox" checked={reading.codexHl !== false} onChange={(e) => setReading({ codexHl: e.target.checked })} className="accent-god w-4 h-4" />
+            <span className="text-sm text-slate-300">名词悬浮卡</span>
+            <span className="text-[12px] text-dim/60">人物=蓝 · 物品=橙 · 能力=紫 · 世界=绿；点人物卡可直接跳该 NPC 详情</span>
+          </label>
+          <label className={`flex items-center gap-2.5 select-none ${reading.codexHl === false ? 'opacity-40 pointer-events-none' : 'cursor-pointer'}`}>
+            <input type="checkbox" checked={reading.codexWiki === true} onChange={(e) => setReading({ codexWiki: e.target.checked })} className="accent-god w-4 h-4" />
+            <span className="text-sm text-slate-300">并入原著设定（世界档案 + 轮回 wiki）</span>
+            <span className="text-[12px] text-rose-300/70">⚠ 含原著剧透</span>
+          </label>
+          <div className="text-[12px] text-dim/50 leading-relaxed">
+            并入后，正文提到原著人物与宝物也能悬浮看到档案：<b className="text-slate-400">当前世界</b>的主要人物 📖 / 贵重物品 💠
+            （随世界切换自动更换，不占 token），以及轮回 wiki 人物 📚（首次开启拉一次约 2MB 人物库）。
+            <b className="text-slate-400">本档已有的同名实体永远优先</b>，不会被原著设定盖掉；
+            世界档案<b className="text-slate-400">不含</b>剧情线与隐藏伏笔，不会抢在你前面剧透主线进度。
+          </div>
+        </div>
+      </div>
+      <div className="space-y-3">
         <div className="text-sm font-mono text-god/70 uppercase tracking-widest">实时预览</div>
         <div className="border border-edge rounded-lg p-5 bg-void/40">
           {/* 用 <br> + 对话/心理 span 排版（与真实正文渲染一致）→ 间距与美化开关的效果这里都能真实看到 */}
@@ -3223,11 +3249,13 @@ function AppearanceSettingsSection() {
             data-dlg={reading.dialogueHl === false ? '0' : '1'}
             data-inner={reading.innerDim === false ? '0' : '1'}
             style={{ fontSize: `${reading.fontSize}px`, letterSpacing: `${reading.letterSpacing}px`, fontFamily: readingFontStack(ff), '--narr-lh': String(reading.lineHeight), '--narr-para': `${reading.paraSpacing ?? 0.45}em` } as any}>
-            淡金色的文字在你面前浮现——它们不是光，而是直接烙进灵魂的讯息。<br />【乐园】正在校验你的灵魂，适配判定：通过。<br /><br /><span className="narr-dialogue">“欢迎加入，契约者。”</span>冰冷的提示音在空旷的大厅里回响，<span className="narr-inner">（这算盘，打得可真响。）</span><br />你能感觉到黑暗深处，有无数双眼睛正静静注视着你。
+            淡金色的文字在你面前浮现——它们不是光，而是直接烙进灵魂的讯息。<br />【乐园】正在校验你的灵魂，适配判定：通过。<br /><br /><span className="narr-dialogue">“欢迎加入，契约者。”</span>冰冷的提示音在空旷的大厅里回响，<span className="narr-inner">（这算盘，打得可真响。）</span><br />你能感觉到黑暗深处，有无数双眼睛正静静注视着你。<br /><br />{reading.codexHl === false
+              ? '光幕上，「绝强」二字缓缓浮现。'
+              : <>光幕上，<span className="zs-ent" data-ek="r:绝强">绝强</span>二字缓缓浮现。（悬浮这个词试试）</>}
           </div>
         </div>
-        <button onClick={() => setReading({ fontSize: 17, letterSpacing: 0, lineHeight: 1.8, paraSpacing: 0.45, fontFamily: 'default', dialogueHl: true, innerDim: true })}
-          className="text-[13px] font-mono text-dim/50 hover:text-blood transition-colors">↺ 恢复默认排版（17px / normal / 1.8× / 间距 0.45em / 默认字体 / 对话·心理美化开）</button>
+        <button onClick={() => setReading({ fontSize: 17, letterSpacing: 0, lineHeight: 1.8, paraSpacing: 0.45, fontFamily: 'default', dialogueHl: true, innerDim: true, codexHl: true, codexWiki: false })}
+          className="text-[13px] font-mono text-dim/50 hover:text-blood transition-colors">↺ 恢复默认排版（17px / normal / 1.8× / 间距 0.45em / 默认字体 / 对话·心理美化开 / 悬浮图鉴开·不含 wiki）</button>
       </div>
     </div>
   );

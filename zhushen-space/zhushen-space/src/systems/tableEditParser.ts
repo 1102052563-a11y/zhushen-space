@@ -13,6 +13,12 @@
 import { lenientJsonParse } from './stateParser';
 import { useTables } from '../store/tableStore';
 import { useTableJournal, tableEditDigest, type TableEditLogEntry } from '../store/tableJournalStore';
+import { useChronicle } from '../store/chronicleStore';
+import { useMisc } from '../store/miscStore';
+
+/** 纪要表 uid（📜 编年史的"页"）。它的「时间」列是 AI 写的游戏内时间，没有回合号——
+ *  分卷需要技术键，故每插一行就旁路记一条 row_id → {turn, world} 索引（不改表结构、不污染 AI 视图）。 */
+const CHRONICLE_UID = 'chronicle';
 
 export type TableEditCommand = 'insertRow' | 'updateRow' | 'deleteRow';
 
@@ -217,7 +223,7 @@ function asData(v: unknown): Record<string, string> | null {
 
 /** 解析 AI 文本里的填表指令并写进 tableStore。返回应用统计。
    ctx.turn=回合号：幂等判重（同回合同批指令只应用一次）+ 编辑流水归档都按它记；缺省 -1。 */
-export function applyTableEdits(text: string, ctx?: { turn?: number }): TableEditResult {
+export function applyTableEdits(text: string, ctx?: { turn?: number; world?: string }): TableEditResult {
   const result: TableEditResult = { applied: 0, failed: 0, modifiedUids: [], errors: [] };
   const commands = parseTableEdits(text);
   if (commands.length === 0) return result;   // 无填表指令的回复（各演化阶段）：零副作用直接返回，不动摘要/失败清单
@@ -235,6 +241,7 @@ export function applyTableEdits(text: string, ctx?: { turn?: number }): TableEdi
   const st = useTables.getState();
   const touched = new Set<string>();
   const log: Omit<TableEditLogEntry, 'id'>[] = [];
+  const chronRows: { rowId: string; meta: { turn?: number; world?: string } }[] = [];   // 📜 纪要行分卷索引（见 CHRONICLE_UID）
   const sheetOf = (uid: string) => useTables.getState().getSheet(uid);   // 每条 op 后重取（content 不可变更新）
 
   for (const { command, args, raw } of commands) {
@@ -250,6 +257,9 @@ export function applyTableEdits(text: string, ctx?: { turn?: number }): TableEdi
         if (ri < 0) { result.failed++; result.errors.push(`insertRow 被拒（单行表？）：${raw}`); continue; }
         const after = sheetOf(uid)?.content[ri + 1] ?? null;
         log.push({ turn, uid, sheetName, command, rowId: after?.[0] ?? '', pos: ri, before: null, after: after ? [...after] : null });
+        if (uid === CHRONICLE_UID && after?.[0]) {
+          chronRows.push({ rowId: String(after[0]), meta: { turn: turn >= 0 ? turn : undefined, world: chronWorld() } });
+        }
       } else if (command === 'updateRow') {
         const ri = resolveRowRef(uid, args[1]);   // row_id 优先（永久编号），查无再按 0 基行号
         const data = asData(args[2]);
@@ -281,5 +291,13 @@ export function applyTableEdits(text: string, ctx?: { turn?: number }): TableEdi
     if (result.applied > 0) journal.markApplied(digest);
     journal.setLastErrors(result.errors, turn);
   } catch (e) { console.warn('[Table] 编辑日志归档失败（忽略）:', e); }
+  // 📜 编年史分卷索引：一次批量写（失败绝不阻断填表主流程——没索引只是那几行降级进"散佚卷"，不丢数据）
+  try { if (chronRows.length) useChronicle.getState().noteRows(chronRows); }
+  catch (e) { console.warn('[Table] 纪要行分卷索引记录失败（忽略）:', e); }
   return result;
+
+  function chronWorld(): string | undefined {
+    if (ctx?.world !== undefined) return ctx.world || undefined;
+    try { return useMisc.getState().worldName || undefined; } catch { return undefined; }
+  }
 }

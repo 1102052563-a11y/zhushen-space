@@ -234,6 +234,36 @@ body {
 .narrative-content[data-dlg="1"] .narr-dialogue { color: rgb(var(--c-god)); }
 .narrative-content[data-inner="1"] .narr-inner { color: rgb(var(--c-dim)); }
 
+/* 正文关键词悬浮图鉴（Tyranny/PoE 式名词 tooltip）：渲染器只在开关打开时才吐 .zs-ent，
+   故这里无需 data-* 开关位。静息态只有一条极淡虚线——不抢正文，扫一眼才注意到「这词能点」。
+   四色系按 data-ek 的类型短码前缀分组：人物 n/w/o=蓝 · 物品 i/v=橙 · 能力 k/t/l/p/m=紫 · 世界 f/c/y/r=绿。 */
+.zs-ent {
+  cursor: help;
+  text-decoration: underline dotted;
+  text-decoration-color: rgba(148, 163, 184, 0.38);
+  text-underline-offset: 3px;
+  text-decoration-thickness: 1px;
+  border-radius: 2px;
+  transition: color .12s, background-color .12s, text-decoration-color .12s;
+}
+.zs-ent:hover, .zs-ent:focus-visible {
+  color: rgb(var(--zs-ent, 148 163 184));
+  text-decoration-color: rgb(var(--zs-ent, 148 163 184));
+  background-color: rgb(var(--zs-ent, 148 163 184) / 0.10);
+  outline: none;
+}
+.zs-ent[data-ek^="n:"], .zs-ent[data-ek^="w:"],
+.zs-ent[data-ek^="o:"] { --zs-ent: 125 211 252; }                                /* 人物 sky-300（o=世界档案人物） */
+.zs-ent[data-ek^="i:"], .zs-ent[data-ek^="v:"] { --zs-ent: 252 211 77; }         /* 物品 amber-300（v=世界档案宝物） */
+.zs-ent[data-ek^="k:"], .zs-ent[data-ek^="t:"], .zs-ent[data-ek^="l:"],
+.zs-ent[data-ek^="p:"], .zs-ent[data-ek^="m:"] { --zs-ent: 196 181 253; }        /* 能力 violet-300 */
+.zs-ent[data-ek^="f:"], .zs-ent[data-ek^="c:"], .zs-ent[data-ek^="y:"],
+.zs-ent[data-ek^="r:"] { --zs-ent: 110 231 183; }                                /* 世界 emerald-300 */
+/* 手机没有 hover：静息虚线提亮一点，否则根本看不出哪些词可点 */
+@media (hover: none) {
+  .zs-ent { text-decoration-color: rgb(var(--zs-ent, 148 163 184) / 0.55); }
+}
+
 .input-base {
   width: 100%;
   background: #070a10;
@@ -413,6 +443,86 @@ body {
   .tier-fx-t13::before { animation: enhHalo 1s   ease-in-out infinite; }
   .tier-fx-t14::before { animation: enhSpin 6s linear infinite; }   /* 金芒缓旋＝发散感（原 2.6s 太快显躁） */
   .tier-fx-t14::after  { animation: enhHalo 1s   ease-in-out infinite; }
+}
+
+/* ══ 生物强度徽章 T0~T16（2026-07-25·主角/NPC 通用）══
+   一档一色，但每档**只写一行主色 `--bc`**：胶囊底/描边/指示点/档名金属渐变全部由它 color-mix 派生
+   （17 档不必手写 17 套渐变，加档只加一行）。挂钩由 bioStrength.bioVarClass/bioFxClass 输出：
+   `.bio-b{n}` 只定义 --bc（挂徽章外壳）；`.bio-fx` 出渐变文字（挂档名，与 .bio-b{n} 同挂）。
+   色谱承接品级/阶位特效语汇：灰岩→月银→绿→青→蓝→紫→(b12 起)淡金→鎏金→橙焰→创世全谱→无上金芒。
+   `--bgl/--bgo` = 辉光半径/浓度，低档为 0（color-mix 0% = transparent ⇒ drop-shadow 不落笔）。
+   性能纪律沿袭品级/阶位：b0~b7 平时纯静态（b2 起悬停才流光）、b8 起常驻缓流、光环 b12 起、b16 唯一旋环，
+   全部 reduced-motion 门控，keyframes 复用 .enh-fx 那套。padding/gap 交给组件的 tailwind 类（勿在此写死）。 */
+.bio-chip {
+  display: inline-flex; align-items: center; white-space: nowrap; isolation: isolate; line-height: 1.5;
+  border-radius: 9999px;
+  border: 1px solid color-mix(in srgb, var(--bc, #8b9db2) 38%, transparent);
+  background: linear-gradient(180deg, color-mix(in srgb, var(--bc, #8b9db2) 17%, transparent), color-mix(in srgb, var(--bc, #8b9db2) 6%, transparent));
+}
+.bio-pip {
+  width: 5px; height: 5px; border-radius: 50%; flex: none; background: var(--bc, #8b9db2);
+  box-shadow: 0 0 var(--bgl, 0px) color-mix(in srgb, var(--bc, #8b9db2) var(--bgo, 0%), transparent);
+}
+.bio-chip-k { font-family: ui-monospace, monospace; font-size: 10px; color: color-mix(in srgb, var(--bc, #8b9db2) 42%, #94a3b8); }
+.bio-chip-t { font-family: ui-monospace, monospace; font-size: 10px; letter-spacing: .02em; color: color-mix(in srgb, var(--bc, #8b9db2) 76%, #f8fafc); }
+.bio-fx {
+  position: relative; display: inline-block;
+  -webkit-background-clip: text; background-clip: text; color: transparent;
+  background-size: 220% auto;
+  background-image: linear-gradient(105deg,
+    color-mix(in srgb, var(--bc, #8b9db2) 26%, #ffffff),
+    var(--bc, #8b9db2) 42%,
+    color-mix(in srgb, var(--bc, #8b9db2) 64%, #000000) 70%,
+    color-mix(in srgb, var(--bc, #8b9db2) 26%, #ffffff));
+  filter: drop-shadow(0 0 var(--bgl, 0px) color-mix(in srgb, var(--bc, #8b9db2) var(--bgo, 0%), transparent));
+}
+.bio-b0  { --bc:#94a3b8; }                          /* 杂鱼·灰岩（零辉光=最廉价） */
+.bio-b1  { --bc:#cbd5e1; }                          /* 兵卒·月银 */
+.bio-b2  { --bc:#4ade80; }                          /* 精英·青草 */
+.bio-b3  { --bc:#34d399; }                          /* 勇士·翠玉 */
+.bio-b4  { --bc:#2dd4bf; --bgl:3px; --bgo:35%; }    /* 英雄·潮青 */
+.bio-b5  { --bc:#22d3ee; --bgl:3px; --bgo:40%; }    /* 领主·冰蓝 */
+.bio-b6  { --bc:#38bdf8; --bgl:4px; --bgo:45%; }    /* 王者·天青 */
+.bio-b7  { --bc:#60a5fa; --bgl:4px; --bgo:50%; }    /* 半神·苍蓝 */
+.bio-b8  { --bc:#818cf8; --bgl:5px; --bgo:55%; }    /* 真神·靛紫 */
+.bio-b9  { --bc:#a78bfa; --bgl:5px; --bgo:60%; }    /* 源初·紫电 */
+.bio-b10 { --bc:#c084fc; --bgl:6px; --bgo:62%; }    /* 界主·魔紫 */
+.bio-b11 { --bc:#e879f9; --bgl:6px; --bgo:65%; }    /* 永恒·品红 */
+.bio-b12 { --bc:#fcd34d; --bgl:7px; --bgo:68%; }    /* 至尊·淡金（光环起点） */
+.bio-b13 { --bc:#f59e0b; --bgl:8px; --bgo:72%; }    /* 主宰·鎏金 */
+.bio-b14 { --bc:#fb923c; --bgl:9px; --bgo:76%; }    /* 寰宇·橙焰 */
+.bio-b15 { --bc:#f472b6; --bgl:9px; --bgo:78%; }    /* 创世·全谱（渐变另覆写） */
+.bio-b16 { --bc:#fde68a; --bgl:10px; --bgo:85%; }   /* 无上·金芒（渐变另覆写） */
+/* 顶两档覆写渐变：创世=全谱箔纸星屑（同 .grade-grad-genesis）、无上=金芒（同阶位 t14 无上之境） */
+.bio-fx.bio-b15 { background-image: var(--grade-spark), linear-gradient(100deg,#f87171,#fbbf24 18%,#34d399 38%,#60a5fa 58%,#a78bfa 76%,#f472b6 90%,#f87171); background-size: 120px auto, 300% auto; }
+.bio-fx.bio-b16 { background-image: linear-gradient(90deg,#fef3c7,#fbbf24,#fffbeb,#f59e0b,#fde68a,#fef3c7); background-size: 260% auto; }
+/* 光环 b12 起（::before 的 z-index:-1 被 .bio-chip 的 isolation:isolate 兜住 ⇒ 落在胶囊底之上、档名之下） */
+.bio-fx.bio-b12::before, .bio-fx.bio-b13::before, .bio-fx.bio-b14::before,
+.bio-fx.bio-b15::before, .bio-fx.bio-b16::before {
+  content: ''; position: absolute; inset: -55% -20%; border-radius: 50%; z-index: -1;
+  background: radial-gradient(circle, color-mix(in srgb, var(--bc) 40%, transparent), transparent 70%);
+}
+/* 无上专属旋环（全档唯一） */
+.bio-fx.bio-b16::after {
+  content: ''; position: absolute; inset: -72% -28%; border-radius: 50%; z-index: -1; opacity: .7;
+  background: conic-gradient(from 0deg, transparent 0 6%, rgba(253,230,138,.5) 9%, transparent 13% 31%, rgba(255,251,235,.45) 34%, transparent 38% 56%, rgba(251,191,36,.45) 59%, transparent 63% 81%, rgba(253,230,138,.45) 84%, transparent 88%);
+}
+@media (prefers-reduced-motion: no-preference) {
+  .bio-fx.bio-b2:hover, .bio-fx.bio-b3:hover, .bio-fx.bio-b4:hover,
+  .bio-fx.bio-b5:hover, .bio-fx.bio-b6:hover, .bio-fx.bio-b7:hover { animation: enhShimmer 2.4s linear infinite; }
+  .bio-fx.bio-b8  { animation: enhShimmer 4.6s linear infinite; }
+  .bio-fx.bio-b9  { animation: enhShimmer 4.2s linear infinite; }
+  .bio-fx.bio-b10 { animation: enhShimmer 3.8s linear infinite; }
+  .bio-fx.bio-b11 { animation: enhShimmer 3.4s linear infinite; }
+  .bio-fx.bio-b12 { animation: enhShimmer 3s   linear infinite; }
+  .bio-fx.bio-b13 { animation: enhShimmer 2.6s linear infinite; }
+  .bio-fx.bio-b14 { animation: enhShimmer 2s   linear infinite, enhFlame .6s ease-in-out infinite; }
+  .bio-fx.bio-b15 { animation: enhShimmer 1.6s linear infinite; }
+  .bio-fx.bio-b16 { animation: enhShimmer 1.2s linear infinite; }
+  .bio-fx.bio-b12::before, .bio-fx.bio-b13::before { animation: enhHalo 1.7s ease-in-out infinite; }
+  .bio-fx.bio-b14::before, .bio-fx.bio-b15::before { animation: enhHalo 1.2s ease-in-out infinite; }
+  .bio-fx.bio-b16::before { animation: enhHalo 1s ease-in-out infinite; }
+  .bio-fx.bio-b16::after  { animation: enhSpin 6s linear infinite; }
 }
 
 /* ── 世界结算卡（任务结算页·华丽金边框）── */

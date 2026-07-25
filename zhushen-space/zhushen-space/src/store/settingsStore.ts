@@ -279,6 +279,8 @@ interface SettingsState {
   historyLimit: number;   // 0 = 不限制；> 0 = 仅显示/发送最近 N 条消息
   autoSaveEnabled: boolean;   // 自动存档总开关（关 = 每回合不自动存，需手动「新建/覆盖存档」；省内存/防大档撑爆）
   autoSaveEvery: number;      // 每 N 回合自动存一次（1=每回合；调大=减少自动存频率与体积压力）
+  branchCapture: boolean;     // 🌿 分支树：⟳重新生成/↩回退 前自动把「被丢弃那条时间线」存成可回收支线（缺省=开；关=弃稿照旧直接丢，省存储）
+  setBranchCapture: (v: boolean) => void;
   disableEnterSend: boolean;  // 禁用回车发送（防误触）：开启后输入框回车不再发送，只能点发送按钮
   setDisableEnterSend: (v: boolean) => void;
   showNewlineButton: boolean;  // 是否在正文输入框旁显示「↵ 换行键」（Shift+Enter 始终可换行，不受此开关影响）
@@ -302,8 +304,8 @@ interface SettingsState {
   allowAutoEquipNpc: boolean;  // 是否允许自动给 NPC 穿戴装备（含初始装备与 AI 装备指令；关闭=只入 NPC 储存空间）
   setAllowAutoEquipNpc: (v: boolean) => void;
   customOpening: string;  // 自定义开场白模板（角色创建确认后自动发送；含 ${...} 占位符，空=用内置默认）
-  reading: { fontSize: number; letterSpacing: number; lineHeight: number; paraSpacing: number; fontFamily: 'default' | 'kai' | 'song'; dialogueHl: boolean; innerDim: boolean };  // 正文阅读排版：字号/字间距/行距/段落间距(em)/字体 + 对话高亮(dialogueHl)/心理·旁白弱化(innerDim)；默认 17/0/1.8/0.45/default/开/开
-  setReading: (patch: Partial<{ fontSize: number; letterSpacing: number; lineHeight: number; paraSpacing: number; fontFamily: 'default' | 'kai' | 'song'; dialogueHl: boolean; innerDim: boolean }>) => void;
+  reading: { fontSize: number; letterSpacing: number; lineHeight: number; paraSpacing: number; fontFamily: 'default' | 'kai' | 'song'; dialogueHl: boolean; innerDim: boolean; codexHl: boolean; codexWiki: boolean };  // 正文阅读排版：字号/字间距/行距/段落间距(em)/字体 + 对话高亮(dialogueHl)/心理·旁白弱化(innerDim)/关键词悬浮图鉴(codexHl，缺省=开)/图鉴并入轮回wiki人物(codexWiki，缺省=关·含原著剧透)；默认 17/0/1.8/0.45/default/开/开/开/关
+  setReading: (patch: Partial<{ fontSize: number; letterSpacing: number; lineHeight: number; paraSpacing: number; fontFamily: 'default' | 'kai' | 'song'; dialogueHl: boolean; innerDim: boolean; codexHl: boolean; codexWiki: boolean }>) => void;
   uiTheme: string;  // 主题配色（整体界面色+文字色）key，见 systems/uiThemes.ts（default/solarized-light/gruvbox-light/nord/dracula…）
   setUiTheme: (v: string) => void;
   appearance: 'classic' | 'eyecare' | 'warm';  // 外观护眼色调（叠加在主题之上的暖光滤镜）：classic=关 / eyecare=柔光护眼 / warm=夜读暖光；全局固定层，pointer-events:none
@@ -768,6 +770,7 @@ export const useSettings = create<SettingsState>()(
       // 综合设置
       historyLimit: 3,   // 默认仅显示/发送最近 3 条楼层（0=不限制）
       autoSaveEnabled: true,
+      branchCapture: true,
       autoSaveEvery: 1,
       disableEnterSend: false,
       showNewlineButton: true,
@@ -780,7 +783,7 @@ export const useSettings = create<SettingsState>()(
       allowAutoEquip: true,
       allowAutoEquipNpc: true,
       customOpening: '',
-      reading: { fontSize: 17, letterSpacing: 0, lineHeight: 1.8, paraSpacing: 0.45, fontFamily: 'default', dialogueHl: true, innerDim: true },
+      reading: { fontSize: 17, letterSpacing: 0, lineHeight: 1.8, paraSpacing: 0.45, fontFamily: 'default', dialogueHl: true, innerDim: true, codexHl: true, codexWiki: false },
       uiTheme: 'default',
       appearance: 'classic',
       uiVignette: false,
@@ -853,6 +856,7 @@ export const useSettings = create<SettingsState>()(
       // ── 综合设置操作 ──
       setHistoryLimit: (n) => set({ historyLimit: Math.max(0, n) }),
       setAutoSaveEnabled: (v) => set({ autoSaveEnabled: v }),
+      setBranchCapture: (v) => set({ branchCapture: v }),
       setAutoSaveEvery: (n) => set({ autoSaveEvery: Math.max(1, Math.floor(n) || 1) }),
       setDisableEnterSend: (v) => set({ disableEnterSend: v }),
       setShowNewlineButton: (v) => set({ showNewlineButton: v }),

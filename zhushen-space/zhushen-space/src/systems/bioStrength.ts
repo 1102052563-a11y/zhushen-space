@@ -173,3 +173,43 @@ export function bioStrengthLabel(innate: BioTier | null, power: BioTier | null):
   if (innate.label === power.label) return innate.label;
   return `资质${innate.label} / 战力${power.label}`;
 }
+
+/* ── 徽章展示层（components/BioBadge.tsx 用）──────────────────────────────
+   档位数字 → CSS 挂钩（对应 index.css 的 `.bio-fx` / `.bio-b0..b16` 一档一色）：
+   - `bioVarClass` 只给 `--bc` 主色（徽章胶囊的底/描边/指示点全由它 color-mix 派生）→ 挂徽章外壳
+   - `bioFxClass`  = `--bc` + 金属渐变文字 → 挂档名本身（可脱离徽章单用，如列表里的纯文字档名）
+   与品级(gradeBadgeClass)/阶位(tierFxClass)同一套做法：判定归引擎，配色归 CSS。 */
+export function bioVarClass(num: number): string {
+  return `bio-b${Math.max(0, Math.min(MAX_BIO_NUM, Math.round(num || 0)))}`;
+}
+export function bioFxClass(num: number): string {
+  return `bio-fx ${bioVarClass(num)}`;
+}
+
+export interface BioChipData {
+  kind: string;   // '资质' | '战力' | ''（两档相同时无前缀）
+  code: string;   // 'T3'（认不出档位时为 ''）
+  name: string;   // '勇士'
+  num: number;    // 0..16；**-1 = 认不出档位**，调用方应原样显示 raw 纯文本
+  raw: string;    // 该段原文
+}
+
+/* 展示文本 → 徽章数据。同时吃两种输入：
+   ① `bioStrengthLabel` 的输出（`T3·勇士` / `资质T0·杂鱼 / 战力T1·兵卒`）
+   ② 旧存档里 AI 自由写的 `npc.bioStrength`（`T4·英雄`、`真神`、`T2·二阶`…）
+   规则：按 `/` 拆段 → 剥「资质/战力」前缀 → 取 `T\d+` 定档（没写就用中文档名反查）→ 档名优先用原文写的
+   （`T2·二阶` 这类历史脏值保持原样显示，不擅自改写成 `精英`）。认不出档位给 num=-1，不猜。 */
+export function parseBioChips(text?: string): BioChipData[] {
+  const s = (text ?? '').trim();
+  if (!s) return [];
+  return s.split('/').map((x) => x.trim()).filter(Boolean).map((raw): BioChipData => {
+    const kind = raw.startsWith('资质') ? '资质' : raw.startsWith('战力') ? '战力' : '';
+    const body = raw.slice(kind.length).trim();
+    const m = /T\s*(\d+)/i.exec(body);
+    const num = m
+      ? Math.min(MAX_BIO_NUM, parseInt(m[1], 10))
+      : BIO_TIER_NAMES.findIndex((n) => body.includes(n));
+    const after = body.split('·').slice(1).join('·').trim();   // `T4·英雄` → `英雄`
+    return { kind, code: num >= 0 ? `T${num}` : '', name: after || (num >= 0 ? BIO_TIER_NAMES[num] : body), num, raw };
+  });
+}

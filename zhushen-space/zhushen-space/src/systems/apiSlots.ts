@@ -86,8 +86,12 @@ export function collectApiSlots(): ApiSlot[] {
       const v = st[k];
       if (!isApiField(k, v)) continue;
       const pub = name === 'settings' && k in PUBLIC_FIELD_LABEL;
-      // miscStore 里挂了两套独立接口：miscApi=杂项演化、questApi=任务演化（拆分阶段），槽位名区分开
-      const slotLabel = (name === 'misc' && k === 'questApi') ? '任务演化·独立接口' : `${label}·独立接口`;
+      // 有的 store 挂了两套独立接口，槽位名要区分开：
+      //   miscStore   → miscApi=杂项演化 / questApi=任务演化（拆分阶段）
+      //   adventureTeam → teamApi=冒险团演化 / dispatchApi=派遣战报
+      const slotLabel = (name === 'misc' && k === 'questApi') ? '任务演化·独立接口'
+        : (name === 'team' && k === 'dispatchApi') ? '派遣战报·独立接口'
+        : `${label}·独立接口`;
       slots.push({
         storeName: name, storeLabel: label, field: k,
         label: pub ? PUBLIC_FIELD_LABEL[k] : slotLabel,

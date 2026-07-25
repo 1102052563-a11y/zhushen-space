@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useTeam, memberCap, ACTIVITY_GATE, type TeamRank } from '../store/adventureTeamStore';
 import { useNpc } from '../store/npcStore';
 import NpcDetail from './NpcDetail';
+import DispatchPanel from './DispatchPanel';
 
 const RANK_CLS: Record<TeamRank, string> = {
   E: 'text-zinc-300 border-zinc-500/50', D: 'text-emerald-300 border-emerald-500/50',
@@ -32,6 +33,7 @@ export default function AdventureTeamPanel({ onClose }: { onClose: () => void })
   const [perkSel, setPerkSel] = useState(false);             // 团队效果·批量清除选择模式
   const [perkSelSet, setPerkSelSet] = useState<Set<string>>(new Set());   // 已勾选待清除的效果名
   const [confirmClearPerks, setConfirmClearPerks] = useState(false);      // 一键清除二次确认
+  const [tab, setTab] = useState<'team' | 'dispatch'>('team');
 
   const togglePerkSel = (name: string) =>
     setPerkSelSet((prev) => { const n = new Set(prev); n.has(name) ? n.delete(name) : n.add(name); return n; });
@@ -41,6 +43,7 @@ export default function AdventureTeamPanel({ onClose }: { onClose: () => void })
 
   const cap = memberCap(T.rank);
   const a = T.assessment;
+  const unreadReports = T.dispatchHistory.filter((r) => !r.read).length;
   const joined = !!T.leaderId && T.leaderId !== 'B1';   // 加入他人冒险团（主角非团长）
   const leaderRec = joined && T.leaderId.startsWith('C') ? npcs[T.leaderId] : undefined;
 
@@ -57,6 +60,20 @@ export default function AdventureTeamPanel({ onClose }: { onClose: () => void })
           <button onClick={onClose} className="text-dim/50 hover:text-blood text-lg font-mono">✕</button>
         </header>
 
+        {/* 标签栏常驻在滚动区之外：翻到底也切得回来 */}
+        {T.established && (
+          <div className="flex items-center gap-1 px-4 pt-2.5 pb-0 border-b border-edge shrink-0">
+            {([['team', '🛡 团队'], ['dispatch', '⚔ 派遣']] as const).map(([k, label]) => (
+              <button key={k} onClick={() => setTab(k)}
+                className={`relative px-3 py-1.5 text-[13px] font-mono rounded-t-lg border-b-2 transition-colors ${tab === k ? 'border-god text-god' : 'border-transparent text-dim/50 hover:text-slate-300'}`}>
+                {label}
+                {k === 'dispatch' && T.dispatchActive && <span className="ml-1.5 text-[11px] text-amber-400/80">出勤中</span>}
+                {k === 'dispatch' && !T.dispatchActive && unreadReports > 0 && <span className="ml-1.5 inline-block w-1.5 h-1.5 rounded-full bg-blood align-middle" />}
+              </button>
+            ))}
+          </div>
+        )}
+
         {!T.established ? (
           <div className="flex-1 overflow-y-auto p-4">
             <div className="text-center text-dim/40 text-sm py-12 leading-relaxed">
@@ -64,6 +81,8 @@ export default function AdventureTeamPanel({ onClose }: { onClose: () => void })
               开启「设置→变量管理→🛡 冒险团演化」后，当正文中主角**明确建立永久冒险团**时会自动建团并进入建团试炼。
             </div>
           </div>
+        ) : tab === 'dispatch' ? (
+          <div className="flex-1 overflow-y-auto p-4"><DispatchPanel /></div>
         ) : (
           <div className="flex-1 overflow-y-auto p-4 space-y-4">
 

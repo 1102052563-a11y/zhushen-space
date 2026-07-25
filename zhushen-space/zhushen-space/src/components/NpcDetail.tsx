@@ -1,12 +1,13 @@
 import { useState, useRef, useEffect, createContext, useContext, type ReactNode } from 'react';
 import { useNpc, type NpcRecord } from '../store/npcStore';
-import { isPetLike } from '../systems/petEvolution';   // 宠物/召唤物专属「培养」按钮的门控
+import { isPetLike, isCompanionTag, ownerOf } from '../systems/petEvolution';   // 宠物/召唤物专属「培养」按钮门控 + 主人登记（归属外键）
 import { stageOf, type DispAxis } from '../systems/dispositionGuard';
 import { useCharacters, RARITY_CLS, ELEMENT_CLS, SKILL_TIER_CLS, normSkillTier, type Deed } from '../store/characterStore';
 import { computeDerived, lvFromRealm, normalizeTier, tierFxClass, realmFromLevel, effectiveResource, fullMaxHp, fullMaxEp, TIERS, realAttrCapForTier, realAttrMult, attrCapForTier, ratioOf, hpCoefOf, epCoefOf, vitalFormula, npcBaseAttrs } from '../systems/derivedStats';
 import { computeAttrBreakdown, effectiveAttrs, clampedBonus, ATTR_LABEL, ATTR_KEYS, type AttrBreak } from '../systems/attrBonus';
 import { effectiveCombatStat } from '../systems/enhanceEngine';
 import { bioInnate, bioPower, bioStrengthLabel, BIO_TIER_NAMES, nominalTierNum } from '../systems/bioStrength';
+import BioBadge from './BioBadge';
 import { generateNpcAttrs, resolveForm, UNIT_TYPE_LABELS } from '../systems/npcAttrGen';
 import { usePlayer, type PlayerAttrs } from '../store/playerStore';
 import { useItems, gradeBadgeClass, gradeNameClass, gradeToNum, splitAffixEntries, asText } from '../store/itemStore';
@@ -198,6 +199,22 @@ export default function NpcDetail({
             >
               <option value="">🏷 未定</option>
               {['契约者', '土著', '随从', '宠物', '召唤物'].map((t) => <option key={t} value={t}>🏷 {t}</option>)}
+            </select>
+          )}
+
+          {/* 主人登记（随从/宠物/召唤物的归属外键 ownerId·缺省=主角B1）：谁的宠物在数据上说清楚——编号表/召回卡/演化注入都按此标注 */}
+          {!effPreview && isCompanionTag(npc) && (
+            <select
+              value={npc.ownerId ?? 'B1'}
+              onChange={(e) => useNpc.getState().upsertNpc(npc.id, { ownerId: e.target.value })}
+              title="主人：这只随从/宠物/召唤物属于谁（默认主角 B1）。在场角色编号表与召回注入都会标注该归属，防 AI 把它和普通 NPC 弄混"
+              className="px-2 py-1.5 max-lg:py-1 text-sm max-lg:text-[13px] rounded-lg border border-edge bg-void text-dim/80 font-mono outline-none cursor-pointer transition-colors hover:border-teal-500/50 hover:text-teal-300 focus:border-teal-500/50"
+            >
+              <option value="B1">👑 主人:主角(B1)</option>
+              {Object.values(useNpc.getState().npcs)
+                .filter((r) => !r.isDead && !isPetLike(r) && r.name && r.name !== r.id && r.id !== npc.id)
+                .slice(0, 80)
+                .map((r) => <option key={r.id} value={r.id}>👑 主人:{r.name}({r.id})</option>)}
             </select>
           )}
 
@@ -602,12 +619,13 @@ function Section({ title, hint, children }: { title: string; hint?: string; chil
     </div>
   );
 }
-function Field({ label, value, accent }: { label: string; value?: string; accent?: boolean }) {
+/* node = 用富节点（如生物强度徽章）替掉纯文本值；value 仍参与「未设置」判空 */
+function Field({ label, value, accent, node }: { label: string; value?: string; accent?: boolean; node?: ReactNode }) {
   return (
     <div className="rounded-lg bg-void/40 border border-edge/60 px-3 py-2">
       <div className="text-[12px] font-mono text-dim/50">{label}</div>
       <div className={`text-sm mt-0.5 break-words ${accent ? 'text-god' : value ? 'text-slate-200' : 'text-dim/40'}`}>
-        {value || '未设置'}
+        {value ? (node ?? value) : '未设置'}
       </div>
     </div>
   );
@@ -810,6 +828,7 @@ function BasicTab({ npc: npcProp, realm, genderCls }: { npc: NpcRecord; realm: R
         <div className="text-2xl font-bold text-slate-100">{npc.name || npc.id}</div>
         <div className="flex flex-wrap gap-2 pt-1">
           {npc.npcTag && <Chip label="标签" value={npc.npcTag} cls="text-cyan-300" />}
+          {isCompanionTag(npc) && <Chip label="主人" value={ownerOf(npc) === 'B1' ? '主角(B1)' : `${useNpc.getState().npcs[ownerOf(npc)]?.name || ownerOf(npc)}(${ownerOf(npc)})`} cls="text-teal-300" />}
           {realm.role && <Chip label="身份" value={realm.role} />}
           {npc.gender && <Chip label="性别" value={npc.gender} cls={genderCls} />}
           {realm.tier && <Chip label="阶位" value={realm.tier} cls={`${tierFxClass(realm.tier)} font-bold`} />}
@@ -833,7 +852,7 @@ function BasicTab({ npc: npcProp, realm, genderCls }: { npc: NpcRecord; realm: R
           ) : (
             <Field label="隶属冒险团" value={npc.affiliatedTeam} />
           )}
-          <Field label="生物强度" value={npcBioLabel} accent={!!npcBioLabel} />
+          <Field label="生物强度" value={npcBioLabel} node={<BioBadge text={npcBioLabel} title="前端按六维机械判定：资质档(基础六维)/战力档(含装备技能天赋加成)" />} />
         </div>
       </Section>
 

@@ -1,4 +1,5 @@
 import { useRef, useState } from 'react';
+import { useShallow } from 'zustand/react/shallow';
 import { useItems, gradeBadgeClass, gradeNameClass, asText, type InventoryItem } from '../store/itemStore';
 import { ItemDetailModal, CAT_ICON } from './BackpackModal';
 import { useHoloViewer } from '../store/holoViewerStore';
@@ -11,11 +12,12 @@ const CARD_H = 80;
 const MAX_VISIBLE = 4;
 
 export default function PlayerEquipPanel() {
-  const items = useItems((s) => s.items);
+  // 只订阅已穿戴的那几件：AI 新建战利品/改数量/加消耗品都会换掉整个 items 数组，
+  // 订阅整表的话这些跟装备无关的写入每次都白重渲这个常驻浮窗。
+  const equipped = useItems(useShallow((s) => s.items.filter((it) => it.equipped)));
   const [collapsed, setCollapsed] = useState(false);
   const [detailItem, setDetailItem] = useState<InventoryItem | null>(null);
 
-  const equipped = items.filter((it) => it.equipped);
   if (equipped.length === 0) return null;
 
   return (

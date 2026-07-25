@@ -7,6 +7,7 @@ import { normalizeEquipSlot } from '../systems/equipSlots';
 import { walletAdjust, walletSet } from '../systems/ledger/walletCore';   // Step 10 事件核心·货币影子记账
 import { noteCurrencyChange } from '../systems/allocNotice';   // 场外货币变动 → 正文一次性通报（防"花到5000正文却记10000"OOC）
 import { itemCreate, itemConsume, commitItems } from '../systems/ledger/itemCore';   // Step 10 事件核心·物品影子记账 + facade 规范化闸门
+import type { EquipCraftState } from '../systems/equipCraft';   // 仅类型（运行时擦除，故 equipCraft→itemStore 的值依赖不成环）
 
 export type ItemCategory =
   // 装备类
@@ -317,6 +318,7 @@ export interface InventoryItem {
   affixLevel?: number;    // 已用 AI 结算过词缀的等级（持久化）；待结算 = floor(maxEnhanceLevel/3) > floor(affixLevel/3)，故退出重开仍能结算，结算成功才推进到峰值
   awakenLv?: number;      // 深渊觉醒阶数（觉醒系统升品级+加词缀，0/缺省=未觉醒）
   ascendLv?: number;      // 品级进阶次数（强化所·品级进阶：沿 ITEM_GRADES 一次+1档，0/缺省=未进阶）
+  craft?: EquipCraftState;   // 装备工艺状态（强化所·🔨工艺：锻造潜力已用量/腐化封印/履历）；systems/equipCraft.ts
   equipSet?: string;      // 该装备件所属**锻造套装** key（equipSetStore；合成工坊「套装锻造」入库时烘焙）——按已装备同套件数递进激活套装效果；与 gemSet（宝石套装）互不相干
   // ── 宝石/镶嵌系统（仅装备类）──
   sockets?: number;       // 镶嵌孔总数（缺省时按品级 defaultSocketsByGrade 派生；打孔石可增至 MAX_SOCKETS）

@@ -6,25 +6,90 @@
    仅 userToHtml / toHtmlWithImages / StoryImage 对外导出，其余为内部 helper。 */
 import { useSettings } from '../store/settingsStore';
 import { translateNarrativeLabels, viDictReady } from '../i18n/translate';
+import { getCodexIndex, scanEntities, type CodexIndex } from './codexIndex';
 
 export interface StoryImage { anchor: string; url: string; prompt: string; nsfw: string; ts: number }
 
 function escapeHtml(s: string): string {
   return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 }
+function attrEsc(s: string): string {
+  return escapeHtml(s).replace(/"/g, '&quot;');
+}
+
+/* ── 正文关键词悬浮图鉴：给已知实体名套 <span class="zs-ent">（悬浮卡由 CodexHover 委托监听接管）──
+   ctx 贯穿整条消息的渲染：seen 让同一实体**只标首次**（主角名出现二十次不会变成二十条下划线）。 */
+export interface ProseCtx { idx: CodexIndex | null; seen: Set<string> }
+const NO_CODEX: ProseCtx = { idx: null, seen: new Set() };
+
+function readingCodex(): { on: boolean; wiki: boolean } {
+  try {
+    const r = useSettings.getState().reading as { codexHl?: boolean; codexWiki?: boolean } | undefined;
+    return { on: r?.codexHl !== false, wiki: r?.codexWiki === true };   // 缺省=开（老存档没这字段也生效）
+  } catch { return { on: false, wiki: false }; }
+}
+function makeProseCtx(): ProseCtx {
+  const { on, wiki } = readingCodex();
+  if (!on) return NO_CODEX;
+  try { return { idx: getCodexIndex(wiki), seen: new Set() }; } catch { return { idx: null, seen: new Set() }; }
+}
+
+/* 在「已转义的散文行 HTML」里标实体名。⚠ 只在纯文本段内匹配——<标签> / &实体; / @@ZS…@@ 占位符
+   一律整体透传，故不会插进 narr-dialogue/narr-inner 的 span 里、不会污染 dialogue-play 的 data-line、
+   也不会把待替换的骰子卡/配图占位符切断。 */
+function markEntities(html: string, ctx: ProseCtx): string {
+  const idx = ctx.idx;
+  if (!idx) return html;
+  const n = html.length;
+  let out = ''; let i = 0;
+  while (i < n) {
+    const c = html[i];
+    if (c === '<') {                                                    // 标签整体透传
+      const j = html.indexOf('>', i);
+      if (j < 0) { out += html.slice(i); break; }
+      out += html.slice(i, j + 1); i = j + 1; continue;
+    }
+    if (c === '&') {                                                    // &amp; / &lt; / &gt; 整体透传
+      const j = html.indexOf(';', i);
+      if (j > i && j - i <= 8) { out += html.slice(i, j + 1); i = j + 1; continue; }
+    }
+    if (c === '@' && html.startsWith('@@ZS', i)) {                      // 占位符整体透传
+      const j = html.indexOf('@@', i + 4);
+      if (j > 0) { out += html.slice(i, j + 2); i = j + 2; continue; }
+    }
+    let j = i + 1;
+    while (j < n && html[j] !== '<' && html[j] !== '&' && !(html[j] === '@' && html.startsWith('@@ZS', j))) j++;
+    out += markSegment(html.slice(i, j), ctx, idx);
+    i = j;
+  }
+  return out;
+}
+function markSegment(seg: string, ctx: ProseCtx, idx: CodexIndex): string {
+  const ms = scanEntities(seg, idx, ctx.seen);
+  if (!ms.length) return seg;
+  let out = ''; let p = 0;
+  for (const m of ms) {
+    out += seg.slice(p, m.start);
+    // key 里含实体名（可能带引号/尖括号）→ 必须转义，否则能从属性里逃逸出来
+    out += `<span class="zs-ent" data-ek="${attrEsc(m.entry.key)}">${seg.slice(m.start, m.end)}</span>`;
+    p = m.end;
+  }
+  return out + seg.slice(p);
+}
 
 /* 正文散文行「美化」：对话高亮 + 心理/旁白弱化（纯确定性·不依赖 AI 输出任何标记）。
    仅在 wrapSettlementBlocks 的「普通散文行」分支调用（结算块/HTML 行/占位符行不进这里）；入参已 escapeHtml。
    **永远输出 span**——是否真着色由正文容器的 data-dlg / data-inner 属性 + CSS 决定，故开关是纯 CSS、即时生效、
-   不必重算/重渲 HTML（渲染缓存照旧有效）。 */
-function styleProse(escaped: string): string {
+   不必重算/重渲 HTML（渲染缓存照旧有效）。
+   ⚠ 悬浮图鉴的 .zs-ent 不同：它依赖词典内容，故走渲染缓存签名（codex 版本进 sig），不能纯 CSS 切。 */
+function styleProse(escaped: string, ctx: ProseCtx): string {
   let s = escaped;
   // 对话：中文「」/『』 + 全角/半角双引号 → 高亮（引号一并包进去）
   s = s.replace(/(「[^「」\n]{0,400}」|『[^『』\n]{0,400}』|“[^“”\n]{0,400}”|"[^"\n]{1,300}")/g, '<span class="narr-dialogue">$1</span>');
   // 心理/旁白弱化：*…*（去掉星号）与 全角（…）（保留括号）→ 弱化色，让旁白/心声从主叙述里退后
   s = s.replace(/\*([^*\n]{1,300}?)\*/g, '<span class="narr-inner">$1</span>');
   s = s.replace(/（([^（）\n]{1,300}?)）/g, '<span class="narr-inner">（$1）</span>');
-  return s;
+  return markEntities(s, ctx);
 }
 
 // ── 对话行内小喇叭（可点朗读该句）：说话人归属 + 图标 HTML（纯函数·归属逻辑与 tts.ts 一致，独立写以免拖 store 依赖）──
@@ -90,7 +155,7 @@ function renderSettleBlock(title: string, body: string[]): string {
 // HTML 感知：含 HTML 标签的行/区域原样透传（让 ST 正则输出的 HTML 卡片正常渲染），
 // 同时仍对同一条消息里的 > 引用块 / 【…结算…】块打包——修复"消息里只要有一处 HTML，
 // 整条消息就跳过结算格子，导致 > 模块块退化成普通框"的问题。
-function wrapSettlementBlocks(text: string): string {
+function wrapSettlementBlocks(text: string, ctx: ProseCtx): string {
   const lines = text.split('\n');
   const out: string[] = [];
   const isQuote = (l: string) => /^\s*[>＞]\s*\S/.test(l);   // 容多空格/Tab/全角＞ 前缀（AI 常缩进体行，否则散落在卡外不被包裹）
@@ -130,7 +195,7 @@ function wrapSettlementBlocks(text: string): string {
       out.push(renderSettleBlock(header, body));
       continue;
     }
-    out.push(styleProse(escapeHtml(line)));   // 普通散文行：转义后套对话/心理美化 span（是否着色由容器 data 属性 + CSS 决定）
+    out.push(styleProse(escapeHtml(line), ctx));   // 普通散文行：转义后套对话/心理美化 span（是否着色由容器 data 属性 + CSS 决定）+ 实体标注
     i++;
   }
   return out.join('<br>');
@@ -138,8 +203,8 @@ function wrapSettlementBlocks(text: string): string {
 
 // 将正文内容转为 HTML：始终走 HTML 感知的结算块打包（既渲染 ST 正则输出的 HTML，
 // 又对 > 模块块/【…结算…】块统一打琥珀格子，二者可在同一条消息里共存）。
-function toHtml(text: string): string {
-  return wrapSettlementBlocks(text);
+function toHtml(text: string, ctx: ProseCtx = NO_CODEX): string {
+  return wrapSettlementBlocks(text, ctx);
 }
 
 /* 检定结果卡片：把 <检定结果>…</检定结果> 块渲染成彩色骰子卡（按成功等级着色）。
@@ -204,8 +269,8 @@ function renderKillCard(inner: string): string {
     + rows + '</div>';
 }
 /* 世界结算卡：把 <世界结算>…</世界结算> 的 markdown 面板渲染成华丽边框结算卡（内部 markdown 走 toHtml）。 */
-function renderSettlementCard(inner: string): string {
-  const body = toHtml(String(inner).trim());
+function renderSettlementCard(inner: string, ctx: ProseCtx): string {
+  const body = toHtml(String(inner).trim(), ctx);
   return '<div class="settlement-card">'
     + '<div class="settlement-corner tl"></div><div class="settlement-corner tr"></div>'
     + '<div class="settlement-corner bl"></div><div class="settlement-corner br"></div>'
@@ -236,7 +301,10 @@ export function toHtmlWithImagesCached(id: number, text: string, images?: StoryI
   // 语言进签名：楼层里结算块标签的本地化随界面语言走（en/vi），语言或 vi 词库就绪态变化必须重建——
   // 否则切语言后命中旧缓存、标签停在旧语言；vi0→vi1 = 动态词库迟到后自动重建。
   const langTok = (() => { try { const l = useSettings.getState().language; return l === 'vi' ? (viDictReady() ? 'vi1' : 'vi0') : l; } catch { return 'zh-Hans'; } })();
-  const sig = `${langTok}${text}${JSON.stringify(images ?? [])}${opts?.speakable ? '1' : '0'}${(opts?.npcNames ?? []).join(',')}`;
+  // 悬浮图鉴同理进签名：开关翻转 / 实体词典变了（新 NPC、拿到新装备…）→ 本楼层重渲时自动重标，不会停在旧标注。
+  // getCodexIndex 内部只做 ~12 次引用比较，缓存命中路径上也几乎免费。
+  const codexTok = (() => { try { const c = readingCodex(); return c.on ? 'x' + getCodexIndex(c.wiki).version : 'x0'; } catch { return 'x0'; } })();
+  const sig = `${langTok}${codexTok}${text}${JSON.stringify(images ?? [])}${opts?.speakable ? '1' : '0'}${(opts?.npcNames ?? []).join(',')}`;
   const hit = _htmlCache.get(id);
   if (hit && hit.sig === sig) { _htmlCache.delete(id); _htmlCache.set(id, hit); return hit.html; }   // LRU：命中挪到末尾
   const html = toHtmlWithImages(text, images, opts);
@@ -246,6 +314,7 @@ export function toHtmlWithImagesCached(id: number, text: string, images?: StoryI
 }
 
 export function toHtmlWithImages(text: string, images?: StoryImage[], opts?: { speakable?: boolean; npcNames?: string[] }): string {
+  const ctx = makeProseCtx();   // 整条消息共用一份（seen 去重跨行/跨结算卡生效）
   // 检定结果块 → 占位符（能穿过 escape/wrap，最后替换成骰子卡）
   const diceCards: string[] = [];
   let work = text.replace(DICE_BLOCK_RE, (_m, inner) => {
@@ -264,7 +333,7 @@ export function toHtmlWithImages(text: string, images?: StoryImage[], opts?: { s
   const settleCards: string[] = [];
   work = work.replace(/<世界结算>([\s\S]*?)<\/世界结算>/gi, (_m, inner) => {
     const tok = `@@ZSSETTLE${settleCards.length}@@`;
-    settleCards.push(renderSettlementCard(String(inner)));
+    settleCards.push(renderSettlementCard(String(inner), ctx));
     return `\n${tok}\n`;
   });
   // 图片占位符
@@ -289,7 +358,7 @@ export function toHtmlWithImages(text: string, images?: StoryImage[], opts?: { s
       return m + tok;
     });
   }
-  let html = toHtml(work);
+  let html = toHtml(work, ctx);
   (images ?? []).forEach((img, i) => {
     const tag = `<span class="story-illust-wrap" style="position:relative;display:block;width:fit-content;max-width:100%;margin:10px auto">`
       + `<img src="${img.url}" alt="${escapeHtml(img.nsfw || '')}" data-img-idx="${i}" title="单击看大图 · 双击或点右上🔄 重新生成 · ✏️ 编辑提示词" class="story-illust" style="display:block;max-width:100%;border-radius:10px;border:1px solid rgba(255,255,255,0.08);cursor:zoom-in" loading="lazy" />`

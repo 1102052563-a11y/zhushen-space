@@ -12,6 +12,7 @@ import { bioInnate, bioPower, bioStrengthLabel } from './bioStrength';
 import { dispositionLine } from './dispositionGuard';
 import { useResource } from '../store/resourceStore';
 import { playerResourceMax } from './playerVitals';
+import { isCompanionTag, ownerOf } from './petEvolution';
 
 /* 取佩戴中的称号，渲染成一行（仅 equipped 注入正文）*/
 function equippedTitleLine(titles: Title[] | undefined): string | undefined {
@@ -377,10 +378,13 @@ export function serializeNpcCard(
   limits?: RecallLimits,
 ): string {
   const flags = [npc.isDead && '已死亡', npc.onScene ? '在场' : '离场'].filter(Boolean).join('·');
+  // 卡片头按标签分流：宠物/召唤物/随从不再顶着"# NPC"名头注入——标签埋在卡片中段常被忽视，AI 会把宠物当普通NPC演绎（独立社交/自行成长/另建新档）
+  const kindHead = isCompanionTag(npc) ? (npc.npcTag as string) : 'NPC';
   const id = ['姓名:' + (npc.name || '（未命名）'),
     npc.gender && `性别:${npc.gender}`,
     npc.age && `年龄:${npc.age}`,
     npc.npcTag && `标签:${npc.npcTag}`,
+    isCompanionTag(npc) && `主人:${ownerOf(npc)}${ownerOf(npc) === 'B1' ? '(主角)' : ''}——它的一切变量更新都挂在编号 ${npc.id} 上`,
     npc.realm && `阶位/身份:${npc.realm}`,
     npc.title && `称号:${npc.title}`,
     npc.profession && `职业:${npc.profession}`,
@@ -457,7 +461,7 @@ export function serializeNpcCard(
   const privLines = PRIV
     .map(([k, label]) => { const v = ex[k]; return v != null && String(v).trim() ? `${label}:${String(v).trim()}` : null; })
     .filter(Boolean) as string[];
-  return [`# NPC [${npc.id}]${flags ? ` (${flags})` : ''}`, '  ' + id, '  ' + stat,
+  return [`# ${kindHead} [${npc.id}]${flags ? ` (${flags})` : ''}`, '  ' + id, '  ' + stat,
     titleLine && '  ' + titleLine,
     detail && '  ' + detail,
     block('技能', skillLines), block('天赋', talLines), block('装备/物品', itemLines),

@@ -2,6 +2,7 @@ import { describe, it, expect } from 'vitest';
 import {
   tierWindow, tierBounds, templateFromRatio, clampToTierWindow,
   nominalTierNum, bioInnate, bioPower, bioStrengthLabel, tierVitalMult,
+  parseBioChips, bioFxClass, bioVarClass,
 } from './bioStrength';
 import { lvFromRealm } from './derivedStats';
 import type { PlayerAttrs } from '../store/playerStore';
@@ -100,6 +101,36 @@ describe('bioStrengthLabel（资质/战力合成展示）', () => {
   it('两档不同显「资质X / 战力Y」', () => expect(bioStrengthLabel(t0, t3)).toBe('资质T0·杂鱼 / 战力T3·勇士'));
   it('都为空 → 空串', () => expect(bioStrengthLabel(null, null)).toBe(''));
   it('只有一档 → 显该档', () => expect(bioStrengthLabel(t3, null)).toBe('T3·勇士'));
+});
+
+/* 徽章展示层：parseBioChips 是 BioBadge 的唯一数据来源，必须闭环吃回 bioStrengthLabel 的输出，
+   并容忍旧存档里 AI 手写的自由文本（认不出档位就 num=-1 让 UI 回退纯文字，绝不猜档）。 */
+describe('parseBioChips（徽章解析·展示层）', () => {
+  it('吃 bioStrengthLabel 双档输出 → 两枚徽章带资质/战力前缀', () => {
+    const c = parseBioChips('资质T0·杂鱼 / 战力T1·兵卒');
+    expect(c.map((x) => [x.kind, x.code, x.name, x.num])).toEqual([['资质', 'T0', '杂鱼', 0], ['战力', 'T1', '兵卒', 1]]);
+  });
+  it('单档输出 → 一枚无前缀徽章', () => {
+    expect(parseBioChips('T3·勇士')).toEqual([{ kind: '', code: 'T3', name: '勇士', num: 3, raw: 'T3·勇士' }]);
+  });
+  it('旧存档只写中文档名 → 按档名反查档位', () => {
+    const [c] = parseBioChips('真神');
+    expect([c.code, c.num]).toEqual(['T8', 8]);
+  });
+  it('历史脏值 T2·二阶 → 档位取 T2，档名保留原文不擅自改写成「精英」', () => {
+    const [c] = parseBioChips('T2·二阶');
+    expect([c.num, c.name]).toEqual([2, '二阶']);
+  });
+  it('认不出档位 → num=-1（UI 回退纯文字）；空串 → 空数组', () => {
+    expect(parseBioChips('很强')[0].num).toBe(-1);
+    expect(parseBioChips('')).toEqual([]);
+    expect(parseBioChips(undefined)).toEqual([]);
+  });
+  it('超出 T16 的越界数字被夹到顶档，class 挂钩始终合法', () => {
+    expect(parseBioChips('T99·无上')[0].num).toBe(16);
+    expect(bioFxClass(99)).toBe('bio-fx bio-b16');
+    expect(bioVarClass(-5)).toBe('bio-b0');
+  });
 });
 
 describe('bioPower 越阶封顶(C·封顶名义阶位) + B扩展档', () => {

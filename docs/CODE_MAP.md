@@ -31,6 +31,11 @@
 | 装备槽位 | `systems/equipSlots.ts`；`components/EquipmentPanel.tsx` / `NpcEquip.tsx` |
 | 骰子判定 | `systems/diceEngine.ts`（确定性）/ `diceJudge.ts`（AI裁判）；`components/DicePanel.tsx` / `DiceManager.tsx` |
 | 装备强化（仅乐园·看板娘·爆装保底） | `systems/enhanceEngine.ts`（确定性摇率/费用/爆装/保底）+ `enhanceBosses.ts`（分阶段立绘 manifest）；`store/enhanceStore.ts`；`components/EnhancePanel.tsx` / `EnhanceManager.tsx`；`App.tsx`→`runEnhanceFinalizePhase`/`enhanceBanter`；立绘 vite 插件 `syncEnhanceBosses`(vite.config) |
+| 装备工艺（🔨锻造潜力/精髓/腐化/自创） | `systems/equipCraft.ts`（潜力·结果摇号·参数夹取·风险定价）；`store/equipCraftStore.ts`；UI = `EnhancePanel.tsx`→`CraftView`；`App.tsx`→`runEquipCraftPhase`/`confirmEquipCraft`/`extractEssence`/`runCraftProcessGenPhase`；提示词 `EQUIP_CRAFT_RULE`/`CRAFT_PROCESS_GEN_RULE`；分享 `workshop.ts` KIND `craftProcess` |
+| 编年史 / 传奇模式（📜本纪+前尘） | `systems/chronicle.ts`（史料投影·重要性分级·分卷·互链·摘要）；`store/chronicleStore.ts`（rowMeta 分卷索引 + 编纂正史）；`components/ChroniclePanel.tsx`；分卷索引钩子在 `systems/tableEditParser.ts`→`applyTableEdits`（纪要行 insertRow 处）；`App.tsx`→`runChronicleCompilePhase`/`collectDeedSources`/`knownEntities`；提示词 `CHRONICLE_COMPILE_RULE` |
+| 楼层分支树（🌿弃稿=可回收平行线） | `systems/branchTree.ts`（切回合·挂载·泳道布局·纯函数）；`components/BranchTreePanel.tsx`（SVG 时间线 + `usePinchPanZoom`）；存取全在 `systems/saveManager.ts`→`BRANCH_PREFIX`/`saveBranchPoint`/`listBranchPoints`/`pruneBranchPoints`/`setBranchPinned`/`deleteBranchPoint`/`clearBranchPoints`；抓取点 `App.tsx`→`stashDiscardedBranch`(在 `rollbackTurn`/`regenerateTurn` 的 loadSlot **之前**)/`bookmarkBranchPoint`/`jumpToBranch`；开关 `settings.branchCapture` |
+| 冒险团派遣（⚔离线委托·倒数封条） | `systems/dispatchEngine.ts`（委托板生成/胜算评估/**确定性结算**/心跳 `runDispatchTick`/`ensureBoard`/`launchDispatch`/`grantReward`）；AI 委托板 `systems/dispatchGen.ts`（手动）；提示词常量 `systems/dispatchPrompts.ts`；战报 `systems/dispatchReport.ts`（**独立 API featureKey='dispatch'**·只叙述不改数值·失败回落 `fallbackReport`）；数据+哑 reducer 在 `store/adventureTeamStore.ts`（`dispatchActive`/`dispatchHistory`/`fatigue`/`injury`/`dispatchApi`）；UI `components/DispatchPanel.tsx`（挂在 `AdventureTeamPanel` 的 ⚔派遣 tab）；心跳挂 `App.tsx`→`runPostNarrativePhases`（**排在 `runNpcAutonomy` 之后**）；⚠ 轨道A 靠 `npcAutonomy.runNpcAutonomy` 里的 `dispatched` 集合让开、防双写 |
+| 正文关键词悬浮图鉴（名词 tooltip） | `systems/codexIndex.ts`（名字→词条索引·惰性重建·扫描器）；标注在 `systems/narrativeHtml.ts`→`markEntities`（挂在 `styleProse` 末尾·`ProseCtx` 贯穿整条消息）；悬浮卡 `components/CodexHover.tsx`（document 委托·portal）；wiki 层 `systems/lunhuiChars.ts`；开关 `settings.reading.codexHl`/`codexWiki`；样式 `index.css` `.zs-ent` |
 | 生图（NAI/OpenAI/Gemini/Comfy） | `systems/imageGen.ts` / `imageTags.ts`；`store/imageGenStore.ts`；`App.tsx` → `runPortraitPhase`/`runEquipImagePhase`/`runStoryImagePhase` |
 | 图片持久化（IndexedDB） | `systems/imageDb.ts` / `imageSync.ts` |
 | 公共频道 / 系统商店 / 临时队伍 | `App.tsx` → `refreshChannel`/`replyToChannelPost`/`joinPartyFromPost`/`inviteToParty`；`store/channelStore.ts`；`systems/channelTrade.ts` |
@@ -117,6 +122,8 @@
 | `diceEngine.ts` | 确定性判定：`resolve`、各 `*Mod`(属性/技能/天赋/好感/装备/强度差)、`rollExpr`、`buildCheckResultBlock`、难度/强度表 |
 | `enhanceEngine.ts` | 装备强化确定性逻辑：`resolveEnhance`(摇率/爆装/降级/保底)、`enhanceCost`(品级×评分×老板)、`scoreCostMul`/`growthCoef`、`stageFromLevel`、`DEFAULT_BOSSES`/`DEFAULT_TABLES`、`enhanceFxClass`/`isEnhanceable` |
 | `enhanceBosses.ts` | 老板分阶段立绘清单：`loadBossManifest`/`pickStagePortrait`(读 public/enhance-bosses/manifest.json，中文路径 encode，空阶段就近回退) |
+| `chronicle.ts` | 编年史史料聚合（📜传奇模式）。`buildVolumes`(把纪要表/世界记录/deedLog/归档任务投影成**卷→页→注**三层)、`classifyText`(金银灰三级重要性·确定性关键词表·不花API)、`volumeIdForRow`(分卷:turn 落区间→世界名→散佚卷三级降级)、`extractEntities`(实体互链)、`digestVolume`/`overallDigest`(切入点·本卷之最)、`buildCompileInput`+`sanitizeCompiled`(修史输入/产出夹取)。**只读投影不写 store**，全部数据源以参数传入便于单测 |
+| `equipCraft.ts` | 装备工艺确定性引擎（与强化的赌等级**正交**：强化赌等级、工艺改词条）。`potentialMax`/`potentialLeft`(锻造潜力·随品级递增·耗尽封盘·品级进阶会抬高上限)、`canCraft`(门禁)、`resolveCraft`(摇结果+拍板全部数值·rand 可注入便于单测)、`craftPatch`(落库补丁)、`craftCost`/`planCraftPayment`(锚 gradeMidPark)、`sanitizeProcess`+`riskPricing`(**自创工艺平衡阀**：参数夹取＋净得利越高自动越贵)、`BUILTIN_PROCESSES`(潜能锻打/精髓灌注/虚空腐蚀)、`isPreviewMode`(单结果=确定性走预览确认·多结果=赌博即时结算)、精髓 `affixName`/`canInfuse` |
 | `diceJudge.ts` | AI 裁判：`aiJudge`、`aiSuggest`(✨建议属性难度)、`buildJudgeBlock` |
 | `imageGen.ts` | `generateImage(service,opts)`(NAI ZIP解码/OpenAI/Comfy轮询)、`buildPortraitPrompt`/`buildEquipPrompt`、`shrinkDataUrl` |
 | `imageTags.ts` | 列19 danbooru tags：`genPortraitTags`/`genEquipTags`、`tagsLlmReady`/`isTagService` |
@@ -127,6 +134,13 @@
 | `miscParser.ts` | 杂项指令：`applyMiscCommands`(总结/双时间/天气/世界大事/`T_`任务)、`extractTurnSummaries` |
 | `gameClock.ts` | 游戏时间：`parseGameMinutes`/`parseDurationMinutes`/`parseDurationTurns`/`fmtMinutes` |
 | `equipSlots.ts` | `SLOT_DEFS`、`normalizeEquipSlot`/`pickEquipSlot`/`resolveEquipSlot`/`slotAcceptsCategory` |
+| `dispatchEngine.ts` | 派遣引擎（零 token）：`rollOfferBoard`(语料库播种造委托·阶梯难度)/`estimateDispatch`(战力·原型匹配·疲劳·**队内宿敌盟友**·团阶 → 0~100 分+逐项拆解)/`settleDispatch`(**纯函数**·评级 E~SSS·伤亡/疲劳/战利品/货币)/`runDispatchTick`(每回合心跳·**到点才封存账本**)/`ensureBoard`/`launchDispatch`/`memberBlockReason`。⚠ 货币按阶位门槛（≤三阶乐园币 / ≥四阶魂币）；战利品与陨落复用轨道A 的 `autoGearFull` 上限与 `npcAutonomyDeath` 开关，不另开后门 |
+| `dispatchReport.ts` | 派遣战报：`generateDispatchReport`(仅对**已封存**记录有效)/`buildLedgerBrief`/`fallbackReport`。走 `resolveApiChain('dispatch')`，一次派遣一次调用（不是每回合阶段） |
+| `dispatchGen.ts` | 委托板 AI 生成（**手动·唯一触发点是面板按钮**）：`generateDispatchBoard(turn)` 读主角+团+每个成员档案出委托，每条带一件**字段填满的奖励物品**；`gradeForTier` 按委托阶位定奖励品级（吃世界阶上限表，前端锁死后喂 AI）。联网＝`dispatchWebSearch` 开时给 `extra:{tools:[{google_search:{}}]}`。⚠ 生成的板 `boardSource='ai'`，`ensureBoard` 见到就让开，**永不自动换批** |
+| `dispatchPrompts.ts` | `DISPATCH_GEN_RULE` / `DISPATCH_REPORT_RULE` 两条常量单独成文件——**断环**用（promptRegistry 要 import 它们，dispatchGen/Report 又要 import getPrompt）。照 `abyssPrompts.ts` 的做法 |
+| `branchTree.ts` | 分支树纯模型：`splitTurns`(线性对话→回合·按 id 归位)/`attachIndex`(分叉点→挂哪一回合后)/`buildBranchTree`(节点+边+泳道+坐标·长档只画最近 N 回合)/`digest`(剥结算块/HTML/think 的正文摘要)。不碰 store/IDB/React |
+| `codexIndex.ts` | 悬浮图鉴词典：`getCodexIndex`(**惰性重建·store 切片引用比对·version 单调自增**)/`scanEntities`(首字快筛+最长匹配+seen 只标首次)/`usableName`(停用词·≥2字·拒 id 形态)/`lookupCodex`(只查不重建)。⚠ 零订阅、位置保持匹配（不做 normName 归一） |
+| `lunhuiChars.ts` | 轮回 wiki 人物库加载器（`loadLunhuiCharacters` 模块级缓存·2.2MB 只拉一次）+ `parseLunhuiChar`(前言区/首段/别名)/`stripMd`。小剧场取材与悬浮图鉴 wiki 层共用 |
 | `channelTrade.ts` | 频道交易：`buyFromListing`/`postWantToBuy`/`postSellItem`/`acceptQuote`/`isBuyable` |
 | `dmTrade.ts` | 私信结算：`settleDmDeal`(确定性转账，对方收物入其NPC储存)/`dealSummary` |
 | `apiChat.ts` | `apiChatFallback(chain,messages,opts)` 多接口轮流+失败切换 |
@@ -160,7 +174,7 @@
 | `npcEvoStore.ts` | `drpg-npc-evo` | NPC 演化预设/API/策略A·B/`scheduling`(并发/配额/好友数)；`buildNpcSystemPrompt`/`buildEntrySystemPrompt`/`smartFilterEntries` |
 | `factionStore.ts` | `drpg-faction` | 势力档案 `FactionRecord`（`inCurrentWorld`）|
 | `factionEvoStore.ts` | `drpg-faction-evo` | 势力演化设置/API |
-| `adventureTeamStore.ts` | `drpg-team` | 冒险团（数据+设置+API 合一）。注意成员是 `upsertMember` 不是 addTeamMember |
+| `adventureTeamStore.ts` | `drpg-team` | 冒险团（数据+设置+API 合一）。注意成员是 `upsertMember` 不是 addTeamMember。**派遣**也住这里：`dispatchBoard`/`dispatchActive`/`dispatchHistory`/`fatigue`/`injury` + `dispatchApi`/`dispatchReportAuto`；⚠ 全是哑 reducer，算账在 `systems/dispatchEngine.ts`（这样 `npcAutonomy` 能 import 本 store 做分流过滤而不成环） |
 | `territoryStore.ts` | `drpg-territory` | 领地（数据+设置+API 合一）|
 | `cosmosStore.ts` | `drpg-cosmos` | 万族演化 |
 | `characterStore.ts` | `drpg-characters` | 技能/天赋/称号/副职业/记忆（B1+Cx 共用）。`mergeKeepRich`(空字段保旧)、`nameEq`(归一化匹配)、`SKILL_TIER_*`/`normSkillTier`、`removeCharacter`/`purgeNpcCharacters` |
@@ -173,6 +187,8 @@
 | `creationTemplateStore.ts` | `drpg-creation-templates` | 角色创建模板 |
 | `novelVecStore.ts` | `drpg-novelvec` | 向量资料库设置（embedding 接口/topK/阈值/maxChars）|
 | `enhanceStore.ts` | `drpg-enhance` | 装备强化：老板名册/率表(配置)、`pity`垫子计数(账号级全局,不进存档/不导出)、`session`本轮日志。立绘 partialize→IndexedDB；`hydrateEnhancePortraits` |
+| `chronicleStore.ts` | `drpg-chronicle` | 编年史：`rowMeta`(纪要行 row_id→{turn,world}·**分卷地基**·由 applyTableEdits 旁路记·上限4000) + `compiled`(AI 修的正史·按 WorldRecord.id)。都是本存档进度，随快照/新游戏清空。⚠ 丰碑(drpg-monument)是账号级、不在此列 |
+| `equipCraftStore.ts` | `drpg-equipcraft` | 装备工艺：`settings.processes` 工艺库(内置3+自创)=**配置**(进 configExport/可传工坊/跨新游戏保留)；`essences` 精髓图鉴=**进度**(进 saveManager 快照,新游戏清空,遵守"库房只存不删")。`upsertProcess` 入库必过 `sanitizeProcess`(AI/工坊/手改 localStorage 都夹取)；内置工艺不可被覆盖。API 复用 enhanceApi |
 | `skillTreeStore.ts` | `drpg-skilltree` | 职业技能树：`trees`模板库(配置/可分享) + 每角色`progress`(解锁进度/潜能点,随存档)。`unlockNode`(扣潜能点+灌 addSkill/addTrait)、`respec`、编辑器ops(addNode/addEdge拒环/...)。仅 B1 |
 | `variableStore.ts` | — | 自定义变量（`<state>` 兜底查找）|
 | `imageViewerStore` / `imageBusyStore` | — | UI 瞬时（看图/生图忙提示）|
@@ -184,7 +200,7 @@
 
 ## 6. components/（按用途）
 
-**外壳/正文**：`StartScreen`(封面热区) · `CharacterCreation`(开局) · `SettingsPanel`(设置大路由) · `VariableManager`(演化功能中心启动台) · `StatusBar`(顶部双时间/天气) · `ErrorBoundary` · `Bar` · `VersionToast` · `ImageBusyToast` · `ImageViewer`
+**外壳/正文**：`StartScreen`(封面热区) · `CharacterCreation`(开局) · `SettingsPanel`(设置大路由) · `VariableManager`(演化功能中心启动台) · `StatusBar`(顶部双时间/天气) · `ErrorBoundary` · `Bar` · `VersionToast` · `ImageBusyToast` · `ImageViewer` · `CodexHover`(正文名词悬浮卡·document 委托·零 store 订阅；⚠**主返回与设置页早退各挂一份**，二者互斥不会同时出现)
 
 **主角侧**：`PlayerSidebar`(身份档案/六维/状态，点击即编辑) · `PlayerEquipPanel`(左浮窗装备) · `CharacterPanel`(✨技能/天赋，仅B*) · `TitlePanel`(🎖称号) · `AchievementPanel`(🏆成就) · `SubProfessionPanel`(🛠副职业) · `ItemListPanel`(右下物品栏浮窗) · `StatusEffectChips`/`StatusChips`(状态胶囊) · `CharEditForms`(`SkillEditForm`/`TraitEditForm` 技能·天赋手动编辑表单，主角 CharacterPanel + NPC NpcDetail 共用，写 `characterStore.updateSkill/updateTrait`)
 

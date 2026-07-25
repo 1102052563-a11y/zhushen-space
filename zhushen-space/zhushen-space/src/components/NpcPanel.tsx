@@ -236,7 +236,7 @@ function LibrarySection({ onRestored }: { onRestored: (id: string) => void }) {
 /* ════════════════════════════════════════════
    主弹窗
 ════════════════════════════════════════════ */
-export default function NpcPanel({ onClose, onDm, onManualUpdate, manualUpdatingId, onCultivate, petMode }: { onClose: () => void; onDm?: (r: NpcRecord) => void; onManualUpdate?: (id: string) => void; manualUpdatingId?: string | null; onCultivate?: (r: NpcRecord) => void; petMode?: boolean }) {
+export default function NpcPanel({ onClose, onDm, onManualUpdate, manualUpdatingId, onCultivate, petMode, initialSelectedId }: { onClose: () => void; onDm?: (r: NpcRecord) => void; onManualUpdate?: (id: string) => void; manualUpdatingId?: string | null; onCultivate?: (r: NpcRecord) => void; petMode?: boolean; initialSelectedId?: string }) {
   const npcs      = useNpc((s) => s.npcs);
   const clearAll  = useNpc((s) => s.clearAll);
   const setFriend = useNpc((s) => s.setFriend);
@@ -264,7 +264,7 @@ export default function NpcPanel({ onClose, onDm, onManualUpdate, manualUpdating
   const [search, setSearch]     = useState('');
   const [tagFilter, setTagFilter] = useState<string>('');   // 标签筛选（空=全部）
   const [confirmClear, setConfirmClear] = useState(false);
-  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [selectedId, setSelectedId] = useState<string | null>(initialSelectedId ?? null);   // 📜 编年史互链点人名进来时直接落到该角色详情
 
   const selected = selectedId ? npcs[selectedId] : null;
 

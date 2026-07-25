@@ -1,4 +1,5 @@
 import { useRef, useState } from 'react';
+import { useShallow } from 'zustand/react/shallow';
 import { useNpc, hasRealNpcName, type NpcRecord } from '../store/npcStore';
 import { useCharacters } from '../store/characterStore';
 import { lvFromRealm, tierFxClass, effectiveResource, fullMaxHp, fullMaxEp, ratioOf, npcBaseAttrs } from '../systems/derivedStats';
@@ -14,11 +15,15 @@ const CARD_H = 96;   // 单卡高度(px)
 const MAX_VISIBLE = 3;
 
 export default function OnScenePanel({ onOpenNpc }: { onOpenNpc: (id: string) => void }) {
-  const npcs = useNpc((s) => s.npcs);
+  // 只订阅"在场的那几个"而非整个 s.npcs：轨道A 自治每回合会改一批**离场** NPC，
+  // 订阅整表的话那些写入每次都让这个常驻浮窗白重渲一遍。useShallow 逐项比引用 → 离场的怎么改都不动。
+  const onScene = useNpc(useShallow((s) =>
+    Object.values(s.npcs).filter((r) => r.onScene && !r.isDead && hasRealNpcName(r)),   // 杜绝无名编号空壳(C11/C22…)出现在在场浮窗
+  ));
   const [collapsed, setCollapsed] = useState(false);
 
-  const list = Object.values(npcs)
-    .filter((r) => r.onScene && !r.isDead && hasRealNpcName(r))   // 杜绝无名编号空壳(C11/C22…)出现在在场浮窗
+  // 复制再排序：onScene 是 useShallow 缓存的那个数组，原地 sort 会改到缓存
+  const list = [...onScene]
     .sort((a, b) => (b.lastSeenTurn ?? 0) - (a.lastSeenTurn ?? 0) || (b.favor ?? 0) - (a.favor ?? 0));
 
   if (list.length === 0) return null;

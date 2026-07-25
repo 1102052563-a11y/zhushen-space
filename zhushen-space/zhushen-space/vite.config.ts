@@ -108,7 +108,8 @@ function copyBuiltinPresets(): Plugin {
     // 世界选择世界书（仅「选择世界」功能用）
     ['../../世界书/世界选择.json', 'worldgen.json'],
     // 正文文本预设
-    ['../../正文预设/双人成行 V5.2 —春和景明(5.29） (1).json', 'textpreset.json'],
+    // （曾有 双人成行 V5.2 → textpreset.json：2026-06-18「双人成行内置已移除」后就没有任何代码 fetch 它了，
+    //   映射却留着，每次部署白塞 1.18MB 死文件。2026-07-25 摘除；public/presets/textpreset.json 可一并删。）
     ['../../正文预设/轮回乐园 Alu v2.0.json', 'zhushen-alu.json'],   // 内嵌「轮回乐园 Alu v2.0」为内置正文预设（默认不激活，玩家自选）
     // 演化预设
     ['../../演化预设/主角演化.json', 'player.json'],

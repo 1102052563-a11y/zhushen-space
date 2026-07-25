@@ -1,16 +1,19 @@
-# 主神空间 · 无限流（原型）
+# 诸神空间 · 轮回乐园（无限流 AI RPG）
 
-一个用 **Vite + React + TypeScript + Tailwind CSS** 搭建的无限流题材网页游戏骨架。
-主神把你拉进一个个致命副本，活着回来赚奖励点，强化属性，再挑战更难的世界。
+**Vite + React 18 + TypeScript + Tailwind + Zustand** 的网页 AI RPG。玩家在「轮回乐园」接任务、进入一个个世界，全部剧情由 AI 生成；前端负责把 AI 的叙事**结算成数值与状态**（六维 / 阶位 / 物品 / NPC / 势力 / 领地 / 冒险团…），并在多个「演化阶段」里把结果写回存档。
 
-## 已实现
+> ⚠ 仓库有**两层同名目录**：`zhushen-space/zhushen-space/` 才是真项目（带 `package.json`）。所有 npm 命令都要在内层跑。
 
-- **副本系统**：4 个难度递增的副本（废弃医院 / 浣熊市 / 异形飞船 / 七夜古宅），每个副本是「事件 + 战斗 + 首领」的节点序列。
-- **回合制战斗**：攻击 / 格挡，伤害 = max(1, 攻击 − 防御) 带浮动。
-- **精神值（SAN）**：灵异/异形类敌人和事件会侵蚀精神，归零即「精神崩溃」失败。
-- **抉择事件**：带风险与收益的文字选择。
-- **强化商店**：用奖励点永久提升生命 / 攻击 / 防御 / 精神上限，成本指数增长。
-- **本地存档**：进度自动存入 localStorage，支持导出 / 导入存档码、重置进度。
+## 文档在哪
+
+代码之外的一切都在仓库根的 `docs/`：
+
+| 文件 | 用途 |
+|---|---|
+| `../../CLAUDE.md` | 总览与跨切面铁则（改任何东西前先看） |
+| `../../docs/FEATURES.md` | 功能细节：为什么这么设计、规则、踩过的坑 |
+| `../../docs/CODE_MAP.md` | 代码定位：功能 → 文件 + 函数名 |
+| `../../docs/DEV_WORKFLOW.md` | **改动流程与规约**（加/改功能照这个走） |
 
 ## 本地运行
 
@@ -18,55 +21,54 @@
 
 ```bash
 npm install
-npm run dev      # 打开终端给出的本地地址（默认 http://localhost:5173）
+npm run dev
 ```
 
-打包静态文件：
+构建：
 
 ```bash
-npm run build    # 产物在 dist/
-npm run preview  # 本地预览打包结果
+npm run build
 ```
 
-## 部署到 Cloudflare Pages（和你看到的那些 *.pages.dev 一样）
+`build` = 类型门禁 → 网络门禁 → `vite build`。快速迭代时可以直接跑 `.\node_modules\.bin\vite build` 跳过门禁，但**收尾前门禁必须绿**（CI 也会跑同样的关卡）。
 
-1. 把项目推到 GitHub / GitLab 仓库。
-2. Cloudflare 控制台 → Workers & Pages → Create → Pages → 连接你的仓库。
-3. 构建配置：
-   - 框架预设：**Vite**（或留空）
-   - 构建命令：`npm run build`
-   - 构建输出目录：`dist`
-4. 部署完成后会得到一个 `你的项目名.pages.dev` 域名，之后每次 push 自动重新部署。
+> 前端加载的是 `dist/`（已 gitignore）。改完 `src/` 不重新 build，页面不会变。
 
-## 项目结构
+## 门禁与测试
+
+```bash
+npm run typecheck      # tsc 基线门禁：只拦「新增」的类型错误
+npm run check-network  # 网络门禁：拦裸 fetch / 漏 timeoutMs 的 AI 调用
+npm run lint           # ESLint，只开 hooks correctness 一类规则
+npm test               # vitest（引擎层单测；组件层无测试）
+```
+
+四道关加上 `vite build` 就是 `.github/workflows/ci.yml` 里跑的五道关。两个基线文件（`scripts/tsc-baseline.json` / `scripts/network-baseline.json`）用 `npm run typecheck:update` / `check-network:update` 重建。
+
+## 目录结构
 
 ```
 src/
-  data/           # 纯配置表：怪物、副本、事件、强化（改这里即可加内容）
-    monsters.ts
-    instances.ts
-    events.ts
-    enhancements.ts
-  systems/
-    combat.ts      # 伤害与战力计算（纯函数）
-  store/
-    gameStore.ts   # Zustand 全局状态 + 所有游戏逻辑
-  utils/
-    save.ts        # localStorage 存档读写 + 导入导出
-  components/      # UI：状态栏、主神空间、副本/战斗界面
-  App.tsx          # 视图切换
-  main.tsx
+  components/   # UI。按需面板一律 lazy() + Suspense，只有首屏/常驻组件是 eager
+  store/        # Zustand + persist，键名 drpg-*，落 localStorage（部分 lz 压缩）
+  systems/      # 纯逻辑：解析器、结算引擎、演化阶段助手、持久化层
+  data/         # 静态配置表
+  i18n/         # 运行时 DOM 翻译层（正文永不翻译）
+  utils/        # 零散小工具（日志等）
+  App.tsx       # 主视图 + callApi + 演化阶段编排（很大，别整文件读）
+scripts/        # 门禁脚本
+tools/          # 离线工具：向量库构建、批量生图、R2 上传
+functions/      # Cloudflare Pages Functions（AI 网关反代、崩溃上报…）
 ```
 
-## 怎么扩展内容
+## 两条要记住的架构约定
 
-- **加怪物**：在 `data/monsters.ts` 添加一条，再到某个副本的 `nodes` 里 `{ type: 'combat', monsterId: '你的id' }` 引用。
-- **加副本**：在 `data/instances.ts` 数组里加一个对象，排好节点序列即可，UI 会自动列出。
-- **加事件**：在 `data/events.ts` 添加，再在副本节点里用 `{ type: 'event', eventId: '...' }` 引用。
-- **加强化项**：在 `data/enhancements.ts` 添加，商店自动显示。
+**持久化是双轨的。** 结构化状态走 Zustand persist → `localStorage` 的 `drpg-*` 键；大块数据（对话、存档、图片、向量、世界书）走 IndexedDB。**加新 store 必须同时纳入 `systems/saveManager.ts` 的 `STORES` 注册表**，否则它不进存档、也不被「新游戏」清空。
 
-逻辑和数据是分开的——绝大多数内容扩展都只动 `data/` 下的文件，不用碰组件和 store。
+**调 AI 不要裸 `fetch`。** 统一走 `resolveApiChain(featureKey, legacy)` + `apiChatFallback(chain, messages, opts)`，并传 `opts.timeoutMs`——网络门禁会拦下漏传的调用点。
 
-## 后续可加的方向
+## 部署
 
-道具/背包系统、技能与天赋、装备掉落、多结局事件、随机词条副本、剧情对话、BGM/音效、成就系统。
+推到 GitHub 后由 Cloudflare Pages 自动构建部署（`zhushen-space.pages.dev`）。构建输出目录 `dist`。
+
+> Pages 单文件上限 **25 MiB**，向量库分片阈值因此压在 20 MiB。

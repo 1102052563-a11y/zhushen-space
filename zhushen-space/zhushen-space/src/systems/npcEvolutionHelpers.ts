@@ -11,6 +11,7 @@ import { serializeEvents } from './miscParser';
 import { fullMaxHp, fullMaxEp, effectiveResource, lvFromRealm, ratioOf, npcBaseAttrs } from './derivedStats';
 import { bioInnate } from './bioStrength';
 import { dispositionLine } from './dispositionGuard';
+import { isCompanionTag, ownerOf } from './petEvolution';
 export function getNpcApi() {
   const npcEvoState = useNpcEvo.getState();
   const ss = useSettings.getState();
@@ -161,6 +162,7 @@ export function serializeNpcSnapshot(r: NpcRecord): string {
     `姓名: ${unnamed ? `${r.id}（⚠占位ID·尚未正式命名）` : r.name}${r.gender ? ` | 性别:${r.gender}` : ''}`,
     r.age && `年龄: ${r.age}`,
     r.npcTag && `标签: ${r.npcTag}`,
+    isCompanionTag(r) && `主人: ${ownerOf(r)}${ownerOf(r) === 'B1' ? '(主角)' : ''}（随从/宠物/召唤物的归属·更新只挂本角色ID，绝不写到主人头上）`,
     r.review && `诙谐评价: ${r.review}`,
     r.realm && `阶位/身份(列2): ${r.realm}（当前锚·默认照抄勿改；升阶须本轮正文明写突破且一回合最多一阶，降阶须明写跌落/封印）`,
     r.bioStrength && `生物强度档(登场判断所定·生成/校准六维以此为准): ${r.bioStrength}（当前锚·默认照抄勿改；升降档同样须正文证据，且不越出本阶位窗口）`,
