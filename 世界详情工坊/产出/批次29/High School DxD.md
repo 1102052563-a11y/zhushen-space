@@ -1,6 +1,7 @@
 # High School DxD
 <!--meta lib=主库 tiers=一、二、三、四、五、六、七-->
 
+<!--repaired: 20260721-->
 ## 剧情
 
 **【作品来源】**
@@ -309,4 +310,3 @@
 - [惡魔高校D×D - 维基百科（中文）](https://zh.wikipedia.org/wiki/%E6%83%A1%E9%AD%94%E9%AB%98%E6%A0%A1D%C3%97D)
 - [List of High School DxD characters - 维基百科](https://en.wikipedia.org/wiki/List_of_High_School_DxD_characters)
 - [List of High School DxD volumes - 维基百科](https://en.wikipedia.org/wiki/List_of_High_School_DxD_volumes)
-- [搜笔趣阁检索（High School DxD）](https://www.sobqg.com/searchBook.html?keyword=High+School+DxD)
