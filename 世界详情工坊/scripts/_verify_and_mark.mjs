@@ -8,6 +8,7 @@
 //   2. 标题、meta 的 lib / tiers 与 manifest 精确一致
 //   3. 剧情正文只使用模板规定的【】段落，无 README 禁止的灌水标记
 //   4. 无文件内 >=150字 完全重复段
+//   5. 有且仅有一个来源段，且包含至少 3 个 https 链接
 //   （跨世界重复由全库审计统一复核，不在单文件门禁内——但会提示）
 import fs from 'node:fs';
 import path from 'node:path';
@@ -73,9 +74,14 @@ const plotStart = text.search(/^##\s+剧情\s*$/m);
 const entryStart = text.search(/^##\s+(阶位切入点|休闲切入点)\s*$/m);
 if (plotStart !== -1 && entryStart !== -1 && entryStart > plotStart) {
   const plot = text.slice(plotStart, entryStart);
-  const extraHeadings = [...plot.matchAll(/^\*\*【(.+?)】\*\*\s*$/gm)]
+  // All standalone bold plot headings must be one of the template's 【】 headings.
+  // Checking only bracketed headings would let unbracketed "补述" sections bypass QA.
+  const extraHeadings = [...plot.matchAll(/^\*\*(.+?)\*\*\s*$/gm)]
     .map((match) => match[1])
-    .filter((heading) => !PLOT_HEADINGS.has(heading));
+    .filter((heading) => {
+      const templateHeading = heading.match(/^【(.+?)】$/)?.[1];
+      return !templateHeading || !PLOT_HEADINGS.has(templateHeading);
+    });
   if (extraHeadings.length) problems.push('剧情含模板外【】段落：' + [...new Set(extraHeadings)].join('、'));
 }
 
@@ -96,6 +102,16 @@ if (plotStart !== -1 && entryStart !== -1 && entryStart > plotStart) {
     }
   }
   if (dup) problems.push(`文件内仍有 ${dup} 处重复段`);
+}
+
+// 5. 来源必须是单独的末尾段，避免把正文中的链接误算为可溯源资料。
+const sourceMatches = [...text.matchAll(/^##\s+来源\s*$/gm)];
+if (sourceMatches.length !== 1) {
+  problems.push(`来源段应恰有 1 条，实际为 ${sourceMatches.length} 条`);
+} else {
+  const sourceText = text.slice(sourceMatches[0].index + sourceMatches[0][0].length);
+  const links = sourceText.match(/https:\/\/[^\s)]+/g) || [];
+  if (links.length < 3) problems.push(`来源段 https 链接 ${links.length} 条 < 3 条`);
 }
 
 if (problems.length) {

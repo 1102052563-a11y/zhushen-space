@@ -1,5 +1,5 @@
 # 高达V
-<!--meta lib=主库 tiers=四-->
+<!--meta lib=主库 tiers=一、二、三、四-->
 
 <!--repaired: 20260721-->
 ## 剧情

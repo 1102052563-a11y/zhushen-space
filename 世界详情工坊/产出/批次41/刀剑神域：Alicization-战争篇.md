@@ -1,5 +1,5 @@
 # 刀剑神域：Alicization-战争篇
-<!--meta lib=主库 tiers=一、二、三、七-->
+<!--meta lib=主库 tiers=一、二、三、四、五、六、七-->
 
 <!--repaired: 20260721-->
 ## 剧情
