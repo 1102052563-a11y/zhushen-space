@@ -14,6 +14,7 @@ import {
   COMBAT_NARRATE_RULE, NPC_CHAT_RULE, NSFW_WRITING_RULE, NPC_TEAM_JOIN_CHAT_RULE,
   MONUMENT_EULOGY_RULE, CHOICES_FANFIC_SYSTEM, FANFIC_RULE, MINI_THEATER_RULE,
   WORLD_SETTLEMENT_RULE, WORLD_SETTLEMENT_COT_RULE, ATTR_POWER_CODEX, NPC_INDEPENDENCE_RULE, DISPOSITION_STAGE_RULE,
+  NPC_SELF_NARRATION_RULE, NPC_LIFE_STORY_RULE,
   SKILL_LEVELUP_PROMPT, SKILL_FUSION_RULE, SKILL_FUSION_NPC_RULE, TITLE_GEN_RULE, TITLE_FUSION_RULE, ACHIEVEMENT_GEN_RULE,
   JOY_SYSTEM_RULE, JOY_OUTPUT_RULE, JOY_PRIVATE_FIELDS_RULE,
   CHEST_OPEN_RULE, ARENA_OPPONENT_RULE, ARENA_REWARD_RULE, GLADIATOR_MATCH_RULE, GACHA_REWARD_RULE,
@@ -62,6 +63,8 @@ export const PROMPT_REGISTRY: PromptEntry[] = [
   { key: 'FACTION_COT_RULE', label: '势力演化 · 思维链', group: '演化阶段', kind: 'override', def: FACTION_COT_RULE, desc: '势力登场/演化 CoT' },
   { key: 'TERRITORY_COT_RULE', label: '领地演化 · 思维链', group: '演化阶段', kind: 'override', def: TERRITORY_COT_RULE, desc: '领地建设演化 CoT' },
   { key: 'TEAM_COT_RULE', label: '冒险团 · 思维链', group: '演化阶段', kind: 'override', def: TEAM_COT_RULE, desc: '冒险团演化 CoT' },
+  { key: 'NPC_LIFE_STORY_RULE', label: 'NPC 成长小传 · 生成', group: '演化阶段', kind: 'override', def: NPC_LIFE_STORY_RULE, desc: '为 NPC 补一份"从小到大"的来历与性格成因（门控一次·不进每回合注入）' },
+  { key: 'NPC_SELF_NARRATION_RULE', label: 'NPC 第一人称自述 · 生成', group: '演化阶段', kind: 'override', def: NPC_SELF_NARRATION_RULE, desc: 'NPC 的自我剖白（门控一次·私聊/演化的人格锚点）' },
   { key: 'TABLE_FILL_RULE', label: '填表 · 填表铁则', group: '演化阶段', kind: 'override', def: TABLE_FILL_RULE, desc: '剧情表（纪要/进程/伏笔/约定）该记什么、怎么记的规则' },
   { key: 'TABLE_FILL_MANUAL_RULE', label: '填表 · 输出格式铁则', group: '演化阶段', kind: 'override', def: TABLE_FILL_MANUAL_RULE, desc: '填表调用只吐 <tableEdit>、不写正文的格式约束（⚠ 改坏会导致填表解析失败）' },
   // ── 演化阶段 · 图鉴 / 总纲（第二批）──

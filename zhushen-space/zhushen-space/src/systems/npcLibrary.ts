@@ -85,7 +85,7 @@ function contentFingerprint(rec: NpcRecord): string {
     rec.name, rec.realm, rec.gender, rec.npcTag, rec.profession, rec.title,
     rec.favor, rec.trust, rec.respect, rec.corruption, rec.lust,
     rec.personality, rec.background, rec.appearanceDetail, rec.relations,
-    rec.selfNarration, rec.principles, deeds, items,
+    rec.selfNarration, rec.lifeStory, rec.principles, deeds, items,
   ].map((v) => (v == null ? '' : String(v))).join('');
   let h = 0x811c9dc5 >>> 0;
   for (let i = 0; i < parts.length; i++) { h ^= parts.charCodeAt(i); h = Math.imul(h, 0x01000193); }

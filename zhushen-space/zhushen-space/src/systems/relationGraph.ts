@@ -86,6 +86,7 @@ export interface RelationGraphOpts {
   favorEdges?: boolean;      // 好感虚拟边开关（默认 true）
   favorThreshold?: number;   // 默认 60（与 favorCls 的「亲密/敌视」档一致）
   showIsolated?: boolean;    // 显示没有任何连线的角色（默认 false）
+  centerId?: string;         // ego 视角的中心角色：即便零连线也保留该节点（否则空图上连"我自己"都看不到）
 }
 
 export function buildRelationGraph(
@@ -190,18 +191,55 @@ export function buildRelationGraph(
     degree.set(e.b, (degree.get(e.b) ?? 0) + 1);
   }
   const nodes = [...nodeMap.values()]
-    .filter((n) => n.isPlayer || showIsolated || (degree.get(n.id) ?? 0) > 0)
+    .filter((n) => n.isPlayer || n.id === opts.centerId || showIsolated || (degree.get(n.id) ?? 0) > 0)
     .sort((x, y) => (x.isPlayer ? -1 : y.isPlayer ? 1 : x.id.localeCompare(y.id)));
   const keep = new Set(nodes.map((n) => n.id));
   return { nodes, edges: edges.filter((e) => keep.has(e.a) && keep.has(e.b)) };
 }
 
+/* ego 局部子图：以 centerId 为中心取 depth 跳邻域（Obsidian local graph 的范式）。
+   保留"入选节点之间的全部边"（含邻居彼此的连线）——那正是"我的圈子里谁跟谁有关系"的信息量所在。
+   centerId 不在图里 → 返回空图（调用方显示占位）。 */
+export function egoSubgraph(
+  g: { nodes: RelNode[]; edges: RelEdge[] },
+  centerId: string,
+  depth = 1,
+): { nodes: RelNode[]; edges: RelEdge[] } {
+  if (!g.nodes.some((n) => n.id === centerId)) return { nodes: [], edges: [] };
+  const adj = new Map<string, string[]>();
+  for (const e of g.edges) {
+    if (!adj.has(e.a)) adj.set(e.a, []);
+    if (!adj.has(e.b)) adj.set(e.b, []);
+    adj.get(e.a)!.push(e.b);
+    adj.get(e.b)!.push(e.a);
+  }
+  const keep = new Set([centerId]);
+  let frontier = [centerId];
+  for (let d = 0; d < Math.max(0, depth); d++) {
+    const next: string[] = [];
+    for (const id of frontier) for (const nb of adj.get(id) ?? []) {
+      if (!keep.has(nb)) { keep.add(nb); next.push(nb); }
+    }
+    if (next.length === 0) break;
+    frontier = next;
+  }
+  return {
+    nodes: g.nodes.filter((n) => keep.has(n.id)),
+    edges: g.edges.filter((e) => keep.has(e.a) && keep.has(e.b)),
+  };
+}
+
 /* ── 确定性力导向布局（Fruchterman-Reingold 简化版）──
-   种子来自节点 id 集合 → 同一批角色两次打开图不跳位；主角钉死画布中心。
+   种子来自节点 id 集合 → 同一批角色两次打开图不跳位；中心节点（缺省=主角）钉死画布中心。
    n≈几十为常态，O(n²·iters) 一次性算完（useMemo），n>150 时降迭代数兜底。 */
 export interface LayoutPoint { x: number; y: number }
 
-export function layoutRelationGraph(nodes: RelNode[], edges: RelEdge[], size: number): Record<string, LayoutPoint> {
+export function layoutRelationGraph(
+  nodes: RelNode[],
+  edges: RelEdge[],
+  size: number,
+  centerId?: string,   // ego 图把该角色钉中心；缺省/不存在时回落主角节点
+): Record<string, LayoutPoint> {
   const pos: Record<string, LayoutPoint> = {};
   const n = nodes.length;
   if (n === 0) return pos;
@@ -215,13 +253,16 @@ export function layoutRelationGraph(nodes: RelNode[], edges: RelEdge[], size: nu
   seed = (seed || 1) >>> 0;
   const rnd = () => { seed = (Math.imul(seed, 1103515245) + 12345) & 0x7fffffff; return seed / 0x7fffffff; };
 
-  const others = nodes.filter((nd) => !nd.isPlayer);
+  const pinned = (centerId && nodes.some((nd) => nd.id === centerId))
+    ? centerId
+    : (nodes.find((nd) => nd.isPlayer)?.id ?? '');
+  const others = nodes.filter((nd) => nd.id !== pinned);
   others.forEach((nd, i) => {
     const ang = (i / Math.max(1, others.length)) * Math.PI * 2 + (rnd() - 0.5) * 0.4;
     const rr = size * (0.2 + 0.18 * rnd());
     pos[nd.id] = { x: cx + Math.cos(ang) * rr, y: cy + Math.sin(ang) * rr };
   });
-  for (const nd of nodes) if (nd.isPlayer) pos[nd.id] = { x: cx, y: cy };
+  for (const nd of nodes) if (nd.id === pinned) pos[nd.id] = { x: cx, y: cy };
 
   const k = (size / Math.sqrt(Math.max(2, n))) * 0.7;
   const pad = 56;
@@ -261,9 +302,9 @@ export function layoutRelationGraph(nodes: RelNode[], edges: RelEdge[], size: nu
       d.x += (cx - p.x) * 0.045;
       d.y += (cy - p.y) * 0.045;
     }
-    // 施加位移（限幅 t 退火）；主角钉死中心
+    // 施加位移（限幅 t 退火）；中心节点钉死画布中心
     for (const nd of nodes) {
-      if (nd.isPlayer) continue;
+      if (nd.id === pinned) continue;
       const p = pos[nd.id], d = disp.get(nd.id)!;
       const dl = Math.sqrt(d.x * d.x + d.y * d.y) || 1e-6;
       const step = Math.min(dl, t);

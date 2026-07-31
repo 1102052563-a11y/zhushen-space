@@ -54,6 +54,7 @@ function serializeNpcPersona(npc: NpcRecord): string {
     field('背景经历', npc.background),
     field('内心想法', npc.innerThought),
     field('第一人称自述（TA 的自我认知·请以此口吻与情绪入戏，别凭刻板印象脑补）', npc.selfNarration),
+    field('成长小传（从小到大的来历与性格成因·聊到过去/家人/旧事时据此答，别现编）', npc.lifeStory),
     field('当前状态', npc.status),
     field('当前动机', npc.motiveNow),
     field('对主角的称呼', npc.callPlayer),

@@ -17,6 +17,8 @@
 | 物品重复（同物两条·一条有详情一条空壳） | `App.tsx` → `reconcileDeferredCreates`；`systems/stateParser.ts` → `deferredCreateSkipReason`(补建前三道判定) / `findIdenticalItem`(创建闸门判重)；`systems/itemWatchdog.ts` → `pruneBlankDupItems`(回合末空壳清理) |
 | 主角演化 | `App.tsx` → `runPlayerEvolutionPhaseCore` / `applyPlayerProfileCommands`；`store/playerStore.ts` |
 | NPC 演化（策略A/B、登场判断、调度） | `App.tsx` → `runNpcPipelineB` / `runEntryJudgment` / `computeFocusList`；`store/npcStore.ts` / `npcEvoStore.ts` |
+| 🕸 NPC 关系图谱 | `systems/relationGraph.ts`(建图+ego子图+力导向布局·纯函数) → `components/RelationGraph.tsx`(SVG渲染)；入口：`NpcPanel` 头部「🕸 图谱」全局图 / `NpcDetail` 关系页 ego 局部图 |
+| 📖 NPC 成长小传 | `npcStore.NpcRecord.lifeStory`；规则 `promptRules.NPC_LIFE_STORY_RULE`；自动生成 `App.tsx` → `runNpcEvolutionForTarget` 解析 `<小传>` 块；手动补写 `systems/npcLifeStory.ts` → `NpcDetail` 的 `LifeStoryBox` |
 | 势力演化 | `App.tsx` → `runFactionEvolutionPhase` 等；`store/factionStore.ts` / `factionEvoStore.ts` |
 | 领地 / 冒险团 / 万族 演化 | `App.tsx` → `runTerritory…` / `runTeam…` / `runCosmos…`；对应 store |
 | 杂项演化（总结/双时间/天气/大事） | `App.tsx` → `runMiscEvolutionPhase`；`systems/miscParser.ts`（`applyMiscCommands` 支持 `domain:'tasks'/'world'` 域过滤）；`store/miscStore.ts` |
@@ -137,6 +139,8 @@
 | `novelVec.ts` | 向量资料库运行时：`loadNovelIndex`/`retrieveNovel`/`searchAll`/`embedQuery`/`novelVecStatus`（多源 novel+worldbook，IndexedDB `drpg-novelvec` v2） |
 | `narrativeMemory.ts` | 关键词召回：`tokenize`/`recallFacts`/`buildNarrativeHistory`；提示词 `NM_COMPILE_PROMPT`/`NM_INGEST_PROMPT` |
 | `structuredRecall.ts` | 结构化档案召回：序列化主角/NPC/势力卡（`serializePlayerCard` 等），供 `buildStructuredRecall` |
+| `relationGraph.ts` | 🕸 关系图谱数据层（纯函数·`relationGraph.test.ts` 17 例）：`buildRelationGraph`(解析列13扁平串·C编号与姓名两种写法都认·认不出留 ghost 节点·`|好感|≥60` 连虚拟边)/`egoSubgraph`(N跳邻域·保留入选点彼此的边)/`layoutRelationGraph`(确定性 Fruchterman-Reingold·种子来自节点id集合→两次打开不跳位·`centerId` 钉中心)/`classifyRelation`(关键词归六类·顺序即优先级)/`tierColor` |
+| `npcLifeStory.ts` | 📖 成长小传手动补写/重写：`generateLifeStory`(走 `resolveApiChain('npc')`)/`extractLifeStory`(取 `<小传>` 块·AI 没包块时退回裸文本) |
 | `miscParser.ts` | 杂项指令：`applyMiscCommands`(总结/双时间/天气/世界大事/`T_`任务)、`extractTurnSummaries` |
 | `gameClock.ts` | 游戏时间：`parseGameMinutes`/`parseDurationMinutes`/`parseDurationTurns`/`fmtMinutes` |
 | `equipSlots.ts` | `SLOT_DEFS`、`normalizeEquipSlot`/`pickEquipSlot`/`resolveEquipSlot`/`slotAcceptsCategory` |
@@ -163,7 +167,7 @@
 
 各 `run*Phase` 拼完导入预设后**追加**这些硬编码规则。改提示词规则**优先改这里**（对当前存档即时生效）：
 
-`NARRATIVE_FIRST_RULE`(逐条参照正文) · `BUFF_AS_STATUS_RULE` · `SUBPROF_RULE` · `NPC_AGE_RULE` · `FACTION_WORLD_RULE` / `FACTION_FULL_FORMAT_RULE` / `FACTION_HOME_EXIT_RULE` · `ITEM_FIXED_FORMAT_RULE` / `ITEM_EXACT_REF_RULE` · `EVO_EXACT_REF_RULE` · `TALENT_NO_CAP_RULE` · `SKILL_TIER_RULE` · `IMAGE_TAGS_RULE` · `MISC_HOME_TIME_RULE` · `CHANNEL_AUTHOR_INFO_RULE` · `MERGED_AUDIT_SYSTEM`/`MERGED_AUDIT_PROMPT`
+`NPC_SELF_NARRATION_RULE`/`NPC_LIFE_STORY_RULE`(门控生成一次·前者第一人称自述、后者成长小传；均已进预设中心可玩家改) · `NARRATIVE_FIRST_RULE`(逐条参照正文) · `BUFF_AS_STATUS_RULE` · `SUBPROF_RULE` · `NPC_AGE_RULE` · `FACTION_WORLD_RULE` / `FACTION_FULL_FORMAT_RULE` / `FACTION_HOME_EXIT_RULE` · `ITEM_FIXED_FORMAT_RULE` / `ITEM_EXACT_REF_RULE` · `EVO_EXACT_REF_RULE` · `TALENT_NO_CAP_RULE` · `SKILL_TIER_RULE` · `IMAGE_TAGS_RULE` · `MISC_HOME_TIME_RULE` · `CHANNEL_AUTHOR_INFO_RULE` · `MERGED_AUDIT_SYSTEM`/`MERGED_AUDIT_PROMPT`
 > **大部分常量已抽到 `src/promptRules.ts`（集中维护，改提示词来这里），少数仍在 App.tsx 顶部。grep 常量名即可跨文件定位。**
 
 ---
@@ -213,7 +217,7 @@
 
 **装备/背包**：`EquipmentPanel`(⚔玩家装备槽) · `BackpackModal`(🎒储存空间，含 `CurrencyConverter` 乐园币↔灵魂钱币 1:15万) · `NpcEquip`(NPC装备)；三者装备卡均显 `+N` 强化角标
 
-**NPC**：`NpcPanel`(📇档案列表) · `NpcDetail`(单角色11栏，导出 `SegmentedText`/`StatusChips`) · `OnScenePanel`(右上在场浮窗)
+**NPC**：`NpcPanel`(📇档案列表·头部「🕸 图谱」入口) · `NpcDetail`(单角色11栏，导出 `SegmentedText`/`StatusChips`；关系页顶部嵌 ego 图，经历页含 `LifeStoryBox` 成长小传) · `OnScenePanel`(右上在场浮窗) · `RelationGraph`(🕸 纯SVG关系图·懒加载独立chunk：默认导出=全局弹窗，具名导出 `RelationGraphView`/`RelationEgoGraph`/`RelationLegend`)
 
 **右侧导航面板**：`FactionPanel`(🏛) · `TerritoryPanel`(🏯) · `AdventureTeamPanel`(🛡) · `TurnInsightPanel`(🔍回合洞察) · `MiscPanel`(📋任务) · `SummaryPanel`(🧠记忆) · `CosmosPanel`(🌌) · `ChannelPanel`(📡频道) + `SystemShop`(🏪) · `DmPanel`(✉私信) · `FriendsPanel`(👥好友) · `SaveLoadPanel`(💾存档) · `DicePanel`(🎲in-chat骰子) · `EnhancePanel`(⚒强化所：左看板娘立绘+切换+吐槽气泡/中被强化装备+特效/右选装备+率+花费+日志)
 

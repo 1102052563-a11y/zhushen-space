@@ -121,6 +121,9 @@ export interface NpcRecord {
   age?: string;           // 年龄（正文有则照抄，没有则按设定生成；可写"约25岁/青年"等）
   review?: string;        // 诙谐评价（玩家视角的吐槽/锐评，幽默风格）
   selfNarration?: string; // 第一人称自述（NPC演化门控生成一次：作私聊/正文/演化的"自我认知"锚点，防 AI 凭刻板印象脑补人设）
+  lifeStory?: string;     // 成长小传（登场之前"从小到大"的完整来历：出身→关键转折→性格成因→与当下动机的连接）。
+                          // 与 background(列10·每回合注入正文的一句话简介) 分开存：小传是一次性生成的长文，**绝不进每回合注入**
+                          // （只注一行"已生成"标记），全文仅在私聊/详情页/手动补写时使用 —— 见 NPC_LIFE_STORY_RULE。
   // ── 性格丰满化 / 反谄媚（治"NPC都围着主角转、无原则、性爱速堕"）──
   sampleLines?: string;   // 范例台词/口癖（2-3句·锁语气治同质化；NPC演化门控生成一次，之后冻结防漂）
   principles?: string;    // 原则底线（独立于主角的立场红线/绝不做的事·反谄媚锚点；建档生成，冻结防漂）
@@ -378,7 +381,7 @@ function mergeNpcRecords(keeper: NpcRecord, dup: NpcRecord): NpcRecord {
   for (const f of ['realm', 'personality', 'background', 'appearanceDetail', 'baseAppearance', 'title', 'profession',
     'contractorId', 'affiliatedTeam', 'gender', 'attrs', 'realAttrs', 'avatar', 'avatarTags', 'avatarPrompt', 'imageTags',
     'relations', 'innerThought', 'motiveNow', 'shortGoal', 'longGoal', 'appearance5', 'callPlayer',
-    'selfNarration', 'sampleLines', 'principles', 'npcTag', 'bioStrength', 'unitType', 'age', 'review', 'deeds',
+    'selfNarration', 'lifeStory', 'sampleLines', 'principles', 'npcTag', 'bioStrength', 'unitType', 'age', 'review', 'deeds',
     'hpRatio', 'epRatio'] as (keyof NpcRecord)[]) {
     if ((merged[f] == null || merged[f] === '') && dup[f] != null && dup[f] !== '') (merged as any)[f] = dup[f];
   }

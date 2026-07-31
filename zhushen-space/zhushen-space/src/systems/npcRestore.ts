@@ -49,7 +49,7 @@ export function restoreSnapshot(snap: NpcSnapshot): { ok: boolean; id: string; m
 /* B · AI 提取同步 —— 可安全同步的字段白名单。
    只放「叙事资料」：绝不让 AI 借这条路改 六维/血条/物品/技能 等有独立结算的数值（那些走各自的演化阶段）。 */
 const SYNCABLE = ['personality', 'background', 'relations', 'innerThought', 'motiveNow', 'shortGoal', 'longGoal',
-  'callPlayer', 'selfNarration', 'sampleLines', 'principles', 'title', 'profession', 'age',
+  'callPlayer', 'selfNarration', 'lifeStory', 'sampleLines', 'principles', 'title', 'profession', 'age',
   'favor', 'trust', 'respect', 'corruption'] as const;
 
 const SYNC_RULE = `你是轮回乐园的档案官。玩家从「NPC 图书馆」里翻出了某角色**被删除/被合并前的旧档案快照**，

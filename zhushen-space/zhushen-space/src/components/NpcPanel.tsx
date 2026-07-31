@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, lazy, Suspense } from 'react';
 import { useNpc, hasRealNpcName, type NpcRecord } from '../store/npcStore';
 import { isPetLike } from '../systems/petEvolution';   // 宠物/召唤物分流：默认档案排除宠物，petMode 只看宠物
 import { isDmableTag } from '../store/dmStore';
@@ -6,6 +6,7 @@ import { normalizeTier, tierFxClass } from '../systems/derivedStats';
 import { listSnapshots, removeSnapshot, clearLibrary, REASON_LABEL, type NpcSnapshot } from '../systems/npcLibrary';   // NPC 图书馆：只进不出的档案库（删除仅供玩家显式清理）
 import { restoreSnapshot, aiSyncSnapshot } from '../systems/npcRestore';                 // 找回：A 确定性还原 / B AI 提取同步
 import NpcDetail from './NpcDetail';
+const RelationGraphModal = lazy(() => import('./RelationGraph'));   // 🕸 全局关系图谱（懒加载·不进主 chunk）
 
 /* 好感度颜色 */
 function favorCls(v: number) {
@@ -264,6 +265,7 @@ export default function NpcPanel({ onClose, onDm, onManualUpdate, manualUpdating
   const [search, setSearch]     = useState('');
   const [tagFilter, setTagFilter] = useState<string>('');   // 标签筛选（空=全部）
   const [confirmClear, setConfirmClear] = useState(false);
+  const [graphOpen, setGraphOpen] = useState(false);   // 🕸 关系图谱弹窗
   const [selectedId, setSelectedId] = useState<string | null>(initialSelectedId ?? null);   // 📜 编年史互链点人名进来时直接落到该角色详情
 
   const selected = selectedId ? npcs[selectedId] : null;
@@ -299,6 +301,15 @@ export default function NpcPanel({ onClose, onDm, onManualUpdate, manualUpdating
             </div>
           </div>
           <div className="flex-1" />
+          {records.length > 0 && (
+            <button
+              onClick={() => setGraphOpen(true)}
+              title="关系图谱：把所有角色的人际关系（含对主角好感）画成一张网"
+              className="text-[12px] font-mono px-2 py-1 rounded border border-edge text-dim/50 hover:border-god/40 hover:text-god transition-colors"
+            >
+              🕸 图谱
+            </button>
+          )}
           {records.length > 0 && (
             <button
               onClick={() => {
@@ -408,6 +419,16 @@ export default function NpcPanel({ onClose, onDm, onManualUpdate, manualUpdating
           )}
         </div>
       </div>
+
+      {/* 🕸 全局关系图谱：点节点直接落到该角色档案 */}
+      {graphOpen && (
+        <Suspense fallback={null}>
+          <RelationGraphModal
+            onClose={() => setGraphOpen(false)}
+            onSelect={(id) => { if (npcs[id]) { setGraphOpen(false); setSelectedId(id); } }}
+          />
+        </Suspense>
+      )}
 
       {/* 单个 NPC 完整档案 */}
       {selected && (

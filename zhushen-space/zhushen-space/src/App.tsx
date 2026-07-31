@@ -37,6 +37,7 @@ import {
   DISPOSITION_STAGE_RULE,
   DISPOSITION_DELTA_RULE,
   NPC_SELF_NARRATION_RULE,
+  NPC_LIFE_STORY_RULE,
   PLOT_GUIDANCE_RULE,
   OUTLINE_GEN_RULE,
   OUTLINE_FOLLOW_RULE,
@@ -3942,7 +3943,10 @@ export default function App() {
       .join('\n\n')
       + '\n\n' + NARRATIVE_FIRST_RULE + '\n' + BUFF_AS_STATUS_RULE + '\n' + NPC_AGE_RULE + '\n' + TALENT_NO_CAP_RULE + '\n' + TITLE_DIVERSITY_RULE + '\n' + NPC_DEAD_EXCLUDE_RULE + '\n' + NPC_ID_RULE + '\n' + SKILL_TALENT_NOTE_RULE + '\n' + NPC_SKILL_KEEP_RULE + '\n' + ITEM_GRANTED_SKILL_RULE + '\n' + SKILL_STABILITY_RULE + '\n' + SKILL_COMBAT_TAG_RULE + '\n' + NPC_REVIEW_TAG_RULE +'\n' + NPC_TEAM_AFFILIATION_RULE + '\n' + TIER_RULE + '\n' + IMAGE_TAGS_RULE + '\n' + HPEP_NARRATIVE_ONLY_RULE + '\n' + POINTS_NARRATIVE_RULE + '\n' + getPrompt('ATTR_POWER_CODEX', ATTR_POWER_CODEX) + '\n' + NPC_ATTR_GEN_RULE + '\n' + ATTR_SANITY_RULE + '\n' + ATTR_CAP_RULE + '\n' + STATUS_FORMAT_RULE + '\n' + STATUS_COUNTDOWN_TURN_RULE + '\n' + NPC_PRIVATE_EXTRA_RULE + '\n' + NPC_TIER_LOADOUT_RULE + '\n' + SKILL_TALENT_ATTR_CAP_RULE + '\n' + FIRST_UPDATE_COMPLETE_RULE + '\n' + EVO_EXACT_REF_RULE + '\n' + SKILL_TALENT_GUIDE + '\n' + getPrompt('NPC_COT_RULE', NPC_COT_RULE) + '\n' + ANTI_OMNISCIENCE_RULE + '\n' + NATIVE_LIFE_LOCAL_RULE + '\n' + getPrompt('NPC_INDEPENDENCE_RULE', NPC_INDEPENDENCE_RULE) + '\n' + getPrompt('DISPOSITION_STAGE_RULE', DISPOSITION_STAGE_RULE) + '\n' + DISPOSITION_DELTA_RULE + worldLoreEvoInjection()
       // 门控：仅当该 NPC 已有背景、却还没第一人称自述时，才追加"生成自述"规则（一次性·省 token）
-      + (rec && rec.background && !rec.selfNarration ? '\n' + NPC_SELF_NARRATION_RULE : '')
+      + (rec && rec.background && !rec.selfNarration ? '\n' + getPrompt('NPC_SELF_NARRATION_RULE', NPC_SELF_NARRATION_RULE) : '')
+      // 门控：成长小传（从小到大的来历+性格成因）。**错开一回合**——等自述/原则/台词那批生成完了下次再要，
+      // 免得同一次回复里塞四个长块；小传本身是一次性长文，之后只注一行"已生成"标记，绝不进每回合注入。
+      + (rec && rec.background && rec.selfNarration && !rec.lifeStory ? '\n' + getPrompt('NPC_LIFE_STORY_RULE', NPC_LIFE_STORY_RULE) : '')
       // 门控：已有背景但缺 原则底线 / 范例台词 → 本轮一并生成（反谄媚·治同质化的锚点，一次性·省 token）
       + (rec && rec.background && !rec.principles ? '\n' + NPC_PRINCIPLES_RULE : '')
       + (rec && rec.background && !rec.sampleLines ? '\n' + NPC_SAMPLE_LINES_RULE : '')
@@ -4446,12 +4450,14 @@ export default function App() {
     const needSelf = !!(recForSelf && recForSelf.background && !recForSelf.selfNarration);   // 门控：已有背景但还没自述 → 本轮一并生成
     const needPrinciples = !!(recForSelf && recForSelf.background && !recForSelf.principles); // 门控：缺原则底线 → 一并生成
     const needSample = !!(recForSelf && recForSelf.background && !recForSelf.sampleLines);    // 门控：缺范例台词 → 一并生成
+    const needLife = !!(recForSelf && recForSelf.background && recForSelf.selfNarration && !recForSelf.lifeStory);  // 门控：成长小传（错开一回合，见 buildNpcPhaseSystemPrompt）
     const extraGen: string[] = [];
     if (needSelf) extraGen.push(`<自述 id="${charId}">`);
     if (needPrinciples) extraGen.push(`<原则底线 id="${charId}">`);
     if (needSample) extraGen.push(`<范例台词 id="${charId}">`);
+    if (needLife) extraGen.push(`<小传 id="${charId}">`);
     const genInstr = extraGen.length ? `，并按系统提示为该角色生成 ${extraGen.join('、')} 块` : '';
-    const allowTags = ['<think>', '<state>', '<upstore>', ...(needSelf ? ['<自述>'] : []), ...(needPrinciples ? ['<原则底线>'] : []), ...(needSample ? ['<范例台词>'] : [])].join(' / ');
+    const allowTags = ['<think>', '<state>', '<upstore>', ...(needSelf ? ['<自述>'] : []), ...(needPrinciples ? ['<原则底线>'] : []), ...(needSample ? ['<范例台词>'] : []), ...(needLife ? ['<小传>'] : [])].join(' / ');
     const userContent = `# 本轮正文\n${trimmed}\n\n---\n**先输出一个 <think>…</think> 思考块**，按系统提示里的「NPC 演化思维链」对角色 ${charId} 逐项自检；**随后**只为角色 ${charId} 输出 <state> 与 <upstore> 指令（无变化输出空标签）${genInstr}。禁止输出其他角色的指令、禁止输出正文；除 ${allowTags} 外不要有其它文字。`;
     // 失败重试：单条请求失败/超时后额外重试 retryCount 次
     const retries = Math.max(0, settings.scheduling.retryCount ?? 0);
@@ -4484,6 +4490,11 @@ export default function App() {
     const sampRe = /<范例台词\s+id\s*=\s*["']?([CG]\d+)["']?\s*>([\s\S]*?)<\/范例台词>/gi;
     for (let qm = sampRe.exec(cleanReply); qm; qm = sampRe.exec(cleanReply)) {
       if (qm[1] === charId && qm[2].trim()) { useNpc.getState().upsertNpc(charId, { sampleLines: qm[2].trim() }); console.log(`[NPC] ${charId} 范例台词已生成`); }
+    }
+    // 成长小传块（门控生成·仅本目标·幂等）：<小传 id="C1">…</小传> → lifeStory
+    const lifeRe = /<小传\s+id\s*=\s*["']?([CG]\d+)["']?\s*>([\s\S]*?)<\/小传>/gi;
+    for (let lm = lifeRe.exec(cleanReply); lm; lm = lifeRe.exec(cleanReply)) {
+      if (lm[1] === charId && lm[2].trim()) { useNpc.getState().upsertNpc(charId, { lifeStory: lm[2].trim() }); console.log(`[NPC] ${charId} 成长小传已生成（${lm[2].trim().length} 字）`); }
     }
     useNpc.getState().markEvolved(charId, turnCountRef.current);
     console.log(`[NPC] ${charId} 演化：${npcCmds.length} 档案 / ${charCmds.length} 技能天赋 / ${shorts} 短指令`);

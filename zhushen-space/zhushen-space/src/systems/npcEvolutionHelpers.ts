@@ -191,6 +191,9 @@ export function serializeNpcSnapshot(r: NpcRecord): string {
     r.background && `背景(列10): ${r.background}`,
     r.innerThought && `内心(列12): ${r.innerThought}`,
     r.selfNarration && `第一人称自述(已生成·沿用·勿重写·勿再输出<自述>块): ${r.selfNarration}`,
+    // 成长小传全文**不注**（400~700 字·每回合注入等于白烧 token），只报一行"已有"让 AI 别再生成；
+    // 需要全文的场合（私聊 npcChat / 详情页 / 手动补写）自会单独取。
+    r.lifeStory && `成长小传: 已生成 ${r.lifeStory.length} 字（其来历/性格成因已定档·勿重写·勿再输出<小传>块；演绎其过去时与之保持一致）`,
     r.relations && `关系(列13): ${r.relations}`,
     `好感(列15): ${r.favor}`,
     r.principles && `原则底线(独立于主角·据此演绎立场·勿为讨好主角OOC软化): ${r.principles}`,

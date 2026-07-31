@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect, createContext, useContext, type ReactNode } from 'react';
+import { useState, useRef, useEffect, lazy, Suspense, createContext, useContext, type ReactNode } from 'react';
 import { useNpc, type NpcRecord } from '../store/npcStore';
 import { isPetLike, isCompanionTag, ownerOf } from '../systems/petEvolution';   // 宠物/召唤物专属「培养」按钮门控 + 主人登记（归属外键）
 import SkillFusionBox from './SkillFusionBox';                                 // 技能熔炉（与主角面板同一实现·熔铸对象=该NPC/宠物自己）
@@ -32,6 +32,8 @@ import { PortraitPicker, PortraitLibraryModal } from './PortraitPicker';
 import ImagePromptEditModal from './ImagePromptEditModal';
 import { SkillEditForm, TraitEditForm } from './CharEditForms';
 import NpcVoicePicker from './NpcVoicePicker';
+// 🕸 ego 关系图（懒加载：只有翻到关系页才拉这块布局代码）
+const RelationEgoGraph = lazy(() => import('./RelationGraph').then((m) => ({ default: m.RelationEgoGraph })));
 import { ttsSupported } from '../systems/tts';
 
 /* ════════════════════════════════════════════
@@ -1952,9 +1954,15 @@ function RelationTab({ npc, list, onSelect }: { npc: NpcRecord; list: NpcRecord[
       const structured = tid === 'B1' || list.some((x) => x.id === tid);
       return { tid, rel, structured, raw: pair };
     });
-  if (rels.length === 0) return <Empty text="暂无人际关系记录" />;
   const nameOf = (id: string) => id === 'B1' ? `${usePlayer.getState().profile.name || '主角'}（你）` : (list.find((r) => r.id === id)?.name ?? id);
   return (
+    <div>
+    <Section title="关系图谱" hint="以该角色为中心 · 点其他角色可跳转">
+      <Suspense fallback={<div className="h-[300px] rounded-xl border border-edge bg-void/60 flex items-center justify-center text-[13px] font-mono text-dim/40">图谱加载中…</div>}>
+        <RelationEgoGraph npc={npc} onSelect={onSelect} />
+      </Suspense>
+    </Section>
+    {rels.length === 0 ? <Empty text="暂无人际关系记录" /> : (
     <Section title={`人际关系（${rels.length}）`}>
       <div className="space-y-2">
         {rels.map((r, i) => {
@@ -1976,6 +1984,8 @@ function RelationTab({ npc, list, onSelect }: { npc: NpcRecord; list: NpcRecord[
         })}
       </div>
     </Section>
+    )}
+    </div>
   );
 }
 
@@ -2022,6 +2032,104 @@ export function CharMemoryView({ charId }: { charId: string }) {
   );
 }
 
+/* ────────── 成长小传（登场之前"从小到大"的来历 + 性格成因）──────────
+   与「背景/简介」(列10) 分工：列10 是每回合注入正文的一句话；小传是一次性长文，
+   自动生成走 NPC 演化的门控（<小传> 块），这里提供手动补写/重写/编辑。 */
+function LifeStoryBox({ npc }: { npc: NpcRecord }) {
+  const preview = useContext(NpcPreviewContext);
+  const upsertNpc = useNpc((s) => s.upsertNpc);
+  const [editing, setEditing] = useState(false);
+  const [draft, setDraft] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState('');
+  const [expanded, setExpanded] = useState(false);
+  const [confirmRewrite, setConfirmRewrite] = useState(false);
+  const story = npc.lifeStory ?? '';
+
+  async function gen(rewrite: boolean) {
+    setBusy(true); setErr(''); setConfirmRewrite(false);
+    try {
+      const { generateLifeStory } = await import('../systems/npcLifeStory');   // 动态引入：不打开就不拉 apiChat 那条链
+      upsertNpc(npc.id, { lifeStory: await generateLifeStory(npc, rewrite) });
+      setExpanded(true);
+    } catch (e) {
+      setErr((e as Error)?.message ?? String(e));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  const BTN = 'text-[12px] font-mono px-2 py-0.5 rounded border transition-colors';
+
+  return (
+    <Section title="成长小传" hint="从小到大的经历 · 性格是怎么长成的">
+      {editing ? (
+        <div className="space-y-2">
+          <textarea
+            rows={14}
+            value={draft}
+            onChange={(e) => setDraft(e.target.value)}
+            placeholder="写这个角色从小到大的经历：出身环境 → 塑造性格的关键转折 → 所以 TA 成了现在这样 → 与当下动机的联系"
+            className="w-full bg-void border border-edge rounded-lg px-3 py-2 text-sm text-slate-200 leading-relaxed focus:border-god/40 focus:outline-none"
+          />
+          <div className="flex items-center gap-2">
+            <button onClick={() => { upsertNpc(npc.id, { lifeStory: draft.trim() }); setEditing(false); }}
+              className={`${BTN} border-god/40 text-god hover:bg-god/10`}>保存</button>
+            <button onClick={() => setEditing(false)} className={`${BTN} border-edge text-dim/60 hover:text-slate-200`}>取消</button>
+            <span className="text-[12px] font-mono text-dim/40">{draft.trim().length} 字</span>
+          </div>
+        </div>
+      ) : story ? (
+        <div className="space-y-2">
+          <div
+            className="text-sm text-slate-300 leading-relaxed whitespace-pre-wrap overflow-hidden transition-[max-height] duration-300"
+            style={{ maxHeight: expanded ? 4000 : 148 }}
+          >{story}</div>
+          <div className="flex flex-wrap items-center gap-2">
+            {story.length > 160 && (
+              <button onClick={() => setExpanded((v) => !v)} className={`${BTN} border-edge text-dim/60 hover:text-god hover:border-god/40`}>
+                {expanded ? '收起' : '展开全文'}
+              </button>
+            )}
+            <span className="text-[12px] font-mono text-dim/40">{story.length} 字</span>
+            <div className="flex-1" />
+            {!preview && (
+              <>
+                <button onClick={() => { setDraft(story); setEditing(true); }} className={`${BTN} border-edge text-dim/60 hover:text-god hover:border-god/40`}>编辑</button>
+                <button
+                  onClick={() => { if (!confirmRewrite) { setConfirmRewrite(true); return; } gen(true); }}
+                  onBlur={() => setConfirmRewrite(false)}
+                  disabled={busy}
+                  title="让 AI 据当前档案重写一份（旧的会被覆盖）"
+                  className={`${BTN} ${confirmRewrite ? 'border-blood/60 text-blood' : 'border-edge text-dim/60 hover:text-god hover:border-god/40'} disabled:opacity-40`}
+                >{busy ? '生成中…' : confirmRewrite ? '确认覆盖重写' : '♻ 重写'}</button>
+              </>
+            )}
+          </div>
+        </div>
+      ) : preview ? (
+        <Empty text="暂无成长小传" />
+      ) : (
+        <div className="space-y-2">
+          <div className="text-[12px] text-dim/50 leading-relaxed">
+            还没有小传。NPC 演化轮到 TA 时会自动补写一次；也可以现在就让 AI 据现有档案生成。
+          </div>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => gen(false)}
+              disabled={busy}
+              className="px-3 py-1.5 rounded-lg border border-dashed border-god/40 text-god/70 hover:text-god hover:border-god/60 hover:bg-god/5 text-[13px] font-mono transition-colors disabled:opacity-40"
+            >{busy ? '生成中…' : '✍ 补写小传'}</button>
+            <button onClick={() => { setDraft(''); setEditing(true); }}
+              className={`${BTN} border-edge text-dim/60 hover:text-slate-200`}>手动写</button>
+          </div>
+        </div>
+      )}
+      {err && <div className="mt-2 text-[12px] font-mono text-blood/80">生成失败：{err}</div>}
+    </Section>
+  );
+}
+
 /* ────────── 经历 ────────── */
 function HistoryTab({ npc }: { npc: NpcRecord }) {
   const removeDeed = useNpc((s) => s.removeDeed);
@@ -2030,6 +2138,7 @@ function HistoryTab({ npc }: { npc: NpcRecord }) {
       <Section title="背景 / 简介">
         <div className="text-sm text-slate-300 leading-relaxed whitespace-pre-wrap">{npc.background || '暂无背景记录'}</div>
       </Section>
+      <LifeStoryBox npc={npc} />
       {(npc.shortGoal || npc.longGoal) && (
         <Section title="目标">
           {npc.shortGoal && <div className="text-sm text-slate-200">近期：{npc.shortGoal}</div>}
