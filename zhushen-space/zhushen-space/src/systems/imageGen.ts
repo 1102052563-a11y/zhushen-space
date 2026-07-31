@@ -13,6 +13,7 @@ export interface GenOpts {
   size?: string;          // "1024x1024"，留空用服务默认
   signal?: AbortSignal;
   label?: string;         // toast 标题（如「生成主角立绘」）
+  refImages?: string[];   // 参考图 dataURL 列表（仅 chatimg 多模态线使用：锁角色长相；其余服务忽略）
 }
 
 /* ───────── 通用工具 ───────── */
@@ -268,6 +269,64 @@ async function genOpenAI(cfg: OpenAIImgConfig, o: GenOpts): Promise<string> {
   } finally { clear(); }
 }
 
+/* ───────── 多模态 Chat 出图（nano-banana 系：Gemini image 中转 / OpenRouter 等）─────────
+   走 chat/completions：user 消息带 文本+参考图(image_url)，从响应里提图。
+   响应形状五花八门，逐一兼容：message.images[] / content 多模态数组 / content 字符串里的
+   dataURL·markdown图链·裸图链 / 顶层 data[0].b64_json|url（有些中转按 images API 形状回）。*/
+function extractChatImage(data: any): string {
+  const msg = data?.choices?.[0]?.message;
+  const imgs = msg?.images;
+  if (Array.isArray(imgs)) {
+    for (const it of imgs) {
+      const u = typeof it === 'string' ? it : (it?.image_url?.url || it?.url);
+      if (typeof u === 'string' && u) return u;
+    }
+  }
+  const content = msg?.content;
+  if (Array.isArray(content)) {
+    for (const part of content) {
+      const inline = part?.inline_data || part?.inlineData;
+      const u = part?.image_url?.url
+        || (inline?.data ? `data:${inline.mime_type || inline.mimeType || 'image/png'};base64,${inline.data}` : '');
+      if (typeof u === 'string' && u) return u;
+    }
+  }
+  if (typeof content === 'string' && content) {
+    const dataM = content.match(/data:image\/[a-z0-9.+-]+;base64,[A-Za-z0-9+/=]+/i);
+    if (dataM) return dataM[0];
+    const mdM = content.match(/!\[[^\]]*\]\((https?:\/\/[^)\s]+)\)/) || content.match(/(https?:\/\/[^\s"')]+\.(?:png|jpe?g|webp|gif)[^\s"')]*)/i);
+    if (mdM) return mdM[1];
+  }
+  const item = data?.data?.[0];
+  if (item?.b64_json) return `data:image/png;base64,${item.b64_json}`;
+  if (item?.url) return item.url;
+  const said = typeof content === 'string' ? content.replace(/\s+/g, ' ').trim().slice(0, 160) : '';
+  throw new Error(`多模态 Chat 接口没有返回图片${said ? `，模型回复：${said}` : '（响应里既无图也无文字）'}`);
+}
+async function genChatImg(cfg: OpenAIImgConfig, o: GenOpts): Promise<string> {
+  const key = cleanToken(cfg.apiKey);
+  if (!cfg.baseUrl || !key) throw new Error('请先在「生图API配置→多模态Chat出图」填写接口地址与 Key');
+  const parts: any[] = [{ type: 'text', text: o.prompt }];
+  for (const ref of o.refImages ?? []) parts.push({ type: 'image_url', image_url: { url: ref } });
+  // modalities：OpenRouter 必需、多数中转忽略未知字段；Gemini 官方 OpenAI 兼容层同样接受
+  const body: Record<string, unknown> = { model: cfg.model, messages: [{ role: 'user', content: parts }], modalities: ['image', 'text'] };
+  const { signal, clear } = withTimeout(o.signal, 600);
+  try {
+    const realUrl = cfg.baseUrl.replace(/\/$/, '') + '/chat/completions';
+    const res = await safeFetch(proxifyImg(cfg.corsProxy, realUrl), {
+      method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${key}` },
+      body: JSON.stringify(body), signal,
+    });
+    if (!res.ok) throw new Error(await httpFailMsg(res, '多模态出图失败'));
+    const data = await readImgJson(res, '多模态出图失败');
+    const image = extractChatImage(data);
+    if (image.startsWith('data:image/')) return image;
+    const r2 = await safeFetch(proxifyImg(cfg.corsProxy, image), { method: 'GET', signal });
+    if (!r2.ok) throw new Error(`多模态出图：接口返回了图片地址但下载失败 (${r2.status})`);
+    return u8ToDataUrl(new Uint8Array(await r2.arrayBuffer()), r2.headers.get('content-type') || undefined);
+  } finally { clear(); }
+}
+
 /* ───────── ComfyUI（提交→轮询→取图）───────── */
 function comfyBase(raw: string): string { return (raw || '').trim().replace(/\/+$/, ''); }
 function injectWorkflow(cfg: ComfyConfig, o: GenOpts): any {
@@ -517,6 +576,7 @@ export async function generateImage(service: ImgService, o: GenOpts): Promise<st
       case 'openai': return await genOpenAI(s.openai, o);
       case 'gemini': return await genOpenAI(s.gemini, o);
       case 'custom': return await genOpenAI(s.custom, o);
+      case 'chatimg': return await genChatImg(s.chatimg, o);
       case 'comfy': return await genComfy(s.comfy, o);
       default: throw new Error('未知生图服务');
     }

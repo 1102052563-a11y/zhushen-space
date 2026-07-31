@@ -138,7 +138,7 @@ import { useGame } from './store/gameStore';
 import { useSettings, resolveApiChain, inferViewScopes, type WorldbookConflict } from './store/settingsStore';
 import { runRegexReplace, compileFindRegex, regexScriptApplies, escapeRegexLiteral } from './systems/regexEngine';
 import { apiChatFallback, fetchWithProxy, abortAllApiCalls, narrativeLangDirective } from './systems/apiChat';
-import { parseAllStateUpdates, stripStateBlocks, parseAllItemCommands, applyItemCommands, parseAllCharCommands, applyCharacterCommands, parseAllNpcCommands, applyNpcCommands, parseAllFactionCommands, applyFactionCommands, applyTerritoryCommands, applyTeamCommands, isEquippable, lenientJsonParse, buildItemFeedback, recordEvo, purgeItemPhaseCurrency, editToTerritoryText, editToTeamText, detectUnregisteredCurrencyGains } from './systems/stateParser';
+import { parseAllStateUpdates, stripStateBlocks, parseAllItemCommands, applyItemCommands, parseAllCharCommands, applyCharacterCommands, parseAllNpcCommands, applyNpcCommands, parseAllFactionCommands, applyFactionCommands, applyTerritoryCommands, applyTeamCommands, isEquippable, lenientJsonParse, buildItemFeedback, recordEvo, purgeItemPhaseCurrency, editToTerritoryText, editToTeamText, detectUnregisteredCurrencyGains, deferredCreateSkipReason } from './systems/stateParser';
 import { isRealNpc, sanitizeEntryName, stripLeakedThinking, streamVisibleNarrative, setNpcPreferredOwners, applyStateUpdates, applyAllUpdates, stripKillBlocks, stripVitalsBlocks, stripWorldSourceBlocks, collapseRunaway } from './systems/stateApply';
 import { buildTableFillPrompt, buildPlotStateSnapshot } from './systems/tablePrompt';   // ACU 表格数据库：填表提示词 + 剧情状态快照（喂剧情指导）
 import { applyTableEdits } from './systems/tableEditParser';   // ACU 表格数据库：<tableEdit> → tableStore（手动补填阶段直接落库，不经 applyAllUpdates）
@@ -148,7 +148,7 @@ import { ensureSqliteMirror, needsSqlite } from './systems/tableSqlite';   // AC
 import { projectStoresToTables } from './systems/tableMigrate';   // 1c 镜像投影：project-on-read（发送前重投影，回合间的面板手改/交易/自愈也进表，读路径永不陈旧）
 import { healWatchdog } from './systems/ledger/watchdog';   // Step 10 看门狗·自愈（回合末集中跑现成 dedup 修复）
 import { preloadEventCores } from './systems/ledger/preloadCores';   // 阶段1：事件核心从 IndexedDB 载入（启动 await）
-import { snapshotPlayerBag, reconcilePlayerBag } from './systems/itemWatchdog';
+import { snapshotPlayerBag, reconcilePlayerBag, pruneBlankDupItems } from './systems/itemWatchdog';
 import { flattenAiText } from './systems/flattenAiText';
 import { runPhasePipeline, type Phase } from './systems/phasePipeline';
 import { buildFanficInjection, buildFactInjection, buildCosmosInjection, buildPlayerCoreInjection, buildWorldTimeInjection, buildQuestInjection, buildGuildInjection, buildCanonWorldInjection, buildSuxiaoTrackInjection } from './systems/promptInjections';
@@ -3730,7 +3730,21 @@ export default function App() {
     const pending = deferredCreatesRef.current;
     deferredCreatesRef.current = [];
     if (!pending.length) return;
-    const made = applyItemCommands(pending).filter((r) => r.ok && !r.skipped);
+    /* ⚠ 补建前必须先问「物品阶段是不是已经建过了」——它落地的那件常被润色（补前缀"暗金·"、品级"精良"→"绿色"、换分类），
+       创建闸门的严格判重（同名 + 品级互相包含）判不出重复，于是这里按正文原指令又补一条**只有名字、没有攻防词缀评分简介
+       的空壳** ⇒ 用户报的「同一件物品两条，一条有详细信息、一条没有」。设施已发放/账本/宽松同名三道判定见
+       deferredCreateSkipReason（货币伪物品靠账本那道防重复入账）。*/
+    const suppressNames = facilityGrantedRef.current ?? [];
+    const skipped: string[] = [];
+    const todo = pending.filter((c) => {
+      let why: string | null = null;
+      try { why = deferredCreateSkipReason(c, { suppressNames, turn: turnCountRef.current }); } catch { why = null; }
+      if (why) { const d: any = c.data ?? {}; const it = d.item ?? d; skipped.push(`${String(it['1'] ?? it.name ?? '?')} ← ${why}`); }
+      return !why;
+    });
+    if (skipped.length) console.log(`[Item] 延后建物对账：跳过 ${skipped.length} 条已落地的补建（防"同物两条·一条空壳"）`, skipped);
+    if (!todo.length) return;
+    const made = applyItemCommands(todo).filter((r) => r.ok && !r.skipped);
     if (made.length) {
       const names = made.map((r) => r.ref).filter(Boolean);
       console.warn(`[Item] 🛟 延后建物兜底：物品阶段未接住 ${made.length}/${pending.length} 件 → 已按正文原指令补建`, names);
@@ -9547,6 +9561,12 @@ ${lines}`;
         const rec = reconcilePlayerBag(bagSnapForReconcile);
         if (rec.restored > 0) setItemRecoverNotice(`🛟 物品守护：本回合演化中有 ${rec.restored} 件物品异常消失（未进「最近删除」），已自动找回 —— ${rec.names.join('、')}`);
       } catch (e) { console.warn('[Watchdog] 物品对账失败', e); }
+      // 空壳重复清理（收口安全网·在捞回之后跑）：同一件物品被建了两条——一条有完整详情、一条只有名字的空壳
+      // （正文简写 createItem 与物品阶段完整档写法漂了，各道判重逐一漏网）→ 把空壳并进完整那条（字段回填/可堆叠累加数量）。
+      try {
+        const pb = pruneBlankDupItems();
+        if (pb.removed > 0) setItemRecoverNotice(`🧹 物品守护：清理了 ${pb.removed} 条重复的空壳条目（同名已有完整档）—— ${pb.names.slice(0, 6).join('、')}`);
+      } catch (e) { console.warn('[Watchdog] 空壳重复清理失败', e); }
       if (turnCountRef.current !== snapTurn) return;
       // 非战斗回合：以正文末尾「当前HP/EP：X/Y」为**最终权威**——演化阶段全跑完后再压回一次主角+NPC 的 HP/EP，纠正演化把血量改写导致面板与正文末尾对不上。(战斗回合以战斗结算值为准。)
       if (!combatSettled) { try { applyNarrativeVitals(narrative); applyNarrativeNpcVitals(narrative); } catch (e) { console.warn('[Vitals] settle 后压回失败', e); } }

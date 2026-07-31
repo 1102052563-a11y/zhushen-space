@@ -11,6 +11,9 @@ export type ShareKind = 'skill' | 'talent' | 'equip' | 'item' | 'npc';
 /** 贴纸引用：只传白名单引用（内置 pack+id / https 外链 url / R2 hash），绝不传大图 data URI（见 ChatDO sticker 校验）。 */
 export interface StickerRef { pack?: string; id?: string; url?: string; hash?: string; w?: number; h?: number }
 
+/** 图片分享引用：图片本体先上传公共区（POST /api/chat/image → R2 内容寻址），线上只传 hash+尺寸+说明（见 ChatDO image 校验）。 */
+export interface ChatImageRef { hash: string; w?: number; h?: number; caption?: string }
+
 /** 在线名单条目（hello.roster / presence.roster 的元素）。 */
 export interface RosterEntry { playerId: string; name: string; hue?: number; avv?: number; ds?: string; nc?: string; du?: number }   // du=显示号(自定义靓号·0/缺省=用内部 uid)
 
@@ -28,6 +31,7 @@ export interface ChatMsg {
   system?: string;                        // 客户端本地合成（进/出/改名提示）—— 不走线
   share?: { kind: string; data: any };    // kind 在线上被 ChatDO 截断成普通字符串，故此处宽松为 string
   sticker?: StickerRef;
+  image?: ChatImageRef;                   // 图片分享（R2 hash 引用·「图片分享」频道为主，协议不限频道）
   reactions?: Record<string, string[]>;   // emoji -> playerId[]
 }
 
@@ -46,5 +50,6 @@ export type ChatOutbound =
   | { type: 'chat'; text: string }
   | { type: 'react'; id: string; emoji: string }
   | { type: 'sticker'; sticker: StickerRef }
+  | { type: 'image'; image: ChatImageRef }
   | { type: 'share'; kind: ShareKind; data: unknown }
   | { type: 'rename'; name: string };

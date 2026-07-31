@@ -26,6 +26,7 @@ import { useFactionEvo } from '../store/factionEvoStore';
 import { useTerritory } from '../store/territoryStore';
 import { useTeam } from '../store/adventureTeamStore';
 import { useImageGen } from '../store/imageGenStore';
+import { useComic } from '../store/comicStore';
 import { useTurnInsight } from '../store/turnInsightStore';
 import { useCharacters } from '../store/characterStore';
 import { useMemory } from '../store/memoryStore';
@@ -84,6 +85,7 @@ const STORES: { key: string; api: any; clear?: () => void }[] = [
   { key: 'drpg-territory',   api: useTerritory, clear: () => useTerritory.getState().clearTerritory() },
   { key: 'drpg-team',        api: useTeam, clear: () => useTeam.getState().clearTeam() },
   { key: 'drpg-image-gen',   api: useImageGen },   // 配置：保留（图片走 IndexedDB 单独清）
+  { key: 'drpg-comic',       api: useComic },      // 漫画工坊配置：保留（漫画本体在 IndexedDB drpg-comics，库房性质·不进快照不随新游戏清）
   { key: 'drpg-turn-insight', api: useTurnInsight, clear: () => useTurnInsight.getState().clear() },
   { key: 'drpg-characters', api: useCharacters, clear: () => useCharacters.setState({ characters: {} }) },
   { key: 'drpg-memory',     api: useMemory },      // 保留

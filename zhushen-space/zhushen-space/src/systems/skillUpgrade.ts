@@ -3,7 +3,7 @@ import { useEnhance } from '../store/enhanceStore';
 import { usePlayer } from '../store/playerStore';
 import { apiChatFallback } from './apiChat';
 import { lenientJsonParse } from './stateParser';
-import { SKILL_LEVELUP_PROMPT, SKILL_FUSION_RULE } from '../promptRules';
+import { SKILL_LEVELUP_PROMPT, SKILL_FUSION_RULE, SKILL_FUSION_NPC_RULE } from '../promptRules';
 import { getPrompt } from '../store/promptOverrideStore';   // 预设中心：主提示词 override
 import { SUBPROF_MASTERY_LADDER, SUBPROF_MASTERY_PER_SKILLPOINT } from '../store/subProfTreeStore';
 import { SKILL_RARITIES, TALENT_RARITIES, normalizeSkillLevel } from './skillLevelNorm';
@@ -183,7 +183,10 @@ export async function generateSkillUpgrade(o: SkillUpgradeOpts): Promise<SkillUp
 
 /* ════════════════════════════════════════════
    技能 / 天赋 融合（乐园设施·技能熔炉）systems/skillUpgrade.ts
-   - 主角把 2+ 个已有 技能/天赋 投入熔炉，熔铸成 1 个全新条目；来源可技能/天赋混合。
+   - 把某角色 2+ 个已有 技能/天赋 投入熔炉，熔铸成 1 个全新条目；来源可技能/天赋混合。
+   - **对象可以是主角，也可以是任意 NPC / 随从 / 宠物 / 召唤物**（opts.owner；不传=主角，行为与旧版一致）。
+     非主角时追加 SKILL_FUSION_NPC_RULE：强度锚定换成该角色自己的阶位/生物强度、不越主人、形态守恒。
+     UI 单一实现见 components/SkillFusionBox.tsx（主角面板与 NPC 详情共用）。
    - **产物类型（技能 or 天赋）由前端随机判定**（见面板 doFuse），传入 outKind；AI 只按指定类型生成内容，前端强制 schema。
    - 复用「装备强化所」API；提示词 SKILL_FUSION_RULE（含技能/天赋世界书 + 融合铁则）。
    - 结算：消耗来源(removeSkill/removeTrait) → 写入新条目(addSkill/addTrait) → setSkillUpNote 给正文一条一次性"已用掉"提示。
@@ -192,10 +195,23 @@ export async function generateSkillUpgrade(o: SkillUpgradeOpts): Promise<SkillUp
 export type FuseKind = 'skill' | 'talent';
 export interface FuseSource { kind: FuseKind; entry: Skill | Trait; }
 
+/** 熔铸对象（缺省=主角 B1，读 playerStore）。NPC/宠物/召唤物 传自己的档案 → 强度锚定换成它自己的阶位/生物强度。 */
+export interface FusionOwner {
+  id: string;            // 'B1' | C/G 编号
+  name: string;
+  tier?: string;         // 阶位（含 Lv）
+  identity?: string;     // 职业 / 身份
+  tag?: string;          // npcTag：契约者/土著/随从/宠物/召唤物（主角不填）
+  bioStrength?: string;  // 生物强度档（NPC 侧的强度锚）
+  bodyType?: string;     // 形态（召唤物形态守恒）
+  ownerName?: string;    // 主人显示名（随从/宠物/召唤物）
+}
+
 export interface SkillFusionOpts {
   sources: FuseSource[];   // 参与熔铸的技能/天赋（≥2）
   outKind: FuseKind;       // 前端已随机决定的产物类型（技能/天赋）
-  customInput: string;     // 主角自定义倾向（可空）
+  customInput: string;     // 自定义倾向（可空）
+  owner?: FusionOwner;     // 熔铸对象；不传=主角（原行为）
 }
 export interface SkillFusionResult {
   apply: Record<string, any>;  // 写回 addSkill/addTrait 的字段（不含 id/addedAt；已强制类型 schema）
@@ -214,23 +230,39 @@ export async function generateSkillFusion(o: SkillFusionOpts): Promise<SkillFusi
   }
 
   const prof: any = usePlayer.getState().profile ?? {};
+  const isPlayer = !o.owner || o.owner.id === 'B1';
+  const who = isPlayer ? (prof.name || '主角') : o.owner!.name;
   const outLabel = o.outKind === 'skill' ? '技能' : '天赋';
   const list = o.sources.map((s, i) => {
     const e: any = s.entry;
     return `${i + 1}. 【${s.kind === 'skill' ? '技能' : '天赋'}】${e.name}\n${JSON.stringify(e, null, 1)}`;
   }).join('\n\n');
 
+  // 熔铸对象抬头：主角保持原格式（零回归）；NPC/宠物/召唤物 换成带标签·主人·生物强度的抬头，强度锚定随之换人
+  const ownerHead = isPlayer
+    ? `【角色】${who}　阶位:${prof.tier || '—'}　职业:${prof.identity || '—'}　等级:Lv.${prof.level ?? '—'}`
+    : [`【熔铸对象·非主角】${who}[${o.owner!.id}]`,
+      o.owner!.tag && `　标签:${o.owner!.tag}`,
+      `　阶位:${o.owner!.tier || '—'}`,
+      o.owner!.identity && `　职业/身份:${o.owner!.identity}`,
+      o.owner!.bioStrength && `　生物强度档:${o.owner!.bioStrength}`,
+      o.owner!.bodyType && `　形态:${o.owner!.bodyType}`,
+      o.owner!.ownerName && `　主人:${o.owner!.ownerName}`,
+    ].filter(Boolean).join('') + `\n（产物的品级/数值一律锚定**这一位**的阶位与生物强度，不是主角的；也不得超过其主人同类能力的水准）`;
+
   const userMsg = [
-    `【角色】${prof.name || '主角'}　阶位:${prof.tier || '—'}　职业:${prof.identity || '—'}　等级:Lv.${prof.level ?? '—'}`,
+    ownerHead,
     `【参与熔铸的技能/天赋（共 ${o.sources.length} 个·含完整信息）】\n${list}`,
     `【本次熔铸产物类型】＝ **${outLabel}**（系统已随机判定，务必只产出「${outLabel}」类型的 JSON；技能与天赋可互相熔铸转化）`,
-    `【主角的自定义倾向】${o.customInput.trim() || '（未填写 —— 由你按各来源的共性主题与流派，自拟一个贴切且强力的熔铸方向）'}`,
+    `【${isPlayer ? '主角' : who}的自定义倾向】${o.customInput.trim() || '（未填写 —— 由你按各来源的共性主题与流派，自拟一个贴切且强力的熔铸方向）'}`,
     `【联网检索·必做】请先调用联网搜索（Google Search / 内置检索工具）检索各来源技能/天赋及同类经典游戏·小说·神话·动漫中相近技能天赋的机制与效果设计，博采众长以丰富本次熔铸产物的机制与效果库，再消化为贴合轮回乐园的原创效果（不照搬他作专有名词/数值，也不得借此突破品级与 attrBonus 上限；接口不支持联网时凭已有知识写到最丰富）。`,
-    `请把以上 ${o.sources.length} 个来源熔铸成**一个**全新的「${outLabel}」，严格按系统要求（先联网检索充实效果库、融会贯通再质变、忠于设定不浮夸、只输出 JSON 本体）。`,
+    `请把以上 ${o.sources.length} 个来源熔铸成**一个**全新的、属于 ${who} 的「${outLabel}」，严格按系统要求（先联网检索充实效果库、融会贯通再质变、忠于设定不浮夸、只输出 JSON 本体）。`,
   ].join('\n\n');
 
+  const sysPrompt = getPrompt('SKILL_FUSION_RULE', SKILL_FUSION_RULE)
+    + (isPlayer ? '' : '\n\n' + getPrompt('SKILL_FUSION_NPC_RULE', SKILL_FUSION_NPC_RULE));   // 非主角才追加（换锚点/不越主人/形态守恒）
   const { content } = await apiChatFallback(chain, [
-    { role: 'system', content: getPrompt('SKILL_FUSION_RULE', SKILL_FUSION_RULE) },
+    { role: 'system', content: sysPrompt },
     { role: 'user', content: userMsg },
   ], { timeoutMs: 150000 });
 

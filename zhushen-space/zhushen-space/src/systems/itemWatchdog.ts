@@ -94,3 +94,95 @@ export function reconcilePlayerBag(snap: BagSnapshot | null | undefined): { rest
   if (names.length) console.warn(`[Watchdog] ${names.length} 件物品在演化阶段静默消失（不在最近删除、未登记、非合并），已自动捞回：`, names);
   return { restored: names.length, names };
 }
+
+/* ── Phase 1c「空壳重复清理」──────────────────────────────────────────────
+ * 症状：同一件物品在背包里躺着两条 —— 一条**有详细信息**（物品阶段按固定格式生成：攻防/词缀/评分/简介齐全），
+ * 一条**只有名字/分类/品级**的空壳（正文简写 createItem 的形状）。成因是两条写法漂了（改名/换品级/换分类），
+ * 各道判重（findIdenticalItem 同名+品级包含 / findStackTarget 同名+同分类 / dedupeByName 同名+同品级）逐一漏网。
+ * 前面已在源头拦（deferredCreateSkipReason），这里是**收口安全网**：漏进来的、以及老存档里已经躺着的，回合末扫掉。
+ *
+ * 保守到近乎苛刻——「同名两件真装备」是合法的独立实例，悄悄吞掉一件就是老病根"经常丢装备"：
+ *   · 只在【同一个背包内】比对；已装备 / 已锁定 / 已归档 的条目一律不参与（既不当空壳、也不当被并入方）。
+ *   · 空壳方必须**一条实质细节都没有**（攻防/词缀/评分/简介/需求/耐久/强化/宝石全空）；
+ *   · 留下方必须**至少有两条**实质细节（确实是"完整档"，不是两条都半残时乱挑一条）；
+ *   · 并入前把空壳独有的字段（如正文写的获得方式）**回填**给留下方，可堆叠物再把数量累加 → 信息与数量都不丢。
+ * 返回清理件数与名称。*/
+const DETAIL_KEYS = ['combatStat', 'affix', 'score', 'intro', 'requirement', 'durability', 'killCount'] as const;
+function detailCount(it: any): number {
+  let n = DETAIL_KEYS.filter((k) => String(it?.[k] ?? '').trim()).length;
+  if ((Number(it?.enhanceLevel) || 0) > 0) n++;
+  if (Array.isArray(it?.gems) && it.gems.length > 0) n++;
+  return n;
+}
+/** 与 stateParser.looseSameName 同口径的保守同名判定（全等 / 一方包含另一方），不做相似度猜测。 */
+function sameNameLoose(a?: string, b?: string): boolean {
+  const x = norm(a), y = norm(b);
+  if (!x || !y || x.length < 2 || y.length < 2) return false;
+  return x === y || x.includes(y) || y.includes(x);
+}
+/** 把空壳独有字段回填进留下方（只填留下方缺的），可堆叠则累加数量。 */
+function absorb(rich: any, blank: any, stackable: boolean): any {
+  const out: any = { ...rich };
+  for (const k of ['effect', 'gradeDesc', 'category', 'subType', 'origin', 'acquisition', 'notes', 'appearance', 'tags']) {
+    const rv = out[k], bv = blank?.[k];
+    const richEmpty = Array.isArray(rv) ? rv.length === 0 : !String(rv ?? '').trim();
+    const blankHas = Array.isArray(bv) ? bv.length > 0 : !!String(bv ?? '').trim();
+    if (richEmpty && blankHas) out[k] = bv;
+  }
+  if (stackable) out.quantity = (Number(rich.quantity) || 1) + (Number(blank?.quantity) || 1);
+  return out;
+}
+/** 在一个背包里找出「空壳重复」并就地合并，返回新数组（无改动则返回原数组）+ 被清掉的名字。 */
+function pruneBlanksIn(list: any[]): { items: any[]; removed: string[] } {
+  const removed: string[] = [];
+  const free = (it: any) => it && !it.equipped && !it.equipSlot && !it.locked && !it.archived;
+  const blanks = (list ?? []).filter((it) => free(it) && detailCount(it) === 0);
+  if (blanks.length === 0) return { items: list, removed };
+  const drop = new Map<string, any>();      // 空壳 id → 留下方
+  for (const b of blanks) {
+    const rich = (list ?? []).find((it) =>
+      it.id !== b.id && free(it) && detailCount(it) >= 2 && !drop.has(it.id) && sameNameLoose(it.name, b.name));
+    if (rich) drop.set(b.id, rich);
+  }
+  if (drop.size === 0) return { items: list, removed };
+  const merged = new Map<string, any>();    // 留下方 id → 吸收后的新对象
+  for (const [blankId, rich] of drop) {
+    const b = list.find((it) => it.id === blankId);
+    const base = merged.get(rich.id) ?? rich;
+    merged.set(rich.id, absorb(base, b, isStackableCat(b?.category) && isStackableCat(rich.category)));
+    removed.push(b?.name ?? blankId);
+  }
+  const items = list
+    .filter((it) => !drop.has(it.id))
+    .map((it) => merged.get(it.id) ?? it);
+  return { items, removed };
+}
+
+/** 回合末调用：清理主角背包 + 各 NPC 持有物里的「空壳重复」条目。返回清理件数与名称。 */
+export function pruneBlankDupItems(): { removed: number; names: string[] } {
+  const names: string[] = [];
+  try {
+    const cur = useItems.getState().items;
+    const r = pruneBlanksIn(cur);
+    if (r.removed.length) {
+      useItems.setState({ items: r.items as InventoryItem[] });
+      const turn = useItems.getState().itemTurn;
+      for (const n of r.removed) { names.push(n); logItemEvent(turn, '空壳重复清理', n, '与同名完整条目重复（无攻防/词缀/评分/简介等实质内容）→ 已并入完整条目'); }
+    }
+  } catch (e) { console.warn('[Watchdog] 主角背包空壳清理失败', e); }
+  try {
+    for (const [id, rec] of Object.entries(useNpc.getState().npcs)) {
+      const r = pruneBlanksIn((rec as any).items ?? []);
+      if (!r.removed.length) continue;
+      useNpc.setState((s) => {
+        const cur: any = s.npcs[id];
+        if (!cur) return s;
+        return { npcs: { ...s.npcs, [id]: { ...cur, items: r.items, updatedAt: Date.now() } } };
+      });
+      const turn = useItems.getState().itemTurn;
+      for (const n of r.removed) { names.push(`${n}(${(rec as any).name || id})`); logItemEvent(turn, '空壳重复清理', n, `NPC ${id} 处与同名完整条目重复 → 已并入`); }
+    }
+  } catch (e) { console.warn('[Watchdog] NPC 空壳清理失败', e); }
+  if (names.length) console.warn(`[Watchdog] 🧹 清理 ${names.length} 条空壳重复物品（同名已有完整档，空壳侧字段已回填/数量已累加）：`, names);
+  return { removed: names.length, names };
+}

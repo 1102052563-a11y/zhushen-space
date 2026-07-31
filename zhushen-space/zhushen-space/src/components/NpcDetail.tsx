@@ -1,6 +1,8 @@
 import { useState, useRef, useEffect, createContext, useContext, type ReactNode } from 'react';
 import { useNpc, type NpcRecord } from '../store/npcStore';
 import { isPetLike, isCompanionTag, ownerOf } from '../systems/petEvolution';   // 宠物/召唤物专属「培养」按钮门控 + 主人登记（归属外键）
+import SkillFusionBox from './SkillFusionBox';                                 // 技能熔炉（与主角面板同一实现·熔铸对象=该NPC/宠物自己）
+import type { FusionOwner } from '../systems/skillUpgrade';
 import { stageOf, type DispAxis } from '../systems/dispositionGuard';
 import { useCharacters, RARITY_CLS, ELEMENT_CLS, SKILL_TIER_CLS, normSkillTier, type Deed } from '../store/characterStore';
 import { computeDerived, lvFromRealm, normalizeTier, tierFxClass, realmFromLevel, effectiveResource, fullMaxHp, fullMaxEp, TIERS, realAttrCapForTier, realAttrMult, attrCapForTier, ratioOf, hpCoefOf, epCoefOf, vitalFormula, npcBaseAttrs } from '../systems/derivedStats';
@@ -113,6 +115,22 @@ export default function NpcDetail({
   const traits = cdata?.traits ?? [];
   // 竞技对手（世界竞技场物化对手 / 局部竞技场对手）强制只读：玩家不得编辑/删除/取走其他玩家上传角色的物品/技能/天赋/装备。
   const effPreview = preview || npc.npcTag === '竞技对手';
+
+  // 技能熔炉的熔铸对象＝这个 NPC/宠物/召唤物 自己（强度锚定它的阶位/生物强度，而非主角；随行者另标主人）
+  const fusionOwner: FusionOwner = {
+    id: npc.id,
+    name: (npc.name || npc.id).split('|')[0].trim(),
+    tier: npc.realm,
+    identity: npc.profession || (npc.realm || '').split('|')[1]?.trim(),
+    tag: npc.npcTag,
+    bioStrength: npc.bioStrength,
+    bodyType: npc.bodyType,
+    ownerName: isCompanionTag(npc)
+      ? (ownerOf(npc) === 'B1'
+        ? `${usePlayer.getState().profile?.name || '主角'}(主角)`
+        : `${useNpc.getState().npcs[ownerOf(npc)]?.name || ownerOf(npc)}(${ownerOf(npc)})`)
+      : undefined,
+  };
 
   const idx = list.findIndex((r) => r.id === npc.id);
   const realm = parseRealm(npc.realm);
@@ -338,8 +356,8 @@ export default function NpcDetail({
           {tab === 'attr'     && <AttrTab npc={npc} realm={realm} />}
           {tab === 'bag'      && <ItemsTab items={bag} empty="储存空间空空如也" ownerId={npc.id} ownerName={npc.name} ownerGender={npc.gender} onClear={() => clearNpcBag(npc.id)} />}
           {tab === 'equip'    && <NpcEquip npc={npc} />}
-          {tab === 'skill'    && <SkillTab skills={skills} charId={npc.id} readOnly={effPreview} />}
-          {tab === 'trait'    && <TraitTab traits={traits} charId={npc.id} readOnly={effPreview} />}
+          {tab === 'skill'    && <SkillTab skills={skills} charId={npc.id} readOnly={effPreview} fusion={effPreview ? undefined : { owner: fusionOwner, skills, traits }} />}
+          {tab === 'trait'    && <TraitTab traits={traits} charId={npc.id} readOnly={effPreview} fusion={effPreview ? undefined : { owner: fusionOwner, skills, traits }} />}
           {tab === 'relation' && <RelationTab npc={npc} list={list} onSelect={onSelect} />}
           {tab === 'history'  && <HistoryTab npc={npc} />}
           </>
@@ -1816,10 +1834,30 @@ function NpcSkillCard({ sk, charId, readOnly }: { sk: ReturnType<typeof useChara
     </div>
   );
 }
-function SkillTab({ skills, charId, readOnly }: { skills: ReturnType<typeof useCharacters.getState>['characters'][string]['skills']; charId: string; readOnly?: boolean }) {
+/* 技能熔炉入口（技能/天赋栏共用）：折叠区块，展开即渲染与主角同款的 SkillFusionBox——
+   熔铸对象是这个 NPC/宠物/召唤物 自己（写进它自己的技能/天赋列表·强度锚它自己的阶位）。只读预览不给。 */
+function FusionSection({ fusion }: { fusion: { owner: FusionOwner; skills: any[]; traits: any[] } }) {
+  const [open, setOpen] = useState(false);
+  const total = fusion.skills.length + fusion.traits.length;
+  return (
+    <div className="rounded-lg border border-amber-500/30 bg-amber-500/5">
+      <button onClick={() => setOpen((v) => !v)}
+        title="把该角色的 2+ 个技能/天赋熔铸成一个全新条目（调用 AI·产物类型随机·可撤回）"
+        className="w-full flex items-center gap-2 px-3 py-1.5 text-[13px] font-mono text-amber-200/90 hover:text-amber-200 transition-colors">
+        <span>🔮 技能熔炉 · 融合技能/天赋</span>
+        <span className="text-[11px] text-dim/50">（{total} 个可投入）</span>
+        <span className="ml-auto text-[11px] opacity-40">{open ? '▲' : '▼'}</span>
+      </button>
+      {open && <div className="px-3 pb-3 pt-1 border-t border-amber-500/20"><SkillFusionBox owner={fusion.owner} skills={fusion.skills} traits={fusion.traits} /></div>}
+    </div>
+  );
+}
+
+function SkillTab({ skills, charId, readOnly, fusion }: { skills: ReturnType<typeof useCharacters.getState>['characters'][string]['skills']; charId: string; readOnly?: boolean; fusion?: { owner: FusionOwner; skills: any[]; traits: any[] } }) {
   const [adding, setAdding] = useState(false);
   return (
     <div className="space-y-2">
+      {fusion && <FusionSection fusion={fusion} />}
       {!readOnly && (adding
         ? <div className="rounded-lg border border-god/40 bg-panel/60 px-3 py-2">
             <div className="text-[13px] font-semibold text-god/80">＋ 新增技能（手动填写）</div>
@@ -1878,10 +1916,11 @@ function NpcTalentCard({ t, charId, readOnly }: { t: ReturnType<typeof useCharac
     </div>
   );
 }
-function TraitTab({ traits, charId, readOnly }: { traits: ReturnType<typeof useCharacters.getState>['characters'][string]['traits']; charId: string; readOnly?: boolean }) {
+function TraitTab({ traits, charId, readOnly, fusion }: { traits: ReturnType<typeof useCharacters.getState>['characters'][string]['traits']; charId: string; readOnly?: boolean; fusion?: { owner: FusionOwner; skills: any[]; traits: any[] } }) {
   const [adding, setAdding] = useState(false);
   return (
     <div className="space-y-2">
+      {fusion && <FusionSection fusion={fusion} />}
       {!readOnly && (adding
         ? <div className="rounded-lg border border-god/40 bg-panel/60 px-3 py-2">
             <div className="text-[13px] font-semibold text-god/80">＋ 新增天赋（手动填写）</div>

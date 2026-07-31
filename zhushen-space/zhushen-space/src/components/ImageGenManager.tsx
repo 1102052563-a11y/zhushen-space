@@ -1,5 +1,10 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useImageGen, IMG_SERVICES, type ImgService, type OpenAIImgConfig, DEFAULT_IMG_CORS_PROXY } from '../store/imageGenStore';
+import { useComic, useComicJob } from '../store/comicStore';
+import { listFloors, generateComic, cancelComic, retryMissingPages, redrawPage, type FloorInfo } from '../systems/comic';
+import { listBatches, pagesOfBatch, deleteBatch, type ComicBatch, type ComicPage as ComicPageRec } from '../systems/comicDb';
+import { collectGallery, GALLERY_KINDS, type GalleryGroup, type GalleryKind } from '../systems/gallery';
+import { shareImageToChannel } from '../systems/chatImages';
 import ApiRoutePicker from './ApiRoutePicker';
 
 const inputCls = 'w-full bg-void border border-edge rounded px-2 py-1 text-[13px] font-mono text-slate-200 outline-none focus:border-god';
@@ -150,6 +155,12 @@ function ApiConfigPage() {
         {svc === 'openai' && <OpenAIImgFields cfg={s.openai} set={s.setOpenai} />}
         {svc === 'gemini' && <OpenAIImgFields cfg={s.gemini} set={s.setGemini} />}
         {svc === 'custom' && <OpenAIImgFields cfg={s.custom} set={s.setCustom} />}
+        {svc === 'chatimg' && (
+          <div className="space-y-2">
+            <div className="text-[12px] text-dim/50 leading-relaxed">多模态 Chat 出图：走 <span className="font-mono">chat/completions</span>，请求里可带参考图、从回复里提图——nano-banana 系（gemini-2.5-flash-image 等）中转/OpenRouter 都是这种用法。漫画工坊推荐用这条线（能发角色立绘当参考图锁长相）。</div>
+            <OpenAIImgFields cfg={s.chatimg} set={s.setChatImg} />
+          </div>
+        )}
         {svc === 'comfy' && (
           <div className="space-y-2">
             <Field label="ComfyUI 地址"><input value={s.comfy.apiUrl} onChange={(e) => s.setComfy({ apiUrl: e.target.value })} placeholder="http://127.0.0.1:8188" className={inputCls} /></Field>
@@ -265,12 +276,262 @@ function StoryPage() {
   );
 }
 
-type Tab = 'api' | 'portrait' | 'equip' | 'story';
+/* ── 子页5：漫画工坊（楼层剧情 → 分镜 JSON → 并发绘画 → 漫画库/阅读器）── */
+function ComicTabPage() {
+  const cs = useComic();
+  const job = useComicJob();
+  const [floors, setFloors] = useState<FloorInfo[]>([]);
+  const [selStart, setSelStart] = useState(0);
+  const [selEnd, setSelEnd] = useState(0);
+  const [batches, setBatches] = useState<ComicBatch[]>([]);
+  const [activeBatch, setActiveBatch] = useState('');
+  const [pages, setPages] = useState<ComicPageRec[]>([]);
+  const [pageIdx, setPageIdx] = useState(0);
+  const [showPrompt, setShowPrompt] = useState(false);
+  const [busy, setBusy] = useState('');
+
+  useEffect(() => {
+    void listFloors().then((fs) => {
+      setFloors(fs);
+      if (fs.length) { setSelEnd(fs[fs.length - 1].no); setSelStart(fs[Math.max(0, fs.length - 3)].no); }
+    });
+  }, []);
+  useEffect(() => { void listBatches().then(setBatches); }, [job.doneAt]);
+  useEffect(() => { if (job.batchId && !job.running) setActiveBatch(job.batchId); }, [job.batchId, job.running]);
+  function loadPages(batchId: string) {
+    if (!batchId) { setPages([]); return; }
+    void pagesOfBatch(batchId).then((ps) => { setPages(ps); setPageIdx((i) => Math.min(i, Math.max(0, ps.length - 1))); });
+  }
+  useEffect(() => { loadPages(activeBatch); setPageIdx(0); setShowPrompt(false); }, [activeBatch, job.doneAt]);
+
+  const chosen = floors.filter((f) => f.no >= selStart && f.no <= selEnd).map((f) => f.no);
+  const curBatch = batches.find((b) => b.id === activeBatch);
+  const cur = pages[pageIdx];
+  const missing = curBatch ? Math.max(0, curBatch.pageTotal - pages.length) : 0;
+  const statusCls: Record<string, string> = { pending: 'text-dim/50 border-edge', drawing: 'text-amber-300 border-amber-400/40', ok: 'text-emerald-300 border-emerald-400/40', fail: 'text-red-300 border-red-400/40' };
+  const statusTxt: Record<string, string> = { pending: '排队', drawing: '绘制中', ok: '✓', fail: '✗' };
+
+  async function onRedraw() {
+    if (!cur || busy) return;
+    setBusy(`重绘第 ${cur.page} 页中…`);
+    try { await redrawPage(activeBatch, cur.page); loadPages(activeBatch); }
+    catch (e: any) { setBusy(''); window.alert('重绘失败：' + (e?.message || String(e))); return; }
+    setBusy('');
+  }
+  async function onDeleteBatch() {
+    if (!curBatch) return;
+    if (!window.confirm(`删除漫画《${curBatch.title}》全部 ${pages.length} 页？此操作不可恢复。`)) return;
+    await deleteBatch(curBatch.id);
+    setActiveBatch('');
+    void listBatches().then(setBatches);
+  }
+
+  return (
+    <div className="space-y-4 max-w-2xl">
+      {/* 制作 */}
+      <div className="rounded-lg border border-edge bg-panel p-3 space-y-3">
+        <div className="text-sm text-god font-mono">📖 制作漫画</div>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+          <Field label="起始楼层">
+            <select value={selStart} onChange={(e) => setSelStart(parseInt(e.target.value) || 0)} className={inputCls}>
+              {floors.map((f) => <option key={f.no} value={f.no}>楼{f.no} · {f.preview}…</option>)}
+            </select>
+          </Field>
+          <Field label="结束楼层">
+            <select value={selEnd} onChange={(e) => setSelEnd(parseInt(e.target.value) || 0)} className={inputCls}>
+              {floors.map((f) => <option key={f.no} value={f.no}>楼{f.no} · {f.preview}…</option>)}
+            </select>
+          </Field>
+        </div>
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+          <Field label="漫画服务"><ServiceSelect value={cs.service} onChange={(v) => cs.set({ service: v })} /></Field>
+          <Field label="页数(1~4)"><input type="number" min={1} max={4} value={cs.pageCount} onChange={(e) => cs.set({ pageCount: Math.min(4, Math.max(1, parseInt(e.target.value) || 2)) })} className={inputCls} /></Field>
+          <Field label="页面尺寸"><input value={cs.size} onChange={(e) => cs.set({ size: e.target.value })} placeholder="832x1216" className={inputCls} /></Field>
+          <Field label="文字语言"><input value={cs.language} onChange={(e) => cs.set({ language: e.target.value })} placeholder="zh-CN" className={inputCls} /></Field>
+        </div>
+        <Row title="角色立绘当参考图" desc="把出场角色的立绘/头像发给绘画模型锁长相（仅「多模态Chat出图」服务生效，上限4张）" checked={cs.sendCharRefs} onChange={() => cs.set({ sendCharRefs: !cs.sendCharRefs })} />
+        <Row title="送审软化" desc="直白亲密/血腥转含蓄画面语言，防分镜与绘画模型拒答（只软化画面表达，不改剧情事实）" checked={cs.soften} onChange={() => cs.set({ soften: !cs.soften })} />
+        <div>
+          <div className="text-[12px] font-mono text-dim/60 mb-1">分镜 LLM 路由（剧情 → 分镜 JSON；推荐配一个强文本模型，留空回退正文 API）</div>
+          <ApiRoutePicker routeKey="comic_storyboard_llm" />
+        </div>
+        <Field label="负面提示词（NAI/ComfyUI 线用；多模态Chat线忽略）"><textarea rows={2} value={cs.negative} onChange={(e) => cs.set({ negative: e.target.value })} className={inputCls + ' resize-y'} /></Field>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => { void generateComic(chosen).catch(() => undefined); }}
+            disabled={job.running || !chosen.length}
+            className="px-4 py-1.5 text-sm font-mono border border-god/50 text-god rounded hover:bg-god/10 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+          >✨ 生成漫画（{chosen.length} 楼 → {cs.pageCount} 页）</button>
+          {job.running && <button onClick={cancelComic} className="px-3 py-1.5 text-sm font-mono border border-red-400/50 text-red-300 rounded hover:bg-red-400/10 transition-colors">取消</button>}
+        </div>
+        {(job.running || job.phase) && (
+          <div className="rounded border border-edge bg-void p-2 space-y-1.5">
+            <div className="text-[12px] font-mono text-slate-300">{job.running ? '⏳ ' : ''}{job.phase}</div>
+            {job.pages.length > 0 && (
+              <div className="flex flex-wrap gap-1">
+                {job.pages.map((p) => (
+                  <span key={p.page} title={p.error || ''} className={`px-1.5 py-0.5 text-[11px] font-mono border rounded ${statusCls[p.status]}`}>P{p.page} {statusTxt[p.status]}</span>
+                ))}
+              </div>
+            )}
+            {job.pages.some((p) => p.status === 'fail') && (
+              <div className="text-[11px] text-red-300/80">{job.pages.filter((p) => p.status === 'fail').map((p) => `第${p.page}页：${(p.error || '').slice(0, 80)}`).join('；')}</div>
+            )}
+          </div>
+        )}
+        <div className="text-[12px] text-dim/50 leading-relaxed">流程：所选楼层正文（自动剥游戏数据）＋角色档案外观 → 分镜 LLM 出严格 JSON（每页提示词自包含）→ 并发错峰绘画 → 存入下方漫画库。生成在后台进行，关掉本面板不影响。</div>
+      </div>
+
+      {/* 漫画库 + 阅读器 */}
+      <div className="rounded-lg border border-edge bg-panel p-3 space-y-3">
+        <div className="text-sm text-god font-mono">🗂 漫画库（存浏览器本地·不占存档体积·清进度不清漫画）</div>
+        {batches.length === 0 && <div className="text-[12px] text-dim/50">还没有漫画。选好楼层点上面「生成漫画」。</div>}
+        {batches.length > 0 && (
+          <div className="space-y-1 max-h-44 overflow-y-auto">
+            {batches.map((b) => (
+              <button key={b.id} onClick={() => setActiveBatch(b.id === activeBatch ? '' : b.id)}
+                className={`w-full text-left px-2 py-1.5 rounded border transition-colors ${b.id === activeBatch ? 'border-god/40 bg-god/5' : 'border-edge hover:border-god/20'}`}>
+                <div className="text-[13px] text-slate-200">《{b.title}》 <span className="text-[11px] text-dim/60">{b.pageTotal} 页{b.status === 'partial' ? ' · ⚠ 有缺页' : ''}</span></div>
+                <div className="text-[11px] text-dim/50 font-mono">楼{b.sourceFloors[0]}-{b.sourceFloors[b.sourceFloors.length - 1]} · {new Date(b.createdAt).toLocaleString()} · {b.sourceDigest.slice(0, 30)}…</div>
+              </button>
+            ))}
+          </div>
+        )}
+        {curBatch && (
+          <div className="space-y-2 border-t border-edge pt-2">
+            {pages.length === 0 && <div className="text-[12px] text-dim/50">本批还没有成图{missing > 0 ? `（缺 ${missing} 页，点下方「补齐缺页」）` : ''}。</div>}
+            {cur && (
+              <>
+                <div className="rounded border border-edge bg-void p-1">
+                  <img src={cur.dataUrl} alt={`第${cur.page}页`} className="max-h-[70vh] w-auto max-w-full mx-auto object-contain" />
+                </div>
+                <div className="flex items-center justify-center gap-2 flex-wrap">
+                  <button onClick={() => setPageIdx((i) => Math.max(0, i - 1))} disabled={pageIdx <= 0} className="px-3 py-1 text-sm font-mono border border-edge rounded text-slate-200 hover:border-god/40 disabled:opacity-30">← 上页</button>
+                  <span className="text-[12px] font-mono text-dim/70">第 {cur.page} / {curBatch.pageTotal} 页</span>
+                  <button onClick={() => setPageIdx((i) => Math.min(pages.length - 1, i + 1))} disabled={pageIdx >= pages.length - 1} className="px-3 py-1 text-sm font-mono border border-edge rounded text-slate-200 hover:border-god/40 disabled:opacity-30">下页 →</button>
+                </div>
+                <div className="flex items-center justify-center gap-2 flex-wrap text-[12px] font-mono">
+                  <button onClick={() => { void onRedraw(); }} disabled={!!busy} className="px-2 py-1 border border-edge rounded text-dim hover:text-god hover:border-god/40 disabled:opacity-40">{busy || '🎨 重绘本页'}</button>
+                  <button onClick={() => setShowPrompt((v) => !v)} className="px-2 py-1 border border-edge rounded text-dim hover:text-god hover:border-god/40">{showPrompt ? '收起提示词' : '📋 查看提示词'}</button>
+                  <a href={cur.dataUrl} download={`${curBatch.title}-P${cur.page}.png`} className="px-2 py-1 border border-edge rounded text-dim hover:text-god hover:border-god/40">⬇ 下载本页</a>
+                </div>
+                {showPrompt && <pre className="text-[11px] text-dim/70 bg-void border border-edge rounded p-2 whitespace-pre-wrap max-h-52 overflow-y-auto">{cur.finalPrompt || cur.pagePrompt}</pre>}
+              </>
+            )}
+            <div className="flex items-center gap-2 flex-wrap text-[12px] font-mono">
+              {missing > 0 && <button onClick={() => { void retryMissingPages(curBatch.id).catch(() => undefined); }} disabled={job.running} className="px-2 py-1 border border-amber-400/40 text-amber-300 rounded hover:bg-amber-400/10 disabled:opacity-40">🩹 补齐缺页（{missing}）</button>}
+              <button onClick={() => { void onDeleteBatch(); }} className="px-2 py-1 border border-red-400/40 text-red-300 rounded hover:bg-red-400/10">🗑 删除本批</button>
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+/* ── 子页6：图片库（聚合已生成图片·按名字分组浏览·漫画自成一类）── */
+function GalleryTabPage() {
+  const [groups, setGroups] = useState<GalleryGroup[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [kindFilter, setKindFilter] = useState<'all' | GalleryKind>('all');
+  const [box, setBox] = useState<{ group: GalleryGroup; idx: number } | null>(null);
+  const [boxPrompt, setBoxPrompt] = useState(false);
+  const [shareBusy, setShareBusy] = useState(false);
+  const [shareMsg, setShareMsg] = useState('');
+
+  function refresh() {
+    setLoading(true);
+    void collectGallery().then((g) => { setGroups(g); setLoading(false); }).catch(() => setLoading(false));
+  }
+  useEffect(() => { refresh(); }, []);
+
+  const totalImgs = groups.reduce((s, g) => s + g.images.length, 0);
+  const kindsPresent = GALLERY_KINDS.filter((k) => groups.some((g) => g.kind === k.key));
+  const cur = box ? box.group.images[box.idx] : null;
+
+  function openBox(group: GalleryGroup, idx = 0) { setBox({ group, idx }); setBoxPrompt(false); setShareMsg(''); }
+  function moveBox(delta: number) {
+    setBox((b) => (b ? { group: b.group, idx: Math.min(b.group.images.length - 1, Math.max(0, b.idx + delta)) } : b));
+    setBoxPrompt(false); setShareMsg('');
+  }
+  async function onShareToChat() {
+    if (!box || !cur || shareBusy) return;
+    setShareBusy(true); setShareMsg('');
+    try {
+      await shareImageToChannel(cur.url, `${box.group.name} · ${cur.caption}`);
+      setShareMsg('✓ 已分享到交流室「🖼 图片分享」频道');
+    } catch (e: any) { setShareMsg('✗ ' + (e?.message || '分享失败')); }
+    setShareBusy(false);
+  }
+
+  return (
+    <div className="space-y-4 max-w-2xl">
+      <div className="flex items-center justify-between gap-2 flex-wrap">
+        <div className="flex gap-1 flex-wrap">
+          <button onClick={() => setKindFilter('all')} className={`px-2.5 py-1 text-[12px] font-mono rounded border transition-colors ${kindFilter === 'all' ? 'border-god/40 text-god bg-god/10' : 'border-edge text-dim hover:text-slate-200'}`}>全部（{totalImgs}）</button>
+          {kindsPresent.map((k) => (
+            <button key={k.key} onClick={() => setKindFilter(k.key)} className={`px-2.5 py-1 text-[12px] font-mono rounded border transition-colors ${kindFilter === k.key ? 'border-god/40 text-god bg-god/10' : 'border-edge text-dim hover:text-slate-200'}`}>
+              {k.label}（{groups.filter((g) => g.kind === k.key).reduce((s, g) => s + g.images.length, 0)}）
+            </button>
+          ))}
+        </div>
+        <button onClick={refresh} className="px-2 py-1 text-[12px] font-mono border border-edge rounded text-dim hover:text-god hover:border-god/40 transition-colors">⟳ 刷新</button>
+      </div>
+      {loading && <div className="text-[12px] text-dim/50">读取图片库…</div>}
+      {!loading && totalImgs === 0 && <div className="text-[12px] text-dim/50">还没有图片——立绘/装备图/正文配图/漫画生成后都会出现在这里。</div>}
+
+      {!loading && GALLERY_KINDS.filter((k) => kindFilter === 'all' || kindFilter === k.key).map((k) => {
+        const list = groups.filter((g) => g.kind === k.key);
+        if (!list.length) return null;
+        return (
+          <div key={k.key} className="rounded-lg border border-edge bg-panel p-3 space-y-2">
+            <div className="text-sm text-god font-mono">{k.label}<span className="text-[11px] text-dim/50 ml-2">{list.length} 组</span></div>
+            <div className="grid grid-cols-3 sm:grid-cols-4 gap-2">
+              {list.map((g) => (
+                <button key={g.key} onClick={() => openBox(g)} className="group text-left rounded border border-edge hover:border-god/40 overflow-hidden bg-void transition-colors" title={g.name}>
+                  <div className="h-24 overflow-hidden flex items-center justify-center">
+                    <img src={g.images[0].url} alt={g.name} loading="lazy" className="w-full h-full object-cover group-hover:scale-105 transition-transform" />
+                  </div>
+                  <div className="px-1.5 py-1 text-[11px] font-mono text-slate-300 truncate">
+                    {g.name}{g.images.length > 1 && <span className="text-dim/50"> ×{g.images.length}</span>}
+                  </div>
+                </button>
+              ))}
+            </div>
+          </div>
+        );
+      })}
+
+      {/* 灯箱 */}
+      {box && cur && (
+        <div className="fixed inset-0 z-50 bg-black/85 flex flex-col items-center justify-center p-4" onClick={() => setBox(null)}>
+          <div className="max-w-3xl w-full max-h-full flex flex-col items-center gap-2" onClick={(e) => e.stopPropagation()}>
+            <img src={cur.url} alt={box.group.name} className="max-h-[72vh] w-auto max-w-full object-contain rounded" />
+            <div className="text-[13px] font-mono text-slate-200">{box.group.name} <span className="text-dim/60">· {cur.caption}（{box.idx + 1}/{box.group.images.length}）</span></div>
+            <div className="flex items-center gap-2 flex-wrap justify-center text-[12px] font-mono">
+              <button onClick={() => moveBox(-1)} disabled={box.idx <= 0} className="px-3 py-1 border border-edge rounded text-slate-200 hover:border-god/40 disabled:opacity-30">← 上一张</button>
+              <button onClick={() => moveBox(1)} disabled={box.idx >= box.group.images.length - 1} className="px-3 py-1 border border-edge rounded text-slate-200 hover:border-god/40 disabled:opacity-30">下一张 →</button>
+              {cur.prompt && <button onClick={() => setBoxPrompt((v) => !v)} className="px-2 py-1 border border-edge rounded text-dim hover:text-god hover:border-god/40">{boxPrompt ? '收起提示词' : '📋 提示词'}</button>}
+              <a href={cur.url} download={`${box.group.name}-${cur.caption}.png`.replace(/[\\/:*?"<>|]/g, '_')} className="px-2 py-1 border border-edge rounded text-dim hover:text-god hover:border-god/40">⬇ 下载</a>
+              <button onClick={() => { void onShareToChat(); }} disabled={shareBusy} className="px-2 py-1 border border-edge rounded text-dim hover:text-god hover:border-god/40 disabled:opacity-40">{shareBusy ? '⏳ 分享中…' : '📤 分享到交流室'}</button>
+              <button onClick={() => setBox(null)} className="px-2 py-1 border border-edge rounded text-dim hover:text-red-300 hover:border-red-400/40">✕ 关闭</button>
+            </div>
+            {shareMsg && <div className={`text-[12px] font-mono ${shareMsg.startsWith('✓') ? 'text-emerald-300' : 'text-amber-300'}`}>{shareMsg}</div>}
+            {boxPrompt && cur.prompt && <pre className="w-full text-[11px] text-dim/70 bg-void border border-edge rounded p-2 whitespace-pre-wrap max-h-40 overflow-y-auto" onClick={(e) => e.stopPropagation()}>{cur.prompt}</pre>}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+type Tab = 'api' | 'portrait' | 'equip' | 'story' | 'comic' | 'gallery';
 export default function ImageGenManager() {
   const [tab, setTab] = useState<Tab>('api');
   const tabs: { key: Tab; label: string }[] = [
     { key: 'api', label: '生图API配置' }, { key: 'portrait', label: '肖像生成' },
     { key: 'equip', label: '装备生图' }, { key: 'story', label: '正文生图' },
+    { key: 'comic', label: '漫画' }, { key: 'gallery', label: '图片库' },
   ];
   return (
     <div className="space-y-4">
@@ -287,6 +548,8 @@ export default function ImageGenManager() {
       {tab === 'portrait' && <PortraitPage />}
       {tab === 'equip' && <EquipPage />}
       {tab === 'story' && <StoryPage />}
+      {tab === 'comic' && <ComicTabPage />}
+      {tab === 'gallery' && <GalleryTabPage />}
     </div>
   );
 }

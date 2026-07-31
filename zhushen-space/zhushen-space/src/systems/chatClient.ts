@@ -2,7 +2,7 @@ import { useChatRoom } from '../store/chatRoomStore';
 import { mpWsBase } from './mpConfig';
 import { chatAvatarVer, chatDicebearSeed } from './chatIdentity';
 import { chatNameColor } from './chatCosmetics';
-import type { ChatInbound, ChatOutbound, StickerRef, ShareKind } from './chatProtocol';
+import type { ChatInbound, ChatOutbound, StickerRef, ShareKind, ChatImageRef } from './chatProtocol';
 
 // 全局实时聊天室 WebSocket 客户端（事件名照搬后端 ChatDO 协议）。
 // 心跳发字符串 "ping"（运行时自动回 pong，不唤醒 DO）。**连接持久化**：进入后即常驻，
@@ -150,6 +150,8 @@ export const chatClient = {
   send: (text: string) => sendRaw({ type: 'chat', text }),
   react: (id: string, emoji: string) => sendRaw({ type: 'react', id, emoji }),
   sticker: (ref: StickerRef) => sendRaw({ type: 'sticker', sticker: ref }),
+  image: (ref: ChatImageRef) => sendRaw({ type: 'image', image: ref }),   // 图片分享（先上传 R2 拿 hash，线上只发引用）
+  channel: () => curChannel,
   share: (kind: ShareKind, data: any) => {
     const d = { ...(data || {}) };
     delete (d as any).image; delete (d as any).avatar;   // 分享卡不带大图

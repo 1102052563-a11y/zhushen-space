@@ -14,7 +14,7 @@ import {
   COMBAT_NARRATE_RULE, NPC_CHAT_RULE, NSFW_WRITING_RULE, NPC_TEAM_JOIN_CHAT_RULE,
   MONUMENT_EULOGY_RULE, CHOICES_FANFIC_SYSTEM, FANFIC_RULE, MINI_THEATER_RULE,
   WORLD_SETTLEMENT_RULE, WORLD_SETTLEMENT_COT_RULE, ATTR_POWER_CODEX, NPC_INDEPENDENCE_RULE, DISPOSITION_STAGE_RULE,
-  SKILL_LEVELUP_PROMPT, SKILL_FUSION_RULE, TITLE_GEN_RULE, TITLE_FUSION_RULE, ACHIEVEMENT_GEN_RULE,
+  SKILL_LEVELUP_PROMPT, SKILL_FUSION_RULE, SKILL_FUSION_NPC_RULE, TITLE_GEN_RULE, TITLE_FUSION_RULE, ACHIEVEMENT_GEN_RULE,
   JOY_SYSTEM_RULE, JOY_OUTPUT_RULE, JOY_PRIVATE_FIELDS_RULE,
   CHEST_OPEN_RULE, ARENA_OPPONENT_RULE, ARENA_REWARD_RULE, GLADIATOR_MATCH_RULE, GACHA_REWARD_RULE,
   CRAFT_RULE, EQUIP_SET_RULE, EQUIP_ASCEND_RULE, EQUIP_CRAFT_RULE, CRAFT_PROCESS_GEN_RULE,
@@ -96,6 +96,7 @@ export const PROMPT_REGISTRY: PromptEntry[] = [
   // ── 技能 / 称号 / 成就 ──
   { key: 'SKILL_LEVELUP_PROMPT', label: '技能升级', group: '技能 / 称号 / 成就', kind: 'override', def: SKILL_LEVELUP_PROMPT, desc: '技能点升级 / 黄金点质变（含技能天赋世界书 + COT）' },
   { key: 'SKILL_FUSION_RULE', label: '技能融合', group: '技能 / 称号 / 成就', kind: 'override', def: SKILL_FUSION_RULE, desc: '技能融合铁则' },
+  { key: 'SKILL_FUSION_NPC_RULE', label: '技能融合 · NPC/宠物', group: '技能 / 称号 / 成就', kind: 'override', def: SKILL_FUSION_NPC_RULE, desc: '熔铸对象是 NPC/随从/宠物/召唤物 时追加（强度锚该角色 · 不越主人 · 形态守恒）' },
   { key: 'TITLE_GEN_RULE', label: '称号生成', group: '技能 / 称号 / 成就', kind: 'override', def: TITLE_GEN_RULE, desc: '称号生成规则' },
   { key: 'TITLE_FUSION_RULE', label: '称号融合', group: '技能 / 称号 / 成就', kind: 'override', def: TITLE_FUSION_RULE, desc: '称号融合规则' },
   { key: 'ACHIEVEMENT_GEN_RULE', label: '成就生成', group: '技能 / 称号 / 成就', kind: 'override', def: ACHIEVEMENT_GEN_RULE, desc: '成就生成规则' },

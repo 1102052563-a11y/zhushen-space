@@ -9,7 +9,7 @@ import { usePlayer } from '../store/playerStore';
 import { useSettings } from '../store/settingsStore';
 import { resolveEquipSlot } from './equipSlots';
 import { playerUnmetRequirements } from './playerAttrs';
-import { opOf, refOf, isBatchDup, newBatch, recordItem, currencyDupKey, isCurrencyApplied, type ItemOp, type ItemEditResult, type LedgerCtx } from './ledger/itemLedger';
+import { opOf, refOf, isBatchDup, newBatch, recordItem, currencyDupKey, isCurrencyApplied, itemPhaseRefsOfTurn, type ItemOp, type ItemEditResult, type LedgerCtx } from './ledger/itemLedger';
 
 import { recordEvo, charRef, npcRef, charDigest, npcDigest, type EvoCtx, type EvoResult } from './ledger/evoLedger';
 import { parseEditItems, parseEditChars, parseEditNpcs, parseEditFactions } from './editParser';
@@ -407,6 +407,63 @@ function findIdenticalItem(bag: any[], name: string, grade: string, _effect: str
     const ig = normName(it.gradeDesc);
     return !g || !ig || ig === g || ig.includes(g) || g.includes(ig);   // 品级宽松包含
   }) ?? null;
+}
+
+/* 宽松同名（保守版·只到"包含/核心名相等"为止，**不做相似度猜测**）：判断"这件是不是刚才那件"。
+   与 fuzzyFindItem 的区别：那里最后一轮用 bigram 相似度兜底（"破损铁剑"≈"破损铁盾" 能到 0.5），
+   用在**补建**判定上一旦误判就是**物品凭空少一件**，故这里只认三种确定性关系：
+     ① 归一化后全等（"【月影残心】" = "月影残心"）
+     ② 一方包含另一方（"暗金·裂空战刃" ⊃ "裂空战刃"、"次级止血喷雾" ⊃ "止血喷雾"）
+     ③ 核心名（再去 的/之/型/款/版）全等 */
+function looseSameName(a?: string, b?: string): boolean {
+  const x = normName(a), y = normName(b);
+  if (!x || !y || x.length < 2 || y.length < 2) return false;
+  if (x === y || x.includes(y) || y.includes(x)) return true;
+  const cx = coreName(a), cy = coreName(b);
+  return cx.length >= 2 && cx === cy;
+}
+
+/* ── 延后建物对账·补建前的「是不是已经有了」判定（只服务 App.reconcileDeferredCreates，不参与常规创建闸门）──
+ * 病根：正文的 createItem 被 deferItemCreate 摘走、交物品阶段独占建；而物品阶段落地的那件**通常被润色过**
+ *   （补前缀"暗金·"、品级从"精良"改写成"绿色"、分类从"重要物品"改成"特殊物品"），于是回头补建时
+ *   创建闸门的严格判重（findIdenticalItem＝同名 + 品级互相包含）判不出重复 → 按正文原指令又建了一条
+ *   **只有名字/分类/品级、没有攻防词缀评分简介的空壳** ⇒ 用户看到的「同一件物品两条，一条有详细信息、一条没有」。
+ * 三道判定（命中任一 → 不补建，返回原因串；否则返回 null 照常补建）：
+ *   ① 设施已发放物：本回合开箱/合成已确定性入库（物品阶段用 suppressCreateNames 拦过，这里必须**同口径**拦，
+ *      否则被拦掉的那条正好由本对账原样补出来，等于绕过护栏）。
+ *   ② 账本：本回合物品阶段已对宽松同名的引用 create/入账/改数量过 —— 货币伪物品（乐园币/魂币）靠这道防**重复入账**
+ *      （它们走 adjustCurrency，背包里查不到，只有账本看得见）。
+ *   ③ 唯一物（非可堆叠）：玩家或**任一 NPC** 身上已有宽松同名的一件 —— 与 itemWatchdog.existsSomewhere 同口径：
+ *      东西只要已经在某人身上就是"物品阶段接住了"，绝不再补一份（防刷）。
+ *      可堆叠物**不走**这道：它靠数量累加，背包里本来就可能有同名旧存货，误判会吞掉这次真捡到的数量。 */
+export function deferredCreateSkipReason(
+  cmd: ItemCommand,
+  opts?: { suppressNames?: string[]; turn?: number },
+): string | null {
+  if (cmd.type !== 'createItem') return null;
+  const d: any = cmd.data ?? {};
+  const item = d.item ?? d;
+  const name = String(item['1'] ?? item.name ?? '').trim();
+  if (!name) return null;                                   // 无名指令交由 applyOneItemCommand 自行忽略
+  // ① 设施已发放物
+  for (const raw of opts?.suppressNames ?? []) {
+    if (looseSameName(raw, name)) return `本回合已由设施(开箱/合成)确定性发放「${raw}」`;
+  }
+  // ② 物品阶段本回合已落地过同名引用（货币也走这道）
+  if (opts?.turn != null) {
+    const hit = itemPhaseRefsOfTurn(opts.turn).find((r) => looseSameName(r, name));
+    if (hit) return `物品阶段本回合已处理「${hit}」`;
+  }
+  // ③ 唯一物已在玩家/任一 NPC 身上
+  if (isResourcePseudoItem({ name })) return null;          // 货币伪物品只认账本，查不到就照常入账（宁可漏防、不吞钱）
+  if (isStackableCat(String(item['2'] ?? item.category ?? ''))) return null;   // 可堆叠靠数量累加，不在此拦
+  const everywhere = [
+    ...useItems.getState().items,
+    ...Object.values(useNpc.getState().npcs).flatMap((r: any) => r.items ?? []),
+  ];
+  const exist = everywhere.find((it: any) => looseSameName(it?.name, name));
+  if (exist) return `已存在近似同物「${exist.name}」`;
+  return null;
 }
 
 /** 闸门预检：按操作类型解析目标到稳定 id / 拦截重复创建 / 定位失败。

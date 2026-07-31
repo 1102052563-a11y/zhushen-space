@@ -22,6 +22,7 @@ import { handleVaultGet, handleVaultPut } from "./vaultCloud.js";
 import { handleVector } from "./vectorCloud.js";
 import { handleChatMe, handleChatAvatar } from "./chatId.js";
 import { handleStickerUpload, handleStickerServe, handleStickerList, handleStickerDelete } from "./chatSticker.js";
+import { handleChatImageUpload, handleChatImageServe, handleChatImageList, handleChatImageDelete } from "./chatImage.js";
 import { verifyChatToken } from "./auth.js";
 
 // wrangler 需要从入口模块导出 DO 类
@@ -170,6 +171,18 @@ export default {
         const hash = decodeURIComponent(p.slice("/api/chat/sticker/".length));
         if (request.method === "DELETE") return await handleStickerDelete(request, env, ch, hash);
         return await handleStickerServe(request, env, hash);   // GET 公开取图
+      }
+      // 聊天室图片分享（公共图片区·img/ 前缀独立于表情包）：上传(POST·chatToken) / 公共池·我的(GET) / 取图(GET·公开) / 删除(DELETE·chatToken)
+      if (p === "/api/chat/image" && request.method === "POST") {
+        return await handleChatImageUpload(request, env, ch, url);
+      }
+      if (p === "/api/chat/images") {
+        return await handleChatImageList(request, env, ch, url);
+      }
+      if (p.startsWith("/api/chat/image/")) {
+        const hash = decodeURIComponent(p.slice("/api/chat/image/".length));
+        if (request.method === "DELETE") return await handleChatImageDelete(request, env, ch, hash);
+        return await handleChatImageServe(request, env, hash);   // GET 公开取图
       }
 
       // 全局实时聊天室（独立 ChatDO 单例；与游戏房解耦，不进大厅）

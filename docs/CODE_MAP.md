@@ -14,6 +14,7 @@
 | `<state>` / `<upstore>` 指令解析与应用 | `systems/stateParser.ts` |
 | 物品/装备/货币指令 | `systems/stateParser.ts` → `applyItemCommands`；`store/itemStore.ts` |
 | 物品阶段 / 综合对账纠错 | `App.tsx` → `runItemManagementPhaseCore` / `runMergedAuditPhase` |
+| 物品重复（同物两条·一条有详情一条空壳） | `App.tsx` → `reconcileDeferredCreates`；`systems/stateParser.ts` → `deferredCreateSkipReason`(补建前三道判定) / `findIdenticalItem`(创建闸门判重)；`systems/itemWatchdog.ts` → `pruneBlankDupItems`(回合末空壳清理) |
 | 主角演化 | `App.tsx` → `runPlayerEvolutionPhaseCore` / `applyPlayerProfileCommands`；`store/playerStore.ts` |
 | NPC 演化（策略A/B、登场判断、调度） | `App.tsx` → `runNpcPipelineB` / `runEntryJudgment` / `computeFocusList`；`store/npcStore.ts` / `npcEvoStore.ts` |
 | 势力演化 | `App.tsx` → `runFactionEvolutionPhase` 等；`store/factionStore.ts` / `factionEvoStore.ts` |
@@ -37,7 +38,10 @@
 | 冒险团派遣（⚔离线委托·倒数封条） | `systems/dispatchEngine.ts`（委托板生成/胜算评估/**确定性结算**/心跳 `runDispatchTick`/`ensureBoard`/`launchDispatch`/`grantReward`）；AI 委托板 `systems/dispatchGen.ts`（手动）；提示词常量 `systems/dispatchPrompts.ts`；战报 `systems/dispatchReport.ts`（**独立 API featureKey='dispatch'**·只叙述不改数值·失败回落 `fallbackReport`）；数据+哑 reducer 在 `store/adventureTeamStore.ts`（`dispatchActive`/`dispatchHistory`/`fatigue`/`injury`/`dispatchApi`）；UI `components/DispatchPanel.tsx`（挂在 `AdventureTeamPanel` 的 ⚔派遣 tab）；心跳挂 `App.tsx`→`runPostNarrativePhases`（**排在 `runNpcAutonomy` 之后**）；⚠ 轨道A 靠 `npcAutonomy.runNpcAutonomy` 里的 `dispatched` 集合让开、防双写 |
 | 内置原著WIKI（📚两本·MkDocs 静态站） | `components/WikiPanel.tsx`（`SITES` 表=选书卡+iframe；先选书后加载）；右栏入口 `App.tsx`→`rightMenuItems` 的 `原著WIKI` + `runNavAction`/`wikiOpen`；构建 `vite.config.ts`→**`WIKIS` 表** + `buildWiki()`（每次 build 跑 mkdocs，单站失败不阻断另一站与游戏）。源 = 仓库根 `lunhui-wiki/`→`public/wiki/`、`神秘复苏百科/`→`public/wiki-shenmi/`（产物均 gitignore）。⚠ 加书 = **两处表都要加**且产物目录对得上；各 `mkdocs.yml` 必须 `use_directory_urls: false`（否则目录式 URL 被 SPA 兜底吃回游戏）+ `navigation.prune`（否则整棵 nav 嵌进每页）。神秘复苏的 nav 由 `神秘复苏百科/scripts/gen-nav.py` 生成（新增条目后重跑） |
 | 正文关键词悬浮图鉴（名词 tooltip） | `systems/codexIndex.ts`（名字→词条索引·惰性重建·扫描器）；标注在 `systems/narrativeHtml.ts`→`markEntities`（挂在 `styleProse` 末尾·`ProseCtx` 贯穿整条消息）；悬浮卡 `components/CodexHover.tsx`（document 委托·portal）；wiki 层 `systems/lunhuiChars.ts`；开关 `settings.reading.codexHl`/`codexWiki`；样式 `index.css` `.zs-ent` |
-| 生图（NAI/OpenAI/Gemini/Comfy） | `systems/imageGen.ts` / `imageTags.ts`；`store/imageGenStore.ts`；`App.tsx` → `runPortraitPhase`/`runEquipImagePhase`/`runStoryImagePhase` |
+| 生图（NAI/OpenAI/Gemini/Comfy/多模态Chat） | `systems/imageGen.ts` / `imageTags.ts`；`store/imageGenStore.ts`；`App.tsx` → `runPortraitPhase`/`runEquipImagePhase`/`runStoryImagePhase` |
+| 📖 漫画工坊（楼层→分镜→并发绘画） | `systems/comic.ts`（编排：`listFloors`/`generateComic`/`retryMissingPages`/`redrawPage`/`cancelComic`）；`systems/comicDb.ts`（IndexedDB `drpg-comics`·批次+页·**不进 saveManager**）；`store/comicStore.ts`（`drpg-comic` 设置 + `useComicJob` 运行时进度）；提示词 `promptRules.ts`→`COMIC_STORYBOARD_RULE`/`COMIC_SOFTEN_RULE`/`COMIC_DRAW_GUARD`；UI `components/ImageGenManager.tsx`→`ComicTabPage`（生图设置「漫画」Tab）；分镜 LLM 走 `resolveApiChain('comic_storyboard_llm')` |
+| 🖼 生成图片库（按名字分组浏览·漫画自成一类） | `systems/gallery.ts`（`collectGallery` 只读聚合：角色 avatar/装备 item.image(同名合并)/正文配图(chatDb 行内 images·带提示词·限150张)/漫画(comicDb 一批一组)）；UI `components/ImageGenManager.tsx`→`GalleryTabPage`（生图设置「图片库」Tab·分类筛选+名字瓷砖+灯箱翻看/提示词/下载/📤分享到交流室）|
+| 🖼 交流室图片分享（公共图片区·频道） | worker：`multiplayer-worker/src/chatImage.js`（POST/GET `/api/chat/image[s]`·R2 `img/` 内容寻址+D1 `chat_images`·公共池 `?scope=public`·**需 redeploy relay**）+ `ChatDO.js` `case "image"`（只透传 {hash,w,h,caption} 引用·不广播大图）；前端：`systems/chatImages.ts`（`uploadChatImage`/`chatImageUrl`/`listPublicChatImages`/`shareImageToChannel`·频道名 `IMAGE_CHANNEL='images'`）、`chatProtocol.ts` `ChatImageRef`、`chatClient.image()/channel()`、`ChatRoomPanel` 频道页签(💬闲聊/🖼图片分享)+📷上传+🗂公共图池+灯箱 |
 | 图片持久化（IndexedDB） | `systems/imageDb.ts` / `imageSync.ts` |
 | 公共频道 / 系统商店 / 临时队伍 | `App.tsx` → `refreshChannel`/`replyToChannelPost`/`joinPartyFromPost`/`inviteToParty`；`store/channelStore.ts`；`systems/channelTrade.ts` |
 | 私信（聊天/交易/讨价还价） | `App.tsx` → `dmReply`/`dmPropose`/`dmHaggle`/`dmAccept`；`store/dmStore.ts`；`systems/dmTrade.ts` |
@@ -126,7 +130,8 @@
 | `chronicle.ts` | 编年史史料聚合（📜传奇模式）。`buildVolumes`(把纪要表/世界记录/deedLog/归档任务投影成**卷→页→注**三层)、`classifyText`(金银灰三级重要性·确定性关键词表·不花API)、`volumeIdForRow`(分卷:turn 落区间→世界名→散佚卷三级降级)、`extractEntities`(实体互链)、`digestVolume`/`overallDigest`(切入点·本卷之最)、`buildCompileInput`+`sanitizeCompiled`(修史输入/产出夹取)。**只读投影不写 store**，全部数据源以参数传入便于单测 |
 | `equipCraft.ts` | 装备工艺确定性引擎（与强化的赌等级**正交**：强化赌等级、工艺改词条）。`potentialMax`/`potentialLeft`(锻造潜力·随品级递增·耗尽封盘·品级进阶会抬高上限)、`canCraft`(门禁)、`resolveCraft`(摇结果+拍板全部数值·rand 可注入便于单测)、`craftPatch`(落库补丁)、`craftCost`/`planCraftPayment`(锚 gradeMidPark)、`sanitizeProcess`+`riskPricing`(**自创工艺平衡阀**：参数夹取＋净得利越高自动越贵)、`BUILTIN_PROCESSES`(潜能锻打/精髓灌注/虚空腐蚀)、`isPreviewMode`(单结果=确定性走预览确认·多结果=赌博即时结算)、精髓 `affixName`/`canInfuse` |
 | `diceJudge.ts` | AI 裁判：`aiJudge`、`aiSuggest`(✨建议属性难度)、`buildJudgeBlock` |
-| `imageGen.ts` | `generateImage(service,opts)`(NAI ZIP解码/OpenAI/Comfy轮询)、`buildPortraitPrompt`/`buildEquipPrompt`、`shrinkDataUrl` |
+| `imageGen.ts` | `generateImage(service,opts)`(NAI ZIP解码/OpenAI/Comfy轮询/`genChatImg` 多模态Chat出图·`opts.refImages` 参考图仅 chatimg 线用)、`buildPortraitPrompt`/`buildEquipPrompt`、`shrinkDataUrl` |
+| `comic.ts` / `comicDb.ts` | 漫画工坊：`generateComic`(楼层→`toProse`清洗+角色roster→分镜JSON `zs_comic_v1`→并发错峰绘画·单页失败不拖累·成功页即落库)、`retryMissingPages`/`redrawPage`(复用存储的 finalPrompt)、`parseComicPlan`(lenientJsonParse+夹取)；comicDb=IndexedDB `drpg-comics`(batches+pages·库房性质·不进存档快照) |
 | `imageTags.ts` | 列19 danbooru tags：`genPortraitTags`/`genEquipTags`、`tagsLlmReady`/`isTagService` |
 | `imageDb.ts` / `imageSync.ts` | 图片存 IndexedDB `drpg-images`：`putImg`/`getAllImg`/`bulkPutImg`/`clearAllImg`；`imageSync` 订阅 store 镜像 + `hydrateImages`/`snapshotImages` |
 | `novelVec.ts` | 向量资料库运行时：`loadNovelIndex`/`retrieveNovel`/`searchAll`/`embedQuery`/`novelVecStatus`（多源 novel+worldbook，IndexedDB `drpg-novelvec` v2） |
@@ -181,7 +186,8 @@
 | `characterStore.ts` | `drpg-characters` | 技能/天赋/称号/副职业/记忆（B1+Cx 共用）。`mergeKeepRich`(空字段保旧)、`nameEq`(归一化匹配)、`SKILL_TIER_*`/`normSkillTier`、`removeCharacter`/`purgeNpcCharacters` |
 | `memoryStore.ts` | `drpg-memory` | 生平压缩设置+提示词+API |
 | `miscStore.ts` | `drpg-misc` | 杂项(任务数据/总结/`narrativeFacts`/双时间/天气)+预设+API；另挂任务演化的 `settings.questEnabled`+`questApi`/`questUseSharedApi`（独立阶段，merge 迁移旧档继承 enabled）。`addNarrativeFacts` |
-| `imageGenStore.ts` | `drpg-image-gen` | 生图服务/用途/模板/自动开关 |
+| `imageGenStore.ts` | `drpg-image-gen` | 生图服务/用途/模板/自动开关；服务含 `chatimg`(多模态Chat出图·nano-banana系) |
+| `comicStore.ts` | `drpg-comic` | 漫画工坊设置（服务/页数/尺寸/语言/参考图/送审软化/错峰间隔）；`useComicJob`=运行时任务进度（不持久化）|
 | `channelStore.ts` | `drpg-channel` | 公共频道（数据+设置+API+预设）|
 | `dmStore.ts` | `drpg-dm` | 私信线程/消息/交易卡 |
 | `turnInsightStore.ts` | `drpg-turn-insight` | 回合洞察快照（滚动14份）|

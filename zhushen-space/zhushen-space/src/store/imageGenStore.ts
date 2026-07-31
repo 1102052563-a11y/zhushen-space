@@ -7,13 +7,14 @@ import { persist } from 'zustand/middleware';
    见 生图功能-集成指导.md
 ════════════════════════════════════════════ */
 
-export type ImgService = 'nai' | 'openai' | 'gemini' | 'comfy' | 'custom';
+export type ImgService = 'nai' | 'openai' | 'gemini' | 'comfy' | 'custom' | 'chatimg';
 export const IMG_SERVICES: { value: ImgService; label: string }[] = [
   { value: 'nai', label: 'NovelAI / NAI' },
   { value: 'openai', label: 'OpenAI 图片' },
   { value: 'gemini', label: 'Gemini 图片' },
   { value: 'comfy', label: 'ComfyUI' },
   { value: 'custom', label: '自定义(OpenAI兼容)' },
+  { value: 'chatimg', label: '多模态Chat出图(nano-banana系)' },
 ];
 
 export interface NaiConfig {
@@ -269,6 +270,7 @@ interface ImageGenState extends ImageGenSettings {
   openai: OpenAIImgConfig;
   gemini: OpenAIImgConfig;
   custom: OpenAIImgConfig;
+  chatimg: OpenAIImgConfig;         // 多模态 Chat 出图（nano-banana 系：chat/completions 里带参考图、从响应提图）
   comfy: ComfyConfig;
   styles: PortraitStyle[];          // 画风预设库
   // 各服务的 OpenAI 图片路由（主备 fallback，复用 apiLibrary）——MVP 先放单 config，路由可后续接 apiRoutes
@@ -278,6 +280,7 @@ interface ImageGenState extends ImageGenSettings {
   setOpenai: (patch: Partial<OpenAIImgConfig>) => void;
   setGemini: (patch: Partial<OpenAIImgConfig>) => void;
   setCustom: (patch: Partial<OpenAIImgConfig>) => void;
+  setChatImg: (patch: Partial<OpenAIImgConfig>) => void;
   setComfy: (patch: Partial<ComfyConfig>) => void;
   setHoloFlatImg: (key: string, flat: boolean) => void;   // 记住/取消某张图的「切回平面」（key=depthKeyOf(img)）
   resetEquipTemplate: () => void;
@@ -315,6 +318,7 @@ export const useImageGen = create<ImageGenState>()(
       openai: { ...DEFAULT_OPENAI_IMG },
       gemini: { ...DEFAULT_OPENAI_IMG, baseUrl: 'https://generativelanguage.googleapis.com/v1beta/openai', model: 'imagen-3.0-generate-002' },
       custom: { ...DEFAULT_OPENAI_IMG, baseUrl: '' },
+      chatimg: { ...DEFAULT_OPENAI_IMG, baseUrl: '', model: 'gemini-2.5-flash-image', size: '', quality: '' },
       comfy: { apiUrl: '', workflowJson: '', positiveNode: '', positiveInput: 'text', negativeNode: '', negativeInput: 'text', pollIntervalMs: 1200, timeoutSec: 600, seed: '' },
 
       setService: (key, v) => set({ [key]: v } as any),
@@ -323,6 +327,7 @@ export const useImageGen = create<ImageGenState>()(
       setOpenai: (patch) => set((s) => ({ openai: { ...s.openai, ...patch } })),
       setGemini: (patch) => set((s) => ({ gemini: { ...s.gemini, ...patch } })),
       setCustom: (patch) => set((s) => ({ custom: { ...s.custom, ...patch } })),
+      setChatImg: (patch) => set((s) => ({ chatimg: { ...s.chatimg, ...patch } })),
       setComfy: (patch) => set((s) => ({ comfy: { ...s.comfy, ...patch } })),
       setHoloFlatImg: (key, flat) => set((s) => {
         const cur = s.holoFlatImgs ?? [];   // ?? []：老存档没这字段（persist 直接回灌旧对象）

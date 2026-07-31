@@ -144,6 +144,23 @@ export function isCurrencyApplied(turn: number, key: string): boolean {
   } catch { return false; }
 }
 
+/* ── 延后建物对账·「本回合物品阶段已经落地过哪些引用」──
+ * 供 reconcileDeferredCreates 判断"这条正文原指令是不是已经被物品阶段接住了"。
+ * 只收 **物品阶段本人**(item-phase / item-phase-retry) 的 create / currency / updateQty 事件，
+ * 且 applied(真建了) 与 dup(判重跳过=东西本来就在) 都算"已落地"——两种情况都不该再补一份。
+ * 名字比对交给调用方（stateParser.looseSameName 单一口径），这里只负责取出引用清单。*/
+export function itemPhaseRefsOfTurn(turn: number): string[] {
+  try {
+    return useLedger.getState().eventsOfTurn(turn)
+      .filter((e) => e.entity === 'item'
+        && (e.source === 'item-phase' || e.source === 'item-phase-retry')
+        && (e.outcome === 'applied' || e.outcome === 'dup')
+        && (e.op === 'create' || e.op === 'currency' || e.op === 'updateQty'))
+      .map((e) => String(e.ref ?? '').trim())
+      .filter(Boolean);
+  } catch { return []; }   // 账本不可用 → 返回空清单（宁可漏拦、也不误吞正文给的物品）
+}
+
 /** 物品阶段同回合重跑(回滚)时，清掉本阶段记的货币事件，让重跑能重新发放（narrative 等其它来源的货币事件保留，仍正确抑制重发）。*/
 export function purgeItemPhaseCurrency(turn: number): void {
   try {

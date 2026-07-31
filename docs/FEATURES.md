@@ -73,7 +73,11 @@
 
 **已装备物品删除策略**：`consumeItem` 对 equipped 一律拒绝（消耗品不会穿戴态，多为幻觉）；`destroyItem` 对 equipped **自动先卸下再移除**（销毁=丢弃/卖掉/损毁/被夺走；主角 `unequipItem`+`removeItem`，NPC `removeNpcItem`）。**换装≠销毁**（铁则,物品阶段+对账都注入）：替换装备只对新装备 equipItem，引擎自动把同槽旧装备卸回储存空间，**绝不对换下的旧装备 destroy/consume**。`transferSpiritStones` 曾被当废弃指令忽略（乐园币永不更新），已修，`normalizeCurrencyType` 归一化。
 
-**同名堆叠+防重复（四层）**：① 数据层 `addItem`/`addNpcItem` 对可堆叠类(`isStackableCat`,非装备)未装备同名同品质累加数量；② 每回合 `dedupeByName`/`dedupeNpcItems` 合并；③ 提示词注入 `${player_items}`+`${npc_items}` 要求别重复 createItem；④ 对账合并（注入最近两回合正文，相似名同一物 → destroy 多余，保守/保完整那条）。
+**同名堆叠+防重复（六层）**：① 数据层 `addItem`/`addNpcItem` 对可堆叠类(`isStackableCat`,非装备)未装备同名同品质累加数量；② 每回合 `dedupeByName`/`dedupeNpcItems` 合并；③ 提示词注入 `${player_items}`+`${npc_items}` 要求别重复 createItem；④ 对账合并（注入最近两回合正文，相似名同一物 → destroy 多余，保守/保完整那条）；⑤ **延后建物对账的补建前置判定** `deferredCreateSkipReason`（stateParser）；⑥ **空壳重复清理** `pruneBlankDupItems`（itemWatchdog）。
+
+**「同一件物品两条：一条有详细信息、一条只有名字」的根治（⑤⑥）**：正文的 `createItem` 被 `deferItemCreate` 摘走交物品阶段独占建，阶段落地的那件**通常被润色过**（补前缀"暗金·"、品级"精良"→"绿色"、换分类），于是 `reconcileDeferredCreates` 回头补建时，创建闸门的严格判重（`findIdenticalItem`＝同名 + 品级互相包含）判不出重复 → 按正文原指令又建一条**只有名字/分类/品级的空壳**。
+- ⑤ 源头：补建前先过 `deferredCreateSkipReason` 三道 —— **设施已发放物**(开箱/合成的 `suppressCreateNames`,此前只在正文侧生效、补建路径整个绕过了它) / **账本**(`itemPhaseRefsOfTurn`：本回合 item-phase 已 create/入账/改数量过同名引用；**货币伪物品靠这道防重复发钱**) / **唯一物已在玩家或任一 NPC 身上**（同 `itemWatchdog.existsSomewhere` 口径·防刷）。可堆叠物**不走**第三道（靠数量累加，误判会吞掉这次真捡到的数量）；同名判定用保守版 `looseSameName`（全等/包含/核心名相等，**不做 bigram 相似度猜测**——补建路径误判＝物品凭空少一件）。
+- ⑥ 收口：回合末 `pruneBlankDupItems` 把漏进来的、以及老存档里已躺着的空壳并进完整那条（字段回填 + 可堆叠累加数量）。苛刻到只动"空壳方**一条实质细节都没有**(攻防/词缀/评分/简介/需求/耐久/强化/宝石全空) + 留下方**至少两条** + 两者都未装备未锁定"的组合——同名两件真装备是合法独立实例，悄悄吞掉一件就是老病根「经常丢装备」。
 
 **容器/一次性**：预设 `容器开启与一次性消耗强制自检`——开宝箱(destroyItem容器+createItem内容物)/用消耗品即 consumeItem，itemId 找不到用全名兜底（parser `findItemById ?? findItemByName`，根因是 AI 漏输出指令）。**技能书**：`numeric.kind` = skillBook(学技能,consume销毁)/knowledge/schematic/talentFragment。
 
@@ -180,6 +184,24 @@
 **肖像 tags(列19,仅角色)**：英文 danbooru tags 演化生成,存 `imageTags`,`buildPortraitPrompt` 优先用。`IMAGE_TAGS_RULE`(主角+NPC演化,英文/性别开头/仅长期外观变化更新/勿修仙词/同人角色准确 danbooru 名+作品+经典外观)。
 
 **图片存 IndexedDB `drpg-images`**(非 localStorage,会爆5MB)：`systems/imageDb.ts`(键 player/npc:<id>/item:<itemId>/npcitem:<owner>:<itemId>)+`imageSync.ts`(订阅 store 镜像+`hydrateImages` 回填迁移+`snapshotImages` 供存档)。各 store 用 partialize 排除图片出 localStorage。`imageTags`(小文本)仍随 drpg-*。`ChatMessage.images` 随 chatDb。状态栏 `imagePhaseLog`。详见记忆 `image-gen-feature`。
+
+### 11.5 📖 漫画工坊（楼层→分镜→并发绘画·工作流思想借鉴 comic-orb·代码提示词全自写）
+
+入口 生图设置→「漫画」Tab(`ComicTabPage`)。流程：选楼层范围(默认最近3层AI楼) → `toProse` 剥游戏数据 + 角色档案外观 roster(主角+正文点名NPC≤8,结构化字段直注,不让AI猜外观) → 分镜 LLM(`resolveApiChain('comic_storyboard_llm')`,留空回退正文API,`COMIC_STORYBOARD_RULE`)出严格 JSON `zs_comic_v1`{title/style/characters[外观锁]/pages[{page,goal,panels,prompt}]} → 每页 prompt **完全自包含**(并发绘画的前提) → 并发错峰(staggerMs 默认1.5s)调 `generateImage`(每页拼 画风+出场角色外观锁+参考图映射+`COMIC_DRAW_GUARD`) → 成功页**立即**落 IndexedDB。
+
+- **单页失败不拖累**：Promise.allSettled,失败只标记该页,库里「🩹补齐缺页」只画缺的;「🎨重绘本页」复用存储的 `finalPrompt` 原位覆盖;「📋查看提示词」。
+- **漫画库=库房**(`drpg-comics` 独立 IndexedDB,batches+pages)：**不进 saveManager 快照**(整页1~3MB×N会撑爆存档),清进度不清漫画,删除=玩家显式二次确认。设置在 `comicStore`(drpg-comic,配置类,进 saveManager STORES 保留 + configExport)。
+- **参考图锁长相**：`sendCharRefs` 开时把出场角色 avatar(≤4张)发给绘画模型——**仅 `chatimg`(多模态Chat出图)服务生效**,prompt 里给「参考图N=角色名」映射。新服务 `chatimg`=chat/completions 多模态(nano-banana系/OpenRouter/中转),`genChatImg` 兼容五种响应形状提图(message.images/parts/dataURL/markdown链/images API形状),配置复用 `OpenAIImgConfig`(生图API配置里选「多模态Chat出图」)。
+- **送审软化** `soften`(默认开,`COMIC_SOFTEN_RULE`)：直白亲密/血腥→含蓄画面语言,只软化画面表达不改剧情事实,防 Gemini 系拒绘;NAI 线可关。
+- 任务后台跑(`useComicJob` 运行时进度,关面板不中断);「取消」AbortController 中断绘画阶段。页数1~4、每页2~6格由分镜自定;正文超2万字截断保尾。
+
+### 11.6 🖼 生成图片库（生图设置→「图片库」Tab）
+
+`systems/gallery.ts` `collectGallery`——**只读聚合不新增存储**,四类分组：角色(主角/NPC 当前立绘,一人一组,亡故标注)/装备·物品(InventoryItem.image+NpcOwnedItem.image,**同名合并一组**,caption=持有人)/正文配图(chatDb 消息行内 `images[]`,带当时生图提示词,楼层新→旧,默认限150张防内存)/漫画(**自成一类**,comicDb 一批=一组《标题》,带每页 finalPrompt)。UI `GalleryTabPage`：分类筛选 chips+计数 → 每类一节、名字瓷砖网格(封面+×N) → 点开灯箱(上一张/下一张/📋提示词/⬇下载/📤分享到交流室)。注意角色/装备图重生成是原位覆盖(store 只留当前版),正文配图与漫画天然留历史。
+
+### 11.7 🖼 交流室「图片分享」频道（公共图片区·⚠需 redeploy relay）
+
+真人聊天室(ChatDO)开第二频道 `images`(前端页签 💬闲聊/🖼图片分享,切换=按 `?ch=` 重连,backlog 各频道独立)。**图片走公共区、聊天只传引用**(沿用「绝不广播大图」铁则)：上传 `POST /api/chat/image`(Bearer chatToken,≤3MB,前端先缩≤1600px)→R2 `img/<sha256>` 内容寻址(同图全局一份)+D1 `chat_images` 记谁传的(每人上限200);聊天消息只发 `{hash,w,h,caption}`(caption≤120,ChatDO `case "image"` 白名单校验),各端 `GET /api/chat/image/<hash>` 取图(公开·不可变长缓存)。**公共图池**=`GET /api/chat/images?scope=public`(按hash去重·最近300),频道输入区 🗂 打开网格点选直接转发;📷 上传并发送(输入框文字=图片说明);消息里图片点击开灯箱。**图片库一键分享**：灯箱📤按钮走 `systems/chatImages.ts shareImageToChannel`(上传→自动连 images 频道→发引用;未登录给引导错误)。删除只删自己的 D1 索引,R2 对象留作他人共用(内容寻址)。worker 零新增绑定(复用 DB+CLOUD_BUCKET),但 **chatImage.js/ChatDO/index.js 改动需 redeploy**;未部署时前端优雅降级(公共池空、上传报错、旧 DO 静默丢弃 image 消息)。
 
 ## 12. 公共频道 / 私信 / 好友
 

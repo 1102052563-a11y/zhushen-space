@@ -34,6 +34,7 @@ import { useCraft } from '../store/craftStore';
 import { useEquipCraft } from '../store/equipCraftStore';
 import { useJoy } from '../store/joyStore';
 import { useImageGen } from '../store/imageGenStore';
+import { useComic } from '../store/comicStore';
 import { useNovelVec } from '../store/novelVecStore';
 import { useCreationTemplates } from '../store/creationTemplateStore';
 import { useCombat } from '../store/combatStore';
@@ -227,6 +228,7 @@ function imageGenApply(cur: any, cfg: any): any {
     openai: merge(cur.openai, cfg.openai),
     gemini: merge(cur.gemini, cfg.gemini),
     custom: merge(cur.custom, cfg.custom),
+    chatimg: merge(cur.chatimg, cfg.chatimg),
     comfy: merge(cur.comfy, cfg.comfy),
   };
 }
@@ -260,6 +262,7 @@ const SPECS: StoreSpec[] = [
   { key: 'drpg-equipcraft',         label: '装备工艺',     api: useEquipCraft as any,        extract: equipCraftExtract, apply: equipCraftApply },
   { key: 'drpg-joy',                label: '欢愉宫',       api: useJoy as any,               extract: joyExtract, apply: joyApply },
   { key: 'drpg-image-gen',          label: '生图设置',     api: useImageGen as any,          extract: plainExtract, apply: imageGenApply },
+  { key: 'drpg-comic',              label: '漫画工坊',     api: useComic as any,             extract: plainExtract },
   { key: 'drpg-novelvec',           label: '向量资料库',   api: useNovelVec as any,          extract: evoExtract },
   { key: 'drpg-creation-templates', label: '角色创建模板', api: useCreationTemplates as any, extract: plainExtract },
   { key: 'drpg-skilltree',          label: '技能树模板',   api: useSkillTree as any,         extract: skillTreeExtract, apply: skillTreeApply },

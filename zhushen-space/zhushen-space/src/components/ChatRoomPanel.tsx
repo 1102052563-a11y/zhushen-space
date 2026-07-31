@@ -19,6 +19,7 @@ import { AutoMessageText } from './AutoText';
 import EmojiPicker from './EmojiPicker';
 import StickerPicker from './StickerPicker';
 import { stickerSrc, loadStickerPacks, type StickerRef } from '../systems/chatStickers';
+import { chatImageUrl, listPublicChatImages, uploadChatImage, IMAGE_CHANNEL } from '../systems/chatImages';
 import { DICEBEAR_STYLES, parseDicebear } from '../systems/dicebearAvatar';
 import { chatNameColor, setChatNameColor, chatBubble, setChatBubble, NAME_COLORS, BUBBLE_SKINS, bubbleCls } from '../systems/chatCosmetics';
 import { presenceStats, type PresenceStats } from '../systems/presence';   // 当前在玩人数(按IP·含未登录) + 累计在线时长
@@ -165,6 +166,42 @@ export default function ChatRoomPanel({ onClose }: { onClose: () => void }) {
   const [sharePick, setSharePick] = useState(false);
   const [emojiOpen, setEmojiOpen] = useState(false);
   const [stickerOpen, setStickerOpen] = useState(false);
+  // ── 图片分享频道（🖼·公共图片区）──
+  const [chan, setChan] = useState(() => chatClient.channel());
+  const [poolOpen, setPoolOpen] = useState(false);
+  const [pool, setPool] = useState<{ hash: string; name?: string }[]>([]);
+  const [imgBusy, setImgBusy] = useState(false);
+  const [imgLightbox, setImgLightbox] = useState<{ src: string; caption?: string } | null>(null);
+  const imgFileRef = useRef<HTMLInputElement>(null);
+  const switchChannel = (ch: string) => {
+    if (ch === chan) return;
+    setChan(ch); setPoolOpen(false); setStickerOpen(false); setEmojiOpen(false); setSharePick(false);
+    chatClient.connect(chatName() || name, chatToken(), ch);   // 重连该频道；hello 会整体换成频道自己的 backlog
+    atBottomRef.current = true;
+  };
+  const togglePool = async () => {
+    const next = !poolOpen;
+    setPoolOpen(next); setEmojiOpen(false); setStickerOpen(false); setSharePick(false);
+    if (next) setPool(await listPublicChatImages());
+  };
+  const flashChatError = (msg: string) => {
+    useChatRoom.getState()._set({ error: msg });
+    setTimeout(() => { if (useChatRoom.getState().error === msg) useChatRoom.getState()._set({ error: null }); }, 4000);
+  };
+  const onImageFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const f = e.target.files?.[0];
+    if (imgFileRef.current) imgFileRef.current.value = '';
+    if (!f || imgBusy) return;
+    setImgBusy(true);
+    try {
+      const dataUrl = await fileToScaledDataUrl(f, 1600);
+      const cap = draft.replace(/\s+/g, ' ').trim().slice(0, 120);
+      const up = await uploadChatImage(dataUrl, cap || f.name.replace(/\.[^.]+$/, '') || '图片');
+      chatClient.image({ hash: up.hash, ...(up.w ? { w: up.w } : {}), ...(up.h ? { h: up.h } : {}), ...(cap ? { caption: cap } : {}) });
+      setDraft(''); atBottomRef.current = true;
+    } catch (err: any) { flashChatError(err?.message || '图片上传失败'); }
+    setImgBusy(false);
+  };
   const [, setStickersV] = useState(0);   // 文件夹直投的表情包 manifest 异步加载完后，bump 一下让消息流里的贴纸重新解析
   const sendSticker = (ref: StickerRef) => {
     chatClient.sticker(ref);   // 内置/文件={pack,id}；云端上传={hash}。sendRaw 自身在未连接时是 no-op
@@ -521,6 +558,14 @@ export default function ChatRoomPanel({ onClose }: { onClose: () => void }) {
           /* ── 聊天主体 ── */
           <div className="flex-1 flex min-h-0">
             <div className="flex-1 flex flex-col min-w-0">
+              {/* 频道页签：💬闲聊(lobby) / 🖼图片分享(images·公共图片区) */}
+              <div className="shrink-0 flex items-center gap-1 px-3 pt-2">
+                <button onClick={() => switchChannel('lobby')}
+                  className={`px-2.5 py-1 rounded-lg text-[12px] border transition-colors ${chan !== IMAGE_CHANNEL ? 'bg-god/15 border-god/40 text-god/90' : 'border-edge text-dim/70 hover:text-slate-200'}`}>💬 闲聊</button>
+                <button onClick={() => switchChannel(IMAGE_CHANNEL)}
+                  className={`px-2.5 py-1 rounded-lg text-[12px] border transition-colors ${chan === IMAGE_CHANNEL ? 'bg-god/15 border-god/40 text-god/90' : 'border-edge text-dim/70 hover:text-slate-200'}`}>🖼 图片分享</button>
+                {chan === IMAGE_CHANNEL && <span className="text-[10px] font-mono text-dim/40 ml-1 hidden sm:inline">公共图片区 · 上传后所有人可见 · 版权自负</span>}
+              </div>
               <div ref={listRef} onScroll={onScroll} className="flex-1 overflow-y-auto px-4 py-3 space-y-1.5">
                 {visible.length === 0 && (
                   <div className="text-center text-dim/40 text-xs font-mono py-10">{connected ? '— 还没有消息，打个招呼吧 —' : '— 连接中… —'}</div>
@@ -530,6 +575,26 @@ export default function ChatRoomPanel({ onClose }: { onClose: () => void }) {
                   const isMe = m.playerId && m.playerId === st.me?.playerId;
                   const uidTag = duTag(m.playerId);   // 显示号优先用自定义靓号(名单 du)，回退内部 uid
                   const nc = ncOf(m.playerId) || nameColor(m.hue);   // 名牌颜色：自定义优先，否则按编号确定性配色
+                  if (m.image) {
+                    const src = chatImageUrl(m.image.hash);
+                    const cap = m.image.caption || '';
+                    return (
+                      <div key={m.id} className="group flex gap-2 items-start text-sm break-words">
+                        <span className="shrink-0 mt-0.5"><ChatAvatar uid={parseUid(m.playerId)} avv={avvOf(m.playerId)} ds={dsOf(m.playerId)} size={24} ring={nc} /></span>
+                        <div className="min-w-0 flex-1">
+                          <span className="font-mono text-[11px] text-dim/35 mr-1.5">{fmtTime(m.at)}</span>
+                          {uidTag && <span className="font-mono text-[10px] text-god/45 mr-1">{uidTag}</span>}
+                          <span className="font-semibold" style={{ color: nc }}>{m.name}{isMe ? ' (你)' : ''}</span>
+                          <div className="mt-1">
+                            <img src={src} alt={cap || '分享图片'} loading="lazy" onClick={() => setImgLightbox({ src, caption: cap })}
+                              className="max-w-[260px] max-h-64 rounded-xl object-contain bg-panel/40 border border-edge cursor-zoom-in" draggable={false} />
+                            {cap && <div className="text-[12px] text-dim/70 mt-0.5 max-w-[260px]">{cap}</div>}
+                          </div>
+                          {reactionsRow(m)}
+                        </div>
+                      </div>
+                    );
+                  }
                   if (m.sticker) {
                     const src = stickerSrc(m.sticker);
                     return (
@@ -581,6 +646,28 @@ export default function ChatRoomPanel({ onClose }: { onClose: () => void }) {
               <div className="shrink-0 border-t border-edge bg-panel/60 p-3 relative">
                 {emojiOpen && <EmojiPicker onPick={(e) => setDraft((d) => (d + e).slice(0, 500))} onClose={() => setEmojiOpen(false)} />}
                 {stickerOpen && <StickerPicker onPick={sendSticker} onClose={() => setStickerOpen(false)} />}
+                {poolOpen && (
+                  <div className="mb-2 rounded-lg border border-edge bg-void/60 p-2 space-y-1.5 max-h-64 overflow-y-auto">
+                    <div className="text-[11px] font-mono text-dim/50">🗂 公共图池 · 大家上传过的图（{pool.length}）· 点一张直接发到频道</div>
+                    {pool.length === 0 && <div className="text-[11px] text-dim/40 py-2 text-center">还没有图——点 📷 上传第一张</div>}
+                    <div className="grid grid-cols-4 sm:grid-cols-6 gap-1.5">
+                      {pool.map((it) => (
+                        <button key={it.hash} onClick={() => { chatClient.image({ hash: it.hash, ...(it.name ? { caption: it.name } : {}) }); setPoolOpen(false); atBottomRef.current = true; }}
+                          title={it.name || ''} className="h-16 rounded-lg overflow-hidden border border-edge hover:border-god/40 bg-panel/40 transition-colors">
+                          <img src={chatImageUrl(it.hash)} alt={it.name || ''} loading="lazy" className="w-full h-full object-cover" />
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
+                {imgLightbox && (
+                  <div className="fixed inset-0 z-[80] bg-black/85 flex items-center justify-center p-4 cursor-zoom-out" onClick={() => setImgLightbox(null)}>
+                    <div className="max-w-4xl max-h-full flex flex-col items-center gap-2">
+                      <img src={imgLightbox.src} alt="" className="max-h-[82vh] max-w-full object-contain rounded" />
+                      {imgLightbox.caption && <div className="text-[13px] text-slate-200">{imgLightbox.caption}</div>}
+                    </div>
+                  </div>
+                )}
                 {sharePick && (
                   <div className="mb-2 rounded-lg border border-edge bg-void/60 p-2 space-y-2">
                     <div className="flex gap-1 flex-wrap">
@@ -601,11 +688,18 @@ export default function ChatRoomPanel({ onClose }: { onClose: () => void }) {
                 )}
                 {st.error && <div className="text-[11px] font-mono text-amber-400/80 mb-1.5">{st.error}</div>}
                 <div className="flex items-end gap-2">
+                  {chan === IMAGE_CHANNEL && (
+                    <>
+                      <button onClick={() => imgFileRef.current?.click()} disabled={!connected || imgBusy} title="上传图片并发送（输入框文字＝图片说明）" className="shrink-0 px-2.5 py-2 rounded-lg text-sm border border-edge text-dim/70 hover:text-god hover:border-god/40 disabled:opacity-40 transition-colors">{imgBusy ? '⏳' : '📷'}</button>
+                      <button onClick={() => { void togglePool(); }} disabled={!connected} title="公共图池（大家上传过的图·点选直接发送）" className="shrink-0 px-2.5 py-2 rounded-lg text-sm border border-edge text-dim/70 hover:text-god hover:border-god/40 disabled:opacity-40 transition-colors">🗂</button>
+                      <input ref={imgFileRef} type="file" accept="image/*" className="hidden" onChange={(e) => { void onImageFile(e); }} />
+                    </>
+                  )}
                   <button onClick={() => { setSharePick((v) => !v); setEmojiOpen(false); setStickerOpen(false); }} disabled={!connected} title="分享 技能 / 天赋 / 装备 / NPC" className="shrink-0 px-2.5 py-2 rounded-lg text-sm border border-edge text-dim/70 hover:text-god hover:border-god/40 disabled:opacity-40 transition-colors">📢</button>
                   <button onClick={() => { setStickerOpen((v) => !v); setEmojiOpen(false); setSharePick(false); }} disabled={!connected} title="表情包（大贴纸）" className="shrink-0 px-2.5 py-2 rounded-lg text-sm border border-edge text-dim/70 hover:text-god hover:border-god/40 disabled:opacity-40 transition-colors">🖼</button>
                   <button onClick={() => { setEmojiOpen((v) => !v); setSharePick(false); setStickerOpen(false); }} disabled={!connected} title="表情" className="shrink-0 px-2.5 py-2 rounded-lg text-sm border border-edge text-dim/70 hover:text-god hover:border-god/40 disabled:opacity-40 transition-colors">😀</button>
                   <textarea value={draft} onChange={(e) => setDraft(e.target.value.slice(0, 500))} onKeyDown={onKey} rows={1}
-                    placeholder={connected ? '说点什么…（Enter 发送，Shift+Enter 换行）' : '连接中…'} disabled={!connected}
+                    placeholder={connected ? (chan === IMAGE_CHANNEL ? '说点什么，或点 📷 上传图片（输入框文字＝图片说明）' : '说点什么…（Enter 发送，Shift+Enter 换行）') : '连接中…'} disabled={!connected}
                     className="flex-1 resize-none rounded-lg bg-void border border-edge px-3 py-2 text-sm text-slate-100 placeholder:text-dim/40 focus:outline-none focus:border-god/40 max-h-32 disabled:opacity-50" />
                   <button onClick={send} disabled={!connected || !draft.trim()} className="shrink-0 px-4 py-2 rounded-lg text-sm font-semibold bg-god/20 border border-god/40 text-god hover:bg-god/30 disabled:opacity-40 disabled:cursor-not-allowed transition-colors">发送</button>
                 </div>
