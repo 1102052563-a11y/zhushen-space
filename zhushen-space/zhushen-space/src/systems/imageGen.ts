@@ -117,18 +117,28 @@ function naiUrl(raw: string): string {
 /* CORS 代理：返回实际 fetch 的地址 + 需附加的请求头。
    - 含 {url}：前缀式代理，替换为 encodeURIComponent(真实地址)；
    - 否则：头式代理（兼容 fanren），请求发到代理地址、把真实地址放 X-Upstream 头。*/
+/* 本地/内网地址：云端 CORS 代理永远够不着用户机器（Cloudflare 会回 403 error 1003「禁止直连 IP」），
+   必须浏览器直连（同 TTS 本地模型铁律）。localhost/127.x/::1/*.local/0.0.0.0 + 私网段 10.x/192.168.x/172.16-31.x。*/
+export function isLocalEndpoint(u: string): boolean {
+  try {
+    const h = new URL(/^https?:\/\//i.test(u) ? u : 'http://' + u).hostname;
+    if (h === 'localhost' || h === '::1' || h === '[::1]' || h === '0.0.0.0' || h.endsWith('.local')) return true;
+    return /^127\./.test(h) || /^10\./.test(h) || /^192\.168\./.test(h) || /^172\.(1[6-9]|2\d|3[01])\./.test(h);
+  } catch { return false; }
+}
 function applyProxy(proxy: string, realUrl: string): { url: string; headers: Record<string, string> } {
   const p = (proxy || '').trim();
-  if (!p) return { url: realUrl, headers: {} };
+  if (!p || isLocalEndpoint(realUrl)) return { url: realUrl, headers: {} };
   if (p.includes('{url}')) return { url: p.replace('{url}', encodeURIComponent(realUrl)), headers: {} };
   return { url: p.replace(/\/+$/, ''), headers: { 'X-Upstream': realUrl } };
 }
 /* OpenAI/Gemini/自定义 图片接口的 CORS 代理：绕过浏览器跨域（中转站转发成功、浏览器却拦截无 CORS 头的响应 → Failed to fetch / 白扣次数）。
    - 含 {url}：前缀式，替换为 encodeURIComponent(真实地址)；
-   - 否则：路径前缀式 代理/<去协议的真实地址>（兼容 Pages 同源 /proxy/<upstream>）。留空=直连。*/
+   - 否则：路径前缀式 代理/<去协议的真实地址>（兼容 Pages 同源 /proxy/<upstream>）。留空=直连。
+   - 本地/内网地址（本地 vertex/one-api/SD 等）自动直连、不走代理（云端代理够不着 → CF 403/1003）。*/
 function proxifyImg(proxy: string | undefined, realUrl: string): string {
   const p = (proxy || '').trim();
-  if (!p) return realUrl;
+  if (!p || isLocalEndpoint(realUrl)) return realUrl;
   if (p.includes('{url}')) return p.replace('{url}', encodeURIComponent(realUrl));
   return p.replace(/\/+$/, '') + '/' + realUrl.replace(/^https?:\/\//i, '');
 }

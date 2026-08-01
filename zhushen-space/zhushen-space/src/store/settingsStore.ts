@@ -396,6 +396,12 @@ interface SettingsState {
   outlineApi: ApiConfig;            // 细纲独立 API（outlineUseSharedApi=false 时用；否则复用正文/共享 API，或配 'outline' 路由）
   outlineUseSharedApi: boolean;
   preludePrompt: string;            // 玩家常驻「前置提示词」：每回合注入正文最深处(紧贴输入前)，玩家可编辑；留空=不注入
+  // Agent 正文模式（仿 TauriTavern·独立于 legacy 的另一种正文生成，见 docs/AGENT_MODE_PLAN.md）：
+  //   模型带工具循环产稿（查档案/搜历史/打草稿）→ commit 成楼层 → finish；终态后走既有 <state> 解析/演化。
+  //   API 完全独立：默认用 agentApi / 'agent' 路由；useTextApi=true 才复用正文 API。关闭时这里的 API 绝不会被调用。
+  agentNarrative: import('../systems/agent/agentTypes').AgentNarrativeSettings;
+  agentApi: ApiConfig;              // Agent 模式独立 API（agentNarrative.useTextApi=false 时用；'agent' 路由优先）
+  agentProfiles: import('../systems/agent/agentTypes').AgentProfileSnapshot[];   // P2·配置档案（命名快照：cfg+独立API+路由；一键应用）
   // 角色立场简报：给「正文前的规划调用」（细纲 / 数据库推进）额外喂一份**只含人格**的瘦档案（性格/四轴/原则/口癖/关系/动机），
   //   让它按人设排演本回合各角色的反应，再随规划产物一起注入正文（治配角同质化/OOC/谄媚）。
   //   只在细纲或数据库推进开启时生效（两者本就与剧情指导三选一），**不新增任何 API 调用**。见 systems/castBrief.ts
@@ -441,6 +447,11 @@ interface SettingsState {
   setOutlineWordTarget: (v: number) => void;
   setOutlineApi: (patch: Partial<ApiConfig>) => void;
   setOutlineUseSharedApi: (v: boolean) => void;
+  setAgentNarrative: (patch: Partial<import('../systems/agent/agentTypes').AgentNarrativeSettings>) => void;
+  setAgentApi: (patch: Partial<ApiConfig>) => void;
+  saveAgentProfile: (name: string, id?: string) => string;   // 抓当前 agentNarrative(去 enabled)+agentApi+agent/agentReview 路由 → 存/覆盖档案，返回 id
+  applyAgentProfile: (id: string) => void;                   // 应用档案（不改 enabled 开关）
+  deleteAgentProfile: (id: string) => void;
   setPreludePrompt: (v: string) => void;
   setCastBrief: (v: boolean) => void;
   setCastBriefMax: (v: number) => void;
@@ -850,6 +861,9 @@ export const useSettings = create<SettingsState>()(
       outlineApi: { ...DEFAULT_API },
       outlineUseSharedApi: true,
       preludePrompt: '',
+      agentNarrative: { enabled: false, protocol: 'auto', maxRounds: 16, maxToolCalls: 40, toolToggles: { dice_roll: false }, useTextApi: false, reviewerEnabled: false, reviewerPasses: 1 },
+      agentApi: { ...DEFAULT_API },
+      agentProfiles: [],
       castBrief: true,      // 默认开：只在细纲/推进已开时才生效，且不新增 API 调用，纯提升配角人格保真度
       castBriefMax: 6,
       textAvailableModels: [],
@@ -1049,6 +1063,27 @@ export const useSettings = create<SettingsState>()(
       setOutlineWordTarget: (v) => set({ outlineWordTarget: Math.max(0, Math.round(v || 0)) }),
       setOutlineApi: (patch) => set((s) => ({ outlineApi: { ...s.outlineApi, ...patch } })),
       setOutlineUseSharedApi: (v) => set({ outlineUseSharedApi: v }),
+      setAgentNarrative: (patch) => set((s) => ({ agentNarrative: { ...s.agentNarrative, ...patch } })),
+      setAgentApi: (patch) => set((s) => ({ agentApi: { ...s.agentApi, ...patch } })),
+      saveAgentProfile: (name, id) => {
+        const pid = id || `agp_${Date.now().toString(36)}_${Math.floor(Math.random() * 1e4).toString(36)}`;
+        set((s) => {
+          const { enabled: _e, ...cfg } = s.agentNarrative;
+          const snap = { id: pid, name: (name || '').trim() || '未命名档案', cfg, api: { ...s.agentApi }, routeIds: [...(s.apiRoutes?.agent ?? [])], reviewRouteIds: [...(s.apiRoutes?.agentReview ?? [])] };
+          return { agentProfiles: [...(s.agentProfiles ?? []).filter((p) => p.id !== pid), snap] };
+        });
+        return pid;
+      },
+      applyAgentProfile: (pid) => set((s) => {
+        const p = (s.agentProfiles ?? []).find((x) => x.id === pid);
+        if (!p) return {};
+        return {
+          agentNarrative: { ...s.agentNarrative, ...p.cfg, enabled: s.agentNarrative.enabled },   // 应用档案不改变开关
+          ...(p.api ? { agentApi: { ...s.agentApi, ...p.api } } : {}),
+          apiRoutes: { ...s.apiRoutes, ...(p.routeIds ? { agent: p.routeIds } : {}), ...(p.reviewRouteIds ? { agentReview: p.reviewRouteIds } : {}) },
+        };
+      }),
+      deleteAgentProfile: (pid) => set((s) => ({ agentProfiles: (s.agentProfiles ?? []).filter((x) => x.id !== pid) })),
       setPreludePrompt: (v) => set({ preludePrompt: v }),
       setCastBrief: (v) => set({ castBrief: v }),
       setCastBriefMax: (v) => set({ castBriefMax: Math.min(12, Math.max(1, Math.round(v || 6))) }),

@@ -13,6 +13,31 @@ import { dispositionLine } from './dispositionGuard';
 import { useResource } from '../store/resourceStore';
 import { playerResourceMax } from './playerVitals';
 import { isCompanionTag, ownerOf } from './petEvolution';
+import { useGemSets } from '../store/gemSetStore';
+import { useEquipSets } from '../store/equipSetStore';
+import { gemSetName } from './gemSets';
+import { setAttrEntries, setDetailLines } from './setBonus';
+
+/* ── 套装（宝石套装 + 锻造装备套装）→ 注入正文的两样东西（均走 setBonus 单一口径）──
+   ① setAttrEntries：把套装六维加成包成合成"装备条目"并入有效六维——与属性面板/战斗 buildCombatant 完全同口径。
+      此前正文注入漏了这一步 → AI 看到的六维比面板/战斗低一截。
+   ② setDetailLines：已激活套装的逐套详情（含各档 bonus 原文）。此前**从不注入**，AI 只看得见每颗宝石写进
+      装备 effect 的【镶嵌加成】，看不见"4件套已激活"，于是把套装效果当不存在（玩家报「正文AI不看宝石和套装效果」）。 */
+/** 该装备件所属锻造套装名（无/已删套装→''），供物品行标注是哪套的部件。 */
+function equipSetLabelOf(it: { equipSet?: string }): string {
+  return it.equipSet ? (useEquipSets.getState().sets.find((s) => s.key === it.equipSet)?.name ?? '') : '';
+}
+/** 已镶嵌宝石 → 一句"镶嵌N/M孔:名(属性·套装)"。数值本身已由 applyGemsToEffect 写进 effect，此处只补**是哪几颗**（供正文点名描写）。 */
+function gemMountLine(it: { sockets?: number; gems?: { name: string; attr: string; tier?: string; set?: string }[] }): string {
+  const gems = it.gems ?? [];
+  if (!gems.length) return '';
+  const sets = useGemSets.getState().sets;
+  const list = gems.map((g) => {
+    const sn = gemSetName(g.set, sets);
+    return `${g.name}(${g.attr}${sn ? `·属【${sn}】套装` : ''})`;
+  });
+  return `镶嵌${gems.length}${it.sockets ? `/${it.sockets}` : ''}孔:${list.join('、')}`;
+}
 
 /* 取佩戴中的称号，渲染成一行（仅 equipped 注入正文）*/
 function equippedTitleLine(titles: Title[] | undefined): string | undefined {
@@ -164,11 +189,13 @@ function talentLine(t: Talent): string {
 /* ── 单条物品/装备 → 可读行（NPC 卡用）：只注入 名称/类型/品级/数量/已装备 + 效果/标签；
    **省去 外观/获得途径/备注/简介**（对叙事无用、占 token），与主角装备行同口径。排除 addedAt/numeric/locked 等。── */
 function itemLine(it: InventoryItem | NpcOwnedItem): string {
-  const head = `「${it.name}」${it.category ? `[${it.category}${it.gradeDesc ? '·' + it.gradeDesc : ''}]` : ''}`;
+  const enh = it.enhanceLevel ? ` +${it.enhanceLevel}` : '';   // 强化等级（攻防已按此放大）
+  const head = `「${it.name}」${enh}${it.category ? `[${it.category}${it.gradeDesc ? '·' + it.gradeDesc : ''}]` : ''}`;
   const tail: string[] = [];
   if ((it.quantity ?? 1) > 1) tail.push(`×${it.quantity}`);
   if (it.equipped) tail.push(`已装备${it.equipSlot ? ':' + it.equipSlot : ''}`);
   const body = [
+    gemMountLine(it),   // 镶嵌了哪几颗宝石（数值本身已在 effect 的【镶嵌加成】里）
     it.effect && `效果:${it.effect}`,
     Array.isArray(it.tags) && it.tags.length ? `标签:${it.tags.join('/')}` : '',
   ].filter(Boolean).join('；');
@@ -178,10 +205,13 @@ function itemLine(it: InventoryItem | NpcOwnedItem): string {
 /* ── 主角装备/物品 → 精简行：只注入 名称/类型/品级/杀敌数/词缀/效果（其他信息不注入）── */
 function playerItemLine(it: InventoryItem): string {
   const qty = (it.quantity ?? 1) > 1 ? ` ×${it.quantity}` : '';   // 消耗品/材料数量也注入，供 AI 感知库存
-  const head = `「${it.name}」${(it.category || it.gradeDesc) ? `[${[it.category, it.gradeDesc].filter(Boolean).join('·')}]` : ''}${qty}`;
+  const enh = it.enhanceLevel ? ` +${it.enhanceLevel}` : '';      // 强化等级（攻防已按此放大，正文别当没强化过）
+  const head = `「${it.name}」${enh}${(it.category || it.gradeDesc) ? `[${[it.category, it.gradeDesc].filter(Boolean).join('·')}]` : ''}${qty}`;
   const body = [
     it.killCount && `杀敌:${it.killCount}`,
     it.affix && `词缀:${it.affix}`,
+    gemMountLine(it),                                              // 镶嵌了哪几颗宝石（数值已在 effect 的【镶嵌加成】里）
+    equipSetLabelOf(it) && `套装部件:【${equipSetLabelOf(it)}】`,   // 属哪套锻造套装（激活档见档案卡「套装加成」栏）
     it.effect && `效果:${it.effect}`,
   ].filter(Boolean).join('；');
   return `    · ${head}${body ? ` — ${body}` : ''}`;
@@ -190,13 +220,16 @@ function playerItemLine(it: InventoryItem): string {
 /* ── 主角物品 → 全量行（被「用户输入提到」或「当前已装备」时用）：名称/类型/品级/数量/已装备槽 + 杀敌/词缀/效果/标签；
    **省去 外观/获得途径/备注/简介**（装备与非装备一致，对叙事无用、占 token）。── */
 function playerItemFullLine(it: InventoryItem): string {
-  const head = `「${it.name}」${(it.category || it.gradeDesc) ? `[${[it.category, it.gradeDesc].filter(Boolean).join('·')}]` : ''}`;
+  const enh = it.enhanceLevel ? ` +${it.enhanceLevel}` : '';      // 强化等级（攻防已按此放大，正文别当没强化过）
+  const head = `「${it.name}」${enh}${(it.category || it.gradeDesc) ? `[${[it.category, it.gradeDesc].filter(Boolean).join('·')}]` : ''}`;
   const marks: string[] = [];
   if ((it.quantity ?? 1) > 1) marks.push(`×${it.quantity}`);
   if (it.equipped) marks.push(`已装备${it.equipSlot ? ':' + it.equipSlot : ''}`);
   const body = [
     it.killCount && `杀敌:${it.killCount}`,
     it.affix && `词缀:${it.affix}`,
+    gemMountLine(it),                                              // 镶嵌了哪几颗宝石（数值已在 effect 的【镶嵌加成】里）
+    equipSetLabelOf(it) && `套装部件:【${equipSetLabelOf(it)}】`,   // 属哪套锻造套装（激活档见档案卡「套装加成」栏）
     it.effect && `效果:${it.effect}`,
     Array.isArray(it.tags) && it.tags.length ? `标签:${it.tags.join('/')}` : '',
   ].filter(Boolean).join('；');
@@ -265,8 +298,9 @@ export function serializePlayerCard(
   const pEpForm = vitalFormula(epCoefOf(pRatio));   // EP 换算式
   const pMaxHp = fullMaxHp(hpBase, pEqp, skills, hpTalents, rmP, pRatio);
   const pMaxEp = fullMaxEp(hpBase, pEqp, skills, hpTalents, rmP, pRatio);
-  // 有效六维 = 基础 + 装备/技能/天赋 + 技能树 + 团队加成（与属性面板/战斗/骰子完全一致；注入正文用实战值，并标注基础值）
-  const effA = effectiveAttrs(hpBase, skills, talents, pEqp, attrCapForTier(profile.tier, profile.level));   // 用 hpBase（已含真实属性点直加 realAttrs + 技能树 + 团队）→ 注入六维=面板「真实属性」+装备/技能/天赋，不再漏 realAttrs
+  // 有效六维 = 基础 + 装备/技能/天赋 + 技能树 + 团队 + **套装(宝石套装/锻造套装)** 加成（与属性面板/战斗/骰子完全一致；注入正文用实战值，并标注基础值）
+  const pEqpForAttr = [...pEqp, ...setAttrEntries(pEqp)];   // 套装档六维包成合成"装备条目"（同 PlayerSidebar.equipForAttr / combatEngine.buildCombatant）；此前漏了 → AI 看到的六维比面板低
+  const effA = effectiveAttrs(hpBase, skills, talents, pEqpForAttr, attrCapForTier(profile.tier, profile.level));   // 用 hpBase（已含真实属性点直加 realAttrs + 技能树 + 团队）→ 注入六维=面板「真实属性」+装备/技能/天赋，不再漏 realAttrs
   // 衍生攻防（与属性面板同式：有效六维 + 等级 + 已装备品级）
   const derived = computeDerived(effA, profile.level, pEqp.map((it) => ({ category: it.category as string, grade: (it.numeric?.grade as number) ?? gradeToNum(it.gradeDesc), combatStat: effectiveCombatStat(it) })));   // 攻防按强化等级放大，AI 看到的与面板/战斗一致
   const aReal = withAttrDelta(a, profile.realAttrs);   // 真实属性 = 基础六维 + 真实属性点直加(realAttrs)；四阶起面板即此
@@ -283,7 +317,7 @@ export function serializePlayerCard(
     `EP:${effectiveResource(game.mp, game.maxMp, pMaxEp)}/${pMaxEp}（满状态上限=${pMaxEp}，已含${pEpForm}（四阶起×5）及天赋/装备/技能/技能树/团队全部加成，前端实算；回满即回到 ${pMaxEp}，勿自行重算、勿沿用历史旧上限${profile.epLabel ? `；正文叙述称「${profile.epLabel}」，状态行/指令仍写 EP` : ''}）`,
     game.san != null && `SAN:${game.san}/${game.maxSan ?? '?'}`,
     ...resLines,
-    a && `六维(实战值=基础+装备/技能/天赋/技能树/团队全部加成,括号内为基础值): 力${faP('str')} 敏${faP('agi')} 体${faP('con')} 智${faP('int')} 魅${faP('cha')} 幸${faP('luck')}`,
+    a && `六维(实战值=基础+装备/宝石/套装/技能/天赋/技能树/团队全部加成,括号内为基础值): 力${faP('str')} 敏${faP('agi')} 体${faP('con')} 智${faP('int')} 魅${faP('cha')} 幸${faP('luck')}`,
     a && `（真实属性口径·重要：四阶起上方六维即「真实属性」，勿÷80换算；1点真实≈5点普通之效、判定享绝对优先；一~三阶为普通属性≤99）`,
     a && `衍生属性(由含加成的实战六维+已装备品级现算): 物攻${derived.patk} 物防${derived.pdef} 法攻${derived.matk} 法防${derived.mdef}`,
     a && `生物强度(前端按六维机械判定,勿改): ${bioStrengthLabel(bioInnate(a, profile.tier, profile.level), bioPower(effA, profile.tier, profile.level))}`,
@@ -348,9 +382,14 @@ export function serializePlayerCard(
 
   const titleLine = equippedTitleLine(titles);
   const spLines = subProfLines((subProfs ?? []).slice(0, limits.maxSubProfs ?? 4));
+  // 套装加成（宝石套装 + 锻造装备套装）：已按件数**确定性激活**、六维/战斗被动前端已计入。
+  // 空则整块不出（无套装的存档不吃这份 token）。
+  const setLines = setDetailLines(pEqp);
   return ['# 主角 [B1]', '  ' + id, '  ' + stat,
     titleLine && '  ' + titleLine,
     detail && '  ' + detail,
+    setLines.length ? `  套装加成（前端按已装备/已镶嵌件数**确定性激活**，上方六维与战斗结算已计入）：\n${setLines.join('\n')}\n    ⚠已激活档的效果是**真实生效**的常驻能力，战斗与日常描写都应体现（该暴击就暴击、该减伤就扛住、该寻宝就有收获）；勿当摆设、勿自行重算或改数值、勿宣布套装失效或多算未激活的档。`
+      : '',
     block('技能', topSkills), block('天赋', talLines),
     block(leanItems ? '物品·全量（已装备/本轮提到，其余见下）' : '装备', equipItems),
     leanItems ? block('其余物品栏（仅名称）', nameOnlyItems) : block(allItems ? '其余物品栏（材料/消耗品/法宝/杂物/任务物等·全部，含效果）' : '材料/消耗品', matConItems),
@@ -393,11 +432,13 @@ export function serializeNpcCard(
     npc.contractorId && `契约者ID:${npc.contractorId}`,
   ].filter(Boolean).join(' | ');
   const a = npc.attrs;
-  // 有效六维 = 基础 + 装备/技能/天赋加成（与 NPC 详情面板一致；注入正文用实战值，并标注基础值）
-  const effA = a ? effectiveAttrs(npcBaseAttrs(npc), skills, talents, (npc.items ?? []).filter((it) => it.equipped) as any, attrCapForTier(npc.realm, lvFromRealm(npc.realm))) : undefined;   // npcBaseAttrs=attrs+真实属性点直加(realAttrs)：注入六维不再漏真实属性
+  const nEqp = (npc.items ?? []).filter((it) => it.equipped) as any;
+  // 有效六维 = 基础 + 装备/宝石/套装/技能/天赋加成（与 NPC 详情面板、战斗 buildCombatant 一致；注入正文用实战值，并标注基础值）
+  // NPC 也能镶嵌宝石 / 拿到套装部件（赠予·交易）→ 套装档六维同口径并入，别让正文看到的比战斗低。
+  const nEqpForAttr = [...(nEqp as any[]), ...setAttrEntries(nEqp)] as any;
+  const effA = a ? effectiveAttrs(npcBaseAttrs(npc), skills, talents, nEqpForAttr, attrCapForTier(npc.realm, lvFromRealm(npc.realm))) : undefined;   // npcBaseAttrs=attrs+真实属性点直加(realAttrs)：注入六维不再漏真实属性
   const aRealN = a ? npcBaseAttrs(npc) : undefined;   // NPC 真实属性 = attrs + realAttrs 直加
   const faN = (k: keyof PlayerAttrs) => { if (!a || !effA || !aRealN) return ''; return effA[k] === aRealN[k] ? `${effA[k]}` : `${effA[k]}(基${aRealN[k]})`; };
-  const nEqp = (npc.items ?? []).filter((it) => it.equipped) as any;
   const rmN = realAttrMult(npc.realm, lvFromRealm(npc.realm));   // 四阶起 HP/EP×5
   const nRatio = ratioOf(npc);   // NPC 自定义转化比（多属性系数表；空=默认 体×20 / 智×15）
   const nHpForm = vitalFormula(hpCoefOf(nRatio)), nEpForm = vitalFormula(epCoefOf(nRatio));
@@ -409,7 +450,7 @@ export function serializeNpcCard(
     a && `EP:${effectiveResource(npc.mp, npc.maxMp, nMaxEp)}/${nMaxEp}（上限=${nEpForm}，自动算）`,
     !a && (npc.hp != null || npc.maxHp != null) && `HP:${npc.hp ?? '?'}/${npc.maxHp ?? '?'}`,
     !a && (npc.mp != null || npc.maxMp != null) && `EP:${npc.mp ?? 0}/${npc.maxMp ?? 0}`,
-    a && `六维(实战值=基础+装备/技能/天赋加成): 力${faN('str')} 敏${faN('agi')} 体${faN('con')} 智${faN('int')} 魅${faN('cha')} 幸${faN('luck')}`,
+    a && `六维(实战值=基础+装备/宝石/套装/技能/天赋加成): 力${faN('str')} 敏${faN('agi')} 体${faN('con')} 智${faN('int')} 魅${faN('cha')} 幸${faN('luck')}`,
     nDerived && `衍生属性(六维+装备现算): 物攻${nDerived.patk} 物防${nDerived.pdef} 法攻${nDerived.matk} 法防${nDerived.mdef}`,
     a && `生物强度(前端按六维机械判定,勿改): ${bioStrengthLabel(bioInnate(a, npc.realm, lvFromRealm(npc.realm)), bioPower(effA))}`,
     `好感:${npc.favor}`,
@@ -461,9 +502,11 @@ export function serializeNpcCard(
   const privLines = PRIV
     .map(([k, label]) => { const v = ex[k]; return v != null && String(v).trim() ? `${label}:${String(v).trim()}` : null; })
     .filter(Boolean) as string[];
+  const nSetLines = setDetailLines(nEqp);   // NPC 的宝石/装备套装（空则整块不出）
   return [`# ${kindHead} [${npc.id}]${flags ? ` (${flags})` : ''}`, '  ' + id, '  ' + stat,
     titleLine && '  ' + titleLine,
     detail && '  ' + detail,
+    nSetLines.length ? `  套装加成（前端确定性激活·上方六维与战斗已计入·真实生效）：\n${nSetLines.join('\n')}` : '',
     block('技能', skillLines), block('天赋', talLines), block('装备/物品', itemLines),
     spLines.length ? block('副职业', spLines) : '',
     privLines.length ? block('私密信息', privLines) : '',

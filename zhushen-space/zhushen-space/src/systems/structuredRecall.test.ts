@@ -4,6 +4,7 @@ import type { PlayerProfile } from '../store/playerStore';
 import type { Talent, Skill } from '../store/characterStore';
 import type { InventoryItem } from '../store/itemStore';
 import type { NpcRecord } from '../store/npcStore';
+import { useEquipSets } from '../store/equipSetStore';
 
 /* 护栏：情境（用户输入+最近正文）里字面喊到的条目名 → 强制注入。
    治"都喊技能名字了还不注入进去"。仅测纯匹配逻辑（namesMentionedIn）。 */
@@ -194,6 +195,121 @@ describe('serializePlayerCard·技能护栏仅按用户输入（不扫整段正�
     const card = serializePlayerCard(profile, game, skills, [], [], limits,
       undefined, undefined, undefined, undefined, '（前情提要）', '我要用烈焰斩劈过去', true);
     expect(card).toContain('烈焰斩');
+  });
+});
+
+/* 宝石 / 套装可见性：此前正文 AI 只看得见每颗宝石写进装备 effect 的【镶嵌加成】，
+   **套装档加成（2/4/6 件）从不注入**，六维也漏算套装那份 → AI 把套装当不存在、数值与面板/战斗对不上。 */
+describe('serializePlayerCard（宝石镶嵌 + 套装档加成注入正文）', () => {
+  const profile = { name: '云舒', attrs: { str: 50, agi: 50, con: 50, int: 50, cha: 50, luck: 50 } } as unknown as PlayerProfile;
+  const game = { hp: 100, maxHp: 100, mp: 50, maxMp: 50 };
+  const gem = (name: string, attr: string, set: string, statText: string) =>
+    ({ gemId: 'g' + name, name, tier: '紫色', slot: '通用', attr, statText, high: false, set });
+  // 「聚宝天工」内置套装：2 件档 = 幸运+12
+  const items = [
+    {
+      name: '聚宝戒', category: '饰品', gradeDesc: '紫色', equipped: true, equipSlot: '饰品',
+      sockets: 2, enhanceLevel: 6, quantity: 1, tags: [],
+      gems: [gem('紫色·福运石', '幸运', 'fortune', '幸运+5'), gem('紫色·招财石', '招财', 'fortune', '击杀掉落乐园币+20%')],
+      effect: '【镶嵌加成：幸运+5；击杀掉落乐园币+20%】',
+    },
+  ] as unknown as InventoryItem[];
+  const card = serializePlayerCard(profile, game, [], [], items, { maxNpcs: 0, maxSkills: 0, maxItems: 5 },
+    undefined, undefined, undefined, undefined, undefined, '', true);
+
+  it('已激活的宝石套装成块注入：套装名 + 已镶嵌颗数 + 各档 bonus 原文', () => {
+    expect(card).toContain('套装加成');
+    expect(card).toContain('【宝石套装】');
+    expect(card).toContain('聚宝天工');
+    expect(card).toContain('已镶嵌同套宝石 2 颗');
+    expect(card).toContain('2件[幸运+12]');        // 已激活档的 bonus 原文
+  });
+
+  it('未激活的下一档也提示还差几颗（供剧情埋钩子），但标明尚未生效', () => {
+    expect(card).toContain('再集 2 颗可激活 4 件档');
+  });
+
+  it('套装六维加成计入注入的实战六维（与属性面板/战斗 buildCombatant 同口径）', () => {
+    expect(card).toContain('幸67(基50)');   // 基础50 + 宝石幸运+5 + 套装2件档幸运+12
+  });
+
+  it('装备行标出镶嵌了哪几颗宝石及其所属套装（供正文点名描写）', () => {
+    expect(card).toContain('镶嵌2/2孔');
+    expect(card).toContain('紫色·福运石(幸运·属【聚宝天工】套装)');
+  });
+
+  it('装备行标出强化等级（攻防已按此放大，别当没强化过）', () => {
+    expect(card).toContain('「聚宝戒」 +6');
+  });
+
+  it('没有任何激活套装 → 整块不出（无套装的存档不吃这份 token）', () => {
+    const bare = serializePlayerCard(profile, game, [], [],
+      [{ name: '布衣', category: '防具', gradeDesc: '白色', equipped: true, quantity: 1, tags: [] }] as unknown as InventoryItem[],
+      { maxNpcs: 0, maxSkills: 0, maxItems: 5 }, undefined, undefined, undefined, undefined, undefined, '', true);
+    expect(bare).not.toContain('套装加成');
+  });
+});
+
+/* 锻造装备套装（合成工坊·套装锻造）：按已装备同套件数递进激活，同样要让正文看见。 */
+describe('serializePlayerCard（锻造装备套装注入正文）', () => {
+  const profile = { name: '云舒', attrs: { str: 50, agi: 50, con: 50, int: 50, cha: 50, luck: 50 } } as unknown as PlayerProfile;
+
+  it('已装备 2/4 件 → 注入套装名/件数/已激活档，并提示下一档', () => {
+    const key = useEquipSets.getState().addSet({
+      name: '余烬守望者', emoji: '🔥', theme: '攻', desc: '灰烬中长明的守望。', gradeDesc: '暗紫色', pieces: 4,
+      tiers: [{ need: 2, bonus: '敏捷+8' }, { need: 4, bonus: '暴击率+10%' }],
+    });
+    const items = [
+      { name: '余烬胸甲', category: '防具', gradeDesc: '暗紫色', equipped: true, quantity: 1, tags: [], equipSet: key },
+      { name: '余烬护手', category: '防具', gradeDesc: '暗紫色', equipped: true, quantity: 1, tags: [], equipSet: key },
+    ] as unknown as InventoryItem[];
+    const card = serializePlayerCard(profile, { hp: 100, maxHp: 100, mp: 50, maxMp: 50 }, [], [], items,
+      { maxNpcs: 0, maxSkills: 0, maxItems: 5 }, undefined, undefined, undefined, undefined, undefined, '', true);
+
+    expect(card).toContain('【装备套装】');
+    expect(card).toContain('余烬守望者');
+    expect(card).toContain('已装备 2/4 件·暗紫色');
+    expect(card).toContain('2件[敏捷+8]');                    // 已激活档
+    expect(card).toContain('再穿 2 件可激活 4 件档');          // 未激活档提示
+    expect(card).toContain('套装部件:【余烬守望者】');          // 装备行标出属哪套
+    expect(card).toContain('敏58(基50)');                     // 套装六维并入实战六维
+    useEquipSets.getState().removeSet(key);
+  });
+});
+
+/* NPC 也能镶宝石成套 / 拿到锻造套装部件（赠予·交易·掉落）→ 套装对 NPC 同样生效，NPC 卡也要注入。 */
+describe('serializeNpcCard（NPC 的宝石/装备套装同样注入）', () => {
+  it('NPC 穿齐套装部件 → 卡上出现套装加成栏，六维含套装那份', () => {
+    const key = useEquipSets.getState().addSet({
+      name: '荒原狼王', emoji: '🐺', theme: '敏', desc: '荒原上的头狼。', gradeDesc: '蓝色', pieces: 3,
+      tiers: [{ need: 2, bonus: '敏捷+8' }, { need: 3, bonus: '暴击率+5%' }],
+    });
+    const npc = {
+      id: 'C1', name: '薇妮', onScene: true, favor: 50,
+      realm: '三阶·Lv.25',   // ⚠必写阶位：留空 → 单属性极值按一阶=50 把 58 夹回 50（见 npc-realm-empty-clamps-attrs-to-50）
+      attrs: { str: 50, agi: 50, con: 50, int: 50, cha: 50, luck: 50 },
+      items: [
+        { name: '狼王胸甲', category: '防具', gradeDesc: '蓝色', equipped: true, quantity: 1, equipSet: key },
+        { name: '狼王护腿', category: '防具', gradeDesc: '蓝色', equipped: true, quantity: 1, equipSet: key },
+      ],
+    } as unknown as NpcRecord;
+    const card = serializeNpcCard(npc, [], []);
+
+    expect(card).toContain('套装加成');
+    expect(card).toContain('荒原狼王');
+    expect(card).toContain('已装备 2/3 件·蓝色');
+    expect(card).toContain('2件[敏捷+8]');
+    expect(card).toContain('敏58(基50)');      // 套装六维并入 NPC 实战六维（与战斗 buildCombatant 同口径）
+    useEquipSets.getState().removeSet(key);
+  });
+
+  it('NPC 没有激活套装 → 不出这一栏', () => {
+    const npc = {
+      id: 'C2', name: '路人', onScene: true, favor: 0,
+      attrs: { str: 10, agi: 10, con: 10, int: 10, cha: 10, luck: 10 },
+      items: [{ name: '布衣', category: '防具', gradeDesc: '白色', equipped: true, quantity: 1 }],
+    } as unknown as NpcRecord;
+    expect(serializeNpcCard(npc, [], [])).not.toContain('套装加成');
   });
 });
 

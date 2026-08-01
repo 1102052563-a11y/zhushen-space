@@ -167,6 +167,18 @@ export function gemSetEquipEntry(equippedItems: EquipLike[], sets: GemSetDef[]):
   return parts.length ? { effect: `【套装加成：${parts.join('；')}】` } : null;
 }
 
+/** 已激活套装的**逐套详情行**（供结构化召回注入正文：AI 此前完全看不到套装档加成，只当宝石各自为战）。
+ *  每行含：套装名/已镶嵌颗数/风味 + **已激活各档的 bonus 原文** + 下一档还差几颗（供剧情埋"再凑一颗"的钩子）。 */
+export function gemSetDetailLines(equippedItems: EquipLike[], sets: GemSetDef[]): string[] {
+  return activeGemSets(equippedItems, sets).map((s) => {
+    const on = s.tiers.filter((t) => t.active).map((t) => `${t.need}件[${t.bonus}]`).join('；');
+    const next = s.tiers.find((t) => !t.active);
+    return `    · 【宝石套装】${s.emoji}「${s.name}」(已镶嵌同套宝石 ${s.count} 颗)${s.desc ? ` — ${s.desc}` : ''}`
+      + (on ? `｜已激活: ${on}` : '')
+      + (next ? `｜再集 ${next.need - s.count} 颗可激活 ${next.need} 件档[${next.bonus}]` : '');
+  });
+}
+
 /** 一句话套装摘要（供场外通报 / AI 一致性）。 */
 export function gemSetSummaryLine(equippedItems: EquipLike[], sets: GemSetDef[]): string {
   const active = activeGemSets(equippedItems, sets);

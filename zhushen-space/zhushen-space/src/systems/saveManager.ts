@@ -28,6 +28,7 @@ import { useTeam } from '../store/adventureTeamStore';
 import { useImageGen } from '../store/imageGenStore';
 import { useComic } from '../store/comicStore';
 import { useTurnInsight } from '../store/turnInsightStore';
+import { useAgentRun } from '../store/agentRunStore';
 import { useCharacters } from '../store/characterStore';
 import { useMemory } from '../store/memoryStore';
 import { useMisc } from '../store/miscStore';
@@ -87,6 +88,8 @@ const STORES: { key: string; api: any; clear?: () => void }[] = [
   { key: 'drpg-image-gen',   api: useImageGen },   // 配置：保留（图片走 IndexedDB 单独清）
   { key: 'drpg-comic',       api: useComic },      // 漫画工坊配置：保留（漫画本体在 IndexedDB drpg-comics，库房性质·不进快照不随新游戏清）
   { key: 'drpg-turn-insight', api: useTurnInsight, clear: () => useTurnInsight.getState().clear() },
+  { key: 'drpg-agentrun',   api: useAgentRun, clear: () => useAgentRun.getState().clearAll() },   // Agent 正文模式 run journal：进度数据，随存档快照、新游戏清空
+
   { key: 'drpg-characters', api: useCharacters, clear: () => useCharacters.setState({ characters: {} }) },
   { key: 'drpg-memory',     api: useMemory },      // 保留
   { key: 'drpg-misc',       api: useMisc, clear: () => { const m = useMisc.getState(); m.clearMisc(); m.clearNarrativeFacts(); m.setTime({ paradiseTime: '', worldTime: '', worldName: '' }); m.setWeather(''); } },

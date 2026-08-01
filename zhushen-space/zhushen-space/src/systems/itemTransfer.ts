@@ -43,7 +43,8 @@ export function movePlayerItemToNpc(npcId: string, playerItemId: string): Transf
     tags: src.tags,
     origin: src.origin, subType: src.subType, combatStat: src.combatStat, durability: src.durability,
     requirement: src.requirement, affix: src.affix, score: src.score, intro: src.intro, killCount: src.killCount,
-    enhanceLevel: src.enhanceLevel, sockets: src.sockets, gems: src.gems, gemSlot: src.gemSlot, gemAttr: src.gemAttr,
+    enhanceLevel: src.enhanceLevel, equipSet: src.equipSet,   // 套装归属随件走：NPC 穿齐同套即激活（与主角同口径）
+    sockets: src.sockets, gems: src.gems, gemSlot: src.gemSlot, gemAttr: src.gemAttr, gemSet: src.gemSet,
     image: src.image, numeric: src.numeric,
     addedAt: Date.now(),
   };
@@ -83,7 +84,8 @@ export function moveNpcItemToPlayer(npcId: string, npcItemId: string): TransferR
     acquisition: `取自 ${rec.name || '某契约者'} 的储存空间`,
     origin: src.origin, subType: src.subType, combatStat: src.combatStat, durability: src.durability,
     requirement: src.requirement, affix: src.affix, score: src.score, intro: src.intro, killCount: src.killCount,
-    enhanceLevel: src.enhanceLevel, sockets: src.sockets, gems: src.gems, gemSlot: src.gemSlot, gemAttr: src.gemAttr,
+    enhanceLevel: src.enhanceLevel, equipSet: src.equipSet,   // 取回时套装归属同样保留（来回搬不掉套）
+    sockets: src.sockets, gems: src.gems, gemSlot: src.gemSlot, gemAttr: src.gemAttr, gemSet: src.gemSet,
     image: src.image, numeric: src.numeric,
   });
   npc.consumeNpcItem(npcId, npcItemId, qty);

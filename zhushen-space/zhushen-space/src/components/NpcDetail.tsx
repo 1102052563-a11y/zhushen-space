@@ -8,6 +8,7 @@ import { useCharacters, RARITY_CLS, ELEMENT_CLS, SKILL_TIER_CLS, normSkillTier, 
 import { computeDerived, lvFromRealm, normalizeTier, tierFxClass, realmFromLevel, effectiveResource, fullMaxHp, fullMaxEp, TIERS, realAttrCapForTier, realAttrMult, attrCapForTier, ratioOf, hpCoefOf, epCoefOf, vitalFormula, npcBaseAttrs } from '../systems/derivedStats';
 import { computeAttrBreakdown, effectiveAttrs, clampedBonus, ATTR_LABEL, ATTR_KEYS, type AttrBreak } from '../systems/attrBonus';
 import { effectiveCombatStat } from '../systems/enhanceEngine';
+import { setAttrEntries, setDetailLines } from '../systems/setBonus';
 import { bioInnate, bioPower, bioStrengthLabel, BIO_TIER_NAMES, nominalTierNum } from '../systems/bioStrength';
 import BioBadge from './BioBadge';
 import { generateNpcAttrs, resolveForm, UNIT_TYPE_LABELS } from '../systems/npcAttrGen';
@@ -816,7 +817,8 @@ function BasicTab({ npc: npcProp, realm, genderCls }: { npc: NpcRecord; realm: R
   const unequipTitle = useCharacters((s) => s.unequipTitle);
   const cdataBio = useCharacters((s) => s.characters[npc.id]);
   // 生物强度：前端按六维机械判定（资质档=基础六维；战力档=含装备/技能/天赋加成），AI 不再判
-  const npcBioEff = npc.attrs ? effectiveAttrs(npc.attrs, cdataBio?.skills ?? [], cdataBio?.traits ?? [], (npc.items ?? []).filter((i) => i.equipped) as any, attrCapForTier(npc.realm, lvFromRealm(npc.realm))) : undefined;
+  const bioEqp = (npc.items ?? []).filter((i) => i.equipped);
+  const npcBioEff = npc.attrs ? effectiveAttrs(npc.attrs, cdataBio?.skills ?? [], cdataBio?.traits ?? [], [...bioEqp, ...setAttrEntries(bioEqp)] as any, attrCapForTier(npc.realm, lvFromRealm(npc.realm))) : undefined;   // 含套装加成（与战斗/正文注入同口径）
   const npcBioLabel = npc.attrs ? bioStrengthLabel(bioInnate(npc.attrs, npc.realm, lvFromRealm(npc.realm)), bioPower(npcBioEff, npc.realm, lvFromRealm(npc.realm))) : (npc.bioStrength ?? '');
 
   // ── 隶属冒险团：点击字段 → 强制加入该团（复用与私聊一致的 generateJoinedTeam）/ 退出当前冒险团 ──
@@ -1244,8 +1246,11 @@ function AttrTab({ npc: npcProp, realm }: { npc: NpcRecord; realm: ReturnType<ty
   const npc = useNpc((s) => s.npcs[npcProp.id]) ?? npcProp;   // 订阅实时记录：点「机械生成」改 store 后本面板即时重渲染(上层传的是 getState 快照、不会触发刷新)
   const cdata = useCharacters((s) => s.characters[npc.id]);
   const equippedFull = (npc.items ?? []).filter((it) => it.equipped);
-  // 属性构成：原始 + 装备/技能/天赋加成（真实加载）
-  const breakdown = computeAttrBreakdown(npc.attrs, cdata?.skills ?? [], cdata?.traits ?? [], equippedFull as any, attrCapForTier(npc.realm, lvFromRealm(npc.realm)));   // 有效六维(含全部加成)夹本阶上限·遵守阶位限制
+  // 属性构成：原始 + 装备/宝石/套装/技能/天赋加成（真实加载）
+  // 套装那份走 setBonus 单一口径（NPC 也能镶宝石成套 / 拿到锻造套装部件）——此前只传裸装备，面板比战斗低一截
+  const npcEquipForAttr = [...equippedFull, ...setAttrEntries(equippedFull)] as any;
+  const npcSetLines = setDetailLines(equippedFull);   // 已激活套装详情（空则「套装加成」整栏不渲染）
+  const breakdown = computeAttrBreakdown(npc.attrs, cdata?.skills ?? [], cdata?.traits ?? [], npcEquipForAttr, attrCapForTier(npc.realm, lvFromRealm(npc.realm)));   // 有效六维(含全部加成)夹本阶上限·遵守阶位限制
   const effAttrs = { str: breakdown.str.total, agi: breakdown.agi.total, con: breakdown.con.total, int: breakdown.int.total, cha: breakdown.cha.total, luck: breakdown.luck.total } as PlayerAttrs;
   // HP/EP 上限由(有效)体质×20 / 智力×15 自动换算
   // 最大HP/EP = 基础六维换算 + 装备/被动明确写"增加HP/EP上限"的平值 + 百分比加成；技能/天赋的属性加成不计入上限
@@ -1487,6 +1492,15 @@ function AttrTab({ npc: npcProp, realm }: { npc: NpcRecord; realm: ReturnType<ty
           );
         })()}
       </Section>
+      {npcSetLines.length > 0 && (
+        <Section title="套装加成" hint="已按件数激活·六维/战斗已计入">
+          <div className="space-y-1">
+            {npcSetLines.map((line, i) => (
+              <div key={i} className="rounded-lg border border-edge bg-void/40 px-2 py-1.5 text-[11.5px] leading-relaxed text-slate-300 break-words">{line.trim().replace(/^·\s*/, '')}</div>
+            ))}
+          </div>
+        </Section>
+      )}
       <Section title="好感度" hint="-100 ~ 100">
         <div className="flex items-center gap-3">
           <span className={`text-2xl font-bold font-mono ${favorCls(npc.favor)}`}>{npc.favor > 0 ? '+' : ''}{npc.favor}</span>

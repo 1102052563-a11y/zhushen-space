@@ -36,19 +36,25 @@ function infoFields(o: DmDealItem) {
   };
 }
 
-/* 把玩家交出的物品放进对方（NPC）的储存空间 */
-function addToNpcBag(npcId: string, item: DmDealItem, fromPlayerName: string) {
+/* 把玩家交出的物品放进对方（NPC）的储存空间。
+   src=背包里那件**真身**（谈判条目 DmDealItem 只有 AI 谈出来的摘要字段）：强化等级/镶嵌宝石/套装归属这些
+   只存在于真身上，不带过去的话「送出去的强化装/套装部件」到对方手里就变成一件白板（NPC 套装/宝石永不生效）。 */
+function addToNpcBag(npcId: string, item: DmDealItem, fromPlayerName: string, src?: InventoryItem) {
   const npc = useNpc.getState();
   const rec = npc.npcs[npcId];
   const existing = npc.npcs[npcId]?.items ?? [];
   const owned: NpcOwnedItem = {
     id: `I_${npcId}_${(existing.length + 1).toString().padStart(2, '0')}_${Math.random().toString(36).slice(2, 5)}`,
     name: item.name, category: item.category || '其他物品', gradeDesc: item.gradeDesc || '',
-    effect: item.effect || '', quantity: Math.max(1, item.qty || 1), equipped: false,
+    effect: item.effect || src?.effect || '', quantity: Math.max(1, item.qty || 1), equipped: false,
     acquisition: `主角私下赠予/交易（来自 ${fromPlayerName || '主角'}）`,
     tags: item.tags ?? ['私下交易'],
     origin: item.origin, subType: item.subType, combatStat: item.combatStat, durability: item.durability,
     requirement: item.requirement, affix: item.affix, score: item.score, intro: item.intro, appearance: item.appearance,
+    // 真身携带的机械字段（谈判条目没有，只能从背包原件带）——强化/套装/镶嵌一并过户
+    enhanceLevel: src?.enhanceLevel, equipSet: src?.equipSet,
+    sockets: src?.sockets, gems: src?.gems, gemSlot: src?.gemSlot, gemAttr: src?.gemAttr, gemSet: src?.gemSet,
+    numeric: src?.numeric,
     addedAt: Date.now(),
   };
   if (rec) npc.addNpcItem(npcId, owned);
@@ -69,14 +75,14 @@ export function settleDmDeal(thread: DmThread, deal: DmDeal): DmSettleResult {
     if (have < deal.giveCurrency.amount) return { ok: false, error: `${cur}不足：需 ${deal.giveCurrency.amount}，现有 ${have}` };
   }
   // ② 校验：玩家交出的物品是否在背包、未装备、数量够
-  let consume: { id: string; qty: number } | undefined;
+  let consume: { id: string; qty: number; src: InventoryItem } | undefined;   // src=背包原件（强化/镶嵌/套装等机械字段随货过户）
   if (deal.giveItem) {
     const it = findPlayerItem(items.items, deal.giveItem.name);
     if (!it) return { ok: false, error: `你的储存空间里找不到「${deal.giveItem.name}」` };
     if (it.equipped) return { ok: false, error: `「${it.name}」正装备中，请先卸下再交易` };
     const need = Math.max(1, deal.giveItem.qty || 1);
     if ((it.quantity || 1) < need) return { ok: false, error: `「${it.name}」数量不足：需 ${need}，现有 ${it.quantity}` };
-    consume = { id: it.id, qty: need };
+    consume = { id: it.id, qty: need, src: it };
   }
 
   // ③ 若对方将收到物品但尚未建档 → 就地建离场契约者档案
@@ -93,7 +99,7 @@ export function settleDmDeal(thread: DmThread, deal: DmDeal): DmSettleResult {
   if (deal.getCurrency && deal.getCurrency.amount > 0) items.adjustCurrency(normCur(deal.getCurrency.type), deal.getCurrency.amount, '私信交易·收款');
   if (consume && deal.giveItem) {
     items.consumeItem(consume.id, consume.qty);
-    if (npcId) addToNpcBag(npcId, deal.giveItem, '主角');
+    if (npcId) addToNpcBag(npcId, deal.giveItem, '主角', consume.src);
   }
   if (deal.getItem) {
     items.addItem({

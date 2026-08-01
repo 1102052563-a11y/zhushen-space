@@ -63,11 +63,14 @@ export interface NpcOwnedItem {
   intro?: string;         // 简介
   killCount?: string;     // 杀敌数量（仅武器类）
   enhanceLevel?: number;  // 强化等级 0-16（装备强化系统，仅装备类；0/缺省=未强化）
+  equipSet?: string;      // 所属**锻造套装** key（equipSetStore）——NPC 拿到套装部件（赠予/交易/掉落）后按已装备同套件数递进激活，
+                          // 与主角同口径走 equipSetEquipEntry/equipSetPassive。⚠此前本类型缺此字段 → 转移时被剥掉 → NPC 套装永不激活。
   // ── 宝石/镶嵌系统（与 InventoryItem 对齐；六维加成已写进 effect 自动传导）──
   sockets?: number;       // 镶嵌孔总数（缺省按品级派生 socketsOf）
   gems?: SocketedGem[];   // 已镶嵌宝石
   gemSlot?: GemSlotKind;  // （宝石物品专属）部位限制
   gemAttr?: string;       // （宝石物品专属）属性类型
+  gemSet?: string;        // （宝石物品专属）所属宝石套装 key——转手不丢归属（缺失时 gemFromItem 会按 gemAttr 回填）
   image?: string;         // 装备图（上传/AI 生图 dataURL）
   numeric?: Record<string, unknown>;  // 原始数值结构（rarityTier/grade/statLines…）
   addedAt: number;

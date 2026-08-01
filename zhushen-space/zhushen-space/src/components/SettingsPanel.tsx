@@ -1688,7 +1688,135 @@ function TextApiSection() {
         </div>
       )}
 
+      <AgentNarrativeSection />
+
       <ApiRoutePicker routeKey="text" />
+    </div>
+  );
+}
+
+/* ════════════════════════════════════════════
+   正文生成 — 🤖 Agent 正文模式（独立旁路·docs/AGENT_MODE_PLAN.md）
+════════════════════════════════════════════ */
+const AGENT_TOGGLEABLE_TOOLS: [string, string][] = [
+  ['chat_search', '搜历史楼层'], ['chat_read_messages', '读历史楼层'],
+  ['worldinfo_read_activated', '读世界书激活'], ['lore_search', '向量资料库检索'],
+  ['player_get', '读主角档案'], ['npc_list', 'NPC 名册'], ['npc_get', '读 NPC 档案'],
+  ['quest_get', '读任务态势'], ['faction_get', '读势力档案'], ['db_query', '状态表 SQL 查询'],
+  ['dice_roll', '掷公式骰'], ['workspace_search_files', '工作区搜索'], ['workspace_apply_patch', '精确修订'],
+];
+function AgentNarrativeSection() {
+  const cfg = useSettings((s) => s.agentNarrative);
+  const agentApi = useSettings((s) => s.agentApi);
+  const setCfg = useSettings((s) => s.setAgentNarrative);
+  const setAgentApi = useSettings((s) => s.setAgentApi);
+  const profiles = useSettings((s) => s.agentProfiles ?? []);
+  const [profSel, setProfSel] = useState('');
+  const [profName, setProfName] = useState('');
+  return (
+    <div className={`p-3 bg-panel border rounded-lg space-y-3 ${cfg?.enabled ? 'border-cyan-600/50' : 'border-edge'}`}>
+      <label className="flex items-center gap-2 cursor-pointer">
+        <input type="checkbox" checked={!!cfg?.enabled} onChange={(e) => setCfg({ enabled: e.target.checked })} />
+        <span className="text-sm text-slate-200">🤖 Agent 正文模式（实验·另一种正文生成方式）</span>
+      </label>
+      <div className="text-xs text-dim">开启后正文不再一次性生成：模型带<b>工具循环</b>工作——按需查主角/NPC 档案、搜往期剧情、查世界书与向量资料库、在工作区打草稿修订，最后把成稿 <code className="text-cyan-300">commit</code> 为正文楼层。成稿格式与平时完全一致（状态栏 / <code>&lt;state&gt;</code> 等照常），演化管线不变。输入框旁的 🤖 按钮可快捷开关。<b className="text-amber-300/90">成本提示：</b>一回合约 4~8 次模型调用（每次都带完整上下文），开销为普通正文的数倍。运行语义为整轮非流式，但模型<b>开写正文时会有草稿流式预览</b>（P2）流进楼层；全程进度看输入框上方的时间线，随时可用 ⏹ 停止。</div>
+      {cfg?.enabled && (
+        <>
+          <div className="space-y-1.5 pt-1 border-t border-cyan-700/20">
+            <div className="text-sm text-cyan-200">🗂 配置档案（P2·命名快照）</div>
+            <div className="text-xs text-dim">把当前 Agent 配置（工具/轮数/协议/评稿/独立 API/路由）存成档案，随时一键切换——例如「快速便宜档」和「深度评稿档」。应用档案不改变启用开关；提示词仍走全局预设中心。</div>
+            <div className="flex flex-wrap items-center gap-1.5">
+              <select value={profSel} onChange={(e) => setProfSel(e.target.value)}
+                className="px-2 py-1 bg-black/30 border border-edge rounded text-xs text-slate-200 focus:border-cyan-600/50 focus:outline-none">
+                <option value="">— 选择档案（{profiles.length}）—</option>
+                {profiles.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
+              </select>
+              <button disabled={!profSel} onClick={() => { useSettings.getState().applyAgentProfile(profSel); }}
+                className="px-2 py-1 text-xs border border-cyan-500/40 text-cyan-200 rounded hover:bg-cyan-500/10 disabled:opacity-40">应用</button>
+              <button disabled={!profSel} onClick={() => { useSettings.getState().saveAgentProfile(profiles.find((p) => p.id === profSel)?.name ?? '', profSel); }}
+                title="用当前配置覆盖所选档案" className="px-2 py-1 text-xs border border-edge text-slate-300 rounded hover:bg-panel2 disabled:opacity-40">覆盖</button>
+              <button disabled={!profSel} onClick={() => { useSettings.getState().deleteAgentProfile(profSel); setProfSel(''); }}
+                className="px-2 py-1 text-xs border border-blood/40 text-blood rounded hover:bg-blood/10 disabled:opacity-40">删除</button>
+              <input value={profName} onChange={(e) => setProfName(e.target.value)} placeholder="新档案名…"
+                className="w-28 px-2 py-1 bg-black/30 border border-edge rounded text-xs text-slate-200 placeholder:text-dim/40 focus:border-cyan-600/50 focus:outline-none" />
+              <button onClick={() => { const id = useSettings.getState().saveAgentProfile(profName || `档案${profiles.length + 1}`); setProfSel(id); setProfName(''); }}
+                className="px-2 py-1 text-xs border border-emerald-500/40 text-emerald-200 rounded hover:bg-emerald-500/10">＋存为档案</button>
+            </div>
+          </div>
+          <div className="space-y-1.5 pt-1 border-t border-cyan-700/20">
+            <div className="text-sm text-cyan-200">🔌 Agent · 独立 API</div>
+            <div className="text-xs text-dim">Agent 模式的接口<b>完全独立</b>：优先用下方「agent 接口路由」，路由为空则用这里的独立配置；也可开「复用正文 API」。<b>不开启 Agent 模式时，这里的接口绝不会被调用。</b></div>
+            <label className="flex items-center gap-2 cursor-pointer text-xs text-slate-300">
+              <input type="checkbox" checked={!!cfg.useTextApi} onChange={(e) => setCfg({ useTextApi: e.target.checked })} />
+              复用正文 API（勾选后忽略下面的独立配置）
+            </label>
+            {!cfg.useTextApi && (
+              <div className="grid grid-cols-1 gap-1.5">
+                <input value={agentApi?.baseUrl ?? ''} onChange={(e) => setAgentApi({ baseUrl: e.target.value })} placeholder="API 地址（如 https://xxx/v1）"
+                  className="w-full px-3 py-1.5 bg-black/30 border border-edge rounded-md text-sm text-slate-200 placeholder:text-dim/40 focus:border-cyan-600/50 focus:outline-none" />
+                <input value={agentApi?.apiKey ?? ''} onChange={(e) => setAgentApi({ apiKey: e.target.value })} placeholder="API Key" type="password"
+                  className="w-full px-3 py-1.5 bg-black/30 border border-edge rounded-md text-sm text-slate-200 placeholder:text-dim/40 focus:border-cyan-600/50 focus:outline-none" />
+                <input value={agentApi?.modelId ?? ''} onChange={(e) => setAgentApi({ modelId: e.target.value })} placeholder="模型 ID（建议支持函数调用的模型）"
+                  className="w-full px-3 py-1.5 bg-black/30 border border-edge rounded-md text-sm text-slate-200 placeholder:text-dim/40 focus:border-cyan-600/50 focus:outline-none" />
+              </div>
+            )}
+            <ApiRoutePicker routeKey="agent" />
+          </div>
+          <div className="flex flex-wrap gap-4 pt-1 border-t border-cyan-700/20 text-xs text-slate-300">
+            <label className="flex items-center gap-1.5">轮数上限
+              <input type="number" min={1} max={80} value={cfg.maxRounds}
+                onChange={(e) => setCfg({ maxRounds: Math.max(1, Math.min(80, Number(e.target.value) || 16)) })}
+                className="w-16 px-2 py-1 bg-black/30 border border-edge rounded text-slate-200 focus:border-cyan-600/50 focus:outline-none" />
+            </label>
+            <label className="flex items-center gap-1.5">工具调用预算
+              <input type="number" min={1} max={200} value={cfg.maxToolCalls}
+                onChange={(e) => setCfg({ maxToolCalls: Math.max(1, Math.min(200, Number(e.target.value) || 40)) })}
+                className="w-16 px-2 py-1 bg-black/30 border border-edge rounded text-slate-200 focus:border-cyan-600/50 focus:outline-none" />
+            </label>
+            <label className="flex items-center gap-1.5">工具协议
+              <select value={cfg.protocol} onChange={(e) => setCfg({ protocol: e.target.value as 'auto' | 'native' | 'text' })}
+                className="px-2 py-1 bg-black/30 border border-edge rounded text-slate-200 focus:border-cyan-600/50 focus:outline-none">
+                <option value="auto">自动（推荐：原生函数调用，失败降级文本）</option>
+                <option value="native">仅原生函数调用</option>
+                <option value="text">仅文本协议（端点不支持函数调用时）</option>
+              </select>
+            </label>
+          </div>
+          <div className="space-y-1.5 pt-1 border-t border-cyan-700/20">
+            <label className="flex items-center gap-2 cursor-pointer">
+              <input type="checkbox" checked={!!cfg.reviewerEnabled} onChange={(e) => setCfg({ reviewerEnabled: e.target.checked })} />
+              <span className="text-sm text-cyan-200">🧐 评稿子代理（P2·可选）</span>
+            </label>
+            <div className="text-xs text-dim">模型请求收尾（finish）时先由<b>评稿人</b>独立审一遍成稿：合格放行；不合格把修改意见回喂给它，逼它修订再提交。每拦截一次 +1 次评稿调用；修订消耗正常轮数（超轮数仍按已提交版保留）。评稿走独立路由，<b>留空则回退 Agent 主接口</b>（同模型自审也有一定效果）。</div>
+            {cfg.reviewerEnabled && (
+              <>
+                <label className="flex items-center gap-1.5 text-xs text-slate-300">最多评几轮
+                  <input type="number" min={1} max={3} value={cfg.reviewerPasses ?? 1}
+                    onChange={(e) => setCfg({ reviewerPasses: Math.max(1, Math.min(3, Number(e.target.value) || 1)) })}
+                    className="w-14 px-2 py-1 bg-black/30 border border-edge rounded text-slate-200 focus:border-cyan-600/50 focus:outline-none" />
+                  <span className="text-dim/60">（达到次数后 finish 直接放行）</span>
+                </label>
+                <ApiRoutePicker routeKey="agentReview" />
+                <div className="text-[11px] text-dim/70">评稿人提示词在「预设中心 → Agent 模式 · 评稿人」编辑（⚠ 首行 PASS/REVISE 协议别改坏）。</div>
+              </>
+            )}
+          </div>
+          <details className="pt-1 border-t border-cyan-700/20">
+            <summary className="text-xs text-cyan-200 cursor-pointer select-none">工具开关（核心的 写文件/读文件/commit/finish 恒开，不在此列）</summary>
+            <div className="grid grid-cols-2 gap-1 pt-1.5">
+              {AGENT_TOGGLEABLE_TOOLS.map(([key, label]) => (
+                <label key={key} className="flex items-center gap-1.5 text-xs text-slate-300 cursor-pointer">
+                  <input type="checkbox" checked={cfg.toolToggles?.[key] !== false}
+                    onChange={(e) => setCfg({ toolToggles: { ...cfg.toolToggles, [key]: e.target.checked } })} />
+                  {label}<code className="text-dim/60">{key}</code>
+                </label>
+              ))}
+            </div>
+            <div className="text-[11px] text-dim/70 pt-1">掷骰默认关（对齐原作）：开了模型才会在剧情检定时主动摇骰。</div>
+          </details>
+          <div className="text-[11px] text-dim/70">提示词可在「预设中心」编辑：<b>Agent 模式 · 成稿契约 / 收尾铁则与流程</b>。Agent 模式下「思维链预填」自动跳过（assistant 预填与工具调用互斥）。</div>
+        </>
+      )}
     </div>
   );
 }

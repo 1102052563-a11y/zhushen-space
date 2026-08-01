@@ -23,6 +23,7 @@ import {
   CHAOS_RECORD_PROMPT, CHAOS_WORLD_GEN_PROMPT,
   CANON_INERTIA_RULE, SUXIAO_PERSONA_RULE, CANON_MISC_RULE,
   TABLE_FILL_RULE, TABLE_FILL_MANUAL_RULE,
+  AGENT_NARRATIVE_CONTRACT_RULE, AGENT_FLOW_RULE, AGENT_REVIEWER_RULE,
 } from '../promptRules';
 import { COMBAT_WRITING_GUIDE_RULE } from './combatWritingGuide';
 import { DISPATCH_GEN_RULE, DISPATCH_REPORT_RULE } from './dispatchPrompts';
@@ -53,6 +54,9 @@ export const PROMPT_REGISTRY: PromptEntry[] = [
     read: () => useSettings.getState().outlinePrompt, write: (v) => useSettings.getState().setOutlinePrompt(v), reset: () => useSettings.getState().setOutlinePrompt('') },
   { key: 'preludePrompt', label: '前置提示词', group: '正文前置 / 规划', kind: 'field', def: '', desc: '每回合注入正文最深处（留空=不注入·无内置默认）',
     read: () => useSettings.getState().preludePrompt, write: (v) => useSettings.getState().setPreludePrompt(v), reset: () => useSettings.getState().setPreludePrompt('') },
+  { key: 'AGENT_NARRATIVE_CONTRACT_RULE', label: 'Agent 模式 · 成稿契约', group: '正文前置 / 规划', kind: 'override', def: AGENT_NARRATIVE_CONTRACT_RULE, desc: 'Agent 正文模式：output/main.md 必须是含全部结构模块的完整正文（⚠ 改坏会丢状态栏/<state>）' },
+  { key: 'AGENT_FLOW_RULE', label: 'Agent 模式 · 收尾铁则与流程', group: '正文前置 / 规划', kind: 'override', def: AGENT_FLOW_RULE, desc: 'Agent 正文模式：必须 commit 后 finish、禁纯文本收尾、推荐工具流程' },
+  { key: 'AGENT_REVIEWER_RULE', label: 'Agent 模式 · 评稿人', group: '正文前置 / 规划', kind: 'override', def: AGENT_REVIEWER_RULE, desc: 'P2 评稿子代理：finish 前审成稿，PASS 放行 / REVISE 回喂修改意见（⚠ 首行 PASS/REVISE 协议别改坏）' },
   { key: 'CAST_BRIEF_RULE', label: '角色立场简报 · 产出', group: '正文前置 / 规划', kind: 'override', def: CAST_BRIEF_RULE, desc: '让细纲/推进按人格档案排演各角色的反应（锁人格不锁语言）' },
   { key: 'CAST_BRIEF_FOLLOW_RULE', label: '角色立场简报 · 正文遵循', group: '正文前置 / 规划', kind: 'override', def: CAST_BRIEF_FOLLOW_RULE, desc: '正文侧：怎么用简报（上限不是配额·内心不写成旁白）' },
   // ── 各演化阶段 · 思维链（override·留空=内置默认）──

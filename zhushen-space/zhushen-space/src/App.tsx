@@ -243,7 +243,11 @@ import ImageBusyToast from './components/ImageBusyToast';
 import { useItems, extractItemPresetFromJson, ITEM_CATEGORIES, ITEM_GRADES, formatItemLine, splitAffixEntries, gradeToNum } from './store/itemStore';
 import type { ItemPresetEntry } from './store/itemStore';
 import { useComposer } from './store/composerStore';
-import { ComposerTextarea, ComposerSendButton } from './components/ChatComposer';   // 主输入框（拆出·打字不重渲 App）
+import { ComposerTextarea, ComposerSendButton, AgentModeToggle } from './components/ChatComposer';   // 主输入框（拆出·打字不重渲 App）
+import { AgentTimeline } from './components/AgentTimeline';   // Agent 正文模式·运行时间线（自订阅·常驻小组件）
+import { runAgentNarrative } from './systems/agent/agentRuntime';   // Agent 正文模式·工具循环运行时（见 docs/AGENT_MODE_PLAN.md）
+import { AGENT_ERROR_TEXT } from './systems/agent/agentTypes';
+import { useAgentRun } from './store/agentRunStore';   // Agent 运行态（P1：运行中「中途指引」提交 + 回合洞察归档）
 import { usePlayer, buildPlayerSystemPrompt, extractPlayerPresetFromJson } from './store/playerStore';
 import { useWorldRecord, formatWorldviewForInjection, formatInheritAnchors, normWorldName, type Worldview, type WorldSummary } from './store/worldRecordStore';
 import { useChronicle } from './store/chronicleStore';
@@ -8065,6 +8069,14 @@ ${lines}`;
           goal: f.goal, territory: f.territory, resources: f.resources, scale: f.scale, powerLevel: f.powerLevel, relations: f.relations, leader: f.leader,
         }])),
         arbitration: drainArbitration(),   // ⚖️ 成长仲裁：本回合被闸门驳回/夹逼的 NPC 数值变更（晚到的进下一回合快照）
+        // 🤖 Agent 正文模式（P1）：本回合若由 Agent 生成正文，把最近一次 run 概要归档进快照（15 分钟窗口防串回合）
+        agentRun: (() => {
+          try {
+            const r = useAgentRun.getState().runs[0];
+            if (!r || Date.now() - r.startedAt > 15 * 60 * 1000) return undefined;
+            return { status: r.status, rounds: r.rounds, toolCalls: r.toolCalls, commits: r.commits, durationMs: r.durationMs, errorCode: r.errorCode };
+          } catch { return undefined; }
+        })(),
       });
     } catch (e) { console.warn('[Insight] 快照失败:', e); }
   }
@@ -10202,6 +10214,105 @@ ${lines}`;
 
     try {
       if (ac.signal.aborted) throw new DOMException('已取消', 'AbortError');   // 准备期就被停掉 → 别再白发一轮请求（走 catch 的 AbortError 静默分支）
+
+      // ── Agent 正文模式（独立旁路·docs/AGENT_MODE_PLAN.md）：模型带工具循环产稿（查档案/搜历史/打草稿→commit→finish），
+      //    首轮上下文=本函数刚组装的同款快照（仅去掉末尾 assistant 预填——它与工具调用在多数端点互斥），
+      //    终态后走与下方「非流式分支」完全相同的结算序列。API 完全独立：'agent' 路由 > agentApi；开关关闭时此块不存在任何调用。
+      const _agentCfg = useSettings.getState().agentNarrative;
+      if (!narrateOnly && _agentCfg?.enabled) {
+        const agentLegacy = _agentCfg.useTextApi ? (textUseShared ? sharedApi : textApi) : useSettings.getState().agentApi;
+        const agentChain = resolveApiChain('agent', agentLegacy);
+        if (!agentChain[0]?.baseUrl || !agentChain[0]?.apiKey) {
+          setGenError('Agent 正文模式需要独立 API：请在 设置→正文生成→🤖Agent 正文模式 里配置接口（或开启「复用正文 API」）');
+          return;
+        }
+        const agentBase = outMessages.length && (outMessages[outMessages.length - 1] as { role?: string }).role === 'assistant'
+          ? outMessages.slice(0, -1) : outMessages;
+        let agentMsgIdLocal = 0;
+        let agentCommitsSoFar = 0;   // 供 onPreview 判定：已有成稿楼层后草稿预览不再覆盖（修订轮防闪屏）
+        const agentResult = await runAgentNarrative({
+          baseMessages: agentBase as import('./systems/agent/agentTypes').AgentMsg[],
+          chain: agentChain,
+          signal: ac.signal,
+          settings: _agentCfg,
+          inputs: {
+            userText,
+            history: allHistoryForApi,
+            wbHits: wbEntries.map((e) => ({ name: String(e.comment || e.key?.[0] || '条目'), content: e.content || '', constant: !!e.constant })),
+          },
+          // P2·评稿子代理：独立路由 'agentReview'，未配则回退 Agent 主接口（同模型自审也有效）
+          reviewChain: _agentCfg.reviewerEnabled ? resolveApiChain('agentReview', agentChain[0]) : undefined,
+          // P2·末轮流式预览：模型正在写 output/main.md → 草稿渐进流入楼层（与 legacy 流式一致展示原文；commit 后由清洗稿接管）
+          onPreview: (draft) => {
+            if (agentCommitsSoFar > 0) return;
+            if (!agentMsgIdLocal) {
+              const nid = ++msgId.current;
+              agentMsgIdLocal = nid;
+              setMessages((prev) => [...prev, { id: nid, role: 'assistant', content: draft }]);
+            } else {
+              setMessages((prev) => prev.map((m) => m.id === agentMsgIdLocal ? { ...m, content: draft } : m));
+            }
+          },
+          // 每次 commit：建/改本回合楼层（display 轻清洗展示；正式结算等终态后统一做，避免半截 <state> 污染存档）
+          onCommit: (raw) => {
+            agentCommitsSoFar++;
+            const disp = stripWorldSourceBlocks(stripVitalsBlocks(stripStateBlocks(applyRegex(stripLeakedThinking(raw), preset, 'display', { depth: 0 }))));
+            if (!agentMsgIdLocal) {
+              const nid = ++msgId.current;
+              agentMsgIdLocal = nid;
+              setMessages((prev) => [...prev, { id: nid, role: 'assistant', content: disp || raw }]);
+            } else {
+              setMessages((prev) => prev.map((m) => m.id === agentMsgIdLocal ? { ...m, content: disp || raw } : m));
+            }
+          },
+        });
+        // 0 次 commit 就终止（取消/失败）→ 撤掉流式预览建的草稿楼层（维持「没 commit 就什么都不留」语义）
+        const dropPreviewFloor = () => {
+          if (agentResult.commits === 0 && agentMsgIdLocal) {
+            const pid = agentMsgIdLocal;
+            setMessages((prev) => prev.filter((m) => m.id !== pid));
+            agentMsgIdLocal = 0;
+          }
+        };
+        if (agentResult.status === 'cancelled') {
+          dropPreviewFloor();
+          console.log('[Agent] 已手动停止（已提交的部分保留展示，未触发演化）');
+          apiDebugLog.finish(narrLogId, agentResult.narrative || '（已停止）', true);
+          return;
+        }
+        if (agentResult.status === 'failed') {
+          dropPreviewFloor();
+          apiDebugLog.finish(narrLogId, `${agentResult.errorCode ?? ''}: ${agentResult.errorMessage ?? ''}`, false);
+          throw new Error(`Agent：${AGENT_ERROR_TEXT[agentResult.errorCode ?? ''] ?? agentResult.errorMessage ?? '运行失败'}`);
+        }
+        // completed / partial：成稿按「非流式分支」同款序列结算（目标楼层=commit 建的那层）
+        const cleanedReply = stripLeakedThinking(agentResult.narrative);
+        lastRawNarrativeRef.current = cleanedReply;
+        if (/<世界结算>/.test(cleanedReply)) { playSfx('fanfare'); try { useMisc.getState().markWorldSettled(); } catch { /* 结算边界戳 */ } try { const _cs = captureCanonSettlement(cleanedReply); if (_cs) setCanonSettleNotice(_cs); } catch { /* 🛤 原著路线盖章 */ } }
+        deferredCreatesRef.current = applyAllUpdates(cleanedReply, undefined, { deferItemCreate: itemPhaseWillRunThisTurn() }).deferredCreates;
+        try { applyPlayerProfileCommands(cleanedReply, '', turnCountRef.current); } catch { /* character.B1.* 短指令即时生效 */ }
+        const settledReply = stripKillBlocks(cleanedReply);
+        const gemLootLine = rollAndApplyGemDrops(cleanedReply);
+        const narrativeForEvoRaw = stripStateBlocks(applyRegex(settledReply, preset, 'prompt', { depth: 0 }));
+        const processed = stripWorldSourceBlocks(stripVitalsBlocks(stripStateBlocks(applyRegex(settledReply, preset, 'display', { depth: 0 })))) + gemLootLine;
+        const rawForHist = stripWorldSourceBlocks(stripVitalsBlocks(stripStateBlocks(settledReply))) + gemLootLine;
+        if (!agentMsgIdLocal) agentMsgIdLocal = ++msgId.current;   // 兜底（completed/partial 必有 commit，正常已建楼）
+        const finalId = agentMsgIdLocal;
+        setMessages((prev) => {
+          const exists = prev.some((m) => m.id === finalId);
+          const patch = { content: processed, ...(rawForHist !== processed ? { raw: rawForHist } : {}) };
+          return exists ? prev.map((m) => m.id === finalId ? { ...m, ...patch } : m)
+            : [...prev, { id: finalId, role: 'assistant' as const, ...patch }];
+        });
+        setRawResponse(agentResult.narrative);
+        apiDebugLog.finish(narrLogId, agentResult.narrative, true);
+        if (agentResult.status === 'partial') { setGenError('⚠ Agent 运行未干净收尾，已保留成稿并照常结算'); setTimeout(() => setGenError(''), 6000); }
+        const narrativeForEvo = narrativeForEvoRaw.replace(/<击杀结算>[\s\S]*?<\/击杀结算>/gi, '').trimEnd();
+        lastNarrativeRef.current = narrativeForEvo;
+        runPostNarrativePhases(narrativeForEvo, finalId);
+        return processed;
+      }
+
       // 接口路由：按优先级逐个尝试，失败/非 OK 自动 fallback 到下一条；首个成功者用于（流式）读取
       let res: Response | null = null;
       let usedApi = apiChain[0];
@@ -10760,6 +10871,16 @@ ${lines}`;
   async function sendMessage(textArg?: string, fromAuto = false, sendOpts: { skipOutline?: boolean; forceMpSend?: boolean } = {}) {
     const text = (textArg ?? useComposer.getState().value).trim();
     if (!fromAuto) stopAutoAdvance();   // 用户手动发送即中断循环自动推进
+    // ── Agent 正文模式 · 运行中「中途指引」（P1）：Agent 循环进行时再发送 = 把这条输入注入它下一轮，不成为聊天楼层。
+    //    有意放在下面的 generating 忙碌门**之前**（照抄 TauriTavern：guidance 分流优先于忙碌拦截）；确认后消费输入框。
+    if (text && !fromAuto && useAgentRun.getState().active) {
+      if (window.confirm('Agent 正在生成本回合正文。\n\n把这条输入作为「中途指引」发给它吗？\n（指引只影响 Agent 接下来的行动，不会成为聊天楼层）')) {
+        const r = useAgentRun.getState().submitGuidance(text);
+        if (r.ok) { if (textArg == null) useComposer.getState().clear(); }
+        else { setGenError(`指引未注入：${r.reason ?? '未知原因'}`); setTimeout(() => setGenError(''), 4000); }
+      }
+      return;
+    }
     if (!text || generating || guidanceRunning || outlineModal.open || planModal?.open || !!diceReviewModal) return;   // 剧情指导前置阶段/细纲·检定·规划审核弹窗开着也算「忙」，防重复发起并发调用
     // 图片附件：仅手动发送（textArg==null＝输入框那口）随本回合带图；⏩推进/自动推进等 textArg 非空的调用不吃附件条。
     //   发送即消费（清空附件条）；下面的取消路径会用 turnImages 还原。
@@ -12230,6 +12351,9 @@ ${lines}`;
             </div>
           )}
 
+          {/* Agent 正文模式·运行时间线（开着 agent 才显示；组件自订阅 agentRunStore，不重渲 App） */}
+          <div className="shrink-0 px-3"><AgentTimeline /></div>
+
           {/* 输入框（手机：正文输入独占一行·按钮换到下一行，省得输入框被挤成三行） */}
           <div
             className={`shrink-0 border-t bg-panel flex items-center gap-2 px-3 py-2 max-lg:flex-wrap transition-colors ${dragOverInput ? 'border-god/70 bg-god/5' : 'border-edge'}`}
@@ -12277,6 +12401,7 @@ ${lines}`;
             >
               {autoAdvActive ? '⏹' : '🔁'}
             </button>
+            <AgentModeToggle />
             <ComposerSendButton generating={generating} onSend={() => { void sendMessage(); }} />
           </div>
         </main>

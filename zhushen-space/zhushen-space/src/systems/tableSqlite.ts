@@ -77,6 +77,26 @@ export function needsSqlite(text: string): boolean {
   return typeof text === 'string' && (/\{\[(db\.|sql\s)/.test(text) || /<if\s+(db|sql)\s*=/i.test(text));
 }
 
+/* ── Agent 正文模式 · db_query 工具入口（P1）──────────────────────────────
+   只读单条 SELECT：先 ensureSqliteMirror()（每次调用从 tableStore 现建，数据即当前真相），
+   拒绝非 SELECT / 多语句，未写 LIMIT 强制补 LIMIT 50。失败一律软返回 error（不抛）。 */
+export async function agentSqlQuery(sql: string): Promise<{ ok: boolean; columns?: string[]; values?: unknown[][]; error?: string }> {
+  const ready = await ensureSqliteMirror();
+  if (!ready) return { ok: false, error: 'sqlite 镜像不可用（sql.js 加载失败）' };
+  const s = String(sql || '').trim().replace(/;+\s*$/, '');
+  if (!/^select\b/i.test(s)) return { ok: false, error: '只允许单条 SELECT 查询（表数据只读）' };
+  if (s.includes(';')) return { ok: false, error: '不允许多条语句' };
+  const limited = /\blimit\s+\d+/i.test(s) ? s : `${s} LIMIT 50`;
+  const r = rawQuery(limited);
+  return { ok: true, columns: r.columns, values: r.values.slice(0, 50) };
+}
+
+/** 列出镜像里的全部表名（Agent db_query 无参调用时的目录）。需先 ensureSqliteMirror。 */
+export function listSqliteTables(): string[] {
+  const r = rawQuery(`SELECT name FROM sqlite_master WHERE type='table' ORDER BY name`);
+  return r.values.map((v) => String(v[0]));
+}
+
 // ── 底层查询 ──────────────────────────────────────────────────────────────
 function rawQuery(sql: string): { columns: string[]; values: unknown[][] } {
   if (!_db) return { columns: [], values: [] };

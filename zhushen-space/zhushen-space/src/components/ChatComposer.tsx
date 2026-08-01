@@ -1,6 +1,7 @@
 import { useEffect, useRef } from 'react';
 import { useComposer } from '../store/composerStore';
 import { useSettings } from '../store/settingsStore';
+import { useAgentRun } from '../store/agentRunStore';
 
 /* 主聊天输入框（2026-07-23 从 App 拆出·治打字卡顿）。
    inputValue 每键都变，留在 1.1 万行的 App 里就是每键整树重渲——拆出后打字只重渲这里。
@@ -68,18 +69,41 @@ export function ComposerTextarea({ onSend, onAddImages }: {
   );
 }
 
+/* Agent 正文模式 · 发送钮旁三态开关（off 灰 / on 亮 / running 脉冲）。
+   单击翻转 settings.agentNarrative.enabled；运行中禁点（用停止按钮取消）。自订阅、不重渲 App。 */
+export function AgentModeToggle() {
+  const enabled = useSettings((s) => s.agentNarrative?.enabled);
+  const running = useAgentRun((s) => s.active !== null);
+  return (
+    <button
+      onClick={() => { if (!running) useSettings.getState().setAgentNarrative({ enabled: !enabled }); }}
+      title={running ? 'Agent 正在运行（用 ⏹ 停止按钮取消）' : enabled ? 'Agent 正文模式：开（点击关闭）\n模型将带工具循环产稿：查档案/搜历史/打草稿→提交正文' : 'Agent 正文模式：关（点击开启）\n开启后正文改由工具循环生成，API 走独立配置'}
+      className={`w-7 h-7 max-lg:w-9 max-lg:h-9 max-lg:order-2 flex items-center justify-center border rounded shrink-0 transition-colors text-sm ${
+        running ? 'text-sky-300 border-sky-300/40 animate-pulse cursor-default'
+        : enabled ? 'text-god border-god/40 bg-god/10 hover:bg-god/20'
+        : 'text-dim border-edge hover:bg-panel2 hover:text-slate-200 opacity-70'
+      }`}
+    >
+      🤖
+    </button>
+  );
+}
+
 export function ComposerSendButton({ generating, onSend }: {
   generating: boolean;
   onSend: () => void;
 }) {
   const empty = useComposer((s) => !s.value.trim());   // 布尔选择器：只在 空↔非空 翻转时重渲本按钮
+  // Agent 运行中例外（P1·中途指引）：发送钮保持可点——此时发送 = 向 Agent 注入「中途指引」（sendMessage 顶部分流），不再是普通发消息
+  const agentActive = useAgentRun((s) => s.active !== null);
   return (
     <button
       onClick={onSend}
-      disabled={generating || empty}
+      title={agentActive ? '发送 = 给运行中的 Agent 注入「中途指引」（不会成为聊天楼层）' : undefined}
+      disabled={(generating && !agentActive) || empty}
       className="w-7 h-7 max-lg:w-9 max-lg:h-9 max-lg:order-2 max-lg:ml-auto flex items-center justify-center text-god border border-god/30 rounded hover:bg-god/10 shrink-0 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
     >
-      {generating ? <span className="animate-spin text-xs">◌</span> : '▶'}
+      {generating ? (agentActive ? '🎯' : <span className="animate-spin text-xs">◌</span>) : '▶'}
     </button>
   );
 }

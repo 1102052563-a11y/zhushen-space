@@ -51,6 +51,7 @@
 | 存档（多存档/新游戏/读档） | `systems/saveManager.ts` / `saveDb.ts`；`components/SaveLoadPanel.tsx` |
 | 对话持久化（跨刷新） | `systems/chatDb.ts` |
 | 中心 API 库 / 多接口路由 / fallback | `store/settingsStore.ts`（`apiLibrary`/`apiRoutes`/`resolveApiChain`）；`systems/apiChat.ts`（`apiChatFallback`）；`components/ApiRoutePicker.tsx` |
+| 🤖 Agent 正文模式（工具循环产稿·仿 TauriTavern·独立旁路+独立API） | `systems/agent/`（`agentRuntime.ts` 循环+persist晋升+指引drain+评稿拦截`runReviewerOnce` / `agentTools.ts` 18工具 / `agentProtocol.ts` 双协议编解码+流式草稿抽取`extractNarrativePreview` / `agentWorkspace.ts` 虚拟FS+read-before-edit / `agentPrompt.ts` 拼系统提示词+指引/纠偏模板）；切口 `App.tsx`→`callApi` 内 `_agentCfg` 分支（onPreview 草稿楼层+0commit撤楼+reviewChain）；中途指引拦截 `App.tsx`→`sendMessage` 顶部（忙碌门之前）；开关钮 `ChatComposer.tsx`→`AgentModeToggle`（运行中发送钮=🎯提交指引）；时间线 `components/AgentTimeline.tsx`；journal+persist记忆+指引队列 `store/agentRunStore.ts`(`drpg-agentrun`·`persistFiles`/`submitGuidance`/`drainGuidance`)；配置档案 `settingsStore.agentProfiles`+`save/apply/deleteAgentProfile`；`db_query` 底层 `systems/tableSqlite.ts`→`agentSqlQuery`/`listSqliteTables`；洞察归档 `turnInsightStore.TurnSnapshot.agentRun`；设置 `SettingsPanel`→`AgentNarrativeSection`（`agentNarrative`/`agentApi`·featureKey='agent'/'agentReview'）；提示词 `AGENT_NARRATIVE_CONTRACT_RULE`/`AGENT_FLOW_RULE`/`AGENT_REVIEWER_RULE`；设计 `docs/AGENT_MODE_PLAN.md` |
 | 角色创建 / 开场白 / 进入世界 | `App.tsx` → `confirmCreation`/`buildOpening`/`enterWorld`；`components/CharacterCreation.tsx` |
 | 世界选择（AI 生成乐园） | `components/WorldSelector.tsx`（`generate(mode,override?)`：批量出全部 Roll / 每张卡 ✨ 单独生成累加）；`worldGenPrompt.ts` |
 | 世界详情库（工坊档案→卡片生成/正文注入） | `systems/worldDetail.ts`（`fetchWorldDetailsFor`/`ensureWorldDetailFor`/`buildWorldDetailInjection`·三层覆盖 本地修订>全局修订>内置分片）；**分层注入引擎** `systems/worldDetailInject.ts`（分节/词条打分/阶段门控/预算常量）；切片插件 `vite.config.ts` `buildWorldDetailShards`；注入点 `WorldSelector.generate` + `App.tsx` callApi 世界志旁（正文=layered 传 ctxText·细纲=full）|
@@ -139,6 +140,7 @@
 | `novelVec.ts` | 向量资料库运行时：`loadNovelIndex`/`retrieveNovel`/`searchAll`/`embedQuery`/`novelVecStatus`（多源 novel+worldbook，IndexedDB `drpg-novelvec` v2） |
 | `narrativeMemory.ts` | 关键词召回：`tokenize`/`recallFacts`/`buildNarrativeHistory`；提示词 `NM_COMPILE_PROMPT`/`NM_INGEST_PROMPT` |
 | `structuredRecall.ts` | 结构化档案召回：序列化主角/NPC/势力卡（`serializePlayerCard` 等），供 `buildStructuredRecall` |
+| `setBonus.ts` | **套装加成单一口径**（宝石套装 `gemSets` + 锻造套装 `equipSets` 的"取两边+合并"）：`setAttrEntries`(六维→合成装备条目)/`setPassive`(战斗被动)/`setDetailLines`(逐套详情行)。**消费方一律走这里**——PlayerSidebar / combatEngine.buildCombatant / structuredRecall / NpcDetail；各写各的时代漏抄过两次（正文注入漏六维+详情、NpcDetail 漏六维） |
 | `relationGraph.ts` | 🕸 关系图谱数据层（纯函数·`relationGraph.test.ts` 17 例）：`buildRelationGraph`(解析列13扁平串·C编号与姓名两种写法都认·认不出留 ghost 节点·`|好感|≥60` 连虚拟边)/`egoSubgraph`(N跳邻域·保留入选点彼此的边)/`layoutRelationGraph`(确定性 Fruchterman-Reingold·种子来自节点id集合→两次打开不跳位·`centerId` 钉中心)/`classifyRelation`(关键词归六类·顺序即优先级)/`tierColor` |
 | `npcLifeStory.ts` | 📖 成长小传手动补写/重写：`generateLifeStory`(走 `resolveApiChain('npc')`)/`extractLifeStory`(取 `<小传>` 块·AI 没包块时退回裸文本) |
 | `miscParser.ts` | 杂项指令：`applyMiscCommands`(总结/双时间/天气/世界大事/`T_`任务)、`extractTurnSummaries` |

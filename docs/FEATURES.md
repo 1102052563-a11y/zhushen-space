@@ -171,7 +171,7 @@
 
 **叙事记忆**（`settingsStore.narrativeMemory`+`systems/narrativeMemory.ts`,默认关）：① 关键词召回——当前输入+上条正文 `tokenize`(中文2-gram)→在 facts(narrativeFacts/小总结/大总结/世界大事)按命中取 TopK→拼 `<相关记忆>`,启用时替换 historyLimit 切片。② LLM 两步法——发送前 `narrativeCompile`(LLM 改写检索关键词,找"相关"非"最新")+回复后 `runNarrativeIngestPhase`(LLM 抽长期事实存 `miscStore.narrativeFacts`,max300)。独立 `nmApi`,可分别选 compile/ingest 模型。入口 设置→🧠叙事记忆;🧠记忆→`SummaryPanel`。
 
-**结构化档案召回**（`systems/structuredRecall.ts`+`buildStructuredRecall`,默认开）：解决主正文 API 读不到结构化数据——把主角(必含)+预测/在场 NPC 完整档案序列化成 `<在场与相关档案>` system 块注入正文。NPC 选择：开 LLM 两步法时 `narrativeSelectChars` 预测下回合登场 → 否则 `rankNpcsLocal` 兜底。当前世界势力 `serializeFactionsSection`(全量,限 `structMaxFactions` 默认4)。限量(叙事记忆设置页)：`structMaxNpcs`默认2(选中NPC给全量,不截断)、`structMaxSkills`/`structMaxItems` 仅主角。主角装备精简注入 `playerItemLine`(仅 名称/类型/品级/killCount/affix/effect)。冒险团已建立只注入 等级/成员/团队效果。临时队伍注入「【主角的临时队伍】」段。
+**结构化档案召回**（`systems/structuredRecall.ts`+`buildStructuredRecall`,默认开）：解决主正文 API 读不到结构化数据——把主角(必含)+预测/在场 NPC 完整档案序列化成 `<在场与相关档案>` system 块注入正文。NPC 选择：开 LLM 两步法时 `narrativeSelectChars` 预测下回合登场 → 否则 `rankNpcsLocal` 兜底。当前世界势力 `serializeFactionsSection`(全量,限 `structMaxFactions` 默认4)。限量(叙事记忆设置页)：`structMaxNpcs`默认2(选中NPC给全量,不截断)、`structMaxSkills`/`structMaxItems` 仅主角。主角装备精简注入 `playerItemLine`(仅 名称/强化+N/类型/品级/killCount/affix/镶嵌宝石/套装部件/effect)。**套装加成栏**(`setDetailLines`)：宝石套装(`gemSetDetailLines`)+锻造装备套装(`equipSetDetailLines`)按件数已激活的各档 bonus 原文成块注入,并提示下一档还差几件;同时套装六维经 `setBonus.setAttrEntries` 并进注入的实战六维(与属性面板 / 战斗 `buildCombatant` / NpcDetail **四处同口径**,见 `systems/setBonus.ts`)——此前**只注入每颗宝石写进 effect 的【镶嵌加成】、套装档从不注入且六维漏算**,AI 把套装当不存在。NPC 卡同样处理（NPC 也能镶宝石成套/拿到锻造套装部件：`NpcOwnedItem` 已补 `equipSet`/`gemSet` 字段,主角⇄NPC 转移(`itemTransfer`)与私信交易(`dmTrade`)都带着强化/镶嵌/套装归属过户,NPC 详情页也多了「套装加成」栏）。冒险团已建立只注入 等级/成员/团队效果。临时队伍注入「【主角的临时队伍】」段。
 
 **向量资料库**（原著当世界书,`store/novelVecStore.ts`+`systems/novelVec.ts`+`NovelVecManager`,默认关）：**双索引**——小说全本(`public/novel-vectors/`)+世界书 `______.json`(`public/worldbook-vectors/`)预建 bge-m3 向量内置前端,运行时查询 embed 一次→在两个库各 cosine→合并 topK→注入 worldInfoText(标 `〔原著·第X章〕`/`〔世界书·猎杀者〕`)。int8 量化(单位归一化×127),cosine=(q·int8)/127。IndexedDB `drpg-novelvec` v2(多源,chunk 键 `<name>#<id>`)。`gunzipJson` 魔数检测(Vite dev 透明解压 .gz → 直接 parse)。建库 `tools/build-novel-vectors.mjs`(`npm run build-vectors` 小说 / `build-vectors-wb` 世界书)。查询 embed 与叙事记忆同句可合并只调一次。详见记忆 `novel-vector-ragbook`。
 
@@ -380,3 +380,14 @@
 **体积**：每条支线≈一个 🛟 滚动备份（不含图）。未收藏的只留 `BRANCH_KEEP=12` 条，超出删最旧；📌收藏豁免裁剪。开关 `settings.branchCapture`（缺省开，在分支树面板里）。
 
 **坑**：① 抓取失败一律静默——分支是锦上添花，**绝不能挡住玩家回退/重生成**。② 切支线前会先把当前这条线也存成支线，否则"跳过去"等于把现在这条丢了。③ `listSlots()` 必须排除 `BRANCH_PREFIX`，否则支线会把存档主列表刷屏（已加，且实机验证过）。④ `clearProgress` 清空支线（属"进度"）。⑤ 分叉点不在当前对话里的支线归**游离支线**（读档换了时间线，或分叉点被时间线截断），另列不上树、不删。⑥ 联机房间内禁止切支线（会 reload + 断房）。
+
+## 20. 🤖 Agent 正文模式（另一种可选的正文生成·仿 TauriTavern）
+
+**是什么**：开关开启后，正文不再"一次调用一段流"，而是模型带**工具循环**工作（查主角/NPC/任务/势力档案、搜历史楼层、查世界书与向量库、`db_query` 只读查状态表、在虚拟工作区打草稿修订），最后 `workspace_commit` 把成稿发布为楼层、`workspace_finish` 收尾；**成稿格式与 legacy 完全一致**（状态栏/`<state>`/`<upstore>` 照常），终态后走原有解析+演化管线。设计与行为规范全文：`docs/AGENT_MODE_PLAN.md`（头部有实施状态与偏差记录）；代码定位：`CODE_MAP.md §1`「🤖 Agent 正文模式」。
+
+**铁则**：① 默认关；关闭时 `callApi` 路径一字节不变，**其 API 绝不被调用**。② API 完全独立：`'agent'` 路由 > `agentApi` 独立配置；勾「复用正文 API」才共用（用户明确要求）。③ 传输层恒 `stream:true`（防假流式中转 204），语义仍是整轮非流式。④ Agent 模式跳过思维链预填（assistant 预填与 tools 互斥）。⑤ 楼层在**首次 commit** 才出现；取消/失败不解析不演化（partial=有 commit 的失败，保留成稿并照常结算）。
+
+**P1 能力**：`persist/` 跨回合记忆（**仅 completed 收尾才保存**，单文件24k/总96k）；运行中再发送=「中途指引」注入下一轮（确认框；8条/16k/64k 限额；发送钮运行中变 🎯）；`maxCallsPerTool` 单工具上限（软错误·暂无 UI）；run 概要归档回合洞察。
+
+**坑**：① drift（模型直出纯文本）不是失败——文本存 `output/direct_output.md` 并提醒模型可直接 commit 该文件回收，共享轮数预算；② 只有「未知工具名」「finish 后还有调用」致命，其余工具错误一律软回喂让模型自救；③ 文本协议 `<tool_call>{json}</tool_call>` 是无函数调用端点的降级（auto 模式 HTTP 报错提及 tools 才切换），解析走 lenientJsonParse；④ 中途指引的拦截在 `sendMessage` **忙碌门之前**（否则 generating=true 永远进不去）；⑤ 新增工具记得同步 `SettingsPanel.AGENT_TOGGLEABLE_TOOLS`（核心 workspace 读写/commit/finish 恒开不进列表）。
+**P2 能力**：🗂 **配置档案**（命名快照：cfg+独立API+agent/agentReview 路由，一键应用切换"快速档/深度档"；应用不改启用开关，提示词仍走预设中心）；✍️ **末轮流式预览**（模型经 write_file 写 output/main.md 时，从 SSE 参数流渐进抽 content 做草稿流式（120ms 节流）流进楼层，commit 后由清洗稿接管；⚠ **0 次 commit 就终止的 run 会撤掉预览楼层**——"没 commit 就什么都不留"语义不破）；🧐 **评稿子代理**（finish 拦截：评稿人走 'agentReview' 路由（留空回退 Agent 主接口）审成稿，首行 PASS/REVISE 协议，REVISE 以软错误回喂逼修订再 commit，最多 reviewerPasses(1~3) 轮，评稿调用失败 best-effort 放行；修订消耗正常轮数，超轮按已提交版 partial 保留）。

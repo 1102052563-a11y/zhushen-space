@@ -106,6 +106,18 @@ export function equipSetEquipEntry(items: EquipSetItemLike[], sets: EquipSetDef[
   return parts.length ? { effect: `【装备套装加成：${parts.join('；')}】` } : null;
 }
 
+/** 已装备套装的**逐套详情行**（供结构化召回注入正文；与 gemSetDetailLines 同口径）。
+ *  含：套装名/已穿件数/全套品级 + **已激活各档 bonus 原文** + 下一档还差几件。 */
+export function equipSetDetailLines(items: EquipSetItemLike[], sets: EquipSetDef[]): string[] {
+  return activeEquipSets(items, sets).map((s) => {
+    const on = s.tiers.filter((t) => t.active).map((t) => `${t.need}件[${t.bonus}]`).join('；');
+    const next = s.tiers.find((t) => !t.active);
+    return `    · 【装备套装】${s.emoji}「${s.name}」(已装备 ${s.count}/${s.pieces} 件${s.gradeDesc ? `·${s.gradeDesc}` : ''})${s.desc ? ` — ${s.desc}` : ''}`
+      + (on ? `｜已激活: ${on}` : '｜尚未激活任何档')
+      + (next ? `｜再穿 ${next.need - s.count} 件可激活 ${next.need} 件档[${next.bonus}]` : '');
+  });
+}
+
 /** 一句话套装摘要（供场外通报 / AI 一致性）。 */
 export function equipSetSummaryLine(items: EquipSetItemLike[], sets: EquipSetDef[]): string {
   const active = activeEquipSets(items, sets);

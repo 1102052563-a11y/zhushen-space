@@ -13,10 +13,11 @@ import { useCharacters } from '../store/characterStore';
 import { computeAttrBreakdown, withAttrDelta, clampedBonus, ATTR_LABEL, ATTR_KEYS, type AttrBreak } from '../systems/attrBonus';
 import { effectiveCombatStat } from '../systems/enhanceEngine';
 import { playerStatusAttrDelta } from '../systems/statusAttrs';
-import { activeGemSets, gemSetEquipEntry } from '../systems/gemSets';
+import { activeGemSets } from '../systems/gemSets';
 import { useGemSets } from '../store/gemSetStore';
-import { activeEquipSets, equipSetEquipEntry } from '../systems/equipSets';
+import { activeEquipSets } from '../systems/equipSets';
 import { useEquipSets } from '../store/equipSetStore';
+import { setAttrEntries } from '../systems/setBonus';
 import { playerTreeAttrBonus } from '../store/skillTreeStore';
 import { playerTeamAttrBonus, playerTeamPerkAbilities } from '../store/adventureTeamStore';
 import { bioInnate, bioPower, bioStrengthLabel, nominalTierNum } from '../systems/bioStrength';
@@ -257,15 +258,13 @@ function PlayerSidebar({ onClose }: { onClose?: () => void }) {
   // 属性构成：原始 + 技能树 + 装备/技能/天赋 的属性加成（真实加载，不只是摆设）
   // 技能树六维折进 base（与战斗/骰子一致），资质档 bioInnate 仍用原始 profile.attrs
   const capB = attrCapForTier(profile.tier, profile.level);
-  // 宝石套装六维加成 → 合成"装备条目"并入"装备"来源列（与战斗 buildCombatant 同口径）；同时供套装面板展示
+  // 套装（宝石套装 + 合成工坊·套装锻造）：六维加成走 setBonus 单一口径并入"装备"来源列（与战斗 buildCombatant / 正文注入同口径）
+  // ⚠仍订阅两个 defs：既供下方套装面板展示，也让套装定义一变本组件就重渲染（setAttrEntries 内部读 getState 拿最新值）
   const gemSetDefs = useGemSets((s) => s.sets);
   const gemSets = activeGemSets(equippedFull, gemSetDefs);
-  const setEntry = gemSetEquipEntry(equippedFull, gemSetDefs);
-  // 装备套装（合成工坊·套装锻造）同口径并入：按已装备同套件数递进激活
   const equipSetDefs = useEquipSets((s) => s.sets);
   const equipSetsActive = activeEquipSets(equippedFull, equipSetDefs);
-  const esEntry = equipSetEquipEntry(equippedFull, equipSetDefs);
-  const equipForAttr = [...equippedFull, ...(setEntry ? [setEntry as any] : []), ...(esEntry ? [esEntry as any] : [])];
+  const equipForAttr = [...equippedFull, ...(setAttrEntries(equippedFull) as any[])];
   const statusDelta = playerStatusAttrDelta();   // 限时状态(发动/服药类临时增益)的六维加成——与常驻/真实分开，到期由 expireStatuses 自动撤销
   const breakdown = computeAttrBreakdown(withAttrDelta(withAttrDelta(withAttrDelta(profile.attrs, playerTreeAttrBonus()), playerTeamAttrBonus()), statusDelta), b1?.skills ?? [], b1?.traits ?? [], equipForAttr, capB);   // 基础有效六维(不含真实属性点直加·含限时状态)·夹本阶上限·供属性栏展示
   // 衍生/战力按「有效六维 + 真实属性点直加(realAttrs)」算，与战斗 buildCombatant 同口径（直加并入再夹本阶上限）

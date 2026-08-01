@@ -57,7 +57,7 @@ const STORES: { name: string; label: string; store: ZStore }[] = [
 
 // settingsStore 里的公共槽字段友好名（缺省用「<功能>·独立接口」）
 const PUBLIC_FIELD_LABEL: Record<string, string> = {
-  api: '全局 API', textApi: '正文 API', outlineApi: '细纲 API', nmApi: '取名 API',
+  api: '全局 API', textApi: '正文 API', outlineApi: '细纲 API', nmApi: '取名 API', agentApi: 'Agent 正文 API',
 };
 
 export interface ApiSlot {
