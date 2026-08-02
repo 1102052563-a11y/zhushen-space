@@ -5,6 +5,8 @@
    （旧解析器的两处缺口：取 prompt_order[0] 选错份；不在 order 的库存条目被误启用——此测试即回归守卫。） */
 import { describe, it, expect, beforeEach, beforeAll } from 'vitest';
 import { useSettings } from '../../store/settingsStore';
+import { compileFindRegex, runRegexReplace } from '../regexEngine';
+import { HUYU_CURE_SCRIPTS } from './agentPresetCure';
 
 /* vitest 跑在 node 环境，但主 tsconfig 是浏览器环境（无 @types/node）：
    用「非字面量说明符」的动态 import 取 fs——tsc 不做模块解析（类型为 any），运行时正常解析 node:fs。 */
@@ -17,8 +19,8 @@ beforeAll(async () => {
   rawFairy = fs.readFileSync(process.cwd() + '/public/presets/agent-fairy.json', 'utf8');
 });
 
-function importAndGet(raw: string, name: string) {
-  const r = useSettings.getState().importTextPreset(raw, name, true, false);
+function importAndGet(raw: string, name: string, stFaithful = false) {
+  const r = useSettings.getState().importTextPreset(raw, name, true, false, stFaithful);
   expect(r.ok).toBe(true);
   const p = useSettings.getState().textPresets.find((x) => x.name === name);
   expect(p).toBeTruthy();
@@ -40,7 +42,7 @@ beforeEach(() => useSettings.setState({ textPresets: [], activeTextPresetId: nul
 
 describe('Agent 内置预设 · [Agent] V14.7 狐神抚 · 毓忻', () => {
   it('完整导入：214 条全保留，启用集与 ST order 完全一致（58 非 marker + 11 marker）', () => {
-    const p = importAndGet(rawHuyu, '[Agent] V14.7 狐神抚 · 毓忻');
+    const p = importAndGet(rawHuyu, '[Agent] V14.7 狐神抚 · 毓忻', true);
     expect(p.id).toBe('builtin:[Agent] V14.7 狐神抚 · 毓忻');
     expect(p.entries.length).toBe(214);
     const exp = expectedEnabled(rawHuyu);
@@ -50,7 +52,7 @@ describe('Agent 内置预设 · [Agent] V14.7 狐神抚 · 毓忻', () => {
     expect(p.entries.filter((e) => e.enabled && e.marker).length).toBe(11);
   });
   it('顺序忠实 order 序；库存巨型配置条目（SPresetSettings 等）保留但禁用', () => {
-    const p = importAndGet(rawHuyu, '[Agent] V14.7 狐神抚 · 毓忻');
+    const p = importAndGet(rawHuyu, '[Agent] V14.7 狐神抚 · 毓忻', true);
     const exp = expectedEnabled(rawHuyu);
     for (let i = 0; i < 50; i++) expect(p.entries[i].identifier).toBe(exp.orderIds[i]);
     const sps = p.entries.find((e) => e.identifier === 'SPresetSettings')!;
@@ -59,7 +61,7 @@ describe('Agent 内置预设 · [Agent] V14.7 狐神抚 · 毓忻', () => {
     expect(sps.content.length).toBeGreaterThan(100000);   // 197KB 配置块完整保留（不进注入）
   });
   it('TauriTavern 专用 agent 槽位以 marker 保留（本作不消费、组装时被 !marker 过滤，不会泄漏进提示词）', () => {
-    const p = importAndGet(rawHuyu, '[Agent] V14.7 狐神抚 · 毓忻');
+    const p = importAndGet(rawHuyu, '[Agent] V14.7 狐神抚 · 毓忻', true);
     for (const id of ['agentSystemPrompt', 'agentTask', 'agentResults']) {
       const e = p.entries.find((x) => x.identifier === id)!;
       expect(e).toBeTruthy();
@@ -71,14 +73,14 @@ describe('Agent 内置预设 · [Agent] V14.7 狐神抚 · 毓忻', () => {
 
 describe('Agent 内置预设 · Fairy_Tale 2.3.0', () => {
   it('双 prompt_order：取 character_id=100001 那份（旧版取 [0] 会选错成 100000）', () => {
-    const p = importAndGet(rawFairy, 'Fairy_Tale 2.3.0');
+    const p = importAndGet(rawFairy, 'Fairy_Tale 2.3.0', true);
     const exp = expectedEnabled(rawFairy);
     const gotEnabled = p.entries.filter((e) => e.enabled).map((e) => e.identifier);
     expect(new Set(gotEnabled)).toEqual(new Set(exp.ids));
     expect(p.entries[0].identifier).toBe(exp.orderIds[0]);
   });
   it('不在 order 的库存变体（NSFW/剧本格式）保留但禁用（旧版会误启用）', () => {
-    const p = importAndGet(rawFairy, 'Fairy_Tale 2.3.0');
+    const p = importAndGet(rawFairy, 'Fairy_Tale 2.3.0', true);
     const nsfw = p.entries.find((e) => e.name === 'NSFW')!;
     expect(nsfw).toBeTruthy();
     expect(nsfw.enabled).toBe(false);
@@ -87,19 +89,52 @@ describe('Agent 内置预设 · Fairy_Tale 2.3.0', () => {
   });
   it('采样参数从预设根字段提取（temperature / openai_max_tokens→max_tokens）', () => {
     const j = JSON.parse(rawFairy);
-    const p = importAndGet(rawFairy, 'Fairy_Tale 2.3.0');
+    const p = importAndGet(rawFairy, 'Fairy_Tale 2.3.0', true);
     if (typeof j.temperature === 'number') expect(p.temperature).toBe(j.temperature);
     if (typeof j.openai_max_tokens === 'number') expect(p.max_tokens).toBe(j.openai_max_tokens);
   });
 });
 
-describe('parseSTPreset · 形态回归（改动不破老格式）', () => {
-  it('裸 order 数组形态照常', () => {
+describe('parseSTPreset · 默认=旧生态语义（⚠ 回归守卫：2026-08-02 玩家实测——默认忠实化会崩社区预设的正文格式，勿再改默认）', () => {
+  it('默认：库序拼装 + order 只管启用状态（不重排）', () => {
     const raw = JSON.stringify({ name: 'flat', prompts: [{ identifier: 'a', content: 'A' }, { identifier: 'b', content: 'B' }], prompt_order: [{ identifier: 'b', enabled: true }, { identifier: 'a', enabled: false }] });
     const p = importAndGet(raw, 'flat');
-    expect(p.entries.map((e) => e.identifier)).toEqual(['b', 'a']);   // order 序
-    expect(p.entries.find((e) => e.identifier === 'b')!.enabled).toBe(true);
+    expect(p.entries.map((e) => e.identifier)).toEqual(['a', 'b']);   // 库序，不按 order 重排
     expect(p.entries.find((e) => e.identifier === 'a')!.enabled).toBe(false);
+    expect(p.entries.find((e) => e.identifier === 'b')!.enabled).toBe(true);
+  });
+  it('默认：不在 order 里的库存条目**保持缺省启用**（社区预设按此行为调教，绝不默认禁用）', () => {
+    const raw = JSON.stringify({
+      name: 'eco',
+      prompts: [{ identifier: 'a', content: 'A' }, { identifier: 'extra', content: '库存条目' }],
+      prompt_order: [{ character_id: 100001, order: [{ identifier: 'a', enabled: true }] }],
+    });
+    const p = importAndGet(raw, 'eco');
+    expect(p.entries.find((e) => e.identifier === 'extra')!.enabled).toBe(true);
+  });
+  it('默认：多份 order 仍优先 100001（纯选份修复，不带其它语义变化）', () => {
+    const raw = JSON.stringify({
+      name: 'dual',
+      prompts: [{ identifier: 'a', content: 'A' }, { identifier: 'b', content: 'B' }],
+      prompt_order: [
+        { character_id: 100000, order: [{ identifier: 'a', enabled: false }, { identifier: 'b', enabled: false }] },
+        { character_id: 100001, order: [{ identifier: 'a', enabled: true }, { identifier: 'b', enabled: false }] },
+      ],
+    });
+    const p = importAndGet(raw, 'dual');
+    expect(p.entries.find((e) => e.identifier === 'a')!.enabled).toBe(true);   // 用的是 100001 那份
+    expect(p.entries.find((e) => e.identifier === 'b')!.enabled).toBe(false);
+  });
+  it('忠实模式（仅显式开启·两枚 Agent 内置用）：order 序 + 库存条目禁用', () => {
+    const raw = JSON.stringify({
+      name: 'faith',
+      prompts: [{ identifier: 'extra', content: '库存' }, { identifier: 'a', content: 'A' }, { identifier: 'b', content: 'B' }],
+      prompt_order: [{ character_id: 100001, order: [{ identifier: 'b', enabled: true }, { identifier: 'a', enabled: false }] }],
+    });
+    const p = importAndGet(raw, 'faith', true);
+    expect(p.entries.map((e) => e.identifier)).toEqual(['b', 'a', 'extra']);   // order 序 + 库存垫尾
+    expect(p.entries.find((e) => e.identifier === 'extra')!.enabled).toBe(false);
+    expect(p.entries.find((e) => e.identifier === 'b')!.enabled).toBe(true);
   });
   it('无 prompt_order：维持库序 + 自带 enabled', () => {
     const raw = JSON.stringify({ name: 'noorder', prompts: [{ identifier: 'a', content: 'A', enabled: false }, { identifier: 'b', content: 'B' }] });
@@ -113,5 +148,30 @@ describe('parseSTPreset · 形态回归（改动不破老格式）', () => {
     const p = importAndGet(raw, 'own');
     expect(p.entries.length).toBe(1);
     expect(p.entries[0].enabled).toBe(true);
+  });
+});
+
+describe('V14.7 cure 适配正则 · 真实引擎行为（compileFindRegex + runRegexReplace）', () => {
+  const apply = (id: string, text: string) => {
+    const s = HUYU_CURE_SCRIPTS.find((x) => x.id === id)!;
+    expect(s).toBeTruthy();
+    const c = compileFindRegex(s.findRegex, s.flags);
+    expect(c).toBeTruthy();
+    return runRegexReplace(text, c!.re, s);
+  };
+  it('剥 <think_fox~> 思维链（含多行）', () => {
+    expect(apply('huyu-thinkfox', '<think_fox~>\n【开始思考】\n表格…\n</think_fox~>\n正文开始')).toBe('正文开始');
+  });
+  it('拆 <content> 壳保留内文', () => {
+    expect(apply('huyu-content', '<content>\n夜色渐深。\n</content>')).toBe('夜色渐深。\n');
+  });
+  it('拆 fox_selc/fox_tip 标签保留内文', () => {
+    expect(apply('huyu-foxwrap', '<fox_selc>\nA. 选项一\n</fox_selc>\n<fox_tip>\n唔～\n</fox_tip>')).toBe('A. 选项一\n唔～\n');
+  });
+  it('收敛 3+ 连续空行 → 1 个空行', () => {
+    expect(apply('huyu-blank', '上段\n\n\n\n\n下段')).toBe('上段\n\n下段');
+  });
+  it('收敛 3+ 连排 <br>（大小写/自闭合/夹空白都认）→ 两个', () => {
+    expect(apply('huyu-brrun', '行1<br><br/> <BR >\n<br>行2')).toBe('行1<br><br>行2');
   });
 });

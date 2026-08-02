@@ -247,6 +247,7 @@ import { ComposerTextarea, ComposerSendButton, AgentModeToggle } from './compone
 import { AgentTimeline } from './components/AgentTimeline';   // Agent 正文模式·运行时间线（自订阅·常驻小组件）
 import { runAgentNarrative } from './systems/agent/agentRuntime';   // Agent 正文模式·工具循环运行时（见 docs/AGENT_MODE_PLAN.md）
 import { AGENT_ERROR_TEXT } from './systems/agent/agentTypes';
+import { HUYU_PRESET_NAME, HUYU_CURE_SCRIPTS, HUYU_DISABLE_ENTRY_NAMES } from './systems/agent/agentPresetCure';   // V14.7 内置副本前端适配（cure·可单测）
 import { useAgentRun } from './store/agentRunStore';   // Agent 运行态（P1：运行中「中途指引」提交 + 回合洞察归档）
 import { usePlayer, buildPlayerSystemPrompt, extractPlayerPresetFromJson } from './store/playerStore';
 import { useWorldRecord, formatWorldviewForInjection, formatInheritAnchors, normWorldName, type Worldview, type WorldSummary } from './store/worldRecordStore';
@@ -631,19 +632,21 @@ async function loadBuiltinDefaults() {
       const has = (n: string) => useSettings.getState().textPresets.some((p) => p.name === n);
       // 先同步判重、只并发拉「缺的那几本」：五本名字互不相同，先查后拉与逐本查拉等价，
       // 但首次进游戏这五本全缺（共约 1.9MB，长风渡一本就 1.6MB），串行是五次往返。
-      const seeds: Array<[name: string, file: string]> = [
+      const seeds: Array<[name: string, file: string, stFaithful?: boolean]> = [
         ['轮回乐园·Claude', 'zhushen-claude.json'],
         ['轮回乐园·Gemini', 'zhushen-gemini.json'],
         ['轮回乐园·DeepSeek', 'zhushen-deepseek.json'],
         ['轮回乐园 Alu v2.0', 'zhushen-alu.json'],
         ['双人成行 V7.1—长风渡', 'shuangren-changfeng.json'],
-        // Agent 正文模式·内置预设（名字必须与 JSON 里的 name 字段一致——importTextPreset 以 data.name 为准生成 builtin:<名> 稳定 id）
-        ['[Agent] V14.7 狐神抚 · 毓忻', 'agent-huyu.json'],
-        ['Fairy_Tale 2.3.0', 'agent-fairy.json'],
+        // Agent 正文模式·内置预设（名字必须与 JSON 里的 name 字段一致——importTextPreset 以 data.name 为准生成 builtin:<名> 稳定 id）。
+        // ⚠ 只有这两枚用「忠实 ST 语义」解析（order 序 + 库存条目禁用）：V14.7 的 3 个巨型库存配置块/Fairy 的变体条目须按 ST 语义排除。
+        //   其余预设（含玩家自行导入的一切）一律走默认旧语义——社区预设按旧行为调教，默认忠实化会崩正文格式（2026-08-02 玩家回归实测）。
+        ['[Agent] V14.7 狐神抚 · 毓忻', 'agent-huyu.json', true],
+        ['Fairy_Tale 2.3.0', 'agent-fairy.json', true],
       ];
       const missing = seeds.filter(([n]) => !has(n));
       const seedTexts = await Promise.all(missing.map(([, f]) => grab(f)));
-      missing.forEach(([n], i) => { const t = seedTexts[i]; if (t) useSettings.getState().importTextPreset(t, n, true, false); });
+      missing.forEach(([n, , faithful], i) => { const t = seedTexts[i]; if (t) useSettings.getState().importTextPreset(t, n, true, false, !!faithful); });
     }
     // 自动去重（仅清内置补种自身的重复，绝不碰玩家的预设）：玩家导入/编辑/激活固化过的(非 builtin)一律保留；
     //   只删「多余的同名 builtin」——同名 builtin 留一个、其余删；某 builtin 若已有同名的非 builtin(玩家版) 则该 builtin 多余、删（玩家版优先）。
@@ -662,6 +665,31 @@ async function loadBuiltinDefaults() {
       }
       if (_kept.length !== _list.length) useSettings.setState({ textPresets: _kept });
     } catch { /* */ }
+    // [Agent] V14.7 狐神抚 内置副本·一次性前端适配（v1）：该预设让模型输出自定义标签
+    //   （<think_fox~> 思维链 / <content> 正文壳 / <fox_selc>/<fox_tip> 选项），ST 里靠配套正则包渲染，
+    //   本前端没有那套正则 → 标签块原样漏进楼层（大段空白/怪版式，Discord 玩家实测反馈）。
+    //   适配 = ① 给内置副本自带 4 条等效正则（剥 think_fox·拆 content 壳·拆 fox 标签·收敛连续空行）；
+    //          ② 默认关掉「⬆️🎞️思维链（多角色内心OS）」条目——它要求正文前先输出纯文本思考块，
+    //            在 Agent 模式里就是「直出跑偏/雷霆大思考」的元凶，且其标签本前端无法渲染（预设页签可开回）。
+    //   只动 builtin 副本（玩家 fork 的非 builtin 版不碰）；按 flag 只跑一次（老用户已种的副本也补上）。
+    try {
+      const CURE_KEY = 'zs-agent-huyu-cure-v2';   // v2：新增 <br> 连发收敛（黑胶/歌词卡类装饰残留的大空行）；换代=已修过 v1 的副本自动再补
+      if (!localStorage.getItem(CURE_KEY)) {
+        const list = useSettings.getState().textPresets as any[];
+        const idx = list.findIndex((x) => x.name === HUYU_PRESET_NAME && x.builtin);
+        if (idx >= 0) {
+          const p = list[idx];
+          const oldRx = Array.isArray(p.regexScripts) ? p.regexScripts.filter((r: any) => !String(r?.id || '').startsWith('huyu-')) : [];
+          const entries = (p.entries ?? []).map((e: any) =>
+            HUYU_DISABLE_ENTRY_NAMES.includes(e.name) ? { ...e, enabled: false } : e);
+          const next = [...list];
+          next[idx] = { ...p, regexScripts: [...oldRx, ...HUYU_CURE_SCRIPTS], entries };
+          useSettings.setState({ textPresets: next });
+          console.log(`[AgentPreset] 已为内置「狐神抚 V14.7」补 ${HUYU_CURE_SCRIPTS.length} 条前端适配正则 + 默认关闭 think_fox 思维链条目`);
+          localStorage.setItem(CURE_KEY, '1');   // 只有真的处理过才记 flag：本次没种上（如断网）下次启动还会再试
+        }
+      }
+    } catch { /* 适配失败不阻断启动 */ }
     // 四个演化预设（主角/物品/NPC/势力）→ **每次启动强制覆盖成内置最新**（按要求：玩家对这些预设的改动不保留，始终以内置为准）。
     // 仅当 fetch+解析成功才覆盖；失败则保留现有，避免断网把预设清空。setPresetEntries 只换 entries/名称/版本，保留各自的 API 路由配置。
     // 五份各写各的 store、互相没有依赖，原先五次串行往返只是写法所致 → 并发取回后仍按原顺序 apply。

@@ -1701,7 +1701,7 @@ function TextApiSection() {
    正文生成 — 🤖 Agent 预设页（Agent 模式专属预设选择·两枚内置 + 任意已导入预设）
 ════════════════════════════════════════════ */
 const AGENT_BUILTIN_PRESETS: { name: string; desc: string }[] = [
-  { name: '[Agent] V14.7 狐神抚 · 毓忻', desc: '为 Agent 工作流设计的正文预设（原生带 agentSystemPrompt/agentTask 槽位）。启用条目精瘦（约 1.4 万字注入），库里另附大量可自选的风格/模块变体条目（默认关）。' },
+  { name: '[Agent] V14.7 狐神抚 · 毓忻', desc: '为 Agent 工作流设计的正文预设（原生带 agentSystemPrompt/agentTask 槽位）。启用条目精瘦（约 1.4 万字注入），库里另附大量可自选的风格/模块变体条目（默认关）。已自带 4 条前端适配正则（剥 think_fox 思维链/拆 content 壳/拆 fox 标签/收敛空行），「多角色内心OS思维链」条目默认关（它会诱发 Agent 直出跑偏与大段空白，需要可去「预设」页签开回）。' },
   { name: 'Fairy_Tale 2.3.0', desc: '轻量童话风预设：启用条目极简，注入负担小，适合快模型/低成本运行；剧本格式与 NSFW 等变体条目在库中默认关闭，可到「预设」页签按需开启。' },
 ];
 function AgentPresetSection() {

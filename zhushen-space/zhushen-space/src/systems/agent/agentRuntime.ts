@@ -244,6 +244,7 @@ export async function runAgentNarrative(p: RunAgentParams): Promise<AgentRunResu
       /* ── 模型调用（沿 chain fallback；auto 协议遇「不支持 tools」切文本重试同端点）── */
       let turn: AgentModelTurn | null = null;
       let lastErr: unknown;
+      let apiUsed: ApiConfig | null = null;   // 本轮实际成功的接口（时间线展示 modelId——治「正文到底哪个接口生成的」困惑）
       emit(round, 'model_request', `第 ${round} 轮 · 调用模型…`, 'active', protocol === 'text' ? '文本协议' : undefined);
       /* P2·末轮流式预览：模型开写 output/main.md 时渐进抽 content 字段回调宿主（120ms 节流·display 专用） */
       previewLen = 0;
@@ -274,6 +275,7 @@ export async function runAgentNarrative(p: RunAgentParams): Promise<AgentRunResu
           const logId = apiDebugLog.push(`🤖Agent·第${round}轮`, messages.map((m) => ({ role: m.role, content: typeof m.content === 'string' ? m.content : '[multimodal]' })));
           try {
             turn = await transport(body, api, signal, onProg);
+            apiUsed = api;
             apiDebugLog.finish(logId, `${turn.content || ''}${turn.toolCallsRaw.length ? `\n[tool_calls] ${JSON.stringify(turn.toolCallsRaw)}` : ''}`, true);
             break;
           } catch (e) {
@@ -309,7 +311,7 @@ export async function runAgentNarrative(p: RunAgentParams): Promise<AgentRunResu
         if (protocol === 'native' && calls.length > 0) roundMode = 'text';   // 本轮按文本协议回喂（无 tool_call_id 可配）
       }
       emit(round, 'model_completed', `第 ${round} 轮 · ${calls.length ? `${calls.length} 个工具调用` : '无工具调用'}`, calls.length ? 'info' : 'warn',
-        narration ? narration.replace(/\s+/g, ' ').slice(0, 80) : undefined);
+        `${apiUsed?.modelId ? `[${apiUsed.modelId}] ` : ''}${narration ? narration.replace(/\s+/g, ' ').slice(0, 80) : ''}`.trim() || undefined);
 
       /* ── drift：整轮没有任何工具调用 ── */
       if (calls.length === 0) {

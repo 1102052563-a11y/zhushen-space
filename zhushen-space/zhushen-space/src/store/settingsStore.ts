@@ -148,14 +148,15 @@ function extractRegexFromPreset(data: any): RegexScript[] {
   return parseRegexArr(raw);
 }
 
-function parseSTPreset(data: any, fileName: string, id: string): TextGenPreset {
+function parseSTPreset(data: any, fileName: string, id: string, stOrderFaithful = false): TextGenPreset {
   const name = data.name ?? data.preset_name ?? fileName ?? '未命名预设';
   const regexScripts = extractRegexFromPreset(data);
 
   // ── ST Prompt Manager 格式：有 prompts 数组 ──
   if (Array.isArray(data.prompts)) {
-    // 生效序：ST 惯例上 chat-completion 预设的默认序挂在 **character_id=100001**（dummy 角色）。
-    // 有的预设带多份 order（如 Fairy_Tale 2.3.0 的 100000/100001 两份）——旧版取 [0] 会选错份，现优先 100001。
+    // 生效序选份：ST 惯例上 chat-completion 预设的默认序挂在 character_id=100001（dummy 角色）。
+    // 带多份 order 的预设（如 Fairy_Tale 2.3.0 的 100000/100001 两份）取 [0] 会选错份 → 优先 100001；
+    // 单份 order 的预设行为与旧版完全一致。
     let orderArr: { identifier: string; enabled: boolean }[] = [];
     if (Array.isArray(data.prompt_order)) {
       const withOrder = data.prompt_order.filter((o: any) => o && Array.isArray(o.order));
@@ -176,10 +177,11 @@ function parseSTPreset(data: any, fileName: string, id: string): TextGenPreset {
       injection_depth:   p.injection_depth,
     });
 
-    if (orderArr.length) {
-      // 忠实 ST 语义：**条目按 order 序拼装、启用状态以 order 为准**；不在 order 里的库存条目保留（可编辑）但禁用——
-      // ST 里它们本就不进 montage。旧版按 prompts 库序 + 「不在 order 即自带 enabled(缺省 true)」会误启用库存条目
-      // （如 Fairy_Tale 的 NSFW/剧本格式变体），并可能整体顺序错位。
+    if (stOrderFaithful && orderArr.length) {
+      // 忠实 ST 语义（**仅显式指定时**，当前只用于两枚 Agent 内置预设的补种）：条目按 order 序拼装、
+      // 启用以 order 为准、不在 order 的库存条目保留但禁用（ST 里它们本就不进 montage）。
+      // ⚠ 不能作为默认：本作社区预设生态多年按「库序 + 库存条目缺省启用」的旧行为调教，
+      //   默认忠实化会让玩家重导旧预设后条目顺序/启用集突变 → 正文格式崩（2026-08-02 玩家实测回归，已回退默认）。
       const lib = new Map<string, any>();
       for (const p of data.prompts) { const k = keyOf(p); if (k && !lib.has(k)) lib.set(k, p); }
       const entries: STPromptEntry[] = [];
@@ -199,8 +201,13 @@ function parseSTPreset(data: any, fileName: string, id: string): TextGenPreset {
       }
       return { id, name, entries, regexScripts, ...extractGenParams(data) };
     }
-    // 无 prompt_order：维持旧行为（库序 + 条目自带 enabled，缺省启用）
-    const entries: STPromptEntry[] = data.prompts.map((p: any) => toEntry(p, p.enabled !== false));
+    // 默认（生态兼容·与历史行为一致）：prompts 库序拼装；在 order 里的按 order 启用状态，
+    // 不在 order 里的按条目自带 enabled（缺省启用）。
+    const enabledMap = new Map(orderArr.map((o) => [String(o.identifier ?? ''), o.enabled !== false]));
+    const entries: STPromptEntry[] = data.prompts.map((p: any) => {
+      const k = keyOf(p);
+      return toEntry(p, enabledMap.has(k) ? enabledMap.get(k)! : (p.enabled !== false));
+    });
     return { id, name, entries, regexScripts, ...extractGenParams(data) };
   }
 
@@ -504,7 +511,7 @@ interface SettingsState {
   reconcileBuiltinTextWorldBook: (raw: string, name: string, key: string) => WorldbookConflict[];   // 内置更新·3方合并·返回冲突
   setWorldbookConflicts: (list: WorldbookConflict[]) => void;
   resolveWorldbookConflict: (bookId: string, uid: number, choice: 'fresh' | 'mine') => void;
-  importTextPreset: (raw: string, fileName?: string, builtin?: boolean, activate?: boolean) => { ok: boolean; message: string };
+  importTextPreset: (raw: string, fileName?: string, builtin?: boolean, activate?: boolean, stOrderFaithful?: boolean) => { ok: boolean; message: string };
   removeTextPreset: (id: string) => void;
   renameTextPreset: (id: string, name: string) => void;
   updateTextPreset: (id: string, patch: Partial<TextGenPreset>) => void;
@@ -1234,11 +1241,11 @@ export const useSettings = create<SettingsState>()(
         return { textWorldBooks: books, worldbookConflicts: s.worldbookConflicts.filter((x) => !(x.bookId === bookId && x.uid === uid)) };
       }),
 
-      importTextPreset: (raw, fileName = '', builtin = false, activate = true) => {
+      importTextPreset: (raw, fileName = '', builtin = false, activate = true, stOrderFaithful = false) => {
         try {
           const data = JSON.parse(raw);
           const id = `preset_${Date.now()}`;
-          const parsed = parseSTPreset(data, fileName, id);
+          const parsed = parseSTPreset(data, fileName, id, stOrderFaithful);
           // 内置预设用「稳定 id」(builtin:<名>)：每次启动补种都得到同一 id，用户激活后 activeTextPresetId
           // 跨刷新不再失配（旧版用 Date.now() 每次都换 id → 激活态对不上 → 预设静默不注入，722 词符裸奔）。
           const finalId = builtin ? `builtin:${parsed.name}` : parsed.id;
