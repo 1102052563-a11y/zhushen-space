@@ -3037,6 +3037,15 @@ export const COMIC_SOFTEN_RULE = `【画面软化】剧情材料含直白的亲�
 /* 绘画阶段守卫：拼在每页 prompt 之后发给绘画模型。占位符 \${language}。*/
 export const COMIC_DRAW_GUARD = `【最终绘制要求】竖版全彩漫画页、格框清晰，严格按上面的分格与版式绘制，不要自行增删或合并分格。画面内所有可见文字（对白/旁白/拟声）只使用"\${language}"，逐字照抄上面给定的文本；不要多余文字、标签、水印。人物外观严格遵守上面的外观锁，同一角色在各格中保持完全一致。`;
 
+/* 标签绘图适配（NAI/ComfyUI 等英文标签模型·拼在分镜系统提示词后）：标签模型画不了「多格+对白文字」，
+   降级为**每页一张关键画面插画**——分镜额外给每页一串 danbooru tags，绘画阶段直接用它（不发中文长文/守卫/参考图）。*/
+export const COMIC_TAGS_RULE = `【标签绘图适配（本次绘画模型是 NovelAI/StableDiffusion 一类英文标签模型）】在上述结构不变的前提下，pages 里每一页必须**再多一个 "tags" 字段**：把该页最关键的一个画面（通常是高潮大格）浓缩成**一张单幅插画**的英文 danbooru 标签串（25~40 个标签，逗号分隔）。
+- 只画一个画面：禁止 comic、panel、4koma、multiple views、speech bubble、text 等分格与文字类标签；对白不进画面，靠构图与表情传达。
+- 开头写主体数量与性别（1girl / 1boy / 2girls / 1girl and 1boy…）——性别严格按【角色外观资料】标注，禁止凭发型服装气质猜测。
+- 每个出场角色：把其资料里「画像锚点」的英文标签**原样并入**以锁长相；资料没有锚点的角色按已知外观事实写具体特征标签（发色/发型/瞳色/服装），禁止脑补。已知动漫/游戏同人角色用准确的 danbooru 角色名+作品 tag。
+- 随后写：动作与姿态、表情、场景与环境、光影氛围、构图与镜头（如 dynamic angle / from side / close-up / dutch angle / depth of field / cinematic lighting）。
+- 忠实该页剧情，不加入剧情外元素；tags 全英文，其余字段的语言要求不变。`;
+
 /* ═══════════ Agent 正文模式（仿 TauriTavern·工具循环产稿）═══════════
    设计文档 docs/AGENT_MODE_PLAN.md。以下两条注册进 promptRegistry 供玩家编辑；
    工具清单/逐工具指引由 systems/agent/agentPrompt.ts 按实际启用的工具动态拼装。 */
@@ -3047,19 +3056,23 @@ export const AGENT_NARRATIVE_CONTRACT_RULE = `【成稿契约（最高优先）�
 - 工具查到的资料（档案/世界书/往期剧情）只是你的写作参考：保持设定与数值一致，但**绝不把工具调用过程、文件路径、JSON、工具结果原文写进正文**；
 - 正文里的角色/物品/数值必须与工具查到的当前档案一致（这正是你查它们的目的）。`;
 
-/* 收尾铁则 + 推荐流程（照抄 TauriTavern 的 commit/finish 契约） */
+/* 收尾铁则 + 推荐流程（照抄 TauriTavern 的 commit/finish 契约；效率铁则治实测两大浪费：
+   一轮只调一个工具把回合拖长 / commit 后为几十字微调反复 patch+commit） */
 export const AGENT_FLOW_RULE = `【收尾铁则】
 - 在调用 workspace_finish 之前，你**必须至少成功调用一次 workspace_commit**——否则玩家看不到任何正文。
 - **禁止用纯文本作为最终回答**：所有产出都要通过工具落到工作区并 commit；直接输出正文属于违规，会被系统纠偏。
 - finish 之后不得再调用任何工具。
 
+【效率铁则】（每一轮都很贵——玩家在等待、每轮都重发完整上下文）
+- 一轮响应里可以**连续发出多个工具调用**，按顺序执行。查资料务必**第一轮一次查齐**（如 player_get + npc_get + chat_search 连发），不要一轮只调一个把回合拖长。
+- 写正文一步到位：想清楚再用 workspace_write_file 整篇写入 output/main.md，然后**同一轮内紧跟 workspace_commit + workspace_finish** 三连收尾。
+- commit 之后除非有**实质性修改**（缺结构模块、情节需要改写），不要为错别字/几十字微调再 patch+commit——直接 workspace_finish。
+- 已经 commit 过的内容不需要 read 回来核对——你写的什么系统就保存了什么。
+
 【推荐流程】（按实际情况调整，但必须包含 workspace_commit + workspace_finish）：
-(思考本回合要写什么；信息不足就先查——档案/往期剧情/世界书/资料库)
-(player_get / npc_get / chat_search / lore_search …——可选，按需)
-(用 workspace_write_file 把完整正文写入 output/main.md；长文可先在 scratch/ 打草稿再定稿)
-(workspace_commit —— 正文发布为聊天楼层)
-(如需修订：改文件后再次 workspace_commit)
-(workspace_finish —— 干净收尾)`;
+(第 1 轮：需要的资料一次查齐——player_get / npc_get / chat_search / lore_search 可连发；都不需要就跳过)
+(第 2 轮：workspace_write_file 把完整正文写入 output/main.md + workspace_commit + workspace_finish 三连)
+(仅当确需修订时：改文件 → 再 commit → finish)`;
 
 /* P2·评稿子代理：finish 拦截时对成稿做一次独立审阅（PASS 放行 / REVISE 回喂意见逼修订）。
    走独立路由 featureKey='agentReview'（未配则回退 Agent 主接口）；玩家可在预设中心编辑本提示词。 */

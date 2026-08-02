@@ -54,7 +54,7 @@ interface SettingsPanelProps {
 }
 
 type Page = 'home' | 'world-detail' | 'textgen-detail' | 'regex-detail' | 'general' | 'variables' | 'table-manager' | 'item-manager' | 'player-manager' | 'npc-manager' | 'pet-manager' | 'entry-judge-manager' | 'faction-manager' | 'territory-manager' | 'team-manager' | 'cosmos-manager' | 'memory-manager' | 'misc-manager' | 'quest-manager' | 'channel-manager' | 'novelvec-manager' | 'codex-manager' | 'dice-manager' | 'combat-manager' | 'arena-manager' | 'enhance-manager' | 'skilltree-manager' | 'subprof-manager' | 'joy-manager' | 'casino-manager' | 'abyss-manager' | 'craft-manager' | 'narrative-memory' | 'vector-memory' | 'image-gen' | 'appearance' | 'prompt-center';
-type Tab = 'worldbook' | 'api' | 'prompt' | 'preset' | 'global-regex' | 'preset-regex';
+type Tab = 'worldbook' | 'api' | 'prompt' | 'preset' | 'agent-preset' | 'global-regex' | 'preset-regex';
 
 function DetailLayout({ title, onBack, tabs, activeTab, onTab, children }: {
   title: string;
@@ -728,6 +728,7 @@ export default function SettingsPanel({ onClose, onOpenSaveLoad }: SettingsPanel
           { key: 'worldbook', label: '世界书',  icon: '📚' },
           { key: 'api',       label: 'API 配置', icon: '⚡' },
           { key: 'preset',    label: '预设',     icon: '🗂' },
+          { key: 'agent-preset', label: 'Agent 预设', icon: '🤖' },
         ]}
         activeTab={tab}
         onTab={setTab}
@@ -735,6 +736,7 @@ export default function SettingsPanel({ onClose, onOpenSaveLoad }: SettingsPanel
         {tab === 'worldbook' && <TextWorldSection />}
         {tab === 'api'       && <TextApiSection />}
         {tab === 'preset'    && <TextPresetSection />}
+        {tab === 'agent-preset' && <AgentPresetSection />}
       </DetailLayout>
     );
   }
@@ -1696,6 +1698,74 @@ function TextApiSection() {
 }
 
 /* ════════════════════════════════════════════
+   正文生成 — 🤖 Agent 预设页（Agent 模式专属预设选择·两枚内置 + 任意已导入预设）
+════════════════════════════════════════════ */
+const AGENT_BUILTIN_PRESETS: { name: string; desc: string }[] = [
+  { name: '[Agent] V14.7 狐神抚 · 毓忻', desc: '为 Agent 工作流设计的正文预设（原生带 agentSystemPrompt/agentTask 槽位）。启用条目精瘦（约 1.4 万字注入），库里另附大量可自选的风格/模块变体条目（默认关）。' },
+  { name: 'Fairy_Tale 2.3.0', desc: '轻量童话风预设：启用条目极简，注入负担小，适合快模型/低成本运行；剧本格式与 NSFW 等变体条目在库中默认关闭，可到「预设」页签按需开启。' },
+];
+function AgentPresetSection() {
+  const cfg = useSettings((s) => s.agentNarrative);
+  const setCfg = useSettings((s) => s.setAgentNarrative);
+  const presets = useSettings((s) => s.textPresets);
+  const activeTextId = useSettings((s) => s.activeTextPresetId);
+  const sel = (cfg?.presetName || '').trim();
+  const activeTextName = presets.find((p) => p.id === activeTextId)?.name || '（未激活任何预设 → 最简默认）';
+  // 同名去重（玩家改过的非 builtin 版优先，与运行时 resolveAgentPreset 同口径）
+  const byName = new Map<string, (typeof presets)[number]>();
+  for (const p of presets) { const prev = byName.get(p.name); if (!prev || ((prev as { builtin?: boolean }).builtin && !(p as { builtin?: boolean }).builtin)) byName.set(p.name, p); }
+  const stat = (name: string) => {
+    const p = byName.get(name);
+    if (!p) return null;
+    const total = (p.entries ?? []).length;
+    const en = (p.entries ?? []).filter((e) => e.enabled && !e.marker).length;
+    return `${en} 条启用 / ${total} 条`;
+  };
+  const others = [...byName.keys()].filter((n) => !AGENT_BUILTIN_PRESETS.some((b) => b.name === n)).sort();
+  const Row = ({ checked, onPick, title, sub, badge }: { checked: boolean; onPick: () => void; title: string; sub?: string; badge?: string }) => (
+    <button onClick={onPick}
+      className={`w-full text-left p-2.5 rounded-lg border transition-colors ${checked ? 'border-cyan-500/60 bg-cyan-500/10' : 'border-edge bg-panel hover:bg-panel2'}`}>
+      <div className="flex items-center gap-2 text-sm">
+        <span className={checked ? 'text-cyan-300' : 'text-dim'}>{checked ? '●' : '○'}</span>
+        <span className="text-slate-200">{title}</span>
+        {badge && <span className="text-[10px] px-1.5 py-0.5 rounded border border-cyan-500/40 text-cyan-300">{badge}</span>}
+      </div>
+      {sub && <div className="text-xs text-dim mt-1 pl-5">{sub}</div>}
+    </button>
+  );
+  return (
+    <div className="space-y-3">
+      <SectionTitle title="🤖 Agent 模式专属预设" desc="只影响「Agent 正文模式」那一次生成：选中后，Agent 回合的整条组装链（提示词条目/正则/深度注入/采样参数）都用该预设；普通模式与细纲/推进等照旧用「预设」页签里的激活预设。编辑/导出条目请到「预设」页签（同一个库）。" />
+      <Row checked={!sel} onPick={() => setCfg({ presetName: '' })}
+        title="跟随当前正文预设（默认）" sub={`当前激活：${activeTextName}`} />
+      {AGENT_BUILTIN_PRESETS.map((b) => {
+        const loaded = stat(b.name);
+        return (
+          <Row key={b.name} checked={sel === b.name} onPick={() => setCfg({ presetName: b.name })}
+            title={b.name} badge="内置"
+            sub={`${b.desc}${loaded ? ` ｜ ${loaded}` : ' ｜ ⏳ 尚未载入（进入游戏时自动补种，刷新后可见）'}`} />
+        );
+      })}
+      {others.length > 0 && (
+        <div className="p-2.5 rounded-lg border border-edge bg-panel space-y-1.5">
+          <div className="text-sm text-slate-200">其他预设（库内任选）</div>
+          <select
+            value={AGENT_BUILTIN_PRESETS.some((b) => b.name === sel) || !sel ? '' : sel}
+            onChange={(e) => { if (e.target.value) setCfg({ presetName: e.target.value }); }}
+            className="w-full px-2 py-1.5 bg-black/30 border border-edge rounded text-sm text-slate-200 focus:border-cyan-600/50 focus:outline-none">
+            <option value="">— 选择一个已导入的预设作为 Agent 专属 —</option>
+            {others.map((n) => <option key={n} value={n}>{n}{stat(n) ? `（${stat(n)}）` : ''}</option>)}
+          </select>
+        </div>
+      )}
+      <div className="text-[11px] text-dim/70 leading-relaxed">
+        适配说明：预设里的 <code>agentSystemPrompt</code>/<code>agentTask</code> 槽位是 TauriTavern 专用 marker，本作不消费——Agent 工具指令统一深注入在「本回合输入」之前（更强位置），预设其余启用条目全部照常生效。末尾 assistant 预填条目在 Agent 模式会被自动摘除（预填与工具调用在多数端点互斥）。玩家改过的同名预设优先于内置版生效。
+      </div>
+    </div>
+  );
+}
+
+/* ════════════════════════════════════════════
    正文生成 — 🤖 Agent 正文模式（独立旁路·docs/AGENT_MODE_PLAN.md）
 ════════════════════════════════════════════ */
 const AGENT_TOGGLEABLE_TOOLS: [string, string][] = [
@@ -1814,7 +1884,10 @@ function AgentNarrativeSection() {
             </div>
             <div className="text-[11px] text-dim/70 pt-1">掷骰默认关（对齐原作）：开了模型才会在剧情检定时主动摇骰。</div>
           </details>
-          <div className="text-[11px] text-dim/70">提示词可在「预设中心」编辑：<b>Agent 模式 · 成稿契约 / 收尾铁则与流程</b>。Agent 模式下「思维链预填」自动跳过（assistant 预填与工具调用互斥）。</div>
+          <div className="text-[11px] text-dim/70">
+            当前 Agent 预设：<b className="text-cyan-300/90">{(cfg.presetName || '').trim() || '跟随正文预设'}</b>（在顶部「🤖 Agent 预设」页签选择，内置 [Agent] V14.7 狐神抚 与 Fairy_Tale 两枚）。
+            提示词可在「预设中心」编辑：<b>Agent 模式 · 成稿契约 / 收尾铁则与流程</b>。Agent 模式下「思维链预填」自动跳过（assistant 预填与工具调用互斥）。
+          </div>
         </>
       )}
     </div>

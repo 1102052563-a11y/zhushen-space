@@ -198,6 +198,7 @@
 - **参考图锁长相**：`sendCharRefs` 开时把出场角色 avatar(≤4张)发给绘画模型——**仅 `chatimg`(多模态Chat出图)服务生效**,prompt 里给「参考图N=角色名」映射。新服务 `chatimg`=chat/completions 多模态(nano-banana系/OpenRouter/中转),`genChatImg` 兼容五种响应形状提图(message.images/parts/dataURL/markdown链/images API形状),配置复用 `OpenAIImgConfig`(生图API配置里选「多模态Chat出图」)。
 - **送审软化** `soften`(默认开,`COMIC_SOFTEN_RULE`)：直白亲密/血腥→含蓄画面语言,只软化画面表达不改剧情事实,防 Gemini 系拒绘;NAI 线可关。
 - 任务后台跑(`useComicJob` 运行时进度,关面板不中断);「取消」AbortController 中断绘画阶段。页数1~4、每页2~6格由分镜自定;正文超2万字截断保尾。
+- **NAI/ComfyUI 标签线双路**(`isTagService` 分流):标签模型画不了多格+对白→降级为**每页一张关键画面插画**——分镜系统提示词追加 `COMIC_TAGS_RULE`,要求每页多给 `tags` 字段(25~40 个英文 danbooru,并入角色画像锚点锁长相,禁分格/文字类标签);绘画阶段直接用 tags(不拼中文守卫/不发参考图,负面用 `cs.negative`,NAI 自动套画师串+队列限速,尺寸留空用 NAI 配置宽高);tags 缺失兜底=出场角色画像锚点+通用构图标签(`fallbackPageTags`)。UI 选中 NAI/Comfy 时显示琥珀色说明。真分格漫画页仍走 多模态Chat/Gemini 自然语言线。
 
 ### 11.6 🖼 生成图片库（生图设置→「图片库」Tab）
 
@@ -391,3 +392,4 @@
 
 **坑**：① drift（模型直出纯文本）不是失败——文本存 `output/direct_output.md` 并提醒模型可直接 commit 该文件回收，共享轮数预算；② 只有「未知工具名」「finish 后还有调用」致命，其余工具错误一律软回喂让模型自救；③ 文本协议 `<tool_call>{json}</tool_call>` 是无函数调用端点的降级（auto 模式 HTTP 报错提及 tools 才切换），解析走 lenientJsonParse；④ 中途指引的拦截在 `sendMessage` **忙碌门之前**（否则 generating=true 永远进不去）；⑤ 新增工具记得同步 `SettingsPanel.AGENT_TOGGLEABLE_TOOLS`（核心 workspace 读写/commit/finish 恒开不进列表）。
 **P2 能力**：🗂 **配置档案**（命名快照：cfg+独立API+agent/agentReview 路由，一键应用切换"快速档/深度档"；应用不改启用开关，提示词仍走预设中心）；✍️ **末轮流式预览**（模型经 write_file 写 output/main.md 时，从 SSE 参数流渐进抽 content 做草稿流式（120ms 节流）流进楼层，commit 后由清洗稿接管；⚠ **0 次 commit 就终止的 run 会撤掉预览楼层**——"没 commit 就什么都不留"语义不破）；🧐 **评稿子代理**（finish 拦截：评稿人走 'agentReview' 路由（留空回退 Agent 主接口）审成稿，首行 PASS/REVISE 协议，REVISE 以软错误回喂逼修订再 commit，最多 reviewerPasses(1~3) 轮，评稿调用失败 best-effort 放行；修订消耗正常轮数，超轮按已提交版 partial 保留）。
+**Agent 专属预设（正文生成→🤖 Agent 预设页签）**：内置两枚——`[Agent] V14.7 狐神抚 · 毓忻`（214 条·启用 58 条非 marker≈1.4 万字·原生带 TauriTavern agentSystemPrompt/agentTask 槽位，本作不消费该槽、指令仍深注入输入前）与 `Fairy_Tale 2.3.0`（轻量·双 prompt_order）。选中后 Agent 回合的**整条组装链**（条目/正则/深注入/采样参数）换用该预设；默认「跟随正文预设」；玩家改过的同名版优先（`resolveAgentPreset`）。⚠ 为完美读取这两个文件，`parseSTPreset` 改为**忠实 ST 语义**：prompt_order 取 `character_id=100001` 那份（旧版取 `[0]` 会在双 order 预设上选错）、条目按 order 序拼装、不在 order 的库存条目保留但**禁用**（旧版会误启用 Fairy 的 NSFW/剧本格式等变体）；该改动对全部后续导入生效，回归守卫在 `agentPresetEmbed.test.ts`（真实文件 9 断言）。

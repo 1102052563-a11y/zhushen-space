@@ -42,6 +42,8 @@ export interface RunAgentParams {
   onPreview?: (draft: string) => void;
   /** P2·评稿子代理接口链（reviewerEnabled 时传入；finish 拦截时用它调评稿人） */
   reviewChain?: ApiConfig[];
+  /** 预设采样参数（Agent 预设/正文预设的 temperature 等；preset 优先、接口配置兜底——与 legacy reqBody 同口径） */
+  sampling?: { temperature?: number; top_p?: number; max_tokens?: number; frequency_penalty?: number; presence_penalty?: number; seed?: number };
   /** 测试注入：替代真实 HTTP */
   transport?: AgentTransport;
 }
@@ -259,8 +261,15 @@ export async function runAgentNarrative(p: RunAgentParams): Promise<AgentRunResu
         if (!api?.baseUrl || !api?.apiKey) continue;
         for (let attempt = 0; attempt < 2; attempt++) {   // 第 2 次仅用于协议降级重试
           const body: Record<string, unknown> = { model: api.modelId, messages, stream: true };
-          if (api.temperature != null && isFinite(api.temperature) && api.temperature > 0) body.temperature = api.temperature;
-          if (api.maxTokens != null && api.maxTokens > 0) body.max_tokens = api.maxTokens;
+          const sp = p.sampling ?? {};
+          const _t = sp.temperature ?? ((api.temperature != null && isFinite(api.temperature) && api.temperature > 0) ? api.temperature : undefined);
+          if (_t != null) body.temperature = _t;
+          const _mt = sp.max_tokens ?? ((api.maxTokens != null && api.maxTokens > 0) ? api.maxTokens : undefined);
+          if (_mt != null) body.max_tokens = _mt;
+          if (sp.top_p != null) body.top_p = sp.top_p;
+          if (sp.frequency_penalty) body.frequency_penalty = sp.frequency_penalty;
+          if (sp.presence_penalty) body.presence_penalty = sp.presence_penalty;
+          if (sp.seed != null && sp.seed !== -1) body.seed = sp.seed;
           if (protocol === 'native') { body.tools = encodeToolDefs(tools); body.tool_choice = 'auto'; }
           const logId = apiDebugLog.push(`🤖Agent·第${round}轮`, messages.map((m) => ({ role: m.role, content: typeof m.content === 'string' ? m.content : '[multimodal]' })));
           try {

@@ -91,6 +91,8 @@ export interface AgentNarrativeSettings {
   useTextApi: boolean;
   /** P1·单工具调用上限（modelName → 次数；缺省不限，总预算 maxToolCalls 仍生效）。暂无 UI，走配置导入/控制台 */
   maxCallsPerTool?: Record<string, number>;
+  /** Agent 专属正文预设（按名字引用 textPresets；''/缺省=跟随当前正文预设）。玩家改过的同名非 builtin 版优先 */
+  presetName?: string;
   /** P2·评稿子代理：模型 finish 前先由评稿人审一遍，REVISE 则回喂意见逼修订（每次 finish 拦截 +1 次调用） */
   reviewerEnabled?: boolean;
   /** P2·最多评几轮（1~3；达到次数后 finish 直接放行），默认 1 */

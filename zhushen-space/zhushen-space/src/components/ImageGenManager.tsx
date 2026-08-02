@@ -5,6 +5,7 @@ import { listFloors, generateComic, cancelComic, retryMissingPages, redrawPage, 
 import { listBatches, pagesOfBatch, deleteBatch, type ComicBatch, type ComicPage as ComicPageRec } from '../systems/comicDb';
 import { collectGallery, GALLERY_KINDS, type GalleryGroup, type GalleryKind } from '../systems/gallery';
 import { shareImageToChannel } from '../systems/chatImages';
+import { isTagService } from '../systems/imageTags';
 import ApiRoutePicker from './ApiRoutePicker';
 
 const inputCls = 'w-full bg-void border border-edge rounded px-2 py-1 text-[13px] font-mono text-slate-200 outline-none focus:border-god';
@@ -349,6 +350,9 @@ function ComicTabPage() {
           <Field label="页面尺寸"><input value={cs.size} onChange={(e) => cs.set({ size: e.target.value })} placeholder="832x1216" className={inputCls} /></Field>
           <Field label="文字语言"><input value={cs.language} onChange={(e) => cs.set({ language: e.target.value })} placeholder="zh-CN" className={inputCls} /></Field>
         </div>
+        {isTagService(cs.service) && (
+          <div className="text-[12px] text-amber-300/70 leading-relaxed">NAI / ComfyUI 是英文标签模型，画不了「多格分镜＋对白气泡」——此线每页产出一张<b>关键画面插画</b>（分镜自动为每页生成 danbooru 标签，并入角色画像锚点锁长相；无分格、无对白文字）。想要真正的分格漫画页请选「多模态Chat出图」或 Gemini。NAI 自动套用画风的画师串并按队列限速；尺寸留空则用 NAI 配置里的宽高。</div>
+        )}
         <Row title="角色立绘当参考图" desc="把出场角色的立绘/头像发给绘画模型锁长相（仅「多模态Chat出图」服务生效，上限4张）" checked={cs.sendCharRefs} onChange={() => cs.set({ sendCharRefs: !cs.sendCharRefs })} />
         <Row title="送审软化" desc="直白亲密/血腥转含蓄画面语言，防分镜与绘画模型拒答（只软化画面表达，不改剧情事实）" checked={cs.soften} onChange={() => cs.set({ soften: !cs.soften })} />
         <div>

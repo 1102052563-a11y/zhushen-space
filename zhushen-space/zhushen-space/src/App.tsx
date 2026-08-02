@@ -136,7 +136,7 @@ import {
 
 import { useState, useRef, useEffect, useMemo, useCallback, memo, lazy, Suspense, type PointerEvent as RPointerEvent } from 'react';
 import { useGame } from './store/gameStore';
-import { useSettings, resolveApiChain, inferViewScopes, type WorldbookConflict } from './store/settingsStore';
+import { useSettings, resolveApiChain, resolveAgentPreset, inferViewScopes, type WorldbookConflict } from './store/settingsStore';
 import { runRegexReplace, compileFindRegex, regexScriptApplies, escapeRegexLiteral } from './systems/regexEngine';
 import { apiChatFallback, fetchWithProxy, abortAllApiCalls, narrativeLangDirective } from './systems/apiChat';
 import { parseAllStateUpdates, stripStateBlocks, parseAllItemCommands, applyItemCommands, parseAllCharCommands, applyCharacterCommands, parseAllNpcCommands, applyNpcCommands, parseAllFactionCommands, applyFactionCommands, applyTerritoryCommands, applyTeamCommands, isEquippable, lenientJsonParse, buildItemFeedback, recordEvo, purgeItemPhaseCurrency, editToTerritoryText, editToTeamText, detectUnregisteredCurrencyGains, deferredCreateSkipReason } from './systems/stateParser';
@@ -637,6 +637,9 @@ async function loadBuiltinDefaults() {
         ['轮回乐园·DeepSeek', 'zhushen-deepseek.json'],
         ['轮回乐园 Alu v2.0', 'zhushen-alu.json'],
         ['双人成行 V7.1—长风渡', 'shuangren-changfeng.json'],
+        // Agent 正文模式·内置预设（名字必须与 JSON 里的 name 字段一致——importTextPreset 以 data.name 为准生成 builtin:<名> 稳定 id）
+        ['[Agent] V14.7 狐神抚 · 毓忻', 'agent-huyu.json'],
+        ['Fairy_Tale 2.3.0', 'agent-fairy.json'],
       ];
       const missing = seeds.filter(([n]) => !has(n));
       const seedTexts = await Promise.all(missing.map(([, f]) => grab(f)));
@@ -9831,7 +9834,15 @@ ${lines}`;
     //   从 useSettings.getState() 现取，免受 stale 闭包影响（配合下方重发前「等补种」轮询）→ 否则 reroll 预设没注入(722 裸奔)。
     await ensureBuiltins();   // 等内置正文世界书/预设加载完，杜绝首条消息偶发「没世界书注入」（没触发过则在此拉起）
     const _ssNarr = useSettings.getState();
-    const preset = resolveActivePreset(_ssNarr);
+    let preset = resolveActivePreset(_ssNarr);
+    // Agent 正文模式·专属预设：开着 Agent 且在「Agent 预设」页选了预设 → 本回合整条组装链
+    // （buildPresetMessages/正则/prefill/深注入/采样参数）都换用它；未选/找不到=跟随当前正文预设。
+    // 仅真实正文调用生效（细纲/推进/narrateOnly 草稿照旧用正文预设）；Agent 关闭时此分支不存在任何行为变化。
+    if (!narrateOnly && _ssNarr.agentNarrative?.enabled && _ssNarr.agentNarrative.presetName) {
+      const ap = resolveAgentPreset();
+      if (ap) preset = ap;
+      else console.warn(`[Agent] 找不到 Agent 预设「${_ssNarr.agentNarrative.presetName}」，本回合回退跟随正文预设`);
+    }
 
     // 历史裁切：historyLimit > 0 时只取最近 N 条（即"显示楼层"范围）
     const allHistory = extraHistory.length > 0 ? extraHistory : messagesRef.current;
@@ -10242,6 +10253,8 @@ ${lines}`;
           },
           // P2·评稿子代理：独立路由 'agentReview'，未配则回退 Agent 主接口（同模型自审也有效）
           reviewChain: _agentCfg.reviewerEnabled ? resolveApiChain('agentReview', agentChain[0]) : undefined,
+          // Agent 预设的采样参数透传（preset 优先、接口配置兜底）——legacy 路径在 reqBody 同样尊重 preset，此处对齐
+          sampling: preset ? { temperature: preset.temperature, top_p: preset.top_p, max_tokens: preset.max_tokens, frequency_penalty: preset.frequency_penalty, presence_penalty: preset.presence_penalty, seed: preset.seed } : undefined,
           // P2·末轮流式预览：模型正在写 output/main.md → 草稿渐进流入楼层（与 legacy 流式一致展示原文；commit 后由清洗稿接管）
           onPreview: (draft) => {
             if (agentCommitsSoFar > 0) return;

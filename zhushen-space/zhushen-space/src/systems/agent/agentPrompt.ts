@@ -59,10 +59,11 @@ export function buildAgentSystemPrompt(tools: AgentToolSpec[], protocol: AgentPr
   return lines.join('\n');
 }
 
-/** drift 纠偏提醒（合成 user 消息；照抄 TauriTavern 的两种形态 + direct_output 回收提示） */
+/** drift 纠偏提醒（合成 user 消息；照抄 TauriTavern 的两种形态 + direct_output 回收提示）
+    回收路径必须是「两步收尾」而不是「读→小修→反复提交」——实测弱模型会把打捞变成 7 轮仪式（读自己 3099 字→patch 改 20 字×2→commit×2），全是白烧的轮次。 */
 export function buildDriftNudge(attempt: number, committedCount: number, savedDirectOutput: boolean, protocol: AgentProtocol): string {
   const hint = savedDirectOutput
-    ? `你刚才的文本已保存到 ${DIRECT_OUTPUT_PATH}；如果它就是你想要的正文，直接 workspace_commit 该文件（path="${DIRECT_OUTPUT_PATH}"）再 workspace_finish 即可。`
+    ? `你刚输出的**全文已被原样保存**到 ${DIRECT_OUTPUT_PATH}——不需要 read 去确认，也不要为小改动去 patch。若它就是完整正文，下一轮**只做两步**：workspace_commit（path="${DIRECT_OUTPUT_PATH}"）→ workspace_finish。只有需要**实质性修改**（缺结构模块/情节要改）时才读改它。`
     : '';
   const how = protocol === 'text' ? '（用 <tool_call>{"name":…,"arguments":{…}}</tool_call> 标签调用工具）' : '';
   if (committedCount > 0) {

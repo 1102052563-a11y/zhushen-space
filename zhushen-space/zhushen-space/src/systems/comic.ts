@@ -12,9 +12,10 @@ import { usePlayer } from '../store/playerStore';
 import { useNpc } from '../store/npcStore';
 import { useComic, useComicJob, type ComicSettings } from '../store/comicStore';
 import { putBatch, getBatch, putPage, getPage, pagesOfBatch, type ComicBatch } from './comicDb';
-import { COMIC_STORYBOARD_RULE, COMIC_SOFTEN_RULE, COMIC_DRAW_GUARD } from '../promptRules';
+import { isTagService } from './imageTags';
+import { COMIC_STORYBOARD_RULE, COMIC_SOFTEN_RULE, COMIC_DRAW_GUARD, COMIC_TAGS_RULE } from '../promptRules';
 
-export interface ComicPagePlan { page: number; goal: string; panels: number; prompt: string }
+export interface ComicPagePlan { page: number; goal: string; panels: number; prompt: string; tags?: string }
 export interface ComicPlan {
   schema: string; language: string; title: string; style: string;
   characters: { name: string; look: string }[];
@@ -90,6 +91,8 @@ export function parseComicPlan(raw: string, fallbackLang: string): ComicPlan {
       goal: String(p?.goal ?? '').trim(),
       panels: Math.max(2, Math.min(6, Number(p?.panels) || 4)),
       prompt: String(p?.prompt ?? '').trim(),
+      // 标签线（NAI/ComfyUI）用：每页一串英文 danbooru tags（COMIC_TAGS_RULE 要求；数组则拼回逗号串）
+      tags: typeof p?.tags === 'string' ? p.tags.trim() : Array.isArray(p?.tags) ? p.tags.map((t: unknown) => String(t).trim()).filter(Boolean).join(', ') : '',
     }))
     .filter((p: ComicPagePlan) => p.prompt)
     .slice(0, 6);
@@ -106,8 +109,8 @@ export function parseComicPlan(raw: string, fallbackLang: string): ComicPlan {
   };
 }
 
-/* ── 分镜调用：comic_storyboard_llm 路由（留空回退正文 API）── */
-async function callStoryboard(narrative: string, roster: string, cs: ComicSettings): Promise<ComicPlan> {
+/* ── 分镜调用：comic_storyboard_llm 路由（留空回退正文 API）。tagMode=绘画侧是英文标签模型（NAI/ComfyUI），要求每页多给 tags ── */
+async function callStoryboard(narrative: string, roster: string, cs: ComicSettings, tagMode: boolean): Promise<ComicPlan> {
   const ss = useSettings.getState();
   const legacy = ss.textUseSharedApi ? ss.api : ss.textApi;
   const chain = resolveApiChain('comic_storyboard_llm', legacy);
@@ -115,8 +118,9 @@ async function callStoryboard(narrative: string, roster: string, cs: ComicSettin
   const lang = (cs.language || 'zh-CN').trim() || 'zh-CN';
   const n = Math.max(1, Math.min(4, Math.round(cs.pageCount) || 2));
   const system = COMIC_STORYBOARD_RULE.replaceAll('${page_count}', String(n)).replaceAll('${language}', lang)
-    + (cs.soften ? `\n\n${COMIC_SOFTEN_RULE}` : '');
-  const user = `【剧情材料（按楼层顺序）】\n${narrative}\n\n【角色外观资料（最高优先级·外观锁只能取自这里与剧情原文）】\n${roster}\n\n【本次要求】共 ${n} 页；漫画文字语言：${lang}。只输出一个 JSON 对象。`;
+    + (cs.soften ? `\n\n${COMIC_SOFTEN_RULE}` : '')
+    + (tagMode ? `\n\n${COMIC_TAGS_RULE}` : '');
+  const user = `【剧情材料（按楼层顺序）】\n${narrative}\n\n【角色外观资料（最高优先级·外观锁只能取自这里与剧情原文）】\n${roster}\n\n【本次要求】共 ${n} 页；漫画文字语言：${lang}${tagMode ? '；绘画模型是英文标签模型，每页必须给 "tags" 字段' : ''}。只输出一个 JSON 对象。`;
   const { content } = await apiChatFallback(
     chain,
     [{ role: 'system', content: system }, { role: 'user', content: user }],
@@ -139,6 +143,20 @@ function buildPagePrompt(plan: ComicPlan, pg: ComicPagePlan, refHints: string[],
   ].filter(Boolean).join('\n\n');
 }
 
+/* 标签线兜底：分镜没按要求给 tags 时，拼「出场角色画像锚点 + 通用构图标签」——效果打折但不废页 */
+function fallbackPageTags(plan: ComicPlan, pg: ComicPagePlan): string {
+  const p = usePlayer.getState().profile;
+  const npcs = Object.values(useNpc.getState().npcs);
+  const parts: string[] = [];
+  for (const c of plan.characters) {
+    if (!c.name || !pg.prompt.includes(c.name)) continue;
+    const tags = ((p?.name === c.name ? p?.imageTags : npcs.find((r) => r.name === c.name)?.imageTags) || '').trim();
+    if (tags) parts.push(tags);
+  }
+  parts.push('dramatic composition, dynamic angle, detailed background, cinematic lighting');
+  return parts.join(', ');
+}
+
 function delay(ms: number, signal?: AbortSignal): Promise<void> {
   if (ms <= 0) return Promise.resolve();
   return new Promise((res, rej) => {
@@ -151,14 +169,17 @@ function delay(ms: number, signal?: AbortSignal): Promise<void> {
 
 /* ── 并发错峰绘画：单页失败只标记该页（不拖累其它页），成功页立即落库可补齐 ── */
 async function drawPages(batchId: string, plan: ComicPlan, cs: ComicSettings, signal: AbortSignal): Promise<number> {
-  const refs = cs.sendCharRefs && cs.service === 'chatimg' ? collectRefs(plan.characters) : { hints: [], images: [] };
+  const tagMode = isTagService(cs.service);   // NAI/ComfyUI：每页一张关键画面插画（英文 tags 驱动·无守卫无参考图）
+  const refs = !tagMode && cs.sendCharRefs && cs.service === 'chatimg' ? collectRefs(plan.characters) : { hints: [], images: [] };
   const lang = plan.language || cs.language;
   let ok = 0;
   await Promise.allSettled(plan.pages.map(async (pg, i) => {
     await delay(i * Math.max(0, cs.staggerMs || 0), signal);
     useComicJob.getState().patchPage(pg.page, { status: 'drawing' });
     try {
-      const finalPrompt = buildPagePrompt(plan, pg, refs.hints, lang);
+      const finalPrompt = tagMode
+        ? ((pg.tags || '').trim() || fallbackPageTags(plan, pg))
+        : buildPagePrompt(plan, pg, refs.hints, lang);
       const img = await generateImage(cs.service, {
         prompt: finalPrompt, negative: cs.negative || undefined, size: cs.size || undefined,
         refImages: refs.images, signal, label: `漫画·第${pg.page}页`,
@@ -194,7 +215,7 @@ export async function generateComic(floorNos: number[]): Promise<string | null> 
     if (!narrative.trim()) throw new Error('清洗游戏数据后剧情为空');
     const roster = buildRoster(narrative);
     useComicJob.getState().setPhase('分镜中…（LLM 生成分镜 JSON，约几十秒）');
-    const plan = await callStoryboard(narrative, roster, cs);
+    const plan = await callStoryboard(narrative, roster, cs, isTagService(cs.service));
     const batchId = `cb_${Date.now().toString(36)}${Math.floor(Math.random() * 1296).toString(36)}`;
     const batch: ComicBatch = {
       id: batchId, title: plan.title, createdAt: Date.now(),
@@ -252,9 +273,11 @@ export async function redrawPage(batchId: string, pageNo: number): Promise<void>
   const rec = await getPage(`${batchId}_p${pageNo}`);
   const pg = plan.pages.find((p) => p.page === pageNo);
   const lang = plan.language || cs.language;
-  const finalPrompt = rec?.finalPrompt || (pg ? buildPagePrompt(plan, pg, [], lang) : '');
+  const tagMode = isTagService(cs.service);
+  const finalPrompt = rec?.finalPrompt
+    || (pg ? (tagMode ? ((pg.tags || '').trim() || fallbackPageTags(plan, pg)) : buildPagePrompt(plan, pg, [], lang)) : '');
   if (!finalPrompt) throw new Error('找不到该页的绘画提示词');
-  const refs = cs.sendCharRefs && cs.service === 'chatimg' ? collectRefs(plan.characters) : { hints: [], images: [] };
+  const refs = !tagMode && cs.sendCharRefs && cs.service === 'chatimg' ? collectRefs(plan.characters) : { hints: [], images: [] };
   const img = await generateImage(cs.service, {
     prompt: finalPrompt, negative: cs.negative || undefined, size: cs.size || undefined,
     refImages: refs.images, label: `漫画·重绘第${pageNo}页`,

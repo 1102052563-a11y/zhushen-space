@@ -71,6 +71,18 @@ export function resolveApiChain(key: string, legacy: ApiConfig): ApiConfig[] {
   return chain.length ? chain : [legacy];
 }
 
+/** Agent 正文模式·预设解析：按 agentNarrative.presetName 找预设（玩家改过的非 builtin 同名版优先，
+ *  与 resolveActivePreset 的「玩家副本优先」口径一致）。未配置/找不到 → null（＝跟随当前正文预设）。 */
+export function resolveAgentPreset(): TextGenPreset | null {
+  const s = useSettings.getState();
+  const nm = (s.agentNarrative?.presetName || '').trim();
+  if (!nm) return null;
+  const list = s.textPresets ?? [];
+  return list.find((p) => p.name === nm && !(p as { builtin?: boolean }).builtin)
+    ?? list.find((p) => p.name === nm)
+    ?? null;
+}
+
 // SillyTavern 正则脚本（兼容 ST 导出格式）
 export interface RegexScript {
   id: string;
@@ -142,29 +154,53 @@ function parseSTPreset(data: any, fileName: string, id: string): TextGenPreset {
 
   // ── ST Prompt Manager 格式：有 prompts 数组 ──
   if (Array.isArray(data.prompts)) {
+    // 生效序：ST 惯例上 chat-completion 预设的默认序挂在 **character_id=100001**（dummy 角色）。
+    // 有的预设带多份 order（如 Fairy_Tale 2.3.0 的 100000/100001 两份）——旧版取 [0] 会选错份，现优先 100001。
     let orderArr: { identifier: string; enabled: boolean }[] = [];
     if (Array.isArray(data.prompt_order)) {
-      const first = data.prompt_order[0];
-      if (first && Array.isArray(first.order)) orderArr = first.order;
-      else orderArr = data.prompt_order;
+      const withOrder = data.prompt_order.filter((o: any) => o && Array.isArray(o.order));
+      const chosen = withOrder.find((o: any) => o.character_id === 100001) ?? withOrder[0];
+      if (chosen) orderArr = chosen.order;
+      else orderArr = data.prompt_order;   // 裸 [{identifier,enabled}] 数组形态
     }
-    const enabledMap = new Map(orderArr.map((o) => [o.identifier, o.enabled !== false]));
-
-    const entries: STPromptEntry[] = data.prompts.map((p: any) => {
-      const id_ = p.identifier ?? p.id ?? p.name ?? String(Math.random());
-      return {
-        identifier:        id_,
-        name:              p.name ?? p.identifier ?? '(无名)',
-        role:              p.role ?? 'system',
-        content:           p.content ?? '',
-        enabled:           enabledMap.has(id_) ? enabledMap.get(id_)! : (p.enabled !== false),
-        system_prompt:     Boolean(p.system_prompt),
-        marker:            Boolean(p.marker),
-        injection_position: p.injection_position,
-        injection_depth:   p.injection_depth,
-      };
+    const keyOf = (p: any) => String(p.identifier ?? p.id ?? p.name ?? '');
+    const toEntry = (p: any, enabled: boolean): STPromptEntry => ({
+      identifier:        p.identifier ?? p.id ?? p.name ?? String(Math.random()),
+      name:              p.name ?? p.identifier ?? '(无名)',
+      role:              p.role ?? 'system',
+      content:           p.content ?? '',
+      enabled,
+      system_prompt:     Boolean(p.system_prompt),
+      marker:            Boolean(p.marker),
+      injection_position: p.injection_position,
+      injection_depth:   p.injection_depth,
     });
 
+    if (orderArr.length) {
+      // 忠实 ST 语义：**条目按 order 序拼装、启用状态以 order 为准**；不在 order 里的库存条目保留（可编辑）但禁用——
+      // ST 里它们本就不进 montage。旧版按 prompts 库序 + 「不在 order 即自带 enabled(缺省 true)」会误启用库存条目
+      // （如 Fairy_Tale 的 NSFW/剧本格式变体），并可能整体顺序错位。
+      const lib = new Map<string, any>();
+      for (const p of data.prompts) { const k = keyOf(p); if (k && !lib.has(k)) lib.set(k, p); }
+      const entries: STPromptEntry[] = [];
+      const seen = new Set<string>();
+      for (const o of orderArr) {
+        const k = String(o.identifier ?? '');
+        const p = lib.get(k);
+        if (!p || seen.has(k)) continue;
+        seen.add(k);
+        entries.push(toEntry(p, o.enabled !== false));
+      }
+      for (const p of data.prompts) {
+        const k = keyOf(p);
+        if (!k || seen.has(k)) { if (!k) entries.push(toEntry(p, false)); continue; }
+        seen.add(k);
+        entries.push(toEntry(p, false));
+      }
+      return { id, name, entries, regexScripts, ...extractGenParams(data) };
+    }
+    // 无 prompt_order：维持旧行为（库序 + 条目自带 enabled，缺省启用）
+    const entries: STPromptEntry[] = data.prompts.map((p: any) => toEntry(p, p.enabled !== false));
     return { id, name, entries, regexScripts, ...extractGenParams(data) };
   }
 
