@@ -72,6 +72,17 @@ describe('封条 · 时间不到看不到结算', () => {
     expect(s.dispatchHistory[0].ledger!.sealedAt).toBe(14);
   });
 
+  it('★封存时委托进账真金白银入钱包（金额与账本一致·魂币→灵魂钱币归一）', () => {
+    // 此前 applyLedger 只把"进账 N"写进 deed 文字，面板/战报都显示进账、钱包一分不涨——被动收入整条线是断的
+    seedTeam(['C1', 'C2'], { dispatchActive: rec() });
+    const before = { ...useItems.getState().currency };
+    runDispatchTick(14);
+    const led = useTeam.getState().dispatchHistory[0].ledger!;
+    const key = led.currency.kind === '魂币' ? '灵魂钱币' : '乐园币';
+    const after = useItems.getState().currency;
+    expect(after[key] - before[key]).toBe(led.currency.amount);
+  });
+
   it('超过终点回合（漏跑了几回合）仍能补结算 —— 倒数记的是绝对回合，不是自减', () => {
     seedTeam(['C1', 'C2'], { dispatchActive: rec() });
     runDispatchTick(99);

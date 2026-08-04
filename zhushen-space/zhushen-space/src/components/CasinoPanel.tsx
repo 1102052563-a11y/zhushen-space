@@ -31,6 +31,7 @@ export default function CasinoPanel({ onClose, onGenMatch, onGenBattle, onGenRew
   const currency       = useItems((s) => s.currency);
   const adjustCurrency = useItems((s) => s.adjustCurrency);
   const tier           = usePlayer((s) => s.profile.tier);
+  const brandLevel     = usePlayer((s) => s.profile.brandLevel);   // 烙印等级（猎杀者资历·结算 B/S 级晋升）
 
   const chips      = useCasino((s) => s.chips);
   const soulChips  = useCasino((s) => s.soulChips);
@@ -42,7 +43,10 @@ export default function CasinoPanel({ onClose, onGenMatch, onGenBattle, onGenRew
 
   const isHome = true;   // 区域限制已取消：赌坊在任何世界均可营业
   const tierIdx = (TIERS as readonly string[]).indexOf(normalizeTier(tier));
-  const vipUnlocked = tierIdx >= config.vipMinTier - 1;
+  // 贵宾厅门槛：阶位达标 或 烙印等级≥3（P3 经济缝合：brandLevel 此前只在侧栏显示、零机械效果——
+  // 烙印是结算 B/S 级攒出来的猎杀者资历，在乐园声望体系里抵得过阶位差）
+  const brandLv = parseInt(String(brandLevel || '').replace(/[^\d]/g, ''), 10) || 0;
+  const vipUnlocked = tierIdx >= config.vipMinTier - 1 || brandLv >= 3;
 
   const [hall, setHall] = useState<'normal' | 'soul'>('normal');
   const [tab, setTab]   = useState<'sicbo' | 'roulette' | 'blackjack' | 'ladder' | 'gladiator' | 'soulduel' | 'gacha' | 'soul'>('sicbo');
@@ -141,7 +145,7 @@ export default function CasinoPanel({ onClose, onGenMatch, onGenBattle, onGenRew
           <div className="flex rounded-lg border border-edge overflow-hidden text-[14px] font-bold">
             <button onClick={() => setHall('normal')} className={`px-3 py-1 ${hall === 'normal' ? 'bg-god/20 text-god' : 'text-dim hover:text-slate-200'}`}>普通厅</button>
             <button onClick={() => vipUnlocked && setHall('soul')} disabled={!vipUnlocked}
-              title={vipUnlocked ? '魂币贵宾厅' : `需 ${config.vipMinTier} 阶位解锁`}
+              title={vipUnlocked ? '魂币贵宾厅' : `需 ${config.vipMinTier} 阶位、或 烙印等级≥3（猎杀者资历）解锁`}
               className={`px-3 py-1 ${hall === 'soul' && vipUnlocked ? 'bg-fuchsia-500/20 text-fuchsia-300' : 'text-dim/40'} ${!vipUnlocked ? 'cursor-not-allowed' : 'hover:text-fuchsia-300'}`}>
               {vipUnlocked ? '魂币贵宾厅' : '贵宾厅🔒'}
             </button>

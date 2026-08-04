@@ -1,5 +1,6 @@
 import { useItems, ITEM_CATEGORIES, type ItemCategory, type CurrencyWallet, type InventoryItem } from '../store/itemStore';
 import { useNpc, type NpcOwnedItem } from '../store/npcStore';
+import { reportFacilityOutcome } from './facilityBridge';
 import type { DmDeal, DmDealItem, DmThread } from '../store/dmStore';
 
 /* 私信交易·确定性结算：玩家点「成交」→ 代码扣货币/物品、给货币/物品、对方收到的物品入其储存空间。AI 不参与转账。*/
@@ -110,6 +111,14 @@ export function settleDmDeal(thread: DmThread, deal: DmDeal): DmSettleResult {
       ...infoFields(deal.getItem),
     });
   }
+
+  // 场外通报：私信里把一件强化装卖了/换来一件新装备，正文此前完全不知情（频道交易早有通报、这里一直漏——审计确认不对称）
+  reportFacilityOutcome({
+    source: '私信交易',
+    summary: `主角与「${thread.targetName}」私下成交：${dealSummary(deal, thread.targetName)}`,
+    granted: deal.getItem ? [deal.getItem.name] : undefined,
+    guard: deal.giveItem ? '交出的物品已离开主角背包、归对方所有；数值已由前端结算，勿重复交割' : undefined,
+  });
 
   return { ok: true, npcId, summary: dealSummary(deal, thread.targetName) };
 }

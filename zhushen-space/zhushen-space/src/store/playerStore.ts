@@ -62,6 +62,11 @@ export interface PlayerProfile {
   name: string;          // 姓名
   level: number;         // 等级
   worldSource: number;   // 世界之源（当前任务世界累计获取，回归乐园后归0）
+  /* 四维声誉（官方/民间/暗域/业界·各 0~5 档·见 systems/reputation.ts）。
+     ⚠ **world 作用域**：绑当前任务世界，离世折算成一句 WorldSummary.继承要点.主角名声 后重置。
+     与「乐园声望」(systems/paradiseFame·paradise 作用域·永久·纯派生) 分层：
+     土著只看四维、契约者只看乐园声望——混起来就破了 NATIVE_UNAWARE_RULE。缺省 undefined = 全「默默无闻」。 */
+  repute?: { official: number; folk: number; shadow: number; trade: number };
   attrPoints: number;    // 属性点（完全按正文更新，正文没出现就不动）
   realAttrPoints: number;// 真实属性点（完全按正文更新，正文没出现就不动）
   tier: string;          // 阶位（一阶/二阶…）

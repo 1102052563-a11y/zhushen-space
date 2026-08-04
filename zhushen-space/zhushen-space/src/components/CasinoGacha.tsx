@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { useItems } from '../store/itemStore';
 import { useCasino } from '../store/casinoStore';
 import { rollGachaBatch, grantGachaReward, GACHA_PITY, RARITY_COLOR, type GachaReward } from '../systems/casinoGacha';
+import { reportFacilityOutcome } from '../systems/facilityBridge';
 
 /* 命运福袋（扭蛋）：花魂币抽奖池(装备/宝石/材料/技能书/乐园币/魂币)，纯前端确定性 +
    账号级保底(60抽必出史诗+) + 十连保底≥稀有；奖励即时进背包/钱包/档案。设计见记忆 casino-feature。
@@ -32,6 +33,16 @@ export default function CasinoGacha({ isHome, onGenRewards }: { isHome: boolean;
     let final = rewards;
     try { final = await onGenRewards(rewards); } catch { /* AI 失败 → 保留确定性兜底物品 */ }
     final.forEach(grantGachaReward);
+    // 场外通报：整批一条（防十连逐个刷屏）；物品登记 granted 防物品阶段重复建档（此前扭蛋物品全没登记）
+    try {
+      const names = final.map((r) => r.item?.name).filter((n): n is string => !!n);
+      const coins = final.filter((r) => !r.item).reduce((s, r) => s + (r.amount || 0), 0);
+      reportFacilityOutcome({
+        source: '赌坊·福袋扭蛋',
+        summary: `花费 ${total} 魂币抽取 ${count} 次，开出：${[...names.map((n) => `「${n}」`), coins > 0 ? `货币折合若干` : ''].filter(Boolean).join('、') || '一些寻常货币'}（均已入库）`,
+        granted: names,
+      });
+    } catch { /* 通报失败不阻断发放 */ }
     useCasino.getState().applyGachaPull(final, np);
     setBusy(false);
   }

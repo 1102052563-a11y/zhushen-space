@@ -11,6 +11,10 @@ import { parseAttrBonus, ATTR_KEYS } from './attrBonus';
 import { computeCompanionAwards, COMPANION_SETTLE_RATIO } from './companionSettlement';   // 随从·队友世界结算同步发点
 import { getSettlementWhitelist, clearSettlementWhitelist } from './settlementSelection';   // 玩家弹窗勾选的随从白名单
 import { pushSceneNotice } from './allocNotice';
+import {
+  defaultRepute, normDim, normLevel, normVisibility, canAffectRepute, applyRepute,
+  type ReputeDim, type Visibility,
+} from './reputation';
 import type { PlayerAttrs } from '../store/playerStore';
 
 /* 限时状态的六维加成解析：显式 attrs 对象优先（{con:15,agi:10}），其次 attrBonus/attr 字符串走 parseAttrBonus（"体质+15、敏捷+10"）。
@@ -193,6 +197,37 @@ export function applyPlayerProfileCommands(reply: string, narrative: string, tur
           n++;
         }
       }
+    }
+  }
+  // 四维声誉：repute("维度", "档名或±N", "可见性依据")  —— 见 systems/reputation.ts
+  // ⚠ 第三参（可见性）是**硬闸门**：写不出"谁看见的/什么物证/哪条传闻"就一律拒绝入账
+  //   （无人知晓的隐秘行为只影响个人恩怨，不动公共声誉）。同一批指令合并后过一次护栏，
+  //   这样"单次行为最多影响 3 维"和"非崩塌事件一次一档"才数得准。
+  {
+    const repRe = /\brepute\(\s*"([^"]+)"\s*,\s*"([^"]+)"\s*(?:,\s*"([^"]*)"\s*)?\)/g;
+    const changes: { dim: ReputeDim; delta: number }[] = [];
+    let vis: Visibility = 'unknown';
+    let collapse = false;
+    while ((m = repRe.exec(reply))) {
+      const dim = normDim(m[1]);
+      if (!dim) continue;
+      const cur = (usePlayer.getState().profile.repute ?? defaultRepute())[dim];
+      const raw = (m[2] ?? '').trim();
+      let delta: number | null = null;
+      const rel = /^([+-])\s*(\d+)$/.exec(raw);
+      if (rel) delta = (rel[1] === '-' ? -1 : 1) * Number(rel[2]);
+      else { const lv = normLevel(raw); if (lv != null) delta = lv - cur; }
+      if (delta == null || delta === 0) continue;
+      changes.push({ dim, delta });
+      const v = normVisibility(m[3]);
+      if (canAffectRepute(v)) vis = v;                       // 任一条给出了合格依据即放行本批
+      if (/背叛|揭穿|通敌|叛国|恶行败露/.test(m[3] ?? '')) collapse = true;   // 崩塌事件才允许跨级
+    }
+    if (changes.length) {
+      const cur = usePlayer.getState().profile.repute ?? defaultRepute();
+      const res = applyRepute(cur, changes, { visibility: vis, collapse });
+      if (res.applied.length) { sp({ repute: res.next }); n += res.applied.length; }
+      if (res.rejected.length) console.warn('[声誉] 拒绝的变动：', res.rejected.map((r) => `${r.dim}(${r.reason})`).join('、'));
     }
   }
   // 属性点 / 真实属性点：**只在「世界结算」时由正文发放**（平时只"计入/统计"不入账，消耗交前端确定性系统；演化阶段输出不含 <世界结算> 故不会重复计数）

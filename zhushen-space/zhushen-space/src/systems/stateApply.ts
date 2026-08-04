@@ -6,10 +6,11 @@ import { useCharacters } from '../store/characterStore';
 import { useSettings } from '../store/settingsStore';
 import { useSkillTree } from '../store/skillTreeStore';
 import { playerMaxHp, playerMaxEp, playerResourceMax } from './playerVitals';
+import { applyOutfitCommand } from './outfit';   // 👗衣柜换装指令 outfit.<id>=名
 import { useResource } from '../store/resourceStore';
 import { useMisc } from '../store/miscStore';   // 当地货币（世界级·世界限定·离世归零）
 import { effectiveResource, fullMaxHp, fullMaxEp, ratioOf, npcBaseAttrs } from './derivedStats';
-import { parseAllStateUpdates, parseAllItemCommands, applyItemCommands, stripPreviewRewardCurrency, isEquippable, setNpcOwnerResolver, type StateUpdate, type ItemEditResult, type LedgerCtx } from './stateParser';
+import { parseAllStateUpdates, parseAllItemCommands, applyItemCommands, stripPreviewRewardCurrency, isEquippable, setNpcOwnerResolver, extractStateBlocks, type StateUpdate, type ItemEditResult, type LedgerCtx } from './stateParser';
 import { applyTableEdits, type TableEditResult } from './tableEditParser';   // ACU 表格数据库：<tableEdit> → tableStore
 import { projectStoresToTables } from './tableMigrate';   // 1c：镜像表每回合从 store 投影（漂移从构造上消除）
 import { useTurnReport, recordHasActivity } from '../store/turnReportStore';   // 回合级变量事务报告（每次应用收一条可见记录）
@@ -156,6 +157,14 @@ function applyOneUpdate(u: StateUpdate) {
     const current = game.player[key as PlayerNumericKey] as number;
     const next = op === '+=' ? current + value : op === '-=' ? current - value : value;
     game.setPlayerField(key as PlayerNumericKey, next);
+    return;
+  }
+
+  // ── 👗衣柜换装（AI 按剧情/场景切换钦定穿搭）：outfit.<角色ID> = 穿搭名|场景标签|无 ──
+  // 例：outfit.B1 = 战斗服、outfit.C3 = 礼服、outfit.B1 = 战斗（按场景标签命中）、outfit.B1 = 无（取消钦定）
+  const outfitCmd = key.match(/^(?:outfit|穿搭)\.(.+)$/);
+  if (outfitCmd && op === '=' && (typeof value === 'string' || typeof value === 'number')) {
+    applyOutfitCommand(outfitCmd[1], String(value));
     return;
   }
 
@@ -399,6 +408,45 @@ export function reconcileSettlementCurrency(raw: string, updates: StateUpdate[])
     }
     out.push(u);
   }
+  // ★兜底补入账：面板明写「获得货币」却没有任何一条可解析的货币指令幸存（AI 只写面板忘写 <state> 行，
+  //   或写了历史上根本解析不出的变体）→ 由前端按面板直接补一条（面板是玩家亲眼所见的唯一授予）。
+  //   若同回合已有 <upstore> transferCurrency / createItem(货币) 入账（那两条通道解析正常），则不补，防双发；
+  //   已存在 '='/'-=' 等货币指令时也不补（尊重绝对赋值，见测试「= 绝对赋值不动」）。
+  if (!placed) {
+    const touchedCurrency = updates.some((x) => curType(x.key) === '乐园币' || curType(x.key) === '灵魂钱币');
+    const upstorePaid = /transfer(?:Currency|SpiritStones)\s*\(/.test(raw) || /createItem[\s\S]{0,160}?(?:乐园币|灵魂钱币|魂币)/.test(raw);
+    if (!touchedCurrency && !upstorePaid) {
+      console.warn(`[结算·货币忠于面板] <state> 未见可解析的货币指令 → 按面板补入账 ${panelType} += ${panelAmt}`);
+      out.push({ key: panelType, op: '+=', value: panelAmt, raw: `${panelType} += ${panelAmt}` });
+    }
+  }
+  return out;
+}
+
+/* ★ 乐园币/灵魂钱币 中文键补扫（纯函数·可单测）：parseLine 的 key 正则是 ASCII \w、「乐园币 += 7000」整行
+   parse 失败（与当地货币同坑，见下方注释），而提示词各处（世界结算模板/物品兜底/开箱入账）教的恰是这个写法——
+   这条主通道此前整个空转，applyOneUpdate 的裸币名分支是死代码。这里只扫 <state> 块内的中文币名行（防正文散文
+   误匹配），合成 StateUpdate 走既有管线：结算回合随后被 reconcileSettlementCurrency 忠于面板收敛，
+   非结算（开箱/交易兜底）照常入账。同一条「统计+发放」写两遍只算一次。 */
+export function scanCjkCurrencyUpdates(raw: string): StateUpdate[] {
+  const out: StateUpdate[] = [];
+  try {
+    const seen = new Set<string>();
+    const ccyRe = /^\s*(?:currency\.)?(乐园币|灵魂钱币|魂币)\s*([-+]?=)\s*(-?[\d,]+)\s*(?:[#（(].*)?$/;
+    for (const block of extractStateBlocks(raw)) {
+      for (const line of block.split(/\r?\n/)) {
+        const m = ccyRe.exec(line);
+        if (!m) continue;
+        const key = m[1] === '魂币' ? '灵魂钱币' : m[1];
+        const n = Number(m[3].replace(/,/g, ''));
+        if (!Number.isFinite(n)) continue;
+        const dk = `${key}${m[2]}${n}`;
+        if (seen.has(dk)) continue;
+        seen.add(dk);
+        out.push({ key, op: m[2] as StateUpdate['op'], value: n, raw: line.trim() });
+      }
+    }
+  } catch { /* 中文币名扫描失败不阻断其余 state 应用 */ }
   return out;
 }
 
@@ -452,6 +500,7 @@ export function applyStateUpdates(raw: string): { applied: number; failed: strin
     }
   } catch { /* 当地货币解析失败不阻断其余 state 应用 */ }
   let updates = parseAllStateUpdates(raw);
+  updates.push(...scanCjkCurrencyUpdates(raw));   // 乐园币/灵魂钱币 中文键补扫（parseLine 认不出中文 key，见函数注释）
   if (updates.length === 0) return { applied: 0, failed: [] };
   if (atSettlement) updates = reconcileSettlementCurrency(raw, updates);   // 结算·货币忠于【最终清算】面板 + 同类去重防双入账
   console.log('[State] 解析到变量更新:', updates);

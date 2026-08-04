@@ -25,6 +25,7 @@ import { useSettings } from '../store/settingsStore';
 import { useItems } from '../store/itemStore';
 import { useMisc } from '../store/miscStore';
 import { pushFacilityGranted, pushSceneNotice } from './allocNotice';
+import { pushToast } from '../store/toastStore';   // P4·全局 toast：到点封存/酬劳入库是后台事件，给实时反馈
 import { powerOf, archOf, makeEquipItem, autoGearFull, type Arch } from './npcAutonomy';
 import { getCorpus, makeRng, pickFrom, hashStr, seedFrom } from './autonomyCorpus';
 import { isPetLike } from './petEvolution';
@@ -323,6 +324,14 @@ function applyLedger(rec: DispatchRecord, ledger: DispatchLedger, turn: number):
   const t = useTeam.getState();
   t.addExp(ledger.teamExp);
   t.addActivity(ledger.activity);
+  // 委托进账：真金白银入主角钱包。此前只写进 deed 文字、面板与战报都显示"进账 N"但钱包一分不涨——
+  // "可重复的被动收入"这条设计整个是断的。kind 是阶位口径（魂币/乐园币），钱包键是 灵魂钱币/乐园币 → 归一；
+  // 走 adjustCurrency 默认通报（聚合成一行【场外·货币】进正文前置须知），失败不阻断落库。
+  if (ledger.currency.amount > 0) {
+    try {
+      useItems.getState().adjustCurrency(ledger.currency.kind === '魂币' ? '灵魂钱币' : '乐园币', ledger.currency.amount, `冒险团委托·${o.title}（评级 ${ledger.rating}）`);
+    } catch { /* 入账失败不阻断其余落库 */ }
+  }
   const money = ledger.currency.amount > 0 ? `，进账 ${ledger.currency.amount} ${ledger.currency.kind}` : '';
   const lost = ledger.casualties.length ? `，折损 ${ledger.casualties.join('、')}` : '';
   t.appendDeed(mkDeed(turn, o.world, `委托「${o.title}」评级 ${ledger.rating}${money}${lost}${ledger.rewardGranted ? `，酬劳「${ledger.rewardGranted}」入库` : ''}。`));
@@ -350,6 +359,7 @@ function grantReward(o: DispatchOffer): string | undefined {
   try {
     pushFacilityGranted([r.name]);   // 本回合已入库 → 物品阶段绝不可再 createItem
     pushSceneNotice(`【场外·冒险团委托】外派队伍完成委托「${o.title}」（${o.world}），酬劳「${r.name}」已入主角储存空间（数值已由前端结算）。正文知晓即可，勿重复发放/结算，也**勿改写该物品的名称与效果**；可自然带过交接酬劳的一幕，不强求。`);
+    pushToast('ok', `【冒险团委托】「${o.title}」完成，酬劳「${r.name}」已入库`);   // 到点封存是后台事件，实时可见（P4 全局 toast）
   } catch { /* 通报失败不阻断发放 */ }
   return r.name;
 }

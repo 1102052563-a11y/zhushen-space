@@ -7,7 +7,7 @@
    纯内存、无 store 依赖 → 可单测。 */
 import type { AgentToolResult } from './agentTypes';
 
-export const WORKSPACE_ROOTS = ['output', 'scratch', 'plan', 'persist'] as const;   // persist/=跨回合持久（P1·finish 后 promote 回 agentRunStore）
+export const WORKSPACE_ROOTS = ['output', 'scratch', 'plan', 'summaries', 'persist'] as const;   // persist/=跨回合持久（P1·finish 后 promote）；summaries/=阶段小结/子代理结论（对齐 TT 五根）
 export const MAIN_ARTIFACT_PATH = 'output/main.md';
 export const DIRECT_OUTPUT_PATH = 'output/direct_output.md';
 

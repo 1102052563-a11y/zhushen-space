@@ -4,7 +4,7 @@ import { useTableJournal } from '../store/tableJournalStore';
 import { useMisc } from '../store/miscStore';
 import { applyMiscCommands } from './miscParser';
 import {
-  collectStaleThreads, buildForeshadowDunning, buildTruthReinforcement, buildPlotGuardInjection,
+  collectStaleThreads, buildForeshadowDunning, buildTruthReinforcement, buildPlotGuardInjection, buildPlotStateBrief,
   DUN_AGE, DUN_URGENT_AGE, DUN_MAX, TRUTH_PERIOD,
 } from './plotThreads';
 
@@ -117,6 +117,51 @@ describe('组装 buildPlotGuardInjection', () => {
     expect(both[1].content).toContain('世界真相');
     const only = buildPlotGuardInjection(TRUTH_PERIOD * 5 + 1);   // 非周期回合 → 只剩催收
     expect(only).toHaveLength(1);
+  });
+});
+
+/* <剧情坐标>：约定表(进行中)+进程表 的正文级小摘要——此前四表只喂剧情指导，不开导演=白填（P2 读回）。 */
+describe('buildPlotStateBrief（剧情坐标·约定/进程读回正文）', () => {
+  const seedSheet = (uid: string, name: string, header: string[], rows: string[][]) =>
+    useTables.setState((s) => ({
+      tables: { ...s.tables, [uid]: { ...(s.tables as Record<string, unknown>)[uid] as object, uid, name, content: [header, ...rows] } },
+    }) as never);
+  const clearSheet = (uid: string, name: string, header: string[]) => seedSheet(uid, name, header, []);
+  const PACT_H = ['', '约定', '对象', '期限', '状态'];
+  const PROG_H = ['', '当前幕', '目标', '备注'];
+
+  beforeEach(() => {
+    clearSheet('pacts', '约定表', PACT_H);
+    clearSheet('progress', '进程表', PROG_H);
+  });
+
+  it('两表全空 → 空串（块不出现·零预算）', () => {
+    expect(buildPlotStateBrief()).toBe('');
+  });
+
+  it('★进行中约定进块；已完成/已作废被滤掉', () => {
+    seedSheet('pacts', '约定表', PACT_H, [
+      ['1', '三日后城门比武', '烈刀客', '第12回合', '进行中'],
+      ['2', '旧债', '钱庄', '', '已完成'],
+    ]);
+    const out = buildPlotStateBrief();
+    expect(out).toContain('剧情坐标');
+    expect(out).toContain('三日后城门比武');
+    expect(out).not.toContain('旧债');
+  });
+
+  it('进程表当前坐标进块，单格截断 40 字', () => {
+    seedSheet('progress', '进程表', PROG_H, [['1', '第二幕', 'X'.repeat(120), '']]);
+    const out = buildPlotStateBrief();
+    expect(out).toContain('第二幕');
+    expect(out).not.toContain('X'.repeat(41));
+  });
+
+  it('并入 buildPlotGuardInjection：有约定时多出一块、排最前', () => {
+    seedSheet('pacts', '约定表', PACT_H, [['1', '守夜之诺', '盲眼婆婆', '', '进行中']]);
+    const blocks = buildPlotGuardInjection(1);   // 非周期回合·无伏笔 → 只剩剧情坐标
+    expect(blocks).toHaveLength(1);
+    expect(blocks[0].content).toContain('守夜之诺');
   });
 });
 

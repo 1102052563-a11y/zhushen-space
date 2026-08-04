@@ -163,14 +163,19 @@ export default function JoyPanel({
         <header className="shrink-0 flex items-center gap-3 px-4 py-3 border-b border-pink-500/20 bg-gradient-to-r from-pink-950/40 via-panel to-fuchsia-950/30">
           <span className="text-lg">💗</span>
           <div className="flex-1 min-w-0">
-            <div className="text-sm font-bold text-pink-100">欢愉宫</div>
-            <div className="text-[11px] font-mono text-pink-300/50">
+            <div className="text-sm font-bold text-pink-100 truncate">欢愉宫</div>
+            <div className="text-[11px] font-mono text-pink-300/50 truncate">
               {view === 'lobby' ? '大厅 · 迎宾' : view === 'picker' ? '选妃 · 今夜挑一位' : `包间 · ${curGirl?.name ?? ''}`}
             </div>
           </div>
           {view === 'chamber' && (
             <button onClick={backToLobby} className="text-[12px] font-mono px-2.5 py-1 rounded-lg border border-pink-500/30 text-pink-200/80 hover:bg-pink-500/10">← 回大厅</button>
           )}
+          {/* opt-in 正文同步：默认关（NSFW 与主叙事的隔离是刻意的）；开了也只报"消遣过"这个事实、零细节 */}
+          <label className="flex items-center gap-1 text-[11px] font-mono text-pink-300/60 cursor-pointer select-none shrink-0" title="开启后：离开包间时向正文推一条克制的场外通报（只说主角去欢愉宫消遣过，绝不带任何内容细节）。默认关闭，欢愉宫与主线剧情完全隔离。">
+            <input type="checkbox" checked={!!settings.narrativeSync} onChange={(e) => useJoy.getState().setSettings({ narrativeSync: e.target.checked })} className="accent-pink-400" />
+            正文知晓
+          </label>
           <button onClick={onClose} className="text-dim/50 hover:text-blood text-lg ml-1">✕</button>
         </header>
 

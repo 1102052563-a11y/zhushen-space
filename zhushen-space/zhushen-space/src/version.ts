@@ -1,6 +1,17 @@
 // 版本与「已更新」提示。
-// ▶ 想通知玩家有更新时：把 APP_VERSION 改成新号（如 '1.2.0'），VERSION_NOTE 写这次更新了什么，
-//   然后在 GitHub Desktop 提交 + Push。老玩家下次打开会看到一次性横幅提示——
-//   只提示，不会动他们的存档 / 预设 / 世界书。
-export const APP_VERSION = '1.1.0';
-export const VERSION_NOTE = '内置世界书与全部演化预设，新玩家开箱即玩';
+// ▶ 想通知玩家有更新时：把 APP_VERSION 改成新号（如 '1.3.0'），VERSION_NOTES 写这次更新了什么
+//   （每条一行，可选 nav=点击直达的导航/⌘K 标签），然后在 GitHub Desktop 提交 + Push。
+//   老玩家下次打开会看到一次性横幅提示——只提示，不会动他们的存档 / 预设 / 世界书。
+//   VERSION_NOTE 是旧的单行口径，保留给外部引用兜底（= NOTES 第一条）。
+export const APP_VERSION = '1.2.0';
+
+/** 本次更新条目（P4·可点跳转的更新日志）：text=一句话；nav=可选，点击经 runNavAction 直达该功能。 */
+export const VERSION_NOTES: { text: string; nav?: string }[] = [
+  { text: '导航改为分组显示（角色/伙伴/世界…7 组）；不习惯可在 设置→界面外观→导航布局 关回原平铺', nav: '设置' },
+  { text: '设施动作现在会同步给正文：强化/开箱/交易/仓库/工坊/丰碑…AI 不再对场外操作失忆' },
+  { text: '灵魂结晶可在深渊/幽冥地牢兑换装备觉醒充能（小1/中2/大4·凑4换1）', nav: '深渊' },
+  { text: '技能升级面板可给随从升级，花它自己的技能点', nav: '技能升级' },
+  { text: '⌘K 命令面板可直达强化/赌场/竞技场/结算任务等二级功能；派遣战报未读也上导航红点' },
+];
+
+export const VERSION_NOTE = VERSION_NOTES[0].text;

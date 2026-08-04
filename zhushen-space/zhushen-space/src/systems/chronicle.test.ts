@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import {
   classifyText, extractEntities, turnFromDeedTime, volumeIdForRow, buildVolumes,
-  digestVolume, overallDigest, buildCompileInput, sanitizeCompiled, compiledToEvents,
+  digestVolume, overallDigest, buildCompileInput, sanitizeCompiled, compiledToEvents, buildPriorSaga,
   ORPHAN_VOLUME, type ChronicleSources,
 } from './chronicle';
 import type { WorldRecord } from '../store/worldRecordStore';
@@ -286,5 +286,36 @@ describe('修史（编纂）', () => {
     const evs = compiledToEvents(sanitizeCompiled([{ title: '斩将夺旗', tier: 'gold' }]), 'w1', '生化危机');
     expect(evs[0]).toMatchObject({ kind: 'compiled', tier: 'gold', title: '斩将夺旗', world: '生化危机' });
     expect(evs[0].id).toContain('w1');
+  });
+});
+
+/* 前尘提要（P2 读回）：编纂正史 → 进入新世界的跨世界前情记忆；无编纂退回离世总结；都无则 ''。 */
+describe('buildPriorSaga（前尘提要）', () => {
+  it('★有编纂：卷首题记 + 金档优先的条目标题', () => {
+    const vol = {
+      preface: '此界一役，血未冷。',
+      entries: [
+        { title: '救下药铺孤女', tier: 'silver' as const },
+        { title: '斩杀魔将·屠苏', tier: 'gold' as const },
+        { title: '路过茶摊', tier: 'gray' as const },
+      ],
+    };
+    const out = buildPriorSaga('生化危机', vol);
+    expect(out).toContain('【生化危机】');
+    expect(out).toContain('此界一役');
+    expect(out.indexOf('斩杀魔将·屠苏')).toBeLessThan(out.indexOf('救下药铺孤女'));   // 金档排前
+  });
+
+  it('无编纂 → 退回离世总结（状态/评价/经历概述/偏转）', () => {
+    const out = buildPriorSaga('海贼王', undefined, { 状态: '已通关', 综合评价: 'A', 经历概述: ['夺回梅丽号', '结识草帽团'], 世界线偏转: '海军提前现身' });
+    expect(out).toContain('已通关');
+    expect(out).toContain('评价 A');
+    expect(out).toContain('夺回梅丽号');
+  });
+
+  it('两者都无 → 空串（过场不注块）；限长生效', () => {
+    expect(buildPriorSaga('空界')).toBe('');
+    const long = buildPriorSaga('X', { entries: [{ title: 'T'.repeat(500), tier: 'gold' as const }] }, null, 100);
+    expect(long.length).toBeLessThanOrEqual(100);
   });
 });

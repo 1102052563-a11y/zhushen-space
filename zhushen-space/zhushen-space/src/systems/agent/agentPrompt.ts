@@ -17,6 +17,12 @@ const TOOL_GUIDE: Record<string, string> = {
   player_get: '- 写主角相关数值/技能/物品前，用 player_get 读主角当前完整档案，保证与档案一致。',
   npc_list: '- 用 npc_list 查看 NPC 名册（在场优先）。',
   npc_get: '- 涉及某个 NPC 的设定/数值/关系时，用 npc_get 读其完整档案。',
+  skill_list: '- 用 skill_list 查看可用的本地知识包（写作/审查规则书）；有可复用的规范时先读它的 SKILL.md。',
+  skill_search: '- 读大文件前先用 skill_search 在 skill 里定位相关段落。',
+  skill_read: '- 用 skill_read 读 SKILL.md（默认）或其 references/ 下的具体规则文件；受读取预算限制，按需分段读。',
+  agent_list: '- 用 agent_list 查看可委派的子 Agent；它只列清单，不启动任何工作。',
+  agent_delegate: '- 用 agent_delegate 把自包含的小任务（禁词/人设审查、设定核对、片段润色建议）交给子 Agent——**同步执行**，工具返回时结果已经在里面；子 Agent 可能配置了更便宜的模型。',
+  agent_await: '- 本前端委派为同步执行，agent_await 只是兼容占位——不需要调用它。',
   quest_get: '- 涉及任务推进/结算时，用 quest_get 复查当前任务态势与路线图。',
   faction_get: '- 写势力戏前用 faction_get 查各势力对主角的态度与近况，保持立场一致。',
   db_query: '- 需要精确盘点（背包/纪要/伏笔账等）时，用 db_query 对中文状态表跑只读 SELECT（先不带参数列出表名）。',
@@ -36,8 +42,9 @@ export const AGENT_TEXT_PROTOCOL_APPENDIX = `【工具调用格式（本会话�
 <tool_call>{"name": "workspace_commit", "arguments": {}}</tool_call>
 标签外的少量文字视为你的工作旁白（不会展示给玩家）。除标签外**不要**输出正文内容；工具结果会以 <tool_result> 块回给你。`;
 
-/** 组装 Agent 系统提示词（追加在 legacy 快照的最深处、用户输入之前） */
-export function buildAgentSystemPrompt(tools: AgentToolSpec[], protocol: AgentProtocol): string {
+/** 组装 Agent 系统提示词（追加在 legacy 快照的最深处、用户输入之前）。
+    writerNotes=所选 Agent 预设内嵌的「作者工作流指引」（TT 主档案 instructions），追加在末尾并配同步适配说明。 */
+export function buildAgentSystemPrompt(tools: AgentToolSpec[], protocol: AgentProtocol, writerNotes?: string, trimmedHistory?: number): string {
   const names = tools.map((t) => t.modelName);
   const lines: string[] = [];
   lines.push('---');
@@ -48,7 +55,10 @@ export function buildAgentSystemPrompt(tools: AgentToolSpec[], protocol: AgentPr
   lines.push('# Agent 模式已激活');
   lines.push('- 本回合你通过工具循环完成正文创作：工具结果是你的**工作上下文**，不是聊天内容。');
   for (const n of names) { const g = TOOL_GUIDE[n]; if (g) lines.push(g); }
-  lines.push('- 工作区可写根目录：output/、scratch/（草稿/笔记）、plan/（构思）、persist/（跨回合记忆）。遇到「No visible workspace files found.」属正常（尚无文件），继续即可。');
+  lines.push('- 工作区可写根目录：output/、scratch/（草稿/笔记）、plan/（构思）、summaries/（阶段小结/子代理结论）、persist/（跨回合记忆）。遇到「No visible workspace files found.」属正常（尚无文件），继续即可。');
+  if (trimmedHistory != null && trimmedHistory >= 0) {
+    lines.push(`- ⚠ 为省上下文，本回合只注入了${trimmedHistory === 0 ? '**零条**历史楼层' : `最近 **${trimmedHistory} 楼**原文`}：动笔前先用 chat_search / chat_read_messages 查证相关的更早剧情（人物近况、上回合收尾、未了伏笔），别凭空衔接。`);
+  }
   lines.push('- persist/ 是**跨回合持久**的记忆目录：把值得带到后续回合的**精炼**信息存这里——未了的伏笔/约定、关系近况、玩家偏好、长线剧情备忘（建议集中在 persist/notes.md，先读再改）。运行干净收尾（finish）后 persist/ 的改动才会保存。');
   lines.push('- **不要**把完整聊天史、成稿全文、工具结果原文或临时推理塞进 persist/；只存几行精炼条目。');
   lines.push('');
@@ -56,7 +66,50 @@ export function buildAgentSystemPrompt(tools: AgentToolSpec[], protocol: AgentPr
   lines.push('');
   lines.push(getPrompt('AGENT_FLOW_RULE', AGENT_FLOW_RULE));
   if (protocol === 'text') { lines.push(''); lines.push(AGENT_TEXT_PROTOCOL_APPENDIX); }
+  if (writerNotes && writerNotes.trim()) {
+    lines.push('');
+    lines.push('【预设作者的 Agent 工作流指引（随所选预设附带·在不违反上面契约与铁则的前提下遵循）】');
+    lines.push('（本前端适配说明：agent_delegate 为**同步**执行——调用返回时子 Agent 的结果已在工具结果里；agent_await 无需调用；不支持 agent_handoff。指引里若提到这些，按此适配理解。）');
+    lines.push(writerNotes.trim());
+  }
   return lines.join('\n');
+}
+
+/** 子代理系统提示词：作者人设/指令为主体 + 子代理铁则 + 启用工具指引 */
+export function buildSubAgentSystemPrompt(
+  def: { name: string; desc?: string; instructions?: string },
+  tools: AgentToolSpec[],
+  protocol: AgentProtocol,
+): string {
+  const lines: string[] = [];
+  lines.push(`# 你是子 Agent「${def.name}」${def.desc ? `：${def.desc}` : ''}`);
+  if (def.instructions && def.instructions.trim()) { lines.push(''); lines.push(def.instructions.trim()); }
+  lines.push('');
+  lines.push('【子代理铁则】');
+  lines.push('- 你在为主 Agent 完成一个**自包含**的小任务；只做任务本身，不要展开无关工作。');
+  lines.push('- 完成后**必须调用 task_return** 返回结构化结果（summary 必填、精炼）；这是你唯一的收尾方式，禁止用纯文本作为最终回答。');
+  lines.push('- 工具结果是你的工作上下文；聊天楼层不归你管（你没有 commit/finish）。');
+  lines.push('- 每一轮都很贵：需要的资料第一轮一次查齐（可连续多个工具调用），尽快返回。');
+  for (const t of tools) { const g = TOOL_GUIDE[t.modelName]; if (g) lines.push(g); }
+  if (protocol === 'text') { lines.push(''); lines.push(AGENT_TEXT_PROTOCOL_APPENDIX.replace('workspace_commit', 'task_return')); }
+  return lines.join('\n');
+}
+
+/** 委派任务书（子代理的 user 消息） */
+export function renderTaskBrief(task: { title?: unknown; objective?: unknown; context?: unknown; expectedOutput?: unknown }): string {
+  const parts: string[] = ['# 委派任务', ''];
+  if (task.title) parts.push(`标题：${String(task.title)}`);
+  parts.push(`目标：${String(task.objective ?? '')}`);
+  if (task.context) parts.push(`背景：${String(task.context)}`);
+  if (task.expectedOutput) parts.push(`期望产出：${String(task.expectedOutput)}`);
+  parts.push('');
+  parts.push('需要看主 Agent 的成稿就 workspace_read_file（如 output/main.md）；需要规则书用 skill_list / skill_read。完成后调用 task_return。');
+  return parts.join('\n');
+}
+
+/** 子代理 drift 纠偏（第二次直出则由运行时直接把文本当 summary 收下） */
+export function buildSubAgentDriftNudge(): string {
+  return '【系统提醒】你输出了纯文本。委派任务必须以 task_return 收尾——请把结论整理进 task_return（summary 必填，发现/警告用 findings/warnings 数组）。';
 }
 
 /** drift 纠偏提醒（合成 user 消息；照抄 TauriTavern 的两种形态 + direct_output 回收提示）

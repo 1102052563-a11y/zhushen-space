@@ -205,8 +205,9 @@ function InsightBody({ cur, prev }: { cur: TurnSnapshot; prev: TurnSnapshot }) {
   // ⚖️ 闸门仲裁：本回合被成长闸门（npcGrowthGuard）驳回/夹逼的 NPC 数值变更 + 被任务闸门（questGuard）驳回的任务改写/新建
   const arb = cur.arbitration ?? [];
   const ag = cur.agentRun;   // 🤖 Agent 正文模式（P1）：本回合 run 概要
+  const facNotes = cur.facilityNotes ?? [];   // 🎡 设施动态（P4）：本窗口场外设施动作（强化/交易/派遣/兑换…汇于一处）
 
-  const nothing = !playerHasChange && npcRows.length === 0 && facRows.length === 0 && arb.length === 0 && !ag;
+  const nothing = !playerHasChange && npcRows.length === 0 && facRows.length === 0 && arb.length === 0 && !ag && facNotes.length === 0;
   if (nothing) return <div className="text-center text-dim/40 text-sm py-12">本轮相对上一轮无可识别的结构化变化。</div>;
 
   return (
@@ -214,6 +215,16 @@ function InsightBody({ cur, prev }: { cur: TurnSnapshot; prev: TurnSnapshot }) {
       {ag && (
         <div className="text-[12px] text-dim/70 font-mono px-1">
           🤖 本回合正文由 Agent 生成：{ag.status === 'completed' ? '✅ 完成' : ag.status === 'partial' ? '⚠ 部分成功' : ag.status} · {ag.rounds} 轮 · {ag.toolCalls} 次工具 · {ag.commits} 次提交{ag.durationMs ? ` · ${Math.round(ag.durationMs / 1000)}s` : ''}{ag.errorCode ? ` · ${ag.errorCode}` : ''}
+        </div>
+      )}
+      {facNotes.length > 0 && (
+        <div className="rounded-lg border border-edge/60 bg-panel/40 px-3 py-2">
+          <div className="text-[12px] font-semibold text-god/70 mb-1">🎡 设施动态（本窗口的场外操作）</div>
+          <ul className="space-y-0.5">
+            {facNotes.map((n, i) => (
+              <li key={i} className="text-[11px] text-dim/70 leading-relaxed">· {n}</li>
+            ))}
+          </ul>
         </div>
       )}
       {playerHasChange && (

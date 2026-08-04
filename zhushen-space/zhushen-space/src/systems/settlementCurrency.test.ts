@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { reconcileSettlementCurrency } from './stateApply';
+import { reconcileSettlementCurrency, scanCjkCurrencyUpdates } from './stateApply';
 import type { StateUpdate } from './stateParser';
 
 const u = (key: string, value: number, op: StateUpdate['op'] = '+='): StateUpdate => ({ key, op, value, raw: `${key} ${op} ${value}` });
@@ -72,5 +72,72 @@ describe('reconcileSettlementCurrency（结算货币忠于正文面板）', () =
     const raw = '<世界结算>获得货币：7000 乐园币</世界结算>';
     const out = reconcileSettlementCurrency(raw, [u('乐园币', 4000, '=')]);
     expect(out[0].value).toBe(4000);   // op 非 += 不碰
+    expect(cur(out).length).toBe(1);   // 且不因"没有 += 幸存"而补发一条（尊重绝对赋值）
+  });
+
+  // ★兜底补入账：AI 只写了面板、<state> 里一条货币指令都没有（或全是解析不出的变体）→ 按面板补一条
+  it('★面板有授予但 updates 里无货币指令 → 前端按面板补入账', () => {
+    const raw = '<世界结算>【最终清算】\n获得货币：**7,000** 乐园币（已存入储蓄空间）</世界结算>';
+    const out = reconcileSettlementCurrency(raw, [u('character.B1.attrPoints', 8)]);
+    expect(cur(out).length).toBe(1);
+    expect(cur(out)[0].key).toBe('乐园币');
+    expect(cur(out)[0].value).toBe(7000);
+    expect(cur(out)[0].op).toBe('+=');
+  });
+
+  it('面板有授予但同回合已有 <upstore> transferCurrency → 不补（防双发）', () => {
+    const raw = '<世界结算>获得货币：7000 乐园币</世界结算>\n<upstore>transferCurrency({"to":"B1","amount":7000})</upstore>';
+    const out = reconcileSettlementCurrency(raw, []);
+    expect(cur(out).length).toBe(0);
+  });
+
+  it('面板有授予但同回合已有 createItem(乐园币) 折算入账 → 不补（防双发）', () => {
+    const raw = '<世界结算>获得货币：7000 乐园币</世界结算>\n<upstore>createItem({"1":"乐园币","5":"7000"})</upstore>';
+    const out = reconcileSettlementCurrency(raw, []);
+    expect(cur(out).length).toBe(0);
+  });
+});
+
+// ★中文币名 <state> 补扫：parseLine 的 key 正则是 ASCII \w，「乐园币 += 7000」历史上整行 parse 失败——
+// 提示词教的主通道全空转。scanCjkCurrencyUpdates 只扫 <state> 块，合成 StateUpdate 走既有管线。
+describe('scanCjkCurrencyUpdates（中文币名指令补扫）', () => {
+  it('★<state> 里的 乐园币 += 7000 能被扫出', () => {
+    const out = scanCjkCurrencyUpdates('<state>\n乐园币 += 7000\n</state>');
+    expect(out.length).toBe(1);
+    expect(out[0]).toMatchObject({ key: '乐园币', op: '+=', value: 7000 });
+  });
+
+  it('currency. 前缀 / -= 支出 / 千分位逗号 都认', () => {
+    const out = scanCjkCurrencyUpdates('<state>\ncurrency.灵魂钱币 -= 1,500\n</state>');
+    expect(out[0]).toMatchObject({ key: '灵魂钱币', op: '-=', value: 1500 });
+  });
+
+  it('魂币 别名归一成 灵魂钱币', () => {
+    const out = scanCjkCurrencyUpdates('<state>魂币 += 12</state>');
+    expect(out[0].key).toBe('灵魂钱币');
+  });
+
+  it('行尾注释（# / 括号）不影响解析', () => {
+    const out = scanCjkCurrencyUpdates('<state>\n乐园币 += 500 # 出售战利品\n</state>');
+    expect(out[0]).toMatchObject({ key: '乐园币', value: 500 });
+  });
+
+  it('★同一条「统计+发放」写两遍 → 只算一次', () => {
+    const out = scanCjkCurrencyUpdates('<state>\n乐园币 += 7000\n乐园币 += 7000\n</state>');
+    expect(out.length).toBe(1);
+  });
+
+  it('不同金额两条是真两笔 → 都保留', () => {
+    const out = scanCjkCurrencyUpdates('<state>\n乐园币 += 7000\n乐园币 -= 500\n</state>');
+    expect(out.length).toBe(2);
+  });
+
+  it('★<state> 块外的正文散文不匹配', () => {
+    const out = scanCjkCurrencyUpdates('正文里提到 乐园币 += 9999 也不该入账\n<state>hp.B1 -= 5</state>');
+    expect(out.length).toBe(0);
+  });
+
+  it('无 <state> 块 → 空数组', () => {
+    expect(scanCjkCurrencyUpdates('随便一段话 乐园币 += 100').length).toBe(0);
   });
 });

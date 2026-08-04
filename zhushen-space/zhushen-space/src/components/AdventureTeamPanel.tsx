@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { openSettingsPage } from '../systems/navBus';   // P4·空态深链：一键直达设置子页
 import { useTeam, memberCap, ACTIVITY_GATE, type TeamRank } from '../store/adventureTeamStore';
 import { useNpc } from '../store/npcStore';
 import NpcDetail from './NpcDetail';
@@ -78,7 +79,7 @@ export default function AdventureTeamPanel({ onClose }: { onClose: () => void })
           <div className="flex-1 overflow-y-auto p-4">
             <div className="text-center text-dim/40 text-sm py-12 leading-relaxed">
               {T.disbanded ? '冒险团已解散。' : '尚未建立冒险团。'}<br />
-              开启「设置→变量管理→🛡 冒险团演化」后，当正文中主角**明确建立永久冒险团**时会自动建团并进入建团试炼。
+              开启<button onClick={() => openSettingsPage('team-manager')} className="text-god/80 underline underline-offset-2 hover:text-god mx-0.5">「设置→变量管理→🛡 冒险团演化」</button>后，当正文中主角**明确建立永久冒险团**时会自动建团并进入建团试炼。
             </div>
           </div>
         ) : tab === 'dispatch' ? (

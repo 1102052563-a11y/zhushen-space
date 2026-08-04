@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import { debouncedStorage } from '../systems/compressedStorage';   // 合并写盘：settings 块大（正则库/预设/词典），改一个开关也全量 stringify+写盘
+import { importEmbeddedAgentAssets } from '../systems/agent/agentAssets';   // TT 预设内嵌 Agent 资产（skill/子代理）导入（仅依赖 agentSkillStore·无环）
 import { setUserDict } from '../i18n/userDict';
 
 // position: 0=角色前 1=角色后 2=作者注释上 3=作者注释下 4=主提示前 5=主提示后
@@ -349,6 +350,8 @@ interface SettingsState {
   customOpening: string;  // 自定义开场白模板（角色创建确认后自动发送；含 ${...} 占位符，空=用内置默认）
   reading: { fontSize: number; letterSpacing: number; lineHeight: number; paraSpacing: number; fontFamily: 'default' | 'kai' | 'song'; dialogueHl: boolean; innerDim: boolean; codexHl: boolean; codexWiki: boolean };  // 正文阅读排版：字号/字间距/行距/段落间距(em)/字体 + 对话高亮(dialogueHl)/心理·旁白弱化(innerDim)/关键词悬浮图鉴(codexHl，缺省=开)/图鉴并入轮回wiki人物(codexWiki，缺省=关·含原著剧透)；默认 17/0/1.8/0.45/default/开/开/开/关
   setReading: (patch: Partial<{ fontSize: number; letterSpacing: number; lineHeight: number; paraSpacing: number; fontFamily: 'default' | 'kai' | 'song'; dialogueHl: boolean; innerDim: boolean; codexHl: boolean; codexWiki: boolean }>) => void;
+  storyStrip: { on: boolean; quest: boolean; thread: boolean; time: boolean; almanac: boolean };   // 楼层信息条（components/StoryStrip）：贴在最新正文末尾的扁条，四段=世界时间·天气 / 任务 / 伏笔 / 历(未来七天)，点某段就地展开。纯只读展示：不调 API、不写 store、不注入 AI；全段关掉即整条不出现
+  setStoryStrip: (patch: Partial<{ on: boolean; quest: boolean; thread: boolean; time: boolean; almanac: boolean }>) => void;
   uiTheme: string;  // 主题配色（整体界面色+文字色）key，见 systems/uiThemes.ts（default/solarized-light/gruvbox-light/nord/dracula…）
   setUiTheme: (v: string) => void;
   appearance: 'classic' | 'eyecare' | 'warm';  // 外观护眼色调（叠加在主题之上的暖光滤镜）：classic=关 / eyecare=柔光护眼 / warm=夜读暖光；全局固定层，pointer-events:none
@@ -357,6 +360,8 @@ interface SettingsState {
   setUiVignette: (v: boolean) => void;
   uiUnify: boolean;  // 统一排版规范（界面外观）：圆角三档归一/面板 text-sm 行高 1.6/游离描边归 edge——纯 CSS 令牌层（tailwind 变量路由，见 index.css data-ui-unify），关=逐像素回原样；正文楼层排版仍归 reading 管
   setUiUnify: (v: boolean) => void;
+  navGrouped: boolean;  // 右侧导航分组（P4·默认开）：48 项平铺 → 按 角色/伙伴/世界/乐园设施/社交联机/传承/系统 分区显示；关=回原平铺列表（老玩家习惯保留，外观设置可切）
+  setNavGrouped: (v: boolean) => void;
   holoCardFx: boolean;  // 全息卡片特效总开关：on=立绘/物品/装备显示全息卡（默认）；off=普通图片（回退原样）
   setHoloCardFx: (v: boolean) => void;
   plotChoices: boolean;   // 剧情选项：每段正文生成后，额外生成 8 个主角行动选项（最后 1 个限制级）
@@ -845,10 +850,12 @@ export const useSettings = create<SettingsState>()(
       allowAutoEquipNpc: true,
       customOpening: '',
       reading: { fontSize: 17, letterSpacing: 0, lineHeight: 1.8, paraSpacing: 0.45, fontFamily: 'default', dialogueHl: true, innerDim: true, codexHl: true, codexWiki: false },
+      storyStrip: { on: true, quest: true, thread: true, time: true, almanac: true },
       uiTheme: 'default',
       appearance: 'classic',
       uiVignette: false,
       uiUnify: true,
+      navGrouped: true,
       holoCardFx: true,
       plotChoices: false,
       fanficMode: false,
@@ -904,7 +911,7 @@ export const useSettings = create<SettingsState>()(
       outlineApi: { ...DEFAULT_API },
       outlineUseSharedApi: true,
       preludePrompt: '',
-      agentNarrative: { enabled: false, protocol: 'auto', maxRounds: 16, maxToolCalls: 40, toolToggles: { dice_roll: false }, useTextApi: false, reviewerEnabled: false, reviewerPasses: 1 },
+      agentNarrative: { enabled: false, protocol: 'auto', maxRounds: 16, maxToolCalls: 40, toolToggles: { dice_roll: false }, useTextApi: false, reviewerEnabled: false, reviewerPasses: 1, initialHistoryMsgs: -1 },
       agentApi: { ...DEFAULT_API },
       agentProfiles: [],
       castBrief: true,      // 默认开：只在细纲/推进已开时才生效，且不新增 API 调用，纯提升配角人格保真度
@@ -936,10 +943,12 @@ export const useSettings = create<SettingsState>()(
       setAllowAutoEquipNpc: (v) => set({ allowAutoEquipNpc: v }),
       setCustomOpening: (s) => set({ customOpening: s }),
       setReading: (patch) => set((s) => ({ reading: { ...s.reading, ...patch } })),
+      setStoryStrip: (patch) => set((s) => ({ storyStrip: { ...s.storyStrip, ...patch } })),
       setUiTheme: (v) => set({ uiTheme: v }),
       setAppearance: (v) => set({ appearance: v }),
       setUiVignette: (v) => set({ uiVignette: v }),
       setUiUnify: (v) => set({ uiUnify: v }),
+      setNavGrouped: (v) => set({ navGrouped: v }),
       setHoloCardFx: (v) => set({ holoCardFx: v }),
       setPlotChoices: (v) => set({ plotChoices: v }),
       setNpcAutonomyOn: (v) => set({ npcAutonomyOn: v }),
@@ -1251,6 +1260,8 @@ export const useSettings = create<SettingsState>()(
           const finalId = builtin ? `builtin:${parsed.name}` : parsed.id;
           const preset = { ...parsed, id: finalId };
           set((s) => ({ textPresets: [...s.textPresets, { ...preset, builtin }], activeTextPresetId: activate ? preset.id : s.activeTextPresetId }));
+          // TauriTavern 预设内嵌 Agent 资产（extensions.tauritavern：skill 包/子代理档案/作者指令）→ 异步导入资产库（失败不影响预设本身）
+          try { void importEmbeddedAgentAssets(data, preset.name, builtin).then((r) => { if (r.skills || r.subagents || r.writerNotes) console.log(`[AgentAssets] 「${preset.name}」内嵌资产：skill×${r.skills} 子代理×${r.subagents}${r.writerNotes ? ' +作者指令' : ''}`); }); } catch { /* */ }
           const rxCount = preset.regexScripts.length;
           return { ok: true, message: `已导入「${preset.name}」，共 ${preset.entries.length} 条 prompt${rxCount ? `，含 ${rxCount} 条正则` : ''}` };
         } catch (e: any) {
@@ -1388,6 +1399,7 @@ export const useSettings = create<SettingsState>()(
         // 子对象浅合并回填：老存档的 audio 若缺新字段（music/musicVolume/…），从默认补齐，否则整体覆盖丢默认
         audio: { ...current.audio, ...(persisted && typeof persisted.audio === 'object' ? persisted.audio : {}) },
         worldDetailInject: { ...current.worldDetailInject, ...(persisted && typeof persisted.worldDetailInject === 'object' ? persisted.worldDetailInject : {}) },
+        storyStrip: { ...current.storyStrip, ...(persisted && typeof persisted.storyStrip === 'object' ? persisted.storyStrip : {}) },
         modelsLoading: false,
         modelsError: '',
         textModelsLoading: false,

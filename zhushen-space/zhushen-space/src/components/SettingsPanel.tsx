@@ -10,10 +10,12 @@ import localGatewaySrc from '../../tools/local-gateway/local-gateway.mjs?raw';
 import localGatewayBat from '../../tools/local-gateway/启动本地网关.bat?raw';
 import { ADVANCE_PRESET_BUILTINS, PLOT_CHOICES_RULE } from '../promptRules';
 import { useDbAdvance } from '../store/dbAdvanceStore';   // 数据库推进管线（Stitches 规划层）
+import { useTheater } from '../store/theaterStore';   // 🎭 小剧场·花样模板库
 import PromptCenterPanel from './PromptCenterPanel';   // 预设中心：各功能主提示词编辑页
 import DbAdvancePresetEditor from './DbAdvancePresetEditor';   // 数据库推进预设编辑器（缝破限/改模块提示词）
 import VariableManager from './VariableManager';
 import ApiRoutePicker from './ApiRoutePicker';
+import { useAgentSkills } from '../store/agentSkillStore';   // Agent 子代理/技能资产（预设内嵌·P3）
 import ApiSlotAudit from './ApiSlotAudit';
 import DbAdvanceInspector from './DbAdvanceInspector';
 import { exportGlossary, parseGlossaryImport } from '../i18n/glossaryIO';
@@ -51,6 +53,7 @@ import { buildMemPool, ensureVectors as factVecEnsure, vecStatus as factVecStatu
 interface SettingsPanelProps {
   onClose: () => void;
   onOpenSaveLoad: () => void;   // 打开存档管理面板（导出/导入/重置游戏数据；逻辑复用 SaveLoadPanel）
+  initialPage?: string;         // P4·空态深链：面板经 navBus.openSettingsPage 请求直达的子页（如 'arena-manager'）
 }
 
 type Page = 'home' | 'world-detail' | 'textgen-detail' | 'regex-detail' | 'general' | 'variables' | 'table-manager' | 'item-manager' | 'player-manager' | 'npc-manager' | 'pet-manager' | 'entry-judge-manager' | 'faction-manager' | 'territory-manager' | 'team-manager' | 'cosmos-manager' | 'memory-manager' | 'misc-manager' | 'quest-manager' | 'channel-manager' | 'novelvec-manager' | 'codex-manager' | 'dice-manager' | 'combat-manager' | 'arena-manager' | 'enhance-manager' | 'skilltree-manager' | 'subprof-manager' | 'joy-manager' | 'casino-manager' | 'abyss-manager' | 'craft-manager' | 'narrative-memory' | 'vector-memory' | 'image-gen' | 'appearance' | 'prompt-center';
@@ -94,9 +97,11 @@ function DetailLayout({ title, onBack, tabs, activeTab, onTab, children }: {
   );
 }
 
-export default function SettingsPanel({ onClose, onOpenSaveLoad }: SettingsPanelProps) {
-  const [page, setPage] = useState<Page>('home');
+export default function SettingsPanel({ onClose, onOpenSaveLoad, initialPage }: SettingsPanelProps) {
+  const [page, setPage] = useState<Page>((initialPage as Page) || 'home');
   const [tab, setTab] = useState<Tab>('worldbook');
+  // P4·空态深链：设置已打开时又收到新的直达请求 → 跟随切页（首开由 useState 初值处理）
+  useEffect(() => { if (initialPage) setPage(initialPage as Page); }, [initialPage]);
 
   if (page === 'prompt-center') { return <PromptCenterPanel onClose={() => setPage('home')} />; }
 
@@ -1563,9 +1568,10 @@ function TextApiSection() {
           <Toggle checked={miniTheater} onChange={() => setMiniTheater(!miniTheater)} />
           <div>
             <div className="text-sm text-slate-200">小剧场（番外彩蛋）</div>
-            <div className="text-sm text-dim mt-0.5">每段正文后让 AI 读取<b>内置「小剧场世界书」</b>（已内嵌，无需在世界书里管理）→ 生成 1~3 则与主线无关的<b>番外彩蛋</b>，用 HTML/内联 CSS 美化排版，折叠展示在正文末尾。纯趣味、不影响主线与数值。</div>
+            <div className="text-sm text-dim mt-0.5">每段正文后额外生成 1~3 则与主线无关的<b>番外彩蛋</b>，用 HTML/内联 CSS 美化排版，折叠展示在正文末尾。纯趣味、不影响主线与数值。<br />取材＝每回合从<b>轮回 wiki 人物条目</b>随机抽 1~4 位（多位则同世界、彼此有关联）；写法＝从下面的<b>花样模板</b>里随机抽，两者都不吃你的主线设定。</div>
           </div>
         </div>
+        {miniTheater && <TheaterTemplateSection />}
         <div className="p-3 bg-panel border border-edge rounded-lg">
           <div className="text-sm text-slate-200">叙事人称</div>
           <div className="text-sm text-dim mt-0.5 mb-2">强制正文以指定人称叙述主角，最高优先（压过预设文风块与历史惯性，无需依赖预设里的人称块）。「跟随预设」=不干预，由预设/模型决定。仅作用于主角，NPC 始终第三人称；对白不受影响。</div>
@@ -1698,6 +1704,118 @@ function TextApiSection() {
 }
 
 /* ════════════════════════════════════════════
+   正文生成 — 🎭 小剧场·花样模板库
+   把「这一则该怎么写」从写死在提示词里的一行风格词，变成玩家可增删改的模板。
+   生成时只从**启用的**里随机抽 pickCount 条注入；全禁用/删空会回退内置全集（见 pickTemplates 兜底），
+   所以怎么改都不会把小剧场弄坏。⚠ 模块级组件，勿内联进父组件（内联=每键重挂，中文输入法断字）。
+════════════════════════════════════════════ */
+function TheaterTemplateSection() {
+  const templates = useTheater((s) => s.templates);
+  const pickCount = useTheater((s) => s.pickCount);
+  const ensureSeeded = useTheater((s) => s.ensureSeeded);
+  const upsert = useTheater((s) => s.upsert);
+  const toggle = useTheater((s) => s.toggle);
+  const remove = useTheater((s) => s.remove);
+  const setPickCount = useTheater((s) => s.setPickCount);
+  const restoreBuiltins = useTheater((s) => s.restoreBuiltins);
+  const setAllEnabled = useTheater((s) => s.setAllEnabled);
+
+  const [open, setOpen] = useState(false);
+  const [editId, setEditId] = useState<string | null>(null);
+  const [name, setName] = useState('');
+  const [prompt, setPrompt] = useState('');
+  const [note, setNote] = useState('');
+
+  useEffect(() => { ensureSeeded(); }, [ensureSeeded]);
+
+  const enabledN = templates.filter((t) => t.enabled).length;
+  const startEdit = (id: string | null) => {
+    const t = id ? templates.find((x) => x.id === id) : null;
+    setEditId(id); setName(t?.name ?? ''); setPrompt(t?.prompt ?? '');
+  };
+  const save = () => {
+    if (!name.trim()) return;
+    upsert({ name, prompt }, editId ?? undefined);
+    setEditId(null); setName(''); setPrompt('');
+  };
+  const say = (s: string) => { setNote(s); window.setTimeout(() => setNote(''), 2600); };
+
+  const inputCls = 'w-full bg-void border border-edge rounded px-2.5 py-1.5 text-[13px] text-slate-200 outline-none focus:border-god/50';
+
+  return (
+    <div className="p-3 bg-panel border border-edge rounded-lg space-y-2">
+      <button onClick={() => setOpen((v) => !v)} className="w-full flex items-center gap-2 text-left">
+        <span className="text-sm text-slate-200">🎭 花样模板</span>
+        <span className="px-1.5 rounded bg-void/60 text-[12px] font-mono text-dim/80">{enabledN}/{templates.length} 启用</span>
+        <span className="flex-1 text-xs text-dim truncate">每回合从启用的花样里随机抽 {pickCount} 条，决定这一则怎么写</span>
+        <span className={`text-dim/60 transition-transform ${open ? 'rotate-180' : ''}`}>▾</span>
+      </button>
+
+      {open && (
+        <div className="space-y-2 pt-1">
+          <div className="text-xs text-dim leading-relaxed">
+            原先「日常碎片 / 搞笑吐槽 / …」那 15 种是写死在提示词里的，改不了也加不了。现在它们成了可编辑的模板：
+            <b className="text-slate-300">关掉不爱看的、加上自己想要的</b>。每条除了名字还带一句写法指导，比只给个词更能指挥模型。
+            <br /><span className="text-dim/60">全部禁用或删空也没关系——那种情况会自动回退到内置全集，小剧场不会写崩。</span>
+          </div>
+
+          <div className="flex items-center gap-2 flex-wrap text-[12px] font-mono">
+            <span className="text-dim/60">每次抽</span>
+            {[1, 2, 3].map((n) => (
+              <button key={n} onClick={() => setPickCount(n)}
+                className={`px-2 py-0.5 rounded border transition-colors ${pickCount === n ? 'border-god/50 text-god bg-god/10' : 'border-edge text-dim hover:text-slate-200'}`}>{n} 条</button>
+            ))}
+            <span className="flex-1" />
+            <button onClick={() => setAllEnabled(true)} className="text-dim/60 hover:text-god transition-colors">全启用</button>
+            <button onClick={() => setAllEnabled(false)} className="text-dim/60 hover:text-god transition-colors">全禁用</button>
+            <button onClick={() => { const n = restoreBuiltins(); say(n ? `已补回 ${n} 条内置花样` : '内置花样都在，没有可补的'); }}
+              className="text-dim/60 hover:text-god transition-colors">恢复内置</button>
+          </div>
+
+          <div className="max-h-72 overflow-y-auto space-y-1 pr-0.5">
+            {templates.length === 0 ? (
+              <div className="py-6 text-center text-[12px] font-mono text-dim/40 border border-dashed border-edge rounded">
+                一条花样都没有——生成时会回退用内置全集。点「恢复内置」拿回那 15 条。
+              </div>
+            ) : templates.map((t) => (
+              <div key={t.id} className={`rounded border px-2.5 py-1.5 ${t.enabled ? 'border-edge bg-void/30' : 'border-edge/50 bg-void/10 opacity-55'}`}>
+                <div className="flex items-center gap-2">
+                  <input type="checkbox" checked={t.enabled} onChange={() => toggle(t.id)} className="accent-god w-3.5 h-3.5 shrink-0" />
+                  <span className="text-[13px] text-slate-200">{t.name}</span>
+                  {!t.builtin && <span className="text-[11px] font-mono text-god/50">自建</span>}
+                  <span className="flex-1" />
+                  <button onClick={() => startEdit(t.id)} className="text-[12px] font-mono text-dim/55 hover:text-god transition-colors">改</button>
+                  <button onClick={() => remove(t.id)} className="text-[12px] font-mono text-blood/45 hover:text-blood transition-colors">删</button>
+                </div>
+                {t.prompt && <div className="text-[12px] text-dim/60 leading-relaxed pl-6 mt-0.5">{t.prompt}</div>}
+              </div>
+            ))}
+          </div>
+
+          <div className="border-t border-edge pt-2 space-y-1.5">
+            <div className="text-[12px] font-mono text-dim/60">{editId ? '编辑花样' : '新增一个花样'}</div>
+            <input value={name} onChange={(e) => setName(e.target.value)} placeholder="花样名（如：便利店打工）" className={inputCls} />
+            <textarea value={prompt} onChange={(e) => setPrompt(e.target.value)} rows={2}
+              placeholder="一句写法指导：这一则该怎么写、重点写什么（越具体，模型越不会敷衍）" className={`${inputCls} leading-relaxed resize-y`} />
+            <div className="flex items-center gap-2">
+              {note && <span className="text-[12px] font-mono text-god/80">{note}</span>}
+              <span className="flex-1" />
+              {editId && <button onClick={() => { setEditId(null); setName(''); setPrompt(''); }}
+                className="px-2.5 py-1 rounded border border-edge text-dim hover:text-slate-300 text-[12px] font-mono">取消</button>}
+              <button onClick={save} disabled={!name.trim()}
+                className="px-2.5 py-1 rounded border border-god/40 text-god bg-god/10 hover:bg-god/20 disabled:opacity-40 text-[12px] font-mono transition-colors">
+                {editId ? '✓ 保存' : '＋ 添加'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+      {!open && note && <div className="text-[12px] font-mono text-god/80">{note}</div>}
+    </div>
+  );
+}
+
+/* ════════════════════════════════════════════
    正文生成 — 🤖 Agent 预设页（Agent 模式专属预设选择·两枚内置 + 任意已导入预设）
 ════════════════════════════════════════════ */
 const AGENT_BUILTIN_PRESETS: { name: string; desc: string }[] = [
@@ -1761,6 +1879,49 @@ function AgentPresetSection() {
       <div className="text-[11px] text-dim/70 leading-relaxed">
         适配说明：预设里的 <code>agentSystemPrompt</code>/<code>agentTask</code> 槽位是 TauriTavern 专用 marker，本作不消费——Agent 工具指令统一深注入在「本回合输入」之前（更强位置），预设其余启用条目全部照常生效。末尾 assistant 预填条目在 Agent 模式会被自动摘除（预填与工具调用在多数端点互斥）。玩家改过的同名预设优先于内置版生效。
       </div>
+      <AgentSubagentSection selPreset={sel} />
+    </div>
+  );
+}
+
+/* ── Agent 预设页 · 子 Agent 与技能（P3·预设内嵌资产）──
+   TT 预设的 extensions.tauritavern 携带 skill 包（规则书）与子代理档案，导入预设时自动入库（agentSkillStore）。
+   这里按「当前选中的 Agent 预设」作用域展示：子代理可开关、可挂独立接口路由（正文用强模型、审查用便宜模型）。 */
+function AgentSubagentSection({ selPreset }: { selPreset: string }) {
+  const subs = useAgentSkills((s) => s.subagents);
+  const skills = useAgentSkills((s) => s.skills);
+  const notes = useAgentSkills((s) => s.writerNotes);
+  const scopeSubs = subs.filter((d) => !d.scopePresetName || d.scopePresetName === selPreset);
+  const scopeSkills = skills.filter((k) => !k.scopePresetName || k.scopePresetName === selPreset);
+  if (!selPreset && scopeSubs.length === 0 && scopeSkills.length === 0) return null;
+  return (
+    <div className="p-2.5 rounded-lg border border-edge bg-panel space-y-2">
+      <div className="text-sm text-slate-200">🧩 子 Agent 与技能（随预设内嵌·主 Agent 可用 agent_delegate 委派）</div>
+      {scopeSubs.length === 0 && <div className="text-xs text-dim">当前作用域没有子 Agent{selPreset ? '（该预设未内嵌，或尚未导入——刷新页面自动补）' : '（选择内置 Agent 预设后出现）'}。</div>}
+      {scopeSubs.map((d) => (
+        <div key={d.id} className="border border-edge/60 rounded p-2 space-y-1.5">
+          <label className="flex items-center gap-2 cursor-pointer text-xs text-slate-200">
+            <input type="checkbox" checked={d.enabled !== false} onChange={(e) => useAgentSkills.getState().setSubagentEnabled(d.id, e.target.checked)} />
+            <span>{d.name}</span>
+            <code className="text-dim/60">{d.id}</code>
+            {d.builtin && <span className="text-[10px] px-1 py-0.5 rounded border border-cyan-500/40 text-cyan-300">内置</span>}
+          </label>
+          <div className="text-[11px] text-dim pl-5">{d.desc || '（无描述）'} ｜ 轮数上限 {d.maxRounds ?? 8} · 每局最多 {d.maxInvocationsPerRun ?? 2} 次
+            {(d.skillsVisible?.length ?? 0) > 0 && !d.skillsVisible?.includes('*') ? ` · 规则书：${d.skillsVisible!.join('、')}` : ''}</div>
+          {d.enabled !== false && (
+            <div className="pl-5 space-y-1">
+              <div className="text-[11px] text-cyan-200/80">子代理独立接口（留空=用 Agent 主接口——「正文用强模型、小任务用便宜模型」在这配）</div>
+              <ApiRoutePicker routeKey={`agentSub-${d.id}`} />
+            </div>
+          )}
+        </div>
+      ))}
+      {scopeSkills.length > 0 && (
+        <div className="text-[11px] text-dim">
+          📚 技能包（skill_read 按需读取）：{scopeSkills.map((k) => `${k.name}（${k.files.length} 文件）`).join('、')}
+        </div>
+      )}
+      {selPreset && notes[selPreset] && <div className="text-[11px] text-dim/70">✍️ 该预设附带作者工作流指引（{notes[selPreset].length} 字）——选中此预设的 Agent 运行会自动追加。</div>}
     </div>
   );
 }
@@ -1842,6 +2003,12 @@ function AgentNarrativeSection() {
               <input type="number" min={1} max={200} value={cfg.maxToolCalls}
                 onChange={(e) => setCfg({ maxToolCalls: Math.max(1, Math.min(200, Number(e.target.value) || 40)) })}
                 className="w-16 px-2 py-1 bg-black/30 border border-edge rounded text-slate-200 focus:border-cyan-600/50 focus:outline-none" />
+            </label>
+            <label className="flex items-center gap-1.5" title="Agent 省 token 核心开关（仿 TT initialChatHistoryMessages）：-1=跟随全局楼层限制；0=不注入任何楼层（全靠 chat_search 自查）；N=只注入最近 N 楼。只影响发给模型的原文楼层，召回/世界书匹配照常。">初始历史
+              <input type="number" min={-1} max={99} value={cfg.initialHistoryMsgs ?? -1}
+                onChange={(e) => setCfg({ initialHistoryMsgs: Math.max(-1, Math.min(99, Math.floor(Number(e.target.value)))) })}
+                className="w-16 px-2 py-1 bg-black/30 border border-edge rounded text-slate-200 focus:border-cyan-600/50 focus:outline-none" />
+              <span className="text-dim/60">楼(-1=全)</span>
             </label>
             <label className="flex items-center gap-1.5">工具协议
               <select value={cfg.protocol} onChange={(e) => setCfg({ protocol: e.target.value as 'auto' | 'native' | 'text' })}
@@ -3198,12 +3365,16 @@ const APPEARANCE_TINTS: { key: 'classic' | 'eyecare' | 'warm'; label: string; de
 function AppearanceSettingsSection() {
   const reading    = useSettings((s) => s.reading);
   const setReading = useSettings((s) => s.setReading);
+  const storyStrip    = useSettings((s) => s.storyStrip);
+  const setStoryStrip = useSettings((s) => s.setStoryStrip);
   const appearance    = useSettings((s) => s.appearance);
   const setAppearance = useSettings((s) => s.setAppearance);
   const uiVignette    = useSettings((s) => s.uiVignette);
   const setUiVignette = useSettings((s) => s.setUiVignette);
   const uiUnify    = useSettings((s) => s.uiUnify);
   const setUiUnify = useSettings((s) => s.setUiUnify);
+  const navGrouped    = useSettings((s) => s.navGrouped);
+  const setNavGrouped = useSettings((s) => s.setNavGrouped);
   const holoCardFx    = useSettings((s) => s.holoCardFx);
   const setHoloCardFx = useSettings((s) => s.setHoloCardFx);
   const uiTheme    = useSettings((s) => s.uiTheme);
@@ -3364,6 +3535,19 @@ function AppearanceSettingsSection() {
         </div>
       </div>
 
+      {/* 导航分组（P4·新版默认）：48 项右侧导航按功能域分区；不习惯可关回原平铺列表 */}
+      <div className="space-y-3">
+        <div className="text-sm font-mono text-god/70 uppercase tracking-widest">导航布局</div>
+        <div className="border border-edge rounded-lg p-4 bg-panel space-y-2">
+          <label className="flex items-center gap-2.5 cursor-pointer select-none">
+            <input type="checkbox" checked={navGrouped} onChange={(e) => setNavGrouped(e.target.checked)} className="accent-god w-4 h-4" />
+            <span className="text-sm text-slate-300">导航分组（新版）</span>
+            <span className="text-[12px] text-dim/60">角色 · 伙伴 · 世界 · 乐园设施 · 社交联机 · 传承 · 系统</span>
+          </label>
+          <div className="text-[12px] text-dim/60 leading-relaxed">右侧导航近 50 项按功能域分成 7 组、组内相关功能挨在一起（装备挨着技能树、频道挨着聊天室），找功能不再靠背位置。不习惯的话关掉即回到原来的单列平铺顺序，功能一个不少。</div>
+        </div>
+      </div>
+
       {/* 护眼色调（全局滤镜）+ 暗角 */}
       <div className="space-y-3">
         <div className="text-sm font-mono text-god/70 uppercase tracking-widest">护眼色调</div>
@@ -3455,6 +3639,43 @@ function AppearanceSettingsSection() {
             （随世界切换自动更换，不占 token），以及轮回 wiki 人物 📚（首次开启拉一次约 2MB 人物库）。
             <b className="text-slate-400">本档已有的同名实体永远优先</b>，不会被原著设定盖掉；
             世界档案<b className="text-slate-400">不含</b>剧情线与隐藏伏笔，不会抢在你前面剧透主线进度。
+          </div>
+        </div>
+      </div>
+      <div className="space-y-3">
+        <div className="text-sm font-mono text-god/70 uppercase tracking-widest">楼层信息条</div>
+        <div className="border border-edge rounded-lg p-4 bg-panel space-y-3">
+          <div className="text-sm text-dim leading-relaxed">
+            在<b className="text-slate-300">最新一段正文的末尾</b>贴一条扁条，把最该被看见的状态直接摆到眼前，不用再去点右侧面板：
+            世界时间·天气 / 进行中任务 / 未回收伏笔 / 历（未来七天）。点某一段就<b className="text-slate-300">就地展开</b>那段详情，再点收起。
+            纯只读展示——<b className="text-slate-300">不调接口、不写存档、不注入 AI</b>，关掉只是不显示。
+          </div>
+          <label className="flex items-center gap-2.5 cursor-pointer select-none">
+            <input type="checkbox" checked={storyStrip.on !== false} onChange={(e) => setStoryStrip({ on: e.target.checked })} className="accent-god w-4 h-4" />
+            <span className="text-sm text-slate-300">显示楼层信息条</span>
+            <span className="text-[12px] text-dim/60">三段都没内容时自动隐藏，不会平白多出一条空条</span>
+          </label>
+          <div className={`flex flex-wrap gap-x-5 gap-y-2 pl-6 ${storyStrip.on === false ? 'opacity-40 pointer-events-none' : ''}`}>
+            <label className="flex items-center gap-2 cursor-pointer select-none">
+              <input type="checkbox" checked={storyStrip.time !== false} onChange={(e) => setStoryStrip({ time: e.target.checked })} className="accent-god w-4 h-4" />
+              <span className="text-[13px] text-slate-300">时间 · 天气</span>
+            </label>
+            <label className="flex items-center gap-2 cursor-pointer select-none">
+              <input type="checkbox" checked={storyStrip.quest !== false} onChange={(e) => setStoryStrip({ quest: e.target.checked })} className="accent-god w-4 h-4" />
+              <span className="text-[13px] text-slate-300">任务</span>
+            </label>
+            <label className="flex items-center gap-2 cursor-pointer select-none">
+              <input type="checkbox" checked={storyStrip.thread !== false} onChange={(e) => setStoryStrip({ thread: e.target.checked })} className="accent-god w-4 h-4" />
+              <span className="text-[13px] text-slate-300">伏笔</span>
+            </label>
+            <label className="flex items-center gap-2 cursor-pointer select-none">
+              <input type="checkbox" checked={storyStrip.almanac !== false} onChange={(e) => setStoryStrip({ almanac: e.target.checked })} className="accent-god w-4 h-4" />
+              <span className="text-[13px] text-slate-300">历（未来七天）</span>
+            </label>
+          </div>
+          <div className="text-[12px] text-dim/50 leading-relaxed">
+            伏笔段上的 <span className="text-amber-400/90">⚠</span> 与正文里注入 AI 的〈伏笔催收〉是<b className="text-slate-400">同一口径</b>：
+            标⚠的那几条，正是这一回合前端已经在催 AI 回收的线头——不是另算的一套。
           </div>
         </div>
       </div>

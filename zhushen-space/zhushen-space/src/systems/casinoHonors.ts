@@ -1,6 +1,7 @@
 import { useCharacters } from '../store/characterStore';
 import { usePlayer } from '../store/playerStore';
 import type { CasinoStats } from '../store/casinoStore';
+import { reportFacilityOutcome } from './facilityBridge';
 
 /* ════════════════════════════════════════════
    赌坊战绩 → 称号 / 成就（纯确定性，达标即授予；upsert 去重，重复调用无副作用）
@@ -53,14 +54,18 @@ export function awardCasinoHonors(stats: CasinoStats): void {
     const pl = usePlayer.getState();
     const ownedTitles = new Set((ch.characters['B1']?.titles ?? []).map((t) => t.name));
     const ownedAch = new Set((pl.achievements ?? []).map((a) => a.id));
+    const newTitles: string[] = [];
     for (const h of HONORS) {
       if (!h.test(stats)) continue;
       if (h.title && !ownedTitles.has(h.title.name)) {
         ch.addTitle('B1', { ...h.title, source: '轮回赌坊', equipped: false });
+        newTitles.push(h.title.name);
       }
       if (h.ach && !ownedAch.has(h.ach.id)) {
         pl.addAchievement({ name: h.ach.name, desc: h.ach.desc, category: '赌坊', type: '累计', rarity: h.ach.rarity, hidden: !!h.ach.hidden, condition: h.ach.condition, id: h.ach.id });
       }
     }
+    // 成长交代：赌坊战绩换来的称号是有故事的事件，正文该入戏写一笔（走 growthNotice，比"仅知晓"强一档）
+    if (newTitles.length) reportFacilityOutcome({ source: '赌坊', summary: '', growth: newTitles.map((n) => `因赌坊战绩获得称号「${n}」——可自然带过赌客间的名声流传，不强求成段`) });
   } catch { /* 角色未建档等异常静默 */ }
 }

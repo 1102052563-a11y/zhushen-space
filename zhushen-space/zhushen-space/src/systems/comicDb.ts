@@ -12,6 +12,7 @@ export interface ComicBatch {
   pageTotal: number;           // 计划页数
   status: 'done' | 'partial';  // partial=有页缺图（可补齐）
 }
+export interface ComicPageVersion { dataUrl: string; finalPrompt: string; createdAt: number }
 export interface ComicPage {
   id: string;                  // `${batchId}_p${page}`
   batchId: string;
@@ -20,6 +21,7 @@ export interface ComicPage {
   pagePrompt: string;          // 分镜给的本页提示词（原文）
   finalPrompt: string;         // 实际发给绘画模型的完整提示词（重绘复用）
   createdAt: number;
+  versions?: ComicPageVersion[];   // 重绘保留的旧版本（新→旧·上限 3·阅读器可切）
 }
 
 const DB_NAME = 'drpg-comics';

@@ -29,6 +29,8 @@ import { useImageGen, effectiveEquipService } from '../store/imageGenStore';
 import { generateImage, buildPortraitPrompt, buildEquipPrompt, equippedForPrompt, shrinkDataUrl } from '../systems/imageGen';
 import { useHoloViewer } from '../store/holoViewerStore';
 import { genPortraitTags, genEquipTags, isTagService } from '../systems/imageTags';
+import OutfitPanel from './OutfitPanel';
+import { outfitRefImages, OUTFIT_REF_HINT } from '../systems/outfit';
 import { PortraitPicker, PortraitLibraryModal } from './PortraitPicker';
 import ImagePromptEditModal from './ImagePromptEditModal';
 import { SkillEditForm, TraitEditForm } from './CharEditForms';
@@ -1047,7 +1049,7 @@ function AvatarBlock({ npc }: { npc: NpcRecord }) {
     const appearance = [ap.look, ap.figure, ap.outfit, npc.appearanceDetail].filter(Boolean).join('，');
     const equip = equippedForPrompt(npc.items);
     return buildPortraitPrompt({ gender: npc.gender, age: npc.age, appearance, baseAppearance: npc.baseAppearance, bodyType: npc.bodyType, equipment: equip, profession: npc.profession, tier: parseRealm(npc.realm).tier, npcTag: npc.npcTag, imageTags: npc.imageTags,
-      action: ap.action, attire: ap.outfit, location: ap.location, figure: ap.figure, appearanceDetails: npc.appearanceDetail });
+      action: ap.action, attire: ap.outfit, location: ap.location, figure: ap.figure, appearanceDetails: npc.appearanceDetail, charId: npc.id });
   }
   async function handleGen() {
     setGening(true); setErr('');
@@ -1060,9 +1062,11 @@ function AvatarBlock({ npc }: { npc: NpcRecord }) {
       const gen = await genPortraitTags(desc);
       const tags = gen || npc.imageTags;
       if (gen && gen !== npc.imageTags) upsert(npc.id, { imageTags: gen });
-      const prompt = buildPortraitPrompt({ gender: npc.gender, age: npc.age, appearance, baseAppearance: npc.baseAppearance, bodyType: npc.bodyType, equipment: equip, profession: npc.profession, tier: parseRealm(npc.realm).tier, npcTag: npc.npcTag, imageTags: tags,
-        action: ap.action, attire: ap.outfit, location: ap.location, figure: ap.figure, appearanceDetails: npc.appearanceDetail });
-      const url = await generateImage(portraitService, { prompt, negative: portraitNegative, label: `生成 ${npc.name} 肖像` });
+      const basePrompt = buildPortraitPrompt({ gender: npc.gender, age: npc.age, appearance, baseAppearance: npc.baseAppearance, bodyType: npc.bodyType, equipment: equip, profession: npc.profession, tier: parseRealm(npc.realm).tier, npcTag: npc.npcTag, imageTags: tags,
+        action: ap.action, attire: ap.outfit, location: ap.location, figure: ap.figure, appearanceDetails: npc.appearanceDetail, charId: npc.id });
+      const refImages = await outfitRefImages(npc.id);   // 👗 钦定穿搭参考图（仅 chatimg 多模态线生效）
+      const prompt = refImages.length ? `${basePrompt}\n\n${OUTFIT_REF_HINT}` : basePrompt;
+      const url = await generateImage(portraitService, { prompt, negative: portraitNegative, refImages, label: `生成 ${npc.name} 肖像` });
       upsert(npc.id, { avatar: await shrinkDataUrl(url), avatarTags: tags || '', avatarPrompt: prompt });
     } catch (e: any) { setErr(e.message ?? '生成失败'); }
     finally { setGening(false); }
@@ -1071,7 +1075,8 @@ function AvatarBlock({ npc }: { npc: NpcRecord }) {
   async function handleRegenWithPrompt(prompt: string) {
     setGening(true); setErr('');
     try {
-      const url = await generateImage(portraitService, { prompt, negative: portraitNegative, label: `按新提示词重生成 ${npc.name} 肖像` });
+      const refImages = await outfitRefImages(npc.id);   // 👗 钦定穿搭参考图（仅 chatimg 多模态线生效）
+      const url = await generateImage(portraitService, { prompt, negative: portraitNegative, refImages, label: `按新提示词重生成 ${npc.name} 肖像` });
       upsert(npc.id, { avatar: await shrinkDataUrl(url), avatarPrompt: prompt });
       setPromptOpen(false);
     } catch (e: any) { setErr(e.message ?? '生成失败'); }
@@ -1132,6 +1137,7 @@ function AvatarBlock({ npc }: { npc: NpcRecord }) {
 /* ────────── 肖像绘卷 ────────── */
 function PortraitTab({ npc }: { npc: NpcRecord }) {
   const ap = parseAppearance5(npc.appearance5);
+  const [wardrobeOpen, setWardrobeOpen] = useState(false);   // 👗 衣柜（钦定穿搭）
   const segs = [
     { label: '动作', value: ap.action },
     { label: '穿着', value: ap.outfit },
@@ -1143,6 +1149,9 @@ function PortraitTab({ npc }: { npc: NpcRecord }) {
     <div>
       <Section title="人物头像">
         <AvatarBlock npc={npc} />
+        <button onClick={() => setWardrobeOpen(true)} title="衣柜·钦定穿搭：激活的穿搭是立绘/正文配图/漫画三条生图线的服装权威源"
+          className="mt-2 text-[12px] font-mono px-2 py-1 rounded border border-edge text-dim hover:text-god transition-colors">👗 衣柜（钦定穿搭）</button>
+        {wardrobeOpen && <OutfitPanel charId={npc.id} charName={npc.name} currentAttire={(ap.outfit || '').trim()} onClose={() => setWardrobeOpen(false)} />}
       </Section>
       <Section title="肖像锚点（第16列）">
         {segs.length === 0 ? <Empty text="暂无肖像描述" /> : (

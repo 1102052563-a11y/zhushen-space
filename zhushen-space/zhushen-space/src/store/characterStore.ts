@@ -25,8 +25,12 @@ export interface MemoryEntry {
   addedAt?: number;
 }
 export interface CharMemory {
-  shortTerm: MemoryEntry[];
-  longTerm: MemoryEntry[];
+  shortTerm: MemoryEntry[];   // ≈ 三层记忆的「近期」（见 systems/memoryTiers.ts）
+  longTerm: MemoryEntry[];    // ≈ 「沉淀」
+  /* 「核心记忆」——永远不会忘的事（上限 5）。可选：老档无此层，toTiered 读成空数组。
+     ⚠ 只对 paradise 作用域的 NPC（契约者/随从/宠物）维护；土著在一个任务世界里攒不出三层。
+     衰退的"谁该动"由前端 planDecay 机械算，"压缩成什么文字"才交给记忆演化阶段的 AI。 */
+  core?: MemoryEntry[];
 }
 
 /* ════════════════════════════════════════════

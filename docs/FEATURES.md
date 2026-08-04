@@ -37,6 +37,38 @@
 
 **数据化风格**（参考 `ST_WI_Modular_Output`）：技能/物品/装备/天赋的 effect/描述**必须写具体数值**（+X攻击、+X%暴击、减伤X%、恢复X点、持续/冷却X回合、消耗X）。三预设已把旧「不写数值」禁令翻转为要求 + override（zhushen 无 numeric 战斗引擎，数值只在文本可见）。
 
+**楼层信息条（正文末尾扁条）**：贴在**最新一段正文下方**的一条 12px 扁条，三段——① 世界时间·天气（`miscStore.worldName/worldTime/paradiseTime/weather`，天气串走 `weatherGlyph` 转 emoji）② 任务（`miscStore.tasks`·主线置顶·显示当前环 `N/总`、环目标、上回合进度、🔒锁定、截止）③ 伏笔（伏笔表未回收线头·催收项置顶）。点某段就**就地展开**该段详情，再点收起（同时只开一段）。
+- **⚠ 与 AI 同一口径**：伏笔段的 ⚠ 直接复用 `plotThreads.collectStaleThreads` 的账龄判定——玩家看到的「21 回合无进展」正是这一回合前端已在 `<伏笔催收>` 里催 AI 回收的那几条，不是另算的一套。
+- **纯只读**：不调 API、不写 store、不注入 AI；三段全空（新档/无任务无伏笔）自动隐藏，不平白多一条空条。
+- **性能铁则**：`components/StoryStrip.tsx` 是**零 props 的 memo 组件** → App 每次重渲（打字 / 流式 100ms 合帧 / 任意 state 变化）都判「props 未变」整棵子树跳过，只有它自己订阅的 store 变了才重渲。**绝不要给它加 props**，否则等于把 App 的高频重渲引进来（同「打字卡顿」教训）。取数纯函数在 `systems/storyStrip.ts`（有单测）。
+- 开关：设置→界面外观美化→「楼层信息条」（总开关 + 四段各自开关，`settingsStore.storyStrip`）。
+
+**🗓 世界历（节日 / 生日 / 纪念日）**：只收「**每年固定到期、会反复来一次**」的日子——与任务（会结算掉）、世界大事（一次性）分开存。只记 **(月, 日) + 持续天数**，年份在扮演里无意义；异界写法（腊月廿三 / 火之月第三日）另存 `displayDate` 原样展示。条目分「本世界专属」（绑世界名）与「跨世界」（主角生日、乐园级纪念日）。
+- **今天是几月几日 = 零 API**：直接从 `miscStore.worldTime` 正则抠（`calendar.extractMonthDay`，认得「斗罗历 2 月 17 日」「2024-03-15」「三月十五」「7/4」）。参考插件必须为此**额外调一次 AI**，本项目的双时间本来就由杂项演化每回合维护，白捡。抠不出（如「进入世界第 3 天」）→ **降级**：不排七天、只按月日列清单，绝不瞎猜。
+- **数据来源两条，都不新增 API 调用**：① 玩家在 📋任务面板→「历」tab 手动增删改 ② 杂项演化阶段（已有的那次调用）顺带输出 `almanac([{...}])` / `almanacRemove("名")` 指令 → `miscParser` 落 `calendarStore`。规则见 `promptRules.ALMANAC_MAINTAIN_RULE`（明确「什么该进历/什么不该进」+「没新增就别输出这行」）。
+- **回到正文**：未来 7 天内到期的条目并进 `<当前时空>` 尾部（`promptInjections.buildAlmanacLines`），让市井氛围/NPC 言行/主角安排自然受节庆影响。**历里没条目、或抠不出今天 → 整段不出现，一个 token 都不加**。
+- **回到眼前**：楼层信息条第四段「历」= 未来七天格（今天/明天/后天/+N + 月日，有日子的格子打类型 emoji、可点开看当天）。
+- 跨年长假算得对（12/30 起 4 天 → 覆盖到次年 1/2），首日已过但仍在会期内的记为「就是今天」。
+
+**🧭 参谋（局外顾问 + 提案卡）**：右侧导航「参谋」。在**剧情之外**跟 AI 商量——「给我设计一条三环支线」「埋一条关于黑袍人的伏笔」「把宁荣荣的生日记到历上」「T_1 的奖励太高了改一下」。它给**提案卡**，玩家点「应用」才写进存档。
+- **与演化互补**：演化阶段是「AI 替你记账」（自动落库），提案卡是「你想加点什么，让 AI 帮你拟稿」（人拍板）。三种卡：`quest` 任务（含多环路线图）/ `thread` 伏笔 / `almanac` 历。
+- **改已有条目**：卡片开标签带 `ref="T_3"` / `ref="4"`(伏笔 row_id) / `ref="alm_x"` → 更新而非新建。id 来自每次重拼的【存档现状】清单，AI 编不出清单里没有的 id。
+- **防抄旧卡**（参考插件踩过的坑）：历史消息喂回 AI 前一律 `stripProposalsForApi`，把卡片块换成「此处曾给出一张卡；现状以下方清单为准」。否则模型会照抄自己上一轮的卡片——而那些内容可能压根没被应用、或已被玩家改过。
+- **与正文彻底隔离**：本窗对话永不进正文上下文，正文也不知道这里聊过什么；它只读存档现状。
+- 接口：`resolveApiChain('advisor', 杂项接口)`——**留空即跟随杂项演化的接口**，不必另配一份；想分流可在面板 ⚙ 里选。
+**🎭 小剧场·花样模板库**（设置→正文生成→API 配置→小剧场开关下方）：把「这一则该怎么写」从**写死在 `MINI_THEATER_RULE` 里的一行风格词**变成玩家可增删改的模板。
+- 原状：15 个风格词硬编码在提示词里，改不了、加不了、只留爱看的那几种也做不到；而且只有词没有写法，模型每次自由发挥、越写越同质。现状：每条模板 = 花样名 + **一句具体写法指导**，生成时只从**启用的**里随机抽 `pickCount`（1~3，默认 2）条注入。
+- 15 条内置（即原先那批）首次自动种入，可改可禁可删；删了点「恢复内置」按 id 补回，**玩家自建的不受影响**。内置只种一次——删掉的不会下次启动又冒出来。
+- ⚠ **兜底**：模板被全部禁用或删空时 `pickTemplates` **回退内置全集**，绝不返回空清单，小剧场不会因为空指令写崩。
+- 模板是玩家资产不是本档进度 → `theaterStore` 是**配置类**：进 saveManager 的 STORES 但**不给 clear**（新游戏保留），并进 `configExport`（随全局配置导出）。
+
+**⭐ 坐标（收藏楼层）**：把鼠标移到任意一段 AI 正文上，右上角的 ☆ 一点就收藏；右侧导航「坐标」里搜索 / 按标签筛 / 写备注 / 跳回原楼 / 导出 Markdown。
+- **存快照，不存指针**（核心设计）：收藏时把当时的正文**整段拷进来**。楼层日后被编辑、重生成、回退、被 `historyLimit` 挤出显示窗口、甚至切世界清空对话——收藏照样读得到原文。`msgId` 只用来「尽力跳回原楼」，跳不到就明说（不假装成功），退化成纯档案。
+- **性能**：`BookmarkButton` 只订阅「本楼是否已收藏」这一个布尔值，App **完全不订阅** bookmarkStore → 收藏/取消只重渲那一颗星，不波及聊天列表（同 StoryStrip 的零订阅思路）。
+- 上限 200 条（新挤旧）、单条快照 6000 字截断、标签去重限 8 个；正文长 → 走 `lzStorage` 压缩存。
+
+- ⚠ **埋伏笔必须补记表编辑日志**：伏笔账龄（`plotThreads.lastTouchTurn`）只认 `tableJournal`，而日志平时由 `applyTableEdits` 写。提案卡走的是 `useTables.insertRow` 这条旁路，不补记的话「刚埋下的伏笔」查无记录＝判定为「久远」，下一回合就被 `<伏笔催收>` 当陈债催 AI 回收。
+
 ## 2. AI 多阶段流程 + 综合对账 + 阶段编排
 
 **阶段**（除主叙事外都在正文完成后**并发**，`runPostNarrativePhases`）：① 主叙事→解析 `<state>`/`<upstore>` ② 物品管理 ③ 主角演化 ④ NPC 演化 ⑤ 生平压缩 ⑥ 杂项 ⑦ 领地 ⑧ 冒险团 ⑨ 万族 ⑩ 势力 ⑪ 叙事记忆回写 ⑫ 生图。物品管理**绝不 await NPC**（早期曾被慢NPC拖死=「物品管理失效」，已解耦）。
@@ -51,7 +83,7 @@
 
 **`lenientJsonParse`（防"指令解析失败"）**：AI 常把指令写成 JS 字面量——裸键（`{name:"…"}`）、单引号、尾随逗号。逐级放宽：标准 JSON → 给 `{`/`,` 后 ASCII 裸键补引号（正则只碰 ASCII 键，不误伤中文值里全角「：，」）→ 单引号转双引号 → 去尾逗号。所有命令解析器统一用它。
 
-**`<state>` 块**（逐行 `key = / +=` ）：内置玩家 key（hp/maxHp/mp/maxMp/san/maxSan/points/atk/def）；角色资源短指令 `hp.B1 -= 20`/`mp.C1 = 35`（路由玩家/NPC）；货币 `乐园币 += 100`/`currency.魂币 -= 10`；装备 `eq.B1 = weapon:main:I_B1_01|主武器`/`uneq.B1 = …`（物品不在背包时 `equipNpcItemFallback`/`unequipNpcItemFallback` 在 NPC 持有物里就地装卸）；`cr./pr./ca./character.*/npc./loc./tm./ap./rc.` 等前缀按功能解析或静默跳过。其余 key 从 `variableStore` 查。
+**`<state>` 块**（逐行 `key = / +=` ）：内置玩家 key（hp/maxHp/mp/maxMp/san/maxSan/points/atk/def）；角色资源短指令 `hp.B1 -= 20`/`mp.C1 = 35`（路由玩家/NPC）；货币 `乐园币 += 100`/`currency.魂币 -= 10`（⚠ parseLine 的 key 正则是 ASCII \w 认不出中文键——中文币名行由 `stateApply.scanCjkCurrencyUpdates` 只扫 `<state>` 块补合成 StateUpdate，08-03 前这条通道整个空转；结算回合再经 `reconcileSettlementCurrency` 忠于「获得货币」面板并在无指令幸存时补入账）；装备 `eq.B1 = weapon:main:I_B1_01|主武器`/`uneq.B1 = …`（物品不在背包时 `equipNpcItemFallback`/`unequipNpcItemFallback` 在 NPC 持有物里就地装卸）；`cr./pr./ca./character.*/npc./loc./tm./ap./rc.` 等前缀按功能解析或静默跳过。其余 key 从 `variableStore` 查。
 
 **`<upstore>` 块**（helper 调用）：物品 `createItem/consumeItem/destroyItem/transferSpiritStones/transferCurrency/equipItem/unequipItem/updateItem/updateItemQuantity/transferItem`；角色（双参 `funcName("charId", payload)`）`addSkill/deSkill/addTalent/deTalent`(别名 addTrait/deTrait)/`addTitle/deTitle/equipTitle`/`addAchievement/deAchievement`(仅B*)/`addSubProfession/deSubProfession/addRecipe/deRecipe`(仅B*)/`addDeed/addMemory`；NPC `add("C1",{列})/de("C1")`；势力 `addFaction/deFaction`。`CHAR_CMD_RE`/`NPC_ADD_RE` 用负向断言 `add(?!Skill|Trait|Talent|Title|Achievement)`、`de(?![A-Za-z])` 防误吞。`CATEGORY_MAP` 归一化物品分类别名。
 
@@ -197,8 +229,17 @@
 - **漫画库=库房**(`drpg-comics` 独立 IndexedDB,batches+pages)：**不进 saveManager 快照**(整页1~3MB×N会撑爆存档),清进度不清漫画,删除=玩家显式二次确认。设置在 `comicStore`(drpg-comic,配置类,进 saveManager STORES 保留 + configExport)。
 - **参考图锁长相**：`sendCharRefs` 开时把出场角色 avatar(≤4张)发给绘画模型——**仅 `chatimg`(多模态Chat出图)服务生效**,prompt 里给「参考图N=角色名」映射。新服务 `chatimg`=chat/completions 多模态(nano-banana系/OpenRouter/中转),`genChatImg` 兼容五种响应形状提图(message.images/parts/dataURL/markdown链/images API形状),配置复用 `OpenAIImgConfig`(生图API配置里选「多模态Chat出图」)。
 - **送审软化** `soften`(默认开,`COMIC_SOFTEN_RULE`)：直白亲密/血腥→含蓄画面语言,只软化画面表达不改剧情事实,防 Gemini 系拒绘;NAI 线可关。
-- 任务后台跑(`useComicJob` 运行时进度,关面板不中断);「取消」AbortController 中断绘画阶段。页数1~4、每页2~6格由分镜自定;正文超2万字截断保尾。
+- 任务后台跑(`useComicJob` 运行时进度,关面板不中断);「取消」AbortController 中断各阶段。正文超4万字截断保尾。
+- **完整复刻 comic-orb（已获授权·08-04）**：①**双工作流**——直接分镜(1~4页一次直出)/演绎分镜(长剧情:演绎LLM切1-20段·entity_bible跨段共享→**错峰并发分镜**(400ms间隔·首段失败中止余段省钱)→合并重编页码);总页数2-20+每段页数规格("2"/"1-2"),`assertPageAllocation` 提前拦无解组合。②**完整分镜协议** comic_orb_storyboard_v1(panels数组/dialogue+visual_anchor证据/continuity_in-out/climax_panel/appearance_lock/entity_bible)+运行时守卫块(校验范围/对白证据/本地化/色彩/实体/外貌保真)。③**安全三档** off(NAI线不转换)/soft(少年漫软适配:保留战斗张力暧昧台词只转真越界局部·含权力胁迫最低限度转换)/safe(安全适配成功率优先:命中特写→轨迹烟尘结果证据+最终复核pass+绘画安全前缀)。④**运输副本处理**(comicTransport.ts):措辞中性化(罩杯/凝视修辞/猎奇伤害→中性等价)+年龄学龄剔除(配合成人身份约束)——**只改请求副本,正文原文不动**。⑤可恢复错误(429/5xx/超时/网络)自动重试1次(演绎/分镜/每页绘画)。⑥**写回楼层**:全页成功且开关开→CustomEvent `zs-comic-insert`→App 追加进目标楼层 ChatMessage.images(anchor空=正文末尾,随 chatDb 持久)。⑦**重新分镜**(按当前设置重跑同批楼层+全页重画)+**单页重绘版本管理**(旧版进 versions cap3·阅读器↺循环切换)。**未复刻(有意)**:原作画风分析子系统(zhushen画风由玩家画风系统管)/Gemini官方分辨率表(中转普遍自适应)/服务端插件(纯前端无Node后端,长请求靠重试+补齐缺页兜底)。
 - **NAI/ComfyUI 标签线双路**(`isTagService` 分流):标签模型画不了多格+对白→降级为**每页一张关键画面插画**——分镜系统提示词追加 `COMIC_TAGS_RULE`,要求每页多给 `tags` 字段(25~40 个英文 danbooru,并入角色画像锚点锁长相,禁分格/文字类标签);绘画阶段直接用 tags(不拼中文守卫/不发参考图,负面用 `cs.negative`,NAI 自动套画师串+队列限速,尺寸留空用 NAI 配置宽高);tags 缺失兜底=出场角色画像锚点+通用构图标签(`fallbackPageTags`)。UI 选中 NAI/Comfy 时显示琥珀色说明。真分格漫画页仍走 多模态Chat/Gemini 自然语言线。
+
+### 11.5.5 👗 衣柜（穿搭预设·概念借鉴 ST 插件 Outfit-Manager，代码全自写）
+
+痛点：角色穿着(appearance5 穿着段)是 AI 演化动态字段会漂,同角色生图服装不一致。衣柜=玩家钦定的权威穿搭库：`outfitStore`(drpg-outfit) 每角色若干套 {名称/中文描述/场景标签/英文服装标签/参考图},**激活的那套=服装单一权威源**,注入三条生图线——①立绘 `buildPortraitPrompt` 加 `charId` 字段:自然语言线 `${attire}`=钦定穿搭>装备栏>外观穿着,标签线并入英文服装标签(没填并中文描述);②正文配图 `genStoryImagesFor` charLine 追加「钦定穿搭…服装以此为准·最高优先」;③漫画 `comic.buildRoster` 同款(分镜外观锁引用)。不激活任何一套=完全维持原逻辑。UI `OutfitPanel` 弹层(增删改+激活单选+「从当前穿着导入」预填+📷参考图),入口=主角侧栏立绘下 👗 按钮 / NPC 详情肖像绘卷 Tab。**进度类** store:进 STORES 带 clear(穿搭绑定本存档角色,随快照/新游戏清)。单测 outfit.test.ts 6例。
+
+**P1 正文闭环（08-04）**：①`<钦定穿搭>` 正文注入(`buildOutfitInjection`·两注入位=主正文+细纲规划):当前穿着+衣柜清单(名称+场景标签),**正文描写衣着以此为准**;范围=主角+在场存活NPC,上限8行,全空不出块。②**AI 换装指令** `outfit.<角色ID>=穿搭名`(stateApply·`applyOutfitCommand`):名称模糊/场景标签命中(如 `outfit.B1=战斗` 命中带"战斗"标签那套)/「无|脱下|取消」=取消钦定/角色ID误写成NPC名且唯一时自动纠正;只能选衣柜已有,未命中忽略不动。闭环=AI 按剧情换装→store→下回合注入与生图全部跟随(场景切换靠 AI 驱动,不做机械钩子)。③**穿搭参考图**:每套可传一张(shrink 768px→imageDb `outfit:<charId>:<id>`,**随存档快照**;删穿搭连图删);chatimg 多模态线绘漫画时 `collectRefs` 把「角色头像+激活穿搭图」一起当参考图发送(合计上限4张,hint 注明"服装以此图为准")。
+
+**P2（08-04）**：①**跨存档模板库** `outfitTemplateStore`(drpg-outfit-tpl,上限60套,**同名保存=覆盖返回原id**)——⚠**不进 saveManager STORES**(monument 同款):新游戏不清、读档不回滚,真·账号级;模板参考图也因此不能放 imageDb,放独立 IndexedDB `drpg-outfit-templates`(systems/outfitTemplateDb.ts)。UI=衣柜每套 ⭐存为模板(带图拷贝),面板底部 📚模板库(折叠·⤵导入到当前角色衣柜含图/🗑删除)。②**立绘线穿搭参考图** `outfit.outfitRefImages(charId)`+`OUTFIT_REF_HINT`:接入 5 个立绘生成点(PlayerSidebar 手动✨/编辑提示词重生成、NpcDetail 同两处、App 自动肖像阶段)——chatimg 服务时激活穿搭图随请求发送并在 prompt 尾注明"服装以图为准,脸型发色仍按文字";其余服务自动忽略。单测扩到 7 例。
 
 ### 11.6 🖼 生成图片库（生图设置→「图片库」Tab）
 
@@ -392,4 +433,8 @@
 
 **坑**：① drift（模型直出纯文本）不是失败——文本存 `output/direct_output.md` 并提醒模型可直接 commit 该文件回收，共享轮数预算；② 只有「未知工具名」「finish 后还有调用」致命，其余工具错误一律软回喂让模型自救；③ 文本协议 `<tool_call>{json}</tool_call>` 是无函数调用端点的降级（auto 模式 HTTP 报错提及 tools 才切换），解析走 lenientJsonParse；④ 中途指引的拦截在 `sendMessage` **忙碌门之前**（否则 generating=true 永远进不去）；⑤ 新增工具记得同步 `SettingsPanel.AGENT_TOGGLEABLE_TOOLS`（核心 workspace 读写/commit/finish 恒开不进列表）。
 **P2 能力**：🗂 **配置档案**（命名快照：cfg+独立API+agent/agentReview 路由，一键应用切换"快速档/深度档"；应用不改启用开关，提示词仍走预设中心）；✍️ **末轮流式预览**（模型经 write_file 写 output/main.md 时，从 SSE 参数流渐进抽 content 做草稿流式（120ms 节流）流进楼层，commit 后由清洗稿接管；⚠ **0 次 commit 就终止的 run 会撤掉预览楼层**——"没 commit 就什么都不留"语义不破）；🧐 **评稿子代理**（finish 拦截：评稿人走 'agentReview' 路由（留空回退 Agent 主接口）审成稿，首行 PASS/REVISE 协议，REVISE 以软错误回喂逼修订再 commit，最多 reviewerPasses(1~3) 轮，评稿调用失败 best-effort 放行；修订消耗正常轮数，超轮按已提交版 partial 保留）。
-**Agent 专属预设（正文生成→🤖 Agent 预设页签）**：内置两枚——`[Agent] V14.7 狐神抚 · 毓忻`（214 条·启用 58 条非 marker≈1.4 万字·原生带 TauriTavern agentSystemPrompt/agentTask 槽位，本作不消费该槽、指令仍深注入输入前）与 `Fairy_Tale 2.3.0`（轻量·双 prompt_order）。选中后 Agent 回合的**整条组装链**（条目/正则/深注入/采样参数）换用该预设；默认「跟随正文预设」；玩家改过的同名版优先（`resolveAgentPreset`）。⚠ 为完美读取这两个文件，`parseSTPreset` 改为**忠实 ST 语义**：prompt_order 取 `character_id=100001` 那份（旧版取 `[0]` 会在双 order 预设上选错）、条目按 order 序拼装、不在 order 的库存条目保留但**禁用**（旧版会误启用 Fairy 的 NSFW/剧本格式等变体）；该改动对全部后续导入生效，回归守卫在 `agentPresetEmbed.test.ts`（真实文件 9 断言）。
+**Agent 专属预设（正文生成→🤖 Agent 预设页签）**：内置两枚——`[Agent] V14.7 狐神抚 · 毓忻`（214 条·启用 58 条非 marker≈1.4 万字·原生带 TauriTavern agentSystemPrompt/agentTask 槽位，本作不消费该槽、指令仍深注入输入前）与 `Fairy_Tale 2.3.0`（轻量·双 prompt_order）。选中后 Agent 回合的**整条组装链**（条目/正则/深注入/采样参数）换用该预设；默认「跟随正文预设」；玩家改过的同名版优先（`resolveAgentPreset`）。⚠ 解析语义（2026-08-02 事故后定版）：`parseSTPreset` 的**忠实 ST 语义**（按 order 序拼装、库存条目禁用）只能 **opt-in**（第 4 参 `stOrderFaithful`，当前仅两枚 Agent 内置预设的补种用）——曾默认忠实化导致玩家重导旧预设后条目顺序/启用集突变、正文格式崩，已回退；**默认行为只保留一处增强：多份 prompt_order 时优先取 `character_id=100001`**（单 order 预设与旧版逐字节一致）。勿再改默认；回归守卫在 `agentPresetEmbed.test.ts`。
+
+**P3 · 子代理与技能包（TT 内嵌资产完整承接）**：导入含 `extensions.tauritavern` 的预设（内置补种/玩家手动导入都算）自动入库 `agentSkillStore`（`drpg-agentskills`·配置类）——① **skill 包**：`ttskill-archive-base64-v1`（base64 zip）经零依赖 `miniZip.ts`（DecompressionStream deflate-raw）解为文本文件，作用域挂到导入预设名，`skill_list/skill_search/skill_read` 三工具按需读取（单次 20k/全程 60k 预算）；② **子代理**：`allowAsSubagent` 档案 → `SubAgentDef`（作者 instructions 作其系统提示词主体、技能可见性、轮数夹到 ≤12），主模型经 `agent_delegate` **同步**委派（结果直接随工具返回——TT 的后台并发/`agent_await` 不移植，await 留兼容桩、handoff 软拒绝），子代理共享父工作区（可读 output/main.md 写 scratch/）、以 `task_return` 收尾、可挂独立接口路由 `agentSub-<id>`（V14.7 实测流水线：主写手→禁词检查员/人设审查员，"正文强模型+审查便宜模型"在此配）；③ **作者工作流指令**：主档案 instructions 挂 `writerNotes[预设名]`，选中该 Agent 预设时追加进系统提示词（带同步适配说明）。UI 在「Agent 预设」页签下方（子代理开关+独立路由+技能清单）；坑：子代理内**未知工具不致命**（软回喂，别把便宜模型一杆子打死）。
+
+**P4 · 初始历史裁剪（Agent 省 token 核心开关·仿 TT initialChatHistoryMessages）**：`agentNarrative.initialHistoryMsgs`（-1=跟随全局楼层限制·默认；0=不注入任何楼层；N=只带最近 N 楼），设置区「初始历史」输入。切点在 callApi 的 recent 四分支汇合+记忆去重**之后**单点裁剪——**只裁发给模型的原文楼层**，世界书关键词匹配/向量与叙事召回/结构化档案/记忆去重都照常用完整近况；系统提示词自动注明「本回合只注入最近 N 楼，用 chat_search/chat_read_messages 查更早剧情」。工作区根同时补齐 `summaries/`（对齐 TT 五根）。已列过**不做**的（勿重复挖）：异步委派+真 agent_await/handoff、run 历史浏览面板、skill 手动导入导出 UI、逐端点重试间隔、includeActivatedWorldInfo=false、checkpoint 回滚——低价值或 TT 自身未完成。

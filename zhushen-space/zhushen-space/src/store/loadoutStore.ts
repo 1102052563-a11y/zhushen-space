@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import { useCharacters, type Skill, type Talent } from './characterStore';
+import { reportFacilityOutcome } from '../systems/facilityBridge';
 
 /* ════════════════════════════════════════════
    体系 / 流派（技能·天赋「装备栏 / loadout」）——主角 B1 专属
@@ -123,6 +124,12 @@ export const useLoadout = create<LoadoutState>()(
         writeB1(actS, actT);
         set({ bench: { skills: benS, traits: benT }, activeBuildId: id });
         try { cs().dedupeIds?.(); } catch { /* 注入可能撞历史技能 id，去重一次 */ }
+        // 场外通报：换 build 后出战技能整套变了，正文若不知情会继续按旧技能写战斗（此前切换零通报——审计"留痕但没人报信"）
+        reportFacilityOutcome({
+          source: '体系',
+          summary: `主角切换战斗体系为「${build.name}」：出战技能 ${actS.length} 个、天赋 ${actT.length} 个（未出战的收入替补席、并未失去）。后续战斗/施展只用出战区的技能`,
+          guard: '这是场外配置切换，勿当作剧情内学习/遗忘技能',
+        });
       },
 
       unapplyBuild: () => {
@@ -131,6 +138,11 @@ export const useLoadout = create<LoadoutState>()(
         writeB1(unionByName(cur.skills, bench.skills), unionByName(cur.traits, bench.traits));
         set({ bench: { skills: [], traits: [] }, activeBuildId: null });
         try { cs().dedupeIds?.(); } catch { /* */ }
+        reportFacilityOutcome({
+          source: '体系',
+          summary: '主角卸下了战斗体系模板：替补席技能/天赋已全部回归出战区（全量可用）',
+          guard: '这是场外配置切换，勿当作剧情内学习/遗忘技能',
+        });
       },
 
       benchSkill: (name) => {

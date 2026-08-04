@@ -5,14 +5,22 @@ import { useFanfic } from '../store/fanficStore';
 import { useFact } from '../store/factStore';
 import { useCosmos, cosmosNameEq, cleanCosmosName, type CosmosEntity } from '../store/cosmosStore';
 import { useMisc } from '../store/miscStore';
+import { useCalendar } from '../store/calendarStore';
+import { extractMonthDay, upcoming, visibleIn, dateLabel, TYPE_META } from './calendar';
 import { usePlayer } from '../store/playerStore';
 import { useGame } from '../store/gameStore';
 import { useNpc } from '../store/npcStore';
 import { useGuild } from '../store/guildStore';
+import { useCasino } from '../store/casinoStore';
+import { useAbyss } from '../store/abyssStore';
+import { useShop } from '../store/shopStore';
 import { playerMaxHp, playerMaxEp } from './playerVitals';
-import { effectiveResource } from './derivedStats';
+import { sameWorld } from './worldScope';
+import { latestChain } from './worldEvent';
+import { effectiveResource, isAbyssLocked } from './derivedStats';
 import { serializeQuestsForNarrative } from './miscParser';
 import { useCanonRoute } from '../store/canonRouteStore';
+import { useOutfits } from '../store/outfitStore';
 import { CANON_STATIONS, CANON_SUXIAO } from '../data/canonRoute';
 import { CANON_INERTIA_RULE, SUXIAO_PERSONA_RULE } from '../promptRules';
 import { ensureQuestRelation, QUEST_REL_TEXT, activeCanonStation } from './canonRoute';
@@ -110,6 +118,31 @@ export function buildPlayerCoreInjection(): { role: 'system'; content: string }[
   }];
 }
 
+/* <钦定穿搭> 注入正文：衣柜激活的穿搭=服装单一权威源（立绘/正文配图/漫画三线已读同一数据），正文描写同样以此为准。
+   同时给出各角色衣柜清单（名称+场景标签），并教 AI 用 `outfit.<角色ID>=穿搭名` 指令按剧情换装——
+   闭环：AI 换装 → outfitStore → 下回合注入与生图全部跟随。范围=主角 + 在场存活 NPC；全空不出块。 */
+export function buildOutfitInjection(): { role: 'system'; content: string }[] {
+  const byChar = useOutfits.getState().byChar;
+  const p = usePlayer.getState().profile;
+  const npcs = useNpc.getState().npcs;
+  const lines: string[] = [];
+  for (const [charId, w] of Object.entries(byChar)) {
+    if (!w.outfits.length) continue;
+    if (charId !== 'B1' && (!npcs[charId] || npcs[charId].isDead || !npcs[charId].onScene)) continue;   // NPC 只注入在场存活的
+    const name = charId === 'B1' ? (p?.name || '主角') : npcs[charId].name;
+    if (!name) continue;
+    const active = w.outfits.find((o) => o.id === w.activeId) ?? null;
+    const list = w.outfits.map((o) => `「${o.name}」${o.tags ? `[${o.tags}]` : ''}`).join(' / ');
+    lines.push(`- ${name}(${charId})：当前穿着=${active ? `「${active.name}」——${active.desc}` : '未钦定（按装备栏/外观描述）'}；衣柜可选：${list}`);
+    if (lines.length >= 8) break;   // 防块膨胀
+  }
+  if (!lines.length) return [];
+  return [{
+    role: 'system' as const,
+    content: `<钦定穿搭>（玩家在衣柜为下列角色钦定的服装——**正文描写这些角色的衣着时以"当前穿着"为准**，不要擅自更换或虚构服装；立绘与配图读的也是同一份数据。剧情确实需要换装时（备战/赴宴/就寝/沐浴更衣/乔装…），在 <state> 指令里写 \`outfit.角色ID = 穿搭名\` 切换（也可写场景标签，如 \`outfit.B1 = 战斗\`）；临时脱下或不再钦定写 \`outfit.角色ID = 无\`。只能从该角色衣柜里已有的穿搭中选择，不得自创新名）\n${lines.join('\n')}\n</钦定穿搭>`,
+  }];
+}
+
 /* <所属公会> 注入正文：主角隶属的玩家公会（契约者战队）身份 + 已解锁公会增益 → 叙事体现归属/靠山/公会声望士气。
    这是跨存档·账号级的**社交身份**，非当前任务世界的势力，勿混淆。无公会则不注入。（公会系统见 指导/家族系统-设计.md） */
 export function buildGuildInjection(): { role: 'system'; content: string }[] {
@@ -129,23 +162,99 @@ export function buildGuildInjection(): { role: 'system'; content: string }[] {
   }];
 }
 
-/* <当前时空> 注入正文：把「杂项」的两个时间——轮回历(乐园时间) 与 世界时间——连同当前世界名常驻注入，
-   让写正文的 AI 始终知道此刻是什么时间、在哪个世界，叙事不与之矛盾（结构化召回里没有时间，故独立注入）。
-   时间都未设定时不注入。时间推进仍由「杂项演化」结算，正文只读不改。 */
+/* <当前时空> 注入正文：把「杂项」的两个时间——轮回历(乐园时间) 与 世界时间——连同当前世界名、天气、
+   近期世界大事常驻注入，让写正文的 AI 始终知道此刻是什么时间、在哪个世界、什么天气、世界正在发生什么，
+   叙事不与之矛盾（结构化召回里没有这些，故独立注入）。
+   ★天气闭环：此前 misc 阶段每回合花 API 生成天气→写 store→只服务顶栏 UI 和战场词缀，主正文永远读不回、
+   下回合只能自己再编一个（审计"只出不进"头名）。加一行即三方同一现实。
+   ★世界大事回流：misc 写的 worldEvents 此前只能靠向量/关键词召回碰运气才被正文看到。
+   时间都未设定时不注入。推进仍由「杂项演化」结算，正文只读不改。 */
 export function buildWorldTimeInjection(): { role: 'system'; content: string }[] {
   const M = useMisc.getState();
   const pt = (M.paradiseTime || '').trim();
   const wt = (M.worldTime || '').trim();
   const wn = (M.worldName || '').trim();
   if (!pt && !wt) return [];   // 两个时间都没设就不注入
+  const wx = (M.weather || '').trim();
   const bits = [
     wn && `当前世界:${wn}`,
     pt && `轮回历·乐园时间:${pt}`,
     wt && `当前世界时间:${wt}`,
+    wx && `天气:${wx}`,
   ].filter(Boolean);
+  // 近期世界大事（最多 3 条·每条截断）：让正文对世界背景演进有感知，而非只靠召回碰运气
+  // ⚠ 世界作用域：只喂**属于当前世界**的大事——换世界后继续喂上个世界的事件会直接串戏。
+  //   worldName 为空 = 老数据/未归属，放行（宁可多喂，不可把历史存档喂空）。
+  // ⚠ 已结算的事件不再喂进"近期"（它们是历史，进编年史那条线）——否则落幕的事会一直在正文里回响。
+  const evs = (M.worldEvents || [])
+    .filter((e) => !e.worldName || sameWorld(e.worldName, wn))
+    .filter((e) => !e.settledAt)
+    .slice(-3)
+    // ⚠ 取**最新脉络节点**而不是最初的 desc：事件推进几轮之后，desc 还停在"刚发生时那一句"，
+    //   正文因此永远读到过时的进展（升级前的老 bug）。老条目无 chain → 自然回退 desc。
+    .map((e) => {
+      const n = latestChain(e);
+      const head = [e.time, e.location].filter(Boolean).join('·');
+      const body = (n?.text || e.desc || '').slice(0, 60);   // 60 字预算是既有约定（promptInjections.test 守着）
+      return `- ${e.name ? `「${e.name}」` : ''}${head}${head ? '：' : ''}${body}`;
+    })
+    .filter((l) => l.length > 4);
+  const evBlock = evs.length ? `\n近期世界大事（背景事实·可自然呼应，勿整段复述）：\n${evs.join('\n')}` : '';
   return [{
     role: 'system' as const,
-    content: `<当前时空>（叙事须与下列时间/世界保持一致，勿自相矛盾；时间由系统推进，正文勿擅自跳改）\n${bits.join(' | ')}\n</当前时空>`,
+    content: `<当前时空>（叙事须与下列时间/世界/天气保持一致，勿自相矛盾；时间与天气由系统推进，正文勿擅自跳改）\n${bits.join(' | ')}${evBlock}${buildAlmanacLines(wt, wn)}\n</当前时空>`,
+  }];
+}
+
+/* 🗓 临近的日子（并进 <当前时空> 尾部，不单独占一个块）：把未来 ALMANAC_WITHIN 天内到期的
+   节日/生日/纪念日报给正文，让故事与该世界的历法自洽（该过节就过、该记得生日就记得）。
+   ⚠ 三重零成本：① 今天靠 `extractMonthDay(worldTime)` **纯前端**抠，不像参考插件那样额外调一次 AI
+   ② 历里没条目 / worldTime 抠不出日期 → 整段返回 ''，一个 token 都不加
+   ③ 只报窗口内的，不把整本历倒出来。 */
+const ALMANAC_WITHIN = 7;
+
+function buildAlmanacLines(worldTime: string, worldName: string): string {
+  try {
+    const items = visibleIn(useCalendar.getState().items, worldName);
+    if (!items.length) return '';
+    const anchor = extractMonthDay(worldTime);
+    if (!anchor) return '';   // 抠不出「今天」→ 算不了「还有几天」，不猜（无信号不动）
+    const soon = upcoming(items, anchor, ALMANAC_WITHIN);
+    if (!soon.length) return '';
+    const lines = soon.slice(0, 5).map(({ item, inDays }) => {
+      const when = inDays === 0 ? '就是今天' : `还有 ${inDays} 天`;
+      const meta = TYPE_META[item.type];
+      return `- ${dateLabel(item)}　${meta.label}「${item.name}」：${when}${item.note ? `（${item.note}）` : ''}`;
+    });
+    return `\n临近的日子（本世界历法·背景事实：临近或当天时，市井氛围、NPC 言行、主角安排都应自然受它影响；**不要生硬报幕**，也不要为了凑节日改变既定剧情走向）：\n${lines.join('\n')}`;
+  } catch { return ''; }
+}
+
+/* <设施近况> 常驻一行注入：主角在各玩法设施留下的长期足迹（赌坊战绩/深渊最深层/产业），
+   让正文和 NPC 对话能自然引用"这个人是赌坊常客/深渊行者/产业主"——此前这些完全游离于叙事外。
+   全部空则不出块；每行都极短，预算 ≤4 行。竞技场名次已在主角卡（structuredRecall.arenaRank），不重复。 */
+export function buildFacilityInjection(): { role: 'system'; content: string }[] {
+  const lines: string[] = [];
+  try {   // 赌坊：玩过才有一行
+    const cs = (useCasino.getState() as any).stats;
+    const played = (cs?.won || 0) + (cs?.lost || 0) > 0 || (cs?.wagered || 0) > 0;
+    if (played) lines.push(`赌坊战绩:累计投注${cs.wagered ?? 0}筹码·最大单赢${cs.biggestWin ?? 0}·最高连胜${cs.bestWinStreak ?? 0}`);
+  } catch { /* casino store 未载入则跳过 */ }
+  try {   // 深渊：下过才有一行（五阶前按封印口径称幽冥）
+    const meta = (useAbyss.getState() as any).meta;
+    if (meta && (meta.deepestFloor > 0 || meta.clearsCount > 0)) {
+      const place = isAbyssLocked(usePlayer.getState().profile) ? '幽冥地牢' : '深渊地牢';
+      lines.push(`${place}:最深抵达第${meta.deepestFloor}层${meta.clearsCount > 0 ? `·通关${meta.clearsCount}次` : ''}`);
+    }
+  } catch { /* */ }
+  try {   // 玩家产业：开着店才有一行
+    const shops = (useShop.getState() as any).shops as { name?: string; kind?: string }[] | undefined;
+    if (shops && shops.length > 0) lines.push(`名下产业:${shops.slice(0, 3).map((s) => s.name).filter(Boolean).join('、')}${shops.length > 3 ? ` 等${shops.length}处` : ''}`);
+  } catch { /* */ }
+  if (lines.length === 0) return [];
+  return [{
+    role: 'system' as const,
+    content: `<设施近况>（主角在乐园各设施的长期足迹·背景事实：对话/叙事可自然引用（如赌客名声、幽冥归来者的气息、产业主身份），勿据此结算数值或重播过程）\n${lines.join('\n')}\n</设施近况>`,
   }];
 }
 

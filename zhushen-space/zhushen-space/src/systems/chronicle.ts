@@ -374,6 +374,36 @@ export interface CompiledEntry {
   tier: ChronicleTier;
 }
 
+/** 「前尘提要」——进入新世界的过场用（P2 读回）：把上一世界的**编纂正史**压成一小段跨世界前情记忆；
+    无编纂时回退「离世总结」的评价与经历概述；两者都无 → ''。
+    ★此前 compiled 修完只有玩家自己看（全库唯一消费点是 ChroniclePanel）——这里让编年史真正成为 AI 的长期记忆。
+    纯函数：数据源全部参数传入（同本文件其余投影函数），便于单测；限长防注入块膨胀。 */
+export function buildPriorSaga(
+  worldName: string,
+  vol?: { entries: CompiledEntry[]; preface?: string } | null,
+  summary?: { 综合评价?: string; 状态?: string; 经历概述?: string[]; 世界线偏转?: string } | null,
+  maxChars = 400,
+): string {
+  const parts: string[] = [];
+  if (vol && vol.entries?.length) {
+    if (vol.preface?.trim()) parts.push(vol.preface.trim());
+    // 金档（重大）优先，其次银档；每条只取标题，最多 6 条
+    const ranked = [...vol.entries].sort((a, b) => (a.tier === 'gold' ? 0 : a.tier === 'silver' ? 1 : 2) - (b.tier === 'gold' ? 0 : b.tier === 'silver' ? 1 : 2));
+    const titles = ranked.slice(0, 6).map((e) => e.title?.trim()).filter(Boolean);
+    if (titles.length) parts.push(titles.join('；'));
+  } else if (summary) {
+    const bits = [
+      summary.状态 && `${summary.状态}`,
+      summary.综合评价 && `评价 ${summary.综合评价}`,
+      summary.经历概述?.length ? summary.经历概述.slice(0, 3).join('；') : '',
+      summary.世界线偏转 && `世界线偏转：${summary.世界线偏转}`,
+    ].filter(Boolean);
+    if (bits.length) parts.push(bits.join('。'));
+  }
+  if (!parts.length) return '';
+  return `【${worldName}】${parts.join('。')}`.slice(0, maxChars);
+}
+
 /** 夹取 AI 的编纂产出：条数、字段长度、tier 合法性全部由前端定，绝不采信越界值。 */
 export function sanitizeCompiled(raw: any, maxEntries = 40): CompiledEntry[] {
   const arr = Array.isArray(raw) ? raw : Array.isArray(raw?.entries) ? raw.entries : [];

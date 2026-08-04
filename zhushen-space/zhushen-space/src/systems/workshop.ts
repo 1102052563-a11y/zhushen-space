@@ -26,6 +26,7 @@ import { useCreationContent } from '../store/creationContentStore';
 import { useWorkshop } from '../store/workshopStore';
 import { useEquipCraft } from '../store/equipCraftStore';
 import { mpBase, myPlayerId } from './mpConfig';
+import { reportFacilityOutcome } from './facilityBridge';
 
 const PLAYER_ID = 'B1';
 const EQUIP_CATS = ['武器', '防具', '饰品'];
@@ -416,6 +417,20 @@ export async function installFromBackend(meta: WorkshopMeta, creation = false): 
   const full = await wsGet(meta.id);
   if (creation && CREATION_TYPES.includes(meta.type)) ccInstall(meta.type, full.payload);   // 角色创建：导入到自定义内容库
   else kind.install(full.payload);
+  // 场外通报：工坊安装此前完全静默——装一件橙装/一个技能进档，正文毫不知情（审计"写回最凶却零通报"）。
+  // 配置类（世界书/预设/模板/技能树定义）不通报（不改角色当前状态）；进度类（装备/宝石/物品/技能/天赋/称号/副职业/NPC/角色卡/体系）通报。
+  try {
+    const PROGRESS_TYPES = new Set(['equipment', 'gem', 'item', 'skill', 'talent', 'title', 'subProfession', 'npc', 'characterCard', 'loadout']);
+    if (!creation && PROGRESS_TYPES.has(meta.type)) {
+      const isInv = meta.type === 'equipment' || meta.type === 'gem' || meta.type === 'item';
+      reportFacilityOutcome({
+        source: '创意工坊',
+        summary: `主角从创意工坊安装了${kind.label}「${meta.name}」${isInv ? '，已入背包' : '，已写入档案'}`,
+        granted: isInv ? [meta.name] : undefined,
+        guard: '这是场外导入的既有内容，正文知晓即可，勿当作剧情内获得/习得的过程、勿重复发放',
+      });
+    }
+  } catch { /* 通报失败不阻断安装 */ }
   const downloads = await wsBumpDownload(meta.id);
   useWorkshop.getState().recordInstall({
     id: meta.id, type: meta.type, name: meta.name,

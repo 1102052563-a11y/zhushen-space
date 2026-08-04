@@ -28,6 +28,16 @@ export async function putImg(key: string, dataUrl: string): Promise<void> {
   });
 }
 
+/** 读取单键 dataURL（衣柜穿搭参考图等按需加载用；不存在返回 undefined）*/
+export async function getImg(key: string): Promise<string | undefined> {
+  const d = await db();
+  return new Promise((resolve) => {
+    const req = d.transaction(STORE, 'readonly').objectStore(STORE).get(key);
+    req.onsuccess = () => resolve(typeof req.result === 'string' ? req.result : undefined);
+    req.onerror = () => resolve(undefined);
+  });
+}
+
 export async function delImg(key: string): Promise<void> {
   const d = await db();
   return new Promise((resolve) => {

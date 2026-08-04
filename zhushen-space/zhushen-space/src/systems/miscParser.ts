@@ -4,6 +4,7 @@ import { isHomeWorld } from './playerVitals';
 import { filterAiTaskPatch, gateNewAiTask, isTerminalTaskStatus } from './questGuard';
 import { logArbitration } from './npcGrowthGuard';
 import { useCanonRoute } from '../store/canonRouteStore';
+import { useCalendar } from '../store/calendarStore';
 import { lenientJsonParse } from './stateParser';
 import { CANON_STATIONS } from '../data/canonRoute';
 import { grantCanonAchievement } from './canonRoute';
@@ -153,6 +154,19 @@ export function applyMiscCommands(reply: string, opts: { allowLarge?: boolean; t
       continue;
     }
 
+    // 🗓 世界历（节日/生日/纪念日）：`almanac([{...},...])` 增量落库（同名同世界→更新），
+    //    `almanacRemove("名")` 删一条。数据进 calendarStore；纯前端消费（楼层信息条七天格 + 临近日子注入）。
+    //    ⚠ 挂在杂项阶段里、**不新增 API 调用**；条目为空时下游注入整块不出现，零 token 浪费。
+    if (doWorld && (m = /^almanac\(\s*(\[[\s\S]*?\])\s*\)$/.exec(line))) {
+      const arr = lenientJsonParse(m[1]);
+      if (Array.isArray(arr)) { const k = useCalendar.getState().applyMany(arr); if (k) n++; }
+      continue;
+    }
+    if (doWorld && (m = /^almanacRemove\(\s*"([\s\S]*?)"\s*\)$/.exec(line))) {
+      if (useCalendar.getState().removeByName(unquote(m[1]))) n++;
+      continue;
+    }
+
     // 🛤 原著路线状态维护（仅模式开启时生效；canon* 前缀短路，不与其他指令冲突）
     if (doWorld && (m = /^canonPhase\(\s*(\d+)\s*\)$/.exec(line))) {
       const CR = useCanonRoute.getState();
@@ -235,6 +249,96 @@ export function applyMiscCommands(reply: string, opts: { allowLarge?: boolean; t
       M.updateWorldEvent(m[1], { time: m[2], location: withWorld(m[3]), desc: unquote(m[4]) }); n++; continue;
     }
     if (doWorld && (m = /^deleteWorldEvent\(\s*"([^"]+)"\s*\)$/.exec(line))) { M.removeWorldEvent(m[1]); n++; continue; }
+
+    // ── 世界事件生命周期（systems/worldEvent.ts）──
+    // newEvent("事件名", {档位,地点,参与,结算条件,首节}) —— 建带生命周期的事件（旧的三参 addWorldEvent 仍兼容）
+    if (doWorld && (m = /^newEvent\(\s*"([^"]+)"\s*,\s*(\{[\s\S]*\})\s*\)$/.exec(line))) {
+      const p = safeJson(m[2]);
+      if (p) {
+        const sc = String(p.scope ?? p['档位'] ?? p['范围'] ?? '');
+        const first = String(p.text ?? p['首节'] ?? p['进展'] ?? p['描述'] ?? '');
+        M.addWorldEvent({
+          time: String(p.date ?? p['日期'] ?? ''), location: withWorld(String(p.location ?? p['地点'] ?? '')),
+          desc: first, name: m[1],
+          scope: /背景|background/i.test(sc) ? 'background' : 'region',
+          actors: String(p.actors ?? p['参与'] ?? p['参与角色'] ?? '') || undefined,
+          settleCond: String(p.settleCond ?? p['结算条件'] ?? '') || undefined,
+          chain: first ? [{ date: String(p.date ?? p['日期'] ?? ''), text: first }] : [],
+        });
+        n++;
+      }
+      continue;
+    }
+    // eventChain("W_1", "本期进展") —— **只追加**一节脉络，绝不覆盖既有描述
+    if (doWorld && (m = /^eventChain\(\s*"(W_\d+)"\s*,\s*"([\s\S]*)"\s*\)$/.exec(line))) {
+      M.appendEventChain(m[1], { text: unquote(m[2]) }); n++; continue;
+    }
+    // settleEvent("W_1", "historic|derived|faded", "落幕陈述")
+    if (doWorld && (m = /^settleEvent\(\s*"(W_\d+)"\s*,\s*"([^"]+)"\s*(?:,\s*"([\s\S]*)"\s*)?\)$/.exec(line))) {
+      const o = /historic|重大|历史/i.test(m[2]) ? 'historic' : /derived|派生|后续/i.test(m[2]) ? 'derived' : 'faded';
+      M.settleWorldEvent(m[1], o, m[3] ? unquote(m[3]) : undefined); n++; continue;
+    }
+    // setEvent("W_1", {结算条件,参与,地点,档位}) —— 只改根字段，不动脉络
+    if (doWorld && (m = /^setEvent\(\s*"(W_\d+)"\s*,\s*(\{[\s\S]*\})\s*\)$/.exec(line))) {
+      const p = safeJson(m[2]);
+      if (p) {
+        const patch: Partial<WorldEvent> = {};
+        const nm = p.name ?? p['名称']; if (nm) patch.name = String(nm);
+        const sd = p.settleCond ?? p['结算条件']; if (sd) patch.settleCond = String(sd);
+        const ac = p.actors ?? p['参与'] ?? p['参与角色']; if (ac) patch.actors = String(ac);
+        const lo = p.location ?? p['地点']; if (lo) patch.location = withWorld(String(lo));
+        const sc = p.scope ?? p['档位'] ?? p['范围'];
+        if (sc) patch.scope = /背景|background/i.test(String(sc)) ? 'background' : 'region';
+        if (Object.keys(patch).length) { M.updateWorldEvent(m[1], patch); n++; }
+      }
+      continue;
+    }
+
+    // ── 传闻流变（systems/rumor.ts）──
+    // addRumor("传闻名", {影响力,流传范围,真相,传闻,偏差,诱因,时效}) —— 新建，首节点写在同一条里
+    if (doWorld && (m = /^addRumor\(\s*"([^"]+)"\s*,\s*(\{[\s\S]*\})\s*\)$/.exec(line))) {
+      const p = safeJson(m[2]);
+      if (p) {
+        M.addRumor({
+          name: m[1],
+          impact: String(p.impact ?? p['影响力'] ?? ''),
+          scope: String(p.scope ?? p['流传范围'] ?? ''),
+          node: {
+            truth: String(p.truth ?? p['真相'] ?? ''), told: String(p.told ?? p['传闻'] ?? p['传闻描述'] ?? ''),
+            drift: String(p.drift ?? p['偏差'] ?? p['事实偏差'] ?? ''), cause: String(p.cause ?? p['诱因'] ?? p['流变诱因'] ?? ''),
+            expire: String(p.expire ?? p['时效'] ?? p['预计时效'] ?? ''),
+          },
+        });
+        n++;
+      }
+      continue;
+    }
+    // rumorNode("R_1", {...}) —— 已有传闻的新流变节点（**只 append 新编号**，绝不覆盖旧节点）
+    if (doWorld && (m = /^rumorNode\(\s*"(R_\d+)"\s*,\s*(\{[\s\S]*\})\s*\)$/.exec(line))) {
+      const p = safeJson(m[2]);
+      if (p) {
+        M.appendRumorNode(m[1], {
+          truth: String(p.truth ?? p['真相'] ?? ''), told: String(p.told ?? p['传闻'] ?? p['传闻描述'] ?? ''),
+          drift: String(p.drift ?? p['偏差'] ?? p['事实偏差'] ?? ''), cause: String(p.cause ?? p['诱因'] ?? p['流变诱因'] ?? ''),
+          expire: String(p.expire ?? p['时效'] ?? p['预计时效'] ?? ''),
+        });
+        n++;
+      }
+      continue;
+    }
+    // setRumor("R_1", {影响力,流传范围,名称}) —— 只改根字段，不动流变历程
+    if (doWorld && (m = /^setRumor\(\s*"(R_\d+)"\s*,\s*(\{[\s\S]*\})\s*\)$/.exec(line))) {
+      const p = safeJson(m[2]);
+      if (p) {
+        const patch: Record<string, string> = {};
+        const nm = p.name ?? p['名称']; if (nm) patch.name = String(nm);
+        const im = p.impact ?? p['影响力']; if (im) patch.impact = String(im);
+        const sc = p.scope ?? p['流传范围']; if (sc) patch.scope = String(sc);
+        if (Object.keys(patch).length) { M.updateRumor(m[1], patch as never); n++; }
+      }
+      continue;
+    }
+    if (doWorld && (m = /^deleteRumor\(\s*"(R_\d+)"\s*\)$/.exec(line))) { M.removeRumor(m[1]); n++; continue; }
 
     if (doTasks && (m = /^ringAdvance\(\s*"(T_\d+)"\s*(?:,\s*(\{[\s\S]*\})\s*)?\)$/.exec(line))) {
       const pl = m[2] ? safeJson(m[2]) : null;

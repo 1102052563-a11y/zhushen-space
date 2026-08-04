@@ -2,8 +2,15 @@ import { useState } from 'react';
 import { useMisc, isMainQuest, type MiscTask, type QuestRing } from '../store/miscStore';
 import { usePlayer } from '../store/playerStore';
 import { useCharacters } from '../store/characterStore';
+import { useCalendar } from '../store/calendarStore';
+import { extractMonthDay, visibleIn, sortByDate, dateLabel, upcoming, TYPE_META, type AlmanacItem, type AlmanacType } from '../systems/calendar';
+import { latestNode, impactIndex } from '../systems/rumor';
+import { scopeOf, isSettled, OUTCOME_LABEL } from '../systems/worldEvent';
 
-type Tab = 'tasks' | 'events' | 'skills';
+type Tab = 'tasks' | 'events' | 'rumors' | 'almanac' | 'skills';
+
+/* 影响力五档 → 色阶（低→高：灰 → 石板 → 琥珀 → 橙 → 紫） */
+const IMPACT_COLOR = ['text-dim/50', 'text-slate-300', 'text-amber-300/90', 'text-orange-300', 'text-fuchsia-300'];
 
 export default function MiscPanel({ onClose, onGenerate }: { onClose: () => void; onGenerate?: (tendency: string) => Promise<{ ok: boolean; msg: string }> }) {
   const tasks = useMisc((s) => s.tasks);
@@ -14,6 +21,9 @@ export default function MiscPanel({ onClose, onGenerate }: { onClose: () => void
   const toggleTaskLock = useMisc((s) => s.toggleTaskLock);
   const clearArchivedTasks = useMisc((s) => s.clearArchivedTasks);
   const removeEvent = useMisc((s) => s.removeWorldEvent);
+  const rumors = useMisc((s) => s.rumors) ?? [];
+  const removeRumor = useMisc((s) => s.removeRumor);
+  const [truthOpen, setTruthOpen] = useState<Record<string, boolean>>({});   // 真相默认折叠：玩家自己选当上帝还是当局中人
   const paradiseTime = useMisc((s) => s.paradiseTime);
   const worldTime = useMisc((s) => s.worldTime);
   const worldName = useMisc((s) => s.worldName);
@@ -27,13 +37,23 @@ export default function MiscPanel({ onClose, onGenerate }: { onClose: () => void
   const [tab, setTab] = useState<Tab>('tasks');
   const [editing, setEditing] = useState<MiscTask | null>(null);
   const [genOpen, setGenOpen] = useState(false);
+  // 🗓 世界历：本世界可见（本世界专属 + 跨世界）；「还有几天」靠从 worldTime 抠出的锚点算，抠不出就不显示
+  const almItems = useCalendar((s) => s.items);
+  const almVisible = sortByDate(visibleIn(almItems, worldName));
+  const almAnchor = extractMonthDay(worldTime) ?? extractMonthDay(paradiseTime);
+  const almSoon = almAnchor ? new Map(upcoming(almVisible, almAnchor, 30).map((u) => [u.item.id, u.inDays])) : null;
+  const upsertAlm = useCalendar((s) => s.upsert);
+  const removeAlm = useCalendar((s) => s.remove);
+  const [almEditing, setAlmEditing] = useState<AlmanacItem | null>(null);   // id='' 表示新增
 
   const mainTasks = tasks.filter((t) => isMainQuest(t));   // 主线置顶高亮
   const sideTasks = tasks.filter((t) => !isMainQuest(t));  // 支线分组
 
   const tabs: { key: Tab; label: string; n: number }[] = [
     { key: 'tasks', label: '任务', n: tasks.length },
-    { key: 'events', label: '世界大事', n: events.length },
+    { key: 'events', label: '世界大事', n: events.filter((e) => !isSettled(e)).length },
+    { key: 'rumors', label: '📢 传闻', n: rumors.length },
+    { key: 'almanac', label: '历', n: almVisible.length },
     { key: 'skills', label: '职业技能', n: skills.length },
   ];
 
@@ -128,16 +148,127 @@ export default function MiscPanel({ onClose, onGenerate }: { onClose: () => void
 
           {tab === 'events' && (
             events.length === 0 ? <Empty text="暂无世界大事" /> :
-            [...events].reverse().map((e) => (
-              <div key={e.id} className="rounded-lg border border-edge bg-panel/60 px-3 py-2">
-                <div className="flex items-center gap-2 text-[12px] font-mono text-dim/60 mb-0.5">
-                  <span>🕒 {e.time}</span><span>📍 {e.location}</span>
-                  <span className="flex-1" />
-                  <button onClick={() => removeEvent(e.id)} className="text-blood/50 hover:text-blood">删</button>
+            [...events].reverse().map((e) => {
+              const settled = isSettled(e);
+              const bg = scopeOf(e) === 'background';
+              const chain = e.chain ?? [];
+              return (
+                <div key={e.id} className={`rounded-lg border px-3 py-2 ${settled ? 'border-edge/50 bg-panel/30 opacity-70' : 'border-edge bg-panel/60'}`}>
+                  <div className="flex items-center gap-2 text-[12px] font-mono text-dim/60 mb-0.5 flex-wrap">
+                    <span className={bg ? 'text-indigo-300/80' : 'text-emerald-300/80'}>{bg ? '🌐 背景' : '📍 区域'}</span>
+                    {e.time && <span>🕒 {e.time}</span>}
+                    {e.location && <span>📍 {e.location}</span>}
+                    {settled && <span className="text-amber-300/80">🏁 {OUTCOME_LABEL[e.outcome ?? 'faded']}</span>}
+                    <span className="flex-1" />
+                    <button onClick={() => removeEvent(e.id)} className="text-blood/50 hover:text-blood">删</button>
+                  </div>
+                  {e.name && <div className="text-[14px] font-bold text-slate-100 mb-0.5">{e.name}</div>}
+                  {/* 事件脉络：推进是追加，所以这里读起来就是一条完整的时间线（老条目无 chain → 显示 desc） */}
+                  {chain.length > 0 ? (
+                    <div className="space-y-0.5 border-l-2 border-edge/60 pl-2.5 my-1">
+                      {chain.map((c, i) => (
+                        <div key={i} className="text-[13px] text-slate-300 leading-relaxed">
+                          {c.date && <span className="font-mono text-[11px] text-dim/50 mr-1.5">{c.date}</span>}{c.text}
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="text-[14px] text-slate-300 leading-relaxed">{e.desc}</div>
+                  )}
+                  <div className="flex flex-wrap gap-x-3 text-[11px] font-mono text-dim/50 mt-1">
+                    {e.actors && <span>👥 {e.actors}</span>}
+                    {e.settleCond && <span className="text-sky-300/70">🎯 {e.settleCond}</span>}
+                  </div>
                 </div>
-                <div className="text-[14px] text-slate-300 leading-relaxed">{e.desc}</div>
+              );
+            })
+          )}
+
+          {tab === 'rumors' && (
+            rumors.length === 0 ? <Empty text="暂无流传的传闻" /> : (
+              <>
+                <div className="text-[11px] font-mono text-dim/45 leading-relaxed pb-1">
+                  传闻是<b className="text-slate-300">世人嘴里的说法</b>，与客观真相分开记 —— NPC 只知道「流传」这一栏，可能因此说错话、做错事。
+                  「真相」默认折叠：你可以选择当上帝，也可以跟着一起被蒙在鼓里。
+                </div>
+                {[...rumors].reverse().map((r) => {
+                  const n = latestNode(r);
+                  const open = !!truthOpen[r.id];
+                  return (
+                    <div key={r.id} className="rounded-lg border border-edge bg-panel/60 px-3 py-2">
+                      <div className="flex items-center gap-2 text-[12px] font-mono mb-0.5 flex-wrap">
+                        <span className={IMPACT_COLOR[impactIndex(r.impact)]}>◈ {r.impact}</span>
+                        {r.scope && <span className="text-dim/60">📡 {r.scope}</span>}
+                        <span className="text-dim/40">流变 {r.nodes.length} 次</span>
+                        <span className="flex-1" />
+                        <button onClick={() => removeRumor(r.id)} className="text-blood/50 hover:text-blood">删</button>
+                      </div>
+                      <div className="text-[14px] font-bold text-slate-100 mb-1">{r.name}</div>
+                      {n && (
+                        <>
+                          <div className="text-[13px] text-slate-300 leading-relaxed">
+                            <span className="font-mono text-[11px] text-dim/50 mr-1.5">流传</span>{n.told || '—'}
+                          </div>
+                          <button
+                            onClick={() => setTruthOpen((p) => ({ ...p, [r.id]: !p[r.id] }))}
+                            className="mt-1 text-[11px] font-mono text-dim/45 hover:text-god/80 transition-colors">
+                            {open ? '▾ 收起真相' : '▸ 查看真相与偏差（剧透）'}
+                          </button>
+                          {open && (
+                            <div className="mt-1 space-y-0.5 rounded border border-god/25 bg-god/5 px-2 py-1.5">
+                              <div className="text-[13px] text-god/90 leading-relaxed">
+                                <span className="font-mono text-[11px] text-dim/50 mr-1.5">真相</span>{n.truth || '—'}
+                              </div>
+                              <div className="text-[13px] text-amber-300/80 leading-relaxed">
+                                <span className="font-mono text-[11px] text-dim/50 mr-1.5">偏差</span>{n.drift || '—'}
+                              </div>
+                              {n.cause && <div className="text-[12px] text-dim/60 leading-relaxed">
+                                <span className="font-mono text-[11px] text-dim/50 mr-1.5">诱因</span>{n.cause}
+                              </div>}
+                              <div className="text-[11px] font-mono text-dim/40 pt-0.5">
+                                形成 {n.date || '—'}　时效 {n.expire || '—'}
+                              </div>
+                            </div>
+                          )}
+                        </>
+                      )}
+                    </div>
+                  );
+                })}
+              </>
+            )
+          )}
+
+          {tab === 'almanac' && (
+            <div className="space-y-2">
+              <div className="text-[11px] font-mono text-dim/45 leading-relaxed">
+                世界历只收「<b className="text-dim/70">每年固定到期</b>」的日子：节日 / 生日 / 纪念日。一次性事件请走「世界大事」，有期限的目标请走「任务」。
+                <br />这里的条目会喂给杂项演化 AI（它也可自行建档），并在<b className="text-dim/70">临近时</b>随「当前时空」注入正文——楼层信息条的「历」段就是它。
+                {!almAnchor && <><br /><span className="text-amber-400/70">当前世界时间看不出月/日（如「进入世界第 3 天」），暂时算不了「还有几天」，仅按日期排列。</span></>}
               </div>
-            ))
+              <button onClick={() => setAlmEditing({ id: '', name: '', type: 'festival', month: 1, day: 1, days: 1 })}
+                className="px-2 py-1 rounded border border-god/40 text-god/90 bg-god/10 hover:bg-god/20 text-[12px] font-mono transition-colors">＋ 新增一个日子</button>
+              {almVisible.length === 0 ? <Empty text="暂无历条目" /> : almVisible.map((it) => {
+                const meta = TYPE_META[it.type];
+                const inDays = almSoon?.get(it.id);
+                return (
+                  <div key={it.id} className="rounded-lg border border-edge bg-panel/60 px-3 py-2">
+                    <div className="flex items-center gap-2 text-[12px] font-mono flex-wrap">
+                      <span>{meta.glyph}</span>
+                      <span className="text-slate-200 text-[14px]">{it.name}</span>
+                      <span className="text-dim/50">{meta.label}</span>
+                      <span className="text-dim/60">{dateLabel(it)}</span>
+                      {inDays !== undefined && <span className="text-god/70">{inDays === 0 ? '就是今天' : `还有 ${inDays} 天`}</span>}
+                      <span className="text-dim/40">{it.world ? it.world : '跨世界'}</span>
+                      <span className="flex-1" />
+                      <button onClick={() => setAlmEditing(it)} className="text-dim/60 hover:text-god">改</button>
+                      <button onClick={() => removeAlm(it.id)} className="text-blood/50 hover:text-blood">删</button>
+                    </div>
+                    {it.note && <div className="text-[13px] text-slate-300 leading-relaxed mt-0.5">{it.note}</div>}
+                  </div>
+                );
+              })}
+            </div>
           )}
 
           {tab === 'skills' && (
@@ -215,6 +346,14 @@ export default function MiscPanel({ onClose, onGenerate }: { onClose: () => void
         )}
         {genOpen && onGenerate && (
           <GenerateTaskModal onGenerate={onGenerate} onClose={() => setGenOpen(false)} />
+        )}
+        {almEditing && (
+          <AlmanacEditModal
+            item={almEditing}
+            worldName={worldName}
+            onSave={(patch) => { upsertAlm(patch, almEditing.id || undefined); setAlmEditing(null); }}
+            onClose={() => setAlmEditing(null)}
+          />
         )}
       </div>
     </div>
@@ -351,6 +490,84 @@ function TaskCard({ t, main, onRemove, onEdit, onToggleLock, archived }: { t: Mi
 const RING_STATUSES: QuestRing['status'][] = ['planned', 'active', 'done', 'skipped'];
 const RING_STATUS_LABEL: Record<QuestRing['status'], string> = { planned: '未解锁', active: '进行中', done: '已达成', skipped: '已跳过' };
 const EDIT_INPUT = 'w-full bg-void border border-edge rounded px-2 py-1 text-[13px] text-slate-200 focus:border-god/50 outline-none';
+
+/* 🗓 历条目编辑（新增/修改共用；item.id==='' 为新增）。⚠模块级组件，勿内联进父组件（内联=每键重挂，IME 断字） */
+const ALM_TYPES: AlmanacType[] = ['festival', 'birthday', 'anniversary', 'custom'];
+
+function AlmanacEditModal({ item, worldName, onSave, onClose }: { item: AlmanacItem; worldName: string; onSave: (patch: Partial<AlmanacItem>) => void; onClose: () => void }) {
+  const [name, setName] = useState(item.name || '');
+  const [type, setType] = useState<AlmanacType>(item.type || 'festival');
+  const [month, setMonth] = useState(String(item.month || 1));
+  const [day, setDay] = useState(String(item.day || 1));
+  const [days, setDays] = useState(String(item.days || 1));
+  const [displayDate, setDisplayDate] = useState(item.displayDate || '');
+  const [note, setNote] = useState(item.note || '');
+  // 「本世界专属」勾上 → world=当前世界名；不勾 → 留空=跨世界（主角生日、乐园级纪念日）
+  const [scoped, setScoped] = useState(!!item.world || (!item.id && !!worldName));
+
+  const save = () => {
+    if (!name.trim()) return;
+    onSave({
+      name: name.trim(), type, month: Number(month) || 1, day: Number(day) || 1, days: Number(days) || 1,
+      displayDate: displayDate.trim(), note: note.trim(), world: scoped ? worldName : '',
+    });
+  };
+
+  return (
+    <div className="fixed inset-0 z-[60] bg-black/75 backdrop-blur-sm flex items-center justify-center p-4"
+      onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}>
+      <div className="w-full max-w-md max-h-[86dvh] flex flex-col rounded-2xl border border-god/40 bg-void shadow-[0_0_60px_rgba(0,0,0,0.85)] overflow-hidden">
+        <header className="shrink-0 flex items-center gap-2 px-4 py-2.5 border-b border-edge bg-panel">
+          <span className="text-sm font-bold text-god">🗓 {item.id ? '编辑' : '新增'}一个日子</span>
+          <span className="flex-1" />
+          <button onClick={onClose} className="text-dim/50 hover:text-blood text-lg">✕</button>
+        </header>
+        <div className="flex-1 overflow-y-auto p-4 space-y-3">
+          <div className="grid grid-cols-[3.6rem_1fr] gap-x-3 gap-y-2 items-center text-[12px]">
+            <label className="text-dim/60 font-mono">名称</label>
+            <input className={EDIT_INPUT} value={name} onChange={(e) => setName(e.target.value)} placeholder="如 魂师大赛 / 凯莉的生日" />
+            <label className="text-dim/60 font-mono">类型</label>
+            <div className="flex gap-1.5 flex-wrap">
+              {ALM_TYPES.map((t) => (
+                <button key={t} onClick={() => setType(t)}
+                  className={`px-2 py-1 rounded border text-[12px] font-mono transition-colors ${type === t ? 'border-god/50 text-god bg-god/10' : 'border-edge text-dim hover:text-slate-200'}`}>
+                  {TYPE_META[t].glyph} {TYPE_META[t].label}
+                </button>
+              ))}
+            </div>
+            <label className="text-dim/60 font-mono">日期</label>
+            <div className="flex items-center gap-1.5 flex-wrap">
+              <input className={`${EDIT_INPUT} w-14`} type="number" min={1} max={12} value={month} onChange={(e) => setMonth(e.target.value)} />
+              <span className="text-dim/50">月</span>
+              <input className={`${EDIT_INPUT} w-14`} type="number" min={1} max={31} value={day} onChange={(e) => setDay(e.target.value)} />
+              <span className="text-dim/50">日 · 持续</span>
+              <input className={`${EDIT_INPUT} w-14`} type="number" min={1} max={366} value={days} onChange={(e) => setDays(e.target.value)} />
+              <span className="text-dim/50">天</span>
+            </div>
+            <label className="text-dim/60 font-mono">本地写法</label>
+            <input className={EDIT_INPUT} value={displayDate} onChange={(e) => setDisplayDate(e.target.value)} placeholder="选填：腊月廿三 / 火之月第三日（留空则显示 M月D日）" />
+            <label className="text-dim/60 font-mono">说明</label>
+            <input className={EDIT_INPUT} value={note} onChange={(e) => setNote(e.target.value)} placeholder="选填：一句话（会随「临近的日子」注入正文）" />
+            <label className="text-dim/60 font-mono">归属</label>
+            <label className="flex items-center gap-2 cursor-pointer select-none">
+              <input type="checkbox" checked={scoped} onChange={(e) => setScoped(e.target.checked)} disabled={!worldName} className="accent-god w-4 h-4" />
+              <span className="text-[12px] text-slate-300">{worldName ? `仅「${worldName}」可见` : '（当前无世界名，只能记为跨世界）'}</span>
+            </label>
+          </div>
+          <div className="text-[11px] font-mono text-dim/40 leading-relaxed">
+            年份在扮演里无意义，只记月/日。不勾「仅本世界」= 跨世界长期有效（主角生日、乐园级纪念日）。
+          </div>
+        </div>
+        <footer className="shrink-0 flex items-center gap-2 px-4 py-2.5 border-t border-edge bg-panel">
+          <span className="flex-1" />
+          <button onClick={onClose} className="px-3 py-1 rounded border border-edge text-dim hover:text-slate-300 text-[13px] font-mono">取消</button>
+          <button onClick={save} disabled={!name.trim()}
+            className="px-3 py-1 rounded border border-god/40 text-god bg-god/10 hover:bg-god/20 disabled:opacity-40 text-[13px] font-mono">✓ 保存</button>
+        </footer>
+      </div>
+    </div>
+  );
+}
 
 function TaskEditModal({ task, onSave, onClose }: { task: MiscTask; onSave: (patch: Partial<MiscTask>) => void; onClose: () => void }) {
   const [name, setName] = useState(task.name || '');

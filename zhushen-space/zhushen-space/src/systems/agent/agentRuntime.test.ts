@@ -2,6 +2,7 @@ import { describe, it, expect, beforeEach } from 'vitest';
 import { runAgentNarrative, type AgentTransport } from './agentRuntime';
 import type { AgentModelTurn, AgentNarrativeSettings, AgentRunInputs } from './agentTypes';
 import { useAgentRun } from '../../store/agentRunStore';
+import { useAgentSkills } from '../../store/agentSkillStore';
 
 /* 脚本化 transport：按轮出队；记录每轮请求体供断言 */
 function scriptedTransport(turns: AgentModelTurn[], seen: Array<Record<string, unknown>> = []): AgentTransport {
@@ -182,6 +183,15 @@ describe('agentRuntime · P1（persist 跨回合记忆 / 中途指引）', () =>
     expect(r.status).toBe('partial');
     expect(useAgentRun.getState().persistFiles['persist/notes.md']).toBe('原样');
   });
+  it('初始历史裁剪注明：initialHistoryMsgs>=0 时系统提示词提醒用 chat_search 补课（P4）', async () => {
+    const seen: Array<Record<string, unknown>> = [];
+    await run(scriptedTransport([
+      turn([call('workspace_write_file', { path: 'output/main.md', content: 'x' }), call('workspace_commit'), call('workspace_finish')]),
+    ], seen), { initialHistoryMsgs: 2 });
+    const sys = JSON.stringify(seen[0].messages);
+    expect(sys).toContain('最近 **2 楼**');
+    expect(sys).toContain('chat_search');
+  });
   it('中途指引：运行中 submitGuidance → 下一轮开头以 <user_guidance> 注入', async () => {
     const seen: Array<Record<string, unknown>> = [];
     let i = 0;
@@ -207,6 +217,68 @@ describe('agentRuntime · P1（persist 跨回合记忆 / 中途指引）', () =>
     for (let k = 0; k < 8; k++) expect(useAgentRun.getState().submitGuidance(`g${k}`).ok).toBe(true);
     expect(useAgentRun.getState().submitGuidance('第九条').ok).toBe(false);
     useAgentRun.setState({ active: null, pendingGuidance: [] });
+  });
+});
+
+describe('agentRuntime · P3（子代理委派·同步）', () => {
+  beforeEach(() => {
+    useAgentRun.setState({ runs: [], active: null, persistFiles: {}, pendingGuidance: [] });
+    useAgentSkills.setState({
+      skills: [{ name: 'test-rules', files: [{ path: 'SKILL.md', content: '---\nname: test-rules\ndescription: 测试规则书\n---\n禁词：雷霆' }], scopePresetName: '' }],
+      subagents: [{ id: 'checker', name: '检查员', desc: '扫描成稿', enabled: true, maxRounds: 6, maxInvocationsPerRun: 2, skillsVisible: ['test-rules'] }],
+      writerNotes: {},
+    });
+  });
+
+  it('agent_delegate 同步跑子代理：task_return 结果直接回到父工具结果里', async () => {
+    const seen: Array<Record<string, unknown>> = [];
+    const r = await run(scriptedTransport([
+      turn([call('agent_delegate', { agentId: 'checker', task: { objective: '检查禁词' } })]),        // 父 R1
+      turn([call('task_return', { summary: '发现2处违规', findings: ['第3段「雷霆」', '结尾复读'] })]),   // 子 R1
+      turn([call('workspace_write_file', { path: 'output/main.md', content: '修好的正文' }), call('workspace_commit'), call('workspace_finish')]),   // 父 R2
+    ], seen));
+    expect(r.status).toBe('completed');
+    const childBody = seen[1];
+    expect(JSON.stringify(childBody.messages)).toContain('子代理铁则');
+    const childToolNames = JSON.stringify(childBody.tools ?? []);
+    expect(childToolNames).toContain('task_return');
+    expect(childToolNames).not.toContain('workspace_commit');   // 子代理没有发布/收尾权
+    const fedBack = JSON.stringify(seen[2].messages);
+    expect(fedBack).toContain('子Agent「检查员」返回');
+    expect(fedBack).toContain('发现2处违规');
+  });
+  it('子代理直出纯文本两次 → 降级把文本收作 summary（不翻车）', async () => {
+    const seen: Array<Record<string, unknown>> = [];
+    const r = await run(scriptedTransport([
+      turn([call('agent_delegate', { agentId: 'checker', task: { objective: '检查' } })]),
+      turn([], '我觉得没什么问题'),                     // 子 R1 drift → 纠偏
+      turn([], '整体干净，无违规'),                     // 子 R2 drift → 降级收取
+      turn([call('workspace_write_file', { path: 'output/main.md', content: 'x' }), call('workspace_commit'), call('workspace_finish')]),
+    ], seen));
+    expect(r.status).toBe('completed');
+    expect(JSON.stringify(seen[3].messages)).toContain('整体干净');
+  });
+  it('未知子代理 / await 占位 / 委派预算', async () => {
+    const seen: Array<Record<string, unknown>> = [];
+    const r = await run(scriptedTransport([
+      turn([call('agent_delegate', { agentId: 'ghost', task: { objective: 'x' } }), call('agent_await', {})]),
+      turn([call('workspace_write_file', { path: 'output/main.md', content: 'x' }), call('workspace_commit'), call('workspace_finish')]),
+    ], seen));
+    expect(r.status).toBe('completed');
+    const fed = JSON.stringify(seen[1].messages);
+    expect(fed).toContain('delegate_target_not_found');
+    expect(fed).toContain('同步执行');   // await 占位说明
+  });
+  it('skill 工具可用：子代理能读到自己作用域的规则书', async () => {
+    const seen: Array<Record<string, unknown>> = [];
+    const r = await run(scriptedTransport([
+      turn([call('agent_delegate', { agentId: 'checker', task: { objective: '按规则书检查' } })]),
+      turn([call('skill_read', { name: 'test-rules' })]),                                    // 子 R1：读规则书
+      turn([call('task_return', { summary: '按规则书检查完毕：命中禁词「雷霆」' })]),          // 子 R2
+      turn([call('workspace_write_file', { path: 'output/main.md', content: 'x' }), call('workspace_commit'), call('workspace_finish')]),
+    ], seen));
+    expect(r.status).toBe('completed');
+    expect(JSON.stringify(seen[2].messages)).toContain('禁词：雷霆');   // skill 内容回喂给了子代理
   });
 });
 

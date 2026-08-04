@@ -1,5 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useItems, ITEM_CATEGORIES, gradeNameClass, gradeBadgeClass, type ItemCategory } from '../store/itemStore';
+import { useMisc } from '../store/miscStore';
+import { reportFacilityOutcome } from '../systems/facilityBridge';
 
 export interface ShopItem {
   name: string; category?: string; subType?: string; gradeDesc?: string;
@@ -8,6 +10,12 @@ export interface ShopItem {
   intro?: string; appearance?: string; score?: string; qty?: number;
 }
 function normCur(c?: string): '乐园币' | '灵魂钱币' { return (c === '魂币' || c === '灵魂钱币') ? '灵魂钱币' : '乐园币'; }
+/** P3：币种三路归一——当地货币（任务世界流通币·此前无任何玩法接口）从这里第一次接进真实买卖。 */
+function curKind(c: string | undefined, localName: string): 'local' | '灵魂钱币' | '乐园币' {
+  const s = (c || '').trim();
+  if (localName && (s === localName || /当地货币|本地货币/.test(s))) return 'local';
+  return normCur(s);
+}
 
 /* 系统商店：买(AI 生成 20 件，批量购买) / 卖(背包物品 AI 报价，批量出售)。商品/报价由上层(App)注入 AI 函数。 */
 export default function SystemShop({ onGenShop, onQuoteSell, onClose }: {
@@ -20,6 +28,8 @@ export default function SystemShop({ onGenShop, onQuoteSell, onClose }: {
   const addItem       = useItems((s) => s.addItem);
   const removeItem    = useItems((s) => s.removeItem);
   const adjustCurrency = useItems((s) => s.adjustCurrency);
+  const localName     = useMisc((s) => s.localCurrencyName);   // 任务世界当地货币（离世清零）
+  const localBal      = useMisc((s) => s.localCurrency);
 
   const [tab, setTab] = useState<'buy' | 'sell'>('buy');
   const [shop, setShop] = useState<ShopItem[]>([]);
@@ -42,21 +52,33 @@ export default function SystemShop({ onGenShop, onQuoteSell, onClose }: {
   const sellTotal = [...sel].reduce<number>((sum, id) => sum + (quotes[id as string]?.price || 0), 0);
 
   function doBuy() {
-    let need乐园 = 0, need魂 = 0;
-    [...sel].forEach((i) => { const it = shop[i as number]; if (!it) return; const p = Number(it.price) || 0; if (normCur(it.currency) === '灵魂钱币') need魂 += p; else need乐园 += p; });
+    let need乐园 = 0, need魂 = 0, need当地 = 0;
+    [...sel].forEach((i) => { const it = shop[i as number]; if (!it) return; const p = Number(it.price) || 0; const k = curKind(it.currency, localName); if (k === 'local') need当地 += p; else if (k === '灵魂钱币') need魂 += p; else need乐园 += p; });
     if ((currency.乐园币 ?? 0) < need乐园) { flash(`乐园币不足（需 ${need乐园}）`); return; }
     if ((currency.灵魂钱币 ?? 0) < need魂) { flash(`灵魂钱币不足（需 ${need魂}）`); return; }
+    if (need当地 > 0 && localBal < need当地) { flash(`${localName || '当地货币'}不足（需 ${need当地}，现有 ${localBal}）`); return; }
     let n = 0;
+    const bought: string[] = [];
     [...sel].forEach((i) => {
       const it = shop[i as number]; if (!it) return;
-      adjustCurrency(normCur(it.currency), -(Number(it.price) || 0), `系统商店·购买 ${it.name}`);
+      const p = Number(it.price) || 0;
+      const k = curKind(it.currency, localName);
+      if (k === 'local') useMisc.getState().adjustLocalCurrency(-p);   // 当地货币：P3 第一个真实消费口
+      else adjustCurrency(k, -p, `系统商店·购买 ${it.name}`);
       const cat = (ITEM_CATEGORIES.includes(it.category as ItemCategory) ? it.category : '特殊物品') as ItemCategory;
       addItem({ name: it.name, category: cat, gradeDesc: it.gradeDesc ?? '', effect: it.effect ?? '', quantity: Math.max(1, Number(it.qty) || 1), equipped: false, tags: [], subType: it.subType, combatStat: it.combatStat, durability: it.durability, requirement: it.requirement, affix: it.affix, origin: it.origin ?? '系统商店', intro: it.intro, appearance: it.appearance, score: it.score, acquisition: '系统商店购买' } as any);
+      bought.push(it.name);
       n++;
     });
     setShop((arr) => arr.filter((_, i) => !sel.has(i)));   // 买走的下架
     setSel(new Set());
     flash(`已购买 ${n} 件`);
+    // 场外通报 + 发放登记（P1 补漏：系统商店此前只有货币聚合行、物品静默；当地货币支出也在此交代）
+    if (n > 0) reportFacilityOutcome({
+      source: '系统商店',
+      summary: `主角在系统商店购入 ${bought.slice(0, 6).map((x) => `「${x}」`).join('、')}${bought.length > 6 ? ' 等' : ''}${need当地 > 0 ? `（其中部分以${localName || '当地货币'}支付 ${need当地}）` : ''}，已入背包`,
+      granted: bought,
+    });
   }
 
   async function doQuote() {
@@ -72,9 +94,24 @@ export default function SystemShop({ onGenShop, onQuoteSell, onClose }: {
     const ids = [...sel].filter((id) => quotes[id as string]);
     if (ids.length === 0) { flash('请先「询价」再确认出售'); return; }
     let n = 0;
-    ids.forEach((id) => { const it = items.find((x) => x.id === id); if (!it) return; const q = quotes[id as string]; adjustCurrency((q.currency as any) || '乐园币', q.price, `系统商店·出售 ${it.name}`); removeItem(it.id); n++; });
+    const sold: string[] = [];
+    ids.forEach((id) => {
+      const it = items.find((x) => x.id === id); if (!it) return;
+      const q = quotes[id as string];
+      const k = curKind(q.currency, localName);
+      if (k === 'local') useMisc.getState().adjustLocalCurrency(q.price);   // 当地货币回收价（本地土产在本地卖）
+      else adjustCurrency(k, q.price, `系统商店·出售 ${it.name}`);
+      removeItem(it.id);
+      sold.push(it.name);
+      n++;
+    });
     setSel(new Set());
     flash(`已出售 ${n} 件`);
+    if (n > 0) reportFacilityOutcome({
+      source: '系统商店',
+      summary: `主角把 ${sold.slice(0, 6).map((x) => `「${x}」`).join('、')}${sold.length > 6 ? ' 等' : ''}卖给了系统回收（货款已入账）`,
+      guard: '这些物品已离开背包、归系统所有，勿在正文当作仍持有',
+    });
   }
 
   return (
@@ -83,9 +120,10 @@ export default function SystemShop({ onGenShop, onQuoteSell, onClose }: {
       <div className="w-full max-w-xl h-[86dvh] flex flex-col rounded-2xl border border-edge bg-void shadow-[0_0_60px_rgba(0,0,0,0.8)] overflow-hidden">
         <header className="shrink-0 flex items-center gap-3 px-5 py-3 border-b border-edge bg-panel">
           <span className="text-amber-300 text-lg">🏪</span>
-          <div className="flex-1 font-bold text-slate-100">系统商店</div>
-          <span className="text-[11px] font-mono text-amber-300/80">💰 {currency.乐园币} · 魂 {currency.灵魂钱币}</span>
-          <button onClick={onClose} className="text-dim/50 hover:text-blood text-lg">✕</button>
+          <div className="shrink-0 font-bold text-slate-100">系统商店</div>
+          {/* 三币余额：手机端长数字+当地货币名会挤爆头部 → 币行占余宽、可截断（标题改 shrink-0 保住） */}
+          <span className="flex-1 min-w-0 truncate text-right text-[11px] font-mono text-amber-300/80">💰 {currency.乐园币} · 魂 {currency.灵魂钱币}{localName ? ` · ${localName} ${localBal}` : ''}</span>
+          <button onClick={onClose} className="shrink-0 text-dim/50 hover:text-blood text-lg">✕</button>
         </header>
 
         {/* 买 / 卖 tab */}
@@ -113,7 +151,7 @@ export default function SystemShop({ onGenShop, onQuoteSell, onClose }: {
                     {(it.effect || it.combatStat) && <div className="text-[12px] text-dim/60 leading-snug break-words">{it.combatStat ? `[${it.combatStat}] ` : ''}{it.effect}</div>}
                     {(it.affix || it.requirement) && <div className="text-[11px] text-dim/45 leading-snug break-words mt-0.5">{it.affix ? `词缀:${it.affix}　` : ''}{it.requirement ? `需求:${it.requirement}` : ''}</div>}
                   </div>
-                  <span className="shrink-0 text-sm font-bold font-mono text-amber-300">{it.price} {normCur(it.currency)}</span>
+                  <span className="shrink-0 text-sm font-bold font-mono text-amber-300">{it.price} {curKind(it.currency, localName) === 'local' ? (localName || '当地货币') : normCur(it.currency)}</span>
                 </label>
               ))
           ) : (

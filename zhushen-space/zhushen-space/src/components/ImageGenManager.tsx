@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useImageGen, IMG_SERVICES, type ImgService, type OpenAIImgConfig, DEFAULT_IMG_CORS_PROXY } from '../store/imageGenStore';
 import { useComic, useComicJob } from '../store/comicStore';
-import { listFloors, generateComic, cancelComic, retryMissingPages, redrawPage, type FloorInfo } from '../systems/comic';
+import { listFloors, generateComic, cancelComic, retryMissingPages, redrawPage, restoryboardBatch, type FloorInfo } from '../systems/comic';
 import { listBatches, pagesOfBatch, deleteBatch, type ComicBatch, type ComicPage as ComicPageRec } from '../systems/comicDb';
 import { collectGallery, GALLERY_KINDS, type GalleryGroup, type GalleryKind } from '../systems/gallery';
 import { shareImageToChannel } from '../systems/chatImages';
@@ -290,6 +290,8 @@ function ComicTabPage() {
   const [pageIdx, setPageIdx] = useState(0);
   const [showPrompt, setShowPrompt] = useState(false);
   const [busy, setBusy] = useState('');
+  const [verIdx, setVerIdx] = useState(0);   // 0=当前版本；1..n=重绘保留的旧版本
+  useEffect(() => { setVerIdx(0); }, [pageIdx, activeBatch]);
 
   useEffect(() => {
     void listFloors().then((fs) => {
@@ -345,16 +347,43 @@ function ComicTabPage() {
           </Field>
         </div>
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+          <Field label="工作流">
+            <select value={cs.workflowMode} onChange={(e) => cs.set({ workflowMode: e.target.value as 'direct' | 'interpretive' })} className={inputCls}>
+              <option value="direct">直接分镜（短剧情）</option>
+              <option value="interpretive">演绎分镜（长剧情）</option>
+            </select>
+          </Field>
           <Field label="漫画服务"><ServiceSelect value={cs.service} onChange={(v) => cs.set({ service: v })} /></Field>
-          <Field label="页数(1~4)"><input type="number" min={1} max={4} value={cs.pageCount} onChange={(e) => cs.set({ pageCount: Math.min(4, Math.max(1, parseInt(e.target.value) || 2)) })} className={inputCls} /></Field>
           <Field label="页面尺寸"><input value={cs.size} onChange={(e) => cs.set({ size: e.target.value })} placeholder="832x1216" className={inputCls} /></Field>
           <Field label="文字语言"><input value={cs.language} onChange={(e) => cs.set({ language: e.target.value })} placeholder="zh-CN" className={inputCls} /></Field>
         </div>
+        {cs.workflowMode === 'direct' ? (
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+            <Field label="页数(1~4)"><input type="number" min={1} max={4} value={cs.pageCount} onChange={(e) => cs.set({ pageCount: Math.min(4, Math.max(1, parseInt(e.target.value) || 2)) })} className={inputCls} /></Field>
+          </div>
+        ) : (
+          <div className="grid grid-cols-3 gap-2">
+            <Field label="总页数下限(2~20)"><input type="number" min={2} max={20} value={cs.pagesMin} onChange={(e) => cs.set({ pagesMin: Math.min(20, Math.max(2, parseInt(e.target.value) || 4)) })} className={inputCls} /></Field>
+            <Field label="总页数上限(2~20)"><input type="number" min={2} max={20} value={cs.pagesMax} onChange={(e) => cs.set({ pagesMax: Math.min(20, Math.max(2, parseInt(e.target.value) || 8)) })} className={inputCls} /></Field>
+            <Field label="每段页数（如 2 或 1-2）"><input value={cs.workerPages} onChange={(e) => cs.set({ workerPages: e.target.value })} placeholder="1-2" className={inputCls} /></Field>
+          </div>
+        )}
+        {cs.workflowMode === 'interpretive' && (
+          <div className="text-[12px] text-dim/50 leading-relaxed">演绎模式：先由演绎 LLM 通读全剧情切成故事段（共享实体设定防跨段漂移），再<b>错峰并发</b>给每段独立分镜，最后合并页码统一绘画——长剧情质量远好于一次直出。调用数≈ 1 次演绎 + 段数 次分镜 + 页数 次绘画。</div>
+        )}
         {isTagService(cs.service) && (
           <div className="text-[12px] text-amber-300/70 leading-relaxed">NAI / ComfyUI 是英文标签模型，画不了「多格分镜＋对白气泡」——此线每页产出一张<b>关键画面插画</b>（分镜自动为每页生成 danbooru 标签，并入角色画像锚点锁长相；无分格、无对白文字）。想要真正的分格漫画页请选「多模态Chat出图」或 Gemini。NAI 自动套用画风的画师串并按队列限速；尺寸留空则用 NAI 配置里的宽高。</div>
         )}
+        <Field label="安全档位（分镜阶段的画面转换策略·复刻 comic-orb 双档适配）">
+          <select value={cs.safetyLevel} onChange={(e) => cs.set({ safetyLevel: e.target.value as 'off' | 'soft' | 'safe' })} className={inputCls}>
+            <option value="off">关闭——NAI/无审核线用，分镜不做任何画面转换</option>
+            <option value="soft">少年漫软适配——表现力最大：保留战斗张力/暧昧台词，只转换真正越界的局部</option>
+            <option value="safe">安全适配——成功率优先：命中特写转轨迹/烟尘/结果证据，Gemini 官方线推荐</option>
+          </select>
+        </Field>
         <Row title="角色立绘当参考图" desc="把出场角色的立绘/头像发给绘画模型锁长相（仅「多模态Chat出图」服务生效，上限4张）" checked={cs.sendCharRefs} onChange={() => cs.set({ sendCharRefs: !cs.sendCharRefs })} />
-        <Row title="送审软化" desc="直白亲密/血腥转含蓄画面语言，防分镜与绘画模型拒答（只软化画面表达，不改剧情事实）" checked={cs.soften} onChange={() => cs.set({ soften: !cs.soften })} />
+        <Row title="送审措辞中性化" desc="把易触发审核的直白措辞换成中性等价描述（罩杯/凝视修辞/猎奇伤害等）——只改发给分镜/演绎模型的请求副本，游戏正文原文一个字不动" checked={cs.neutralize} onChange={() => cs.set({ neutralize: !cs.neutralize })} />
+        <Row title="完成后写回楼层" desc="全部页成功后把漫画追加到所选范围最后一个 AI 楼层的正文末尾（漫画库仍保留一份）" checked={cs.insertToFloor} onChange={() => cs.set({ insertToFloor: !cs.insertToFloor })} />
         <div>
           <div className="text-[12px] font-mono text-dim/60 mb-1">分镜 LLM 路由（剧情 → 分镜 JSON；推荐配一个强文本模型，留空回退正文 API）</div>
           <ApiRoutePicker routeKey="comic_storyboard_llm" />
@@ -407,7 +436,7 @@ function ComicTabPage() {
             {cur && (
               <>
                 <div className="rounded border border-edge bg-void p-1">
-                  <img src={cur.dataUrl} alt={`第${cur.page}页`} className="max-h-[70vh] w-auto max-w-full mx-auto object-contain" />
+                  <img src={verIdx > 0 && cur.versions?.[verIdx - 1] ? cur.versions[verIdx - 1].dataUrl : cur.dataUrl} alt={`第${cur.page}页`} className="max-h-[70vh] w-auto max-w-full mx-auto object-contain" />
                 </div>
                 <div className="flex items-center justify-center gap-2 flex-wrap">
                   <button onClick={() => setPageIdx((i) => Math.max(0, i - 1))} disabled={pageIdx <= 0} className="px-3 py-1 text-sm font-mono border border-edge rounded text-slate-200 hover:border-god/40 disabled:opacity-30">← 上页</button>
@@ -415,6 +444,10 @@ function ComicTabPage() {
                   <button onClick={() => setPageIdx((i) => Math.min(pages.length - 1, i + 1))} disabled={pageIdx >= pages.length - 1} className="px-3 py-1 text-sm font-mono border border-edge rounded text-slate-200 hover:border-god/40 disabled:opacity-30">下页 →</button>
                 </div>
                 <div className="flex items-center justify-center gap-2 flex-wrap text-[12px] font-mono">
+                  {(cur.versions?.length ?? 0) > 0 && (
+                    <button onClick={() => setVerIdx((v) => (v + 1) % ((cur.versions?.length ?? 0) + 1))} title="重绘保留的旧版本（点按循环切换）"
+                      className="px-2 py-1 border border-edge rounded text-dim hover:text-god hover:border-god/40">↺ {verIdx === 0 ? '当前版' : `旧版${verIdx}`}/{(cur.versions?.length ?? 0) + 1}</button>
+                  )}
                   <button onClick={() => { void onRedraw(); }} disabled={!!busy} className="px-2 py-1 border border-edge rounded text-dim hover:text-god hover:border-god/40 disabled:opacity-40">{busy || '🎨 重绘本页'}</button>
                   <button onClick={() => setShowPrompt((v) => !v)} className="px-2 py-1 border border-edge rounded text-dim hover:text-god hover:border-god/40">{showPrompt ? '收起提示词' : '📋 查看提示词'}</button>
                   <a href={cur.dataUrl} download={`${curBatch.title}-P${cur.page}.png`} className="px-2 py-1 border border-edge rounded text-dim hover:text-god hover:border-god/40">⬇ 下载本页</a>
@@ -424,6 +457,8 @@ function ComicTabPage() {
             )}
             <div className="flex items-center gap-2 flex-wrap text-[12px] font-mono">
               {missing > 0 && <button onClick={() => { void retryMissingPages(curBatch.id).catch(() => undefined); }} disabled={job.running} className="px-2 py-1 border border-amber-400/40 text-amber-300 rounded hover:bg-amber-400/10 disabled:opacity-40">🩹 补齐缺页（{missing}）</button>}
+              <button onClick={() => { if (window.confirm(`按当前设置对《${curBatch.title}》重新分镜并重画全部页？现有页图会被覆盖。`)) void restoryboardBatch(curBatch.id).catch(() => undefined); }} disabled={job.running}
+                className="px-2 py-1 border border-edge text-dim rounded hover:text-god hover:border-god/40 disabled:opacity-40">🎬 重新分镜</button>
               <button onClick={() => { void onDeleteBatch(); }} className="px-2 py-1 border border-red-400/40 text-red-300 rounded hover:bg-red-400/10">🗑 删除本批</button>
             </div>
           </div>

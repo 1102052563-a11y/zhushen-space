@@ -23,6 +23,7 @@ import {
   CHAOS_RECORD_PROMPT, CHAOS_WORLD_GEN_PROMPT,
   CANON_INERTIA_RULE, SUXIAO_PERSONA_RULE, CANON_MISC_RULE,
   TABLE_FILL_RULE, TABLE_FILL_MANUAL_RULE,
+  NPC_DECENTER_RULE, CAUSAL_WEIGHT_RULE, RUMOR_EVOLUTION_RULE, WORLD_EVENT_LIFECYCLE_RULE, REPUTATION_RULE, DIPLOMACY_RULE,
   AGENT_NARRATIVE_CONTRACT_RULE, AGENT_FLOW_RULE, AGENT_REVIEWER_RULE,
 } from '../promptRules';
 import { COMBAT_WRITING_GUIDE_RULE } from './combatWritingGuide';
@@ -69,6 +70,12 @@ export const PROMPT_REGISTRY: PromptEntry[] = [
   { key: 'TEAM_COT_RULE', label: '冒险团 · 思维链', group: '演化阶段', kind: 'override', def: TEAM_COT_RULE, desc: '冒险团演化 CoT' },
   { key: 'NPC_LIFE_STORY_RULE', label: 'NPC 成长小传 · 生成', group: '演化阶段', kind: 'override', def: NPC_LIFE_STORY_RULE, desc: '为 NPC 补一份"从小到大"的来历与性格成因（门控一次·不进每回合注入）' },
   { key: 'NPC_SELF_NARRATION_RULE', label: 'NPC 第一人称自述 · 生成', group: '演化阶段', kind: 'override', def: NPC_SELF_NARRATION_RULE, desc: 'NPC 的自我剖白（门控一次·私聊/演化的人格锚点）' },
+  { key: 'NPC_DECENTER_RULE', label: 'NPC 演化 · 去主角中心自检', group: '演化阶段', kind: 'override', def: NPC_DECENTER_RULE, desc: '逐人填表：动机能否在"完全不知道主角"时成立；非公开行为的关联配额=0（可见性例外挂在传闻/目击上）' },
+  { key: 'CAUSAL_WEIGHT_RULE', label: '因果权重 · 力量结构铁则', group: '演化阶段', kind: 'override', def: CAUSAL_WEIGHT_RULE, desc: '治"凡人海啸推翻元婴"与其反面；R 值由前端按阶差机械算，AI 只据判定档写（systems/causalWeight）' },
+  { key: 'RUMOR_EVOLUTION_RULE', label: '传闻流变 · 维护规则', group: '演化阶段', kind: 'override', def: RUMOR_EVOLUTION_RULE, desc: '真相/流传/偏差三分 + 时效闸门（未到期不动=省 token）+ 影响力五档一次一档（systems/rumor）' },
+  { key: 'WORLD_EVENT_LIFECYCLE_RULE', label: '世界事件 · 生命周期', group: '演化阶段', kind: 'override', def: WORLD_EVENT_LIFECYCLE_RULE, desc: '背景/区域各≤3 + 推进=追加脉络（不覆盖描述）+ 结算条件必填 + 三级结算（systems/worldEvent）' },
+  { key: 'REPUTATION_RULE', label: '四维声誉 · 维护规则', group: '演化阶段', kind: 'override', def: REPUTATION_RULE, desc: '官方/民间/暗域/业界各6级；⚠可见性依据必填否则前端整批拒绝（无人知晓不影响公共声誉）+ 一次一档 + 最多3维（systems/reputation）' },
+  { key: 'DIPLOMACY_RULE', label: '势力外交 · 八级与事件链闸门', group: '演化阶段', kind: 'override', def: DIPLOMACY_RULE, desc: '血盟→世仇八级；⚠跨≥2档必须先走完三阶段事件链否则前端回落成渐变1档；主角可调解/挑拨/代行（systems/diplomacy）' },
   { key: 'TABLE_FILL_RULE', label: '填表 · 填表铁则', group: '演化阶段', kind: 'override', def: TABLE_FILL_RULE, desc: '剧情表（纪要/进程/伏笔/约定）该记什么、怎么记的规则' },
   { key: 'TABLE_FILL_MANUAL_RULE', label: '填表 · 输出格式铁则', group: '演化阶段', kind: 'override', def: TABLE_FILL_MANUAL_RULE, desc: '填表调用只吐 <tableEdit>、不写正文的格式约束（⚠ 改坏会导致填表解析失败）' },
   // ── 演化阶段 · 图鉴 / 总纲（第二批）──

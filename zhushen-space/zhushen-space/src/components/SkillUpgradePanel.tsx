@@ -11,6 +11,7 @@ import {
 } from '../systems/skillUpgrade';
 import { normalizeSkillLevel } from '../systems/skillLevelNorm';
 import { usePlayer } from '../store/playerStore';
+import { useNpc } from '../store/npcStore';
 import SkillFusionBox from './SkillFusionBox';   // 技能熔炉 UI（主角 / NPC / 宠物 共用单一实现）
 
 /* 乐园设施·技能升级面板：
@@ -41,9 +42,21 @@ export default function SkillUpgradePanel({ onClose }: { onClose: () => void }) 
   const subProgress = useSubProfTree((s) => s.progress);
 
   const b1 = chars['B1'];
-  const skills: Skill[] = useMemo(() => b1?.skills ?? [], [b1]);   // 稳定身份：?? [] 每渲染新数组会让下游 memo 失效
-  const traits: Trait[] = useMemo(() => b1?.traits ?? [], [b1]);
-  const subprofs: SubProfession[] = b1?.subProfessions ?? [];
+  // ── 升级对象（P3 经济缝合）：随从/宠物的 skillPoints（随从结算×0.5 折算发放）此前有源无汇——
+  //    这里让 NPC 也能升级技能，付费锚到**其自身**技能点（或乐园币），黄金质变/副职业仍仅主角。
+  const npcs = useNpc((s) => s.npcs);
+  const [ownerId, setOwnerId] = useState('B1');
+  const npcCandidates = useMemo(() => Object.values(npcs)
+    .filter((r) => !r.isDead && (((chars[r.id]?.skills?.length ?? 0) + (chars[r.id]?.traits?.length ?? 0)) > 0))
+    .sort((a, b) => (b.skillPoints ?? 0) - (a.skillPoints ?? 0))
+    .slice(0, 30), [npcs, chars]);
+  const isNpcTarget = ownerId !== 'B1';
+  const npcRec = isNpcTarget ? npcs[ownerId] : null;
+  const npcSp = npcRec?.skillPoints ?? 0;
+  const target = (isNpcTarget ? chars[ownerId] : b1) ?? b1;
+  const skills: Skill[] = useMemo(() => target?.skills ?? [], [target]);   // 稳定身份：?? [] 每渲染新数组会让下游 memo 失效
+  const traits: Trait[] = useMemo(() => target?.traits ?? [], [target]);
+  const subprofs: SubProfession[] = isNpcTarget ? [] : (b1?.subProfessions ?? []);   // 副职业体系仅主角
 
   const [sel, setSel] = useState<Sel>(null);
   const [mode, setMode] = useState<Mode>('normal');
@@ -88,11 +101,11 @@ export default function SkillUpgradePanel({ onClose }: { onClose: () => void }) 
   const goldenMaxed = mode === 'golden' && maxRaritySteps <= 0;
   // 价格 / 余额
   const coinCost = mode === 'normal' ? levelUpCoinCost((entry as any)?.rarity, oldLv, points) : rarityUpCoinCost(curIdx, points);
-  const ptName = mode === 'normal' ? '技能点' : '黄金技能点';
-  const ptAvail = mode === 'normal' ? sp : gp;
+  const ptName = mode === 'normal' ? (isNpcTarget ? '其技能点' : '技能点') : '黄金技能点';
+  const ptAvail = mode === 'normal' ? (isNpcTarget ? npcSp : sp) : gp;
   const stMax = pay === 'coin'
     ? (mode === 'golden' ? Math.max(1, maxRaritySteps) : 30)
-    : (mode === 'golden' ? Math.max(1, Math.min(gp, maxRaritySteps)) : Math.max(1, sp));
+    : (mode === 'golden' ? Math.max(1, Math.min(gp, maxRaritySteps)) : Math.max(1, isNpcTarget ? npcSp : sp));
   const payOk = pay === 'coin' ? coin >= coinCost : ptAvail >= points;
   const canSettle = !!entry && !busy && points >= 1 && payOk && (mode === 'golden' ? (maxRaritySteps >= 1 && points <= maxRaritySteps) : true);
 
@@ -117,14 +130,20 @@ export default function SkillUpgradePanel({ onClose }: { onClose: () => void }) 
     if (!entry || !canSettle) return;
     setBusy(true); setErr(''); setDone(null);
     try {
-      const res = await generateSkillUpgrade({ entry, isTalent, mode, points, newLevelNum: newLv, crossed, newRarity, customInput: custom });
+      const owner = isNpcTarget && npcRec
+        ? { id: ownerId, name: npcRec.name || ownerId, tier: (npcRec.realm || '').split('|')[0], identity: npcRec.profession, tag: npcRec.npcTag }
+        : undefined;
+      const res = await generateSkillUpgrade({ entry, isTalent, mode, points, newLevelNum: newLv, crossed, newRarity, customInput: custom, owner });
       const { id: _id, addedAt: _a, ...patch } = res.apply as any;
-      if (isTalent) updateTrait('B1', entry.name, patch);
-      else updateSkill('B1', (entry as Skill).id, patch);
+      if (isTalent) updateTrait(ownerId, entry.name, patch);
+      else updateSkill(ownerId, (entry as Skill).id, patch);
       const costText = pay === 'coin' ? `${fmt(coinCost)} 乐园币` : `${points} ${ptName}`;
-      if (pay === 'coin') adjustCurrency('乐园币', -coinCost, `${isTalent ? '天赋' : '技能'}升级·${entry.name}`); else adjustCurrency(mode === 'normal' ? '技能点' : '黄金技能点', -points, `${isTalent ? '天赋' : '技能'}升级·${entry.name}`);
+      if (pay === 'coin') adjustCurrency('乐园币', -coinCost, `${isTalent ? '天赋' : '技能'}升级·${entry.name}`);
+      else if (isNpcTarget) useNpc.getState().upsertNpc(ownerId, { skillPoints: Math.max(0, npcSp - points) });   // 随从自身技能点（P3 唯一的汇）
+      else adjustCurrency(mode === 'normal' ? '技能点' : '黄金技能点', -points, `${isTalent ? '天赋' : '技能'}升级·${entry.name}`);
       const descChange = mode === 'normal' ? `Lv.${oldLv} → Lv.${newLv}` : `品级 ${(entry as any).rarity ?? ''} → ${newRarity}`;
-      setSkillUpNote(`（系统·面板已结算：主角消耗 ${costText}，将${isTalent ? '天赋' : '技能'}「${entry.name}」升级（${descChange}）。此为面板结算结果，正文知晓即可、无需就此展开情节。）`);
+      const whoText = isNpcTarget ? `随从「${npcRec?.name || ownerId}」` : '主角';
+      setSkillUpNote(`（系统·面板已结算：${whoText}消耗 ${costText}，将${isTalent ? '天赋' : '技能'}「${entry.name}」升级（${descChange}）。此为面板结算结果，正文知晓即可、无需就此展开情节。）`);
       setDone({ name: entry.name, level: patch.level, rarity: patch.rarity, effect: patch.effect });
     } catch (e: any) {
       setErr(e?.message ?? '生成失败');
@@ -168,6 +187,7 @@ export default function SkillUpgradePanel({ onClose }: { onClose: () => void }) 
           <span className="px-2.5 py-1 rounded-lg border border-sky-500/40 text-sky-300 bg-sky-500/10">技能点 <b className="text-sky-200">{sp}</b></span>
           <span className="px-2.5 py-1 rounded-lg border border-amber-500/40 text-amber-300 bg-amber-500/10">黄金技能点 <b className="text-amber-200">{gp}</b></span>
           <span className="px-2.5 py-1 rounded-lg border border-yellow-500/40 text-yellow-300 bg-yellow-500/10">乐园币 <b className="text-yellow-200">{fmt(coin)}</b></span>
+          {isNpcTarget && <span className="px-2.5 py-1 rounded-lg border border-emerald-500/40 text-emerald-300 bg-emerald-500/10">{npcRec?.name || ownerId}·技能点 <b className="text-emerald-200">{npcSp}</b></span>}
         </div>
         {/* 顶部：升级 / 融合 切换 */}
         <div className="flex gap-2">
@@ -179,6 +199,21 @@ export default function SkillUpgradePanel({ onClose }: { onClose: () => void }) 
         <div className="text-[11px] text-dim/50 leading-relaxed">
           技能点升等级、黄金技能点升品级质变、技能点提副职业熟练度至宗师；三类都可改用<b className="text-yellow-300">乐园币</b>支付（越高级越贵）。与装备强化共用 AI 接口。
         </div>
+        )}
+
+        {/* 升级对象（P3）：随从/宠物用自身技能点升级（随从结算发的点此前无处可花）；黄金质变/副职业仅主角 */}
+        {tab === 'upgrade' && npcCandidates.length > 0 && (
+          <div className="flex items-center gap-2 text-[12px]">
+            <span className="text-dim/50 shrink-0">升级对象</span>
+            <select value={ownerId}
+              onChange={(e) => { setOwnerId(e.target.value); setSel(null); setDone(null); setErr(''); setMode('normal'); setPay('points'); setPoints(1); }}
+              className="flex-1 min-w-0 rounded-lg border border-edge bg-panel2/40 px-2 py-1 text-slate-200 outline-none focus:border-god/50">
+              <option value="B1">主角（本人）</option>
+              {npcCandidates.map((r) => (
+                <option key={r.id} value={r.id}>{r.name || r.id}{r.npcTag ? `（${r.npcTag}）` : ''} · 技能点 {r.skillPoints ?? 0}</option>
+              ))}
+            </select>
+          </div>
         )}
 
         {tab === 'upgrade' && (empty ? (
@@ -244,7 +279,9 @@ export default function SkillUpgradePanel({ onClose }: { onClose: () => void }) 
                   <button onClick={() => switchMode('normal')} className={`flex-1 px-3 py-2 rounded-xl border text-[12px] transition-colors ${mode === 'normal' ? 'border-sky-500/70 bg-sky-500/15 text-sky-100' : 'border-edge text-slate-300 hover:border-sky-500/40'}`}>
                     普通升级<span className="block text-[10px] text-dim/50">升等级</span>
                   </button>
-                  <button onClick={() => switchMode('golden')} className={`flex-1 px-3 py-2 rounded-xl border text-[12px] transition-colors ${mode === 'golden' ? 'border-amber-500/70 bg-amber-500/15 text-amber-100' : 'border-edge text-slate-300 hover:border-amber-500/40'}`}>
+                  <button onClick={() => !isNpcTarget && switchMode('golden')} disabled={isNpcTarget}
+                    title={isNpcTarget ? '黄金质变仅限主角（随从没有黄金技能点体系）' : undefined}
+                    className={`flex-1 px-3 py-2 rounded-xl border text-[12px] transition-colors ${mode === 'golden' ? 'border-amber-500/70 bg-amber-500/15 text-amber-100' : isNpcTarget ? 'border-edge text-dim/30 cursor-not-allowed' : 'border-edge text-slate-300 hover:border-amber-500/40'}`}>
                     黄金质变<span className="block text-[10px] text-dim/50">升品级</span>
                   </button>
                 </div>

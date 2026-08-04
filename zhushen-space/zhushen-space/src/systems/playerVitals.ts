@@ -11,10 +11,12 @@ import { withAttrDelta, effectiveAttrs } from './attrBonus';
 import { playerStatusAttrDelta } from './statusAttrs';
 import { computeMaxHp, computeMaxEp, fullMaxHp, fullMaxEp, ratioOf, computeAttrPool, realAttrMult, type AttrCoef } from './derivedStats';
 import { useResource } from '../store/resourceStore';
+import { isHomeWorld } from './worldScope';
 
-export function isHomeWorld(name?: string): boolean {
-  return /轮回乐园|专属房间|主神空间/.test(name ?? '');   // 含「主神空间」仅为兼容旧存档的家园判定，非展示文案
-}
+/* isHomeWorld 的**单一真相已迁到 systems/worldScope.ts**（那里是世界身份判定的家，且 worldScope
+   零重依赖、可被 npcAutonomy 等底层模块安全 import）。此处 re-export 保持全仓 ~20 处
+   `from './playerVitals'` 的调用点一字不改。依赖是单向的：playerVitals → worldScope。 */
+export { isHomeWorld };
 /* 回归乐园后的一致性兜底（每回合开头跑，基于上一回合落库的状态）：
    ① 顶/底时间一致：home 时 worldTime = paradiseTime
    ② 任务世界的势力移出"当前世界"：home 时，worldName 属于任务世界(非家园)的势力 inCurrentWorld=false */
@@ -31,6 +33,9 @@ export function reconcileHomeWorld(): void {
   //   下个任务世界从 0 重新累计。settlement 评级在任务世界内(未回归)读值，不受影响。
   const P = usePlayer.getState();
   if ((P.profile.worldSource ?? 0) !== 0) { P.setProfile({ worldSource: 0 }); console.log('[世界之源] 回归乐园→归零'); }
+  // ★四维声誉同为 world 作用域：人在乐园就不该还挂着某个任务世界的名声（enterWorld 那次折算之外的兜底路径，
+  //   如读档、AI 直接把 worldName 改成乐园）。乐园侧的名声走「乐园声望」(paradiseFame·纯派生)。
+  if (P.profile.repute) { P.setProfile({ repute: undefined }); console.log('[声誉] 回归乐园→四维重置'); }
 }
 
 /* HP/EP 兜底：主角 HP/EP 仍是旧硬编码默认(100/100 & 50/50，从未被正文改过)时，按六维(体质×20 / 智力×15)重算为满。

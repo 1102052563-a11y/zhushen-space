@@ -2,6 +2,7 @@ import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import type { ApiConfig, WorldBook, WorldBookEntry } from './settingsStore';
 import { useSettings, parseWorldBook } from './settingsStore';
+import { reportFacilityOutcome } from '../systems/facilityBridge';
 import { getAllImg, putImg, delImg } from '../systems/imageDb';
 
 /* ════════════════════════════════════════════
@@ -70,6 +71,9 @@ export interface JoySettings {
   enabled: boolean;
   girls: JoyGirl[];
   selectedMadamId: string;            // 当前迎宾看板娘
+  /** opt-in：离开姑娘房间时向主叙事推一条**克制的**场外通报（只报"去过欢愉宫"这个事实，绝不带内容细节）。
+      默认关——欢愉宫与主叙事的隔离是刻意设计（NSFW 内容不外泄），开关只交给玩家。 */
+  narrativeSync?: boolean;
 }
 
 /* ── 四位内置看板娘（默认美女预设；均可在管理页编辑）── */
@@ -269,7 +273,23 @@ export const useJoy = create<JoyState>()(
           return { currentGirlId: id, sessions: { ...s.sessions, [id]: next } };
         }),
 
-      leaveGirl: () => set({ currentGirlId: null }),
+      leaveGirl: () => {
+        // opt-in 正文同步：只报"消遣过"这个事实（玩家显式开启才推；内容细节永不外泄）
+        try {
+          const s = get();
+          const gid = s.currentGirlId;
+          const sess = gid ? s.sessions[gid] : null;
+          const girl = gid ? s.settings.girls.find((g) => g.id === gid) : null;
+          if (s.settings.narrativeSync && girl && sess && sess.messages.length >= 2) {
+            reportFacilityOutcome({
+              source: '欢愉宫',
+              summary: `主角到欢愉宫「${girl.name}」处消遣了一阵，尽兴而归`,
+              guard: '仅此氛围事实可知；具体情形一概不展开、不复述、不追问，如常继续剧情即可',
+            });
+          }
+        } catch { /* 通报失败不阻断离场 */ }
+        set({ currentGirlId: null });
+      },
 
       appendMessage: (girlId, role, content) =>
         set((s) => {

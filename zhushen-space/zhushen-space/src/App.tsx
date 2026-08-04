@@ -27,6 +27,12 @@ import {
   ABYSS_LOCK_RULE,
   NATIVE_UNAWARE_RULE,
   ANTI_OMNISCIENCE_RULE,
+  NPC_DECENTER_RULE,
+  CAUSAL_WEIGHT_RULE,
+  RUMOR_EVOLUTION_RULE,
+  WORLD_EVENT_LIFECYCLE_RULE,
+  REPUTATION_RULE,
+  DIPLOMACY_RULE,
   NATIVE_LIFE_LOCAL_RULE,
   LOCAL_CURRENCY_RULE,
   COMBAT_SKILL_NUMERIC_RULE,
@@ -84,6 +90,7 @@ import {
   FIRST_UPDATE_COMPLETE_RULE,
   HPEP_NARRATIVE_ONLY_RULE,
   WORLDSOURCE_RULE,
+  ALMANAC_MAINTAIN_RULE,
   POINTS_NARRATIVE_RULE,
   ATTR_SANITY_RULE,
   ATTR_CAP_RULE,
@@ -132,6 +139,7 @@ import {
   CHRONICLE_COMPILE_RULE,
   TABLE_FILL_MANUAL_RULE,
   CANON_MISC_RULE,
+  tierLevelTable,
 } from './promptRules';
 
 import { useState, useRef, useEffect, useMemo, useCallback, memo, lazy, Suspense, type PointerEvent as RPointerEvent } from 'react';
@@ -152,7 +160,7 @@ import { preloadEventCores } from './systems/ledger/preloadCores';   // 阶段1�
 import { snapshotPlayerBag, reconcilePlayerBag, pruneBlankDupItems } from './systems/itemWatchdog';
 import { flattenAiText } from './systems/flattenAiText';
 import { runPhasePipeline, type Phase } from './systems/phasePipeline';
-import { buildFanficInjection, buildFactInjection, buildCosmosInjection, buildPlayerCoreInjection, buildWorldTimeInjection, buildQuestInjection, buildGuildInjection, buildCanonWorldInjection, buildSuxiaoTrackInjection } from './systems/promptInjections';
+import { buildFanficInjection, buildFactInjection, buildCosmosInjection, buildPlayerCoreInjection, buildWorldTimeInjection, buildQuestInjection, buildGuildInjection, buildFacilityInjection, buildCanonWorldInjection, buildSuxiaoTrackInjection, buildOutfitInjection } from './systems/promptInjections';
 import { takeSkillUpNote } from './systems/skillUpgrade';
 import { applyPlayerProfileCommands, applyTimedStatusCommands, expireStatuses } from './systems/statusCommands';
 import { getNpcApi, getPetApi, trimNarrative, npcChatCompletion, petChatCompletion, buildNpcVars, fillVars, serializeNpcSnapshot } from './systems/npcEvolutionHelpers';
@@ -210,10 +218,25 @@ import { useTerritory, buildTerritorySystemPrompt, buildingCap } from './store/t
 import { useAccountVault } from './store/accountVaultStore';
 import { useTeam, buildTeamSystemPrompt, memberCap as teamMemberCap } from './store/adventureTeamStore';
 import { useCosmos, buildCosmosSystemPrompt, cosmosNameEq, cleanCosmosName } from './store/cosmosStore';
-import { realmFromLevel, normalizeTier, lvFromRealm, computeMaxHp, computeMaxEp, effectiveResource, attrCapForTier, clampBaseAttrs, fullMaxHp, fullMaxEp, TIERS, TIER_LEVEL_RANGE, realAttrMult, ratioOf, npcBaseAttrs } from './systems/derivedStats';
+import { realmFromLevel, normalizeTier, lvFromRealm, computeMaxHp, computeMaxEp, effectiveResource, attrCapForTier, clampBaseAttrs, fullMaxHp, fullMaxEp, TIERS, TIER_LEVEL_RANGE, realAttrMult, ratioOf, npcBaseAttrs, isAbyssLocked } from './systems/derivedStats';
 import { isSettlingCompanion, isCandidateCompanion, selectSettlingCompanions, COMPANION_SETTLE_RATIO } from './systems/companionSettlement';   // 随从/队友世界结算判定（结算卡点名 + 前端折算发点同源）
 import { setSettlementWhitelist, getSettlementWhitelist } from './systems/settlementSelection';   // 结算随从弹窗勾选缓冲
 import { isHomeWorld, reconcileHomeWorld, reconcilePlayerVitals, playerMaxHp, playerMaxEp, syncPlayerVitalsMax, applyCombatResourceGains, resetCombatResources } from './systems/playerVitals';
+import { freezeWorld, thawWorld, reconcileWorldScope as reconcileWorldScopeCore, sameWorld } from './systems/worldScope';
+import { buildCastHintInjection, pickExitReason } from './systems/castHint';
+import { driveOf, type DriveCtx } from './systems/npcDrive';
+import { worldPowerReport, formatPowerReport } from './systems/causalWeight';
+import { drawPool, divinationSeed, buildDivinationInjection, hasDivinationLeak, scrubDivination } from './systems/divination';
+import {
+  worldRumors, serializeRumorsForEvo, buildRumorInjection, needsCompress, compressRumor,
+  shouldPromote, pruneRumors, latestNode, seedRumorsFromWorldCard, type Rumor,
+} from './systems/rumor';
+import {
+  activeEvents, overflowIds, serializeEventsForEvo, pendingDerivations, buildDerivationInjection,
+} from './systems/worldEvent';
+import { buildFameInjection, contractorBaseline } from './systems/paradiseFame';
+import { buildReputeInjection, defaultRepute, summarizeRepute, formatRepute } from './systems/reputation';
+import { canTransition, normException, parseLegacyRelations, formatEdges, diploName, buildDiplomacyInjection } from './systems/diplomacy';
 import { ensureWorldDetailFor, buildWorldDetailInjection } from './systems/worldDetail';   // 世界详情库：入世后正文注 ·剧情 档案（切入点不注）
 import { startPlaytimeHeartbeat, stopPlaytimeHeartbeat } from './systems/playtime';   // 线上游玩时长累计（登录 Discord 者·可见活跃时长）
 import { startPresenceHeartbeat, stopPresenceHeartbeat } from './systems/presence';   // 当前在玩人数（按IP·含未登录者·聊天室展示）
@@ -222,6 +245,7 @@ import { generateNpcAttrs, resolveForm, generateLuck } from './systems/npcAttrGe
 import { useImageGen, effectiveEquipService } from './store/imageGenStore';
 import { generateImage, buildPortraitPrompt, buildEquipPrompt, equippedForPrompt, inferBodyType, shrinkDataUrl, abortAllImageGen } from './systems/imageGen';
 import { genPortraitTags, genEquipTags, isTagService, genderToTag } from './systems/imageTags';
+import { outfitRosterLine, outfitRefImages, OUTFIT_REF_HINT } from './systems/outfit';
 import { hydrateImages, initImageSync } from './systems/imageSync';
 import { loadWb, saveWb } from './systems/wbDb';
 import { apiDebugLog } from './systems/apiDebugLog';
@@ -248,12 +272,13 @@ import { AgentTimeline } from './components/AgentTimeline';   // Agent 正文模
 import { runAgentNarrative } from './systems/agent/agentRuntime';   // Agent 正文模式·工具循环运行时（见 docs/AGENT_MODE_PLAN.md）
 import { AGENT_ERROR_TEXT } from './systems/agent/agentTypes';
 import { HUYU_PRESET_NAME, HUYU_CURE_SCRIPTS, HUYU_DISABLE_ENTRY_NAMES } from './systems/agent/agentPresetCure';   // V14.7 内置副本前端适配（cure·可单测）
+import { importEmbeddedAgentAssets } from './systems/agent/agentAssets';   // TT 预设内嵌 Agent 资产（skill/子代理/作者指令）导入
 import { useAgentRun } from './store/agentRunStore';   // Agent 运行态（P1：运行中「中途指引」提交 + 回合洞察归档）
 import { usePlayer, buildPlayerSystemPrompt, extractPlayerPresetFromJson } from './store/playerStore';
 import { useWorldRecord, formatWorldviewForInjection, formatInheritAnchors, normWorldName, type Worldview, type WorldSummary } from './store/worldRecordStore';
 import { useChronicle } from './store/chronicleStore';
 import { useTables } from './store/tableStore';
-import { buildVolumes, buildCompileInput, sanitizeCompiled, ORPHAN_VOLUME } from './systems/chronicle';
+import { buildVolumes, buildCompileInput, sanitizeCompiled, buildPriorSaga, ORPHAN_VOLUME } from './systems/chronicle';
 import { useChaosWorld } from './store/chaosWorldStore';
 import { computeOffset, canonWorldName, chaosUpload, chaosFeed, type ChaosRecordDraft, type ChaosOffsetNode } from './systems/chaosWorld';
 import { useNpcEvo, extractNpcPresetFromJson } from './store/npcEvoStore';
@@ -271,7 +296,10 @@ import { withGrowthGuardCtx, guardBioStrength, guardAttrValue, highestTierIn, ti
 import PartyPromoteDialog from './components/PartyPromoteDialog';
 import { useCharacters, type MemoryEntry } from './store/characterStore';
 import { useMemory } from './store/memoryStore';
-import { useMisc, buildMiscSystemPrompt, isMainQuest } from './store/miscStore';
+import { useMisc, buildMiscSystemPrompt, isMainQuest, type WorldEvent } from './store/miscStore';
+import { useCalendar } from './store/calendarStore';   // 🗓 世界历（节日/生日/纪念日）：杂项阶段顺带维护，不新增 API 调用
+import { useTheater } from './store/theaterStore';   // 🎭 小剧场·花样模板库（玩家可增删改，替代写死的风格清单）
+import { pickTemplates, buildTheaterStyleBlock } from './systems/theaterTemplates';
 import { useChannel, buildChannelSystemPrompt, CHANNEL_DEFS } from './store/channelStore';
 import { estimateFairValue, priceVerdict, formatFairRange, sumFairValues, VERDICT_LABEL } from './systems/itemPricing';
 import { applyMiscCommands, serializeTasks, serializeSettledTasks, serializeEvents, extractTurnSummaries } from './systems/miscParser';
@@ -281,10 +309,15 @@ import { useDbAdvance } from './store/dbAdvanceStore';   // 数据库推进管�
 import { findModule as dbFindModule, buildModuleMessages as dbBuildMsgs, extractTag as dbExtractTag, stripExcluded as dbStripExcluded, resolveFinalDirective as dbResolveDirective, type DbAdvanceCtx } from './systems/dbAdvancePreset';
 import { serializePlayerCard, serializeNpcCard, buildNpcCandidateTitles, buildPlayerSkillCandidates, buildPlayerItemCandidates, rankNpcsLocal, pickOffsceneRescue, serializeFactionsSection, namesMentionedIn, NM_STRUCT_SELECT_PROMPT, type RecallLimits } from './systems/structuredRecall';
 import { drainSceneNotices, pushSceneNotice, drainGrowthNotices, pushFacilityGranted, drainFacilityGranted } from './systems/allocNotice';
+import { recordMpReward, clearMpPending, promoteMpPending, discardMpReplay, replayMpPendingOnBoot } from './systems/mpPendingRewards';   // 联机来宾·奖励防回滚（离房 loadSlot 还原会吞掉在房入账）
+import { reportFacilityOutcome, peekFacilityLog, clearFacilityLog } from './systems/facilityBridge';   // 设施→正文统一接入口（通报+发放登记+成长交代一次扇出）+ 洞察设施区数据源
 import { buildCastBriefInput } from './systems/castBrief';   // 角色立场简报·输入侧：给细纲/推进喂只含人格的瘦档案（治配角同质化/OOC/谄媚）
 import { getPrompt, renderPrompt, setLastUserMessage } from './store/promptOverrideStore';   // 预设中心：主提示词 override（有玩家自定义用之，否则回退内置默认常量）；renderPrompt=给 field 类补一遍变量标签替换；setLastUserMessage=记玩家当前输入供 {{lastUserMessage}}   // 场外操作通报→正文前置须知；星图习得/开箱→入戏交代块；设施发放物→物品阶段勿再建
-import { rollGemDrops } from './systems/gemDrop';   // 正文击杀 → 结算掉落宝石（前端确定性）
+import { rollGemDrops, hasHighTierKill } from './systems/gemDrop';   // 正文击杀 → 结算掉落宝石（前端确定性）
+import { guildPerkValue } from './store/guildStore';   // 公会增益数值（dropRate/settlement…前端逐期接；服务端只判解锁）
 const MiscPanel = lazy(() => import('./components/MiscPanel'));
+const AdvisorPanel = lazy(() => import('./components/AdvisorPanel'));   // 🧭 参谋：局外顾问 + 提案卡（点应用才落库）
+const BookmarkPanel = lazy(() => import('./components/BookmarkPanel'));   // ⭐ 坐标：收藏楼层（存正文快照·纯前端）
 import DiceCard from './components/DiceCard';
 import PanelBoundary from './components/PanelBoundary';
 import { buildPlotGuardInjection, TRUTHS_MAINTAIN_RULE } from './systems/plotThreads';
@@ -403,10 +436,14 @@ const NpcPanel = lazy(() => import('./components/NpcPanel'));
 const PetCultivateModal = lazy(() => import('./components/PetCultivateModal'));
 const NpcDetail = lazy(() => import('./components/NpcDetail'));
 import OnScenePanel from './components/OnScenePanel';
+import StoryStrip from './components/StoryStrip';   // 楼层信息条：贴在最新正文末尾（时间·天气/任务/伏笔）；零 props+memo，App 重渲不碰它
+import BookmarkButton from './components/BookmarkButton';   // ⭐ 楼层收藏：自订阅 bookmarkStore，App 不订阅
 import PlayerEquipPanel from './components/PlayerEquipPanel';
 import ItemListPanel from './components/ItemListPanel';
 import VersionToast from './components/VersionToast';
-import { APP_VERSION, VERSION_NOTE } from './version';
+import GlobalToasts from './components/GlobalToasts';   // P4·全局 toast（后台事件实时反馈：交易行成交/托管归还/来宾补发/派遣酬劳）
+import { OPEN_SETTINGS_EVENT } from './systems/navBus';   // P4·空态深链：面板一键直达设置子页
+import { APP_VERSION, VERSION_NOTES } from './version';
 
 const PENDING_REGEN_KEY = 'drpg-pending-regen';   // reload 后自动重发的输入（重新生成用）
 const PENDING_REVAR_KEY = 'drpg-pending-revar';   // reload 后「仅重算变量」用：JSON {input,narrative}——复用本回合原正文重跑演化，不重新生成正文
@@ -440,12 +477,7 @@ function regexCfgSig(a?: object | null, b?: object | null): string {
   return ver(a) + ':' + ver(b);
 }
 
-/* 五阶前·「深渊」封印判定：主角有效阶位（阶位串优先，回退按等级推导）< 五阶（TIERS idx4）→ 封印生效。
-   「深渊」系是五阶后才揭开的最高阶黑幕，五阶前禁止在正文出现该词（提示词 ABYSS_LOCK_RULE + applyRegex 兜底 scrub 双保险）。 */
-function isAbyssLocked(prof?: { tier?: string; level?: number } | null): boolean {
-  const t = normalizeTier(prof?.tier || '') || realmFromLevel(prof?.level ?? 1);
-  return TIERS.indexOf(t as typeof TIERS[number]) < 4;
-}
+/* 五阶前·「深渊」封印判定已抽到 systems/derivedStats.isAbyssLocked（AbyssPanel 标题也要判，共用一份）。 */
 
 /* 多模态：把图片(data:URL)挂到消息序列里【最后一条 user 消息】上——OpenAI 兼容视觉格式
    （content 由纯字符串改为 [{type:'text'},{type:'image_url'}…] 数组，GPT-4o/Gemini/Claude 视觉模型皆认）。
@@ -475,6 +507,17 @@ function scrubAbyss(text: string): string {
   return text.replace(/深渊/g, '幽冥');
 }
 
+/* 🧊 世界作用域·每回合兜底（见 systems/worldScope.ts）：把归属于"当前世界以外的任务世界"的土著补冻。
+   与 enterWorld 里那次 freezeWorld 分工——那次负责切世界瞬间（含补写在场者的 worldName），
+   这里负责读档 / AI 改写 worldName / 历史存档遗留 等 freezeWorld 抓不到的路径。幂等，可每回合调。 */
+function reconcileWorldScope(): void {
+  try {
+    const M = useMisc.getState();
+    const r = reconcileWorldScopeCore(M.worldName || '', M.turnCount);
+    if (r.npcFrozen.length) console.log(`[worldScope] 🧊 兜底冻结 ${r.npcFrozen.length} 名往世土著（当前世界：${M.worldName || '—'}）`);
+  } catch (e) { console.warn('[worldScope] 兜底失败（跳过）:', e); }
+}
+
 // 当前所在世界的「世界观骨架」→ 注入正文最深处（紧贴生成·指导 AI 演绎本世界剧情/势力/人物）。无 active 记录或无世界观则空。
 // 主角当前所在世界的「世界志」文本（世界观骨架 + 继承进度·手动编辑优先）；仅当确在某任务世界(非主神空间)且该世界有记录时返回，离开(回主神空间/换世界)即空。
 function activeWorldLoreText(): string {
@@ -494,6 +537,94 @@ function worldLoreEvoInjection(): string {
   const t = activeWorldLoreText();
   if (!t) return '';
   return `\n\n【本世界·世界志（主角当前所在世界·最高约束·仅在此世界内生效）】以下是主角当前所在世界的既定设定。**在本世界登场 / 演化的任何人物，其阶位·等级·生物强度都不得超过本世界「巅峰战力」，并须与下方势力 / 关键人物的强度档相称**——世界巅峰若仅五~七阶，就绝不冒出八阶 / 巅峰至强的路人；人物立场·所属势力·剧情走向亦据此保持一致。\n${t}`;
+}
+/* 当前世界的活跃（未结算）世界事件 —— 演化输入与正文注入共用这一份口径。 */
+function currentActiveEvents(): WorldEvent[] {
+  try {
+    const M = useMisc.getState();
+    return activeEvents(M.worldEvents ?? [], M.worldName || '', sameWorld);
+  } catch { return []; }
+}
+
+/* 世界事件·前端确定性维护（演化阶段之后跑）：超配额裁剪。
+   ⚠ 裁剪 = 标记为「湮灭」而不是物理删除（铁律「库房只存不删」）——它们仍留在世界大事流水账里可回看。 */
+function reconcileWorldEvents(): void {
+  try {
+    const M = useMisc.getState();
+    const ids = overflowIds(currentActiveEvents());
+    for (const id of ids) M.settleWorldEvent(id, 'faded', '（超出本世界事件维护上限，就此淡出）');
+    if (ids.length) console.log(`[世界事件] ✂ 超配额，${ids.length} 条淡出：${ids.join('、')}`);
+  } catch (e) { console.warn('[世界事件] 维护失败（跳过）:', e); }
+}
+
+/* 当前世界的活跃传闻（world 作用域：worldName 为空=老数据放行，与 worldScope 同口径「宁漏勿误」）。 */
+function currentWorldRumors(): Rumor[] {
+  try {
+    const M = useMisc.getState();
+    return worldRumors(M.rumors ?? [], M.worldName || '', sameWorld);
+  } catch { return []; }
+}
+
+/* 传闻·前端确定性维护（**演化阶段之后**跑，把 AI 不该管的机械活接管过来）：
+   ① 节点数 ≥3 → 压缩成一条（保留最早日期 + 全程诱因串，不丢"怎么一步步变成这样"）
+   ② 达「文化烙印」→ 升格：写成一条世界大事收尾，然后移除（编年史那条线由 chronicle 自然吃到）
+   ③ 总数 >5 → 按价值裁剪
+   都是纯函数算好再落库，AI 只负责写内容。 */
+function reconcileRumors(): void {
+  try {
+    const M = useMisc.getState();
+    const all = M.rumors ?? [];
+    if (!all.length) return;
+    let next = all;
+    // ① 压缩
+    next = next.map((r) => (needsCompress(r) ? compressRumor(r) : r));
+    // ② 升格「文化烙印」→ 世界大事 + 移除
+    const promoted = next.filter(shouldPromote);
+    for (const r of promoted) {
+      const n = latestNode(r);
+      M.addWorldEvent({ time: n?.date || M.worldTime || '', location: r.scope || '', desc: `【传世】${r.name}：${n?.told || ''}` });
+      console.log(`[传闻] 🏛「${r.name}」已达文化烙印 → 升格为世界大事并移除`);
+    }
+    next = next.filter((r) => !shouldPromote(r));
+    // ③ 裁剪
+    const { kept, dropped } = pruneRumors(next);
+    if (dropped.length) console.log(`[传闻] ✂ 超出上限，裁掉 ${dropped.length} 条低价值传闻：${dropped.map((d) => d.name).join('、')}`);
+    next = kept;
+    if (next !== all) useMisc.getState().setRumors(next);
+  } catch (e) { console.warn('[传闻] 维护失败（跳过·不阻断演化）:', e); }
+}
+
+/* 命运罗盘（systems/divination）：给世界大事的走向做外部随机锚，打破 LLM 的模式坍缩
+   （否则后台事件永远是"阴谋→危机→反转"三件套）。
+   ⚠ **只进演化阶段，永不进正文**——赛博/西幻世界跳出卦象与塔罗牌名会直接破沉浸；
+     注入块自带封词铁则，要求 AI 只把**中文走向描述**写回事件字段。
+   种子绑「世界记录 id + 回合区段」：同一段时间内的罗盘稳定，跨读档/回退不跳。 */
+function divinationInjection(): string {
+  try {
+    const M = useMisc.getState();
+    if (isHomeWorld(M.worldName || '')) return '';   // 乐园不推演世界大事
+    const wid = useWorldRecord.getState().getActive()?.id || M.worldName || 'w';
+    const seg = Math.floor((M.turnCount || 0) / 3);   // 每 3 回合换一组，免得每轮都在重掷
+    const pool = drawPool(divinationSeed(wid, `seg${seg}`), 3);
+    return '\n\n' + buildDivinationInjection(pool, '本期世界走向');
+  } catch { return ''; }
+}
+
+/* 因果权重（systems/causalWeight）：主角 vs 本世界群体基准 的力量结构，一行机读结论 + 该档的叙事约束。
+   在乐园/无世界记录 → 不注入（乐园里"群体 vs 个体"不是叙事主轴）。随各演化阶段同注。 */
+function causalWeightInjection(): string {
+  try {
+    const M = useMisc.getState();
+    if (isHomeWorld(M.worldName || '')) return '';
+    const rec = useWorldRecord.getState().getActive();
+    const p = usePlayer.getState().profile;
+    if (!p?.tier && p?.level == null) return '';
+    const rep = worldPowerReport(
+      { tier: p.tier, level: p.level, bioStrength: undefined },
+      { tier: rec?.tier || M.worldTier || '', peakPower: `${rec?.cardSnapshot?.peakPower ?? ''} ${rec?.cardSnapshot?.['世界巅峰战力'] ?? ''}` },
+    );
+    return `\n\n${getPrompt('CAUSAL_WEIGHT_RULE', CAUSAL_WEIGHT_RULE)}\n${formatPowerReport(rep)}`;
+  } catch { return ''; }
 }
 // 成长闸门（npcGrowthGuard）用：当前任务世界「巅峰战力」文本里的最高阶位名（自由文本 → 扫 14 阶名取最高；
 // 提不出/在主神空间/无世界记录 → '' 不封顶）。土著/契约者的升阶与首档以此封顶，随从/宠物/召唤物豁免。
@@ -690,6 +821,25 @@ async function loadBuiltinDefaults() {
         }
       }
     } catch { /* 适配失败不阻断启动 */ }
+    // 内嵌 Agent 资产一次性导入（P3·v1）：两枚 agent 预设携带的 skill 包/子代理档案/作者工作流指令
+    //   （extensions.tauritavern）。新用户在上面 seeds 的 importTextPreset 里已顺带导入；这里补的是
+    //   「预设早已种过、seeds 不再拉原文」的老用户——强拉一次原文只为资产，成功才记 flag（断网下次再试）。
+    try {
+      const AKEY = 'zs-agent-assets-v1';
+      if (!localStorage.getItem(AKEY)) {
+        const pairs: Array<[string, string]> = [['[Agent] V14.7 狐神抚 · 毓忻', 'agent-huyu.json'], ['Fairy_Tale 2.3.0', 'agent-fairy.json']];
+        let okAll = true;
+        for (const [n, f] of pairs) {
+          const t = await grab(f);
+          if (!t) { okAll = false; continue; }
+          try {
+            const rep = await importEmbeddedAgentAssets(JSON.parse(t), n, true);
+            if (rep.skills || rep.subagents || rep.writerNotes) console.log(`[AgentAssets] 「${n}」内嵌资产：skill×${rep.skills} 子代理×${rep.subagents}${rep.writerNotes ? ' +作者指令' : ''}${rep.errors.length ? ' · 错误:' + rep.errors.join(';') : ''}`);
+          } catch (e) { okAll = false; console.warn('[AgentAssets] 导入失败', n, e); }
+        }
+        if (okAll) localStorage.setItem(AKEY, '1');
+      }
+    } catch { /* 资产导入失败不阻断启动 */ }
     // 四个演化预设（主角/物品/NPC/势力）→ **每次启动强制覆盖成内置最新**（按要求：玩家对这些预设的改动不保留，始终以内置为准）。
     // 仅当 fetch+解析成功才覆盖；失败则保留现有，避免断网把预设清空。setPresetEntries 只换 entries/名称/版本，保留各自的 API 路由配置。
     // 五份各写各的 store、互相没有依赖，原先五次串行往返只是写法所致 → 并发取回后仍按原顺序 apply。
@@ -1355,7 +1505,7 @@ const CHANNEL_AUTHOR_INFO_RULE = `
 这三项**每条都要给**，后续会用来生成该契约者的临时队友 NPC 档案。
 
 【发帖人属性·自洽铁则（阶位 / 等级 / 强度档 / 职业必须互相匹配，禁止乱配）】发帖契约者按"角色生成"的同一套规则生成，"tier"(阶位·Lv)、"strength"、"job" 三项必须前后自洽，绝不能各填各的：
-- **阶位 ↔ 等级一一对应**：一阶=Lv.1-10、二阶=11-20、三阶=21-30、四阶=31-40、五阶=41-50、六阶=51-60、七阶=61-70、八阶=71-80、九阶=81-90、绝强=91-100、至强=101-120、巅峰至强=121-140、无上之境=140+。阶位与 Lv **必须落在同一档**，绝不能写「四阶·Lv.15」这种阶位与等级错配的组合。
+- **阶位 ↔ 等级一一对应**：${tierLevelTable()}。阶位与 Lv **必须落在同一档**，绝不能写「四阶·Lv.15」这种阶位与等级错配的组合。
 - **生物强度档 T0~T9 的称呼只能照抄这套**：T0杂鱼 / T1兵卒 / T2精英 / T3勇士 / T4英雄 / T5领主 / T6王者 / T7半神 / T8真神 / T9源初。绝不能错配称呼（如写「T6·领主」——T6 是「王者」、「领主」是 T5）。
 - **四项彼此相称**：阶位越高 → 等级、强度档越高、职业越响亮、口气越大；低阶（一~三阶）就配 T0~T3 与朴实职业，别动辄 T7 半神或「噬神者 / 界之主」这类顶级职业名。务必内部一致、不自相矛盾。`;
 
@@ -1396,11 +1546,13 @@ const rightMenuItems = [
   { icon: '🔍', label: '回合洞察' },
   { icon: '🧾', label: '审计' },
   { icon: '📋', label: '任务' },
+  { icon: '🧭', label: '参谋' },   // 局外顾问：商量任务/伏笔/节日怎么设计 → 出提案卡 → 点「应用」才落库
   { icon: '📡', label: '频道' },
   { icon: '✉', label: '私信' },
   { icon: '👥', label: '好友' },
   { icon: '🌐', label: '联机' },
   { icon: '💬', label: '聊天室' },
+  { icon: '⏱', label: '游玩时长' },   // runNavAction/NAV_FX/⌘K别名/PlaytimePanel 四处早已就绪，唯独这里漏了 → 曾是零入口死功能
   { icon: '🛒', label: '交易行' },
   { icon: '🏪', label: '产业' },
   { icon: '🏰', label: '公会' },
@@ -1412,8 +1564,34 @@ const rightMenuItems = [
   { icon: '🧩', label: '创意工坊' },
   { icon: '💾', label: '存档' },
   { icon: '🌿', label: '分支树' },
+  { icon: '⭐', label: '坐标' },   // 收藏楼层（存正文快照·纯前端，与分支树相邻：一个存"没走的路"，一个存"值得留的段落"）
   { icon: '🔊', label: '语音' },
   { icon: '⚙', label: '设置' },
+];
+
+/* P4·分组导航（默认开·外观设置「导航分组」可关回平铺）：近 50 项按功能域分 7 组，组内相关功能相邻。
+   成员写 rightMenuItems 的 label（「幽冥」按「深渊」归组）；没归到组的新增项自动落「其他」——
+   加新导航项忘了归组也不会消失（宁可显示在兜底组，绝不静默丢失）。 */
+const NAV_GROUPS: { name: string; members: string[] }[] = [
+  { name: '角色', members: ['装备', '储存空间', '技能', '技能树', '体系', '副职业', '称号', '成就'] },
+  { name: '伙伴', members: ['NPC', '宠物/召唤物', '队伍', '冒险团', '好友'] },
+  { name: '世界', members: ['任务', '参谋', '势力', '领地', '万族', '世界记录', '编年史', '混沌世界', '世界百科', '世界资料库', '原著WIKI'] },
+  { name: '乐园设施', members: ['战斗', '乐园设施', '深渊', '合成', '开箱'] },
+  { name: '社交联机', members: ['频道', '私信', '聊天室', '联机', '交易行', '产业', '公会', '助战', '世界竞技场', '游玩时长'] },
+  { name: '传承', members: ['纪念丰碑', '账户仓库', '创意工坊', '存档', '分支树', '坐标'] },
+  { name: '系统', members: ['回合洞察', '审计', '记忆', '语音', '设置'] },
+];
+
+/* P4·⌘K 深动作表：不进右侧导航、只出现在命令面板的二级功能（run 分支在 runNavAction）。
+   欢愉宫按开关另行追加（见组装处 paletteItems）。 */
+const PALETTE_ACTIONS: { icon: string; label: string }[] = [
+  { icon: '⚒', label: '装备强化' },
+  { icon: '🔼', label: '技能升级' },
+  { icon: '🏟', label: '竞技场' },
+  { icon: '🎰', label: '赌场' },
+  { icon: '🏪', label: '系统商店' },
+  { icon: '⚖', label: '结算任务' },
+  { icon: '♻', label: '重算变量' },
 ];
 
 /* 右侧导航·每个图标的独特 hover 特效类（定义见 index.css 的 .fx-*）*/
@@ -1421,7 +1599,7 @@ const NAV_FX: Record<string, string> = {
   '装备': 'fx-sword', '储存空间': 'fx-bag', 'NPC': 'fx-card', '技能': 'fx-sparkle',
   '副职业': 'fx-wrench', '技能树': 'fx-tree', '体系': 'fx-tree', '合成': 'fx-wrench', '开箱': 'fx-bag', '称号': 'fx-medal', '成就': 'fx-trophy', '势力': 'fx-pillar',
   '领地': 'fx-castle', '冒险团': 'fx-shield', '队伍': 'fx-friends', '万族': 'fx-cosmos', '世界百科': 'fx-book', '世界资料库': 'fx-book', '原著WIKI': 'fx-book', '编年史': 'fx-book', '分支树': 'fx-tree', '混沌世界': 'fx-void',
-  '战斗': 'fx-clash', '乐园设施': 'fx-ferris', '深渊': 'fx-void', '回合洞察': 'fx-zoom', '审计': 'fx-zoom', '任务': 'fx-quest',
+  '战斗': 'fx-clash', '乐园设施': 'fx-ferris', '深渊': 'fx-void', '幽冥': 'fx-void', '回合洞察': 'fx-zoom', '审计': 'fx-zoom', '任务': 'fx-quest',
   '频道': 'fx-signal', '私信': 'fx-mail', '好友': 'fx-friends', '聊天室': 'fx-signal', '交易行': 'fx-bag', '产业': 'fx-bag', '公会': 'fx-castle', '助战': 'fx-clash', '世界竞技场': 'fx-trophy', '游玩时长': 'fx-trophy', '纪念丰碑': 'fx-pillar', '账户仓库': 'fx-bag', '记忆': 'fx-brain', '创意工坊': 'fx-sparkle', '存档': 'fx-save', '设置': 'fx-gear',
 };
 
@@ -1452,14 +1630,16 @@ function rollAndApplyGemDrops(rawNarrative: string): string {
     const st = useEnhance.getState().settings;
     if (st.gemDropEnabled === false) return '';
     const p = usePlayer.getState().profile;
+    // 公会增益 dropRate（Lv5 perk·+0.05）：掉率加成由前端接（GuildDO 注释"数值效果由前端逐期接"，此前 guildPerkValue 零调用、捐献无任何机械回报）
     const drops = rollGemDrops(rawNarrative, {
       tier: p?.tier, level: p?.level,
-      config: { enabled: true, rate: st.gemDropRate ?? 0.2, maxPerTurn: 1 },   // 仅击杀强敌可能掉·每回合至多 1 颗
+      config: { enabled: true, rate: (st.gemDropRate ?? 0.2) + guildPerkValue('dropRate'), maxPerTurn: 1 },   // 仅击杀强敌可能掉·每回合至多 1 颗
     });
+    // 公会贡献：击杀强敌就记（原先挂在"掉到宝石"之后——掉率仅 20%，八成强敌击杀对公会零贡献）
+    try { if (useGuild.getState().my && hasHighTierKill(rawNarrative)) guildClient.contributeRest(60, 'kill'); } catch { /* 击杀强敌→公会贡献(异步·非阻塞) */ }
     if (!drops.length) return '';
     const I = useItems.getState();
     for (const d of drops) I.addItem(d as any);
-    try { if (useGuild.getState().my) guildClient.contributeRest(drops.length * 60, 'kill'); } catch { /* 击杀强敌→公会贡献(异步·非阻塞) */ }
     const names = drops.map((d) => d.name).join('、');
     pushSceneNotice(`【场外·掉落】击败强敌后，从其身上拾得宝石：${names}（已入背包，可到💎镶嵌所镶嵌；集齐同套装宝石激活套装加成）`);
     try { playSfx('coin'); } catch { /* 缺音效静默 */ }
@@ -1555,6 +1735,7 @@ export default function App() {
   const [backpackOpen,     setBackpackOpen]     = useState(false);
   const [cmdkOpen,         setCmdkOpen]         = useState(false);   // 命令面板（⌘K / Ctrl+K / 顶栏🔍 快速跳转面板）
   const [revarOpen,        setRevarOpen]        = useState(false);   // 重算单项变量菜单（重 ROLL）
+  const [settingsDeepPage, setSettingsDeepPage] = useState<string | undefined>(undefined);   // P4·空态深链：navBus 请求直达的设置子页
   const [phaseFail,        setPhaseFail]        = useState<Record<string, boolean>>({});   // 各演化阶段「上次更新失败」持久标记（重算菜单据此标红；key: item/player/npc/faction/territory/team/cosmos/misc/image）
   const [phaseBusy,        setPhaseBusy]        = useState<Record<string, boolean>>({});   // 各演化阶段「正在重 ROLL」标记（菜单内点重 ROLL 时置位，完成/失败/兜底超时清除）
   const [floorCfg,         setFloorCfg]         = useState<{ fk: string; label: string; total: number } | null>(null);   // 「按楼层批量更新」配置弹窗
@@ -1581,6 +1762,8 @@ export default function App() {
   const [npcPanelOpen,     setNpcPanelOpen]     = useState(false);
   const [petRosterOpen,    setPetRosterOpen]    = useState(false);   // 🐾 宠物/召唤物花名册（复用 NpcPanel petMode）
   const [miscPanelOpen,    setMiscPanelOpen]    = useState(false);
+  const [advisorOpen,      setAdvisorOpen]      = useState(false);   // 🧭 参谋（局外顾问 + 提案卡）
+  const [bookmarkOpen,     setBookmarkOpen]     = useState(false);   // ⭐ 坐标（收藏楼层）
   const [worldRecordOpen,  setWorldRecordOpen]  = useState(false);
   const [chroniclePanelOpen, setChroniclePanelOpen] = useState(false);
   const [branchPanelOpen,  setBranchPanelOpen]  = useState(false);   // 🌿 楼层分支树
@@ -1618,6 +1801,41 @@ export default function App() {
   const [vaultOpen, setVaultOpen] = useState(false);         // 账户仓库（跨存档保险箱）
   const chatUnread = useChatRoom((s) => s.unread);   // 导航红点：聊天室未读
   const chatOnline = useChatRoom((s) => s.roster.length);   // 在线人数（= 当前在玩且已登录的人）
+  // 五阶前「深渊」封印同步到 UI：导航/⌘K 显示「幽冥」（与正文 scrubAbyss 同口径），五阶解锁恢复真名。
+  // 布尔选择器：只在跨过五阶那一刻触发一次重渲染，平时零开销。
+  const abyssLocked = usePlayer((s) => isAbyssLocked(s.profile));
+  const navItems = useMemo(
+    () => (abyssLocked ? rightMenuItems.map((it) => (it.label === '深渊' ? { ...it, label: '幽冥' } : it)) : rightMenuItems),
+    [abyssLocked],
+  );
+  // P4·分组导航：navGrouped 开 → 按 NAV_GROUPS 分区；关 → null（渲染处走原平铺路径，逐像素不变）
+  const navGrouped = useSettings((s) => s.navGrouped);
+  const navSections = useMemo(() => {
+    if (!navGrouped) return null;
+    const canon = (l: string) => (l === '幽冥' ? '深渊' : l);
+    const byLabel = new Map(navItems.map((it) => [canon(it.label), it]));
+    const used = new Set<string>();
+    const sections = NAV_GROUPS.map((g) => ({
+      name: g.name,
+      items: g.members.map((m) => { const it = byLabel.get(m); if (it) used.add(m); return it; }).filter(Boolean) as typeof rightMenuItems,
+    })).filter((s) => s.items.length > 0);
+    const rest = navItems.filter((it) => !used.has(canon(it.label)));
+    if (rest.length) sections.push({ name: '其他', items: rest });
+    return sections;
+  }, [navGrouped, navItems]);
+  // P4·红点泛化：聊天室之外，派遣战报未读也上导航（DispatchRecord.read 的注释本就写着「未读在导航打红点」，今天接上）
+  const dispatchUnread = useTeam((s) => s.dispatchHistory.reduce((n, r) => n + (r.read ? 0 : 1), 0));
+  const navBadges = useMemo(() => {
+    const b: Record<string, number> = {};
+    if (chatUnread > 0) b['聊天室'] = chatUnread;
+    if (dispatchUnread > 0) b['冒险团'] = dispatchUnread;
+    return b;
+  }, [chatUnread, dispatchUnread]);
+  // P4·⌘K 条目 = 导航全项 + 深动作（乐园设施子项/回合工具；欢愉宫按开关追加）——二级功能从此可搜可达
+  const paletteItems = useMemo(
+    () => [...navItems, ...PALETTE_ACTIONS, ...(joyEnabled ? [{ icon: '💗', label: '欢愉宫' }] : [])],
+    [navItems, joyEnabled],
+  );
   // 已登录(有聊天身份) → 一进游戏就后台连接聊天室：「在玩存档即在线」（不必开聊天面板，新消息也进未读红点）
   useEffect(() => {
     if (chatDiscordLoggedIn() && chatReady()) {
@@ -1662,6 +1880,18 @@ export default function App() {
     try { if (rw.potentialPoints) useSkillTree.getState().grantBonusPP('B1', Number(rw.potentialPoints) || 0); } catch (e) { console.warn('[Raid] 奖励潜能点入账失败', e); }
     try { for (const it of (rw.items || [])) useItems.getState().addItem({ name: it.name, category: it.category, gradeDesc: it.gradeDesc, effect: it.effect, quantity: it.quantity } as any); } catch (e) { console.warn('[Raid] 奖励物品入账失败', e); }
     try { if (rw.title) useCharacters.getState().addTitle('B1', rw.title); } catch (e) { console.warn('[Raid] 奖励称号入账失败', e); }
+    // 来宾：记一笔防回滚流水（离房 loadSlot 会把上面全部入账还原掉；房主/单机不记）
+    recordMpReward({ id: `raid_${rw.rewardId}`, note: '副本通关豪华奖励', currency: rw.currency, items: rw.items, potentialPoints: rw.potentialPoints, title: rw.title });
+    // 场外通报 + 发放登记：讨伐奖励此前零通报、物品也没登记 granted（审计确认）
+    try {
+      const itemNames = (rw.items || []).map((x: any) => String(x?.name || '')).filter(Boolean);
+      reportFacilityOutcome({
+        source: '联机讨伐',
+        summary: `通关「${rw.themeName || '攻坚战'}」（评级 ${rw.rating || '—'}）：豪华奖励已全套入账——${itemNames.slice(0, 6).map((n: string) => `「${n}」`).join('、')}${itemNames.length > 6 ? ' 等' : ''}${rw.title?.name ? `，获称号「${rw.title.name}」` : ''}`,
+        granted: itemNames,
+        growth: rw.title?.name ? `因通关「${rw.themeName || '攻坚战'}」获得称号「${rw.title.name}」——可自然带过战后授勋的一幕，不强求成段` : undefined,
+      });
+    } catch { /* 通报失败不阻断入账 */ }
     useMp.getState()._set({ raidReward: rw });
   }
   const combatFinishingRef = useRef(false);
@@ -1972,7 +2202,10 @@ export default function App() {
             break;
           case 'raid_loot':
             useMp.getState()._set({ raidLoot: { ...m.payload, results: null } });   // 全员：弹战利分配窗
-            try { useItems.getState().adjustCurrency('乐园币', Number(m.payload.currency) || 0, '联机讨伐·战利品货币'); } catch {}   // 货币全员均得
+            try {
+              useItems.getState().adjustCurrency('乐园币', Number(m.payload.currency) || 0, '联机讨伐·战利品货币');   // 货币全员均得
+              recordMpReward({ id: `raidloot_${m.payload.lootId}`, note: '讨伐战利货币', currency: { 乐园币: Number(m.payload.currency) || 0 } });   // 来宾防回滚
+            } catch { /* */ }
             break;
           case 'raid_roll':
             if (useMp.getState().role === 'host') {   // 房主：收集各人投点
@@ -1982,7 +2215,7 @@ export default function App() {
           case 'raid_loot_result': {
             const lt = useMp.getState().raidLoot;
             if (lt && m.payload?.lootId === lt.lootId) {
-              for (const it of (lt.items || [])) { const r = m.payload.results?.[it.id]; if (r?.winnerId === myPlayerId()) { try { useItems.getState().addItem({ name: it.name, category: it.category, gradeDesc: it.gradeDesc, effect: it.effect, quantity: it.quantity } as any); } catch {} } }
+              for (const it of (lt.items || [])) { const r = m.payload.results?.[it.id]; if (r?.winnerId === myPlayerId()) { try { useItems.getState().addItem({ name: it.name, category: it.category, gradeDesc: it.gradeDesc, effect: it.effect, quantity: it.quantity } as any); recordMpReward({ id: `roll_${lt.lootId}_${it.id}`, note: '讨伐战利 ROLL 所得', items: [{ name: it.name, category: it.category, gradeDesc: it.gradeDesc, effect: it.effect, quantity: it.quantity }] }); } catch { /* */ } } }
               useMp.getState()._set({ raidLoot: { ...lt, results: m.payload.results } });
             }
             break;
@@ -2025,9 +2258,15 @@ export default function App() {
       },
       onGuestJoin: () => {   // 来宾进房：把当前单机态快照到保留槽，隔离单机存档（联机存档）
         try { void saveSlot('mp-solo-backup', '🔙 联机前·单机备份', messagesRef.current); } catch (e) { console.warn('[MP] 单机备份失败', e); }
+        clearMpPending();   // 防回滚流水从零记：当前态刚被快照，旧流水已随态持久化、作废
       },
       onGuestRestore: async () => {   // 来宾离开/关房：还原单机存档（loadSlot 会整页 reload；无备份则 no-op）
-        try { await loadSlot('mp-solo-backup'); } catch (e) { console.warn('[MP] 单机还原失败', e); }
+        // 促账必须在 loadSlot 之前（loadSlot 末尾同步 reload，之后的代码不执行）；reload 后开机 replayMpPendingOnBoot 补发在房入账
+        promoteMpPending();
+        try {
+          const ok = await loadSlot('mp-solo-backup');
+          if (!ok) discardMpReplay();   // 无备份=没回滚 → 奖励仍在当前态，补发就是双发
+        } catch (e) { discardMpReplay(); console.warn('[MP] 单机还原失败', e); }
       },
       onStartRaid: (boss: any) => { if (useMp.getState().role === 'host') startRaidCombat(boss); },   // 房主：开战组队讨伐
       onRaidTally: () => { if (useMp.getState().role === 'host') tallyRaidLoot(); },   // 房主：结算战利分配
@@ -2037,6 +2276,17 @@ export default function App() {
       onGenHidden: () => { void genHiddenConditions(); },   // 隐藏结局：房主编织跨玩家条件
     });
   // eslint-disable-next-line react-hooks/exhaustive-deps -- 仅挂载时注册一次联机事件处理器；回调内经 getState()/ref 取最新值，重注册无意义
+  }, []);
+
+  // 联机来宾·离房奖励补发：离房 loadSlot 还原单机档并 reload，到这里把在房期间的入账流水重放回来
+  // （讨伐货币/ROLL 物品/豪华奖励/赠予——否则来宾一离房全部蒸发）。无流水=零开销 no-op。
+  useEffect(() => { try { replayMpPendingOnBoot(); } catch (e) { console.warn('[MP] 离房奖励补发异常', e); } }, []);
+
+  // P4·空态深链：面板经 navBus 请求「打开设置并直达子页」（CustomEvent 解耦·免穿 9 个 lazy 面板的 prop）
+  useEffect(() => {
+    const h = (e: Event) => { const p = (e as CustomEvent).detail; if (typeof p === 'string' && p) { setSettingsDeepPage(p); setSettingsOpen(true); } };
+    window.addEventListener(OPEN_SETTINGS_EVENT, h);
+    return () => window.removeEventListener(OPEN_SETTINGS_EVENT, h);
   }, []);
 
   // 滚动监听：判断是否贴近底部（贴近=继续吸附跟随；上滑超过阈值=暂停跟随）
@@ -2203,6 +2453,19 @@ export default function App() {
     if (!chatHydrated.current) return;
     chatDb.putChanged(messages as any);
   }, [messages]);
+
+  // 📖 漫画写回楼层：comic.ts 任务全页成功后经事件桥把页图追加进目标楼层正文（anchor 空=追加正文末尾；随消息进 chatDb）
+  useEffect(() => {
+    const onComicInsert = (e: Event) => {
+      const d = (e as CustomEvent).detail as { msgId: number; title: string; pages: { url: string; prompt: string }[] } | undefined;
+      if (!d || typeof d.msgId !== 'number' || !Array.isArray(d.pages) || !d.pages.length) return;
+      setMessages((prev) => prev.map((m) => m.id === d.msgId
+        ? { ...m, images: [...(m.images ?? []), ...d.pages.map((p) => ({ anchor: '', url: p.url, prompt: p.prompt, nsfw: 'sfw', ts: Date.now() }))] }
+        : m));
+    };
+    window.addEventListener('zs-comic-insert', onComicInsert);
+    return () => window.removeEventListener('zs-comic-insert', onComicInsert);
+  }, []);
 
   // 对文本执行正则替换
   // placement=1 是我们的 AI输出，placement=2 是 ST 原始 AI输出（兼容已存储的旧数据），placement=0 是用户输入（opts.target='user' 时启用）
@@ -2505,12 +2768,15 @@ export default function App() {
           // 完成贪婪环额外加成：贪婪(optional)环是高风险高回报的可选拔高，打通它综合评级就该往上顶——每完成一个 done 的贪婪环 +0.5 档，最多 +2
           const greedyDoneN = done.reduce((n: number, t: any) => n + (Array.isArray(t.rings) ? t.rings.filter((r: any) => r.optional && r.status === 'done').length : 0), 0);
           const greedyBonus = Math.min(2, greedyDoneN * 0.5);
-          // 环评分主导：各环平均评分×0.75 + 世界之源×0.25，再叠加贪婪环完成加成
-          const finalPts = Math.max(0, Math.min(7, Math.round(wsPts * 0.25 + avgRing * 0.75 + greedyBonus)));
+          // 公会增益 settlement（Lv3 perk·value=满档占比，0.05≈0.35档）：结算评级小幅加成——机械接入（GuildDO 只判解锁、数值由前端接，此前零调用）
+          const guildSettleBonus = guildPerkValue('settlement') * 7;
+          // 环评分主导：各环平均评分×0.75 + 世界之源×0.25，再叠加贪婪环完成加成 + 公会增益
+          const finalPts = Math.max(0, Math.min(7, Math.round(wsPts * 0.25 + avgRing * 0.75 + greedyBonus + guildSettleBonus)));
           addRule('本世界综合评级建议', '前端数据 · 综合评级建议（环均分×0.75 + 世界之源×0.25·环评分主导）',
             `【本世界综合评级·系统建议（结算面板【综合评价】以此为准）】\n` +
             `- 各已达成环平均评分（主导·占七成半）→ ${GL[Math.round(avgRing)] || '—'}（共 ${ringPts.length} 环计入·含已完成的贪婪环）\n` +
             `- 世界之源 ${ws}%（辅助·占两成半）→ 档位 ${GL[wsPts]}\n` +
+            (guildSettleBonus > 0 ? `- 公会增益：世界结算评级小幅加成 **+${guildSettleBonus.toFixed(2)} 档**（已计入综合评级）\n` : '') +
             `- 贪婪环完成加成：**+${greedyBonus} 档**（本世界打通 ${greedyDoneN} 个贪婪环·高风险高回报，打通即拔评级）\n` +
             `- **综合评级 = 各环平均评分×0.75 ＋ 世界之源档位×0.25 ＋ 贪婪加成·四舍五入 = 【${GL[finalPts]}】**（以各环评分为主导）\n` +
             `⇒ 结算的【综合评价】与奖励乘数**采用此建议评级 ${GL[finalPts]}**：任务结算**不只看世界之源%，每一环的评分同样计入**——各环打得漂亮(S/A)就把综合评级往上拉，别只因世界之源低就压到 D。除非有明确剧情理由，最多微调 ±1 档并写明原因。`);
@@ -3886,7 +4152,9 @@ export default function App() {
         .replaceAll('${character_snapshot}', playerProfileSnapshot)
         .replaceAll('${player_skills}', pSkillsLine)
         .replaceAll('${player_traits}', pTalentsLine)
-        + '\n\n' + getPrompt('PARADISE_RULES_RULE', PARADISE_RULES_RULE) + '\n\n' + NARRATIVE_FIRST_RULE + '\n' + EVO_VERIFY_RULE + '\n' + BUFF_AS_STATUS_RULE + '\n' + SUBPROF_RULE + '\n' + TALENT_NO_CAP_RULE + '\n' + TITLE_DIVERSITY_RULE + '\n' + SKILL_TALENT_NOTE_RULE + '\n' + SKILL_TIER_RULE + '\n' + SKILL_TALENT_ATTR_CAP_RULE + '\n' + PLAYER_SKILL_KEEP_RULE + '\n' + ITEM_GRANTED_SKILL_RULE + '\n' + SKILL_STABILITY_RULE + '\n' + SKILL_COMBAT_TAG_RULE + '\n' + TIER_RULE +'\n' + IMAGE_TAGS_RULE + '\n' + HPEP_NARRATIVE_ONLY_RULE + '\n' + WORLDSOURCE_RULE + '\n' + POINTS_NARRATIVE_RULE + '\n' + ATTR_SANITY_RULE + '\n' + ATTR_CAP_RULE + '\n' + PLAYER_ATTR_LOCK_RULE + '\n' + APPEARANCE_UPDATE_RULE + '\n' + STATUS_FORMAT_RULE + '\n' + STATUS_COUNTDOWN_TURN_RULE + '\n' + FIRST_UPDATE_COMPLETE_RULE + '\n' + EVO_EXACT_REF_RULE + '\n' + SKILL_TALENT_GUIDE + '\n' + getPrompt('PLAYER_COT_RULE', PLAYER_COT_RULE);
+        + '\n\n' + getPrompt('PARADISE_RULES_RULE', PARADISE_RULES_RULE) + '\n\n' + NARRATIVE_FIRST_RULE + '\n' + EVO_VERIFY_RULE + '\n' + BUFF_AS_STATUS_RULE + '\n' + SUBPROF_RULE + '\n' + TALENT_NO_CAP_RULE + '\n' + TITLE_DIVERSITY_RULE + '\n' + SKILL_TALENT_NOTE_RULE + '\n' + SKILL_TIER_RULE + '\n' + SKILL_TALENT_ATTR_CAP_RULE + '\n' + PLAYER_SKILL_KEEP_RULE + '\n' + ITEM_GRANTED_SKILL_RULE + '\n' + SKILL_STABILITY_RULE + '\n' + SKILL_COMBAT_TAG_RULE + '\n' + TIER_RULE +'\n' + IMAGE_TAGS_RULE + '\n' + HPEP_NARRATIVE_ONLY_RULE + '\n' + WORLDSOURCE_RULE + '\n' + POINTS_NARRATIVE_RULE + '\n' + ATTR_SANITY_RULE + '\n' + ATTR_CAP_RULE + '\n' + PLAYER_ATTR_LOCK_RULE + '\n' + APPEARANCE_UPDATE_RULE + '\n' + STATUS_FORMAT_RULE + '\n' + STATUS_COUNTDOWN_TURN_RULE + '\n' + FIRST_UPDATE_COMPLETE_RULE + '\n' + EVO_EXACT_REF_RULE + '\n' + SKILL_TALENT_GUIDE + '\n' + getPrompt('PLAYER_COT_RULE', PLAYER_COT_RULE)
+        + (isHomeWorld(useMisc.getState().worldName || '') ? '' : '\n' + getPrompt('REPUTATION_RULE', REPUTATION_RULE)   // 四维声誉是 world 作用域：人在乐园不注入
+          + `\n【当前四维声誉】${formatRepute(usePlayer.getState().profile.repute ?? defaultRepute())}`);
       const userContent  = `# 本轮正文\n${trimmedNarrative}\n\n---\n请根据以上正文处理本轮主角属性与状态的变化。**先输出一个 <think>…</think> 思考块**，按系统提示里的「主角演化思维链」逐项自检；**随后**输出 <state>（及如有需要的 <upstore>）指令块，无变化时输出空块。除 <think> / <state> / <upstore> 外不要有其它文字。`;
 
       console.log('[Player] 📏 输入体量(字符·若超模型上限，从这几项找膨胀源):', { 系统提示总: systemPrompt.length, 用户内容: userContent.length, 其中正文: trimmedNarrative.length, 技能清单: pSkillsLine.length, 天赋清单: pTalentsLine.length, 档案快照: playerProfileSnapshot.length });
@@ -3976,7 +4244,7 @@ export default function App() {
       .filter((e) => e.enabled && e.source !== 'entrySharedRules')
       .map((e) => fillVars(e.content, vars))
       .join('\n\n')
-      + '\n\n' + NARRATIVE_FIRST_RULE + '\n' + BUFF_AS_STATUS_RULE + '\n' + NPC_AGE_RULE + '\n' + TALENT_NO_CAP_RULE + '\n' + TITLE_DIVERSITY_RULE + '\n' + NPC_DEAD_EXCLUDE_RULE + '\n' + NPC_ID_RULE + '\n' + SKILL_TALENT_NOTE_RULE + '\n' + NPC_SKILL_KEEP_RULE + '\n' + ITEM_GRANTED_SKILL_RULE + '\n' + SKILL_STABILITY_RULE + '\n' + SKILL_COMBAT_TAG_RULE + '\n' + NPC_REVIEW_TAG_RULE +'\n' + NPC_TEAM_AFFILIATION_RULE + '\n' + TIER_RULE + '\n' + IMAGE_TAGS_RULE + '\n' + HPEP_NARRATIVE_ONLY_RULE + '\n' + POINTS_NARRATIVE_RULE + '\n' + getPrompt('ATTR_POWER_CODEX', ATTR_POWER_CODEX) + '\n' + NPC_ATTR_GEN_RULE + '\n' + ATTR_SANITY_RULE + '\n' + ATTR_CAP_RULE + '\n' + STATUS_FORMAT_RULE + '\n' + STATUS_COUNTDOWN_TURN_RULE + '\n' + NPC_PRIVATE_EXTRA_RULE + '\n' + NPC_TIER_LOADOUT_RULE + '\n' + SKILL_TALENT_ATTR_CAP_RULE + '\n' + FIRST_UPDATE_COMPLETE_RULE + '\n' + EVO_EXACT_REF_RULE + '\n' + SKILL_TALENT_GUIDE + '\n' + getPrompt('NPC_COT_RULE', NPC_COT_RULE) + '\n' + ANTI_OMNISCIENCE_RULE + '\n' + NATIVE_LIFE_LOCAL_RULE + '\n' + getPrompt('NPC_INDEPENDENCE_RULE', NPC_INDEPENDENCE_RULE) + '\n' + getPrompt('DISPOSITION_STAGE_RULE', DISPOSITION_STAGE_RULE) + '\n' + DISPOSITION_DELTA_RULE + worldLoreEvoInjection()
+      + '\n\n' + NARRATIVE_FIRST_RULE + '\n' + BUFF_AS_STATUS_RULE + '\n' + NPC_AGE_RULE + '\n' + TALENT_NO_CAP_RULE + '\n' + TITLE_DIVERSITY_RULE + '\n' + NPC_DEAD_EXCLUDE_RULE + '\n' + NPC_ID_RULE + '\n' + SKILL_TALENT_NOTE_RULE + '\n' + NPC_SKILL_KEEP_RULE + '\n' + ITEM_GRANTED_SKILL_RULE + '\n' + SKILL_STABILITY_RULE + '\n' + SKILL_COMBAT_TAG_RULE + '\n' + NPC_REVIEW_TAG_RULE +'\n' + NPC_TEAM_AFFILIATION_RULE + '\n' + TIER_RULE + '\n' + IMAGE_TAGS_RULE + '\n' + HPEP_NARRATIVE_ONLY_RULE + '\n' + POINTS_NARRATIVE_RULE + '\n' + getPrompt('ATTR_POWER_CODEX', ATTR_POWER_CODEX) + '\n' + NPC_ATTR_GEN_RULE + '\n' + ATTR_SANITY_RULE + '\n' + ATTR_CAP_RULE + '\n' + STATUS_FORMAT_RULE + '\n' + STATUS_COUNTDOWN_TURN_RULE + '\n' + NPC_PRIVATE_EXTRA_RULE + '\n' + NPC_TIER_LOADOUT_RULE + '\n' + SKILL_TALENT_ATTR_CAP_RULE + '\n' + FIRST_UPDATE_COMPLETE_RULE + '\n' + EVO_EXACT_REF_RULE + '\n' + SKILL_TALENT_GUIDE + '\n' + getPrompt('NPC_COT_RULE', NPC_COT_RULE) + '\n' + ANTI_OMNISCIENCE_RULE + '\n' + getPrompt('NPC_DECENTER_RULE', NPC_DECENTER_RULE) + '\n' + NATIVE_LIFE_LOCAL_RULE + '\n' + getPrompt('NPC_INDEPENDENCE_RULE', NPC_INDEPENDENCE_RULE) + '\n' + getPrompt('DISPOSITION_STAGE_RULE', DISPOSITION_STAGE_RULE) + '\n' + DISPOSITION_DELTA_RULE + causalWeightInjection() + worldLoreEvoInjection()
       // 门控：仅当该 NPC 已有背景、却还没第一人称自述时，才追加"生成自述"规则（一次性·省 token）
       + (rec && rec.background && !rec.selfNarration ? '\n' + getPrompt('NPC_SELF_NARRATION_RULE', NPC_SELF_NARRATION_RULE) : '')
       // 门控：成长小传（从小到大的来历+性格成因）。**错开一回合**——等自述/原则/台词那批生成完了下次再要，
@@ -4356,7 +4624,19 @@ export default function App() {
         npc.setScene(id, true, turn);
         // 世界默认标签（登场判断不产 npcTag）：新 NPC 若还没标签，按当前世界定档——**任务世界=土著(默认)**、乐园/枢纽=契约者。
         // 治"任务世界原住民没标土著 → 轨道A自治把他当契约者、凭空花乐园币逛主神空间/任务世界寻宝"(用户报)。AI 后续可用 character.<id>.npcTag 覆盖(如罕见的外来契约者)。
-        if (!npc.npcs[id]?.npcTag) npc.upsertNpc(id, { npcTag: isHomeWorld(useMisc.getState().worldName || '') ? '契约者' : '土著' });
+        // 同时落 worldName（世界作用域·公理1）：土著归属本世界，离世时 freezeWorld 靠它定位该冻谁。
+        {
+          const curWorld = (useMisc.getState().worldName || '').trim();
+          if (!npc.npcs[id]?.npcTag) npc.upsertNpc(id, { npcTag: isHomeWorld(curWorld) ? '契约者' : '土著' });
+          if (!npc.npcs[id]?.worldName && curWorld && !isHomeWorld(curWorld)) npc.upsertNpc(id, { worldName: curWorld });
+          // 契约者初始态度基线随「乐园声望」走（而不是恒定 10）——名号响的人，同行见了自然高看一眼。
+          // ⚠ 只给契约者：土著对乐园声望一无所知（NATIVE_UNAWARE_RULE），绝不能因此高看主角。
+          // 只在 AI 还没给过态度（仍是默认 10）时铺基线，绝不覆盖演化写入的值。
+          const rec0 = npc.npcs[id];
+          if (rec0?.npcTag === '契约者' && (rec0.trust ?? 10) === 10 && (rec0.respect ?? 10) === 10) {
+            npc.upsertNpc(id, contractorBaseline());
+          }
+        }
         createdIds.add(id);
       } else {
         // reentry / 已存在
@@ -4378,12 +4658,24 @@ export default function App() {
         npc.setScene(rid, true, turn);
         if (e.name) npc.upsertNpc(rid, { name: e.name });
         // 补标签（旧档 / 早期无 npcTag 的 NPC 重新登场时纠正）：只在缺标签时按当前世界补，绝不覆盖已有标签——任务世界=土著、乐园/枢纽=契约者
-        if (!npc.npcs[rid]?.npcTag) npc.upsertNpc(rid, { npcTag: isHomeWorld(useMisc.getState().worldName || '') ? '契约者' : '土著' });
+        // 同时补 worldName（老存档迁移）：能重新登场说明他就在本世界，补上后离世才冻得掉。
+        {
+          const curWorld = (useMisc.getState().worldName || '').trim();
+          if (!npc.npcs[rid]?.npcTag) npc.upsertNpc(rid, { npcTag: isHomeWorld(curWorld) ? '契约者' : '土著' });
+          if (!npc.npcs[rid]?.worldName && curWorld && !isHomeWorld(curWorld)) npc.upsertNpc(rid, { worldName: curWorld });
+        }
         const loc = /loc\.[CG]\d+\s*=\s*([^\n]+)/.exec(e.stateCommands ?? '');
         if (loc) npc.upsertNpc(rid, { extra: { ...(npc.npcs[rid]?.extra ?? {}), 位置: loc[1].trim() } });
       }
     }
-    for (const x of result.exits ?? []) { if (x?.id && npc.npcs[x.id]) npc.setScene(x.id, false); }   // 不为不存在的ID凭空建离场空壳
+    // 离场：顺手记一句"去向"（systems/castHint.ts），下一轮注入 <角色动向提示> 的「刚刚离场」段——
+    // 治"人说走就走、正文里再无交代"。确定性取词，不花 API。
+    for (const x of result.exits ?? []) {
+      if (!x?.id || !npc.npcs[x.id]) continue;   // 不为不存在的ID凭空建离场空壳
+      npc.setScene(x.id, false);
+      const rec = npc.npcs[x.id];
+      if (rec) npc.upsertNpc(x.id, { auto: { ...(rec.auto ?? { phase: 'hub', turns: 0 }), exitReason: pickExitReason(rec, turn), readyToEnter: false, enterReason: undefined } });
+    }
     for (const [id, deed] of Object.entries(result.deedsUpdates ?? {})) {
       if (typeof deed === 'string') npc.appendDeed(id, deed);
       else if (deed && typeof deed === 'object') npc.appendDeed(id, deed as any); // {time,location,description}
@@ -4428,6 +4720,18 @@ export default function App() {
     ]);
   }
 
+  /* 驱动力上下文：任务面板 + 当前世界的近期大事 + 最近正文。名字命中即算有关联（见 systems/npcDrive）。 */
+  function buildDriveCtx(): DriveCtx {
+    try {
+      const M = useMisc.getState();
+      const questText = (M.tasks ?? []).map((t) => `${t.name ?? ''} ${t.desc ?? ''} ${(t.rings ?? []).map((r) => r.goal ?? '').join(' ')}`).join('\n');
+      const worldText = (M.worldEvents ?? [])
+        .filter((e) => !e.worldName || sameWorld(e.worldName, M.worldName || ''))
+        .slice(-5).map((e) => `${e.location ?? ''} ${e.desc ?? ''}`).join('\n');
+      return { questText, worldText, narrative: lastNarrativeRef.current ?? '' };
+    } catch { return { questText: '', worldText: '', narrative: '' }; }
+  }
+
   /* ─── 策略B 第二段：调度（计算重点演化列表）─── */
   function passFrequency(rec: import('./store/npcStore').NpcRecord, turn: number, sch: import('./store/npcEvoStore').NpcScheduling): boolean {
     const interval = Math.max(1, rec.freqInterval ?? sch.defaultFreqInterval ?? 1);
@@ -4449,10 +4753,15 @@ export default function App() {
 
     const must = new Set<string>();
     createdIds.forEach((id) => { if (npcs[id] && alive(npcs[id])) must.add(id); });  // 本轮新建但已死亡的不强塞焦点
-    Object.values(npcs).filter((n) => n.onScene && alive(n)).forEach((n) => must.add(n.id));
+    Object.values(npcs).filter((n) => n.onScene && alive(n) && !n.frozenAt).forEach((n) => must.add(n.id));
 
+    // 驱动力闸门（systems/npcDrive）：离场角色必须至少有一项行动驱动力（羁绊/任务/局势/社交），
+    // 三无 → 判定【静滞】，本轮不花演化 API（他仍然跑轨道A 零 API 自治，不会被冻住）。
+    const driveCtx = buildDriveCtx();
+    const staticIds: string[] = [];
     const offCands = Object.values(npcs)
-      .filter((n) => !n.onScene && !n.archived && alive(n) && !must.has(n.id))   // 归档=封存，不参与演化
+      .filter((n) => !n.onScene && !n.archived && !n.frozenAt && alive(n) && !must.has(n.id))   // 归档=玩家封存 / 🧊冻结=已离开该世界，都不参与演化
+      .filter((n) => { if (driveOf(n, driveCtx) != null) return true; staticIds.push(n.id); return false; })
       .filter((n) => passFrequency(n, turn, scheduling))
       .sort((a, b) => {
         const aB = /B1/.test(a.relations) ? 1 : 0;
@@ -4467,12 +4776,13 @@ export default function App() {
     const friendsPerTurn = Math.max(0, scheduling.friendsPerTurn ?? 3);
     const friendIds = friendsPerTurn > 0
       ? Object.values(npcs)
-          .filter((n) => n.isFriend && alive(n) && !must.has(n.id))
+          .filter((n) => n.isFriend && alive(n) && !n.frozenAt && !must.has(n.id))
           .sort((a, b) => (a.lastEvolvedTurn ?? 0) - (b.lastEvolvedTurn ?? 0))
           .slice(0, friendsPerTurn)
           .map((n) => n.id)
       : [];
 
+    if (staticIds.length) console.log(`[驱动力] ⏸ 本轮静滞 ${staticIds.length} 人（无羁绊/任务/局势关联·不花演化API，仍走轨道A）`);
     return [...new Set([...must, ...friendIds, ...offCands])].filter((id) => npcs[id] && !petRoutedAway(npcs[id]));   // 宠物演化启用时才从 NPC 焦点里剔除宠物/召唤物
   }
 
@@ -5732,6 +6042,7 @@ ${AFFIX_EFFECT_RULE}`;
       + '\n\n' + TASK_CANON_RULE
       + '\n\n' + TASK_DETAIL_QUALITY_RULE
       + questCodexInjection
+      + buildDerivationInjection(useMisc.getState().worldEvents ?? [])   // 后台事件结算为「派生后续」→ 支线候选钩子（建不建仍由任务闸门定）
       + worldLoreTaskInjection()
       + `\n\n【进入新世界信号】：${enteredNewWorld ? '是 —— 本轮检测到进入新的任务世界，请按【主线路线图规划】检查：当前任务世界若尚无 active 主线，则把该世界自身的核心目标立成主线并规划整张环路线图' : (isHomeWorld(M.worldName) ? '否 —— 当前在轮回乐园/专属房间(枢纽·任务间歇)，按【乐园·枢纽禁止生成任务】**禁止生成任何新任务**（主线/支线/隐藏/单环全不建），更不要"熟悉环境/适应乐园/逛街采购/进入衍生世界/获取身份/回归乐园"等流程·杂事任务；只对既有任务做结算/推进，等真正进入任务世界(衍生世界)再规划' : '否（沿用既有主线，勿重复新建）')}`
       + `\n【当前世界】：${M.worldName || '轮回乐园'}`
@@ -5754,6 +6065,11 @@ ${AFFIX_EFFECT_RULE}`;
       const applied = applyMiscCommands(reply, { domain: 'tasks' });
       console.log(`[Quest] 任务演化应用 ${applied} 条指令`);
       if (applied > 0) recordEvo('misc', { source: 'quest-phase', turn: turnCountRef.current }, 'apply', '任务', 'applied', `${applied} 项`);   // 演化账本：任务动作记 misc 域、source 区分
+      // 派生钩子消费标记：本轮已把这些「派生后续」事件喂给任务演化看过了 → 标记，避免每轮重复注入。
+      // ⚠ 无论 AI 是否真的建了支线都标记——建议是一次性的，钩不上就该过去，不该每轮再劝一遍。
+      try {
+        for (const e of pendingDerivations(useMisc.getState().worldEvents ?? [])) useMisc.getState().markEventDerived(e.id);
+      } catch { /* 标记失败不阻断 */ }
     } catch (e: any) {
       console.error('[Quest] 任务演化失败:', e.message ?? e);
       setQuestPhaseLog(`⚠ 任务更新失败：${(e.message ?? '').slice(0, 50)}`);
@@ -5823,6 +6139,12 @@ ${AFFIX_EFFECT_RULE}`;
       + '\n\n' + WEATHER_FX_GEN_RULE
       + '\n\n' + MISC_WEATHER_RULE
       + '\n\n' + CONTRACTOR_EVOLUTION_RULE
+      + '\n\n' + getPrompt('RUMOR_EVOLUTION_RULE', RUMOR_EVOLUTION_RULE)
+      + `\n\n【当前活跃传闻（只处理标了 ⏰到期待结算 的；未到时效的一条指令都不要发）】\n${serializeRumorsForEvo(currentWorldRumors(), M.worldTime || '', M.turnCount || 0)}`
+      + '\n\n' + getPrompt('WORLD_EVENT_LIFECYCLE_RULE', WORLD_EVENT_LIFECYCLE_RULE)
+      + `\n\n【当前活跃世界事件（本期无实质进展的一条指令都不要发）】\n${serializeEventsForEvo(currentActiveEvents())}`
+      + divinationInjection()
+      + causalWeightInjection()
       + miscCodexInjection
       + `\n\n【当前世界】：${M.worldName || '轮回乐园'}`
       + `\n【本世界·其他契约者人口（据此按【契约者人口·时间演化】维护 contractors(...)）】：${isHomeWorld(M.worldName || '') ? '（当前在乐园/枢纽·不维护）' : (M.contractors?.count ? `现存约 ${M.contractors.count} 人${M.contractors.note ? `·${M.contractors.note}` : ''} —— 据本轮流逝的世界时间与正文合理增减(陨落/离场/新来)并更新` : '（尚未初始化 —— 若本轮进入/已在任务世界，请按世界志契约者分布或世界体量给出初值 contractors(N,"分布")）')}`
@@ -5832,6 +6154,13 @@ ${AFFIX_EFFECT_RULE}`;
       // 🛤 原著路线：把本站剧本+苏晓轨道给杂项 AI 参照，并追加 canon* 状态维护指令（不在站内世界则两个 builder 返回空、整块不加）
       + (() => { const blocks = [...buildCanonWorldInjection(), ...buildSuxiaoTrackInjection()].map((b) => b.content).join('\n'); return blocks ? `\n\n${blocks}\n\n${getPrompt('CANON_MISC_RULE', CANON_MISC_RULE)}` : ''; })()
       + '\n\n' + TRUTHS_MAINTAIN_RULE
+      // 🗓 世界历：把现有条目喂回去（AI 才知道哪些已建档、不重复给），再附维护规则。空清单时也给一行提示，引导它在正文确立节日/生日时建档
+      + `\n【世界历·当前条目（用 almanac([...]) 增量维护，规则见下）】：${(() => {
+        const list = useCalendar.getState().items;
+        if (!list.length) return '（空——正文确立了"每年这天"的节日/生日/纪念日时再建档，没有就别硬造）';
+        return list.map((it) => `${it.month}/${it.day}${(it.days ?? 1) > 1 ? `起${it.days}天` : ''} ${it.name}${it.world ? `（${it.world}）` : ''}`).join('；');
+      })()}`
+      + '\n\n' + ALMANAC_MAINTAIN_RULE
       + '\n\n' + renderPrompt(MISC_COT_RULE);
 
     try {
@@ -5842,6 +6171,18 @@ ${AFFIX_EFFECT_RULE}`;
       console.log('[Misc] 杂项演化响应:', reply);
       const applied = applyMiscCommands(reply, { allowLarge: isLargeTurn, domain: 'world' });   // 任务指令硬过滤（任务归独立的任务演化阶段）
       console.log(`[Misc] 杂项演化应用 ${applied} 条指令（第 ${round} 轮，大总结周期：${isLargeTurn ? '是' : '否'}）`);
+      // 命运罗盘·封词兜底（同 scrubAbyss 的机读护栏思路）：AI 没守住铁则、把卦名/塔罗牌名写进了世界大事 →
+      // 落库后就地清洗。罗盘是内部骰子，绝不能出现在玩家可见的世界大事文案里。
+      try {
+        for (const ev of useMisc.getState().worldEvents) {
+          if (!hasDivinationLeak(ev.desc)) continue;
+          const cleaned = scrubDivination(ev.desc);
+          useMisc.getState().updateWorldEvent(ev.id, { desc: cleaned || ev.desc });
+          console.warn(`[命运罗盘] 🧹 世界大事 ${ev.id} 混入占卜术语，已清洗`);
+        }
+      } catch { /* 清洗失败不阻断演化 */ }
+      reconcileRumors();       // 传闻：压缩 / 升格「文化烙印」/ 超额裁剪 —— 机械活前端接管，AI 只写内容
+      reconcileWorldEvents();  // 世界事件：超配额的标为「湮灭」（不物理删·库房只存不删）
       if (applied > 0) recordEvo('misc', { source: 'misc-phase', turn: turnCountRef.current }, 'apply', '杂项', 'applied', `${applied} 项`);   // 演化账本：杂项域时间线审计
       // 顶栏天气特效：AI 为奇异天气生成的纯 CSS（sanitize 后按当前天气缓存；常规天气无此块，走前端预设）
       try {
@@ -6345,8 +6686,10 @@ ${AFFIX_EFFECT_RULE}`;
             else useNpc.getState().upsertNpc(job.id, { imageTags: gen });
           }
         }
-        const prompt = buildPortraitPrompt({ ...job.fields, imageTags: tags });
-        const url = await shrinkDataUrl(await generateImage(service, { prompt, negative: ig.portraitNegative, label: `自动肖像 · ${job.name}` }));
+        const basePrompt = buildPortraitPrompt({ ...job.fields, imageTags: tags, charId: job.id });   // charId→衣柜钦定穿搭覆盖服装
+        const refImages = await outfitRefImages(job.id);   // 👗 钦定穿搭参考图（仅 chatimg 多模态线生效，其余服务忽略）
+        const prompt = refImages.length ? `${basePrompt}\n\n${OUTFIT_REF_HINT}` : basePrompt;
+        const url = await shrinkDataUrl(await generateImage(service, { prompt, negative: ig.portraitNegative, refImages, label: `自动肖像 · ${job.name}` }));
         // 记下本次所用 imageTags + 外观文本，供"标签/外观变化时刷新"对比；再存下完整 prompt 供「编辑提示词」回显
         if (job.kind === 'player') usePlayer.getState().setProfile({ avatar: url, avatarTags: tags || '', avatarAppearance: job.appSig ?? '', avatarPrompt: prompt });
         else useNpc.getState().upsertNpc(job.id, { avatar: url, avatarTags: tags || '', avatarPrompt: prompt });
@@ -6450,10 +6793,12 @@ ${AFFIX_EFFECT_RULE}`;
     const charLine = (id: string, name: string, gtag: string, base: string, now: string, tags: string, btRaw?: string) => {
       const bt = (btRaw || '').trim() || inferBodyType([base, now, tags].join(' '));
       const form = bt && bt !== '人形' ? `／形态：${bt}（非人形，按生物本体画，切勿画成人形/人脸）` : '';
+      const outfit = outfitRosterLine(id);   // 👗 衣柜钦定穿搭：服装单一权威源（覆盖外观描述里的穿着）
       return `[${id}] ${name}（${gtag}${form}）：` +
         (base ? `常驻长相(固定)：${base}。` : '') +
         (now ? `当前状态：${now}。` : (base ? '' : '外观见正文')) +
-        (tags ? `画像锚点：${tags}` : '');
+        (tags ? `画像锚点：${tags}` : '') +
+        (outfit ? `。${outfit}` : '');
     };
     if (p?.name) {
       rosterLines.push(charLine('B1', p.name, `主角／${genderLabel(p.gender)}`, (p.baseAppearance || '').trim(), (p.appearance || '').trim(), (p.imageTags || '').trim(), p.bodyType));
@@ -6809,11 +7154,18 @@ ${AFFIX_EFFECT_RULE}`;
         ? TM.members.map((m) => m.name || m.id).filter(Boolean).join('、')
         : '（主角）';
       const perkStr = TM.perks.length ? TM.perks.map((p) => p.name + (p.desc ? '(' + p.desc + ')' : '')).join('；') : '（无）';
-      cards.push([
+      const teamLines = [
         `【冒险团】${TM.name || '（未命名）'}`,
         `成员：${memberStr}`,
         `团队效果：${perkStr}`,
-      ].join('\n'));
+      ];
+      // 外派状态（P2 读回）：成员在外执行委托时正文此前完全不知道人去哪了——补一行，写作时这些人不在场、勿让其现身
+      const disp = TM.dispatchActive;
+      if (disp && (disp.memberNames?.length || disp.memberIds?.length)) {
+        const who = (disp.memberNames?.length ? disp.memberNames : disp.memberIds).filter(Boolean).join('、');
+        teamLines.push(`⚔ 外派中：${who} 正在外执行委托「${disp.offer?.title || '未名委托'}」（预计第 ${disp.endTurn} 回合归来·外派期间不在主角身边，正文勿让其现身）`);
+      }
+      cards.push(teamLines.join('\n'));
     }
 
     // ── 临时队伍（本世界的临时队友；与冒险团不同，世界结束即解散）──
@@ -7508,9 +7860,14 @@ ${getPrompt('EQUIP_CODEX', EQUIP_CODEX)}`;
     if (!chain[0]?.baseUrl || !chain[0]?.apiKey) { console.warn('[Shop] 频道 API 未配置'); return []; }
     const prof = usePlayer.getState().profile;
     const M = useMisc.getState();
+    // P3 经济缝合：任务世界且已设当地货币名 → 商店部分商品用当地货币计价（当地货币此前只有 AI 记账、无任何玩法接口）
+    const localName = (M.localCurrencyName || '').trim();
+    const localLine = localName && !isHomeWorld(M.worldName || '')
+      ? `\n- **当地货币**：本世界流通「${localName}」（主角现持 ${M.localCurrency}）。**约一半商品**（本地土产/凡俗物资/低阶消耗品）用它计价——"currency":"${localName}"；乐园制式装备/高阶物仍用乐园币/魂币。`
+      : '';
     const sys = `你是「轮回乐园·系统商店」补货员。一次性生成 **10 件** 待售商品，类别要丰富搭配：消耗品、制式装备(武器/防具/饰品)、技能书/技能卷轴、材料、工具、特殊物品等。
-- 贴合当前世界(${M.worldName || '轮回乐园'})与主角阶位(${prof.tier || '一阶'}·Lv.${prof.level})的强度区间；**价格一般偏高**（系统商店溢价，约市场价 1.2~1.8 倍）。
-- 每件按物品固定格式给全字段。**只输出 JSON**：{"items":[{"name","category"(武器/防具/饰品/消耗品/材料/工具/特殊物品/重要物品等),"subType","gradeDesc"(品质色由低到高:白/绿/蓝/紫/暗紫/淡金/金/暗金/传说级/史诗级/圣灵级/不朽级/起源级/永恒级/创世,按强度选合适档),"price"(数字),"currency"("乐园币"或"魂币"),"effect","combatStat"(装备攻防机器可读如"法术攻击力 60-135"/"防御力 8-12"),"durability","requirement","affix","origin","intro","appearance","qty"(默认1)}]}，共 10 件，不要任何多余文字或 markdown。
+- 贴合当前世界(${M.worldName || '轮回乐园'})与主角阶位(${prof.tier || '一阶'}·Lv.${prof.level})的强度区间；**价格一般偏高**（系统商店溢价，约市场价 1.2~1.8 倍）。${localLine}
+- 每件按物品固定格式给全字段。**只输出 JSON**：{"items":[{"name","category"(武器/防具/饰品/消耗品/材料/工具/特殊物品/重要物品等),"subType","gradeDesc"(品质色由低到高:白/绿/蓝/紫/暗紫/淡金/金/暗金/传说级/史诗级/圣灵级/不朽级/起源级/永恒级/创世,按强度选合适档),"price"(数字),"currency"("乐园币"或"魂币"${localName ? `或"${localName}"` : ''}),"effect","combatStat"(装备攻防机器可读如"法术攻击力 60-135"/"防御力 8-12"),"durability","requirement","affix","origin","intro","appearance","qty"(默认1)}]}，共 10 件，不要任何多余文字或 markdown。
 
 ${getPrompt('EQUIP_CODEX', EQUIP_CODEX)}`;
     try {
@@ -7525,8 +7882,11 @@ ${getPrompt('EQUIP_CODEX', EQUIP_CODEX)}`;
     const chain = resolveApiChain('channel', getChannelApi());
     if (!chain[0]?.baseUrl || !chain[0]?.apiKey) return {};
     const lines = list.map((it) => `${it.id} | ${it.name} | 品质:${it.gradeDesc} | 类型:${it.category} | x${it.qty}${it.effect ? ' | 效果:' + it.effect.slice(0, 40) : ''}`).join('\n');
+    const M2 = useMisc.getState();
+    const localName2 = (M2.localCurrencyName || '').trim();
+    const localOpt = localName2 && !isHomeWorld(M2.worldName || '') ? `或"${localName2}"(本地凡俗物/土产给当地货币价)` : '';
     const sys = `你是「轮回乐园·系统回收」估价员，为主角要出售的物品逐件给出**回收报价**（系统回收价约市场价 50%~80%，按品质/效果/稀有度/数量估算；品质越高价越高）。
-**只输出 JSON**：{"quotes":[{"id":"原样照抄物品id","price":数字,"currency":"乐园币"或"魂币"}]}，每件一条，不要多余文字。
+**只输出 JSON**：{"quotes":[{"id":"原样照抄物品id","price":数字,"currency":"乐园币"或"魂币"${localOpt}}]}，每件一条，不要多余文字。
 
 【待估物品】
 ${lines}`;
@@ -7638,10 +7998,37 @@ ${lines}`;
     while ((m = numRe.exec(reply))) { if (!ok(m[1])) continue; const cur = fac.factions[m[1]]?.favorToPlayer ?? 0; const v = Number(m[3]); fac.upsertFaction(m[1], { favorToPlayer: m[2] === '=' ? v : m[2] === '+=' ? cur + v : cur - v }); n++; }
     const boolRe = /\bfaction\.(F\d+)\.inCurrentWorld\s*=\s*(true|false)/g;
     while ((m = boolRe.exec(reply))) { if (!ok(m[1])) continue; fac.setWorld(m[1], m[2] === 'true', turnCountRef.current); n++; }
-    const strFields = ['status', 'goal', 'territory', 'leader', 'resources', 'scale', 'powerLevel', 'type', 'relations'];
+    const strFields = ['status', 'goal', 'territory', 'leader', 'resources', 'scale', 'powerLevel', 'type'];
     for (const f of strFields) {
       const re = new RegExp(`\\bfaction\\.(F\\d+)\\.${f}\\s*=\\s*"([^"]*)"`, 'g');
       while ((m = re.exec(reply))) { if (ok(m[1])) { fac.upsertFaction(m[1], { [f]: m[2] } as any); n++; } }
+    }
+    // ── 外交关系：**过八级闸门**（systems/diplomacy）而不是照单全收 ──
+    //   relations 仍是那串自由文本存储（不动 schema），但每条边逐一比对新旧档位：
+    //   跨 ≥2 档且无已完结事件链 → 回落到"朝目标渐变 1 档"，并打日志。
+    //   例外直降（核心人物被杀/重大背叛/公开宣战）从本轮 reply 里找依据。
+    {
+      const relRe = /\bfaction\.(F\d+)\.relations\s*=\s*"([^"]*)"/g;
+      const exc = normException(reply);
+      while ((m = relRe.exec(reply))) {
+        const fid = m[1];   // ⚠ 先取出来：m 会被下一次 exec 重置，闭包里直接用 m[1] 既不安全也过不了类型窄化
+        if (!ok(fid)) continue;
+        const prev = parseLegacyRelations(fac.factions[fid]?.relations);
+        const next = parseLegacyRelations(m[2]);
+        const prevBy = new Map(prev.map((e) => [e.target, e.level]));
+        const gated = next.map((e) => {
+          const from = prevBy.get(e.target);
+          if (from == null) return e;   // 新出现的关系：没有历史可比，照收
+          const v = canTransition(from, e.level, { exception: exc });
+          if (!v.ok) console.warn(`[外交] ${fid}→${e.target} ${diploName(from)}→${diploName(e.level)} 被拦：${v.reason}`);
+          return { ...e, level: v.ok ? e.level : v.fallback };
+        });
+        // 保留 AI 没提到的旧关系（治"每次只写两条，其余全被抹掉"）
+        const merged = [...gated];
+        for (const p of prev) if (!merged.some((x) => x.target === p.target)) merged.push(p);
+        fac.upsertFaction(fid, { relations: formatEdges(merged) });
+        n++;
+      }
     }
     return n;
   }
@@ -7710,7 +8097,7 @@ ${lines}`;
     const focus = computeFactionFocus();
     if (focus.length === 0) return;
     const { entries, scheduling } = useFactionEvo.getState().settings;
-    const sysBase = buildFactionSystemPrompt(entries) + '\n\n' + NARRATIVE_FIRST_RULE + '\n' + FACTION_WORLD_RULE + '\n' + FIRST_UPDATE_COMPLETE_RULE + '\n' + FACTION_FULL_FORMAT_RULE + '\n' + FACTION_NAME_RULE + '\n' + getPrompt('FACTION_COT_RULE', FACTION_COT_RULE);
+    const sysBase = buildFactionSystemPrompt(entries) + '\n\n' + NARRATIVE_FIRST_RULE + '\n' + FACTION_WORLD_RULE + '\n' + FIRST_UPDATE_COMPLETE_RULE + '\n' + FACTION_FULL_FORMAT_RULE + '\n' + FACTION_NAME_RULE + '\n' + getPrompt('DIPLOMACY_RULE', DIPLOMACY_RULE) + '\n' + getPrompt('FACTION_COT_RULE', FACTION_COT_RULE);
     const trimmed = trimNarrative(narrative);
     const conc = Math.max(1, scheduling.concurrency || 2);
     for (let i = 0; i < focus.length; i += conc) {
@@ -8076,6 +8463,7 @@ ${lines}`;
         turn: turnCountRef.current,
         time: Date.now(),
         worldName: useMisc.getState().worldName || '',
+        facilityNotes: peekFacilityLog(),   // P4·设施动态：本窗口场外动作（peek 不清空·新回合发送时清，见 callApi）
         player: (() => {
           // 上限走与面板/钳制一致的真实换算（体质×20 / 智力×15 + 装备/被动平值 + 百分比加成），勿用 gameStore 里滞后的 maxHp
           const maxHp = playerMaxHp(), maxMp = playerMaxEp();
@@ -8252,6 +8640,11 @@ ${lines}`;
       sysParts.push(getPrompt('MINI_THEATER_RULE', MINI_THEATER_RULE));
       const picked = pickTheaterCharacters(await loadLunhuiCharacters());   // 从 wiki 人物条目随机抽 1~多位（多位则同世界·有关联）
       if (picked.length) sysParts.push(buildTheaterCharBlock(picked));
+      // 🎭 花样模板：从玩家维护的清单里随机抽 pickCount 条（全禁用/空则回退内置全集，见 pickTemplates 兜底）
+      const T = useTheater.getState();
+      T.ensureSeeded();
+      const styles = buildTheaterStyleBlock(pickTemplates(useTheater.getState().templates, T.pickCount));
+      if (styles) sysParts.push(styles);
     }
     sysParts.push(`【本次输出顺序】${wantFanfic ? '先输出 <details>同人搜索内容</details> 块（涉及已知作品角色才输出，可多个）；' : ''}${wantFact ? '再输出 <details>事实查证</details> 块（涉及现实可查证元素才输出）；' : ''}${wantChoices ? '然后输出 <choices> 块（A~H 共 8 个选项）；' : ''}${wantTheater ? '最后输出 <xiaojuchang> 小剧场块（严格按「小剧场世界书」的 HTML/内联 CSS 折叠格式，与主线无关的番外彩蛋）。' : ''}除这些标签块外不要有任何其它文字。`);
     // 越南语环境（且「内容用当前语言生成」开）：强制上述各块的自然语言内容用越南语——直接写进本预设，压过 FANFIC_RULE/FACT_RULE 里的中文格式惯性（全局输出语言指令太靠后易被这两条详规盖过）。
@@ -8993,11 +9386,20 @@ ${lines}`;
     if (coin > 0) items.adjustCurrency('乐园币', coin, `竞技场·${pending.arenaName} 第${rank}名奖励`);
     if (soul > 0) items.adjustCurrency('灵魂钱币', soul, `竞技场·${pending.arenaName} 第${rank}名奖励`);
     let titleStr = '';
+    let grantedTitle = '';
     if (band.giveTitle) {
       const tn = (j.title && j.title.name) ? flattenAiText(j.title.name).slice(0, 24) : '竞技天王';
       useCharacters.getState().addTitle('B1', { name: tn, rarity: flattenAiText(j.title?.rarity) || '暗金', effect: flattenAiText(j.title?.effect) || '竞技场首位专属', desc: flattenAiText(j.title?.desc) || `${pending.arenaName}登顶之证` });
       titleStr = `，获称号「${tn}」`;
+      grantedTitle = tn;
     }
+    // 场外通报 + 发放登记：奖励物品此前没登记 granted（审计确认）→ 物品阶段可能把同名奖励再 createItem 一遍
+    reportFacilityOutcome({
+      source: '竞技场',
+      summary: `主角在${pending.arenaName}晋升至第 ${rank} 名，领取${band.label}奖励：${names.map((n) => `「${n}」`).join('、')}已入背包${coin > 0 ? `、乐园币+${coin}` : ''}${soul > 0 ? `、灵魂钱币+${soul}` : ''}${titleStr}`,
+      granted: names,
+      growth: grantedTitle ? `因登顶${pending.arenaName}获得称号「${grantedTitle}」——可自然带过观众席的哗然与名声，不强求成段` : undefined,
+    });
     const parts = [names.join('、')];
     if (coin > 0) parts.push(`乐园币+${coin}`);
     if (soul > 0) parts.push(`灵魂钱币+${soul}`);
@@ -9834,6 +10236,7 @@ ${lines}`;
     }
     expireStatuses(turnCountRef.current);                      // 回合推进：清理已过期的限时状态（主角+NPC）
     reconcileHomeWorld();                  // 回归乐园一致性兜底：时间同步 + 任务世界势力移出当前世界
+    reconcileWorldScope();                 // 🧊 人在乐园却还有任务世界土著没冻（读档/AI 直接改 worldName 等路径）→ 补冻
     reconcilePlayerVitals();               // HP/EP 兜底：仍是 100/50 旧默认时按六维重算为满
     syncPlayerVitalsMax();                  // 每回合：同步存储上限=真实上限（当前 HP/EP 由正文末尾<状态结算>驱动，本函数不补血）
     reconcilePartyLifecycle();             // 临时队伍：非当前世界的队友自动解散（离场归档；有冒险团则弹转正）
@@ -9982,12 +10385,33 @@ ${lines}`;
     if (!narrateOnly) {
       const preludeTxt = renderPrompt((useSettings.getState().preludePrompt || '').trim());
       const sceneNotices = drainSceneNotices(useItems.getState().currency as unknown as Record<string, number>);
+      clearFacilityLog();   // P4·洞察设施区：上一窗口的设施动作已随上回合快照定格，新回合从零记（与通报 drain 同窗口）
       const parts: string[] = [];
       if (preludeTxt) parts.push(`【玩家常驻前置提示词】\n${preludeTxt}`);
       if (sceneNotices.length) parts.push(`【本回合·场外操作（均已由前端确定性结算完成）】\n${sceneNotices.join('\n')}`);
       if (parts.length) preludeBlock = [{ role: 'system' as const, content:
         `<前置须知>\n（最高优先·深度最深的前置须知。其中「场外操作」均已由前端确定性结算完成——你只需**知晓并让后续正文与之保持一致**：货币/物品/点数的最新数值一律以此为准；**切勿据此另行生成奖励/结算、勿质疑、勿重复播报**。「玩家常驻前置提示词」请始终遵循。）\n${parts.join('\n\n')}\n</前置须知>` }];
     }
+
+    // 势力外交：本世界在场势力之间的八级格局。只在有结构化关系时出块（老档 relations 是自由文本，parse 得出才算）。
+    const diploBlock: { role: 'system'; content: string }[] = (() => {
+      try {
+        const rows = Object.values(useFaction.getState().factions)
+          .filter((f) => f.inCurrentWorld && !f.isDestroyed && f.name)
+          .map((f) => ({ name: f.name, edges: parseLegacyRelations(f.relations) }));
+        const txt = buildDiplomacyInjection(rows);
+        return txt ? [{ role: 'system' as const, content: txt }] : [];
+      } catch { return []; }
+    })();
+
+    // 市井流言：只把「街面上在传什么」喂进正文，**真相不喂**——NPC 因此可能基于错误信息说话/行动，
+    // 这正是传闻系统的价值所在（真相只进演化阶段与玩家面板）。够不上「局部焦点」的不占预算。
+    const rumorBlock: { role: 'system'; content: string }[] = (() => {
+      try {
+        const txt = buildRumorInjection(currentWorldRumors());
+        return txt ? [{ role: 'system' as const, content: txt }] : [];
+      } catch { return []; }
+    })();
 
     // 星图习得（★需入戏交代·与"仅知晓"的场外操作不同）：玩家刚在技能树点亮的技能/天赋 → 让正文用一小段叙述交代主角"如何"习得，治"职业和正文没关联·各玩各的·不知道怎么获得技能"
     let growthBlock: { role: 'system'; content: string }[] = [];
@@ -10109,6 +10533,16 @@ ${lines}`;
       console.log('[数据库推进] 本回合已出 {{recall}} → 相关记忆去重：仅剔除【近期记忆】召回，长期事实/世界大事/阶段记忆照留（防吞掉沉淀记忆）');
     }
 
+    // 🤖 Agent 正文模式·初始历史裁剪（仿 TT context policy initialChatHistoryMessages·省 token 核心杠杆）：
+    //   只裁「发给模型的原文楼层」（recent）——世界书关键词匹配/向量与叙事召回/结构化档案照常用真实近况，
+    //   上面的记忆去重也已按完整 recent 做完；模型可用 chat_search/chat_read_messages 主动查更早剧情
+    //   （系统提示词会注明本回合历史被裁）。-1=不裁（默认·跟随全局楼层限制）。
+    if (!narrateOnly) {
+      const _agHist = useSettings.getState().agentNarrative;
+      const _n = _agHist?.enabled ? Math.floor(_agHist.initialHistoryMsgs ?? -1) : -1;
+      if (_n >= 0 && recent.length > _n) recent = _n === 0 ? [] : recent.slice(-_n);
+    }
+
     const mpPartyBlock = buildPartyProfiles();   // 联机房主：同行真人队友档案(技能/天赋/职业/装备/性格/外观/种族)
     // 分头三段式渲染(narrateOnly)：只写本人这一支，压过"分别回应每个人"的多人规则——否则每人都写全全部支线→彼此版本冲突
     const mpRuleBlock = narrateOnly
@@ -10128,10 +10562,12 @@ ${lines}`;
       ...(mpRuleBlock ? [{ role: 'system' as const, content: mpRuleBlock }] : []),     // <联机正文规则>
       ...(mpPartyBlock ? [{ role: 'system' as const, content: mpPartyBlock }] : []),   // <同行队友>
       ...buildPlayerCoreInjection(),                    // <主角核心>
+      ...buildOutfitInjection(),                        // <钦定穿搭> 👗衣柜权威穿搭+AI换装指令（正文/生图同源）
       ...buildWorldTimeInjection(),                     // <当前时空>
       ...buildQuestInjection(!!(guidanceBlock.length || dbAdvanceBlock.length || outlineBlock.length)),   // <当前任务>（本回合有剧情指导/细纲/数据库推进→任务线让位给它）
       ...buildCosmosInjection(),                        // <万族态势>
       ...buildGuildInjection(),                         // <所属公会> 玩家公会身份 + 增益（社交身份·跨世界）
+      ...buildFacilityInjection(),                      // <设施近况> 赌坊战绩/深渊最深层/产业（长期足迹·全空不出块）
       ...buildFanficInjection(),                        // <同人设定·已锁定>
       ...buildFactInjection(),                          // <事实锚点·已锁定>
       ...structPlayer,                                 // <主角当前档案> 浅注入：紧贴最近正文/用户输入
@@ -10146,6 +10582,11 @@ ${lines}`;
       ...buildCanonWorldInjection(),                    // 🛤 <原著路线·本站剧本> 原著时间轴/规则/任务参照 + 原著惯性铁则（仅模式开启且身在站内）
       ...buildSuxiaoTrackInjection(),                   // 🛤 <苏晓轨道> 同世界猎杀者白夜的状态卡 + 演绎铁则
       ...buildPlotGuardInjection(turnCountRef.current), // <伏笔催收>+<世界真相·重申> 账龄催收（表日志机械核账）+ 周期真相强化（见 systems/plotThreads）
+      ...buildFameInjection(),                          // <乐园声望> 跨世界名声（竞技场/烙印/深渊/团/公会/历次通关的纯派生汇总·见 systems/paradiseFame）
+      ...buildReputeInjection(usePlayer.getState().profile.repute ?? defaultRepute(), useMisc.getState().worldName || ''),   // <本世界名声> 四维·不同圈子看不同维度（见 systems/reputation）
+      ...diploBlock,                                    // <势力外交> 本世界势力间的八级格局 + 玩家可用的调解/挑拨/代行杠杆（见 systems/diplomacy）
+      ...rumorBlock,                                    // <市井流言> 只给"街面上在传什么"，**不给真相** → NPC 可基于错信息行动（见 systems/rumor）
+      ...buildCastHintInjection(),                      // <角色动向提示> 轨道A 后台织出的"谁可能回来/谁刚走"→ 导演提示（背景事实非剧本·见 systems/castHint）
       ...preludeBlock,                                  // <前置须知> 玩家常驻前置提示词 + 本回合场外操作通报 → 最深处·紧贴输入前（深度最深·权重最高）
       ...growthBlock,                                    // <本回合成长·需入戏交代> 玩家刚点亮的星图技能/天赋 → 正文叙述主角如何习得（治职业与正文脱节）
       ...outlineBlock,                                   // <本回合细纲> 玩家确认的施工蓝图 → 最深处·最高优先，正文严格遵循（细纲功能）
@@ -10179,6 +10620,7 @@ ${lines}`;
         ...structRest,                                   // <在场与相关档案> NPC/势力/领地
         ...(outlineCast ? [{ role: 'system' as const, content: outlineCast }] : []),   // 本回合可能出场角色·人格档案（人多字段少·补 structMaxNpcs 之外的长尾）
         ...buildPlayerCoreInjection(),                   // <主角核心>
+        ...buildOutfitInjection(),                       // <钦定穿搭>（细纲/规划层同样要认穿搭）
         ...buildWorldTimeInjection(),                    // <当前时空>
         ...buildQuestInjection(true),                    // <当前任务>（细纲生成=规划层·任务线仅作背景参考）
         ...buildCosmosInjection(),                       // <万族态势>
@@ -10671,10 +11113,21 @@ ${lines}`;
       label === '回合洞察' ? () => setInsightOpen(true) :
       label === '战斗' ? () => { if (mpGuest) { setGenError('联机中：战斗由房主发起'); setTimeout(() => setGenError(''), 4000); return; } setCombatSetupOpen(true); } :
       label === '乐园设施' ? () => setFacilitiesOpen(true) :
-      label === '深渊' ? () => setAbyssOpen(true) :
+      /* P4·⌘K 深动作：不占右侧导航、只从命令面板直达的二级功能（此前二级以下在 ⌘K 完全搜不到） */
+      label === '装备强化' ? () => setEnhancePanelOpen(true) :
+      label === '技能升级' ? () => setSkillUpPanelOpen(true) :
+      label === '竞技场' ? () => { sweepArenaOpponents(); setArenaPanelOpen(true); } :
+      label === '赌场' ? () => setCasinoOpen(true) :
+      label === '欢愉宫' ? () => setJoyPanelOpen(true) :
+      label === '系统商店' ? () => setShopOpen(true) :
+      label === '结算任务' ? () => openSettleFlow() :
+      label === '重算变量' ? () => setRevarOpen(true) :
+      label === '深渊' || label === '幽冥' ? () => setAbyssOpen(true) :   // 五阶前导航显示「幽冥」（同 scrubAbyss 口径），点开同一面板
       label === 'NPC'  ? () => setNpcPanelOpen(true) :
       label === '宠物/召唤物' ? () => setPetRosterOpen(true) :
       label === '任务' ? () => setMiscPanelOpen(true) :
+      label === '参谋' ? () => setAdvisorOpen(true) :
+      label === '坐标' ? () => setBookmarkOpen(true) :
       label === '频道' ? () => setChannelPanelOpen(true) :
       label === '私信' ? () => { setDmFocusThread(undefined); setDmPanelOpen(true); } :
       label === '好友' ? () => setFriendsPanelOpen(true) :
@@ -10831,7 +11284,7 @@ ${lines}`;
     try { useItems.getState().setItemTurn(turnCountRef.current); } catch { /* */ }
     lastUserInputRef.current = userInput;
     expireStatuses(turnCountRef.current);
-    reconcileHomeWorld(); reconcilePlayerVitals(); syncPlayerVitalsMax(); reconcilePartyLifecycle();
+    reconcileHomeWorld(); reconcileWorldScope(); reconcilePlayerVitals(); syncPlayerVitalsMax(); reconcilePartyLifecycle();
     const _ssEvo = useSettings.getState();   // 同上：实时读 store，免 stale 闭包导致演化也拿不到预设
     const preset = resolveActivePreset(_ssEvo);
     if (userInput) {
@@ -11689,6 +12142,9 @@ ${lines}`;
   async function enterWorld(world: WorldOption, opts?: { profQuests?: string; profTasks?: { name: string; desc?: string; reward?: string }[] }) {
     setWorlds([]);
     setCardIndex(0);
+    // ⚠ 必须在下面 setTime({worldName}) 覆盖之前抓住"上一个世界名"——worldScope 冻结要靠它定位该冻谁
+    const prevWorldForScope = (useMisc.getState().worldName || '').trim();
+    let inheritedThisEntry = false;   // 玩家在同名再入时选了「继承」→ 才解冻上次留在此世界的数据
     // 离开上个世界：若上一个 active 世界还没总结、且要进的是不同世界 → 询问玩家是否生成离世总结（可拒绝）。
     try {
       const prevActive = useWorldRecord.getState().getActive();
@@ -11717,6 +12173,16 @@ ${lines}`;
     const _pq = (opts?.profQuests ?? '').trim();
     if (_pq) lines.push(`\n【职业专属任务（据主角职业树/副职业生成·完成即经正文与演化即时发放奖励·不计入世界结算）】\n${_pq}`);
 
+    // 前尘提要（P2 读回）：上一世界的编纂正史（编年史·玩家修过的金银档）→ 新世界过场的跨世界记忆；
+    // 无编纂退回离世总结。此刻 getActive() 仍是上个世界（WR 激活在下方才发生）。让编年史从"相册"变成 AI 的前情记忆。
+    try {
+      const prev = useWorldRecord.getState().getActive();
+      if (prev && normWorldName(prev.name) !== normWorldName(world.name || '')) {
+        const saga = buildPriorSaga(prev.name, useChronicle.getState().compiled[prev.id], prev.summary as never);
+        if (saga) lines.push(`\n前尘提要（主角此前的轮回足迹·背景记忆——心境/名声/习惯可自然延续，勿重播旧事件、勿把旧世界人物搬进本世界）：\n${saga}`);
+      }
+    } catch { /* 无前尘则跳过 */ }
+
     const contextText = lines.join('\n');
     // 进入任务世界：立即把「当前世界」设为该世界名、清空世界时间（底部状态栏即时反映当前世界，
     // 之后由杂项演化按正文细化 worldTime；worldName 始终跟随正文/所在世界，不写死轮回乐园）
@@ -11733,6 +12199,7 @@ ${lines}`;
         const evalStr = last.summary?.综合评价 ? `·上次评价 ${last.summary.综合评价}` : '';
         if (confirm(`【${world.name}】检测到历史记录（第 ${last.instanceId} 次${evalStr}）。\n\n确定 = 继承上次进度（把你上次在此世界的身份 / 名声 / 遗留局势注入正文·续写）\n取消 = 重置为全新世界（干净开局·不继承）`)) {
           WR.inheritWorld({ name: world.name || '', tier: String(world.tier || ''), fromId: last.id, turn: turnNow });
+          inheritedThisEntry = true;   // → 下面 thawWorld 把上次冻结在这个世界的土著/势力捞回来
         } else {
           WR.activateWorld({ name: world.name || '', tier: String(world.tier || ''), turn: turnNow });
         }
@@ -11742,7 +12209,50 @@ ${lines}`;
     } catch { /* */ }
     // 进入新任务世界：主角「身份」采用卡片生成的 identity（无则清空·不带上个世界的身份）；治"进新世界还挂着上个世界身份"。
     try { if (world.name && !isHomeWorld(world.name)) usePlayer.getState().setProfile({ identity: (world.identity || '').trim() }); } catch { /* */ }
-    // 进入新任务世界：把"所处世界已知、且明显不属于新世界"的旧势力移出当前世界（避免上个世界的势力继续挂在新世界出不去）
+    // ── 世界作用域·冻结/解冻（systems/worldScope.ts·适配公理1）──
+    //   离开上个任务世界 → 把属于它的 world 作用域数据（土著NPC + 势力）冻结进库房：退出活跃视图，
+    //   不再被演化选焦点 / 轨道A 每回合织行动（此前旧土著会一直烧 API 和 tick），但数据仍在、可捞回。
+    //   ⚠ 只有玩家在上面选了「继承」才 thaw；选「重置」= 干净开局，旧数据留在库房不动。
+    try {
+      const turnNow = useMisc.getState().turnCount;
+      if (prevWorldForScope && !sameWorld(prevWorldForScope, world.name || '')) {
+        // 四维声誉是 world 作用域：离世折算成一句名声写进上一世界的「继承要点」，然后重置。
+        // 同名再入选「继承」时，这句话会随 inheritAnchors 注入正文续写。
+        try {
+          const rep = usePlayer.getState().profile.repute;
+          if (rep) {
+            const line = summarizeRepute(rep);
+            const WR = useWorldRecord.getState();
+            const prev = WR.records.find((r) => sameWorld(r.name, prevWorldForScope) && r.status !== 'draft');
+            if (prev) WR.updateRecord(prev.id, { summary: { ...(prev.summary ?? {}), 继承要点: { ...(prev.summary?.继承要点 ?? {}), 主角名声: line } } });
+            usePlayer.getState().setProfile({ repute: undefined });
+            console.log(`[声誉] 离开【${prevWorldForScope}】→ 折算「${line}」并重置四维`);
+          }
+        } catch (e) { console.warn('[声誉] 离世折算失败（跳过）:', e); }
+        const fr = freezeWorld(prevWorldForScope, turnNow);
+        if (fr.npcFrozen.length || fr.factionsClosed.length) {
+          console.log(`[worldScope] 🧊 离开【${prevWorldForScope}】：冻结 NPC ${fr.npcFrozen.length}（保留 ${fr.npcKept.length}·补写归属 ${fr.npcBackfilled.length}）· 势力离场 ${fr.factionsClosed.length}`);
+        }
+      }
+      // 传闻播种（零 API）：世界卡的「剧情偏移」「前人遗产」本身就是"世上流传着关于某个来历不明强者的说法"——
+      // 直接切成 1~2 条初始传闻，让传闻系统一进世界就不是空的。仅新世界播种，继承时沿用旧传闻。
+      if (!inheritedThisEntry) {
+        const seeds = seedRumorsFromWorldCard({
+          plotDrift: world.plotDrift, priorLegacy: world.priorLegacy,
+          worldTime: useMisc.getState().worldTime, turn: turnNow,
+        });
+        for (const s of seeds) useMisc.getState().addRumor({ name: s.name, impact: s.impact, scope: s.scope, node: s.node });
+        if (seeds.length) console.log(`[传闻] 🌱 从世界卡播种 ${seeds.length} 条初始传闻`);
+      }
+      if (inheritedThisEntry) {
+        const th = thawWorld(world.name || '');
+        if (th.npcThawed.length || th.factionsReopened.length) {
+          console.log(`[worldScope] ♨ 继承【${world.name}】：解冻 NPC ${th.npcThawed.length} · 势力回归 ${th.factionsReopened.length}`);
+        }
+      }
+    } catch (e) { console.warn('[worldScope] 切世界冻结/解冻失败（跳过·不阻断进世界）:', e); }
+    // 进入新任务世界：把"所处世界已知、且明显不属于新世界"的旧势力移出当前世界
+    //   （兜底上面按名冻不到的：worldName 与新世界对不上但也不等于上个世界名的历史遗留）
     try {
       const F = useFaction.getState();
       const norm = (s: string) => s.replace(/[\s·•・\-—_,，。、|｜（）()【】]/g, '').toLowerCase();
@@ -11785,7 +12295,7 @@ ${lines}`;
     setDmPanelOpen(false); setMpPanelOpen(false); setChatRoomOpen(false); setTradeOpen(false);
     setAssistOpen(false); setArenaWorldOpen(false); setPlaytimeOpen(false); setMonumentOpen(false);
     setVaultOpen(false); setFriendsPanelOpen(false); setPartyPanelOpen(false); setWorkshopOpen(false); setWorldLibOpen(false);
-    setShopOpen(false); setMiscPanelOpen(false); setWorldRecordOpen(false); setChaosWorldOpen(false);
+    setShopOpen(false); setMiscPanelOpen(false); setAdvisorOpen(false); setBookmarkOpen(false); setWorldRecordOpen(false); setChaosWorldOpen(false);
     setCombatSetupOpen(false); setArenaPanelOpen(false); setEnhancePanelOpen(false); setSkillUpPanelOpen(false);
     setCraftPanelOpen(false); setProducePanelOpen(false); setGuildPanelOpen(false); setCasinoOpen(false);
     setAbyssOpen(false); setJoyPanelOpen(false); setSummaryPanelOpen(false); setAuditOpen(false);
@@ -11802,7 +12312,7 @@ ${lines}`;
     //   阅读设置里有「关键词悬浮图鉴」的示例词条，这里必须自带一份，否则那条虚线悬浮不出卡（说好能试却试不出）。
     return (
       <PanelBoundary label="设置面板" onReset={() => setSettingsOpen(false)}>
-        <Suspense fallback={null}><SettingsPanel onClose={() => setSettingsOpen(false)} onOpenSaveLoad={() => { setSettingsOpen(false); setSaveOpen(true); }} /></Suspense>
+        <Suspense fallback={null}><SettingsPanel initialPage={settingsDeepPage} onClose={() => { setSettingsOpen(false); setSettingsDeepPage(undefined); }} onOpenSaveLoad={() => { setSettingsOpen(false); setSettingsDeepPage(undefined); setSaveOpen(true); }} /></Suspense>
         <CodexHover />
       </PanelBoundary>
     );
@@ -12030,6 +12540,9 @@ ${lines}`;
                     </>
                   );
                 })()}
+                {/* 楼层信息条：贴在最新正文末尾（时间·天气 / 任务 / 伏笔）。零 props ⇒ memo 恒跳过，
+                    App 打字/流式重渲不会波及它；只跟 misc/tables/settings 自己的订阅走。⚠勿传 props。 */}
+                {messages.length > 0 && <StoryStrip />}
                 {generating && (
                   <div className="flex items-center gap-2 text-dim text-xs font-mono">
                     <span className="animate-spin inline-block">◌</span>
@@ -12455,18 +12968,25 @@ ${lines}`;
             ${mobileDrawer === 'menu' ? 'max-lg:translate-x-0' : 'max-lg:translate-x-full'}`}
         >
           <nav className="py-1">
-            {rightMenuItems.map((item) => (
-              <button
-                key={item.label}
-                onClick={() => { runNavAction(item.label); setMobileDrawer(null); }}
-                className="nav-btn w-full flex items-center gap-3 px-4 py-2.5 text-sm transition-colors text-left text-dim hover:text-slate-200 hover:bg-panel2"
-              >
-                <span className={`nav-ico ${NAV_FX[item.label] || ''} w-4 text-center text-xs opacity-70`}>{item.icon}</span>
-                <span>{item.label}</span>
-                {item.label === '聊天室' && chatUnread > 0 && (
-                  <span className="ml-auto min-w-[18px] h-[18px] px-1 rounded-full bg-blood text-white text-[10px] font-bold flex items-center justify-center leading-none animate-pulse">{chatUnread > 99 ? '99+' : chatUnread}</span>
+            {(navSections ?? [{ name: '', items: navItems }]).map((sec) => (
+              <div key={sec.name || '_flat'}>
+                {sec.name && (
+                  <div className="px-4 pt-2.5 pb-1 text-[10px] font-mono tracking-widest text-dim/40 select-none border-t border-edge/40 first:border-t-0">{sec.name}</div>
                 )}
-              </button>
+                {sec.items.map((item) => (
+                  <button
+                    key={item.label}
+                    onClick={() => { runNavAction(item.label); setMobileDrawer(null); }}
+                    className="nav-btn w-full flex items-center gap-3 px-4 py-2.5 text-sm transition-colors text-left text-dim hover:text-slate-200 hover:bg-panel2"
+                  >
+                    <span className={`nav-ico ${NAV_FX[item.label] || ''} w-4 text-center text-xs opacity-70`}>{item.icon}</span>
+                    <span>{item.label}</span>
+                    {(navBadges[item.label] ?? 0) > 0 && (
+                      <span className="ml-auto min-w-[18px] h-[18px] px-1 rounded-full bg-blood text-white text-[10px] font-bold flex items-center justify-center leading-none animate-pulse">{(navBadges[item.label] ?? 0) > 99 ? '99+' : navBadges[item.label]}</span>
+                    )}
+                  </button>
+                ))}
+              </div>
             ))}
           </nav>
         </aside>
@@ -12478,8 +12998,8 @@ ${lines}`;
       {/* ── 命令面板（⌘K/Ctrl+K/顶栏🔍 → 模糊搜索快速跳转面板）── */}
       <CommandPalette
         open={cmdkOpen}
-        items={rightMenuItems}
-        unread={{ '聊天室': chatUnread }}
+        items={paletteItems}
+        unread={navBadges}
         onClose={() => setCmdkOpen(false)}
         onPick={(label) => { setCmdkOpen(false); setMobileDrawer(null); runNavAction(label); }}
       />
@@ -12872,6 +13392,8 @@ ${lines}`;
       {miscPanelOpen && (
         <MiscPanel onClose={() => setMiscPanelOpen(false)} onGenerate={manualGenTask} />
       )}
+      {advisorOpen && <AdvisorPanel onClose={() => setAdvisorOpen(false)} />}
+      {bookmarkOpen && <BookmarkPanel onClose={() => setBookmarkOpen(false)} />}
 
       {worldRecordOpen && (
         <WorldRecordPanel onClose={() => setWorldRecordOpen(false)} onGenSummary={runWorldSummaryPhase} summaryBusyId={summaryBusyId} onRegenWorldview={regenWorldviewForRecord} worldviewBusyId={worldviewBusyId} />
@@ -13038,7 +13560,8 @@ ${lines}`;
         </Suspense>
       )}
       <ImageBusyToast />
-      {showVer && <VersionToast version={APP_VERSION} note={VERSION_NOTE} onClose={() => setShowVer(false)} />}
+      <GlobalToasts />
+      {showVer && <VersionToast version={APP_VERSION} notes={VERSION_NOTES} onNav={runNavAction} onClose={() => setShowVer(false)} />}
       {/* 回退 / 重新生成 确认弹窗（破坏性操作，先确认）*/}
       {confirmAction && (
         <div className="fixed inset-0 z-[130] bg-black/70 backdrop-blur-sm flex items-center justify-center p-4"
@@ -13174,7 +13697,7 @@ const MessageRow = memo(function MessageRow({ msg, isEditing, reading, ttsDlgOpt
   // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => { if (isEditing) setDraft(msg.content); }, [isEditing]);
   return (
-    <div className={msg.role === 'user' ? 'flex justify-end' : ''}>
+    <div data-msg-id={msg.id} className={msg.role === 'user' ? 'flex justify-end' : ''}>
       {msg.role === 'user' ? (
         isEditing ? (
           <div className="w-full max-w-sm space-y-2">
@@ -13248,13 +13771,17 @@ const MessageRow = memo(function MessageRow({ msg, isEditing, reading, ttsDlgOpt
         </div>
       ) : (
         <div className="group relative">
-          <button
-            onClick={() => onStartEdit(msg.id)}
-            title="编辑这段正文"
-            className="absolute top-0 right-0 z-10 opacity-0 group-hover:opacity-100 focus:opacity-100 transition-opacity w-7 h-7 flex items-center justify-center rounded-md border border-edge bg-void/85 text-dim/60 hover:text-god hover:border-god/40"
-          >
-            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round"><path d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg>
-          </button>
+          {/* 右上角操作组：⭐收藏 + ✎编辑。⭐ 自订阅 bookmarkStore（App 不订阅），收藏只重渲那颗按钮 */}
+          <div className="absolute top-0 right-0 z-10 flex items-center gap-1">
+            <BookmarkButton msgId={msg.id} content={msg.content} />
+            <button
+              onClick={() => onStartEdit(msg.id)}
+              title="编辑这段正文"
+              className="opacity-0 group-hover:opacity-100 focus:opacity-100 transition-opacity w-7 h-7 flex items-center justify-center rounded-md border border-edge bg-void/85 text-dim/60 hover:text-god hover:border-god/40"
+            >
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round"><path d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg>
+            </button>
+          </div>
           <div
             className="text-slate-300 narrative-content"
             data-dlg={reading.dialogueHl === false ? '0' : '1'}

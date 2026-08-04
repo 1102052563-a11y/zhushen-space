@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { openSettingsPage } from '../systems/navBus';   // P4·空态深链：一键直达设置子页
 import { useMisc } from '../store/miscStore';
 import { useWorldCodex, resolveCodexEntry } from '../store/worldCodexStore';
 import { CODEX_MODULES, type CodexModule } from '../worldCodexModules';
@@ -311,7 +312,7 @@ export default function WorldCodexPanel({ onClose }: { onClose: () => void }) {
           <div className="flex-1 flex items-center justify-center p-8 text-center text-dim/50 text-sm font-mono">
             <div>
               世界百科已关闭。<br />
-              去「设置 → 变量管理 → 📖 世界百科」开启，并可为它单独配置支持联网搜索的接口。
+              去<button onClick={() => openSettingsPage('codex-manager')} className="text-god/80 underline underline-offset-2 hover:text-god mx-0.5">「设置 → 变量管理 → 📖 世界百科」</button>开启，并可为它单独配置支持联网搜索的接口。
             </div>
           </div>
         ) : (

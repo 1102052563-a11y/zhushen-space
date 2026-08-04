@@ -27,11 +27,17 @@ import { useTerritory } from '../store/territoryStore';
 import { useTeam } from '../store/adventureTeamStore';
 import { useImageGen } from '../store/imageGenStore';
 import { useComic } from '../store/comicStore';
+import { useOutfits } from '../store/outfitStore';
 import { useTurnInsight } from '../store/turnInsightStore';
 import { useAgentRun } from '../store/agentRunStore';
+import { useAgentSkills } from '../store/agentSkillStore';
 import { useCharacters } from '../store/characterStore';
 import { useMemory } from '../store/memoryStore';
 import { useMisc } from '../store/miscStore';
+import { useCalendar } from '../store/calendarStore';
+import { useAdvisor } from '../store/advisorStore';
+import { useBookmarks } from '../store/bookmarkStore';
+import { useTheater } from '../store/theaterStore';
 import { useWorldRecord } from '../store/worldRecordStore';
 import { useChannel } from '../store/channelStore';
 import { useCosmos } from '../store/cosmosStore';
@@ -87,12 +93,18 @@ const STORES: { key: string; api: any; clear?: () => void }[] = [
   { key: 'drpg-team',        api: useTeam, clear: () => useTeam.getState().clearTeam() },
   { key: 'drpg-image-gen',   api: useImageGen },   // 配置：保留（图片走 IndexedDB 单独清）
   { key: 'drpg-comic',       api: useComic },      // 漫画工坊配置：保留（漫画本体在 IndexedDB drpg-comics，库房性质·不进快照不随新游戏清）
+  { key: 'drpg-outfit',      api: useOutfits, clear: () => useOutfits.getState().clearAll() },   // 👗衣柜（穿搭绑定本存档角色·进度）：随存档快照、新游戏清空
   { key: 'drpg-turn-insight', api: useTurnInsight, clear: () => useTurnInsight.getState().clear() },
   { key: 'drpg-agentrun',   api: useAgentRun, clear: () => useAgentRun.getState().clearAll() },   // Agent 正文模式 run journal：进度数据，随存档快照、新游戏清空
+  { key: 'drpg-agentskills', api: useAgentSkills },   // Agent 技能/子代理资产库（预设内嵌导入）：配置类，新游戏保留
 
   { key: 'drpg-characters', api: useCharacters, clear: () => useCharacters.setState({ characters: {} }) },
   { key: 'drpg-memory',     api: useMemory },      // 保留
   { key: 'drpg-misc',       api: useMisc, clear: () => { const m = useMisc.getState(); m.clearMisc(); m.clearNarrativeFacts(); m.setTime({ paradiseTime: '', worldTime: '', worldName: '' }); m.setWeather(''); } },
+  { key: 'drpg-calendar',   api: useCalendar, clear: () => useCalendar.getState().clearAll() },   // 世界历(节日/生日/纪念日)：进度数据,随存档快照、新游戏清空
+  { key: 'drpg-advisor',    api: useAdvisor, clear: () => useAdvisor.getState().clear() },        // 🧭 参谋对话：聊的是本档剧情,进度数据,随存档快照、新游戏清空
+  { key: 'drpg-bookmarks',  api: useBookmarks, clear: () => useBookmarks.getState().clear() },    // ⭐ 坐标(收藏楼层·含正文快照)：进度数据,随存档快照、新游戏清空
+  { key: 'drpg-theater',    api: useTheater },   // 🎭 小剧场·花样模板：玩家资产(非本档进度)→**不给 clear**,随新游戏保留
   { key: 'drpg-channel',    api: useChannel, clear: () => useChannel.getState().clearChannel() },
   { key: 'drpg-cosmos',     api: useCosmos, clear: () => useCosmos.getState().clearCosmos() },
   { key: 'drpg-world-codex', api: useWorldCodex, clear: () => useWorldCodex.getState().clearAll() },

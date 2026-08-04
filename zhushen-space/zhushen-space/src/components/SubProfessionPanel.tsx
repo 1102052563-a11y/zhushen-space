@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { openSettingsPage } from '../systems/navBus';   // P4·空态深链：一键直达设置子页
 import { useSubProfTree, isRecipeNode, subProfMastery } from '../store/subProfTreeStore';
 import { usePinchPanZoom } from '../systems/usePinchPanZoom';
 import { usePlayer } from '../store/playerStore';
@@ -207,7 +208,7 @@ export default function SubProfessionPanel({ onClose }: { onClose: () => void })
             <div ref={scrollRef}
               className={`flex-1 overflow-auto p-3 touch-none ${tree ? (grabbing ? 'cursor-grabbing' : 'cursor-grab') : ''}`}
               {...(tree ? bind : {})}>
-              {!tree && <div className="text-center text-dim/40 text-sm py-16">还没有副职业树。到「设置 → 变量管理 → 副职业设置」里创建或 AI 生成一套，或从内置炼金术/锻造开始。</div>}
+              {!tree && <div className="text-center text-dim/40 text-sm py-16">还没有副职业树。到<button onClick={() => openSettingsPage('subprof-manager')} className="text-god/80 underline underline-offset-2 hover:text-god mx-0.5">「设置 → 变量管理 → 副职业设置」</button>里创建或 AI 生成一套，或从内置炼金术/锻造开始。</div>}
               {tree && <TreeCanvas tree={tree} ranks={ranks} availableIds={availableIds} mode="play" selectedId={selId} onNodeClick={setSelId} zoom={zoom} heightVh={76} />}
             </div>
 

@@ -81,10 +81,41 @@ export function buildTruthReinforcement(turn: number): string {
   return `<世界真相·重申>\n（周期性强化注入·每 ${TRUTH_PERIOD} 回合一次：以下为已确立的关键事实，正文**不得违背**；若角色行为与之冲突，必须给出剧情内的合理理由。这些事实可能很久没被提及——那正是最容易写崩的地方。）\n${lines.join('\n')}\n</世界真相·重申>`;
 }
 
-/** 正文注入组装用：两块合一（空块自动省略）；自身绝不抛错、不阻断正文。 */
+/** <剧情坐标> 块：约定表(进行中) + 进程表(当前坐标) 的正文级小摘要；空则 ''。
+    ★此前完整剧情四表只喂「剧情指导」（tablePrompt.buildPlotStateSnapshot 唯一调用点在导演管线）——
+    不开剧情指导的玩家，table 阶段每回合花 API 维护的表对主正文只剩〈伏笔催收〉一个摘要（审计"写了没人读"）。
+    约定是防爽约的硬事实、进程是当前幕坐标，都很小（行数少·逐格截断），随每回合注入不设周期；
+    纪要不注（记忆召回已覆盖）、伏笔已有催收，不重复。 */
+export function buildPlotStateBrief(): string {
+  try {
+    const T = useTables.getState();
+    const render = (uid: string, cap: number, drop?: RegExp): string[] => {
+      const sheet = T.tables[uid];
+      const headers: string[] = (sheet?.content?.[0] ?? []).slice(1).map((h: unknown) => String(h ?? ''));
+      const rows: string[][] = sheet?.content?.slice(1) ?? [];
+      return rows
+        .filter((r) => !(drop && drop.test((r ?? []).join(' '))))
+        .slice(-cap)
+        .map((r) => headers.map((h, ci) => (r[ci + 1] ? `${h}=${String(r[ci + 1]).slice(0, 40)}` : '')).filter(Boolean).join('｜'))
+        .filter(Boolean)
+        .map((s) => `- ${s}`);
+    };
+    const parts: string[] = [];
+    const pacts = render('pacts', 6, /已完成|已兑现|已履行|已作废|已失效|已取消/);
+    if (pacts.length) parts.push(`【进行中约定·勿爽约】\n${pacts.join('\n')}`);
+    const prog = render('progress', 4);
+    if (prog.length) parts.push(`【剧情进程·当前坐标】\n${prog.join('\n')}`);
+    if (!parts.length) return '';
+    return `<剧情坐标>\n（前端从剧情表机械摘取的当前状态·背景事实：叙事应与之一致——尤其**约定到期要兑现或给交代**，别写着写着忘了；勿在正文罗列这些系统信息。）\n${parts.join('\n')}\n</剧情坐标>`;
+  } catch { return ''; }
+}
+
+/** 正文注入组装用：三块合一（空块自动省略）；自身绝不抛错、不阻断正文。 */
 export function buildPlotGuardInjection(turn: number): { role: 'system'; content: string }[] {
   const out: { role: 'system'; content: string }[] = [];
   try {
+    const brief = buildPlotStateBrief();
+    if (brief) out.push({ role: 'system', content: brief });
     const dun = buildForeshadowDunning(turn);
     if (dun) out.push({ role: 'system', content: dun });
     const truth = buildTruthReinforcement(turn);

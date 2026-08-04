@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
+import { openSettingsPage } from '../systems/navBus';   // P4·空态深链：一键直达设置子页
 import { usePlayer } from '../store/playerStore';
 import { useArena } from '../store/arenaStore';
 import { useMisc } from '../store/miscStore';
@@ -134,7 +135,7 @@ export default function ArenaPanel({ onClose, onGenerateLadder, onScout, onChall
             {!enabled ? (
               <>
                 <div className="text-slate-200 text-sm font-medium">竞技场已停用</div>
-                <div className="text-slate-400 text-xs max-w-sm leading-relaxed">在「设置 → 变量管理 → 🏟竞技场」可重新开启。</div>
+                <button onClick={() => openSettingsPage('arena-manager')} className="text-xs text-god/80 underline underline-offset-2 hover:text-god">前往「设置 → 变量管理 → 🏟竞技场」开启 →</button>
               </>
             ) : (
               <>

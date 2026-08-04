@@ -5,6 +5,7 @@ import { materializeTradedNpc, npcToSnapshotRaw } from './assistApply';
 import { mpWsBase } from './mpConfig';
 import { chatAvatarVer, chatDicebearSeed } from './chatIdentity';
 import { chatNameColor } from './chatCosmetics';
+import { reportFacilityOutcome } from './facilityBridge';
 import type { TradeInbound, TradeOutbound, TradeRecord } from './tradeProtocol';
 
 // 全局交易行 WebSocket 客户端（事件名照搬后端 TradeDO 协议）。
@@ -41,9 +42,14 @@ function saveEscrow(m: Record<string, EscrowEntry>) { try { localStorage.setItem
 // （部分上架时原堆叠仍在背包，带 id 归还会命中 addItem「同 id 原地更新」把剩余数量覆盖丢失；去 id 后按名回堆/装备新建）。
 function returnItem(item: any) {
   try {
-    if (item && item._entity === 'npc') { materializeTradedNpc(item); return; }
+    if (item && item._entity === 'npc') {
+      materializeTradedNpc(item);
+      reportFacilityOutcome({ source: '交易行', summary: `挂牌未成交，随从「${item.name || '同伴'}」已归还回花名册`, guard: '托管归还，勿当作新结识的人物', toast: true });
+      return;
+    }
     const { id, ...rest } = item || {};
     useItems.getState().addItem({ ...rest });
+    reportFacilityOutcome({ source: '交易行', summary: `挂牌未成交/已下架，「${rest.name || '物品'}」已归还回背包`, granted: rest.name ? [rest.name] : undefined, guard: '托管归还原物，勿当作新获得', toast: true });
   } catch { /* */ }
 }
 
@@ -144,10 +150,17 @@ export function applyTrade(rec?: TradeRecord) {
     const mm = loadEscrow();
     const e = Object.values(mm).find((x) => x.listingId === rec.listingId);   // 托管物消费（已给买家，不 returnItem）
     if (e) { delete mm[e.token]; saveEscrow(mm); }
-    if (key) { try { useItems.getState().adjustCurrency(key, rec.price); } catch { /* */ } }   // 收币
+    if (key) { try { useItems.getState().adjustCurrency(key, rec.price, `交易行·卖出「${(rec.item as any)?.name || '挂牌物'}」`); } catch { /* */ } }   // 收币
+    reportFacilityOutcome({ source: '交易行', summary: `挂牌的「${(rec.item as any)?.name || '物品'}」已被其他契约者买走，进账 ${rec.price} ${rec.currency || '乐园币'}`, guard: '该物已归买家所有，主角不再持有；货款已入账，勿重复结算', toast: true });
   } else {
-    if (rec.item && (rec.item as any)._entity === 'npc') { try { materializeTradedNpc(rec.item as any); } catch { /* */ } }   // 买家得随从/宠物/召唤物（物化进花名册）
-    else { try { useItems.getState().addItem({ ...rec.item, id: undefined }); } catch { /* */ } }                            // 买家得物（新 id / 同名堆叠）
+    const nm = (rec.item as any)?.name || '';
+    if (rec.item && (rec.item as any)._entity === 'npc') {
+      try { materializeTradedNpc(rec.item as any); } catch { /* */ }   // 买家得随从/宠物/召唤物（物化进花名册）
+      reportFacilityOutcome({ source: '交易行', summary: `主角在交易行购得随从「${nm}」（花费 ${rec.price} ${rec.currency || '乐园币'}），已入花名册、随行听候差遣`, guard: '人物档案已由前端建立，正文可自然引出初次会面，勿重复建档', toast: true });
+    } else {
+      try { useItems.getState().addItem({ ...rec.item, id: undefined }); } catch { /* */ }                            // 买家得物（新 id / 同名堆叠）
+      reportFacilityOutcome({ source: '交易行', summary: `主角在交易行购得「${nm}」（花费 ${rec.price} ${rec.currency || '乐园币'}），已入背包`, granted: nm ? [nm] : undefined, toast: true });
+    }
     // 付款已在出价时托管扣除：成交 → 消费该托管(不再扣)；找不到托管才兜底现扣(理论不该走到)
     if (!consumeCoin(rec.offerId, rec.listingId, rec.price) && key) {
       try { useItems.getState().adjustCurrency(key, -rec.price); } catch { /* */ }
@@ -256,6 +269,7 @@ function listItem(item: any, qty: number, price: number, currency: string, note:
   const ok = sendRaw({ type: 'list_item', item: snap, price, currency, note, clientToken: token });
   if (!ok) return false;
   try { useItems.getState().consumeItem(item.id, n); } catch {}        // 上架即从背包扣 n 件（全扣→整条移除，部分→减库存）
+  reportFacilityOutcome({ source: '交易行', summary: `主角把「${item.name}」${n > 1 ? `×${n} ` : ''}挂上了交易行寄售（标价 ${price} ${currency || '乐园币'}）`, guard: '该物已进入托管、暂离背包；未成交会自动归还，勿当作丢失' });
   const mm = loadEscrow(); mm[token] = { token, item: snap, listingId: null, at: Date.now() }; saveEscrow(mm);
   setTimeout(() => {                                                    // 8s 没收到确认 → 视为失败，归还
     const m2 = loadEscrow(); const e = m2[token];
@@ -276,6 +290,7 @@ function listNpc(npcId: string, price: number, currency: string, note: string): 
   const ok = sendRaw({ type: 'list_item', item: snap, price, currency, note, clientToken: token });
   if (!ok) return false;
   try { useNpc.getState().hardRemoveNpc(npcId); } catch { /* */ }       // 上架即从花名册移除（快照已托管，未成交时物化归还）
+  reportFacilityOutcome({ source: '交易行', summary: `主角把随从「${raw.name}」挂上了交易行寄售（标价 ${price} ${currency || '乐园币'}）`, guard: '该同伴已进入托管、暂时离队；未成交会自动归队，正文中其暂不在场' });
   const mm = loadEscrow(); mm[token] = { token, item: snap, listingId: null, at: Date.now() }; saveEscrow(mm);
   setTimeout(() => {
     const m2 = loadEscrow(); const e = m2[token];

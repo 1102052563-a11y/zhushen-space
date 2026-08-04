@@ -3,7 +3,7 @@ import { useNpcChat } from '../store/npcChatStore';
 import { sendNpcChat } from '../systems/npcChat';
 import { generateJoinedTeam } from '../systems/adventureTeamGen';
 import { useTeam } from '../store/adventureTeamStore';
-import type { NpcRecord } from '../store/npcStore';
+import { useNpc, type NpcRecord } from '../store/npcStore';
 
 /* 与单个 NPC 的私聊：上=对话区(聊天气泡+输入) / 下=交互描述窗(第三人称旁白·可NSFW)。
    一次 API 同时产出对白+交互描述；缓存随存档(npcChatStore)，离开保留、再来续聊。 */
@@ -22,6 +22,30 @@ export default function NpcChatPanel({ npc, onClose }: { npc: NpcRecord; onClose
   const chatEndRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => { chatEndRef.current?.scrollIntoView({ behavior: 'smooth' }); }, [turns.length, sending]);
+
+  // 私聊落痕：关闭面板时若本次聊了新内容（≥1 次往来），往该 NPC 的 deedLog 记一条**中性小结**——
+  // 让 NPC 演化/主叙事能感知"最近私下聊过天"（此前私聊 300 回合演化也读不到，审计"纯消耗"）。
+  // ⚠只记"聊过"这个事实，绝不摘录内容：私聊可 NSFW，内容不该漏进正文/演化管线。
+  const chatBaseRef = useRef(turns.length);
+  const turnsLenRef = useRef(turns.length);
+  turnsLenRef.current = turns.length;
+  useEffect(() => {
+    const base = chatBaseRef.current;
+    const id = npc.id;
+    return () => {
+      const grew = turnsLenRef.current - base;
+      if (grew >= 2) {   // 一次往来=玩家+NPC 各一条
+        try {
+          useNpc.getState().appendDeed(id, {
+            time: '近日', location: '私下交流',
+            description: `与主角单独交谈了一阵（约 ${Math.ceil(grew / 2)} 次往来）——关系在闲谈中又近了一步。`,
+            addedAt: Date.now(),
+          });
+        } catch { /* 落痕失败不阻断关闭 */ }
+      }
+    };
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- 仅挂载/卸载各跑一次；长度经 ref 取最新
+  }, []);
 
   // 最近一条交互描述（当下场景）
   const lastScene = (() => { for (let i = turns.length - 1; i >= 0; i--) if (turns[i].role === 'npc' && turns[i].scene) return turns[i].scene; return ''; })();

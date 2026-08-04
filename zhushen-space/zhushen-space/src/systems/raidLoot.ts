@@ -1,11 +1,17 @@
 /* 组队讨伐 · 胜利掉落生成（前端确定性骨架，难度档定品质/数量；AI 配文留作后续）。
    货币全员均得；物品走 need/greed ROLL 分配。 */
 
+/* 品级修正：这批副本沿用了 DNF 色系叫法（橙=传说/红=史诗），但本游戏 ITEM_GRADES 十五档里没有
+   「橙色/红色」——gradeToNum 认不出 → 一律 fallback 成 1（白色），最高难度副本掉的装备在定价/强化/
+   进阶/锻造潜力等所有下游全按白装处理。统一映射成真实档位（保持单调：紫色 < 传说级 < 史诗级）。 */
+const GRADE_ORANGE = '传说级';   // DNF「橙色·传说」→ 本游戏第 9 档
+const GRADE_RED = '史诗级';      // DNF「红色·史诗」→ 本游戏第 10 档
+
 const TIER_LOOT: Record<string, { coin: number; itemN: number; grade: string }> = {
   C: { coin: 600,   itemN: 1, grade: '绿色' },
   B: { coin: 1800,  itemN: 2, grade: '蓝色' },
   A: { coin: 5000,  itemN: 2, grade: '紫色' },
-  S: { coin: 12000, itemN: 3, grade: '橙色' },
+  S: { coin: 12000, itemN: 3, grade: GRADE_ORANGE },
 };
 
 const LOOT_KINDS = [
@@ -55,9 +61,9 @@ const RATING_BANDS = ['E', 'D', 'C', 'B', 'A', 'S', 'SS', 'SSS'];
 const DIFF_FLOOR: Record<string, number> = { normal: 2, hard: 3, nightmare: 4, abyss: 5 };
 const DIFF_REWARD: Record<string, { coin: number; soul: number; sp: number; gsp: number; pp: number; eqN: number; gemN: number; grade: string; treasure: string }> = {
   normal:    { coin: 80000,   soul: 8000,   sp: 20,  gsp: 1,  pp: 30,  eqN: 2, gemN: 1, grade: '紫色', treasure: '紫色' },
-  hard:      { coin: 200000,  soul: 20000,  sp: 50,  gsp: 3,  pp: 80,  eqN: 3, gemN: 2, grade: '橙色', treasure: '橙色' },
-  nightmare: { coin: 500000,  soul: 50000,  sp: 120, gsp: 6,  pp: 180, eqN: 3, gemN: 2, grade: '橙色', treasure: '红色' },
-  abyss:     { coin: 1200000, soul: 120000, sp: 300, gsp: 12, pp: 400, eqN: 4, gemN: 3, grade: '红色', treasure: '红色' },
+  hard:      { coin: 200000,  soul: 20000,  sp: 50,  gsp: 3,  pp: 80,  eqN: 3, gemN: 2, grade: GRADE_ORANGE, treasure: GRADE_ORANGE },
+  nightmare: { coin: 500000,  soul: 50000,  sp: 120, gsp: 6,  pp: 180, eqN: 3, gemN: 2, grade: GRADE_ORANGE, treasure: GRADE_RED },
+  abyss:     { coin: 1200000, soul: 120000, sp: 300, gsp: 12, pp: 400, eqN: 4, gemN: 3, grade: GRADE_RED, treasure: GRADE_RED },
 };
 const DRAGON_MATERIALS = [
   { name: '冰之结晶', effect: '冰龙·斯皮拉齐之精，合成龙王套所需' },
@@ -143,8 +149,8 @@ export function generateRaidReward(kind: string, difficulty: string, dreadRemain
   [...t.gems].sort(() => Math.random() - 0.5).slice(0, base.gemN).forEach((g, i) =>
     items.push({ id: `BR_gem_${uid()}_${i}`, name: g.name, category: '宝石', gradeDesc: base.grade, effect: g.effect, quantity: 1 }));
   t.materials.forEach((m, i) =>
-    items.push({ id: `BR_mat_${uid()}_${i}`, name: m.name, category: '材料', gradeDesc: '橙色', effect: m.effect, quantity: 1 }));
-  items.push({ id: `BR_core_${uid()}`, name: t.core.name, category: '材料', gradeDesc: '红色', effect: t.core.effect, quantity: 1 });
+    items.push({ id: `BR_mat_${uid()}_${i}`, name: m.name, category: '材料', gradeDesc: GRADE_ORANGE, effect: m.effect, quantity: 1 }));
+  items.push({ id: `BR_core_${uid()}`, name: t.core.name, category: '材料', gradeDesc: GRADE_RED, effect: t.core.effect, quantity: 1 });
   items.push({ id: `BR_box_${uid()}`, name: t.box, category: '宝箱', gradeDesc: base.treasure, effect: '开启获得宝物（装备/宝石/材料随机其一）', quantity: 1 });
   const titleName = idx >= 6 ? t.titles[2] : idx >= 4 ? t.titles[1] : t.titles[0];
   const title = { name: titleName, level: base.grade, source: t.themeName, effect: t.titleEffect, desc: `通关「${t.fullName}」（评级 ${rating}）所获的荣耀印记。` };

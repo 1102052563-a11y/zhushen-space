@@ -1,5 +1,6 @@
 import { useImageGen, type ImgService, type NaiConfig, type OpenAIImgConfig, type ComfyConfig } from '../store/imageGenStore';
 import { useImageBusy } from '../store/imageBusyStore';
+import { activeOutfit } from './outfit';
 
 /* ════════════════════════════════════════════
    生图统一入口：generateImage(service, {prompt,...}) → dataURL
@@ -457,10 +458,12 @@ export function buildPortraitPrompt(f: {
   baseAppearance?: string;   // 基底外观（开局设定，不可变）——始终并入提示词
   bodyType?: string;         // 形态：人形(默认)/兽形/非人形——非人形(召唤物/野兽/怪物)绕开 1girl/半身肖像 人形框架
   equipment?: string;        // 当前装备栏实际穿戴(服装/护甲/主武器)——直接读装备栏，免得 AI 每回合把服装写漏
+  charId?: string;           // 角色 id（B1/C×）：传入则读衣柜激活穿搭覆盖服装（钦定穿搭 > 装备栏 > 外观里的穿着）
 }): string {
   const s = useImageGen.getState();
+  const outfit = activeOutfit(f.charId);          // 👗 钦定穿搭（玩家在衣柜激活的那套；null=未钦定）
   const base = (f.baseAppearance ?? '').trim();   // 基底外观：所有路径都要带上
-  const equip = (f.equipment ?? '').trim();       // 已装备的衣着/武器：机械读取，比"外观描述里的服装"可靠
+  const equip = (f.equipment ?? '').trim();       // 已装备的衣着/武器：机械读取，比"外观描述里的穿着"可靠
   // 形态：显式设定优先；留空(自动)则按外观/容貌/标签兜底识别（修"AI 召唤物没标形态→默认人形→强套1girl长四肢"）
   const bt = (f.bodyType || '').trim() || inferBodyType([f.race, f.baseAppearance, f.appearance, f.appearanceDetails, f.npcTag].map((x) => x || '').join(' '));
   const humanoid = !bt || bt === '人形';
@@ -490,7 +493,7 @@ export function buildPortraitPrompt(f: {
         .replaceAll('${tier}', f.tier || '')
         .replaceAll('${appearance}', [f.race, base, f.appearance, f.profession].filter(Boolean).join('，') || '（按设定）')
         .replaceAll('${appearance_details}', [f.race, base, f.appearanceDetails || f.appearance].filter(Boolean).join('，') || '（按设定）')
-        .replaceAll('${attire}', equip || f.attire || '（按设定）')   // 优先用装备栏真实穿戴
+        .replaceAll('${attire}', outfit?.desc || equip || f.attire || '（按设定）')   // 钦定穿搭 > 装备栏真实穿戴 > 外观里的穿着
         .replaceAll('${equipment}', equip || '（无特别装备）')
         .replaceAll('${装备}', equip || '（无特别装备）')
         .replaceAll('${figure}', f.figure || '（按设定）')
@@ -503,6 +506,7 @@ export function buildPortraitPrompt(f: {
   // —— 标签型(NAI/ComfyUI)：优先用演化生成的英文 NAI tags（同角色一致；性别标签已按设定强制）——
   if (imageTags) {
     const parts = [imageTags];
+    if (outfit) parts.push(outfit.imageTags.trim() || outfit.desc);   // 👗 钦定穿搭：优先英文服装标签，没填则并入中文描述（与 base/equip 同款处理）
     if (base) parts.push(base);                       // 基底外观始终并入
     if (equip) parts.push(equip);                     // 装备栏实际穿戴并入（服装/武器不再漏）
     if (s.portraitPositive.trim()) parts.push(s.portraitPositive.trim());
@@ -511,7 +515,7 @@ export function buildPortraitPrompt(f: {
   const male = /男/.test(f.gender || '') && !/女/.test(f.gender || '');
   const female = /女/.test(f.gender || '') && !/男/.test(f.gender || '');
   const g = female ? '1girl, solo' : male ? '1boy, solo' : 'solo';
-  const parts = [g, 'upper body portrait, character art', base, equip, f.race, f.appearance, f.age, f.profession, f.tier, f.npcTag]
+  const parts = [g, 'upper body portrait, character art', base, outfit ? (outfit.imageTags.trim() || outfit.desc) : '', equip, f.race, f.appearance, f.age, f.profession, f.tier, f.npcTag]
     .map((x) => (x || '').trim()).filter(Boolean);
   if (s.portraitPositive.trim()) parts.push(s.portraitPositive.trim());
   return parts.join(', ');

@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { openSettingsPage } from '../systems/navBus';   // P4·空态深链：一键直达设置子页
 import { useTerritory, buildingCap, BUILDING_MAX_LEVEL, type Building, type TerritoryItem } from '../store/territoryStore';
 import { useItems, type ItemCategory } from '../store/itemStore';
 import { useNpc, hasRealNpcName } from '../store/npcStore';
@@ -84,7 +85,7 @@ export default function TerritoryPanel({ onClose }: { onClose: () => void }) {
           <div className="flex-1 overflow-y-auto p-4">
             <div className="text-center text-dim/40 text-sm py-12 leading-relaxed">
               领地尚未开辟。<br />
-              开启「设置→变量管理→🏯 领地演化」后，在轮回乐园建立/获得基地时会自动开辟并建档。
+              开启<button onClick={() => openSettingsPage('territory-manager')} className="text-god/80 underline underline-offset-2 hover:text-god mx-0.5">「设置→变量管理→🏯 领地演化」</button>后，在轮回乐园建立/获得基地时会自动开辟并建档。
             </div>
           </div>
         ) : (

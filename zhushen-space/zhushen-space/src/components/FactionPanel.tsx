@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { openSettingsPage } from '../systems/navBus';   // P4·空态深链：一键直达设置子页
 import { useFaction, type FactionRecord } from '../store/factionStore';
 import { useNpc, type NpcRecord } from '../store/npcStore';
 import NpcDetail from './NpcDetail';
@@ -35,7 +36,7 @@ export default function FactionPanel({ onClose }: { onClose: () => void }) {
           <button onClick={onClose} className="text-dim/50 hover:text-blood text-lg font-mono">✕</button>
         </header>
         <div className="flex-1 overflow-y-auto p-4 space-y-4">
-          {list.length === 0 && <div className="text-center text-dim/40 text-sm py-12">暂无势力。开启「设置→变量管理→🏛 势力演化」后，剧情中的势力会被自动建档。</div>}
+          {list.length === 0 && <div className="text-center text-dim/40 text-sm py-12">暂无势力。开启<button onClick={() => openSettingsPage('faction-manager')} className="text-god/80 underline underline-offset-2 hover:text-god mx-0.5">「设置→变量管理→🏛 势力演化」</button>后，剧情中的势力会被自动建档。</div>}
           <FactionGroup title="当前世界" tone="text-emerald-300" list={cur} onMove={(id) => setWorld(id, false)} moveLabel="移出本世界" onDelete={hardRemove} npcs={npcs} onOpenNpc={setNpcDetailId} />
           <FactionGroup title="非当前世界" tone="text-dim/70" list={off} onMove={(id) => setWorld(id, true)} moveLabel="拉入本世界" onDelete={hardRemove} npcs={npcs} onOpenNpc={setNpcDetailId} />
           {dead.length > 0 && <FactionGroup title="已覆灭" tone="text-blood/70" list={dead} onDelete={hardRemove} npcs={npcs} onOpenNpc={setNpcDetailId} />}

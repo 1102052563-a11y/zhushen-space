@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { openSettingsPage } from '../systems/navBus';   // P4·空态深链：一键直达设置子页
 import { useSkillTree, nodeEffectiveGrant, type NodeGrants } from '../store/skillTreeStore';
 import { usePinchPanZoom } from '../systems/usePinchPanZoom';
 import { usePlayer } from '../store/playerStore';
@@ -313,7 +314,7 @@ export default function SkillTreePanel({ onClose }: { onClose: () => void }) {
           className={`flex-1 overflow-auto p-3 touch-none ${tree ? (grabbing ? 'cursor-grabbing' : 'cursor-grab') : ''}`}
           {...(tree ? bind : {})}
         >
-          {!tree && <div className="text-center text-dim/40 text-sm py-16">还没有职业树。到「设置 → 变量管理 → 技能树」里创建或导入一套职业模板。</div>}
+          {!tree && <div className="text-center text-dim/40 text-sm py-16">还没有职业树。到<button onClick={() => openSettingsPage('skilltree-manager')} className="text-god/80 underline underline-offset-2 hover:text-god mx-0.5">「设置 → 变量管理 → 技能树」</button>里创建或导入一套职业模板。</div>}
           {tree && (
             <TreeCanvas
               tree={tree}

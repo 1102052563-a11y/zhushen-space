@@ -1,5 +1,6 @@
 import { useItems } from '../store/itemStore';
 import { mpClient } from './mpClient';
+import { recordMpReward } from './mpPendingRewards';
 
 // 联机·赠予物品 + 分享(技能/天赋/物品)到房间聊天，都走通用 relay。
 // 赠予=托管转移：赠出即从自己背包扣下托管，对方接受→进其背包；拒收/90s无响应→退回自己（不丢不复制）。
@@ -40,6 +41,8 @@ export function onGiftResponse(payload: any) {
 // 接收方：接受=进背包+回执 / 拒绝=回执
 export function acceptGift(gift: any) {
   for (const it of (gift?.items || [])) { try { useItems.getState().addItem({ ...it }); } catch {} }
+  // 来宾防回滚：离房 loadSlot 还原会吞掉刚收下的赠予 → 记流水，开机补发（房主/单机不记）
+  try { recordMpReward({ id: `gift_${gift?.giftId}`, note: '队友赠予', items: (gift?.items || []) }); } catch { /* */ }
   mpClient.relay('gift_response', { giftId: gift?.giftId, accepted: true });
 }
 export function declineGift(gift: any) {

@@ -107,6 +107,8 @@ export interface SkillUpgradeOpts {
   crossed: boolean;            // normal：本次是否跨 10 级分水岭
   newRarity: string;           // golden：升级后的目标品级
   customInput: string;         // 主角自定义要求（可空）
+  /** 升级对象；不传=主角（原行为）。P3：随从/宠物用**自身技能点**升级（随从结算×0.5 发的点终于有汇）。 */
+  owner?: { id: string; name: string; tier?: string; identity?: string; tag?: string };
 }
 
 export interface SkillUpgradeResult {
@@ -142,8 +144,11 @@ export async function generateSkillUpgrade(o: SkillUpgradeOpts): Promise<SkillUp
         `【要求】这是**质变**：必须给予**强力的全新效果/机制**（大幅进化、有记忆点）；读全部原信息后在其基础上**丰富演化**，原有内核与全部已有加成一律保留再叠加；若接口支持联网请先 Google 检索该技能蓝本，让质变更专业还原`,
       ].join('\n');
 
+  const who = o.owner && o.owner.id !== 'B1' ? o.owner : null;
   const userMsg = [
-    `【角色】${prof.name || '主角'}　阶位:${prof.tier || '—'}　职业:${prof.identity || '—'}`,
+    who
+      ? `【角色·主角的${who.tag || '随从'}】${who.name}[${who.id}]　阶位:${who.tier || '—'}　职业/身份:${who.identity || '—'}（升级对象是这名随从，不是主角本人；效果措辞以其为主语）`
+      : `【角色】${prof.name || '主角'}　阶位:${prof.tier || '—'}　职业:${prof.identity || '—'}`,
     modeBlock,
     `【当前${kind}·完整信息（JSON）】\n${JSON.stringify(entry, null, 1)}`,
     `【主角的自定义要求】${o.customInput.trim() || '（未填写 —— 由你按该' + kind + '的主题/流派与技能/天赋世界书，自拟一个贴切且强力的升级方向）'}`,

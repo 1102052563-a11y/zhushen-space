@@ -16,6 +16,7 @@ import { buildPlayerSnapshot } from './mpSnapshot';
 import { apiChatFallback } from './apiChat';
 import { shrinkDataUrl } from './imageGen';
 import { bumpAutoSave } from './saveManager';
+import { reportFacilityOutcome } from './facilityBridge';
 import { effectiveAttrs } from './attrBonus';
 import { attrCapForTier, lvFromRealm } from './derivedStats';
 import { MONUMENT_EULOGY_RULE } from '../promptRules';
@@ -357,12 +358,20 @@ export function summonMonument(entry: MonumentEntry): string {
   } catch { /* 技能写入失败不阻断召唤 */ }
 
   void bumpAutoSave();   // 回合外改动→刷新自动档，防"刷新→继续读自动档"丢失（同助战NPC刷新就不见的根因）
+  // 场外通报：召唤动作本身需要正文交代（英灵会进结构化召回，但"为何突然多了个人"此前无解释——审计确认）
+  reportFacilityOutcome({
+    source: '纪念丰碑',
+    summary: `主角自纪念丰碑召唤过往英灵「${snap.name}」${snap.tier ? `（${snap.tier}）` : ''}入队——这是逝去轮回者的残影显形，随行听候差遣`,
+    guard: '人物档案与数值已由前端建立，正文可自然写英灵降临的一幕，勿重复建档/发放其装备',
+  });
   return cid;
 }
 
 /** 遣散一名召唤的纪念英灵：硬删除（连带清掉 characterStore 里的技能/天赋孤儿数据）。 */
 export function dismissMonument(npcId: string): void {
+  const rec = useNpc.getState().npcs[npcId];
   try { useNpc.getState().hardRemoveNpc(npcId); } catch { /* */ }
+  if (rec?.name) reportFacilityOutcome({ source: '纪念丰碑', summary: `英灵「${rec.name}」的残影已归还丰碑、消散离场`, guard: '该人物已不在场，正文中不再出现' });
   void bumpAutoSave();   // 遣散也刷新自动档，否则刷新读旧自动档会让已遣散的又回来
 }
 

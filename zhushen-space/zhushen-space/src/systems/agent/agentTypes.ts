@@ -93,6 +93,10 @@ export interface AgentNarrativeSettings {
   maxCallsPerTool?: Record<string, number>;
   /** Agent 专属正文预设（按名字引用 textPresets；''/缺省=跟随当前正文预设）。玩家改过的同名非 builtin 版优先 */
   presetName?: string;
+  /** 初始历史楼层数（仿 TT initialChatHistoryMessages·Agent 省 token 核心开关）：
+      -1=跟随全局楼层限制（默认）；0=不注入任何楼层（全靠 chat_search 自查）；N=只注入最近 N 楼。
+      只影响发给模型的原文楼层，召回/世界书匹配照常。 */
+  initialHistoryMsgs?: number;
   /** P2·评稿子代理：模型 finish 前先由评稿人审一遍，REVISE 则回喂意见逼修订（每次 finish 拦截 +1 次调用） */
   reviewerEnabled?: boolean;
   /** P2·最多评几轮（1~3；达到次数后 finish 直接放行），默认 1 */

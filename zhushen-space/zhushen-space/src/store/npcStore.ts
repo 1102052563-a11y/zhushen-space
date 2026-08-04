@@ -81,6 +81,12 @@ export interface NpcAuto {
   phase: 'hub' | 'mission';   // 主神空间相 / 任务世界相
   turns: number;              // 当前相位剩余回合
   world?: string;             // 任务世界名（mission 相期间固定，供归来引用）
+  // ── 角色动向提示（见 systems/promptInjections.buildCastHintInjection）──
+  //    轨道A 织后台行动时顺手置位，注入正文末尾当"导演提示"，治「NPC 一离场就再也不回来」。
+  //    ⚠ 只是**可能性**不是剧本：注入措辞必须写成背景事实，否则每回合都有人推门进来。
+  readyToEnter?: boolean;     // 下一轮有理由回到主角面前
+  enterReason?: string;       // 为什么会回来（≤20字·必须是世界内的生活理由，不得写"察觉到主角"）
+  exitReason?: string;        // 刚离场时的去向（≤20字）
 }
 
 export interface NpcRecord {
@@ -160,6 +166,12 @@ export interface NpcRecord {
   archived?: boolean;     // 玩家手动「归档」（独立于在场/离场的第三态）：主动收进档案库、不想让叙事关注 →
                           //   彻底封存(不参与轨道A自治/演化/正文召回/自动上场/清理建议)，除非玩家「重新上场」才恢复。
                           //   与「离场」区别：离场是 AI 剧情自动收起、仍被追踪；归档是玩家显式封存。不变量：archived ⟹ !onScene。
+  // ── 世界作用域（轮回乐园适配·见 systems/worldScope.ts）──
+  worldName?: string;     // 归属世界名。**只对 npcTag==='土著' 有意义**（契约者/随从/宠物跟着主角跨世界走）。
+                          //   建档时按当时的 miscStore.worldName 落定；老存档为空 = 未归属，永不被冻结（宁漏勿误）。
+  frozenAt?: number;      // 🧊 冻结回合号：离开该世界时打上 → 退出活跃视图（不演化/不自治/不召回/不进清理建议），
+                          //   但**数据仍在**（铁律「库房只存不删」），同名世界再入选「继承」即 thawWorld 捞回。
+                          //   与 archived **正交**：archived=玩家主动收纳，frozenAt=切世界的系统行为。不变量：frozenAt ⟹ !onScene。
   kitDone?: boolean;      // 已发放过初始家当（装备+储物），避免重复发放
 
   // ── 临时世界队伍（频道组队；世界结束自动解散，与永久冒险团两层分开）──

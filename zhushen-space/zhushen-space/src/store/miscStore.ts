@@ -4,6 +4,7 @@ import { lzStorage, lzLocalStorage } from '../systems/compressedStorage';   // �
 import type { ApiConfig } from './settingsStore';
 import { useSettings } from './settingsStore';
 import miscDefaultPreset from '../data/miscDefaultPreset.json';
+import { normImpact, type Rumor, type RumorNode } from '../systems/rumor';   // 传闻：算法在 systems/rumor，本 store 只做哑存储
 
 /* ════════════════════════════════════════════
    杂项演化（misc evolution）
@@ -143,6 +144,19 @@ export interface WorldEvent {
   time: string;
   location: string;
   desc: string;
+  worldName?: string;  // 归属世界（世界作用域·见 systems/worldScope.ts）。addWorldEvent 自动落当时的 worldName。
+                       // 仅追加的历史流水 → **读时按世界过滤**（buildWorldTimeInjection），不做冻结标记：
+                       // 天然满足「库房只存不删」，也不必为历史条目补写。为空 = 老数据，一律放行。
+  // ── 生命周期（全部可选·见 systems/worldEvent.ts）。老条目无这些字段 = 单节点扁平事件，照常显示与注入。──
+  name?: string;       // 事件名（可检索的专名；缺省用 desc 前缀顶上）
+  scope?: 'background' | 'region';   // 背景(远处·与主角不同城/国) / 区域(主角可感知)；缺省按区域
+  guide?: { macro: string; dev: string; detail: string };   // 🔮 命运罗盘走向锚（内部参考·永不进正文）
+  actors?: string;     // 参与角色（人物全名或背景集群）
+  chain?: { date: string; text: string }[];   // 事件脉络：推进=**追加**一节，绝不覆盖 desc
+  settleCond?: string; // 结算条件（1~3条·事件的终点）
+  settledAt?: number;  // 结算时间戳（有值=已落幕，退出活跃视图但保留在流水账里）
+  outcome?: 'historic' | 'derived' | 'faded';   // 三级结算：重大历史 / 派生后续 / 湮灭
+  derivedAt?: number;  // outcome='derived' 的事件被任务演化阶段消费过的标记（防重复派生）
 }
 
 /* 叙事长期事实（回复后由 LLM 抽取，供关键词召回）*/
@@ -270,6 +284,7 @@ interface MiscState {
   archivedTasks: ArchivedTask[];   // 已结算任务（完成/失败/放弃），移出进行中列表
   lastWorldSettleAt: number;       // 上次「世界结算/进入新任务世界」的时间戳；只结算 settledAt 晚于它的任务=本世界的，杜绝把之前世界重复结算
   worldEvents: WorldEvent[];
+  rumors: Rumor[];        // 📢 传闻流变（真相/流传/偏差三分·world 作用域·见 systems/rumor.ts）
   smallSummaries: string[];
   largeSummaries: string[];
   summaryRound: number;   // 杂项演化已运行的回合计数（用于大总结周期判断，持久化）
@@ -314,6 +329,15 @@ interface MiscState {
   addWorldEvent: (e: Omit<WorldEvent, 'id'>) => void;
   updateWorldEvent: (id: string, patch: Partial<Omit<WorldEvent, 'id'>>) => void;
   removeWorldEvent: (id: string) => void;
+  appendEventChain: (id: string, node: { date?: string; text: string }) => void;   // 事件脉络只追加，绝不覆盖
+  settleWorldEvent: (id: string, outcome: 'historic' | 'derived' | 'faded', summary?: string) => void;
+  markEventDerived: (id: string) => void;   // 派生支线已被任务演化消费（防重复派生）
+  // ── 传闻（systems/rumor.ts 是算法，这里只是哑 reducer）──
+  addRumor: (r: { name: string; impact?: string; scope?: string; node?: Partial<RumorNode> }) => string;
+  appendRumorNode: (id: string, node: Partial<RumorNode>) => void;   // 只 append 新 seq，绝不覆盖旧节点
+  updateRumor: (id: string, patch: Partial<Pick<Rumor, 'name' | 'impact' | 'scope'>>) => void;
+  removeRumor: (id: string) => void;
+  setRumors: (list: Rumor[]) => void;   // 压缩/裁剪等整体重写（调用方已算好）
   pushSmall: (s: string) => void;
   pushLarge: (s: string) => void;
   removeSmall: (index: number) => void;   // 按原始数组下标删除一条小总结（玩家在记忆面板手动清理重复/误产条目）
@@ -356,6 +380,7 @@ export const useMisc = create<MiscState>()(
       archivedTasks: [],
       lastWorldSettleAt: 0,
       worldEvents: [],
+      rumors: [],
       smallSummaries: [],
       largeSummaries: [],
       summaryRound: 0,
@@ -505,8 +530,69 @@ export const useMisc = create<MiscState>()(
         set((s) => {
           const nums = s.worldEvents.map((w) => Number(/^W_(\d+)$/.exec(w.id)?.[1])).filter((n) => Number.isFinite(n));
           const id = `W_${nums.length ? Math.max(...nums) + 1 : 1}`;
-          return { worldEvents: [...s.worldEvents, { id, ...e }].slice(-40) };
+          // 落归属世界（世界作用域）：不带 worldName 时按当时所处世界补，供注入侧按世界过滤，
+          // 治"换了世界，正文里还在被喂上个世界的大事"。
+          const wn = e.worldName ?? (s.worldName || undefined);
+          return { worldEvents: [...s.worldEvents, { id, ...e, ...(wn ? { worldName: wn } : {}) }].slice(-40) };
         }),
+      appendEventChain: (id, node) =>
+        set((s) => ({
+          worldEvents: s.worldEvents.map((e) => (e.id === id
+            ? { ...e, chain: [...(e.chain ?? []), { date: node.date || s.worldTime || '', text: node.text }] }
+            : e)),
+        })),
+      settleWorldEvent: (id, outcome, summary) =>
+        set((s) => ({
+          worldEvents: s.worldEvents.map((e) => (e.id === id
+            ? {
+              ...e, outcome, settledAt: Date.now(),
+              // 结算陈述并进脉络（而不是覆盖 desc）——事件的完整读法始终是"初始描述 + 逐节推进 + 落幕"
+              ...(summary ? { chain: [...(e.chain ?? []), { date: s.worldTime || '', text: `【落幕·${outcome}】${summary}` }] } : {}),
+            }
+            : e)),
+        })),
+      markEventDerived: (id) =>
+        set((s) => ({ worldEvents: s.worldEvents.map((e) => (e.id === id ? { ...e, derivedAt: Date.now() } : e)) })),
+
+      addRumor: (r) => {
+        const s = get();
+        const nums = s.rumors.map((x) => Number(/^R_(\d+)$/.exec(x.id)?.[1])).filter((n) => Number.isFinite(n));
+        const id = `R_${nums.length ? Math.max(...nums) + 1 : 1}`;
+        const n = r.node ?? {};
+        set((st) => ({
+          rumors: [...st.rumors, {
+            id, name: r.name,
+            impact: normImpact(r.impact), scope: r.scope ?? '',
+            worldName: st.worldName || undefined,
+            createdAt: Date.now(),
+            nodes: [{
+              seq: 1, date: n.date ?? st.worldTime ?? '', expire: n.expire ?? '', turn: n.turn ?? st.turnCount ?? 0,
+              truth: n.truth ?? '', told: n.told ?? '', drift: n.drift ?? '', cause: n.cause ?? '',
+            }],
+          }],
+        }));
+        return id;
+      },
+      appendRumorNode: (id, node) =>
+        set((s) => ({
+          rumors: s.rumors.map((r) => {
+            if (r.id !== id) return r;
+            const seq = r.nodes.reduce((m, x) => Math.max(m, x.seq), 0) + 1;   // 只递增，禁止复用旧编号覆盖历史
+            return { ...r, nodes: [...r.nodes, {
+              seq, date: node.date ?? s.worldTime ?? '', expire: node.expire ?? '', turn: node.turn ?? s.turnCount ?? 0,
+              truth: node.truth ?? '', told: node.told ?? '', drift: node.drift ?? '', cause: node.cause ?? '',
+            }] };
+          }),
+        })),
+      updateRumor: (id, patch) =>
+        set((s) => ({
+          rumors: s.rumors.map((r) => (r.id === id
+            ? { ...r, ...patch, ...(patch.impact ? { impact: normImpact(patch.impact) } : {}) }
+            : r)),
+        })),
+      removeRumor: (id) => set((s) => ({ rumors: s.rumors.filter((r) => r.id !== id) })),
+      setRumors: (list) => set({ rumors: list }),
+
       updateWorldEvent: (id, patch) =>
         set((s) => ({ worldEvents: s.worldEvents.map((w) => (w.id === id ? { ...w, ...patch } : w)) })),
       removeWorldEvent: (id) => set((s) => ({ worldEvents: s.worldEvents.filter((w) => w.id !== id) })),
@@ -555,7 +641,7 @@ export const useMisc = create<MiscState>()(
       setLocalCurrencyName: (name) => set({ localCurrencyName: (name ?? '').trim().slice(0, 16) }),
       adjustLocalCurrency: (delta) => set((s) => ({ localCurrency: Math.max(0, s.localCurrency + (Number(delta) || 0)) })),
       setLocalCurrency: (n) => set({ localCurrency: Math.max(0, Number(n) || 0) }),
-      clearMisc: () => set({ tasks: [], archivedTasks: [], lastWorldSettleAt: 0, worldTier: '', contractors: { count: 0, note: '' }, localCurrencyName: '', localCurrency: 0, worldEvents: [], smallSummaries: [], largeSummaries: [], summaryRound: 0, turnCount: 0 }),
+      clearMisc: () => set({ tasks: [], archivedTasks: [], lastWorldSettleAt: 0, worldTier: '', contractors: { count: 0, note: '' }, localCurrencyName: '', localCurrency: 0, worldEvents: [], rumors: [], smallSummaries: [], largeSummaries: [], summaryRound: 0, turnCount: 0 }),
 
       setSettings: (patch) => set((s) => ({ settings: { ...s.settings, ...patch } })),
       setPresetEntries: (entries, name, version) =>

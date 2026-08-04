@@ -7,11 +7,16 @@
    - 协议 auto：原生 FC 报错像「不支持 tools」→ 本 run 切文本协议重试当轮 */
 import { fetchWithProxy } from '../apiChat';
 import { apiDebugLog } from '../apiDebugLog';
+import { resolveApiChain } from '../../store/settingsStore';
 import type { ApiConfig } from '../../store/settingsStore';
 import { useAgentRun } from '../../store/agentRunStore';
+import { useAgentSkills, type SubAgentDef } from '../../store/agentSkillStore';
 import { AgentWorkspace, DIRECT_OUTPUT_PATH } from './agentWorkspace';
-import { buildAgentTools } from './agentTools';
-import { buildAgentSystemPrompt, buildDriftNudge, buildGuidanceMessage, budgetExhaustedMsg, perToolCapMsg } from './agentPrompt';
+import { buildAgentTools, listCallableSubagents } from './agentTools';
+import {
+  buildAgentSystemPrompt, buildDriftNudge, buildGuidanceMessage, budgetExhaustedMsg, perToolCapMsg,
+  buildSubAgentSystemPrompt, buildSubAgentDriftNudge, renderTaskBrief,
+} from './agentPrompt';
 import {
   decodeNativeCalls, decodeTextProtocol, encodeAssistantTurn, encodeToolDefs, encodeToolResults,
   extractNarrativePreview, looksLikeToolsUnsupported, mergeToolCallDelta, rawCallsFromMessage, stripThinkBlocks,
@@ -131,6 +136,94 @@ function softError(code: string, message: string): AgentToolResult {
   return { ok: false, content: message, structured: { error: { code, message } }, errorCode: code };
 }
 
+/* ── P3·子代理委派（同步）：把自包含小任务交给独立的子 Agent 循环——
+   自己的系统提示词（作者人设+子代理铁则）+ 任务书，自己的接口链（agentSub-<id> 路由→回退主链），
+   共享父运行的虚拟工作区（可读 output/main.md、写 scratch/ 笔记），以 task_return 收尾。
+   宽容小模型：未知工具软回喂；第 2 次直出纯文本降级把文本当 summary 收下（TT 是 fatal，我们保结果）。 */
+function formatSubReturn(def: { name: string }, ret: Record<string, unknown>, degraded: boolean): AgentToolResult {
+  const li = (k: string, label: string) => Array.isArray(ret[k]) && (ret[k] as unknown[]).length
+    ? `\n【${label}】\n${(ret[k] as unknown[]).map((x) => `- ${String(x)}`).join('\n')}` : '';
+  let content = `### 子Agent「${def.name}」返回（${ret.status === 'failed' ? 'failed' : 'completed'}${ret.confidence ? `·置信 ${String(ret.confidence)}` : ''}${degraded ? '·降级收取' : ''}）\n${String(ret.summary ?? '').trim()}`
+    + li('findings', '发现') + li('warnings', '警告') + li('suggestedNextActions', '建议下一步') + li('questionsForCaller', '反问');
+  if (content.length > 4000) content = content.slice(0, 4000) + '\n…(截断)';
+  return { ok: true, content, structured: ret };
+}
+
+async function runDelegatedSubagent(o: {
+  def: SubAgentDef; task: Record<string, unknown>;
+  ws: AgentWorkspace; inputs: AgentRunInputs; presetName: string;
+  chain: ApiConfig[]; transport: AgentTransport; signal: AbortSignal; protocol: AgentProtocol;
+}): Promise<AgentToolResult> {
+  const childTools = buildAgentTools(
+    { ws: o.ws, inputs: o.inputs, presetName: o.presetName, skillFilter: { visible: o.def.skillsVisible, deny: o.def.skillsDeny }, skillBudget: { used: 0 }, forSubagent: true },
+    {},
+  );
+  const messages: AgentMsg[] = [
+    { role: 'system', content: buildSubAgentSystemPrompt(o.def, childTools, o.protocol) },
+    { role: 'user', content: renderTaskBrief(o.task) },
+  ];
+  const maxRounds = Math.max(1, Math.min(12, o.def.maxRounds ?? 8));
+  let drift = 0;
+  for (let round = 1; round <= maxRounds; round++) {
+    if (o.signal.aborted) return softError('agent.delegate_cancelled', '运行已被取消');
+    let turn: AgentModelTurn | null = null;
+    let lastErr: unknown;
+    for (const api of o.chain) {
+      if (!api?.baseUrl || !api?.apiKey) continue;
+      const body: Record<string, unknown> = { model: api.modelId, messages, stream: true };
+      if (api.temperature != null && isFinite(api.temperature) && api.temperature > 0) body.temperature = api.temperature;
+      if (api.maxTokens != null && api.maxTokens > 0) body.max_tokens = api.maxTokens;
+      if (o.protocol === 'native') { body.tools = encodeToolDefs(childTools); body.tool_choice = 'auto'; }
+      const logId = apiDebugLog.push(`🧩子Agent·${o.def.name}·R${round}`, messages.map((m) => ({ role: m.role, content: typeof m.content === 'string' ? m.content : '[multimodal]' })));
+      try {
+        turn = await o.transport(body, api, o.signal);
+        apiDebugLog.finish(logId, `${turn.content || ''}${turn.toolCallsRaw.length ? `\n[tool_calls] ${JSON.stringify(turn.toolCallsRaw)}` : ''}`, true);
+        break;
+      } catch (e) {
+        lastErr = e;
+        apiDebugLog.finish(logId, String((e as Error)?.message ?? e), false, String((e as Error)?.message ?? e));
+        if (o.signal.aborted) return softError('agent.delegate_cancelled', '运行已被取消');
+      }
+    }
+    if (!turn) return softError('agent.delegate_failed', `子Agent「${o.def.name}」模型调用失败：${String((lastErr as Error)?.message ?? lastErr ?? '全部接口失败')}`);
+    let calls: AgentToolCall[];
+    let narration: string;
+    let roundMode: AgentProtocol = o.protocol;
+    if (o.protocol === 'native' && turn.toolCallsRaw.length > 0) {
+      calls = decodeNativeCalls(turn.toolCallsRaw, childTools);
+      narration = stripThinkBlocks(turn.content || '').trim();
+    } else {
+      const parsed = decodeTextProtocol(turn.content || '', childTools);
+      calls = parsed.calls; narration = parsed.narration;
+      if (o.protocol === 'native' && calls.length > 0) roundMode = 'text';
+    }
+    if (calls.length === 0) {
+      drift++;
+      if (drift >= 2 || round >= maxRounds) {
+        return formatSubReturn(o.def, { summary: narration.trim() || '（子Agent 未给出内容）', status: narration.trim() ? 'completed' : 'failed' }, true);
+      }
+      messages.push(encodeAssistantTurn(roundMode, stripThinkBlocks(turn.content || ''), []));
+      messages.push({ role: 'user', content: buildSubAgentDriftNudge() });
+      continue;
+    }
+    const pairs: { call: AgentToolCall; result: AgentToolResult }[] = [];
+    for (const call of calls) {
+      if (o.signal.aborted) return softError('agent.delegate_cancelled', '运行已被取消');
+      let result: AgentToolResult;
+      if (call.unknown) result = softError('agent.tool_policy_denied', `子Agent 没有工具「${call.modelName}」——可用工具见系统提示`);
+      else {
+        try { result = await childTools.find((t) => t.name === call.name)!.run(call.args); }
+        catch (e) { result = softError('tool.execution_error', `工具执行异常：${String((e as Error)?.message ?? e)}`); }
+      }
+      if (result.ok && result.effect === 'finish') return formatSubReturn(o.def, (result.structured ?? {}) as Record<string, unknown>, false);
+      pairs.push({ call, result });
+    }
+    messages.push(encodeAssistantTurn(roundMode, roundMode === 'text' ? (turn.content || '') : narration, calls));
+    messages.push(...encodeToolResults(roundMode, pairs));
+  }
+  return formatSubReturn(o.def, { summary: '子Agent 超出轮次预算未正式返回', status: 'failed' }, true);
+}
+
 /* ── P2·评稿子代理：对成稿做一次独立审阅（一次性调用·沿链 fallback）。
    返回评语文本；全链失败/中止返回 null（调用方按 best-effort 跳过）。 */
 async function runReviewerOnce(chain: ApiConfig[], transport: AgentTransport, signal: AbortSignal, draft: string, userText: string): Promise<string | null> {
@@ -168,11 +261,16 @@ export async function runAgentNarrative(p: RunAgentParams): Promise<AgentRunResu
       if (path.startsWith('persist/') && typeof txt === 'string') ws.files.set(path, txt);
     }
   } catch { /* 种子失败不阻断运行 */ }
-  const tools = buildAgentTools({ ws, inputs }, settings.toolToggles ?? {});
+  const presetName = settings.presetName ?? '';
+  const tools = buildAgentTools({ ws, inputs, presetName, skillBudget: { used: 0 } }, settings.toolToggles ?? {});
   let protocol: AgentProtocol = settings.protocol === 'text' ? 'text' : 'native';
+  // 预设作者的工作流指引（TT 内嵌主档案 instructions·P3）：仅选中该 Agent 预设时追加
+  let writerNotes: string | undefined;
+  try { writerNotes = presetName ? useAgentSkills.getState().writerNotes[presetName] : undefined; } catch { /* */ }
 
   // Agent 系统提示词：注入在「最后一条 user（本回合输入）」之前 = 最深处（协议切换时原地换内容）
-  const sysMsg: AgentMsg = { role: 'system', content: buildAgentSystemPrompt(tools, protocol) };
+  const trimN = settings.initialHistoryMsgs != null && settings.initialHistoryMsgs >= 0 ? Math.floor(settings.initialHistoryMsgs) : undefined;   // 初始历史被裁 → 提示词注明（让模型主动 chat_search 补课）
+  const sysMsg: AgentMsg = { role: 'system', content: buildAgentSystemPrompt(tools, protocol, writerNotes, trimN) };
   const messages: AgentMsg[] = [...p.baseMessages];
   let lastUser = -1;
   for (let i = messages.length - 1; i >= 0; i--) if (messages[i].role === 'user') { lastUser = i; break; }
@@ -190,6 +288,9 @@ export async function runAgentNarrative(p: RunAgentParams): Promise<AgentRunResu
   let toolCallsUsed = 0;
   let driftAttempts = 0;
   let reviewsDone = 0;        // P2·评稿轮数（达到 reviewerPasses 后 finish 直接放行）
+  let delegationsUsed = 0;    // P3·子代理委派计数（run 级预算）
+  const perSubUsed: Record<string, number> = {};
+  const MAX_DELEGATIONS_PER_RUN = 4;
   let previewLen = 0;         // P2·流式预览：每轮内只增不减（防参数流抖动回退闪屏）
   let lastPreviewAt = 0;
   const perToolUsed: Record<string, number> = {};   // P1·单工具计数（maxCallsPerTool）
@@ -285,7 +386,7 @@ export async function runAgentNarrative(p: RunAgentParams): Promise<AgentRunResu
             const msg = String((e as Error)?.message ?? '');
             if (attempt === 0 && protocol === 'native' && settings.protocol === 'auto' && looksLikeToolsUnsupported(msg)) {
               protocol = 'text';
-              sysMsg.content = buildAgentSystemPrompt(tools, protocol);
+              sysMsg.content = buildAgentSystemPrompt(tools, protocol, writerNotes, trimN);
               emit(round, 'protocol_switch', '端点疑似不支持函数调用 → 切换文本协议', 'warn', msg.slice(0, 120));
               continue;   // 同端点用文本协议再试一次
             }
@@ -343,8 +444,33 @@ export async function runAgentNarrative(p: RunAgentParams): Promise<AgentRunResu
         } else {
           toolCallsUsed++;
           perToolUsed[call.modelName] = (perToolUsed[call.modelName] ?? 0) + 1;
-          try { result = await tools.find((t) => t.name === call.name)!.run(call.args); }
-          catch (e) { result = softError('tool.execution_error', `工具执行异常：${String((e as Error)?.message ?? e)}`); }
+          if (call.name === 'agent.delegate') {
+            /* P3·委派由运行时接管（需要模型调用能力，工具层只挂 spec）：同步跑子代理循环、结果直接作为本工具结果 */
+            const dArgs = call.args ?? {};
+            const id = String((dArgs as Record<string, unknown>).agentId ?? '').trim();
+            const task = (dArgs as Record<string, unknown>).task;
+            const taskObj = task && typeof task === 'object' ? task as Record<string, unknown> : {};
+            const subs = listCallableSubagents(presetName);
+            const def = subs.find((d) => d.id === id) ?? subs.find((d) => d.name === id);
+            if (!def) result = softError('agent.delegate_target_not_found', `没有可委派的子 Agent「${id}」（用 agent_list 查看清单）`);
+            else if (!String(taskObj.objective ?? '').trim()) result = softError('tool.invalid_arguments', 'task.objective 必填：说清要完成什么');
+            else if (delegationsUsed >= MAX_DELEGATIONS_PER_RUN) result = softError('agent.delegation_budget_exhausted', `本次运行的委派预算（${MAX_DELEGATIONS_PER_RUN} 次）已用尽，请用已有结果完成正文`);
+            else if ((perSubUsed[def.id] ?? 0) >= Math.max(1, def.maxInvocationsPerRun ?? 2)) result = softError('agent.delegation_budget_exhausted', `对「${def.name}」的委派已达上限（${Math.max(1, def.maxInvocationsPerRun ?? 2)} 次/运行）`);
+            else {
+              delegationsUsed++;
+              perSubUsed[def.id] = (perSubUsed[def.id] ?? 0) + 1;
+              emit(round, 'delegate', `🧩 委派子Agent「${def.name}」…`, 'active', String(taskObj.objective ?? '').replace(/\s+/g, ' ').slice(0, 60));
+              const t0 = Date.now();
+              const subChain = resolveApiChain(`agentSub-${def.id}`, p.chain[0]);   // 子代理独立路由（未配则回退 Agent 主接口第一条）
+              result = await runDelegatedSubagent({ def, task: taskObj, ws, inputs, presetName, chain: subChain, transport, signal, protocol });
+              emit(round, result.ok ? 'delegate_done' : 'delegate_fail',
+                `${result.ok ? '🧩✓ 子Agent「' + def.name + '」返回' : '🧩⚠ 子Agent「' + def.name + '」失败'}（${Math.round((Date.now() - t0) / 1000)}s）`,
+                result.ok ? 'success' : 'warn', result.content.replace(/\s+/g, ' ').slice(0, 90));
+            }
+          } else {
+            try { result = await tools.find((t) => t.name === call.name)!.run(call.args); }
+            catch (e) { result = softError('tool.execution_error', `工具执行异常：${String((e as Error)?.message ?? e)}`); }
+          }
         }
         /* commit / finish 副作用 */
         if (result.ok && result.effect === 'commit' && result.commit) {

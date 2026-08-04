@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { openSettingsPage } from '../systems/navBus';   // P4·空态深链：一键直达设置子页
 import { useCosmos, cleanCosmosName, COSMOS_CATEGORIES, type CosmosCategory, type CosmosEntity } from '../store/cosmosStore';
 
 /* 万族态势面板：宇宙背景层（七乐园/虚空万族/文明组织/原生世界/神灵/深渊）的只读浏览。
@@ -90,7 +91,7 @@ export default function CosmosPanel({ onClose }: { onClose: () => void }) {
           <div className="flex-1 flex items-center justify-center p-8 text-center text-dim/50 text-sm font-mono">
             <div>
               万族演化未启用 / 棋盘为空。<br />
-              去「设置 → 变量管理 → 🌌 万族演化」启用并选择种子（忠于原著 / 随机生成）。
+              去<button onClick={() => openSettingsPage('cosmos-manager')} className="text-god/80 underline underline-offset-2 hover:text-god mx-0.5">「设置 → 变量管理 → 🌌 万族演化」</button>启用并选择种子（忠于原著 / 随机生成）。
             </div>
           </div>
         ) : (

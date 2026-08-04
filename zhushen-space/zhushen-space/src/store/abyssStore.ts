@@ -17,7 +17,8 @@ function readSkills(charId: string): { name: string; effect: string }[] {
   const ch = useCharacters.getState().characters[charId];
   return (ch?.skills ?? []).map((s: any) => ({ name: String(s.name || '').slice(0, 16), effect: String(s.effect ?? s.desc ?? '').slice(0, 80) })).filter((s) => s.name).slice(0, 8);
 }
-import { lvFromRealm } from '../systems/derivedStats';
+import { lvFromRealm, isAbyssLocked } from '../systems/derivedStats';
+import { reportFacilityOutcome } from '../systems/facilityBridge';
 
 /* ════════════════════════════════════════════
    深渊地牢 store（drpg-abyss）—— 设计见 指导/深渊地牢-堕落流-设计.md
@@ -97,6 +98,8 @@ interface AbyssState {
   ackClear: () => void;
   /** 丢弃当前进行中的局（不结算，调试用）。 */
   abandon: () => void;
+  /** 灵魂结晶 → 觉醒充能（小=1/中=2/大=4 单位，凑满 4 → +1 充能）。返回结果消息供面板展示。 */
+  chargeWithCrystals: () => { ok: boolean; msg: string };
   clearLastSettle: () => void;
   /** clearProgress 用：清空 run + meta。 */
   clearAbyss: () => void;
@@ -125,6 +128,21 @@ function carryLootToMainline(loot: AbyssLoot[]): void {
       notes: l.sin ? '原罪物（深渊夺得，力量与诅咒并存）' : undefined,
     });
   }
+}
+
+/* 结算场外通报：层数/结晶/带出物让正文知情（此前深渊玩完正文零感知——审计"准孤岛"次名）。
+   五阶前按封印口径称「幽冥地牢」（与 scrubAbyss/导航同口径）。物品登记 granted 防物品阶段重复建档。 */
+function reportAbyssSettle(r: { reachedDepth: number; crystals: number; carry: AbyssLoot[] }, kind: 'retreat' | 'dead' | 'cleared'): void {
+  try {
+    const place = isAbyssLocked(usePlayer.getState().profile) ? '幽冥地牢' : '深渊地牢';
+    const names = r.carry.filter((l) => l.kind !== 'currency').map((l) => l.name);
+    const verb = kind === 'cleared' ? '击破界之底、完成通关' : kind === 'dead' ? `力竭倒在全局第 ${r.reachedDepth} 层（地牢内败退不伤主线之身）` : `于全局第 ${r.reachedDepth} 层见好就收撤离`;
+    reportFacilityOutcome({
+      source: place,
+      summary: `主角刚结束一次${place}探索：${verb}；${names.length ? `带出战利品 ${names.map((n) => `「${n}」`).join('、')}（已入背包）` : '带出少量收获'}，堕落结晶 +${r.crystals}。地牢内的加成与腐蚀**不外泄主线**`,
+      granted: names,
+    });
+  } catch { /* 通报失败不阻断结算 */ }
 }
 
 function snapshotPlayer(): PlayerSnapshot {
@@ -166,15 +184,22 @@ function feedCosmosAbyss(reachedDepth: number, cleared: boolean): void {
   } catch { /* 万族未启用/异常 → 不影响结算 */ }
 }
 
-/* 通关/极限/收集 → 称号（写主角成就） */
+/* 通关/极限/收集 → 称号（写主角成就）。新获得的走 growthNotice 让正文入戏交代。 */
 function awardAbyssTitles(meta: AbyssMeta, hardcore: boolean): void {
-  const add = usePlayer.getState().addAchievement;
-  const T = (id: string, name: string, desc: string, rarity: string) =>
-    add({ id, name, desc, category: '深渊', type: '特殊', rarity, hidden: false, condition: '通关深渊地牢' });
+  const P = usePlayer.getState();
+  const owned = new Set((P.achievements ?? []).map((a: { id?: string }) => a.id));
+  const fresh: string[] = [];
+  const T = (id: string, name: string, desc: string, rarity: string) => {
+    if (!owned.has(id)) fresh.push(name);
+    P.addAchievement({ id, name, desc, category: '深渊', type: '特殊', rarity, hidden: false, condition: '通关深渊地牢' });
+  };
   T('abyss_clear', '深渊征服者', '通关深渊地牢·界之底', '史诗级');
   if (hardcore) T('abyss_hardcore', '孤身入渊', '以极限模式（单人）通关深渊', '传说级');
   const codexCount = Object.keys(meta.sinCodex).length;
   if (codexCount >= 5) T('abyss_collector', '原罪收藏家', `收集 ${codexCount} 件原罪物`, '金色');
+  if (fresh.length) {
+    reportFacilityOutcome({ source: isAbyssLocked(P.profile) ? '幽冥地牢' : '深渊地牢', summary: '', growth: fresh.map((n) => `获得成就「${n}」——可自然带过这份印记的分量，不强求成段`) });
+  }
 }
 
 export const useAbyss = create<AbyssState>()(
@@ -238,6 +263,12 @@ export const useAbyss = create<AbyssState>()(
         const note = flavor?.awakenNarrative ? `${item.notes ? item.notes + '\n' : ''}【觉醒 ${awakenLv} 阶】${flavor.awakenNarrative}` : item.notes;
         I.updateItem(itemId, { gradeDesc: nextGrade, affix, awakenLv, notes: note });
         set({ meta: { ...m, awakenCharges: m.awakenCharges - 1 } });
+        // 觉醒是硬成长事件：品级跳档 + 新词缀，正文该入戏交代一笔（growthNotice 档）
+        reportFacilityOutcome({
+          source: isAbyssLocked(usePlayer.getState().profile) ? '幽冥地牢' : '深渊地牢',
+          summary: '',
+          growth: `装备「${item.name}」经${isAbyssLocked(usePlayer.getState().profile) ? '幽冥' : '深渊'}之力觉醒至第 ${awakenLv} 阶（品级升至「${nextGrade}」·新增词缀 ${affixAdd}）——可自然带过觉醒仪式的一幕，不强求成段`,
+        });
         return true;
       },
 
@@ -308,6 +339,7 @@ export const useAbyss = create<AbyssState>()(
         if (!run) return;
         const r = settleRun(run, 'retreat', get().config.deathRetain);
         carryLootToMainline(r.carry);
+        reportAbyssSettle(r, 'retreat');
         feedCosmosAbyss(r.reachedDepth, false);
         set((s) => ({
           run: null,
@@ -321,6 +353,7 @@ export const useAbyss = create<AbyssState>()(
         if (!run) return;
         const r = settleRun(run, 'dead', get().config.deathRetain);
         carryLootToMainline(r.carry);
+        reportAbyssSettle(r, 'dead');
         feedCosmosAbyss(r.reachedDepth, false);
         set((s) => ({
           run: null,
@@ -334,6 +367,7 @@ export const useAbyss = create<AbyssState>()(
         if (!run) return;
         const r = settleRun(run, 'cleared', get().config.deathRetain);
         carryLootToMainline(r.carry);
+        reportAbyssSettle(r, 'cleared');
         set((s) => {
           const clears = s.meta.clearsCount + 1;
           const awaken = s.meta.awakenCharges + (clears % ABYSS_TUNING.awakenEveryClears === 0 ? 1 : 0);
@@ -355,6 +389,35 @@ export const useAbyss = create<AbyssState>()(
         feedCosmosAbyss(r.reachedDepth, true);
       },
 
+      /* 灵魂结晶 → 觉醒充能（P3 经济缝合）：世界结算 A 级+发放的「灵魂结晶(小/中/大)」此前全库零消耗
+         （审计"有源无汇"头名）。兑换率：小=1 / 中=2 / 大=4 单位，凑满 4 单位 → +1 充能；
+         大件优先、凑满即停（只剩中/大时可能略有溢价，不设找零·消息里写明）。确定性、零 AI。 */
+      chargeWithCrystals: () => {
+        const I = useItems.getState();
+        const unitOf = (name: string): number => (/大/.test(name) ? 4 : /中/.test(name) ? 2 : 1);
+        const stacks = I.items
+          .filter((it) => /灵魂结晶/.test(it.name || ''))
+          .map((it) => ({ id: it.id, name: it.name, unit: unitOf(it.name || ''), qty: Math.max(1, it.quantity || 1) }))
+          .sort((a, b) => b.unit - a.unit);
+        const total = stacks.reduce((s, x) => s + x.unit * x.qty, 0);
+        if (total < 4) return { ok: false, msg: `灵魂结晶不足：现有 ${total} 单位（小=1/中=2/大=4），凑满 4 单位才能兑 1 次充能` };
+        let need = 4;
+        const used: string[] = [];
+        for (const st of stacks) {
+          if (need <= 0) break;
+          let n = 0;
+          while (need > 0 && n < st.qty) { n++; need -= st.unit; }
+          if (n > 0) { try { I.consumeItem(st.id, n); } catch { /* */ } used.push(`${st.name}×${n}`); }
+        }
+        set((s) => ({ meta: { ...s.meta, awakenCharges: s.meta.awakenCharges + 1 } }));
+        const over = need < 0 ? `（超出 ${-need} 单位·不设找零）` : '';
+        reportFacilityOutcome({
+          source: isAbyssLocked(usePlayer.getState().profile) ? '幽冥地牢' : '深渊地牢',
+          summary: `主角把 ${used.join('、')} 炼入觉醒之炉，换得 1 次装备觉醒充能${over}`,
+          guard: '结晶已消耗，勿在正文中当作仍持有',
+        });
+        return { ok: true, msg: `已消耗 ${used.join('、')} → 觉醒充能 +1${over}` };
+      },
       abandon: () => set({ run: null }),
       clearLastSettle: () => set({ lastSettle: null }),
       clearAbyss: () => set({ run: null, meta: { ...DEFAULT_META }, lastSettle: null }),   // config 属设置，不随重置清空

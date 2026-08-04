@@ -14,6 +14,15 @@ import { useNpc } from '../../store/npcStore';
 import { useCharacters } from '../../store/characterStore';
 import { useItems } from '../../store/itemStore';
 import { useFaction } from '../../store/factionStore';
+import { visibleSkills, useAgentSkills, type SubAgentDef } from '../../store/agentSkillStore';
+
+/** 当前预设作用域下可委派的子代理（enabled 且作用域匹配） */
+export function listCallableSubagents(presetName: string): SubAgentDef[] {
+  try {
+    return useAgentSkills.getState().subagents.filter((d) =>
+      d.enabled !== false && (!d.scopePresetName || d.scopePresetName === presetName));
+  } catch { return []; }
+}
 
 const MAX_CHAT_HITS = 30;
 const MAX_CHAT_READ_MSGS = 10;
@@ -46,11 +55,23 @@ export function rollDiceFormula(formula: string, rng: () => number = Math.random
 export interface AgentToolCtx {
   ws: AgentWorkspace;
   inputs: AgentRunInputs;
+  /** Agent 专属预设名（skill/子代理的作用域锚点；''=跟随正文预设 → 只见全局 skill） */
+  presetName?: string;
+  /** skill 可见性过滤（子代理用其定义里的 visible/deny；主代理不传=作用域内全部） */
+  skillFilter?: { visible?: string[]; deny?: string[] };
+  /** skill 读取预算（run 级累计·跨工具共享；由运行时创建） */
+  skillBudget?: { used: number };
+  /** true=为子代理组装工具集：去掉 commit/finish/委派家族/dice，加 task_return */
+  forSubagent?: boolean;
 }
+
+const SKILL_READ_PER_CALL = 20000;   // 单次 skill_read 上限（对齐 TT 默认）
+const SKILL_RUN_BUDGET = 60000;      // 整个 run 的 skill 读取总预算
 
 /** 组装全部工具（toggles: modelName→bool，缺省启用；dice_roll 缺省关由 AGENT_DEFAULTS 兜） */
 export function buildAgentTools(ctx: AgentToolCtx, toggles: Record<string, boolean>): AgentToolSpec[] {
   const { ws, inputs } = ctx;
+  const forSub = !!ctx.forSubagent;
   const all: AgentToolSpec[] = [];
   const add = (t: AgentToolSpec) => { if (toggles[t.modelName] !== false) all.push(t); };
 
@@ -91,7 +112,7 @@ export function buildAgentTools(ctx: AgentToolCtx, toggles: Record<string, boole
     parameters: OBJ({ path: { type: 'string' }, old_string: { type: 'string' }, new_string: { type: 'string' }, replace_all: { type: 'boolean' } }, ['path', 'old_string', 'new_string']),
     run: (a) => ws.applyPatch(a),
   });
-  add({
+  if (!forSub) add({
     name: 'workspace.commit', modelName: 'workspace_commit',
     description: `把工作区文件发布为本回合的聊天正文楼层。不带参数=用 ${MAIN_ARTIFACT_PATH} 整体替换本次运行的楼层；mode=append 在同一楼层后追加。可多次 commit 反复修订。`,
     parameters: OBJ({ path: { type: 'string', description: `默认 ${MAIN_ARTIFACT_PATH}` }, mode: { type: 'string', enum: ['replace', 'append'] }, reason: { type: 'string' } }),
@@ -109,11 +130,28 @@ export function buildAgentTools(ctx: AgentToolCtx, toggles: Record<string, boole
       };
     },
   });
-  add({
+  if (!forSub) add({
     name: 'workspace.finish', modelName: 'workspace_finish',
     description: '结束本次 Agent 运行。必须先成功 workspace_commit 至少一次才能 finish。',
     parameters: OBJ({ reason: { type: 'string' } }),
     run: () => ({ ok: true, effect: 'finish', content: 'Finished the Agent run.', structured: {} }),
+  });
+  if (forSub) add({
+    name: 'task.return', modelName: 'task_return',
+    description: '结束本次委派任务并把结果返回给主 Agent（summary 必填·精炼）。这是你唯一的收尾方式。',
+    parameters: OBJ({
+      summary: { type: 'string', description: '任务结果的精炼总结' },
+      status: { type: 'string', enum: ['completed', 'failed'] },
+      confidence: { type: 'string', enum: ['low', 'medium', 'high'] },
+      findings: { type: 'array', items: { type: 'string' } },
+      warnings: { type: 'array', items: { type: 'string' } },
+      suggestedNextActions: { type: 'array', items: { type: 'string' } },
+      questionsForCaller: { type: 'array', items: { type: 'string' } },
+    }, ['summary']),
+    run: (a) => {
+      if (!String(a.summary ?? '').trim()) return err('tool.invalid_arguments', 'summary is required');
+      return { ok: true, effect: 'finish', content: 'Task returned.', structured: a };
+    },
   });
 
   /* ── 上下文/游戏数据系（只读）── */
@@ -330,7 +368,121 @@ export function buildAgentTools(ctx: AgentToolCtx, toggles: Record<string, boole
       } catch (e) { return err('db.query_failed', `查询异常：${String((e as Error)?.message ?? e)}`); }
     },
   });
+  /* ── skill 系（本地知识包·SKILL.md+references·按需读取，主/子代理共用，作用域随预设）── */
+  const skillsOf = () => visibleSkills(ctx.presetName ?? '', ctx.skillFilter);
+  const skillDesc = (s: { files: { path: string; content: string }[] }) => {
+    const md = s.files.find((f) => /(^|\/)SKILL\.md$/i.test(f.path));
+    const m = md ? /description:\s*(.+)/.exec(md.content) : null;
+    return (m?.[1] ?? '').trim().slice(0, 120);
+  };
   add({
+    name: 'skill.list', modelName: 'skill_list',
+    description: '列出当前可用的本地知识包（skill）：写作/审查规则书等，先 list 再 skill_read 其 SKILL.md。',
+    parameters: OBJ({}),
+    run: () => {
+      const rows = skillsOf().map((s) => `${s.name}${skillDesc(s) ? ` — ${skillDesc(s)}` : ''}  (${s.files.length} 个文件)`);
+      return { ok: true, content: rows.length ? rows.join('\n') : '当前没有可用的 skill。', structured: { count: rows.length } };
+    },
+  });
+  add({
+    name: 'skill.search', modelName: 'skill_search',
+    description: '在可见 skill 的文件里全文搜索，返回 skills/<名>/<文件>#L行号 + 命中行。',
+    parameters: OBJ({ query: { type: 'string' }, name: { type: 'string', description: '限定某个 skill；缺省搜全部可见' }, limit: { type: 'integer', description: '默认 10，最大 20' } }, ['query']),
+    run: (a) => {
+      const q = String(a.query ?? '').trim();
+      if (!q) return err('tool.invalid_arguments', 'query is required');
+      const max = Math.max(1, Math.min(20, Number(a.limit) || 10));
+      const pool = skillsOf().filter((s) => !a.name || s.name === a.name);
+      const hits: string[] = [];
+      outer: for (const s of pool) for (const f of s.files) {
+        const lines = f.content.split('\n');
+        for (let i = 0; i < lines.length; i++) if (lines[i].toLowerCase().includes(q.toLowerCase())) {
+          hits.push(`skills/${s.name}/${f.path}#L${i + 1}: ${lines[i].slice(0, 160)}`);
+          if (hits.length >= max) break outer;
+        }
+      }
+      return { ok: true, content: hits.length ? hits.join('\n') : `没有命中「${q}」。`, structured: { count: hits.length } };
+    },
+  });
+  add({
+    name: 'skill.read', modelName: 'skill_read',
+    description: `读某个 skill 的文件（path 默认 SKILL.md）。单次上限 ${SKILL_READ_PER_CALL} 字、整个运行共 ${SKILL_RUN_BUDGET} 字预算。`,
+    parameters: OBJ({
+      name: { type: 'string' },
+      path: { type: 'string', description: '默认 SKILL.md；其余如 references/xxx.md' },
+      start_line: { type: 'integer' }, line_count: { type: 'integer' },
+      start_char: { type: 'integer' }, max_chars: { type: 'integer', description: `最大 ${SKILL_READ_PER_CALL}` },
+    }, ['name']),
+    run: (a) => {
+      const s = skillsOf().find((x) => x.name === String(a.name ?? '').trim());
+      if (!s) return err('skill.not_found', `没有名为「${String(a.name ?? '')}」的可见 skill（用 skill_list 查看）`);
+      const want = String(a.path ?? 'SKILL.md').replace(/^\.?\//, '');
+      const f = s.files.find((x) => x.path === want) ?? s.files.find((x) => x.path.endsWith('/' + want)) ?? (want === 'SKILL.md' ? s.files.find((x) => /(^|\/)SKILL\.md$/i.test(x.path)) : undefined);
+      if (!f) return err('skill.file_not_found', `skill「${s.name}」里没有 ${want}（含：${s.files.map((x) => x.path).join(', ')}）`);
+      if (a.start_line != null && a.start_char != null) return err('skill.mixed_read_range', 'line-based and char-based ranges cannot be mixed');
+      const budget = ctx.skillBudget ?? { used: 0 };
+      const remain = SKILL_RUN_BUDGET - budget.used;
+      if (remain <= 0) return err('skill.read_budget_exhausted', `skill 读取预算（${SKILL_RUN_BUDGET} 字/运行）已用尽，请用已读内容完成任务`);
+      let slice: string; let meta: string;
+      if (a.start_line != null || a.line_count != null) {
+        const lines = f.content.split('\n');
+        const start = Math.max(1, Math.floor(Number(a.start_line) || 1));
+        const count = Math.max(1, Math.min(800, Math.floor(Number(a.line_count) || 400)));
+        slice = lines.slice(start - 1, start - 1 + count).join('\n');
+        meta = `skills/${s.name}/${f.path} lines ${start}-${Math.min(lines.length, start + count - 1)} of ${lines.length}`;
+      } else {
+        const start = Math.max(0, Math.floor(Number(a.start_char) || 0));
+        const maxC = Math.max(1, Math.min(SKILL_READ_PER_CALL, Number(a.max_chars) || SKILL_READ_PER_CALL));
+        slice = f.content.slice(start, start + maxC);
+        meta = `skills/${s.name}/${f.path} chars ${start}-${start + slice.length} of ${f.content.length}`;
+      }
+      if (slice.length > remain) slice = slice.slice(0, remain) + '\n…(预算截断)';
+      budget.used += slice.length;
+      return { ok: true, content: `${meta}\n${slice}`, structured: { name: s.name, path: f.path, chars: slice.length, budgetUsed: budget.used } };
+    },
+  });
+
+  /* ── 子代理委派家族（仅主代理注册；delegate 由运行时接管执行）── */
+  if (!forSub) {
+    add({
+      name: 'agent.list', modelName: 'agent_list',
+      description: '列出可委派的子 Agent（名称+能力描述）。只列清单，不启动任何工作。',
+      parameters: OBJ({}),
+      run: () => {
+        const subs = listCallableSubagents(ctx.presetName ?? '');
+        const rows = subs.map((d) => `${d.id} | ${d.name} — ${d.desc || '（无描述）'}`);
+        return { ok: true, content: rows.length ? rows.join('\n') : '当前没有可委派的子 Agent。', structured: { count: rows.length } };
+      },
+    });
+    add({
+      name: 'agent.delegate', modelName: 'agent_delegate',
+      description: '把一个自包含的小任务（审查/核对/汇总/润色建议）同步委派给子 Agent；本工具返回时结果已在结果里，无需 await。',
+      parameters: OBJ({
+        agentId: { type: 'string', description: 'agent_list 里的 id' },
+        task: OBJ({
+          title: { type: 'string' },
+          objective: { type: 'string', description: '要完成什么（自包含·具体）' },
+          context: { type: 'string', description: '必要背景（子 Agent 看不到你的对话上下文）' },
+          expectedOutput: { type: 'string' },
+        }, ['objective']),
+      }, ['agentId', 'task']),
+      run: () => err('agent.runtime_only', '内部错误：agent_delegate 应由运行时接管执行'),
+    });
+    add({
+      name: 'agent.await', modelName: 'agent_await',
+      description: '（兼容占位）本前端的委派是同步执行的，无需 await。',
+      parameters: OBJ({ taskIds: { type: 'array', items: { type: 'string' } } }),
+      run: () => ({ ok: true, content: '本前端的委派为同步执行——agent_delegate 返回时结果已在其工具结果里，没有待收任务。请继续。', structured: { pending: 0 } }),
+    });
+    add({
+      name: 'agent.handoff', modelName: 'agent_handoff',
+      description: '（未支持）本前端不支持把运行移交给其他 Agent。',
+      parameters: OBJ({ agentId: { type: 'string' }, handoff: { type: 'object', additionalProperties: true } }),
+      run: () => err('agent.handoff_unsupported', '本前端未支持 handoff——请自行整合已有结果，继续当前流程直至 workspace_commit + workspace_finish。'),
+    });
+  }
+
+  if (!forSub) add({
     name: 'dice.roll', modelName: 'dice_roll',
     description: '掷公式骰（如 1d20、3d6+4）。只在剧情确需随机检定时用，绝不虚构结果。',
     parameters: OBJ({ formula: { type: 'string' } }, ['formula']),

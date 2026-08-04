@@ -415,6 +415,14 @@ export function realmFromLevel(level: number): string {
   return '无上之境';
 }
 
+/* 五阶前·「深渊」封印判定：主角有效阶位（阶位串优先，回退按等级推导）< 五阶（TIERS idx4）→ 封印生效。
+   「深渊」系是五阶后才揭开的最高阶黑幕，五阶前禁止在正文出现该词（提示词 ABYSS_LOCK_RULE + scrubAbyss 兜底），
+   UI 侧（导航/⌘K/深渊面板标题）同口径显示「幽冥」。从 App.tsx 抽来共用（AbyssPanel 也要判）。 */
+export function isAbyssLocked(prof?: { tier?: string; level?: number } | null): boolean {
+  const t = normalizeTier(prof?.tier || '') || realmFromLevel(prof?.level ?? 1);
+  return TIERS.indexOf(t as typeof TIERS[number]) < 4;
+}
+
 /* 阶位 → 合法等级区间 [下限,上限]（无上之境 无上限）。realmFromLevel 的**反向表**——两张表必须一致，
    derivedStats.test.ts 有双向一致性测试兜底（改一处漏改另一处会直接测挂）。 */
 export const TIER_LEVEL_RANGE: Record<string, [number, number]> = {

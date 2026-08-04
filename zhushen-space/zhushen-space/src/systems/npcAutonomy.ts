@@ -22,6 +22,7 @@ import {
   type DeedCtx, type DeedEvent,
 } from './autonomyCorpus';
 import { attrCapForTier, ratioOf, computeMaxHp, computeMaxEp, npcBaseAttrs } from './derivedStats';
+import { decideCastHint } from './castHint';   // 角色动向提示：每轮重算"可能登场"，注入正文当导演提示
 
 const MAX_TICKS_PER_TURN = 16;
 const CADENCE = 3;                          // 背景离场 NPC 分 3 组轮流
@@ -611,7 +612,9 @@ export function runNpcAutonomy(turn: number): number {
   //   过滤源＝dispatchActive.memberIds 这一份唯一真相：派遣记录一旦没了，人自动回落轨道A，不会卡死。
   const dispatched = new Set(useTeam.getState().dispatchActive?.memberIds ?? []);
   // 宠物/召唤物随主人待命、不过独立离场生活（"不自行成长"）→ 排除出轨道A 自治，交给独立的宠物演化。
-  const eligible = Object.values(store.npcs).filter((n) => !n.onScene && !n.archived && !n.isDead && hasRealNpcName(n) && !isPetLike(n) && !canonTracked(n) && !dispatched.has(n.id));   // 归档=玩家封存，不跑离场自治
+  // 🧊 世界作用域：已冻结 = 主角早已离开那个任务世界，这些土著不该再每回合被织行动
+  //    （此前他们会一直 tick 到被"长期未出场"清理提醒捞走为止，纯属空烧）。见 systems/worldScope.ts。
+  const eligible = Object.values(store.npcs).filter((n) => !n.onScene && !n.archived && !n.frozenAt && !n.isDead && hasRealNpcName(n) && !isPetLike(n) && !canonTracked(n) && !dispatched.has(n.id));   // 归档=玩家封存，不跑离场自治
   if (!eligible.length) return 0;
 
   const contractorNames = eligible.filter((n) => !isNative(n)).map((n) => n.name).filter(Boolean);
@@ -685,6 +688,17 @@ export function runNpcAutonomy(turn: number): number {
       if (other && other.id !== npc.id) relAdd(other.id, npc.name, out.relation.label);
     }
     if (out.grant || out.consume || out.itemPatch || out.drop) itemFx.push({ id: npc.id, out });
+  }
+
+  // ── 角色动向提示（见 systems/castHint.ts）：对**全部** eligible 逐人重算 readyToEnter/enterReason。
+  //    刻意不只算 ranked——动向提示与"本轮谁被织了行动"无关，且必须每轮重算，
+  //    否则上一轮置上的 readyToEnter 会一直挂着，变成"这人永远在门口徘徊"。
+  for (const n of eligible) {
+    const hint = decideCastHint(n, turn);
+    const prev = n.auto ?? { phase: 'hub' as const, turns: 0 };
+    const e = ensure(n.id);
+    const auto = { ...prev, ...(e.patch.auto ?? {}) };
+    e.patch.auto = { ...auto, readyToEnter: hint.readyToEnter, enterReason: hint.enterReason };
   }
 
   const updates = [...acc.entries()].map(([id, e]) => ({ id, deed: e.deed, patch: e.patch }));

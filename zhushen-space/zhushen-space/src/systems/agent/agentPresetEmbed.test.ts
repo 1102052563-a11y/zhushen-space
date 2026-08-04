@@ -7,6 +7,9 @@ import { describe, it, expect, beforeEach, beforeAll } from 'vitest';
 import { useSettings } from '../../store/settingsStore';
 import { compileFindRegex, runRegexReplace } from '../regexEngine';
 import { HUYU_CURE_SCRIPTS } from './agentPresetCure';
+import { unzipTextFiles } from './miniZip';
+import { importEmbeddedAgentAssets } from './agentAssets';
+import { useAgentSkills } from '../../store/agentSkillStore';
 
 /* vitest 跑在 node 环境，但主 tsconfig 是浏览器环境（无 @types/node）：
    用「非字面量说明符」的动态 import 取 fs——tsc 不做模块解析（类型为 any），运行时正常解析 node:fs。 */
@@ -148,6 +151,43 @@ describe('parseSTPreset · 默认=旧生态语义（⚠ 回归守卫：2026-08-0
     const p = importAndGet(raw, 'own');
     expect(p.entries.length).toBe(1);
     expect(p.entries[0].enabled).toBe(true);
+  });
+});
+
+describe('P3 · TT 内嵌 Agent 资产（真实文件：zip skill 包 + 子代理档案 + 作者指令）', () => {
+  const HUYU = '[Agent] V14.7 狐神抚 · 毓忻';
+  beforeEach(() => useAgentSkills.setState({ skills: [], subagents: [], writerNotes: {} }));
+
+  it('miniZip：真实 ttskill 包解出含 SKILL.md 的文本文件', async () => {
+    const j = JSON.parse(rawHuyu);
+    const item = j.extensions.tauritavern.skills.items.find((x: { skillName: string }) => x.skillName === 'fox-banword-rules');
+    const files = await unzipTextFiles(item.contentBase64);
+    expect(files.length).toBeGreaterThanOrEqual(1);
+    const md = files.find((f) => /(^|\/)SKILL\.md$/i.test(f.path))!;
+    expect(md).toBeTruthy();
+    expect(md.content).toMatch(/name:\s*fox-banword-rules/);
+  });
+  it('importEmbeddedAgentAssets：4 个 skill + 2 个子代理 + 作者指令，全部落库且作用域挂到导入预设名', async () => {
+    // ⚠ 断言看 store 终态而非 report 计数：前面 describe 经 importTextPreset 钩子触发的 fire-and-forget
+    //   资产导入可能在本测试 beforeEach 清空后才 resolve、重新填库 → 本次直接调用全被 sha 判重跳过（计数 0 但库正确）。
+    const rep = await importEmbeddedAgentAssets(JSON.parse(rawHuyu), HUYU, true);
+    expect(rep.errors).toEqual([]);
+    const st = useAgentSkills.getState();
+    const huyuSkills = st.skills.filter((s) => s.scopePresetName === HUYU);   // Fairy 的滞后导入可能混入其它作用域，只看本预设的
+    expect(huyuSkills.map((s) => s.name).sort()).toEqual(['fox-banword-rules', 'fox-format-rules', 'fox-nsfw-rules', 'fox-persona-rules']);
+    expect(huyuSkills.every((s) => s.files.some((f) => /SKILL\.md$/i.test(f.path)))).toBe(true);
+    const banword = st.subagents.find((d) => d.id === 'fox-banword-checker')!;
+    expect(banword).toBeTruthy();
+    expect(banword.instructions!.length).toBeGreaterThan(1000);
+    expect(banword.maxRounds).toBeLessThanOrEqual(12);   // TT 的 999 被夹取
+    expect(banword.skillsVisible).toEqual(['fox-banword-rules']);
+    expect(st.writerNotes[HUYU].length).toBeGreaterThan(4000);   // fox-writer 的工作流指令
+  });
+  it('幂等：重复导入按 sha 跳过', async () => {
+    await importEmbeddedAgentAssets(JSON.parse(rawHuyu), HUYU, true);
+    const rep2 = await importEmbeddedAgentAssets(JSON.parse(rawHuyu), HUYU, true);
+    expect(rep2.skills).toBe(0);
+    expect(useAgentSkills.getState().skills.filter((s) => s.scopePresetName === HUYU).length).toBe(4);
   });
 });
 

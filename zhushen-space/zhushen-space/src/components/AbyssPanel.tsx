@@ -4,6 +4,8 @@ import { useAbyss } from '../store/abyssStore';
 import { useItems } from '../store/itemStore';
 import { useMisc } from '../store/miscStore';
 import { useNpc } from '../store/npcStore';
+import { usePlayer } from '../store/playerStore';
+import { isAbyssLocked } from '../systems/derivedStats';
 import { ABYSS_TUNING, boonGenContext, rollBoons, makeRng, boonSig, enemyGenContext } from '../systems/abyssEngine';
 import type { RoomType, BoonGenContext, SinTemplate, SinFlavor, AwakenFlavor, JudgeFlavor, AbyssUnit } from '../systems/abyssEngine';
 import { BOON_PRIM_LABELS, ABYSS_STARMAP, STAR_BRANCH_LABEL, ABYSS_BIOMES, type BoonCard, type StarBranch } from '../data/abyssData';
@@ -30,6 +32,7 @@ interface Props {
 }
 
 export default function AbyssPanel({ onClose, onGenBoons, onGenSin, onGenAwaken, onGenJudge, onGenEnemies }: Props) {
+  const abyssSealed = usePlayer((s) => isAbyssLocked(s.profile));   // 五阶前标题显示「幽冥」（与正文封印同口径）
   const run = useAbyss((s) => s.run);
   const meta = useAbyss((s) => s.meta);
   const boonLoading = useAbyss((s) => s.boonLoading);
@@ -46,8 +49,14 @@ export default function AbyssPanel({ onClose, onGenBoons, onGenSin, onGenAwaken,
   const unlockStarmapNode = useAbyss((s) => s.unlockStarmapNode);
   const setStartDeck = useAbyss((s) => s.setStartDeck);
   const applyAwaken = useAbyss((s) => s.applyAwaken);
+  const chargeWithCrystals = useAbyss((s) => s.chargeWithCrystals);
   const items = useItems((s) => s.items);
   const [awakening, setAwakening] = useState<string | null>(null);
+  const [crystalMsg, setCrystalMsg] = useState('');
+  // 灵魂结晶总单位（小=1/中=2/大=4）：世界结算 A 级+发放的材料，此处是它全库唯一的消耗汇
+  const crystalUnits = useMemo(() => items
+    .filter((it) => /灵魂结晶/.test(it.name || ''))
+    .reduce((s, it) => s + (/大/.test(it.name || '') ? 4 : /中/.test(it.name || '') ? 2 : 1) * Math.max(1, it.quantity || 1), 0), [items]);
   const setPendingBoons = useAbyss((s) => s.setPendingBoons);
   const setBoonLoading = useAbyss((s) => s.setBoonLoading);
   const enrichSin = useAbyss((s) => s.enrichSin);
@@ -174,7 +183,8 @@ export default function AbyssPanel({ onClose, onGenBoons, onGenSin, onGenAwaken,
         <div className="sticky top-0 z-10 flex items-center justify-between px-4 py-3 border-b border-violet-800/40 bg-[#0d0a14]/95 backdrop-blur">
           <div className="flex items-center gap-2">
             <span className="text-lg">🕳</span>
-            <h2 className="text-base font-semibold text-violet-200">深渊地牢 · 堕落流</h2>
+            {/* 五阶前正文封印「深渊」词（scrubAbyss→幽冥），面板标题同口径，免得 UI 明写、正文却不许提 */}
+            <h2 className="text-base font-semibold text-violet-200">{abyssSealed ? '幽冥地牢 · 堕落流' : '深渊地牢 · 堕落流'}</h2>
             <span className="text-[10px] text-violet-400/60">M2 · 黑渊</span>
           </div>
           <button onClick={onClose} className="text-slate-400 hover:text-slate-100 text-sm px-2">✕</button>
@@ -283,11 +293,22 @@ export default function AbyssPanel({ onClose, onGenBoons, onGenSin, onGenAwaken,
                 <div className="text-[11px] text-slate-400">📖 原罪图鉴 {Object.keys(meta.sinCodex).length}：{Object.keys(meta.sinCodex).slice(0, 8).join('、')}{Object.keys(meta.sinCodex).length > 8 ? '…' : ''}</div>
               )}
 
-              {/* 觉醒（§10.2） */}
-              {meta.awakenCharges > 0 && (
+              {/* 觉醒（§10.2）+ 灵魂结晶充能（P3：结算发的灵魂结晶此前零消耗，这里是它的汇） */}
+              {(meta.awakenCharges > 0 || crystalUnits > 0) && (
                 <div className="rounded-lg border border-rose-800/40 p-2">
                   <div className="text-[11px] text-rose-300/80 mb-1">⚒ 觉醒（充能 {meta.awakenCharges}）：给已带出的装备/原罪物升品级 + 加词缀</div>
+                  {crystalUnits > 0 && (
+                    <div className="flex items-center gap-2 mb-1.5 text-[10px] text-fuchsia-300/80">
+                      <span>💠 灵魂结晶 {crystalUnits} 单位（小=1/中=2/大=4）</span>
+                      <button disabled={crystalUnits < 4}
+                        onClick={() => setCrystalMsg(chargeWithCrystals().msg)}
+                        className="px-2 py-0.5 rounded border border-fuchsia-700/40 bg-fuchsia-950/20 text-fuchsia-100 hover:brightness-125 disabled:opacity-40"
+                        title="消耗世界结算发放的灵魂结晶（大件优先·凑满 4 单位即停），兑换 1 次装备觉醒充能">凑4单位 → 充能+1</button>
+                      {crystalMsg && <span className="text-slate-400 truncate">{crystalMsg}</span>}
+                    </div>
+                  )}
                   {(() => {
+                    if (meta.awakenCharges < 1) return <div className="text-[10px] text-slate-500">暂无充能——通关每 {ABYSS_TUNING.awakenEveryClears} 次 +1，或用上方灵魂结晶兑换。</div>;
                     const awakenable = items.filter((it) => ['武器', '防具', '饰品'].includes(it.category) || (it.tags || []).includes('原罪')).slice(0, 12);
                     if (!awakenable.length) return <div className="text-[10px] text-slate-500">背包暂无可觉醒的装备/原罪物。</div>;
                     return (

@@ -28,6 +28,8 @@ import { useImageGen } from '../store/imageGenStore';
 import { generateImage, buildPortraitPrompt, equippedForPrompt, shrinkDataUrl } from '../systems/imageGen';
 import { PortraitPicker, PortraitLibraryModal } from './PortraitPicker';
 import ImagePromptEditModal from './ImagePromptEditModal';
+import OutfitPanel from './OutfitPanel';
+import { outfitRefImages, OUTFIT_REF_HINT } from '../systems/outfit';
 import { genPortraitTags } from '../systems/imageTags';
 import Bar, { BAR_STYLES } from './Bar';
 import AttrTalentPicker from './AttrTalentPicker';
@@ -125,6 +127,7 @@ function PlayerAvatar() {
   const [libOpen, setLibOpen] = useState(false);
   const [inspectOpen, setInspectOpen] = useState(false);
   const [promptOpen, setPromptOpen] = useState(false);   // 「编辑提示词」框
+  const [wardrobeOpen, setWardrobeOpen] = useState(false);   // 👗 衣柜（钦定穿搭）
   function handleUpload(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0]; e.target.value = '';
     if (!file) return;
@@ -143,8 +146,10 @@ function PlayerAvatar() {
       const gen = await genPortraitTags(desc);
       const tags = gen || profile.imageTags;
       if (gen && gen !== profile.imageTags) setProfile({ imageTags: gen });
-      const prompt = buildPortraitPrompt({ gender: profile.gender, race: profile.race, appearance: profile.appearance, baseAppearance: profile.baseAppearance, bodyType: profile.bodyType, equipment: equip, profession: profile.profession, tier: realmFromLevel(profile.level), imageTags: tags });
-      const url = await generateImage(portraitService, { prompt, negative: portraitNegative, label: '生成主角立绘' });
+      const basePrompt = buildPortraitPrompt({ gender: profile.gender, race: profile.race, appearance: profile.appearance, baseAppearance: profile.baseAppearance, bodyType: profile.bodyType, equipment: equip, profession: profile.profession, tier: realmFromLevel(profile.level), imageTags: tags, charId: 'B1' });
+      const refImages = await outfitRefImages('B1');   // 👗 钦定穿搭参考图（仅 chatimg 多模态线生效）
+      const prompt = refImages.length ? `${basePrompt}\n\n${OUTFIT_REF_HINT}` : basePrompt;
+      const url = await generateImage(portraitService, { prompt, negative: portraitNegative, refImages, label: '生成主角立绘' });
       setProfile({ avatar: await shrinkDataUrl(url), avatarTags: tags || '', avatarPrompt: prompt });
     } catch (e: any) { setErr(e.message ?? '生成失败'); }
     finally { setGening(false); }
@@ -153,13 +158,14 @@ function PlayerAvatar() {
   function currentPortraitPrompt(): string {
     if (profile.avatarPrompt && profile.avatarPrompt.trim()) return profile.avatarPrompt;
     const equip = equippedForPrompt(useItems.getState().items);
-    return buildPortraitPrompt({ gender: profile.gender, race: profile.race, appearance: profile.appearance, baseAppearance: profile.baseAppearance, bodyType: profile.bodyType, equipment: equip, profession: profile.profession, tier: realmFromLevel(profile.level), imageTags: profile.imageTags });
+    return buildPortraitPrompt({ gender: profile.gender, race: profile.race, appearance: profile.appearance, baseAppearance: profile.baseAppearance, bodyType: profile.bodyType, equipment: equip, profession: profile.profession, tier: realmFromLevel(profile.level), imageTags: profile.imageTags, charId: 'B1' });
   }
   // 「编辑提示词」框点「重新生成」：按改后的提示词重出立绘（不重译标签），并存回 avatarPrompt
   async function handleRegenWithPrompt(prompt: string) {
     setGening(true); setErr('');
     try {
-      const url = await generateImage(portraitService, { prompt, negative: portraitNegative, label: '按新提示词重生成主角立绘' });
+      const refImages = await outfitRefImages('B1');   // 👗 钦定穿搭参考图（仅 chatimg 多模态线生效）
+      const url = await generateImage(portraitService, { prompt, negative: portraitNegative, refImages, label: '按新提示词重生成主角立绘' });
       setProfile({ avatar: await shrinkDataUrl(url), avatarPrompt: prompt });
       setPromptOpen(false);
     } catch (e: any) { setErr(e.message ?? '生成失败'); }
@@ -189,6 +195,8 @@ function PlayerAvatar() {
         <button onClick={() => fileRef.current?.click()}
           className="text-[11px] font-mono px-2 py-0.5 rounded border border-edge text-dim hover:text-god transition-colors">上传</button>
         <PortraitPicker onPick={(url) => setProfile({ avatar: url })} />
+        <button onClick={() => setWardrobeOpen(true)} title="衣柜·钦定穿搭：激活的穿搭是立绘/正文配图/漫画三条生图线的服装权威源"
+          className="text-[11px] font-mono px-2 py-0.5 rounded border border-edge text-dim hover:text-god transition-colors">👗</button>
         {profile.avatar && <button onClick={() => setProfile({ avatar: '' })} className="text-[11px] font-mono px-2 py-0.5 rounded border border-edge text-dim/50 hover:text-blood transition-colors">移除</button>}
       </div>
       {profile.avatar && (
@@ -198,6 +206,7 @@ function PlayerAvatar() {
       {err && <div className="text-[10px] text-blood font-mono max-w-[220px] leading-snug whitespace-pre-line text-center">{err}</div>}
       <HoloInspector open={inspectOpen} onClose={() => setInspectOpen(false)} img={profile.avatar} name={profile.name || '主角'} badge={pTier || undefined} tier={pTier} power={bioPowerBadge} rows={attrRows} />
       {promptOpen && <ImagePromptEditModal title={`${profile.name || '主角'} · 立绘提示词`} initialPrompt={currentPortraitPrompt()} busy={gening} onClose={() => { if (!gening) setPromptOpen(false); }} onSubmit={handleRegenWithPrompt} />}
+      {wardrobeOpen && <OutfitPanel charId="B1" charName={profile.name || '主角'} currentAttire={(profile.appearance || '').trim()} onClose={() => setWardrobeOpen(false)} />}
     </div>
   );
 }

@@ -29,6 +29,8 @@ export interface TurnSnapshot {
   arbitration?: string[];   // ⚖️ 成长仲裁：本回合被闸门驳回/夹逼的 NPC 阶位·等级·bs·六维变更（npcGrowthGuard 日志）
   // 🤖 Agent 正文模式（P1）：本回合正文若由 Agent 工具循环生成，归档 run 概要（详情看 AgentTimeline 历史）
   agentRun?: { status: string; rounds: number; toolCalls: number; commits: number; durationMs?: number; errorCode?: string };
+  // 🎡 设施动态（P4）：本窗口的场外设施动作一览（facilityBridge 旁路记·所有系统的心跳汇于洞察一处）
+  facilityNotes?: string[];
 }
 
 const MAX_SNAPSHOTS = 14;

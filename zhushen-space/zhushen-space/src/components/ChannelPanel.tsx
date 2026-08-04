@@ -1,4 +1,5 @@
 import { useState, useRef } from 'react';
+import { openSettingsPage } from '../systems/navBus';   // P4·空态深链：一键直达设置子页
 import { useChannel, CHANNEL_DEFS, type ChannelKey, type ChannelMessage, type ChannelQuote } from '../store/channelStore';
 import { isDmableTag } from '../store/dmStore';
 import { AutoText } from './AutoText';
@@ -591,7 +592,7 @@ export default function ChannelPanel({ onClose, onRefresh, onSolicit, onPost, on
           {!enabled ? (
             <div className="py-16 text-center text-dim/40 text-sm font-mono border border-dashed border-edge rounded-xl">
               公共频道已停用
-              <div className="mt-2 text-dim/30">在「设置 → 变量管理 → 📡 公共频道」开启</div>
+              <div className="mt-2"><button onClick={() => openSettingsPage('channel-manager')} className="text-god/80 underline underline-offset-2 hover:text-god">在「设置 → 变量管理 → 📡 公共频道」开启 →</button></div>
             </div>
           ) : list.length === 0 ? (
             <div className="py-16 text-center text-dim/40 text-sm font-mono border border-dashed border-edge rounded-xl">

@@ -3,6 +3,7 @@ import { useAccountVault, type VaultEntry } from '../store/accountVaultStore';
 import { useItems, type InventoryItem } from '../store/itemStore';
 import { usePlayer } from '../store/playerStore';
 import { useVaultCloud, pullVaultCloud, syncVaultCloud, initVaultCloudSync } from '../systems/accountVaultCloud';
+import { reportFacilityOutcome } from '../systems/facilityBridge';
 import { discordLoggedIn, discordLogin, fetchChatIdentity, chatReady, chatName, chatDisplayUid } from '../systems/chatIdentity';
 import { EntityCard, EntityDetailModal, type EntityKind } from './EntityDetail';
 
@@ -70,12 +71,15 @@ export default function AccountVaultPanel({ onClose }: { onClose: () => void }) 
     addItem({ ...rest, quantity: e.quantity, equipped: false } as any);
     removeEntry(e.id);
     toast(`已取出「${e.item.name}」到背包`);
+    // 场外通报：仓库存取此前完全静默，正文会把"存进保险箱的装备"当作还在背包（审计确认）
+    reportFacilityOutcome({ source: '账户仓库', summary: `主角从跨档保险箱取出「${e.item.name}」×${e.quantity}，已回到背包`, granted: [e.item.name], guard: '托管取回原物，勿当作新获得' });
   };
   // 存入：把背包物品连同完整快照存进账户仓库，再从背包移除
   const depositItem = (it: InventoryItem) => {
     deposit(it, it.quantity, playerName || undefined);
     removeItem(it.id);
     toast(`已存入「${it.name}」`);
+    reportFacilityOutcome({ source: '账户仓库', summary: `主角把「${it.name}」×${it.quantity} 存进了跨档保险箱`, guard: '该物已离开背包、存放在保险箱中，正文中主角暂不持有它' });
   };
   // 多选批量存入
   const selDepCount = depositable.filter((it) => selDep.has(it.id)).length;
@@ -88,6 +92,7 @@ export default function AccountVaultPanel({ onClose }: { onClose: () => void }) 
     for (const it of chosen) { deposit(it, it.quantity, playerName || undefined); removeItem(it.id); }
     clearDepSel();
     toast(`已批量存入 ${chosen.length} 件`);
+    reportFacilityOutcome({ source: '账户仓库', summary: `主角把 ${chosen.length} 件物品（${chosen.slice(0, 5).map((x) => `「${x.name}」`).join('、')}${chosen.length > 5 ? ' 等' : ''}）存进了跨档保险箱`, guard: '这些物品已离开背包、存放在保险箱中，正文中主角暂不持有它们' });
   };
 
   return (
