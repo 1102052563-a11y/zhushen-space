@@ -33,6 +33,9 @@ import {
   WORLD_EVENT_LIFECYCLE_RULE,
   REPUTATION_RULE,
   DIPLOMACY_RULE,
+  ECONOMY_RULE,
+  ERA_EVOLUTION_RULE,
+  MEMORY_TIERS_RULE,
   NATIVE_LIFE_LOCAL_RULE,
   LOCAL_CURRENCY_RULE,
   COMBAT_SKILL_NUMERIC_RULE,
@@ -235,8 +238,17 @@ import {
   activeEvents, overflowIds, serializeEventsForEvo, pendingDerivations, buildDerivationInjection,
 } from './systems/worldEvent';
 import { buildFameInjection, contractorBaseline } from './systems/paradiseFame';
-import { buildReputeInjection, defaultRepute, summarizeRepute, formatRepute } from './systems/reputation';
-import { canTransition, normException, parseLegacyRelations, formatEdges, diploName, buildDiplomacyInjection } from './systems/diplomacy';
+import { buildReputeInjection, defaultRepute, summarizeRepute, formatRepute, checkCombos, reputeSeenBy } from './systems/reputation';
+import { canTransition, normException, parseLegacyRelations, formatEdges, diploName, buildDiplomacyInjection, forceSettle } from './systems/diplomacy';
+import { seedEconomy, stepIndex, buildEconomyInjection, serializeEconomyForEvo, priceFactor } from './systems/economy';
+import {
+  serializeErasForEvo, stepProgress, phaseOf, needsCriticalEvent, defaultCriticalName,
+  planMerges, applyMerge, normDirection, normIntensity, type PotentialEra,
+} from './systems/eraModel';
+import { detectCircles, buildCircleInjection, canKnowAbout } from './systems/socialCircle';
+import { toTiered, planDecay, serializeTiersForEvo, usesTieredMemory, buildMemoryInjection, TIER_CAP } from './systems/memoryTiers';
+import { LEDGER_GUARD_HINT } from './systems/ledgerCheck';
+import { buildRelationGraph } from './systems/relationGraph';
 import { ensureWorldDetailFor, buildWorldDetailInjection } from './systems/worldDetail';   // 世界详情库：入世后正文注 ·剧情 档案（切入点不注）
 import { startPlaytimeHeartbeat, stopPlaytimeHeartbeat } from './systems/playtime';   // 线上游玩时长累计（登录 Discord 者·可见活跃时长）
 import { startPresenceHeartbeat, stopPresenceHeartbeat } from './systems/presence';   // 当前在玩人数（按IP·含未登录者·聊天室展示）
@@ -442,6 +454,7 @@ import PlayerEquipPanel from './components/PlayerEquipPanel';
 import ItemListPanel from './components/ItemListPanel';
 import VersionToast from './components/VersionToast';
 import GlobalToasts from './components/GlobalToasts';   // P4·全局 toast（后台事件实时反馈：交易行成交/托管归还/来宾补发/派遣酬劳）
+import PanelLoading from './components/PanelLoading';   // 懒加载面板的 Suspense fallback（治「点了很久才出面板、期间零反馈」）
 import { OPEN_SETTINGS_EVENT } from './systems/navBus';   // P4·空态深链：面板一键直达设置子页
 import { APP_VERSION, VERSION_NOTES } from './version';
 
@@ -1594,6 +1607,83 @@ const PALETTE_ACTIONS: { icon: string; label: string }[] = [
   { icon: '♻', label: '重算变量' },
 ];
 
+/* ── 面板 chunk 空闲预热（治「第一次点面板要等冷加载几秒」）────────────────────────
+   面板全部懒加载：每次部署后 chunk 文件名全换，玩家浏览器缓存全失效 → 每个面板第一次点开都要
+   现下载+解析（本机还有杀软对新文件的首读扫描），期间此前连 loading 都没有。
+   进入游戏 2.5s 后开始在后台**串行**预热全部面板 chunk（每 150ms 一个防主线程拥堵；import() 与
+   lazy() 同 chunk、Vite 自动去重，预热过的面板首点即热）。清单与上方 lazy 定义保持同步——
+   漏加只是那个面板不预热，无害。 */
+const PREFETCH_PANELS: (() => Promise<unknown>)[] = [
+  // 高频优先：角色/背包/存档/设置
+  () => import('./components/BackpackModal'),
+  () => import('./components/EquipmentPanel'),
+  () => import('./components/CharacterPanel'),
+  () => import('./components/NpcPanel'),
+  () => import('./components/NpcDetail'),
+  () => import('./components/SaveLoadPanel'),
+  () => import('./components/SettingsPanel'),
+  () => import('./components/MiscPanel'),
+  () => import('./components/TitlePanel'),
+  () => import('./components/AchievementPanel'),
+  () => import('./components/SubProfessionPanel'),
+  () => import('./components/SkillTreePanel'),
+  () => import('./components/LoadoutPanel'),
+  () => import('./components/CraftPanel'),
+  () => import('./components/ChestPanel'),
+  () => import('./components/FactionPanel'),
+  () => import('./components/TerritoryPanel'),
+  () => import('./components/AdventureTeamPanel'),
+  () => import('./components/PartyPanel'),
+  () => import('./components/CosmosPanel'),
+  () => import('./components/WorldCodexPanel'),
+  () => import('./components/WorldDetailLibPanel'),
+  () => import('./components/WikiPanel'),
+  () => import('./components/WorldRecordPanel'),
+  () => import('./components/ChroniclePanel'),
+  () => import('./components/ChaosWorldPanel'),
+  () => import('./components/CombatSetup'),
+  () => import('./components/CombatPanel'),
+  () => import('./components/AbyssPanel'),
+  () => import('./components/EnhancePanel'),
+  () => import('./components/SkillUpgradePanel'),
+  () => import('./components/CasinoPanel'),
+  () => import('./components/JoyPanel'),
+  () => import('./components/ArenaPanel'),
+  () => import('./components/TurnInsightPanel'),
+  () => import('./components/AuditPanel'),
+  () => import('./components/ChannelPanel'),
+  () => import('./components/SystemShop'),
+  () => import('./components/DmPanel'),
+  () => import('./components/FriendsPanel'),
+  () => import('./components/MultiplayerPanel'),
+  () => import('./components/ChatRoomPanel'),
+  () => import('./components/TradePanel'),
+  () => import('./components/ProducePanel'),
+  () => import('./components/GuildPanel'),
+  () => import('./components/AssistPanel'),
+  () => import('./components/ArenaWorldPanel'),
+  () => import('./components/PlaytimePanel'),
+  () => import('./components/MonumentPanel'),
+  () => import('./components/AccountVaultPanel'),
+  () => import('./components/SummaryPanel'),
+  () => import('./components/WorkshopPanel'),
+  () => import('./components/BranchTreePanel'),
+  () => import('./components/CanonRoutePanel'),
+  () => import('./components/CodexDetail'),
+];
+let _panelsPrefetched = false;
+function prefetchPanelsOnIdle(): void {
+  if (_panelsPrefetched) return;
+  _panelsPrefetched = true;
+  let i = 0;
+  const step = () => {
+    if (i >= PREFETCH_PANELS.length) { console.log(`[Prefetch] ${PREFETCH_PANELS.length} 个面板 chunk 预热完成`); return; }
+    const load = PREFETCH_PANELS[i++];
+    load().catch(() => { /* 单个失败不阻断（断网/旧chunk）；点开时再走正常加载 */ }).finally(() => { setTimeout(step, 150); });
+  };
+  setTimeout(step, 2500);   // 让开启动关键路径（hydrate/首屏渲染/图片回填）
+}
+
 /* 右侧导航·每个图标的独特 hover 特效类（定义见 index.css 的 .fx-*）*/
 const NAV_FX: Record<string, string> = {
   '装备': 'fx-sword', '储存空间': 'fx-bag', 'NPC': 'fx-card', '技能': 'fx-sparkle',
@@ -2288,6 +2378,9 @@ export default function App() {
     window.addEventListener(OPEN_SETTINGS_EVENT, h);
     return () => window.removeEventListener(OPEN_SETTINGS_EVENT, h);
   }, []);
+
+  // 面板 chunk 空闲预热：进入游戏后后台串行拉齐全部懒加载面板（见模块级 prefetchPanelsOnIdle 注释）
+  useEffect(() => { if (started) prefetchPanelsOnIdle(); }, [started]);
 
   // 滚动监听：判断是否贴近底部（贴近=继续吸附跟随；上滑超过阈值=暂停跟随）
   function onChatScroll() {
@@ -4220,6 +4313,36 @@ export default function App() {
 
 
   /* 重点演化 system prompt（策略B：单角色 charId / 策略A：留空→在场列表） */
+  /* 👥 信息可达性（systems/socialCircle）：把「这个 NPC 能不能知道关于谁的事」**前端算好**再喂给演化 AI。
+     这是 ANTI_OMNISCIENCE / NPC_DECENTER 之外的第三道——那两条是提示词层的"别全知"，
+     这条是**可判定的**：按关系图谱算最短路，超出信息半径的直接点名列出"他不可能知道这些人的事"。
+     只对有档案的目标角色出块；圈子/跳数算不出来就返回空串（宁可不拦，不误拦）。 */
+  function infoReachInjection(charId?: string): string {
+    if (!charId) return '';
+    try {
+      const npcs = useNpc.getState().npcs;
+      const me = npcs[charId];
+      if (!me?.name) return '';
+      const g = buildRelationGraph(Object.values(npcs), {
+        playerName: usePlayer.getState().profile.name || '主角',
+        playerTier: usePlayer.getState().profile.tier,
+        favorEdges: false,
+      });
+      const circles = detectCircles(g.nodes, g.edges);
+      // 只检查"本轮在场 + 最近活跃"的其他角色，别把整张花名册都算一遍
+      const others = Object.values(npcs)
+        .filter((n) => n.id !== charId && n.name && !n.isDead && !n.frozenAt && (n.onScene || (n.lastSeenTurn ?? 0) > 0))
+        .slice(0, 12);
+      const unreachable = others
+        .filter((n) => !canKnowAbout(g.nodes, g.edges, circles, charId, n.id).ok)
+        .map((n) => n.name);
+      if (!unreachable.length) return '';
+      return `\n【信息可达性·前端已按人际链路算出（硬约束）】${me.name} 与下列角色之间**没有可用的信息链路**（既不同圈、也无二度人脉）：`
+        + `${unreachable.slice(0, 8).join('、')}。\n`
+        + `→ 本轮**绝不允许**写 ${me.name} 知道、听说、议论、或因这些人的近况而行动。对他而言，那些事根本不存在。`;
+    } catch { return ''; }
+  }
+
   function buildNpcPhaseSystemPrompt(
     entries: import('./store/npcEvoStore').NpcPresetEntry[],
     narrative: string,
@@ -4244,7 +4367,7 @@ export default function App() {
       .filter((e) => e.enabled && e.source !== 'entrySharedRules')
       .map((e) => fillVars(e.content, vars))
       .join('\n\n')
-      + '\n\n' + NARRATIVE_FIRST_RULE + '\n' + BUFF_AS_STATUS_RULE + '\n' + NPC_AGE_RULE + '\n' + TALENT_NO_CAP_RULE + '\n' + TITLE_DIVERSITY_RULE + '\n' + NPC_DEAD_EXCLUDE_RULE + '\n' + NPC_ID_RULE + '\n' + SKILL_TALENT_NOTE_RULE + '\n' + NPC_SKILL_KEEP_RULE + '\n' + ITEM_GRANTED_SKILL_RULE + '\n' + SKILL_STABILITY_RULE + '\n' + SKILL_COMBAT_TAG_RULE + '\n' + NPC_REVIEW_TAG_RULE +'\n' + NPC_TEAM_AFFILIATION_RULE + '\n' + TIER_RULE + '\n' + IMAGE_TAGS_RULE + '\n' + HPEP_NARRATIVE_ONLY_RULE + '\n' + POINTS_NARRATIVE_RULE + '\n' + getPrompt('ATTR_POWER_CODEX', ATTR_POWER_CODEX) + '\n' + NPC_ATTR_GEN_RULE + '\n' + ATTR_SANITY_RULE + '\n' + ATTR_CAP_RULE + '\n' + STATUS_FORMAT_RULE + '\n' + STATUS_COUNTDOWN_TURN_RULE + '\n' + NPC_PRIVATE_EXTRA_RULE + '\n' + NPC_TIER_LOADOUT_RULE + '\n' + SKILL_TALENT_ATTR_CAP_RULE + '\n' + FIRST_UPDATE_COMPLETE_RULE + '\n' + EVO_EXACT_REF_RULE + '\n' + SKILL_TALENT_GUIDE + '\n' + getPrompt('NPC_COT_RULE', NPC_COT_RULE) + '\n' + ANTI_OMNISCIENCE_RULE + '\n' + getPrompt('NPC_DECENTER_RULE', NPC_DECENTER_RULE) + '\n' + NATIVE_LIFE_LOCAL_RULE + '\n' + getPrompt('NPC_INDEPENDENCE_RULE', NPC_INDEPENDENCE_RULE) + '\n' + getPrompt('DISPOSITION_STAGE_RULE', DISPOSITION_STAGE_RULE) + '\n' + DISPOSITION_DELTA_RULE + causalWeightInjection() + worldLoreEvoInjection()
+      + '\n\n' + NARRATIVE_FIRST_RULE + '\n' + BUFF_AS_STATUS_RULE + '\n' + NPC_AGE_RULE + '\n' + TALENT_NO_CAP_RULE + '\n' + TITLE_DIVERSITY_RULE + '\n' + NPC_DEAD_EXCLUDE_RULE + '\n' + NPC_ID_RULE + '\n' + SKILL_TALENT_NOTE_RULE + '\n' + NPC_SKILL_KEEP_RULE + '\n' + ITEM_GRANTED_SKILL_RULE + '\n' + SKILL_STABILITY_RULE + '\n' + SKILL_COMBAT_TAG_RULE + '\n' + NPC_REVIEW_TAG_RULE +'\n' + NPC_TEAM_AFFILIATION_RULE + '\n' + TIER_RULE + '\n' + IMAGE_TAGS_RULE + '\n' + HPEP_NARRATIVE_ONLY_RULE + '\n' + POINTS_NARRATIVE_RULE + '\n' + getPrompt('ATTR_POWER_CODEX', ATTR_POWER_CODEX) + '\n' + NPC_ATTR_GEN_RULE + '\n' + ATTR_SANITY_RULE + '\n' + ATTR_CAP_RULE + '\n' + STATUS_FORMAT_RULE + '\n' + STATUS_COUNTDOWN_TURN_RULE + '\n' + NPC_PRIVATE_EXTRA_RULE + '\n' + NPC_TIER_LOADOUT_RULE + '\n' + SKILL_TALENT_ATTR_CAP_RULE + '\n' + FIRST_UPDATE_COMPLETE_RULE + '\n' + EVO_EXACT_REF_RULE + '\n' + SKILL_TALENT_GUIDE + '\n' + getPrompt('NPC_COT_RULE', NPC_COT_RULE) + '\n' + ANTI_OMNISCIENCE_RULE + '\n' + getPrompt('NPC_DECENTER_RULE', NPC_DECENTER_RULE) + infoReachInjection(charId) + '\n' + NATIVE_LIFE_LOCAL_RULE + '\n' + getPrompt('NPC_INDEPENDENCE_RULE', NPC_INDEPENDENCE_RULE) + '\n' + getPrompt('DISPOSITION_STAGE_RULE', DISPOSITION_STAGE_RULE) + '\n' + DISPOSITION_DELTA_RULE + causalWeightInjection() + worldLoreEvoInjection()
       // 门控：仅当该 NPC 已有背景、却还没第一人称自述时，才追加"生成自述"规则（一次性·省 token）
       + (rec && rec.background && !rec.selfNarration ? '\n' + getPrompt('NPC_SELF_NARRATION_RULE', NPC_SELF_NARRATION_RULE) : '')
       // 门控：成长小传（从小到大的来历+性格成因）。**错开一回合**——等自述/原则/台词那批生成完了下次再要，
@@ -4629,12 +4752,21 @@ export default function App() {
           const curWorld = (useMisc.getState().worldName || '').trim();
           if (!npc.npcs[id]?.npcTag) npc.upsertNpc(id, { npcTag: isHomeWorld(curWorld) ? '契约者' : '土著' });
           if (!npc.npcs[id]?.worldName && curWorld && !isHomeWorld(curWorld)) npc.upsertNpc(id, { worldName: curWorld });
-          // 契约者初始态度基线随「乐园声望」走（而不是恒定 10）——名号响的人，同行见了自然高看一眼。
-          // ⚠ 只给契约者：土著对乐园声望一无所知（NATIVE_UNAWARE_RULE），绝不能因此高看主角。
+          // 初始态度基线（而不是恒定 10）。⚠ 两条**互斥**的通道，混起来就破了 NATIVE_UNAWARE_RULE：
+          //   · 契约者 → 读「乐园声望」（跨世界名号·土著对此一无所知）
+          //   · 土著   → 读「本世界四维声誉」里**他所属圈子看的那一维**（官府看官方、黑道看暗域…）
           // 只在 AI 还没给过态度（仍是默认 10）时铺基线，绝不覆盖演化写入的值。
           const rec0 = npc.npcs[id];
-          if (rec0?.npcTag === '契约者' && (rec0.trust ?? 10) === 10 && (rec0.respect ?? 10) === 10) {
-            npc.upsertNpc(id, contractorBaseline());
+          if (rec0 && (rec0.trust ?? 10) === 10 && (rec0.respect ?? 10) === 10) {
+            if (rec0.npcTag === '契约者') npc.upsertNpc(id, contractorBaseline());
+            else if (rec0.npcTag === '土著') {
+              const rep = usePlayer.getState().profile.repute;
+              if (rep) {
+                const seen = reputeSeenBy(rep, `${rec0.realm ?? ''} ${rec0.profession ?? ''} ${rec0.title ?? ''}`);
+                // 六级档 0~5 → 尊重 0~40（默认档 2 → 16，与旧的恒定 10 同量级但有了差异）
+                npc.upsertNpc(id, { respect: Math.round(seen.level * 8), trust: 10 + Math.round((seen.level - 2) * 2) });
+              }
+            }
           }
         }
         createdIds.add(id);
@@ -5867,9 +5999,25 @@ ${AFFIX_EFFECT_RULE}`;
       bio: /^B\d+$/.test(c.id) ? playerBg : (npcs[c.id]?.background ?? ''),
       shortTerm: c.memory?.shortTerm ?? [],
       longTerm: c.memory?.longTerm ?? [],
+      core: c.memory?.core ?? [],
     }));
 
-    const systemPrompt = renderPrompt(settings.prompt).replace('${characters_payload}', JSON.stringify(payload, null, 2));
+    // 🧠 三层记忆（systems/memoryTiers）：**衰退的"谁该动"由前端机械算**，只把结论喂给 AI 去压文字。
+    //    仅对 paradise 作用域角色（契约者/随从/宠物）+ 主角；土著在一个任务世界里攒不出三层。
+    const tierBrief = targets.map((c) => {
+      const isPlayer = /^B\d+$/.test(c.id);
+      if (!isPlayer && !usesTieredMemory(npcs[c.id]?.npcTag)) return '';
+      const t = toTiered(c.memory);
+      const plan = planDecay(t);
+      if (!plan.dirty) return '';
+      const nm = isPlayer ? '主角' : (npcs[c.id]?.name ?? c.id);
+      return `【${c.id} ${nm}】\n${serializeTiersForEvo(t, plan)}`;
+    }).filter(Boolean).join('\n\n');
+    const tierBlock = tierBrief
+      ? `\n\n${getPrompt('MEMORY_TIERS_RULE', MEMORY_TIERS_RULE)}\n\n【本轮各角色的记忆分层与待衰退项（前端已算好·你只负责把标了"需压缩"的那几条写成更短的版本）】\n${tierBrief}`
+      : '';
+
+    const systemPrompt = renderPrompt(settings.prompt).replace('${characters_payload}', JSON.stringify(payload, null, 2)) + tierBlock;
     console.log('[Memory] 生平压缩触发，目标:', targets.map((t) => t.id).join(', '));
 
     try {
@@ -5894,7 +6042,10 @@ ${AFFIX_EFFECT_RULE}`;
           })).filter((e: MemoryEntry) => e.content);
         const shortTerm = clamp(r.shortTerm, settings.shortTermKeep);
         const longTerm = clamp(r.longTerm, settings.longTermKeep);
-        charStore.setMemory(id, { shortTerm, longTerm });
+        // 🧠 核心记忆层：AI 给了就用（上限 5），没给则保留既有——绝不因为这轮没提就把"永不遗忘"清空
+        const prevCore = charStore.characters[id]?.memory?.core ?? [];
+        const core = Array.isArray(r.core) ? clamp(r.core, TIER_CAP.core) : prevCore;
+        charStore.setMemory(id, { shortTerm, longTerm, core });
         if (typeof r.bio === 'string' && r.bio.trim()) {
           if (/^B\d+$/.test(id)) usePlayer.getState().setBackground(r.bio.trim());
           else if (npcStore.npcs[id]) npcStore.upsertNpc(id, { background: r.bio.trim() });
@@ -6143,6 +6294,8 @@ ${AFFIX_EFFECT_RULE}`;
       + `\n\n【当前活跃传闻（只处理标了 ⏰到期待结算 的；未到时效的一条指令都不要发）】\n${serializeRumorsForEvo(currentWorldRumors(), M.worldTime || '', M.turnCount || 0)}`
       + '\n\n' + getPrompt('WORLD_EVENT_LIFECYCLE_RULE', WORLD_EVENT_LIFECYCLE_RULE)
       + `\n\n【当前活跃世界事件（本期无实质进展的一条指令都不要发）】\n${serializeEventsForEvo(currentActiveEvents())}`
+      + (isHomeWorld(M.worldName || '') ? '' : '\n\n' + getPrompt('ECONOMY_RULE', ECONOMY_RULE)   // 经济是 world 作用域：乐园不注入
+        + `\n\n【当前经济气候】\n${serializeEconomyForEvo(M.economy)}`)
       + divinationInjection()
       + causalWeightInjection()
       + miscCodexInjection
@@ -6183,6 +6336,32 @@ ${AFFIX_EFFECT_RULE}`;
       } catch { /* 清洗失败不阻断演化 */ }
       reconcileRumors();       // 传闻：压缩 / 升格「文化烙印」/ 超额裁剪 —— 机械活前端接管，AI 只写内容
       reconcileWorldEvents();  // 世界事件：超配额的标为「湮灭」（不物理删·库房只存不删）
+      // 四维声誉·复合效应（systems/reputation.checkCombos）：官民双高→招安、官暗双高→双面身份暴露…
+      // 达成即落成一条**区域世界事件**当剧情钩子（去重：同名已存在就不再建）。
+      try {
+        const rep0 = usePlayer.getState().profile.repute;
+        if (rep0) {
+          const evs = useMisc.getState().worldEvents;
+          for (const c of checkCombos(rep0)) {
+            const evName = `名声所致·${c.label}`;
+            if (evs.some((e) => e.name === evName && !e.settledAt)) continue;
+            useMisc.getState().addWorldEvent({
+              time: useMisc.getState().worldTime || '', location: '', desc: c.hint, name: evName,
+              scope: 'region', settleCond: '该名声组合被打破，或相应的招揽/清算落定',
+              chain: [{ date: useMisc.getState().worldTime || '', text: c.hint }],
+            });
+            console.log(`[声誉] 🎭 复合效应「${c.label}」达成 → 落成区域事件`);
+          }
+        }
+      } catch { /* 复合效应失败不阻断演化 */ }
+      // 经济：物价指数按公式推进（AI 只给相位/供需/趋势，数字前端摇；每回合一次、确定性）
+      try {
+        const ec = useMisc.getState().economy;
+        const tn = useMisc.getState().turnCount || 0;
+        if (ec && ec.updatedTurn !== tn) {
+          useMisc.getState().patchEconomy({ index: stepIndex(ec.index, ec.phase, tn, ec.worldName || 'w'), updatedTurn: tn });
+        }
+      } catch { /* 指数推进失败不阻断演化 */ }
       if (applied > 0) recordEvo('misc', { source: 'misc-phase', turn: turnCountRef.current }, 'apply', '杂项', 'applied', `${applied} 项`);   // 演化账本：杂项域时间线审计
       // 顶栏天气特效：AI 为奇异天气生成的纯 CSS（sanitize 后按当前天气缓存；常规天气无此块，走前端预设）
       try {
@@ -6318,7 +6497,10 @@ ${AFFIX_EFFECT_RULE}`;
       .replaceAll('${player_name}', playerName)
       + '\n\n' + NARRATIVE_FIRST_RULE + '\n' + TERRITORY_EFFECT_RULE + '\n' + TERRITORY_STABILITY_RULE + '\n' + TERRITORY_DEDUP_RULE + '\n' + TERRITORY_WAREHOUSE_RULE
       + '\n【主角背包物品（这些是主角随身的·绝不 storeItem 进领地仓库）】\n' + bagText
-      + '\n' + getPrompt('TERRITORY_COT_RULE', TERRITORY_COT_RULE);
+      + '\n' + getPrompt('TERRITORY_COT_RULE', TERRITORY_COT_RULE)
+      // 📒 账本三护栏（systems/ledgerCheck）：领地有仓库进出与被动产出，正是这三条的适用面。
+      //   治「产业在运转，AI 却因为正文没写成交就记 0 收入」。
+      + '\n\n' + LEDGER_GUARD_HINT;
 
     setTerritoryPhaseLog('领地演化中…');
     try {
@@ -6510,15 +6692,19 @@ ${AFFIX_EFFECT_RULE}`;
       .replaceAll('${player_tier}', `${profile.tier || '一阶'} Lv.${profile.level ?? 1}`)
       .replaceAll('${home_paradise}', (profile.homeParadise || '').trim() || '轮回乐园')
       .replaceAll('${turn}', String(turn))
-      .replaceAll('${participation}', participation);
+      .replaceAll('${participation}', participation)
+      // 🕰 时代演化（宇宙层慢变量）：进度/净干预/临界派生/合并全由 eraModel 前端算好后一并喂进去
+      + '\n\n' + getPrompt('ERA_EVOLUTION_RULE', ERA_EVOLUTION_RULE)
+      + `\n\n【当前潜在时代（进度与净干预由前端算·你只给方向与命名）】\n${serializeErasForEvo(useCosmos.getState().eras ?? [])}`;
 
     setCosmosPhaseLog('万族演化中…');
     try {
       const { content: reply } = await apiChatFallback(chain, [
         { role: 'system', content: systemPrompt },
-        { role: 'user', content: '只输出一个 JSON 对象 {"entities":[...],"digest":"..."}，不要任何多余文字。' },
+        { role: 'user', content: '只输出一个 JSON 对象 {"entities":[...],"eras":[...],"digest":"..."}，不要任何多余文字。eras 无变化时给空数组。' },
       ], { timeoutMs: 90000 });
       const j = parseEntryJson(reply);
+      try { applyEraUpdates(Array.isArray(j?.eras) ? j.eras : []); } catch (e) { console.warn('[时代] 更新失败（跳过·不阻断万族演化）:', e); }
       const arr = Array.isArray(j?.entities) ? j.entities : [];
       let n = 0;
       for (const e of arr) {
@@ -6543,6 +6729,58 @@ ${AFFIX_EFFECT_RULE}`;
       console.error('[Cosmos] 万族演化失败:', e.message ?? e);
       setCosmosPhaseLog(`⚠ 万族更新失败：${(e.message ?? '').slice(0, 50)}`);
     } finally { setTimeout(() => setCosmosPhaseLog(''), 8000); }
+  }
+
+  /* 🕰 时代演化·应用 AI 产出 + 前端确定性推进（见 systems/eraModel）。
+     AI 只给：名称/描述/因子/本期新增的一节脉络（方向+强度）/临界事件命名。
+     前端算死：进度推进（单向不回退）、净干预、临界派生、逻辑合并、数量上限。 */
+  function applyEraUpdates(raw: any[]): void {
+    if (!Array.isArray(raw)) return;
+    const C = useCosmos.getState();
+    let list: PotentialEra[] = [...(C.eras ?? [])];
+    for (const r of raw) {
+      const name = String(r?.name ?? r?.['名称'] ?? '').trim();
+      if (!name) continue;
+      if (r?.remove || r?.['移除']) { list = list.filter((e) => e.name !== name); continue; }
+      const idx = list.findIndex((e) => e.name === name);
+      const prev: PotentialEra = idx >= 0 ? list[idx] : {
+        name, pct: 0, phase: '萌芽', drivers: '', blockers: '', desc: '', chain: [],
+        startDate: useMisc.getState().paradiseTime || undefined,
+      };
+      const nodeRaw = r?.node ?? r?.['脉络'] ?? r?.['本期进展'];
+      const newNodes = nodeRaw
+        ? [{
+          date: useMisc.getState().paradiseTime || '',
+          direction: normDirection(String(nodeRaw.direction ?? nodeRaw['干预方向'] ?? '')),
+          intensity: normIntensity(String(nodeRaw.intensity ?? nodeRaw['干预强度'] ?? '')),
+          desc: String(nodeRaw.desc ?? nodeRaw['描述'] ?? '').slice(0, 80),
+        }]
+        : [];
+      const next: PotentialEra = {
+        ...prev,
+        desc: String(r?.desc ?? r?.['描述'] ?? prev.desc).slice(0, 120),
+        drivers: String(r?.drivers ?? r?.['推动因子'] ?? prev.drivers).slice(0, 60),
+        blockers: String(r?.blockers ?? r?.['抑止因子'] ?? prev.blockers).slice(0, 60),
+        chain: [...prev.chain, ...newNodes],
+        // ⚠ 进度只由前端按净干预推进——AI 写的百分比一律忽略（写了也不采信）
+        pct: newNodes.length ? stepProgress(prev.pct, newNodes) : prev.pct,
+      };
+      next.phase = phaseOf(next.pct);
+      // 达临界且尚无关联临界事件 → 采用 AI 给的名字，没给就用确定性默认名
+      if (needsCriticalEvent(next)) {
+        next.criticalEvent = String(r?.criticalEvent ?? r?.['临界事件'] ?? '').trim() || defaultCriticalName(next);
+        console.log(`[时代] ⚡「${next.name}」达临界(${next.pct}%) → 派生临界事件「${next.criticalEvent}」`);
+      }
+      if (idx >= 0) list[idx] = next; else list.push(next);
+    }
+    // 逻辑关联合并（保守判据：≥2 个公共词）
+    for (const plan of planMerges(list)) {
+      list = applyMerge(list, plan);
+      console.log(`[时代] 🔗 合并「${plan.absorb.join('、')}」→「${plan.keep}」`);
+    }
+    // 数量上限：宇宙层同时酝酿太多时代等于没有重点，保留进度最高的 5 条
+    if (list.length > 5) list = [...list].sort((a, b) => b.pct - a.pct).slice(0, 5);
+    useCosmos.getState().setEras(list);
   }
 
   /* ════════════════════════════════════════════
@@ -7516,6 +7754,8 @@ ${replyTo.authorName} 之前说：「${String(replyTo.content).slice(0, 200)}」
         skills.length > 0 && `你掌握的技能：${skills.map((s) => s.name).join('、')}`,
         talents.length > 0 && `你的天赋：${talents.map((t) => t.name).join('、')}`,
         `你储存空间里的物品：${bag.length ? bag.map((it) => `${it.name}${(it.quantity ?? 1) > 1 ? `×${it.quantity}` : ''}${it.gradeDesc ? `(${it.gradeDesc})` : ''}`).join('、') : '（不详/没什么值钱东西）'}`,
+        // 🧠 三层记忆：**只给核心 + 最近 3 条**（沉淀层只在演化阶段用）——私聊最需要的就是"他记得什么"
+        usesTieredMemory(rec.npcTag) && buildMemoryInjection(toTiered(cdata?.memory), rec.name || rec.id),
       ].filter(Boolean);
       return `你正在以【${rec.name}】本人的身份，私下回复主角发来的私信。你就是这个角色，请严格依照你的记忆、性格、目的与你和主角的关系来回应，不要跳脱人设、不要扮演旁白。\n${lines.join('\n')}`;
     }
@@ -7873,7 +8113,19 @@ ${getPrompt('EQUIP_CODEX', EQUIP_CODEX)}`;
     try {
       const { content } = await apiChatFallback(chain, [{ role: 'system', content: sys }, { role: 'user', content: '只输出 JSON {"items":[…10件…]}。' }], { timeoutMs: 90000 });
       const j = parseEntryJson(content);
-      return (Array.isArray(j?.items) ? j.items : []).slice(0, 10);
+      const items = (Array.isArray(j?.items) ? j.items : []).slice(0, 10);
+      // 💰 经济气候系数：**乘**在 AI 报出的价上（既有「品级×评分×分类×数量」公允价阶梯仍是唯一基准，这里只叠一层行情）。
+      //    萧条时东西便宜、粮荒时粮价飞涨——让经济状态对玩法真正可感。无经济数据时系数=1，行为与升级前一致。
+      try {
+        const ec = useMisc.getState().economy;
+        if (ec) {
+          for (const it of items) {
+            const f = priceFactor(ec, `${it?.category ?? ''} ${it?.name ?? ''}`);
+            if (f !== 1 && Number.isFinite(Number(it?.price))) it.price = Math.max(1, Math.round(Number(it.price) * f));
+          }
+        }
+      } catch { /* 系数失败则用原价 */ }
+      return items;
     } catch (e: any) { console.warn('[Shop] 生成失败:', e?.message ?? e); return []; }
   }
 
@@ -10393,6 +10645,20 @@ ${lines}`;
         `<前置须知>\n（最高优先·深度最深的前置须知。其中「场外操作」均已由前端确定性结算完成——你只需**知晓并让后续正文与之保持一致**：货币/物品/点数的最新数值一律以此为准；**切勿据此另行生成奖励/结算、勿质疑、勿重复播报**。「玩家常驻前置提示词」请始终遵循。）\n${parts.join('\n\n')}\n</前置须知>` }];
     }
 
+    // 社交圈：从关系图谱现算社区（零 API·零存档），只注入**名字在近期文本里出现过**的那 1~2 个圈。
+    // 价值不在"多一个面板"，而在给 AI 一条可判定的信息传播边界：圈外的事不会自己传进来。
+    const circleBlock: { role: 'system'; content: string }[] = (() => {
+      try {
+        const g = buildRelationGraph(Object.values(useNpc.getState().npcs), {
+          playerName: usePlayer.getState().profile.name || '主角',
+          playerTier: usePlayer.getState().profile.tier,
+          favorEdges: false,   // 好感边是"主角对某人"的私人关系，不代表两人同圈
+        });
+        const recent = `${lastNarrativeRef.current ?? ''}\n${userText}`.slice(-3000);
+        return buildCircleInjection(detectCircles(g.nodes, g.edges), recent);
+      } catch { return []; }
+    })();
+
     // 势力外交：本世界在场势力之间的八级格局。只在有结构化关系时出块（老档 relations 是自由文本，parse 得出才算）。
     const diploBlock: { role: 'system'; content: string }[] = (() => {
       try {
@@ -10584,6 +10850,8 @@ ${lines}`;
       ...buildPlotGuardInjection(turnCountRef.current), // <伏笔催收>+<世界真相·重申> 账龄催收（表日志机械核账）+ 周期真相强化（见 systems/plotThreads）
       ...buildFameInjection(),                          // <乐园声望> 跨世界名声（竞技场/烙印/深渊/团/公会/历次通关的纯派生汇总·见 systems/paradiseFame）
       ...buildReputeInjection(usePlayer.getState().profile.repute ?? defaultRepute(), useMisc.getState().worldName || ''),   // <本世界名声> 四维·不同圈子看不同维度（见 systems/reputation）
+      ...circleBlock,                                   // <社交圈> 关系图谱的社区检测派生层：谁和谁消息互通 + 防超距（见 systems/socialCircle）
+      ...buildEconomyInjection(useMisc.getState().economy),   // <本世界经济> 相位/大宗行情/经济事件 → 物价与生计描写有依据（见 systems/economy）
       ...diploBlock,                                    // <势力外交> 本世界势力间的八级格局 + 玩家可用的调解/挑拨/代行杠杆（见 systems/diplomacy）
       ...rumorBlock,                                    // <市井流言> 只给"街面上在传什么"，**不给真相** → NPC 可基于错信息行动（见 systems/rumor）
       ...buildCastHintInjection(),                      // <角色动向提示> 轨道A 后台织出的"谁可能回来/谁刚走"→ 导演提示（背景事实非剧本·见 systems/castHint）
@@ -12229,10 +12497,43 @@ ${lines}`;
             console.log(`[声誉] 离开【${prevWorldForScope}】→ 折算「${line}」并重置四维`);
           }
         } catch (e) { console.warn('[声誉] 离世折算失败（跳过）:', e); }
+        // 外交事件链·离世强制判定（systems/diplomacy.forceSettle）：不留悬案。
+        // 未走完的链按**已完成阶段比例**折算——≥2/3 视同达成、1/3 折算渐变 1 档、几乎没走则维持原状。
+        try {
+          const F = useFaction.getState();
+          const evs = useMisc.getState().worldEvents;
+          for (const f of Object.values(F.factions)) {
+            if (!sameWorld(f.worldName, prevWorldForScope)) continue;
+            const edges = parseLegacyRelations(f.relations);
+            if (!edges.length) continue;
+            let touched = false;
+            const next = edges.map((e) => {
+              // 找该势力对该目标、尚未结算的外交事件链，用其脉络节点数当"已完成阶段"
+              const chainEv = evs.find((x) => !x.settledAt && x.name && x.name.includes(f.name) && x.name.includes(e.target));
+              if (!chainEv) return e;
+              const done = (chainEv.chain ?? []).length;
+              if (done <= 0 || done >= 3) return e;   // 没走 / 已走完 → 不必折算
+              const s = forceSettle(e.level, e.level, done);
+              if (s.level !== e.level) { touched = true; console.log(`[外交] 🏁 离世折算 ${f.name}→${e.target}：${s.note}`); }
+              return { ...e, level: s.level };
+            });
+            if (touched) F.upsertFaction(f.id, { relations: formatEdges(next) });
+          }
+        } catch (e) { console.warn('[外交] 离世折算失败（跳过）:', e); }
         const fr = freezeWorld(prevWorldForScope, turnNow);
-        if (fr.npcFrozen.length || fr.factionsClosed.length) {
-          console.log(`[worldScope] 🧊 离开【${prevWorldForScope}】：冻结 NPC ${fr.npcFrozen.length}（保留 ${fr.npcKept.length}·补写归属 ${fr.npcBackfilled.length}）· 势力离场 ${fr.factionsClosed.length}`);
+        // 任务封存紧挨着 freezeWorld 调（不放进 worldScope 内部，避免 miscStore ⇄ worldScope 循环依赖）：
+        // 上个世界没做完的任务整体挪进 frozenTasks ⇒ 正文注入/演化快照/面板/参谋等读取点自动不再看见，可继承捞回。
+        fr.tasksFrozen = useMisc.getState().freezeTasksOfWorld(prevWorldForScope, turnNow);
+        if (fr.npcFrozen.length || fr.factionsClosed.length || fr.tasksFrozen) {
+          console.log(`[worldScope] 🧊 离开【${prevWorldForScope}】：冻结 NPC ${fr.npcFrozen.length}（保留 ${fr.npcKept.length}·补写归属 ${fr.npcBackfilled.length}）· 势力离场 ${fr.factionsClosed.length} · 封存未结算任务 ${fr.tasksFrozen}`);
         }
+      }
+      // 经济气候播种（零 API）：按世界卡描述扫关键词定初始相位，让经济系统一进世界就不是空的。
+      // world 作用域：只在新世界播，继承时沿用旧的。
+      if (!inheritedThisEntry) {
+        useMisc.getState().setEconomy(seedEconomy({
+          worldName: world.name || '', desc: `${world.desc ?? ''} ${world.worldType ?? ''}`, turn: turnNow,
+        }));
       }
       // 传闻播种（零 API）：世界卡的「剧情偏移」「前人遗产」本身就是"世上流传着关于某个来历不明强者的说法"——
       // 直接切成 1~2 条初始传闻，让传闻系统一进世界就不是空的。仅新世界播种，继承时沿用旧传闻。
@@ -12246,8 +12547,9 @@ ${lines}`;
       }
       if (inheritedThisEntry) {
         const th = thawWorld(world.name || '');
-        if (th.npcThawed.length || th.factionsReopened.length) {
-          console.log(`[worldScope] ♨ 继承【${world.name}】：解冻 NPC ${th.npcThawed.length} · 势力回归 ${th.factionsReopened.length}`);
+        th.tasksThawed = useMisc.getState().thawTasksOfWorld(world.name || '');   // 同上：任务解封在调用点做
+        if (th.npcThawed.length || th.factionsReopened.length || th.tasksThawed) {
+          console.log(`[worldScope] ♨ 继承【${world.name}】：解冻 NPC ${th.npcThawed.length} · 势力回归 ${th.factionsReopened.length} · 解封任务 ${th.tasksThawed}`);
         }
       }
     } catch (e) { console.warn('[worldScope] 切世界冻结/解冻失败（跳过·不阻断进世界）:', e); }
@@ -12312,7 +12614,7 @@ ${lines}`;
     //   阅读设置里有「关键词悬浮图鉴」的示例词条，这里必须自带一份，否则那条虚线悬浮不出卡（说好能试却试不出）。
     return (
       <PanelBoundary label="设置面板" onReset={() => setSettingsOpen(false)}>
-        <Suspense fallback={null}><SettingsPanel initialPage={settingsDeepPage} onClose={() => { setSettingsOpen(false); setSettingsDeepPage(undefined); }} onOpenSaveLoad={() => { setSettingsOpen(false); setSettingsDeepPage(undefined); setSaveOpen(true); }} /></Suspense>
+        <Suspense fallback={<PanelLoading />}><SettingsPanel initialPage={settingsDeepPage} onClose={() => { setSettingsOpen(false); setSettingsDeepPage(undefined); }} onOpenSaveLoad={() => { setSettingsOpen(false); setSettingsDeepPage(undefined); setSaveOpen(true); }} /></Suspense>
         <CodexHover />
       </PanelBoundary>
     );
@@ -12320,7 +12622,7 @@ ${lines}`;
 
   if (!started) {
     return (
-      <Suspense fallback={null}>
+      <Suspense fallback={<PanelLoading />}>
         <StartScreen
           hasSave={hasSave}
           onStart={() => setCreating(true)}
@@ -12787,7 +13089,7 @@ ${lines}`;
           />
           )}
           {canonRouteOpen && (
-            <Suspense fallback={null}>
+            <Suspense fallback={<PanelLoading />}>
               <CanonRoutePanel
                 onClose={() => setCanonRouteOpen(false)}
                 onEnterWorld={(w) => { setCanonRouteOpen(false); void enterWorld(w); }}
@@ -13195,7 +13497,7 @@ ${lines}`;
       {/* 弹窗层错误边界：任一面板渲染崩（多为 AI 脏数据）只塌弹窗层——正文/输入照常；
           「关闭弹窗继续游戏」= closeAllPanels（定义见 settingsOpen 分支上方），崩溃自动上报（crashReport） */}
       <PanelBoundary label="弹窗" onReset={closeAllPanels}>
-      <Suspense fallback={null}>
+      <Suspense fallback={<PanelLoading />}>
       {/* ── 背包弹窗 ── */}
       {backpackOpen && (
         <BackpackModal
@@ -13555,7 +13857,7 @@ ${lines}`;
       <HoloViewer />
       <CodexHover onOpenNpc={openNpcDetail} onOpenDoc={openCodexDoc} />
       {codexDocEk && (
-        <Suspense fallback={null}>
+        <Suspense fallback={<PanelLoading />}>
           <CodexDetail ek={codexDocEk} onClose={() => setCodexDocEk(null)} />
         </Suspense>
       )}

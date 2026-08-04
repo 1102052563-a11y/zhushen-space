@@ -186,6 +186,30 @@ describe('buildAdvisorContext（现状清单·带 id 供 ref 引用）', () => {
     expect(ctx).toContain('7/7 节日「七夕」');
   });
 
+  /* worldScope 铁则：一个世界一个世界玩下来，参谋若看得到别的世界的历，会据此讨论/出提案 → 串味 */
+  it('★历按当前世界过滤：别的任务世界的条目不进参谋的现状清单', () => {
+    const C = useCalendar.getState();
+    C.applyMany([
+      { name: '本世界的开炉祭', month: 2, day: 22, world: '斗罗大陆' },
+      { name: '别世界的节', month: 3, day: 3, world: '海贼王' },
+      { name: '跨世界的纪念日', month: 6, day: 1, world: '' },
+    ]);
+    const ctx = buildAdvisorContext();   // 当前 worldName = 斗罗大陆（见 beforeEach）
+    expect(ctx).toContain('本世界的开炉祭');
+    expect(ctx).toContain('跨世界的纪念日');
+    expect(ctx).not.toContain('别世界的节');
+  });
+
+  it('★almanac 提案卡没写 world → 落库归当前世界（与手动新增同口径）', () => {
+    expect(applyProposal(card('almanac', { name: '试炼日', type: 'festival', month: 2, day: 19 })).ok).toBe(true);
+    expect(useCalendar.getState().items[0].world).toBe('斗罗大陆');
+  });
+
+  it('almanac 提案卡显式写 world:"" → 尊重跨世界', () => {
+    applyProposal(card('almanac', { name: '主角生日', type: 'birthday', month: 4, day: 1, world: '' }));
+    expect(useCalendar.getState().items[0].world).toBeUndefined();
+  });
+
   it('全空时也给出「（无）」占位，不会拼出半截块', () => {
     const ctx = buildAdvisorContext();
     expect(ctx).toContain('【进行中任务】（无）');

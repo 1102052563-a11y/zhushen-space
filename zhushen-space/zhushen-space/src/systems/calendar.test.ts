@@ -4,6 +4,8 @@ import {
   sortByDate, visibleIn, dateLabel, DAYS_IN_YEAR, type AlmanacItem,
 } from './calendar';
 import { useCalendar, normalizeItem } from '../store/calendarStore';
+// ⚠ 上面这行同时导入 store 与 normalizeItem：世界归属兜底（resolveWorld）在 store 层，
+//    因为只有那里能同时看到「AI 给的原始键」与「当前世界名」。
 
 const item = (p: Partial<AlmanacItem> & { name: string; month: number; day: number }): AlmanacItem => ({
   id: p.name, type: 'festival', days: 1, ...p,
@@ -180,6 +182,27 @@ describe('calendarStore（AI 指令落库口径）', () => {
     s.applyMany([{ name: ' 魂师·大赛 ', month: 5, day: 2 }]);
     expect(useCalendar.getState().items).toHaveLength(1);
     expect(useCalendar.getState().items[0].day).toBe(2);
+  });
+
+  /* worldScope 铁则：历是 world+paradise 混合作用域。AI 漏写 world 时若默认「跨世界」，
+     本世界的节日会跟着主角进下一个世界并被注入正文 → 串味。故按「键在不在」兜底。 */
+  it('★AI 没给 world 键 → 归当前任务世界（别变成跨世界跟着到处跑）', () => {
+    useCalendar.getState().applyMany([{ name: '开炉祭', month: 2, day: 22 }], '斗罗大陆');
+    expect(useCalendar.getState().items[0].world).toBe('斗罗大陆');
+  });
+
+  it('★显式写 world:"" → 尊重「跨世界」意图，不被兜底吃掉（面板取消勾选走的就是这条）', () => {
+    useCalendar.getState().applyMany([{ name: '主角生日', month: 4, day: 1, world: '' }], '斗罗大陆');
+    expect(useCalendar.getState().items[0].world).toBeUndefined();
+  });
+
+  it('★在乐园/枢纽时不兜底——那里建的本就该是跨世界的', () => {
+    useCalendar.getState().applyMany([{ name: '契约者纪念日', month: 6, day: 1 }], '轮回乐园');
+    expect(useCalendar.getState().items[0].world).toBeUndefined();
+  });
+
+  it('无当前世界名（老存档/未进世界）→ 不兜底', () => {
+    expect(normalizeItem({ name: 'x', month: 1, day: 1 }, undefined, '')?.world).toBeUndefined();
   });
 
   it('removeByName 按归一化名字删；非数组/空入参不炸', () => {

@@ -23,7 +23,7 @@ import {
   CHAOS_RECORD_PROMPT, CHAOS_WORLD_GEN_PROMPT,
   CANON_INERTIA_RULE, SUXIAO_PERSONA_RULE, CANON_MISC_RULE,
   TABLE_FILL_RULE, TABLE_FILL_MANUAL_RULE,
-  NPC_DECENTER_RULE, CAUSAL_WEIGHT_RULE, RUMOR_EVOLUTION_RULE, WORLD_EVENT_LIFECYCLE_RULE, REPUTATION_RULE, DIPLOMACY_RULE,
+  NPC_DECENTER_RULE, CAUSAL_WEIGHT_RULE, RUMOR_EVOLUTION_RULE, WORLD_EVENT_LIFECYCLE_RULE, REPUTATION_RULE, DIPLOMACY_RULE, ECONOMY_RULE, ERA_EVOLUTION_RULE, MEMORY_TIERS_RULE,
   AGENT_NARRATIVE_CONTRACT_RULE, AGENT_FLOW_RULE, AGENT_REVIEWER_RULE,
 } from '../promptRules';
 import { COMBAT_WRITING_GUIDE_RULE } from './combatWritingGuide';
@@ -76,6 +76,9 @@ export const PROMPT_REGISTRY: PromptEntry[] = [
   { key: 'WORLD_EVENT_LIFECYCLE_RULE', label: '世界事件 · 生命周期', group: '演化阶段', kind: 'override', def: WORLD_EVENT_LIFECYCLE_RULE, desc: '背景/区域各≤3 + 推进=追加脉络（不覆盖描述）+ 结算条件必填 + 三级结算（systems/worldEvent）' },
   { key: 'REPUTATION_RULE', label: '四维声誉 · 维护规则', group: '演化阶段', kind: 'override', def: REPUTATION_RULE, desc: '官方/民间/暗域/业界各6级；⚠可见性依据必填否则前端整批拒绝（无人知晓不影响公共声誉）+ 一次一档 + 最多3维（systems/reputation）' },
   { key: 'DIPLOMACY_RULE', label: '势力外交 · 八级与事件链闸门', group: '演化阶段', kind: 'override', def: DIPLOMACY_RULE, desc: '血盟→世仇八级；⚠跨≥2档必须先走完三阶段事件链否则前端回落成渐变1档；主角可调解/挑拨/代行（systems/diplomacy）' },
+  { key: 'ECONOMY_RULE', label: '经济气候 · 维护规则', group: '演化阶段', kind: 'override', def: ECONOMY_RULE, desc: '相位/大宗三类/经济事件≤3；⚠物价指数由前端按公式推进(±30%封顶)，AI 只给方向与理由（systems/economy）' },
+  { key: 'ERA_EVOLUTION_RULE', label: '时代演化 · 潜在时代（宇宙层）', group: '演化阶段', kind: 'override', def: ERA_EVOLUTION_RULE, desc: '挂万族演化；⚠进度/净干预/临界派生/合并全由前端算，AI 只给方向与命名。进度单向不回退（systems/eraModel）' },
+  { key: 'MEMORY_TIERS_RULE', label: '三层记忆 · 衰退规则', group: '演化阶段', kind: 'override', def: MEMORY_TIERS_RULE, desc: '近期8→沉淀8→核心5；⚠"谁该压缩/丢弃"由前端 planDecay 算好，AI 只负责改写成更短的版本（systems/memoryTiers）' },
   { key: 'TABLE_FILL_RULE', label: '填表 · 填表铁则', group: '演化阶段', kind: 'override', def: TABLE_FILL_RULE, desc: '剧情表（纪要/进程/伏笔/约定）该记什么、怎么记的规则' },
   { key: 'TABLE_FILL_MANUAL_RULE', label: '填表 · 输出格式铁则', group: '演化阶段', kind: 'override', def: TABLE_FILL_MANUAL_RULE, desc: '填表调用只吐 <tableEdit>、不写正文的格式约束（⚠ 改坏会导致填表解析失败）' },
   // ── 演化阶段 · 图鉴 / 总纲（第二批）──

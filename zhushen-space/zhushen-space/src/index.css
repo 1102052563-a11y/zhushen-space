@@ -14,6 +14,9 @@
 
 /* 万族态势滚动条（顶部 ticker）：文字从右向左不断滚动 */
 @keyframes we-marquee { from { transform: translateX(0); } to { transform: translateX(-100%); } }
+/* 懒加载面板 Suspense fallback：160ms 后才浮现（热加载不闪烁，冷加载给即时反馈），见 PanelLoading.tsx */
+@keyframes pl-fade { to { opacity: 1; } }
+.panel-loading-fade { opacity: 0; animation: pl-fade .01s linear .16s forwards; }
 .we-marquee { padding-left: 100%; animation: we-marquee 60s linear infinite; will-change: transform; }
 
 /* 真实属性面板·闪金光（四阶起「六维即真实属性」·2026-06-24）：数值金色脉冲 + 面板金边呼吸 */

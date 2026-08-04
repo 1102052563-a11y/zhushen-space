@@ -25,6 +25,9 @@
 import { useNpc, type NpcRecord } from '../store/npcStore';
 import { useFaction } from '../store/factionStore';
 import { normWorldName } from '../store/worldRecordStore';
+/* ⚠ 本文件**不 import miscStore**：miscStore 已经 import 了这里的 isHomeWorld/sameWorld，
+   反向再引就成 ESM 循环。任务的封存/解封因此由调用点（App.enterWorld）紧挨着 freezeWorld/thawWorld 调，
+   见下方 FreezeReport.tasksFrozen 的说明。 */
 
 export type Scope = 'world' | 'paradise' | 'cosmos';
 
@@ -71,12 +74,14 @@ export interface FreezeReport {
   npcKept: string[];        // 命中保护名单、保留在活跃视图的 id
   npcBackfilled: string[];  // 冻结前顺手补了 worldName 的 id（老存档迁移）
   factionsClosed: string[]; // 被移出"当前世界"的势力 id
+  tasksFrozen?: number;     // 被挪进 frozenTasks 的未结算任务数
 }
 
 export interface ThawReport {
   world: string;
   npcThawed: string[];
   factionsReopened: string[];
+  tasksThawed?: number;     // 从 frozenTasks 挪回进行中的任务数
 }
 
 /**
@@ -117,6 +122,8 @@ export function freezeWorld(worldName: string, turn: number): FreezeReport {
     }
   } catch (e) { console.warn('[worldScope] 冻结势力失败（跳过）:', e); }
 
+  // ⚠ 任务的封存不在这里做（避免 miscStore ⇄ worldScope 循环）：
+  //   由 App.enterWorld 紧挨着本调用执行 `useMisc.freezeTasksOfWorld(prevWorld, turn)`，结果回填进 report.tasksFrozen。
   return report;
 }
 
@@ -150,6 +157,7 @@ export function thawWorld(worldName: string): ThawReport {
     }
   } catch (e) { console.warn('[worldScope] 解冻势力失败（跳过）:', e); }
 
+  // ⚠ 任务解封同理由 App.enterWorld 调 `useMisc.thawTasksOfWorld(world)`（见上方注释）
   return report;
 }
 

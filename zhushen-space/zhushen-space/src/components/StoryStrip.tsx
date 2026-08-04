@@ -50,9 +50,10 @@ const StoryStrip = memo(function StoryStrip() {
   const [open, setOpen] = useState<Seg>(null);
   const [openDay, setOpenDay] = useState<number | null>(null);   // 七天格里展开的那一格（doy）
 
+  // ⚠ 传 worldName：别的任务世界埋的伏笔不在本世界显示（口径同 <伏笔催收> 与参谋清单，见 plotThreads.threadInCurrentWorld）
   const threads = useMemo(
-    () => (cfg.thread ? pickThreads(fsSheet?.content, turn) : []),
-    [cfg.thread, fsSheet?.content, turn],
+    () => (cfg.thread ? pickThreads(fsSheet?.content, turn, 6, time.worldName) : []),
+    [cfg.thread, fsSheet?.content, turn, time.worldName],
   );
   const quests = useMemo(() => (cfg.quest ? pickQuests(tasks) : []), [cfg.quest, tasks]);
 

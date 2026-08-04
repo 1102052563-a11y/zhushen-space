@@ -45,6 +45,7 @@ export default function BookmarkPanel({ onClose }: { onClose: () => void }) {
 
   const [q, setQ] = useState('');
   const [tagFilter, setTagFilter] = useState('');
+  const [worldFilter, setWorldFilter] = useState('');
   const [openId, setOpenId] = useState<string | null>(null);
   const [editing, setEditing] = useState<Bookmark | null>(null);
   const [toast, setToast] = useState('');
@@ -55,14 +56,23 @@ export default function BookmarkPanel({ onClose }: { onClose: () => void }) {
     return [...set].sort();
   }, [marks]);
 
+  // 收藏是 paradise 作用域（跨世界全留着，这本就是回忆册）——但一个世界一个世界玩下来会攒很多，
+  // 所以给一排世界筛：默认「全部世界」，想只看某一趟就点那个世界。按收藏时的 worldName 快照分组。
+  const allWorlds = useMemo(() => {
+    const set = new Set<string>();
+    marks.forEach((m) => { const w = (m.worldName || '').trim(); if (w) set.add(w); });
+    return [...set];
+  }, [marks]);
+
   const shown = useMemo(() => {
     const kw = q.trim().toLowerCase();
     return marks
+      .filter((m) => !worldFilter || (m.worldName || '').trim() === worldFilter)
       .filter((m) => !tagFilter || m.tags.includes(tagFilter))
       .filter((m) => !kw || m.text.toLowerCase().includes(kw) || m.note.toLowerCase().includes(kw) || m.tags.some((t) => t.toLowerCase().includes(kw)))
       .slice()
       .reverse();   // 新的在前
-  }, [marks, q, tagFilter]);
+  }, [marks, q, tagFilter, worldFilter]);
 
   const say = (s: string) => { setToast(s); window.setTimeout(() => setToast(''), 2400); };
 
@@ -108,8 +118,20 @@ export default function BookmarkPanel({ onClose }: { onClose: () => void }) {
           <div className="shrink-0 border-b border-edge bg-panel/60 px-4 py-2 space-y-2">
             <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="搜正文 / 备注 / 标签…"
               className="w-full bg-void border border-edge rounded px-2.5 py-1.5 text-[13px] text-slate-200 outline-none focus:border-god/50" />
+            {allWorlds.length > 1 && (
+              <div className="flex items-center gap-1.5 flex-wrap">
+                <span className="text-[11px] font-mono text-dim/45 shrink-0">世界</span>
+                <button onClick={() => setWorldFilter('')}
+                  className={`px-2 py-0.5 rounded border text-[12px] font-mono transition-colors ${!worldFilter ? 'border-god/50 text-god bg-god/10' : 'border-edge text-dim hover:text-slate-200'}`}>全部</button>
+                {allWorlds.map((w) => (
+                  <button key={w} onClick={() => setWorldFilter(worldFilter === w ? '' : w)}
+                    className={`px-2 py-0.5 rounded border text-[12px] font-mono transition-colors ${worldFilter === w ? 'border-god/50 text-god bg-god/10' : 'border-edge text-dim hover:text-slate-200'}`}>{w}</button>
+                ))}
+              </div>
+            )}
             {allTags.length > 0 && (
               <div className="flex items-center gap-1.5 flex-wrap">
+                <span className="text-[11px] font-mono text-dim/45 shrink-0">标签</span>
                 <button onClick={() => setTagFilter('')}
                   className={`px-2 py-0.5 rounded border text-[12px] font-mono transition-colors ${!tagFilter ? 'border-god/50 text-god bg-god/10' : 'border-edge text-dim hover:text-slate-200'}`}>全部</button>
                 {allTags.map((t) => (

@@ -15,10 +15,15 @@ import { useTables } from '../store/tableStore';
 import { useTableJournal, tableEditDigest, type TableEditLogEntry } from '../store/tableJournalStore';
 import { useChronicle } from '../store/chronicleStore';
 import { useMisc } from '../store/miscStore';
+import { useRowScope, type RowScope } from '../store/rowScopeStore';   // 伏笔行·世界归属旁路索引（世界作用域过滤用）
 
 /** 纪要表 uid（📜 编年史的"页"）。它的「时间」列是 AI 写的游戏内时间，没有回合号——
  *  分卷需要技术键，故每插一行就旁路记一条 row_id → {turn, world} 索引（不改表结构、不污染 AI 视图）。 */
 const CHRONICLE_UID = 'chronicle';
+
+/** 伏笔表 uid。伏笔是 world 作用域（这个世界埋的线不该跟去下个世界催收），但表里没有世界列——
+ *  故每插一行旁路记一条 `伏笔表:row_id → 所属世界`（见 store/rowScopeStore，同 rowMeta 思路）。 */
+const FORESHADOW_UID = 'foreshadowing';
 
 export type TableEditCommand = 'insertRow' | 'updateRow' | 'deleteRow';
 
@@ -242,6 +247,7 @@ export function applyTableEdits(text: string, ctx?: { turn?: number; world?: str
   const touched = new Set<string>();
   const log: Omit<TableEditLogEntry, 'id'>[] = [];
   const chronRows: { rowId: string; meta: { turn?: number; world?: string } }[] = [];   // 📜 纪要行分卷索引（见 CHRONICLE_UID）
+  const scopeRows: { uid: string; rowId: string; meta: RowScope }[] = [];   // 🌍 伏笔行世界归属旁路索引（rowScopeStore·世界作用域过滤·见 FORESHADOW_UID）
   const sheetOf = (uid: string) => useTables.getState().getSheet(uid);   // 每条 op 后重取（content 不可变更新）
 
   for (const { command, args, raw } of commands) {
@@ -259,6 +265,9 @@ export function applyTableEdits(text: string, ctx?: { turn?: number; world?: str
         log.push({ turn, uid, sheetName, command, rowId: after?.[0] ?? '', pos: ri, before: null, after: after ? [...after] : null });
         if (uid === CHRONICLE_UID && after?.[0]) {
           chronRows.push({ rowId: String(after[0]), meta: { turn: turn >= 0 ? turn : undefined, world: chronWorld() } });
+        }
+        if (uid === FORESHADOW_UID && after?.[0]) {
+          scopeRows.push({ uid, rowId: String(after[0]), meta: { turn: turn >= 0 ? turn : undefined, world: chronWorld() } });
         }
       } else if (command === 'updateRow') {
         const ri = resolveRowRef(uid, args[1]);   // row_id 优先（永久编号），查无再按 0 基行号
@@ -294,6 +303,9 @@ export function applyTableEdits(text: string, ctx?: { turn?: number; world?: str
   // 📜 编年史分卷索引：一次批量写（失败绝不阻断填表主流程——没索引只是那几行降级进"散佚卷"，不丢数据）
   try { if (chronRows.length) useChronicle.getState().noteRows(chronRows); }
   catch (e) { console.warn('[Table] 纪要行分卷索引记录失败（忽略）:', e); }
+  // 🌍 伏笔行世界归属索引：同上一次批量写（没索引=按"不确定→保留可见"处理，绝不误藏伏笔）
+  try { if (scopeRows.length) useRowScope.getState().noteMany(scopeRows); }
+  catch (e) { console.warn('[Table] 伏笔行世界索引记录失败（忽略）:', e); }
   return result;
 
   function chronWorld(): string | undefined {

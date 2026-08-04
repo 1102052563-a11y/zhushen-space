@@ -5,6 +5,10 @@ import type { ApiConfig } from './settingsStore';
 import { useSettings } from './settingsStore';
 import miscDefaultPreset from '../data/miscDefaultPreset.json';
 import { normImpact, type Rumor, type RumorNode } from '../systems/rumor';   // 传闻：算法在 systems/rumor，本 store 只做哑存储
+import type { Economy } from '../systems/economy';   // 经济：算法在 systems/economy，本 store 只做哑存储
+// 世界归属（worldScope 铁则）：乐园/枢纽判定 + 同世界比对。
+// 无循环依赖：worldScope 只 import npc/faction/worldRecord 三个 store，它们都不 import miscStore（已核）。
+import { isHomeWorld, sameWorld } from '../systems/worldScope';
 
 /* ════════════════════════════════════════════
    杂项演化（misc evolution）
@@ -50,6 +54,8 @@ export interface MiscTask {
   progress?: string;        // 当前任务进度：上回合主角对该任务的实质推进（1~2句·杂项AI每轮更新·纯展示+续作连贯，不参与结算判定）
   prof?: boolean;           // 职业任务：仅由「世界卡·生成职业任务」按钮生成、进世界时落到面板；杂项演化只更新进度/结算，绝不新建职业任务
   locked?: boolean;         // 玩家锁定：任务链(名称/终局/环目标/奖惩/环数)全冻结，AI 只能推进环状态/补总结评级/更新 progress，绝不改动结构
+  worldName?: string;       // 在哪个任务世界接的（worldScope·world 作用域）。建档时自动记；留空=乐园接的/老存档 → 视为跨世界，永不被封存
+  frozenAt?: number;        // 封存回合：离开该世界时未结算的任务被挪进 frozenTasks 时打的戳（同名再入选「继承」可解封）
 }
 
 /* 主线判定：只有显式 kind==='主线' 才算主线，其余（含未标 kind）一律支线 */
@@ -282,9 +288,15 @@ const DEFAULT_SETTINGS: MiscSettings = {
 interface MiscState {
   tasks: MiscTask[];
   archivedTasks: ArchivedTask[];   // 已结算任务（完成/失败/放弃），移出进行中列表
+  /* 封存任务（worldScope·world 作用域）：离开某任务世界时，属于它的**未结算**任务整体挪到这里。
+     ⚠ 为什么物理挪走而不是"读时过滤"：tasks 的读取点散布在正文注入/演化快照/面板/结算/参谋等十来处，
+       靠每处记得加过滤条件必然会漏（本轮就先漏过一次历的过滤）。挪出数组 ⇒ 所有既有读取点自动生效、零遗漏。
+     ⚠ 封存 ≠ 删除（铁律「库房只存不删」）：同名世界再入并选「继承」即 thaw 回 tasks；面板也能翻到。 */
+  frozenTasks: MiscTask[];
   lastWorldSettleAt: number;       // 上次「世界结算/进入新任务世界」的时间戳；只结算 settledAt 晚于它的任务=本世界的，杜绝把之前世界重复结算
   worldEvents: WorldEvent[];
   rumors: Rumor[];        // 📢 传闻流变（真相/流传/偏差三分·world 作用域·见 systems/rumor.ts）
+  economy: Economy | null;  // 💰 本世界经济气候（world 作用域·物价指数由前端按公式推进·见 systems/economy.ts）
   smallSummaries: string[];
   largeSummaries: string[];
   summaryRound: number;   // 杂项演化已运行的回合计数（用于大总结周期判断，持久化）
@@ -324,6 +336,13 @@ interface MiscState {
   settleTask: (id: string, status: string) => void;   // 结算：移出进行中→归档
   advanceRing: (id: string, done?: { summary?: string; rating?: string }) => void;   // 推进：当前 active 环→done（并记下该环行为总结/评级）、下一 planned 环→active，同步顶层快照
   clearArchivedTasks: () => void;
+  /** 🌍 离开任务世界：把属于它的未结算任务挪进 frozenTasks。返回封存条数。 */
+  freezeTasksOfWorld: (worldName: string, turn: number) => number;
+  /** 同名世界再入选「继承」：把封存的挪回进行中。返回解封条数。 */
+  thawTasksOfWorld: (worldName: string) => number;
+  /** 玩家在面板上手动捞回单条封存任务。 */
+  unfreezeTask: (id: string) => void;
+  clearFrozenTasks: () => void;
   markWorldSettled: () => void;    // 打一个"世界结算/进世界"边界戳（=现在）；此后完成的任务才计入下次结算
   nextTaskId: () => string;
   addWorldEvent: (e: Omit<WorldEvent, 'id'>) => void;
@@ -338,6 +357,9 @@ interface MiscState {
   updateRumor: (id: string, patch: Partial<Pick<Rumor, 'name' | 'impact' | 'scope'>>) => void;
   removeRumor: (id: string) => void;
   setRumors: (list: Rumor[]) => void;   // 压缩/裁剪等整体重写（调用方已算好）
+  // ── 经济（systems/economy.ts 是算法，这里只是哑存储）──
+  setEconomy: (e: Economy | null) => void;
+  patchEconomy: (patch: Partial<Economy>) => void;
   pushSmall: (s: string) => void;
   pushLarge: (s: string) => void;
   removeSmall: (index: number) => void;   // 按原始数组下标删除一条小总结（玩家在记忆面板手动清理重复/误产条目）
@@ -378,9 +400,11 @@ export const useMisc = create<MiscState>()(
     (set, get) => ({
       tasks: [],
       archivedTasks: [],
+      frozenTasks: [],
       lastWorldSettleAt: 0,
       worldEvents: [],
       rumors: [],
+      economy: null,
       smallSummaries: [],
       largeSummaries: [],
       summaryRound: 0,
@@ -436,6 +460,9 @@ export const useMisc = create<MiscState>()(
             const fixed = sorted.map((r, idx) => ({ ...r, status: (idx === 0 ? 'active' : 'planned') as QuestRing['status'] }));
             nt = { ...nt, rings: fixed, currentRing: fixed[0]?.idx ?? 1 };
           }
+          // 世界归属（worldScope 铁则）：建档即记下"在哪个世界接的"，离世时据此封存。
+          // AI 显式给了就尊重（极少），否则记当前世界名；在乐园/枢纽接的任务留空＝跨世界，永不被封存。
+          if (!nt.worldName) { const wn = (s.worldName || '').trim(); if (wn && !isHomeWorld(wn)) nt = { ...nt, worldName: wn }; }
           next.push(scrubTaskTierCurrency(nt, s.worldTier || ''));
           return { tasks: next };
         }),
@@ -518,6 +545,51 @@ export const useMisc = create<MiscState>()(
           }),
         })),
       clearArchivedTasks: () => set({ archivedTasks: [] }),
+
+      /* 🌍 离开任务世界：把属于它的**未结算**任务整体挪进 frozenTasks（= 退出所有读取点，但数据仍在）。
+         乐园接的任务（worldName 空）与老存档任务一律不动——宁可多留，绝不把玩家的任务弄没。 */
+      freezeTasksOfWorld: (worldName, turn) => {
+        const wn = String(worldName || '').trim();
+        if (!wn || isHomeWorld(wn)) return 0;
+        let moved = 0;
+        set((s) => {
+          const stay: MiscTask[] = [];
+          const frozen: MiscTask[] = [];
+          for (const t of s.tasks) {
+            if (t.worldName && sameWorld(t.worldName, wn)) { frozen.push({ ...t, frozenAt: turn }); moved++; }
+            else stay.push(t);
+          }
+          return moved ? { tasks: stay, frozenTasks: [...s.frozenTasks, ...frozen] } : s;
+        });
+        return moved;
+      },
+
+      /* 同名世界再入并选「继承」：把封存的任务原样挪回进行中（清掉 frozenAt）。 */
+      thawTasksOfWorld: (worldName) => {
+        const wn = String(worldName || '').trim();
+        if (!wn) return 0;
+        let moved = 0;
+        set((s) => {
+          const back: MiscTask[] = [];
+          const keep: MiscTask[] = [];
+          for (const t of s.frozenTasks) {
+            if (t.worldName && sameWorld(t.worldName, wn)) { const { frozenAt: _drop, ...rest } = t; back.push(rest); moved++; }
+            else keep.push(t);
+          }
+          return moved ? { tasks: [...s.tasks, ...back], frozenTasks: keep } : s;
+        });
+        return moved;
+      },
+
+      /* 玩家在面板上手动把某条封存任务捞回进行中（不必等同名再入）。 */
+      unfreezeTask: (id) => set((s) => {
+        const t = s.frozenTasks.find((x) => x.id === id);
+        if (!t) return s;
+        const { frozenAt: _drop, ...rest } = t;
+        return { tasks: [...s.tasks, rest], frozenTasks: s.frozenTasks.filter((x) => x.id !== id) };
+      }),
+
+      clearFrozenTasks: () => set({ frozenTasks: [] }),
       markWorldSettled: () => set({ lastWorldSettleAt: Date.now() }),
       nextTaskId: () => {
         // 进行中 + 已归档的编号都算"已占用"，避免复用完成任务的编号
@@ -592,6 +664,8 @@ export const useMisc = create<MiscState>()(
         })),
       removeRumor: (id) => set((s) => ({ rumors: s.rumors.filter((r) => r.id !== id) })),
       setRumors: (list) => set({ rumors: list }),
+      setEconomy: (e) => set({ economy: e }),
+      patchEconomy: (patch) => set((s) => (s.economy ? { economy: { ...s.economy, ...patch } } : s)),
 
       updateWorldEvent: (id, patch) =>
         set((s) => ({ worldEvents: s.worldEvents.map((w) => (w.id === id ? { ...w, ...patch } : w)) })),
@@ -641,7 +715,7 @@ export const useMisc = create<MiscState>()(
       setLocalCurrencyName: (name) => set({ localCurrencyName: (name ?? '').trim().slice(0, 16) }),
       adjustLocalCurrency: (delta) => set((s) => ({ localCurrency: Math.max(0, s.localCurrency + (Number(delta) || 0)) })),
       setLocalCurrency: (n) => set({ localCurrency: Math.max(0, Number(n) || 0) }),
-      clearMisc: () => set({ tasks: [], archivedTasks: [], lastWorldSettleAt: 0, worldTier: '', contractors: { count: 0, note: '' }, localCurrencyName: '', localCurrency: 0, worldEvents: [], rumors: [], smallSummaries: [], largeSummaries: [], summaryRound: 0, turnCount: 0 }),
+      clearMisc: () => set({ tasks: [], archivedTasks: [], frozenTasks: [], lastWorldSettleAt: 0, worldTier: '', contractors: { count: 0, note: '' }, localCurrencyName: '', localCurrency: 0, worldEvents: [], rumors: [], economy: null, smallSummaries: [], largeSummaries: [], summaryRound: 0, turnCount: 0 }),
 
       setSettings: (patch) => set((s) => ({ settings: { ...s.settings, ...patch } })),
       setPresetEntries: (entries, name, version) =>

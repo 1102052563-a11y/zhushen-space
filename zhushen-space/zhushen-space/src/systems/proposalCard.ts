@@ -3,8 +3,9 @@ import { useTables } from '../store/tableStore';
 import { useTableJournal } from '../store/tableJournalStore';
 import { useCalendar } from '../store/calendarStore';
 import { lenientJsonParse } from './stateParser';
-import { FORESHADOW_UID } from './plotThreads';
-import { TYPE_META, type AlmanacType } from './calendar';
+import { FORESHADOW_UID, threadInCurrentWorld } from './plotThreads';
+import { useRowScope } from '../store/rowScopeStore';
+import { TYPE_META, visibleIn, type AlmanacType } from './calendar';
 
 /* ══════════ 提案卡（AI 出卡 → 玩家点「应用」才落库）══════════
    借鉴 ST-SevenDaysCal「构画」最值得抄的一条机制：局外顾问给的东西**不自动生效**，
@@ -167,15 +168,18 @@ export function buildAdvisorContext(): string {
 
   try {
     const rows: string[][] = useTables.getState().tables[FORESHADOW_UID]?.content?.slice(1) ?? [];
-    const live = rows.filter((r) => !/已回收|已废弃/.test(String(r?.[4] ?? '')));
+    // 同 <伏笔催收> 口径：剔终态 + 剔别的任务世界埋的线（worldScope 铁则）
+    const live = rows.filter((r) => !/已回收|已废弃/.test(String(r?.[4] ?? '')) && threadInCurrentWorld(String(r?.[0] ?? ''), M.worldName));
     parts.push(live.length
       ? `【未回收伏笔·带 row_id】\n${live.map((r) => `- ${r[0]}｜「${r[1]}」·${r[4] || '埋下'}${r[5] ? `·预期回收：${r[5]}` : ''}`).join('\n')}`
       : '【未回收伏笔】（无）');
   } catch { /* 表不可用则整段略过 */ }
 
-  const alm = useCalendar.getState().items;
+  // ⚠ 必须按世界过滤（worldScope 铁则）：历是 world+paradise 混合作用域，全量倒出来会把
+  //   上个任务世界的节日报给参谋，它据此出提案 / 讨论，等于跨世界串味。口径与楼层信息条、历面板一致。
+  const alm = visibleIn(useCalendar.getState().items, M.worldName);
   parts.push(alm.length
-    ? `【世界历·带 id】\n${alm.map((it) => `- ${it.id}｜${it.month}/${it.day}${(it.days ?? 1) > 1 ? `起${it.days}天` : ''} ${TYPE_META[it.type].label}「${it.name}」${it.world ? `·${it.world}` : '·跨世界'}`).join('\n')}`
+    ? `【世界历·带 id（只列本世界可见的：本世界专属 + 跨世界）】\n${alm.map((it) => `- ${it.id}｜${it.month}/${it.day}${(it.days ?? 1) > 1 ? `起${it.days}天` : ''} ${TYPE_META[it.type].label}「${it.name}」${it.world ? `·${it.world}` : '·跨世界'}`).join('\n')}`
     : '【世界历】（无）');
 
   return parts.join('\n\n');
@@ -241,23 +245,30 @@ export function applyProposal(p: Proposal): ApplyResult {
       }
       const idx = T.insertRow(FORESHADOW_UID, row);
       if (idx < 0) return { ok: false, msg: '写入伏笔表失败' };
-      // ⚠ 必须补记编辑日志：账龄(plotThreads.lastTouchTurn)只认日志，而日志平时由 applyTableEdits 写。
-      //   这条路径绕过了它——不补的话，刚埋下的伏笔查无记录＝「久远」，下一回合就被当陈债催收。
+      // ⚠ 这条路径绕过了 applyTableEdits，它平时负责的两件旁路记录都得在这补上，否则：
+      //   ① 不补编辑日志 → 账龄(plotThreads.lastTouchTurn)查无记录＝「久远」，刚埋下就被当陈债催收；
+      //   ② 不补世界归属索引 → 这条伏笔成了「不确定」，切世界后仍跟着显示/催收。
       try {
+        const M = useMisc.getState();
         const sheet = useTables.getState().tables[FORESHADOW_UID];
         const after = sheet?.content?.[idx + 1] ?? null;
+        const newRowId = String(after?.[0] ?? '');
         useTableJournal.getState().record([{
-          turn: useMisc.getState().turnCount ?? -1,
+          turn: M.turnCount ?? -1,
           uid: FORESHADOW_UID, sheetName: sheet?.name || '伏笔表',
-          command: 'insertRow', rowId: String(after?.[0] ?? ''), pos: idx, before: null, after,
+          command: 'insertRow', rowId: newRowId, pos: idx, before: null, after,
         }]);
-      } catch { /* 日志写不进不影响已落库的伏笔，静默 */ }
+        if (newRowId) useRowScope.getState().note(FORESHADOW_UID, newRowId, { turn: M.turnCount ?? undefined, world: M.worldName || undefined });
+      } catch { /* 旁路记录写不进不影响已落库的伏笔，静默 */ }
       return { ok: true, msg: '已埋下伏笔' };
     }
 
     // almanac
     const name = str(d, 'name', '名称');
     if (!name) return { ok: false, msg: '缺名称，没法记进历' };
+    // ⚠ world 键**只在 AI 真给了时才带上**：没给就让 store 按当前世界兜底（见 calendarStore.resolveWorld）。
+    //   若这里无条件写 world:''，就等于替 AI 宣称「跨世界」，本世界的节日会跟着主角进下一个世界。
+    const gaveWorld = 'world' in d || '世界' in d;
     useCalendar.getState().upsert({
       name,
       type: (String(d.type ?? '').trim() || 'custom') as AlmanacType,
@@ -266,8 +277,8 @@ export function applyProposal(p: Proposal): ApplyResult {
       days: Number(d.days) || 1,
       displayDate: str(d, 'displayDate', '本地写法'),
       note: str(d, 'note', '说明'),
-      world: str(d, 'world', '世界'),
-    }, p.ref);
+      ...(gaveWorld ? { world: str(d, 'world', '世界') } : {}),
+    }, p.ref, useMisc.getState().worldName);
     return { ok: true, msg: p.ref ? '已更新历条目' : `已记入历：${name}` };
   } catch (e) {
     return { ok: false, msg: `应用失败：${e instanceof Error ? e.message : String(e)}` };

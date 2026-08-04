@@ -1,6 +1,8 @@
 import { useTables } from '../store/tableStore';
 import { useTableJournal } from '../store/tableJournalStore';
 import { useMisc } from '../store/miscStore';
+import { useRowScope } from '../store/rowScopeStore';
+import { sameWorld, isHomeWorld } from './worldScope';
 
 /* ── 剧情护卫：伏笔催收 + 世界真相周期强化（纯提示词机制·零新增 API 调用）──
    借鉴 Talemate 的 World State Reinforcement 与 World-Engine-LLM 的 active threads：
@@ -25,6 +27,24 @@ export interface StaleThread {
   age: number | null;   // null=日志已无该行记录（早于 300 条封顶留存期=久远）
 }
 
+/* ── 世界作用域过滤（worldScope 铁则）────────────────────────────────────────
+   一个世界一个世界地玩：上个任务世界埋的伏笔不该在新世界继续被催收、也不该出现在楼层条 / 参谋清单里。
+   归属靠 rowScopeStore 的旁路索引（埋下那一刻记的世界名），**不改伏笔表结构**。
+
+   ⚠ 判定取向「宁可多显示，不可弄丢」：
+     · 无索引（老存档的历史行、玩家在表格管理里手动加的行）→ **保留**，不确定就别藏人家的伏笔；
+     · 索引记的是乐园/枢纽 → 保留（乐园是长期舞台，那儿埋的线跨世界有效）；
+     · 只有「明确记了别的任务世界」才过滤掉。
+   主角人在乐园时同理不过滤——回乐园休整时仍该看得见各世界带回来的线头。 */
+export function threadInCurrentWorld(rowId: string, currentWorld?: string): boolean {
+  const cur = String(currentWorld ?? '').trim();
+  if (!cur || isHomeWorld(cur)) return true;            // 在乐园/枢纽或世界名未知 → 全留
+  let owner: string | undefined;
+  try { owner = useRowScope.getState().worldOf(FORESHADOW_UID, rowId); } catch { owner = undefined; }
+  if (!owner || isHomeWorld(owner)) return true;        // 无索引 / 乐园埋的 → 保留
+  return sameWorld(owner, cur);
+}
+
 /* 伏笔表某行最后一次被 insert/update 的回合号；无记录返回 null（久远） */
 function lastTouchTurn(rowId: string): number | null {
   const entries = useTableJournal.getState().entries;
@@ -41,6 +61,7 @@ function lastTouchTurn(rowId: string): number | null {
 export function collectStaleThreads(turn: number): StaleThread[] {
   const sheet = useTables.getState().tables[FORESHADOW_UID];
   const rows: string[][] = sheet?.content?.slice(1) ?? [];
+  const curWorld = (() => { try { return useMisc.getState().worldName; } catch { return ''; } })();
   const out: StaleThread[] = [];
   for (const row of rows) {
     const rowId = String(row?.[0] ?? '').trim();
@@ -48,6 +69,7 @@ export function collectStaleThreads(turn: number): StaleThread[] {
     if (!rowId || !title) continue;
     const state = String(row?.[4] ?? '').trim();
     if (/已回收|已废弃/.test(state)) continue;
+    if (!threadInCurrentWorld(rowId, curWorld)) continue;   // 上个任务世界的线头：别在新世界催收
     const last = lastTouchTurn(rowId);
     const age = last === null ? null : Math.max(0, turn - last);
     if (age === null || age >= DUN_AGE) out.push({ rowId, title, expect: String(row?.[5] ?? '').trim(), age });

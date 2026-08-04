@@ -1,5 +1,5 @@
 import { isMainQuest, type MiscTask } from '../store/miscStore';
-import { collectStaleThreads } from './plotThreads';
+import { collectStaleThreads, threadInCurrentWorld } from './plotThreads';
 
 /* ══════════ 楼层信息条（StoryStrip）· 取数层 ══════════
    借鉴 ST-SevenDaysCal「构画」的「楼内条」：把最该被看见的几条状态**贴在正文末尾**，
@@ -26,8 +26,9 @@ export interface ThreadBrief {
 }
 
 /** 活跃伏笔（状态非「已回收/已废弃」）；催收中的排最前（久远 > 账龄大 > 账龄小），其余保持表内顺序。
-    账龄口径直接复用 plotThreads.collectStaleThreads —— 条上标⚠的那几条，正是这一轮注入给 AI 催收的那几条。 */
-export function pickThreads(content: string[][] | undefined, turn: number, cap = 6): ThreadBrief[] {
+    账龄口径直接复用 plotThreads.collectStaleThreads —— 条上标⚠的那几条，正是这一轮注入给 AI 催收的那几条。
+    currentWorld：按世界作用域过滤（别的任务世界埋的线不在本世界显示；无索引的一律保留，见 threadInCurrentWorld）。 */
+export function pickThreads(content: string[][] | undefined, turn: number, cap = 6, currentWorld?: string): ThreadBrief[] {
   const rows = content?.slice(1) ?? [];
   const staleMap = new Map<string, number | null>();
   try {
@@ -41,6 +42,7 @@ export function pickThreads(content: string[][] | undefined, turn: number, cap =
     if (!rowId || !title) continue;
     const state = String(row?.[FS_COL.state] ?? '').trim();
     if (TERMINAL_STATE.test(state)) continue;
+    if (!threadInCurrentWorld(rowId, currentWorld)) continue;
     const stale = staleMap.has(rowId);
     out.push({
       rowId,

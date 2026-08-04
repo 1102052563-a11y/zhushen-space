@@ -15,6 +15,9 @@ const IMPACT_COLOR = ['text-dim/50', 'text-slate-300', 'text-amber-300/90', 'tex
 export default function MiscPanel({ onClose, onGenerate }: { onClose: () => void; onGenerate?: (tendency: string) => Promise<{ ok: boolean; msg: string }> }) {
   const tasks = useMisc((s) => s.tasks);
   const archivedTasks = useMisc((s) => s.archivedTasks);
+  const frozenTasks = useMisc((s) => s.frozenTasks) ?? [];   // 🌍 离世封存（老存档无此字段 → 兜底空数组）
+  const unfreezeTask = useMisc((s) => s.unfreezeTask);
+  const clearFrozenTasks = useMisc((s) => s.clearFrozenTasks);
   const events = useMisc((s) => s.worldEvents);
   const removeTask = useMisc((s) => s.removeTask);
   const editTask = useMisc((s) => s.editTask);
@@ -114,7 +117,7 @@ export default function MiscPanel({ onClose, onGenerate }: { onClose: () => void
 
         <div className="flex-1 overflow-y-auto p-4 space-y-2">
           {tab === 'tasks' && (
-            tasks.length === 0 && archivedTasks.length === 0 ? <Empty text="暂无任务" /> : (
+            tasks.length === 0 && archivedTasks.length === 0 && frozenTasks.length === 0 ? <Empty text="暂无任务" /> : (
             <>
               {tasks.length === 0 && <div className="text-[12px] font-mono text-dim/40 text-center py-3">暂无进行中任务</div>}
               {mainTasks.map((t) => (
@@ -126,6 +129,31 @@ export default function MiscPanel({ onClose, onGenerate }: { onClose: () => void
               {sideTasks.map((t) => (
                 <TaskCard key={t.id} t={t} main={false} onRemove={() => removeTask(t.id)} onEdit={() => setEditing(t)} onToggleLock={() => toggleTaskLock(t.id)} />
               ))}
+
+              {/* 🌍 封存（world 作用域）：离开某个任务世界时，那边没做完的任务挪到这儿——不是丢了，
+                  同名世界再入并选「继承」会自动捞回；也可以在这儿手动捞回单条。 */}
+              {frozenTasks.length > 0 && (
+                <div className="pt-2 mt-1 border-t border-edge/60">
+                  <div className="flex items-center gap-2 px-1 pb-1.5 flex-wrap">
+                    <span className="text-[12px] font-mono text-dim/50">🧊 已封存 ({frozenTasks.length})</span>
+                    <span className="text-[11px] font-mono text-dim/35">离开那个世界时没做完的 · 同名再入选「继承」会自动捞回</span>
+                    <span className="flex-1" />
+                    <button onClick={() => { if (confirm(`彻底清空 ${frozenTasks.length} 条封存任务？不可恢复。`)) clearFrozenTasks(); }}
+                      className="text-[11px] font-mono text-dim/40 hover:text-blood">清空</button>
+                  </div>
+                  <div className="space-y-1">
+                    {frozenTasks.map((t) => (
+                      <div key={t.id} className="rounded border border-edge/60 bg-void/20 px-2.5 py-1.5 flex items-center gap-2 flex-wrap opacity-75">
+                        <span className="text-[11px] font-mono text-dim/45">{t.worldName || '未知世界'}</span>
+                        <span className="text-[13px] text-slate-300">{isMainQuest(t) ? '【主线】' : '【支线】'}{t.name}</span>
+                        <span className="flex-1" />
+                        <button onClick={() => unfreezeTask(t.id)} title="捞回进行中列表"
+                          className="text-[12px] font-mono text-dim/55 hover:text-god transition-colors">↩ 捞回</button>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
 
               {archivedTasks.length > 0 && (
                 <div className="pt-2 mt-1 border-t border-edge/60">

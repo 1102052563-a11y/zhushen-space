@@ -6,6 +6,7 @@ import { logArbitration } from './npcGrowthGuard';
 import { useCanonRoute } from '../store/canonRouteStore';
 import { useCalendar } from '../store/calendarStore';
 import { lenientJsonParse } from './stateParser';
+import { normPhase, normSupply, normTrend, normCommodityKey, ECON_EVENT_CAP, type Economy } from './economy';
 import { CANON_STATIONS } from '../data/canonRoute';
 import { grantCanonAchievement } from './canonRoute';
 
@@ -159,7 +160,7 @@ export function applyMiscCommands(reply: string, opts: { allowLarge?: boolean; t
     //    ⚠ 挂在杂项阶段里、**不新增 API 调用**；条目为空时下游注入整块不出现，零 token 浪费。
     if (doWorld && (m = /^almanac\(\s*(\[[\s\S]*?\])\s*\)$/.exec(line))) {
       const arr = lenientJsonParse(m[1]);
-      if (Array.isArray(arr)) { const k = useCalendar.getState().applyMany(arr); if (k) n++; }
+      if (Array.isArray(arr)) { const k = useCalendar.getState().applyMany(arr, M.worldName); if (k) n++; }   // 传当前世界名：AI 漏写 world 时归本世界，别变成跨世界跟着到处跑
       continue;
     }
     if (doWorld && (m = /^almanacRemove\(\s*"([\s\S]*?)"\s*\)$/.exec(line))) {
@@ -339,6 +340,48 @@ export function applyMiscCommands(reply: string, opts: { allowLarge?: boolean; t
       continue;
     }
     if (doWorld && (m = /^deleteRumor\(\s*"(R_\d+)"\s*\)$/.exec(line))) { M.removeRumor(m[1]); n++; continue; }
+
+    // ── 经济气候（systems/economy.ts）──
+    // setEconomy({"phase":"衰退","note":"...","commodities":[{"key":"粮食","supply":"紧缺","trend":"↑","note":"","driver":""}],"events":[...]})
+    // ⚠ 物价指数(index)由前端按公式推进，**不接受** AI 写——写了也会被忽略。
+    if (doWorld && (m = /^setEconomy\(\s*(\{[\s\S]*\})\s*\)$/.exec(line))) {
+      const p = safeJson(m[1]);
+      const cur = M.economy;
+      if (p && cur) {
+        const patch: Partial<Economy> = {};
+        const ph = p.phase ?? p['相位'] ?? p['经济气候']; if (ph) patch.phase = normPhase(String(ph));
+        const nt = p.note ?? p['说明'] ?? p['驱动']; if (nt != null) patch.phaseNote = String(nt).slice(0, 60);
+        if (Array.isArray(p.commodities ?? p['大宗'])) {
+          const raw = (p.commodities ?? p['大宗']) as any[];
+          const next = cur.commodities.map((c) => {
+            const hit = raw.find((r) => normCommodityKey(String(r?.key ?? r?.['品类'] ?? '')) === c.key);
+            if (!hit) return c;
+            return {
+              ...c,
+              supply: normSupply(String(hit.supply ?? hit['供需'] ?? '')),
+              trend: normTrend(String(hit.trend ?? hit['趋势'] ?? '')),
+              note: String(hit.note ?? hit['行情'] ?? c.note).slice(0, 40),
+              driver: String(hit.driver ?? hit['影响因素'] ?? c.driver).slice(0, 40),
+            };
+          });
+          patch.commodities = next;
+        }
+        if (Array.isArray(p.events ?? p['经济事件'])) {
+          const raw = (p.events ?? p['经济事件']) as any[];
+          patch.events = raw
+            .filter((x) => x && (x.name ?? x['名称']))
+            .slice(0, ECON_EVENT_CAP)   // 上限由前端裁，不指望 AI 数
+            .map((x) => ({
+              name: String(x.name ?? x['名称']).slice(0, 24),
+              desc: String(x.desc ?? x['描述'] ?? '').slice(0, 80),
+              stage: (['酝酿', '推进中', '趋稳', '消退', '转折'] as const)
+                .find((s) => String(x.stage ?? x['态势'] ?? '').includes(s)) ?? '推进中',
+            }));
+        }
+        if (Object.keys(patch).length) { M.patchEconomy(patch); n++; }
+      }
+      continue;
+    }
 
     if (doTasks && (m = /^ringAdvance\(\s*"(T_\d+)"\s*(?:,\s*(\{[\s\S]*\})\s*)?\)$/.exec(line))) {
       const pl = m[2] ? safeJson(m[2]) : null;

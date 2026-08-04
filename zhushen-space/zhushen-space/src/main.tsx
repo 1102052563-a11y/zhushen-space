@@ -25,7 +25,9 @@ ReactDOM.createRoot(document.getElementById('root')!).render(
   </React.StrictMode>,
 )
 
-// 陈旧部署兜底：vite 预加载动态 chunk 失败（旧版页面遇到新部署、旧 chunk 已 404）→ 静默刷新一次取最新版。
+// 陈旧部署兜底：vite 预加载动态 chunk 失败（旧版页面遇到新部署、旧 chunk 已 404）→ 刷新一次取最新版。
+// ⚠此前是**纯静默**刷新：玩家视角=「点了按钮毫无反应，等好几秒整页白刷才出来」，像卡死/点击失灵
+//   （每次部署后开着的旧标签第一次点懒加载面板必现一次）。现在刷新前先给一条即时横幅说明缘由。
 window.addEventListener('vite:preloadError', (e) => {
   e.preventDefault();
   try {
@@ -34,7 +36,13 @@ window.addEventListener('vite:preloadError', (e) => {
     if (Date.now() - last > 20000) {
       localStorage.setItem('zs-chunk-reload-ts', String(Date.now()));
       setResumeFlag('drpg-pending-started');
-      location.reload();
+      try {
+        const tip = document.createElement('div');
+        tip.textContent = '⚡ 检测到新版本，正在为你刷新…';
+        tip.style.cssText = 'position:fixed;top:16px;left:50%;transform:translateX(-50%);z-index:99999;background:rgba(10,12,20,.95);color:#e2e8f0;border:1px solid rgba(148,163,184,.4);border-radius:10px;padding:8px 14px;font-size:13px;font-family:system-ui;box-shadow:0 8px 30px rgba(0,0,0,.5)';
+        document.body.appendChild(tip);
+      } catch { /* 横幅失败不影响刷新 */ }
+      setTimeout(() => location.reload(), 250);   // 留一帧给横幅渲染，250ms 对刷新无感
     }
   } catch { /* */ }
 });

@@ -4,6 +4,7 @@ import type { ApiConfig } from './settingsStore';
 import { useSettings } from './settingsStore';
 import cosmosDefaultPreset from '../data/cosmosDefaultPreset.json';
 import cosmosDefaultData from '../data/cosmosDefaultData.json';
+import type { PotentialEra } from '../systems/eraModel';   // 时代演化：算法在 systems/eraModel，本 store 只做哑存储
 
 /* ════════════════════════════════════════════
    万族演化（cosmos）——轮回乐园「宇宙背景层」，跨世界永久
@@ -152,6 +153,11 @@ export function extractCosmosPresetFromJson(
   } catch { return null; }
 }
 
+/* 🕰 时代演化（systems/eraModel.ts）——挂在**宇宙层**而不是任务世界：
+   任务世界几十回合就离开，进度涨不到临界；宇宙层跨世界永久累积才跑得动这套慢变量。
+   进度/净干预/临界派生/合并全由 eraModel 前端算，AI 只负责命名与叙述。 */
+export interface CosmosState_Eras { eras: PotentialEra[] }
+
 export interface CosmosSettings {
   enabled: boolean;
   frequency: number;            // 默认 3：每 3 回合推演一次
@@ -265,6 +271,8 @@ export function dedupeCosmosList(entities: CosmosEntity[]): CosmosEntity[] {
 interface CosmosState {
   entities: CosmosEntity[];
   seeded: boolean;
+  /** 🕰 正在酝酿的潜在时代（宇宙层慢变量·见 systems/eraModel.ts）。缺省 [] = 老档无此数据。 */
+  eras: PotentialEra[];
 
   settings: CosmosSettings;
   cosmosApi: ApiConfig;
@@ -283,6 +291,7 @@ interface CosmosState {
   markEvolved: (name: string, turn: number) => void;
   clearCosmos: () => void;
   dedupeEntities: () => void;
+  setEras: (list: PotentialEra[]) => void;   // 时代演化：算法在 systems/eraModel，本 store 只做哑存储
 
   /* 预设 / 设置 actions */
   setSettings: (patch: Partial<Omit<CosmosSettings, 'entries'>>) => void;
@@ -303,6 +312,7 @@ export const useCosmos = create<CosmosState>()(
     (set, get) => ({
       entities: [],
       seeded: false,
+      eras: [],
 
       settings: { ...DEFAULT_SETTINGS },
       cosmosApi: {
@@ -394,9 +404,11 @@ export const useCosmos = create<CosmosState>()(
       markEvolved: (name, turn) =>
         set((s) => { const nm = cleanCosmosName(name); return { entities: s.entities.map((x) => (cosmosNameEq(x.name, nm) || x.id === name) ? { ...x, lastEvolvedTurn: turn } : x) }; }),
 
-      clearCosmos: () => set({ entities: [], seeded: false }),
+      clearCosmos: () => set({ entities: [], seeded: false, eras: [] }),
 
       dedupeEntities: () => set((s) => ({ entities: dedupeCosmosList(s.entities) })),
+
+      setEras: (list) => set({ eras: Array.isArray(list) ? list : [] }),
 
       setSettings: (patch) => set((s) => ({ settings: { ...s.settings, ...patch } })),
       setPresetEntries: (entries, name, version) =>
