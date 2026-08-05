@@ -10984,6 +10984,7 @@ ${lines}`;
           chain: agentChain,
           signal: ac.signal,
           settings: _agentCfg,
+          presetName: preset?.name ?? '',   // 本回合实际生效的预设名（专属或跟随）→ 预设专属 skill/子代理/作者指令的作用域锚点
           inputs: {
             userText,
             history: allHistoryForApi,

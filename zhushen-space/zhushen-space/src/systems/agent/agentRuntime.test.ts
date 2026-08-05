@@ -27,10 +27,10 @@ const INPUTS: AgentRunInputs = {
 const CHAIN = [{ baseUrl: 'http://mock', apiKey: 'k', modelId: 'm', temperature: 0.7, maxTokens: 4096, topP: 0.9 }];
 const BASE = [{ role: 'system' as const, content: 'SYS' }, { role: 'user' as const, content: '行动' }];
 
-function run(transport: AgentTransport, patch: Partial<AgentNarrativeSettings> = {}, opts: { signal?: AbortSignal; onCommit?: (raw: string, seq: number) => void; onPreview?: (draft: string) => void; reviewChain?: typeof CHAIN } = {}) {
+function run(transport: AgentTransport, patch: Partial<AgentNarrativeSettings> = {}, opts: { signal?: AbortSignal; onCommit?: (raw: string, seq: number) => void; onPreview?: (draft: string) => void; reviewChain?: typeof CHAIN; presetName?: string } = {}) {
   return runAgentNarrative({
     baseMessages: BASE, chain: CHAIN, signal: opts.signal ?? new AbortController().signal,
-    inputs: INPUTS, settings: SETTINGS(patch), transport, onCommit: opts.onCommit, onPreview: opts.onPreview, reviewChain: opts.reviewChain,
+    inputs: INPUTS, settings: SETTINGS(patch), transport, onCommit: opts.onCommit, onPreview: opts.onPreview, reviewChain: opts.reviewChain, presetName: opts.presetName,
   });
 }
 
@@ -182,6 +182,21 @@ describe('agentRuntime · P1（persist 跨回合记忆 / 中途指引）', () =>
     ]), { maxRounds: 1 });
     expect(r.status).toBe('partial');
     expect(useAgentRun.getState().persistFiles['persist/notes.md']).toBe('原样');
+  });
+  it('作用域按「实际生效预设名」判定：跟随正文预设也能命中预设专属 skill/作者指令（修 Discord「skill 没生效」）', async () => {
+    useAgentRun.setState({ runs: [], active: null, persistFiles: {}, pendingGuidance: [] });
+    useAgentSkills.setState({
+      skills: [{ name: 'scoped-rules', files: [{ path: 'SKILL.md', content: '---\nname: scoped-rules\n---\n规则A' }], scopePresetName: '我的正文预设', builtin: true }],
+      subagents: [], writerNotes: { '我的正文预设': 'FOX-WORKFLOW-NOTES-测试锚点' },
+    });
+    const seen: Array<Record<string, unknown>> = [];
+    await run(scriptedTransport([
+      turn([call('skill_read', { name: 'scoped-rules' })]),
+      turn([call('workspace_write_file', { path: 'output/main.md', content: 'x' }), call('workspace_commit'), call('workspace_finish')]),
+    ], seen), {}, { presetName: '我的正文预设' });   // settings.presetName 为空（=跟随），靠宿主传入的实际预设名命中
+    expect(JSON.stringify(seen[0].messages)).toContain('FOX-WORKFLOW-NOTES-测试锚点');   // 作者指令注入 ✓
+    expect(JSON.stringify(seen[1].messages)).toContain('规则A');                          // 预设专属 skill 可读 ✓
+    useAgentSkills.setState({ skills: [], subagents: [], writerNotes: {} });
   });
   it('初始历史裁剪注明：initialHistoryMsgs>=0 时系统提示词提醒用 chat_search 补课（P4）', async () => {
     const seen: Array<Record<string, unknown>> = [];

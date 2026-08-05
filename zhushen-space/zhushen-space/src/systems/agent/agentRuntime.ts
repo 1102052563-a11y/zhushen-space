@@ -49,6 +49,10 @@ export interface RunAgentParams {
   reviewChain?: ApiConfig[];
   /** 预设采样参数（Agent 预设/正文预设的 temperature 等；preset 优先、接口配置兜底——与 legacy reqBody 同口径） */
   sampling?: { temperature?: number; top_p?: number; max_tokens?: number; frequency_penalty?: number; presence_penalty?: number; seed?: number };
+  /** 本回合实际生效的预设名（宿主传入：Agent 专属预设名，或「跟随」时的当前正文预设名）——
+      技能包/子代理/作者指令的**作用域锚点**。缺省回退 settings.presetName（仅显式选择时非空，
+      「跟随正文预设」会漏配 → 修 Discord 反馈「预设专属 skill 没生效」）。 */
+  presetName?: string;
   /** 测试注入：替代真实 HTTP */
   transport?: AgentTransport;
 }
@@ -261,7 +265,7 @@ export async function runAgentNarrative(p: RunAgentParams): Promise<AgentRunResu
       if (path.startsWith('persist/') && typeof txt === 'string') ws.files.set(path, txt);
     }
   } catch { /* 种子失败不阻断运行 */ }
-  const presetName = settings.presetName ?? '';
+  const presetName = (p.presetName ?? settings.presetName ?? '').trim();   // 实际生效预设名优先（跟随正文预设时也能命中预设专属资产）
   const tools = buildAgentTools({ ws, inputs, presetName, skillBudget: { used: 0 } }, settings.toolToggles ?? {});
   let protocol: AgentProtocol = settings.protocol === 'text' ? 'text' : 'native';
   // 预设作者的工作流指引（TT 内嵌主档案 instructions·P3）：仅选中该 Agent 预设时追加
