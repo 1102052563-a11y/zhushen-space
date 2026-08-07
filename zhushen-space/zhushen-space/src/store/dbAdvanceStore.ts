@@ -1,5 +1,8 @@
 /* 数据库推进管线 · store（Stitches 格式推进预设 + 运行态）───────────────────
-   preset/config + 运行态 lastTabletop/stage/scene/recall 都持久化（drpg-dbadvance·全局·**不进存档快照**）。
+   preset/config + 运行态 lastTabletop/stage/scene/recall 都持久化（drpg-dbadvance）。
+   **一键两域**（2026-08-07）：预设/开关=全局配置（读档不回滚）；运行态=本时间线记忆（读档/回退**跟着回滚**）——
+   已登记进 saveManager.STORES，回滚规则见 systems/dbAdvanceRuntime.ts（原来整个 store 不进快照，
+   导致回档后推进还拿着被回退掉那几回合的桌面态、"还记着之前内容"）。
    **运行态也持久化**（2026-07-03·用户报「关了再开/刷新就记忆断层」）：桌面态 {{tabletop}} 是跨回合传递的表状态，
    原来只存内存、刷新即清 → 再开推进从空桌面起步、最近这段表记忆断了。现随 drpg-dbadvance 持久化（用 lzStorage 压缩存，
    桌面态可能不小、且用户刚爆过 localStorage 配额），刷新后接着上次的表推进。**新游戏由 clearProgress 显式 clearRuntime**

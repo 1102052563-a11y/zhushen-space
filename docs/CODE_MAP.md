@@ -247,6 +247,7 @@
 | `index.css` | `:root` 里 `--SmartTheme*`→`--c-*` 映射；`.mes_reasoning_*` 默认样式（尾部） |
 | `SettingsPanel.tsx` | TextApiSection：思维链显示三态（隐藏/折叠/展开）；外观区顶部：自定义 CSS 编辑框+导入 ST 主题 .json/.css+外链媒体开关+前端卡开关 |
 | `miscStore.ts` | `drpg-misc` | 杂项(任务数据/总结/`narrativeFacts`/双时间/天气)+预设+API；另挂任务演化的 `settings.questEnabled`+`questApi`/`questUseSharedApi`（独立阶段，merge 迁移旧档继承 enabled）。`addNarrativeFacts` |
+| `dbAdvanceStore.ts` | `drpg-dbadvance` | 数据库推进(Stitches 规划层)：**一键两域**——预设/`enabled`/`useRecall`=全局配置(读档不回滚)；`lastTabletop`({{tabletop}} 桌面态)/`lastStage`/`lastScene`/`lastRecall`=本时间线运行态，**随存档快照 + 读档/回退一起回滚**(规则 `systems/dbAdvanceRuntime.ts`·2026-08-07 修「回档后推进还记着之前内容」)。新游戏由 clearProgress 显式 `clearRuntime()`；手动清=设置→数据库推进→🧹清上轮记录 |
 | `imageGenStore.ts` | `drpg-image-gen` | 生图服务/用途/模板/自动开关；服务含 `chatimg`(多模态Chat出图·nano-banana系) |
 | `comicStore.ts` | `drpg-comic` | 漫画工坊设置（服务/页数/尺寸/语言/参考图/送审软化/错峰间隔）；`useComicJob`=运行时任务进度（不持久化）|
 | `channelStore.ts` | `drpg-channel` | 公共频道（数据+设置+API+预设）|

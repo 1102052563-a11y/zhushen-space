@@ -65,6 +65,7 @@ import { useShop } from '../store/shopStore';
 import { useCanonRoute } from '../store/canonRouteStore';
 import { clearJoySessions } from '../store/joyStore';
 import { useDbAdvance } from '../store/dbAdvanceStore';   // 数据库推进桌面态现已持久化 → 新游戏须显式清运行态
+import { DBADV_KEY, mergeDbAdvanceRuntime } from './dbAdvanceRuntime';   // 读档/回退只回滚推进「运行态」(桌面态/stage/scene/recall)，预设+开关保当前
 import { logWarn } from '../utils/log';
 import { writeB1Mirror, clearB1Mirror } from './b1Mirror';
 import { isFolderBackupSupported, folderAutoEnabled, checkPermission as fbCheckPermission, writeFile as fbWriteFile, FOLDER_AUTOSAVE_FILE } from './folderBackup';
@@ -99,6 +100,10 @@ const STORES: { key: string; api: any; clear?: () => void }[] = [
   { key: 'drpg-turn-insight', api: useTurnInsight, clear: () => useTurnInsight.getState().clear() },
   { key: 'drpg-worldnews',   api: useWorldNews, clear: () => useWorldNews.getState().clearAll() },   // 🌍 世界见闻快照（P2·进度）：随存档快照、新游戏清空
 
+  // 数据库推进(Stitches)：**只有运行态**(桌面态/stage/scene/recall)随存档快照回滚——预设/开关属全局配置，
+  //   读档时由 restoreStores 的 DBADV 分支保留当前值（见 mergeDbAdvanceRuntime）。不给 clear：新游戏由
+  //   clearProgress 末尾的显式 clearRuntime() 清运行态、留预设。
+  { key: 'drpg-dbadvance',  api: useDbAdvance },
   { key: 'drpg-agentrun',   api: useAgentRun, clear: () => useAgentRun.getState().clearAll() },   // Agent 正文模式 run journal：进度数据，随存档快照、新游戏清空
   { key: 'drpg-agentskills', api: useAgentSkills },   // Agent 技能/子代理资产库（预设内嵌导入）：配置类，新游戏保留
 
@@ -488,6 +493,11 @@ export async function loadSlot(id: string): Promise<boolean> {
     for (const { key } of STORES) {
       if (KEEP_CURRENT.has(key)) continue;   // 全局配置：保留当前，不被存档快照覆盖
       const v = slot.data.stores[key];
+      if (key === DBADV_KEY) {               // 数据库推进：只回滚运行态(桌面态/stage/scene/recall)，预设+开关保当前
+        const merged = mergeDbAdvanceRuntime(v, localStorage.getItem(key));
+        if (merged != null) localStorage.setItem(key, merged);
+        continue;
+      }
       if (typeof v === 'string') localStorage.setItem(key, mergeKeepApi(key, v));   // API 配置不随存档回滚
       else if (CLEAR_ON_MISSING.has(key)) localStorage.removeItem(key);             // 仅较新功能缓存缺失才清（防泄漏）；核心存档一律保留当前，绝不抹
     }
