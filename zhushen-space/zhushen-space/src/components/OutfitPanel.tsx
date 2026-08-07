@@ -5,6 +5,7 @@ import { putTplImg, getTplImg, delTplImg } from '../systems/outfitTemplateDb';
 import { putImg, delImg, getImg } from '../systems/imageDb';
 import { shrinkDataUrl } from '../systems/imageGen';
 import { outfitImageKey } from '../systems/outfit';
+import { generateOutfitFromEquipment } from '../systems/outfitGen';
 
 /* 👗 衣柜（穿搭预设）弹层——主角侧栏 / NPC 详情共用。
    激活的穿搭 = 服装单一权威源：立绘 ${attire}、正文配图 roster、漫画分镜外观锁、<钦定穿搭> 正文注入 全读它；
@@ -43,6 +44,19 @@ export default function OutfitPanel({ charId, charName, currentAttire, onClose }
   const [tplOpen, setTplOpen] = useState(false);
   const [tplImgMap, setTplImgMap] = useState<Record<string, string>>({});
   const [tplMsg, setTplMsg] = useState('');
+  // ✨ 按装备生成穿搭描述
+  const [genBusy, setGenBusy] = useState(false);
+  const [genMsg, setGenMsg] = useState('');
+  async function onGenFromEquipment() {
+    if (genBusy) return;
+    setGenBusy(true); setGenMsg('');
+    try {
+      const r = await generateOutfitFromEquipment(charId);
+      setDraft((d) => ({ ...d, desc: r.desc, imageTags: r.tags || d.imageTags, name: d.name || '当前装备' }));
+      setGenMsg('✓ 已按装备栏生成——检查/修改后点「＋ 添加」（或编辑态点「保存修改」）');
+    } catch (e: any) { setGenMsg('✗ ' + (e?.message || String(e))); }
+    setGenBusy(false);
+  }
 
   useEffect(() => {
     let alive = true;
@@ -204,11 +218,15 @@ export default function OutfitPanel({ charId, charName, currentAttire, onClose }
           <div className="flex items-center gap-2 flex-wrap">
             <button onClick={saveDraft} disabled={!draft.desc.trim()} className="px-3 py-1 text-[13px] font-mono border border-god/50 text-god rounded hover:bg-god/10 disabled:opacity-40 transition-colors">{editingId ? '保存修改' : '＋ 添加'}</button>
             {editingId && <button onClick={() => { setDraft(EMPTY_DRAFT); setEditingId(''); }} className="px-2 py-1 text-[12px] font-mono border border-edge text-dim rounded hover:text-slate-200">取消编辑</button>}
+            <button onClick={() => { void onGenFromEquipment(); }} disabled={genBusy}
+              className="px-2 py-1 text-[12px] font-mono border border-god/30 text-god/80 rounded hover:bg-god/10 disabled:opacity-40 transition-colors"
+              title="读取该角色装备栏所有已穿戴物品的外观描述，交给 LLM 整理成完整穿搭描述+英文服装标签（走「生图标签 LLM」路由）">{genBusy ? '⏳ 生成中…' : '✨ 按装备生成'}</button>
             {(currentAttire || '').trim() && !editingId && (
               <button onClick={() => setDraft({ ...draft, desc: (currentAttire || '').trim().slice(0, 600), name: draft.name || '当前穿着' })}
                 className="px-2 py-1 text-[12px] font-mono border border-edge text-dim rounded hover:text-god transition-colors" title="把角色当前的穿着描述填进来，改改就能存成一套">⤵ 从当前穿着导入</button>
             )}
           </div>
+          {genMsg && <div className={`text-[12px] font-mono ${genMsg.startsWith('✓') ? 'text-emerald-300' : 'text-amber-300'}`}>{genMsg}</div>}
           <div className="text-[11px] text-dim/40 leading-relaxed">📷 每套可传一张穿搭参考图（自动缩到 768px·随存档走）：用「多模态Chat出图」画立绘/漫画/配图时会作为参考图发送，服装还原度最高。</div>
         </div>
 

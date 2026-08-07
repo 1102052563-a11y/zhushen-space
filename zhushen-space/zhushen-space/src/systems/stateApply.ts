@@ -55,20 +55,46 @@ export function stripLeakedThinking(text: string): string {
   return stripLeadingPlanLeak(t);
 }
 
-/* 流式期间「隐藏思维链」——正文逐字渲染时用（不是最终剥离；最终仍走 stripLeakedThinking）。
-   返回此刻应显示给读者的正文片段；仍在思考中时返回 null（调用方显示占位，如「💭 思考中…」，不把思考直播给读者）。
-   - 已出现闭合标签 </think> → 返回其后的正文（思考整段隐藏）；其后暂空也返回 null，保持占位不闪空。
-   - 无闭合标签且本轮预填了 <think> 开标签（强制思维链 / 预设自带 prefill·端点可能不回显开标签）→ 通篇仍是思考，隐藏。
-   - 无闭合标签、未强制：内容以 <think 开头（含逐字到来的部分前缀 <、<t、<th…）也判为思考中；否则原样返回（普通正文零改动、不闪烁）。 */
-export function streamVisibleNarrative(acc: string, prefilledOpenThink: boolean): string | null {
-  if (!acc) return prefilledOpenThink ? null : acc;
+/* 流式期间「思维链/正文」二分——正文逐字渲染时用（不是最终剥离；最终仍走 stripLeakedThinking）。
+   think=此刻已到达的思考内容（未闭合也实时给，供折叠块直播）；visible=此刻应显示的正文片段，思考中为 null。
+   - 已出现闭合标签 </think> → visible=其后正文（暂空回 null 保持占位不闪空）；think=闭合前内容（剥开标签，孤立闭合=prefill 回显场景取全部前缀）。
+   - 无闭合标签且本轮预填了 <think> 开标签（强制思维链 / 预设自带 prefill·端点可能不回显开标签）→ 通篇是思考。
+   - 无闭合标签、未强制：内容以 <think 开头（含逐字到来的部分前缀 <、<t、<th…）也判思考中；否则原样当正文（零改动、不闪烁）。 */
+export function splitThinkStream(acc: string, prefilledOpenThink: boolean): { think: string | null; visible: string | null } {
+  if (!acc) return { think: null, visible: prefilledOpenThink ? null : acc };
   const close = /<\/(?:think|thinking|thought)>/i.exec(acc);
-  if (close) return acc.slice(close.index + close[0].length).replace(/^\s+/, '') || null;
-  if (prefilledOpenThink) return null;
-  if (/^\s*<(?:think|thinking|thought)\b/i.test(acc)) return null;
+  if (close) {
+    const before = acc.slice(0, close.index);
+    const om = /<(?:think|thinking|thought)\b[^>]*>/i.exec(before);
+    const think = (om ? before.slice(om.index + om[0].length) : before).trim();
+    return { think: think || null, visible: acc.slice(close.index + close[0].length).replace(/^\s+/, '') || null };
+  }
+  if (prefilledOpenThink) return { think: acc.trim() || null, visible: null };
+  const om = /^\s*<(?:think|thinking|thought)\b[^>]*>/i.exec(acc);
+  if (om) return { think: acc.slice(om[0].length).trim() || null, visible: null };
   const head = acc.trimStart().toLowerCase();
-  if (head && head[0] === '<' && '<thinking'.startsWith(head)) return null;   // 逐字到来的部分开标签前缀（<, <t, <th…）
-  return acc;
+  if (head && head[0] === '<' && '<thinking'.startsWith(head)) return { think: null, visible: null };   // 部分开标签前缀（<, <t, <th…）
+  return { think: null, visible: acc };
+}
+/* 旧接口保留（隐藏模式/存量调用）：只要 visible 视图 */
+export function streamVisibleNarrative(acc: string, prefilledOpenThink: boolean): string | null {
+  return splitThinkStream(acc, prefilledOpenThink).visible;
+}
+
+/* 结算时抽出「思维链原文」供折叠块显示——严格镜像 stripLeakedThinking 删掉的部分
+   （闭合块内容 + 孤立闭合标签前的 prefill 回显草稿）；未闭合的开标签同样不碰（与 strip 口径一致，
+   否则 strip 留在正文里、这里又抓进折叠块 = 同一段字显示两遍）。 */
+export function extractLeakedThinking(text: string): string | null {
+  if (!text || !/<\/?(?:think|thinking|thought)\b/i.test(text)) return null;
+  const parts: string[] = [];
+  const t = text.replace(/<(think|thinking|thought)\b[^>]*>([\s\S]*?)<\/\1>/gi, (_m, _tag, inner) => {
+    parts.push(String(inner).trim());
+    return '';
+  });
+  const cm = /<\/(?:think|thinking|thought)>/i.exec(t);
+  if (cm && !/<(?:think|thinking|thought)\b/i.test(t.slice(0, cm.index))) parts.unshift(t.slice(0, cm.index).trim());
+  const joined = parts.filter(Boolean).join('\n\n');
+  return joined || null;
 }
 
 /* 兜底：模型把「动笔前思考」草稿裸奔在正文最前（没包 <think>，故上面按标签剥不到）。

@@ -233,6 +233,19 @@
 | `cosmosStore.ts` | `drpg-cosmos` | 万族演化 |
 | `characterStore.ts` | `drpg-characters` | 技能/天赋/称号/副职业/记忆（B1+Cx 共用）。`mergeKeepRich`(空字段保旧)、`nameEq`(归一化匹配)、`SKILL_TIER_*`/`normSkillTier`、`removeCharacter`/`purgeNpcCharacters` |
 | `memoryStore.ts` | `drpg-memory` | 生平压缩设置+提示词+API |
+
+## §酒馆美化适配（渲染层 2026-08-07，详见 FEATURES 同名节）
+| 位置 | 内容 |
+| --- | --- |
+| `systems/htmlSanitize.ts` | `sanitizeHtmlBlock`(DOMPurify 白名单+外链媒体 hook) / `extractStyleBlocks` / `renderScopedStyles` / `scopeCss`(手写 CSS 作用域化·body/:root→容器) / `extractHtmlFences`(```html 围栏→前端卡) |
+| `systems/narrativeHtml.ts` | `toHtml`：style 抽取→`wrapSettlementBlocks`(HTML 块按深度整块吃+消毒·块内 \n 拼接)→作用域化还原；`toHtmlWithImagesCached` 签名含 extTok（⚠sig 分隔符是 \x01 控制字符，肉眼不可见） |
+| `systems/stateApply.ts` | `splitThinkStream`(流式思维链二分) / `extractLeakedThinking`(结算抽取·严格镜像 stripLeakedThinking 口径) / `streamVisibleNarrative`(旧接口=只取 visible) |
+| `components/CustomCssStyle.tsx` | 全局自定义 CSS 注入器：自订阅 `customCss`，维护 `#drpg-custom-css`；scope=chat 过 scopeCss('#chat')；App 主返回+设置早退分支都挂（CodexHover 同款教训） |
+| `components/HtmlSandbox.tsx` | 前端卡 sandbox iframe（模块级 memo·postMessage 高度自适应·allow-scripts 无 same-origin） |
+| `App.tsx` | `ChatMessage.think`；MessageRow：`.mes/.mes_block/.mes_text/.last_mes/is_user` 别名 + `mes_reasoning_*` 折叠块 + fenceSplit(useMemo)；流式 `flushStreamUi` 按 `thinkDisplay` 分流；两处结算点抓 `leakedThink`；消息滚动容器 `id="chat"` |
+| `store/settingsStore.ts` | 新字段 `thinkDisplay` / `htmlExternalMedia` / `customCss` / `renderHtmlSandbox`（+setters） |
+| `index.css` | `:root` 里 `--SmartTheme*`→`--c-*` 映射；`.mes_reasoning_*` 默认样式（尾部） |
+| `SettingsPanel.tsx` | TextApiSection：思维链显示三态（隐藏/折叠/展开）；外观区顶部：自定义 CSS 编辑框+导入 ST 主题 .json/.css+外链媒体开关+前端卡开关 |
 | `miscStore.ts` | `drpg-misc` | 杂项(任务数据/总结/`narrativeFacts`/双时间/天气)+预设+API；另挂任务演化的 `settings.questEnabled`+`questApi`/`questUseSharedApi`（独立阶段，merge 迁移旧档继承 enabled）。`addNarrativeFacts` |
 | `imageGenStore.ts` | `drpg-image-gen` | 生图服务/用途/模板/自动开关；服务含 `chatimg`(多模态Chat出图·nano-banana系) |
 | `comicStore.ts` | `drpg-comic` | 漫画工坊设置（服务/页数/尺寸/语言/参考图/送审软化/错峰间隔）；`useComicJob`=运行时任务进度（不持久化）|

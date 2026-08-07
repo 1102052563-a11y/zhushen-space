@@ -1,4 +1,4 @@
-import { useRef, useState, useEffect } from 'react';
+import { useRef, useState, useEffect, type ChangeEvent } from 'react';
 import { useSettings, endpointToConfig, type WorldBook, type WorldBookEntry, type TextGenPreset, type STPromptEntry, type RegexScript, type ApiEndpoint } from '../store/settingsStore';
 import { apiChatFallback, fetchWithProxy, gwProxyBase } from '../systems/apiChat';
 import { READING_FONTS, readingFontStack } from '../systems/readingFonts';
@@ -1449,6 +1449,8 @@ function TextApiSection() {
   const textStream         = useSettings((s) => s.textStream);
   const skipNarrativeThinking = useSettings((s) => s.skipNarrativeThinking);
   const forceNarrativeThinking = useSettings((s) => s.forceNarrativeThinking);
+  const thinkDisplay       = useSettings((s) => s.thinkDisplay ?? 'fold');
+  const setThinkDisplay    = useSettings((s) => s.setThinkDisplay);
   const plotGuidance       = useSettings((s) => s.plotGuidance);
   const guidancePrompt     = useSettings((s) => s.guidancePrompt);
   const setTextStream      = useSettings((s) => s.setTextStream);
@@ -1507,7 +1509,19 @@ function TextApiSection() {
           <Toggle checked={forceNarrativeThinking} onChange={() => setForceNarrativeThinking(!forceNarrativeThinking)} />
           <div>
             <div className="text-sm text-slate-200">强制正文思维链（预填充 <code>&lt;think&gt;</code>·根治时有时无）</div>
-            <div className="text-sm text-dim mt-0.5">在正文请求末尾以 assistant 身份预填充一个 <code>&lt;think&gt;</code> 开标签，让模型只能从思维链续写——把「十次只出五次思维链」变成基本每次都出（与 SillyTavern 的「继续预填充 / assistant 预填充」同一机制）。<b className="text-slate-300">流式期间会自动隐藏思考、只把正文逐字显示给你</b>（思考中显示「💭 思考中……」占位），最终也不会残留在正文里。与上面「跳过正文思维链」互斥（开一个自动关另一个）。<b className="text-emerald-400/90">默认开</b>；若接口不支持「助手预填充」（如部分 Gemini 端点拒绝以 assistant 结尾）请关掉。</div>
+            <div className="text-sm text-dim mt-0.5">在正文请求末尾以 assistant 身份预填充一个 <code>&lt;think&gt;</code> 开标签，让模型只能从思维链续写——把「十次只出五次思维链」变成基本每次都出（与 SillyTavern 的「继续预填充 / assistant 预填充」同一机制）。<b className="text-slate-300">思考怎么显示由下面「思维链显示」决定</b>（默认折叠块实时直播，可切回整段隐藏），最终都不会残留进正文/提示词。与上面「跳过正文思维链」互斥（开一个自动关另一个）。<b className="text-emerald-400/90">默认开</b>；若接口不支持「助手预填充」（如部分 Gemini 端点拒绝以 assistant 结尾）请关掉。</div>
+          </div>
+        </div>
+        <div className="flex items-center gap-3 p-3 bg-panel border border-edge rounded-lg">
+          <div className="flex rounded-md overflow-hidden border border-edge shrink-0">
+            {([['hidden', '隐藏'], ['fold', '折叠'], ['open', '展开']] as const).map(([k, label]) => (
+              <button key={k} onClick={() => setThinkDisplay(k)}
+                className={`px-2.5 py-1 text-xs font-mono transition-colors ${thinkDisplay === k ? 'bg-god/20 text-god' : 'text-dim hover:text-slate-300'}`}>{label}</button>
+            ))}
+          </div>
+          <div>
+            <div className="text-sm text-slate-200">思维链显示（折叠块 · 酒馆 Reasoning 同款）</div>
+            <div className="text-sm text-dim mt-0.5">正文里的 <code>&lt;think&gt;</code> 思考怎么给你看：<b>隐藏</b>=旧行为，思考期间只显示「💭 思考中……」占位；<b>折叠</b>=渲染成可点开的折叠块（默认·流式实时直播思考，正文开始后自动收起）；<b>展开</b>=折叠块默认展开。折叠块类名与 SillyTavern Reasoning 一致（<code>mes_reasoning_*</code>），酒馆的思维链美化 CSS 可直接命中。无论选哪种，思考都<b>只存在显示层</b>——不进提示词历史、不进演化、不进小说导出。</div>
           </div>
         </div>
         <div className="flex items-center gap-3 p-3 bg-panel border border-edge rounded-lg">
@@ -3379,6 +3393,12 @@ function AppearanceSettingsSection() {
   const setHoloCardFx = useSettings((s) => s.setHoloCardFx);
   const uiTheme    = useSettings((s) => s.uiTheme);
   const setUiTheme = useSettings((s) => s.setUiTheme);
+  const customCss    = useSettings((s) => s.customCss);
+  const setCustomCss = useSettings((s) => s.setCustomCss);
+  const renderHtmlSandbox    = useSettings((s) => s.renderHtmlSandbox);
+  const setRenderHtmlSandbox = useSettings((s) => s.setRenderHtmlSandbox);
+  const htmlExternalMedia    = useSettings((s) => s.htmlExternalMedia);
+  const setHtmlExternalMedia = useSettings((s) => s.setHtmlExternalMedia);
   const language    = useSettings((s) => s.language);
   const setLanguage = useSettings((s) => s.setLanguage);
   const autoTranslateOnline    = useSettings((s) => s.autoTranslateOnline);
@@ -3391,9 +3411,99 @@ function AppearanceSettingsSection() {
   const evolveOutputLang       = useSettings((s) => s.evolveOutputLang);
   const setEvolveOutputLang    = useSettings((s) => s.setEvolveOutputLang);
   const ff = reading.fontFamily || 'default';
+  // 导入 ST 主题 .json（取 custom_css + 颜色字段→--SmartTheme* 覆盖块）或纯 .css 文件 → 填进自定义 CSS
+  const importThemeFile = (e: ChangeEvent<HTMLInputElement>) => {
+    const f = e.target.files?.[0];
+    e.target.value = '';   // 允许重复选同一文件
+    if (!f) return;
+    const reader = new FileReader();
+    reader.onload = () => {
+      const raw = String(reader.result || '');
+      let css = raw;
+      if (/\.json$/i.test(f.name) || raw.trim().startsWith('{')) {
+        try {
+          const j = JSON.parse(raw) as Record<string, unknown>;
+          const themeCss = String((j.custom_css ?? j.customCSS ?? '') || '');
+          const MAP: [string, string][] = [
+            ['main_text_color', '--SmartThemeBodyColor'],
+            ['italics_text_color', '--SmartThemeEmColor'],
+            ['underline_text_color', '--SmartThemeUnderlineColor'],
+            ['quote_text_color', '--SmartThemeQuoteColor'],
+            ['blur_tint_color', '--SmartThemeBlurTintColor'],
+            ['chat_tint_color', '--SmartThemeChatTintColor'],
+            ['user_mes_blur_tint_color', '--SmartThemeUserMesBlurTintColor'],
+            ['bot_mes_blur_tint_color', '--SmartThemeBotMesBlurTintColor'],
+            ['shadow_color', '--SmartThemeShadowColor'],
+            ['border_color', '--SmartThemeBorderColor'],
+          ];
+          const vars = MAP.filter(([k]) => typeof j[k] === 'string' && j[k]).map(([k, v]) => `  ${v}: ${String(j[k])};`);
+          css = (vars.length ? `/* ${String(j.name || f.name)} · ST 主题颜色变量 */\n:root{\n${vars.join('\n')}\n}\n\n` : '') + themeCss;
+          if (!css.trim()) { alert('这个 JSON 里没有 custom_css / 颜色字段——不是 SillyTavern 主题文件？'); return; }
+        } catch { alert('JSON 解析失败：不是合法的 ST 主题文件'); return; }
+      }
+      setCustomCss({ text: css, enabled: true });
+    };
+    reader.readAsText(f);
+  };
   return (
     <div className="space-y-8">
       <SectionTitle title="界面外观美化" desc="主题配色 / 护眼色调 / 暗角 / 正文字体与排版，实时生效（不改变存档、也不发送给 AI）。" />
+
+      {/* ── 自定义 CSS（酒馆美化包入口·对齐 SillyTavern User Settings → Custom CSS）──
+          注入/作用域化由 <CustomCssStyle/>（App 两个分支都挂）实时生效；文本随 drpg-settings 持久化、随配置导出。 */}
+      <div className="space-y-3">
+        <div className="text-sm font-mono text-god/70 uppercase tracking-widest">自定义 CSS · 酒馆美化包</div>
+        <div className="border border-edge rounded-lg p-4 bg-panel space-y-3">
+          <div className="text-sm text-dim leading-relaxed">
+            把 SillyTavern 美化包的 CSS 粘贴进来（或直接导入 ST 主题 <code>.json</code> / 纯 <code>.css</code> 文件）即可给聊天区换装。
+            楼层 DOM 已挂 ST 同名锚点：<code>#chat</code> / <code>.mes</code>（含 <code>is_user</code> 属性）/ <code>.mes_block</code> / <code>.mes_text</code> / <code>.last_mes</code>，
+            思维链折叠块类名同 ST（<code>mes_reasoning_*</code>），并内置 <code>--SmartTheme*</code> 颜色变量（随本站主题联动）——多数酒馆美化 CSS 贴上就能命中。
+          </div>
+          <div className="flex items-center gap-3 flex-wrap">
+            <Toggle checked={customCss.enabled} onChange={() => setCustomCss({ enabled: !customCss.enabled })} />
+            <span className="text-sm text-slate-300">启用</span>
+            <div className="flex rounded-md overflow-hidden border border-edge">
+              {([['chat', '仅聊天区（推荐）'], ['global', '全局']] as const).map(([k, label]) => (
+                <button key={k} onClick={() => setCustomCss({ scope: k })}
+                  className={`px-2.5 py-1 text-xs font-mono transition-colors ${customCss.scope === k ? 'bg-god/20 text-god' : 'text-dim hover:text-slate-300'}`}>{label}</button>
+              ))}
+            </div>
+            <label className="px-2.5 py-1 rounded border border-edge text-xs font-mono text-dim hover:text-god hover:border-god/40 cursor-pointer transition-colors">
+              📥 导入 .json / .css
+              <input type="file" accept=".json,.css,.txt" className="hidden" onChange={importThemeFile} />
+            </label>
+            <button onClick={() => { if (customCss.text && !confirm('清空自定义 CSS？（界面立即还原）')) return; setCustomCss({ text: '' }); }}
+              className="px-2.5 py-1 rounded border border-edge text-xs font-mono text-dim hover:text-blood transition-colors">清空</button>
+          </div>
+          <textarea
+            value={customCss.text}
+            onChange={(e) => setCustomCss({ text: e.target.value })}
+            rows={8}
+            spellCheck={false}
+            placeholder={'/* 例：#chat { background: #0b0f14 }  .mes_text { line-height: 1.9 } */'}
+            className="w-full bg-void border border-edge rounded-lg px-3 py-2 text-[12.5px] text-slate-300 font-mono leading-relaxed outline-none focus:border-god/50 resize-y"
+          />
+          <div className="text-[12px] text-dim/60 leading-relaxed">
+            「仅聊天区」下每条选择器会被强制加 <code>#chat</code> 前缀（<code>body</code>/<code>:root</code> 视为聊天区本体），美化再野也摸不到界面框架；
+            「全局」原样注入、可改整个界面（自担风险）。样式弄花了点「清空」或关「启用」即刻还原。
+            楼层里 AI 输出的 <code>&lt;style&gt;</code> 美化卡另有独立通道（自动作用域进正文区+消毒），无需在此配置。
+          </div>
+          <div className="flex items-center gap-3 pt-1 border-t border-edge/60">
+            <Toggle checked={htmlExternalMedia !== false} onChange={() => setHtmlExternalMedia(!(htmlExternalMedia !== false))} />
+            <div>
+              <div className="text-sm text-slate-200">允许楼内美化加载外链媒体</div>
+              <div className="text-[12px] text-dim/60 mt-0.5">美化卡里指向站外的 <code>&lt;img&gt;</code> / CSS <code>url()</code>（如图床背景图）。关掉=一律剥除（对外不发任何请求，SillyTavern「Forbid external media」同款）。默认允许。</div>
+            </div>
+          </div>
+          <div className="flex items-center gap-3 pt-1 border-t border-edge/60">
+            <Toggle checked={renderHtmlSandbox} onChange={() => setRenderHtmlSandbox(!renderHtmlSandbox)} />
+            <div>
+              <div className="text-sm text-slate-200">渲染前端卡（```html 代码块 → 沙箱 iframe）<span className="text-xs text-amber-400/80 ml-1">· 实验</span></div>
+              <div className="text-[12px] text-dim/60 mt-0.5">正文里的 <code>```html</code> 围栏/完整 HTML 文档渲染成<b>沙箱 iframe</b>（同酒馆助手 JS-Slash-Runner 思路）：脚本、动画、交互界面全量可跑，但摸不到本站数据与界面——天然隔离。渲染在本楼正文下方、高度自适应。默认关。</div>
+            </div>
+          </div>
+        </div>
+      </div>
 
       {/* 界面语言：简体（源码原样）/ 繁體（OpenCC 运行时转换·台湾正体）/ English（人工词库·核心界面）。
           只译界面 chrome，AI 生成的剧情正文始终保持原语言、不受影响。 */}

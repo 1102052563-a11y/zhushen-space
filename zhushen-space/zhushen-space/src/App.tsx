@@ -151,7 +151,7 @@ import { useSettings, resolveApiChain, resolveAgentPreset, inferViewScopes, type
 import { runRegexReplace, compileFindRegex, regexScriptApplies, escapeRegexLiteral } from './systems/regexEngine';
 import { apiChatFallback, fetchWithProxy, abortAllApiCalls, narrativeLangDirective } from './systems/apiChat';
 import { parseAllStateUpdates, stripStateBlocks, parseAllItemCommands, applyItemCommands, parseAllCharCommands, applyCharacterCommands, parseAllNpcCommands, applyNpcCommands, parseAllFactionCommands, applyFactionCommands, applyTerritoryCommands, applyTeamCommands, isEquippable, lenientJsonParse, buildItemFeedback, recordEvo, purgeItemPhaseCurrency, editToTerritoryText, editToTeamText, detectUnregisteredCurrencyGains, deferredCreateSkipReason } from './systems/stateParser';
-import { isRealNpc, sanitizeEntryName, stripLeakedThinking, streamVisibleNarrative, setNpcPreferredOwners, applyStateUpdates, applyAllUpdates, stripKillBlocks, stripVitalsBlocks, stripWorldSourceBlocks, collapseRunaway } from './systems/stateApply';
+import { isRealNpc, sanitizeEntryName, stripLeakedThinking, streamVisibleNarrative, splitThinkStream, extractLeakedThinking, setNpcPreferredOwners, applyStateUpdates, applyAllUpdates, stripKillBlocks, stripVitalsBlocks, stripWorldSourceBlocks, collapseRunaway } from './systems/stateApply';
 import { buildTableFillPrompt, buildPlotStateSnapshot } from './systems/tablePrompt';   // ACU 表格数据库：填表提示词 + 剧情状态快照（喂剧情指导）
 import { applyTableEdits } from './systems/tableEditParser';   // ACU 表格数据库：<tableEdit> → tableStore（手动补填阶段直接落库，不经 applyAllUpdates）
 import { useTurnReport, recordHasActivity, type TurnApplyRecord } from './store/turnReportStore';   // 手动补填也记进 📋 变量事务报告（与自动填表同一视图）
@@ -277,6 +277,9 @@ const WikiPanel = lazy(() => import('./components/WikiPanel'));
 const AdventureTeamPanel = lazy(() => import('./components/AdventureTeamPanel'));
 import ImageViewer from './components/ImageViewer';
 import CodexHover from './components/CodexHover';   // 正文关键词悬浮图鉴的悬浮卡宿主（全局一份·document 委托监听·零 store 订阅）
+import CustomCssStyle from './components/CustomCssStyle';   // 全局自定义 CSS 注入（酒馆美化包·自订阅零 App 订阅）
+import HtmlSandbox from './components/HtmlSandbox';   // 前端卡沙箱 iframe（```html 围栏·模块级 memo）
+import { extractHtmlFences } from './systems/htmlSanitize';
 const CodexDetail = lazy(() => import('./components/CodexDetail'));   // 完整档案页（只在点开时才拉这块）
 import { loadLunhuiCharacters, type LunhuiChar } from './systems/lunhuiChars';   // 轮回 wiki 人物库（小剧场取材 + 悬浮图鉴 wiki 层共用同一份缓存）
 import HoloViewer from './components/HoloViewer';
@@ -471,6 +474,7 @@ interface ChatMessage {
   role: 'user' | 'assistant' | 'system';
   content: string;
   raw?: string;            // 正则前原文（仅与 content 不同才存）：发正文 API 时每楼从 raw 现算 prompt 视图（promptOnly「对AI隐藏」生效、markdownOnly 美化壳不进提示词）；缺省=旧楼层，退化为对 content 只补跑 promptOnly
+  think?: string;          // 本楼思维链原文（折叠块显示用·ST Reasoning 同构）：只进显示层，永不进提示词历史/演化/小说导出
   inputImages?: string[];  // 玩家本楼随行动附带的图片（data:URL·已压缩）→ 随本回合以多模态喂给视觉正文接口，并在用户气泡里显示缩略图
   smallSummary?: string;   // 该楼层小总结（叙事记忆三档注入用）
   largeSummary?: string;   // 该楼层大总结
@@ -1761,6 +1765,7 @@ export default function App() {
   const textStream           = useSettings((s) => s.textStream);
   const skipNarrativeThinking = useSettings((s) => s.skipNarrativeThinking);
   const forceNarrativeThinking = useSettings((s) => s.forceNarrativeThinking);
+  const thinkDisplay = useSettings((s) => s.thinkDisplay ?? 'fold');   // 思维链显示模式（MessageRow 折叠块·hidden/fold/open）
   const plotGuidance         = useSettings((s) => s.plotGuidance);
   const guidancePrompt       = useSettings((s) => s.guidancePrompt);
   const preludePrompt        = useSettings((s) => s.preludePrompt);   // 玩家常驻「前置提示词」（输入框上方可编辑，每回合注入正文最深处）
@@ -11264,13 +11269,23 @@ ${lines}`;
           flushDirty = false;
           lastFlushAt = Date.now();
           if (isOutline) { opts.onDelta?.(accumulated); return; }   // 细纲：流式喂进弹窗（自己剥 <剧情推演>，喂全量）
-          // 流式隐藏思维链：预填了 <think>（强制思维链）或内容以 <think 开头时，闭合前整段是思考 → 只显示 </think> 之后的正文，
-          // 思考中显示占位（不把思考直播给读者）；普通(无思考)内容原样、零改动、不闪烁。最终仍由 stripLeakedThinking 兜底剥净。
-          const vis = streamVisibleNarrative(accumulated, prefilledOpenThink);
+          // 流式思维链：hidden=旧行为（闭合前整段占位隐藏）；fold/open=思考实时灌进楼层 think 字段、由
+          // MessageRow 渲染成 ST 同构折叠块（mes_reasoning_*）直播，正文照旧只显示 </think> 之后部分。
+          // 最终仍由 stripLeakedThinking / extractLeakedThinking 在结算时定稿。
+          const thinkMode = (() => { try { return useSettings.getState().thinkDisplay ?? 'fold'; } catch { return 'fold'; } })();
+          if (thinkMode === 'hidden') {
+            const vis = streamVisibleNarrative(accumulated, prefilledOpenThink);
+            setMessages((prev) =>
+              prev.map((m) => m.id === streamMsgId ? { ...m, content: vis === null ? '💭 思考中……' : vis } : m)
+            );
+            if (vis) maybeDispatchProgressiveImages(vis, streamMsgId);   // 「边写边出」只对已显现的正文配图，绝不给思考配图（细纲不配图）
+            return;
+          }
+          const sp = splitThinkStream(accumulated, prefilledOpenThink);
           setMessages((prev) =>
-            prev.map((m) => m.id === streamMsgId ? { ...m, content: vis === null ? '💭 思考中……' : vis } : m)
+            prev.map((m) => m.id === streamMsgId ? { ...m, content: sp.visible ?? '', think: sp.think ?? undefined } : m)
           );
-          if (vis) maybeDispatchProgressiveImages(vis, streamMsgId);   // 「边写边出」只对已显现的正文配图，绝不给思考配图（细纲不配图）
+          if (sp.visible) maybeDispatchProgressiveImages(sp.visible, streamMsgId);
         };
         const scheduleStreamFlush = () => {
           flushDirty = true;
@@ -11328,6 +11343,7 @@ ${lines}`;
         }
         // 流结束后：先剥掉泄漏进正文的思维链块（中转把 <think> 拍平进 content / 末尾 </think> 预填充被回显），再解析/渲染
         const cleaned = stripLeakedThinking(accumulated);
+        const leakedThink = extractLeakedThinking(accumulated);   // 思维链原文定稿 → 楼层 think 字段（折叠块显示用；提示词/演化只认剥净的 cleaned）
         if (isOutline) { apiDebugLog.finish(narrLogId, accumulated, true); return stripOutlineThinking(cleaned); }   // 细纲：剥<剧情推演>思维链后回传（不落地/不解析<state>/不演化/不动 ref）
         lastRawNarrativeRef.current = cleaned;   // 存含指令原文，供「仅重算变量」复用
         if (/<世界结算>/.test(cleaned)) { playSfx('fanfare'); try { useMisc.getState().markWorldSettled(); } catch { /* 结算完成→推进结算边界戳，下个世界不再重复结算本世界任务 */ } try { const _cs = captureCanonSettlement(cleaned); if (_cs) setCanonSettleNotice(_cs); } catch { /* 🛤 原著路线：站点盖章+对比横幅 */ } }   // 世界结算 → 号角音效
@@ -11341,7 +11357,8 @@ ${lines}`;
         // 正则前原文（同 display 的剥块链但不跑正则）：存进楼层 raw——后续回合发正文 API 时每楼从 raw 现算 prompt 视图（美化壳不进历史、对AI隐藏对历史生效）
         const rawForHist = stripWorldSourceBlocks(stripVitalsBlocks(stripStateBlocks(settledText))) + gemLootLine;
         if (!narrateOnly) setMessages((prev) =>
-          prev.map((m) => m.id === streamMsgId ? { ...m, content: finalDisplayed, ...(rawForHist !== finalDisplayed ? { raw: rawForHist } : {}) } : m)
+          // think 显式定稿（null 也写 undefined）：流式中途若灌过部分思考、定稿抽不到（未闭合等）必须清掉，防止同段字既在正文又在折叠块
+          prev.map((m) => m.id === streamMsgId ? { ...m, content: finalDisplayed, think: leakedThink ?? undefined, ...(rawForHist !== finalDisplayed ? { raw: rawForHist } : {}) } : m)
         );
         setRawResponse(accumulated);
         apiDebugLog.finish(narrLogId, accumulated, true);
@@ -11362,6 +11379,7 @@ ${lines}`;
         const reply: string = data.choices?.[0]?.message?.content ?? data.choices?.[0]?.text ?? '';
         if (!reply) throw new Error('模型未返回内容');
         const cleanedReply = stripLeakedThinking(reply);   // 剥泄漏进正文的思维链块（同流式路径）
+        const leakedThink = extractLeakedThinking(reply);  // 思维链原文 → 楼层 think 字段（折叠块显示用）
         if (isOutline) return stripOutlineThinking(cleanedReply);   // 细纲：剥<剧情推演>思维链后回传（不落地/不解析<state>/不演化/不动 ref）
         lastRawNarrativeRef.current = cleanedReply;   // 存含指令原文，供「仅重算变量」复用
         if (/<世界结算>/.test(cleanedReply)) { playSfx('fanfare'); try { useMisc.getState().markWorldSettled(); } catch { /* 结算完成→推进结算边界戳，下个世界不再重复结算本世界任务 */ } try { const _cs = captureCanonSettlement(cleanedReply); if (_cs) setCanonSettleNotice(_cs); } catch { /* 🛤 原著路线：站点盖章+对比横幅 */ } }   // 世界结算 → 号角音效
@@ -11375,7 +11393,7 @@ ${lines}`;
         // 正则前原文 → 楼层 raw（后续回合历史按 prompt 视图现算，见流式路径同款注释）
         const rawForHist = stripWorldSourceBlocks(stripVitalsBlocks(stripStateBlocks(settledReply))) + gemLootLine;
         const newMsgId = ++msgId.current;
-        if (!narrateOnly) setMessages((prev) => [...prev, { id: newMsgId, role: 'assistant', content: processed, ...(rawForHist !== processed ? { raw: rawForHist } : {}) }]);
+        if (!narrateOnly) setMessages((prev) => [...prev, { id: newMsgId, role: 'assistant', content: processed, ...(leakedThink ? { think: leakedThink } : {}), ...(rawForHist !== processed ? { raw: rawForHist } : {}) }]);
         // 演化阶段读的正文：去 state 块外，再去掉击杀结算块（保留 <状态结算> 供 HP/EP 结算用，避免演化AI看到点数又重复发 ap）
         const narrativeForEvo = narrativeForEvoRaw.replace(/<击杀结算>[\s\S]*?<\/击杀结算>/gi, '').trimEnd();
         lastNarrativeRef.current = narrativeForEvo;
@@ -12769,6 +12787,7 @@ ${lines}`;
       <PanelBoundary label="设置面板" onReset={() => setSettingsOpen(false)}>
         <Suspense fallback={<PanelLoading />}><SettingsPanel initialPage={settingsDeepPage} onClose={() => { setSettingsOpen(false); setSettingsDeepPage(undefined); }} onOpenSaveLoad={() => { setSettingsOpen(false); setSettingsDeepPage(undefined); setSaveOpen(true); }} /></Suspense>
         <CodexHover />
+        <CustomCssStyle />{/* 设置页早退分支也要挂：编辑自定义 CSS 时实时生效（同 CodexHover 教训） */}
       </PanelBoundary>
     );
   }
@@ -12953,7 +12972,7 @@ ${lines}`;
                 onClose={() => { setWorlds([]); setCardIndex(0); }}
               />
             ) : (
-              <div ref={chatScrollRef} onScroll={onChatScroll} className="h-full overflow-y-auto px-6 max-lg:px-3 py-4 space-y-4 max-w-4xl mx-auto w-full border-x border-edge">
+              <div ref={chatScrollRef} onScroll={onChatScroll} id="chat" className="h-full overflow-y-auto px-6 max-lg:px-3 py-4 space-y-4 max-w-4xl mx-auto w-full border-x border-edge">
                 {messages.length === 0 && !generating && (
                   <div className="h-full flex items-center justify-center text-dim/30 text-sm font-mono select-none">
                     在此输入行动，故事将在这里展开…
@@ -12974,12 +12993,14 @@ ${lines}`;
                           — 已隐藏 {hiddenCount} 条历史记录（共 {messages.length} 楼）—
                         </div>
                       )}
-                      {visibleMsgs.map((msg) => (
+                      {visibleMsgs.map((msg, _vi) => (
                         <MessageRow
                           key={msg.id}
                           msg={msg}
+                          isLast={_vi === visibleMsgs.length - 1}
                           isEditing={editingMsgId === msg.id}
                           reading={reading}
+                          thinkDisplay={thinkDisplay}
                           ttsDlgOpts={ttsDlgOpts}
                           storyImgBusy={storyImgBusyId === msg.id}
                           choicesOpen={openChoiceIds.has(msg.id)}
@@ -14015,6 +14036,7 @@ ${lines}`;
       <ImageViewer />
       <HoloViewer />
       <CodexHover onOpenNpc={openNpcDetail} onOpenDoc={openCodexDoc} />
+      <CustomCssStyle />
       {codexDocEk && (
         <Suspense fallback={<PanelLoading />}>
           <CodexDetail ek={codexDocEk} onClose={() => setCodexDocEk(null)} />
@@ -14137,8 +14159,10 @@ const ChoiceOptions = memo(function ChoiceOptions({ opts }: { opts: string[] }) 
 
 interface MessageRowProps {
   msg: ChatMessage;
+  isLast: boolean;      // 末楼：挂 .last_mes 别名类（ST 美化 CSS 常用锚点）；只在追加新楼时翻转，最多重渲 2 行
   isEditing: boolean;
   reading: ReturnType<typeof useSettings.getState>['reading'];
+  thinkDisplay: 'hidden' | 'fold' | 'open';
   ttsDlgOpts: { speakable: boolean; npcNames: string[] } | undefined;
   storyImgBusy: boolean;
   choicesOpen: boolean;
@@ -14151,14 +14175,23 @@ interface MessageRowProps {
   onManualImages: (id: number) => void;
 }
 
-const MessageRow = memo(function MessageRow({ msg, isEditing, reading, ttsDlgOpts, storyImgBusy, choicesOpen, onToggleChoices, onStartEdit, onSaveEdit, onCancelEdit, onRegenImage, onEditImagePrompt, onManualImages }: MessageRowProps) {
+const MessageRow = memo(function MessageRow({ msg, isLast, isEditing, reading, thinkDisplay, ttsDlgOpts, storyImgBusy, choicesOpen, onToggleChoices, onStartEdit, onSaveEdit, onCancelEdit, onRegenImage, onEditImagePrompt, onManualImages }: MessageRowProps) {
   const [draft, setDraft] = useState('');                        // 编辑草稿（局部：键入不重渲 App）
   const illustClickTimer = useRef<number | null>(null);          // 正文配图单击/双击消歧：单击延时开灯箱，双击则取消并重生成
   // 进入编辑时以当前正文起草（只在 isEditing 翻转时取一次，编辑中流式改动不重置草稿）
   // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => { if (isEditing) setDraft(msg.content); }, [isEditing]);
+  // 前端卡（默认关）：开着才把 ```html 围栏抽成沙箱 iframe（HtmlSandbox·memo——html 不变绝不重渲，流式期间 iframe 不重载）。
+  // 设置零订阅读取（切开关后回聊天视图必整树重渲，够新）；抽取按 content 记忆化（纯正则、便宜）。
+  const sandboxOn = (() => { try { return useSettings.getState().renderHtmlSandbox === true; } catch { return false; } })();
+  const fenceSplit = useMemo(
+    () => (sandboxOn && msg.role !== 'user' && msg.content.includes('```') ? extractHtmlFences(msg.content) : null),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [sandboxOn, msg.role, msg.content],
+  );
   return (
-    <div data-msg-id={msg.id} className={msg.role === 'user' ? 'flex justify-end' : ''}>
+    // ST 兼容别名：.mes / .last_mes / is_user 属性（+内部 .mes_block/.mes_text）——纯挂名零样式，让酒馆美化包选择器直接命中
+    <div data-msg-id={msg.id} {...({ is_user: msg.role === 'user' ? 'true' : 'false' } as any)} className={`mes${isLast ? ' last_mes' : ''}${msg.role === 'user' ? ' flex justify-end' : ''}`}>
       {msg.role === 'user' ? (
         isEditing ? (
           <div className="w-full max-w-sm space-y-2">
@@ -14190,8 +14223,8 @@ const MessageRow = memo(function MessageRow({ msg, isEditing, reading, ttsDlgOpt
             >
               <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round"><path d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg>
             </button>
-            <div className="flex flex-col items-end min-w-0">
-              <div className="max-w-sm px-4 py-2 rounded-xl bg-god/10 border border-god/20 text-sm text-god/90 font-mono"
+            <div className="flex flex-col items-end min-w-0 mes_block">
+              <div className="max-w-sm px-4 py-2 rounded-xl bg-god/10 border border-god/20 text-sm text-god/90 font-mono mes_text"
                 dangerouslySetInnerHTML={{ __html: userToHtml(msg.content) }} />
               {msg.inputImages && msg.inputImages.length > 0 && (
                 <div className="mt-1.5 flex flex-wrap gap-1.5 justify-end max-w-sm">
@@ -14231,7 +14264,7 @@ const MessageRow = memo(function MessageRow({ msg, isEditing, reading, ttsDlgOpt
           </div>
         </div>
       ) : (
-        <div className="group relative">
+        <div className="group relative mes_block">
           {/* 右上角操作组：⭐收藏 + ✎编辑。⭐ 自订阅 bookmarkStore（App 不订阅），收藏只重渲那颗按钮 */}
           <div className="absolute top-0 right-0 z-10 flex items-center gap-1">
             <BookmarkButton msgId={msg.id} content={msg.content} />
@@ -14243,8 +14276,19 @@ const MessageRow = memo(function MessageRow({ msg, isEditing, reading, ttsDlgOpt
               <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round"><path d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg>
             </button>
           </div>
+          {/* 思维链折叠块：类名对齐 SillyTavern Reasoning（mes_reasoning_*），酒馆思维链美化 CSS 可直接命中。
+              内容走 React 文本渲染（自动转义·think 里的 <标签> 不会当 HTML）；think 永不进提示词历史/演化/导出。
+              流式思考中（正文未开始）自动展开直播，正文出现即收起；open 模式恒展开。 */}
+          {msg.think && thinkDisplay !== 'hidden' && (
+            <details className="mes_reasoning_details" open={thinkDisplay === 'open' || !msg.content}>
+              <summary className="mes_reasoning_summary">
+                <span className="mes_reasoning_header_title">💭 {msg.content ? '思考过程' : '思考中…'}</span>
+              </summary>
+              <div className="mes_reasoning">{msg.think}</div>
+            </details>
+          )}
           <div
-            className="text-slate-300 narrative-content"
+            className="text-slate-300 narrative-content mes_text"
             data-dlg={reading.dialogueHl === false ? '0' : '1'}
             data-inner={reading.innerDim === false ? '0' : '1'}
             style={{ fontSize: `${reading.fontSize}px`, letterSpacing: `${reading.letterSpacing}px`, fontFamily: readingFontStack(reading.fontFamily), '--narr-lh': String(reading.lineHeight), '--narr-para': `${reading.paraSpacing ?? 0.45}em` } as any}
@@ -14272,8 +14316,10 @@ const MessageRow = memo(function MessageRow({ msg, isEditing, reading, ttsDlgOpt
               if (illustClickTimer.current) { clearTimeout(illustClickTimer.current); illustClickTimer.current = null; }   // 取消单击开灯箱
               onRegenImage(msg.id, Number(el.dataset.imgIdx));
             }}
-            dangerouslySetInnerHTML={{ __html: toHtmlWithImagesCached(msg.id, msg.content, msg.images, ttsDlgOpts) }}
+            dangerouslySetInnerHTML={{ __html: toHtmlWithImagesCached(msg.id, fenceSplit && fenceSplit.fences.length ? fenceSplit.text : msg.content, msg.images, ttsDlgOpts) }}
           />
+          {/* 前端卡沙箱：抽出的 ```html 围栏按序渲染在正文之后（正文里留【🧩 前端卡 n】占位行对应） */}
+          {fenceSplit && fenceSplit.fences.map((f, fi) => <HtmlSandbox key={fi} html={f} />)}
           {/* 手动正文生图：重新为本回合配图（不重 roll 正文，救"没出图/失败"的错）*/}
           <div className="mt-1">
             <button

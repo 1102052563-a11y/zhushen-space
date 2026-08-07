@@ -60,6 +60,18 @@
   --c-void: 7 10 16; --c-panel: 14 20 29; --c-panel2: 20 28 40; --c-edge: 30 42 58;
   --c-god: 70 227 207; --c-blood: 224 68 90; --c-gold: 216 177 78; --c-san: 155 122 214; --c-dim: 139 157 178;
   --c-ink: 199 210 224; --c-ink-dim: 139 157 178;   /* 浅色主题下覆盖 slate/white 文字色用 */
+  /* ── SillyTavern 主题变量映射（酒馆美化包常引用 --SmartTheme*；跟着 --c-* 走，切主题/护眼自动联动；
+        导入 ST 主题 json 时会在自定义 CSS 里生成 :root 覆盖块盖掉这些默认值）── */
+  --SmartThemeBodyColor: rgb(var(--c-ink));
+  --SmartThemeEmColor: rgb(var(--c-gold));
+  --SmartThemeUnderlineColor: rgb(var(--c-dim));
+  --SmartThemeQuoteColor: rgb(var(--c-god));
+  --SmartThemeBlurTintColor: rgb(var(--c-panel) / 0.85);
+  --SmartThemeChatTintColor: rgb(var(--c-void) / 0.6);
+  --SmartThemeUserMesBlurTintColor: rgb(var(--c-panel2) / 0.8);
+  --SmartThemeBotMesBlurTintColor: rgb(var(--c-panel) / 0.8);
+  --SmartThemeShadowColor: rgb(0 0 0 / 0.5);
+  --SmartThemeBorderColor: rgb(var(--c-edge));
 }
 
 /* ══ 统一排版规范（设置→界面外观美化→统一排版·2026-07-23）══
@@ -663,6 +675,16 @@ body {
 /* 18 街机（格斗游戏·黄橙红生命 + 青色超必杀槽脉冲）*/
 .bf-arcade-hp { background:linear-gradient(180deg,#fde047,#f59e0b 42%,#ea580c,#dc2626); box-shadow:0 0 8px rgba(245,158,11,.65); }
 .bf-arcade-ep { background:linear-gradient(180deg,#a5f3fc,#22d3ee 45%,#0891b2); box-shadow:0 0 9px rgba(34,211,238,.7); animation:barTwinkle 1.6s ease-in-out infinite; }
+
+/* ── 思维链折叠块（类名对齐 SillyTavern Reasoning：mes_reasoning_*，酒馆思维链美化 CSS 可直接命中覆盖）── */
+.mes_reasoning_details { margin: 2px 0 10px; border: 1px solid rgb(148 163 184 / 0.18); border-radius: 8px; background: rgb(148 163 184 / 0.05); }
+.mes_reasoning_summary { cursor: pointer; padding: 5px 10px; user-select: none; list-style: none; }
+.mes_reasoning_summary::-webkit-details-marker { display: none; }
+.mes_reasoning_summary::before { content: '▸'; margin-right: 6px; font-size: 11px; color: rgb(148 163 184 / 0.6); }
+.mes_reasoning_details[open] > .mes_reasoning_summary::before { content: '▾'; }
+.mes_reasoning_details[open] > .mes_reasoning_summary { border-bottom: 1px dashed rgb(148 163 184 / 0.15); }
+.mes_reasoning_header_title { font-size: 12px; font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; letter-spacing: 0.05em; color: rgb(148 163 184 / 0.8); }
+.mes_reasoning { padding: 8px 12px; font-size: 13px; line-height: 1.7; color: rgb(148 163 184 / 0.78); white-space: pre-wrap; word-break: break-word; max-height: 40vh; overflow-y: auto; }
 /* 19 魂界（魂系·暗血红极简 + 顶端金线饰边）*/
 .bf-souls-hp { background:linear-gradient(180deg,rgba(253,224,71,.55) 0 1.5px,transparent 1.5px),linear-gradient(180deg,#9f1239,#7f1d1d 50%,#450a0a); box-shadow:0 0 6px rgba(159,18,57,.5); }
 .bf-souls-ep { background:linear-gradient(180deg,rgba(253,224,71,.55) 0 1.5px,transparent 1.5px),linear-gradient(180deg,#3b6ea5,#1e3a5f 50%,#0f1f33); box-shadow:0 0 6px rgba(59,110,165,.5); }

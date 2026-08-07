@@ -1,7 +1,9 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 import { useOutfits } from '../store/outfitStore';
 import { useOutfitTemplates } from '../store/outfitTemplateStore';
+import { useItems } from '../store/itemStore';
 import { activeOutfit, outfitRosterLine, applyOutfitCommand } from './outfit';
+import { collectEquippedForOutfit } from './outfitGen';
 import { buildOutfitInjection } from './promptInjections';
 import { buildPortraitPrompt } from './imageGen';
 import { useImageGen } from '../store/imageGenStore';
@@ -92,6 +94,27 @@ describe('衣柜（穿搭预设）', () => {
     expect(useOutfits.getState().byChar['C9'].outfits[0].desc).toContain('深蓝');
     T.removeTemplate(id1);
     expect(useOutfitTemplates.getState().templates).toHaveLength(0);
+  });
+
+  it('按装备生成：只收已装备物品、带外观与槽位、无装备抛人话错', () => {
+    usePlayer.getState().setProfile({ name: '白夜', gender: '男' });
+    useItems.setState({
+      items: [
+        { id: 'I1', name: '幽冥骨卫重甲', category: '防具', gradeDesc: '紫色', effect: '', quantity: 1, equipped: true, equipSlot: '身体', tags: [], appearance: '暗紫色半透明魔纺，双肩苍白骨质外壳', addedAt: 1 },
+        { id: 'I2', name: '没穿的斗篷', category: '防具', gradeDesc: '蓝色', effect: '', quantity: 1, equipped: false, tags: [], appearance: '灰色旅行斗篷', addedAt: 2 },
+        { id: 'I3', name: '无外观短刀', category: '武器', gradeDesc: '绿色', effect: '', quantity: 1, equipped: true, tags: [], addedAt: 3 },
+      ] as any,
+    });
+    const input = collectEquippedForOutfit('B1');
+    expect(input).toContain('白夜');
+    expect(input).toContain('幽冥骨卫重甲');
+    expect(input).toContain('暗紫色半透明魔纺');
+    expect(input).toContain('[身体/防具]');
+    expect(input).toContain('无外观短刀');
+    expect(input).toContain('未写外观');                       // 缺外观走保守占位
+    expect(input).not.toContain('没穿的斗篷');                  // 未装备不进清单
+    useItems.setState({ items: [] as any });
+    expect(() => collectEquippedForOutfit('B1')).toThrow(/没有已装备/);
   });
 
   it('<钦定穿搭> 注入：主角有衣柜才出块，含当前穿着与清单与指令说明', () => {

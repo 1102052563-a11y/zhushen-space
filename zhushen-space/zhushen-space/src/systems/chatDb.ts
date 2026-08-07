@@ -35,7 +35,9 @@ function txDone(tx: IDBTransaction): Promise<void> {
   });
 }
 
-export interface StoredMsg { id: number; role: 'user' | 'assistant'; content: string; smallSummary?: string; largeSummary?: string }
+export interface StoredMsg { id: number; role: 'user' | 'assistant'; content: string; smallSummary?: string; largeSummary?: string; think?: string }
+// ⚠ 实际入库的是完整 ChatMessage 对象（putChanged(messages as any)，IndexedDB 结构化克隆全字段——raw/images/think… 都随行），
+//   本接口只是松类型标注；think 列出来是提醒「思维链随对话持久化，但永不进提示词/导出」。
 
 /** 读出全部已存对话（按 id 升序）；同时重建 diff 缓存 */
 export async function loadAll(): Promise<StoredMsg[]> {

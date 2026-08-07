@@ -432,6 +432,11 @@ interface SettingsState {
   textStream: boolean;
   skipNarrativeThinking: boolean;   // 正文末尾预填充 </think>，让思考模型跳过原生思维链直接出正文（提速·省 token）
   forceNarrativeThinking: boolean;  // 正文末尾预填充 <think>，以 assistant 预填充强制模型从思维链开写（根治「正文思维链时有时无」·与 skip 互斥）
+  // ── 酒馆美化适配（渲染层·参考 SillyTavern）──
+  thinkDisplay: 'hidden' | 'fold' | 'open';   // 正文思维链显示：hidden=整段隐藏(旧行为) fold=折叠块(ST Reasoning 同构·默认) open=默认展开；仅显示层，提示词/历史照旧剥净
+  htmlExternalMedia: boolean;       // 楼内 HTML/美化 CSS 允许加载外链媒体（img src / css url() 指向站外）；关=一律剥掉（ST「Forbid external media」同款）
+  customCss: { text: string; scope: 'chat' | 'global'; enabled: boolean };   // 全局自定义 CSS（酒馆美化包入口）：scope=chat 时选择器强制作用域进聊天区，global=原样全局注入
+  renderHtmlSandbox: boolean;       // 前端卡：正文里 ```html 代码块/完整 HTML 文档渲染成 sandbox iframe（脚本可跑·与宿主完全隔离）；默认关
   plotGuidance: boolean;            // 剧情指导：正文生成前先跑一次"剧情优化建议"调用 → 像叙事回忆一样注入主正文（仅一次正文生成·受指导）
   planningReview: boolean;          // 正文前审核窗：剧情指导/数据库推进的产出先弹窗给玩家编辑确认，再写正文（细纲本就有弹窗）
   guidancePrompt: string;           // 剧情指导自定义提示词（留空=用内置 PLOT_GUIDANCE_RULE）
@@ -485,6 +490,10 @@ interface SettingsState {
   setTextStream: (v: boolean) => void;
   setSkipNarrativeThinking: (v: boolean) => void;
   setForceNarrativeThinking: (v: boolean) => void;
+  setThinkDisplay: (v: 'hidden' | 'fold' | 'open') => void;
+  setHtmlExternalMedia: (v: boolean) => void;
+  setCustomCss: (patch: Partial<{ text: string; scope: 'chat' | 'global'; enabled: boolean }>) => void;
+  setRenderHtmlSandbox: (v: boolean) => void;
   setPlotGuidance: (v: boolean) => void;
   setPlanningReview: (v: boolean) => void;
   setGuidancePrompt: (v: string) => void;
@@ -900,6 +909,10 @@ export const useSettings = create<SettingsState>()(
       textStream: true,
       skipNarrativeThinking: false,
       forceNarrativeThinking: true,   // 默认开：预填 <think> 强制每回合出思维链（流式期间自动隐藏思考、只显示正文）；端点若拒绝 assistant 结尾可在设置关掉
+      thinkDisplay: 'fold',           // 默认折叠块展示（对齐酒馆 Reasoning 体验）；旧档无此字段=同默认
+      htmlExternalMedia: true,
+      customCss: { text: '', scope: 'chat', enabled: true },
+      renderHtmlSandbox: false,
       plotGuidance: false,
       planningReview: false,
       guidancePrompt: '',
@@ -1105,6 +1118,10 @@ export const useSettings = create<SettingsState>()(
       // skip 与 force 互斥：开一个自动关另一个（两者都在正文末尾预填充 assistant，语义相反）
       setSkipNarrativeThinking: (v) => set(v ? { skipNarrativeThinking: true, forceNarrativeThinking: false } : { skipNarrativeThinking: false }),
       setForceNarrativeThinking: (v) => set(v ? { forceNarrativeThinking: true, skipNarrativeThinking: false } : { forceNarrativeThinking: false }),
+      setThinkDisplay: (v) => set({ thinkDisplay: v }),
+      setHtmlExternalMedia: (v) => set({ htmlExternalMedia: v }),
+      setCustomCss: (patch) => set((s) => ({ customCss: { ...s.customCss, ...patch } })),
+      setRenderHtmlSandbox: (v) => set({ renderHtmlSandbox: v }),
       setPlotGuidance: (v) => set({ plotGuidance: v }),
       setPlanningReview: (v) => set({ planningReview: v }),
       setGuidancePrompt: (v) => set({ guidancePrompt: v }),

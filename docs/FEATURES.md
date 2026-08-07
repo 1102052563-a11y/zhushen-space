@@ -196,6 +196,17 @@
 
 **强制轮换**：`FATIGUE_GATE=70` 不可出勤、`FATIGUE_DECAY=6`/回合（出勤中不恢复）；坏结算 + 危险度掷骰 → 伤势 3~6 回合（期间不可出勤）。E 阶团只有 3 名额 → 两趟就得换人，板凳深度成真需求。
 
+## 酒馆美化适配（渲染层·参考 SillyTavern，2026-08-07）
+
+**背景**：ST 美化包（楼内 HTML/CSS 卡、全局自定义 CSS、思维链美化、前端卡）此前全不可用；且旧管线对含标签行**裸透传**（零消毒零作用域，多行 `<style>` 被打碎、块内被 join 插 `<br>`）。四层方案全部落地：
+
+1. **楼内 HTML/CSS**（`systems/htmlSanitize.ts` + `narrativeHtml.ts`）：`<style>` 整块抽取 → `scopeCss` 给每条选择器强制加 `.narrative-content` 前缀（ST 锁 `.mes_text` 同款；`body/html/:root` 视为容器本身、@media/@supports 递归、@keyframes/@font-face 保留、@import/未知 at 丢弃）→ 消毒还原；HTML 块按嵌套深度**整块吃**、块内 `\n` 拼接（修复 `<br>` 打碎表格/卡片）；整块过 **DOMPurify**（禁 script/事件属性/javascript:；`htmlExternalMedia` 开关管外链 img/css url()，默认允许）。流式未闭合 `<style>` 截断+「🎨 样式加载中」占位；scopeCss 为手写解析器（引号/括号/嵌套感知·node 可单测）+LRU；外链开关进 `toHtmlWithImagesCached` 签名。**消毒无条件**（顺手堵掉旧裸透传的 XSS 面）。
+2. **思维链折叠**（`thinkDisplay: hidden|fold|open`，默认 fold）：`splitThinkStream`（流式二分·思考实时直播进折叠块）+ `extractLeakedThinking`（结算定稿·**严格镜像 stripLeakedThinking 口径**——strip 不删的 extract 也不抓，防同段字双显）→ 楼层 `msg.think`（随 chatDb 整对象持久化）；MessageRow 渲染 ST 同构 DOM（`mes_reasoning_details/summary/header_title` + `.mes_reasoning`，React 文本渲染天然转义）；思考中自动展开、正文出现自动收起。⚠ think 只进显示层：提示词历史/演化/小说导出照旧用剥净的 content。hidden=旧行为（💭 占位）。
+3. **全局自定义 CSS**（设置→界面外观美化）：`customCss{text, scope:'chat'|'global', enabled}`；`<CustomCssStyle/>` 自订阅（App 零新增订阅·主返回+设置早退分支都挂）维护 `<style id="drpg-custom-css">`（textContent 注入，字面 `</style>` 无法逃逸）；scope=chat 整段 scopeCss 前缀 `#chat`。可导入 ST 主题 `.json`（`custom_css` + 颜色字段→生成 `--SmartTheme*` :root 覆盖块）或纯 `.css`。**ST 兼容锚点**：`#chat`（消息滚动容器）/`.mes`+`is_user` 属性/`.mes_block`/`.mes_text`/`.last_mes`（纯挂名零样式）；`:root` 内置 `--SmartTheme*` 映射 `--c-*`（随主题/护眼自动联动）。
+4. **前端卡沙箱**（`renderHtmlSandbox`，默认关）：```` ```html ````围栏/完整 HTML 文档（`extractHtmlFences`，只认**闭合**围栏）→ `<HtmlSandbox/>`（模块级 memo）sandbox iframe（`allow-scripts` **无 same-origin**：脚本全量可跑、摸不到宿主 DOM/localStorage/store）；srcdoc 注入 ResizeObserver 上报高度（postMessage 只认本 iframe 来源+60~2000 夹取）。围栏在 MessageRow 层抽出、iframe 渲染在 innerHTML **之外** → 流式每帧重渲不重建 iframe（防 reload 风暴），无需感知流式状态。
+
+**共存铁则**：三重隔离——楼内 style 作用域化 / 全局 CSS 默认限 `#chat`（global 需显式选择）/ JS 关 iframe；主 React 壳永不被隐式命中，出问题「清空/停用」即刻还原。测试：`htmlSanitize.test.ts`（scopeCss/抽取/管线 e2e）+ `thinkSplit.test.ts`（流式二分/结算镜像口径）。
+
 **奖励**（刻意压在「任务每环基础给量」之下，派遣是可重复被动收入）：货币严格按既定门槛——**≤三阶发乐园币**（250/700/1800 基数）、**≥四阶发魂币**（1/2/3/6/12/25），按评级 ×0~2 缩放，绝不混发。teamExp 0~20 + 阶位加成；activity 出勤 +10、成功再 +8。战利品仅 S 及以上、只落一名生还者。
 
 **独立 API**：战报走 `resolveApiChain('dispatch', legacy)`（legacy=`dispatchApi`/`dispatchUseSharedApi`）。**不是每回合的演化阶段**——一次派遣归来才调一次，token 随派遣次数走。没接口/失败 → 回落 `fallbackReport` 确定性纪要（轨道A「活着不花钱」的承诺不破）。设置在 变量管理→🛡冒险团演化→⚡API 设置（含「归来时自动生成战报」开关）；`apiSlots` 里标「派遣战报·独立接口」。
@@ -253,6 +264,8 @@
 痛点：角色穿着(appearance5 穿着段)是 AI 演化动态字段会漂,同角色生图服装不一致。衣柜=玩家钦定的权威穿搭库：`outfitStore`(drpg-outfit) 每角色若干套 {名称/中文描述/场景标签/英文服装标签/参考图},**激活的那套=服装单一权威源**,注入三条生图线——①立绘 `buildPortraitPrompt` 加 `charId` 字段:自然语言线 `${attire}`=钦定穿搭>装备栏>外观穿着,标签线并入英文服装标签(没填并中文描述);②正文配图 `genStoryImagesFor` charLine 追加「钦定穿搭…服装以此为准·最高优先」;③漫画 `comic.buildRoster` 同款(分镜外观锁引用)。不激活任何一套=完全维持原逻辑。UI `OutfitPanel` 弹层(增删改+激活单选+「从当前穿着导入」预填+📷参考图),入口=主角侧栏立绘下 👗 按钮 / NPC 详情肖像绘卷 Tab。**进度类** store:进 STORES 带 clear(穿搭绑定本存档角色,随快照/新游戏清)。单测 outfit.test.ts 6例。
 
 **P1 正文闭环（08-04）**：①`<钦定穿搭>` 正文注入(`buildOutfitInjection`·两注入位=主正文+细纲规划):当前穿着+衣柜清单(名称+场景标签),**正文描写衣着以此为准**;范围=主角+在场存活NPC,上限8行,全空不出块。②**AI 换装指令** `outfit.<角色ID>=穿搭名`(stateApply·`applyOutfitCommand`):名称模糊/场景标签命中(如 `outfit.B1=战斗` 命中带"战斗"标签那套)/「无|脱下|取消」=取消钦定/角色ID误写成NPC名且唯一时自动纠正;只能选衣柜已有,未命中忽略不动。闭环=AI 按剧情换装→store→下回合注入与生图全部跟随(场景切换靠 AI 驱动,不做机械钩子)。③**穿搭参考图**:每套可传一张(shrink 768px→imageDb `outfit:<charId>:<id>`,**随存档快照**;删穿搭连图删);chatimg 多模态线绘漫画时 `collectRefs` 把「角色头像+激活穿搭图」一起当参考图发送(合计上限4张,hint 注明"服装以此图为准")。
+
+**✨按装备生成（08-05）**：衣柜表单加「✨ 按装备生成」——`systems/outfitGen.ts` 读该角色**已装备**物品（主角=itemStore equipped/NPC=npc.items equipped）的 名称/槽位/类别/品级/外观(生图依据) → `OUTFIT_GEN_RULE` 走 `image_story_llm` 路由（与外观→标签翻译同线,留空回退正文API）→ JSON{desc,tags} 回填表单（desc≤600/tags≤400,用户可改再存;名称空则预填「当前装备」）。铁则:只依据清单明确外观事实禁编造,缺外观按名称类别保守呈现;从上到下组织+武器携带方式;同产英文服装标签(12~25个,不含主体/画质标签)。无已装备物品/未配路由都给人话错误。`collectEquippedForOutfit` 可单测(已装备过滤/槽位/缺外观占位/空抛错)。
 
 **P2（08-04）**：①**跨存档模板库** `outfitTemplateStore`(drpg-outfit-tpl,上限60套,**同名保存=覆盖返回原id**)——⚠**不进 saveManager STORES**(monument 同款):新游戏不清、读档不回滚,真·账号级;模板参考图也因此不能放 imageDb,放独立 IndexedDB `drpg-outfit-templates`(systems/outfitTemplateDb.ts)。UI=衣柜每套 ⭐存为模板(带图拷贝),面板底部 📚模板库(折叠·⤵导入到当前角色衣柜含图/🗑删除)。②**立绘线穿搭参考图** `outfit.outfitRefImages(charId)`+`OUTFIT_REF_HINT`:接入 5 个立绘生成点(PlayerSidebar 手动✨/编辑提示词重生成、NpcDetail 同两处、App 自动肖像阶段)——chatimg 服务时激活穿搭图随请求发送并在 prompt 尾注明"服装以图为准,脸型发色仍按文字";其余服务自动忽略。单测扩到 7 例。
 

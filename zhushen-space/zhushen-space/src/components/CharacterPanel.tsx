@@ -87,7 +87,11 @@ function SkillCard({ skill, charId, onDelete }: { skill: Skill; charId: string; 
                 {editing ? '取消编辑' : '✎ 编辑'}
               </button>
               <button
-                onClick={(e) => { e.stopPropagation(); onDelete(); }}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  if (!window.confirm(`删除技能「${skill.name}」？删除后无法撤销。`)) return;
+                  onDelete();
+                }}
                 className="text-[12px] font-mono text-blood/60 hover:text-blood transition-colors"
               >
                 删除

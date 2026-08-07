@@ -7,6 +7,7 @@
 import { useSettings } from '../store/settingsStore';
 import { translateNarrativeLabels, viDictReady } from '../i18n/translate';
 import { getCodexIndex, scanEntities, type CodexIndex } from './codexIndex';
+import { sanitizeHtmlBlock, extractStyleBlocks, renderScopedStyles } from './htmlSanitize';
 
 export interface StoryImage { anchor: string; url: string; prompt: string; nsfw: string; ts: number }
 
@@ -167,11 +168,17 @@ function wrapSettlementBlocks(text: string, ctx: ProseCtx): string {
   let htmlDepth = 0;   // 处于未闭合的 HTML 块内时，一律原样透传，不当结算块处理
   while (i < lines.length) {
     const line = lines[i];
-    // 0) HTML 行 / HTML 块内：原样透传（含 details 默认展开），仅维护嵌套深度
+    // 0) HTML 行：按嵌套深度整块收行到闭合、块内行以 \n 拼接——旧实现逐行 push，行间被最外层
+    //    join('<br>') 插 <br>，多行卡片/表格被打碎；组装完整块后统一过 DOMPurify 白名单消毒
+    //    （禁 script/事件属性/javascript:，外链媒体按设置开关），details 默认展开。
     if (htmlDepth > 0 || isHtmlLine(line)) {
-      out.push(line.replace(/<details\b/gi, '<details open'));
-      htmlDepth = Math.max(0, htmlDepth + opensHtml(line) - closesHtml(line));
-      i++;
+      const buf: string[] = [];
+      do {
+        buf.push(lines[i].replace(/<details\b/gi, '<details open'));
+        htmlDepth = Math.max(0, htmlDepth + opensHtml(lines[i]) - closesHtml(lines[i]));
+        i++;
+      } while (i < lines.length && htmlDepth > 0);
+      out.push(sanitizeHtmlBlock(buf.join('\n')));
       continue;
     }
     // 1) 连续 > 引用行 = 模块块（规范要求每行带 > 前缀）→ 整段打包
@@ -204,7 +211,20 @@ function wrapSettlementBlocks(text: string, ctx: ProseCtx): string {
 // 将正文内容转为 HTML：始终走 HTML 感知的结算块打包（既渲染 ST 正则输出的 HTML，
 // 又对 > 模块块/【…结算…】块统一打琥珀格子，二者可在同一条消息里共存）。
 function toHtml(text: string, ctx: ProseCtx = NO_CODEX): string {
-  return wrapSettlementBlocks(text, ctx);
+  // <style> 块先整体抽出（跨行·只认闭合对），行级管线跑完再以「作用域化+消毒」形态还原：
+  // 每条选择器强制加 .narrative-content 前缀（ST 把楼内 CSS 锁进 .mes_text 的同款思路）——
+  // 美化卡可从任意楼层改聊天区观感（含其他楼层），但永远摸不到聊天区外的应用壳。
+  const { text: work, styles } = extractStyleBlocks(text);
+  let html = wrapSettlementBlocks(work, ctx);
+  if (styles.length) {
+    // 替换必须用回调形式：CSS 里可能含 $&/$1 等序列，字符串形式会被当替换模板解析
+    renderScopedStyles(styles, '.narrative-content').forEach((tag, idx) => {
+      html = html.replace(new RegExp(`(?:<br>)?@@ZSSTYLE${idx}@@(?:<br>)?`, 'g'), () => tag);
+    });
+  }
+  html = html.replace(/(?:<br>)?@@ZSSTYLEPENDING@@(?:<br>)?/g,
+    '<span class="text-[12px] text-dim/50 font-mono">🎨 样式加载中…</span>');
+  return html;
 }
 
 /* 检定结果卡片：把 <检定结果>…</检定结果> 块渲染成彩色骰子卡（按成功等级着色）。
@@ -304,7 +324,9 @@ export function toHtmlWithImagesCached(id: number, text: string, images?: StoryI
   // 悬浮图鉴同理进签名：开关翻转 / 实体词典变了（新 NPC、拿到新装备…）→ 本楼层重渲时自动重标，不会停在旧标注。
   // getCodexIndex 内部只做 ~12 次引用比较，缓存命中路径上也几乎免费。
   const codexTok = (() => { try { const c = readingCodex(); return c.on ? 'x' + getCodexIndex(c.wiki).version : 'x0'; } catch { return 'x0'; } })();
-  const sig = `${langTok}${codexTok}${text}${JSON.stringify(images ?? [])}${opts?.speakable ? '1' : '0'}${(opts?.npcNames ?? []).join(',')}`;
+  // 外链媒体开关进签名：翻转后消毒结果不同（外链 img/css url 是否剥掉），不进签名会命中旧缓存停在旧口径
+  const extTok = (() => { try { return useSettings.getState().htmlExternalMedia !== false ? 'e1' : 'e0'; } catch { return 'e1'; } })();
+  const sig = `${langTok}${codexTok}${extTok}${text}${JSON.stringify(images ?? [])}${opts?.speakable ? '1' : '0'}${(opts?.npcNames ?? []).join(',')}`;
   const hit = _htmlCache.get(id);
   if (hit && hit.sig === sig) { _htmlCache.delete(id); _htmlCache.set(id, hit); return hit.html; }   // LRU：命中挪到末尾
   const html = toHtmlWithImages(text, images, opts);

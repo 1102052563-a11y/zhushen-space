@@ -1908,7 +1908,7 @@ function NpcSkillCard({ sk, charId, readOnly }: { sk: ReturnType<typeof useChara
             <div className="flex items-center gap-3">
               <button onClick={(e) => { e.stopPropagation(); setEditing((v) => !v); }}
                 className="text-[12px] font-mono text-god/60 hover:text-god transition-colors">{editing ? '取消编辑' : '✎ 编辑'}</button>
-              <button onClick={(e) => { e.stopPropagation(); removeSkill(charId, sk.id); }}
+              <button onClick={(e) => { e.stopPropagation(); if (!window.confirm(`删除技能「${sk.name}」？删除后无法撤销。`)) return; removeSkill(charId, sk.id); }}
                 className="text-[12px] font-mono text-blood/60 hover:text-blood transition-colors">删除</button>
             </div>
             )}
