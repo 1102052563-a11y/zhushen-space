@@ -33,18 +33,26 @@ export interface TurnSnapshot {
   facilityNotes?: string[];
 }
 
+/* 🧭 一致性哨兵（P0·evoGuard）：正文/演化与权威 store 的冲突流水（时间倒退被拦、发送屏障超时、
+   切世界中止在途演化…）。只记录不拦截——排查「数值乱跳/时间漂移」的黑匣子，回合洞察面板可见。 */
+export interface ConsistencyEntry { turn: number; time: number; kind: string; detail: string }
+
 const MAX_SNAPSHOTS = 14;
+const MAX_CONSISTENCY = 60;
 
 interface TurnInsightState {
   snapshots: TurnSnapshot[];
+  consistency: ConsistencyEntry[];
   pushSnapshot: (s: TurnSnapshot) => void;
+  logConsistency: (e: ConsistencyEntry) => void;
   clear: () => void;
 }
 
 export const useTurnInsight = create<TurnInsightState>()(
   persist(
-    (set) => ({
+    (set): TurnInsightState => ({
       snapshots: [],
+      consistency: [],
       pushSnapshot: (s) =>
         set((st) => {
           // 同一回合重复抓取则覆盖最后一条
@@ -53,7 +61,9 @@ export const useTurnInsight = create<TurnInsightState>()(
           else arr.push(s);
           return { snapshots: arr.slice(-MAX_SNAPSHOTS) };
         }),
-      clear: () => set({ snapshots: [] }),
+      logConsistency: (e) =>
+        set((st) => ({ consistency: [...(st.consistency ?? []), e].slice(-MAX_CONSISTENCY) })),   // ?? []：旧存档无此字段
+      clear: () => set({ snapshots: [], consistency: [] }),
     }),
     { name: 'drpg-turn-insight', storage: lzStorage() }
   )

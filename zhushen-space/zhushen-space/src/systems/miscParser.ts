@@ -1,6 +1,8 @@
 import { useMisc, isMainQuest, type MiscTask, type ArchivedTask, type WorldEvent, type QuestRing } from '../store/miscStore';
 import { usePlayer } from '../store/playerStore';
 import { isHomeWorld } from './playerVitals';
+import { guardTimeAdvance } from './evoGuard';
+import { normVisibility } from './worldEvent';
 import { filterAiTaskPatch, gateNewAiTask, isTerminalTaskStatus } from './questGuard';
 import { logArbitration } from './npcGrowthGuard';
 import { useCanonRoute } from '../store/canonRouteStore';
@@ -139,6 +141,11 @@ export function applyMiscCommands(reply: string, opts: { allowLarge?: boolean; t
     if (!wn || !l) return l;
     return l.includes(wn) ? l : `${wn} ${l}`;
   };
+  // 本块是否切换了世界（timeLocation.worldName 写了别的世界名）→ 世界钟「只进不退」闸整块跳过（新旧世界时间不可比）
+  const blockSwitchesWorld = (() => {
+    const mm = /^\s*timeLocation\.worldName\s*=\s*"([^"]*)"\s*$/m.exec(block);
+    return !!mm && mm[1].trim() !== (M.worldName || '').trim();
+  })();
   let n = 0;
   for (const raw of block.split('\n')) {
     const line = raw.trim();
@@ -228,8 +235,18 @@ export function applyMiscCommands(reply: string, opts: { allowLarge?: boolean; t
       continue;
     }
 
-    if (doWorld && (m = /^timeLocation\.paradiseTime\s*=\s*"([^"]*)"$/.exec(line))) { M.setTime({ paradiseTime: m[1] }); n++; continue; }
-    if (doWorld && (m = /^timeLocation\.worldTime\s*=\s*"([^"]*)"$/.exec(line)))    { M.setTime({ worldTime: m[1] }); n++; continue; }
+    // 世界钟只进不退（P0·evoGuard.guardTimeAdvance）：确定倒退的 AI 写入丢弃（保留原值+记一致性日志），认不出格式=放行。
+    //   跳过比对的两种情况：① 本块同时切了 worldName（换世界，新旧时间不可比）；② 身处乐园（worldTime 由「回归乐园·时间一致」同步治理）。
+    //   手动改时间走 MiscManager 面板，不经解析器、不受此闸。
+    if (doWorld && (m = /^timeLocation\.paradiseTime\s*=\s*"([^"]*)"$/.exec(line))) {
+      if (!guardTimeAdvance('轮回历', M.paradiseTime, m[1])) { M.setTime({ paradiseTime: m[1] }); n++; }
+      continue;
+    }
+    if (doWorld && (m = /^timeLocation\.worldTime\s*=\s*"([^"]*)"$/.exec(line))) {
+      const skipClamp = blockSwitchesWorld || isHomeWorld(M.worldName || '');
+      if (skipClamp || !guardTimeAdvance('世界时间', M.worldTime, m[1])) { M.setTime({ worldTime: m[1] }); n++; }
+      continue;
+    }
     if (doWorld && (m = /^timeLocation\.worldName\s*=\s*"([^"]*)"$/.exec(line)))    {
       const prevWorld = M.worldName;   // 本次解析前的世界名（M 为快照，setTime 后仍是旧值）
       M.setTime({ worldName: m[1] });
@@ -258,6 +275,7 @@ export function applyMiscCommands(reply: string, opts: { allowLarge?: boolean; t
       if (p) {
         const sc = String(p.scope ?? p['档位'] ?? p['范围'] ?? '');
         const first = String(p.text ?? p['首节'] ?? p['进展'] ?? p['描述'] ?? '');
+        const vis = normVisibility(String(p.visibility ?? p['可见性'] ?? ''));   // P1：认不出=不落字段（缺省 known）
         M.addWorldEvent({
           time: String(p.date ?? p['日期'] ?? ''), location: withWorld(String(p.location ?? p['地点'] ?? '')),
           desc: first, name: m[1],
@@ -265,6 +283,10 @@ export function applyMiscCommands(reply: string, opts: { allowLarge?: boolean; t
           actors: String(p.actors ?? p['参与'] ?? p['参与角色'] ?? '') || undefined,
           settleCond: String(p.settleCond ?? p['结算条件'] ?? '') || undefined,
           chain: first ? [{ date: String(p.date ?? p['日期'] ?? ''), text: first }] : [],
+          ...(vis ? { visibility: vis } : {}),
+          publicTrace: String(p.publicTrace ?? p['表象'] ?? p['公开痕迹'] ?? '') || undefined,
+          knownBy: String(p.knownBy ?? p['知情者'] ?? p['知情人'] ?? '') || undefined,
+          due: String(p.due ?? p['到期'] ?? p['预计结算'] ?? '') || undefined,
         });
         n++;
       }
@@ -279,7 +301,7 @@ export function applyMiscCommands(reply: string, opts: { allowLarge?: boolean; t
       const o = /historic|重大|历史/i.test(m[2]) ? 'historic' : /derived|派生|后续/i.test(m[2]) ? 'derived' : 'faded';
       M.settleWorldEvent(m[1], o, m[3] ? unquote(m[3]) : undefined); n++; continue;
     }
-    // setEvent("W_1", {结算条件,参与,地点,档位}) —— 只改根字段，不动脉络
+    // setEvent("W_1", {结算条件,参与,地点,档位,可见性,表象,知情者,到期}) —— 只改根字段，不动脉络
     if (doWorld && (m = /^setEvent\(\s*"(W_\d+)"\s*,\s*(\{[\s\S]*\})\s*\)$/.exec(line))) {
       const p = safeJson(m[2]);
       if (p) {
@@ -290,8 +312,19 @@ export function applyMiscCommands(reply: string, opts: { allowLarge?: boolean; t
         const lo = p.location ?? p['地点']; if (lo) patch.location = withWorld(String(lo));
         const sc = p.scope ?? p['档位'] ?? p['范围'];
         if (sc) patch.scope = /背景|background/i.test(String(sc)) ? 'background' : 'region';
+        // P1：可见性/表象/知情者/到期（reveal 不开放给 AI 直改——只能走 settleEvent 建、eventRevealed 递交）
+        const vi = normVisibility(String(p.visibility ?? p['可见性'] ?? '')); if (vi) patch.visibility = vi;
+        const pt = p.publicTrace ?? p['表象'] ?? p['公开痕迹']; if (pt) patch.publicTrace = String(pt);
+        const kb = p.knownBy ?? p['知情者'] ?? p['知情人']; if (kb) patch.knownBy = String(kb);
+        const du = p.due ?? p['到期'] ?? p['预计结算']; if (du) patch.due = String(du);
         if (Object.keys(patch).length) { M.updateWorldEvent(m[1], patch); n++; }
       }
+      continue;
+    }
+    // eventRevealed("W_1") —— 杂项 AI 判断"本轮正文已自然带出该落幕事件的结果" → 显露递交完成（P1·worldEvent.ts）
+    if (doWorld && (m = /^eventRevealed\(\s*"(W_\d+)"\s*\)$/.exec(line))) {
+      const ev = useMisc.getState().worldEvents.find((w) => w.id === m![1]);
+      if (ev?.reveal && ev.reveal.state !== 'delivered') { M.updateWorldEvent(m[1], { reveal: { ...ev.reveal, state: 'delivered' } }); n++; }
       continue;
     }
 

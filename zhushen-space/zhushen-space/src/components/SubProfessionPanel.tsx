@@ -104,7 +104,7 @@ export default function SubProfessionPanel({ onClose }: { onClose: () => void })
   const selNode = tree?.nodes.find((n) => n.id === selId);
   const selChk = selNode && tree ? canRankUp(tree, selNode.id, prog, ctx) : undefined;
   const selRank = selNode ? nodeRank(prog, selNode.id) : 0;
-  const selMaxR = selNode ? nodeMaxRank(selNode) : 0;
+  const selMaxR = selNode ? nodeMaxRank(selNode, tree) : 0;
   const selIsRecipe = isRecipeNode(selNode);
   const selRecipe = selNode?.grants?.recipe;
   const selIsQualia = selIsRecipe && selRank >= 1;   // 配方已学、再投点 = AI 质变

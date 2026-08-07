@@ -10,6 +10,11 @@ import {
 } from '../systems/channelTrade';
 import { estimateFairValue, priceVerdict, formatFairRange, sumFairValues, type FairValue } from '../systems/itemPricing';
 import { pushSceneNotice } from '../systems/allocNotice';
+import { useWorldNews } from '../store/worldNewsStore';
+import { newsStale } from '../systems/worldNews';
+import { useMisc } from '../store/miscStore';
+import { sameWorld } from '../systems/worldScope';
+import ApiRoutePicker from './ApiRoutePicker';
 
 /* 频道配色 */
 const CH_FALLBACK = { dot: 'bg-slate-400', chip: 'border-slate-500/40 text-slate-300' };
@@ -496,7 +501,7 @@ function InviteDialog({ m, onInvite, onClose, onJoined }: {
   );
 }
 
-export default function ChannelPanel({ onClose, onRefresh, onSolicit, onPost, onOpenShop, onJoin, onInvite, onDm, onDmQuote, onAddFriend }: { onClose: () => void; onRefresh: (force?: boolean) => void; onSolicit?: () => void; onPost?: (channel: ChannelKey, content: string, replyTo?: { authorName: string; content: string }) => Promise<void>; onOpenShop?: () => void; onJoin?: (m: ChannelMessage) => void; onInvite?: (m: ChannelMessage, text: string) => Promise<{ accept: boolean; reason: string }>; onDm?: (m: ChannelMessage) => void; onDmQuote?: (q: ChannelQuote) => void; onAddFriend?: (m: ChannelMessage) => Promise<{ ok: boolean; msg: string }> }) {
+export default function ChannelPanel({ onClose, onRefresh, onNewsRefresh, onSolicit, onPost, onOpenShop, onJoin, onInvite, onDm, onDmQuote, onAddFriend }: { onClose: () => void; onRefresh: (force?: boolean) => void; onNewsRefresh?: () => Promise<{ ok: boolean; msg: string }>; onSolicit?: () => void; onPost?: (channel: ChannelKey, content: string, replyTo?: { authorName: string; content: string }) => Promise<void>; onOpenShop?: () => void; onJoin?: (m: ChannelMessage) => void; onInvite?: (m: ChannelMessage, text: string) => Promise<{ accept: boolean; reason: string }>; onDm?: (m: ChannelMessage) => void; onDmQuote?: (q: ChannelQuote) => void; onAddFriend?: (m: ChannelMessage) => Promise<{ ok: boolean; msg: string }> }) {
   const messages   = useChannel((s) => s.messages);
   const refreshing = useChannel((s) => s.refreshing);
   const channels   = useChannel((s) => s.settings.channels);
@@ -505,7 +510,8 @@ export default function ChannelPanel({ onClose, onRefresh, onSolicit, onPost, on
   const currency   = useItems((s) => s.currency);
 
   const tabs = CHANNEL_DEFS.filter((d) => channels[d.key]);
-  const [tab, setTab] = useState<ChannelKey>(() => CHANNEL_DEFS.find((d) => channels[d.key])?.key ?? 'general');
+  // 🌍 'worldnews' 是特殊页签：任务世界自己的新闻/论坛（P2·世界见闻），与契约者频道是两个虚构层
+  const [tab, setTab] = useState<ChannelKey | 'worldnews'>(() => CHANNEL_DEFS.find((d) => channels[d.key])?.key ?? 'general');
   const list = messages.filter((m) => m.channel === tab);
 
   const [confirmMsg, setConfirmMsg] = useState<ChannelMessage | null>(null);
@@ -523,7 +529,7 @@ export default function ChannelPanel({ onClose, onRefresh, onSolicit, onPost, on
   const speakRef = useRef<HTMLInputElement>(null);
   async function doSpeak() {
     const text = speakText.trim();
-    if (!text || speaking || !onPost) return;
+    if (!text || speaking || !onPost || tab === 'worldnews') return;   // 见闻是只读观察层，主角不能往里发言
     const rt = replyTarget ? { authorName: replyTarget.authorName, content: replyTarget.content } : undefined;
     setSpeaking(true); setSpeakText(''); setReplyTarget(null);
     try { await onPost(tab, text, rt); } finally { setSpeaking(false); }
@@ -579,6 +585,10 @@ export default function ChannelPanel({ onClose, onRefresh, onSolicit, onPost, on
               </button>
             );
           })}
+          <button onClick={() => { setTab('worldnews'); setReplyTarget(null); }} title="任务世界自己的新闻与论坛——当地媒体在报什么、市井在传什么（与契约者频道是两个世界）"
+            className={`px-3 py-1 rounded text-sm font-mono border transition-colors ${tab === 'worldnews' ? 'border-violet-500/60 text-violet-300 bg-violet-500/10' : 'border-edge text-dim hover:text-slate-200'}`}>
+            🌍见闻
+          </button>
           <span className="flex-1" />
           <button onClick={() => setPostMode('buy')} disabled={!enabled}
             className="px-2.5 py-1 rounded text-sm font-mono border border-amber-600/40 text-amber-300 hover:bg-amber-900/20 disabled:opacity-40 transition-colors">🛒 求购</button>
@@ -589,7 +599,9 @@ export default function ChannelPanel({ onClose, onRefresh, onSolicit, onPost, on
         </div>
 
         <div className="flex-1 overflow-y-auto p-4 space-y-2">
-          {!enabled ? (
+          {tab === 'worldnews' ? (
+            <WorldNewsView onRefresh={onNewsRefresh} />
+          ) : !enabled ? (
             <div className="py-16 text-center text-dim/40 text-sm font-mono border border-dashed border-edge rounded-xl">
               公共频道已停用
               <div className="mt-2"><button onClick={() => openSettingsPage('channel-manager')} className="text-god/80 underline underline-offset-2 hover:text-god">在「设置 → 变量管理 → 📡 公共频道」开启 →</button></div>
@@ -605,7 +617,7 @@ export default function ChannelPanel({ onClose, onRefresh, onSolicit, onPost, on
         </div>
 
         {/* 主角发言（系统频道禁止）→ 发完会收到数量不等的契约者回复；点某条「↩ 回复」则定向回复 TA */}
-        {enabled && onPost && tab !== 'system' && (
+        {enabled && onPost && tab !== 'system' && tab !== 'worldnews' && (
           <div className="shrink-0 border-t border-edge bg-panel">
             {replyTarget && (
               <div className="flex items-center gap-2 px-4 pt-2 text-[12px] font-mono">
@@ -674,6 +686,117 @@ export default function ChannelPanel({ onClose, onRefresh, onSolicit, onPost, on
 
       {/* 邀请入队对话框（AI 判定）*/}
       {inviteTarget && onInvite && <InviteDialog m={inviteTarget} onInvite={onInvite} onClose={() => setInviteTarget(null)} onJoined={(name) => flash(true, `${name} 加入了你的临时队伍`)} />}
+    </div>
+  );
+}
+
+/* ══ 🌍 世界见闻（P2·借鉴世界背面舆情层）══
+   任务世界自己的新闻/论坛快照：只读氛围层，手动刷新。素材=已公开事件+trace表象+传闻流传版；
+   hidden 连候选都进不来；trace 强制小道消息（unofficial·rumor/mixed）。⚠模块级组件，勿移进父组件内（IME 重挂坑）。 */
+const CLAIM_META: Record<string, { label: string; cls: string }> = {
+  fact:  { label: '事实', cls: 'border-emerald-600/50 text-emerald-300' },
+  mixed: { label: '真假掺半', cls: 'border-amber-600/50 text-amber-300' },
+  rumor: { label: '传言', cls: 'border-rose-600/50 text-rose-300' },
+};
+
+function WorldNewsView({ onRefresh }: { onRefresh?: () => Promise<{ ok: boolean; msg: string }> }) {
+  const snapshots = useWorldNews((s) => s.snapshots);
+  const busy = useWorldNews((s) => s.refreshing);
+  const worldName = useMisc((s) => s.worldName);
+  const turn = useMisc((s) => s.turnCount);
+  const [msg, setMsg] = useState('');
+  const [cfgOpen, setCfgOpen] = useState(false);
+  const mine = (snapshots ?? []).filter((s) => !s.worldName || sameWorld(s.worldName, worldName || ''));
+  const snap = mine.length ? mine[mine.length - 1] : undefined;
+  const stale = !!snap && newsStale(snap.turn, turn || 0);
+  async function doRefresh() {
+    if (!onRefresh || busy) return;
+    setMsg('');
+    const r = await onRefresh();
+    if (!r.ok) setMsg(r.msg);
+  }
+  const news = snap?.items.filter((i) => i.kind === 'news') ?? [];
+  const forums = snap?.items.filter((i) => i.kind === 'forum') ?? [];
+  const srcChip = (s: string) => s === 'official'
+    ? <span className="text-[11px] font-mono px-1.5 py-0.5 rounded border border-sky-600/50 text-sky-300">官方</span>
+    : <span className="text-[11px] font-mono px-1.5 py-0.5 rounded border border-edge text-dim/60">小道</span>;
+  const claimChip = (c: string) => { const m = CLAIM_META[c] ?? CLAIM_META.mixed; return <span className={`text-[11px] font-mono px-1.5 py-0.5 rounded border ${m.cls}`} title="内容与已发生事实的关系——来源层级≠世界真相，官方也可能措辞保守，小道也可能碰巧为真">{m.label}</span>; };
+  return (
+    <div className="space-y-3">
+      {/* 工具条 */}
+      <div className="flex items-center gap-2 flex-wrap rounded-lg border border-edge bg-panel/50 px-3 py-2">
+        <span className="text-[12px] font-mono text-violet-300/80">🌍 {worldName || '（未入世界）'}</span>
+        {snap && <span className="text-[11px] font-mono text-dim/50">快照·{snap.worldTime || `第${snap.turn}回合`}</span>}
+        {stale && <span className="text-[11px] font-mono px-1.5 py-0.5 rounded border border-amber-600/50 text-amber-300" title="生成快照后世界又走了不少回合，内容可能落后于时局">⚠ 可能已过期</span>}
+        <span className="flex-1" />
+        <button onClick={() => setCfgOpen((o) => !o)} title="世界见闻的接口路由（未配置回退正文 API）"
+          className="text-[12px] font-mono px-2 py-1 rounded border border-edge text-dim hover:text-slate-200 transition-colors">⚙</button>
+        <button onClick={doRefresh} disabled={busy || !onRefresh}
+          className="text-[12px] font-mono px-2.5 py-1 rounded border border-violet-500/50 text-violet-300 hover:bg-violet-500/10 disabled:opacity-40 transition-colors">
+          {busy ? '街上打听中…' : '🔄 刷新见闻'}
+        </button>
+      </div>
+      {cfgOpen && <div className="rounded-lg border border-edge bg-panel/40 px-3 py-2"><ApiRoutePicker routeKey="worldNews" /></div>}
+      {msg && <div className="text-[12px] font-mono text-amber-300/80 px-1">{msg}</div>}
+
+      {!snap ? (
+        <div className="py-14 text-center text-dim/40 text-sm font-mono border border-dashed border-edge rounded-xl leading-relaxed">
+          还没有本世界的见闻快照
+          <div className="mt-2 text-dim/30">点「🔄 刷新见闻」听听当地在报什么、市井在传什么<br />（素材来自已公开的世界大事与传闻；幕后事件不会出现在这里）</div>
+        </div>
+      ) : (
+        <>
+          {news.length > 0 && (
+            <div className="space-y-2">
+              <div className="text-xs font-mono text-god/70">📰 新闻 / 告示</div>
+              {news.map((n) => (
+                <div key={n.id} className="rounded-lg border border-edge bg-panel/60 px-3 py-2">
+                  <div className="flex items-center gap-2 flex-wrap mb-1">
+                    {srcChip(n.sourceType)}{claimChip(n.claim)}
+                    {n.outlet && <span className="text-[11px] font-mono text-dim/50">{n.outlet}</span>}
+                    {n.heat && <span className="text-[11px] font-mono text-dim/40">📡 {n.heat}</span>}
+                    <span className="flex-1" />
+                    <button onClick={() => { pushSceneNotice(`主角在「${n.outlet || '当地新闻'}」看到报道：《${n.title}》${n.body ? `——${n.body.slice(0, 60)}` : ''}`); setMsg(`已安排「${n.title}」：下一回合正文会自然写到主角看到这条报道`); }}
+                      title="把这条见闻交给下一回合正文：主角会自然看到它（走既有的场外操作通报通道，不改世界事实）"
+                      className="text-[11px] font-mono px-1.5 py-0.5 rounded border border-god/40 text-god/80 hover:bg-god/10 transition-colors shrink-0">📣 让主角看到</button>
+                  </div>
+                  <div className="text-[14px] font-bold text-slate-100">{n.title}</div>
+                  {n.body && <div className="text-[13px] text-slate-300 leading-relaxed mt-0.5">{n.body}</div>}
+                </div>
+              ))}
+            </div>
+          )}
+          {forums.length > 0 && (
+            <div className="space-y-2">
+              <div className="text-xs font-mono text-god/70">💬 论坛 / 市井议论</div>
+              {forums.map((n) => (
+                <div key={n.id} className="rounded-lg border border-edge bg-panel/60 px-3 py-2">
+                  <div className="flex items-center gap-2 flex-wrap mb-1">
+                    {srcChip(n.sourceType)}{claimChip(n.claim)}
+                    {n.outlet && <span className="text-[11px] font-mono text-dim/50">{n.outlet}</span>}
+                    {n.heat && <span className="text-[11px] font-mono text-dim/40">🔥 {n.heat}</span>}
+                    <span className="flex-1" />
+                    <button onClick={() => { pushSceneNotice(`主角刷到「${n.outlet || '本地论坛'}」的热帖：《${n.title}》${n.body ? `——${n.body.slice(0, 60)}` : ''}（帖子性质：${n.claim === 'rumor' ? '传言' : n.claim === 'mixed' ? '真假掺半' : '据实'}）`); setMsg(`已安排「${n.title}」：下一回合正文会自然写到主角刷到这帖`); }}
+                      title="把这条帖子交给下一回合正文：主角会自然刷到它（走既有的场外操作通报通道，不改世界事实）"
+                      className="text-[11px] font-mono px-1.5 py-0.5 rounded border border-god/40 text-god/80 hover:bg-god/10 transition-colors shrink-0">📣 让主角看到</button>
+                  </div>
+                  <div className="text-[14px] font-bold text-slate-100">{n.title}</div>
+                  {n.body && <div className="text-[13px] text-slate-300 leading-relaxed mt-0.5">{n.body}</div>}
+                  {n.replies && n.replies.length > 0 && (
+                    <details className="mt-1.5">
+                      <summary className="text-[12px] font-mono text-dim/50 cursor-pointer select-none hover:text-slate-300">▸ {n.replies.length} 条回帖</summary>
+                      <div className="mt-1 space-y-1 border-l-2 border-edge/60 pl-2.5">
+                        {n.replies.map((r, i) => <div key={i} className="text-[12px] text-dim/75 leading-relaxed">{r}</div>)}
+                      </div>
+                    </details>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
+          <div className="text-[11px] text-dim/35 px-1 leading-snug">见闻是只读的世界之声：传言不会因为被报道就变成事实，也不会写回世界状态。想让主角对某条见闻做出反应，直接在正文里行动即可。</div>
+        </>
+      )}
     </div>
   );
 }

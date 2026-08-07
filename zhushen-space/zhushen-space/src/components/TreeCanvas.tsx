@@ -137,7 +137,7 @@ export default function TreeCanvas({
         const r = R_BY_KIND[n.kind] ?? 20;
         const col = n.socket ? '#d946ef' : branchColor(n.branch);   // 星核位用品红
         const rank = rankOf(n.id);
-        const maxR = nodeMaxRank(n);
+        const maxR = nodeMaxRank(n, tree);   // 本树「每节点可点次数」设置优先（1=一个豆）
         const unlocked = rank >= 1;
         const maxed = !n.sink && rank >= maxR;
         const avail = availableIds?.has(n.id) ?? false;   // 可再点一次

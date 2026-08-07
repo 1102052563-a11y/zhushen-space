@@ -1,7 +1,7 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { useSkillTree, type NodeGrants } from '../store/skillTreeStore';
 import { useCharacters } from '../store/characterStore';   // 读主角技能/天赋栏 → 挂到节点
-import { validateTree, autoLayout, defaultCost, attrDeltaText, treeBounds } from '../systems/skillTree';
+import { validateTree, autoLayout, defaultCost, attrDeltaText, treeBounds, SKILLTREE_TUNING, clampRanksToMaxRank } from '../systems/skillTree';
 import { TIERS } from '../systems/derivedStats';
 import { ATTR_KEYS, ATTR_LABEL } from '../systems/attrBonus';
 import { useSettings, resolveApiChain } from '../store/settingsStore';
@@ -583,6 +583,10 @@ export default function SkillTreeManager() {
                     <input type="number" min={1} className={inputCls} value={selNode.layer} onChange={(e) => patchNode({ layer: Math.max(1, Number(e.target.value) || 1) })} /></label>
                   <label className="block space-y-0.5"><span className={labelCls}>潜能点花费/点</span>
                     <input type="number" min={0} className={inputCls} value={selNode.cost} onChange={(e) => patchNode({ cost: Math.max(0, Number(e.target.value) || 0) })} /></label>
+                  <label className="block space-y-0.5"><span className={labelCls}>可点次数(豆子)</span>
+                    <input type="number" min={1} className={inputCls} value={selNode.maxRank ?? ''} placeholder={`默认${SKILLTREE_TUNING.maxRankDefault}`}
+                      title={tree.maxRankOverride ? `本树已统一设为每节点 ${tree.maxRankOverride} 次，这里的单节点设置暂不生效` : '只改这一个节点的豆子数；留空=默认'}
+                      onChange={(e) => { const v = Math.floor(Number(e.target.value) || 0); patchNode({ maxRank: v >= 1 ? v : undefined }); }} /></label>
                   <label className="block space-y-0.5"><span className={labelCls}>累计点数门槛(spentGate)</span>
                     <input type="number" min={0} className={inputCls} value={selNode.spentGate ?? ''} placeholder="0=无" onChange={(e) => { const v = Math.max(0, Math.floor(Number(e.target.value) || 0)); patchNode({ spentGate: v || undefined }); }} /></label>
                   <label className="block space-y-0.5 col-span-2"><span className={labelCls}>阶位 gate（手动设该节点所需阶位；留「不限」则生成时按深度自动分配·封顶七阶。生成勾「不加阶位限制」的树则整树不看这里）</span>
@@ -706,6 +710,21 @@ export default function SkillTreeManager() {
                 <input className={inputCls} value={tree.profession} onChange={(e) => st.updateTreeMeta(tree.id, { profession: e.target.value })} /></label>
               <label className="block space-y-0.5"><span className={labelCls}>显示标题</span>
                 <input className={inputCls} value={tree.title ?? ''} onChange={(e) => st.updateTreeMeta(tree.id, { title: e.target.value })} /></label>
+              {/* 每节点可点次数（豆子数）：统一覆盖各节点的 maxRank；1=点一次就点满 */}
+              <label className="block space-y-0.5"><span className={labelCls}>每节点可点次数（豆子数·统一）</span>
+                <select className={inputCls} value={tree.maxRankOverride ?? 0}
+                  onChange={(e) => {
+                    const v = Number(e.target.value);
+                    const pre = clampRanksToMaxRank(tree, st.progress['B1']?.activeTreeId === tree.id ? st.progress['B1']?.ranks : undefined, v >= 1 ? v : undefined);
+                    if (pre.clamped && !window.confirm(`有 ${pre.clamped} 个已点节点超出新上限，点数将被削平；小节点退回 ${pre.refund} 潜能点（大节点不退，技能/天赋保留）。确定？`)) return;
+                    st.setMaxRankOverride(tree.id, v);
+                  }}>
+                  <option value={0}>默认（{SKILLTREE_TUNING.maxRankDefault} 次·按节点自带）</option>
+                  <option value={1}>1 次·一点点满（只有一个豆）</option>
+                  <option value={2}>2 次</option><option value={3}>3 次</option>
+                  <option value={5}>5 次</option><option value={10}>10 次</option>
+                </select></label>
+              <p className="text-[10px] text-dim/35 leading-snug">统一设置优先于下方单个节点的「可点次数」；无尽端点(∞)与免费的中心/星核位不受影响。玩家在技能树面板里也能改。</p>
             </div>
 
             {/* 流派 */}

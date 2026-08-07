@@ -45,10 +45,11 @@ export function getEntryApi() {
 }
 
 /* 统一的一次 chat/completions 调用，返回正文字符串（接口路由多选→轮流+fallback）*/
-export async function npcChatCompletion(systemPrompt: string, userContent: string, feature: 'npc' | 'entry' = 'npc'): Promise<string> {
+export async function npcChatCompletion(systemPrompt: string, userContent: string, feature: 'npc' | 'entry' | 'observe' = 'npc'): Promise<string> {
   const isEntry = feature === 'entry';
   // 登场判断(entry)走独立集成路由 npcEntry（可挂更强的模型判阶位/强度更准）；未配路由则回退到登场判断自配/共享接口，零回归。
-  const chain = resolveApiChain(isEntry ? 'npcEntry' : 'npc', isEntry ? getEntryApi() : getNpcApi());
+  // 即时观测(observe·P2「看看TA」)走 npcObserve 路由，未配则回退 NPC 演化接口。
+  const chain = resolveApiChain(isEntry ? 'npcEntry' : feature === 'observe' ? 'npcObserve' : 'npc', isEntry ? getEntryApi() : getNpcApi());
   const ss2 = useSettings.getState();
   const activePreset = ss2.textPresets.find((p) => p.id === ss2.activeTextPresetId) ?? ss2.textPresets[0];
   const extra: Record<string, unknown> = {};

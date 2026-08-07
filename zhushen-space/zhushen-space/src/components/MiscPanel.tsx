@@ -5,12 +5,20 @@ import { useCharacters } from '../store/characterStore';
 import { useCalendar } from '../store/calendarStore';
 import { extractMonthDay, visibleIn, sortByDate, dateLabel, upcoming, TYPE_META, type AlmanacItem, type AlmanacType } from '../systems/calendar';
 import { latestNode, impactIndex } from '../systems/rumor';
-import { scopeOf, isSettled, OUTCOME_LABEL } from '../systems/worldEvent';
+import { scopeOf, isSettled, OUTCOME_LABEL, visibilityOf, isEventDue, type EventVisibility } from '../systems/worldEvent';
 
 type Tab = 'tasks' | 'events' | 'rumors' | 'almanac' | 'skills';
 
 /* 影响力五档 → 色阶（低→高：灰 → 石板 → 琥珀 → 橙 → 紫） */
 const IMPACT_COLOR = ['text-dim/50', 'text-slate-300', 'text-amber-300/90', 'text-orange-300', 'text-fuchsia-300'];
+
+/* P1·可见性四档徽章（对主角叙事视角；hidden 永不进正文——面板是玩家的上帝视角，照常全显示） */
+const VIS_META: Record<EventVisibility, { label: string; cls: string }> = {
+  hidden: { label: '🙈 幕后', cls: 'text-fuchsia-300/80' },
+  trace:  { label: '👣 仅表象', cls: 'text-amber-300/80' },
+  known:  { label: '📢 公开', cls: 'text-dim/60' },
+  direct: { label: '🎯 涉主角', cls: 'text-emerald-300/80' },
+};
 
 export default function MiscPanel({ onClose, onGenerate }: { onClose: () => void; onGenerate?: (tendency: string) => Promise<{ ok: boolean; msg: string }> }) {
   const tasks = useMisc((s) => s.tasks);
@@ -180,13 +188,23 @@ export default function MiscPanel({ onClose, onGenerate }: { onClose: () => void
               const settled = isSettled(e);
               const bg = scopeOf(e) === 'background';
               const chain = e.chain ?? [];
+              const vis = visibilityOf(e);
+              const due = !settled && isEventDue(e, worldTime || '');
               return (
                 <div key={e.id} className={`rounded-lg border px-3 py-2 ${settled ? 'border-edge/50 bg-panel/30 opacity-70' : 'border-edge bg-panel/60'}`}>
                   <div className="flex items-center gap-2 text-[12px] font-mono text-dim/60 mb-0.5 flex-wrap">
                     <span className={bg ? 'text-indigo-300/80' : 'text-emerald-300/80'}>{bg ? '🌐 背景' : '📍 区域'}</span>
+                    <span className={VIS_META[vis].cls} title="对主角叙事视角的可见性（面板是上帝视角，照常显示全部）">{VIS_META[vis].label}</span>
                     {e.time && <span>🕒 {e.time}</span>}
                     {e.location && <span>📍 {e.location}</span>}
+                    {e.due && !settled && <span className={due ? 'text-rose-300/90' : 'text-dim/50'}>{due ? '⏰ 已到期待结算' : `⏳ ${e.due}`}</span>}
                     {settled && <span className="text-amber-300/80">🏁 {OUTCOME_LABEL[e.outcome ?? 'faded']}</span>}
+                    {settled && e.reveal && (
+                      <span className={e.reveal.state === 'delivered' ? 'text-emerald-300/70' : e.reveal.state === 'shelved' ? 'text-dim/40' : 'text-sky-300/70'}
+                        title="落幕结果的显露递交：候选注入正文→被自然带出=已显露；3 次没接住转搁置（不再注入，记录仍在）">
+                        {e.reveal.state === 'delivered' ? '📬 已显露' : e.reveal.state === 'shelved' ? '🗄 已搁置' : `🔔 待显露（第${e.reveal.attempts}次候选）`}
+                      </span>
+                    )}
                     <span className="flex-1" />
                     <button onClick={() => removeEvent(e.id)} className="text-blood/50 hover:text-blood">删</button>
                   </div>

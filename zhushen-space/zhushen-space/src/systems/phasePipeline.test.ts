@@ -45,6 +45,27 @@ describe('runPhasePipeline（演化阶段声明式调度）', () => {
     expect(slow).toBe(true);
   });
 
+  it('barrierReady 只等 barrier 标记的阶段（发送前一致性屏障）', async () => {
+    let img = false;
+    let core = false;
+    const h = runPhasePipeline([
+      { key: 'core', enabled: true, barrier: true, run: async () => { await tick(); core = true; } },
+      { key: 'img', enabled: true, run: async () => { await tick(40); img = true; } },
+    ]);
+    await h.barrierReady;
+    expect(core).toBe(true);    // 屏障等关键阶段
+    expect(img).toBe(false);    // 不等生图这类慢活
+    await h.allDone;
+    expect(img).toBe(true);
+  });
+
+  it('barrier 阶段抛错也 settle，屏障不悬挂', async () => {
+    const h = runPhasePipeline([
+      { key: 'boom', enabled: true, barrier: true, run: () => { throw new Error('x'); } },
+    ]);
+    await expect(h.barrierReady).resolves.toBeUndefined();
+  });
+
   it('某阶段抛错不影响其它，allDone 仍 resolve', async () => {
     const ran: string[] = [];
     await runPhasePipeline([

@@ -9,7 +9,7 @@ import { SKILL_TIER_CLS, RARITY_CLS, normSkillTier, useCharacters } from '../sto
 import {
   canRankUp, availablePP, potentialBudget, attrDeltaText, treeProgressStats, effectiveTierName,
   nodeRank, nodeMaxRank, treeAttrDelta, SKILLTREE_TUNING, constellationStatus, coinPerPP,
-  expressBranchIds, ownedNameSet,
+  expressBranchIds, ownedNameSet, clampRanksToMaxRank,
 } from '../systems/skillTree';
 import { apiChatFallback } from '../systems/apiChat';
 import { lenientJsonParse } from '../systems/stateParser';
@@ -114,10 +114,10 @@ export default function SkillTreePanel({ onClose }: { onClose: () => void }) {
   const selExpress = !!(selNode?.branch && expressBranches.has(selNode.branch));   // 传承提前解锁的路线 → 花费 1
   const selCost = selExpress ? 1 : (selNode?.cost ?? 0);
   const selRank = selNode ? nodeRank(prog, selNode.id) : 0;
-  const selMaxR = selNode ? nodeMaxRank(selNode) : 0;
+  const selMaxR = selNode ? nodeMaxRank(selNode, tree) : 0;
   const selGrant = selNode ? nodeEffectiveGrant(prog, selNode) : {};   // 生效中的技能/天赋（升级后覆盖）
   const selIsBig = !!(selGrant.skill || selGrant.trait);
-  const selIsUpgrade = selIsBig && selRank >= 1;   // 大节点 rank≥1 再点=AI 升级
+  const selIsUpgrade = selIsBig && selRank >= 1 && selRank < selMaxR;   // 大节点 rank≥1 且还有豆子=AI 升级（1 豆的树点满即止，不再提示升级）
   const items = useItems((s) => s.items);
   const socketCore = selNode?.socket ? prog?.sockets?.[selNode.id] : undefined;
   const socketActive = selNode?.socket ? (selNode.prereqs ?? []).every((p) => nodeRank(prog, p) >= 1) : false;
@@ -164,6 +164,20 @@ export default function SkillTreePanel({ onClose }: { onClose: () => void }) {
   const doExchange = (count: number) => {
     const got = useSkillTree.getState().exchangePP('B1', count);
     if (got > 0) force((x) => x + 1);
+  };
+  // 「每节点可点次数(豆子数)」：n≥1 统一生效(1=点一次就点满)，0=默认(按节点自带)。
+  // 调低会削平超上限的点数 → 先预演一遍给出确认；小节点退回潜能点，大节点同洗点规矩不退(技能/天赋保留)。
+  const doSetMaxRank = (n: number) => {
+    if (!tree || n === (tree.maxRankOverride ?? 0)) return;
+    const label = n >= 1 ? `每个节点 ${n} 次` : `默认（${SKILLTREE_TUNING.maxRankDefault} 次·按节点自带）`;
+    const pre = clampRanksToMaxRank(tree, prog?.ranks, n >= 1 ? n : undefined);
+    if (pre.clamped && !window.confirm(
+      `把可点次数改为「${label}」？\n\n有 ${pre.clamped} 个已点节点超出新上限，点数将被削平；其中小节点退回 ${pre.refund} 潜能点（大节点与洗点同规矩：不退，已习得的技能/天赋保留）。`,
+    )) return;
+    const r = useSkillTree.getState().setMaxRankOverride(tree.id, n);
+    setUpMsg(r.clamped ? `✓ 已设为${label}；削平 ${r.clamped} 个节点，退回 ${r.refund} 潜能点` : `✓ 已设为${label}`);
+    setTimeout(() => setUpMsg(''), 4000);
+    force((x) => x + 1);
   };
   const doRespec = () => {
     const cost = useSkillTree.getState().respecCoinCost('B1');
@@ -235,7 +249,7 @@ export default function SkillTreePanel({ onClose }: { onClose: () => void }) {
               <h2 className="text-base font-bold text-slate-100">技能树</h2>
               {tree && <span className="text-[13px] font-mono text-dim/50">已点 {stats.unlocked}/{stats.total} 节点 · {stats.ranksOwned}/{stats.ranksMax} 点</span>}
             </div>
-            <p className="text-[13px] text-dim/60 mt-0.5">每个节点可点 <span className="text-slate-300">3</span> 次(豆子)，每点花<span className="text-lime-300">潜能点</span>给属性加成；升一级得 4 潜能点。有效阶位 <span className="text-slate-300">{effTier}</span>。{tree?.noTierGate && <span className="text-emerald-300/80"> 本树不限阶位（任意阶位可点）。</span>}</p>
+            <p className="text-[13px] text-dim/60 mt-0.5">每个节点可点 <span className="text-slate-300">{tree?.maxRankOverride ?? SKILLTREE_TUNING.maxRankDefault}</span> 次(豆子·可在下方「可点次数」改)，每点花<span className="text-lime-300">潜能点</span>给属性加成；升一级得 {SKILLTREE_TUNING.ppPerLevel} 潜能点。有效阶位 <span className="text-slate-300">{effTier}</span>。{tree?.noTierGate && <span className="text-emerald-300/80"> 本树不限阶位（任意阶位可点）。</span>}</p>
             {attrDeltaText(treeDelta) && <p className="text-[12px] text-sky-300/80 mt-0.5">本树六维加成：{attrDeltaText(treeDelta)}</p>}
           </div>
           <div className="flex items-center gap-2 shrink-0">
@@ -278,9 +292,23 @@ export default function SkillTreePanel({ onClose }: { onClose: () => void }) {
                 className="text-[12px] font-mono text-amber-300/90 hover:text-amber-200 border border-amber-600/40 rounded px-2 py-1 disabled:opacity-40">
                 ⇄ 兑换潜能点<span className="text-[10px] text-dim/50 ml-1">可兑{exAffordable}</span>
               </button>
+              <label className="flex items-center gap-1 text-[12px] font-mono text-dim/60"
+                title="本树每个节点可点几次（豆子数）。选「1 次」＝点一次就点满、只有一个豆。无尽端点(∞)与免费的中心/星核位不受影响；调低会削平超出的点数并退回小节点的潜能点。">
+                <span>🫘 可点次数</span>
+                <select value={tree.maxRankOverride ?? 0} onChange={(e) => doSetMaxRank(Number(e.target.value))}
+                  className="bg-panel2 border border-edge rounded px-1.5 py-1 text-[12px] text-slate-200 outline-none focus:border-god/50">
+                  <option value={0}>默认（{SKILLTREE_TUNING.maxRankDefault} 次）</option>
+                  <option value={1}>1 次·一点点满</option>
+                  <option value={2}>2 次</option>
+                  <option value={3}>3 次</option>
+                  <option value={5}>5 次</option>
+                  <option value={10}>10 次</option>
+                </select>
+              </label>
               <button onClick={doRespec} className="text-[12px] font-mono text-dim/50 hover:text-amber-300 border border-edge rounded px-2 py-1">↺ 洗点</button>
             </div>
           )}
+          {upMsg && !selNode && <span className="text-[12px] font-mono text-lime-300 w-full text-right max-lg:text-left">{upMsg}</span>}
         </div>
 
         {/* 星座成型奖励：点亮一组节点合拢图案 → 觉醒奖励；点击高亮其节点；成型可 AI 觉醒强化 */}

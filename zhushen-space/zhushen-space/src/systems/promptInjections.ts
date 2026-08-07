@@ -16,7 +16,7 @@ import { useAbyss } from '../store/abyssStore';
 import { useShop } from '../store/shopStore';
 import { playerMaxHp, playerMaxEp } from './playerVitals';
 import { sameWorld } from './worldScope';
-import { latestChain } from './worldEvent';
+import { narrativeEventView, buildRevealInjection } from './worldEvent';
 import { effectiveResource, isAbyssLocked } from './derivedStats';
 import { serializeQuestsForNarrative } from './miscParser';
 import { useCanonRoute } from '../store/canonRouteStore';
@@ -189,21 +189,30 @@ export function buildWorldTimeInjection(): { role: 'system'; content: string }[]
   const evs = (M.worldEvents || [])
     .filter((e) => !e.worldName || sameWorld(e.worldName, wn))
     .filter((e) => !e.settledAt)
+    // 🔒 可见性门（P1·worldEvent.ts）：hidden 整条不进正文（同占卜锚待遇）；trace 只给表象、连事件名都不给；
+    //   秘闻(knownBy)附知情边界。先过门再取最近 3 条——别让 hidden 白占注入名额。缺省 known＝老数据行为不变。
+    .filter((e) => narrativeEventView(e) != null)
     .slice(-3)
     // ⚠ 取**最新脉络节点**而不是最初的 desc：事件推进几轮之后，desc 还停在"刚发生时那一句"，
     //   正文因此永远读到过时的进展（升级前的老 bug）。老条目无 chain → 自然回退 desc。
     .map((e) => {
-      const n = latestChain(e);
+      const v = narrativeEventView(e)!;
       const head = [e.time, e.location].filter(Boolean).join('·');
-      const body = (n?.text || e.desc || '').slice(0, 60);   // 60 字预算是既有约定（promptInjections.test 守着）
-      return `- ${e.name ? `「${e.name}」` : ''}${head}${head ? '：' : ''}${body}`;
+      const body = v.text.slice(0, 60);   // 60 字预算是既有约定（promptInjections.test 守着）
+      const traceMark = v.trace ? '（外界所见表象·内情未知）' : '';
+      const secret = v.secret ? `（秘闻·仅 ${v.secret} 知情，其余角色不得表现出知情）` : '';
+      return `- ${!v.trace && e.name ? `「${e.name}」` : ''}${head}${head ? '：' : ''}${body}${traceMark}${secret}`;
     })
     .filter((l) => l.length > 4);
   const evBlock = evs.length ? `\n近期世界大事（背景事实·可自然呼应，勿整段复述）：\n${evs.join('\n')}` : '';
-  return [{
+  const out: { role: 'system'; content: string }[] = [{
     role: 'system' as const,
     content: `<当前时空>（叙事须与下列时间/世界/天气保持一致，勿自相矛盾；时间与天气由系统推进，正文勿擅自跳改）\n${bits.join(' | ')}${evBlock}${buildAlmanacLines(wt, wn)}\n</当前时空>`,
   }];
+  // 🔔 显露递交（P1）：已落幕待显露的后台结果 ≤2 条作为"自然带出"候选；接没接住由回合末对账（App）判定
+  const rv = buildRevealInjection(M.worldEvents || [], wn, sameWorld);
+  if (rv) out.push({ role: 'system' as const, content: rv });
+  return out;
 }
 
 /* 🗓 临近的日子（并进 <当前时空> 尾部，不单独占一个块）：把未来 ALMANAC_WITHIN 天内到期的

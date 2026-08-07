@@ -3,6 +3,9 @@ import {
   EVENT_CAP, EVENT_FLOOR, scopeOf, isSettled, latestChain, activeEvents, byScope,
   needsMore, overflowIds, pendingDerivations, buildDerivationInjection,
   serializeEventsForEvo, buildActiveEventInjection,
+  visibilityOf, normVisibility, narrativeEventView, isEventDue,
+  pendingReveals, offeredReveals, buildRevealInjection, revealAcked, planRevealReconcile,
+  REVEAL_OFFER_MAX, REVEAL_MAX_ATTEMPTS,
 } from './worldEvent';
 import type { WorldEvent } from '../store/miscStore';
 
@@ -141,5 +144,130 @@ describe('worldEvent · 序列化与注入', () => {
 
   it('无活跃事件 → 不出块', () => {
     expect(buildActiveEventInjection([])).toBe('');
+  });
+});
+
+/* ── P1·可见性（世界发生了 ≠ 正文知道了）── */
+describe('worldEvent · 可见性门', () => {
+  it('visibilityOf 缺省 known（老数据行为不变）；normVisibility 认中英文、认不出 undefined', () => {
+    expect(visibilityOf(ev())).toBe('known');
+    expect(normVisibility('hidden')).toBe('hidden');
+    expect(normVisibility('隐秘')).toBe('hidden');
+    expect(normVisibility('痕迹')).toBe('trace');
+    expect(normVisibility('公开')).toBe('known');
+    expect(normVisibility('牵涉主角')).toBe('direct');
+    expect(normVisibility('乱写的')).toBeUndefined();
+    expect(normVisibility('')).toBeUndefined();
+  });
+
+  it('narrativeEventView：hidden→null；trace→只给表象；known→最新脉络', () => {
+    expect(narrativeEventView(ev({ visibility: 'hidden' }))).toBeNull();
+    const t = narrativeEventView(ev({ visibility: 'trace', publicTrace: '城南连日封路', desc: '实为刺杀布置' }));
+    expect(t?.text).toBe('城南连日封路');
+    expect(t?.trace).toBe(true);
+    expect(narrativeEventView(ev({ visibility: 'trace' }))).toBeNull();   // trace 没写表象 → 不进正文，别替 AI 编
+    const k = narrativeEventView(ev({ knownBy: '林澈, 白九' }));
+    expect(k?.text).toBe('初始描述');
+    expect(k?.secret).toBe('林澈, 白九');
+  });
+
+  it('正文注入块：hidden 整条消失、不占名额；trace 不给事件名只给表象', () => {
+    const s = buildActiveEventInjection([
+      ev({ id: 'W_1', name: '刺杀行动', visibility: 'hidden', desc: '幕后密谋' }),
+      ev({ id: 'W_2', name: '布防调整', visibility: 'trace', publicTrace: '卫兵换岗突然加倍', desc: '内情' }),
+      ev({ id: 'W_3', name: '秋收庆典', desc: '全城筹备' }),
+    ]);
+    expect(s).not.toContain('刺杀行动');
+    expect(s).not.toContain('幕后密谋');
+    expect(s).not.toContain('布防调整');       // trace 连名字都不给
+    expect(s).toContain('卫兵换岗突然加倍');
+    expect(s).not.toContain('内情');
+    expect(s).toContain('秋收庆典');
+  });
+
+  it('演化序列化带可见性与知情者；trace 缺表象点名补', () => {
+    const s = serializeEventsForEvo([
+      ev({ id: 'W_1', name: '布防调整', visibility: 'trace' }),
+      ev({ id: 'W_2', name: '密约', visibility: 'hidden', knownBy: '大长老' }),
+    ]);
+    expect(s).toContain('可见性:trace');
+    expect(s).toContain('⚠trace 必须补 publicTrace 表象');
+    expect(s).toContain('可见性:hidden');
+    expect(s).toContain('知情者:大长老');
+  });
+});
+
+/* ── P1·暗流到期（due） ── */
+describe('worldEvent · isEventDue', () => {
+  it('到点才算到期；解析不出 / 无 due / 已结算 → 不催', () => {
+    const e = ev({ due: '3年5月10日' });
+    expect(isEventDue(e, '3年5月9日')).toBe(false);
+    expect(isEventDue(e, '3年5月10日')).toBe(true);
+    expect(isEventDue(e, '3年6月1日')).toBe(true);
+    expect(isEventDue(ev(), '3年6月1日')).toBe(false);
+    expect(isEventDue(ev({ due: '雪化之时' }), '3年6月1日')).toBe(false);   // 解析不出=不催，settleCond 兜着
+    expect(isEventDue(ev({ due: '3年5月10日', settledAt: 1 }), '3年6月1日')).toBe(false);
+  });
+
+  it('演化序列化：到期标 ⏰ 并要求当轮结算或显式展期', () => {
+    const s = serializeEventsForEvo([ev({ id: 'W_1', name: '舰队抵港', due: '3年5月10日' })], '3年5月11日');
+    expect(s).toContain('⏰已到预计结算时刻');
+    const s2 = serializeEventsForEvo([ev({ id: 'W_1', name: '舰队抵港', due: '3年5月10日' })], '3年5月1日');
+    expect(s2).toContain('到期:3年5月10日');
+    expect(s2).not.toContain('⏰');
+  });
+});
+
+/* ── P1·显露递交（后台演了 ≠ 正文知道了）── */
+describe('worldEvent · 显露递交', () => {
+  const settled = (p: Partial<WorldEvent> = {}) =>
+    ev({ settledAt: 100, reveal: { state: 'pending', attempts: 0 }, ...p });
+
+  it('pendingReveals：只挑 已落幕+pending+非hidden+本世界；先落幕的排前', () => {
+    const list = [
+      settled({ id: 'W_1', settledAt: 300 }),
+      settled({ id: 'W_2', settledAt: 100 }),
+      settled({ id: 'W_3', visibility: 'hidden' }),
+      settled({ id: 'W_4', reveal: { state: 'delivered', attempts: 1 } }),
+      settled({ id: 'W_5', worldName: '别的世界' }),
+      ev({ id: 'W_6' }),   // 未结算
+    ];
+    expect(pendingReveals(list, '', same).map((e) => e.id)).toEqual(['W_2', 'W_1']);
+    expect(offeredReveals(list, '', same)).toHaveLength(Math.min(2, REVEAL_OFFER_MAX));
+  });
+
+  it('注入块：候选措辞是"情境合适才带出"，trace 只给表象', () => {
+    const s = buildRevealInjection([
+      settled({ id: 'W_1', name: '漕帮火并', chain: [{ date: 'd', text: '【落幕·historic】漕帮北堂覆灭' }] }),
+      settled({ id: 'W_2', name: '密谋败露', visibility: 'trace', publicTrace: '府衙连夜贴出海捕文书' }),
+    ], '', same);
+    expect(s).toContain('漕帮火并');
+    expect(s).toContain('漕帮北堂覆灭');
+    expect(s).not.toContain('密谋败露');   // trace 不给名
+    expect(s).toContain('海捕文书');
+    expect(s).toContain('勿硬塞');
+    expect(buildRevealInjection([], '', same)).toBe('');
+  });
+
+  it('revealAcked：事件名或表象片段命中即算承接（无视标点空白）', () => {
+    const e = settled({ name: '漕帮火并' });
+    expect(revealAcked('街头巷尾都在议论漕帮、火并的下场', e)).toBe(true);
+    expect(revealAcked('今天天气不错', e)).toBe(false);
+    const t = settled({ visibility: 'trace', name: '密谋', publicTrace: '府衙连夜贴出海捕文书' });
+    expect(revealAcked('他路过府衙，见连夜贴出海捕文书，眉头一皱', t)).toBe(true);
+  });
+
+  it('planRevealReconcile：接住=deliver；没接=bump；满3次且非direct=shelve；direct 永不搁置', () => {
+    const list = [
+      settled({ id: 'W_1', name: '漕帮火并' }),
+      settled({ id: 'W_2', name: '北岭疫报', reveal: { state: 'pending', attempts: REVEAL_MAX_ATTEMPTS - 1 } }),
+    ];
+    const plan = planRevealReconcile(list, '', same, '正文里聊到了漕帮火并的结局');
+    expect(plan.deliver).toEqual(['W_1']);
+    expect(plan.shelve).toEqual(['W_2']);   // 第 3 次仍没接住 → 搁置
+    const direct = [settled({ id: 'W_9', name: '袭营', visibility: 'direct', reveal: { state: 'pending', attempts: 9 } })];
+    const p2 = planRevealReconcile(direct, '', same, '无关正文');
+    expect(p2.shelve).toEqual([]);
+    expect(p2.bump[0]).toEqual({ id: 'W_9', attempts: 10 });   // direct 永不过期，继续候选
   });
 });

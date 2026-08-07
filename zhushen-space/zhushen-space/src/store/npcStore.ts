@@ -199,6 +199,8 @@ export interface NpcRecord {
 
   deeds?: string;         // 旧版：纯文本近况（保留兼容，勿删）
   deedLog?: Deed[];       // 新版：结构化经历时间线
+  innerVoice?: string;    // 💭 心声（P2.5·借鉴世界背面）：此刻的内心独白。仅 NpcDetail 幕后条显示，绝不注入正文
+  innerVoiceAt?: number;  // 心声更新时的回合号
   auto?: NpcAuto;         // 轨道A 自治状态（离场零API模拟的相位机；见 systems/npcAutonomy.ts）
   updatedAt: number;
 }

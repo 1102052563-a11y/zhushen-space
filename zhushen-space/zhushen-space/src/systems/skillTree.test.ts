@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { validateTree, canRankUp, treeAttrDelta, autoLayout, growthSummary } from './skillTree';
+import { validateTree, canRankUp, treeAttrDelta, autoLayout, growthSummary, nodeMaxRank, clampRanksToMaxRank, treeProgressStats } from './skillTree';
 
 const byId = (tree: any): Record<string, any> => Object.fromEntries(tree.nodes.map((n: any) => [n.id, n]));
 
@@ -137,5 +137,50 @@ describe('autoLayout · 主干式(trunk) 布局', () => {
     expect(Math.sign(m.a1.x - m.t2.x)).not.toBe(Math.sign(m.b1.x - m.t2.x));   // 两条流派分列主干两侧
     expect(m.a1.y).toBeLessThan(m.t2.y);    // 流派起点比主干末端更靠上(y 更小)
     expect(m.a2.y).toBeLessThan(m.a1.y);    // 越深越往上
+  });
+});
+
+describe('maxRankOverride · 每节点可点次数（1=一点点满·只有一个豆）', () => {
+  const mkTree = (maxRankOverride?: number) => validateTree({
+    source: 'ai', noTierGate: true, maxRankOverride,
+    branches: [{ id: 'b1', name: '甲' }],
+    nodes: [
+      { id: 'core', kind: 'minor', branch: 'b1', layer: 0, prereqs: [], cost: 0, maxRank: 1, ptAttr: { str: 1 } },
+      { id: 'm1', kind: 'minor', branch: 'b1', layer: 1, prereqs: ['core'], cost: 2, ptAttr: { str: 1 } },
+      { id: 'big', kind: 'major', branch: 'b1', layer: 2, prereqs: ['m1'], cost: 6, grants: { skill: { name: 'S' } } },
+      { id: 'sk', kind: 'capstone', branch: 'b1', layer: 3, prereqs: ['big'], cost: 4, sink: true, realAttr: true, maxRank: 999, ptAttr: { str: 1 } },
+    ],
+  }).tree;
+
+  it('缺省=3 次；设 1 → 普通/大节点都只 1 个豆，免费 core 与 sink 不受影响', () => {
+    const def = mkTree(), one = mkTree(1);
+    expect(def.maxRankOverride).toBeUndefined();
+    expect(one.maxRankOverride).toBe(1);
+    const nd = (t: any, id: string) => t.nodes.find((n: any) => n.id === id);
+    expect(nodeMaxRank(nd(def, 'm1'), def)).toBe(3);
+    expect(nodeMaxRank(nd(one, 'm1'), one)).toBe(1);
+    expect(nodeMaxRank(nd(one, 'big'), one)).toBe(1);
+    expect(nodeMaxRank(nd(one, 'core'), one)).toBe(1);          // 免费节点保留自身上限
+    expect(nodeMaxRank(nd(mkTree(5), 'core'), mkTree(5))).toBe(1);   // 调高也不给免费节点白嫖
+    expect(nodeMaxRank(nd(one, 'sk'), one)).toBe(999);          // 无尽端点恒无上限
+  });
+
+  it('1 豆时点一次即「已点满」，且大节点前置只需 1 点就放行', () => {
+    const one = mkTree(1);
+    const prog = { ranks: { core: 1, m1: 1 }, spent: 2, aiBonusPP: 99 };
+    expect(canRankUp(one, 'm1', prog, { level: 9, tier: '九阶' }).reason).toBe('已点满');
+    expect(canRankUp(one, 'big', prog, { level: 9, tier: '九阶' }).ok).toBe(true);   // 3 豆时这里会卡「需先点满前置节点」
+    const three = mkTree();
+    expect(canRankUp(three, 'big', prog, { level: 9, tier: '九阶' }).reason).toContain('需先点满前置节点');
+  });
+
+  it('treeProgressStats 满级总点数随设置缩水；调低后 clampRanksToMaxRank 削平并退还小节点潜能点', () => {
+    const three = mkTree(), one = mkTree(1);
+    expect(treeProgressStats(three, { ranks: {} }).ranksMax).toBe(1 + 3 + 3);   // core1 + m1×3 + big×3（sink 不计）
+    expect(treeProgressStats(one, { ranks: {} }).ranksMax).toBe(1 + 1 + 1);
+    const r = clampRanksToMaxRank(one, { core: 1, m1: 3, big: 3, sk: 7 }, 1);
+    expect(r.ranks).toEqual({ core: 1, m1: 1, big: 1, sk: 7 });   // sink 不削
+    expect(r.clamped).toBe(2);
+    expect(r.refund).toBe(2 * 2);   // 小节点 m1 退 2 点×cost2；大节点 big 同洗点规矩不退
   });
 });

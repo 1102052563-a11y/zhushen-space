@@ -29,6 +29,7 @@ import { useImageGen } from '../store/imageGenStore';
 import { useComic } from '../store/comicStore';
 import { useOutfits } from '../store/outfitStore';
 import { useTurnInsight } from '../store/turnInsightStore';
+import { useWorldNews } from '../store/worldNewsStore';
 import { useAgentRun } from '../store/agentRunStore';
 import { useAgentSkills } from '../store/agentSkillStore';
 import { useCharacters } from '../store/characterStore';
@@ -96,6 +97,8 @@ const STORES: { key: string; api: any; clear?: () => void }[] = [
   { key: 'drpg-comic',       api: useComic },      // 漫画工坊配置：保留（漫画本体在 IndexedDB drpg-comics，库房性质·不进快照不随新游戏清）
   { key: 'drpg-outfit',      api: useOutfits, clear: () => useOutfits.getState().clearAll() },   // 👗衣柜（穿搭绑定本存档角色·进度）：随存档快照、新游戏清空
   { key: 'drpg-turn-insight', api: useTurnInsight, clear: () => useTurnInsight.getState().clear() },
+  { key: 'drpg-worldnews',   api: useWorldNews, clear: () => useWorldNews.getState().clearAll() },   // 🌍 世界见闻快照（P2·进度）：随存档快照、新游戏清空
+
   { key: 'drpg-agentrun',   api: useAgentRun, clear: () => useAgentRun.getState().clearAll() },   // Agent 正文模式 run journal：进度数据，随存档快照、新游戏清空
   { key: 'drpg-agentskills', api: useAgentSkills },   // Agent 技能/子代理资产库（预设内嵌导入）：配置类，新游戏保留
 

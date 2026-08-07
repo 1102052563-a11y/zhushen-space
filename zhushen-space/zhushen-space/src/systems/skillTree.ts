@@ -87,10 +87,38 @@ export function defaultCost(kind: TreeNode['kind']): number {
   return SKILLTREE_TUNING.costByKind[kind] ?? 2;
 }
 
-/* 节点最大点数（豆子数）；sink 无上限节点给一个很大的数 */
-export function nodeMaxRank(node: TreeNode): number {
+/* 节点最大点数（豆子数）；sink 无上限节点给一个很大的数。
+   `tree.maxRankOverride`＝本树「每个节点可点几次」的统一设置（玩家在技能树面板/编辑器里选，1=点一次就点满·只有一个豆），
+   优先于节点自带 maxRank。两类节点不受它影响：① sink 无尽端点(恒无上限) ② 星核位/免费节点(cost≤0 且自带上限，
+   如中心 core)——否则把设置调高就能白嫖免费属性。 */
+export function nodeMaxRank(node: TreeNode, tree?: { maxRankOverride?: number }): number {
   if (node.sink) return node.maxRank ?? 999;
+  const ov = Math.floor(Number(tree?.maxRankOverride) || 0);
+  if (ov >= 1) {
+    if (node.socket || ((node.cost ?? 0) <= 0 && node.maxRank != null)) return node.maxRank ?? 1;
+    return ov;
+  }
   return node.maxRank ?? SKILLTREE_TUNING.maxRankDefault;
+}
+
+/* 改「每节点可点次数」后：把超出新上限的已点点数削平，并算出应退还的潜能点。
+   与洗点同规矩——小节点(星点)按 rank×cost 退还，大节点(带技能/天赋/配方)只削平、不退还（技能/天赋一律保留）。 */
+export interface RankClampResult { ranks: Record<string, number>; refund: number; clamped: number }
+export function clampRanksToMaxRank(
+  tree: TreeDef | undefined, ranks: Record<string, number> | undefined, override?: number,
+): RankClampResult {
+  const out: Record<string, number> = { ...(ranks ?? {}) };
+  let refund = 0, clamped = 0;
+  for (const n of tree?.nodes ?? []) {
+    const cur = Math.max(0, Math.floor(out[n.id] ?? 0));
+    if (!cur) continue;
+    const max = nodeMaxRank(n, { maxRankOverride: override });
+    if (cur <= max) continue;
+    out[n.id] = max;
+    clamped++;
+    if (!isBigNode(n)) refund += (cur - max) * (n.cost ?? 0);
+  }
+  return { ranks: out, refund, clamped };
 }
 
 export interface SocketCore { itemName?: string; name?: string; effect?: string; ptAttr?: AttrDelta; radius?: number; chainNodeIds?: string[]; active?: boolean }
@@ -126,7 +154,7 @@ export function gatePass(node: TreeNode, ctx: TreeCtx): boolean {
 
 /* sink「无上限」节点是否满足前提：本树所有非 sink 节点都已点满 */
 export function allNonSinkMaxed(tree: TreeDef, progress: ProgressLike | undefined): boolean {
-  return tree.nodes.filter((n) => !n.sink).every((n) => nodeRank(progress, n.id) >= nodeMaxRank(n));
+  return tree.nodes.filter((n) => !n.sink).every((n) => nodeRank(progress, n.id) >= nodeMaxRank(n, tree));
 }
 
 export interface UnlockCheck { ok: boolean; reason?: string }
@@ -139,7 +167,7 @@ export function canRankUp(
   const node = tree.nodes.find((n) => n.id === nodeId);
   if (!node) return { ok: false, reason: '节点不存在' };
   const cur = nodeRank(progress, nodeId);
-  if (cur >= nodeMaxRank(node)) return { ok: false, reason: node.sink ? '已达上限' : '已点满' };
+  if (cur >= nodeMaxRank(node, tree)) return { ok: false, reason: node.sink ? '已达上限' : '已点满' };
   const missing = (node.prereqs ?? []).filter((p) => !isUnlocked(progress, p));
   if (missing.length) {
     const names = missing.map((id) => tree.nodes.find((n) => n.id === id)?.name ?? id);
@@ -150,7 +178,7 @@ export function canRankUp(
     const notMaxed = (node.prereqs ?? []).filter((p) => {
       const pn = tree.nodes.find((n) => n.id === p);
       if (!pn || pn.socket || pn.sink) return false;   // 星核位(嵌核即满足)/无尽端点(无上限) 不要求点满
-      return nodeRank(progress, p) < nodeMaxRank(pn);
+      return nodeRank(progress, p) < nodeMaxRank(pn, tree);
     });
     if (notMaxed.length) {
       const names = notMaxed.map((id) => tree.nodes.find((n) => n.id === id)?.name ?? id);
@@ -440,6 +468,7 @@ export function validateTree(raw: any): TreeValidation {
     recipeLabel: raw?.recipeLabel ? String(raw.recipeLabel) : undefined,   // 副职业树专用（技能树忽略）
     category: raw?.category ? String(raw.category) : undefined,
     noTierGate: raw?.noTierGate ? true : undefined,   // 「不加阶位限制」标志，随树保存/导出（节点 tierGate 已清空）
+    maxRankOverride: Number(raw?.maxRankOverride) >= 1 ? Math.min(99, Math.floor(Number(raw.maxRankOverride))) : undefined,   // 「每节点可点次数」统一设置，随树保存/导出/分享
     layout: raw?.layout === 'trunk' ? 'trunk' : undefined,   // 主干式布局标志，随树保存（autoLayout 据此走主干排版）
     userEdited: raw?.userEdited ? true : undefined,   // 玩家改过标志：随树透传（节点重写/导入内置树时不丢·内置树 re-seed 据此不覆盖）
   };
@@ -549,7 +578,7 @@ export function treeProgressStats(tree: TreeDef | undefined, progress: ProgressL
     const r = nodeRank(progress, n.id);
     if (r >= 1) unlocked++;
     ranksOwned += r;
-    if (!n.sink) ranksMax += nodeMaxRank(n);
+    if (!n.sink) ranksMax += nodeMaxRank(n, tree);
   }
   return { unlocked, total: nodes.length, ranksOwned, ranksMax };
 }

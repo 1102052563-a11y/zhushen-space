@@ -95,7 +95,7 @@ function favorCls(v: number) {
 }
 
 export default function NpcDetail({
-  npc, list, onClose, onSelect, onManualUpdate, updating, onCultivate, preview = false, previewActions,
+  npc, list, onClose, onSelect, onManualUpdate, updating, onObserve, observing, observation, onCultivate, preview = false, previewActions,
 }: {
   npc: NpcRecord;
   list: NpcRecord[];
@@ -103,6 +103,9 @@ export default function NpcDetail({
   onSelect: (id: string) => void;
   onManualUpdate?: (id: string) => void;
   updating?: boolean;
+  onObserve?: (id: string) => void;                                  // 👁 即时观测「看看TA在做什么」（P2·仅离场角色）
+  observing?: boolean;
+  observation?: { text: string; turn: number } | null;
   onCultivate?: (r: NpcRecord) => void;   // 宠物/召唤物「培养」（仅 isPetLike 显示）
   preview?: boolean;          // 只读卡片预览（助战卡 / 聊天室分享 NPC）：隐藏编辑/对话/删除/转移/生图等可变控件
   previewActions?: ReactNode; // 预览模式下头部右侧自定义按钮（如「邀请助战」），替代默认的对话/编辑/删除
@@ -111,6 +114,7 @@ export default function NpcDetail({
   const [confirmDel, setConfirmDel] = useState(false);
   const [editing, setEditing] = useState(false);   // 手动编辑/纠正面板模式
   const [chatOpen, setChatOpen] = useState(false);  // 与该 NPC 私聊窗
+  const [obsOpen, setObsOpen] = useState(false);    // 👁 观测浮层
   const upsertNpc = useNpc((s) => s.upsertNpc);
   const clearNpcBag = useNpc((s) => s.clearNpcBag);
   const hardRemoveNpc = useNpc((s) => s.hardRemoveNpc);
@@ -197,6 +201,19 @@ export default function NpcDetail({
               }`}
             >
               {updating ? <><span className="animate-spin inline-block">◌</span> 更新中…</> : '⟳ 手动更新'}
+            </button>
+          )}
+
+          {/* 👁 即时观测（P2·仅离场且在世的角色——已在镜头里的人正文自己会写）：纯观看不写档案不进正文 */}
+          {!effPreview && onObserve && !npc.onScene && !npc.isDead && (
+            <button
+              onClick={() => { setObsOpen(true); if (!observing && !observation) onObserve(npc.id); }}
+              title="看看 TA 此刻在做什么：生成一段第一人称即时片段（纯观看——不写档案、不推时间、不进正文）"
+              className={`inline-flex items-center gap-1 px-3 py-1.5 max-lg:px-2 max-lg:py-1 text-sm max-lg:text-[13px] rounded-lg border font-mono transition-colors ${
+                observing ? 'border-cyan-500/50 text-cyan-300 bg-cyan-900/15' : 'border-edge text-dim/70 hover:border-cyan-500/50 hover:text-cyan-300'
+              }`}
+            >
+              {observing ? <><span className="animate-spin inline-block">◌</span> 观测中…</> : '👁 看看TA'}
             </button>
           )}
 
@@ -326,6 +343,49 @@ export default function NpcDetail({
         )}
 
         {chatOpen && <NpcChatPanel npc={npc} onClose={() => setChatOpen(false)} />}
+
+        {/* 👁 即时观测浮层（P2·借鉴世界背面「看看TA在做什么」）：纯观看层——关闭即走，不写任何档案 */}
+        {obsOpen && (
+          <div className="fixed inset-0 z-[85] bg-black/70 backdrop-blur-sm flex items-center justify-center p-4"
+            onClick={(e) => { if (e.target === e.currentTarget) setObsOpen(false); }}>
+            <div className="w-full max-w-md rounded-2xl border border-edge bg-void shadow-[0_0_60px_rgba(0,0,0,0.85)] overflow-hidden flex flex-col max-h-[80dvh]">
+              <header className="shrink-0 flex items-center gap-2 px-4 py-3 border-b border-edge bg-panel">
+                <span className="text-cyan-300/80 text-lg">👁</span>
+                <div className="flex-1 min-w-0">
+                  <div className="text-sm font-bold text-slate-100 truncate">{npc.name} · 此刻</div>
+                  <div className="text-[11px] font-mono text-dim/50">镜头之外的即时片段{observation ? `（第 ${observation.turn} 回合观测）` : ''}</div>
+                </div>
+                <button onClick={() => setObsOpen(false)} className="text-dim/50 hover:text-blood text-lg">✕</button>
+              </header>
+              <div className="flex-1 overflow-y-auto p-4">
+                {observing ? (
+                  <div className="py-10 text-center text-cyan-300/70 text-sm font-mono"><span className="animate-spin inline-block mr-2">◌</span>正把镜头悄悄转过去…</div>
+                ) : observation ? (
+                  <div className="text-[14px] text-slate-200 leading-relaxed whitespace-pre-wrap">{observation.text}</div>
+                ) : (
+                  <div className="py-10 text-center text-dim/40 text-sm font-mono">还没有观测结果——点下方「再看一眼」生成</div>
+                )}
+              </div>
+              <footer className="shrink-0 px-4 py-2.5 border-t border-edge bg-panel/60 flex items-center gap-2">
+                <span className="flex-1 text-[11px] text-dim/40 leading-snug">纯观看：不写档案、不推时间、不进正文——她不会因为被看见而成为剧情中心。</span>
+                <button onClick={() => onObserve && !observing && onObserve(npc.id)} disabled={observing || !onObserve}
+                  className="shrink-0 text-[12px] font-mono px-2.5 py-1 rounded border border-cyan-600/50 text-cyan-300 hover:bg-cyan-900/20 disabled:opacity-40 transition-colors">
+                  {observing ? '观测中…' : '🔄 再看一眼'}
+                </button>
+              </footer>
+            </div>
+          </div>
+        )}
+
+        {/* 💭 幕后心声（P2.5·借鉴世界背面 innerVoice）：AI 在她处境/情绪真变化时更新；只给玩家看，绝不注入正文 */}
+        {!effPreview && !editing && npc.innerVoice && (
+          <div className="mx-4 max-lg:mx-3 mb-2 px-3 py-2 rounded-lg border border-edge/60 bg-panel/40 flex items-start gap-2"
+            title="幕后视角：她此刻的内心独白——只有你看得到，正文与其他角色都不知道">
+            <span className="text-[13px] shrink-0">💭</span>
+            <span className="flex-1 text-[13px] text-slate-300/90 italic leading-relaxed">{npc.innerVoice}</span>
+            {npc.innerVoiceAt != null && <span className="text-[10px] font-mono text-dim/40 shrink-0 pt-0.5">T{npc.innerVoiceAt}</span>}
+          </div>
+        )}
 
         {/* ── 栏目条（编辑模式下隐藏）── */}
         {!editing && (

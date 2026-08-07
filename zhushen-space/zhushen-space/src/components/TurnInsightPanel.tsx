@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { useTurnInsight, type TurnSnapshot, type TurnStatusEffect } from '../store/turnInsightStore';
+import { useTurnInsight, type TurnSnapshot, type TurnStatusEffect, type ConsistencyEntry } from '../store/turnInsightStore';
 
 const ATTR_LABEL: Record<string, string> = { str: '力量', agi: '敏捷', con: '体质', int: '智力', cha: '魅力', luck: '幸运' };
 
@@ -106,6 +106,7 @@ function diffEquips(prev: EquipLite[] = [], cur: EquipLite[] = []) {
 
 export default function TurnInsightPanel({ onClose }: { onClose: () => void }) {
   const snapshots = useTurnInsight((s) => s.snapshots);
+  const consistency = useTurnInsight((s) => s.consistency);   // 旧存档可能无此字段 → undefined，渲染处兜底
   const [offset, setOffset] = useState(0);   // 0=本轮(最新 vs 上一份)，1=上轮
   const n = snapshots.length;
   const cur = snapshots[n - 1 - offset];
@@ -134,6 +135,7 @@ export default function TurnInsightPanel({ onClose }: { onClose: () => void }) {
           {!cur && <div className="text-center text-dim/40 text-sm py-12">暂无回合快照。每回合结束约 20 秒后自动记录，再回来看变化。</div>}
           {cur && !prev && <div className="text-center text-dim/40 text-sm py-12">这是第一份快照，还没有可对比的上一轮。</div>}
           {cur && prev && <InsightBody cur={cur} prev={prev} />}
+          {(consistency?.length ?? 0) > 0 && <ConsistencySection entries={consistency!} />}
         </div>
       </div>
     </div>
@@ -345,6 +347,44 @@ function Section({ title, children }: { title: string; children: React.ReactNode
     <div className="space-y-2">
       <div className="text-xs font-mono text-god/70">{title}</div>
       {children}
+    </div>
+  );
+}
+
+/* 🧭 一致性哨兵（P0·evoGuard）：时间倒退被拦 / 发送屏障超时 / 切世界中止在途演化——
+   只记录不拦截的冲突流水（排查"数值乱跳/时间漂移"的黑匣子）。默认收起，跨回合累计（≤60 条滚动）。 */
+const CONSISTENCY_KIND: Record<string, { label: string; cls: string }> = {
+  'time-regression':    { label: '⏪ 时间倒退拦截', cls: 'border-amber-600/50 text-amber-300' },
+  'barrier-timeout':    { label: '⏳ 发送屏障超时', cls: 'border-sky-600/50 text-sky-300' },
+  'stale-phase-skip':   { label: '🌐 跨世界阶段跳过', cls: 'border-violet-600/50 text-violet-300' },
+  'world-switch-abort': { label: '🌐 切世界中止演化', cls: 'border-violet-600/50 text-violet-300' },
+};
+
+function ConsistencySection({ entries }: { entries: ConsistencyEntry[] }) {
+  const [open, setOpen] = useState(false);
+  const recent = [...entries].reverse().slice(0, 20);
+  return (
+    <div className="space-y-2">
+      <div className="flex items-center gap-2 cursor-pointer select-none" onClick={() => setOpen((o) => !o)}>
+        <span className="text-xs font-mono text-god/70">🧭 一致性哨兵（正文/演化与权威状态的冲突记录）</span>
+        <span className="text-[11px] font-mono px-1.5 py-0.5 rounded border border-edge text-dim/60">{entries.length}</span>
+        <span className="text-[11px] text-dim/40">{open ? '▲ 收起' : '▼ 展开'}</span>
+      </div>
+      {open && (
+        <div className="rounded-xl border border-edge bg-panel/60 p-3 space-y-1.5">
+          {recent.map((e, i) => {
+            const meta = CONSISTENCY_KIND[e.kind] ?? { label: e.kind, cls: 'border-edge text-dim/70' };
+            return (
+              <div key={i} className="flex items-start gap-2">
+                <span className="text-[11px] font-mono text-dim/40 pt-0.5 shrink-0">T{e.turn}</span>
+                <span className={`text-[11px] font-mono px-1.5 py-0.5 rounded border shrink-0 ${meta.cls}`}>{meta.label}</span>
+                <span className="text-[12px] text-dim/75 leading-relaxed">{e.detail}</span>
+              </div>
+            );
+          })}
+          <div className="text-[11px] text-dim/40 pt-1">这些冲突都已按守卫规则处理（保留旧值 / 跳过 / 放行），此处只留痕供排查；误拦时间时可在 世界/杂项 面板手动改。</div>
+        </div>
+      )}
     </div>
   );
 }

@@ -163,6 +163,12 @@ export interface WorldEvent {
   settledAt?: number;  // 结算时间戳（有值=已落幕，退出活跃视图但保留在流水账里）
   outcome?: 'historic' | 'derived' | 'faded';   // 三级结算：重大历史 / 派生后续 / 湮灭
   derivedAt?: number;  // outcome='derived' 的事件被任务演化阶段消费过的标记（防重复派生）
+  // ── P1·世界背面借鉴：可见性 / 暗流到期 / 显露递交（判定逻辑在 systems/worldEvent.ts）──
+  visibility?: 'hidden' | 'trace' | 'known' | 'direct';   // 对主角叙事视角的可见性；缺省=known（老数据行为不变）。hidden 永不进正文（同 guide 占卜锚待遇）
+  publicTrace?: string;  // visibility='trace' 时外界能观察到的表象（封路/异响/停业）——正文只喂这个，绝不喂内情与事件名
+  knownBy?: string;      // 秘闻知情者（逗号分隔人物名）。有值=正文会被告知「其余角色不得表现出知情」
+  due?: string;          // 预计结算时刻（世界时间串）。前端 isEventDue 判到期 → 演化里标 ⏰ 逼当轮结算或显式展期
+  reveal?: { state: 'pending' | 'delivered' | 'shelved'; attempts: number };   // 落幕结果的显露递交：注入正文当候选→接住=delivered；3 次没接且非 direct=shelved（编年史仍在）
 }
 
 /* 叙事长期事实（回复后由 LLM 抽取，供关键词召回）*/
@@ -620,6 +626,8 @@ export const useMisc = create<MiscState>()(
               ...e, outcome, settledAt: Date.now(),
               // 结算陈述并进脉络（而不是覆盖 desc）——事件的完整读法始终是"初始描述 + 逐节推进 + 落幕"
               ...(summary ? { chain: [...(e.chain ?? []), { date: s.worldTime || '', text: `【落幕·${outcome}】${summary}` }] } : {}),
+              // 显露递交（P1）：非 hidden 的落幕结果进「待显露」队列——注入侧给正文当自然带出候选（systems/worldEvent.ts）
+              ...(e.visibility !== 'hidden' && !e.reveal ? { reveal: { state: 'pending' as const, attempts: 0 } } : {}),
             }
             : e)),
         })),

@@ -49,6 +49,42 @@ describe('buildWorldTimeInjection（天气+世界大事读回）', () => {
     expect(out).not.toContain('天气:');
     expect(out).not.toContain('近期世界大事');
   });
+
+  it('P1 可见性门：hidden 整条不进正文且不占名额；trace 只给表象不给事件名；秘闻附知情边界', () => {
+    useMisc.setState({
+      paradiseTime: '轮回历3年',
+      worldEvents: [
+        { id: 'W_1', time: '第1日', location: '', desc: '最早的事' },
+        { id: 'W_2', time: '第2日', location: '内城', desc: '幕后密谋中', name: '刺杀行动', visibility: 'hidden' },
+        { id: 'W_3', time: '第3日', location: '城南', desc: '实为布防内情', name: '布防调整', visibility: 'trace', publicTrace: '卫兵换岗突然加倍' },
+        { id: 'W_4', time: '第4日', location: '王都', desc: '全城筹备庆典', name: '秋收庆典', knownBy: '林澈' },
+      ],
+    } as never);
+    const out = text(buildWorldTimeInjection());
+    expect(out).not.toContain('刺杀行动');
+    expect(out).not.toContain('幕后密谋');
+    expect(out).not.toContain('布防调整');          // trace 连名字都不给
+    expect(out).toContain('卫兵换岗突然加倍');
+    expect(out).toContain('最早的事');               // hidden 不占 3 条名额 → W_1 顶上
+    expect(out).toContain('仅 林澈 知情');
+  });
+
+  it('P1 显露递交：已落幕待显露事件出「镜头外已落幕」块；hidden/已显露不出', () => {
+    useMisc.setState({
+      paradiseTime: '轮回历3年',
+      worldEvents: [
+        { id: 'W_1', time: '', location: '', desc: '', name: '漕帮火并', settledAt: 100, reveal: { state: 'pending', attempts: 0 }, chain: [{ date: 'd', text: '【落幕】北堂覆灭' }] },
+        { id: 'W_2', time: '', location: '', desc: '密事', name: '密约', visibility: 'hidden', settledAt: 100 },
+        { id: 'W_3', time: '', location: '', desc: '旧闻', name: '旧案', settledAt: 100, reveal: { state: 'delivered', attempts: 1 } },
+      ],
+    } as never);
+    const out = text(buildWorldTimeInjection());
+    expect(out).toContain('镜头外已落幕');
+    expect(out).toContain('漕帮火并');
+    expect(out).toContain('北堂覆灭');
+    expect(out).not.toContain('密约');
+    expect(out).not.toContain('旧案');
+  });
 });
 
 describe('buildFacilityInjection（设施近况常驻注入）', () => {

@@ -21,12 +21,16 @@ export interface Phase {
   run: () => void | Promise<void>;
   onDone?: () => void | Promise<void>;
   awaitForSnapshot?: boolean;
+  /** 纳入「发送前一致性屏障」等待集：会写下一轮 prompt 要读的 store 的关键阶段（生图/记忆等慢活别标） */
+  barrier?: boolean;
   delayMs?: number;
 }
 
 export interface PipelineHandle {
   /** awaitForSnapshot 的阶段全部 settle —— 调用方据此在抓快照前等待 */
   snapshotReady: Promise<void>;
+  /** barrier 的阶段全部 settle —— 下一回合发送前的一致性屏障据此等待（P0·借鉴世界背面） */
+  barrierReady: Promise<void>;
   /** 全部阶段（含 delay）settle */
   allDone: Promise<void>;
 }
@@ -56,8 +60,10 @@ export function runPhasePipeline(phases: Phase[]): PipelineHandle {
 
   const all = phases.map((p) => start(p, new Set()));
   const snapWaiters = phases.filter((p) => p.awaitForSnapshot).map((p) => started.get(p.key)!);
+  const barrierWaiters = phases.filter((p) => p.barrier).map((p) => started.get(p.key)!);
   return {
     snapshotReady: Promise.allSettled(snapWaiters).then(() => undefined),
+    barrierReady: Promise.allSettled(barrierWaiters).then(() => undefined),
     allDone: Promise.allSettled(all).then(() => undefined),
   };
 }

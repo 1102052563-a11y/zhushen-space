@@ -9,7 +9,7 @@ import type { AttrDelta } from '../systems/attrBonus';
 import {
   canRankUp, nodeRank, validateTree, autoLayout, defaultCost,
   DEFAULT_BRANCH_COLORS, SKILLTREE_TUNING, treeAttrDelta, constellationStatus,
-  isBigNode, respecMinorPoints, coinPerPP,
+  isBigNode, respecMinorPoints, coinPerPP, clampRanksToMaxRank,
   expressBranchIds, ownedNameSet, nodeCostFor, growthSummary,
 } from '../systems/skillTree';
 import { registerTreePool } from '../systems/treePool';
@@ -93,6 +93,7 @@ export interface TreeDef {
   recipeLabel?: string;    // 副职业树专用：配方的叫法（图纸/药方/食谱/锻造图…），仅副职业树用，技能树忽略
   category?: string;       // 副职业树专用：副职业大类（制造/医疗/生活…）
   noTierGate?: boolean;    // 生成时选「不加阶位限制」：validateTree 不分配 tierGate（节点 tierGate 留空→gatePass 恒过），任意阶位都可点
+  maxRankOverride?: number;// 「每个节点可点几次(豆子数)」统一设置：1=点一次就点满(只有一个豆)；缺省=各节点自带 maxRank/默认 3。sink 无尽端点与免费节点(core/星核位)不受影响
   layout?: 'radial' | 'trunk';   // 布局：radial=四周放射(默认)；trunk=主干式(先一条通用主干往上，再从主干顶端分出各流派)
   userEdited?: boolean;    // 玩家改过这棵树（改名/改节点…）→ 内置树版本升级时的 re-seed 不再覆盖它（保住玩家对内置树的编辑，治"改完没保存/被还原"）
 }
@@ -273,6 +274,7 @@ interface SkillTreeState {
   updateBranch: (treeId: string, branchId: string, patch: Partial<TreeBranch>) => void;
   removeBranch: (treeId: string, branchId: string) => void;
   updateTreeMeta: (treeId: string, patch: Partial<Pick<TreeDef, 'profession' | 'title'>>) => void;
+  setMaxRankOverride: (treeId: string, n: number) => { refund: number; clamped: number };   // 「每节点可点次数」设置：改完把超上限的点数削平 + 退还小节点潜能点
   relayout: (treeId: string) => void;
   // 编辑器：星座
   addConstellation: (treeId: string, c: TreeConstellation) => void;
@@ -427,6 +429,28 @@ export const useSkillTree = create<SkillTreeState>()(
           const prof = String(patch.profession).trim();
           if (prof) usePlayer.getState().setProfile({ profession: prof });
         }
+      },
+
+      // 「每个节点可点几次(豆子数)」：n≥1 统一生效；n≤0 恢复默认(按节点自带 maxRank/默认 3)。
+      // 调低后已超上限的点数就地削平：小节点(星点)按 rank×cost 退回潜能点，大节点同洗点规矩只削平不退（技能/天赋保留）。
+      setMaxRankOverride: (treeId, n) => {
+        const ov = Math.floor(Number(n) || 0);
+        const val = ov >= 1 ? Math.min(99, ov) : undefined;
+        let refund = 0, clamped = 0;
+        set((s) => {
+          const t = s.trees[treeId]; if (!t) return s;
+          const tree: TreeDef = { ...t, maxRankOverride: val, userEdited: true };
+          const progress = { ...s.progress };
+          for (const [cid, p] of Object.entries(progress)) {
+            if (p.activeTreeId !== treeId) continue;
+            const r = clampRanksToMaxRank(tree, p.ranks, val);
+            if (!r.clamped) continue;
+            refund += r.refund; clamped += r.clamped;
+            progress[cid] = { ...p, ranks: r.ranks, spent: Math.max(0, (p.spent ?? 0) - r.refund) };
+          }
+          return { trees: { ...s.trees, [treeId]: tree }, progress };
+        });
+        return { refund, clamped };
       },
 
       relayout: (treeId) => set((s) => {

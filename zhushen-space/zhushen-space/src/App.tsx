@@ -163,10 +163,15 @@ import { preloadEventCores } from './systems/ledger/preloadCores';   // 阶段1�
 import { snapshotPlayerBag, reconcilePlayerBag, pruneBlankDupItems } from './systems/itemWatchdog';
 import { flattenAiText } from './systems/flattenAiText';
 import { runPhasePipeline, type Phase } from './systems/phasePipeline';
+import { currentEvoEpoch, bumpEvoEpoch, evoEpochStale, reportConsistency } from './systems/evoGuard';
+import { TIME_ANCHOR_RULE, WORLD_EVENT_VISIBILITY_RULE, WORLD_NEWS_RULE, NPC_INNER_VOICE_RULE } from './promptRules';
+import { useWorldNews } from './store/worldNewsStore';
+import { buildNewsCandidates, serializeNewsCandidates, parseNewsReply } from './systems/worldNews';
 import { buildFanficInjection, buildFactInjection, buildCosmosInjection, buildPlayerCoreInjection, buildWorldTimeInjection, buildQuestInjection, buildGuildInjection, buildFacilityInjection, buildCanonWorldInjection, buildSuxiaoTrackInjection, buildOutfitInjection } from './systems/promptInjections';
 import { takeSkillUpNote } from './systems/skillUpgrade';
 import { applyPlayerProfileCommands, applyTimedStatusCommands, expireStatuses } from './systems/statusCommands';
 import { getNpcApi, getPetApi, trimNarrative, npcChatCompletion, petChatCompletion, buildNpcVars, fillVars, serializeNpcSnapshot } from './systems/npcEvolutionHelpers';
+import { eventsKnownTo, buildObservePrompt, observeContaminated } from './systems/npcObserve';
 import { reconcileNewNpcNames } from './systems/npcNameGuard';
 import { reconcileNewFactions } from './systems/factionNameGuard';
 import { speakText, stopTts, speakLine, resolveSpeakerVoice, useTtsSpeaking, ttsSupported } from './systems/tts';
@@ -236,6 +241,7 @@ import {
 } from './systems/rumor';
 import {
   activeEvents, overflowIds, serializeEventsForEvo, pendingDerivations, buildDerivationInjection,
+  pendingReveals, planRevealReconcile,
 } from './systems/worldEvent';
 import { buildFameInjection, contractorBaseline } from './systems/paradiseFame';
 import { buildReputeInjection, defaultRepute, summarizeRepute, formatRepute, checkCombos, reputeSeenBy } from './systems/reputation';
@@ -1781,6 +1787,8 @@ export default function App() {
   const [npcPhaseRunning,    setNpcPhaseRunning]    = useState(false);
   const [npcPhaseLog,        setNpcPhaseLog]        = useState('');
   const [npcManualUpdatingId, setNpcManualUpdatingId] = useState<string | null>(null);   // 正在「手动更新」的单个 NPC id
+  const [npcObservingId, setNpcObservingId] = useState<string | null>(null);             // 👁 正在「即时观测」的 NPC id（P2）
+  const [npcObservations, setNpcObservations] = useState<Record<string, { text: string; turn: number }>>({});   // 观测缓存（仅本会话·纯观看不落盘）
   const [petPhaseRunning,    setPetPhaseRunning]    = useState(false);
   const [petPhaseLog,        setPetPhaseLog]        = useState('');
   // 宠物/召唤物·培养弹窗（投材料+提示词·同一 pet API·可重掷·采纳同步到面板）
@@ -2200,6 +2208,11 @@ export default function App() {
   const lastAutoSaveTurn = useRef(-1);   // 本回合是否已自动存过：防同回合内(生图/选项等异步改 messages 反复触发定时器)重复自动存、刷出多份🛟备份
   const abortRef = useRef<AbortController | null>(null);   // 正文生成中止控制器（停止生成用）
   const stopAllRef = useRef(false);   // 「停止生成全部变量」：置位后各演化/生图循环 bail；新一轮生成开头复位
+  /* 发送前一致性屏障（P0·借鉴世界背面）：上一回合演化管线「关键阶段+防漂收尾」的 promise；
+     sendMessage 发送前 await 它（带超时），防止 prompt 读到半新不旧的 store、回退点抓到半演化状态。 */
+  const phaseBarrierRef = useRef<{ settled: boolean; promise: Promise<void> } | null>(null);
+  const sendGateRef = useRef(false);   // 屏障等待窗口内（generating 未置位）挡重复发送
+
   const [canUndo, setCanUndo] = useState(false);           // 是否有可回退的上一回合
   const [waitingSubmit, setWaitingSubmit] = useState('');  // 房主·全员就绪门：等待队友提交的提示文案（''=不在等待）
   const mpTurnInputs = useMp((s) => s.turn?.inputs);        // 订阅本回合队友提交进度，供「全员就绪门」自动发送
@@ -4367,7 +4380,7 @@ export default function App() {
       .filter((e) => e.enabled && e.source !== 'entrySharedRules')
       .map((e) => fillVars(e.content, vars))
       .join('\n\n')
-      + '\n\n' + NARRATIVE_FIRST_RULE + '\n' + BUFF_AS_STATUS_RULE + '\n' + NPC_AGE_RULE + '\n' + TALENT_NO_CAP_RULE + '\n' + TITLE_DIVERSITY_RULE + '\n' + NPC_DEAD_EXCLUDE_RULE + '\n' + NPC_ID_RULE + '\n' + SKILL_TALENT_NOTE_RULE + '\n' + NPC_SKILL_KEEP_RULE + '\n' + ITEM_GRANTED_SKILL_RULE + '\n' + SKILL_STABILITY_RULE + '\n' + SKILL_COMBAT_TAG_RULE + '\n' + NPC_REVIEW_TAG_RULE +'\n' + NPC_TEAM_AFFILIATION_RULE + '\n' + TIER_RULE + '\n' + IMAGE_TAGS_RULE + '\n' + HPEP_NARRATIVE_ONLY_RULE + '\n' + POINTS_NARRATIVE_RULE + '\n' + getPrompt('ATTR_POWER_CODEX', ATTR_POWER_CODEX) + '\n' + NPC_ATTR_GEN_RULE + '\n' + ATTR_SANITY_RULE + '\n' + ATTR_CAP_RULE + '\n' + STATUS_FORMAT_RULE + '\n' + STATUS_COUNTDOWN_TURN_RULE + '\n' + NPC_PRIVATE_EXTRA_RULE + '\n' + NPC_TIER_LOADOUT_RULE + '\n' + SKILL_TALENT_ATTR_CAP_RULE + '\n' + FIRST_UPDATE_COMPLETE_RULE + '\n' + EVO_EXACT_REF_RULE + '\n' + SKILL_TALENT_GUIDE + '\n' + getPrompt('NPC_COT_RULE', NPC_COT_RULE) + '\n' + ANTI_OMNISCIENCE_RULE + '\n' + getPrompt('NPC_DECENTER_RULE', NPC_DECENTER_RULE) + infoReachInjection(charId) + '\n' + NATIVE_LIFE_LOCAL_RULE + '\n' + getPrompt('NPC_INDEPENDENCE_RULE', NPC_INDEPENDENCE_RULE) + '\n' + getPrompt('DISPOSITION_STAGE_RULE', DISPOSITION_STAGE_RULE) + '\n' + DISPOSITION_DELTA_RULE + causalWeightInjection() + worldLoreEvoInjection()
+      + '\n\n' + NARRATIVE_FIRST_RULE + '\n' + BUFF_AS_STATUS_RULE + '\n' + NPC_AGE_RULE + '\n' + TALENT_NO_CAP_RULE + '\n' + TITLE_DIVERSITY_RULE + '\n' + NPC_DEAD_EXCLUDE_RULE + '\n' + NPC_ID_RULE + '\n' + SKILL_TALENT_NOTE_RULE + '\n' + NPC_SKILL_KEEP_RULE + '\n' + ITEM_GRANTED_SKILL_RULE + '\n' + SKILL_STABILITY_RULE + '\n' + SKILL_COMBAT_TAG_RULE + '\n' + NPC_REVIEW_TAG_RULE +'\n' + NPC_TEAM_AFFILIATION_RULE + '\n' + TIER_RULE + '\n' + IMAGE_TAGS_RULE + '\n' + HPEP_NARRATIVE_ONLY_RULE + '\n' + POINTS_NARRATIVE_RULE + '\n' + getPrompt('ATTR_POWER_CODEX', ATTR_POWER_CODEX) + '\n' + NPC_ATTR_GEN_RULE + '\n' + ATTR_SANITY_RULE + '\n' + ATTR_CAP_RULE + '\n' + STATUS_FORMAT_RULE + '\n' + STATUS_COUNTDOWN_TURN_RULE + '\n' + NPC_PRIVATE_EXTRA_RULE + '\n' + NPC_TIER_LOADOUT_RULE + '\n' + SKILL_TALENT_ATTR_CAP_RULE + '\n' + FIRST_UPDATE_COMPLETE_RULE + '\n' + EVO_EXACT_REF_RULE + '\n' + SKILL_TALENT_GUIDE + '\n' + getPrompt('NPC_COT_RULE', NPC_COT_RULE) + '\n' + ANTI_OMNISCIENCE_RULE + '\n' + getPrompt('NPC_DECENTER_RULE', NPC_DECENTER_RULE) + infoReachInjection(charId) + '\n' + NATIVE_LIFE_LOCAL_RULE + '\n' + getPrompt('NPC_INDEPENDENCE_RULE', NPC_INDEPENDENCE_RULE) + '\n' + getPrompt('DISPOSITION_STAGE_RULE', DISPOSITION_STAGE_RULE) + '\n' + DISPOSITION_DELTA_RULE + '\n' + getPrompt('NPC_INNER_VOICE_RULE', NPC_INNER_VOICE_RULE) + causalWeightInjection() + worldLoreEvoInjection()
       // 门控：仅当该 NPC 已有背景、却还没第一人称自述时，才追加"生成自述"规则（一次性·省 token）
       + (rec && rec.background && !rec.selfNarration ? '\n' + getPrompt('NPC_SELF_NARRATION_RULE', NPC_SELF_NARRATION_RULE) : '')
       // 门控：成长小传（从小到大的来历+性格成因）。**错开一回合**——等自述/原则/台词那批生成完了下次再要，
@@ -4540,6 +4553,11 @@ export default function App() {
     // 诙谐评价：character.C1.review = "..."
     const reviewRe = /\bcharacter\.([CG]\d+)\.review\s*=\s*"([^"]*)"/g;
     while ((m = reviewRe.exec(reply))) { if (ok(m[1])) { npc.upsertNpc(m[1], { review: m[2] }); n++; } }
+    // 💭 心声（P2.5·借鉴世界背面 innerVoice）：处境/情绪真变化时演化顺手更新。仅幕后视角显示，绝不注入正文
+    const voiceRe = /\bcharacter\.([CG]\d+)\.innerVoice\s*=\s*"([^"]*)"/g;
+    while ((m = voiceRe.exec(reply))) {
+      if (ok(m[1]) && m[2].trim()) { npc.upsertNpc(m[1], { innerVoice: m[2].trim().slice(0, 120), innerVoiceAt: useMisc.getState().turnCount || 0 }); n++; }
+    }
     // 标签（契约者/土著/随从/宠物/召唤物）：character.C1.npcTag = "随从"（含 G 系——召唤物常用 G 编号，C-only 会让召唤物永远改不了标签）
     const tagRe = /\bcharacter\.([CG]\d+)\.npcTag\s*=\s*"([^"]*)"/g;
     while ((m = tagRe.exec(reply))) { if (ok(m[1])) { npc.upsertNpc(m[1], { npcTag: m[2] }); n++; } }
@@ -5264,6 +5282,34 @@ export default function App() {
   /* 手动更新单个 NPC：绕过启用/频率/调度，直接按最近一次正文对该 NPC 跑一次演化（供 NPC 面板按钮调用）。
      正文取 lastNarrativeRef；若为空（如刚读档/刷新本会话还没发消息）则回退到聊天历史里最后一条 AI 正文，
      避免"点了没反应"。反馈用浮层 toast（NPC 面板盖住了底部状态栏，状态栏日志看不见）。*/
+  /* 👁 NPC 即时观测「看看TA在做什么」（P2·借鉴世界背面）：给离场 NPC 生成第一人称即时片段。
+     纯观看：不写状态、不推时间、不进正文、不进记忆；缓存仅本会话（观测本来就是"此刻"）。
+     素材=档案+轨道A动向+knownBy 过滤后的认知（P1 认知边界的第一个消费点）；featureKey='npcObserve' 回退 NPC 演化接口。 */
+  async function observeNpc(charId: string) {
+    if (npcObservingId) return;
+    const rec = useNpc.getState().npcs[charId];
+    if (!rec) return;
+    setNpcObservingId(charId);
+    try {
+      const M = useMisc.getState();
+      const known = eventsKnownTo(M.worldEvents ?? [], rec.name, M.worldName || '', sameWorld);
+      const sys = buildObservePrompt(rec, {
+        worldName: M.worldName || '', worldTime: M.worldTime || M.paradiseTime || '',
+        playerName: usePlayer.getState().profile.name || '主角', knownEvents: known,
+      });
+      const content = (await npcChatCompletion(sys, '请输出观测片段。', 'observe')).trim();
+      if (observeContaminated(content)) {
+        setGenError('👁 观测结果混入了系统格式，已丢弃——可再点一次重试');
+        setTimeout(() => setGenError(''), 5000);
+        return;
+      }
+      setNpcObservations((p) => ({ ...p, [charId]: { text: content, turn: useMisc.getState().turnCount || 0 } }));
+    } catch (e) {
+      setGenError(`👁 观测失败：${e instanceof Error ? e.message : '接口错误'}`);
+      setTimeout(() => setGenError(''), 5000);
+    } finally { setNpcObservingId(null); }
+  }
+
   async function triggerNpcUpdateManually(charId: string) {
     if (npcManualUpdatingId) return;   // 一次只跑一个，避免并发打架
     const narrative = lastNarrativeRef.current
@@ -6283,7 +6329,7 @@ ${AFFIX_EFFECT_RULE}`;
       .replaceAll('${world_factors}', '（无）')
       .replaceAll('${player_name}', playerName)
       .replaceAll('${player_traits}', '（略）')
-      + '\n\n' + NARRATIVE_FIRST_RULE + '\n' + MISC_HOME_TIME_RULE
+      + '\n\n' + NARRATIVE_FIRST_RULE + '\n' + MISC_HOME_TIME_RULE + '\n' + TIME_ANCHOR_RULE
       + '\n\n' + MISC_NO_TASK_RULE
       + '\n\n' + WORLD_EVENT_LOCATION_RULE
       + '\n\n' + MISC_SUMMARY_CADENCE_RULE
@@ -6293,7 +6339,14 @@ ${AFFIX_EFFECT_RULE}`;
       + '\n\n' + getPrompt('RUMOR_EVOLUTION_RULE', RUMOR_EVOLUTION_RULE)
       + `\n\n【当前活跃传闻（只处理标了 ⏰到期待结算 的；未到时效的一条指令都不要发）】\n${serializeRumorsForEvo(currentWorldRumors(), M.worldTime || '', M.turnCount || 0)}`
       + '\n\n' + getPrompt('WORLD_EVENT_LIFECYCLE_RULE', WORLD_EVENT_LIFECYCLE_RULE)
-      + `\n\n【当前活跃世界事件（本期无实质进展的一条指令都不要发）】\n${serializeEventsForEvo(currentActiveEvents())}`
+      + '\n\n' + getPrompt('WORLD_EVENT_VISIBILITY_RULE', WORLD_EVENT_VISIBILITY_RULE)
+      + `\n\n【当前活跃世界事件（本期无实质进展的一条指令都不要发）】\n${serializeEventsForEvo(currentActiveEvents(), M.worldTime || '')}`
+      // 显露递交（P1）：待显露清单给杂项 AI——正文真带出了结果才发 eventRevealed；名字/表象命中的前端对账已先行，此处补 AI 判定
+      + `\n【已落幕待显露事件（本轮正文若已自然带出其结果 → 发 eventRevealed("W_x")；没带出的一条都不要发）】\n${(() => {
+        const rows = pendingReveals(useMisc.getState().worldEvents || [], M.worldName || '', sameWorld)
+          .map((e) => `- ${e.id}「${e.name || e.desc?.slice(0, 16) || ''}」（第${(e.reveal?.attempts ?? 0)}次候选）`);
+        return rows.length ? rows.join('\n') : '（无）';
+      })()}`
       + (isHomeWorld(M.worldName || '') ? '' : '\n\n' + getPrompt('ECONOMY_RULE', ECONOMY_RULE)   // 经济是 world 作用域：乐园不注入
         + `\n\n【当前经济气候】\n${serializeEconomyForEvo(M.economy)}`)
       + divinationInjection()
@@ -7481,6 +7534,39 @@ ${AFFIX_EFFECT_RULE}`;
     if (cs.channelUseSharedApi) { const ss = useSettings.getState(); return ss.textUseSharedApi ? ss.api : ss.textApi; }
     return cs.channelApi;
   }
+  /* 🌍 世界见闻（P2·借鉴世界背面舆情层）：手动刷新——从本世界已公开素材（known/direct 事件·trace 表象·传闻流传版）
+     生成当地新闻/论坛快照。hidden 连候选都进不来；trace 归一化硬夹（只出论坛·unofficial·rumor/mixed）。
+     featureKey='worldNews'（未配路由回退正文 API）；只读氛围层，绝不写回世界事实。 */
+  async function refreshWorldNews(): Promise<{ ok: boolean; msg: string }> {
+    const WN = useWorldNews.getState();
+    if (WN.refreshing) return { ok: false, msg: '正在生成中…' };
+    const M = useMisc.getState();
+    const wn = (M.worldName || '').trim();
+    const cands = buildNewsCandidates(M.worldEvents ?? [], M.rumors ?? [], wn, sameWorld);
+    if (!cands.length) return { ok: false, msg: '当前世界还没有可传播的公开事件/传闻（hidden 幕后事件不会进舆情）——先让世界发生点什么' };
+    const ss = useSettings.getState();
+    const chain = resolveApiChain('worldNews', ss.textUseSharedApi ? ss.api : ss.textApi);
+    if (!chain[0]?.baseUrl || !chain[0]?.apiKey) return { ok: false, msg: '接口未配置：在本页「⚙ 接口路由」指定，或先配置正文 API（默认回退）' };
+    WN.setRefreshing(true);
+    try {
+      const sys = getPrompt('WORLD_NEWS_RULE', WORLD_NEWS_RULE)
+        + `\n\n【当前世界】${wn || '（未设定）'}｜【世界时间】${M.worldTime || '（未设定）'}${M.weather ? `｜【天气】${M.weather}` : ''}`
+        + (M.contractors?.count ? `\n【本世界契约者人口】约 ${M.contractors.count} 人（舆情可偶尔捕捉到"神秘外来者"的都市传说，但不得点破契约者/轮回乐园设定）` : '')
+        + `\n\n【候选清单（唯一素材来源）】\n${serializeNewsCandidates(cands)}`;
+      const { content } = await apiChatFallback(chain, [
+        { role: 'system', content: sys },
+        { role: 'user', content: '请按【输出格式】只输出 JSON。' },
+      ], { timeoutMs: 120000 });
+      const items = parseNewsReply(content, cands);
+      if (!items.length) return { ok: false, msg: '模型没有产出可用的见闻（格式不符或内容全被安全裁剪），可再试一次' };
+      WN.pushSnapshot({ worldName: wn, worldTime: M.worldTime || '', turn: M.turnCount || 0, generatedAt: Date.now(), items });
+      return { ok: true, msg: `已生成 ${items.length} 条世界见闻` };
+    } catch (e) {
+      console.warn('[世界见闻] 生成失败', e);
+      return { ok: false, msg: `生成失败：${e instanceof Error ? e.message : '网络或接口错误'}` };
+    } finally { useWorldNews.getState().setRefreshing(false); }
+  }
+
   async function refreshChannel(force = false) {
     const C = useChannel.getState();
     if (!C.settings.enabled || C.refreshing) return;
@@ -10179,9 +10265,25 @@ ${lines}`;
       useCombat.getState().setApiBusy(false); useCombat.getState().setApiStatus('');
     }
   }
+  /* 发送前一致性屏障（P0·借鉴世界背面 generate interceptor）：上一回合的关键演化（物品/主角/对账/NPC/杂项时间/任务）
+     还没写完就发新回合 → prompt 会读到半新不旧的 store、回退点会抓到半演化状态。发送前先等它们收尾；
+     只等 barrier 标记的关键阶段（生图/记忆压缩/表格等慢活不在内），超时放行不卡死——迟到的演化结果稍后仍正常落库。 */
+  async function awaitPhaseBarrier(timeoutMs = 10000) {
+    const bar = phaseBarrierRef.current;
+    if (!bar || bar.settled) return;
+    const t0 = Date.now();
+    const timedOut = await Promise.race([
+      bar.promise.then(() => false),
+      new Promise<boolean>((r) => window.setTimeout(() => r(true), timeoutMs)),
+    ]);
+    if (timedOut) reportConsistency('barrier-timeout', `发送前等待上一回合演化收尾超过 ${Math.round(timeoutMs / 1000)}s——本回合按当前状态发送（迟到的演化结果稍后仍会正常落库）`);
+    else if (Date.now() - t0 > 500) console.log(`[屏障] 发送前等待上一回合演化收尾 ${Date.now() - t0}ms`);
+  }
+
   function runPostNarrativePhases(narrative: string, assistantMsgId?: number) {
     setPhaseFail({});   // 新回合重跑全部演化：先清空上轮的「更新失败」标记，本轮哪个再失败由其状态日志重新标记
     stopAllRef.current = false;   // 新回合开始：解除上次的「停止生成」（chat/生图全局中止器在 stop 时已自重置，无需再动）
+    const evoEpoch = currentEvoEpoch();   // 世界纪元（evoGuard）：切世界(enterWorld)会 +1 → 本管线里还没启动的阶段整段跳过、收尾对账不再执行
     // 战斗刚结算（本回合是玩家发送的"战斗复盘"）→ HP/EP 已由战斗系统定死：本回合不从正文再抽 HP（防 AI 复盘重复扣血），改以战斗结算值为准
     const combatSettled = combatSettledRef.current;
     combatSettledRef.current = null;
@@ -10214,6 +10316,27 @@ ${lines}`;
     try { const _h = healWatchdog(); if (_h.healed) console.log('[看门狗] 🩹 自愈：', _h); } catch (e) { console.warn('[看门狗] 自愈失败:', e); }
     // 领地仓库·白板重复清理：删掉"白板(只有名字·无品级/效果/简介/分类)且与背包同名"的仓库条目（领地演化误把主角战利品镜像进仓库的空壳）
     try { const _b = pruneBlankTerritoryDupes(); if (_b > 0) setTerritoryPhaseLog(`🧹 已清理 ${_b} 件领地白板重复条目`); } catch (e) { console.warn('[Territory] 白板清理失败:', e); }
+    // 🔔 显露递交对账（P1·worldEvent.planRevealReconcile）：上一注入周期给正文的「已落幕待显露」候选——
+    //   正文接住了(事件名/表象命中) → delivered；没接住 → attempts+1；满 3 次且非 direct → shelved 不再注入。
+    //   必须在各演化阶段开跑**之前**（同步段）：此刻 store 与组 prompt 时一致，重算的候选集=实际注入的那批；
+    //   本回合杂项阶段新落幕的事件此刻还没 reveal，天然不会被误计。AI 侧的 eventRevealed 判定在杂项阶段另行补充。
+    try {
+      const Mx = useMisc.getState();
+      const plan = planRevealReconcile(Mx.worldEvents || [], Mx.worldName || '', sameWorld, narrative);
+      for (const id of plan.deliver) {
+        const ev = Mx.worldEvents.find((w) => w.id === id);
+        if (ev?.reveal) Mx.updateWorldEvent(id, { reveal: { ...ev.reveal, state: 'delivered' } });
+      }
+      for (const b of plan.bump) {
+        const ev = Mx.worldEvents.find((w) => w.id === b.id);
+        if (ev?.reveal) Mx.updateWorldEvent(b.id, { reveal: { ...ev.reveal, attempts: b.attempts } });
+      }
+      for (const id of plan.shelve) {
+        const ev = Mx.worldEvents.find((w) => w.id === id);
+        if (ev?.reveal) Mx.updateWorldEvent(id, { reveal: { ...ev.reveal, state: 'shelved' } });
+        console.log(`[显露] 事件 ${id} 三次未被正文承接，转入搁置（编年史仍在）`);
+      }
+    } catch (e) { console.warn('[显露] 递交对账失败', e); }
     // 先用当前已有 NPC 设一份重定向目标（登场判断完成后会再刷新）
     refreshNpcPreferredOwners();
     // 各演化阶段调度（综合设置→演化调度）：every=每N回合一次，read=读取最近N回合正文
@@ -10232,22 +10355,23 @@ ${lines}`;
     const tableDue = !!_tf.enabled && turn % Math.max(1, Math.floor(_tf.everyN || 1)) === 0;
     // ── 演化阶段·声明式表（加阶段/调顺序/开关 gate/依赖都改这里；调度器见 systems/phasePipeline）──
     //   awaitForSnapshot=会改「回合洞察」快照变量的阶段，抓快照前需等它们 settle；delayMs=延后启动（生图等演化先写档）。
+    //   barrier=发送前一致性屏障的等待集（会写下一轮 prompt 要读的 store 的关键阶段：物品/主角/对账/NPC/宠物/势力/杂项时间/任务）。
     const phases: Phase[] = [
       // 物品 / 主角各自并发，两者 settle 后合并成【一次】综合对账纠错（audit 依赖 item+player）
-      { key: 'item',      enabled: dueItem,             awaitForSnapshot: true, run: () => runItemManagementPhase(narr('item') + mpEx) },
-      { key: 'player',    enabled: duePlayer,           awaitForSnapshot: true, run: () => runPlayerEvolutionPhase(narr('player')) },
-      { key: 'audit',     enabled: dueItem || duePlayer, deps: ['item', 'player'], awaitForSnapshot: true,
+      { key: 'item',      enabled: dueItem,             awaitForSnapshot: true, barrier: true, run: () => runItemManagementPhase(narr('item') + mpEx) },
+      { key: 'player',    enabled: duePlayer,           awaitForSnapshot: true, barrier: true, run: () => runPlayerEvolutionPhase(narr('player')) },
+      { key: 'audit',     enabled: dueItem || duePlayer, deps: ['item', 'player'], awaitForSnapshot: true, barrier: true,
         run: () => runMergedAuditPhase(narrative, { player: duePlayer, item: dueItem }), onDone: onCombat },
-      { key: 'npc',       enabled: due('npc'),          awaitForSnapshot: true, run: () => runNpcEvolutionPhase(narr('npc') + mpEx), onDone: onCombat },
-      { key: 'pet',       enabled: due('pet'),          awaitForSnapshot: true, run: () => runPetEvolutionPhase(narr('pet') + mpEx), onDone: onCombat },
-      { key: 'faction',   enabled: due('faction'),      awaitForSnapshot: true, run: () => runFactionEvolutionPhase(narr('faction')) },
+      { key: 'npc',       enabled: due('npc'),          awaitForSnapshot: true, barrier: true, run: () => runNpcEvolutionPhase(narr('npc') + mpEx), onDone: onCombat },
+      { key: 'pet',       enabled: due('pet'),          awaitForSnapshot: true, barrier: true, run: () => runPetEvolutionPhase(narr('pet') + mpEx), onDone: onCombat },
+      { key: 'faction',   enabled: due('faction'),      awaitForSnapshot: true, barrier: true, run: () => runFactionEvolutionPhase(narr('faction')) },
       { key: 'territory', enabled: due('territory'),    run: () => runTerritoryEvolutionPhase(narr('territory')) },
       { key: 'subprof',   enabled: due('subprof'),      run: () => runSubProfEvolutionPhase(narr('subprof')) },   // 内部机械预筛（提到副职业/配方 或 升档）才真正调 API
       { key: 'team',      enabled: due('team'),         run: () => runTeamEvolutionPhase(narr('team')) },
       { key: 'cosmos',    enabled: due('cosmos'),       run: () => runCosmosEvolutionPhase(narr('cosmos')) },
       { key: 'memory',    enabled: true,                run: () => runMemoryCompressionPhase() },   // 内部按阈值判定，不走回合门控
-      { key: 'misc',      enabled: due('misc'),         run: () => runMiscEvolutionPhase(narr('misc')) },
-      { key: 'quest',     enabled: due('quest'),        run: () => runQuestEvolutionPhase(narr('quest')) },   // 任务演化（从杂项拆出的独立阶段·独立API featureKey='quest'）
+      { key: 'misc',      enabled: due('misc'),         barrier: true, run: () => runMiscEvolutionPhase(narr('misc')) },   // barrier：worldTime/世界大事是下一轮 prompt 的直接输入
+      { key: 'quest',     enabled: due('quest'),        barrier: true, run: () => runQuestEvolutionPhase(narr('quest')) },   // 任务演化（从杂项拆出的独立阶段·独立API featureKey='quest'）
       { key: 'nm',        enabled: due('nm'),           run: () => runNarrativeIngestPhase(lastUserInputRef.current, narr('nm')) },
       { key: 'table',     enabled: tableDue,            run: () => runTableFillPhase(narr('table'), { auto: true }) },   // 剧情表(纪要/进程/伏笔/约定)独立成阶段·专人调一次 AI 只吐<tableEdit>·比塞进正文让 AI 顺手吐可靠得多
       { key: 'choices',   enabled: true,                run: () => runChoicesFanficPhase(narrative, assistantMsgId) },   // 内部各自开关门控
@@ -10258,9 +10382,19 @@ ${lines}`;
     ];
     // 物品守护看门狗（Phase 1）：演化阶段开始前快照背包，settle 后对账，自动捞回"消失了却不在最近删除、又非合并"的静默丢失。
     const bagSnapForReconcile = snapshotPlayerBag();
-    const pipe = runPhasePipeline(phases);
+    // 世界纪元守卫（evoGuard）：本管线属于开跑时的世界；中途切世界后**还没启动**的阶段直接跳过
+    // （在途的 API 调用由 enterWorld 里的 abortAllApiCalls 掐掉），防旧世界的演化结果写进新世界。
+    const pipe = runPhasePipeline(phases.map((p) => ({
+      ...p,
+      run: () => {
+        if (evoEpochStale(evoEpoch)) { console.warn(`[演化守卫] 阶段「${p.key}」属于上个世界，跳过`); return; }
+        return p.run();
+      },
+      // onDone（战斗回合压回 HP 等）同样不跨世界执行——旧世界的战斗结算值不该写进新世界
+      onDone: p.onDone ? () => { if (evoEpochStale(evoEpoch)) return; return p.onDone!(); } : undefined,
+    })));
     // 会改快照变量的阶段全部 settle 后抓「回合洞察」快照；若已被新回合取代则跳过（20s 定时器仍兜底，同回合覆盖）
-    pipe.snapshotReady.then(() => {
+    const settleChain = pipe.snapshotReady.then(() => {
       // 延后建物对账（「延后≠丢弃」）：正文被摘走的 createItem 若物品阶段没接住 → 按正文原指令补建（闸门判重保证幂等）。
       // 必须先于下面的背包对账：这些物品从未进过背包快照，那道看门狗看不见它们。同样先于"被新回合取代则跳过"。
       try { reconcileDeferredCreates(); } catch (e) { console.warn('[Item] 延后建物对账失败', e); }
@@ -10276,6 +10410,7 @@ ${lines}`;
         if (pb.removed > 0) setItemRecoverNotice(`🧹 物品守护：清理了 ${pb.removed} 条重复的空壳条目（同名已有完整档）—— ${pb.names.slice(0, 6).join('、')}`);
       } catch (e) { console.warn('[Watchdog] 空壳重复清理失败', e); }
       if (turnCountRef.current !== snapTurn) return;
+      if (evoEpochStale(evoEpoch)) return;   // 切了世界：防漂对账/锁/快照不再按旧世界的正文执行（物品捞回在上面已跑完——物品不分世界）
       // 非战斗回合：以正文末尾「当前HP/EP：X/Y」为**最终权威**——演化阶段全跑完后再压回一次主角+NPC 的 HP/EP，纠正演化把血量改写导致面板与正文末尾对不上。(战斗回合以战斗结算值为准。)
       if (!combatSettled) { try { applyNarrativeVitals(narrative); applyNarrativeNpcVitals(narrative); } catch (e) { console.warn('[Vitals] settle 后压回失败', e); } }
       try { sanitizeNumericGate(); } catch (e) { console.warn('[数值校验] 失败', e); }   // ③数值闸门：六维/数量/强化等级非法值→夹成合法整数（防 ATK/DEF NaN、交易数量垃圾），在防漂哨前跑
@@ -10291,6 +10426,11 @@ ${lines}`;
       try { sampleFieldHistory(turnCountRef.current); } catch (e) { console.warn('[field-history] 采样失败', e); }   // 字段历史趋势采样（六维/阶位/等级·只记变化）
       try { captureTurnSnapshot(); } catch (e) { console.warn('[Insight] settle 后抓快照失败', e); }
     });
+    // 发送前一致性屏障挂载：关键阶段(barrier) + 防漂收尾链全部 settle 才算「上一回合写完了」。
+    // allSettled 语义保证必然落定（阶段失败/超时也算 settle），sendMessage 那头再叠一层 10s 超时放行，绝不卡死发送。
+    const bar: { settled: boolean; promise: Promise<void> } = { settled: false, promise: Promise.resolve() };
+    bar.promise = Promise.allSettled([settleChain, pipe.barrierReady]).then(() => { bar.settled = true; });
+    phaseBarrierRef.current = bar;
   }
 
   /* 剧情指导·产出护栏：判断「剧情指导」是否跑偏成了正文（而非要点建议）。命中正文硬结构标记（【正文】/时间结算/
@@ -11678,6 +11818,12 @@ ${lines}`;
       setWaitingSubmit('');
     }
 
+    // 发送前一致性屏障（P0）：等上一回合的关键演化+防漂收尾写完再发（10s 超时放行）。
+    //   必须在 captureUndoPoint **之前**——否则回退点会抓到半演化状态，回退后世界停在「演化写到一半」。
+    //   等待窗口内 generating 还没置位 → 用 sendGateRef 挡双击/连按 Enter 的重复发送（输入框文本此时未消费，丢弃重复调用无损）。
+    if (sendGateRef.current) return;
+    sendGateRef.current = true;
+    try { await awaitPhaseBarrier(); } finally { sendGateRef.current = false; }
     await captureUndoPoint();   // 发送前记录回退点（=上一回合结束状态）
     // 房主：把队友本回合已提交的行动并进这一回合（无队友行动则与单人完全一致）
     const isMpHost = mp.status === 'connected' && mp.role === 'host';
@@ -12411,6 +12557,12 @@ ${lines}`;
   async function enterWorld(world: WorldOption, opts?: { profQuests?: string; profTasks?: { name: string; desc?: string; reward?: string }[] }) {
     setWorlds([]);
     setCardIndex(0);
+    // 世界纪元切换（P0·evoGuard）：切世界不 reload——上一回合还在途的演化会把旧世界结果写进新世界。
+    //   bump 让未启动的阶段整段跳过 + 掐掉在途的演化/对话类 AI 调用（生图不掐：头像/装备图不分世界）。
+    bumpEvoEpoch(`切世界 → ${world.name || '?'}`);
+    const hadPendingEvo = !!phaseBarrierRef.current && !phaseBarrierRef.current.settled;
+    abortAllApiCalls();
+    if (hadPendingEvo) reportConsistency('world-switch-abort', `切换世界（→${world.name || '?'}）时上一回合演化尚未收尾：在途 AI 调用已中止、未启动阶段将跳过，防止旧世界结果写进新世界`);
     // ⚠ 必须在下面 setTime({worldName}) 覆盖之前抓住"上一个世界名"——worldScope 冻结要靠它定位该冻谁
     const prevWorldForScope = (useMisc.getState().worldName || '').trim();
     let inheritedThisEntry = false;   // 玩家在同名再入时选了「继承」→ 才解冻上次留在此世界的数据
@@ -13517,6 +13669,9 @@ ${lines}`;
           onClose={() => { setNpcPanelOpen(false); setNpcFocusId(undefined); }}
           onManualUpdate={triggerNpcUpdateManually}
           manualUpdatingId={npcManualUpdatingId}
+          onObserve={observeNpc}
+          observingId={npcObservingId}
+          observations={npcObservations}
           onCultivate={openCultivateFor}
           onDm={(r) => { setNpcPanelOpen(false); openDmFor({ targetId: r.id, targetName: r.name || r.id, targetTier: (r.realm || '').split(/[·|]/)[0] || undefined, targetJob: r.profession, targetPersona: r.personality, targetStrength: r.bioStrength, targetTag: r.npcTag }); }}
         />
@@ -13527,6 +13682,9 @@ ${lines}`;
           onClose={() => setPetRosterOpen(false)}
           onManualUpdate={triggerNpcUpdateManually}
           manualUpdatingId={npcManualUpdatingId}
+          onObserve={observeNpc}
+          observingId={npcObservingId}
+          observations={npcObservations}
           onCultivate={openCultivateFor}
           onDm={(r) => { setPetRosterOpen(false); openDmFor({ targetId: r.id, targetName: r.name || r.id, targetTier: (r.realm || '').split(/[·|]/)[0] || undefined, targetJob: r.profession, targetPersona: r.personality, targetStrength: r.bioStrength, targetTag: r.npcTag }); }}
         />
@@ -13599,7 +13757,7 @@ ${lines}`;
 
       {/* ── 杂项（任务/世界大事）面板 ── */}
       {channelPanelOpen && (
-        <ChannelPanel onClose={() => setChannelPanelOpen(false)} onRefresh={refreshChannel} onSolicit={solicitQuotes} onPost={replyToChannelPost} onOpenShop={() => setShopOpen(true)} onJoin={joinPartyFromPost} onInvite={inviteToParty}
+        <ChannelPanel onClose={() => setChannelPanelOpen(false)} onRefresh={refreshChannel} onNewsRefresh={refreshWorldNews} onSolicit={solicitQuotes} onPost={replyToChannelPost} onOpenShop={() => setShopOpen(true)} onJoin={joinPartyFromPost} onInvite={inviteToParty}
           onDm={(m) => { if (!isDmableTag(m.authorTag)) return; openDmFor({ targetName: m.authorName, targetTier: m.authorTier, targetJob: m.authorJob, targetPersona: m.authorPersona, targetStrength: m.authorStrength, targetTag: m.authorTag, sourceContent: String(m.content) }); }}
           onDmQuote={(q) => { if (q.fromTag && !isDmableTag(q.fromTag)) return; openDmFor({ targetName: q.fromName, targetTier: q.fromTier, targetTag: q.fromTag || '契约者', sourceContent: q.note ? String(q.note) : undefined }); }}
           onAddFriend={addFriendFromChannel} />

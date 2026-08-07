@@ -237,7 +237,7 @@ function LibrarySection({ onRestored }: { onRestored: (id: string) => void }) {
 /* ════════════════════════════════════════════
    主弹窗
 ════════════════════════════════════════════ */
-export default function NpcPanel({ onClose, onDm, onManualUpdate, manualUpdatingId, onCultivate, petMode, initialSelectedId }: { onClose: () => void; onDm?: (r: NpcRecord) => void; onManualUpdate?: (id: string) => void; manualUpdatingId?: string | null; onCultivate?: (r: NpcRecord) => void; petMode?: boolean; initialSelectedId?: string }) {
+export default function NpcPanel({ onClose, onDm, onManualUpdate, manualUpdatingId, onObserve, observingId, observations, onCultivate, petMode, initialSelectedId }: { onClose: () => void; onDm?: (r: NpcRecord) => void; onManualUpdate?: (id: string) => void; manualUpdatingId?: string | null; onObserve?: (id: string) => void; observingId?: string | null; observations?: Record<string, { text: string; turn: number }>; onCultivate?: (r: NpcRecord) => void; petMode?: boolean; initialSelectedId?: string }) {
   const npcs      = useNpc((s) => s.npcs);
   const clearAll  = useNpc((s) => s.clearAll);
   const setFriend = useNpc((s) => s.setFriend);
@@ -439,6 +439,9 @@ export default function NpcPanel({ onClose, onDm, onManualUpdate, manualUpdating
           onSelect={(id) => setSelectedId(id)}
           onManualUpdate={onManualUpdate}
           updating={manualUpdatingId === selected.id}
+          onObserve={onObserve}
+          observing={observingId === selected.id}
+          observation={observations?.[selected.id] ?? null}
           onCultivate={onCultivate}
         />
       )}
