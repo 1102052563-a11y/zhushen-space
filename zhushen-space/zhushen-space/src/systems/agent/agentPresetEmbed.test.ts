@@ -16,10 +16,12 @@ import { useAgentSkills } from '../../store/agentSkillStore';
 declare const process: { cwd(): string };
 let rawHuyu = '';
 let rawFairy = '';
+let rawAlu = '';
 beforeAll(async () => {
   const fs = await import('node:' + 'fs') as { readFileSync: (p: string, enc: string) => string };
   rawHuyu = fs.readFileSync(process.cwd() + '/public/presets/agent-huyu.json', 'utf8');
   rawFairy = fs.readFileSync(process.cwd() + '/public/presets/agent-fairy.json', 'utf8');
+  rawAlu = fs.readFileSync(process.cwd() + '/public/presets/agent-alu.json', 'utf8');
 });
 
 function importAndGet(raw: string, name: string, stFaithful = false) {
@@ -95,6 +97,58 @@ describe('Agent 内置预设 · Fairy_Tale 2.3.0', () => {
     const p = importAndGet(rawFairy, 'Fairy_Tale 2.3.0', true);
     if (typeof j.temperature === 'number') expect(p.temperature).toBe(j.temperature);
     if (typeof j.openai_max_tokens === 'number') expect(p.max_tokens).toBe(j.openai_max_tokens);
+  });
+});
+
+describe('Agent 内置预设 · 轮回乐园 Alu v4.1 破晓-Agent（本作世界观流水线：6 skill + 4 子代理）', () => {
+  const ALU = '轮回乐园 Alu v4.1 破晓-Agent';
+  it('⚠ JSON 无 name 字段 → 预设名回退用 seeds 的 fileName（改名即让内嵌资产失配，锚点必须稳定）', () => {
+    expect(JSON.parse(rawAlu).name).toBeUndefined();
+    const p = importAndGet(rawAlu, ALU, true);
+    expect(p.name).toBe(ALU);
+    expect(p.id).toBe(`builtin:${ALU}`);
+    expect(p.entries.length).toBe(134);
+  });
+  it('忠实语义：启用集与 order 一致（76 非 marker + 11 marker），4 条 ST 默认占位条目保留但禁用', () => {
+    const p = importAndGet(rawAlu, ALU, true);
+    const exp = expectedEnabled(rawAlu);
+    expect(new Set(p.entries.filter((e) => e.enabled).map((e) => e.identifier))).toEqual(new Set(exp.ids));
+    expect(p.entries.filter((e) => e.enabled && !e.marker).length).toBe(76);
+    expect(p.entries.filter((e) => e.enabled && e.marker).length).toBe(11);
+    for (const nm of ['Main Prompt', 'Auxiliary Prompt', 'Post-History Instructions', 'Enhance Definitions']) {
+      const e = p.entries.find((x) => x.name === nm)!;
+      expect(e, nm).toBeTruthy();
+      expect(e.enabled, nm).toBe(false);   // 默认语义会误启用这 4 条（240 字 ST 占位词）
+    }
+  });
+  it('内嵌 8 条正则随预设入库（隐藏思维链/草稿/杀八股——无需再手工适配）', () => {
+    const p = importAndGet(rawAlu, ALU, true);
+    expect(p.regexScripts.length).toBe(8);
+    expect(p.regexScripts.map((r) => r.scriptName)).toContain('隐藏思维链');
+    const draft = p.regexScripts.find((r) => r.scriptName === '草稿隐藏')!;
+    expect(draft.markdownOnly).toBe(true);   // 只影响显示、不进提示词历史
+  });
+  it('内嵌资产：6 个规则书 + 4 个审查子代理 + 主写手工作流指令，全部落库并锚定本预设名', async () => {
+    // ⚠ importTextPreset 内部会 **void（不 await）** 触发一次资产导入 → 上面几个 it 留下的 pending 导入
+    //   若在本 it 清空 store 之后才落地，会让这里的显式导入被「同 sha 已入库」跳过（rep 计数归零）。
+    //   故：先让 pending 落地 → 再清空 → 再导入 → **断言最终 store 内容**（唯一真相），rep 只看无错。
+    await new Promise((r) => setTimeout(r, 50));
+    useAgentSkills.setState({ skills: [], subagents: [], writerNotes: {} });
+    const rep = await importEmbeddedAgentAssets(JSON.parse(rawAlu), ALU, true);
+    expect(rep.errors).toEqual([]);
+    // 断言**只看本预设作用域**：并行测试里其他预设的 pending 导入也会写进同一个全局 store。
+    const st = useAgentSkills.getState();
+    const skills = st.skills.filter((s) => s.scopePresetName === ALU);
+    const subs = st.subagents.filter((d) => d.scopePresetName === ALU);
+    expect(skills.map((s) => s.name).sort()).toEqual(
+      ['alu-banword-rules', 'alu-combat-rules', 'alu-format-rules', 'alu-nsfw-rules', 'alu-persona-rules', 'alu-world-rules']);
+    expect(subs.map((d) => d.id).sort()).toEqual(
+      ['alu-banword-checker', 'alu-combat-checker', 'alu-persona-checker', 'alu-world-checker']);
+    expect(subs.every((d) => d.instructions && d.instructions.length > 1000)).toBe(true);
+    expect(subs.every((d) => (d.maxRounds ?? 0) <= 12)).toBe(true);   // TT 的 999 已夹取
+    expect(st.writerNotes[ALU].length).toBeGreaterThan(8000);         // alu-writer 9134 字工作流
+    // 每个规则书都真解包出了 SKILL.md 正文
+    for (const s of skills) expect(s.files.some((f) => /SKILL\.md$/i.test(f.path) && f.content.length > 50), s.name).toBe(true);
   });
 });
 

@@ -797,6 +797,9 @@ async function loadBuiltinDefaults() {
         //   其余预设（含玩家自行导入的一切）一律走默认旧语义——社区预设按旧行为调教，默认忠实化会崩正文格式（2026-08-02 玩家回归实测）。
         ['[Agent] V14.7 狐神抚 · 毓忻', 'agent-huyu.json', true],
         ['Fairy_Tale 2.3.0', 'agent-fairy.json', true],
+        // ⚠ 破晓 JSON **没有 name 字段** → parseSTPreset 回退用这里的 fileName 当预设名；它同时是内嵌
+        //   skill/子代理/作者指令的作用域锚点，改名 = 资产失配。忠实语义排除 4 条 ST 默认占位条目（Main Prompt 等）。
+        ['轮回乐园 Alu v4.1 破晓-Agent', 'agent-alu.json', true],
       ];
       const missing = seeds.filter(([n]) => !has(n));
       const seedTexts = await Promise.all(missing.map(([, f]) => grab(f)));
@@ -848,9 +851,9 @@ async function loadBuiltinDefaults() {
     //   （extensions.tauritavern）。新用户在上面 seeds 的 importTextPreset 里已顺带导入；这里补的是
     //   「预设早已种过、seeds 不再拉原文」的老用户——强拉一次原文只为资产，成功才记 flag（断网下次再试）。
     try {
-      const AKEY = 'zs-agent-assets-v1';
+      const AKEY = 'zs-agent-assets-v2';   // v2：加入破晓（6 skill + 4 子代理）；换代让已装 v1 的老用户自动补拉
       if (!localStorage.getItem(AKEY)) {
-        const pairs: Array<[string, string]> = [['[Agent] V14.7 狐神抚 · 毓忻', 'agent-huyu.json'], ['Fairy_Tale 2.3.0', 'agent-fairy.json']];
+        const pairs: Array<[string, string]> = [['[Agent] V14.7 狐神抚 · 毓忻', 'agent-huyu.json'], ['Fairy_Tale 2.3.0', 'agent-fairy.json'], ['轮回乐园 Alu v4.1 破晓-Agent', 'agent-alu.json']];
         let okAll = true;
         for (const [n, f] of pairs) {
           const t = await grab(f);

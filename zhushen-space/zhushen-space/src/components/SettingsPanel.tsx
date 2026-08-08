@@ -1835,6 +1835,7 @@ function TheaterTemplateSection() {
 const AGENT_BUILTIN_PRESETS: { name: string; desc: string }[] = [
   { name: '[Agent] V14.7 狐神抚 · 毓忻', desc: '为 Agent 工作流设计的正文预设（原生带 agentSystemPrompt/agentTask 槽位）。启用条目精瘦（约 1.4 万字注入），库里另附大量可自选的风格/模块变体条目（默认关）。已自带 4 条前端适配正则（剥 think_fox 思维链/拆 content 壳/拆 fox 标签/收敛空行），「多角色内心OS思维链」条目默认关（它会诱发 Agent 直出跑偏与大段空白，需要可去「预设」页签开回）。' },
   { name: 'Fairy_Tale 2.3.0', desc: '轻量童话风预设：启用条目极简，注入负担小，适合快模型/低成本运行；剧本格式与 NSFW 等变体条目在库中默认关闭，可到「预设」页签按需开启。' },
+  { name: '轮回乐园 Alu v4.1 破晓-Agent', desc: '专为本作轮回乐园世界观打造的 Agent 流水线预设（134 条·启用 76 条≈3.4 万字）。自带 **6 个规则书 + 4 个审查子代理**（禁词/战斗结算/人设/世界观）与主写手工作流，另含 8 条内嵌正则（隐藏思维链/草稿/杀八股）。子代理可各挂便宜模型，正文强模型 + 审查便宜模型的性价比最优解。' },
 ];
 function AgentPresetSection() {
   const cfg = useSettings((s) => s.agentNarrative);

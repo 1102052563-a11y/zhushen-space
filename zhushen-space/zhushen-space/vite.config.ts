@@ -127,6 +127,7 @@ function copyBuiltinPresets(): Plugin {
     // Agent 正文模式·内置预设（默认不激活；在 设置→正文生成→Agent 预设 页选用；也可当普通正文预设用）
     ['../../[Agent] V14.7 狐神抚 · 毓忻.json', 'agent-huyu.json'],
     ['../../Fairy_Tale 2.3.0.json', 'agent-fairy.json'],
+    ['../../正文预设/轮回乐园 Alu v4.1 破晓-Agent.json', 'agent-alu.json'],   // ⚠ 该 JSON 无 name 字段 → 预设名取 seeds 里给的名字
     // 演化预设
     ['../../演化预设/主角演化.json', 'player.json'],
     ['../../演化预设/物品管理.json', 'item.json'],
