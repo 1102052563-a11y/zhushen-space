@@ -237,7 +237,7 @@
 ## §酒馆美化适配（渲染层 2026-08-07，详见 FEATURES 同名节）
 | 位置 | 内容 |
 | --- | --- |
-| `systems/htmlSanitize.ts` | `sanitizeHtmlBlock`(DOMPurify 白名单+外链媒体 hook) / `extractStyleBlocks` / `renderScopedStyles` / `scopeCss`(手写 CSS 作用域化·body/:root→容器) / `extractHtmlFences`(```html 围栏→前端卡) |
+| `systems/htmlSanitize.ts` | `sanitizeHtmlBlock`(DOMPurify 白名单+外链媒体 hook) / `extractStyleBlocks` / `renderScopedStyles` / `scopeCss`(手写 CSS 作用域化·body/:root→容器；⚠**落到容器自身的规则过 `stripContainerLayoutDecls`** 剥掉 display/flex/grid/align/justify/columns/宽高/position 等页面级排版声明——美化卡按独立页面写的 `body{display:flex;align-items:center;height:100vh}` 否则会把整楼正文摊成横向一列列，2026-08-08 修；容器**内部**元素的 flex 不受影响) / `extractHtmlFences`(```html 围栏→前端卡) |
 | `systems/narrativeHtml.ts` | `toHtml`：style 抽取→`wrapSettlementBlocks`(HTML 块按深度整块吃+消毒·块内 \n 拼接)→作用域化还原；`toHtmlWithImagesCached` 签名含 extTok（⚠sig 分隔符是 \x01 控制字符，肉眼不可见） |
 | `systems/stateApply.ts` | `splitThinkStream`(流式思维链二分) / `extractLeakedThinking`(结算抽取·严格镜像 stripLeakedThinking 口径) / `streamVisibleNarrative`(旧接口=只取 visible) |
 | `components/CustomCssStyle.tsx` | 全局自定义 CSS 注入器：自订阅 `customCss`，维护 `#drpg-custom-css`；scope=chat 过 scopeCss('#chat')；App 主返回+设置早退分支都挂（CodexHover 同款教训） |

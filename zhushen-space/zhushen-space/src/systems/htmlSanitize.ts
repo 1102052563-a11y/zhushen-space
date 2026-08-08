@@ -194,9 +194,37 @@ function scopeRules(src: string, scope: string): string {
       continue;                                    // 其它未知 at 规则：丢弃（宁缺勿漏）
     }
     const sels = splitTopLevel(header, ',').map((s2) => scopeSelector(s2.trim(), scope)).filter(Boolean);
-    if (sels.length) out += `${sels.join(',')}{${body}}`;
+    if (!sels.length) continue;
+    // 命中「作用域容器自身」的规则（body/:root/html→容器，或直接写容器选择器）：只留画布类声明，
+    // 剥掉会改容器自身排版流的属性——否则美化卡的页面级 body{display:flex;align-items:center} 会把
+    // 整楼正文摊成横向一列列（见 CONTAINER_LAYOUT_DROP）。其余选择器照常整块输出。
+    const selfSels = sels.filter((s) => s === scope);
+    const otherSels = sels.filter((s) => s !== scope);
+    if (otherSels.length) out += `${otherSels.join(',')}{${body}}`;
+    if (selfSels.length) {
+      const safe = stripContainerLayoutDecls(body);
+      if (safe.trim()) out += `${scope}{${safe}}`;
+    }
   }
   return out;
+}
+
+/* 会改「容器自身排版流」的属性：一旦落到正文容器上就不是美化而是毁版式。
+   美化卡常按独立页面写 body{display:flex;align-items:center;justify-content:center;height:100vh}，
+   楼内作用域化后 body→正文容器 → 每个段落变成横向 flex 项、纵向居中错落，正文被摊成一列列还得横向拖
+   （2026-08-08 用户实拍）。背景/颜色/字体/圆角/内外边距等"画布"声明不受影响，照常生效。 */
+const CONTAINER_LAYOUT_DROP = /^(?:display|position|float|clear|writing-mode|direction|zoom|contain|aspect-ratio|order|columns|column-(?:count|width|span|fill|gap|rule(?:-[a-z]+)?)|flex(?:-[a-z]+)?|grid(?:-[a-z-]+)?|align-(?:items|content|self)|justify-(?:items|content|self)|place-(?:items|content|self)|gap|row-gap|column-gap|width|min-width|max-width|height|min-height|max-height|overflow(?:-[xy])?|inset(?:-[a-z-]+)?|top|right|bottom|left|transform(?:-[a-z]+)?)$/i;
+
+/** 从一条规则体里剔掉 CONTAINER_LAYOUT_DROP 命中的声明（嵌套块原样留，交给浏览器）。 */
+export function stripContainerLayoutDecls(body: string): string {
+  return splitTopLevel(body, ';')
+    .filter((d) => {
+      if (!d.trim()) return false;
+      if (d.includes('{')) return true;                       // CSS 嵌套规则：不是声明，别动
+      const prop = d.slice(0, d.indexOf(':')).trim();
+      return !(prop && CONTAINER_LAYOUT_DROP.test(prop));
+    })
+    .join(';');
 }
 
 /* ── 前端卡围栏抽取（P3·对齐酒馆助手 JS-Slash-Runner 的「```html 代码块 → iframe」思路）──

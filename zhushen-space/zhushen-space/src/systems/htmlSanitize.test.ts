@@ -22,6 +22,25 @@ describe('scopeCss 选择器作用域化', () => {
   it('已带作用域不重复加', () => {
     expect(scopeCss('.narrative-content .a{x:1}', SCOPE)).toBe('.narrative-content .a{x:1}');
   });
+  it('落到容器自身的规则剥掉页面级排版声明（治「正文被摊成横向一列列」）', () => {
+    // 美化卡按独立页面写的 body 布局：display/align/justify/height 全丢，背景/字体等画布声明保留
+    expect(scopeCss('body{display:flex;align-items:center;justify-content:center;height:100vh;background:#111;font-family:serif}', SCOPE))
+      .toBe('.narrative-content{background:#111;font-family:serif}');
+    expect(scopeCss('body{display:grid;grid-template-columns:1fr 1fr}', SCOPE)).toBe('');   // 只剩空规则 → 不输出
+    expect(scopeCss(':root{columns:2;--x:1}', SCOPE)).toBe('.narrative-content{--x:1}');
+    // 直接写容器选择器（自定义 CSS 里 #chat{display:flex} 同理）也按容器自身处理
+    expect(scopeCss('.narrative-content{display:flex;color:red}', SCOPE)).toBe('.narrative-content{color:red}');
+    // 容器**内部**的元素不受影响：美化卡自己的 flex 布局照常生效
+    expect(scopeCss('.card{display:flex;align-items:center}', SCOPE))
+      .toBe('.narrative-content .card{display:flex;align-items:center}');
+    expect(scopeCss('body .row{display:flex}', SCOPE)).toBe('.narrative-content .row{display:flex}');
+    // 一条规则里容器与内部元素并列 → 拆开：内部照原样，容器只留安全声明
+    expect(scopeCss('body,.card{display:flex;color:red}', SCOPE))
+      .toBe('.narrative-content .card{display:flex;color:red}.narrative-content{color:red}');
+    // @media 内部同样处理
+    expect(scopeCss('@media (max-width:600px){body{display:flex;color:red}}', SCOPE))
+      .toBe('@media (max-width:600px){.narrative-content{color:red}}');
+  });
   it('@media/@supports 递归处理内部；内部掏空则整个丢弃', () => {
     expect(scopeCss('@media (max-width:600px){.a{color:red}}', SCOPE))
       .toBe('@media (max-width:600px){.narrative-content .a{color:red}}');
