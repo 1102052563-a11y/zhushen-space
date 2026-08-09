@@ -123,7 +123,7 @@ function copyBuiltinPresets(): Plugin {
     // 正文文本预设
     // （曾有 双人成行 V5.2 → textpreset.json：2026-06-18「双人成行内置已移除」后就没有任何代码 fetch 它了，
     //   映射却留着，每次部署白塞 1.18MB 死文件。2026-07-25 摘除；public/presets/textpreset.json 可一并删。）
-    ['../../正文预设/轮回乐园 Alu v2.0.json', 'zhushen-alu.json'],   // 内嵌「轮回乐园 Alu v2.0」为内置正文预设（默认不激活，玩家自选）
+    ['../../正文预设/轮回乐园 Alu v4.1 破晓.json', 'zhushen-alu.json'],   // 内嵌「轮回乐园 Alu v4.1 破晓」为内置正文预设（默认不激活，玩家自选）；2026-08-09 从 v2.0 升级——同一 zhushen-alu.json 槽位，旧版内置不再补种即自然消失（builtin 不入库）
     // Agent 正文模式·内置预设（默认不激活；在 设置→正文生成→Agent 预设 页选用；也可当普通正文预设用）
     ['../../[Agent] V14.7 狐神抚 · 毓忻.json', 'agent-huyu.json'],
     ['../../Fairy_Tale 2.3.0.json', 'agent-fairy.json'],

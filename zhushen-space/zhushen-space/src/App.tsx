@@ -791,7 +791,7 @@ async function loadBuiltinDefaults() {
         ['轮回乐园·Claude', 'zhushen-claude.json'],
         ['轮回乐园·Gemini', 'zhushen-gemini.json'],
         ['轮回乐园·DeepSeek', 'zhushen-deepseek.json'],
-        ['轮回乐园 Alu v2.0', 'zhushen-alu.json'],
+        ['轮回乐园 Alu v4.1 破晓', 'zhushen-alu.json'],   // 2026-08-09 由 Alu v2.0 升级（同槽位覆盖）；名字须与该 JSON 的 name 字段一致（importTextPreset 以 data.name 生成 builtin:<名> 稳定 id）
         ['双人成行 V7.1—长风渡', 'shuangren-changfeng.json'],
         // Agent 正文模式·内置预设（名字必须与 JSON 里的 name 字段一致——importTextPreset 以 data.name 为准生成 builtin:<名> 稳定 id）。
         // ⚠ 只有这两枚用「忠实 ST 语义」解析（order 序 + 库存条目禁用）：V14.7 的 3 个巨型库存配置块/Fairy 的变体条目须按 ST 语义排除。
