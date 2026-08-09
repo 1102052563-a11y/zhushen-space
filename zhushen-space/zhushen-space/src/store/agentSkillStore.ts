@@ -11,7 +11,11 @@ export interface AgentSkillFile { path: string; content: string }
 export interface AgentSkill {
   name: string;                 // 唯一名（fox-banword-rules）
   files: AgentSkillFile[];      // 至少含 SKILL.md
-  scopePresetName?: string;     // 预设专属：仅 Agent 选中该预设时可见；空=全局
+  /** @deprecated 单作用域旧字段（仍读，用于老数据迁移）；新数据写 scopePresets */
+  scopePresetName?: string;
+  /** 预设作用域**并集**：同一份资产可被多个预设内嵌/多次导入（同名不同来源、玩家先手动导入过）。
+      空数组/缺省=全局可见。⚠ 必须是并集——只记最后一次会让先前来源的预设看不到它（Discord 实报） */
+  scopePresets?: string[];
   sourceSha?: string;           // 包 sha256（判重）
   builtin?: boolean;            // 随内置预设导入
 }

@@ -285,7 +285,7 @@ import { loadLunhuiCharacters, type LunhuiChar } from './systems/lunhuiChars';  
 import HoloViewer from './components/HoloViewer';
 import { useImageViewer } from './store/imageViewerStore';
 import ImageBusyToast from './components/ImageBusyToast';
-import { useItems, extractItemPresetFromJson, ITEM_CATEGORIES, ITEM_GRADES, formatItemLine, splitAffixEntries, gradeToNum } from './store/itemStore';
+import { useItems, extractItemPresetFromJson, ITEM_CATEGORIES, ITEM_GRADES, formatItemLine, splitAffixEntries, clampAffixEntries, maxAffixEntriesFor, gradeToNum } from './store/itemStore';
 import type { ItemPresetEntry } from './store/itemStore';
 import { useComposer } from './store/composerStore';
 import { ComposerTextarea, ComposerSendButton, AgentModeToggle } from './components/ChatComposer';   // 主输入框（拆出·打字不重渲 App）
@@ -294,6 +294,7 @@ import { runAgentNarrative } from './systems/agent/agentRuntime';   // Agent 正
 import { AGENT_ERROR_TEXT } from './systems/agent/agentTypes';
 import { HUYU_PRESET_NAME, HUYU_CURE_SCRIPTS, HUYU_DISABLE_ENTRY_NAMES } from './systems/agent/agentPresetCure';   // V14.7 内置副本前端适配（cure·可单测）
 import { importEmbeddedAgentAssets } from './systems/agent/agentAssets';   // TT 预设内嵌 Agent 资产（skill/子代理/作者指令）导入
+import { useAgentSkills } from './store/agentSkillStore';   // 资产库（自愈判据：整库空掉→重新导入）
 import { useAgentRun } from './store/agentRunStore';   // Agent 运行态（P1：运行中「中途指引」提交 + 回合洞察归档）
 import { usePlayer, buildPlayerSystemPrompt, extractPlayerPresetFromJson } from './store/playerStore';
 import { useWorldRecord, formatWorldviewForInjection, formatInheritAnchors, normWorldName, type Worldview, type WorldSummary } from './store/worldRecordStore';
@@ -847,12 +848,18 @@ async function loadBuiltinDefaults() {
         }
       }
     } catch { /* 适配失败不阻断启动 */ }
-    // 内嵌 Agent 资产一次性导入（P3·v1）：两枚 agent 预设携带的 skill 包/子代理档案/作者工作流指令
+    // 内嵌 Agent 资产导入（P3）：三枚 agent 预设携带的 skill 包/子代理档案/作者工作流指令
     //   （extensions.tauritavern）。新用户在上面 seeds 的 importTextPreset 里已顺带导入；这里补的是
     //   「预设早已种过、seeds 不再拉原文」的老用户——强拉一次原文只为资产，成功才记 flag（断网下次再试）。
+    // ⚠ **自愈**：flag 已置位但资产库整个空掉时也要重导——曾因 agentskills 被存档快照回滚而蒸发
+    //   （见 saveManager 的 KEEP_CURRENT 注释），一次性 flag 会让它永不恢复（Discord 实报，2026-08-02 修）。
+    //   判据取「skills 与 subagents 双空」＝异常丢失，不会覆盖玩家的精细删除。
     try {
       const AKEY = 'zs-agent-assets-v2';   // v2：加入破晓（6 skill + 4 子代理）；换代让已装 v1 的老用户自动补拉
-      if (!localStorage.getItem(AKEY)) {
+      const _as = useAgentSkills.getState();
+      const assetsGone = (_as.skills?.length ?? 0) === 0 && (_as.subagents?.length ?? 0) === 0;
+      if (!localStorage.getItem(AKEY) || assetsGone) {
+        if (assetsGone && localStorage.getItem(AKEY)) console.warn('[AgentAssets] 资产库为空（疑似被读档快照覆盖）→ 自动重新导入');
         const pairs: Array<[string, string]> = [['[Agent] V14.7 狐神抚 · 毓忻', 'agent-huyu.json'], ['Fairy_Tale 2.3.0', 'agent-fairy.json'], ['轮回乐园 Alu v4.1 破晓-Agent', 'agent-alu.json']];
         let okAll = true;
         for (const [n, f] of pairs) {
@@ -1929,6 +1936,10 @@ export default function App() {
     if (rest.length) sections.push({ name: '其他', items: rest });
     return sections;
   }, [navGrouped, navItems]);
+  // 分组折叠：从不用的整组收起来（点组标题切换·跨会话记住·仅分组模式生效）。老存档无此字段 → 兜底空数组＝全展开
+  const navCollapsed = useSettings((s) => s.navCollapsed);
+  const toggleNavGroup = useSettings((s) => s.toggleNavGroup);
+  const collapsedSet = useMemo(() => new Set(Array.isArray(navCollapsed) ? navCollapsed : []), [navCollapsed]);
   // P4·红点泛化：聊天室之外，派遣战报未读也上导航（DispatchRecord.read 的注释本就写着「未读在导航打红点」，今天接上）
   const dispatchUnread = useTeam((s) => s.dispatchHistory.reduce((n, r) => n + (r.read ? 0 : 1), 0));
   const navBadges = useMemo(() => {
@@ -3279,7 +3290,8 @@ export default function App() {
         name: renamed ? aiName : it.name, renamed,
         combatStat: flattenAiText(j.combatStat).slice(0, 50) || undefined,
         attrBonus: flattenAiText(j.attrBonus).slice(0, 120) || undefined,
-        affix: flattenAiText(j.affix).slice(0, 400) || undefined,
+        // 条数按目标档夹取（暗金 4 / 传说 5 / 不朽起 6）：连续进阶不再把词缀墙无限叠高（物品卡 ≥7 条即截断）
+        affix: clampAffixEntries(flattenAiText(j.affix).slice(0, 400), maxAffixEntriesFor(step.toNum)),
         effect: flattenAiText(j.effect).slice(0, 400) || undefined,
         appearance: flattenAiText(j.appearance).slice(0, 300) || undefined,
         intro: flattenAiText(j.intro).slice(0, 200) || undefined,
@@ -3619,7 +3631,7 @@ export default function App() {
             combatStat: flattenAiText(j.combatStat).slice(0, 50) || undefined,
             attrBonus: flattenAiText(j.attrBonus).slice(0, 120) || undefined,
             score: lockedScore,
-            affix: flattenAiText(j.affix).slice(0, 200) || undefined,
+            affix: clampAffixEntries(flattenAiText(j.affix).slice(0, 200), 2),   // 套装单件至多 2 条（整套预算摊薄铁则的代码护栏）
             effect: flattenAiText(j.effect).slice(0, 400) || undefined,
             intro: flattenAiText(j.intro).slice(0, 200) || undefined,
             appearance: flattenAiText(j.appearance).slice(0, 300) || undefined,
@@ -3695,7 +3707,7 @@ export default function App() {
           combatStat: keepFlavor ? (flattenAiText(j.combatStat).slice(0, 50) || undefined) : undefined,
           attrBonus: isTameGen ? undefined : (flattenAiText(j.attrBonus).slice(0, 120) || undefined),
           score: flattenAiText(j.score).slice(0, 60) || undefined,
-          affix: keepFlavor ? (flattenAiText(j.affix).slice(0, 200) || undefined) : undefined,
+          affix: keepFlavor ? clampAffixEntries(flattenAiText(j.affix).slice(0, 200), q.affixBudget) : undefined,   // 条数≤词缀预算（AI 超写的直接夹掉）
           effect: flattenAiText(j.effect).slice(0, 400) || undefined,
           intro: flattenAiText(j.intro).slice(0, 200) || undefined,
           appearance: flattenAiText(j.appearance).slice(0, 300) || undefined,
@@ -3716,7 +3728,7 @@ export default function App() {
     const sess = C.session;
     if (!sess.pending || !sess.pending.length) return;
     const items = useItems.getState();
-    if (sess.cost > 0) items.adjustCurrency('乐园币', -sess.cost, '合成手工费');
+    // 手工费已在开炉时收取（CraftPanel.doGenerate，撤销不退）——确认这里只消耗投料+入库，勿再扣费
     for (const inp of sess.inputs) {
       const st = useItems.getState();
       if (st.items.find((x) => x.id === inp.itemId)?.equipped) st.unequipItem(inp.itemId);   // 已装备的投料（铭刻/分解常用）先卸下再消耗
@@ -13447,12 +13459,32 @@ ${lines}`;
             ${mobileDrawer === 'menu' ? 'max-lg:translate-x-0' : 'max-lg:translate-x-full'}`}
         >
           <nav className="py-1">
-            {(navSections ?? [{ name: '', items: navItems }]).map((sec) => (
+            {(navSections ?? [{ name: '', items: navItems }]).map((sec) => {
+              // 折叠：点组标题收起整组（不用的功能眼不见为净）。平铺模式 name='' → 恒展开，逐像素不变。
+              // 收起后组内红点会一起消失 → 汇总到标题右侧，绝不因为折叠而漏掉未读提醒。
+              const collapsed = !!sec.name && collapsedSet.has(sec.name);
+              const groupBadge = collapsed ? sec.items.reduce((n, it) => n + (navBadges[it.label] ?? 0), 0) : 0;
+              return (
               <div key={sec.name || '_flat'}>
                 {sec.name && (
-                  <div className="px-4 pt-2.5 pb-1 text-[10px] font-mono tracking-widest text-dim/40 select-none border-t border-edge/40 first:border-t-0">{sec.name}</div>
+                  <button
+                    onClick={() => toggleNavGroup(sec.name)}
+                    title={collapsed ? `展开「${sec.name}」（${sec.items.length} 项）` : `折叠「${sec.name}」——不常用的功能可以收起来`}
+                    className="w-full flex items-center gap-1.5 px-4 pt-2.5 pb-1 max-lg:py-2 text-[10px] font-mono tracking-widest text-dim/40 hover:text-dim/70 select-none border-t border-edge/40 first:border-t-0 transition-colors"
+                  >
+                    <span className={`text-[8px] leading-none opacity-70 transition-transform duration-150 ${collapsed ? '' : 'rotate-90'}`}>▶</span>
+                    <span>{sec.name}</span>
+                    {collapsed && (
+                      <span className="ml-auto flex items-center gap-1 tracking-normal">
+                        {groupBadge > 0 && (
+                          <span className="min-w-[16px] h-[16px] px-1 rounded-full bg-blood text-white text-[9px] font-bold flex items-center justify-center leading-none animate-pulse">{groupBadge > 99 ? '99+' : groupBadge}</span>
+                        )}
+                        <span className="text-dim/30">{sec.items.length}</span>
+                      </span>
+                    )}
+                  </button>
                 )}
-                {sec.items.map((item) => (
+                {!collapsed && sec.items.map((item) => (
                   <button
                     key={item.label}
                     onClick={() => { runNavAction(item.label); setMobileDrawer(null); }}
@@ -13466,7 +13498,8 @@ ${lines}`;
                   </button>
                 ))}
               </div>
-            ))}
+              );
+            })}
           </nav>
         </aside>
       </div>

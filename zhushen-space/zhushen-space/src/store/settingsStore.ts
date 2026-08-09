@@ -362,6 +362,9 @@ interface SettingsState {
   setUiUnify: (v: boolean) => void;
   navGrouped: boolean;  // 右侧导航分组（P4·默认开）：48 项平铺 → 按 角色/伙伴/世界/乐园设施/社交联机/传承/系统 分区显示；关=回原平铺列表（老玩家习惯保留，外观设置可切）
   setNavGrouped: (v: boolean) => void;
+  navCollapsed: string[];  // 已折叠的导航分组名（仅分组模式生效）：从不用的整组收起来，跨会话记住。默认 []=全展开（老玩家现状不变）
+  toggleNavGroup: (name: string) => void;
+  setNavCollapsed: (names: string[]) => void;
   holoCardFx: boolean;  // 全息卡片特效总开关：on=立绘/物品/装备显示全息卡（默认）；off=普通图片（回退原样）
   setHoloCardFx: (v: boolean) => void;
   plotChoices: boolean;   // 剧情选项：每段正文生成后，额外生成 8 个主角行动选项（最后 1 个限制级）
@@ -865,6 +868,7 @@ export const useSettings = create<SettingsState>()(
       uiVignette: false,
       uiUnify: true,
       navGrouped: true,
+      navCollapsed: [],
       holoCardFx: true,
       plotChoices: false,
       fanficMode: false,
@@ -962,6 +966,11 @@ export const useSettings = create<SettingsState>()(
       setUiVignette: (v) => set({ uiVignette: v }),
       setUiUnify: (v) => set({ uiUnify: v }),
       setNavGrouped: (v) => set({ navGrouped: v }),
+      toggleNavGroup: (name) => set((s) => {
+        const cur = Array.isArray(s.navCollapsed) ? s.navCollapsed : [];   // 老存档无此字段 → 视为全展开
+        return { navCollapsed: cur.includes(name) ? cur.filter((n) => n !== name) : [...cur, name] };
+      }),
+      setNavCollapsed: (names) => set({ navCollapsed: Array.isArray(names) ? names : [] }),
       setHoloCardFx: (v) => set({ holoCardFx: v }),
       setPlotChoices: (v) => set({ plotChoices: v }),
       setNpcAutonomyOn: (v) => set({ npcAutonomyOn: v }),

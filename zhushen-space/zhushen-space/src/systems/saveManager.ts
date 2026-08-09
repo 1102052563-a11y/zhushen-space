@@ -487,7 +487,10 @@ export async function loadSlot(id: string): Promise<boolean> {
   // 「剧情指导」等功能开关、人称、记忆/向量配置等全冲回存档当时的旧值——这正是「开启剧情指导后
   // 一刷新/读档又关闭」的根因（2026-06-20 修）。API 字段原本已由 mergeKeepApi 保当前，这里把整个
   // settings store 统一归为全局配置，不随存档回滚（配置与具体存档解绑，全局一致）。
-  const KEEP_CURRENT = new Set(['drpg-settings']);
+  // ⚠ drpg-agentskills（Agent 技能包/子代理/作者指令）同属**设备级配置资产**：它由「导入了哪些 Agent 预设」决定，
+  //   与具体存档无关、跨档共享。曾漏加 → 读一个「资产入库之前存的档」会把快照里的空库写回，
+  //   技能包与子代理**当场蒸发**（Discord 实报「我的 agent 呢 / skill 也会消失」，2026-08-02 修）。
+  const KEEP_CURRENT = new Set(['drpg-settings', 'drpg-agentskills']);
   // ★store 快照写回 localStorage 见下方 restoreStores()——**故意放到所有 await 之后、reload 之前执行**。
   const restoreStores = () => {
     for (const { key } of STORES) {

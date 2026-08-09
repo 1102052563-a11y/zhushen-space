@@ -3390,6 +3390,9 @@ function AppearanceSettingsSection() {
   const setUiUnify = useSettings((s) => s.setUiUnify);
   const navGrouped    = useSettings((s) => s.navGrouped);
   const setNavGrouped = useSettings((s) => s.setNavGrouped);
+  const navCollapsedRaw = useSettings((s) => s.navCollapsed);
+  const navCollapsed  = Array.isArray(navCollapsedRaw) ? navCollapsedRaw : [];   // 老存档无此字段
+  const setNavCollapsed = useSettings((s) => s.setNavCollapsed);
   const holoCardFx    = useSettings((s) => s.holoCardFx);
   const setHoloCardFx = useSettings((s) => s.setHoloCardFx);
   const uiTheme    = useSettings((s) => s.uiTheme);
@@ -3656,6 +3659,19 @@ function AppearanceSettingsSection() {
             <span className="text-[12px] text-dim/60">角色 · 伙伴 · 世界 · 乐园设施 · 社交联机 · 传承 · 系统</span>
           </label>
           <div className="text-[12px] text-dim/60 leading-relaxed">右侧导航近 50 项按功能域分成 7 组、组内相关功能挨在一起（装备挨着技能树、频道挨着聊天室），找功能不再靠背位置。不习惯的话关掉即回到原来的单列平铺顺序，功能一个不少。</div>
+          {navGrouped && (
+            <div className="pt-2 border-t border-edge/40 space-y-2">
+              <div className="text-[12px] text-dim/60 leading-relaxed">
+                <b className="text-slate-300">折叠分组</b>：点右侧导航的<b className="text-slate-300">组标题</b>即可把整组收起来（从不用的功能眼不见为净），下次打开还记得。收起的组若有未读红点，会汇总显示在组标题上，不会漏消息。
+              </div>
+              <div className="flex items-center gap-2 flex-wrap">
+                <span className="text-[12px] text-dim/50">当前折叠：{navCollapsed.length ? navCollapsed.join('、') : '无（全部展开）'}</span>
+                {navCollapsed.length > 0 && (
+                  <button onClick={() => setNavCollapsed([])} className="px-2.5 py-1 text-[12px] rounded border border-edge text-dim hover:text-slate-200 hover:bg-panel2 transition-colors">全部展开</button>
+                )}
+              </div>
+            </div>
+          )}
         </div>
       </div>
 

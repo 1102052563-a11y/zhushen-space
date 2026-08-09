@@ -245,6 +245,19 @@ describe('P3 · TT 内嵌 Agent 资产（真实文件：zip skill 包 + 子代�
   });
 });
 
+describe('资产库持久化契约（⚠ 回归守卫：Discord 实报「我的 agent 呢 / skill 也会消失」）', () => {
+  it('drpg-agentskills 必须在 saveManager 的 KEEP_CURRENT 里——它是设备级配置资产，读档绝不能被存档快照回滚', async () => {
+    const fs = await import('node:' + 'fs') as { readFileSync: (p: string, enc: string) => string };
+    const src = fs.readFileSync(process.cwd() + '/src/systems/saveManager.ts', 'utf8');
+    const m = /const KEEP_CURRENT = new Set\(\[([^\]]*)\]\)/.exec(src);
+    expect(m, 'KEEP_CURRENT 定义没找到（saveManager 被改动？）').toBeTruthy();
+    expect(m![1]).toContain('drpg-agentskills');
+    // 反向守卫：它若被列进「快照缺失即清空」名单，读旧档同样会蒸发
+    const c = /const CLEAR_ON_MISSING = new Set\(\[([^\]]*)\]\)/.exec(src);
+    if (c) expect(c[1]).not.toContain('drpg-agentskills');
+  });
+});
+
 describe('V14.7 cure 适配正则 · 真实引擎行为（compileFindRegex + runRegexReplace）', () => {
   const apply = (id: string, text: string) => {
     const s = HUYU_CURE_SCRIPTS.find((x) => x.id === id)!;

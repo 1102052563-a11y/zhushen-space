@@ -52,7 +52,7 @@ export default function CraftManager() {
       <div className={`${card} space-y-3`}>
         <div className="text-[13px] font-semibold text-slate-100">调参</div>
         <label className="flex items-center justify-between gap-3 text-[12px]">
-          <span>手工费系数（0 = 免费；随投入品级指数上涨）</span>
+          <span>手工费系数（0 = 免费；高档锚定公允价表，开炉即收、撤销不退）</span>
           <input type="number" min={0} max={10} step={0.1} value={config.costMul}
             onChange={(e) => useCraft.getState().setConfig({ costMul: Math.max(0, Number(e.target.value) || 0) })}
             className="w-20 bg-panel2 border border-edge rounded px-2 py-1 text-right text-slate-200 outline-none focus:border-god/40" />

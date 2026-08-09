@@ -68,10 +68,15 @@ export default function CraftPanel({ onClose, onGenerate, onConfirm }: Props) {
     if (busy) return;
     setBusy(true);
     try {
-      if (regen) useCraft.getState().resetResult();
+      if (regen) useCraft.getState().resetResult();   // 重新生成：沿用已掷品质、只重掷 AI 风味，不再收费
       else {
+        // 手工费开炉即收、撤销不退（反白嫖重骰：以前确认才扣费，撤销零成本刷「完美」直到 +1 档）
+        const cfg = useCraft.getState().config;
+        const fee = cfg.costMul > 0 ? craftCost(useCraft.getState().session.inputs, cfg.costMul) : 0;
+        if (fee > 0 && useItems.getState().currency.乐园币 < fee) { flash(`乐园币不足：开炉需 ${fee.toLocaleString()}（开炉即收、撤销不退）`); return; }
         const r = useCraft.getState().startCraft();
         if (!r.ok) { flash(r.why || '无法合成'); return; }
+        if (fee > 0) useItems.getState().adjustCurrency('乐园币', -fee, '合成工坊·开炉手工费');
       }
       await onGenerate();
     } finally { setBusy(false); }
@@ -243,11 +248,12 @@ export default function CraftPanel({ onClose, onGenerate, onConfirm }: Props) {
                   <textarea value={session.tendency} onChange={(e) => useCraft.getState().setTendency(e.target.value)}
                     placeholder="倾向提示（可选）：攻击向 / 辅助向 / 冰属性 / 隐匿 / 采集…只导方向、不改档次"
                     rows={2} className="w-full bg-panel2 border border-edge rounded px-2 py-1.5 text-[12px] text-slate-200 outline-none focus:border-god/40 resize-none" />
-                  <button onClick={() => doGenerate(false)} disabled={session.inputs.length === 0}
+                  <button onClick={() => doGenerate(false)} disabled={session.inputs.length === 0 || (costPreview > 0 && coin < costPreview)}
+                    title={costPreview > 0 && coin < costPreview ? `乐园币不足：开炉需 ${costPreview.toLocaleString()}` : undefined}
                     className="w-full py-2 rounded-lg border border-god/50 bg-god/10 text-god font-semibold text-[14px] hover:bg-god/20 disabled:opacity-40 disabled:cursor-not-allowed transition-colors">
-                    🛠 合成{costPreview > 0 ? `（手工费约 ${costPreview.toLocaleString()} 乐园币）` : ''}
+                    🛠 合成{costPreview > 0 ? `（手工费 ${costPreview.toLocaleString()} 乐园币·开炉即收）` : ''}
                   </button>
-                  <div className="text-[10px] text-dim/40 text-center">产物先出预览，可重新生成或撤销，确认才消耗材料入库</div>
+                  <div className="text-[10px] text-dim/40 text-center">手工费开炉即收、撤销不退；产物先出预览，确认才消耗材料入库</div>
                 </div>
               </div>
             </div>

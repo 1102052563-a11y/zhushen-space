@@ -70,6 +70,23 @@ export function splitAffixEntries(text?: unknown): string[] {
   return t.split(/(?=【)/g).map((s) => s.replace(/^["',\s]+|["',\s]+$/g, '').trim()).filter(Boolean);   // 每条再剥掉残留的引号/逗号
 }
 
+/** 词缀/效果**条数**硬夹取：splitAffixEntries 分条后最多保留 maxEntries 条、拼回文本（超出的直接舍弃）。
+ *  治「叠叠乐把词缀墙叠到 7+ 条、物品卡被字数撑爆截断」（玩家实测效果 ≥7 条就显示不全）：
+ *  合成产物按词缀预算夹（App.runCraftPhase）、品级进阶按档位上限夹（maxAffixEntriesFor）。
+ *  条内文本不动；不足上限原样返回。*/
+export function clampAffixEntries(text: string | undefined, maxEntries: number): string | undefined {
+  if (!text) return undefined;
+  const entries = splitAffixEntries(text);
+  if (entries.length <= maxEntries) return text;
+  return entries.slice(0, Math.max(0, maxEntries)).join('\n') || undefined;
+}
+
+/** 品级 → 词缀条数上限：2 + 档位÷3，封顶 6（紫 3 条、暗金 4、传说 5、不朽起 6）。
+ *  玩家实测「效果数量 <7 才显示得全」——顶格也只 6 条，物品卡天然不越显示红线。*/
+export function maxAffixEntriesFor(gradeNum: number): number {
+  return Math.min(6, 2 + Math.floor(Math.max(1, Math.min(15, Math.round(gradeNum))) / 3));
+}
+
 /** 安全把「本该是字符串、却被 AI 偶尔写成对象/数组」的字段转成可渲染文本，避免 React #31
  *  「Objects are not valid as a React child」整页崩（典型：combatStat 被写成 {atk:15}、词缀被写成 [{name,desc}]）。
  *  {name,desc} → "名：说明"；{atk:15,def:8} → "atk:15 def:8"；[a,b] → "a / b"；字符串/数字原样。供直接渲染这类字段的面板兜底。*/

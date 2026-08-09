@@ -1,5 +1,6 @@
 import { ITEM_GRADES } from '../store/itemStore';
 import type { ItemCategory } from '../store/itemStore';
+import { gradeMidPark } from './itemPricing';
 
 /* ════════════════════════════════════════════
    合成工坊 · 确定性引擎（纯逻辑，无 React）
@@ -184,20 +185,39 @@ const TIER_NOTE: Record<CraftTier, string> = {
   fail: '这组材料八字不合——炸了炉，成了一件古怪的黑暗产物。',
 };
 
+/* ── 完美(+1档)概率：按投入最高档递减 ──
+   平衡阀（治"叠叠乐"：产物回炉再合、逐档白嫖爬到传说级——群里实测新人几十次点击即出传说）：
+   低档（白/绿/蓝）随便玩；紫起收紧；暗金→传说级是稀罕事；**传说级及以上封死（+1 档概率=0）**——
+   合成工坊不产神，传说级+ 的升档只能走强化所「品级进阶」（按公允价表付真金白银）或正文里挣。
+   配套：手工费开炉即收、撤销不退（CraftPanel），重骰一次 = 再付一次开炉费，白嫖重骰不再成立。 */
+const PERFECT_BY_BASE = [0.10, 0.10, 0.10, 0.08, 0.08, 0.05, 0.05, 0.02] as const;   // 下标 = base-1；base≥9 → 0
+/** 材料契合加成对完美档的效力：低档全额、中档打折、暗金起无效（防「垃圾堆数量」把上档概率堆到三成）。 */
+function perfectBonusScale(base: number): number {
+  return base <= 3 ? 1 : base <= 5 ? 0.5 : base <= 7 ? 0.25 : 0;
+}
+/** 本次合成出「完美(+1档)」的概率（供掷骰与测试共用）。 */
+export function perfectChance(base: number, bonus: number): number {
+  if (base >= 9) return 0;   // 传说级+ 封墙：合成绝不把传说级以上的东西再抬档
+  return (PERFECT_BY_BASE[base - 1] ?? 0.02) + bonus * perfectBonusScale(base);
+}
+
 /**
  * 掷合成品质（开合时掷一次、锁进 session）。
  * 产出品级上限 = 投入最高品级 ±（成功度带来的至多一档）；绝不凭空越级。
- * 材料越多、种类越丰富 → 完美/成功概率略升。重新生成沿用此结果、只重掷 AI 风味。
+ * 完美(+1档)概率随投入档递减、传说级+ 为 0（见 perfectChance）；
+ * 材料越多、种类越丰富 → 仍降低瑕疵/失败概率，但高档不再助长上档。
+ * 重新生成沿用此结果、只重掷 AI 风味。rng 可注入（测试用），默认 Math.random。
  */
-export function rollCraftQuality(inputs: CraftInput[], mode: CraftMode): CraftQuality {
+export function rollCraftQuality(inputs: CraftInput[], mode: CraftMode, rng: () => number = Math.random): CraftQuality {
   const base = inputMaxGrade(inputs) || 1;                 // 未标品级按白色
   const total = inputTotalQty(inputs);
   const variety = inputs.filter((x) => (Math.floor(x.qty) || 0) > 0).length;
-  // 契合度加成：种类多 + 用料足 → 略提升上档概率（封顶 0.22）
+  // 契合度加成：种类多 + 用料足 → 降低瑕疵/失败概率（封顶 0.22）；对完美档按 perfectBonusScale 打折
   const bonus = Math.min(0.22, Math.max(0, variety - mode.minInputs) * 0.05 + Math.max(0, total - variety) * 0.015);
-  const roll = Math.random();
+  const pPerfect = perfectChance(base, bonus);
+  const roll = rng();
   let tier: CraftTier;
-  if (roll < 0.10 + bonus) tier = 'perfect';
+  if (roll < pPerfect) tier = 'perfect';
   else if (roll < 0.72 + bonus) tier = 'success';
   else if (roll < 0.92) tier = 'flawed';
   else tier = 'fail';
@@ -216,11 +236,21 @@ export function rollCraftQuality(inputs: CraftInput[], mode: CraftMode): CraftQu
   };
 }
 
-/** 手工费（乐园币，随投入最高品级指数上涨；config.costMul 可调，设 0 则免费）*/
+/** 手工费占「投入最高档公允价中位」的比例（高档档位生效）。
+ *  取 1.5% 的依据：暗金投料完美率 2%，期望重骰到完美的总开销 ≈ 中位价×1.5%÷2% ≈ 150 万乐园币，
+ *  与强化所「品级进阶」同一步（暗金→传说 ≈ 360 万）落在同一量级——两条升档路不再有量级套利。 */
+const CRAFT_FEE_RATIO = 0.015;
+
+/** 手工费（乐园币）：低档走轻曲线（200×1.7^档），淡金起锚定公允价表 gradeMidPark 的 1.5%。
+ *  与 equipAscend.ascendCost 共用同一张价表（itemPricing 是全局唯一权威价表）——
+ *  堵「合成把暗金抬进传说只要 8 千、强化所进阶同一步要 360 万」的套利黑洞。
+ *  手工费**开炉即收、撤销不退**（CraftPanel 扣款）；config.costMul 可调，设 0 则免费。 */
 export function craftCost(inputs: CraftInput[], mul = 1): number {
   if (mul <= 0) return 0;
   const base = inputMaxGrade(inputs) || 1;
-  return Math.round(200 * Math.pow(1.7, base - 1) * mul);
+  const curve = 200 * Math.pow(1.7, base - 1);
+  const anchored = gradeMidPark(base) * CRAFT_FEE_RATIO;
+  return Math.round(Math.max(curve, anchored) * mul);
 }
 
 /** 产出槽（喂给 AI 的"你要生成几件、各是什么类别、品级上限多少"）。分解＝多件材料，套装＝玩家自选件数，其余＝一件。*/
@@ -232,8 +262,9 @@ export function craftOutputSlots(mode: CraftMode, q: CraftQuality, pieces?: numb
     return Array.from({ length: n }, (_, i) => ({ category: '', gradeDesc: q.ceilingName, note: `套装部件 ${i + 1}/${n}` }));
   }
   if (mode.multiOut) {
-    const n = q.tier === 'fail' ? 1 : q.baseGrade >= 8 ? 4 : q.baseGrade >= 4 ? 3 : 2;
-    const g = gradeName(Math.max(1, q.ceilingGrade));
+    // 分解绝不越级（守 outHint「品级不超过被拆物」）：完美档不再拆出更高档材料，改为多回收一份
+    const n = (q.tier === 'fail' ? 1 : q.baseGrade >= 8 ? 4 : q.baseGrade >= 4 ? 3 : 2) + (q.tier === 'perfect' ? 1 : 0);
+    const g = gradeName(Math.max(1, Math.min(q.ceilingGrade, q.baseGrade)));
     return Array.from({ length: n }, () => ({ category: mode.outCategory || '材料', gradeDesc: g, note: '分解回收的材料' }));
   }
   return [{ category: mode.outCategory, gradeDesc: q.ceilingName, note: mode.outHint }];
