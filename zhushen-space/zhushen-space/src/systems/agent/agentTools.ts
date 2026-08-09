@@ -14,13 +14,12 @@ import { useNpc } from '../../store/npcStore';
 import { useCharacters } from '../../store/characterStore';
 import { useItems } from '../../store/itemStore';
 import { useFaction } from '../../store/factionStore';
-import { visibleSkills, useAgentSkills, type SubAgentDef } from '../../store/agentSkillStore';
+import { visibleSkills, useAgentSkills, inScope, type SubAgentDef } from '../../store/agentSkillStore';
 
 /** 当前预设作用域下可委派的子代理（enabled 且作用域匹配） */
 export function listCallableSubagents(presetName: string): SubAgentDef[] {
   try {
-    return useAgentSkills.getState().subagents.filter((d) =>
-      d.enabled !== false && (!d.scopePresetName || d.scopePresetName === presetName));
+    return useAgentSkills.getState().subagents.filter((d) => d.enabled !== false && inScope(d, presetName));
   } catch { return []; }
 }
 

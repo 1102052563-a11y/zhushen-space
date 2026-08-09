@@ -15,7 +15,7 @@ import PromptCenterPanel from './PromptCenterPanel';   // 预设中心：各功�
 import DbAdvancePresetEditor from './DbAdvancePresetEditor';   // 数据库推进预设编辑器（缝破限/改模块提示词）
 import VariableManager from './VariableManager';
 import ApiRoutePicker from './ApiRoutePicker';
-import { useAgentSkills } from '../store/agentSkillStore';   // Agent 子代理/技能资产（预设内嵌·P3）
+import { useAgentSkills, inScope } from '../store/agentSkillStore';   // Agent 子代理/技能资产（预设内嵌·P3）
 import ApiSlotAudit from './ApiSlotAudit';
 import DbAdvanceInspector from './DbAdvanceInspector';
 import { exportGlossary, parseGlossaryImport } from '../i18n/glossaryIO';
@@ -1906,8 +1906,8 @@ function AgentSubagentSection({ selPreset }: { selPreset: string }) {
   const subs = useAgentSkills((s) => s.subagents);
   const skills = useAgentSkills((s) => s.skills);
   const notes = useAgentSkills((s) => s.writerNotes);
-  const scopeSubs = subs.filter((d) => !d.scopePresetName || d.scopePresetName === selPreset);
-  const scopeSkills = skills.filter((k) => !k.scopePresetName || k.scopePresetName === selPreset);
+  const scopeSubs = subs.filter((d) => inScope(d, selPreset));
+  const scopeSkills = skills.filter((k) => inScope(k, selPreset));
   if (!selPreset && scopeSubs.length === 0 && scopeSkills.length === 0) return null;
   return (
     <div className="p-2.5 rounded-lg border border-edge bg-panel space-y-2">

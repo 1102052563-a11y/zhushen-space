@@ -9,7 +9,7 @@ import { compileFindRegex, runRegexReplace } from '../regexEngine';
 import { HUYU_CURE_SCRIPTS } from './agentPresetCure';
 import { unzipTextFiles } from './miniZip';
 import { importEmbeddedAgentAssets } from './agentAssets';
-import { useAgentSkills } from '../../store/agentSkillStore';
+import { useAgentSkills, inScope } from '../../store/agentSkillStore';
 
 /* vitest 跑在 node 环境，但主 tsconfig 是浏览器环境（无 @types/node）：
    用「非字面量说明符」的动态 import 取 fs——tsc 不做模块解析（类型为 any），运行时正常解析 node:fs。 */
@@ -138,8 +138,8 @@ describe('Agent 内置预设 · 轮回乐园 Alu v4.1 破晓-Agent（本作世�
     expect(rep.errors).toEqual([]);
     // 断言**只看本预设作用域**：并行测试里其他预设的 pending 导入也会写进同一个全局 store。
     const st = useAgentSkills.getState();
-    const skills = st.skills.filter((s) => s.scopePresetName === ALU);
-    const subs = st.subagents.filter((d) => d.scopePresetName === ALU);
+    const skills = st.skills.filter((s) => inScope(s, ALU));
+    const subs = st.subagents.filter((d) => inScope(d, ALU));
     expect(skills.map((s) => s.name).sort()).toEqual(
       ['alu-banword-rules', 'alu-combat-rules', 'alu-format-rules', 'alu-nsfw-rules', 'alu-persona-rules', 'alu-world-rules']);
     expect(subs.map((d) => d.id).sort()).toEqual(
@@ -227,7 +227,7 @@ describe('P3 · TT 内嵌 Agent 资产（真实文件：zip skill 包 + 子代�
     const rep = await importEmbeddedAgentAssets(JSON.parse(rawHuyu), HUYU, true);
     expect(rep.errors).toEqual([]);
     const st = useAgentSkills.getState();
-    const huyuSkills = st.skills.filter((s) => s.scopePresetName === HUYU);   // Fairy 的滞后导入可能混入其它作用域，只看本预设的
+    const huyuSkills = st.skills.filter((s) => inScope(s, HUYU));   // Fairy 的滞后导入可能混入其它作用域，只看本预设的
     expect(huyuSkills.map((s) => s.name).sort()).toEqual(['fox-banword-rules', 'fox-format-rules', 'fox-nsfw-rules', 'fox-persona-rules']);
     expect(huyuSkills.every((s) => s.files.some((f) => /SKILL\.md$/i.test(f.path)))).toBe(true);
     const banword = st.subagents.find((d) => d.id === 'fox-banword-checker')!;
@@ -241,7 +241,60 @@ describe('P3 · TT 内嵌 Agent 资产（真实文件：zip skill 包 + 子代�
     await importEmbeddedAgentAssets(JSON.parse(rawHuyu), HUYU, true);
     const rep2 = await importEmbeddedAgentAssets(JSON.parse(rawHuyu), HUYU, true);
     expect(rep2.skills).toBe(0);
-    expect(useAgentSkills.getState().skills.filter((s) => s.scopePresetName === HUYU).length).toBe(4);
+    expect(useAgentSkills.getState().skills.filter((s) => inScope(s, HUYU)).length).toBe(4);
+  });
+});
+
+describe('资产作用域并集（⚠ 回归守卫：Discord 实报「选中破晓后 2 个技能包 + 4 个子代理集体隐身」）', () => {
+  it('同一资产被第二个预设再次导入 → 作用域并集，两个预设都能看见（旧实现整体 skip，锁死在首次来源）', () => {
+    useAgentSkills.setState({ skills: [], subagents: [], writerNotes: {} });
+    const S = useAgentSkills.getState();
+    const skill = { name: 'shared-rules', files: [{ path: 'SKILL.md', content: 'x' }], sourceSha: 'sha-1', builtin: true };
+    const sub = { id: 'shared-checker', name: '检查员', desc: '', builtin: true, enabled: true };
+    expect(S.upsertSkill({ ...skill, scopePresets: ['预设A'] })).toBe('added');
+    expect(S.upsertSubagent({ ...sub, scopePresets: ['预设A'] })).toBe('added');
+    // 第二次：内容完全相同（同 sha）→ 内容跳过，但作用域必须并上
+    expect(S.upsertSkill({ ...skill, scopePresets: ['预设B'] })).toBe('updated');
+    expect(S.upsertSubagent({ ...sub, scopePresets: ['预设B'] })).toBe('updated');
+    const st = useAgentSkills.getState();
+    expect(inScope(st.skills[0], '预设A')).toBe(true);
+    expect(inScope(st.skills[0], '预设B')).toBe(true);
+    expect(inScope(st.subagents[0], '预设A')).toBe(true);
+    expect(inScope(st.subagents[0], '预设B')).toBe(true);
+    expect(inScope(st.skills[0], '无关预设')).toBe(false);
+    // 幂等：同来源再来一次不再算变更
+    expect(S.upsertSkill({ ...skill, scopePresets: ['预设B'] })).toBe('skipped');
+    useAgentSkills.setState({ skills: [], subagents: [], writerNotes: {} });
+  });
+  it('同 sha 早退路径也补作用域：玩家先手动导入过同一份包，本预设仍能看见它（隐身根因之二）', async () => {
+    const ALU = '轮回乐园 Alu v4.1 破晓-Agent';
+    const sha = JSON.parse(rawAlu).extensions.tauritavern.skills.items.find((x: { skillName: string }) => x.skillName === 'alu-banword-rules').sha256;
+    useAgentSkills.setState({
+      skills: [{ name: 'alu-banword-rules', files: [{ path: 'SKILL.md', content: '玩家早先导入的同一份' }], scopePresetName: '我自己导入的破晓', sourceSha: sha, builtin: false }],
+      subagents: [], writerNotes: {},
+    });
+    await importEmbeddedAgentAssets(JSON.parse(rawAlu), ALU, true);
+    const s = useAgentSkills.getState().skills.find((x) => x.name === 'alu-banword-rules')!;
+    expect(inScope(s, ALU), '同 sha 早退时作用域没补上 → 该技能包在本预设下隐身').toBe(true);
+    expect(inScope(s, '我自己导入的破晓')).toBe(true);   // 旧来源仍保留
+    expect(s.files[0].content).toBe('玩家早先导入的同一份');   // 内容未被重解包覆盖（省算力的初衷保住）
+    useAgentSkills.setState({ skills: [], subagents: [], writerNotes: {} });
+  });
+  it('旧数据兼容：只有 scopePresetName 的老资产照常按该预设可见；无作用域=全局可见', () => {
+    expect(inScope({ scopePresetName: '老预设' }, '老预设')).toBe(true);
+    expect(inScope({ scopePresetName: '老预设' }, '别的')).toBe(false);
+    expect(inScope({}, '任意')).toBe(true);
+    expect(inScope({ scopePresets: [] }, '任意')).toBe(true);
+  });
+  it('玩家版优先仍生效：内置不覆盖玩家改过的内容，但作用域照并', () => {
+    useAgentSkills.setState({ skills: [], subagents: [], writerNotes: {} });
+    const S = useAgentSkills.getState();
+    S.upsertSkill({ name: 'mine', files: [{ path: 'SKILL.md', content: '玩家改过' }], scopePresets: ['预设A'], builtin: false });
+    S.upsertSkill({ name: 'mine', files: [{ path: 'SKILL.md', content: '内置版' }], scopePresets: ['预设B'], sourceSha: 'sha-x', builtin: true });
+    const s = useAgentSkills.getState().skills[0];
+    expect(s.files[0].content).toBe('玩家改过');   // 内容没被内置覆盖
+    expect(inScope(s, '预设B')).toBe(true);        // 但新预设能看见它
+    useAgentSkills.setState({ skills: [], subagents: [], writerNotes: {} });
   });
 });
 

@@ -30,10 +30,15 @@ export async function importEmbeddedAgentAssets(data: unknown, presetName: strin
       const name = String(it?.skillName ?? '').trim();
       if (!name || it?.bundleFormat !== 'ttskill-archive-base64-v1' || typeof it?.contentBase64 !== 'string') continue;
       const cur = useAgentSkills.getState().skills.find((x) => x.name === name);
-      if (cur?.sourceSha && cur.sourceSha === it.sha256) { continue; }   // 同包已入库：解压都省了
+      if (cur?.sourceSha && cur.sourceSha === it.sha256) {
+        // 同包已入库：解压都省了。⚠ 但**作用域仍要补**——玩家可能先手动导入过同一份包，
+        //   作用域会停在他当时的预设名上，本预设就永远看不见它（Discord 实报的隐身根因之一）。
+        if (S.addScope('skill', name, presetName)) report.skills++;
+        continue;
+      }
       const files = await unzipTextFiles(it.contentBase64);
       if (!files.some((f) => /(^|\/)SKILL\.md$/i.test(f.path))) { report.errors.push(`${name}: 包内缺 SKILL.md`); continue; }
-      const r = S.upsertSkill({ name, files, scopePresetName: presetName, sourceSha: String(it.sha256 ?? ''), builtin });
+      const r = S.upsertSkill({ name, files, scopePresets: [presetName], sourceSha: String(it.sha256 ?? ''), builtin });
       if (r !== 'skipped') report.skills++;
     } catch (e) { report.errors.push(`skill 解包失败: ${String((e as Error)?.message ?? e)}`); }
   }
@@ -61,7 +66,7 @@ export async function importEmbeddedAgentAssets(data: unknown, presetName: strin
         skillsDeny: Array.isArray(p?.skills?.deny) ? p.skills.deny.map(String) : undefined,
         maxRounds: clampInt(p?.tools?.maxRounds, 1, 12, 8),   // TT 常给 999，夹到本前端的子代理上限
         maxInvocationsPerRun: clampInt(deleg?.maxInvocationsPerRun, 1, 8, 2),
-        scopePresetName: presetName,
+        scopePresets: [presetName],
         enabled: true,
         builtin,
       };
