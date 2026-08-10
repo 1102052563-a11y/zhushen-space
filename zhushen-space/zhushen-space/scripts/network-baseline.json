@@ -30,6 +30,7 @@
     "src/systems/chaosWorld.ts": 6,
     "src/systems/chatAvatarCache.ts": 1,
     "src/systems/chatIdentity.ts": 1,
+    "src/systems/chatImages.ts": 1,
     "src/systems/chatStickers.ts": 5,
     "src/systems/cloudSave.ts": 6,
     "src/systems/crashReport.ts": 1,

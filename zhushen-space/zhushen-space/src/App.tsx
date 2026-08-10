@@ -14222,7 +14222,6 @@ const MessageRow = memo(function MessageRow({ msg, isLast, isEditing, reading, t
   const sandboxOn = (() => { try { return useSettings.getState().renderHtmlSandbox === true; } catch { return false; } })();
   const fenceSplit = useMemo(
     () => (sandboxOn && msg.role !== 'user' && msg.content.includes('```') ? extractHtmlFences(msg.content) : null),
-    // eslint-disable-next-line react-hooks/exhaustive-deps
     [sandboxOn, msg.role, msg.content],
   );
   return (

@@ -37,13 +37,24 @@ function measure(dataUrl: string): Promise<{ w: number; h: number }> {
   });
 }
 
+// 短 REST 带超时（网络规约：弱网下无超时的 fetch 可能永久挂起，把上传/分享 UI 卡死在忙碌态）
+async function fetchT(url: string, init: RequestInit | undefined, timeoutMs: number): Promise<Response> {
+  const ac = new AbortController();
+  const t = setTimeout(() => ac.abort(), timeoutMs);
+  try {
+    return await fetch(url, { ...(init || {}), signal: ac.signal });
+  } catch (e) {
+    throw ac.signal.aborted ? new Error('网络超时，请重试') : e;
+  } finally { clearTimeout(t); }
+}
+
 /** 上传一张图到公共区（自动缩到 ≤1600px 控体积；gif 不缩以保动图）。返回 {hash,w,h} 供发消息引用。 */
 export async function uploadChatImage(dataUrl: string, name: string): Promise<{ hash: string; w: number; h: number }> {
   const tok = chatToken();
   if (!tok) throw new Error('请先在「交流室」登录并进入一次（上传需要聊天身份）');
   let url = dataUrl;
   if (/^https?:\/\//i.test(url)) {   // http(s) 图先取回本地字节（失败多半是跨域）
-    const res = await fetch(url);
+    const res = await fetchT(url, undefined, 30000);
     if (!res.ok) throw new Error('远程图片下载失败');
     url = await blobToDataUrl(await res.blob());
   }
@@ -51,9 +62,9 @@ export async function uploadChatImage(dataUrl: string, name: string): Promise<{ 
   if (!url.startsWith('data:image/gif')) url = await shrinkDataUrl(url, 1600, 0.85);
   const blob = dataUrlToBlob(url);
   const { w, h } = await measure(url);
-  const res = await fetch(`${mpBase()}/api/chat/image?name=${encodeURIComponent((name || '图片').slice(0, 60))}`, {
+  const res = await fetchT(`${mpBase()}/api/chat/image?name=${encodeURIComponent((name || '图片').slice(0, 60))}`, {
     method: 'POST', headers: { 'Content-Type': blob.type || 'image/jpeg', Authorization: 'Bearer ' + tok }, body: blob,
-  });
+  }, 60000);
   const j = await res.json().catch(() => ({} as any));
   if (!res.ok) throw new Error(j.error || '上传失败');
   return { hash: j.hash, w, h };
@@ -62,7 +73,7 @@ export async function uploadChatImage(dataUrl: string, name: string): Promise<{ 
 /** 公共图池（所有人上传的·按 hash 去重·最近优先）。无需登录；后端未部署/离线返回空。 */
 export async function listPublicChatImages(): Promise<{ hash: string; name?: string; at?: number }[]> {
   try {
-    const res = await fetch(`${mpBase()}/api/chat/images?scope=public`);
+    const res = await fetchT(`${mpBase()}/api/chat/images?scope=public`, undefined, 15000);
     if (!res.ok) return [];
     const j = await res.json();
     return Array.isArray(j.images) ? j.images : [];
@@ -73,7 +84,7 @@ export async function listPublicChatImages(): Promise<{ hash: string; name?: str
 export async function deleteMyChatImage(hash: string): Promise<void> {
   const tok = chatToken();
   if (!tok) return;
-  try { await fetch(`${mpBase()}/api/chat/image/${hash}`, { method: 'DELETE', headers: { Authorization: 'Bearer ' + tok } }); } catch { /* */ }
+  try { await fetchT(`${mpBase()}/api/chat/image/${hash}`, { method: 'DELETE', headers: { Authorization: 'Bearer ' + tok } }, 15000); } catch { /* */ }
 }
 
 function waitFor(cond: () => boolean, timeoutMs: number): Promise<void> {

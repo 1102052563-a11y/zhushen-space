@@ -6,7 +6,8 @@
     "/joy-girls/*",
     "/proxy/*",
     "/presence",
-    "/presence-online"
+    "/presence-online",
+    "/crash-report"
   ],
   "exclude": []
 }
