@@ -6,6 +6,11 @@ import { useCharacters } from '../store/characterStore';
 import { useSettings } from '../store/settingsStore';
 import { useItems, getItemLog } from '../store/itemStore';
 import { useLedger } from './ledger/ledgerStore';
+import { usePlayer } from '../store/playerStore';
+import { useNpc } from '../store/npcStore';
+import { useMisc } from '../store/miscStore';
+import { useWorldRecord } from '../store/worldRecordStore';
+import { useDice } from '../store/diceStore';
 
 /* ── 一键诊断包 ───────────────────────────────────────────────────────────
    导出排查「丢东西 / 内存与存档对不上」所需的**精简信息**：纯文本、不含图片/对话，
@@ -211,5 +216,52 @@ export async function buildDiagnosticBundle(): Promise<string> {
     L.push(`\n## 演化账本：读取失败 — ${e?.message || e}`);
   }
 
+  // ── 依赖影响体检（借鉴V3.2数据库健康面板）：核心库当前状态 + 「若为空/丢失会连锁影响什么」──
+  L.push('\n## 依赖影响体检  —— 每行：库 | 现状 | 若为空/丢失的连锁影响（报障时先看 ⚠ 行）');
+  for (const row of dependencyImpactRows()) L.push('  ' + row);
+
   return L.join('\n');
+}
+
+/* 依赖影响清单（手维护·借鉴V3.2「每表缺失影响哪些功能」面板）：probe 只读 getState，任一挂掉只标「读取失败」不炸整包。
+   注意：空≠一定故障（新档 NPC/物品本来就空）——这一节回答的是「如果它是空的，会连锁影响什么」，供报障定位。 */
+function dependencyImpactRows(): string[] {
+  const out: string[] = [];
+  const item = (label: string, probe: () => { status: string; empty: boolean }, impact: string) => {
+    try {
+      const r = probe();
+      out.push(`${r.empty ? '⚠' : '✔'} ${label} | ${r.status} | ${impact}`);
+    } catch { out.push(`✖ ${label} | 读取失败 | ${impact}`); }
+  };
+  item('杂项库 misc（世界时间/回合/世界名）', () => {
+    const m: any = useMisc.getState();
+    const ok = !!(m.worldTime || m.turnCount);
+    return { status: `时间「${m.worldTime || '空'}」· 回合 ${m.turnCount ?? 0}`, empty: !ok };
+  }, '⚠影响面最广：时间锚定/世界历/楼层信息条/演化时序/派遣计时/回合类成就 全部失去基准');
+  item('主角档案 profile', () => {
+    const p: any = usePlayer.getState().profile;
+    return { status: `${p?.name || '未命名'} · ${p?.tier || '?'} Lv.${p?.level ?? '?'}`, empty: !p?.name };
+  }, '正文注入缺主角身份/生图缺外观/主角演化与对账空转/成就主角维度全 0');
+  item('主角面板 B1（技能/天赋/称号）', () => {
+    const c: any = (useCharacters.getState().characters ?? {})['B1'];
+    const n = (c?.skills ?? []).length + (c?.traits ?? []).length + (c?.titles ?? []).length;
+    return { status: `技能${(c?.skills ?? []).length} 天赋${(c?.traits ?? []).length} 称号${(c?.titles ?? []).length}`, empty: n === 0 };
+  }, '战斗标签VM无技可用/骰子技能天赋修正归零/剧情选项「能力运用」无从点名/收集类成就无法计');
+  item('NPC 名册', () => {
+    const npcs = Object.values(useNpc.getState().npcs ?? {}).filter((r: any) => r?.name && r.name !== r.id);
+    return { status: `${npcs.length} 人在档`, empty: npcs.length === 0 };
+  }, '角色简报/NPC演化/私聊/立绘/随机邂逅在场人物/四轴与羁绊类成就 全部无对象');
+  item('物品库 items', () => {
+    const its = ((useItems.getState() as any).items ?? []).filter((x: any) => !x?.archived);
+    return { status: `${its.length} 件（含装备）`, empty: its.length === 0 };
+  }, '装备加成/战斗锚点/商店收售/强化工艺/随机邂逅物品/收集类成就 全部空转');
+  item('世界卷宗 worldRecords', () => {
+    const rs = (useWorldRecord.getState() as any).records ?? [];
+    return { status: `${rs.length} 卷（active ${rs.filter((r: any) => r.status === 'active').length}）`, empty: rs.length === 0 };
+  }, '世界观注入/同名继承/前尘提要/编年史史料/通关类成就 缺数据源');
+  item('自动检定 dice', () => {
+    const s: any = (useDice.getState() as any).settings ?? {};
+    return { status: `enabled=${!!s.enabled} autoMode=${!!s.autoMode} judge=${s.judgeMode || '?'}`, empty: !s.enabled || !s.autoMode };
+  }, '发送不再自动掷骰；剧情选项 🎲徽章隐藏、检定标记被剥除（这是开关状态而非故障）');
+  return out;
 }

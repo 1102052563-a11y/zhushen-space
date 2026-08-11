@@ -298,6 +298,8 @@ interface NpcState {
   upsertNpc: (id: string, patch: Partial<NpcRecord>, opts?: { manual?: boolean }) => void;
   applyColumns: (id: string, cols: Record<string, unknown>) => void;
   applyDisposition: (id: string, patch: DispositionPatch) => void;  // 四轴 clamp 0-100（限速已由 dispositionGuard 先算好）
+  mergeExtra: (id: string, patch: Record<string, string>) => void;  // 合并写 extra 兜底列（调教系统/隐私字段更新的唯一落库口·不建壳）
+  removeExtraKey: (id: string, key: string) => void;                 // 删 extra 单键（档案页手动清空·mergeExtra 拒空覆盖故需专门通道）
   applySkeleton: (id: string, short: Record<string, unknown>) => void; // 登场骨架 npc.<id>={n,r,p,…}
   setScene: (id: string, onScene: boolean, turn?: number) => void;     // 登场=true / 退场=false
   setSchedule: (id: string, patch: { freqMode?: 'turn' | 'date'; freqInterval?: number }) => void;
@@ -550,6 +552,34 @@ export const useNpc = create<NpcState>()(
           // 无名不建壳守卫（同 applyColumns）：对未建档 NPC 的态度指令不凭空冒空壳
           if (!prev && (!rec.name || rec.name === id)) return s;
           return { npcs: { ...s.npcs, [id]: rec } };
+        }),
+
+      // extra 兜底列合并写（调教系统隐私字段落库口）：只并入非空键，空串跳过（调用方护栏已算好"只增不重置"）。
+      // 无名不建壳守卫：对未建档 NPC 不凭空冒壳。
+      mergeExtra: (id, patch) =>
+        set((s) => {
+          const prev = s.npcs[id];
+          if (!prev) return s;   // 只对已建档 NPC 生效（调教名册里的都已建档）
+          const nextExtra = { ...(prev.extra ?? {}) };
+          let changed = false;
+          for (const [k, v] of Object.entries(patch ?? {})) {
+            const val = String(v ?? '').trim();
+            if (!val) continue;
+            if (nextExtra[k] === val) continue;
+            nextExtra[k] = val;
+            changed = true;
+          }
+          if (!changed) return s;
+          return { npcs: { ...s.npcs, [id]: { ...prev, extra: nextExtra, updatedAt: Date.now() } } };
+        }),
+
+      removeExtraKey: (id, key) =>
+        set((s) => {
+          const prev = s.npcs[id];
+          if (!prev?.extra || !(key in prev.extra)) return s;
+          const nextExtra = { ...prev.extra };
+          delete nextExtra[key];
+          return { npcs: { ...s.npcs, [id]: { ...prev, extra: nextExtra, updatedAt: Date.now() } } };
         }),
 
       removeNpc: (id) =>

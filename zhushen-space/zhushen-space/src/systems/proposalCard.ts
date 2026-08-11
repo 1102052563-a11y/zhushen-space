@@ -3,7 +3,8 @@ import { useTables } from '../store/tableStore';
 import { useTableJournal } from '../store/tableJournalStore';
 import { useCalendar } from '../store/calendarStore';
 import { lenientJsonParse } from './stateParser';
-import { FORESHADOW_UID, threadInCurrentWorld } from './plotThreads';
+import { FORESHADOW_UID, threadInCurrentWorld, buildPlotStateBrief } from './plotThreads';
+import { useNpc } from '../store/npcStore';
 import { useRowScope } from '../store/rowScopeStore';
 import { TYPE_META, visibleIn, type AlmanacType } from './calendar';
 
@@ -182,7 +183,37 @@ export function buildAdvisorContext(): string {
     ? `【世界历·带 id（只列本世界可见的：本世界专属 + 跨世界）】\n${alm.map((it) => `- ${it.id}｜${it.month}/${it.day}${(it.days ?? 1) > 1 ? `起${it.days}天` : ''} ${TYPE_META[it.type].label}「${it.name}」${it.world ? `·${it.world}` : '·跨世界'}`).join('\n')}`
     : '【世界历】（无）');
 
+  // ── 参谋问答增强（P1-2·借鉴 story-oracle 普通聊天）：在场角色 + 真相 + 剧情坐标，让参谋窗能当「剧情百事通」问答用 ──
+  try {
+    const npcs = Object.values(useNpc.getState().npcs).filter((n) => n.onScene && !n.isDead && !n.archived).slice(0, 10);
+    if (npcs.length) parts.push(`【在场角色】${npcs.map((n) => `${String(n.name || n.id).split('|')[0]}${(n as any).realm ? `（${(n as any).realm}）` : ''}`).join('、')}`);
+  } catch { /* NPC 库不可用则略过 */ }
+  const truths = (M.truths ?? []).slice(0, 12);
+  if (truths.length) parts.push(`【已确立真相（答题可引用；提醒玩家时注意别替不知情角色"知道"它）】\n${truths.map((t, i) => `${i + 1}. ${t}`).join('\n')}`);
+  try {
+    const brief = buildPlotStateBrief();
+    if (brief.trim()) parts.push(brief.trim());
+  } catch { /* 剧情表不可用则略过 */ }
+
   return parts.join('\n\n');
+}
+
+/** 最近正文尾巴（参谋问答/弧线规划的衔接起点）。chatDb 动态 import：单测/无 IDB 环境不因模块导入就摸 IndexedDB。 */
+export async function buildAdvisorNarrativeTail(): Promise<string> {
+  try {
+    const { loadAll } = await import('./chatDb');
+    const all = await loadAll();
+    const tail = all.filter((m) => m.role === 'user' || (m.role === 'assistant' && !String(m.content || '').startsWith('🎬'))).slice(-4);
+    const parts: string[] = [];
+    let total = 0;
+    for (let i = tail.length - 1; i >= 0; i--) {
+      const t = `【${tail[i].role === 'user' ? '主角行动' : '正文'}】${String(tail[i].content || '').trim()}`;
+      total += t.length;
+      parts.unshift(t);
+      if (total > 3500) break;
+    }
+    return parts.join('\n\n');
+  } catch { return ''; }
 }
 
 export interface ApplyResult { ok: boolean; msg: string }

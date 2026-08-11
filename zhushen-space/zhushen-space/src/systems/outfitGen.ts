@@ -7,7 +7,7 @@ import { usePlayer } from '../store/playerStore';
 import { resolveApiChain, useSettings } from '../store/settingsStore';
 import { apiChatFallback } from './apiChat';
 import { lenientJsonParse } from './stateParser';
-import { OUTFIT_GEN_RULE } from '../promptRules';
+import { OUTFIT_GEN_RULE, OUTFIT_EXTRACT_RULE } from '../promptRules';
 
 /** 收集角色信息 + 已装备物品清单（纯 store 读取，可单测）。没有已装备物品时抛错。 */
 export function collectEquippedForOutfit(charId: string): string {
@@ -46,12 +46,44 @@ export async function generateOutfitFromEquipment(charId: string): Promise<{ des
     [{ role: 'system', content: OUTFIT_GEN_RULE }, { role: 'user', content: input }],
     { label: '按装备生成穿搭', rawLang: true, timeoutMs: 120000 },
   );
+  return parseOutfitJson(content, '模型没给出穿搭描述（desc 为空）');
+}
+
+/** 共用：LLM 回复 → {desc, tags}（剥围栏/提取首尾花括号/lenient 解析/长度夹取） */
+function parseOutfitJson(content: string | undefined, emptyErr: string): { desc: string; tags: string } {
   let s = (content || '').trim().replace(/^```(?:json)?\s*/i, '').replace(/\s*```\s*$/, '');
   const a = s.indexOf('{'); const b = s.lastIndexOf('}');
   if (a < 0 || b <= a) throw new Error('模型没有输出 JSON：' + s.replace(/\s+/g, ' ').slice(0, 100));
   const obj: any = lenientJsonParse(s.slice(a, b + 1));
   const desc = String(obj?.desc ?? '').trim();
   const tags = String(obj?.tags ?? '').trim();
-  if (!desc) throw new Error('模型没给出穿搭描述（desc 为空）');
+  if (!desc) throw new Error(emptyErr);
   return { desc: desc.slice(0, 600), tags: tags.slice(0, 400) };
+}
+
+/** 👗✨ 从正文提炼穿搭（借鉴V3.2「AI提炼穿着」）：读最近两条 AI 正文 → LLM 提炼该角色此刻实穿。
+    正文来源走 chatDb（IndexedDB 持久化对话·刷新后也在），不依赖 App 内部 ref。 */
+export async function extractOutfitFromNarrative(charId: string): Promise<{ desc: string; tags: string }> {
+  const { loadAll } = await import('./chatDb');
+  const msgs = await loadAll();
+  const narrative = msgs
+    .filter((m: any) => m.role === 'assistant')
+    .slice(-2)
+    .map((m: any) => String(m.raw ?? m.content ?? ''))
+    .join('\n\n')
+    .slice(-6000);
+  if (!narrative.trim()) throw new Error('还没有可提炼的正文——先推进一回合剧情');
+  let who = '';
+  if (charId === 'B1') who = usePlayer.getState().profile.name || '主角';
+  else who = String(useNpc.getState().npcs[charId]?.name || '').split('|')[0].trim() || charId;
+  const ss = useSettings.getState();
+  const legacy = ss.textUseSharedApi ? ss.api : ss.textApi;
+  const chain = resolveApiChain('image_story_llm', legacy);
+  if (!chain[0]?.baseUrl || !chain[0]?.apiKey) throw new Error('没配置「生图标签 LLM」——设置→生图设置→正文生图，给它选个接口（留空则回退正文 API，但正文 API 也未配置）');
+  const { content } = await apiChatFallback(
+    chain,
+    [{ role: 'system', content: OUTFIT_EXTRACT_RULE }, { role: 'user', content: `【目标角色】${who}\n【最近正文】\n${narrative}` }],
+    { label: '从正文提炼穿搭', rawLang: true, timeoutMs: 120000 },
+  );
+  return parseOutfitJson(content, `正文里没找到「${who}」的衣着信息——换个刚描写过穿着的回合再试`);
 }

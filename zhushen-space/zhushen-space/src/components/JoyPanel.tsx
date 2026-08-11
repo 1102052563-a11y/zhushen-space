@@ -2,6 +2,9 @@ import { useState, useEffect, useRef, useMemo } from 'react';
 import { useJoy, hydrateJoyPortraits, hydrateJoyWorldBooks, JOY_PRIVATE_COLS } from '../store/joyStore';
 import { loadGirlManifest, pickStagePortrait, stageFromDesire, girlCardPortrait, type GirlManifest } from '../systems/joyGirls';
 import { findJoyBook, quickInsertTitles } from '../systems/joyWorldBook';
+import { loadJoyPlays, MAX_SELECTED_PLAYS, type JoyPlayLib } from '../systems/joyPlays';   // 🎲玩法菜单（借鉴V3.2按选注入）
+
+const EMPTY_PLAYS: string[] = [];   // selectedPlays 老档缺省的稳定引用（防每次渲染新数组打穿 useJoy 浅比较）
 
 /* 欢愉宫：大厅(看板娘迎宾) → 选妃(竖排立绘选择) → 包间(上立绘 / 下左聊天·右状态)。
    每轮对话由 App.onSend 调 AI、解析 <joy>、写 store；本面板按 store 响应式渲染。
@@ -46,6 +49,8 @@ export default function JoyPanel({
   const resetSession  = useJoy((s) => s.resetSession);
   const setDesire     = useJoy((s) => s.setDesire);
   const worldBooks    = useJoy((s) => s.worldBooks);
+  const selectedPlays = useJoy((s) => s.selectedPlays ?? EMPTY_PLAYS);   // 🎲玩法菜单勾选（老档无字段兜稳定空数组）
+  const setSelectedPlays = useJoy((s) => s.setSelectedPlays);
 
   const girls = settings.girls.filter((g) => !g.shopId);   // 隐藏「玩家产业·娼馆」同步进来的娼妇，欢愉宫只显自家名册
   const madams = girls.filter((g) => g.isMadam);
@@ -61,7 +66,11 @@ export default function JoyPanel({
   const [input, setInput] = useState('');
   const [sending, setSending] = useState(false);
   const [chamberPortrait, setChamberPortrait] = useState<string | null>(null);
-  const [quickKind, setQuickKind] = useState<'pose' | 'bdsm' | null>(null);
+  const [quickKind, setQuickKind] = useState<'pose' | 'bdsm' | 'plays' | null>(null);
+  // 🎲玩法菜单（借鉴V3.2按选注入）：库惰性加载；分类/搜索是本面板瞬时态
+  const [playLib, setPlayLib] = useState<JoyPlayLib | null>(null);
+  const [playCat, setPlayCat] = useState('全部');
+  const [playSearch, setPlaySearch] = useState('');
   const chatEndRef = useRef<HTMLDivElement>(null);
 
   const curGirl = girls.find((g) => g.id === currentGirlId) ?? null;
@@ -80,6 +89,27 @@ export default function JoyPanel({
   const bdsmTitles = useMemo(() => quickInsertTitles(findJoyBook(worldBooks, 'bdsm')), [worldBooks]);
   const quickTitles = quickKind === 'pose' ? poseTitles : quickKind === 'bdsm' ? bdsmTitles : [];
   const insertQuick = (title: string) => setInput((prev) => (prev.trim() ? prev.replace(/\s+$/, '') + ' ' + title : title));
+
+  // 🎲玩法菜单：首次展开才拉库（705KB·不入主包）；勾选≤3、点已选取消；随机=从当前筛选里抽一个补位
+  useEffect(() => { if (quickKind === 'plays' && !playLib) loadJoyPlays().then(setPlayLib).catch(() => {}); }, [quickKind, playLib]);
+  const playFiltered = useMemo(() => {
+    if (!playLib) return [];
+    const q = playSearch.trim();
+    return playLib.plays.filter((p) => (playCat === '全部' || p.category === playCat) && (!q || p.name.includes(q)));
+  }, [playLib, playCat, playSearch]);
+  const togglePlay = (name: string) => {
+    if (selectedPlays.includes(name)) { setSelectedPlays(selectedPlays.filter((n) => n !== name)); return; }
+    if (selectedPlays.length >= MAX_SELECTED_PLAYS) return;   // 满3不加（按钮已置灰提示）
+    setSelectedPlays([...selectedPlays, name]);
+  };
+  const randomPlay = () => {
+    const pool = playFiltered.filter((p) => !selectedPlays.includes(p.name));
+    if (!pool.length) return;
+    const pick = pool[Math.floor(Math.random() * pool.length)].name;
+    // 满员时随机替换最后一个，否则追加——「手气不好再抽」不必先手动腾位
+    const base = selectedPlays.length >= MAX_SELECTED_PLAYS ? selectedPlays.slice(0, MAX_SELECTED_PLAYS - 1) : selectedPlays;
+    setSelectedPlays([...base, pick]);
+  };
 
   // 包间立绘：每回合 / 跨情欲阶段 / 换人 都重选（按阶段取图——拖动滑块同阶段内不闪图，跨阈值才换阶段）
   useEffect(() => {
@@ -320,8 +350,8 @@ export default function JoyPanel({
                   <div ref={chatEndRef} />
                 </div>
                 <div className="shrink-0 border-t border-pink-500/15 bg-panel2/40 p-2.5 space-y-2">
-                  {/* 快捷：姿势 / BDSM —— 展开世界书条目标题，点一下填进输入框，再点发送 */}
-                  {(poseTitles.length > 0 || bdsmTitles.length > 0) && (
+                  {/* 快捷：姿势 / BDSM（填标题进输入框·关键词触发世界书）+ 🎲玩法（勾选≤3·每轮持续注入·借鉴V3.2按选注入） */}
+                  {(poseTitles.length > 0 || bdsmTitles.length > 0 || true) && (
                     <div>
                       <div className="flex items-center gap-2">
                         {poseTitles.length > 0 && (
@@ -336,10 +366,70 @@ export default function JoyPanel({
                             ⛓ BDSM <span className="text-pink-300/40">{bdsmTitles.length}</span>
                           </button>
                         )}
-                        {quickKind && <span className="text-[11px] font-mono text-dim/45">点选填入输入框 · 可多选</span>}
+                        <button onClick={() => setQuickKind(quickKind === 'plays' ? null : 'plays')}
+                          title="从 458 条玩法库勾选（最多3个），随每轮对话持续注入指引，清空即移除"
+                          className={`text-[12px] font-mono px-2.5 py-1 rounded-lg border transition-colors ${quickKind === 'plays' ? 'border-pink-400/60 text-pink-100 bg-pink-500/15' : 'border-pink-500/30 text-pink-200/80 hover:bg-pink-500/10'}`}>
+                          🎲 玩法{selectedPlays.length > 0 ? <span className="text-amber-300/90"> {selectedPlays.length}</span> : <span className="text-pink-300/40"> {playLib ? playLib.plays.length : 458}</span>}
+                        </button>
+                        {quickKind && quickKind !== 'plays' && <span className="text-[11px] font-mono text-dim/45">点选填入输入框 · 可多选</span>}
+                        {quickKind === 'plays' && <span className="text-[11px] font-mono text-dim/45">勾选后每轮注入 · 最多 {MAX_SELECTED_PLAYS} 个</span>}
                         {quickKind && <button onClick={() => setQuickKind(null)} className="ml-auto text-dim/40 hover:text-pink-200 text-[12px] font-mono">收起 ✕</button>}
                       </div>
-                      {quickKind && (
+                      {/* 收起态下的已选玩法提示条：让玩家不开菜单也知道正在注入什么 */}
+                      {quickKind !== 'plays' && selectedPlays.length > 0 && (
+                        <div className="mt-1.5 flex flex-wrap items-center gap-1.5 text-[11px] font-mono text-amber-300/70">
+                          <span>🎲 本场玩法：</span>
+                          {selectedPlays.map((n) => <span key={n} className="px-1.5 py-0.5 rounded border border-amber-500/30 bg-amber-500/5">{n}</span>)}
+                          <button onClick={() => setSelectedPlays([])} className="text-dim/40 hover:text-pink-200">清空</button>
+                        </div>
+                      )}
+                      {/* 🎲玩法选择器：分类 + 搜索 + 随机 + 勾选列表 */}
+                      {quickKind === 'plays' && (
+                        <div className="mt-2 rounded-lg border border-pink-500/15 bg-void/50 p-2 space-y-2">
+                          <div className="flex flex-wrap items-center gap-1.5">
+                            {['全部', ...(playLib?.categories ?? [])].map((c) => (
+                              <button key={c} onClick={() => setPlayCat(c)}
+                                className={`text-[11px] font-mono px-2 py-0.5 rounded border transition-colors ${playCat === c ? 'border-pink-400/60 text-pink-100 bg-pink-500/15' : 'border-pink-500/25 text-pink-200/70 hover:bg-pink-500/10'}`}>
+                                {c}
+                              </button>
+                            ))}
+                            <input value={playSearch} onChange={(e) => setPlaySearch(e.target.value)} placeholder="搜玩法名…"
+                              className="w-24 bg-panel border border-pink-500/20 rounded px-2 py-0.5 text-[11px] text-slate-200 focus:outline-none focus:border-pink-400/50" />
+                            <button onClick={randomPlay} title="从当前筛选里随机抽一个（满员时替换最后一个）"
+                              className="text-[11px] font-mono px-2 py-0.5 rounded border border-amber-500/40 text-amber-300/90 hover:bg-amber-500/10">🎰 随机</button>
+                            {selectedPlays.length > 0 && (
+                              <button onClick={() => setSelectedPlays([])} className="text-[11px] font-mono px-2 py-0.5 rounded border border-pink-500/25 text-dim/50 hover:text-pink-200">清空 {selectedPlays.length}</button>
+                            )}
+                          </div>
+                          {selectedPlays.length > 0 && (
+                            <div className="flex flex-wrap items-center gap-1.5 text-[11px] font-mono">
+                              <span className="text-amber-300/70">已选（每轮注入）:</span>
+                              {selectedPlays.map((n) => (
+                                <button key={n} onClick={() => togglePlay(n)} title="点击移除"
+                                  className="px-1.5 py-0.5 rounded border border-amber-500/40 bg-amber-500/10 text-amber-200/90 hover:border-pink-400/60">
+                                  {n} ✕
+                                </button>
+                              ))}
+                            </div>
+                          )}
+                          <div className="max-h-40 overflow-y-auto flex flex-wrap gap-1.5">
+                            {!playLib && <span className="text-[11px] font-mono text-dim/45">玩法库加载中…</span>}
+                            {playLib && playFiltered.length === 0 && <span className="text-[11px] font-mono text-dim/45">没有匹配的玩法</span>}
+                            {playFiltered.map((p) => {
+                              const on = selectedPlays.includes(p.name);
+                              const full = !on && selectedPlays.length >= MAX_SELECTED_PLAYS;
+                              return (
+                                <button key={p.name} onClick={() => togglePlay(p.name)} disabled={full}
+                                  title={on ? '点击取消' : full ? `最多选 ${MAX_SELECTED_PLAYS} 个，先移除一个` : p.category}
+                                  className={`text-[12px] px-2 py-0.5 rounded-full border transition-colors ${on ? 'border-amber-400/70 bg-amber-500/15 text-amber-200' : full ? 'border-pink-500/15 text-dim/35' : 'border-pink-500/25 text-pink-100/90 bg-pink-500/5 hover:bg-pink-500/20 hover:border-pink-400/50'}`}>
+                                  {on ? '✓ ' : ''}{p.name}
+                                </button>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      )}
+                      {quickKind && quickKind !== 'plays' && (
                         <div className="mt-2 max-h-28 overflow-y-auto flex flex-wrap gap-1.5 rounded-lg border border-pink-500/15 bg-void/50 p-2">
                           {quickTitles.map((t) => (
                             <button key={t} onClick={() => insertQuick(t)}

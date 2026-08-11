@@ -41,6 +41,8 @@ import {
   COMBAT_SKILL_NUMERIC_RULE,
   NPC_COT_RULE,
   NPC_INDEPENDENCE_RULE,
+  NPC_SHIFT_GUARD_RULE,
+  PROSE_BLACKLIST_RULE,
   NPC_PRINCIPLES_RULE,
   NPC_SAMPLE_LINES_RULE,
   DISPOSITION_STAGE_RULE,
@@ -167,7 +169,8 @@ import { currentEvoEpoch, bumpEvoEpoch, evoEpochStale, reportConsistency } from 
 import { TIME_ANCHOR_RULE, WORLD_EVENT_VISIBILITY_RULE, WORLD_NEWS_RULE, NPC_INNER_VOICE_RULE } from './promptRules';
 import { useWorldNews } from './store/worldNewsStore';
 import { buildNewsCandidates, serializeNewsCandidates, parseNewsReply } from './systems/worldNews';
-import { buildFanficInjection, buildFactInjection, buildCosmosInjection, buildPlayerCoreInjection, buildWorldTimeInjection, buildQuestInjection, buildGuildInjection, buildFacilityInjection, buildCanonWorldInjection, buildSuxiaoTrackInjection, buildOutfitInjection } from './systems/promptInjections';
+import { buildFanficInjection, buildFactInjection, buildCosmosInjection, buildPlayerCoreInjection, buildWorldTimeInjection, buildQuestInjection, buildGuildInjection, buildFacilityInjection, buildCanonWorldInjection, buildSuxiaoTrackInjection, buildOutfitInjection, buildMapInjection } from './systems/promptInjections';
+import { buildBioInjection } from './systems/bioCycle';   // 🌸 生理周期底色（借鉴V3.2·可选模块默认关·空=零token）
 import { takeSkillUpNote } from './systems/skillUpgrade';
 import { applyPlayerProfileCommands, applyTimedStatusCommands, expireStatuses } from './systems/statusCommands';
 import { getNpcApi, getPetApi, trimNarrative, npcChatCompletion, petChatCompletion, buildNpcVars, fillVars, serializeNpcSnapshot } from './systems/npcEvolutionHelpers';
@@ -199,6 +202,7 @@ import { sanitizeSixAttrs, sanitizeItemNumbers } from './systems/numericGate';
 import RaidDungeonReward from './components/RaidDungeonReward';
 const RaidLootModal = lazy(() => import('./components/RaidLootModal'));
 const OutlineModal = lazy(() => import('./components/OutlineModal'));
+const PolishModal = lazy(() => import('./components/PolishModal'));   // ✨ 正文校正（借鉴 story-oracle·楼层操作行入口）
 const SettlementCompanionModal = lazy(() => import('./components/SettlementCompanionModal'));
 import type { SettleCompanion } from './components/SettlementCompanionModal';
 /** 细纲：剥掉编剧的 <剧情推演> 合理性思维链块（只作提升细纲质量的思考草稿，不进弹窗、不注入正文）。
@@ -231,6 +235,14 @@ import { isSettlingCompanion, isCandidateCompanion, selectSettlingCompanions, CO
 import { setSettlementWhitelist, getSettlementWhitelist } from './systems/settlementSelection';   // 结算随从弹窗勾选缓冲
 import { isHomeWorld, reconcileHomeWorld, reconcilePlayerVitals, playerMaxHp, playerMaxEp, syncPlayerVitalsMax, applyCombatResourceGains, resetCombatResources } from './systems/playerVitals';
 import { freezeWorld, thawWorld, reconcileWorldScope as reconcileWorldScopeCore, sameWorld } from './systems/worldScope';
+import { sweepAchievements } from './systems/achievementEngine';   // 成就图鉴·声明式自动解锁（借鉴V3.2·纯前端零API·幂等）
+import { extractMonthDay } from './systems/calendar';              // 👗 每日随机换装的日期键
+import { useOutfits } from './store/outfitStore';
+import { useLocations } from './store/locationStore';              // 🗺 已探索地点树（足迹观察）
+import { useMap } from './store/mapStore';                          // 🧭 小地图（世界分桶节点图·区域/场所/迷雾/足迹）
+import { applyMapCommands } from './systems/mapParser';             // 地图演化指令解析（discoverNode/setNode/linkNodes）
+import { buildMapPhaseSystem } from './systems/mapPrompt';          // 地图演化阶段提示词（底层护栏·不进 promptRegistry）
+import { mapWorldKey, buildMapDigest, serializeWorldPois, serializeSceneMap, splitLocationPath, resolveNodeIn } from './systems/mapEngine';
 import { buildCastHintInjection, pickExitReason } from './systems/castHint';
 import { driveOf, type DriveCtx } from './systems/npcDrive';
 import { worldPowerReport, formatPowerReport } from './systems/causalWeight';
@@ -273,6 +285,7 @@ import ApiPromptPanel, { type PromptPart } from './components/ApiPromptPanel';
 const TerritoryPanel = lazy(() => import('./components/TerritoryPanel'));
 const CosmosPanel = lazy(() => import('./components/CosmosPanel'));
 const WorldCodexPanel = lazy(() => import('./components/WorldCodexPanel'));
+const MapPanel = lazy(() => import('./components/MapPanel'));   // 🧭 小地图（节点图·迷雾·点图移动）
 const WikiPanel = lazy(() => import('./components/WikiPanel'));
 const AdventureTeamPanel = lazy(() => import('./components/AdventureTeamPanel'));
 import ImageViewer from './components/ImageViewer';
@@ -288,7 +301,7 @@ import ImageBusyToast from './components/ImageBusyToast';
 import { useItems, extractItemPresetFromJson, ITEM_CATEGORIES, ITEM_GRADES, formatItemLine, splitAffixEntries, clampAffixEntries, maxAffixEntriesFor, gradeToNum } from './store/itemStore';
 import type { ItemPresetEntry } from './store/itemStore';
 import { useComposer } from './store/composerStore';
-import { ComposerTextarea, ComposerSendButton, AgentModeToggle } from './components/ChatComposer';   // 主输入框（拆出·打字不重渲 App）
+import { ComposerTextarea, ComposerSendButton, AgentModeToggle, EncounterButton } from './components/ChatComposer';   // 主输入框（拆出·打字不重渲 App）
 import { AgentTimeline } from './components/AgentTimeline';   // Agent 正文模式·运行时间线（自订阅·常驻小组件）
 import { runAgentNarrative } from './systems/agent/agentRuntime';   // Agent 正文模式·工具循环运行时（见 docs/AGENT_MODE_PLAN.md）
 import { AGENT_ERROR_TEXT } from './systems/agent/agentTypes';
@@ -340,11 +353,16 @@ import { guildPerkValue } from './store/guildStore';   // 公会增益数值（d
 const MiscPanel = lazy(() => import('./components/MiscPanel'));
 const AdvisorPanel = lazy(() => import('./components/AdvisorPanel'));   // 🧭 参谋：局外顾问 + 提案卡（点应用才落库）
 const BookmarkPanel = lazy(() => import('./components/BookmarkPanel'));   // ⭐ 坐标：收藏楼层（存正文快照·纯前端）
+const InterviewPanel = lazy(() => import('./components/InterviewPanel'));   // 🎤 大采访：局外花絮栏目（借鉴V3.2·旁路生成·导出HTML）
+const BioCyclePanel = lazy(() => import('./components/BioCyclePanel'));     // 🌸 生理周期管理（借鉴V3.2·可选成人向模块·⌘K 直达）
+const TrainingPanel = lazy(() => import('./components/TrainingPanel'));     // 🔗 调教系统（对剧情NPC私密养成·合并生理周期·隐私变化落 npc.extra）
 import DiceCard from './components/DiceCard';
 import PanelBoundary from './components/PanelBoundary';
 import { buildPlotGuardInjection, TRUTHS_MAINTAIN_RULE } from './systems/plotThreads';
+import { buildArcInjection, arcJudgeInjection, applyArcJudgment } from './systems/storyArc';   // 🧭 故事弧线（借鉴story-oracle）：每回合注入当前拍指令 + 过拍判定挂杂项阶段
 const DiceReviewModal = lazy(() => import('./components/DiceReviewModal'));   // 检定审核窗（自动检定后弹窗·重掷/编辑）
-import { runAutoDice, isDiceReviewOn, type DiceCardData, type AutoDiceOut } from './systems/autoDice';   // 自动检定：发送即判定 → 隐藏喂API + 骰子卡 + 审核窗
+import { runAutoDice, isDiceReviewOn, checkOddsPct, type DiceCardData, type AutoDiceOut } from './systems/autoDice';   // 自动检定：发送即判定 → 隐藏喂API + 骰子卡 + 审核窗
+import { parseCheckTags, stripCheckTags } from './systems/autoDiceDetect';   // 剧情选项·检定标记 🎲[属性·难度]（借鉴V3.2检定建议表）
 const EnhancePanel = lazy(() => import('./components/EnhancePanel'));
 const SkillUpgradePanel = lazy(() => import('./components/SkillUpgradePanel'));
 const CasinoPanel = lazy(() => import('./components/CasinoPanel'));
@@ -366,6 +384,7 @@ const JoyPanel = lazy(() => import('./components/JoyPanel'));
 import { useJoy, hydrateJoyWorldBooks } from './store/joyStore';
 import { buildJoySystem, parseJoyReply, buildGreetPrompt } from './systems/joyGirls';
 import { buildJoyWbInjection } from './systems/joyWorldBook';
+import { buildSelectedPlaysInjection } from './systems/joyPlays';   // 🎲玩法菜单：勾选玩法按选注入（借鉴V3.2）
 const ArenaPanel = lazy(() => import('./components/ArenaPanel'));
 import { useArena } from './store/arenaStore';
 import { ladderBadge, rewardTierFor, REWARD_BANDS, streakBonusMul, pickInt as arenaPickInt, effectiveTier as arenaEffectiveTier, type ArenaDef as ArenaDefType, type LadderEntry as ArenaLadderEntry } from './systems/arena';
@@ -540,6 +559,41 @@ function reconcileWorldScope(): void {
     const r = reconcileWorldScopeCore(M.worldName || '', M.turnCount);
     if (r.npcFrozen.length) console.log(`[worldScope] 🧊 兜底冻结 ${r.npcFrozen.length} 名往世土著（当前世界：${M.worldName || '—'}）`);
   } catch (e) { console.warn('[worldScope] 兜底失败（跳过）:', e); }
+}
+
+/* 🗺 足迹观察（借鉴V3.2地图库·观察式记录）：主角位置变了就记进已探索地点树。
+   一个观察点覆盖所有写入路径（AI 指令/手动编辑/演化改写），连续同地不重复计数。幂等，可每回合调。 */
+function reconcileLocationTrail(): void {
+  try {
+    const loc = usePlayer.getState().profile.location || '';
+    if (!loc.trim()) return;
+    const M = useMisc.getState();
+    useLocations.getState().recordVisit(loc, M.worldName || '', M.turnCount || 0);
+  } catch { /* 静默 */ }
+}
+
+/* 🧭 小地图·每回合确定性建图（零 API·幂等）：主角位置全路径 + 本世界未结算大事地点 → 节点图。
+   同为观察式：覆盖 AI 指令/手动编辑/点图移动等一切位置写入路径。开关关闭时 store 内部直接返回。 */
+function reconcileMapIngest(): void {
+  try {
+    const M = useMisc.getState();
+    useMap.getState().ingest(M.worldName || '', {
+      location: usePlayer.getState().profile.location || '',
+      turn: M.turnCount || 0,
+      events: M.worldEvents,
+    });
+  } catch { /* 建图失败不阻断回合 */ }
+}
+
+/* 👗 日期变化自动随机换装（借鉴V3.2）：世界时间进入新的一天时，为开了「每日随机」的角色从随机候选换一套。
+   幂等（同日只换一次）；解析不出日期=世界没在走日历，静默不动。 */
+function reconcileOutfitDaily(): void {
+  try {
+    const md = extractMonthDay(useMisc.getState().worldTime);
+    if (!md) return;
+    const changed = useOutfits.getState().runDailyRandom(`${md.month}-${md.day}`);
+    if (changed.length) console.log(`[衣柜] 👗 新的一天，自动随机换装：${changed.join('、')}`);
+  } catch { /* 静默 */ }
 }
 
 // 当前所在世界的「世界观骨架」→ 注入正文最深处（紧贴生成·指导 AI 演绎本世界剧情/势力/人物）。无 active 记录或无世界观则空。
@@ -990,9 +1044,10 @@ function buildItemPhaseSystemPrompt(entries: ItemPresetEntry[], narrative: strin
     beasts_summary:         '',
     focus_list:             '',
     world_factors:          '',
-    world_map_pois:         '',
-    current_time:           '',
-    current_location:       '',
+    // 🧭 小地图接通：旧预设若引用这些占位符，喂真实数据（关闭/空图=''，行为同从前）
+    world_map_pois:         (() => { try { const mp = useMap.getState(); return mp.settings.enabled ? serializeWorldPois(mp.dataOf(useMisc.getState().worldName || '')) : ''; } catch { return ''; } })(),
+    current_time:           (() => { try { const m = useMisc.getState(); return m.worldTime || m.paradiseTime || ''; } catch { return ''; } })(),
+    current_location:       (() => { try { return usePlayer.getState().profile.location || ''; } catch { return ''; } })(),
   };
 
   return entries
@@ -1553,6 +1608,7 @@ const rightMenuItems = [
   { icon: '⚔', label: '装备' },
   { icon: '🎒', label: '储存空间' },
   { icon: '📇', label: 'NPC' },
+  { icon: '🔗', label: '调教' },
   { icon: '🐾', label: '宠物/召唤物' },
   { icon: '✨', label: '技能' },
   { icon: '🛠', label: '副职业' },
@@ -1570,6 +1626,7 @@ const rightMenuItems = [
   { icon: '📖', label: '世界百科' },
   { icon: '🗂', label: '世界资料库' },
   { icon: '📚', label: '原著WIKI' },
+  { icon: '🧭', label: '地图' },
   { icon: '🗺', label: '世界记录' },
   { icon: '📜', label: '编年史' },
   { icon: '☄️', label: '混沌世界' },
@@ -1582,6 +1639,7 @@ const rightMenuItems = [
   { icon: '🧭', label: '参谋' },   // 局外顾问：商量任务/伏笔/节日怎么设计 → 出提案卡 → 点「应用」才落库
   { icon: '📡', label: '频道' },
   { icon: '✉', label: '私信' },
+  { icon: '🎤', label: '采访' },
   { icon: '👥', label: '好友' },
   { icon: '🌐', label: '联机' },
   { icon: '💬', label: '聊天室' },
@@ -1607,10 +1665,10 @@ const rightMenuItems = [
    加新导航项忘了归组也不会消失（宁可显示在兜底组，绝不静默丢失）。 */
 const NAV_GROUPS: { name: string; members: string[] }[] = [
   { name: '角色', members: ['装备', '储存空间', '技能', '技能树', '体系', '副职业', '称号', '成就'] },
-  { name: '伙伴', members: ['NPC', '宠物/召唤物', '队伍', '冒险团', '好友'] },
-  { name: '世界', members: ['任务', '参谋', '势力', '领地', '万族', '世界记录', '编年史', '混沌世界', '世界百科', '世界资料库', '原著WIKI'] },
+  { name: '伙伴', members: ['NPC', '调教', '宠物/召唤物', '队伍', '冒险团', '好友'] },
+  { name: '世界', members: ['任务', '地图', '参谋', '势力', '领地', '万族', '世界记录', '编年史', '混沌世界', '世界百科', '世界资料库', '原著WIKI'] },
   { name: '乐园设施', members: ['战斗', '乐园设施', '深渊', '合成', '开箱'] },
-  { name: '社交联机', members: ['频道', '私信', '聊天室', '联机', '交易行', '产业', '公会', '助战', '世界竞技场', '游玩时长'] },
+  { name: '社交联机', members: ['频道', '私信', '采访', '聊天室', '联机', '交易行', '产业', '公会', '助战', '世界竞技场', '游玩时长'] },
   { name: '传承', members: ['纪念丰碑', '账户仓库', '创意工坊', '存档', '分支树', '坐标'] },
   { name: '系统', members: ['回合洞察', '审计', '记忆', '语音', '设置'] },
 ];
@@ -1625,6 +1683,7 @@ const PALETTE_ACTIONS: { icon: string; label: string }[] = [
   { icon: '🏪', label: '系统商店' },
   { icon: '⚖', label: '结算任务' },
   { icon: '♻', label: '重算变量' },
+  { icon: '🌸', label: '生理周期' },   // 可选成人向模块（借鉴V3.2·默认关）：⌘K 直达管理面板
 ];
 
 /* ── 面板 chunk 空闲预热（治「第一次点面板要等冷加载几秒」）────────────────────────
@@ -1643,6 +1702,7 @@ const PREFETCH_PANELS: (() => Promise<unknown>)[] = [
   () => import('./components/SaveLoadPanel'),
   () => import('./components/SettingsPanel'),
   () => import('./components/MiscPanel'),
+  () => import('./components/MapPanel'),
   () => import('./components/TitlePanel'),
   () => import('./components/AchievementPanel'),
   () => import('./components/SubProfessionPanel'),
@@ -1690,6 +1750,9 @@ const PREFETCH_PANELS: (() => Promise<unknown>)[] = [
   () => import('./components/BranchTreePanel'),
   () => import('./components/CanonRoutePanel'),
   () => import('./components/CodexDetail'),
+  () => import('./components/InterviewPanel'),
+  () => import('./components/BioCyclePanel'),
+  () => import('./components/TrainingPanel'),
 ];
 let _panelsPrefetched = false;
 function prefetchPanelsOnIdle(): void {
@@ -1706,11 +1769,11 @@ function prefetchPanelsOnIdle(): void {
 
 /* 右侧导航·每个图标的独特 hover 特效类（定义见 index.css 的 .fx-*）*/
 const NAV_FX: Record<string, string> = {
-  '装备': 'fx-sword', '储存空间': 'fx-bag', 'NPC': 'fx-card', '技能': 'fx-sparkle',
+  '装备': 'fx-sword', '储存空间': 'fx-bag', 'NPC': 'fx-card', '调教': 'fx-card', '技能': 'fx-sparkle',
   '副职业': 'fx-wrench', '技能树': 'fx-tree', '体系': 'fx-tree', '合成': 'fx-wrench', '开箱': 'fx-bag', '称号': 'fx-medal', '成就': 'fx-trophy', '势力': 'fx-pillar',
-  '领地': 'fx-castle', '冒险团': 'fx-shield', '队伍': 'fx-friends', '万族': 'fx-cosmos', '世界百科': 'fx-book', '世界资料库': 'fx-book', '原著WIKI': 'fx-book', '编年史': 'fx-book', '分支树': 'fx-tree', '混沌世界': 'fx-void',
+  '领地': 'fx-castle', '冒险团': 'fx-shield', '队伍': 'fx-friends', '万族': 'fx-cosmos', '世界百科': 'fx-book', '世界资料库': 'fx-book', '原著WIKI': 'fx-book', '编年史': 'fx-book', '分支树': 'fx-tree', '混沌世界': 'fx-void', '地图': 'fx-zoom',
   '战斗': 'fx-clash', '乐园设施': 'fx-ferris', '深渊': 'fx-void', '幽冥': 'fx-void', '回合洞察': 'fx-zoom', '审计': 'fx-zoom', '任务': 'fx-quest',
-  '频道': 'fx-signal', '私信': 'fx-mail', '好友': 'fx-friends', '聊天室': 'fx-signal', '交易行': 'fx-bag', '产业': 'fx-bag', '公会': 'fx-castle', '助战': 'fx-clash', '世界竞技场': 'fx-trophy', '游玩时长': 'fx-trophy', '纪念丰碑': 'fx-pillar', '账户仓库': 'fx-bag', '记忆': 'fx-brain', '创意工坊': 'fx-sparkle', '存档': 'fx-save', '设置': 'fx-gear',
+  '频道': 'fx-signal', '私信': 'fx-mail', '采访': 'fx-signal', '好友': 'fx-friends', '聊天室': 'fx-signal', '交易行': 'fx-bag', '产业': 'fx-bag', '公会': 'fx-castle', '助战': 'fx-clash', '世界竞技场': 'fx-trophy', '游玩时长': 'fx-trophy', '纪念丰碑': 'fx-pillar', '账户仓库': 'fx-bag', '记忆': 'fx-brain', '创意工坊': 'fx-sparkle', '存档': 'fx-save', '设置': 'fx-gear',
 };
 
 /* 炼晶：把玩家倾向解析成 gemEngine 的 want（指定宝石属性/镶嵌部位；无匹配则返回 undefined 走随机）。
@@ -1820,6 +1883,7 @@ export default function App() {
   const [cosmosPhaseLog,     setCosmosPhaseLog]     = useState('');     // 万族演化阶段提示
   const [miscPhaseLog,       setMiscPhaseLog]       = useState('');     // 杂项演化阶段提示（仅失败时显示「杂项更新失败」）
   const [questPhaseLog,      setQuestPhaseLog]      = useState('');     // 任务演化阶段提示（仅失败时显示「任务更新失败」）
+  const [mapPhaseLog,        setMapPhaseLog]        = useState('');     // 🧭 地图演化阶段提示（重ROLL菜单标红/清busy 靠它）
   const [tablePhaseLog,      setTablePhaseLog]      = useState('');     // 手动补填表格阶段提示（自动填表跟着主正文走·无独立日志）
   const [cosmosPanelOpen,    setCosmosPanelOpen]    = useState(false);
   const [worldCodexOpen,     setWorldCodexOpen]     = useState(false);
@@ -1877,6 +1941,9 @@ export default function App() {
   const [miscPanelOpen,    setMiscPanelOpen]    = useState(false);
   const [advisorOpen,      setAdvisorOpen]      = useState(false);   // 🧭 参谋（局外顾问 + 提案卡）
   const [bookmarkOpen,     setBookmarkOpen]     = useState(false);   // ⭐ 坐标（收藏楼层）
+  const [interviewOpen,    setInterviewOpen]    = useState(false);   // 🎤 大采访
+  const [bioCycleOpen,     setBioCycleOpen]     = useState(false);   // 🌸 生理周期管理（⌘K「生理周期」）
+  const [trainingOpen,     setTrainingOpen]     = useState(false);   // 🔗 调教系统
   const [worldRecordOpen,  setWorldRecordOpen]  = useState(false);
   const [chroniclePanelOpen, setChroniclePanelOpen] = useState(false);
   const [branchPanelOpen,  setBranchPanelOpen]  = useState(false);   // 🌿 楼层分支树
@@ -1886,6 +1953,7 @@ export default function App() {
   const [chaosCardBusy,    setChaosCardBusy]    = useState(false);   // 正在据勾选世界生成混沌世界卡
   const [enhancePanelOpen, setEnhancePanelOpen] = useState(false);
   const [craftPanelOpen, setCraftPanelOpen] = useState(false);
+  const [mapOpen, setMapOpen] = useState(false);   // 🧭 小地图面板
   const [chestPanelOpen, setChestPanelOpen] = useState(false);
   const [producePanelOpen, setProducePanelOpen] = useState(false);
   const [guildPanelOpen, setGuildPanelOpen] = useState(false);
@@ -2107,7 +2175,7 @@ export default function App() {
     const pairs: [string, string][] = [
       ['item', itemPhaseLog], ['player', playerPhaseLog], ['npc', npcPhaseLog], ['pet', petPhaseLog],
       ['faction', factionPhaseLog], ['territory', territoryPhaseLog], ['team', teamPhaseLog],
-      ['cosmos', cosmosPhaseLog], ['misc', miscPhaseLog], ['quest', questPhaseLog], ['image', imagePhaseLog], ['table', tablePhaseLog],
+      ['cosmos', cosmosPhaseLog], ['misc', miscPhaseLog], ['quest', questPhaseLog], ['map', mapPhaseLog], ['image', imagePhaseLog], ['table', tablePhaseLog],
     ];
     setPhaseFail((prev) => {
       let n = prev, changed = false;
@@ -2125,7 +2193,7 @@ export default function App() {
       }
       return changed ? n : prev;
     });
-  }, [itemPhaseLog, playerPhaseLog, npcPhaseLog, petPhaseLog, factionPhaseLog, territoryPhaseLog, teamPhaseLog, cosmosPhaseLog, miscPhaseLog, questPhaseLog, imagePhaseLog, tablePhaseLog]);
+  }, [itemPhaseLog, playerPhaseLog, npcPhaseLog, petPhaseLog, factionPhaseLog, territoryPhaseLog, teamPhaseLog, cosmosPhaseLog, miscPhaseLog, questPhaseLog, mapPhaseLog, imagePhaseLog, tablePhaseLog]);
   useEffect(() => {   // 天气环境音：随顶栏天气切换（仅任务世界有天气；回归乐园/无天气→停）
     const kind = (!!miscWeather && !isHomeWorld(miscWorldName)) ? parseWeather(miscWeather).kind : 'none';
     setAmbient(kind);
@@ -2259,6 +2327,7 @@ export default function App() {
   const [ttsSettingsOpen, setTtsSettingsOpen] = useState(false);   // 语音朗读设置弹窗
   const [confirmAction, setConfirmAction] = useState<null | { title: string; desc: string; run: () => void }>(null); // 回退/重新生成的确认弹窗
   const [editingMsgId, setEditingMsgId] = useState<number | null>(null);   // 正在编辑的正文楼层 id（编辑草稿在 MessageRow 本地，键入不重渲 App）
+  const [polishTarget, setPolishTarget] = useState<null | { id: number; text: string }>(null);   // ✨ 正文校正弹窗：目标楼层（最新正文楼的 id+content 快照）
 
   // 输入框填入通道（fill()）：值与聚焦由 ChatComposer 响应 fillSeq 自理；App 只负责关掉背包弹窗露出输入框
   const composerFillSeq = useComposer((s) => s.fillSeq);
@@ -2791,6 +2860,8 @@ export default function App() {
     addRule('配角独立人格反谄媚', '前端规则 · 配角有独立人格·不围着主角转', NPC_INDEPENDENCE_RULE, 'NPC_INDEPENDENCE_RULE');
     // 对主角态度四轴（信任/尊重/情欲/沉沦）·渐进不跳级（治性爱速堕/关系速升/一撩就沦陷）
     addRule('对主角态度四轴渐进', '前端规则 · 对主角态度四轴·渐进不跳级', DISPOSITION_STAGE_RULE, 'DISPOSITION_STAGE_RULE');
+    // 文风黑名单：AI 高频陈词禁令（借鉴V3.2·只约束措辞，不改任何结构模块）
+    addRule('文风黑名单', '前端规则 · 文风黑名单·陈词滥调禁令', PROSE_BLACKLIST_RULE, 'PROSE_BLACKLIST_RULE');
     // HP/EP 结算：让主正文每回合末尾输出主角+在场NPC的当前 HP/EP（前端 applyNarrativeVitals/NpcVitals 解析，HP/EP 管理阶段也以此为最终值）
     addRule('HP_EP结算输出', '前端规则 · HP/EP 结算输出', VITALS_SETTLEMENT_EMIT_RULE);
     // 主角会死·非不死之身：治"不战斗没掉血判定→顶着1滴血无限存活/被锁血不死"，用户要求主角能死
@@ -3949,9 +4020,12 @@ export default function App() {
     // 世界书注入：matchCtx = 本轮输入 + 最近对话 → 蓝灯常驻 + 绿灯关键词命中
     const matchCtx = [text, ...(sess?.messages ?? []).slice(-8).map((m) => m.content)].join(' ');
     const wbText = buildJoyWbInjection(J.worldBooks, matchCtx);
+    // 🎲玩法菜单（借鉴V3.2按选注入）：勾选的玩法拼单块随每轮注入；{{random}} 变体每轮现场展开＝同玩法每轮细节不同；未勾选零开销
+    const playText = await buildSelectedPlaysInjection();
     const messages = [
       { role: 'system', content: buildJoySystem(girl, sess) },
       ...(wbText ? [{ role: 'system', content: wbText }] : []),
+      ...(playText ? [{ role: 'system', content: playText }] : []),
       ...history,
       { role: 'user', content: text },
     ];
@@ -4400,7 +4474,7 @@ export default function App() {
       .filter((e) => e.enabled && e.source !== 'entrySharedRules')
       .map((e) => fillVars(e.content, vars))
       .join('\n\n')
-      + '\n\n' + NARRATIVE_FIRST_RULE + '\n' + BUFF_AS_STATUS_RULE + '\n' + NPC_AGE_RULE + '\n' + TALENT_NO_CAP_RULE + '\n' + TITLE_DIVERSITY_RULE + '\n' + NPC_DEAD_EXCLUDE_RULE + '\n' + NPC_ID_RULE + '\n' + SKILL_TALENT_NOTE_RULE + '\n' + NPC_SKILL_KEEP_RULE + '\n' + ITEM_GRANTED_SKILL_RULE + '\n' + SKILL_STABILITY_RULE + '\n' + SKILL_COMBAT_TAG_RULE + '\n' + NPC_REVIEW_TAG_RULE +'\n' + NPC_TEAM_AFFILIATION_RULE + '\n' + TIER_RULE + '\n' + IMAGE_TAGS_RULE + '\n' + HPEP_NARRATIVE_ONLY_RULE + '\n' + POINTS_NARRATIVE_RULE + '\n' + getPrompt('ATTR_POWER_CODEX', ATTR_POWER_CODEX) + '\n' + NPC_ATTR_GEN_RULE + '\n' + ATTR_SANITY_RULE + '\n' + ATTR_CAP_RULE + '\n' + STATUS_FORMAT_RULE + '\n' + STATUS_COUNTDOWN_TURN_RULE + '\n' + NPC_PRIVATE_EXTRA_RULE + '\n' + NPC_TIER_LOADOUT_RULE + '\n' + SKILL_TALENT_ATTR_CAP_RULE + '\n' + FIRST_UPDATE_COMPLETE_RULE + '\n' + EVO_EXACT_REF_RULE + '\n' + SKILL_TALENT_GUIDE + '\n' + getPrompt('NPC_COT_RULE', NPC_COT_RULE) + '\n' + ANTI_OMNISCIENCE_RULE + '\n' + getPrompt('NPC_DECENTER_RULE', NPC_DECENTER_RULE) + infoReachInjection(charId) + '\n' + NATIVE_LIFE_LOCAL_RULE + '\n' + getPrompt('NPC_INDEPENDENCE_RULE', NPC_INDEPENDENCE_RULE) + '\n' + getPrompt('DISPOSITION_STAGE_RULE', DISPOSITION_STAGE_RULE) + '\n' + DISPOSITION_DELTA_RULE + '\n' + getPrompt('NPC_INNER_VOICE_RULE', NPC_INNER_VOICE_RULE) + causalWeightInjection() + worldLoreEvoInjection()
+      + '\n\n' + NARRATIVE_FIRST_RULE + '\n' + BUFF_AS_STATUS_RULE + '\n' + NPC_AGE_RULE + '\n' + TALENT_NO_CAP_RULE + '\n' + TITLE_DIVERSITY_RULE + '\n' + NPC_DEAD_EXCLUDE_RULE + '\n' + NPC_ID_RULE + '\n' + SKILL_TALENT_NOTE_RULE + '\n' + NPC_SKILL_KEEP_RULE + '\n' + ITEM_GRANTED_SKILL_RULE + '\n' + SKILL_STABILITY_RULE + '\n' + SKILL_COMBAT_TAG_RULE + '\n' + NPC_REVIEW_TAG_RULE +'\n' + NPC_TEAM_AFFILIATION_RULE + '\n' + TIER_RULE + '\n' + IMAGE_TAGS_RULE + '\n' + HPEP_NARRATIVE_ONLY_RULE + '\n' + POINTS_NARRATIVE_RULE + '\n' + getPrompt('ATTR_POWER_CODEX', ATTR_POWER_CODEX) + '\n' + NPC_ATTR_GEN_RULE + '\n' + ATTR_SANITY_RULE + '\n' + ATTR_CAP_RULE + '\n' + STATUS_FORMAT_RULE + '\n' + STATUS_COUNTDOWN_TURN_RULE + '\n' + NPC_PRIVATE_EXTRA_RULE + '\n' + NPC_TIER_LOADOUT_RULE + '\n' + SKILL_TALENT_ATTR_CAP_RULE + '\n' + FIRST_UPDATE_COMPLETE_RULE + '\n' + EVO_EXACT_REF_RULE + '\n' + SKILL_TALENT_GUIDE + '\n' + getPrompt('NPC_COT_RULE', NPC_COT_RULE) + '\n' + ANTI_OMNISCIENCE_RULE + '\n' + getPrompt('NPC_DECENTER_RULE', NPC_DECENTER_RULE) + infoReachInjection(charId) + '\n' + NATIVE_LIFE_LOCAL_RULE + '\n' + getPrompt('NPC_INDEPENDENCE_RULE', NPC_INDEPENDENCE_RULE) + '\n' + getPrompt('DISPOSITION_STAGE_RULE', DISPOSITION_STAGE_RULE) + '\n' + DISPOSITION_DELTA_RULE + '\n' + getPrompt('NPC_SHIFT_GUARD_RULE', NPC_SHIFT_GUARD_RULE) + '\n' + getPrompt('NPC_INNER_VOICE_RULE', NPC_INNER_VOICE_RULE) + causalWeightInjection() + worldLoreEvoInjection()
       // 门控：仅当该 NPC 已有背景、却还没第一人称自述时，才追加"生成自述"规则（一次性·省 token）
       + (rec && rec.background && !rec.selfNarration ? '\n' + getPrompt('NPC_SELF_NARRATION_RULE', NPC_SELF_NARRATION_RULE) : '')
       // 门控：成长小传（从小到大的来历+性格成因）。**错开一回合**——等自述/原则/台词那批生成完了下次再要，
@@ -6295,6 +6369,51 @@ ${AFFIX_EFFECT_RULE}`;
   }
 
   /* ════════════════════════════════════════════
+     🧭 地图演化阶段（独立 featureKey='map'·仿任务演化的拆分范式）
+     确定性建图在 callApi 开头的 reconcile 步已做（零 API）；本阶段只负责「AI 增量」：
+     读正文 → 产出 discoverNode/setNode/linkNodes 指令 → mapEngine 护栏收编（状态只升不降/
+     每轮新增封顶/别名吸收）。指令解析在 systems/mapParser，护栏在 systems/mapEngine。
+  ════════════════════════════════════════════ */
+  async function runMapEvolutionPhase(narrative: string, force = false) {
+    const mp = useMap.getState();
+    if (!mp.settings.enabled) return;
+    if (!mp.settings.aiWrite && !force) return;
+    const wn = mapWorldKey(useMisc.getState().worldName || '');
+    // 确定性预步（不花 API）：正文提及既有地点 → 刷新触达时间，防误归档
+    try { mp.touch(wn, narrative, turnCountRef.current); } catch { /* 触达失败不阻断 */ }
+    const ss = useSettings.getState();
+    const legacyApi = ss.textUseSharedApi ? ss.api : ss.textApi;   // 未配 'map' 路由 → 回退正文 API
+    const chain = resolveApiChain('map', legacyApi);
+    if (!chain[0]?.baseUrl || !chain[0]?.apiKey) { console.warn('[Map] API 未配置，跳过地图演化'); return; }
+
+    const data = mp.dataOf(wn);
+    const loc = usePlayer.getState().profile.location || '';
+    const curRegionName = splitLocationPath(loc, wn)[0] ?? '';
+    const curRegion = curRegionName ? resolveNodeIn(Object.values(data.nodes).filter((n) => n.kind === 'region'), curRegionName) : null;
+    const systemPrompt = buildMapPhaseSystem({
+      worldName: wn,
+      locationPath: loc,
+      digest: buildMapDigest(data, curRegion?.id),
+      maxNew: mp.settings.maxNewPerTurn,
+    });
+    setMapPhaseLog('地图演化中…');
+    try {
+      const { content: rawReply } = await apiChatFallback(chain, [
+        { role: 'system', content: systemPrompt },
+        { role: 'user', content: `【本回合正文】\n${narrative}\n\n先输出 <think>…</think> 简短自检（逐条对照硬性护栏，尤其：只登记正文明确出现/听闻的地点、既有名单原名优先），随后按【输出格式铁律】只输出一个 <upstore> 指令块（无变化输出空块）。` },
+      ], { timeoutMs: 90000 });
+      console.log('[Map] 地图演化响应:', rawReply);
+      const reply = (rawReply || '').replace(/<think[^>]*>[\s\S]*?<\/think>/gi, '').trim();   // 剥思维链再解析
+      const applied = applyMapCommands(reply, { worldName: wn, turn: turnCountRef.current });
+      console.log(`[Map] 地图演化应用 ${applied} 条指令`);
+      setMapPhaseLog('✓ 地图演化完成');
+    } catch (e: any) {
+      console.error('[Map] 地图演化失败:', e.message ?? e);
+      setMapPhaseLog(`⚠ 地图更新失败：${(e.message ?? '').slice(0, 50)}`);
+    } finally { setTimeout(() => setMapPhaseLog(''), 8000); }
+  }
+
+  /* ════════════════════════════════════════════
      杂项演化阶段（分段总结 / 双时间 / 天气 / 世界大事——任务已拆去独立的「任务演化」阶段）
   ════════════════════════════════════════════ */
   async function runMiscEvolutionPhase(narrative: string) {
@@ -6329,6 +6448,28 @@ ${AFFIX_EFFECT_RULE}`;
       const body = (picked.length ? picked : enabledCodex).map((e) => e.content.trim()).filter(Boolean).join('\n\n');
       return body ? `\n\n【杂项演化·世界规范图鉴（生成世界大事/天气/总结/推进时间前务必逐条对照）】\n${body}` : '';
     })();
+    // 🧭 小地图接管原版 ${world_map_pois}/${current_scene_map} 占位符（原 ACU 预设的小地图插槽，
+    //    移植时砍了功能留了插槽——现在把插头插回去）：地图关闭/空图时保持原「未启用」文案不破旧行为。
+    const mapPoisForMisc = (() => {
+      try {
+        const mp = useMap.getState();
+        if (!mp.settings.enabled) return '';
+        const d = mp.dataOf(M.worldName || '');
+        const segs = splitLocationPath(usePlayer.getState().profile.location || '', mapWorldKey(M.worldName || ''));
+        const cr = segs[0] ? resolveNodeIn(Object.values(d.nodes).filter((n) => n.kind === 'region'), segs[0]) : null;
+        return serializeWorldPois(d, cr?.id);
+      } catch { return ''; }
+    })();
+    const mapSceneForMisc = (() => {
+      try {
+        const mp = useMap.getState();
+        if (!mp.settings.enabled) return '';
+        const d = mp.dataOf(M.worldName || '');
+        const segs = splitLocationPath(usePlayer.getState().profile.location || '', mapWorldKey(M.worldName || ''));
+        const cr = segs[0] ? resolveNodeIn(Object.values(d.nodes).filter((n) => n.kind === 'region'), segs[0]) : null;
+        return cr ? serializeSceneMap(d, cr.id) : '';
+      } catch { return ''; }
+    })();
     const systemPrompt = buildMiscSystemPrompt(M.settings.entries)
       .replaceAll('${story_text}', narrative)
       .replaceAll('${user_input}', '')
@@ -6340,12 +6481,12 @@ ${AFFIX_EFFECT_RULE}`;
       .replaceAll('${current_tasks}', '（任务由独立的「任务演化」阶段维护，本阶段不处理任务）')
       .replaceAll('${world_events}', serializeEvents(M.worldEvents))
       .replaceAll('${next_available_task_id}', '（本阶段不建任务）')
-      // ── 原版 13 条规则里残留的占位符（无小地图，按需填充/置空）──
+      // ── 原版 13 条规则里残留的占位符（小地图启用时喂真实数据）──
       .replaceAll('${current_time}', M.worldTime || M.paradiseTime || '（未设定）')
-      .replaceAll('${current_location}', M.worldName || '（未设定）')
+      .replaceAll('${current_location}', usePlayer.getState().profile.location || M.worldName || '（未设定）')
       .replaceAll('${time_location_row}', tlRow || '（未设定）')
-      .replaceAll('${world_map_pois}', '（未启用小地图）')
-      .replaceAll('${current_scene_map}', '（未启用小地图）')
+      .replaceAll('${world_map_pois}', mapPoisForMisc || '（未启用小地图）')
+      .replaceAll('${current_scene_map}', mapSceneForMisc || '（未启用小地图）')
       .replaceAll('${world_factors}', '（无）')
       .replaceAll('${player_name}', playerName)
       .replaceAll('${player_traits}', '（略）')
@@ -6387,6 +6528,7 @@ ${AFFIX_EFFECT_RULE}`;
         return list.map((it) => `${it.month}/${it.day}${(it.days ?? 1) > 1 ? `起${it.days}天` : ''} ${it.name}${it.world ? `（${it.world}）` : ''}`).join('；');
       })()}`
       + '\n\n' + ALMANAC_MAINTAIN_RULE
+      + arcJudgeInjection()   // 🧭 故事弧线：本拍完成判定协议（弧线不活跃=空串零 token·零新增 API）
       + '\n\n' + renderPrompt(MISC_COT_RULE);
 
     try {
@@ -6396,6 +6538,7 @@ ${AFFIX_EFFECT_RULE}`;
       ], { timeoutMs: 120000 });
       console.log('[Misc] 杂项演化响应:', reply);
       const applied = applyMiscCommands(reply, { allowLarge: isLargeTurn, domain: 'world' });   // 任务指令硬过滤（任务归独立的任务演化阶段）
+      try { applyArcJudgment(reply); } catch (e) { console.warn('[Arc] 弧线判定应用失败', e); }   // 🧭 过拍/破红线（幂等：拍号≠当前拍即忽略，重算重放安全）
       console.log(`[Misc] 杂项演化应用 ${applied} 条指令（第 ${round} 轮，大总结周期：${isLargeTurn ? '是' : '否'}）`);
       // 命运罗盘·封词兜底（同 scrubAbyss 的机读护栏思路）：AI 没守住铁则、把卦名/塔罗牌名写进了世界大事 →
       // 落库后就地清洗。罗盘是内部骰子，绝不能出现在玩家可见的世界大事文案里。
@@ -10392,6 +10535,7 @@ ${lines}`;
       { key: 'memory',    enabled: true,                run: () => runMemoryCompressionPhase() },   // 内部按阈值判定，不走回合门控
       { key: 'misc',      enabled: due('misc'),         barrier: true, run: () => runMiscEvolutionPhase(narr('misc')) },   // barrier：worldTime/世界大事是下一轮 prompt 的直接输入
       { key: 'quest',     enabled: due('quest'),        barrier: true, run: () => runQuestEvolutionPhase(narr('quest')) },   // 任务演化（从杂项拆出的独立阶段·独立API featureKey='quest'）
+      { key: 'map',       enabled: due('map'),          barrier: true, run: () => runMapEvolutionPhase(narr('map')) },   // 🧭 地图演化（独立API featureKey='map'）；barrier：<当前地图> 是下一轮 prompt 的直接输入
       { key: 'nm',        enabled: due('nm'),           run: () => runNarrativeIngestPhase(lastUserInputRef.current, narr('nm')) },
       { key: 'table',     enabled: tableDue,            run: () => runTableFillPhase(narr('table'), { auto: true }) },   // 剧情表(纪要/进程/伏笔/约定)独立成阶段·专人调一次 AI 只吐<tableEdit>·比塞进正文让 AI 顺手吐可靠得多
       { key: 'choices',   enabled: true,                run: () => runChoicesFanficPhase(narrative, assistantMsgId) },   // 内部各自开关门控
@@ -10652,6 +10796,10 @@ ${lines}`;
     reconcilePlayerVitals();               // HP/EP 兜底：仍是 100/50 旧默认时按六维重算为满
     syncPlayerVitalsMax();                  // 每回合：同步存储上限=真实上限（当前 HP/EP 由正文末尾<状态结算>驱动，本函数不补血）
     reconcilePartyLifecycle();             // 临时队伍：非当前世界的队友自动解散（离场归档；有冒险团则弹转正）
+    sweepAchievements();                   // 🏅 成就图鉴：对各 store 快照机械求值，达标自动解锁（幂等·零API）
+    reconcileOutfitDaily();                // 👗 新的一天 → 每日随机换装（幂等·零API）
+    reconcileLocationTrail();              // 🗺 位置变化 → 记进已探索地点树（幂等·零API）
+    reconcileMapIngest();                  // 🧭 位置+世界大事 → 小地图节点图（幂等·零API·下面的 <当前地图> 注入吃它）
 
     const api = textUseShared ? sharedApi : textApi;
     const _ssApi = useSettings.getState();
@@ -10990,6 +11138,8 @@ ${lines}`;
       ...buildPlayerCoreInjection(),                    // <主角核心>
       ...buildOutfitInjection(),                        // <钦定穿搭> 👗衣柜权威穿搭+AI换装指令（正文/生图同源）
       ...buildWorldTimeInjection(),                     // <当前时空>
+      ...buildMapInjection(),                           // 🧭 <当前地图> 当前位置+本区域场所+已知区域（地理一致性+命名权威；关闭/空图=零块）
+      ...buildBioInjection(),                           // 🌸 在场角色生理周期底色（可选模块·默认关·空=零token）
       ...buildQuestInjection(!!(guidanceBlock.length || dbAdvanceBlock.length || outlineBlock.length)),   // <当前任务>（本回合有剧情指导/细纲/数据库推进→任务线让位给它）
       ...buildCosmosInjection(),                        // <万族态势>
       ...buildGuildInjection(),                         // <所属公会> 玩家公会身份 + 增益（社交身份·跨世界）
@@ -10999,6 +11149,7 @@ ${lines}`;
       ...structPlayer,                                 // <主角当前档案> 浅注入：紧贴最近正文/用户输入
       ...(skillUpNote ? [{ role: 'system' as const, content: skillUpNote }] : []),   // 技能升级·一次性结算通知（仅告知点数已用掉）
       ...guidanceBlock,                                // <剧情指导> 本回合写作建议
+      ...buildArcInjection(),                          // 🧭 <故事弧线> 当前拍幕后指令（借鉴story-oracle·缓存注入零额外调用·过拍/退出即撤）
       ...dbAdvanceBlock,                               // <数据库推进> Stitches 规划层（stage/scene/recall）→ 正文预设据此写
       ...(worldbook && worldbook.post ? [{ role: worldbook.role, content: worldbook.content }] : []),   // <世界书+RAG> 无 marker → 楼层后（稳定前缀外·缓存友好）；marker 后历史亦此
       ...tail.map((t) => ({ role: t.role, content: t.content })),   // <后历史预设块> chatHistory marker 之后的预设块（破限/格式/规则等）→ 真实楼层之后（仿 fanren post-history）
@@ -11050,6 +11201,8 @@ ${lines}`;
         ...buildPlayerCoreInjection(),                   // <主角核心>
         ...buildOutfitInjection(),                       // <钦定穿搭>（细纲/规划层同样要认穿搭）
         ...buildWorldTimeInjection(),                    // <当前时空>
+        ...buildMapInjection('outline'),                 // 🧭 <当前地图>（细纲=规划层：规划移动路线不瞎编地名）
+        ...buildBioInjection(),                          // 🌸 生理周期底色（细纲/规划层同样要认状态）
         ...buildQuestInjection(true),                    // <当前任务>（细纲生成=规划层·任务线仅作背景参考）
         ...buildCosmosInjection(),                       // <万族态势>
         ...buildFanficInjection(),                        // <同人设定·已锁定>
@@ -11459,7 +11612,7 @@ ${lines}`;
   const BATCH_RUNNERS: Record<string, (n: string, force?: boolean) => Promise<void> | void> = {
     item: runItemManagementPhaseCore, player: runPlayerEvolutionPhase, npc: runNpcEvolutionPhase, pet: runPetEvolutionPhase,
     faction: runFactionEvolutionPhase, territory: runTerritoryEvolutionPhase, team: runTeamEvolutionPhase,
-    cosmos: runCosmosEvolutionPhase, misc: runMiscEvolutionPhase, quest: runQuestEvolutionPhase, table: (n) => runTableFillPhase(n),   // 手动批量补填=非 auto（默认走"手动补填表格"标签）
+    cosmos: runCosmosEvolutionPhase, misc: runMiscEvolutionPhase, quest: runQuestEvolutionPhase, map: (n) => runMapEvolutionPhase(n, true), table: (n) => runTableFillPhase(n),   // 手动批量补填=非 auto（默认走"手动补填表格"标签）
   };
   function narrativeFloors(): string[] {   // 楼层 = 每条 AI 正文（从旧到新）
     return (messagesRef.current ?? []).filter((m) => m.role === 'assistant' && m.content).map((m) => m.content as string);
@@ -11538,6 +11691,7 @@ ${lines}`;
       label === '技能树' ? () => setSkillTreeOpen(true) :
       label === '体系' ? () => setLoadoutOpen(true) :
       label === '合成' ? () => setCraftPanelOpen(true) :
+      label === '地图' ? () => setMapOpen(true) :
       label === '开箱' ? () => setChestPanelOpen(true) :
       label === '产业' ? () => setProducePanelOpen(true) :
       label === '公会' ? () => setGuildPanelOpen(true) :
@@ -11564,14 +11718,17 @@ ${lines}`;
       label === '系统商店' ? () => setShopOpen(true) :
       label === '结算任务' ? () => openSettleFlow() :
       label === '重算变量' ? () => setRevarOpen(true) :
+      label === '生理周期' ? () => setTrainingOpen(true) :   // 生理周期已并入调教系统面板（BioCyclePanel 保留作独立入口备用）
       label === '深渊' || label === '幽冥' ? () => setAbyssOpen(true) :   // 五阶前导航显示「幽冥」（同 scrubAbyss 口径），点开同一面板
       label === 'NPC'  ? () => setNpcPanelOpen(true) :
+      label === '调教' ? () => setTrainingOpen(true) :
       label === '宠物/召唤物' ? () => setPetRosterOpen(true) :
       label === '任务' ? () => setMiscPanelOpen(true) :
       label === '参谋' ? () => setAdvisorOpen(true) :
       label === '坐标' ? () => setBookmarkOpen(true) :
       label === '频道' ? () => setChannelPanelOpen(true) :
       label === '私信' ? () => { setDmFocusThread(undefined); setDmPanelOpen(true); } :
+      label === '采访' ? () => setInterviewOpen(true) :
       label === '好友' ? () => setFriendsPanelOpen(true) :
       label === '队伍' ? () => setPartyPanelOpen(true) :
       label === '联机' ? () => setMpPanelOpen(true) :
@@ -11726,7 +11883,7 @@ ${lines}`;
     try { useItems.getState().setItemTurn(turnCountRef.current); } catch { /* */ }
     lastUserInputRef.current = userInput;
     expireStatuses(turnCountRef.current);
-    reconcileHomeWorld(); reconcileWorldScope(); reconcilePlayerVitals(); syncPlayerVitalsMax(); reconcilePartyLifecycle();
+    reconcileHomeWorld(); reconcileWorldScope(); reconcilePlayerVitals(); syncPlayerVitalsMax(); reconcilePartyLifecycle(); sweepAchievements(); reconcileOutfitDaily(); reconcileLocationTrail(); reconcileMapIngest();
     const _ssEvo = useSettings.getState();   // 同上：实时读 store，免 stale 闭包导致演化也拿不到预设
     const preset = resolveActivePreset(_ssEvo);
     if (userInput) {
@@ -12785,7 +12942,7 @@ ${lines}`;
     setVaultOpen(false); setFriendsPanelOpen(false); setPartyPanelOpen(false); setWorkshopOpen(false); setWorldLibOpen(false);
     setShopOpen(false); setMiscPanelOpen(false); setAdvisorOpen(false); setBookmarkOpen(false); setWorldRecordOpen(false); setChaosWorldOpen(false);
     setCombatSetupOpen(false); setArenaPanelOpen(false); setEnhancePanelOpen(false); setSkillUpPanelOpen(false);
-    setCraftPanelOpen(false); setProducePanelOpen(false); setGuildPanelOpen(false); setCasinoOpen(false);
+    setCraftPanelOpen(false); setProducePanelOpen(false); setGuildPanelOpen(false); setCasinoOpen(false); setMapOpen(false);
     setAbyssOpen(false); setJoyPanelOpen(false); setSummaryPanelOpen(false); setAuditOpen(false);
     setSaveOpen(false); setTitlePanelOpen(false); setAchievePanelOpen(false); setSubProfOpen(false);
     setLoadoutOpen(false); setFactionPanelOpen(false); setTerritoryPanelOpen(false); setTeamPanelOpen(false);
@@ -13293,6 +13450,24 @@ ${lines}`;
             </Suspense>
           )}
 
+          {/* ✨ 正文校正弹窗（借鉴 story-oracle）：应用=原稿先存🌿支线（可回收），再 saveMessageEdit 替换（与手动编辑同语义：丢 raw） */}
+          {polishTarget && (
+            <Suspense fallback={null}>
+              <PolishModal
+                text={polishTarget.text}
+                onClose={() => setPolishTarget(null)}
+                onApply={async (t) => {
+                  const msgs = messagesRef.current || [];
+                  const idx = msgs.findIndex((m) => m.id === polishTarget.id);
+                  if (idx < 0) { setPolishTarget(null); return; }
+                  await saveBranchPoint(msgs, { origin: 'manual', parentMsgId: idx > 0 ? msgs[idx - 1].id : -1 }, `✨ 校正原稿 ${new Date().toLocaleString('zh-CN', { hour12: false })}`);
+                  saveMessageEdit(polishTarget.id, t);
+                  setPolishTarget(null);
+                }}
+              />
+            </Suspense>
+          )}
+
           {/* 操作行：停止生成 / 重新生成 / 回退上一回合 */}
           {started && messages.length > 0 && (
             <div className="shrink-0 border-t border-edge bg-panel/60 flex flex-wrap items-center gap-2 max-lg:gap-2.5 px-3 py-1 max-lg:py-2 text-[12px] font-mono">
@@ -13327,6 +13502,14 @@ ${lines}`;
                   <button onClick={() => setRevarOpen(true)}
                     className="flex items-center gap-1 px-2.5 py-1 max-lg:px-3 max-lg:py-2 max-lg:text-[13px] rounded border border-edge text-dim hover:border-sky-500/40 hover:text-sky-300 transition-colors"
                     title="重算单项变量：打开菜单，单独重 ROLL 物品/主角/NPC/势力… 某一项（或全部）">♻ 重算变量</button>
+                  <button onClick={() => {
+                      const msgs = messagesRef.current || [];
+                      const last = [...msgs].reverse().find((m) => m.role === 'assistant' && !String(m.content || '').startsWith('🎬'));
+                      if (!last) { setGenError('没有可校正的正文楼层'); setTimeout(() => setGenError(''), 4000); return; }
+                      setPolishTarget({ id: last.id, text: String(last.content || '') });
+                    }}
+                    className="flex items-center gap-1 px-2.5 py-1 max-lg:px-3 max-lg:py-2 max-lg:text-[13px] rounded border border-edge text-dim hover:border-fuchsia-500/40 hover:text-fuchsia-300 transition-colors"
+                    title="校正最新正文的文风（去八股/机械对白/数字播报…）：结构块不动、应用前预览可手改，原稿自动存入🌿分支树">✨ 正文校正</button>
                   {ttsSupported() && <button onClick={() => {
                       if (ttsSpeaking) { stopTts(); return; }
                       const msgs = messagesRef.current || [];
@@ -13446,6 +13629,7 @@ ${lines}`;
             >
               {autoAdvActive ? '⏹' : '🔁'}
             </button>
+            <EncounterButton />
             <AgentModeToggle />
             <ComposerSendButton generating={generating} onSend={() => { void sendMessage(); }} />
           </div>
@@ -13543,6 +13727,7 @@ ${lines}`;
                 { icon: '🌌', label: '万族', fk: 'cosmos', batch: true, run: revarRun(runCosmosEvolutionPhase) },
                 { icon: '📋', label: '世界 / 杂项（总结·时间·天气·大事）', fk: 'misc', batch: true, run: revarRun(runMiscEvolutionPhase) },
                 { icon: '🎯', label: '任务演化', fk: 'quest', batch: true, run: revarRun(runQuestEvolutionPhase) },
+                { icon: '🧭', label: '地图演化', fk: 'map', batch: true, run: revarRun((n: string) => runMapEvolutionPhase(n, true)) },
                 { icon: '🗂', label: '填表（纪要 / 进程 / 伏笔 / 约定）', fk: 'table', batch: true, run: revarRun(runTableFillPhase) },
                 { icon: '🧠', label: '记忆整理', run: () => runMemoryCompressionPhase() },
                 { icon: '🖼', label: '生图（肖像 + 装备）', fk: 'image', run: () => { runPortraitPhase(); runEquipImagePhase(); } },
@@ -13912,6 +14097,9 @@ ${lines}`;
       )}
       {advisorOpen && <AdvisorPanel onClose={() => setAdvisorOpen(false)} />}
       {bookmarkOpen && <BookmarkPanel onClose={() => setBookmarkOpen(false)} />}
+      {interviewOpen && <InterviewPanel onClose={() => setInterviewOpen(false)} />}
+      {bioCycleOpen && <BioCyclePanel onClose={() => setBioCycleOpen(false)} />}
+      {trainingOpen && <TrainingPanel onClose={() => setTrainingOpen(false)} />}
 
       {worldRecordOpen && (
         <WorldRecordPanel onClose={() => setWorldRecordOpen(false)} onGenSummary={runWorldSummaryPhase} summaryBusyId={summaryBusyId} onRegenWorldview={regenWorldviewForRecord} worldviewBusyId={worldviewBusyId} />
@@ -14017,6 +14205,7 @@ ${lines}`;
       {skillUpPanelOpen && <SkillUpgradePanel onClose={() => setSkillUpPanelOpen(false)} />}
 
       {craftPanelOpen && <CraftPanel onClose={() => setCraftPanelOpen(false)} onGenerate={runCraftPhase} onConfirm={confirmCraft} />}
+      {mapOpen && <MapPanel onClose={() => setMapOpen(false)} />}
       {chestPanelOpen && <ChestPanel onClose={() => { setChestPanelOpen(false); useChest.getState().endSession(); }} onOpen={runChestOpenPhase} onConfirm={confirmChestOpen} />}
       {producePanelOpen && <ProducePanel onClose={() => setProducePanelOpen(false)} onJoySend={onJoySend} onGenerateGoods={genShopGoods} onBuyCompanion={buyShopCompanion} />}
       {guildPanelOpen && <GuildPanel onClose={() => setGuildPanelOpen(false)} onGenerateBuildings={genGuildBuildings} />}
@@ -14172,12 +14361,18 @@ const ChoiceOptions = memo(function ChoiceOptions({ opts }: { opts: string[] }) 
       {opts.map((opt, i) => {
         const letter = String.fromCharCode(65 + i);
         const nsfw = i === opts.length - 1;   // 最后一个（H）= 限制级 18+
-        const picked = !!value.trim() && value.includes(opt);   // 已叠加进输入框 → 显示 ✓
+        // 检定标记 🎲[属性·难度]（借鉴V3.2检定建议表）：显示骰子徽章+当前胜算；点选把**含标记**原文插输入框，
+        // 发送时 runAutoDice 认标记直用声明属性/难度。自动检定关（odds=null）→ 剥标记纯文本插入，不留死标签。
+        const tag = parseCheckTags(opt)[0] ?? null;
+        const odds = tag ? checkOddsPct(tag.attrKey, tag.difficulty) : null;
+        const disp = tag ? stripCheckTags(opt) : opt;               // 卡面正文永远干净（徽章单独渲染）
+        const ins = (tag && odds != null ? opt : disp).trim();      // 实际插入输入框的文本
+        const picked = !!value.trim() && value.includes(ins);   // 已叠加进输入框 → 显示 ✓
         return (
-          <button key={i} title="点选叠加进输入框，再点取消（可多选，编辑后发送）"
+          <button key={i} title={tag && odds != null ? `带检定：发送时按 ${tag.attrLabel}·${tag.difficulty} 自动掷骰（当前胜算约 ${odds}%）` : '点选叠加进输入框，再点取消（可多选，编辑后发送）'}
             onClick={() => useComposer.getState().update((prev) => {
               const cur = prev ?? '';
-              const o = opt.trim();
+              const o = ins;
               if (cur.includes(o)) {                                          // 再点已选项 → 取消：移除该项并规整逗号（保留手输文字）
                 return cur.replace(o, '').replace(/，\s*，/g, '，').replace(/^[，\s]+|[，\s]+$/g, '');
               }
@@ -14185,7 +14380,12 @@ const ChoiceOptions = memo(function ChoiceOptions({ opts }: { opts: string[] }) 
               return base ? `${base}，${o}` : o;                              // 叠加而非覆盖；单行输入框用「，」分隔（换行会被 input 吞掉看不见）
             })}
             className={`text-left rounded-lg border px-3 py-2 text-sm leading-snug transition-colors ${nsfw ? 'border-rose-500/40 bg-rose-500/5 text-rose-200/90 hover:bg-rose-500/15' : 'border-edge bg-panel/40 text-slate-300 hover:border-god/40 hover:text-god'} ${picked ? 'ring-1 ring-god/50' : ''}`}>
-            <span className="font-mono text-[12px] text-dim/50 mr-1.5">{picked ? '✓' : letter}{nsfw ? '·18+' : ''}</span>{opt}
+            <span className="font-mono text-[12px] text-dim/50 mr-1.5">{picked ? '✓' : letter}{nsfw ? '·18+' : ''}</span>{disp}
+            {tag && odds != null && (
+              <span className="ml-1.5 inline-flex items-center gap-0.5 align-middle text-[11px] font-mono px-1.5 py-0.5 rounded border border-amber-500/40 bg-amber-500/10 text-amber-300/90 whitespace-nowrap">
+                🎲{tag.attrLabel}·{tag.difficulty} ~{odds}%
+              </span>
+            )}
           </button>
         );
       })}

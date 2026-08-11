@@ -2,8 +2,8 @@ import { saveDb } from './saveDb';
 import { setResumeFlag } from './resumeFlag';
 import { decompressMaybe, compressWithMark, isCompressed, flushPersistWrites, suspendPersistWrites } from './compressedStorage';   // drpg-misc 压缩存：mergeKeepApi 需解压再合并；flush/suspend=合并写盘下快照读最新值、读档防延迟写盖档
 import { replaceAll as replaceChat, loadAll as loadChat, loadArchive, replaceArchive, clearArchive, type ArchivedMsg } from './chatDb';
-import { bulkPutImg, clearAllImg } from './imageDb';
-import { snapshotImages } from './imageSync';
+import { bulkPutImg, clearImagesWhere } from './imageDb';
+import { snapshotImages, isSnapshotImageKey, clearSnapshotDomainImages } from './imageSync';
 import { useGame } from '../store/gameStore';
 import { useSettings } from '../store/settingsStore';
 import { useItems } from '../store/itemStore';
@@ -36,6 +36,11 @@ import { useCharacters } from '../store/characterStore';
 import { useMemory } from '../store/memoryStore';
 import { useMisc } from '../store/miscStore';
 import { useCalendar } from '../store/calendarStore';
+import { useLocations } from '../store/locationStore';
+import { useMap } from '../store/mapStore';
+import { useInterviews } from '../store/interviewStore';
+import { useBioCycle } from '../store/bioCycleStore';
+import { useTraining } from '../store/trainingStore';
 import { useAdvisor } from '../store/advisorStore';
 import { useBookmarks } from '../store/bookmarkStore';
 import { useTheater } from '../store/theaterStore';
@@ -63,6 +68,7 @@ import { useFieldHistory } from '../store/fieldHistoryStore';
 import { useLoadout } from '../store/loadoutStore';
 import { useShop } from '../store/shopStore';
 import { useCanonRoute } from '../store/canonRouteStore';
+import { useArc } from '../store/arcStore';   // 🧭 故事弧线（借鉴story-oracle）：长线引导进度
 import { clearJoySessions } from '../store/joyStore';
 import { useDbAdvance } from '../store/dbAdvanceStore';   // 数据库推进桌面态现已持久化 → 新游戏须显式清运行态
 import { DBADV_KEY, mergeDbAdvanceRuntime } from './dbAdvanceRuntime';   // 读档/回退只回滚推进「运行态」(桌面态/stage/scene/recall)，预设+开关保当前
@@ -111,7 +117,13 @@ const STORES: { key: string; api: any; clear?: () => void }[] = [
   { key: 'drpg-memory',     api: useMemory },      // 保留
   { key: 'drpg-misc',       api: useMisc, clear: () => { const m = useMisc.getState(); m.clearMisc(); m.clearNarrativeFacts(); m.setTime({ paradiseTime: '', worldTime: '', worldName: '' }); m.setWeather(''); } },
   { key: 'drpg-calendar',   api: useCalendar, clear: () => useCalendar.getState().clearAll() },   // 世界历(节日/生日/纪念日)：进度数据,随存档快照、新游戏清空
+  { key: 'drpg-locations',  api: useLocations, clear: () => useLocations.getState().clearAll() }, // 🗺 已探索地点树(足迹+纪要·借鉴V3.2)：进度数据,随存档快照、新游戏清空
+  { key: 'drpg-map',        api: useMap, clear: () => useMap.getState().clearAll() },             // 🧭 小地图(世界分桶节点图·区域/场所/迷雾/足迹)：进度数据,随存档快照、新游戏清空；settings 也随档走(与图强耦合)
+  { key: 'drpg-interviews', api: useInterviews, clear: () => useInterviews.getState().clearAll() }, // 🎤 大采访成品(聊的是本档人物·借鉴V3.2)：进度数据,随存档快照、新游戏清空
+  { key: 'drpg-biocycle',   api: useBioCycle, clear: () => useBioCycle.getState().clearAll() },     // 🌸 生理周期(锚点绑本档时间线·借鉴V3.2)：进度数据,随存档快照、新游戏清空
+  { key: 'drpg-training',   api: useTraining, clear: () => useTraining.getState().clearAll() },     // 🔗 调教系统(名册+对话·聊的是本档人物)：进度数据,随存档快照、新游戏清空
   { key: 'drpg-advisor',    api: useAdvisor, clear: () => useAdvisor.getState().clear() },        // 🧭 参谋对话：聊的是本档剧情,进度数据,随存档快照、新游戏清空
+  { key: 'drpg-arc',        api: useArc, clear: () => useArc.getState().clearAll() },             // 🧭 故事弧线（长线引导进度·借鉴story-oracle）：随存档快照、新游戏清空；并进 ROLLBACK_KEYS（判定挂杂项阶段会漂移）
   { key: 'drpg-bookmarks',  api: useBookmarks, clear: () => useBookmarks.getState().clear() },    // ⭐ 坐标(收藏楼层·含正文快照)：进度数据,随存档快照、新游戏清空
   { key: 'drpg-theater',    api: useTheater },   // 🎭 小剧场·花样模板：玩家资产(非本档进度)→**不给 clear**,随新游戏保留
   { key: 'drpg-row-scope',  api: useRowScope, clear: () => useRowScope.getState().clearRowScopes() },   // 🌍 表行世界归属索引(伏笔)：本档进度,必须随存档快照——不然读档后索引丢光,旧世界伏笔全变"无索引"又冒回来
@@ -156,6 +168,8 @@ const STORES: { key: string; api: any; clear?: () => void }[] = [
 const ROLLBACK_KEYS = new Set([
   'drpg-items', 'drpg-player-evo', 'drpg-npc', 'drpg-faction', 'drpg-territory',
   'drpg-team', 'drpg-characters', 'drpg-misc', 'drpg-cosmos', 'drpg-loadout',   // loadout 必须跟 drpg-characters 一起回滚，否则「出战∪替补」不变量错位
+  'drpg-map',   // 🧭 小地图随演化漂移（地图演化阶段写传闻节点），必须跟 drpg-misc 一起回卷，否则地图与世界大事脱节
+  'drpg-arc',   // 🧭 故事弧线：过拍判定挂杂项阶段（随演化漂移），必须跟 drpg-misc 一起回卷，否则「正文回退了、拍却过了」
 ]);
 export function rollbackEvoDomains(snap: { turn: number; stores: Record<string, string> }): string[] {
   const restored: string[] = [];
@@ -505,9 +519,20 @@ export async function loadSlot(id: string): Promise<boolean> {
       else if (CLEAR_ON_MISSING.has(key)) localStorage.removeItem(key);             // 仅较新功能缓存缺失才清（防泄漏）；核心存档一律保留当前，绝不抹
     }
   };
-  // 图片：覆盖 IndexedDB（reload 后由 hydrateImages 回填到各 store）。
+  // 图片：按域覆盖 IndexedDB（reload 后由 hydrateImages 回填到各 store/内存缓存）。
   // 仅当快照带了图片才清+写；不带图片的快照（如降级保存的回退点）保留现有图片，避免回退把图全清掉。
-  try { if (slot.data.images) { await clearAllImg(); await bulkPutImg(slot.data.images); } } catch (e) { logWarn('saveManager.loadSlot.images', e); }
+  // 只清**快照域**(player/npc/item/map/outfit)再回填，不再无差别 clearAllImg——joy-girl:/enhance-boss:/shop-*:
+  //   是全局配置的图（名册/店铺定义读档不回滚，图也不该被清），此前被清光正是「读档后立绘全丢」（2026-08-11 修）。
+  // outfit: 域兼容旧档：修复前的快照不带衣柜图 → 读这种档时该域**不清**（同设备衣柜图保留，不再像 clearAllImg 一样丢光）；
+  //   新快照带了衣柜图则正常先清后回填。
+  try {
+    if (slot.data.images) {
+      const imgs = slot.data.images;
+      const snapHasOutfit = Object.keys(imgs).some((k) => k.startsWith('outfit:'));
+      await clearImagesWhere((k) => isSnapshotImageKey(k) && (snapHasOutfit || !k.startsWith('outfit:')));
+      await bulkPutImg(imgs);
+    }
+  } catch (e) { logWarn('saveManager.loadSlot.images', e); }
   await replaceChat(slot.data.messages ?? []);   // 覆盖当前对话为存档对话
   // 过往世界正文归档：仅当该档**带了**归档才还原（手动档带）；自动档/回退点/旧档不带 → 保留当前全局归档不动
   // （同一时间线本就正确，不会因读个不带归档的回退点而把过往世界从导出里抹掉）。
@@ -738,7 +763,7 @@ export async function clearProgress(): Promise<void> {
   // 不入存档快照 / 走 IndexedDB 的额外清理：
   try { clearJoySessions(); } catch (e) { logWarn('clearProgress:joy', e); }      // 欢愉宫情欲值/私密/聊天（独立 store，不入快照；保留名册/预设/API）
   try { useDbAdvance.getState().clearRuntime(); } catch (e) { logWarn('clearProgress:dbadvance', e); }   // 数据库推进桌面态现已持久化：新游戏须清运行态（保留预设/开关），否则新档带着上一局的表
-  try { await clearAllImg(); } catch (e) { logWarn('clearProgress:images', e); }  // IndexedDB 头像/装备图
+  try { await clearSnapshotDomainImages(); } catch (e) { logWarn('clearProgress:images', e); }  // IndexedDB 随档进度图（头像/物品/地点/衣柜·含内存缓存）；joy/enhance/shop 全局配置图保留——名册与店铺定义本就跨新游戏保留，此前无差别 clearAllImg 清成「人还在图没了」（2026-08-11 修）
   try { await resetEventCoresIdb(); } catch (e) { logWarn('clearProgress:cores', e); }   // 阶段1：清空事件核心 IDB（NPC/物品/货币影子账本·搬去 IndexedDB 后）
   // 注：不在此清向量库（drpg-factvec）——它是全局内容寻址缓存，清了会误伤其它存档的向量索引；
   // 残留向量不会污染任何档（召回只在当前档事实池内 cosine）。想回收空间用设置→向量记忆的「清空向量库」按钮。

@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { usePlayer, type Achievement } from '../store/playerStore';
 import { RARITY_CLS } from '../store/characterStore';
 import { useSettings, resolveApiChain } from '../store/settingsStore';
@@ -8,6 +8,8 @@ import { lenientJsonParse } from '../systems/stateParser';
 import { ACHIEVEMENT_GEN_RULE } from '../promptRules';
 import { getPrompt } from '../store/promptOverrideStore';   // 预设中心：主提示词 override
 import { buildPlayerGenContext } from '../systems/playerGenContext';
+import { sweepAchievements, buildAchvCtx, progressOf, type AchvDef, type AchvCtx } from '../systems/achievementEngine';
+import { ACHV_CATALOG } from '../systems/achievementCatalog';
 
 const CATEGORIES = ['全部', '战斗', '探索', '任务', '生存', '隐藏', '其他'];
 const CAT_OK = ['战斗', '探索', '任务', '生存', '隐藏', '其他'];
@@ -52,15 +54,28 @@ async function genAchievement(existing: Achievement[]): Promise<Omit<Achievement
   };
 }
 
-/* 成就系统（仅主角 B1）：展示已解锁成就，固定格式
-   id|名称|说明|分类|类型|稀有度|是否隐藏|解锁条件|解锁时间。成就不计入叙事记忆注入。 */
+/* 成就系统（仅主角 B1）：
+   - 「已解锁」＝落档成就列表（叙事解锁 + 设施发放 + 图鉴自动解锁 + AI 生成），固定格式，成就不计入叙事记忆注入；
+   - 「图鉴」＝声明式成就目录（achievementCatalog·借鉴V3.2）：锁定态显示条件与进度、隐藏成就打码，打开面板即扫描自动解锁。 */
 export default function AchievementPanel({ onClose }: { onClose: () => void }) {
   const achievements = usePlayer((s) => s.achievements);
   const removeAchievement = usePlayer((s) => s.removeAchievement);
   const addAchievement = usePlayer((s) => s.addAchievement);
+  const [view, setView] = useState<'unlocked' | 'codex'>('unlocked');
   const [cat, setCat] = useState('全部');
   const [gening, setGening] = useState(false);
   const [msg, setMsg] = useState('');
+
+  // 打开面板即扫描一次（幂等·零API）；有新解锁就提示
+  useEffect(() => {
+    const names = sweepAchievements();
+    if (names.length) setMsg(`✓ 图鉴自动解锁 ${names.length} 条：${names.join('、')}`);
+  }, []);
+
+  // 图鉴进度快照：面板打开时取一次即可（成就列表本身是响应式的）
+  const ctx = useMemo<AchvCtx>(() => buildAchvCtx(), []);
+  const unlockedIds = useMemo(() => new Set(achievements.map((a) => a.id)), [achievements]);
+  const codexUnlocked = ACHV_CATALOG.filter((d) => unlockedIds.has(d.id)).length;
 
   const filtered = (cat === '全部' ? achievements : achievements.filter((a) => a.category === cat))
     .slice().sort((a, b) => (b.addedAt ?? 0) - (a.addedAt ?? 0));
@@ -93,7 +108,7 @@ export default function AchievementPanel({ onClose }: { onClose: () => void }) {
             <div className="flex items-center gap-2">
               <span className="text-lg">🏆</span>
               <h2 className="text-base font-bold text-slate-100">成就系统</h2>
-              <span className="text-[13px] font-mono text-dim/50">已解锁 {achievements.length}</span>
+              <span className="text-[13px] font-mono text-dim/50">已解锁 {achievements.length} · 图鉴 {codexUnlocked}/{ACHV_CATALOG.length}</span>
             </div>
             <p className="text-[13px] text-dim/60 mt-0.5">主角达成的成就；成就不计入叙事记忆注入。</p>
           </div>
@@ -116,9 +131,17 @@ export default function AchievementPanel({ onClose }: { onClose: () => void }) {
           </div>
         )}
 
-        {/* 分类筛选 */}
-        <div className="px-4 py-2 border-b border-edge/60 shrink-0 flex flex-wrap gap-1.5">
-          {CATEGORIES.map((c) => (
+        {/* 视图切换 + 分类筛选 */}
+        <div className="px-4 py-2 border-b border-edge/60 shrink-0 flex flex-wrap items-center gap-1.5">
+          <div className="flex rounded-lg border border-edge overflow-hidden mr-2">
+            {([['unlocked', '已解锁'], ['codex', '图鉴']] as const).map(([v, label]) => (
+              <button key={v} onClick={() => setView(v)}
+                className={`text-[13px] font-mono px-2.5 py-0.5 transition-colors ${view === v ? 'bg-god/15 text-god' : 'text-dim/60 hover:text-slate-200'}`}>
+                {label}
+              </button>
+            ))}
+          </div>
+          {view === 'unlocked' && CATEGORIES.map((c) => (
             <button key={c} onClick={() => setCat(c)}
               className={`text-[13px] font-mono px-2 py-0.5 rounded border transition-colors ${
                 cat === c ? 'border-god/50 text-god bg-god/10' : 'border-edge text-dim/60 hover:text-slate-200'
@@ -129,10 +152,13 @@ export default function AchievementPanel({ onClose }: { onClose: () => void }) {
         </div>
 
         <div className="flex-1 overflow-y-auto p-4 space-y-2.5">
-          {filtered.length === 0 && (
-            <div className="text-center text-dim/40 text-sm py-12">暂无成就。成就会在剧情达成条件时由叙事自动解锁。</div>
+          {view === 'unlocked' && filtered.length === 0 && (
+            <div className="text-center text-dim/40 text-sm py-12">暂无成就。剧情达成时会由叙事解锁，也可到「图鉴」查看可冲刺的目标。</div>
           )}
-          {filtered.map((a) => <AchievementCard key={a.id} a={a} onDelete={() => removeAchievement(a.id)} />)}
+          {view === 'unlocked' && filtered.map((a) => <AchievementCard key={a.id} a={a} onDelete={() => removeAchievement(a.id)} />)}
+          {view === 'codex' && ACHV_CATALOG.map((d) => (
+            <CodexCard key={d.id} d={d} unlocked={unlockedIds.has(d.id)} ctx={ctx} />
+          ))}
         </div>
       </div>
     </div>
@@ -141,6 +167,7 @@ export default function AchievementPanel({ onClose }: { onClose: () => void }) {
 
 function AchievementCard({ a, onDelete }: { a: Achievement; onDelete: () => void }) {
   const cls = RARITY_CLS[a.rarity] ?? 'border-edge text-slate-300';
+  const quip = a.id.startsWith('cat_') ? ACHV_CATALOG.find((d) => d.id === a.id)?.quip : undefined;
   return (
     <div className={`rounded-xl border p-3 space-y-1.5 bg-panel ${cls}`}>
       <div className="flex items-center gap-2">
@@ -150,6 +177,7 @@ function AchievementCard({ a, onDelete }: { a: Achievement; onDelete: () => void
         {a.rarity && <span className={`text-[12px] font-mono font-bold shrink-0 ${cls.split(' ').slice(1).join(' ')}`}>{a.rarity}</span>}
       </div>
       {a.desc && <div className="text-[13px] text-dim/75 leading-relaxed">{a.desc}</div>}
+      {quip && <div className="text-[12px] text-god/70 leading-relaxed">「{quip}」</div>}
       <div className="flex flex-wrap gap-x-3 gap-y-0.5 text-[12px] font-mono text-dim/55">
         {a.category && <span className="text-sky-300/70">分类:{a.category}</span>}
         {a.type && <span className="text-amber-300/70">类型:{a.type}</span>}
@@ -157,9 +185,61 @@ function AchievementCard({ a, onDelete }: { a: Achievement; onDelete: () => void
         <span className="text-dim/30">{a.id}</span>
       </div>
       {a.condition && <div className="text-[12px] text-dim/50 leading-relaxed">达成条件·{a.condition}</div>}
-      <div className="flex justify-end">
-        <button onClick={onDelete} className="text-[12px] font-mono text-blood/60 hover:text-blood transition-colors">删除</button>
+      {/* 图鉴成就（cat_）达标即确定性重授，删了下回合又回来——不给删除入口免得困惑 */}
+      {!a.id.startsWith('cat_') && (
+        <div className="flex justify-end">
+          <button onClick={onDelete} className="text-[12px] font-mono text-blood/60 hover:text-blood transition-colors">删除</button>
+        </div>
+      )}
+    </div>
+  );
+}
+
+/* 图鉴条目：解锁=彩色卡+趣评；锁定=灰卡+条件+进度条；隐藏且未解锁=全打码 */
+function CodexCard({ d, unlocked, ctx }: { d: AchvDef; unlocked: boolean; ctx: AchvCtx }) {
+  if (!unlocked && d.hidden) {
+    return (
+      <div className="rounded-xl border border-edge/60 p-3 bg-panel/50 opacity-70">
+        <div className="flex items-center gap-2">
+          <span className="text-base grayscale">🔒</span>
+          <span className="flex-1 font-semibold text-sm text-dim/60">？？？</span>
+          <span className="text-[11px] font-mono px-1.5 py-0.5 rounded border border-purple-500/30 text-purple-300/60 shrink-0">隐藏成就</span>
+        </div>
+        <div className="text-[12px] text-dim/40 mt-1">达成后揭晓。</div>
       </div>
+    );
+  }
+  if (!unlocked) {
+    const p = progressOf(d, ctx);
+    return (
+      <div className="rounded-xl border border-edge/70 p-3 space-y-1.5 bg-panel/60 opacity-80">
+        <div className="flex items-center gap-2">
+          <span className="text-base grayscale">🏅</span>
+          <span className="flex-1 font-semibold text-sm text-slate-300 truncate">{d.name}</span>
+          <span className="text-[12px] font-mono text-dim/50 shrink-0">{d.rarity}</span>
+        </div>
+        <div className="text-[12px] text-dim/55 leading-relaxed">达成条件·{d.condition}</div>
+        <div className="flex items-center gap-2">
+          <div className="flex-1 h-1.5 rounded bg-edge/50 overflow-hidden">
+            <div className="h-full bg-god/50 transition-all" style={{ width: `${Math.round(p.pct * 100)}%` }} />
+          </div>
+          <span className="text-[11px] font-mono text-dim/50 shrink-0">{p.cur}/{p.target}</span>
+        </div>
+      </div>
+    );
+  }
+  const cls = RARITY_CLS[d.rarity] ?? 'border-edge text-slate-300';
+  return (
+    <div className={`rounded-xl border p-3 space-y-1.5 bg-panel ${cls}`}>
+      <div className="flex items-center gap-2">
+        <span className="text-base">🏅</span>
+        <span className="flex-1 font-semibold text-sm text-slate-100 truncate">{d.name}</span>
+        {d.hidden && <span className="text-[11px] font-mono px-1.5 py-0.5 rounded border border-purple-500/40 text-purple-300/80 shrink-0">🔒隐藏</span>}
+        <span className={`text-[12px] font-mono font-bold shrink-0 ${cls.split(' ').slice(1).join(' ')}`}>{d.rarity}</span>
+        <span className="text-[12px] text-emerald-300/80 shrink-0">✓</span>
+      </div>
+      <div className="text-[13px] text-dim/75 leading-relaxed">{d.desc}</div>
+      {d.quip && <div className="text-[12px] text-god/70 leading-relaxed">「{d.quip}」</div>}
     </div>
   );
 }

@@ -166,6 +166,8 @@ interface JoyState {
   sessions: Record<string, JoySession>;
   currentGirlId: string | null;
   worldBooks: WorldBook[];   // 欢愉宫专用世界书（内置5本从 public/joy-worldbooks 加载 + 用户导入；蓝灯常驻/绿灯关键词注入）
+  selectedPlays: string[];   // 🎲玩法菜单：勾选的玩法名（≤3·借鉴V3.2按选注入——每轮发送拼单块注入，清空即移除；库在 public/joy-plays.json）
+  setSelectedPlays: (names: string[]) => void;
 
   joyApi: ApiConfig;
   joyUseSharedApi: boolean;
@@ -214,6 +216,8 @@ export const useJoy = create<JoyState>()(
       sessions: {},
       currentGirlId: null,
       worldBooks: [],
+      selectedPlays: [],
+      setSelectedPlays: (names) => set({ selectedPlays: (names ?? []).slice(0, 3) }),
 
       joyApi: {
         baseUrl: 'https://api.openai.com/v1', apiKey: '', modelId: 'gpt-4o-mini',
@@ -388,6 +392,7 @@ export const useJoy = create<JoyState>()(
         joyApi: s.joyApi,
         joyUseSharedApi: s.joyUseSharedApi,
         worldBooks: (s.worldBooks ?? []).filter((b: any) => !b.builtin),   // 内置书不存(每次从 public 重载)，只持久化用户导入/改过的
+        selectedPlays: s.selectedPlays ?? [],   // 🎲玩法菜单勾选（老档缺省由 merge 的 ...current 兜 []）
       }),
       merge: (persisted: any, current) => {
         const pg = persisted?.settings?.girls;

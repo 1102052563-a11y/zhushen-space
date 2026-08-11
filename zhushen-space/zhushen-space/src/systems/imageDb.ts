@@ -1,6 +1,8 @@
 /* ════════════════════════════════════════════
    图片专用 IndexedDB（drpg-images）——头像/装备图体积大，放这里而不是 localStorage(5MB上限)。
-   key→dataURL。key 规则：player / npc:<id> / item:<itemId> / npcitem:<ownerId>:<itemId>
+   key→值（dataURL；shop-* 域为 dataURL 的 JSON 数组）。key 两域清单见 imageSync 文件头：
+   快照域 player/npc:/item:/npcitem:/map:/outfit:（读档先清后回填、新游戏清空）
+   + 全局配置域 joy-girl:/enhance-boss:/shop-*:（名册/店铺定义不随档回滚，读档/新游戏保留）
 ════════════════════════════════════════════ */
 const DB_NAME = 'drpg-images';
 const STORE = 'img';
@@ -86,6 +88,24 @@ export async function clearAllImg(): Promise<void> {
     tx.objectStore(STORE).clear();
     tx.oncomplete = () => resolve();
     tx.onerror = () => resolve();
+  });
+}
+
+/** 按谓词删除一批图（读档/新游戏的**按域清理**用：只清存档快照域，joy-girl:/enhance-boss:/shop-*:
+    等全局配置域的图保留——此前无差别 clearAllImg 会把「名册/店铺还在」的立绘一并清光，见 imageSync.isSnapshotImageKey）。 */
+export async function clearImagesWhere(pred: (key: string) => boolean): Promise<void> {
+  const d = await db();
+  return new Promise((resolve) => {
+    let tx: IDBTransaction; try { tx = d.transaction(STORE, 'readwrite'); } catch { return resolve(); }
+    const cur = tx.objectStore(STORE).openCursor();
+    cur.onsuccess = () => {
+      const c = cur.result; if (!c) return;
+      if (pred(String(c.key))) c.delete();
+      c.continue();
+    };
+    tx.oncomplete = () => resolve();
+    tx.onerror = () => resolve();
+    tx.onabort = () => resolve();
   });
 }
 

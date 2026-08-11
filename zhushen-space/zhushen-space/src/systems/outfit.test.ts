@@ -130,4 +130,27 @@ describe('衣柜（穿搭预设）', () => {
     expect(inj[0].content).toContain('outfit.角色ID = 穿搭名');
     expect(inj[0].content).toContain('「常服」[日常]');
   });
+
+  it('每日随机换装：同日幂等、只动开了 autoDaily 的角色、候选剔除已删穿搭', () => {
+    const s = useOutfits.getState();
+    const a = s.addOutfit('B1', { name: '甲', desc: 'a', tags: '', imageTags: '' });
+    const b = s.addOutfit('B1', { name: '乙', desc: 'b', tags: '', imageTags: '' });
+    s.setActive('B1', a);
+    s.toggleRandomPool('B1', a);
+    s.toggleRandomPool('B1', b);
+    // 没开 autoDaily → 不动
+    expect(useOutfits.getState().runDailyRandom('3-1')).toHaveLength(0);
+    expect(useOutfits.getState().byChar['B1'].activeId).toBe(a);
+    // 开了 → 换一套（两套候选时必换到另一套）
+    s.setAutoDaily('B1', true);
+    const changed = useOutfits.getState().runDailyRandom('3-2');
+    expect(changed).toHaveLength(1);
+    expect(useOutfits.getState().byChar['B1'].activeId).toBe(b);
+    // 同日再调 → 幂等不动
+    expect(useOutfits.getState().runDailyRandom('3-2')).toHaveLength(0);
+    // 候选里的穿搭被删 → 剔除后无可换不炸
+    s.removeOutfit('B1', a);
+    s.removeOutfit('B1', b);
+    expect(useOutfits.getState().runDailyRandom('3-3')).toHaveLength(0);
+  });
 });

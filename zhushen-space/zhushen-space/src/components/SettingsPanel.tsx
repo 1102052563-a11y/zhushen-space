@@ -31,6 +31,7 @@ import CosmosManager from './CosmosManager';
 import MemoryManager from './MemoryManager';
 import MiscManager from './MiscManager';
 import QuestManager from './QuestManager';
+import MapManager from './MapManager';
 import DiceManager from './DiceManager';
 import CombatManager from './CombatManager';
 import ArenaManager from './ArenaManager';
@@ -56,7 +57,7 @@ interface SettingsPanelProps {
   initialPage?: string;         // P4·空态深链：面板经 navBus.openSettingsPage 请求直达的子页（如 'arena-manager'）
 }
 
-type Page = 'home' | 'world-detail' | 'textgen-detail' | 'regex-detail' | 'general' | 'variables' | 'table-manager' | 'item-manager' | 'player-manager' | 'npc-manager' | 'pet-manager' | 'entry-judge-manager' | 'faction-manager' | 'territory-manager' | 'team-manager' | 'cosmos-manager' | 'memory-manager' | 'misc-manager' | 'quest-manager' | 'channel-manager' | 'novelvec-manager' | 'codex-manager' | 'dice-manager' | 'combat-manager' | 'arena-manager' | 'enhance-manager' | 'skilltree-manager' | 'subprof-manager' | 'joy-manager' | 'casino-manager' | 'abyss-manager' | 'craft-manager' | 'narrative-memory' | 'vector-memory' | 'image-gen' | 'appearance' | 'prompt-center';
+type Page = 'home' | 'world-detail' | 'textgen-detail' | 'regex-detail' | 'general' | 'variables' | 'table-manager' | 'item-manager' | 'player-manager' | 'npc-manager' | 'pet-manager' | 'entry-judge-manager' | 'faction-manager' | 'territory-manager' | 'team-manager' | 'cosmos-manager' | 'memory-manager' | 'misc-manager' | 'quest-manager' | 'map-manager' | 'channel-manager' | 'novelvec-manager' | 'codex-manager' | 'dice-manager' | 'combat-manager' | 'arena-manager' | 'enhance-manager' | 'skilltree-manager' | 'subprof-manager' | 'joy-manager' | 'casino-manager' | 'abyss-manager' | 'craft-manager' | 'narrative-memory' | 'vector-memory' | 'image-gen' | 'appearance' | 'prompt-center';
 type Tab = 'worldbook' | 'api' | 'prompt' | 'preset' | 'agent-preset' | 'global-regex' | 'preset-regex';
 
 function DetailLayout({ title, onBack, tabs, activeTab, onTab, children }: {
@@ -225,6 +226,7 @@ export default function SettingsPanel({ onClose, onOpenSaveLoad, initialPage }: 
             onOpenMemoryManager={() => setPage('memory-manager')}
             onOpenMiscManager={() => setPage('misc-manager')}
             onOpenQuestManager={() => setPage('quest-manager')}
+            onOpenMapManager={() => setPage('map-manager')}
             onOpenDiceManager={() => setPage('dice-manager')}
             onOpenCombatManager={() => setPage('combat-manager')}
             onOpenArenaManager={() => setPage('arena-manager')}
@@ -460,6 +462,23 @@ export default function SettingsPanel({ onClose, onOpenSaveLoad, initialPage }: 
         </header>
         <div className="flex-1 overflow-y-auto p-6 max-lg:p-3">
           <QuestManager />
+        </div>
+      </div>
+    );
+  }
+
+  if (page === 'map-manager') {
+    return (
+      <div className="h-[100dvh] flex flex-col bg-void text-slate-300">
+        <header className="shrink-0 h-10 flex items-center justify-between px-4 border-b border-edge bg-panel">
+          <button onClick={() => setPage('variables')} className="flex items-center gap-2 text-sm font-mono text-dim hover:text-slate-200 transition-colors">
+            ← 变量管理
+          </button>
+          <span className="text-sm font-mono text-dim">地图演化</span>
+          <div className="w-20" />
+        </header>
+        <div className="flex-1 overflow-y-auto p-6 max-lg:p-3">
+          <MapManager />
         </div>
       </div>
     );
@@ -2998,6 +3017,7 @@ const SCHED_PHASES: { key: string; label: string }[] = [
   { key: 'team', label: '冒险团演化' },
   { key: 'misc', label: '杂项演化' },
   { key: 'quest', label: '任务演化' },
+  { key: 'map', label: '地图演化' },
   { key: 'nm', label: '叙事记忆抽取' },
 ];
 function PhaseSchedSection() {
@@ -3798,6 +3818,10 @@ function AppearanceSettingsSection() {
             <label className="flex items-center gap-2 cursor-pointer select-none">
               <input type="checkbox" checked={storyStrip.almanac !== false} onChange={(e) => setStoryStrip({ almanac: e.target.checked })} className="accent-god w-4 h-4" />
               <span className="text-[13px] text-slate-300">历（未来七天）</span>
+            </label>
+            <label className="flex items-center gap-2 cursor-pointer select-none">
+              <input type="checkbox" checked={storyStrip.map !== false} onChange={(e) => setStoryStrip({ map: e.target.checked })} className="accent-god w-4 h-4" />
+              <span className="text-[13px] text-slate-300">位置（小地图）</span>
             </label>
           </div>
           <div className="text-[12px] text-dim/50 leading-relaxed">

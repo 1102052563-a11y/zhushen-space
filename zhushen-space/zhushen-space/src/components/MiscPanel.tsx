@@ -1,5 +1,6 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { useMisc, isMainQuest, type MiscTask, type QuestRing } from '../store/miscStore';
+import { useLocations, splitLocPath } from '../store/locationStore';
 import { usePlayer } from '../store/playerStore';
 import { useCharacters } from '../store/characterStore';
 import { useCalendar } from '../store/calendarStore';
@@ -7,7 +8,7 @@ import { extractMonthDay, visibleIn, sortByDate, dateLabel, upcoming, TYPE_META,
 import { latestNode, impactIndex } from '../systems/rumor';
 import { scopeOf, isSettled, OUTCOME_LABEL, visibilityOf, isEventDue, type EventVisibility } from '../systems/worldEvent';
 
-type Tab = 'tasks' | 'events' | 'rumors' | 'almanac' | 'skills';
+type Tab = 'tasks' | 'events' | 'rumors' | 'almanac' | 'skills' | 'places';
 
 /* 影响力五档 → 色阶（低→高：灰 → 石板 → 琥珀 → 橙 → 紫） */
 const IMPACT_COLOR = ['text-dim/50', 'text-slate-300', 'text-amber-300/90', 'text-orange-300', 'text-fuchsia-300'];
@@ -56,6 +57,16 @@ export default function MiscPanel({ onClose, onGenerate }: { onClose: () => void
   const upsertAlm = useCalendar((s) => s.upsert);
   const removeAlm = useCalendar((s) => s.remove);
   const [almEditing, setAlmEditing] = useState<AlmanacItem | null>(null);   // id='' 表示新增
+  // 🗺 已探索地点树（借鉴V3.2·世界作用域过滤·字典序=父在子前）
+  const locNodes = useLocations((s) => s.nodes);
+  const setLocNote = useLocations((s) => s.setNote);
+  const removeLocNode = useLocations((s) => s.removeNode);
+  const placeNodes = useMemo(
+    () => locNodes.filter((n) => n.world === (worldName || '')).sort((a, b) => (a.path < b.path ? -1 : a.path > b.path ? 1 : 0)),
+    [locNodes, worldName],
+  );
+  const [placeEditing, setPlaceEditing] = useState('');   // 正在编辑纪要的节点 path
+  const [placeNote, setPlaceNote] = useState('');
 
   const mainTasks = tasks.filter((t) => isMainQuest(t));   // 主线置顶高亮
   const sideTasks = tasks.filter((t) => !isMainQuest(t));  // 支线分组
@@ -65,6 +76,7 @@ export default function MiscPanel({ onClose, onGenerate }: { onClose: () => void
     { key: 'events', label: '世界大事', n: events.filter((e) => !isSettled(e)).length },
     { key: 'rumors', label: '📢 传闻', n: rumors.length },
     { key: 'almanac', label: '历', n: almVisible.length },
+    { key: 'places', label: '🗺 地点', n: placeNodes.length },
     { key: 'skills', label: '职业技能', n: skills.length },
   ];
 
@@ -315,6 +327,42 @@ export default function MiscPanel({ onClose, onGenerate }: { onClose: () => void
                 );
               })}
             </div>
+          )}
+
+          {/* 🗺 已探索地点（借鉴V3.2地图库·MVP足迹树）：随主角位置变化自动记录；纪要可编辑并注入正文 */}
+          {tab === 'places' && (
+            placeNodes.length === 0 ? <Empty text="本世界还没有足迹——主角的位置变化会自动记录到这里" /> : (
+              <div className="space-y-1">
+                <div className="text-[11px] font-mono text-dim/45 leading-relaxed mb-2">
+                  随主角位置自动记录（路径按 - 等分隔符分层）；纪要会随「已探索地点」注入正文，帮 AI 复用真去过的地方。删除父节点会连同子节点一起删。
+                </div>
+                {placeNodes.map((n) => {
+                  const depth = splitLocPath(n.path).length - 1;
+                  const editing = placeEditing === n.path;
+                  return (
+                    <div key={n.path} className="rounded border border-edge bg-panel/40 px-2 py-1.5" style={{ marginLeft: depth * 14 }}>
+                      <div className="flex items-center gap-2 text-[12px] font-mono flex-wrap">
+                        <span className="text-slate-200 text-[13px] font-semibold">{depth > 0 ? '└ ' : ''}{n.name}</span>
+                        {n.visits > 0 && <span className="text-dim/45">到访 {n.visits} 次</span>}
+                        <span className="text-dim/35">回合 {n.lastTurn}</span>
+                        <span className="flex-1" />
+                        <button onClick={() => { setPlaceEditing(editing ? '' : n.path); setPlaceNote(n.note); }} className="text-dim/60 hover:text-god">{editing ? '收起' : '纪要'}</button>
+                        <button onClick={() => { if (window.confirm(`删除「${n.path}」及其子地点？（再到访会重新记录）`)) removeLocNode(n.world, n.path); }} className="text-blood/50 hover:text-blood">删</button>
+                      </div>
+                      {!editing && n.note && <div className="text-[13px] text-slate-300 leading-relaxed mt-0.5">{n.note}</div>}
+                      {editing && (
+                        <div className="flex items-center gap-2 mt-1">
+                          <input value={placeNote} onChange={(e) => setPlaceNote(e.target.value.slice(0, 60))} placeholder="一句探索纪要（≤60字·会注入正文）"
+                            className="flex-1 bg-void border border-edge rounded px-2 py-1 text-[13px] text-slate-200 outline-none focus:border-god" />
+                          <button onClick={() => { setLocNote(n.world, n.path, placeNote); setPlaceEditing(''); }}
+                            className="px-2 py-1 text-[12px] font-mono border border-god/40 text-god rounded hover:bg-god/10">存</button>
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            )
           )}
 
           {tab === 'skills' && (

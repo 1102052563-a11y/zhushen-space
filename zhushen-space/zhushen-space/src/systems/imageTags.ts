@@ -82,6 +82,16 @@ Example —
 input: 寒霜之牙，匕首，蓝色，霜冻钢刃身，皮革缠柄，银制护手，刃上刻满霜纹，淡金品质
 output: dagger, curved blade, frost-blue steel, frosted edge, leather-wrapped hilt, silver guard, intricate frost engraving, runes, glowing faint blue, ornate, high quality, item focus, still life, no humans, simple background`;
 
+const SCENE_SYS = `You are an expert NovelAI/Danbooru tag-prompt engineer for anime-style LOCATION / environment concept art. Convert the given place profile (often Chinese) into ONE rich line of **discrete English danbooru tags** depicting only the place itself.
+This is NOT translation — never output a sentence. Produce **12–20 specific booru tags**, faithful to the description (prioritize the note/description text; if sparse, infer reasonably from the place name, its region and the world's genre).
+Cover: exact location type (police station/sewer entrance/clock tower/forest edge/street/hospital corridor...), architecture or terrain features, materials & colors, era/genre feel (modern ruin/fantasy town/sci-fi facility/post-apocalyptic...), weather & time-of-day mood, lighting, atmosphere matching the stated danger level (safe → warm/peaceful; dangerous → ominous/fog/decay — keep it restrained, no over-the-top effects).
+Always append: scenery, no humans, wide shot, detailed background.
+- KNOWN fictional work's location → reflect its canonical look (e.g. Raccoon City police station's grand hall).
+- Output ONLY comma-separated English tags. No Chinese, no people, no sentences, no quality/booster words, no negatives, no markdown, no explanation.
+Example —
+input: 生化危机2，浣熊市，下水道入口，场所，标签：捷径/危险，危险度4，备注：幸存者口中的近道，涌出腐臭
+output: sewer entrance, underground tunnel, rusted metal grate, dripping water, wet concrete walls, moss, grime, dim lighting, green murky haze, ominous atmosphere, urban decay, modern ruins, night, scenery, no humans, wide shot, detailed background`;
+
 async function gen(sys: string, desc: string): Promise<string> {
   if (!desc.trim()) { console.warn('[ImageTags] 描述为空，跳过标签生成'); return ''; }
   if (!tagsLlmReady()) { console.warn('[ImageTags] LLM 未配置（综合设置→生图设置→正文生图→独立 LLM 路由，或正文 API），无法翻译生图标签 → 将回退到原始字段'); return ''; }
@@ -102,3 +112,4 @@ async function gen(sys: string, desc: string): Promise<string> {
 
 export const genPortraitTags = (desc: string) => gen(PORTRAIT_SYS, desc);
 export const genEquipTags = (desc: string) => gen(EQUIP_SYS, desc);
+export const genSceneTags = (desc: string) => gen(SCENE_SYS, desc);   // 🧭 地点图（小地图节点）

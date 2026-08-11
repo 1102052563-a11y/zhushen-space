@@ -26,6 +26,7 @@ import { useTerritory } from '../store/territoryStore';
 import { useTeam } from '../store/adventureTeamStore';
 import { useCosmos } from '../store/cosmosStore';
 import { useMisc } from '../store/miscStore';
+import { useMap } from '../store/mapStore';
 import { useChannel } from '../store/channelStore';
 import { useMemory } from '../store/memoryStore';
 import { useDice } from '../store/diceStore';
@@ -254,6 +255,7 @@ const SPECS: StoreSpec[] = [
   { key: 'drpg-team',               label: '冒险团演化',   api: useTeam as any,              extract: evoExtract },
   { key: 'drpg-cosmos',             label: '万族演化',     api: useCosmos as any,            extract: evoExtract },
   { key: 'drpg-misc',               label: '杂项演化',     api: useMisc as any,              extract: evoExtract },
+  { key: 'drpg-map',                label: '地图演化',     api: useMap as any,               extract: (s: any) => ({ settings: s.settings }), apply: (cur: any, cfg: any) => ({ settings: { ...cur.settings, ...(cfg?.settings ?? {}) } }) },   // 只导配置不导图（byWorld 是本档进度）
   { key: 'drpg-channel',            label: '公共频道',     api: useChannel as any,           extract: evoExtract },
   { key: 'drpg-memory',             label: '生平压缩',     api: useMemory as any,            extract: evoExtract },
   { key: 'drpg-dice',               label: 'ROLL 点设置',  api: useDice as any,              extract: evoExtract },

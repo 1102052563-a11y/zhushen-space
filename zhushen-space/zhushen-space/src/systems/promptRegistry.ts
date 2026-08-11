@@ -11,7 +11,7 @@ import {
   ITEM_COT_RULE, PLAYER_COT_RULE, NPC_COT_RULE, ENTRY_COT_RULE,
   FACTION_COT_RULE, TERRITORY_COT_RULE, TEAM_COT_RULE,
   EQUIP_CODEX, ITEM_EVOLUTION_CODEX, PARADISE_RULES_RULE,
-  COMBAT_NARRATE_RULE, NPC_CHAT_RULE, NSFW_WRITING_RULE, NPC_TEAM_JOIN_CHAT_RULE,
+  COMBAT_NARRATE_RULE, NPC_CHAT_RULE, NSFW_WRITING_RULE, NPC_TEAM_JOIN_CHAT_RULE, INTERVIEW_RULE, TRAINING_CHAT_RULE,
   MONUMENT_EULOGY_RULE, CHOICES_FANFIC_SYSTEM, FANFIC_RULE, MINI_THEATER_RULE,
   WORLD_SETTLEMENT_RULE, WORLD_SETTLEMENT_COT_RULE, ATTR_POWER_CODEX, NPC_INDEPENDENCE_RULE, DISPOSITION_STAGE_RULE,
   NPC_SELF_NARRATION_RULE, NPC_LIFE_STORY_RULE,
@@ -24,6 +24,7 @@ import {
   CANON_INERTIA_RULE, SUXIAO_PERSONA_RULE, CANON_MISC_RULE,
   TABLE_FILL_RULE, TABLE_FILL_MANUAL_RULE,
   NPC_DECENTER_RULE, CAUSAL_WEIGHT_RULE, RUMOR_EVOLUTION_RULE, WORLD_EVENT_LIFECYCLE_RULE, WORLD_EVENT_VISIBILITY_RULE, NPC_INNER_VOICE_RULE, REPUTATION_RULE, DIPLOMACY_RULE, ECONOMY_RULE, ERA_EVOLUTION_RULE, MEMORY_TIERS_RULE,
+  NPC_SHIFT_GUARD_RULE, PROSE_BLACKLIST_RULE, POLISH_RULE, STATE_DOCTOR_RULE, ARC_PLAN_RULE, ARC_BEAT_RULE,
   AGENT_NARRATIVE_CONTRACT_RULE, AGENT_FLOW_RULE, AGENT_REVIEWER_RULE,
 } from '../promptRules';
 import { COMBAT_WRITING_GUIDE_RULE } from './combatWritingGuide';
@@ -60,6 +61,11 @@ export const PROMPT_REGISTRY: PromptEntry[] = [
   { key: 'AGENT_REVIEWER_RULE', label: 'Agent 模式 · 评稿人', group: '正文前置 / 规划', kind: 'override', def: AGENT_REVIEWER_RULE, desc: 'P2 评稿子代理：finish 前审成稿，PASS 放行 / REVISE 回喂修改意见（⚠ 首行 PASS/REVISE 协议别改坏）' },
   { key: 'CAST_BRIEF_RULE', label: '角色立场简报 · 产出', group: '正文前置 / 规划', kind: 'override', def: CAST_BRIEF_RULE, desc: '让细纲/推进按人格档案排演各角色的反应（锁人格不锁语言）' },
   { key: 'CAST_BRIEF_FOLLOW_RULE', label: '角色立场简报 · 正文遵循', group: '正文前置 / 规划', kind: 'override', def: CAST_BRIEF_FOLLOW_RULE, desc: '正文侧：怎么用简报（上限不是配额·内心不写成旁白）' },
+  { key: 'PROSE_BLACKLIST_RULE', label: '文风黑名单 · 陈词滥调禁令', group: '正文前置 / 规划', kind: 'override', def: PROSE_BLACKLIST_RULE, desc: '禁 AI 高频陈词（不是…而是…/指节泛白/嘴角勾起…）；只约束措辞不改结构模块（借鉴V3.2）' },
+  { key: 'POLISH_RULE', label: '✨ 正文校正 · 校对规则', group: '正文前置 / 规划', kind: 'override', def: POLISH_RULE, desc: '一键校正楼层正文的总规则（只改措辞不改事实；⚠改坏分段标记条款会让多段正文拼不回）（借鉴story-oracle）' },
+  { key: 'STATE_DOCTOR_RULE', label: '🩺 状态诊断 · 军医规则', group: '正文前置 / 规划', kind: 'override', def: STATE_DOCTOR_RULE, desc: '状态↔正文对账的保守补丁规则（⚠改坏「补丁:/依据:」行协议会解析不出补丁）（借鉴story-oracle）' },
+  { key: 'ARC_PLAN_RULE', label: '🧭 故事弧线 · 分拍规划', group: '正文前置 / 规划', kind: 'override', def: ARC_PLAN_RULE, desc: '把贯穿线拆成 3~5 拍的规划师规则（⚠改坏「弧名:/拍N:」行协议会解析失败）（借鉴story-oracle）' },
+  { key: 'ARC_BEAT_RULE', label: '🧭 故事弧线 · 每拍导演指令', group: '正文前置 / 规划', kind: 'override', def: ARC_BEAT_RULE, desc: '每拍现编的幕后引导指令规则（要点式·玩家优先让路条款·禁写正文）（借鉴story-oracle）' },
   // ── 各演化阶段 · 思维链（override·留空=内置默认）──
   { key: 'ITEM_COT_RULE', label: '物品演化 · 思维链', group: '演化阶段', kind: 'override', def: ITEM_COT_RULE, desc: '物品增删改的逐项自检 CoT' },
   { key: 'PLAYER_COT_RULE', label: '主角演化 · 思维链', group: '演化阶段', kind: 'override', def: PLAYER_COT_RULE, desc: '主角属性/技能/状态演化 CoT' },
@@ -76,6 +82,7 @@ export const PROMPT_REGISTRY: PromptEntry[] = [
   { key: 'WORLD_EVENT_LIFECYCLE_RULE', label: '世界事件 · 生命周期', group: '演化阶段', kind: 'override', def: WORLD_EVENT_LIFECYCLE_RULE, desc: '背景/区域各≤3 + 推进=追加脉络（不覆盖描述）+ 结算条件必填 + 三级结算（systems/worldEvent）' },
   { key: 'WORLD_EVENT_VISIBILITY_RULE', label: '世界事件 · 可见性与到期', group: '演化阶段', kind: 'override', def: WORLD_EVENT_VISIBILITY_RULE, desc: 'hidden/trace/known/direct 四档可见性 + trace 必带表象 + 秘闻知情者 + due 到期⏰催收 + eventRevealed 显露递交（P1·借鉴世界背面）' },
   { key: 'NPC_INNER_VOICE_RULE', label: 'NPC · 心声独白', group: '演化阶段', kind: 'override', def: NPC_INNER_VOICE_RULE, desc: '处境/情绪真变化时顺手更新一行内心独白（innerVoice·仅幕后视角显示·绝不进正文·P2.5 借鉴世界背面）' },
+  { key: 'NPC_SHIFT_GUARD_RULE', label: 'NPC · 变化防误读三判据', group: '演化阶段', kind: 'override', def: NPC_SHIFT_GUARD_RULE, desc: '摄像头判据（只记可拍摄行为）+ 耐用性判据（数轮后仍有用）+「＝真实动机｜不要理解为X」注解（借鉴V3.2·治一次事件写崩人设）' },
   { key: 'REPUTATION_RULE', label: '四维声誉 · 维护规则', group: '演化阶段', kind: 'override', def: REPUTATION_RULE, desc: '官方/民间/暗域/业界各6级；⚠可见性依据必填否则前端整批拒绝（无人知晓不影响公共声誉）+ 一次一档 + 最多3维（systems/reputation）' },
   { key: 'DIPLOMACY_RULE', label: '势力外交 · 八级与事件链闸门', group: '演化阶段', kind: 'override', def: DIPLOMACY_RULE, desc: '血盟→世仇八级；⚠跨≥2档必须先走完三阶段事件链否则前端回落成渐变1档；主角可调解/挑拨/代行（systems/diplomacy）' },
   { key: 'ECONOMY_RULE', label: '经济气候 · 维护规则', group: '演化阶段', kind: 'override', def: ECONOMY_RULE, desc: '相位/大宗三类/经济事件≤3；⚠物价指数由前端按公式推进(±30%封顶)，AI 只给方向与理由（systems/economy）' },
@@ -97,6 +104,8 @@ export const PROMPT_REGISTRY: PromptEntry[] = [
   { key: 'NPC_CHAT_RULE', label: '私聊 · 输出格式 / 入戏', group: '私信 / 聊天', kind: 'override', def: NPC_CHAT_RULE, desc: 'NPC 私聊的输出格式与入戏' },
   { key: 'NSFW_WRITING_RULE', label: 'NSFW 写作宪章', group: '私信 / 聊天', kind: 'override', def: NSFW_WRITING_RULE, desc: '私聊 / 欢愉宫等成人向写作规则' },
   { key: 'NPC_TEAM_JOIN_CHAT_RULE', label: '私聊 · 入团意愿', group: '私信 / 聊天', kind: 'override', def: NPC_TEAM_JOIN_CHAT_RULE, desc: '队友在私聊里处理入团 / 邀约' },
+  { key: 'INTERVIEW_RULE', label: '🎤 大采访 · 撰稿规则', group: '私信 / 聊天', kind: 'override', def: INTERVIEW_RULE, desc: '局外花絮采访的行协议与写法（借鉴V3.2·⚠改坏行前缀会让杂志排版解析失败回退纯文本）' },
+  { key: 'TRAINING_CHAT_RULE', label: '🔗 调教 · 对话与档案更新', group: '私信 / 聊天', kind: 'override', def: TRAINING_CHAT_RULE, desc: '调教对话的 <对白>/<交互>/<调教> 三块协议 + 隐私字段只增不重置铁则（⚠改坏 <调教> 字段名会让变化落不进档案）' },
   // ── 剧情选项 / 番外 ──
   { key: 'CHOICES_FANFIC_SYSTEM', label: '选项 / 番外 · 处理器底座', group: '剧情选项 / 番外', kind: 'override', def: CHOICES_FANFIC_SYSTEM, desc: '正文后幕后处理器 system 底座' },
   { key: 'FANFIC_RULE', label: '同人增强', group: '剧情选项 / 番外', kind: 'override', def: FANFIC_RULE, desc: '同人梗 / 桥段增强' },

@@ -6,9 +6,20 @@ import { apiChatFallback } from '../systems/apiChat';
 import { ADVISOR_SYSTEM_RULE } from '../promptRules';
 import ApiRoutePicker from './ApiRoutePicker';
 import {
-  parseProposals, stripProposalsForApi, applyProposal, proposalLines, buildAdvisorContext,
+  parseProposals, stripProposalsForApi, applyProposal, proposalLines, buildAdvisorContext, buildAdvisorNarrativeTail,
   KIND_META, type Proposal,
 } from '../systems/proposalCard';
+
+/* 空态示例 chips（P1-2·借鉴 story-oracle 的示例问题胶囊）：点一下填进输入框。前四条是问答向——
+   参谋窗现在带在场角色/真相/剧情坐标/最近正文上下文，能当「剧情百事通」问。 */
+const EXAMPLE_CHIPS = [
+  '现在有哪些没回收的伏笔？哪条最该动了？',
+  '她刚才为什么这样做？从人设角度帮我分析',
+  '下一步往哪推最自然？给我三个方向',
+  '当前局面帮我盘一盘：局势、风险、机会',
+  '给我设计一条三环的支线，跟现有伏笔勾上',
+  '埋一条不要太早回收的伏笔',
+];
 
 /* ══════════ 🧭 参谋（局外顾问 + 提案卡）══════════
    借鉴 ST-SevenDaysCal「构画」的「间」+ 卡片落地：在剧情之外跟 AI 商量任务/伏笔/节日怎么设计，
@@ -56,8 +67,10 @@ export default function AdvisorPanel({ onClose }: { onClose: () => void }) {
         role: m.role,
         content: m.role === 'assistant' ? stripProposalsForApi(m.content) : m.content,
       }));
+      // P1-2 问答增强：带最近正文尾巴（答「为什么/发生了什么」得看得到最近发生了什么），并声明问答职责
+      const tailTxt = await buildAdvisorNarrativeTail();
       const { content } = await apiChatFallback(chain, [
-        { role: 'system', content: `${ADVISOR_SYSTEM_RULE}\n\n【存档现状】\n${buildAdvisorContext()}` },
+        { role: 'system', content: `${ADVISOR_SYSTEM_RULE}\n补充职责：玩家问「为什么 / 现状 / 怎么办」这类问题时，直接用下方现状与最近正文作答，不必强出提案卡；只有确实要落地新东西时才给卡。\n\n【存档现状】\n${buildAdvisorContext()}${tailTxt ? `\n\n【最近正文（只读参考·仅供答题与衔接，不代表你能改正文）】\n${tailTxt}` : ''}` },
         ...history,
       ], { timeoutMs: 120000, label: '参谋' });
       push('assistant', String(content || '').trim() || '（没有内容）');
@@ -103,15 +116,14 @@ export default function AdvisorPanel({ onClose }: { onClose: () => void }) {
 
         <div className="flex-1 overflow-y-auto px-4 py-3 space-y-3">
           {msgs.length === 0 && (
-            <div className="text-[13px] text-dim/50 leading-relaxed border border-dashed border-edge rounded-xl p-4 space-y-2">
-              <div className="text-slate-300">在这里跟 AI 商量剧情之外的事——它读得到你存档的现状（任务 / 伏笔 / 历 / 时间），但**不会**碰正文。</div>
-              <div>试试：</div>
-              <ul className="space-y-0.5 pl-4 list-disc marker:text-god/40">
-                <li>「给我设计一条三环的支线，跟铁匠那条线有关」</li>
-                <li>「埋一条关于黑袍人的伏笔，别太早回收」</li>
-                <li>「把宁荣荣的生日记到历上，二月十八」</li>
-                <li>「T_1 的奖励是不是太高了？改一下」</li>
-              </ul>
+            <div className="text-[13px] text-dim/50 leading-relaxed border border-dashed border-edge rounded-xl p-4 space-y-2.5">
+              <div className="text-slate-300">在这里跟 AI 商量剧情之外的事——它读得到你存档的现状（任务 / 伏笔 / 历 / 在场角色 / 真相 / 最近正文），但**不会**碰正文。既能问「为什么 / 现状 / 怎么办」，也能让它出提案卡。</div>
+              <div className="flex flex-wrap gap-1.5">
+                {EXAMPLE_CHIPS.map((c) => (
+                  <button key={c} onClick={() => setInput(c)}
+                    className="px-2.5 py-1 rounded-full border border-god/30 text-god/80 text-[12px] hover:bg-god/10 transition-colors">{c}</button>
+                ))}
+              </div>
               <div className="text-dim/40">它给的卡片<b className="text-dim/70">不会自动生效</b>，点「应用」才写进存档。</div>
             </div>
           )}

@@ -4,8 +4,11 @@ import { useMisc } from '../store/miscStore';
 import { useTables } from '../store/tableStore';
 import { useSettings } from '../store/settingsStore';
 import { useCalendar } from '../store/calendarStore';
+import { useMap } from '../store/mapStore';
+import { usePlayer } from '../store/playerStore';
 import { pickThreads, pickQuests, weatherGlyph } from '../systems/storyStrip';
 import { extractMonthDay, visibleIn, daysFrom, sortByDate, dateLabel, TYPE_META, type AlmanacItem } from '../systems/calendar';
+import { mapWorldKey, statusLabel, type MapNode } from '../systems/mapEngine';
 
 /* ══════════ 楼层信息条（贴在最新正文末尾的一条扁条）══════════
    借鉴 ST-SevenDaysCal「构画」的楼内条：状态别锁在右侧面板里等人点，直接贴到正文底下。
@@ -17,7 +20,7 @@ import { extractMonthDay, visibleIn, daysFrom, sortByDate, dateLabel, TYPE_META,
    ⚠ 纯只读展示：不调 API、不写 store、不参与注入。伏笔的 ⚠ 与正文里 <伏笔催收> 是同一口径，
      玩家看到的「久无进展」正是这一轮 AI 收到的催收清单；历的七天格与 <当前时空> 的「临近的日子」同源。 */
 
-type Seg = 'quest' | 'thread' | 'almanac' | null;
+type Seg = 'quest' | 'thread' | 'almanac' | 'map' | null;
 
 const REL_LABEL = ['今天', '明天', '后天'];
 
@@ -47,8 +50,23 @@ const StoryStrip = memo(function StoryStrip() {
   const tasks = useMisc(useShallow((s) => s.tasks));
   const fsSheet = useTables((s) => s.tables['foreshadowing']);
   const almItems = useCalendar(useShallow((s) => s.items));
+  const mapEnabled = useMap((s) => s.settings.enabled);
+  const mapData = useMap((s) => s.byWorld[mapWorldKey(time.worldName)]);
+  const playerLoc = usePlayer((s) => s.profile.location);
   const [open, setOpen] = useState<Seg>(null);
   const [openDay, setOpenDay] = useState<number | null>(null);   // 七天格里展开的那一格（doy）
+
+  // 位置段（小地图）：当前路径面包屑 + 本区域已知场所 + 最近足迹。图空/关闭则整段不出。
+  const mapSeg = useMemo(() => {
+    if (cfg.map === false || !mapEnabled || !mapData) return null;
+    const nodes = Object.values(mapData.nodes);
+    if (!nodes.length) return null;
+    const path = mapData.currentPath;
+    const region = path[0] ? nodes.find((n) => n.kind === 'region' && (n.name === path[0] || n.aliases.includes(path[0]))) : undefined;
+    const sites: MapNode[] = region ? nodes.filter((n) => n.kind === 'site' && n.parentId === region.id && !n.archived) : [];
+    const trailNames = mapData.trail.slice(-6).map((id) => mapData.nodes[id]?.name).filter(Boolean) as string[];
+    return { path, region, sites: sites.slice(0, 8), siteTotal: sites.length, trailNames };
+  }, [cfg.map, mapEnabled, mapData]);
 
   // ⚠ 传 worldName：别的任务世界埋的伏笔不在本世界显示（口径同 <伏笔催收> 与参谋清单，见 plotThreads.threadInCurrentWorld）
   const threads = useMemo(
@@ -74,7 +92,7 @@ const StoryStrip = memo(function StoryStrip() {
   const staleN = threads.filter((t) => t.stale).length;
   const timeText = time.worldTime || time.paradiseTime;
   const showTime = cfg.time && !!(timeText || time.weather);
-  if (!showTime && !quests.length && !threads.length && !alm.items.length) return null;   // 全空 → 不打扰正文
+  if (!showTime && !quests.length && !threads.length && !alm.items.length && !mapSeg) return null;   // 全空 → 不打扰正文
 
   const toggle = (seg: Exclude<Seg, null>) => setOpen((cur) => (cur === seg ? null : seg));
   const segBtn = 'px-3 py-1.5 flex items-center gap-1.5 border-l border-edge first:border-l-0 hover:text-god transition-colors';
@@ -111,6 +129,13 @@ const StoryStrip = memo(function StoryStrip() {
             <span className="px-1 rounded bg-void/60 text-dim/80">{alm.cells ? alm.covered : alm.items.length}</span>
             {alm.cells && alm.covered > 0 && <span className="text-god/60" title="未来七天内有日子">·近</span>}
             <span className={`transition-transform ${open === 'almanac' ? 'rotate-180' : ''}`}>▾</span>
+          </button>
+        )}
+        {mapSeg && (
+          <button onClick={() => toggle('map')} className={segBtn} title="点击展开当前位置（本区域已知地点与最近足迹）">
+            <span className="text-god/70">位置</span>
+            <span className="px-1 rounded bg-void/60 text-dim/80 max-w-[7em] truncate">{mapSeg.path[1] ?? mapSeg.path[0] ?? mapSeg.region?.name ?? '—'}</span>
+            <span className={`transition-transform ${open === 'map' ? 'rotate-180' : ''}`}>▾</span>
           </button>
         )}
       </div>
@@ -188,6 +213,26 @@ const StoryStrip = memo(function StoryStrip() {
               <div className="text-dim/45">当前世界时间看不出月/日，暂不排七天；按日期列出本世界的日子：</div>
               {alm.items.map((it) => <AlmanacRow key={it.id} it={it} showDate />)}
             </>
+          )}
+        </div>
+      )}
+
+      {open === 'map' && mapSeg && (
+        <div className="border-t border-edge px-3 py-2 space-y-1.5">
+          <div className="text-slate-300 break-all">📍 {playerLoc || mapSeg.path.join(' · ') || '（位置未设定）'}</div>
+          {mapSeg.sites.length > 0 && (
+            <div className="flex flex-wrap gap-1">
+              {mapSeg.sites.map((s) => (
+                <span key={s.id} title={`${statusLabel(s.status)}${s.danger ? ` · 危险${s.danger}` : ''}${s.note ? ` · ${s.note}` : ''}`}
+                  className={`px-1.5 py-0.5 rounded border ${s.status === 'visited' ? 'border-god/30 text-god/80' : s.status === 'rumored' ? 'border-edge/60 text-dim/50 border-dashed' : 'border-edge text-dim/75'}`}>
+                  {s.name}{s.danger >= 4 ? <span className="text-blood/80">!</span> : null}
+                </span>
+              ))}
+              {mapSeg.siteTotal > mapSeg.sites.length && <span className="text-dim/40">…共 {mapSeg.siteTotal} 处</span>}
+            </div>
+          )}
+          {mapSeg.trailNames.length > 1 && (
+            <div className="text-dim/50">足迹：{mapSeg.trailNames.join(' → ')}</div>
           )}
         </div>
       )}

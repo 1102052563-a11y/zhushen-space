@@ -39,6 +39,50 @@ export function detectAutoAction(text: string): { attrKey: AttrKey } | null {
   return detectAutoActions(text)[0] ?? null;
 }
 
+/* ── 剧情选项·检定标记（借鉴V3.2检定建议表）：选项末尾的 🎲[属性·难度] ──
+   由 PLOT_CHOICES_RULE 让选项 AI 给「成败有悬念」的选项声明判定属性与难度；
+   runAutoDice 认到标记＝声明优先（跳过关键词猜测与 AI 分类·零API）。
+   可多选叠加＝一条输入可含多个标记（调用方自行截断条数）。 */
+const TAG_ATTR: Record<string, AttrKey> = { 力量: 'str', 敏捷: 'agi', 体质: 'con', 智力: 'int', 魅力: 'cha', 幸运: 'luck' };
+const TAG_DIFF: Record<string, Difficulty> = {
+  简单: '简单', 容易: '简单', 轻松: '简单',
+  普通: '普通', 中等: '普通', 一般: '普通',
+  困难: '困难', 艰难: '困难', 很难: '困难',
+  极难: '极难', 极其困难: '极难',
+  几乎不可能: '几乎不可能', 不可能: '几乎不可能', 地狱: '几乎不可能',
+};
+const CHECK_TAG_RE = /🎲\s*[[【]\s*([^\]】]{1,16}?)\s*[\]】]/g;
+
+export interface CheckTag { attrKey: AttrKey; attrLabel: string; difficulty: Difficulty }
+
+/** 解析文本里的全部检定标记（去重按 属性+难度；认不出属性的标记跳过＝宁可不roll不乱roll） */
+export function parseCheckTags(text: string): CheckTag[] {
+  const t = String(text || '');
+  const out: CheckTag[] = [];
+  const seen = new Set<string>();
+  for (const m of t.matchAll(CHECK_TAG_RE)) {
+    const parts = m[1].split(/[·、,，:：/\s]+/).map((x) => x.trim()).filter(Boolean);
+    let attrKey: AttrKey | null = null; let attrLabel = '';
+    let difficulty: Difficulty = '普通';
+    for (const p of parts) {
+      if (attrKey == null && TAG_ATTR[p]) { attrKey = TAG_ATTR[p]; attrLabel = p; continue; }
+      const d = TAG_DIFF[p];
+      if (d) difficulty = d;
+    }
+    if (!attrKey) continue;
+    const key = attrKey + '|' + difficulty;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    out.push({ attrKey, attrLabel, difficulty });
+  }
+  return out;
+}
+
+/** 剥掉文本里的全部检定标记（展示/插入纯文本用） */
+export function stripCheckTags(text: string): string {
+  return String(text || '').replace(CHECK_TAG_RE, '').replace(/[ \t]{2,}/g, ' ').trim();
+}
+
 /** 从措辞粗判相对难度（默认普通） */
 export function detectDifficulty(text: string): Difficulty {
   const t = String(text || '');

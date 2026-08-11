@@ -14,7 +14,7 @@ import {
   type AttrKey, type Difficulty, type OutcomeLevel, type DiceMode, type ResolveResult, type DiceAttrs, type EquipItemLite, type TargetedResult,
 } from './diceEngine';
 import { aiClassifyActions } from './diceJudge';
-import { detectAutoActions, detectDifficulty } from './autoDiceDetect';
+import { detectAutoActions, detectDifficulty, parseCheckTags } from './autoDiceDetect';
 
 /* ════════════════════════════════════════════
    自动检定（发送即判定）—— hybrid：关键词门 + 按行为类型判属性 + 可多行为多摇
@@ -151,10 +151,15 @@ export async function runAutoDice(text: string): Promise<AutoDiceOut | null> {
   if (/<检定结果>/.test(t)) return null;                              // 玩家已手动注入过 → 不重复
   if (/【结算任务】|【进入世界|【结束世界|【回归乐园】/.test(t)) return null;  // 系统回合跳过
   if (/【战斗结果】|已结算并写入面板/.test(t)) return null;            // 右侧⚔️战斗系统已结算的战报复盘（战斗内已骰过）→ 不再二次投骰
-  const hits = detectAutoActions(t).slice(0, 2);                     // 关键词门（多命中·最多2类）：没命中=日常/闲聊 → 不 roll
-  if (!hits.length) return null;
+  // 剧情选项·检定标记（🎲[属性·难度]·借鉴V3.2检定建议表）：选项声明的属性/难度直接生效——
+  //   声明优先：有标记就跳过关键词猜测与 AI 分类（零API），走前端确定性摇骰（含有限重掷）；
+  //   可多选叠加＝一条输入多个标记 → 各摇一次（沿用最多2条上限）。
+  const tags = parseCheckTags(t).slice(0, 2);
+  const checks: { attrKey: AttrKey; difficulty: Difficulty }[] = tags.length
+    ? tags.map((x) => ({ attrKey: x.attrKey, difficulty: x.difficulty }))
+    : detectAutoActions(t).slice(0, 2).map((h) => ({ attrKey: h.attrKey, difficulty: detectDifficulty(t) }));   // 关键词门：没命中=日常/闲聊 → 不 roll
+  if (!checks.length) return null;
 
-  const difficulty = detectDifficulty(t);
   const profile = usePlayer.getState().profile;
   const actorName = profile.name || '主角';
   const rerollMax = Math.max(0, Math.min(5, Math.floor(s.rerollOnFail || 0)));   // 有限重掷上限（仅 frontend 路径）
@@ -165,7 +170,7 @@ export async function runAutoDice(text: string): Promise<AutoDiceOut | null> {
   // ── AI 模式（ai / ai-full）：一次调用 aiClassifyActions 只做分类（属性/事件难度/目标阶级），数值由前端算死。
   //    有目标 → 目标阶级感知 resolveTargeted（DC 随目标阶级缩放·治「掳走普通人却判输」）；无目标 → 相对难度 computeAutoFe。
   //    失败 → 落到下方前端关键词确定性多摇兜底。 ──
-  if (s.judgeMode === 'ai' || s.judgeMode === 'ai-full') {
+  if (!tags.length && (s.judgeMode === 'ai' || s.judgeMode === 'ai-full')) {   // 有检定标记＝声明优先，不再让 AI 分类
     const cls = await aiClassifyActions({ actorName, action: t, playerSheet: buildPlayerSheet(), onscene: onSceneBrief() });
     if (cls.usedAI) {
       if (!cls.behaviors.length) return null;                        // AI 判无需检定 → 不注入
@@ -214,15 +219,16 @@ export async function runAutoDice(text: string): Promise<AutoDiceOut | null> {
     // AI 失败 → 前端关键词确定性兜底（下面）
   }
 
-  // ── 前端确定性（frontend 模式 / AI 失败兜底）：关键词命中的每类属性各摇一次（最多 2）。 ──
-  for (const hit of hits) {
-    const attrLabel = ATTR_LABELS[hit.attrKey];
-    let fe = computeAutoFe(hit.attrKey, difficulty);
+  // ── 前端确定性（检定标记声明 / frontend 模式 / AI 失败兜底）：每条检定各摇一次（最多 2·标记路径难度逐条独立）。 ──
+  for (const chk of checks) {
+    const attrLabel = ATTR_LABELS[chk.attrKey];
+    const difficulty = chk.difficulty;
+    let fe = computeAutoFe(chk.attrKey, difficulty);
     // 有限重掷：失败且开了重掷 → 再掷，一成功即停；全失败保留最好一次。纯前端、零 API。
     let rerolls = 0;
     while (!fe.success && rerolls < rerollMax) {
       rerolls++;
-      const next = computeAutoFe(hit.attrKey, difficulty);
+      const next = computeAutoFe(chk.attrKey, difficulty);
       if (levelRank(next.level) < levelRank(fe.level)) fe = next;
     }
     const mult = CRIT_MULT[fe.level] ?? 1;
@@ -242,4 +248,15 @@ export async function runAutoDice(text: string): Promise<AutoDiceOut | null> {
   }
   // buildCheckResultBlock 各自带服从提示，直接拼接即可（多段稍冗余但无害）。
   return cards.length ? { block: blocks.join('\n\n'), cards } : null;
+}
+
+/** 剧情选项·检定徽章的胜算预估（%）：按声明的属性/难度用当前主角面板算一次成功率。
+    确定性展示用（P 与骰点无关·不写历史）；自动检定关闭时返回 null（调用方据此隐藏徽章并剥标记）。 */
+export function checkOddsPct(attrKey: AttrKey, difficulty: Difficulty): number | null {
+  try {
+    const s = useDice.getState().settings;
+    if (!s.enabled || !s.autoMode) return null;
+    const fe = computeAutoFe(attrKey, difficulty);
+    return Math.max(0, Math.min(100, Math.round(fe.P)));
+  } catch { return null; }
 }

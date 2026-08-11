@@ -350,8 +350,8 @@ interface SettingsState {
   customOpening: string;  // 自定义开场白模板（角色创建确认后自动发送；含 ${...} 占位符，空=用内置默认）
   reading: { fontSize: number; letterSpacing: number; lineHeight: number; paraSpacing: number; fontFamily: 'default' | 'kai' | 'song'; dialogueHl: boolean; innerDim: boolean; codexHl: boolean; codexWiki: boolean };  // 正文阅读排版：字号/字间距/行距/段落间距(em)/字体 + 对话高亮(dialogueHl)/心理·旁白弱化(innerDim)/关键词悬浮图鉴(codexHl，缺省=开)/图鉴并入轮回wiki人物(codexWiki，缺省=关·含原著剧透)；默认 17/0/1.8/0.45/default/开/开/开/关
   setReading: (patch: Partial<{ fontSize: number; letterSpacing: number; lineHeight: number; paraSpacing: number; fontFamily: 'default' | 'kai' | 'song'; dialogueHl: boolean; innerDim: boolean; codexHl: boolean; codexWiki: boolean }>) => void;
-  storyStrip: { on: boolean; quest: boolean; thread: boolean; time: boolean; almanac: boolean };   // 楼层信息条（components/StoryStrip）：贴在最新正文末尾的扁条，四段=世界时间·天气 / 任务 / 伏笔 / 历(未来七天)，点某段就地展开。纯只读展示：不调 API、不写 store、不注入 AI；全段关掉即整条不出现
-  setStoryStrip: (patch: Partial<{ on: boolean; quest: boolean; thread: boolean; time: boolean; almanac: boolean }>) => void;
+  storyStrip: { on: boolean; quest: boolean; thread: boolean; time: boolean; almanac: boolean; map: boolean };   // 楼层信息条（components/StoryStrip）：贴在最新正文末尾的扁条，五段=世界时间·天气 / 任务 / 伏笔 / 历(未来七天) / 位置(小地图)，点某段就地展开。纯只读展示：不调 API、不写 store、不注入 AI；全段关掉即整条不出现
+  setStoryStrip: (patch: Partial<{ on: boolean; quest: boolean; thread: boolean; time: boolean; almanac: boolean; map: boolean }>) => void;
   uiTheme: string;  // 主题配色（整体界面色+文字色）key，见 systems/uiThemes.ts（default/solarized-light/gruvbox-light/nord/dracula…）
   setUiTheme: (v: string) => void;
   appearance: 'classic' | 'eyecare' | 'warm';  // 外观护眼色调（叠加在主题之上的暖光滤镜）：classic=关 / eyecare=柔光护眼 / warm=夜读暖光；全局固定层，pointer-events:none
@@ -862,7 +862,7 @@ export const useSettings = create<SettingsState>()(
       allowAutoEquipNpc: true,
       customOpening: '',
       reading: { fontSize: 17, letterSpacing: 0, lineHeight: 1.8, paraSpacing: 0.45, fontFamily: 'default', dialogueHl: true, innerDim: true, codexHl: true, codexWiki: false },
-      storyStrip: { on: true, quest: true, thread: true, time: true, almanac: true },
+      storyStrip: { on: true, quest: true, thread: true, time: true, almanac: true, map: true },
       uiTheme: 'default',
       appearance: 'classic',
       uiVignette: false,

@@ -5,6 +5,7 @@ import { useState, useRef } from 'react';
 import { downloadGlobalConfig, importGlobalConfig } from '../systems/configExport';
 import VariableBridge from './VariableBridge';
 import LockManager from './LockManager';
+import OracleToolsPanel from './OracleToolsPanel';   // 🔮 剧情工具集中设置页（弧线/诊断/校正/参谋·借鉴 story-oracle）
 import { useSnapshots } from '../store/snapshotStore';
 import { useSettings, type WorldDetailInjectConfig } from '../store/settingsStore';
 
@@ -198,6 +199,7 @@ export default function VariableManager({
   onOpenMemoryManager,
   onOpenMiscManager,
   onOpenQuestManager,
+  onOpenMapManager,
   onOpenDiceManager,
   onOpenCombatManager,
   onOpenArenaManager,
@@ -225,6 +227,7 @@ export default function VariableManager({
   onOpenMemoryManager?: () => void;
   onOpenMiscManager?: () => void;
   onOpenQuestManager?: () => void;
+  onOpenMapManager?: () => void;
   onOpenDiceManager?: () => void;
   onOpenCombatManager?: () => void;
   onOpenArenaManager?: () => void;
@@ -239,6 +242,8 @@ export default function VariableManager({
   onOpenSkillTreeManager?: () => void;
   onOpenSubProfManager?: () => void;
 }) {
+  // 🔮 剧情工具页：零 App 布线——本地 state 打开，overlay 渲染在本组件子树内（与其它经 App 的 onOpenXxx 卡不同）
+  const [oracleOpen, setOracleOpen] = useState(false);
   const GROUPS: { title: string; items: ModuleItem[] }[] = [
     {
       title: '演化系统',
@@ -251,6 +256,7 @@ export default function VariableManager({
         { icon: '⚔',  label: '物品管理',   desc: '背包 · 装备 · 定价',         color: 'amber',   cb: onOpenItemManager },
         { icon: '🧩', label: '杂项演化',   desc: '总结 · 大事 · 时间天气',      color: 'teal',    cb: onOpenMiscManager },
         { icon: '🎯', label: '任务演化',   desc: '主线路线图 · 推进结算 · 独立API', color: 'amber',  cb: onOpenQuestManager },
+        { icon: '🧭', label: '地图演化',   desc: '节点图 · 迷雾足迹 · 独立API',   color: 'cyan',    cb: onOpenMapManager },
         { icon: '🏛', label: '势力演化',   desc: '组织 · 帮派 · 阵营',         color: 'orange',  cb: onOpenFactionManager },
         { icon: '🏯', label: '领地演化',   desc: '主神空间个人基地',           color: 'emerald', cb: onOpenTerritoryManager },
         { icon: '🛡', label: '冒险团演化', desc: '主角自有团队',               color: 'cyan',    cb: onOpenTeamManager },
@@ -279,6 +285,12 @@ export default function VariableManager({
         { icon: '🛠', label: '副职业设置', desc: '配方星图 · AI 生成 · 独立API',  color: 'teal',    cb: onOpenSubProfManager },
         { icon: '🧰', label: '合成工坊',   desc: '门类 · 投料 · 倾向 · 合成图鉴',  color: 'teal',    cb: onOpenCraftManager },
         { icon: '💗', label: '欢愉宫',     desc: '看板娘 · 情欲值 · 四阶段',    color: 'pink',    cb: onOpenJoyManager },
+      ],
+    },
+    {
+      title: '剧情工坊',
+      items: [
+        { icon: '🔮', label: '剧情工具', desc: '故事弧线 · 状态诊断 · 正文校正 · 参谋', color: 'violet', cb: () => setOracleOpen(true) },
       ],
     },
   ];
@@ -322,6 +334,7 @@ export default function VariableManager({
           <div className="mt-3"><LockManager /></div>
         </details>
         <ConfigBackupBar />
+        {oracleOpen && <OracleToolsPanel onClose={() => setOracleOpen(false)} />}
       </div>
     </div>
   );

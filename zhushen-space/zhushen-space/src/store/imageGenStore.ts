@@ -65,6 +65,21 @@ const DEFAULT_EQUIP_TEMPLATE = `请生成一张「单件装备设定图 / 概念
 用途/效果参考：\${item_effect}
 请把以上信息转化为装备的造型、材质、颜色、纹路、比例、细节与表面处理。**世界风格自适应**：按外观描述判断该装备属于奇幻/科幻/现代/末世等何种世界并采用对应质感（金属/皮革/合金/能量/布料等），不要默认修仙仙气风。造型可信、结构合理、材质精致、工艺感明确；品阶感通过材质精度/比例/线条/工艺/细节层次体现，而非夸张外形或大面积特效。若该装备**来自已知同人/二次创作作品**，按原作设定的造型、配色、标志性细节准确还原。若有超凡/能量属性，只做克制的局部辉光/细小光点，不要巨大光圈或粒子爆炸。光影柔和干净有高级感。`;
 
+/* 🧭 地点图（小地图节点）：负面=无人物+通用瑕疵（英文 tags，NAI/ComfyUI 消费；OpenAI 线无负面参数自动忽略）*/
+const DEFAULT_SCENE_NEG = 'people, humans, person, 1girl, 1boy, character, portrait, crowd, lowres, worst quality, bad quality, jpeg artifacts, blurry, watermark, signature, username, logo, text, error, cropped, multiple views, abstract, unfinished';
+
+/* 自然语言地点模板（OpenAI/Gemini/自定义/chatimg 用；NAI/ComfyUI 走 genSceneTags 标签翻译不用它）*/
+const DEFAULT_SCENE_TEMPLATE = `请生成一张「场景概念图 / 地点氛围图」。画面只描绘场景环境本身，**不出现任何人物、角色、文字、水印**，地点是唯一视觉主体。构图为略带纵深的环境视角（广角或中景），光影与氛围服务于地点气质。
+地点信息（仅用于指导画面，不要把字段名画进画面）：
+所在世界：\${world_name}
+所属区域：\${region_name}
+地点名称：\${place_name}
+地点类型：\${place_kind}
+特征标签：\${place_tags}
+氛围与危险感：\${place_mood}
+已知描述：\${place_note}
+请把以上信息转化为场景的建筑/地貌、材质、色调、光线、天气与氛围细节。**世界风格自适应**：按世界与描述判断奇幻/科幻/现代/末世等风格并采用对应质感，不要默认修仙仙气风。若该地点来自已知作品，按原作标志性场景设定准确还原。危险感高的地点用阴影、残破、雾气等克制手法表达，不要夸张特效。\${style_guide}`;
+
 /* 自然语言肖像模板（OpenAI/Gemini 等自然语言图像模型用；NAI/ComfyUI 走标签不用它）。
    占位符由角色档案字段填充，仿 fanren 的结构化组装。*/
 const DEFAULT_PORTRAIT_TEMPLATE = `请生成一张高质量的单人角色半身肖像（仅一人，胸像/半身构图，面部为视觉中心，五官清晰可辨）。
@@ -248,6 +263,11 @@ export interface ImageGenSettings {
   // 装备
   autoEquipPlayer: boolean; autoEquipNpc: boolean;
   equipTemplate: string; equipNegative: string;
+  // 🧭 地点图（小地图节点·MapPanel 手动生图）
+  sceneUsePortrait: boolean;        // 地点图沿用肖像服务
+  sceneService: ImgService;         // 关闭沿用时用
+  sceneTemplate: string;            // 自然语言地点模板（OpenAI/Gemini/自定义/chatimg 用；NAI/ComfyUI 走 genSceneTags 标签）
+  sceneNegative: string;            // 地点负面（英文 tags：NAI/ComfyUI 消费；OpenAI 线忽略）
   // 画风预设
   activeStyleId: string;
   // 正文配图
@@ -304,6 +324,7 @@ export const useImageGen = create<ImageGenState>()(
       portraitPositive: DEFAULT_STYLES[0].portraitPositive, portraitNegative: DEFAULT_STYLES[0].portraitNegative,
       portraitTemplate: DEFAULT_PORTRAIT_TEMPLATE, styleGuide: DEFAULT_STYLES[0].styleGuide,
       autoEquipPlayer: false, autoEquipNpc: false, equipTemplate: DEFAULT_EQUIP_TEMPLATE, equipNegative: DEFAULT_EQUIP_NEG,
+      sceneUsePortrait: true, sceneService: 'nai', sceneTemplate: DEFAULT_SCENE_TEMPLATE, sceneNegative: DEFAULT_SCENE_NEG,
       activeStyleId: 'nai-anime',
       autoStory: false, storyProgressive: false, storyImageCount: 4, storySize: 'inherit', storyTemplate: DEFAULT_STORY_TEMPLATE, gptStoryTemplate: DEFAULT_GPT_STORY_TEMPLATE, storyLlmRoutes: [],
       holoParallax: true, depthProvider: 'local', depthUrl: '', depthKey: '', depthHfMirror: '', holoFlatImgs: [],
@@ -389,4 +410,8 @@ export const useImageGen = create<ImageGenState>()(
 /* 取某用途实际使用的服务 */
 export function effectiveEquipService(s: ImageGenState): ImgService {
   return s.equipUsePortrait ? s.portraitService : s.equipService;
+}
+/* 地点图（小地图）实际使用的服务 */
+export function effectiveSceneService(s: ImageGenState): ImgService {
+  return s.sceneUsePortrait ? s.portraitService : s.sceneService;
 }

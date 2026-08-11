@@ -18,14 +18,25 @@ export interface OutfitRecord {
   hasImage?: boolean;  // 有穿搭参考图（图本体在 imageDb key `outfit:<charId>:<id>`·chatimg 多模态线当参考图）
   createdAt: number;
 }
-interface CharWardrobe { outfits: OutfitRecord[]; activeId: string }   // activeId=''：不钦定（回退装备栏/外观）
+interface CharWardrobe {
+  outfits: OutfitRecord[];
+  activeId: string;        // ''：不钦定（回退装备栏/外观）
+  randomPool?: string[];   // 🎲随机候选（穿搭id·借鉴V3.2「日期变化自动随机换装」）
+  autoDaily?: boolean;     // 进入新日期时从随机候选里换上一套（默认关）
+}
 
 interface OutfitState {
   byChar: Record<string, CharWardrobe>;   // charId：B1=主角、C×=NPC
+  lastAutoDay: string;                    // 上次自动换装的日期键（M-D·防同日重复换）
   addOutfit: (charId: string, o: Omit<OutfitRecord, 'id' | 'createdAt'>) => string;
   updateOutfit: (charId: string, id: string, patch: Partial<Omit<OutfitRecord, 'id' | 'createdAt'>>) => void;
   removeOutfit: (charId: string, id: string) => void;
   setActive: (charId: string, id: string) => void;
+  toggleRandomPool: (charId: string, id: string) => void;
+  setAutoDaily: (charId: string, on: boolean) => void;
+  /** 日期变化自动随机换装：dayKey 与上次不同才动；每个开了 autoDaily 的角色从随机候选里换一套（尽量≠当前）。
+      返回 ['B1→常服', …] 供调用方打日志；幂等，可每回合调。 */
+  runDailyRandom: (dayKey: string) => string[];
   clearAll: () => void;
 }
 
@@ -33,8 +44,9 @@ const emptyWardrobe = (): CharWardrobe => ({ outfits: [], activeId: '' });
 
 export const useOutfits = create<OutfitState>()(
   persist(
-    (set): OutfitState => ({
+    (set, get): OutfitState => ({
       byChar: {},
+      lastAutoDay: '',
       addOutfit: (charId, o) => {
         const id = 'of_' + Date.now().toString(36) + Math.random().toString(36).slice(2, 5);
         set((s) => {
@@ -57,7 +69,37 @@ export const useOutfits = create<OutfitState>()(
         const w = s.byChar[charId] ?? emptyWardrobe();
         return { byChar: { ...s.byChar, [charId]: { ...w, activeId: id } } };
       }),
-      clearAll: () => set({ byChar: {} }),
+      toggleRandomPool: (charId, id) => set((s) => {
+        const w = s.byChar[charId] ?? emptyWardrobe();
+        const pool = w.randomPool ?? [];
+        const next = pool.includes(id) ? pool.filter((x) => x !== id) : [...pool, id];
+        return { byChar: { ...s.byChar, [charId]: { ...w, randomPool: next } } };
+      }),
+      setAutoDaily: (charId, on) => set((s) => {
+        const w = s.byChar[charId] ?? emptyWardrobe();
+        return { byChar: { ...s.byChar, [charId]: { ...w, autoDaily: on } } };
+      }),
+      runDailyRandom: (dayKey) => {
+        const key = String(dayKey || '').trim();
+        if (!key || key === get().lastAutoDay) return [];
+        const changed: string[] = [];
+        set((s) => {
+          const byChar = { ...s.byChar };
+          for (const [charId, w] of Object.entries(byChar)) {
+            if (!w?.autoDaily) continue;
+            const pool = (w.randomPool ?? []).filter((id) => w.outfits.some((o) => o.id === id));   // 候选里已删的穿搭剔除
+            if (!pool.length) continue;
+            const candidates = pool.length > 1 ? pool.filter((id) => id !== w.activeId) : pool;    // 尽量换一套不同的
+            const pick = candidates[Math.floor(Math.random() * candidates.length)];
+            if (!pick || pick === w.activeId) continue;
+            byChar[charId] = { ...w, activeId: pick };
+            changed.push(`${charId}→${w.outfits.find((o) => o.id === pick)?.name ?? pick}`);
+          }
+          return { byChar, lastAutoDay: key };
+        });
+        return changed;
+      },
+      clearAll: () => set({ byChar: {}, lastAutoDay: '' }),
     }),
     { name: 'drpg-outfit' },
   ),

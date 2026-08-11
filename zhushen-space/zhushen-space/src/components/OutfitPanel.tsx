@@ -2,10 +2,11 @@ import { useEffect, useRef, useState } from 'react';
 import { useOutfits, type OutfitRecord } from '../store/outfitStore';
 import { useOutfitTemplates, type OutfitTemplate } from '../store/outfitTemplateStore';
 import { putTplImg, getTplImg, delTplImg } from '../systems/outfitTemplateDb';
-import { putImg, delImg, getImg } from '../systems/imageDb';
+import { getImg } from '../systems/imageDb';
+import { outfitImgSet, outfitImgDel } from '../systems/outfitImages';   // 写/删走内存缓存+imageDb 双写——缓存并进存档快照，读档/新游戏不丢（2026-08-11）
 import { shrinkDataUrl } from '../systems/imageGen';
 import { outfitImageKey } from '../systems/outfit';
-import { generateOutfitFromEquipment } from '../systems/outfitGen';
+import { generateOutfitFromEquipment, extractOutfitFromNarrative } from '../systems/outfitGen';
 
 /* 👗 衣柜（穿搭预设）弹层——主角侧栏 / NPC 详情共用。
    激活的穿搭 = 服装单一权威源：立绘 ${attire}、正文配图 roster、漫画分镜外观锁、<钦定穿搭> 正文注入 全读它；
@@ -29,6 +30,9 @@ export default function OutfitPanel({ charId, charName, currentAttire, onClose }
   const updateOutfit = useOutfits((s) => s.updateOutfit);
   const removeOutfit = useOutfits((s) => s.removeOutfit);
   const setActive = useOutfits((s) => s.setActive);
+  const toggleRandomPool = useOutfits((s) => s.toggleRandomPool);
+  const setAutoDaily = useOutfits((s) => s.setAutoDaily);
+  const randomPool = wardrobe.randomPool ?? [];
   const [draft, setDraft] = useState<DraftOutfit>(EMPTY_DRAFT);
   const [editingId, setEditingId] = useState('');   // ''=新增模式；否则在编辑该套
   // 穿搭参考图（imageDb 按需加载）
@@ -56,6 +60,18 @@ export default function OutfitPanel({ charId, charName, currentAttire, onClose }
       setGenMsg('✓ 已按装备栏生成——检查/修改后点「＋ 添加」（或编辑态点「保存修改」）');
     } catch (e: any) { setGenMsg('✗ ' + (e?.message || String(e))); }
     setGenBusy(false);
+  }
+  // ✨ 从正文提炼穿着（借鉴V3.2）：读最近正文 → LLM 提炼该角色此刻实穿 → 回填表单
+  const [extractBusy, setExtractBusy] = useState(false);
+  async function onExtractFromNarrative() {
+    if (extractBusy) return;
+    setExtractBusy(true); setGenMsg('');
+    try {
+      const r = await extractOutfitFromNarrative(charId);
+      setDraft((d) => ({ ...d, desc: r.desc, imageTags: r.tags || d.imageTags, name: d.name || '正文提炼' }));
+      setGenMsg('✓ 已从最近正文提炼——检查/修改后点「＋ 添加」（或编辑态点「保存修改」）');
+    } catch (e: any) { setGenMsg('✗ ' + (e?.message || String(e))); }
+    setExtractBusy(false);
   }
 
   useEffect(() => {
@@ -88,7 +104,7 @@ export default function OutfitPanel({ charId, charName, currentAttire, onClose }
   function onRemove(o: OutfitRecord) {
     if (!window.confirm(`删除穿搭「${o.name}」？`)) return;
     removeOutfit(charId, o.id);
-    if (o.hasImage) void delImg(outfitImageKey(charId, o.id));
+    if (o.hasImage) void outfitImgDel(outfitImageKey(charId, o.id));
     if (editingId === o.id) { setDraft(EMPTY_DRAFT); setEditingId(''); }
   }
   function pickImage(outfitId: string) {
@@ -109,14 +125,14 @@ export default function OutfitPanel({ charId, charName, currentAttire, onClose }
         r.readAsDataURL(f);
       });
       const url = await shrinkDataUrl(raw, 768, 0.85);
-      await putImg(outfitImageKey(charId, oid), url);
+      await outfitImgSet(outfitImageKey(charId, oid), url);
       updateOutfit(charId, oid, { hasImage: true });
       setImgMap((m) => ({ ...m, [oid]: url }));
     } catch (err: any) { window.alert('参考图保存失败：' + (err?.message || String(err))); }
     setImgBusy('');
   }
   async function removeImage(o: OutfitRecord) {
-    await delImg(outfitImageKey(charId, o.id));
+    await outfitImgDel(outfitImageKey(charId, o.id));
     updateOutfit(charId, o.id, { hasImage: false });
     setImgMap((m) => { const n = { ...m }; delete n[o.id]; return n; });
   }
@@ -158,7 +174,7 @@ export default function OutfitPanel({ charId, charName, currentAttire, onClose }
     if (t.hasImage) {
       const url = tplImgMap[t.id] || (await getTplImg(t.id));
       if (url) {
-        await putImg(outfitImageKey(charId, oid), url);
+        await outfitImgSet(outfitImageKey(charId, oid), url);
         updateOutfit(charId, oid, { hasImage: true });
         setImgMap((m) => ({ ...m, [oid]: url }));
       }
@@ -192,6 +208,9 @@ export default function OutfitPanel({ charId, charName, currentAttire, onClose }
                 <input type="radio" name="of-active" checked={wardrobe.activeId === o.id} onChange={() => setActive(charId, o.id)} />
                 {imgMap[o.id] && <img src={imgMap[o.id]} alt="" className="w-8 h-8 rounded object-cover border border-edge shrink-0" />}
                 <span className="text-[13px] text-slate-200 font-semibold flex-1 truncate">{o.name}{o.tags ? <span className="text-[11px] text-dim/50 font-normal ml-1.5">[{o.tags}]</span> : null}</span>
+                <button onClick={() => toggleRandomPool(charId, o.id)}
+                  title={randomPool.includes(o.id) ? '已在每日随机候选（点击移出）' : '加入每日随机候选（配合下方「每日随机换装」开关）'}
+                  className={`text-[12px] disabled:opacity-40 ${randomPool.includes(o.id) ? 'text-amber-300' : 'text-dim/40 hover:text-amber-300'}`}>🎲</button>
                 <button onClick={() => pickImage(o.id)} disabled={imgBusy === o.id} title="上传穿搭参考图（多模态Chat线绘立绘/漫画/配图时锁服装）" className="text-[12px] text-dim/60 hover:text-god disabled:opacity-40">{imgBusy === o.id ? '⏳' : '📷'}</button>
                 {o.hasImage && <button onClick={() => { void removeImage(o); }} title="移除参考图" className="text-[12px] text-dim/60 hover:text-red-300">🚫</button>}
                 <button onClick={() => { void onSaveTemplate(o); }} title="存为模板（跨存档模板库·同名覆盖）" className="text-[12px] text-dim/60 hover:text-amber-300">⭐</button>
@@ -204,6 +223,15 @@ export default function OutfitPanel({ charId, charName, currentAttire, onClose }
           ))}
           {wardrobe.outfits.length === 0 && <div className="text-[12px] text-dim/40 text-center py-1">还没有穿搭——在下面添加第一套</div>}
         </div>
+
+        {/* 👗 每日随机换装（借鉴V3.2）：世界时间进入新的一天 → 从 🎲 候选里自动换一套 */}
+        <label className={`flex items-center gap-2 px-2 py-1.5 rounded-lg border cursor-pointer transition-colors ${wardrobe.autoDaily ? 'border-amber-500/40 bg-amber-500/5' : 'border-edge hover:border-amber-500/30'}`}>
+          <input type="checkbox" checked={!!wardrobe.autoDaily} onChange={(e) => setAutoDaily(charId, e.target.checked)} />
+          <span className="text-[13px] text-slate-200">每日随机换装</span>
+          <span className="text-[11px] text-dim/50 flex-1">
+            {randomPool.length ? `候选 ${randomPool.length} 套（给穿搭点 🎲 增删）——世界时间进入新的一天自动换上一套` : '先给至少一套穿搭点 🎲 加入候选，再开这个开关'}
+          </span>
+        </label>
         <input ref={fileRef} type="file" accept="image/*" className="hidden" onChange={(e) => { void onFile(e); }} />
 
         {/* 新增 / 编辑 */}
@@ -221,6 +249,9 @@ export default function OutfitPanel({ charId, charName, currentAttire, onClose }
             <button onClick={() => { void onGenFromEquipment(); }} disabled={genBusy}
               className="px-2 py-1 text-[12px] font-mono border border-god/30 text-god/80 rounded hover:bg-god/10 disabled:opacity-40 transition-colors"
               title="读取该角色装备栏所有已穿戴物品的外观描述，交给 LLM 整理成完整穿搭描述+英文服装标签（走「生图标签 LLM」路由）">{genBusy ? '⏳ 生成中…' : '✨ 按装备生成'}</button>
+            <button onClick={() => { void onExtractFromNarrative(); }} disabled={extractBusy}
+              className="px-2 py-1 text-[12px] font-mono border border-god/30 text-god/80 rounded hover:bg-god/10 disabled:opacity-40 transition-colors"
+              title="读最近两回合正文，让 LLM 提炼该角色此刻身上实际穿着（含正文写到的换装/损毁），回填表单（走「生图标签 LLM」路由）">{extractBusy ? '⏳ 提炼中…' : '✨ 从正文提炼'}</button>
             {(currentAttire || '').trim() && !editingId && (
               <button onClick={() => setDraft({ ...draft, desc: (currentAttire || '').trim().slice(0, 600), name: draft.name || '当前穿着' })}
                 className="px-2 py-1 text-[12px] font-mono border border-edge text-dim rounded hover:text-god transition-colors" title="把角色当前的穿着描述填进来，改改就能存成一套">⤵ 从当前穿着导入</button>

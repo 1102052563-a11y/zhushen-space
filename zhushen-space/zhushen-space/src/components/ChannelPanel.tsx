@@ -150,6 +150,13 @@ function MessageCard({ m, onBuy, onAcceptQuote, onCancel, onDetail, onReply, onJ
       {m.authorPersona && !isMine && <div className="text-[11px] font-mono text-dim/40 mb-0.5">性格·{m.authorPersona}</div>}
       <div className="text-[14px] text-slate-300 leading-relaxed"><AutoText text={m.content} /></div>
 
+      {/* 🖼 随帖分享图（如调教场景图）：点击新窗看原图 */}
+      {m.image && (
+        <a href={m.image} target="_blank" rel="noreferrer" className="block mt-1.5 w-fit">
+          <img src={m.image} alt="分享图" className="max-h-56 max-w-full rounded-lg border border-edge/60 object-contain" />
+        </a>
+      )}
+
       {/* NPC 出售帖：点击看详情（固定格式全字段）+ 一键购买 */}
       {!isMine && m.offer && (m.offer.itemName || m.offer.price) && (
         <div onClick={() => onDetail({ src: m.offer, price: m.offer!.price, currency: m.offer!.currency, fromName: m.authorName, action: canBuy ? () => onBuy(m) : undefined, actionLabel: '购买' })}

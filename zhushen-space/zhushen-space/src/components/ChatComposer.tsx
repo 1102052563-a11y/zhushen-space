@@ -1,7 +1,8 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useComposer } from '../store/composerStore';
 import { useSettings } from '../store/settingsStore';
 import { useAgentRun } from '../store/agentRunStore';
+import { rollEncounter } from '../systems/encounter';
 
 /* 主聊天输入框（2026-07-23 从 App 拆出·治打字卡顿）。
    inputValue 每键都变，留在 1.1 万行的 App 里就是每键整树重渲——拆出后打字只重渲这里。
@@ -66,6 +67,31 @@ export function ComposerTextarea({ onSend, onAddImages }: {
         </button>
       )}
     </>
+  );
+}
+
+/* 🧭 随机邂逅（借鉴V3.2 ACCIDENT_EVENTS）：抽一条赶路/偶遇氛围事件（按世界时代取池·占位符从 store 填充），
+   追加进输入框由玩家编辑后发送。零 API、事件池动态 import 不进主包。自订阅、不重渲 App。 */
+export function EncounterButton() {
+  const [rolling, setRolling] = useState(false);
+  return (
+    <button
+      onClick={async () => {
+        if (rolling) return;
+        setRolling(true);
+        try {
+          const t = await rollEncounter();
+          if (t) {
+            const cur = useComposer.getState().value;
+            useComposer.getState().fill(cur.trim() ? cur.replace(/[，,\s]+$/, '') + '，' + t : t);
+          }
+        } finally { setRolling(false); }
+      }}
+      title={'🧭 随机邂逅：抽一条赶路/偶遇氛围事件填入输入框（按当前世界时代取池，可编辑后发送；再点一次换一条）'}
+      className={`w-7 h-7 max-lg:w-9 max-lg:h-9 max-lg:order-2 flex items-center justify-center border rounded shrink-0 transition-colors text-sm text-dim border-edge hover:bg-panel2 hover:text-slate-200 ${rolling ? 'opacity-50' : 'opacity-80'}`}
+    >
+      🧭
+    </button>
   );
 }
 

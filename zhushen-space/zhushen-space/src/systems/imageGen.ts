@@ -537,6 +537,22 @@ export function buildEquipPrompt(item: { name?: string; category?: string; grade
     .replaceAll('${portrait_style}', '');
 }
 
+/* 🧭 由地图节点档案 + 地点模板拼地点生图提示词（OpenAI/Gemini 等自然语言线；NAI/ComfyUI 走 genSceneTags） */
+export function buildScenePrompt(p: { worldName?: string; regionName?: string; name?: string; kind?: string; tags?: string[]; danger?: number; note?: string }): string {
+  const s = useImageGen.getState();
+  const dg = Math.max(0, Math.min(5, p.danger ?? 0));
+  const mood = ['安全平和', '大体安全', '略有戒备', '暗藏危险', '高度危险·压抑', '致命之地·死地'][dg];
+  return s.sceneTemplate
+    .replaceAll('${world_name}', p.worldName ?? '')
+    .replaceAll('${region_name}', p.regionName ?? '')
+    .replaceAll('${place_name}', p.name ?? '')
+    .replaceAll('${place_kind}', p.kind === 'region' ? '大区域' : '场所')
+    .replaceAll('${place_tags}', (p.tags ?? []).join('、'))
+    .replaceAll('${place_mood}', `危险度${dg}（${mood}）`)
+    .replaceAll('${place_note}', p.note ?? '')
+    .replaceAll('${style_guide}', s.styleGuide ?? '');
+}
+
 /* 缩小图片 dataURL：头像/装备图存 localStorage，原图太大(1~3MB)会爆配额。
    **一律 canvas 重编码为小 JPEG**（顺带清掉 ZIP 解出的 PNG 可能带的尾部杂字节 → 修"格式不对"）。
    解码失败 = 图损坏 → **抛错**（绝不把这坨大数据塞进 localStorage，否则白占空间 + 爆配额）。*/

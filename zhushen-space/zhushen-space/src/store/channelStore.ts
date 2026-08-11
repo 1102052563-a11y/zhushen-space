@@ -67,6 +67,7 @@ export interface ChannelMessage {
   authorStrength?: string;   // 生物强度档（T0~T9，如 T3·勇士）
   kind: 'sell' | 'buy' | 'recruit' | 'seek' | 'chat' | 'intel' | 'battle' | 'system' | 'world';
   content: string;           // 帖子正文
+  image?: string;            // 🖼 随帖分享的图（小缩略 dataURL·如调教场景图分享；仅玩家发帖带）
   offer?: ChannelOffer;
   recruit?: ChannelRecruit;
   quotes?: ChannelQuote[];   // 玩家求购/出售帖收到的报价/出价列表
@@ -164,6 +165,7 @@ interface ChannelState {
   addMessages: (items: Omit<ChannelMessage, 'id' | 'postedAt'>[]) => void;
   addPlayerPost: (post: Omit<ChannelMessage, 'id' | 'postedAt'>) => string;   // 玩家发求购/出售帖，返回帖子 id
   addPlayerSpeak: (channel: ChannelKey, playerName: string, playerContent: string, replyToName?: string) => string;  // 主角发言：立即上墙，返回帖 id；replyToName=主动回复的对象
+  addPlayerImage: (channel: ChannelKey, playerName: string, content: string, image: string, authorTier?: string) => string;  // 🖼 主角晒图帖：带缩略图立即上墙（同 speak 免清理·限10），返回帖 id
   addOneSpeakReply: (channel: ChannelKey, reply: { authorName: string; authorTier?: string; authorJob?: string; authorPersona?: string; authorStrength?: string; content: string }, replyToId: string) => void;  // 一条回复，插到主角发言上方
   addQuotes: (postId: string, quotes: Omit<ChannelQuote, 'id'>[]) => void;    // 给玩家帖追加报价/出价
   removeMessage: (id: string) => void;
@@ -240,6 +242,19 @@ export const useChannel = create<ChannelState>()(
           const post: ChannelMessage = { id, channel, authorName: playerName || '主角', content: playerContent, kind: 'chat', byPlayer: true, speak: true, postedAt: Date.now(), ...(replyToName ? { replyToName } : {}) };
           let merged = [post, ...s.messages];
           const speakIds = merged.filter((m) => m.speak).map((m) => m.id);
+          if (speakIds.length > 10) { const rm = new Set(speakIds.slice(10)); merged = merged.filter((m) => !rm.has(m.id)); }
+          return { messages: merged };
+        });
+        return id;
+      },
+      addPlayerImage: (channel, playerName, content, image, authorTier) => {
+        let id = '';
+        set((s) => {
+          const max = s.messages.reduce((m, x) => Math.max(m, Number(/^M_(\d+)$/.exec(x.id)?.[1]) || 0), 0);
+          id = `M_${max + 1}`;
+          const post: ChannelMessage = { id, channel, authorName: playerName || '主角', content: content || '', image: image || undefined, kind: 'chat', byPlayer: true, speak: true, postedAt: Date.now(), ...(authorTier ? { authorTier } : {}) };
+          let merged = [post, ...s.messages];
+          const speakIds = merged.filter((m) => m.speak).map((m) => m.id);   // 带图帖同 speak 免清理，限 10（含普通发言）
           if (speakIds.length > 10) { const rm = new Set(speakIds.slice(10)); merged = merged.filter((m) => !rm.has(m.id)); }
           return { messages: merged };
         });

@@ -1,5 +1,6 @@
 import { useState, useRef, useEffect, lazy, Suspense, createContext, useContext, type ReactNode } from 'react';
 import { useNpc, type NpcRecord } from '../store/npcStore';
+import { PRIVATE_COLS, PRIVATE_KEYS } from '../systems/privateCols';   // 私密列定义（与调教系统共用·单一真相源 npc.extra）
 import { isPetLike, isCompanionTag, ownerOf } from '../systems/petEvolution';   // 宠物/召唤物专属「培养」按钮门控 + 主人登记（归属外键）
 import SkillFusionBox from './SkillFusionBox';                                 // 技能熔炉（与主角面板同一实现·熔铸对象=该NPC/宠物自己）
 import type { FusionOwner } from '../systems/skillUpgrade';
@@ -1237,23 +1238,7 @@ function PortraitTab({ npc }: { npc: NpcRecord }) {
 /* ────────── 隐秘 ────────── */
 /* 性相关列（与 NPC 演化预设「性相关列定义」一致）：汇总进「私密信息」面板，并从「自定义列」隐藏。
    列19=画像提示(imageTags) 已映射到字段、不在 extra，故不含。*/
-const PRIVATE_COLS: { key: string; label: string; alias: string; num?: boolean; inline?: boolean }[] = [
-  { key: '8',  label: '性经验',   alias: '性经验' },
-  { key: '17', label: '表性癖',   alias: '表性癖' },
-  { key: '18', label: '里性癖',   alias: '里性癖' },
-  { key: '20', label: '敏感部位', alias: '敏感部位' },
-  { key: '21', label: '性器状态', alias: '性器状态' },
-  { key: '22', label: '情欲值',   alias: '情欲值', num: true },
-  { key: '23', label: '快感值',   alias: '快感值', num: true },
-  { key: '24', label: '性观念',   alias: '性观念' },
-  // 私密补充字段（命名键，由 NPC_PRIVATE_EXTRA_RULE 生成）；inline=短枚举项，横向胶囊排列省空间
-  { key: '淫纹',     label: '淫纹',     alias: '淫纹' },
-  { key: '解锁服装', label: '解锁服装', alias: '解锁服装', inline: true },
-  { key: '独特技巧', label: '独特技巧', alias: '独特技巧' },
-  { key: '性爱姿势', label: '性爱姿势', alias: '性爱姿势', inline: true },
-  { key: '开发玩法', label: '开发玩法', alias: '开发玩法', inline: true },
-];
-const PRIVATE_KEYS = new Set(PRIVATE_COLS.flatMap((c) => [c.key, c.alias]));
+/* 性相关/私密列已抽到 systems/privateCols.ts（NPC 演化 + 私密信息版块 + 🔗调教系统 三方共用·单一真相源 npc.extra）。 */
 
 function HiddenTab({ npc }: { npc: NpcRecord }) {
   const ex = npc.extra ?? {};

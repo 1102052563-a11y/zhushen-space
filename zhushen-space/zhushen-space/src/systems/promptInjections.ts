@@ -6,6 +6,9 @@ import { useFact } from '../store/factStore';
 import { useCosmos, cosmosNameEq, cleanCosmosName, type CosmosEntity } from '../store/cosmosStore';
 import { useMisc } from '../store/miscStore';
 import { useCalendar } from '../store/calendarStore';
+import { useLocations, locationTreeLines } from '../store/locationStore';
+import { useMap } from '../store/mapStore';
+import { mapWorldKey, resolveNodeIn, serializeSceneMap, serializeWorldPois, splitLocationPath } from './mapEngine';
 import { extractMonthDay, upcoming, visibleIn, dateLabel, TYPE_META } from './calendar';
 import { usePlayer } from '../store/playerStore';
 import { useGame } from '../store/gameStore';
@@ -207,7 +210,7 @@ export function buildWorldTimeInjection(): { role: 'system'; content: string }[]
   const evBlock = evs.length ? `\n近期世界大事（背景事实·可自然呼应，勿整段复述）：\n${evs.join('\n')}` : '';
   const out: { role: 'system'; content: string }[] = [{
     role: 'system' as const,
-    content: `<当前时空>（叙事须与下列时间/世界/天气保持一致，勿自相矛盾；时间与天气由系统推进，正文勿擅自跳改）\n${bits.join(' | ')}${evBlock}${buildAlmanacLines(wt, wn)}\n</当前时空>`,
+    content: `<当前时空>（叙事须与下列时间/世界/天气保持一致，勿自相矛盾；时间与天气由系统推进，正文勿擅自跳改）\n${bits.join(' | ')}${evBlock}${buildAlmanacLines(wt, wn)}${buildLocationLines(wn)}\n</当前时空>`,
   }];
   // 🔔 显露递交（P1）：已落幕待显露的后台结果 ≤2 条作为"自然带出"候选；接没接住由回合末对账（App）判定
   const rv = buildRevealInjection(M.worldEvents || [], wn, sameWorld);
@@ -239,6 +242,20 @@ function buildAlmanacLines(worldTime: string, worldName: string): string {
   } catch { return ''; }
 }
 
+/* 🗺 已探索地点树（并进 <当前时空> 尾部·借鉴V3.2「已探索地点概览」）：让正文记得本世界去过哪些地方、
+   引用时拼出全链（如「城东-旧钟楼」），优先复用真去过的地点而非新造同名地点。
+   <2 节点 / 本世界无足迹 → 整段 ''，零 token（同临近的日子三重零成本原则）。 */
+function buildLocationLines(worldName: string): string {
+  try {
+    // 🧭 小地图接管：<当前地图> 块启用时本段让位——绝不同时出两份地名清单（两清单会互相漂移+白烧 token）
+    const mp = useMap.getState();
+    if (mp.settings.enabled && mp.settings.injectNarrative && Object.keys(mp.byWorld[mapWorldKey(worldName)]?.nodes ?? {}).length > 0) return '';
+    const lines = locationTreeLines(useLocations.getState().nodes, worldName, 24);
+    if (!lines.length) return '';
+    return `\n已探索地点（缩进表层级·括号为探索纪要；引用时拼全链如「上级-下级」；这些是主角真去过的地方，续写优先复用、勿另造同名新地点）：\n${lines.join('\n')}`;
+  } catch { return ''; }
+}
+
 /* <设施近况> 常驻一行注入：主角在各玩法设施留下的长期足迹（赌坊战绩/深渊最深层/产业），
    让正文和 NPC 对话能自然引用"这个人是赌坊常客/深渊行者/产业主"——此前这些完全游离于叙事外。
    全部空则不出块；每行都极短，预算 ≤4 行。竞技场名次已在主角卡（structuredRecall.arenaRank），不重复。 */
@@ -265,6 +282,34 @@ export function buildFacilityInjection(): { role: 'system'; content: string }[] 
     role: 'system' as const,
     content: `<设施近况>（主角在乐园各设施的长期足迹·背景事实：对话/叙事可自然引用（如赌客名声、幽冥归来者的气息、产业主身份），勿据此结算数值或重播过程）\n${lines.join('\n')}\n</设施近况>`,
   }];
+}
+
+/* 🧭 <当前地图> 注入（小地图·systems/mapEngine）：当前位置全路径 + 本区域已知场所 + 已知区域清单。
+   双重职责：①地理一致性（AI 不再发明矛盾方位/忘记三十回合前的地点）②命名权威（同一地点不得另造新名——
+   治名称漂移的注入侧防线，引擎侧防线是 resolveNodeIn 的别名吸收）。
+   地图启用时旧「已探索地点树」（buildLocationLines）自动让位，绝不出两份地名清单（防两清单漂移+省 token）。
+   target='outline' 走细纲开关（规划层同样要认地图）。空图/关闭一律 []，零 token。 */
+export function buildMapInjection(target: 'text' | 'outline' = 'text'): { role: 'system'; content: string }[] {
+  try {
+    const mp = useMap.getState();
+    if (!mp.settings.enabled) return [];
+    if (target === 'text' ? !mp.settings.injectNarrative : !mp.settings.injectOutline) return [];
+    const M = useMisc.getState();
+    const wn = mapWorldKey(M.worldName || '');
+    const data = mp.byWorld[wn];
+    if (!data || Object.keys(data.nodes).length === 0) return [];
+    const loc = (usePlayer.getState().profile.location || '').trim();
+    const segs = splitLocationPath(loc, wn);
+    const regions = Object.values(data.nodes).filter((n) => n.kind === 'region');
+    const regionNode = segs[0] ? resolveNodeIn(regions, segs[0]) : null;
+    const scene = regionNode ? serializeSceneMap(data, regionNode.id) : '';
+    const pois = serializeWorldPois(data, regionNode?.id);
+    if (!scene && !pois) return [];
+    return [{
+      role: 'system' as const,
+      content: `<当前地图>（系统维护的地理事实：叙事中的地名与相对位置须与本清单一致，同一地点**不得另造新名**；清单外的新地点可自然引入，系统会自动收录；勿据此结算任何数值）\n当前位置：${loc || wn}${regionNode ? `\n【本区域·${regionNode.name}】\n${scene || '（尚无已知场所）'}` : ''}${pois ? `\n【已知区域】${pois}` : ''}\n</当前地图>`,
+    }];
+  } catch { return []; }
 }
 
 /* <当前任务> 注入正文：主线(重·当前目标+下一步+终局，作叙事节奏锚点) + 相关支线(轻·限量)。
