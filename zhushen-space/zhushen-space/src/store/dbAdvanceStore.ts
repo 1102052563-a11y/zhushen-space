@@ -12,11 +12,18 @@ import { persist } from 'zustand/middleware';
 import { lzStorage } from '../systems/compressedStorage';   // 桌面态压缩存·不占 localStorage 配额
 import { parseDbAdvancePreset, type DbAdvancePreset } from '../systems/dbAdvancePreset';
 
+/** 等待上限夹取：15~600 秒；非法值(NaN/旧档缺省)回默认 120。管线与设置面板共用同一口径。 */
+export function clampWaitSec(v: unknown): number {
+  const n = Math.round(Number(v));
+  return Number.isFinite(n) ? Math.max(15, Math.min(600, n)) : 120;
+}
+
 interface DbAdvanceState {
   preset: DbAdvancePreset | null;   // 解析后的活动推进预设（Stitches 等）
   presetName: string;
   enabled: boolean;                 // 启用管线：正文前跑「召回→推进」规划层，产出注入正文预设
   useRecall: boolean;               // 是否跑「召回」子调用（关＝跳过·省一次调用·{{recall}} 留空）
+  waitSec: number;                  // 「召回/推进」每次子调用的等待上限(秒)——超时中止该次调用并跳过。慢速中转/思考模型总时长常超旧写死的 45s（用户报「前端已判空回、后台还在流式生成」），故做成可调；范围 15~600
   // ── 运行态（仅内存·partialize 排除持久化）──
   lastTabletop: string;             // 上轮 <tabletop> → 本轮 {{tabletop}}
   lastStage: string; lastScene: string; lastRecall: string;   // 最近产出（注入正文 + 诊断）
@@ -24,6 +31,7 @@ interface DbAdvanceState {
   importPreset: (raw: unknown, name?: string) => boolean;
   setEnabled: (v: boolean) => void;
   setUseRecall: (v: boolean) => void;
+  setWaitSec: (v: number) => void;
   setOutputs: (o: { tabletop?: string; stage?: string; scene?: string; recall?: string }) => void;
   clearRuntime: () => void;         // 清上轮产出（新剧情线/手动重置用；保留预设+配置）
   clearPreset: () => void;
@@ -33,7 +41,7 @@ interface DbAdvanceState {
 export const useDbAdvance = create<DbAdvanceState>()(
   persist(
     (set) => ({
-      preset: null, presetName: '', enabled: false, useRecall: true,
+      preset: null, presetName: '', enabled: false, useRecall: true, waitSec: 120,
       lastTabletop: '', lastStage: '', lastScene: '', lastRecall: '',
 
       importPreset: (raw, name) => {
@@ -44,6 +52,7 @@ export const useDbAdvance = create<DbAdvanceState>()(
       },
       setEnabled: (v) => set({ enabled: v }),
       setUseRecall: (v) => set({ useRecall: v }),
+      setWaitSec: (v) => set({ waitSec: clampWaitSec(v) }),
       setOutputs: (o) => set((s) => ({
         lastTabletop: o.tabletop !== undefined ? o.tabletop : s.lastTabletop,
         lastStage: o.stage !== undefined ? o.stage : s.lastStage,
@@ -59,7 +68,7 @@ export const useDbAdvance = create<DbAdvanceState>()(
       storage: lzStorage(),   // 压缩存：桌面态 tabletop 可能不小，别占 localStorage 配额（用户刚爆过 quota）
       // 预设/配置 + 运行态一起持久化，让「桌面态刷新/关开不丢」——运行态在新游戏时由 clearProgress 显式 clearRuntime 清掉
       partialize: (s) => ({
-        preset: s.preset, presetName: s.presetName, enabled: s.enabled, useRecall: s.useRecall,
+        preset: s.preset, presetName: s.presetName, enabled: s.enabled, useRecall: s.useRecall, waitSec: s.waitSec,
         lastTabletop: s.lastTabletop, lastStage: s.lastStage, lastScene: s.lastScene, lastRecall: s.lastRecall,
       }),
     },

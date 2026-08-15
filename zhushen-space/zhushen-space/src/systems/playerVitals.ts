@@ -9,7 +9,7 @@ import { playerTreeAttrBonus } from '../store/skillTreeStore';
 import { playerTeamAttrBonus, playerTeamPerkAbilities } from '../store/adventureTeamStore';
 import { withAttrDelta, effectiveAttrs } from './attrBonus';
 import { playerStatusAttrDelta } from './statusAttrs';
-import { computeMaxHp, computeMaxEp, fullMaxHp, fullMaxEp, ratioOf, computeAttrPool, realAttrMult, type AttrCoef } from './derivedStats';
+import { computeMaxHp, computeMaxEp, fullMaxHp, fullMaxEp, ratioOf, computeAttrPool, realAttrMult, npcBaseAttrs, lvFromRealm, type AttrCoef } from './derivedStats';
 import { useResource } from '../store/resourceStore';
 import { isHomeWorld } from './worldScope';
 
@@ -147,20 +147,33 @@ export function syncPlayerVitalsMax(): void {
 
 /* 手动「回满 HP/EP」（主角 + 在场/常驻队友）——纯前端确定性满血满蓝。
    设计上当前 HP/EP 忠于正文、不自动补血（auto-forcefill 被否决过）；但**玩家主动点**的回满是允许的逃生口，
-   专治"队友总是 400/4000 残疾状态、刷新也回不满"。回满到各自**当前真实上限**（主角含技能树/装备/团队；NPC 用其已算 maxHp/maxMp）。*/
+   专治"队友总是 400/4000 残疾状态、刷新也回不满"。回满到各自**当前真实上限**——主角含技能树/装备/团队；
+   NPC 现算 fullMaxHp/EP（六维+装备/技能/天赋上限加成·四阶起×5，与浮窗/详情/钳制同口径）。
+   ⚠曾按存储的 rec.maxHp 回满——那是陈旧缓存（换装/学技能后无人重算）→"回满"仍差一截、装备加成形同虚设；
+   无六维的档案才回退存储值。*/
 export function refillAllVitals(): { team: number } {
   const g = useGame.getState();
   const mh = playerMaxHp(), me = playerMaxEp();
   g.setPlayerField('maxHp', mh); g.setPlayerField('hp', mh);
   g.setPlayerField('maxMp', me); g.setPlayerField('mp', me);
   const npc = useNpc.getState();
+  const chars = useCharacters.getState().characters;
   let team = 0;
   for (const r of Object.values(npc.npcs)) {
     const rec: any = r;
     if (rec.isDead) continue;
     if (!(rec.onScene || rec.partyMember || rec.keepForever)) continue;   // 只回满在场/常驻队友，不动满世界的路人 NPC
-    const cmh = rec.maxHp ?? 0, cmm = rec.maxMp ?? 0;
-    if (cmh > 0 || cmm > 0) { npc.upsertNpc(rec.id, { hp: cmh, mp: cmm }); team++; }
+    let cmh = rec.maxHp ?? 0, cmm = rec.maxMp ?? 0;
+    const patch: Partial<import('../store/npcStore').NpcRecord> = {};
+    if (rec.attrs) {
+      const nc = chars[rec.id];
+      const eqp = (rec.items ?? []).filter((it: any) => it.equipped);
+      const rmN = realAttrMult(rec.realm, lvFromRealm(rec.realm));
+      cmh = fullMaxHp(npcBaseAttrs(rec), eqp, nc?.skills, nc?.traits, rmN, ratioOf(rec));
+      cmm = fullMaxEp(npcBaseAttrs(rec), eqp, nc?.skills, nc?.traits, rmN, ratioOf(rec));
+      patch.maxHp = cmh; patch.maxMp = cmm;   // 顺手刷新存储上限缓存（镜像表/派遣等读 rec.maxHp 的地方）
+    }
+    if (cmh > 0 || cmm > 0) { npc.upsertNpc(rec.id, { ...patch, hp: cmh, mp: cmm }); team++; }
   }
   return { team };
 }

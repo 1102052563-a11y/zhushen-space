@@ -1,6 +1,7 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { useCombat } from '../store/combatStore';
 import { buildCombatant, assembleBattle } from '../systems/combatEngine';
+import { readCombatTelemetry, telemetrySummary } from '../systems/combatTelemetry';
 import ApiRoutePicker from './ApiRoutePicker';
 
 /* 战斗系统设置页（变量管理 → ⚔️战斗系统）：开关 + 四阶段提示词预设 + 独立 API + 🧪测试战斗 */
@@ -9,6 +10,32 @@ import ApiRoutePicker from './ApiRoutePicker';
 const PHASE_FIELDS: { key: 'summaryPrompt'; label: string; hint: string }[] = [
   { key: 'summaryPrompt', label: '战斗叙事润色', hint: '战斗结束后据 BATTLE_RECORD 战报一次性润色成正文（留空=内置默认）' },
 ];
+
+/* 近期战斗遥测卡（模块级组件·打开面板时读一次 localStorage 环形记录）。 */
+function TelemetryCard({ card }: { card: string }) {
+  const list = useMemo(() => readCombatTelemetry().slice().reverse(), []);   // 最近的在前
+  const sum = useMemo(() => telemetrySummary(list), [list]);
+  if (sum.n === 0) return null;   // 没打过仗不占版面
+  return (
+    <div className={card}>
+      <div className="text-sm font-medium text-slate-200 mb-1.5">
+        📈 近期战斗 <span className="text-[11px] font-normal text-dim">（最近 {sum.n} 场 · 胜率 {sum.winRate}% · 平均 {sum.avgRounds} 回合——设计目标约 4~6 回合）</span>
+      </div>
+      <div className="max-h-40 overflow-y-auto space-y-0.5 pr-1">
+        {list.slice(0, 20).map((e, i) => (
+          <div key={`${e.at}_${i}`} className="flex items-center gap-2 text-[11px] text-slate-400">
+            <span className={e.victor === 'player' ? 'text-emerald-300' : e.victor === 'enemy' ? 'text-rose-300' : 'text-slate-500'}>
+              {e.victor === 'player' ? '胜' : e.victor === 'enemy' ? '败' : '中止'}
+            </span>
+            <span>{e.rounds} 回合</span>
+            <span className="text-dim">{e.playerTier} vs {e.enemyTier}</span>
+            <span className="truncate text-dim/80">{e.reason ?? ''}</span>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
 
 export default function CombatManager() {
   const config = useCombat((s) => s.config);
@@ -61,6 +88,9 @@ export default function CombatManager() {
           <span>手动控制队友（默认 AI 托管）</span>
         </label>
       </div>
+
+      {/* 近期战斗遥测（P5·本地环形 50 场，只读）：回合数/胜负分布，为手感调参提供真实数据 */}
+      <TelemetryCard card={card} />
 
       {/* 四阶段提示词预设 */}
       <div className={card}>

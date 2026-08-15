@@ -42,6 +42,17 @@ export interface ChargeState {
   epPerTurn: number;     // 每回合灌注的 EP
 }
 
+/* BOSS 阶段定义（通用·叙事强敌）：HP 首次跌破 hpPct 时触发一次，效果全部复用现有状态/资源机制（零新修正维度）。
+   raid 讨伐有自己的阶段引擎（checkRaidPhase·换技能组），transient 敌不吃这里的自动判定，两套互不干扰。 */
+export interface BossPhaseDef {
+  hpPct: number;        // 触发阈值（HP 占比 0~1，首次跌破触发）
+  announce: string;     // 转阶段文案（进战斗日志与战报「关键」段）
+  cleanse?: boolean;    // 清自身全部减益
+  strength?: number;    // 获得力量层数（同名状态替换=阶段档升级）
+  shieldPct?: number;   // 获得 maxHp×比例 的护盾
+  healPct?: number;     // 回复 maxHp×比例 的生命
+}
+
 /* 参战者静态统计块：建战时算一次并锚定（存档/读档据此复原，避免六维漂移影响进行中的战斗） */
 export interface CombatStatBlock {
   side: Side;
@@ -58,6 +69,7 @@ export interface CombatStatBlock {
   isTransient?: boolean;  // battleData 内联生成的未建档敌人/召唤物
   passive?: PassiveMod;        // 聚合常驻被动修正（暴击/增伤减伤/穿透/冷却/多段；buildCombatant 据技能+天赋算·系统 C）
   triggers?: CombatTrigger[];  // 聚合条件触发器（命中/受击/击杀/回合开始/防御）
+  bossPhases?: BossPhaseDef[]; // BOSS 多阶段（assembleBattle 对叙事强敌自动判定，或调用方显式传入；缺省=无）
 }
 
 /* 参战者动态运行态 */
@@ -76,6 +88,10 @@ export interface Combatant {
   charging?: ChargeState;               // 正在蓄力的大招（蓄满释放，被控制中断）
   left?: boolean;                       // 已撤退/逃离战场（不再排进出手顺序）
   lastSkillIds?: string[];              // 最近两次施放的技能 id（敌人 AI「不连放同技」读取；settleAction 维护）
+  phasesFired?: number[];               // BOSS 已触发的阶段阈值（hpPct 列表，防重复触发；随存档走）
+  firedOnce?: number[];                 // once 触发器已触发的下标（背水一战类每场一次；按聚合 triggers 数组下标记）
+  shockedOnce?: boolean;                // 感电元素反应已在本场发生过（每场每目标限一次，防控制链）
+  stats?: { dealt: number; taken: number; healed: number };   // 战斗统计累计（输出/承伤/治疗量；ended 统计卡+战报「数据=」段）
 }
 
 export interface CombatLogEntry {
@@ -111,6 +127,7 @@ export interface BattleState {
   transientEntities: Record<string, { name: string; side: Side; kind: string }>;
   activeArrays: DomainState[];                     // 已展开的领域/阵法
   battlefieldAffixes?: BattlefieldAffix[];         // 战场词缀（开战时由天气/地点确定性推导烘焙·P1 环境入数值；旧存档缺省=无）
+  maxHit?: { actorId: string; targetId: string; dmg: number; label: string };   // 最痛一击（高光时刻·进战报「最痛=」段与 ended 统计卡）
   endReason: string | null;
   victor: Side | null;
 }

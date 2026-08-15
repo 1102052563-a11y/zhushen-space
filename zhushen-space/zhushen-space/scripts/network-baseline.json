@@ -39,6 +39,7 @@
     "src/systems/guildClient.ts": 1,
     "src/systems/imageGen.ts": 4,
     "src/systems/joyGirls.ts": 1,
+    "src/systems/joyPlays.ts": 1,
     "src/systems/lunhuiChars.ts": 1,
     "src/systems/monumentCloud.ts": 2,
     "src/systems/mpClient.ts": 2,

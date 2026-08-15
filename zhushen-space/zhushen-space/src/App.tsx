@@ -181,6 +181,7 @@ import { speakText, stopTts, speakLine, resolveSpeakerVoice, useTtsSpeaking, tts
 import TtsSettings from './components/TtsSettings';
 import { combatFinalVitals, applyCombatVitals, buildCombatResultFallback, runBattleSummaryPhase } from './systems/combatHelpers';
 import { pickEnemyAction } from './systems/enemyAI';
+import { recordCombatTelemetry } from './systems/combatTelemetry';
 import { parseWeather, isLightSky, extractWeatherFxCss, sanitizeWeatherCss } from './systems/weatherFx';
 import { runNpcAutonomy } from './systems/npcAutonomy';
 import { runDispatchTick } from './systems/dispatchEngine';
@@ -338,9 +339,10 @@ import { pickTemplates, buildTheaterStyleBlock } from './systems/theaterTemplate
 import { useChannel, buildChannelSystemPrompt, CHANNEL_DEFS } from './store/channelStore';
 import { estimateFairValue, priceVerdict, formatFairRange, sumFairValues, VERDICT_LABEL } from './systems/itemPricing';
 import { applyMiscCommands, serializeTasks, serializeSettledTasks, serializeEvents, extractTurnSummaries } from './systems/miscParser';
+import { reviewQuestAdvancement } from './systems/questAdvanceReview';
 import { buildNarrativeHistory, dropRecentFromRecall, NM_COMPILE_PROMPT, NM_INGEST_PROMPT } from './systems/narrativeMemory';
 import { buildMemPool, loadAll as factVecLoadAll, ensureVectors as factVecEnsure, embedOne as factVecEmbedOne, search as factVecSearch, rerank as factVecRerank } from './systems/factVec';
-import { useDbAdvance } from './store/dbAdvanceStore';   // 数据库推进管线（Stitches 规划层）
+import { useDbAdvance, clampWaitSec } from './store/dbAdvanceStore';   // 数据库推进管线（Stitches 规划层）
 import { findModule as dbFindModule, buildModuleMessages as dbBuildMsgs, extractTag as dbExtractTag, stripExcluded as dbStripExcluded, resolveFinalDirective as dbResolveDirective, type DbAdvanceCtx } from './systems/dbAdvancePreset';
 import { serializePlayerCard, serializeNpcCard, buildNpcCandidateTitles, buildPlayerSkillCandidates, buildPlayerItemCandidates, rankNpcsLocal, pickOffsceneRescue, serializeFactionsSection, namesMentionedIn, NM_STRUCT_SELECT_PROMPT, type RecallLimits } from './systems/structuredRecall';
 import { drainSceneNotices, pushSceneNotice, drainGrowthNotices, pushFacilityGranted, drainFacilityGranted } from './systems/allocNotice';
@@ -1442,17 +1444,18 @@ const QUEST_KILL_TIER_RULE = `
 
 const TASK_RECONCILE_RULE = `
 【任务环·自适应推进铁则（带环路线图的任务专用，优先于"任务达成即整条结算"的旧理解）】对【当前任务列表】里展开了 环1/环2… 的任务，每轮据正文按下列情形维护；**单条任务每轮最多一种环操作，无明确证据则不动**：
-① 当前 active 环的目标在正文里**明确达成** → 输出 \`ringAdvance("T_x", {"summary":"<主角这一环的关键行为/结果，1~2句、具体到动作>","rating":"<S~E，按本环完成质量>"})\`（系统会把当前环标 done、记下该环的**行为总结＋评级**、把下一 planned 环转 active）。**summary/rating 每次推进都要给全**——它们会存进任务面板该环、并在玩家【结算任务】时随该环注入正文供**逐环结算**（奖励只在结算时统一发、过程中绝不发，见正文世界书「任务奖励发放时机」铁律）。**这不是结算整条任务**——多环任务达成的只是"这一环"，绝不能因为一环完成就写 \`{"5":"已完成"}\`。**路线图已锁定：推进时只发这一条 ringAdvance，不要再重发/改写整条 rings 数组、不要"补下一环"**——各环内容早在创建时一次写死了，改也会被前端忽略。（唯一例外：遇到旧档遗留的"（待…规划）"占位环、推进到它时，可用一次 \`add("T_x",{"rings":[…]})\` 把该占位环填实，填实后即锁定不再改。）
-② 主角**提前/跳跃**完成或跳过了某个尚未到的环 → **只调状态、不改内容**：用 \`add("T_x",{"rings":[{"idx":N,"status":"done"或"skipped"},…],"currentRing":M})\` 把被跨越的环标 done/skipped、把当前在做的标 active。**只发 idx+status，绝不改这些环的 goal/reward/penalty**（内容锁定，改了也会被忽略）。
+① 当前 active 环的目标在正文里**全部要件都已达成**（先过下方【逐要件清点】）→ 输出 \`ringAdvance("T_x", {"summary":"<主角这一环的关键行为/结果，1~2句、具体到动作>","rating":"<S~E，按本环完成质量>","evidence":"<逐字摘录本回合正文中证明本环目标已达成的原句（≥10字，可拼接2~3句）>"})\`（系统会把当前环标 done、记下该环的**行为总结＋评级**、把下一 planned 环转 active）。**summary/rating/evidence 每次推进都要给全**——summary/rating 会存进任务面板该环、并在玩家【结算任务】时随该环注入正文供**逐环结算**（奖励只在结算时统一发、过程中绝不发，见正文世界书「任务奖励发放时机」铁律）；**evidence 前端会逐字核验**（引用必须真实出现在本回合正文里，改写/编造/对不上=推进被驳回）。**这不是结算整条任务**——多环任务达成的只是"这一环"，绝不能因为一环完成就写 \`{"5":"已完成"}\`。**路线图已锁定：推进时只发这一条 ringAdvance，不要再重发/改写整条 rings 数组、不要"补下一环"**——各环内容早在创建时一次写死了，改也会被前端忽略。（唯一例外：遇到旧档遗留的"（待…规划）"占位环、推进到它时，可用一次 \`add("T_x",{"rings":[…]})\` 把该占位环填实，填实后即锁定不再改。）
+- **【逐要件清点·反"看半截就推"铁则（最高优先）】**推进/跳环/整条结算前，必须先在 <quest_cot> 把目标环的 goal 拆成**全部要件**（每个并列的动作/对象/条件各算一件，如"潜入据点夺回样本、并护送线人撤离"=潜入/夺回/护送 3 件），逐件引用正文原句作"**已完成级**"证据——「出发/正在/前往/计划/答应/找到线索/取得部分进展/即将/几乎」一律不算达成。**任何一件缺证据 → 本轮绝不推进，只用 add 更新 progress 把实际进展记下**（跨多回合完成的目标就靠 progress 攒进度，凑齐了再推）。**部分达成≠达成**；推进不是给玩家的"奖励"或气氛调剂——玩家没有在等你识趣，误推会污染路线图与逐环结算，比推得慢严重得多，**宁慢勿错**。（前端另有确定性推进闸＋独立复核裁判把关：证据不实或要件不全的推进会被驳回并记入仲裁日志，白费 token。）
+② 主角**提前/跳跃**完成或跳过了某个尚未到的环 → **只调状态、不改内容**：用 \`add("T_x",{"rings":[{"idx":N,"status":"done"或"skipped","goal":"<照抄该环原目标>"},…],"currentRing":M})\` 把被跨越的环标 done/skipped、把当前在做的标 active。**每个环对象须带 idx+status+goal（goal 照抄原文——缺 goal 的环对象会被前端丢弃；内容已锁定，goal/reward/penalty 写了别的也会被忽略）**。被跨越的每个环同样要过【逐要件清点】（标 skipped 的不要求达成、但须有该环作废/被绕过的剧情依据）；前端限幅：**每轮每任务最多把 1 个环翻成 done/skipped**（含把 active 指到后面环的隐式跨越，超了整组驳回）——确要跨多环就分多轮补账；**环状态单向**：done/skipped 永不回退、active 不许指回更早的环。
 ③ 某个未来环因剧情**作废/失去意义** → 把它标 \`status:"skipped"\`（同样只改状态）；**不要改写它的 goal、也不要删除它**——路线图已锁定，前端只认状态变更。
 ④ **高潮(最后一个强制环)达成＝主线达成**：**不要自动推进进贪婪环**。若该主线有贪婪环(optional:true) → 正文应向主角呈现"见好就收(主线已达成、可离场结算) / 继续赌(接受隐藏委托、进贪婪环)"的选择(附奖励预览+难度风险警告)；**仅当正文明确主角"接受/继续"才用 ringAdvance("T_x") 进贪婪环**，主角"见好就收/离场"则 add("T_x",{"5":"已完成"}) 结算。无贪婪环则高潮达成即直接结算。
 ⑤ **贪婪环**：成功给其超额奖励(再 ringAdvance 进下一贪婪环、或结算)；**失败只损失本环额外奖励、不致死、不强制抹除**，整条任务仍按"已达成"结算 add("T_x",{"5":"已完成"})。
 ⑥ 整条任务**失败/放弃**(强制环致命失败、或主角彻底放弃) → add("T_x",{"5":"已失败"}) 或 {"5":"已放弃"}。
 ⑦ **修复扁平主线（重要）**：若【当前任务列表】里当前世界的 active **主线没有 rings**（是扁平任务）→ 立即用 \`add("T_x",{...})\` **一次补全整条路线图**：现有目标作第1环(status="active")、按核心目标/finale 铺 3~12 环（强制环+贪婪环）、各环**一次写全** goal/reward(六选三)/penalty(三类)/时限(startTime~endTime≥7天)、不留占位，带 currentRing:1 与 finale。**一次补好即锁定**，此后只推进不改。支线多回合且无环者同理可补。
-- **防抖护栏（路线图锁定·铁则）**：**任务内容一经创建即锁死**——绝大多数回合主线**没有任何环指令**；只在正文给出**明确证据**时发**一条** ringAdvance（推进·带 summary/rating）或**纯状态**调整（done/skipped）；**绝不重命名/改写/增删/缩水既有环的内容与数量**（前端已强制冻结已定实的环，只接收 status/summary/rating）。唯一例外：旧档遗留的"（待…规划）"占位环，推进到时可用 add rings 一次填实（填实后同样锁定）。
+- **防抖护栏（路线图锁定·铁则）**：**任务内容一经创建即锁死**——绝大多数回合主线**没有任何环指令**；只在正文给出**明确证据**时发**一条** ringAdvance（推进·带 summary/rating/evidence）或**纯状态**调整（done/skipped）；**单条任务每轮最多一种环操作**（前端强制执行，多发的整条丢弃）；**绝不重命名/改写/增删/缩水既有环的内容与数量**（前端已强制冻结已定实的环，只接收 status/summary/rating）。唯一例外：旧档遗留的"（待…规划）"占位环，推进到时可用 add rings 一次填实（填实后同样锁定）。
 - **【已达成环·奖励保留铁则】已达成(done)环的目标与奖励(reward)一经记录即固定不变**：后续 ringAdvance/补环/重排时**只动尚未完成的环**，**绝不改写、覆盖或清空**已达成环的 reward——它是玩家闯该环时被承诺、要留到【结算任务】兑现的奖励（前端也会冻结 done 环的 goal/reward/penalty，但你也别去动它）。补新数组时若带上已达成环，**照抄其原奖励**，别留空。
 - 支线的环同理可用 \`ringAdvance\` / \`add rings\` 维护，但**优先保证主线**的环准确。
-- 【前端任务闸门·硬护栏（别输出注定被驳回的指令）】①已建档任务的**结构**（名称/描述/奖惩/时限/线别/终局/环内容）由前端锁定：改写会被驳回并记入仲裁日志，只有玩家能在面板手动编辑——你只发推进类指令（状态/progress/评级/ringAdvance/环状态）。②**新建任务每轮有配额（默认 1 条）**、在场支线有上限（默认 4 条）：满额时新建支线会被驳回——先推进/结算旧支线，别堆新任务。③\`de()\` 删除会被转为「作废」归档而非删除——任务作废就把它标 skipped/已作废，别指望删掉重建。`;
+- 【前端任务闸门·硬护栏（别输出注定被驳回的指令）】①已建档任务的**结构**（名称/描述/奖惩/时限/线别/终局/环内容）由前端锁定：改写会被驳回并记入仲裁日志，只有玩家能在面板手动编辑——你只发推进类指令（状态/progress/评级/ringAdvance/环状态）。②**新建任务每轮有配额（默认 1 条）**、在场支线有上限（默认 4 条）：满额时新建支线会被驳回——先推进/结算旧支线，别堆新任务。③\`de()\` 删除会被转为「作废」归档而非删除——任务作废就把它标 skipped/已作废，别指望删掉重建。④**环推进闸**：ringAdvance 必须带真实 evidence（前端逐字核验正文原句）；每轮每任务最多一种环操作、最多把 1 个环翻成 done/skipped；环状态单向不回退。⑤**成功结算闸**：多环任务标"已完成/达成"时，强制环必须已全部 done/skipped（唯一豁免：只差最后终局环没来得及 ringAdvance）——强制环没打完就报"已完成"会被驳回、任务保持进行中。此外每条推进/跳环/结算主张还会交给**独立复核裁判**逐要件核验正文证据，证据不足会被剔除——**与其被驳回白费 token，不如老老实实等要件凑齐**。`;
 
 const TASK_CANON_RULE = `
 【同人世界·任务接地铁则（让任务贴合原作主线脉络，而非套通用模板）】当【当前世界】是**已知虚构作品**（动漫/游戏/小说/影视等同人世界）、且【同人增强】=开时，生成或规划任务（尤其主线路线图）前先做"接地"：
@@ -1487,7 +1490,7 @@ const QUEST_PHASE_FORMAT_RULE = `
 【指令定义与输出格式（本阶段铁律）】指令一行一条，全部放进 <upstore>…</upstore> 内：
 - 新建任务：\`set({"0":"T_x","1":"任务名","2":"任务描述(当前环目标)","3":"成功奖励","4":"失败惩罚","5":"进行中","startTime":"","endTime":"","kind":"主线|支线","finale":"终局目标","currentRing":1,"rings":[…]})\`（多环字段规范见【主线路线图规划】）
 - 更新任务/调环状态：\`add("T_x", {"2":"…","5":"…","progress":"…","rings":[…],"currentRing":N})\`
-- 推进当前环：\`ringAdvance("T_x", {"summary":"…","rating":"S~E"})\`
+- 推进当前环：\`ringAdvance("T_x", {"summary":"…","rating":"S~E","evidence":"<逐字摘录本回合正文原句(≥10字)>"})\`（evidence 前端逐字核验，缺失/编造/对不上=驳回）
 - 作废无效任务：\`de("T_x")\`（系统会转「作废」归档留底，不物理删除）
 ## ID 纪律
 - 任务 ID 标准格式固定为 T_<数字> 且不补零（如 T_15）；禁止 T15 / T_015 / T_001 这类变体。
@@ -1513,10 +1516,11 @@ const QUEST_COT_RULE = `
    · 合理性：是否贴合当前世界设定/原作脉络（同人增强开时）？是否契合主角当前处境（阶位/强度/位置/身份）？难度是否符合【击杀阶位上限】（强制环≤**本世界锁定难度阶位**、贪婪环≤锁定难度+1；**基准是世界锁定难度、不是主角实时阶位**）？是否落入被禁止的"枢纽日常/框架流程"套路？是否与既有任务重复（同目标 → 优先推进既有，不另起）？
    · 类型与环：从【任务类型库】挑了哪种、为何最贴切？若为主线/多回合：环路线图为何这样排——每环规模/难度如何递增、为何指向这个 finale、强制环/贪婪环如何划分？
    · 奖惩与时限：reward 为何这样配（六选三、按环超线性、带本世界风味）？若含灵魂钱币，当前衍生世界是否≥四阶（否则违规、应改乐园币）？penalty 是否取自规范三类？时限 endTime−startTime 是否≥7天且贴合任务性质？
-   · 结算：要标"已完成/已失败"的，正文是否有明确达成/失败证据？多环任务达成的只是"当前环" → 应 ringAdvance 而非整条结算？
+   · 结算：要标"已完成/已失败"的，正文是否有明确达成/失败证据？多环任务达成的只是"当前环" → 应 ringAdvance 而非整条结算？强制环没全打完就标"已完成"会被前端结算闸驳回。
+   · ★逐要件清点（凡 ringAdvance / 环标 done / 整条标完成，先做这一步）：把该环 goal（或终局）拆成**全部要件**逐条列出，每件引用正文原句证据并判「已完成/未完成」；**任何一件未完成、或证据只是"进行中/部分进展" → 本轮不推进，只更新 progress**。ringAdvance 的 evidence 字段必须逐字摘录正文原句（前端核验+独立裁判复核，编造/对不上=驳回白费 token）。
    · 进度：本回合主角对该任务有无实质推进？有则用 1~2 句具体动作/结果写进 progress 字段（覆盖上轮）；无推进则不输出 progress（保留旧值）。
    · 结论：本任务这一轮"动 or 不动"，动则给出最终指令草稿。
-2. 自检：只输出任务指令（其他域一条不写）；任务 ID 精确（T_<数字>不补零、逐字照抄列表）；"已完成/已获得"等不可逆表述都有正文完成证据。
+2. 自检：只输出任务指令（其他域一条不写）；任务 ID 精确（T_<数字>不补零、逐字照抄列表）；"已完成/已获得"等不可逆表述都有正文完成证据；每条 ringAdvance 都带 summary/rating/evidence 且 evidence 是**逐字摘录**的正文原句；单条任务本轮只有一种环操作。
 
 铁律：**宁缺毋滥**——绝大多数回合任务没有任何变动、输出空 <upstore></upstore> 完全正常；任何讲不出原因的产出都不要写。`;
 
@@ -2873,7 +2877,20 @@ export default function App() {
     try {
       const onSceneNpcs = Object.values(useNpc.getState().npcs).filter((r: any) => r.onScene && !r.isDead && r.name && r.name !== r.id);
       if (onSceneNpcs.length) {
-        const lines = onSceneNpcs.map((r: any) => `${String(r.name).split('|')[0].trim()} 当前HP：${r.hp ?? r.maxHp ?? '?'}/${r.maxHp ?? '?'} 当前EP：${r.mp ?? r.maxMp ?? '?'}/${r.maxMp ?? '?'}`).join('\n');
+        // 上限现算·与 在场浮窗/详情页/战斗/hp.<id> 钳制同口径（fullMaxHp/EP：六维+装备/技能/天赋上限加成·四阶起×5）。
+        // ⚠曾注入存储的 r.maxHp——那是陈旧缓存（换装/学技能后无人重算）→ AI 把"回满"封死在旧上限，
+        //   浮窗上限涨了、血却永远补不满（装备/技能的 HP 上限加成形同虚设）。无六维的档案才回退存储值。
+        const _vitChars = useCharacters.getState().characters;
+        const lines = onSceneNpcs.map((r: any) => {
+          const nm = String(r.name).split('|')[0].trim();
+          if (!r.attrs) return `${nm} 当前HP：${r.hp ?? r.maxHp ?? '?'}/${r.maxHp ?? '?'} 当前EP：${r.mp ?? r.maxMp ?? '?'}/${r.maxMp ?? '?'}`;
+          const nc = _vitChars[r.id];
+          const eqp = (r.items ?? []).filter((it: any) => it.equipped);
+          const rmN = realAttrMult(r.realm, lvFromRealm(r.realm));
+          const mh = fullMaxHp(npcBaseAttrs(r), eqp, nc?.skills, nc?.traits, rmN, ratioOf(r));
+          const me = fullMaxEp(npcBaseAttrs(r), eqp, nc?.skills, nc?.traits, rmN, ratioOf(r));
+          return `${nm} 当前HP：${effectiveResource(r.hp, r.maxHp, mh)}/${mh} 当前EP：${effectiveResource(r.mp, r.maxMp, me)}/${me}`;
+        }).join('\n');
         const vitalsCtx = `【在场 NPC 当前 HP/EP（结算基准·必须逐个列入上面的 <状态结算>，一个都不能漏）】\n${lines}\n— 本回合谁受伤/掉蓝就在此基础上扣；若有**休息/疗伤/治疗/睡眠/返回安全区**等恢复情节，把相关角色**回满或按正文回复量**抬上去；没被波及的照原值列出。最终值写进 <状态结算>。`;
         addRule('在场NPC当前HPEP', '前端数据 · 在场NPC当前HP/EP', vitalsCtx);
       }
@@ -6353,7 +6370,18 @@ ${AFFIX_EFFECT_RULE}`;
         { role: 'user', content: `【本回合正文】\n${narrative}\n\n请先输出 <quest_cot> 推演，再按【输出格式铁律】只输出一个 <upstore> 任务指令块（本轮任务无变动则输出空 <upstore></upstore>）。` },
       ], { timeoutMs: 120000 });
       console.log('[Quest] 任务演化响应:', reply);
-      const applied = applyMiscCommands(reply, { domain: 'tasks' });
+      // 推进复核裁判（questAdvanceReview·默认开）：把回复里的「推进/跳环/整条结算」主张交给独立裁判逐要件核验正文证据，
+      // 未过的整行剔除（ring 类降级成 progress）。仅 AI 试图推进的回合才多这一次调用；裁判故障 fail-open（确定性闸门仍兜底）。
+      let checked = reply;
+      if (useMisc.getState().settings.questAdvanceReview !== false) {
+        checked = await reviewQuestAdvancement(reply, narrative, useMisc.getState().tasks,
+          async (system, user) => (await apiChatFallback(chain, [
+            { role: 'system', content: system },
+            { role: 'user', content: user },
+          ], { timeoutMs: 90000 })).content);
+      }
+      // narrative 一并传入：环推进闸门（questAdvanceGate）要用它核验 evidence 引用是否真实出现在本回合正文
+      const applied = applyMiscCommands(checked, { domain: 'tasks', narrative });
       console.log(`[Quest] 任务演化应用 ${applied} 条指令`);
       if (applied > 0) recordEvo('misc', { source: 'quest-phase', turn: turnCountRef.current }, 'apply', '任务', 'applied', `${applied} 项`);   // 演化账本：任务动作记 misc 域、source 区分
       // 派生钩子消费标记：本轮已把这些「派生后续」事件喂给任务演化看过了 → 标记，避免每轮重复注入。
@@ -8772,7 +8800,7 @@ ${lines}`;
       const cdata = useCharacters.getState().characters[r.id];
       const eqp = (r.items ?? []).filter((it) => it.equipped) as any[];
       const rmR = realAttrMult(r.realm, lvFromRealm(r.realm));
-      const dmh = fullMaxHp(r.attrs!, eqp, cdata?.skills, cdata?.traits, rmR, ratioOf(r)), dme = fullMaxEp(r.attrs!, eqp, cdata?.skills, cdata?.traits, rmR, ratioOf(r));
+      const dmh = fullMaxHp(npcBaseAttrs(r), eqp, cdata?.skills, cdata?.traits, rmR, ratioOf(r)), dme = fullMaxEp(npcBaseAttrs(r), eqp, cdata?.skills, cdata?.traits, rmR, ratioOf(r));   // npcBaseAttrs=attrs+真实属性点直加(realAttrs)，与结算基准注入/浮窗同口径
       const selfName = r.name.split('|')[0].trim();
       const nameEsc = selfName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
       // 跨越词：别的角色名 + 敌怪死亡词；出现在 name→HP 之间，说明这段 HP 属于别人
@@ -8792,8 +8820,9 @@ ${lines}`;
       const hp = grab('HP|血量|生命值?', dmh);
       const ep = grab('EP|MP|蓝量|法力|能量|精力', dme);
       const patch: Partial<import('./store/npcStore').NpcRecord> = {};
-      if (hp != null) patch.hp = hp;
-      if (ep != null) patch.mp = ep;
+      // 顺手把存储上限缓存刷成真实上限：手动回满(attr缺失兜底)/镜像表/派遣等读 rec.maxHp 的地方不再拿到陈旧值
+      if (hp != null) { patch.hp = hp; patch.maxHp = dmh; }
+      if (ep != null) { patch.mp = ep; patch.maxMp = dme; }
       if (Object.keys(patch).length) { npc.upsertNpc(r.id, patch); applied++; }
     }
     if (applied > 0) console.log(`[Vitals] 正文照抄 NPC HP/EP：${applied} 个角色`);
@@ -10012,17 +10041,19 @@ ${lines}`;
     const C = useCombat.getState();
     if (C.battle.active) return;
     purgeMpCharacters(); clearMpCombatItems();
+    // ⚠ 先种技能再 buildCombatant：transient 分支在建块时聚合 characters[id] 的技能被动/触发器（系统 C），
+    //   种晚了聚合恒空（BOSS/来宾的技能被动此前从不生效——2026-08-14 修序）。enemyAI 选技池实时读 store 不受此影响。
+    try { useCharacters.setState((s) => ({ characters: { ...s.characters, BOSS: { id: 'BOSS', skills: boss.skillsByPhase[0] || [], traits: [] } } })); } catch {}
     const blocks: Record<string, CombatStatBlock> = {
       BOSS: buildCombatant('BOSS', 'enemy', { isTransient: true, name: boss.name, attrs: boss.attrs, tier: boss.tier, maxHp: boss.maxHp, maxEp: boss.maxEp }),
       B1: buildCombatant('B1', 'player'),
     };
-    try { useCharacters.setState((s) => ({ characters: { ...s.characters, BOSS: { id: 'BOSS', skills: boss.skillsByPhase[0] || [], traits: [] } } })); } catch {}
     const mp = useMp.getState();
     for (const seat of mp.seats) {
       const cid = `MP_${seat.seatId}`;
       const card: any = mp.cards.find((c) => c.seatId === seat.seatId)?.snapshot;
-      blocks[cid] = buildCombatant(cid, 'player', { isTransient: true, name: card?.name || seat.name, attrs: card?.attrs, tier: card?.tier || '', maxHp: card?.maxHp, maxEp: card?.maxEp });
       try { useCharacters.setState((s) => ({ characters: { ...s.characters, [cid]: { id: cid, skills: card?.skills || [], traits: card?.traits || [] } } })); } catch {}
+      blocks[cid] = buildCombatant(cid, 'player', { isTransient: true, name: card?.name || seat.name, attrs: card?.attrs, tier: card?.tier || '', maxHp: card?.maxHp, maxEp: card?.maxEp });
       try { setMpCombatItems(cid, card?.items || []); } catch {}
     }
     const battle = assembleBattle(blocks, { reason: `讨伐 ${boss.name}`, location: '讨伐战场', endConditions: ['击败 BOSS'] }, C.config.manualAllyControl);
@@ -10273,6 +10304,15 @@ ${lines}`;
     const out = settleAction({ state, actorId, kind, targetIds, skillId, itemId });
     if (out.consumedItem && actorId === 'B1') {
       try { useItems.getState().consumeItem(out.consumedItem.id, out.consumedItem.qty); } catch {}
+    } else if (out.consumedItem && !actorId.startsWith('MP_')) {
+      // NPC（敌人/队友）用掉的道具也要扣数量（敌 AI 濒死吃药后不再无限药）；联机来宾道具在 mpCombatItems 注册表、由来宾端自扣
+      try {
+        const rec = useNpc.getState().npcs[actorId];
+        if (rec) {
+          const next = (rec.items ?? []).map((it: any) => (it.id === out.consumedItem!.id ? { ...it, quantity: Math.max(0, (it.quantity ?? 1) - out.consumedItem!.qty) } : it)).filter((it: any) => (it.quantity ?? 1) > 0);
+          useNpc.getState().upsertNpc(actorId, { items: next } as any);
+        }
+      } catch {}
     }
     // 战斗内累积（仅观察 B1 的 HP 变化/出手/击杀，绝不改引擎结算）：攻击/受击/击杀/每回合攒能量条
     try {
@@ -10311,7 +10351,7 @@ ${lines}`;
       const action = pickEnemyAction(state, actorId);   // 本地启发式决策，0 API
       const sp = Math.max(1, C.config.combatSpeed || 1);   // 1/2/4 倍速：缩短回合间停顿
       await new Promise((r) => setTimeout(r, Math.round(320 / sp)));   // 节奏：让每个动作可见（非等待 API）
-      await resolveAndNarrate(state, actorId, action.kind, action.targetIds, action.skillId, action.line);
+      await resolveAndNarrate(state, actorId, action.kind, action.targetIds, action.skillId, action.line, action.itemId);   // itemId：敌 AI「濒死吃药」
     } catch (e: any) {
       console.error('[Combat] NPC 回合失败:', e?.message ?? e);
     } finally {
@@ -10363,6 +10403,10 @@ ${lines}`;
     // 立即标记战斗结束：面板秒切「胜负 + 关闭按钮」，AI 总结在后台慢慢生成——不再「已打赢却卡在出手界面」。
     C.endBattle(victor, victor === 'player' ? '战斗胜利' : victor === 'enemy' ? '战斗失败' : '战斗结束');
     const state = useCombat.getState().battle;   // 已 ended 的快照（保留完整 log/participants/initialState 供总结与写回）
+    try {   // 战斗遥测（P5·本地环形 50 条）：真实对局的回合数/胜负/阶位分布，喂未来调参（CombatManager「近期战斗」可看）
+      const eTiers = state.order.filter((id) => state.initialState[id]?.side === 'enemy').map((id) => state.initialState[id]?.tier || '?');
+      recordCombatTelemetry({ at: Date.now(), rounds: state.round, victor: victor ?? 'none', playerTier: state.initialState['B1']?.tier || '?', enemyTier: eTiers.join('/') || '?', reason: state.context?.reason });
+    } catch {}
     C.setApiBusy(true); C.setApiStatus('战斗总结生成中…（可直接关闭）');
     try {
       // 组队讨伐胜利 → 房主生成战利并广播（经 relay 回显，全员统一发币+弹窗+ROLL）
@@ -10666,12 +10710,17 @@ ${lines}`;
     const gApi = textUseShared ? sharedApi : textApi;
     const chain = resolveApiChain('dbadvance', gApi);   // 独立「数据库推进」接口路由；未配则回退正文 API（不再蹭 guidance 路由）
     if (!chain[0]?.baseUrl || !chain[0]?.apiKey) { console.warn('[数据库推进] dbadvance 路由与正文 API 均未配置 → 空回。请在 设置→数据库推进管线→接口路由 指一条接口，或配好正文 API'); return ''; }
-    const WALL_MS = 45000;
+    // 等待上限可调（设置→数据库推进管线）：旧版写死 45s 墙钟且超时只 race 不 abort——慢速中转/思考模型
+    //   总时长超 45s 就被判空回，而底层请求还在后台流式生成白烧 token（用户抓包实锤）。现改：
+    //   ① 上限=st.waitSec(默认120s·15~600)；② 超时真 abort 底层请求，不留僵尸流；③ timeoutMs 同传=空闲上限一并放宽。
+    const WALL_MS = clampWaitSec(st.waitSec) * 1000;
     const callMod = (messages: { role: string; content: string }[]) => {
-      const call = apiChatFallback(chain, messages.map((m) => ({ role: m.role as 'system' | 'user' | 'assistant', content: m.content })), { timeoutMs: 30000, rawLang: true })   // 推进规划喂给中文正文，保持中文
+      const ctrl = new AbortController();
+      const wallTimer = setTimeout(() => { console.warn(`[数据库推进] 超 ${WALL_MS / 1000}s，已中止本次子调用并跳过（可在 设置→数据库推进管线→等待上限 调大）`); ctrl.abort(); }, WALL_MS);
+      return apiChatFallback(chain, messages.map((m) => ({ role: m.role as 'system' | 'user' | 'assistant', content: m.content })), { timeoutMs: WALL_MS, rawLang: true, signal: ctrl.signal })   // 推进规划喂给中文正文，保持中文
         .then(({ content }) => stripLeakedThinking(content || '').trim())
-        .catch((e) => { console.warn('[数据库推进] 子调用失败', e); return ''; });
-      return Promise.race([call, new Promise<string>((r) => setTimeout(() => { console.warn(`[数据库推进] 超 ${WALL_MS}ms，跳过`); r(''); }, WALL_MS))]);
+        .catch((e) => { if (!ctrl.signal.aborted) console.warn('[数据库推进] 子调用失败', e); return ''; })
+        .finally(() => clearTimeout(wallTimer));
     };
     // 占位符上下文：$U 主角 / $C 卡片 / $1 背景(世界书) / $5 事件概览 / $7 前文 / $8 输入 / {{tabletop}} 上轮
     const pf = usePlayer.getState().profile;
@@ -10721,7 +10770,7 @@ ${lines}`;
         advMsgs.push({ role: 'system', content: getPrompt('CAST_BRIEF_RULE', CAST_BRIEF_RULE) });
       }
       const advOut = await callMod(advMsgs);
-      if (!advOut) { console.warn(`[数据库推进] 推进子调用返回空 → 空回。若上面有"子调用失败/超 45s 跳过"日志＝接口原因(接口=${chain[0]?.baseUrl} 模型=${chain[0]?.modelId})；否则是 AI 没吐内容/被 contextExclude 剥空`); return ''; }
+      if (!advOut) { console.warn(`[数据库推进] 推进子调用返回空 → 空回。若上面有"子调用失败/超 ${WALL_MS / 1000}s 已中止"日志＝接口原因(接口=${chain[0]?.baseUrl} 模型=${chain[0]?.modelId})；否则是 AI 没吐内容/被 contextExclude 剥空`); return ''; }
       const clean = dbStripExcluded(advOut, st.preset.contextExcludeRules);
       const stage = dbExtractTag(clean, 'stage');
       const scene = dbExtractTag(clean, 'scene');

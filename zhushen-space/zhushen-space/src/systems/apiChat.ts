@@ -139,7 +139,7 @@ export function abortAllApiCalls(): void { try { _stopAll.abort(); } catch { /* 
 export async function apiChatFallback(
   chain: ApiConfig[],
   messages: { role: string; content: string }[],
-  opts?: { timeoutMs?: number; extra?: Record<string, unknown>; onDelta?: (accumulated: string) => void; label?: string; rawLang?: boolean },
+  opts?: { timeoutMs?: number; extra?: Record<string, unknown>; onDelta?: (accumulated: string) => void; label?: string; rawLang?: boolean; signal?: AbortSignal },
 ): Promise<{ content: string; api: ApiConfig }> {
   const usable = (chain ?? []).filter((a) => a && a.baseUrl && a.apiKey);
   if (usable.length === 0) throw new Error('无可用 API 接口（请在功能 API 设置选择接口库接口，或填写单独配置）');
@@ -166,7 +166,11 @@ export async function apiChatFallback(
   const release = await acquireApiSlot(th?.maxConcurrent ?? 3, th?.minGapMs ?? 0);
   try {
     let lastErr: unknown;
+    // 调用方传入的外部中止信号（如数据库推进的墙钟超时）：已中止→不再发起/回退任何请求，立刻收尾。
+    //   ⚠不能只靠把 ctrl 挂到信号上——fallback 循环每条接口都新建 ctrl，外部中止后若不在这里拦，会接着试下一条接口白烧 token。
+    const extSig = opts?.signal;
     for (let i = 0; i < usable.length; i++) {
+      if (extSig?.aborted) { lastErr = lastErr ?? new DOMException('调用方已中止', 'AbortError'); break; }
       const api = usable[i];
       const body: Record<string, unknown> = { model: api.modelId, messages: procMessages, stream: true, ...(opts?.extra ?? {}) };
       // 接口自带 temperature/max_tokens；若 extra 已指定（如收尾的 max_tokens）则尊重 extra，不覆盖
@@ -178,13 +182,15 @@ export async function apiChatFallback(
       if (stopSig.aborted) ctrl.abort();
       const onStopAll = () => ctrl.abort();
       stopSig.addEventListener('abort', onStopAll);
+      const onExtAbort = () => ctrl.abort();
+      extSig?.addEventListener('abort', onExtAbort);
       // timeoutMs 当「空闲超时」用：只要流还在持续吐数据就不中止（推理模型/慢中转的流式总时长常超过它，
       // 按总时长掐断反而拿不到任何内容）；另设绝对上限防止真卡死无限挂起。
       const idleMs = opts?.timeoutMs ?? 0;
       let idleTimer: ReturnType<typeof setTimeout> | null = null;
       const bump = () => { if (!idleMs) return; if (idleTimer) clearTimeout(idleTimer); idleTimer = setTimeout(() => ctrl.abort(), idleMs); };
       const hardTimer = idleMs ? setTimeout(() => ctrl.abort(), Math.max(idleMs * 4, 240000)) : null;
-      const cleanup = () => { if (idleTimer) clearTimeout(idleTimer); if (hardTimer) clearTimeout(hardTimer); stopSig.removeEventListener('abort', onStopAll); };
+      const cleanup = () => { if (idleTimer) clearTimeout(idleTimer); if (hardTimer) clearTimeout(hardTimer); stopSig.removeEventListener('abort', onStopAll); extSig?.removeEventListener('abort', onExtAbort); };
       bump();   // 起始：覆盖连接 + 首字延迟
       try {
         const res = await fetchWithProxy(api.baseUrl.replace(/\/$/, '') + '/chat/completions', {

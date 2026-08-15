@@ -9,7 +9,7 @@ import { playerMaxHp, playerMaxEp, playerResourceMax } from './playerVitals';
 import { applyOutfitCommand } from './outfit';   // 👗衣柜换装指令 outfit.<id>=名
 import { useResource } from '../store/resourceStore';
 import { useMisc } from '../store/miscStore';   // 当地货币（世界级·世界限定·离世归零）
-import { effectiveResource, fullMaxHp, fullMaxEp, ratioOf, npcBaseAttrs } from './derivedStats';
+import { effectiveResource, fullMaxHp, fullMaxEp, ratioOf, npcBaseAttrs, realAttrMult, lvFromRealm } from './derivedStats';
 import { parseAllStateUpdates, parseAllItemCommands, applyItemCommands, stripPreviewRewardCurrency, isEquippable, setNpcOwnerResolver, extractStateBlocks, type StateUpdate, type ItemEditResult, type LedgerCtx } from './stateParser';
 import { applyTableEdits, type TableEditResult } from './tableEditParser';   // ACU 表格数据库：<tableEdit> → tableStore
 import { projectStoresToTables } from './tableMigrate';   // 1c：镜像表每回合从 store 投影（漂移从构造上消除）
@@ -260,7 +260,8 @@ function applyOneUpdate(u: StateUpdate) {
         const rec = npc.npcs[cid];
         const nc = useCharacters.getState().characters[cid];
         const eqp = (rec?.items ?? []).filter((it) => it.equipped) as any[];
-        const dmax = stat === 'hp' ? fullMaxHp(npcBaseAttrs(rec), eqp, nc?.skills, nc?.traits, 1, ratioOf(rec)) : fullMaxEp(npcBaseAttrs(rec), eqp, nc?.skills, nc?.traits, 1, ratioOf(rec));   // npcBaseAttrs=attrs+真实属性点直加(realAttrs)
+        const rmN = realAttrMult(rec?.realm, lvFromRealm(rec?.realm));   // 四阶起×5·与 详情页/战斗/状态结算解析 同口径（曾传 1：四阶+ NPC 的钳制上限只有详情页的 1/5，"回满"被拦腰截断）
+        const dmax = stat === 'hp' ? fullMaxHp(npcBaseAttrs(rec), eqp, nc?.skills, nc?.traits, rmN, ratioOf(rec)) : fullMaxEp(npcBaseAttrs(rec), eqp, nc?.skills, nc?.traits, rmN, ratioOf(rec));   // npcBaseAttrs=attrs+真实属性点直加(realAttrs)
         const cur = effectiveResource(stat === 'hp' ? rec?.hp : rec?.mp, stat === 'hp' ? rec?.maxHp : rec?.maxMp, dmax);
         const next = toFull ? dmax : setMode ? Math.min(Math.max(0, amount), dmax) : op === '+=' ? Math.min(cur + amount, dmax) : Math.max(0, cur - amount);
         npc.upsertNpc(cid, stat === 'hp' ? { hp: next, maxHp: dmax } : { mp: next, maxMp: dmax });

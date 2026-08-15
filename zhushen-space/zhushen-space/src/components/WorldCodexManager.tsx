@@ -14,7 +14,8 @@ export default function WorldCodexManager() {
         <h2 className="text-lg font-bold text-slate-100">📖 世界百科</h2>
         <p className="text-sm text-dim/70 mt-1.5 leading-relaxed">
           为玩家进入的「同人任务世界」联网考据原著情报：世界设定、主线剧情（含结局）、隐藏伏笔、世界至宝、人物生平。
-          纯参考阅读，<b className="text-slate-300">不会注入正文</b>。入口在右侧导航「📖 世界百科」，仅任务世界可用（乐园本体置灰）。
+          纯参考阅读，<b className="text-slate-300">不会注入正文</b>。入口在右侧导航「📖 世界百科」；深挖只在任务世界可用。
+          挖过的世界资料页<b className="text-slate-300">永久保留</b>，面板内「🗂 已存资料页」可随时切回去看（回乐园后也能回看）。
         </p>
       </div>
 

@@ -71,6 +71,33 @@ function SettingsSection() {
         <div className="text-[12px] text-dim/50 leading-snug">治"任务乱变动 / 无限布置"：主线、职业任务、进阶通告不占支线额度；AI 的 de() 删除一律转「作废」归档留底（只存不删）。玩家在任务面板 ✏️ 编辑、🎲 手动生成不经闸门。</div>
       </div>
 
+      {/* 环推进闸门（questAdvanceGate/questAdvanceReview）：治"AI 只完成部分要求就乱推进度/跳阶段/整条报完成" */}
+      <div className="rounded-lg border border-edge bg-panel px-3 py-2.5 space-y-2">
+        <div className="flex items-center justify-between gap-3">
+          <div>
+            <div className="text-sm text-slate-200">环推进闸门 · 反乱推进度</div>
+            <div className="text-[13px] text-dim/70 mt-0.5">AI 推进任务须过确定性检查：ringAdvance 必须附正文原句证据（evidence·前端逐字核验）／每轮每任务最多一种环操作／环状态单向不回退／强制环未全达成时整条「已完成」被驳回。被驳回的转为进度记录、记入回合洞察仲裁日志，不丢信息</div>
+          </div>
+          <Toggle checked={settings.questAdvanceGate !== false}
+            onChange={() => setSettings({ questAdvanceGate: settings.questAdvanceGate === false } as any)} />
+        </div>
+        <label className="flex items-center justify-between gap-2 text-sm text-dim">
+          <span>每轮每任务最多把几个环标为达成/跳过（跨环限幅；0 = 不限）</span>
+          <input type="number" min={0} max={12} value={settings.questRingJumpMax ?? 1}
+            onChange={(e) => setSettings({ questRingJumpMax: Math.max(0, Math.min(12, Number(e.target.value) || 0)) } as any)}
+            className="w-20 bg-void border border-edge rounded px-2 py-1 text-sm font-mono text-slate-200 outline-none focus:border-god text-right" />
+        </label>
+        <div className="flex items-center justify-between gap-3 pt-1 border-t border-edge/60">
+          <div>
+            <div className="text-sm text-slate-200">推进二次复核（独立裁判）</div>
+            <div className="text-[13px] text-dim/70 mt-0.5">推进 / 跳环 / 整条结算指令落库前，再调一次任务 API 当「复核裁判」：把环目标拆成全部要件、逐件核验正文完成证据，任何一件缺证据即驳回——治 AI 太媚玩家"看半截要求就推进度"。仅在 AI 试图推进的回合才多这一次调用；裁判故障自动放行（确定性闸门仍兜底）</div>
+          </div>
+          <Toggle checked={settings.questAdvanceReview !== false}
+            onChange={() => setSettings({ questAdvanceReview: settings.questAdvanceReview === false } as any)} />
+        </div>
+        <div className="text-[12px] text-dim/50 leading-snug">推得慢没有代价（环停在原地、进展记进 progress，凑齐证据下一轮照样推）；误推才有代价（污染路线图与逐环结算）。玩家在任务面板 ✏️ 手动改环状态 / 手动结算永远不受闸门与裁判限制。</div>
+      </div>
+
       {/* 提示词与规范来源说明（任务规则全为代码注入，改 promptRules/App 常量即时生效，无需预设） */}
       <div className="rounded-lg border border-god/25 bg-god/5 px-3 py-2.5 text-[12px] text-dim/70 leading-relaxed">
         <div className="text-god/80 font-mono mb-1">📖 任务演化 · 规则与思维链</div>

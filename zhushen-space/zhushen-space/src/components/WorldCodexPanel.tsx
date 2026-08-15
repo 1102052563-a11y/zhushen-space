@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { openSettingsPage } from '../systems/navBus';   // P4·空态深链：一键直达设置子页
 import { useMisc } from '../store/miscStore';
 import { useWorldCodex, resolveCodexEntry } from '../store/worldCodexStore';
@@ -231,6 +231,48 @@ function CodexBody({ text, type }: { text: string; type: 'text' | 'list' }) {
   );
 }
 
+/* ── 已存资料页（回看）── 挖过的世界都留在 byWorld 里永不自动丢弃，这里给一个能切回去看的入口 */
+type ArchiveItem = { k: string; label: string; done: number; at: number };
+
+function ArchiveList({ items, isCur, onOpen, onDelete }: {
+  items: ArchiveItem[];
+  isCur: (k: string) => boolean;
+  onOpen: (k: string) => void;
+  onDelete: (a: ArchiveItem) => void;
+}) {
+  return (
+    <div className="space-y-1">
+      {items.map((a) => (
+        <div key={a.k} className="flex items-center gap-1">
+          <button
+            onClick={() => onOpen(a.k)}
+            className={`flex-1 min-w-0 flex items-center gap-2 px-2.5 py-1.5 rounded-lg border text-left transition-colors ${
+              isCur(a.k)
+                ? 'border-indigo-500/40 bg-indigo-500/10 hover:bg-indigo-500/15'
+                : 'border-edge bg-panel2 hover:border-indigo-500/30 hover:bg-panel'
+            }`}
+          >
+            <span className="text-sm shrink-0">📖</span>
+            <span className="flex-1 min-w-0 truncate text-[13px] text-slate-200">{a.label}</span>
+            {isCur(a.k) && (
+              <span className="shrink-0 text-[10px] font-mono px-1 py-0.5 rounded border border-emerald-500/40 text-emerald-300/90">当前</span>
+            )}
+            <span className="shrink-0 text-[11px] font-mono text-dim/45">{a.done}/{CODEX_MODULES.length}</span>
+            <span className="shrink-0 text-[11px] font-mono text-dim/35">{new Date(a.at).toLocaleDateString()}</span>
+          </button>
+          <button
+            onClick={() => onDelete(a)}
+            className="shrink-0 px-1.5 py-1.5 text-[13px] text-dim/40 hover:text-blood transition-colors"
+            title="删除这份资料页"
+          >
+            🗑
+          </button>
+        </div>
+      ))}
+    </div>
+  );
+}
+
 export default function WorldCodexPanel({ onClose }: { onClose: () => void }) {
   const worldName = useMisc((s) => s.worldName);
   const enabled = useWorldCodex((s) => s.enabled);
@@ -238,11 +280,19 @@ export default function WorldCodexPanel({ onClose }: { onClose: () => void }) {
   const activeKey = useWorldCodex((s) => s.activeKey);
   const setIp = useWorldCodex((s) => s.setIp);
   const setSection = useWorldCodex((s) => s.setSection);
+  const clearWorld = useWorldCodex((s) => s.clearWorld);
+
+  // 回看：viewKey 指向 byWorld 里任一「已存资料页」→ 只读浏览；null=跟随当前世界。
+  // 存储键可能是空串（当初 worldName 为空时建的），一律判 null 而非 truthy。
+  const [viewKey, setViewKey] = useState<string | null>(null);
+  const [listOpen, setListOpen] = useState(false);
 
   // 显示：优先当前世界的条目；解析不到（worldName 漂移/为空/换了世界）就粘住「上次生成」那条 → 关掉再打开内容不会消失。
   // 注意 activeKey 可能是空串（当初 worldName 为空时建的），直接用 byWorld[activeKey] 取，别用 truthy 判断丢掉空串键。
   const curEntry = resolveCodexEntry(byWorld, worldName);
-  const entry = curEntry ?? byWorld[activeKey];
+  const viewEntry = viewKey !== null ? byWorld[viewKey] : undefined;   // 条目被删则 undefined → 自动落回当前世界
+  const readOnly = viewEntry !== undefined;
+  const entry = viewEntry ?? curEntry ?? byWorld[activeKey];
 
   const home = isHomeWorld(worldName);
   const [ip, setIpDraft] = useState(curEntry?.ipName || (worldName || '').trim() || entry?.ipName || '');
@@ -255,6 +305,37 @@ export default function WorldCodexPanel({ onClose }: { onClose: () => void }) {
 
   const anyLoading = Object.values(loading).some(Boolean);
   const doneCount = CODEX_MODULES.filter((m) => entry?.sections?.[m.key]?.content).length;
+
+  // 已存资料页清单：挖过内容的世界全部保留，按最近生成排序，随时切回去看
+  const archives = useMemo<ArchiveItem[]>(
+    () =>
+      Object.entries(byWorld)
+        .map(([k, e]) => ({
+          k,
+          label: (e.ipName || k).trim() || '（未命名世界）',
+          done: CODEX_MODULES.filter((m) => e.sections?.[m.key]?.content).length,
+          at: Object.values(e.sections ?? {}).reduce((mx, s) => Math.max(mx, s?.updatedAt || 0), 0),
+        }))
+        .filter((a) => a.done > 0)
+        .sort((a, b) => b.at - a.at),
+    [byWorld],
+  );
+  const isCurArchive = (k: string) => curEntry !== undefined && byWorld[k] === curEntry;
+  const viewLabel = viewEntry ? (viewEntry.ipName || viewKey || '').trim() || '（未命名世界）' : '';
+
+  const openArchive = (k: string) => {
+    setListOpen(false);
+    if (isCurArchive(k)) { setViewKey(null); return; }   // 点到当前世界那条 = 回到跟随模式
+    setViewKey(k);
+    const first = CODEX_MODULES.find((m) => byWorld[k]?.sections?.[m.key]?.content);
+    if (first) setActive(first.key);
+  };
+
+  const deleteArchive = (a: ArchiveItem) => {
+    if (!confirm(`删除「${a.label}」的已存资料页？（${a.done} 个条目，删后不可恢复）`)) return;
+    if (viewKey === a.k) setViewKey(null);
+    clearWorld(a.k);   // 传 byWorld 的精确存储键：resolveKey 先精确命中，不会误删别的世界
+  };
 
   const genOne = async (mod: CodexModule, ipName: string) => {
     setLoading((s) => ({ ...s, [mod.key]: true }));
@@ -297,53 +378,99 @@ export default function WorldCodexPanel({ onClose }: { onClose: () => void }) {
             <div className="text-base font-bold text-slate-100">世界百科</div>
             <div className="text-[12px] font-mono text-dim/60 truncate">同人世界原著情报 · 剧情先知 · 联网考据</div>
           </div>
-          {!home && enabled && <span className="text-[11px] font-mono text-dim/45 shrink-0">{doneCount}/{CODEX_MODULES.length}</span>}
+          {enabled && (!home || readOnly) && <span className="text-[11px] font-mono text-dim/45 shrink-0">{doneCount}/{CODEX_MODULES.length}</span>}
           <button onClick={onClose} className="text-dim/50 hover:text-blood text-lg transition-colors">✕</button>
         </header>
 
-        {home ? (
-          <div className="flex-1 flex items-center justify-center p-8 text-center text-dim/50 text-sm font-mono">
-            <div>
-              当前身处主神空间 / 轮回乐园，没有「原著」可考。<br />
-              进入某个同人任务世界后，再来此处深挖该世界的原著情报。
-            </div>
-          </div>
-        ) : !enabled ? (
+        {!enabled ? (
           <div className="flex-1 flex items-center justify-center p-8 text-center text-dim/50 text-sm font-mono">
             <div>
               世界百科已关闭。<br />
               去<button onClick={() => openSettingsPage('codex-manager')} className="text-god/80 underline underline-offset-2 hover:text-god mx-0.5">「设置 → 变量管理 → 📖 世界百科」</button>开启，并可为它单独配置支持联网搜索的接口。
             </div>
           </div>
+        ) : home && !readOnly ? (
+          archives.length === 0 ? (
+            <div className="flex-1 flex items-center justify-center p-8 text-center text-dim/50 text-sm font-mono">
+              <div>
+                当前身处主神空间 / 轮回乐园，没有「原著」可考。<br />
+                进入某个同人任务世界后，再来此处深挖该世界的原著情报。
+              </div>
+            </div>
+          ) : (
+            <div className="flex-1 overflow-y-auto px-6 py-6">
+              <div className="text-center text-dim/50 text-sm font-mono mb-6">
+                当前身处主神空间 / 轮回乐园，没有「原著」可考。<br />
+                下面是历次任务世界已存的资料页，随时可以回看。
+              </div>
+              <div className="max-w-md mx-auto">
+                <div className="text-[12px] font-mono text-dim/55 mb-2">🗂 已存资料页 · 点开回看</div>
+                <ArchiveList items={archives} isCur={isCurArchive} onOpen={openArchive} onDelete={deleteArchive} />
+              </div>
+            </div>
+          )
         ) : (
           <>
-            {/* 检索目标 + 深挖按钮 */}
-            <div className="shrink-0 px-4 py-2.5 border-b border-edge bg-panel/40">
-              <div className="flex items-center gap-2">
-                <span className="text-[12px] font-mono text-dim/60 shrink-0">作品名</span>
-                <input
-                  value={ip}
-                  onChange={(e) => setIpDraft(e.target.value)}
-                  onBlur={() => setIp(opKey, (ip || worldName).trim())}
-                  placeholder={worldName || '如：火影忍者 / 进击的巨人'}
-                  className="flex-1 min-w-0 bg-void border border-edge rounded px-2.5 py-1.5 text-sm text-slate-200 focus:border-god/50 outline-none"
-                />
+            {/* 回看模式：只读横幅；正常模式：检索目标 + 深挖按钮 */}
+            {readOnly ? (
+              <div className="shrink-0 flex items-center gap-2 px-4 py-2.5 border-b border-edge bg-indigo-500/[0.07]">
+                <span className="text-sm shrink-0">🗂</span>
+                <span className="flex-1 min-w-0 truncate text-[13px] font-mono text-indigo-200/90" title={viewLabel}>{viewLabel}</span>
+                <span className="shrink-0 text-[10px] font-mono px-1.5 py-0.5 rounded border border-edge text-dim/50">只读</span>
                 <button
-                  onClick={genAll}
-                  disabled={anyLoading}
-                  className="shrink-0 px-3 py-1.5 rounded text-sm font-mono border border-indigo-500/50 text-indigo-200 bg-indigo-500/10 hover:bg-indigo-500/20 disabled:opacity-40 transition-colors"
+                  onClick={() => setViewKey(null)}
+                  className="shrink-0 px-2.5 py-1.5 rounded text-[12px] font-mono border border-indigo-500/50 text-indigo-200 bg-indigo-500/10 hover:bg-indigo-500/20 transition-colors"
                 >
-                  {anyLoading ? '挖掘中…' : doneCount ? '⟳ 全部刷新' : '🔍 深挖此世界'}
+                  ↩ 返回当前
                 </button>
               </div>
-              {err && <div className="text-[12px] text-rose-400/90 font-mono mt-1.5">{err}</div>}
-            </div>
+            ) : (
+              <div className="shrink-0 px-4 py-2.5 border-b border-edge bg-panel/40">
+                <div className="flex items-center gap-2">
+                  <span className="text-[12px] font-mono text-dim/60 shrink-0">作品名</span>
+                  <input
+                    value={ip}
+                    onChange={(e) => setIpDraft(e.target.value)}
+                    onBlur={() => setIp(opKey, (ip || worldName).trim())}
+                    placeholder={worldName || '如：火影忍者 / 进击的巨人'}
+                    className="flex-1 min-w-0 bg-void border border-edge rounded px-2.5 py-1.5 text-sm text-slate-200 focus:border-god/50 outline-none"
+                  />
+                  <button
+                    onClick={genAll}
+                    disabled={anyLoading}
+                    className="shrink-0 px-3 py-1.5 rounded text-sm font-mono border border-indigo-500/50 text-indigo-200 bg-indigo-500/10 hover:bg-indigo-500/20 disabled:opacity-40 transition-colors"
+                  >
+                    {anyLoading ? '挖掘中…' : doneCount ? '⟳ 全部刷新' : '🔍 深挖此世界'}
+                  </button>
+                </div>
+                {err && <div className="text-[12px] text-rose-400/90 font-mono mt-1.5">{err}</div>}
+              </div>
+            )}
+
+            {/* 已存资料页（回看入口）：挖过的世界永久保留，点开只读浏览 */}
+            {!readOnly && archives.length > 0 && (
+              <div className="shrink-0 border-b border-edge bg-panel/20">
+                <button
+                  onClick={() => setListOpen((v) => !v)}
+                  className="w-full flex items-center gap-2 px-4 py-1.5 text-[12px] font-mono text-dim/55 hover:text-slate-200 transition-colors"
+                >
+                  <span>🗂 已存资料页</span>
+                  <span className="text-dim/40">{archives.length}</span>
+                  <span className="ml-auto">{listOpen ? '▾ 收起' : '▸ 展开回看'}</span>
+                </button>
+                {listOpen && (
+                  <div className="px-3 pb-2.5 max-h-48 overflow-y-auto">
+                    <ArchiveList items={archives} isCur={isCurArchive} onOpen={openArchive} onDelete={deleteArchive} />
+                  </div>
+                )}
+              </div>
+            )}
 
             {/* 标签分页 */}
             <div className="shrink-0 flex gap-1 px-3 py-2 border-b border-edge bg-panel/20 overflow-x-auto">
               {CODEX_MODULES.map((mod) => {
                 const sec = entry?.sections?.[mod.key];
-                const busy = loading[mod.key];
+                const busy = !readOnly && !!loading[mod.key];   // 回看别的世界时不显示当前世界的生成脉冲
                 const on = active === mod.key;
                 return (
                   <button
@@ -368,20 +495,28 @@ export default function WorldCodexPanel({ onClose }: { onClose: () => void }) {
               <div className="sticky top-0 z-10 flex items-center gap-2 px-4 py-2.5 border-b border-edge/60 bg-void/95 backdrop-blur">
                 <span className="text-base">{activeMod.icon}</span>
                 <span className="text-sm font-bold text-slate-100 flex-1">{activeMod.title}</span>
-                <button
-                  onClick={() => regen(activeMod)}
-                  disabled={activeBusy}
-                  className="text-[12px] font-mono text-dim/60 hover:text-indigo-200 disabled:opacity-40 transition-colors"
-                  title="重新生成此条目"
-                >
-                  {activeBusy ? '⟳ 生成中…' : '⟳ 重新生成'}
-                </button>
+                {readOnly ? (
+                  activeSec ? (
+                    <span className="text-[11px] font-mono text-dim/40">已存 · {new Date(activeSec.updatedAt).toLocaleDateString()}</span>
+                  ) : null
+                ) : (
+                  <button
+                    onClick={() => regen(activeMod)}
+                    disabled={activeBusy}
+                    className="text-[12px] font-mono text-dim/60 hover:text-indigo-200 disabled:opacity-40 transition-colors"
+                    title="重新生成此条目"
+                  >
+                    {activeBusy ? '⟳ 生成中…' : '⟳ 重新生成'}
+                  </button>
+                )}
               </div>
               <div className="px-5 py-4">
-                {activeBusy && !activeSec ? (
+                {!readOnly && activeBusy && !activeSec ? (
                   <div className="text-[13px] font-mono text-dim/45 py-6 text-center">联网考据中，请稍候…</div>
                 ) : activeSec?.content ? (
                   <CodexBody text={activeSec.content} type={activeMod.type} />
+                ) : readOnly ? (
+                  <div className="text-[13px] font-mono text-dim/35 py-6 text-center">这份资料页没有该条目。</div>
                 ) : (
                   <div className="text-[13px] font-mono text-dim/35 py-6 text-center">
                     尚未生成。点上方「🔍 深挖此世界」一次挖全，或本条「⟳ 重新生成」。

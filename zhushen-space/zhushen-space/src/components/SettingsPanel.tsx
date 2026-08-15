@@ -9,7 +9,7 @@ import { runRegexReplace, compileFindRegex } from '../systems/regexEngine';   //
 import localGatewaySrc from '../../tools/local-gateway/local-gateway.mjs?raw';
 import localGatewayBat from '../../tools/local-gateway/启动本地网关.bat?raw';
 import { ADVANCE_PRESET_BUILTINS, PLOT_CHOICES_RULE } from '../promptRules';
-import { useDbAdvance } from '../store/dbAdvanceStore';   // 数据库推进管线（Stitches 规划层）
+import { useDbAdvance, clampWaitSec } from '../store/dbAdvanceStore';   // 数据库推进管线（Stitches 规划层）
 import { useTheater } from '../store/theaterStore';   // 🎭 小剧场·花样模板库
 import PromptCenterPanel from './PromptCenterPanel';   // 预设中心：各功能主提示词编辑页
 import DbAdvancePresetEditor from './DbAdvancePresetEditor';   // 数据库推进预设编辑器（缝破限/改模块提示词）
@@ -3070,6 +3070,8 @@ function GeneralSettingsSection() {
   const dbAdvUseRecall   = useDbAdvance((s) => s.useRecall);
   const dbAdvPresetName  = useDbAdvance((s) => s.presetName);
   const dbAdvHasPreset   = useDbAdvance((s) => !!s.preset);
+  const dbAdvWaitSec     = useDbAdvance((s) => s.waitSec);
+  const [dbAdvWaitInput, setDbAdvWaitInput] = useState(String(dbAdvWaitSec));   // 等待上限输入框草稿（blur/Enter 才夹取提交）
   const [dbAdvMsg, setDbAdvMsg] = useState('');
   const [dbEditorOpen, setDbEditorOpen] = useState(false);   // 数据库推进预设编辑器
   const weatherFx            = useSettings((s) => s.weatherFx);
@@ -3208,7 +3210,7 @@ function GeneralSettingsSection() {
         <div className="text-sm font-mono text-god/70 uppercase tracking-widest">🎬 数据库推进管线（导演规划层）</div>
         <div className="border border-edge rounded-lg p-4 bg-panel space-y-3">
           <div className="text-sm text-dim leading-relaxed">
-            导入数据库「推进预设」（如 Stitches 东方风神录）。开启后，**每回合正文前**先跑它的「召回→推进」规划：产出这一拍的角色行动/场景/跟踪表，注入你的**正文预设**去写散文——<b>预设只做规划，正文仍由你的正文预设生成</b>。（会多 1~2 次 AI 调用，走下方<b>独立「数据库推进」接口路由</b>；未单独指定则回退正文 API；有墙钟超时，绝不卡正文。）
+            导入数据库「推进预设」（如 Stitches 东方风神录）。开启后，**每回合正文前**先跑它的「召回→推进」规划：产出这一拍的角色行动/场景/跟踪表，注入你的**正文预设**去写散文——<b>预设只做规划，正文仍由你的正文预设生成</b>。（会多 1~2 次 AI 调用，走下方<b>独立「数据库推进」接口路由</b>；未单独指定则回退正文 API；等待上限可调（下方设置·默认 120 秒），超时自动中止跳过，绝不卡正文。）
           </div>
 
           <div className="flex items-start gap-3">
@@ -3223,6 +3225,28 @@ function GeneralSettingsSection() {
             <div>
               <div className="text-sm font-semibold text-slate-200">跑「召回」子调用</div>
               <div className="text-sm text-dim mt-1 leading-relaxed">开：先让预设的「召回」模块找相关历史记忆喂给推进（更连贯，多一次调用）。关：跳过召回、只跑「推进」，省一次调用（<span className="font-mono">{'{{recall}}'}</span> 留空）。</div>
+            </div>
+          </div>
+
+          {/* 等待上限：治「前端已判空回、后台抓包 AI 还在流式生成」——旧版写死 45s 且超时不中止请求 */}
+          <div className="flex items-start justify-between gap-4">
+            <div className="flex-1">
+              <div className="text-sm font-semibold text-slate-200">等待上限（秒）</div>
+              <div className="text-sm text-dim mt-1 leading-relaxed">「召回 / 推进」每次调用最多等这么久，超时即<b>中止该次调用</b>并跳过（不卡正文、也不再留后台"僵尸流"白烧 token）。慢速中转 / 思考型模型生成总时长常超 45 秒——若遇「前端显示空回、后台其实还在生成」就把它调大。范围 <span className="font-mono">15~600</span>，默认 <span className="font-mono">120</span>。</div>
+            </div>
+            <div className="shrink-0 flex items-center gap-2">
+              <input
+                type="number"
+                value={dbAdvWaitInput}
+                min={15}
+                max={600}
+                step={5}
+                onChange={(e) => setDbAdvWaitInput(e.target.value)}
+                onBlur={(e) => { const t = e.target.value.trim(); const v = clampWaitSec(t === '' ? NaN : t); useDbAdvance.getState().setWaitSec(v); setDbAdvWaitInput(String(v)); }}
+                onKeyDown={(e) => { if (e.key === 'Enter') { const t = dbAdvWaitInput.trim(); const v = clampWaitSec(t === '' ? NaN : t); useDbAdvance.getState().setWaitSec(v); setDbAdvWaitInput(String(v)); } }}
+                className="input-base w-24 text-center font-mono"
+              />
+              <span className="text-sm text-dim font-mono shrink-0">秒</span>
             </div>
           </div>
 

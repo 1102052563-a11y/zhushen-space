@@ -15,7 +15,9 @@ export type CombatTag =
   | 'strength' | 'dexterity' | 'vulnerable' | 'weak' | 'poison' | 'stun'
   // P1 扩展
   | 'lifesteal' | 'thorns' | 'regen' | 'burn' | 'sunder' | 'silence'
-  | 'execute' | 'pierce' | 'cleanse' | 'dispel' | 'taunt' | 'charge';
+  | 'execute' | 'pierce' | 'cleanse' | 'dispel' | 'taunt' | 'charge'
+  // P3 机制深度
+  | 'detonate';
 
 export type TargetMode = 'self' | 'ally' | 'enemy' | 'allEnemy' | 'allAlly' | 'all';
 export const TARGET_MODES: TargetMode[] = ['self', 'ally', 'enemy', 'allEnemy', 'allAlly', 'all'];
@@ -32,7 +34,9 @@ export interface CombatEffect {
   target?: TargetMode; // 覆盖技能默认目标（少见，如「攻击同时给自己加盾」）
 }
 
-/** 一个技能/道具的战斗规格 */
+/** 一个技能/道具的战斗规格。
+    注：自定义能量条消耗/门槛不在此——那是玩家在主角⚡面板绑定的 skill.numeric.resCost/resGate（引擎结算时读取：
+    付出消耗的技能自动进爆发档 ×1.3，门槛/点数不足退化普攻），AI 不生成该字段。 */
 export interface CombatSpec {
   cost?: number;       // EP 消耗（缺省 0）
   target?: TargetMode; // 默认作用目标
@@ -96,9 +100,9 @@ export interface TagDef {
 
 export const TAG_REGISTRY: Record<CombatTag, TagDef> = {
   deal:       { tag: 'deal',       label: '伤害',   emoji: '⚔️', kind: 'damage',   tone: 'neutral', uses: ['mult', 'flat', 'times'], desc: '造成伤害=mult×攻击力档(+flat)，times 为连击次数', tier: 0 },
-  block:      { tag: 'block',      label: '格挡',   emoji: '🛡️', kind: 'defend',   tone: 'buff',    uses: ['mult', 'flat'],          desc: '获得护盾=mult×防御力档(+flat)，回合末清零', tier: 0 },
-  heal:       { tag: 'heal',       label: '治疗',   emoji: '💚', kind: 'heal',     tone: 'buff',    uses: ['mult', 'flat'],          desc: '回复 HP=mult×攻击力档(+flat)，不超上限', tier: 0 },
-  restore:    { tag: 'restore',    label: '回能',   emoji: '🔷', kind: 'resource', tone: 'buff',    uses: ['flat'],                  desc: '回复 EP=flat', tier: 0 },
+  block:      { tag: 'block',      label: '格挡',   emoji: '🛡️', kind: 'defend',   tone: 'buff',    uses: ['mult', 'flat'],          desc: '获得护盾=mult×防御力档(+flat)，回合末清零（纯 flat 过小时按防御力档六成兜底）', tier: 0 },
+  heal:       { tag: 'heal',       label: '治疗',   emoji: '💚', kind: 'heal',     tone: 'buff',    uses: ['mult', 'flat'],          desc: '回复 HP=mult×攻击力档(+flat)，不超上限（纯 flat 过小时按攻击力档六成兜底）', tier: 0 },
+  restore:    { tag: 'restore',    label: '回能',   emoji: '🔷', kind: 'resource', tone: 'buff',    uses: ['flat'],                  desc: '回复 EP=flat（过小时按 EP 上限 8% 兜底）', tier: 0 },
   strength:   { tag: 'strength',   label: '力量',   emoji: '💪', kind: 'buff',     tone: 'buff',    uses: ['stacks', 'turns'],       desc: '每层使出手伤害 +10% 攻击力档', tier: 0 },
   dexterity:  { tag: 'dexterity',  label: '敏捷',   emoji: '🌀', kind: 'buff',     tone: 'buff',    uses: ['stacks', 'turns'],       desc: '每层使格挡量 +10% 防御力档', tier: 0 },
   vulnerable: { tag: 'vulnerable', label: '易伤',   emoji: '💥', kind: 'debuff',   tone: 'debuff',  uses: ['stacks', 'turns'],       desc: '目标受到的伤害 ×1.5（按回合）', tier: 0 },
@@ -118,6 +122,7 @@ export const TAG_REGISTRY: Record<CombatTag, TagDef> = {
   dispel:     { tag: 'dispel',     label: '驱散',   emoji: '🌪️', kind: 'special',  tone: 'debuff',  uses: [],                        desc: '移除目标全部增益', tier: 1 },
   taunt:      { tag: 'taunt',      label: '嘲讽',   emoji: '📢', kind: 'control',  tone: 'debuff',  uses: ['turns'],                 desc: '强制目标 turns 回合内优先攻击施法者', tier: 1 },
   charge:     { tag: 'charge',     label: '聚能',   emoji: '⚡', kind: 'buff',     tone: 'buff',    uses: ['stacks'],                desc: '下次伤害 ×(1+0.5×层数)（复用蓄力结构）', tier: 1 },
+  detonate:   { tag: 'detonate',   label: '引爆',   emoji: '💣', kind: 'damage',   tone: 'neutral', uses: [],                        desc: '引爆目标身上全部持续伤害（燃烧剩余总量+毒层总量）：一次性造成其 1.5 倍真实伤害并清除这些状态；目标无 DoT 时不产生额外伤害（常与 deal 组合）', tier: 1 },
 };
 
 export const ALL_TAGS: CombatTag[] = Object.keys(TAG_REGISTRY) as CombatTag[];
@@ -193,6 +198,7 @@ export function inferEffectsFromSkill(s: SkillLike): CombatEffect[] {
   if (has(/力量|增伤|攻击提升|战意/)) push({ tag: 'strength', stacks: 2, turns: 3 });
   if (has(/净化|解控/)) push({ tag: 'cleanse' });
   if (has(/驱散/)) push({ tag: 'dispel' });
+  if (has(/引爆|殉爆|起爆/)) push({ tag: 'detonate' });
 
   // 主动技能默认是一次攻击（除非已识别为纯增益/治疗类）
   const onlySupport = out.length > 0 && out.every((e) => ['heal', 'block', 'restore', 'strength', 'dexterity', 'regen', 'cleanse', 'thorns', 'charge'].includes(e.tag));
@@ -251,8 +257,9 @@ export const TRIGGER_EVENTS: TriggerEvent[] = ['onHit', 'onHurt', 'onKill', 'tur
 export type TriggerCond = 'always' | 'targetBurning' | 'targetPoisoned' | 'targetStunned' | 'targetLowHp' | 'selfLowHp' | 'selfHasShield';
 export const TRIGGER_CONDS: TriggerCond[] = ['always', 'targetBurning', 'targetPoisoned', 'targetStunned', 'targetLowHp', 'selfLowHp', 'selfHasShield'];
 
-/** 一条触发器：on 事件发生时(可选满足 cond·按 chance 概率)触发 effect（标签效果，作用对象同事件目标/自身）。 */
-export interface CombatTrigger { on: TriggerEvent; cond?: TriggerCond; chance?: number; effect: CombatEffect; note?: string }
+/** 一条触发器：on 事件发生时(可选满足 cond·按 chance 概率)触发 effect（标签效果，作用对象同事件目标/自身）。
+    once=true 时整场战斗至多触发一次（「背水一战/濒死觉醒」类爆发；判重按聚合数组下标记在 Combatant.firedOnce）。 */
+export interface CombatTrigger { on: TriggerEvent; cond?: TriggerCond; chance?: number; once?: boolean; effect: CombatEffect; note?: string }
 
 /** 被动战斗修正（常驻；来自技能/天赋，聚合后全程生效）。所有项默认 0/无。 */
 export interface PassiveMod {
@@ -293,6 +300,7 @@ export function normalizeTriggers(raw: unknown): CombatTrigger[] {
     const trig: CombatTrigger = { on: t.on as TriggerEvent, effect: eff };
     if ((TRIGGER_CONDS as string[]).includes(t.cond as string)) trig.cond = t.cond as TriggerCond;
     const ch = toNum(t.chance); trig.chance = ch !== undefined ? clamp(ch, 0, 1) : 1;
+    if (t.once === true || t.once === 'true') trig.once = true;
     out.push(trig);
     if (out.length >= 8) break;
   }
@@ -337,6 +345,11 @@ export function inferTriggersFromSkill(s: SkillLike): CombatTrigger[] {
   if ((m = text.match(/对[^，。；]{0,6}?(点燃|燃烧|中毒|濒死|残血)[^，。；]{0,6}?(?:的)?(?:敌人|目标)[^，。；]{0,6}?[+＋](\d+)\s*%/))) {
     const cond: TriggerCond = /点燃|燃烧/.test(m[1]) ? 'targetBurning' : /中毒/.test(m[1]) ? 'targetPoisoned' : 'targetLowHp';
     out.push({ on: 'onHit', cond, chance: 1, effect: { tag: 'deal', mult: clamp(Number(m[2]) / 100, 0, 5) } });
+  }
+  // 背水一战/濒死觉醒（每场一次的绝境爆发）：残血受击 → 力量爆发 + 回血
+  if (/背水一战|濒死觉醒|绝境(?:爆发|反击|逆转)|不屈(?:意志|斗志)?|向死而生|置之死地/.test(text)) {
+    out.push({ on: 'onHurt', cond: 'selfLowHp', chance: 1, once: true, effect: { tag: 'strength', stacks: 5, turns: 3 } });
+    out.push({ on: 'onHurt', cond: 'selfLowHp', chance: 1, once: true, effect: { tag: 'heal', mult: 0.5 } });
   }
   return out.slice(0, 4);
 }
@@ -413,12 +426,14 @@ export function triggerPromptText(): string {
   return [
     '【条件触发 / 被动（可选·让复杂效果在战斗里生效）】除 effects 外，技能/天赋可在 combat 里再带两项：',
     '- "passive": 常驻被动修正(数值小数)：critChance 暴击几率0~1 / critMult 暴击伤害加成(0.25=+25%) / dmgDealtPct 增伤 / dmgTakenPct 受伤(负=减伤) / pierce 穿透防御0~1 / cdr 冷却缩减(回合) / extraHits 额外攻击段数。',
-    '- "triggers": [{ "on": 事件, "cond": 条件(可空), "chance": 概率0~1, "effect": {一个标签效果} }]',
+    '- "triggers": [{ "on": 事件, "cond": 条件(可空), "chance": 概率0~1, "once": 布尔(可空), "effect": {一个标签效果} }]',
     `  · on ∈ ${TRIGGER_EVENTS.join(' / ')}（命中时/受击时/击杀时/回合开始/防御时）`,
     `  · cond ∈ ${TRIGGER_CONDS.join(' / ')}（空=always；如 targetBurning=目标燃烧中、targetLowHp=目标残血、selfLowHp=自身残血）`,
     '  · effect 用上表标签(如 {"tag":"burn","flat":10,"turns":2} / {"tag":"heal","mult":0.3} / {"tag":"deal","mult":0.5})。',
+    '  · once:true = 整场战斗至多触发一次（背水一战/濒死觉醒类爆发专用）。',
     '  例：「命中时30%概率点燃」→ triggers:[{"on":"onHit","chance":0.3,"effect":{"tag":"burn","flat":12,"turns":2}}]；',
-    '  「击杀回血」→ [{"on":"onKill","effect":{"tag":"heal","mult":0.4}}]；「对燃烧目标增伤20%」→ [{"on":"onHit","cond":"targetBurning","effect":{"tag":"deal","mult":0.2}}]。',
+    '  「击杀回血」→ [{"on":"onKill","effect":{"tag":"heal","mult":0.4}}]；「对燃烧目标增伤20%」→ [{"on":"onHit","cond":"targetBurning","effect":{"tag":"deal","mult":0.2}}]；',
+    '  「濒死觉醒(每场一次)」→ [{"on":"onHurt","cond":"selfLowHp","once":true,"effect":{"tag":"strength","stacks":5,"turns":3}}]。',
     '被动/触发是常驻档案(全程生效)，不必每次重写；高度独特、难枚举的效果照常写进 effect/desc 文案由叙事体现即可。',
   ].join('\n');
 }

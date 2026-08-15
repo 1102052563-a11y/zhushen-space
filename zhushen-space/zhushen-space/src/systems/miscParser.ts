@@ -1,9 +1,9 @@
-import { useMisc, isMainQuest, type MiscTask, type ArchivedTask, type WorldEvent, type QuestRing } from '../store/miscStore';
+import { useMisc, isMainQuest, mergeRings, type MiscTask, type ArchivedTask, type WorldEvent, type QuestRing } from '../store/miscStore';
 import { usePlayer } from '../store/playerStore';
 import { isHomeWorld } from './playerVitals';
 import { guardTimeAdvance } from './evoGuard';
 import { normVisibility } from './worldEvent';
-import { filterAiTaskPatch, gateNewAiTask, isTerminalTaskStatus } from './questGuard';
+import { filterAiTaskPatch, gateNewAiTask, gateRingAdvance, gateRingsPatch, gateTaskSettle, isTerminalTaskStatus } from './questGuard';
 import { logArbitration } from './npcGrowthGuard';
 import { useCanonRoute } from '../store/canonRouteStore';
 import { useCalendar } from '../store/calendarStore';
@@ -116,7 +116,7 @@ function patchFromCols(o: Record<string, any>): Partial<MiscTask> {
   return p;
 }
 
-export function applyMiscCommands(reply: string, opts: { allowLarge?: boolean; taskGuard?: boolean; domain?: 'all' | 'tasks' | 'world' } = {}): number {
+export function applyMiscCommands(reply: string, opts: { allowLarge?: boolean; taskGuard?: boolean; domain?: 'all' | 'tasks' | 'world'; narrative?: string } = {}): number {
   const allowLarge = opts.allowLarge !== false;   // 默认允许；非大总结周期传 false，丢弃 AI 误输出的大总结
   // 域过滤（任务演化与杂项演化拆成两个独立阶段后，各自只应用自己域的指令，互不越权）：
   //   'tasks' = 只应用 T_ 任务四类指令（set/add/de/ringAdvance），其余（总结/时间/天气/大事/truths/canon*/contractors）静默丢弃 —— 任务演化阶段用
@@ -133,6 +133,37 @@ export function applyMiscCommands(reply: string, opts: { allowLarge?: boolean; t
   const sideMax = M.settings.questSideMax ?? 4;                          // 在场支线上限（0=不限）
   const perRound = M.settings.questNewPerRound ?? 1;                     // 每轮新建配额（0=不限）
   let tasksCreated = 0;                                                  // 本轮已放行的新建条数
+  // 环推进闸门（questAdvanceGate·治"部分完成就乱推/跳环/整条报完成"；纯函数在 questGuard.ts）
+  const advOn = guardOn && M.settings.questAdvanceGate !== false;
+  const jumpMax = M.settings.questRingJumpMax ?? 1;                      // 每轮每任务最多翻 done/skipped 的环数（0=不限）
+  const roundRingOps = new Set<string>();                                // 本轮已做过环操作的任务（每轮每任务最多一种环操作）
+  /* 对既有任务的更新载荷套推进闸：环状态单向+跨环限幅+每轮一种环操作+成功结算闸；被驳回的字段剔除并记仲裁 */
+  const applyAdvanceGates = (existing: MiscTask, p0: Partial<MiscTask>): Partial<MiscTask> => {
+    if (!advOn) return p0;
+    let p = p0;
+    if (p.rings !== undefined || p.currentRing !== undefined) {
+      if (roundRingOps.has(existing.id)) {
+        p = { ...p }; delete p.rings; delete p.currentRing;
+        logArbitration(`任务 ${existing.id}`, '环状态调整驳回：单条任务每轮最多一种环操作（本轮已动过环）');
+      } else {
+        const g = gateRingsPatch(existing, p, jumpMax);
+        if (g.dropped.length) logArbitration(`任务 ${existing.id}`, `环推进闸驳回：${g.dropped.join('；')}`);
+        p = g.patch;
+        if (g.flips > 0) roundRingOps.add(existing.id);
+      }
+    }
+    // 整条成功结算闸：以"环状态更新落地后"的任务状态判定（AI 同一条指令里推完终局环再结算是合法的）
+    if (p.status != null && isTerminalTaskStatus(p.status)) {
+      const after = Array.isArray(p.rings) && existing.rings?.length
+        ? { ...existing, rings: mergeRings(existing.rings, p.rings) } : existing;
+      const reason = gateTaskSettle(after, String(p.status));
+      if (reason) {
+        p = { ...p }; delete p.status;
+        logArbitration(`任务 ${existing.id}`, `整条成功结算驳回：${reason}（任务保持进行中；确已完成可在任务面板手动结算）`);
+      }
+    }
+    return p;
+  };
   // 世界大事「地点」补全所处世界前缀：让地点成为「所处世界 … 具体位置」的完整路径（如「生化危机2 浣熊市 警察局 二楼回廊」）。
   // 已含当前世界名则不重复前缀；地点为空则不强加。
   const withWorld = (loc: string) => {
@@ -417,10 +448,32 @@ export function applyMiscCommands(reply: string, opts: { allowLarge?: boolean; t
     }
 
     if (doTasks && (m = /^ringAdvance\(\s*"(T_\d+)"\s*(?:,\s*(\{[\s\S]*\})\s*)?\)$/.exec(line))) {
+      const tid = m[1];
       const pl = m[2] ? safeJson(m[2]) : null;
       const sv = pl?.summary ?? pl?.['总结'] ?? pl?.['行为总结'];
       const rt = pl?.rating ?? pl?.['评级'] ?? pl?.['评分'];
-      M.advanceRing(m[1], pl ? { summary: sv != null ? String(sv) : undefined, rating: rt != null ? String(rt) : undefined } : undefined);
+      const ev = pl?.evidence ?? pl?.['证据'] ?? pl?.['引用'];
+      // 环推进闸门：每轮每任务一种环操作 + summary 必给 + evidence 正文原句锚定（推不动≠信息丢：summary 转存 progress）
+      if (advOn) {
+        const t = useMisc.getState().tasks.find((x) => x.id === tid);
+        if (t) {
+          if (roundRingOps.has(tid)) {
+            logArbitration(`任务 ${tid}`, '环推进驳回：单条任务每轮最多一种环操作（本轮已动过环）');
+            continue;
+          }
+          const reason = gateRingAdvance(t, {
+            summary: sv != null ? String(sv) : undefined,
+            evidence: ev != null ? String(ev) : undefined,
+          }, opts.narrative);
+          if (reason) {
+            logArbitration(`任务 ${tid}`, `环推进驳回：${reason}（本环保持 active，本次已转为进度记录）`);
+            if (sv != null && String(sv).trim()) M.updateTask(tid, { progress: String(sv).trim() });
+            continue;
+          }
+          roundRingOps.add(tid);
+        }
+      }
+      M.advanceRing(tid, pl ? { summary: sv != null ? String(sv) : undefined, rating: rt != null ? String(rt) : undefined } : undefined);
       n++; continue;
     }
     if (doTasks && (m = /^de\(\s*"(T_\d+)"\s*\)$/.exec(line))) {
@@ -440,16 +493,20 @@ export function applyMiscCommands(reply: string, opts: { allowLarge?: boolean; t
         const existing = useMisc.getState().tasks.find((x) => x.id === id);
         if (existing) {
           // 已建档任务的 set = 更新。AI 结构锁：只放行推进类字段（status/progress/rating/rings/currentRing），
-          // 名称/描述/奖惩/时限/线别/终局冻结（环内容另有 mergeRings 冻结）；被驳回的改动尝试记入仲裁日志。
+          // 名称/描述/奖惩/时限/线别/终局冻结（环内容另有 mergeRings 冻结）；再过环推进闸（状态单向/跨环限幅/结算闸）。
+          let p: Partial<MiscTask>;
           if (lockOn) {
             const { patch, dropped } = filterAiTaskPatch(existing, t);
             if (dropped.length) logArbitration(`任务 ${id}`, `结构锁驳回改写：${dropped.join('；')}（要改结构请在任务面板 ✏️ 手动编辑）`);
-            M.updateTask(id, patch);
+            p = applyAdvanceGates(existing, patch);
+            M.updateTask(id, p);
           } else {
-            M.upsertTask(t);
+            // 闸门可能剔除 rings/status 等字段（delete 后键不存在），upsertTask 内部 {...旧,...新} 会自动保留旧值
+            p = applyAdvanceGates(existing, t);
+            M.upsertTask(p as MiscTask);
           }
-          // 状态直接给的就是已结算（如 AI 一次性给出"已完成"任务）→ 立即归档
-          if (isTerminalTaskStatus(o['5'])) M.settleTask(id, String(o['5']));
+          // 状态直接给的就是已结算（如 AI 一次性给出"已完成"任务）→ 立即归档；被结算闸剔除的状态不触发归档
+          if (p.status != null && isTerminalTaskStatus(p.status)) M.settleTask(id, String(p.status));
           n++;
         } else {
           // 全新任务：布置闸（每轮配额 + 在场支线上限；主线/职业任务/进阶通告豁免——见 questGuard）
@@ -478,9 +535,11 @@ export function applyMiscCommands(reply: string, opts: { allowLarge?: boolean; t
           if (dropped.length) logArbitration(`任务 ${id}`, `结构锁驳回改写：${dropped.join('；')}（要改结构请在任务面板 ✏️ 手动编辑）`);
           p = patch;
         }
+        // 环推进闸：状态单向 + 跨环限幅 + 每轮一种环操作 + 强制环未全达成时驳回整条成功结算
+        if (existing) p = applyAdvanceGates(existing, p);
         M.updateTask(id, p);
-        // 任务被标记为完成/失败/放弃 → 移出进行中列表（归档），修复"完成后任务仍在"
-        if (o['5'] != null && isTerminalTaskStatus(o['5'])) M.settleTask(id, String(o['5']));
+        // 任务被标记为完成/失败/放弃 → 移出进行中列表（归档），修复"完成后任务仍在"；被结算闸剔除的状态不触发归档
+        if (p.status != null && isTerminalTaskStatus(p.status)) M.settleTask(id, String(p.status));
         n++;
       }
       continue;

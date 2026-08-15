@@ -272,6 +272,10 @@ export interface MiscSettings {
   questGuardLock?: boolean;      // AI 结构锁（默认开）：已建档任务 AI 只许推进（状态/进度/评级/环推进），名称/描述/奖惩/时限/终局/环内容冻结
   questSideMax?: number;         // 在场支线数量上限：满额时 AI 新建支线被驳回（0=不限，默认 4；主线/职业任务/进阶通告不占额）
   questNewPerRound?: number;     // 每轮杂项演化 AI 新建任务条数上限（0=不限，默认 1）
+  // ── 环推进闸门（questAdvanceGate·治"部分完成就乱推进度/跳阶段/整条报完成"；见 questGuard.ts）──
+  questAdvanceGate?: boolean;    // 确定性推进闸（默认开）：ringAdvance 须附正文原句 evidence（逐字核验）+ 每轮每任务最多一种环操作 + 跨环限幅 + 环状态单向 + 强制环未全达成时驳回整条成功结算
+  questRingJumpMax?: number;     // 每轮每任务最多把几个环翻成 done/skipped（0=不限，默认 1）——跨越多环要分轮补账
+  questAdvanceReview?: boolean;  // 推进二次复核（默认开）：推进/跳环/整条结算指令落库前，再调一次任务 API 当"复核裁判"逐要件核验正文证据，未过的剔除（仅 AI 试图推进的回合才多这一次调用）
 }
 
 const DEFAULT_SETTINGS: MiscSettings = {
@@ -289,6 +293,9 @@ const DEFAULT_SETTINGS: MiscSettings = {
   questGuardLock: true,
   questSideMax: 4,
   questNewPerRound: 1,
+  questAdvanceGate: true,
+  questRingJumpMax: 1,
+  questAdvanceReview: true,
 };
 
 interface MiscState {

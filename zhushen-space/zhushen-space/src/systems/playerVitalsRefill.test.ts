@@ -24,4 +24,22 @@ describe('refillAllVitals 一键回满（治"队友 400/4000 残疾、刷新也�
     expect(useNpc.getState().npcs.C2.hp).toBe(50);            // 路人不动
     expect(useNpc.getState().npcs.C4.hp).toBe(0);             // 死者不动
   });
+
+  it('有六维的队友回满到真实上限（六维+装备上限加成），而非陈旧的存储 maxHp', () => {
+    useNpc.setState({ npcs: {
+      C9: { id: 'C9', name: '披甲队友', onScene: true, isDead: false, hp: 100, mp: 10,
+        maxHp: 200, maxMp: 75,   // 陈旧缓存：换装前的旧上限（曾按它回满 → 装备加成形同虚设）
+        realm: '三阶·Lv.25',
+        attrs: { str: 5, agi: 5, con: 10, int: 5, cha: 5, luck: 5 },
+        items: [{ id: 'i1', name: '巨龙胸甲', equipped: true, effect: '生命值上限+1000' }] },
+    } } as any);
+
+    refillAllVitals();
+
+    const c9 = useNpc.getState().npcs.C9;
+    expect(c9.hp).toBe(1200);      // 体10×20=200 + 装备平值+1000
+    expect(c9.maxHp).toBe(1200);   // 存储上限缓存同步刷新
+    expect(c9.mp).toBe(75);        // 智5×15
+    expect(c9.maxMp).toBe(75);
+  });
 });

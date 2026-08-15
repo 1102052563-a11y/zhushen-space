@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { useCombat, type CombatActionKind, type Combatant, type CombatStatBlock } from '../store/combatStore';
+import { useCombat, type CombatActionKind, type Combatant, type CombatStatBlock, type BattleState } from '../store/combatStore';
 import { useCharacters } from '../store/characterStore';
 import { usePlayer } from '../store/playerStore';
 import { useNpc } from '../store/npcStore';
@@ -8,6 +8,8 @@ import { useResource } from '../store/resourceStore';
 import { useMp } from '../store/multiplayerStore';
 import { telegraphIntent } from '../systems/enemyAI';
 import { effectiveSkillCost, previewAction } from '../systems/combatEngine';
+import { parseCombatSpec } from '../systems/combatTags';
+import { pushSceneNotice } from '../systems/allocNotice';
 import { combatIconFor } from './combatIcons';
 
 /* 模态战斗面板（仿 fanren-remake）。结算由引擎/编排器在 App 里完成；本组件只负责展示
@@ -24,6 +26,87 @@ function Bar({ pct, color, track }: { pct: number; color: string; track: string 
   return (
     <div className={`h-2 rounded-full overflow-hidden ${track}`}>
       <div className={`h-full ${color} transition-all duration-300`} style={{ width: `${pct}%` }} />
+    </div>
+  );
+}
+
+/* 技能归类（P4·选择器分组）：按标签规格分 攻击/控制减益/增益治疗 三类（parseCombatSpec 同引擎口径）。 */
+function skillClass(s: any): 'atk' | 'ctrl' | 'sup' {
+  try {
+    const sp = parseCombatSpec(s);
+    if (sp.effects.some((e: any) => ['deal', 'execute', 'pierce', 'lifesteal', 'detonate'].includes(e.tag))) return 'atk';
+    if (sp.effects.some((e: any) => ['stun', 'silence', 'vulnerable', 'weak', 'sunder', 'taunt', 'poison', 'burn', 'dispel'].includes(e.tag))) return 'ctrl';
+  } catch { /* 解析失败归支援组 */ }
+  return 'sup';
+}
+
+/* 战斗结束统计卡（P4）：输出/承伤/治疗对比 + 最痛一击（数据由引擎 addStat/noteMaxHit 累计）。 */
+function EndStats({ battle }: { battle: BattleState }) {
+  const rows = battle.order
+    .map((id) => ({ id, b: battle.initialState[id], s: battle.participants[id]?.stats }))
+    .filter((x) => x.b && x.s && (x.s.dealt > 0 || x.s.taken > 0 || (x.s.healed ?? 0) > 0));
+  if (rows.length === 0) return null;
+  const max = Math.max(1, ...rows.map((x) => Math.max(x.s!.dealt, x.s!.taken)));
+  const mh = battle.maxHit;
+  return (
+    <div className="rounded-md border border-slate-700/60 bg-slate-900/40 px-2.5 py-2 space-y-1">
+      <div className="text-[11px] font-medium text-slate-400">📊 战斗统计</div>
+      {rows.map((x) => (
+        <div key={x.id} className="flex items-center gap-1.5 text-[11px] text-slate-300">
+          <span className={`w-14 truncate shrink-0 ${x.b!.side === 'player' ? 'text-cyan-300' : 'text-rose-300'}`}>{x.b!.name}</span>
+          <div className="h-1.5 rounded bg-rose-500/70 shrink-0" style={{ width: `${Math.max(2, Math.round((x.s!.dealt / max) * 56))}px` }} />
+          <span className="text-rose-300/90">⚔{x.s!.dealt}</span>
+          <span className="text-sky-300/90">🛡{x.s!.taken}</span>
+          {(x.s!.healed ?? 0) > 0 && <span className="text-emerald-300/90">💚{x.s!.healed}</span>}
+        </div>
+      ))}
+      {mh && (
+        <div className="text-[11px] text-amber-300/90">
+          💥 最痛一击：{battle.initialState[mh.actorId]?.name ?? mh.actorId} {mh.label} → {battle.initialState[mh.targetId]?.name ?? mh.targetId}<b className="ml-1">{mh.dmg}</b>
+        </div>
+      )}
+    </div>
+  );
+}
+
+/* 战后处置（P4）：胜利后对被击倒的建档 NPC 敌人选择 处决/俘虏/放走。
+   处决=isDead:true（⚠NPC 不删除铁律：只标记，名册☠开关+↩可复活）；三种选择都推场外通报（pushSceneNotice）让下回合正文接住。
+   不回写已生成的战斗总结——总结在 ended 时已后台生成，处置是其后的补充事实（时序上零冲突）。 */
+function Disposal({ battle }: { battle: BattleState }) {
+  const npcsMap = useNpc((s) => s.npcs);
+  const upsertNpc = useNpc((s) => s.upsertNpc);
+  const [done, setDone] = useState<Record<string, string>>({});
+  const downed = battle.order.filter((id) => {
+    const b = battle.initialState[id]; const c = battle.participants[id];
+    return b?.side === 'enemy' && !!c && c.curHp <= 0 && !b.isTransient && !!npcsMap[id];
+  });
+  if (battle.victor !== 'player' || downed.length === 0) return null;
+  const act = (id: string, kind: 'execute' | 'capture' | 'release') => {
+    if (done[id]) return;
+    const name = battle.initialState[id]?.name ?? id;
+    if (kind === 'execute') { upsertNpc(id, { isDead: true } as any, { manual: true }); pushSceneNotice(`战后处置：主角处决了被击倒的 ${name}（已确认死亡）。`); }
+    else if (kind === 'capture') pushSceneNotice(`战后处置：主角将被击倒的 ${name} 制服并俘虏（伤重被缚，后续去向由剧情决定）。`);
+    else pushSceneNotice(`战后处置：主角放走了被击倒的 ${name}（留其一命）。`);
+    setDone((d) => ({ ...d, [id]: kind }));
+  };
+  const DONE_LBL: Record<string, string> = { execute: '☠ 已处决', capture: '⛓ 已俘虏', release: '🕊 已放走' };
+  return (
+    <div className="rounded-md border border-slate-700/60 bg-slate-900/40 px-2.5 py-2 space-y-1">
+      <div className="text-[11px] font-medium text-slate-400">⚖️ 战后处置 <span className="text-slate-500">（选择会通报进下回合正文）</span></div>
+      {downed.map((id) => (
+        <div key={id} className="flex items-center justify-between gap-2 text-[12px]">
+          <span className="text-slate-200 truncate">{battle.initialState[id]?.name ?? id}</span>
+          {done[id] ? (
+            <span className="text-[11px] text-amber-300/90 shrink-0">{DONE_LBL[done[id]] ?? done[id]}</span>
+          ) : (
+            <span className="flex gap-1.5 shrink-0">
+              <button onClick={() => act(id, 'execute')} className="px-2 py-0.5 rounded text-[11px] border border-rose-700/60 text-rose-300 hover:bg-rose-950/40">☠ 处决</button>
+              <button onClick={() => act(id, 'capture')} className="px-2 py-0.5 rounded text-[11px] border border-amber-700/60 text-amber-300 hover:bg-amber-950/40">⛓ 俘虏</button>
+              <button onClick={() => act(id, 'release')} className="px-2 py-0.5 rounded text-[11px] border border-slate-600 text-slate-300 hover:bg-slate-800">🕊 放走</button>
+            </span>
+          )}
+        </div>
+      ))}
     </div>
   );
 }
@@ -193,7 +276,6 @@ export default function CombatPanel({ onPlayerAction, onUndo, canUndo, mpMode, m
   const epShort = (s: any) => (curActor?.curEp ?? 0) < epNeedNow(s);
   // 技能自定义能量条消耗（仅 B1·能量条存在才生效；引用已删能量条→视为无消耗，不拦不扣）
   const resources = useResource((s) => s.resources);
-  const setResCur = useResource((s) => s.setCur);
   const rcOf = (s: any) => {
     const rc = s?.numeric?.resCost;
     if (!rc || curId !== 'B1' || !rc.id || !(rc.amount > 0)) return null;
@@ -236,9 +318,7 @@ export default function CombatPanel({ onPlayerAction, onUndo, canUndo, mpMode, m
     if (action === 'item' && !itemId) return;
     if (needsTarget && targets.length === 0) return;
     if (action === 'skill') {
-      if (resBlocked(selSkill)) return;                // 消耗不足 / 门槛未达 → 拦下
-      const rc = rcOf(selSkill);
-      if (rc) setResCur(rc.id, rc.avail - rc.amount);  // 施放即扣减消耗（门槛 resGate 不消耗）
+      if (resBlocked(selSkill)) return;                // 消耗不足 / 门槛未达 → 拦下（扣点在引擎 settleAction 统一做：付出消耗的技能进爆发档 ×1.3，autoBattle 代打路径也一致）
     }
     onPlayerAction(action, needsTarget ? targets : [], action === 'skill' ? skillId : undefined, action === 'item' ? itemId : undefined);
   }
@@ -374,6 +454,8 @@ export default function CombatPanel({ onPlayerAction, onUndo, canUndo, mpMode, m
               {apiBusy
                 ? <div className="text-[11px] text-amber-300/90 animate-pulse">📝 {apiStatus || '战斗总结生成中…'}——生成后会写入输入框，可直接关闭、稍后再发。</div>
                 : <div className="text-[11px] text-slate-400">战斗结果已写入输入框，确认/编辑后发送即可续写正文。</div>}
+              <EndStats battle={battle} />
+              <Disposal battle={battle} />
             </div>
           ) : myTurn && stunned ? (
             <div className="flex items-center justify-between">
@@ -413,15 +495,28 @@ export default function CombatPanel({ onPlayerAction, onUndo, canUndo, mpMode, m
                   );
                 })}
               </div>
-              {action === 'skill' && (
-                <select value={skillId} onChange={(e) => { setSkillId(e.target.value); setTargets([]); }}
-                  className="w-full bg-slate-800 border border-slate-600 rounded px-2 py-1 text-sm text-slate-200">
-                  <option value="">— 选择技能 —</option>
-                  {activeSkills.map((s) => { const cd = skillCd(s.id); const rc = rcOf(s); const g = gateOf(s); const ec = epCostOf(s); return (
-                    <option key={s.id} value={s.id} disabled={cd > 0 || resBlocked(s) || epShort(s)}>{s.name}{s.level ? ` · ${s.level}` : ''}{ec > 0 ? ` ⚡${ec}EP${epShort(s) ? '·不足' : ''}` : ''}{rc ? ` ⚡${rc.name}${rc.amount}${rc.avail < rc.amount ? `·不足(${rc.avail})` : ''}` : ''}{g ? ` 🔒${g.name}≥${g.amount}${g.avail < g.amount ? `·未达(${g.avail})` : ''}` : ''}{isChargeSkill(s) ? ' 🔋蓄力' : ''}{isDomainSkillUI(s) ? ' 🌀领域' : ''}{cd > 0 ? ` ⏳冷却${cd}` : ''}</option>
-                  ); })}
-                </select>
-              )}
+              {action === 'skill' && (() => {
+                // 单个技能 <option>（keyPrefix 防「最近使用」与分类组重 key；value 相同时 select 选中首个匹配，无碍）
+                const skillOpt = (s: any, kp = '') => { const cd = skillCd(s.id); const rc = rcOf(s); const g = gateOf(s); const ec = epCostOf(s); return (
+                  <option key={kp + s.id} value={s.id} disabled={cd > 0 || resBlocked(s) || epShort(s)}>{s.name}{s.level ? ` · ${s.level}` : ''}{ec > 0 ? ` ⚡${ec}EP${epShort(s) ? '·不足' : ''}` : ''}{rc ? ` ⚡${rc.name}${rc.amount}${rc.avail < rc.amount ? `·不足(${rc.avail})` : ''}` : ''}{g ? ` 🔒${g.name}≥${g.amount}${g.avail < g.amount ? `·未达(${g.avail})` : ''}` : ''}{isChargeSkill(s) ? ' 🔋蓄力' : ''}{isDomainSkillUI(s) ? ' 🌀领域' : ''}{cd > 0 ? ` ⏳冷却${cd}` : ''}</option>
+                ); };
+                // 技能多（≥8）才分组：⏱最近使用（lastSkillIds）+ 攻/辅/控 optgroup；少时平铺不打扰
+                const grouped = activeSkills.length >= 8;
+                const recent = grouped ? (curActor?.lastSkillIds ?? []).map((id) => activeSkills.find((s) => s.id === id)).filter(Boolean) as any[] : [];
+                const groups = grouped ? activeSkills.reduce((acc: Record<'atk' | 'ctrl' | 'sup', any[]>, s: any) => { acc[skillClass(s)].push(s); return acc; }, { atk: [], ctrl: [], sup: [] }) : null;
+                return (
+                  <select value={skillId} onChange={(e) => { setSkillId(e.target.value); setTargets([]); }}
+                    className="w-full bg-slate-800 border border-slate-600 rounded px-2 py-1 text-sm text-slate-200">
+                    <option value="">— 选择技能 —</option>
+                    {groups ? (<>
+                      {recent.length > 0 && <optgroup label="⏱ 最近使用">{recent.map((s) => skillOpt(s, 'r_'))}</optgroup>}
+                      {groups.atk.length > 0 && <optgroup label="⚔ 攻击">{groups.atk.map((s) => skillOpt(s))}</optgroup>}
+                      {groups.sup.length > 0 && <optgroup label="✨ 增益/治疗">{groups.sup.map((s) => skillOpt(s))}</optgroup>}
+                      {groups.ctrl.length > 0 && <optgroup label="🕸 控制/减益">{groups.ctrl.map((s) => skillOpt(s))}</optgroup>}
+                    </>) : activeSkills.map((s) => skillOpt(s))}
+                  </select>
+                );
+              })()}
               {action === 'item' && (
                 usableItems.length > 0 ? (
                   <select value={itemId} onChange={(e) => { setItemId(e.target.value); setTargets([]); }}

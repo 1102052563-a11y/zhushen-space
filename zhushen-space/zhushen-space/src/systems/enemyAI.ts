@@ -6,11 +6,13 @@
    设计文档：指导/战斗系统-重置-设计.md §6
 ════════════════════════════════════════════ */
 import type { BattleState, CombatActionKind, Side } from '../store/combatStore';
-import { aliveIds, effectiveSkillCost, previewAction } from './combatEngine';
+import { aliveIds, effectiveSkillCost, previewAction, inferItemEffect } from './combatEngine';
 import { parseCombatSpec, type CombatSpec, type CombatTag } from './combatTags';
 import { useCharacters } from '../store/characterStore';
+import { useNpc } from '../store/npcStore';
+import { useResource } from '../store/resourceStore';
 
-export interface EnemyAction { kind: CombatActionKind; targetIds: string[]; skillId?: string; line?: string }
+export interface EnemyAction { kind: CombatActionKind; targetIds: string[]; skillId?: string; itemId?: string; line?: string }
 
 /* 确定性 PRNG（FNV1a 播种 + LCG），同样的战况必出同样的决策 */
 function seeded(str: string): () => number {
@@ -20,7 +22,7 @@ function seeded(str: string): () => number {
   return () => { s = (Math.imul(s, 1664525) + 1013904223) >>> 0; return s / 4294967296; };
 }
 
-const ATTACK_TAGS = new Set<CombatTag>(['deal', 'execute', 'pierce', 'lifesteal']);
+const ATTACK_TAGS = new Set<CombatTag>(['deal', 'execute', 'pierce', 'lifesteal', 'detonate']);
 const HEAL_TAGS = new Set<CombatTag>(['heal']);
 const BUFF_TAGS = new Set<CombatTag>(['strength', 'dexterity', 'block', 'regen', 'thorns', 'restore', 'cleanse']);
 const CONTROL_TAGS = new Set<CombatTag>(['stun', 'silence', 'vulnerable', 'weak', 'poison', 'sunder', 'taunt', 'dispel']);
@@ -50,7 +52,20 @@ export function pickEnemyAction(state: BattleState, actorId: string): EnemyActio
   const rng = seeded(`${state.battleId}|${state.round}|${actorId}`);
   const skills = (useCharacters.getState().characters[actorId]?.skills ?? []).filter((s: any) => !/被动|光环/.test(s?.skillType ?? ''));
   const specOf = (s: any): CombatSpec => parseCombatSpec(s);
-  const usable = skills.filter((s: any) => (actor.cooldowns[s.id] ?? 0) <= 0 && actor.curEp >= effectiveSkillCost(s, block.maxEp));   // 消耗与引擎同一来源（品级×maxEp 百分比锚定），避免选了付不起的技又退化普攻
+  // 自定义能量条门槛/消耗（仅 B1·autoBattle 代打）：不选门槛未达/点数不足的技，避免选了又被引擎退化普攻
+  const resOk = (s: any): boolean => {
+    if (actorId !== 'B1') return true;
+    try {
+      const rs = useResource.getState().resources;
+      const g = s?.numeric?.resGate; const rc = s?.numeric?.resCost;
+      const gBar = g?.id && (g.amount ?? 0) > 0 ? rs.find((r) => r.id === g.id) : undefined;
+      if (gBar && gBar.cur < g.amount) return false;
+      const rcBar = rc?.id && (rc.amount ?? 0) > 0 ? rs.find((r) => r.id === rc.id) : undefined;
+      if (rcBar && rcBar.cur < rc.amount) return false;
+    } catch {}
+    return true;
+  };
+  const usable = skills.filter((s: any) => (actor.cooldowns[s.id] ?? 0) <= 0 && actor.curEp >= effectiveSkillCost(s, block.maxEp) && resOk(s));   // 消耗与引擎同一来源（品级×maxEp 百分比锚定），避免选了付不起的技又退化普攻
   const hasTag = (sp: CombatSpec, set: Set<CombatTag>) => sp.effects.some((e) => set.has(e.tag));
   const findUsable = (pred: (sp: CombatSpec) => boolean) => usable.find((s: any) => pred(specOf(s)));
 
@@ -81,6 +96,12 @@ export function pickEnemyAction(state: BattleState, actorId: string): EnemyActio
   if (hpRatio < 0.25) {
     const healS = findUsable((sp) => hasTag(sp, HEAL_TAGS));
     if (healS) return { kind: 'skill', skillId: healS.id, targetIds: [actorId] };
+    // 1.5 没有治疗技 → 翻背包找恢复类道具（与 settleAction item 分支同一库存来源；B1/联机来宾由玩家手操不代吃；transient 敌无档案自然跳过）
+    if (actorId !== 'B1' && !actorId.startsWith('MP_')) {
+      const inv = useNpc.getState().npcs[actorId]?.items ?? [];
+      const pot = inv.find((i: any) => (i?.quantity ?? 1) > 0 && ['heal', 'shield'].includes(inferItemEffect(i).kind));
+      if (pot) return { kind: 'item', itemId: pot.id || pot.name, targetIds: [actorId] };
+    }
   }
   // 2. 奶受伤友军（辅助定位）
   const wounded = allies
@@ -89,6 +110,17 @@ export function pickEnemyAction(state: BattleState, actorId: string): EnemyActio
   if (wounded) {
     const healS = findUsable((sp) => hasTag(sp, HEAL_TAGS));
     if (healS) return { kind: 'skill', skillId: healS.id, targetIds: [wounded.id] };
+  }
+  // 2.5 保护高价值残血队友（小弟护 BOSS/辅助护主坦）：自己健康、存在血池比自己大的残血未被护队友 → 按原型概率挺身
+  //     （rng 仅在候选存在时消耗——无候选场景的决策序列与旧版完全一致）
+  if (allies.length >= 2 && hpRatio > 0.4) {
+    const vip = allies
+      .filter((id) => id !== actorId)
+      .map((id) => ({ id, b: state.initialState[id], c: state.participants[id] }))
+      .filter((x) => x.b && x.c && x.b.maxHp > block.maxHp && x.c.curHp / Math.max(1, x.b.maxHp) < 0.35 && !x.c.guardedBy)
+      .sort((a, b2) => b2.b.maxHp - a.b.maxHp)[0];
+    const protP = arche === 'caster' ? 0.5 : arche === 'balanced' ? 0.3 : 0.15;
+    if (vip && rng() < protP) return { kind: 'protect', targetIds: [vip.id] };
   }
   // 3. 自身无增益 → 按原型概率先强化（纯增益、不带攻击的技）
   if (!actor.status.some((s) => s.tone === 'buff') && rng() < buffP) {
@@ -102,8 +134,12 @@ export function pickEnemyAction(state: BattleState, actorId: string): EnemyActio
     const ctrlS = findUsable((sp) => hasTag(sp, CONTROL_TAGS));
     if (ctrlS) return { kind: 'skill', skillId: ctrlS.id, targetIds: [target] };
   }
-  // 5. 攻击技（随机挑一个可用攻击技；同技连放两次后、有替代则换招——STS 式行动模式约束）
+  // 5. 攻击技（随机挑一个可用攻击技；对面≥3人时优先 AoE；同技连放两次后、有替代则换招——STS 式行动模式约束）
   let atk = usable.filter((s: any) => hasTag(specOf(s), ATTACK_TAGS));
+  if (foes.length >= 3) {
+    const aoe = atk.filter((s: any) => { const sp = specOf(s); return sp.target === 'allEnemy' || sp.target === 'all' || sp.effects.some((e) => e.target === 'allEnemy' || e.target === 'all'); });
+    if (aoe.length) atk = aoe;
+  }
   const rep = actor.lastSkillIds && actor.lastSkillIds.length >= 2 && actor.lastSkillIds[0] === actor.lastSkillIds[1] ? actor.lastSkillIds[0] : null;
   if (rep && atk.length > 1) atk = atk.filter((s: any) => s.id !== rep);
   if (atk.length) { const pick = atk[Math.floor(rng() * atk.length)]; return { kind: 'skill', skillId: pick.id, targetIds: [target] }; }
@@ -125,6 +161,11 @@ export function telegraphIntent(state: BattleState, actorId: string): { emoji: s
   const short = (s: string, n: number) => (s.length > n ? s.slice(0, n) + '…' : s);
   if (act.kind === 'defend') return { emoji: '🛡️', label: '防御', detail: '将进入防御姿态：本回合承伤减半' };
   if (act.kind === 'flee') return { emoji: '🏃', label: '欲脱离' };
+  if (act.kind === 'item') {
+    const it = (useNpc.getState().npcs[actorId]?.items ?? []).find((i: any) => i?.id === act.itemId || i?.name === act.itemId);
+    return { emoji: '🧪', label: `将用「${short(String(it?.name ?? '道具'), 6)}」`, detail: `濒死之际，将取出「${it?.name ?? '随身道具'}」自救` };
+  }
+  if (act.kind === 'protect') return { emoji: '🛡️', label: `护→${short(nameOf(act.targetIds[0]), 4)}`, detail: `将挺身护住 ${nameOf(act.targetIds[0])}，替其承受来袭攻击` };
   const skill = act.kind === 'skill' ? (useCharacters.getState().characters[actorId]?.skills ?? []).find((s: any) => s.id === act.skillId) : undefined;
   const sp: CombatSpec | undefined = skill ? parseCombatSpec(skill) : undefined;
   const isAtk = act.kind === 'attack' || !!sp?.effects.some((e) => ATTACK_TAGS.has(e.tag));

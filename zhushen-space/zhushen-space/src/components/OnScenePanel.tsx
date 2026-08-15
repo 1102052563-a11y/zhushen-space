@@ -2,7 +2,7 @@ import { useRef, useState } from 'react';
 import { useShallow } from 'zustand/react/shallow';
 import { useNpc, hasRealNpcName, type NpcRecord } from '../store/npcStore';
 import { useCharacters } from '../store/characterStore';
-import { lvFromRealm, tierFxClass, effectiveResource, fullMaxHp, fullMaxEp, ratioOf, npcBaseAttrs } from '../systems/derivedStats';
+import { lvFromRealm, tierFxClass, effectiveResource, fullMaxHp, fullMaxEp, ratioOf, npcBaseAttrs, realAttrMult } from '../systems/derivedStats';
 import { useHoloViewer } from '../store/holoViewerStore';
 import { PortraitPicker } from './PortraitPicker';
 
@@ -121,8 +121,9 @@ function OnSceneCard({ npc, onOpen }: { npc: NpcRecord; onOpen: () => void }) {
         {(npc.attrs != null || npc.hp != null || npc.mp != null) && (() => {
           // 最大HP/EP = 基础六维换算 + 装备"增加HP/EP上限"平值 + 百分比加成
           const eqp = (npc.items ?? []).filter((it) => it.equipped);
-          const maxHp = fullMaxHp(npcBaseAttrs(npc), eqp, cdata?.skills, cdata?.traits, 1, ratioOf(npc));   // npcBaseAttrs=attrs+真实属性点直加(realAttrs)
-          const maxEp = fullMaxEp(npcBaseAttrs(npc), eqp, cdata?.skills, cdata?.traits, 1, ratioOf(npc));
+          const rmN = realAttrMult(npc.realm, lv);   // 四阶起×5·与详情页/战斗/钳制同口径（曾传 1→四阶+ 浮窗上限只有详情页的 1/5）
+          const maxHp = fullMaxHp(npcBaseAttrs(npc), eqp, cdata?.skills, cdata?.traits, rmN, ratioOf(npc));   // npcBaseAttrs=attrs+真实属性点直加(realAttrs)
+          const maxEp = fullMaxEp(npcBaseAttrs(npc), eqp, cdata?.skills, cdata?.traits, rmN, ratioOf(npc));
           return (
             <div className="flex items-center gap-2 text-[10px] font-mono whitespace-nowrap">
               <span className="text-rose-400/80">❤{effectiveResource(npc.hp, npc.maxHp, maxHp)}/{maxHp}</span>
