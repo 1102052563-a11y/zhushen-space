@@ -55,6 +55,17 @@ export interface ChannelQuote extends ChannelItemInfo {
 export interface ChannelRecruit {
   role?: string; targetWorld?: string; reqTier?: string; slots?: string; reward?: string;
 }
+/* 📣 战报卡（借鉴Zsd比赛战报）：竞技场挑战/讨伐BOSS战结束后由前端确定性生成，挂在战斗频道帖上渲染对阵卡 */
+export interface ChannelBattleReport {
+  arena: string;                       // 赛场（竞技场名 / 组队讨伐）
+  a: string;                           // 甲方（主角 / 讨伐队）
+  b: string;                           // 乙方（对手·含名次 / BOSS）
+  result: 'A胜' | 'B胜' | '平/中止';
+  rounds?: number;                     // 战斗回合数
+  maxHit?: string;                     // 最痛一击描述
+  mvp?: string;                        // 全场输出最高者
+  note?: string;                       // 附注（晋升第N名 / 九死一生的险胜…）
+}
 
 export interface ChannelMessage {
   id: string;
@@ -70,6 +81,7 @@ export interface ChannelMessage {
   image?: string;            // 🖼 随帖分享的图（小缩略 dataURL·如调教场景图分享；仅玩家发帖带）
   offer?: ChannelOffer;
   recruit?: ChannelRecruit;
+  report?: ChannelBattleReport;   // 📣 战报卡（竞技场/讨伐·前端确定性生成，MessageCard 渲染对阵卡）
   quotes?: ChannelQuote[];   // 玩家求购/出售帖收到的报价/出价列表
   byPlayer?: boolean;        // 玩家自己发的（求购/出售帖）
   traded?: boolean;          // 交易帖已成交（确定性结算后置 true，按钮变"已购买"）
@@ -79,6 +91,8 @@ export interface ChannelMessage {
   replyToName?: string;      // 主角主动回复某契约者时记录对象名，用于展示「↩ 回复 @X」
   postedAt: number;          // 落库时间戳（排序/过期用）
   gameTime?: string;         // 发帖时的游戏内时间（展示）
+  heat?: number;             // 🔥 热度/点赞数（0-999，AI 按帖子质量分配，玩家可点赞 +1；舆论回注按它排序）
+  likedByPlayer?: boolean;   // 玩家已点过赞（一帖一赞）
 }
 
 /* 预设条目（与各演化预设同构，可导入导出）*/
@@ -133,6 +147,7 @@ export interface ChannelSettings {
   maxMessages: number;                     // 总池硬上限（兜底，防极端膨胀）
   staleTurns: number;                      // 距上次刷新超过 N 回合则打开时自动刷新
   genCount: number;                        // 每次刷新生成的消息条数
+  injectBuzzCount: number;                 // 📡 舆论回注：抽热度最高的 N 条热帖注入正文当氛围（0=关）
   entries: ChannelPresetEntry[];
   presetName: string;
   presetVersion?: number;
@@ -145,6 +160,7 @@ const DEFAULT_SETTINGS: ChannelSettings = {
   maxMessages: 140,
   staleTurns: 3,
   genCount: 12,
+  injectBuzzCount: 4,
   entries: DEFAULT_CHANNEL_ENTRIES,
   presetName: DEFAULT_PRESET_NAME,
   presetVersion: DEFAULT_PRESET_VERSION,
@@ -169,6 +185,7 @@ interface ChannelState {
   addOneSpeakReply: (channel: ChannelKey, reply: { authorName: string; authorTier?: string; authorJob?: string; authorPersona?: string; authorStrength?: string; content: string }, replyToId: string) => void;  // 一条回复，插到主角发言上方
   addQuotes: (postId: string, quotes: Omit<ChannelQuote, 'id'>[]) => void;    // 给玩家帖追加报价/出价
   removeMessage: (id: string) => void;
+  likeMessage: (id: string) => void;   // 🔥 玩家点赞（一帖一赞：heat+1 并标 likedByPlayer）
   markTraded: (id: string) => void;
   markFulfilled: (postId: string) => void;   // 玩家帖成交
   clearChannel: () => void;
@@ -281,6 +298,7 @@ export const useChannel = create<ChannelState>()(
           }),
         })),
       removeMessage: (id) => set((s) => ({ messages: s.messages.filter((m) => m.id !== id) })),
+      likeMessage: (id) => set((s) => ({ messages: s.messages.map((m) => (m.id === id && !m.likedByPlayer) ? { ...m, heat: Math.min(999, (m.heat ?? 0) + 1), likedByPlayer: true } : m) })),
       markTraded: (id) => set((s) => ({ messages: s.messages.map((m) => m.id === id ? { ...m, traded: true } : m) })),
       markFulfilled: (postId) => set((s) => ({ messages: s.messages.map((m) => m.id === postId ? { ...m, fulfilled: true } : m) })),
       clearChannel: () => set({ messages: [], lastRefreshTurn: -999 }),

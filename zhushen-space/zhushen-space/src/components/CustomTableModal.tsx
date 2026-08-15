@@ -4,6 +4,7 @@
 import { useMemo, useState } from 'react';
 import { useTables } from '../store/tableStore';
 import { buildCustomSheet } from '../systems/acuTableSpec';
+import { generateTableDesign } from '../systems/tableDesign';   // 🤖 AI 建表助手（借鉴 ACU 改表助手+建表指南契约）
 
 export default function CustomTableModal({ onClose, onCreated }: { onClose: () => void; onCreated?: (uid: string) => void }) {
   const [name, setName] = useState('');
@@ -11,6 +12,25 @@ export default function CustomTableModal({ onClose, onCreated }: { onClose: () =
   const [note, setNote] = useState('');
   const [single, setSingle] = useState(false);
   const [err, setErr] = useState('');
+  const [wish, setWish] = useState('');
+  const [designing, setDesigning] = useState(false);
+
+  // 🤖 一句话 → AI 设计稿（表名/列/维护规则）→ 回填表单预览；玩家过目确认才创建（不直接建表）
+  const aiDesign = async () => {
+    setErr('');
+    setDesigning(true);
+    try {
+      const d = await generateTableDesign(wish);
+      setName(d.name);
+      setCols(d.headers);
+      setNote(d.note);
+      setSingle(d.single);
+    } catch (e) {
+      setErr(e instanceof Error ? e.message : String(e));
+    } finally {
+      setDesigning(false);
+    }
+  };
 
   const setCol = (i: number, v: string) => setCols((p) => p.map((c, idx) => (idx === i ? v : c)));
   const addCol = () => setCols((p) => [...p, '']);
@@ -50,6 +70,22 @@ export default function CustomTableModal({ onClose, onCreated }: { onClose: () =
         <p className="text-[11px] text-dim/70 leading-relaxed">
           建一张让 <b>AI 每回合自动维护</b>的表（如「好感度表」「悬赏令表」「队伍粮草」）。<b>维护规则</b>是<span className="text-god/80">固定</span>的——只给 AI 看、AI 只能改表里的<b>行</b>、改不了规则本身（天然防篡改）。表数据随存档、可在预设里用 <span className="font-mono text-god/70">{'{{getvar}}'}</span>/条件模板引用。
         </p>
+
+        {/* 🤖 AI 帮我设计：一句话 → 表名/列/维护规则（逐列说明+触发条件+排除词）回填下方表单 */}
+        <div className="flex items-center gap-2 rounded-lg border border-god/25 bg-god/5 p-2">
+          <input
+            value={wish}
+            onChange={(e) => setWish(e.target.value)}
+            onKeyDown={(e) => { if (e.key === 'Enter' && !designing) aiDesign(); }}
+            placeholder="一句话描述想记什么，如：帮我记每个城市的物价和治安变化"
+            className={`${'bg-panel2 border border-edge rounded px-2 py-1 text-sm text-slate-200 outline-none focus:border-god/50'} flex-1`}
+          />
+          <button onClick={aiDesign} disabled={designing}
+            className="shrink-0 text-[12px] px-2.5 py-1 rounded-lg border border-god/50 text-god hover:bg-god/10 disabled:opacity-50"
+            title="调一次 AI（走填表接口·便宜模型即可）生成 表名/列/维护规则 设计稿，回填下方表单——你过目改完再点创建">
+            {designing ? '设计中…' : '🤖 帮我设计'}
+          </button>
+        </div>
 
         <div className="grid grid-cols-2 gap-2">
           <label className="flex flex-col gap-1 text-[11px] text-dim">表名

@@ -6,6 +6,7 @@ import { downloadGlobalConfig, importGlobalConfig } from '../systems/configExpor
 import VariableBridge from './VariableBridge';
 import LockManager from './LockManager';
 import OracleToolsPanel from './OracleToolsPanel';   // 🔮 剧情工具集中设置页（弧线/诊断/校正/参谋·借鉴 story-oracle）
+import HealthOverview from './HealthOverview';       // 🩺 运行概览（借鉴 ACU 仪表盘·健康行+失败归因）
 import { useSnapshots } from '../store/snapshotStore';
 import { useSettings, type WorldDetailInjectConfig } from '../store/settingsStore';
 
@@ -303,6 +304,9 @@ export default function VariableManager({
           <h2 className="text-xl font-bold text-slate-100 tracking-wide">演化系统 · 功能中心</h2>
           <p className="text-sm text-dim/70 mt-1.5">各模块独立运行，分别配置预设 / API / 调度。点击进入。</p>
         </div>
+
+        {/* 🩺 运行概览（借鉴 ACU 仪表盘）：接口/填表/状态指令/一致性 健康行 + 失败归因 */}
+        <HealthOverview />
 
         {/* 分组网格 */}
         <div className="space-y-8">

@@ -204,22 +204,29 @@ export async function clearAllVectors(): Promise<void> {
 
 /* 记忆池条目：把长期事实/大小总结/世界大事统一成"可向量化 + 可注入"的条目。
    text=用于 embed 的全文；body=注入正文的文本；key=内容哈希（幂等）。供召回与设置页回填共用。*/
-export interface PoolEntry { key: string; text: string; body: string; kind: 'fact' | 'large' | 'small' | 'event' }
+export interface PoolEntry { key: string; text: string; body: string; kind: 'fact' | 'large' | 'small' | 'event' | 'chron' }
 export function buildMemPool(src: {
   narrativeFacts?: { title: string; text: string; keywords: string[] }[];
   largeSummaries?: string[]; smallSummaries?: string[];
   worldEvents?: { time: string; location: string; desc: string }[];
+  /** 纪要表行（借鉴 ACU 交火模式）：编年史作为召回语料——被大总结压实折叠的行也在内，
+     "离开上下文但向量仍能按需捞回"。由调用方从 tableStore 取（factVec 保持无 store 依赖）。 */
+  chronicleRows?: { time: string; location: string; text: string }[];
 }, maxItems = 1000, factsOnly = false): PoolEntry[] {
   const out: PoolEntry[] = [];
   for (const f of src.narrativeFacts ?? []) {
     const text = `${f.title} ${f.text} ${(f.keywords ?? []).join(' ')}`.trim();
     out.push({ key: hashKey('fact|' + text), text, body: f.text, kind: 'fact' });
   }
-  // factsOnly=true：只放长期事实，小结/大结/世界大事都不进池（召回与索引都只针对长期事实）
+  // factsOnly=true：只放长期事实，小结/大结/世界大事/纪要都不进池（召回与索引都只针对长期事实）
   if (!factsOnly) {
     for (const t of src.largeSummaries ?? []) out.push({ key: hashKey('large|' + t), text: t, body: t, kind: 'large' });
     for (const t of src.smallSummaries ?? []) out.push({ key: hashKey('small|' + t), text: t, body: t, kind: 'small' });
     for (const e of src.worldEvents ?? []) { const t = `${e.time}@${e.location} ${e.desc}`.trim(); out.push({ key: hashKey('event|' + t), text: t, body: t, kind: 'event' }); }
+    for (const c of src.chronicleRows ?? []) {
+      const t = `${c.time}@${c.location} ${c.text}`.trim();
+      if (c.text) out.push({ key: hashKey('chron|' + t), text: t, body: t, kind: 'chron' });
+    }
   }
   // 超上限时保留尾部（较近期）；默认上限远大于常见池大小，一般不触发
   return out.length > maxItems ? out.slice(out.length - maxItems) : out;

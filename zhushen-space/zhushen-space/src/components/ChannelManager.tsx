@@ -60,11 +60,11 @@ function SettingsSection() {
     URL.revokeObjectURL(url);
   }
 
-  const numField = (label: string, key: 'genCount' | 'staleTurns' | 'maxMessages' | 'perChannelKeep', hint?: string) => (
+  const numField = (label: string, key: 'genCount' | 'staleTurns' | 'maxMessages' | 'perChannelKeep' | 'injectBuzzCount', hint?: string, min = 1) => (
     <label className="flex items-center justify-between gap-2 text-sm text-dim">
       <span>{label}{hint && <span className="text-dim/40 ml-1">{hint}</span>}</span>
-      <input type="number" min={1} value={settings[key]}
-        onChange={(e) => setSettings({ [key]: Math.max(1, Number(e.target.value) || 1) } as any)}
+      <input type="number" min={min} value={settings[key] ?? min}
+        onChange={(e) => setSettings({ [key]: Math.max(min, Number(e.target.value) || min) } as any)}
         className="w-20 bg-void border border-edge rounded px-2 py-1 text-sm font-mono text-slate-200 outline-none focus:border-god text-right" />
     </label>
   );
@@ -97,6 +97,7 @@ function SettingsSection() {
         {numField('每次刷新生成条数', 'genCount')}
         {numField('懒刷新间隔', 'staleTurns', '（打开时距上次刷新≥N回合才自动刷新）')}
         {numField('总池上限（兜底）', 'maxMessages')}
+        {numField('舆论回注正文条数', 'injectBuzzCount', '（抽热度最高的 N 条热帖注入正文当舆论氛围；0=关闭）', 0)}
         <div className="flex justify-end pt-1">
           <button onClick={clearChannel} className="px-2.5 py-1 text-[12px] font-mono border border-edge text-dim/60 rounded hover:border-blood/40 hover:text-blood transition-colors">清空当前频道消息</button>
         </div>

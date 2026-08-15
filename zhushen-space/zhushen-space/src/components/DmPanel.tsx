@@ -2,6 +2,7 @@ import { useState, useRef, useEffect } from 'react';
 import { useDm, type DmDeal, type DmDealKind, type DmThread, type DmMessage } from '../store/dmStore';
 import { useItems, gradeNameClass, gradeBadgeClass } from '../store/itemStore';
 import { useNpc } from '../store/npcStore';
+import { useSettings } from '../store/settingsStore';
 import { normCur } from '../systems/dmTrade';
 
 /* 私信（一对一私聊）独立界面：左侧会话列表 + 右侧对话。
@@ -81,15 +82,41 @@ function DealCard({ deal, busy, onAccept, onHaggle, onReject }: {
 
 function MsgBubble({ m, npcName, busy, h, threadId }: { m: DmMessage; npcName: string; busy: boolean; h: DmHandlers; threadId: string }) {
   const dm = useDm.getState();
+  const [peeked, setPeeked] = useState(false);   // 撤回消息：点开偷看原文
   if (m.from === 'system') {
     return <div className="text-center text-[11px] font-mono text-dim/45 py-1">— {m.text} —</div>;
+  }
+  // 戳一戳：居中演出行
+  if (m.kind === 'poke') {
+    return <div className="text-center text-[11px] font-mono text-amber-200/60 py-1">👉 「{npcName}」戳了戳你</div>;
+  }
+  // 撤回：居中占位，点开偷看原文（再点收起）
+  if (m.kind === 'recalled') {
+    return (
+      <div className="text-center py-1">
+        <button onClick={() => setPeeked((v) => !v)} className="text-[11px] font-mono text-dim/45 hover:text-dim/70 transition-colors">
+          「{npcName}」撤回了一条消息{m.orig ? (peeked ? '' : '（偷看）') : ''}
+        </button>
+        {peeked && m.orig && <div className="mt-0.5 text-[12px] text-dim/60 italic">“{m.orig}”</div>}
+      </div>
+    );
   }
   const mine = m.from === 'player';
   return (
     <div className={`flex ${mine ? 'justify-end' : 'justify-start'}`}>
       <div className={`max-w-[82%] ${mine ? 'items-end' : 'items-start'} flex flex-col`}>
         {!mine && <div className="text-[10px] font-mono text-dim/45 mb-0.5 px-1">{npcName}</div>}
+        {/* 状态头（本轮第一条 NPC 消息携带）：对方此刻的情绪/地点/现状 + 心声（玩家可见的戏剧反讽，不回喂 AI） */}
+        {!mine && m.meta && (m.meta.emotion || m.meta.location || m.meta.state) && (
+          <div className="text-[10px] font-mono text-dim/50 mb-0.5 px-1 leading-snug">
+            {[m.meta.emotion, m.meta.location, m.meta.state].filter(Boolean).join(' · ')}
+          </div>
+        )}
+        {!mine && m.meta?.thought && (
+          <div className="text-[10px] font-mono text-violet-300/45 mb-0.5 px-1 leading-snug italic">💭 {m.meta.thought}</div>
+        )}
         <div className={`rounded-2xl px-3 py-1.5 text-[13px] leading-relaxed whitespace-pre-wrap break-words ${mine ? 'bg-god/15 border border-god/30 text-slate-100 rounded-br-sm' : 'bg-panel border border-edge text-slate-200 rounded-bl-sm'}`}>
+          {m.quote && <div className="mb-1 pl-2 border-l-2 border-edge text-[11px] text-dim/55 leading-snug">{m.quote}</div>}
           {m.text}
         </div>
         {m.deal && (
@@ -102,6 +129,20 @@ function MsgBubble({ m, npcName, busy, h, threadId }: { m: DmMessage; npcName: s
         )}
       </div>
     </div>
+  );
+}
+
+/* 📨 NPC主动来讯开关（settingsStore.inlineComm·借鉴Abstract外置手机意图两阶段）：
+   开=正文尾允许离场白名单NPC附<通讯>意图→私信链路二次生成落这里（红点提醒）；关=规则不注入，NPC 不会主动来讯。 */
+function InlineCommToggle() {
+  const on = useSettings((s) => s.inlineComm?.on ?? true);
+  const set = useSettings((s) => s.setInlineComm);
+  return (
+    <button onClick={() => set({ on: !on })}
+      title={on ? '主动来讯已开：离场的随从/契约者/宠物可能在剧情推进后主动发私讯（每隔几回合至多一条）' : '主动来讯已关：NPC 不会主动发私讯'}
+      className={`text-[11px] font-mono px-2 py-0.5 rounded border transition-colors ${on ? 'border-god/50 text-god/90 bg-god/10' : 'border-edge text-dim/50 hover:text-dim/80'}`}>
+      📨 来讯{on ? '·开' : '·关'}
+    </button>
   );
 }
 
@@ -131,6 +172,9 @@ export default function DmPanel({ onClose, focusThreadId, h }: { onClose: () => 
 
   const npcMap = useNpc((s) => s.npcs);
   useEffect(() => { if (focusThreadId) { setActive(focusThreadId); setShowListMobile(false); } }, [focusThreadId]);
+  // 📨 主动来讯未读：正在看哪个会话就清哪个（新消息落进正在看的会话也顺手清）
+  const activeUnread = useDm((s) => (active ? s.threads[active]?.unread || 0 : 0));
+  useEffect(() => { if (active && activeUnread > 0) useDm.getState().clearUnread(active); }, [active, activeUnread]);
   const th: DmThread | undefined = active ? threads[active] : undefined;
   const targetFriend = th?.targetId ? !!npcMap[th.targetId]?.isFriend : false;
   useEffect(() => { scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight }); }, [th?.messages.length, active]);
@@ -171,6 +215,7 @@ export default function DmPanel({ onClose, focusThreadId, h }: { onClose: () => 
             <div className="text-base font-bold text-slate-100">私信</div>
             <div className="text-[12px] font-mono text-dim/60 truncate">一对一私聊·可向契约者/随从/宠物聊天·交易·索取·赠予</div>
           </div>
+          <InlineCommToggle />
           <button onClick={onClose} className="text-dim/50 hover:text-blood text-lg transition-colors">✕</button>
         </header>
 
@@ -187,6 +232,7 @@ export default function DmPanel({ onClose, focusThreadId, h }: { onClose: () => 
                     className={`w-full text-left px-2.5 py-2 rounded-lg border transition-colors ${active === id ? 'border-god/50 bg-god/10' : 'border-transparent hover:border-edge hover:bg-panel/60'}`}>
                     <div className="flex items-center gap-1.5">
                       <span className="text-[13px] font-semibold text-slate-100 truncate flex-1">{t.targetName}</span>
+                      {(t.unread || 0) > 0 && <span className="text-[9px] font-mono px-1 rounded-full bg-blood/80 text-white shrink-0">{t.unread}</span>}
                       {!t.archived && <span className="text-[9px] font-mono px-1 rounded border border-amber-500/40 text-amber-300/70 shrink-0">未建档</span>}
                     </div>
                     {last && <div className="text-[11px] font-mono text-dim/45 truncate mt-0.5">{last.from === 'player' ? '我：' : last.from === 'system' ? '' : ''}{last.text}</div>}

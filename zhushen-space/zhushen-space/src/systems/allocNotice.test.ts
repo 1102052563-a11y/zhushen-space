@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach } from 'vitest';
-import { pushSceneNotice, noteCurrencyChange, drainSceneNotices, pushGrowthNotice, drainGrowthNotices } from './allocNotice';
+import { pushSceneNotice, removeSceneNotice, peekSceneNotices, noteCurrencyChange, drainSceneNotices, pushGrowthNotice, drainGrowthNotices } from './allocNotice';
 
 /* 场外操作通报：加点/合成/强化/花费货币等前端确定性操作 → 注入正文<前置须知>，防"花到5000正文却记10000"OOC。 */
 describe('sceneNotice · 场外操作通报', () => {
@@ -28,6 +28,19 @@ describe('sceneNotice · 场外操作通报', () => {
     noteCurrencyChange('乐园币', -100, 'a');
     noteCurrencyChange('乐园币', 100, 'b');
     expect(drainSceneNotices({ 乐园币: 999 })).toEqual([]);
+  });
+
+  it('removeSceneNotice 勾选式反悔：精确移除首个命中；不存在/已消费=无操作', () => {
+    pushSceneNotice('主角读到头条A');
+    pushSceneNotice('主角读到头条B');
+    pushSceneNotice('主角读到头条A');   // 同文重复入队（极端情况）
+    removeSceneNotice('主角读到头条A');   // 只移首个命中
+    expect(peekSceneNotices()).toEqual(['主角读到头条B', '主角读到头条A']);
+    removeSceneNotice('不存在的通报');    // 无操作
+    removeSceneNotice('   ');             // 空白无操作
+    expect(drainSceneNotices()).toEqual(['主角读到头条B', '主角读到头条A']);
+    removeSceneNotice('主角读到头条B');   // 已消费后再撤=无操作不抛错
+    expect(peekSceneNotices()).toEqual([]);
   });
 
   it('文字通报 + 货币行同时输出；drain 后货币缓冲也清空', () => {

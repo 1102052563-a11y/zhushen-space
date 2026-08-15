@@ -9,11 +9,14 @@ import { useItems } from '../store/itemStore';
 import { useNpc } from '../store/npcStore';
 import { useSettings } from '../store/settingsStore';
 import { migrateStoresToTables } from '../systems/tableMigrate';
+import { CHRONICLE_UID, isCustomSheet } from '../systems/acuTableSpec';
+import { chronicleFillBacklog } from '../systems/tablePrompt';
 import { seedWalletIfEmpty } from '../systems/ledger/walletCore';
 import { runWatchdogs, healWatchdog } from '../systems/ledger/watchdog';
 import StagedPersonaModal from './StagedPersonaModal';
 import CustomTableModal from './CustomTableModal';
 import ApiRoutePicker from './ApiRoutePicker';
+import TemplateTester from './TemplateTester';   // 🧪 模板变量试验台（借鉴 ACU SQL 控制台思想）
 
 export default function TableManager() {
   const [showPersona, setShowPersona] = useState(false);
@@ -22,9 +25,11 @@ export default function TableManager() {
   const insertRow = useTables((s) => s.insertRow);
   const updateCell = useTables((s) => s.updateCell);
   const deleteRow = useTables((s) => s.deleteRow);
+  const toggleRowLock = useTables((s) => s.toggleRowLock);
   const resetAll = useTables((s) => s.resetAll);
   const [msg, setMsg] = useState('');
   const [healTick, setHealTick] = useState(0);   // 自愈后强制重跑看门狗：影子账本(itemCore/walletCore)不是 React 依赖，重播种不改 items/currency → 不 bump 就一直显示旧漂移
+  const [showCompacted, setShowCompacted] = useState(false);   // 🗜 纪要表：已被大总结归纳的行默认折叠，点击展开
 
   // Step 10 状态对账·看门狗（可见化）：订阅货币/物品/NPC，任一变化即重算，漂移/幽灵/双计/装备槽冲突当场显
   const currency = useItems((s) => s.currency);
@@ -43,6 +48,18 @@ export default function TableManager() {
 
   const headers = sheet.content[0]?.slice(1) ?? [];
   const dataRows = sheet.content.slice(1);
+  // 🗜 纪要压实（大总结）：row_id ≤ 水位线的行默认折叠（物理保留·点击可展开）。仅纪要表有水位线。
+  const compactedThrough = sheet.uid === CHRONICLE_UID ? (sheet.compactedThrough ?? 0) : 0;
+  const isCompactedRow = (row: string[]) => {
+    const id = parseInt(row[0] ?? '', 10);
+    return compactedThrough > 0 && Number.isFinite(id) && id <= compactedThrough;
+  };
+  const compactedCount = compactedThrough > 0 ? dataRows.filter(isCompactedRow).length : 0;
+  // 🔒 行锁：只对 AI 维护的多行表提供（剧情记忆表+自定义表）；镜像表被投影覆盖、锁无意义
+  const lockable = !sheet.single && (isCustomSheet(sheet) || ['progress', 'foreshadowing', 'pacts', CHRONICLE_UID].includes(sheet.uid));
+  const lockedIds = sheet.lockedRowIds ?? [];
+  // ⏳ 填表积压（借鉴 ACU 仪表盘 overdue）：纪要断更检测——渲染时现算（tables 订阅变动即重算）
+  const backlog = chronicleFillBacklog();
 
   return (
     <div className="space-y-4 max-w-6xl mx-auto">
@@ -93,8 +110,18 @@ export default function TableManager() {
         <span className="text-[10px] text-dim/50">属性阈值→换人设 · 自定义表=AI 据固定维护规则维护的可变数据</span>
       </div>
 
+      {/* 🧪 模板变量试验台（预设作者工具·默认折叠） */}
+      <TemplateTester />
+
       {/* 填表调度 */}
       <TableFillSchedule />
+
+      {/* ⏳ 填表积压警示（借鉴 ACU 仪表盘 overdue）：纪要断更 N 回合 → 提示一键补填入口 */}
+      {backlog?.overdue && (
+        <div className="flex items-center gap-2 text-[11px] rounded-lg border border-amber-600/50 text-amber-300/90 px-2.5 py-1.5">
+          <span>⏳ 纪要疑似断更：最后一条记在第 {backlog.lastTurn} 回合，当前第 {backlog.turnNow} 回合，已 {backlog.gap} 回合没入账（阈值 {backlog.threshold}）。回对话界面点操作行 ♻（重算变量）→「🗂 填表」，按楼层一键补记这段。</span>
+        </div>
+      )}
 
       {/* 表选择 */}
       <div className="flex flex-wrap gap-1.5">
@@ -137,7 +164,20 @@ export default function TableManager() {
                 <td colSpan={headers.length + 2} className="px-2 py-4 text-center text-dim/40">（空表·点下方「加一行」）</td>
               </tr>
             )}
-            {dataRows.map((row, ri) => (
+            {compactedCount > 0 && (
+              <tr className="border-t border-edge/40">
+                <td colSpan={headers.length + 2} className="px-2 py-1.5">
+                  <button
+                    onClick={() => setShowCompacted((v) => !v)}
+                    className="text-[11px] text-dim/60 hover:text-god transition-colors"
+                    title="这些纪要已被「大总结表」归纳（水位线 #1~#N）——数据仍保留，编年史/召回照常读取，只是不再回显给填表 AI"
+                  >
+                    {showCompacted ? '▾' : '▸'} 已压实 {compactedCount} 行（大总结已归纳 · #≤{compactedThrough} · 数据保留）{showCompacted ? '·收起' : '·展开'}
+                  </button>
+                </td>
+              </tr>
+            )}
+            {dataRows.map((row, ri) => (!showCompacted && isCompactedRow(row)) ? null : (
               <tr key={ri} className="border-t border-edge/40 hover:bg-white/[0.02]">
                 <td className="px-2 py-1 text-dim/40 font-mono align-top">{row[0] || ri}</td>
                 {headers.map((h, ci) => (
@@ -150,7 +190,16 @@ export default function TableManager() {
                   </td>
                 ))}
                 {!sheet.single && (
-                  <td className="px-1 align-top">
+                  <td className="px-1 align-top whitespace-nowrap">
+                    {lockable && (
+                      <button
+                        onClick={() => toggleRowLock(uid, row[0] ?? '')}
+                        className={`px-1 py-1 ${lockedIds.includes(row[0] ?? '') ? 'text-amber-300' : 'text-dim/30 hover:text-amber-300/70'}`}
+                        title={lockedIds.includes(row[0] ?? '') ? '已锁定：填表 AI 改/删这行会被拒收（你自己仍可编辑）。点击解锁' : '锁定此行：不许填表 AI 改动/删除（珍视的约定/进程防丢）'}
+                      >
+                        {lockedIds.includes(row[0] ?? '') ? '🔒' : '🔓'}
+                      </button>
+                    )}
                     <button onClick={() => deleteRow(uid, ri)} className="text-rose-400/50 hover:text-rose-400 px-1 py-1" title="删除此行">✕</button>
                   </td>
                 )}

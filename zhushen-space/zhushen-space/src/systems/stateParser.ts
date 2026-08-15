@@ -55,6 +55,8 @@ export function stripStateBlocks(text: string): string {
     .replace(/<battle\b[^>]*>[\s\S]*$/i, '')
     .replace(/<tableEdit\b[^>]*>[\s\S]*?<\/tableEdit>/gi, '')   // 表格数据库·隐藏数据通道（applyAllUpdates 已在剥离前处理，展示/演化文本剥掉）
     .replace(/<tableEdit\b[^>]*>[\s\S]*$/i, '')                 // 截断流未闭合形态
+    .replace(/<通讯[^>]*>[\s\S]*?<\/通讯>/gi, '')               // 📨 NPC主动来讯·意图块（inlineComm 阶段从 lastRawNarrative 消费；⚠中文标签不能用 \b——CJK 后词边界不成立）
+    .replace(/<通讯[^>]*>[\s\S]*$/i, '')
     .trimEnd();
 }
 

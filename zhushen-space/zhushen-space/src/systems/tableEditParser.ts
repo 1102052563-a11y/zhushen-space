@@ -16,10 +16,10 @@ import { useTableJournal, tableEditDigest, type TableEditLogEntry } from '../sto
 import { useChronicle } from '../store/chronicleStore';
 import { useMisc } from '../store/miscStore';
 import { useRowScope, type RowScope } from '../store/rowScopeStore';   // 伏笔行·世界归属旁路索引（世界作用域过滤用）
+import { CHRONICLE_UID, BIG_SUMMARY_UID, planChronicleCompaction } from './acuTableSpec';   // 大总结压实（护栏与 prompt 共用同一公式）
 
-/** 纪要表 uid（📜 编年史的"页"）。它的「时间」列是 AI 写的游戏内时间，没有回合号——
- *  分卷需要技术键，故每插一行就旁路记一条 row_id → {turn, world} 索引（不改表结构、不污染 AI 视图）。 */
-const CHRONICLE_UID = 'chronicle';
+/* 纪要表 uid（📜 编年史的"页"）——从 acuTableSpec 单一来源导入。它的「时间」列是 AI 写的游戏内时间，
+ * 没有回合号——分卷需要技术键，故每插一行就旁路记一条 row_id → {turn, world} 索引（不改表结构、不污染 AI 视图）。 */
 
 /** 伏笔表 uid。伏笔是 world 作用域（这个世界埋的线不该跟去下个世界催收），但表里没有世界列——
  *  故每插一行旁路记一条 `伏笔表:row_id → 所属世界`（见 store/rowScopeStore，同 rowMeta 思路）。 */
@@ -249,18 +249,35 @@ export function applyTableEdits(text: string, ctx?: { turn?: number; world?: str
   const chronRows: { rowId: string; meta: { turn?: number; world?: string } }[] = [];   // 📜 纪要行分卷索引（见 CHRONICLE_UID）
   const scopeRows: { uid: string; rowId: string; meta: RowScope }[] = [];   // 🌍 伏笔行世界归属旁路索引（rowScopeStore·世界作用域过滤·见 FORESHADOW_UID）
   const sheetOf = (uid: string) => useTables.getState().getSheet(uid);   // 每条 op 后重取（content 不可变更新）
+  // 🗜 大总结护栏（借鉴 ACU 飞行模式·确定性）：进批前按当前表态算一次压实规划——与 prompt 端同一公式同一状态，
+  //    天然一致。plan=null 时 AI 写大总结=幻觉写入，拒收（否则会平白折叠纪要）；一批只收一条。
+  const compactPlan = planChronicleCompaction(sheetOf(CHRONICLE_UID));
+  let bigSummaryDone = false;
 
   for (const { command, args, raw } of commands) {
     try {
       const uid = resolveUid(args[0]);
       if (!uid) { result.failed++; result.errors.push(`表未匹配：${raw}`); continue; }
       const sheetName = sheetOf(uid)?.name ?? uid;
+      if (uid === BIG_SUMMARY_UID && command !== 'insertRow') {
+        result.failed++; result.errors.push(`大总结不可变（禁止修改/删除已有大总结）：${raw}`); continue;
+      }
 
       if (command === 'insertRow') {
         const data = asData(args[1]);
         if (!data) { result.failed++; result.errors.push(`insertRow 数据无效：${raw}`); continue; }
+        if (uid === BIG_SUMMARY_UID) {
+          if (!compactPlan) { result.failed++; result.errors.push(`大总结被拒：可见纪要未满阈值，系统未要求归纳（勿自行写大总结表）：${raw}`); continue; }
+          if (bigSummaryDone) { result.failed++; result.errors.push(`大总结被拒：一批最多一条：${raw}`); continue; }
+        }
         const ri = st.insertRow(uid, data);
         if (ri < 0) { result.failed++; result.errors.push(`insertRow 被拒（单行表？）：${raw}`); continue; }
+        if (uid === BIG_SUMMARY_UID && compactPlan) {
+          // 系统补记覆盖范围（AI 勿填·填了也被覆盖）+ 推水位线折叠已归纳纪要（只进不退）
+          st.updateRow(uid, ri, { '覆盖纪要': `#${compactPlan.fromId}~#${compactPlan.throughId}` });
+          st.advanceCompaction(CHRONICLE_UID, parseInt(compactPlan.throughId, 10));
+          bigSummaryDone = true;
+        }
         const after = sheetOf(uid)?.content[ri + 1] ?? null;
         log.push({ turn, uid, sheetName, command, rowId: after?.[0] ?? '', pos: ri, before: null, after: after ? [...after] : null });
         if (uid === CHRONICLE_UID && after?.[0]) {
@@ -274,6 +291,7 @@ export function applyTableEdits(text: string, ctx?: { turn?: number; world?: str
         const data = asData(args[2]);
         if (!Number.isFinite(ri) || !data) { result.failed++; result.errors.push(`updateRow 参数无效：${raw}`); continue; }
         const before = sheetOf(uid)?.content[ri + 1];
+        if (isRowLocked(uid, before)) { result.failed++; result.errors.push(`行已被玩家锁定 🔒（此行不许改动，其他表照常维护）：${raw}`); continue; }
         if (!st.updateRow(uid, ri, data)) { result.failed++; result.errors.push(`updateRow 未命中行：${raw}`); continue; }
         const after = sheetOf(uid)?.content[ri + 1] ?? null;
         log.push({ turn, uid, sheetName, command, rowId: before?.[0] ?? '', pos: ri, before: before ? [...before] : null, after: after ? [...after] : null });
@@ -281,6 +299,7 @@ export function applyTableEdits(text: string, ctx?: { turn?: number; world?: str
         const ri = resolveRowRef(uid, args[1]);
         if (!Number.isFinite(ri)) { result.failed++; result.errors.push(`deleteRow 行号无效：${raw}`); continue; }
         const before = sheetOf(uid)?.content[ri + 1];
+        if (isRowLocked(uid, before)) { result.failed++; result.errors.push(`行已被玩家锁定 🔒（此行不许删除，其他表照常维护）：${raw}`); continue; }
         if (!st.deleteRow(uid, ri)) { result.failed++; result.errors.push(`deleteRow 未命中/被拒：${raw}`); continue; }
         // 图书馆铁则：删除=挪进日志可找回。整行镜像（含原 row_id）已在 before，restoreDeleted 可放回原位。
         log.push({ turn, uid, sheetName, command, rowId: before?.[0] ?? '', pos: ri, before: before ? [...before] : null, after: null });
@@ -307,6 +326,13 @@ export function applyTableEdits(text: string, ctx?: { turn?: number; world?: str
   try { if (scopeRows.length) useRowScope.getState().noteMany(scopeRows); }
   catch (e) { console.warn('[Table] 伏笔行世界索引记录失败（忽略）:', e); }
   return result;
+
+  /** 🔒 行锁（借鉴 ACU patch_sheet_locks）：目标行 row_id 在该表 lockedRowIds 里 → AI 改删被拒（只锁 AI，面板不受限）。 */
+  function isRowLocked(uid: string, row: string[] | undefined): boolean {
+    const rid = row?.[0] ?? '';
+    if (!rid) return false;
+    return !!sheetOf(uid)?.lockedRowIds?.includes(rid);
+  }
 
   function chronWorld(): string | undefined {
     if (ctx?.world !== undefined) return ctx.world || undefined;

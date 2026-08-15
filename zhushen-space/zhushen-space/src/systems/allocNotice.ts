@@ -35,6 +35,14 @@ export function pushSceneNotice(note: string): void {
   const t = (note ?? '').trim();
   if (t) pending.push(t);
 }
+
+/** 撤回一条尚未消费的场外通报（勾选式 UI 反悔用）：按整句精确匹配移除首个命中；已消费/不存在则无操作。 */
+export function removeSceneNotice(note: string): void {
+  const t = (note ?? '').trim();
+  if (!t) return;
+  const i = pending.indexOf(t);
+  if (i >= 0) pending.splice(i, 1);
+}
 /** @deprecated 语义已泛化，等价 pushSceneNotice；保留名以兼容 PlayerSidebar 等旧调用点。 */
 export const pushAllocNotice = pushSceneNotice;
 

@@ -120,3 +120,50 @@ export function parseNewsReply(reply: string, candidates: NewsCandidate[]): News
 export function newsStale(snapTurn: number, currentTurn: number): boolean {
   return currentTurn - snapTurn >= 6;
 }
+
+/* ── 📰 本世界日报解析（借鉴Zsd报纸板块）──
+   与见闻同一套可见性门控候选喂料；这里只管把模型回复归一成 NewsPaper 主体字段。
+   头条缺失=整期作废（返回 null，调用方提示重试）；栏目/来信超额裁掉、空壳剔除。 */
+const ARTICLE_CAP = 4;
+const LETTER_CAP = 5;
+
+export interface ParsedPaper {
+  outlet: string; issueLabel: string;
+  headline: { column: string; title: string; body: string };
+  articles: { column: string; title: string; body: string }[];
+  letters: { id: string; body: string }[];
+}
+
+export function parsePaperReply(reply: string): ParsedPaper | null {
+  const jsonText = /\{[\s\S]*\}/.exec(reply || '')?.[0];
+  if (!jsonText) return null;
+  const p = lenientJsonParse(jsonText) as Record<string, unknown> | null;
+  if (!p || typeof p !== 'object') return null;
+  const art = (raw: unknown): { column: string; title: string; body: string } | null => {
+    if (!raw || typeof raw !== 'object') return null;
+    const r = raw as Record<string, unknown>;
+    const title = trimTo(r.title ?? r['标题'], 40);
+    const body = trimTo(r.body ?? r['正文'] ?? r['内容'], 500);
+    if (!title || !body) return null;
+    return { column: trimTo(r.column ?? r['栏目'], 12) || '栏目', title, body };
+  };
+  const headline = art(p.headline ?? p['头条']);
+  if (!headline) return null;
+  headline.column = '头条';
+  const articles = (Array.isArray(p.articles ?? p['栏目文章']) ? (p.articles ?? p['栏目文章']) as unknown[] : [])
+    .map(art).filter((a): a is NonNullable<ReturnType<typeof art>> => !!a).slice(0, ARTICLE_CAP);
+  const letters = (Array.isArray(p.letters ?? p['读者来信']) ? (p.letters ?? p['读者来信']) as unknown[] : [])
+    .map((raw) => {
+      if (!raw || typeof raw !== 'object') return null;
+      const r = raw as Record<string, unknown>;
+      const body = trimTo(r.body ?? r['内容'] ?? r['来信'], 160);
+      if (!body) return null;
+      return { id: trimTo(r.id ?? r['署名'] ?? r['读者'], 20) || '匿名读者', body };
+    })
+    .filter((l): l is { id: string; body: string } => !!l).slice(0, LETTER_CAP);
+  return {
+    outlet: trimTo(p.outlet ?? p['报馆'] ?? p['媒体'], 24) || '本地报馆',
+    issueLabel: trimTo(p.issueLabel ?? p['期号'] ?? p['刊行'], 30) || '',
+    headline, articles, letters,
+  };
+}

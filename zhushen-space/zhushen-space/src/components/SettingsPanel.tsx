@@ -50,6 +50,7 @@ import ImageGenManager from './ImageGenManager';
 import { useMisc } from '../store/miscStore';
 import { useNovelVec } from '../store/novelVecStore';
 import { buildMemPool, ensureVectors as factVecEnsure, vecStatus as factVecStatus, clearAllVectors as factVecClear, loadAll as factVecLoadAll } from '../systems/factVec';
+import { chronicleRecallCorpus } from '../systems/tablePrompt';   // 纪要召回语料（与 App 正文召回同一池口径）
 
 interface SettingsPanelProps {
   onClose: () => void;
@@ -3131,6 +3132,30 @@ function GeneralSettingsSection() {
           </div>
         </div>
 
+        {/* 🪶 轻装长跑（借鉴 ACU 配套正则「远楼层不发送」思想的本地化）：状态表+大总结+纪要召回承载长期记忆 → 历史可以砍很短 */}
+        <div className="border border-edge rounded-lg p-4 bg-panel space-y-2">
+          <div className="flex items-start justify-between gap-4">
+            <div className="flex-1">
+              <div className="text-sm font-semibold text-slate-200">🪶 轻装长跑模式 <span className="text-[11px] font-normal text-god/60">一键·长期档省 token</span></div>
+              <div className="text-sm text-dim mt-1 leading-relaxed">
+                把历史楼层限制一键调到 <span className="font-mono text-god/80">10</span> 条（5 个来回）。长期状态不靠楼层扛：每回合注入的状态表 + 纪要<span className="text-god/70">大总结</span>（早期阶段自动归纳进正文）+ <span className="text-god/70">纪要向量召回</span>（提到早期人事按语义捞回）三层兜底——正文 token 断崖式下降，两百回合的老档也跑得动。想回去把上面数字改回 0 即可。
+              </div>
+            </div>
+            <button
+              onClick={() => { commit('10'); }}
+              disabled={historyLimit === 10}
+              className={`shrink-0 text-sm px-3 py-1.5 rounded-lg border font-mono transition-colors ${historyLimit === 10 ? 'border-emerald-700/40 text-emerald-300/70 cursor-default' : 'border-god/50 text-god hover:bg-god/10'}`}
+            >
+              {historyLimit === 10 ? '✓ 已开启' : '开启轻装'}
+            </button>
+          </div>
+          {historyLimit === 10 && !useSettings.getState().vectorMemory?.enabled && (
+            <div className="text-[12px] text-amber-300/80 leading-relaxed">
+              建议同时开启 设置→<span className="font-mono">向量记忆</span>（含纪要召回）：没有它，砍掉的早期剧情只能靠大总结概括，提到细节时召不回原文。
+            </div>
+          )}
+        </div>
+
         <div className="text-sm text-dim/50 font-mono leading-relaxed px-1">
           提示：聊天窗口超出限制的旧楼层将隐藏显示，但不会被删除。调低此值可减少 API 的 token 消耗。
         </div>
@@ -3908,7 +3933,9 @@ function VectorMemorySettings() {
     setBuilding(true); setStatus('正在构建向量索引…');
     try {
       const M = useMisc.getState();
-      const pool = buildMemPool(M, cfg.maxItems ?? 1000, !!cfg.factsOnly);   // factsOnly：只索引长期事实
+      // 与正文召回同一池口径（含纪要语料·见 App.tsx 向量召回分支），重建才不会漏纪要向量
+      const cc = cfg.chronicleRecall !== false ? chronicleRecallCorpus() : { chronicleRows: [], bigSummaries: [] };
+      const pool = buildMemPool({ ...M, chronicleRows: cc.chronicleRows, largeSummaries: [...(M.largeSummaries ?? []), ...cc.bigSummaries] }, cfg.maxItems ?? 1000, !!cfg.factsOnly);   // factsOnly：只索引长期事实
       const r = await factVecEnsure(pool, cfg, { onProgress: (d, t) => setStatus(`嵌入中… ${d}/${t}`) });
       setIndexed(factVecStatus().indexed);
       setStatus(`完成：本次嵌入 ${r.embedded} 条，索引共 ${factVecStatus().indexed} 条（记忆池 ${pool.length} 条）`);
@@ -3993,6 +4020,14 @@ function VectorMemorySettings() {
             <div className="text-sm text-dim mt-1">开启后向量池<span className="text-god/70">只放长期事实</span>，小结/大结/世界大事都不进池、也不索引（召回与 rerank 精排都只针对长期事实）。切换后建议点一次「重建索引」清掉不再用的向量。</div>
           </div>
           <Toggle checked={!!cfg.factsOnly} onChange={() => set({ factsOnly: !cfg.factsOnly })} />
+        </div>
+
+        <div className="flex items-start justify-between gap-4">
+          <div className="flex-1">
+            <div className="text-sm font-semibold text-slate-200">纪要召回 <span className="text-[11px] font-normal text-god/60">默认开</span></div>
+            <div className="text-sm text-dim mt-1">把「纪要表」（剧情编年史）也放进向量召回池——包括已被<span className="text-god/70">大总结</span>折叠的早期纪要：它们离开上下文后，正文提到相关人事时仍能按语义捞回（标签显示为 [纪要]）。掉出注入窗的早期大总结也以 [阶段记忆] 入池。「只召回长期事实」开启时此项不生效。</div>
+          </div>
+          <Toggle checked={cfg.chronicleRecall !== false} onChange={() => set({ chronicleRecall: cfg.chronicleRecall === false })} />
         </div>
 
         {/* ── rerank 精排（可选·默认关）：余弦粗召回 → 交叉编码器精排 → 取 Top-K，比纯余弦更准 ── */}

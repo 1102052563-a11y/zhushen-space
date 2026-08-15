@@ -304,6 +304,8 @@ export interface VecMemConfig {
   recentFullTextCount: number; // 最近正文全文保留条数
   maxItems: number;            // 索引的记忆条目上限（与事实 FIFO 解耦，可放大）
   factsOnly?: boolean;         // 只召回长期事实：小结/大结/世界大事都不进池（默认关=全都进）
+  chronicleRecall?: boolean;   // 纪要召回（借鉴 ACU 交火模式）：编年史行并进召回池（含已压实行）。缺省=开；显式 false 才关
+
   // ── rerank 精排（可选·默认关）：余弦粗召回一批 → 交叉编码器 rerank 精排 → 取 topK，比纯余弦更准 ──
   rerankEnabled?: boolean;     // 启用 rerank 精排（需配下面接口）
   rerankBase?: string;         // rerank 接口地址（Cohere/Jina/SiliconFlow 兼容 /rerank）
@@ -352,6 +354,8 @@ interface SettingsState {
   setReading: (patch: Partial<{ fontSize: number; letterSpacing: number; lineHeight: number; paraSpacing: number; fontFamily: 'default' | 'kai' | 'song'; dialogueHl: boolean; innerDim: boolean; codexHl: boolean; codexWiki: boolean }>) => void;
   storyStrip: { on: boolean; quest: boolean; thread: boolean; time: boolean; almanac: boolean; map: boolean };   // 楼层信息条（components/StoryStrip）：贴在最新正文末尾的扁条，五段=世界时间·天气 / 任务 / 伏笔 / 历(未来七天) / 位置(小地图)，点某段就地展开。纯只读展示：不调 API、不写 store、不注入 AI；全段关掉即整条不出现
   setStoryStrip: (patch: Partial<{ on: boolean; quest: boolean; thread: boolean; time: boolean; almanac: boolean; map: boolean }>) => void;
+  inlineComm: { on: boolean; everyN: number };   // 📨 NPC主动来讯（借鉴Abstract外置手机·意图两阶段）：正文尾可附<通讯>意图块→私信链路二次生成落 DmPanel；everyN=至少隔几回合才允许再来一条（注入侧冷却，不注入 AI 就发不了）
+  setInlineComm: (patch: Partial<{ on: boolean; everyN: number }>) => void;
   uiTheme: string;  // 主题配色（整体界面色+文字色）key，见 systems/uiThemes.ts（default/solarized-light/gruvbox-light/nord/dracula…）
   setUiTheme: (v: string) => void;
   appearance: 'classic' | 'eyecare' | 'warm';  // 外观护眼色调（叠加在主题之上的暖光滤镜）：classic=关 / eyecare=柔光护眼 / warm=夜读暖光；全局固定层，pointer-events:none
@@ -863,6 +867,7 @@ export const useSettings = create<SettingsState>()(
       customOpening: '',
       reading: { fontSize: 17, letterSpacing: 0, lineHeight: 1.8, paraSpacing: 0.45, fontFamily: 'default', dialogueHl: true, innerDim: true, codexHl: true, codexWiki: false },
       storyStrip: { on: true, quest: true, thread: true, time: true, almanac: true, map: true },
+      inlineComm: { on: true, everyN: 3 },
       uiTheme: 'default',
       appearance: 'classic',
       uiVignette: false,
@@ -961,6 +966,7 @@ export const useSettings = create<SettingsState>()(
       setCustomOpening: (s) => set({ customOpening: s }),
       setReading: (patch) => set((s) => ({ reading: { ...s.reading, ...patch } })),
       setStoryStrip: (patch) => set((s) => ({ storyStrip: { ...s.storyStrip, ...patch } })),
+      setInlineComm: (patch) => set((s) => ({ inlineComm: { ...s.inlineComm, ...patch } })),
       setUiTheme: (v) => set({ uiTheme: v }),
       setAppearance: (v) => set({ appearance: v }),
       setUiVignette: (v) => set({ uiVignette: v }),
@@ -1426,6 +1432,7 @@ export const useSettings = create<SettingsState>()(
         audio: { ...current.audio, ...(persisted && typeof persisted.audio === 'object' ? persisted.audio : {}) },
         worldDetailInject: { ...current.worldDetailInject, ...(persisted && typeof persisted.worldDetailInject === 'object' ? persisted.worldDetailInject : {}) },
         storyStrip: { ...current.storyStrip, ...(persisted && typeof persisted.storyStrip === 'object' ? persisted.storyStrip : {}) },
+        inlineComm: { ...current.inlineComm, ...(persisted && typeof persisted.inlineComm === 'object' ? persisted.inlineComm : {}) },
         modelsLoading: false,
         modelsError: '',
         textModelsLoading: false,

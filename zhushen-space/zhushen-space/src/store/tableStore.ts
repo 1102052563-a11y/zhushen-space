@@ -47,6 +47,10 @@ interface TableState {
   restoreRow: (uid: string, row: string[], atIndex?: number) => boolean;
   /** 批量替换一张多行表的**全部数据行**（一次 set·高性能·投影每回合用）。row_id 重排 1..N。单行表拒绝。返回写入行数，失败 -1。 */
   replaceRows: (uid: string, rows: Record<string, string>[]) => number;
+  /** 推进压实水位线（纪要大总结用）：只进不退（取 max）。row_id ≤ 水位线的行视为已折叠（物理保留）。 */
+  advanceCompaction: (uid: string, throughRowId: number) => void;
+  /** 🔒 行锁开关（按 row_id）：锁上后填表 AI 改删该行一律被拒；玩家面板编辑不受限。 */
+  toggleRowLock: (uid: string, rowId: string) => void;
 
   // ── 表管理 / 持久化 ──
   /** 加/替换一张表定义。 */
@@ -128,6 +132,19 @@ export function normalizeRowIds(tables: AcuTableData): AcuTableData {
     out[uid] = changed ? { ...sheet, content: rows } : sheet;
   }
   return out;
+}
+
+/** 补缺表（持久化 migrate v11+ 用·纯函数便于测试）：只把「默认表清单里有、存档里没有」的表补上全新空表，
+   **已有表一个字不碰**——特意不用 evolveTables（它会把 row_id 重排 1..N，打破"row_id=永久编号"契约）。
+   v10 起加新默认表一律走这条加法迁移。 */
+export function addMissingDefaultSheets(oldTables: AcuTableData): AcuTableData {
+  const fresh = buildDefaultTables();
+  let changed = false;
+  const out: AcuTableData = { ...oldTables };
+  for (const [uid, sheet] of Object.entries(fresh)) {
+    if (!out[uid]) { out[uid] = sheet; changed = true; }
+  }
+  return changed ? out : oldTables;
 }
 
 /** 表结构演进（持久化 migrate 用·纯函数便于测试）：以最新默认表结构为准，把旧表按**列名**重映射进新表头
@@ -279,6 +296,22 @@ export const useTables = create<TableState>()(
         return dataRows.length;
       },
 
+      advanceCompaction: (uid, throughRowId) => {
+        const sheet = get().tables[uid];
+        if (!sheet || !Number.isFinite(throughRowId)) return;
+        const next = Math.max(sheet.compactedThrough ?? 0, Math.floor(throughRowId));
+        if (next === (sheet.compactedThrough ?? 0)) return;
+        set((s) => ({ tables: { ...s.tables, [uid]: { ...sheet, compactedThrough: next } } }));
+      },
+
+      toggleRowLock: (uid, rowId) => {
+        const sheet = get().tables[uid];
+        if (!sheet || !rowId) return;
+        const cur = sheet.lockedRowIds ?? [];
+        const next = cur.includes(rowId) ? cur.filter((r) => r !== rowId) : [...cur, rowId];
+        set((s) => ({ tables: { ...s.tables, [uid]: { ...sheet, lockedRowIds: next } } }));
+      },
+
       upsertSheet: (sheet) =>
         set((s) => ({ tables: { ...s.tables, [sheet.uid]: sheet } })),
 
@@ -299,19 +332,20 @@ export const useTables = create<TableState>()(
     }),
     {
       name: 'drpg-tables',
-      version: 10,
+      version: 11,
       storage: lzStorage(),   // lz 压缩
       /* 结构演进（…v5→v6 加 NPC明细表 + 重要角色表补标量；v6→v7 重要角色表加真实六维列·六维改回基础值；
          v7→v8 加 3 张剧情记忆表：进程/伏笔/约定表·AI 维护·非镜像；v8→v9 加 宠物/召唤物表·镜像·从重要角色表分流；
-         v9→v10 row_id 归一化：重复/非法编号重派 max+1 → row_id 自此=行的永久编号，AI 按它 updateRow 不再打错行）。
-         `evolveTables` 幂等：以最新 buildDefaultTables() 为准，按**列名**把旧行重映射进新表头 →
-         新表补齐、新列留空、旧数据一律不丢、用户自建表保留。加表/加列后 bump version 即可让老存档自动补上。 */
+         v9→v10 row_id 归一化：重复/非法编号重派 max+1 → row_id 自此=行的永久编号，AI 按它 updateRow 不再打错行；
+         v10→v11 加 大总结表（纪要压实·借鉴 ACU 飞行模式）——⚠v10 起**只能走 addMissingDefaultSheets 加法迁移**，
+         不能再整库 evolveTables（它把 row_id 重排 1..N，会打破永久编号+日志引用）。 */
       migrate: (persisted: unknown, version: number): { tables: AcuTableData } => {
         const p = persisted as { tables?: AcuTableData } | null;
         if (!p || typeof p !== 'object') return { tables: buildDefaultTables() };
-        if (version >= 10) return { tables: p.tables ?? buildDefaultTables() };
-        if (version >= 9) return { tables: normalizeRowIds(p.tables ?? buildDefaultTables()) };
-        return { tables: normalizeRowIds(evolveTables(p.tables ?? {})) };   // 结构演进（列名重映射·数据不丢）+ row_id 归一化
+        if (version >= 11) return { tables: p.tables ?? buildDefaultTables() };
+        if (version >= 10) return { tables: addMissingDefaultSheets(p.tables ?? buildDefaultTables()) };
+        if (version >= 9) return { tables: addMissingDefaultSheets(normalizeRowIds(p.tables ?? buildDefaultTables())) };
+        return { tables: normalizeRowIds(evolveTables(p.tables ?? {})) };   // <v9：evolveTables 用最新默认表=新表自带
       },
     }
   )

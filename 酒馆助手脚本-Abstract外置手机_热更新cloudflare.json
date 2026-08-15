@@ -1,0 +1,30 @@
+{
+  "type": "script",
+  "enabled": true,
+  "name": "Abstract外置手机_热更新cloudflare",
+  "id": "f0883568-eb23-41a5-a148-5a41839ddd92",
+  "content": "import 'https://phone-ctn.pages.dev/index.js'",
+  "info": "",
+  "button": {
+    "enabled": true,
+    "buttons": [
+      {
+        "name": "手机",
+        "visible": true
+      },
+      {
+        "name": "删最后一层",
+        "visible": true
+      },
+      {
+        "name": "复位",
+        "visible": true
+      },
+      {
+        "name": "刷新",
+        "visible": true
+      }
+    ]
+  },
+  "data": {}
+}

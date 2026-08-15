@@ -9,7 +9,7 @@ import {
   acceptQuote, isBarterQuote, postWantToBuy, postSellItem, postSellBundle, type BuyResult,
 } from '../systems/channelTrade';
 import { estimateFairValue, priceVerdict, formatFairRange, sumFairValues, type FairValue } from '../systems/itemPricing';
-import { pushSceneNotice } from '../systems/allocNotice';
+import { pushSceneNotice, removeSceneNotice, peekSceneNotices } from '../systems/allocNotice';
 import { useWorldNews } from '../store/worldNewsStore';
 import { newsStale } from '../systems/worldNews';
 import { useMisc } from '../store/miscStore';
@@ -102,7 +102,7 @@ function ChannelItemDetail({ p, onClose }: { p: DetailPayload; onClose: () => vo
   );
 }
 
-function MessageCard({ m, onBuy, onAcceptQuote, onCancel, onDetail, onReply, onJoin, onInviteClick, onDm, onDmQuote, onAddFriendClick }: {
+function MessageCard({ m, onBuy, onAcceptQuote, onCancel, onDetail, onReply, onJoin, onInviteClick, onDm, onDmQuote, onAddFriendClick, onMoreReplies }: {
   m: ChannelMessage;
   onBuy: (m: ChannelMessage) => void;
   onAcceptQuote: (m: ChannelMessage, q: ChannelQuote) => void;
@@ -114,7 +114,9 @@ function MessageCard({ m, onBuy, onAcceptQuote, onCancel, onDetail, onReply, onJ
   onDm?: (m: ChannelMessage) => void;
   onDmQuote?: (q: ChannelQuote) => void;
   onAddFriendClick?: (m: ChannelMessage) => void;
+  onMoreReplies?: (m: ChannelMessage) => void | Promise<void>;   // ⟳ 追评：主角发言帖拉增量回复（借鉴外置手机 forum_comment）
 }) {
+  const [moreBusy, setMoreBusy] = useState(false);
   const c = CH_CLS[m.channel] ?? CH_FALLBACK;
   const chDef = CHANNEL_DEFS.find((d) => d.key === m.channel);
   const canBuy = isBuyable(m);
@@ -131,11 +133,25 @@ function MessageCard({ m, onBuy, onAcceptQuote, onCancel, onDetail, onReply, onJ
         {m.authorStrength && !isMine && <span className="text-[10px] font-mono text-amber-300/55">{m.authorStrength}</span>}
         {m.authorTag && !isMine && <span className="text-[10px] font-mono px-1 py-0.5 rounded border border-edge text-dim/50">{m.authorTag}</span>}
         <span className="flex-1" />
+        {/* 🔥 热度/点赞（借鉴Zsd论坛）：AI 按帖子质量给 0-999，玩家可点赞 +1（一帖一赞）；系统公告无热度 */}
+        {(m.heat != null || (!isMine && m.channel !== 'system')) && (
+          <button onClick={() => { if (!isMine && !m.likedByPlayer) useChannel.getState().likeMessage(m.id); }}
+            title={m.likedByPlayer ? '已点赞' : isMine ? '热度' : `点赞（🔥${m.heat ?? 0}）`}
+            className={`text-[10px] font-mono px-1.5 py-0.5 rounded border transition-colors ${m.likedByPlayer ? 'border-orange-500/50 text-orange-300 bg-orange-900/20' : (isMine ? 'border-edge text-dim/50 cursor-default' : 'border-edge text-dim/60 hover:border-orange-500/40 hover:text-orange-300')}`}>
+            🔥{m.heat ?? 0}
+          </button>
+        )}
         {isMine && m.fulfilled && <span className="text-[10px] font-mono px-1.5 py-0.5 rounded border border-edge text-dim/50">已成交</span>}
         <span className={`text-[10px] font-mono px-1.5 py-0.5 rounded border ${c.chip}`}>{chDef?.icon}{KIND_LABEL[m.kind] ?? m.kind}</span>
         {onReply && !isMine && (
           <button onClick={() => onReply(m)} title={`回复 ${m.authorName}`}
             className="text-[10px] font-mono px-1.5 py-0.5 rounded border border-god/30 text-god/70 hover:bg-god/10 transition-colors">↩ 回复</button>
+        )}
+        {onMoreReplies && isMine && m.speak && (
+          <button disabled={moreBusy}
+            onClick={() => { setMoreBusy(true); Promise.resolve(onMoreReplies(m)).finally(() => setMoreBusy(false)); }}
+            title="过一会儿再看看：为这条发言拉取几条新回复（只新增，不重复已有）"
+            className="text-[10px] font-mono px-1.5 py-0.5 rounded border border-god/30 text-god/70 hover:bg-god/10 disabled:opacity-40 transition-colors">{moreBusy ? '…' : '⟳ 追评'}</button>
         )}
         {onDm && !isMine && m.channel !== 'system' && isDmableTag(m.authorTag) && (
           <button onClick={() => onDm(m)} title={`私信 ${m.authorName}`}
@@ -148,7 +164,28 @@ function MessageCard({ m, onBuy, onAcceptQuote, onCancel, onDetail, onReply, onJ
       </div>
       {isMine && m.replyToName && <div className="text-[11px] font-mono text-god/50 mb-0.5">↩ 回复 @{m.replyToName}</div>}
       {m.authorPersona && !isMine && <div className="text-[11px] font-mono text-dim/40 mb-0.5">性格·{m.authorPersona}</div>}
-      <div className="text-[14px] text-slate-300 leading-relaxed"><AutoText text={m.content} /></div>
+      {m.report ? (
+        /* 📣 战报卡（竞技场/讨伐·借鉴Zsd对阵卡片）：结构化对阵卡代替纯文本（content 留作舆论回注素材） */
+        <div className="rounded bg-void/50 border border-rose-500/25 px-2.5 py-1.5 text-[12px] font-mono space-y-1">
+          <div className="text-rose-300/80">⚔ {m.report.arena}</div>
+          <div className="flex items-center gap-1.5 flex-wrap text-[13px]">
+            <span className={m.report.result === 'A胜' ? 'text-amber-300 font-bold' : 'text-slate-300'}>{m.report.a}</span>
+            <span className="text-dim/50 shrink-0">VS</span>
+            <span className={m.report.result === 'B胜' ? 'text-amber-300 font-bold' : 'text-slate-300'}>{m.report.b}</span>
+            <span className="text-[11px] px-1 py-0.5 rounded border border-rose-500/40 text-rose-300 shrink-0">{m.report.result}</span>
+          </div>
+          {(m.report.rounds != null || m.report.mvp) && (
+            <div className="text-dim/55 flex gap-2.5 flex-wrap">
+              {m.report.rounds != null && <span>历时 {m.report.rounds} 回合</span>}
+              {m.report.mvp && <span>MVP·{m.report.mvp}</span>}
+            </div>
+          )}
+          {m.report.maxHit && <div className="text-dim/55">💥 {m.report.maxHit}</div>}
+          {m.report.note && <div className="text-amber-300/70">{m.report.note}</div>}
+        </div>
+      ) : (
+        <div className="text-[14px] text-slate-300 leading-relaxed"><AutoText text={m.content} /></div>
+      )}
 
       {/* 🖼 随帖分享图（如调教场景图）：点击新窗看原图 */}
       {m.image && (
@@ -508,7 +545,7 @@ function InviteDialog({ m, onInvite, onClose, onJoined }: {
   );
 }
 
-export default function ChannelPanel({ onClose, onRefresh, onNewsRefresh, onSolicit, onPost, onOpenShop, onJoin, onInvite, onDm, onDmQuote, onAddFriend }: { onClose: () => void; onRefresh: (force?: boolean) => void; onNewsRefresh?: () => Promise<{ ok: boolean; msg: string }>; onSolicit?: () => void; onPost?: (channel: ChannelKey, content: string, replyTo?: { authorName: string; content: string }) => Promise<void>; onOpenShop?: () => void; onJoin?: (m: ChannelMessage) => void; onInvite?: (m: ChannelMessage, text: string) => Promise<{ accept: boolean; reason: string }>; onDm?: (m: ChannelMessage) => void; onDmQuote?: (q: ChannelQuote) => void; onAddFriend?: (m: ChannelMessage) => Promise<{ ok: boolean; msg: string }> }) {
+export default function ChannelPanel({ onClose, onRefresh, onNewsRefresh, onPaper, onSolicit, onPost, onMoreReplies, onOpenShop, onJoin, onInvite, onDm, onDmQuote, onAddFriend }: { onClose: () => void; onRefresh: (force?: boolean) => void; onNewsRefresh?: () => Promise<{ ok: boolean; msg: string }>; onPaper?: () => Promise<{ ok: boolean; msg: string }>; onSolicit?: () => void; onPost?: (channel: ChannelKey, content: string, replyTo?: { authorName: string; content: string }) => Promise<void>; onMoreReplies?: (m: ChannelMessage) => void | Promise<void>; onOpenShop?: () => void; onJoin?: (m: ChannelMessage) => void; onInvite?: (m: ChannelMessage, text: string) => Promise<{ accept: boolean; reason: string }>; onDm?: (m: ChannelMessage) => void; onDmQuote?: (q: ChannelQuote) => void; onAddFriend?: (m: ChannelMessage) => Promise<{ ok: boolean; msg: string }> }) {
   const messages   = useChannel((s) => s.messages);
   const refreshing = useChannel((s) => s.refreshing);
   const channels   = useChannel((s) => s.settings.channels);
@@ -607,7 +644,7 @@ export default function ChannelPanel({ onClose, onRefresh, onNewsRefresh, onSoli
 
         <div className="flex-1 overflow-y-auto p-4 space-y-2">
           {tab === 'worldnews' ? (
-            <WorldNewsView onRefresh={onNewsRefresh} />
+            <WorldNewsView onRefresh={onNewsRefresh} onPaper={onPaper} />
           ) : !enabled ? (
             <div className="py-16 text-center text-dim/40 text-sm font-mono border border-dashed border-edge rounded-xl">
               公共频道已停用
@@ -619,7 +656,7 @@ export default function ChannelPanel({ onClose, onRefresh, onNewsRefresh, onSoli
               {!refreshing && <div className="mt-2 text-dim/30">点「🔄」生成帖子，或「🛒 求购 / 🏷 出售」自己挂单</div>}
             </div>
           ) : (
-            list.map((m) => <MessageCard key={m.id} m={m} onBuy={setConfirmMsg} onAcceptQuote={doAcceptQuote} onCancel={removeMessage} onDetail={setDetail} onReply={enabled && onPost && tab !== 'system' ? startReply : undefined} onJoin={enabled && onJoin ? doJoin : undefined} onInviteClick={enabled && onInvite ? setInviteTarget : undefined} onDm={enabled ? onDm : undefined} onDmQuote={enabled ? onDmQuote : undefined} onAddFriendClick={enabled && onAddFriend ? doAddFriend : undefined} />)
+            list.map((m) => <MessageCard key={m.id} m={m} onBuy={setConfirmMsg} onAcceptQuote={doAcceptQuote} onCancel={removeMessage} onDetail={setDetail} onReply={enabled && onPost && tab !== 'system' ? startReply : undefined} onMoreReplies={enabled && tab !== 'system' ? onMoreReplies : undefined} onJoin={enabled && onJoin ? doJoin : undefined} onInviteClick={enabled && onInvite ? setInviteTarget : undefined} onDm={enabled ? onDm : undefined} onDmQuote={enabled ? onDmQuote : undefined} onAddFriendClick={enabled && onAddFriend ? doAddFriend : undefined} />)
           )}
         </div>
 
@@ -706,21 +743,55 @@ const CLAIM_META: Record<string, { label: string; cls: string }> = {
   rumor: { label: '传言', cls: 'border-rose-600/50 text-rose-300' },
 };
 
-function WorldNewsView({ onRefresh }: { onRefresh?: () => Promise<{ ok: boolean; msg: string }> }) {
+/* 「让主角看到」勾选钮（可反悔）：勾=把通报入队，取消勾=从队列撤回；下一回合发送时才真正消费。
+   勾选态直接读 peekSceneNotices()（通报整句即 key），父组件经 bump 强制重渲染同步视图。
+   ⚠模块级组件，勿移进父组件内（内联子组件每次渲染重挂）。 */
+function NoticeToggle({ text, okMsg, title, setMsg, bump }: {
+  text: string; okMsg: string; title: string;
+  setMsg: (m: string) => void; bump: () => void;
+}) {
+  const on = peekSceneNotices().includes(text);
+  return (
+    <button
+      onClick={() => {
+        if (on) { removeSceneNotice(text); setMsg('已取消勾选：主角不会看到这条'); }
+        else { pushSceneNotice(text); setMsg(okMsg); }
+        bump();
+      }}
+      title={on ? '已勾选：下一回合正文会写到主角看到它；再点一次取消' : title}
+      className={`text-[11px] font-mono px-1.5 py-0.5 rounded border transition-colors shrink-0 ${on ? 'border-god/60 text-god bg-god/15' : 'border-god/40 text-god/80 hover:bg-god/10'}`}>
+      {on ? '☑ 主角会看到' : '☐ 让主角看到'}
+    </button>
+  );
+}
+
+function WorldNewsView({ onRefresh, onPaper }: { onRefresh?: () => Promise<{ ok: boolean; msg: string }>; onPaper?: () => Promise<{ ok: boolean; msg: string }> }) {
   const snapshots = useWorldNews((s) => s.snapshots);
+  const papers = useWorldNews((s) => s.papers);
   const busy = useWorldNews((s) => s.refreshing);
   const worldName = useMisc((s) => s.worldName);
   const turn = useMisc((s) => s.turnCount);
   const [msg, setMsg] = useState('');
   const [cfgOpen, setCfgOpen] = useState(false);
+  const [, noticeVer] = useState(0);   // 「让主角看到」勾选态存于模块级通报队列（非 React 状态）→ 勾/取消后 bump 强制重渲染同步
+  const noticeBump = () => noticeVer((v) => v + 1);
   const mine = (snapshots ?? []).filter((s) => !s.worldName || sameWorld(s.worldName, worldName || ''));
   const snap = mine.length ? mine[mine.length - 1] : undefined;
   const stale = !!snap && newsStale(snap.turn, turn || 0);
+  // 📰 本世界日报（借鉴Zsd报纸板块）：只展示当前世界最新一期
+  const myPapers = (papers ?? []).filter((p) => !p.worldName || sameWorld(p.worldName, worldName || ''));
+  const paper = myPapers.length ? myPapers[myPapers.length - 1] : undefined;
   async function doRefresh() {
     if (!onRefresh || busy) return;
     setMsg('');
     const r = await onRefresh();
     if (!r.ok) setMsg(r.msg);
+  }
+  async function doPaper() {
+    if (!onPaper || busy) return;
+    setMsg('');
+    const r = await onPaper();
+    setMsg(r.ok ? `📰 ${r.msg}` : r.msg);
   }
   const news = snap?.items.filter((i) => i.kind === 'news') ?? [];
   const forums = snap?.items.filter((i) => i.kind === 'forum') ?? [];
@@ -742,9 +813,57 @@ function WorldNewsView({ onRefresh }: { onRefresh?: () => Promise<{ ok: boolean;
           className="text-[12px] font-mono px-2.5 py-1 rounded border border-violet-500/50 text-violet-300 hover:bg-violet-500/10 disabled:opacity-40 transition-colors">
           {busy ? '街上打听中…' : '🔄 刷新见闻'}
         </button>
+        <button onClick={doPaper} disabled={busy || !onPaper} title="让本地报馆出一期刊物：头条+栏目文章+读者来信（素材同见闻：只有已公开的事件/传闻）"
+          className="text-[12px] font-mono px-2.5 py-1 rounded border border-amber-600/50 text-amber-300 hover:bg-amber-900/20 disabled:opacity-40 transition-colors">
+          📰 出一期日报
+        </button>
       </div>
       {cfgOpen && <div className="rounded-lg border border-edge bg-panel/40 px-3 py-2"><ApiRoutePicker routeKey="worldNews" /></div>}
       {msg && <div className="text-[12px] font-mono text-amber-300/80 px-1">{msg}</div>}
+
+      {/* 📰 本世界日报（最新一期·借鉴Zsd报纸板块）：报头+头条+栏目文章+读者来信 */}
+      {paper && (
+        <div className="rounded-lg border border-amber-600/30 bg-panel/70 overflow-hidden">
+          <div className="px-3 py-2 border-b border-amber-600/20 bg-amber-900/10 flex items-center gap-2 flex-wrap">
+            <span className="text-[15px] font-bold text-amber-200/90">📰 {paper.outlet}</span>
+            {paper.issueLabel && <span className="text-[11px] font-mono text-dim/50">{paper.issueLabel}</span>}
+            <span className="flex-1" />
+            <NoticeToggle
+              text={`主角读到「${paper.outlet}」${paper.issueLabel ? `（${paper.issueLabel}）` : ''}的头条：《${paper.headline.title}》——${paper.headline.body.slice(0, 60)}`}
+              okMsg="已勾选：下一回合正文会自然写到主角读到这期头条"
+              title="把这期头条交给下一回合正文：主角会自然读到它（场外操作通报通道，不改世界事实）"
+              setMsg={setMsg} bump={noticeBump} />
+          </div>
+          <div className="px-3 py-2 space-y-2">
+            <div>
+              <div className="text-[11px] font-mono text-amber-300/60 mb-0.5">▍头条</div>
+              <div className="text-[15px] font-bold text-slate-100 leading-snug">{paper.headline.title}</div>
+              <div className="text-[13px] text-slate-300 leading-relaxed mt-0.5">{paper.headline.body}</div>
+            </div>
+            {paper.articles.length > 0 && (
+              <div className="grid sm:grid-cols-2 gap-2">
+                {paper.articles.map((a, i) => (
+                  <div key={i} className="rounded border border-edge bg-void/40 px-2 py-1.5">
+                    <div className="text-[11px] font-mono text-amber-300/60 mb-0.5">▸ {a.column}</div>
+                    <div className="text-[13px] font-semibold text-slate-200 leading-snug">{a.title}</div>
+                    <div className="text-[12px] text-slate-300/90 leading-relaxed mt-0.5">{a.body}</div>
+                  </div>
+                ))}
+              </div>
+            )}
+            {paper.letters.length > 0 && (
+              <div>
+                <div className="text-[11px] font-mono text-dim/50 mb-1">✉ 读者来信</div>
+                <div className="space-y-1">
+                  {paper.letters.map((l, i) => (
+                    <div key={i} className="text-[12px] text-slate-300/85 leading-snug"><span className="text-dim/50 font-mono">{l.id}：</span>{l.body}</div>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
 
       {!snap ? (
         <div className="py-14 text-center text-dim/40 text-sm font-mono border border-dashed border-edge rounded-xl leading-relaxed">
@@ -763,9 +882,11 @@ function WorldNewsView({ onRefresh }: { onRefresh?: () => Promise<{ ok: boolean;
                     {n.outlet && <span className="text-[11px] font-mono text-dim/50">{n.outlet}</span>}
                     {n.heat && <span className="text-[11px] font-mono text-dim/40">📡 {n.heat}</span>}
                     <span className="flex-1" />
-                    <button onClick={() => { pushSceneNotice(`主角在「${n.outlet || '当地新闻'}」看到报道：《${n.title}》${n.body ? `——${n.body.slice(0, 60)}` : ''}`); setMsg(`已安排「${n.title}」：下一回合正文会自然写到主角看到这条报道`); }}
+                    <NoticeToggle
+                      text={`主角在「${n.outlet || '当地新闻'}」看到报道：《${n.title}》${n.body ? `——${n.body.slice(0, 60)}` : ''}`}
+                      okMsg={`已勾选「${n.title}」：下一回合正文会自然写到主角看到这条报道`}
                       title="把这条见闻交给下一回合正文：主角会自然看到它（走既有的场外操作通报通道，不改世界事实）"
-                      className="text-[11px] font-mono px-1.5 py-0.5 rounded border border-god/40 text-god/80 hover:bg-god/10 transition-colors shrink-0">📣 让主角看到</button>
+                      setMsg={setMsg} bump={noticeBump} />
                   </div>
                   <div className="text-[14px] font-bold text-slate-100">{n.title}</div>
                   {n.body && <div className="text-[13px] text-slate-300 leading-relaxed mt-0.5">{n.body}</div>}
@@ -783,9 +904,11 @@ function WorldNewsView({ onRefresh }: { onRefresh?: () => Promise<{ ok: boolean;
                     {n.outlet && <span className="text-[11px] font-mono text-dim/50">{n.outlet}</span>}
                     {n.heat && <span className="text-[11px] font-mono text-dim/40">🔥 {n.heat}</span>}
                     <span className="flex-1" />
-                    <button onClick={() => { pushSceneNotice(`主角刷到「${n.outlet || '本地论坛'}」的热帖：《${n.title}》${n.body ? `——${n.body.slice(0, 60)}` : ''}（帖子性质：${n.claim === 'rumor' ? '传言' : n.claim === 'mixed' ? '真假掺半' : '据实'}）`); setMsg(`已安排「${n.title}」：下一回合正文会自然写到主角刷到这帖`); }}
+                    <NoticeToggle
+                      text={`主角刷到「${n.outlet || '本地论坛'}」的热帖：《${n.title}》${n.body ? `——${n.body.slice(0, 60)}` : ''}（帖子性质：${n.claim === 'rumor' ? '传言' : n.claim === 'mixed' ? '真假掺半' : '据实'}）`}
+                      okMsg={`已勾选「${n.title}」：下一回合正文会自然写到主角刷到这帖`}
                       title="把这条帖子交给下一回合正文：主角会自然刷到它（走既有的场外操作通报通道，不改世界事实）"
-                      className="text-[11px] font-mono px-1.5 py-0.5 rounded border border-god/40 text-god/80 hover:bg-god/10 transition-colors shrink-0">📣 让主角看到</button>
+                      setMsg={setMsg} bump={noticeBump} />
                   </div>
                   <div className="text-[14px] font-bold text-slate-100">{n.title}</div>
                   {n.body && <div className="text-[13px] text-slate-300 leading-relaxed mt-0.5">{n.body}</div>}

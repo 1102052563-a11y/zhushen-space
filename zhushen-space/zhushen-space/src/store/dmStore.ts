@@ -34,12 +34,23 @@ export interface DmDeal {
   ts: number;
 }
 
+/* 消息花样（借鉴 Abstract外置手机的消息类型·缺省 text 纯文本，全部可选向后兼容）：
+   recalled=对方撤回的消息（text 是"撤回了一条消息"占位，orig 存原文，点开偷看）；
+   poke=戳一戳（居中演出行）；quote=引用主角某句话再回应（quote 存被引用原文）。*/
+export type DmMsgKind = 'text' | 'recalled' | 'poke' | 'quote';
+/* NPC 回复自带的状态头（借鉴外置手机 <message> 头·纯展示，不回喂 AI）*/
+export interface DmMsgMeta { emotion?: string; location?: string; state?: string; thought?: string }
+
 export interface DmMessage {
   id: string;
   from: 'player' | 'npc' | 'system';
   text: string;
   ts: number;
   deal?: DmDeal;     // 该条消息附带的交易提案
+  kind?: DmMsgKind;  // 缺省 'text'
+  orig?: string;     // kind='recalled'：被撤回的原文（UI 点开偷看）
+  quote?: string;    // kind='quote'：被引用的主角原话
+  meta?: DmMsgMeta;  // 状态头（一轮回复只挂第一条 npc 消息上）
 }
 
 export interface DmThread {
@@ -56,6 +67,7 @@ export interface DmThread {
   messages: DmMessage[];
   createdAt: number;
   updatedAt: number;
+  unread?: number;          // 未读条数（NPC主动来讯时+N；打开该会话清零；导航「私信」红点=各线程之和）
 }
 
 /* 可私信/可加好友判定：白名单——仅「随从 / 契约者 / 宠物」三类可；
@@ -78,6 +90,8 @@ interface DmState {
   order: string[];   // 线程 id，最近活跃在前
   openThread: (t: DmOpenInfo) => string;
   addMsg: (threadId: string, msg: Omit<DmMessage, 'id' | 'ts'> & { id?: string; ts?: number }) => string;
+  bumpUnread: (threadId: string, n?: number) => void;
+  clearUnread: (threadId: string) => void;
   updateDeal: (threadId: string, dealId: string, patch: Partial<DmDeal>) => void;
   patchThread: (threadId: string, patch: Partial<DmThread>) => void;
   removeThread: (threadId: string) => void;
@@ -132,12 +146,18 @@ export const useDm = create<DmState>()(
         set((s) => {
           const th = s.threads[threadId];
           if (!th) return s;
-          const m: DmMessage = { id: mid, from: msg.from, text: msg.text, ts: msg.ts ?? Date.now(), deal: msg.deal };
+          const m: DmMessage = { id: mid, from: msg.from, text: msg.text, ts: msg.ts ?? Date.now(), deal: msg.deal, kind: msg.kind, orig: msg.orig, quote: msg.quote, meta: msg.meta };
           const order = [threadId, ...s.order.filter((x) => x !== threadId)];
           return { threads: { ...s.threads, [threadId]: { ...th, messages: [...th.messages, m], updatedAt: Date.now() } }, order };
         });
         return mid;
       },
+
+      bumpUnread: (threadId, n = 1) =>
+        set((s) => (s.threads[threadId] ? { threads: { ...s.threads, [threadId]: { ...s.threads[threadId], unread: (s.threads[threadId].unread || 0) + n } } } : s)),
+
+      clearUnread: (threadId) =>
+        set((s) => (s.threads[threadId]?.unread ? { threads: { ...s.threads, [threadId]: { ...s.threads[threadId], unread: 0 } } } : s)),
 
       updateDeal: (threadId, dealId, patch) =>
         set((s) => {

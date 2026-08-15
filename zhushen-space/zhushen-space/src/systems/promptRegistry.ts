@@ -11,7 +11,7 @@ import {
   ITEM_COT_RULE, PLAYER_COT_RULE, NPC_COT_RULE, ENTRY_COT_RULE,
   FACTION_COT_RULE, TERRITORY_COT_RULE, TEAM_COT_RULE,
   EQUIP_CODEX, ITEM_EVOLUTION_CODEX, PARADISE_RULES_RULE,
-  COMBAT_NARRATE_RULE, NPC_CHAT_RULE, NSFW_WRITING_RULE, NPC_TEAM_JOIN_CHAT_RULE, INTERVIEW_RULE, TRAINING_CHAT_RULE,
+  COMBAT_NARRATE_RULE, NPC_CHAT_RULE, NSFW_WRITING_RULE, NPC_TEAM_JOIN_CHAT_RULE, INTERVIEW_RULE, TRAINING_CHAT_RULE, DM_REPLY_PROTOCOL_RULE,
   MONUMENT_EULOGY_RULE, CHOICES_FANFIC_SYSTEM, FANFIC_RULE, MINI_THEATER_RULE,
   WORLD_SETTLEMENT_RULE, WORLD_SETTLEMENT_COT_RULE, ATTR_POWER_CODEX, NPC_INDEPENDENCE_RULE, DISPOSITION_STAGE_RULE,
   NPC_SELF_NARRATION_RULE, NPC_LIFE_STORY_RULE,
@@ -102,6 +102,7 @@ export const PROMPT_REGISTRY: PromptEntry[] = [
   { key: 'COMBAT_WRITING_GUIDE_RULE', label: '战斗写作指导', group: '战斗', kind: 'override', def: COMBAT_WRITING_GUIDE_RULE, desc: '战斗镜头 / 力量标尺 / CoT 写作指导' },
   // ── 私信 / 聊天 ──
   { key: 'NPC_CHAT_RULE', label: '私聊 · 输出格式 / 入戏', group: '私信 / 聊天', kind: 'override', def: NPC_CHAT_RULE, desc: 'NPC 私聊的输出格式与入戏' },
+  { key: 'DM_REPLY_PROTOCOL_RULE', label: '✉ 私信 · 回复行协议', group: '私信 / 聊天', kind: 'override', def: DM_REPLY_PROTOCOL_RULE, desc: '私信回复的状态头+消息花样行协议（状态/心声/说/撤回/引用/戳；⚠改坏字段名会解析不出，兜底成整段纯文本）（借鉴Abstract外置手机）' },
   { key: 'NSFW_WRITING_RULE', label: 'NSFW 写作宪章', group: '私信 / 聊天', kind: 'override', def: NSFW_WRITING_RULE, desc: '私聊 / 欢愉宫等成人向写作规则' },
   { key: 'NPC_TEAM_JOIN_CHAT_RULE', label: '私聊 · 入团意愿', group: '私信 / 聊天', kind: 'override', def: NPC_TEAM_JOIN_CHAT_RULE, desc: '队友在私聊里处理入团 / 邀约' },
   { key: 'INTERVIEW_RULE', label: '🎤 大采访 · 撰稿规则', group: '私信 / 聊天', kind: 'override', def: INTERVIEW_RULE, desc: '局外花絮采访的行协议与写法（借鉴V3.2·⚠改坏行前缀会让杂志排版解析失败回退纯文本）' },

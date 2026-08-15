@@ -54,6 +54,12 @@ export interface AcuSheet {
   updateConfig: AcuUpdateConfig;
   exportConfig: AcuExportConfig;
   orderNo: number;
+  /** 压实水位线（仅纪要表用·借鉴 ACU 飞行模式「大总结」）：row_id ≤ 此值的纪要行已被大总结归纳，
+     视为"已折叠"——不再进填表回显/剧情快照/面板默认视图；**物理行保留**（编年史实录/向量召回仍读全量）。 */
+  compactedThrough?: number;
+  /** 行锁（借鉴 ACU patch_sheet_locks）：row_id 在列表内的行，填表 AI 的 updateRow/deleteRow 一律拒收
+     （错误进失败清单回喂）。只锁 AI，玩家面板编辑不受限；投影（replaceRows）也不受限（镜像表锁无意义）。 */
+  lockedRowIds?: string[];
 }
 
 export type AcuTableData = Record<string, AcuSheet>;
@@ -628,6 +634,23 @@ const SHEET_DEFS: SheetDef[] = [
     insertNode: '立下新约定时 insertRow。',
     updateNode: '约定兑现/破裂时 updateRow 改状态。',
   },
+  // ── 大总结表（借鉴 ACU 飞行模式·不可变阶梯）：纪要表的阶段性压实。可见纪要满阈值时，
+  //    系统在填表提示词里点名要求 AI 归纳最早一段纪要成一行大总结 → 引擎推进水位线折叠已归纳行。
+  //    平时（系统没点名）严禁写入——tableEditParser 有确定性护栏强制这一条。
+  {
+    uid: 'big_summary', name: '大总结表', single: false, orderNo: 25,
+    headers: ['总结', '覆盖纪要'],
+    ddl: `CREATE TABLE big_summary ( -- 大总结表（纪要阶段性归纳·不可变阶梯）
+  row_id INTEGER PRIMARY KEY, -- 行号
+  summary_text TEXT NOT NULL, -- 总结（完整归纳一段已完结的纪要）
+  covers TEXT -- 覆盖纪要（#a~#b·系统自动记，AI 勿填）
+);`,
+    note: '剧情大总结：按阶段追加、不可变的历史归纳。每行=一个已完结纪要阶段的完整总结。仅当系统在填表提示词中明确要求归纳时才新增一行；平时禁止写入。已有行禁改禁删。「覆盖纪要」列由系统自动填写，AI 勿填。',
+    initNode: '无需初始化；系统未要求时禁止插入首行。',
+    insertNode: '仅当填表提示词出现「大总结·本回合归纳」板块并列出待归纳纪要时，insertRow 新增一行完整归纳；否则禁止。',
+    updateNode: '禁止修改任何已有大总结（不可变的历史阶段记录）。',
+    deleteNode: '禁止删除任何已有大总结。',
+  },
 ];
 
 /** 造一份全新的默认表数据（深拷贝安全，供 store 初始化 / reset / 迁移播种）。 */
@@ -639,3 +662,37 @@ export function buildDefaultTables(): AcuTableData {
 
 /** 默认表的 uid 列表（按 orderNo）。 */
 export const DEFAULT_SHEET_UIDS: string[] = SHEET_DEFS.map((d) => d.uid);
+
+// ── 纪要压实（大总结·借鉴 ACU 飞行模式）────────────────────────────────────
+//    prompt 构建（tablePrompt）与写路径护栏（tableEditParser）共用同一套纯函数——
+//    两端各自按"当前表态"重算同一公式，天然一致，不需要跨调用传状态。
+export const CHRONICLE_UID = 'chronicle';
+export const BIG_SUMMARY_UID = 'big_summary';
+/** 可见纪要满多少行触发一次归纳（ACU 用 15）。 */
+export const BIG_SUMMARY_THRESHOLD = 15;
+/** 归纳时永远保留最近几行纪要可见（=填表回显窗口，保续写连贯）。 */
+export const BIG_SUMMARY_KEEP_RECENT = 6;
+/** 单次归纳最多吃多少行（老档纪要几百行时分片阶梯下降，防 token 炸弹——ACU 是拒绝启用，这里改成逐回合消化）。 */
+export const BIG_SUMMARY_SLICE_MAX = 25;
+
+/** 纪要表的可见数据行（row_id > 压实水位线；非数字 row_id 视为可见·不误折叠）。 */
+export function visibleChronicleRows(sheet: AcuSheet | undefined | null): string[][] {
+  if (!sheet) return [];
+  const through = sheet.compactedThrough ?? 0;
+  if (through <= 0) return sheet.content.slice(1);
+  return sheet.content.slice(1).filter((row) => {
+    const id = parseInt(row[0] ?? '', 10);
+    return !Number.isFinite(id) || id > through;
+  });
+}
+
+/** 压实规划：可见纪要 ≥ 阈值 → 返回本次要归纳的**最早一段**行（保留最近 KEEP_RECENT 行、单次至多 SLICE_MAX 行）；
+   未达阈值返回 null。throughId=本段末行 row_id（写路径据此推水位线）。 */
+export function planChronicleCompaction(sheet: AcuSheet | undefined | null): { rows: string[][]; fromId: string; throughId: string } | null {
+  const visible = visibleChronicleRows(sheet);
+  if (visible.length < BIG_SUMMARY_THRESHOLD) return null;
+  const count = Math.min(visible.length - BIG_SUMMARY_KEEP_RECENT, BIG_SUMMARY_SLICE_MAX);
+  if (count < 1) return null;
+  const rows = visible.slice(0, count);
+  return { rows, fromId: rows[0][0] ?? '', throughId: rows[rows.length - 1][0] ?? '' };
+}

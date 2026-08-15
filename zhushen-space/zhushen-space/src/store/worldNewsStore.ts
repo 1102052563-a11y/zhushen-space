@@ -28,13 +28,32 @@ export interface NewsSnapshot {
   items: NewsItem[];
 }
 
+/* 📰 本世界日报（借鉴Zsd报纸板块）：同一批可见性门控候选的「报纸形态」——
+   报馆载体随世界时代（官府邸报/晨报/坊市传讯/全息快报…），头条+栏目文章+读者来信（来信须观点碰撞）。 */
+export interface NewsPaperArticle { column: string; title: string; body: string; }
+export interface NewsPaperLetter { id: string; body: string; }
+export interface NewsPaper {
+  worldName: string;
+  worldTime: string;
+  turn: number;
+  generatedAt: number;
+  outlet: string;        // 报馆名（AI 按世界时代起）
+  issueLabel: string;    // 期号/刊行日（故事内时间）
+  headline: NewsPaperArticle;
+  articles: NewsPaperArticle[];
+  letters: NewsPaperLetter[];
+}
+
 const SNAPSHOT_CAP = 8;   // 全部世界共存，新挤旧；读取按 worldName 过滤
+const PAPER_CAP = 6;      // 报纸期刊上限（跨世界共存，新挤旧）
 
 interface WorldNewsState {
   snapshots: NewsSnapshot[];
+  papers: NewsPaper[];
   refreshing: boolean;
   setRefreshing: (v: boolean) => void;
   pushSnapshot: (s: NewsSnapshot) => void;
+  pushPaper: (p: NewsPaper) => void;
   clearAll: () => void;
 }
 
@@ -42,10 +61,12 @@ export const useWorldNews = create<WorldNewsState>()(
   persist(
     (set): WorldNewsState => ({
       snapshots: [],
+      papers: [],
       refreshing: false,
       setRefreshing: (v) => set({ refreshing: v }),
       pushSnapshot: (s) => set((st) => ({ snapshots: [...(st.snapshots ?? []), s].slice(-SNAPSHOT_CAP) })),
-      clearAll: () => set({ snapshots: [], refreshing: false }),
+      pushPaper: (p) => set((st) => ({ papers: [...(st.papers ?? []), p].slice(-PAPER_CAP) })),
+      clearAll: () => set({ snapshots: [], papers: [], refreshing: false }),
     }),
     { name: 'drpg-worldnews' }
   )

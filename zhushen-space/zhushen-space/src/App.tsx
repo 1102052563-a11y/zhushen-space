@@ -154,7 +154,7 @@ import { runRegexReplace, compileFindRegex, regexScriptApplies, escapeRegexLiter
 import { apiChatFallback, fetchWithProxy, abortAllApiCalls, narrativeLangDirective } from './systems/apiChat';
 import { parseAllStateUpdates, stripStateBlocks, parseAllItemCommands, applyItemCommands, parseAllCharCommands, applyCharacterCommands, parseAllNpcCommands, applyNpcCommands, parseAllFactionCommands, applyFactionCommands, applyTerritoryCommands, applyTeamCommands, isEquippable, lenientJsonParse, buildItemFeedback, recordEvo, purgeItemPhaseCurrency, editToTerritoryText, editToTeamText, detectUnregisteredCurrencyGains, deferredCreateSkipReason } from './systems/stateParser';
 import { isRealNpc, sanitizeEntryName, stripLeakedThinking, streamVisibleNarrative, splitThinkStream, extractLeakedThinking, setNpcPreferredOwners, applyStateUpdates, applyAllUpdates, stripKillBlocks, stripVitalsBlocks, stripWorldSourceBlocks, collapseRunaway } from './systems/stateApply';
-import { buildTableFillPrompt, buildPlotStateSnapshot } from './systems/tablePrompt';   // ACU 表格数据库：填表提示词 + 剧情状态快照（喂剧情指导）
+import { buildTableFillPrompt, buildPlotStateSnapshot, chronicleRecallCorpus } from './systems/tablePrompt';   // ACU 表格数据库：填表提示词 + 剧情状态快照（喂剧情指导）+ 纪要召回语料（喂向量记忆池）
 import { applyTableEdits } from './systems/tableEditParser';   // ACU 表格数据库：<tableEdit> → tableStore（手动补填阶段直接落库，不经 applyAllUpdates）
 import { useTurnReport, recordHasActivity, type TurnApplyRecord } from './store/turnReportStore';   // 手动补填也记进 📋 变量事务报告（与自动填表同一视图）
 import { resolveTableTemplates } from './systems/tableTemplate';   // ACU 表格数据库：读路径 native 模板（<if cell/seed>/计算标签）
@@ -166,9 +166,13 @@ import { snapshotPlayerBag, reconcilePlayerBag, pruneBlankDupItems } from './sys
 import { flattenAiText } from './systems/flattenAiText';
 import { runPhasePipeline, type Phase } from './systems/phasePipeline';
 import { currentEvoEpoch, bumpEvoEpoch, evoEpochStale, reportConsistency } from './systems/evoGuard';
-import { TIME_ANCHOR_RULE, WORLD_EVENT_VISIBILITY_RULE, WORLD_NEWS_RULE, NPC_INNER_VOICE_RULE } from './promptRules';
+import { TIME_ANCHOR_RULE, WORLD_EVENT_VISIBILITY_RULE, WORLD_NEWS_RULE, NPC_INNER_VOICE_RULE, CHANNEL_WORLD_POOL_RULE, CHANNEL_ANTI_SLOP_RULE, WORLD_PAPER_RULE, SPECTATOR_CHATTER_RULE, DM_REPLY_PROTOCOL_RULE } from './promptRules';
+import { sampleWorldPoolText } from './systems/worldLib';   // 公共频道副本取材：从世界库按阶随机抽世界名注入，治帖子只聊思维定式的几个世界
+import { buildMotiveDraw } from './systems/channelFlavor';   // 公共频道发帖动机抽签（借鉴Zsd论坛·每次刷新随机轮换）
+import { buildChannelBuzzInjection } from './systems/channelBuzz';   // 📡 <广场舆论> 频道热帖回注正文（借鉴Zsd论坛）
+import { buildBattleReport, formatBattleReportContent, reportBaseHeat } from './systems/arenaReport';   // 📣 战报卡（借鉴Zsd·竞技场/讨伐→战斗频道）
 import { useWorldNews } from './store/worldNewsStore';
-import { buildNewsCandidates, serializeNewsCandidates, parseNewsReply } from './systems/worldNews';
+import { buildNewsCandidates, serializeNewsCandidates, parseNewsReply, parsePaperReply } from './systems/worldNews';
 import { buildFanficInjection, buildFactInjection, buildCosmosInjection, buildPlayerCoreInjection, buildWorldTimeInjection, buildQuestInjection, buildGuildInjection, buildFacilityInjection, buildCanonWorldInjection, buildSuxiaoTrackInjection, buildOutfitInjection, buildMapInjection } from './systems/promptInjections';
 import { buildBioInjection } from './systems/bioCycle';   // 🌸 生理周期底色（借鉴V3.2·可选模块默认关·空=零token）
 import { takeSkillUpNote } from './systems/skillUpgrade';
@@ -336,7 +340,7 @@ import { useMisc, buildMiscSystemPrompt, isMainQuest, type WorldEvent } from './
 import { useCalendar } from './store/calendarStore';   // 🗓 世界历（节日/生日/纪念日）：杂项阶段顺带维护，不新增 API 调用
 import { useTheater } from './store/theaterStore';   // 🎭 小剧场·花样模板库（玩家可增删改，替代写死的风格清单）
 import { pickTemplates, buildTheaterStyleBlock } from './systems/theaterTemplates';
-import { useChannel, buildChannelSystemPrompt, CHANNEL_DEFS } from './store/channelStore';
+import { useChannel, buildChannelSystemPrompt, CHANNEL_DEFS, type ChannelBattleReport } from './store/channelStore';
 import { estimateFairValue, priceVerdict, formatFairRange, sumFairValues, VERDICT_LABEL } from './systems/itemPricing';
 import { applyMiscCommands, serializeTasks, serializeSettledTasks, serializeEvents, extractTurnSummaries } from './systems/miscParser';
 import { reviewQuestAdvancement } from './systems/questAdvanceReview';
@@ -443,6 +447,8 @@ import { useDm, isDmableTag } from './store/dmStore';
 import { useFanfic } from './store/fanficStore';
 import { useFact } from './store/factStore';
 import { settleDmDeal, normCur as dmNormCur } from './systems/dmTrade';
+import { parseDmReply, dmMsgToHistoryText } from './systems/dmProtocol';   // 私信行协议（状态头+撤回/引用/戳·借鉴Abstract外置手机）
+import { parseCommIntents, buildInlineCommInjection, noteInlineCommFired } from './systems/inlineComm';   // 📨 NPC主动来讯·意图两阶段（借鉴Abstract外置手机）
 const SystemShop = lazy(() => import('./components/SystemShop'));
 const SummaryPanel = lazy(() => import('./components/SummaryPanel'));
 const WorldRecordPanel = lazy(() => import('./components/WorldRecordPanel'));
@@ -1595,6 +1601,7 @@ const CHANNEL_AUTHOR_INFO_RULE = `
 - "job"：职业——**务必多样、有新意，别老用法师/牧师/战士这种古早设定**。多用网游 / 网络小说式职业，含隐藏职业·进阶职业·特殊血脉，例：毁灭术士、龙之子、噬魂者、时空裁决官、契约骑士、暗影行者、神机操纵者、瘟疫使徒、星陨炮手、傀儡师、血祭司、深渊代行者、符文铸造师、亡语者、机械先知、星语者……（贴合发帖人所在世界；同人世界用其原作职业设定）。
 - "strength"：生物强度档（T0杂鱼 ~ T9源初，如 "T3·勇士"、"T6·王者"），与其阶位/语气相称。
 这三项**每条都要给**，后续会用来生成该契约者的临时队友 NPC 档案。
+- "heat"：热度值（点赞数），0-999 整数：干货/劲爆/有趣的帖子高（300~950）、普通帖中等（30~300）、水帖低（0~30）；同一批次要拉开差距，禁止全都差不多。
 
 【发帖人属性·自洽铁则（阶位 / 等级 / 强度档 / 职业必须互相匹配，禁止乱配）】发帖契约者按"角色生成"的同一套规则生成，"tier"(阶位·Lv)、"strength"、"job" 三项必须前后自洽，绝不能各填各的：
 - **阶位 ↔ 等级一一对应**：${tierLevelTable()}。阶位与 Lv **必须落在同一档**，绝不能写「四阶·Lv.15」这种阶位与等级错配的组合。
@@ -2014,12 +2021,15 @@ export default function App() {
   const collapsedSet = useMemo(() => new Set(Array.isArray(navCollapsed) ? navCollapsed : []), [navCollapsed]);
   // P4·红点泛化：聊天室之外，派遣战报未读也上导航（DispatchRecord.read 的注释本就写着「未读在导航打红点」，今天接上）
   const dispatchUnread = useTeam((s) => s.dispatchHistory.reduce((n, r) => n + (r.read ? 0 : 1), 0));
+  // 📨 NPC主动来讯未读（各私信线程 unread 之和）：来讯落库时 bumpUnread，打开该会话清零
+  const dmUnread = useDm((s) => Object.values(s.threads).reduce((n, t) => n + (t.unread || 0), 0));
   const navBadges = useMemo(() => {
     const b: Record<string, number> = {};
     if (chatUnread > 0) b['聊天室'] = chatUnread;
     if (dispatchUnread > 0) b['冒险团'] = dispatchUnread;
+    if (dmUnread > 0) b['私信'] = dmUnread;
     return b;
-  }, [chatUnread, dispatchUnread]);
+  }, [chatUnread, dispatchUnread, dmUnread]);
   // P4·⌘K 条目 = 导航全项 + 深动作（乐园设施子项/回合工具；欢愉宫按开关追加）——二级功能从此可搜可达
   const paletteItems = useMemo(
     () => [...navItems, ...PALETTE_ACTIONS, ...(joyEnabled ? [{ icon: '💗', label: '欢愉宫' }] : [])],
@@ -2873,6 +2883,16 @@ export default function App() {
     // ACU 表格数据库·填表：**已改为独立演化阶段**（runPostNarrativePhases 的 'table' 阶段：填表结束后专门调一次 AI，
     //   只读本回合正文、只吐 <tableEdit> 落库，正文一个字不动）。不再塞进主正文让正文 AI 顺手吐——那样正文 AI 负担重、
     //   常整段漏填（用户报"完全不填表"）。故这里不再注入填表规则；调度仍走「填表调度」(tableFill·enabled/everyN)。
+    // 📚 剧情大总结（借鉴 ACU 飞行模式·中期记忆 L2）：纪要满阈值时填表阶段会把最早一段纪要归纳成大总结行——
+    //   这里把最近 1~2 条大总结喂给主正文，让正文在"最近几楼+召回"之外还看得见早期阶段脉络（token 极小·仅在有大总结时注入）。
+    try {
+      const _bigRows = useTables.getState().getSheet('big_summary')?.content.slice(1) ?? [];
+      if (_bigRows.length) {
+        const _bigTail = _bigRows.slice(-2).map((r) => `· ${String(r[1] ?? '').trim()}`).filter((s) => s !== '·').join('\n');
+        if (_bigTail) addRule('剧情大总结', '前端数据 · 剧情大总结（早期阶段归纳·压缩记忆）',
+          `【剧情大总结（此前阶段的归纳·背景事实基准）】早期剧情已按阶段压缩为大总结；正文涉及早期人事时以此为准，不得与之矛盾：\n${_bigTail.slice(0, 1600)}`);
+      }
+    } catch { /* 表未初始化时静默跳过 */ }
     // 在场 NPC 当前 HP/EP + 上限：把真实数值喂给主正文，让上面的 <状态结算> 能**逐个准确**列出在场队友（不靠 AI 凭记忆瞎填/漏填导致队友卡在残血），休息疗伤时也据上限回满
     try {
       const onSceneNpcs = Object.values(useNpc.getState().npcs).filter((r: any) => r.onScene && !r.isDead && r.name && r.name !== r.id);
@@ -7758,6 +7778,81 @@ ${AFFIX_EFFECT_RULE}`;
     } finally { useWorldNews.getState().setRefreshing(false); }
   }
 
+  /* 📰 本世界日报（借鉴Zsd报纸板块）：与见闻同一套可见性门控候选，出一期 头条+栏目文章+读者来信 的本地刊物。
+     往期头条注入防重复报道；头条缺失=整期作废提示重试。走 worldNews 接口路由。 */
+  async function genWorldPaper(): Promise<{ ok: boolean; msg: string }> {
+    const WN = useWorldNews.getState();
+    if (WN.refreshing) return { ok: false, msg: '正在生成中…' };
+    const M = useMisc.getState();
+    const wn = (M.worldName || '').trim();
+    const cands = buildNewsCandidates(M.worldEvents ?? [], M.rumors ?? [], wn, sameWorld);
+    if (!cands.length) return { ok: false, msg: '当前世界还没有可传播的公开事件/传闻——先让世界发生点什么再出刊' };
+    const ss = useSettings.getState();
+    const chain = resolveApiChain('worldNews', ss.textUseSharedApi ? ss.api : ss.textApi);
+    if (!chain[0]?.baseUrl || !chain[0]?.apiKey) return { ok: false, msg: '接口未配置：在本页「⚙ 接口路由」指定，或先配置正文 API（默认回退）' };
+    WN.setRefreshing(true);
+    try {
+      const prevHeads = (WN.papers ?? []).filter((p) => sameWorld(p.worldName, wn)).slice(-3).map((p) => `《${p.headline.title}》`).join('、');
+      const sys = getPrompt('WORLD_PAPER_RULE', WORLD_PAPER_RULE)
+        + `\n\n【当前世界】${wn || '（未设定）'}｜【世界时间】${M.worldTime || '（未设定）'}${M.weather ? `｜【天气】${M.weather}` : ''}`
+        + (M.contractors?.count ? `\n【本世界契约者人口】约 ${M.contractors.count} 人（报纸可偶尔以"神秘外来者"都市传说笔法捕捉，但不得点破契约者\\轮回乐园设定）` : '')
+        + (prevHeads ? `\n【往期头条】${prevHeads}` : '')
+        + `\n\n【候选清单（唯一素材来源）】\n${serializeNewsCandidates(cands)}`;
+      const { content } = await apiChatFallback(chain, [
+        { role: 'system', content: sys },
+        { role: 'user', content: '请按【输出格式】只输出 JSON。' },
+      ], { timeoutMs: 120000 });
+      const paper = parsePaperReply(content);
+      if (!paper) return { ok: false, msg: '模型没有产出可用的报纸（头条缺失或格式不符），可再试一次' };
+      useWorldNews.getState().pushPaper({ worldName: wn, worldTime: M.worldTime || '', turn: M.turnCount || 0, generatedAt: Date.now(), ...paper });
+      return { ok: true, msg: `已出刊：《${paper.headline.title}》` };
+    } catch (e) {
+      console.warn('[日报] 生成失败', e);
+      return { ok: false, msg: `生成失败：${e instanceof Error ? e.message : '网络或接口错误'}` };
+    } finally { useWorldNews.getState().setRefreshing(false); }
+  }
+
+  /* 📣 战报发帖（借鉴Zsd比赛战报）：确定性战报卡立即上墙（零API·频道或战斗频道关闭则跳过），
+     再异步让围观群众议论几句（阵营感·API 未配置静默跳过）。 */
+  function postBattleReportToChannel(kind: 'arena' | 'raid', report: ChannelBattleReport, rank?: number) {
+    const C = useChannel.getState();
+    if (!C.settings.enabled || !C.settings.channels.battle) return;
+    const M = useMisc.getState();
+    C.addMessages([{
+      channel: 'battle', authorName: '📣 乐园赛事播报', authorTag: '系统', kind: 'battle',
+      content: formatBattleReportContent(report), report, heat: reportBaseHeat(kind, rank),
+      gameTime: M.worldTime || M.paradiseTime || '',
+    }]);
+    void solicitSpectatorChatter(report);
+  }
+  async function solicitSpectatorChatter(report: ChannelBattleReport) {
+    const chain = resolveApiChain('channel', getChannelApi());
+    if (!chain[0]?.baseUrl || !chain[0]?.apiKey) return;
+    try {
+      const sys = SPECTATOR_CHATTER_RULE + '\n\n【战报】\n' + formatBattleReportContent(report) + '\n\n' + CHANNEL_AUTHOR_INFO_RULE;
+      const { content } = await apiChatFallback(chain, [
+        { role: 'system', content: sys },
+        { role: 'user', content: '只输出 JSON {"posts":[...]}。' },
+      ], { timeoutMs: 60000 });
+      const j = parseEntryJson(content);
+      const arr = Array.isArray(j?.posts) ? j.posts : [];
+      const pn = (usePlayer.getState().profile.name || '主角').split('|')[0].trim();
+      const M = useMisc.getState();
+      const items = arr
+        .filter((x: any) => x && x.content && String(x.author ?? x.authorName ?? '').split('|')[0].trim() !== pn)
+        .slice(0, 4)
+        .map((x: any) => ({
+          channel: 'battle' as const, kind: 'battle' as const,
+          authorName: String(x.author ?? x.authorName ?? '围观契约者').split('|')[0].trim(),
+          authorTier: x.tier, authorJob: x.job, authorPersona: x.persona, authorStrength: x.strength,
+          heat: Number.isFinite(Number(x.heat)) ? Math.max(0, Math.min(999, Math.round(Number(x.heat)))) : undefined,
+          content: String(x.content),
+          gameTime: M.worldTime || M.paradiseTime || '',
+        }));
+      if (items.length) useChannel.getState().addMessages(items);
+    } catch (e) { console.warn('[Channel] 战报围观议论生成失败:', e); }
+  }
+
   async function refreshChannel(force = false) {
     const C = useChannel.getState();
     if (!C.settings.enabled || C.refreshing) return;
@@ -7778,6 +7873,10 @@ ${AFFIX_EFFECT_RULE}`;
     const enabledChannels = enabledDefs.map((d) => `${d.label}(${d.key})`).join('、');
     const enabledKeys = new Set(enabledDefs.map((d) => d.key));
     const homePara = prof.homeParadise || '轮回乐园';   // 主角所属乐园（开局选定）；公共频道隶属此乐园，而非默认轮回乐园
+    // 副本世界取材：每次刷新从世界库（世界书「选择N阶世界」+「休闲世界」条目）随机抽一批真实在册世界名注入，
+    // 让帖子谈论的副本随刷新轮换、覆盖整个世界库；世界库为空则不注入（行为不变）
+    const worldPool = sampleWorldPoolText(useSettings.getState().worldBooks);
+    const motiveDraw = buildMotiveDraw(enabledDefs.map((d) => d.key));   // 发帖动机抽签：每次刷新随机轮换，逼动机多样
     const sys = buildChannelSystemPrompt(C.settings.entries)
       .replaceAll('${player_name}', prof.name || '主角')
       .replaceAll('${player_tier}', `${prof.tier || realmFromLevel(prof.level)}·Lv.${prof.level}`)
@@ -7790,6 +7889,9 @@ ${AFFIX_EFFECT_RULE}`;
       .replaceAll('${message_count}', String(C.settings.genCount))
       + '\n\n【交易出售帖·固定格式铁则】交易频道里 kind="sell" 的出售帖，其 offer 必须按**物品固定格式给全所有属性**，供玩家查看与购买带入：offer={"itemName","category","subType","gradeDesc"(品质色),"origin"(产地),"combatStat"(攻防数值),"durability"(耐久),"requirement"(装备需求),"affix"(词缀),"score"(评分),"effect"(效果),"intro"(简介),"appearance"(逐部件外观),"killCount"(武器杀敌数),"qty","price","currency"}。装备类必给攻防/耐久/装备需求/词缀；消耗品必给效果；**技能书/技能卷轴/知识卷轴/图纸配方/天赋碎片类**必给 subType(类型，如「技能卷轴」「技能书」「知识卷轴」「图纸」「天赋碎片」) + effect(**明确写清学会/获得什么**——技能名及层阶(入门/精通/大师/宗师/极道)、或知识领域、或可制造产品、或天赋名及评级 D~SSS)；**外观一律必填、不准省略或偷懒**（与物品生成同标准）。'
       + '\n\n' + CHANNEL_AUTHOR_INFO_RULE
+      + (worldPool ? '\n\n' + CHANNEL_WORLD_POOL_RULE.replaceAll('${world_pool}', worldPool) : '')
+      + '\n\n' + CHANNEL_ANTI_SLOP_RULE
+      + (motiveDraw ? '\n\n' + motiveDraw : '')
       // 🛤 原著路线：白夜偶尔在频道冒泡（高价倒卖·极简冷淡），保持场外存在感
       + (useCanonRoute.getState().enabled && useCanonRoute.getState().suxiao.state !== 'dead'
         ? '\n\n【🛤 原著路线·白夜在场】轮回乐园猎杀者「白夜」（真名苏晓）与主角同期活跃。每次刷新**可以（低频·约三成概率）**让他在交易/广场频道发一帖：高价倒卖战利品、言辞极简、贪财冷淡、绝不闲聊，也不回应别人的搭讪帖——他在忙自己的任务。'
@@ -7817,6 +7919,7 @@ ${AFFIX_EFFECT_RULE}`;
           authorJob: x.job ?? x.authorJob,
           authorPersona: x.persona ?? x.authorPersona,
           authorStrength: x.strength ?? x.authorStrength,
+          heat: Number.isFinite(Number(x.heat ?? x.likes)) ? Math.max(0, Math.min(999, Math.round(Number(x.heat ?? x.likes)))) : undefined,
           kind: x.kind ?? 'chat',
           content: String(x.content),
           offer: x.offer && typeof x.offer === 'object' ? x.offer : undefined,
@@ -7866,16 +7969,19 @@ ${AFFIX_EFFECT_RULE}`;
     if (chain[0]?.baseUrl && chain[0]?.apiKey) {
       const otherN = 2 + Math.floor(Math.random() * 3);   // 回复某人时，其他人插嘴 2~4 条
       const replyN = 2 + Math.floor(Math.random() * 5);   // 普通发言 2~6 条
+      const worldPool = sampleWorldPoolText(useSettings.getState().worldBooks, 4);   // 回复较轻量 → 每阶只抽 4 个副本世界供取材
       const common = `你是「${homePara}·公共频道」的回复生成器，模拟【${chDef?.label ?? channel}】频道里其他契约者/土著的真实回复。
 - 语气务必**多样**、贴合频道氛围：嘲讽 / 认同 / 赞赏 / 吐槽 / 崇拜 / 抬杠 / 阴阳怪气 / 玩梗整活 / 看热闹 / 话不着边 / 提问 / 泼冷水 等（不止这些，自行发挥），别千篇一律、也别都正面。
 - 不同频道风格不同：综合更整活玩梗，战斗更热血/支招，情报更分析推理，世界更见闻闲谈，交易更砍价吐槽，组队更搭话约人。
 - 发帖人用游戏化网名（如 夜影剑心 / 量子咸鱼 / 虚空观测者）；贴合当前世界(${M.worldName || homePara})与主角阶位强度，别离谱。
 - **务必延续上文**：顺着之前的话题接话、可回应之前回复过主角的人，保持对话连贯，别每条都另起炉灶。
+- **只做增量**：禁止重复或改写上文里已有的任何发言/回复——那些已经上墙了，你只输出新内容。
 - **只输出 JSON**：{"replies":[{"author":"网名","tier":"阶位·Lv","job":"职业(多样/隐藏职业)","persona":"性格","strength":"T档(如T3·勇士)","content":"回复正文"}]}，不要任何多余文字或 markdown。
 
 【该频道近期对话（旧→新，供你延续）】
 ${histText}
-${CHANNEL_AUTHOR_INFO_RULE}`;
+${CHANNEL_AUTHOR_INFO_RULE}${worldPool ? '\n' + CHANNEL_WORLD_POOL_RULE.replaceAll('${world_pool}', worldPool) : ''}
+${CHANNEL_ANTI_SLOP_RULE}`;
 
       const sys = replyTo
         ? `${common}
@@ -7924,6 +8030,53 @@ ${replyTo.authorName} 之前说：「${String(replyTo.content).slice(0, 200)}」
       const body = replies.slice(0, 8).map((r) => `· ${r.authorName}${r.authorTier ? '·' + r.authorTier : ''}：「${String(r.content).trim().slice(0, 100)}」`).join('\n');
       pushSceneNotice(head + '\n' + body + (replies.length > 8 ? `\n· …等共 ${replies.length} 条` : ''));
     }
+  }
+
+  /* ⟳ 追评（借鉴Abstract外置手机 forum_comment「仅生成新增评论」思想）：对主角的发言帖过后再拉一轮增量回复，
+     帖子不再一波死。四段式约束：只新增/不重复已有/可接住已回复者续聊/禁止代替主角；前端再按内容判重兜底。
+     玩家主动拉取的花絮 → 不发场外通报（发言与首轮回复已通报过，别刷屏正文前置须知）。 */
+  async function moreChannelReplies(m: import('./store/channelStore').ChannelMessage) {
+    const C = useChannel.getState();
+    const post = C.messages.find((x) => x.id === m.id && x.byPlayer && x.speak);
+    if (!post || !C.settings.enabled) return;
+    const chain = resolveApiChain('channel', getChannelApi());
+    if (!chain[0]?.baseUrl || !chain[0]?.apiKey) return;
+    const prof = usePlayer.getState().profile;
+    const playerName = (prof.name || '主角').split('|')[0].trim();
+    const homePara = prof.homeParadise || '轮回乐园';
+    const chDef = CHANNEL_DEFS.find((d) => d.key === post.channel);
+    const existing = C.messages.filter((x) => x.replyTo === post.id).reverse();   // 旧→新
+    const exText = existing.length
+      ? existing.map((r) => `${r.authorName}${r.authorTier ? '·' + r.authorTier : ''}：${String(r.content).slice(0, 100)}`).join('\n')
+      : '（还没有人回复）';
+    const n = 1 + Math.floor(Math.random() * 3);   // 1~3 条
+    const sys = `你是「${homePara}·公共频道」的回复生成器。主角(${playerName})之前在【${chDef?.label ?? post.channel}】频道发言：「${String(post.content).slice(0, 200)}」
+
+【已有回复（旧→新）】
+${exText}
+
+【任务·只做增量】过了一会儿，又有人刷到这条发言。生成 ${n} 条**新增**回复：
+1. 只输出新增回复：禁止重复或改写任何已有回复，也禁止重复输出主角那条发言。
+2. 新回复可以是新面孔路过，也可以是已回复者接着聊（顺着已有对话续，别另起炉灶）。
+3. 禁止代替主角(${playerName})发言（author 不能是主角/我）。
+4. **只输出 JSON**：{"replies":[{"author":"网名","tier":"阶位·Lv","job":"职业","persona":"性格","strength":"T档(如T3·勇士)","content":"回复正文"}]}，不要任何多余文字。
+${CHANNEL_ANTI_SLOP_RULE}`;
+    try {
+      const { content } = await apiChatFallback(chain, [{ role: 'system', content: sys }, { role: 'user', content: '只输出 JSON 对象 {"replies":[...]}。' }], { timeoutMs: 60000 });
+      const j = parseEntryJson(content);
+      const arr = Array.isArray((j as any)?.replies) ? (j as any).replies : [];
+      const seen = new Set(existing.map((r) => String(r.content).trim()));   // 内容判重兜底（提示词约束+输出侧硬过滤双保险）
+      const notPlayer = (x: any) => { const s = String(x ?? '').split('|')[0].trim(); return !(s && (s === playerName || s === '主角' || s === '我')); };
+      const fresh = arr
+        .filter((x: any) => x && x.content && notPlayer(x.author ?? x.authorName) && !seen.has(String(x.content).trim()))
+        .map((x: any) => ({ authorName: String(x.author ?? x.authorName ?? '某契约者').split('|')[0].trim(), authorTier: x.tier ?? x.authorTier, authorJob: x.job ?? x.authorJob, authorPersona: x.persona ?? x.authorPersona, authorStrength: x.strength ?? x.authorStrength, content: String(x.content) }))
+        .slice(0, 3);
+      for (const r of fresh) {
+        await new Promise((res) => setTimeout(res, 450 + Math.random() * 700));
+        useChannel.getState().addOneSpeakReply(post.channel, r, post.id);
+      }
+      console.log(`[Channel] ⟳ 追评生成 ${fresh.length} 条`);
+    } catch (e: any) { console.warn('[Channel] 追评失败:', e?.message ?? e); }
   }
 
   /* 组队帖一键加入：把发帖契约者建成临时队友 NPC（确定性——他在招募，故直接入队）*/
@@ -8048,26 +8201,70 @@ ${replyTo.authorName} 之前说：「${String(replyTo.content).slice(0, 200)}」
     return `你是公共频道里的契约者【${th.targetName}】，主角私信了你。你和主角还没深入接触，请基于你已经展现出的信息（发言、职业、性格）即兴、自洽地回应，保持一致的人设，不要扮演旁白。\n${lines.join('\n')}`;
   }
 
-  /* 取对话历史（喂给 AI，过滤系统消息）*/
+  /* 取对话历史（喂给 AI，过滤系统消息；带花样的消息压成方括号标记行——借鉴外置手机的历史压缩）*/
   function dmHistory(th: import('./store/dmStore').DmThread, limit = 12): { role: 'user' | 'assistant'; content: string }[] {
     return th.messages.filter((m) => m.from !== 'system').slice(-limit).map((m) => ({
       role: m.from === 'player' ? 'user' as const : 'assistant' as const,
-      content: m.text,
+      content: dmMsgToHistoryText(m),
     }));
   }
 
-  /* 聊天：NPC 据人设回一句 */
+  /* 聊天：NPC 据人设回一轮（行协议：状态头+心声+1~4条消息，可带撤回/引用/戳花样；解析失败整段兜底纯文本）*/
   async function dmReply(threadId: string, playerText: string) {
     const dm = useDm.getState();
     const th = dm.threads[threadId]; if (!th) return;
     dm.addMsg(threadId, { from: 'player', text: playerText });
     const chain = dmChain();
     if (!chain[0]?.baseUrl || !chain[0]?.apiKey) { dm.addMsg(threadId, { from: 'system', text: '（私信 API 未配置：在「设置→变量管理→📡 公共频道」或接口路由 channel 配置）' }); return; }
-    const sys = dmPersonaPrompt(th) + `\n\n【主角面板】${dmPlayerCard()}\n\n请以你本人的口吻回复主角这条私信，1~3 句，贴合你的性格与你和主角的关系。只输出对话内容本身，不要旁白、不要括号动作、不要 JSON。`;
+    const sys = dmPersonaPrompt(th) + `\n\n【主角面板】${dmPlayerCard()}\n\n请以你本人的口吻回复主角这条私信，贴合你的性格与你和主角的关系。` + getPrompt('DM_REPLY_PROTOCOL_RULE', DM_REPLY_PROTOCOL_RULE);
     try {
       const { content } = await apiChatFallback(chain, [{ role: 'system', content: sys }, ...dmHistory(useDm.getState().threads[threadId]!)], { timeoutMs: 60000 });
-      dm.addMsg(threadId, { from: 'npc', text: (content || '……').trim().slice(0, 600) });
+      const parsed = parseDmReply(content || '');
+      if (!parsed.msgs.length) { dm.addMsg(threadId, { from: 'npc', text: '……' }); return; }
+      parsed.msgs.forEach((m, i) => {
+        dm.addMsg(threadId, {
+          from: 'npc', text: m.text, kind: m.kind === 'text' ? undefined : m.kind,
+          orig: m.orig, quote: m.quote,
+          meta: i === 0 ? parsed.meta : undefined,   // 状态头只挂本轮第一条
+        });
+      });
     } catch (e: any) { dm.addMsg(threadId, { from: 'system', text: `（对方没有回应：${(e?.message ?? '').slice(0, 40)}）` }); }
+  }
+
+  /* 📨 NPC主动来讯（inlineComm 演化阶段·借鉴Abstract外置手机意图两阶段）：
+     消费本回合正文尾的 <通讯> 意图块（意图由 buildInlineCommInjection 注入的白名单规则引出）→
+     白名单复核（防 AI 点名单外/在场/已死的人）→ 走私信链路二次生成具体讯息 → 落 dmStore 线程 + 未读红点。
+     并发挂 runPostNarrativePhases（不占正文前串行链）；冷却在意图消费时立记（生成失败也占窗口，防重试刷屏）。 */
+  async function runInlineCommPhase() {
+    const cfg = useSettings.getState().inlineComm;
+    if (!cfg?.on) return;
+    const intents = parseCommIntents(lastRawNarrativeRef.current || '');
+    if (!intents.length) return;
+    const intent = intents[0];   // 每回合至多 1 条
+    const eq = (a: string, b: string) => a.replace(/\s+/g, '') === b.replace(/\s+/g, '');
+    const rec = Object.values(useNpc.getState().npcs).find((n) => eq(String(n.name || ''), intent.sender));
+    if (!rec || !isDmableTag(rec.npcTag) || rec.onScene || rec.isDead || rec.archived) {
+      console.warn('[来讯] 📨 意图发送人未过白名单复核，丢弃：', intent.sender);
+      return;
+    }
+    const chain = dmChain();
+    if (!chain[0]?.baseUrl || !chain[0]?.apiKey) return;
+    noteInlineCommFired(useMisc.getState().turnCount);
+    const dm = useDm.getState();
+    const tid = dm.openThread({ targetId: rec.id, targetName: rec.name || intent.sender, targetTag: rec.npcTag });
+    const th = useDm.getState().threads[tid]; if (!th) return;
+    const sys = dmPersonaPrompt(th) + `\n\n【主角面板】${dmPlayerCard()}\n\n【本次场景】这不是回复——是你**主动**给主角发来私讯。你的动机：${intent.reason || '（见大意）'}；要说的大意：${intent.gist}。据此自然开场，贴合你的性格与你和主角的关系。` + getPrompt('DM_REPLY_PROTOCOL_RULE', DM_REPLY_PROTOCOL_RULE);
+    try {
+      const { content } = await apiChatFallback(chain, [{ role: 'system', content: sys }, ...dmHistory(th, 8)], { timeoutMs: 60000 });
+      const parsed = parseDmReply(content || '');
+      if (!parsed.msgs.length) return;
+      parsed.msgs.forEach((m, i) => dm.addMsg(tid, {
+        from: 'npc', text: m.text, kind: m.kind === 'text' ? undefined : m.kind,
+        orig: m.orig, quote: m.quote, meta: i === 0 ? parsed.meta : undefined,
+      }));
+      useDm.getState().bumpUnread(tid, parsed.msgs.length);
+      console.log(`[来讯] 📨 ${rec.name} 主动来讯 ${parsed.msgs.length} 条（动机：${intent.reason || intent.gist}）`);
+    } catch (e) { console.warn('[来讯] 📨 生成失败（本窗口冷却已占用）', e); }
   }
 
   /* 玩家发起一笔交易动作 → 人类可读的玩家消息行 */
@@ -10436,6 +10633,19 @@ ${lines}`;
           } catch (e) { console.warn('[Raid] 豪华奖励生成失败', e); }
         }
       }
+      // 📣 讨伐战报（借鉴Zsd）：单BOSS讨伐胜利或副本本体击破 → 战斗频道战报卡+围观议论（侧目标/子目标不发）
+      if (raidRef.current && victor === 'player') {
+        const enc0: any = currentEncounterRef.current;
+        if (!enc0 || enc0.kind === 'boss') {
+          try {
+            const bossName = String((raidRef.current as any)?.boss?.name || 'BOSS');
+            const party = state.order.filter((id) => state.initialState[id]?.side === 'player').map((id) => state.initialState[id]?.name).filter(Boolean) as string[];
+            postBattleReportToChannel('raid', buildBattleReport({
+              arena: '组队讨伐', a: party.slice(0, 4).join('、') || '讨伐队', b: bossName, victor, state, note: '讨伐成功',
+            }));
+          } catch (e) { console.warn('[Raid] 战报发帖失败:', e); }
+        }
+      }
       currentEncounterRef.current = null;
       if (arenaSparFoeRef.current) {
         // 世界竞技场·手动战斗（手动挑战/切磋）：不写正文、不改主角真实 HP/EP（纯竞技）；改为读赌场战斗世界书生成专属战报显示在竞技场面板。
@@ -10461,6 +10671,16 @@ ${lines}`;
           try {
             const arenaNote = await runArenaWinSettlement(arenaPending, victor);
             if (arenaNote) useComposer.getState().update((prev) => (prev && prev.trim() ? `${prev}\n\n${arenaNote}` : arenaNote));
+            // 📣 竞技场战报（借鉴Zsd）：确定性对阵卡发到战斗频道 + 异步围观议论（阵营感）
+            try {
+              postBattleReportToChannel('arena', buildBattleReport({
+                arena: arenaPending.arenaName,
+                a: (usePlayer.getState().profile.name || '主角').split('|')[0].trim(),
+                b: `第${arenaPending.opponent.rank}名·${arenaPending.opponent.name}`,
+                victor, state,
+                note: arenaNote.replace(/^【竞技场】/, '').trim().slice(0, 60) || undefined,
+              }), arenaPending.opponent.rank);
+            } catch (e) { console.warn('[Arena] 战报发帖失败:', e); }
           } catch (e) { console.warn('[Arena] 战斗结算失败:', e); useArena.getState().setPendingChallenge(null); }
         }
       }
@@ -10583,6 +10803,7 @@ ${lines}`;
       { key: 'nm',        enabled: due('nm'),           run: () => runNarrativeIngestPhase(lastUserInputRef.current, narr('nm')) },
       { key: 'table',     enabled: tableDue,            run: () => runTableFillPhase(narr('table'), { auto: true }) },   // 剧情表(纪要/进程/伏笔/约定)独立成阶段·专人调一次 AI 只吐<tableEdit>·比塞进正文让 AI 顺手吐可靠得多
       { key: 'choices',   enabled: true,                run: () => runChoicesFanficPhase(narrative, assistantMsgId) },   // 内部各自开关门控
+      { key: 'inlineComm', enabled: true,               run: () => runInlineCommPhase() },   // 📨 NPC主动来讯：消费正文尾<通讯>意图块→私信链路二次生成（内部开关+白名单+冷却门控）
       // 生图：延后约 6s 等演化先写档；正文配图需有楼层 id
       { key: 'portrait',  enabled: true, delayMs: 6000, run: () => runPortraitPhase() },
       { key: 'equipImg',  enabled: true, delayMs: 6000, run: () => runEquipImagePhase() },
@@ -11057,7 +11278,14 @@ ${lines}`;
       setNmPhaseLog('');
       try {
         const M = useMisc.getState();
-        const pool = buildMemPool(M, vm.maxItems ?? 1000, !!vm.factsOnly);   // factsOnly：只召回长期事实
+        // 纪要召回（借鉴 ACU 交火模式·默认开）：编年史行并进池——含已被大总结压实的行（折叠出上下文、向量捞回来）；
+        //   更早的大总结（掉出固定注入窗的）以阶段记忆身份入池。factsOnly 时随其余非事实语料一起不进池。
+        const chronCorpus = vm.chronicleRecall !== false ? chronicleRecallCorpus() : { chronicleRows: [], bigSummaries: [] };
+        const pool = buildMemPool({
+          ...M,
+          chronicleRows: chronCorpus.chronicleRows,
+          largeSummaries: [...(M.largeSummaries ?? []), ...chronCorpus.bigSummaries],
+        }, vm.maxItems ?? 1000, !!vm.factsOnly);   // factsOnly：只召回长期事实
         await factVecLoadAll();
         const ev = await factVecEnsure(pool, vm, { max: 48 });   // 内联限量补缺；首次全量请用设置页"重建索引"
         const lastAsst = [...allHistory].reverse().find((m) => m.role === 'assistant')?.content ?? '';
@@ -11077,7 +11305,7 @@ ${lines}`;
           } catch (e) { console.warn('[VecMem] rerank 精排失败，回退余弦', e); }
         }
         if (!reranked) hits = hits.slice(0, vm.topK ?? 6);   // 未 rerank：把粗召回的宽候选截回 topK
-        const tagOf = (k: string) => k === 'event' ? '世界大事' : k === 'large' ? '阶段记忆' : k === 'fact' ? '长期事实' : '近期记忆';
+        const tagOf = (k: string) => k === 'event' ? '世界大事' : k === 'large' ? '阶段记忆' : k === 'fact' ? '长期事实' : k === 'chron' ? '纪要' : '近期记忆';
         let lines = hits.map(({ key }) => { const p = byKey.get(key)!; return `[${tagOf(p.kind)}] ${p.body}`; });
         // 向量无命中(或尚未索引)·近期兜底：库里明明有却整轮空注入时，退而注入最近的长期事实
         if (lines.length === 0 && pool.length > 0) {
@@ -11193,6 +11421,7 @@ ${lines}`;
       ...buildCosmosInjection(),                        // <万族态势>
       ...buildGuildInjection(),                         // <所属公会> 玩家公会身份 + 增益（社交身份·跨世界）
       ...buildFacilityInjection(),                      // <设施近况> 赌坊战绩/深渊最深层/产业（长期足迹·全空不出块）
+      ...buildInlineCommInjection(),                    // 📨 <乐园终端·主动来讯> 离场白名单NPC可附<通讯>意图块（开关+冷却+名单空=零块）
       ...buildFanficInjection(),                        // <同人设定·已锁定>
       ...buildFactInjection(),                          // <事实锚点·已锁定>
       ...structPlayer,                                 // <主角当前档案> 浅注入：紧贴最近正文/用户输入
@@ -11214,6 +11443,7 @@ ${lines}`;
       ...buildEconomyInjection(useMisc.getState().economy),   // <本世界经济> 相位/大宗行情/经济事件 → 物价与生计描写有依据（见 systems/economy）
       ...diploBlock,                                    // <势力外交> 本世界势力间的八级格局 + 玩家可用的调解/挑拨/代行杠杆（见 systems/diplomacy）
       ...rumorBlock,                                    // <市井流言> 只给"街面上在传什么"，**不给真相** → NPC 可基于错信息行动（见 systems/rumor）
+      ...buildChannelBuzzInjection(),                   // 📡 <广场舆论> 公共频道热帖氛围（借鉴Zsd论坛·仅氛围参考+禁续写双护栏·0条=零块·见 systems/channelBuzz）
       ...buildCastHintInjection(),                      // <角色动向提示> 轨道A 后台织出的"谁可能回来/谁刚走"→ 导演提示（背景事实非剧本·见 systems/castHint）
       ...preludeBlock,                                  // <前置须知> 玩家常驻前置提示词 + 本回合场外操作通报 → 最深处·紧贴输入前（深度最深·权重最高）
       ...growthBlock,                                    // <本回合成长·需入戏交代> 玩家刚点亮的星图技能/天赋 → 正文叙述主角如何习得（治职业与正文脱节）
@@ -14048,7 +14278,7 @@ ${lines}`;
 
       {/* ── 杂项（任务/世界大事）面板 ── */}
       {channelPanelOpen && (
-        <ChannelPanel onClose={() => setChannelPanelOpen(false)} onRefresh={refreshChannel} onNewsRefresh={refreshWorldNews} onSolicit={solicitQuotes} onPost={replyToChannelPost} onOpenShop={() => setShopOpen(true)} onJoin={joinPartyFromPost} onInvite={inviteToParty}
+        <ChannelPanel onClose={() => setChannelPanelOpen(false)} onRefresh={refreshChannel} onNewsRefresh={refreshWorldNews} onPaper={genWorldPaper} onSolicit={solicitQuotes} onPost={replyToChannelPost} onMoreReplies={moreChannelReplies} onOpenShop={() => setShopOpen(true)} onJoin={joinPartyFromPost} onInvite={inviteToParty}
           onDm={(m) => { if (!isDmableTag(m.authorTag)) return; openDmFor({ targetName: m.authorName, targetTier: m.authorTier, targetJob: m.authorJob, targetPersona: m.authorPersona, targetStrength: m.authorStrength, targetTag: m.authorTag, sourceContent: String(m.content) }); }}
           onDmQuote={(q) => { if (q.fromTag && !isDmableTag(q.fromTag)) return; openDmFor({ targetName: q.fromName, targetTier: q.fromTier, targetTag: q.fromTag || '契约者', sourceContent: q.note ? String(q.note) : undefined }); }}
           onAddFriend={addFriendFromChannel} />
