@@ -28,6 +28,7 @@ import { generateJoinedTeam } from '../systems/adventureTeamGen';
 import StatusEffectChips from './StatusEffectChips';
 import { useImageGen, effectiveEquipService } from '../store/imageGenStore';
 import { generateImage, buildPortraitPrompt, buildEquipPrompt, equippedForPrompt, shrinkDataUrl } from '../systems/imageGen';
+import { PrivateFieldValue } from './PrivateFieldValue';   // 私密词条·复合值分段+高亮渲染（与调教档案共用）
 import { useHoloViewer } from '../store/holoViewerStore';
 import { genPortraitTags, genEquipTags, isTagService } from '../systems/imageTags';
 import OutfitPanel from './OutfitPanel';
@@ -1255,12 +1256,14 @@ function HiddenTab({ npc }: { npc: NpcRecord }) {
       </Section>
       {priv.length > 0 && (
         <Section title="私密信息">
-          <div className="space-y-2.5">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 items-start">
             {priv.map((p) => (
-              <div key={p.key}>
-                <div className="text-[12px] font-mono text-god/45 mb-0.5">{p.label}</div>
+              <div key={p.key} className="rounded-lg border border-god/12 bg-void/25 px-3 py-2">
+                <div className="text-[12px] font-mono text-god/55 mb-1.5 pb-1 border-b border-god/10">{p.label}</div>
                 {p.num
-                  ? (() => { const n = Number(String(p.value).replace(/[^\d.-]/g, '')); return <div className="text-sm font-mono text-rose-300/85">{Number.isFinite(n) ? `${n} / 100` : String(p.value)}</div>; })()
+                  ? (() => { const n = Number(String(p.value).replace(/[^\d.-]/g, '')); return Number.isFinite(n)
+                      ? <div className="flex items-center gap-1.5"><div className="flex-1 h-1.5 rounded bg-edge/50 overflow-hidden"><div className="h-full bg-rose-400/60" style={{ width: `${Math.max(0, Math.min(100, n))}%` }} /></div><span className="text-[12px] font-mono text-rose-300/85 shrink-0">{n}/100</span></div>
+                      : <div className="text-sm font-mono text-rose-300/85">{String(p.value)}</div>; })()
                   : p.inline
                     ? (
                       <div className="flex flex-wrap gap-1.5">
@@ -1269,7 +1272,7 @@ function HiddenTab({ npc }: { npc: NpcRecord }) {
                         ))}
                       </div>
                     )
-                    : <SegmentedText text={String(p.value)} />}
+                    : <PrivateFieldValue value={String(p.value)} />}
               </div>
             ))}
           </div>

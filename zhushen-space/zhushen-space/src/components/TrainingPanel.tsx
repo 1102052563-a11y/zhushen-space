@@ -16,6 +16,7 @@ import { shrinkDataUrl } from '../systems/imageGen';
 import { usePlayer } from '../store/playerStore';
 import { useChannel } from '../store/channelStore';
 import ApiRoutePicker from './ApiRoutePicker';
+import { PrivateFieldValue } from './PrivateFieldValue';   // 私密词条·复合值分段+高亮（与 NPC 详情共用）
 
 /* 🔗 调教系统（对剧情 NPC 的长线私密养成·可选成人向模块·默认关）：
    左=名册 / 中=对话+快捷动作条 / 右=隐私档案（与 NPC 详情页同源·含生理周期卡合并）。
@@ -418,26 +419,26 @@ function ArchivePane({ npcId }: { npcId: string }) {
       {rows.length === 0 ? <div className="text-[12px] text-dim/40">尚无私密档案数据——开始调教后逐步积累</div> : (
         <div className="space-y-2">
           {rows.map((r) => (
-            <div key={r.key}>
-              <div className="flex items-center gap-1">
-                <div className="text-[11px] font-mono text-rose-300/50 flex-1">{r.label}</div>
+            <div key={r.key} className="rounded-lg border border-rose-500/12 bg-void/25 px-2.5 py-1.5">
+              <div className="flex items-center gap-1 mb-1 pb-1 border-b border-rose-500/10">
+                <div className="text-[11px] font-mono text-rose-300/60 flex-1">{r.label}</div>
                 <button onClick={() => { setEditKey(r.key); setEditVal(String(r.value)); }} className="text-[10px] text-dim/40 hover:text-rose-200">✎</button>
                 <button onClick={() => { if (window.confirm(`清空「${r.label}」？`)) { removeExtraKey(npcId, r.key); if (ex[r.alias] != null && r.alias !== r.key) removeExtraKey(npcId, r.alias); } }} className="text-[10px] text-dim/40 hover:text-blood">🗑</button>
               </div>
               {editKey === r.key ? (
-                <div className="flex items-center gap-1 mt-0.5">
-                  <input value={editVal} onChange={(e) => setEditVal(e.target.value)} className="flex-1 bg-void border border-edge rounded px-1.5 py-0.5 text-[12px] text-slate-200 outline-none focus:border-rose-400" />
-                  <button onClick={() => { if (editVal.trim()) mergeExtra(npcId, { [r.key]: editVal.trim() }); setEditKey(''); }} className="text-[11px] text-rose-300 hover:text-rose-200">存</button>
+                <div className="flex items-center gap-1">
+                  <textarea value={editVal} onChange={(e) => setEditVal(e.target.value)} rows={2} className="flex-1 bg-void border border-edge rounded px-1.5 py-0.5 text-[12px] text-slate-200 outline-none focus:border-rose-400 resize-y leading-relaxed" />
+                  <button onClick={() => { if (editVal.trim()) mergeExtra(npcId, { [r.key]: editVal.trim() }); setEditKey(''); }} className="text-[11px] text-rose-300 hover:text-rose-200 shrink-0">存</button>
                 </div>
               ) : r.num ? (
                 (() => { const n = num(r.value); return (
-                  <div className="flex items-center gap-1.5 mt-0.5">
+                  <div className="flex items-center gap-1.5">
                     <div className="flex-1 h-1.5 rounded bg-edge/50 overflow-hidden"><div className="h-full bg-rose-400/60" style={{ width: `${Math.max(0, Math.min(100, n))}%` }} /></div>
                     <span className="text-[11px] font-mono text-rose-300/85">{r.label.startsWith('开发') || ['情欲值', '快感值'].includes(r.label) ? `${n}/100` : n}</span>
                   </div>
                 ); })()
               ) : (
-                <div className="text-[12px] text-slate-300/90 leading-relaxed whitespace-pre-wrap">{String(r.value)}</div>
+                <PrivateFieldValue value={String(r.value)} />
               )}
             </div>
           ))}
