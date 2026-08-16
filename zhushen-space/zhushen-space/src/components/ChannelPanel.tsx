@@ -545,7 +545,7 @@ function InviteDialog({ m, onInvite, onClose, onJoined }: {
   );
 }
 
-export default function ChannelPanel({ onClose, onRefresh, onNewsRefresh, onPaper, onSolicit, onPost, onMoreReplies, onOpenShop, onJoin, onInvite, onDm, onDmQuote, onAddFriend }: { onClose: () => void; onRefresh: (force?: boolean) => void; onNewsRefresh?: () => Promise<{ ok: boolean; msg: string }>; onPaper?: () => Promise<{ ok: boolean; msg: string }>; onSolicit?: () => void; onPost?: (channel: ChannelKey, content: string, replyTo?: { authorName: string; content: string }) => Promise<void>; onMoreReplies?: (m: ChannelMessage) => void | Promise<void>; onOpenShop?: () => void; onJoin?: (m: ChannelMessage) => void; onInvite?: (m: ChannelMessage, text: string) => Promise<{ accept: boolean; reason: string }>; onDm?: (m: ChannelMessage) => void; onDmQuote?: (q: ChannelQuote) => void; onAddFriend?: (m: ChannelMessage) => Promise<{ ok: boolean; msg: string }> }) {
+export default function ChannelPanel({ onClose, onRefresh, onNewsRefresh, onPaper, onSearch, onSolicit, onPost, onMoreReplies, onOpenShop, onJoin, onInvite, onDm, onDmQuote, onAddFriend }: { onClose: () => void; onRefresh: (force?: boolean) => void; onNewsRefresh?: () => Promise<{ ok: boolean; msg: string }>; onPaper?: () => Promise<{ ok: boolean; msg: string }>; onSearch?: (q: string) => Promise<{ ok: boolean; msg: string; hits: import('../systems/paradiseSearch').SearchHit[] }>; onSolicit?: () => void; onPost?: (channel: ChannelKey, content: string, replyTo?: { authorName: string; content: string }) => Promise<void>; onMoreReplies?: (m: ChannelMessage) => void | Promise<void>; onOpenShop?: () => void; onJoin?: (m: ChannelMessage) => void; onInvite?: (m: ChannelMessage, text: string) => Promise<{ accept: boolean; reason: string }>; onDm?: (m: ChannelMessage) => void; onDmQuote?: (q: ChannelQuote) => void; onAddFriend?: (m: ChannelMessage) => Promise<{ ok: boolean; msg: string }> }) {
   const messages   = useChannel((s) => s.messages);
   const refreshing = useChannel((s) => s.refreshing);
   const channels   = useChannel((s) => s.settings.channels);
@@ -555,7 +555,7 @@ export default function ChannelPanel({ onClose, onRefresh, onNewsRefresh, onPape
 
   const tabs = CHANNEL_DEFS.filter((d) => channels[d.key]);
   // 🌍 'worldnews' 是特殊页签：任务世界自己的新闻/论坛（P2·世界见闻），与契约者频道是两个虚构层
-  const [tab, setTab] = useState<ChannelKey | 'worldnews'>(() => CHANNEL_DEFS.find((d) => channels[d.key])?.key ?? 'general');
+  const [tab, setTab] = useState<ChannelKey | 'worldnews' | 'search'>(() => CHANNEL_DEFS.find((d) => channels[d.key])?.key ?? 'general');
   const list = messages.filter((m) => m.channel === tab);
 
   const [confirmMsg, setConfirmMsg] = useState<ChannelMessage | null>(null);
@@ -573,7 +573,7 @@ export default function ChannelPanel({ onClose, onRefresh, onNewsRefresh, onPape
   const speakRef = useRef<HTMLInputElement>(null);
   async function doSpeak() {
     const text = speakText.trim();
-    if (!text || speaking || !onPost || tab === 'worldnews') return;   // 见闻是只读观察层，主角不能往里发言
+    if (!text || speaking || !onPost || tab === 'worldnews' || tab === 'search') return;   // 见闻/检索是只读观察层，主角不能往里发言
     const rt = replyTarget ? { authorName: replyTarget.authorName, content: replyTarget.content } : undefined;
     setSpeaking(true); setSpeakText(''); setReplyTarget(null);
     try { await onPost(tab, text, rt); } finally { setSpeaking(false); }
@@ -633,6 +633,12 @@ export default function ChannelPanel({ onClose, onRefresh, onNewsRefresh, onPape
             className={`px-3 py-1 rounded text-sm font-mono border transition-colors ${tab === 'worldnews' ? 'border-violet-500/60 text-violet-300 bg-violet-500/10' : 'border-edge text-dim hover:text-slate-200'}`}>
             🌍见闻
           </button>
+          {onSearch && (
+            <button onClick={() => { setTab('search'); setReplyTarget(null); }} title="世界内检索：主动查这个世界能查到/打听到的信息（幕后事件搜不出来·标了表象的只有传闻）"
+              className={`px-3 py-1 rounded text-sm font-mono border transition-colors ${tab === 'search' ? 'border-cyan-500/60 text-cyan-300 bg-cyan-500/10' : 'border-edge text-dim hover:text-slate-200'}`}>
+              🔎检索
+            </button>
+          )}
           <span className="flex-1" />
           <button onClick={() => setPostMode('buy')} disabled={!enabled}
             className="px-2.5 py-1 rounded text-sm font-mono border border-amber-600/40 text-amber-300 hover:bg-amber-900/20 disabled:opacity-40 transition-colors">🛒 求购</button>
@@ -643,7 +649,9 @@ export default function ChannelPanel({ onClose, onRefresh, onNewsRefresh, onPape
         </div>
 
         <div className="flex-1 overflow-y-auto p-4 space-y-2">
-          {tab === 'worldnews' ? (
+          {tab === 'search' ? (
+            <SearchView onSearch={onSearch} />
+          ) : tab === 'worldnews' ? (
             <WorldNewsView onRefresh={onNewsRefresh} onPaper={onPaper} />
           ) : !enabled ? (
             <div className="py-16 text-center text-dim/40 text-sm font-mono border border-dashed border-edge rounded-xl">
@@ -661,7 +669,7 @@ export default function ChannelPanel({ onClose, onRefresh, onNewsRefresh, onPape
         </div>
 
         {/* 主角发言（系统频道禁止）→ 发完会收到数量不等的契约者回复；点某条「↩ 回复」则定向回复 TA */}
-        {enabled && onPost && tab !== 'system' && tab !== 'worldnews' && (
+        {enabled && onPost && tab !== 'system' && tab !== 'worldnews' && tab !== 'search' && (
           <div className="shrink-0 border-t border-edge bg-panel">
             {replyTarget && (
               <div className="flex items-center gap-2 px-4 pt-2 text-[12px] font-mono">
@@ -730,6 +738,55 @@ export default function ChannelPanel({ onClose, onRefresh, onNewsRefresh, onPape
 
       {/* 邀请入队对话框（AI 判定）*/}
       {inviteTarget && onInvite && <InviteDialog m={inviteTarget} onInvite={onInvite} onClose={() => setInviteTarget(null)} onJoined={(name) => flash(true, `${name} 加入了你的临时队伍`)} />}
+    </div>
+  );
+}
+
+/* ══ 🔎 世界内检索（借鉴Abstract外置手机 browser·拉取式情报）══
+   主动查世界信息：与见闻同一道认知门（hidden 搜不出·表象只有传闻）。⚠模块级组件，勿移进父组件内（IME 重挂坑）。 */
+function SearchView({ onSearch }: { onSearch?: (q: string) => Promise<{ ok: boolean; msg: string; hits: import('../systems/paradiseSearch').SearchHit[] }> }) {
+  const [q, setQ] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [msg, setMsg] = useState('');
+  const [hits, setHits] = useState<import('../systems/paradiseSearch').SearchHit[]>([]);
+  const [openIdx, setOpenIdx] = useState<number | null>(null);
+  function doSearch() {
+    const t = q.trim();
+    if (!t || busy || !onSearch) return;
+    setBusy(true); setMsg(''); setOpenIdx(null);
+    onSearch(t).then((r) => { setMsg(r.ok ? '' : r.msg); setHits(r.hits); }).finally(() => setBusy(false));
+  }
+  return (
+    <div className="space-y-2">
+      <div className="flex gap-2">
+        <input value={q} onChange={(e) => setQ(e.target.value)} disabled={busy}
+          onKeyDown={(e) => { if (e.key === 'Enter') doSearch(); }}
+          placeholder="搜点什么：地名·人物·近来的风声·物价·传闻…（这个世界能查到什么就给什么）"
+          className="flex-1 bg-void border border-edge rounded px-3 py-1.5 text-[13px] text-slate-200 focus:outline-none focus:border-cyan-500/50" />
+        <button onClick={doSearch} disabled={busy || !q.trim()}
+          className="shrink-0 px-3 py-1.5 rounded border border-cyan-600/50 text-cyan-300 hover:bg-cyan-900/20 disabled:opacity-40 text-[13px] font-mono transition-colors">{busy ? '检索中…' : '🔎 检索'}</button>
+      </div>
+      {msg && <div className="text-[12px] font-mono text-amber-300/70">{msg}</div>}
+      {!hits.length && !busy && !msg && (
+        <div className="py-14 text-center text-dim/40 text-sm font-mono border border-dashed border-edge rounded-xl">
+          世界内检索：查这个世界"能查到"的信息<br />
+          <span className="text-dim/30 text-[11px]">幕后密谋搜不出来；只见表象的事，搜到的也只是众说纷纭</span>
+        </div>
+      )}
+      {hits.map((h, i) => (
+        <div key={i} className="rounded-lg border border-edge bg-panel/60 px-3 py-2">
+          <button onClick={() => setOpenIdx(openIdx === i ? null : i)} className="w-full text-left">
+            <div className="flex items-center gap-2 flex-wrap">
+              <span className="text-[13px] font-semibold text-cyan-200/90">{h.title}</span>
+              <span className={`text-[10px] font-mono px-1 py-0.5 rounded border ${CLAIM_META[h.claim]?.cls ?? 'border-edge text-dim/50'}`}>{CLAIM_META[h.claim]?.label ?? h.claim}</span>
+              <span className="flex-1" />
+              <span className="text-[10px] font-mono text-dim/45">{h.source}</span>
+            </div>
+            {openIdx !== i && <div className="text-[12px] text-dim/60 mt-0.5 truncate">{h.preview}</div>}
+          </button>
+          {openIdx === i && <div className="mt-1.5 text-[13px] text-slate-300 leading-relaxed whitespace-pre-wrap border-t border-edge/60 pt-1.5">{h.content}</div>}
+        </div>
+      ))}
     </div>
   );
 }

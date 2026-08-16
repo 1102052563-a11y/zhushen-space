@@ -1,4 +1,5 @@
 import { create } from 'zustand';
+import { modelsFetchArgs } from '../systems/apiUrl';
 import { persist } from 'zustand/middleware';
 import type { ApiConfig } from './settingsStore';
 import { useSettings } from './settingsStore';
@@ -29,6 +30,10 @@ export interface NpcScheduling {
   friendsPerTurn?: number;            // 好友栏每回合参与演化的人数（与在场/离场配额独立，按最久未演化轮换），默认 3
   autoPurgeDead?: boolean;            // 死亡 NPC 自动硬删除（延迟扫描，默认关；护栏：跳过羁绊/保留，延迟若干回合给复活纠偏留窗口）
   deadPurgeDelay?: number;            // 死亡后延迟几回合再硬删，默认 3
+  /* 演化预筛 Gate（借鉴 SoulLink·systems/rosterGate.ts）：只过滤「在场·非新建」目标，
+     离场驱动力闸门/好友轮换不受影响；Gate 失败一律 fail-open 全跑。默认 off=完全现状。 */
+  evoGateMode?: 'off' | 'local' | 'ai';   // off=不预筛 / local=正文名扫描(零API) / ai=廉价Gate判定(可配独立接口 npcGate)
+  evoGateForceFullEvery?: number;         // 每 N 回合强制全量一轮防漏累积，默认 4；0=永不强制
 }
 
 export interface NpcPresetSettings {
@@ -172,6 +177,8 @@ export const useNpcEvo = create<NpcEvoState>()(
           targetMode: 'auto',
           skipDead: true,
           manualFocusIds: [],
+          evoGateMode: 'off',
+          evoGateForceFullEvery: 4,
           friendsPerTurn: 3,
           autoPurgeDead: false,
           deadPurgeDelay: 3,
@@ -273,9 +280,7 @@ export const useNpcEvo = create<NpcEvoState>()(
         }
         set({ npcModelsLoading: true, npcModelsError: '' });
         try {
-          const res = await fetch(api.baseUrl.replace(/\/$/, '') + '/models', {
-            headers: { Authorization: `Bearer ${api.apiKey}` },
-          });
+          const res = await fetch(...modelsFetchArgs(api));
           if (!res.ok) throw new Error(`HTTP ${res.status}`);
           const json = await res.json();
           const models = (json.data ?? json.models ?? [])

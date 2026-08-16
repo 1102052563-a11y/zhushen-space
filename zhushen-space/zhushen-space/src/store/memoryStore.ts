@@ -1,4 +1,5 @@
 import { create } from 'zustand';
+import { modelsFetchArgs } from '../systems/apiUrl';
 import { persist } from 'zustand/middleware';
 import type { ApiConfig } from './settingsStore';
 import { useSettings } from './settingsStore';
@@ -27,6 +28,7 @@ export const DEFAULT_MEMORY_PROMPT = `你是轮回乐园的档案官兼记忆整
 8. 记忆 time 必须是游戏内时间锚点，禁止只写“当前、现在、刚才、方才、刚刚、近日、最近、此前、先前、昨日、今日、昨夜、当时”等相对时间词。
 9. 合并多个不同时间的记忆时，不要伪造精确日时；改用更粗粒度但仍有锚点的时间，例如“第3日”“第一周”“第3日-第5日”或“开局前后”。
 10. 每个目标载荷含 currentTime/currentLocation；若旧记忆写了相对时间，必须结合 currentTime 换算，无法精确换算则降级为带回合/天数/阶段范围的模糊时间。
+11. 条目自包含、人名用全名：每条生平/记忆要脱离上下文能独立读懂；人物一律写全名（该角色本人用「我」），对话里的称呼（哥哥/老板/少主等）映射到全名，不知全名就用稳定身份称呼且全程同一叫法；禁止「他/她/那个人/那天」等无指代的代词与模糊指称——记忆靠名字与关键词检索召回，裸代词压缩后等于永久丢失指代。
 
 【目标角色载荷】
 \${characters_payload}
@@ -119,9 +121,7 @@ export const useMemory = create<MemoryState>()(
         }
         set({ memoryModelsLoading: true, memoryModelsError: '' });
         try {
-          const res = await fetch(api.baseUrl.replace(/\/$/, '') + '/models', {
-            headers: { Authorization: `Bearer ${api.apiKey}` },
-          });
+          const res = await fetch(...modelsFetchArgs(api));
           if (!res.ok) throw new Error(`HTTP ${res.status}`);
           const json = await res.json();
           const models = (json.data ?? json.models ?? [])

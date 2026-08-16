@@ -9,6 +9,7 @@ export const EN_EXACT: Record<string, string> = {
   // ─────────── 右侧主导航（App.tsx rightMenuItems）───────────
   '装备': 'Equipment',
   '储存空间': 'Inventory',
+  '形象工坊': 'Wardrobe Studio',
   '技能': 'Skills',
   '副职业': 'Subprofession',
   '技能树': 'Skill Tree',

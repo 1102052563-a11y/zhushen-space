@@ -5,7 +5,7 @@
    - 前台 commit 闸门：无 commit 的 finish 降级为软错误
    - 任何致命错误时 commit 台账非空 → partial（保留成稿）；为空 → failed
    - 协议 auto：原生 FC 报错像「不支持 tools」→ 本 run 切文本协议重试当轮 */
-import { fetchWithProxy } from '../apiChat';
+import { fetchWithProxy, orderedKeys, markKeyBad, markKeyGood, isKeyRotatableStatus } from '../apiChat';
 import { apiDebugLog } from '../apiDebugLog';
 import { resolveApiChain } from '../../store/settingsStore';
 import type { ApiConfig } from '../../store/settingsStore';
@@ -28,6 +28,7 @@ import type {
   AgentModelTurn, AgentMsg, AgentNarrativeSettings, AgentRunInputs, AgentRunResult,
   AgentToolCall, AgentToolResult, RawToolCallOut,
 } from './agentTypes';
+import { chatCompletionsUrl, applyOmitParams } from '../apiUrl';   // 地址归一化 + 端点级参数排除（stream 在白名单外永不被剔）
 
 /** 传输：onProgress（P2·可选）在 SSE 每个分片后回调「已累积的 content + tool_calls 参数流」，供末轮流式预览 */
 export type AgentTransport = (
@@ -72,16 +73,29 @@ const httpTransport: AgentTransport = async (body, api, signal, onProgress) => {
   const cleanup = () => { if (idleTimer) clearTimeout(idleTimer); clearTimeout(hardTimer); signal.removeEventListener('abort', onOuter); };
   bump();
   try {
-    const res = await fetchWithProxy(api.baseUrl.replace(/\/$/, '') + '/chat/completions', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${api.apiKey}` },
-      body: JSON.stringify(body),
-      signal: ctrl.signal,
-    });
-    if (!res.ok) {
-      const errBody = await res.text().catch(() => '');
-      throw new Error(`HTTP ${res.status}${errBody ? ' · ' + errBody.replace(/\s+/g, ' ').slice(0, 300) : ''}`);
+    // 多 Key 轮换（借鉴 ApiHub）：401/403/429 换下一个 Key 重试同一接口。
+    // ⚠ Agent 传输不接原生协议（anthropic/gemini 的 tool_calls 协议差异大），保持 OpenAI 兼容 only。
+    const agKeys = orderedKeys(api);
+    if (!agKeys.length) agKeys.push(api.apiKey || '');
+    let res: Response | null = null;
+    for (let ki = 0; ki < agKeys.length; ki++) {
+      const r = await fetchWithProxy(chatCompletionsUrl(api.baseUrl), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${agKeys[ki]}` },
+        body: JSON.stringify(applyOmitParams(body, api.omitParams)),
+        signal: ctrl.signal,
+      });
+      if (r.ok) { res = r; markKeyGood(api, agKeys[ki]); break; }
+      const errBody = await r.text().catch(() => '');
+      const httpErr = new Error(`HTTP ${r.status}${errBody ? ' · ' + errBody.replace(/\s+/g, ' ').slice(0, 300) : ''}`);
+      if (isKeyRotatableStatus(r.status) && agKeys.length > 1 && ki < agKeys.length - 1) {
+        markKeyBad(api, agKeys[ki], r.status);
+        console.warn(`[Agent] Key ${ki + 1}/${agKeys.length} HTTP ${r.status}，轮换下一个 Key`);
+        continue;
+      }
+      throw httpErr;
     }
+    if (!res) throw new Error('Agent 传输失败（无可用 Key）');
     bump();
     const ctype = (res.headers.get('content-type') || '').toLowerCase();
     const finish = (content: string, reasoning: string, raw: RawToolCallOut[]): AgentModelTurn =>

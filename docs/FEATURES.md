@@ -1,4 +1,4 @@
-# FEATURES — 功能细节 / 规则 / 历史坑
+﻿# FEATURES — 功能细节 / 规则 / 历史坑
 
 > 各功能的长篇细节、AI 指令格式、设计决策、踩过的坑。**按需查阅**（用 offset/limit 读对应小节，别整文件读）。
 > 概览/构建/架构在 `CLAUDE.md`；代码定位在 `docs/CODE_MAP.md`。
@@ -144,9 +144,13 @@
 
 **`npcStore`(`drpg-npc`)** `NpcRecord`（对应世界书 0~34 列）：name/gender(列1)、realm(列2 `阶位·Lv.X|身份`)、personality(列3)、status(列4)、callPlayer(列7)、background(列10)、innerThought(列12)、relations(列13)、favor(列15)、appearance5(列16)、motiveNow(列27)、appearanceDetail(列34)、items、avatar、imageTags(列19)、profession/arenaRank/brandLevel/contractorId/attrs/mp/age/bioStrength、onScene/isDead/isBond/keepForever/isFriend/partyMember…。action：`applyColumns`/`applySkeleton`/`setScene`/`markEvolved`/`removeNpc`(软删)/`hardRemoveNpc`(物理,同步 `characterStore.removeCharacter`)/`absorbOrphans`/`dedupeNpcItems`/`setFriend`/`createArchivedContractor`/`createPartyMember`。
 
-**`npcEvoStore`(`drpg-npc-evo`)**：`strategy:'A'|'B'`(默认B)、`frequency`、`scheduling`(defaultFreq/`offSceneQuota`默认5/cleanup/`friendsPerTurn`默认3/concurrency默认2/modelPerTurnLimit/skipDead默认true)、`entries`。`smartFilterEntries` 按策略感知(`NPC_KEEP_NAMES`/`ENTRY_KEEP_NAMES`22条/`B_CONSTRAINT_NAMES`仅B)。prompt 按 `source` 拆 `buildNpcSystemPrompt`/`buildEntrySystemPrompt`。
+**`npcEvoStore`(`drpg-npc-evo`)**：`strategy:'A'|'B'`(默认B)、`frequency`、`scheduling`(defaultFreq/`offSceneQuota`默认5/cleanup/`friendsPerTurn`默认3/concurrency默认2/modelPerTurnLimit/skipDead默认true/`evoGateMode`默认off/`evoGateForceFullEvery`默认4)、`entries`。`smartFilterEntries` 按策略感知(`NPC_KEEP_NAMES`/`ENTRY_KEEP_NAMES`22条/`B_CONSTRAINT_NAMES`仅B)。prompt 按 `source` 拆 `buildNpcSystemPrompt`/`buildEntrySystemPrompt`。
 
 **两策略**：A=单次合并(全局 frequency 门控,省 token)；B=三段管线 `runNpcPipelineB`——① `runEntryJudgment`(22条 entrySharedRules,输出 JSON `entries/exits/deedsUpdates/globalCommands`)→`applyEntryResult` 建档/归档/记事迹 ② `computeFocusList`(在场必演化+离场受频率/`offSceneQuota`截断+好友 `friendsPerTurn` 按 lastEvolvedTurn 轮换) ③ `runNpcEvolutionForTarget`(每NPC各1次调用,限并发5/批,按charId过滤)。`maybeAskCleanup` 周期弹清理框。死亡不演化(`skipDead`+`alive` 过滤+`NPC_DEAD_EXCLUDE_RULE`)。
+
+**✨ 档案精编（借鉴 SoulLink·预览确认才落库）**：NpcDetail 经历栏「✨ 精编档案」——AI 对该 NPC 的**经历时间线(deedLog)+关系网(relations)**做一次「只整理不创作」：合并重复条目、称呼统一全名、补时间锚点、关系网剥离事件细节（事件归经历）。红线在 `systems/npcRefine.ts`：不新增事实/不删关键信息；**防清档**（原有非空而结果为空→拒绝）、**防膨胀**（条数>2倍+4→拒绝）；整理结果先预览（与上方现状时间线可对照），玩家点「✔ 套用替换」才落库；relations 无产出时保留原文。⚠绝不碰数值/六维/技能/私密档案(extra)/三层记忆（衰退机制正交）。走 NPC 演化接口链。
+
+**🚪 演化预筛 Gate（策略B·借鉴 SoulLink 思想·默认关）**：治两件事——①在场 NPC 现状是**每回合全员各发一次大演化调用**（must 集=新建+全部在场），群戏里没戏份的也烧调用；②演化 AI 被喂"没变化的 NPC"倾向硬编变化，正是成长闸门/防漂哨在下游拦的病根，Gate 在上游就不让它开口。三档 `evoGateMode`：`off`=完全现状 / `local`=零 API 名扫描（`localNameScan`，名字出现在正文才演化，抓不到沉默目击者）/ `ai`=廉价 Gate 判定（`systems/rosterGate.ts` + `NPC_EVO_GATE_RULE`，能按「在场目击/情绪被触发」入选）。**边界钉死**：只裁「在场·非新建」；新建必过（要建档）；离场目标（驱动力闸门/好友轮换）不归 Gate 管；Gate 失败/解析失败 **fail-open 全跑**；每 `evoGateForceFullEvery`(默认4) 回合强制全量防「沉默变化」漏更累积。接口=独立槽 `npcGate`（UI 在 NpcManager「演化预筛 Gate」卡），未配置回退 NPC 演化链；Gate 调用收紧 max_tokens 1024+temp 0.1+最快返回语义。审计：0 入选（附模型原文）与 Gate 失败记入回合洞察·一致性哨兵 `'evo-gate'`；名单外幻觉名字 console 警告。
 
 **预设 `预设/NPC演化.json`(84条=62重点演化 prompts.npc + 22登场判断 entrySharedRules)**，`extractNpcPresetFromJson` 按区赋 source。⚠ 旧版单区升级到策略B必须重导 v2。
 
@@ -236,6 +240,10 @@
 ## 10. 中心 API 库 + 多接口路由
 
 `settingsStore.apiLibrary: ApiEndpoint[]`(增删改启停排序,Key 仅本地)+`apiRoutes: Record<featureKey,string[]>`(有序 endpoint id,上=先调)。`resolveApiChain(key,legacy): ApiConfig[]`——路由有启用接口则返回链,否则回退 legacy 单配置。调用器 `apiChatFallback(chain,messages,{timeoutMs,extra})` 逐个尝试失败切下一条;主正文 callApi 内置同款流式 fallback 循环。featureKey：text/world/item/player/npc/faction/territory/team/misc/quest/memory/nm/image_story_llm/channel。各功能 ApiSection 用 `ApiRoutePicker`(多选+排序)。⚠ 世界选择(world)曾漏接,`WorldSelector.generate()` 早期裸 fetch,已改 `resolveApiChain('world',api)`。维护入口：综合设置→「API 接口库」。
+
+**地址归一化+参数排除（08-15,借鉴 SillyTavern-ApiHub·已授权）**：`systems/apiUrl.ts` 纯函数——`chatCompletionsUrl`/`modelsListUrl`(全部 chat 与 /models 调用点统一走这里,共 4+19 处)；规则保守：只剥尾斜杠+误粘的 `/chat/completions` 后缀,**缺 /v1 绝不静默补**(编辑器出 ⚠chip 点击才写回字段),结尾 `#`＝字面量模式完全按原样调用,含 `/api/gw/` 的网关地址只剥尾斜杠。接口库编辑器新增「实际请求 →」实时预览行。`ApiConfig.omitParams?: string[]`＝端点级请求参数排除(勾选的采样参数不发),白名单 `OMITTABLE_PARAMS`=temperature/top_p/max_tokens/frequency_penalty/presence_penalty/seed,⚠ stream/model/messages/response_format 永不可排(stream:false 会招 204;response_format 归 aliasGuard);`applyOmitParams` 非破坏式(返回拷贝,防 body 跨接口重试串键),生效点=apiChatFallback+主正文 callApi+agent httpTransport 三处。
+
+**P1 三件（08-15 同日实装）**：① **原生协议** `ApiEndpoint.protocol`('openai'缺省/'anthropic'/'gemini')——`buildProtocolRequest` 按协议出 url/headers/body：Anthropic=x-api-key+anthropic-version+`anthropic-dangerous-direct-browser-access`(官方 CORS 直连)+system 提级+**max_tokens 必填强制回填**+user/assistant 交替合并+温度夹≤1+未知参数丢弃；Gemini=**x-goog-api-key 头(key 绝不进 URL)**+contents/parts+systemInstruction+generationConfig 驼峰+data:图片→inlineData+model 进 URL；流式解析按协议分支(`extractStreamDelta`：anthropic=content_block_delta/gemini=candidates.parts·thought 部件归思维链)。生效面=apiChatFallback 全部功能+主正文 callApi+测试连接+拉模型(modelsFetchArgs)；⚠Agent 传输不接原生协议(tool_calls 差异大,仍 OpenAI 兼容 only)。② **多 Key 轮换**——apiKey 逗号/换行分隔多 Key(与 ApiKeyEditor 约定一致,**⚠/api/gw/ 网关地址整串不拆**,aistudio 服务端自轮换),401/403/429 换下一个 Key 重试同接口,429 冷却 60s/401·403 冷却 5min(**仅内存**),上次成功 Key 记游标下次优先;接口库所有普通端点的 Key 输入已换行式 ApiKeyEditor。③ **路由方案** `apiRouteProfiles`——整份 apiRoutes 快照存/一键应用/删(**整包 set 单入口,禁逐 key 部分同步**),可选联动正文预设(记 activeTextPresetId/Name 应用时一并切);UI 在接口库下方「路由方案」块。
 
 ## 11. 生图系统（三条线）
 
@@ -466,3 +474,27 @@
 **P3 · 子代理与技能包（TT 内嵌资产完整承接）**：导入含 `extensions.tauritavern` 的预设（内置补种/玩家手动导入都算）自动入库 `agentSkillStore`（`drpg-agentskills`·配置类）——① **skill 包**：`ttskill-archive-base64-v1`（base64 zip）经零依赖 `miniZip.ts`（DecompressionStream deflate-raw）解为文本文件，作用域挂到导入预设名，`skill_list/skill_search/skill_read` 三工具按需读取（单次 20k/全程 60k 预算）；② **子代理**：`allowAsSubagent` 档案 → `SubAgentDef`（作者 instructions 作其系统提示词主体、技能可见性、轮数夹到 ≤12），主模型经 `agent_delegate` **同步**委派（结果直接随工具返回——TT 的后台并发/`agent_await` 不移植，await 留兼容桩、handoff 软拒绝），子代理共享父工作区（可读 output/main.md 写 scratch/）、以 `task_return` 收尾、可挂独立接口路由 `agentSub-<id>`（V14.7 实测流水线：主写手→禁词检查员/人设审查员，"正文强模型+审查便宜模型"在此配）；③ **作者工作流指令**：主档案 instructions 挂 `writerNotes[预设名]`，选中该 Agent 预设时追加进系统提示词（带同步适配说明）。UI 在「Agent 预设」页签下方（子代理开关+独立路由+技能清单）；坑：① 子代理内**未知工具不致命**（软回喂，别把便宜模型一杆子打死）；② **资产作用域是并集数组 `scopePresets`（旧 `scopePresetName` 只读兼容）**：同一份 skill/子代理可被多个预设内嵌、或玩家先手动导入过；判重时**内容可跳过但作用域必须继续合并**（含 `agentAssets` 里"同 sha 免解包"那条早退——走 `addScope()` 只补归属）。曾用单值作用域 + 整体 skip → 锁死在首次导入来源、换预设选中就集体隐身（Discord 截图实报，08-02 修）。判据统一用 `inScope()`（空作用域=全局可见）；③ **`drpg-agentskills` 是设备级配置资产、绝不能随存档回滚**——它由「导入了哪些 Agent 预设」决定、跨档共享；曾漏加 `KEEP_CURRENT`，读一个"资产入库前存的档"会把快照里的空库写回、技能包与子代理当场蒸发（Discord 实报，08-02 修；另加"双空即重导"自愈 + 读源码断言 KEEP_CURRENT 的回归守卫）；③ **作用域锚点必须是"本回合实际生效的预设名"**（callApi 传 `preset.name` 进 RunAgentParams.presetName）——曾用 settings.presetName 当锚点，「跟随当前正文预设」时为空串导致预设专属 skill/子代理/作者指令全部静默不生效（Discord 实报，08-02 修）。
 
 **P4 · 初始历史裁剪（Agent 省 token 核心开关·仿 TT initialChatHistoryMessages）**：`agentNarrative.initialHistoryMsgs`（-1=跟随全局楼层限制·默认；0=不注入任何楼层；N=只带最近 N 楼），设置区「初始历史」输入。切点在 callApi 的 recent 四分支汇合+记忆去重**之后**单点裁剪——**只裁发给模型的原文楼层**，世界书关键词匹配/向量与叙事召回/结构化档案/记忆去重都照常用完整近况；系统提示词自动注明「本回合只注入最近 N 楼，用 chat_search/chat_read_messages 查更早剧情」。工作区根同时补齐 `summaries/`（对齐 TT 五根）。已列过**不做**的（勿重复挖）：异步委派+真 agent_await/handoff、run 历史浏览面板、skill 手动导入导出 UI、逐端点重试间隔、includeActivatedWorldInfo=false、checkpoint 回滚——低价值或 TT 自身未完成。
+
+## 21. 📱 乐园终端社交生态（借鉴 Abstract外置手机·无License只借思想代码全自写）
+
+> 一条主线：把 频道/私信/NPC 私聊 升维成"活的通讯生态"。全部走 resolveApiChain 独立 featureKey + 回退，全部有输出侧硬过滤（提示词约束+解析白名单双保险）。
+
+**📨 NPC 主动来讯（意图两阶段）**：正文 AI 只输出 `<通讯>` 意图块（谁/为什么/一句大意，白名单=可私信 tag+离场+冷却3回合+每回合≤1），演化管线 `inlineComm` 阶段二阶段生成实际私讯落 dmStore+红点。DmPanel 📨 开关。⚠中文标签正则勿用 `\b`。
+
+**✉ 私信行协议**：NPC 回复带状态头（情绪/地点/现状/💭心声·展示不落库）+ 消息花样：撤回（点开偷看原文）/引用/戳一戳/😊表情包。解析失败整段兜底纯文本，绝不丢回复。
+
+**👥 群聊**：私信面板建群（成员=随从/契约者/宠物白名单）。「发言人|内容」行协议，禁代主角+成员白名单两道硬过滤；发言/👂潜水（成员自治闲聊）两模式。featureKey='groupChat'。
+
+**💸 转账**：金额/币种玩家定死，AI 只答收不收（可拒收）；成交走 settleDmDeal 确定性扣款。仅玩家→NPC。
+
+**😊 表情包库**（`drpg-stickers` 配置类·新游戏保留·随配置导出）：玩家自建 名称→图片URL；AI 侧只见名称清单（私聊/群聊/来讯三处注入，库空零 token），回复用「贴: 名称」；名称不在库=整条丢弃。DmPanel 😊 管理+发送 picker。
+
+**🔎 乐园检索**（频道面板「🔎检索」页签）：拉取式情报——检索词→3~5条世界内结果（标题/来源/摘要/详情/可信度三档）。与世界见闻**同一道认知门**（hidden 搜不出、trace 只给传闻）；载体随世界时代换皮。featureKey='paradiseSearch' 回退正文 API。
+
+**🕳 窃听**（私信面板 🕳）：选两名**离场**在世角色，500 乐园币/次（失败/污染自动退款），生成两人私下交谈（各自认知边界分别给）；15% 被察觉→双方好感 -8；所得走场外通报进下回合正文须知。
+
+**📔 NPC 日记**（NPC 详情 📔·好感≥50 解锁）：第一人称真心话+涂改演出——`~~划掉~~`/`██涂黑██`（点击显形）/`【【着重】】`，**稀缺配额：每篇合计≤3处每种≤1次**；可选纪念品行。存 `npc.extra['日记']`（单一真相源）cap 3。生成内聚在 systems/npcDiary（零 props，所有 NpcDetail 入口通用）。
+
+**📺 乐园直播间**（导航·社交联机组）：契约者/随从名册即主播池；直播现场=主播言行+弹幕（千人千面）+贡献榜+醒目留言+💭主播心声（幕后）。**礼物 12 档三级价值表→反应分档**（严禁对小礼过度感激）；送礼前端确定性扣乐园币+facilityBridge 通报+非匿名小幅涨好感（clamp 100）；匿名开关（匿名不涨好感）。featureKey='liveRoom'。
+
+**验证边界**：门禁三件套全绿（2611 测）；深层流程（群聊完整对话/转账成交/窃听/日记/直播全链）需真实存档+API key 实测；⑧九宫格地图判定与既有世界地图系统重叠已砍（NPC 钉点建议移交地图线）。

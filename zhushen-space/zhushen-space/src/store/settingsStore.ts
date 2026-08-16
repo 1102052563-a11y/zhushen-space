@@ -3,6 +3,7 @@ import { persist } from 'zustand/middleware';
 import { debouncedStorage } from '../systems/compressedStorage';   // 合并写盘：settings 块大（正则库/预设/词典），改一个开关也全量 stringify+写盘
 import { importEmbeddedAgentAssets } from '../systems/agent/agentAssets';   // TT 预设内嵌 Agent 资产（skill/子代理）导入（仅依赖 agentSkillStore·无环）
 import { setUserDict } from '../i18n/userDict';
+import { modelsFetchArgs } from '../systems/apiUrl';   // /models 与 chat 同一套地址归一化+协议头口径（纯函数·无环）
 
 // position: 0=角色前 1=角色后 2=作者注释上 3=作者注释下 4=主提示前 5=主提示后
 export interface WorldBookEntry {
@@ -21,6 +22,7 @@ export interface WorldBookEntry {
   userEdited?: boolean;   // 玩家改过此条（仅内置书用）：内置更新时不覆盖它；若内置又改了同条→冲突询问
   baseSig?: string;       // 首次改动时捕获的「内置原文签名」：3方合并判断内置是否又更新过此条（避免误报冲突）
   userAdded?: boolean;    // 玩家在内置书里新增的条目：内置更新时始终保留
+  activeWhen?: string;    // 🎯 激活条件（可选·<if cond> 语法：var:/cell:/seed:/random: + &,|!()）：非空且求值为否→本回合视同禁用（在 constant/关键词判定之上再加一道门）
 }
 
 export interface WorldBook {
@@ -48,6 +50,12 @@ export interface ApiConfig {
   temperature: number;
   maxTokens: number;
   topP: number;
+  omitParams?: string[];   // 请求参数排除：勾选的采样参数不随 body 发送（白名单见 systems/apiUrl 的 OMITTABLE_PARAMS）
+  /* 思考强度（借鉴 SoulLink）：OpenAI 兼容标准参数 reasoning_effort。空/缺省=**不发送**（默认·最安全）；
+     'none' 关闭思考——演化/Gate 类调用配思考模型时，思考吃光输出预算会导致 content 为空（现兜底 reasoning_content），
+     关闭思考才是断根。接口 400 点名该参数时 apiChatFallback 会去参对同一接口软重试一次。 */
+  reasoningEffort?: '' | 'none' | 'low' | 'medium' | 'high' | 'max';
+  protocol?: 'openai' | 'anthropic' | 'gemini';   // 接口协议：缺省 openai 兼容；anthropic/gemini 走原生端点+头（构造见 systems/apiUrl buildProtocolRequest）
 }
 
 /** 中心 API 接口库条目（综合设置统一维护，各功能可快捷选填）*/
@@ -56,9 +64,18 @@ export interface ApiEndpoint extends ApiConfig {
   name: string;
   enabled: boolean;
 }
+/** 路由方案：整份 apiRoutes 快照，一键整包切换（如「白嫖 Gemini 档」↔「付费 Claude 档」）；可选联动正文预设。
+ *  ⚠ 应用必须整包 set 单入口，禁止逐 key 部分同步（ApiHub debug.md 的运行态漂移病灶）。 */
+export interface ApiRouteProfile {
+  id: string;
+  name: string;
+  routes: Record<string, string[]>;
+  presetId?: string | null;   // 保存时勾了「联动正文预设」才有：应用时一并切 activeTextPresetId/Name
+  presetName?: string;
+}
 /** 从接口库条目取出纯 ApiConfig 字段 */
 export function endpointToConfig(e: ApiEndpoint): ApiConfig {
-  return { baseUrl: e.baseUrl, apiKey: e.apiKey, modelId: e.modelId, temperature: e.temperature, maxTokens: e.maxTokens, topP: e.topP };
+  return { baseUrl: e.baseUrl, apiKey: e.apiKey, modelId: e.modelId, temperature: e.temperature, maxTokens: e.maxTokens, topP: e.topP, ...(e.omitParams?.length ? { omitParams: e.omitParams } : {}), ...(e.reasoningEffort ? { reasoningEffort: e.reasoningEffort } : {}), ...(e.protocol && e.protocol !== 'openai' ? { protocol: e.protocol } : {}) };
 }
 /** 解析某功能的接口调用链（按优先级，上=先调用，失败 fallback）。
  *  路由有启用接口 → 返回该链；否则回退到传入的 legacy 单配置。 */
@@ -412,6 +429,10 @@ interface SettingsState {
   removeApiEndpoint: (id: string) => void;
   moveApiEndpoint: (id: string, dir: -1 | 1) => void;
   setApiRoute: (key: string, ids: string[]) => void;
+  apiRouteProfiles: ApiRouteProfile[];   // 路由方案（整份 apiRoutes 快照·可选联动正文预设）
+  saveApiRouteProfile: (name: string, withPreset: boolean) => void;
+  applyApiRouteProfile: (id: string) => void;
+  deleteApiRouteProfile: (id: string) => void;
   setApiThrottle: (patch: Partial<{ maxConcurrent: number; minGapMs: number }>) => void;
   setPhaseSched: (key: string, patch: Partial<{ every: number; read: number }>) => void;
   narrativeMemory: NarrativeMemConfig;
@@ -443,6 +464,7 @@ interface SettingsState {
   thinkDisplay: 'hidden' | 'fold' | 'open';   // 正文思维链显示：hidden=整段隐藏(旧行为) fold=折叠块(ST Reasoning 同构·默认) open=默认展开；仅显示层，提示词/历史照旧剥净
   htmlExternalMedia: boolean;       // 楼内 HTML/美化 CSS 允许加载外链媒体（img src / css url() 指向站外）；关=一律剥掉（ST「Forbid external media」同款）
   customCss: { text: string; scope: 'chat' | 'global'; enabled: boolean };   // 全局自定义 CSS（酒馆美化包入口）：scope=chat 时选择器强制作用域进聊天区，global=原样全局注入
+  renderVars: boolean;              // 🧩 渲染期变量（默认关）：楼层显示时把 {{getvar::名}}/${名}/<if var> 就地替换成当前值（仅显示层·原文不改·systems/renderVars.ts）
   renderHtmlSandbox: boolean;       // 前端卡：正文里 ```html 代码块/完整 HTML 文档渲染成 sandbox iframe（脚本可跑·与宿主完全隔离）；默认关
   plotGuidance: boolean;            // 剧情指导：正文生成前先跑一次"剧情优化建议"调用 → 像叙事回忆一样注入主正文（仅一次正文生成·受指导）
   planningReview: boolean;          // 正文前审核窗：剧情指导/数据库推进的产出先弹窗给玩家编辑确认，再写正文（细纲本就有弹窗）
@@ -467,6 +489,11 @@ interface SettingsState {
   //   只在细纲或数据库推进开启时生效（两者本就与剧情指导三选一），**不新增任何 API 调用**。见 systems/castBrief.ts
   castBrief: boolean;
   castBriefMax: number;             // 最多喂几位候选角色（默认 6；人多字段少，总开销低于 2 张全量 NPC 卡）
+  // 🫀 逐角色心流独白（借鉴 SoulLink·默认关）：发送时对排序前 N 位**在场**角色各发一次独立小调用（每人只见自己的瘦档案→信息盲区物理隔离），
+  //   产出第一人称心流，作为「导演注」注入正文。与检定/细纲/推进的等待窗口**并行**起跑，正文组装时最多再等 20s，超时/失败=不注入（fail-open）。
+  //   独立接口槽 'npcMindflow'（未配置回退 NPC 演化链）。见 systems/mindflow.ts
+  mindflowEnabled: boolean;
+  mindflowMax: number;              // 每回合最多推演几位在场角色（默认 2，上限 4——每位=一次独立调用）
   textAvailableModels: string[];
   textModelsLoading: boolean;
   textModelsError: string;
@@ -500,6 +527,7 @@ interface SettingsState {
   setThinkDisplay: (v: 'hidden' | 'fold' | 'open') => void;
   setHtmlExternalMedia: (v: boolean) => void;
   setCustomCss: (patch: Partial<{ text: string; scope: 'chat' | 'global'; enabled: boolean }>) => void;
+  setRenderVars: (v: boolean) => void;
   setRenderHtmlSandbox: (v: boolean) => void;
   setPlotGuidance: (v: boolean) => void;
   setPlanningReview: (v: boolean) => void;
@@ -519,6 +547,8 @@ interface SettingsState {
   setPreludePrompt: (v: string) => void;
   setCastBrief: (v: boolean) => void;
   setCastBriefMax: (v: number) => void;
+  setMindflowEnabled: (v: boolean) => void;
+  setMindflowMax: (v: number) => void;
   fetchTextModels: () => Promise<void>;
   importTextWorldBook: (raw: string, fileName?: string, builtin?: boolean, builtinKey?: string) => { ok: boolean; message: string };
   toggleTextWorldBook: (id: string) => void;
@@ -588,7 +618,7 @@ function toStringArray(v: any): string[] {
 
 // 内置条目「内容签名」：任一实质字段变化即签名变化。用于 3 方合并判断某内置条目是否被更新过。
 export function sigOfEntry(e: WorldBookEntry): string {
-  return [e.content, (e.key || []).join(''), (e.keysecondary || []).join(''), e.comment, e.constant, e.selective, e.enabled, e.order, e.position, e.depth ?? '', e.role ?? ''].join('');
+  return [e.content, (e.key || []).join(''), (e.keysecondary || []).join(''), e.comment, e.constant, e.selective, e.enabled, e.order, e.position, e.depth ?? '', e.role ?? '', ...(e.activeWhen ? [e.activeWhen] : [])].join('');
 }
 
 function parseEntry(e: any, i: number): WorldBookEntry {
@@ -606,6 +636,8 @@ function parseEntry(e: any, i: number): WorldBookEntry {
          : typeof e.insertion_order === 'number' ? e.insertion_order
          : 100,
     position: typeof e.position === 'number' ? e.position : 0,
+    // 自家扩展字段（ST 导入无此字段=undefined；自家导出→再导入要保住）
+    ...(typeof e.activeWhen === 'string' && e.activeWhen.trim() ? { activeWhen: e.activeWhen } : {}),
   };
 }
 
@@ -893,6 +925,7 @@ export const useSettings = create<SettingsState>()(
       glossaryVersion: 0,
       apiLibrary: [],
       apiRoutes: {},
+      apiRouteProfiles: [],
       apiThrottle: { maxConcurrent: 3, minGapMs: 250 },
       phaseSched: {},
       narrativeMemory: { enabled: false, recentFullTextCount: 5, distantKeywordThreshold: 200, recallTopK: 6, recallMinScore: 1, requestTimeout: 90, llmMode: false, compileModelId: '', ingestModelId: '', structEnabled: true, structApiSelect: false, structMaxNpcs: 2, structMaxSkills: 3, structMaxItems: 2, structMaxNpcSkills: 8, structMaxNpcTalents: 8, structMaxNpcItems: 8, structMaxSubProfs: 4, structMaxFactions: 4 },
@@ -921,6 +954,7 @@ export const useSettings = create<SettingsState>()(
       thinkDisplay: 'fold',           // 默认折叠块展示（对齐酒馆 Reasoning 体验）；旧档无此字段=同默认
       htmlExternalMedia: true,
       customCss: { text: '', scope: 'chat', enabled: true },
+      renderVars: false,
       renderHtmlSandbox: false,
       plotGuidance: false,
       planningReview: false,
@@ -938,6 +972,8 @@ export const useSettings = create<SettingsState>()(
       agentProfiles: [],
       castBrief: true,      // 默认开：只在细纲/推进已开时才生效，且不新增 API 调用，纯提升配角人格保真度
       castBriefMax: 6,
+      mindflowEnabled: false,   // 默认关：每回合新增 N 次小调用，玩家显式开启才花钱
+      mindflowMax: 2,
       textAvailableModels: [],
       textModelsLoading: false,
       textModelsError: '',
@@ -1035,6 +1071,26 @@ export const useSettings = create<SettingsState>()(
         return { apiLibrary: next };
       }),
       setApiRoute: (key, ids) => set((s) => ({ apiRoutes: { ...s.apiRoutes, [key]: ids } })),
+      saveApiRouteProfile: (name, withPreset) => set((s) => ({
+        apiRouteProfiles: [...(s.apiRouteProfiles ?? []), {
+          id: `arp-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 7)}`,
+          name: (name || '').trim() || '未命名方案',
+          routes: JSON.parse(JSON.stringify(s.apiRoutes ?? {})),
+          ...(withPreset ? { presetId: s.activeTextPresetId ?? null, presetName: s.activeTextPresetName ?? '' } : {}),
+        }],
+      })),
+      applyApiRouteProfile: (id) => set((s) => {
+        const p = (s.apiRouteProfiles ?? []).find((x) => x.id === id);
+        if (!p) return {};
+        return {
+          // 整包接管单入口：一次 set 换掉整份 apiRoutes（勿逐 key 同步——部分同步=UI 与实际调用漂移）
+          apiRoutes: JSON.parse(JSON.stringify(p.routes ?? {})),
+          ...(p.presetId !== undefined || p.presetName !== undefined
+            ? { activeTextPresetId: p.presetId ?? null, activeTextPresetName: p.presetName ?? '' }
+            : {}),
+        };
+      }),
+      deleteApiRouteProfile: (id) => set((s) => ({ apiRouteProfiles: (s.apiRouteProfiles ?? []).filter((x) => x.id !== id) })),
       setApiThrottle: (patch) => set((s) => ({ apiThrottle: { ...s.apiThrottle, ...patch } })),
       setPhaseSched: (key, patch) => set((s) => ({ phaseSched: { ...s.phaseSched, [key]: { ...(s.phaseSched?.[key] ?? { every: 1, read: 1 }), ...patch } } })),
       setNarrativeMemory: (patch) => set((s) => ({ narrativeMemory: { ...s.narrativeMemory, ...patch } })),
@@ -1050,7 +1106,7 @@ export const useSettings = create<SettingsState>()(
         const ctrl = new AbortController();
         const timer = setTimeout(() => ctrl.abort(), 15000);
         try {
-          const res = await fetch(api.baseUrl.replace(/\/$/, '') + '/models', { headers: { Authorization: `Bearer ${api.apiKey}` }, signal: ctrl.signal });
+          const res = await fetch(...modelsFetchArgs(api, ctrl.signal));
           if (!res.ok) throw new Error(`HTTP ${res.status}`);
           const json = await res.json();
           set({ nmAvailableModels: (json.data ?? json.models ?? []).map((m: any) => m.id ?? m.name ?? '').filter(Boolean).sort(), nmModelsLoading: false });
@@ -1071,7 +1127,7 @@ export const useSettings = create<SettingsState>()(
         const ctrl = new AbortController();
         const timer = setTimeout(() => ctrl.abort(), 15000);
         try {
-          const res = await fetch(api.baseUrl.replace(/\/$/, '') + '/models', { headers: { Authorization: `Bearer ${api.apiKey}` }, signal: ctrl.signal });
+          const res = await fetch(...modelsFetchArgs(api, ctrl.signal));
           if (!res.ok) throw new Error(`HTTP ${res.status}`);
           const json = await res.json();
           set({ availableModels: (json.data ?? json.models ?? []).map((m: any) => m.id ?? m.name ?? '').filter(Boolean).sort(), modelsLoading: false });
@@ -1136,6 +1192,7 @@ export const useSettings = create<SettingsState>()(
       setThinkDisplay: (v) => set({ thinkDisplay: v }),
       setHtmlExternalMedia: (v) => set({ htmlExternalMedia: v }),
       setCustomCss: (patch) => set((s) => ({ customCss: { ...s.customCss, ...patch } })),
+      setRenderVars: (v) => set({ renderVars: v }),
       setRenderHtmlSandbox: (v) => set({ renderHtmlSandbox: v }),
       setPlotGuidance: (v) => set({ plotGuidance: v }),
       setPlanningReview: (v) => set({ planningReview: v }),
@@ -1171,6 +1228,8 @@ export const useSettings = create<SettingsState>()(
       setPreludePrompt: (v) => set({ preludePrompt: v }),
       setCastBrief: (v) => set({ castBrief: v }),
       setCastBriefMax: (v) => set({ castBriefMax: Math.min(12, Math.max(1, Math.round(v || 6))) }),
+      setMindflowEnabled: (v) => set({ mindflowEnabled: v }),
+      setMindflowMax: (v) => set({ mindflowMax: Math.min(4, Math.max(1, Math.round(v || 2))) }),
 
       fetchTextModels: async () => {
         const s = get();
@@ -1180,7 +1239,7 @@ export const useSettings = create<SettingsState>()(
         const ctrl = new AbortController();
         const timer = setTimeout(() => ctrl.abort(), 15000);
         try {
-          const res = await fetch(api.baseUrl.replace(/\/$/, '') + '/models', { headers: { Authorization: `Bearer ${api.apiKey}` }, signal: ctrl.signal });
+          const res = await fetch(...modelsFetchArgs(api, ctrl.signal));
           if (!res.ok) throw new Error(`HTTP ${res.status}`);
           const json = await res.json();
           set({ textAvailableModels: (json.data ?? json.models ?? []).map((m: any) => m.id ?? m.name ?? '').filter(Boolean).sort(), textModelsLoading: false });

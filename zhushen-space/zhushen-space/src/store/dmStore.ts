@@ -6,7 +6,7 @@ import { persist } from 'zustand/middleware';
    - AI 扮演对方据其档案/发言回应；支持 聊天 / 购买 / 给予出售 / 索取 / 私下交易(以物换物)
    - 交易逻辑仿公共频道：AI 出报价 → 玩家可讨价还价 → 点「成交」由代码确定性结算 */
 
-export type DmDealKind = 'buy' | 'sell' | 'request' | 'barter';
+export type DmDealKind = 'buy' | 'sell' | 'request' | 'barter' | 'transfer';   // transfer=💸纯货币转账赠予（仅玩家→NPC；NPC凭空给钱=经济口子，不做反向）
 export type DmDealStatus = 'pending' | 'done' | 'rejected' | 'cancelled';
 
 /* 交易中涉及的物品（玩家收到的物品带固定格式字段，供入库展示）*/
@@ -37,7 +37,7 @@ export interface DmDeal {
 /* 消息花样（借鉴 Abstract外置手机的消息类型·缺省 text 纯文本，全部可选向后兼容）：
    recalled=对方撤回的消息（text 是"撤回了一条消息"占位，orig 存原文，点开偷看）；
    poke=戳一戳（居中演出行）；quote=引用主角某句话再回应（quote 存被引用原文）。*/
-export type DmMsgKind = 'text' | 'recalled' | 'poke' | 'quote';
+export type DmMsgKind = 'text' | 'recalled' | 'poke' | 'quote' | 'sticker';   // sticker=😊表情包（text 存名称，渲染时按名查 stickerStore 解析 URL，查不到降级文字）
 /* NPC 回复自带的状态头（借鉴外置手机 <message> 头·纯展示，不回喂 AI）*/
 export interface DmMsgMeta { emotion?: string; location?: string; state?: string; thought?: string }
 
@@ -51,7 +51,11 @@ export interface DmMessage {
   orig?: string;     // kind='recalled'：被撤回的原文（UI 点开偷看）
   quote?: string;    // kind='quote'：被引用的主角原话
   meta?: DmMsgMeta;  // 状态头（一轮回复只挂第一条 npc 消息上）
+  senderName?: string;   // 👥群聊消息的发言人（from='npc' 时；单聊不填）
 }
+
+/* 👥 群聊成员（借鉴Abstract外置手机群聊·代码全自写）：id=已建档 NPC 的 C-id（可据此拉人设卡），name 冗余存显示名 */
+export interface DmGroupMember { id?: string; name: string }
 
 export interface DmThread {
   id: string;
@@ -68,6 +72,8 @@ export interface DmThread {
   createdAt: number;
   updatedAt: number;
   unread?: number;          // 未读条数（NPC主动来讯时+N；打开该会话清零；导航「私信」红点=各线程之和）
+  kind?: 'dm' | 'group';    // 缺省 'dm'（老档无字段=单聊）；group=👥群聊（targetName 存群名）
+  members?: DmGroupMember[];   // 仅 group：成员名单（不含主角；主角天然在群）
 }
 
 /* 可私信/可加好友判定：白名单——仅「随从 / 契约者 / 宠物」三类可；
@@ -92,6 +98,7 @@ interface DmState {
   addMsg: (threadId: string, msg: Omit<DmMessage, 'id' | 'ts'> & { id?: string; ts?: number }) => string;
   bumpUnread: (threadId: string, n?: number) => void;
   clearUnread: (threadId: string) => void;
+  createGroupThread: (name: string, members: DmGroupMember[]) => string;   // 👥建群（同名群合并成员并回到该群）
   updateDeal: (threadId: string, dealId: string, patch: Partial<DmDeal>) => void;
   patchThread: (threadId: string, patch: Partial<DmThread>) => void;
   removeThread: (threadId: string) => void;
@@ -151,6 +158,22 @@ export const useDm = create<DmState>()(
           return { threads: { ...s.threads, [threadId]: { ...th, messages: [...th.messages, m], updatedAt: Date.now() } }, order };
         });
         return mid;
+      },
+
+      createGroupThread: (name, members) => {
+        const nm = (name || '').trim() || '新群聊';
+        const id = `g:${nm}`;
+        set((s) => {
+          const now = Date.now();
+          const prev = s.threads[id];
+          const seen = new Set((prev?.members ?? []).map((m) => m.name));
+          const mergedMembers = [...(prev?.members ?? []), ...members.filter((m) => m.name && !seen.has(m.name))];
+          const merged: DmThread = prev
+            ? { ...prev, members: mergedMembers, updatedAt: now }
+            : { id, kind: 'group', targetName: nm, members: members.filter((m) => !!m.name), archived: true, messages: [], createdAt: now, updatedAt: now };
+          return { threads: { ...s.threads, [id]: merged }, order: [id, ...s.order.filter((x) => x !== id)] };
+        });
+        return id;
       },
 
       bumpUnread: (threadId, n = 1) =>

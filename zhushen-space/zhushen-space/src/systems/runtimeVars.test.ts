@@ -2,6 +2,7 @@ import { describe, it, expect, beforeEach } from 'vitest';
 import { buildRuntimeVars, runtimeVarCatalog } from './runtimeVars';
 import { processMacros, makeMacroCtx } from './stMacros';
 import { usePlayer } from '../store/playerStore';
+import { useGame } from '../store/gameStore';
 import { useItems } from '../store/itemStore';
 import { useMisc } from '../store/miscStore';
 import { useVariables } from '../store/variableStore';
@@ -48,6 +49,13 @@ describe('runtimeVars · 透明变量桥', () => {
     expect(processMacros('{{getvar::风格}}', ctx)).toBe('热血');
     processMacros('{{setvar::风格::冷硬}}', ctx);
     expect(processMacros('{{getvar::风格}}', ctx)).toBe('冷硬');
+  });
+
+  it('衍生百分比：HP百分比=当前÷上限×100 取整；上限 0 → 空串', () => {
+    useGame.setState((s) => ({ player: { ...s.player, hp: 33, maxHp: 100 } }));
+    expect(buildRuntimeVars()['主角.HP百分比']).toBe('33');
+    useGame.setState((s) => ({ player: { ...s.player, maxHp: 0 } }));
+    expect(buildRuntimeVars()['主角.HP百分比']).toBe('');
   });
 
   it('目录区分核心态与自定义两组', () => {

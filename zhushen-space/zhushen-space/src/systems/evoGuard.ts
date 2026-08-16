@@ -29,7 +29,7 @@ export function bumpEvoEpoch(reason?: string): number {
 export function evoEpochStale(captured: number): boolean { return captured !== evoEpoch; }
 
 // ── ② 一致性哨兵 ─────────────────────────────────────────────────────────────
-export type ConsistencyKind = 'time-regression' | 'barrier-timeout' | 'stale-phase-skip' | 'world-switch-abort';
+export type ConsistencyKind = 'time-regression' | 'barrier-timeout' | 'stale-phase-skip' | 'world-switch-abort' | 'evo-gate' | 'api-input-bloat';
 
 export function reportConsistency(kind: ConsistencyKind, detail: string): void {
   try {

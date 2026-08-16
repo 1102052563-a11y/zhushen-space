@@ -44,6 +44,7 @@ import { useTraining } from '../store/trainingStore';
 import { useAdvisor } from '../store/advisorStore';
 import { useBookmarks } from '../store/bookmarkStore';
 import { useTheater } from '../store/theaterStore';
+import { useStickers } from '../store/stickerStore';
 import { useRowScope } from '../store/rowScopeStore';
 import { useWorldRecord } from '../store/worldRecordStore';
 import { useChannel } from '../store/channelStore';
@@ -126,6 +127,7 @@ const STORES: { key: string; api: any; clear?: () => void }[] = [
   { key: 'drpg-arc',        api: useArc, clear: () => useArc.getState().clearAll() },             // 🧭 故事弧线（长线引导进度·借鉴story-oracle）：随存档快照、新游戏清空；并进 ROLLBACK_KEYS（判定挂杂项阶段会漂移）
   { key: 'drpg-bookmarks',  api: useBookmarks, clear: () => useBookmarks.getState().clear() },    // ⭐ 坐标(收藏楼层·含正文快照)：进度数据,随存档快照、新游戏清空
   { key: 'drpg-theater',    api: useTheater },   // 🎭 小剧场·花样模板：玩家资产(非本档进度)→**不给 clear**,随新游戏保留
+  { key: 'drpg-stickers',   api: useStickers },  // 😊 表情包库(名称→URL·借鉴Abstract外置手机)：玩家资产→**不给 clear**,随新游戏保留
   { key: 'drpg-row-scope',  api: useRowScope, clear: () => useRowScope.getState().clearRowScopes() },   // 🌍 表行世界归属索引(伏笔)：本档进度,必须随存档快照——不然读档后索引丢光,旧世界伏笔全变"无索引"又冒回来
   { key: 'drpg-channel',    api: useChannel, clear: () => useChannel.getState().clearChannel() },
   { key: 'drpg-cosmos',     api: useCosmos, clear: () => useCosmos.getState().clearCosmos() },

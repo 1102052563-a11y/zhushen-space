@@ -43,6 +43,8 @@ import { useSkillTree } from '../store/skillTreeStore';
 import { useSubProfTree } from '../store/subProfTreeStore';
 import { useVariables } from '../store/variableStore';
 import { usePromptOverride } from '../store/promptOverrideStore';   // 预设中心：主提示词覆盖
+import { useSnippets } from '../store/snippetStore';                // 🧩 片段库：{{include::名}} 复用片段
+import { useStickers } from '../store/stickerStore';                // 😊 表情包库（名称→URL·玩家资产）
 import { useTts } from '../store/ttsStore';
 import { useTheater } from '../store/theaterStore';
 
@@ -274,6 +276,8 @@ const SPECS: StoreSpec[] = [
   { key: 'drpg-prompt-override',    label: '主提示词覆盖',   api: usePromptOverride as any,    extract: plainExtract },
   { key: 'drpg-tts',                label: '语音朗读',     api: useTts as any,               extract: plainExtract },
   { key: 'drpg-theater',            label: '小剧场·花样模板', api: useTheater as any,           extract: plainExtract },
+  { key: 'drpg-snippets',           label: '片段库',       api: useSnippets as any,          extract: plainExtract },
+  { key: 'drpg-stickers',           label: '表情包库',     api: useStickers as any,          extract: plainExtract },
 ];
 
 // 合成工坊：导出配置 + 合成图鉴(非内置) + API（不含 session/已发现配方那些进度数据）

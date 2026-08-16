@@ -1,7 +1,7 @@
 /* ── 表格数据库 · native 模板解析（读路径 6a·纯 JS 同步无依赖）────────────────
    移植 ACU 的读路径里**不需要 SQL 引擎**的那部分，让预设/世界书能引用表数据、做条件：
      · 计算标签：<random min max [id]> / <calc id expr> / <max id values> / <min id values> + $random:/$calc:/$max:/$min:
-     · 条件模板：<if cell="表/行/列 op 值">…<else>…</if>、<if seed="关键词(,|&|!()语法)">…</if>、<if cond="cell:…&seed:…|random:…">（复合条件·递归+嵌套）
+     · 条件模板：<if cell="表/行/列 op 值">…<else>…</if>、<if seed="关键词(,|&|!()语法)">…</if>、<if var="变量名 op 值">（读 ctx.vars 运行时变量）、<if cond="cell:…&seed:…|var:…|random:…">（复合条件·递归+嵌套）
      · 取值 cell:表名/行名/列名（读 tableStore 当前态）
    SQL 专属（{[db]}/{[sql]}/<if db|sql>）走懒加载 sql.js（Step 6b），本模块不管：未知条件类型一律判否（隐藏该块）。
    接入：App.tsx buildPresetMessages 里，在 processMacros 之前对每个预设块 content 调 resolveTableTemplates。
@@ -14,6 +14,8 @@ export interface TableTplCtx {
   seedContent?: string;
   /** 随机源（默认 Math.random）。 */
   random?: () => number;
+  /** 运行时变量快照（buildRuntimeVars()：主角.HP/世界.名/自定义变量…·供 <if var> 与 cond 的 var: 原子）。 */
+  vars?: Record<string, string>;
 }
 
 // 计算变量存储（每次 resolveTableTemplates 调用时重置，跨标签共享）
@@ -66,6 +68,21 @@ export function evaluateCellExpr(expression: string): boolean {
     return r.ok ? compareValue(r.value, op, cmp) : op === '!=';
   }
   return false;
+}
+
+// ── <if var="变量名 op 值"> 求值（读 ctx.vars 运行时变量快照：主角.HP百分比/世界.名/自定义变量…）──
+const VAR_OPS = ['>=', '<=', '!=', '==', '~=', '>', '<'];   // ~= 包含（清单类文本，如 主角.技能清单 ~= 御剑术）
+export function evaluateVarExpr(expression: string, ctx: TableTplCtx): boolean {
+  const expr = normalizeOps(expression);
+  let op = '', name = '', cmp = '';
+  for (const o of VAR_OPS) { const i = expr.indexOf(o); if (i !== -1) { name = expr.slice(0, i).trim(); cmp = expr.slice(i + o.length).trim(); op = o; break; } }
+  if (!op || !name) return false;
+  const raw = ctx.vars?.[name];
+  if (raw === undefined || String(raw).trim() === '') return op === '!=';   // 未知/空值变量仅 != 判真（与 cell 找不到行同口径），绝不抛错
+  if (op === '~=') return String(raw).includes(cmp);
+  const s = String(raw).trim();
+  const value: number | string = /^-?\d+(\.\d+)?$/.test(s) ? parseFloat(s) : String(raw);   // 纯数字才按数值比（"三阶"/"Lv.5" 走字符串）
+  return compareValue(value, op, cmp);
 }
 
 // ── <if seed="关键词"> 求值（,=或 &=与 !=非 ()分组·大小写不敏感 contains）──
@@ -146,7 +163,7 @@ function replaceRefs(text: string): string {
 }
 
 // ── <if cond="…"> 复合条件：原子按前缀分派 + &(与) ,|(或) !(非) ()分组 ──────
-/** 单个原子求值：`cell:表/行/列 op 值` / `seed:关键词` / `db:…` / `sql:…` / `random:百分比` / 无前缀默认 cell 表达式。允许前导 `!` 取反。 */
+/** 单个原子求值：`cell:表/行/列 op 值` / `seed:关键词` / `var:变量名 op 值` / `db:…` / `sql:…` / `random:百分比` / 无前缀默认 cell 表达式。允许前导 `!` 取反。 */
 function evalCondAtom(raw: string, ctx: TableTplCtx): boolean {
   let a = (raw ?? '').trim();
   if (!a) return false;
@@ -155,6 +172,7 @@ function evalCondAtom(raw: string, ctx: TableTplCtx): boolean {
   const lower = a.toLowerCase();
   let r: boolean;
   if (lower.startsWith('cell:')) r = evaluateCellExpr(a.slice(5));
+  else if (lower.startsWith('var:')) r = evaluateVarExpr(a.slice(4), ctx);
   else if (lower.startsWith('seed:')) r = evaluateSeed(a.slice(5), ctx.seedContent ?? '');
   else if (lower.startsWith('db:')) r = evaluateDbCondition(a.slice(3));
   else if (lower.startsWith('sql:')) r = evaluateSqlCondition(a.slice(4));
@@ -182,11 +200,19 @@ export function evaluateCond(expression: string, ctx: TableTplCtx): boolean {
   return proc(expr);
 }
 
+/** 🎯 activeWhen 门（世界书条目/自定义注入的可选激活条件）：空=通过；非空走 evaluateCond（<if cond> 同款语法）。绝不抛错。 */
+export function passActiveWhen(activeWhen: string | undefined, ctx: TableTplCtx): boolean {
+  const w = (activeWhen || '').trim();
+  if (!w) return true;
+  try { return evaluateCond(w, ctx); } catch { return true; }
+}
+
 // ── 递归 <if ...>…<else>…</if>（seed/cell/cond 求值·db/sql 走镜像）─────────
-const IF_OPEN = /<if\s+(seed|cell|cond|db|sql)\s*=\s*"([^"]*)"\s*>/i;
+const IF_OPEN = /<if\s+(seed|cell|cond|db|sql|var)\s*=\s*"([^"]*)"\s*>/i;
 function evalCond(type: string, expr: string, ctx: TableTplCtx): boolean {
   const t = type.toLowerCase();
   if (t === 'cell') return evaluateCellExpr(expr);
+  if (t === 'var') return evaluateVarExpr(expr, ctx);
   if (t === 'seed') return evaluateSeed(expr, ctx.seedContent ?? '');
   if (t === 'cond') return evaluateCond(expr, ctx);   // 复合条件（cell:/seed:/db:/sql:/random: 混合 + &,|!()）
   if (t === 'db') return evaluateDbCondition(expr);   // 6b：sql.js 镜像未就绪则判否
@@ -208,13 +234,13 @@ function parseIfBlocks(content: string, ctx: TableTplCtx, depth: number): string
   return out;
 }
 function parseSingleIf(content: string, start: number, type: string, expr: string, ctx: TableTplCtx, depth: number): { text: string; end: number } | null {
-  const openM = content.slice(start).match(/<if\s+(?:seed|cell|cond|db|sql)\s*=\s*"[^"]*"\s*>/i);
+  const openM = content.slice(start).match(/<if\s+(?:seed|cell|cond|db|sql|var)\s*=\s*"[^"]*"\s*>/i);
   if (!openM) return null;
   let idx = start + openM[0].length, level = 1;
   const bodyStart = idx;
   while (idx < content.length && level > 0) {
     const rest = content.slice(idx);
-    const nIf = rest.match(/<if\s+(?:seed|cell|cond|db|sql)\s*=\s*"[^"]*"\s*>/i);
+    const nIf = rest.match(/<if\s+(?:seed|cell|cond|db|sql|var)\s*=\s*"[^"]*"\s*>/i);
     const nEnd = rest.match(/<\/if>/i);
     const nElse = rest.match(/<else>/i);
     const pos: { t: string; i: number; l: number }[] = [];
@@ -243,6 +269,9 @@ function parseSingleIf(content: string, start: number, type: string, expr: strin
 }
 
 const MARKER = /<if\s|<random|<calc|<max|<min|\$random:|\$calc:|\$max:|\$min:|\{\[/;
+
+/** 外部快路径判断：文本是否含表格模板标记（renderPrompt/apiChatFallback 的零开销门）。 */
+export function hasTableTemplates(text: string): boolean { return !!text && MARKER.test(text); }
 
 /** 解析预设/世界书内容里的表格模板（native + sql.js）。无标记则原样快速返回。
    注：{[db]}/{[sql]}/<if db|sql> 需调用方先 await ensureSqliteMirror()（App.tsx 在拼预设前做），否则镜像未就绪→原样/判否。 */

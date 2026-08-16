@@ -1,6 +1,8 @@
 import { useImageGen, type ImgService, type NaiConfig, type OpenAIImgConfig, type ComfyConfig } from '../store/imageGenStore';
 import { useImageBusy } from '../store/imageBusyStore';
 import { activeOutfit } from './outfit';
+import type { OutfitRecord } from '../store/outfitStore';
+import { chatCompletionsUrl } from './apiUrl';
 
 /* ════════════════════════════════════════════
    生图统一入口：generateImage(service, {prompt,...}) → dataURL
@@ -323,7 +325,7 @@ async function genChatImg(cfg: OpenAIImgConfig, o: GenOpts): Promise<string> {
   const body: Record<string, unknown> = { model: cfg.model, messages: [{ role: 'user', content: parts }], modalities: ['image', 'text'] };
   const { signal, clear } = withTimeout(o.signal, 600);
   try {
-    const realUrl = cfg.baseUrl.replace(/\/$/, '') + '/chat/completions';
+    const realUrl = chatCompletionsUrl(cfg.baseUrl);
     const res = await safeFetch(proxifyImg(cfg.corsProxy, realUrl), {
       method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${key}` },
       body: JSON.stringify(body), signal,
@@ -459,9 +461,10 @@ export function buildPortraitPrompt(f: {
   bodyType?: string;         // 形态：人形(默认)/兽形/非人形——非人形(召唤物/野兽/怪物)绕开 1girl/半身肖像 人形框架
   equipment?: string;        // 当前装备栏实际穿戴(服装/护甲/主武器)——直接读装备栏，免得 AI 每回合把服装写漏
   charId?: string;           // 角色 id（B1/C×）：传入则读衣柜激活穿搭覆盖服装（钦定穿搭 > 装备栏 > 外观里的穿着）
+  outfitOverride?: OutfitRecord | null;  // 👗🎨 试衣间：直接指定一套穿搭（优先于 charId 的激活穿搭——不必激活即可预览任意一套）
 }): string {
   const s = useImageGen.getState();
-  const outfit = activeOutfit(f.charId);          // 👗 钦定穿搭（玩家在衣柜激活的那套；null=未钦定）
+  const outfit = f.outfitOverride ?? activeOutfit(f.charId);   // 👗 试衣指定套 > 衣柜激活套；都无=null（回退装备栏/外观）
   const base = (f.baseAppearance ?? '').trim();   // 基底外观：所有路径都要带上
   const equip = (f.equipment ?? '').trim();       // 已装备的衣着/武器：机械读取，比"外观描述里的穿着"可靠
   // 形态：显式设定优先；留空(自动)则按外观/容貌/标签兜底识别（修"AI 召唤物没标形态→默认人形→强套1girl长四肢"）

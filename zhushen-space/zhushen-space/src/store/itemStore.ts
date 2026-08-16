@@ -1,4 +1,5 @@
 import { create } from 'zustand';
+import { modelsFetchArgs } from '../systems/apiUrl';
 import { persist } from 'zustand/middleware';
 import { debouncedStorage } from '../systems/compressedStorage';   // 合并写盘：背包物品多，演化/对账一回合写几十次
 import type { ApiConfig } from './settingsStore';
@@ -828,9 +829,7 @@ export const useItems = create<ItemState>()(
         }
         set({ itemModelsLoading: true, itemModelsError: '' });
         try {
-          const res = await fetch(api.baseUrl.replace(/\/$/, '') + '/models', {
-            headers: { Authorization: `Bearer ${api.apiKey}` },
-          });
+          const res = await fetch(...modelsFetchArgs(api));
           if (!res.ok) throw new Error(`HTTP ${res.status}`);
           const json = await res.json();
           const models = (json.data ?? json.models ?? [])

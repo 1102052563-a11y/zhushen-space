@@ -11,7 +11,7 @@ const MAX_LEN = 600;         // 单条消息长度上限（沿用 dmReply 原 sl
 
 /* 行首字段匹配：全/半角冒号皆可，字段名后允许空白 */
 function fieldOf(line: string): { key: string; val: string } | null {
-  const m = /^(状态|心声|说|撤回|引用|戳)\s*[:：]\s*(.*)$/.exec(line.trim());
+  const m = /^(状态|心声|说|撤回|引用|戳|贴)\s*[:：]\s*(.*)$/.exec(line.trim());
   return m ? { key: m[1], val: m[2].trim() } : null;
 }
 
@@ -44,6 +44,7 @@ export function parseDmReply(raw: string): ParsedDmReply {
       case '状态': Object.assign(meta, parseStateLine(f.val)); break;
       case '心声': if (f.val) meta.thought = f.val.slice(0, 120); break;
       case '说':   if (f.val) msgs.push({ kind: 'text', text: f.val.slice(0, MAX_LEN) }); break;
+      case '贴':   if (f.val) msgs.push({ kind: 'sticker', text: f.val.slice(0, 30) }); break;   // 表情包（text=名称·消费侧按库硬过滤）
       case '撤回': if (f.val) msgs.push({ kind: 'recalled', text: '撤回了一条消息', orig: f.val.slice(0, MAX_LEN) }); break;
       case '戳':   msgs.push({ kind: 'poke', text: '' }); break;
       case '引用': {
@@ -80,5 +81,6 @@ export function dmMsgToHistoryText(m: { kind?: DmMsgKind; text: string; orig?: s
   if (m.kind === 'recalled') return `[你撤回的消息] ${m.orig || ''}`.trim();
   if (m.kind === 'poke') return '[你戳了戳对方]';
   if (m.kind === 'quote') return m.quote ? `[引用「${m.quote}」] ${m.text}` : m.text;
+  if (m.kind === 'sticker') return `[表情包] ${m.text}`;
   return m.text;
 }

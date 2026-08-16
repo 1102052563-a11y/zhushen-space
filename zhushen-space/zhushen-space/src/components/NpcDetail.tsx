@@ -37,6 +37,7 @@ import { PortraitPicker, PortraitLibraryModal } from './PortraitPicker';
 import ImagePromptEditModal from './ImagePromptEditModal';
 import { SkillEditForm, TraitEditForm } from './CharEditForms';
 import NpcVoicePicker from './NpcVoicePicker';
+import { generateNpcDiary, diariesOf, tokenizeDiary, DIARY_FAVOR_GATE } from '../systems/npcDiary';   // 📔 NPC日记（借鉴Abstract外置手机·内聚生成零props）
 // 🕸 ego 关系图（懒加载：只有翻到关系页才拉这块布局代码）
 const RelationEgoGraph = lazy(() => import('./RelationGraph').then((m) => ({ default: m.RelationEgoGraph })));
 import { ttsSupported } from '../systems/tts';
@@ -88,6 +89,32 @@ function parseRealm(realm: string) {
   return { tier, lv, role: (role || '').trim() };
 }
 
+/* 📔 日记正文渲染（模块级组件·勿移进父组件内——IME 重挂坑）：
+   ~~划掉~~=删除线；██涂黑██=点击显形（TA涂死不想让人看的字）；【【着重】】=用力写下的 */
+function DiaryBody({ content }: { content: string }) {
+  const [revealed, setRevealed] = useState<Set<number>>(new Set());
+  const segs = tokenizeDiary(content);
+  return (
+    <div className="text-[13px] text-slate-200/90 leading-relaxed whitespace-pre-wrap">
+      {segs.map((s, i) => {
+        if (s.type === 'strike') return <span key={i} className="line-through text-dim/50">{s.text}</span>;
+        if (s.type === 'mark') return <span key={i} className="font-bold text-amber-300/90">{s.text}</span>;
+        if (s.type === 'censored') {
+          const on = revealed.has(i);
+          return (
+            <span key={i} title={on ? '点击重新涂黑' : '被涂死的字——点击辨认'} role="button"
+              onClick={() => setRevealed((prev) => { const n = new Set(prev); if (n.has(i)) n.delete(i); else n.add(i); return n; })}
+              className={`cursor-pointer rounded px-0.5 transition-colors ${on ? 'bg-slate-700/60 text-rose-200' : 'bg-slate-200 text-slate-200 select-none'}`}>
+              {s.text}
+            </span>
+          );
+        }
+        return <span key={i}>{s.text}</span>;
+      })}
+    </div>
+  );
+}
+
 function favorCls(v: number) {
   if (v >= 60) return 'text-rose-400';
   if (v >= 30) return 'text-amber-400';
@@ -117,6 +144,9 @@ export default function NpcDetail({
   const [editing, setEditing] = useState(false);   // 手动编辑/纠正面板模式
   const [chatOpen, setChatOpen] = useState(false);  // 与该 NPC 私聊窗
   const [obsOpen, setObsOpen] = useState(false);    // 👁 观测浮层
+  const [diaryOpen, setDiaryOpen] = useState(false);   // 📔 日记浮层（借鉴Abstract外置手机 diary）
+  const [diaryBusy, setDiaryBusy] = useState(false);
+  const [diaryMsg, setDiaryMsg] = useState('');
   const upsertNpc = useNpc((s) => s.upsertNpc);
   const clearNpcBag = useNpc((s) => s.clearNpcBag);
   const hardRemoveNpc = useNpc((s) => s.hardRemoveNpc);
@@ -216,6 +246,19 @@ export default function NpcDetail({
               }`}
             >
               {observing ? <><span className="animate-spin inline-block">◌</span> 观测中…</> : '👁 看看TA'}
+            </button>
+          )}
+
+          {/* 📔 偷看日记（借鉴Abstract外置手机 diary·好感≥50 解锁）：第一人称真心话+涂改演出；存 npc.extra 单一真相源 */}
+          {!effPreview && !npc.isDead && !isPetLike(npc) && (
+            <button
+              onClick={() => setDiaryOpen(true)}
+              title={(npc.favor ?? 0) >= DIARY_FAVOR_GATE ? '偷看TA的日记：白天嘴上不认的，都写在纸上' : `关系不够（好感 ${npc.favor ?? 0}/${DIARY_FAVOR_GATE}）——连日记本放哪都不知道`}
+              className={`inline-flex items-center gap-1 px-3 py-1.5 max-lg:px-2 max-lg:py-1 text-sm max-lg:text-[13px] rounded-lg border font-mono transition-colors ${
+                (npc.favor ?? 0) >= DIARY_FAVOR_GATE ? 'border-edge text-dim/70 hover:border-amber-500/50 hover:text-amber-300' : 'border-edge text-dim/35 cursor-help'
+              }`}
+            >
+              📔 日记{(npc.favor ?? 0) < DIARY_FAVOR_GATE ? ' 🔒' : ''}
             </button>
           )}
 
@@ -373,6 +416,58 @@ export default function NpcDetail({
                 <button onClick={() => onObserve && !observing && onObserve(npc.id)} disabled={observing || !onObserve}
                   className="shrink-0 text-[12px] font-mono px-2.5 py-1 rounded border border-cyan-600/50 text-cyan-300 hover:bg-cyan-900/20 disabled:opacity-40 transition-colors">
                   {observing ? '观测中…' : '🔄 再看一眼'}
+                </button>
+              </footer>
+            </div>
+          </div>
+        )}
+
+        {/* 📔 日记浮层（借鉴Abstract外置手机 diary）：偷看=玩家上帝视角福利；涂黑点开显形；生成走 observe 路由 */}
+        {diaryOpen && (
+          <div className="fixed inset-0 z-[85] bg-black/70 backdrop-blur-sm flex items-center justify-center p-4"
+            onClick={(e) => { if (e.target === e.currentTarget) setDiaryOpen(false); }}>
+            <div className="w-full max-w-md rounded-2xl border border-edge bg-void shadow-[0_0_60px_rgba(0,0,0,0.85)] overflow-hidden flex flex-col max-h-[80dvh]">
+              <header className="shrink-0 flex items-center gap-2 px-4 py-3 border-b border-edge bg-panel">
+                <span className="text-amber-300/80 text-lg">📔</span>
+                <div className="flex-1 min-w-0">
+                  <div className="text-sm font-bold text-slate-100 truncate">{npc.name} 的日记</div>
+                  <div className="text-[11px] font-mono text-dim/50">TA 以为没人会看——涂黑的字点一下能辨认</div>
+                </div>
+                <button onClick={() => setDiaryOpen(false)} className="text-dim/50 hover:text-blood text-lg">✕</button>
+              </header>
+              <div className="flex-1 overflow-y-auto p-4 space-y-4">
+                {(npc.favor ?? 0) < DIARY_FAVOR_GATE ? (
+                  <div className="py-10 text-center text-dim/40 text-sm font-mono">🔒 好感 {npc.favor ?? 0} / 需 ≥{DIARY_FAVOR_GATE}<br />关系不到位，连TA的日记本放哪都不知道</div>
+                ) : diariesOf(npc.extra as Record<string, unknown> | undefined).length === 0 && !diaryBusy ? (
+                  <div className="py-10 text-center text-dim/40 text-sm font-mono">还没翻到过TA的日记——点下方「翻开最新一页」</div>
+                ) : (
+                  diariesOf(npc.extra as Record<string, unknown> | undefined).map((d, i) => (
+                    <div key={d.at ?? i} className={`rounded-lg border border-edge/70 bg-panel/40 px-3 py-2.5 ${i > 0 ? 'opacity-75' : ''}`}>
+                      <div className="flex items-center gap-2 text-[11px] font-mono text-dim/55 mb-1.5">
+                        <span>{d.date}</span>{d.weather && <span>{d.weather}</span>}
+                        {i === 0 && <span className="text-amber-300/60">最新</span>}
+                      </div>
+                      <DiaryBody content={d.content} />
+                      {d.collection && (
+                        <div className="mt-2 pt-1.5 border-t border-dashed border-edge/50 text-[12px] text-amber-200/70 font-mono">🗃 夹着的纪念品：{d.collection}</div>
+                      )}
+                    </div>
+                  ))
+                )}
+                {diaryBusy && <div className="py-4 text-center text-amber-300/70 text-sm font-mono"><span className="animate-spin inline-block mr-2">◌</span>正在辨认TA的字迹…</div>}
+                {diaryMsg && <div className="text-[12px] font-mono text-amber-300/70 text-center">{diaryMsg}</div>}
+              </div>
+              <footer className="shrink-0 px-4 py-2.5 border-t border-edge bg-panel/60 flex items-center gap-2">
+                <span className="flex-1 text-[11px] text-dim/40 leading-snug">偷看是幕后福利：不进正文、TA 不知情；最多留 3 篇，新的顶掉旧的。</span>
+                <button
+                  onClick={() => {
+                    if (diaryBusy || (npc.favor ?? 0) < DIARY_FAVOR_GATE) return;
+                    setDiaryBusy(true); setDiaryMsg('');
+                    generateNpcDiary(npc.id).then((r) => setDiaryMsg(r.ok ? '' : r.msg)).finally(() => setDiaryBusy(false));
+                  }}
+                  disabled={diaryBusy || (npc.favor ?? 0) < DIARY_FAVOR_GATE}
+                  className="shrink-0 text-[12px] font-mono px-2.5 py-1 rounded border border-amber-600/50 text-amber-300 hover:bg-amber-900/20 disabled:opacity-40 transition-colors">
+                  {diaryBusy ? '辨认中…' : '📖 翻开最新一页'}
                 </button>
               </footer>
             </div>
@@ -2217,9 +2312,81 @@ function HistoryTab({ npc }: { npc: NpcRecord }) {
         </Section>
       )}
       <Section title="经历时间线" hint="随剧情追加">
+        <RefineBox npc={npc} />
         <DeedTimeline log={npc.deedLog} legacy={npc.deeds} onRemove={(i) => removeDeed(npc.id, i)} />
       </Section>
       <CharMemoryView charId={npc.id} />
+    </div>
+  );
+}
+
+/* ✨ 档案精编（借鉴 SoulLink·预览确认才落库）：AI 整理经历时间线+关系网——合并重复/统一全名/时间锚点，
+   红线=只重组不创作（systems/npcRefine 有防清档校验）；⚠绝不碰数值/私密档案/三层记忆。 */
+function RefineBox({ npc }: { npc: NpcRecord }) {
+  const preview = useContext(NpcPreviewContext);
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState('');
+  const [outcome, setOutcome] = useState<import('../systems/npcRefine').RefineOutcome | null>(null);
+  const BTN = 'text-[12px] font-mono px-2 py-0.5 rounded border transition-colors';
+  const hasStuff = (npc.deedLog?.length ?? 0) > 0 || !!(npc.relations || '').trim();
+  if (preview || !hasStuff) return null;
+
+  async function run() {
+    setBusy(true); setErr(''); setOutcome(null);
+    try {
+      const { generateNpcRefine } = await import('../systems/npcRefine');   // 动态引入：不点就不拉 apiChat 那条链
+      setOutcome(await generateNpcRefine(npc));
+    } catch (e) { setErr((e as Error)?.message ?? String(e)); }
+    finally { setBusy(false); }
+  }
+  async function confirm() {
+    if (!outcome) return;
+    const { applyNpcRefine } = await import('../systems/npcRefine');
+    applyNpcRefine(npc.id, outcome);
+    setOutcome(null);
+  }
+
+  return (
+    <div className="mb-2">
+      {!outcome && (
+        <div className="flex items-center gap-2 flex-wrap">
+          <button onClick={run} disabled={busy}
+            title="AI 整理经历与关系网：合并重复条目、称呼统一全名、补时间锚点、关系网剥离事件细节。只重组已有信息，整理结果先预览、你点确认才替换；数值/私密档案/记忆一律不碰。"
+            className={`${BTN} ${busy ? 'border-edge text-dim/40' : 'border-god/40 text-god hover:bg-god/10'}`}>
+            {busy ? '✨ 整理中…' : '✨ 精编档案'}
+          </button>
+          <span className="text-[11px] font-mono text-dim/40">合并重复 · 全名指代 · 关系网瘦身（预览确认才生效）</span>
+        </div>
+      )}
+      {err && <div className="mt-1.5 text-[12px] font-mono text-blood/80">精编失败：{err}</div>}
+      {outcome && (
+        <div className="mt-1.5 rounded-lg border border-god/30 bg-god/5 p-2.5 space-y-2">
+          <div className="text-[12px] font-mono text-god/80">
+            ✨ 整理预览：经历 {outcome.beforeDeeds} → {outcome.afterDeeds} 条（下方为整理后的完整替换稿；上面的时间线仍是现状，可对照）
+          </div>
+          <div className="max-h-64 overflow-y-auto space-y-1 pr-1">
+            {outcome.deeds.map((d, i) => (
+              <div key={i} className="text-[13px] text-slate-300 leading-relaxed">
+                <span className="text-dim/50 font-mono">{i + 1}.</span>
+                {(d.time || d.location) && <span className="text-dim/60 font-mono"> [{d.time || '?'}{d.location ? `@${d.location}` : ''}]</span>}
+                {' '}{d.description}
+              </div>
+            ))}
+          </div>
+          {outcome.relations.trim() ? (
+            <div className="text-[12px] text-slate-300 leading-relaxed border-t border-edge/40 pt-1.5">
+              <span className="text-dim/50 font-mono">整理后关系网：</span>{outcome.relations}
+            </div>
+          ) : (
+            <div className="text-[11px] font-mono text-dim/40 border-t border-edge/40 pt-1.5">（关系网无整理产出——确认后保留现有关系网不变）</div>
+          )}
+          <div className="flex items-center gap-2">
+            <button onClick={confirm} className={`${BTN} border-god/50 text-god bg-god/10 hover:bg-god/20`}>✔ 套用替换</button>
+            <button onClick={() => setOutcome(null)} className={`${BTN} border-edge text-dim/60 hover:text-slate-200`}>✖ 放弃</button>
+            <span className="text-[11px] font-mono text-dim/40">替换后仍可逐条手动删改；不满意可再跑一次</span>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

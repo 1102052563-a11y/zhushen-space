@@ -803,6 +803,49 @@ function Scheduling() {
         </div>
       </div>
 
+      {/* 演化预筛 Gate（借鉴 SoulLink·默认关） */}
+      <div className="p-4 bg-panel border border-edge rounded-xl space-y-3">
+        <div className="text-sm font-mono text-god/70 uppercase tracking-widest">演化预筛 Gate（策略B）</div>
+        <p className="text-[13px] text-dim">
+          每回合先花一次轻量判定「哪些在场 NPC 真的有变化」，没变化的本轮跳过大演化调用——省调用，也从源头减少「没变化硬编变化」的数值/人设漂移。
+          只裁<strong className="text-slate-300">在场</strong>目标：新登场必建档；离场调度（驱动力闸门/好友轮换）不受影响；判定失败自动回退全量，绝不因预筛漏演化。
+        </p>
+        <div className="flex gap-1">
+          {([['off', '关闭（现状）'], ['local', '本地名扫描'], ['ai', 'AI 判定']] as const).map(([v, label]) => (
+            <button key={v} onClick={() => setScheduling({ evoGateMode: v })}
+              className={`flex-1 py-1.5 rounded text-sm font-mono border transition-colors ${
+                (scheduling.evoGateMode ?? 'off') === v ? 'border-god/50 text-god bg-god/10' : 'border-edge text-dim hover:text-slate-200'
+              }`}>{label}</button>
+          ))}
+        </div>
+        {(scheduling.evoGateMode ?? 'off') !== 'off' && (
+          <>
+            <div className="text-[13px] text-dim">
+              本地名扫描零消耗：名字出现在本回合正文才演化，但抓不到「没被点名的沉默目击者」；AI 判定多花一次轻量调用，能按「在场目击 / 情绪被触发」入选。
+            </div>
+            <div className="flex items-center justify-between gap-4">
+              <div>
+                <div className="text-sm text-slate-200">强制全量周期</div>
+                <div className="text-[13px] text-dim mt-0.5">每 N 回合无视预筛跑一轮全量，防「沉默变化」漏更累积；0 = 永不强制。</div>
+              </div>
+              <input
+                type="number" min={0} max={20}
+                value={scheduling.evoGateForceFullEvery ?? 4}
+                onChange={(e) => setScheduling({ evoGateForceFullEvery: Math.min(20, Math.max(0, parseInt(e.target.value) || 0)) })}
+                className="w-20 bg-void border border-edge rounded px-2 py-1.5 text-sm font-mono text-slate-200 text-center outline-none focus:border-god"
+              />
+            </div>
+            {scheduling.evoGateMode === 'ai' && (
+              <div className="space-y-1.5">
+                <div className="text-sm text-slate-200">预筛独立接口</div>
+                <div className="text-[13px] text-dim">高频轻量调用，建议选便宜快的模型；<strong className="text-slate-300">不选 = 沿用 NPC 演化接口</strong>。0 入选/失败的判定原文在「回合洞察 → 一致性哨兵」可审计。</div>
+                <ApiRoutePicker routeKey="npcGate" />
+              </div>
+            )}
+          </>
+        )}
+      </div>
+
       {/* 清理提醒 */}
       <div className="p-4 bg-panel border border-edge rounded-xl space-y-3">
         <div className="flex items-center justify-between">

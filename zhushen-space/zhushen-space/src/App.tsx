@@ -151,13 +151,17 @@ import { useState, useRef, useEffect, useMemo, useCallback, memo, lazy, Suspense
 import { useGame } from './store/gameStore';
 import { useSettings, resolveApiChain, resolveAgentPreset, inferViewScopes, type WorldbookConflict } from './store/settingsStore';
 import { runRegexReplace, compileFindRegex, regexScriptApplies, escapeRegexLiteral } from './systems/regexEngine';
-import { apiChatFallback, fetchWithProxy, abortAllApiCalls, narrativeLangDirective } from './systems/apiChat';
+import { apiChatFallback, fetchWithProxy, abortAllApiCalls, narrativeLangDirective, orderedKeys, markKeyBad, markKeyGood, isKeyRotatableStatus } from './systems/apiChat';
+import { applyOmitParams, buildProtocolRequest, protocolOf, extractStreamDelta, extractOnceContent } from './systems/apiUrl';
 import { parseAllStateUpdates, stripStateBlocks, parseAllItemCommands, applyItemCommands, parseAllCharCommands, applyCharacterCommands, parseAllNpcCommands, applyNpcCommands, parseAllFactionCommands, applyFactionCommands, applyTerritoryCommands, applyTeamCommands, isEquippable, lenientJsonParse, buildItemFeedback, recordEvo, purgeItemPhaseCurrency, editToTerritoryText, editToTeamText, detectUnregisteredCurrencyGains, deferredCreateSkipReason } from './systems/stateParser';
 import { isRealNpc, sanitizeEntryName, stripLeakedThinking, streamVisibleNarrative, splitThinkStream, extractLeakedThinking, setNpcPreferredOwners, applyStateUpdates, applyAllUpdates, stripKillBlocks, stripVitalsBlocks, stripWorldSourceBlocks, collapseRunaway } from './systems/stateApply';
 import { buildTableFillPrompt, buildPlotStateSnapshot, chronicleRecallCorpus } from './systems/tablePrompt';   // ACU 表格数据库：填表提示词 + 剧情状态快照（喂剧情指导）+ 纪要召回语料（喂向量记忆池）
 import { applyTableEdits } from './systems/tableEditParser';   // ACU 表格数据库：<tableEdit> → tableStore（手动补填阶段直接落库，不经 applyAllUpdates）
 import { useTurnReport, recordHasActivity, type TurnApplyRecord } from './store/turnReportStore';   // 手动补填也记进 📋 变量事务报告（与自动填表同一视图）
-import { resolveTableTemplates } from './systems/tableTemplate';   // ACU 表格数据库：读路径 native 模板（<if cell/seed>/计算标签）
+import { expandPromptText, makePromptExpandCtx } from './systems/promptExpand';   // 统一展开：表格模板（<if var/cell/seed/cond>/计算标签）→ ST 宏
+import { passActiveWhen } from './systems/tableTemplate';   // 🎯 activeWhen 条件门（世界书条目/自定义注入·<if cond> 语法）
+import { applyCustomInjects } from './systems/customInject';   // 🎯 自定义注入：预设中心条目 → 最终 messages（发送前最后一步）
+import { renderPhaseExpand } from './systems/renderVars';   // 🧩 渲染期变量：楼层显示时就地替换 {{getvar}}/<if var>（默认关·仅显示层）
 import { ensureSqliteMirror, needsSqlite } from './systems/tableSqlite';   // ACU 表格数据库：读路径 6b sql.js 镜像（{[db]}/{[sql]}）
 import { projectStoresToTables } from './systems/tableMigrate';   // 1c 镜像投影：project-on-read（发送前重投影，回合间的面板手改/交易/自愈也进表，读路径永不陈旧）
 import { healWatchdog } from './systems/ledger/watchdog';   // Step 10 看门狗·自愈（回合末集中跑现成 dedup 修复）
@@ -166,7 +170,8 @@ import { snapshotPlayerBag, reconcilePlayerBag, pruneBlankDupItems } from './sys
 import { flattenAiText } from './systems/flattenAiText';
 import { runPhasePipeline, type Phase } from './systems/phasePipeline';
 import { currentEvoEpoch, bumpEvoEpoch, evoEpochStale, reportConsistency } from './systems/evoGuard';
-import { TIME_ANCHOR_RULE, WORLD_EVENT_VISIBILITY_RULE, WORLD_NEWS_RULE, NPC_INNER_VOICE_RULE, CHANNEL_WORLD_POOL_RULE, CHANNEL_ANTI_SLOP_RULE, WORLD_PAPER_RULE, SPECTATOR_CHATTER_RULE, DM_REPLY_PROTOCOL_RULE } from './promptRules';
+import { runRosterGate, localNameScan, type RosterGateItem } from './systems/rosterGate';
+import { TIME_ANCHOR_RULE, WORLD_EVENT_VISIBILITY_RULE, WORLD_NEWS_RULE, NPC_INNER_VOICE_RULE, CHANNEL_WORLD_POOL_RULE, CHANNEL_ANTI_SLOP_RULE, WORLD_PAPER_RULE, SPECTATOR_CHATTER_RULE, DM_REPLY_PROTOCOL_RULE, GROUP_CHAT_RULE, NPC_EVO_GATE_RULE, PARADISE_SEARCH_RULE } from './promptRules';
 import { sampleWorldPoolText } from './systems/worldLib';   // 公共频道副本取材：从世界库按阶随机抽世界名注入，治帖子只聊思维定式的几个世界
 import { buildMotiveDraw } from './systems/channelFlavor';   // 公共频道发帖动机抽签（借鉴Zsd论坛·每次刷新随机轮换）
 import { buildChannelBuzzInjection } from './systems/channelBuzz';   // 📡 <广场舆论> 频道热帖回注正文（借鉴Zsd论坛）
@@ -353,13 +358,15 @@ import { drainSceneNotices, pushSceneNotice, drainGrowthNotices, pushFacilityGra
 import { recordMpReward, clearMpPending, promoteMpPending, discardMpReplay, replayMpPendingOnBoot } from './systems/mpPendingRewards';   // 联机来宾·奖励防回滚（离房 loadSlot 还原会吞掉在房入账）
 import { reportFacilityOutcome, peekFacilityLog, clearFacilityLog } from './systems/facilityBridge';   // 设施→正文统一接入口（通报+发放登记+成长交代一次扇出）+ 洞察设施区数据源
 import { buildCastBriefInput } from './systems/castBrief';   // 角色立场简报·输入侧：给细纲/推进喂只含人格的瘦档案（治配角同质化/OOC/谄媚）
-import { getPrompt, renderPrompt, setLastUserMessage } from './store/promptOverrideStore';   // 预设中心：主提示词 override（有玩家自定义用之，否则回退内置默认常量）；renderPrompt=给 field 类补一遍变量标签替换；setLastUserMessage=记玩家当前输入供 {{lastUserMessage}}   // 场外操作通报→正文前置须知；星图习得/开箱→入戏交代块；设施发放物→物品阶段勿再建
+import { runMindflowBatch } from './systems/mindflow';   // 🫀 逐角色心流独白（借鉴SoulLink·默认关）：发送时并发起跑，正文组装时限时收割
+import { getPrompt, renderPrompt, setLastUserMessage, usePromptOverride } from './store/promptOverrideStore';   // 预设中心：主提示词 override（有玩家自定义用之，否则回退内置默认常量）；renderPrompt=给 field 类补一遍变量标签替换；setLastUserMessage=记玩家当前输入供 {{lastUserMessage}}   // 场外操作通报→正文前置须知；星图习得/开箱→入戏交代块；设施发放物→物品阶段勿再建
 import { rollGemDrops, hasHighTierKill } from './systems/gemDrop';   // 正文击杀 → 结算掉落宝石（前端确定性）
 import { guildPerkValue } from './store/guildStore';   // 公会增益数值（dropRate/settlement…前端逐期接；服务端只判解锁）
 const MiscPanel = lazy(() => import('./components/MiscPanel'));
 const AdvisorPanel = lazy(() => import('./components/AdvisorPanel'));   // 🧭 参谋：局外顾问 + 提案卡（点应用才落库）
 const BookmarkPanel = lazy(() => import('./components/BookmarkPanel'));   // ⭐ 坐标：收藏楼层（存正文快照·纯前端）
 const InterviewPanel = lazy(() => import('./components/InterviewPanel'));   // 🎤 大采访：局外花絮栏目（借鉴V3.2·旁路生成·导出HTML）
+const LivePanel = lazy(() => import('./components/LivePanel'));   // 📺 乐园直播间（借鉴Abstract外置手机 live·弹幕+礼物分档演出）
 const BioCyclePanel = lazy(() => import('./components/BioCyclePanel'));     // 🌸 生理周期管理（借鉴V3.2·可选成人向模块·⌘K 直达）
 const TrainingPanel = lazy(() => import('./components/TrainingPanel'));     // 🔗 调教系统（对剧情NPC私密养成·合并生理周期·隐私变化落 npc.extra）
 import DiceCard from './components/DiceCard';
@@ -427,6 +434,7 @@ const TradePanel = lazy(() => import('./components/TradePanel'));
 const AssistPanel = lazy(() => import('./components/AssistPanel'));
 const ArenaWorldPanel = lazy(() => import('./components/ArenaWorldPanel'));
 const PlaytimePanel = lazy(() => import('./components/PlaytimePanel'));
+const OutfitWorkshop = lazy(() => import('./components/OutfitWorkshop'));   // 👗 形象工坊（每角色衣柜·试衣·生图提示词·成衣库）
 const MonumentPanel = lazy(() => import('./components/MonumentPanel'));
 const AccountVaultPanel = lazy(() => import('./components/AccountVaultPanel'));
 import { useMp, type HiddenCondition } from './store/multiplayerStore';
@@ -449,6 +457,10 @@ import { useFact } from './store/factStore';
 import { settleDmDeal, normCur as dmNormCur } from './systems/dmTrade';
 import { parseDmReply, dmMsgToHistoryText } from './systems/dmProtocol';   // 私信行协议（状态头+撤回/引用/戳·借鉴Abstract外置手机）
 import { parseCommIntents, buildInlineCommInjection, noteInlineCommFired } from './systems/inlineComm';   // 📨 NPC主动来讯·意图两阶段（借鉴Abstract外置手机）
+import { parseGroupReply, groupMsgToHistoryText } from './systems/groupChat';   // 👥 群聊行协议（借鉴Abstract外置手机）
+import { buildStickerInjection, stickerNameSet } from './store/stickerStore';   // 😊 表情包库（名称注入+消费侧硬过滤）
+import { parseSearchReply, searchCandidateBlock } from './systems/paradiseSearch';   // 🔎 乐园检索（借鉴Abstract外置手机 browser）
+import { buildEavesdropSys, rollDiscovered, eavesdropNotice, EAVESDROP_COST, EAVESDROP_FAVOR_HIT } from './systems/eavesdrop';   // 🕳 窃听（借鉴Abstract外置手机 peek）
 const SystemShop = lazy(() => import('./components/SystemShop'));
 const SummaryPanel = lazy(() => import('./components/SummaryPanel'));
 const WorldRecordPanel = lazy(() => import('./components/WorldRecordPanel'));
@@ -1618,6 +1630,7 @@ const petRoutedAway = (n: { npcTag?: string }) => isPetLike(n) && usePetEvo.getS
 const rightMenuItems = [
   { icon: '⚔', label: '装备' },
   { icon: '🎒', label: '储存空间' },
+  { icon: '👗', label: '形象工坊' },   // 每角色专属衣柜：读形象/搭配/试衣生图/生图提示词/成衣库导入
   { icon: '📇', label: 'NPC' },
   { icon: '🔗', label: '调教' },
   { icon: '🐾', label: '宠物/召唤物' },
@@ -1651,6 +1664,7 @@ const rightMenuItems = [
   { icon: '📡', label: '频道' },
   { icon: '✉', label: '私信' },
   { icon: '🎤', label: '采访' },
+  { icon: '📺', label: '直播' },
   { icon: '👥', label: '好友' },
   { icon: '🌐', label: '联机' },
   { icon: '💬', label: '聊天室' },
@@ -1675,11 +1689,11 @@ const rightMenuItems = [
    成员写 rightMenuItems 的 label（「幽冥」按「深渊」归组）；没归到组的新增项自动落「其他」——
    加新导航项忘了归组也不会消失（宁可显示在兜底组，绝不静默丢失）。 */
 const NAV_GROUPS: { name: string; members: string[] }[] = [
-  { name: '角色', members: ['装备', '储存空间', '技能', '技能树', '体系', '副职业', '称号', '成就'] },
+  { name: '角色', members: ['装备', '储存空间', '形象工坊', '技能', '技能树', '体系', '副职业', '称号', '成就'] },
   { name: '伙伴', members: ['NPC', '调教', '宠物/召唤物', '队伍', '冒险团', '好友'] },
   { name: '世界', members: ['任务', '地图', '参谋', '势力', '领地', '万族', '世界记录', '编年史', '混沌世界', '世界百科', '世界资料库', '原著WIKI'] },
   { name: '乐园设施', members: ['战斗', '乐园设施', '深渊', '合成', '开箱'] },
-  { name: '社交联机', members: ['频道', '私信', '采访', '聊天室', '联机', '交易行', '产业', '公会', '助战', '世界竞技场', '游玩时长'] },
+  { name: '社交联机', members: ['频道', '私信', '采访', '直播', '聊天室', '联机', '交易行', '产业', '公会', '助战', '世界竞技场', '游玩时长'] },
   { name: '传承', members: ['纪念丰碑', '账户仓库', '创意工坊', '存档', '分支树', '坐标'] },
   { name: '系统', members: ['回合洞察', '审计', '记忆', '语音', '设置'] },
 ];
@@ -1754,6 +1768,7 @@ const PREFETCH_PANELS: (() => Promise<unknown>)[] = [
   () => import('./components/AssistPanel'),
   () => import('./components/ArenaWorldPanel'),
   () => import('./components/PlaytimePanel'),
+  () => import('./components/OutfitWorkshop'),
   () => import('./components/MonumentPanel'),
   () => import('./components/AccountVaultPanel'),
   () => import('./components/SummaryPanel'),
@@ -1762,6 +1777,7 @@ const PREFETCH_PANELS: (() => Promise<unknown>)[] = [
   () => import('./components/CanonRoutePanel'),
   () => import('./components/CodexDetail'),
   () => import('./components/InterviewPanel'),
+  () => import('./components/LivePanel'),
   () => import('./components/BioCyclePanel'),
   () => import('./components/TrainingPanel'),
 ];
@@ -1780,11 +1796,11 @@ function prefetchPanelsOnIdle(): void {
 
 /* 右侧导航·每个图标的独特 hover 特效类（定义见 index.css 的 .fx-*）*/
 const NAV_FX: Record<string, string> = {
-  '装备': 'fx-sword', '储存空间': 'fx-bag', 'NPC': 'fx-card', '调教': 'fx-card', '技能': 'fx-sparkle',
+  '装备': 'fx-sword', '储存空间': 'fx-bag', '形象工坊': 'fx-card', 'NPC': 'fx-card', '调教': 'fx-card', '技能': 'fx-sparkle',
   '副职业': 'fx-wrench', '技能树': 'fx-tree', '体系': 'fx-tree', '合成': 'fx-wrench', '开箱': 'fx-bag', '称号': 'fx-medal', '成就': 'fx-trophy', '势力': 'fx-pillar',
   '领地': 'fx-castle', '冒险团': 'fx-shield', '队伍': 'fx-friends', '万族': 'fx-cosmos', '世界百科': 'fx-book', '世界资料库': 'fx-book', '原著WIKI': 'fx-book', '编年史': 'fx-book', '分支树': 'fx-tree', '混沌世界': 'fx-void', '地图': 'fx-zoom',
   '战斗': 'fx-clash', '乐园设施': 'fx-ferris', '深渊': 'fx-void', '幽冥': 'fx-void', '回合洞察': 'fx-zoom', '审计': 'fx-zoom', '任务': 'fx-quest',
-  '频道': 'fx-signal', '私信': 'fx-mail', '采访': 'fx-signal', '好友': 'fx-friends', '聊天室': 'fx-signal', '交易行': 'fx-bag', '产业': 'fx-bag', '公会': 'fx-castle', '助战': 'fx-clash', '世界竞技场': 'fx-trophy', '游玩时长': 'fx-trophy', '纪念丰碑': 'fx-pillar', '账户仓库': 'fx-bag', '记忆': 'fx-brain', '创意工坊': 'fx-sparkle', '存档': 'fx-save', '设置': 'fx-gear',
+  '频道': 'fx-signal', '私信': 'fx-mail', '采访': 'fx-signal', '直播': 'fx-signal', '好友': 'fx-friends', '聊天室': 'fx-signal', '交易行': 'fx-bag', '产业': 'fx-bag', '公会': 'fx-castle', '助战': 'fx-clash', '世界竞技场': 'fx-trophy', '游玩时长': 'fx-trophy', '纪念丰碑': 'fx-pillar', '账户仓库': 'fx-bag', '记忆': 'fx-brain', '创意工坊': 'fx-sparkle', '存档': 'fx-save', '设置': 'fx-gear',
 };
 
 /* 炼晶：把玩家倾向解析成 gemEngine 的 want（指定宝石属性/镶嵌部位；无匹配则返回 undefined 走随机）。
@@ -1953,6 +1969,7 @@ export default function App() {
   const [advisorOpen,      setAdvisorOpen]      = useState(false);   // 🧭 参谋（局外顾问 + 提案卡）
   const [bookmarkOpen,     setBookmarkOpen]     = useState(false);   // ⭐ 坐标（收藏楼层）
   const [interviewOpen,    setInterviewOpen]    = useState(false);   // 🎤 大采访
+  const [liveOpen,         setLiveOpen]         = useState(false);   // 📺 乐园直播间（借鉴Abstract外置手机）
   const [bioCycleOpen,     setBioCycleOpen]     = useState(false);   // 🌸 生理周期管理（⌘K「生理周期」）
   const [trainingOpen,     setTrainingOpen]     = useState(false);   // 🔗 调教系统
   const [worldRecordOpen,  setWorldRecordOpen]  = useState(false);
@@ -1987,6 +2004,7 @@ export default function App() {
   const [assistOpen, setAssistOpen] = useState(false);  // 全局助战大厅
   const [arenaWorldOpen, setArenaWorldOpen] = useState(false);  // 世界竞技场
   const [playtimeOpen, setPlaytimeOpen] = useState(false);  // 游玩时长·排行榜
+  const [outfitWorkshopOpen, setOutfitWorkshopOpen] = useState(false);  // 👗 形象工坊（每角色衣柜·试衣·生图提示词·成衣库）
   const arenaSparFoeRef = useRef<string | null>(null);  // 世界竞技场·切磋/手动挑战的临时对手 cid（战后清理）
   const arenaRankedChallengeRef = useRef<{ myCardId: string; opponentCardId: string } | null>(null);  // 手动应战：战后回传占位结果
   const [monumentOpen, setMonumentOpen] = useState(false);  // 纪念丰碑（跨存档英灵殿）
@@ -2487,6 +2505,11 @@ export default function App() {
   // （讨伐货币/ROLL 物品/豪华奖励/赠予——否则来宾一离房全部蒸发）。无流水=零开销 no-op。
   useEffect(() => { try { replayMpPendingOnBoot(); } catch (e) { console.warn('[MP] 离房奖励补发异常', e); } }, []);
 
+  // 预设中心·底稿版本对账（幂等）：把「保存过但从没真改」的主提示词旧副本自动升级到新版内置默认
+  // （典型：记忆提示词按全文初始化进持久层，内置更新后老档会静默冻在旧版）。真自定义的绝不动，只在预设中心挂徽章。
+  // ⚠ 动态 import：promptRegistry 牵着全套提示词常量，静态引会把它们拽进主 chunk（它本属预设中心的 lazy 分包）。
+  useEffect(() => { void import('./systems/promptRegistry').then((m) => m.reconcilePromptDefaults()).catch((e) => console.warn('[预设中心] 底稿对账异常', e)); }, []);
+
   // P4·空态深链：面板经 navBus 请求「打开设置并直达子页」（CustomEvent 解耦·免穿 9 个 lazy 面板的 prop）
   useEffect(() => {
     const h = (e: Event) => { const p = (e as CustomEvent).detail; if (typeof p === 'string' && p) { setSettingsDeepPage(p); setSettingsOpen(true); } };
@@ -2808,18 +2831,16 @@ export default function App() {
     // 仿 fanren 范式：认 chatHistory marker，把「相对块(非深度注入)」切成 前历史 / 后历史。
     //   前历史 system→合并系统提示、user/assistant→少样本；后历史块→插在真实楼层之后(post-history)。
     //   无 chatHistory marker 的预设（轮回乐园三本）→ 全部当前历史，行为不变。
-    // ST 宏引擎：按预设顺序对每个块的 content 求值（setvar→后续 getvar 生效），未识别宏末尾清掉防泄漏。
-    //   轮回乐园/双人成行无宏=无操作；让导入的任意 ST 预设不必再手工摊平宏。
-    const _macroCtx = makeMacroCtx({
+    // 统一展开 expandPromptText：先表格模板(<if var/cell/seed/cond>/计算标签/$ref·seedContent=末条正文)，再 ST 宏。
+    //   按预设顺序对每个块求值（setvar→后续 getvar 生效·runtimeVars 已灌入可 {{getvar::主角.HP}}/${世界.名}/<if var>），
+    //   未识别宏末尾清掉防泄漏；轮回乐园/双人成行无宏=无操作；让导入的任意 ST 预设不必再手工摊平宏。
+    const _expandCtx = makePromptExpandCtx({
       user: usePlayer.getState().profile?.name || '主角',
       char: usePlayer.getState().profile?.name || '主角',
       lastUserMessage: userInput,
-      // 透明变量桥：核心游戏态 + 自定义变量灌进宏上下文，预设可 {{getvar::主角.HP}} / ${世界.名} / {{getvar::好感度}} 直接引用
-      runtimeVars: buildRuntimeVars(),
+      seedContent: lastNarrativeRef.current || '',
     });
-    // ACU 表格数据库·读路径(native)：先解析表格模板(<if cell/seed>/计算标签/$ref)，再走 ST 宏。seedContent=末条正文。
-    const _seedContent = lastNarrativeRef.current || '';
-    const enabled = (preset?.entries ?? []).filter((e) => e.enabled).map((e) => ({ ...e, content: processMacros(resolveTableTemplates(e.content || '', { seedContent: _seedContent }), _macroCtx) }));
+    const enabled = (preset?.entries ?? []).filter((e) => e.enabled).map((e) => ({ ...e, content: expandPromptText(e.content || '', _expandCtx) }));
     const relative = enabled.filter((e) => e.injection_position !== 1);
     const chatIdx = relative.findIndex((e) => e.marker && e.identifier === 'chatHistory');
     const preRel = chatIdx >= 0 ? relative.slice(0, chatIdx) : relative;
@@ -5539,6 +5560,53 @@ export default function App() {
     }
   }
 
+  /* ─── 演化预筛 Gate（借鉴 SoulLink 思想·systems/rosterGate.ts·默认 off）───
+     只裁「在场·非新建」的焦点：正文没写到实际变化的在场 NPC 本轮跳过大演化调用——
+     省调用之外，更是从源头减少"没变化硬编变化"的防漂压力（与下游成长闸门互补）。
+     ⚠ 边界钉死：新建必过（必须建档）；离场目标是驱动力闸门/好友轮换选出的后台自转，不归 Gate 管；
+       Gate 失败/解析失败一律 fail-open 全跑；每 N 回合强制全量一轮，防「沉默变化」漏更累积。 */
+  async function gateFocusIds(focusIds: string[], narrative: string, createdIds: Set<string>, turn: number): Promise<string[]> {
+    const sched = useNpcEvo.getState().settings.scheduling;
+    const mode = sched.evoGateMode ?? 'off';
+    if (mode === 'off') return focusIds;
+    const forceEvery = sched.evoGateForceFullEvery ?? 4;
+    if (forceEvery > 0 && turn > 0 && turn % forceEvery === 0) {
+      console.log(`[NPC预筛] 第 ${turn} 回合强制全量（每 ${forceEvery} 回合防漏更）`);
+      return focusIds;
+    }
+    const { npcs } = useNpc.getState();
+    const gateable = focusIds.filter((id) => npcs[id]?.onScene && !createdIds.has(id));
+    if (gateable.length === 0) return focusIds;
+    const roster: RosterGateItem[] = gateable.map((id) => ({
+      id, name: npcs[id].name,
+      hint: [npcs[id].npcTag, npcs[id].profession].filter(Boolean).join('·') || undefined,
+    }));
+    const trimmed = trimNarrative(narrative).slice(-6000);   // Gate 是轻量调用，正文只喂尾段
+    let selected: Set<string>;
+    if (mode === 'local') {
+      selected = localNameScan(roster, trimmed);   // 零 API：名字出现在正文即入选（抓不到沉默目击者）
+    } else {
+      // 独立接口槽 npcGate；未配置路由则沿用 NPC 演化接口链
+      const gateRouteIds = useSettings.getState().apiRoutes?.['npcGate'] ?? [];
+      const chain = gateRouteIds.length ? resolveApiChain('npcGate', getNpcApi()) : resolveApiChain('npc', getNpcApi());
+      const res = await runRosterGate({ chain, criteria: NPC_EVO_GATE_RULE, roster, narrative: trimmed, label: 'NPC演化预筛Gate' });
+      if (!res.ok) {
+        reportConsistency('evo-gate', `预筛 Gate 失败→本轮回退全量演化：${(res.error ?? '未知').slice(0, 120)}`);
+        return focusIds;
+      }
+      selected = res.selected;
+      if (selected.size === 0) {
+        // 0 入选可审计（安静回合是合法结果，但要留原文供排查漏选）
+        reportConsistency('evo-gate', `预筛 0 入选（在场 ${roster.length} 人未见变化）·Gate 原文：${res.raw.slice(0, 160) || '（空）'}`);
+      }
+      const unmatched = res.rawNames.length - selected.size;
+      if (unmatched > 0) console.warn(`[NPC预筛] Gate 输出 ${unmatched} 个名单外/对不上的名字（已忽略）：`, res.rawNames.join('、'));
+    }
+    const skipped = gateable.filter((id) => !selected.has(id));
+    if (skipped.length) console.log(`[NPC预筛] ⏸ 本轮跳过在场 ${skipped.length} 人（${mode === 'local' ? '正文未点名' : '判定无实际变化'}）：${skipped.map((id) => npcs[id]?.name || id).join('、')}`);
+    return focusIds.filter((id) => !npcs[id]?.onScene || createdIds.has(id) || selected.has(id));
+  }
+
   /* ─── 策略B：登场判断之后的"调度 + 逐NPC演化" ─── */
   async function runNpcFocusEvolution(narrative: string, createdIds: Set<string>) {
     setNpcPhaseRunning(true);
@@ -5546,6 +5614,8 @@ export default function App() {
       const turn = turnCountRef.current;
       const sched = useNpcEvo.getState().settings.scheduling;
       let focusIds = computeFocusList(createdIds, turn);
+      // 演化预筛 Gate（借鉴 SoulLink·默认 off）：先裁掉「在场但本轮无实际变化」的目标，再套每回合上限
+      focusIds = await gateFocusIds(focusIds, narrative, createdIds, turn);
       // 每回合最多演化几个（0=不限）
       if ((sched.modelPerTurnLimit ?? 0) > 0) focusIds = focusIds.slice(0, sched.modelPerTurnLimit);
       console.log('[NPC] 重点演化列表:', focusIds.join(', ') || '（空）');
@@ -7778,6 +7848,35 @@ ${AFFIX_EFFECT_RULE}`;
     } finally { useWorldNews.getState().setRefreshing(false); }
   }
 
+  /* 🔎 乐园检索（借鉴Abstract外置手机 browser·拉取式情报）：检索词→3~5条世界内搜索结果。
+     认知门与世界见闻同一道（buildNewsCandidates：hidden 连候选都进不来·trace 只给表象）；
+     候选空≠不能搜——只是事实池为空，仍可搜生活化信息（与见闻"空则不白花钱"不同，检索是玩家主动行为）。 */
+  async function paradiseSearch(query: string): Promise<{ ok: boolean; msg: string; hits: import('./systems/paradiseSearch').SearchHit[] }> {
+    const q = (query || '').trim().slice(0, 60);
+    if (!q) return { ok: false, msg: '输入点什么再搜', hits: [] };
+    const M = useMisc.getState();
+    const wn = (M.worldName || '').trim();
+    const cands = buildNewsCandidates(M.worldEvents ?? [], M.rumors ?? [], wn, sameWorld);
+    const ss = useSettings.getState();
+    const chain = resolveApiChain('paradiseSearch', ss.textUseSharedApi ? ss.api : ss.textApi);
+    if (!chain[0]?.baseUrl || !chain[0]?.apiKey) return { ok: false, msg: '接口未配置：接口路由 paradiseSearch 或正文 API（默认回退）', hits: [] };
+    try {
+      const sys = PARADISE_SEARCH_RULE
+        + `\n\n【当前世界】${wn || '（未设定·轮回乐园本部）'}｜【世界时间】${M.worldTime || M.paradiseTime || '（未设定）'}`
+        + `\n${searchCandidateBlock(cands)}`;
+      const { content } = await apiChatFallback(chain, [
+        { role: 'system', content: sys },
+        { role: 'user', content: `检索词：「${q}」\n请按【输出】只输出 JSON。` },
+      ], { timeoutMs: 90000 });
+      const hits = parseSearchReply(content || '');
+      if (!hits.length) return { ok: false, msg: '没检索到可用结果（格式不符或没相关内容），换个词试试', hits: [] };
+      return { ok: true, msg: `${hits.length} 条结果`, hits };
+    } catch (e) {
+      console.warn('[检索] 失败', e);
+      return { ok: false, msg: `检索失败：${e instanceof Error ? e.message : '网络或接口错误'}`, hits: [] };
+    }
+  }
+
   /* 📰 本世界日报（借鉴Zsd报纸板块）：与见闻同一套可见性门控候选，出一期 头条+栏目文章+读者来信 的本地刊物。
      往期头条注入防重复报道；头条缺失=整期作废提示重试。走 worldNews 接口路由。 */
   async function genWorldPaper(): Promise<{ ok: boolean; msg: string }> {
@@ -8201,27 +8300,37 @@ ${CHANNEL_ANTI_SLOP_RULE}`;
     return `你是公共频道里的契约者【${th.targetName}】，主角私信了你。你和主角还没深入接触，请基于你已经展现出的信息（发言、职业、性格）即兴、自洽地回应，保持一致的人设，不要扮演旁白。\n${lines.join('\n')}`;
   }
 
-  /* 取对话历史（喂给 AI，过滤系统消息；带花样的消息压成方括号标记行——借鉴外置手机的历史压缩）*/
+  /* 取对话历史（喂给 AI，过滤系统消息；带花样的消息压成方括号标记行——借鉴外置手机的历史压缩）。
+     群聊线程：每条冠发言人名（主角消息也冠主角名，让 AI 分得清多方对话）。 */
   function dmHistory(th: import('./store/dmStore').DmThread, limit = 12): { role: 'user' | 'assistant'; content: string }[] {
+    const isGroup = th.kind === 'group';
+    const pn = usePlayer.getState().profile.name || '主角';
     return th.messages.filter((m) => m.from !== 'system').slice(-limit).map((m) => ({
       role: m.from === 'player' ? 'user' as const : 'assistant' as const,
-      content: dmMsgToHistoryText(m),
+      content: isGroup
+        ? groupMsgToHistoryText(m.from === 'player' ? pn : (m.senderName || '成员'), m.kind === 'sticker' ? `[表情包] ${m.text}` : m.text)
+        : dmMsgToHistoryText(m),
     }));
   }
 
-  /* 聊天：NPC 据人设回一轮（行协议：状态头+心声+1~4条消息，可带撤回/引用/戳花样；解析失败整段兜底纯文本）*/
-  async function dmReply(threadId: string, playerText: string) {
+  /* 聊天：NPC 据人设回一轮（行协议：状态头+心声+1~4条消息，可带撤回/引用/戳花样；解析失败整段兜底纯文本）。
+     opts.kind='sticker'：主角发的是表情包（playerText=表情包名，历史压缩成 [表情包] 名喂给对方）。*/
+  async function dmReply(threadId: string, playerText: string, opts?: { kind?: 'sticker' }) {
     const dm = useDm.getState();
     const th = dm.threads[threadId]; if (!th) return;
-    dm.addMsg(threadId, { from: 'player', text: playerText });
+    dm.addMsg(threadId, { from: 'player', text: playerText, kind: opts?.kind });
     const chain = dmChain();
     if (!chain[0]?.baseUrl || !chain[0]?.apiKey) { dm.addMsg(threadId, { from: 'system', text: '（私信 API 未配置：在「设置→变量管理→📡 公共频道」或接口路由 channel 配置）' }); return; }
-    const sys = dmPersonaPrompt(th) + `\n\n【主角面板】${dmPlayerCard()}\n\n请以你本人的口吻回复主角这条私信，贴合你的性格与你和主角的关系。` + getPrompt('DM_REPLY_PROTOCOL_RULE', DM_REPLY_PROTOCOL_RULE);
+    const sys = dmPersonaPrompt(th) + `\n\n【主角面板】${dmPlayerCard()}\n\n请以你本人的口吻回复主角这条私信，贴合你的性格与你和主角的关系。` + getPrompt('DM_REPLY_PROTOCOL_RULE', DM_REPLY_PROTOCOL_RULE) + buildStickerInjection();
     try {
       const { content } = await apiChatFallback(chain, [{ role: 'system', content: sys }, ...dmHistory(useDm.getState().threads[threadId]!)], { timeoutMs: 60000 });
       const parsed = parseDmReply(content || '');
-      if (!parsed.msgs.length) { dm.addMsg(threadId, { from: 'npc', text: '……' }); return; }
-      parsed.msgs.forEach((m, i) => {
+      // 😊 表情包硬过滤（双保险）：名称不在库的 sticker 整条丢弃
+      const stSet = stickerNameSet();
+      const msgs = parsed.msgs.filter((m) => m.kind !== 'sticker' || stSet.has(m.text));
+      if (msgs.length !== parsed.msgs.length) console.warn(`[私信] 😊 过滤了 ${parsed.msgs.length - msgs.length} 条无效表情包（名称不在库）`);
+      if (!msgs.length) { dm.addMsg(threadId, { from: 'npc', text: '……' }); return; }
+      msgs.forEach((m, i) => {
         dm.addMsg(threadId, {
           from: 'npc', text: m.text, kind: m.kind === 'text' ? undefined : m.kind,
           orig: m.orig, quote: m.quote,
@@ -8253,18 +8362,106 @@ ${CHANNEL_ANTI_SLOP_RULE}`;
     const dm = useDm.getState();
     const tid = dm.openThread({ targetId: rec.id, targetName: rec.name || intent.sender, targetTag: rec.npcTag });
     const th = useDm.getState().threads[tid]; if (!th) return;
-    const sys = dmPersonaPrompt(th) + `\n\n【主角面板】${dmPlayerCard()}\n\n【本次场景】这不是回复——是你**主动**给主角发来私讯。你的动机：${intent.reason || '（见大意）'}；要说的大意：${intent.gist}。据此自然开场，贴合你的性格与你和主角的关系。` + getPrompt('DM_REPLY_PROTOCOL_RULE', DM_REPLY_PROTOCOL_RULE);
+    const sys = dmPersonaPrompt(th) + `\n\n【主角面板】${dmPlayerCard()}\n\n【本次场景】这不是回复——是你**主动**给主角发来私讯。你的动机：${intent.reason || '（见大意）'}；要说的大意：${intent.gist}。据此自然开场，贴合你的性格与你和主角的关系。` + getPrompt('DM_REPLY_PROTOCOL_RULE', DM_REPLY_PROTOCOL_RULE) + buildStickerInjection();
     try {
       const { content } = await apiChatFallback(chain, [{ role: 'system', content: sys }, ...dmHistory(th, 8)], { timeoutMs: 60000 });
       const parsed = parseDmReply(content || '');
-      if (!parsed.msgs.length) return;
-      parsed.msgs.forEach((m, i) => dm.addMsg(tid, {
+      const stSet = stickerNameSet();
+      const msgs = parsed.msgs.filter((m) => m.kind !== 'sticker' || stSet.has(m.text));   // 😊 无效表情包名丢弃
+      if (!msgs.length) return;
+      msgs.forEach((m, i) => dm.addMsg(tid, {
         from: 'npc', text: m.text, kind: m.kind === 'text' ? undefined : m.kind,
         orig: m.orig, quote: m.quote, meta: i === 0 ? parsed.meta : undefined,
       }));
-      useDm.getState().bumpUnread(tid, parsed.msgs.length);
+      useDm.getState().bumpUnread(tid, msgs.length);
       console.log(`[来讯] 📨 ${rec.name} 主动来讯 ${parsed.msgs.length} 条（动机：${intent.reason || intent.gist}）`);
     } catch (e) { console.warn('[来讯] 📨 生成失败（本窗口冷却已占用）', e); }
+  }
+
+  /* 👥 群聊回合（借鉴Abstract外置手机 group_message·代码全自写）：
+     playerText 有值=主角发言→成员回应；undefined=「👂 潜水」→成员自治聊天（借"我方没有发言，让群成员继续聊天"思想）。
+     成员人设=紧凑卡（不逐人全量 dmPersonaPrompt——多人全量会爆 token），已建档成员带 性格/称呼/好感/近况。 */
+  async function groupChatReply(threadId: string, playerText?: string, opts?: { kind?: 'sticker' }) {
+    const dm = useDm.getState();
+    const th = dm.threads[threadId];
+    if (!th || th.kind !== 'group' || !(th.members?.length)) return;
+    const chain = resolveApiChain('groupChat', getChannelApi());   // featureKey='groupChat'·回退频道接口
+    if (!chain[0]?.baseUrl || !chain[0]?.apiKey) { dm.addMsg(threadId, { from: 'system', text: '（群聊 API 未配置：接口路由 groupChat 或频道接口）' }); return; }
+    const prof = usePlayer.getState().profile;
+    const playerName = prof.name || '主角';
+    if (playerText && playerText.trim()) dm.addMsg(threadId, { from: 'player', text: playerText.trim(), kind: opts?.kind });
+    // 成员紧凑卡：已建档→档案关键项；未建档→只有名字
+    const npcs = useNpc.getState().npcs;
+    const cards = th.members.map((mb) => {
+      const rec = mb.id ? npcs[mb.id] : Object.values(npcs).find((n) => (n.name || '').trim() === mb.name);
+      if (!rec) return `- ${mb.name}（信息不详，按名字与上文语境即兴）`;
+      const bits = [
+        rec.npcTag && `${rec.npcTag}`, rec.realm && `${rec.realm}`, rec.profession && `职业${rec.profession}`,
+        rec.personality && `性格:${String(rec.personality).slice(0, 40)}`,
+        rec.callPlayer && `称主角:${rec.callPlayer}`,
+        `好感${rec.favor}`,
+        rec.onScene ? '此刻与主角同在场' : (rec.status ? `近况:${String(rec.status).slice(0, 30)}` : '离场各忙各的'),
+        rec.innerThought && `心思:${String(rec.innerThought).slice(0, 30)}`,
+      ].filter(Boolean);
+      return `- ${mb.name}（${bits.join('；')}）`;
+    }).join('\n');
+    const sys = `这是「${th.targetName}」群聊（乐园终端群组）。群成员（除主角外，全部由你扮演）：\n${cards}\n\n【主角】${playerName}（${prof.tier || '一阶'}·Lv.${prof.level ?? 1}）也在群里，群里的消息他都看得见。` + getPrompt('GROUP_CHAT_RULE', GROUP_CHAT_RULE) + buildStickerInjection().replace('用一行「贴: 名称」', '用「发言人姓名|贴: 名称」');
+    const user = playerText && playerText.trim()
+      ? (opts?.kind === 'sticker'
+        ? `${playerName}（主角）刚在群里发了一个表情包「${playerText.trim()}」。\n请按行协议输出群成员们的回应（可互相接话，也可以回敬表情包）。`
+        : `${playerName}（主角）刚在群里说：「${playerText.trim()}」\n请按行协议输出群成员们的回应（可互相接话）。`)
+      : `主角没有发言，只是在看群。让群成员**自发**聊起来——聊他们自己的事、彼此的事、最近的见闻，不必围绕主角，更不要@主角求回应。按行协议输出。`;
+    try {
+      const { content } = await apiChatFallback(chain, [{ role: 'system', content: sys }, ...dmHistory(useDm.getState().threads[threadId]!, 16), { role: 'user', content: user }], { timeoutMs: 60000 });
+      const stSet = stickerNameSet();
+      const msgs = parseGroupReply(content || '', { playerName, memberNames: th.members.map((m) => m.name) })
+        .filter((m) => m.kind !== 'sticker' || stSet.has(m.text));   // 😊 无效表情包名整条丢弃（双保险）
+      if (!msgs.length) { dm.addMsg(threadId, { from: 'system', text: '（群里静悄悄的，没人说话）' }); return; }
+      for (const m of msgs) {
+        await new Promise((res) => setTimeout(res, 350 + Math.random() * 550));   // 错峰上屏，像陆续有人说话
+        useDm.getState().addMsg(threadId, { from: 'npc', senderName: m.sender, text: m.text, kind: m.kind });
+      }
+    } catch (e: any) { dm.addMsg(threadId, { from: 'system', text: `（群消息没发出去：${(e?.message ?? '').slice(0, 40)}）` }); }
+  }
+
+  /* 🕳 窃听（借鉴Abstract外置手机 peek·代码全自写）：监听两名离场角色的私下交谈。
+     前端确定性扣乐园币（失败/污染退款·silent 走自己的窃听通报）；认知边界=eventsKnownTo 各自过滤；
+     转写复用群聊行协议解析（白名单=这两人）；有概率被察觉→双方好感下降+通报点明。 */
+  async function eavesdropNpcs(aId: string, bId: string): Promise<{ ok: boolean; msg: string; lines: { sender: string; text: string }[]; discovered: boolean }> {
+    const fail = (msg: string) => ({ ok: false, msg, lines: [] as { sender: string; text: string }[], discovered: false });
+    const npcs = useNpc.getState().npcs;
+    const a = npcs[aId], b = npcs[bId];
+    if (!a || !b || aId === bId) return fail('选两个不同的监听对象');
+    if (a.onScene || b.onScene) return fail('只能窃听离场角色（在场的当面听就是了）');
+    if (a.isDead || b.isDead) return fail('逝者已矣，监听不到了');
+    const items = useItems.getState();
+    if ((items.currency.乐园币 ?? 0) < EAVESDROP_COST) return fail(`乐园币不足（窃听一次需 ${EAVESDROP_COST}）`);
+    items.adjustCurrency('乐园币', -EAVESDROP_COST, '窃听行动', true);
+    const refund = (msg: string) => { useItems.getState().adjustCurrency('乐园币', EAVESDROP_COST, '窃听失败退款', true); return fail(msg); };
+    const M = useMisc.getState();
+    const wn = M.worldName || '';
+    try {
+      const sys = buildEavesdropSys(a, b,
+        eventsKnownTo(M.worldEvents ?? [], a.name || '', wn, sameWorld),
+        eventsKnownTo(M.worldEvents ?? [], b.name || '', wn, sameWorld),
+        wn, M.worldTime || M.paradiseTime || '');
+      const content = await npcChatCompletion(sys, '开始输出这段交谈（只按行协议，8~14行）。', 'observe');
+      if (observeContaminated(content)) return refund('监听信号被污染（生成不合格），费用已退');
+      const lines = parseGroupReply(content, { playerName: usePlayer.getState().profile.name || '主角', memberNames: [a.name || '', b.name || ''], cap: 14 });
+      if (lines.length < 2) return refund('没听到有效交谈，费用已退');
+      const discovered = rollDiscovered();
+      if (discovered) {
+        const U = useNpc.getState();
+        U.upsertNpc(aId, { favor: Math.max(-100, (a.favor ?? 0) - EAVESDROP_FAVOR_HIT) });
+        U.upsertNpc(bId, { favor: Math.max(-100, (b.favor ?? 0) - EAVESDROP_FAVOR_HIT) });
+      }
+      const gist = lines.slice(0, 2).map((l) => `${l.sender}:「${l.text.slice(0, 40)}」`).join('；');
+      pushSceneNotice(eavesdropNotice(a.name || '', b.name || '', gist, discovered));
+      return { ok: true, msg: '', lines, discovered };
+    } catch (e) {
+      console.warn('[窃听] 失败', e);
+      return refund('监听失败（网络/接口错误），费用已退');
+    }
   }
 
   /* 玩家发起一笔交易动作 → 人类可读的玩家消息行 */
@@ -8273,6 +8470,7 @@ ${CHANNEL_ANTI_SLOP_RULE}`;
     if (kind === 'buy') return `（我想向你购买：${payload.itemName}${q}）`;
     if (kind === 'sell') return `（我想把我的「${giveName}」${q}${payload.askPrice ? `卖给你，期望 ${payload.askPrice}` : '送给你'}）`;
     if (kind === 'request') return `（我想向你讨要：${payload.itemName}${q}${payload.plea ? `。${payload.plea}` : ''}）`;
+    if (kind === 'transfer') return `（我给你转账 ${payload.amount} ${payload.currency || '乐园币'}${payload.note ? `，附言：${payload.note}` : ''}）`;
     return `（我想用我的「${giveName}」${q}换你的「${payload.wantName}」）`;
   }
 
@@ -8315,6 +8513,10 @@ ${CHANNEL_ANTI_SLOP_RULE}`;
     } else if (kind === 'sell') {
       instr = `\n\n主角想把自己的【${giveItem?.name || payload.itemName || '物品'}】${payload.qty > 1 ? ` ×${payload.qty}` : ''}（品质：${giveItem?.gradeDesc || '未知'}，效果：${giveItem?.effect || '未知'}）${payload.askPrice ? `卖给你，期望 ${payload.askPrice} 乐园币` : `无偿赠予你`}。请判断你是否收下、愿付多少（可爽快收下并付钱、可还价压价、可白拿道谢、也可嫌弃拒绝）。
 **只输出 JSON**：{"accept":true或false,"reply":"你的话","price":你愿支付的数字(0=收下但不付钱/收礼道谢),"currency":"乐园币|灵魂钱币"}。`;
+    } else if (kind === 'transfer') {
+      instr = `\n\n主角给你【转账】${payload.amount} ${dmNormCur(payload.currency)}${payload.note ? `，附言：「${payload.note}」` : '（没写附言）'}。这是无偿赠予（不是买东西）。
+结合你和主角的关系/好感/你的性格与骨气，决定收不收：可以爽快收下道谢、可以推辞两句再收、也可以拒收（不缺钱/有骨气/觉得被施舍/关系不到位……都是理由）。你也可以对这笔钱的用途或主角的心意说点什么。
+**只输出 JSON**：{"accept":true或false,"reply":"你的话(本人口吻,1~2句)"}。`;
     } else if (kind === 'request') {
       instr = `\n\n主角向你【索取】物品：「${payload.itemName}」${payload.qty > 1 ? ` ×${payload.qty}` : ''}${payload.plea ? `，并说：「${payload.plea}」` : ''}（多半想白拿）。结合你和主角的关系/好感/性格、以及你是否有，三选一：
 - "give"：赠予（白给）。
@@ -8333,7 +8535,13 @@ ${CHANNEL_ANTI_SLOP_RULE}`;
       const cur = dmNormCur(j.currency);
       const ts = Date.now();
       let deal: import('./store/dmStore').DmDeal | null = null;
-      if (kind === 'buy') {
+      if (kind === 'transfer') {
+        // 💸 转账：金额/币种由玩家定死（AI 只决定收不收——数值前端说了算，AI 改不了）；拒收=只回话不出卡
+        if (j.accept === true || j.accept === 'true') {
+          const amt = Math.max(1, parseInt(String(payload.amount), 10) || 0);
+          deal = { id: dmDealId(), kind: 'transfer', giveCurrency: { amount: amt, type: dmNormCur(payload.currency) }, note: reply, source: 'free', status: 'pending', ts };
+        }
+      } else if (kind === 'buy') {
         const av = String(j.available || '').toLowerCase();
         const p = dmPrice(j);
         if (av !== 'no' && (j.item || p > 0)) deal = { id: dmDealId(), kind: 'buy', giveCurrency: { amount: p, type: cur }, getItem: dmJItem(j.item, payload.itemName, payload.qty), note: reply, source: av === 'source' ? 'source' : 'have', status: 'pending', ts };
@@ -8493,6 +8701,8 @@ ${CHANNEL_ANTI_SLOP_RULE}`;
 
   const dmHandlers: DmHandlers = {
     onReply: dmReply, onPropose: dmPropose, onHaggle: dmHaggle, onAccept: dmAccept, onGenArchive: dmGenArchive,
+    onGroupReply: groupChatReply,   // 👥 群聊：发言/潜水两模式
+    onEavesdrop: eavesdropNpcs,     // 🕳 窃听：两离场角色私谈（花乐园币·有风险）
     onOpenNpc: (cid: string) => { setDmPanelOpen(false); setOnSceneDetailId(cid); },
     onAddFriend: async (threadId: string) => {
       const dm = useDm.getState(); const th = dm.threads[threadId]; if (!th) return;
@@ -10885,6 +11095,28 @@ ${lines}`;
     return buildCastBriefInput(Object.values(useNpc.getState().npcs), userText, { max: ss.castBriefMax });
   };
 
+  /* 🫀 逐角色心流独白（借鉴SoulLink·默认关）：sendMessage 一开始就把本批推演**并发起跑**——
+     与检定审核/细纲生成与编辑/推进规划这些等待窗口重叠，正文 callApi 组装时限时收割（fail-open）。
+     产物不落任何 store：⟳重生成=先回退再重放会重新起跑；每次发送先重置 ref，绝不消费上一回合的过期心流。 */
+  const mindflowPendingRef = useRef<Promise<string> | null>(null);
+  function startMindflowForTurn(userText: string): void {
+    mindflowPendingRef.current = null;   // 先重置：本回合没起跑就是没有
+    const ss = useSettings.getState();
+    if (!ss.mindflowEnabled) return;
+    if (useMp.getState().status === 'connected') return;   // 联机正文走房主权威流程，不掺单机心流
+    const routeIds = ss.apiRoutes?.['npcMindflow'] ?? [];
+    const chain = routeIds.length ? resolveApiChain('npcMindflow', getNpcApi()) : resolveApiChain('npc', getNpcApi());
+    if (!chain[0]?.baseUrl || !chain[0]?.apiKey) return;   // 未配接口：零开销直接放行
+    const lastNarr = [...messagesRef.current].reverse().find((m) => m.role === 'assistant')?.content ?? '';
+    mindflowPendingRef.current = runMindflowBatch({
+      npcs: Object.values(useNpc.getState().npcs),
+      userText,
+      recentTail: lastNarr.slice(-2600),
+      chain,
+      max: ss.mindflowMax ?? 2,
+    });
+  }
+
   /* 剧情指导：正文生成【前】先跑一次，据「最近5楼 + 玩家这步 + 当前任务/场景」产出剧情优化建议（提示词允许联网搜原作剧情让切入更合理）。
      建议像叙事回忆一样注入主正文，由主正文据此写。失败/无配置 → 返回 ''（不注入，正文照常生成）。可挂独立 guidance 路由。 */
   async function runPlotGuidance(userText: string): Promise<string> {
@@ -11124,10 +11356,19 @@ ${lines}`;
     //   只认乐园档案条目（comment 以「X乐园」结尾，如「[mvu_plot]天启乐园」），不误命中「战斗描写·轮回乐园(笔法)」等；
     //   轮回乐园无独立档案条目→不额外注入，自然回退到常驻世界观设定，无副作用。
     const homeBare = (usePlayer.getState().profile.homeParadise || '').trim().replace(/乐园$/, '');   // 归一裸乐园名（"天启乐园"→"天启"）
+    // 🎯 activeWhen 条件门（P1·借鉴 ST-PT @@if 思想）：条目可选「激活条件」（<if cond> 语法：var:/cell:/seed:/random:），
+    //   不满足=本回合视同禁用。vars 惰性采集（全库无条件条目=零开销）；seed: 原子口径=关键词命中同款 matchCtx（输入+近10楼）。
+    let _wbVars: Record<string, string> | undefined;
+    const _wbWhenPass = (e: { activeWhen?: string }) => {
+      const w = (e.activeWhen || '').trim();
+      if (!w) return true;
+      if (!_wbVars) _wbVars = buildRuntimeVars();
+      return passActiveWhen(w, { seedContent: matchCtx, vars: _wbVars });
+    };
     const wbEntries = textWorldBooks
       .filter((b) => b.enabled)
       .flatMap((b) => b.entries.filter((e) =>
-        e.enabled && (
+        e.enabled && _wbWhenPass(e) && (
           e.constant ||   // 蓝灯：常驻，无条件纳入
           (e.selective && e.key.some((k) => k && matchCtx.includes(k.toLowerCase()))) ||
           (!!homeBare && (e.comment || '').endsWith(homeBare + '乐园'))   // 所属乐园档案条目：常驻注入
@@ -11402,6 +11643,18 @@ ${lines}`;
     const skillUpNote = takeSkillUpNote();        // 技能升级·一次性"点数已用掉"系统提示（注入一次即清）
     // 世界详情库 ·剧情 档案预取：在任务世界才拉（首回合下载 manifest+分片 ~几百KB，之后内存缓存秒回；超时 5s 放行本回合、下回合再试）
     await ensureWorldDetailFor(useMisc.getState().worldName || '');
+    // 🫀 <角色心流·导演注>（借鉴SoulLink·默认关）：收割发送时并发起跑的逐角色推演。
+    //   多数情况下细纲/推进的等待早把它熬熟了（此处秒取）；纯直发路径最多再等 20s，超时/失败=不注入（fail-open）。
+    //   只进真正的正文调用：细纲/推进等规划任务(task)与分头渲染(narrateOnly)不吃；消费即清，绝不复用过期心流。
+    let mindflowMsgs: { role: 'system'; content: string }[] = [];
+    if (!opts.task && !narrateOnly && mindflowPendingRef.current) {
+      const _mfP = mindflowPendingRef.current; mindflowPendingRef.current = null;
+      try {
+        const _mfTxt = await Promise.race([_mfP, new Promise<string>((r) => setTimeout(() => r(''), 20000))]);
+        if (_mfTxt) mindflowMsgs = [{ role: 'system', content: _mfTxt }];
+        else console.log('[心流] 超时或无产出，本回合不注入');
+      } catch { /* fail-open：心流绝不拦正文 */ }
+    }
     const history = [
       ...examples,
       ...(worldbook && !worldbook.post ? [{ role: worldbook.role, content: worldbook.content }] : []),   // <世界书> marker 在前历史 → 楼层前（罕见，ST 预设）
@@ -11445,6 +11698,7 @@ ${lines}`;
       ...rumorBlock,                                    // <市井流言> 只给"街面上在传什么"，**不给真相** → NPC 可基于错信息行动（见 systems/rumor）
       ...buildChannelBuzzInjection(),                   // 📡 <广场舆论> 公共频道热帖氛围（借鉴Zsd论坛·仅氛围参考+禁续写双护栏·0条=零块·见 systems/channelBuzz）
       ...buildCastHintInjection(),                      // <角色动向提示> 轨道A 后台织出的"谁可能回来/谁刚走"→ 导演提示（背景事实非剧本·见 systems/castHint）
+      ...mindflowMsgs,                                  // 🫀 <角色心流·导演注> 逐角色独立推演的第一人称心流（借鉴SoulLink·默认关·fail-open·见 systems/mindflow）
       ...preludeBlock,                                  // <前置须知> 玩家常驻前置提示词 + 本回合场外操作通报 → 最深处·紧贴输入前（深度最深·权重最高）
       ...growthBlock,                                    // <本回合成长·需入戏交代> 玩家刚点亮的星图技能/天赋 → 正文叙述主角如何习得（治职业与正文脱节）
       ...outlineBlock,                                   // <本回合细纲> 玩家确认的施工蓝图 → 最深处·最高优先，正文严格遵循（细纲功能）
@@ -11452,6 +11706,26 @@ ${lines}`;
       { role: 'user' as const, content: userText },
       ...(effectivePrefill ? [{ role: 'assistant' as const, content: effectivePrefill }] : []),   // 末尾预填充（prefill 块 / 跳过思维链）
     ];
+
+    // 🎯 自定义注入（预设中心·P1·借鉴 ST-PT @INJECT 思想）：玩家条目按位置插入最终 history。
+    //   最后一步应用、与预设内部 injection_position/order 体系不混算；prefill 由 protectTail 保住末位；
+    //   activeWhen 不满足 / 内容展开为空 / 正则未命中 = 该条静默跳过。细纲(isOutline)走自己的 outlineHistory，不受影响。
+    try {
+      const _injList = usePromptOverride.getState().injects ?? [];
+      if (_injList.some((j) => j && j.enabled)) {
+        const _injCtx = makePromptExpandCtx({
+          user: usePlayer.getState().profile?.name || '主角',
+          char: usePlayer.getState().profile?.name || '主角',
+          lastUserMessage: userText,
+          seedContent: matchCtx,   // seed: 口径与世界书激活一致（输入+近10楼）
+        });
+        applyCustomInjects(history, _injList, {
+          expand: (t) => expandPromptText(t, _injCtx, false, true),   // 玩家文本：不清残留+未知变量原样保留
+          cond: (x) => passActiveWhen(x, _injCtx.tableCtx),
+          protectTail: effectivePrefill ? 1 : 0,
+        });
+      }
+    } catch (e) { console.warn('[自定义注入] 应用失败（忽略·不阻断正文）', e); }
 
     // ── 细纲生成（A2·信息一致/任务替换）：复用上面算好的全部上下文信息块，但**丢掉正文预设的写正文/排版指令**，
     //    system 只发 OUTLINE_GEN_RULE（+ 世界书信息）；history 保留记忆/档案/世界书深注入/时空任务等纯信息块，去掉少样本/后历史/prefill/剧情指导等「怎么写正文」的东西。
@@ -11676,16 +11950,28 @@ ${lines}`;
         if ((preset?.presence_penalty  ?? 0) !== 0) reqBody.presence_penalty  = preset!.presence_penalty;
         if ((preset?.seed ?? -1) !== -1)             reqBody.seed              = preset!.seed;
         if ((preset?.n ?? 1) > 1)                    reqBody.n                 = preset!.n;
-        try {
-          const r = await fetchWithProxy(ep.baseUrl.replace(/\/$/, '') + '/chat/completions', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${ep.apiKey}` },
-            body: JSON.stringify(reqBody),
-            signal: ac.signal,
-          });
-          if (!r.ok) { const errText = await r.text(); lastErr = new Error(`HTTP ${r.status}: ${errText.slice(0, 160)}`); console.warn(`[正文] 接口失败${ci < apiChain.length - 1 ? '，回退下一条' : ''}：${ep.modelId}`, lastErr); continue; }
-          res = r; usedApi = ep; break;
-        } catch (e) { lastErr = e; console.warn(`[正文] 接口异常${ci < apiChain.length - 1 ? '，回退下一条' : ''}：${ep.modelId}`, e); }
+        // 多 Key 内环：401/403/429 换下一个 Key 重试同一接口（Gemini 免费池玩法）；其余错误切下一条接口
+        const epKeys = orderedKeys(ep);
+        let gotRes: Response | null = null;
+        for (let ki = 0; ki < epKeys.length; ki++) {
+          try {
+            // 按协议出请求：openai=Bearer+/chat/completions；anthropic/gemini=原生端点+头+body 变换（见 systems/apiUrl）
+            const rq = buildProtocolRequest(ep, epKeys[ki], applyOmitParams(reqBody, ep.omitParams));
+            const r = await fetchWithProxy(rq.url, { method: 'POST', headers: rq.headers, body: JSON.stringify(rq.body), signal: ac.signal });
+            if (!r.ok) {
+              const errText = await r.text();
+              lastErr = new Error(`HTTP ${r.status}: ${errText.slice(0, 160)}`);
+              if (isKeyRotatableStatus(r.status) && epKeys.length > 1) {
+                markKeyBad(ep, epKeys[ki], r.status);
+                if (ki < epKeys.length - 1) { console.warn(`[正文] Key ${ki + 1}/${epKeys.length} HTTP ${r.status}，轮换下一个 Key：${ep.modelId}`); continue; }
+              }
+              console.warn(`[正文] 接口失败${ci < apiChain.length - 1 ? '，回退下一条' : ''}：${ep.modelId}`, lastErr);
+              break;
+            }
+            gotRes = r; markKeyGood(ep, epKeys[ki]); break;
+          } catch (e) { lastErr = e; console.warn(`[正文] 接口异常${ci < apiChain.length - 1 ? '，回退下一条' : ''}：${ep.modelId}`, e); break; }
+        }
+        if (gotRes) { res = gotRes; usedApi = ep; break; }
       }
       if (!res) throw (lastErr ?? new Error('全部正文接口调用失败'));
       void usedApi;
@@ -11759,7 +12045,7 @@ ${lines}`;
               if (data === '[DONE]') continue;
               try {
                 const json = JSON.parse(data);
-                const delta = json.choices?.[0]?.delta?.content ?? '';
+                const delta = String(extractStreamDelta(protocolOf(usedApi), json) ?? '');   // 按 usedApi 协议抽增量（openai/anthropic/gemini）
                 if (delta) {
                   accumulated += delta;
                   // "失控复读"（极其极其…数万字）若原样渲染会直接卡死前端，故廉价预检末尾、命中才就地折叠 accumulated：
@@ -11823,7 +12109,7 @@ ${lines}`;
         setRawResponse(rawText);
         apiDebugLog.finish(narrLogId, rawText, true);
         const data = JSON.parse(rawText);
-        const reply: string = data.choices?.[0]?.message?.content ?? data.choices?.[0]?.text ?? '';
+        const reply: string = String(extractOnceContent(protocolOf(usedApi), data) ?? '');
         if (!reply) throw new Error('模型未返回内容');
         const cleanedReply = stripLeakedThinking(reply);   // 剥泄漏进正文的思维链块（同流式路径）
         const leakedThink = extractLeakedThinking(reply);  // 思维链原文 → 楼层 think 字段（折叠块显示用）
@@ -12008,6 +12294,7 @@ ${lines}`;
       label === '频道' ? () => setChannelPanelOpen(true) :
       label === '私信' ? () => { setDmFocusThread(undefined); setDmPanelOpen(true); } :
       label === '采访' ? () => setInterviewOpen(true) :
+      label === '直播' ? () => setLiveOpen(true) :
       label === '好友' ? () => setFriendsPanelOpen(true) :
       label === '队伍' ? () => setPartyPanelOpen(true) :
       label === '联机' ? () => setMpPanelOpen(true) :
@@ -12016,6 +12303,7 @@ ${lines}`;
       label === '助战' ? () => setAssistOpen(true) :
       label === '世界竞技场' ? () => setArenaWorldOpen(true) :
       label === '游玩时长' ? () => setPlaytimeOpen(true) :
+      label === '形象工坊' ? () => setOutfitWorkshopOpen(true) :
       label === '纪念丰碑' ? () => setMonumentOpen(true) :
       label === '账户仓库' ? () => setVaultOpen(true) :
       label === '记忆' ? () => setSummaryPanelOpen(true) :
@@ -12311,6 +12599,9 @@ ${lines}`;
       await runPovTurn(text, mp.turn?.inputs);   // 传入发送时抓拍的队友输入快照，防自动补发路径里现读变空 → 队友收不到正文
       return;
     }
+
+    // 🫀 逐角色心流独白（默认关）：此刻起跑，与下面检定/细纲的等待窗口并行，正文组装时收割（fail-open 不拦发送）
+    try { startMindflowForTurn(text); } catch (e) { console.warn('[心流] 起跑失败（本回合跳过）', e); }
 
     // ST「用户输入」placement 正则（本项目 placement=0）：display 视图落楼层显示、prompt 视图发给正文 API；
     //   原文存楼层 raw，后续回合历史注入时每楼再按 prompt 视图现算。没配用户输入正则时三者相等=零改动。
@@ -14278,7 +14569,7 @@ ${lines}`;
 
       {/* ── 杂项（任务/世界大事）面板 ── */}
       {channelPanelOpen && (
-        <ChannelPanel onClose={() => setChannelPanelOpen(false)} onRefresh={refreshChannel} onNewsRefresh={refreshWorldNews} onPaper={genWorldPaper} onSolicit={solicitQuotes} onPost={replyToChannelPost} onMoreReplies={moreChannelReplies} onOpenShop={() => setShopOpen(true)} onJoin={joinPartyFromPost} onInvite={inviteToParty}
+        <ChannelPanel onClose={() => setChannelPanelOpen(false)} onRefresh={refreshChannel} onNewsRefresh={refreshWorldNews} onPaper={genWorldPaper} onSearch={paradiseSearch} onSolicit={solicitQuotes} onPost={replyToChannelPost} onMoreReplies={moreChannelReplies} onOpenShop={() => setShopOpen(true)} onJoin={joinPartyFromPost} onInvite={inviteToParty}
           onDm={(m) => { if (!isDmableTag(m.authorTag)) return; openDmFor({ targetName: m.authorName, targetTier: m.authorTier, targetJob: m.authorJob, targetPersona: m.authorPersona, targetStrength: m.authorStrength, targetTag: m.authorTag, sourceContent: String(m.content) }); }}
           onDmQuote={(q) => { if (q.fromTag && !isDmableTag(q.fromTag)) return; openDmFor({ targetName: q.fromName, targetTier: q.fromTier, targetTag: q.fromTag || '契约者', sourceContent: q.note ? String(q.note) : undefined }); }}
           onAddFriend={addFriendFromChannel} />
@@ -14290,6 +14581,7 @@ ${lines}`;
       {assistOpen && <AssistPanel onClose={() => setAssistOpen(false)} />}
       {arenaWorldOpen && <ArenaWorldPanel onClose={() => setArenaWorldOpen(false)} onGenBattle={genArenaWorldBattle} onSpar={(card) => startArenaWorldSpar(card.snapshot, card.kind)} onManualChallenge={(opp, myCardId) => startArenaWorldRankedManual(opp.snapshot, myCardId, opp.id, opp.kind)} onDuelJudge={genArenaDuelRound} />}
       {playtimeOpen && <PlaytimePanel onClose={() => setPlaytimeOpen(false)} />}
+      {outfitWorkshopOpen && <OutfitWorkshop onClose={() => setOutfitWorkshopOpen(false)} />}
       {monumentOpen && <MonumentPanel onClose={() => setMonumentOpen(false)} />}
       {vaultOpen && <AccountVaultPanel onClose={() => setVaultOpen(false)} />}
       {mpIncomingGift && <GiftPrompt gift={mpIncomingGift} onClose={() => useMp.getState()._set({ incomingGift: null })} />}
@@ -14377,6 +14669,7 @@ ${lines}`;
       {advisorOpen && <AdvisorPanel onClose={() => setAdvisorOpen(false)} />}
       {bookmarkOpen && <BookmarkPanel onClose={() => setBookmarkOpen(false)} />}
       {interviewOpen && <InterviewPanel onClose={() => setInterviewOpen(false)} />}
+      {liveOpen && <LivePanel onClose={() => setLiveOpen(false)} />}
       {bioCycleOpen && <BioCyclePanel onClose={() => setBioCycleOpen(false)} />}
       {trainingOpen && <TrainingPanel onClose={() => setTrainingOpen(false)} />}
 
@@ -14830,7 +15123,7 @@ const MessageRow = memo(function MessageRow({ msg, isLast, isEditing, reading, t
               if (illustClickTimer.current) { clearTimeout(illustClickTimer.current); illustClickTimer.current = null; }   // 取消单击开灯箱
               onRegenImage(msg.id, Number(el.dataset.imgIdx));
             }}
-            dangerouslySetInnerHTML={{ __html: toHtmlWithImagesCached(msg.id, fenceSplit && fenceSplit.fences.length ? fenceSplit.text : msg.content, msg.images, ttsDlgOpts) }}
+            dangerouslySetInnerHTML={{ __html: toHtmlWithImagesCached(msg.id, renderPhaseExpand(msg.id, fenceSplit && fenceSplit.fences.length ? fenceSplit.text : msg.content), msg.images, ttsDlgOpts) }}
           />
           {/* 前端卡沙箱：抽出的 ```html 围栏按序渲染在正文之后（正文里留【🧩 前端卡 n】占位行对应） */}
           {fenceSplit && fenceSplit.fences.map((f, fi) => <HtmlSandbox key={fi} html={f} />)}

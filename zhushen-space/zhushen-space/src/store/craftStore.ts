@@ -1,4 +1,5 @@
 import { create } from 'zustand';
+import { modelsFetchArgs } from '../systems/apiUrl';
 import { persist } from 'zustand/middleware';
 import type { ApiConfig, WorldBook, WorldBookEntry } from './settingsStore';
 import { useSettings, parseWorldBook } from './settingsStore';
@@ -310,7 +311,7 @@ export const useCraft = create<CraftState>()(
         if (!api.baseUrl || !api.apiKey) { set({ craftModelsError: '请先填写 API 地址和 Key' }); return; }
         set({ craftModelsLoading: true, craftModelsError: '' });
         try {
-          const res = await fetch(api.baseUrl.replace(/\/$/, '') + '/models', { headers: { Authorization: `Bearer ${api.apiKey}` } });
+          const res = await fetch(...modelsFetchArgs(api));
           if (!res.ok) throw new Error(`HTTP ${res.status}`);
           const json = await res.json();
           const models = (json.data ?? json.models ?? []).map((m: any) => m.id ?? m.name ?? '').filter(Boolean).sort();

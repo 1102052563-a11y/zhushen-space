@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { useApiDebugLog } from '../systems/apiDebugLog';
+import { useApiDebugLog, type ApiCallLog } from '../systems/apiDebugLog';
 
 // 兼容旧引用：App 的 debugParts 状态仍用此类型（喂给正文日志的 parts）
 export interface PromptPart { label: string; role: string; content: string; }
@@ -18,6 +18,7 @@ export default function ApiPromptPanel({ onClose }: { onClose: () => void }) {
   const [selId, setSelId] = useState<number | null>(null);
   const [copied, setCopied] = useState('');
   const [view, setView] = useState<'parts' | 'raw'>('parts');
+  const [showStats, setShowStats] = useState(false);
 
   const cur = calls.find((c) => c.id === selId) ?? calls[0];
 
@@ -37,9 +38,16 @@ export default function ApiPromptPanel({ onClose }: { onClose: () => void }) {
             <input type="checkbox" checked={capturing} onChange={(e) => setCapturing(e.target.checked)} /> 捕获
           </label>
           <button onClick={clear} className="text-[10px] font-mono px-2 py-0.5 border border-edge rounded text-dim hover:text-slate-200 transition-colors">清空</button>
+          <button onClick={() => setShowStats((v) => !v)}
+            className={`text-[10px] font-mono px-2 py-0.5 border rounded transition-colors ${showStats ? 'border-god/50 text-god bg-god/10' : 'border-edge text-dim hover:text-slate-200'}`}>
+            📊 消耗排行
+          </button>
           <span className="ml-auto text-[10px] text-dim/60 hidden sm:inline">正文＝结构化分段 · 其他阶段＝原始消息+返回</span>
           <button onClick={onClose} className="text-[11px] font-mono px-3 py-1 border border-edge rounded text-dim hover:text-slate-200 transition-colors">← 返回</button>
         </div>
+
+        {/* 📊 按来源聚合的消耗排行（借鉴 SoulLink 思想·最近 {CAP} 条环形窗口）：谁在吃 token 一眼看穿 */}
+        {showStats && <StatsBar calls={calls} />}
 
         <div className="flex-1 min-h-0 flex gap-2">
           {/* 左：调用列表（选项卡） */}
@@ -55,7 +63,8 @@ export default function ApiPromptPanel({ onClose }: { onClose: () => void }) {
                     <span className="flex-1 truncate font-semibold">{c.label}</span>
                   </div>
                   <div className="text-[9px] font-mono text-dim/70 mt-0.5">
-                    {fmtTime(c.ts)} · {c.messages.length}条 · ~{tok(c.messages.map((m) => m.content).join(''))}词
+                    {fmtTime(c.ts)} · {c.messages.length}条 · 入{fmtK(c.charsIn ?? 0)}字{c.charsOut != null ? `/出${fmtK(c.charsOut)}` : ''}
+                    {c.usage?.total != null ? ` · ${fmtK(c.usage.total)}tok` : ''}
                     {c.ms ? ' · ' + c.ms + 'ms' : c.pending ? ' · …' : ''}
                   </div>
                 </button>
@@ -70,6 +79,15 @@ export default function ApiPromptPanel({ onClose }: { onClose: () => void }) {
               <>
                 <div className="text-[10px] font-mono text-dim/70 px-1 pb-0.5 flex items-center gap-2 flex-wrap">
                   <span>{cur.label} · {fmtTime(cur.ts)} · {cur.pending ? '生成中…' : cur.ok ? '成功 ' + (cur.ms ?? '?') + 'ms' : '失败'}</span>
+                  {cur.model && (
+                    <span className="text-god/60">
+                      {cur.model}{cur.host ? ` @ ${cur.host}` : ''}{(cur.attempt ?? 1) > 1 ? ` · 第${cur.attempt}条接口(前面的失败回退)` : ''}
+                    </span>
+                  )}
+                  <span>
+                    入{fmtK(cur.charsIn ?? 0)}字{cur.charsOut != null ? ` / 出${fmtK(cur.charsOut)}字` : ''}
+                    {cur.usage ? ` · tokens ${cur.usage.prompt ?? '?'}+${cur.usage.completion ?? '?'}=${cur.usage.total ?? '?'}` : ''}
+                  </span>
                   {/* 正文有结构化分段时给个切换：结构化 ⇄ 原始消息（实际发给模型的消息数组，一条不漏）。其他调用只有原始消息。 */}
                   {cur.parts ? (
                     <span className="inline-flex rounded border border-edge overflow-hidden ml-auto text-[10px]">
@@ -89,6 +107,52 @@ export default function ApiPromptPanel({ onClose }: { onClose: () => void }) {
           </div>
         </div>
       </div>
+    </div>
+  );
+}
+
+const fmtK = (n: number) => (n >= 10000 ? (n / 1000).toFixed(0) + 'k' : n >= 1000 ? (n / 1000).toFixed(1).replace(/\.0$/, '') + 'k' : String(n));
+
+/* 📊 按 label 聚合最近调用的消耗（环形窗口内）：输入字符量降序＝谁最烧一眼可见；
+   tokens 列只有上游真给了 usage 才有数（多数中转不带，字符量是恒定可用的口径）。 */
+function StatsBar({ calls }: { calls: ApiCallLog[] }) {
+  const done = calls.filter((c) => !c.pending);
+  const by = new Map<string, { n: number; fails: number; cin: number; cout: number; tok: number; ms: number }>();
+  for (const c of done) {
+    const g = by.get(c.label) ?? { n: 0, fails: 0, cin: 0, cout: 0, tok: 0, ms: 0 };
+    g.n++; if (!c.ok) g.fails++;
+    g.cin += c.charsIn ?? 0; g.cout += c.charsOut ?? 0; g.tok += c.usage?.total ?? 0; g.ms += c.ms ?? 0;
+    by.set(c.label, g);
+  }
+  const rows = [...by.entries()].sort((a, b) => b[1].cin - a[1].cin).slice(0, 10);
+  const tot = { cin: 0, cout: 0, tok: 0 };
+  for (const [, g] of by) { tot.cin += g.cin; tot.cout += g.cout; tot.tok += g.tok; }
+  return (
+    <div className="shrink-0 mb-2 rounded-lg border border-edge bg-panel/40 px-3 py-2">
+      <div className="text-[10px] font-mono text-dim/60 mb-1.5">
+        窗口内 {done.length} 次调用 · 合计 入{fmtK(tot.cin)}字 / 出{fmtK(tot.cout)}字{tot.tok > 0 ? ` · ${fmtK(tot.tok)}tok(仅上游报了usage的)` : ''} · 按输入量降序——某阶段异常靠前＝检查它的注入/裁剪
+      </div>
+      {rows.length === 0
+        ? <div className="text-[11px] font-mono text-dim/50 py-1">还没有完成的调用</div>
+        : (
+          <div className="overflow-x-auto">
+            <table className="text-[10px] font-mono text-dim w-full min-w-[520px]">
+              <thead><tr className="text-dim/50 text-left"><th className="pr-3 py-0.5 font-normal">来源</th><th className="pr-3 font-normal">次数</th><th className="pr-3 font-normal">入(字)</th><th className="pr-3 font-normal">出(字)</th><th className="pr-3 font-normal">tokens</th><th className="pr-3 font-normal">均耗时</th></tr></thead>
+              <tbody>
+                {rows.map(([label, g]) => (
+                  <tr key={label} className="border-t border-edge/30">
+                    <td className="pr-3 py-0.5 text-slate-300 truncate max-w-[180px]">{label}{g.fails > 0 ? <span className="text-rose-400/80">（败{g.fails}）</span> : null}</td>
+                    <td className="pr-3">{g.n}</td>
+                    <td className="pr-3 text-god/70">{fmtK(g.cin)}</td>
+                    <td className="pr-3">{fmtK(g.cout)}</td>
+                    <td className="pr-3">{g.tok > 0 ? fmtK(g.tok) : '—'}</td>
+                    <td className="pr-3">{g.n ? Math.round(g.ms / g.n) + 'ms' : '—'}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
     </div>
   );
 }

@@ -1,11 +1,12 @@
 import { describe, it, expect, beforeEach } from 'vitest';
-import { useOutfits } from '../store/outfitStore';
+import { useOutfits, type OutfitRecord } from '../store/outfitStore';
 import { useOutfitTemplates } from '../store/outfitTemplateStore';
 import { useItems } from '../store/itemStore';
 import { activeOutfit, outfitRosterLine, applyOutfitCommand } from './outfit';
 import { collectEquippedForOutfit } from './outfitGen';
 import { buildOutfitInjection } from './promptInjections';
 import { buildPortraitPrompt } from './imageGen';
+import { buildTryOnPrompt, charLook } from './outfitTryOn';
 import { useImageGen } from '../store/imageGenStore';
 import { usePlayer } from '../store/playerStore';
 
@@ -60,6 +61,38 @@ describe('衣柜（穿搭预设）', () => {
     s.setActive('C3', id);
     const p = buildPortraitPrompt({ gender: '男', charId: 'C3', imageTags: '1boy, short hair' });
     expect(p).toContain('black hood, ninja outfit');
+  });
+
+  it('试衣间 outfitOverride：不必激活即可预览、优先于激活穿搭、两条线都吃', () => {
+    useImageGen.setState({ portraitService: 'openai' });        // 自然语言模板路径
+    const s = useOutfits.getState();
+    const worn = s.addOutfit('C5', { name: '常服', desc: '米色风衣', tags: '', imageTags: '' });
+    s.setActive('C5', worn);
+    const preview: OutfitRecord = { id: 'try1', name: '礼服', desc: '绯红晚礼服', tags: '', imageTags: 'red dress', createdAt: 1 };
+    const p = buildPortraitPrompt({ gender: '女', charId: 'C5', equipment: '铁甲', appearance: '红发', outfitOverride: preview });
+    expect(p).toContain('绯红晚礼服');                           // override > 激活穿搭
+    expect(p).not.toContain('米色风衣');
+    useImageGen.setState({ portraitService: 'nai' });           // 标签路径同样吃 override 英文标签
+    const pt = buildPortraitPrompt({ gender: '女', charId: 'C5', imageTags: '1girl', outfitOverride: preview });
+    expect(pt).toContain('red dress');
+    useImageGen.setState({ portraitService: 'openai' });        // 不传 override → 回到激活穿搭（原逻辑不变）
+    const p2 = buildPortraitPrompt({ gender: '女', charId: 'C5', equipment: '铁甲', appearance: '红发' });
+    expect(p2).toContain('米色风衣');
+  });
+
+  it('试衣提示词 buildTryOnPrompt：读主角档案、未激活的一套也能拼进提示词', () => {
+    useImageGen.setState({ portraitService: 'openai' });
+    usePlayer.getState().setProfile({ name: '白夜', gender: '男', appearance: '黑发黑瞳' });
+    const s = useOutfits.getState();
+    const id = s.addOutfit('B1', { name: '夜行衣', desc: '玄黑夜行衣，覆面斗篷', tags: '潜行', imageTags: '' });
+    expect(activeOutfit('B1')).toBeNull();                       // 没激活
+    const rec = useOutfits.getState().byChar['B1'].outfits.find((o) => o.id === id)!;
+    const p = buildTryOnPrompt('B1', rec);
+    expect(p).toContain('玄黑夜行衣');                            // 未激活也能试穿
+    const look = charLook('B1');
+    expect(look?.name).toBe('白夜');                              // 读取当前人物形象
+    expect(look?.rows.some((r) => r.value.includes('黑发黑瞳'))).toBe(true);
+    expect(charLook('C_不存在')).toBeNull();
   });
 
   it('AI 换装指令：名称/场景标签模糊命中、取消词、未命中不动', () => {
@@ -129,6 +162,33 @@ describe('衣柜（穿搭预设）', () => {
     expect(inj[0].content).toContain('灰色风衣');
     expect(inj[0].content).toContain('outfit.角色ID = 穿搭名');
     expect(inj[0].content).toContain('「常服」[日常]');
+  });
+
+  it('🎲 手动随机搭配：空衣柜不动、>1套必换不同并激活、候选池限定范围、单套返回自身', () => {
+    const s = useOutfits.getState();
+    expect(s.rollRandom('C7')).toBe('');                       // 空衣柜 → '' 不动
+    s.addOutfit('C7', { name: '甲', desc: 'a', tags: '', imageTags: '' });
+    const b = s.addOutfit('C7', { name: '乙', desc: 'b', tags: '', imageTags: '' });
+    const c = s.addOutfit('C7', { name: '丙', desc: 'c', tags: '', imageTags: '' });
+    // 无候选池：全衣柜抽，>1 套时必换到 ≠ 当前，且激活的就是返回的那套
+    for (let i = 0; i < 12; i++) {
+      const before = useOutfits.getState().byChar['C7'].activeId;
+      const name = useOutfits.getState().rollRandom('C7');
+      const w = useOutfits.getState().byChar['C7'];
+      expect(name).toBeTruthy();
+      expect(w.activeId).not.toBe(before);
+      expect(w.outfits.find((o) => o.id === w.activeId)?.name).toBe(name);
+    }
+    // 设候选池（乙+丙）→ 只会抽到池内的
+    s.toggleRandomPool('C7', b);
+    s.toggleRandomPool('C7', c);
+    for (let i = 0; i < 12; i++) {
+      expect(['乙', '丙']).toContain(useOutfits.getState().rollRandom('C7'));
+    }
+    // 单套衣柜：返回唯一一套并激活（允许与当前相同）
+    const only = s.addOutfit('C8', { name: '唯一', desc: 'x', tags: '', imageTags: '' });
+    expect(useOutfits.getState().rollRandom('C8')).toBe('唯一');
+    expect(useOutfits.getState().byChar['C8'].activeId).toBe(only);
   });
 
   it('每日随机换装：同日幂等、只动开了 autoDaily 的角色、候选剔除已删穿搭', () => {

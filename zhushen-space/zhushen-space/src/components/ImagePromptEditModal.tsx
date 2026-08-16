@@ -5,7 +5,7 @@ import { useState } from 'react';
    受控本地 state：由父组件在打开时才挂载本组件、以 initialPrompt 初始化（每次打开都是新实例，无需 effect 同步）。
    ⚠ 铁则：不要把本组件内联定义进父组件（受控 textarea 每键重挂会断输入法）。 */
 export default function ImagePromptEditModal({
-  title, initialPrompt, busy, note, onClose, onSubmit,
+  title, initialPrompt, busy, note, onClose, onSubmit, onSaveOnly,
 }: {
   title?: string;
   initialPrompt: string;
@@ -13,6 +13,7 @@ export default function ImagePromptEditModal({
   note?: string;
   onClose: () => void;
   onSubmit: (prompt: string) => void;
+  onSaveOnly?: (prompt: string) => void;   // 可选「仅保存」：只把改后的提示词存回（不立即生成）——形象工坊用；不传则不渲染该按钮
 }) {
   const [text, setText] = useState(initialPrompt);
   return (
@@ -40,6 +41,10 @@ export default function ImagePromptEditModal({
         </div>
         <footer className="flex items-center justify-end gap-2 p-3 border-t border-edge shrink-0">
           <button onClick={onClose} disabled={busy} className="text-[13px] font-mono px-3 py-1.5 rounded-lg border border-edge text-dim hover:text-slate-200 transition-colors disabled:opacity-40">取消</button>
+          {onSaveOnly && (
+            <button onClick={() => onSaveOnly(text)} disabled={busy || !text.trim()} title="只保存提示词（之后生成立绘时使用），不立即生成"
+              className="text-[13px] font-mono px-3 py-1.5 rounded-lg border border-emerald-500/50 text-emerald-300 hover:bg-emerald-500/10 transition-colors disabled:opacity-40">💾 仅保存</button>
+          )}
           <button onClick={() => onSubmit(text)} disabled={busy || !text.trim()} className="text-[13px] font-semibold px-3 py-1.5 rounded-lg border border-god/50 text-god bg-god/10 hover:bg-god/20 transition-colors disabled:opacity-40">
             {busy ? '◌ 生成中…' : '🔄 重新生成'}
           </button>

@@ -1,4 +1,6 @@
 import type { WorldBook } from '../store/settingsStore';
+import { passActiveWhen } from './tableTemplate';    // 🎯 activeWhen 条件门（与正文世界书同款）
+import { buildRuntimeVars } from './runtimeVars';
 
 /* 欢愉宫世界书注入 + 条目标题提取。
    注入规则与正文一致（App.callApi）：constant=蓝灯·常驻必注入；selective && key 命中 matchCtx=绿灯·关键词触发。
@@ -7,10 +9,17 @@ import type { WorldBook } from '../store/settingsStore';
 /** 选中本轮要注入的世界书条目（蓝灯常驻 + 绿灯关键词命中）。*/
 export function selectJoyWbEntries(books: WorldBook[], matchCtx: string) {
   const ctx = (matchCtx || '').toLowerCase();
+  let vars: Record<string, string> | undefined;   // 🎯 activeWhen 条件门（惰性采集变量·无条件条目=零开销）
+  const whenPass = (e: { activeWhen?: string }) => {
+    const w = (e.activeWhen || '').trim();
+    if (!w) return true;
+    if (!vars) vars = buildRuntimeVars();
+    return passActiveWhen(w, { seedContent: ctx, vars });
+  };
   return (books ?? [])
     .filter((b) => b.enabled)
     .flatMap((b) => b.entries.filter((e) =>
-      e.enabled && (
+      e.enabled && whenPass(e) && (
         e.constant ||                                            // 蓝灯：常驻
         (e.selective && e.key.some((k) => k && ctx.includes(k.toLowerCase())))  // 绿灯：关键词触发
       )

@@ -358,6 +358,8 @@ const CONSISTENCY_KIND: Record<string, { label: string; cls: string }> = {
   'barrier-timeout':    { label: '⏳ 发送屏障超时', cls: 'border-sky-600/50 text-sky-300' },
   'stale-phase-skip':   { label: '🌐 跨世界阶段跳过', cls: 'border-violet-600/50 text-violet-300' },
   'world-switch-abort': { label: '🌐 切世界中止演化', cls: 'border-violet-600/50 text-violet-300' },
+  'evo-gate':           { label: '🚪 演化预筛 Gate', cls: 'border-teal-600/50 text-teal-300' },
+  'api-input-bloat':    { label: '📈 单次调用输入超大', cls: 'border-rose-600/50 text-rose-300' },
 };
 
 function ConsistencySection({ entries }: { entries: ConsistencyEntry[] }) {

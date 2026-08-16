@@ -24,6 +24,9 @@ zhushen-space/zhushen-space/public/wiki-shenmi/
 # 背景音乐原件（1.3GB 游戏OST等）——走 Cloudflare R2 部署（同 欢愉宫图片），git 不入库；见 tools/upload-r2/
 /BGM/
 
+# Outfit-Manager 成衣资产包（47MB+ 带图 JSON）——游戏内「形象工坊→成衣库→导入」运行时读取，不入库
+outfit-mgr-char-*.json
+
 # ───── 第三方 / 参考资料（非本项目代码，不入库，保持仓库精简）─────
 # 另一个预构建 app，仅作移植参考，不需要部署，也不必备份
 fanren-remake-public-assets/

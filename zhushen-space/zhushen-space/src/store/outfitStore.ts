@@ -37,6 +37,9 @@ interface OutfitState {
   /** 日期变化自动随机换装：dayKey 与上次不同才动；每个开了 autoDaily 的角色从随机候选里换一套（尽量≠当前）。
       返回 ['B1→常服', …] 供调用方打日志；幂等，可每回合调。 */
   runDailyRandom: (dayKey: string) => string[];
+  /** 🎲手动随机搭配（借鉴 Outfit-Manager 2.0 的 roll）：候选=🎲随机池（剔除已删），池空则全衣柜；
+      >1 套时尽量换到≠当前激活的一套并激活。返回换上的穿搭名（无可换返回 ''，不动）。 */
+  rollRandom: (charId: string) => string;
   clearAll: () => void;
 }
 
@@ -98,6 +101,20 @@ export const useOutfits = create<OutfitState>()(
           return { byChar, lastAutoDay: key };
         });
         return changed;
+      },
+      rollRandom: (charId) => {
+        const w = get().byChar[charId];
+        if (!w || !w.outfits.length) return '';
+        const pool = (w.randomPool ?? []).filter((id) => w.outfits.some((o) => o.id === id));
+        const base = pool.length ? pool : w.outfits.map((o) => o.id);
+        const candidates = base.length > 1 ? base.filter((id) => id !== w.activeId) : base;
+        const pick = candidates[Math.floor(Math.random() * candidates.length)];
+        if (!pick) return '';
+        set((s) => {
+          const cur = s.byChar[charId] ?? emptyWardrobe();
+          return { byChar: { ...s.byChar, [charId]: { ...cur, activeId: pick } } };
+        });
+        return w.outfits.find((o) => o.id === pick)?.name ?? pick;
       },
       clearAll: () => set({ byChar: {}, lastAutoDay: '' }),
     }),

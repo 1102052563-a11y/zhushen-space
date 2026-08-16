@@ -1,0 +1,13 @@
+[
+  {
+    "id": "pack1",
+    "name": "纯欲风2.0",
+    "count": 399,
+    "source": "outfit-mgr-char-纯欲风2.0-2026-06-24.json",
+    "shards": [
+      "pack1-s1.json",
+      "pack1-s2.json",
+      "pack1-s3.json"
+    ]
+  }
+]

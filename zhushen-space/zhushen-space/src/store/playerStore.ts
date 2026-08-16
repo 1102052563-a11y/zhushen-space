@@ -1,4 +1,5 @@
 import { create } from 'zustand';
+import { modelsFetchArgs } from '../systems/apiUrl';
 import { persist } from 'zustand/middleware';
 import type { ApiConfig } from './settingsStore';
 import { useSettings } from './settingsStore';
@@ -408,9 +409,7 @@ export const usePlayer = create<PlayerState>()(
         }
         set({ playerModelsLoading: true, playerModelsError: '' });
         try {
-          const res = await fetch(api.baseUrl.replace(/\/$/, '') + '/models', {
-            headers: { Authorization: `Bearer ${api.apiKey}` },
-          });
+          const res = await fetch(...modelsFetchArgs(api));
           if (!res.ok) throw new Error(`HTTP ${res.status}`);
           const json = await res.json();
           const models = (json.data ?? json.models ?? [])

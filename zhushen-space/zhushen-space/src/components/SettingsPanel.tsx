@@ -1,6 +1,7 @@
 import { useRef, useState, useEffect, type ChangeEvent } from 'react';
 import { useSettings, endpointToConfig, type WorldBook, type WorldBookEntry, type TextGenPreset, type STPromptEntry, type RegexScript, type ApiEndpoint } from '../store/settingsStore';
 import { apiChatFallback, fetchWithProxy, gwProxyBase } from '../systems/apiChat';
+import { chatUrlFor, modelsFetchArgs, endsWithVersionSegment, normalizeApiBase, OMITTABLE_PARAMS } from '../systems/apiUrl';
 import { READING_FONTS, readingFontStack } from '../systems/readingFonts';
 import { UI_THEMES } from '../systems/uiThemes';
 import { toSTPreset, toStRegexScript, toStRegexScripts } from '../systems/stPresetExport';
@@ -11,7 +12,8 @@ import localGatewayBat from '../../tools/local-gateway/启动本地网关.bat?ra
 import { ADVANCE_PRESET_BUILTINS, PLOT_CHOICES_RULE } from '../promptRules';
 import { useDbAdvance, clampWaitSec } from '../store/dbAdvanceStore';   // 数据库推进管线（Stitches 规划层）
 import { useTheater } from '../store/theaterStore';   // 🎭 小剧场·花样模板库
-import PromptCenterPanel from './PromptCenterPanel';   // 预设中心：各功能主提示词编辑页
+import PromptCenterPanel, { LintHints } from './PromptCenterPanel';   // 预设中心：各功能主提示词编辑页；LintHints=🩺 模板语法体检提示条
+import { seedInitialVars } from '../systems/initialVars';   // 🌱 [初始变量] 内容包种子（世界书区按钮）
 import DbAdvancePresetEditor from './DbAdvancePresetEditor';   // 数据库推进预设编辑器（缝破限/改模块提示词）
 import VariableManager from './VariableManager';
 import ApiRoutePicker from './ApiRoutePicker';
@@ -1176,6 +1178,18 @@ function EntryEditor({ entry, onChange, onClose }: {
           </div>
         )}
 
+        {/* 🎯 激活条件（P1·满足才注入·<if cond> 语法） */}
+        <div className="col-span-2 space-y-1">
+          <label className="text-[12px] font-mono text-dim">激活条件（可选 · 满足才注入 · 空=不限制 · 语法同 {'<if cond>'}）</label>
+          <input
+            value={entry.activeWhen ?? ''}
+            onChange={(e) => onChange({ activeWhen: e.target.value })}
+            placeholder="例：var:主角.HP百分比 < 30 & seed:战斗（var:/cell:/seed:/random: 可 &与 ,或 !非 ()组合）"
+            className="input-base text-sm font-mono"
+          />
+          <LintHints text={entry.content || ''} cond={entry.activeWhen} />
+        </div>
+
         {/* 排序 */}
         <div className="space-y-1">
           <label className="text-[12px] font-mono text-dim">排序权重（数字越小越靠前）</label>
@@ -1438,6 +1452,13 @@ function TextWorldSection() {
         >
           🧹 清理重复
         </button>
+        <button
+          onClick={() => { const r = seedInitialVars(textWorldBooks); setMsg(r.entryCount === 0 ? '没找到 [初始变量] 条目（条目标题写 [初始变量]，内容放 JSON）' : `🌱 种入 ${r.seeded.length} 个变量` + (r.skipped.length ? `，跳过已有 ${r.skipped.length} 个` : '') + (r.errors.length ? `；${r.errors.length} 条解析失败` : '')); setTimeout(() => setMsg(''), 6000); }}
+          className="px-3 py-2 border border-edge text-dim text-sm rounded hover:border-god/40 hover:text-god transition-colors font-mono"
+          title="扫描所有世界书里标题为 [初始变量] 的条目（内容=JSON 对象或数组），把变量定义种进「变量管理」；已存在的 key 一律跳过绝不覆盖"
+        >
+          🌱 提取初始变量
+        </button>
         <input ref={fileRef} type="file" accept=".json" className="hidden" onChange={handleFile} />
         {msg && <span className={`text-sm font-mono ${msg.includes('失败') ? 'text-blood' : 'text-god'}`}>{msg}</span>}
       </div>
@@ -1483,6 +1504,10 @@ function TextApiSection() {
   const setCastBrief       = useSettings((s) => s.setCastBrief);
   const castBriefMax       = useSettings((s) => s.castBriefMax);
   const setCastBriefMax    = useSettings((s) => s.setCastBriefMax);
+  const mindflowEnabled    = useSettings((s) => s.mindflowEnabled);
+  const setMindflowEnabled = useSettings((s) => s.setMindflowEnabled);
+  const mindflowMax        = useSettings((s) => s.mindflowMax);
+  const setMindflowMax     = useSettings((s) => s.setMindflowMax);
   const setGuidancePrompt  = useSettings((s) => s.setGuidancePrompt);
   const outlineEnabled     = useSettings((s) => s.outlineEnabled);
   const outlinePrompt      = useSettings((s) => s.outlinePrompt);
@@ -1568,6 +1593,24 @@ function TextApiSection() {
                   className="mx-1 w-14 px-1 py-0.5 bg-black/30 border border-edge rounded text-center text-slate-200" />
                 位候选角色（人多字段少，总开销低于 2 张全量 NPC 卡；上限 12）。</span>
             </div>
+          </div>
+        </div>
+        <div className="flex items-center gap-3 p-3 bg-panel border border-edge rounded-lg">
+          <Toggle checked={mindflowEnabled} onChange={() => setMindflowEnabled(!mindflowEnabled)} />
+          <div>
+            <div className="text-sm text-slate-200">🫀 角色心流（逐角色独立推演 · 借鉴SoulLink）<span className="text-xs text-amber-400/80 ml-1">· 每回合 +N 次小调用</span></div>
+            <div className="text-sm text-dim mt-0.5">开启后：你每次发送，系统对<b>排序前 N 位在场角色各发一次独立小调用</b>——每个角色<b>只拿到自己的人格档案</b>（信息盲区物理隔离，别人的秘密真给不到它），产出该角色此刻的<b>第一人称心流</b>（情绪 / 对你言行的解读 / 行动倾向），作为「导演注」注入正文：驱动各角色反应、但严禁被当正文素材照抄。与「立场简报」的分工：简报是一次规划调用里的<b>群像意向书</b>（零新增调用），心流是<b>逐人深推演</b>（更贴人格、能演误读）。推演与检定 / 细纲 / 推进的等待窗口<b>并行</b>起跑，不拖慢流程；直发路径最多多等 20 秒，超时 / 失败自动放行不注入。默认关。
+              <span className="block mt-1">每回合最多推演
+                <input type="number" min={1} max={4} value={mindflowMax} onChange={(e) => setMindflowMax(Number(e.target.value))}
+                  className="mx-1 w-14 px-1 py-0.5 bg-black/30 border border-edge rounded text-center text-slate-200" />
+                位在场角色（每位 = 一次独立调用；上限 4）。</span>
+            </div>
+            {mindflowEnabled && (
+              <div className="mt-2">
+                <div className="text-[12px] text-dim/70 mb-1">心流独立接口（不选 = 沿用 NPC 演化接口链）：</div>
+                <ApiRoutePicker routeKey="npcMindflow" />
+              </div>
+            )}
           </div>
         </div>
         <div className="flex items-center gap-3 p-3 bg-panel border border-edge rounded-lg">
@@ -2746,6 +2789,15 @@ function ApiLibrarySection() {
   const [testingId, setTestingId] = useState<string | null>(null);
   const [testById, setTestById] = useState<Record<string, { ok: boolean; msg: string } | undefined>>({});
   const [vImport, setVImport] = useState<Record<string, { ok: boolean; msg: string } | undefined>>({});
+  // 路由方案（整份 apiRoutes 快照一键切换）
+  const routeProfiles = useSettings((s) => s.apiRouteProfiles);
+  const saveProfile   = useSettings((s) => s.saveApiRouteProfile);
+  const applyProfile  = useSettings((s) => s.applyApiRouteProfile);
+  const deleteProfile = useSettings((s) => s.deleteApiRouteProfile);
+  const [profName, setProfName] = useState('');
+  const [profWithPreset, setProfWithPreset] = useState(false);
+  const [profSel, setProfSel] = useState('');
+  const [profMsg, setProfMsg] = useState('');
   const [gwUrl, setGwUrl] = useState(() => { try { return localStorage.getItem('drpg-gateway-url') || ''; } catch { return ''; } });
   const [gwTesting, setGwTesting] = useState(false);
   const [gwTest, setGwTest] = useState<{ ok: boolean; msg: string } | null>(null);
@@ -2834,7 +2886,7 @@ function ApiLibrarySection() {
     if (!ep.baseUrl || !ep.apiKey) { setErrById((p) => ({ ...p, [ep.id]: '请先填写地址和 Key' })); return; }
     setLoadingId(ep.id); setErrById((p) => ({ ...p, [ep.id]: '' }));
     try {
-      const res = await fetchWithProxy(ep.baseUrl.replace(/\/$/, '') + '/models', { headers: { Authorization: `Bearer ${ep.apiKey}` } });
+      const res = await fetchWithProxy(...modelsFetchArgs(ep));
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const json = await res.json();
       const list = (json.data ?? json.models ?? []).map((m: any) => m.id ?? m.name ?? '').filter(Boolean).sort();
@@ -2884,7 +2936,7 @@ function ApiLibrarySection() {
                   <span className="text-sm font-semibold text-slate-100 truncate">{ep.name || '未命名'}</span>
                   <span className={`text-[10px] font-mono px-1.5 py-0.5 rounded border ${ep.enabled ? 'border-god/40 text-god/80' : 'border-edge text-dim/40'}`}>{ep.enabled ? '已启用' : '已禁用'}</span>
                 </div>
-                <div className="text-[12px] font-mono text-dim/50 truncate mt-0.5">{ep.modelId || '未设模型'} · {ep.baseUrl || '未设地址'}</div>
+                <div className="text-[12px] font-mono text-dim/50 truncate mt-0.5">{ep.protocol === 'anthropic' ? <span className="text-god/70">[Claude原生] </span> : ep.protocol === 'gemini' ? <span className="text-god/70">[Gemini原生] </span> : null}{ep.modelId || '未设模型'} · {ep.baseUrl || '未设地址'}</div>
               </div>
               <button onClick={() => update(ep.id, { enabled: !ep.enabled })} className="text-[11px] font-mono px-1.5 py-0.5 rounded border border-edge text-dim hover:text-god hover:border-god/40 transition-colors shrink-0">{ep.enabled ? '禁用' : '启用'}</button>
               <button onClick={() => move(ep.id, -1)} disabled={i === 0} className="text-dim/50 hover:text-god disabled:opacity-20 px-1 shrink-0">↑</button>
@@ -2898,7 +2950,23 @@ function ApiLibrarySection() {
             {openId === ep.id && (
               <div className="mt-2 pl-6 space-y-2">
                 <label className="space-y-1 block"><span className="text-[12px] font-mono text-dim/50">名称</span><input value={ep.name} onChange={(e) => update(ep.id, { name: e.target.value })} className={inputCls} /></label>
-                <label className="space-y-1 block"><span className="text-[12px] font-mono text-dim/50">接口地址</span><input value={ep.baseUrl} onChange={(e) => update(ep.id, { baseUrl: e.target.value })} placeholder="https://api.openai.com/v1" className={inputCls} /></label>
+                <label className="space-y-1 block"><span className="text-[12px] font-mono text-dim/50">协议<span className="text-dim/30">（默认 OpenAI 兼容；Anthropic/Gemini 原生可直连官方，不需中转）</span></span>
+                  <select value={ep.protocol ?? 'openai'} onChange={(e) => update(ep.id, { protocol: e.target.value as ApiEndpoint['protocol'] })} className={inputCls}>
+                    <option value="openai">OpenAI 兼容（中转 / 聚合站默认）</option>
+                    <option value="anthropic">Anthropic 原生（api.anthropic.com 直连）</option>
+                    <option value="gemini">Google Gemini 原生（generativelanguage.googleapis.com 直连）</option>
+                  </select>
+                </label>
+                <label className="space-y-1 block"><span className="text-[12px] font-mono text-dim/50">接口地址<span className="text-dim/30">（结尾加 # ＝完全按原样调用，不自动拼 /chat/completions）</span></span><input value={ep.baseUrl} onChange={(e) => update(ep.id, { baseUrl: e.target.value })} placeholder={ep.protocol === 'anthropic' ? 'https://api.anthropic.com' : ep.protocol === 'gemini' ? 'https://generativelanguage.googleapis.com' : 'https://api.openai.com/v1'} className={inputCls} /></label>
+                {(ep.baseUrl || '').trim() !== '' && (
+                  <div className="text-[11px] font-mono text-dim/40 truncate" title={chatUrlFor(ep)}>实际请求 → {chatUrlFor(ep)}</div>
+                )}
+                {(ep.protocol ?? 'openai') === 'openai' && /^https?:\/\//i.test((ep.baseUrl || '').trim()) && !endsWithVersionSegment(ep.baseUrl) && (
+                  <button onClick={() => update(ep.id, { baseUrl: normalizeApiBase(ep.baseUrl).base + '/v1' })}
+                    className="text-[11px] font-mono px-2 py-0.5 rounded border border-amber-400/40 text-amber-300/90 hover:bg-amber-400/10 transition-colors">
+                    ⚠ 地址没带版本段，多数中转需要 /v1 → 点击补上
+                  </button>
+                )}
                 {(ep.baseUrl || '').includes('/api/gw/aistudio') ? (
                   <div className="space-y-1">
                     <span className="text-[12px] font-mono text-dim/50 block">API Key<span className="text-dim/30"> · 一行一个，网关自动轮换 + 限额(429)自动切换</span></span>
@@ -2919,7 +2987,10 @@ function ApiLibrarySection() {
                     {vImport[ep.id] && <div className={`text-[11px] font-mono ${vImport[ep.id]!.ok ? 'text-god' : 'text-blood'}`}>{vImport[ep.id]!.ok ? '✅ ' : '❌ '}{vImport[ep.id]!.msg}</div>}
                   </div>
                 ) : (
-                  <label className="space-y-1 block"><span className="text-[12px] font-mono text-dim/50">API Key</span><input type="password" value={ep.apiKey} onChange={(e) => update(ep.id, { apiKey: e.target.value })} placeholder="sk-..." className={inputCls} /></label>
+                  <div className="space-y-1">
+                    <span className="text-[12px] font-mono text-dim/50 block">API Key<span className="text-dim/30"> · 可加多个（每行一个）：401/403/429 自动轮换下一个 Key，429 的 Key 冷却 60s（Gemini 免费池玩法）</span></span>
+                    <ApiKeyEditor value={ep.apiKey} onChange={(v) => update(ep.id, { apiKey: v })} inputCls={inputCls} />
+                  </div>
                 )}
                 <div className="space-y-1">
                   <span className="text-[12px] font-mono text-dim/50">模型 ID</span>
@@ -2944,6 +3015,34 @@ function ApiLibrarySection() {
                   <label className="space-y-1"><span className="text-[12px] font-mono text-dim/50">Top-P</span><input type="number" step={0.05} min={0} max={1} value={ep.topP} onChange={(e) => update(ep.id, { topP: parseFloat(e.target.value) || 0 })} className={inputCls} /></label>
                   <label className="space-y-1"><span className="text-[12px] font-mono text-dim/50">Max Tokens</span><input type="number" step={128} min={128} value={ep.maxTokens} onChange={(e) => update(ep.id, { maxTokens: parseInt(e.target.value) || 512 })} className={inputCls} /></label>
                 </div>
+                <label className="flex items-center gap-2">
+                  <span className="text-[12px] font-mono text-dim/50 shrink-0">思考强度</span>
+                  <select value={ep.reasoningEffort ?? ''} onChange={(e) => update(ep.id, { reasoningEffort: (e.target.value || undefined) as any })}
+                    className="bg-void border border-edge rounded px-2 py-1 text-[12px] font-mono text-slate-200 outline-none focus:border-god">
+                    <option value="">不发送（默认）</option>
+                    <option value="none">关闭思考（none）</option>
+                    <option value="low">低（low）</option>
+                    <option value="medium">中（medium）</option>
+                    <option value="high">高（high）</option>
+                    <option value="max">最大（max）</option>
+                  </select>
+                  <span className="text-[11px] font-mono text-dim/40 min-w-0 truncate">思考模型专用 reasoning_effort：演化/预筛这类要短答案的接口选「关闭思考」，防思考烧光输出预算导致空回复；接口 400 不认此参会自动去参重试</span>
+                </label>
+                <details>
+                  <summary className="text-[12px] font-mono text-dim/50 cursor-pointer select-none">
+                    请求参数排除{(ep.omitParams?.length ?? 0) > 0 ? `（已排除 ${ep.omitParams?.length} 项）` : ''}
+                    <span className="text-dim/30">（个别中转/推理模型见到某些采样参数直接 400，勾选＝该参数不随请求发送）</span>
+                  </summary>
+                  <div className="flex flex-wrap gap-x-4 gap-y-1.5 pt-1.5 pl-4">
+                    {OMITTABLE_PARAMS.map((k) => (
+                      <label key={k} className="flex items-center gap-1.5 text-[12px] font-mono text-dim cursor-pointer">
+                        <input type="checkbox" checked={(ep.omitParams ?? []).includes(k)}
+                          onChange={(e) => { const cur = ep.omitParams ?? []; update(ep.id, { omitParams: e.target.checked ? [...cur, k] : cur.filter((x) => x !== k) }); }} />
+                        {k}
+                      </label>
+                    ))}
+                  </div>
+                </details>
                 <div className="flex items-center gap-2 pt-0.5">
                   <button onClick={() => testEndpoint(ep)} disabled={testingId === ep.id}
                     className="shrink-0 px-2.5 py-1 text-[12px] font-mono border border-god/40 text-god rounded hover:bg-god/10 disabled:opacity-40 transition-colors">
@@ -2980,6 +3079,31 @@ function ApiLibrarySection() {
         </div>
       )}
       <div className="text-[12px] text-dim/40 font-mono px-1">在各功能的「API 设置」页选「⚡ 接口库快捷填入」即可一键套用此处接口，无需重复填写。</div>
+      {/* 路由方案：整份 apiRoutes 快照一键切换（如「白嫖 Gemini 档」↔「付费 Claude 档」）；应用=整包 set 单入口 */}
+      <div className="rounded-lg border border-edge/60 bg-panel px-3 py-2 space-y-1.5">
+        <div className="text-[12px] font-mono text-dim/60">路由方案<span className="text-dim/40">（把所有功能的接口路由整套存为方案，一键切换；先在各功能路由配好再保存）</span></div>
+        <div className="flex items-center gap-2 flex-wrap">
+          <input value={profName} onChange={(e) => setProfName(e.target.value)} placeholder="方案名（如：白嫖 Gemini 档）" className={inputCls + ' flex-1 min-w-[140px]'} />
+          <label className="flex items-center gap-1 text-[12px] font-mono text-dim cursor-pointer shrink-0" title="保存/应用方案时把当前正文预设一并记录/切换">
+            <input type="checkbox" checked={profWithPreset} onChange={(e) => setProfWithPreset(e.target.checked)} />联动正文预设
+          </label>
+          <button onClick={() => { saveProfile(profName, profWithPreset); setProfName(''); setProfMsg('✅ 已把当前整套路由存为方案'); }}
+            className="shrink-0 px-2.5 py-1 text-[12px] font-mono border border-god/40 text-god rounded hover:bg-god/10 transition-colors">💾 存当前路由</button>
+        </div>
+        {(routeProfiles ?? []).length > 0 && (
+          <div className="flex items-center gap-2 flex-wrap">
+            <select value={profSel} onChange={(e) => setProfSel(e.target.value)} className={inputCls + ' flex-1 min-w-[140px]'}>
+              <option value="">选择方案…</option>
+              {(routeProfiles ?? []).map((p) => <option key={p.id} value={p.id}>{p.name}{(p.presetId !== undefined || p.presetName !== undefined) ? '（联动预设）' : ''}</option>)}
+            </select>
+            <button disabled={!profSel} onClick={() => { applyProfile(profSel); setProfMsg('✅ 已应用：整套接口路由已切换'); }}
+              className="shrink-0 px-2.5 py-1 text-[12px] font-mono border border-god/40 text-god rounded hover:bg-god/10 disabled:opacity-40 transition-colors">⚡ 应用</button>
+            <button disabled={!profSel} onClick={() => { deleteProfile(profSel); setProfSel(''); setProfMsg('已删除方案'); }}
+              className="shrink-0 px-2.5 py-1 text-[12px] font-mono border border-edge text-dim/60 hover:text-blood hover:border-blood/40 rounded disabled:opacity-40 transition-colors">🗑</button>
+          </div>
+        )}
+        {profMsg && <div className="text-[11px] font-mono text-god/80">{profMsg}</div>}
+      </div>
       <ApiSlotAudit />
     </div>
   );
@@ -3468,6 +3592,8 @@ function AppearanceSettingsSection() {
   const setUiTheme = useSettings((s) => s.setUiTheme);
   const customCss    = useSettings((s) => s.customCss);
   const setCustomCss = useSettings((s) => s.setCustomCss);
+  const renderVars    = useSettings((s) => s.renderVars);
+  const setRenderVars = useSettings((s) => s.setRenderVars);
   const renderHtmlSandbox    = useSettings((s) => s.renderHtmlSandbox);
   const setRenderHtmlSandbox = useSettings((s) => s.setRenderHtmlSandbox);
   const htmlExternalMedia    = useSettings((s) => s.htmlExternalMedia);
@@ -3521,6 +3647,15 @@ function AppearanceSettingsSection() {
   return (
     <div className="space-y-8">
       <SectionTitle title="界面外观美化" desc="主题配色 / 护眼色调 / 暗角 / 正文字体与排版，实时生效（不改变存档、也不发送给 AI）。" />
+
+      {/* 🧩 渲染期变量（P2·显示层实时替换·默认关） */}
+      <div className="flex items-center justify-between gap-4">
+        <div className="min-w-0">
+          <div className="text-sm text-slate-200">🧩 渲染期变量</div>
+          <div className="text-[11px] text-dim/60 leading-relaxed">楼层显示时把 {'{{getvar::名}}'} / {'${名}'} / {'<if var>'} 替换成当前值（仅显示·原文不改·随机宏按楼层播种恒定不闪变；值变了旧楼下次重渲才刷新）</div>
+        </div>
+        <Toggle checked={renderVars} onChange={() => setRenderVars(!renderVars)} />
+      </div>
 
       {/* ── 自定义 CSS（酒馆美化包入口·对齐 SillyTavern User Settings → Custom CSS）──
           注入/作用域化由 <CustomCssStyle/>（App 两个分支都挂）实时生效；文本随 drpg-settings 持久化、随配置导出。 */}

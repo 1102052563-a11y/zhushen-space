@@ -1,8 +1,11 @@
 import type { ApiConfig } from '../store/settingsStore';
 import { useSettings } from '../store/settingsStore';
+import { applyOmitParams, buildProtocolRequest, protocolOf, keysOf, extractStreamDelta, extractStreamReasoning, extractOnceContent, type ApiProtocol } from './apiUrl';   // 地址归一化+参数排除+三协议构造/解析+多Key
 import { acquireApiSlot } from './apiThrottle';
-import { apiDebugLog, autoApiLabel } from './apiDebugLog';
-import { processMacros, makeMacroCtx } from './stMacros';
+import { apiDebugLog, autoApiLabel, normApiUsage, type ApiUsage } from './apiDebugLog';
+import { reportConsistency } from './evoGuard';
+import { expandPromptText, makePromptExpandCtx } from './promptExpand';   // 统一展开：表格模板(<if var/cell/cond>) → ST 宏
+import { hasTableTemplates } from './tableTemplate';
 import { usePlayer } from '../store/playerStore';
 
 /* 界面语言=越南语/英文时，给「内容演化」类 AI 调用追加一条指令：**自由文本值**用该语言输出，
@@ -131,6 +134,38 @@ export async function fetchWithProxy(url: string, init?: RequestInit): Promise<R
    响应：流式 SSE（data:{delta}）逐块读取、累积成整段返回（背景调用要完整内容，不做增量展示）；
         接口若忽略 stream 直接回一次性 JSON 也兼容。
    chain：按优先级排好的接口列表（上=先调用），逐个尝试，失败/超时自动切下一条；全部失败抛最后一个错误。 */
+/* ── 多 Key 轮换（P1·借鉴 ApiHub）：同一接口填多个 Key（逗号/换行分隔），401/403/429 换下一个 Key 再试同一接口。
+   冷却表/游标只放内存——不进 store（避免 persist 抖动；刷新即忘无所谓）；整个轮换过程占同一个 acquireApiSlot 名额。 */
+const _keyCooldown = new Map<string, number>();   // baseUrl+'\n'+key → 冷却到期时间戳（key 经空白拆分绝不含换行，无碰撞）
+const _keyCursor = new Map<string, string>();     // baseUrl → 上次成功的 key（下次从它开始，免得每次都从坏 Key 撞起）
+const ckey = (base: string, k: string) => base + '\n' + k;
+/** 该接口的 Key 尝试顺序：上次成功的排最前，冷却中的靠后；全在冷却也不空转（照序试，冷却只影响排序） */
+export function orderedKeys(api: { baseUrl?: string; apiKey?: string }): string[] {
+  const keys = keysOf(api);
+  if (keys.length <= 1) return keys;
+  const base = api.baseUrl || '';
+  const lastGood = _keyCursor.get(base);
+  const gi = lastGood ? keys.indexOf(lastGood) : -1;
+  const rotated = gi > 0 ? [...keys.slice(gi), ...keys.slice(0, gi)] : keys;
+  const now = Date.now();
+  const hot = rotated.filter((k) => (_keyCooldown.get(ckey(base, k)) ?? 0) <= now);
+  const cold = rotated.filter((k) => (_keyCooldown.get(ckey(base, k)) ?? 0) > now);
+  return [...hot, ...cold];
+}
+/** 记坏 Key：429（配额/限流）冷却 60s；401/403（无效 Key）冷却 5 分钟——先用别的 Key，坏 Key 稍后再试 */
+export function markKeyBad(api: { baseUrl?: string }, key: string, status: number): void {
+  _keyCooldown.set(ckey(api.baseUrl || '', key), Date.now() + (status === 429 ? 60_000 : 300_000));
+}
+/** 记好 Key：该接口下次从它开始 */
+export function markKeyGood(api: { baseUrl?: string }, key: string): void {
+  _keyCursor.set(api.baseUrl || '', key);
+  _keyCooldown.delete(ckey(api.baseUrl || '', key));
+}
+/** Key 维度可救的 HTTP 状态（换 Key 重试同一接口；其余错误换 Key 救不了，直接切下一条接口） */
+export function isKeyRotatableStatus(status: number): boolean {
+  return status === 401 || status === 403 || status === 429;
+}
+
 // 「停止生成全部变量」：模块级中止器。abortAllApiCalls() 一调，所有正在进行的 chat 调用（各演化阶段都走 apiChatFallback）
 // 立即被 abort，随后立刻重置控制器——故不牵连停止之后的新调用（NPC 私聊/骰子/赌坊等照常）。
 let _stopAll = new AbortController();
@@ -143,15 +178,16 @@ export async function apiChatFallback(
 ): Promise<{ content: string; api: ApiConfig }> {
   const usable = (chain ?? []).filter((a) => a && a.baseUrl && a.apiKey);
   if (usable.length === 0) throw new Error('无可用 API 接口（请在功能 API 设置选择接口库接口，或填写单独配置）');
-  // ST 宏（全局）：对所有调用的消息内容求值，让用户可编辑的人设/预设里的 {{user}}/{{getvar}}/{{random}} 等宏到处生效；
-  //   仅当真含宏时才处理（无宏走原数组，零开销）；全局这条**不清残留**（stripLeftover=false），绝不误删代码提示词里合法的 {{。
+  // ST 宏 + 表格模板（全局兜底·统一 expandPromptText）：对所有调用的消息内容求值，让用户可编辑的人设/预设里的
+  //   {{user}}/{{getvar}}/{{random}} 宏与 <if var/cell/cond> 条件到处生效（runtimeVars 已灌入：主角.HP/自定义变量可解析）；
+  //   仅当真含宏/模板时才处理（无则走原数组，零开销）；全局这条**不清残留**（stripLeftover=false），绝不误删代码提示词里合法的 {{。
   let procMessages = messages;
-  if (messages.some((m) => m.content && (m.content.includes('{{') || m.content.includes('${') || m.content.includes('<user>')))) {
+  if (messages.some((m) => m.content && (m.content.includes('{{') || m.content.includes('${') || m.content.includes('<user>') || hasTableTemplates(m.content)))) {
     try {
       const pname = usePlayer.getState().profile?.name || '主角';
       const lastUser = [...messages].reverse().find((m) => m.role === 'user')?.content || '';
-      const mc = makeMacroCtx({ user: pname, char: pname, lastUserMessage: lastUser });
-      procMessages = messages.map((m) => ({ role: m.role, content: processMacros(m.content || '', mc, false) }));
+      const ec = makePromptExpandCtx({ user: pname, char: pname, lastUserMessage: lastUser });
+      procMessages = messages.map((m) => ({ role: m.role, content: expandPromptText(m.content || '', ec, false) }));
     } catch { procMessages = messages; }
   }
   // 界面语言=越南语/英文 且非 rawLang 调用 → 追加「自由文本值用该语言输出」指令（内容演化多语言；正文/生图/翻译/记忆/对账等传 rawLang 跳过）
@@ -160,7 +196,13 @@ export async function apiChatFallback(
     if (dir) procMessages = [...procMessages, { role: 'system', content: dir }];
   }
   // 开发者调试日志：登记本次调用的输入消息（宏求值后＝实际发送），返回后补 finish（见下）
-  const _logId = apiDebugLog.push(opts?.label || autoApiLabel(procMessages), procMessages);
+  const _label = opts?.label || autoApiLabel(procMessages);
+  const _logId = apiDebugLog.push(_label, procMessages);
+  // 超大输入哨兵（参照「演化超token」事故：某阶段全量重复注入把单次输入吹到 1M）：超阈值记一致性哨兵供回合洞察排查
+  const _charsIn = procMessages.reduce((a, m) => a + (m.content?.length || 0), 0);
+  if (_charsIn > 300_000) {
+    try { reportConsistency('api-input-bloat', `「${_label}」单次调用输入 ${Math.round(_charsIn / 1000)}k 字——疑似全量/重复注入，检查该阶段的注入与裁剪（clampLines）`); } catch { /* 哨兵失败不拦调用 */ }
+  }
   // 全局节流：限制并发 + 最小间隔，缓解中转站 429（整条逻辑调用占一个名额，含 fallback 重试）
   const th = useSettings.getState().apiThrottle;
   const release = await acquireApiSlot(th?.maxConcurrent ?? 3, th?.minGapMs ?? 0);
@@ -176,44 +218,77 @@ export async function apiChatFallback(
       // 接口自带 temperature/max_tokens；若 extra 已指定（如收尾的 max_tokens）则尊重 extra，不覆盖
       if (body.temperature === undefined && api.temperature != null && isFinite(api.temperature) && api.temperature > 0) body.temperature = api.temperature;
       if (body.max_tokens === undefined && api.maxTokens != null && api.maxTokens > 0) body.max_tokens = api.maxTokens;
-      const ctrl = new AbortController();
-      // 全局「停止生成」：abortAllApiCalls() 触发时连带中止本次请求
-      const stopSig = _stopAll.signal;
-      if (stopSig.aborted) ctrl.abort();
-      const onStopAll = () => ctrl.abort();
-      stopSig.addEventListener('abort', onStopAll);
-      const onExtAbort = () => ctrl.abort();
-      extSig?.addEventListener('abort', onExtAbort);
-      // timeoutMs 当「空闲超时」用：只要流还在持续吐数据就不中止（推理模型/慢中转的流式总时长常超过它，
-      // 按总时长掐断反而拿不到任何内容）；另设绝对上限防止真卡死无限挂起。
-      const idleMs = opts?.timeoutMs ?? 0;
-      let idleTimer: ReturnType<typeof setTimeout> | null = null;
-      const bump = () => { if (!idleMs) return; if (idleTimer) clearTimeout(idleTimer); idleTimer = setTimeout(() => ctrl.abort(), idleMs); };
-      const hardTimer = idleMs ? setTimeout(() => ctrl.abort(), Math.max(idleMs * 4, 240000)) : null;
-      const cleanup = () => { if (idleTimer) clearTimeout(idleTimer); if (hardTimer) clearTimeout(hardTimer); stopSig.removeEventListener('abort', onStopAll); extSig?.removeEventListener('abort', onExtAbort); };
-      bump();   // 起始：覆盖连接 + 首字延迟
-      try {
-        const res = await fetchWithProxy(api.baseUrl.replace(/\/$/, '') + '/chat/completions', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${api.apiKey}` },
-          body: JSON.stringify(body),
-          signal: ctrl.signal,
-        });
-        if (!res.ok) {
-          // 带响应体（中转站/模型的真实报错：model not found / content blocked / invalid api key 等），方便定位
-          const errBody = await res.text().catch(() => '');
-          throw new Error(`HTTP ${res.status}${errBody ? ' · ' + errBody.replace(/\s+/g, ' ').slice(0, 200) : ''}`);
+      // 思考强度（借鉴 SoulLink）：接口显式配置了才发送（默认不发送最安全）；'none'=关闭思考，治思考模型把输出预算烧光导致 content 为空
+      if (body.reasoning_effort === undefined && api.reasoningEffort) body.reasoning_effort = api.reasoningEffort;
+      // 多 Key 内环：401/403/429 换下一个 Key 重试同一接口；其余错误换 Key 救不了 → break 切下一条接口
+      const keys = orderedKeys(api);
+      for (let ki = 0; ki < keys.length; ki++) {
+        if (extSig?.aborted) { lastErr = lastErr ?? new DOMException('调用方已中止', 'AbortError'); break; }
+        const key = keys[ki];
+        const ctrl = new AbortController();
+        // 全局「停止生成」：abortAllApiCalls() 触发时连带中止本次请求
+        const stopSig = _stopAll.signal;
+        if (stopSig.aborted) ctrl.abort();
+        const onStopAll = () => ctrl.abort();
+        stopSig.addEventListener('abort', onStopAll);
+        const onExtAbort = () => ctrl.abort();
+        extSig?.addEventListener('abort', onExtAbort);
+        // timeoutMs 当「空闲超时」用：只要流还在持续吐数据就不中止（推理模型/慢中转的流式总时长常超过它，
+        // 按总时长掐断反而拿不到任何内容）；另设绝对上限防止真卡死无限挂起。
+        const idleMs = opts?.timeoutMs ?? 0;
+        let idleTimer: ReturnType<typeof setTimeout> | null = null;
+        const bump = () => { if (!idleMs) return; if (idleTimer) clearTimeout(idleTimer); idleTimer = setTimeout(() => ctrl.abort(), idleMs); };
+        const hardTimer = idleMs ? setTimeout(() => ctrl.abort(), Math.max(idleMs * 4, 240000)) : null;
+        const cleanup = () => { if (idleTimer) clearTimeout(idleTimer); if (hardTimer) clearTimeout(hardTimer); stopSig.removeEventListener('abort', onStopAll); extSig?.removeEventListener('abort', onExtAbort); };
+        bump();   // 起始：覆盖连接 + 首字延迟
+        try {
+          // 按协议出最终请求（openai=Bearer+/chat/completions；anthropic/gemini=原生端点+头+body 变换）
+          const mkReq = (b: Record<string, unknown>) => {
+            const r = buildProtocolRequest(api, key, b);
+            return { url: r.url, init: { method: 'POST', headers: r.headers, body: JSON.stringify(r.body), signal: ctrl.signal } as RequestInit };
+          };
+          const sendBody = applyOmitParams(body, api.omitParams);
+          let rq = mkReq(sendBody);
+          let res = await fetchWithProxy(rq.url, rq.init);
+          if (!res.ok) {
+            // 带响应体（中转站/模型的真实报错：model not found / content blocked / invalid api key 等），方便定位
+            let errBody = await res.text().catch(() => '');
+            // 软路径（仿 aliasGuard 对 response_format 的处理）：接口 400 且报错点名 reasoning_effort → 去参对同一接口重试一次
+            if (res.status === 400 && sendBody.reasoning_effort !== undefined && /reasoning[_-]?effort/i.test(errBody)) {
+              console.warn(`[API] 接口不认 reasoning_effort，去参对同一接口重试：${api.modelId}`);
+              delete sendBody.reasoning_effort;
+              rq = mkReq(sendBody);
+              res = await fetchWithProxy(rq.url, rq.init);
+              if (!res.ok) errBody = await res.text().catch(() => '');
+            }
+            if (!res.ok) {
+              const httpErr = new Error(`HTTP ${res.status}${errBody ? ' · ' + errBody.replace(/\s+/g, ' ').slice(0, 200) : ''}`);
+              if (isKeyRotatableStatus(res.status) && keys.length > 1) {
+                markKeyBad(api, key, res.status);
+                if (ki < keys.length - 1) {
+                  cleanup();
+                  lastErr = httpErr;
+                  console.warn(`[API] Key ${ki + 1}/${keys.length} HTTP ${res.status}，轮换下一个 Key：${api.modelId} @ ${api.baseUrl}`);
+                  continue;   // 换 Key 重试同一接口
+                }
+              }
+              throw httpErr;
+            }
+          }
+          bump();   // 已收到响应头 = 有进展，给正文读取一个新的空闲窗口
+          const uCol: UsageCollector = {};   // 上游 usage 采集（流式末块/一次性 JSON 带 usage 才有）
+          const content = await readChatContent(res, api, bump, opts?.onDelta, uCol);   // 每收到一块流数据就 bump() + 回调增量内容（供流式展示）
+          markKeyGood(api, key);   // 该接口下次从这个 Key 开始
+          cleanup();
+          apiDebugLog.finish(_logId, content, true, undefined, { model: api.modelId, host: hostOf(api.baseUrl), attempt: i + 1, usage: uCol.usage });
+          return { content, api };
+        } catch (e) {
+          cleanup();
+          lastErr = e;
+          const more = i < usable.length - 1;
+          console.warn(`[API] 接口失败${more ? '，回退下一条' : ''}：${api.modelId} @ ${api.baseUrl}`, e);
+          break;   // 非 Key 类错误（网络/5xx/超时/解析）：换 Key 救不了，切下一条接口
         }
-        bump();   // 已收到响应头 = 有进展，给正文读取一个新的空闲窗口
-        const content = await readChatContent(res, api, bump, opts?.onDelta);   // 每收到一块流数据就 bump() + 回调增量内容（供流式展示）
-        cleanup();
-        apiDebugLog.finish(_logId, content, true);
-        return { content, api };
-      } catch (e) {
-        cleanup();
-        lastErr = e;
-        const more = i < usable.length - 1;
-        console.warn(`[API] 接口失败${more ? '，回退下一条' : ''}：${api.modelId} @ ${api.baseUrl}`, e);
       }
     }
     apiDebugLog.finish(_logId, String((lastErr as any)?.message ?? lastErr ?? '失败'), false, String((lastErr as any)?.message ?? lastErr ?? '失败'));
@@ -227,16 +302,17 @@ export async function apiChatFallback(
    - 流式 SSE：getReader 逐块读，取每个 data: 行的 choices[0].delta.content 累积（与正文 callApi 一致）；
    - 一次性 JSON：取 choices[0].message.content；
    两种都兼容；空内容/204 给清晰报错。 */
-async function readChatContent(res: Response, api: ApiConfig, onProgress?: () => void, onDelta?: (acc: string) => void): Promise<string> {
+async function readChatContent(res: Response, api: ApiConfig, onProgress?: () => void, onDelta?: (acc: string) => void, uCol?: UsageCollector): Promise<string> {
   const ctype = (res.headers.get('content-type') || '').toLowerCase();
+  const proto = protocolOf(api);   // 流式分片形状按协议解析（anthropic=content_block_delta / gemini=candidates.parts / openai=choices.delta）
 
   // 明确是一次性 JSON（接口忽略了 stream）
   if (ctype.includes('application/json')) {
-    return parseOnceOrSse(await res.text(), res.status, api);
+    return parseOnceOrSse(await res.text(), res.status, api, uCol);
   }
   // 无 body（如 204）→ 退回 text() 走统一报错/兜底
   if (!res.body) {
-    return parseOnceOrSse(await res.text().catch(() => ''), res.status, api);
+    return parseOnceOrSse(await res.text().catch(() => ''), res.status, api, uCol);
   }
 
   // 流式 SSE：逐块读，累积 delta.content；同时累积 reasoning_content 作兜底（思考模型可能把答案放思维链里、content 为空）
@@ -252,32 +328,48 @@ async function readChatContent(res: Response, api: ApiConfig, onProgress?: () =>
     buffer += chunk;
     const lines = buffer.split('\n');
     buffer = lines.pop() ?? '';        // 末行可能不完整，留到下次
-    for (const line of lines) { acc += sseLineDelta(line); accR += sseLineReasoning(line); }
+    for (const line of lines) { acc += sseLineDelta(line, proto); accR += sseLineReasoning(line, proto); scrapeUsage(line, uCol); }
     if (acc) onDelta?.(acc);   // 增量回调：供调用方做流式展示（背景调用不传 onDelta 则无开销）
   }
-  acc += sseLineDelta(buffer); accR += sseLineReasoning(buffer);   // flush 末尾残留
+  acc += sseLineDelta(buffer, proto); accR += sseLineReasoning(buffer, proto); scrapeUsage(buffer, uCol);   // flush 末尾残留
   if (acc.trim()) return acc;
   if (accR.trim()) { console.warn('[API] content 为空，回退使用 reasoning_content（思考模型把答案写进了思维链）', { model: api.modelId, reasoningLen: accR.length }); return accR; }
   // 流式分支没解析出内容 → 可能其实回的是一次性 JSON（content-type 没写对）；用累计的原始体再兜一次
-  return parseOnceOrSse(rawAll, res.status, api);
+  return parseOnceOrSse(rawAll, res.status, api, uCol);
+}
+
+/* ── 消耗观测（借鉴 SoulLink 思想）────────────────────────────────── */
+type UsageCollector = { usage?: ApiUsage };
+/** 抠一行流式分片里的 usage（多数上游只在最后一块带；后见覆盖）。含轻量预筛：不含 "usage" 字样的行零开销跳过。 */
+function scrapeUsage(line: string, uCol?: UsageCollector): void {
+  if (!uCol) return;
+  const t = line.trim();
+  if (!t || !t.includes('"usage"')) return;
+  const d = t.startsWith('data:') ? t.replace(/^data:\s*/, '').trim() : t;
+  if (!d || (d[0] !== '{' && d[0] !== '[')) return;
+  try { const u = normApiUsage(JSON.parse(d)?.usage); if (u) uCol.usage = u; } catch { /* 残缺行跳过 */ }
+}
+/** 取 baseUrl 的 host（观测展示用；解析不出时裁剪兜底） */
+function hostOf(baseUrl: string): string {
+  try { return new URL(baseUrl).host; } catch { return (baseUrl || '').replace(/^https?:\/\//i, '').split('/')[0] || ''; }
 }
 
 /* 取一行流式分片的 content 增量（不是分片行 / [DONE] / 解析失败 → 返回 ''）
    兼容两种格式：标准 SSE 的 `data: {...}`，以及「假流式」中转直接推的裸 JSON 分片行(NDJSON,无 data: 前缀) */
-function sseLineDelta(line: string): string {
+function sseLineDelta(line: string, proto: ApiProtocol = 'openai'): string {
   const t = line.trim();
   if (!t || t === '[DONE]') return '';
   const d = t.startsWith('data:') ? t.replace(/^data:\s*/, '').trim() : t;   // 有 data: 剥掉；没有(裸 JSON 行)直接用
   if (!d || d === '[DONE]' || (d[0] !== '{' && d[0] !== '[')) return '';      // 非 JSON 行(SSE 注释/event: 心跳等)跳过
-  try { const j = JSON.parse(d); return j.choices?.[0]?.delta?.content ?? j.choices?.[0]?.message?.content ?? ''; } catch { return ''; }
+  try { return String(extractStreamDelta(proto, JSON.parse(d)) ?? ''); } catch { return ''; }
 }
-/* 取一行流式分片的 reasoning_content 增量（思考模型的思维链；content 为空时兜底用） */
-function sseLineReasoning(line: string): string {
+/* 取一行流式分片的思维链增量（思考模型；content 为空时兜底用）——按协议抽（openai=reasoning_content / anthropic=thinking_delta / gemini=thought 部件） */
+function sseLineReasoning(line: string, proto: ApiProtocol = 'openai'): string {
   const t = line.trim();
   if (!t || t === '[DONE]') return '';
   const d = t.startsWith('data:') ? t.replace(/^data:\s*/, '').trim() : t;
   if (!d || d === '[DONE]' || (d[0] !== '{' && d[0] !== '[')) return '';
-  try { const ch = JSON.parse(d).choices?.[0] ?? {}; return ch.delta?.reasoning_content ?? ch.delta?.reasoning ?? ch.message?.reasoning_content ?? ''; } catch { return ''; }
+  try { return String(extractStreamReasoning(proto, JSON.parse(d)) ?? ''); } catch { return ''; }
 }
 
 /* 从响应（一次性 JSON 或 SSE 文本）里抠出上游错误（429 限流 / 5xx 等）——很多中转把错误塞进 200 的 body，
@@ -304,26 +396,29 @@ function throwUpstream(err: { code?: number; message?: string; type?: string }, 
 }
 
 /* 一次性 JSON 优先；非 JSON 当 SSE 文本兜底；都拿不到 → 先看是不是上游错误，再清晰报错 */
-function parseOnceOrSse(raw: string, status: number, api: ApiConfig): string {
+function parseOnceOrSse(raw: string, status: number, api: ApiConfig, uCol?: UsageCollector): string {
   if (!raw || !raw.trim()) {
     console.warn('[API] 接口返回空响应体', { status, model: api.modelId });
     throw new Error(`HTTP ${status} 无响应体——接口既没回流式内容、也没回 JSON，请换接口或模型`);
   }
+  const proto = protocolOf(api);
   let data: any = null;
   try { data = JSON.parse(raw); } catch { /* 非 JSON，下面按 SSE 文本兜底 */ }
   if (data) {
+    if (uCol) { const u = normApiUsage(data.usage); if (u) uCol.usage = u; }
     const ch = data.choices?.[0] ?? {};
-    const content: string = ch.message?.content ?? ch.delta?.content ?? ch.text ?? '';   // delta：单个分片对象被当一次性 JSON 回来时也能抠到（假流式只回一个 chunk）
-    if (content && String(content).trim()) return content;
+    const content: string = String(extractOnceContent(proto, data) ?? '');   // 按协议抽；openai 分支含 delta（假流式单 chunk 被当一次性 JSON 回来也能抠到）
+    if (content && content.trim()) return content;
     const reasoning: string = ch.message?.reasoning_content ?? ch.delta?.reasoning_content ?? '';   // content 空 → 用思维链兜底
     if (reasoning && String(reasoning).trim()) { console.warn('[API] content 空，回退使用 reasoning_content', { status, model: api.modelId, reasoningLen: String(reasoning).length }); return reasoning; }
     if (data.error) throwUpstream(data.error, status);   // 一次性 JSON 里塞了 error（限流/配额等）→ 清晰报错
     console.warn('[API] 返回内容为空', { status, model: api.modelId, finish_reason: ch.finish_reason, messageKeys: Object.keys(ch.message ?? {}) });
     return content;
   }
-  const acc = raw.split('\n').reduce((a, l) => a + sseLineDelta(l), '');
+  if (uCol) for (const l of raw.split('\n')) scrapeUsage(l, uCol);   // SSE 文本兜底路径也抠一遍 usage
+  const acc = raw.split('\n').reduce((a, l) => a + sseLineDelta(l, proto), '');
   if (acc.trim()) return acc;
-  const accR = raw.split('\n').reduce((a, l) => a + sseLineReasoning(l), '');   // SSE 也兜底思维链
+  const accR = raw.split('\n').reduce((a, l) => a + sseLineReasoning(l, proto), '');   // SSE 也兜底思维链
   if (accR.trim()) { console.warn('[API] SSE content 空，回退使用 reasoning_content', { status, model: api.modelId, reasoningLen: accR.length }); return accR; }
   const up = extractUpstreamError(raw);   // SSE/文本里塞了 error 事件（如 200 里夹 429）→ 清晰报错而非「无法解析」
   if (up) throwUpstream(up, status);

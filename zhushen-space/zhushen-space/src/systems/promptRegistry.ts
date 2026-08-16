@@ -7,11 +7,11 @@ import { useSettings } from '../store/settingsStore';
 import { useMemory, DEFAULT_MEMORY_PROMPT } from '../store/memoryStore';
 import { usePromptOverride } from '../store/promptOverrideStore';
 import {
-  PLOT_GUIDANCE_RULE, PLOT_CHOICES_RULE, OUTLINE_GEN_RULE, CAST_BRIEF_RULE, CAST_BRIEF_FOLLOW_RULE,
+  PLOT_GUIDANCE_RULE, PLOT_CHOICES_RULE, OUTLINE_GEN_RULE, CAST_BRIEF_RULE, CAST_BRIEF_FOLLOW_RULE, NPC_MINDFLOW_RULE,
   ITEM_COT_RULE, PLAYER_COT_RULE, NPC_COT_RULE, ENTRY_COT_RULE,
   FACTION_COT_RULE, TERRITORY_COT_RULE, TEAM_COT_RULE,
   EQUIP_CODEX, ITEM_EVOLUTION_CODEX, PARADISE_RULES_RULE,
-  COMBAT_NARRATE_RULE, NPC_CHAT_RULE, NSFW_WRITING_RULE, NPC_TEAM_JOIN_CHAT_RULE, INTERVIEW_RULE, TRAINING_CHAT_RULE, DM_REPLY_PROTOCOL_RULE,
+  COMBAT_NARRATE_RULE, NPC_CHAT_RULE, NSFW_WRITING_RULE, NPC_TEAM_JOIN_CHAT_RULE, INTERVIEW_RULE, TRAINING_CHAT_RULE, DM_REPLY_PROTOCOL_RULE, GROUP_CHAT_RULE, NPC_DIARY_RULE, LIVE_ROOM_RULE,
   MONUMENT_EULOGY_RULE, CHOICES_FANFIC_SYSTEM, FANFIC_RULE, MINI_THEATER_RULE,
   WORLD_SETTLEMENT_RULE, WORLD_SETTLEMENT_COT_RULE, ATTR_POWER_CODEX, NPC_INDEPENDENCE_RULE, DISPOSITION_STAGE_RULE,
   NPC_SELF_NARRATION_RULE, NPC_LIFE_STORY_RULE,
@@ -61,6 +61,7 @@ export const PROMPT_REGISTRY: PromptEntry[] = [
   { key: 'AGENT_REVIEWER_RULE', label: 'Agent 模式 · 评稿人', group: '正文前置 / 规划', kind: 'override', def: AGENT_REVIEWER_RULE, desc: 'P2 评稿子代理：finish 前审成稿，PASS 放行 / REVISE 回喂修改意见（⚠ 首行 PASS/REVISE 协议别改坏）' },
   { key: 'CAST_BRIEF_RULE', label: '角色立场简报 · 产出', group: '正文前置 / 规划', kind: 'override', def: CAST_BRIEF_RULE, desc: '让细纲/推进按人格档案排演各角色的反应（锁人格不锁语言）' },
   { key: 'CAST_BRIEF_FOLLOW_RULE', label: '角色立场简报 · 正文遵循', group: '正文前置 / 规划', kind: 'override', def: CAST_BRIEF_FOLLOW_RULE, desc: '正文侧：怎么用简报（上限不是配额·内心不写成旁白）' },
+  { key: 'NPC_MINDFLOW_RULE', label: '🫀 角色心流 · 逐角色推演', group: '正文前置 / 规划', kind: 'override', def: NPC_MINDFLOW_RULE, desc: '逐角色独立小调用产第一人称心流（信息盲区物理隔离·默认关·借鉴SoulLink）' },
   { key: 'PROSE_BLACKLIST_RULE', label: '文风黑名单 · 陈词滥调禁令', group: '正文前置 / 规划', kind: 'override', def: PROSE_BLACKLIST_RULE, desc: '禁 AI 高频陈词（不是…而是…/指节泛白/嘴角勾起…）；只约束措辞不改结构模块（借鉴V3.2）' },
   { key: 'POLISH_RULE', label: '✨ 正文校正 · 校对规则', group: '正文前置 / 规划', kind: 'override', def: POLISH_RULE, desc: '一键校正楼层正文的总规则（只改措辞不改事实；⚠改坏分段标记条款会让多段正文拼不回）（借鉴story-oracle）' },
   { key: 'STATE_DOCTOR_RULE', label: '🩺 状态诊断 · 军医规则', group: '正文前置 / 规划', kind: 'override', def: STATE_DOCTOR_RULE, desc: '状态↔正文对账的保守补丁规则（⚠改坏「补丁:/依据:」行协议会解析不出补丁）（借鉴story-oracle）' },
@@ -103,6 +104,9 @@ export const PROMPT_REGISTRY: PromptEntry[] = [
   // ── 私信 / 聊天 ──
   { key: 'NPC_CHAT_RULE', label: '私聊 · 输出格式 / 入戏', group: '私信 / 聊天', kind: 'override', def: NPC_CHAT_RULE, desc: 'NPC 私聊的输出格式与入戏' },
   { key: 'DM_REPLY_PROTOCOL_RULE', label: '✉ 私信 · 回复行协议', group: '私信 / 聊天', kind: 'override', def: DM_REPLY_PROTOCOL_RULE, desc: '私信回复的状态头+消息花样行协议（状态/心声/说/撤回/引用/戳；⚠改坏字段名会解析不出，兜底成整段纯文本）（借鉴Abstract外置手机）' },
+  { key: 'GROUP_CHAT_RULE', label: '👥 群聊 · 输出行协议', group: '私信 / 聊天', kind: 'override', def: GROUP_CHAT_RULE, desc: '群聊的「发言人|内容」行协议+成员互聊规矩（⚠改坏行格式会被解析器整行丢弃）（借鉴Abstract外置手机）' },
+  { key: 'NPC_DIARY_RULE', label: '📔 NPC日记 · 偷看生成', group: '私信 / 聊天', kind: 'override', def: NPC_DIARY_RULE, desc: 'NPC 私人日记的第一人称写法+涂改标记稀缺配额（⚠~~ ██ 【【】】标记与渲染器同口径，改坏就不显演出）（借鉴Abstract外置手机）' },
+  { key: 'LIVE_ROOM_RULE', label: '📺 直播间 · 现场生成', group: '私信 / 聊天', kind: 'override', def: LIVE_ROOM_RULE, desc: '乐园直播间的现场生成（弹幕千人千面+礼物按价值分档反应；⚠JSON 结构与解析器同口径）（借鉴Abstract外置手机）' },
   { key: 'NSFW_WRITING_RULE', label: 'NSFW 写作宪章', group: '私信 / 聊天', kind: 'override', def: NSFW_WRITING_RULE, desc: '私聊 / 欢愉宫等成人向写作规则' },
   { key: 'NPC_TEAM_JOIN_CHAT_RULE', label: '私聊 · 入团意愿', group: '私信 / 聊天', kind: 'override', def: NPC_TEAM_JOIN_CHAT_RULE, desc: '队友在私聊里处理入团 / 邀约' },
   { key: 'INTERVIEW_RULE', label: '🎤 大采访 · 撰稿规则', group: '私信 / 聊天', kind: 'override', def: INTERVIEW_RULE, desc: '局外花絮采访的行协议与写法（借鉴V3.2·⚠改坏行前缀会让杂志排版解析失败回退纯文本）' },
@@ -183,16 +187,92 @@ export function promptEffective(e: PromptEntry): string {
   const c = promptCustom(e);
   return c.trim() ? c : e.def;
 }
-/** 保存玩家自定义（空串按恢复默认处理）。 */
+/** 保存玩家自定义（空串按恢复默认处理）。保存同时记录「底稿签名」＝当时内置默认的 hash（见 reconcilePromptDefaults）。 */
 export function promptSetCustom(e: PromptEntry, v: string): void {
-  if (e.kind === 'field') { if (v.trim()) e.write?.(v); else e.reset?.(); return; }
   const s = usePromptOverride.getState();
-  if (v.trim()) s.setOverride(e.key, v); else s.clearOverride(e.key);
+  if (e.kind === 'field') {
+    if (v.trim()) { e.write?.(v); s.setSig(e.key, promptSig(e.def)); }
+    else promptReset(e);
+    return;
+  }
+  if (v.trim()) s.setOverride(e.key, v, promptSig(e.def)); else s.clearOverride(e.key);
 }
-/** 恢复默认。 */
+/** 恢复默认。field 类若 reset 后字段=默认全文（如记忆提示词），把 sig 对齐成当前底稿，标记"未真改"。 */
 export function promptReset(e: PromptEntry): void {
-  if (e.kind === 'field') { e.reset?.(); return; }
-  usePromptOverride.getState().clearOverride(e.key);
+  const s = usePromptOverride.getState();
+  if (e.kind === 'field') {
+    e.reset?.();
+    const c = e.read?.() ?? '';
+    if (c.trim() && sigEq(c, e.def)) s.setSig(e.key, promptSig(e.def)); else s.clearSig(e.key);
+    return;
+  }
+  s.clearOverride(e.key);
+}
+
+/* ── 底稿版本感知（借鉴 SoulLink 旧默认迁移思想·免快照 hash 方案）─────────────────
+   问题：override / 全文初始化的 field（如记忆提示词）存的是**全文**——玩家只要保存过（哪怕一字未改），
+   内置默认之后怎么升级都吃不到，静默冻在旧版。
+   方案：保存时记 sigs[key]=hash(当时默认)。启动/开预设中心时对账：
+   - 存的文本 hash === sigs[key] ⇒ 当年保存时根本没改 ⇒ 自动恢复默认吃新版（安全：逐字未动才迁移）；
+   - 命中 LEGACY_DEF_SIGS 里的已知历史默认 hash ⇒ 同上（治没有 sig 的存量老档）；
+   - 真改过 + 底稿已更新 ⇒ 只挂「底稿已更新」徽章，绝不动玩家文本。 */
+
+/** 短签名：FNV-1a 32 位 → base36。先把 \r\n 归一成 \n——同一段文字在 CRLF/LF 构建下必须同签名。 */
+export function promptSig(text: string): string {
+  const t = (text || '').replace(/\r\n/g, '\n');
+  let h = 0x811c9dc5;
+  for (let i = 0; i < t.length; i++) { h ^= t.charCodeAt(i); h = Math.imul(h, 0x01000193); }
+  return (h >>> 0).toString(36);
+}
+/** 归一化等价（EOL 不敏感）。 */
+function sigEq(a: string, b: string): boolean { return promptSig(a) === promptSig(b); }
+
+/* 已知历史默认文本的签名（sig 机制上线前就存在的旧档靠它迁移）。
+   ⚠ 每次改动「全文初始化的 field 类默认」（目前只有记忆提示词）时，把**改动前**文本的 promptSig 追加进来；
+   override 类不用登记——它们上线起就走 sigs 记录。用 scratchpad 的 legacy-sig.mjs 可从 git 历史批量算。 */
+const LEGACY_DEF_SIGS: Record<string, string[]> = {
+  memoryPrompt: ['14z5zuw'],   // 2026-08-15 前的唯一历史版本（commit eb4b2d4f）
+};
+
+/** 该条目是否「真自定义 + 内置底稿已更新」（列表徽章用）。 */
+export function promptDefUpdated(e: PromptEntry): boolean {
+  const c = promptCustom(e);
+  if (!c.trim() || sigEq(c, e.def)) return false;
+  const sig = usePromptOverride.getState().sigs[e.key];
+  return !!sig && sig !== promptSig(e.def);
+}
+
+/** 启动/开面板时对账：自动升级「没真改过」的冗余副本，返回 { upgraded: 升级的条目名, changed: 真自定义但底稿已更新的 key }。
+    幂等，可反复调用；绝不动真自定义的文本。 */
+export function reconcilePromptDefaults(): { upgraded: string[]; changed: string[] } {
+  const s = usePromptOverride.getState();
+  const upgraded: string[] = [];
+  const changed: string[] = [];
+  for (const e of PROMPT_REGISTRY) {
+    try {
+      const c = promptCustom(e);
+      const defSig = promptSig(e.def);
+      const sig = s.sigs[e.key];
+      if (!c.trim()) { if (sig) s.clearSig(e.key); continue; }          // 未自定义：清游离 sig
+      if (sigEq(c, e.def)) {
+        // 与当前默认逐字相同：override 清冗余副本（今后默认更新直接生效）；field 保留文本、把 sig 对齐
+        if (e.kind === 'override') s.clearOverride(e.key);
+        else if (sig !== defSig) s.setSig(e.key, defSig);
+        continue;
+      }
+      const cSig = promptSig(c);
+      const hitSaved = !!sig && cSig === sig && sig !== defSig;          // 保存时没改，底稿后来更新了
+      const hitLegacy = (LEGACY_DEF_SIGS[e.key] ?? []).includes(cSig);   // 存的就是某个已知历史默认
+      if (hitSaved || hitLegacy) {
+        promptReset(e);                                                   // field=写入新版默认/清空；override=删副本
+        upgraded.push(e.label);
+        continue;
+      }
+      if (sig && sig !== defSig) changed.push(e.key);                     // 真自定义 + 底稿已更新 → 徽章
+    } catch { /* 单条失败不拖累其余 */ }
+  }
+  if (upgraded.length) console.log(`[预设中心] ✨ ${upgraded.length} 项未修改的预设已自动升级到新版底稿：${upgraded.join('、')}`);
+  return { upgraded, changed };
 }
 
 /** 导出所有已自定义的主提示词（field + override 统一按注册表 key 打包）。 */

@@ -1,4 +1,5 @@
 import { create } from 'zustand';
+import { modelsFetchArgs } from '../systems/apiUrl';
 import { persist } from 'zustand/middleware';
 import { lzStorage, lzLocalStorage } from '../systems/compressedStorage';   // 长期事实数千条→drpg-misc 裸JSON撑爆localStorage配额；压缩存
 import type { ApiConfig } from './settingsStore';
@@ -248,7 +249,7 @@ async function fetchModelList(api: ApiConfig): Promise<string[]> {
   const ctrl = new AbortController();
   const timer = setTimeout(() => ctrl.abort(), 15000);
   try {
-    const res = await fetch(api.baseUrl.replace(/\/$/, '') + '/models', { headers: { Authorization: `Bearer ${api.apiKey}` }, signal: ctrl.signal });
+    const res = await fetch(...modelsFetchArgs(api, ctrl.signal));
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     const json = await res.json();
     return (json.data ?? json.models ?? []).map((m: any) => m.id ?? m.name ?? '').filter(Boolean).sort();

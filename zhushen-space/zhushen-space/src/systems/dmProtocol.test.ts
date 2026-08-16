@@ -61,6 +61,13 @@ describe('parseDmReply 行协议', () => {
     expect(parseDmReply('').msgs).toHaveLength(0);
   });
 
+  it('表情包字段：贴: 名称 → sticker kind', () => {
+    const r = parseDmReply('说: 收到\n贴: 猫猫点头');
+    expect(r.msgs.map((m) => m.kind)).toEqual(['text', 'sticker']);
+    expect(r.msgs[1].text).toBe('猫猫点头');
+    expect(dmMsgToHistoryText({ kind: 'sticker', text: '猫猫点头' })).toBe('[表情包] 猫猫点头');
+  });
+
   it('历史压缩口径', () => {
     expect(dmMsgToHistoryText({ kind: 'recalled', text: '撤回了一条消息', orig: '秘密' })).toBe('[你撤回的消息] 秘密');
     expect(dmMsgToHistoryText({ kind: 'poke', text: '' })).toBe('[你戳了戳对方]');

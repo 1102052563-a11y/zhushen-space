@@ -70,6 +70,11 @@ export function runtimeVarCatalog(): RuntimeVarRow[] {
   core('主角.HP', g?.hp, '当前生命'); core('主角.HP上限', g?.maxHp, '生命上限');
   core('主角.EP', g?.mp, '当前能量'); core('主角.EP上限', g?.maxMp, '能量上限');
   core('主角.理智', g?.san, '当前理智'); core('主角.理智上限', g?.maxSan, '理智上限');
+  // 衍生百分比：<if var="主角.HP百分比 < 30"> 这类条件免做除法（上限≤0 或值非数 → 空串＝条件判否）
+  const pct = (cur: unknown, max: unknown) => { const c = Number(cur), m = Number(max); return isFinite(c) && isFinite(m) && m > 0 ? String(Math.round((c / m) * 100)) : ''; };
+  core('主角.HP百分比', pct(g?.hp, g?.maxHp), '当前生命÷上限×100（整数）');
+  core('主角.EP百分比', pct(g?.mp, g?.maxMp), '当前能量÷上限×100（整数）');
+  core('主角.理智百分比', pct(g?.san, g?.maxSan), '当前理智÷上限×100（整数）');
   // 货币（按钱包动态展开）
   for (const [k, v] of Object.entries(cur ?? {})) core(`货币.${k}`, v, '货币余额');
   // 世界 / 时间
